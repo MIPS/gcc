@@ -78,12 +78,12 @@ import javax.swing.plaf.SliderUI;
  * <tr><td> maximum          </td><td> model     </td><td> no     </td></tr>
  * <tr><td> minimum          </td><td> model     </td><td> no     </td></tr>
  * <tr><td> minorTickSpacing </td><td> slider    </td><td> yes    </td></tr>
- * <tr><td> model            </td><td> slider    </td><td> yes    </td></tr>
+ * <tr><td> model            </td><td> slider    </td><td> yes    </td></tr> 
  * <tr><td> orientation      </td><td> slider    </td><td> yes    </td></tr>
  * <tr><td> paintLabels      </td><td> slider    </td><td> yes    </td></tr>
  * <tr><td> paintTicks       </td><td> slider    </td><td> yes    </td></tr>
  * <tr><td> snapToTicks      </td><td> slider    </td><td> no     </td></tr>
- * <tr><td> value            </td><td> model     </td><td> no     </td></tr> 
+ * <tr><td> value            </td><td> model     </td><td> no     </td></tr>
  * <tr><td> valueIsAdjusting </td><td> model     </td><td> no     </td></tr>
  * </table>
  * 
@@ -115,8 +115,15 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
                                                    ImageObserver,
                                                    MenuContainer, Serializable
 {
+  /** DOCUMENT ME! */
   static final long serialVersionUID = -1441275936141218479L;
 
+  /**
+   * DOCUMENT ME!
+   *
+   * @author $author$
+   * @version $Revision$
+   */
   protected class AccessibleJSlider extends JComponent.AccessibleJComponent
     implements AccessibleValue
   {
@@ -266,6 +273,9 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
   /** The orientation of the slider. */
   protected int orientation = HORIZONTAL;
 
+  /** Whether the slider is inverted. */
+  private transient boolean isInverted;
+
   /** The ChangeListener that listens to the model. */
   protected ChangeListener changeListener;
 
@@ -331,7 +341,7 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
   {
     sliderModel = new DefaultBoundedRangeModel(value, 0, minimum, maximum);
     if (orientation == HORIZONTAL || orientation == VERTICAL)
-      this.orientation = orientation;        
+      this.orientation = orientation;
     changeListener = createChangeListener();
     changeListenerList = new EventListenerList();
     sliderModel.addChangeListener(changeListener);
@@ -503,15 +513,15 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
    */
   public void setModel(BoundedRangeModel model)
   {
-    //XXX: The spec doesn't not allow us to set the model to null, but
-    //it will throw a null pointer exception. Better to ignore
-    //attempts to set the model to null?
-    if (model != sliderModel && model != null)
+    //I didn't do the null pointer check on purpose.
+    //If you try it with Sun's, it'll go ahead and set it to null
+    //and bork the next time it tries to access the model.
+    if (model != sliderModel)
       {
 	BoundedRangeModel oldModel = sliderModel;
 	sliderModel = model;
-        oldModel.removeChangeListener(changeListener);
-        sliderModel.addChangeListener(changeListener);
+	oldModel.removeChangeListener(changeListener);
+	sliderModel.addChangeListener(changeListener);
 	firePropertyChange(MODEL_CHANGED_PROPERTY, oldModel, sliderModel);
       }
   }
@@ -557,7 +567,8 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
   }
 
   /**
-   * This method returns this slider's isAdjusting value.
+   * This method returns this slider's isAdjusting value which is true if the
+   * thumb is being dragged.
    *
    * @return The slider's isAdjusting value.
    */
@@ -615,7 +626,7 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
   public void setOrientation(int orientation)
   {
     if (orientation != VERTICAL && orientation != HORIZONTAL)
-      return;
+      throw new IllegalArgumentException("orientation must be one of: VERTICAL, HORIZONTAL");
     if (orientation != this.orientation)
       {
 	int oldOrientation = this.orientation;
@@ -720,7 +731,7 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
    */
   public boolean getInverted()
   {
-    return (getComponentOrientation() != ComponentOrientation.LEFT_TO_RIGHT);
+    return isInverted;
   }
 
   /**
@@ -728,20 +739,18 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
    * sliders  that are not inverted will have the minimums on the left. If
    * they are inverted, the minimums will be  on the right. Vertical sliders
    * that are not inverted will have the minimums at the bottom. If they are
-   * inverted, the minimums will be at the top.
+   * inverted, the minimums will be at the top. However, if the slider's
+   * componentOrientation is set to RIGHT_TO_LEFT, then everything gets
+   * reversed again.
    *
    * @param inverted Whether the slider should be inverted.
    */
   public void setInverted(boolean inverted)
   {
-    boolean isInverted = getInverted();
     if (isInverted != inverted)
       {
 	boolean oldInverted = isInverted;
 	isInverted = inverted;
-	setComponentOrientation((isInverted)
-	                        ? ComponentOrientation.RIGHT_TO_LEFT
-	                        : ComponentOrientation.LEFT_TO_RIGHT);
 	firePropertyChange(INVERTED_CHANGED_PROPERTY, oldInverted, isInverted);
       }
   }

@@ -39,6 +39,7 @@ package javax.swing.plaf.basic;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.ComponentOrientation;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Graphics;
@@ -76,21 +77,20 @@ import javax.swing.plaf.SliderUI;
 
 
 /**
- *<p>
- * BasicSliderUI.java
- *
- * This is the UI delegate in the Basic look and feel that
+ * <p>
+ * BasicSliderUI.java This is the UI delegate in the Basic look and feel that
  * paints JSliders.
  * </p>
+ * 
  * <p>
- * The UI delegate keeps track of 6 rectangles that place
- * the various parts of the JSlider inside the component. 
+ * The UI delegate keeps track of 6 rectangles that place the various parts of
+ * the JSlider inside the component.
  * </p>
+ * 
  * <p>
  * The rectangles are organized as follows:
  * </p>
  * <pre>
- *
  *     +-------------------------------------------------------+ <-- focusRect
  *     |                                                       |
  *     |  +==+-------------------+==+--------------------+==+<------ contentRect
@@ -110,25 +110,30 @@ import javax.swing.plaf.SliderUI;
  *     |  |  |                                           |  |  |
  *     |  |                                              |  |  |
  * </pre>
+ * 
  * <p>
- *   The space between the contentRect and the focusRect are the FocusInsets.
+ * The space between the contentRect and the focusRect are the FocusInsets.
  * </p>
+ * 
  * <p>
- *   The space between the focusRect and the component bounds is the insetCache
- *   which are the component's insets.
+ * The space between the focusRect and the component bounds is the insetCache
+ * which are the component's insets.
  * </p>
+ * 
  * <p>
- *   The top of the thumb is the top of the contentRect.
- *   The trackRect has to be as tall as the thumb.
+ * The top of the thumb is the top of the contentRect. The trackRect has to be
+ * as tall as the thumb.
  * </p>
+ * 
  * <p>
- *   The trackRect and tickRect do not start from the left edge of
- *   the focusRect. They are trackBuffer away from each side of the
- *   focusRect. This is so that the thumb has room to move.
+ * The trackRect and tickRect do not start from the left edge of the
+ * focusRect. They are trackBuffer away from each side of the focusRect. This
+ * is so that the thumb has room to move.
  * </p>
+ * 
  * <p>
- *   The labelRect does start right against the contentRect's left and right
- *   edges and it gets all remaining space.
+ * The labelRect does start right against the contentRect's left and right
+ * edges and it gets all remaining space.
  * </p>
  */
 public class BasicSliderUI extends SliderUI
@@ -161,8 +166,8 @@ public class BasicSliderUI extends SliderUI
   {
     /**
      * Called when the size of the component changes. The UI delegate should
-     * recalculate any rectangles that are dependent on the model for their positions
-     * and repaint.
+     * recalculate any rectangles that are dependent on the model for their
+     * positions and repaint.
      *
      * @param e A {@link ComponentEvent}.
      */
@@ -183,23 +188,25 @@ public class BasicSliderUI extends SliderUI
   protected class FocusHandler implements FocusListener
   {
     /**
-     * Called when the {@link JSlider} has gained focus. 
-     * It should repaint the slider with the focus drawn.
+     * Called when the {@link JSlider} has gained focus.  It should repaint
+     * the slider with the focus drawn.
      *
      * @param e A {@link FocusEvent}.
      */
     public void focusGained(FocusEvent e)
     {
+      //FIXME: implement.
     }
 
     /**
-     * Called when the {@link JSlider} has lost focus. It 
-     * should repaint the slider without the focus drawn.
+     * Called when the {@link JSlider} has lost focus. It  should repaint the
+     * slider without the focus drawn.
      *
      * @param e A {@link FocusEvent}.
      */
     public void focusLost(FocusEvent e)
     {
+      //FIXME: implement.
     }
   }
 
@@ -220,16 +227,13 @@ public class BasicSliderUI extends SliderUI
       //Check for orientation changes.
       if (e.getPropertyName().equals(JSlider.ORIENTATION_CHANGED_PROPERTY))
 	recalculateIfOrientationChanged();
-      //and check for inversion changes so we can cache the value.
-      else if (e.getPropertyName().equals(JSlider.INVERTED_CHANGED_PROPERTY))
-        leftToRightCache = !slider.getInverted();	
       slider.repaint();
     }
   }
 
   /**
-   * Helper class that listens to our swing timer. This class is responsible for
-   * listening to the timer and moving the thumb in the proper direction
+   * Helper class that listens to our swing timer. This class is responsible
+   * for listening to the timer and moving the thumb in the proper direction
    * every interval.
    */
   protected class ScrollListener implements ActionListener
@@ -263,8 +267,8 @@ public class BasicSliderUI extends SliderUI
 
     /**
      * Called every time the swing timer reaches its interval. If the thumb
-     * needs to move, then this method will move the thumb one block or 
-     * unit in the direction desired. Otherwise, the timer can be stopped.
+     * needs to move, then this method will move the thumb one block or  unit
+     * in the direction desired. Otherwise, the timer can be stopped.
      *
      * @param e An {@link ActionEvent}.
      */
@@ -278,7 +282,7 @@ public class BasicSliderUI extends SliderUI
       else
 	timerStopValue = valueForYPosition(trackListener.currentMouseY);
 
-      if (!trackListener.shouldScroll(direction))
+      if (! trackListener.shouldScroll(direction))
         {
 	  scrollTimer.stop();
 	  return;
@@ -490,7 +494,7 @@ public class BasicSliderUI extends SliderUI
   /** The gap between the edges of the contentRect and trackRect. */
   protected int trackBuffer;
 
-  /** A cached value of the slider's LEFT_TO_RIGHT orientation. */
+  /** Whether this slider is actually drawn left to right. */
   protected boolean leftToRightCache;
 
   /** A timer that periodically moves the thumb. */
@@ -501,13 +505,13 @@ public class BasicSliderUI extends SliderUI
 
   /** The shadow color. */
   private transient Color shadowColor;
-  
+
   /** The highlight color. */
   private transient Color highlightColor;
-  
+
   /** The focus color. */
   private transient Color focusColor;
-  
+
   /**
    * Creates a new Basic look and feel Slider UI.
    *
@@ -577,36 +581,36 @@ public class BasicSliderUI extends SliderUI
     super.installUI(c);
     if (c instanceof JSlider)
       {
-        slider = (JSlider) c;
+	slider = (JSlider) c;
 
-        focusRect = new Rectangle();
-        contentRect = new Rectangle();
-        thumbRect = new Rectangle();
-        trackRect = new Rectangle();
-        tickRect = new Rectangle();
-        labelRect = new Rectangle();
+	focusRect = new Rectangle();
+	contentRect = new Rectangle();
+	thumbRect = new Rectangle();
+	trackRect = new Rectangle();
+	tickRect = new Rectangle();
+	labelRect = new Rectangle();
 
-        insetCache = slider.getInsets();
-        leftToRightCache = !slider.getInverted();
+	insetCache = slider.getInsets();
+	leftToRightCache = ! slider.getInverted();
 
-        scrollTimer = new Timer();
-        scrollTimer.setDelay(200);
-        scrollTimer.setRepeats(true);
+	scrollTimer = new Timer();
+	scrollTimer.setDelay(200);
+	scrollTimer.setRepeats(true);
 
-        installDefaults(slider);
-        installListeners(slider);
-        installKeyboardActions(slider);
-	
-        calculateFocusRect();
+	installDefaults(slider);
+	installListeners(slider);
+	installKeyboardActions(slider);
 
-        calculateContentRect();
-        calculateThumbSize();
-        calculateTrackBuffer();
-        calculateTrackRect();
-        calculateThumbLocation();
+	calculateFocusRect();
 
-        calculateTickRect();
-        calculateLabelRect();	
+	calculateContentRect();
+	calculateThumbSize();
+	calculateTrackBuffer();
+	calculateTrackRect();
+	calculateThumbLocation();
+
+	calculateTickRect();
+	calculateLabelRect();
       }
   }
 
@@ -637,27 +641,27 @@ public class BasicSliderUI extends SliderUI
   }
 
   /**
-   * Initializes any default properties that this UI has from the
-   * defaults for the Basic look and feel.
+   * Initializes any default properties that this UI has from the defaults for
+   * the Basic look and feel.
    *
    * @param slider The {@link JSlider} that is having this UI installed.
    */
   protected void installDefaults(JSlider slider)
   {
     UIDefaults defaults = UIManager.getLookAndFeelDefaults();
-    
+
     slider.setForeground(defaults.getColor("Slider.foreground"));
     slider.setBackground(defaults.getColor("Slider.background"));
     shadowColor = defaults.getColor("Slider.shadow");
     highlightColor = defaults.getColor("Slider.highlight");
     focusColor = defaults.getColor("Slider.focus");
     slider.setBorder(defaults.getBorder("Slider.border"));
-    
+
     thumbHeight = defaults.getInt("Slider.thumbHeight");
     thumbWidth = defaults.getInt("Slider.thumbWidth");
     tickHeight = defaults.getInt("Slider.tickHeight");
-    
-    focusInsets = defaults.getInsets("Slider.focusInsets");    
+
+    focusInsets = defaults.getInsets("Slider.focusInsets");
   }
 
   /**
@@ -789,14 +793,15 @@ public class BasicSliderUI extends SliderUI
   }
 
   /**
-   * Installs any keyboard actions. The list of keys that need to be bound
-   * are listed in Basic look and feel's defaults.
+   * Installs any keyboard actions. The list of keys that need to be bound are
+   * listed in Basic look and feel's defaults.
    *
    * @param slider The {@link JSlider} that is having keyboard actions
    *        installed.
    */
   protected void installKeyboardActions(JSlider slider)
   {
+    //FIXME: implement.
   }
 
   /**
@@ -808,6 +813,7 @@ public class BasicSliderUI extends SliderUI
    */
   protected void uninstallKeyboardActions(JSlider slider)
   {
+    //FIXME: implement.
   }
 
   /* XXX: This is all after experimentation with SUN's implementation.
@@ -894,7 +900,7 @@ public class BasicSliderUI extends SliderUI
    */
   public Dimension getMinimumSize(JComponent c)
   {
-    return null;
+    return getPreferredSize(c);
   }
 
   /**
@@ -908,21 +914,17 @@ public class BasicSliderUI extends SliderUI
    */
   public Dimension getMaximumSize(JComponent c)
   {
-    return null;
+    return getPreferredSize(c);
   }
 
   /**
-   * This method calculates the size and position of the
-   * focusRect. This method does not need to be called if the
-   * orientation changes.
+   * This method calculates the size and position of the focusRect. This
+   * method does not need to be called if the orientation changes.
    */
   protected void calculateFocusRect()
   {
     insetCache = slider.getInsets();
     focusRect = SwingUtilities.calculateInnerArea(slider, focusRect);
-
-    focusRect.x = insetCache.left;
-    focusRect.y = insetCache.right;
 
     if (focusRect.width < 0)
       focusRect.width = 0;
@@ -931,9 +933,8 @@ public class BasicSliderUI extends SliderUI
   }
 
   /**
-   * This method calculates the size but not the position of the
-   * thumbRect. It must take into account the orientation of the
-   * slider.
+   * This method calculates the size but not the position of the thumbRect. It
+   * must take into account the orientation of the slider.
    */
   protected void calculateThumbSize()
   {
@@ -964,9 +965,8 @@ public class BasicSliderUI extends SliderUI
   }
 
   /**
-   * This method calculates the size and position of the
-   * contentRect. This method does not need to be  called if the
-   * orientation changes.
+   * This method calculates the size and position of the contentRect. This
+   * method does not need to be  called if the orientation changes.
    */
   protected void calculateContentRect()
   {
@@ -983,9 +983,8 @@ public class BasicSliderUI extends SliderUI
   }
 
   /**
-   * Calculates the position of the thumbRect based on the
-   * current value of the slider. It must take into  account the orientation
-   * of the slider.
+   * Calculates the position of the thumbRect based on the current value of
+   * the slider. It must take into  account the orientation of the slider.
    */
   protected void calculateThumbLocation()
   {
@@ -1004,9 +1003,8 @@ public class BasicSliderUI extends SliderUI
   }
 
   /**
-   * Calculates the gap size between the left edge of the
-   * contentRect and the left edge of the
-   * trackRect.
+   * Calculates the gap size between the left edge of the contentRect and the
+   * left edge of the trackRect.
    */
   protected void calculateTrackBuffer()
   {
@@ -1029,8 +1027,8 @@ public class BasicSliderUI extends SliderUI
   }
 
   /**
-   * Calculates the size and position of the trackRect. It must
-   * take into account the orientation of the slider.
+   * Calculates the size and position of the trackRect. It must take into
+   * account the orientation of the slider.
    */
   protected void calculateTrackRect()
   {
@@ -1066,9 +1064,8 @@ public class BasicSliderUI extends SliderUI
   }
 
   /**
-   * This method calculates the size and position of the
-   * tickRect. It must take into account the orientation of the
-   * slider.
+   * This method calculates the size and position of the tickRect. It must
+   * take into account the orientation of the slider.
    */
   protected void calculateTickRect()
   {
@@ -1095,9 +1092,8 @@ public class BasicSliderUI extends SliderUI
   }
 
   /**
-   * This method calculates the size and position of the
-   * labelRect. It must take into account the orientation of the
-   * slider.
+   * This method calculates the size and position of the labelRect. It must
+   * take into account the orientation of the slider.
    */
   protected void calculateLabelRect()
   {
@@ -1134,8 +1130,8 @@ public class BasicSliderUI extends SliderUI
     for (Enumeration list = slider.getLabelTable().elements();
          list.hasMoreElements();)
       {
-        Object comp = list.nextElement();
-	if (!(comp instanceof Component))
+	Object comp = list.nextElement();
+	if (! (comp instanceof Component))
 	  continue;
 	label = (Component) comp;
 	if (label.getWidth() > widest)
@@ -1161,8 +1157,8 @@ public class BasicSliderUI extends SliderUI
     for (Enumeration list = slider.getLabelTable().elements();
          list.hasMoreElements();)
       {
-        Object comp = list.nextElement();
-	if (!(comp instanceof Component))
+	Object comp = list.nextElement();
+	if (! (comp instanceof Component))
 	  continue;
 	label = (Component) comp;
 	if (label.getHeight() > tallest)
@@ -1238,7 +1234,7 @@ public class BasicSliderUI extends SliderUI
    */
   protected boolean drawInverted()
   {
-    return !leftToRightCache;
+    return ! (slider.getInverted() ^ leftToRightCache);
   }
 
   /**
@@ -1257,15 +1253,15 @@ public class BasicSliderUI extends SliderUI
 
     for (Enumeration list = labelTable.keys(); list.hasMoreElements();)
       {
-        Object value = list.nextElement();
-	if (!(value instanceof Integer))
+	Object value = list.nextElement();
+	if (! (value instanceof Integer))
 	  continue;
 	tmpKey = (Integer) value;
 	if (tmpKey.intValue() < key.intValue())
 	  key = tmpKey;
       }
     Object comp = labelTable.get(key);
-    if (!(comp instanceof Component))
+    if (! (comp instanceof Component))
       return null;
     return (Component) comp;
   }
@@ -1286,15 +1282,15 @@ public class BasicSliderUI extends SliderUI
 
     for (Enumeration list = labelTable.keys(); list.hasMoreElements();)
       {
-        Object value = list.nextElement();
-	if (!(value instanceof Integer))
+	Object value = list.nextElement();
+	if (! (value instanceof Integer))
 	  continue;
 	tmpKey = (Integer) value;
 	if (tmpKey.intValue() > key.intValue())
 	  key = tmpKey;
       }
     Object comp = labelTable.get(key);
-    if (!(comp instanceof Component))
+    if (! (comp instanceof Component))
       return null;
     return (Component) comp;
   }
@@ -1322,6 +1318,10 @@ public class BasicSliderUI extends SliderUI
     calculateTickRect();
     calculateLabelRect();
 
+    //This has to be here since there are no PropertyChangeEvents for 
+    //component orientation changes.
+    leftToRightCache = slider.getComponentOrientation() != ComponentOrientation.RIGHT_TO_LEFT;
+
     if (slider.getPaintTrack())
       paintTrack(g);
     if (slider.getPaintTicks())
@@ -1330,7 +1330,6 @@ public class BasicSliderUI extends SliderUI
       paintLabels(g);
 
     //FIXME: Paint focus.
-    
     paintThumb(g);
   }
 
@@ -1343,7 +1342,6 @@ public class BasicSliderUI extends SliderUI
     //The focus rectangle needs to be calculated again and since
     //the focus rectangle is an outer bounds for all other rectangles,
     //they must be recalculated as well.
-    
     //This method is able to calculate on component resize changes as well
     //since the rectangles all need to be recalculated anyway.
     calculateFocusRect();
@@ -1364,7 +1362,6 @@ public class BasicSliderUI extends SliderUI
    */
   protected void recalculateIfOrientationChanged()
   {
-    
     calculateThumbSize();
     calculateTrackBuffer();
     calculateTrackRect();
@@ -1397,10 +1394,9 @@ public class BasicSliderUI extends SliderUI
    * This method is called during a repaint if the  track is to be drawn. It
    * draws a 3D rectangle to  represent the track. The track is not the size
    * of the trackRect. The top and left edges of the track should be outlined
-   * with the shadow color. The bottom and right edges should be outlined with
-   * the highlight color.
+   * with the shadow color. The bottom and right edges should be outlined
+   * with the highlight color.
    * </p>
-   *
    * <pre>
    *    a---d   
    *    |   |   
@@ -1411,9 +1407,11 @@ public class BasicSliderUI extends SliderUI
    *    |   |   
    *    b---c
    * </pre>
+   * 
    * <p>
-   * The b-a-d path needs to be drawn with the shadow color and
-   * the b-c-d path needs to be drawn with the highlight color.
+   * The b-a-d path needs to be drawn with the shadow color and the b-c-d path
+   * needs to be drawn with the highlight color.
+   * </p>
    *
    * @param g The {@link Graphics} object to draw with.
    */
@@ -1427,39 +1425,40 @@ public class BasicSliderUI extends SliderUI
     Point b = new Point(a);
     Point c = new Point(a);
     Point d = new Point(a);
-    
-    Polygon high, shadow;
-    
+
+    Polygon high;
+    Polygon shadow;
+
     if (slider.getOrientation() == JSlider.HORIZONTAL)
       {
 	width = trackRect.width;
 	height = (thumbRect.height / 4 == 0) ? 1 : thumbRect.height / 4;
-	
+
 	a.translate(0, (trackRect.height / 2) - (height / 2));
 	b.translate(0, (trackRect.height / 2) + (height / 2));
 	c.translate(trackRect.width, (trackRect.height / 2) + (height / 2));
-	d.translate(trackRect.width, (trackRect.height / 2) - (height / 2));		  
+	d.translate(trackRect.width, (trackRect.height / 2) - (height / 2));
       }
     else
       {
 	width = (thumbRect.width / 4 == 0) ? 1 : thumbRect.width / 4;
 	height = trackRect.height;
-	
+
 	a.translate((trackRect.width / 2) - (width / 2), 0);
 	b.translate((trackRect.width / 2) - (width / 2), trackRect.height);
 	c.translate((trackRect.width / 2) + (width / 2), trackRect.height);
 	d.translate((trackRect.width / 2) + (width / 2), 0);
       }
-    high = new Polygon(new int[] {b.x, c.x, d.x},
-                       new int[] {b.y, c.y, d.y}, 3);
-    shadow = new Polygon(new int[] {b.x, a.x, d.x},
-                         new int[] {b.y, a.y, d.y}, 3);      
-			  
+    high = new Polygon(new int[] { b.x, c.x, d.x },
+                       new int[] { b.y, c.y, d.y }, 3);
+    shadow = new Polygon(new int[] { b.x, a.x, d.x },
+                         new int[] { b.y, a.y, d.y }, 3);
+
     g.setColor(getHighlightColor());
     g.drawPolygon(high);
     g.setColor(getShadowColor());
-    g.drawPolygon(shadow);		
-	  
+    g.drawPolygon(shadow);
+
     g.setColor(Color.GRAY);
     g.fillRect(a.x + 1, a.y + 1, width - 2, height - 2);
     g.setColor(saved_color);
@@ -1562,9 +1561,8 @@ public class BasicSliderUI extends SliderUI
    */
 
   /**
-   * This method paints a minor tick for a horizontal slider at the given
-   * x value. x represents the x coordinate to
-   * paint at.
+   * This method paints a minor tick for a horizontal slider at the given x
+   * value. x represents the x coordinate to paint at.
    *
    * @param g The {@link Graphics} object to draw with.
    * @param tickBounds The tickRect rectangle.
@@ -1579,9 +1577,8 @@ public class BasicSliderUI extends SliderUI
   }
 
   /**
-   * This method paints a major tick for a horizontal slider at the given
-   * x value. x represents the x coordinate to
-   * paint at.
+   * This method paints a major tick for a horizontal slider at the given x
+   * value. x represents the x coordinate to paint at.
    *
    * @param g The {@link Graphics} object to draw with.
    * @param tickBounds The tickRect rectangle.
@@ -1596,9 +1593,8 @@ public class BasicSliderUI extends SliderUI
   }
 
   /**
-   * This method paints a minor tick for a vertical slider at the given
-   * y value. y represents the y coordinate to
-   * paint at.
+   * This method paints a minor tick for a vertical slider at the given y
+   * value. y represents the y coordinate to paint at.
    *
    * @param g The {@link Graphics} object to draw with.
    * @param tickBounds The tickRect rectangle.
@@ -1613,9 +1609,8 @@ public class BasicSliderUI extends SliderUI
   }
 
   /**
-   * This method paints a major tick for a vertical slider at the given
-   * y value. y represents the y coordinate to
-   * paint at.
+   * This method paints a major tick for a vertical slider at the given y
+   * value. y represents the y coordinate to paint at.
    *
    * @param g The {@link Graphics} object to draw with.
    * @param tickBounds The tickRect rectangle.
@@ -1641,46 +1636,44 @@ public class BasicSliderUI extends SliderUI
   {
     if (slider.getLabelTable() != null)
       {
-      
 	Dictionary table = slider.getLabelTable();
 	Integer tmpKey;
-	Object key, element;
+	Object key;
+	Object element;
 	Component label;
 	if (slider.getOrientation() == JSlider.HORIZONTAL)
 	  {
 	    for (Enumeration list = table.keys(); list.hasMoreElements();)
 	      {
-                key = list.nextElement();
-		if (!(key instanceof Integer))
+		key = list.nextElement();
+		if (! (key instanceof Integer))
 		  continue;
 		tmpKey = (Integer) key;
 		element = table.get(tmpKey);
 		//We won't paint them if they're not
 		//JLabels so continue anyway
-		if (!(element instanceof JLabel))
+		if (! (element instanceof JLabel))
 		  continue;
 		label = (Component) element;
-		paintHorizontalLabel(g, tmpKey.intValue(),
-		                     label);
+		paintHorizontalLabel(g, tmpKey.intValue(), label);
 	      }
 	  }
 	else
 	  {
 	    for (Enumeration list = table.keys(); list.hasMoreElements();)
 	      {
-                key = list.nextElement();
-		if (!(key instanceof Integer))
+		key = list.nextElement();
+		if (! (key instanceof Integer))
 		  continue;
 		tmpKey = (Integer) key;
 		element = table.get(tmpKey);
 		//We won't paint them if they're not
 		//JLabels so continue anyway
-		if (!(element instanceof JLabel))
+		if (! (element instanceof JLabel))
 		  continue;
 		label = (Component) element;
-		paintVerticalLabel(g, tmpKey.intValue(),
-		                   label);
-              }
+		paintVerticalLabel(g, tmpKey.intValue(), label);
+	      }
 	  }
       }
   }
@@ -1688,8 +1681,8 @@ public class BasicSliderUI extends SliderUI
   /**
    * This method paints the label on the horizontal slider at the value
    * specified. The value is not a coordinate. It is a value within the range
-   * of the  slider. If the value is not within the range of the slider,
-   * this method will do nothing. This method should not paint outside the
+   * of the  slider. If the value is not within the range of the slider, this
+   * method will do nothing. This method should not paint outside the
    * boundaries of the labelRect.
    *
    * @param g The {@link Graphics} object to draw with.
@@ -1707,9 +1700,6 @@ public class BasicSliderUI extends SliderUI
     if (value > max || value < min)
       return;
 
-    //FIXME: Shouldn't have to use w/2 here but it centers the label.
-    //Perhaps something in layoutCompoundLabel is broken.
-    //Observed same thing with ProgressBars.
     int xpos = xPositionForValue(value) - w / 2;
     int ypos = labelRect.y;
 
@@ -1738,8 +1728,8 @@ public class BasicSliderUI extends SliderUI
   /**
    * This method paints the label on the vertical slider at the value
    * specified. The value is not a coordinate. It is a value within the range
-   * of the  slider. If the value is not within the range of the slider,
-   * this method will do nothing. This method should not paint outside the
+   * of the  slider. If the value is not within the range of the slider, this
+   * method will do nothing. This method should not paint outside the
    * boundaries of the labelRect.
    *
    * @param g The {@link Graphics} object to draw with.
@@ -1758,10 +1748,6 @@ public class BasicSliderUI extends SliderUI
       return;
 
     int xpos = labelRect.x;
-
-    //FIXME: Shouldn't have to use h/2 here but it centers the label.
-    //Perhaps something in layoutCompoundLabel is broken.
-    //Observed same thing with ProgressBars.    
     int ypos = yPositionForValue(value) - h / 2;
 
     if (ypos < 0)
@@ -1832,8 +1818,8 @@ public class BasicSliderUI extends SliderUI
 
 	dark = new Polygon(new int[] { b.x, c.x, d.x },
 	                   new int[] { b.y, c.y, d.y }, 3);
-        all = new Polygon(new int[] { a.x + 1, b.x, c.x, d.x, e.x + 1},
-                 new int[] { a.y + 1, b.y + 1, c.y, d.y + 1, e.y }, 5);			   
+	all = new Polygon(new int[] { a.x + 1, b.x, c.x, d.x, e.x + 1 },
+	                  new int[] { a.y + 1, b.y + 1, c.y, d.y + 1, e.y }, 5);
       }
     else
       {
@@ -1850,10 +1836,9 @@ public class BasicSliderUI extends SliderUI
 	dark = new Polygon(new int[] { c.x, d.x, e.x + 1 },
 	                   new int[] { c.y, d.y, e.y }, 3);
 
-        all = new Polygon(new int[] { a.x + 1, b.x, c.x - 1, d.x, e.x + 1 },
-	                  new int[] { a.y + 1, b.y + 1, c.y, d.y, e.y}, 5);			   
+	all = new Polygon(new int[] { a.x + 1, b.x, c.x - 1, d.x, e.x + 1 },
+	                  new int[] { a.y + 1, b.y + 1, c.y, d.y, e.y }, 5);
       }
-
 
     g.setColor(Color.WHITE);
     g.drawPolygon(bright);
@@ -2010,7 +1995,7 @@ public class BasicSliderUI extends SliderUI
       value = ((len - (yPos - trackRect.y)) * (max - min) / len + min);
     else
       value = ((yPos - trackRect.y) * (max - min) / len + min);
-    
+
     //If this isn't a legal value, then we'll have to move to one now.
     if (value > max)
       value = max;
@@ -2045,7 +2030,7 @@ public class BasicSliderUI extends SliderUI
       value = ((xPos - trackRect.x) * (max - min) / len + min);
     else
       value = ((len - (xPos - trackRect.x)) * (max - min) / len + min);
-    
+
     //If this isn't a legal value, then we'll have to move to one now.
     if (value > max)
       value = max;
@@ -2075,7 +2060,7 @@ public class BasicSliderUI extends SliderUI
     //(if ticks are painted).
     int minor = min - value;
     int major = min - value;
-    
+
     //If there are no major tick marks or minor tick marks 
     //e.g. snap is set to true but no ticks are set, then
     //we can just return the value.

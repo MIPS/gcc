@@ -1,3 +1,23 @@
+2004-02-16  Kim Ho  <kho@redhat.com>
+
+	* javax/swing/JSlider.java: Fix indentation and comments.
+	(setModel): Remove null check to conform with Sun's.
+	(setOrientation): Throw exception if not
+	HORIZONTAL or VERTICAL.
+	(getInverted): Use private variable instead of 
+	ComponentOrientation.
+	(setInverted): ditto.
+	* javax/swing/plaf/basic/BasicSliderUI.java:
+	Fix indentation and comments.
+	(propertyChange): Remove check for inverted slider, handle
+	in main paint.
+	(getMinimumSize): Return preferred size.
+	(getMaximumSize): ditto.
+	(calculateFocusRect): Don't relocate rectangle.
+	(drawInverted): Return XOR of the slider's inversion and 
+	the component's orientation.
+	(paint): Update leftToRightCache
+
 2004-02-13  David Jee  <djee@redhat.com>
 
 	* java/awt/GridBagLayout.java
