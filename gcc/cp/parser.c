@@ -4013,7 +4013,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	      {
 		/* Warn the user that a compound literal is not
 		   allowed in standard C++.  */
-		if (pedantic)
+		if (pedantic && TREE_CODE (type) != VECTOR_TYPE)
 		  pedwarn ("ISO C++ forbids compound-literals");
 		/* Form the representation of the compound-literal.  */
 		postfix_expression

@@ -668,7 +668,7 @@ primary:
 		  finish_init ();
 		  maybe_warn_string_init (type, init);
 
-		  if (pedantic && ! flag_isoc99)
+		  if (pedantic && TREE_CODE (type) != VECTOR_TYPE && ! flag_isoc99)
 		    pedwarn ("ISO C90 forbids compound literals");
 		  $$.value = build_compound_literal (type, constructor);
 		  $$.original_code = ERROR_MARK;
