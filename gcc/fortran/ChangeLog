@@ -1,3 +1,7 @@
+2004-02-14  Paul Brook  <paul@codesourcery.com>
+
+	* f95-lang.c (gfc_init_builtin_functions): Build chain properly.
+
 2004-02-12  Paul Brook  <paul@nowt.org>
 
 	* BUGS: Remove.

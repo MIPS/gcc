@@ -818,8 +818,8 @@ gfc_init_builtin_functions (void)
 		      "__builtin_expect", true);
 
   tmp = tree_cons (NULL_TREE, size_type_node, voidchain);
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, voidchain);
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
   ftype = build_function_type (pvoid_type_node, tmp);
   gfc_define_builtin ("__builtin_memcpy", ftype, BUILT_IN_MEMCPY,
 		      "memcpy", false);
