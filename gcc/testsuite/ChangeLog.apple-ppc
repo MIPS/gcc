@@ -1,4 +1,11 @@
+2004-10-21  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3540965
+	* obj-c++.dg/cxx-ivars-1.mm: New.
+	* obj-c++.dg/cxx-ivars-2.mm: New.
+
 2004-10-18  Robert Bowdidge <bowdidge@apple.com>
+
         Radar 3843618
         * Add g++.dg/lookup/koenig4.C: Bring the fix for PR/17829 over 
         from mainline so that Finder_FE will build again.

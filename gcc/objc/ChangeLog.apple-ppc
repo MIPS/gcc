@@ -1,3 +1,14 @@
+2004-10-21  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3540965
+	* objc-act.c (objc_generate_cxx_ctor_or_dtor,
+	objc_generate_cxx_cdtors): New functions.
+	(TAG_CXX_CONSTRUCT, TAG_CXX_DESTRUCT): New macros.
+	(objc_finish_implementation): Call objc_generate_cxx_cdtors()
+	if -fobjc-call-cxx-cdtors has been specified.
+	(add_instance_variable): Emit different diagnostics for
+	-fobjc-call-cxx-cdtors than for -fno-objc-call-cxx-cdtors.
+
 2004-10-13  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3677258

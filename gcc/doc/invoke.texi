@@ -245,6 +245,8 @@ Objective-C and Objective-C++ Dialects}.
 -fconstant-string-class=@var{class-name} @gol
 -fgnu-runtime  -fnext-runtime @gol
 -fno-nil-receivers @gol
+@c APPLE LOCAL ObjC C++ ivars
+-fobjc-call-cxx-cdtors (APPLE ONLY) @gol
 -fobjc-exceptions @gol
 -freplace-objc-classes @gol
 -fzero-link @gol
@@ -2067,6 +2069,32 @@ Assume that all Objective-C message dispatches (e.g.,
 is not @code{nil}.  This allows for more efficient entry points in the runtime
 to be used.  Currently, this option is only available in conjunction with
 the NeXT runtime on Mac OS X 10.3 and later.
+
+@c APPLE LOCAL begin ObjC C++ ivars
+@item -fobjc-call-cxx-cdtors
+@opindex fobjc-call-cxx-cdtors
+For each Objective-C class, check if any of its instance variables is a
+C++ object with a non-trivial default constructor.  If so, synthesize a
+special @code{- (id) .cxx_construct} instance method that will run
+non-trivial default constructors on any such instance variables, in order,
+and then return @code{self}.  Similarly, check if any instance variable
+is a C++ object with a non-trivial destructor, and if so, synthesize a
+special @code{- (void) .cxx_destruct} method that will run
+all such default destructors, in reverse order.
+
+The @code{- (id) .cxx_construct} and/or @code{- (void) .cxx_destruct} methods
+thusly generated will only operate on instance variables declared in the
+current Objective-C class, and not those inherited from superclasses.  It
+is the responsibility of the Objective-C runtime to invoke all such methods
+in an object's inheritance hierarchy.  The @code{- (id) .cxx_construct} methods
+will be invoked by the runtime immediately after a new object
+instance is allocated; the @code{- (void) .cxx_destruct} methods will
+be invoked immediately before the runtime deallocates an object instance.
+
+As of this writing, only the NeXT runtime on Mac OS X 10.4 and later has
+support for invoking the @code{- (id) .cxx_construct} and
+@code{- (void) .cxx_destruct} methods.
+@c APPLE LOCAL end ObjC C++ ivars
 
 @item -fobjc-exceptions
 @opindex fobjc-exceptions

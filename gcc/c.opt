@@ -657,6 +657,12 @@ C++ ObjC++
 fnonnull-objects
 C++ ObjC++
 
+; APPLE LOCAL begin ObjC C++ ivars
+fobjc-call-cxx-cdtors
+ObjC++
+Generate special ObjC methods to initialize/destroy non-POD C++ ivars, if needed
+; APPLE LOCAL end ObjC C++ ivars
+
 fobjc-exceptions
 ObjC ObjC++
 Enable Objective-C exception and synchronization syntax

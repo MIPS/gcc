@@ -1,3 +1,13 @@
+2004-10-21  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3540965
+	* c-common.c (flag_objc_call_cxx_cdtors): New variable.
+	* c-common.h (flag_objc_call_cxx_cdtors): New forward declaration.
+	* c-opts.c (c_common_handle_option): Process '-fobjc-call-cxx-cdtors'
+	option.
+	* c.opt (fobjc-call-cxx-cdtors): New option.
+	* doc/invoke.texi (fobjc-call-cxx-cdtors): Document.
+
 2004-10-19  Devang Patel  <dpatel@apple.com>
 
 	Radar 3837840

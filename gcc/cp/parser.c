@@ -4222,13 +4222,15 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	    {
 	      tree ivar = objc_lookup_ivar (postfix_expression);
 
-	      if (ivar)
-		return ivar;
+	      postfix_expression
+		= (ivar
+		   ? ivar
+		   : unqualified_name_lookup_error (postfix_expression));
 	    }
-
-	  /* It is not a Koenig lookup function call.  */
-	  postfix_expression
-	    = unqualified_name_lookup_error (postfix_expression);
+	  else
+	    /* It is not a Koenig lookup function call.  */
+	    postfix_expression
+	      = unqualified_name_lookup_error (postfix_expression);
 	}
 	/* APPLE LOCAL end Objective-C++ */
 

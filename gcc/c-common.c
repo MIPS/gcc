@@ -365,6 +365,13 @@ int flag_next_runtime = 1;
 int flag_next_runtime = 0;
 #endif
 
+/* APPLE LOCAL begin ObjC C++ ivars */
+/* Generate special '- .cxx_construct' and '- .cxx_destruct' methods
+   to initialize any non-POD ivars in ObjC++ classes.  */
+
+int flag_objc_call_cxx_cdtors = 0;
+/* APPLE LOCAL end ObjC C++ ivars */
+
 /* Tells the compiler that this is a special run.  Do not perform any
    compiling, instead we are to test some platform dependent features
    and output a C header file with appropriate definitions.  */

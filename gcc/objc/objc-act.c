@@ -201,6 +201,13 @@ static void generate_shared_structures (void);
 static tree generate_protocol_list (tree);
 static void build_protocol_reference (tree);
 
+/* APPLE LOCAL begin ObjC C++ ivars */
+#ifdef OBJCPLUS
+static void objc_generate_cxx_ctor_or_dtor (bool);
+static void objc_generate_cxx_cdtors (void);
+#endif
+/* APPLE LOCAL end ObjC C++ ivars */
+
 static tree build_keyword_selector (tree);
 static const char *synth_id_with_class_suffix (const char *, tree);
 
@@ -412,6 +419,11 @@ static const char *default_constant_string_class_name;
 #define TAG_SYNCEXIT			"objc_sync_exit"
 #define TAG_SETJMP			"_setjmp"
 #define UTAG_EXCDATA			"_objc_exception_data"
+
+/* APPLE LOCAL begin ObjC C++ ivars */
+#define TAG_CXX_CONSTRUCT		".cxx_construct"
+#define TAG_CXX_DESTRUCT		".cxx_destruct"
+/* APPLE LOCAL end ObjC C++ ivars */
 
 /* GNU-specific tags.  */
 
@@ -767,6 +779,13 @@ objc_continue_implementation (void)
 void
 objc_finish_implementation (void)
 {
+  /* APPLE LOCAL begin ObjC C++ ivars */
+#ifdef OBJCPLUS
+  if (flag_objc_call_cxx_cdtors)
+    objc_generate_cxx_cdtors ();
+#endif
+  /* APPLE LOCAL end ObjC C++ ivars */
+
   if (objc_implementation_context)
     {
       finish_class (objc_implementation_context);
@@ -3861,6 +3880,130 @@ generate_protocol_references (tree plist)
     }
 }
 
+/* APPLE LOCAL begin ObjC C++ ivars */
+/* Generate either '- .cxx_construct' or '- .cxx_destruct' for the
+   current class.  */
+#ifdef OBJCPLUS
+static void
+objc_generate_cxx_ctor_or_dtor (bool dtor)
+{
+  tree fn, body, compound_stmt, ivar;
+
+  /* - (id) .cxx_construct { ... return self; } */
+  /* - (void) .cxx_construct { ... }            */
+
+  objc_set_method_type (MINUS_EXPR);
+  objc_start_method_definition
+   (objc_build_method_signature (build_tree_list (NULL_TREE,
+						  dtor
+						  ? void_type_node
+						  : objc_object_type),
+				 get_identifier (dtor
+						 ? TAG_CXX_DESTRUCT
+						 : TAG_CXX_CONSTRUCT),
+				 make_node (TREE_LIST)));
+  body = begin_function_body ();
+  compound_stmt = begin_compound_stmt (0);
+
+  ivar = CLASS_IVARS (implementation_template);
+  /* Destroy ivars in reverse order.  */
+  if (dtor)
+    ivar = nreverse (copy_list (ivar));
+
+  for (; ivar; ivar = TREE_CHAIN (ivar))
+    {
+      if (TREE_CODE (ivar) == FIELD_DECL)
+	{
+	  tree type = TREE_TYPE (ivar);
+
+	  /* Call the ivar's default constructor or destructor.  Do not
+	     call the destructor unless a corresponding constructor call
+	     has also been made (or is not needed).  */
+	  if (IS_AGGR_TYPE (type)
+	      && (dtor
+		  ? (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
+		     && (!TYPE_NEEDS_CONSTRUCTING (type)
+			 || TYPE_HAS_DEFAULT_CONSTRUCTOR (type)))
+		  : (TYPE_NEEDS_CONSTRUCTING (type)
+		     && TYPE_HAS_DEFAULT_CONSTRUCTOR (type))))
+	    finish_expr_stmt
+	     (build_special_member_call
+	      (build_ivar_reference (DECL_NAME (ivar)),
+	       dtor ? complete_dtor_identifier : complete_ctor_identifier,
+	       NULL_TREE, type, LOOKUP_NORMAL));
+	}
+    }
+
+  /* The constructor returns 'self'.  */
+  if (!dtor)
+    finish_return_stmt (self_decl);
+
+  finish_compound_stmt (compound_stmt);
+  finish_function_body (body);
+  fn = current_function_decl;
+  finish_function ();
+  objc_finish_method_definition (fn);
+}
+
+/* The following routine will examine the current @interface for any
+   non-POD C++ ivars requiring non-trivial construction and/or
+   destruction, and then synthesize special '- .cxx_construct' and/or
+   '- .cxx_destruct' methods which will run the appropriate
+   construction or destruction code.  Note that ivars inherited from
+   super-classes are _not_ considered.  */
+static void
+objc_generate_cxx_cdtors (void)
+{
+  bool need_ctor = false, need_dtor = false;
+  tree ivar;
+
+  /* We do not want to do this for categories, since they do not have
+     their own ivars.  */
+
+  if (TREE_CODE (objc_implementation_context) != CLASS_IMPLEMENTATION_TYPE)
+    return;
+
+  /* First, determine if we even need a constructor and/or destructor.  */
+
+  for (ivar = CLASS_IVARS (implementation_template); ivar;
+       ivar = TREE_CHAIN (ivar))
+    {
+      if (TREE_CODE (ivar) == FIELD_DECL)
+	{
+	  tree type = TREE_TYPE (ivar);
+
+	  if (IS_AGGR_TYPE (type))
+	    {
+	      if (TYPE_NEEDS_CONSTRUCTING (type)
+		  && TYPE_HAS_DEFAULT_CONSTRUCTOR (type))
+		/* NB: If a default constructor is not available, we will not
+		   be able to initialize this ivar; the add_instance_variable()
+		   routine will already have warned about this.  */
+		need_ctor = true;
+
+	      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
+		  && (!TYPE_NEEDS_CONSTRUCTING (type)
+		      || TYPE_HAS_DEFAULT_CONSTRUCTOR (type)))
+		/* NB: If a default constructor is not available, we will not
+		   call the destructor either, for symmetry.  */
+		need_dtor = true;
+	    }
+	}
+    }
+
+    /* Generate '- .cxx_construct' if needed.  */
+
+  if (need_ctor)
+    objc_generate_cxx_ctor_or_dtor (false);
+
+  /* Generate '- .cxx_destruct' if needed.  */
+
+  if (need_dtor)
+    objc_generate_cxx_ctor_or_dtor (true);
+}
+#endif
+/* APPLE LOCAL end ObjC C++ ivars */
+
 /* For each protocol which was referenced either from a @protocol()
    expression, or because a class/category implements it (then a
    pointer to the protocol is stored in the struct describing the
@@ -6266,30 +6409,70 @@ add_instance_variable (tree class, int public, tree field_decl)
       return class;
     }
 
+/* APPLE LOCAL begin ObjC C++ ivars */
 #ifdef OBJCPLUS
-  /* zlaski 2001-Apr-24: C++ classes with non-trivial constructors and/or destructors
-     cannot be ivars; ditto for classes with vtables. */
-  if(IS_AGGR_TYPE (field_type) && (TYPE_NEEDS_CONSTRUCTING (field_type)
-      || TYPE_HAS_NONTRIVIAL_DESTRUCTOR (field_type) || TYPE_POLYMORPHIC_P (field_type)))
+  /* Check if the ivar being added has a non-POD C++ type.   If so, we will
+     need to either (1) warn the user about it or (2) generate suitable
+     constructor/destructor call from '- .cxx_construct' or '- .cxx_destruct'
+     methods (if '-fobjc-call-cxx-cdtors' was specified).  */
+  if (IS_AGGR_TYPE (field_type)
+      && (TYPE_NEEDS_CONSTRUCTING (field_type)
+	  || TYPE_HAS_NONTRIVIAL_DESTRUCTOR (field_type)
+	  || TYPE_POLYMORPHIC_P (field_type)))
     {
       const char *type_name = IDENTIFIER_POINTER (OBJC_TYPE_NAME (field_type));
-      if(TYPE_POLYMORPHIC_P (field_type)) {
-        /* vtable pointers are Real Bad(tm), since Obj-C cannot initialize them */
-        error ("type `%s' has virtual member functions", type_name);
-        error ("illegal aggregate type `%s' specified for instance variable `%s'",
-  	       type_name, ivar_name);
-        /* Return class as is without adding this ivar.  */
-        return class;
-      }
-      /* user-defined constructors and destructors are not known to Obj-C and
-         hence will not be called.  This may or may not be a problem. */
-      if (TYPE_NEEDS_CONSTRUCTING (field_type))
-        warning ("type `%s' has a user-defined constructor", type_name);
-      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (field_type))
-        warning ("type `%s' has a user-defined destructor", type_name);
-      warning ("C++ constructors and destructors will not be invoked for Objective-C fields");
+
+      if (flag_objc_call_cxx_cdtors)
+        {
+	  /* Since the ObjC runtime will be calling the constructors and
+	     destructors for us, the only thing we can't handle is the lack
+	     of a default constructor.  */
+	  if (TYPE_NEEDS_CONSTRUCTING (field_type)
+	      && !TYPE_HAS_DEFAULT_CONSTRUCTOR (field_type))
+	    {
+	      warning ("type `%s' has no default constructor to call",
+		       type_name);
+
+	      /* If we cannot call a constructor, we should also avoid
+		 calling the destructor, for symmetry.  */
+	      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (field_type))
+		warning ("destructor for `%s' shall not be run either",
+			 type_name);
+	    }
+        }
+      else
+	{
+	  static bool warn_cxx_ivars = false;
+
+	  if (TYPE_POLYMORPHIC_P (field_type))
+	    {
+	      /* Vtable pointers are Real Bad(tm), since Obj-C cannot
+		 initialize them.  */
+	      error ("type `%s' has virtual member functions", type_name);
+	      error ("illegal aggregate type `%s' specified "
+		     "for instance variable `%s'",
+		     type_name, ivar_name);
+	      /* Return class as is without adding this ivar.  */
+	      return class;
+	    }
+
+	  /* User-defined constructors and destructors are not known to Obj-C
+	     and hence will not be called.  This may or may not be a problem. */
+	  if (TYPE_NEEDS_CONSTRUCTING (field_type))
+	    warning ("type `%s' has a user-defined constructor", type_name);
+	  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (field_type))
+	    warning ("type `%s' has a user-defined destructor", type_name);
+
+	  if (!warn_cxx_ivars)
+	    {
+	      warning ("C++ constructors and destructors will not "
+		       "be invoked for Objective-C fields");
+	      warn_cxx_ivars = true;
+	    }
+	}
     }
 #endif
+/* APPLE LOCAL end ObjC C++ ivars */
 
   /* Overload the public attribute, it is not used for FIELD_DECLs.  */
   switch (public)

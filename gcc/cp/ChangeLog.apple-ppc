@@ -1,4 +1,11 @@
+2004-10-21  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3540965
+	* parser.c (cp_parser_postfix_expression): Do not forget to parse
+	the rhs of a postfix expression when the lhs is an instance variable.
+
 2004-10-18  Robert Bowdidge <bowdidge@apple.com>
+
         Radar 3843618
         * gcc/cp/parser.c: Bring the change for PR/17829 over from mainline
         so that Finder_FE will build again.
