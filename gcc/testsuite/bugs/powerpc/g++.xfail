@@ -1,0 +1,47 @@
+###
+### List of failing tests with Radar bug numbers
+### <radarNum>: <test name>
+### test name should be exactly as it appears html summary reports
+### including any trailing #<number>
+###
+### When the bug is fixed and the test passes, it will be an
+### analyzed non-fail. You should then comment out the test in this
+### file and make sure the Radar is closed.
+###
+###------------------------------------------------------------------
+3220997: g++.dg/align-test-1.C execution test
+3665086: g++.dg/apple-altivec-1.C (test for excess errors)
+3665086: g++.dg/altivec-3.C (test for excess errors)
+3665127: g++.dg/altivec-5.C (test for excess errors)
+3665098: g++.dg/eh/simd-2.C (test for excess errors)
+3665086: g++.dg/ext/altivec-2.C (test for excess errors)
+3665086: g++.dg/ext/altivec-4.C (test for excess errors)
+3665086: g++.dg/ext/altivec-5.C (test for excess errors)
+3665086: g++.dg/ext/altivec-8.C (test for excess errors)
+3665096: g++.dg/template/instantiate6.C (test for excess errors)
+3665130: g++.dg/template/static3.C (test for excess errors)
+3222046: g++.dg/warn/weak1.C (test for excess errors)
+3665098: 258: expected branch percentages not found: 25
+3665098: g++.dg/gcov/gcov-1.C gcov: 0 failures in line counts, 1 in branch percentages, 0 in return percentages
+3665098: 23:is 2:should be 1
+3665098: g++.dg/gcov/gcov-2.C gcov: 1 failures in line counts, 0 in branch percentages, 0 in return percentages
+3223598: g++.dg/special/conpr-3.C execution test
+3665098: g++.old-deja/g++.abi/cxa_vec.C execution test
+3665098: g++.old-deja/g++.brendan/crash13.C  (test for errors, line 34)
+3665098: g++.old-deja/g++.brendan/new3.C execution test
+3222135: g++.old-deja/g++.bugs/900404_02.C  (test for warnings, line 25)
+3222698: g++.old-deja/g++.ext/pretty4.C execution test
+3665098: g++.old-deja/g++.law/friend5.C  (test for errors, line 19)
+3665098: g++.old-deja/g++.law/friend5.C  (test for errors, line 24)
+3665144: g++.old-deja/g++.mike/p4750.C (test for excess errors)
+3665148: g++.old-deja/g++.other/inline7.C (test for excess errors)
+3665098: g++.old-deja/g++.other/inline8.C (test for excess errors)
+3665144: g++.old-deja/g++.other/local-alloc1.C (test for excess errors)
+3224899: g++.old-deja/g++.other/string2.C execution test
+3665162: g++.old-deja/g++.pt/static3.C (test for excess errors)
+3665162: g++.old-deja/g++.pt/static6.C (test for excess errors)
+3665148: g++.old-deja/g++.pt/ttp19.C (test for excess errors)
+3665148: g++.old-deja/g++.pt/ttp40.C (test for excess errors)
+3665148: g++.old-deja/g++.robertl/eb21.C (test for excess errors)
+3665148: g++.old-deja/g++.robertl/eb59.C (test for excess errors)
+3665098: g++.old-deja/g++.robertl/eb73.C (test for excess errors)
