@@ -9173,7 +9173,8 @@ ix86_expand_int_movcc (operands)
   /* Don't attempt mode expansion here -- if we had to expand 5 or 6
      HImode insns, we'd be swallowed in word prefix ops.  */
 
-  if ((mode != DImode || TARGET_64BIT)
+  if ((mode != HImode || TARGET_FAST_PREFIX)
+      && (mode != DImode || TARGET_64BIT)
       && GET_CODE (operands[2]) == CONST_INT
       && GET_CODE (operands[3]) == CONST_INT)
     {
@@ -9181,17 +9182,6 @@ ix86_expand_int_movcc (operands)
       HOST_WIDE_INT ct = INTVAL (operands[2]);
       HOST_WIDE_INT cf = INTVAL (operands[3]);
       HOST_WIDE_INT diff;
-      enum machine_mode cmovmode = mode;
-
-#if 0
-      /* Promote OUT into SImode to avoid extra prefix operations.
-         Since we can generate minus and neg, we can't rely on insn splitting
-	 to do the job.  */
-      if (GET_MODE (out) == HImode
-	  && !TARGET_PARTIAL_REG_STALL
-	  && (REG_P (out) || GET_CODE (out) == SUBREG))
-	out = gen_lowpart (SImode, out), cmovmode = SImode;
-#endif
 
       diff = ct - cf;
       /*  Sign bit compares are better done using shifts than we do by using
@@ -9220,9 +9210,9 @@ ix86_expand_int_movcc (operands)
 
 	      if (reg_overlap_mentioned_p (out, ix86_compare_op0)
 		  || reg_overlap_mentioned_p (out, ix86_compare_op1))
-		tmp = gen_reg_rtx (cmovmode);
+		tmp = gen_reg_rtx (mode);
 
-	      if (cmovmode == DImode)
+	      if (mode == DImode)
 		emit_insn (gen_x86_movdicc_0_m1_rex64 (tmp));
 	      else
 		emit_insn (gen_x86_movsicc_0_m1 (gen_lowpart (SImode, tmp)));
@@ -9251,7 +9241,7 @@ ix86_expand_int_movcc (operands)
 	       * Size 5 - 8.
 	       */
 	      if (ct)
-	       	tmp = expand_simple_binop (cmovmode, PLUS,
+	       	tmp = expand_simple_binop (mode, PLUS,
 					   tmp, GEN_INT (ct),
 					   copy_rtx (tmp), 1, OPTAB_DIRECT);
 	    }
@@ -9264,7 +9254,7 @@ ix86_expand_int_movcc (operands)
 	       *
 	       * Size 8.
 	       */
-	      tmp = expand_simple_binop (cmovmode, IOR,
+	      tmp = expand_simple_binop (mode, IOR,
 					 tmp, GEN_INT (ct),
 					 copy_rtx (tmp), 1, OPTAB_DIRECT);
 	    }
@@ -9278,9 +9268,9 @@ ix86_expand_int_movcc (operands)
 	       *
 	       * Size 8 - 11.
 	       */
-	      tmp = expand_simple_unop (cmovmode, NOT, tmp, copy_rtx (tmp), 1);
+	      tmp = expand_simple_unop (mode, NOT, tmp, copy_rtx (tmp), 1);
 	      if (cf)
-	       	tmp = expand_simple_binop (cmovmode, PLUS,
+	       	tmp = expand_simple_binop (mode, PLUS,
 					   copy_rtx (tmp), GEN_INT (cf),
 					   copy_rtx (tmp), 1, OPTAB_DIRECT);
 	    }
@@ -9300,15 +9290,15 @@ ix86_expand_int_movcc (operands)
 		{
 		  cf = ct;
 		  ct = 0;
-		  tmp = expand_simple_unop (cmovmode, NOT, tmp, copy_rtx (tmp), 1);
+		  tmp = expand_simple_unop (mode, NOT, tmp, copy_rtx (tmp), 1);
 		}
 
-	      tmp = expand_simple_binop (cmovmode, AND,
+	      tmp = expand_simple_binop (mode, AND,
 					 copy_rtx (tmp),
-					 gen_int_mode (cf - ct, cmovmode),
+					 gen_int_mode (cf - ct, mode),
 					 copy_rtx (tmp), 1, OPTAB_DIRECT);
 	      if (ct)
-	       	tmp = expand_simple_binop (cmovmode, PLUS,
+	       	tmp = expand_simple_binop (mode, PLUS,
 					   copy_rtx (tmp), GEN_INT (ct),
 					   copy_rtx (tmp), 1, OPTAB_DIRECT);
 	    }
@@ -9384,7 +9374,7 @@ ix86_expand_int_movcc (operands)
 	      out = emit_store_flag (out, code, ix86_compare_op0,
 				     ix86_compare_op1, VOIDmode, 0, -1);
 
-	      out = expand_simple_binop (cmovmode, IOR,
+	      out = expand_simple_binop (mode, IOR,
 					 out, GEN_INT (cf),
 					 out, 1, OPTAB_DIRECT);
 	      if (out != operands[0])
@@ -9397,9 +9387,8 @@ ix86_expand_int_movcc (operands)
 
       if ((diff == 1 || diff == 2 || diff == 4 || diff == 8
 	   || diff == 3 || diff == 5 || diff == 9)
-	  && ((cmovmode != QImode && cmovmode != HImode)
-	      || !TARGET_PARTIAL_REG_STALL)
-	  && (cmovmode != DImode || x86_64_sign_extended_value (GEN_INT (cf))))
+	  && ((mode != QImode && mode != HImode) || !TARGET_PARTIAL_REG_STALL)
+	  && (mode != DImode || x86_64_sign_extended_value (GEN_INT (cf))))
 	{
 	  /*
 	   * xorl dest,dest
@@ -9427,17 +9416,17 @@ ix86_expand_int_movcc (operands)
 	    {
 	      rtx out1;
 	      out1 = out;
-	      tmp = gen_rtx_MULT (cmovmode, out1, GEN_INT (diff & ~1));
+	      tmp = gen_rtx_MULT (mode, out1, GEN_INT (diff & ~1));
 	      nops++;
 	      if (diff & 1)
 		{
-		  tmp = gen_rtx_PLUS (cmovmode, tmp, out1);
+		  tmp = gen_rtx_PLUS (mode, tmp, out1);
 		  nops++;
 		}
 	    }
 	  if (cf != 0)
 	    {
-	      tmp = gen_rtx_PLUS (cmovmode, tmp, GEN_INT (cf));
+	      tmp = gen_rtx_PLUS (mode, tmp, GEN_INT (cf));
 	      nops++;
 	    }
 	  if (!rtx_equal_p (tmp, out))
@@ -9456,7 +9445,6 @@ ix86_expand_int_movcc (operands)
 	      else
 		emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (out), copy_rtx (tmp)));
 	    }
-	  out = gen_lowpart (mode, out);
 	  if (!rtx_equal_p (out, operands[0]))
 	    emit_move_insn (operands[0], copy_rtx (out));
 
@@ -9479,7 +9467,7 @@ ix86_expand_int_movcc (operands)
        * for space.
        */
 
-      if ((!TARGET_CMOVE || (cmovmode == QImode && TARGET_PARTIAL_REG_STALL))
+      if ((!TARGET_CMOVE || (mode == QImode && TARGET_PARTIAL_REG_STALL))
 	  && BRANCH_COST >= 2)
 	{
 	  if (cf == 0)
@@ -9534,19 +9522,16 @@ ix86_expand_int_movcc (operands)
 	      out = emit_store_flag (out, code, ix86_compare_op0,
 				     ix86_compare_op1, VOIDmode, 0, 1);
 
-	      out = expand_simple_binop (cmovmode, PLUS, copy_rtx (out),
-					 constm1_rtx, copy_rtx (out), 1,
-					 OPTAB_DIRECT);
+	      out = expand_simple_binop (mode, PLUS, copy_rtx (out), constm1_rtx,
+					 copy_rtx (out), 1, OPTAB_DIRECT);
 	    }
 
-	  out = expand_simple_binop (cmovmode, AND, copy_rtx (out),
-				     gen_int_mode (cf - ct, cmovmode),
+	  out = expand_simple_binop (mode, AND, copy_rtx (out),
+				     gen_int_mode (cf - ct, mode),
 				     copy_rtx (out), 1, OPTAB_DIRECT);
 	  if (ct)
-	    out = expand_simple_binop (cmovmode, PLUS, copy_rtx (out),
-				       GEN_INT (ct), copy_rtx (out), 1,
-				       OPTAB_DIRECT);
-	  out = gen_lowpart (mode, out);
+	    out = expand_simple_binop (mode, PLUS, copy_rtx (out), GEN_INT (ct),
+				       copy_rtx (out), 1, OPTAB_DIRECT);
 	  if (!rtx_equal_p (out, operands[0]))
 	    emit_move_insn (operands[0], copy_rtx (out));
 
@@ -9635,15 +9620,9 @@ ix86_expand_int_movcc (operands)
       emit_move_insn (tmp, operands[2]);
       operands[2] = tmp;
     }
-
   if (! register_operand (operands[2], VOIDmode)
-      && (mode == QImode 
-          || ! register_operand (operands[3], VOIDmode)))
-    operands[2] = force_reg (mode, operands[2]);
-
-  if (mode == QImode
       && ! register_operand (operands[3], VOIDmode))
-    operands[3] = force_reg (mode, operands[3]);
+    operands[2] = force_reg (mode, operands[2]);
 
   emit_insn (compare_seq);
   emit_insn (gen_rtx_SET (VOIDmode, operands[0],
