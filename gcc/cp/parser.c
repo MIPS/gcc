@@ -15742,7 +15742,11 @@ cp_parser_objc_typename (cp_parser* parser)
 static bool
 cp_parser_objc_selector_p (enum cpp_ttype type)
 {
-  return (type == CPP_NAME || type == CPP_KEYWORD);
+  return (type == CPP_NAME || type == CPP_KEYWORD
+	  || type == CPP_AND_AND || type == CPP_AND_EQ || type == CPP_AND
+	  || type == CPP_OR || type == CPP_COMPL || type == CPP_NOT
+	  || type == CPP_NOT_EQ || type == CPP_OR_OR || type == CPP_OR_EQ
+	  || type == CPP_XOR || type == CPP_XOR_EQ);
 }
 
 static tree
@@ -15755,8 +15759,23 @@ cp_parser_objc_selector (cp_parser* parser)
       error ("invalid Objective-C++ selector name");
       return error_mark_node;
     }
-  
-  return token->value;
+
+  /* C++ operator names are allowed to appear in ObjC selectors.  */
+  switch (token->type)
+    {
+    case CPP_AND_AND: return get_identifier ("and");
+    case CPP_AND_EQ: return get_identifier ("and_eq");
+    case CPP_AND: return get_identifier ("bitand");
+    case CPP_OR: return get_identifier ("bitor");
+    case CPP_COMPL: return get_identifier ("compl");
+    case CPP_NOT: return get_identifier ("not");
+    case CPP_NOT_EQ: return get_identifier ("not_eq");
+    case CPP_OR_OR: return get_identifier ("or");
+    case CPP_OR_EQ: return get_identifier ("or_eq");
+    case CPP_XOR: return get_identifier ("xor");
+    case CPP_XOR_EQ: return get_identifier ("xor_eq");
+    default: return token->value;
+    }
 }
 
 static tree

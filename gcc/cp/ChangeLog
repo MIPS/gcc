@@ -1,3 +1,10 @@
+2004-05-24  Ziemowit Laski  <zlaski@apple.com>
+
+	* cvt.c (convert_to_pointer_force): Always retain the NOP_EXPR
+	when converting to an Objective-C pointer type.
+	* parser.c (cp_parser_objc_selector_p, cp_parser_objc_selector):
+	Allow C++ operator names as selectors.
+
 2004-05-13  Ziemowit Laski  <zlaski@apple.com>
 
 	Sync up with HEAD:tree-ssa-pre-merge.

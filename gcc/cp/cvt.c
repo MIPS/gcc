@@ -311,6 +311,12 @@ convert_to_pointer_force (tree type, tree expr)
   
   if (form == POINTER_TYPE)
     {
+      /* Casts to a (pointer to a) specific ObjC class (or 'id' or
+	 'Class') should always be retained, because this information aids
+	 in method lookup.  */
+      if (c_dialect_objc () && objc_is_object_ptr (type))
+	return build_nop (type, expr);
+
       intype = TYPE_MAIN_VARIANT (intype);
 
       if (TYPE_MAIN_VARIANT (type) != intype

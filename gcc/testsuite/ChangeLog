@@ -1,3 +1,8 @@
+2004-05-24  Ziemowit Laski  <zlaski@apple.com>
+
+	* obj-c++.dg/method-1.mm: New test case.
+	* obj-c++.dg/selector-1.mm: New test case.
+
 2004-05-11  Ziemowit Laski  <zlaski@apple.com>
 
 	* g++.dg/ext/altivec-8.C: Use '-maltivec' instead of '-faltivec';
