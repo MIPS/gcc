@@ -114,6 +114,10 @@ extern int ia64_tls_size;
 #define TARGET_TLS22		(ia64_tls_size == 22)
 #define TARGET_TLS64		(ia64_tls_size == 64)
 
+#ifndef HAVE_AS_LTOFFX_LDXMOV_RELOCS
+#define HAVE_AS_LTOFFX_LDXMOV_RELOCS 0
+#endif
+
 /* This macro defines names of command options to set and clear bits in
    `target_flags'.  Its definition is an initializer with a subgrouping for
    each command option.  */
