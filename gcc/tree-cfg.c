@@ -100,6 +100,7 @@ static inline void set_parent_stmt (tree *, tree);
 static void make_edges (void);
 static void make_ctrl_stmt_edges (basic_block);
 static void make_exit_edges (basic_block);
+static void make_call_expr_edges (basic_block, tree, tree);
 static void make_cond_expr_edges (basic_block);
 static void make_goto_expr_edges (basic_block);
 static void make_case_label_edges (basic_block);
@@ -508,8 +509,6 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
         {
 	  start_new_block = true;
 
-	  /* Right now we only model exceptions which occur via calls.
-	    This will need to be generalized in the future.  */
 	  if (TREE_CODE (stmt) == CALL_EXPR
 	      || (TREE_CODE (stmt) == MODIFY_EXPR
 		  && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
@@ -1167,6 +1166,47 @@ make_ctrl_stmt_edges (basic_block bb)
     }
 }
 
+/* A CALL_EXPR node here means that the last statement of the block
+   is a call to a non-returning function or a call that may throw.  */
+
+static void
+make_call_expr_edges (basic_block bb, tree call, tree stmt)
+{
+  /* If this function receives a nonlocal goto, then we need to
+     make edges from this call site to all the nonlocal goto
+     handlers.  */
+  if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+    make_goto_expr_edges (bb);
+
+  /* If this statement has reachable exception handlers, then
+     create abnormal edges to them.  */
+  if (stmt_ann (stmt)->reachable_exception_handlers
+      && !TREE_NOTHROW (call))
+    {
+      tree t;
+
+      for (t = stmt_ann (stmt)->reachable_exception_handlers;
+	   t;
+	   t = TREE_CHAIN (t))
+	make_edge (bb, bb_for_stmt (TREE_VALUE (t)), EDGE_ABNORMAL);
+    }
+
+  /* Some calls are known not to return.  For such calls we create
+     a fake edge.
+
+     We really need to revamp how we build edges so that it's not
+     such a bloody pain to avoid creating edges for this case since
+     all we do is remove these edges when we're done building the
+     CFG.  */
+  if (call_expr_flags (call) & (ECF_NORETURN | ECF_LONGJMP))
+    {
+      make_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
+      return;
+    }
+
+  /* Don't forget the fall-thru edge.  */
+  make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+}
 
 /* Create exit edges for statements in block BB that alter the flow of
    control.  Statements that alter the control flow are 'goto', 'return'
@@ -1195,42 +1235,8 @@ make_exit_edges (basic_block bb)
 	make_edge (bb, EXIT_BLOCK_PTR, EDGE_ABNORMAL);
       break;
 
-      /* A CALL_EXPR node here means that the last statement of the block
-	 is a call to a non-returning function or a call that may throw.  */
     case CALL_EXPR:
-      /* If this function receives a nonlocal goto, then we need to
-	 make edges from this call site to all the nonlocal goto
-	 handlers.  */
-      if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
-	make_goto_expr_edges (bb);
-
-      /* If this statement has reachable exception handlers, then
-	 create abnormal edges to them.  */
-      if (stmt_ann (last)->reachable_exception_handlers)
-	{
-	  tree t;
-
-	  for (t = stmt_ann (last)->reachable_exception_handlers;
-	       t;
-	       t = TREE_CHAIN (t))
-	    make_edge (bb, bb_for_stmt (TREE_VALUE (t)), EDGE_ABNORMAL);
-	}
-
-      /* Some calls are known not to return.  For such calls we create
-	 a fake edge.
-
-	 We really need to revamp how we build edges so that it's not
-	 such a bloody pain to avoid creating edges for this case since
-	 all we do is remove these edges when we're done building the
-	 CFG.  */
-      if (call_expr_flags (last) & (ECF_NORETURN | ECF_LONGJMP))
-	{
-	  make_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
-	  return;
-	}
-
-      /* Don't forget the fall-thru edge.  */
-      make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+      make_call_expr_edges (bb, last, last);
       break;
 
     case RETURN_EXPR:
@@ -1242,24 +1248,8 @@ make_exit_edges (basic_block bb)
 	 may have an abnormal edge.  Search the RHS for this case and
 	 create any required edges.  */
       if (TREE_CODE (TREE_OPERAND (last, 1)) == CALL_EXPR)
-	{
-	  if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
-	    make_goto_expr_edges (bb);
+	make_call_expr_edges (bb, TREE_OPERAND (last, 1), last);
 
-	  if (stmt_ann (last)->reachable_exception_handlers)
-	    {
-	      tree t;
-
-	      for (t = stmt_ann (last)->reachable_exception_handlers;
-		   t;
-		   t = TREE_CHAIN (t))
-		make_edge (bb,
-			   bb_for_stmt (TREE_VALUE (t)),
-			   EDGE_ABNORMAL);
-	    }
-
-          make_edge (bb, successor_block (bb), 0);
-	}
       if (flag_non_call_exceptions
 	  && (could_trap_p (TREE_OPERAND (last, 0))
 	      || could_trap_p (TREE_OPERAND (last, 1))))
@@ -3049,6 +3039,7 @@ is_ctrl_altering_stmt (tree t)
 
   /* A CALL_EXPR also alters flow control if it may throw.  */
   if (code == CALL_EXPR
+      && !TREE_NOTHROW (t)
       && (VARRAY_ACTIVE_SIZE (eh_stack) > 0
 	  || stmt_ann (t)->reachable_exception_handlers))
     return true;
@@ -3057,6 +3048,7 @@ is_ctrl_altering_stmt (tree t)
      an abnormal edge if the current function has nonlocal labels.  */
   if (code == MODIFY_EXPR
       && TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR
+      && !TREE_NOTHROW (TREE_OPERAND (t, 1))
       && (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl)
           || VARRAY_ACTIVE_SIZE (eh_stack) > 0
 	  || stmt_ann (t)->reachable_exception_handlers))

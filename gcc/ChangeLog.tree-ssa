@@ -1,3 +1,9 @@
+2003-09-10  Jason Merrill  <jason@redhat.com>
+
+	* tree-cfg.c (make_call_expr_edges): Break out from...
+	(make_exit_edges): ...here.  Check TREE_NOTHROW.
+	(is_ctrl_altering_stmt): Check TREE_NOTHROW.
+
 2003-09-10  Paul Brook  <paul@nowt.org>
 
 	* gimplify.c (gimplify_compound_lval): Treat REALPART_EXPR and
