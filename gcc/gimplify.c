@@ -2161,8 +2161,13 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 static void
 gimplify_asm_expr (tree expr, tree *pre_p, tree *post_p)
 {
+  int noutputs = list_length (ASM_OUTPUTS (expr));
+  const char **oconstraints
+    = (const char **) alloca ((noutputs) * sizeof (const char *));
   int i;
   tree link;
+  const char *constraint;
+  bool allows_mem, allows_reg, is_inout;
 
   ASM_STRING (expr)
     = resolve_asm_operand_names (ASM_STRING (expr), ASM_OUTPUTS (expr),
@@ -2170,14 +2175,13 @@ gimplify_asm_expr (tree expr, tree *pre_p, tree *post_p)
 
   for (i = 0, link = ASM_OUTPUTS (expr); link; ++i, link = TREE_CHAIN (link))
     {
-      bool allows_reg, allows_mem, is_inout;
-      const char *constraint
+      oconstraints[i] = constraint
 	= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
 
       parse_output_constraint (&constraint, i, 0, 0,
 			       &allows_mem, &allows_reg, &is_inout);
 
-      if (!allows_reg)
+      if (!allows_reg && allows_mem)
 	(*lang_hooks.mark_addressable) (TREE_VALUE (link));
 
       gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
@@ -2207,8 +2211,13 @@ gimplify_asm_expr (tree expr, tree *pre_p, tree *post_p)
 
   for (link = ASM_INPUTS (expr); link; link = TREE_CHAIN (link))
     {
+      constraint
+	= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+      parse_input_constraint (&constraint, 0, 0, noutputs, 0,
+			      oconstraints, &allows_mem, &allows_reg);
+
       /* If the operand is a memory input, it should be an lvalue.  */
-      if (asm_op_is_mem_input (link, expr))
+      if (!allows_reg && allows_mem)
 	{
 	  (*lang_hooks.mark_addressable) (TREE_VALUE (link));
 	  gimplify_expr (&TREE_VALUE (link), pre_p, post_p,

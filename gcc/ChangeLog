@@ -1,3 +1,21 @@
+2003-10-08  Jason Merrill  <jason@redhat.com>
+
+	* gimplify.c (gimplify_asm_expr): Call parse_input_constraint
+	directly.  A mem operand has allows_mem set.
+
+	* stmt.c (resolve_asm_operand_names): Call check_unique_operand_names 
+	here.
+	(expand_asm_operands): Not here.
+	(parse_input_constraint): No longer static.
+	* tree.h: Declare it.
+
+2003-10-07  Jason Merrill  <jason@redhat.com>
+
+	PR optimization/12525
+	* gimplify.c (gimplify_asm_expr): If the constraint doesn't allow
+	a register, call mark_addressable.  Split an in/out operand that
+	does allow a register into separate input and output operands.
+
 2003-10-05  Richard Henderson  <rth@redhat.com>
 
 	* tree-inline.c (remap_type): New.

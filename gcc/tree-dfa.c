@@ -123,6 +123,7 @@ struct dfa_stats_d dfa_stats;
 
 
 /* Local functions.  */
+static void note_addressable (tree, stmt_ann_t);
 static void cleanup_operand_arrays (stmt_ann_t);
 static void get_expr_operands (tree, tree *, int, voperands_t);
 static void collect_dfa_stats (struct dfa_stats_d *);
@@ -225,9 +226,41 @@ get_stmt_operands (tree stmt)
       break;
 
     case ASM_EXPR:
-      get_expr_operands (stmt, &ASM_INPUTS (stmt), 0, prev_vops);
-      get_expr_operands (stmt, &ASM_OUTPUTS (stmt), opf_is_def, prev_vops);
-      get_expr_operands (stmt, &ASM_CLOBBERS (stmt), opf_is_def, prev_vops);
+      {
+	int noutputs = list_length (ASM_OUTPUTS (stmt));
+	const char **oconstraints
+	  = (const char **) alloca ((noutputs) * sizeof (const char *));
+	int i;
+	tree link;
+	const char *constraint;
+	bool allows_mem, allows_reg, is_inout;
+
+	for (i=0, link = ASM_OUTPUTS (stmt); link;
+	     ++i, link = TREE_CHAIN (link))
+	  {
+	    oconstraints[i] = constraint
+	      = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+	    parse_output_constraint (&constraint, i, 0, 0,
+				     &allows_mem, &allows_reg, &is_inout);
+	    if (allows_reg && is_inout)
+	      /* This should have been split in gimplify_asm_expr.  */
+	      abort ();
+	    if (!allows_reg && allows_mem)
+	      note_addressable (TREE_VALUE (link), ann);
+	    get_expr_operands (stmt, &TREE_VALUE (link), opf_is_def,
+			       prev_vops);
+	  }
+	for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
+	  {
+	    constraint
+	      = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+	    parse_input_constraint (&constraint, 0, 0, noutputs, 0,
+				    oconstraints, &allows_mem, &allows_reg);
+	    if (!allows_reg && allows_mem)
+	      note_addressable (TREE_VALUE (link), ann);
+	    get_expr_operands (stmt, &TREE_VALUE (link), 0, prev_vops);
+	  }
+      }
       break;
 
     case RETURN_EXPR:
@@ -545,14 +578,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
      variables that have had their address taken in this statement.  */
   if (TREE_CODE (var) == ADDR_EXPR)
     {
-      var = get_base_symbol (TREE_OPERAND (var, 0));
-      if (var && SSA_VAR_P (var))
-	{
-	  if (s_ann->addresses_taken == NULL)
-	    VARRAY_TREE_INIT (s_ann->addresses_taken, 2, "addresses_taken");
-	  VARRAY_PUSH_TREE (s_ann->addresses_taken, var);
-	}
-
+      note_addressable (TREE_OPERAND (var, 0), s_ann);
       return;
     }
 
@@ -661,6 +687,20 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
     }
 }
 
+/* Record that VAR had its address taken in the statement with annotations
+   S_ANN.  */
+
+static void
+note_addressable (tree var, stmt_ann_t s_ann)
+{
+  var = get_base_symbol (var);
+  if (var && SSA_VAR_P (var))
+    {
+      if (s_ann->addresses_taken == NULL)
+	VARRAY_TREE_INIT (s_ann->addresses_taken, 2, "addresses_taken");
+      VARRAY_PUSH_TREE (s_ann->addresses_taken, var);
+    }
+}
 
 /* Add DEF_P to the list of pointers to operands defined by STMT.  */
 

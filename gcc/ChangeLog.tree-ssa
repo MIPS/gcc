@@ -1,3 +1,12 @@
+2003-10-08  Jason Merrill  <jason@redhat.com>
+
+	PR optimization/12525
+	* tree-dfa.c (note_addressable): New fn, split out from...
+	(add_stmt_operands): Here.
+	(get_stmt_operands) <ASM_EXPR>: Call it for mem ops.
+	* gimplify.c (gimplify_asm_expr): Call parse_input_constraint
+	directly.  It's only a mem op if allows_mem is set.
+
 2003-10-08  Diego Novillo  <dnovillo@redhat.com>
 
 	PR/12187
