@@ -3918,22 +3918,34 @@ check_data_variable (gfc_data_variable * var, locus * where)
     {
       ref = e->ref;
 
-      /* Find the inner most reference.  */
-      while (ref->next)
-        ref = ref->next;
+      /* Find the array section reference.  */
+      for (ref = e->ref; ref; ref = ref->next)
+	{
+	  if (ref->type != REF_ARRAY)
+	    continue;
+	  if (ref->u.ar.type == AR_ELEMENT)
+	    continue;
+	  break;
+	}
+      assert (ref);
 
       /* Set marks asscording to the reference pattern.  */
-      if (ref->u.ar.type == AR_FULL)
-        mark = 1;
-      else if (ref->u.ar.type == AR_SECTION)
-        {
+      switch (ref->u.ar.type)
+	{
+	case AR_FULL:
+	  mark = 1;
+	  break;
+
+	case AR_SECTION:
           ar = &ref->u.ar;
           /* Get the start position of array section.  */
           gfc_get_section_index (ar, section_index, &offset);
           mark = 2;
-        }
-      else
-        mark = 3;
+	  break;
+
+	default:
+	  abort();
+	}
 
       if (gfc_array_size (e, &size) == FAILURE)
 	{
@@ -3961,7 +3973,7 @@ check_data_variable (gfc_data_variable * var, locus * where)
 	break;
 
       /* Assign initial value to symbol.  */
-      gfc_assign_data_value (var->expr, values.vnode->expr, mark, offset);
+      gfc_assign_data_value (var->expr, values.vnode->expr, offset);
 
       if (mark == 1)
         mpz_add_ui (offset, offset, 1);
@@ -3969,7 +3981,7 @@ check_data_variable (gfc_data_variable * var, locus * where)
       /* Modify the array section indexes and recalculate the offset for
          next element.  */
       else if (mark == 2)
-        gfc_modify_index_and_calculate_offset (section_index, ar, &offset);
+        gfc_advance_section (section_index, ar, &offset);
 
       mpz_sub_ui (size, size, 1);
     }

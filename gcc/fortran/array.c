@@ -598,15 +598,13 @@ gfc_append_constructor (gfc_expr * base, gfc_expr * new)
    constructor onto the base's one according to the offset.  */
 
 void
-gfc_insert_constructor (gfc_expr * base, gfc_expr * new)
+gfc_insert_constructor (gfc_expr * base, gfc_constructor * c1)
 {
-  gfc_constructor *c, *c1, *pre;
+  gfc_constructor *c, *pre;
   expr_t type;
 
-  assert (base->expr_type == new->expr_type);
   type = base->expr_type;
 
-  c1 = new->value.constructor;
   if (base->value.constructor == NULL)
     base->value.constructor = c1;
   else

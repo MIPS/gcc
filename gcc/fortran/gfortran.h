@@ -1268,8 +1268,8 @@ extern iterator_stack *iter_stack;
 /* data.c  */
 void gfc_formalize_init_value (gfc_symbol *);
 void gfc_get_section_index (gfc_array_ref *, mpz_t *, mpz_t *);
-void gfc_assign_data_value (gfc_expr *, gfc_expr *, int, mpz_t);
-void gfc_modify_index_and_calculate_offset (mpz_t *, gfc_array_ref *, mpz_t *);
+void gfc_assign_data_value (gfc_expr *, gfc_expr *, mpz_t);
+void gfc_advance_section (mpz_t *, gfc_array_ref *, mpz_t *);
 
 /* scanner.c */
 void gfc_scanner_done_1 (void);
@@ -1581,7 +1581,7 @@ try gfc_array_size (gfc_expr *, mpz_t *);
 try gfc_array_dimen_size (gfc_expr *, int, mpz_t *);
 try gfc_array_ref_shape (gfc_array_ref *, mpz_t *);
 gfc_array_ref *gfc_find_array_ref (gfc_expr *);
-void gfc_insert_constructor (gfc_expr *, gfc_expr *);
+void gfc_insert_constructor (gfc_expr *, gfc_constructor *);
 gfc_constructor *gfc_get_constructor (void);
 tree gfc_conv_array_initializer (tree type, gfc_expr * expr);
 try spec_size (gfc_array_spec *, mpz_t *);

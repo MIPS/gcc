@@ -1,5 +1,23 @@
 2004-01-01  Paul Brook  <paul@codesourcery.com>
 
+	* array.c (gfc_append_constructor): Take constructor, not expression.
+	* data.c (struct gfc_expr_stack): Remove.
+	(expr_stack): Remove.
+	(find_con_by_offset): Rename from find_expr_in_con.
+	(find_con_by_component): Rename from find_component_in_con.
+	(gfc_get_expr_stack): Remove.
+	(gfc_assign_data_value): Rewrite.
+	(gfc_expr_push): Remove.
+	(gfc_expr_pop): Remove.
+	(gfc_advance_section): Rename from
+	gfc_modify_index_and_calculate_offset.  Handle unbounded sections.
+	(gfc_get_section_index): Handle unbounded sections.
+	* gfortran.h: Update prototypes.
+	* resolve.c (check_data_variable): Array section maight not be the
+	last ref.
+
+2004-01-01  Paul Brook  <paul@codesourcery.com>
+
 	PR fortran/13432
 	* resolve.c (resolve_symbol): Allow assumed length function results.
 

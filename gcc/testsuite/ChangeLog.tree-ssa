@@ -1,3 +1,7 @@
+2004-01-01  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/execute/data_2.f90: New test.
+
 2003-12-16  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.dg/tree-ssa/20031216-2.c: Remove duplicate test.
