@@ -771,7 +771,6 @@ expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
       bitmap_a_or_b (dfphis, dfphis, temp);      
       if (kill != NULL)
 	continue;
-      occur = TREE_OPERAND (occur, 1);
       get_stmt_operands (occurp);     
       uses = use_ops (stmt_ann (occurp));
       for (j = 0; uses && j < VARRAY_ACTIVE_SIZE (uses); j ++)

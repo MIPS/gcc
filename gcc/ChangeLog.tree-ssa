@@ -1,3 +1,8 @@
+2003-11-11  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (expr_phi_insertion): Remove unused code that was
+	causing ICE's for VA_ARG_EXPR.
+	
 2003-11-10  Richard Henderson  <rth@redhat.com>
 
 	* gimple-low.c (lower_function_body): Lower bind_expr in place.
