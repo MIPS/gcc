@@ -2392,7 +2392,7 @@ libgcj-test.spec.in libgcj.spec.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = tar
+TAR = gtar
 GZIP_ENV = --best
 DIST_SUBDIRS =  @DIRLTDL@ testsuite gcj include @DIRLTDL@ gcj include
 DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
@@ -4349,7 +4349,7 @@ maintainer-clean-generic clean mostlyclean distclean maintainer-clean
 
 
 .java.class:
-	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here)';'$(srcdir) \
+	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here)@CLASSPATH_SEP@$(srcdir) \
              -d $(here) $<
 
 libgcj-@gcc_version@.jar: $(all_java_class_files)

@@ -219,7 +219,7 @@ all_java_source_files = \
 all_java_class_files = $(all_java_source_files:.java=.class)
 
 .java.class:
-	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) \
+	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here)@CLASSPATH_SEP@$(srcdir) \
              -d $(here) $<
 
 libgcj-@gcc_version@.jar: $(all_java_class_files)
