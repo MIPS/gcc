@@ -187,8 +187,7 @@ darwin_pragma_options (cpp_reader *pfile ATTRIBUTE_UNUSED)
    Do we want pack() to do another push or a pop?  */
 
 void
-darwin_pragma_pack (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+darwin_pragma_pack (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   tree x;
   int align = -1;
@@ -604,9 +603,8 @@ extern void mod_init_section (void), mod_term_section (void);
    pragma CALL_ON_LOAD and CALL_ON_UNLOAD handlers below.
    So: "#pragma CALL_ON_LOAD foo"  will output ".mod_init_func _foo".  */
 
-static void directive_with_named_function (
-     const char *pragma_name,
-     void (*section_function) (void))
+static void directive_with_named_function (const char *pragma_name,
+			         void (*section_function) (void))
 {
   tree decl;
   int tok;
@@ -626,14 +624,12 @@ static void directive_with_named_function (
     warning ("function name expected after #pragma %s\n", pragma_name);
 }
 void
-darwin_pragma_call_on_load (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+darwin_pragma_call_on_load (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   directive_with_named_function ("CALL_ON_LOAD", mod_init_section);
 }
 void
-darwin_pragma_call_on_unload (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+darwin_pragma_call_on_unload (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   directive_with_named_function ("CALL_ON_UNLOAD", mod_term_section);
 }
@@ -641,8 +637,7 @@ darwin_pragma_call_on_unload (pfile)
 
 /* APPLE LOCAL begin CALL_ON_MODULE_BIND deprecated 2002-4-10 ff */
 void
-darwin_pragma_call_on_module_bind (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+darwin_pragma_call_on_module_bind (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   warning ("#pragma CALL_ON_MODULE_BIND is no longer supported, ignoring.  "
   	   "Use CALL_ON_LOAD instead.");
@@ -653,43 +648,37 @@ darwin_pragma_call_on_module_bind (pfile)
 /* These need to live only long enough to get their uses flushed out
    of the system.  */
 void
-darwin_pragma_cc_no_mach_text_sections (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+darwin_pragma_cc_no_mach_text_sections (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   warning ("#pragma CC_NO_MACH_TEXT_SECTIONS is no longer supported, ignoring");
 }
 
 void
-darwin_pragma_cc_opt_off (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+darwin_pragma_cc_opt_off (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   warning ("#pragma CC_OPT_OFF is no longer supported, ignoring");
 }
 
 void
-darwin_pragma_cc_opt_on (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+darwin_pragma_cc_opt_on (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   warning ("#pragma CC_OPT_ON is no longer supported, ignoring");
 }
 
 void
-darwin_pragma_cc_opt_restore (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+darwin_pragma_cc_opt_restore (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   warning ("#pragma CC_OPT_RESTORE is no longer supported, ignoring");
 }
 
 void
-darwin_pragma_cc_writable_strings (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+darwin_pragma_cc_writable_strings (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   warning ("#pragma CC_WRITABLE_STRINGS is no longer supported, ignoring");
 }
 
 void
-darwin_pragma_cc_non_writable_strings (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+darwin_pragma_cc_non_writable_strings (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   warning ("#pragma CC_NON_WRITABLE_STRINGS is no longer supported, ignoring");
 }

@@ -60,9 +60,8 @@ static tree machopic_stub_list_entry PARAMS ((const char *));
 
 /* APPLE LOCAL begin coalescing  */
 void
-make_decl_coalesced (decl, private_extern_p)
-     tree decl;
-     int private_extern_p;      /* 0 for global, 1 for private extern */
+make_decl_coalesced (tree decl, int private_extern_p)
+      /* 0 for global, 1 for private extern */
 {
   int no_toc_p = 1;             /* Don't add to table of contents */
 #if 0
@@ -399,8 +398,7 @@ machopic_non_lazy_ptr_list_entry (const char *name, int create_p)
 /* APPLE LOCAL begin coalescing */
 /* Was the variable NAME ever referenced?  */
 int
-machopic_var_referred_to_p (name)
-     const char *name;
+machopic_var_referred_to_p (const char *name)
 {
   return (machopic_non_lazy_ptr_list_entry (name, /*create:*/ 0) != NULL);
 }
@@ -408,8 +406,7 @@ machopic_var_referred_to_p (name)
 
 /* APPLE LOCAL begin weak import */
 const char *
-machopic_non_lazy_ptr_name (name)
-     const char *name;
+machopic_non_lazy_ptr_name (const char *name)
 {
     return IDENTIFIER_POINTER (TREE_PURPOSE 
 		(machopic_non_lazy_ptr_list_entry (name, /*create:*/ 1)));
@@ -506,8 +503,7 @@ machopic_stub_list_entry (const char *name)
 }
 
 const char * 
-machopic_stub_name (name)
-     const char *name;
+machopic_stub_name (const char *name)
 {
   return IDENTIFIER_POINTER (TREE_PURPOSE (machopic_stub_list_entry (name)));
 }
@@ -1547,8 +1543,7 @@ darwin_globalize_label (FILE *stream, const char *name)
    error messages.  */
 
 void
-abort_assembly_and_exit (status)
-    int status;
+abort_assembly_and_exit (int status)
 {
   /* If we're aborting, get the assembler to abort, too.  */
   if (status == FATAL_EXIT_CODE && asm_out_file != 0)
@@ -1560,18 +1555,13 @@ abort_assembly_and_exit (status)
 
 /* APPLE LOCAL coalescing  */
 void
-darwin_asm_named_section (name, flags)
-     const char *name;
-     unsigned int flags ATTRIBUTE_UNUSED;
+darwin_asm_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED)
 {
   fprintf (asm_out_file, ".section %s\n", name);
 }
 
 unsigned int
-darwin_section_type_flags (decl, name, reloc)
-     tree decl;
-     const char *name;
-     int reloc;
+darwin_section_type_flags (tree decl, const char *name, int reloc)
 {
   unsigned int flags = default_section_type_flags (decl, name, reloc);
  
@@ -1599,12 +1589,8 @@ darwin_section_type_flags (decl, name, reloc)
    class data members on the padding at the end of the base class.  */
 
 tree
-darwin_handle_odd_attribute (node, name, args, flags, no_add_attrs)
-     tree *node;
-     tree name;
-     tree args ATTRIBUTE_UNUSED;
-     int flags ATTRIBUTE_UNUSED;
-     bool *no_add_attrs;
+darwin_handle_odd_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
+			     int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
 {
   if (! POSSIBLY_COMPILING_APPLE_KEXT_P ())
     {
@@ -1636,10 +1622,7 @@ darwin_handle_odd_attribute (node, name, args, flags, no_add_attrs)
 extern void cstring_section (void),
 	    literal4_section (void), literal8_section (void);
 int
-darwin_set_section_for_var_p (exp, reloc, align)
-     tree exp;
-     int reloc;
-     int align;
+darwin_set_section_for_var_p (tree exp, int reloc, int align)
 {
   if (!reloc && TREE_CODE (exp) == VAR_DECL
       && DECL_ALIGN (exp) == align 
