@@ -1,3 +1,15 @@
+2004-01-15  Josef Zlomek  <zlomekj@suse.cz>
+
+	Backport from mainline.
+	2003-10-03  Jeff Sturm  <jsturm@one-point.com>
+		    Roger Sayle  <roger@eyesopen.com>
+
+		PR optimization/12289
+		* calls.c (emit_call_1): Pretend to have popped the arguments
+		to noreturn and longjmp functions instead of ignoring them.
+		(expand_call): Don't adjust stack_pointer_delta while
+		inhibit_defer_pop is set.
+
 2004-01-14  Alan Modra  <amodra@bigpond.net.au>
 
 	* calls.c (save_fixed_argument_area): Revert to passing low_to_save
