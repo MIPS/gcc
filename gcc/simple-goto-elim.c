@@ -66,10 +66,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    Ana M. Erosa and Laurie J. Hendren, in the proceedings of the 1994 
    International Conference on Computer Languages (ICCL'94) pp.229-240. 
    ftp://ftp-acaps.cs.mcgill.ca/pub/doc/papers/ICCL94.ps.gz
+   http://citeseer.nj.nec.com/22521.html
 
    - Erosa's MSc. Thesis, University McGill : 
    A goto-elimination method and its implementation for the McCAT C compiler,
-   http://www.sable.mcgill.ca/~hendren/ftp/erosa/thesis.ps.gz  */
+   http://www.sable.mcgill.ca/~hendren/ftp/erosa/thesis.ps.gz
+   http://citeseer.nj.nec.com/erosa95gotoelimination.html  */
 
 typedef struct label_hash_entry
 {
