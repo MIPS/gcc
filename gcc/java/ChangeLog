@@ -1,3 +1,8 @@
+2004-08-16  Andrew Haley  <aph@redhat.com>
+
+	* jcf-write.c (find_constant_index): Canonicalize NaNs when
+	generating bytecode.
+
 2004-05-31  Release Manager
 
 	* GCC 3.3.4 Released.
