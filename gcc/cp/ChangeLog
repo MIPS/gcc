@@ -1,13 +1,47 @@
-2004-04-07  Jakub Jelinek  <jakub@redhat.com>
+2004-05-31  Release Manager
 
+	* GCC 3.3.4 Released.
+
+2004-05-16  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	Backport from mainline:
+	2004-03-18  Mark Mitchell  <mark@codesourcery.com>
+	* call.c (build_conditional_expr): Do not call force_rvalue for
+	operands of void_type when the conditional expression itself has
+	void type.
+
+2004-05-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Make-lang.in (cp/init.o): Depend on diagnostic.h.
+	* except.c (do_free_exception): Prototype.
+	* init.c: Include "diagnostic.h".
+
+2004-05-04  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2004-04-01  Mark Mitchell  <mark@codesourcery.com>
+	PR c++/14810
+	* decl.c (maybe_push_cleanup_level): Robustify.
+
+2004-05-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	Backport from gcc-3_4-branch
+	2004-03-30  Mark Mitchell  <mark@codesourcery.com>
+	            Jakub Jelinek  <jakub@redhat.com>
+	PR c++/14763
+	* pt.c (tsubst_default_argument): Clear current_function_decl.
 	* decl2.c (mark_used): Don't segfault if cfun != NULL but
 	current_function_decl == NULL.
 
-2004-03-30  Mark Mitchell  <mark@codesourcery.com>
+2004-05-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
+	Backport from gcc-3_4-branch:
+	2004-03-30  Mark Mitchell  <mark@codesourcery.com>
 	PR c++/14724
 	* decl.c (start_decl_1): Do not decide whether or not to create a
 	new cleanup level until after the type has been completed.
+
+2004-03-30  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/14763
 	* pt.c (tsubst_default_argument): Clear current_function_decl.

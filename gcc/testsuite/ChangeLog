@@ -1,3 +1,58 @@
+2004-05-31  Release Manager
+
+	* GCC 3.3.4 Released.
+
+2004-05-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	Backport from mainline:
+
+	2004-03-26  James A. Morrison  <ja2morri@uwaterloo.ca>
+
+	* gcc.dg/20001013-1.c: Run on 32-bit and 64-bit SPARC.
+	* gcc.dg/20001101-1.c: Likewise.
+	* gcc.dg/20001102-1.c: Likewise.
+
+	2004-03-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/ultrasp2.c: Do not pass -m64.  Remove redundant lines.
+	* gcc.dg/ultrasp4.c: Likewise.
+	* gcc.dg/ultrasp8.c: Do not pass -m64.  Add sparcv9-*-*.
+
+	2004-01-26  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/sparc-ret.c: Run only in 32-bit mode.  Don't scan
+	the assembly output if -m64 is passed.
+
+2004-05-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/sparc-trap-1.c: New test.
+
+2004-05-26  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR optimization/15296
+	* gcc.c-torture/execute/pr15296.c: New test.
+
+2004-05-17  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* gcc.dg/loop-4.c: New test.
+
+2004-04-29  Matthias Klose  <doko@debian.org>
+
+	Backport:
+
+	2004-03-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20040304-1.c: New test.
+
+2004-04-20  Paul Brook  <paul@codesourcery.com>
+
+	PR 2123
+	* g++.dg/expr/anew1.C: XFAIL and make reproducible.  Call abort on
+	failure and exit(0) on success.
+	* g++.dg/expr/anew2.C: Ditto.
+	* g++.dg/expr/anew3.C: Ditto.
+	* g++.dg/expr/anew4.C: Ditto. 
+
 2004-03-30  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/14724

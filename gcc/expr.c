@@ -9157,8 +9157,6 @@ expand_expr (exp, target, tmode, modifier)
 	    else
 	      {
 		target = assign_temp (type, 2, 0, 1);
-		/* All temp slots at this level must not conflict.  */
-		preserve_temp_slots (target);
 		SET_DECL_RTL (slot, target);
 		if (TREE_ADDRESSABLE (slot))
 		  put_var_into_stack (slot, /*rescan=*/false);
@@ -10057,6 +10055,9 @@ do_jump (exp, if_false_label, if_true_label)
       break;
 
     case INTEGER_CST:
+      /* ??? This should never happen - but it does, GCC PR opt/14749.  */
+      if (TREE_CONSTANT_OVERFLOW (exp))
+	goto normal;
       temp = integer_zerop (exp) ? if_false_label : if_true_label;
       if (temp)
 	emit_jump (temp);

@@ -1,3 +1,38 @@
+2004-05-31  Release Manager
+
+	* GCC 3.3.4 Released.
+
+2004-05-24  Ronald Landheer-Cieslak  <ronald@landheer.com>
+
+	PR libstdc++/11171
+	* acinclude.m4: Deal with --with-newlib.
+	* aclocal.m4: Regenerate.
+	* configure.in: Set os_include_dir correctly when --with-newlib.
+	* configure: Regenerate.
+	
+2004-05-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/14720
+	* config/linker-map.gnu: Export basic_ios::_M_setstate.
+	* testsuite/abi_check.cc (check_version): Add GLIBCXX_3.2.4
+	to known versions.
+	* configure.in (libtool_VERSION): To 5:6:0. 
+	* configure: Regenerated.
+
+2004-05-07  Matthias Klose  <doko@debian.org>
+
+	* include/backward/iterator.h: Add GPL copyright info,
+	with exception clause.
+	* config/cpu/hppa/atomicity.h: Likewise.
+	* config/io/c_io_libio_codecvt.c: Likewise.
+	* include/bits/boost_concept_check.h: Likewise.
+	* include/backward/iterator.h: Likewise.
+	* libsupc++/tinfo.h: Likewise.
+	* po/string_literals.cc: Likewise.
+	* src/wstring-inst.cc: Likewise.
+	* libio/_G_config.h: Likewise.
+	* libio/iolibio.h: Likewise.
+
 2004-02-22  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/14220

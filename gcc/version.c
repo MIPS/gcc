@@ -6,7 +6,7 @@
    please modify this string to indicate that, e.g. by putting your
    organization's name in parentheses at the end of the string.  */
 
-const char version_string[] = "3.3.3 20040412 (Red Hat Linux 3.3.3-7)";
+const char version_string[] = "3.3.4 20040623 (Red Hat Linux 3.3.4-1)";
 
 /* This is the location of the online document giving instructions for
    reporting bugs.  If you distribute a modified version of GCC,
