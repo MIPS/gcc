@@ -1840,7 +1840,7 @@ verify_flow_info ()
 	  if (e->flags & EDGE_FALLTHRU)
 	    n_fallthru++;
 
-	  if ((e->flags & ~(EDGE_DFS_BACK | EDGE_CAN_FALLTHRU)) == 0)
+	  if ((e->flags & ~(EDGE_DFS_BACK | EDGE_CAN_FALLTHRU | EDGE_IRREDUCIBLE_LOOP)) == 0)
 	    n_branch++;
 
 	  if (e->flags & EDGE_ABNORMAL_CALL)

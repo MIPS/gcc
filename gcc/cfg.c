@@ -640,7 +640,7 @@ dump_edge_info (file, e, do_succ)
   if (e->flags || e->loop_histogram)
     {
       static const char * const bitnames[]
-	= {"fallthru", "ab", "abcall", "eh", "fake", "dfs_back", "can_fallthru"};
+	= {"fallthru", "ab", "abcall", "eh", "fake", "dfs_back", "can_fallthru", "irreducible"};
       int i, flags = e->flags;
 
       fputs (" (", file);
