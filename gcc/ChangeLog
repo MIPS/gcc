@@ -1,3 +1,8 @@
+Thu Dec  5 14:10:15 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_prologue):  Add comment, do not use
+	fast prologues for cold and normal functions.
+
 Thu Dec  5 00:52:37 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (x86_rep_movl_optimal): New variable.
