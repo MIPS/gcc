@@ -2,7 +2,7 @@
    by the C-based front ends.  The structure of gimplified, or
    language-independent, trees is dictated by the grammar described in this
    file.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Lowering of expressions contributed by Sebastian Pop <s.pop@laposte.net>
    Re-written to support lowering of whole function trees, documentation
    and miscellaneous cleanups by Diego Novillo <dnovillo@redhat.com>
@@ -48,7 +48,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /*  The gimplification pass converts the language-dependent trees
     (ld-trees) emitted by the parser into language-independent trees
-    (li-trees) that are the target of SSA analysis and transformations.  
+    (li-trees) that are the target of SSA analysis and transformations.
 
     Language-independent trees are based on the SIMPLE intermediate
     representation used in the McCAT compiler framework:
@@ -69,35 +69,35 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Local declarations.  */
 
-void c_gimplify_stmt          PARAMS ((tree *));
-static void gimplify_expr_stmt       PARAMS ((tree *));
-static void gimplify_decl_stmt       PARAMS ((tree *, tree *));
-static void gimplify_for_stmt        PARAMS ((tree *, tree *));
-static void gimplify_while_stmt      PARAMS ((tree *));
-static void gimplify_do_stmt         PARAMS ((tree *));
-static void gimplify_if_stmt         PARAMS ((tree *));
-static void gimplify_switch_stmt     PARAMS ((tree *));
-static void gimplify_return_stmt     PARAMS ((tree *));
-static void gimplify_stmt_expr       PARAMS ((tree *));
-static void gimplify_compound_literal_expr PARAMS ((tree *));
-static void make_type_writable       PARAMS ((tree));
+void c_gimplify_stmt (tree *);
+static void gimplify_expr_stmt (tree *);
+static void gimplify_decl_stmt (tree *, tree *);
+static void gimplify_for_stmt (tree *, tree *);
+static void gimplify_while_stmt (tree *);
+static void gimplify_do_stmt (tree *);
+static void gimplify_if_stmt (tree *);
+static void gimplify_switch_stmt (tree *);
+static void gimplify_return_stmt (tree *);
+static void gimplify_stmt_expr (tree *);
+static void gimplify_compound_literal_expr (tree *);
+static void make_type_writable (tree);
 #if defined ENABLE_CHECKING
-static int is_last_stmt_of_scope     PARAMS ((tree));
+static int is_last_stmt_of_scope (tree);
 #endif
-static void gimplify_block	     PARAMS ((tree *, tree *));
-static void gimplify_cleanup	     PARAMS ((tree *, tree *));
-static tree gimplify_c_loop	     PARAMS ((tree, tree, tree, int));
-static void push_context             PARAMS ((void));
-static void pop_context              PARAMS ((void));
-static tree c_build_bind_expr	     PARAMS ((tree, tree));
-static void add_block_to_enclosing   PARAMS ((tree));
-static tree mostly_copy_tree_r       PARAMS ((tree *, int *, void *));
-static void gimplify_condition		PARAMS ((tree *));
+static void gimplify_block (tree *, tree *);
+static void gimplify_cleanup (tree *, tree *);
+static tree gimplify_c_loop (tree, tree, tree, int);
+static void push_context (void);
+static void pop_context (void);
+static tree c_build_bind_expr (tree, tree);
+static void add_block_to_enclosing (tree);
+static tree mostly_copy_tree_r (tree *, int *, void *);
+static void gimplify_condition (tree *);
 
 enum bc_t { bc_break = 0, bc_continue = 1 };
-static tree begin_bc_block PARAMS ((enum bc_t));
-static tree finish_bc_block PARAMS ((tree, tree));
-static tree build_bc_goto PARAMS ((enum bc_t));
+static tree begin_bc_block (enum bc_t);
+static tree finish_bc_block (tree, tree);
+static tree build_bc_goto (enum bc_t);
 
 static struct c_gimplify_ctx
 {
@@ -107,7 +107,7 @@ static struct c_gimplify_ctx
 } *ctxp;
 
 static void
-push_context ()
+push_context (void)
 {
   if (ctxp)
     abort ();
@@ -117,7 +117,7 @@ push_context ()
 }
 
 static void
-pop_context ()
+pop_context (void)
 {
   if (!ctxp || ctxp->current_bc_label)
     abort ();
@@ -131,8 +131,7 @@ pop_context ()
    GENERIC.  */
 
 void
-c_genericize (fndecl)
-     tree fndecl;
+c_genericize (tree fndecl)
 {
   FILE *dump_file;
   int dump_flags;
@@ -169,9 +168,8 @@ c_genericize (fndecl)
 /*  Entry point for the tree lowering pass.  Recursively scan
     *STMT_P and convert it to a GIMPLE tree.  */
 
-void 
-c_gimplify_stmt (stmt_p)
-     tree *stmt_p;
+void
+c_gimplify_stmt (tree *stmt_p)
 {
   tree stmt, next;
   tree outer_pre = NULL_TREE;
@@ -179,14 +177,14 @@ c_gimplify_stmt (stmt_p)
   /* PRE and POST are tree chains that contain the side-effects of the
      gimplified tree.  For instance, given the expression tree:
 
-     		c = ++a * 3 + b++;
+		c = ++a * 3 + b++;
 
      After gimplification, the tree will be re-written as:
 
-     		a = a + 1;
+		a = a + 1;
 		t1 = a * 3;	<-- PRE
-     		c = t1 + b;
-     		b = b + 1;	<-- POST  */
+		c = t1 + b;
+		b = b + 1;	<-- POST  */
 
   for (stmt = *stmt_p; stmt && stmt != error_mark_node; stmt = next)
     {
@@ -220,7 +218,7 @@ c_gimplify_stmt (stmt_p)
 	case FOR_STMT:
 	  gimplify_for_stmt (&stmt, &pre);
 	  break;
-	  
+
 	case WHILE_STMT:
 	  gimplify_while_stmt (&stmt);
 	  break;
@@ -232,7 +230,7 @@ c_gimplify_stmt (stmt_p)
 	case IF_STMT:
 	  gimplify_if_stmt (&stmt);
 	  break;
-	  
+
 	case SWITCH_STMT:
 	  gimplify_switch_stmt (&stmt);
 	  break;
@@ -322,8 +320,7 @@ c_gimplify_stmt (stmt_p)
 }
 
 static void
-add_block_to_enclosing (block)
-     tree block;
+add_block_to_enclosing (tree block)
 {
   tree enclosing;
 
@@ -332,7 +329,7 @@ add_block_to_enclosing (block)
     if (BIND_EXPR_BLOCK (enclosing))
       break;
 
-  enclosing = BIND_EXPR_BLOCK (enclosing);	 
+  enclosing = BIND_EXPR_BLOCK (enclosing);
   BLOCK_SUBBLOCKS (enclosing) = chainon (BLOCK_SUBBLOCKS (enclosing), block);
 }
 
@@ -344,9 +341,7 @@ add_block_to_enclosing (block)
      genericized.  */
 
 static tree
-c_build_bind_expr (block, body)
-     tree block;
-     tree body;
+c_build_bind_expr (tree block, tree body)
 {
   tree decls, bind;
 
@@ -383,9 +378,7 @@ c_build_bind_expr (block, body)
    sequence.  */
 
 static void
-gimplify_block (stmt_p, next_p)
-     tree *stmt_p;
-     tree *next_p;
+gimplify_block (tree *stmt_p, tree *next_p)
 {
   tree *p;
   tree block;
@@ -426,9 +419,7 @@ gimplify_block (stmt_p, next_p)
    EH-only cleanup.  */
 
 static void
-gimplify_cleanup (stmt_p, next_p)
-     tree *stmt_p;
-     tree *next_p;
+gimplify_cleanup (tree *stmt_p, tree *next_p)
 {
   tree stmt = *stmt_p;
   tree body = TREE_CHAIN (stmt);
@@ -455,8 +446,7 @@ gimplify_cleanup (stmt_p, next_p)
 	STMT should be stored.  */
 
 static void
-gimplify_expr_stmt (stmt_p)
-     tree *stmt_p;
+gimplify_expr_stmt (tree *stmt_p)
 {
   tree stmt = EXPR_STMT_EXPR (*stmt_p);
 
@@ -497,8 +487,7 @@ gimplify_expr_stmt (stmt_p)
    a use of the decl.  Turn such a thing into a COMPOUND_EXPR.  */
 
 static void
-gimplify_condition (cond_p)
-     tree *cond_p;
+gimplify_condition (tree *cond_p)
 {
   tree cond = *cond_p;
   if (cond && TREE_CODE (cond) == TREE_LIST)
@@ -516,8 +505,7 @@ gimplify_condition (cond_p)
    Just creates a label and pushes it into the current context.  */
 
 static tree
-begin_bc_block (bc)
-     enum bc_t bc;
+begin_bc_block (enum bc_t bc)
 {
   tree label = build_decl (LABEL_DECL, ctxp->bc_id[bc], NULL_TREE);
   DECL_ARTIFICIAL (label) = 1;
@@ -535,8 +523,7 @@ begin_bc_block (bc)
    body.  Otherwise, just forget the label.  */
 
 static tree
-finish_bc_block (label, body)
-     tree label, body;
+finish_bc_block (tree label, tree body)
 {
   if (label != ctxp->current_bc_label)
     abort ();
@@ -558,8 +545,7 @@ finish_bc_block (label, body)
    indicates which.  */
 
 static tree
-build_bc_goto (bc)
-     enum bc_t bc;
+build_bc_goto (enum bc_t bc)
 {
   tree label;
   tree target_name = ctxp->bc_id[bc];
@@ -594,11 +580,7 @@ build_bc_goto (bc)
    loop body as in do-while loops.  */
 
 static tree
-gimplify_c_loop (cond, body, incr, cond_is_first)
-     tree cond;
-     tree body;
-     tree incr;
-     int cond_is_first;
+gimplify_c_loop (tree cond, tree body, tree incr, int cond_is_first)
 {
   tree exit, cont_block, break_block, loop;
   const char *stmt_filename;
@@ -671,9 +653,7 @@ gimplify_c_loop (cond, body, incr, cond_is_first)
    prequeue and hand off to gimplify_c_loop.  */
 
 static void
-gimplify_for_stmt (stmt_p, pre_p)
-     tree *stmt_p;
-     tree *pre_p;
+gimplify_for_stmt (tree *stmt_p, tree *pre_p)
 {
   tree stmt = *stmt_p;
 
@@ -688,8 +668,7 @@ gimplify_for_stmt (stmt_p, pre_p)
 /* Gimplify a WHILE_STMT node.  */
 
 static void
-gimplify_while_stmt (stmt_p)
-     tree *stmt_p;
+gimplify_while_stmt (tree *stmt_p)
 {
   tree stmt = *stmt_p;
   *stmt_p = gimplify_c_loop (WHILE_COND (stmt), WHILE_BODY (stmt),
@@ -699,8 +678,7 @@ gimplify_while_stmt (stmt_p)
 /* Gimplify a DO_STMT node.  */
 
 static void
-gimplify_do_stmt (stmt_p)
-     tree *stmt_p;
+gimplify_do_stmt (tree *stmt_p)
 {
   tree stmt = *stmt_p;
   *stmt_p = gimplify_c_loop (DO_COND (stmt), DO_BODY (stmt),
@@ -710,8 +688,7 @@ gimplify_do_stmt (stmt_p)
 /* Genericize an IF_STMT by turning it into a COND_EXPR.  */
 
 static void
-gimplify_if_stmt (stmt_p)
-     tree *stmt_p;
+gimplify_if_stmt (tree *stmt_p)
 {
   tree stmt = *stmt_p;
   tree then_ = THEN_CLAUSE (stmt);
@@ -771,8 +748,7 @@ gimplify_if_stmt (stmt_p)
 /* Genericize a SWITCH_STMT by turning it into a SWITCH_EXPR.  */
 
 static void
-gimplify_switch_stmt (stmt_p)
-     tree *stmt_p;
+gimplify_switch_stmt (tree *stmt_p)
 {
   tree stmt = *stmt_p;
   tree body = SWITCH_BODY (stmt);
@@ -798,8 +774,7 @@ gimplify_switch_stmt (stmt_p)
 /* Genericize a RETURN_STMT by turning it into a RETURN_EXPR.  */
 
 static void
-gimplify_return_stmt (stmt_p)
-     tree *stmt_p;
+gimplify_return_stmt (tree *stmt_p)
 {
   tree expr = RETURN_STMT_EXPR (*stmt_p);
   expr = build1 (RETURN_EXPR, void_type_node, expr);
@@ -825,9 +800,7 @@ gimplify_return_stmt (stmt_p)
    different if the DECL_STMT is somehow embedded in an expression.  */
 
 static void
-gimplify_decl_stmt (stmt_p, next_p)
-    tree *stmt_p;
-    tree *next_p;
+gimplify_decl_stmt (tree *stmt_p, tree *next_p)
 {
   tree stmt = *stmt_p;
   tree decl = DECL_STMT_DECL (stmt);
@@ -921,8 +894,7 @@ gimplify_decl_stmt (stmt_p, next_p)
    instead.  */
 
 static void
-gimplify_compound_literal_expr (expr_p)
-     tree *expr_p;
+gimplify_compound_literal_expr (tree *expr_p)
 {
   tree decl_s = COMPOUND_LITERAL_EXPR_DECL_STMT (*expr_p);
   tree decl = DECL_STMT_DECL (decl_s);
@@ -934,13 +906,11 @@ gimplify_compound_literal_expr (expr_p)
 /* Do C-specific gimplification.  Args are as for gimplify_expr.  */
 
 int
-c_gimplify_expr (expr_p, pre_p, post_p)
-     tree *expr_p;
-     tree *pre_p ATTRIBUTE_UNUSED;
-     tree *post_p ATTRIBUTE_UNUSED;
+c_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
+		 tree *post_p ATTRIBUTE_UNUSED)
 {
   enum tree_code code = TREE_CODE (*expr_p);
-  
+
   if (STATEMENT_CODE_P (code))
     {
       c_gimplify_stmt (expr_p);
@@ -970,8 +940,7 @@ c_gimplify_expr (expr_p, pre_p, post_p)
      *EXPR_P should be stored.  */
 
 static void
-gimplify_stmt_expr (expr_p)
-     tree *expr_p;
+gimplify_stmt_expr (tree *expr_p)
 {
   tree body = STMT_EXPR_STMT (*expr_p);
   if (VOID_TYPE_P (TREE_TYPE (*expr_p)))
@@ -1053,9 +1022,8 @@ gimplify_stmt_expr (expr_p)
 
 /*  Change the flags for the type of the node T to make it writable.  */
 
-static void 
-make_type_writable (t)
-     tree t;
+static void
+make_type_writable (tree t)
 {
 #if defined ENABLE_CHECKING
   if (t == NULL_TREE)
@@ -1070,7 +1038,7 @@ make_type_writable (t)
       /* Make a copy of the type declaration.  */
       TREE_TYPE (t) = build_type_copy (TREE_TYPE (t));
       TYPE_READONLY (TREE_TYPE (t)) = 0;
-      
+
       /* If the type is a structure that contains a field readonly.  */
       if ((TREE_CODE (TREE_TYPE (t)) == RECORD_TYPE
 	   || TREE_CODE (TREE_TYPE (t)) == UNION_TYPE)
@@ -1086,7 +1054,7 @@ make_type_writable (t)
 	      {
 		/* Make the field writable.  */
 		TREE_READONLY (it) = 0;
-		
+
 		/* Make the type of the field writable.  */
 		make_type_writable (it);
 		it = TREE_CHAIN (it);
@@ -1100,15 +1068,14 @@ make_type_writable (t)
     Return the new chain.  */
 
 tree
-deep_copy_list (chain)
-     tree chain;
+deep_copy_list (tree chain)
 {
   tree new_chain, res;
 
   if (chain == NULL_TREE)
     /* Nothing to copy.  */
     return NULL_TREE;
-  
+
   new_chain = deep_copy_node (chain);
   res = new_chain;
 
@@ -1126,9 +1093,8 @@ deep_copy_list (chain)
 /*  Create a deep copy of NODE.  The only nodes that are not deep copied
     are declarations, constants and types.  */
 
-tree 
-deep_copy_node (node)
-     tree node;
+tree
+deep_copy_node (tree node)
 {
   tree res;
 
@@ -1142,7 +1108,7 @@ deep_copy_node (node)
       break;
 
     case FOR_STMT:
-      res = build_stmt (FOR_STMT, 
+      res = build_stmt (FOR_STMT,
 			deep_copy_node (FOR_INIT_STMT (node)),
 			deep_copy_node (FOR_COND (node)),
 			deep_copy_node (FOR_EXPR (node)),
@@ -1150,19 +1116,19 @@ deep_copy_node (node)
       break;
 
     case WHILE_STMT:
-      res = build_stmt (WHILE_STMT, 
+      res = build_stmt (WHILE_STMT,
 			deep_copy_node (WHILE_COND (node)),
 			deep_copy_node (WHILE_BODY (node)));
       break;
 
     case DO_STMT:
-      res = build_stmt (DO_STMT, 
+      res = build_stmt (DO_STMT,
 			deep_copy_node (DO_COND (node)),
 			deep_copy_node (DO_BODY (node)));
       break;
 
     case IF_STMT:
-      res = build_stmt (IF_STMT, 
+      res = build_stmt (IF_STMT,
 			deep_copy_node (IF_COND (node)),
 			deep_copy_node (THEN_CLAUSE (node)),
 			deep_copy_node (ELSE_CLAUSE (node)));
@@ -1200,7 +1166,7 @@ deep_copy_node (node)
 			    deep_copy_list (SCOPE_STMT_BLOCK (node)));
 	  SCOPE_BEGIN_P (res) = 1;
 	}
-      else 
+      else
 	{
 	  res = build_stmt (SCOPE_STMT, NULL_TREE);
 	  SCOPE_BEGIN_P (res) = 0;
@@ -1212,11 +1178,11 @@ deep_copy_node (node)
       res = node;
       break;
     }
-  
+
   /* Set the line number.  */
   if (STATEMENT_CODE_P (TREE_CODE (node)))
     STMT_LINENO (res) = STMT_LINENO (node);
-  
+
   return res;
 }
 
@@ -1226,10 +1192,7 @@ deep_copy_node (node)
    wrong code.  */
 
 static tree
-mostly_copy_tree_r (tp, walk_subtrees, data)
-     tree *tp;
-     int *walk_subtrees;
-     void *data;
+mostly_copy_tree_r (tree *tp, int *walk_subtrees, void *data)
 {
   enum tree_code code = TREE_CODE (*tp);
   /* Don't unshare decls, blocks, types and SAVE_EXPR nodes.  */
@@ -1255,8 +1218,7 @@ mostly_copy_tree_r (tp, walk_subtrees, data)
 /*  Return nonzero if STMT is the last statement of its scope.  */
 
 static int
-is_last_stmt_of_scope (stmt)
-     tree stmt;
+is_last_stmt_of_scope (tree stmt)
 {
   return (TREE_CHAIN (stmt) == NULL_TREE
 	  || (TREE_CODE (TREE_CHAIN (stmt)) == SCOPE_STMT

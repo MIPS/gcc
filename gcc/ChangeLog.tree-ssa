@@ -1,5 +1,10 @@
 2003-07-15  Andreas Jaeger  <aj@suse.de>
 
+	* c-simplify.c: Convert prototypes to ISO C90.
+	* gimplify.c: Likewise.
+	* simple-break-elim.c: Likewise.
+	* simple-goto-elim.c: Likewise.
+
 	* tree-alias-ander.c: Convert prototypes to ISO C90.
 	* tree-alias-common.c: Likewise.
 	* tree-alias-type.c: Likewise.
