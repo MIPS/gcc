@@ -14668,9 +14668,10 @@ rs6000_emit_prologue (void)
 		&& ((DEFAULT_ABI == ABI_V4 && flag_pic != 0)
 		    /* APPLE LOCAL begin volatile pic base reg in leaves */
 		    || (DEFAULT_ABI == ABI_DARWIN && flag_pic
-			&& current_function_uses_pic_offset_table
-			&& cfun->machine->substitute_pic_base_reg 
-			    == INVALID_REGNUM))))
+			&& ((current_function_uses_pic_offset_table
+			     && cfun->machine->substitute_pic_base_reg 
+			     == INVALID_REGNUM)
+			    || cfun->machine->ra_needs_full_frame)))))
 	            /* APPLE LOCAL end volatile pic base reg in leaves */
 	  {
 	    rtx addr, reg, mem;
@@ -15280,9 +15281,11 @@ rs6000_emit_epilogue (int sibcall)
 	      && ((DEFAULT_ABI == ABI_V4 && flag_pic != 0)
 		  /* APPLE LOCAL begin darwin native */
 		  || (DEFAULT_ABI == ABI_DARWIN && flag_pic
-		      && current_function_uses_pic_offset_table
-		      && cfun->machine->substitute_pic_base_reg 
-			    == INVALID_REGNUM))))
+		      && ((current_function_uses_pic_offset_table
+			   && cfun->machine->substitute_pic_base_reg 
+			   == INVALID_REGNUM)
+			  || cfun->machine->ra_needs_full_frame)))))
+		      
 		  /* APPLE LOCAL end darwin native */
 	{
 	  rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,

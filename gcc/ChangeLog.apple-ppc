@@ -1,3 +1,9 @@
+2005-01-05  Stan Shebs  <shebs@apple.com>
+
+       * config/rs6000/rs6000.c (rs6000_emit_prologue): Don't skip
+       saving r31 if we must do a full stack frame.
+       (rs6000_emit_epilogue): Similarly for restoring r31.
+
 2005-01-03  Stuart Hastings <stuart@apple.com>
 
 	Radar 3830232, Bugzilla 17526
