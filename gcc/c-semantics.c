@@ -93,7 +93,7 @@ add_stmt (t)
 
   /* Keep track of the number of statements in this function.  */
   if (current_function_decl)
-    ++DECL_NUM_STMTS (current_function_decl);
+    ++DECL_ESTIMATED_INSNS (current_function_decl);
 
   return t;
 }

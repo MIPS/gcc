@@ -1787,7 +1787,11 @@ block_move_libcall_safe_for_call_parm ()
 	    tree fn, arg;
 
 	    fn = emit_block_move_libcall_fn (false);
+#ifdef INIT_CUMULATIVE_ARGS2
+	    INIT_CUMULATIVE_ARGS2 (args_so_far, TREE_TYPE (fn), NULL_RTX, 0, fn);
+#else
 	    INIT_CUMULATIVE_ARGS (args_so_far, TREE_TYPE (fn), NULL_RTX, 0);
+#endif
 
 	    arg = TYPE_ARG_TYPES (TREE_TYPE (fn));
 	    for ( ; arg != void_list_node ; arg = TREE_CHAIN (arg))

@@ -3072,6 +3072,7 @@ extern int supports_one_only		PARAMS ((void));
 extern void variable_section		PARAMS ((tree, int));
 enum tls_model decl_tls_model		PARAMS ((tree));
 enum symbol_visibility decl_visibility	PARAMS ((tree));
+extern void mark_referenced (tree);
 
 /* In fold-const.c */
 extern int div_and_round_double		PARAMS ((enum tree_code, int,
@@ -3181,15 +3182,6 @@ extern void dump_end			PARAMS ((enum tree_dump_index, FILE *));
 extern void dump_node			PARAMS ((tree, int, FILE *));
 extern int dump_switch_p                PARAMS ((const char *));
 extern const char *dump_flag_name	PARAMS ((enum tree_dump_index));
-
-/* In callgraph.c  */
-void cgraph_finalize_function		PARAMS ((tree, tree));
-void cgraph_finalize_compilation_unit	PARAMS ((void));
-void cgraph_create_edges		PARAMS ((tree, tree));
-void dump_cgraph			PARAMS ((FILE *));
-void cgraph_optimize			PARAMS ((void));
-void cgraph_remove_call			PARAMS ((tree, tree));
-bool cgraph_calls_p			PARAMS ((tree, tree));
 
 
 /* Redefine abort to report an internal error w/o coredump, and

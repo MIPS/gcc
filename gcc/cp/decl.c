@@ -3964,7 +3964,7 @@ duplicate_decls (newdecl, olddecl)
 	      SET_DECL_RTL (newdecl, DECL_RTL (olddecl));
 	    }
 	  else
-	    DECL_NUM_STMTS (newdecl) = DECL_NUM_STMTS (olddecl);
+	    DECL_ESTIMATED_INSNS (newdecl) = DECL_ESTIMATED_INSNS (olddecl);
 
 	  DECL_RESULT (newdecl) = DECL_RESULT (olddecl);
 	  /* Don't clear out the arguments if we're redefining a function.  */

@@ -1667,6 +1667,7 @@ fast_math_flags_set_p ()
 FILE *asm_out_file;
 FILE *aux_info_file;
 FILE *rtl_dump_file = NULL;
+FILE *cgraph_dump_file = NULL;
 
 /* Decode the string P as an integral parameter.
    If the string is indeed an integer return its numeric value else
@@ -5083,6 +5084,7 @@ parse_options_and_default_flags (argc, argv)
       flag_reorder_functions = 1;
       flag_value_histograms = 1;
       flag_value_profile_transformations = 1;
+      flag_unit_at_time = 1;
     }
 
   if (optimize >= 3)
@@ -5090,7 +5092,6 @@ parse_options_and_default_flags (argc, argv)
       flag_inline_functions = 1;
       flag_rename_registers = 1;
       flag_tracer = 1;
-      flag_unit_at_time = 1;
       flag_web = 1;
       flag_unswitch_loops = 1;
     }

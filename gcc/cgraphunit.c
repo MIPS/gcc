@@ -21,8 +21,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
-#include "coretypes.h"
-#include "tm.h"
 #include "tree.h"
 #include "tree-inline.h"
 #include "langhooks.h"
@@ -81,8 +79,7 @@ cgraph_finalize_function (decl, body)
 	 It is possible to assemble the name later after finalizing the function
 	 and the fact is noticed in assemble_name then.  */
       || (DECL_ASSEMBLER_NAME_SET_P (decl)
-	  && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-      || lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
+	  && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
     {
       cgraph_mark_needed_node (node, 1);
     }
@@ -476,7 +473,7 @@ cgraph_inlined_into (struct cgraph_node *node, struct cgraph_node **array)
 	  fprintf (cgraph_dump_file, " %s", cgraph_node_name (array[i]));
 	  if (INLINED_TIMES (array[i]) != 1)
 	    fprintf (cgraph_dump_file, " (%i times)",
-		     (int)INLINED_TIMES (array[i]));
+		     INLINED_TIMES (array[i]));
 	}
       fprintf (cgraph_dump_file, "\n");
     }
@@ -573,7 +570,7 @@ cgraph_inlined_callees (struct cgraph_node *node, struct cgraph_node **array)
 	  fprintf (cgraph_dump_file, " %s", cgraph_node_name (array[i]));
 	  if (INLINED_TIMES (array[i]) != 1)
 	    fprintf (cgraph_dump_file, " (%i times)",
-		     (int)INLINED_TIMES (array[i]));
+		     INLINED_TIMES (array[i]));
 	}
       fprintf (cgraph_dump_file, "\n");
     }

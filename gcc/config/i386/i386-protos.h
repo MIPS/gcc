@@ -195,7 +195,7 @@ extern void x86_emit_floatuns PARAMS ((rtx [2]));
 
 
 #ifdef TREE_CODE
-extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, rtx));
+extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, rtx, tree));
 extern rtx function_arg PARAMS ((CUMULATIVE_ARGS *, enum machine_mode, tree, int));
 extern int function_arg_pass_by_reference PARAMS ((CUMULATIVE_ARGS *,
 						   enum machine_mode,

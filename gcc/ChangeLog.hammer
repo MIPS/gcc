@@ -1,3 +1,87 @@
+Sat Jul 12 17:40:50 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	Merge from mainline:
+
+	Sat Jul 12 03:06:01 CEST 2003  Jan Hubicka  <jh@suse.cz>
+				       Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+		* cgraph.c (cgraph_max_uid): New global variable.
+		(cgraph_node): Set uid field.
+		(create_edge): Keep inline flags consistent.
+		(dump_cgraph): Dump more info.
+		* cgraph.h (struct cgraph_local_info): Remove inline_many and
+		can_inline_once; add inlinable, disgread_inline_limits, and self_insn
+		(struct cgraph_global_info): Add insns, calls, cloned_times,
+		will_be_output.
+		(struct cgraph_node): Add uid.
+		(struct cgraph_edge): Add inline_call.
+		(cgraph_max_uid, cgraph_inline_p): Declare.
+		* cgraph.c: Include params.h and fibheap.h
+		(cgraph_mark_functions_to_inline_once): Kill.
+		(INSNS_PER_CALL): New constant.
+		(ncalls_inlined, nfunctions_inlined, initial_insns, overall_insns): New
+		static variables.
+		(cgraph_finalize_function): Do not analyze inlining.
+		(cgraph_finalize_compilation_unit): Set inlining attributes.
+		(cgraph_mark_functions_to_output): More consistency checks.
+		(cgraph_optimize_function): Set current_function_decl to NULL.
+		(cgraph_expand_function): Use new inline flags.
+		(cgraph_postorder): Expand from cgraph_expand_functions.
+		(INLINED_TIMES, SET_INLINED_TIMES): New macros.
+		(cgraph_inlined_into, cgraph_inlined_callees,
+		cgraph_estimate_size_after_inlining, cgraph_estimate_growth,
+		cgraph_mark_inline, cgraph_check_inline_limits,
+		cgraph_default_inline_p, cgraph_decide_inling_of_small_functions, 
+		cgraph_decide_inlining, cgraph_inline_p): New functions.
+		* params.def (PARAM_LARGE_FUNCTION_INSNS, PARAM_LARGE_FUNCTION_GROWTH,
+		PARAM_INLINE_UNIT_GROWTH): New parameters.
+		* tree-inline.c (struct inline_data): New field current_decl.
+		(expand_call_inline): Avoid forward declarations; use
+		inlinable_function_p.
+		(optimize_inline_calls): Set id.current_decl.
+	Wed Jul  9 03:00:10 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+		* cgraph.c (cgraph_node_name): New function.
+		(dump_cgraph): Use it.
+		* cgraph.h (cgraph_dump_file): Declare.
+		(cgraph_node_name): Declare.
+		* cgraphunit.c: Include timevar.h
+		(cgraph_finalize_compilation_unit): Use timevar; reorganize dumps.
+		(cgraph_optimize_function): Use TV_INTEGRATION.
+		(cgraph_mark_local_functions): reorganize dumps.
+		(cgraph_mark_functions_to_inline_once): Likewise.
+		(cgraph_optimize): Likewise; use timevar.
+		* timevar.def (TV_CGRAPH, TV_CGRAPHOPT): New.
+		* toplev.c (dump_file_index): Add DFI_cgraph.
+		(dump_file_info): Likewise.
+		(cgraph_dump_file): New global variable.
+		(do_compile): Open and close cgraph dump.
+		* invoke.texi (-d): Document new flag; renumber.
+	Wed Jul  9 02:25:39 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+		* c-common.c (c_estimate_num_insns_1): New static function.
+		(c_estimate_num_insns): New global function.
+		* c-common.h (DECL_NUM_STMTS): Rename to...
+		(DECL_ESTIMATED_INSNS): ... this.
+		(c_estimate_num_insns): Declare.
+		* c-decl.c (duplicate_decls): Use DECL_ESTIMATED_INSNS.
+		* c-lang.c (LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS): New.
+		* c-semantics.c (add_stmt): Do not account statements.
+		* langhooks-def.h (LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS):
+		New.
+		* langhooks.h (lang_hooks_for_tree_inlining): Add
+		estimate_num_insns
+		* params.def (max-inline-insns-auto, max-inline-insns-auto): set
+		to 100.
+		(max-inline-insns): set to 300.
+		(min-inline-insns): set to 10.
+		* tree-inline.c (struct inline_data): Rename inlined_stmts to
+		inlined-insns.
+		(INSNS_PER_STMT): Kill.
+		(inlinable_function_p): Compute and store body size.
+		(expand_call_inline): Likewise.
+		(optimize_inline_calls): Likewise.
+
 2003-07-09  Josef Zlomek  <zlomekj@suse.cz>
 
 	* vrp.c (enum oper_type): New type.

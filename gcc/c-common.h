@@ -352,7 +352,7 @@ struct c_lang_decl GTY(()) {
      the approximate number of statements in this function.  There is
      no need for this number to be exact; it is only used in various
      heuristics regarding optimization.  */
-#define DECL_NUM_STMTS(NODE) \
+#define DECL_ESTIMATED_INSNS(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
 
 /* The variant of the C language being processed.  Each C language
@@ -1234,6 +1234,7 @@ extern int c_common_unsafe_for_reeval		PARAMS ((tree));
 extern const char *init_c_lex			PARAMS ((const char *));
 
 extern void cb_register_builtins		PARAMS ((cpp_reader *));
+extern int c_estimate_num_insns (tree decl);
 
 /* Information recorded about each file examined during compilation.  */
 

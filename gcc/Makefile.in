@@ -89,8 +89,8 @@ coverageexts = .{da,bb,bbg}
 # with other compilers.  This is partially controlled by configure in
 # stage1, as not all versions of gcc understand -Wno-long-long.
 LOOSE_WARN = -W -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes
-STRICT_WARN = -Wtraditional @strict1_warn@
-STRICT2_WARN = -Wtraditional -pedantic -Wno-long-long
+STRICT_WARN = @strict1_warn@
+STRICT2_WARN =  -pedantic -Wno-long-long
 
 # This is set by --enable-checking.  The idea is to catch forgotten
 # "extern" tags in header files.
@@ -762,7 +762,7 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  sibcall.o simplify-rtx.o ssa.o ssa-ccp.o ssa-dce.o stmt.o		   \
  stor-layout.o stringpool.o timevar.o toplev.o tracer.o tree.o tree-dump.o \
  tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o vpt.o	   \
- vrp.o alloc-pool.o xcoffout.o et-forest.o callgraph.o web.o		   \
+ vrp.o alloc-pool.o xcoffout.o et-forest.o cgraph.o cgraphunit.o web.o	   \
  $(GGC) $(out_object_file) $(EXTRA_OBJS)
 
 BACKEND = main.o libbackend.a
@@ -1502,8 +1502,10 @@ jump.o : jump.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h hard-reg-set.h $(REGS_H
 simplify-rtx.o : simplify-rtx.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
    output.h function.h $(GGC_H) $(OBSTACK_H) $(TM_P_H) $(TREE_H)
-callgraph.o : callgraph.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
-    langhooks.h tree-inline.h toplev.h flags.h ggc.h  $(TARGET_H)
+cgraph.o : cgraph.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
+    langhooks.h tree-inline.h toplev.h flags.h ggc.h  $(TARGET_H) cgraph.h gt-cgraph.h
+cgraphunit.o : cgraphunit.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
+    langhooks.h tree-inline.h toplev.h flags.h ggc.h  $(TARGET_H) cgraph.h
 cselib.o : cselib.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
    output.h function.h cselib.h $(GGC_H) $(TM_P_H) gt-cselib.h
@@ -1888,7 +1890,7 @@ GTFILES = $(GCONFIG_H) $(srcdir)/location.h \
   $(srcdir)/bitmap.h $(srcdir)/function.h  $(srcdir)/rtl.h $(srcdir)/optabs.h \
   $(srcdir)/tree.h $(srcdir)/libfuncs.h $(srcdir)/hashtable.h $(srcdir)/real.h \
   $(srcdir)/varray.h $(srcdir)/ssa.h $(srcdir)/insn-addr.h $(srcdir)/cselib.h \
-  $(srcdir)/c-common.h $(srcdir)/c-tree.h \
+  $(srcdir)/c-common.h $(srcdir)/cgraph.h $(srcdir)/c-tree.h \
   $(srcdir)/basic-block.h \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c \
   $(srcdir)/dwarf2out.c $(srcdir)/emit-rtl.c \
@@ -1897,6 +1899,7 @@ GTFILES = $(GCONFIG_H) $(srcdir)/location.h \
   $(srcdir)/gcse.c $(srcdir)/integrate.c $(srcdir)/lists.c $(srcdir)/optabs.c \
   $(srcdir)/profile.c $(srcdir)/ra-build.c $(srcdir)/regclass.c \
   $(srcdir)/reg-stack.c \
+  $(srcdir)/cgraph.c \
   $(srcdir)/sdbout.c $(srcdir)/stmt.c $(srcdir)/stor-layout.c \
   $(srcdir)/tree.c $(srcdir)/varasm.c \
   $(out_file) \
@@ -1913,7 +1916,7 @@ gt-explow.h gt-stor-layout.h gt-regclass.h gt-lists.h : s-gtype; @true
 gt-alias.h gt-cselib.h gt-fold-const.h gt-gcse.h gt-profile.h : s-gtype; @true
 gt-expr.h gt-sdbout.h gt-optabs.h gt-bitmap.h gt-dwarf2out.h : s-gtype ; @true
 gt-ra-build.h gt-reg-stack.h : s-gtype ; @true
-gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h : s-gtype; @true
+gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h gt-cgraph.h : s-gtype; @true
 gt-c-objc-common.h gtype-c.h gt-location.h : s-gtype ; @true
 
 gtyp-gen.h: Makefile

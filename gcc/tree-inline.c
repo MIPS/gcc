@@ -35,6 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "splay-tree.h"
 #include "langhooks.h"
+#include "cgraph.h"
 
 /* This should be eventually be generalized to other languages, but
    this would require a shared function-as-trees infrastructure.  */
@@ -105,6 +106,7 @@ typedef struct inline_data
   htab_t tree_pruner;
   /* Decl of function we are inlining into.  */
   tree decl;
+  tree current_decl;
 } inline_data;
 
 /* Prototypes.  */
@@ -955,7 +957,10 @@ inlinable_function_p (fn, id, nolimit)
     max_inline_insns_single = MAX_INLINE_INSNS_AUTO;
    
   /* The number of instructions (estimated) of current function.  */
-  currfn_insns = DECL_NUM_STMTS (fn) * INSNS_PER_STMT;
+  if (!nolimit && !DECL_ESTIMATED_INSNS (fn))
+    DECL_ESTIMATED_INSNS (fn)
+      = (*lang_hooks.tree_inlining.estimate_num_insns) (fn);
+  currfn_insns = DECL_ESTIMATED_INSNS (fn);
 
   /* If we're not inlining things, then nothing is inlinable.  */
   if (! flag_inline_trees)
@@ -1174,7 +1179,9 @@ expand_call_inline (tp, walk_subtrees, data)
 
   /* Don't try to inline functions that are not well-suited to
      inlining.  */
-  if (!inlinable_function_p (fn, id, 0))
+  if (!DECL_SAVED_TREE (fn)
+      || (flag_unit_at_time && !cgraph_inline_p (id->current_decl, fn))
+      || (!flag_unit_at_time && !inlinable_function_p (fn, id, 0)))
     {
       if (warn_inline && DECL_INLINE (fn) && !DID_INLINE_FUNC (fn)
 	  && !DECL_IN_SYSTEM_HEADER (fn))
@@ -1400,9 +1407,9 @@ expand_call_inline (tp, walk_subtrees, data)
   TREE_USED (*tp) = 1;
 
   /* Our function now has more statements than it did before.  */
-  DECL_NUM_STMTS (VARRAY_TREE (id->fns, 0)) += DECL_NUM_STMTS (fn);
+  DECL_ESTIMATED_INSNS (VARRAY_TREE (id->fns, 0)) += DECL_ESTIMATED_INSNS (fn);
   /* For accounting, subtract one for the saved call/ret.  */
-  id->inlined_stmts += DECL_NUM_STMTS (fn) - 1;
+  id->inlined_stmts += DECL_ESTIMATED_INSNS (fn) - 1;
 
   /* Update callgraph if needed.  */
   if (id->decl && flag_unit_at_time)
@@ -1412,7 +1419,12 @@ expand_call_inline (tp, walk_subtrees, data)
     }
 
   /* Recurse into the body of the just inlined function.  */
-  expand_calls_inline (inlined_body, id);
+  {
+    tree old_decl = id->current_decl;
+    id->current_decl = fn;
+    expand_calls_inline (inlined_body, id);
+    id->current_decl = old_decl;
+  }
   VARRAY_POP (id->fns);
 
   /* If we've returned to the top level, clear out the record of how
@@ -1457,9 +1469,13 @@ optimize_inline_calls (fn)
   memset (&id, 0, sizeof (id));
 
   id.decl = fn;
+  id.current_decl = fn;
   /* Don't allow recursion into FN.  */
   VARRAY_TREE_INIT (id.fns, 32, "fns");
   VARRAY_PUSH_TREE (id.fns, fn);
+  if (!DECL_ESTIMATED_INSNS (fn))
+    DECL_ESTIMATED_INSNS (fn) 
+      = (*lang_hooks.tree_inlining.estimate_num_insns) (fn);
   /* Or any functions that aren't finished yet.  */
   prev_fn = NULL_TREE;
   if (current_function_decl)

@@ -922,7 +922,7 @@ union lang_tree_node
      the approximate number of statements in this function.  There is
      no need for this number to be exact; it is only used in various
      heuristics regarding optimization.  */
-#define DECL_NUM_STMTS(NODE) \
+#define DECL_ESTIMATED_INSNS(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
 /* True if NODE is a local variable final. */
 #define LOCAL_FINAL_P(NODE) (DECL_LANG_SPECIFIC (NODE) && DECL_FINAL (NODE))

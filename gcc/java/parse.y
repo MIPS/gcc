@@ -7562,10 +7562,6 @@ static tree
 add_stmt_to_compound (existing, type, stmt)
      tree existing, type, stmt;
 {
-  /* Keep track of this for inlining.  */
-  if (current_function_decl)
-    ++DECL_NUM_STMTS (current_function_decl);
-
   if (existing)
     return build (COMPOUND_EXPR, type, existing, stmt);
   else

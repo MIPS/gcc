@@ -2424,7 +2424,11 @@ expand_call (exp, target, ignore)
      calling convention than normal calls.  The last argument in
      INIT_CUMULATIVE_ARGS tells the backend if this is an indirect call
      or not.  */
+#ifdef INIT_CUMULATIVE_ARGS2
+  INIT_CUMULATIVE_ARGS2 (args_so_far, funtype, NULL_RTX, (fndecl == 0), fndecl);
+#else
   INIT_CUMULATIVE_ARGS (args_so_far, funtype, NULL_RTX, (fndecl == 0));
+#endif
 
   /* Make a vector to hold all the information about each arg.  */
   args = (struct arg_data *) alloca (num_actuals * sizeof (struct arg_data));
@@ -3621,7 +3625,11 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 #ifdef INIT_CUMULATIVE_LIBCALL_ARGS
   INIT_CUMULATIVE_LIBCALL_ARGS (args_so_far, outmode, fun);
 #else
+#ifdef INIT_CUMULATIVE_ARGS2
+  INIT_CUMULATIVE_ARGS2 (args_so_far, NULL_TREE, fun, 0, NULL);
+#else
   INIT_CUMULATIVE_ARGS (args_so_far, NULL_TREE, fun, 0);
+#endif
 #endif
 
   args_size.constant = 0;
