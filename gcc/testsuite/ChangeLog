@@ -1,3 +1,8 @@
+2003-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/string-opt-asm-1.c: New test.
+	* gcc.c-torture/execute/string-opt-asm-2.c: New test.
+
 2003-04-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.c-torture/execute/string-opt-19.c: New test.

@@ -397,6 +397,9 @@ extern rtx convert_to_mode PARAMS ((enum machine_mode, rtx, int));
 extern rtx convert_modes PARAMS ((enum machine_mode, enum machine_mode,
 				  rtx, int));
 
+extern void init_block_move_fn PARAMS ((const char *));
+extern void init_block_clear_fn PARAMS ((const char *));
+
 /* Emit code to move a block Y to a block X.  */
 extern rtx emit_block_move PARAMS ((rtx, rtx, rtx));
 

@@ -1,3 +1,12 @@
+2003-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-decl.c (finish_decl): When prototype with asmspec is found
+	for built-in, adjust built_in_decls as well as expr.c decls.
+	* expr.c (init_block_move_fn, init_block_clear_fn): New functions.
+	(block_move_fn, block_clear_fn): New variables.
+	(emit_block_move, clear_storage): Use it.
+	* expr.c (init_block_move_fn, init_block_clear_fn): New prototypes.
+
 2003-04-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* builtins.def (BUILT_IN_BCOPY, BUILT_IN_MEMMOVE): New.

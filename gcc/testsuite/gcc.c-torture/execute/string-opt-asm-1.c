@@ -56,12 +56,8 @@ real_strstr (const char *s1, const char *s2)
   abort ();
 }
 
-static char *
-strstr (const char *s1, const char *s2)
-  __asm ("my_strstr");
-
 __attribute__ ((noinline))
-static char *
+char *
 strstr (const char *s1, const char *s2)
 {
   size_t len = strlen (s2);
