@@ -16,6 +16,9 @@ import gnu.gcj.Core;
 
 public class SharedLibHelper
 {
+    private final java.util.HashMap h = 
+	new java.util.HashMap();
+
   /** Load a shared library, and associate a ClassLoader with it.
    * @param libname named of shared library (passed to dlopen)
    * @param parent the parent ClassLoader
@@ -72,8 +75,20 @@ public class SharedLibHelper
 
   public Class findClass(String name)
   {
-    ensureInit();
-    return (Class) classMap.get(name);
+      ensureInit();
+      Class c = (Class)classMap.get(name);
+      if (c != null)
+	  {
+	      String s = System.getProperty("gnu.classpath.verbose");
+	      if (s != null && s.equals("class"))
+		  if (h.get(name) == null)
+		      {
+			  System.err.println("[Loading class " + name 
+					     + " from " + this + "]");
+			  h.put(name,name);
+		      }		
+	  }
+      return c;
   }
 
   public URL findResource (String name)
@@ -106,6 +121,11 @@ public class SharedLibHelper
 
   native boolean hasResource(String name);
   native void init();
+
+  public String toString ()
+  {
+	return "shared object " + baseName;
+  }
 
   /** Called during dlopen's processing of the init section. */
   void registerClass(String name, Class cls)

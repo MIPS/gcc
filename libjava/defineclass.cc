@@ -967,7 +967,7 @@ _Jv_ClassReader::checkExtends (jclass sub, jclass super)
 	}
     } 
 
-  for (; super != 0; super = super->superclass)
+  for (; super != 0; super = super->getSuperclass ())
     {
       if (super == sub)
 	throw_class_circularity_error (sub->getName ());

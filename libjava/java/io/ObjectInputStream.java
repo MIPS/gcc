@@ -56,6 +56,20 @@ import java.lang.reflect.InvocationTargetException;
 
 import gnu.classpath.Configuration;
 
+class MyIOException extends IOException
+{
+    MyIOException (String s)
+    {
+	super(s);
+	if (Configuration.DEBUG)
+	    {
+		String val = System.getProperty("gcj.dumpobjects");
+		if (val != null && !val.equals(""))
+		    System.out.println (this);
+	    }
+    }
+}
+
 public class ObjectInputStream extends InputStream
   implements ObjectInput, ObjectStreamConstants
 {
@@ -124,6 +138,15 @@ public class ObjectInputStream extends InputStream
    */
   public final Object readObject() throws ClassNotFoundException, IOException
   {
+      if (callersClassLoader == null)
+	{
+	  callersClassLoader = getCallersClassLoader ();
+	  if (Configuration.DEBUG)
+	    {
+	      dumpElementln ("CallersClassLoader = " + callersClassLoader);
+	    }
+	}
+
     if (this.useSubclassMethod)
       return readObjectOverride();
 
@@ -138,6 +161,9 @@ public class ObjectInputStream extends InputStream
     this.isDeserializing = true;
 
     byte marker = this.realInputStream.readByte();
+
+    depth += 2;
+
     if(dump) dumpElement("MARKER: 0x" + Integer.toHexString(marker) + " ");
 
     try
@@ -155,9 +181,9 @@ public class ObjectInputStream extends InputStream
 	  case TC_BLOCKDATALONG:
 	    {
 	      if (marker == TC_BLOCKDATALONG)
-		if(dump) dumpElementln("BLOCKDATALONG");
+		{ if(dump) dumpElementln("BLOCKDATALONG"); }
 	      else
-		if(dump) dumpElementln("BLOCKDATA");
+		{ if(dump) dumpElementln("BLOCKDATA"); }
 	      readNextBlock(marker);
 	      throw new StreamCorruptedException("Unexpected blockData");
 	    }
@@ -211,7 +237,7 @@ public class ObjectInputStream extends InputStream
 		{
 		  byte b = this.realInputStream.readByte();
 		  if (b != TC_ENDBLOCKDATA)
-		    throw new IOException("Data annotated to class was not consumed." + b);
+		    throw new MyIOException("Data annotated to class was not consumed." + b);
 		}
 	      else
 		is_consumed = false;
@@ -229,7 +255,7 @@ public class ObjectInputStream extends InputStream
 		{
 		  byte b = this.realInputStream.readByte();
 		  if (b != TC_ENDBLOCKDATA)
-		    throw new IOException("Data annotated to class was not consumed." + b);
+		    throw new MyIOException("Data annotated to class was not consumed." + b);
 		}
 	      else
 		is_consumed = false;
@@ -262,7 +288,7 @@ public class ObjectInputStream extends InputStream
 	      readArrayElements(array, componentType);
 	      if(dump)
 	        for (int i = 0, len = Array.getLength(array); i < len; i++)
-		  dumpElementln("  ELEMENT[" + i + "]=" + Array.get(array, i));
+			  dumpElementln("  ELEMENT[" + i + "]=" + Array.get(array, i));
 	      ret_val = processResolution(null, array, handle);
 	      break;
 	    }
@@ -323,6 +349,9 @@ public class ObjectInputStream extends InputStream
 	      Object obj = newObject(clazz, osc.firstNonSerializableParent);
 	      
 	      int handle = assignNewHandle(obj);
+	      Object prevObject = this.currentObject;
+	      ObjectStreamClass prevObjectStreamClass = this.currentObjectStreamClass;
+	      
 	      this.currentObject = obj;
 	      ObjectStreamClass[] hierarchy =
 		inputGetObjectStreamClasses(clazz);
@@ -345,34 +374,42 @@ public class ObjectInputStream extends InputStream
 		      boolean oldmode = setBlockDataMode(true);
 		      callReadMethod(readObjectMethod, this.currentObjectStreamClass.forClass(), obj);
 		      setBlockDataMode(oldmode);
-		      if(dump) dumpElement("ENDBLOCKDATA? ");
-		      try
-			{
-			  // FIXME: XXX: This try block is to catch EOF which is
-			  // thrown for some objects.  That indicates a bug in the logic.
-			  if (this.realInputStream.readByte() != TC_ENDBLOCKDATA)
-			    throw new IOException
-			      ("No end of block data seen for class with readObject (ObjectInputStream) method.");
-			  if(dump) dumpElementln("yes");
-			}
-		      catch (EOFException e)
-			{
-			  if(dump) dumpElementln("no, got EOFException");
-			}
-		      catch (IOException e)
-			{
-			  if(dump) dumpElementln("no, got IOException");
-			}
 		    }
 		  else
 		    {
 		      readFields(obj, currentObjectStreamClass);
 		    }
+
+		  if (this.currentObjectStreamClass.hasWriteMethod())
+		    {
+		      if(dump) dumpElement("ENDBLOCKDATA? ");
+		      try
+			{
+			  // FIXME: XXX: This try block is to
+			  // catch EOF which is thrown for some
+			  // objects.  That indicates a bug in
+			  // the logic.
+
+			  if (this.realInputStream.readByte() != TC_ENDBLOCKDATA)
+			    throw new MyIOException
+			      ("No end of block data seen for class with readObject (ObjectInputStream) method.");
+			  if(dump) dumpElementln("yes");
+			}
+// 		      catch (EOFException e)
+// 			{
+// 			  if(dump) dumpElementln("no, got EOFException");
+// 			}
+		      catch (IOException e)
+			{
+			  if(dump) dumpElementln("no, got IOException");
+			}
+		    }
 		}
 
-	      this.currentObject = null;
-	      this.currentObjectStreamClass = null;
+	      this.currentObject = prevObject;
+	      this.currentObjectStreamClass = prevObjectStreamClass;
 	      ret_val = processResolution(osc, obj, handle);
+		  
 	      break;
 	    }
 
@@ -392,7 +429,7 @@ public class ObjectInputStream extends InputStream
 	    }
 
 	  default:
-	    throw new IOException("Unknown marker on stream: " + marker);
+	    throw new MyIOException("Unknown marker on stream: " + marker);
 	  }
       }
     finally
@@ -400,6 +437,8 @@ public class ObjectInputStream extends InputStream
 	setBlockDataMode(old_mode);
 	
 	this.isDeserializing = was_deserializing;
+
+	depth -= 2;
 	
 	if (! was_deserializing)
 	  {
@@ -714,7 +753,7 @@ public class ObjectInputStream extends InputStream
   protected Class resolveClass(ObjectStreamClass osc)
     throws ClassNotFoundException, IOException
   {
-    return Class.forName(osc.getName(), true, currentLoader());
+    return Class.forName(osc.getName(), true, callersClassLoader);
   }
 
   /**
@@ -1806,11 +1845,9 @@ public class ObjectInputStream extends InputStream
    * @param sm SecurityManager instance which should be called.
    * @return The current class loader in the calling stack.
    */
-  private static ClassLoader currentClassLoader (SecurityManager sm)
-  {
-    // FIXME: This is too simple.
-    return ClassLoader.getSystemClassLoader ();
-  }
+    private static native ClassLoader currentClassLoader (SecurityManager sm);
+
+    private native ClassLoader getCallersClassLoader();
 
   private void callReadMethod (Method readObject, Class klass, Object obj) throws IOException
   {
@@ -1868,14 +1905,21 @@ public class ObjectInputStream extends InputStream
 
   private static boolean dump = false && Configuration.DEBUG;
 
+  private ClassLoader callersClassLoader;
+
+  private int depth = 0;
+
   private void dumpElement (String msg)
-  {
+  {	
     System.out.print(msg);
   }
   
   private void dumpElementln (String msg)
   {
     System.out.println(msg);
+    for (int i = 0; i < depth; i++)
+      System.out.print (" ");
+    System.out.print (Thread.currentThread() + ": ");
   }
 
   static

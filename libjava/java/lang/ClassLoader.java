@@ -39,6 +39,7 @@ exception statement from your version. */
 package java.lang;
 
 import java.io.InputStream;
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.net.URL;
@@ -51,6 +52,7 @@ import java.util.HashMap;
 import java.util.Map;
 import gnu.java.util.DoubleEnumeration;
 import gnu.java.util.EmptyEnumeration;
+import gnu.gcj.runtime.SharedLibHelper;
 
 /**
  * The ClassLoader is a way of customizing the way Java gets its classes
@@ -288,6 +290,8 @@ public abstract class ClassLoader
     if (c != null)
       return c;
 
+    ClassNotFoundException ex = null;
+
     // Can the class be loaded by a parent?
     try
       {
@@ -304,9 +308,20 @@ public abstract class ClassLoader
       }
     catch (ClassNotFoundException e)
       {
+	ex = e;
       }
     // Still not found, we have to do it ourself.
-    c = findClass(name);
+    try
+      {
+	c = findClass(name);
+      }
+    catch (ClassNotFoundException cause)
+      {
+	if (ex != null)
+	  throw new ClassNotFoundException(ex.toString(), cause);
+	else
+	  throw cause;
+      }
     if (resolve)
       resolveClass(c);
     return c;
@@ -435,8 +450,56 @@ public abstract class ClassLoader
       domain = defaultProtectionDomain;
     if (! initialized)
       throw new SecurityException("attempt to define class from uninitialized class loader");
+
     Class retval = VMClassLoader.defineClass(this, name, data,
-                                             offset, len, domain);
+					     offset, len, domain);
+
+    // FIXME: This is a temporary hack that allows you to compile some
+    // class files into a .so called "gcjlib.so" in the same
+    // directory.  To be removed as soon as gcj-JIT is ready.
+    java.security.CodeSource source = domain.getCodeSource();
+    java.net.URL url = source != null ? source.getLocation() : null;
+    String filename = url.getFile();
+    if (filename != null)
+      {
+	File f = new File(filename);
+	if (f.isDirectory())
+	  {
+	    try
+	      {
+		Class c = null;
+		String libname = filename + "gcjlib.so";
+		File soFile = new File (libname);
+		if (soFile.isFile())
+		  {
+		    SharedLibHelper helper 
+		      = SharedLibHelper.findHelper (this, libname, source);
+		    c = helper.findClass (retval.getName());
+		  }
+		if (c != null)
+		  retval = c;
+	      }
+	    catch (UnknownError _)
+	      {
+	      }
+	  }
+      }
+    
+    {	    
+      String s = System.getProperty("gnu.classpath.verbose");
+      if (s != null && s.equals("class"))
+	{
+// 		java.security.CodeSource source = domain.getCodeSource();
+// 		java.net.URL url = source != null ? source.getLocation() : null;
+	  String URLname = url != null ? url.toString() : null;
+	  if (URLname == null)
+	    URLname = "unknown location";
+	  System.err.println("[Loading class " + retval.getName()
+			     + " from  " + URLname + "]");
+	}
+		
+    }
+
     loadedClasses.put(retval.getName(), retval);
     return retval;
   }
@@ -728,7 +791,7 @@ public abstract class ClassLoader
     if (sm != null)
       {
 	Class c = VMSecurityManager.getClassContext()[1];
-	ClassLoader cl = c.getClassLoader();
+	ClassLoader cl = getClassLoader0(c);
 	if (cl != null && cl != systemClassLoader)
 	  sm.checkPermission(new RuntimePermission("getClassLoader"));
       }
@@ -949,4 +1012,6 @@ public abstract class ClassLoader
       }
     return false;
   }
+
+    static private final native ClassLoader getClassLoader0(Class c);
 }

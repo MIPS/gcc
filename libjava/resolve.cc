@@ -57,8 +57,6 @@ static void throw_class_format_error (jstring msg)
 static void throw_class_format_error (char *msg)
 	__attribute__ ((__noreturn__));
 
-static int get_alignment_from_class (jclass);
-
 static _Jv_ResolvedMethod* 
 _Jv_BuildResolvedMethod (_Jv_Method*,
 			 jclass,
@@ -372,9 +370,31 @@ _Jv_PrepareMissingMethods (jclass base2, jclass iface_class)
   _Jv_InterpClass *base = reinterpret_cast<_Jv_InterpClass *> (base2);
   for (int i = 0; i < iface_class->interface_count; ++i)
     {
-      for (int j = 0; j < iface_class->interfaces[i]->method_count; ++j)
+      jclass interface = iface_class->interfaces[i];
+      
+      typedef unsigned int uaddr __attribute__ ((mode (pointer)));
+
+      // If interface looks like a constant pool entry,
+      // resolve it now.
+      if (interface && (uaddr)interface < (uaddr)iface_class->constants.size)
 	{
-	  _Jv_Method *meth = &iface_class->interfaces[i]->methods[j];
+	  if (iface_class->state < JV_STATE_LINKED) // This can't ever happen
+	    {
+	      _Jv_Utf8Const *name = iface_class->constants.data[(int)interface].utf8;
+	      interface = _Jv_FindClass (name, iface_class->loader);
+	      if (! interface)
+		{
+		  jstring str = _Jv_NewStringUTF (name->data);
+		  throw new java::lang::NoClassDefFoundError (str);
+		}
+	    }
+	  else
+	    interface = iface_class->constants.data[(int)interface].clazz;
+	}
+
+      for (int j = 0; j < interface->method_count; ++j)
+	{
+	  _Jv_Method *meth = &interface->methods[j];
 	  // Don't bother with <clinit>.
 	  if (meth->name->data[0] == '<')
 	    continue;
@@ -412,7 +432,7 @@ _Jv_PrepareMissingMethods (jclass base2, jclass iface_class)
 	    }
 	}
 
-      _Jv_PrepareMissingMethods (base, iface_class->interfaces[i]);
+      _Jv_PrepareMissingMethods (base, interface);
     }
 }
 
@@ -449,96 +469,16 @@ _Jv_PrepareClass(jclass klass)
   // the super class, so we use the Java method resolveClass, which
   // will unlock it properly, should an exception happen.  If there's
   // no superclass, do nothing -- Object will already have been
-  // resolved.
+  // resolved
 
   if (klass->superclass)
-    java::lang::VMClassLoader::resolveClass (klass->superclass);
-
-  _Jv_InterpClass *clz = (_Jv_InterpClass*)klass;
+    java::lang::VMClassLoader::resolveClass (klass->getSuperclass());
 
   /************ PART ONE: OBJECT LAYOUT ***************/
-
-  // Compute the alignment for this type by searching through the
-  // superclasses and finding the maximum required alignment.  We
-  // could consider caching this in the Class.
-  int max_align = __alignof__ (java::lang::Object);
-  jclass super = clz->superclass;
-  while (super != NULL)
-    {
-      int num = JvNumInstanceFields (super);
-      _Jv_Field *field = JvGetFirstInstanceField (super);
-      while (num > 0)
-	{
-	  int field_align = get_alignment_from_class (field->type);
-	  if (field_align > max_align)
-	    max_align = field_align;
-	  ++field;
-	  --num;
-	}
-      super = super->superclass;
-    }
-
-  int instance_size;
   int static_size = 0;
+  _Jv_LayoutClass(klass, &static_size);
 
-  // Although java.lang.Object is never interpreted, an interface can
-  // have a null superclass.  Note that we have to lay out an
-  // interface because it might have static fields.
-  if (clz->superclass)
-    instance_size = clz->superclass->size();
-  else
-    instance_size = java::lang::Object::class$.size();
-
-  for (int i = 0; i < clz->field_count; i++)
-    {
-      int field_size;
-      int field_align;
-
-      _Jv_Field *field = &clz->fields[i];
-
-      if (! field->isRef ())
-	{
-	  // it's safe to resolve the field here, since it's 
-	  // a primitive class, which does not cause loading to happen.
-	  _Jv_ResolveField (field, clz->loader);
-
-	  field_size = field->type->size ();
-	  field_align = get_alignment_from_class (field->type);
-	}
-      else 
-	{
-	  field_size = sizeof (jobject);
-	  field_align = __alignof__ (jobject);
-	}
-
-#ifndef COMPACT_FIELDS
-      field->bsize = field_size;
-#endif
-
-      if (field->flags & Modifier::STATIC)
-	{
-	  /* this computes an offset into a region we'll allocate 
-	     shortly, and then add this offset to the start address */
-
-	  static_size        = ROUND (static_size, field_align);
-	  field->u.boffset   = static_size;
-	  static_size       += field_size;
-	}
-      else
-	{
-	  instance_size      = ROUND (instance_size, field_align);
-	  field->u.boffset   = instance_size;
-	  instance_size     += field_size;
-	  if (field_align > max_align)
-	    max_align = field_align;
-	}
-    }
-
-  // Set the instance size for the class.  Note that first we round it
-  // to the alignment required for this object; this keeps us in sync
-  // with our current ABI.
-  instance_size = ROUND (instance_size, max_align);
-  clz->size_in_bytes = instance_size;
+  _Jv_InterpClass *clz = (_Jv_InterpClass*)klass;
 
   // allocate static memory
   if (static_size != 0)
@@ -739,42 +679,6 @@ _Jv_InitField (jobject obj, jclass klass, int index)
       throw_class_format_error ("erroneous field initializer");
     }
 }
-
-template<typename T>
-struct aligner
-{
-  T field;
-};
-
-#define ALIGNOF(TYPE) (__alignof__ (((aligner<TYPE> *) 0)->field))
-
-// This returns the alignment of a type as it would appear in a
-// structure.  This can be different from the alignment of the type
-// itself.  For instance on x86 double is 8-aligned but struct{double}
-// is 4-aligned.
-static int
-get_alignment_from_class (jclass klass)
-{
-  if (klass == JvPrimClass (byte))
-    return ALIGNOF (jbyte);
-  else if (klass == JvPrimClass (short))
-    return ALIGNOF (jshort);
-  else if (klass == JvPrimClass (int)) 
-    return ALIGNOF (jint);
-  else if (klass == JvPrimClass (long))
-    return ALIGNOF (jlong);
-  else if (klass == JvPrimClass (boolean))
-    return ALIGNOF (jboolean);
-  else if (klass == JvPrimClass (char))
-    return ALIGNOF (jchar);
-  else if (klass == JvPrimClass (float))
-    return ALIGNOF (jfloat);
-  else if (klass == JvPrimClass (double))
-    return ALIGNOF (jdouble);
-  else
-    return ALIGNOF (jobject);
-}
-
 
 inline static unsigned char*
 skip_one_type (unsigned char* ptr)

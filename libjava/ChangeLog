@@ -1,3 +1,111 @@
+2004-04-16  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natClassLoader.cc (_Jv_WaitForState): Call
+	_Jv_LayoutClass.
+	(_Jv_PrepareCompiledClass): Cast address to uaddr for comparison.
+	(_Jv_PrepareCompiledClass): If we throw an exception during
+	preparation, restore state.
+	(ClassLoader::getClassLoader0): New method.
+
+	* java/lang/natClass.cc (get_alignment_from_class): Moved here
+	from resolve.cc.
+	(ALIGNOF): Use offsetof, not __alignof__.
+	(_Jv_ResolveClassRef): Resolve a reference to a class in a
+	constant pool.
+	(getInterfaces): Emit debug output if interface hasn't been
+	resolved.
+	(initializeClass): Call _Jv_LayoutClass.
+	(_Jv_LinkSymbolTable): Add debugging output.
+	(_Jv_LinkSymbolTable): NoClassDefFoundError if target_class isn't
+	found.
+	(_Jv_LinkSymbolTable): Call _Jv_PrepareClass.
+	(_Jv_LinkSymbolTable): Pass the real class loader to
+	_Jv_FindClass.
+	(_Jv_linkExceptionClassTable): Don't throw if we fail to find an
+	exception class.
+	(_Jv_LinkSymbolTable): Assert if we find a static field reference
+	to an interpreted class.
+	(_Jv_LayoutVTableMethods): Use klass->getSuperclass to get the
+	superclass.
+	(_Jv_LayoutClass): Moved here; it was part of _Jv_PrepareClass in
+	resolve.cc.
+
+	* java/lang/VMSecurityManager.java: Check for the system class
+	loader as well as loader != null.
+	
+	* java/lang/SecurityManager.java (checkPermission): Remove
+	security check.
+	(checkRead): Likewise.
+	(checkConnect): Likewise.
+
+	* java/lang/ClassLoader.java (loadClass): Include all class
+	loaders in stack trace string.
+	Look for class in "gcjlib.so" in the same directory.
+	(getSystemClassLoader) Use getClassLoader0.
+	(getClassLoader0): New native method.
+
+	* java/lang/Class.h (getSuperclass): New method.
+	(getInterface): New method.
+	(size): Lay out class if needed.
+	(firstMethodIndex): New method.
+	(Jv_ResolveClassRef): New declaration.
+	(_Jv_LinkSymbolTable): New declaration.
+
+	* java/io/ObjectOutputStream.java: Add DEBUG statements
+	everywhere.
+	(dumpElementln): New method.
+	(depth): New field.
+	* java/io/ObjectInputStream.java (MyIOException): new, for
+	debugging.
+	Everywhere: use MyIOException rather than IOException.
+	Indent debugging output to make nesting visible.
+	(currentClassLoader): Make native
+	(callersClassLoader): New field.
+	(depth): New field.
+	* java/io/natObjectInputStream.cc (getCallersClassLoader): New
+	method.
+
+	(readObject): ENDBLOCKDATA is generated if the class has a write
+	method, not if it has a read method.
+
+	* include/jvm.h (_Jv_CallAnyMethodA): Add new arg, iface.
+
+	* gnu/javax/rmi/CORBA/DelegateFactory.java: Use the
+	getContextClassLoader form the current thread after our own class
+	loader.
+ 
+	* gnu/gcj/runtime/SharedLibHelper.java (findClass): Class loader
+	debugging.
+	(toString): New method.
+
+	* verify.cc (class _Jv_BytecodeVerifier): Don't directly access
+	interfaces array.
+
+	* resolve.cc (_Jv_PrepareMissingMethods): If interface looks like
+	a constant pool entry, resolve it now.
+	(_Jv_PrepareClass): Break out part of this function to Jv_LayoutClass
+	in natClass.cc.
+	Move  get_alignment_from_class to natClass.cc.
+	
+	* prims.cc (_Jv_AllocObjectNoFinalizer): Use size field from class.
+	(_Jv_AllocObjectNoInitNoFinalizer): Likewise.
+
+	* defineclass.cc (checkExtends): Don't access superclass field
+	directly.
+
+	* Makefile.in: regenerate.
+
+	* gnu/gcj/util/natDebug.cc: New
+	* gnu/gcj/util/Debug.java: New.
+
+	* Makefile.am (java/io/ObjectInputStream.lo): Use
+	-fno-optimize-sibling-calls.
+
+	* java/lang/reflect/natMethod.cc (_Jv_CallAnyMethodA): Use
+	_Jv_LookupInterfaceMethodIdx to calculate the address of a method
+	in an interface.
+	* include/jvm.h (_Jv_CallAnyMethodA): Add new arg: iface.
+
 2004-04-09  Ranjit Mathew  <rmathew@hotmail.com>
 	
 	* java/lang/VMThrowable.java (getStackTrace): Pass trace as-is to

@@ -14,6 +14,7 @@ details.  */
 
 #pragma interface
 
+#include <cstddef>
 #include <java/lang/Object.h>
 #include <java/lang/String.h>
 #include <java/net/URL.h>
@@ -208,7 +209,18 @@ public:
 
   inline jclass getSuperclass (void)
     {
+      if (state < JV_STATE_LINKED)
+	superclass =_Jv_ResolveClassRef (this, superclass);
+      
       return superclass;
+    }
+
+  inline jclass getInterface (jint n)
+    {
+      if (state < JV_STATE_LINKED)
+	interfaces[n] =_Jv_ResolveClassRef (this, interfaces[n]);
+      
+      return interfaces[n];
     }
 
   inline jboolean isArray (void)
@@ -243,8 +255,22 @@ public:
   // FIXME: this probably shouldn't be public.
   jint size (void)
     {
+      // FIXME size_in_bytes == -1 is an evil way to test for BC compiled programs
+      if (size_in_bytes == (jint)-1)
+	{
+	  int static_size;
+	  _Jv_LayoutClass(this, &static_size);
+	}
+
       return size_in_bytes;
     }
+
+  // The index of the first method we declare ourself (as opposed to
+  // inheriting).
+  inline jint firstMethodIndex (void)
+  {
+    return vtable_method_count - method_count;
+  }
     
   // finalization
   void finalize ();
@@ -271,6 +297,8 @@ private:
   friend void *_Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface, 
 					     int method_idx);
 
+  friend jclass _Jv_ResolveClassRef (jclass, jclass);
+
   inline friend void 
   _Jv_InitClass (jclass klass)
   {
@@ -278,6 +306,8 @@ private:
       return;
     klass->initializeClass ();  
   }
+  
+  friend void _Jv_LayoutClass(jclass, int*);
 
   friend _Jv_Method* _Jv_LookupDeclaredMethod (jclass, _Jv_Utf8Const *, 
 					       _Jv_Utf8Const*);
@@ -338,7 +368,7 @@ private:
   friend jstring _Jv_GetMethodString(jclass, _Jv_Utf8Const *);
   friend jshort _Jv_AppendPartialITable (jclass, jclass, void **, jshort);
   friend jshort _Jv_FindIIndex (jclass *, jshort *, jshort);
-  friend void _Jv_LinkSymbolTable (jclass);
+  friend void _Jv_LinkSymbolTable (jclass, const char* foo=NULL);
   friend void _Jv_LayoutVTableMethods (jclass klass);
   friend void _Jv_SetVTableEntries (jclass, _Jv_VTable *, jboolean *);
   friend void _Jv_MakeVTable (jclass);
@@ -346,7 +376,7 @@ private:
 
   friend jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
 				   jint flags);
-
+  
   // Return array class corresponding to element type KLASS, creating it if
   // necessary.
   inline friend jclass

@@ -399,6 +399,8 @@ jvmpi_notify_alloc(jclass klass, jint size, jobject obj)
 jobject
 _Jv_AllocObjectNoInitNoFinalizer (jclass klass, jint size)
 {
+  if (size == 0)
+    size = klass->size ();
   jobject obj = (jobject) _Jv_AllocObj (size, klass);
   jvmpi_notify_alloc (klass, size, obj);
   return obj;
@@ -409,6 +411,8 @@ jobject
 _Jv_AllocObjectNoFinalizer (jclass klass, jint size)
 {
   _Jv_InitClass (klass);
+  if (size == 0)
+    size = klass->size ();
   jobject obj = (jobject) _Jv_AllocObj (size, klass);
   jvmpi_notify_alloc (klass, size, obj);
   return obj;
@@ -1017,6 +1021,7 @@ _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv,
   _Jv_ThreadWait ();
 
   int status = (int) java::lang::ThreadGroup::had_uncaught_exception;
+  java::lang::Runtime::securityManager = NULL;
   runtime->exit (status);
 }
 

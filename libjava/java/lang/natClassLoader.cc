@@ -32,6 +32,7 @@ details.  */
 #include <java/lang/ClassNotFoundException.h>
 #include <java/lang/ClassCircularityError.h>
 #include <java/lang/IncompatibleClassChangeError.h>
+#include <java/lang/ClassFormatError.h>
 #include <java/lang/VirtualMachineError.h>
 #include <java/lang/VMClassLoader.h>
 #include <java/lang/reflect/Modifier.h>
@@ -55,7 +56,15 @@ _Jv_WaitForState (jclass klass, int state)
 #ifdef INTERPRETER
       if (_Jv_IsInterpretedClass (klass))
 	_Jv_PrepareClass (klass);
+      else
 #endif
+	// Assign storage to fields
+	// FIXME size_in_bytes == -1 is an evil way to test for BC compiled programs
+	if (klass->size_in_bytes == (jint)-1)
+	  {   
+	    int static_size;
+	    _Jv_LayoutClass(klass, &static_size);
+	  }
       _Jv_PrepareCompiledClass (klass);
       _Jv_MonitorExit (klass);
       return;
@@ -89,90 +98,100 @@ _Jv_PrepareCompiledClass (jclass klass)
   if (klass->state >= JV_STATE_LINKED)
     return;
 
-  // Short-circuit, so that mutually dependent classes are ok.
-  klass->state = JV_STATE_LINKED;
-
-  _Jv_Constants *pool = &klass->constants;
-
-  // Resolve class constants first, since other constant pool
-  // entries may rely on these.
-  for (int index = 1; index < pool->size; ++index)
+  int state = klass->state;
+  try
     {
-      if (pool->tags[index] == JV_CONSTANT_Class)
+      // Short-circuit, so that mutually dependent classes are ok.
+      klass->state = JV_STATE_LINKED;
+
+      _Jv_Constants *pool = &klass->constants;
+
+      // Resolve class constants first, since other constant pool
+      // entries may rely on these.
+      for (int index = 1; index < pool->size; ++index)
 	{
-	  _Jv_Utf8Const *name = pool->data[index].utf8;
+	  if (pool->tags[index] == JV_CONSTANT_Class)
+	    {
+	      _Jv_Utf8Const *name = pool->data[index].utf8;
 	  
-	  jclass found;
-	  if (name->data[0] == '[')
-	    found = _Jv_FindClassFromSignature (&name->data[0],
-						klass->loader);
-	  else
-	    found = _Jv_FindClass (name, klass->loader);
+	      jclass found;
+	      if (name->data[0] == '[')
+		found = _Jv_FindClassFromSignature (&name->data[0],
+						    klass->loader);
+	      else
+		found = _Jv_FindClass (name, klass->loader);
 		
-	  if (! found)
-	    {
-	      jstring str = _Jv_NewStringUTF (name->data);
-	      throw new java::lang::NoClassDefFoundError (str);
+	      if (! found)
+		{
+		  jstring str = _Jv_NewStringUTF (name->data);
+		  throw new java::lang::NoClassDefFoundError (str);
+		}
+
+	      pool->data[index].clazz = found;
+	      pool->tags[index] |= JV_CONSTANT_ResolvedFlag;
 	    }
-
-	  pool->data[index].clazz = found;
-	  pool->tags[index] |= JV_CONSTANT_ResolvedFlag;
 	}
-    }
 
-  // If superclass looks like a constant pool entry,
-  // resolve it now.
-  if ((uaddr) klass->superclass < pool->size)
-    klass->superclass = pool->data[(int) klass->superclass].clazz;
-
-  // Likewise for interfaces.
-  for (int i = 0; i < klass->interface_count; i++)
-    if ((uaddr) klass->interfaces[i] < pool->size)
-      klass->interfaces[i] = pool->data[(int) klass->interfaces[i]].clazz;
-
-  // Resolve the remaining constant pool entries.
-  for (int index = 1; index < pool->size; ++index)
-    {
-      if (pool->tags[index] == JV_CONSTANT_String)
+      // If superclass looks like a constant pool entry,
+      // resolve it now.
+      if ((uaddr) klass->superclass < (uaddr)pool->size)
 	{
-	  jstring str;
-
-	  str = _Jv_NewStringUtf8Const (pool->data[index].utf8);
-	  pool->data[index].o = str;
-	  pool->tags[index] |= JV_CONSTANT_ResolvedFlag;
+	  klass->superclass = pool->data[(int) klass->superclass].clazz;
 	}
-    }
+      // Likewise for interfaces.
+      for (int i = 0; i < klass->interface_count; i++)
+	if ((uaddr) klass->interfaces[i] < (uaddr)pool->size)
+	  klass->interfaces[i] = pool->data[(int) klass->interfaces[i]].clazz;
+
+      // Resolve the remaining constant pool entries.
+      for (int index = 1; index < pool->size; ++index)
+	{
+	  if (pool->tags[index] == JV_CONSTANT_String)
+	    {
+	      jstring str;
+
+	      str = _Jv_NewStringUtf8Const (pool->data[index].utf8);
+	      pool->data[index].o = str;
+	      pool->tags[index] |= JV_CONSTANT_ResolvedFlag;
+	    }
+	}
 
 #ifdef INTERPRETER
-  // FIXME: although the comment up top says that this function is
-  // only called for compiled classes, it is actually called for every
-  // class.
-  if (! _Jv_IsInterpretedClass (klass))
-    {
-#endif /* INTERPRETER */
-      jfieldID f = JvGetFirstStaticField (klass);
-      for (int n = JvNumStaticFields (klass); n > 0; --n)
+      // FIXME: although the comment up top says that this function is
+      // only called for compiled classes, it is actually called for every
+      // class.
+      if (! _Jv_IsInterpretedClass (klass))
 	{
-	  int mod = f->getModifiers ();
-	  // If we have a static String field with a non-null initial
-	  // value, we know it points to a Utf8Const.
-	  _Jv_ResolveField(f, klass->loader);
-	  if (f->getClass () == &java::lang::String::class$
-	      && java::lang::reflect::Modifier::isStatic (mod))
+#endif /* INTERPRETER */
+	  jfieldID f = JvGetFirstStaticField (klass);
+	  for (int n = JvNumStaticFields (klass); n > 0; --n)
 	    {
-	      jstring *strp = (jstring *) f->u.addr;
-	      if (*strp)
-		*strp = _Jv_NewStringUtf8Const ((_Jv_Utf8Const *) *strp);
+	      int mod = f->getModifiers ();
+	      // If we have a static String field with a non-null initial
+	      // value, we know it points to a Utf8Const.
+	      _Jv_ResolveField(f, klass->loader);
+	      if (f->getClass () == &java::lang::String::class$
+		  && java::lang::reflect::Modifier::isStatic (mod))
+		{
+		  jstring *strp = (jstring *) f->u.addr;
+		  if (*strp)
+		    *strp = _Jv_NewStringUtf8Const ((_Jv_Utf8Const *) *strp);
+		}
+	      f = f->getNextField ();
 	    }
-	  f = f->getNextField ();
-	}
 #ifdef INTERPRETER
-    }
+	}
 #endif /* INTERPRETER */
 
-  klass->notifyAll ();
+      klass->notifyAll ();
 
-  _Jv_PushClass (klass);
+      _Jv_PushClass (klass);
+    }
+  catch (java::lang::Throwable *t)
+    {
+      klass->state = state;
+      throw t;
+    }
 }
 
 
@@ -556,6 +575,13 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
     _Jv_RegisterInitiatingLoader (array_class, loader);
 
   element->arrayclass = array_class;
+}
+
+// Return the true ClassLoader for a class, without doing security checks
+::java::lang::ClassLoader *
+::java::lang::ClassLoader::getClassLoader0 (::java::lang::Class *c)
+{
+  return c->loader;
 }
 
 static jclass stack_head;

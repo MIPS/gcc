@@ -493,6 +493,9 @@ $(gtk_awt_peer_sources:.java=.lo): %.lo: %.java
 gnu/gcj/runtime/StackTrace.lo: gnu/gcj/runtime/StackTrace.java
 	$(GCJCOMPILE) -fno-optimize-sibling-calls -o $@ $<
 
+java/io/ObjectInputStream.lo: java/io/ObjectInputStream.java
+	$(GCJCOMPILE) -fno-optimize-sibling-calls -o $@ $<
+
 ## Pass the list of object files to libtool in a temporary file to 
 ## avoid tripping platform command line length limits.
 libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES)
@@ -2195,6 +2198,7 @@ gnu/gcj/runtime/SharedLibLoader.java \
 gnu/gcj/runtime/StackTrace.java \
 gnu/gcj/runtime/StringBuffer.java \
 gnu/gcj/runtime/VMClassLoader.java \
+gnu/gcj/util/Debug.java \
 gnu/java/io/ASN1ParsingException.java \
 gnu/java/io/Base64InputStream.java \
 gnu/java/io/ClassLoaderObjectInputStream.java \
@@ -2865,6 +2869,7 @@ gnu/gcj/runtime/natSharedLibLoader.cc \
 gnu/gcj/runtime/natStackTrace.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/runtime/natVMClassLoader.cc \
+gnu/gcj/util/natDebug.cc \
 gnu/java/awt/natEmbeddedWindow.cc \
 gnu/java/net/natPlainDatagramSocketImpl.cc \
 gnu/java/net/natPlainSocketImpl.cc \

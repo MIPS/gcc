@@ -14,6 +14,7 @@ details.  */
 #include <limits.h>
 #include <string.h>
 #include <stddef.h>
+#include <stdio.h>
 
 #pragma implementation "Class.h"
 
@@ -59,9 +60,74 @@ details.  */
 
 #include <java-cpool.h>
 #include <java-interp.h>
+#include <java-assert.h>
 
 
 using namespace gcj;
+
+template<typename T>
+struct aligner
+{
+  char c;
+  T field;
+};
+
+#define ALIGNOF(TYPE) (offsetof (aligner<TYPE>, field))
+
+// This returns the alignment of a type as it would appear in a
+// structure.  This can be different from the alignment of the type
+// itself.  For instance on x86 double is 8-aligned but struct{double}
+// is 4-aligned.
+static int
+get_alignment_from_class (jclass klass)
+{
+  if (klass == JvPrimClass (byte))
+    return ALIGNOF (jbyte);
+  else if (klass == JvPrimClass (short))
+    return ALIGNOF (jshort);
+  else if (klass == JvPrimClass (int)) 
+    return ALIGNOF (jint);
+  else if (klass == JvPrimClass (long))
+    return ALIGNOF (jlong);
+  else if (klass == JvPrimClass (boolean))
+    return ALIGNOF (jboolean);
+  else if (klass == JvPrimClass (char))
+    return ALIGNOF (jchar);
+  else if (klass == JvPrimClass (float))
+    return ALIGNOF (jfloat);
+  else if (klass == JvPrimClass (double))
+    return ALIGNOF (jdouble);
+  else
+    return ALIGNOF (jobject);
+}
+
+jclass
+_Jv_ResolveClassRef (jclass klass, jclass classref)
+{
+  jclass ret = classref;
+
+  typedef unsigned int uaddr __attribute__ ((mode (pointer)));
+
+  // If superclass looks like a constant pool entry,
+  // resolve it now.
+  if (classref && (uaddr)classref < (uaddr)klass->constants.size)
+    {
+      if (klass->state < JV_STATE_LINKED)
+	{
+	  _Jv_Utf8Const *name = klass->constants.data[(uaddr)classref].utf8;
+	  ret = _Jv_FindClass (name, klass->loader);
+	  if (! ret)
+	    {
+	      jstring str = _Jv_NewStringUTF (name->data);
+	      throw new java::lang::NoClassDefFoundError (str);
+	    }
+	}
+      else
+	ret = klass->constants.data[(uaddr)classref].clazz;
+    }
+
+  return ret;
+}
 
 jclass
 java::lang::Class::forName (jstring className, jboolean initialize,
@@ -485,7 +551,12 @@ java::lang::Class::getInterfaces (void)
   jobjectArray r = JvNewObjectArray (interface_count, getClass (), NULL);
   jobject *data = elements (r);
   for (int i = 0; i < interface_count; ++i)
-    data[i] = interfaces[i];
+    {
+      typedef unsigned int uaddr __attribute__ ((mode (pointer)));
+      data[i] = interfaces[i];
+      if ((uaddr)data[i] < (uaddr)constants.size)
+	fprintf (stderr, "ERROR !!!\n");
+    }
   return reinterpret_cast<JArray<jclass> *> (r);
 }
 
@@ -495,7 +566,8 @@ java::lang::Class::_getMethod (jstring name, JArray<jclass> *param_types)
   jstring partial_sig = getSignature (param_types, false);
   jint p_len = partial_sig->length();
   _Jv_Utf8Const *utf_name = _Jv_makeUtf8Const (name);
-  for (Class *klass = this; klass; klass = klass->getSuperclass())
+
+   for (Class *klass = this; klass; klass = klass->getSuperclass())
     {
       int i = klass->isPrimitive () ? 0 : klass->method_count;
       while (--i >= 0)
@@ -791,12 +863,20 @@ java::lang::Class::initializeClass (void)
     }
 
   _Jv_PrepareConstantTimeTables (this);
+  
+  // Assign storage to fields
+  // FIXME size_in_bytes == -1 is an evil way to test for BC compiled programs
+  if (size_in_bytes == (jint)-1)
+    {
+      int static_size;
+      _Jv_LayoutClass(this, &static_size);
+    }
 
   if (vtable == NULL)
     _Jv_MakeVTable(this);
 
   if (otable || atable)
-    _Jv_LinkSymbolTable(this);
+    _Jv_LinkSymbolTable(this, NULL);
 
   _Jv_linkExceptionClassTable (this);
 
@@ -1531,7 +1611,7 @@ java::lang::Class::setSigners(JArray<jobject> *s)
 // The same otable and atable may be shared by many classes.
 
 void
-_Jv_LinkSymbolTable(jclass klass)
+_Jv_LinkSymbolTable(jclass klass, const char *foobar)
 {
   //// FIXME: Need to lock the tables ////
   
@@ -1543,10 +1623,11 @@ _Jv_LinkSymbolTable(jclass klass)
    
   klass->otable->state = 1;
 
+  if (foobar)
+    fprintf (stderr, "Fixing up otable in %s@%p:\n", foobar, klass);
   for (index = 0; sym = klass->otable_syms[index], sym.name != NULL; index++)
     {
-      // FIXME: Why are we passing NULL as the class loader?
-      jclass target_class = _Jv_FindClass (sym.class_name, NULL);
+      jclass target_class = _Jv_FindClass (sym.class_name, klass->loader);
       _Jv_Method *meth = NULL;            
 
       const _Jv_Utf8Const *signature = sym.signature;
@@ -1558,7 +1639,8 @@ _Jv_LinkSymbolTable(jclass klass)
       }
 
       if (target_class == NULL)
-	continue;
+	throw new java::lang::NoClassDefFoundError 
+	  (_Jv_NewStringUTF (sym.class_name->data));
 
       if (target_class->isInterface())
 	{
@@ -1574,6 +1656,14 @@ _Jv_LinkSymbolTable(jclass klass)
 		      && _Jv_equalUtf8Consts (signature, meth->signature))
 		    {
 		      klass->otable->offsets[index] = i + 1;
+		      if (foobar)
+			fprintf (stderr, "  offsets[%d] = %d (interface %s@%p : %s(%s))\n",
+				 index,
+				 klass->otable->offsets[index],
+				 (const char*)cls->name->data,
+				 klass,
+				 (const char*)sym.name->data,
+				 (const char*)signature->data);
 		      goto found;
 		    }
 		}
@@ -1591,21 +1681,32 @@ _Jv_LinkSymbolTable(jclass klass)
  	  // If the target class does not have a vtable_method_count yet, 
 	  // then we can't tell the offsets for its methods, so we must lay 
 	  // it out now.
+	  {
+	    JvSynchronize sync (target_class);
+	    _Jv_PrepareClass(target_class);
+	  }
 	  if (target_class->vtable_method_count == -1)
 	    {
 	      JvSynchronize sync (target_class);
 	      _Jv_LayoutVTableMethods (target_class);
 	    }
-		
+	  
 	  meth = _Jv_LookupDeclaredMethod(target_class, sym.name, 
 					  sym.signature);
-		
+	  
 	  if (meth != NULL)
 	    {
 	      klass->otable->offsets[index] = 
 		_Jv_VTable::idx_to_offset (meth->index);	      
 	    }
-
+	  if (foobar)
+	    fprintf (stderr, "  offsets[%d] = %d (class %s@%p : %s(%s))\n",
+		     index,
+		     klass->otable->offsets[index],
+		     (const char*)target_class->name->data,
+		     target_class,
+		     (const char*)sym.name->data,
+		     (const char*)signature->data);
 	  continue;
 	}
 
@@ -1666,8 +1767,7 @@ _Jv_LinkSymbolTable(jclass klass)
 
   for (index = 0; sym = klass->atable_syms[index], sym.name != NULL; index++)
     {
-      // FIXME: Why are we passing NULL as the class loader?
-      jclass target_class = _Jv_FindClass (sym.class_name, NULL);
+      jclass target_class = _Jv_FindClass (sym.class_name, klass->loader);
       _Jv_Method *meth = NULL;            
       const _Jv_Utf8Const *signature = sym.signature;
 
@@ -1676,7 +1776,8 @@ _Jv_LinkSymbolTable(jclass klass)
       klass->atable->addresses[index] = NULL;
       
       if (target_class == NULL)
-	continue;
+	throw new java::lang::NoClassDefFoundError 
+	  (_Jv_NewStringUTF (sym.class_name->data));
       
       // We're looking for a static field or a static method, and we
       // can tell which is needed by looking at the signature.
@@ -1698,11 +1799,32 @@ _Jv_LinkSymbolTable(jclass klass)
 	  if (meth != NULL)
 	    {
 	      if (meth->ncode) // Maybe abstract?
-		klass->atable->addresses[index] = meth->ncode;
+		{
+		  klass->atable->addresses[index] = meth->ncode;
+		  if (foobar)
+		    fprintf (stderr, "  addresses[%d] = %p (class %s@%p : %s(%s))\n",
+			     index,
+			     &klass->atable->addresses[index],
+			     (const char*)target_class->name->data,
+			     klass,
+			     (const char*)sym.name->data,
+			     (const char*)signature->data);
+		}
 #ifdef INTERPRETER
 	      else if (_Jv_IsInterpretedClass (target_class))
-		_Jv_Defer_Resolution (target_class, meth, 
-				      &klass->atable->addresses[index]);
+		{
+		  _Jv_Defer_Resolution (target_class, meth, 
+					&klass->atable->addresses[index]);
+		  if (foobar)
+		    fprintf (stderr, "  addresses[%d] = DEFERRED@%p (class %s@%p : %s(%s))\n",
+			     index,
+			     klass->atable->addresses[index],
+			     (const char*)target_class->name->data,
+			     klass,
+			     (const char*)sym.name->data,
+			     (const char*)signature->data);
+		
+		}
 #endif
 	    }
 	  else
@@ -1729,6 +1851,9 @@ _Jv_LinkSymbolTable(jclass klass)
 
 		if (!field->isResolved ())
 		  _Jv_ResolveField (field, cls->loader);
+
+		if (_Jv_IsInterpretedClass (target_class))
+		  _Jv_AssertDoCall ("can't fixup reference to static field in interpreted class");
 		
 // 		if (field_type != 0 && field->type != field_type)
 // 		  throw new java::lang::LinkageError
@@ -1772,9 +1897,17 @@ _Jv_linkExceptionClassTable (jclass self)
   catch_record++;
   while (catch_record->classname)
     {
-      jclass target_class = _Jv_FindClass (catch_record->classname,  
-					   self->getClassLoaderInternal ());
-      *catch_record->address = target_class;
+      try
+	{
+	  jclass target_class = _Jv_FindClass (catch_record->classname,  
+					       self->getClassLoaderInternal ());
+	  *catch_record->address = target_class;
+	}
+      catch (::java::lang::Throwable *t)
+	{
+	  // FIXME: We need to do something better here.
+	  *catch_record->address = 0;
+	}
       catch_record++;
     }
   self->catch_classes->classname = (_Jv_Utf8Const *)-1;
@@ -1798,27 +1931,7 @@ _Jv_LayoutVTableMethods (jclass klass)
       || klass->vtable_method_count != -1)
     return;
 
-  jclass superclass = klass->superclass;
-
-  typedef unsigned int uaddr __attribute__ ((mode (pointer)));
-
-  // If superclass looks like a constant pool entry,
-  // resolve it now.
-  if ((uaddr)superclass < (uaddr)klass->constants.size)
-    {
-      if (klass->state < JV_STATE_LINKED)
-	{
-	  _Jv_Utf8Const *name = klass->constants.data[(int)superclass].utf8;
-	  superclass = _Jv_FindClass (name, klass->loader);
-	  if (! superclass)
-	    {
-	      jstring str = _Jv_NewStringUTF (name->data);
-	      throw new java::lang::NoClassDefFoundError (str);
-	    }
-	}
-      else
-	superclass = klass->constants.data[(int)superclass].clazz;
-    }
+  jclass superclass = klass->getSuperclass();
 
   if (superclass != NULL && superclass->vtable_method_count == -1)
     {
@@ -1969,3 +2082,101 @@ _Jv_MakeVTable (jclass klass)
 	  }
     }
 }
+
+void 
+_Jv_LayoutClass(jclass klass, int *static_size)
+{  
+  // Compute the alignment for this type by searching through the
+  // superclasses and finding the maximum required alignment.  We
+  // could consider caching this in the Class.
+  int max_align = __alignof__ (java::lang::Object);
+  jclass super = klass->superclass;
+  while (super != NULL)
+    {
+      // FIXME size_in_bytes == -1 is an evil way to test for BC compiled programs
+      if (super->size_in_bytes == (jint)-1)
+	_Jv_LayoutClass(super, static_size);
+      int num = JvNumInstanceFields (super);
+      _Jv_Field *field = JvGetFirstInstanceField (super);
+      while (num > 0)
+	{
+	  int field_align = get_alignment_from_class (field->type);
+	  if (field_align > max_align)
+	    max_align = field_align;
+	  ++field;
+	  --num;
+	}
+      super = super->superclass;
+    }
+
+  int instance_size;
+
+  // Although java.lang.Object is never interpreted, an interface can
+  // have a null superclass.  Note that we have to lay out an
+  // interface because it might have static fields.
+  if (klass->superclass)
+    instance_size = klass->superclass->size();
+  else
+    instance_size = java::lang::Object::class$.size();
+
+  for (int i = 0; i < klass->field_count; i++)
+    {
+      int field_size;
+      int field_align;
+
+      _Jv_Field *field = &klass->fields[i];
+
+      if (! field->isRef ())
+	{
+	  // it's safe to resolve the field here, since it's 
+	  // a primitive class, which does not cause loading to happen.
+	  _Jv_ResolveField (field, klass->loader);
+
+	  field_size = field->type->size ();
+	  field_align = get_alignment_from_class (field->type);
+	}
+      else 
+	{
+	  field_size = sizeof (jobject);
+	  field_align = __alignof__ (jobject);
+	}
+
+#ifndef COMPACT_FIELDS
+      field->bsize = field_size;
+#endif
+
+      if (field->flags & java::lang::reflect::Modifier::STATIC)
+	{
+	  if (_Jv_IsInterpretedClass (klass))
+	    {
+	      /* this computes an offset into a region we'll allocate
+		 shortly, and then add this offset to the start
+		 address */
+
+	      *static_size       = ROUND (*static_size, field_align);
+	      field->u.boffset   = *static_size;
+	      *static_size       += field_size;
+	    }
+	}
+      else
+	{
+	  instance_size      = ROUND (instance_size, field_align);
+	  if (field->u.boffset != instance_size)
+	    fprintf (stderr, "change to %s.%s: old = %d new=%d\n",
+		     (const char*)(klass->name->data), 
+		     (const char*)(field->name->data), 
+		     field->u.boffset, instance_size);
+	  field->u.boffset   = instance_size;
+	  instance_size     += field_size;
+	  if (field_align > max_align)
+	    max_align = field_align;
+	}
+    }
+
+  // Set the instance size for the class.  Note that first we round it
+  // to the alignment required for this object; this keeps us in sync
+  // with our current ABI.
+  instance_size = ROUND (instance_size, max_align);
+  klass->size_in_bytes = instance_size;
+}
+

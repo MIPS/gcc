@@ -1,6 +1,6 @@
-# Makefile.in generated automatically by automake 1.4 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p6 from Makefile.am
 
-# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+# Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -1870,6 +1870,7 @@ gnu/gcj/runtime/SharedLibLoader.java \
 gnu/gcj/runtime/StackTrace.java \
 gnu/gcj/runtime/StringBuffer.java \
 gnu/gcj/runtime/VMClassLoader.java \
+gnu/gcj/util/Debug.java \
 gnu/java/io/ASN1ParsingException.java \
 gnu/java/io/Base64InputStream.java \
 gnu/java/io/ClassLoaderObjectInputStream.java \
@@ -2539,6 +2540,7 @@ gnu/gcj/runtime/natSharedLibLoader.cc \
 gnu/gcj/runtime/natStackTrace.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/runtime/natVMClassLoader.cc \
+gnu/gcj/util/natDebug.cc \
 gnu/java/awt/natEmbeddedWindow.cc \
 gnu/java/net/natPlainDatagramSocketImpl.cc \
 gnu/java/net/natPlainSocketImpl.cc \
@@ -2720,7 +2722,7 @@ gnu/gcj/io/shs.lo gnu/gcj/runtime/natFinalizerThread.lo \
 gnu/gcj/runtime/natFirstThread.lo gnu/gcj/runtime/natNameFinder.lo \
 gnu/gcj/runtime/natSharedLibLoader.lo gnu/gcj/runtime/natStackTrace.lo \
 gnu/gcj/runtime/natStringBuffer.lo gnu/gcj/runtime/natVMClassLoader.lo \
-gnu/java/awt/natEmbeddedWindow.lo \
+gnu/gcj/util/natDebug.lo gnu/java/awt/natEmbeddedWindow.lo \
 gnu/java/net/natPlainDatagramSocketImpl.lo \
 gnu/java/net/natPlainSocketImpl.lo \
 gnu/java/net/protocol/core/natCoreInputStream.lo \
@@ -3044,7 +3046,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/gcj/runtime/natSharedLibLoader.P \
 .deps/gnu/gcj/runtime/natStackTrace.P \
 .deps/gnu/gcj/runtime/natStringBuffer.P \
-.deps/gnu/gcj/runtime/natVMClassLoader.P .deps/gnu/gcj/xlib/Clip.P \
+.deps/gnu/gcj/runtime/natVMClassLoader.P .deps/gnu/gcj/util/Debug.P \
+.deps/gnu/gcj/util/natDebug.P .deps/gnu/gcj/xlib/Clip.P \
 .deps/gnu/gcj/xlib/Colormap.P .deps/gnu/gcj/xlib/Display.P \
 .deps/gnu/gcj/xlib/Drawable.P .deps/gnu/gcj/xlib/Font.P \
 .deps/gnu/gcj/xlib/GC.P .deps/gnu/gcj/xlib/Pixmap.P \
@@ -4983,7 +4986,7 @@ maintainer-clean-recursive:
 	dot_seen=no; \
 	rev=''; list='$(SUBDIRS)'; for subdir in $$list; do \
 	  rev="$$subdir $$rev"; \
-	  test "$$subdir" = "." && dot_seen=yes; \
+	  test "$$subdir" != "." || dot_seen=yes; \
 	done; \
 	test "$$dot_seen" = "no" && rev=". $$rev"; \
 	target=`echo $@ | sed s/-recursive//`; \
@@ -5343,6 +5346,9 @@ $(gtk_awt_peer_sources:.java=.lo): %.lo: %.java
 	$(GCJCOMPILE) -fjni -o $@ $<
 
 gnu/gcj/runtime/StackTrace.lo: gnu/gcj/runtime/StackTrace.java
+	$(GCJCOMPILE) -fno-optimize-sibling-calls -o $@ $<
+
+java/io/ObjectInputStream.lo: java/io/ObjectInputStream.java
 	$(GCJCOMPILE) -fno-optimize-sibling-calls -o $@ $<
 
 libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES)

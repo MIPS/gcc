@@ -143,14 +143,14 @@ jobject
 java::lang::reflect::Method::invoke (jobject obj, jobjectArray args)
 {
   using namespace java::lang::reflect;
+  jclass iface = NULL;
   
   if (parameter_types == NULL)
     getType ();
     
   jmethodID meth = _Jv_FromReflectedMethod (this);
-
   jclass objClass;
-  
+
   if (Modifier::isStatic(meth->accflags))
     {
       // We have to initialize a static class.  It is safe to do this
@@ -188,8 +188,11 @@ java::lang::reflect::Method::invoke (jobject obj, jobjectArray args)
 	throw new IllegalAccessException;
     }
 
+  if (declaringClass->isInterface())
+    iface = declaringClass;
+  
   return _Jv_CallAnyMethodA (obj, return_type, meth, false,
-			     parameter_types, args);
+			     parameter_types, args, iface);
 }
 
 jint
@@ -341,7 +344,8 @@ _Jv_CallAnyMethodA (jobject obj,
 		    JArray<jclass> *parameter_types,
 		    jvalue *args,
 		    jvalue *result,
-		    jboolean is_jni_call)
+		    jboolean is_jni_call,
+		    jclass iface)
 {
   using namespace java::lang::reflect;
   
@@ -478,7 +482,20 @@ _Jv_CallAnyMethodA (jobject obj,
       && (_Jv_ushort)-1 != meth->index)
     {
       _Jv_VTable *vtable = *(_Jv_VTable **) obj;
-      ncode = vtable->get_method (meth->index);
+      if (iface == NULL)
+	ncode = vtable->get_method (meth->index);
+      else
+	{
+	  /* Okay, here's how it goes.  We want to know the method
+	     offset in the list of methods declared by an interface,
+	     starting at 1.  The offset in the method is the vtable
+	     offset, not the offset in the interface, so we subtract
+	     that.  We add 1 because we count interface methods
+	     beginning at 1.  I think this is because of the initial
+	     gc descriptor in the vtable.  */
+	  jint offset = meth->index - JvGetFirstMethod (iface)->index + 1;
+	  ncode = _Jv_LookupInterfaceMethodIdx (vtable->clas, iface, offset);
+	}
     }
   else
     {
@@ -553,7 +570,8 @@ _Jv_CallAnyMethodA (jobject obj,
 		    jmethodID meth,
 		    jboolean is_constructor,
 		    JArray<jclass> *parameter_types,
-		    jobjectArray args)
+		    jobjectArray args,
+		    jclass iface)
 {
   if (parameter_types->length == 0 && args == NULL)
     {
@@ -621,7 +639,7 @@ _Jv_CallAnyMethodA (jobject obj,
   _Jv_CallAnyMethodA (obj, return_type, meth, is_constructor,
   		      _Jv_isVirtualMethod (meth),
 		      parameter_types, argvals, &ret_value,
-		      false);
+		      false, iface);
 
   jobject r;
 #define VAL(Wrapper, Field)  (new Wrapper (ret_value.Field))

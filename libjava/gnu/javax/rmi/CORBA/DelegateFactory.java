@@ -54,23 +54,33 @@ public class DelegateFactory
     String dcname = System.getProperty("javax.rmi.CORBA." + type + "Class");
     if (dcname == null)
       {
-	//throw new DelegateException
-	//  ("no javax.rmi.CORBA.XXXClass property sepcified.");
-	dcname = "gnu.javax.rmi.CORBA." + type + "DelegateImpl";
+		//throw new DelegateException
+		//  ("no javax.rmi.CORBA.XXXClass property sepcified.");
+		dcname = "gnu.javax.rmi.CORBA." + type + "DelegateImpl";
       }
     try
       {
-	Class dclass = Class.forName(dcname, 
-				     true,
-				     Thread.currentThread().getContextClassLoader());
-	r = dclass.newInstance();
-	cache.put(type, r);
-	return r;
+		Class dclass;
+		try
+	      {
+			dclass = Class.forName(dcname);
+	      }
+		catch (ClassNotFoundException c)
+	      {
+			ClassLoader loader = Thread.currentThread().getContextClassLoader();
+			if (loader != null)
+		      dclass = Class.forName(dcname, true, loader);
+			else
+		      throw c;
+	      }
+		r = dclass.newInstance();
+		cache.put(type, r);
+		return r;
       }
     catch(Exception e)
       {
-	throw new GetDelegateInstanceException
-	  ("Exception when trying to get delegate instance:" + dcname, e);
+		throw new GetDelegateInstanceException
+		  ("Exception when trying to get delegate instance:" + dcname, e);
       }
   }
 }
