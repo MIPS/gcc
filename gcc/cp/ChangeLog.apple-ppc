@@ -1,3 +1,9 @@
+2005-01-19  Matt Austern  <austern@apple.com>
+
+        Radar 3960754
+	* typeck.c (comptypes): Handle return code from objc_comptypes
+	correctly.
+
 2005-01-18  Mike Stump  <mrs@apple.com>
 
 	Radar 3956093
