@@ -1651,8 +1651,7 @@ queue_to_ready (ready)
 
 	      advance_one_cycle ();
 
-	      if (ready->n_ready)
-		break;
+	      break;
 	    }
 
 	  advance_one_cycle ();
