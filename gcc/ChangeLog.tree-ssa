@@ -1,3 +1,19 @@
+2003-07-07  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (move_outgoing_edges): New function.
+	(merge_tree_blocks): Use it.
+	(remove_bb): Remove the block from the pdom_info structures
+	as well if they exist.
+	(linearize_cond_expr): Move important edges from the then and
+	else arms to BB as appropriately
+
+	* tree-cfg.c (remove_stmt): When removing a COMPOUND_EXPR, make
+	sure that any basic block pointers to the arms of the COMPOUND_EXPR
+	are updated.
+
+	* tree-cfg.c (make_goto_expr_edges): Computed gotos create
+	abnormal edges.
+
 2003-07-05  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (defs_match_p): Check for copies of the same version.

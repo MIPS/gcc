@@ -127,6 +127,7 @@ static bool value_matches_some_label (edge, tree, edge *);
 static void linearize_control_structures (void);
 static bool linearize_cond_expr (tree *, basic_block);
 static void replace_stmt (tree *, tree *);
+static void move_outgoing_edges (basic_block, basic_block);
 static void merge_tree_blocks (basic_block, basic_block);
 static bool remap_stmts (basic_block, basic_block, tree *);
 static tree *handle_switch_split (basic_block, basic_block);
@@ -1331,19 +1332,20 @@ make_goto_expr_edges (basic_block bb)
     {
       dest = GOTO_DESTINATION (goto_t);
       for_call = 0;
-      /* The RTL CFG code got this wrong.  A computed goto creates
-	 normal edges, except for one case.  Namely a computed goto
-	 in a nested function has an abnormal edge to the exit block
-	 (which is handled elsewhere).  */
-      edge_flags = 0;
 
+      /* A GOTO to a local label creates normal edges.  */
       if (TREE_CODE (dest) == LABEL_DECL && ! NONLOCAL_LABEL (dest))
 	{
 	  make_edge (bb,
 		     VARRAY_BB (label_to_block_map, LABEL_DECL_INDEX (dest)),
-		     edge_flags);
+		     0);
 	  return;
 	}
+
+      /* If we reach here, then we either have a computed goto or
+	 a nonlocal goto.  */
+      edge_flags = EDGE_ABNORMAL;
+
     }
 
   /* Look for the block starting with the destination label.  In the
@@ -1840,6 +1842,11 @@ remove_bb (basic_block bb, int remove_stmts)
   bb->pred = NULL;
   bb->succ = NULL;
 
+  /* If we have pdom information, then we must also make sure to
+     clean up the dominance information.  */
+  if (pdom_info)
+    delete_from_dominance_info (pdom_info, bb);
+
   /* Remove the basic block from the array.  */
   expunge_block (bb);
 }
@@ -2001,6 +2008,8 @@ remove_stmt (tree *stmt_p)
   tree stmt = *stmt_p;
   basic_block bb = bb_for_stmt (stmt);
   tree parent = parent_stmt (stmt);
+  int update_head = 0;
+  int update_end = 0;
 
   /* If the statement is a control structure, clear the appropriate BB_*
      flags from the basic block.  */
@@ -2050,10 +2059,29 @@ remove_stmt (tree *stmt_p)
       && TREE_OPERAND (stmt, 1)->common.ann->common.type == TREE_ANN_COMMON)
     TREE_OPERAND (stmt, 1)->common.ann = NULL;
 
+  /* If we are removing a COMPOUND_EXPR, we may need to update block
+     head/tail pointers which point into operands of the COMPOUND_EXPR.  */
+  if (TREE_CODE (stmt) == COMPOUND_EXPR)
+    {
+      if (&TREE_OPERAND (stmt, 0) == bb->head_tree_p
+	  || &TREE_OPERAND (stmt, 1) == bb->head_tree_p)
+	update_head = 1;
+      
+      if (&TREE_OPERAND (stmt, 0) == bb->end_tree_p
+	  || &TREE_OPERAND (stmt, 1) == bb->end_tree_p)
+	update_end = 1;
+    }
+
   /* Replace STMT with an empty statement.  */
   *stmt_p = build_empty_stmt ();
   if (bb)
     add_stmt_to_bb (stmt_p, bb, parent);
+
+  if (update_head)
+    bb->head_tree_p = stmt_p;
+
+  if (update_end)
+    bb->end_tree_p = stmt_p;
 }
 
 
@@ -2370,6 +2398,10 @@ linearize_cond_expr (tree *entry_p, basic_block bb)
   tree pred = COND_EXPR_COND (entry);
   tree then_clause = COND_EXPR_THEN (entry);
   tree else_clause = COND_EXPR_ELSE (entry);
+  basic_block then_block = bb_for_stmt (then_clause);
+  basic_block else_block = bb_for_stmt (else_clause);
+  int always_true = (simple_cst_equal (pred, integer_one_node) == 1);
+  int always_false = (simple_cst_equal (pred, integer_zero_node) == 1);
 
   /* Remove the conditional if both branches have been removed.  */
   if (body_is_empty (then_clause) && body_is_empty (else_clause))
@@ -2380,18 +2412,45 @@ linearize_cond_expr (tree *entry_p, basic_block bb)
       pdom_bb = get_immediate_dominator (pdom_info, bb);
       if (!pdom_bb || !phi_nodes (pdom_bb))
         {
+	  /* While neither arm of the conditional has any code, there
+	     may still be important edges attached to those arms such
+	     as the backedge in a loop, or exception handling related
+	     edges (the common characteristic is they are edges implied
+	     by control structures which are not explicitly represented
+	     in the IL).  */
+	  if ((always_true || ! always_false) && then_block)
+	    move_outgoing_edges (bb, then_block); 
+
+	  if ((always_false || ! always_true) && else_block)
+	    move_outgoing_edges (bb, else_block); 
+	
+	  /* Now that we've moved all the edges, go ahead and remove
+	     the disconnected blocks.  Note this will remove any edges
+	     from BB to the disconnected blocks.  */
+	  if (then_block)
+	    remove_bb (then_block, 0);
+	  if (else_block)
+	    remove_bb (else_block, 0);
+
+	  /* And finally remove the useless statement.  */
 	  remove_stmt (entry_p);
 	  return true;
 	}
     }
 
   /* Linearize 'if (1)'.  */
-  if (simple_cst_equal (pred, integer_one_node) == 1
-      && body_is_empty (else_clause))
+  if (always_true && body_is_empty (else_clause))
     {
       /* If there is no THEN_CLAUSE, remove the conditional.  */
       if (body_is_empty (then_clause))
-	remove_stmt (entry_p);
+	{
+	  if (then_block)
+	    {
+	      move_outgoing_edges (bb, then_block);
+	      remove_bb (then_block, 0);
+	    }
+	  remove_stmt (entry_p);
+	}
       else
 	merge_tree_blocks (bb, bb_for_stmt (then_clause));
 
@@ -2399,12 +2458,18 @@ linearize_cond_expr (tree *entry_p, basic_block bb)
     }
 
   /* Linearize 'if (0)'.  */
-  if (simple_cst_equal (pred, integer_zero_node) == 1
-      && body_is_empty (then_clause))
+  if (always_false && body_is_empty (then_clause))
     {
       /* If there is no ELSE_CLAUSE, remove the conditional.  */
       if (body_is_empty (else_clause))
-	remove_stmt (entry_p);
+	{
+	  if (else_block)
+	    {
+	      move_outgoing_edges (bb, else_block);
+	      remove_bb (else_block, 0);
+	    }
+	  remove_stmt (entry_p);
+	}
       else
 	merge_tree_blocks (bb, bb_for_stmt (else_clause));
 
@@ -4352,6 +4417,49 @@ replace_stmt (tree *tp1, tree *tp2)
     *tp1 = t;
 }
 
+/* Move all outgoing edges from BB2 to BB1 and keep PHI nodes and
+   dominator information up to date.  */
+
+static void
+move_outgoing_edges (basic_block bb1, basic_block bb2)
+{
+  bb_ann_t ann1, ann2;
+
+  while (bb2->succ)
+    {
+      tree phi;
+      edge new_edge, old_edge;
+	
+      old_edge = bb2->succ;
+      new_edge = make_edge (bb1, old_edge->dest, old_edge->flags);
+
+      /* Update PHI nodes at BB2's successor.  The arguments that used to
+	 come from BB2 now come from BB1.  */
+      for (phi = phi_nodes (old_edge->dest); phi; phi = TREE_CHAIN (phi))
+	{
+	  int i;
+	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	    if (PHI_ARG_EDGE (phi, i) == old_edge)
+	      PHI_ARG_EDGE (phi, i) = new_edge;
+	}
+
+      /* Note that we shouldn't call ssa_remove_edge here because we've
+	 already dealt with PHI nodes.  */
+      remove_edge (old_edge);
+    }
+
+  /* BB2's dominator children are now BB1's.  Also, remove BB2 as a
+     dominator child of BB1.  */
+  ann1 = bb_ann (bb1);
+  ann2 = bb_ann (bb2);
+  if (ann1->dom_children)
+    {
+      bitmap_clear_bit (ann1->dom_children, bb2->index);
+      if (ann2->dom_children)
+	bitmap_a_or_b (ann1->dom_children, ann1->dom_children,
+		       ann2->dom_children);
+    }
+}
 
 /* Given two blocks BB1 and BB2, merge the two blocks by moving all the
    statements in BB2 after the last statement of BB1.
@@ -4401,64 +4509,27 @@ merge_tree_blocks (basic_block bb1, basic_block bb2)
   remap_stmts (bb1, bb2, bb1->end_tree_p);
 
   /* Step 3.  Update edges and dominator children for BB1, and remove BB2.  */
-  {
-    bb_ann_t ann1, ann2;
 
-    /* BB2's successors are now BB1's.  */
-    while (bb1->succ)
-      ssa_remove_edge (bb1->succ);
+  /* BB2's successors are now BB1's.  */
+  while (bb1->succ)
+    ssa_remove_edge (bb1->succ);
 
-    while (bb2->succ)
-      {
-	tree phi;
-	edge new_edge, old_edge;
-	
-	old_edge = bb2->succ;
-	new_edge = make_edge (bb1, old_edge->dest, old_edge->flags);
+  /* Now relocate all the outgoing edges from BB2 to BB1.  */
+  move_outgoing_edges (bb1, bb2);
 
-	/* Update PHI nodes at BB2's successor.  The arguments that used to
-	   come from BB2 now come from BB1.  */
-	for (phi = phi_nodes (old_edge->dest); phi; phi = TREE_CHAIN (phi))
-	  {
-	    int i;
-	    for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-	      if (PHI_ARG_EDGE (phi, i) == old_edge)
-		PHI_ARG_EDGE (phi, i) = new_edge;
-	  }
+  /* BB1 may no longer be a control expression after merging with BB2.
+     Copy BB2's flags into BB1.  */
+  bb1->flags &= ~BB_CONTROL_EXPR;
+  bb1->flags |= bb2->flags;
 
-	/* Note that we shouldn't call ssa_remove_edge here because we've
-	   already dealt with PHI nodes.  */
-	remove_edge (old_edge);
-      }
-
-    /* BB2's dominator children are now BB1's.  Also, remove BB2 as a
-       dominator child of BB1.  */
-    ann1 = bb_ann (bb1);
-    ann2 = bb_ann (bb2);
-    if (ann1->dom_children)
-      {
-	bitmap_clear_bit (ann1->dom_children, bb2->index);
-	if (ann2->dom_children)
-	  bitmap_a_or_b (ann1->dom_children, ann1->dom_children,
-			ann2->dom_children);
-      }
-
-    /* BB1 may no longer be a control expression after merging with BB2.
-       Copy BB2's flags into BB1.  */
-    bb1->flags &= ~BB_CONTROL_EXPR;
-    bb1->flags |= bb2->flags;
-
-    /* Before removing BB2, clear out its predecessors, successors and
-       head/tail statements, otherwise remove_bb will try to remove
-       statements and edges that now belong to BB1.  */
-    bb2->head_tree_p = NULL;
-    bb2->end_tree_p = NULL;
-    bb2->pred = NULL;
-    bb2->succ = NULL;
-    if (pdom_info != NULL)
-      delete_from_dominance_info (pdom_info, bb2);
-    remove_bb (bb2, 0);
-  }
+  /* Before removing BB2, clear out its predecessors, successors and
+     head/tail statements, otherwise remove_bb will try to remove
+     statements and edges that now belong to BB1.  */
+  bb2->head_tree_p = NULL;
+  bb2->end_tree_p = NULL;
+  bb2->pred = NULL;
+  bb2->succ = NULL;
+  remove_bb (bb2, 0);
 }
 
 
