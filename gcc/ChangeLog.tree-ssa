@@ -5,6 +5,8 @@
 
 2004-02-16  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dse.c: Update comments.
+
 	* Makefile.in (OBJS-common): Add tree-ssa-dse.o
 	(tree-ssa-dse.o): Add dependencies.
 	* common.opt (ftree-dse): New option.
