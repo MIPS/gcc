@@ -178,7 +178,7 @@ extern int errno;
    UPPER.  However the bounds themselves can be either positive or
    negative.  */
 #define IN_RANGE(VALUE, LOWER, UPPER) \
-  ((unsigned HOST_WIDE_INT)((VALUE) - (LOWER)) <= ((UPPER) - (LOWER)))
+  ((unsigned HOST_WIDE_INT) ((VALUE) - (LOWER)) <= ((UPPER) - (LOWER)))
 
 /* Infrastructure for defining missing _MAX and _MIN macros.  Note that
    macros defined with these cannot be used in #if.  */
@@ -507,7 +507,7 @@ extern void abort PARAMS ((void));
 #endif
 
 #ifndef offsetof
-#define offsetof(TYPE, MEMBER)	((size_t) &((TYPE *)0)->MEMBER)
+#define offsetof(TYPE, MEMBER)	((size_t) &((TYPE *) 0)->MEMBER)
 #endif
 
 /* Traditional C cannot initialize union members of structs.  Provide
@@ -596,12 +596,16 @@ typedef char _Bool;
 	MD_INIT_BUILTINS MD_EXPAND_BUILTIN ASM_OUTPUT_CONSTRUCTOR	\
 	ASM_OUTPUT_DESTRUCTOR
 
-/* And other obsolete target macros.  */
+/* And other obsolete target macros, or macros that used to be in target
+   headers and were not used, and may be obsolete or may never have
+   been used.  */
  #pragma GCC poison INT_ASM_OP ASM_OUTPUT_EH_REGION_BEG			   \
 	ASM_OUTPUT_EH_REGION_END ASM_OUTPUT_LABELREF_AS_INT		   \
 	DOESNT_NEED_UNWINDER EH_TABLE_LOOKUP OBJC_SELECTORS_WITHOUT_LABELS \
 	OMIT_EH_TABLE EASY_DIV_EXPR IMPLICIT_FIX_EXPR			   \
-	LONGJMP_RESTORE_FROM_STACK MAX_INT_TYPE_SIZE
+	LONGJMP_RESTORE_FROM_STACK MAX_INT_TYPE_SIZE ASM_IDENTIFY_GCC	   \
+	STDC_VALUE TRAMPOLINE_ALIGN ASM_IDENTIFY_GCC_AFTER_SOURCE	   \
+	SLOW_ZERO_EXTEND
 
 #endif /* IN_GCC */
 

@@ -1,3 +1,130 @@
+2002-01-22  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/20020122-4.c: New.
+
+2002-01-22  H.J. Lu <hjl@gnu.org>
+
+	* g++.dg/special/ecos.exp: Append .exe instead of a.out as the
+	link output.
+	* gcc.dg/special/ecos.exp: Likewise.
+	* lib/g++-dg.exp: Likewise.
+	* lib/g77-dg.exp: Likewise.
+	* lib/gcc-dg.exp : Likewise.
+	* lib/mike-g++.exp: Likewise.
+	* lib/mike-g77.exp: Likewise.
+	* lib/mike-gcc.exp: Likewise.
+	* lib/objc-dg.exp: Likewise.
+
+2002-01-22  Janis Johnson  <janis187@us.ibm.com>
+
+	PR target/5379
+	* gcc.dg/20020122-2.c: New test.
+
+2002-01-22  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/20020122-1.c: New test.
+
+2001-01-22  David.Billinghurst <David.Billinghurst@riotinto.com>
+
+	* g++.old-deja/g++.ext/attrib5.C: XFAIL cygwin too
+
+2002-01-22  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gcc.dg/20010207-1.c: Restrict to i?86-*-[eflno]*
+
+2002-01-21  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* gcc.c-torture/compile/20020121-1.c: New test.
+
+2002-01-21  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* lib/g77.exp (g77_link_flags): Remove check for libg2c.so in setting
+	ld_library_path.
+
+2002-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020218-1.c: New test.
+
+2002-01-21  David.Billinghurst <David.Billinghurst@riotinto.com>
+
+	* lib/prune.exp (prune_gcc_output): Prune "At global scope"
+	messages
+	* g++.dg/other/deprecated.C: Remove dg-bogus comment for
+	"At global scope" warning
+	* g++.dg/ext/align1.C: Change cygwin test for alignment
+	from db-bogus to dg-warning
+
+2002-01-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* g77.f-torture/compile/cpp2.F: New test.
+
+2002-01-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/access1.C: New test.
+
+2002-01-18  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gcc.dg/20020118-1.c: New.
+
+2002-01-18  Kazu Hirata  <kazu@hxi.com>
+
+	* testsuite/gcc.c-torture/execute/20020118-1.c: New test.
+
+2001-01-18  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* g++.dg/other/deprecated.C: Fix FAIL from 
+	"At global scope" message
+	* g++.dg/ext/align1.C: Fix fail on cygwin from maximum 
+	alignment warnings
+
+
+2001-01-18  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gcc.misc-tests/i386-prefetch.exp: Save and restore
+	torture_with_loops and torture_without_loops
+
+2002-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20020116-1.c: New test.
+
+2002-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020116-2.c: New test.
+
+	* gcc.dg/ultrasp4.c: New test.
+
+	* gcc.dg/20020116-1.c: New test.
+
+2002-01-15  Geoffrey Keating  <geoffk@redhat.com>
+
+	* gcc.dg/20020103-1.c: Also test for __PPC__, since that's used
+	by EABI.
+
+2002-01-15  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.misc-tests/i386-prefetch.exp: New.
+	* gcc.misc-tests/i386-pf-3dnow-1.c: New test.
+	* gcc.misc-tests/i386-pf-athlon-1.c: New test.
+	* gcc.misc-tests/i386-pf-none-1.c: New test.
+	* gcc.misc-tests/i386-pf-sse-1.c: New test.
+
+2002-01-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gnu89-init-1.c: Add new tests.
+
+2002-01-15  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.dg/i386-mmx-1.c: Also run on x86-64.
+	* gcc.dg/i386-mmx-2.c: Likewise.
+	* gcc.dg/i386-sse-1.c: Likewise.
+	* gcc.dg/i386-sse-2.c: Likewise.
+	* gcc.dg/i386-sse-3.c: Likewise.
+
+2001-01-14  David Billinghurst <David.Billinghurst@riotinto.com>
+
+        * g77.f-torture/execute/intrinsic-unix-bessel.f:
+        Uncomment additional cases that now pass.
+
 2002-01-11  Richard Henderson  <rth@redhat.com>
 
 	* gcc.dg/i386-mmx-1.c, gcc.dg/i386-mmx-2.c: New.
@@ -18,7 +145,7 @@ Fri Jan 11 12:13:30 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 
 2002-01-08  Aldy Hernandez  <aldyh@redhat.com>
 
-        * gcc.dg/altivec-4.c: Add test for mtvscr, dssall, mfvscr, 
+        * gcc.dg/altivec-4.c: Add test for mtvscr, dssall, mfvscr,
 	dss, lvsl, lvsr, dstt, dstst, dststt, dst.
 
 2002-01-09  Richard Henderson  <rth@redhat.com>

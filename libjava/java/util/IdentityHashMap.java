@@ -1,6 +1,6 @@
 /* IdentityHashMap.java -- a class providing a hashtable data structure,
    mapping Object --> Object, which uses object identity for hashing.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -19,11 +19,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 package java.util;
 
@@ -153,8 +164,6 @@ public class IdentityHashMap extends AbstractMap
       max = 2;
     table = new Object[2 * max];
     Arrays.fill(table, emptyslot);
-    // This is automatically set.
-    // size = 0;
     threshold = max / 4 * 3;
   }
 
@@ -633,7 +642,7 @@ public class IdentityHashMap extends AbstractMap
     // By requiring at least 2 key/value slots, and rehashing at 75%
     // capacity, we guarantee that there will always be either an emptyslot
     // or a tombstone somewhere in the table.
-    int h = 2 * Math.abs(System.identityHashCode(key) % table.length);
+    int h = 2 * Math.abs(System.identityHashCode(key) % (table.length / 2));
     int del = -1;
     int save = h;
 

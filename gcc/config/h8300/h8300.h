@@ -397,7 +397,7 @@ enum reg_class {
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 
 #define REG_CLASS_NAMES \
 { "NO_REGS", "GENERAL_REGS", "MAC_REGS", "ALL_REGS", "LIM_REGS" }
@@ -964,9 +964,6 @@ struct cum_arg
    in one reasonably fast instruction.  */
 #define MOVE_MAX	(TARGET_H8300H || TARGET_H8300S ? 4 : 2)
 #define MAX_MOVE_MAX	4
-
-/* Define this if zero-extension is slow (more than one real instruction).  */
-/* #define SLOW_ZERO_EXTEND */
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS TARGET_SLOWBYTE

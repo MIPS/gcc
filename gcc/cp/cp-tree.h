@@ -821,7 +821,6 @@ struct cp_language_function
   int returns_null;
   int in_function_try_handler;
   int x_expanding_p;
-  int vtbls_set_up_p;
 
   struct named_label_use_list *x_named_label_uses;
   struct named_label_list *x_named_labels;
@@ -880,11 +879,6 @@ struct cp_language_function
    a return statement with no argument is seen.  */
 
 #define current_function_returns_null cp_function_chain->returns_null
-
-/* Nonzero if we have already generated code to initialize virtual
-   function tables in this function.  */
-
-#define vtbls_set_up_p cp_function_chain->vtbls_set_up_p
 
 /* Non-zero if we should generate RTL for functions that we process.
    When this is zero, we just accumulate tree structure, without
@@ -2286,7 +2280,7 @@ struct lang_decl
 
 /* The number of levels of template parameters given by NODE.  */
 #define TMPL_PARMS_DEPTH(NODE) \
-  (TREE_INT_CST_LOW (TREE_PURPOSE (NODE)))
+  ((HOST_WIDE_INT) TREE_INT_CST_LOW (TREE_PURPOSE (NODE)))
 
 /* The TEMPLATE_DECL instantiated or specialized by NODE.  This
    TEMPLATE_DECL will be the immediate parent, not the most general

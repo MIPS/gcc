@@ -54,6 +54,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "predict.h"
 #include "insn-flags.h"
+#include "optabs.h"
 
 /* Not really meaningful values, but at least something.  */
 #ifndef SIMULTANEOUS_PREFETCHES
@@ -64,6 +65,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #endif
 #ifndef HAVE_prefetch
 #define HAVE_prefetch 0
+#define CODE_FOR_prefetch 0
 #define gen_prefetch(a,b,c) (abort(), NULL_RTX)
 #endif
 
@@ -4019,6 +4021,10 @@ emit_prefetch_instructions (loop)
 		  loc = reg;
 		}
 
+	      /* Make sure the address operand is valid for prefetch.  */
+	      if (! (*insn_data[(int)CODE_FOR_prefetch].operand[0].predicate)
+		    (loc, Pmode))
+		loc = force_reg (Pmode, loc);
 	      emit_insn_before (gen_prefetch (loc, GEN_INT (info[i].write),
 		                              GEN_INT (3)),
 				before_insn);

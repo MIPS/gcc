@@ -758,9 +758,16 @@ eat_saved_input:
 	| END_OF_SAVED_INPUT
 	;
 
+/* The outermost block of a function really begins before the
+   mem-initializer-list, so we open one there and suppress the one that
+   actually corresponds to the curly braces.  */
 function_body:
-	  .begin_function_body ctor_initializer_opt compstmt
-		{
+	  .begin_function_body ctor_initializer_opt save_lineno '{'
+		{ $<ttype>$ = begin_compound_stmt (/*has_no_scope=*/1); }
+	  compstmtend 
+                {
+		  STMT_LINENO ($<ttype>5) = $3;
+		  finish_compound_stmt (/*has_no_scope=*/1, $<ttype>5);
 		  finish_function_body ($1);
 		}
 	;
@@ -1765,7 +1772,8 @@ string:
 nodecls:
 	  /* empty */
 		{
-		  setup_vtbl_ptr (NULL_TREE, NULL_TREE);
+		  if (DECL_CONSTRUCTOR_P (current_function_decl))
+		    finish_mem_initializers (NULL_TREE);
 		}
 	;
 
@@ -2433,12 +2441,22 @@ class_head_defn:
 		  yyungetc ('{', 1);
 		  $$.t = $1;
 		  $$.new_type_flag = 0;
+		  if (TREE_CODE (TREE_TYPE ($1)) == RECORD_TYPE)
+		    /* We might be specializing a template with a different
+		       class-key.  */
+		    CLASSTYPE_DECLARED_CLASS (TREE_TYPE ($1))
+		      = (current_aggr == class_type_node);
 		}
 	| class_head_apparent_template ':'
 		{
 		  yyungetc (':', 1);
 		  $$.t = $1;
 		  $$.new_type_flag = 0;
+		  if (TREE_CODE (TREE_TYPE ($1)) == RECORD_TYPE)
+		    /* We might be specializing a template with a different
+		       class-key.  */
+		    CLASSTYPE_DECLARED_CLASS (TREE_TYPE ($1))
+		      = (current_aggr == class_type_node);
 		}
 	| aggr identifier_defn '{'
 		{
