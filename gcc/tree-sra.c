@@ -196,12 +196,14 @@ lookup_scalar (struct sra_elt *key, tree type)
       *res = *key;
       res->replace = make_temp (type, "SR");
 
-      if (DECL_NAME (key->base))
+      if (DECL_NAME (key->base) && !DECL_IGNORED_P (key->base))
 	{
-	  char *name;
+	  char *name = NULL;
 	  switch (key->kind)
 	    {
 	    case COMPONENT_REF:
+	      if (!DECL_NAME (key->field))
+		break;
 	      name = concat (IDENTIFIER_POINTER (DECL_NAME (key->base)),
 			     "$",
 			     IDENTIFIER_POINTER (DECL_NAME (key->field)),
@@ -218,8 +220,11 @@ lookup_scalar (struct sra_elt *key, tree type)
 	    default:
 	      abort ();
 	    }
-	  DECL_NAME (res->replace) = get_identifier (name);
-	  free (name);
+	  if (name)
+	    {
+	      DECL_NAME (res->replace) = get_identifier (name);
+	      free (name);
+	    }
 	}
       DECL_SOURCE_LOCATION (res->replace) = DECL_SOURCE_LOCATION (key->base);
     }
