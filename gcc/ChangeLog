@@ -1,3 +1,20 @@
+Fri Oct 29 15:23:48 1999  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/pe.h (ARM_PE): Define.
+	
+	* config/arm/arm.c (arm_valid_machine_decl_attribute): Allow
+	interfacearm attribute if this is a PE toolchain.
+	(output_return_instruction): Do not emit anything if the function
+	has the naked attribute set.
+	(is_called_in_ARM_mode): If the function has the interfacearm
+	attribute then return true.
+	(thumb_expand_prologue): Do not generate a prologue for naked
+	functions.
+	(thumb_expand_epilogue): Do not generate an epilogie for a naked
+	function.
+	(output_thumb_prologue): Do not bother if the function is naked.
+	Strip PE encoding from function name before emitting.
+
 Thu Oct 28 11:05:13 1999  Richard Earnshaw <rearnsha@arm.com>
 
 	* arm.md (casesi_insn): Add a clobber of the condition code

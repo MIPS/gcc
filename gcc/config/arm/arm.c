@@ -3555,8 +3555,14 @@ multi_register_push (op, mode)
 
    Supported attributes:
 
-   naked: don't output any prologue or epilogue code, the user is assumed
-   to do the right thing.  */
+   naked:
+     don't output any prologue or epilogue code, the user is assumed
+     to do the right thing.
+   
+   interfacearm:
+     Always assume that this function will be entered in ARM mode,
+     not Thumb mode, and that the caller wishes to be returned to in
+     ARM mode.  */
 
 int
 arm_valid_machine_decl_attribute (decl, attr, args)
@@ -3569,6 +3575,12 @@ arm_valid_machine_decl_attribute (decl, attr, args)
 
   if (is_attribute_p ("naked", attr))
     return TREE_CODE (decl) == FUNCTION_DECL;
+  
+#ifdef ARM_PE
+  if (is_attribute_p ("interfacearm", attr))
+    return TREE_CODE (decl) == FUNCTION_DECL;
+#endif /* ARM_PE */
+  
   return 0;
 }
 
@@ -6059,6 +6071,10 @@ output_return_instruction (operand, really_return, reverse)
   int volatile_func = (optimize > 0 
 		       && TREE_THIS_VOLATILE (current_function_decl));
 
+  /* If a function is naked, don't use the "return" insn.  */
+  if (arm_naked_function_p (current_function_decl))
+    return "";
+
   return_used_this_function = 1;
 
   if (TARGET_ABORT_NORETURN && volatile_func)
@@ -6069,7 +6085,7 @@ output_return_instruction (operand, really_return, reverse)
       if (! really_return)
 	return "";
 
-      /* Otherwise, trap an attempted return by aborting. */
+      /* Otherwise, trap an attempted return by aborting.  */
       ops[0] = operand;
       ops[1] = gen_rtx_SYMBOL_REF (Pmode, NEED_PLT_RELOC ? "abort(PLT)" 
 				   : "abort");
@@ -6080,7 +6096,7 @@ output_return_instruction (operand, really_return, reverse)
       
   if (current_function_calls_alloca && ! really_return)
     abort ();
-    
+  
   for (reg = 0; reg <= 10; reg++)
     if (regs_ever_live[reg] && ! call_used_regs[reg])
       live_regs++;
@@ -7993,7 +8009,11 @@ is_called_in_ARM_mode (func)
   if (TARGET_CALLEE_INTERWORKING && TREE_PUBLIC (func))
     return TRUE;
 
+#ifdef ARM_PE 
+  return lookup_attribute ("interfacearm", DECL_MACHINE_ATTRIBUTES (func)) != NULL_TREE;
+#else
   return FALSE;
+#endif
 }
 
 /* The bits which aren't usefully expanded as rtl. */
@@ -8189,7 +8209,7 @@ arm_init_machine_status (p)
 rtx
 arm_return_addr (count, frame)
      int count;
-     rtx frame;
+     rtx frame ATTRIBUTE_UNUSED;
 {
   rtx init, reg;
 
@@ -8236,11 +8256,9 @@ thumb_expand_prologue ()
   HOST_WIDE_INT amount = (get_frame_size ()
 			  + current_function_outgoing_args_size);
 
-#ifdef THUMB_PE
   /* Naked functions don't have prologues.  */
   if (arm_naked_function_p (current_function_decl))
     return;
-#endif
 
   if (frame_pointer_needed)
     emit_insn (gen_movsi (hard_frame_pointer_rtx, stack_pointer_rtx));
@@ -8292,11 +8310,10 @@ thumb_expand_epilogue ()
 {
   HOST_WIDE_INT amount = (get_frame_size ()
 			  + current_function_outgoing_args_size);
-#ifdef THUMB_PE
+
   /* Naked functions don't have epilogues.  */
   if (arm_naked_function_p (current_function_decl))
     return;
-#endif
 
   if (frame_pointer_needed)
     emit_insn (gen_movsi (stack_pointer_rtx, hard_frame_pointer_rtx));
@@ -8332,6 +8349,9 @@ output_thumb_prologue (f)
   int store_arg_regs = 0;
   int regno;
 
+  if (arm_naked_function_p (current_function_decl))
+    return;
+
   if (is_called_in_ARM_mode (current_function_decl))
     {
       char * name;
@@ -8358,6 +8378,10 @@ output_thumb_prologue (f)
 #define STUB_NAME ".real_start_of"
       
       asm_fprintf (f, "\t.code\t16\n");
+#ifdef ARM_PE
+      if (arm_dllexport_name_p (name))
+        name = ARM_STRIP_NAME_ENCODING (name);
+#endif        
       asm_fprintf (f, "\t.globl %s%U%s\n", STUB_NAME, name);
       asm_fprintf (f, "\t.thumb_func\n");
       asm_fprintf (f, "%s%U%s:\n", STUB_NAME, name);
@@ -8411,17 +8435,14 @@ output_thumb_prologue (f)
          0     sub   SP, #16         Reserve space for 4 registers.
 	 2     push  {R7}            Get a work register.
          4     add   R7, SP, #20     Get the stack pointer before the push.
-         6     str   R7, [SP, #8]    Store the stack pointer (before 
-				     reserving the space).
-         8     mov   R7, PC          Get hold of the start of this code
-				     plus 12.
+         6     str   R7, [SP, #8]    Store the stack pointer (before reserving the space).
+         8     mov   R7, PC          Get hold of the start of this code plus 12.
         10     str   R7, [SP, #16]   Store it.
         12     mov   R7, FP          Get hold of the current frame pointer.
         14     str   R7, [SP, #4]    Store it.
         16     mov   R7, LR          Get hold of the current return address.
         18     str   R7, [SP, #12]   Store it.
-        20     add   R7, SP, #16     Point at the start of the backtrace
-				     structure.
+        20     add   R7, SP, #16     Point at the start of the backtrace structure.
         22     mov   FP, R7          Put this value into the frame pointer.  */
 
       if ((live_regs_mask & 0xFF) == 0)

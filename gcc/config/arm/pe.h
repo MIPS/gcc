@@ -19,6 +19,9 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+/* Enable PE specific code.  */
+#define ARM_PE		1
+
 #include "arm/coff.h"
 
 #undef  USER_LABEL_PREFIX
