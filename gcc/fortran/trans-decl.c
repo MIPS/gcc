@@ -291,7 +291,8 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
   int has_underscore;
   char name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
 
-  if (sym->module[0] == 0 || sym->attr.proc == PROC_EXTERNAL)
+  if (sym->module[0] == 0 || sym->attr.proc == PROC_EXTERNAL
+      || (sym->module[0] != 0 && sym->attr.if_source == IFSRC_IFBODY))
     {
       if (strcmp (sym->name, "MAIN__") == 0
 	  || sym->attr.proc == PROC_INTRINSIC)

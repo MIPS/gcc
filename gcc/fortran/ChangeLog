@@ -1,3 +1,9 @@
+2003-11-30 Huang Chun <chunhuang73@hotmail.com>
+
+	PR fortran/13155
+	* trans-decl.c (gfc_sym_mangled_function_id): Don't mangle symbols
+	from interfaces in modules.
+
 2003-11-30  Paul Brook  <paul@nowt.org>
 
 	* trans-array.c (gfc_trans_g77_array): Make non-static.
