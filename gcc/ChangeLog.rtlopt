@@ -1,3 +1,7 @@
+2003-05-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* loop-iv.c (iv_new_insn_changes_commit): Fix.
+
 2003-05-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* loop-prefetch.c: New.

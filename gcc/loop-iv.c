@@ -2639,6 +2639,7 @@ iv_new_insn_changes_commit (bb, first, last)
 
   insn_processed = sbitmap_resize (insn_processed, get_max_uid () + 1, 0);
 
+  memset (df->reg_def_last, 0, max_regno * sizeof (struct ref *));
   for (x = bb->head; x != first; x = NEXT_INSN (x))
     {
       if (! INSN_P (x))
