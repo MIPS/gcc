@@ -9383,6 +9383,13 @@ string_constant (tree arg, tree *ptr_offset)
       *ptr_offset = size_zero_node;
       return TREE_OPERAND (arg, 0);
     }
+  if (TREE_CODE (arg) == ADDR_EXPR
+      && TREE_CODE (TREE_OPERAND (arg, 0)) == ARRAY_REF
+      && TREE_CODE (TREE_OPERAND (TREE_OPERAND (arg, 0), 0)) == STRING_CST)
+    {
+      *ptr_offset = convert (sizetype, TREE_OPERAND (TREE_OPERAND (arg, 0), 1));
+      return TREE_OPERAND (TREE_OPERAND (arg, 0), 0);
+    }
   else if (TREE_CODE (arg) == PLUS_EXPR)
     {
       tree arg0 = TREE_OPERAND (arg, 0);
