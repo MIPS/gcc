@@ -913,7 +913,26 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	  return;
 	}
 
-      /* Everything else should have been folded elsewhere.  */
+      /* Everything else *should* have been folded elsewhere, but users
+	 are smarter than we in finding ways to write invalid code.  We
+	 cannot just abort here.  If we were absolutely certain that we
+	 do handle all valid cases, then we could just do nothing here.
+	 That seems optimistic, so attempt to do something logical... */
+      else if (TREE_CODE (ptr) == PLUS_EXPR
+	       && TREE_CODE (TREE_OPERAND (ptr, 0)) == ADDR_EXPR
+	       && TREE_CODE (TREE_OPERAND (ptr, 1)) == INTEGER_CST)
+	{
+	  /* Make sure we know the object is addressable.  */
+	  pptr = &TREE_OPERAND (ptr, 0);
+          add_stmt_operand (pptr, stmt, 0, NULL);
+
+	  /* Mark the object itself with a VUSE.  */
+	  pptr = &TREE_OPERAND (*pptr, 0);
+	  get_expr_operands (stmt, pptr, flags, prev_vops);
+	  return;
+	}
+
+      /* Ok, this isn't even is_gimple_min_invariant.  Something's broke.  */
       else
 	abort ();
 
