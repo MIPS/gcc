@@ -87,7 +87,7 @@ srctrigger=
 target_alias=NOTARGET
 target_makefile_frag=
 undefs=NOUNDEFS
-version="$Revision: 1.46.6.2 $"
+version="$Revision: 1.46.6.3 $"
 x11=default
 bindir='${exec_prefix}/bin'
 sbindir='${exec_prefix}/sbin'
@@ -1326,33 +1326,29 @@ EOF
     echo site_makefile_frag = ${site_makefile_frag} >>${Makefile}
   fi 
 
-  echo enable_shared = ${enable_shared} >> ${Makefile}
-  echo enable_threads = ${enable_threads} >> ${Makefile}
+
   # record if we want to rumtime library stuff installed in libsubdir.
+  # Blank means no.
   if test -z "${enable_version_specific_runtime_libs}"; then
-    echo enable_version_specific_runtime_libs = no >> ${Makefile}
-  else
-    echo enable_version_specific_runtime_libs = ${enable_version_specific_runtime_libs} >> ${Makefile}
+    enable_version_specific_runtime_libs=no
   fi
 
-  # Emit a macro which describes the file containing gcc's
-  # version number.
-  echo gcc_version_trigger = ${gcc_version_trigger} >> ${Makefile}
-  # And emit a macro defining gcc's version number.
-  echo gcc_version = ${gcc_version} >> ${Makefile}
+  # Real copy now in Makefile.tem
+  # Prologue in Makefile.
+
+  sed -e "s|@enable_shared@|${enable_shared}|" \
+      -e "s|@enable_threads@|${enable_threads}|" \
+      -e "s|@enable_version_specific_runtime_libs@|${enable_version_specific_runtime_libs}|" \
+      -e "s|@gcc_version_trigger@|${gcc_version_trigger}|" \
+      -e "s|@gcc_version@|${gcc_version}|" \
+      ./Makefile.tem >> ${Makefile}
+  mv -f ${Makefile} ./Makefile.tem
+  # Real copy now in Makefile.tem; no prologue.
 
   # reset prefix, exec_prefix, srcdir, SUBDIRS, NONSUBDIRS,
   # remove any form feeds.
-  rm -f ./Makefile.tm2
-  sedtemp=sed.$$
-  cat >$sedtemp <<EOF
-s:@configdirs@:${configdirs}:
-EOF
-  sed -f $sedtemp ./Makefile.tem > ./Makefile.tm2
-  rm -f $sedtemp
-  rm -f ./Makefile.tem
-  mv ./Makefile.tm2 ./Makefile.tem
-  sed -e "s|@prefix@|${prefix}|" \
+  sed -e "s|@configdirs@|${configdirs}|" \
+      -e "s|@prefix@|${prefix}|" \
       -e "s|@exec_prefix@|${exec_prefix}|" \
       -e "s|@bindir@|${bindir}|" \
       -e "s|@sbindir@|${sbindir}|" \
@@ -1404,7 +1400,7 @@ EOF
       -e "s:@DEFAULT_YACC@:${DEFAULT_YACC}:" \
       -e "s:@DEFAULT_LEX@:${DEFAULT_LEX}:" \
       -e "s:@DEFAULT_M4@:${DEFAULT_M4}:" \
-          ./Makefile.tem >> ${Makefile}
+          ./Makefile.tem > ${Makefile}
   sed -e "s:@GDB_TK@:${GDB_TK}:" ${Makefile} >${Makefile}.tem
   mv -f ${Makefile}.tem ${Makefile}
 

@@ -1,3 +1,11 @@
+2002-11-11  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure: Substitute more variables in a more autoconf-friendly
+	way.  Simplify slightly.
+	* Makefile.tpl: Make more variables substitutable in an
+	autoconf-friendly way.
+	* Makefile.in: Regenerate.
+
 2002-11-10  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* configure.in (v810*): Remove special setting of tools.

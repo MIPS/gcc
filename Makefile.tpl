@@ -29,6 +29,13 @@ in
 NOTPARALLEL = .NOTPARALLEL
 $(NOTPARALLEL):
 
+enable_shared = @enable_shared@
+enable_threads = @enable_threads@
+enable_version_specific_runtime_libs = @enable_version_specific_runtime_libs@
+# The file containing GCC's version number.
+gcc_version_trigger = @gcc_version_trigger@
+gcc_version = @gcc_version@
+
 srcdir = @srcdir@
 
 prefix = @prefix@
