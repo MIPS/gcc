@@ -1,3 +1,7 @@
+2002-08-23  Diego Novillo  <dnovillo@redhat.com>
+
+	* Make-lang.in (CXX_C_OBJS): Add tree-dchain.o
+
 2002-08-11  Jason Merrill  <jason@redhat.com>
 
 	* cp-simplify.c (maybe_fixup_loop_cond): Move here.
