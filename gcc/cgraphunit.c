@@ -729,8 +729,6 @@ cgraph_varpool_analyze_pending_decls (void)
          late during the RTL compilation.  We need to make these invisible to
 	 IPA optimizers or we confuse them badly.  */
       if (!cgraph_global_info_ready)
-        ipa_analyze_variable (cgraph_varpool_first_unanalyzed_node);
-      else
         cgraph_varpool_first_unanalyzed_node->non_ipa = true;
       cgraph_varpool_first_unanalyzed_node = cgraph_varpool_first_unanalyzed_node->next_needed;
 
@@ -1138,6 +1136,7 @@ void
 cgraph_optimize (void)
 {
   struct cgraph_node *node;
+  struct cgraph_varpool_node *vnode;
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif
@@ -1167,6 +1166,8 @@ cgraph_optimize (void)
   for (node = cgraph_nodes; node; node = node->next)
     if (node->analyzed)
       ipa_analyze_function (node);
+  for (vnode = cgraph_varpool_nodes_queue; vnode; vnode = vnode->next_needed)
+    ipa_analyze_variable (vnode);
 
   if (flag_ipa_cp && flag_ipa_no_cloning)
     ipcp_driver ();

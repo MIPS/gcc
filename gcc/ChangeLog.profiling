@@ -1,3 +1,9 @@
+2004-12-15  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_varpool_analyze_pending_decls): Move
+	ipa_analyze_variable from here....
+	(cgraph_optimize): ... to here.
+
 2004-12-08  Jan Hubicka  <jh@suse.cz>
 
 	* ipa-inline.c (cgraph_edge_badness): Simplify.
