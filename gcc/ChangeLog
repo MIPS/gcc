@@ -1,3 +1,7 @@
+2003-11-30  Jan Hubicka  <jh@suse.cz>
+
+	* explow.c (round_push): Fix handling of large sizes.
+
 2003-12-15  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/13239

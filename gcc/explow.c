@@ -932,7 +932,7 @@ round_push (size)
     return size;
   if (GET_CODE (size) == CONST_INT)
     {
-      int new = (INTVAL (size) + align - 1) / align * align;
+      HOST_WIDE_INT new = (INTVAL (size) + align - 1) / align * align;
       if (INTVAL (size) != new)
 	size = GEN_INT (new);
     }
