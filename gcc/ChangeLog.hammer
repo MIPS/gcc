@@ -1,5 +1,7 @@
 Fri Feb  7 22:24:20 CET 2003  Jan Hubicka  <jh@suse.cz>
 
+	* i386.md (sse2_nandv2di3):  Fix.
+
 	* i386.md (movdi_rex64_1): Fix mmx<->int move opcode.
 
 Fri Feb  7 12:59:54 CET 2003  Jan Hubicka  <jh@suse.cz>
