@@ -67,12 +67,6 @@ import javax.swing.plaf.TextUI;
 public abstract class JTextComponent extends JComponent
   implements Scrollable, Accessible
 {
-//    public class AccessibleJTextComponent extends AccessibleJComponent
-//      implements AccessibleText, CaretListener, DocumentListener,
-//                 AccessibleAction, AccessibleEditableText
-//    {
-//    }
-
   /**
    * AccessibleJTextComponent
    */
@@ -80,11 +74,6 @@ public abstract class JTextComponent extends JComponent
     implements AccessibleText, CaretListener, DocumentListener
   {
     private static final long serialVersionUID = 7664188944091413696L;
-
-    /**
-     * caretPos
-     */
-    int caretPos;
 
     /**
      * Constructor AccessibleJTextComponent
@@ -458,6 +447,17 @@ public abstract class JTextComponent extends JComponent
   public Caret getCaret()
   {
     return caret;
+  }
+
+  /**
+   * Sets a new <code>Caret</code> for this text component.
+   *
+   * @param newCaret the new <code>Caret</code> to set
+   */
+  public void setCaret(Caret newCaret)
+  {
+    firePropertyChange("caret", caret, newCaret);
+    caret = newCaret;
   }
 
   /**

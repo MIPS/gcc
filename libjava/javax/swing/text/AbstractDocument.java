@@ -157,10 +157,57 @@ public abstract class AbstractDocument
   public class BranchElement extends AbstractElement
   {
     private static final long serialVersionUID = -8595176318868717313L;
+
+    private int start;
+    private int end;
+    private Vector children = new Vector();
     
-    public BranchElement(Element e, AttributeSet a, int s, int end)
+    public BranchElement(Element parent, AttributeSet attributes,
+			 int start, int end)
     {
-      super(e, a);
+      super(parent, attributes);
+      this.start = start;
+      this.end = end;
+    }
+
+    public Enumeration children()
+    {
+      return children.elements();
+    }
+
+    public boolean getAllowsChildren()
+    {
+      return true;
+    }
+
+    public Element getElement(int index)
+    {
+      return (Element) children.get(index);
+    }
+
+    public int getElementCount()
+    {
+      return children.size();
+    }
+
+    public int getElementIndex(int offset)
+    {
+      return children.indexOf(positionToElement(offset));
+    }
+
+    public int getEndOffset()
+    {
+      return end;
+    }
+
+    public String getName()
+    {
+      return "AbstractDocument.BranchElement";
+    }
+
+    public int getStartOffset()
+    {
+      return start;
     }
 
     public boolean isLeaf()
@@ -168,24 +215,34 @@ public abstract class AbstractDocument
       return false;
     }
 
-    public int getEndOffset()
+    public Element positionToElement(int position)
     {
-      return 0;
+      // XXX: There is surely a better algorithm
+      // as beginning from first element each time.
+      
+      for (int index = 0; index < children.size(); ++index)
+	{
+	  Element elem = (Element) children.get(index);
+	  
+	  if (elem.getStartOffset() <= position
+	      && position < elem.getEndOffset())
+	    return elem;
+	}
+      
+      return null;
     }
 
-    public int getElementCount()
+    public void replace(int offset, int length, Element[] elems)
     {
-      return 0;
+      children.removeRange(offset, offset + length);
+
+      for (int index = 0 ; index < length; ++index)
+	children.add(offset + index, elems[index]);
     }
 
-    public int getElementIndex(int offset)
+    public String toString()
     {
-      return 0;
-    }
-
-    public int getStartOffset()
-    {
-      return 0;
+      return getName() + ": " + "content";
     }
   }
 
@@ -248,21 +305,32 @@ public abstract class AbstractDocument
   {
     private static final long serialVersionUID = 5115368706941283802L;
     
-    public LeafElement(Element e, AttributeSet a, int s, int end)
+    private int start;
+    private int end;
+
+    public LeafElement(Element parent, AttributeSet attributes,
+		       int start, int end)
     {
-      super(e, a);
+      super(parent, attributes);
+      this.start = start;
+      this.end = end;
     }
 
-    public boolean isLeaf()
+    public Enumeration children()
     {
-      return true;
+      return null;
     }
 
-    public int getEndOffset()
+    public boolean getAllowsChildren()
     {
-      return 0;
+      return false;
     }
 
+    public Element getElement()
+    {
+      return null;
+    }
+    
     public int getElementCount()
     {
       return 0;
@@ -270,12 +338,32 @@ public abstract class AbstractDocument
 
     public int getElementIndex(int offset)
     {
-      return 0;
+      return -1;
+    }
+
+    public int getEndOffset()
+    {
+      return end;
+    }
+
+    public String getName()
+    {
+      return "AbstractDocument.LeafElement";
     }
 
     public int getStartOffset()
     {
-      return 0;
+      return start;
+    }
+
+    public boolean isLeaf()
+    {
+      return true;
+    }
+
+    public String toString()
+    {
+      return getName() + ": " + "content";
     }
   }
 

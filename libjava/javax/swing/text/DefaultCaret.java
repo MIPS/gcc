@@ -41,7 +41,9 @@ import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
+import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.util.EventListener;
@@ -54,6 +56,8 @@ import javax.swing.event.EventListenerList;
 public class DefaultCaret extends Rectangle
   implements Caret, FocusListener, MouseListener, MouseMotionListener
 {
+  private static final long serialVersionUID = 228155774675466193L;
+  
   protected ChangeEvent changeEvent = new ChangeEvent(this);
   protected EventListenerList listenerList = new EventListenerList();
   
@@ -67,39 +71,39 @@ public class DefaultCaret extends Rectangle
   boolean vis = true;
 
 
-  public void mouseDragged(java.awt.event.MouseEvent evt)
+  public void mouseDragged(MouseEvent evt)
   {
   }
 
-  public void mouseMoved(java.awt.event.MouseEvent evt)
+  public void mouseMoved(MouseEvent evt)
   {
   }
 
-  public void mouseClicked(java.awt.event.MouseEvent evt)
+  public void mouseClicked(MouseEvent evt)
   {
   }
 
-  public void mouseEntered(java.awt.event.MouseEvent evt)
+  public void mouseEntered(MouseEvent evt)
   {
   }
 
-  public void mouseExited(java.awt.event.MouseEvent evt)
+  public void mouseExited(MouseEvent evt)
   {
   }
 
-  public void mousePressed(java.awt.event.MouseEvent evt)
+  public void mousePressed(MouseEvent evt)
   {
   }
 
-  public void mouseReleased(java.awt.event.MouseEvent evt)
+  public void mouseReleased(MouseEvent evt)
   {
   }
 
-  public void focusGained(java.awt.event.FocusEvent evt)
+  public void focusGained(FocusEvent evt)
   {
   }
 
-  public void focusLost(java.awt.event.FocusEvent evt)
+  public void focusLost(FocusEvent evt)
   {
   }
 
