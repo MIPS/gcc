@@ -42,19 +42,19 @@ struct flag_and_name
 
 static flag_and_name features[] =
 {
-  { "assert", &compiler::feature_assert, "accept the `assert' feature" },
-  { "enum", &compiler::feature_enum, "accept the `enum' feature" },
+  { "assert", &compiler::feature_assert, "accept the 'assert' feature" },
+  { "enum", &compiler::feature_enum, "accept the 'enum' feature" },
   { "static-import", &compiler::feature_static_import,
-    "accept the `static import' feature" },
+    "accept the 'static import' feature" },
   { "enhanced-for", &compiler::feature_enhanced_for,
-    "accept the enhanced `for' loop" },
+    "accept the enhanced 'for' loop" },
   { "generics", &compiler::feature_generics, "accept generics" },
   { "boxing-conversion", &compiler::feature_boxing_conversion,
     "accept boxing conversion"},
   { "varargs", &compiler::feature_varargs, "accept variable-arity methods" },
   { "annotations", &compiler::feature_annotations, "accept annotations" },
   { "generate-assert", &compiler::target_assert,
-    "generate code for `assert'" },
+    "generate code for 'assert'" },
   { "verify", &compiler::target_verify,
     "verify bytecode after creating it" },
   { "dump-methods", &compiler::dump_methods,
@@ -213,8 +213,8 @@ public:
   {
     std::ostream &os = std::cout;
     os << "gcjx supports a number of warnings." << std::endl
-       << "Each warning can be enabled with `-Wname'" << std::endl
-       << "and turned into an error with `-Ename'." << std::endl
+       << "Each warning can be enabled with '-Wname'" << std::endl
+       << "and turned into an error with '-Ename'." << std::endl
        << "-Wno-name can be used to disable a warning or error" << std::endl
        << std::endl
        << "-Wall and -Eall turn on a set of generally suitable warnings"
@@ -278,7 +278,7 @@ public:
     os << std::endl;
 
     os << "Feature flags:" << std::endl;
-    os << "    Each feature can also be deselected with `-fno-...'."
+    os << "    Each feature can also be deselected with '-fno-...'."
        << std::endl;
     for (int i = 0; features[i].name; ++i)
       print (features[i].name, features[i].desc, 3, "-f");

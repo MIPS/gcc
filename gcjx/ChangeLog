@@ -1,5 +1,9 @@
 2005-03-29  Tom Tromey  <tromey@redhat.com>
 
+	* main.cc: Don't use backquote.
+
+2005-03-29  Tom Tromey  <tromey@redhat.com>
+
 	* main.cc (argument_parser::action_class): New field.
 	(argument_parser::cni_generator): Likewise.
 	(argument_parser): Initialize new field.
