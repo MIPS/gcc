@@ -1,3 +1,11 @@
+2003-09-05  Mike Stump  <mrs@apple.com>
+
+	* gcc.c (execute): Improve -o handling, in C++ land it doesn't
+	always come last, asm_name defaults to "-" instead of "".
+	
+	* gcc.c (process_command): Don't use -pipe with compiler server
+	yet, it won't work.
+
 2003-08-29  Mike Stump  <mrs@apple.com>
 
 	* Makefile.in (opts.o): Add missing dependency on langhooks.h.

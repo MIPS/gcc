@@ -2800,7 +2800,7 @@ execute (void)
 	{
 	  int sock = get_server_socket (string + 1);
 	  char buf[1024];
-	  int has_o;
+	  const char *asm_name = "-";
 	  int argc;
 	  int n_read;
 	  int rcode = 0;
@@ -2808,16 +2808,20 @@ execute (void)
 	  int wlen;
 
 	  for (argc = 0; commands[i].argv[argc] != NULL; argc++) ;
-	  has_o = argc > 2 &&  strcmp (commands[i].argv[argc-2], "-o") == 0;
-	  fprintf (stderr, "before writing to socket!\n");
 	  write_switch_fds_request (sock);
 
 	  { /* Send flags to server. */
 	    int j;
 	    obstack_1grow (&obstack, 'F');
-	    for (j = 1;  j < argc - 2 * has_o;  j++)
+	    for (j = 1;  j < argc;  j++)
 	      {
 		char *arg = commands[i].argv[j];
+		if (strcmp (arg, "-o") == 0 && j+1 < argc)
+		  {
+		    asm_name = commands[i].argv[j+1];
+		    ++j;
+		    continue;
+		  }
 		obstack_1grow (&obstack, '\000');
 		obstack_grow (&obstack, arg, strlen (arg) + 1);
 	      }
@@ -2830,10 +2834,7 @@ execute (void)
 	  }
 
 	  write_input_requests (sock);
-	  if (has_o)
-	    write_output_request (commands[i].argv[argc-1], sock);
-	  else
-	    write_output_request ("", sock);
+	  write_output_request (asm_name, sock);
 	  for (;;)
 	    {
 	      int j;
@@ -3861,7 +3862,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 
   combine_inputs = (have_c && have_o && lang_n_infiles > 1);
 
-  if ((save_temps_flag || report_times) && use_pipes)
+  if ((save_temps_flag || report_times || use_server) && use_pipes)
     {
       /* -save-temps overrides -pipe, so that temp files are produced */
       if (save_temps_flag)
@@ -3870,6 +3871,8 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	 multiple children are running at once.  */
       else if (report_times)
 	error ("warning: -pipe ignored because -time specified");
+      else if (use_server)
+	error ("warning: -pipe ignored because -server specified");
 
       use_pipes = 0;
     }
