@@ -876,10 +876,13 @@ public abstract class Component
     // case lightweight components are not initially painted --
     // Container.paint first calls isShowing () before painting itself
     // and its children.
-    this.visible = true;
-    if (peer != null)
-      peer.setVisible(true);
-    invalidate();
+    if(!isVisible())
+      {
+        this.visible = true;
+        if (peer != null)
+          peer.setVisible(true);
+        invalidate();
+      }
   }
 
   /**
@@ -903,10 +906,13 @@ public abstract class Component
    */
   public void hide()
   {
-    if (peer != null)
-      peer.setVisible(false);
-    this.visible = false;
-    invalidate();
+    if (isVisible())
+      {
+        if (peer != null)
+          peer.setVisible(false);
+        this.visible = false;
+        invalidate();
+      }
   }
 
   /**
@@ -1315,6 +1321,11 @@ public abstract class Component
    */
   public void reshape(int x, int y, int width, int height)
   {
+    int oldx = this.x;
+    int oldy = this.y;
+    int oldwidth = this.width;
+    int oldheight = this.height;
+
     if (this.x == x && this.y == y
         && this.width == width && this.height == height)
       return;
@@ -1325,6 +1336,15 @@ public abstract class Component
     this.height = height;
     if (peer != null)
       peer.setBounds (x, y, width, height);
+
+    // Erase old bounds and repaint new bounds for lightweights.
+    if (isLightweight())
+      {
+        if (oldwidth != 0 && oldheight != 0 && parent != null)
+          parent.repaint(oldx, oldy, oldwidth, oldheight);
+        if (width != 0 && height != 0)
+          repaint();
+      }
   }
 
   /**
