@@ -1,3 +1,15 @@
+2002-08-08  Geoffrey Keating  <geoffk@redhat.com>
+
+	* doc/gty.texi (GTY Options): Document %a.
+	* gengtype.c (do_scalar_typedef): New function.
+	(process_gc_options): Handle `length' option.
+	(set_gc_used_type): A pointer to an array of structures doesn't
+	qualify as a pointer to a structure.
+	(output_escaped_param): Add `%a' escape.
+	(write_gc_structure_fields): Allow 'desc' on array of unions.
+	(main): Define `uint8', `jword' and `JCF_u2' as scalars; use
+	do_scalar_typedef.
+
 2002-08-05  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Makefile.in (s-gtype): Re-add dependency on $(GTFILES).

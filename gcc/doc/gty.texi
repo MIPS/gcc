@@ -72,6 +72,10 @@ immediately contains the current structure.
 @item %0
 This expands to an expression that evaluates to the outermost structure
 that contains the current structure.
+@item %a
+This expands to the string of the form @code{[i1][i2]...} that indexes
+the array item currently being marked.  For instance, if the field
+being marked is @code{foo}, then @code{%1.foo%a} is the same as @code{%h}.
 @end table
 
 The available options are:

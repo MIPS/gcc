@@ -284,25 +284,25 @@ DEFUN(jcf_parse_constant_pool, (jcf),
 	{
 	case CONSTANT_String:
 	case CONSTANT_Class:
-	  jcf->cpool.data[i] = JCF_readu2 (jcf);
+	  jcf->cpool.data[i].w = JCF_readu2 (jcf);
 	  break;
 	case CONSTANT_Fieldref:
 	case CONSTANT_Methodref:
 	case CONSTANT_InterfaceMethodref:
 	case CONSTANT_NameAndType:
-	  jcf->cpool.data[i] = JCF_readu2 (jcf);
-	  jcf->cpool.data[i] |= JCF_readu2 (jcf) << 16;
+	  jcf->cpool.data[i].w = JCF_readu2 (jcf);
+	  jcf->cpool.data[i].w |= JCF_readu2 (jcf) << 16;
 	  break;
 	case CONSTANT_Integer:
 	case CONSTANT_Float:
-	  jcf->cpool.data[i] = JCF_readu4 (jcf);
+	  jcf->cpool.data[i].w = JCF_readu4 (jcf);
 	  break;
 	case CONSTANT_Long:
 	case CONSTANT_Double:
-	  jcf->cpool.data[i] = JCF_readu4 (jcf);
+	  jcf->cpool.data[i].w = JCF_readu4 (jcf);
 	  i++; /* These take up two spots in the constant pool */
 	  jcf->cpool.tags[i] = 0;
-	  jcf->cpool.data[i] = JCF_readu4 (jcf);
+	  jcf->cpool.data[i].w = JCF_readu4 (jcf);
 	  break;
 	case CONSTANT_Utf8:
 	  n = JCF_readu2 (jcf);
@@ -310,7 +310,7 @@ DEFUN(jcf_parse_constant_pool, (jcf),
 #ifdef HANDLE_CONSTANT_Utf8
 	  HANDLE_CONSTANT_Utf8(jcf, i, n);
 #else
-	  jcf->cpool.data[i] = JCF_TELL(jcf) - 2;
+	  jcf->cpool.data[i].w = JCF_TELL(jcf) - 2;
 	  JCF_SKIP (jcf, n);
 #endif
 	  break;

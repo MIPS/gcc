@@ -763,7 +763,7 @@ struct parser_ctxt GTY(()) {
   tree class_type;		    /* Current class */
   tree function_decl;	            /* Current function decl, save/restore */
 
-  struct JCF * GTY((skip (""))) current_jcf; /* CU jcf */
+  struct JCF * current_jcf;	    /* CU jcf */
 
   int prevent_ese;	            /* Prevent expression statement error */
 

@@ -90,6 +90,7 @@ static type_p structures;
 static type_p param_structs;
 static pair_p variables;
 
+static void do_scalar_typedef PARAMS ((const char *, struct fileloc *));
 static type_p find_param_structure 
   PARAMS ((type_p t, type_p param[NUM_PARAM]));
 static type_p adjust_field_tree_exp PARAMS ((type_p t, options_p opt));
@@ -122,6 +123,16 @@ do_typedef (s, t, pos)
   p->type = t;
   p->line = *pos;
   typedefs = p;
+}
+
+/* Define S as a typename of a scalar.  */
+
+static void
+do_scalar_typedef (s, pos)
+     const char *s;
+     struct fileloc *pos;
+{
+  do_typedef (s, create_scalar_type (s, strlen (s)), pos);
 }
 
 /* Return the type previously defined for S.  Use POS to report errors.   */
@@ -868,18 +879,19 @@ note_yacc_type (o, fields, typeinfo, pos)
 }
 
 static void process_gc_options PARAMS ((options_p, enum gc_used_enum, 
-					int *, int *));
+					int *, int *, int *));
 static void set_gc_used_type PARAMS ((type_p, enum gc_used_enum, type_p *));
 static void set_gc_used PARAMS ((pair_p));
 
 /* Handle OPT for set_gc_used_type.  */
 
 static void
-process_gc_options (opt, level, maybe_undef, pass_param)
+process_gc_options (opt, level, maybe_undef, pass_param, length)
      options_p opt;
      enum gc_used_enum level;
      int *maybe_undef;
      int *pass_param;
+     int *length;
 {
   options_p o;
   for (o = opt; o; o = o->next)
@@ -889,6 +901,8 @@ process_gc_options (opt, level, maybe_undef, pass_param)
       *maybe_undef = 1;
     else if (strcmp (o->name, "use_params") == 0)
       *pass_param = 1;
+    else if (strcmp (o->name, "length") == 0)
+      *length = 1;
 }
 
 /* Set the gc_used field of T to LEVEL, and handle the types it references.  */
@@ -912,15 +926,19 @@ set_gc_used_type (t, level, param)
 	pair_p f;
 	int dummy;
 
-	process_gc_options (t->u.s.opt, level, &dummy, &dummy);
+	process_gc_options (t->u.s.opt, level, &dummy, &dummy, &dummy);
 
 	for (f = t->u.s.fields; f; f = f->next)
 	  {
 	    int maybe_undef = 0;
 	    int pass_param = 0;
-	    process_gc_options (f->opt, level, &maybe_undef, &pass_param);
+	    int length = 0;
+	    process_gc_options (f->opt, level, &maybe_undef, &pass_param,
+				&length);
 	    
-	    if (maybe_undef && f->type->kind == TYPE_POINTER)
+	    if (length && f->type->kind == TYPE_POINTER)
+	      set_gc_used_type (f->type->u.p, GC_USED, NULL);
+	    else if (maybe_undef && f->type->kind == TYPE_POINTER)
 	      set_gc_used_type (f->type->u.p, GC_MAYBE_POINTED_TO, NULL);
 	    else if (pass_param && f->type->kind == TYPE_POINTER && param)
 	      set_gc_used_type (find_param_structure (f->type->u.p, param),
@@ -1380,15 +1398,30 @@ output_escaped_param (of, param, val, prev_val, oname, line)
   for (p = param; *p; p++)
     if (*p != '%')
       oprintf (of, "%c", *p);
-    else if (*++p == 'h')
-      oprintf (of, "(%s)", val);
-    else if (*p == '0')
-      oprintf (of, "(*x)");
-    else if (*p == '1')
-      oprintf (of, "(%s)", prev_val);
-    else
-      error_at_line (line, "`%s' option contains bad escape %c%c",
-		     oname, '%', *p);
+    else switch (*++p)
+      {
+      case 'h':
+	oprintf (of, "(%s)", val);
+	break;
+      case '0':
+	oprintf (of, "(*x)");
+	break;
+      case '1':
+	oprintf (of, "(%s)", prev_val);
+	break;
+      case 'a':
+	{
+	  const char *pp = val + strlen (val);
+	  while (pp[-1] == ']')
+	    while (*pp != '[')
+	      pp--;
+	  oprintf (of, "%s", pp);
+	}
+	break;
+      default:
+	error_at_line (line, "`%s' option contains bad escape %c%c",
+		       oname, '%', *p);
+      }
 }
 
 /* Print a mangled name representing T to OF.  */
@@ -1510,9 +1543,9 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	  skip_p = 1;
 	else if (strcmp (oo->name, "default") == 0)
 	  default_p = 1;
-	else if (strcmp (oo->name, "desc") == 0 && UNION_P (t))
+	else if (strcmp (oo->name, "desc") == 0)
 	  ;
- 	else if (strcmp (oo->name, "descbits") == 0 && UNION_P (t))
+ 	else if (strcmp (oo->name, "descbits") == 0)
 	  ;
  	else if (strcmp (oo->name, "param_is") == 0)
 	  ;
@@ -2542,18 +2575,15 @@ main(argc, argv)
 
   srcdir_len = strlen (srcdir);
 
-  do_typedef ("CUMULATIVE_ARGS",
-	      create_scalar_type ("CUMULATIVE_ARGS", 
-				  strlen ("CUMULATIVE_ARGS")),
-	      &pos);
-  do_typedef ("REAL_VALUE_TYPE",
-	      create_scalar_type ("REAL_VALUE_TYPE", 
-				  strlen ("REAL_VALUE_TYPE")),
-	      &pos);
+  do_scalar_typedef ("CUMULATIVE_ARGS", &pos);
+  do_scalar_typedef ("REAL_VALUE_TYPE", &pos);
+  do_scalar_typedef ("uint8", &pos);
+  do_scalar_typedef ("jword", &pos);
+  do_scalar_typedef ("JCF_u2", &pos);
+
   do_typedef ("PTR", create_pointer (create_scalar_type ("void",
 							 strlen ("void"))),
 	      &pos);
-
   do_typedef ("HARD_REG_SET", create_array (
 	      create_scalar_type ("unsigned long", strlen ("unsigned long")),
 	      "2"), &pos);
