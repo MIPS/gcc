@@ -1,5 +1,5 @@
 /* SSA Dominator optimizations for trees
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -67,6 +67,11 @@ static htab_t false_exprs;
    this table (thus performing very simplistic copy and constant
    propagation).  */
 static varray_type const_and_copies;
+
+/* Table to store the current reaching definition for every variable in
+   the function.  Given a variable V, its entry will be its immediately
+   reaching SSA_NAME node.  */
+static varray_type currdefs;
 
 /* Table of constant values indexed by SSA_NAME.  If the stored value for a
    particular SSA_NAME is integer_one_node, then that particular SSA_NAME
@@ -189,6 +194,11 @@ struct dom_walk_block_data
      in this basic block.  We use this during finalization to know
      which variables need their VRP data updated.  */
   varray_type vrp_variables;
+
+  /* Array of tree pairs used to restore the globcal currdefs to its
+     original state after completing optimization of a block and its
+     dominator children.  */
+  varray_type block_defs;
 };
 
 struct eq_expr_value
@@ -222,7 +232,7 @@ static tree find_equivalent_equality_comparison (tree);
 static void record_range (tree, basic_block, varray_type *);
 static bool extract_range_from_cond (tree, tree *, tree *, int *);
 static bool cprop_into_stmt (tree);
-static void record_equivalences_from_phis (basic_block);
+static void record_equivalences_from_phis (struct dom_walk_data *, basic_block);
 static void record_equivalences_from_incoming_edge (struct dom_walk_data *,
 						    basic_block, tree);
 static bool eliminate_redundant_computations (struct dom_walk_data *,
@@ -244,7 +254,7 @@ static void restore_vars_to_original_value (varray_type locals,
 					    unsigned limit, 
 					    varray_type table);
 static void extract_true_false_edges_from_block (basic_block, edge *, edge *);
-
+static void register_definitions_for_stmt (tree, varray_type *);
 
 /* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
    into the operand pointed by OP_P.  */
@@ -264,16 +274,33 @@ propagate_value (tree *op_p, tree val)
 static inline tree
 get_value_for (tree var, varray_type table)
 {
-  return VARRAY_TREE (table, SSA_NAME_VERSION (var));
-}
+  unsigned int indx;
 
+  if (TREE_CODE (var) == SSA_NAME)
+    indx = SSA_NAME_VERSION (var);
+  else if (DECL_P (var))
+    indx = var_ann (var)->uid;
+  else
+    abort ();
+
+  return VARRAY_TREE (table, indx);
+}
 
 /* Associate VALUE to variable VAR in TABLE.  */
 
 static inline void
 set_value_for (tree var, tree value, varray_type table)
 {
-  VARRAY_TREE (table, SSA_NAME_VERSION (var)) = value;
+  unsigned int indx;
+
+  if (TREE_CODE (var) == SSA_NAME)
+    indx = SSA_NAME_VERSION (var);
+  else if (DECL_P (var))
+    indx = var_ann (var)->uid;
+  else
+    abort ();
+
+  VARRAY_TREE (table, indx) = value;
 }
 
 /* Jump threading, redundancy elimination and const/copy propagation. 
@@ -310,6 +337,7 @@ tree_ssa_dominator_optimize (void)
   VARRAY_TREE_INIT (nonzero_vars, highest_ssa_version, "nonzero_vars");
   VARRAY_EDGE_INIT (redirection_edges, 20, "redirection_edges");
   VARRAY_GENERIC_PTR_INIT (vrp_data, highest_ssa_version, "vrp_data");
+  VARRAY_TREE_INIT (currdefs, num_referenced_vars, "currdefs");
 
 
   /* Setup callbacks for the generic dominator tree walker.  */
@@ -371,6 +399,8 @@ tree_ssa_dominator_optimize (void)
 	     out of SSA form.  */
 	  for (i = 0; i < VARRAY_ACTIVE_SIZE (redirection_edges); i += 2)
 	    {
+	      block_stmt_iterator bsi;
+
 	      e = VARRAY_EDGE (redirection_edges, i);
 	      tgt = VARRAY_EDGE (redirection_edges, i + 1)->dest;
 
@@ -392,6 +422,35 @@ tree_ssa_dominator_optimize (void)
 		      bitmap_set_bit (vars_to_rename, var_ann (arg)->uid);
 		    }
 	        }
+
+	      /* Similarly for any real statements at the start of the
+		 block we threaded through.  */
+	      for (bsi = bsi_start (e->dest); ! bsi_end_p (bsi); bsi_next (&bsi))
+		{
+		  unsigned int j;
+		  def_optype defs;
+		  vdef_optype vdefs;
+		  tree stmt = bsi_stmt (bsi);
+
+		  if (TREE_CODE (stmt) == COND_EXPR)
+		    break;
+
+		  get_stmt_operands (stmt);
+
+		  defs = STMT_DEF_OPS (stmt);
+		  for (j = 0; j < NUM_DEFS (defs); j++)
+		    {
+		      tree op = SSA_NAME_VAR (DEF_OP (defs, j));
+		      bitmap_set_bit (vars_to_rename, var_ann (op)->uid);
+		    }
+
+		  vdefs = STMT_VDEF_OPS (stmt);
+		  for (j = 0; j < NUM_VDEFS (vdefs); j++)
+		    {
+		      tree op = VDEF_RESULT (vdefs, j);
+		      bitmap_set_bit (vars_to_rename, var_ann (op)->uid);
+		    }
+		}
 
 	      /* Similarly for our destination.  */
 	      for (phi = phi_nodes (tgt); phi; phi = TREE_CHAIN (phi))
@@ -509,9 +568,11 @@ tree_ssa_dominator_optimize (void)
 	  VARRAY_GROW (const_and_copies, highest_ssa_version);
 	  VARRAY_GROW (vrp_data, highest_ssa_version);
 	  VARRAY_GROW (nonzero_vars, highest_ssa_version);
+	  VARRAY_GROW (currdefs, num_referenced_vars);
 	  VARRAY_CLEAR (const_and_copies);
 	  VARRAY_CLEAR (vrp_data);
 	  VARRAY_CLEAR (nonzero_vars);
+	  VARRAY_CLEAR (currdefs);
 	}
     }
   while (cfg_altered);
@@ -528,6 +589,7 @@ tree_ssa_dominator_optimize (void)
   htab_delete (false_exprs);
 
   VARRAY_FREE (redirection_edges);
+  VARRAY_CLEAR (currdefs);
 
   /* And finalize the dominator walker.  */
   fini_walk_dominator_tree (&walk_data);
@@ -563,9 +625,139 @@ struct tree_opt_pass pass_dominator =
 static void
 thread_across_edge (struct dom_walk_data *walk_data, edge e)
 {
-  tree stmt = last_and_only_stmt (e->dest);
   struct dom_walk_block_data *bd
     = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
+  block_stmt_iterator bsi;
+  tree stmt = NULL;
+
+  for (bsi = bsi_start (e->dest); ! bsi_end_p (bsi); bsi_next (&bsi))
+    {
+      tree lhs, cached_lhs, prev_value;
+
+      stmt = bsi_stmt (bsi);
+
+      /* Ignore empty statements and labels.  */
+      if (IS_EMPTY_STMT (stmt) || TREE_CODE (stmt) == LABEL_EXPR)
+	continue;
+
+      /* If this is not a MODIFY_EXPR which sets an SSA_NAME to a new
+	 value, then stop our search here.  Ideally when we stop a
+	 search we stop on a COND_EXPR.  */
+      if (TREE_CODE (stmt) != MODIFY_EXPR
+	  || TREE_CODE (TREE_OPERAND (stmt, 0)) != SSA_NAME)
+	break;
+
+      /* At this point we have a statement which assigns an RHS to an
+	 SSA_VAR on the LHS.  We want to prove that the RHS is already
+	 available and that its value is held in the current definition
+	 of the LHS -- meaning that this assignment is a NOP when
+	 reached via edge E.  */
+      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME)
+	cached_lhs = TREE_OPERAND (stmt, 1);
+      else
+	cached_lhs = lookup_avail_expr (stmt, NULL, false);
+
+      lhs = TREE_OPERAND (stmt, 0);
+
+      /* This can happen if we thread around to the start of a loop.  */
+      if (lhs == cached_lhs)
+	break;
+
+      /* If we did not find RHS in the hash table, then try again after
+	 temporarily const/copy propagating the operands.  */
+      if (!cached_lhs)
+	{
+	  /* Copy the operands.  */
+	  stmt_ann_t ann = stmt_ann (stmt);
+	  use_optype uses = USE_OPS (ann);
+	  vuse_optype vuses = VUSE_OPS (ann);
+	  tree *uses_copy = xcalloc (NUM_USES (uses),  sizeof (tree));
+	  tree *vuses_copy = xcalloc (NUM_VUSES (vuses), sizeof (tree));
+	  unsigned int i;
+
+	  /* Make a copy of the uses into USES_COPY, then cprop into
+	     the use operands.  */
+	  for (i = 0; i < NUM_USES (uses); i++)
+	    {
+	      tree tmp = NULL;
+
+	      uses_copy[i] = USE_OP (uses, i);
+	      if (TREE_CODE (USE_OP (uses, i)) == SSA_NAME)
+		tmp = get_value_for (USE_OP (uses, i), const_and_copies);
+	      if (tmp)
+		*USE_OP_PTR (uses, i) = tmp;
+	    }
+
+	  /* Similarly for virtual uses.  */
+	  for (i = 0; i < NUM_VUSES (vuses); i++)
+	    {
+	      tree tmp = NULL;
+
+	      vuses_copy[i] = VUSE_OP (vuses, i);
+	      if (TREE_CODE (VUSE_OP (vuses, i)) == SSA_NAME)
+		tmp = get_value_for (VUSE_OP (vuses, i), const_and_copies);
+	      if (tmp)
+		VUSE_OP (vuses, i) = tmp;
+	    }
+
+	  /* Try to lookup the new expression.  */
+	  cached_lhs = lookup_avail_expr (stmt, NULL, false);
+
+	  /* Restore the statement's original uses/defs.  */
+	  for (i = 0; i < NUM_USES (uses); i++)
+	    *USE_OP_PTR (uses, i) = uses_copy[i];
+
+	  for (i = 0; i < NUM_VUSES (vuses); i++)
+	    VUSE_OP (vuses, i) = vuses_copy[i];
+
+	  free (uses_copy);
+	  free (vuses_copy);
+
+	  /* If we still did not find the expression in the hash table,
+	     then we can not ignore this statement.  */
+	  if (! cached_lhs)
+	    break;
+	}
+
+      /* If the expression in the hash table was not assigned to an
+	 SSA_NAME, then we can not ignore this statement.  */
+      if (TREE_CODE (cached_lhs) != SSA_NAME)
+	break;
+
+      /* If we have different underlying variables, then we can not
+	 ignore this statement.  */
+      if (SSA_NAME_VAR (cached_lhs) != SSA_NAME_VAR (lhs))
+	break;
+
+      /* If CACHED_LHS does not represent the current value of the undering
+	 variable in CACHED_LHS/LHS, then we can not ignore this statement.  */
+      if (get_value_for (SSA_NAME_VAR (lhs), currdefs) != cached_lhs)
+	break;
+
+      /* If we got here, then we can ignore this statement and continue
+	 walking through the statements in the block looking for a threadable
+	 COND_EXPR.
+
+	 We want to record an equivalence lhs = cache_lhs so that if
+	 the result of this statement is used later we can copy propagate
+	 suitably.  */
+      prev_value = get_value_for (lhs, const_and_copies);
+
+      if (TREE_CODE (cached_lhs) == SSA_NAME)
+	{
+	  tree tmp = get_value_for (cached_lhs, const_and_copies);
+
+	  if (tmp)
+	    cached_lhs = tmp;
+	}
+	  
+      set_value_for (lhs, cached_lhs, const_and_copies);
+
+      if (! bd->const_and_copies)
+	VARRAY_TREE_INIT (bd->const_and_copies, 2, "block_const_and_copies");
+      VARRAY_PUSH_TREE (bd->const_and_copies, lhs);
+      VARRAY_PUSH_TREE (bd->const_and_copies, prev_value);
+    }
 
   /* If we stopped at a COND_EXPR, then see if we know which arm will
      be taken.  */
@@ -592,7 +784,6 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	  if (e1)
 	    return;
 	}
-
 
       /* Each PHI creates a temporary equivalence, record them.  */
       for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
@@ -773,6 +964,8 @@ dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data,
 	VARRAY_CLEAR (bd->stmts_to_rescan);
       if (bd->vrp_variables)
 	VARRAY_CLEAR (bd->vrp_variables);
+      if (bd->block_defs)
+	VARRAY_CLEAR (bd->block_defs);
     }
 }
 
@@ -792,7 +985,7 @@ dom_opt_initialize_block (struct dom_walk_data *walk_data,
 					  parent_block_last_stmt);
 
   /* PHI nodes can create equivalences too.  */
-  record_equivalences_from_phis (bb);
+  record_equivalences_from_phis (walk_data, bb);
 }
 
 /* Remove all the expressions in LOCALS from TABLE, stopping when there are
@@ -1005,6 +1198,26 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
   restore_vars_to_original_value (bd->nonzero_vars, 0, nonzero_vars);
   restore_vars_to_original_value (bd->const_and_copies, 0, const_and_copies);
 
+  /* Restore CURRDEFS to its original state.  */
+  while (bd->block_defs && VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
+    {
+      tree var;
+      tree saved_def = VARRAY_TOP_TREE (bd->block_defs);
+      VARRAY_POP (bd->block_defs);
+ 
+      /* If SAVED_DEF is NULL, then the next slot in the stack contains
+	 the variable associated with SAVED_DEF.  */
+     if (saved_def == NULL_TREE)
+	{
+	  var = VARRAY_TOP_TREE (bd->block_defs);
+	  VARRAY_POP (bd->block_defs);
+	}
+      else
+	var = SSA_NAME_VAR (saved_def);
+
+      set_value_for (var, saved_def, currdefs);
+    }
+
   /* Remove VRP records associated with this basic block.  They are no
      longer valid.
 
@@ -1053,8 +1266,10 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
    all the alternatives are equal, then the PHI node creates an
    equivalence.  */
 static void
-record_equivalences_from_phis (basic_block bb)
+record_equivalences_from_phis (struct dom_walk_data *walk_data, basic_block bb)
 {
+  struct dom_walk_block_data *bd
+    = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
   tree phi;
 
   for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
@@ -1098,6 +1313,9 @@ record_equivalences_from_phis (basic_block bb)
       if (i == PHI_NUM_ARGS (phi)
 	  && may_propagate_copy (lhs, rhs))
 	set_value_for (lhs, rhs, const_and_copies);
+
+      register_new_def (SSA_NAME_VAR (PHI_RESULT (phi)), PHI_RESULT (phi),
+			&bd->block_defs, currdefs);
     }
 }
 
@@ -2415,6 +2633,8 @@ optimize_stmt (struct dom_walk_data *walk_data, block_stmt_iterator si)
 				   may_optimize_p,
 				   ann);
 
+  register_definitions_for_stmt (stmt, &bd->block_defs);
+
   /* If STMT is a COND_EXPR and it was modified, then we may know
      where it goes.  If that is the case, then mark the CFG as altered.
 
@@ -3006,3 +3226,36 @@ propagate_copy (tree *op_p, tree var)
 
   *op_p = var;
 }
+
+/* Given STMT and a pointer to the block local defintions BLOCK_DEFS_P,
+   register register all objects set by this statement into BLOCK_DEFS_P
+   and CURRDEFS.  */
+
+static void
+register_definitions_for_stmt (tree stmt, varray_type *block_defs_p)
+{
+  def_optype defs;
+  vdef_optype vdefs;
+  unsigned int i;
+
+  defs = STMT_DEF_OPS (stmt);
+  for (i = 0; i < NUM_DEFS (defs); i++)
+    {
+      tree def = DEF_OP (defs, i);
+
+      /* FIXME: We shouldn't be registering new defs if the variable
+	 doesn't need to be renamed.  */
+      register_new_def (SSA_NAME_VAR (def), def, block_defs_p, currdefs);
+    }
+
+  /* Register new virtual definitions made by the statement.  */
+  vdefs = STMT_VDEF_OPS (stmt);
+  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+    {
+      /* FIXME: We shouldn't be registering new defs if the variable
+	 doesn't need to be renamed.  */
+      register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdefs, i)),
+			VDEF_RESULT (vdefs, i), block_defs_p, currdefs);
+    }
+}
+

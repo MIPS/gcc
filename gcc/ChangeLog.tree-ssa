@@ -1,3 +1,35 @@
+2004-01-19  Jeff Law  <law@redhat.com>
+
+	* tree-flow.h: Update copyright dates.
+	(register_new_def): Declare.
+	* tree-ssa-dom.c: Update copyright dates.
+	Add tracking of current definition of each program variable just
+	like we do when rewriting into SSA form.
+	(get_value_for, set_value_for): Handle either an SSA_NAME or
+	regular variable.
+	(tree_ssa_dominator_optimize): Initialize and update CURRDEFS.
+	If we thread through a block with real statements, the destination
+	of those statements must be rewritten too.
+	(thread_across_edge): Skip nop statements at the start of a
+	block.
+	(dom_opt_initialize_block_local_data): Clear block_defs
+	appropriately.
+	(record_equivalences_from_phis): Accept walk_data structure.
+	Call register_new_def appropriately.
+	(optimize_stmt): Call register_new_defs_for_stmt.
+	(dom_opt_finalize_block): Restore CURRDEFS appropriately.
+	(register_new_definitions_for_stmt): New.
+	* tree-ssa.c: Update copyright dates.
+	(register_new_def): No longer static.  Accept additional argument
+	for the table to hold the new definition.  Callers updated.
+
+	* gimplify.c: Update copyright dates.
+	* tree-cfg.c: Likewise.
+	* tree.h: Likewise.
+
+	* tree-iterator.c, tree-iterator.c: Use GCC rather than GNU CC.
+	* tree-ssa-pre.c, tree-ssa-live.h: Likewise.
+
 2004-01-19  Daniel Berlin  <dberlin@dberlin.org>
 
 	* timevar.def (TV_TREE_SPLIT_EDGES): New timevar.

@@ -1,5 +1,5 @@
 /* SSA for trees.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -178,7 +178,6 @@ static bool prepare_operand_for_rename (tree *op_p, size_t *uid_p);
 static void insert_phi_nodes (bitmap *);
 static void rewrite_stmt (block_stmt_iterator, varray_type *);
 static inline void rewrite_operand (tree *);
-static void register_new_def (tree, tree, varray_type *);
 static void insert_phi_nodes_for (tree, bitmap *);
 static tree get_reaching_def (tree);
 static tree get_value_for (tree, varray_type);
@@ -839,7 +838,8 @@ rewrite_initialize_block (struct dom_walk_data *walk_data,
     {
       tree result = PHI_RESULT (phi);
 
-      register_new_def (SSA_NAME_VAR (result), result, &bd->block_defs);
+      register_new_def (SSA_NAME_VAR (result), result,
+			&bd->block_defs, currdefs);
     }
 }
 
@@ -3333,7 +3333,8 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p);
+      register_new_def (SSA_NAME_VAR (*def_p), *def_p,
+			block_defs_p, currdefs);
     }
 
   /* Register new virtual definitions made by the statement.  */
@@ -3347,7 +3348,7 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
       register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdefs, i)), 
-			VDEF_RESULT (vdefs, i), block_defs_p);
+			VDEF_RESULT (vdefs, i), block_defs_p, currdefs);
     }
 }
 
@@ -3377,10 +3378,11 @@ rewrite_operand (tree *op_p)
    current reaching definition into the stack pointed by BLOCK_DEFS_P.
    IS_REAL_OPERAND is true when DEF is a real definition.  */
 
-static void
-register_new_def (tree var, tree def, varray_type *block_defs_p)
+void
+register_new_def (tree var, tree def,
+		  varray_type *block_defs_p, varray_type table)
 {
-  tree currdef = get_value_for (var, currdefs);
+  tree currdef = get_value_for (var, table);
 
   if (! *block_defs_p)
     VARRAY_TREE_INIT (*block_defs_p, 20, "block_defs");
@@ -3398,7 +3400,7 @@ register_new_def (tree var, tree def, varray_type *block_defs_p)
   VARRAY_PUSH_TREE (*block_defs_p, currdef);
 
   /* Set the current reaching definition for VAR to be DEF.  */
-  set_value_for (var, def, currdefs);
+  set_value_for (var, def, table);
 }
 
 
