@@ -3664,7 +3664,6 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
   block_stmt_iterator bsi;
   edge ret;
   tree label, stmt;
-  int flags;
 
   if (e->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
     return NULL;
@@ -3680,7 +3679,6 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
 
   bsi = bsi_last (bb);
   stmt = bsi_end_p (bsi) ? NULL : bsi_stmt (bsi);
-  flags = 0;
 
   switch (stmt ? TREE_CODE (stmt) : ERROR_MARK)
     {
@@ -3688,7 +3686,6 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
       stmt = (e->flags & EDGE_TRUE_VALUE
 	      ? COND_EXPR_THEN (stmt)
 	      : COND_EXPR_ELSE (stmt));
-      flags = e->flags;
       GOTO_DESTINATION (stmt) = label;
       break;
 
@@ -3711,6 +3708,11 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
       }
       break;
 
+    case RETURN_EXPR:
+      bsi_remove (&bsi);
+      e->flags |= EDGE_FALLTHRU;
+      break;
+
     default:
       /* Otherwise it must be a fallthru edge, and we don't need to
 	 do anything except for redirecting it.  */
@@ -3721,10 +3723,8 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
 
   /* Update/insert PHI nodes as necessary.  */
 
-  /* Now update the edges in the CFG.  When splitting edges, we do not 
-     want to remove PHI arguments.  */
+  /* Now update the edges in the CFG.  */
   e = ssa_redirect_edge (e, dest);
-  e->flags |= flags;
 
   return e;
 }
