@@ -1,3 +1,7 @@
+2002-10-16  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/vr-mult[1-7].c: New tests.
+
 2002-09-30  Mark Mitchell  <mark@codesourcery.com>
 
 	* g++.dg/abi/empty7.C: New test.
