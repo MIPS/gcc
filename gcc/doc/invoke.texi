@@ -6797,12 +6797,15 @@ should normally not specify either @option{-mnew-mnemonics} or
 @opindex mcpu
 Set architecture type, register usage, choice of mnemonics, and
 instruction scheduling parameters for machine type @var{cpu_type}.
-Supported values for @var{cpu_type} are @samp{rios}, @samp{rios1},
-@samp{rsc}, @samp{rios2}, @samp{rs64a}, @samp{601}, @samp{602},
-@samp{603}, @samp{603e}, @samp{604}, @samp{604e}, @samp{620},
-@samp{630}, @samp{740}, @samp{7400}, @samp{7450}, @samp{750},
-@samp{power}, @samp{power2}, @samp{powerpc}, @samp{403}, @samp{505},
-@samp{801}, @samp{821}, @samp{823}, and @samp{860} and @samp{common}.
+Supported values for @var{cpu_type} are @samp{401}, @samp{403},
+@samp{405}, @samp{405fp}, @samp{440}, @samp{440fp}, @samp{505},
+@samp{601}, @samp{602}, @samp{603}, @samp{603e}, @samp{604},
+@samp{604e}, @samp{620}, @samp{630}, @samp{740}, @samp{7400},
+@samp{7450}, @samp{750}, @samp{801}, @samp{821}, @samp{823},
+@samp{860}, @samp{970}, @samp{common}, @samp{ec603e}, @samp{G3},
+@samp{G4}, @samp{G5}, @samp{power}, @samp{power2}, @samp{power3},
+@samp{power4}, @samp{power5}, @samp{powerpc}, @samp{powerpc64},
+@samp{rios}, @samp{rios1}, @samp{rios2}, @samp{rsc}, and @samp{rs64a}.
 
 @option{-mcpu=common} selects a completely generic processor.  Code
 generated under this option will run on any POWER or PowerPC processor.
