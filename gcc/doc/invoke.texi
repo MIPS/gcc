@@ -258,6 +258,7 @@ in the following sections.
 -fdump-tree-dse@r{[}-@var{n}@r{]} @gol
 -fdump-tree-phiopt@r{[}-@var{n}@r{]} @gol
 -fdump-tree-forwprop@r{[}-@var{n}@r{]} @gol
+-fdump-tree-nrv @gol
 -fdump-tree-loop@r{[}-@var{n}@r{]} -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs -ftree-based-profiling @gol
@@ -3542,6 +3543,12 @@ name is made by appending @file{.phiopt} to the source file name.
 @opindex fdump-tree-forwprop
 Dump each function after forward propagating single use variables.  The file
 name is made by appending @file{.forwprop} to the source file name.
+
+@item nrv
+@opindex fdump-tree-nrv
+Dump each function after applying the named return value optimization on
+generic trees.  The file name is made by appending @file{.nrv} to the source
+file name.
 
 @item loop
 @opindex fdump-tree-loop

@@ -1,3 +1,14 @@
+2004-02-24  Jeff Law  <law@redhat.com>
+
+	* Makefile.in (OBJS-common): Add tree-nrv.o.
+	(tree-nrv.o): Add dependencies.
+	* timevar.def (TV_TREE_NRV): New timevar.
+	* tree-nrv.c: New file implementing NRV on generic trees.
+	* tree-optimize.c (init_tree_optimization_passes): Link in
+	tree_nrv optimization pass.
+	* tree-pass.h (tree_nrv): Declare.
+	* doc/invoke.texi: Add -fdump-tree-nrv documentation.
+
 2004-02-24  Sebastian Pop  <sebastian.pop@cri.ensmp.fr>
 
 	* tree-flow.h (walk_use_def_chains_fn): Return a boolean.
