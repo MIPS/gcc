@@ -1,6 +1,6 @@
-# Makefile.in generated automatically by automake 1.4 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
 
-# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+# Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -67,50 +67,75 @@ AR = @AR@
 AS = @AS@
 ATOMICITY_INC_SRCDIR = @ATOMICITY_INC_SRCDIR@
 BASIC_FILE_H = @BASIC_FILE_H@
+BUILD_INCLUDED_LIBINTL = @BUILD_INCLUDED_LIBINTL@
+CATALOGS = @CATALOGS@
+CATOBJEXT = @CATOBJEXT@
 CC = @CC@
 CCODECVT_C = @CCODECVT_C@
+CCODECVT_H = @CCODECVT_H@
 CLOCALE_H = @CLOCALE_H@
+CMESSAGES_H = @CMESSAGES_H@
 CPP = @CPP@
+CPU_LIMITS_INC_SRCDIR = @CPU_LIMITS_INC_SRCDIR@
 CSHADOW_FLAGS = @CSHADOW_FLAGS@
 CSTDIO_H = @CSTDIO_H@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 C_INCLUDE_DIR = @C_INCLUDE_DIR@
+DATADIRNAME = @DATADIRNAME@
 DEBUG_FLAGS = @DEBUG_FLAGS@
 DLLTOOL = @DLLTOOL@
 EXEEXT = @EXEEXT@
 EXTRA_CXX_FLAGS = @EXTRA_CXX_FLAGS@
 GCJ = @GCJ@
 GCJFLAGS = @GCJFLAGS@
+GENCAT = @GENCAT@
+GLIBC21 = @GLIBC21@
 GLIBCPP_IS_CROSS_COMPILING = @GLIBCPP_IS_CROSS_COMPILING@
+GMOFILES = @GMOFILES@
+GMSGFMT = @GMSGFMT@
+INSTOBJEXT = @INSTOBJEXT@
+INTLBISON = @INTLBISON@
+INTLLIBS = @INTLLIBS@
+INTLOBJS = @INTLOBJS@
+INTL_LIBTOOL_SUFFIX_PREFIX = @INTL_LIBTOOL_SUFFIX_PREFIX@
+LIBICONV = @LIBICONV@
 LIBMATHOBJS = @LIBMATHOBJS@
 LIBMATH_INCLUDES = @LIBMATH_INCLUDES@
-LIBSTRINGOBJS = @LIBSTRINGOBJS@
 LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
 LIBSUPCXX_PICFLAGS = @LIBSUPCXX_PICFLAGS@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
+MKINSTALLDIRS = @MKINSTALLDIRS@
+MSGFMT = @MSGFMT@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OPTIMIZE_CXXFLAGS = @OPTIMIZE_CXXFLAGS@
 OPT_LDFLAGS = @OPT_LDFLAGS@
 OS_INC_SRCDIR = @OS_INC_SRCDIR@
 PACKAGE = @PACKAGE@
+POFILES = @POFILES@
+POSUB = @POSUB@
 RANLIB = @RANLIB@
 SECTION_FLAGS = @SECTION_FLAGS@
 SECTION_LDFLAGS = @SECTION_LDFLAGS@
 STRIP = @STRIP@
 USE_COMPLEX_LONG_DOUBLE = @USE_COMPLEX_LONG_DOUBLE@
+USE_INCLUDED_LIBINTL = @USE_INCLUDED_LIBINTL@
+USE_NLS = @USE_NLS@
 VERSION = @VERSION@
 WARN_FLAGS = @WARN_FLAGS@
 WERROR = @WERROR@
 enable_shared = @enable_shared@
 enable_static = @enable_static@
 glibcpp_CXX = @glibcpp_CXX@
+glibcpp_MOFILES = @glibcpp_MOFILES@
+glibcpp_POFILES = @glibcpp_POFILES@
 glibcpp_basedir = @glibcpp_basedir@
 glibcpp_builddir = @glibcpp_builddir@
+glibcpp_localedir = @glibcpp_localedir@
 glibcpp_prefixdir = @glibcpp_prefixdir@
 glibcpp_srcdir = @glibcpp_srcdir@
 glibcpp_thread_h = @glibcpp_thread_h@
@@ -119,12 +144,14 @@ glibcpp_toolexeclibdir = @glibcpp_toolexeclibdir@
 gxx_include_dir = @gxx_include_dir@
 ifGNUmake = @ifGNUmake@
 libio_la = @libio_la@
+libtool_VERSION = @libtool_VERSION@
+release_VERSION = @release_VERSION@
 toplevel_srcdir = @toplevel_srcdir@
 
 AUTOMAKE_OPTIONS = 1.3 cygnus
 
 mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
-@GLIBCPP_BUILD_LIBIO_TRUE@noinst_LTLIBRARIES = libio.la
+@GLIBCPP_BUILD_LIBIO_TRUE@noinst_LTLIBRARIES = @GLIBCPP_BUILD_LIBIO_TRUE@libio.la
 @GLIBCPP_BUILD_LIBIO_FALSE@noinst_LTLIBRARIES = 
 
 # Use common includes from acinclude.m4/GLIBCPP_EXPORT_INCLUDES
@@ -132,14 +159,20 @@ GLIBCPP_INCLUDES = @GLIBCPP_INCLUDES@
 TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
 LIBIO_INCLUDES = @LIBIO_INCLUDES@
 
-INCLUDES =  	-nostdinc++ 	$(GLIBCPP_INCLUDES) $(LIBIO_INCLUDES) $(TOPLEVEL_INCLUDES)	
+INCLUDES = \
+	-nostdinc++ \
+	$(GLIBCPP_INCLUDES) $(LIBIO_INCLUDES) $(TOPLEVEL_INCLUDES)	
 
 
-libio_headers =          libio.h libioP.h iolibio.h
+libio_headers = \
+        libio.h libioP.h iolibio.h
 
-@GLIBCPP_NEED_LIBIO_TRUE@LIBIO_SRCS = 	filedoalloc.c genops.c fileops.c stdfiles.c c_codecvt.c 	iofclose.c iofopen.c 
+@GLIBCPP_NEED_LIBIO_TRUE@LIBIO_SRCS = @GLIBCPP_NEED_LIBIO_TRUE@\
+@GLIBCPP_NEED_LIBIO_TRUE@	filedoalloc.c genops.c fileops.c stdfiles.c c_codecvt.c \
+@GLIBCPP_NEED_LIBIO_TRUE@	iofclose.c iofopen.c 
 @GLIBCPP_NEED_LIBIO_FALSE@LIBIO_SRCS = 
-@GLIBCPP_NEED_WLIBIO_TRUE@LIBIO_WSRCS = 	wfiledoalloc.c wfileops.c wgenops.c iofwide.c
+@GLIBCPP_NEED_WLIBIO_TRUE@LIBIO_WSRCS = @GLIBCPP_NEED_WLIBIO_TRUE@\
+@GLIBCPP_NEED_WLIBIO_TRUE@	wfiledoalloc.c wfileops.c wgenops.c iofwide.c
 @GLIBCPP_NEED_WLIBIO_FALSE@LIBIO_WSRCS = 
 
 EXTRA_DIST = iostreamP.h

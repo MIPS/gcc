@@ -31,6 +31,11 @@
 // ISO C++ 14882: 27.2  Forward declarations
 //
 
+/** @file std_iosfwd.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _CPP_IOSFWD
 #define _CPP_IOSFWD 1
 
@@ -93,7 +98,7 @@ namespace std
     class ostreambuf_iterator;
 
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
-  // Not included.
+  // Not included.   (??? Apparently no LWG number?)
   class ios_base; 
 #endif
 
@@ -128,9 +133,4 @@ namespace std
 #endif
 } // namespace std
 
-#endif	// _CPP_IOSFWD
-
-
-
-
-
+#endif

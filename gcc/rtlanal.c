@@ -2,22 +2,22 @@
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "config.h"
@@ -25,12 +25,13 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "tm_p.h"
 
 /* Forward declarations */
 static void set_of_1		PARAMS ((rtx, rtx, void *));
 static void insn_dependent_p_1	PARAMS ((rtx, rtx, void *));
 static int computed_jump_p_1	PARAMS ((rtx));
-static int operand_preference	PARAMS ((rtx));
+static void parms_set 		PARAMS ((rtx, rtx, void *));
 
 /* Bit flags that specify the machine subtype we are compiling for.
    Bits are tested using macros TARGET_... defined in the tm.h file
@@ -47,9 +48,9 @@ int
 rtx_unstable_p (x)
      rtx x;
 {
-  register RTX_CODE code = GET_CODE (x);
-  register int i;
-  register const char *fmt;
+  RTX_CODE code = GET_CODE (x);
+  int i;
+  const char *fmt;
 
   switch (code)
     {
@@ -123,9 +124,9 @@ rtx_varies_p (x, for_alias)
      rtx x;
      int for_alias;
 {
-  register RTX_CODE code = GET_CODE (x);
-  register int i;
-  register const char *fmt;
+  RTX_CODE code = GET_CODE (x);
+  int i;
+  const char *fmt;
 
   switch (code)
     {
@@ -202,9 +203,9 @@ rtx_varies_p (x, for_alias)
 
 int
 rtx_addr_can_trap_p (x)
-     register rtx x;
+     rtx x;
 {
-  register enum rtx_code code = GET_CODE (x);
+  enum rtx_code code = GET_CODE (x);
 
   switch (code)
     {
@@ -269,9 +270,9 @@ rtx_addr_varies_p (x, for_alias)
      rtx x;
      int for_alias;
 {
-  register enum rtx_code code;
-  register int i;
-  register const char *fmt;
+  enum rtx_code code;
+  int i;
+  const char *fmt;
 
   if (x == 0)
     return 0;
@@ -336,6 +337,146 @@ get_related_value (x)
 	   && GET_CODE (XEXP (x, 1)) == CONST_INT)
     return XEXP (x, 0);
   return 0;
+}
+
+/* Given a tablejump insn INSN, return the RTL expression for the offset
+   into the jump table.  If the offset cannot be determined, then return
+   NULL_RTX.
+
+   If EARLIEST is non-zero, it is a pointer to a place where the earliest
+   insn used in locating the offset was found.  */
+
+rtx
+get_jump_table_offset (insn, earliest)
+     rtx insn;
+     rtx *earliest;
+{
+  rtx label;
+  rtx table;
+  rtx set;
+  rtx old_insn;
+  rtx x;
+  rtx old_x;
+  rtx y;
+  rtx old_y;
+  int i;
+
+  if (GET_CODE (insn) != JUMP_INSN
+      || ! (label = JUMP_LABEL (insn))
+      || ! (table = NEXT_INSN (label))
+      || GET_CODE (table) != JUMP_INSN
+      || (GET_CODE (PATTERN (table)) != ADDR_VEC
+	  && GET_CODE (PATTERN (table)) != ADDR_DIFF_VEC)
+      || ! (set = single_set (insn)))
+    return NULL_RTX;
+
+  x = SET_SRC (set);
+
+  /* Some targets (eg, ARM) emit a tablejump that also
+     contains the out-of-range target.  */
+  if (GET_CODE (x) == IF_THEN_ELSE
+      && GET_CODE (XEXP (x, 2)) == LABEL_REF)
+    x = XEXP (x, 1);
+
+  /* Search backwards and locate the expression stored in X.  */
+  for (old_x = NULL_RTX; GET_CODE (x) == REG && x != old_x;
+       old_x = x, x = find_last_value (x, &insn, NULL_RTX, 0))
+    ;
+
+  /* If X is an expression using a relative address then strip
+     off the addition / subtraction of PC, PIC_OFFSET_TABLE_REGNUM,
+     or the jump table label.  */
+  if (GET_CODE (PATTERN (table)) == ADDR_DIFF_VEC
+      && (GET_CODE (x) == PLUS || GET_CODE (x) == MINUS))
+    {
+      for (i = 0; i < 2; i++)
+	{
+	  old_insn = insn;
+	  y = XEXP (x, i);
+
+	  if (y == pc_rtx || y == pic_offset_table_rtx)
+	    break;
+
+	  for (old_y = NULL_RTX; GET_CODE (y) == REG && y != old_y;
+	       old_y = y, y = find_last_value (y, &old_insn, NULL_RTX, 0))
+	    ;
+
+	  if ((GET_CODE (y) == LABEL_REF && XEXP (y, 0) == label))
+	    break;
+	}
+
+      if (i >= 2)
+	return NULL_RTX;
+
+      x = XEXP (x, 1 - i);
+
+      for (old_x = NULL_RTX; GET_CODE (x) == REG && x != old_x;
+	   old_x = x, x = find_last_value (x, &insn, NULL_RTX, 0))
+	;
+    }
+
+  /* Strip off any sign or zero extension.  */
+  if (GET_CODE (x) == SIGN_EXTEND || GET_CODE (x) == ZERO_EXTEND)
+    {
+      x = XEXP (x, 0);
+
+      for (old_x = NULL_RTX; GET_CODE (x) == REG && x != old_x;
+	   old_x = x, x = find_last_value (x, &insn, NULL_RTX, 0))
+	;
+    }
+
+  /* If X isn't a MEM then this isn't a tablejump we understand.  */
+  if (GET_CODE (x) != MEM)
+    return NULL_RTX;
+
+  /* Strip off the MEM.  */
+  x = XEXP (x, 0);
+
+  for (old_x = NULL_RTX; GET_CODE (x) == REG && x != old_x;
+       old_x = x, x = find_last_value (x, &insn, NULL_RTX, 0))
+    ;
+
+  /* If X isn't a PLUS than this isn't a tablejump we understand.  */
+  if (GET_CODE (x) != PLUS)
+    return NULL_RTX;
+
+  /* At this point we should have an expression representing the jump table
+     plus an offset.  Examine each operand in order to determine which one
+     represents the jump table.  Knowing that tells us that the other operand
+     must represent the offset.  */
+  for (i = 0; i < 2; i++)
+    {
+      old_insn = insn;
+      y = XEXP (x, i);
+
+      for (old_y = NULL_RTX; GET_CODE (y) == REG && y != old_y;
+	   old_y = y, y = find_last_value (y, &old_insn, NULL_RTX, 0))
+	;
+
+      if ((GET_CODE (y) == CONST || GET_CODE (y) == LABEL_REF)
+	  && reg_mentioned_p (label, y))
+	break;
+    }
+
+  if (i >= 2)
+    return NULL_RTX;
+
+  x = XEXP (x, 1 - i);
+
+  /* Strip off the addition / subtraction of PIC_OFFSET_TABLE_REGNUM.  */
+  if (GET_CODE (x) == PLUS || GET_CODE (x) == MINUS)
+    for (i = 0; i < 2; i++)
+      if (XEXP (x, i) == pic_offset_table_rtx)
+	{
+	  x = XEXP (x, 1 - i);
+	  break;
+	}
+
+  if (earliest)
+    *earliest = insn;
+
+  /* Return the RTL expression representing the offset.  */
+  return x;
 }
 
 /* Return the number of places FIND appears within X.  If COUNT_DEST is
@@ -407,11 +548,11 @@ count_occurrences (x, find, count_dest)
 
 int
 reg_mentioned_p (reg, in)
-     register rtx reg, in;
+     rtx reg, in;
 {
-  register const char *fmt;
-  register int i;
-  register enum rtx_code code;
+  const char *fmt;
+  int i;
+  enum rtx_code code;
 
   if (in == 0)
     return 0;
@@ -457,7 +598,7 @@ reg_mentioned_p (reg, in)
     {
       if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 	  for (j = XVECLEN (in, i) - 1; j >= 0; j--)
 	    if (reg_mentioned_p (reg, XVECEXP (in, i, j)))
 	      return 1;
@@ -476,7 +617,7 @@ int
 no_labels_between_p (beg, end)
      rtx beg, end;
 {
-  register rtx p;
+  rtx p;
   if (beg == end)
     return 0;
   for (p = NEXT_INSN (beg); p != end; p = NEXT_INSN (p))
@@ -492,7 +633,7 @@ int
 no_jumps_between_p (beg, end)
      rtx beg, end;
 {
-  register rtx p;
+  rtx p;
   for (p = NEXT_INSN (beg); p != end; p = NEXT_INSN (p))
     if (GET_CODE (p) == JUMP_INSN)
       return 0;
@@ -506,7 +647,7 @@ int
 reg_used_between_p (reg, from_insn, to_insn)
      rtx reg, from_insn, to_insn;
 {
-  register rtx insn;
+  rtx insn;
 
   if (from_insn == to_insn)
     return 0;
@@ -568,6 +709,9 @@ reg_referenced_p (x, body)
     case TRAP_IF:
       return reg_overlap_mentioned_p (x, TRAP_CONDITION (body));
 
+    case PREFETCH:
+      return reg_overlap_mentioned_p (x, XEXP (body, 0));
+
     case UNSPEC:
     case UNSPEC_VOLATILE:
       for (i = XVECLEN (body, 0) - 1; i >= 0; i--)
@@ -605,7 +749,7 @@ int
 reg_referenced_between_p (reg, from_insn, to_insn)
      rtx reg, from_insn, to_insn;
 {
-  register rtx insn;
+  rtx insn;
 
   if (from_insn == to_insn)
     return 0;
@@ -626,7 +770,7 @@ int
 reg_set_between_p (reg, from_insn, to_insn)
      rtx reg, from_insn, to_insn;
 {
-  register rtx insn;
+  rtx insn;
 
   if (from_insn == to_insn)
     return 0;
@@ -883,7 +1027,7 @@ set_of_1 (x, pat, data1)
 }
 
 /* Give an INSN, return a SET or CLOBBER expression that does modify PAT
-   (eighter directly or via STRICT_LOW_PART and similar modifiers).  */
+   (either directly or via STRICT_LOW_PART and similar modifiers).  */
 rtx
 set_of (pat, insn)
      rtx pat, insn;
@@ -922,7 +1066,7 @@ single_set_2 (insn, pat)
 	      /* We can consider insns having multiple sets, where all
 		 but one are dead as single set insns.  In common case
 		 only single set is present in the pattern so we want
-		 to avoid checking for REG_UNUSED notes unless neccesary.
+		 to avoid checking for REG_UNUSED notes unless necessary.
 
 		 When we reach set first time, we just expect this is
 		 the single set we are looking for and only when more
@@ -1020,6 +1164,53 @@ set_noop_p (set)
   return (GET_CODE (src) == REG && GET_CODE (dst) == REG
 	  && REGNO (src) == REGNO (dst));
 }
+
+/* Return nonzero if an insn consists only of SETs, each of which only sets a
+   value to itself.  */
+
+int
+noop_move_p (insn)
+     rtx insn;
+{
+  rtx pat = PATTERN (insn);
+
+  if (INSN_CODE (insn) == NOOP_MOVE_INSN_CODE)
+    return 1;
+
+  /* Insns carrying these notes are useful later on.  */
+  if (find_reg_note (insn, REG_EQUAL, NULL_RTX))
+    return 0;
+
+  /* For now treat an insn with a REG_RETVAL note as a
+     a special insn which should not be considered a no-op.  */
+  if (find_reg_note (insn, REG_RETVAL, NULL_RTX))
+    return 0;
+
+  if (GET_CODE (pat) == SET && set_noop_p (pat))
+    return 1;
+
+  if (GET_CODE (pat) == PARALLEL)
+    {
+      int i;
+      /* If nothing but SETs of registers to themselves,
+	 this insn can also be deleted.  */
+      for (i = 0; i < XVECLEN (pat, 0); i++)
+	{
+	  rtx tem = XVECEXP (pat, 0, i);
+
+	  if (GET_CODE (tem) == USE
+	      || GET_CODE (tem) == CLOBBER)
+	    continue;
+
+	  if (GET_CODE (tem) != SET || ! set_noop_p (tem))
+	    return 0;
+	}
+
+      return 1;
+    }
+  return 0;
+}
+
 
 /* Return the last thing that X was assigned from before *PINSN.  If VALID_TO
    is not NULL_RTX then verify that the object is not modified up to VALID_TO.
@@ -1176,7 +1367,7 @@ refers_to_regno_p (regno, endregno, x, loc)
 	}
       else if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 	  for (j = XVECLEN (x, i) - 1; j >=0; j--)
 	    if (loc != &XVECEXP (x, i, j)
 		&& refers_to_regno_p (regno, endregno, XVECEXP (x, i, j), loc))
@@ -1322,7 +1513,7 @@ reg_set_last (x, insn)
      
 void
 note_stores (x, fun, data)
-     register rtx x;
+     rtx x;
      void (*fun) PARAMS ((rtx, rtx, void *));
      void *data;
 {
@@ -1333,7 +1524,7 @@ note_stores (x, fun, data)
 
   if (GET_CODE (x) == SET || GET_CODE (x) == CLOBBER)
     {
-      register rtx dest = SET_DEST (x);
+      rtx dest = SET_DEST (x);
 
       while ((GET_CODE (dest) == SUBREG
 	      && (GET_CODE (SUBREG_REG (dest)) != REG
@@ -1406,6 +1597,10 @@ note_uses (pbody, fun, data)
 
     case TRAP_IF:
       (*fun) (&TRAP_CONDITION (body), data);
+      return;
+
+    case PREFETCH:
+      (*fun) (&XEXP (body, 0), data);
       return;
 
     case UNSPEC:
@@ -1540,7 +1735,7 @@ dead_or_set_regno_p (insn, test_regno)
     }
   else if (GET_CODE (pattern) == PARALLEL)
     {
-      register int i;
+      int i;
 
       for (i = XVECLEN (pattern, 0) - 1; i >= 0; i--)
 	{
@@ -1585,7 +1780,7 @@ find_reg_note (insn, kind, datum)
      enum reg_note kind;
      rtx datum;
 {
-  register rtx link;
+  rtx link;
 
   /* Ignore anything that is not an INSN, JUMP_INSN or CALL_INSN.  */
   if (! INSN_P (insn))
@@ -1609,7 +1804,7 @@ find_regno_note (insn, kind, regno)
      enum reg_note kind;
      unsigned int regno;
 {
-  register rtx link;
+  rtx link;
 
   /* Ignore anything that is not an INSN, JUMP_INSN or CALL_INSN.  */
   if (! INSN_P (insn))
@@ -1666,7 +1861,7 @@ find_reg_fusage (insn, code, datum)
 
   if (GET_CODE (datum) != REG)
     {
-      register rtx link;
+      rtx link;
 
       for (link = CALL_INSN_FUNCTION_USAGE (insn);
            link;
@@ -1706,7 +1901,7 @@ find_regno_fusage (insn, code, regno)
      enum rtx_code code;
      unsigned int regno;
 {
-  register rtx link;
+  rtx link;
 
   /* CALL_INSN_FUNCTION_USAGE information cannot contain references
      to pseudo registers, so don't bother checking.  */
@@ -1734,10 +1929,10 @@ find_regno_fusage (insn, code, regno)
 
 void
 remove_note (insn, note)
-     register rtx insn;
-     register rtx note;
+     rtx insn;
+     rtx note;
 {
-  register rtx link;
+  rtx link;
 
   if (note == NULL_RTX)
     return;
@@ -1798,7 +1993,7 @@ int
 volatile_insn_p (x)
      rtx x;
 {
-  register RTX_CODE code;
+  RTX_CODE code;
 
   code = GET_CODE (x);
   switch (code)
@@ -1835,8 +2030,8 @@ volatile_insn_p (x)
   /* Recursively scan the operands of this expression.  */
 
   {
-    register const char *fmt = GET_RTX_FORMAT (code);
-    register int i;
+    const char *fmt = GET_RTX_FORMAT (code);
+    int i;
     
     for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
       {
@@ -1847,7 +2042,7 @@ volatile_insn_p (x)
 	  }
 	else if (fmt[i] == 'E')
 	  {
-	    register int j;
+	    int j;
 	    for (j = 0; j < XVECLEN (x, i); j++)
 	      if (volatile_insn_p (XVECEXP (x, i, j)))
 		return 1;
@@ -1864,7 +2059,7 @@ int
 volatile_refs_p (x)
      rtx x;
 {
-  register RTX_CODE code;
+  RTX_CODE code;
 
   code = GET_CODE (x);
   switch (code)
@@ -1901,8 +2096,8 @@ volatile_refs_p (x)
   /* Recursively scan the operands of this expression.  */
 
   {
-    register const char *fmt = GET_RTX_FORMAT (code);
-    register int i;
+    const char *fmt = GET_RTX_FORMAT (code);
+    int i;
     
     for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
       {
@@ -1913,7 +2108,7 @@ volatile_refs_p (x)
 	  }
 	else if (fmt[i] == 'E')
 	  {
-	    register int j;
+	    int j;
 	    for (j = 0; j < XVECLEN (x, i); j++)
 	      if (volatile_refs_p (XVECEXP (x, i, j)))
 		return 1;
@@ -1930,7 +2125,7 @@ int
 side_effects_p (x)
      rtx x;
 {
-  register RTX_CODE code;
+  RTX_CODE code;
 
   code = GET_CODE (x);
   switch (code)
@@ -1978,8 +2173,8 @@ side_effects_p (x)
   /* Recursively scan the operands of this expression.  */
 
   {
-    register const char *fmt = GET_RTX_FORMAT (code);
-    register int i;
+    const char *fmt = GET_RTX_FORMAT (code);
+    int i;
     
     for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
       {
@@ -1990,7 +2185,7 @@ side_effects_p (x)
 	  }
 	else if (fmt[i] == 'E')
 	  {
-	    register int j;
+	    int j;
 	    for (j = 0; j < XVECLEN (x, i); j++)
 	      if (side_effects_p (XVECEXP (x, i, j)))
 		return 1;
@@ -2098,7 +2293,7 @@ may_trap_p (x)
 	}
       else if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    if (may_trap_p (XVECEXP (x, i, j)))
 	      return 1;
@@ -2114,9 +2309,9 @@ int
 inequality_comparisons_p (x)
      rtx x;
 {
-  register const char *fmt;
-  register int len, i;
-  register enum rtx_code code = GET_CODE (x);
+  const char *fmt;
+  int len, i;
+  enum rtx_code code = GET_CODE (x);
 
   switch (code)
     {
@@ -2157,7 +2352,7 @@ inequality_comparisons_p (x)
 	}
       else if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    if (inequality_comparisons_p (XVECEXP (x, i, j)))
 	      return 1;
@@ -2177,11 +2372,11 @@ rtx
 replace_rtx (x, from, to)
      rtx x, from, to;
 {
-  register int i, j;
-  register const char *fmt;
+  int i, j;
+  const char *fmt;
 
   /* The following prevents loops occurrence when we change MEM in
-     CONST_DOUBLE onto the same CONST_DOUBLE. */
+     CONST_DOUBLE onto the same CONST_DOUBLE.  */
   if (x != 0 && GET_CODE (x) == CONST_DOUBLE)
     return x;
 
@@ -2224,9 +2419,9 @@ replace_regs (x, reg_map, nregs, replace_dest)
      unsigned int nregs;
      int replace_dest;
 {
-  register enum rtx_code code;
-  register int i;
-  register const char *fmt;
+  enum rtx_code code;
+  int i;
+  const char *fmt;
 
   if (x == 0)
     return x;
@@ -2299,7 +2494,7 @@ replace_regs (x, reg_map, nregs, replace_dest)
 	XEXP (x, i) = replace_regs (XEXP (x, i), reg_map, nregs, replace_dest);
       else if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    XVECEXP (x, i, j) = replace_regs (XVECEXP (x, i, j), reg_map,
 					      nregs, replace_dest);
@@ -2485,7 +2680,7 @@ regno_use_in (regno, x)
      unsigned int regno;
      rtx x;
 {
-  register const char *fmt;
+  const char *fmt;
   int i, j;
   rtx tem;
 
@@ -2515,8 +2710,8 @@ regno_use_in (regno, x)
    We use negative values to indicate a preference for the first operand
    and positive values for the second operand.  */
 
-static int
-operand_preference (op)
+int
+commutative_operand_precedence (op)
      rtx op;
 {
   /* Constants always come the second operand.  Prefer "nice" constants.  */
@@ -2547,14 +2742,15 @@ operand_preference (op)
   return 0;
 }
 
-/* Return 1 iff it is neccesary to swap operands of commutative operation
+/* Return 1 iff it is necessary to swap operands of commutative operation
    in order to canonicalize expression.  */
 
 int
 swap_commutative_operands_p (x, y)
      rtx x, y;
 {
-  return operand_preference (x) < operand_preference (y);
+  return (commutative_operand_precedence (x)
+	  < commutative_operand_precedence (y));
 }
 
 /* Return 1 if X is an autoincrement side effect and the register is
@@ -2707,7 +2903,7 @@ subreg_regno_offset (xregno, xmode, offset, ymode)
 
 /* Check for an override, and use it instead.  */
 #ifdef SUBREG_REGNO_OFFSET
-  ret = SUBREG_REGNO_OFFSET (xregno, xmode, offset, ymode)
+  ret = SUBREG_REGNO_OFFSET (xregno, xmode, offset, ymode);
 #else
   if (xregno >= FIRST_PSEUDO_REGISTER)
     abort ();
@@ -2730,7 +2926,7 @@ subreg_regno_offset (xregno, xmode, offset, ymode)
   return ret;
 }
 
-/* Return the final regno that a subreg expression refers to. */
+/* Return the final regno that a subreg expression refers to.  */
 unsigned int 
 subreg_regno (x)
      rtx x;
@@ -2745,4 +2941,82 @@ subreg_regno (x)
 				     GET_MODE (x));
   return ret;
 
+}
+struct parms_set_data
+{
+  int nregs;
+  HARD_REG_SET regs;
+};
+
+/* Helper function for noticing stores to parameter registers.  */
+static void
+parms_set (x, pat, data)
+	rtx x, pat ATTRIBUTE_UNUSED;
+	void *data;
+{
+  struct parms_set_data *d = data;
+  if (REG_P (x) && REGNO (x) < FIRST_PSEUDO_REGISTER
+      && TEST_HARD_REG_BIT (d->regs, REGNO (x)))
+    {
+      CLEAR_HARD_REG_BIT (d->regs, REGNO (x));
+      d->nregs--;
+    }
+}
+
+/* Look backward for first parameter to be loaded.  
+   Do not skip BOUNDARY.  */
+rtx
+find_first_parameter_load (call_insn, boundary)
+     rtx call_insn, boundary;
+{
+  struct parms_set_data parm;
+  rtx p, before;
+
+  /* Since different machines initialize their parameter registers
+     in different orders, assume nothing.  Collect the set of all
+     parameter registers.  */
+  CLEAR_HARD_REG_SET (parm.regs);
+  parm.nregs = 0;
+  for (p = CALL_INSN_FUNCTION_USAGE (call_insn); p; p = XEXP (p, 1))
+    if (GET_CODE (XEXP (p, 0)) == USE
+	&& GET_CODE (XEXP (XEXP (p, 0), 0)) == REG)
+      {
+	if (REGNO (XEXP (XEXP (p, 0), 0)) >= FIRST_PSEUDO_REGISTER)
+	  abort ();
+
+	/* We only care about registers which can hold function
+	   arguments.  */
+	if (!FUNCTION_ARG_REGNO_P (REGNO (XEXP (XEXP (p, 0), 0))))
+	  continue;
+
+	SET_HARD_REG_BIT (parm.regs, REGNO (XEXP (XEXP (p, 0), 0)));
+	parm.nregs++;
+      }
+  before = call_insn;
+
+  /* Search backward for the first set of a register in this set.  */
+  while (parm.nregs && before != boundary)
+    {
+      before = PREV_INSN (before);
+
+      /* It is possible that some loads got CSEed from one call to
+         another.  Stop in that case.  */
+      if (GET_CODE (before) == CALL_INSN)
+	break;
+
+      /* Our caller needs either ensure that we will find all sets
+         (in case code has not been optimized yet), or take care
+         for possible labels in a way by setting boundary to preceding
+         CODE_LABEL.  */
+      if (GET_CODE (before) == CODE_LABEL)
+	{
+	  if (before != boundary)
+	    abort ();
+	  break;
+	}
+
+      if (INSN_P (before))
+        note_stores (PATTERN (before), parms_set, &parm);
+    }
+  return before;
 }

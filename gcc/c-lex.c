@@ -2,22 +2,22 @@
    Copyright (C) 1987, 1988, 1989, 1992, 1994, 1995, 1996, 1997
    1998, 1999, 2000 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -54,8 +54,11 @@ Boston, MA 02111-1307, USA.  */
 #define GET_ENVIRONMENT(ENV_VALUE,ENV_NAME) ((ENV_VALUE) = getenv (ENV_NAME))
 #endif
 
-/* The input filename as understood by CPP, where "" represents stdin.  */
-static const char *cpp_filename;
+/* The current line map.  */
+static const struct line_map *map;
+
+/* The line used to refresh the lineno global variable after each token.  */
+static unsigned int src_lineno;
 
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;
@@ -73,7 +76,7 @@ extern FILE *asm_out_file;
 /* Number of bytes in a wide character.  */
 #define WCHAR_BYTES (WCHAR_TYPE_SIZE / BITS_PER_UNIT)
 
-int indent_level;        /* Number of { minus number of }. */
+int indent_level;        /* Number of { minus number of }.  */
 int pending_lang_change; /* If we need to switch languages - C++ only */
 int c_header_level;	 /* depth in C headers - C++ only */
 
@@ -86,11 +89,15 @@ static tree lex_string		PARAMS ((const char *, unsigned int, int));
 static tree lex_charconst	PARAMS ((const cpp_token *));
 static void update_header_times	PARAMS ((const char *));
 static int dump_one_header	PARAMS ((splay_tree_node, void *));
-static void cb_ident		PARAMS ((cpp_reader *, const cpp_string *));
-static void cb_file_change    PARAMS ((cpp_reader *, const cpp_file_change *));
-static void cb_def_pragma	PARAMS ((cpp_reader *));
-static void cb_define		PARAMS ((cpp_reader *, cpp_hashnode *));
-static void cb_undef		PARAMS ((cpp_reader *, cpp_hashnode *));
+static void cb_line_change     PARAMS ((cpp_reader *, const cpp_token *, int));
+static void cb_ident		PARAMS ((cpp_reader *, unsigned int,
+					 const cpp_string *));
+static void cb_file_change    PARAMS ((cpp_reader *, const struct line_map *));
+static void cb_def_pragma	PARAMS ((cpp_reader *, unsigned int));
+static void cb_define		PARAMS ((cpp_reader *, unsigned int,
+					 cpp_hashnode *));
+static void cb_undef		PARAMS ((cpp_reader *, unsigned int,
+					 cpp_hashnode *));
 
 const char *
 init_c_lex (filename)
@@ -99,7 +106,7 @@ init_c_lex (filename)
   struct cpp_callbacks *cb;
   struct c_fileinfo *toplevel;
 
-  /* Set up filename timing.  Must happen before cpp_start_read.  */
+  /* Set up filename timing.  Must happen before cpp_read_main_file.  */
   file_info_tree = splay_tree_new ((splay_tree_compare_fn)strcmp,
 				   0,
 				   (splay_tree_delete_value_fn)free);
@@ -119,28 +126,27 @@ init_c_lex (filename)
 
   cb = cpp_get_callbacks (parse_in);
 
+  cb->line_change = cb_line_change;
   cb->ident = cb_ident;
   cb->file_change = cb_file_change;
   cb->def_pragma = cb_def_pragma;
 
   /* Set the debug callbacks if we can use them.  */
   if (debug_info_level == DINFO_LEVEL_VERBOSE
-      && (write_symbols == DWARF_DEBUG || write_symbols == DWARF2_DEBUG))
+      && (write_symbols == DWARF_DEBUG || write_symbols == DWARF2_DEBUG
+          || write_symbols == VMS_AND_DWARF2_DEBUG))
     {
       cb->define = cb_define;
       cb->undef = cb_undef;
     }
 
-
-  if (filename == 0 || !strcmp (filename, "-"))
-    filename = "stdin", cpp_filename = "";
-  else
-    cpp_filename = filename;
-
   /* Start it at 0.  */
   lineno = 0;
 
-  return filename;
+  if (filename == NULL || !strcmp (filename, "-"))
+    filename = "";
+
+  return cpp_read_main_file (parse_in, filename, ident_hash);
 }
 
 /* A thin wrapper around the real parser that initializes the 
@@ -149,8 +155,7 @@ init_c_lex (filename)
 int
 yyparse()
 {
-  if (! cpp_start_read (parse_in, cpp_filename))
-    return 1;			/* cpplib has emitted an error.  */
+  cpp_finish_options (parse_in);
 
   return yyparse_1();
 }
@@ -222,8 +227,9 @@ dump_time_statistics ()
    No need to deal with linemarkers under normal conditions.  */
 
 static void
-cb_ident (pfile, str)
+cb_ident (pfile, line, str)
      cpp_reader *pfile ATTRIBUTE_UNUSED;
+     unsigned int line ATTRIBUTE_UNUSED;
      const cpp_string *str ATTRIBUTE_UNUSED;
 {
 #ifdef ASM_OUTPUT_IDENT
@@ -236,92 +242,102 @@ cb_ident (pfile, str)
 #endif
 }
 
+/* Called at the start of every non-empty line.  TOKEN is the first
+   lexed token on the line.  Used for diagnostic line numbers.  */
 static void
-cb_file_change (pfile, fc)
+cb_line_change (pfile, token, parsing_args)
      cpp_reader *pfile ATTRIBUTE_UNUSED;
-     const cpp_file_change *fc;
+     const cpp_token *token;
+     int parsing_args ATTRIBUTE_UNUSED;
 {
-  if (fc->reason == FC_ENTER)
+  src_lineno = SOURCE_LINE (map, token->line);
+}
+
+static void
+cb_file_change (pfile, new_map)
+     cpp_reader *pfile ATTRIBUTE_UNUSED;
+     const struct line_map *new_map;
+{
+  unsigned int to_line = SOURCE_LINE (new_map, new_map->to_line);
+
+  if (new_map->reason == LC_ENTER)
     {
       /* Don't stack the main buffer on the input stack;
 	 we already did in compile_file.  */
-      if (fc->from.filename)
+      if (map == NULL)
+	main_input_filename = new_map->to_file;
+      else
 	{
-	  lineno = fc->from.lineno;
-	  push_srcloc (fc->to.filename, 1);
+	  lineno = SOURCE_LINE (new_map - 1, new_map->from_line - 1);
+	  push_srcloc (new_map->to_file, 1);
 	  input_file_stack->indent_level = indent_level;
-	  (*debug_hooks->start_source_file) (fc->from.lineno, fc->to.filename);
+	  (*debug_hooks->start_source_file) (lineno, new_map->to_file);
 #ifndef NO_IMPLICIT_EXTERN_C
 	  if (c_header_level)
 	    ++c_header_level;
-	  else if (fc->externc)
+	  else if (new_map->sysp == 2)
 	    {
 	      c_header_level = 1;
 	      ++pending_lang_change;
 	    }
 #endif
 	}
-      else
-	main_input_filename = fc->to.filename;
     }
-  else if (fc->reason == FC_LEAVE)
+  else if (new_map->reason == LC_LEAVE)
     {
-      /* Popping out of a file.  */
-      if (input_file_stack->next)
-	{
 #ifndef NO_IMPLICIT_EXTERN_C
-	  if (c_header_level && --c_header_level == 0)
-	    {
-	      if (fc->externc)
-		warning ("badly nested C headers from preprocessor");
-	      --pending_lang_change;
-	    }
+      if (c_header_level && --c_header_level == 0)
+	{
+	  if (new_map->sysp == 2)
+	    warning ("badly nested C headers from preprocessor");
+	  --pending_lang_change;
+	}
 #endif
 #if 0
-	  if (indent_level != input_file_stack->indent_level)
-	    {
-	      warning_with_file_and_line
-		(input_filename, lineno,
-		 "This file contains more '%c's than '%c's.",
-		 indent_level > input_file_stack->indent_level ? '{' : '}',
-		 indent_level > input_file_stack->indent_level ? '}' : '{');
-	    }
-#endif
-	  pop_srcloc ();
-	  (*debug_hooks->end_source_file) (input_file_stack->line);
+      if (indent_level != input_file_stack->indent_level)
+	{
+	  warning_with_file_and_line
+	    (input_filename, lineno,
+	     "this file contains more '%c's than '%c's",
+	     indent_level > input_file_stack->indent_level ? '{' : '}',
+	     indent_level > input_file_stack->indent_level ? '}' : '{');
 	}
-      else
-	error ("leaving more files than we entered");
+#endif
+      pop_srcloc ();
+      
+      (*debug_hooks->end_source_file) (to_line);
     }
 
-  update_header_times (fc->to.filename);
-  in_system_header = fc->sysp != 0;
-  input_filename = fc->to.filename;
-  lineno = fc->to.lineno;	/* Do we need this?  */
+  update_header_times (new_map->to_file);
+  in_system_header = new_map->sysp != 0;
+  input_filename = new_map->to_file;
+  lineno = to_line;
+  map = new_map;
 
   /* Hook for C++.  */
   extract_interface_info ();
 }
 
 static void
-cb_def_pragma (pfile)
+cb_def_pragma (pfile, line)
      cpp_reader *pfile;
+     unsigned int line;
 {
   /* Issue a warning message if we have been asked to do so.  Ignore
      unknown pragmas in system headers unless an explicit
-     -Wunknown-pragmas has been given. */
+     -Wunknown-pragmas has been given.  */
   if (warn_unknown_pragmas > in_system_header)
     {
       const unsigned char *space, *name = 0;
-      cpp_token s;
+      const cpp_token *s;
 
-      cpp_get_token (pfile, &s);
-      space = cpp_token_as_text (pfile, &s);
-      cpp_get_token (pfile, &s);
-      if (s.type == CPP_NAME)
-	name = cpp_token_as_text (pfile, &s);
+      s = cpp_get_token (pfile);
+      space = cpp_token_as_text (pfile, s);
+      s = cpp_get_token (pfile);
+      if (s->type == CPP_NAME)
+	name = cpp_token_as_text (pfile, s);
 
-      lineno = cpp_get_line (parse_in)->line;
+      lineno = SOURCE_LINE (map, line);
       if (name)
 	warning ("ignoring #pragma %s %s", space, name);
       else
@@ -331,21 +347,23 @@ cb_def_pragma (pfile)
 
 /* #define callback for DWARF and DWARF2 debug info.  */
 static void
-cb_define (pfile, node)
+cb_define (pfile, line, node)
      cpp_reader *pfile;
+     unsigned int line;
      cpp_hashnode *node;
 {
-  (*debug_hooks->define) (cpp_get_line (pfile)->line,
+  (*debug_hooks->define) (SOURCE_LINE (map, line),
 			  (const char *) cpp_macro_definition (pfile, node));
 }
 
 /* #undef callback for DWARF and DWARF2 debug info.  */
 static void
-cb_undef (pfile, node)
-     cpp_reader *pfile;
+cb_undef (pfile, line, node)
+     cpp_reader *pfile ATTRIBUTE_UNUSED;
+     unsigned int line;
      cpp_hashnode *node;
 {
-  (*debug_hooks->undef) (cpp_get_line (pfile)->line,
+  (*debug_hooks->undef) (SOURCE_LINE (map, line),
 			 (const char *) NODE_NAME (node));
 }
 
@@ -661,10 +679,10 @@ utf8_extend_token (c)
 #if 0
 struct try_type
 {
-  tree *node_var;
-  char unsigned_flag;
-  char long_flag;
-  char long_long_flag;
+  tree *const node_var;
+  const char unsigned_flag;
+  const char long_flag;
+  const char long_long_flag;
 };
 
 struct try_type type_sequence[] =
@@ -743,51 +761,51 @@ int
 c_lex (value)
      tree *value;
 {
-  cpp_token tok;
-  enum cpp_ttype type;
+  const cpp_token *tok;
 
   retry:
   timevar_push (TV_CPP);
-  cpp_get_token (parse_in, &tok);
+  do
+    tok = cpp_get_token (parse_in);
+  while (tok->type == CPP_PADDING);
   timevar_pop (TV_CPP);
 
   /* The C++ front end does horrible things with the current line
      number.  To ensure an accurate line number, we must reset it
      every time we return a token.  */
-  lineno = cpp_get_line (parse_in)->line;
+  lineno = src_lineno;
 
   *value = NULL_TREE;
-  type = tok.type;
-  switch (type)
+  switch (tok->type)
     {
     case CPP_OPEN_BRACE:  indent_level++;  break;
     case CPP_CLOSE_BRACE: indent_level--;  break;
 
-    /* Issue this error here, where we can get at tok.val.c.  */
+    /* Issue this error here, where we can get at tok->val.c.  */
     case CPP_OTHER:
-      if (ISGRAPH (tok.val.c))
-	error ("stray '%c' in program", tok.val.c);
+      if (ISGRAPH (tok->val.c))
+	error ("stray '%c' in program", tok->val.c);
       else
-	error ("stray '\\%o' in program", tok.val.c);
+	error ("stray '\\%o' in program", tok->val.c);
       goto retry;
       
     case CPP_NAME:
-      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok.val.node));
+      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node));
       break;
 
     case CPP_NUMBER:
-      *value = lex_number ((const char *)tok.val.str.text, tok.val.str.len);
+      *value = lex_number ((const char *)tok->val.str.text, tok->val.str.len);
       break;
 
     case CPP_CHAR:
     case CPP_WCHAR:
-      *value = lex_charconst (&tok);
+      *value = lex_charconst (tok);
       break;
 
     case CPP_STRING:
     case CPP_WSTRING:
-      *value = lex_string ((const char *)tok.val.str.text,
-			   tok.val.str.len, tok.type == CPP_WSTRING);
+      *value = lex_string ((const char *)tok->val.str.text,
+			   tok->val.str.len, tok->type == CPP_WSTRING);
       break;
 
       /* These tokens should not be visible outside cpplib.  */
@@ -799,7 +817,7 @@ c_lex (value)
     default: break;
     }
 
-  return type;
+  return tok->type;
 }
 
 #define ERROR(msgid) do { error(msgid); goto syntax_error; } while(0)
@@ -826,7 +844,7 @@ lex_number (str, len)
      Two HOST_WIDE_INTs is the largest int literal we can store.
      In order to detect overflow below, the number of parts (TOTAL_PARTS)
      must be exactly the number of parts needed to hold the bits
-     of two HOST_WIDE_INTs. */
+     of two HOST_WIDE_INTs.  */
 #define TOTAL_PARTS ((HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR) * 2)
   unsigned int parts[TOTAL_PARTS];
   
@@ -886,9 +904,10 @@ lex_number (str, len)
 	  /* It is not a decimal point.
 	     It should be a digit (perhaps a hex digit).  */
 
-	  if (ISDIGIT (c))
+	  if (ISDIGIT (c)
+	      || (base == 16 && ISXDIGIT (c)))
 	    {
-	      n = c - '0';
+	      n = hex_value (c);
 	    }
 	  else if (base <= 10 && (c == 'e' || c == 'E'))
 	    {
@@ -900,14 +919,6 @@ lex_number (str, len)
 	    {
 	      floatflag = AFTER_EXPON;
 	      break;   /* start of exponent */
-	    }
-	  else if (base == 16 && c >= 'a' && c <= 'f')
-	    {
-	      n = c - 'a' + 10;
-	    }
-	  else if (base == 16 && c >= 'A' && c <= 'F')
-	    {
-	      n = c - 'A' + 10;
 	    }
 	  else
 	    {
@@ -936,7 +947,7 @@ lex_number (str, len)
 	  /* If the highest-order part overflows (gets larger than
 	     a host char will hold) then the whole number has 
 	     overflowed.  Record this and truncate the highest-order
-	     part. */
+	     part.  */
 	  if (parts[TOTAL_PARTS - 1] >> HOST_BITS_PER_CHAR)
 	    {
 	      overflow = 1;
@@ -1123,7 +1134,7 @@ lex_number (str, len)
 	    }
 	}
 
-      /* If the literal overflowed, pedwarn about it now. */
+      /* If the literal overflowed, pedwarn about it now.  */
       if (overflow)
 	{
 	  warn = 1;
@@ -1234,9 +1245,9 @@ lex_number (str, len)
 	  pedwarn ("integer constant larger than the maximum value of %s",
 		   (flag_isoc99
 		    ? (TREE_UNSIGNED (type)
-		       ? "an unsigned long long int"
-		       : "a long long int")
-		    : "an unsigned long int"));
+		       ? _("an unsigned long long int")
+		       : _("a long long int"))
+		    : _("an unsigned long int")));
 	}
 
       if (base == 10 && ! spec_unsigned && TREE_UNSIGNED (type))
@@ -1264,7 +1275,7 @@ lex_number (str, len)
 	TREE_TYPE (value) = type;
 
       /* If it's still an integer (not a complex), and it doesn't
-	 fit in the type we choose for it, then pedwarn. */
+	 fit in the type we choose for it, then pedwarn.  */
 
       if (! warn
 	  && TREE_CODE (TREE_TYPE (value)) == INTEGER_TYPE
@@ -1309,7 +1320,7 @@ lex_string (str, len, wide)
       char_len = local_mbtowc (&wc, p, limit - p);
       if (char_len == -1)
 	{
-	  warning ("Ignoring invalid multibyte character");
+	  warning ("ignoring invalid multibyte character");
 	  char_len = 1;
 	  c = *p++;
 	}

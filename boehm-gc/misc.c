@@ -22,7 +22,7 @@
 #define I_HIDE_POINTERS	/* To make GC_call_with_alloc_lock visible */
 #include "private/gc_pmark.h"
 
-#ifdef SOLARIS_THREADS
+#ifdef GC_SOLARIS_THREADS
 # include <sys/syscall.h>
 #endif
 #if defined(MSWIN32) || defined(MSWINCE)
@@ -41,29 +41,27 @@
 	/* Critical section counter is defined in the M3 runtime 	*/
 	/* That's all we use.						*/
 #     else
-#	ifdef SOLARIS_THREADS
+#	ifdef GC_SOLARIS_THREADS
 	  mutex_t GC_allocate_ml;	/* Implicitly initialized.	*/
 #	else
-#          ifdef WIN32_THREADS
-#	      if defined(_DLL) || defined(GC_DLL)
+#          ifdef GC_WIN32_THREADS
+#	      if !defined(GC_NOT_DLL) && (defined(_DLL) || defined(GC_DLL))
 		 __declspec(dllexport) CRITICAL_SECTION GC_allocate_ml;
 #	      else
 		 CRITICAL_SECTION GC_allocate_ml;
 #	      endif
 #          else
-#             if defined(IRIX_THREADS) \
-		 || (defined(LINUX_THREADS) && defined(USE_SPIN_LOCK))
-	        pthread_t GC_lock_holder = NO_THREAD;
-#	      else
-#	        if defined(HPUX_THREADS) \
-		   || defined(LINUX_THREADS) && !defined(USE_SPIN_LOCK)
+#             if defined(GC_PTHREADS) && !defined(GC_SOLARIS_THREADS)
+#		if defined(USE_SPIN_LOCK)
+	          pthread_t GC_lock_holder = NO_THREAD;
+#	        else
 		  pthread_mutex_t GC_allocate_ml = PTHREAD_MUTEX_INITIALIZER;
 	          pthread_t GC_lock_holder = NO_THREAD;
 			/* Used only for assertions, and to prevent	 */
 			/* recursive reentry in the system call wrapper. */
-#		else 
+#		endif 
+#    	      else
 	          --> declare allocator lock here
-#		endif
 #	      endif
 #	   endif
 #	endif
@@ -301,6 +299,8 @@ ptr_t arg;
     if (++random_no % 13 == 0) {
 	limit = sp;
 	MAKE_HOTTER(limit, BIG_CLEAR_SIZE*sizeof(word));
+        limit &= ~0xf;	/* Make it sufficiently aligned for assembly	*/
+        		/* implementations of GC_clear_stack_inner.	*/
 	return GC_clear_stack_inner(arg, limit);
     } else {
 	BZERO(dummy, SMALL_CLEAR_SIZE*sizeof(word));
@@ -441,6 +441,15 @@ void GC_init()
     UNLOCK();
     ENABLE_SIGNALS();
 
+#   if defined(PARALLEL_MARK) || defined(THREAD_LOCAL_ALLOC)
+	/* Make sure marker threads and started and thread local */
+	/* allocation is initialized, in case we didn't get 	 */
+	/* called from GC_init_parallel();			 */
+        {
+	  extern void GC_init_parallel(void);
+	  GC_init_parallel();
+	}
+#   endif /* PARALLEL_MARK || THREAD_LOCAL_ALLOC */
 }
 
 #if defined(MSWIN32) || defined(MSWINCE)
@@ -513,20 +522,18 @@ void GC_init_inner()
 #   if defined(SEARCH_FOR_DATA_START)
 	GC_init_linux_data_start();
 #   endif
-#   if defined(NETBSD) && defined(__ELF__)
+#   if (defined(NETBSD) || defined(OPENBSD)) && defined(__ELF__)
 	GC_init_netbsd_elf();
 #   endif
-#   if defined(IRIX_THREADS) || defined(LINUX_THREADS) \
-       || defined(HPUX_THREADS) || defined(SOLARIS_THREADS)
+#   if defined(GC_PTHREADS) || defined(GC_SOLARIS_THREADS)
         GC_thr_init();
 #   endif
-#   ifdef SOLARIS_THREADS
+#   ifdef GC_SOLARIS_THREADS
 	/* We need dirty bits in order to find live stack sections.	*/
         GC_dirty_init();
 #   endif
-#   if !defined(THREADS) || defined(SOLARIS_THREADS) || defined(WIN32_THREADS) \
-       || defined(IRIX_THREADS) || defined(LINUX_THREADS) \
-       || defined(HPUX_THREADS)
+#   if !defined(THREADS) || defined(GC_PTHREADS) || defined(GC_WIN32_THREADS) \
+	|| defined(GC_SOLARIS_THREADS)
       if (GC_stackbottom == 0) {
 	GC_stackbottom = GC_get_stack_base();
 #       if defined(LINUX) && defined(IA64)
@@ -641,7 +648,7 @@ void GC_enable_incremental GC_PROTO(())
 	if (GC_is_win32s()) goto out;
       }
 #   endif /* MSWIN32 */
-#   ifndef SOLARIS_THREADS
+#   ifndef GC_SOLARIS_THREADS
         GC_dirty_init();
 #   endif
     if (!GC_is_initialized) {
@@ -682,7 +689,7 @@ out:
   }
 
   int GC_write(buf, len)
-  char * buf;
+  GC_CONST char * buf;
   size_t len;
   {
       BOOL tmp;
@@ -735,14 +742,14 @@ int GC_tmp;  /* Should really be local ... */
 #if !defined(MSWIN32) && !defined(MSWINCE) && !defined(OS2) && !defined(MACOS)
 int GC_write(fd, buf, len)
 int fd;
-char *buf;
+GC_CONST char *buf;
 size_t len;
 {
      register int bytes_written = 0;
      register int result;
      
      while (bytes_written < len) {
-#	ifdef SOLARIS_THREADS
+#	ifdef GC_SOLARIS_THREADS
 	    result = syscall(SYS_write, fd, buf + bytes_written,
 	    			  	    len - bytes_written);
 #	else
@@ -867,7 +874,7 @@ GC_CONST char * msg;
 	    /* It's arguably nicer to sleep, but that makes it harder	*/
 	    /* to look at the thread if the debugger doesn't know much	*/
 	    /* about threads.						*/
-	    for(;;);
+	    for(;;) {}
     }
 #   ifdef MSWIN32
 	DebugBreak();

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.12 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -3856,7 +3856,6 @@ package body Sem_Ch3 is
          if Is_Child_Unit (Scope (Current_Scope))
            and then Is_Completion
            and then In_Private_Part (Current_Scope)
-           and then Scope (Parent_Type) /= Current_Scope
          then
             --  This is the unusual case where a type completed by a private
             --  derivation occurs within a package nested in a child unit,

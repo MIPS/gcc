@@ -2,22 +2,22 @@
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1996, 1998,
    1999, 2000, 2001 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "config.h"
@@ -114,6 +114,13 @@ void
 put_pending_size (expr)
      tree expr;
 {
+  /* Strip any simple arithmetic from EXPR to see if it has an underlying
+     SAVE_EXPR.  */
+  while (TREE_CODE_CLASS (TREE_CODE (expr)) == '1'
+	 || (TREE_CODE_CLASS (TREE_CODE (expr)) == '2'
+	    && TREE_CONSTANT (TREE_OPERAND (expr, 1))))
+    expr = TREE_OPERAND (expr, 0);
+
   if (TREE_CODE (expr) == SAVE_EXPR)
     pending_sizes = tree_cons (NULL_TREE, expr, pending_sizes);
 }
@@ -140,7 +147,8 @@ variable_size (size)
 {
   /* If the language-processor is to take responsibility for variable-sized
      items (e.g., languages which have elaboration procedures like Ada),
-     just return SIZE unchanged.  Likewise for self-referential sizes.  */
+     just return SIZE unchanged.  Likewise for self-referential sizes and
+     constant sizes.  */
   if (TREE_CONSTANT (size)
       || global_bindings_p () < 0 || contains_placeholder_p (size))
     return size;
@@ -198,7 +206,7 @@ mode_for_size (size, class, limit)
      enum mode_class class;
      int limit;
 {
-  register enum machine_mode mode;
+  enum machine_mode mode;
 
   if (limit && size > MAX_FIXED_MODE_SIZE)
     return BLKmode;
@@ -238,7 +246,7 @@ smallest_mode_for_size (size, class)
      unsigned int size;
      enum mode_class class;
 {
-  register enum machine_mode mode;
+  enum machine_mode mode;
 
   /* Get the first mode which has at least this size, in the
      specified class.  */
@@ -274,7 +282,7 @@ int_mode_for_mode (mode)
       if (mode == BLKmode)
         break;
 
-      /* ... fall through ... */
+      /* ... fall through ...  */
 
     case MODE_CC:
     default:
@@ -327,8 +335,8 @@ layout_decl (decl, known_align)
      tree decl;
      unsigned int known_align;
 {
-  register tree type = TREE_TYPE (decl);
-  register enum tree_code code = TREE_CODE (decl);
+  tree type = TREE_TYPE (decl);
+  enum tree_code code = TREE_CODE (decl);
 
   if (code == CONST_DECL)
     return;
@@ -372,7 +380,7 @@ layout_decl (decl, known_align)
 	      && TYPE_ALIGN (type) > DECL_ALIGN (decl))))
     {	      
       DECL_ALIGN (decl) = TYPE_ALIGN (type);
-      DECL_USER_ALIGN (decl) = TYPE_USER_ALIGN (type);
+      DECL_USER_ALIGN (decl) = 0;
     }
 
   /* For fields, set the bit field type and update the alignment.  */
@@ -396,7 +404,7 @@ layout_decl (decl, known_align)
       && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
       && GET_MODE_CLASS (TYPE_MODE (type)) == MODE_INT)
     {
-      register enum machine_mode xmode
+      enum machine_mode xmode
 	= mode_for_size_tree (DECL_SIZE (decl), MODE_INT, 1);
 
       if (xmode != BLKmode && known_align >= GET_MODE_ALIGNMENT (xmode))
@@ -649,6 +657,12 @@ place_union_field (rli, field)
     desired_align =
       MIN (desired_align, (unsigned) BIGGEST_FIELD_ALIGNMENT);
 #endif
+
+#ifdef ADJUST_FIELD_ALIGN
+  desired_align = ADJUST_FIELD_ALIGN (field, desired_align);
+#endif
+
+  TYPE_USER_ALIGN (rli->t) |= DECL_USER_ALIGN (field);
 
   /* Union must be at least as aligned as any field requires.  */
   rli->record_align = MAX (rli->record_align, desired_align);
@@ -924,6 +938,8 @@ place_field (rli, field)
   DECL_FIELD_BIT_OFFSET (field) = rli->bitpos;
   SET_DECL_OFFSET_ALIGN (field, rli->offset_align);
 
+  TYPE_USER_ALIGN (rli->t) |= user_align;
+
   /* If this field ended up more aligned than we thought it would be (we
      approximate this by seeing if its position changed), lay out the field
      again; perhaps we can use an integral mode for it now.  */
@@ -993,7 +1009,6 @@ finalize_record_size (rli)
 #else
   TYPE_ALIGN (rli->t) = MAX (TYPE_ALIGN (rli->t), rli->record_align);
 #endif
-  TYPE_USER_ALIGN (rli->t) = 1;
 
   /* Compute the size so far.  Be sure to allow for extra bits in the
      size in bytes.  We have guaranteed above that it will be no more
@@ -1110,6 +1125,7 @@ compute_record_mode (type)
 	  || (TYPE_MODE (TREE_TYPE (field)) == BLKmode
 	      && ! TYPE_NO_FORCE_BLK (TREE_TYPE (field)))
 	  || ! host_integerp (bit_position (field), 1)
+	  || DECL_SIZE (field) == 0
 	  || ! host_integerp (DECL_SIZE (field), 1))
 	return;
 
@@ -1133,7 +1149,17 @@ compute_record_mode (type)
 #ifdef MEMBER_TYPE_FORCES_BLK
       /* With some targets, eg. c4x, it is sub-optimal
 	 to access an aligned BLKmode structure as a scalar.  */
-      if (mode == VOIDmode && MEMBER_TYPE_FORCES_BLK (field))
+
+      /* On ia64-*-hpux we need to ensure that we don't change the
+	 mode of a structure containing a single field or else we
+	 will pass it incorrectly.  Since a structure with a single
+	 field causes mode to get set above we can't allow the
+	 check for mode == VOIDmode in this case.  Perhaps
+	 MEMBER_TYPE_FORCES_BLK should be extended to include mode
+	 as an argument and the check could be put in there for c4x.  */
+
+      if ((mode == VOIDmode || FUNCTION_ARG_REG_LITTLE_ENDIAN)
+	  && MEMBER_TYPE_FORCES_BLK (field))
 	return;
 #endif /* MEMBER_TYPE_FORCES_BLK  */
     }
@@ -1303,11 +1329,11 @@ layout_type (type)
 	 of the language-specific code.  */
       abort ();
 
-    case BOOLEAN_TYPE:  /* Used for Java, Pascal, and Chill. */
+    case BOOLEAN_TYPE:  /* Used for Java, Pascal, and Chill.  */
       if (TYPE_PRECISION (type) == 0)
-	TYPE_PRECISION (type) = 1; /* default to one byte/boolean. */
+	TYPE_PRECISION (type) = 1; /* default to one byte/boolean.  */
 
-      /* ... fall through ... */
+      /* ... fall through ...  */
 
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
@@ -1389,8 +1415,8 @@ layout_type (type)
 
     case ARRAY_TYPE:
       {
-	register tree index = TYPE_DOMAIN (type);
-	register tree element = TREE_TYPE (type);
+	tree index = TYPE_DOMAIN (type);
+	tree element = TREE_TYPE (type);
 
 	build_pointer_type (element);
 
@@ -1453,6 +1479,7 @@ layout_type (type)
 #else
 	TYPE_ALIGN (type) = MAX (TYPE_ALIGN (element), BITS_PER_UNIT);
 #endif
+	TYPE_USER_ALIGN (type) = TYPE_USER_ALIGN (element);
 
 #ifdef ROUND_TYPE_SIZE
 	if (TYPE_SIZE (type) != 0)
@@ -1525,7 +1552,7 @@ layout_type (type)
       }
       break;
 
-    case SET_TYPE:  /* Used by Chill and Pascal. */
+    case SET_TYPE:  /* Used by Chill and Pascal.  */
       if (TREE_CODE (TYPE_MAX_VALUE (TYPE_DOMAIN (type))) != INTEGER_CST
 	  || TREE_CODE (TYPE_MIN_VALUE (TYPE_DOMAIN (type))) != INTEGER_CST)
 	abort();
@@ -1595,7 +1622,7 @@ tree
 make_signed_type (precision)
      int precision;
 {
-  register tree type = make_node (INTEGER_TYPE);
+  tree type = make_node (INTEGER_TYPE);
 
   TYPE_PRECISION (type) = precision;
 
@@ -1609,7 +1636,7 @@ tree
 make_unsigned_type (precision)
      int precision;
 {
-  register tree type = make_node (INTEGER_TYPE);
+  tree type = make_node (INTEGER_TYPE);
 
   TYPE_PRECISION (type) = precision;
 
@@ -1740,7 +1767,13 @@ void
 fixup_signed_type (type)
      tree type;
 {
-  register int precision = TYPE_PRECISION (type);
+  int precision = TYPE_PRECISION (type);
+
+  /* We can not represent properly constants greater then
+     2 * HOST_BITS_PER_WIDE_INT, still we need the types
+     as they are used by i386 vector extensions and friends.  */
+  if (precision > HOST_BITS_PER_WIDE_INT * 2)
+    precision = HOST_BITS_PER_WIDE_INT * 2;
 
   TYPE_MIN_VALUE (type)
     = build_int_2 ((precision - HOST_BITS_PER_WIDE_INT > 0
@@ -1772,7 +1805,13 @@ void
 fixup_unsigned_type (type)
      tree type;
 {
-  register int precision = TYPE_PRECISION (type);
+  int precision = TYPE_PRECISION (type);
+
+  /* We can not represent properly constants greater then
+     2 * HOST_BITS_PER_WIDE_INT, still we need the types
+     as they are used by i386 vector extensions and friends.  */
+  if (precision > HOST_BITS_PER_WIDE_INT * 2)
+    precision = HOST_BITS_PER_WIDE_INT * 2;
 
   TYPE_MIN_VALUE (type) = build_int_2 (0, 0);
   TYPE_MAX_VALUE (type)
@@ -1857,22 +1896,6 @@ get_best_mode (bitsize, bitpos, align, largest_mode, volatilep)
     }
 
   return mode;
-}
-
-/* Return the alignment of MODE. This will be bounded by 1 and
-   BIGGEST_ALIGNMENT.  */
-
-unsigned int
-get_mode_alignment (mode)
-     enum machine_mode mode;
-{
-  unsigned int alignment = GET_MODE_UNIT_SIZE (mode) * BITS_PER_UNIT;
-  
-  /* Extract the LSB of the size.  */
-  alignment = alignment & -alignment;
-
-  alignment = MIN (BIGGEST_ALIGNMENT, MAX (1, alignment));
-  return alignment;
 }
 
 /* This function is run once to initialize stor-layout.c.  */

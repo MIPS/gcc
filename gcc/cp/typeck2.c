@@ -56,20 +56,16 @@ error_not_base_type (basetype, type)
 }
 
 tree
-binfo_or_else (parent_or_type, type)
-     tree parent_or_type, type;
+binfo_or_else (base, type)
+     tree base, type;
 {
-  tree binfo;
-  if (TYPE_MAIN_VARIANT (parent_or_type) == TYPE_MAIN_VARIANT (type))
-    return TYPE_BINFO (parent_or_type);
-  if ((binfo = get_binfo (parent_or_type, TYPE_MAIN_VARIANT (type), 0)))
-    {
-      if (binfo == error_mark_node)
-	return NULL_TREE;
-      return binfo;
-    }
-  error_not_base_type (parent_or_type, type);
-  return NULL_TREE;
+  tree binfo = lookup_base (type, base, ba_ignore, NULL);
+
+  if (binfo == error_mark_node)
+    return NULL_TREE;
+  else if (!binfo)
+    error_not_base_type (base, type);
+  return binfo;
 }
 
 /* According to ARM $7.1.6, "A `const' object may be initialized, but its
@@ -138,6 +134,11 @@ abstract_virtuals_error (decl, type)
   tree tu;
 
   if (!CLASS_TYPE_P (type) || !CLASSTYPE_PURE_VIRTUALS (type))
+    return 0;
+
+  if (!TYPE_SIZE (type))
+    /* TYPE is being defined, and during that time
+       CLASSTYPE_PURE_VIRTUALS holds the inline friends.  */
     return 0;
 
   u = CLASSTYPE_PURE_VIRTUALS (type);
@@ -266,7 +267,7 @@ friendly_abort (where, file, line, func)
     /* Say nothing.  */;
   else if (where > 0)
     {
-      error ("Internal error #%d.", where);
+      error ("internal error #%d", where);
 
       /* Uncount this error, so internal_error will do the right thing.  */
       --errorcount;
@@ -389,9 +390,15 @@ store_init_value (decl, init)
 
   /* End of special C++ code.  */
 
-  /* Digest the specified initializer into an expression.  */
-
-  value = digest_init (type, init, (tree *) 0);
+  /* We might have already run this bracketed initializer through
+     digest_init.  Don't do so again.  */
+  if (TREE_CODE (init) == CONSTRUCTOR && TREE_HAS_CONSTRUCTOR (init)
+      && TREE_TYPE (init)
+      && TYPE_MAIN_VARIANT (TREE_TYPE (init)) == TYPE_MAIN_VARIANT (type))
+    value = init;
+  else
+    /* Digest the specified initializer into an expression.  */
+    value = digest_init (type, init, (tree *) 0);
 
   /* Store the expression if valid; else report error.  */
 
@@ -426,7 +433,7 @@ store_init_value (decl, init)
       if (pedantic && TREE_CODE (value) == CONSTRUCTOR)
 	{
 	  if (! TREE_CONSTANT (value) || ! TREE_STATIC (value))
-	    pedwarn ("ANSI C++ forbids non-constant aggregate initializer expressions");
+	    pedwarn ("ISO C++ forbids non-constant aggregate initializer expressions");
 	}
     }
 #endif
@@ -986,12 +993,19 @@ build_scoped_ref (datum, basetype)
      tree basetype;
 {
   tree ref;
+  tree binfo;
 
   if (datum == error_mark_node)
     return error_mark_node;
+  binfo = lookup_base (TREE_TYPE (datum), basetype, ba_check, NULL);
 
+  if (binfo == error_mark_node)
+    return error_mark_node;
+  if (!binfo)
+    return error_not_base_type (TREE_TYPE (datum), basetype);
+  
   ref = build_unary_op (ADDR_EXPR, datum, 0);
-  ref = convert_pointer_to (basetype, ref);
+  ref = build_base_path (PLUS_EXPR, ref, binfo, 1);
 
   return build_indirect_ref (ref, "(compiler error in build_scoped_ref)");
 }
@@ -1129,8 +1143,9 @@ build_m_component_ref (datum, component)
       return error_mark_node;
     }
 
-  binfo = get_binfo (TYPE_METHOD_BASETYPE (type), objtype, 1);
-  if (binfo == NULL_TREE)
+  binfo = lookup_base (objtype, TYPE_METHOD_BASETYPE (type),
+		       ba_check, NULL);
+  if (!binfo)
     {
       cp_error ("member type `%T::' incompatible with object type `%T'",
 		TYPE_METHOD_BASETYPE (type), objtype);
@@ -1148,8 +1163,8 @@ build_m_component_ref (datum, component)
     ;
   else
     {
-      type_quals = (CP_TYPE_QUALS (field_type)  
-		    | CP_TYPE_QUALS (TREE_TYPE (datum)));
+      type_quals = (cp_type_quals (field_type)  
+		    | cp_type_quals (TREE_TYPE (datum)));
 
       /* There's no such thing as a mutable pointer-to-member, so we don't
 	 need to deal with that here like we do in build_component_ref.  */
@@ -1293,9 +1308,11 @@ add_exception_specifier (list, spec, complain)
     ok = is_ptr;
   else if (TREE_CODE (core) == TEMPLATE_TYPE_PARM)
     ok = 1;
+  else if (processing_template_decl)
+    ok = 1;
   else
     ok = COMPLETE_TYPE_P (complete_type (core));
-  
+
   if (ok)
     {
       tree probe;

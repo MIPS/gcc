@@ -429,6 +429,9 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
       find_refs_in_stmt (TREE_OPERAND (expr, 0), bb);
       break;
 
+    case COMPOUND_LITERAL_EXPR:
+      break;
+
     default:
       {
 	prep_stmt (parent_stmt);

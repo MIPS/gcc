@@ -7,7 +7,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                             $Revision: 1.1 $                             --
+--                             $Revision: 1.2 $                             --
 --                                                                          --
 --              Copyright (C) 2000 Free Software Foundation, Inc.           --
 --                                                                          --

@@ -53,13 +53,13 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_algobase.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
-
-#ifndef __SGI_STL_INTERNAL_ALGOBASE_H
-#define __SGI_STL_INTERNAL_ALGOBASE_H
+#ifndef __GLIBCPP_INTERNAL_ALGOBASE_H
+#define __GLIBCPP_INTERNAL_ALGOBASE_H
 
 #include <bits/c++config.h>
 #include <bits/stl_pair.h>
@@ -81,6 +81,15 @@ namespace std
 
   // swap and iter_swap
 
+  /**
+   *  @brief Swaps the contents of two iterators.
+   *  @param  a  An iterator.
+   *  @param  b  Another iterator.
+   *  @return   Nothing.
+   *
+   *  This function swaps the values pointed to by two iterators, not the
+   *  iterators themselves.
+  */
   template<typename _ForwardIter1, typename _ForwardIter2>
     inline void
     iter_swap(_ForwardIter1 __a, _ForwardIter2 __b)
@@ -89,22 +98,31 @@ namespace std
       typedef typename iterator_traits<_ForwardIter2>::value_type _ValueType2;
 
       // concept requirements
-      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter1>);
-      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter2>);
-      __glibcpp_function_requires(_ConvertibleConcept<_ValueType1, _ValueType2>);
-      __glibcpp_function_requires(_ConvertibleConcept<_ValueType2, _ValueType1>);
+      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter1>)
+      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter2>)
+      __glibcpp_function_requires(_ConvertibleConcept<_ValueType1, _ValueType2>)
+      __glibcpp_function_requires(_ConvertibleConcept<_ValueType2, _ValueType1>)
 
       _ValueType1 __tmp = *__a;
       *__a = *__b;
       *__b = __tmp;
     }
 
+  /**
+   *  @brief Swaps two values.
+   *  @param  a  A thing of arbitrary type.
+   *  @param  b  Another thing of arbitrary type.
+   *  @return   Nothing.
+   *
+   *  This is the simple classic generic implementation.  It will work on
+   *  any type which has a copy constructor and an assignment operator.
+  */
   template<typename _Tp>
     inline void
     swap(_Tp& __a, _Tp& __b)
     {
       // concept requirements
-      __glibcpp_function_requires(_SGIAssignableConcept<_Tp>);
+      __glibcpp_function_requires(_SGIAssignableConcept<_Tp>)
       
       _Tp __tmp = __a;
       __a = __b;
@@ -117,26 +135,56 @@ namespace std
   #undef min
   #undef max
 
+  /**
+   *  @brief This does what you think it does.
+   *  @param  a  A thing of arbitrary type.
+   *  @param  b  Another thing of arbitrary type.
+   *  @return   The lesser of the parameters.
+   *
+   *  This is the simple classic generic implementation.  It will work on
+   *  temporary expressions, since they are only evaluated once, unlike a
+   *  preprocessor macro.
+  */
   template<typename _Tp>
     inline const _Tp&
     min(const _Tp& __a, const _Tp& __b)
     {
       // concept requirements
-      __glibcpp_function_requires(_LessThanComparableConcept<_Tp>);
+      __glibcpp_function_requires(_LessThanComparableConcept<_Tp>)
       //return __b < __a ? __b : __a;
       if (__b < __a) return __b; return __a;
     }
 
+  /**
+   *  @brief This does what you think it does.
+   *  @param  a  A thing of arbitrary type.
+   *  @param  b  Another thing of arbitrary type.
+   *  @return   The greater of the parameters.
+   *
+   *  This is the simple classic generic implementation.  It will work on
+   *  temporary expressions, since they are only evaluated once, unlike a
+   *  preprocessor macro.
+  */
   template<typename _Tp>
     inline const _Tp&
     max(const _Tp& __a, const _Tp& __b) 
     {
       // concept requirements
-      __glibcpp_function_requires(_LessThanComparableConcept<_Tp>);
+      __glibcpp_function_requires(_LessThanComparableConcept<_Tp>)
       //return  __a < __b ? __b : __a;
       if (__a < __b) return __b; return __a;
     }
 
+  /**
+   *  @brief This does what you think it does.
+   *  @param  a  A thing of arbitrary type.
+   *  @param  b  Another thing of arbitrary type.
+   *  @param  comp  A @link s20_3_3_comparisons comparison functor@endlink.
+   *  @return   The lesser of the parameters.
+   *
+   *  This will work on temporary expressions, since they are only evaluated
+   *  once, unlike a preprocessor macro.
+  */
   template<typename _Tp, typename _Compare>
     inline const _Tp&
     min(const _Tp& __a, const _Tp& __b, _Compare __comp)
@@ -145,6 +193,16 @@ namespace std
       if (__comp(__b, __a)) return __b; return __a;
     }
 
+  /**
+   *  @brief This does what you think it does.
+   *  @param  a  A thing of arbitrary type.
+   *  @param  b  Another thing of arbitrary type.
+   *  @param  comp  A @link s20_3_3_comparisons comparison functor@endlink.
+   *  @return   The greater of the parameters.
+   *
+   *  This will work on temporary expressions, since they are only evaluated
+   *  once, unlike a preprocessor macro.
+  */
   template<typename _Tp, typename _Compare>
     inline const _Tp&
     max(const _Tp& __a, const _Tp& __b, _Compare __comp)
@@ -267,14 +325,27 @@ namespace std
       return __copy_ni2(__first, __last, __result, __Normal());
     }
 
+  /**
+   *  @brief Copies the range [first,last) into result.
+   *  @param  first  An input iterator.
+   *  @param  last   An input iterator.
+   *  @param  result An output iterator.
+   *  @return   result + (first - last)
+   *
+   *  This inline function will boil down to a call to @c memmove whenever
+   *  possible.  Failing that, if random access iterators are passed, then the
+   *  loop count will be known (and therefore a candidate for compiler
+   *  optimizations such as unrolling).  If the input range and the output
+   *  range overlap, then the copy_backward function should be used instead.
+  */
   template<typename _InputIter, typename _OutputIter>
     inline _OutputIter
     copy(_InputIter __first, _InputIter __last, _OutputIter __result)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter>::value_type>);
+	    typename iterator_traits<_InputIter>::value_type>)
 
        typedef typename _Is_normal_iterator<_InputIter>::_Normal __Normal;
        return __copy_ni1(__first, __last, __result, __Normal());
@@ -391,16 +462,30 @@ namespace std
 						    __Normal());
     }
 
+  /**
+   *  @brief Copies the range [first,last) into result.
+   *  @param  first  An input iterator.
+   *  @param  last   An input iterator.
+   *  @param  result An output iterator.
+   *  @return   result - (first - last)
+   *
+   *  The function has the same effect as copy, but starts at the end of the
+   *  range and works its way to the start, returning the start of the result.
+   *  This inline function will boil down to a call to @c memmove whenever
+   *  possible.  Failing that, if random access iterators are passed, then the
+   *  loop count will be known (and therefore a candidate for compiler
+   *  optimizations such as unrolling).
+  */
   template <typename _BI1, typename _BI2>
     inline _BI2
     copy_backward(_BI1 __first, _BI1 __last, _BI2 __result)
     {
       // concept requirements
-      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BI1>);
-      __glibcpp_function_requires(_Mutable_BidirectionalIteratorConcept<_BI2>);
+      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BI1>)
+      __glibcpp_function_requires(_Mutable_BidirectionalIteratorConcept<_BI2>)
       __glibcpp_function_requires(_ConvertibleConcept<
 	    typename iterator_traits<_BI1>::value_type,
-	    typename iterator_traits<_BI2>::value_type>);
+	    typename iterator_traits<_BI2>::value_type>)
 
       typedef typename _Is_normal_iterator<_BI1>::_Normal __Normal;
       return __copy_backward_input_normal_iterator(__first, __last, __result,
@@ -434,14 +519,28 @@ namespace std
       return pair<_RAIter, _OutputIter>(__last, copy(__first, __last, __result));
     }
 
+  /**
+   *  @brief Copies the range [first,first+count) into [result,result+count).
+   *  @param  first  An input iterator.
+   *  @param  count  The number of elements to copy.
+   *  @param  result An output iterator.
+   *  @return   A std::pair composed of first+count and result+count.
+   *
+   *  This is an SGI extension.
+   *  This inline function will boil down to a call to @c memmove whenever
+   *  possible.  Failing that, if random access iterators are passed, then the
+   *  loop count will be known (and therefore a candidate for compiler
+   *  optimizations such as unrolling).
+   *  @ingroup SGIextensions
+  */
   template<typename _InputIter, typename _Size, typename _OutputIter>
     inline pair<_InputIter, _OutputIter>
     copy_n(_InputIter __first, _Size __count, _OutputIter __result)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter>::value_type>);
+	    typename iterator_traits<_InputIter>::value_type>)
 
       return __copy_n(__first, __count, __result, __iterator_category(__first));
     }
@@ -450,23 +549,45 @@ namespace std
   // fill and fill_n
 
 
+  /**
+   *  @brief Fills the range [first,last) with copies of value.
+   *  @param  first  A forward iterator.
+   *  @param  last   A forward iterator.
+   *  @param  value  A reference-to-const of arbitrary type.
+   *  @return   Nothing.
+   *
+   *  This function fills a range with copies of the same value.  For one-byte
+   *  types filling contiguous areas of memory, this becomes an inline call to
+   *  @c memset.
+  */
   template<typename _ForwardIter, typename _Tp>
     void
     fill(_ForwardIter __first, _ForwardIter __last, const _Tp& __value)
     {
       // concept requirements
-      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
 
       for ( ; __first != __last; ++__first)
 	*__first = __value;
     }
 
+  /**
+   *  @brief Fills the range [first,first+n) with copies of value.
+   *  @param  first  An output iterator.
+   *  @param  n      The count of copies to perform.
+   *  @param  value  A reference-to-const of arbitrary type.
+   *  @return   The iterator at first+n.
+   *
+   *  This function fills a range with copies of the same value.  For one-byte
+   *  types filling contiguous areas of memory, this becomes an inline call to
+   *  @c memset.
+  */
   template<typename _OutputIter, typename _Size, typename _Tp>
     _OutputIter
     fill_n(_OutputIter __first, _Size __n, const _Tp& __value)
     {
       // concept requirements
-      __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,_Tp>);
+      __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,_Tp>)
 
       for ( ; __n > 0; --__n, ++__first)
 	*__first = __value;
@@ -524,18 +645,30 @@ namespace std
   //--------------------------------------------------
   // equal and mismatch
 
+  /**
+   *  @brief Finds the places in ranges which don't match.
+   *  @param  first1  An input iterator.
+   *  @param  last1   An input iterator.
+   *  @param  first2  An input iterator.
+   *  @return   A pair of iterators pointing to the first mismatch.
+   *
+   *  This compares the elements of two ranges using @c == and returns a pair
+   *  of iterators.  The first iterator points into the first range, the
+   *  second iterator points into the second range, and the elements pointed
+   *  to by the iterators are not equal.
+  */
   template<typename _InputIter1, typename _InputIter2>
     pair<_InputIter1, _InputIter2>
     mismatch(_InputIter1 __first1, _InputIter1 __last1,
 	     _InputIter2 __first2)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_EqualityComparableConcept<
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
       __glibcpp_function_requires(_EqualityComparableConcept<
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
 
       while (__first1 != __last1 && *__first1 == *__first2) {
 	++__first1;
@@ -544,6 +677,20 @@ namespace std
       return pair<_InputIter1, _InputIter2>(__first1, __first2);
     }
 
+  /**
+   *  @brief Finds the places in ranges which don't match.
+   *  @param  first1  An input iterator.
+   *  @param  last1   An input iterator.
+   *  @param  first2  An input iterator.
+   *  @param  binary_pred  A binary predicate @link s20_3_1_base functor@endlink.
+   *  @return   A pair of iterators pointing to the first mismatch.
+   *
+   *  This compares the elements of two ranges using the binary_pred
+   *  parameter, and returns a pair
+   *  of iterators.  The first iterator points into the first range, the
+   *  second iterator points into the second range, and the elements pointed
+   *  to by the iterators are not equal.
+  */
   template<typename _InputIter1, typename _InputIter2, typename _BinaryPredicate>
     pair<_InputIter1, _InputIter2>
     mismatch(_InputIter1 __first1, _InputIter1 __last1,
@@ -551,8 +698,8 @@ namespace std
 	     _BinaryPredicate __binary_pred)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
 
       while (__first1 != __last1 && __binary_pred(*__first1, *__first2)) {
 	++__first1;
@@ -561,17 +708,28 @@ namespace std
       return pair<_InputIter1, _InputIter2>(__first1, __first2);
     }
 
+  /**
+   *  @brief Tests a range for element-wise equality.
+   *  @param  first1  An input iterator.
+   *  @param  last1   An input iterator.
+   *  @param  first2  An input iterator.
+   *  @return   A boolean true or false.
+   *
+   *  This compares the elements of two ranges using @c == and returns true or
+   *  false depending on whether all of the corresponding elements of the
+   *  ranges are equal.
+  */
   template<typename _InputIter1, typename _InputIter2>
     inline bool
     equal(_InputIter1 __first1, _InputIter1 __last1,
 	  _InputIter2 __first2)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
 
       for ( ; __first1 != __last1; ++__first1, ++__first2)
 	if (!(*__first1 == *__first2))
@@ -579,6 +737,19 @@ namespace std
       return true;
     }
 
+  /**
+   *  @brief Tests a range for element-wise equality.
+   *  @param  first1  An input iterator.
+   *  @param  last1   An input iterator.
+   *  @param  first2  An input iterator.
+   *  @param  binary_pred  A binary predicate @link s20_3_1_base functor@endlink.
+   *  @return   A boolean true or false.
+   *
+   *  This compares the elements of two ranges using the binary_pred
+   *  parameter, and returns true or
+   *  false depending on whether all of the corresponding elements of the
+   *  ranges are equal.
+  */
   template<typename _InputIter1, typename _InputIter2, typename _BinaryPredicate>
     inline bool
     equal(_InputIter1 __first1, _InputIter1 __last1,
@@ -586,8 +757,8 @@ namespace std
 	  _BinaryPredicate __binary_pred)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
 
       for ( ; __first1 != __last1; ++__first1, ++__first2)
 	if (!__binary_pred(*__first1, *__first2))
@@ -599,18 +770,32 @@ namespace std
   // lexicographical_compare and lexicographical_compare_3way.
   // (the latter is not part of the C++ standard.)
 
+  /**
+   *  @brief Performs "dictionary" comparison on ranges.
+   *  @param  first1  An input iterator.
+   *  @param  last1   An input iterator.
+   *  @param  first2  An input iterator.
+   *  @param  last2   An input iterator.
+   *  @return   A boolean true or false.
+   *
+   *  "Returns true if the sequence of elements defined by the range
+   *  [first1,last1) is lexicographically less than the sequence of elements
+   *  defined by the range [first2,last2).  Returns false otherwise."
+   *  (Quoted from [25.3.8]/1.)  If the iterators are all character pointers,
+   *  then this is an inline call to @c memcmp.
+  */
   template<typename _InputIter1, typename _InputIter2>
     bool
     lexicographical_compare(_InputIter1 __first1, _InputIter1 __last1,
 			    _InputIter2 __first2, _InputIter2 __last2)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
       __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
 
       for ( ; __first1 != __last1 && __first2 != __last2
 	    ; ++__first1, ++__first2) {
@@ -622,6 +807,18 @@ namespace std
       return __first1 == __last1 && __first2 != __last2;
     }
 
+  /**
+   *  @brief Performs "dictionary" comparison on ranges.
+   *  @param  first1  An input iterator.
+   *  @param  last1   An input iterator.
+   *  @param  first2  An input iterator.
+   *  @param  last2   An input iterator.
+   *  @param  comp  A @link s20_3_3_comparisons comparison functor@endlink.
+   *  @return   A boolean true or false.
+   *
+   *  The same as the four-parameter @c lexigraphical_compare, but uses the
+   *  comp parameter instead of @c <.
+  */
   template<typename _InputIter1, typename _InputIter2, typename _Compare>
     bool
     lexicographical_compare(_InputIter1 __first1, _InputIter1 __last1,
@@ -629,8 +826,8 @@ namespace std
 			    _Compare __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
 
       for ( ; __first1 != __last1 && __first2 != __last2
 	    ; ++__first1, ++__first2) {
@@ -721,25 +918,39 @@ namespace std
 #endif
   }
 
+  /**
+   *  @brief @c memcmp on steroids.
+   *  @param  first1  An input iterator.
+   *  @param  last1   An input iterator.
+   *  @param  first2  An input iterator.
+   *  @param  last2   An input iterator.
+   *  @return   An int, as with @c memcmp.
+   *
+   *  The return value will be less than zero if the first range is
+   *  "lexigraphically less than" the second, greater than zero if the second
+   *  range is "lexigraphically less than" the first, and zero otherwise.
+   *  This is an SGI extension.
+   *  @ingroup SGIextensions
+  */
   template<typename _InputIter1, typename _InputIter2>
     int
     lexicographical_compare_3way(_InputIter1 __first1, _InputIter1 __last1,
 				 _InputIter2 __first2, _InputIter2 __last2)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
       __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
 
       return __lexicographical_compare_3way(__first1, __last1, __first2, __last2);
     }
 
 } // namespace std
 
-#endif /* __SGI_STL_INTERNAL_ALGOBASE_H */
+#endif /* __GLIBCPP_INTERNAL_ALGOBASE_H */
 
 // Local Variables:
 // mode:C++

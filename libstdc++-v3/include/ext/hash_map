@@ -53,8 +53,9 @@
  *
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file hash_map
+ *  This header file is an extension to the Standard C++ Library.  You should
+ *  use the "ext/" path prefix in your @c #include statements.
  */
 
 #ifndef __SGI_STL_INTERNAL_HASH_MAP_H
@@ -233,8 +234,8 @@ template <class _Key, class _Tp, class _HashFcn, class _EqualKey, class _Alloc>
 class hash_multimap
 {
   // concept requirements
-  __glibcpp_class_requires(_Key, _SGIAssignableConcept);
-  __glibcpp_class_requires(_Tp, _SGIAssignableConcept);
+  __glibcpp_class_requires(_Key, _SGIAssignableConcept)
+  __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
   __glibcpp_class_requires3(_HashFcn, size_t, _Key, _UnaryFunctionConcept);
   __glibcpp_class_requires3(_EqualKey, _Key, _Key, _BinaryPredicateConcept);
 

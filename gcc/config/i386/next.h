@@ -42,11 +42,6 @@ Boston, MA 02111-1307, USA.  */
   ((MODE) == SFmode || (MODE) == DFmode || (MODE) == XFmode	\
    ? FIRST_FLOAT_REG : 0)
 
-/* 1 if N is a possible register number for a function value. */
-
-#undef	FUNCTION_VALUE_REGNO_P
-#define FUNCTION_VALUE_REGNO_P(N) ((N) == 0 || (N)== FIRST_FLOAT_REG)
-
 #ifdef REAL_VALUE_TO_TARGET_LONG_DOUBLE
 #undef	ASM_OUTPUT_LONG_DOUBLE
 #define ASM_OUTPUT_LONG_DOUBLE(FILE,VALUE)				\
@@ -55,7 +50,7 @@ Boston, MA 02111-1307, USA.  */
     REAL_VALUE_TO_TARGET_LONG_DOUBLE (VALUE, hex);			\
     if (sizeof (int) == sizeof (long))					\
       fprintf (FILE, "\t.long 0x%x\n\t.long 0x%x\n\t.long 0x%x\n",	\
-		hex[0], hex[1], hex[2]);				\
+		(int) hex[0], (int) hex[1], (int) hex[2]);		\
     else								\
       fprintf (FILE, "\t.long 0x%lx\n\t.long 0x%lx\n\t.long 0x%lx\n",	\
 		hex[0], hex[1], hex[2]);				\
@@ -69,7 +64,8 @@ Boston, MA 02111-1307, USA.  */
     long hex[2];							\
     REAL_VALUE_TO_TARGET_DOUBLE (VALUE, hex);				\
     if (sizeof (int) == sizeof (long))					\
-      fprintf (FILE, "\t.long 0x%x\n\t.long 0x%x\n", hex[0], hex[1]);	\
+      fprintf (FILE, "\t.long 0x%x\n\t.long 0x%x\n",			\
+        (int) hex[0], (int) hex[1]);					\
     else								\
       fprintf (FILE, "\t.long 0x%lx\n\t.long 0x%lx\n", hex[0], hex[1]);	\
   } while (0)
@@ -84,7 +80,7 @@ Boston, MA 02111-1307, USA.  */
     long hex;								\
     REAL_VALUE_TO_TARGET_SINGLE (VALUE, hex);				\
     if (sizeof (int) == sizeof (long))					\
-      fprintf (FILE, "\t.long 0x%x\n", hex);				\
+      fprintf (FILE, "\t.long 0x%x\n", (int) hex);			\
     else								\
       fprintf (FILE, "\t.long 0x%lx\n", hex);				\
   } while (0)
@@ -122,12 +118,12 @@ Boston, MA 02111-1307, USA.  */
    count is in %cl.  Some assemblers require %cl as an argument;
    some don't.
 
-   GAS requires the %cl argument, so override unx386.h. */
+   GAS requires the %cl argument, so override unx386.h.  */
 
 #undef	SHIFT_DOUBLE_OMITS_COUNT
 #define SHIFT_DOUBLE_OMITS_COUNT 0
 
-/* Print opcodes the way that GAS expects them. */
+/* Print opcodes the way that GAS expects them.  */
 #define GAS_MNEMONICS 1
 
 /* Names to predefine in the preprocessor for this target machine.  */
@@ -136,7 +132,7 @@ Boston, MA 02111-1307, USA.  */
 #define CPP_PREDEFINES "-DNeXT -Dunix -D__MACH__ -D__LITTLE_ENDIAN__ \
   -D__ARCHITECTURE__=\"i386\" -Asystem=unix -Asystem=mach"
 
-/* This accounts for the return pc and saved fp on the i386. */
+/* This accounts for the return pc and saved fp on the i386.  */
 
 #define OBJC_FORWARDING_STACK_OFFSET 8
 #define OBJC_FORWARDING_MIN_OFFSET 8
@@ -148,7 +144,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef	ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(BUF,PREFIX,NUMBER)	\
-    sprintf ((BUF), "*%s%d", (PREFIX), (NUMBER))
+    sprintf ((BUF), "*%s%ld", (PREFIX), (long)(NUMBER))
 
 #undef ASM_OUTPUT_INTERNAL_LABEL
 #define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\

@@ -170,7 +170,7 @@ LIBFFIINCS=
 if test "$with_libffi" != no; then
    AC_DEFINE(USE_LIBFFI)
    LIBFFI=../libffi/libfficonvenience.la
-   LIBFFIINCS="-I$(top_srcdir)/../libffi/include -I$(MULTIBUILDTOP)../libffi/include"
+   LIBFFIINCS='-I$(top_srcdir)/../libffi/include -I$(MULTIBUILDTOP)../libffi/include'
 fi
 AC_SUBST(LIBFFI)
 AC_SUBST(LIBFFIINCS)
@@ -329,8 +329,36 @@ THREADH=
 THREADSPEC=
 case "$THREADS" in
  posix)
-    THREADLIBS=-lpthread
-    THREADSPEC=-lpthread
+    case "$host" in
+     *-*-cygwin*)
+	# Don't set THREADLIBS here.  Cygwin doesn't have -lpthread.
+	;;
+changequote(<<,>>)   
+     *-*-freebsd[1234]*)
+changequote([,])   
+	# Before FreeBSD 5, it didn't have -lpthread (or any library which
+	# merely adds pthread_* functions) but it does have a -pthread switch
+	# which is required at link-time to select -lc_r *instead* of -lc.
+	THREADLIBS=-pthread
+	# Don't set THREADSPEC here as might be expected since -pthread is
+	# not processed when found within a spec file, it must come from
+	# the command line.  For now, the user must provide the -pthread
+	# switch to link code compiled with gcj.  In future, consider adding
+	# support for weak references to pthread_* functions ala gthr.h API.
+	THREADSPEC='%{!pthread: %eUnder this configuration, the user must provide -pthread when linking.}'
+	;;
+     *-*-freebsd*)
+	# FreeBSD 5 implements a model much closer to other modern UNIX
+	# which support threads.  However, it still does not support
+	# -lpthread.
+	THREADLIBS=-pthread
+	THREADSPEC=-lc_r
+	;;
+     *)
+	THREADLIBS=-lpthread
+	THREADSPEC=-lpthread
+	;;
+    esac
     THREADOBJS=posix-threads.lo
     THREADH=posix-threads.h
     # MIT pthreads doesn't seem to have the mutexattr functions.
@@ -472,13 +500,19 @@ else
      fi
    ])
 
+   # FIXME: libjava source code expects to find a prototype for
+   # gethostbyaddr_r in netdb.h.  The outer check ensures that
+   # HAVE_GETHOSTBYADDR_R will not be defined if the prototype fails
+   # to exist where expected.  (The root issue: AC_CHECK_FUNCS assumes C
+   # linkage check is enough, yet C++ code requires proper prototypes.)
+   AC_EGREP_HEADER(gethostbyaddr_r, netdb.h, [
    AC_CHECK_FUNCS(gethostbyaddr_r, [
      AC_DEFINE(HAVE_GETHOSTBYADDR_R)
      # There are two different kinds of gethostbyaddr_r.
      # We look for the one that returns `int'.
      # Hopefully this check is robust enough.
      AC_EGREP_HEADER(int.*gethostbyaddr_r, netdb.h, [
-       AC_DEFINE(GETHOSTBYADDR_R_RETURNS_INT)])])
+       AC_DEFINE(GETHOSTBYADDR_R_RETURNS_INT)])])])
 
    AC_CHECK_FUNCS(gethostname, [
      AC_DEFINE(HAVE_GETHOSTNAME)
@@ -532,6 +566,9 @@ else
    if test "$memcpy_found" = no; then
       AC_MSG_ERROR([memcpy is required])
    fi
+
+   AC_CHECK_LIB(dl, dlopen, [
+       AC_DEFINE(HAVE_DLOPEN, 1, [Define if dlopen is available])])
 
    # Some library-finding code we stole from Tcl.
    #--------------------------------------------------------------------
@@ -691,10 +728,14 @@ CFLAGS="$save_CFLAGS"
 dnl We check for sys/filio.h because Solaris 2.5 defines FIONREAD there.
 dnl On that system, sys/ioctl.h will not include sys/filio.h unless
 dnl BSD_COMP is defined; just including sys/filio.h is simpler.
-AC_CHECK_HEADERS(unistd.h bstring.h sys/time.h sys/types.h fcntl.h sys/ioctl.h sys/filio.h sys/stat.h sys/select.h sys/socket.h netinet/in.h arpa/inet.h netdb.h pwd.h sys/config.h inttypes.h stdint.h langinfo.h locale.h)
+AC_CHECK_HEADERS(unistd.h bstring.h sys/time.h sys/types.h fcntl.h sys/ioctl.h sys/filio.h sys/stat.h sys/select.h sys/socket.h netinet/in.h arpa/inet.h netdb.h pwd.h sys/config.h stdint.h langinfo.h locale.h)
 dnl We avoid AC_HEADER_DIRENT since we really only care about dirent.h
 dnl for now.  If you change this, you also must update natFile.cc.
 AC_CHECK_HEADERS(dirent.h)
+AC_CHECK_HEADERS(inttypes.h, [
+    AC_DEFINE(HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
+    AC_DEFINE(JV_HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
+])
 
 AC_CHECK_TYPE([ssize_t], [int])
 
@@ -717,6 +758,12 @@ AC_TRY_COMPILE([#include <netinet/in.h>], [struct ip_mreq mreq;],
    AC_MSG_RESULT(yes)],
   [AC_MSG_RESULT(no)])
 
+AC_MSG_CHECKING([whether struct ipv6_mreq is in netinet/in.h])
+AC_TRY_COMPILE([#include <netinet/in.h>], [struct ipv6_mreq mreq6;],
+  [AC_DEFINE(HAVE_STRUCT_IPV6_MREQ)
+   AC_MSG_RESULT(yes)],
+  [AC_MSG_RESULT(no)])
+
 AC_MSG_CHECKING([whether struct sockaddr_in6 is in netinet/in.h])
 AC_TRY_COMPILE([#include <netinet/in.h>], [struct sockaddr_in6 addr6;],
   [AC_DEFINE(HAVE_INET6)
@@ -724,7 +771,8 @@ AC_TRY_COMPILE([#include <netinet/in.h>], [struct sockaddr_in6 addr6;],
   [AC_MSG_RESULT(no)])
 
 AC_MSG_CHECKING([for socklen_t in sys/socket.h])
-AC_TRY_COMPILE([#include <sys/types.h>
+AC_TRY_COMPILE([#define _POSIX_PII_SOCKET
+#include <sys/types.h>
 #include <sys/socket.h>], [socklen_t x = 5;],
   [AC_DEFINE(HAVE_SOCKLEN_T)
    AC_MSG_RESULT(yes)],
@@ -810,6 +858,11 @@ for peer in $peerlibs ; do
     gtk)
       # Nothing, yet...
       ;;
+    no)
+      use_xlib_awt=
+      use_gtk_awt=
+      break
+      ;;
     *)
       echo "*** unrecognised argument \"${peer}\" for --enable-java-awt" 1>&2
       exit 1
@@ -838,17 +891,19 @@ esac
 # builddir for the .java files.
 h=`pwd`
 : > deps.mk
-( (cd $srcdir && find . -name '*.java' -print) ;
-  find . -name '*.java' -print) | \
+( (cd $srcdir && find . \( -name '*.java' -o -name '*.cc' \) -print) ;
+  find . \( -name '*.java' -o -name '*.cc' \) -print) | \
    fgrep -v testsuite | \
-   sed -e 's/\.java/.d/' | \
+   sed -e 's/\.java/.d/'\;'s/\.cc/.d/' | \
    while read f; do
       echo "include $f" >> deps.mk
       test -f $f || {
 changequote(<<,>>)
 	 d=`echo $f | sed -e 's,/[^/]*$,,'`
 changequote([,])
-	 $libgcj_basedir/../mkinstalldirs $d
+	 if test ! -d $d; then
+	   $libgcj_basedir/../mkinstalldirs $d
+	 fi;
 	 echo > $f
       }
    done

@@ -34,12 +34,11 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "insn-attr.h"
 #include "function.h"
+#include "expr.h"
 #include "flags.h"
 #include "recog.h"
 #include "toplev.h"
 #include "cpplib.h"
-#include "c-pragma.h"
-#include "c-lex.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -100,8 +99,14 @@ static FILE *assembler_source = 0;
 
 static label_node_t * mvs_get_label PARAMS ((int));
 static void i370_label_scan PARAMS ((void));
+#ifdef TARGET_HLASM
+static bool i370_hlasm_assemble_integer PARAMS ((rtx, unsigned int, int));
+#endif
 static void i370_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void i370_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+#ifdef LONGEXTERNAL
+static int mvs_hash_alias PARAMS ((const char *));
+#endif
 
 /* ===================================================== */
 /* defines and functions specific to the HLASM assembler */
@@ -135,9 +140,6 @@ alias_node_t;
 
 /* Alias node list anchor.  */
 static alias_node_t *alias_anchor = 0;
-
-/* Alias number */
-static int alias_number = 0;
 
 /* Define the length of the internal MVS function table.  */
 #define MVS_FUNCTION_TABLE_LENGTH 32
@@ -289,6 +291,17 @@ static const unsigned char ebcasc[256] =
 };
 
 /* Initialize the GCC target structure.  */
+#ifdef TARGET_HLASM
+#undef TARGET_ASM_BYTE_OP
+#define TARGET_ASM_BYTE_OP NULL
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP NULL
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP NULL
+#undef TARGET_ASM_INTEGER
+#define TARGET_ASM_INTEGER i370_hlasm_assemble_integer
+#endif
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE i370_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
@@ -412,7 +425,7 @@ i370_short_branch (insn)
 	if (addr > lp -> label_last_ref) lp->label_last_ref = addr;	\
 }
 
-void 
+static void 
 i370_label_scan () 
 {
    rtx insn;
@@ -505,7 +518,7 @@ i370_label_scan ()
                else 
                  {
 /* XXX hack alert.
-   Compiling the execption handling (L_eh) in libgcc2.a will trip
+   Compiling the exception handling (L_eh) in libgcc2.a will trip
    up right here, with something that looks like
    (set (pc) (mem:SI (plus:SI (reg/v:SI 1 r1) (const_int 4))))
       {indirect_jump} 
@@ -591,7 +604,7 @@ check_label_emit ()
    allocated from memory.
    ID is the label number of the label being added to the list.  */
 
-label_node_t *
+static label_node_t *
 mvs_get_label (id)
      int id;
 {
@@ -703,6 +716,7 @@ mvs_check_label (id)
 /* Get the page on which the label sits.  This will be used to 
    determine is a register reload is really needed.  */
 
+#if 0
 int
 mvs_get_label_page(int id)
 {
@@ -715,6 +729,7 @@ mvs_get_label_page(int id)
     }
   return -1;
 }
+#endif
 
 /* The label list for the current page freed by linking the list onto the free
    label element chain.  */
@@ -850,9 +865,10 @@ mvs_function_check (name)
 
 /* Generate a hash for a given key. */
 
+#ifdef LONGEXTERNAL
 static int
 mvs_hash_alias (key)
-     char *key;
+     const char *key;
 {
   int h;
   int i;
@@ -863,7 +879,7 @@ mvs_hash_alias (key)
     h = ((h * MVS_SET_SIZE) + key[i]) % MVS_HASH_PRIME;
   return (h);
 }
-
+#endif
 
 /* Add the alias to the current alias list.  */
 
@@ -1030,33 +1046,6 @@ mvs_check_alias (realname, aliasname)
   return 0;
 }
 
-/* #pragma map (name, alias) -
-   In this implementation both name and alias are required to be
-   identifiers.  The older code seemed to be more permissive.  Can
-   anyone clarify?  */
-
-void
-i370_pr_map (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
-{
-  tree name, alias, x;
-
-  if (c_lex (&x)        == CPP_OPEN_PAREN
-      && c_lex (&name)  == CPP_NAME
-      && c_lex (&x)     == CPP_COMMA
-      && c_lex (&alias) == CPP_NAME
-      && c_lex (&x)     == CPP_CLOSE_PAREN)
-    {
-      if (c_lex (&x) != CPP_EOF)
-	warning ("junk at end of #pragma map");
-
-      mvs_add_alias (IDENTIFIER_POINTER (name), IDENTIFIER_POINTER (alias), 1);
-      return;
-    }
-
-  warning ("malformed #pragma map, ignored");
-}
-
 /* defines and functions specific to the HLASM assembler */
 #endif /* TARGET_HLASM */
 /* ===================================================== */
@@ -1201,6 +1190,54 @@ unsigned_jump_follows_p (insn)
     }
 }
 
+#ifdef TARGET_HLASM
+
+/* Target hook for assembling integer objects.  This version handles all
+   objects when TARGET_HLASM is defined.  */
+
+static bool
+i370_hlasm_assemble_integer (x, size, aligned_p)
+     rtx x;
+     unsigned int size;
+     int aligned_p;
+{
+  const char *int_format = NULL;
+
+  if (aligned_p)
+    switch (size)
+      {
+      case 1:
+	int_format = "\tDC\tX'%02X'\n";
+	break;
+
+      case 2:
+	int_format = "\tDC\tX'%04X'\n";
+	break;
+
+      case 4:
+	if (GET_CODE (x) == CONST_INT)
+	  {
+	    fputs ("\tDC\tF'", asm_out_file);
+	    output_addr_const (asm_out_file, x);
+	    fputs ("'\n", asm_out_file);
+	  }
+	else
+	  {
+	    fputs ("\tDC\tA(", asm_out_file);
+	    output_addr_const (asm_out_file, x);
+	    fputs (")\n", asm_out_file);
+	  }
+	return true;
+      }
+
+  if (int_format && GET_CODE (x) == CONST_INT)
+    {
+      fprintf (asm_out_file, int_format, INTVAL (x));
+      return true;
+    }
+  return default_assemble_integer (x, size, aligned_p);
+}
+
 /* Generate the assembly code for function entry.  FILE is a stdio
    stream to output the code to.  SIZE is an int: how many units of
    temporary storage to allocate.
@@ -1209,8 +1246,6 @@ unsigned_jump_follows_p (insn)
    save; `regs_ever_live[I]' is nonzero if register number I is ever
    used in the function.  This function is responsible for knowing
    which registers should not be saved even if used.  */
-
-#ifdef TARGET_HLASM
 
 static void
 i370_output_function_prologue (f, l)

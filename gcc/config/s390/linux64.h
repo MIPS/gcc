@@ -1,7 +1,7 @@
 /* Definitions for Linux for s/390 zSeries
    Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
-                  Ulrich Weigand (weigand@de.ibm.com).
+                  Ulrich Weigand (uweigand@de.ibm.com).
 This file is part of GNU CC.
 
 GNU CC is free software; you can redistribute it and/or modify
@@ -22,8 +22,6 @@ Boston, MA 02111-1307, USA.  */
 #ifndef _LINUX64_H
 #define _LINUX64_H
 
-#include <s390/linux.h>              /* Base linux target machine definitions*/
-
 #undef PTRDIFF_TYPE
 #define PTRDIFF_TYPE "long int"
 
@@ -36,8 +34,10 @@ Boston, MA 02111-1307, USA.  */
 /* Names to predefine in the preprocessor for this target machine.  */
 
 #undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-Dlinux -Asystem(linux) -Acpu(s390) -Amachine(s390) -D__s390x__ -Asystem(unix) -Dunix -D__ELF__"
-
+#define CPP_PREDEFINES \
+  "-Dlinux -Asystem(linux) -Acpu(s390) -Amachine(s390) -D__s390__ -D__s390x__ \
+   -Asystem(unix) -Dunix -D__ELF__ \
+   -D__LONG_MAX__=9223372036854775807L"
 
 #undef	LINK_SPEC
 #ifdef CROSS_COMPILE
@@ -59,24 +59,7 @@ Boston, MA 02111-1307, USA.  */
 	%{static:-static}}}"
 #endif
 
-#undef INT_ASM_OP
-#define INT_ASM_OP "\t.quad\t"
-
-#undef PROMOTE_PROTOTYPES 
 #undef MASK_RETURN_ADDR 
 #undef SELECT_SECTION
-
-/* With 64 bit new linkage for floating point registers.  */
-#undef CALL_USED_REGISTERS			
-#define CALL_USED_REGISTERS			\
-{ 1, 1, 1, 1, 					\
-  1, 1, 0, 0, 					\
-  0, 0, 0, 0, 					\
-  0, 1, 1, 1,					\
-  1, 1, 1, 1, 					\
-  1, 1, 1, 1, 					\
-  0, 0, 0, 0, 					\
-  0, 0, 0, 0, 					\
-  1 }
 
 #endif

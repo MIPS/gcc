@@ -33,9 +33,12 @@ toolexeclib_LTLIBRARIES = libgcj.la $(cond_x_ltlibrary)
 toolexeclib_DATA = libgcj.spec
 data_DATA = libgcj.jar
 
+## FIXME: Using libdir violates GNU coding standards.
+secdir = $(libdir)/security
+
 ## For now, only on native systems.  FIXME.
 if NATIVE
-bin_PROGRAMS = jv-convert gij
+bin_PROGRAMS = jv-convert gij rmic rmiregistry
 endif
 
 bin_SCRIPTS = addr2name.awk
@@ -67,8 +70,8 @@ endif # CANADIAN
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8
 
 GCJCOMPILE = $(LIBTOOL) --tag=GCJ --mode=compile $(GCJ_WITH_FLAGS) -fassume-compiled -fclasspath=$(here) -L$(here) $(JC1FLAGS) -MD -MT $@ -MF $(@:.lo=.d) -c
-GCJLINK = $(LIBTOOL) --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
-LIBLINK = $(LIBTOOL) --mode=link $(CC) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
+GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
+LIBLINK = $(LIBTOOL) --tag=CC --mode=link $(CC) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
 
 ## We define this because otherwise libtool can be run with different
 ## values of `CXX' and will then get confused and fail to work.  So,
@@ -121,7 +124,7 @@ javao_files = $(java_source_files:.java=.lo) \
 x_javao_files = $(x_java_source_files:.java=.lo)
 
 libgcj_la_SOURCES = prims.cc posix.cc jni.cc exception.cc \
-	resolve.cc defineclass.cc interpret.cc name-finder.cc \
+	resolve.cc defineclass.cc interpret.cc name-finder.cc verify.cc \
 	$(nat_source_files)
 EXTRA_libgcj_la_SOURCES = boehm.cc nogc.cc posix-threads.cc no-threads.cc \
 	$(c_source_files) $(java_source_files) $(built_java_source_files)
@@ -133,6 +136,7 @@ libgcj_la_LIBADD = $(javao_files) $(c_files) $(GCOBJS) \
 # Include THREADLIBS here to ensure that the correct version of
 # certain linuxthread functions get linked:
 libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLIBS) $(LIBLTDL) \
+	$(GCLIBS) $(ZLIBS) \
 ## The mysterious backslash is consumed by make.
 	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
 libgcj_la_LINK = $(LIBLINK)
@@ -180,15 +184,15 @@ libgcj.jar: $(built_java_source_files) $(java_source_files) $(x_java_source_file
 	@: $(shell echo Creating list of files to compile...) $(shell rm -f tmp-list || :) $(shell touch tmp-list) $(foreach source,$?,$(shell echo $(source) >> tmp-list))
 	@set fnord $(MAKEFLAGS); amf=$$2; fail=no; \
 	javac="$(JAVAC)"; \
-	cat tmp-list | while read f; do \
+	cat tmp-list | (while read f; do \
 	  echo $$javac $(JCFLAGS) -classpath $(here):$(srcdir) -d $(here) $$f; \
 	  $$javac $(JCFLAGS) -classpath $(here):$(srcdir) -d $(here) $$f \
 	    || case "$$amf" in *=*) exit 1;; *k*) fail=yes ;; *) exit 1;; esac; \
 	done; \
-	test "$$fail" = no
+	test "$$fail" = no)
 	-@rm -f tmp-list libgcj.jar
 ## Note that we explicitly want to include directory information.
-	find java gnu org -type d -o -type f -name '*.class' | \
+	find java gnu javax org -type d -o -type f -name '*.class' | \
 	  sed -e '/\/\./d' -e '/\/xlib/d' | \
 	  $(ZIP) cfM0E@ $@
 
@@ -212,14 +216,9 @@ SUFFIXES = .class .java .h
 ## is a bug in automake), and it also won't put the .o files into
 ## subdirs.  FIXME.
 $(nat_files) $(x_nat_files): %.lo: %.cc
-	@echo '$(LTCXXCOMPILE) -c -o $@ $<'; \
-	$(LTCXXCOMPILE) -Wp,-MD,.deps/$(*F).pp -c -o $@ $<
-	@-sed -e 's/^\([^:]*\)\.o[ 	]*:/\1.lo \1.o :/' \
-	  < .deps/$(*F).pp > .deps/$(*F).P; \
-	tr ' ' '\012' < .deps/$(*F).pp \
-	  | sed -e 's/^\\$$//' -e '/^$$/ d' -e '/:$$/ d' -e 's/$$/ :/' \
-	    >> .deps/$(*F).P; \
-	rm -f .deps/$(*F).pp
+	@echo '$(LTCXXCOMPILE) -MD -MT $@ -MF $(@:.lo=.pp) -c -o $@ $<'; \
+	$(LTCXXCOMPILE) -MD -MT $@ -MF $(@:.lo=.pp) -c -o $@ $<
+	@-mv $(@:.lo=.pp) $(@:.lo=.d)
 
 ## FIXME: GNU make.
 $(c_files): %.lo: %.c
@@ -255,40 +254,38 @@ libgcjx.la: $(libgcjx_la_OBJECTS) $(libgcjx_la_DEPENDENCIES)
 	$(GCJH) -classpath $(top_builddir) $(basename $<)
 
 ## Header files used when compiling some of the nat* files.
-nat_headers = $(ordinary_java_source_files:.java=.h) \
-	$(built_java_source_files:.java=.h) \
-	java/io/ObjectOutputStream$$PutField.h \
+ordinary_nat_headers = $(ordinary_java_source_files:.java=.h) \
+	$(built_java_source_files:.java=.h)
+
+inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	java/io/ObjectInputStream$$GetField.h
+
+nat_headers = $(ordinary_nat_headers) $(inner_nat_headers)
 
 x_nat_headers = $(x_java_source_files:.java=.h)
 
-$(nat_headers) $(x_nat_headers): libgcj.jar
+$(ordinary_nat_headers) $(x_nat_headers): %.h: %.class
 
-java/lang/ClassLoader.h: java/lang/ClassLoader.class libgcj.jar
+java/lang/ClassLoader.h: java/lang/ClassLoader.class
 	$(GCJH) -classpath $(top_builddir) \
 		-friend 'jclass _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader);' \
-		-friend 'void _Jv_RunMain (const char *name, int argc, const char **argv, bool is_jar);' \
+		-friend 'void _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, bool is_jar);' \
 		$(basename $<)
 
-## Our internal main program needs to be able to create a FirstThread.
-gnu/gcj/runtime/FirstThread.h: gnu/gcj/runtime/FirstThread.class libgcj.jar
-	$(GCJH) -classpath $(top_builddir) \
-		-friend 'void JvRunMain (jclass, int, const char **);' \
-		-friend 'void _Jv_RunMain (const char*, int, const char **);' \
-		$(basename $<)
-
-java/lang/Thread.h: java/lang/Thread.class libgcj.jar
+java/lang/Thread.h: java/lang/Thread.class
 	$(GCJH) -classpath $(top_builddir) \
 		-prepend 'class _Jv_JNIEnv;' \
 		-prepend '#define _JV_NOT_OWNER 1' \
 		-prepend '#define _JV_INTERRUPTED 2' \
 		-friend '_Jv_JNIEnv * _Jv_GetCurrentJNIEnv ();' \
 		-friend 'void _Jv_SetCurrentJNIEnv (_Jv_JNIEnv *env);' \
+		-friend 'void _Jv_ThreadRun (java::lang::Thread* thread);' \
+		-friend 'jint _Jv_AttachCurrentThread(java::lang::Thread* thread);' \
 		-friend 'java::lang::Thread* _Jv_AttachCurrentThread(jstring name, java::lang::ThreadGroup* group);' \
 		-friend 'jint _Jv_DetachCurrentThread ();' \
 		$(basename $<)
 
-java/lang/String.h: java/lang/String.class libgcj.jar
+java/lang/String.h: java/lang/String.class
 	$(GCJH) -classpath $(top_builddir) \
 	    -friend 'jchar* _Jv_GetStringChars (jstring str);' \
 	    -friend 'jstring* _Jv_StringFindSlot (jchar*, jint, jint);' \
@@ -298,37 +295,38 @@ java/lang/String.h: java/lang/String.class libgcj.jar
 	    -friend 'jstring _Jv_AllocString (jsize);' \
 	    $(basename $<)
 
-java/lang/reflect/Constructor.h: java/lang/reflect/Constructor.class libgcj.jar
+java/lang/reflect/Constructor.h: java/lang/reflect/Constructor.class
 	$(GCJH) -classpath $(top_builddir) \
 	    -friend 'jmethodID _Jv_FromReflectedConstructor (java::lang::reflect::Constructor *);' \
 	    -friend 'class java::lang::Class;' \
 	    -friend 'jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
 	    $(basename $<)
 
-java/lang/reflect/Field.h: java/lang/reflect/Field.class libgcj.jar
+java/lang/reflect/Field.h: java/lang/reflect/Field.class
 	$(GCJH) -classpath $(top_builddir) \
 	    -friend 'jfieldID _Jv_FromReflectedField (java::lang::reflect::Field *);' \
 	    -friend 'jobject _Jv_JNI_ToReflectedField (_Jv_JNIEnv*, jclass, jfieldID, jboolean);' \
 	    -friend 'class java::lang::Class;' \
 	    $(basename $<)
 
-java/lang/reflect/Method.h: java/lang/reflect/Method.class libgcj.jar
+java/lang/reflect/Method.h: java/lang/reflect/Method.class
 	$(GCJH) -classpath $(top_builddir) \
 	    -friend 'jmethodID _Jv_FromReflectedMethod (java::lang::reflect::Method *);' \
 	    -friend 'class java::lang::Class;' \
+	    -friend 'class java::io::ObjectInputStream;' \
 	    -friend 'jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
 	    $(basename $<)
 
-gnu/gcj/runtime/VMClassLoader.h: gnu/gcj/runtime/VMClassLoader.class libgcj.jar
+gnu/gcj/runtime/VMClassLoader.h: gnu/gcj/runtime/VMClassLoader.class
 	$(GCJH) -classpath $(top_builddir) \
-	    -friend 'class java::lang::ClassLoader;' \
+	    -friend 'class ::java::lang::ClassLoader;' \
 	    $(basename $<)
 
-java/io/ObjectInputStream$$GetField.h: libgcj.jar
+java/io/ObjectInputStream$$GetField.h: java/io/ObjectInputStream.class
 	$(GCJH) -classpath $(top_builddir) \
 	'java/io/ObjectInputStream$$GetField'
 
-java/io/ObjectOutputStream$$PutField.h: libgcj.jar
+java/io/ObjectOutputStream$$PutField.h: java/io/ObjectOutputStream.class
 	$(GCJH) -classpath $(top_builddir) \
 	'java/io/ObjectOutputStream$$PutField'
 
@@ -348,6 +346,13 @@ install-data-local:
 	  if test -f $(srcdir)/$$f; then p=$(srcdir)/$$f; else p=$$f; fi; \
 	  echo " $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/$$f"; \
 	  $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/$$f; \
+	done
+## FIXME: the obvious approach using lib_DATA doesn't work with
+## automake 1.4.
+	$(mkinstalldirs) $(DESTDIR)$(secdir)
+	@for f in classpath.security libgcj.security; do \
+	  echo " $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f"; \
+	  $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f; \
 	done
 
 ## ################################################################
@@ -379,6 +384,15 @@ header-check: libgcj.jar $(nat_headers)
 	done; \
 	$(CXXCOMPILE) -fsyntax-only htest.cc
 
+## This rule can be used to see if all the .class files verify
+## correctly.
+class-check: libgcj.jar
+	@ok=0; find . -name '*.class' -print | fgrep -v testsuite | \
+	while read f; do \
+	  echo "$(GCJ_WITH_FLAGS) --syntax-only $$f"; \
+	  if $(GCJ_WITH_FLAGS) --syntax-only $$f; then \
+	  :; else ok=1; fi; \
+	done; exit $$ok
 
 ## ################################################################
 
@@ -432,6 +446,38 @@ gij_LDADD = libgcj.la $(GCLIBS) $(THREADLIBS) $(ZLIBS) -L$(here)/.libs
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
 gij_DEPENDENCIES = $(GCDEPS) $(THREADDEPS) $(ZDEPS) libgcj.la libgcj.spec
+
+rmic_SOURCES =
+## This is a dummy definition.
+EXTRA_rmic_SOURCES = $(rmi_java_source_files)
+rmic_LDFLAGS = --main=gnu.java.rmi.rmic.RMIC \
+	-rpath $(toolexeclibdir) -shared-libgcc
+rmic_LINK = $(GCJLINK)
+## We explicitly link in the libraries we need.  This way we don't
+## need -nodefaultlibs, so we can still rely on gcj picking up the
+## system libraries we need (via the specs file).
+## We need the -L so that gcj can find libgcj with `-lgcj'.
+## FIXME: should be _libs on some systems.
+rmic_LDADD = libgcj.la $(GCLIBS) $(THREADLIBS) $(ZLIBS) -L$(here)/.libs
+## Depend on the spec file to make sure it is up to date before
+## linking this program.
+rmic_DEPENDENCIES = $(GCDEPS) $(THREADDEPS) $(ZDEPS) libgcj.la libgcj.spec
+
+rmiregistry_SOURCES =
+## This is a dummy definition.
+EXTRA_rmiregistry_SOURCES = $(rmi_java_source_files)
+rmiregistry_LDFLAGS = --main=gnu.java.rmi.registry.RegistryImpl \
+	-rpath $(toolexeclibdir) -shared-libgcc
+rmiregistry_LINK = $(GCJLINK)
+## We explicitly link in the libraries we need.  This way we don't
+## need -nodefaultlibs, so we can still rely on gcj picking up the
+## system libraries we need (via the specs file).
+## We need the -L so that gcj can find libgcj with `-lgcj'.
+## FIXME: should be _libs on some systems.
+rmiregistry_LDADD = libgcj.la $(GCLIBS) $(THREADLIBS) $(ZLIBS) -L$(here)/.libs
+## Depend on the spec file to make sure it is up to date before
+## linking this program.
+rmiregistry_DEPENDENCIES = $(GCDEPS) $(THREADDEPS) $(ZDEPS) libgcj.la libgcj.spec
 
 # The Unicode consortium does not permit re-distributing the file JIS0201.TXT.
 # You can get it from ftp://ftp.unicode.org/Public/MAPPINGS/EASTASIA/JIS/.
@@ -742,6 +788,7 @@ java/beans/beancontext/BeanContextServiceRevokedEvent.java \
 java/beans/beancontext/BeanContextServiceRevokedListener.java \
 java/beans/beancontext/BeanContextServices.java	\
 java/beans/beancontext/BeanContextServicesListener.java	\
+java/beans/AppletInitializer.java \
 java/beans/BeanDescriptor.java \
 java/beans/BeanInfo.java \
 java/beans/Beans.java \
@@ -767,6 +814,204 @@ java/beans/VetoableChangeListener.java \
 java/beans/VetoableChangeSupport.java \
 java/beans/Visibility.java
 
+rmi_java_source_files =	\
+java/rmi/activation/Activatable.java \
+java/rmi/activation/ActivateFailedException.java \
+java/rmi/activation/ActivationDesc.java	\
+java/rmi/activation/ActivationException.java \
+java/rmi/activation/ActivationGroup.java \
+java/rmi/activation/ActivationGroupDesc.java \
+java/rmi/activation/ActivationGroupID.java \
+java/rmi/activation/ActivationID.java \
+java/rmi/activation/ActivationInstantiator.java	\
+java/rmi/activation/ActivationMonitor.java \
+java/rmi/activation/ActivationSystem.java \
+java/rmi/activation/Activator.java \
+java/rmi/activation/UnknownGroupException.java \
+java/rmi/activation/UnknownObjectException.java	\
+java/rmi/AccessException.java \
+java/rmi/AlreadyBoundException.java \
+java/rmi/ConnectException.java \
+java/rmi/ConnectIOException.java \
+java/rmi/MarshalException.java \
+java/rmi/MarshalledObject.java \
+java/rmi/Naming.java \
+java/rmi/NoSuchObjectException.java \
+java/rmi/NotBoundException.java	\
+java/rmi/RMISecurityException.java \
+java/rmi/RMISecurityManager.java \
+java/rmi/Remote.java \
+java/rmi/RemoteException.java \
+java/rmi/ServerError.java \
+java/rmi/ServerException.java \
+java/rmi/ServerRuntimeException.java \
+java/rmi/StubNotFoundException.java \
+java/rmi/UnexpectedException.java \
+java/rmi/UnknownHostException.java \
+java/rmi/UnmarshalException.java \
+java/rmi/dgc/DGC.java \
+java/rmi/dgc/Lease.java	\
+java/rmi/dgc/VMID.java \
+java/rmi/registry/LocateRegistry.java \
+java/rmi/registry/Registry.java	\
+java/rmi/registry/RegistryHandler.java \
+java/rmi/server/ExportException.java \
+java/rmi/server/LoaderHandler.java \
+java/rmi/server/LogStream.java \
+java/rmi/server/ObjID.java \
+java/rmi/server/Operation.java \
+java/rmi/server/RMIClassLoader.java \
+java/rmi/server/RMIClientSocketFactory.java \
+java/rmi/server/RMIFailureHandler.java \
+java/rmi/server/RMIServerSocketFactory.java \
+java/rmi/server/RMISocketFactory.java \
+java/rmi/server/RemoteCall.java	\
+java/rmi/server/RemoteObject.java \
+java/rmi/server/RemoteRef.java \
+java/rmi/server/RemoteServer.java \
+java/rmi/server/RemoteStub.java	\
+java/rmi/server/ServerCloneException.java \
+java/rmi/server/ServerNotActiveException.java \
+java/rmi/server/ServerRef.java \
+java/rmi/server/Skeleton.java \
+java/rmi/server/SkeletonMismatchException.java \
+java/rmi/server/SkeletonNotFoundException.java \
+java/rmi/server/SocketSecurityException.java \
+java/rmi/server/UID.java \
+java/rmi/server/UnicastRemoteObject.java \
+java/rmi/server/Unreferenced.java \
+gnu/java/rmi/dgc/DGCImpl.java \
+gnu/java/rmi/dgc/DGCImpl_Skel.java \
+gnu/java/rmi/dgc/DGCImpl_Stub.java \
+gnu/java/rmi/registry/RegistryImpl.java	\
+gnu/java/rmi/registry/RegistryImpl_Skel.java \
+gnu/java/rmi/registry/RegistryImpl_Stub.java \
+gnu/java/rmi/rmic/Compile_gcj.java \
+gnu/java/rmi/rmic/Compiler.java	\
+gnu/java/rmi/rmic/CompilerProcess.java \
+gnu/java/rmi/rmic/RMIC.java \
+gnu/java/rmi/rmic/TabbedWriter.java \
+gnu/java/rmi/server/ProtocolConstants.java \
+gnu/java/rmi/server/RMIDefaultSocketFactory.java \
+gnu/java/rmi/server/RMIHashes.java \
+gnu/java/rmi/server/RMIObjectInputStream.java \
+gnu/java/rmi/server/RMIObjectOutputStream.java \
+gnu/java/rmi/server/UnicastConnection.java \
+gnu/java/rmi/server/UnicastConnectionManager.java \
+gnu/java/rmi/server/UnicastRef.java \
+gnu/java/rmi/server/UnicastRemoteCall.java \
+gnu/java/rmi/server/UnicastRemoteStub.java \
+gnu/java/rmi/server/UnicastServer.java \
+gnu/java/rmi/server/UnicastServerRef.java
+
+javax_source_files = \
+javax/naming/directory/Attribute.java \
+javax/naming/directory/AttributeInUseException.java \
+javax/naming/directory/AttributeModificationException.java \
+javax/naming/directory/Attributes.java \
+javax/naming/directory/DirContext.java \
+javax/naming/directory/InvalidAttributeIdentifierException.java	\
+javax/naming/directory/InvalidAttributeValueException.java \
+javax/naming/directory/InvalidAttributesException.java \
+javax/naming/directory/InvalidSearchControlsException.java \
+javax/naming/directory/InvalidSearchFilterException.java \
+javax/naming/directory/NoSuchAttributeException.java \
+javax/naming/directory/SchemaViolationException.java \
+javax/naming/directory/BasicAttribute.java \
+javax/naming/directory/BasicAttributes.java \
+javax/naming/directory/ModificationItem.java \
+javax/naming/directory/SearchControls.java \
+javax/naming/directory/SearchResult.java \
+javax/naming/directory/InitialDirContext.java \
+javax/naming/AuthenticationException.java \
+javax/naming/AuthenticationNotSupportedException.java \
+javax/naming/CannotProceedException.java \
+javax/naming/CommunicationException.java \
+javax/naming/ConfigurationException.java \
+javax/naming/Context.java \
+javax/naming/ContextNotEmptyException.java \
+javax/naming/InsufficientResourcesException.java \
+javax/naming/InterruptedNamingException.java \
+javax/naming/BinaryRefAddr.java	\
+javax/naming/LimitExceededException.java \
+javax/naming/LinkException.java	\
+javax/naming/LinkLoopException.java \
+javax/naming/MalformedLinkException.java \
+javax/naming/Name.java \
+javax/naming/NameAlreadyBoundException.java \
+javax/naming/NameNotFoundException.java	\
+javax/naming/NameParser.java \
+javax/naming/NamingEnumeration.java \
+javax/naming/InitialContext.java \
+javax/naming/NamingSecurityException.java \
+javax/naming/NoInitialContextException.java \
+javax/naming/NoPermissionException.java	\
+javax/naming/NotContextException.java \
+javax/naming/NamingException.java \
+javax/naming/PartialResultException.java \
+javax/naming/event/EventContext.java \
+javax/naming/event/EventDirContext.java	\
+javax/naming/event/NamespaceChangeListener.java	\
+javax/naming/event/NamingEvent.java \
+javax/naming/event/NamingExceptionEvent.java \
+javax/naming/event/NamingListener.java \
+javax/naming/event/ObjectChangeListener.java \
+javax/naming/RefAddr.java \
+javax/naming/Reference.java \
+javax/naming/Referenceable.java	\
+javax/naming/ReferralException.java \
+javax/naming/ServiceUnavailableException.java \
+javax/naming/SizeLimitExceededException.java \
+javax/naming/StringRefAddr.java	\
+javax/naming/TimeLimitExceededException.java \
+javax/naming/spi/InitialContextFactory.java \
+javax/naming/spi/InitialContextFactoryBuilder.java \
+javax/naming/spi/NamingManager.java \
+javax/naming/spi/ObjectFactory.java \
+javax/naming/spi/Resolver.java \
+javax/naming/spi/DirObjectFactory.java \
+javax/naming/spi/DirStateFactory.java \
+javax/naming/spi/DirectoryManager.java \
+javax/naming/spi/ObjectFactoryBuilder.java \
+javax/naming/spi/ResolveResult.java \
+javax/naming/spi/StateFactory.java \
+javax/naming/InvalidNameException.java \
+javax/naming/Binding.java \
+javax/naming/CompositeName.java	\
+javax/naming/CompoundName.java \
+javax/naming/LinkRef.java \
+javax/naming/NameClassPair.java	\
+javax/naming/ldap/Control.java \
+javax/naming/ldap/ControlFactory.java \
+javax/naming/ldap/ExtendedRequest.java \
+javax/naming/ldap/ExtendedResponse.java	\
+javax/naming/ldap/HasControls.java \
+javax/naming/ldap/InitialLdapContext.java \
+javax/naming/ldap/LdapContext.java \
+javax/naming/ldap/LdapReferralException.java \
+javax/naming/ldap/UnsolicitedNotification.java \
+javax/naming/ldap/UnsolicitedNotificationEvent.java \
+javax/naming/ldap/UnsolicitedNotificationListener.java \
+javax/naming/OperationNotSupportedException.java \
+javax/transaction/xa/XAException.java \
+javax/transaction/xa/XAResource.java \
+javax/transaction/xa/Xid.java \
+javax/transaction/HeuristicCommitException.java	\
+javax/transaction/HeuristicMixedException.java \
+javax/transaction/HeuristicRollbackException.java \
+javax/transaction/InvalidTransactionException.java \
+javax/transaction/NotSupportedException.java \
+javax/transaction/RollbackException.java \
+javax/transaction/Status.java \
+javax/transaction/Synchronization.java \
+javax/transaction/SystemException.java \
+javax/transaction/Transaction.java \
+javax/transaction/TransactionManager.java \
+javax/transaction/TransactionRequiredException.java \
+javax/transaction/TransactionRolledbackException.java \
+javax/transaction/UserTransaction.java
+
+
 ## Java files which are created by configure and thus are in the build
 ## directory.
 built_java_source_files = java/lang/ConcreteProcess.java \
@@ -783,6 +1028,7 @@ java/lang/ArrayStoreException.java \
 java/lang/Boolean.java \
 java/lang/Byte.java \
 java/lang/Character.java \
+java/lang/CharSequence.java \
 java/lang/ClassCastException.java \
 java/lang/ClassCircularityError.java \
 java/lang/ClassFormatError.java	\
@@ -805,6 +1051,7 @@ java/lang/IllegalStateException.java \
 java/lang/IllegalThreadStateException.java \
 java/lang/IncompatibleClassChangeError.java \
 java/lang/IndexOutOfBoundsException.java \
+java/lang/InheritableThreadLocal.java \
 java/lang/InstantiationError.java \
 java/lang/InstantiationException.java \
 java/lang/Integer.java \
@@ -844,9 +1091,12 @@ java/lang/ThreadLocal.java \
 java/lang/Throwable.java \
 java/lang/UnknownError.java \
 java/lang/UnsatisfiedLinkError.java \
+java/lang/UnsupportedClassVersionError.java \
 java/lang/UnsupportedOperationException.java \
 java/lang/VerifyError.java \
 java/lang/VirtualMachineError.java \
+java/lang/VMClassLoader.java \
+java/lang/VMSecurityManager.java \
 java/lang/Void.java \
 java/io/BufferedInputStream.java \
 java/io/BufferedOutputStream.java \
@@ -946,8 +1196,11 @@ java/util/GregorianCalendar.java \
 java/util/HashMap.java \
 java/util/HashSet.java \
 java/util/Hashtable.java \
+java/util/IdentityHashMap.java \
 java/util/Iterator.java	\
 java/util/LinkedList.java \
+java/util/LinkedHashMap.java \
+java/util/LinkedHashSet.java \
 java/util/List.java \
 java/util/ListIterator.java \
 java/util/ListResourceBundle.java \
@@ -961,6 +1214,7 @@ java/util/Properties.java \
 java/util/PropertyPermission.java \
 java/util/PropertyResourceBundle.java \
 java/util/Random.java \
+java/util/RandomAccess.java \
 java/util/ResourceBundle.java \
 java/util/Set.java \
 java/util/SimpleTimeZone.java \
@@ -984,11 +1238,14 @@ java/util/WeakHashMap.java
 ## awt_java_source_files.  If the .java file has a hand-maintained
 ## header, please list it in special_java_source_files.
 ordinary_java_source_files = $(core_java_source_files) \
+gnu/gcj/Core.java \
 gnu/gcj/RawData.java \
 gnu/gcj/io/DefaultMimeTypes.java \
 gnu/gcj/io/MimeTypes.java \
 gnu/gcj/io/SimpleSHSStream.java	\
-gnu/gcj/math/MPN.java \
+gnu/gcj/protocol/core/Connection.java \
+gnu/gcj/protocol/core/Handler.java \
+gnu/gcj/protocol/core/CoreInputStream.java \
 gnu/gcj/protocol/file/Connection.java \
 gnu/gcj/protocol/file/Handler.java \
 gnu/gcj/protocol/http/Connection.java \
@@ -996,16 +1253,12 @@ gnu/gcj/protocol/http/Handler.java \
 gnu/gcj/protocol/jar/Connection.java \
 gnu/gcj/protocol/jar/Handler.java \
 gnu/gcj/runtime/FileDeleter.java \
+gnu/gcj/runtime/FinalizerThread.java \
 gnu/gcj/runtime/FirstThread.java \
+gnu/gcj/runtime/JNIWeakRef.java \
+gnu/gcj/runtime/SharedLibLoader.java \
+gnu/gcj/runtime/StringBuffer.java \
 gnu/gcj/runtime/VMClassLoader.java \
-gnu/gcj/text/BaseBreakIterator.java \
-gnu/gcj/text/CharacterBreakIterator.java \
-gnu/gcj/text/LineBreakIterator.java \
-gnu/gcj/text/LocaleData_en.java	\
-gnu/gcj/text/LocaleData_en_US.java \
-gnu/gcj/text/SentenceBreakIterator.java	\
-gnu/gcj/text/WordBreakIterator.java \
-gnu/gcj/util/EnumerationChain.java \
 gnu/java/io/ClassLoaderObjectInputStream.java \
 gnu/java/io/NullOutputStream.java \
 gnu/java/io/ObjectIdentityWrapper.java \
@@ -1016,10 +1269,22 @@ gnu/java/locale/Calendar.java \
 gnu/java/locale/Calendar_de.java \
 gnu/java/locale/Calendar_en.java \
 gnu/java/locale/Calendar_nl.java \
+gnu/java/locale/LocaleInformation.java \
+gnu/java/locale/LocaleInformation_de.java \
+gnu/java/locale/LocaleInformation_en.java \
+gnu/java/locale/LocaleInformation_en_US.java \
+gnu/java/locale/LocaleInformation_nl.java \
+gnu/java/math/MPN.java \
 gnu/java/security/provider/DefaultPolicy.java \
 gnu/java/security/provider/Gnu.java \
 gnu/java/security/provider/SHA.java \
 gnu/java/security/provider/SHA1PRNG.java \
+gnu/java/text/BaseBreakIterator.java \
+gnu/java/text/CharacterBreakIterator.java \
+gnu/java/text/LineBreakIterator.java \
+gnu/java/text/SentenceBreakIterator.java	\
+gnu/java/text/WordBreakIterator.java \
+gnu/java/util/DoubleEnumeration.java \
 java/lang/ref/PhantomReference.java \
 java/lang/ref/Reference.java \
 java/lang/ref/ReferenceQueue.java \
@@ -1036,6 +1301,7 @@ java/lang/reflect/Modifier.java	\
 java/lang/reflect/ReflectPermission.java \
 java/math/BigDecimal.java \
 java/math/BigInteger.java \
+java/net/Authenticator.java \
 java/net/BindException.java \
 java/net/ConnectException.java \
 java/net/ContentHandler.java \
@@ -1051,6 +1317,7 @@ java/net/MalformedURLException.java \
 java/net/MulticastSocket.java \
 java/net/NetPermission.java \
 java/net/NoRouteToHostException.java \
+java/net/PasswordAuthentication.java \
 java/net/PlainDatagramSocketImpl.java \
 java/net/PlainSocketImpl.java \
 java/net/ProtocolException.java	\
@@ -1207,6 +1474,10 @@ java/sql/Struct.java	\
 java/sql/Time.java \
 java/sql/Timestamp.java	\
 java/sql/Types.java \
+java/text/Annotation.java \
+java/text/AttributedCharacterIterator.java \
+java/text/AttributedString.java	\
+java/text/AttributedStringIterator.java	\
 java/text/BreakIterator.java \
 java/text/CharacterIterator.java \
 java/text/ChoiceFormat.java \
@@ -1305,8 +1576,10 @@ org/xml/sax/SAXNotSupportedException.java \
 org/xml/sax/SAXParseException.java \
 org/xml/sax/XMLFilter.java \
 org/xml/sax/XMLReader.java \
+$(rmi_java_source_files) \
 $(awt_java_source_files) \
-$(convert_source_files)
+$(convert_source_files) \
+$(javax_source_files)
 
 
 java_source_files = $(special_java_source_files) $(ordinary_java_source_files)
@@ -1331,6 +1604,7 @@ c_source_files = \
 
 ## This lists all the C++ source files in subdirectories.
 nat_source_files = \
+gnu/gcj/natCore.cc \
 gnu/gcj/convert/JIS0208_to_Unicode.cc \
 gnu/gcj/convert/JIS0212_to_Unicode.cc \
 gnu/gcj/convert/Unicode_to_JIS.cc \
@@ -1341,6 +1615,11 @@ gnu/gcj/convert/natOutput_EUCJIS.cc \
 gnu/gcj/convert/natOutput_SJIS.cc \
 gnu/gcj/io/natSimpleSHSStream.cc \
 gnu/gcj/io/shs.cc \
+gnu/gcj/protocol/core/natCoreInputStream.cc \
+gnu/gcj/runtime/natFinalizerThread.cc \
+gnu/gcj/runtime/natFirstThread.cc \
+gnu/gcj/runtime/natSharedLibLoader.cc \
+gnu/gcj/runtime/natStringBuffer.cc \
 java/io/natFile.cc \
 java/io/natFileDescriptor.cc \
 java/io/natObjectInputStream.cc \
@@ -1359,6 +1638,7 @@ java/lang/natStringBuffer.cc \
 java/lang/natSystem.cc \
 java/lang/natThread.cc \
 java/lang/natThrowable.cc \
+java/lang/ref/natReference.cc \
 java/lang/reflect/natArray.cc \
 java/lang/reflect/natConstructor.cc \
 java/lang/reflect/natField.cc \
@@ -1474,9 +1754,9 @@ texinfo: TexinfoDoclet.class
 -include deps.mk
 
 ## This is an evil hack to work around an automake limitation.  We
-## need to ensure that the built headers are built before we try to
-## compile the C++ sources, but we can't make the .o files depend on
-## the headers, because in that case we'll force a complete rebuild of
+## need to ensure that all CNI headers are built, not just the ones used
+## internally by libgcj. We can't make the .o files depend on nat_headers, 
+## because in that case we'll force a complete rebuild of
 ## the C++ code whenever any .java file is touched.
 all-recursive: $(nat_headers) $(x_nat_headers)
 
@@ -1509,6 +1789,7 @@ AM_MAKEFLAGS = \
 	"PICFLAG=$(PICFLAG)" \
 	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" \
 	"SHELL=$(SHELL)" \
+	"RUNTESTFLAGS=$(RUNTESTFLAGS)" \
 	"exec_prefix=$(exec_prefix)" \
 	"infodir=$(infodir)" \
 	"libdir=$(libdir)" \

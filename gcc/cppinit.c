@@ -38,15 +38,17 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Windows does not natively support inodes, and neither does MSDOS.
    Cygwin's emulation can generate non-unique inodes, so don't use it.
-   VMS has non-numeric inodes. */
+   VMS has non-numeric inodes.  */
 #ifdef VMS
-# define INO_T_EQ(a, b) (!memcmp (&(a), &(b), sizeof (a)))
+# define INO_T_EQ(A, B) (!memcmp (&(A), &(B), sizeof (A)))
+# define INO_T_COPY(DEST, SRC) memcpy(&(DEST), &(SRC), sizeof (SRC))
 #else
 # if (defined _WIN32 && ! defined (_UWIN)) || defined __MSDOS__
-#  define INO_T_EQ(a, b) 0
+#  define INO_T_EQ(A, B) 0
 # else
-#  define INO_T_EQ(a, b) ((a) == (b))
+#  define INO_T_EQ(A, B) ((A) == (B))
 # endif
+# define INO_T_COPY(DEST, SRC) (DEST) = (SRC)
 #endif
 
 /* Internal structures and prototypes.  */
@@ -63,7 +65,7 @@ struct pending_option
 };
 
 /* The `pending' structure accumulates all the options that are not
-   actually processed until we hit cpp_start_read.  It consists of
+   actually processed until we hit cpp_read_main_file.  It consists of
    several lists, one for each type of option.  We keep both head and
    tail pointers for quick insertion.  */
 struct cpp_pending
@@ -105,12 +107,13 @@ static struct search_path * remove_dup_dir	PARAMS ((cpp_reader *,
 static struct search_path * remove_dup_dirs PARAMS ((cpp_reader *,
 						 struct search_path *));
 static void merge_include_chains	PARAMS ((cpp_reader *));
-static void do_includes			PARAMS ((cpp_reader *,
-						 struct pending_option *,
-						 int));
+static bool push_include		PARAMS ((cpp_reader *,
+						 struct pending_option *));
+static void free_chain			PARAMS ((struct pending_option *));
 static void set_lang			PARAMS ((cpp_reader *, enum c_lang));
 static void init_dependency_output	PARAMS ((cpp_reader *));
 static void init_standard_includes	PARAMS ((cpp_reader *));
+static void read_original_filename	PARAMS ((cpp_reader *));
 static void new_pending_directive	PARAMS ((struct cpp_pending *,
 						 const char *,
 						 cl_directive_handler));
@@ -197,8 +200,8 @@ path_include (pfile, list, path)
   while (1);
 }
 
-/* Append DIR to include path PATH.  DIR must be permanently allocated
-   and writable. */
+/* Append DIR to include path PATH.  DIR must be allocated on the
+   heap; this routine takes responsibility for freeing it.  */
 static void
 append_include_chain (pfile, dir, path, cxx_aware)
      cpp_reader *pfile;
@@ -212,8 +215,12 @@ append_include_chain (pfile, dir, path, cxx_aware)
   unsigned int len;
 
   if (*dir == '\0')
-    dir = xstrdup (".");
+    {
+      free (dir);
+      dir = xstrdup (".");
+    }
   _cpp_simplify_pathname (dir);
+
   if (stat (dir, &st))
     {
       /* Dirs that don't exist are silently ignored.  */
@@ -221,12 +228,14 @@ append_include_chain (pfile, dir, path, cxx_aware)
 	cpp_notice_from_errno (pfile, dir);
       else if (CPP_OPTION (pfile, verbose))
 	fprintf (stderr, _("ignoring nonexistent directory \"%s\"\n"), dir);
+      free (dir);
       return;
     }
 
   if (!S_ISDIR (st.st_mode))
     {
       cpp_notice (pfile, "%s: Not a directory", dir);
+      free (dir);
       return;
     }
 
@@ -237,11 +246,11 @@ append_include_chain (pfile, dir, path, cxx_aware)
   new = (struct search_path *) xmalloc (sizeof (struct search_path));
   new->name = dir;
   new->len = len;
-  new->ino  = st.st_ino;
+  INO_T_COPY (new->ino, st.st_ino);
   new->dev  = st.st_dev;
   /* Both systm and after include file lists should be treated as system
      include files since these two lists are really just a concatenation
-     of one "system" list. */
+     of one "system" list.  */
   if (path == SYSTEM || path == AFTER)
 #ifdef NO_IMPLICIT_EXTERN_C
     new->sysp = 1;
@@ -375,7 +384,7 @@ merge_include_chains (pfile)
 	brack = remove_dup_dir (pfile, qtail);
     }
   else
-      quote = brack;
+    quote = brack;
 
   CPP_OPTION (pfile, quote_include) = quote;
   CPP_OPTION (pfile, bracket_include) = brack;
@@ -468,13 +477,11 @@ init_library ()
     }
 }
 
-/* Initialize a cpp_reader structure. */
+/* Initialize a cpp_reader structure.  */
 cpp_reader *
-cpp_create_reader (table, lang)
-     hash_table *table;
+cpp_create_reader (lang)
      enum c_lang lang;
 {
-  struct spec_nodes *s;
   cpp_reader *pfile;
 
   /* Initialise this instance of the library if it hasn't been already.  */
@@ -496,47 +503,39 @@ cpp_create_reader (table, lang)
      be needed.  */
   pfile->deps = deps_init ();
 
+  /* Initialise the line map.  Start at logical line 1, so we can use
+     a line number of zero for special states.  */
+  init_line_maps (&pfile->line_maps);
+  pfile->line = 1;
+
   /* Initialize lexer state.  */
   pfile->state.save_comments = ! CPP_OPTION (pfile, discard_comments);
 
-  /* Indicate date and time not yet calculated.  */
+  /* Set up static tokens.  */
   pfile->date.type = CPP_EOF;
+  pfile->avoid_paste.type = CPP_PADDING;
+  pfile->avoid_paste.val.source = NULL;
+  pfile->eof.type = CPP_EOF;
+  pfile->eof.flags = 0;
+
+  /* Create a token buffer for the lexer.  */
+  _cpp_init_tokenrun (&pfile->base_run, 250);
+  pfile->cur_run = &pfile->base_run;
+  pfile->cur_token = pfile->base_run.base;
 
   /* Initialise the base context.  */
   pfile->context = &pfile->base_context;
   pfile->base_context.macro = 0;
   pfile->base_context.prev = pfile->base_context.next = 0;
 
-  /* Identifier pool initially 8K.  Unaligned, permanent pool.  */
-  _cpp_init_pool (&pfile->ident_pool, 8 * 1024, 1, 0);
-
-  /* Argument pool initially 8K.  Aligned, temporary pool.  */
-  _cpp_init_pool (&pfile->argument_pool, 8 * 1024, 0, 1);
-
-  /* Macro pool initially 8K.  Aligned, permanent pool.  */
-  _cpp_init_pool (&pfile->macro_pool, 8 * 1024, 0, 0);
+  /* Aligned and unaligned storage.  */
+  pfile->a_buff = _cpp_get_buff (pfile, 0);
+  pfile->u_buff = _cpp_get_buff (pfile, 0);
 
   /* Initialise the buffer obstack.  */
   gcc_obstack_init (&pfile->buffer_ob);
 
-  /* Initialise the hashtable.  */
-  _cpp_init_hashtable (pfile, table);
-
-  _cpp_init_directives (pfile);
   _cpp_init_includes (pfile);
-  _cpp_init_internal_pragmas (pfile);
-
-  /* Initialize the special nodes.  */
-  s = &pfile->spec_nodes;
-  s->n_L                = cpp_lookup (pfile, DSC("L"));
-  s->n_defined		= cpp_lookup (pfile, DSC("defined"));
-  s->n_true		= cpp_lookup (pfile, DSC("true"));
-  s->n_false		= cpp_lookup (pfile, DSC("false"));
-  s->n__Pragma		= cpp_lookup (pfile, DSC("_Pragma"));
-  s->n__STRICT_ANSI__   = cpp_lookup (pfile, DSC("__STRICT_ANSI__"));
-  s->n__CHAR_UNSIGNED__ = cpp_lookup (pfile, DSC("__CHAR_UNSIGNED__"));
-  s->n__VA_ARGS__       = cpp_lookup (pfile, DSC("__VA_ARGS__"));
-  s->n__VA_ARGS__->flags |= NODE_DIAGNOSTIC;
 
   return pfile;
 }
@@ -550,9 +549,10 @@ cpp_destroy (pfile)
   int result;
   struct search_path *dir, *dirn;
   cpp_context *context, *contextn;
+  tokenrun *run, *runn;
 
   while (CPP_BUFFER (pfile) != NULL)
-    cpp_pop_buffer (pfile);
+    _cpp_pop_buffer (pfile);
 
   if (pfile->macro_buffer)
     {
@@ -566,11 +566,18 @@ cpp_destroy (pfile)
 
   _cpp_destroy_hashtable (pfile);
   _cpp_cleanup_includes (pfile);
-  _cpp_free_lookaheads (pfile);
 
-  _cpp_free_pool (&pfile->ident_pool);
-  _cpp_free_pool (&pfile->macro_pool);
-  _cpp_free_pool (&pfile->argument_pool);
+  _cpp_free_buff (pfile->a_buff);
+  _cpp_free_buff (pfile->u_buff);
+  _cpp_free_buff (pfile->free_buffs);
+
+  for (run = &pfile->base_run; run; run = runn)
+    {
+      runn = run->next;
+      free (run->base);
+      if (run != &pfile->base_run)
+	free (run);
+    }
 
   for (dir = CPP_OPTION (pfile, quote_include); dir; dir = dirn)
     {
@@ -584,6 +591,8 @@ cpp_destroy (pfile)
       contextn = context->next;
       free (context);
     }
+
+  free_line_maps (&pfile->line_maps);
 
   result = pfile->errors;
   free (pfile);
@@ -633,6 +642,7 @@ static const struct builtin builtin_array[] =
   B("__BASE_FILE__",	 BT_BASE_FILE),
   B("__LINE__",		 BT_SPECLINE),
   B("__INCLUDE_LEVEL__", BT_INCLUDE_LEVEL),
+  B("_Pragma",		 BT_PRAGMA),
 
   X("__VERSION__",		VERS),
   X("__USER_LABEL_PREFIX__",	ULP),
@@ -679,7 +689,7 @@ static const struct builtin builtin_array[] =
 #define builtin_array_end \
  builtin_array + sizeof(builtin_array)/sizeof(struct builtin)
 
-/* Subroutine of cpp_start_read; reads the builtins table above and
+/* Subroutine of cpp_read_main_file; reads the builtins table above and
    enters the macros into the hash table.  */
 static void
 init_builtins (pfile)
@@ -809,7 +819,7 @@ init_standard_includes (pfile)
   if (specd_prefix != 0 && cpp_GCC_INCLUDE_DIR_len)
     {
       /* Remove the `include' from /usr/local/lib/gcc.../include.
-	 GCC_INCLUDE_DIR will always end in /include. */
+	 GCC_INCLUDE_DIR will always end in /include.  */
       int default_len = cpp_GCC_INCLUDE_DIR_len;
       char *default_prefix = (char *) alloca (default_len + 1);
       int specd_len = strlen (specd_prefix);
@@ -850,51 +860,61 @@ init_standard_includes (pfile)
 	  || (CPP_OPTION (pfile, cplusplus)
 	      && !CPP_OPTION (pfile, no_standard_cplusplus_includes)))
 	{
-	  char *str = xstrdup (update_path (p->fname, p->component));
+	  char *str = update_path (p->fname, p->component);
 	  append_include_chain (pfile, str, SYSTEM, p->cxx_aware);
 	}
     }
 }
 
-/* Handles -imacro and -include from the command line.  */
-static void
-do_includes (pfile, p, scan)
+/* Pushes a -imacro and -include file given on the command line onto
+   the buffer stack.  Returns non-zero if successful.  */
+static bool
+push_include (pfile, p)
      cpp_reader *pfile;
      struct pending_option *p;
-     int scan;
 {
-  while (p)
-    {
-      struct pending_option *q;
+  cpp_token header;
 
-      /* Don't handle if -fpreprocessed.  Later: maybe update this to
-	 use the #include "" search path if cpp_read_file fails.  */
-      if (CPP_OPTION (pfile, preprocessed))
-	cpp_error (pfile, "-include and -imacros cannot be used with -fpreprocessed");
-      else
-	{
-	  cpp_token header;
-	  header.type = CPP_STRING;
-	  header.val.str.text = (const unsigned char *) p->arg;
-	  header.val.str.len = strlen (p->arg);
-	  if (_cpp_execute_include (pfile, &header, IT_CMDLINE) && scan)
-	    cpp_scan_buffer_nooutput (pfile, 0);
-	}
-      q = p->next;
-      free (p);
-      p = q;
+  /* Later: maybe update this to use the #include "" search path
+     if cpp_read_file fails.  */
+  header.type = CPP_STRING;
+  header.val.str.text = (const unsigned char *) p->arg;
+  header.val.str.len = strlen (p->arg);
+  /* Make the command line directive take up a line.  */
+  pfile->line++;
+
+  return _cpp_execute_include (pfile, &header, IT_CMDLINE);
+}
+
+/* Frees a pending_option chain.  */
+static void
+free_chain (head)
+     struct pending_option *head;
+{
+  struct pending_option *next;
+
+  while (head)
+    {
+      next = head->next;
+      free (head);
+      head = next;
     }
 }
 
-/* This is called after options have been processed.  Setup for
-   processing input from the file named FNAME, or stdin if it is the
-   empty string.  Return 1 on success, 0 on failure.  */
-int
-cpp_start_read (pfile, fname)
+/* This is called after options have been parsed, and partially
+   processed.  Setup for processing input from the file named FNAME,
+   or stdin if it is the empty string.  Return the original filename
+   on success (e.g. foo.i->foo.c), or NULL on failure.  */
+const char *
+cpp_read_main_file (pfile, fname, table)
      cpp_reader *pfile;
      const char *fname;
+     hash_table *table;
 {
-  struct pending_option *p, *q;
+  /* The front ends don't set up the hash table until they have
+     finished processing the command line options, so initializing the
+     hashtable is deferred until now.  */
+  _cpp_init_hashtable (pfile, table);
 
   /* Set up the include search path now.  */
   if (! CPP_OPTION (pfile, no_standard_includes))
@@ -920,39 +940,131 @@ cpp_start_read (pfile, fname)
     /* Set the default target (if there is none already).  */
     deps_add_default_target (pfile->deps, fname);
 
-  /* Open the main input file.  This must be done early, so we have a
-     buffer to stand on.  */
+  /* Open the main input file.  */
   if (!_cpp_read_file (pfile, fname))
-    return 0;
+    return NULL;
 
-  /* If already preprocessed, don't install __LINE__, etc., and ignore
-     command line definitions and assertions.  Handle -U's, -D's and
-     -A's in the order they were seen.  */
-  if (! CPP_OPTION (pfile, preprocessed))
-    init_builtins (pfile);
+  /* Set this after cpp_post_options so the client can change the
+     option if it wishes, and after stacking the main file so we don't
+     trace the main file.  */
+  pfile->line_maps.trace_includes = CPP_OPTION (pfile, print_include_names);
 
-  p = CPP_OPTION (pfile, pending)->directive_head;
-  while (p)
+  /* For foo.i, read the original filename foo.c now, for the benefit
+     of the front ends.  */
+  if (CPP_OPTION (pfile, preprocessed))
+    read_original_filename (pfile);
+
+  return pfile->map->to_file;
+}
+
+/* For preprocessed files, if the first tokens are of the form # NUM.
+   handle the directive so we know the original file name.  This will
+   generate file_change callbacks, which the front ends must handle
+   appropriately given their state of initialization.  */
+static void
+read_original_filename (pfile)
+     cpp_reader *pfile;
+{
+  const cpp_token *token, *token1;
+
+  /* Lex ahead; if the first tokens are of the form # NUM, then
+     process the directive, otherwise back up.  */
+  token = _cpp_lex_direct (pfile);
+  if (token->type == CPP_HASH)
     {
-      if (! CPP_OPTION (pfile, preprocessed))
-	(*p->handler) (pfile, p->arg);
-      q = p->next;
-      free (p);
-      p = q;
+      token1 = _cpp_lex_direct (pfile);
+      _cpp_backup_tokens (pfile, 1);
+
+      /* If it's a #line directive, handle it.  */
+      if (token1->type == CPP_NUMBER)
+	{
+	  _cpp_handle_directive (pfile, token->flags & PREV_WHITE);
+	  return;
+	}
     }
 
-  /* The -imacros files can be scanned now, but the -include files
-     have to be pushed onto the buffer stack and processed later,
-     otherwise cppmain.c won't see the tokens.  include_head was built
-     up as a stack, and popping this stack onto the buffer stack means
-     we preserve the order of the command line.  */
-  do_includes (pfile, CPP_OPTION (pfile, pending)->imacros_head, 1);
-  do_includes (pfile, CPP_OPTION (pfile, pending)->include_head, 0);
+  /* Backup as if nothing happened.  */
+  _cpp_backup_tokens (pfile, 1);
+}
 
-  free (CPP_OPTION (pfile, pending));
-  CPP_OPTION (pfile, pending) = NULL;
+/* Handle pending command line options: -D, -U, -A, -imacros and
+   -include.  This should be called after debugging has been properly
+   set up in the front ends.  */
+void
+cpp_finish_options (pfile)
+     cpp_reader *pfile;
+{
+  /* Install builtins and process command line macros etc. in the order
+     they appeared, but only if not already preprocessed.  */
+  if (! CPP_OPTION (pfile, preprocessed))
+    {
+      struct pending_option *p;
 
-  return 1;
+      _cpp_do_file_change (pfile, LC_RENAME, _("<built-in>"), 1, 0);
+      init_builtins (pfile);
+      _cpp_do_file_change (pfile, LC_RENAME, _("<command line>"), 1, 0);
+      for (p = CPP_OPTION (pfile, pending)->directive_head; p; p = p->next)
+	(*p->handler) (pfile, p->arg);
+
+      /* Scan -imacros files after command line defines, but before
+	 files given with -include.  */
+      while ((p = CPP_OPTION (pfile, pending)->imacros_head) != NULL)
+	{
+	  if (push_include (pfile, p))
+	    {
+	      pfile->buffer->return_at_eof = true;
+	      cpp_scan_nooutput (pfile);
+	    }
+	  CPP_OPTION (pfile, pending)->imacros_head = p->next;
+	  free (p);
+	}
+    }
+
+  free_chain (CPP_OPTION (pfile, pending)->directive_head);
+  _cpp_push_next_buffer (pfile);
+}
+
+/* Called to push the next buffer on the stack given by -include.  If
+   there are none, free the pending structure and restore the line map
+   for the main file.  */
+bool
+_cpp_push_next_buffer (pfile)
+     cpp_reader *pfile;
+{
+  bool pushed = false;
+
+  /* This is't pretty; we'd rather not be relying on this as a boolean
+     for reverting the line map.  Further, we only free the chains in
+     this conditional, so an early call to cpp_finish / cpp_destroy
+     will leak that memory.  */
+  if (CPP_OPTION (pfile, pending)
+      && CPP_OPTION (pfile, pending)->imacros_head == NULL)
+    {
+      while (!pushed)
+	{
+	  struct pending_option *p = CPP_OPTION (pfile, pending)->include_head;
+
+	  if (p == NULL)
+	    break;
+	  if (! CPP_OPTION (pfile, preprocessed))
+	    pushed = push_include (pfile, p);
+	  CPP_OPTION (pfile, pending)->include_head = p->next;
+	  free (p);
+	}
+
+      if (!pushed)
+	{
+	  free (CPP_OPTION (pfile, pending));
+	  CPP_OPTION (pfile, pending) = NULL;
+
+	  /* Restore the line map for the main file.  */
+	  if (! CPP_OPTION (pfile, preprocessed))
+	    _cpp_do_file_change (pfile, LC_RENAME,
+				 pfile->line_maps.maps[0].to_file, 1, 0);
+	}
+    }
+
+  return pushed;
 }
 
 /* Use mkdeps.c to output dependency information.  */
@@ -962,7 +1074,8 @@ output_deps (pfile)
 {
   /* Stream on which to print the dependency information.  */
   FILE *deps_stream = 0;
-  const char *deps_mode = CPP_OPTION (pfile, print_deps_append) ? "a" : "w";
+  const char *const deps_mode =
+    CPP_OPTION (pfile, print_deps_append) ? "a" : "w";
 
   if (CPP_OPTION (pfile, deps_file) == 0)
     deps_stream = stdout;
@@ -997,12 +1110,13 @@ void
 cpp_finish (pfile)
      cpp_reader *pfile;
 {
-  if (CPP_BUFFER (pfile))
-    {
-      cpp_ice (pfile, "buffers still stacked in cpp_finish");
-      while (CPP_BUFFER (pfile))
-	cpp_pop_buffer (pfile);
-    }
+  /* cpplex.c leaves the final buffer on the stack.  This it so that
+     it returns an unending stream of CPP_EOFs to the client.  If we
+     popped the buffer, we'd dereference a NULL buffer pointer and
+     segfault.  It's nice to allow the client to do worry-free excess
+     cpp_get_token calls.  */
+  while (pfile->buffer)
+    _cpp_pop_buffer (pfile);
 
   /* Don't write the deps file if preprocessing has failed.  */
   if (CPP_OPTION (pfile, print_deps) && pfile->errors == 0)
@@ -1031,14 +1145,14 @@ new_pending_directive (pend, text, handler)
 /* Irix6 "cc -n32" and OSF4 cc have problems with char foo[] = ("string");
    I.e. a const string initializer with parens around it.  That is
    what N_("string") resolves to, so we make no_* be macros instead.  */
-#define no_arg N_("Argument missing after %s")
-#define no_ass N_("Assertion missing after %s")
-#define no_dir N_("Directory name missing after %s")
-#define no_fil N_("File name missing after %s")
-#define no_mac N_("Macro name missing after %s")
-#define no_pth N_("Path name missing after %s")
-#define no_num N_("Number missing after %s")
-#define no_tgt N_("Target missing after %s")
+#define no_arg N_("argument missing after %s")
+#define no_ass N_("assertion missing after %s")
+#define no_dir N_("directory name missing after %s")
+#define no_fil N_("file name missing after %s")
+#define no_mac N_("macro name missing after %s")
+#define no_pth N_("path name missing after %s")
+#define no_num N_("number missing after %s")
+#define no_tgt N_("target missing after %s")
 
 /* This is the list of all command line options, with the leading
    "-" removed.  It must be sorted in ASCII collating order.  */
@@ -1223,7 +1337,7 @@ cpp_handle_option (pfile, argc, argv)
       else if (CPP_OPTION (pfile, out_fname) == NULL)
 	CPP_OPTION (pfile, out_fname) = argv[i];
       else
-	cpp_fatal (pfile, "Too many filenames. Type %s --help for usage info",
+	cpp_fatal (pfile, "too many filenames. Type %s --help for usage info",
 		   progname);
     }
   else
@@ -1399,7 +1513,7 @@ cpp_handle_option (pfile, argc, argv)
 	  CPP_OPTION (pfile, no_standard_includes) = 1;
 	  break;
 	case OPT_nostdincplusplus:
-	  /* -nostdinc++ causes no default C++-specific include directories. */
+	  /* -nostdinc++ causes no default C++-specific include directories.  */
 	  CPP_OPTION (pfile, no_standard_cplusplus_includes) = 1;
 	  break;
 	case OPT_o:
@@ -1407,7 +1521,7 @@ cpp_handle_option (pfile, argc, argv)
 	    CPP_OPTION (pfile, out_fname) = arg;
 	  else
 	    {
-	      cpp_fatal (pfile, "Output filename specified twice");
+	      cpp_fatal (pfile, "output filename specified twice");
 	      return argc;
 	    }
 	  break;
@@ -1487,15 +1601,7 @@ cpp_handle_option (pfile, argc, argv)
 
 	      if (arg[1] == '\0')
 		{
-		  struct pending_option *o1, *o2;
-
-		  o1 = pend->directive_head;
-		  while (o1)
-		    {
-		      o2 = o1->next;
-		      free (o1);
-		      o1 = o2;
-		    }
+		  free_chain (pend->directive_head);
 		  pend->directive_head = NULL;
 		  pend->directive_tail = NULL;
 		}
@@ -1540,18 +1646,6 @@ cpp_handle_option (pfile, argc, argv)
 	  append_include_chain (pfile, xstrdup (arg), SYSTEM, 0);
 	  break;
 	case OPT_include:
-	  {
-	    struct pending_option *o = (struct pending_option *)
-	      xmalloc (sizeof (struct pending_option));
-	    o->arg = arg;
-
-	    /* This list has to be built in reverse order so that
-	       when cpp_start_read pushes all the -include files onto
-	       the buffer stack, they will be scanned in forward order.  */
-	    o->next = pend->include_head;
-	    pend->include_head = o;
-	  }
-	  break;
 	case OPT_imacros:
 	  {
 	    struct pending_option *o = (struct pending_option *)
@@ -1559,7 +1653,10 @@ cpp_handle_option (pfile, argc, argv)
 	    o->arg = arg;
 	    o->next = NULL;
 
-	    APPEND (pend, imacros, o);
+	    if (opt_code == OPT_include)
+	      APPEND (pend, include, o);
+	    else
+	      APPEND (pend, imacros, o);
 	  }
 	  break;
 	case OPT_iwithprefix:
@@ -1696,7 +1793,7 @@ cpp_post_options (pfile)
   if (CPP_OPTION (pfile, cplusplus))
     CPP_OPTION (pfile, warn_traditional) = 0;
 
-  /* Set this if it hasn't been set already. */
+  /* Set this if it hasn't been set already.  */
   if (CPP_OPTION (pfile, user_label_prefix) == NULL)
     CPP_OPTION (pfile, user_label_prefix) = USER_LABEL_PREFIX;
 
@@ -1765,12 +1862,14 @@ init_dependency_output (pfile)
     }
 
   /* If dependencies go to standard output, or -MG is used, we should
-     suppress output.  The user may be requesting other stuff to
-     stdout, with -dM, -v etc.  We let them shoot themselves in the
-     foot.  */
+     suppress output, including -dM, -dI etc.  */
   if (CPP_OPTION (pfile, deps_file) == 0
       || CPP_OPTION (pfile, print_deps_missing_files))
-    CPP_OPTION (pfile, no_output) = 1;
+    {
+      CPP_OPTION (pfile, no_output) = 1;
+      CPP_OPTION (pfile, dump_macros) = 0;
+      CPP_OPTION (pfile, dump_includes) = 0;
+    }
 }
 
 static void
@@ -1778,7 +1877,7 @@ print_help ()
 {
   fprintf (stderr, _("Usage: %s [switches] input output\n"), progname);
   /* To keep the lines from getting too long for some compilers, limit
-     to about 500 characters (6 lines) per chunk. */
+     to about 500 characters (6 lines) per chunk.  */
   fputs (_("\
 Switches:\n\
   -include <file>           Include the contents of <file> before other files\n\

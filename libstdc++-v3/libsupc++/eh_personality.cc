@@ -30,6 +30,7 @@
 
 #include <bits/c++config.h>
 #include <cstdlib>
+#include <exception_defines.h>
 #include "unwind-cxx.h"
 
 using namespace __cxxabiv1;
@@ -52,7 +53,7 @@ static const unsigned char *
 parse_lsda_header (_Unwind_Context *context, const unsigned char *p,
 		   lsda_header_info *info)
 {
-  _Unwind_Ptr tmp;
+  _Unwind_Word tmp;
   unsigned char lpstart_encoding;
 
   info->Start = (context ? _Unwind_GetRegionStart (context) : 0);
@@ -84,7 +85,7 @@ parse_lsda_header (_Unwind_Context *context, const unsigned char *p,
 }
 
 static const std::type_info *
-get_ttype_entry (lsda_header_info *info, long i)
+get_ttype_entry (lsda_header_info *info, _Unwind_Word i)
 {
   _Unwind_Ptr ptr;
 
@@ -97,14 +98,14 @@ get_ttype_entry (lsda_header_info *info, long i)
 
 static bool
 check_exception_spec (lsda_header_info *info, const std::type_info *throw_type,
-		      long filter_value)
+		      _Unwind_Sword filter_value)
 {
   const unsigned char *e = info->TType - filter_value - 1;
 
   while (1)
     {
       const std::type_info *catch_type;
-      _Unwind_Ptr tmp;
+      _Unwind_Word tmp;
       void *dummy;
 
       e = read_uleb128 (e, &tmp);
@@ -197,7 +198,7 @@ PERSONALITY_FUNCTION (int version,
     }
   else
     {
-      _Unwind_Ptr cs_lp, cs_action;
+      _Unwind_Word cs_lp, cs_action;
       do
 	{
 	  p = read_uleb128 (p, &cs_lp);
@@ -216,7 +217,8 @@ PERSONALITY_FUNCTION (int version,
   // Search the call-site table for the action associated with this IP.
   while (p < info.action_table)
     {
-      _Unwind_Ptr cs_start, cs_len, cs_lp, cs_action;
+      _Unwind_Ptr cs_start, cs_len, cs_lp;
+      _Unwind_Word cs_action;
 
       // Note that all call-site encodings are "absolute" displacements.
       p = read_encoded_value (0, info.call_site_encoding, p, &cs_start);
@@ -262,7 +264,7 @@ PERSONALITY_FUNCTION (int version,
     {
       // Otherwise we have a catch handler or exception specification.
 
-      signed long ar_filter, ar_disp;
+      _Unwind_Sword ar_filter, ar_disp;
       const std::type_info *throw_type, *catch_type;
       bool saw_cleanup = false;
       bool saw_handler = false;
@@ -279,11 +281,9 @@ PERSONALITY_FUNCTION (int version,
 
       while (1)
 	{
-	  _Unwind_Ptr tmp;
-
 	  p = action_record;
-	  p = read_sleb128 (p, &tmp); ar_filter = tmp;
-	  read_sleb128 (p, &tmp); ar_disp = tmp;
+	  p = read_sleb128 (p, &ar_filter);
+	  read_sleb128 (p, &ar_disp);
 
 	  if (ar_filter == 0)
 	    {
@@ -399,8 +399,11 @@ PERSONALITY_FUNCTION (int version,
 }
 
 extern "C" void
-__cxa_call_unexpected (_Unwind_Exception *exc_obj)
+__cxa_call_unexpected (void *exc_obj_in)
 {
+  _Unwind_Exception *exc_obj
+    = reinterpret_cast <_Unwind_Exception *>(exc_obj_in);
+
   __cxa_begin_catch (exc_obj);
 
   // This function is a handler for our exception argument.  If we exit
@@ -413,31 +416,33 @@ __cxa_call_unexpected (_Unwind_Exception *exc_obj)
 
   __cxa_exception *xh = __get_exception_header_from_ue (exc_obj);
 
-  try {
-    __unexpected (xh->unexpectedHandler);
-  } catch (...) {
-    // Get the exception thrown from unexpected.
-    // ??? Foreign exceptions can't be stacked this way.
-
-    __cxa_eh_globals *globals = __cxa_get_globals_fast ();
-    __cxa_exception *new_xh = globals->caughtExceptions;
-
-    // We don't quite have enough stuff cached; re-parse the LSDA.
-    lsda_header_info info;
-    parse_lsda_header (0, xh->languageSpecificData, &info);
-    info.ttype_base = (_Unwind_Ptr) xh->catchTemp;
-
-    // If this new exception meets the exception spec, allow it.
-    if (check_exception_spec (&info, new_xh->exceptionType,
-			      xh->handlerSwitchValue))
-      throw;
-
-    // If the exception spec allows std::bad_exception, throw that.
-    const std::type_info &bad_exc = typeid (std::bad_exception);
-    if (check_exception_spec (&info, &bad_exc, xh->handlerSwitchValue))
-      throw std::bad_exception ();
-
-    // Otherwise, die.
-    __terminate(xh->terminateHandler);
-  }
+  try 
+    { __unexpected (xh->unexpectedHandler); } 
+  catch(...) 
+    {
+      // Get the exception thrown from unexpected.
+      // ??? Foreign exceptions can't be stacked this way.
+      
+      __cxa_eh_globals *globals = __cxa_get_globals_fast ();
+      __cxa_exception *new_xh = globals->caughtExceptions;
+      
+      // We don't quite have enough stuff cached; re-parse the LSDA.
+      lsda_header_info info;
+      parse_lsda_header (0, xh->languageSpecificData, &info);
+      info.ttype_base = (_Unwind_Ptr) xh->catchTemp;
+      
+      // If this new exception meets the exception spec, allow it.
+      if (check_exception_spec (&info, new_xh->exceptionType,
+				xh->handlerSwitchValue))
+	__throw_exception_again;
+      
+      // If the exception spec allows std::bad_exception, throw that.
+#ifdef __EXCEPTIONS  
+      const std::type_info &bad_exc = typeid (std::bad_exception);
+      if (check_exception_spec (&info, &bad_exc, xh->handlerSwitchValue))
+	throw std::bad_exception();
+#endif   
+      // Otherwise, die.
+      __terminate(xh->terminateHandler);
+    }
 }

@@ -55,7 +55,7 @@ Boston, MA 02111-1307, USA.  */
 	call_used_regs[regno] = 1;					\
     }									\
   /* odd registers from fp21 to fp31 are now caller saved.  */		\
-  if (mips_abi == ABI_N32)						\
+  if (mips_abi == ABI_N32 || mips_abi == ABI_MEABI)  			\
     {									\
       int regno;							\
       for (regno = FP_REG_FIRST + 21; regno <= FP_REG_FIRST + 31; regno+=2) \
@@ -98,10 +98,6 @@ Boston, MA 02111-1307, USA.  */
        > (2 * UNITS_PER_WORD)) 						 \
       || (int_size_in_bytes (TYPE) == -1)))
 
-#ifdef ANSI_PROTOTYPES
-union tree_node;
-#endif
-extern struct rtx_def *mips_function_value PARAMS ((union tree_node *, union tree_node *));
 #undef FUNCTION_VALUE
 #define FUNCTION_VALUE(VALTYPE, FUNC)	mips_function_value (VALTYPE, FUNC)
 
@@ -254,6 +250,3 @@ extern struct rtx_def *mips_function_value PARAMS ((union tree_node *, union tre
 /* ??? Could optimize structure passing by putting the right register rtx
    into the field decl, so that if we use the field, we can take the value from
    a register instead of from memory.  */
-
-
-

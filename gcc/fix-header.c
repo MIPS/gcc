@@ -1,6 +1,6 @@
 /* fix-header.c - Make C header file suitable for C++.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2001 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -199,7 +199,7 @@ static int inf_skip_spaces PARAMS ((int));
 static int inf_read_upto PARAMS ((sstring *, int));
 static int inf_scan_ident PARAMS ((sstring *, int));
 static int check_protection PARAMS ((int *, int *));
-static void cb_file_change PARAMS ((cpp_reader *, const cpp_file_change *));
+static void cb_file_change PARAMS ((cpp_reader *, const struct line_map *));
 
 static void
 add_symbols (flags, names)
@@ -598,12 +598,12 @@ check_macro_names (pfile, names)
 }
 
 static void
-cb_file_change (pfile, fc)
+cb_file_change (pfile, map)
      cpp_reader *pfile ATTRIBUTE_UNUSED;
-     const cpp_file_change *fc;
+     const struct line_map *map;
 {
   /* Just keep track of current file name.  */
-  cur_file = fc->to.filename;
+  cur_file = map->to_file;
 }
 
 static void
@@ -612,16 +612,16 @@ read_scan_file (in_fname, argc, argv)
      int argc;
      char **argv;
 {
-  cpp_reader* scan_in;
+  cpp_reader *scan_in;
   cpp_callbacks *cb;
   cpp_options *options;
   struct fn_decl *fn;
   int i;
-  register struct symbol_list *cur_symbols;
+  struct symbol_list *cur_symbols;
 
   obstack_init (&scan_file_obstack); 
 
-  scan_in = cpp_create_reader (NULL, CLK_GNUC89);
+  scan_in = cpp_create_reader (CLK_GNUC89);
   cb = cpp_get_callbacks (scan_in);
   cb->file_change = cb_file_change;
 
@@ -638,8 +638,10 @@ read_scan_file (in_fname, argc, argv)
   if (CPP_FATAL_ERRORS (scan_in))
     exit (FATAL_EXIT_CODE);
 
-  if (! cpp_start_read (scan_in, in_fname))
+  if (! cpp_read_main_file (scan_in, in_fname, NULL))
     exit (FATAL_EXIT_CODE);
+
+  cpp_finish_options (scan_in);
 
   /* We are scanning a system header, so mark it as such.  */
   cpp_make_system_header (scan_in, 1, 0);
@@ -658,18 +660,16 @@ read_scan_file (in_fname, argc, argv)
 
       /* Scan the macro expansion of "getchar();".  */
       cpp_push_buffer (scan_in, getchar_call, sizeof(getchar_call) - 1,
-		       BUF_BUILTIN, in_fname);
+		       /* from_stage3 */ true, 1);
       for (;;)
 	{
-	  cpp_token t;
+	  const cpp_token *t = cpp_get_token (scan_in);
 
-	  cpp_get_token (scan_in, &t);
-	  if (t.type == CPP_EOF)
+	  if (t->type == CPP_EOF)
 	    break;
-	  else if (cpp_ideq (&t, "_filbuf"))
+	  else if (cpp_ideq (t, "_filbuf"))
 	    seen_filbuf++;
 	}
-      cpp_pop_buffer (scan_in);
 
       if (seen_filbuf)
 	{
@@ -732,7 +732,7 @@ write_rbrac ()
 {
   struct fn_decl *fn;
   const char *cptr;
-  register struct symbol_list *cur_symbols;
+  struct symbol_list *cur_symbols;
 
   if (required_unseen_count)
     {
@@ -931,17 +931,17 @@ inf_read_upto (str, delim)
 
 static int
 inf_scan_ident (s, c)
-     register sstring *s;
+     sstring *s;
      int c;
 {
   s->ptr = s->base;
-  if (ISALPHA (c) || c == '_')
+  if (ISIDST (c))
     {
       for (;;)
 	{
 	  SSTRING_PUT (s, c);
 	  c = INF_GET ();
-	  if (c == EOF || !(ISALNUM (c) || c == '_'))
+	  if (c == EOF || !(ISIDNUM (c)))
 	    break;
 	}
     }
@@ -1076,11 +1076,11 @@ main (argc, argv)
   int endif_line;
   long to_read;
   long int inf_size;
-  register struct symbol_list *cur_symbols;
+  struct symbol_list *cur_symbols;
 
   if (argv[0] && argv[0][0])
     {
-      register char *p;
+      char *p;
 
       progname = 0;
       for (p = argv[0]; *p; p++)
@@ -1184,9 +1184,6 @@ main (argc, argv)
     }
   inf_size = sbuf.st_size;
   inf_buffer = (char *) xmalloc (inf_size + 2);
-  inf_buffer[inf_size] = '\n';
-  inf_buffer[inf_size + 1] = '\0';
-  inf_limit = inf_buffer + inf_size;
   inf_ptr = inf_buffer;
 
   to_read = inf_size;
@@ -1208,6 +1205,11 @@ main (argc, argv)
     }
 
   close (inf_fd);
+
+  /* Inf_size may have changed if read was short (as on VMS) */
+  inf_buffer[inf_size] = '\n';
+  inf_buffer[inf_size + 1] = '\0';
+  inf_limit = inf_buffer + inf_size;
 
   /* If file doesn't end with '\n', add one.  */
   if (inf_limit > inf_buffer && inf_limit[-1] != '\n')
@@ -1252,7 +1254,7 @@ main (argc, argv)
 	  c = INF_GET ();
 	  if (c == EOF)
 	    break;
-	  if (ISALPHA (c) || c == '_')
+	  if (ISIDST (c))
 	    {
 	      c = inf_scan_ident (&buf, c);
 	      (void) INF_UNGET (c);
@@ -1318,17 +1320,9 @@ v_fatal (str, ap)
 static void
 fatal VPARAMS ((const char *str, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *str;
-#endif
-  va_list ap;
-  
-  VA_START (ap, str);
-
-#ifndef ANSI_PROTOTYPES
-  str = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, str);
+  VA_FIXEDARG (ap, const char *, str);
 
   v_fatal (str, ap);
-  va_end (ap);
+  VA_CLOSE (ap);
 }

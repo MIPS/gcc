@@ -105,10 +105,9 @@ Boston, MA 02111-1307, USA.  */
 /* Arm Assembler barfs on dollars */
 #define DOLLARS_IN_IDENTIFIERS 0
 
+#ifndef NO_DOLLAR_IN_LABEL
 #define NO_DOLLAR_IN_LABEL 1
-
-/* DBX register number for a given compiler register number */
-#define DBX_REGISTER_NUMBER(REGNO)  (REGNO)
+#endif
 
 /* Generate DBX debugging information.  riscix.h will undefine this because
    the native assembler does not support stabs. */
@@ -227,40 +226,12 @@ Boston, MA 02111-1307, USA.  */
     }								\
   while (0)
 
-#define ASM_OUTPUT_INT(STREAM, EXP)		\
-  do						\
-    {						\
-      fprintf (STREAM, "\t.word\t");		\
-      OUTPUT_INT_ADDR_CONST (STREAM, EXP);	\
-      fputc ('\n', STREAM);			\
-    }						\
-  while (0)
-
-#define ASM_OUTPUT_SHORT(STREAM, EXP)		\
-  do						\
-    {						\
-      fprintf (STREAM, "\t.short\t");		\
-      output_addr_const (STREAM, EXP);		\
-      fputc ('\n', STREAM);			\
-    }						\
-  while (0)
-
-#define ASM_OUTPUT_CHAR(STREAM, EXP)		\
-  do						\
-    {						\
-      fprintf (STREAM, "\t.byte\t");		\
-      output_addr_const (STREAM, EXP);		\
-      fputc ('\n', STREAM);			\
-    }						\
-  while (0)
-
-#define ASM_OUTPUT_BYTE(STREAM, VALUE)  	\
-  fprintf (STREAM, "\t.byte\t%d\n", VALUE)
-
+#undef  ASM_OUTPUT_ASCII
 #define ASM_OUTPUT_ASCII(STREAM, PTR, LEN)  \
   output_ascii_pseudo_op (STREAM, (const unsigned char *)(PTR), LEN)
 
 /* Output a gap.  In fact we fill it with nulls.  */
+#undef  ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(STREAM, NBYTES) 	\
   fprintf (STREAM, "\t.space\t%d\n", NBYTES)
 
@@ -329,5 +300,3 @@ Boston, MA 02111-1307, USA.  */
 
 /* This works for GAS and some other assemblers.  */
 #define SET_ASM_OP		"\t.set\t"
-
-#include "arm.h"

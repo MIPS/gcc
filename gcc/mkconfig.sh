@@ -49,12 +49,29 @@ for def in $DEFINES; do
     echo "#endif"
 done
 
-# Include insn-codes.h last, because it includes machmode.h,
-# and we want EXTRA_CC_MODES to be taken into account.
-echo "#ifndef GENERATOR_FILE"
-echo "#include \"insn-codes.h\""
-echo "#include \"insn-flags.h\""
-echo "#endif"
+# If this is tm_p.h, include tm-preds.h unconditionally.
+# If this is tconfig.h or hconfig.h, include no more files.
+# Otherwise, include insn-constants.h and insn-flags.h,
+# but only if GENERATOR_FILE is not defined.
+case $output in
+    *tm_p.h)
+	echo "#include \"tm-preds.h\""
+    ;;
+    *tconfig.h | *hconfig.h)
+    ;;
+    *)
+	echo "#ifndef GENERATOR_FILE"
+	echo "# include \"insn-constants.h\""
+	echo "# include \"insn-flags.h\""
+	echo "#endif"
+    ;;
+esac
+
+# Prevent obstack.c from thinking it can do i18n of its error message
+# when it's being linked against a build-side program.
+echo '#ifdef GENERATOR_FILE'
+echo '# undef ENABLE_NLS'
+echo '#endif'
 
 ) > $output.T
 

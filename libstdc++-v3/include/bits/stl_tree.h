@@ -55,12 +55,13 @@
  *
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_tree.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
-#ifndef __SGI_STL_INTERNAL_TREE_H
-#define __SGI_STL_INTERNAL_TREE_H
+#ifndef __GLIBCPP_INTERNAL_TREE_H
+#define __GLIBCPP_INTERNAL_TREE_H
 
 /*
 
@@ -556,10 +557,14 @@ protected:
   _M_create_node(const value_type& __x)
   {
     _Link_type __tmp = _M_get_node();
-    __STL_TRY {
+    try {
       _Construct(&__tmp->_M_value_field, __x);
     }
-    __STL_UNWIND(_M_put_node(__tmp));
+    catch(...)
+      {
+	_M_put_node(__tmp);
+	__throw_exception_again; 
+      }
     return __tmp;
   }
 
@@ -922,7 +927,7 @@ _Rb_tree<_Key, _Val, _KeyOfValue, _Compare, _Alloc>
 {
   if (__position._M_node == _M_header->_M_left) { // begin()
     if (size() > 0 && 
-       _M_key_compare(_S_key(__position._M_node), _KeyOfValue()(__v)))
+       _M_key_compare(_KeyOfValue()(__v), _S_key(__position._M_node)))
       return _M_insert(__position._M_node, __position._M_node, __v);
     // first argument just needs to be non-null 
     else
@@ -1032,7 +1037,7 @@ _Rb_tree<_Key,_Val,_KoV,_Compare,_Alloc>
   _Link_type __top = _M_clone_node(__x);
   __top->_M_parent = __p;
  
-  __STL_TRY {
+  try {
     if (__x->_M_right)
       __top->_M_right = _M_copy(_S_right(__x), __top);
     __p = __top;
@@ -1048,8 +1053,11 @@ _Rb_tree<_Key,_Val,_KoV,_Compare,_Alloc>
       __x = _S_left(__x);
     }
   }
-  __STL_UNWIND(_M_erase(__top));
-
+  catch(...)
+    {
+      _M_erase(__top);
+      __throw_exception_again; 
+    }
   return __top;
 }
 
@@ -1301,7 +1309,7 @@ struct rb_tree : public _Rb_tree<_Key, _Value, _KeyOfValue, _Compare, _Alloc>
 
 } // namespace std 
 
-#endif /* __SGI_STL_INTERNAL_TREE_H */
+#endif /* __GLIBCPP_INTERNAL_TREE_H */
 
 // Local Variables:
 // mode:C++

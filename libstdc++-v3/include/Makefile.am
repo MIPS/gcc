@@ -21,8 +21,6 @@
 ## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 ## USA.
 
-## $Id$
-
 AUTOMAKE_OPTIONS = 1.3 gnits
 MAINT_CHARSET = latin1
 
@@ -78,6 +76,7 @@ bits_headers = \
 	${bits_srcdir}/std_iostream.h \
 	${bits_srcdir}/std_istream.h \
 	${bits_srcdir}/std_iterator.h \
+	${bits_srcdir}/std_limits.h \
 	${bits_srcdir}/std_list.h \
 	${bits_srcdir}/std_locale.h \
 	${bits_srcdir}/std_map.h \
@@ -205,27 +204,6 @@ c_base_headers = \
 	${c_base_srcdir}/std_cwctype.h \
 	${c_base_srcdir}/cmath.tcc 
 
-##c_compatibility_srcdir = ${glibcpp_srcdir}/include/c_compatibility
-##c_compatibility_builddir = ./
-##c_compatibility_headers = \
-##	${c_compatibility_srcdir}/assert.h \
-##	${c_compatibility_srcdir}/ctype.h \
-##	${c_compatibility_srcdir}/errno.h \
-##	${c_compatibility_srcdir}/float.h \
-##	${c_compatibility_srcdir}/limits.h \
-##	${c_compatibility_srcdir}/locale.h \
-##	${c_compatibility_srcdir}/math.h \
-##	${c_compatibility_srcdir}/setjmp.h \
-##	${c_compatibility_srcdir}/signal.h \
-##	${c_compatibility_srcdir}/stdarg.h \
-##	${c_compatibility_srcdir}/stddef.h \
-##	${c_compatibility_srcdir}/stdio.h \
-##	${c_compatibility_srcdir}/stdlib.h \
-##	${c_compatibility_srcdir}/string.h \
-##	${c_compatibility_srcdir}/time.h \
-##	${c_compatibility_srcdir}/wchar.h \
-##	${c_compatibility_srcdir}/wctype.h 
-
 std_srcdir = ${glibcpp_srcdir}/include/std
 std_builddir = ./
 std_headers = \
@@ -284,7 +262,8 @@ target_headers = \
 	${target_srcdir}/ctype_inline.h \
 	${target_srcdir}/ctype_noninline.h \
 	${target_srcdir}/os_defines.h \
-	${glibcpp_srcdir}/@ATOMICITY_INC_SRCDIR@/atomicity.h
+	${glibcpp_srcdir}/@ATOMICITY_INC_SRCDIR@/atomicity.h \
+	${glibcpp_srcdir}/@CPU_LIMITS_INC_SRCDIR@/cpu_limits.h 
 
 thread_builddir = ./${target_alias}/bits
 thread_headers = \
@@ -294,25 +273,19 @@ thread_headers = \
 
 # List of all timestamp files.  By keeping only one copy of this list, both
 # CLEANFILES and all-local are kept up-to-date.
-# XXX stamp-c_compatibility 
 allstamps = stamp-std stamp-bits stamp-c_base stamp-backward stamp-ext \
-	stamp-target stamp-thread stamp-file_model stamp-io stamp-locale
+	stamp-target stamp-thread 
 
-# By adding these files here, automake will remove them for 'make clean'
-CLEANFILES = ${allstamps}
 
 # Here are the rules for building the headers
-all-local: \
-	${target_builddir}/c++config.h \
-	${target_builddir}/std_limits.h \
-	${allstamps}
+all-local: ${target_builddir}/c++config.h ${allstamps}
 
 stamp-std: ${std_headers}
 	@if [ ! -d "${std_builddir}" ]; then \
 	  mkdir -p ${std_builddir} ;\
 	fi ;\
 	(cd ${std_builddir} && @LN_S@ $? .) ;\
-	echo `date` > stamp-std
+	echo `date` > stamp-std 
 
 stamp-bits: ${bits_headers}
 	@if [ ! -d "${bits_builddir}" ]; then \
@@ -328,13 +301,6 @@ stamp-c_base: ${c_base_headers}
 	(cd ${c_base_builddir} && @LN_S@ $? .) ;\
 	echo `date` > stamp-c_base
 
-stamp-c_compatibility: ${c_compatibility_headers}
-	@if [ ! -d "${c_compatibility_builddir}" ]; then \
-	  mkdir -p ${c_compatibility_builddir} ;\
-	fi ;\
-	(cd ${c_compatibility_builddir} && @LN_S@ $? .) ;\
-	echo `date` > stamp-c_compatibility
-
 stamp-backward: ${backward_headers}
 	@if [ ! -d "${backward_builddir}" ]; then \
 	  mkdir -p ${backward_builddir} ;\
@@ -349,40 +315,32 @@ stamp-ext: ${ext_headers}
 	(cd ${ext_builddir} && @LN_S@ $? .) ;\
 	echo `date` > stamp-ext
 
-# Can't use $? in command, otherwise target_builddir will trigger it, and
-# we get bizarre symlinks mazes.
-stamp-target: ${target_headers} ${target_builddir}
-	@(cd ${target_builddir} && @LN_S@ ${target_headers} .) ;\
-	echo `date` > stamp-target
-
-stamp-thread: ${thread_headers} ${thread_builddir}
-	@echo `date` > stamp-thread
-
-stamp-file_model: ${glibcpp_srcdir}/@BASIC_FILE_H@ ${target_builddir}
-	@(cd ${target_builddir} && @LN_S@ ${glibcpp_srcdir}/@BASIC_FILE_H@ basic_file_model.h) ;\
-	echo `date` > stamp-file_model
-
-stamp-io: ${glibcpp_srcdir}/@CSTDIO_H@ ${target_builddir}
-	@(cd ${target_builddir} && @LN_S@ ${glibcpp_srcdir}/@CSTDIO_H@ c++io.h) ;\
-	echo `date` > stamp-io
-
-stamp-locale: ${glibcpp_srcdir}/@CLOCALE_H@ ${target_builddir}
-	@(cd ${target_builddir} && @LN_S@ ${glibcpp_srcdir}/@CLOCALE_H@ c++locale.h) ;\
-	echo `date` > stamp-locale
-
-# This target is kinda special.  The timestamp on a directory gets modified
+# This target is special.  The timestamp on a directory gets modified
 # whenever a file it contains gets modified, and that'll throw off all the
 # build dependencies that need this target.  On the other hand, someone
-# could delete the directory and not the stamp file, faking out the make.
+# could delete the directory and not the stamp file, faking out make.
 ${target_builddir}: stamp-${target_alias}
-
 stamp-${target_alias}:
 	@if [ ! -d ${target_builddir} ]; then \
 	  mkdir -p ${target_builddir} ;\
+	  echo `date` > stamp-${target_alias} ;\
 	fi
-	echo `date` > stamp-${target_alias}
 
-${target_builddir}/c++config.h: ${glibcpp_builddir}/config.h \
+# Target includes static.
+stamp-target: ${target_headers} ${target_builddir}
+	@cd ${target_builddir} ;\
+	if [ ! -f stamp-target ]; then \
+	  @LN_S@ ${target_headers} . ;\
+	  @LN_S@ ${glibcpp_srcdir}/@BASIC_FILE_H@ basic_file_model.h ;\
+	  @LN_S@ ${glibcpp_srcdir}/@CSTDIO_H@ c++io.h ;\
+	  @LN_S@ ${glibcpp_srcdir}/@CLOCALE_H@ c++locale.h ;\
+	  @LN_S@ ${glibcpp_srcdir}/@CMESSAGES_H@ messages_members.h ;\
+	  @LN_S@ ${glibcpp_srcdir}/@CCODECVT_H@ codecvt_specializations.h ;\
+	  echo `date` > stamp-target; \
+	fi
+
+# Target includes dynamic.
+${target_builddir}/c++config.h: ../config.h \
 				${glibcpp_srcdir}/include/bits/c++config \
 				${target_builddir}
 	@cat ${glibcpp_srcdir}/include/bits/c++config > $@ ;\
@@ -393,40 +351,35 @@ ${target_builddir}/c++config.h: ${glibcpp_builddir}/config.h \
 	    < ${glibcpp_builddir}/config.h >> $@ ;\
 	echo "#endif // _CPP_CPPCONFIG_" >>$@
 
-# This tool leaves the header in the wrong place, but rather than fix the
-# tool, the destination get massaged here.
-${target_builddir}/std_limits.h: ${target_builddir}/c++config.h \
-				 stamp-target ${target_builddir}
-	CC="$(CC) -I${glibcpp_builddir} -I${target_builddir}/.." \
-	${glibcpp_srcdir}/mknumeric_limits \
-	${glibcpp_builddir} ${glibcpp_srcdir} @GLIBCPP_IS_CROSS_COMPILING@ ;\
-	mv ${glibcpp_builddir}/include/bits/std_limits.h ${target_builddir}
-
+# Target includes for threads
 glibcpp_thread_h = @glibcpp_thread_h@
 uppercase = [ABCDEFGHIJKLMNOPQRSTUVWXYZ_]
+
+stamp-thread: ${thread_headers} ${thread_builddir}
+	@echo `date` > stamp-thread
+
 
 ${thread_builddir}/gthr.h:
 	sed -e '/^#/s/\(${uppercase}${uppercase}*\)/_GLIBCPP_\1/g' \
 	    -e 's,^#include "\(.*\)",#include <bits/\1>,g' \
-	    < ${glibcpp_srcdir}/../gcc/gthr.h > $@
+	    < ${toplevel_srcdir}/gcc/gthr.h > $@
 
 ${thread_builddir}/gthr-single.h:
 	sed -e 's/\(UNUSED\)/_GLIBCPP_\1/g' \
 	    -e 's/\(GCC${uppercase}*_H\)/_GLIBCPP_\1/g' \
-	    < ${glibcpp_srcdir}/../gcc/gthr-single.h > $@
+	    < ${toplevel_srcdir}/gcc/gthr-single.h > $@
 
 ${thread_builddir}/gthr-default.h:
 	sed -e 's/\(UNUSED\)/_GLIBCPP_\1/g' \
 	    -e 's/\(GCC${uppercase}*_H\)/_GLIBCPP_\1/g' \
 	    -e 's/\(${uppercase}*WEAK\)/_GLIBCPP_\1/g' \
-	    < ${glibcpp_srcdir}/../gcc/${glibcpp_thread_h} > $@
+	    < ${toplevel_srcdir}/gcc/${glibcpp_thread_h} > $@
 
 # One big happy istallation:  just copy everything from the build to the
 # install tree (except for the build stamps).
 gxx_include_dir = @gxx_include_dir@
-
 install-data-local:
-	for file in `find . ! -name stamp-\* -print`; do \
+	for file in `find . ! -name stamp-\* ! -name Makefile -print`; do \
 	installFile=${gxx_include_dir}/$${file} ;\
 	if [ -d $${file} ]; then \
 	  $(INSTALL) -d $${installFile} ;\
@@ -435,3 +388,5 @@ install-data-local:
 	fi ;\
 	done
 
+# By adding these files here, automake will remove them for 'make clean'
+#CLEANFILES = ${allstamps}

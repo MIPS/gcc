@@ -1,4 +1,4 @@
-/* Copyright (C) 2000  Free Software Foundation
+/* Copyright (C) 2000, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -80,7 +80,7 @@ public abstract class SampleModel
    *
    * This method is provided as a faster alternative to getPixel(),
    * that can be used when there is no need to decode the pixel into
-   * seperate sample values.
+   * separate sample values.
    *
    * @param obj An array to return the pixel data in. If null, an
    * array of the right type and size will be created.
@@ -179,7 +179,7 @@ public abstract class SampleModel
     
     for (int b=0; b<numBands; b++)
       {
-        fArray[0] = getSampleFloat(x, y, b, data);
+        fArray[b] = getSampleFloat(x, y, b, data);
       }
     return fArray;
   }
@@ -188,7 +188,7 @@ public abstract class SampleModel
     if (dArray == null) dArray = new double[numBands];
     for (int b=0; b<numBands; b++)
       {
-	dArray[0] = getSampleDouble(x, y, b, data);
+	dArray[b] = getSampleDouble(x, y, b, data);
       }
     return dArray;
   }

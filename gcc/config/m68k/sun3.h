@@ -242,7 +242,7 @@ Boston, MA 02111-1307, USA.  */
           long l;						\
           REAL_VALUE_TO_TARGET_SINGLE (VALUE, l);		\
           if (sizeof (int) == sizeof (long))			\
-            asm_fprintf ((FILE), "%I0x%x", l);			\
+            asm_fprintf ((FILE), "%I0x%x", (int) l);		\
           else							\
             asm_fprintf ((FILE), "%I0x%lx", l);			\
         }							\
@@ -287,7 +287,7 @@ Boston, MA 02111-1307, USA.  */
 #if 0
 /* This was turned off as it caused linking errors on sunos4.1.
    `gcc -a' links in /usr/lib/bb_link.o which does not provide __bb_link
-   but its own version of __bb_init_func. */
+   but its own version of __bb_init_func.  */
 #undef BLOCK_PROFILER_CODE
 #define BLOCK_PROFILER_CODE						\
 extern int ___tcov_init;						\

@@ -27,21 +27,12 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-
 #ifndef _GLIBCPP_OS_DEFINES
-#  define _GLIBCPP_OS_DEFINES
+#define _GLIBCPP_OS_DEFINES 1
 
-
-/* Settings for NetBSD.  */
-
-/* __off_t is a typedef declared in stdio.h.  */
-/* #define __off_t off_t */
-
-/* We don't have off64_t */
-/* #define __off64_t off64_t */
+// System-specific #define, typedefs, corrections, etc, go here.  This
+// file will come before all others.
 
 #define __ssize_t ssize_t
 
 #endif
-
-

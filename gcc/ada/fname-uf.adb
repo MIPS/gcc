@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -28,7 +28,6 @@
 
 with Alloc;
 with Debug;    use Debug;
-with Fmap;     use Fmap;
 with Krunch;
 with Namet;    use Namet;
 with Opt;      use Opt;
@@ -138,10 +137,6 @@ package body Fname.UF is
 
       N : Int;
 
-      Pname : File_Name_Type := No_File;
-      Fname : File_Name_Type := No_File;
-      --  Path name and File name for mapping
-
    begin
       --  Null or error name means that some previous error occurred
       --  This is an unrecoverable error, so signal it.
@@ -149,19 +144,6 @@ package body Fname.UF is
       if Uname <= Error_Name then
          raise Unrecoverable_Error;
       end if;
-
-      --  Look in the map from unit names to file names
-
-      Fname := Mapped_File_Name (Uname);
-
-      --  If the unit name is already mapped, return the corresponding
-      --  file name from the map.
-
-      if Fname /= No_File then
-         return Fname;
-      end if;
-
-      --  If there is a specific SFN pragma, return the corresponding file name
 
       N := SFN_HTable.Get (Uname);
 
@@ -385,25 +367,14 @@ package body Fname.UF is
 
                   --  Check if file exists and if so, return the entry
 
+                  elsif Find_File (Fnam, Source) /= No_File then
+                     return Fnam;
+
+                  --  This entry does not match after all, because this is
+                  --  the first search loop, and the file does not exist.
+
                   else
-                     Pname := Find_File (Fnam, Source);
-
-                  --  Check if file exists and if so, return the entry
-
-                     if Pname /= No_File then
-
-                        --  Add to mapping, so that we don't do another
-                        --  path search in Find_File for this file name
-
-                        Add_To_File_Map (Get_File_Name.Uname, Fnam, Pname);
-                        return Fnam;
-
-                     --  This entry does not match after all, because this is
-                     --  the first search loop, and the file does not exist.
-
-                     else
-                        Fnam := No_File;
-                     end if;
+                     Fnam := No_File;
                   end if;
                end if;
 

@@ -22,6 +22,11 @@ Boston, MA 02111-1307, USA.  */
 /* AIX5 (aka Monterey): a mix of AIX and UnixWare.  
    This file is loosely based on ia64/linux.h. */
 
+/* This macro is a C statement to print on `stderr' a string describing the
+   particular machine description choice.  */
+
+#define TARGET_VERSION fprintf (stderr, " (IA-64) AIX");
+
 #undef ASM_APP_ON
 #define ASM_APP_ON "#APP\n"
 
@@ -29,9 +34,6 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_APP_OFF "#NO_APP\n"
 
 #define SET_ASM_OP	"\t.set\t"
-
-/*#undef PREFERRED_DEBUGGING_TYPE*/
-/*#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG*/
 
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
@@ -150,7 +152,7 @@ do {							\
    the initial value of DECL requires link-time relocations.  */
 
 #undef SELECT_SECTION
-#define SELECT_SECTION(DECL,RELOC)					\
+#define SELECT_SECTION(DECL,RELOC,ALIGN)				\
 {									\
   if (TREE_CODE (DECL) == STRING_CST)					\
     {									\
@@ -184,7 +186,7 @@ do {							\
 
 extern unsigned int ia64_section_threshold;
 #undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, RTX)					\
+#define SELECT_RTX_SECTION(MODE, RTX, ALIGN)				\
 {									\
   if (GET_MODE_SIZE (MODE) > 0						\
       && GET_MODE_SIZE (MODE) <= ia64_section_threshold)		\
@@ -204,7 +206,7 @@ extern unsigned int ia64_section_threshold;
       const char *name;						\
       char *string;						\
       const char *prefix;					\
-      static const char *prefixes[/*4*/3][2] =			\
+      static const char *const prefixes[/*4*/3][2] =		\
       {								\
 	{ ".text.",   ".gnu.linkonce.t." },			\
 	{ ".rodata.", ".gnu.linkonce.r." },			\
@@ -245,11 +247,6 @@ extern unsigned int ia64_section_threshold;
 #else
 #define WCHAR_TYPE "unsigned short"
 #endif
-
-/* Have to get rid of the system's definition so that we can use gcc's
-   instead. */
-#include <sys/machine.h>
-#undef REG_SIZE
 
 /* Define the `__builtin_va_list' type for AIX.  Use char* b/c that's what the
    system headers expect.  */

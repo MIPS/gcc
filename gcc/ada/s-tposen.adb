@@ -7,7 +7,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                             $Revision$
+--                             $Revision: 1.1 $
 --                                                                          --
 --              Copyright (C) 1998-2001 Ada Core Technologies               --
 --                                                                          --
@@ -141,9 +141,6 @@ package body System.Tasking.Protected_Objects.Single_Entry is
      (Self_Id    : Task_ID;
       Object     : Protection_Entry_Access;
       Entry_Call : Entry_Call_Link);
-   --  This procedure executes or queues an entry call, depending
-   --  on the status of the corresponding barrier. It assumes that the
-   --  specified object is locked.
 
    ---------------------
    -- Check_Exception --
@@ -153,10 +150,10 @@ package body System.Tasking.Protected_Objects.Single_Entry is
      (Self_ID    : Task_ID;
       Entry_Call : Entry_Call_Link)
    is
+      use type Ada.Exceptions.Exception_Id;
+
       procedure Internal_Raise (X : Ada.Exceptions.Exception_Id);
       pragma Import (C, Internal_Raise, "__gnat_raise_with_msg");
-
-      use type Ada.Exceptions.Exception_Id;
 
       E : constant Ada.Exceptions.Exception_Id :=
         Entry_Call.Exception_To_Raise;
@@ -191,7 +188,8 @@ package body System.Tasking.Protected_Objects.Single_Entry is
 
    procedure Wait_For_Completion
      (Self_ID    : Task_ID;
-      Entry_Call : Entry_Call_Link) is
+      Entry_Call : Entry_Call_Link)
+   is
    begin
       pragma Assert (Self_ID = Entry_Call.Self);
       Self_ID.Common.State := Entry_Caller_Sleep;
@@ -418,17 +416,18 @@ package body System.Tasking.Protected_Objects.Single_Entry is
          STPO.Unlock (Entry_Call.Self);
       end if;
 
-   exception
-      when others =>
-         Send_Program_Error
-           (Self_Id, Entry_Call);
+   exception                       --  not needed in no exc mode
+      when others =>               --  not needed in no exc mode
+         Send_Program_Error        --  not needed in no exc mode
+           (Self_Id, Entry_Call);  --  not needed in no exc mode
    end PO_Do_Or_Queue;
 
    ----------------------------
    -- Protected_Single_Count --
    ----------------------------
 
-   function Protected_Count_Entry (Object : Protection_Entry) return Natural is
+   function Protected_Count_Entry
+     (Object : Protection_Entry) return Natural is
    begin
       if Object.Call_In_Progress /= null then
          return 1;
@@ -470,12 +469,14 @@ package body System.Tasking.Protected_Objects.Single_Entry is
 
       pragma Assert (Entry_Call.State /= Cancelled);
 
-      if Entry_Call.State /= Done then
-         STPO.Write_Lock (Self_Id);
-         Wait_For_Completion (Self_Id, Entry_Call'Access);
-         STPO.Unlock (Self_Id);
+      if Entry_Call.State = Done then
+         Check_Exception (Self_Id, Entry_Call'Access);
+         return;
       end if;
 
+      STPO.Write_Lock (Self_Id);
+      Wait_For_Completion (Self_Id, Entry_Call'Access);
+      STPO.Unlock (Self_Id);
       Check_Exception (Self_Id, Entry_Call'Access);
    end Protected_Single_Entry_Call;
 
@@ -495,16 +496,20 @@ package body System.Tasking.Protected_Objects.Single_Entry is
 
    procedure Service_Entry (Object : Protection_Entry_Access) is
       Self_Id       : constant Task_ID := STPO.Self;
-      Entry_Call    : constant Entry_Call_Link := Object.Entry_Queue;
+      Entry_Call    : Entry_Call_Link;
       Caller        : Task_ID;
       Barrier_Value : Boolean;
 
    begin
+      Entry_Call := Object.Entry_Queue;
+
       if Entry_Call /= null then
-         Barrier_Value := Object.Entry_Body.Barrier (Object.Compiler_Info, 1);
+         Barrier_Value :=
+           Object.Entry_Body.Barrier (Object.Compiler_Info, 1);
 
          if Barrier_Value then
             if Object.Call_In_Progress /= null then
+
                --  This violates the No_Entry_Queue restriction, send
                --  Program_Error to the caller.
 
@@ -523,9 +528,10 @@ package body System.Tasking.Protected_Objects.Single_Entry is
          end if;
       end if;
 
-   exception
-      when others =>
-         Send_Program_Error (Self_Id, Entry_Call);
+   exception                       --  not needed in no exc mode
+      when others =>               --  not needed in no exc mode
+         Send_Program_Error        --  not needed in no exc mode
+           (Self_Id, Entry_Call);  --  not needed in no exc mode
    end Service_Entry;
 
    ---------------------------------------

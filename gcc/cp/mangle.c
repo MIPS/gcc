@@ -509,7 +509,7 @@ find_substitution (node)
   	         std::basic_string <char,
 		 		    std::char_traits<char>,
 				    std::allocator<char> > .  */
-	  if (CP_TYPE_QUALS (type) == TYPE_UNQUALIFIED
+	  if (cp_type_quals (type) == TYPE_UNQUALIFIED
 	      && CLASSTYPE_USE_TEMPLATE (type))
 	    {
 	      tree args = CLASSTYPE_TI_ARGS (type);
@@ -535,7 +535,7 @@ find_substitution (node)
 
   /* Check for basic_{i,o,io}stream.  */
   if (TYPE_P (node)
-      && CP_TYPE_QUALS (type) == TYPE_UNQUALIFIED
+      && cp_type_quals (type) == TYPE_UNQUALIFIED
       && CLASS_TYPE_P (type)
       && CLASSTYPE_USE_TEMPLATE (type)
       && CLASSTYPE_TEMPLATE_INFO (type) != NULL)
@@ -1393,7 +1393,9 @@ write_type (type)
 	  break;
 
 	case TYPENAME_TYPE:
-	  /* We handle TYPENAME_TYPEs like ordinary nested names.  */
+	case UNBOUND_CLASS_TEMPLATE:
+	  /* We handle TYPENAME_TYPEs and UNBOUND_CLASS_TEMPLATEs like
+	     ordinary nested names.  */
 	  write_nested_name (TYPE_STUB_DECL (type));
 	  break;
 
@@ -1816,18 +1818,32 @@ write_expression (expr)
       /* If it wasn't any of those, recursively expand the expression.  */
       write_string (operator_name_info[(int) code].mangled_name);
 
-      /* Handle pointers-to-members specially.  */
-      if (code == SCOPE_REF)
+      switch (code)
 	{
+	case CAST_EXPR:
+	  write_type (TREE_TYPE (expr));
+	  write_expression (TREE_VALUE (TREE_OPERAND (expr, 0)));
+	  break;
+
+	case STATIC_CAST_EXPR:
+	case CONST_CAST_EXPR:
+	  write_type (TREE_TYPE (expr));
+	  write_expression (TREE_OPERAND (expr, 0));
+	  break;
+
+	/* Handle pointers-to-members specially.  */
+	case SCOPE_REF:
 	  write_type (TREE_OPERAND (expr, 0));
 	  if (TREE_CODE (TREE_OPERAND (expr, 1)) == IDENTIFIER_NODE)
 	    write_source_name (TREE_OPERAND (expr, 1));
 	  else
 	    write_encoding (TREE_OPERAND (expr, 1));
+	  break;
+
+	default:
+	  for (i = 0; i < TREE_CODE_LENGTH (code); ++i)
+	    write_expression (TREE_OPERAND (expr, i));
 	}
-      else
-	for (i = 0; i < TREE_CODE_LENGTH (code); ++i)
-	  write_expression (TREE_OPERAND (expr, i));
     }
 }
 
@@ -2392,11 +2408,7 @@ mangle_conv_op_name_for_type (type)
   /* Build the mangling for TYPE.  */
   const char *mangled_type = mangle_type_string (type);
   /* Allocate a temporary buffer for the complete name.  */
-  char *op_name = (char *) xmalloc (strlen ("operator ") 
-				    + strlen (mangled_type) + 1);
-  /* Assemble the mangling.  */
-  strcpy (op_name, "operator ");
-  strcat (op_name, mangled_type);
+  char *op_name = concat ("operator ", mangled_type, NULL);
   /* Find or create an identifier.  */
   identifier = get_identifier (op_name);
   /* Done with the temporary buffer.  */
@@ -2420,10 +2432,28 @@ mangle_guard_variable (variable)
 {
   start_mangling ();
   write_string ("_ZGV");
-  write_name (variable, /*ignore_local_scope=*/0);
+  if (strncmp (IDENTIFIER_POINTER (DECL_NAME (variable)), "_ZGR", 4) == 0)
+    /* The name of a guard variable for a reference temporary should refer
+       to the reference, not the temporary.  */
+    write_string (IDENTIFIER_POINTER (DECL_NAME (variable)) + 4);
+  else
+    write_name (variable, /*ignore_local_scope=*/0);
   return get_identifier (finish_mangling ());
 }
 
+/* Return an identifier for the name of a temporary variable used to
+   initialize a static reference.  This isn't part of the ABI, but we might
+   as well call them something readable.  */
+
+tree
+mangle_ref_init_variable (variable)
+     tree variable;
+{
+  start_mangling ();
+  write_string ("_ZGR");
+  write_name (variable, /*ignore_local_scope=*/0);
+  return get_identifier (finish_mangling ());
+}
 
 
 /* Foreign language type mangling section.  */

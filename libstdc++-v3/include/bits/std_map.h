@@ -53,14 +53,17 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
+/** @file std_map.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _CPP_MAP
 #define _CPP_MAP 1
 
 #pragma GCC system_header
 
-#ifndef _CPP_BITS_STL_TREE_H  
 #include <bits/stl_tree.h>
-#endif
 #include <bits/stl_map.h>
 #include <bits/stl_multimap.h>
 

@@ -717,7 +717,7 @@ struct rt_cargs {int gregs, fregs; };
 
    On ROMP, all constants are in the data area.  */
 
-#define SELECT_RTX_SECTION(MODE, X)	data_section ()
+#define SELECT_RTX_SECTION(MODE, X, ALIGN)	data_section ()
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
@@ -785,37 +785,7 @@ struct rt_cargs {int gregs, fregs; };
    data area.  */
 
 #define INITIALIZE_TRAMPOLINE(ADDR, FNADDR, CXT)		\
-{								\
-  rtx _addr, _temp;						\
-  rtx _val;							\
-								\
-  _temp = expand_binop (SImode, add_optab, ADDR,		\
-			GEN_INT (4),				\
-			0, 1, OPTAB_LIB_WIDEN);			\
-  emit_move_insn (gen_rtx_MEM (SImode,				\
-			       memory_address (SImode, ADDR)), _temp); \
-								\
-  _val = force_reg (SImode, CXT);				\
-  _addr = memory_address (HImode, plus_constant (ADDR, 10));	\
-  emit_move_insn (gen_rtx_MEM (HImode, _addr),			\
-		  gen_lowpart (HImode, _val));			\
-  _temp = expand_shift (RSHIFT_EXPR, SImode, _val,		\
-			build_int_2 (16, 0), 0, 1);		\
-  _addr = memory_address (HImode, plus_constant (ADDR, 6));	\
-  emit_move_insn (gen_rtx_MEM (HImode, _addr),			\
-		  gen_lowpart (HImode, _temp));			\
-								\
-  _val = force_reg (SImode, FNADDR);				\
-  _addr = memory_address (HImode, plus_constant (ADDR, 24));	\
-  emit_move_insn (gen_rtx_MEM (HImode, _addr),			\
-		  gen_lowpart (HImode, _val));			\
-  _temp = expand_shift (RSHIFT_EXPR, SImode, _val,		\
-			build_int_2 (16, 0), 0, 1);		\
-  _addr = memory_address (HImode, plus_constant (ADDR, 20));	\
-  emit_move_insn (gen_rtx_MEM (HImode, _addr),			\
-		  gen_lowpart (HImode, _temp));			\
-								\
-}
+	romp_initialize_trampoline (ADDR, FNADDR, CXT)
 
 /* Definitions for register eliminations.
 
@@ -1377,10 +1347,6 @@ struct rt_cargs {int gregs, fregs; };
  "r10", "r11", "r12", "r13", "r14", "r15", "ap",		\
  "fr0", "fr1", "fr2", "fr3", "fr4", "fr5", "fr6", "fr7" }
 
-/* How to renumber registers for dbx and gdb.  */
-
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
-
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
 
@@ -1437,30 +1403,6 @@ struct rt_cargs {int gregs, fregs; };
        u_i_f.f = (VALUE);			\
        fprintf (FILE, "\t.long 0x%x\n", u_i_f.i);\
      } while (0)
-
-/* This is how to output an assembler line defining an `int' constant.  */
-
-#define ASM_OUTPUT_INT(FILE,VALUE)  \
-( fprintf (FILE, "\t.long "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* Likewise for `char' and `short' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE,VALUE)  \
-( fprintf (FILE, "\t.short "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE,VALUE)  \
-( fprintf (FILE, "\t.byte "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-
-#define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
 
 /* This is how to output code to push a register on the stack.
    It need not be very fast code.  */

@@ -50,8 +50,8 @@ OUTPUT_LANGUAGE        = English
 # Private class members and static file members will be hidden unless 
 # the EXTRACT_PRIVATE and EXTRACT_STATIC tags are set to YES 
 
-#EXTRACT_ALL            = NO
-EXTRACT_ALL            = YES
+EXTRACT_ALL            = NO
+#EXTRACT_ALL            = YES
 
 # If the EXTRACT_PRIVATE tag is set to YES all private members of a class 
 # will be included in the documentation. 
@@ -125,7 +125,7 @@ INTERNAL_DOCS          = NO
 CLASS_DIAGRAMS         = YES
 
 # If the SOURCE_BROWSER tag is set to YES then a list of source files will 
-# be generated. Documented entities will be cross-referenced with these sources. 
+# be generated. Documented entities will be cross-referenced with these sources.
 
 SOURCE_BROWSER         = YES
 
@@ -234,7 +234,8 @@ GENERATE_BUGLIST       = YES
 # will result in a user defined paragraph with heading "Side Effects:". 
 # You can put \n's in the value part of an alias to insert newlines. 
 
-ALIASES                = 
+ALIASES                = "maint=\if maint" \
+                         "endmaint=\endif"
 
 # The MAX_INITIALIZER_LINES tag determines the maximum number of lines 
 # the initial value of a variable or define consist of for it to appear in 
@@ -344,13 +345,14 @@ RECURSIVE              = YES
 # subdirectory from a directory tree whose root is specified with the INPUT tag. 
 
 EXCLUDE                = include/c \
-                         include/c_shadow
+                         include/c_shadow \
+                         docs/doxygen/stdheader.cc
 
 # If the value of the INPUT tag contains directories, you can use the 
 # EXCLUDE_PATTERNS tag to specify one or more wildcard patterns to exclude 
 # certain files from those directories. 
 
-EXCLUDE_PATTERNS       = 
+EXCLUDE_PATTERNS       = CVS
 
 # The EXAMPLE_PATH tag can be used to specify one or more files or 
 # directories that contain example code fragments that are included (see 
@@ -477,7 +479,7 @@ TOC_EXPAND             = NO
 # top of each HTML page. The value NO (the default) enables the index and 
 # the value YES disables it. 
 
-DISABLE_INDEX          = NO
+DISABLE_INDEX          = YES
 
 # This tag can be used to set the number of enum values (range [1..20]) 
 # that doxygen will group on one line in the generated HTML documentation. 
@@ -601,7 +603,7 @@ RTF_STYLESHEET_FILE    =
 # If the GENERATE_MAN tag is set to YES (the default) Doxygen will 
 # generate man pages 
 
-GENERATE_MAN           = NO
+GENERATE_MAN           = YES
 
 # The MAN_OUTPUT tag is used to specify where the man pages will be put. 
 # If a relative path is entered the value of OUTPUT_DIRECTORY will be 

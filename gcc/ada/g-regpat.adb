@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.2 $
 --                                                                          --
 --               Copyright (C) 1986 by University of Toronto.               --
 --           Copyright (C) 1996-2001 Ada Core Technologies, Inc.            --
@@ -245,9 +245,9 @@ package body GNAT.Regpat is
    procedure Reset_Class (Bitmap : in out Character_Class);
    --  Clear all the entries in the class Bitmap.
 
-   pragma Inline (Set_In_Class);
-   pragma Inline (Get_From_Class);
-   pragma Inline (Reset_Class);
+   pragma Inline_Always (Set_In_Class);
+   pragma Inline_Always (Get_From_Class);
+   pragma Inline_Always (Reset_Class);
 
    -----------------------
    -- Local Subprograms --
@@ -512,9 +512,9 @@ package body GNAT.Regpat is
       --  Parse a posic character class, like [:alpha:] or [:^alpha:].
       --  The called is suppoed to absorbe the opening [.
 
-      pragma Inline (Is_Mult);
-      pragma Inline (Emit_Natural);
-      pragma Inline (Parse_Character_Class); --  since used only once
+      pragma Inline_Always (Is_Mult);
+      pragma Inline_Always (Emit_Natural);
+      pragma Inline_Always (Parse_Character_Class); --  since used only once
 
       ---------------
       -- Case_Emit --
@@ -2401,13 +2401,12 @@ package body GNAT.Regpat is
          return   Boolean;
       --  Return True it the simple operator (possibly non-greedy) matches
 
-      pragma Inline (Index);
-      pragma Inline (Repeat);
+      pragma Inline_Always (Index);
+      pragma Inline_Always (Repeat);
 
       --  These are two complex functions, but used only once.
-
-      pragma Inline (Match_Whilem);
-      pragma Inline (Match_Simple_Operator);
+      pragma Inline_Always (Match_Whilem);
+      pragma Inline_Always (Match_Simple_Operator);
 
       -----------
       -- Index --

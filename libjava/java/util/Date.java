@@ -247,12 +247,13 @@ public class Date implements Cloneable, Comparable, java.io.Serializable
     return (int) time ^ (int) (time >>> 32);
   }
 
-  private String[] weekNames = { "Sun", "Mon", "Tue", "Wed",
-				 "Thu", "Fri", "Sat" };
-  
-  private String[] monthNames = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-				  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-  
+  private static final String[] weekNames = { "Sun", "Mon", "Tue", "Wed",
+					      "Thu", "Fri", "Sat" };
+
+  private static final String[] monthNames = { "Jan", "Feb", "Mar", "Apr",
+					       "May", "Jun", "Jul", "Aug",
+					       "Sep", "Oct", "Nov", "Dec" };
+
   public String toString()
   {
     Calendar cal = Calendar.getInstance();
@@ -667,7 +668,8 @@ public class Date implements Cloneable, Comparable, java.io.Serializable
   {
     Calendar cal = Calendar.getInstance();
     cal.setTimeInMillis(time);
-    return cal.get(Calendar.DAY_OF_WEEK);
+    // For Calendar, Sunday is 1.  For Date, Sunday is 0.
+    return cal.get(Calendar.DAY_OF_WEEK) - 1;
   }
 
   /**

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -582,8 +582,6 @@ package body Rtsfind is
       Pkg_Ent  : Entity_Id;
       Ename    : Name_Id;
 
-      Ravenscar : constant Boolean := Restricted_Profile;
-
       procedure Check_RPC;
       --  Reject programs that make use of distribution features not supported
       --  on the current target. On such targets (VMS, Vxworks, others?) we
@@ -714,17 +712,13 @@ package body Rtsfind is
    --  Start of processing for RTE
 
    begin
-      --  Check violation of no run time and ravenscar mode
+      --  Check violation of no run time mode
 
       if No_Run_Time
         and then not OK_To_Use_In_No_Run_Time_Mode (U_Id)
       then
-         if not Ravenscar
-           or else not OK_To_Use_In_Ravenscar_Mode (U_Id)
-         then
-            Disallow_In_No_Run_Time_Mode (Current_Error_Node);
-            return Empty;
-         end if;
+         Disallow_In_No_Run_Time_Mode (Current_Error_Node);
+         return Empty;
       end if;
 
       --  Doing a rtsfind in system.ads is special, as we cannot do this
@@ -849,7 +843,6 @@ package body Rtsfind is
         and then not
           Is_Predefined_File_Name
             (Unit_File_Name (Get_Source_Unit (Current_Error_Node)))
-        and then not Ravenscar
       then
          Disallow_In_No_Run_Time_Mode (Current_Error_Node);
       end if;

@@ -1,15 +1,25 @@
 // acconfig.h symbols and macros for libstdc++ v3 -*- C++ -*-
 
-// Define if GCC supports weak symbols
+// Defines libstdc++ version.
+#undef PACKAGE
+#undef VERSION
+
+// Needed for gettext.
+#undef ENABLE_NLS
+#undef HAVE_CATGETS
+#undef HAVE_GETTEXT
+#undef HAVE_STPCPY
+
+// Define if GCC supports weak symbols.
 #undef _GLIBCPP_SUPPORTS_WEAK
 
-// Define if gthr-default.h exists (meaning that threading support is enabled)
+// Define if gthr-default.h exists (meaning that threading support is enabled).
 #undef HAVE_GTHR_DEFAULT
 
-// Include support for 'long long' and 'unsigned long long'.
+// Include I/O support for 'long long' and 'unsigned long long'.
 #undef _GLIBCPP_USE_LONG_LONG
 
-// Define if code specialized for wchar_t should be used.
+// Define if C99 features such as lldiv_t, llabs, lldiv should be exposed.
 #undef _GLIBCPP_USE_C99
 
 // Include support for 'long double'.
@@ -20,6 +30,12 @@
 
 // Define if code specialized for wchar_t should be used.
 #undef _GLIBCPP_USE_WCHAR_T
+
+// Define if using setrlimit to limit memory usage during 'make check'.
+#undef _GLIBCPP_MEM_LIMITS
+
+// Define to use concept checking code from the boost libraries.
+#undef _GLIBCPP_CONCEPT_CHECKS
 
 // Define if you have the atan2f function.
 #undef _GLIBCPP_HAVE_ATAN2F 
@@ -38,6 +54,18 @@
 
 // Define if you have the modfl function.
 #undef HAVE_MODFL
+
+// Define if you have the expf function.
+#undef HAVE_EXPF
+
+// Define if you have the expl function.
+#undef HAVE_EXPL
+
+// Define if you have the hypotf function.
+#undef HAVE_HYPOTF
+
+// Define if you have the hypotl function.
+#undef HAVE_HYPOTL
 
 // Define if the compiler/host combination has __builtin_abs
 #undef HAVE___BUILTIN_ABS
@@ -72,8 +100,8 @@
 // Define if the compiler/host combination has __builtin_sinl
 #undef HAVE___BUILTIN_SINL
 
-// Define if the compiler/host combination has __builtin_fsqrt
-#undef HAVE___BUILTIN_FSQRT
+// Define if the compiler/host combination has __builtin_sqrt
+#undef HAVE___BUILTIN_SQRT
 
 // Define if the compiler/host combination has __builtin_sqrtf
 #undef HAVE___BUILTIN_SQRTF

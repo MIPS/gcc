@@ -54,10 +54,6 @@ enum mangling_flags
 
 typedef enum mangling_flags mangling_flags;
 
-/* TREE_LIST of the current inline functions that need to be
-   processed.  */
-struct pending_inline *pending_inlines;
-
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
 
@@ -391,9 +387,7 @@ use_thunk (thunk_fndecl, emit_p)
   fnaddr = DECL_INITIAL (thunk_fndecl);
   if (TREE_CODE (DECL_INITIAL (thunk_fndecl)) != ADDR_EXPR)
     /* We already turned this thunk into an ordinary function.
-       There's no need to process this thunk again.  (We can't just
-       clear DECL_THUNK_P because that will confuse
-       FNADDR_FROM_VTABLE_ENTRY and friends.)  */
+       There's no need to process this thunk again.  */
     return;
 
   /* Thunks are always addressable; they only appear in vtables.  */
@@ -468,6 +462,7 @@ use_thunk (thunk_fndecl, emit_p)
     DECL_RESULT (thunk_fndecl) = NULL_TREE;
 
     start_function (NULL_TREE, thunk_fndecl, NULL_TREE, SF_PRE_PARSED);
+    /* We don't bother with a body block for thunks.  */
 
     /* Adjust the this pointer by the constant.  */
     t = ssize_int (delta);
@@ -519,6 +514,9 @@ use_thunk (thunk_fndecl, emit_p)
        referenced.  */
     TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (thunk_fndecl)) = 1;
 
+    /* But we don't want debugging information about it.  */
+    DECL_IGNORED_P (thunk_fndecl) = 1;
+
     expand_body (finish_function (0));
   }
 
@@ -554,28 +552,34 @@ do_build_copy_constructor (fndecl)
       tree binfos = TYPE_BINFO_BASETYPES (current_class_type);
       tree member_init_list = NULL_TREE;
       tree base_init_list = NULL_TREE;
-      int cvquals = CP_TYPE_QUALS (TREE_TYPE (parm));
+      int cvquals = cp_type_quals (TREE_TYPE (parm));
       int i;
 
-      /* Initialize all the base-classes with the parameter converted to
-         their type so that we get their copy constructor and not another
-         constructor that takes current_class_type.  */
+      /* Initialize all the base-classes with the parameter converted
+	 to their type so that we get their copy constructor and not
+	 another constructor that takes current_class_type.  We must
+	 deal with the binfo's directly as a direct base might be
+	 inaccessible due to ambiguity.  */
       for (t = CLASSTYPE_VBASECLASSES (current_class_type); t;
 	   t = TREE_CHAIN (t))
 	{
-	  tree type = BINFO_TYPE (TREE_VALUE (t));
-	  base_init_list = tree_cons (type, convert_lvalue (type, parm),
+	  tree binfo = TREE_VALUE (t);
+	  
+	  base_init_list = tree_cons (binfo,
+				      build_base_path (PLUS_EXPR, parm,
+						       binfo, 1),
 				      base_init_list);
 	}
 
       for (i = 0; i < n_bases; ++i)
 	{
-	  t = TREE_VEC_ELT (binfos, i);
-	  if (TREE_VIA_VIRTUAL (t))
+	  tree binfo = TREE_VEC_ELT (binfos, i);
+	  if (TREE_VIA_VIRTUAL (binfo))
 	    continue; 
 
-	  t = BINFO_TYPE (t);
-	  base_init_list = tree_cons (t, convert_lvalue (t, parm),
+	  base_init_list = tree_cons (binfo,
+				      build_base_path (PLUS_EXPR, parm,
+						       binfo, 1),
 				      base_init_list);
 	}
 
@@ -591,8 +595,6 @@ do_build_copy_constructor (fndecl)
 	  if (DECL_NAME (field))
 	    {
 	      if (VFIELD_NAME_P (DECL_NAME (field)))
-		continue;
-	      if (VBASE_NAME_P (DECL_NAME (field)))
 		continue;
 
 	      /* True for duplicate members.  */
@@ -645,16 +647,23 @@ do_build_assign_ref (fndecl)
       tree fields = TYPE_FIELDS (current_class_type);
       int n_bases = CLASSTYPE_N_BASECLASSES (current_class_type);
       tree binfos = TYPE_BINFO_BASETYPES (current_class_type);
-      int cvquals = CP_TYPE_QUALS (TREE_TYPE (parm));
+      int cvquals = cp_type_quals (TREE_TYPE (parm));
       int i;
 
       for (i = 0; i < n_bases; ++i)
 	{
-	  tree basetype = BINFO_TYPE (TREE_VEC_ELT (binfos, i));
-	  tree p = convert_lvalue (basetype, parm);
-	  p = build_member_call (basetype, ansi_assopname (NOP_EXPR),
-				 build_tree_list (NULL_TREE, p));
-	  finish_expr_stmt (p);
+	  /* We must deal with the binfo's directly as a direct base
+	     might be inaccessible due to ambiguity.  */
+	  tree binfo = TREE_VEC_ELT (binfos, i);
+	  tree src = build_base_path (PLUS_EXPR, parm, binfo, 1);
+	  tree dst = build_base_path (PLUS_EXPR, current_class_ref, binfo, 1);
+
+	  tree expr = build_method_call (dst,
+					 ansi_assopname (NOP_EXPR),
+					 build_tree_list (NULL_TREE, src),
+					 NULL,
+					 LOOKUP_NORMAL | LOOKUP_NONVIRTUAL);
+	  finish_expr_stmt (expr);
 	}
       for (; fields; fields = TREE_CHAIN (fields))
 	{
@@ -681,8 +690,6 @@ do_build_assign_ref (fndecl)
 	  if (DECL_NAME (field))
 	    {
 	      if (VFIELD_NAME_P (DECL_NAME (field)))
-		continue;
-	      if (VBASE_NAME_P (DECL_NAME (field)))
 		continue;
 
 	      /* True for duplicate members.  */
@@ -720,6 +727,7 @@ synthesize_method (fndecl)
   int nested = (current_function_decl != NULL_TREE);
   tree context = decl_function_context (fndecl);
   int need_body = 1;
+  tree stmt;
 
   if (at_eof)
     import_export_decl (fndecl);
@@ -750,6 +758,7 @@ synthesize_method (fndecl)
   interface_unknown = 1;
   start_function (NULL_TREE, fndecl, NULL_TREE, SF_DEFAULT | SF_PRE_PARSED);
   clear_last_expr ();
+  stmt = begin_function_body ();
 
   if (DECL_OVERLOADED_OPERATOR_P (fndecl) == NOP_EXPR)
     {
@@ -776,6 +785,7 @@ synthesize_method (fndecl)
       finish_compound_stmt (/*has_no_scope=*/0, compound_stmt);
     }
 
+  finish_function_body (stmt);
   expand_body (finish_function (0));
 
   extract_interface_info ();
@@ -926,7 +936,7 @@ locate_copy (type, client_)
         continue;
       if (!sufficient_parms_p (TREE_CHAIN (parms)))
         continue;
-      quals = CP_TYPE_QUALS (src_type);
+      quals = cp_type_quals (src_type);
       if (client->quals & ~quals)
         continue;
       excess = quals & ~client->quals;

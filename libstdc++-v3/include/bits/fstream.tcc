@@ -139,6 +139,14 @@ namespace std
     }
 
   template<typename _CharT, typename _Traits>
+    int
+    basic_filebuf<_CharT, _Traits>::
+    fd()
+    {
+      return _M_file->fd();
+    }
+
+  template<typename _CharT, typename _Traits>
     typename basic_filebuf<_CharT, _Traits>::__filebuf_type* 
     basic_filebuf<_CharT, _Traits>::
     open(const char* __s, ios_base::openmode __mode)
@@ -221,11 +229,10 @@ namespace std
 
       if (__testin)
 	{
-	  bool __testeof = false;
-	  if (_M_in_cur >= _M_in_end)
-	    __testeof = this->underflow() == traits_type::eof();
-	  if (!__testeof)
+	  if (_M_in_cur < _M_in_end)
 	    __ret = _M_in_end - _M_in_cur;
+	  else
+	    __ret = 0;
 	}
       _M_last_overflowed = false;	
       return __ret;

@@ -194,15 +194,31 @@ chain, such as @code{NOTE}, @code{BARRIER}, and @code{CODE_LABEL}.
 @end table
 
 @cindex RTL format
-For each expression type @file{rtl.def} specifies the number of
-contained objects and their kinds, with four possibilities: @samp{e} for
-expression (actually a pointer to an expression), @samp{i} for integer,
-@samp{w} for wide integer, @samp{s} for string, and @samp{E} for vector
-of expressions.  The sequence of letters for an expression code is
-called its @dfn{format}.  For example, the format of @code{subreg} is
-@samp{ei}.
+For each expression code, @file{rtl.def} specifies the number of
+contained objects and their kinds using a sequence of characters
+called the @dfn{format} of the expression code.  For example,
+the format of @code{subreg} is @samp{ei}.
 
 @cindex RTL format characters
+These are the most commonly used format characters:
+
+@table @code
+@item e
+An expression (actually a pointer to an expression).
+
+@item i
+An integer.
+
+@item w
+A wide integer.
+
+@item s
+A string.
+
+@item E
+A vector of expressions.
+@end table
+
 A few other format characters are used occasionally:
 
 @table @code
@@ -430,6 +446,14 @@ The same hard register may be used also for collecting the values of
 functions called by this one, but @code{REG_FUNCTION_VALUE_P} is zero
 in this kind of use.
 
+@cindex @samp{/f} in RTL dump
+@findex REG_POINTER
+@cindex @code{reg} and @samp{/f}
+@cindex @code{frame_related}, in @code{reg}
+@item REG_POINTER (@var{x})
+Nonzero in a @code{reg} if the register holds a pointer.  Stored in the
+@code{frame_related} field and printed as @samp{/f}.
+
 @findex SUBREG_PROMOTED_VAR_P
 @cindex @code{subreg} and @samp{/s}
 @cindex @code{in_struct}, in @code{subreg}
@@ -651,7 +675,9 @@ outside the innermost loop containing the insn in which the @code{label_ref}
 was found.
 
 In @code{code_label} expressions, it is 1 if the label may never be deleted.
-This is used for labels which are the target of non-local gotos.
+This is used for labels which are the target of non-local gotos.  Such a
+label that would have been deleted is replaced with a @code{note} of type
+@code{NOTE_INSN_DELETED_LABEL}.
 
 In an RTL dump, this flag is represented as @samp{/s}.
 
@@ -747,13 +773,28 @@ this is the right mode to use for certain pointers.
 @item OImode
 ``Octa Integer'' (?) mode represents a thirty-two-byte integer.
 
+@findex QFmode
+@item QFmode
+``Quarter-Floating'' mode represents a quarter-precision (single byte)
+floating point number.
+
+@findex HFmode
+@item HFmode
+``Half-Floating'' mode represents a half-precision (two byte) floating
+point number.
+
+@findex TQFmode
+@item TQFmode
+``Three-Quarter-Floating'' (?) mode represents a three-quarter-precision
+(three byte) floating point number.
+
 @findex SFmode
 @item SFmode
 ``Single Floating'' mode represents a four byte floating point number.
 In the common case, of a processor with IEEE arithmetic and 8-bit bytes,
 this is a single-precision IEEE floating point number; it can also be
 used for double-precision (on processors with 16-bit bytes) and
-single-precision Vax types.
+single-precision VAX and IBM types.
 
 @findex DFmode
 @item DFmode
@@ -796,14 +837,17 @@ For example, RTL expressions of code @code{const_int} have mode
 requires.  In debugging dumps of RTL, @code{VOIDmode} is expressed by
 the absence of any mode.
 
+@findex QCmode
+@findex HCmode
 @findex SCmode
 @findex DCmode
 @findex XCmode
 @findex TCmode
-@item SCmode, DCmode, XCmode, TCmode
+@item QCmode, HCmode, SCmode, DCmode, XCmode, TCmode
 These modes stand for a complex number represented as a pair of floating
-point values.  The floating point values are in @code{SFmode},
-@code{DFmode}, @code{XFmode}, and @code{TFmode}, respectively.
+point values.  The floating point values are in @code{QFmode},
+@code{HFmode}, @code{SFmode}, @code{DFmode}, @code{XFmode}, and
+@code{TFmode}, respectively.
 
 @findex CQImode
 @findex CHImode
@@ -841,16 +885,19 @@ mode classes are:
 @table @code
 @findex MODE_INT
 @item MODE_INT
-Integer modes.  By default these are @code{QImode}, @code{HImode},
-@code{SImode}, @code{DImode}, and @code{TImode}.
+Integer modes.  By default these are @code{BImode}, @code{QImode},
+@code{HImode}, @code{SImode}, @code{DImode}, @code{TImode}, and
+@code{OImode}.
 
 @findex MODE_PARTIAL_INT
 @item MODE_PARTIAL_INT
-The ``partial integer'' modes, @code{PSImode} and @code{PDImode}.
+The ``partial integer'' modes, @code{PQImode}, @code{PHImode},
+@code{PSImode} and @code{PDImode}.
 
 @findex MODE_FLOAT
 @item MODE_FLOAT
-floating point modes.  By default these are @code{SFmode}, @code{DFmode},
+Floating point modes.  By default these are @code{QFmode},
+@code{HFmode}, @code{TQFmode}, @code{SFmode}, @code{DFmode},
 @code{XFmode} and @code{TFmode}.
 
 @findex MODE_COMPLEX_INT
@@ -859,8 +906,9 @@ Complex integer modes.  (These are not currently implemented).
 
 @findex MODE_COMPLEX_FLOAT
 @item MODE_COMPLEX_FLOAT
-Complex floating point modes.  By default these are @code{SCmode},
-@code{DCmode}, @code{XCmode}, and @code{TCmode}.
+Complex floating point modes.  By default these are @code{QCmode},
+@code{HCmode}, @code{SCmode}, @code{DCmode}, @code{XCmode}, and
+@code{TCmode}.
 
 @findex MODE_FUNCTION
 @item MODE_FUNCTION
@@ -1050,9 +1098,9 @@ Usually that is the only mode for which a symbol is directly valid.
 @findex label_ref
 @item (label_ref @var{label})
 Represents the value of an assembler label for code.  It contains one
-operand, an expression, which must be a @code{code_label} that appears
-in the instruction sequence to identify the place where the label
-should go.
+operand, an expression, which must be a @code{code_label} or a @code{note}
+of type @code{NOTE_INSN_DELETED_LABEL} that appears in the instruction
+sequence to identify the place where the label should go.
 
 The reason for using a distinct expression type for code label
 references is so that jump optimization can distinguish them.
@@ -1497,8 +1545,8 @@ than the operands.  Write the pattern for this as
 where @var{m} is wider than the modes of @var{x} and @var{y}, which need
 not be the same.
 
-Write patterns for unsigned widening multiplication similarly using
-@code{zero_extend}.
+For unsigned widening multiplication, use the same idiom, but with
+@code{zero_extend} instead of @code{sign_extend}.
 
 @findex div
 @cindex division
@@ -1590,7 +1638,7 @@ Represents the result of arithmetically shifting @var{x} left by @var{c}
 places.  @var{x} have mode @var{m}, a fixed-point machine mode.  @var{c}
 be a fixed-point mode or be a constant with mode @code{VOIDmode}; which
 mode is determined by the mode called for in the machine description
-entry for the left-shift instruction.  For example, on the Vax, the mode
+entry for the left-shift instruction.  For example, on the VAX, the mode
 of @var{c} is @code{QImode} regardless of @var{m}.
 
 @findex lshiftrt
@@ -1744,8 +1792,8 @@ to express conditional jumps.
 @item (cond [@var{test1} @var{value1} @var{test2} @var{value2} @dots{}] @var{default})
 Similar to @code{if_then_else}, but more general.  Each of @var{test1},
 @var{test2}, @dots{} is performed in turn.  The result of this expression is
-the @var{value} corresponding to the first non-zero test, or @var{default} if
-none of the tests are non-zero expressions.
+the @var{value} corresponding to the first nonzero test, or @var{default} if
+none of the tests are nonzero expressions.
 
 This is currently not valid for instruction patterns and is supported only
 for insn attributes.  @xref{Insn Attributes}.
@@ -2040,7 +2088,7 @@ valid for the mode of @var{lval}.
 @item (return)
 As the sole expression in a pattern, represents a return from the
 current function, on machines where this can be done with one
-instruction, such as Vaxes.  On machines where a multi-instruction
+instruction, such as VAXen.  On machines where a multi-instruction
 ``epilogue'' must be executed in order to return from the function,
 returning is done by jumping to a label which precedes the epilogue, and
 the @code{return} expression code is never used.
@@ -2133,13 +2181,14 @@ store a value in @var{x}.  @var{x} must be a @code{reg} expression.
 
 In some situations, it may be tempting to add a @code{use} of a
 register in a @code{parallel} to describe a situation where the value
-of a special register will modify the behaviour of the instruction.
+of a special register will modify the behavior of the instruction.
 An hypothetical example might be a pattern for an addition that can
 either wrap around or use saturating addition depending on the value
 of a special control register:
 
 @example
-(parallel [(set (reg:SI 2) (unspec:SI [(reg:SI 3) (reg:SI 4)] 0))
+(parallel [(set (reg:SI 2) (unspec:SI [(reg:SI 3) 
+                                       (reg:SI 4)] 0))
            (use (reg:SI 1))])
 @end example
 
@@ -2223,7 +2272,7 @@ any, must deal with such insns if you define any peephole optimizations.
 @findex cond_exec
 @item (cond_exec [@var{cond} @var{expr}])
 Represents a conditionally executed expression.  The @var{expr} is
-executed only if the @var{cond} is non-zero.  The @var{cond} expression
+executed only if the @var{cond} is nonzero.  The @var{cond} expression
 must not have side-effects, but the @var{expr} may very well have
 side-effects.
 
@@ -2293,6 +2342,20 @@ are set up by branch shortening and hold a label with a minimum and a
 maximum address, respectively.  @var{flags} indicates the relative
 position of @var{base}, @var{min} and @var{max} to the containing insn
 and of @var{min} and @var{max} to @var{base}.  See rtl.def for details.
+
+@findex prefetch
+@item (prefetch:@var{m} @var{addr} @var{rw} @var{locality})
+Represents prefetch of memory at address @var{addr}.
+Operand @var{rw} is 1 if the prefetch is for data to be written, 0 otherwise;
+targets that do not support write prefetches should treat this as a normal
+prefetch.
+Operand @var{locality} specifies the amount of temporal locality; 0 if there
+is none or 1, 2, or 3 for increasing levels of temporal locality;
+targets that do not support locality hints should ignore this.
+
+This insn is used to minimize cache-miss latency by moving data into a
+cache before it is accessed.  It should use only non-faulting data prefetch
+instructions.
 @end table
 
 @node Incdec
@@ -2594,6 +2657,9 @@ When a @code{code_label} appears in an RTL expression, it normally
 appears within a @code{label_ref} which represents the address of
 the label, as a number.
 
+Besides as a @code{code_label}, a label can also be represented as a
+@code{note} of type @code{NOTE_INSN_DELETED_LABEL}.
+
 @findex LABEL_NUSES
 The field @code{LABEL_NUSES} is only defined once the jump optimization
 phase is completed and contains the number of times this label is
@@ -2636,6 +2702,12 @@ must contain a null pointer):
 Such a note is completely ignorable.  Some passes of the compiler
 delete insns by altering them into notes of this kind.
 
+@findex NOTE_INSN_DELETED_LABEL
+@item NOTE_INSN_DELETED_LABEL
+This marks what used to be a @code{code_label}, but was not used for other
+purposes than taking its address and was transformed to mark that no
+code jumps to it.
+
 @findex NOTE_INSN_BLOCK_BEG
 @findex NOTE_INSN_BLOCK_END
 @item NOTE_INSN_BLOCK_BEG
@@ -2650,7 +2722,8 @@ of debugging information.
 @itemx NOTE_INSN_EH_REGION_END
 These types of notes indicate the position of the beginning and end of a
 level of scoping for exception handling.  @code{NOTE_BLOCK_NUMBER}
-identifies which @code{CODE_LABEL} is associated with the given region.
+identifies which @code{CODE_LABEL} or @code{note} of type
+@code{NOTE_INSN_DELETED_LABEL} is associated with the given region.
 
 @findex NOTE_INSN_LOOP_BEG
 @findex NOTE_INSN_LOOP_END
@@ -2845,7 +2918,8 @@ last insns, respectively.
 
 @findex REG_LABEL
 @item REG_LABEL
-This insn uses @var{op}, a @code{code_label}, but is not a
+This insn uses @var{op}, a @code{code_label} or a @code{note} of type
+@code{NOTE_INSN_DELETED_LABEL}, but is not a
 @code{jump_insn}, or it is a @code{jump_insn} that required the label to
 be held in a register.  The presence of this note allows jump
 optimization to be aware that @var{op} is, in fact, being used, and flow

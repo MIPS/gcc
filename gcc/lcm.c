@@ -1,22 +1,22 @@
 /* Generic partial redundancy elimination with lazy code motion support.
    Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* These routines are meant to be used by various optimization
    passes which can be modeled as lazy code motion problems.
@@ -177,6 +177,8 @@ compute_antinout_edge (antloc, transp, antin, antout)
 	    }
     }
 
+  clear_aux_for_edges ();
+  clear_aux_for_blocks ();
   free (worklist);
 }
 
@@ -307,7 +309,7 @@ compute_laterin (edge_list, earliest, antloc, later, laterin)
   qin = worklist;
   /* Note that we do not use the last allocated element for our queue,
      as EXIT_BLOCK is never inserted into it. In fact the above allocation
-     of n_basic_blocks + 1 elements is not encessary. */
+     of n_basic_blocks + 1 elements is not encessary.  */
   qend = &worklist[n_basic_blocks];
   qlen = n_basic_blocks;
 
@@ -354,6 +356,7 @@ compute_laterin (edge_list, earliest, antloc, later, laterin)
 		     laterin[n_basic_blocks],
 		     later[(size_t) e->aux]);
 
+  clear_aux_for_edges ();
   free (worklist);
 }
 
@@ -565,6 +568,8 @@ compute_available (avloc, kill, avout, avin)
 	    }
     }
 
+  clear_aux_for_edges ();
+  clear_aux_for_blocks ();
   free (worklist);
 }
 
@@ -695,6 +700,7 @@ compute_nearerout (edge_list, farthest, st_avloc, nearer, nearerout)
 		     nearerout[n_basic_blocks],
 		     nearer[(size_t) e->aux]);
 
+  clear_aux_for_edges ();
   free (tos);
 }
 
@@ -1016,13 +1022,14 @@ optimize_mode_switching (file)
   int need_commit = 0;
   sbitmap *kill;
   struct edge_list *edge_list;
-  static int num_modes[] = NUM_MODES_FOR_MODE_SWITCHING;
+  static const int num_modes[] = NUM_MODES_FOR_MODE_SWITCHING;
 #define N_ENTITIES (sizeof num_modes / sizeof (int))
   int entity_map[N_ENTITIES];
   struct bb_info *bb_info[N_ENTITIES];
   int i, j;
   int n_entities;
   int max_num_modes = 0;
+  bool emited = false;
 
 #ifdef NORMAL_MODE
   /* Increment n_basic_blocks before allocating bb_info.  */
@@ -1233,10 +1240,16 @@ optimize_mode_switching (file)
 	      mode_set = gen_sequence ();
 	      end_sequence ();
 
+	      /* Do not bother to insert empty sequence.  */
+	      if (GET_CODE (mode_set) == SEQUENCE
+		  && !XVECLEN (mode_set, 0))
+		continue;
+
 	      /* If this is an abnormal edge, we'll insert at the end
 		 of the previous block.  */
 	      if (eg->flags & EDGE_ABNORMAL)
 		{
+		  emited = true;
 		  if (GET_CODE (src_bb->end) == JUMP_INSN)
 		    emit_insn_before (mode_set, src_bb->end);
 		  /* It doesn't make sense to switch to normal mode
@@ -1251,7 +1264,7 @@ optimize_mode_switching (file)
 		     the case of EH edges, EH entry points also start
 		     in normal mode, so a similar reasoning applies.  */
 		  else if (GET_CODE (src_bb->end) == INSN)
-		    src_bb->end = emit_insn_after (mode_set, src_bb->end);
+		    emit_insn_after (mode_set, src_bb->end);
 		  else
 		    abort ();
 		  bb_info[j][src_bb->index].computing = mode;
@@ -1273,6 +1286,7 @@ optimize_mode_switching (file)
 	      }
 	}
 
+      clear_aux_for_edges ();
       free_edge_list (edge_list);
     }
 
@@ -1306,14 +1320,20 @@ optimize_mode_switching (file)
 	      mode_set = gen_sequence ();
 	      end_sequence ();
 
+	      /* Do not bother to insert empty sequence.  */
+	      if (GET_CODE (mode_set) == SEQUENCE
+		  && !XVECLEN (mode_set, 0))
+		continue;
+
 	      /* If this is an abnormal edge, we'll insert at the end of the
 		 previous block.  */
 	      if (eg->flags & EDGE_ABNORMAL)
 		{
+		  emited = true;
 		  if (GET_CODE (eg->src->end) == JUMP_INSN)
 		    emit_insn_before (mode_set, eg->src->end);
 		  else if (GET_CODE (eg->src->end) == INSN)
-		    eg->src->end = emit_insn_after (mode_set, eg->src->end);
+		    emit_insn_after (mode_set, eg->src->end);
 		  else
 		    abort ();
 		}
@@ -1342,14 +1362,18 @@ optimize_mode_switching (file)
 		  mode_set = gen_sequence ();
 		  end_sequence ();
 
+		  /* Do not bother to insert empty sequence.  */
+		  if (GET_CODE (mode_set) == SEQUENCE
+		      && !XVECLEN (mode_set, 0))
+		    continue;
+
+		  emited = true;
 		  if (GET_CODE (ptr->insn_ptr) == NOTE
 		      && (NOTE_LINE_NUMBER (ptr->insn_ptr)
 			  == NOTE_INSN_BASIC_BLOCK))
-		    emit_block_insn_after (mode_set, ptr->insn_ptr,
-		                           BASIC_BLOCK (ptr->bbnum));
+		    emit_insn_after (mode_set, ptr->insn_ptr);
 		  else
-		    emit_block_insn_before (mode_set, ptr->insn_ptr,
-					    BASIC_BLOCK (ptr->bbnum));
+		    emit_insn_before (mode_set, ptr->insn_ptr);
 		}
 
 	      free (ptr);
@@ -1371,9 +1395,12 @@ optimize_mode_switching (file)
   if (need_commit)
     commit_edge_insertions ();
 
+  if (!need_commit && !emited)
+    return 0;
+
   /* Ideally we'd figure out what blocks were affected and start from
      there, but this is enormously complicated by commit_edge_insertions,
-     which would screw up any indicies we'd collected, and also need to
+     which would screw up any indices we'd collected, and also need to
      be involved in the update.  Bail and recompute global life info for
      everything.  */
 

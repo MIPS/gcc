@@ -22,9 +22,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include "i386/i386.h"	/* Base i386 target machine definitions */
-#include "i386/att.h"	/* Use the i386 AT&T assembler syntax */
-#include "ptx4.h"	/* Rest of definitions (non architecture dependent) */
 
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (i386 Sequent Dynix/ptx Version 4)");
@@ -53,7 +50,7 @@ Boston, MA 02111-1307, USA.  */
 do { long value;							\
      REAL_VALUE_TO_TARGET_SINGLE ((VALUE), value);			\
      if (sizeof (int) == sizeof (long))					\
-         fprintf((FILE), "%s0x%x\n", ASM_LONG, value);			\
+         fprintf((FILE), "%s0x%x\n", ASM_LONG, (int) value);		\
      else								\
          fprintf((FILE), "%s0x%lx\n", ASM_LONG, value);			\
    } while (0)
@@ -69,8 +66,8 @@ do { long value[2];							\
      REAL_VALUE_TO_TARGET_DOUBLE ((VALUE), value);			\
      if (sizeof (int) == sizeof (long))					\
        {								\
-         fprintf((FILE), "%s0x%x\n", ASM_LONG, value[0]);		\
-         fprintf((FILE), "%s0x%x\n", ASM_LONG, value[1]);		\
+         fprintf((FILE), "%s0x%x\n", ASM_LONG, (int) value[0]);		\
+         fprintf((FILE), "%s0x%x\n", ASM_LONG, (int) value[1]);		\
        }								\
      else								\
        {								\
@@ -86,9 +83,9 @@ do { long value[3];							\
      REAL_VALUE_TO_TARGET_LONG_DOUBLE ((VALUE), value);			\
      if (sizeof (int) == sizeof (long))					\
        {								\
-         fprintf((FILE), "%s0x%x\n", ASM_LONG, value[0]);		\
-         fprintf((FILE), "%s0x%x\n", ASM_LONG, value[1]);		\
-         fprintf((FILE), "%s0x%x\n", ASM_LONG, value[2]);		\
+         fprintf((FILE), "%s0x%x\n", ASM_LONG, (int) value[0]);		\
+         fprintf((FILE), "%s0x%x\n", ASM_LONG, (int) value[1]);		\
+         fprintf((FILE), "%s0x%x\n", ASM_LONG, (int) value[2]);		\
        }								\
      else								\
        {								\
@@ -126,7 +123,7 @@ do { long value[3];							\
 	    }								\
 	  for (p = _ascii_bytes; p < limit && *p != '\0'; p++)		\
 	    continue;							\
-	  if (p < limit && (p - _ascii_bytes) <= STRING_LIMIT)		\
+	  if (p < limit && (p - _ascii_bytes) <= (long) STRING_LIMIT)	\
 	    {								\
 	      if (bytes_in_chunk > 0)					\
 		{							\
@@ -150,16 +147,3 @@ do { long value[3];							\
         fprintf ((FILE), "\n");						\
     }									\
   while (0)
-
-/* This is how to output an element of a case-vector that is relative.
-   This is only used for PIC code.  See comments by the `casesi' insn in
-   i386.md for an explanation of the expression this outputs. */
-
-#undef ASM_OUTPUT_ADDR_DIFF_ELT
-#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
-  fprintf (FILE, "\t.long _GLOBAL_OFFSET_TABLE_+[.-%s%d]\n", LPREFIX, VALUE)
-
-/* Indicate that jump tables go in the text section.  This is
-   necessary when compiling PIC code.  */
-
-#define JUMP_TABLES_IN_TEXT_SECTION 1

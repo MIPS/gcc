@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "reload.h"
 #include "function.h"
 #include "ggc.h"
+#include "langhooks.h"
 
 #include "darwin-protos.h"
 
@@ -45,6 +46,7 @@ extern void machopic_output_stub PARAMS ((FILE *, const char *, const char *));
 static int machopic_data_defined_p PARAMS ((const char *));
 static int func_name_maybe_scoped PARAMS ((const char *));
 static void update_non_lazy_ptrs PARAMS ((const char *));
+static void update_stubs PARAMS ((const char *));
 
 int
 name_needs_quotes (name)
@@ -52,7 +54,7 @@ name_needs_quotes (name)
 {
   int c;
   while ((c = *name++) != '\0')
-    if (!isalnum (c) && c != '_')
+    if (! ISIDNUM (c))
       return 1;
   return 0;
 }
@@ -212,7 +214,7 @@ static int current_pic_label_num;
 char *
 machopic_function_base_name ()
 {
-  static char *name = NULL;
+  static const char *name = NULL;
   static const char *current_name;
 
   current_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl));
@@ -323,12 +325,22 @@ machopic_stub_name (name)
      const char *name;
 {
   tree temp, ident = get_identifier (name);
-  
+  const char *tname;
+
   for (temp = machopic_stubs;
        temp != NULL_TREE; 
        temp = TREE_CHAIN (temp))
     {
       if (ident == TREE_VALUE (temp))
+	return IDENTIFIER_POINTER (TREE_PURPOSE (temp));
+      tname = IDENTIFIER_POINTER (TREE_VALUE (temp));
+      if (strcmp (name, tname) == 0)
+	return IDENTIFIER_POINTER (TREE_PURPOSE (temp));
+      /* A library call name might not be section-encoded yet, so try
+	 it against a stripped name.  */
+      if (name[0] != '!'
+	  && tname[0] == '!'
+	  && strcmp (name, tname + 4) == 0)
 	return IDENTIFIER_POINTER (TREE_PURPOSE (temp));
     }
 
@@ -554,7 +566,7 @@ func_name_maybe_scoped (fname)
 {
 
   if (is_cplusplus < 0)
-    is_cplusplus = (strcmp (lang_identify (), "cplusplus") == 0);
+    is_cplusplus = (strcmp (lang_hooks.name, "GNU C++") == 0);
 
   if (is_cplusplus)
     {
@@ -576,7 +588,7 @@ func_name_maybe_scoped (fname)
 	  while (*fname != 0)
 	    {
 	      if (fname[0] == '_' && fname[1] == '_'
-		  && (fname[2] == 'F' || (fname[2] >= '0' && fname[2] <= '9')))
+		  && (fname[2] == 'F' || ISDIGIT (fname[2])))
 		return 0;
 	      ++fname;
 	    }
@@ -874,8 +886,8 @@ machopic_finish (asm_out_file)
        temp != NULL_TREE;
        temp = TREE_CHAIN (temp))
     {
-      char *sym_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
-      char *stub_name = IDENTIFIER_POINTER (TREE_PURPOSE (temp));
+      const char *sym_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
+      const char *stub_name = IDENTIFIER_POINTER (TREE_PURPOSE (temp));
       char *sym;
       char *stub;
 
@@ -921,10 +933,11 @@ machopic_finish (asm_out_file)
 	  )
 	{
 	  data_section ();
-	  assemble_align (UNITS_PER_WORD * BITS_PER_UNIT);
+	  assemble_align (GET_MODE_ALIGNMENT (Pmode));
 	  assemble_label (lazy_name);
 	  assemble_integer (gen_rtx (SYMBOL_REF, Pmode, sym_name),
-			    GET_MODE_SIZE (Pmode), 1);
+			    GET_MODE_SIZE (Pmode),
+			    GET_MODE_ALIGNMENT (Pmode), 1);
 	}
       else
 	{
@@ -936,7 +949,8 @@ machopic_finish (asm_out_file)
 	  assemble_name (asm_out_file, sym_name); 
 	  fprintf (asm_out_file, "\n");
 
-	  assemble_integer (const0_rtx, GET_MODE_SIZE (Pmode), 1);
+	  assemble_integer (const0_rtx, GET_MODE_SIZE (Pmode),
+			    GET_MODE_ALIGNMENT (Pmode), 1);
 	}
     }
 }
@@ -992,7 +1006,8 @@ darwin_encode_section_info (decl)
   char code = '\0';
   int defined = 0;
   rtx sym_ref;
-  char *orig_str, *new_str;
+  const char *orig_str;
+  char *new_str;
   size_t len, new_len;
 
   if ((TREE_CODE (decl) == FUNCTION_DECL
@@ -1000,7 +1015,8 @@ darwin_encode_section_info (decl)
       && !DECL_EXTERNAL (decl)
       && ((TREE_STATIC (decl)
 	   && (!DECL_COMMON (decl) || !TREE_PUBLIC (decl)))
-	  || DECL_INITIAL (decl)))
+	  || (DECL_INITIAL (decl)
+	      && DECL_INITIAL (decl) != error_mark_node)))
     defined = 1;
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
@@ -1025,9 +1041,6 @@ darwin_encode_section_info (decl)
       memcpy (new_str, orig_str, len);
       new_str[1] = code;
       XSTR (sym_ref, 0) = ggc_alloc_string (new_str, len);
-      /* The non-lazy pointer list may have captured references to the
-	 old encoded name, change them.  */
-      update_non_lazy_ptrs (XSTR (sym_ref, 0));
     }
   else
     {
@@ -1041,6 +1054,10 @@ darwin_encode_section_info (decl)
       memcpy (new_str + 4, orig_str, len);
       XSTR (sym_ref, 0) = ggc_alloc_string (new_str, new_len);
     }
+  /* The non-lazy pointer list may have captured references to the
+     old encoded name, change them.  */
+  update_non_lazy_ptrs (XSTR (sym_ref, 0));
+  update_stubs (XSTR (sym_ref, 0));
 }
 
 /* Scan the list of non-lazy pointers and update any recorded names whose
@@ -1050,7 +1067,7 @@ static void
 update_non_lazy_ptrs (name)
      const char *name;
 {
-  char *name1, *name2;
+  const char *name1, *name2;
   tree temp;
 
   STRIP_NAME_ENCODING (name1, name);
@@ -1071,4 +1088,67 @@ update_non_lazy_ptrs (name)
 	    }
 	}
     }
+}
+
+
+/* Scan the list of stubs and update any recorded names whose
+   stripped name matches the argument.  */
+
+static void
+update_stubs (name)
+     const char *name;
+{
+  const char *name1, *name2;
+  tree temp;
+
+  STRIP_NAME_ENCODING (name1, name);
+
+  for (temp = machopic_stubs;
+       temp != NULL_TREE; 
+       temp = TREE_CHAIN (temp))
+    {
+      char *sym_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
+
+      if (*sym_name == '!')
+	{
+	  STRIP_NAME_ENCODING (name2, sym_name);
+	  if (strcmp (name1, name2) == 0)
+	    {
+	      IDENTIFIER_POINTER (TREE_VALUE (temp)) = name;
+	      break;
+	    }
+	}
+    }
+}
+
+void
+machopic_asm_out_constructor (symbol, priority)
+     rtx symbol;
+     int priority ATTRIBUTE_UNUSED;
+{
+  if (flag_pic)
+    mod_init_section ();
+  else
+    constructor_section ();
+  assemble_align (POINTER_SIZE);
+  assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
+
+  if (!flag_pic)
+    fprintf (asm_out_file, ".reference .constructors_used\n");
+}
+
+void
+machopic_asm_out_destructor (symbol, priority)
+     rtx symbol;
+     int priority ATTRIBUTE_UNUSED;
+{
+  if (flag_pic)
+    mod_term_section ();
+  else
+    destructor_section ();
+  assemble_align (POINTER_SIZE);
+  assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
+
+  if (!flag_pic)
+    fprintf (asm_out_file, ".reference .destructors_used\n");
 }

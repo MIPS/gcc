@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.3 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -601,7 +601,7 @@ package body Exp_Ch7 is
 
          if Sec_Stk then
             Set_Uses_Sec_Stack (Current_Scope);
-            Check_Restriction (No_Secondary_Stack, N);
+            Disallow_In_No_Run_Time_Mode (N);
          end if;
 
          Set_Etype (Current_Scope, Standard_Void_Type);
@@ -2449,7 +2449,7 @@ package body Exp_Ch7 is
                   if not Requires_Transient_Scope (Etype (S)) then
                      if not Functions_Return_By_DSP_On_Target then
                         Set_Uses_Sec_Stack (S, True);
-                        Check_Restriction (No_Secondary_Stack, Action);
+                        Disallow_In_No_Run_Time_Mode (Action);
                      end if;
                   end if;
 
@@ -2470,7 +2470,7 @@ package body Exp_Ch7 is
                then
                   if not Functions_Return_By_DSP_On_Target then
                      Set_Uses_Sec_Stack (S, True);
-                     Check_Restriction (No_Secondary_Stack, Action);
+                     Disallow_In_No_Run_Time_Mode (Action);
                   end if;
 
                   Set_Uses_Sec_Stack (Current_Scope, False);
@@ -2703,7 +2703,7 @@ package body Exp_Ch7 is
             null;
          else
             Set_Uses_Sec_Stack (S);
-            Check_Restriction (No_Secondary_Stack, N);
+            Disallow_In_No_Run_Time_Mode (N);
          end if;
       end if;
    end Wrap_Transient_Declaration;

@@ -30,13 +30,9 @@
 
 # define _GC_H
 
-#if defined(_SOLARIS_PTHREADS) && !defined(SOLARIS_THREADS)
-#   define SOLARIS_THREADS
-#endif
-
 /*
  * Some tests for old macros.  These violate our namespace rules and will
- * disappear shortly.
+ * disappear shortly.  Use the GC_ names.
  */
 #if defined(SOLARIS_THREADS) || defined(_SOLARIS_THREADS)
 # define GC_SOLARIS_THREADS
@@ -72,6 +68,16 @@
 	/* depend on this were previously included.			*/
 #endif
 
+#if defined(GC_SOLARIS_PTHREADS) && !defined(GC_SOLARIS_THREADS)
+#   define GC_SOLARIS_THREADS
+#endif
+
+# if defined(GC_SOLARIS_PTHREADS) || defined(GC_FREEBSD_THREADS) || \
+	defined(GC_IRIX_THREADS) || defined(GC_LINUX_THREADS) || \
+	defined(GC_HPUX_THREADS) || defined(GC_OSF1_THREADS)
+#   define GC_PTHREADS
+# endif
+
 # define __GC
 # include <stddef.h>
 # ifdef _WIN32_WCE
@@ -80,11 +86,7 @@
     typedef long ptrdiff_t;	/* ptrdiff_t is not defined */
 # endif
 
-#if defined(__CYGWIN32__) && defined(GC_USE_DLL)
-#include "libgc_globals.h"
-#endif
-
-#if defined(__MINGW32__) && defined(WIN32_THREADS)
+#if defined(__MINGW32__) && defined(GC_WIN32_THREADS)
 # ifdef GC_BUILD
 #   define GC_API __declspec(dllexport)
 # else
@@ -92,8 +94,9 @@
 # endif
 #endif
 
-#if defined(_MSC_VER) && (defined(_DLL) && !defined(NOT_GC_DLL) \
-	                  || defined(GC_DLL))
+#if (defined(__DMC__) || defined(_MSC_VER)) \
+		&& (defined(_DLL) && !defined(GC_NOT_DLL) \
+	            || defined(GC_DLL))
 # ifdef GC_BUILD
 #   define GC_API extern __declspec(dllexport)
 # else
@@ -294,6 +297,14 @@ GC_API int GC_dont_precollect;  /* Don't collect as part of 		*/
 				/* Wizards only.			*/
 
 /* Public procedures */
+
+/* Initialize the collector.  This is only required when using thread-local
+ * allocation, since unlike the regular allocation routines, GC_local_malloc
+ * is not self-initializing.  If you use GC_local_malloc you should arrange
+ * to call this somehow (e.g. from a constructor) before doing any allocation.
+ */
+GC_API void GC_init GC_PROTO((void));
+
 /*
  * general purpose allocation routines, with roughly malloc calling conv.
  * The atomic versions promise that no relevant pointers are contained
@@ -347,6 +358,10 @@ GC_API void GC_end_stubborn_change GC_PROTO((GC_PTR));
 
 /* Return a pointer to the base (lowest address) of an object given	*/
 /* a pointer to a location within the object.				*/
+/* I.e. map an interior pointer to the corresponding bas pointer.	*/
+/* Note that with debugging allocation, this returns a pointer to the	*/
+/* actual base of the object, i.e. the debug information, not to	*/
+/* the base of the user object.						*/
 /* Return 0 if displaced_pointer doesn't point to within a valid	*/
 /* object.								*/
 GC_API GC_PTR GC_base GC_PROTO((GC_PTR displaced_pointer));
@@ -701,7 +716,7 @@ GC_API GC_warn_proc GC_set_warn_proc GC_PROTO((GC_warn_proc p));
     /* Returns old warning procedure.	*/
 	
 /* The following is intended to be used by a higher level	*/
-/* (e.g. cedar-like) finalization facility.  It is expected	*/
+/* (e.g. Java-like) finalization facility.  It is expected	*/
 /* that finalization code will arrange for hidden pointers to	*/
 /* disappear.  Otherwise objects can be accessed after they	*/
 /* have been collected.						*/
@@ -814,16 +829,12 @@ GC_API void (*GC_is_visible_print_proc)
 /* thread library calls.  We do that here by macro defining them.	*/
 
 #if !defined(GC_USE_LD_WRAP) && \
-    (defined(GC_LINUX_THREADS) || defined(GC_HPUX_THREADS) || \
-     defined(GC_IRIX_THREADS) || defined(GC_SOLARIS_PTHREADS) || \
-     defined(GC_SOLARIS_THREADS) || defined(GC_OSF1_THREADS))
+    (defined(GC_PTHREADS) || defined(GC_SOLARIS_THREADS))
 # include "gc_pthread_redirects.h"
 #endif
 
 # if defined(PCR) || defined(GC_SOLARIS_THREADS) || \
-     defined(GC_SOLARIS_PTHREADS) || defined(GC_WIN32_THREADS) || \
-     defined(GC_IRIX_THREADS) || defined(GC_LINUX_THREADS) || \
-     defined(GC_HPUX_THREADS)
+     defined(GC_PTHREADS) || defined(GC_WIN32_THREADS)
    	/* Any flavor of threads except SRC_M3.	*/
 /* This returns a list of objects, linked through their first		*/
 /* word.  Its use can greatly reduce lock contention problems, since	*/
@@ -838,7 +849,7 @@ extern void GC_thr_init();	/* Needed for Solaris/X86	*/
 
 #endif /* THREADS && !SRC_M3 */
 
-#if defined(WIN32_THREADS) && defined(_WIN32_WCE)
+#if defined(GC_WIN32_THREADS) && defined(_WIN32_WCE)
 # include <windows.h>
 
   /*

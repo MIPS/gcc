@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "rtl.h"
 #include "expr.h"
+#include "libfuncs.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "obstack.h"
@@ -62,16 +63,13 @@ init_exception_processing ()
 {
   tree tmp;
 
-  if (flag_honor_std)
-    push_namespace (std_identifier);
-
   /* void std::terminate (); */
+  push_namespace (std_identifier);
   tmp = build_function_type (void_type_node, void_list_node);
   terminate_node = build_cp_library_fn_ptr ("terminate", tmp);
   TREE_THIS_VOLATILE (terminate_node) = 1;
   TREE_NOTHROW (terminate_node) = 1;
-  if (flag_honor_std)
-    pop_namespace ();
+  pop_namespace ();
 
   /* void __cxa_call_unexpected(void *); */
   tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
@@ -88,7 +86,7 @@ init_exception_processing ()
 }
 
 /* Returns an expression to be executed if an unhandled exception is
-   propogated out of a cleanup region.  */
+   propagated out of a cleanup region.  */
 
 static tree
 cp_protect_cleanup_actions ()
@@ -774,7 +772,7 @@ is_admissible_throw_operand (expr)
             conversion.  */
   else if (CLASS_TYPE_P (type) && CLASSTYPE_PURE_VIRTUALS (type))
     {
-      cp_error ("Expression '%E' of abstract class type '%T' cannot be used in throw-expression", expr, type);
+      cp_error ("expression '%E' of abstract class type '%T' cannot be used in throw-expression", expr, type);
       return false;
     }
 

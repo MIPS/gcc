@@ -33,6 +33,43 @@ details.  */
 #include <bstring.h>
 #endif
 
+#ifndef HAVE_SOCKLEN_T
+typedef int socklen_t;
+#endif
+
+// Avoid macro definitions of bind, connect from system headers, e.g. on
+// Solaris 7 with _XOPEN_SOURCE.  FIXME
+static inline int
+_Jv_bind (int fd, struct sockaddr *addr, int addrlen)
+{
+  return ::bind (fd, addr, addrlen);
+}
+
+#ifdef bind
+#undef bind
+#endif
+
+static inline int
+_Jv_connect (int fd, struct sockaddr *addr, int addrlen)
+{
+  return ::connect (fd, addr, addrlen);
+}
+
+#ifdef connect
+#undef connect
+#endif
+
+// Same problem with accept on Tru64 UNIX with _POSIX_PII_SOCKET
+static inline int
+_Jv_accept (int fd, struct sockaddr *addr, socklen_t *addrlen)
+{
+  return ::accept (fd, addr, addrlen);
+}
+
+#ifdef accept
+#undef accept
+#endif
+
 #include <gcj/cni.h>
 #include <gcj/javaprims.h>
 #include <java/io/IOException.h>
@@ -104,10 +141,6 @@ java::net::PlainSocketImpl::getOption (jint)
 
 #else /* DISABLE_JAVA_NET */
 
-#ifndef HAVE_SOCKLEN_T
-typedef int socklen_t;
-#endif
-
 union SockAddr
 {
   struct sockaddr_in address;
@@ -164,7 +197,7 @@ java::net::PlainSocketImpl::bind (java::net::InetAddress *host, jint lport)
   // Enable SO_REUSEADDR, so that servers can reuse ports left in TIME_WAIT.
   ::setsockopt(fnum, SOL_SOCKET, SO_REUSEADDR, (char *) &i, sizeof(i));
   
-  if (::bind (fnum, ptr, len) == 0)
+  if (_Jv_bind (fnum, ptr, len) == 0)
     {
       address = host;
       socklen_t addrlen = sizeof(u);
@@ -209,7 +242,7 @@ java::net::PlainSocketImpl::connect (java::net::InetAddress *host, jint rport)
   else
     throw new java::net::SocketException (JvNewStringUTF ("invalid length"));
 
-  if (::connect (fnum, ptr, len) != 0)
+  if (_Jv_connect (fnum, ptr, len) != 0)
     goto error;
   address = host;
   port = rport;
@@ -261,7 +294,7 @@ java::net::PlainSocketImpl::accept (java::net::PlainSocketImpl *s)
 	         JvNewStringUTF("Accept timed out"));
     }
 
-  new_socket = ::accept (fnum, (sockaddr*) &u, &addrlen);
+  new_socket = _Jv_accept (fnum, (sockaddr*) &u, &addrlen);
   if (new_socket < 0)
     goto error;
   jbyteArray raddr;

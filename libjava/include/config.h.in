@@ -83,6 +83,9 @@
 /* Define if struct ip_mreq is defined in netinet/in.h.  */
 #undef HAVE_STRUCT_IP_MREQ
 
+/* Define if struct ipv6_mreq is defined in netinet/in.h.  */
+#undef HAVE_STRUCT_IPV6_MREQ
+
 /* Define it socklen_t typedef is in sys/socket.h.  */
 #undef HAVE_SOCKLEN_T
 
@@ -388,4 +391,13 @@
 
 /* Define if struct hostent_data is defined in netdb.h */
 #undef HAVE_STRUCT_HOSTENT_DATA
+
+/* Define if dlopen is available */
+#undef HAVE_DLOPEN
+
+/* Define if <inttypes.h> is available */
+#undef HAVE_INTTYPES_H
+
+/* Define if <inttypes.h> is available */
+#undef JV_HAVE_INTTYPES_H
 

@@ -180,10 +180,10 @@ DEFUN (main, (argc, argv),
   /* Check on bad usage */
   if (flag_find_main + flag_dump_class + flag_complexity > 1)
     fatal_error
-      ("Only one of `--print-main', `--list-class', and `--complexity' allowed");
+      ("only one of `--print-main', `--list-class', and `--complexity' allowed");
 
   if (output_file && !(out = fopen (output_file, "w")))
-    fatal_error ("Can't open output file `%s'", output_file);
+    fatal_error ("can't open output file `%s'", output_file);
 
   ft = ftell (out);
 
@@ -219,7 +219,7 @@ DEFUN (main, (argc, argv),
 	    reset_report ();
 	  }
 	else
-	  fatal_error ("File not found `%s'", argv [i]);
+	  fatal_error ("file not found `%s'", argv [i]);
       }
 
   /* Flush and close */
@@ -239,42 +239,26 @@ DEFUN (main, (argc, argv),
 void
 fatal_error VPARAMS ((const char *s, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *s;
-#endif
-  va_list ap;
-
-  VA_START (ap, s);
-
-#ifndef ANSI_PROTOTYPES
-  s = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, s);
+  VA_FIXEDARG (ap, const char *, s);
 
   fprintf (stderr, "%s: error: ", exec_name);
   vfprintf (stderr, s, ap);
   fputc ('\n', stderr);
-  va_end (ap);
+  VA_CLOSE (ap);
   exit (1);
 }
 
 void
 warning VPARAMS ((const char *s, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *s;
-#endif
-  va_list ap;
-
-  VA_START (ap, s);
-
-#ifndef ANSI_PROTOTYPES
-  s = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, s);
+  VA_FIXEDARG (ap, const char *, s);
 
   fprintf (stderr, "%s: warning: ", exec_name);
   vfprintf (stderr, s, ap);
   fputc ('\n', stderr);
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
 void

@@ -50,11 +50,20 @@ extern const char * const *h8_reg_names;
    %{!mh:%{!ms:-Acpu=h8300 -Amachine=h8300}} \
    %{mh:-Acpu=h8300h -Amachine=h8300h} \
    %{ms:-Acpu=h8300s -Amachine=h8300s} \
-   %{!mint32:-D__INT_MAX__=32767} %{mint32:-D__INT_MAX__=2147483647}"
+   %{!mint32:-D__INT_MAX__=32767} %{mint32:-D__INT_MAX__=2147483647} \
+   %(subtarget_cpp_spec)"
+
+#define SUBTARGET_CPP_SPEC ""
 
 #define LINK_SPEC "%{mh:-m h8300h} %{ms:-m h8300s}"
 
 #define LIB_SPEC "%{mrelax:-relax} %{g:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}"
+
+#define EXTRA_SPECS						\
+  { "subtarget_cpp_spec", SUBTARGET_CPP_SPEC },	\
+  SUBTARGET_EXTRA_SPECS
+
+#define SUBTARGET_EXTRA_SPECS
 
 /* Print subsidiary information on the compiler version in use.  */
 
@@ -261,13 +270,13 @@ extern int target_flags;
    eliminated during reloading in favor of either the stack or frame
    pointer.  */
 
-#define FIRST_PSEUDO_REGISTER 10
+#define FIRST_PSEUDO_REGISTER 11
 
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.  */
 
 #define FIXED_REGISTERS \
-  { 0, 0, 0, 0, 0, 0, 0, 1, 0, 1}
+  { 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1}
 
 /* 1 for registers not available across function calls.
    These must include the FIXED_REGISTERS and also any
@@ -280,10 +289,10 @@ extern int target_flags;
    H8 destroys r0,r1,r2,r3.  */
 
 #define CALL_USED_REGISTERS \
-  { 1, 1, 1, 1, 0, 0, 0, 1, 1, 1 }
+  { 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1 }
 
 #define REG_ALLOC_ORDER \
-  { 2, 3, 0, 1, 4, 5, 6, 8, 7, 9}
+  { 2, 3, 0, 1, 4, 5, 6, 8, 7, 9, 10}
 
 #define CONDITIONAL_REGISTER_USAGE		\
 {						\
@@ -350,6 +359,16 @@ extern int target_flags;
 
 /* Register in which static-chain is passed to a function.  */
 #define STATIC_CHAIN_REGNUM 3
+
+/* Fake register that holds the address on the stack of the
+   current function's return address.  */
+#define RETURN_ADDRESS_POINTER_REGNUM 10
+
+/* A C expression whose value is RTL representing the value of the return
+   address for the frame COUNT steps up from the current frame.
+   FRAMEADDR is already the frame pointer of the COUNT frame, assuming
+   a stack layout with the frame pointer as the first saved register.  */
+#define RETURN_ADDR_RTX(COUNT, FRAME) h8300_return_addr_rtx ((COUNT), (FRAME))
 
 /* Define the classes of registers for register constraints in the
    machine description.  Also define ranges of constants.
@@ -388,9 +407,9 @@ enum reg_class {
 
 #define REG_CLASS_CONTENTS  			\
 {      {0},		/* No regs      */	\
-   {0x2ff},		/* GENERAL_REGS */    	\
+   {0x6ff},		/* GENERAL_REGS */    	\
    {0x100},		/* MAC_REGS */    	\
-   {0x3ff},		/* ALL_REGS 	*/	\
+   {0x7ff},		/* ALL_REGS 	*/	\
 }
 
 /* The same information, inverted:
@@ -537,21 +556,24 @@ enum reg_class {
    pointer register.  Secondly, the argument pointer register can always be
    eliminated; it is replaced with either the stack or frame pointer. */
 
-#define ELIMINABLE_REGS				\
-{{ ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},	\
- { ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM},   \
+#define ELIMINABLE_REGS					\
+{{ ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},		\
+ { ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM},		\
+ { RETURN_ADDRESS_POINTER_REGNUM, STACK_POINTER_REGNUM},\
+ { RETURN_ADDRESS_POINTER_REGNUM, FRAME_POINTER_REGNUM},\
  { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}}
 
 /* Given FROM and TO register numbers, say whether this elimination is allowed.
    Frame pointer elimination is automatically handled.
 
    For the h8300, if frame pointer elimination is being done, we would like to
-   convert ap into sp, not fp.
+   convert ap and rp into sp, not fp.
 
    All other eliminations are valid.  */
 
 #define CAN_ELIMINATE(FROM, TO)					\
- ((FROM) == ARG_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM	\
+ ((((FROM) == ARG_POINTER_REGNUM || (FROM) == RETURN_ADDRESS_POINTER_REGNUM) \
+   && (TO) == STACK_POINTER_REGNUM)				\
   ? ! frame_pointer_needed					\
   : 1)
 
@@ -1077,34 +1099,12 @@ struct cum_arg
 #define DATA_SECTION_ASM_OP "\t.section .data"
 #define BSS_SECTION_ASM_OP "\t.section .bss"
 #define INIT_SECTION_ASM_OP "\t.section .init"
-#define CTORS_SECTION_ASM_OP "\t.section .ctors"
-#define DTORS_SECTION_ASM_OP "\t.section .dtors"
 #define READONLY_DATA_SECTION_ASM_OP "\t.section .rodata"
 
-#define EXTRA_SECTIONS in_ctors, in_dtors, in_readonly_data
+#define EXTRA_SECTIONS in_readonly_data
 
 #define EXTRA_SECTION_FUNCTIONS						\
-									\
-void									\
-ctors_section ()							\
-{									\
-  if (in_section != in_ctors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);		\
-      in_section = in_ctors;						\
-    }									\
-}									\
-									\
-void									\
-dtors_section ()							\
-{									\
-  if (in_section != in_dtors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);		\
-      in_section = in_dtors;						\
-    }									\
-}									\
-									\
+extern void readonly_data PARAMS ((void));				\
 void									\
 readonly_data ()							\
 {									\
@@ -1114,22 +1114,6 @@ readonly_data ()							\
       in_section = in_readonly_data;					\
     }									\
 }
-
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)		\
-  do							\
-    {							\
-      ctors_section ();					\
-      fprintf (FILE, "%s_%s\n", ASM_WORD_OP, NAME);	\
-    }							\
-  while (0)
-
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)		\
-  do							\
-    {							\
-      dtors_section ();			       		\
-      fprintf (FILE, "%s_%s\n", ASM_WORD_OP, NAME);	\
-    }							\
-  while (0)
 
 #undef DO_GLOBAL_CTORS_BODY
 #define DO_GLOBAL_CTORS_BODY			\
@@ -1145,7 +1129,7 @@ readonly_data ()							\
 }
 
 #undef DO_GLOBAL_DTORS_BODY
-#define DO_GLOBAL_DTORS_BODY                    \
+#define DO_GLOBAL_DTORS_BODY			\
 {						\
   typedef (*pfunc)();				\
   extern pfunc __dtors[];			\
@@ -1162,17 +1146,17 @@ readonly_data ()							\
 /* If we are referencing a function that is supposed to be called
    through the function vector, the SYMBOL_REF_FLAG in the rtl
    so the call patterns can generate the correct code.  */
-#define ENCODE_SECTION_INFO(DECL)			\
-  if (TREE_CODE (DECL) == FUNCTION_DECL			\
-       && h8300_funcvec_function_p (DECL))		\
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;	\
-  else if ((TREE_STATIC (DECL) || DECL_EXTERNAL (DECL))	\
-      && TREE_CODE (DECL) == VAR_DECL			\
-      && h8300_eightbit_data_p (DECL))			\
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;	\
-  else if ((TREE_STATIC (DECL) || DECL_EXTERNAL (DECL))	\
-      && TREE_CODE (DECL) == VAR_DECL			\
-      && h8300_tiny_data_p (DECL))			\
+#define ENCODE_SECTION_INFO(DECL)				\
+  if (TREE_CODE (DECL) == FUNCTION_DECL				\
+      && h8300_funcvec_function_p (DECL))			\
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;		\
+  else if (TREE_CODE (DECL) == VAR_DECL				\
+	   && (TREE_STATIC (DECL) || DECL_EXTERNAL (DECL))	\
+	   && h8300_eightbit_data_p (DECL))			\
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;		\
+  else if (TREE_CODE (DECL) == VAR_DECL				\
+	   && (TREE_STATIC (DECL) || DECL_EXTERNAL (DECL))	\
+	   && h8300_tiny_data_p (DECL))				\
     h8300_encode_label (DECL);
 
 /* Store the user-specified part of SYMBOL_NAME in VAR.
@@ -1186,16 +1170,11 @@ readonly_data ()							\
    This sequence is indexed by compiler's hard-register-number (see above).  */
 
 #define REGISTER_NAMES \
-{ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "sp", "mac", "ap" }
+{ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "sp", "mac", "ap", "rap" }
 
 #define ADDITIONAL_REGISTER_NAMES \
 { {"er0", 0}, {"er1", 1}, {"er2", 2}, {"er3", 3}, {"er4", 4}, \
   {"er5", 5}, {"er6", 6}, {"er7", 7}, {"r7", 7} }
-
-/* How to renumber registers for dbx and gdb.
-   H8/300 needs no change in the numeration.  */
-
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
 
 #define SDB_DEBUGGING_INFO
 #define SDB_DELIM	"\n"
@@ -1214,13 +1193,8 @@ readonly_data ()							\
   fprintf (FILE,							\
 	   "\t.text\n.stabs \"\",%d,0,0,.Letext\n.Letext:\n", N_SO)
 
-/* A C statement to output something to the assembler file to switch to section
-   NAME for object DECL which is either a FUNCTION_DECL, a VAR_DECL or
-   NULL_TREE.  Some target formats do not support arbitrary sections.  Do not
-   define this macro in such cases.  */
-
-#define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC) \
-  fprintf (FILE, "\t.section %s\n", NAME)
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION h8300_asm_named_section
 
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
@@ -1283,7 +1257,8 @@ readonly_data ()							\
       char dstr[30];						\
       REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);		\
       fprintf (FILE, "\t.double %s\n", dstr);			\
-    } while (0)
+    }								\
+  while (0)
 
 /* This is how to output an assembler line defining a `float' constant.  */
 #define ASM_OUTPUT_FLOAT(FILE, VALUE)				\
@@ -1292,30 +1267,8 @@ readonly_data ()							\
       char dstr[30];						\
       REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);		\
       fprintf (FILE, "\t.float %s\n", dstr);			\
-    } while (0)
-
-/* This is how to output an assembler line defining an `int' constant.  */
-
-#define ASM_OUTPUT_INT(FILE, VALUE)		\
-( fprintf (FILE, "\t.long "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* Likewise for `char' and `short' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE, VALUE)		\
-( fprintf (FILE, "\t.word "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE, VALUE)		\
-( fprintf (FILE, "\t.byte "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-#define ASM_OUTPUT_BYTE(FILE, VALUE)  \
-  fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
+    }								\
+  while (0)
 
 /* This is how to output an insn to push a register on the stack.
    It need not be very fast code.  */

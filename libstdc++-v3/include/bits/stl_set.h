@@ -53,12 +53,13 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_set.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
-#ifndef __SGI_STL_INTERNAL_SET_H
-#define __SGI_STL_INTERNAL_SET_H
+#ifndef __GLIBCPP_INTERNAL_SET_H
+#define __GLIBCPP_INTERNAL_SET_H
 
 #include <bits/concept_check.h>
 
@@ -84,7 +85,7 @@ template <class _Key, class _Compare, class _Alloc>
 class set
 {
   // concept requirements
-  __glibcpp_class_requires(_Key, _SGIAssignableConcept);
+  __glibcpp_class_requires(_Key, _SGIAssignableConcept)
   __glibcpp_class_requires4(_Compare, bool, _Key, _Key, _BinaryFunctionConcept);
 
 public:
@@ -266,7 +267,7 @@ inline void swap(set<_Key,_Compare,_Alloc>& __x,
 
 } // namespace std
 
-#endif /* __SGI_STL_INTERNAL_SET_H */
+#endif /* __GLIBCPP_INTERNAL_SET_H */
 
 // Local Variables:
 // mode:C++

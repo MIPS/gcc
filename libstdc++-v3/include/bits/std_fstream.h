@@ -31,6 +31,11 @@
 // ISO C++ 14882: 27.8  File-based streams
 //
 
+/** @file std_fstream.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _CPP_FSTREAM
 #define _CPP_FSTREAM	1
 
@@ -92,6 +97,10 @@ namespace std
       basic_filebuf(__c_file_type* __f, ios_base::openmode __mode, 
 		    int_type __s = static_cast<int_type>(BUFSIZ));
  
+      // Non-standard member:
+      int
+      fd();
+
       virtual 
       ~basic_filebuf() 
       { 

@@ -31,6 +31,11 @@
 // ISO C++ 14882: 27.6.2  Output streams
 //
 
+/** @file std_ostream.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _CPP_OSTREAM
 #define _CPP_OSTREAM	1
 
@@ -170,7 +175,7 @@ namespace std
 
     private:
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
-      // Not defined.
+      // Not defined.  (Side effect of DR 50.)
       __ostream_type& 
       operator=(const __ostream_type&);
 

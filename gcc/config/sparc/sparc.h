@@ -210,19 +210,12 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 
 #endif /* !SPARC_BI_ARCH */
 
-/* Names to predefine in the preprocessor for this target machine.
-   ??? It would be nice to not include any subtarget specific values here,
-   however there's no way to portably provide subtarget values to
-   CPP_PREFINES.  Also, -D values in CPP_SUBTARGET_SPEC don't get turned into
-   foo, __foo and __foo__.  */
-
-#define CPP_PREDEFINES "-Dsparc -Dsun -Dunix -Asystem=unix -Asystem=bsd"
-
 /* Define macros to distinguish architectures.  */
 
 /* Common CPP definitions used by CPP_SPEC amongst the various targets
    for handling -mcpu=xxx switches.  */
 #define CPP_CPU_SPEC "\
+%{msoft-float:-D_SOFT_FLOAT} \
 %{mcypress:} \
 %{msparclite:-D__sparclite__} \
 %{mf930:-D__sparclite__} %{mf934:-D__sparclite__} \
@@ -336,14 +329,6 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 %| %{R} %{!pg:%{!p:%{fpic:-k} %{fPIC:-k}}} %{keep-local-as-symbols:-L} \
 %(asm_cpu) %(asm_relax)"
 
-#define LIB_SPEC "%{!shared:%{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p} %{g:-lg}}"
-
-/* Provide required defaults for linker -e and -d switches.  */
-
-#define LINK_SPEC \
- "%{!shared:%{!nostdlib:%{!r*:%{!e*:-e start}}} -dc -dp} %{static:-Bstatic} \
-  %{assert*} %{shared:%{!mimpure-text:-assert pure-text}}"
-
 /* This macro defines names of additional specifications to put in the specs
    that can be used in various specifications like CC1_SPEC.  Its definition
    is an initializer with a subgrouping for each command option.
@@ -395,11 +380,11 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 
 #define OVERRIDE_OPTIONS \
   do {									\
-    if (profile_flag || profile_block_flag || profile_arc_flag)		\
+    if (profile_flag || profile_arc_flag)				\
       {									\
 	if (flag_pic)							\
 	  {								\
-	    const char *pic_string = (flag_pic == 1) ? "-fpic" : "-fPIC";\
+	    const char *const pic_string = (flag_pic == 1) ? "-fpic" : "-fPIC";\
 	    warning ("%s and profiling conflict: disabling %s",		\
 		     pic_string, pic_string);				\
 	    flag_pic = 0;						\
@@ -412,16 +397,6 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 
 /* This is meant to be redefined in the host dependent files.  */
 #define SUBTARGET_OVERRIDE_OPTIONS
-
-/* These compiler options take an argument.  We ignore -target for now.  */
-
-#define WORD_SWITCH_TAKES_ARG(STR)				\
- (DEFAULT_WORD_SWITCH_TAKES_ARG (STR)				\
-  || !strcmp (STR, "target") || !strcmp (STR, "assert"))
-
-/* Print subsidiary information on the compiler version in use.  */
-
-#define TARGET_VERSION fprintf (stderr, " (sparc)");
 
 /* Generate DBX debugging information.  */
 
@@ -720,9 +695,9 @@ extern enum processor_type sparc_cpu;
 struct sparc_cpu_select
 {
   const char *string;
-  const char *name;
-  int set_tune_p;
-  int set_arch_p;
+  const char *const name;
+  const int set_tune_p;
+  const int set_arch_p;
 };
 
 extern struct sparc_cpu_select sparc_select[];
@@ -910,41 +885,11 @@ if (TARGET_ARCH64				\
 #define SUNOS4_SHARED_LIBRARIES 0
 #endif
 
-/* This is defined differently for v9 in a cover file.  */
-#define SELECT_SECTION(T,RELOC)						\
-{									\
-  if (TREE_CODE (T) == VAR_DECL)					\
-    {									\
-      if (TREE_READONLY (T) && ! TREE_SIDE_EFFECTS (T)			\
-	  && DECL_INITIAL (T)						\
-	  && (DECL_INITIAL (T) == error_mark_node			\
-	      || TREE_CONSTANT (DECL_INITIAL (T)))			\
-	  && DECL_ALIGN (T) <= MAX_TEXT_ALIGN				\
-	  && ! (flag_pic && ((RELOC) || SUNOS4_SHARED_LIBRARIES)))	\
-	text_section ();						\
-      else								\
-	data_section ();						\
-    }									\
-  else if (TREE_CODE (T) == CONSTRUCTOR)				\
-    {									\
-      if (flag_pic && ((RELOC) || SUNOS4_SHARED_LIBRARIES))		\
-	data_section ();						\
-    }									\
-  else if (TREE_CODE_CLASS (TREE_CODE (T)) == 'c')			\
-    {									\
-      if ((TREE_CODE (T) == STRING_CST && flag_writable_strings)	\
-	  || TYPE_ALIGN (TREE_TYPE (T)) > MAX_TEXT_ALIGN		\
-	  || (flag_pic && ((RELOC) || SUNOS4_SHARED_LIBRARIES)))	\
-	data_section ();						\
-      else								\
-	text_section ();						\
-    }									\
-}
 
 /* Use text section for a constant
    unless we need more alignment than that offers.  */
 /* This is defined differently for v9 in a cover file.  */
-#define SELECT_RTX_SECTION(MODE, X)		\
+#define SELECT_RTX_SECTION(MODE, X, ALIGN)	\
 {						\
   if (GET_MODE_BITSIZE (MODE) <= MAX_TEXT_ALIGN \
       && ! (flag_pic && (symbolic_operand ((X), (MODE)) || SUNOS4_SHARED_LIBRARIES)))  \
@@ -1118,13 +1063,6 @@ do								\
 	/* Disable leaf functions */				\
 	memset (sparc_leaf_regs, 0, FIRST_PSEUDO_REGISTER);	\
       }								\
-    if (profile_block_flag)					\
-      {								\
-	/* %g1 and %g2 (sparc32) resp. %g4 (sparc64) must be	\
-	   fixed, because BLOCK_PROFILER uses them.  */		\
-	fixed_regs[1] = 1;					\
-	fixed_regs[TARGET_ARCH64 ? 4 : 2] = 1;			\
-      }								\
   }								\
 while (0)
 
@@ -1146,23 +1084,8 @@ while (0)
        : (GET_MODE_SIZE (MODE) + 3) / 4)				\
    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
-/* Due to the ARCH64 descrepancy above we must override these
-   next two macros too.  */
-#define REG_SIZE(R) \
-  (TARGET_ARCH64							\
-   && ((GET_CODE (R) == REG						\
-        && ((REGNO (R) >= FIRST_PSEUDO_REGISTER				\
-	     && FLOAT_MODE_P (GET_MODE (R)))				\
-	    || (REGNO (R) < FIRST_PSEUDO_REGISTER			\
-		&& REGNO (R) >= 32)))					\
-       || (GET_CODE (R) == SUBREG					\
-	   && ((REGNO (SUBREG_REG (R)) >= FIRST_PSEUDO_REGISTER		\
-	     && FLOAT_MODE_P (GET_MODE (SUBREG_REG (R))))		\
-	    || (REGNO (SUBREG_REG (R)) < FIRST_PSEUDO_REGISTER		\
-		&& REGNO (SUBREG_REG (R)) >= 32))))			\
-   ? (GET_MODE_SIZE (GET_MODE (R)) + 3) / 4				\
-   : (GET_MODE_SIZE (GET_MODE (R)) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
-
+/* Due to the ARCH64 descrepancy above we must override this next
+   macro too.  */
 #define REGMODE_NATURAL_SIZE(MODE) \
   ((TARGET_ARCH64 && FLOAT_MODE_P (MODE)) ? 4 : UNITS_PER_WORD)
 
@@ -1358,7 +1281,7 @@ enum reg_class { NO_REGS, FPCC_REGS, I64_REGS, GENERAL_REGS, FP_REGS,
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 
 #define REG_CLASS_NAMES \
   { "NO_REGS", "FPCC_REGS", "I64_REGS", "GENERAL_REGS", "FP_REGS",	\
@@ -1432,7 +1355,7 @@ extern enum reg_class sparc_regno_reg_class[];
 extern char sparc_leaf_regs[];
 #define LEAF_REGISTERS sparc_leaf_regs
 
-extern char leaf_reg_remap[];
+extern const char leaf_reg_remap[];
 #define LEAF_REG_REMAP(REGNO) (leaf_reg_remap[REGNO])
 
 /* The class value for index registers, and the one for base regs.  */
@@ -1447,7 +1370,7 @@ extern char leaf_reg_remap[];
    .md file for v8 and v9.
    'd' and 'b' are used for single and double precision VIS operations,
    if TARGET_VIS.
-   'h' is used for V8+ 64 bit global and out registers. */
+   'h' is used for V8+ 64 bit global and out registers.  */
 
 #define REG_CLASS_FROM_LETTER(C)		\
 (TARGET_V9					\
@@ -1654,7 +1577,7 @@ extern char leaf_reg_remap[];
 /* When a parameter is passed in a register, stack space is still
    allocated for it.
    !v9: All 6 possible integer registers have backing store allocated.
-   v9: Only space for the arguments passed is allocated. */
+   v9: Only space for the arguments passed is allocated.  */
 /* ??? Ideally, we'd use zero here (as the minimum), but zero has special
    meaning to the backend.  Further, we need to be able to detect if a
    varargs/unprototyped function is called, as they may want to spill more
@@ -1697,7 +1620,7 @@ extern char leaf_reg_remap[];
    ? (TARGET_FPU && FLOAT_MODE_P (MODE) ? 32 : 8)		\
    : 8)
 
-/* ??? FIXME -- seems wrong for v9 structure passing... */
+/* ??? FIXME -- seems wrong for v9 structure passing...  */
 #define BASE_INCOMING_ARG_REG(MODE)				\
   (TARGET_ARCH64						\
    ? (TARGET_FPU && FLOAT_MODE_P (MODE) ? 32			\
@@ -1883,14 +1806,6 @@ extern struct rtx_def *sparc_compare_op0, *sparc_compare_op1;
 #define ASM_DECLARE_RESULT(FILE, RESULT) \
   fprintf ((FILE), "\t.proc\t0%lo\n", sparc_type_code (TREE_TYPE (RESULT)))
 
-/* Output the label for a function definition.  */
-
-#define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)			\
-do {									\
-  ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));			\
-  ASM_OUTPUT_LABEL (FILE, NAME);					\
-} while (0)
-
 /* Output the special assembly code needed to tell the assembler some
    register is used as global register variable.  
 
@@ -1939,165 +1854,6 @@ do {									\
 /* Set the name of the mcount function for the system.  */
 
 #define MCOUNT_FUNCTION "*mcount"
-
-/* The following macro shall output assembler code to FILE
-   to initialize basic-block profiling.  */
-
-#define FUNCTION_BLOCK_PROFILER(FILE, BLOCK_OR_LABEL) \
-  sparc_function_block_profiler(FILE, BLOCK_OR_LABEL)
-
-/* The following macro shall output assembler code to FILE
-   to increment a counter associated with basic block number BLOCKNO.  */
-
-#define BLOCK_PROFILER(FILE, BLOCKNO) \
-  sparc_block_profiler (FILE, BLOCKNO)
-
-/* The following macro shall output assembler code to FILE
-   to indicate a return from function during basic-block profiling.  */
-
-#define FUNCTION_BLOCK_PROFILER_EXIT(FILE) \
-  sparc_function_block_profiler_exit(FILE)
-
-#ifdef IN_LIBGCC2
-
-/* The function `__bb_trace_func' is called in every basic block
-   and is not allowed to change the machine state. Saving (restoring)
-   the state can either be done in the BLOCK_PROFILER macro,
-   before calling function (rsp. after returning from function)
-   `__bb_trace_func', or it can be done inside the function by
-   defining the macros:
-
-	MACHINE_STATE_SAVE(ID)
-	MACHINE_STATE_RESTORE(ID)
-
-   In the latter case care must be taken, that the prologue code
-   of function `__bb_trace_func' does not already change the
-   state prior to saving it with MACHINE_STATE_SAVE.
-
-   The parameter `ID' is a string identifying a unique macro use.
-
-   On sparc it is sufficient to save the psw register to memory.
-   Unfortunately the psw register can be read in supervisor mode only,
-   so we read only the condition codes by using branch instructions
-   and hope that this is enough.
-   
-   On V9, life is much sweater:  there is a user accessible %ccr
-   register, but we use it for 64bit libraries only.  */
-
-#if TARGET_ARCH32
-
-#define MACHINE_STATE_SAVE(ID)			\
-  int ms_flags, ms_saveret;			\
-  asm volatile(					\
-	"mov %%g2,%1\n\
-	mov %%g0,%0\n\
-	be,a LFLGNZ"ID"\n\
-	or %0,4,%0\n\
-LFLGNZ"ID":\n\
-	bcs,a LFLGNC"ID"\n\
-	or %0,1,%0\n\
-LFLGNC"ID":\n\
-	bvs,a LFLGNV"ID"\n\
-	or %0,2,%0\n\
-LFLGNV"ID":\n\
-	bneg,a LFLGNN"ID"\n\
-	or %0,8,%0\n\
-LFLGNN"ID":"					\
-	: "=r"(ms_flags), "=r"(ms_saveret));
-
-#else
-
-#define MACHINE_STATE_SAVE(ID)			\
-  unsigned long ms_flags, ms_saveret;		\
-  asm volatile(					\
-	"mov %%g4,%1\n\
-	rd %%ccr,%0"				\
-	: "=r"(ms_flags), "=r"(ms_saveret));
-
-#endif
-
-/* On sparc MACHINE_STATE_RESTORE restores the psw register from memory.
-   The psw register can be written in supervisor mode only,
-   which is true even for simple condition codes.
-   We use some combination of instructions to produce the
-   proper condition codes, but some flag combinations can not
-   be generated in this way. If this happens an unimplemented
-   instruction will be executed to abort the program. */
-
-#if TARGET_ARCH32
-
-#define MACHINE_STATE_RESTORE(ID)				\
-{ extern char flgtab[] __asm__("LFLGTAB"ID);			\
-  int scratch;							\
-  asm volatile (						\
-	"jmpl %2+%1,%%g0\n\
-    ! Do part of VC in the delay slot here, as it needs 3 insns.\n\
-	 addcc 2,%3,%%g0\n\
-LFLGTAB" ID ":\n\
-    ! 0\n\
-	ba LFLGRET"ID"\n\
-	 orcc 1,%%g0,%%g0\n\
-    ! C\n\
-	ba LFLGRET"ID"\n\
-	 addcc 2,%3,%%g0\n\
-    ! V\n\
-	unimp\n\
-	nop\n\
-    ! VC\n\
-	ba LFLGRET"ID"\n\
-	 addxcc %4,%4,%0\n\
-    ! Z\n\
-	ba LFLGRET"ID"\n\
-	 subcc %%g0,%%g0,%%g0\n\
-    ! ZC\n\
-	ba LFLGRET"ID"\n\
-	 addcc 1,%3,%0\n\
-    ! ZVC\n\
-	ba LFLGRET"ID"\n\
-	 addcc %4,%4,%0\n\
-    ! N\n\
-	ba LFLGRET"ID"\n\
-	 orcc %%g0,-1,%%g0\n\
-    ! NC\n\
-	ba LFLGRET"ID"\n\
-	 addcc %%g0,%3,%%g0\n\
-    ! NV\n\
-	unimp\n\
-	nop\n\
-    ! NVC\n\
-	unimp\n\
-	nop\n\
-    ! NZ\n\
-	unimp\n\
-	nop\n\
-    ! NZC\n\
-	unimp\n\
-	nop\n\
-    ! NZV\n\
-	unimp\n\
-	nop\n\
-    ! NZVC\n\
-	unimp\n\
-	nop\n\
-LFLGRET"ID":\n\
-	mov %5,%%g2"						\
-	: "=r"(scratch)						\
-	: "r"(ms_flags*8), "r"(flgtab), "r"(-1),		\
-	  "r"(0x80000000), "r"(ms_saveret)			\
-	: "cc", "g2"); }
-
-#else
-
-#define MACHINE_STATE_RESTORE(ID)				\
-  asm volatile (						\
-	"wr %0,0,%%ccr\n\
-	mov %1,%%g4"						\
-	: : "r"(ms_flags), "r"(ms_saveret)			\
-	: "cc", "g4");
-
-#endif
-
-#endif /* IN_LIBGCC2 */
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -2181,7 +1937,7 @@ LFLGRET"ID":\n\
 #define RETURN_ADDR_IN_PREVIOUS_FRAME
 
 /* This is the offset of the return address to the true next instruction to be
-   executed for the current function. */
+   executed for the current function.  */
 #define RETURN_ADDR_OFFSET \
   (8 + 4 * (! TARGET_ARCH64 && current_function_returns_struct))
 
@@ -2430,7 +2186,7 @@ LFLGRET"ID":\n\
 		 of a movtf pattern are both MEMs with	\
 		 REG+REG address, then only one of them	\
 		 gets converted to an offsetable	\
-		 address. */				\
+		 address.  */				\
  	       && (MODE != TFmode			\
 		   || (TARGET_FPU && TARGET_ARCH64	\
 		       && TARGET_V9			\
@@ -2440,7 +2196,7 @@ LFLGRET"ID":\n\
 		 because then mem_min_alignment is	\
 		 likely to be zero after reload and the \
 		 forced split would lack a matching	\
-		 splitter pattern. */			\
+		 splitter pattern.  */			\
 	       && (TARGET_ARCH64 || optimize		\
 		   || (MODE != DFmode			\
 		       && MODE != DImode)))		\
@@ -2450,7 +2206,7 @@ LFLGRET"ID":\n\
       else if (RTX_OK_FOR_BASE_P (op1))			\
 	{						\
 	  if ((RTX_OK_FOR_INDEX_P (op0)			\
- 	      /* See the previous comment. */		\
+ 	      /* See the previous comment.  */		\
  	       && (MODE != TFmode			\
 		  || (TARGET_FPU && TARGET_ARCH64	\
 		      && TARGET_V9			\
@@ -2494,7 +2250,7 @@ LFLGRET"ID":\n\
 	  && CONSTANT_P (op1)				\
 	  /* We can't allow TFmode, because an offset	\
 	     greater than or equal to the alignment (8)	\
-	     may cause the LO_SUM to overflow if !v9. */\
+	     may cause the LO_SUM to overflow if !v9.  */\
 	  && (MODE != TFmode || TARGET_V9))		\
 	goto ADDR;					\
     }							\
@@ -2603,7 +2359,7 @@ do {                                                                    \
 (! TARGET_PTR64 ? SImode : flag_pic ? SImode : TARGET_CM_MEDLOW ? SImode : DImode)
 #else
 /* If assembler does not have working .subsection -1, we use DImode for pic, as otherwise
-   we have to sign extend which slows things down. */
+   we have to sign extend which slows things down.  */
 #define CASE_VECTOR_MODE \
 (! TARGET_PTR64 ? SImode : flag_pic ? DImode : TARGET_CM_MEDLOW ? SImode : DImode)
 #endif
@@ -2611,7 +2367,7 @@ do {                                                                    \
 /* Define as C expression which evaluates to nonzero if the tablejump
    instruction expects the table to contain offsets from the address of the
    table.
-   Do not define this if the table should contain absolute addresses. */
+   Do not define this if the table should contain absolute addresses.  */
 /* #define CASE_VECTOR_PC_RELATIVE 1 */
 
 /* Specify the tree operation to be used to convert reals to integers.  */
@@ -2662,7 +2418,7 @@ do {                                                                    \
 #define PROMOTE_PROTOTYPES (TARGET_ARCH32)
 
 /* Define this to be nonzero if shift instructions ignore all but the low-order
-   few bits. */
+   few bits.  */
 #define SHIFT_COUNT_TRUNCATED 1
 
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
@@ -2770,7 +2526,7 @@ do {                                                                    \
 	  = init_one_libfunc (NEGTF2_LIBCALL);				\
 	smul_optab->handlers[(int) TFmode].libfunc			\
 	  = init_one_libfunc (MULTF3_LIBCALL);				\
-	flodiv_optab->handlers[(int) TFmode].libfunc			\
+	sdiv_optab->handlers[(int) TFmode].libfunc			\
 	  = init_one_libfunc (DIVTF3_LIBCALL);				\
 	eqtf2_libfunc = init_one_libfunc (EQTF2_LIBCALL);		\
 	netf2_libfunc = init_one_libfunc (NETF2_LIBCALL);		\
@@ -2864,31 +2620,6 @@ do {                                                                    \
   case FIX:						\
     return 19;
 
-#define ISSUE_RATE  sparc_issue_rate()
-
-/* Adjust the cost of dependencies.  */
-#define ADJUST_COST(INSN,LINK,DEP,COST) \
-  (COST) = sparc_adjust_cost(INSN, LINK, DEP, COST)
-
-#define MD_SCHED_INIT(DUMP, SCHED_VERBOSE, MAX_READY)			\
-  if (sparc_cpu == PROCESSOR_ULTRASPARC)				\
-    ultrasparc_sched_init (DUMP, SCHED_VERBOSE)
-
-#define MD_SCHED_REORDER(DUMP, SCHED_VERBOSE, READY, N_READY, CLOCK, CIM) \
-do {									\
-  if (sparc_cpu == PROCESSOR_ULTRASPARC)				\
-    ultrasparc_sched_reorder (DUMP, SCHED_VERBOSE, READY, N_READY);	\
-  CIM = issue_rate;							\
-} while (0)
-
-#define MD_SCHED_VARIABLE_ISSUE(DUMP, SCHED_VERBOSE, INSN, CAN_ISSUE_MORE) \
-do {									\
-  if (sparc_cpu == PROCESSOR_ULTRASPARC)				\
-    (CAN_ISSUE_MORE) = ultrasparc_variable_issue (INSN);		\
-  else									\
-    (CAN_ISSUE_MORE)--;							\
-} while (0)
-
 /* Conditional branches with empty delay slots have a length of two.  */
 #define ADJUST_INSN_LENGTH(INSN, LENGTH)				\
 do {									\
@@ -2921,21 +2652,9 @@ do {									\
 
 /* ??? Try to make the style consistent here (_OP?).  */
 
-#define ASM_LONGLONG	".xword"
-#define ASM_LONG	".word"
-#define ASM_SHORT	".half"
-#define ASM_BYTE_OP	"\t.byte\t"
 #define ASM_FLOAT	".single"
 #define ASM_DOUBLE	".double"
-#define ASM_LONGDOUBLE	".xxx"		/* ??? Not known (or used yet). */
-
-/* Output before read-only data.  */
-
-#define TEXT_SECTION_ASM_OP "\t.text"
-
-/* Output before writable data.  */
-
-#define DATA_SECTION_ASM_OP "\t.data"
+#define ASM_LONGDOUBLE	".xxx"		/* ??? Not known (or used yet).  */
 
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).  */
@@ -2960,12 +2679,6 @@ do {									\
 #define ADDITIONAL_REGISTER_NAMES \
 {{"ccr", SPARC_ICC_REG}, {"cc", SPARC_ICC_REG}}
 
-/* How to renumber registers for dbx and gdb.  In the flat model, the frame
-   pointer is really %i7.  */
-
-#define DBX_REGISTER_NUMBER(REGNO) \
-  (TARGET_FLAT && REGNO == FRAME_POINTER_REGNUM ? 31 : REGNO)
-
 /* On Sun 4, this limit is 2048.  We use 1000 to be safe, since the length
    can run past this up to a continuation point.  Once we used 1500, but
    a single entry in C++ can run more than 500 bytes, due to the length of
@@ -2973,17 +2686,6 @@ do {									\
    continuations when they are actually needed instead of trying to
    guess...  */
 #define DBX_CONTIN_LENGTH 1000
-
-/* This is how to output a note to DBX telling it the line number
-   to which the following sequence of instructions corresponds.
-
-   This is needed for SunOS 4.0, and should not hurt for 3.2
-   versions either.  */
-#define ASM_OUTPUT_SOURCE_LINE(file, line)		\
-  { static int sym_lineno = 1;				\
-    fprintf (file, ".stabn 68,0,%d,LM%d\nLM%d:\n",	\
-	     line, sym_lineno, sym_lineno);		\
-    sym_lineno += 1; }
 
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
@@ -2997,7 +2699,7 @@ do {									\
 #define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
   do { fputs ("\t.global ", FILE); assemble_name (FILE, NAME); fputs ("\n", FILE);} while (0)
 
-/* The prefix to add to user-visible assembler symbols. */
+/* The prefix to add to user-visible assembler symbols.  */
 
 #define USER_LABEL_PREFIX "_"
 
@@ -3026,7 +2728,8 @@ do {									\
     char str[30];						\
     REAL_VALUE_TO_TARGET_SINGLE ((VALUE), t);			\
     REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", str);		\
-    fprintf (FILE, "\t%s\t0x%lx %s ~%s\n", ASM_LONG, t,		\
+    fprintf (FILE, "\t%s\t0x%lx %s ~%s\n",			\
+	     integer_asm_op (4, TRUE), t,			\
 	     ASM_COMMENT_START, str);				\
   }								\
 
@@ -3039,11 +2742,12 @@ do {									\
   {								\
     long t[2];							\
     char str[30];						\
+    const char *long_op = integer_asm_op (4, TRUE);		\
     REAL_VALUE_TO_TARGET_DOUBLE ((VALUE), t);			\
     REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", str);		\
-    fprintf (FILE, "\t%s\t0x%lx %s ~%s\n", ASM_LONG, t[0],	\
+    fprintf (FILE, "\t%s\t0x%lx %s ~%s\n", long_op, t[0],	\
 	     ASM_COMMENT_START, str);				\
-    fprintf (FILE, "\t%s\t0x%lx\n", ASM_LONG, t[1]);		\
+    fprintf (FILE, "\t%s\t0x%lx\n", long_op, t[1]);		\
   }
 
 /* This is how to output an assembler line defining a `long double'
@@ -3053,42 +2757,15 @@ do {									\
   {								\
     long t[4];							\
     char str[30];						\
+    const char *long_op = integer_asm_op (4, TRUE);		\
     REAL_VALUE_TO_TARGET_LONG_DOUBLE ((VALUE), t);		\
     REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", str);		\
-    fprintf (FILE, "\t%s\t0x%lx %s ~%s\n", ASM_LONG, t[0],	\
+    fprintf (FILE, "\t%s\t0x%lx %s ~%s\n", long_op, t[0],	\
 	     ASM_COMMENT_START, str);				\
-    fprintf (FILE, "\t%s\t0x%lx\n", ASM_LONG, t[1]);		\
-    fprintf (FILE, "\t%s\t0x%lx\n", ASM_LONG, t[2]);		\
-    fprintf (FILE, "\t%s\t0x%lx\n", ASM_LONG, t[3]);		\
+    fprintf (FILE, "\t%s\t0x%lx\n", long_op, t[1]);		\
+    fprintf (FILE, "\t%s\t0x%lx\n", long_op, t[2]);		\
+    fprintf (FILE, "\t%s\t0x%lx\n", long_op, t[3]);		\
   }
-
-/* This is how to output an assembler line defining an `int' constant.  */
-
-#define ASM_OUTPUT_INT(FILE,VALUE)  \
-( fprintf (FILE, "\t%s\t", ASM_LONG),		\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line defining a DImode constant.  */
-#define ASM_OUTPUT_DOUBLE_INT(FILE,VALUE)  \
-  output_double_int (FILE, VALUE)
-
-/* Likewise for `char' and `short' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE,VALUE)  \
-( fprintf (FILE, "\t%s\t", ASM_SHORT),		\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE,VALUE)  \
-( fprintf (FILE, "%s", ASM_BYTE_OP),	\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-
-#define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf (FILE, "%s0x%x\n", ASM_BYTE_OP, (VALUE))
 
 /* This is how we hook in and defer the case-vector until the end of
    the function.  */

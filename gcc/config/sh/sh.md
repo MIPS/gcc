@@ -406,7 +406,7 @@
   [(const_int 1)])
 
 ;; arith3 insns are always pairable at the start, but not inecessarily at
-;; the end; however, there doesn;t seem to be a way to express that.
+;; the end; however, there doesn't seem to be a way to express that.
 (define_function_unit "single_issue"     1 0
   (and (eq_attr "issues" "2")
        (eq_attr "type" "arith3"))
@@ -1654,6 +1654,7 @@
    shll%O2	%0
    #"
   "TARGET_SH3
+   && reload_completed
    && GET_CODE (operands[2]) == CONST_INT
    && ! CONST_OK_FOR_K (INTVAL (operands[2]))"
   [(set (match_dup 3) (match_dup 2))
@@ -1696,7 +1697,7 @@
 	(ashift:SI (match_operand:SI 1 "arith_reg_operand" "")
 		   (match_operand:SI 2 "const_int_operand" "n")))
    (clobber (reg:SI T_REG))]
-  ""
+  "reload_completed"
   [(use (reg:SI R0_REG))]
   "
 {
@@ -1744,7 +1745,7 @@
 	(ashift:HI (match_operand:HI 1 "arith_reg_operand" "")
 		   (match_operand:HI 2 "const_int_operand" "n")))
    (clobber (reg:SI T_REG))]
-  ""
+  "reload_completed"
   [(use (reg:SI R0_REG))]
   "
 {
@@ -1904,7 +1905,7 @@
 	(lshiftrt:SI (match_operand:SI 1 "arith_reg_operand" "")
 		     (match_operand:SI 2 "const_int_operand" "n")))
    (clobber (reg:SI T_REG))]
-  ""
+  "reload_completed"
   [(use (reg:SI R0_REG))]
   "
 {
@@ -2597,6 +2598,8 @@
     regno = subreg_regno (operands[0]);
   else if (GET_CODE (operands[0]) == MEM)
     regno = -1;
+  else
+    abort ();
 
   if (regno == -1
       || ! refers_to_regno_p (regno, regno + 1, operands[1], 0))
@@ -2969,6 +2972,8 @@
     regno = subreg_regno (operands[0]);
   else if (GET_CODE (operands[0]) == MEM)
     regno = -1;
+  else
+    abort ();
 
   if (regno == -1
       || ! refers_to_regno_p (regno, regno + 1, operands[1], 0))
@@ -3745,9 +3750,9 @@
 
 (define_expand "GOTaddr2picreg"
   [(set (reg:SI R0_REG)
-	(unspec [(const (unspec [(match_dup 1)] UNSPEC_PIC))]
+	(unspec [(const:SI (unspec:SI [(match_dup 1)] UNSPEC_PIC))]
 		UNSPEC_MOVA))
-   (set (match_dup 0) (const (unspec [(match_dup 1)] UNSPEC_PIC)))
+   (set (match_dup 0) (const:SI (unspec:SI [(match_dup 1)] UNSPEC_PIC)))
    (set (match_dup 0) (plus:SI (match_dup 0) (reg:SI R0_REG)))]
   "" "
 {
@@ -3778,7 +3783,7 @@
 (define_expand "sym_label2reg"
   [(set (match_operand:SI 0 "" "")
 	(const (minus:SI
-		(const (unspec [(match_operand:SI 1 "" "")] UNSPEC_PIC))
+		(const:SI (unspec:SI [(match_operand:SI 1 "" "")] UNSPEC_PIC))
 		(const (plus:SI
 			(match_operand:SI 2 "" "")
 			(const_int 2))))))]
@@ -3786,7 +3791,7 @@
 
 (define_expand "symGOT2reg"
   [(set (match_operand:SI 0 "" "")
-        (const (unspec [(match_operand:SI 1 "" "")] UNSPEC_GOT)))
+        (const:SI (unspec:SI [(match_operand:SI 1 "" "")] UNSPEC_GOT)))
   (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 2)))
   (set (match_dup 0) (mem:SI (match_dup 0)))]
   ""
@@ -3797,7 +3802,7 @@
 
 (define_expand "symGOTOFF2reg"
   [(set (match_operand:SI 0 "" "")
-	(const (unspec [(match_operand:SI 1 "" "")] UNSPEC_GOTOFF)))
+	(const:SI (unspec:SI [(match_operand:SI 1 "" "")] UNSPEC_GOTOFF)))
   (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 2)))]
   ""
   "
@@ -3886,7 +3891,7 @@
 
 (define_insn "casesi_worker_0"
   [(set (match_operand:SI 0 "register_operand" "=r,r")
-	(unspec [(match_operand 1 "register_operand" "0,r")
+	(unspec:SI [(match_operand 1 "register_operand" "0,r")
 		 (label_ref (match_operand 2 "" ""))] UNSPEC_CASESI))
    (clobber (match_scratch:SI 3 "=X,1"))
    (clobber (match_scratch:SI 4 "=&z,z"))]
@@ -3910,14 +3915,14 @@
 
 (define_split
   [(set (match_operand:SI 0 "register_operand" "")
-	(unspec [(match_operand 1 "register_operand" "")
+	(unspec:SI [(match_operand 1 "register_operand" "")
 		 (label_ref (match_operand 2 "" ""))] UNSPEC_CASESI))
    (clobber (match_scratch:SI 3 ""))
    (clobber (match_scratch:SI 4 ""))]
   "TARGET_SH2 && reload_completed"
   [(set (reg:SI R0_REG) (unspec [(label_ref (match_dup 2))] UNSPEC_MOVA))
    (parallel [(set (match_dup 0)
-	      (unspec [(reg:SI R0_REG) (match_dup 1)
+	      (unspec:SI [(reg:SI R0_REG) (match_dup 1)
 		       (label_ref (match_dup 2))] UNSPEC_CASESI))
 	      (clobber (match_dup 3))])]
   "LABEL_NUSES (operands[2])++;")
@@ -4130,7 +4135,7 @@
  "*
 {
   if (operands[1] != const0_rtx)
-    assemble_integer (operands[0], 2, 1);
+    assemble_integer (operands[0], 2, BITS_PER_UNIT * 2, 1);
   return \"\";
 }"
  [(set_attr "length" "2")
@@ -4146,7 +4151,7 @@
  "*
 {
   if (operands[1] != const0_rtx)
-    assemble_integer (operands[0], 4, 1);
+    assemble_integer (operands[0], 4, BITS_PER_UNIT * 4, 1);
   return \"\";
 }"
  [(set_attr "length" "4")
@@ -4162,7 +4167,7 @@
  "*
 {
   if (operands[1] != const0_rtx)
-    assemble_integer (operands[0], 8, 1);
+    assemble_integer (operands[0], 8, BITS_PER_UNIT * 8, 1);
   return \"\";
 }"
  [(set_attr "length" "8")
@@ -4181,7 +4186,7 @@
     {
       union real_extract u;
       memcpy (&u, &CONST_DOUBLE_LOW (operands[0]), sizeof u);
-      assemble_real (u.d, SFmode);
+      assemble_real (u.d, SFmode, GET_MODE_ALIGNMENT (SFmode));
     }
   return \"\";
 }"
@@ -4201,7 +4206,7 @@
     {
       union real_extract u;
       memcpy (&u, &CONST_DOUBLE_LOW (operands[0]), sizeof u);
-      assemble_real (u.d, DFmode);
+      assemble_real (u.d, DFmode, GET_MODE_ALIGNMENT (DFmode));
     }
   return \"\";
 }"

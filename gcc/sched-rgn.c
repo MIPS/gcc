@@ -4,21 +4,21 @@
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to the Free
-the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 /* This pass implements list scheduling within basic blocks.  It is
@@ -61,6 +61,17 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "recog.h"
 #include "sched-int.h"
+
+/* Define when we want to do count REG_DEAD notes before and after scheduling
+   for sanity checking.  We can't do that when conditional execution is used,
+   as REG_DEAD exist only for unconditional deaths.  */
+
+#if !defined (HAVE_conditional_execution) && defined (ENABLE_CHECKING)
+#define CHECK_DEAD_NOTES 1
+#else
+#define CHECK_DEAD_NOTES 0
+#endif
+
 
 #ifdef INSN_SCHEDULING
 /* Some accessor macros for h_i_d members only used within this file.  */
@@ -152,10 +163,6 @@ static int current_blocks;
 /* The mapping from bb to block.  */
 #define BB_TO_BLOCK(bb) (rgn_bb_table[current_blocks + (bb)])
 
-/* Bit vectors and bitset operations are needed for computations on
-   the control flow graph.  */
-
-typedef unsigned HOST_WIDE_INT *bitset;
 typedef struct
 {
   int *first_member;		/* Pointer to the list start in bitlst_table.  */
@@ -167,8 +174,7 @@ static int bitlst_table_last;
 static int bitlst_table_size;
 static int *bitlst_table;
 
-static char bitset_member PARAMS ((bitset, int, int));
-static void extract_bitlst PARAMS ((bitset, int, int, bitlst *));
+static void extract_bitlst PARAMS ((sbitmap, bitlst *));
 
 /* Target info declarations.
 
@@ -214,22 +220,16 @@ static void compute_trg_info PARAMS ((int));
 void debug_candidate PARAMS ((int));
 void debug_candidates PARAMS ((int));
 
-/* Bit-set of bbs, where bit 'i' stands for bb 'i'.  */
-typedef bitset bbset;
-
-/* Number of words of the bbset.  */
-static int bbset_size;
-
-/* Dominators array: dom[i] contains the bbset of dominators of
+/* Dominators array: dom[i] contains the sbitmap of dominators of
    bb i in the region.  */
-static bbset *dom;
+static sbitmap *dom;
 
 /* bb 0 is the only region entry.  */
 #define IS_RGN_ENTRY(bb) (!bb)
 
 /* Is bb_src dominated by bb_trg.  */
 #define IS_DOMINATED(bb_src, bb_trg)                                 \
-( bitset_member (dom[bb_src], bb_trg, bbset_size) )
+( TEST_BIT (dom[bb_src], bb_trg) )
 
 /* Probability: Prob[i] is a float in [0, 1] which is the probability
    of bb i relative to the region entry.  */
@@ -242,7 +242,7 @@ static float *prob;
 						      prob[bb_trg])))
 
 /* Bit-set of edges, where bit i stands for edge i.  */
-typedef bitset edgeset;
+typedef sbitmap edgeset;
 
 /* Number of edges in the region.  */
 static int rgn_nr_edges;
@@ -250,11 +250,6 @@ static int rgn_nr_edges;
 /* Array of size rgn_nr_edges.  */
 static int *rgn_edges;
 
-/* Number of words in an edgeset.  */
-static int edgeset_size;
-
-/* Number of bits in an edgeset.  */
-static int edgeset_bitsize;
 
 /* Mapping from each edge in the graph to its number in the rgn.  */
 static int *edge_to_bit;
@@ -482,81 +477,14 @@ new_edge (source, target)
     }
 }
 
-/* BITSET macros for operations on the control flow graph.  */
-
-/* Compute bitwise union of two bitsets.  */
-#define BITSET_UNION(set1, set2, len)                                \
-do { register bitset tp = set1, sp = set2;                           \
-     register int i;                                                 \
-     for (i = 0; i < len; i++)                                       \
-       *(tp++) |= *(sp++); } while (0)
-
-/* Compute bitwise intersection of two bitsets.  */
-#define BITSET_INTER(set1, set2, len)                                \
-do { register bitset tp = set1, sp = set2;                           \
-     register int i;                                                 \
-     for (i = 0; i < len; i++)                                       \
-       *(tp++) &= *(sp++); } while (0)
-
-/* Compute bitwise difference of two bitsets.  */
-#define BITSET_DIFFER(set1, set2, len)                               \
-do { register bitset tp = set1, sp = set2;                           \
-     register int i;                                                 \
-     for (i = 0; i < len; i++)                                       \
-       *(tp++) &= ~*(sp++); } while (0)
-
-/* Inverts every bit of bitset 'set'.  */
-#define BITSET_INVERT(set, len)                                      \
-do { register bitset tmpset = set;                                   \
-     register int i;                                                 \
-     for (i = 0; i < len; i++, tmpset++)                             \
-       *tmpset = ~*tmpset; } while (0)
-
-/* Turn on the index'th bit in bitset set.  */
-#define BITSET_ADD(set, index, len)                                  \
-{                                                                    \
-  if (index >= HOST_BITS_PER_WIDE_INT * len)                         \
-    abort ();                                                        \
-  else                                                               \
-    set[index/HOST_BITS_PER_WIDE_INT] |=			     \
-      ((unsigned HOST_WIDE_INT) 1) << (index % HOST_BITS_PER_WIDE_INT); \
-}
-
-/* Turn off the index'th bit in set.  */
-#define BITSET_REMOVE(set, index, len)                               \
-{                                                                    \
-  if (index >= HOST_BITS_PER_WIDE_INT * len)                         \
-    abort ();                                                        \
-  else                                                               \
-    set[index/HOST_BITS_PER_WIDE_INT] &=			     \
-      ~(((unsigned HOST_WIDE_INT) 1) << (index % HOST_BITS_PER_WIDE_INT)); \
-}
-
-/* Check if the index'th bit in bitset set is on.  */
-
-static char
-bitset_member (set, index, len)
-     bitset set;
-     int index, len;
-{
-  if (index >= HOST_BITS_PER_WIDE_INT * len)
-    abort ();
-  return ((set[index / HOST_BITS_PER_WIDE_INT] &
-	   ((unsigned HOST_WIDE_INT) 1) << (index % HOST_BITS_PER_WIDE_INT))
-	  ? 1 : 0);
-}
-
 /* Translate a bit-set SET to a list BL of the bit-set members.  */
 
 static void
-extract_bitlst (set, len, bitlen, bl)
-     bitset set;
-     int len;
-     int bitlen;
+extract_bitlst (set, bl)
+     sbitmap set;
      bitlst *bl;
 {
-  int i, j, offset;
-  unsigned HOST_WIDE_INT word;
+  int i;
 
   /* bblst table space is reused in each call to extract_bitlst.  */
   bitlst_table_last = 0;
@@ -565,24 +493,11 @@ extract_bitlst (set, len, bitlen, bl)
   bl->nr_members = 0;
 
   /* Iterate over each word in the bitset.  */
-  for (i = 0; i < len; i++)
-    {
-      word = set[i];
-      offset = i * HOST_BITS_PER_WIDE_INT;
-
-      /* Iterate over each bit in the word, but do not
-	 go beyond the end of the defined bits.  */
-      for (j = 0; offset < bitlen && word; j++)
-	{
-	  if (word & 1)
-	    {
-	      bitlst_table[bitlst_table_last++] = offset;
-	      (bl->nr_members)++;
-	    }
-	  word >>= 1;
-	  ++offset;
-	}
-    }
+  EXECUTE_IF_SET_IN_SBITMAP (set, 0, i,
+  {
+    bitlst_table[bitlst_table_last++] = i;
+    (bl->nr_members)++;
+  });
 
 }
 
@@ -1134,34 +1049,32 @@ compute_dom_prob_ps (bb)
   prob[bb] = 0.0;
   if (IS_RGN_ENTRY (bb))
     {
-      BITSET_ADD (dom[bb], 0, bbset_size);
+      SET_BIT (dom[bb], 0);
       prob[bb] = 1.0;
       return;
     }
 
   fst_in_edge = nxt_in_edge = IN_EDGES (BB_TO_BLOCK (bb));
 
-  /* Intialize dom[bb] to '111..1'.  */
-  BITSET_INVERT (dom[bb], bbset_size);
+  /* Initialize dom[bb] to '111..1'.  */
+  sbitmap_ones (dom[bb]);
 
   do
     {
       pred = FROM_BLOCK (nxt_in_edge);
-      BITSET_INTER (dom[bb], dom[BLOCK_TO_BB (pred)], bbset_size);
+      sbitmap_a_and_b (dom[bb], dom[bb], dom[BLOCK_TO_BB (pred)]);
+      sbitmap_a_or_b (ancestor_edges[bb], ancestor_edges[bb], ancestor_edges[BLOCK_TO_BB (pred)]);
 
-      BITSET_UNION (ancestor_edges[bb], ancestor_edges[BLOCK_TO_BB (pred)],
-		    edgeset_size);
-
-      BITSET_ADD (ancestor_edges[bb], EDGE_TO_BIT (nxt_in_edge), edgeset_size);
+      SET_BIT (ancestor_edges[bb], EDGE_TO_BIT (nxt_in_edge));
 
       nr_out_edges = 1;
       nr_rgn_out_edges = 0;
       fst_out_edge = OUT_EDGES (pred);
       nxt_out_edge = NEXT_OUT (fst_out_edge);
-      BITSET_UNION (pot_split[bb], pot_split[BLOCK_TO_BB (pred)],
-		    edgeset_size);
 
-      BITSET_ADD (pot_split[bb], EDGE_TO_BIT (fst_out_edge), edgeset_size);
+      sbitmap_a_or_b (pot_split[bb], pot_split[bb], pot_split[BLOCK_TO_BB (pred)]);
+
+      SET_BIT (pot_split[bb], EDGE_TO_BIT (fst_out_edge));
 
       /* The successor doesn't belong in the region?  */
       if (CONTAINING_RGN (TO_BLOCK (fst_out_edge)) !=
@@ -1175,7 +1088,7 @@ compute_dom_prob_ps (bb)
 	  if (CONTAINING_RGN (TO_BLOCK (nxt_out_edge)) !=
 	      CONTAINING_RGN (BB_TO_BLOCK (bb)))
 	    ++nr_rgn_out_edges;
-	  BITSET_ADD (pot_split[bb], EDGE_TO_BIT (nxt_out_edge), edgeset_size);
+        SET_BIT (pot_split[bb], EDGE_TO_BIT (nxt_out_edge));
 	  nxt_out_edge = NEXT_OUT (nxt_out_edge);
 
 	}
@@ -1192,8 +1105,8 @@ compute_dom_prob_ps (bb)
     }
   while (fst_in_edge != nxt_in_edge);
 
-  BITSET_ADD (dom[bb], bb, bbset_size);
-  BITSET_DIFFER (pot_split[bb], ancestor_edges[bb], edgeset_size);
+  SET_BIT (dom[bb], bb);
+  sbitmap_difference (pot_split[bb], pot_split[bb], ancestor_edges[bb]);
 
   if (sched_verbose >= 2)
     fprintf (sched_dump, ";;  bb_prob(%d, %d) = %3d\n", bb, BB_TO_BLOCK (bb),
@@ -1211,14 +1124,12 @@ split_edges (bb_src, bb_trg, bl)
      int bb_trg;
      edgelst *bl;
 {
-  int es = edgeset_size;
-  edgeset src = (edgeset) xcalloc (es, sizeof (HOST_WIDE_INT));
+  sbitmap src = (edgeset) sbitmap_alloc (pot_split[bb_src]->n_bits);
+  sbitmap_copy (src, pot_split[bb_src]);
 
-  while (es--)
-    src[es] = (pot_split[bb_src])[es];
-  BITSET_DIFFER (src, pot_split[bb_trg], edgeset_size);
-  extract_bitlst (src, edgeset_size, edgeset_bitsize, bl);
-  free (src);
+  sbitmap_difference (src, src, pot_split[bb_trg]);
+  extract_bitlst (src, bl);
+  sbitmap_free (src);
 }
 
 /* Find the valid candidate-source-blocks for the target block TRG, compute
@@ -1229,7 +1140,7 @@ static void
 compute_trg_info (trg)
      int trg;
 {
-  register candidate *sp;
+  candidate *sp;
   edgelst el;
   int check_block, update_idx;
   int i, j, k, fst_edge, nxt_edge;
@@ -1384,9 +1295,9 @@ check_live_1 (src, x)
      int src;
      rtx x;
 {
-  register int i;
-  register int regno;
-  register rtx reg = SET_DEST (x);
+  int i;
+  int regno;
+  rtx reg = SET_DEST (x);
 
   if (reg == 0)
     return 1;
@@ -1398,7 +1309,7 @@ check_live_1 (src, x)
 
   if (GET_CODE (reg) == PARALLEL)
     {
-      register int i;
+      int i;
 
       for (i = XVECLEN (reg, 0) - 1; i >= 0; i--)
 	if (XEXP (XVECEXP (reg, 0, i), 0) != 0)
@@ -1464,9 +1375,9 @@ update_live_1 (src, x)
      int src;
      rtx x;
 {
-  register int i;
-  register int regno;
-  register rtx reg = SET_DEST (x);
+  int i;
+  int regno;
+  rtx reg = SET_DEST (x);
 
   if (reg == 0)
     return;
@@ -1478,7 +1389,7 @@ update_live_1 (src, x)
 
   if (GET_CODE (reg) == PARALLEL)
     {
-      register int i;
+      int i;
 
       for (i = XVECLEN (reg, 0) - 1; i >= 0; i--)
 	if (XEXP (XVECEXP (reg, 0, i), 0) != 0)
@@ -1647,17 +1558,16 @@ enum INSN_TRAP_CLASS
 #define IS_REACHABLE(bb_from, bb_to)					\
 (bb_from == bb_to                                                       \
    || IS_RGN_ENTRY (bb_from)						\
-   || (bitset_member (ancestor_edges[bb_to],				\
-		      EDGE_TO_BIT (IN_EDGES (BB_TO_BLOCK (bb_from))),	\
-		      edgeset_size)))
+   || (TEST_BIT (ancestor_edges[bb_to],                               \
+                    EDGE_TO_BIT (IN_EDGES (BB_TO_BLOCK (bb_from))))))
 
 /* Non-zero iff the address is comprised from at most 1 register.  */
 #define CONST_BASED_ADDRESS_P(x)			\
   (GET_CODE (x) == REG					\
    || ((GET_CODE (x) == PLUS || GET_CODE (x) == MINUS   \
 	|| (GET_CODE (x) == LO_SUM))	                \
-       && (GET_CODE (XEXP (x, 0)) == CONST_INT		\
-	   || GET_CODE (XEXP (x, 1)) == CONST_INT)))
+       && (CONSTANT_P (XEXP (x, 0))		\
+	   || CONSTANT_P (XEXP (x, 1)))))
 
 /* Turns on the fed_by_spec_load flag for insns fed by load_insn.  */
 
@@ -1770,7 +1680,7 @@ is_pfree (load_insn, bb_src, bb_trg)
      int bb_src, bb_trg;
 {
   rtx back_link;
-  register candidate *candp = candidate_table + bb_src;
+  candidate *candp = candidate_table + bb_src;
 
   if (candp->split_bbs.nr_members != 1)
     /* Must have exactly one escape block.  */
@@ -1828,7 +1738,7 @@ may_trap_exp (x, is_store)
   code = GET_CODE (x);
   if (is_store)
     {
-      if (code == MEM)
+      if (code == MEM && may_trap_p (x))
 	return TRAP_RISKY;
       else
 	return TRAP_FREE;
@@ -2148,7 +2058,7 @@ init_ready_list (ready)
 	      {
 		rtx next;
 
-		/* Note that we havn't squirrled away the notes for
+		/* Note that we haven't squirreled away the notes for
 		   blocks other than the current.  So if this is a
 		   speculative insn, NEXT might otherwise be a note.  */
 		next = next_nonnote_insn (insn);
@@ -2201,7 +2111,7 @@ can_schedule_ready_p (insn)
       while (SCHED_GROUP_P (temp))
 	temp = PREV_INSN (temp);
 
-      /* Update source block boundaries.   */
+      /* Update source block boundaries.  */
       b1 = BLOCK_FOR_INSN (temp);
       if (temp == b1->head && insn == b1->end)
 	{
@@ -2352,7 +2262,7 @@ static struct sched_info region_sched_info =
 
   NULL, NULL,
   NULL, NULL,
-  0
+  0, 0
 };
 
 /* Add dependences so that branches are scheduled to run last in their
@@ -2747,11 +2657,8 @@ schedule_region (rgn)
 
       prob = (float *) xmalloc ((current_nr_blocks) * sizeof (float));
 
-      bbset_size = current_nr_blocks / HOST_BITS_PER_WIDE_INT + 1;
-      dom = (bbset *) xmalloc (current_nr_blocks * sizeof (bbset));
-      for (i = 0; i < current_nr_blocks; i++)
-	dom[i] = (bbset) xcalloc (bbset_size, sizeof (HOST_WIDE_INT));
-
+      dom = sbitmap_vector_alloc (current_nr_blocks, current_nr_blocks);
+      sbitmap_vector_zero (dom, current_nr_blocks);
       /* Edge to bit.  */
       rgn_nr_edges = 0;
       edge_to_bit = (int *) xmalloc (nr_edges * sizeof (int));
@@ -2766,18 +2673,10 @@ schedule_region (rgn)
 	  rgn_edges[rgn_nr_edges++] = i;
 
       /* Split edges.  */
-      edgeset_size = rgn_nr_edges / HOST_BITS_PER_WIDE_INT + 1;
-      edgeset_bitsize = rgn_nr_edges;
-      pot_split = (edgeset *) xmalloc (current_nr_blocks * sizeof (edgeset));
-      ancestor_edges
-	= (edgeset *) xmalloc (current_nr_blocks * sizeof (edgeset));
-      for (i = 0; i < current_nr_blocks; i++)
-	{
-	  pot_split[i] =
-	    (edgeset) xcalloc (edgeset_size, sizeof (HOST_WIDE_INT));
-	  ancestor_edges[i] =
-	    (edgeset) xcalloc (edgeset_size, sizeof (HOST_WIDE_INT));
-	}
+      pot_split = sbitmap_vector_alloc (current_nr_blocks, rgn_nr_edges);
+      sbitmap_vector_zero (pot_split, current_nr_blocks);
+      ancestor_edges = sbitmap_vector_alloc (current_nr_blocks, rgn_nr_edges);
+      sbitmap_vector_zero (ancestor_edges, current_nr_blocks);
 
       /* Compute probabilities, dominators, split_edges.  */
       for (bb = 0; bb < current_nr_blocks; bb++)
@@ -2809,10 +2708,7 @@ schedule_region (rgn)
  	 or after the last real insn of the block.  So if the first insn
 	 has a REG_SAVE_NOTE which would otherwise be emitted before the
 	 insn, it is redundant with the note before the start of the
-	 block, and so we have to take it out.
-
-	 FIXME: Probably the same thing should be done with REG_SAVE_NOTEs
-	 referencing NOTE_INSN_SETJMP at the end of the block.  */
+	 block, and so we have to take it out.  */
       if (INSN_P (head))
 	{
 	  rtx note;
@@ -2820,14 +2716,9 @@ schedule_region (rgn)
 	  for (note = REG_NOTES (head); note; note = XEXP (note, 1))
 	    if (REG_NOTE_KIND (note) == REG_SAVE_NOTE)
 	      {
-		if (INTVAL (XEXP (note, 0)) != NOTE_INSN_SETJMP)
-		  {
-		    remove_note (head, note);
-		    note = XEXP (note, 1);
-		    remove_note (head, note);
-		  }
-		else
-		  note = XEXP (note, 1);
+		remove_note (head, note);
+		note = XEXP (note, 1);
+		remove_note (head, note);
 	      }
 	}
 
@@ -2883,20 +2774,12 @@ schedule_region (rgn)
 
   if (current_nr_blocks > 1)
     {
-      int i;
-
       free (prob);
-      for (i = 0; i < current_nr_blocks; ++i)
-	{
-	  free (dom[i]);
-	  free (pot_split[i]);
-	  free (ancestor_edges[i]);
-	}
-      free (dom);
+      sbitmap_vector_free (dom);
+      sbitmap_vector_free (pot_split);
+      sbitmap_vector_free (ancestor_edges);
       free (edge_to_bit);
       free (rgn_edges);
-      free (pot_split);
-      free (ancestor_edges);
     }
 }
 
@@ -2917,8 +2800,6 @@ init_regions ()
   rgn_bb_table = (int *) xmalloc ((n_basic_blocks) * sizeof (int));
   block_to_bb = (int *) xmalloc ((n_basic_blocks) * sizeof (int));
   containing_rgn = (int *) xmalloc ((n_basic_blocks) * sizeof (int));
-
-  blocks = sbitmap_alloc (n_basic_blocks);
 
   /* Compute regions for scheduling.  */
   if (reload_completed
@@ -2977,21 +2858,26 @@ init_regions ()
 	}
     }
 
-  deaths_in_region = (int *) xmalloc (sizeof (int) * nr_regions);
 
-  /* Remove all death notes from the subroutine.  */
-  for (rgn = 0; rgn < nr_regions; rgn++)
+  if (CHECK_DEAD_NOTES)
     {
-      int b;
+      blocks = sbitmap_alloc (n_basic_blocks);
+      deaths_in_region = (int *) xmalloc (sizeof (int) * nr_regions);
+      /* Remove all death notes from the subroutine.  */
+      for (rgn = 0; rgn < nr_regions; rgn++)
+	{
+	  int b;
 
-      sbitmap_zero (blocks);
-      for (b = RGN_NR_BLOCKS (rgn) - 1; b >= 0; --b)
-	SET_BIT (blocks, rgn_bb_table[RGN_BLOCKS (rgn) + b]);
+	  sbitmap_zero (blocks);
+	  for (b = RGN_NR_BLOCKS (rgn) - 1; b >= 0; --b)
+	    SET_BIT (blocks, rgn_bb_table[RGN_BLOCKS (rgn) + b]);
 
-      deaths_in_region[rgn] = count_or_remove_death_notes (blocks, 1);
+	  deaths_in_region[rgn] = count_or_remove_death_notes (blocks, 1);
+	}
+      sbitmap_free (blocks);
     }
-
-  sbitmap_free (blocks);
+  else
+    count_or_remove_death_notes (NULL, 1);
 }
 
 /* The one entry point in this file.  DUMP_FILE is the dump file for
@@ -3025,7 +2911,7 @@ schedule_insns (dump_file)
 
   /* Update life analysis for the subroutine.  Do single block regions
      first so that we can verify that live_at_start didn't change.  Then
-     do all other blocks.   */
+     do all other blocks.  */
   /* ??? There is an outside possibility that update_life_info, or more
      to the point propagate_block, could get called with non-zero flags
      more than once for one basic block.  This would be kinda bad if it
@@ -3044,37 +2930,47 @@ schedule_insns (dump_file)
   sbitmap_ones (large_region_blocks);
 
   blocks = sbitmap_alloc (n_basic_blocks);
+  sbitmap_zero (blocks);
 
+  /* Update life information.  For regions consisting of multiple blocks
+     we've possibly done interblock scheduling that affects global liveness.
+     For regions consisting of single blocks we need to do only local
+     liveness.  */
   for (rgn = 0; rgn < nr_regions; rgn++)
     if (RGN_NR_BLOCKS (rgn) > 1)
       any_large_regions = 1;
     else
       {
-	sbitmap_zero (blocks);
 	SET_BIT (blocks, rgn_bb_table[RGN_BLOCKS (rgn)]);
 	RESET_BIT (large_region_blocks, rgn_bb_table[RGN_BLOCKS (rgn)]);
-
-	/* Don't update reg info after reload, since that affects
-	   regs_ever_live, which should not change after reload.  */
-	update_life_info (blocks, UPDATE_LIFE_LOCAL,
-			  (reload_completed ? PROP_DEATH_NOTES
-			   : PROP_DEATH_NOTES | PROP_REG_INFO));
-
-#ifndef HAVE_conditional_execution
-	/* ??? REG_DEAD notes only exist for unconditional deaths.  We need
-	   a count of the conditional plus unconditional deaths for this to
-	   work out.  */
-	/* In the single block case, the count of registers that died should
-	   not have changed during the schedule.  */
-	if (count_or_remove_death_notes (blocks, 0) != deaths_in_region[rgn])
-	  abort ();
-#endif
       }
 
+  /* Don't update reg info after reload, since that affects
+     regs_ever_live, which should not change after reload.  */
+  update_life_info (blocks, UPDATE_LIFE_LOCAL,
+		    (reload_completed ? PROP_DEATH_NOTES
+		     : PROP_DEATH_NOTES | PROP_REG_INFO));
   if (any_large_regions)
     {
       update_life_info (large_region_blocks, UPDATE_LIFE_GLOBAL,
 			PROP_DEATH_NOTES | PROP_REG_INFO);
+    }
+
+  if (CHECK_DEAD_NOTES)
+    {
+      /* Verify the counts of basic block notes in single the basic block
+         regions.  */
+      for (rgn = 0; rgn < nr_regions; rgn++)
+	if (RGN_NR_BLOCKS (rgn) == 1)
+	  {
+	    sbitmap_zero (blocks);
+	    SET_BIT (blocks, rgn_bb_table[RGN_BLOCKS (rgn)]);
+
+	    if (deaths_in_region[rgn]
+		!= count_or_remove_death_notes (blocks, 0))
+	      abort ();
+	  }
+      free (deaths_in_region);
     }
 
   /* Reposition the prologue and epilogue notes in case we moved the
@@ -3129,7 +3025,5 @@ schedule_insns (dump_file)
 
   sbitmap_free (blocks);
   sbitmap_free (large_region_blocks);
-
-  free (deaths_in_region);
 }
 #endif

@@ -292,11 +292,11 @@ extern int flag_pic;				/* -fpic */
       {									     \
 	const char *p = m88k_short_data;				     \
 	while (*p)							     \
-	  if (*p >= '0' && *p <= '9')					     \
+	  if (ISDIGIT (*p))						     \
 	    p++;							     \
 	  else								     \
 	    {								     \
-	      error ("Invalid option `-mshort-data-%s'", m88k_short_data);   \
+	      error ("invalid option `-mshort-data-%s'", m88k_short_data);   \
 	      break;							     \
 	    }								     \
 	m88k_gp_threshold = atoi (m88k_short_data);			     \
@@ -690,8 +690,8 @@ extern int flag_pic;				/* -fpic */
    write-over scoreboard delays between caller and callee.  */
 #define ORDER_REGS_FOR_LOCAL_ALLOC				\
 {								\
-  static int leaf[] = REG_LEAF_ALLOC_ORDER;			\
-  static int nonleaf[] = REG_ALLOC_ORDER;			\
+  static const int leaf[] = REG_LEAF_ALLOC_ORDER;		\
+  static const int nonleaf[] = REG_ALLOC_ORDER;			\
 								\
   memcpy (reg_alloc_order, regs_ever_live[1] ? nonleaf : leaf,	\
 	  FIRST_PSEUDO_REGISTER * sizeof (int));		\
@@ -1154,9 +1154,9 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
   /* Restore r10 and load the static chain register.  */		\
   fprintf (FILE, "\tld.d\t %s,%s,24\n", reg_names[10], reg_names[10]);	\
   /* Storage: r10 save area, static chain, function address.  */	\
-  ASM_OUTPUT_INT (FILE, const0_rtx);					\
-  ASM_OUTPUT_INT (FILE, const0_rtx);					\
-  ASM_OUTPUT_INT (FILE, const0_rtx);					\
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);		\
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);		\
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);		\
 }
 
 /* Length in units of the trampoline for entering a nested function.
@@ -1555,19 +1555,10 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
   else if (GET_CODE (RTX) == NOTE					\
 	   && NOTE_LINE_NUMBER (RTX) == NOTE_INSN_PROLOGUE_END)		\
     {									\
-      if (profile_block_flag)						\
-	LENGTH += FUNCTION_BLOCK_PROFILER_LENGTH;			\
       if (profile_flag)							\
 	LENGTH += (FUNCTION_PROFILER_LENGTH + REG_PUSH_LENGTH		\
 		   + REG_POP_LENGTH);					\
     }									\
-  else if (profile_block_flag						\
-	   && (GET_CODE (RTX) == CODE_LABEL				\
-	       || GET_CODE (RTX) == JUMP_INSN				\
-	       || (GET_CODE (RTX) == INSN				\
-		   && GET_CODE (PATTERN (RTX)) == SEQUENCE		\
-		   && GET_CODE (XVECEXP (PATTERN (RTX), 0, 0)) == JUMP_INSN)))\
-    LENGTH += BLOCK_PROFILER_LENGTH;
 
 /* Track the state of the last volatile memory reference.  Clear the
    state with CC_STATUS_INIT for now.  */
@@ -1638,23 +1629,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 /* Provide the cost of a branch.  Exact meaning under development.  */
 #define BRANCH_COST (TARGET_88100 ? 1 : 2)
 
-/* A C statement (sans semicolon) to update the integer variable COST
-   based on the relationship between INSN that is dependent on
-   DEP_INSN through the dependence LINK.  The default is to make no
-   adjustment to COST.  On the m88k, ignore the cost of anti- and
-   output-dependencies.  On the m88100, a store can issue two cycles
-   before the value (not the address) has finished computing.  */
-#define ADJUST_COST(INSN,LINK,DEP_INSN,COST)				\
-  do {									\
-    if (REG_NOTE_KIND (LINK) != 0)					\
-      (COST) = 0; /* Anti or output dependence.  */			\
-    else if (! TARGET_88100						\
-	     && recog_memoized (INSN) >= 0				\
-	     && get_attr_type (INSN) == TYPE_STORE			\
-	     && SET_SRC (PATTERN (INSN)) == SET_DEST (PATTERN (DEP_INSN))) \
-      (COST) -= 4; /* 88110 store reservation station.  */		\
-  } while (0)
-
 /* Do not break .stabs pseudos into continuations.  */
 #define DBX_CONTIN_LENGTH 0
 
@@ -1668,12 +1642,11 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 #define ASM_COMMENT_START ";"
 
 /* Allow pseudo-ops to be overridden.  Override these in svr[34].h.  */
-#undef	INT_ASM_OP
 #undef	ASCII_DATA_ASM_OP
 #undef	CONST_SECTION_ASM_OP
 #undef	CTORS_SECTION_ASM_OP
 #undef	DTORS_SECTION_ASM_OP
-#undef  ASM_OUTPUT_SECTION_NAME
+#undef  TARGET_ASM_NAMED_SECTION
 #undef	INIT_SECTION_ASM_OP
 #undef	FINI_SECTION_ASM_OP
 #undef	TYPE_ASM_OP
@@ -1714,10 +1687,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 #define BSS_ASM_OP		"\tbss\t"
 #define FLOAT_ASM_OP		"\tfloat\t"
 #define DOUBLE_ASM_OP		"\tdouble\t"
-#define INT_ASM_OP		"\tword\t"
-#define ASM_LONG		INT_ASM_OP
-#define SHORT_ASM_OP		"\thalf\t"
-#define CHAR_ASM_OP		"\tbyte\t"
 #define ASCII_DATA_ASM_OP	"\tstring\t"
 
 /* These are particular to the global pool optimization.  */
@@ -1743,8 +1712,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 /* These are specific to version 03.00 assembler syntax.  */
 #define INTERNAL_ASM_OP		"\tlocal\t"
 #define VERSION_ASM_OP		"\tversion\t"
-#define UNALIGNED_SHORT_ASM_OP	"\tuahalf\t"
-#define UNALIGNED_INT_ASM_OP	"\tuaword\t"
 #define PUSHSECTION_ASM_OP	"\tsection\t"
 #define POPSECTION_ASM_OP	"\tprevious"
 
@@ -1879,9 +1846,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
    be clobbered by an asm.  The carry bit in the PSR is now used.  */
 
 #define ADDITIONAL_REGISTER_NAMES	{{"psr", 0}, {"cc", 0}}
-
-/* How to renumber registers for dbx and gdb.  */
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
 
 /* Tell when to declare ASM names.  Override svr4.h to provide this hook.  */
 #undef	DECLARE_ASM_NAME
@@ -2022,7 +1986,7 @@ do {									 \
 
 #undef ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)			\
-  sprintf (LABEL, TARGET_SVR4 ? "*.%s%d" : "*@%s%d", PREFIX, NUM)
+  sprintf (LABEL, TARGET_SVR4 ? "*.%s%ld" : "*@%s%ld", PREFIX, (long)(NUM))
 
 /* Internal macro to get a single precision floating point value into
    an int, so we can print its value in hex.  */
@@ -2066,7 +2030,8 @@ do {									 \
   do {									\
     union { REAL_VALUE_TYPE d; long l[2]; } x;				\
     x.d = (VALUE);							\
-    fprintf (FILE, "%s0x%.8lx, 0x%.8lx\n", INT_ASM_OP,			\
+    fprintf (FILE, "%s0x%.8lx, 0x%.8lx\n",				\
+	     integer_asm_op (4, TRUE),					\
 	     (long) x.l[0], (long) x.l[1]);				\
   } while (0)
 
@@ -2075,32 +2040,10 @@ do {									 \
   do {									\
     int i;								\
     FLOAT_TO_INT_INTERNAL (VALUE, i);					\
-    fprintf (FILE, "%s0x%.8x\n", INT_ASM_OP, i);			\
+    assemble_aligned_integer (4, GEN_INT (i));				\
   } while (0)
 
-/* Likewise for `int', `short', and `char' constants.  */
-#define ASM_OUTPUT_INT(FILE,VALUE)					\
-( fprintf (FILE, "%s", INT_ASM_OP),					\
-  output_addr_const (FILE, (VALUE)),					\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_SHORT(FILE,VALUE)					\
-( fprintf (FILE, "%s", SHORT_ASM_OP),					\
-  output_addr_const (FILE, (VALUE)),					\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE,VALUE)					\
-( fprintf (FILE, "%s", CHAR_ASM_OP),					\
-  output_addr_const (FILE, (VALUE)),					\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-#define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf (FILE, "%s0x%x\n", CHAR_ASM_OP, (VALUE))
-
 /* The single-byte pseudo-op is the default.  Override svr[34].h.  */
-#undef	ASM_BYTE_OP
-#define ASM_BYTE_OP "\tbyte\t"
 #undef	ASM_OUTPUT_ASCII
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)  \
   output_ascii (FILE, ASCII_DATA_ASM_OP, 48, P, SIZE)
@@ -2438,15 +2381,14 @@ do {									 \
 
 #if defined(USING_SVR4_H)
 
-#define EXTRA_SECTIONS in_const, in_tdesc, in_sdata, in_ctors, in_dtors
+#define EXTRA_SECTIONS in_const, in_tdesc, in_sdata
 #define INIT_SECTION_FUNCTION
 #define FINI_SECTION_FUNCTION
 
 #else
 #if defined(USING_SVR3_H)
 
-#define EXTRA_SECTIONS in_const, in_tdesc, in_sdata, in_ctors, in_dtors, \
-		       in_init, in_fini
+#define EXTRA_SECTIONS in_const, in_tdesc, in_sdata, in_init, in_fini
 
 #else /* luna or other not based on svr[34].h.  */
 
@@ -2458,8 +2400,6 @@ const_section ()							\
 {									\
   text_section();							\
 }
-#define CTORS_SECTION_FUNCTION
-#define DTORS_SECTION_FUNCTION
 #define INIT_SECTION_FUNCTION
 #define FINI_SECTION_FUNCTION
 
@@ -2490,8 +2430,6 @@ sdata_section ()							\
     }									\
 }									\
 									\
-  CTORS_SECTION_FUNCTION						\
-  DTORS_SECTION_FUNCTION						\
   INIT_SECTION_FUNCTION							\
   FINI_SECTION_FUNCTION
 
@@ -2502,7 +2440,7 @@ sdata_section ()							\
 
    For strings, the section is selected before the segment info is encoded.  */
 #undef	SELECT_SECTION
-#define SELECT_SECTION(DECL,RELOC)					\
+#define SELECT_SECTION(DECL,RELOC,ALIGN)				\
 {									\
   if (TREE_CODE (DECL) == STRING_CST)					\
     {									\

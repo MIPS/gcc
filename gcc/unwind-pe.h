@@ -1,22 +1,22 @@
 /* Exception handling and frame unwind runtime interface routines.
    Copyright (C) 2001 Free Software Foundation, Inc.
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   GNU CC is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   along with GCC; see the file COPYING.  If not, write to the Free
+   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+   02111-1307, USA.  */
 
 /* @@@ Really this should be out of line, but this also causes link
    compatibility problems with the base ABI.  This is slightly better
@@ -76,6 +76,8 @@ size_of_encoded_value (unsigned char encoding)
   __gxx_abort ();
 }
 
+#ifndef NO_BASE_OF_ENCODED_VALUE
+
 /* Given an encoding and an _Unwind_Context, return the base to which
    the encoding is relative.  This base may then be passed to
    read_encoded_value_with_base for use when the _Unwind_Context is
@@ -102,6 +104,59 @@ base_of_encoded_value (unsigned char encoding, struct _Unwind_Context *context)
       return _Unwind_GetRegionStart (context);
     }
   __gxx_abort ();
+}
+
+#endif
+
+/* Read an unsigned leb128 value from P, store the value in VAL, return
+   P incremented past the value.  We assume that a word is large enough to
+   hold any value so encoded; if it is smaller than a pointer on some target,
+   pointers should not be leb128 encoded on that target.  */
+
+static const unsigned char *
+read_uleb128 (const unsigned char *p, _Unwind_Word *val)
+{
+  unsigned int shift = 0;
+  unsigned char byte;
+  _Unwind_Word result;
+
+  result = 0;
+  do
+    {
+      byte = *p++;
+      result |= (byte & 0x7f) << shift;
+      shift += 7;
+    }
+  while (byte & 0x80);
+
+  *val = result;
+  return p;
+}
+
+/* Similar, but read a signed leb128 value.  */
+
+static const unsigned char *
+read_sleb128 (const unsigned char *p, _Unwind_Sword *val)
+{
+  unsigned int shift = 0;
+  unsigned char byte;
+  _Unwind_Word result;
+
+  result = 0;
+  do
+    {
+      byte = *p++;
+      result |= (byte & 0x7f) << shift;
+      shift += 7;
+    }
+  while (byte & 0x80);
+
+  /* Sign-extend a negative value.  */
+  if (shift < 8 * sizeof(result) && (byte & 0x40) != 0)
+    result |= -(1L << shift);
+
+  *val = (_Unwind_Sword) result;
+  return p;
 }
 
 /* Load an encoded value from memory at P.  The value is returned in VAL;
@@ -144,36 +199,17 @@ read_encoded_value_with_base (unsigned char encoding, _Unwind_Ptr base,
 
 	case DW_EH_PE_uleb128:
 	  {
-	    unsigned int shift = 0;
-	    unsigned char byte;
-
-	    result = 0;
-	    do
-	      {
-		byte = *p++;
-		result |= (_Unwind_Ptr)(byte & 0x7f) << shift;
-		shift += 7;
-	      }
-	    while (byte & 0x80);
+	    _Unwind_Word tmp;
+	    p = read_uleb128 (p, &tmp);
+	    result = (_Unwind_Ptr)tmp;
 	  }
 	  break;
 
 	case DW_EH_PE_sleb128:
 	  {
-	    unsigned int shift = 0;
-	    unsigned char byte;
-
-	    result = 0;
-	    do
-	      {
-		byte = *p++;
-		result |= (_Unwind_Ptr)(byte & 0x7f) << shift;
-		shift += 7;
-	      }
-	    while (byte & 0x80);
-
-	    if (shift < 8 * sizeof(result) && (byte & 0x40) != 0)
-	      result |= -(1L << shift);
+	    _Unwind_Sword tmp;
+	    p = read_sleb128 (p, &tmp);
+	    result = (_Unwind_Ptr)tmp;
 	  }
 	  break;
 
@@ -220,6 +256,8 @@ read_encoded_value_with_base (unsigned char encoding, _Unwind_Ptr base,
   return p;
 }
 
+#ifndef NO_BASE_OF_ENCODED_VALUE
+
 /* Like read_encoded_value_with_base, but get the base from the context
    rather than providing it directly.  */
 
@@ -232,19 +270,4 @@ read_encoded_value (struct _Unwind_Context *context, unsigned char encoding,
 		p, val);
 }
 
-/* Read an unsigned leb128 value from P, store the value in VAL, return
-   P incremented past the value.  */
-
-static inline const unsigned char *
-read_uleb128 (const unsigned char *p, _Unwind_Ptr *val)
-{
-  return read_encoded_value_with_base (DW_EH_PE_uleb128, 0, p, val);
-}
-
-/* Similar, but read a signed leb128 value.  */
-
-static inline const unsigned char *
-read_sleb128 (const unsigned char *p, _Unwind_Ptr *val)
-{
-  return read_encoded_value_with_base (DW_EH_PE_sleb128, 0, p, val);
-}
+#endif

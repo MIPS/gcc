@@ -23,13 +23,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define LINUX_DEFAULT_ELF
 
-/* A lie, I guess, but the general idea behind linux/ELF is that we are
-   supposed to be outputting something that will assemble under SVr4.
-   This gets us pretty close.  */
-#include <i386/i386.h>	/* Base i386 target machine definitions */
-#include <i386/att.h>	/* Use the i386 AT&T assembler syntax */
-#include <linux.h>	/* some common stuff */
-
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (i386 RTEMS with ELF)");
 
@@ -37,17 +30,6 @@ Boston, MA 02111-1307, USA.  */
    in memory.  */
 #undef DEFAULT_PCC_STRUCT_RETURN
 #define DEFAULT_PCC_STRUCT_RETURN 1
-
-/* This is how to output an element of a case-vector that is relative.
-   This is only used for PIC code.  See comments by the `casesi' insn in
-   i386.md for an explanation of the expression this outputs. */
-#undef ASM_OUTPUT_ADDR_DIFF_ELT
-#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
-  fprintf (FILE, "\t.long _GLOBAL_OFFSET_TABLE_+[.-%s%d]\n", LPREFIX, VALUE)
-
-/* Indicate that jump tables go in the text section.  This is
-   necessary when compiling PIC code.  */
-#define JUMP_TABLES_IN_TEXT_SECTION (flag_pic)
 
 #undef DBX_REGISTER_NUMBER
 #define DBX_REGISTER_NUMBER(n)  svr4_dbx_register_map[n]
@@ -99,8 +81,5 @@ Boston, MA 02111-1307, USA.  */
 
 #undef ENDFILE_SPEC
 #define ENDFILE_SPEC   "crtend.o%s crtn.o%s"
-
-/* Get machine-independent configuration parameters for RTEMS.  */
-#include <rtems.h>
 
 /* end of i386/rtemself.h */

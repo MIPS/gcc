@@ -24,6 +24,7 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "rtl.h"
+#include "tree.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "real.h"
@@ -36,7 +37,6 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "expr.h"
 #include "obstack.h"
-#include "tree.h"
 #include "reload.h"
 #include "tm_p.h"
 #include "target.h"
@@ -48,6 +48,8 @@ static void compute_regstack_size PARAMS ((void));
 static void check_epilogue_internal_label PARAMS ((FILE *));
 static void output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void a29k_asm_named_section PARAMS ((const char *, unsigned int));
+static int a29k_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 
 #define min(A,B)	((A) < (B) ? (A) : (B))
 
@@ -95,14 +97,21 @@ rtx a29k_compare_op0, a29k_compare_op1;
 int a29k_compare_fp_p;
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.hword\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE output_function_epilogue
+#undef TARGET_SCHED_ADJUST_COST
+#define TARGET_SCHED_ADJUST_COST a29k_adjust_cost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
-/* Returns 1 if OP is a 8-bit constant. */
+/* Returns 1 if OP is a 8-bit constant.  */
 
 int
 cint_8_operand (op, mode)
@@ -347,7 +356,7 @@ and_operand (op, mode)
 
 /* Return 1 if OP can be used as the second operand of an ADD insn.
    This is the same as above, except we use negative, rather than
-   complement.   */
+   complement.  */
 
 int
 add_operand (op, mode)
@@ -1221,7 +1230,7 @@ print_operand (file, x, code)
     output_addr_const (file, x);
 }
 
-/* This page contains routines to output function prolog and epilog code. */
+/* This page contains routines to output function prolog and epilog code.  */
 
 /* Compute the size of the register stack, and determine if there are any
    call instructions.  */
@@ -1478,7 +1487,7 @@ output_function_epilogue (file, size)
 {
   rtx insn;
   int locals_unavailable = 0;	/* True until after first insn
-				   after gr1 update. */
+				   after gr1 update.  */
 
   /* If we hit a BARRIER before a real insn or CODE_LABEL, we don't
      need to do anything because we are never jumped to.  */
@@ -1567,4 +1576,31 @@ output_function_epilogue (file, size)
   if (a29k_first_epilogue_insn)
     free (a29k_first_epilogue_insn);
   a29k_first_epilogue_insn = 0;
+}
+
+static void
+a29k_asm_named_section (name, flags)
+     const char *name;
+     unsigned int flags ATTRIBUTE_UNUSED;
+{
+  /* ??? Is it really correct to mark all sections as "bss"?  */
+  fprintf (asm_out_file, "\t.sect %s, bss\n\t.use %s\n", name, name);
+}
+
+/* Return a new value for COST based on the relationship between INSN
+   that is dependent on DEP_INSN through the dependence LINK.  The
+   default is to make no adjustment to COST.
+
+   On the a29k, ignore the cost of anti- and output-dependencies.  */
+static int
+a29k_adjust_cost (insn, link, dep_insn, cost)
+     rtx insn ATTRIBUTE_UNUSED;
+     rtx link;
+     rtx dep_insn ATTRIBUTE_UNUSED;
+     int cost;
+{
+  if (REG_NOTE_KIND (link) != 0)
+    return 0;	/* Anti or output dependence.  */
+
+  return cost;
 }

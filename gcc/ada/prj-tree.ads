@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.2 $
 --                                                                          --
 --             Copyright (C) 2001 Free Software Foundation, Inc.            --
 --                                                                          --
@@ -38,30 +38,27 @@ with Table;
 package Prj.Tree is
 
    Project_Nodes_Initial   : constant := 1_000;
+   --  Initial number of nodes in table Tree_Private_Part.Project_Nodes
    Project_Nodes_Increment : constant := 100;
-   --  Allocation parameters for initializing and extending number
-   --  of nodes in table Tree_Private_Part.Project_Nodes
 
    Project_Node_Low_Bound  : constant := 0;
-   Project_Node_High_Bound : constant := 099_999_999;
-   --  Range of values for project node id's (in practice infinite)
+   Project_Node_High_Bound : constant := 099_999_999; -- In practice, infinite
 
    type Project_Node_Id is range
      Project_Node_Low_Bound .. Project_Node_High_Bound;
    --  The index of table Tree_Private_Part.Project_Nodes
 
-   Empty_Node : constant Project_Node_Id := Project_Node_Low_Bound;
+   Empty_Node    : constant Project_Node_Id := Project_Node_Low_Bound;
    --  Designates no node in table Project_Nodes
-
    First_Node_Id : constant Project_Node_Id := Project_Node_Low_Bound;
 
-   subtype Variable_Node_Id is Project_Node_Id;
-   --  Used to designate a node whose expected kind is one of
+   subtype Variable_Node_Id       is Project_Node_Id;
+   --  Used to designate a node whose expected kind is
    --  N_Typed_Variable_Declaration, N_Variable_Declaration or
    --  N_Variable_Reference.
-
    subtype Package_Declaration_Id is Project_Node_Id;
-   --  Used to designate a node whose expected kind is N_Proect_Declaration
+   --  Used to designate a node whose expected kind is
+   --  N_Project_Declaration.
 
    type Project_Node_Kind is
      (N_Project,
@@ -93,7 +90,7 @@ package Prj.Tree is
    function Default_Project_Node
      (Of_Kind       : Project_Node_Kind;
       And_Expr_Kind : Variable_Kind := Undefined)
-      return          Project_Node_Id;
+     return Project_Node_Id;
    --  Returns a Project_Node_Record with the specified Kind and
    --  Expr_Kind; all the other components have default nil values.
 
@@ -124,7 +121,7 @@ package Prj.Tree is
 
    function First_Variable_Of
      (Node  : Project_Node_Id)
-      return  Variable_Node_Id;
+      return Variable_Node_Id;
    --  Only valid for N_Project or N_Package_Declaration nodes
 
    function First_Package_Of
@@ -302,8 +299,7 @@ package Prj.Tree is
    function First_Choice_Of
      (Node  : Project_Node_Id)
       return  Project_Node_Id;
-   --  Return the first choice in a N_Case_Item, or Empty_Node if
-   --  this is when others.
+   --  Only valid for N_Case_Item nodes
 
    function Next_Case_Item
      (Node  : Project_Node_Id)
@@ -502,52 +498,44 @@ package Prj.Tree is
 
       type Project_Node_Record is record
 
-         Kind : Project_Node_Kind;
+         Kind             : Project_Node_Kind;
 
-         Location : Source_Ptr := No_Location;
+         Location         : Source_Ptr    := No_Location;
 
-         Directory : Name_Id       := No_Name;
+         Directory        : Name_Id       := No_Name;
          --  Only for N_Project
 
-         Expr_Kind : Variable_Kind := Undefined;
+         Expr_Kind        : Variable_Kind := Undefined;
          --  See below for what Project_Node_Kind it is used
 
-         Variables : Variable_Node_Id := Empty_Node;
+         Variables        : Variable_Node_Id := Empty_Node;
          --  First variable in a project or a package
 
-         Packages : Package_Declaration_Id := Empty_Node;
+         Packages         : Package_Declaration_Id := Empty_Node;
          --  First package declaration in a project
 
-         Pkg_Id : Package_Node_Id := Empty_Package;
-         --  Only used for N_Package_Declaration
-         --  The component Pkg_Id is an entry into the table Package_Attributes
-         --  (in Prj.Attr). It is used to indicate all the attributes of the
-         --  package with their characteristics.
-         --
-         --  The tables Prj.Attr.Attributes and Prj.Attr.Package_Attributes
-         --  are built once and for all through a call (from Prj.Initialize)
-         --  to procedure Prj.Attr.Initialize. It is never modified after that.
+         Pkg_Id           : Package_Node_Id := Empty_Package;
+         --  Only use in Package_Declaration
 
-         Name : Name_Id := No_Name;
+         Name             : Name_Id         := No_Name;
          --  See below for what Project_Node_Kind it is used
 
-         Path_Name : Name_Id := No_Name;
+         Path_Name        : Name_Id         := No_Name;
          --  See below for what Project_Node_Kind it is used
 
-         Value : String_Id := No_String;
+         Value            : String_Id       := No_String;
          --  See below for what Project_Node_Kind it is used
 
-         Field1 : Project_Node_Id := Empty_Node;
+         Field1           : Project_Node_Id := Empty_Node;
          --  See below the meaning for each Project_Node_Kind
 
-         Field2 : Project_Node_Id := Empty_Node;
+         Field2           : Project_Node_Id := Empty_Node;
          --  See below the meaning for each Project_Node_Kind
 
-         Field3 : Project_Node_Id := Empty_Node;
+         Field3           : Project_Node_Id := Empty_Node;
          --  See below the meaning for each Project_Node_Kind
 
-         Case_Insensitive : Boolean := False;
-         --  Significant only for N_Attribute_Declaration
+         Case_Insensitive : Boolean         := False;
          --  Indicates, for an associative array attribute, that the
          --  index is case insensitive.
 
@@ -720,8 +708,7 @@ package Prj.Tree is
       --    --  Name:      not used
       --    --  Path_Name: not used
       --    --  Expr_Kind: not used
-      --    --  Field1:    first choice (literal string), or Empty_Node
-      --    --             for when others
+      --    --  Field1:    first choice (literal string)
       --    --  Field2:    first declarative item
       --    --  Field3:    next case item
       --    --  Value:     not used
@@ -737,12 +724,10 @@ package Prj.Tree is
       --  from project files.
 
       type Project_Name_And_Node is record
-         Name : Name_Id;
+         Name     : Name_Id;
          --  Name of the project
-
-         Node : Project_Node_Id;
+         Node     : Project_Node_Id;
          --  Node of the project in table Project_Nodes
-
          Modified : Boolean;
          --  True when the project is being modified by another project
       end record;

@@ -111,9 +111,7 @@ public class GregorianCalendar extends Calendar
     super(zone, locale);
     ResourceBundle rb = ResourceBundle.getBundle(bundleName, locale);
     gregorianCutover = ((Date) rb.getObject("gregorianCutOver")).getTime();
-    time = System.currentTimeMillis();
-    isTimeSet = true;
-    areFieldsSet = false;
+    setTimeInMillis(System.currentTimeMillis());
   }
 
   /**
@@ -177,7 +175,7 @@ public class GregorianCalendar extends Calendar
    * Gets the date of the switch from Julian dates to Gregorian dates.
    * @return the date of the change.
    */
-  public final Date getGregorianChange(Date date)
+  public final Date getGregorianChange()
   {
     return new Date(gregorianCutover);
   }
@@ -218,7 +216,7 @@ public class GregorianCalendar extends Calendar
    * Get the linear time in milliseconds since the epoch.  If you
    * specify a nonpositive year it is interpreted as BC as
    * following: 0 is 1 BC, -1 is 2 BC and so on.  The date is
-   * interpreted as gregorian if the change occured before that date.
+   * interpreted as gregorian if the change occurred before that date.
    *
    * @param year the year of the date.
    * @param dayOfYear the day of year of the date; 1 based.
@@ -373,9 +371,17 @@ public class GregorianCalendar extends Calendar
       year = 1 - year;
 
     int[] daysOfYear = getDayOfYear(year);
-    int hour = isSet[HOUR_OF_DAY] ? fields[HOUR_OF_DAY]
-      : (isSet[HOUR] && isSet[AM_PM]
-	 ? fields[AM_PM] * 12 + (fields[HOUR] % 12) : 0);
+
+    int hour = 0;
+    if (isSet[HOUR_OF_DAY])
+      hour = fields[HOUR_OF_DAY];
+    else if (isSet[HOUR])
+      {
+	hour = fields[HOUR];
+        if (isSet[AM_PM] && fields[AM_PM] == PM)
+	  hour += 12;
+      }
+
     int minute = isSet[MINUTE] ? fields[MINUTE] : 0;
     int second = isSet[SECOND] ? fields[SECOND] : 0;
     int millis = isSet[MILLISECOND] ? fields[MILLISECOND] : 0;
@@ -621,7 +627,7 @@ public class GregorianCalendar extends Calendar
    * Compares the given calender with this.  
    * @param o the object to that we should compare.
    * @return true, if the given object is a calendar, that represents
-   * the same time (but doesn't neccessary have the same fields).
+   * the same time (but doesn't necessary have the same fields).
    * @XXX Should we check if time zones, locale, cutover etc. are equal?
    */
   public boolean equals(Object o)
@@ -967,7 +973,7 @@ public class GregorianCalendar extends Calendar
 
   /**
    * Gets the actual minimum value that is allowed for the specified field.
-   * This value is dependant on the values of the other fields.  Note that
+   * This value is dependent on the values of the other fields.  Note that
    * this calls <code>complete()</code> if not enough fields are set.  This
    * can have ugly side effects.
    * @param field the time field. One of the time field constants.
@@ -995,7 +1001,7 @@ public class GregorianCalendar extends Calendar
 
   /**
    * Gets the actual maximum value that is allowed for the specified field.
-   * This value is dependant on the values of the other fields.  Note that
+   * This value is dependent on the values of the other fields.  Note that
    * this calls <code>complete()</code> if not enough fields are set.  This
    * can have ugly side effects.
    * @param field the time field. One of the time field constants.

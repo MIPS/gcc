@@ -41,8 +41,9 @@
  *
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file slist
+ *  This header file is an extension to the Standard C++ Library.  You should
+ *  use the "ext/" path prefix in your @c #include statements.
  */
 
 #ifndef __SGI_STL_INTERNAL_SLIST_H
@@ -291,7 +292,7 @@ template <class _Tp, class _Alloc = allocator<_Tp> >
 class slist : private _Slist_base<_Tp,_Alloc>
 {
   // concept requirements
-  __glibcpp_class_requires(_Tp, _SGIAssignableConcept);
+  __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
 
 private:
   typedef _Slist_base<_Tp,_Alloc> _Base;
@@ -317,21 +318,29 @@ private:
 
   _Node* _M_create_node(const value_type& __x) {
     _Node* __node = this->_M_get_node();
-    __STL_TRY {
+    try {
       _Construct(&__node->_M_data, __x);
       __node->_M_next = 0;
     }
-    __STL_UNWIND(this->_M_put_node(__node));
+    catch(...)
+      {
+	this->_M_put_node(__node);
+	__throw_exception_again;
+      }
     return __node;
   }
   
   _Node* _M_create_node() {
     _Node* __node = this->_M_get_node();
-    __STL_TRY {
+    try {
       _Construct(&__node->_M_data);
       __node->_M_next = 0;
     }
-    __STL_UNWIND(this->_M_put_node(__node));
+    catch(...)
+      {
+	this->_M_put_node(__node);
+	__throw_exception_again;
+      }
     return __node;
   }
 

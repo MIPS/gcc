@@ -31,11 +31,11 @@ Boston, MA 02111-1307, USA.  */
 
 /* Run-time target specifications */
 
-/* Define this to be a string constant containing `-D' options to define the
-   predefined macros that identify this machine and system.  These macros will
-   be predefined unless the `-ansi' option is specified.  */
-/* ??? This is undefed in svr4.h.  */
-#define CPP_PREDEFINES "-Dia64 -Amachine=ia64"
+#define CPP_CPU_SPEC "\
+  -Acpu=ia64 -Amachine=ia64 \
+  %{!ansi:%{!std=c*:%{!std=i*:-Dia64}}} -D__ia64 -D__ia64__"
+
+#define CC1_SPEC "%(cc1_cpu) "
 
 /* This declaration should be present.  */
 extern int target_flags;
@@ -173,13 +173,8 @@ extern const char *ia64_fixed_range_string;
 #define TARGET_OPTIONS \
 {									\
   { "fixed-range=", 	&ia64_fixed_range_string,			\
-      N_("Specify range of registers to make fixed.")},			\
+      N_("Specify range of registers to make fixed")},			\
 }
-
-/* This macro is a C statement to print on `stderr' a string describing the
-   particular machine description choice.  */
-
-#define TARGET_VERSION fprintf (stderr, " (IA-64)");
 
 /* Sometimes certain combinations of command options do not make sense on a
    particular target machine.  You can define a macro `OVERRIDE_OPTIONS' to
@@ -242,36 +237,6 @@ extern const char *ia64_fixed_range_string;
    into options for GNU CC to pass to the `cc1plus'.  */
 
 /* #define CC1PLUS_SPEC "" */
-
-/* A C string constant that tells the GNU CC driver program options to pass to
-   the assembler.  It can also specify how to translate options you give to GNU
-   CC into options for GNU CC to pass to the assembler.  */
-
-#if ((TARGET_CPU_DEFAULT | TARGET_DEFAULT) & MASK_GNU_AS) != 0
-/* GNU AS.  */
-#define ASM_SPEC \
-  "%{mno-gnu-as:-N so} %{!mno-gnu-as:-x} %{mconstant-gp} %{mauto-pic}"
-#else
-/* Intel ias.  */
-#define ASM_SPEC \
-  "%{!mgnu-as:-N so} %{mgnu-as:-x} %{mconstant-gp:-M const_gp}\
-   %{mauto-pic:-M no_plabel}"
-#endif
-
-/* A C string constant that tells the GNU CC driver program options to pass to
-   the linker.  It can also specify how to translate options you give to GNU CC
-   into options for GNU CC to pass to the linker.  */
-
-/* The Intel linker does not support dynamic linking, so we need -dn.
-   The Intel linker gives annoying messages unless -N so is used.  */
-#if ((TARGET_CPU_DEFAULT | TARGET_DEFAULT) & MASK_GNU_LD) != 0
-/* GNU LD.  */
-#define LINK_SPEC "%{mno-gnu-ld:-dn -N so}"
-#else
-/* Intel ild.  */
-#define LINK_SPEC "%{!mgnu-ld:-dn -N so}"
-#endif
-
 
 /* Storage Layout */
 
@@ -416,6 +381,13 @@ while (0)
 /* A code distinguishing the floating point format of the target machine.  */
 #define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
 
+/* By default, the C++ compiler will use function addresses in the
+   vtable entries.  Setting this non-zero tells the compiler to use
+   function descriptors instead.  The value of this macro says how
+   many words wide the descriptor is (normally 2).  It is assumed 
+   that the address of a function descriptor may be treated as a
+   pointer to a function.  */
+#define TARGET_VTABLE_USES_DESCRIPTORS 2
 
 /* Layout of Source Language Data Types */
 
@@ -632,6 +604,45 @@ while (0)
   /*FP RA CCV UNAT PFS LC EC */				\
      1, 1,  1,   1,  1, 0, 1				\
 }
+
+/* Like `CALL_USED_REGISTERS' but used to overcome a historical 
+   problem which makes CALL_USED_REGISTERS *always* include
+   all the FIXED_REGISTERS.  Until this problem has been 
+   resolved this macro can be used to overcome this situation.
+   In particular, block_propagate() requires this list 
+   be acurate, or we can remove registers which should be live.  
+   This macro is used in regs_invalidated_by_call.  */
+
+#define CALL_REALLY_USED_REGISTERS \
+{ /* General registers.  */				\
+  1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1,	\
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
+  0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,	\
+  /* Floating-point registers.  */			\
+  1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
+  /* Predicate registers.  */				\
+  1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
+  /* Branch registers.  */				\
+  1, 0, 0, 0, 0, 0, 1, 1,				\
+  /*FP RA CCV UNAT PFS LC EC */				\
+     0, 0,  1,   0,  1, 0, 0				\
+}
+
 
 /* Define this macro if the target machine has register windows.  This C
    expression returns the register number as seen by the called function
@@ -868,12 +879,13 @@ enum reg_class
   NO_REGS,
   PR_REGS,
   BR_REGS,
+  AR_M_REGS,
+  AR_I_REGS,
   ADDL_REGS,
   GR_REGS,
   FR_REGS,
+  GR_AND_BR_REGS,
   GR_AND_FR_REGS,
-  AR_M_REGS,
-  AR_I_REGS,
   ALL_REGS,
   LIM_REG_CLASSES
 };
@@ -886,8 +898,9 @@ enum reg_class
 /* An initializer containing the names of the register classes as C string
    constants.  These names are used in writing some of the debugging dumps.  */
 #define REG_CLASS_NAMES \
-{ "NO_REGS", "PR_REGS", "BR_REGS", "ADDL_REGS", "GR_REGS", "FR_REGS", \
-  "GR_AND_FR_REGS", "AR_M_REGS", "AR_I_REGS", "ALL_REGS" }
+{ "NO_REGS", "PR_REGS", "BR_REGS", "AR_M_REGS", "AR_I_REGS", \
+  "ADDL_REGS", "GR_REGS", "FR_REGS", \
+  "GR_AND_BR_REGS", "GR_AND_FR_REGS", "ALL_REGS" }
 
 /* An initializer containing the contents of the register classes, as integers
    which are bit masks.  The Nth integer specifies the contents of class N.
@@ -907,6 +920,14 @@ enum reg_class
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
     0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
     0x00000000, 0x00000000, 0x00FF },			\
+  /* AR_M_REGS.  */					\
+  { 0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
+    0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
+    0x00000000, 0x00000000, 0x0C00 },			\
+  /* AR_I_REGS.  */					\
+  { 0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
+    0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
+    0x00000000, 0x00000000, 0x7000 },			\
   /* ADDL_REGS.  */					\
   { 0x0000000F, 0x00000000, 0x00000000, 0x00000000,	\
     0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
@@ -919,18 +940,14 @@ enum reg_class
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,	\
     0x00000000, 0x00000000, 0x0000 },			\
+  /* GR_AND_BR_REGS.  */				\
+  { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,	\
+    0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
+    0x00000000, 0x00000000, 0x03FF },			\
   /* GR_AND_FR_REGS.  */				\
   { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,	\
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,	\
     0x00000000, 0x00000000, 0x0300 },			\
-  /* AR_M_REGS.  */					\
-  { 0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
-    0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
-    0x00000000, 0x00000000, 0x0C00 },			\
-  /* AR_I_REGS.  */					\
-  { 0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
-    0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
-    0x00000000, 0x00000000, 0x7000 },			\
   /* ALL_REGS.  */					\
   { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,	\
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,	\
@@ -1005,7 +1022,8 @@ enum reg_class
 #define PREFERRED_RELOAD_CLASS(X, CLASS) \
   (CLASS == FR_REGS && GET_CODE (X) == MEM && MEM_VOLATILE_P (X) ? NO_REGS   \
    : CLASS == FR_REGS && GET_CODE (X) == CONST_DOUBLE ? NO_REGS		     \
-   : GET_RTX_CLASS (GET_CODE (X)) != 'o' && CLASS > GR_AND_FR_REGS ? NO_REGS \
+   : GET_RTX_CLASS (GET_CODE (X)) != 'o'				     \
+     && (CLASS == AR_M_REGS || CLASS == AR_I_REGS) ? NO_REGS		     \
    : CLASS)
 
 /* You should define this macro to indicate to the reload phase that it may
@@ -1473,13 +1491,25 @@ do {									\
 #define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
 do {									\
   if (CONST_OK_FOR_I (DELTA))						\
-    fprintf (FILE, "\tadds r32 = %d, r32\n", (DELTA));			\
+    {									\
+      fprintf (FILE, "\tadds r32 = ");					\
+      fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, (DELTA));			\
+      fprintf (FILE, ", r32\n");					\
+    }									\
   else									\
     {									\
       if (CONST_OK_FOR_J (DELTA))					\
-        fprintf (FILE, "\taddl r2 = %d, r0\n", (DELTA));		\
+        {								\
+          fprintf (FILE, "\taddl r2 = ");				\
+          fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, (DELTA));		\
+          fprintf (FILE, ", r0\n");					\
+        }								\
       else								\
-	fprintf (FILE, "\tmovl r2 = %d\n", (DELTA));			\
+        {								\
+	  fprintf (FILE, "\tmovl r2 = ");				\
+	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, (DELTA));		\
+	  fprintf (FILE, "\n");						\
+        }								\
       fprintf (FILE, "\t;;\n");						\
       fprintf (FILE, "\tadd r32 = r2, r32\n");				\
     }									\
@@ -1488,128 +1518,42 @@ do {									\
   fprintf (FILE, "\n");							\
 } while (0)
 
+/* Output part N of a function descriptor for DECL.  For ia64, both
+   words are emitted with a single relocation, so ignore N > 0.  */
+#define ASM_OUTPUT_FDESC(FILE, DECL, PART)				\
+do {									\
+  if ((PART) == 0)							\
+    {									\
+      fputs ("\tdata16.ua @iplt(", FILE);				\
+      assemble_name (FILE, XSTR (XEXP (DECL_RTL (DECL), 0), 0));	\
+      fputs (")\n", FILE);						\
+    }									\
+} while (0)
 
 /* Generating Code for Profiling.  */
 
 /* A C statement or compound statement to output to FILE some assembler code to
    call the profiling subroutine `mcount'.  */
 
-/* ??? Unclear if this will actually work.  No way to test this currently.  */
-
-#define FUNCTION_PROFILER(FILE, LABELNO) \
+#undef FUNCTION_PROFILER
+#define FUNCTION_PROFILER(FILE, LABELNO)				\
 do {									\
   char buf[20];								\
   ASM_GENERATE_INTERNAL_LABEL (buf, "LP", LABELNO);			\
-  fputs ("\taddl r16 = @ltoff(", FILE);					\
+  fputs ("\talloc out0 = ar.pfs, 8, 0, 4, 0\n", FILE);			\
+  if (TARGET_AUTO_PIC)							\
+    fputs ("\tmovl out3 = @gprel(", FILE);				\
+  else									\
+    fputs ("\taddl out3 = @ltoff(", FILE);				\
   assemble_name (FILE, buf);						\
-  fputs ("), gp\n", FILE);						\
-  fputs ("\tmov r17 = r1;;\n", FILE);					\
-  fputs ("\tld8 out0 = [r16]\n", FILE);					\
-  fputs ("\tmov r18 = b0\n", FILE);					\
-  fputs ("\tbr.call.sptk.many rp = mcount;;\n", FILE);			\
-  fputs ("\tmov b0 = r18\n", FILE);					\
-  fputs ("\tmov r1 = r17;;\n", FILE);					\
+  if (TARGET_AUTO_PIC)							\
+    fputs (");;\n", FILE);						\
+  else									\
+    fputs ("), r1;;\n", FILE);						\
+  fputs ("\tmov out1 = r1\n", FILE);					\
+  fputs ("\tmov out2 = b0\n", FILE);					\
+  fputs ("\tbr.call.sptk.many b0 = _mcount;;\n", FILE);			\
 } while (0)
-
-/* A C statement or compound statement to output to FILE some assembler code to
-   initialize basic-block profiling for the current object module.  */
-
-/* ??? Unclear if this will actually work.  No way to test this currently.  */
-
-#define FUNCTION_BLOCK_PROFILER(FILE, LABELNO) \
-do {									\
-  int labelno = LABELNO;						\
-  switch (profile_block_flag)						\
-    {									\
-    case 2:								\
-      fputs ("\taddl r16 = @ltoff(LPBX0), gp\n", FILE);			\
-      fprintf (FILE, "\tmov out1 = %d;;\n", labelno);			\
-      fputs ("\tld8 out0 = [r16]\n", FILE);				\
-      fputs ("\tmov r17 = r1\n", FILE);					\
-      fputs ("\tmov r18 = b0\n", FILE);					\
-      fputs ("\tbr.call.sptk.many rp = __bb_init_trace_func;;\n", FILE);\
-      fputs ("\tmov r1 = r17\n", FILE);					\
-      fputs ("\tmov b0 = r18;;\n", FILE);				\
-      break;								\
-    default:								\
-      fputs ("\taddl r16 = @ltoff(LPBX0), gp;;\n", FILE);		\
-      fputs ("\tld8 out0 = [r16];;\n", FILE);				\
-      fputs ("\tld8 r17 = [out0];;\n", FILE);				\
-      fputs ("\tcmp.eq p6, p0 = r0, r17;;\n", FILE);			\
-      fputs ("(p6)\tmov r16 = r1\n", FILE);				\
-      fputs ("(p6)\tmov r17 = b0\n", FILE);				\
-      fputs ("(p6)\tbr.call.sptk.many rp = __bb_init_func;;\n", FILE);	\
-      fputs ("(p6)\tmov r1 = r16\n", FILE);				\
-      fputs ("(p6)\tmov b0 = r17;;\n", FILE);				\
-      break;								\
-    }									\
-} while (0)
-
-/* A C statement or compound statement to output to FILE some assembler code to
-   increment the count associated with the basic block number BLOCKNO.  */
-
-/* ??? This can't work unless we mark some registers as fixed, so that we
-   can use them as temporaries in this macro.  We need two registers for -a
-   profiling and 4 registers for -ax profiling.  */
-
-#define BLOCK_PROFILER(FILE, BLOCKNO) \
-do {									\
-  int blockn = BLOCKNO;							\
-  switch (profile_block_flag)						\
-    {									\
-    case 2:								\
-      fputs ("\taddl r2 = @ltoff(__bb), gp\n", FILE);			\
-      fputs ("\taddl r3 = @ltoff(LPBX0), gp;;\n", FILE);		\
-      fprintf (FILE, "\tmov r9 = %d\n", blockn);			\
-      fputs ("\tld8 r2 = [r2]\n", FILE);				\
-      fputs ("\tld8 r3 = [r3];;\n", FILE);				\
-      fputs ("\tadd r8 = 8, r2\n", FILE);				\
-      fputs ("\tst8 [r2] = r9;;\n", FILE);				\
-      fputs ("\tst8 [r8] = r3\n", FILE);				\
-      fputs ("\tbr.call.sptk.many rp = __bb_trace_func\n", FILE);	\
-      break;								\
-									\
-    default:								\
-      fputs ("\taddl r2 = @ltoff(LPBX2), gp;;\n", FILE);		\
-      fputs ("\tld8 r2 = [r2];;\n", FILE);				\
-      fprintf (FILE, "\taddl r2 = %d, r2;;\n", 8 * blockn);		\
-      fputs ("\tld8 r3 = [r2];;\n", FILE);				\
-      fputs ("\tadd r3 = 1, r3;;\n", FILE);				\
-      fputs ("\tst8 [r2] = r3;;\n", FILE);				\
-      break;								\
-    }									\
-} while(0)
-
-/* A C statement or compound statement to output to FILE assembler
-   code to call function `__bb_trace_ret'.  */
-
-/* ??? Unclear if this will actually work.  No way to test this currently.  */
-
-/* ??? This needs to be emitted into the epilogue.  Perhaps rewrite to emit
-   rtl and call from ia64_expand_epilogue?  */
-
-#define FUNCTION_BLOCK_PROFILER_EXIT(FILE) \
-  fputs ("\tbr.call.sptk.many rp = __bb_trace_ret\n", FILE);
-#undef FUNCTION_BLOCK_PROFILER_EXIT
-
-/* A C statement or compound statement to save all registers, which may be
-   clobbered by a function call, including condition codes.  */
-
-/* ??? We would have to save 20 GRs, 106 FRs, 10 PRs, 2 BRs, and possibly
-   other things.  This is not practical.  Perhaps leave this feature (-ax)
-   unsupported by undefining above macros?  */
-
-/* #define MACHINE_STATE_SAVE(ID) */
-
-/* A C statement or compound statement to restore all registers, including
-   condition codes, saved by `MACHINE_STATE_SAVE'.  */
-
-/* ??? We would have to restore 20 GRs, 106 FRs, 10 PRs, 2 BRs, and possibly
-   other things.  This is not practical.  Perhaps leave this feature (-ax)
-   unsupported by undefining above macros?  */
-
-/* #define MACHINE_STATE_RESTORE(ID) */
-
 
 /* Implementing the Varargs Macros.  */
 
@@ -1843,15 +1787,15 @@ do {									\
 #define ADDRESS_COST(ADDRESS) 0
 
 /* A C expression for the cost of moving data from a register in class FROM to
-   one in class TO.  */
+   one in class TO, using MODE.  */
 
-#define REGISTER_MOVE_COST(MODE, FROM, TO) \
-  ia64_register_move_cost((FROM), (TO))
+#define REGISTER_MOVE_COST  ia64_register_move_cost
 
 /* A C expression for the cost of moving data of mode M between a
    register and memory.  */
 #define MEMORY_MOVE_COST(MODE,CLASS,IN) \
-  ((CLASS) == GENERAL_REGS || (CLASS) == FR_REGS ? 4 : 10)
+  ((CLASS) == GENERAL_REGS || (CLASS) == FR_REGS \
+   || (CLASS) == GR_AND_FR_REGS ? 4 : 10)
 
 /* A C expression for the cost of a branch instruction.  A value of 1 is the
    default; other values are interpreted relative to that.  Used by the 
@@ -1894,19 +1838,6 @@ do {									\
 
 #define BSS_SECTION_ASM_OP "\t.bss"
 
-/* Define this macro if jump tables (for `tablejump' insns) should be output in
-   the text section, along with the assembler instructions.  */
-
-/* ??? It is probably better for the jump tables to be in the rodata section,
-   which is where they go by default.  Unfortunately, that currently does not
-   work, because of some problem with pcrelative relocations not getting
-   resolved correctly.  */
-/* ??? FIXME ??? rth says that we should use @gprel to solve this problem.  */
-/* ??? If jump tables are in the text section, then we can use 4 byte
-   entries instead of 8 byte entries.  */
-
-#define JUMP_TABLES_IN_TEXT_SECTION 1
-
 /* Define this macro if references to a symbol must be treated differently
    depending on something about the variable or function named by the symbol
    (such as what section it is in).  */
@@ -1929,9 +1860,14 @@ do {									\
 /* Decode SYM_NAME and store the real name part in VAR, sans the characters
    that encode section info.  */
 
-#define STRIP_NAME_ENCODING(VAR, SYMBOL_NAME) \
-  (VAR) = (SYMBOL_NAME) + ((SYMBOL_NAME)[0] == SDATA_NAME_FLAG_CHAR)
-
+#define STRIP_NAME_ENCODING(VAR, SYMBOL_NAME)	\
+do {						\
+  (VAR) = (SYMBOL_NAME);			\
+  if ((VAR)[0] == SDATA_NAME_FLAG_CHAR)		\
+    (VAR)++;					\
+  if ((VAR)[0] == '*')				\
+    (VAR)++;					\
+} while (0)
 
 /* Position Independent Code.  */
 
@@ -2008,54 +1944,6 @@ do {								\
     fprintf (FILE, "\tdata4 0x%lx\n", t & 0xffffffff);		\
 } while (0)
   
-/* A C statement to output to the stdio stream STREAM an assembler instruction
-   to assemble an integer of 1, 2, 4, or 8 bytes, respectively, whose value
-   is VALUE.  */
-
-/* This is how to output an assembler line defining a `char' constant.  */
-
-#define ASM_OUTPUT_CHAR(FILE, VALUE)					\
-do {									\
-  fprintf (FILE, "%s", ASM_BYTE_OP);					\
-  output_addr_const (FILE, (VALUE));					\
-  fprintf (FILE, "\n");							\
-} while (0)
-
-/* This is how to output an assembler line defining a `short' constant.  */
-
-#define ASM_OUTPUT_SHORT(FILE, VALUE)					\
-do {									\
-  fprintf (FILE, "\tdata2\t");						\
-  output_addr_const (FILE, (VALUE));					\
-  fprintf (FILE, "\n");							\
-} while (0)
-
-/* This is how to output an assembler line defining an `int' constant.
-   We also handle symbol output here.  */
-
-/* ??? For ILP32, also need to handle function addresses here.  */
-
-#define ASM_OUTPUT_INT(FILE, VALUE)					\
-do {									\
-  fprintf (FILE, "\tdata4\t");						\
-  output_addr_const (FILE, (VALUE));					\
-  fprintf (FILE, "\n");							\
-} while (0)
-
-/* This is how to output an assembler line defining a `long' constant.
-   We also handle symbol output here.  */
-
-#define ASM_OUTPUT_DOUBLE_INT(FILE, VALUE)				\
-do {									\
-  fprintf (FILE, "\tdata8\t");						\
-  if (!(TARGET_NO_PIC || TARGET_AUTO_PIC) && SYMBOL_REF_FLAG (VALUE))	\
-    fprintf (FILE, "@fptr(");						\
-  output_addr_const (FILE, (VALUE));					\
-  if (!(TARGET_NO_PIC || TARGET_AUTO_PIC) && SYMBOL_REF_FLAG (VALUE))	\
-    fprintf (FILE, ")");						\
-  fprintf (FILE, "\n");							\
-} while (0)
-
 /* This is how to output an assembler line defining a `char' constant
    to an xdata segment.  */
 
@@ -2107,12 +1995,6 @@ do {									\
   fprintf (FILE, "\n");							\
 } while (0)
 
-
-/* A C statement to output to the stdio stream STREAM an assembler instruction
-   to assemble a single byte containing the number VALUE.  */
-
-#define ASM_OUTPUT_BYTE(STREAM, VALUE) \
-  fprintf (STREAM, "%s0x%x\n", ASM_BYTE_OP, (int)(VALUE) & 0xff)
 
 
 /* Output of Uninitialized Variables.  */
@@ -2393,18 +2275,12 @@ do {									\
 /* ??? Depends on the pointer size.  */
 
 #define ASM_OUTPUT_ADDR_DIFF_ELT(STREAM, BODY, VALUE, REL) \
-  fprintf (STREAM, "\tdata8 .L%d-.L%d\n", VALUE, REL)
+  fprintf (STREAM, "\tdata8 @pcrel(.L%d)\n", VALUE)
 
 /* This is how to output an element of a case-vector that is absolute.
    (Ia64 does not use such vectors, but we must define this macro anyway.)  */
 
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE) abort ()
-
-/* Define this if something special must be output at the end of a jump-table.
-   We need to align back to a 16 byte boundary because offsets are smaller than
-   instructions.  */
-
-#define ASM_OUTPUT_CASE_END(STREAM, NUM, TABLE) ASM_OUTPUT_ALIGN (STREAM, 4)
 
 /* Jump tables only need 8 byte alignment.  */
 
@@ -2412,16 +2288,6 @@ do {									\
 
 
 /* Assembler Commands for Exception Regions.  */
-
-/* If defined, a C string constant for the assembler operation to switch to the
-   section for exception handling frame unwind information.  If not defined,
-   GNU CC will provide a default definition if the target supports named
-   sections.  `crtstuff.c' uses this macro to switch to the appropriate
-   section.
-
-   You should define this symbol if your target supports DWARF 2 frame unwind
-   information and the default definition does not work.  */
-#define EH_FRAME_SECTION_ASM_OP "\t.section\t.IA_64.unwind,\"aw\""
 
 /* Select a format to encode pointers in exception handling data.  CODE
    is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
@@ -2441,9 +2307,7 @@ do {									\
       reltag = "@gprel(";						\
     if (reltag)								\
       {									\
-	fputs (((SIZE) == 4 ? UNALIGNED_INT_ASM_OP			\
-	        : (SIZE) == 8 ? UNALIGNED_DOUBLE_INT_ASM_OP		\
-		: (abort (), "")), FILE);				\
+	fputs (integer_asm_op (SIZE, FALSE), FILE);			\
 	fputs (reltag, FILE);						\
 	assemble_name (FILE, XSTR (ADDR, 0));				\
 	fputc (')', FILE);						\
@@ -2454,21 +2318,16 @@ do {									\
 
 /* Assembler Commands for Alignment.  */
 
-/* The alignment (log base 2) to put in front of LABEL, which follows
-   a BARRIER.  */
-
 /* ??? Investigate.  */
 
-/* ??? Emitting align directives increases the size of the line number debug
-   info, because each .align forces use of an extended opcode.  Perhaps try
-   to fix this in the assembler?  */
+/* The alignment (log base 2) to put in front of LABEL, which follows
+   a BARRIER.  */
 
 /* #define LABEL_ALIGN_AFTER_BARRIER(LABEL) */
 
 /* The desired alignment for the location counter at the beginning
    of a loop.  */
 
-/* ??? Investigate.  */
 /* #define LOOP_ALIGN(LABEL) */
 
 /* Define this macro if `ASM_OUTPUT_SKIP' should not be used in the text
@@ -2510,41 +2369,6 @@ do {									\
 
 #define DWARF2_DEBUGGING_INFO
 
-/* Section names for DWARF2 debug info.  */
-
-#define DEBUG_INFO_SECTION	".debug_info, \"\", \"progbits\""
-#define DEBUG_ABBREV_SECTION	".debug_abbrev, \"\", \"progbits\""
-#define DEBUG_ARANGES_SECTION	".debug_aranges, \"\", \"progbits\""
-#define DEBUG_MACINFO_SECTION	".debug_macinfo, \"\", \"progbits\""
-#define DEBUG_LINE_SECTION	".debug_line, \"\", \"progbits\""
-#define DEBUG_LOC_SECTION	".debug_loc, \"\", \"progbits\""
-#define DEBUG_PUBNAMES_SECTION	".debug_pubnames, \"\", \"progbits\""
-#define DEBUG_STR_SECTION	".debug_str, \"\", \"progbits\""
-
-/* C string constants giving the pseudo-op to use for a sequence of
-   2, 4, and 8 byte unaligned constants.  dwarf2out.c needs these.  */
-
-#define UNALIGNED_SHORT_ASM_OP		"\tdata2.ua\t"
-#define UNALIGNED_INT_ASM_OP		"\tdata4.ua\t"
-#define UNALIGNED_DOUBLE_INT_ASM_OP	"\tdata8.ua\t"
-
-/* We need to override the default definition for this in dwarf2out.c so that
-   we can emit the necessary # postfix.  */
-#define ASM_NAME_TO_STRING(STR, NAME)			\
-  do {							\
-      if ((NAME)[0] == '*')				\
-	dyn_string_append (STR, NAME + 1);		\
-      else						\
-	{						\
-	  char *newstr;					\
-	  STRIP_NAME_ENCODING (newstr, NAME);		\
-	  dyn_string_append (STR, user_label_prefix);	\
-	  dyn_string_append (STR, newstr);		\
-	  dyn_string_append (STR, "#");			\
-	}						\
-  }							\
-  while (0)
-
 #define DWARF2_ASM_LINE_DEBUG_INFO (TARGET_DWARF2_ASM)
 
 /* Use tags for debug info labels, so that they don't break instruction
@@ -2560,9 +2384,7 @@ do {									\
    proper relocations for them.  */
 #define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL)	\
   do {							\
-    fputs (((SIZE) == 4 ? UNALIGNED_INT_ASM_OP		\
-	    : (SIZE) == 8 ? UNALIGNED_DOUBLE_INT_ASM_OP	\
-	    : (abort (), "")), FILE);			\
+    fputs (integer_asm_op (SIZE, FALSE), FILE);		\
     fputs ("@secrel(", FILE);				\
     assemble_name (FILE, LABEL);			\
     fputc (')', FILE);					\
@@ -2571,9 +2393,7 @@ do {									\
 /* Emit a PC-relative relocation.  */
 #define ASM_OUTPUT_DWARF_PCREL(FILE, SIZE, LABEL)	\
   do {							\
-    fputs (((SIZE) == 4 ? UNALIGNED_INT_ASM_OP		\
-	    : (SIZE) == 8 ? UNALIGNED_DOUBLE_INT_ASM_OP	\
-	    : (abort (), "")), FILE);			\
+    fputs (integer_asm_op (SIZE, FALSE), FILE);		\
     fputs ("@pcrel(", FILE);				\
     assemble_name (FILE, LABEL);			\
     fputc (')', FILE);					\
@@ -2644,8 +2464,10 @@ do {									\
 { "adjusted_comparison_operator", {LT, GE, LTU, GEU}},			\
 { "signed_inequality_operator", {GE, GT, LE, LT}},			\
 { "predicate_operator", {NE, EQ}},					\
+{ "condop_operator", {PLUS, MINUS, IOR, XOR, AND}},			\
 { "ar_lc_reg_operand", {REG}},						\
 { "ar_ccv_reg_operand", {REG}},						\
+{ "ar_pfs_reg_operand", {REG}},						\
 { "general_tfmode_operand", {SUBREG, REG, CONST_DOUBLE, MEM}},		\
 { "destination_tfmode_operand", {SUBREG, REG, MEM}},			\
 { "tfreg_or_fp01_operand", {REG, CONST_DOUBLE}},
@@ -2718,6 +2540,19 @@ do {									\
    #pragma weak.  Note, #pragma weak will only be supported if SUPPORT_WEAK is
    defined.  */
 
+/* If this architecture supports prefetch, define this to be the number of
+   prefetch commands that can be executed in parallel.
+
+   ??? This number is bogus and needs to be replaced before the value is
+   actually used in optimizations.  */
+
+#define SIMULTANEOUS_PREFETCHES 6
+
+/* If this architecture supports prefetch, define this to be the size of
+   the cache line that is prefetched.  */
+
+#define PREFETCH_BLOCK 32
+
 #define HANDLE_SYSV_PRAGMA
 
 /* In rare cases, correct code generation requires extra machine dependent
@@ -2733,40 +2568,6 @@ do {									\
    cc0, and 1 if it does use cc0.  */
 /* ??? Investigate.  */
 #define MAX_CONDITIONAL_EXECUTE 12
-
-/* A C statement (sans semicolon) to update the integer scheduling
-   priority `INSN_PRIORITY(INSN)'.  */
-
-/* ??? Investigate.  */
-/* #define ADJUST_PRIORITY (INSN) */
-
-/* A C statement (sans semicolon) to update the integer variable COST
-   based on the relationship between INSN that is dependent on
-   DEP_INSN through the dependence LINK.  The default is to make no
-   adjustment to COST.  This can be used for example to specify to
-   the scheduler that an output- or anti-dependence does not incur
-   the same cost as a data-dependence.  */
-
-#define ADJUST_COST(insn,link,dep_insn,cost) \
-  (cost) = ia64_adjust_cost(insn, link, dep_insn, cost)
-
-#define ISSUE_RATE ia64_issue_rate ()
-
-#define MD_SCHED_INIT(DUMP, SCHED_VERBOSE, MAX_READY) \
-  ia64_sched_init (DUMP, SCHED_VERBOSE, MAX_READY)
-
-#define MD_SCHED_REORDER(DUMP, SCHED_VERBOSE, READY, N_READY, CLOCK, CIM) \
-  (CIM) = ia64_sched_reorder (DUMP, SCHED_VERBOSE, READY, &N_READY, 0, CLOCK)
-
-#define MD_SCHED_REORDER2(DUMP, SCHED_VERBOSE, READY, N_READY, CLOCK, CIM) \
-  (CIM) = ia64_sched_reorder2 (DUMP, SCHED_VERBOSE, READY, &N_READY, CLOCK)
-
-#define MD_SCHED_FINISH(DUMP, SCHED_VERBOSE) \
-  ia64_sched_finish (DUMP, SCHED_VERBOSE)
-
-#define MD_SCHED_VARIABLE_ISSUE(DUMP, SCHED_VERBOSE, INSN, CAN_ISSUE_MORE) \
-  ((CAN_ISSUE_MORE)							   \
-   = ia64_variable_issue (DUMP, SCHED_VERBOSE, INSN, CAN_ISSUE_MORE))
 
 extern int ia64_final_schedule;
 

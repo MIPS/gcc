@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.9 $
+--                            $Revision: 1.7 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -554,43 +554,41 @@ package body Make is
    is
       generic
          with package T is new Table.Table (<>);
-      procedure Generic_Position (New_Position : out Integer);
-      --  Generic procedure that allocates a position for S in T at the
-      --  beginning or the end, depending on the boolean Append_Switch.
+      function Generic_Position return Integer;
+      --  Generic procedure that adds S at the end or beginning of T depending
+      --  of the value of the boolean Append_Switch.
 
       ----------------------
       -- Generic_Position --
       ----------------------
 
-      procedure  Generic_Position (New_Position : out Integer) is
+      function Generic_Position return Integer is
       begin
          T.Increment_Last;
 
          if Append_Switch then
-            New_Position := Integer (T.Last);
+            return Integer (T.Last);
          else
             for J in reverse T.Table_Index_Type'Succ (T.First) .. T.Last loop
                T.Table (J) := T.Table (T.Table_Index_Type'Pred (J));
             end loop;
 
-            New_Position := Integer (T.First);
+            return Integer (T.First);
          end if;
       end Generic_Position;
 
-      procedure Gcc_Switches_Pos    is new Generic_Position (Gcc_Switches);
-      procedure Binder_Switches_Pos is new Generic_Position (Binder_Switches);
-      procedure Linker_Switches_Pos is new Generic_Position (Linker_Switches);
+      function Gcc_Switches_Pos    is new Generic_Position (Gcc_Switches);
+      function Binder_Switches_Pos is new Generic_Position (Binder_Switches);
+      function Linker_Switches_Pos is new Generic_Position (Linker_Switches);
 
-      procedure Saved_Gcc_Switches_Pos is new
+      function Saved_Gcc_Switches_Pos is new
         Generic_Position (Saved_Gcc_Switches);
 
-      procedure Saved_Binder_Switches_Pos is new
+      function Saved_Binder_Switches_Pos is new
         Generic_Position (Saved_Binder_Switches);
 
-      procedure Saved_Linker_Switches_Pos is new
+      function Saved_Linker_Switches_Pos is new
         Generic_Position (Saved_Linker_Switches);
-
-      New_Position : Integer;
 
    --  Start of processing for Add_Switch
 
@@ -598,16 +596,13 @@ package body Make is
       if And_Save then
          case Program is
             when Compiler =>
-               Saved_Gcc_Switches_Pos (New_Position);
-               Saved_Gcc_Switches.Table (New_Position) := S;
+               Saved_Gcc_Switches.Table (Saved_Gcc_Switches_Pos) := S;
 
             when Binder   =>
-               Saved_Binder_Switches_Pos (New_Position);
-               Saved_Binder_Switches.Table (New_Position) := S;
+               Saved_Binder_Switches.Table (Saved_Binder_Switches_Pos) := S;
 
             when Linker   =>
-               Saved_Linker_Switches_Pos (New_Position);
-               Saved_Linker_Switches.Table (New_Position) := S;
+               Saved_Linker_Switches.Table (Saved_Linker_Switches_Pos) := S;
 
             when None =>
                raise Program_Error;
@@ -616,16 +611,13 @@ package body Make is
       else
          case Program is
             when Compiler =>
-               Gcc_Switches_Pos (New_Position);
-               Gcc_Switches.Table (New_Position) := S;
+               Gcc_Switches.Table (Gcc_Switches_Pos) := S;
 
             when Binder   =>
-               Binder_Switches_Pos (New_Position);
-               Binder_Switches.Table (New_Position) := S;
+               Binder_Switches.Table (Binder_Switches_Pos) := S;
 
             when Linker   =>
-               Linker_Switches_Pos (New_Position);
-               Linker_Switches.Table (New_Position) := S;
+               Linker_Switches.Table (Linker_Switches_Pos) := S;
 
             when None =>
                raise Program_Error;
@@ -2516,10 +2508,6 @@ package body Make is
       --  be rebuild (if we rebuild mains), even in the case when it is not
       --  really necessary, because it is too hard to decide.
 
-      Mapping_File_Name : Temp_File_Name;
-      --  The name of the temporary mapping file that is copmmunicated
-      --  to the compiler through a -gnatem switch, when using project files.
-
    begin
       Do_Compile_Step := True;
       Do_Bind_Step    := True;
@@ -2866,7 +2854,7 @@ package body Make is
          --  in procedure Compile_Sources.
 
          The_Saved_Gcc_Switches :=
-           new Argument_List (1 .. Saved_Gcc_Switches.Last + 2);
+           new Argument_List (1 .. Saved_Gcc_Switches.Last + 1);
 
          for J in 1 .. Saved_Gcc_Switches.Last loop
             The_Saved_Gcc_Switches (J) := Saved_Gcc_Switches.Table (J);
@@ -2875,18 +2863,8 @@ package body Make is
 
          --  We never use gnat.adc when a project file is used
 
-         The_Saved_Gcc_Switches (The_Saved_Gcc_Switches'Last - 1) :=
-           No_gnat_adc;
-
-         --  Create a temporary mapping file and add the switch -gnatem
-         --  with its name to the compiler.
-
-         Prj.Env.Create_Mapping_File (Name => Mapping_File_Name);
          The_Saved_Gcc_Switches (The_Saved_Gcc_Switches'Last) :=
-           new String'("-gnatem" & Mapping_File_Name);
-
-         --  Check if there are any relative search paths in the switches.
-         --  Fail if there is one.
+           No_gnat_adc;
 
          for J in 1 .. Gcc_Switches.Last loop
             Test_If_Relative_Path (Gcc_Switches.Table (J));
@@ -3206,7 +3184,7 @@ package body Make is
                  and then not No_Main_Subprogram
                then
                   if Osint.Number_Of_Files = 1 then
-                     exit Multiple_Main_Loop;
+                     return;
 
                   else
                      goto Next_Main;
@@ -3253,7 +3231,7 @@ package body Make is
                      end if;
 
                      if Osint.Number_Of_Files = 1 then
-                        exit Multiple_Main_Loop;
+                        return;
 
                      else
                         goto Next_Main;
@@ -3498,18 +3476,6 @@ package body Make is
             end if;
          end if;
       end loop Multiple_Main_Loop;
-
-      --  Delete the temporary mapping file that was created if we are
-      --  using project files.
-
-      if Main_Project /= No_Project then
-         declare
-            Success : Boolean;
-
-         begin
-            Delete_File (Name => Mapping_File_Name, Success => Success);
-         end;
-      end if;
 
       Exit_Program (E_Success);
 

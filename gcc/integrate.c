@@ -1,24 +1,24 @@
-/* Procedure integration for GNU CC.
+/* Procedure integration for GCC.
    Copyright (C) 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -42,6 +42,7 @@ Boston, MA 02111-1307, USA.  */
 #include "loop.h"
 #include "params.h"
 #include "ggc.h"
+#include "target.h"
 
 #include "obstack.h"
 #define	obstack_chunk_alloc	xmalloc
@@ -63,15 +64,9 @@ extern struct obstack *function_maybepermanent_obstack;
    ? (1 + (3 * list_length (DECL_ARGUMENTS (DECL))) / 2) \
    : (8 * (8 + list_length (DECL_ARGUMENTS (DECL)))))
 #endif
-
-/* Decide whether a function with a target specific attribute
-   attached can be inlined.  By default we disallow this.  */
-#ifndef FUNCTION_ATTRIBUTE_INLINABLE_P
-#define FUNCTION_ATTRIBUTE_INLINABLE_P(FNDECL) 0
-#endif
 
 
-/* Private type used by {get/has}_func_hard_reg_initial_val. */
+/* Private type used by {get/has}_func_hard_reg_initial_val.  */
 typedef struct initial_value_pair {
   rtx hard_reg;
   rtx pseudo;
@@ -130,6 +125,38 @@ get_label_from_map (map, i)
   return x;
 }
 
+/* Return false if the function FNDECL cannot be inlined on account of its
+   attributes, true otherwise.  */
+bool
+function_attribute_inlinable_p (fndecl)
+     tree fndecl;
+{
+  bool has_machine_attr = false;
+  tree a;
+
+  for (a = DECL_ATTRIBUTES (fndecl); a; a = TREE_CHAIN (a))
+    {
+      tree name = TREE_PURPOSE (a);
+      int i;
+
+      for (i = 0; targetm.attribute_table[i].name != NULL; i++)
+	{
+	  if (is_attribute_p (targetm.attribute_table[i].name, name))
+	    {
+	      has_machine_attr = true;
+	      break;
+	    }
+	}
+      if (has_machine_attr)
+	break;
+    }
+
+  if (has_machine_attr)
+    return (*targetm.function_attribute_inlinable_p) (fndecl);
+  else
+    return true;
+}
+
 /* Zero if the current function (whose FUNCTION_DECL is FNDECL)
    is safe and reasonable to integrate into other functions.
    Nonzero means value is a warning msgid with a single %s
@@ -137,9 +164,9 @@ get_label_from_map (map, i)
 
 const char *
 function_cannot_inline_p (fndecl)
-     register tree fndecl;
+     tree fndecl;
 {
-  register rtx insn;
+  rtx insn;
   tree last = tree_last (TYPE_ARG_TYPES (TREE_TYPE (fndecl)));
 
   /* For functions marked as inline increase the maximum size to
@@ -151,8 +178,8 @@ function_cannot_inline_p (fndecl)
 		      + 8 * list_length (DECL_ARGUMENTS (fndecl)))
 		   : INTEGRATE_THRESHOLD (fndecl);
 
-  register int ninsns = 0;
-  register tree parms;
+  int ninsns = 0;
+  tree parms;
 
   if (DECL_UNINLINABLE (fndecl))
     return N_("function cannot be inline");
@@ -250,9 +277,8 @@ function_cannot_inline_p (fndecl)
 
   /* If the function has a target specific attribute attached to it,
      then we assume that we should not inline it.  This can be overriden
-     by the target if it defines FUNCTION_ATTRIBUTE_INLINABLE_P.  */
-  if (DECL_MACHINE_ATTRIBUTES (fndecl)
-      && ! FUNCTION_ATTRIBUTE_INLINABLE_P (fndecl))
+     by the target if it defines TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P.  */
+  if (!function_attribute_inlinable_p (fndecl))
     return N_("function with target specific attribute(s) cannot be inlined");
 
   return NULL;
@@ -414,8 +440,8 @@ save_for_inline (fndecl)
      Also set up ARG_VECTOR, which holds the unmodified DECL_RTX values
      for the parms, prior to elimination of virtual registers.
      These values are needed for substituting parms properly.  */
-
-  parmdecl_map = (tree *) xmalloc (max_parm_reg * sizeof (tree));
+  if (! flag_no_inline)
+    parmdecl_map = (tree *) xmalloc (max_parm_reg * sizeof (tree));
 
   /* Make and emit a return-label if we have not already done so.  */
 
@@ -425,14 +451,17 @@ save_for_inline (fndecl)
       emit_label (return_label);
     }
 
-  argvec = initialize_for_inline (fndecl);
+  if (! flag_no_inline)
+    argvec = initialize_for_inline (fndecl);
+  else
+    argvec = NULL;
 
   /* Delete basic block notes created by early run of find_basic_block.
      The notes would be later used by find_basic_blocks to reuse the memory
      for basic_block structures on already freed obstack.  */
   for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
     if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) == NOTE_INSN_BASIC_BLOCK)
-      delete_insn (insn);
+      delete_related_insns (insn);
 
   /* If there are insns that copy parms from the stack into pseudo registers,
      those insns are not copied.  `expand_inline_function' must
@@ -442,27 +471,31 @@ save_for_inline (fndecl)
   if (GET_CODE (insn) != NOTE)
     abort ();
 
-  /* Get the insn which signals the end of parameter setup code.  */
-  first_nonparm_insn = get_first_nonparm_insn ();
+  if (! flag_no_inline)
+    {
+      /* Get the insn which signals the end of parameter setup code.  */
+      first_nonparm_insn = get_first_nonparm_insn ();
 
-  /* Now just scan the chain of insns to see what happens to our
-     PARM_DECLs.  If a PARM_DECL is used but never modified, we
-     can substitute its rtl directly when expanding inline (and
-     perform constant folding when its incoming value is constant).
-     Otherwise, we have to copy its value into a new register and track
-     the new register's life.  */
-  in_nonparm_insns = 0;
-  save_parm_insns (insn, first_nonparm_insn);
+      /* Now just scan the chain of insns to see what happens to our
+	 PARM_DECLs.  If a PARM_DECL is used but never modified, we
+	 can substitute its rtl directly when expanding inline (and
+	 perform constant folding when its incoming value is
+	 constant).  Otherwise, we have to copy its value into a new
+	 register and track the new register's life.  */
+      in_nonparm_insns = 0;
+      save_parm_insns (insn, first_nonparm_insn);
 
-  cfun->inl_max_label_num = max_label_num ();
-  cfun->inl_last_parm_insn = cfun->x_last_parm_insn;
-  cfun->original_arg_vector = argvec;
+      cfun->inl_max_label_num = max_label_num ();
+      cfun->inl_last_parm_insn = cfun->x_last_parm_insn;
+      cfun->original_arg_vector = argvec;
+    }
   cfun->original_decl_initial = DECL_INITIAL (fndecl);
   cfun->no_debugging_symbols = (write_symbols == NO_DEBUG);
   DECL_SAVED_INSNS (fndecl) = cfun;
 
   /* Clean up.  */
-  free (parmdecl_map);
+  if (! flag_no_inline)
+    free (parmdecl_map);
 }
 
 /* Scan the chain of insns to see what happens to our PARM_DECLs.  If a
@@ -622,7 +655,7 @@ expand_inline_function (fndecl, parms, target, ignore, type,
   tree *arg_trees;
   rtx *arg_vals;
   int max_regno;
-  register int i;
+  int i;
   int min_labelno = inl_f->emit->x_first_label_num;
   int max_labelno = inl_f->inl_max_label_num;
   int nargs;
@@ -630,9 +663,6 @@ expand_inline_function (fndecl, parms, target, ignore, type,
   rtx stack_save = 0;
   rtx temp;
   struct inline_remap *map = 0;
-#ifdef HAVE_cc0
-  rtx cc0_insn = 0;
-#endif
   rtvec arg_vector = (rtvec) inl_f->original_arg_vector;
   rtx static_chain_value = 0;
   int inl_max_uid;
@@ -1044,7 +1074,7 @@ expand_inline_function (fndecl, parms, target, ignore, type,
       /* The function returns an object in a register and we use the return
 	 value.  Set up our target for remapping.  */
 
-      /* Machine mode function was declared to return.   */
+      /* Machine mode function was declared to return.  */
       enum machine_mode departing_mode = TYPE_MODE (type);
       /* (Possibly wider) machine mode it actually computes
 	 (for the sake of callers that fail to declare it right).
@@ -1282,7 +1312,7 @@ copy_insn_list (insns, map, static_chain_value)
      struct inline_remap *map;
      rtx static_chain_value;
 {
-  register int i;
+  int i;
   rtx insn;
   rtx temp;
 #ifdef HAVE_cc0
@@ -1463,14 +1493,14 @@ copy_insn_list (insns, map, static_chain_value)
 	    {
 #ifdef HAVE_cc0
 	      /* If the previous insn set cc0 for us, delete it.  */
-	      if (sets_cc0_p (PREV_INSN (copy)))
-		delete_insn (PREV_INSN (copy));
+	      if (only_sets_cc0_p (PREV_INSN (copy)))
+		delete_related_insns (PREV_INSN (copy));
 #endif
 
 	      /* If this is now a no-op, delete it.  */
 	      if (map->last_pc_value == pc_rtx)
 		{
-		  delete_insn (copy);
+		  delete_related_insns (copy);
 		  copy = 0;
 		}
 	      else
@@ -1522,7 +1552,7 @@ copy_insn_list (insns, map, static_chain_value)
 	  copy = emit_call_insn (pattern);
 
 	  SIBLING_CALL_P (copy) = SIBLING_CALL_P (insn);
-	  CONST_CALL_P (copy) = CONST_CALL_P (insn);
+	  CONST_OR_PURE_CALL_P (copy) = CONST_OR_PURE_CALL_P (insn);
 
 	  /* Because the USAGE information potentially contains objects other
 	     than hard registers, we need to copy it.  */
@@ -1559,6 +1589,7 @@ copy_insn_list (insns, map, static_chain_value)
 	    {
 	      copy = emit_label (get_label_from_map (map,
 						    CODE_LABEL_NUMBER (insn)));
+	      LABEL_NAME (copy) = NOTE_SOURCE_FILE (insn);
 	      map->const_age++;
 	      break;
 	    }
@@ -1683,8 +1714,8 @@ integrate_parm_decls (args, map, arg_vector)
      struct inline_remap *map;
      rtvec arg_vector;
 {
-  register tree tail;
-  register int i;
+  tree tail;
+  int i;
 
   for (tail = args, i = 0; tail; tail = TREE_CHAIN (tail), i++)
     {
@@ -1745,6 +1776,15 @@ integrate_decl_tree (let, map)
 	  r = DECL_RTL (d);
 	  subst_constants (&r, NULL_RTX, map, 1);
 	  SET_DECL_RTL (d, r);
+
+	  if (GET_CODE (r) == REG)
+	    REGNO_DECL (REGNO (r)) = d;
+	  else if (GET_CODE (r) == CONCAT)
+	    {
+	      REGNO_DECL (REGNO (XEXP (r, 0))) = d;
+	      REGNO_DECL (REGNO (XEXP (r, 1))) = d;
+	    }
+
 	  apply_change_group ();
 	}
 
@@ -1785,15 +1825,15 @@ integrate_decl_tree (let, map)
 
 rtx
 copy_rtx_and_substitute (orig, map, for_lhs)
-     register rtx orig;
+     rtx orig;
      struct inline_remap *map;
      int for_lhs;
 {
-  register rtx copy, temp;
-  register int i, j;
-  register RTX_CODE code;
-  register enum machine_mode mode;
-  register const char *format_ptr;
+  rtx copy, temp;
+  int i, j;
+  RTX_CODE code;
+  enum machine_mode mode;
+  const char *format_ptr;
   int regno;
 
   if (orig == 0)
@@ -2006,7 +2046,7 @@ copy_rtx_and_substitute (orig, map, for_lhs)
       if (NOTE_LINE_NUMBER (orig) != NOTE_INSN_DELETED_LABEL)
 	break;
 
-      /* ... FALLTHRU ... */
+      /* ... FALLTHRU ...  */
     case CODE_LABEL:
       LABEL_PRESERVE_P (get_label_from_map (map, CODE_LABEL_NUMBER (orig)))
 	= LABEL_PRESERVE_P (orig);
@@ -2144,13 +2184,18 @@ copy_rtx_and_substitute (orig, map, for_lhs)
 #ifndef NO_FUNCTION_CSE
       if (! (optimize && ! flag_no_function_cse))
 #endif
-	return
-	  gen_rtx_CALL
-	    (GET_MODE (orig),
-	     gen_rtx_MEM (GET_MODE (XEXP (orig, 0)),
-			  copy_rtx_and_substitute (XEXP (XEXP (orig, 0), 0),
-						   map, 0)),
-	     copy_rtx_and_substitute (XEXP (orig, 1), map, 0));
+	{
+	  rtx copy
+	    = gen_rtx_MEM (GET_MODE (XEXP (orig, 0)),
+			   copy_rtx_and_substitute (XEXP (XEXP (orig, 0), 0),
+						    map, 0));
+
+	  MEM_COPY_ATTRIBUTES (copy, XEXP (orig, 0));
+
+	  return
+	    gen_rtx_CALL (GET_MODE (orig), copy, 
+			  copy_rtx_and_substitute (XEXP (orig, 1), map, 0));
+	}
       break;
 
 #if 0
@@ -2375,9 +2420,9 @@ subst_constants (loc, insn, map, memonly)
      int memonly;
 {
   rtx x = *loc;
-  register int i, j;
-  register enum rtx_code code;
-  register const char *format_ptr;
+  int i, j;
+  enum rtx_code code;
+  const char *format_ptr;
   int num_changes = num_validated_changes ();
   rtx new = 0;
   enum machine_mode op0_mode = MAX_MACHINE_MODE;
@@ -2648,7 +2693,10 @@ subst_constants (loc, insn, map, memonly)
 		new = CONST0_RTX (mode);
 	      else
 		{
-		  REAL_VALUE_TYPE val = FLOAT_STORE_FLAG_VALUE (mode);
+		  REAL_VALUE_TYPE val;
+
+		  /* Avoid automatic aggregate initialization.  */
+		  val = FLOAT_STORE_FLAG_VALUE (mode);
 		  new = CONST_DOUBLE_FROM_REAL_VALUE (val, mode);
 		}
 	    }
@@ -2759,14 +2807,14 @@ mark_stores (dest, x, data)
 
 static void
 set_block_origin_self (stmt)
-     register tree stmt;
+     tree stmt;
 {
   if (BLOCK_ABSTRACT_ORIGIN (stmt) == NULL_TREE)
     {
       BLOCK_ABSTRACT_ORIGIN (stmt) = stmt;
 
       {
-	register tree local_decl;
+	tree local_decl;
 
 	for (local_decl = BLOCK_VARS (stmt);
 	     local_decl != NULL_TREE;
@@ -2775,7 +2823,7 @@ set_block_origin_self (stmt)
       }
 
       {
-	register tree subblock;
+	tree subblock;
 
 	for (subblock = BLOCK_SUBBLOCKS (stmt);
 	     subblock != NULL_TREE;
@@ -2798,14 +2846,14 @@ set_block_origin_self (stmt)
 
 void
 set_decl_origin_self (decl)
-     register tree decl;
+     tree decl;
 {
   if (DECL_ABSTRACT_ORIGIN (decl) == NULL_TREE)
     {
       DECL_ABSTRACT_ORIGIN (decl) = decl;
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	{
-	  register tree arg;
+	  tree arg;
 
 	  for (arg = DECL_ARGUMENTS (decl); arg; arg = TREE_CHAIN (arg))
 	    DECL_ABSTRACT_ORIGIN (arg) = arg;
@@ -2823,11 +2871,11 @@ set_decl_origin_self (decl)
 
 static void
 set_block_abstract_flags (stmt, setting)
-     register tree stmt;
-     register int setting;
+     tree stmt;
+     int setting;
 {
-  register tree local_decl;
-  register tree subblock;
+  tree local_decl;
+  tree subblock;
 
   BLOCK_ABSTRACT (stmt) = setting;
 
@@ -2850,13 +2898,13 @@ set_block_abstract_flags (stmt, setting)
 
 void
 set_decl_abstract_flags (decl, setting)
-     register tree decl;
-     register int setting;
+     tree decl;
+     int setting;
 {
   DECL_ABSTRACT (decl) = setting;
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
-      register tree arg;
+      tree arg;
 
       for (arg = DECL_ARGUMENTS (decl); arg; arg = TREE_CHAIN (arg))
 	DECL_ABSTRACT (arg) = setting;
@@ -2899,11 +2947,10 @@ output_inline_function (fndecl)
      before it gets mangled by optimization.  */
   (*debug_hooks->outlining_inline_function) (fndecl);
 
-  /* Compile this function all the way down to assembly code.  */
+  /* Compile this function all the way down to assembly code.  As a
+     side effect this destroys the saved RTL representation, but
+     that's okay, because we don't need to inline this anymore.  */
   rest_of_compilation (fndecl);
-
-  /* We can't inline this anymore.  */
-  f->inlinable = 0;
   DECL_INLINE (fndecl) = 0;
 
   cfun = old_cfun;
@@ -2915,6 +2962,24 @@ output_inline_function (fndecl)
 
 /* Functions to keep track of the values hard regs had at the start of
    the function.  */
+
+rtx
+get_hard_reg_initial_reg (fun, reg)
+     struct function *fun;
+     rtx reg;
+{
+  struct initial_value_struct *ivs = fun->hard_reg_initial_vals;
+  int i;
+
+  if (ivs == 0)
+    return NULL_RTX;
+
+  for (i = 0; i < ivs->num_entries; i++)
+    if (rtx_equal_p (ivs->entries[i].pseudo, reg))
+      return ivs->entries[i].hard_reg;
+
+  return NULL_RTX;
+}
 
 rtx
 has_func_hard_reg_initial_val (fun, reg)
@@ -3036,4 +3101,38 @@ emit_initial_value_sets ()
   end_sequence ();
 
   emit_insns_after (seq, get_insns ());
+}
+
+/* If the backend knows where to allocate pseudos for hard
+   register initial values, register these allocations now.  */
+void
+allocate_initial_values (reg_equiv_memory_loc)
+     rtx *reg_equiv_memory_loc ATTRIBUTE_UNUSED;
+{
+#ifdef ALLOCATE_INITIAL_VALUE
+  struct initial_value_struct *ivs = cfun->hard_reg_initial_vals;
+  int i;
+
+  if (ivs == 0)
+    return;
+
+  for (i = 0; i < ivs->num_entries; i++)
+    {
+      int regno = REGNO (ivs->entries[i].pseudo);
+      rtx x = ALLOCATE_INITIAL_VALUE (ivs->entries[i].hard_reg);
+
+      if (x == NULL_RTX || REG_N_SETS (REGNO (ivs->entries[i].pseudo)) > 1)
+	; /* Do nothing.  */
+      else if (GET_CODE (x) == MEM)
+	reg_equiv_memory_loc[regno] = x;
+      else if (GET_CODE (x) == REG)
+	{
+	  reg_renumber[regno] = REGNO (x);
+	  /* Poke the regno right into regno_reg_rtx
+	     so that even fixed regs are accepted.  */
+	  REGNO (ivs->entries[i].pseudo) = REGNO (x);
+	}
+      else abort ();
+    }
+#endif
 }

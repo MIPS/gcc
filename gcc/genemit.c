@@ -2,22 +2,22 @@
    Copyright (C) 1987, 1988, 1991, 1994, 1995, 1997, 1998, 1999, 2000, 2001
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "hconfig.h"
@@ -72,10 +72,10 @@ static void
 max_operand_1 (x)
      rtx x;
 {
-  register RTX_CODE code;
-  register int i;
-  register int len;
-  register const char *fmt;
+  RTX_CODE code;
+  int i;
+  int len;
+  const char *fmt;
 
   if (x == 0)
     return;
@@ -114,8 +114,8 @@ max_operand_vec (insn, arg)
      rtx insn;
      int arg;
 {
-  register int len = XVECLEN (insn, arg);
-  register int i;
+  int len = XVECLEN (insn, arg);
+  int i;
 
   max_opno = -1;
   max_dup_opno = -1;
@@ -131,7 +131,7 @@ static void
 print_code (code)
      RTX_CODE code;
 {
-  register const char *p1;
+  const char *p1;
   for (p1 = GET_RTX_NAME (code); *p1; p1++)
     putchar (TOUPPER(*p1));
 }
@@ -159,10 +159,10 @@ gen_exp (x, subroutine_type)
      rtx x;
      enum rtx_code subroutine_type;
 {
-  register RTX_CODE code;
-  register int i;
-  register int len;
-  register const char *fmt;
+  RTX_CODE code;
+  int i;
+  int len;
+  const char *fmt;
 
   if (x == 0)
     {
@@ -291,7 +291,7 @@ gen_insn (insn)
      rtx insn;
 {
   int operands;
-  register int i;
+  int i;
 
   /* See if the pattern for this insn ends with a group of CLOBBERs of (hard)
      registers or MATCH_SCRATCHes.  If so, store away the information for
@@ -314,10 +314,10 @@ gen_insn (insn)
 
       if (i != XVECLEN (insn, 1) - 1)
 	{
-	  register struct clobber_pat *p;
-	  register struct clobber_ent *link
+	  struct clobber_pat *p;
+	  struct clobber_ent *link
 	    = (struct clobber_ent *) xmalloc (sizeof (struct clobber_ent));
-	  register int j;
+	  int j;
 
 	  link->code_number = insn_code_number;
 
@@ -421,7 +421,7 @@ gen_expand (expand)
      rtx expand;
 {
   int operands;
-  register int i;
+  int i;
 
   if (strlen (XSTR (expand, 0)) == 0)
     fatal ("define_expand lacks a name");
@@ -464,7 +464,7 @@ gen_expand (expand)
   for (i = operands; i <= max_dup_opno; i++)
     printf ("  rtx operand%d;\n", i);
   for (; i <= max_scratch_opno; i++)
-    printf ("  rtx operand%d;\n", i);
+    printf ("  rtx operand%d ATTRIBUTE_UNUSED;\n", i);
   printf ("  rtx _val = 0;\n");
   printf ("  start_sequence ();\n");
 
@@ -556,13 +556,11 @@ static void
 gen_split (split)
      rtx split;
 {
-  register int i;
+  int i;
   int operands;
-  const char *name = "split";
+  const char *const name =
+    ((GET_CODE (split) == DEFINE_PEEPHOLE2) ? "peephole2" : "split");
   const char *unused;
-
-  if (GET_CODE (split) == DEFINE_PEEPHOLE2)
-    name = "peephole2";
 
   if (XVEC (split, 0) == 0)
     fatal ("define_%s (definition %d) lacks a pattern", name,
@@ -674,7 +672,7 @@ output_add_clobbers ()
   int i;
 
   printf ("\n\nvoid\nadd_clobbers (pattern, insn_code_number)\n");
-  printf ("     rtx pattern;\n     int insn_code_number;\n");
+  printf ("     rtx pattern ATTRIBUTE_UNUSED;\n     int insn_code_number;\n");
   printf ("{\n");
   printf ("  switch (insn_code_number)\n");
   printf ("    {\n");
@@ -735,7 +733,7 @@ output_added_clobbers_hard_reg_p ()
 }
 
 /* Generate code to invoke find_free_register () as needed for the
-   scratch registers used by the peephole2 pattern in SPLIT. */
+   scratch registers used by the peephole2 pattern in SPLIT.  */
 
 static void
 output_peephole2_scratches (split)
@@ -789,9 +787,9 @@ main (argc, argv)
   progname = "genemit";
 
   if (argc <= 1)
-    fatal ("No input file name.");
+    fatal ("no input file name");
 
-  if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
+  if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
 
   /* Assign sequential codes to all entries in the machine description
@@ -809,6 +807,7 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"tm_p.h\"\n");
   printf ("#include \"function.h\"\n");
   printf ("#include \"expr.h\"\n");
+  printf ("#include \"optabs.h\"\n");
   printf ("#include \"real.h\"\n");
   printf ("#include \"flags.h\"\n");
   printf ("#include \"output.h\"\n");

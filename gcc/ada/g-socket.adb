@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.1 $
 --                                                                          --
 --              Copyright (C) 2001 Ada Core Technologies, Inc.              --
 --                                                                          --
@@ -166,11 +166,12 @@ package body GNAT.Sockets is
 
    --  Types needed for Datagram_Socket_Stream_Type
 
-   type Datagram_Socket_Stream_Type is new Root_Stream_Type with record
-      Socket : Socket_Type;
-      To     : Sock_Addr_Type;
-      From   : Sock_Addr_Type;
-   end record;
+   type Datagram_Socket_Stream_Type is new Root_Stream_Type with
+      record
+         Socket : Socket_Type;
+         To     : Sock_Addr_Type;
+         From   : Sock_Addr_Type;
+      end record;
 
    type Datagram_Socket_Stream_Access is
      access all Datagram_Socket_Stream_Type;
@@ -186,9 +187,10 @@ package body GNAT.Sockets is
 
    --  Types needed for Stream_Socket_Stream_Type
 
-   type Stream_Socket_Stream_Type is new Root_Stream_Type with record
-      Socket : Socket_Type;
-   end record;
+   type Stream_Socket_Stream_Type is new Root_Stream_Type with
+      record
+         Socket : Socket_Type;
+      end record;
 
    type Stream_Socket_Stream_Access is
      access all Stream_Socket_Stream_Type;

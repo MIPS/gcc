@@ -141,8 +141,10 @@ toolexeclib_LTLIBRARIES = libgcj.la $(cond_x_ltlibrary)
 toolexeclib_DATA = libgcj.spec
 data_DATA = libgcj.jar
 
+secdir = $(libdir)/security
+
 @NATIVE_TRUE@bin_PROGRAMS = \
-@NATIVE_TRUE@jv-convert gij
+@NATIVE_TRUE@jv-convert gij rmic rmiregistry
 
 bin_SCRIPTS = addr2name.awk
 @CANADIAN_TRUE@@NULL_TARGET_TRUE@ZIP = \
@@ -159,8 +161,8 @@ bin_SCRIPTS = addr2name.awk
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8
 
 GCJCOMPILE = $(LIBTOOL) --tag=GCJ --mode=compile $(GCJ_WITH_FLAGS) -fassume-compiled -fclasspath=$(here) -L$(here) $(JC1FLAGS) -MD -MT $@ -MF $(@:.lo=.d) -c
-GCJLINK = $(LIBTOOL) --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
-LIBLINK = $(LIBTOOL) --mode=link $(CC) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
+GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
+LIBLINK = $(LIBTOOL) --tag=CC --mode=link $(CC) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
 
 LTCXXCOMPILE = $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 
@@ -198,7 +200,7 @@ javao_files = $(java_source_files:.java=.lo) \
 x_javao_files = $(x_java_source_files:.java=.lo)
 
 libgcj_la_SOURCES = prims.cc posix.cc jni.cc exception.cc \
-	resolve.cc defineclass.cc interpret.cc name-finder.cc \
+	resolve.cc defineclass.cc interpret.cc name-finder.cc verify.cc \
 	$(nat_source_files)
 
 EXTRA_libgcj_la_SOURCES = boehm.cc nogc.cc posix-threads.cc no-threads.cc \
@@ -214,6 +216,7 @@ libgcj_la_LIBADD = $(javao_files) $(c_files) $(GCOBJS) \
 # Include THREADLIBS here to ensure that the correct version of
 # certain linuxthread functions get linked:
 libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLIBS) $(LIBLTDL) \
+	$(GCLIBS) $(ZLIBS) \
 	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 libgcj_la_LINK = $(LIBLINK)
@@ -233,11 +236,15 @@ CLEANFILES = tmp-list libgcj.jar
 
 SUFFIXES = .class .java .h
 
-nat_headers = $(ordinary_java_source_files:.java=.h) \
-	$(built_java_source_files:.java=.h) \
-	java/io/ObjectOutputStream$$PutField.h \
+ordinary_nat_headers = $(ordinary_java_source_files:.java=.h) \
+	$(built_java_source_files:.java=.h)
+
+
+inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	java/io/ObjectInputStream$$GetField.h
 
+
+nat_headers = $(ordinary_nat_headers) $(inner_nat_headers)
 
 x_nat_headers = $(x_java_source_files:.java=.h)
 
@@ -268,6 +275,24 @@ gij_LDFLAGS = -rpath $(toolexeclibdir) -shared-libgcc
 gij_LINK = $(GCJLINK)
 gij_LDADD = libgcj.la $(GCLIBS) $(THREADLIBS) $(ZLIBS) -L$(here)/.libs
 gij_DEPENDENCIES = $(GCDEPS) $(THREADDEPS) $(ZDEPS) libgcj.la libgcj.spec
+
+rmic_SOURCES = 
+EXTRA_rmic_SOURCES = $(rmi_java_source_files)
+rmic_LDFLAGS = --main=gnu.java.rmi.rmic.RMIC \
+	-rpath $(toolexeclibdir) -shared-libgcc
+
+rmic_LINK = $(GCJLINK)
+rmic_LDADD = libgcj.la $(GCLIBS) $(THREADLIBS) $(ZLIBS) -L$(here)/.libs
+rmic_DEPENDENCIES = $(GCDEPS) $(THREADDEPS) $(ZDEPS) libgcj.la libgcj.spec
+
+rmiregistry_SOURCES = 
+EXTRA_rmiregistry_SOURCES = $(rmi_java_source_files)
+rmiregistry_LDFLAGS = --main=gnu.java.rmi.registry.RegistryImpl \
+	-rpath $(toolexeclibdir) -shared-libgcc
+
+rmiregistry_LINK = $(GCJLINK)
+rmiregistry_LDADD = libgcj.la $(GCLIBS) $(THREADLIBS) $(ZLIBS) -L$(here)/.libs
+rmiregistry_DEPENDENCIES = $(GCDEPS) $(THREADDEPS) $(ZDEPS) libgcj.la libgcj.spec
 
 gen_from_JIS_SOURCES = 
 EXTRA_gen_from_JIS_SOURCES = $(srcdir)/$(CONVERT_DIR)/gen-from-JIS.c \
@@ -515,6 +540,7 @@ java/beans/beancontext/BeanContextServiceRevokedEvent.java \
 java/beans/beancontext/BeanContextServiceRevokedListener.java \
 java/beans/beancontext/BeanContextServices.java	\
 java/beans/beancontext/BeanContextServicesListener.java	\
+java/beans/AppletInitializer.java \
 java/beans/BeanDescriptor.java \
 java/beans/BeanInfo.java \
 java/beans/Beans.java \
@@ -541,6 +567,205 @@ java/beans/VetoableChangeSupport.java \
 java/beans/Visibility.java
 
 
+rmi_java_source_files = \
+java/rmi/activation/Activatable.java \
+java/rmi/activation/ActivateFailedException.java \
+java/rmi/activation/ActivationDesc.java	\
+java/rmi/activation/ActivationException.java \
+java/rmi/activation/ActivationGroup.java \
+java/rmi/activation/ActivationGroupDesc.java \
+java/rmi/activation/ActivationGroupID.java \
+java/rmi/activation/ActivationID.java \
+java/rmi/activation/ActivationInstantiator.java	\
+java/rmi/activation/ActivationMonitor.java \
+java/rmi/activation/ActivationSystem.java \
+java/rmi/activation/Activator.java \
+java/rmi/activation/UnknownGroupException.java \
+java/rmi/activation/UnknownObjectException.java	\
+java/rmi/AccessException.java \
+java/rmi/AlreadyBoundException.java \
+java/rmi/ConnectException.java \
+java/rmi/ConnectIOException.java \
+java/rmi/MarshalException.java \
+java/rmi/MarshalledObject.java \
+java/rmi/Naming.java \
+java/rmi/NoSuchObjectException.java \
+java/rmi/NotBoundException.java	\
+java/rmi/RMISecurityException.java \
+java/rmi/RMISecurityManager.java \
+java/rmi/Remote.java \
+java/rmi/RemoteException.java \
+java/rmi/ServerError.java \
+java/rmi/ServerException.java \
+java/rmi/ServerRuntimeException.java \
+java/rmi/StubNotFoundException.java \
+java/rmi/UnexpectedException.java \
+java/rmi/UnknownHostException.java \
+java/rmi/UnmarshalException.java \
+java/rmi/dgc/DGC.java \
+java/rmi/dgc/Lease.java	\
+java/rmi/dgc/VMID.java \
+java/rmi/registry/LocateRegistry.java \
+java/rmi/registry/Registry.java	\
+java/rmi/registry/RegistryHandler.java \
+java/rmi/server/ExportException.java \
+java/rmi/server/LoaderHandler.java \
+java/rmi/server/LogStream.java \
+java/rmi/server/ObjID.java \
+java/rmi/server/Operation.java \
+java/rmi/server/RMIClassLoader.java \
+java/rmi/server/RMIClientSocketFactory.java \
+java/rmi/server/RMIFailureHandler.java \
+java/rmi/server/RMIServerSocketFactory.java \
+java/rmi/server/RMISocketFactory.java \
+java/rmi/server/RemoteCall.java	\
+java/rmi/server/RemoteObject.java \
+java/rmi/server/RemoteRef.java \
+java/rmi/server/RemoteServer.java \
+java/rmi/server/RemoteStub.java	\
+java/rmi/server/ServerCloneException.java \
+java/rmi/server/ServerNotActiveException.java \
+java/rmi/server/ServerRef.java \
+java/rmi/server/Skeleton.java \
+java/rmi/server/SkeletonMismatchException.java \
+java/rmi/server/SkeletonNotFoundException.java \
+java/rmi/server/SocketSecurityException.java \
+java/rmi/server/UID.java \
+java/rmi/server/UnicastRemoteObject.java \
+java/rmi/server/Unreferenced.java \
+gnu/java/rmi/dgc/DGCImpl.java \
+gnu/java/rmi/dgc/DGCImpl_Skel.java \
+gnu/java/rmi/dgc/DGCImpl_Stub.java \
+gnu/java/rmi/registry/RegistryImpl.java	\
+gnu/java/rmi/registry/RegistryImpl_Skel.java \
+gnu/java/rmi/registry/RegistryImpl_Stub.java \
+gnu/java/rmi/rmic/Compile_gcj.java \
+gnu/java/rmi/rmic/Compiler.java	\
+gnu/java/rmi/rmic/CompilerProcess.java \
+gnu/java/rmi/rmic/RMIC.java \
+gnu/java/rmi/rmic/TabbedWriter.java \
+gnu/java/rmi/server/ProtocolConstants.java \
+gnu/java/rmi/server/RMIDefaultSocketFactory.java \
+gnu/java/rmi/server/RMIHashes.java \
+gnu/java/rmi/server/RMIObjectInputStream.java \
+gnu/java/rmi/server/RMIObjectOutputStream.java \
+gnu/java/rmi/server/UnicastConnection.java \
+gnu/java/rmi/server/UnicastConnectionManager.java \
+gnu/java/rmi/server/UnicastRef.java \
+gnu/java/rmi/server/UnicastRemoteCall.java \
+gnu/java/rmi/server/UnicastRemoteStub.java \
+gnu/java/rmi/server/UnicastServer.java \
+gnu/java/rmi/server/UnicastServerRef.java
+
+
+javax_source_files = \
+javax/naming/directory/Attribute.java \
+javax/naming/directory/AttributeInUseException.java \
+javax/naming/directory/AttributeModificationException.java \
+javax/naming/directory/Attributes.java \
+javax/naming/directory/DirContext.java \
+javax/naming/directory/InvalidAttributeIdentifierException.java	\
+javax/naming/directory/InvalidAttributeValueException.java \
+javax/naming/directory/InvalidAttributesException.java \
+javax/naming/directory/InvalidSearchControlsException.java \
+javax/naming/directory/InvalidSearchFilterException.java \
+javax/naming/directory/NoSuchAttributeException.java \
+javax/naming/directory/SchemaViolationException.java \
+javax/naming/directory/BasicAttribute.java \
+javax/naming/directory/BasicAttributes.java \
+javax/naming/directory/ModificationItem.java \
+javax/naming/directory/SearchControls.java \
+javax/naming/directory/SearchResult.java \
+javax/naming/directory/InitialDirContext.java \
+javax/naming/AuthenticationException.java \
+javax/naming/AuthenticationNotSupportedException.java \
+javax/naming/CannotProceedException.java \
+javax/naming/CommunicationException.java \
+javax/naming/ConfigurationException.java \
+javax/naming/Context.java \
+javax/naming/ContextNotEmptyException.java \
+javax/naming/InsufficientResourcesException.java \
+javax/naming/InterruptedNamingException.java \
+javax/naming/BinaryRefAddr.java	\
+javax/naming/LimitExceededException.java \
+javax/naming/LinkException.java	\
+javax/naming/LinkLoopException.java \
+javax/naming/MalformedLinkException.java \
+javax/naming/Name.java \
+javax/naming/NameAlreadyBoundException.java \
+javax/naming/NameNotFoundException.java	\
+javax/naming/NameParser.java \
+javax/naming/NamingEnumeration.java \
+javax/naming/InitialContext.java \
+javax/naming/NamingSecurityException.java \
+javax/naming/NoInitialContextException.java \
+javax/naming/NoPermissionException.java	\
+javax/naming/NotContextException.java \
+javax/naming/NamingException.java \
+javax/naming/PartialResultException.java \
+javax/naming/event/EventContext.java \
+javax/naming/event/EventDirContext.java	\
+javax/naming/event/NamespaceChangeListener.java	\
+javax/naming/event/NamingEvent.java \
+javax/naming/event/NamingExceptionEvent.java \
+javax/naming/event/NamingListener.java \
+javax/naming/event/ObjectChangeListener.java \
+javax/naming/RefAddr.java \
+javax/naming/Reference.java \
+javax/naming/Referenceable.java	\
+javax/naming/ReferralException.java \
+javax/naming/ServiceUnavailableException.java \
+javax/naming/SizeLimitExceededException.java \
+javax/naming/StringRefAddr.java	\
+javax/naming/TimeLimitExceededException.java \
+javax/naming/spi/InitialContextFactory.java \
+javax/naming/spi/InitialContextFactoryBuilder.java \
+javax/naming/spi/NamingManager.java \
+javax/naming/spi/ObjectFactory.java \
+javax/naming/spi/Resolver.java \
+javax/naming/spi/DirObjectFactory.java \
+javax/naming/spi/DirStateFactory.java \
+javax/naming/spi/DirectoryManager.java \
+javax/naming/spi/ObjectFactoryBuilder.java \
+javax/naming/spi/ResolveResult.java \
+javax/naming/spi/StateFactory.java \
+javax/naming/InvalidNameException.java \
+javax/naming/Binding.java \
+javax/naming/CompositeName.java	\
+javax/naming/CompoundName.java \
+javax/naming/LinkRef.java \
+javax/naming/NameClassPair.java	\
+javax/naming/ldap/Control.java \
+javax/naming/ldap/ControlFactory.java \
+javax/naming/ldap/ExtendedRequest.java \
+javax/naming/ldap/ExtendedResponse.java	\
+javax/naming/ldap/HasControls.java \
+javax/naming/ldap/InitialLdapContext.java \
+javax/naming/ldap/LdapContext.java \
+javax/naming/ldap/LdapReferralException.java \
+javax/naming/ldap/UnsolicitedNotification.java \
+javax/naming/ldap/UnsolicitedNotificationEvent.java \
+javax/naming/ldap/UnsolicitedNotificationListener.java \
+javax/naming/OperationNotSupportedException.java \
+javax/transaction/xa/XAException.java \
+javax/transaction/xa/XAResource.java \
+javax/transaction/xa/Xid.java \
+javax/transaction/HeuristicCommitException.java	\
+javax/transaction/HeuristicMixedException.java \
+javax/transaction/HeuristicRollbackException.java \
+javax/transaction/InvalidTransactionException.java \
+javax/transaction/NotSupportedException.java \
+javax/transaction/RollbackException.java \
+javax/transaction/Status.java \
+javax/transaction/Synchronization.java \
+javax/transaction/SystemException.java \
+javax/transaction/Transaction.java \
+javax/transaction/TransactionManager.java \
+javax/transaction/TransactionRequiredException.java \
+javax/transaction/TransactionRolledbackException.java \
+javax/transaction/UserTransaction.java
+
+
 built_java_source_files = java/lang/ConcreteProcess.java \
                           gnu/classpath/Configuration.java
 
@@ -553,6 +778,7 @@ java/lang/ArrayStoreException.java \
 java/lang/Boolean.java \
 java/lang/Byte.java \
 java/lang/Character.java \
+java/lang/CharSequence.java \
 java/lang/ClassCastException.java \
 java/lang/ClassCircularityError.java \
 java/lang/ClassFormatError.java	\
@@ -575,6 +801,7 @@ java/lang/IllegalStateException.java \
 java/lang/IllegalThreadStateException.java \
 java/lang/IncompatibleClassChangeError.java \
 java/lang/IndexOutOfBoundsException.java \
+java/lang/InheritableThreadLocal.java \
 java/lang/InstantiationError.java \
 java/lang/InstantiationException.java \
 java/lang/Integer.java \
@@ -614,9 +841,12 @@ java/lang/ThreadLocal.java \
 java/lang/Throwable.java \
 java/lang/UnknownError.java \
 java/lang/UnsatisfiedLinkError.java \
+java/lang/UnsupportedClassVersionError.java \
 java/lang/UnsupportedOperationException.java \
 java/lang/VerifyError.java \
 java/lang/VirtualMachineError.java \
+java/lang/VMClassLoader.java \
+java/lang/VMSecurityManager.java \
 java/lang/Void.java \
 java/io/BufferedInputStream.java \
 java/io/BufferedOutputStream.java \
@@ -716,8 +946,11 @@ java/util/GregorianCalendar.java \
 java/util/HashMap.java \
 java/util/HashSet.java \
 java/util/Hashtable.java \
+java/util/IdentityHashMap.java \
 java/util/Iterator.java	\
 java/util/LinkedList.java \
+java/util/LinkedHashMap.java \
+java/util/LinkedHashSet.java \
 java/util/List.java \
 java/util/ListIterator.java \
 java/util/ListResourceBundle.java \
@@ -731,6 +964,7 @@ java/util/Properties.java \
 java/util/PropertyPermission.java \
 java/util/PropertyResourceBundle.java \
 java/util/Random.java \
+java/util/RandomAccess.java \
 java/util/ResourceBundle.java \
 java/util/Set.java \
 java/util/SimpleTimeZone.java \
@@ -749,11 +983,14 @@ java/util/WeakHashMap.java
 
 
 ordinary_java_source_files = $(core_java_source_files) \
+gnu/gcj/Core.java \
 gnu/gcj/RawData.java \
 gnu/gcj/io/DefaultMimeTypes.java \
 gnu/gcj/io/MimeTypes.java \
 gnu/gcj/io/SimpleSHSStream.java	\
-gnu/gcj/math/MPN.java \
+gnu/gcj/protocol/core/Connection.java \
+gnu/gcj/protocol/core/Handler.java \
+gnu/gcj/protocol/core/CoreInputStream.java \
 gnu/gcj/protocol/file/Connection.java \
 gnu/gcj/protocol/file/Handler.java \
 gnu/gcj/protocol/http/Connection.java \
@@ -761,16 +998,12 @@ gnu/gcj/protocol/http/Handler.java \
 gnu/gcj/protocol/jar/Connection.java \
 gnu/gcj/protocol/jar/Handler.java \
 gnu/gcj/runtime/FileDeleter.java \
+gnu/gcj/runtime/FinalizerThread.java \
 gnu/gcj/runtime/FirstThread.java \
+gnu/gcj/runtime/JNIWeakRef.java \
+gnu/gcj/runtime/SharedLibLoader.java \
+gnu/gcj/runtime/StringBuffer.java \
 gnu/gcj/runtime/VMClassLoader.java \
-gnu/gcj/text/BaseBreakIterator.java \
-gnu/gcj/text/CharacterBreakIterator.java \
-gnu/gcj/text/LineBreakIterator.java \
-gnu/gcj/text/LocaleData_en.java	\
-gnu/gcj/text/LocaleData_en_US.java \
-gnu/gcj/text/SentenceBreakIterator.java	\
-gnu/gcj/text/WordBreakIterator.java \
-gnu/gcj/util/EnumerationChain.java \
 gnu/java/io/ClassLoaderObjectInputStream.java \
 gnu/java/io/NullOutputStream.java \
 gnu/java/io/ObjectIdentityWrapper.java \
@@ -781,10 +1014,22 @@ gnu/java/locale/Calendar.java \
 gnu/java/locale/Calendar_de.java \
 gnu/java/locale/Calendar_en.java \
 gnu/java/locale/Calendar_nl.java \
+gnu/java/locale/LocaleInformation.java \
+gnu/java/locale/LocaleInformation_de.java \
+gnu/java/locale/LocaleInformation_en.java \
+gnu/java/locale/LocaleInformation_en_US.java \
+gnu/java/locale/LocaleInformation_nl.java \
+gnu/java/math/MPN.java \
 gnu/java/security/provider/DefaultPolicy.java \
 gnu/java/security/provider/Gnu.java \
 gnu/java/security/provider/SHA.java \
 gnu/java/security/provider/SHA1PRNG.java \
+gnu/java/text/BaseBreakIterator.java \
+gnu/java/text/CharacterBreakIterator.java \
+gnu/java/text/LineBreakIterator.java \
+gnu/java/text/SentenceBreakIterator.java	\
+gnu/java/text/WordBreakIterator.java \
+gnu/java/util/DoubleEnumeration.java \
 java/lang/ref/PhantomReference.java \
 java/lang/ref/Reference.java \
 java/lang/ref/ReferenceQueue.java \
@@ -801,6 +1046,7 @@ java/lang/reflect/Modifier.java	\
 java/lang/reflect/ReflectPermission.java \
 java/math/BigDecimal.java \
 java/math/BigInteger.java \
+java/net/Authenticator.java \
 java/net/BindException.java \
 java/net/ConnectException.java \
 java/net/ContentHandler.java \
@@ -816,6 +1062,7 @@ java/net/MalformedURLException.java \
 java/net/MulticastSocket.java \
 java/net/NetPermission.java \
 java/net/NoRouteToHostException.java \
+java/net/PasswordAuthentication.java \
 java/net/PlainDatagramSocketImpl.java \
 java/net/PlainSocketImpl.java \
 java/net/ProtocolException.java	\
@@ -972,6 +1219,10 @@ java/sql/Struct.java	\
 java/sql/Time.java \
 java/sql/Timestamp.java	\
 java/sql/Types.java \
+java/text/Annotation.java \
+java/text/AttributedCharacterIterator.java \
+java/text/AttributedString.java	\
+java/text/AttributedStringIterator.java	\
 java/text/BreakIterator.java \
 java/text/CharacterIterator.java \
 java/text/ChoiceFormat.java \
@@ -1070,8 +1321,10 @@ org/xml/sax/SAXNotSupportedException.java \
 org/xml/sax/SAXParseException.java \
 org/xml/sax/XMLFilter.java \
 org/xml/sax/XMLReader.java \
+$(rmi_java_source_files) \
 $(awt_java_source_files) \
-$(convert_source_files)
+$(convert_source_files) \
+$(javax_source_files)
 
 
 java_source_files = $(special_java_source_files) $(ordinary_java_source_files)
@@ -1095,6 +1348,7 @@ c_source_files = \
 #java/awt/natToolkit.cc
 
 nat_source_files = \
+gnu/gcj/natCore.cc \
 gnu/gcj/convert/JIS0208_to_Unicode.cc \
 gnu/gcj/convert/JIS0212_to_Unicode.cc \
 gnu/gcj/convert/Unicode_to_JIS.cc \
@@ -1105,6 +1359,11 @@ gnu/gcj/convert/natOutput_EUCJIS.cc \
 gnu/gcj/convert/natOutput_SJIS.cc \
 gnu/gcj/io/natSimpleSHSStream.cc \
 gnu/gcj/io/shs.cc \
+gnu/gcj/protocol/core/natCoreInputStream.cc \
+gnu/gcj/runtime/natFinalizerThread.cc \
+gnu/gcj/runtime/natFirstThread.cc \
+gnu/gcj/runtime/natSharedLibLoader.cc \
+gnu/gcj/runtime/natStringBuffer.cc \
 java/io/natFile.cc \
 java/io/natFileDescriptor.cc \
 java/io/natObjectInputStream.cc \
@@ -1123,6 +1382,7 @@ java/lang/natStringBuffer.cc \
 java/lang/natSystem.cc \
 java/lang/natThread.cc \
 java/lang/natThrowable.cc \
+java/lang/ref/natReference.cc \
 java/lang/reflect/natArray.cc \
 java/lang/reflect/natConstructor.cc \
 java/lang/reflect/natField.cc \
@@ -1216,6 +1476,7 @@ AM_MAKEFLAGS = \
 	"PICFLAG=$(PICFLAG)" \
 	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" \
 	"SHELL=$(SHELL)" \
+	"RUNTESTFLAGS=$(RUNTESTFLAGS)" \
 	"exec_prefix=$(exec_prefix)" \
 	"infodir=$(infodir)" \
 	"libdir=$(libdir)" \
@@ -1258,25 +1519,30 @@ X_LIBS = @X_LIBS@
 X_EXTRA_LIBS = @X_EXTRA_LIBS@
 X_PRE_LIBS = @X_PRE_LIBS@
 libgcj_la_OBJECTS =  prims.lo posix.lo jni.lo exception.lo resolve.lo \
-defineclass.lo interpret.lo name-finder.lo \
+defineclass.lo interpret.lo name-finder.lo verify.lo gnu/gcj/natCore.lo \
 gnu/gcj/convert/JIS0208_to_Unicode.lo \
 gnu/gcj/convert/JIS0212_to_Unicode.lo gnu/gcj/convert/Unicode_to_JIS.lo \
 gnu/gcj/convert/natIconv.lo gnu/gcj/convert/natInput_EUCJIS.lo \
 gnu/gcj/convert/natInput_SJIS.lo gnu/gcj/convert/natOutput_EUCJIS.lo \
 gnu/gcj/convert/natOutput_SJIS.lo gnu/gcj/io/natSimpleSHSStream.lo \
-gnu/gcj/io/shs.lo java/io/natFile.lo java/io/natFileDescriptor.lo \
-java/io/natObjectInputStream.lo java/io/natObjectOutputStream.lo \
-java/lang/natCharacter.lo java/lang/natClass.lo \
-java/lang/natClassLoader.lo java/lang/natConcreteProcess.lo \
-java/lang/natDouble.lo java/lang/natFloat.lo java/lang/natMath.lo \
-java/lang/natObject.lo java/lang/natRuntime.lo java/lang/natString.lo \
+gnu/gcj/io/shs.lo gnu/gcj/protocol/core/natCoreInputStream.lo \
+gnu/gcj/runtime/natFinalizerThread.lo gnu/gcj/runtime/natFirstThread.lo \
+gnu/gcj/runtime/natSharedLibLoader.lo \
+gnu/gcj/runtime/natStringBuffer.lo java/io/natFile.lo \
+java/io/natFileDescriptor.lo java/io/natObjectInputStream.lo \
+java/io/natObjectOutputStream.lo java/lang/natCharacter.lo \
+java/lang/natClass.lo java/lang/natClassLoader.lo \
+java/lang/natConcreteProcess.lo java/lang/natDouble.lo \
+java/lang/natFloat.lo java/lang/natMath.lo java/lang/natObject.lo \
+java/lang/natRuntime.lo java/lang/natString.lo \
 java/lang/natStringBuffer.lo java/lang/natSystem.lo \
 java/lang/natThread.lo java/lang/natThrowable.lo \
-java/lang/reflect/natArray.lo java/lang/reflect/natConstructor.lo \
-java/lang/reflect/natField.lo java/lang/reflect/natMethod.lo \
-java/net/natInetAddress.lo java/net/natPlainDatagramSocketImpl.lo \
-java/net/natPlainSocketImpl.lo java/text/natCollator.lo \
-java/util/zip/natDeflater.lo java/util/zip/natInflater.lo
+java/lang/ref/natReference.lo java/lang/reflect/natArray.lo \
+java/lang/reflect/natConstructor.lo java/lang/reflect/natField.lo \
+java/lang/reflect/natMethod.lo java/net/natInetAddress.lo \
+java/net/natPlainDatagramSocketImpl.lo java/net/natPlainSocketImpl.lo \
+java/text/natCollator.lo java/util/zip/natDeflater.lo \
+java/util/zip/natInflater.lo
 libgcjx_la_OBJECTS =  gnu/gcj/xlib/natClip.lo \
 gnu/gcj/xlib/natColormap.lo gnu/gcj/xlib/natDisplay.lo \
 gnu/gcj/xlib/natDrawable.lo gnu/gcj/xlib/natFont.lo \
@@ -1288,13 +1554,16 @@ gnu/gcj/xlib/natXButtonEvent.lo gnu/gcj/xlib/natXColor.lo \
 gnu/gcj/xlib/natXConfigureEvent.lo gnu/gcj/xlib/natXException.lo \
 gnu/gcj/xlib/natXExposeEvent.lo gnu/gcj/xlib/natXImage.lo \
 gnu/gcj/xlib/natXUnmapEvent.lo
-@NATIVE_TRUE@bin_PROGRAMS =  jv-convert$(EXEEXT) gij$(EXEEXT)
+@NATIVE_TRUE@bin_PROGRAMS =  jv-convert$(EXEEXT) gij$(EXEEXT) \
+@NATIVE_TRUE@rmic$(EXEEXT) rmiregistry$(EXEEXT)
 @NATIVE_TRUE@@MAINTAINER_MODE_TRUE@noinst_PROGRAMS =  \
 @NATIVE_TRUE@@MAINTAINER_MODE_TRUE@gen-from-JIS$(EXEEXT)
 PROGRAMS =  $(bin_PROGRAMS) $(noinst_PROGRAMS)
 
 jv_convert_OBJECTS = 
 gij_OBJECTS =  gij.$(OBJEXT)
+rmic_OBJECTS = 
+rmiregistry_OBJECTS = 
 gen_from_JIS_OBJECTS = 
 gen_from_JIS_LDFLAGS = 
 SCRIPTS =  $(bin_SCRIPTS)
@@ -1334,9 +1603,9 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/awt/xlib/XGraphics.P \
 .deps/gnu/awt/xlib/XGraphicsConfiguration.P \
 .deps/gnu/awt/xlib/XPanelPeer.P .deps/gnu/awt/xlib/XToolkit.P \
-.deps/gnu/classpath/Configuration.P .deps/gnu/gcj/RawData.P \
-.deps/gnu/gcj/awt/BitMaskExtent.P .deps/gnu/gcj/awt/Buffers.P \
-.deps/gnu/gcj/awt/ComponentDataBlitOp.P \
+.deps/gnu/classpath/Configuration.P .deps/gnu/gcj/Core.P \
+.deps/gnu/gcj/RawData.P .deps/gnu/gcj/awt/BitMaskExtent.P \
+.deps/gnu/gcj/awt/Buffers.P .deps/gnu/gcj/awt/ComponentDataBlitOp.P \
 .deps/gnu/gcj/awt/GLightweightPeer.P \
 .deps/gnu/gcj/convert/BytesToUnicode.P .deps/gnu/gcj/convert/Convert.P \
 .deps/gnu/gcj/convert/IOConverter.P \
@@ -1363,22 +1632,26 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/gcj/io/DefaultMimeTypes.P .deps/gnu/gcj/io/MimeTypes.P \
 .deps/gnu/gcj/io/SimpleSHSStream.P \
 .deps/gnu/gcj/io/natSimpleSHSStream.P .deps/gnu/gcj/io/shs.P \
-.deps/gnu/gcj/math/MPN.P .deps/gnu/gcj/protocol/file/Connection.P \
+.deps/gnu/gcj/natCore.P .deps/gnu/gcj/protocol/core/Connection.P \
+.deps/gnu/gcj/protocol/core/CoreInputStream.P \
+.deps/gnu/gcj/protocol/core/Handler.P \
+.deps/gnu/gcj/protocol/core/natCoreInputStream.P \
+.deps/gnu/gcj/protocol/file/Connection.P \
 .deps/gnu/gcj/protocol/file/Handler.P \
 .deps/gnu/gcj/protocol/http/Connection.P \
 .deps/gnu/gcj/protocol/http/Handler.P \
 .deps/gnu/gcj/protocol/jar/Connection.P \
 .deps/gnu/gcj/protocol/jar/Handler.P \
-.deps/gnu/gcj/runtime/FileDeleter.P .deps/gnu/gcj/runtime/FirstThread.P \
+.deps/gnu/gcj/runtime/FileDeleter.P \
+.deps/gnu/gcj/runtime/FinalizerThread.P \
+.deps/gnu/gcj/runtime/FirstThread.P .deps/gnu/gcj/runtime/JNIWeakRef.P \
+.deps/gnu/gcj/runtime/SharedLibLoader.P \
+.deps/gnu/gcj/runtime/StringBuffer.P \
 .deps/gnu/gcj/runtime/VMClassLoader.P \
-.deps/gnu/gcj/text/BaseBreakIterator.P \
-.deps/gnu/gcj/text/CharacterBreakIterator.P \
-.deps/gnu/gcj/text/LineBreakIterator.P \
-.deps/gnu/gcj/text/LocaleData_en.P \
-.deps/gnu/gcj/text/LocaleData_en_US.P \
-.deps/gnu/gcj/text/SentenceBreakIterator.P \
-.deps/gnu/gcj/text/WordBreakIterator.P \
-.deps/gnu/gcj/util/EnumerationChain.P .deps/gnu/gcj/xlib/Clip.P \
+.deps/gnu/gcj/runtime/natFinalizerThread.P \
+.deps/gnu/gcj/runtime/natFirstThread.P \
+.deps/gnu/gcj/runtime/natSharedLibLoader.P \
+.deps/gnu/gcj/runtime/natStringBuffer.P .deps/gnu/gcj/xlib/Clip.P \
 .deps/gnu/gcj/xlib/Colormap.P .deps/gnu/gcj/xlib/Display.P \
 .deps/gnu/gcj/xlib/Drawable.P .deps/gnu/gcj/xlib/Font.P \
 .deps/gnu/gcj/xlib/GC.P .deps/gnu/gcj/xlib/Pixmap.P \
@@ -1423,10 +1696,42 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/lang/reflect/TypeSignature.P \
 .deps/gnu/java/locale/Calendar.P .deps/gnu/java/locale/Calendar_de.P \
 .deps/gnu/java/locale/Calendar_en.P .deps/gnu/java/locale/Calendar_nl.P \
+.deps/gnu/java/locale/LocaleInformation.P \
+.deps/gnu/java/locale/LocaleInformation_de.P \
+.deps/gnu/java/locale/LocaleInformation_en.P \
+.deps/gnu/java/locale/LocaleInformation_en_US.P \
+.deps/gnu/java/locale/LocaleInformation_nl.P .deps/gnu/java/math/MPN.P \
+.deps/gnu/java/rmi/dgc/DGCImpl.P .deps/gnu/java/rmi/dgc/DGCImpl_Skel.P \
+.deps/gnu/java/rmi/dgc/DGCImpl_Stub.P \
+.deps/gnu/java/rmi/registry/RegistryImpl.P \
+.deps/gnu/java/rmi/registry/RegistryImpl_Skel.P \
+.deps/gnu/java/rmi/registry/RegistryImpl_Stub.P \
+.deps/gnu/java/rmi/rmic/Compile_gcj.P \
+.deps/gnu/java/rmi/rmic/Compiler.P \
+.deps/gnu/java/rmi/rmic/CompilerProcess.P \
+.deps/gnu/java/rmi/rmic/RMIC.P .deps/gnu/java/rmi/rmic/TabbedWriter.P \
+.deps/gnu/java/rmi/server/ProtocolConstants.P \
+.deps/gnu/java/rmi/server/RMIDefaultSocketFactory.P \
+.deps/gnu/java/rmi/server/RMIHashes.P \
+.deps/gnu/java/rmi/server/RMIObjectInputStream.P \
+.deps/gnu/java/rmi/server/RMIObjectOutputStream.P \
+.deps/gnu/java/rmi/server/UnicastConnection.P \
+.deps/gnu/java/rmi/server/UnicastConnectionManager.P \
+.deps/gnu/java/rmi/server/UnicastRef.P \
+.deps/gnu/java/rmi/server/UnicastRemoteCall.P \
+.deps/gnu/java/rmi/server/UnicastRemoteStub.P \
+.deps/gnu/java/rmi/server/UnicastServer.P \
+.deps/gnu/java/rmi/server/UnicastServerRef.P \
 .deps/gnu/java/security/provider/DefaultPolicy.P \
 .deps/gnu/java/security/provider/Gnu.P \
 .deps/gnu/java/security/provider/SHA.P \
-.deps/gnu/java/security/provider/SHA1PRNG.P .deps/interpret.P \
+.deps/gnu/java/security/provider/SHA1PRNG.P \
+.deps/gnu/java/text/BaseBreakIterator.P \
+.deps/gnu/java/text/CharacterBreakIterator.P \
+.deps/gnu/java/text/LineBreakIterator.P \
+.deps/gnu/java/text/SentenceBreakIterator.P \
+.deps/gnu/java/text/WordBreakIterator.P \
+.deps/gnu/java/util/DoubleEnumeration.P .deps/interpret.P \
 .deps/java/applet/Applet.P .deps/java/applet/AppletContext.P \
 .deps/java/applet/AppletStub.P .deps/java/applet/AudioClip.P \
 .deps/java/awt/AWTError.P .deps/java/awt/AWTEvent.P \
@@ -1536,9 +1841,10 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/awt/peer/ScrollbarPeer.P .deps/java/awt/peer/TextAreaPeer.P \
 .deps/java/awt/peer/TextComponentPeer.P \
 .deps/java/awt/peer/TextFieldPeer.P .deps/java/awt/peer/WindowPeer.P \
-.deps/java/beans/BeanDescriptor.P .deps/java/beans/BeanInfo.P \
-.deps/java/beans/Beans.P .deps/java/beans/Customizer.P \
-.deps/java/beans/DesignMode.P .deps/java/beans/EventSetDescriptor.P \
+.deps/java/beans/AppletInitializer.P .deps/java/beans/BeanDescriptor.P \
+.deps/java/beans/BeanInfo.P .deps/java/beans/Beans.P \
+.deps/java/beans/Customizer.P .deps/java/beans/DesignMode.P \
+.deps/java/beans/EventSetDescriptor.P \
 .deps/java/beans/FeatureDescriptor.P \
 .deps/java/beans/IndexedPropertyDescriptor.P \
 .deps/java/beans/IntrospectionException.P \
@@ -1619,8 +1925,9 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/lang/ArithmeticException.P \
 .deps/java/lang/ArrayIndexOutOfBoundsException.P \
 .deps/java/lang/ArrayStoreException.P .deps/java/lang/Boolean.P \
-.deps/java/lang/Byte.P .deps/java/lang/Character.P \
-.deps/java/lang/Class.P .deps/java/lang/ClassCastException.P \
+.deps/java/lang/Byte.P .deps/java/lang/CharSequence.P \
+.deps/java/lang/Character.P .deps/java/lang/Class.P \
+.deps/java/lang/ClassCastException.P \
 .deps/java/lang/ClassCircularityError.P \
 .deps/java/lang/ClassFormatError.P .deps/java/lang/ClassLoader.P \
 .deps/java/lang/ClassNotFoundException.P \
@@ -1638,6 +1945,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/lang/IllegalThreadStateException.P \
 .deps/java/lang/IncompatibleClassChangeError.P \
 .deps/java/lang/IndexOutOfBoundsException.P \
+.deps/java/lang/InheritableThreadLocal.P \
 .deps/java/lang/InstantiationError.P \
 .deps/java/lang/InstantiationException.P .deps/java/lang/Integer.P \
 .deps/java/lang/InternalError.P .deps/java/lang/InterruptedException.P \
@@ -1662,7 +1970,9 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/lang/ThreadDeath.P .deps/java/lang/ThreadGroup.P \
 .deps/java/lang/ThreadLocal.P .deps/java/lang/Throwable.P \
 .deps/java/lang/UnknownError.P .deps/java/lang/UnsatisfiedLinkError.P \
+.deps/java/lang/UnsupportedClassVersionError.P \
 .deps/java/lang/UnsupportedOperationException.P \
+.deps/java/lang/VMClassLoader.P .deps/java/lang/VMSecurityManager.P \
 .deps/java/lang/VerifyError.P .deps/java/lang/VirtualMachineError.P \
 .deps/java/lang/Void.P .deps/java/lang/dtoa.P .deps/java/lang/e_acos.P \
 .deps/java/lang/e_asin.P .deps/java/lang/e_atan2.P \
@@ -1682,6 +1992,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/lang/ref/PhantomReference.P .deps/java/lang/ref/Reference.P \
 .deps/java/lang/ref/ReferenceQueue.P \
 .deps/java/lang/ref/SoftReference.P .deps/java/lang/ref/WeakReference.P \
+.deps/java/lang/ref/natReference.P \
 .deps/java/lang/reflect/AccessibleObject.P \
 .deps/java/lang/reflect/Array.P .deps/java/lang/reflect/Constructor.P \
 .deps/java/lang/reflect/Field.P \
@@ -1704,14 +2015,15 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/lang/w_log.P .deps/java/lang/w_pow.P \
 .deps/java/lang/w_remainder.P .deps/java/lang/w_sqrt.P \
 .deps/java/math/BigDecimal.P .deps/java/math/BigInteger.P \
-.deps/java/net/BindException.P .deps/java/net/ConnectException.P \
-.deps/java/net/ContentHandler.P .deps/java/net/ContentHandlerFactory.P \
-.deps/java/net/DatagramPacket.P .deps/java/net/DatagramSocket.P \
-.deps/java/net/DatagramSocketImpl.P .deps/java/net/FileNameMap.P \
-.deps/java/net/HttpURLConnection.P .deps/java/net/InetAddress.P \
-.deps/java/net/JarURLConnection.P \
+.deps/java/net/Authenticator.P .deps/java/net/BindException.P \
+.deps/java/net/ConnectException.P .deps/java/net/ContentHandler.P \
+.deps/java/net/ContentHandlerFactory.P .deps/java/net/DatagramPacket.P \
+.deps/java/net/DatagramSocket.P .deps/java/net/DatagramSocketImpl.P \
+.deps/java/net/FileNameMap.P .deps/java/net/HttpURLConnection.P \
+.deps/java/net/InetAddress.P .deps/java/net/JarURLConnection.P \
 .deps/java/net/MalformedURLException.P .deps/java/net/MulticastSocket.P \
 .deps/java/net/NetPermission.P .deps/java/net/NoRouteToHostException.P \
+.deps/java/net/PasswordAuthentication.P \
 .deps/java/net/PlainDatagramSocketImpl.P \
 .deps/java/net/PlainSocketImpl.P .deps/java/net/ProtocolException.P \
 .deps/java/net/ServerSocket.P .deps/java/net/Socket.P \
@@ -1726,7 +2038,58 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/net/UnknownServiceException.P \
 .deps/java/net/natInetAddress.P \
 .deps/java/net/natPlainDatagramSocketImpl.P \
-.deps/java/net/natPlainSocketImpl.P \
+.deps/java/net/natPlainSocketImpl.P .deps/java/rmi/AccessException.P \
+.deps/java/rmi/AlreadyBoundException.P \
+.deps/java/rmi/ConnectException.P .deps/java/rmi/ConnectIOException.P \
+.deps/java/rmi/MarshalException.P .deps/java/rmi/MarshalledObject.P \
+.deps/java/rmi/Naming.P .deps/java/rmi/NoSuchObjectException.P \
+.deps/java/rmi/NotBoundException.P \
+.deps/java/rmi/RMISecurityException.P \
+.deps/java/rmi/RMISecurityManager.P .deps/java/rmi/Remote.P \
+.deps/java/rmi/RemoteException.P .deps/java/rmi/ServerError.P \
+.deps/java/rmi/ServerException.P \
+.deps/java/rmi/ServerRuntimeException.P \
+.deps/java/rmi/StubNotFoundException.P \
+.deps/java/rmi/UnexpectedException.P \
+.deps/java/rmi/UnknownHostException.P \
+.deps/java/rmi/UnmarshalException.P \
+.deps/java/rmi/activation/Activatable.P \
+.deps/java/rmi/activation/ActivateFailedException.P \
+.deps/java/rmi/activation/ActivationDesc.P \
+.deps/java/rmi/activation/ActivationException.P \
+.deps/java/rmi/activation/ActivationGroup.P \
+.deps/java/rmi/activation/ActivationGroupDesc.P \
+.deps/java/rmi/activation/ActivationGroupID.P \
+.deps/java/rmi/activation/ActivationID.P \
+.deps/java/rmi/activation/ActivationInstantiator.P \
+.deps/java/rmi/activation/ActivationMonitor.P \
+.deps/java/rmi/activation/ActivationSystem.P \
+.deps/java/rmi/activation/Activator.P \
+.deps/java/rmi/activation/UnknownGroupException.P \
+.deps/java/rmi/activation/UnknownObjectException.P \
+.deps/java/rmi/dgc/DGC.P .deps/java/rmi/dgc/Lease.P \
+.deps/java/rmi/dgc/VMID.P .deps/java/rmi/registry/LocateRegistry.P \
+.deps/java/rmi/registry/Registry.P \
+.deps/java/rmi/registry/RegistryHandler.P \
+.deps/java/rmi/server/ExportException.P \
+.deps/java/rmi/server/LoaderHandler.P .deps/java/rmi/server/LogStream.P \
+.deps/java/rmi/server/ObjID.P .deps/java/rmi/server/Operation.P \
+.deps/java/rmi/server/RMIClassLoader.P \
+.deps/java/rmi/server/RMIClientSocketFactory.P \
+.deps/java/rmi/server/RMIFailureHandler.P \
+.deps/java/rmi/server/RMIServerSocketFactory.P \
+.deps/java/rmi/server/RMISocketFactory.P \
+.deps/java/rmi/server/RemoteCall.P .deps/java/rmi/server/RemoteObject.P \
+.deps/java/rmi/server/RemoteRef.P .deps/java/rmi/server/RemoteServer.P \
+.deps/java/rmi/server/RemoteStub.P \
+.deps/java/rmi/server/ServerCloneException.P \
+.deps/java/rmi/server/ServerNotActiveException.P \
+.deps/java/rmi/server/ServerRef.P .deps/java/rmi/server/Skeleton.P \
+.deps/java/rmi/server/SkeletonMismatchException.P \
+.deps/java/rmi/server/SkeletonNotFoundException.P \
+.deps/java/rmi/server/SocketSecurityException.P \
+.deps/java/rmi/server/UID.P .deps/java/rmi/server/UnicastRemoteObject.P \
+.deps/java/rmi/server/Unreferenced.P \
 .deps/java/security/AccessControlContext.P \
 .deps/java/security/AccessControlException.P \
 .deps/java/security/AccessController.P \
@@ -1832,6 +2195,10 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/sql/SQLOutput.P .deps/java/sql/SQLWarning.P \
 .deps/java/sql/Statement.P .deps/java/sql/Struct.P \
 .deps/java/sql/Time.P .deps/java/sql/Timestamp.P .deps/java/sql/Types.P \
+.deps/java/text/Annotation.P \
+.deps/java/text/AttributedCharacterIterator.P \
+.deps/java/text/AttributedString.P \
+.deps/java/text/AttributedStringIterator.P \
 .deps/java/text/BreakIterator.P .deps/java/text/CharacterIterator.P \
 .deps/java/text/ChoiceFormat.P \
 .deps/java/text/CollationElementIterator.P \
@@ -1856,24 +2223,27 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/util/EventListener.P .deps/java/util/EventObject.P \
 .deps/java/util/GregorianCalendar.P .deps/java/util/HashMap.P \
 .deps/java/util/HashSet.P .deps/java/util/Hashtable.P \
-.deps/java/util/Iterator.P .deps/java/util/LinkedList.P \
-.deps/java/util/List.P .deps/java/util/ListIterator.P \
-.deps/java/util/ListResourceBundle.P .deps/java/util/Locale.P \
-.deps/java/util/Map.P .deps/java/util/MissingResourceException.P \
+.deps/java/util/IdentityHashMap.P .deps/java/util/Iterator.P \
+.deps/java/util/LinkedHashMap.P .deps/java/util/LinkedHashSet.P \
+.deps/java/util/LinkedList.P .deps/java/util/List.P \
+.deps/java/util/ListIterator.P .deps/java/util/ListResourceBundle.P \
+.deps/java/util/Locale.P .deps/java/util/Map.P \
+.deps/java/util/MissingResourceException.P \
 .deps/java/util/NoSuchElementException.P .deps/java/util/Observable.P \
 .deps/java/util/Observer.P .deps/java/util/Properties.P \
 .deps/java/util/PropertyPermission.P \
 .deps/java/util/PropertyResourceBundle.P .deps/java/util/Random.P \
-.deps/java/util/ResourceBundle.P .deps/java/util/Set.P \
-.deps/java/util/SimpleTimeZone.P .deps/java/util/SortedMap.P \
-.deps/java/util/SortedSet.P .deps/java/util/Stack.P \
-.deps/java/util/StringTokenizer.P .deps/java/util/TimeZone.P \
-.deps/java/util/Timer.P .deps/java/util/TimerTask.P \
-.deps/java/util/TooManyListenersException.P .deps/java/util/TreeMap.P \
-.deps/java/util/TreeSet.P .deps/java/util/Vector.P \
-.deps/java/util/WeakHashMap.P .deps/java/util/jar/Attributes.P \
-.deps/java/util/jar/JarEntry.P .deps/java/util/jar/JarException.P \
-.deps/java/util/jar/JarFile.P .deps/java/util/jar/JarInputStream.P \
+.deps/java/util/RandomAccess.P .deps/java/util/ResourceBundle.P \
+.deps/java/util/Set.P .deps/java/util/SimpleTimeZone.P \
+.deps/java/util/SortedMap.P .deps/java/util/SortedSet.P \
+.deps/java/util/Stack.P .deps/java/util/StringTokenizer.P \
+.deps/java/util/TimeZone.P .deps/java/util/Timer.P \
+.deps/java/util/TimerTask.P .deps/java/util/TooManyListenersException.P \
+.deps/java/util/TreeMap.P .deps/java/util/TreeSet.P \
+.deps/java/util/Vector.P .deps/java/util/WeakHashMap.P \
+.deps/java/util/jar/Attributes.P .deps/java/util/jar/JarEntry.P \
+.deps/java/util/jar/JarException.P .deps/java/util/jar/JarFile.P \
+.deps/java/util/jar/JarInputStream.P \
 .deps/java/util/jar/JarOutputStream.P .deps/java/util/jar/Manifest.P \
 .deps/java/util/zip/Adler32.P .deps/java/util/zip/CRC32.P \
 .deps/java/util/zip/CheckedInputStream.P \
@@ -1889,7 +2259,105 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/util/zip/ZipException.P .deps/java/util/zip/ZipFile.P \
 .deps/java/util/zip/ZipInputStream.P \
 .deps/java/util/zip/ZipOutputStream.P .deps/java/util/zip/natDeflater.P \
-.deps/java/util/zip/natInflater.P .deps/jni.P .deps/name-finder.P \
+.deps/java/util/zip/natInflater.P \
+.deps/javax/naming/AuthenticationException.P \
+.deps/javax/naming/AuthenticationNotSupportedException.P \
+.deps/javax/naming/BinaryRefAddr.P .deps/javax/naming/Binding.P \
+.deps/javax/naming/CannotProceedException.P \
+.deps/javax/naming/CommunicationException.P \
+.deps/javax/naming/CompositeName.P .deps/javax/naming/CompoundName.P \
+.deps/javax/naming/ConfigurationException.P \
+.deps/javax/naming/Context.P \
+.deps/javax/naming/ContextNotEmptyException.P \
+.deps/javax/naming/InitialContext.P \
+.deps/javax/naming/InsufficientResourcesException.P \
+.deps/javax/naming/InterruptedNamingException.P \
+.deps/javax/naming/InvalidNameException.P \
+.deps/javax/naming/LimitExceededException.P \
+.deps/javax/naming/LinkException.P \
+.deps/javax/naming/LinkLoopException.P .deps/javax/naming/LinkRef.P \
+.deps/javax/naming/MalformedLinkException.P .deps/javax/naming/Name.P \
+.deps/javax/naming/NameAlreadyBoundException.P \
+.deps/javax/naming/NameClassPair.P \
+.deps/javax/naming/NameNotFoundException.P \
+.deps/javax/naming/NameParser.P .deps/javax/naming/NamingEnumeration.P \
+.deps/javax/naming/NamingException.P \
+.deps/javax/naming/NamingSecurityException.P \
+.deps/javax/naming/NoInitialContextException.P \
+.deps/javax/naming/NoPermissionException.P \
+.deps/javax/naming/NotContextException.P \
+.deps/javax/naming/OperationNotSupportedException.P \
+.deps/javax/naming/PartialResultException.P \
+.deps/javax/naming/RefAddr.P .deps/javax/naming/Reference.P \
+.deps/javax/naming/Referenceable.P \
+.deps/javax/naming/ReferralException.P \
+.deps/javax/naming/ServiceUnavailableException.P \
+.deps/javax/naming/SizeLimitExceededException.P \
+.deps/javax/naming/StringRefAddr.P \
+.deps/javax/naming/TimeLimitExceededException.P \
+.deps/javax/naming/directory/Attribute.P \
+.deps/javax/naming/directory/AttributeInUseException.P \
+.deps/javax/naming/directory/AttributeModificationException.P \
+.deps/javax/naming/directory/Attributes.P \
+.deps/javax/naming/directory/BasicAttribute.P \
+.deps/javax/naming/directory/BasicAttributes.P \
+.deps/javax/naming/directory/DirContext.P \
+.deps/javax/naming/directory/InitialDirContext.P \
+.deps/javax/naming/directory/InvalidAttributeIdentifierException.P \
+.deps/javax/naming/directory/InvalidAttributeValueException.P \
+.deps/javax/naming/directory/InvalidAttributesException.P \
+.deps/javax/naming/directory/InvalidSearchControlsException.P \
+.deps/javax/naming/directory/InvalidSearchFilterException.P \
+.deps/javax/naming/directory/ModificationItem.P \
+.deps/javax/naming/directory/NoSuchAttributeException.P \
+.deps/javax/naming/directory/SchemaViolationException.P \
+.deps/javax/naming/directory/SearchControls.P \
+.deps/javax/naming/directory/SearchResult.P \
+.deps/javax/naming/event/EventContext.P \
+.deps/javax/naming/event/EventDirContext.P \
+.deps/javax/naming/event/NamespaceChangeListener.P \
+.deps/javax/naming/event/NamingEvent.P \
+.deps/javax/naming/event/NamingExceptionEvent.P \
+.deps/javax/naming/event/NamingListener.P \
+.deps/javax/naming/event/ObjectChangeListener.P \
+.deps/javax/naming/ldap/Control.P \
+.deps/javax/naming/ldap/ControlFactory.P \
+.deps/javax/naming/ldap/ExtendedRequest.P \
+.deps/javax/naming/ldap/ExtendedResponse.P \
+.deps/javax/naming/ldap/HasControls.P \
+.deps/javax/naming/ldap/InitialLdapContext.P \
+.deps/javax/naming/ldap/LdapContext.P \
+.deps/javax/naming/ldap/LdapReferralException.P \
+.deps/javax/naming/ldap/UnsolicitedNotification.P \
+.deps/javax/naming/ldap/UnsolicitedNotificationEvent.P \
+.deps/javax/naming/ldap/UnsolicitedNotificationListener.P \
+.deps/javax/naming/spi/DirObjectFactory.P \
+.deps/javax/naming/spi/DirStateFactory.P \
+.deps/javax/naming/spi/DirectoryManager.P \
+.deps/javax/naming/spi/InitialContextFactory.P \
+.deps/javax/naming/spi/InitialContextFactoryBuilder.P \
+.deps/javax/naming/spi/NamingManager.P \
+.deps/javax/naming/spi/ObjectFactory.P \
+.deps/javax/naming/spi/ObjectFactoryBuilder.P \
+.deps/javax/naming/spi/ResolveResult.P \
+.deps/javax/naming/spi/Resolver.P .deps/javax/naming/spi/StateFactory.P \
+.deps/javax/transaction/HeuristicCommitException.P \
+.deps/javax/transaction/HeuristicMixedException.P \
+.deps/javax/transaction/HeuristicRollbackException.P \
+.deps/javax/transaction/InvalidTransactionException.P \
+.deps/javax/transaction/NotSupportedException.P \
+.deps/javax/transaction/RollbackException.P \
+.deps/javax/transaction/Status.P \
+.deps/javax/transaction/Synchronization.P \
+.deps/javax/transaction/SystemException.P \
+.deps/javax/transaction/Transaction.P \
+.deps/javax/transaction/TransactionManager.P \
+.deps/javax/transaction/TransactionRequiredException.P \
+.deps/javax/transaction/TransactionRolledbackException.P \
+.deps/javax/transaction/UserTransaction.P \
+.deps/javax/transaction/xa/XAException.P \
+.deps/javax/transaction/xa/XAResource.P \
+.deps/javax/transaction/xa/Xid.P .deps/jni.P .deps/name-finder.P \
 .deps/no-threads.P .deps/nogc.P .deps/org/w3c/dom/Attr.P \
 .deps/org/w3c/dom/CDATASection.P .deps/org/w3c/dom/CharacterData.P \
 .deps/org/w3c/dom/Comment.P .deps/org/w3c/dom/DOMException.P \
@@ -1927,9 +2395,9 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/org/xml/sax/helpers/XMLFilterImpl.P \
 .deps/org/xml/sax/helpers/XMLReaderAdapter.P \
 .deps/org/xml/sax/helpers/XMLReaderFactory.P .deps/posix-threads.P \
-.deps/posix.P .deps/prims.P .deps/resolve.P
-SOURCES = $(libgcj_la_SOURCES) $(EXTRA_libgcj_la_SOURCES) $(libgcjx_la_SOURCES) $(EXTRA_libgcjx_la_SOURCES) $(jv_convert_SOURCES) $(EXTRA_jv_convert_SOURCES) $(gij_SOURCES) $(gen_from_JIS_SOURCES) $(EXTRA_gen_from_JIS_SOURCES)
-OBJECTS = $(libgcj_la_OBJECTS) $(libgcjx_la_OBJECTS) $(jv_convert_OBJECTS) $(gij_OBJECTS) $(gen_from_JIS_OBJECTS)
+.deps/posix.P .deps/prims.P .deps/resolve.P .deps/verify.P
+SOURCES = $(libgcj_la_SOURCES) $(EXTRA_libgcj_la_SOURCES) $(libgcjx_la_SOURCES) $(EXTRA_libgcjx_la_SOURCES) $(jv_convert_SOURCES) $(EXTRA_jv_convert_SOURCES) $(gij_SOURCES) $(rmic_SOURCES) $(EXTRA_rmic_SOURCES) $(rmiregistry_SOURCES) $(EXTRA_rmiregistry_SOURCES) $(gen_from_JIS_SOURCES) $(EXTRA_gen_from_JIS_SOURCES)
+OBJECTS = $(libgcj_la_OBJECTS) $(libgcjx_la_OBJECTS) $(jv_convert_OBJECTS) $(gij_OBJECTS) $(rmic_OBJECTS) $(rmiregistry_OBJECTS) $(gen_from_JIS_OBJECTS)
 
 all: all-redirect
 .SUFFIXES:
@@ -2057,6 +2525,14 @@ jv-convert$(EXEEXT): $(jv_convert_OBJECTS) $(jv_convert_DEPENDENCIES)
 gij$(EXEEXT): $(gij_OBJECTS) $(gij_DEPENDENCIES)
 	@rm -f gij$(EXEEXT)
 	$(gij_LINK) $(gij_LDFLAGS) $(gij_OBJECTS) $(gij_LDADD) $(LIBS)
+
+rmic$(EXEEXT): $(rmic_OBJECTS) $(rmic_DEPENDENCIES)
+	@rm -f rmic$(EXEEXT)
+	$(rmic_LINK) $(rmic_LDFLAGS) $(rmic_OBJECTS) $(rmic_LDADD) $(LIBS)
+
+rmiregistry$(EXEEXT): $(rmiregistry_OBJECTS) $(rmiregistry_DEPENDENCIES)
+	@rm -f rmiregistry$(EXEEXT)
+	$(rmiregistry_LINK) $(rmiregistry_LDFLAGS) $(rmiregistry_OBJECTS) $(rmiregistry_LDADD) $(LIBS)
 
 gen-from-JIS$(EXEEXT): $(gen_from_JIS_OBJECTS) $(gen_from_JIS_DEPENDENCIES)
 	@rm -f gen-from-JIS$(EXEEXT)
@@ -2452,14 +2928,14 @@ libgcj.jar: $(built_java_source_files) $(java_source_files) $(x_java_source_file
 	@: $(shell echo Creating list of files to compile...) $(shell rm -f tmp-list || :) $(shell touch tmp-list) $(foreach source,$?,$(shell echo $(source) >> tmp-list))
 	@set fnord $(MAKEFLAGS); amf=$$2; fail=no; \
 	javac="$(JAVAC)"; \
-	cat tmp-list | while read f; do \
+	cat tmp-list | (while read f; do \
 	  echo $$javac $(JCFLAGS) -classpath $(here):$(srcdir) -d $(here) $$f; \
 	  $$javac $(JCFLAGS) -classpath $(here):$(srcdir) -d $(here) $$f \
 	    || case "$$amf" in *=*) exit 1;; *k*) fail=yes ;; *) exit 1;; esac; \
 	done; \
-	test "$$fail" = no
+	test "$$fail" = no)
 	-@rm -f tmp-list libgcj.jar
-	find java gnu org -type d -o -type f -name '*.class' | \
+	find java gnu javax org -type d -o -type f -name '*.class' | \
 	  sed -e '/\/\./d' -e '/\/xlib/d' | \
 	  $(ZIP) cfM0E@ $@
 
@@ -2473,14 +2949,9 @@ clean-local:
 	$(GCJCOMPILE) -o $@ $<
 
 $(nat_files) $(x_nat_files): %.lo: %.cc
-	@echo '$(LTCXXCOMPILE) -c -o $@ $<'; \
-	$(LTCXXCOMPILE) -Wp,-MD,.deps/$(*F).pp -c -o $@ $<
-	@-sed -e 's/^\([^:]*\)\.o[ 	]*:/\1.lo \1.o :/' \
-	  < .deps/$(*F).pp > .deps/$(*F).P; \
-	tr ' ' '\012' < .deps/$(*F).pp \
-	  | sed -e 's/^\\$$//' -e '/^$$/ d' -e '/:$$/ d' -e 's/$$/ :/' \
-	    >> .deps/$(*F).P; \
-	rm -f .deps/$(*F).pp
+	@echo '$(LTCXXCOMPILE) -MD -MT $@ -MF $(@:.lo=.pp) -c -o $@ $<'; \
+	$(LTCXXCOMPILE) -MD -MT $@ -MF $(@:.lo=.pp) -c -o $@ $<
+	@-mv $(@:.lo=.pp) $(@:.lo=.d)
 
 $(c_files): %.lo: %.c
 	$(LTCOMPILE) -c -o $@ $<
@@ -2504,32 +2975,28 @@ libgcjx.la: $(libgcjx_la_OBJECTS) $(libgcjx_la_DEPENDENCIES)
 .class.h:
 	$(GCJH) -classpath $(top_builddir) $(basename $<)
 
-$(nat_headers) $(x_nat_headers): libgcj.jar
+$(ordinary_nat_headers) $(x_nat_headers): %.h: %.class
 
-java/lang/ClassLoader.h: java/lang/ClassLoader.class libgcj.jar
+java/lang/ClassLoader.h: java/lang/ClassLoader.class
 	$(GCJH) -classpath $(top_builddir) \
 		-friend 'jclass _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader);' \
-		-friend 'void _Jv_RunMain (const char *name, int argc, const char **argv, bool is_jar);' \
+		-friend 'void _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, bool is_jar);' \
 		$(basename $<)
 
-gnu/gcj/runtime/FirstThread.h: gnu/gcj/runtime/FirstThread.class libgcj.jar
-	$(GCJH) -classpath $(top_builddir) \
-		-friend 'void JvRunMain (jclass, int, const char **);' \
-		-friend 'void _Jv_RunMain (const char*, int, const char **);' \
-		$(basename $<)
-
-java/lang/Thread.h: java/lang/Thread.class libgcj.jar
+java/lang/Thread.h: java/lang/Thread.class
 	$(GCJH) -classpath $(top_builddir) \
 		-prepend 'class _Jv_JNIEnv;' \
 		-prepend '#define _JV_NOT_OWNER 1' \
 		-prepend '#define _JV_INTERRUPTED 2' \
 		-friend '_Jv_JNIEnv * _Jv_GetCurrentJNIEnv ();' \
 		-friend 'void _Jv_SetCurrentJNIEnv (_Jv_JNIEnv *env);' \
+		-friend 'void _Jv_ThreadRun (java::lang::Thread* thread);' \
+		-friend 'jint _Jv_AttachCurrentThread(java::lang::Thread* thread);' \
 		-friend 'java::lang::Thread* _Jv_AttachCurrentThread(jstring name, java::lang::ThreadGroup* group);' \
 		-friend 'jint _Jv_DetachCurrentThread ();' \
 		$(basename $<)
 
-java/lang/String.h: java/lang/String.class libgcj.jar
+java/lang/String.h: java/lang/String.class
 	$(GCJH) -classpath $(top_builddir) \
 	    -friend 'jchar* _Jv_GetStringChars (jstring str);' \
 	    -friend 'jstring* _Jv_StringFindSlot (jchar*, jint, jint);' \
@@ -2539,37 +3006,38 @@ java/lang/String.h: java/lang/String.class libgcj.jar
 	    -friend 'jstring _Jv_AllocString (jsize);' \
 	    $(basename $<)
 
-java/lang/reflect/Constructor.h: java/lang/reflect/Constructor.class libgcj.jar
+java/lang/reflect/Constructor.h: java/lang/reflect/Constructor.class
 	$(GCJH) -classpath $(top_builddir) \
 	    -friend 'jmethodID _Jv_FromReflectedConstructor (java::lang::reflect::Constructor *);' \
 	    -friend 'class java::lang::Class;' \
 	    -friend 'jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
 	    $(basename $<)
 
-java/lang/reflect/Field.h: java/lang/reflect/Field.class libgcj.jar
+java/lang/reflect/Field.h: java/lang/reflect/Field.class
 	$(GCJH) -classpath $(top_builddir) \
 	    -friend 'jfieldID _Jv_FromReflectedField (java::lang::reflect::Field *);' \
 	    -friend 'jobject _Jv_JNI_ToReflectedField (_Jv_JNIEnv*, jclass, jfieldID, jboolean);' \
 	    -friend 'class java::lang::Class;' \
 	    $(basename $<)
 
-java/lang/reflect/Method.h: java/lang/reflect/Method.class libgcj.jar
+java/lang/reflect/Method.h: java/lang/reflect/Method.class
 	$(GCJH) -classpath $(top_builddir) \
 	    -friend 'jmethodID _Jv_FromReflectedMethod (java::lang::reflect::Method *);' \
 	    -friend 'class java::lang::Class;' \
+	    -friend 'class java::io::ObjectInputStream;' \
 	    -friend 'jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
 	    $(basename $<)
 
-gnu/gcj/runtime/VMClassLoader.h: gnu/gcj/runtime/VMClassLoader.class libgcj.jar
+gnu/gcj/runtime/VMClassLoader.h: gnu/gcj/runtime/VMClassLoader.class
 	$(GCJH) -classpath $(top_builddir) \
-	    -friend 'class java::lang::ClassLoader;' \
+	    -friend 'class ::java::lang::ClassLoader;' \
 	    $(basename $<)
 
-java/io/ObjectInputStream$$GetField.h: libgcj.jar
+java/io/ObjectInputStream$$GetField.h: java/io/ObjectInputStream.class
 	$(GCJH) -classpath $(top_builddir) \
 	'java/io/ObjectInputStream$$GetField'
 
-java/io/ObjectOutputStream$$PutField.h: libgcj.jar
+java/io/ObjectOutputStream$$PutField.h: java/io/ObjectOutputStream.class
 	$(GCJH) -classpath $(top_builddir) \
 	'java/io/ObjectOutputStream$$PutField'
 
@@ -2585,6 +3053,11 @@ install-data-local:
 	  echo " $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/$$f"; \
 	  $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/$$f; \
 	done
+	$(mkinstalldirs) $(DESTDIR)$(secdir)
+	@for f in classpath.security libgcj.security; do \
+	  echo " $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f"; \
+	  $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f; \
+	done
 
 maintainer-check: libgcj.la
 	$(NM) .libs/libgcj.a | grep ' T ' \
@@ -2598,6 +3071,14 @@ header-check: libgcj.jar $(nat_headers)
 	  echo "#include \"$$h\"" >> htest.cc; \
 	done; \
 	$(CXXCOMPILE) -fsyntax-only htest.cc
+
+class-check: libgcj.jar
+	@ok=0; find . -name '*.class' -print | fgrep -v testsuite | \
+	while read f; do \
+	  echo "$(GCJ_WITH_FLAGS) --syntax-only $$f"; \
+	  if $(GCJ_WITH_FLAGS) --syntax-only $$f; then \
+	  :; else ok=1; fi; \
+	done; exit $$ok
 
 # The Unicode consortium does not permit re-distributing the file JIS0201.TXT.
 # You can get it from ftp://ftp.unicode.org/Public/MAPPINGS/EASTASIA/JIS/.

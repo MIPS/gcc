@@ -1,22 +1,22 @@
 /* Definitions for computing resource usage of specific insns.
    Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -196,14 +196,14 @@ next_insn_no_annul (insn)
 
 void
 mark_referenced_resources (x, res, include_delayed_effects)
-     register rtx x;
-     register struct resources *res;
-     register int include_delayed_effects;
+     rtx x;
+     struct resources *res;
+     int include_delayed_effects;
 {
   enum rtx_code code = GET_CODE (x);
   int i, j;
   unsigned int r;
-  register const char *format_ptr;
+  const char *format_ptr;
 
   /* Handle leaf items for which we set resource flags.  Also, special-case
      CALL, SET and CLOBBER operators.  */
@@ -326,13 +326,11 @@ mark_referenced_resources (x, res, include_delayed_effects)
 	  rtx insn = PREV_INSN (x);
 	  rtx sequence = 0;
 	  int seq_size = 0;
-	  rtx next = NEXT_INSN (x);
 	  int i;
 
 	  /* If we are part of a delay slot sequence, point at the SEQUENCE.  */
 	  if (NEXT_INSN (insn) != x)
 	    {
-	      next = NEXT_INSN (NEXT_INSN (insn));
 	      sequence = PATTERN (NEXT_INSN (insn));
 	      seq_size = XVECLEN (sequence, 0);
 	      if (GET_CODE (sequence) != SEQUENCE)
@@ -353,7 +351,7 @@ mark_referenced_resources (x, res, include_delayed_effects)
 	    if (global_regs[i])
 	      SET_HARD_REG_BIT (res->regs, i);
 
-	  /* Check for a NOTE_INSN_SETJMP.  If it exists, then we must
+	  /* Check for a REG_SETJMP.  If it exists, then we must
 	     assume that this call can need any register.
 
 	     This is done to be more conservative about how we handle setjmp.
@@ -361,8 +359,7 @@ mark_referenced_resources (x, res, include_delayed_effects)
 	     registers ensures that a register will not be considered dead
 	     just because it crosses a setjmp call.  A register should be
 	     considered dead only if the setjmp call returns non-zero.  */
-	  if (next && GET_CODE (next) == NOTE
-	      && NOTE_LINE_NUMBER (next) == NOTE_INSN_SETJMP)
+	  if (find_reg_note (x, REG_SETJMP, NULL))
 	    SET_HARD_REG_SET (res->regs);
 
 	  {
@@ -622,12 +619,12 @@ find_dead_or_set_registers (target, res, jump_target, jump_count, set, needed)
    SETs CC0 even though this is not totally correct.  The reason for this is
    that we require a SET of CC0 to immediately precede the reference to CC0.
    So if some other insn sets CC0 as a side-effect, we know it cannot affect
-   our computation and thus may be placed in a delay slot.   */
+   our computation and thus may be placed in a delay slot.  */
 
 void
 mark_set_resources (x, res, in_dest, mark_type)
-     register rtx x;
-     register struct resources *res;
+     rtx x;
+     struct resources *res;
      int in_dest;
      enum mark_resource_type mark_type;
 {
@@ -667,8 +664,6 @@ mark_set_resources (x, res, in_dest, mark_type)
 
       if (mark_type == MARK_SRC_DEST_CALL)
 	{
-	  rtx next = NEXT_INSN (x);
-	  rtx prev = PREV_INSN (x);
 	  rtx link;
 
 	  res->cc = res->memory = 1;
@@ -676,21 +671,15 @@ mark_set_resources (x, res, in_dest, mark_type)
 	    if (call_used_regs[r] || global_regs[r])
 	      SET_HARD_REG_BIT (res->regs, r);
 
-	  /* If X is part of a delay slot sequence, then NEXT should be
-	     the first insn after the sequence.  */
-	  if (NEXT_INSN (prev) != x)
-	    next = NEXT_INSN (NEXT_INSN (prev));
-
 	  for (link = CALL_INSN_FUNCTION_USAGE (x);
 	       link; link = XEXP (link, 1))
 	    if (GET_CODE (XEXP (link, 0)) == CLOBBER)
 	      mark_set_resources (SET_DEST (XEXP (link, 0)), res, 1,
 				  MARK_SRC_DEST);
 
-	  /* Check for a NOTE_INSN_SETJMP.  If it exists, then we must
+	  /* Check for a REG_SETJMP.  If it exists, then we must
 	     assume that this call can clobber any register.  */
-	  if (next && GET_CODE (next) == NOTE
-	      && NOTE_LINE_NUMBER (next) == NOTE_INSN_SETJMP)
+	  if (find_reg_note (x, REG_SETJMP, NULL))
 	    SET_HARD_REG_SET (res->regs);
 	}
 
@@ -902,7 +891,7 @@ mark_target_live_regs (insns, target, res)
      struct resources *res;
 {
   int b = -1;
-  int i;
+  unsigned int i;
   struct target_info *tinfo = NULL;
   rtx insn;
   rtx jump_insn = 0;
@@ -960,7 +949,8 @@ mark_target_live_regs (insns, target, res)
 	  tinfo = (struct target_info *) xmalloc (sizeof (struct target_info));
 	  tinfo->uid = INSN_UID (target);
 	  tinfo->block = b;
-	  tinfo->next = target_hash_table[INSN_UID (target) % TARGET_HASH_PRIME];
+	  tinfo->next
+	    = target_hash_table[INSN_UID (target) % TARGET_HASH_PRIME];
 	  target_hash_table[INSN_UID (target) % TARGET_HASH_PRIME] = tinfo;
 	}
     }
@@ -1072,8 +1062,8 @@ mark_target_live_regs (insns, target, res)
 		    && GET_CODE (XEXP (link, 0)) == REG
 		    && REGNO (XEXP (link, 0)) < FIRST_PSEUDO_REGISTER)
 		  {
-		    int first_regno = REGNO (XEXP (link, 0));
-		    int last_regno
+		    unsigned int first_regno = REGNO (XEXP (link, 0));
+		    unsigned int last_regno
 		      = (first_regno
 			 + HARD_REGNO_NREGS (first_regno,
 					     GET_MODE (XEXP (link, 0))));
@@ -1091,8 +1081,8 @@ mark_target_live_regs (insns, target, res)
 		    && GET_CODE (XEXP (link, 0)) == REG
 		    && REGNO (XEXP (link, 0)) < FIRST_PSEUDO_REGISTER)
 		  {
-		    int first_regno = REGNO (XEXP (link, 0));
-		    int last_regno
+		    unsigned int first_regno = REGNO (XEXP (link, 0));
+		    unsigned int last_regno
 		      = (first_regno
 			 + HARD_REGNO_NREGS (first_regno,
 					     GET_MODE (XEXP (link, 0))));
@@ -1139,7 +1129,7 @@ mark_target_live_regs (insns, target, res)
   /* If we hit an unconditional branch, we have another way of finding out
      what is live: we can see what is live at the branch target and include
      anything used but not set before the branch.  We add the live
-     resources found using the test below to those found until now. */
+     resources found using the test below to those found until now.  */
 
   if (jump_insn)
     {
@@ -1315,7 +1305,7 @@ incr_ticks_for_insn (insn)
 }
 
 /* Add TRIAL to the set of resources used at the end of the current
-   function. */
+   function.  */
 void
 mark_end_of_function_resources (trial, include_delayed_effects)
      rtx trial;

@@ -53,12 +53,13 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_iterator_base_funcs.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
-#ifndef __SGI_STL_INTERNAL_ITERATOR_BASE_FUNCS_H
-#define __SGI_STL_INTERNAL_ITERATOR_BASE_FUNCS_H
+#ifndef __GLIBCPP_INTERNAL_ITERATOR_BASE_FUNCS_H
+#define __GLIBCPP_INTERNAL_ITERATOR_BASE_FUNCS_H
 
 // This file contains all of the general iterator-related utility
 // functions, such as distance() and advance().
@@ -81,7 +82,7 @@ namespace std
 	       _Distance& __n, input_iterator_tag)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>)
       while (__first != __last) { ++__first; ++__n; }
     }
 
@@ -91,7 +92,7 @@ namespace std
 	       _Distance& __n, random_access_iterator_tag)
     {
       // concept requirements
-      __glibcpp_function_requires(_RandomAccessIteratorConcept<_RandomAccessIterator>);
+      __glibcpp_function_requires(_RandomAccessIteratorConcept<_RandomAccessIterator>)
       __n += __last - __first;
     }
 
@@ -109,7 +110,7 @@ namespace std
     __distance(_InputIterator __first, _InputIterator __last, input_iterator_tag)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>)
       typename iterator_traits<_InputIterator>::difference_type __n = 0;
       while (__first != __last) {
 	++__first; ++__n;
@@ -123,7 +124,7 @@ namespace std
 			   random_access_iterator_tag)
     {
       // concept requirements
-      __glibcpp_function_requires(_RandomAccessIteratorConcept<_RandomAccessIterator>);
+      __glibcpp_function_requires(_RandomAccessIteratorConcept<_RandomAccessIterator>)
       return __last - __first;
     }
 
@@ -140,7 +141,7 @@ namespace std
     __advance(_InputIter& __i, _Distance __n, input_iterator_tag)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       while (__n--) ++__i;
     }
 
@@ -149,7 +150,7 @@ namespace std
     __advance(_BidirectionalIterator& __i, _Distance __n, bidirectional_iterator_tag)
     {
       // concept requirements
-      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIterator>);
+      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIterator>)
       if (__n > 0)
 	while (__n--) ++__i;
       else
@@ -161,7 +162,7 @@ namespace std
     __advance(_RandomAccessIterator& __i, _Distance __n, random_access_iterator_tag)
     {
       // concept requirements
-      __glibcpp_function_requires(_RandomAccessIteratorConcept<_RandomAccessIterator>);
+      __glibcpp_function_requires(_RandomAccessIteratorConcept<_RandomAccessIterator>)
       __i += __n;
     }
 
@@ -175,7 +176,7 @@ namespace std
 
 } // namespace std
 
-#endif /* __SGI_STL_INTERNAL_ITERATOR_BASE_FUNCS_H */
+#endif /* __GLIBCPP_INTERNAL_ITERATOR_BASE_FUNCS_H */
 
 
 // Local Variables:

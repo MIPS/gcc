@@ -189,7 +189,7 @@ timing_init ()
 		    0, NOT_BUILT_IN, NULL_PTR);
 }
 
-#if 0
+/*
  *
  * build AT action
  *
@@ -206,7 +206,7 @@ timing_init ()
  * else
  *   to-action-list
  *
-#endif
+ */
 
 void
 build_at_action (t)
@@ -221,7 +221,7 @@ build_at_action (t)
   
   if (TREE_TYPE (abstime) != abs_timing_type_node)
     {
-      error ("absolute time value must be of mode TIME.");
+      error ("absolute time value must be of mode TIME");
       abstime = convert (abs_timing_type_node, build_int_2 (0, 0));
     }
   filename = force_addr_of (get_chill_filename ());
@@ -235,7 +235,7 @@ build_at_action (t)
   emit_line_note (input_filename, lineno);
 }
 
-#if 0
+/* 
  *
  * build CYCLE action
  *
@@ -254,7 +254,7 @@ build_at_action (t)
  *    goto label;
  *  }
  *
-#endif
+ */
 
 tree
 build_cycle_start (t)
@@ -278,7 +278,7 @@ build_cycle_start (t)
       
       if (TREE_TYPE (duration_value) != duration_timing_type_node)
 	{
-	  error ("duration primitive value must be of mode DURATION.");
+	  error ("duration primitive value must be of mode DURATION");
 	  duration_value = convert (duration_timing_type_node, build_int_2 (0,0));
 	}
       TREE_PURPOSE (TREE_PURPOSE (toid)) = duration_value;
@@ -317,7 +317,7 @@ build_cycle_end (toid)
   expand_goto (TREE_VALUE (toid));
 }
 
-#if 0
+/*
  *
  * build AFTER ACTION
  *
@@ -343,7 +343,7 @@ build_cycle_end (toid)
  *   end-label:
  * }
  *
-#endif
+ */
 
 void
 build_after_start (duration, delay_flag)
@@ -361,7 +361,7 @@ build_after_start (duration, delay_flag)
       
       if (TREE_TYPE (duration) != duration_timing_type_node)
         {
-	  error ("duration primitive value must be of mode DURATION.");
+	  error ("duration primitive value must be of mode DURATION");
 	  duration = convert (duration_timing_type_node, build_int_2 (0,0));
         }
       TREE_PURPOSE (value) = decl_temp1 (get_identifier ("AFTER_duration"),

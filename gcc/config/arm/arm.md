@@ -88,8 +88,6 @@
 			;   a 32-bit object.
    (VUNSPEC_POOL_8   7) ; `pool-entry(8)'.  An entry in the constant pool for
 			;   a 64-bit object.
-   (VUNSPEC_PREFETCH 8) ; `pld' insn to prefetch a cache line:
-			;   operand 0 is the address to fetch.
   ]
 )
 
@@ -7371,7 +7369,7 @@
   "TARGET_ARM"
   "*
   {
-    const char * opcodes[4][2] =
+    static const char *const opcodes[4][2] =
     {
       {\"cmp\\t%2, %3\;cmp%d5\\t%0, %1\",
        \"cmp\\t%0, %1\;cmp%d4\\t%2, %3\"},
@@ -7406,7 +7404,7 @@
   "TARGET_ARM"
   "*
 {
-  const char * opcodes[4][2] =
+  static const char *const opcodes[4][2] =
   {
     {\"cmp\\t%0, %1\;cmp%D4\\t%2, %3\",
      \"cmp\\t%2, %3\;cmp%D5\\t%0, %1\"},
@@ -9064,7 +9062,7 @@
   "TARGET_THUMB"
   "*
   making_const_table = TRUE;
-  assemble_integer (operands[0], 1, 1);
+  assemble_integer (operands[0], 1, BITS_PER_WORD, 1);
   assemble_zeros (3);
   return \"\";
   "
@@ -9076,7 +9074,7 @@
   "TARGET_THUMB"
   "*
   making_const_table = TRUE;
-  assemble_integer (operands[0], 2, 1);
+  assemble_integer (operands[0], 2, BITS_PER_WORD, 1);
   assemble_zeros (2);
   return \"\";
   "
@@ -9095,11 +9093,11 @@
       {
         union real_extract u;
         memcpy (&u, &CONST_DOUBLE_LOW (operands[0]), sizeof u);
-        assemble_real (u.d, GET_MODE (operands[0]));
+        assemble_real (u.d, GET_MODE (operands[0]), BITS_PER_WORD);
         break;
       }
       default:
-        assemble_integer (operands[0], 4, 1);
+        assemble_integer (operands[0], 4, BITS_PER_WORD, 1);
         break;
       }
     return \"\";
@@ -9119,11 +9117,11 @@
         {
           union real_extract u;
           memcpy (&u, &CONST_DOUBLE_LOW (operands[0]), sizeof u);
-          assemble_real (u.d, GET_MODE (operands[0]));
+          assemble_real (u.d, GET_MODE (operands[0]), BITS_PER_WORD);
           break;
         }
       default:
-        assemble_integer (operands[0], 8, 1);
+        assemble_integer (operands[0], 8, BITS_PER_WORD, 1);
         break;
       }
     return \"\";
@@ -9173,10 +9171,11 @@
 ;; V5E instructions.
 
 (define_insn "prefetch"
-  [(unspec_volatile
-    [(match_operand:SI 0 "offsettable_memory_operand" "o")] VUNSPEC_PREFETCH)]
+  [(prefetch (match_operand:SI 0 "address_operand" "p")
+	     (match_operand:SI 1 "" "")
+	     (match_operand:SI 2 "" ""))]
   "TARGET_ARM && arm_arch5e"
-  "pld\\t%0")
+  "pld\\t[%0]")
 
 ;; General predication pattern
 

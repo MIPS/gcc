@@ -6,7 +6,7 @@
 --                                                                          --
 --                                B o d y                                   --
 --                                                                          --
---                           $Revision$
+--                           $Revision: 1.4 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -154,11 +154,6 @@ begin
 
    Write_Switch_Char ("ec?");
    Write_Line ("Specify configuration pragmas file, e.g. -gnatec/x/f.adc");
-
-   --  Line for -gnatem switch
-
-   Write_Switch_Char ("em?");
-   Write_Line ("Specify mapping file, e.g. -gnatemmapping");
 
    --  Line for -gnatE switch
 

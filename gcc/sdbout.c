@@ -2,22 +2,22 @@
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
    2000, 2001  Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /*  mike@tredysvr.Tredydev.Unisys.COM says:
 I modified the struct.c example and have a nm of a .o resulting from the
@@ -93,10 +93,11 @@ extern tree current_function_decl;
 #include "sdbout.h"
 
 static void sdbout_init			PARAMS ((const char *));
-static void sdbout_start_source_file	PARAMS ((unsigned, const char *));
-static void sdbout_end_source_file	PARAMS ((unsigned));
-static void sdbout_begin_block		PARAMS ((unsigned, unsigned));
-static void sdbout_end_block		PARAMS ((unsigned, unsigned));
+static void sdbout_finish		PARAMS ((const char *));
+static void sdbout_start_source_file	PARAMS ((unsigned int, const char *));
+static void sdbout_end_source_file	PARAMS ((unsigned int));
+static void sdbout_begin_block		PARAMS ((unsigned int, unsigned int));
+static void sdbout_end_block		PARAMS ((unsigned int, unsigned int));
 static void sdbout_source_line		PARAMS ((unsigned int, const char *));
 static void sdbout_end_epilogue		PARAMS ((void));
 static void sdbout_global_decl		PARAMS ((tree));
@@ -124,6 +125,7 @@ static void sdbout_field_types		PARAMS ((tree));
 static void sdbout_one_type		PARAMS ((tree));
 static void sdbout_parms		PARAMS ((tree));
 static void sdbout_reg_parms		PARAMS ((tree));
+static void sdbout_global_decl		PARAMS ((tree));
 
 /* Random macros describing parts of SDB data.  */
 
@@ -242,7 +244,7 @@ do { fprintf (asm_out_file, "\t.tag\t");	\
 #endif
 
 /* Return the sdb tag identifier string for TYPE
-   if TYPE has already been defined; otherwise return a null pointer.   */
+   if TYPE has already been defined; otherwise return a null pointer.  */
 
 #define KNOWN_TYPE_TAG(type)  TYPE_SYMTAB_POINTER (type)
 
@@ -261,7 +263,8 @@ do { fprintf (asm_out_file, "\t.tag\t");	\
 
 /* Ensure we don't output a negative line number.  */
 #define MAKE_LINE_SAFE(line)  \
-  if (line <= sdb_begin_function_line) line = sdb_begin_function_line + 1
+  if ((int) line <= sdb_begin_function_line) \
+    line = sdb_begin_function_line + 1
 
 /* Perform linker optimization of merging header file definitions together
    for targets with MIPS_DEBUGGING_INFO defined.  This won't work without a
@@ -298,16 +301,16 @@ static struct sdb_file *current_file;
 /* The debug hooks structure.  */
 struct gcc_debug_hooks sdb_debug_hooks =
 {
-  sdbout_init,
-  debug_nothing_charstar,
-  debug_nothing_int_charstar,
-  debug_nothing_int_charstar,
-  sdbout_start_source_file,
-  sdbout_end_source_file,
-  sdbout_begin_block,
-  sdbout_end_block,
+  sdbout_init,			/* init */
+  sdbout_finish,		/* finish */
+  debug_nothing_int_charstar,	/* define */
+  debug_nothing_int_charstar,	/* undef */
+  sdbout_start_source_file,	/* start_source_file */
+  sdbout_end_source_file,	/* end_source_file */
+  sdbout_begin_block,		/* begin_block */
+  sdbout_end_block,		/* end_block */
   debug_true_tree,		/* ignore_block */
-  sdbout_source_line,
+  sdbout_source_line,		/* source_line */
 #ifdef MIPS_DEBUGGING_INFO
   /* Defer on MIPS systems so that parameter descriptions follow
      function entry.  */
@@ -317,11 +320,11 @@ struct gcc_debug_hooks sdb_debug_hooks =
   sdbout_begin_prologue,	/* begin_prologue */
   debug_nothing_int,		/* end_prologue */
 #endif
-  sdbout_end_epilogue,
-  sdbout_begin_function,
-  sdbout_end_function,
+  sdbout_end_epilogue,		/* end_epilogue */
+  sdbout_begin_function,	/* begin_function */
+  sdbout_end_function,		/* end_function */
   debug_nothing_tree,		/* function_decl */
-  sdbout_global_decl,
+  sdbout_global_decl,		/* global_decl */
   debug_nothing_tree,		/* deferred_inline_function */
   debug_nothing_tree,		/* outlining_inline_function */
   sdbout_label
@@ -426,7 +429,7 @@ static int
 template_name_p (name)
      tree name;
 {
-  register const char *ptr = IDENTIFIER_POINTER (name);
+  const char *ptr = IDENTIFIER_POINTER (name);
   while (*ptr && *ptr != '<')
     ptr++;
 
@@ -437,7 +440,7 @@ static void
 sdbout_record_type_name (type)
      tree type;
 {
-  const char *name = 0;
+  char *name = 0;
   int no_name;
 
   if (KNOWN_TYPE_TAG (type))
@@ -513,7 +516,7 @@ plain_type_1 (type, level)
 	    && DECL_NAME (TYPE_NAME (type)) != 0
 	    && TREE_CODE (DECL_NAME (TYPE_NAME (type))) == IDENTIFIER_NODE)
 	  {
-	    const char *name
+	    const char *const name
 	      = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
 
 	    if (!strcmp (name, "char"))
@@ -658,7 +661,7 @@ static int do_block = 0;
 
 static void
 sdbout_block (block)
-     register tree block;
+     tree block;
 {
   while (block)
     {
@@ -793,7 +796,7 @@ sdbout_symbol (decl, local)
 	 particular compilation.  */
       if (GET_CODE (value) == REG)
 	{
-	  regno = REGNO (DECL_RTL (decl));
+	  regno = REGNO (value);
 	  if (regno >= FIRST_PSEUDO_REGISTER)
 	    return;
 	}
@@ -806,8 +809,8 @@ sdbout_symbol (decl, local)
 	      if (REGNO (value) >= FIRST_PSEUDO_REGISTER)
 		return;
 	    }
-	  regno = REGNO (alter_subreg (DECL_RTL (decl)));
-	  value = DECL_RTL (decl);
+	  regno = REGNO (alter_subreg (&value));
+	  SET_DECL_RTL (decl, value);
 	}
       /* Don't output anything if an auto variable
 	 gets RTL that is static.
@@ -996,7 +999,7 @@ sdbout_queue_anonymous_type (type)
 static void
 sdbout_dequeue_anonymous_types ()
 {
-  register tree types, link;
+  tree types, link;
 
   while (anonymous_types)
     {
@@ -1005,7 +1008,7 @@ sdbout_dequeue_anonymous_types ()
 
       for (link = types; link; link = TREE_CHAIN (link))
 	{
-	  register tree type = TREE_VALUE (link);
+	  tree type = TREE_VALUE (link);
 
 	  if (type && ! TREE_ASM_WRITTEN (type))
 	    sdbout_one_type (type);
@@ -1020,9 +1023,9 @@ sdbout_dequeue_anonymous_types ()
 
 void
 sdbout_types (types)
-     register tree types;
+     tree types;
 {
-  register tree link;
+  tree link;
 
   for (link = types; link; link = TREE_CHAIN (link))
     sdbout_one_type (link);
@@ -1179,7 +1182,7 @@ sdbout_one_type (type)
 
 	/* Print out the base class information with fields
 	   named after the types they hold.  */
-	/* This is only relevent to aggregate types.  TYPE_BINFO is used
+	/* This is only relevant to aggregate types.  TYPE_BINFO is used
 	   for other purposes in an ENUMERAL_TYPE, so we must exclude that
 	   case.  */
 	if (TREE_CODE (type) != ENUMERAL_TYPE)
@@ -1489,22 +1492,52 @@ sdbout_global_decl (decl)
      tree decl;
 {
   if (TREE_CODE (decl) == VAR_DECL
-      && DECL_INITIAL (decl)
-      && ! DECL_EXTERNAL (decl)
-      && DECL_RTL (decl) != 0)
+      && !DECL_EXTERNAL (decl)
+      && DECL_RTL_SET_P (decl))
     {
       /* The COFF linker can move initialized global vars to the end.
-	 And that can screw up the symbol ordering.  By putting the
-	 symbols in that order to begin with, we avoid a problem.
-	 mcsun!unido!fauern!tumuc!pes@uunet.uu.net.  */
-      if (TREE_PUBLIC (decl))
+	 And that can screw up the symbol ordering.  Defer those for
+	 sdbout_finish ().  */
+      if (!DECL_INITIAL (decl) || !TREE_PUBLIC (decl))
 	sdbout_symbol (decl, 0);
 
       /* Output COFF information for non-global file-scope initialized
 	 variables.  */
-      if (GET_CODE (DECL_RTL (decl)) == MEM)
+      if (DECL_INITIAL (decl) && GET_CODE (DECL_RTL (decl)) == MEM)
 	sdbout_toplevel_data (decl);
     }
+}
+
+/* Output initialized global vars at the end, in the order of
+   definition.  See comment in sdbout_global_decl.  */
+
+static void
+sdbout_finish (main_filename)
+     const char *main_filename ATTRIBUTE_UNUSED;
+{
+  tree decl = getdecls ();
+  unsigned int len = list_length (decl);
+  tree *vec = (tree *) xmalloc (sizeof (tree) * len);
+  unsigned int i;
+
+  /* Process the decls in reverse order--earliest first.  Put them
+     into VEC from back to front, then take out from front.  */
+
+  for (i = 0; i < len; i++, decl = TREE_CHAIN (decl))
+    vec[len - i - 1] = decl;
+
+  for (i = 0; i < len; i++)
+    {
+      decl = vec[i];
+      if (TREE_CODE (decl) == VAR_DECL
+	  && ! DECL_EXTERNAL (decl)
+	  && DECL_INITIAL (decl)
+	  && TREE_PUBLIC (decl)
+	  && DECL_RTL_SET_P (decl))
+	sdbout_symbol (decl, 0);
+    }
+
+  free (vec);
 }
 
 /* Describe the beginning of an internal block within a function.
@@ -1574,7 +1607,7 @@ sdbout_source_line (line, filename)
      const char *filename ATTRIBUTE_UNUSED;
 {
   /* COFF relative line numbers must be positive.  */
-  if (line > sdb_begin_function_line)
+  if ((int) line > sdb_begin_function_line)
     {
 #ifdef ASM_OUTPUT_SOURCE_LINE
       ASM_OUTPUT_SOURCE_LINE (asm_out_file, line);
@@ -1646,7 +1679,7 @@ sdbout_end_function (line)
 static void
 sdbout_end_epilogue ()
 {
-  const char *name
+  const char *const name ATTRIBUTE_UNUSED
     = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl));
 
 #ifdef PUT_SDB_EPILOGUE_END
@@ -1664,7 +1697,7 @@ sdbout_end_epilogue ()
 
 static void
 sdbout_label (insn)
-     register rtx insn;
+     rtx insn;
 {
   PUT_SDB_DEF (LABEL_NAME (insn));
   PUT_SDB_VAL (insn);

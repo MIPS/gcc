@@ -629,16 +629,16 @@ enum reg_class
 
 #define TRAMPOLINE_TEMPLATE(FILE)					\
 {									\
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0x05E0));				\
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0x5800 | STATIC_CHAIN_REGNUM << 4)); \
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0xE00A));				\
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0x58F0)); 				\
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0xE00E));				\
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0x07FF));				\
-  ASM_OUTPUT_SHORT (FILE, const0_rtx);					\
-  ASM_OUTPUT_SHORT (FILE, const0_rtx);					\
-  ASM_OUTPUT_SHORT (FILE, const0_rtx);					\
-  ASM_OUTPUT_SHORT (FILE, const0_rtx);					\
+  assemble_aligned_integer (2, GEN_INT (0x05E0));			\
+  assemble_aligned_integer (2, GEN_INT (0x5800 | STATIC_CHAIN_REGNUM << 4)); \
+  assemble_aligned_integer (2, GEN_INT (0xE00A));			\
+  assemble_aligned_integer (2, GEN_INT (0x58F0)); 			\
+  assemble_aligned_integer (2, GEN_INT (0xE00E));			\
+  assemble_aligned_integer (2, GEN_INT (0x07FF));			\
+  assemble_aligned_integer (2, const0_rtx);				\
+  assemble_aligned_integer (2, const0_rtx);				\
+  assemble_aligned_integer (2, const0_rtx);				\
+  assemble_aligned_integer (2, const0_rtx);				\
 }
 
 /* Length in units of the trampoline for entering a nested function.  */
@@ -1070,9 +1070,6 @@ enum reg_class
   "0",  "2",  "4",  "6"							\
 }
 
-/* How to renumber registers for dbx and gdb.  */
-#define DBX_REGISTER_NUMBER(REGNO)  (REGNO)
-
 #define ASM_FILE_START(FILE)						\
 { fputs ("\tRMODE\tANY\n", FILE);					\
   fputs ("\tCSECT\n", FILE); }
@@ -1194,39 +1191,6 @@ enum reg_class
 #define ASM_OUTPUT_FLOAT(FILE, VALUE)					\
   fprintf (FILE, "\tDC\tE'%.9G'\n", (VALUE))
 
-/* This outputs an integer, if not a CONST_INT must be address constant.  */
-
-#define ASM_OUTPUT_INT(FILE, EXP)					\
-{ 									\
-  if (GET_CODE (EXP) == CONST_INT)					\
-    {									\
-      fprintf (FILE, "\tDC\tF'");					\
-      output_addr_const (FILE, EXP);					\
-      fprintf (FILE, "'\n");						\
-    }									\
-  else									\
-    {									\
-      fprintf (FILE, "\tDC\tA(");					\
-      output_addr_const (FILE, EXP);					\
-      fprintf (FILE, ")\n");						\
-    }									\
-}
-
-/* This outputs a short integer.  */
-
-#define ASM_OUTPUT_SHORT(FILE, EXP)					\
-{									\
-  fprintf (FILE, "\tDC\tX'%04X'\n", INTVAL(EXP) & 0xFFFF);		\
-}
-
-/* This outputs a byte sized integer.  */
-
-#define ASM_OUTPUT_CHAR(FILE, EXP)					\
-  fprintf (FILE, "\tDC\tX'%02X'\n", INTVAL (EXP) )
-
-#define ASM_OUTPUT_BYTE(FILE, VALUE)					\
-  fprintf (FILE, "\tDC\tX'%02X'\n", VALUE)
-
 /* This outputs a text string.  The string are chopped up to fit into
    an 80 byte record.  Also, control and special characters, interpreted
    by the IBM assembler, are output numerically.  */
@@ -1235,11 +1199,11 @@ enum reg_class
 
 #define ASM_OUTPUT_ASCII(FILE, PTR, LEN)				\
 {									\
-  int i, j;								\
-  int c;								\
-  for (j = 0, i = 0; i < LEN; j++, i++)					\
+  size_t i, limit = (LEN);						\
+  int j;								\
+  for (j = 0, i = 0; i < limit; j++, i++)				\
     {									\
-      c = PTR[i];							\
+      int c = (PTR)[i];							\
       if (ISCNTRL (c) || c == '&')					\
 	{								\
 	  if (j % MVS_ASCII_TEXT_LENGTH != 0 )				\
@@ -1629,9 +1593,6 @@ enum reg_class
   "f0",  "f2",  "f4",  "f6"						\
 }
 
-/* How to renumber registers for dbx and gdb.  */
-#define DBX_REGISTER_NUMBER(REGNO)  (REGNO)
-
 /* Print operand XV (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
    For `%' followed by punctuation, CODE is the punctuation and XV is null. */
@@ -1904,9 +1865,6 @@ abort(); \
 #undef ASM_OUTPUT_EXTERNAL
 
 #define ASM_DOUBLE "\t.double"     
-#define ASM_LONG "\t.long"
-#define ASM_SHORT "\t.short"
-#define ASM_BYTE "\t.byte"
 
 /* Argument to the flt pt. macros is a REAL_VALUE_TYPE which 
    may or may not be a float/double, depending on whther we
@@ -1926,28 +1884,6 @@ abort(); \
 }
 
 
-/* This is how to output an assembler line defining an `int' constant.  */
-#define ASM_OUTPUT_INT(FILE,VALUE)  \
-( fprintf (FILE, "%s ", ASM_LONG),              \
-  output_addr_const (FILE,(VALUE)),             \
-  putc('\n',FILE))
-
-/* Likewise for `char' and `short' constants.  */
-#define ASM_OUTPUT_SHORT(FILE,VALUE)  \
-( fprintf (FILE, "%s ", ASM_SHORT),             \
-  output_addr_const (FILE,(VALUE)),             \
-  putc('\n',FILE))
-
-
-#define ASM_OUTPUT_CHAR(FILE,VALUE)  \
-( fprintf (FILE, "%s", ASM_BYTE_OP),            \
-  output_addr_const (FILE, (VALUE)),            \
-  putc ('\n', FILE))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-#define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf ((FILE), "%s0x%x\n", ASM_BYTE_OP, (VALUE))
- 
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
 #define ASM_OUTPUT_LABEL(FILE,NAME)     \

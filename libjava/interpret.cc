@@ -37,7 +37,7 @@ details.  */
 
 #include <stdlib.h>
 
-static _Jv_Utf8Const *init_name = _Jv_makeUtf8Const ("<init>", 6);
+using namespace gcj;
 
 static void throw_internal_error (char *msg)
   __attribute__ ((__noreturn__));
@@ -691,7 +691,7 @@ void _Jv_InterpMethod::continue1 (_Jv_InterpMethodInvocation *inv)
 	  {
 	    jobject rcv = sp[0].o;
 	    _Jv_VTable *table = *(_Jv_VTable**)rcv;
-	    fun = (void (*)()) table->method[rmeth->vtable_index];
+	    fun = (void (*)()) table->get_method(rmeth->vtable_index);
 	  }
       }
       goto perform_invoke;

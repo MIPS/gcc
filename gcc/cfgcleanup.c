@@ -855,6 +855,9 @@ flow_find_cross_jump (mode, bb1, bb2, f1, f2)
       || (returnjump_p (i1) && !side_effects_p (PATTERN (i1))))
     {
       last1 = i1;
+      /* Count everything except for unconditional jump as insn.  */
+      if (!simplejump_p (i1) && !returnjump_p (i1))
+	ninsns++;
       i1 = PREV_INSN (i1);
     }
   i2 = bb2->end;
@@ -862,9 +865,6 @@ flow_find_cross_jump (mode, bb1, bb2, f1, f2)
       || (returnjump_p (i2) && !side_effects_p (PATTERN (i2))))
     {
       last2 = i2;
-      /* Count everything except for unconditional jump as insn.  */
-      if (!simplejump_p (i2) && !returnjump_p (i2) && last1)
-	ninsns++;
       i2 = PREV_INSN (i2);
     }
 
@@ -958,13 +958,11 @@ outgoing_edges_match (mode, bb1, bb2)
 
   /* If BB1 has only one successor, we may be looking at either an
      unconditional jump, or a fake edge to exit.  */
-  if (bb1->succ && !bb1->succ->succ_next
-      && !(bb1->succ->flags & (EDGE_COMPLEX | EDGE_FAKE)))
+  if (bb1->succ && !bb1->succ->succ_next)
     {
-      if (! bb2->succ || bb2->succ->succ_next
-	  || (bb2->succ->flags & (EDGE_COMPLEX | EDGE_FAKE)))
+      if (! bb2->succ || bb2->succ->succ_next)
 	return false;
-      return true;
+      return insns_match_p (mode, bb1->end, bb2->end);
     }
 
   /* Match conditional jumps - this may get tricky when fallthru and branch
@@ -972,8 +970,7 @@ outgoing_edges_match (mode, bb1, bb2)
   if (bb1->succ
       && bb1->succ->succ_next
       && !bb1->succ->succ_next->succ_next
-      && any_condjump_p (bb1->end)
-      && onlyjump_p (bb1->end))
+      && any_condjump_p (bb1->end))
     {
       edge b1, f1, b2, f2;
       bool reverse, match;
@@ -983,8 +980,7 @@ outgoing_edges_match (mode, bb1, bb2)
       if (!bb2->succ
           || !bb2->succ->succ_next
 	  || bb1->succ->succ_next->succ_next
-	  || !any_condjump_p (bb2->end)
-	  || !onlyjump_p (bb1->end))
+	  || !any_condjump_p (bb2->end))
 	return false;
 
       b1 = BRANCH_EDGE (bb1);

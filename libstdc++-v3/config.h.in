@@ -3,16 +3,16 @@
 /* Define if you have a working `mmap' system call.  */
 #undef HAVE_MMAP
 
-// Define if GCC supports weak symbols
+// Define if GCC supports weak symbols.
 #undef _GLIBCPP_SUPPORTS_WEAK
 
-// Define if gthr-default.h exists (meaning that threading support is enabled)
+// Define if gthr-default.h exists (meaning that threading support is enabled).
 #undef HAVE_GTHR_DEFAULT
 
-// Include support for 'long long' and 'unsigned long long'.
+// Include I/O support for 'long long' and 'unsigned long long'.
 #undef _GLIBCPP_USE_LONG_LONG
 
-// Define if code specialized for wchar_t should be used.
+// Define if C99 features such as lldiv_t, llabs, lldiv should be exposed.
 #undef _GLIBCPP_USE_C99
 
 // Include support for shadow headers, ie --enable-cshadow-headers.
@@ -20,6 +20,12 @@
 
 // Define if code specialized for wchar_t should be used.
 #undef _GLIBCPP_USE_WCHAR_T
+
+// Define if using setrlimit to limit memory usage during 'make check'.
+#undef _GLIBCPP_MEM_LIMITS
+
+// Define to use concept checking code from the boost libraries.
+#undef _GLIBCPP_CONCEPT_CHECKS
 
 // Define if mbstate_t exists in wchar.h.
 #undef HAVE_MBSTATE_T
@@ -29,6 +35,18 @@
 
 // Define if you have the modfl function.
 #undef HAVE_MODFL
+
+// Define if you have the expf function.
+#undef HAVE_EXPF
+
+// Define if you have the expl function.
+#undef HAVE_EXPL
+
+// Define if you have the hypotf function.
+#undef HAVE_HYPOTF
+
+// Define if you have the hypotl function.
+#undef HAVE_HYPOTL
 
 // Define if the compiler/host combination has __builtin_abs
 #undef HAVE___BUILTIN_ABS
@@ -63,8 +81,8 @@
 // Define if the compiler/host combination has __builtin_sinl
 #undef HAVE___BUILTIN_SINL
 
-// Define if the compiler/host combination has __builtin_fsqrt
-#undef HAVE___BUILTIN_FSQRT
+// Define if the compiler/host combination has __builtin_sqrt
+#undef HAVE___BUILTIN_SQRT
 
 // Define if the compiler/host combination has __builtin_sqrtf
 #undef HAVE___BUILTIN_SQRTF
@@ -86,6 +104,9 @@
 
 /* Define if you have the _asinl function.  */
 #undef HAVE__ASINL
+
+/* Define if you have the _atan2f function.  */
+#undef HAVE__ATAN2F
 
 /* Define if you have the _atan2l function.  */
 #undef HAVE__ATAN2L
@@ -158,6 +179,15 @@
 
 /* Define if you have the _frexpl function.  */
 #undef HAVE__FREXPL
+
+/* Define if you have the _hypot function.  */
+#undef HAVE__HYPOT
+
+/* Define if you have the _hypotf function.  */
+#undef HAVE__HYPOTF
+
+/* Define if you have the _hypotl function.  */
+#undef HAVE__HYPOTL
 
 /* Define if you have the _isinf function.  */
 #undef HAVE__ISINF
@@ -260,6 +290,9 @@
 
 /* Define if you have the asinl function.  */
 #undef HAVE_ASINL
+
+/* Define if you have the atan2f function.  */
+#undef HAVE_ATAN2F
 
 /* Define if you have the atan2l function.  */
 #undef HAVE_ATAN2L
@@ -660,11 +693,23 @@
 /* Define if you have the <nan.h> header file.  */
 #undef HAVE_NAN_H
 
+/* Define if you have the <stdlib.h> header file.  */
+#undef HAVE_STDLIB_H
+
 /* Define if you have the <sys/isa_defs.h> header file.  */
 #undef HAVE_SYS_ISA_DEFS_H
 
 /* Define if you have the <sys/machine.h> header file.  */
 #undef HAVE_SYS_MACHINE_H
+
+/* Define if you have the <sys/resource.h> header file.  */
+#undef HAVE_SYS_RESOURCE_H
+
+/* Define if you have the <sys/stat.h> header file.  */
+#undef HAVE_SYS_STAT_H
+
+/* Define if you have the <sys/types.h> header file.  */
+#undef HAVE_SYS_TYPES_H
 
 /* Define if you have the <unistd.h> header file.  */
 #undef HAVE_UNISTD_H
@@ -686,6 +731,18 @@
 
 /* Define if sigsetjmp is available.   */
 #undef HAVE_SIGSETJMP
+
+/* Only used in build directory testsuite_hooks.h. */
+#undef HAVE_MEMLIMIT_DATA
+
+/* Only used in build directory testsuite_hooks.h. */
+#undef HAVE_MEMLIMIT_RSS
+
+/* Only used in build directory testsuite_hooks.h. */
+#undef HAVE_MEMLIMIT_VMEM
+
+/* Only used in build directory testsuite_hooks.h. */
+#undef HAVE_MEMLIMIT_AS
 
 //
 // Systems that have certain non-standard functions prefixed with an

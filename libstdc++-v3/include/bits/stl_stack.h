@@ -53,12 +53,13 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_stack.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
-#ifndef __SGI_STL_INTERNAL_STACK_H
-#define __SGI_STL_INTERNAL_STACK_H
+#ifndef __GLIBCPP_INTERNAL_STACK_H
+#define __GLIBCPP_INTERNAL_STACK_H
 
 #include <bits/concept_check.h>
 
@@ -82,8 +83,8 @@ template <class _Tp, class _Sequence>
 class stack
 {
   // concept requirements
-  __glibcpp_class_requires(_Tp, _SGIAssignableConcept);
-  __glibcpp_class_requires(_Sequence, _BackInsertionSequenceConcept);
+  __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
+  __glibcpp_class_requires(_Sequence, _BackInsertionSequenceConcept)
   typedef typename _Sequence::value_type _Sequence_value_type;
   __glibcpp_class_requires2(_Tp, _Sequence_value_type, _SameTypeConcept);
 
@@ -152,7 +153,7 @@ bool operator>=(const stack<_Tp,_Seq>& __x, const stack<_Tp,_Seq>& __y)
 
 } // namespace std
 
-#endif /* __SGI_STL_INTERNAL_STACK_H */
+#endif /* __GLIBCPP_INTERNAL_STACK_H */
 
 // Local Variables:
 // mode:C++

@@ -22,8 +22,6 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_V850_H
 #define GCC_V850_H
 
-#include "svr4.h"	/* Automatically does #undef CPP_PREDEFINES */
-
 /* These are defiend in svr4.h but we want to override them.  */
 #undef ASM_FINAL_SPEC
 #undef LIB_SPEC
@@ -975,7 +973,7 @@ do {									\
 /* Tell final.c how to eliminate redundant test instructions.  */
 
 /* Here we define machine-dependent flags and fields in cc_status
-   (see `conditions.h').  No extra ones are needed for the vax.  */
+   (see `conditions.h').  No extra ones are needed for the VAX.  */
 
 /* Store in cc_status the expressions
    that the condition codes will describe
@@ -1056,8 +1054,8 @@ typedef enum
    `in_text' and `in_data'.  You need not define this macro on a
    system with no other sections (that GCC needs to use).  */
 #undef	EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_tdata, in_sdata, in_zdata, in_const, in_ctors, \
-in_dtors, in_rozdata, in_rosdata, in_sbss, in_zbss, in_zcommon, in_scommon
+#define EXTRA_SECTIONS in_tdata, in_sdata, in_zdata, in_const, \
+ in_rozdata, in_rosdata, in_sbss, in_zbss, in_zcommon, in_scommon
 
 /* One or more functions to be defined in `varasm.c'.  These
    functions should do jobs analogous to those of `text_section' and
@@ -1068,8 +1066,6 @@ in_dtors, in_rozdata, in_rosdata, in_sbss, in_zbss, in_zcommon, in_scommon
 /* This could be done a lot more cleanly using ANSI C ... */
 #define EXTRA_SECTION_FUNCTIONS						\
 CONST_SECTION_FUNCTION							\
-CTORS_SECTION_FUNCTION							\
-DTORS_SECTION_FUNCTION							\
 									\
 void									\
 sdata_section ()							\
@@ -1166,7 +1162,7 @@ zbss_section ()								\
    Do not define this macro if you put all read-only variables and
    constants in the read-only data section (usually the text section).  */
 #undef  SELECT_SECTION
-#define SELECT_SECTION(EXP, RELOC)					\
+#define SELECT_SECTION(EXP, RELOC, ALIGN)				\
 do {									\
   if (TREE_CODE (EXP) == VAR_DECL)					\
     {									\
@@ -1229,7 +1225,7 @@ do {									\
 
    Do not define this macro if you put all constants in the read-only
    data section.  */
-/* #define SELECT_RTX_SECTION(MODE, RTX) */
+/* #define SELECT_RTX_SECTION(MODE, RTX, ALIGN) */
 
 /* Output at beginning/end of assembler file.  */
 #undef ASM_FILE_START
@@ -1250,6 +1246,18 @@ do {									\
 #undef  USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX "_"
 
+/* When assemble_integer is used to emit the offsets for a switch
+   table it can encounter (TRUNCATE:HI (MINUS:SI (LABEL_REF:SI) (LABEL_REF:SI))).
+   output_addr_const will normally barf at this, but it is OK to omit
+   the truncate and just emit the difference of the two labels.  The
+   .hword directive will automatically handle the truncation for us.  */
+
+#define OUTPUT_ADDR_CONST_EXTRA(FILE, X, FAIL)		\
+  if (GET_CODE (x) == TRUNCATE)				\
+    output_addr_const (FILE, XEXP (X, 0));		\
+  else							\
+    goto FAIL;
+
 /* This is how to output an assembler line defining a `double' constant.
    It is .double or .float, depending.  */
 
@@ -1266,29 +1274,6 @@ do { char dstr[30];					\
      REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);	\
      fprintf (FILE, "\t.float %s\n", dstr);		\
    } while (0)
-
-/* This is how to output an assembler line defining an `int' constant.  */
-
-#define ASM_OUTPUT_INT(FILE, VALUE)		\
-( fprintf (FILE, "\t.long "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* Likewise for `char' and `short' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE, VALUE)		\
-( fprintf (FILE, "\t.hword "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE, VALUE)		\
-( fprintf (FILE, "\t.byte "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-#define ASM_OUTPUT_BYTE(FILE, VALUE)  \
-  fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
 
 /* This says how to output the assembler to define a global
    uninitialized but not common symbol.  */
@@ -1338,7 +1323,7 @@ do { char dstr[30];					\
 #undef ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(FILE, NAME)           \
   do {                                            \
-  char* real_name;                                \
+  const char* real_name;                          \
   STRIP_NAME_ENCODING (real_name, (NAME));        \
   asm_fprintf (FILE, "%U%s", real_name);          \
   } while (0)
@@ -1421,8 +1406,6 @@ do { char dstr[30];					\
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
-#define DBX_REGISTER_NUMBER(REGNO) REGNO
-
 /* Define to use software floating point emulator for REAL_ARITHMETIC and
    decimal <-> binary conversion. */
 #define REAL_ARITHMETIC
@@ -1493,7 +1476,6 @@ do { char dstr[30];					\
 
 /* Tell compiler we want to support GHS pragmas */
 #define REGISTER_TARGET_PRAGMAS(PFILE) do {				  \
-  cpp_register_pragma_space (PFILE, "ghs");				  \
   cpp_register_pragma (PFILE, "ghs", "interrupt", ghs_pragma_interrupt);  \
   cpp_register_pragma (PFILE, "ghs", "section",   ghs_pragma_section);    \
   cpp_register_pragma (PFILE, "ghs", "starttda",  ghs_pragma_starttda);   \
@@ -1569,13 +1551,13 @@ extern union tree_node * GHS_current_section_names [(int) COUNT_OF_GHS_SECTION_K
 
 #define EP_REGNUM 30	/* ep register number */
 
-#define ENCODE_SECTION_INFO(DECL)			\
-  do							\
-    {							\
-      if ((TREE_STATIC (DECL) || DECL_EXTERNAL (DECL))	\
-	  && TREE_CODE (DECL) == VAR_DECL)		\
-	v850_encode_data_area (DECL);			\
-    }							\
+#define ENCODE_SECTION_INFO(DECL)				\
+  do								\
+    {								\
+      if (TREE_CODE (DECL) == VAR_DECL				\
+          && (TREE_STATIC (DECL) || DECL_EXTERNAL (DECL)))	\
+	v850_encode_data_area (DECL);				\
+    }								\
   while (0)
 
 #define ZDA_NAME_FLAG_CHAR '@'

@@ -28,8 +28,6 @@ Boston, MA 02111-1307, USA.  */
    - print active compiler options in assembler output
 */
 
-/* ??? Create elf.h and have svr4.h include it.  */
-#include "svr4.h"
 
 #undef ASM_SPEC
 #undef LINK_SPEC
@@ -188,7 +186,7 @@ do {				\
 /* Target machine storage layout.  */
 
 /* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion. */
+   decimal <-> binary conversion.  */
 #define REAL_ARITHMETIC
 
 /* Define this if most significant bit is lowest numbered
@@ -450,7 +448,7 @@ enum reg_class {
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 #define REG_CLASS_NAMES \
 { "NO_REGS", "LPCOUNT_REG", "GENERAL_REGS", "ALL_REGS" }
 
@@ -865,10 +863,10 @@ arc_eligible_for_epilogue_delay (TRIAL, SLOTS_FILLED)
 */
 #define TRAMPOLINE_TEMPLATE(FILE) \
 do { \
-  ASM_OUTPUT_INT (FILE, GEN_INT (0x631f7c00)); \
-  ASM_OUTPUT_INT (FILE, const0_rtx); \
-  ASM_OUTPUT_INT (FILE, GEN_INT (0x381f0000)); \
-  ASM_OUTPUT_INT (FILE, const0_rtx); \
+  assemble_aligned_integer (UNITS_PER_WORD, GEN_INT (0x631f7c00)); \
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx); \
+  assemble_aligned_integer (UNITS_PER_WORD, GEN_INT (0x381f0000)); \
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx); \
 } while (0)
 
 /* Length in units of the trampoline for entering a nested function.  */
@@ -1042,7 +1040,7 @@ arc_select_cc_mode (OP, X, Y)
    of a switch statement.  If the code is computed here,
    return it with a return statement.  Otherwise, break from the switch.  */
 /* Small integers are as cheap as registers.  4 byte values can be fetched
-   as immediate constants - let's give that the cost of an extra insn. */
+   as immediate constants - let's give that the cost of an extra insn.  */
 #define CONST_COSTS(X, CODE, OUTER_CODE) \
   case CONST_INT :						\
     if (SMALL_INT (INTVAL (X)))					\
@@ -1240,36 +1238,6 @@ do {							\
    no longer contain unusual constructs.  */
 #define ASM_APP_OFF ""
 
-/* This is how to output an assembler line defining a `char' constant.  */
-#define ASM_OUTPUT_CHAR(FILE, VALUE) \
-( fprintf (FILE, "\t.byte\t"),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line defining a `short' constant.  */
-#define ASM_OUTPUT_SHORT(FILE, VALUE) \
-( fprintf (FILE, "\t.hword\t"),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line defining an `int' constant.
-   We also handle symbol output here.  Code addresses must be right shifted
-   by 2 because that's how the jump instruction wants them.  */
-#define ASM_OUTPUT_INT(FILE, VALUE) \
-do {									\
-  fprintf (FILE, "\t.word\t");						\
-  if ((GET_CODE (VALUE) == SYMBOL_REF && SYMBOL_REF_FLAG (VALUE))	\
-      || GET_CODE (VALUE) == LABEL_REF)					\
-    {									\
-      fprintf (FILE, "%%st(");						\
-      output_addr_const (FILE, (VALUE));				\
-      fprintf (FILE, ")");						\
-    }									\
-  else									\
-    output_addr_const (FILE, (VALUE));					\
-  fprintf (FILE, "\n");							\
-} while (0)
-
 /* This is how to output an assembler line defining a `float' constant.  */
 #define ASM_OUTPUT_FLOAT(FILE, VALUE) \
 {							\
@@ -1291,11 +1259,6 @@ do {									\
   fprintf (FILE, "\t.word\t0x%lx %s %s\n\t.word\t0x%lx\n", \
 	   t[0], ASM_COMMENT_START, str, t[1]);		\
 }
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-#define ASM_BYTE_OP	"\t.byte\t"
-#define ASM_OUTPUT_BYTE(FILE, VALUE)  \
-  fprintf (FILE, "%s0x%x\n", ASM_BYTE_OP, (VALUE))
 
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
@@ -1372,28 +1335,6 @@ do {						\
    late for defaults.h (which contains the default definition of ASM_OUTPUT_DEF
    that we use).  */
 #define SET_ASM_OP "\t.set\t"
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#undef ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(FILE, NAME) \
-do {					\
-  ctors_section ();			\
-  fprintf (FILE, "\t.word\t%%st(");	\
-  assemble_name (FILE, NAME);		\
-  fprintf (FILE, ")\n");		\
-} while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-#undef ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(FILE, NAME) \
-do {					\
-  dtors_section ();			\
-  fprintf (FILE, "\t.word\t%%st(");	\
-  assemble_name (FILE, NAME);		\
-  fprintf (FILE, ")\n");		\
-} while (0)
 
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).  */
@@ -1483,9 +1424,6 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
-/* How to renumber registers for dbx and gdb.  */
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
-
 /* Turn off splitting of long stabs.  */
 #define DBX_CONTIN_LENGTH 0
 
@@ -1498,7 +1436,7 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
 /* Define as C expression which evaluates to nonzero if the tablejump
    instruction expects the table to contain offsets from the address of the
    table.
-   Do not define this if the table should contain absolute addresses. */
+   Do not define this if the table should contain absolute addresses.  */
 /* It's not clear what PIC will look like or whether we want to use -fpic
    for the embedded form currently being talked about.  For now require -fpic
    to get pc relative switch tables.  */
@@ -1525,7 +1463,7 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
 #define MOVE_MAX 4
 
 /* Define this to be nonzero if shift instructions ignore all but the low-order
-   few bits. */
+   few bits.  */
 #define SHIFT_COUNT_TRUNCATED 1
 
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
@@ -1556,7 +1494,7 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
    since it hasn't been defined!  */
 extern struct rtx_def *arc_compare_op0, *arc_compare_op1;
 
-/* ARC function types.   */
+/* ARC function types.  */
 enum arc_function_type {
   ARC_FUNCTION_UNKNOWN, ARC_FUNCTION_NORMAL,
   /* These are interrupt handlers.  The name corresponds to the register

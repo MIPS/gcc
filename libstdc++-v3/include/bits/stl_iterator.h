@@ -53,12 +53,13 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_iterator.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
-#ifndef __SGI_STL_INTERNAL_ITERATOR_H
-#define __SGI_STL_INTERNAL_ITERATOR_H
+#ifndef __GLIBCPP_INTERNAL_ITERATOR_H
+#define __GLIBCPP_INTERNAL_ITERATOR_H
 
 namespace std
 {
@@ -72,7 +73,7 @@ namespace std
                         typename iterator_traits<_Iterator>::reference>
     {
     protected:
-      _Iterator _M_current;
+      _Iterator current;
 
     public:
       typedef _Iterator 				       iterator_type;
@@ -85,22 +86,22 @@ namespace std
       reverse_iterator() {}
 
       explicit 
-      reverse_iterator(iterator_type __x) : _M_current(__x) {}
+      reverse_iterator(iterator_type __x) : current(__x) {}
 
       reverse_iterator(const reverse_iterator& __x) 
-	: _M_current(__x._M_current) { }
+	: current(__x.current) { }
 
       template<typename _Iter>
         reverse_iterator(const reverse_iterator<_Iter>& __x)
-	: _M_current(__x.base()) {}
+	: current(__x.base()) {}
     
       iterator_type 
-      base() const { return _M_current; }
+      base() const { return current; }
 
       reference 
       operator*() const 
       {
-	_Iterator __tmp = _M_current;
+	_Iterator __tmp = current;
 	return *--__tmp;
       }
 
@@ -110,7 +111,7 @@ namespace std
       reverse_iterator& 
       operator++() 
       {
-	--_M_current;
+	--current;
 	return *this;
       }
 
@@ -118,38 +119,38 @@ namespace std
       operator++(int) 
       {
 	reverse_iterator __tmp = *this;
-	--_M_current;
+	--current;
 	return __tmp;
       }
 
       reverse_iterator& 
       operator--() 
       {
-	++_M_current;
+	++current;
 	return *this;
       }
 
       reverse_iterator operator--(int) 
       {
 	reverse_iterator __tmp = *this;
-	++_M_current;
+	++current;
 	return __tmp;
       }
       
       reverse_iterator 
       operator+(difference_type __n) const 
-      { return reverse_iterator(_M_current - __n); }
+      { return reverse_iterator(current - __n); }
 
       reverse_iterator& 
       operator+=(difference_type __n) 
       {
-	_M_current -= __n;
+	current -= __n;
 	return *this;
       }
 
       reverse_iterator 
       operator-(difference_type __n) const 
-      { return reverse_iterator(_M_current + __n); }
+      { return reverse_iterator(current + __n); }
 
       reverse_iterator& 
       operator-=(difference_type __n) 
@@ -225,7 +226,7 @@ namespace std
       back_insert_iterator(_Container& __x) : container(&__x) {}
 
       back_insert_iterator&
-      operator=(const typename _Container::const_reference __value) 
+      operator=(typename _Container::const_reference __value) 
       { 
 	container->push_back(__value);
 	return *this;
@@ -259,7 +260,7 @@ namespace std
       explicit front_insert_iterator(_Container& __x) : container(&__x) {}
 
       front_insert_iterator&
-      operator=(const typename _Container::const_reference __value) 
+      operator=(typename _Container::const_reference __value) 
       { 
 	container->push_front(__value);
 	return *this;

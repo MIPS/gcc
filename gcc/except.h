@@ -3,22 +3,22 @@
    Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #ifndef TREE_CODE
@@ -61,7 +61,8 @@ extern void expand_eh_region_end_cleanup	PARAMS ((tree));
 extern void expand_start_all_catch		PARAMS ((void));
 
 /* Begin a catch clause.  TYPE is an object to be matched by the
-   runtime, or null if this is a catch-all clause.  */
+   runtime, or a list of such objects, or null if this is a catch-all
+   clause.  */
 extern void expand_start_catch			PARAMS ((tree));
 
 /* End a catch clause.  Control will resume after the try/catch block.  */
@@ -72,7 +73,7 @@ extern void expand_end_all_catch		PARAMS ((void));
 
 /* End an exception region for an exception type filter.  ALLOWED is a
    TREE_LIST of TREE_VALUE objects to be matched by the runtime.
-   FAILURE is a function to invoke if a mismatch ocurrs.  */
+   FAILURE is a function to invoke if a mismatch occurs.  */
 extern void expand_eh_region_end_allowed	PARAMS ((tree, tree));
 
 /* End an exception region for a must-not-throw filter.  FAILURE is a
@@ -148,7 +149,7 @@ extern void sjlj_emit_function_exit_after	PARAMS ((rtx));
 
 
 /* If non-NULL, this is a function that returns an expression to be
-   executed if an unhandled exception is propogated out of a cleanup
+   executed if an unhandled exception is propagated out of a cleanup
    region.  For example, in C++, an exception thrown by a destructor
    during stack unwinding is required to result in a call to
    `std::terminate', so the C++ version of this function returns a

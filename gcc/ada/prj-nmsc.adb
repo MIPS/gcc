@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.7 $
 --                                                                          --
 --          Copyright (C) 2000-2001 Free Software Foundation, Inc.          --
 --                                                                          --

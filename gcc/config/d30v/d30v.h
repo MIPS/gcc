@@ -28,10 +28,6 @@
 #define D30V_ALIGN(addr,align) (((addr) + (align) - 1) & ~((align) - 1))
 
 
-/* Set up System V.4 (aka ELF) defaults.  */
-#include "svr4.h"
-
-
 /* Driver configuration */
 
 /* A C expression which determines whether the option `-CHAR' takes arguments.
@@ -459,10 +455,10 @@ extern int target_flags;
       N_("Debug memory address support in compiler") },			\
 									\
   { "asm-optimize",	 0,						\
-      N_("Make adjacent short instructions parallel if possible.") },	\
+      N_("Make adjacent short instructions parallel if possible") },	\
 									\
   { "no-asm-optimize",	 0,						\
-      N_("Do not make adjacent short instructions parallel.") },	\
+      N_("Do not make adjacent short instructions parallel") },	\
 									\
   { "extmem",		 0,						\
       N_("Link programs/data to be in external memory by default") },	\
@@ -869,7 +865,7 @@ do {									\
         there is no need to define this macro when the format is IEEE.
 
    VAX_FLOAT_FORMAT'
-        This code indicates the peculiar format used on the Vax.
+        This code indicates the peculiar format used on the VAX.
 
    UNKNOWN_FLOAT_FORMAT'
         This code indicates any other format.
@@ -1538,7 +1534,7 @@ extern enum reg_class regno_reg_class[];
 	'g', 'i', 'm', 'n', 'o', 'p', 'r', 's' */
 
 extern enum reg_class reg_class_from_letter[];
-#define REG_CLASS_FROM_LETTER(CHAR) reg_class_from_letter[ CHAR ]
+#define REG_CLASS_FROM_LETTER(CHAR) reg_class_from_letter[(unsigned char)(CHAR)]
 
 /* A C expression which is nonzero if register number NUM is suitable for use
    as a base register in operand addresses.  It may be either a suitable hard
@@ -1653,7 +1649,7 @@ extern enum reg_class reg_class_from_letter[];
    registers can only be copied to memory and not to another class of
    registers.  In that case, secondary reload registers are not needed and
    would not be helpful.  Instead, a stack location must be used to perform the
-   copy and the `movM' pattern should use memory as a intermediate storage.
+   copy and the `movM' pattern should use memory as an intermediate storage.
    This case often occurs between floating-point and general registers.  */
 
 #define SECONDARY_RELOAD_CLASS(CLASS, MODE, X)				\
@@ -1966,7 +1962,7 @@ typedef struct d30v_stack {
    value of 4096 is suitable for most systems.  */
 /* #define STACK_CHECK_PROBE_INTERVAL */
 
-/* A integer which is nonzero if GNU CC should perform the stack probe as a
+/* An integer which is nonzero if GNU CC should perform the stack probe as a
    load instruction and zero if GNU CC should use a store instruction.  The
    default is zero, which is the most efficient choice on most systems.  */
 /* #define STACK_CHECK_PROBE_LOAD */
@@ -2272,7 +2268,7 @@ typedef struct d30v_stack {
    FUNDECL is a C variable whose value is a tree node that describes the
    function in question.  Normally it is a node of type `FUNCTION_DECL' that
    describes the declaration of the function.  From this it is possible to
-   obtain the DECL_MACHINE_ATTRIBUTES of the function.
+   obtain the DECL_ATTRIBUTES of the function.
 
    FUNTYPE is a C variable whose value is a tree node that describes the
    function in question.  Normally it is a node of type `FUNCTION_TYPE' that
@@ -2290,7 +2286,7 @@ typedef struct d30v_stack {
    variable number of bytes is passed, it is zero, and argument popping will
    always be the responsibility of the calling function.
 
-   On the Vax, all functions always pop their arguments, so the definition of
+   On the VAX, all functions always pop their arguments, so the definition of
    this macro is STACK-SIZE.  On the 68000, using the standard calling
    convention, no functions pop their arguments, so the value of the macro is
    always 0 in this case.  But an alternative calling convention is available
@@ -2317,7 +2313,7 @@ typedef struct d30v_stack {
    register in which to pass the argument, or zero to pass the argument on the
    stack.
 
-   For machines like the Vax and 68000, where normally all arguments are
+   For machines like the VAX and 68000, where normally all arguments are
    pushed, zero suffices as a definition.
 
    The usual way to make the ANSI library `stdarg.h' work on a machine where
@@ -2738,137 +2734,6 @@ typedef struct machine_function
 /* Define this macro if the code for function profiling should come before the
    function prologue.  Normally, the profiling code comes after.  */
 /* #define PROFILE_BEFORE_PROLOGUE */
-
-/* A C statement or compound statement to output to FILE some assembler code to
-   initialize basic-block profiling for the current object module.  The global
-   compile flag `profile_block_flag' distingishes two profile modes.
-
-   profile_block_flag != 2'
-        Output code to call the subroutine `__bb_init_func' once per
-        object module, passing it as its sole argument the address of
-        a block allocated in the object module.
-
-        The name of the block is a local symbol made with this
-        statement:
-
-             ASM_GENERATE_INTERNAL_LABEL (BUFFER, "LPBX", 0);
-
-        Of course, since you are writing the definition of
-        `ASM_GENERATE_INTERNAL_LABEL' as well as that of this macro,
-        you can take a short cut in the definition of this macro and
-        use the name that you know will result.
-
-        The first word of this block is a flag which will be nonzero
-        if the object module has already been initialized.  So test
-        this word first, and do not call `__bb_init_func' if the flag
-        is nonzero.  BLOCK_OR_LABEL contains a unique number which
-        may be used to generate a label as a branch destination when
-        `__bb_init_func' will not be called.
-
-        Described in assembler language, the code to be output looks
-        like:
-
-               cmp (LPBX0),0
-               bne local_label
-               parameter1 <- LPBX0
-               call __bb_init_func
-             local_label:
-
-   profile_block_flag == 2'
-        Output code to call the subroutine `__bb_init_trace_func' and
-        pass two parameters to it.  The first parameter is the same as
-        for `__bb_init_func'.  The second parameter is the number of
-        the first basic block of the function as given by
-        BLOCK_OR_LABEL.  Note that `__bb_init_trace_func' has to be
-        called, even if the object module has been initialized
-        already.
-
-        Described in assembler language, the code to be output looks
-        like:
-             parameter1 <- LPBX0
-             parameter2 <- BLOCK_OR_LABEL
-             call __bb_init_trace_func  */
-/* #define FUNCTION_BLOCK_PROFILER (FILE, LABELNO) */
-
-/* A C statement or compound statement to output to FILE some assembler code to
-   increment the count associated with the basic block number BLOCKNO.  The
-   global compile flag `profile_block_flag' distingishes two profile modes.
-
-   profile_block_flag != 2'
-        Output code to increment the counter directly.  Basic blocks
-        are numbered separately from zero within each compilation.
-        The count associated with block number BLOCKNO is at index
-        BLOCKNO in a vector of words; the name of this array is a
-        local symbol made with this statement:
-
-             ASM_GENERATE_INTERNAL_LABEL (BUFFER, "LPBX", 2);
-
-        Of course, since you are writing the definition of
-        `ASM_GENERATE_INTERNAL_LABEL' as well as that of this macro,
-        you can take a short cut in the definition of this macro and
-        use the name that you know will result.
-
-        Described in assembler language, the code to be output looks
-        like:
-
-             inc (LPBX2+4*BLOCKNO)
-
-   profile_block_flag == 2'
-        Output code to initialize the global structure `__bb' and
-        call the function `__bb_trace_func', which will increment the
-        counter.
-
-        `__bb' consists of two words.  In the first word, the current
-        basic block number, as given by BLOCKNO, has to be stored.  In
-        the second word, the address of a block allocated in the
-        object module has to be stored.  The address is given by the
-        label created with this statement:
-
-             ASM_GENERATE_INTERNAL_LABEL (BUFFER, "LPBX", 0);
-
-        Described in assembler language, the code to be output looks
-        like:
-             move BLOCKNO -> (__bb)
-             move LPBX0 -> (__bb+4)
-             call __bb_trace_func  */
-/* #define BLOCK_PROFILER(FILE, BLOCKNO) */
-
-/* A C statement or compound statement to output to FILE assembler
-   code to call function `__bb_trace_ret'.  The assembler code should
-   only be output if the global compile flag `profile_block_flag' ==
-   2.  This macro has to be used at every place where code for
-   returning from a function is generated (e.g. output_function_epilogue()).
-   Although you have to write the definition of output_function_epilogue()
-   as well, you have to define this macro to tell the compiler, that
-   the proper call to `__bb_trace_ret' is produced.  */
-/* #define FUNCTION_BLOCK_PROFILER_EXIT(FILE) */
-
-/* A C statement or compound statement to save all registers, which may be
-   clobbered by a function call, including condition codes.  The `asm'
-   statement will be mostly likely needed to handle this task.  Local labels in
-   the assembler code can be concatenated with the string ID, to obtain a
-   unique lable name.
-
-   Registers or condition codes clobbered by output_function_prologue()
-   or output_function_epilogue() must be saved in the macros
-   `FUNCTION_BLOCK_PROFILER', FUNCTION_BLOCK_PROFILER_EXIT' and
-   `BLOCK_PROFILER' prior calling `__bb_init_trace_func', `__bb_trace_ret'
-   and `__bb_trace_func' respectively.  */
-/* #define MACHINE_STATE_SAVE(ID) */
-
-/* A C statement or compound statement to restore all registers, including
-   condition codes, saved by `MACHINE_STATE_SAVE'.
-
-   Registers or condition codes clobbered by output_function_prologue()
-   or output_function_epilogue() must be restored in the macros
-   `FUNCTION_BLOCK_PROFILER', `FUNCTION_BLOCK_PROFILER_EXIT' and
-   `BLOCK_PROFILER' after calling `__bb_init_trace_func', `__bb_trace_ret' and
-   `__bb_trace_func' respectively.  */
-/* #define MACHINE_STATE_RESTORE(ID) */
-
-/* A C function or functions which are needed in the library to support block
-   profiling.  */
-/* #define BLOCK_PROFILER_CODE */
 
 
 /* Implementing the Varargs Macros.  */
@@ -3630,29 +3495,6 @@ extern const char *d30v_branch_cost_string;
    with an explicit address than to call an address kept in a register.  */
 /* #define NO_RECURSIVE_FUNCTION_CSE */
 
-/* A C statement (sans semicolon) to update the integer variable COST based on
-   the relationship between INSN that is dependent on DEP_INSN through the
-   dependence LINK.  The default is to make no adjustment to COST.  This can be
-   used for example to specify to the scheduler that an output- or
-   anti-dependence does not incur the same cost as a data-dependence.  */
-
-#define ADJUST_COST(INSN,LINK,DEP_INSN,COST)				\
-  (COST) = d30v_adjust_cost (INSN, LINK, DEP_INSN, COST)
-
-/* A C statement (sans semicolon) to update the integer scheduling
-   priority `INSN_PRIORITY(INSN)'.  Reduce the priority to execute
-   the INSN earlier, increase the priority to execute INSN later.
-   Do not define this macro if you do not need to adjust the
-   scheduling priorities of insns.  */
-/* #define ADJUST_PRIORITY (INSN) */
-
-/* Macro to determine whether the Haifa scheduler is used.  */
-#ifdef HAIFA
-#define HAIFA_P 1
-#else
-#define HAIFA_P 0
-#endif
-
 
 /* Dividing the output into sections.  */
 
@@ -3721,7 +3563,7 @@ extern const char *d30v_branch_cost_string;
    the read-only data section (usually the text section).
 
    Defined in svr4.h.  */
-/* #define SELECT_SECTION(EXP, RELOC) */
+/* #define SELECT_SECTION(EXP, RELOC, ALIGN) */
 
 /* A C statement or statements to switch to the appropriate section for output
    of RTX in mode MODE.  You can assume that RTX is some kind of constant in
@@ -3733,7 +3575,7 @@ extern const char *d30v_branch_cost_string;
    section.
 
    Defined in svr4.h.  */
-/* #define SELECT_RTX_SECTION(MODE, RTX) */
+/* #define SELECT_RTX_SECTION(MODE, RTX, ALIGN) */
 
 /* Define this macro if jump tables (for `tablejump' insns) should be output in
    the text section, along with the assembler instructions.  Otherwise, the
@@ -3759,15 +3601,6 @@ extern const char *d30v_branch_cost_string;
    that encode section info.  Define this macro if `ENCODE_SECTION_INFO' alters
    the symbol's name string.  */
 /* #define STRIP_NAME_ENCODING(VAR, SYM_NAME) */
-
-/* A C expression which evaluates to true if DECL should be placed
-   into a unique section for some target-specific reason.  If you do
-   not define this macro, the default is `0'.  Note that the flag
-   `-ffunction-sections' will also cause functions to be placed into
-   unique sections.
-
-   Defined in svr4.h.  */
-/* #define UNIQUE_SECTION_P(DECL) */
 
 /* A C statement to build up a unique section name, expressed as a
    STRING_CST node, and assign it to `DECL_SECTION_NAME (DECL)'.
@@ -3888,17 +3721,6 @@ extern const char *d30v_branch_cost_string;
    Defined in svr4.h.  */
 /* #define ASM_OUTPUT_IDENT(STREAM, STRING) */
 
-/* A C statement to output something to the assembler file to switch to section
-   NAME for object DECL which is either a `FUNCTION_DECL', a `VAR_DECL' or
-   `NULL_TREE'.  Some target formats do not support arbitrary sections.  Do not
-   define this macro in such cases.
-
-   At present this macro is only used to support section attributes.  When this
-   macro is undefined, section attributes are disabled.
-
-   Defined in svr4.h.  */
-/* #define ASM_OUTPUT_SECTION_NAME(STREAM, DECL, NAME) */
-
 /* A C statement to output any assembler statements which are required to
    precede any Objective C object definitions or message sending.  The
    statement is executed only when compiling an Objective C program.  */
@@ -3955,53 +3777,6 @@ extern const char *d30v_branch_cost_string;
 /* #define ASM_OUTPUT_THREE_QUARTER_FLOAT(STREAM, VALUE) */
 /* #define ASM_OUTPUT_SHORT_FLOAT(STREAM, VALUE) */
 /* #define ASM_OUTPUT_BYTE_FLOAT(STREAM, VALUE) */
-
-/* A C statement to output to the stdio stream STREAM an assembler instruction
-   to assemble an integer of 16, 8, 4, 2 or 1 bytes, respectively, whose value
-   is VALUE.  The argument EXP will be an RTL expression which represents a
-   constant value.  Use `output_addr_const (STREAM, EXP)' to output this value
-   as an assembler expression.
-
-   For sizes larger than `UNITS_PER_WORD', if the action of a macro would be
-   identical to repeatedly calling the macro corresponding to a size of
-   `UNITS_PER_WORD', once for each word, you need not define the macro.  */
-
-/* #define ASM_OUTPUT_QUADRUPLE_INT(STREAM, EXP) */
-/* #define ASM_OUTPUT_DOUBLE_INT(STREAM, EXP) */
-
-#define ASM_OUTPUT_INT(STREAM, EXP)					\
-do {									\
-  fputs ("\t.word ", STREAM);						\
-  output_addr_const (STREAM, EXP);					\
-  putc ('\n', STREAM);							\
-} while (0)
-
-#define ASM_OUTPUT_SHORT(STREAM, EXP)					\
-do {									\
-  fputs ("\t.hword ", STREAM);						\
-  output_addr_const (STREAM, EXP);					\
-  putc ('\n', STREAM);							\
-} while (0)
-
-#define ASM_OUTPUT_CHAR(STREAM, EXP)					\
-do {									\
-  fputs ("\t.byte ", STREAM);						\
-  output_addr_const (STREAM, EXP);					\
-  putc ('\n', STREAM);							\
-} while (0)
-
-/* A C statement to output to the stdio stream STREAM an assembler instruction
-   to assemble a single byte containing the number VALUE.  */
-
-#define ASM_OUTPUT_BYTE(STREAM, VALUE) \
-  fprintf (STREAM, "%s%d\n", ASM_BYTE_OP, (int)(VALUE))
-
-/* A C string constant giving the pseudo-op to use for a sequence of
-   single-byte constants.  If this macro is not defined, the default
-   is `"byte"'.
-
-   Defined in svr4.h.  */
-/* #define ASM_BYTE_OP */
 
 /* A C statement to output to the stdio stream STREAM an assembler instruction
    to assemble a string constant containing the LEN bytes at PTR.  PTR will be
@@ -4483,29 +4258,6 @@ do {									\
    collecting the lists of constructors and destructors.  */
 #define INVOKE__main
 
-/* Define this macro as a C statement to output on the stream STREAM the
-   assembler code to arrange to call the function named NAME at initialization
-   time.
-
-   Assume that NAME is the name of a C function generated automatically by the
-   compiler.  This function takes no arguments.  Use the function
-   `assemble_name' to output the name NAME; this performs any system-specific
-   syntactic transformations such as adding an underscore.
-
-   If you don't define this macro, nothing special is output to arrange to call
-   the function.  This is correct when the function will be called in some
-   other manner--for example, by means of the `collect2' program, which looks
-   through the symbol table to find these functions by their names.
-
-   Defined in svr4.h.  */
-/* #define ASM_OUTPUT_CONSTRUCTOR(STREAM, NAME) */
-
-/* This is like `ASM_OUTPUT_CONSTRUCTOR' but used for termination functions
-   rather than initialization functions.
-
-   Defined in svr4.h.  */
-/* #define ASM_OUTPUT_DESTRUCTOR(STREAM, NAME) */
-
 /* If your system uses `collect2' as the means of processing constructors, then
    that program normally uses `nm' to scan an object file for constructor
    functions to be called.  On certain kinds of systems, you can define these
@@ -4852,23 +4604,6 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
    This macro need not be defined on most platforms.  */
 /* #define ASM_OUTPUT_EH_REGION_END() */
 
-/* A C expression to switch to the section in which the main exception table is
-   to be placed (*note Sections::.).  The default is a section named
-   `.gcc_except_table' on machines that support named sections via
-   `ASM_OUTPUT_SECTION_NAME', otherwise if `-fpic' or `-fPIC' is in effect, the
-   `data_section', otherwise the `readonly_data_section'.  */
-/* #define EXCEPTION_SECTION() */
-
-/* If defined, a C string constant for the assembler operation to switch to the
-   section for exception handling frame unwind information.  If not defined,
-   GNU CC will provide a default definition if the target supports named
-   sections.  `crtstuff.c' uses this macro to switch to the appropriate
-   section.
-
-   You should define this symbol if your target supports DWARF 2 frame unwind
-   information and the default definition does not work.  */
-/* #define EH_FRAME_SECTION_ASM_OP */
-
 /* A C expression that is nonzero if the normal exception table output should
    be omitted.
 
@@ -4893,8 +4628,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 /* Define this macro to 0 if your target supports DWARF 2 frame unwind
    information, but it does not yet work with exception handling.  Otherwise,
    if your target supports this information (if it defines
-   `INCOMING_RETURN_ADDR_RTX' and either `UNALIGNED_INT_ASM_OP' or
-   `OBJECT_FORMAT_ELF'), GCC will provide a default definition of 1.
+   `INCOMING_RETURN_ADDR_RTX'), GCC will provide a default definition of 1.
 
    If this macro is defined to 1, the DWARF 2 unwinder will be the default
    exception handling mechanism; otherwise, setjmp/longjmp will be used by
@@ -5187,7 +4921,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 
 /* Some stabs encapsulation formats (in particular ECOFF), cannot
    handle the `.stabs "",N_FUN,,0,0,Lscope-function-1' gdb dbx
-   extention construct.  On those machines, define this macro to turn
+   extension construct.  On those machines, define this macro to turn
    this feature off without disturbing the rest of the gdb extensions.  */
 /* #define NO_DBX_FUNCTION_END */
 
@@ -5823,8 +5557,5 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 /* Values of the -mcond-exec=n string.  */
 extern int d30v_cond_exec;
 extern const char *d30v_cond_exec_string;
-
-/* Indicate how many instructions can be issued at the same time.  */
-#define ISSUE_RATE 2
 
 #endif /* GCC_D30V_H */

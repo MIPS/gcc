@@ -53,12 +53,13 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_tempbuf.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
-#ifndef __SGI_STL_INTERNAL_TEMPBUF_H
-#define __SGI_STL_INTERNAL_TEMPBUF_H
+#ifndef __GLIBCPP_INTERNAL_TEMPBUF_H
+#define __GLIBCPP_INTERNAL_TEMPBUF_H
 
 namespace std
 {
@@ -138,14 +139,20 @@ public:
     typedef typename __type_traits<_Tp>::has_trivial_default_constructor
             _Trivial;
 
-    __STL_TRY {
+    try {
       _M_len = 0;
       distance(__first, __last, _M_len);
       _M_allocate_buffer();
       if (_M_len > 0)
         _M_initialize_buffer(*__first, _Trivial());
     }
-    __STL_UNWIND(free(_M_buffer); _M_buffer = 0; _M_len = 0);
+    catch(...)
+      { 
+	free(_M_buffer); 
+	_M_buffer = 0; 
+	_M_len = 0;
+	__throw_exception_again; 
+      }
   }
  
   ~_Temporary_buffer() {  
@@ -174,7 +181,7 @@ struct temporary_buffer : public _Temporary_buffer<_ForwardIterator, _Tp>
     
 } // namespace std
 
-#endif /* __SGI_STL_INTERNAL_TEMPBUF_H */
+#endif /* __GLIBCPP_INTERNAL_TEMPBUF_H */
 
 // Local Variables:
 // mode:C++

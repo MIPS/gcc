@@ -19,6 +19,8 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#define TARGET_IRIX5 1
+
 #ifndef TARGET_DEFAULT
 #define	TARGET_DEFAULT	MASK_ABICALLS
 #endif
@@ -114,7 +116,7 @@ Boston, MA 02111-1307, USA.  */
 /* We do not want to run mips-tfile!  */
 #undef ASM_FINAL_SPEC
 
-/* The system header files are C++ aware. */
+/* The system header files are C++ aware.  */
 /* ??? Unfortunately, most but not all of the headers are C++ aware.
    Specifically, curses.h is not, and as a consequence, defining this
    used to prevent libg++ building.  This is no longer the case so
@@ -123,7 +125,7 @@ Boston, MA 02111-1307, USA.  */
    fixing.  */
 #define NO_IMPLICIT_EXTERN_C 1
 
-/* We don't support debugging info for now. */
+/* We don't support debugging info for now.  */
 #undef DBX_DEBUGGING_INFO
 #undef SDB_DEBUGGING_INFO
 #undef MIPS_DEBUGGING_INFO
@@ -154,10 +156,6 @@ do {						\
   assemble_name (FILE, NAME);			\
   fputs (" .text\n", FILE);			\
 } while (0)
-
-/* To get unaligned data, we have to turn off auto alignment.  */
-#define UNALIGNED_SHORT_ASM_OP		"\t.align 0\n\t.half\t"
-#define UNALIGNED_INT_ASM_OP		"\t.align 0\n\t.word\t"
 
 /* Also do this for libcalls.  */
 #define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN)	\

@@ -53,9 +53,15 @@ static unsigned int compute_saved_regs PARAMS ((void));
 static void push PARAMS ((FILE *, int));
 static void pop PARAMS ((FILE *, int));
 static const char *cond_string PARAMS ((enum rtx_code));
-static int h8300_valid_decl_attribute PARAMS ((tree, tree, tree, tree));
+const struct attribute_spec h8300_attribute_table[];
+static tree h8300_handle_fndecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
+static tree h8300_handle_eightbit_data_attribute PARAMS ((tree *, tree, tree, int, bool *));
+static tree h8300_handle_tiny_data_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static void h8300_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void h8300_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+#ifndef OBJECT_FORMAT_ELF
+static void h8300_asm_named_section PARAMS ((const char *, unsigned int));
+#endif
 
 /* CPU_TYPE, says what cpu we're compiling for.  */
 int cpu_type;
@@ -97,8 +103,11 @@ static const char *const h8_mov_ops[2] = { "mov.w", "mov.l" };
 const char *h8_push_op, *h8_pop_op, *h8_mov_op;
 
 /* Initialize the GCC target structure.  */
-#undef TARGET_VALID_DECL_ATTRIBUTE
-#define TARGET_VALID_DECL_ATTRIBUTE h8300_valid_decl_attribute
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE h8300_attribute_table
+
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE h8300_output_function_prologue
@@ -129,7 +138,7 @@ h8300_init_once ()
 
   if (!TARGET_H8300S && TARGET_MAC)
     {
-      error ("-ms2600 is used without -ms.");
+      error ("-ms2600 is used without -ms");
       target_flags |= 1;
     }
 }
@@ -183,8 +192,9 @@ dosize (file, op, size)
      subs since this shouldn't happen often.  */
   if ((TARGET_H8300 && size <= 4)
       || ((TARGET_H8300H || TARGET_H8300S) && size <= 8)
+      || (TARGET_H8300 && interrupt_handler)
       || (TARGET_H8300 && current_function_needs_context
-	  && strcmp (op, "sub")))
+	  && ! strcmp (op, "sub")))
     {
       unsigned HOST_WIDE_INT amount;
 
@@ -1501,6 +1511,8 @@ initial_offset (from, to)
 
   if (from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
     offset = UNITS_PER_WORD + frame_pointer_needed * UNITS_PER_WORD;
+  else if (from == RETURN_ADDRESS_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
+    offset = frame_pointer_needed * UNITS_PER_WORD;
   else
     {
       int regno;
@@ -1519,6 +1531,26 @@ initial_offset (from, to)
 	offset += UNITS_PER_WORD;	/* Skip saved PC */
     }
   return offset;
+}
+
+rtx
+h8300_return_addr_rtx (count, frame)
+     int count;
+     rtx frame;
+{
+  rtx ret;
+
+  if (count == 0)
+    ret = gen_rtx_MEM (Pmode,
+		       gen_rtx_REG (Pmode, RETURN_ADDRESS_POINTER_REGNUM));
+  else if (flag_omit_frame_pointer)
+    return (rtx) 0;
+  else
+    ret = gen_rtx_MEM (Pmode,
+		       memory_address (Pmode,
+				       plus_constant (frame, UNITS_PER_WORD)));
+  set_mem_alias_set (ret, get_frame_alias_set ());
+  return ret;
 }
 
 /* Update the condition code from the insn.  */
@@ -1584,6 +1616,150 @@ bit_operator (x, mode)
   return (code == XOR
 	  || code == AND
 	  || code == IOR);
+}
+
+const char *
+output_logical_op (mode, code, operands)
+     enum machine_mode mode;
+     int code;
+     rtx *operands;
+{
+  /* Pretend that every byte is affected if both operands are registers.  */
+  unsigned HOST_WIDE_INT intval =
+    (unsigned HOST_WIDE_INT) ((GET_CODE (operands[2]) == CONST_INT)
+			      ? INTVAL (operands[2]) : 0x55555555);
+  /* The determinant of the algorithm.  If we perform an AND, 0
+     affects a bit.  Otherwise, 1 affects a bit.  */
+  unsigned HOST_WIDE_INT det = (code != AND) ? intval : ~intval;
+  /* The name of an insn.  */
+  const char *opname;
+  char insn_buf[100];
+
+  switch (code)
+    {
+    case AND:
+      opname = "and";
+      break;
+    case IOR:
+      opname = "or";
+      break;
+    case XOR:
+      opname = "xor";
+      break;
+    default:
+      abort ();
+    }
+
+  switch (mode)
+    {
+    case HImode:
+      /* First, see if we can finish with one insn.  */
+      if ((TARGET_H8300H || TARGET_H8300S)
+	  && ((det & 0x00ff) != 0)
+	  && ((det & 0xff00) != 0))
+	{
+	  sprintf (insn_buf, "%s.w\t%%T2,%%T0", opname);
+	  output_asm_insn (insn_buf, operands);
+	}
+      else
+	{
+	  /* Take care of the lower byte.  */
+	  if ((det & 0x00ff) != 0)
+	    {
+	      sprintf (insn_buf, "%s\t%%s2,%%s0", opname);
+	      output_asm_insn (insn_buf, operands);
+	    }
+	  /* Take care of the upper byte.  */
+	  if ((det & 0xff00) != 0)
+	    {
+	      sprintf (insn_buf, "%s\t%%t2,%%t0", opname);
+	      output_asm_insn (insn_buf, operands);
+	    }
+	}
+      break;
+    case SImode:
+      /* First, see if we can finish with one insn.
+
+	 If code is either AND or XOR, we exclude two special cases,
+	 0xffffff00 and 0xffff00ff, because insns like sub.w or neg.w
+	 can do a better job.  */
+      if ((TARGET_H8300H || TARGET_H8300S)
+	  && ((det & 0x0000ffff) != 0)
+	  && ((det & 0xffff0000) != 0)
+	  && (code == IOR || det != 0xffffff00)
+	  && (code == IOR || det != 0xffff00ff))
+	{
+	  sprintf (insn_buf, "%s.l\t%%S2,%%S0", opname);
+	  output_asm_insn (insn_buf, operands);
+	}
+      else
+	{
+	  /* Take care of the lower and upper words individually.  For
+	     each word, we try different methods in the order of
+
+	     1) the special insn (in case of AND or XOR),
+	     2) the word-wise insn, and
+	     3) The byte-wise insn.  */
+	  if ((TARGET_H8300H || TARGET_H8300S)
+	      && ((det & 0x0000ffff) == 0x0000ffff)
+	      && code != IOR)
+	    output_asm_insn ((code == AND)
+			     ? "sub.w\t%f0,%f0" : "neg.w\t%f0",
+			     operands);
+	  else if ((TARGET_H8300H || TARGET_H8300S)
+		   && ((det & 0x000000ff) != 0)
+		   && ((det & 0x0000ff00) != 0))
+	    {
+	      sprintf (insn_buf, "%s.w\t%%f2,%%f0", opname);
+	      output_asm_insn (insn_buf, operands);
+	    }
+	  else
+	    {
+	      if ((det & 0x000000ff) != 0)
+		{
+		  sprintf (insn_buf, "%s\t%%w2,%%w0", opname);
+		  output_asm_insn (insn_buf, operands);
+		}
+	      if ((det & 0x0000ff00) != 0)
+		{
+		  sprintf (insn_buf, "%s\t%%x2,%%x0", opname);
+		  output_asm_insn (insn_buf, operands);
+		}
+	    }
+
+	  if ((TARGET_H8300H || TARGET_H8300S)
+	      && ((det & 0xffff0000) == 0xffff0000)
+	      && code != IOR)
+	    output_asm_insn ((code == AND)
+			     ? "sub.w\t%e0,%e0" : "neg.w\t%e0",
+			     operands);
+	  else if (TARGET_H8300H || TARGET_H8300S)
+	    {
+	      if ((det & 0xffff0000) != 0)
+		{
+		  sprintf (insn_buf, "%s.w\t%%e2,%%e0", opname);
+		  output_asm_insn (insn_buf, operands);
+		}
+	    }
+	  else
+	    {
+	      if ((det & 0x00ff0000) != 0)
+		{
+		  sprintf (insn_buf, "%s\t%%y2,%%y0", opname);
+		  output_asm_insn (insn_buf, operands);
+		}
+	      if ((det & 0xff000000) != 0)
+		{
+		  sprintf (insn_buf, "%s\t%%z2,%%z0", opname);
+		  output_asm_insn (insn_buf, operands);
+		}
+	    }
+	}
+      break;
+    default:
+      abort ();
+    }
+  return "";
 }
 
 /* Shifts.
@@ -1812,8 +1988,7 @@ enum shift_alg
   SHIFT_INLINE,
   SHIFT_ROT_AND,
   SHIFT_SPECIAL,
-  SHIFT_LOOP,
-  SHIFT_MAX
+  SHIFT_LOOP
 };
 
 /* Symbols of the various shifts which can be used as indices.  */
@@ -1836,8 +2011,8 @@ enum shift_mode
 
 struct shift_insn
 {
-  const char *assembler;
-  int cc_valid;
+  const char *const assembler;
+  const int cc_valid;
 };
 
 /* Assembler instruction shift table.
@@ -1985,6 +2160,142 @@ static const char *const rotate_two[3][3] =
     }
 };
 
+/* Macros to keep the shift algorithm tables small.  */
+#define INL SHIFT_INLINE
+#define ROT SHIFT_ROT_AND
+#define LOP SHIFT_LOOP
+#define SPC SHIFT_SPECIAL
+
+/* The shift algorithms for each machine, mode, shift type, and shift
+   count are defined below.  The three tables below correspond to
+   QImode, HImode, and SImode, respectively.  Each table is organized
+   by, in the order of indecies, machine, shift type, and shift count.  */
+
+static const enum shift_alg shift_alg_qi[3][3][8] = {
+  {
+    /* TARGET_H8300  */
+    /* 0    1    2    3    4    5    6    7  */
+    { INL, INL, INL, INL, INL, ROT, ROT, ROT }, /* SHIFT_ASHIFT   */
+    { INL, INL, INL, INL, INL, ROT, ROT, ROT }, /* SHIFT_LSHIFTRT */
+    { INL, INL, INL, INL, INL, LOP, LOP, SPC }  /* SHIFT_ASHIFTRT */
+  },
+  {
+    /* TARGET_H8300H  */
+    /* 0    1    2    3    4    5    6    7  */
+    { INL, INL, INL, INL, INL, ROT, ROT, ROT }, /* SHIFT_ASHIFT   */
+    { INL, INL, INL, INL, INL, ROT, ROT, ROT }, /* SHIFT_LSHIFTRT */
+    { INL, INL, INL, INL, INL, LOP, LOP, SPC }  /* SHIFT_ASHIFTRT */
+  },
+  {
+    /* TARGET_H8300S  */
+    /*  0    1    2    3    4    5    6    7  */
+    { INL, INL, INL, INL, INL, INL, ROT, ROT }, /* SHIFT_ASHIFT   */
+    { INL, INL, INL, INL, INL, INL, ROT, ROT }, /* SHIFT_LSHIFTRT */
+    { INL, INL, INL, INL, INL, INL, INL, SPC }  /* SHIFT_ASHIFTRT */
+  }
+};
+
+static const enum shift_alg shift_alg_hi[3][3][16] = {
+  {
+    /* TARGET_H8300  */
+    /*  0    1    2    3    4    5    6    7  */
+    /*  8    9   10   11   12   13   14   15  */
+    { INL, INL, INL, INL, INL, LOP, LOP, SPC,
+      SPC, SPC, SPC, SPC, SPC, LOP, LOP, ROT }, /* SHIFT_ASHIFT   */
+    { INL, INL, INL, INL, INL, LOP, LOP, SPC,
+      SPC, SPC, SPC, SPC, SPC, LOP, LOP, ROT }, /* SHIFT_LSHIFTRT */
+    { INL, INL, INL, INL, INL, LOP, LOP, SPC,
+      SPC, SPC, SPC, SPC, SPC, LOP, LOP, SPC }, /* SHIFT_ASHIFTRT */
+  },
+  {
+    /* TARGET_H8300H  */
+    /*  0    1    2    3    4    5    6    7  */
+    /*  8    9   10   11   12   13   14   15  */
+    { INL, INL, INL, INL, INL, LOP, LOP, SPC,
+      SPC, SPC, SPC, SPC, SPC, ROT, ROT, ROT }, /* SHIFT_ASHIFT   */
+    { INL, INL, INL, INL, INL, LOP, LOP, SPC,
+      SPC, SPC, SPC, SPC, SPC, ROT, ROT, ROT }, /* SHIFT_LSHIFTRT */
+    { INL, INL, INL, INL, INL, LOP, LOP, SPC,
+      SPC, SPC, SPC, SPC, SPC, LOP, LOP, SPC }, /* SHIFT_ASHIFTRT */
+  },
+  {
+    /* TARGET_H8300S  */
+    /*  0    1    2    3    4    5    6    7  */
+    /*  8    9   10   11   12   13   14   15  */
+    { INL, INL, INL, INL, INL, INL, INL, INL,
+      SPC, SPC, SPC, SPC, SPC, ROT, ROT, ROT }, /* SHIFT_ASHIFT   */
+    { INL, INL, INL, INL, INL, INL, INL, INL,
+      SPC, SPC, SPC, SPC, SPC, ROT, ROT, ROT }, /* SHIFT_LSHIFTRT */
+    { INL, INL, INL, INL, INL, INL, INL, INL,
+      SPC, SPC, SPC, SPC, SPC, LOP, LOP, SPC }, /* SHIFT_ASHIFTRT */
+  }
+};
+
+static const enum shift_alg shift_alg_si[3][3][32] = {
+  {
+    /* TARGET_H8300  */
+    /*  0    1    2    3    4    5    6    7  */
+    /*  8    9   10   11   12   13   14   15  */
+    /* 16   17   18   19   20   21   22   23  */
+    /* 24   25   26   27   28   29   30   31  */
+    { INL, INL, INL, LOP, LOP, LOP, LOP, LOP,
+      SPC, LOP, LOP, LOP, LOP, LOP, LOP, LOP,
+      SPC, LOP, LOP, LOP, LOP, LOP, LOP, LOP,
+      LOP, LOP, LOP, LOP, LOP, LOP, LOP, SPC }, /* SHIFT_ASHIFT   */
+    { INL, INL, INL, LOP, LOP, LOP, LOP, LOP,
+      SPC, LOP, LOP, LOP, LOP, LOP, LOP, LOP,
+      SPC, LOP, LOP, LOP, LOP, LOP, LOP, LOP,
+      LOP, LOP, LOP, LOP, LOP, LOP, LOP, SPC }, /* SHIFT_LSHIFTRT */
+    { INL, INL, INL, LOP, LOP, LOP, LOP, LOP,
+      SPC, LOP, LOP, LOP, LOP, LOP, LOP, LOP,
+      SPC, LOP, LOP, LOP, LOP, LOP, LOP, LOP,
+      LOP, LOP, LOP, LOP, LOP, LOP, LOP, SPC }, /* SHIFT_ASHIFTRT */
+  },
+  {
+    /* TARGET_H8300H  */
+    /*  0    1    2    3    4    5    6    7  */
+    /*  8    9   10   11   12   13   14   15  */
+    /* 16   17   18   19   20   21   22   23  */
+    /* 24   25   26   27   28   29   30   31  */
+    { INL, INL, INL, INL, INL, LOP, LOP, LOP,
+      SPC, LOP, LOP, LOP, LOP, LOP, LOP, SPC,
+      SPC, SPC, SPC, SPC, LOP, LOP, LOP, LOP,
+      SPC, LOP, LOP, LOP, ROT, ROT, ROT, SPC }, /* SHIFT_ASHIFT   */
+    { INL, INL, INL, INL, INL, LOP, LOP, LOP,
+      SPC, LOP, LOP, LOP, LOP, LOP, LOP, SPC,
+      SPC, SPC, SPC, SPC, LOP, LOP, LOP, LOP,
+      SPC, LOP, LOP, LOP, ROT, ROT, ROT, SPC }, /* SHIFT_LSHIFTRT */
+    { INL, INL, INL, INL, INL, LOP, LOP, LOP,
+      SPC, LOP, LOP, LOP, LOP, LOP, LOP, LOP,
+      SPC, SPC, SPC, SPC, LOP, LOP, LOP, LOP,
+      SPC, LOP, LOP, LOP, LOP, LOP, LOP, SPC }, /* SHIFT_ASHIFTRT */
+  },
+  {
+    /* TARGET_H8300S  */
+    /*  0    1    2    3    4    5    6    7  */
+    /*  8    9   10   11   12   13   14   15  */
+    /* 16   17   18   19   20   21   22   23  */
+    /* 24   25   26   27   28   29   30   31  */
+    { INL, INL, INL, INL, INL, INL, INL, INL,
+      INL, INL, INL, LOP, LOP, LOP, LOP, SPC,
+      SPC, SPC, SPC, SPC, SPC, SPC, LOP, LOP,
+      SPC, SPC, LOP, LOP, ROT, ROT, ROT, SPC }, /* SHIFT_ASHIFT   */
+    { INL, INL, INL, INL, INL, INL, INL, INL,
+      INL, INL, INL, LOP, LOP, LOP, LOP, SPC,
+      SPC, SPC, SPC, SPC, SPC, SPC, LOP, LOP,
+      SPC, SPC, LOP, LOP, ROT, ROT, ROT, SPC }, /* SHIFT_LSHIFTRT */
+    { INL, INL, INL, INL, INL, INL, INL, INL,
+      INL, INL, INL, LOP, LOP, LOP, LOP, LOP,
+      SPC, SPC, SPC, SPC, SPC, SPC, LOP, LOP,
+      SPC, SPC, LOP, LOP, LOP, LOP, LOP, SPC }, /* SHIFT_ASHIFTRT */
+  }
+};
+
+#undef INL
+#undef ROT
+#undef LOP
+#undef SPC
+
 struct shift_info {
   /* Shift algorithm.  */
   enum shift_alg alg;
@@ -2008,9 +2319,9 @@ struct shift_info {
   int cc_valid_p;
 };
 
-static enum shift_alg get_shift_alg PARAMS ((enum shift_type,
-					     enum shift_mode, int,
-					     struct shift_info *));
+static void get_shift_alg PARAMS ((enum shift_type,
+				   enum shift_mode, unsigned int,
+				   struct shift_info *));
 
 /* Given SHIFT_TYPE, SHIFT_MODE, and shift count COUNT, determine the
    best algorithm for doing the shift.  The assembler code is stored
@@ -2025,271 +2336,162 @@ static enum shift_alg get_shift_alg PARAMS ((enum shift_type,
    WARNING: The constraints on insns shiftbyn_QI/HI/SI assume shifts of
    1,2,3,4 will be inlined (1,2 for SI).  */
 
-static enum shift_alg
+static void
 get_shift_alg (shift_type, shift_mode, count, info)
      enum shift_type shift_type;
      enum shift_mode shift_mode;
-     int count;
+     unsigned int count;
      struct shift_info *info;
 {
-  /* Assume either SHIFT_LOOP or SHIFT_INLINE.
-     It is up to the caller to know that looping clobbers cc.  */
-  info->shift1 = shift_one[cpu_type][shift_type][shift_mode].assembler;
-  if (TARGET_H8300S)
-    info->shift2 = shift_two[shift_type][shift_mode].assembler;
+  int cpu;
+
+  /* Find the target CPU.  */
+  if (TARGET_H8300)
+    cpu = 0;
+  else if (TARGET_H8300H)
+    cpu = 1;
   else
-    info->shift2 = NULL;
-  info->cc_valid_p = shift_one[cpu_type][shift_type][shift_mode].cc_valid;
+    cpu = 2;
 
-  /* Now look for cases we want to optimize.  */
-
+  /* Find the shift algorithm.  */
   switch (shift_mode)
     {
     case QIshift:
-      if (count <= 4)
-	return SHIFT_INLINE;
+      if (GET_MODE_BITSIZE (QImode) <= count)
+	info->alg = SHIFT_LOOP;
       else
-	{
-	  /* Shift by 5/6 are only 3 insns on the H8/S, so it's just as
-	     fast as SHIFT_ROT_AND, plus CC is valid.  */
-	  if (TARGET_H8300S && count <= 6)
-	    return SHIFT_INLINE;
-
-	  /* For ASHIFTRT by 7 bits, the sign bit is simply replicated
-	     through the entire value.  */
-	  if (shift_type == SHIFT_ASHIFTRT && count == 7)
-	    {
-	      info->special = "shll\t%X0\n\tsubx\t%X0,%X0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    }
-
-	  /* Other ASHIFTRTs are too much of a pain.  */
-	  if (shift_type == SHIFT_ASHIFTRT)
-	    return SHIFT_LOOP;
-
-	  /* Other shifts by 5, 6, or 7 bits use SHIFT_ROT_AND.  */
-	  info->shift1 = rotate_one[cpu_type][shift_type][shift_mode];
-	  if (TARGET_H8300S)
-	    info->shift2 = rotate_two[shift_type][shift_mode];
-	  info->cc_valid_p = 0;
-	  return SHIFT_ROT_AND;
-	}
+	info->alg = shift_alg_qi[cpu][shift_type][count];
+      break;
 
     case HIshift:
-      if (count <= 4)
-	return SHIFT_INLINE;
-      else if (TARGET_H8300S && count <= 7)
-	return SHIFT_INLINE;
-      else if (count == 7)
+      if (GET_MODE_BITSIZE (HImode) <= count)
+	info->alg = SHIFT_LOOP;
+      else
+	info->alg = shift_alg_hi[cpu][shift_type][count];
+      break;
+
+    case SIshift:
+      if (GET_MODE_BITSIZE (SImode) <= count)
+	info->alg = SHIFT_LOOP;
+      else
+	info->alg = shift_alg_si[cpu][shift_type][count];
+      break;
+
+    default:
+      abort ();
+    }
+
+  /* Fill in INFO.  Return unless we have SHIFT_SPECIAL.  */
+  switch (info->alg)
+    {
+    case SHIFT_INLINE:
+      info->remainder = count;
+      /* Fall through.  */
+
+    case SHIFT_LOOP:
+      /* It is up to the caller to know that looping clobbers cc.  */
+      info->shift1 = shift_one[cpu_type][shift_type][shift_mode].assembler;
+      info->shift2 = shift_two[shift_type][shift_mode].assembler;
+      info->cc_valid_p = shift_one[cpu_type][shift_type][shift_mode].cc_valid;
+      goto end;
+
+    case SHIFT_ROT_AND:
+      info->shift1 = rotate_one[cpu_type][shift_type][shift_mode];
+      info->shift2 = rotate_two[shift_type][shift_mode];
+      info->cc_valid_p = 0;
+      goto end;
+
+    case SHIFT_SPECIAL:
+      /* REMAINDER is 0 for most cases, so initialize it to 0.  */
+      info->remainder = 0;
+      info->shift1 = shift_one[cpu_type][shift_type][shift_mode].assembler;
+      info->shift2 = shift_two[shift_type][shift_mode].assembler;
+      info->cc_valid_p = 0;
+      break;
+    }
+
+  /* Here we only deal with SHIFT_SPECIAL.  */
+  switch (shift_mode)
+    {
+    case QIshift:
+      /* For ASHIFTRT by 7 bits, the sign bit is simply replicated
+	 through the entire value.  */
+      if (shift_type == SHIFT_ASHIFTRT && count == 7)
 	{
-	  if (shift_type == SHIFT_ASHIFT && TARGET_H8300)
-	    {
-	      info->special = "shar.b\t%t0\n\tmov.b\t%s0,%t0\n\trotxr.b\t%t0\n\trotr.b\t%s0\n\tand.b\t#0x80,%s0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    }
+	  info->special = "shll\t%X0\n\tsubx\t%X0,%X0";
+	  goto end;
+	}
+      abort ();
 
-	  if (shift_type == SHIFT_ASHIFT && TARGET_H8300H)
+    case HIshift:
+      if (count == 7)
+	{
+	  switch (shift_type)
 	    {
-	      info->special = "shar.b\t%t0\n\tmov.b\t%s0,%t0\n\trotxr.w\t%T0\n\tand.b\t#0x80,%s0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    }
-
-	  if (shift_type == SHIFT_LSHIFTRT && TARGET_H8300)
-	    {
-	      info->special = "shal.b\t%s0\n\tmov.b\t%t0,%s0\n\trotxl.b\t%s0\n\trotl.b\t%t0\n\tand.b\t#0x01,%t0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    }
-
-	  if (shift_type == SHIFT_LSHIFTRT && TARGET_H8300H)
-	    {
-	      info->special = "shal.b\t%s0\n\tmov.b\t%t0,%s0\n\trotxl.w\t%T0\n\tand.b\t#0x01,%t0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    }
-
-	  if (shift_type == SHIFT_ASHIFTRT)
-	    {
+	    case SHIFT_ASHIFT:
+	      if (TARGET_H8300)
+		info->special = "shar.b\t%t0\n\tmov.b\t%s0,%t0\n\trotxr.b\t%t0\n\trotr.b\t%s0\n\tand.b\t#0x80,%s0";
+	      else
+		info->special = "shar.b\t%t0\n\tmov.b\t%s0,%t0\n\trotxr.w\t%T0\n\tand.b\t#0x80,%s0";
+	      goto end;
+	    case SHIFT_LSHIFTRT:
+	      if (TARGET_H8300)
+		info->special = "shal.b\t%s0\n\tmov.b\t%t0,%s0\n\trotxl.b\t%s0\n\trotl.b\t%t0\n\tand.b\t#0x01,%t0";
+	      else
+		info->special = "shal.b\t%s0\n\tmov.b\t%t0,%s0\n\trotxl.w\t%T0\n\tand.b\t#0x01,%t0";
+	      goto end;
+	    case SHIFT_ASHIFTRT:
 	      info->special = "shal.b\t%s0\n\tmov.b\t%t0,%s0\n\trotxl.b\t%s0\n\tsubx\t%t0,%t0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
+	      goto end;
 	    }
 	}
-      else if (count == 8)
+      else if (8 <= count && count <= 12)
 	{
+	  info->remainder = count - 8;
+
 	  switch (shift_type)
 	    {
 	    case SHIFT_ASHIFT:
 	      info->special = "mov.b\t%s0,%t0\n\tsub.b\t%s0,%s0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
+	      info->shift1  = "shal.b\t%t0";
+	      info->shift2  = "shal.b\t#2,%t0";
+	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      info->special = "mov.b\t%t0,%s0\n\tsub.b\t%t0,%t0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
+	      info->shift1  = "shlr.b\t%s0";
+	      info->shift2  = "shlr.b\t#2,%s0";
+	      goto end;
 	    case SHIFT_ASHIFTRT:
 	      if (TARGET_H8300)
-		info->special = "mov.b\t%t0,%s0\n\tshll\t%t0\n\tsubx\t%t0,%t0";
+		info->special = "mov.b\t%t0,%s0\n\tbld\t#7,%s0\n\tsubx\t%t0,%t0";
 	      else
 		info->special = "mov.b\t%t0,%s0\n\texts.w\t%T0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
+	      info->shift1 = "shar.b\t%s0";
+	      info->shift2 = "shar.b\t#2,%s0";
+	      goto end;
 	    }
 	}
-      else if (count == 9)
+      else if (count == 15 && shift_type == SHIFT_ASHIFTRT)
 	{
-	  switch (shift_type)
-	    {
-	    case SHIFT_ASHIFT:
-	      info->special = "mov.b\t%s0,%t0\n\tsub.b\t%s0,%s0\n\tshal.b\t%t0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    case SHIFT_LSHIFTRT:
-	      info->special = "mov.b\t%t0,%s0\n\tsub.b\t%t0,%t0\n\tshlr.b\t%s0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    case SHIFT_ASHIFTRT:
-	      if (TARGET_H8300)
-		info->special = "mov.b\t%t0,%s0\n\tbld\t#7,%s0\n\tsubx\t%t0,%t0\n\tshar.b\t%s0";
-	      else
-		info->special = "mov.b\t%t0,%s0\n\texts.w\t%T0\n\tshar.b\t%s0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    }
+	  info->special = "shll\t%t0\n\tsubx\t%t0,%t0\n\tmov.b\t%t0,%s0";
+	  goto end;
 	}
-      else if (count == 10)
-	{
-	  switch (shift_type)
-	    {
-	    case SHIFT_ASHIFT:
-	      if (TARGET_H8300S)
-		info->special = "mov.b\t%s0,%t0\n\tsub.b\t%s0,%s0\n\tshal.b\t#2,%t0";
-	      else
-		info->special = "mov.b\t%s0,%t0\n\tsub.b\t%s0,%s0\n\tshal.b\t%t0\n\tshal.b\t%t0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    case SHIFT_LSHIFTRT:
-	      if (TARGET_H8300S)
-		info->special = "mov.b\t%t0,%s0\n\tsub.b\t%t0,%t0\n\tshlr.b\t#2,%s0";
-	      else
-		info->special = "mov.b\t%t0,%s0\n\tsub.b\t%t0,%t0\n\tshlr.b\t%s0\n\tshlr.b\t%s0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    case SHIFT_ASHIFTRT:
-	      if (TARGET_H8300)
-		info->special = "mov.b\t%t0,%s0\n\tbld\t#7,%s0\n\tsubx\t%t0,%t0\n\tshar.b\t%s0\n\tshar.b\t%s0";
-	      else if (TARGET_H8300H)
-		info->special = "mov.b\t%t0,%s0\n\texts.w\t%T0\n\tshar.b\t%s0\n\tshar.b\t%s0";
-	      else if (TARGET_H8300S)
-		info->special = "mov.b\t%t0,%s0\n\texts.w\t%T0\n\tshar.b\t#2,%s0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    }
-	}
-      else if (count == 11)
-	{
-	  switch (shift_type)
-	    {
-	    case SHIFT_ASHIFT:
-	      if (TARGET_H8300S)
-		info->special = "mov.b\t%s0,%t0\n\tsub.b\t%s0,%s0\n\tshal.b\t#2,%t0\n\tshal.b\t%t0";
-	      else
-		info->special = "mov.b\t%s0,%t0\n\tsub.b\t%s0,%s0\n\tshal.b\t%t0\n\tshal.b\t%t0\n\tshal.b\t%t0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    case SHIFT_LSHIFTRT:
-	      if (TARGET_H8300S)
-		info->special = "mov.b\t%t0,%s0\n\tsub.b\t%t0,%t0\n\tshlr.b\t#2,%s0\n\tshlr.b\t%s0";
-	      else
-		info->special = "mov.b\t%t0,%s0\n\tsub.b\t%t0,%t0\n\tshlr.b\t%s0\n\tshlr.b\t%s0\n\tshlr.b\t%s0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    case SHIFT_ASHIFTRT:
-	      if (TARGET_H8300)
-		info->special = "mov.b\t%t0,%s0\n\tbld\t#7,%s0\n\tsubx\t%t0,%t0\n\tshar.b\t%s0\n\tshar.b\t%s0\n\tshar.b\t%s0";
-	      else if (TARGET_H8300H)
-		info->special = "mov.b\t%t0,%s0\n\texts.w\t%T0\n\tshar.b\t%s0\n\tshar.b\t%s0\n\tshar.b\t%s0";
-	      else if (TARGET_H8300S)
-		info->special = "mov.b\t%t0,%s0\n\texts.w\t%T0\n\tshar.b\t#2,%s0\n\tshar.b\t%s0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    }
-	}
-      else if (count == 12)
-	{
-	  switch (shift_type)
-	    {
-	    case SHIFT_ASHIFT:
-	      if (TARGET_H8300S)
-		info->special = "mov.b\t%s0,%t0\n\tsub.b\t%s0,%s0\n\tshal.b\t#2,%t0\n\tshal.b\t#2,%t0";
-	      else
-		info->special = "mov.b\t%s0,%t0\n\tsub.b\t%s0,%s0\n\tshal.b\t%t0\n\tshal.b\t%t0\n\tshal.b\t%t0\n\tshal.b\t%t0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    case SHIFT_LSHIFTRT:
-	      if (TARGET_H8300S)
-		info->special = "mov.b\t%t0,%s0\n\tsub.b\t%t0,%t0\n\tshlr.b\t#2,%s0\n\tshlr.b\t#2,%s0";
-	      else
-		info->special = "mov.b\t%t0,%s0\n\tsub.b\t%t0,%t0\n\tshlr.b\t%s0\n\tshlr.b\t%s0\n\tshlr.b\t%s0\n\tshlr.b\t%s0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    case SHIFT_ASHIFTRT:
-	      if (TARGET_H8300)
-		info->special = "mov.b\t%t0,%s0\n\tbld\t#7,%s0\n\tsubx\t%t0,%t0\n\tshar.b\t%s0\n\tshar.b\t%s0\n\tshar.b\t%s0\n\tshar.b\t%s0";
-	      else if (TARGET_H8300H)
-		info->special = "mov.b\t%t0,%s0\n\texts.w\t%T0\n\tshar.b\t%s0\n\tshar.b\t%s0\n\tshar.b\t%s0\n\tshar.b\t%s0";
-	      else if (TARGET_H8300S)
-		info->special = "mov.b\t%t0,%s0\n\texts.w\t%T0\n\tshar.b\t#2,%s0\n\tshar.b\t#2,%s0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    }
-	}
-      else if ((!TARGET_H8300 && (count == 13 || count == 14))
-	       || count == 15)
-	{
-	  if (count == 15 && shift_type == SHIFT_ASHIFTRT)
-	    {
-	      info->special = "shll\t%t0\n\tsubx\t%t0,%t0\n\tmov.b\t%t0,%s0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    }
-	  else if (shift_type != SHIFT_ASHIFTRT)
-	    {
-	      info->shift1 = rotate_one[cpu_type][shift_type][shift_mode];
-	      if (TARGET_H8300S)
-	        info->shift2 = rotate_two[shift_type][shift_mode];
-	      else
-		info->shift2 = NULL;
-	      info->cc_valid_p = 0;
-	      return SHIFT_ROT_AND;
-	    }
-	}
-      break;
+      abort ();
 
     case SIshift:
-      if (count <= (TARGET_H8300 ? 2 : 4))
-	return SHIFT_INLINE;
-      else if (TARGET_H8300S && count <= 10)
-	return SHIFT_INLINE;
-      else if (count == 8 && TARGET_H8300)
+      if (count == 8 && TARGET_H8300)
 	{
 	  switch (shift_type)
 	    {
 	    case SHIFT_ASHIFT:
 	      info->special = "mov.b\t%y0,%z0\n\tmov.b\t%x0,%y0\n\tmov.b\t%w0,%x0\n\tsub.b\t%w0,%w0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
+	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      info->special = "mov.b\t%x0,%w0\n\tmov.b\t%y0,%x0\n\tmov.b\t%z0,%y0\n\tsub.b\t%z0,%z0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
+	      goto end;
 	    case SHIFT_ASHIFTRT:
 	      info->special = "mov.b\t%x0,%w0\n\tmov.b\t%y0,%x0\n\tmov.b\t%z0,%y0\n\tshll\t%z0\n\tsubx\t%z0,%z0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
+	      goto end;
 	    }
 	}
       else if (count == 8 && !TARGET_H8300)
@@ -2298,206 +2500,121 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	    {
 	    case SHIFT_ASHIFT:
 	      info->special = "mov.w\t%e0,%f4\n\tmov.b\t%s4,%t4\n\tmov.b\t%t0,%s4\n\tmov.b\t%s0,%t0\n\tsub.b\t%s0,%s0\n\tmov.w\t%f4,%e0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
+	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      info->special = "mov.w\t%e0,%f4\n\tmov.b\t%t0,%s0\n\tmov.b\t%s4,%t0\n\tmov.b\t%t4,%s4\n\textu.w\t%f4\n\tmov.w\t%f4,%e0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
+	      goto end;
 	    case SHIFT_ASHIFTRT:
 	      info->special = "mov.w\t%e0,%f4\n\tmov.b\t%t0,%s0\n\tmov.b\t%s4,%t0\n\tmov.b\t%t4,%s4\n\texts.w\t%f4\n\tmov.w\t%f4,%e0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
+	      goto end;
 	    }
 	}
-      else if (count == 16)
+      else if (count == 15 && !TARGET_H8300)
 	{
 	  switch (shift_type)
 	    {
 	    case SHIFT_ASHIFT:
+	      info->special = "shlr.w\t%e0\n\tmov.w\t%f0,%e0\n\txor.w\t%f0,%f0\n\trotxr.l\t%S0";
+	      goto end;
+	    case SHIFT_LSHIFTRT:
+	      info->special = "shll.w\t%e0\n\tmov.w\t%e0,%f0\n\txor.w\t%e0,%e0\n\trotxl.l\t%S0";
+	      goto end;
+	    }
+	}
+      else if ((TARGET_H8300 && count == 16)
+	       || (TARGET_H8300H && 16 <= count && count <= 19)
+	       || (TARGET_H8300S && 16 <= count && count <= 21))
+	{
+	  info->remainder = count - 16;
+
+	  switch (shift_type)
+	    {
+	    case SHIFT_ASHIFT:
 	      info->special = "mov.w\t%f0,%e0\n\tsub.w\t%f0,%f0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
+	      info->shift1  = "shll.l\t%S0";
+	      info->shift2  = "shll.l\t#2,%S0";
+	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      info->special = "mov.w\t%e0,%f0\n\tsub.w\t%e0,%e0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
+	      info->shift1  = "shlr.l\t%S0";
+	      info->shift2  = "shlr.l\t#2,%S0";
+	      goto end;
 	    case SHIFT_ASHIFTRT:
 	      if (TARGET_H8300)
 		info->special = "mov.w\t%e0,%f0\n\tshll\t%z0\n\tsubx\t%z0,%z0\n\tmov.b\t%z0,%y0";
 	      else
 		info->special = "mov.w\t%e0,%f0\n\texts.l\t%S0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
+	      info->shift1 = "shar.l\t%S0";
+	      info->shift2 = "shar.l\t#2,%S0";
+	      goto end;
 	    }
 	}
-      else if (count == 17 && !TARGET_H8300)
+      else if ((TARGET_H8300H && count == 24)
+	       || (TARGET_H8300S && 24 <= count && count <= 25))
 	{
-	  switch (shift_type)
-	    {
-	    case SHIFT_ASHIFT:
-	      info->special = "mov.w\t%f0,%e0\n\tsub.w\t%f0,%f0\n\tshll.l\t%S0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    case SHIFT_LSHIFTRT:
-	      info->special = "mov.w\t%e0,%f0\n\tsub.w\t%e0,%e0\n\tshlr.l\t%S0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    case SHIFT_ASHIFTRT:
-	      info->special = "mov.w\t%e0,%f0\n\texts.l\t%S0\n\tshar.l\t%S0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    }
-	}
-      else if (count == 18 && !TARGET_H8300)
-	{
-	  switch (shift_type)
-	    {
-	    case SHIFT_ASHIFT:
-	      if (TARGET_H8300S)
-		info->special = "mov.w\t%f0,%e0\n\tsub.w\t%f0,%f0\n\tshll.l\t#2,%S0";
-	      else
-		info->special = "mov.w\t%f0,%e0\n\tsub.w\t%f0,%f0\n\tshll.l\t%S0\n\tshll.l\t%S0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    case SHIFT_LSHIFTRT:
-	      if (TARGET_H8300S)
-		info->special = "mov.w\t%e0,%f0\n\tsub.w\t%e0,%e0\n\tshlr.l\t#2,%S0";
-	      else
-		info->special = "mov.w\t%e0,%f0\n\tsub.w\t%e0,%e0\n\tshlr.l\t%S0\n\tshlr.l\t%S0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    case SHIFT_ASHIFTRT:
-	      if (TARGET_H8300S)
-		info->special = "mov.w\t%e0,%f0\n\texts.l\t%S0\n\tshar.l\t#2,%S0";
-	      else
-		info->special = "mov.w\t%e0,%f0\n\texts.l\t%S0\n\tshar.l\t%S0\n\tshar.l\t%S0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    }
-	}
-      else if (count == 19 && !TARGET_H8300)
-	{
-	  switch (shift_type)
-	    {
-	    case SHIFT_ASHIFT:
-	      if (TARGET_H8300S)
-		info->special = "mov.w\t%f0,%e0\n\tsub.w\t%f0,%f0\n\tshll.l\t#2,%S0\n\tshll.l\t%S0";
-	      else
-		info->special = "mov.w\t%f0,%e0\n\tsub.w\t%f0,%f0\n\tshll.l\t%S0\n\tshll.l\t%S0\n\tshll.l\t%S0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    case SHIFT_LSHIFTRT:
-	      if (TARGET_H8300S)
-		info->special = "mov.w\t%e0,%f0\n\tsub.w\t%e0,%e0\n\tshlr.l\t#2,%S0\n\tshlr.l\t%S0";
-	      else
-		info->special = "mov.w\t%e0,%f0\n\tsub.w\t%e0,%e0\n\tshlr.l\t%S0\n\tshlr.l\t%S0\n\tshlr.l\t%S0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    case SHIFT_ASHIFTRT:
-	      if (TARGET_H8300S)
-		info->special = "mov.w\t%e0,%f0\n\texts.l\t%S0\n\tshar.l\t#2,%S0\n\tshar.l\t%S0";
-	      else
-		info->special = "mov.w\t%e0,%f0\n\texts.l\t%S0\n\tshar.l\t%S0\n\tshar.l\t%S0\n\tshar.l\t%S0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    }
-	}
-      else if (count == 20 && TARGET_H8300S)
-	{
-	  switch (shift_type)
-	    {
-	    case SHIFT_ASHIFT:
-	      info->special = "mov.w\t%f0,%e0\n\tsub.w\t%f0,%f0\n\tshll.l\t#2,%S0\n\tshll.l\t#2,%S0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    case SHIFT_LSHIFTRT:
-	      info->special = "mov.w\t%e0,%f0\n\tsub.w\t%e0,%e0\n\tshlr.l\t#2,%S0\n\tshlr.l\t#2,%S0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    case SHIFT_ASHIFTRT:
-	      info->special = "mov.w\t%e0,%f0\n\texts.l\t%S0\n\tshar.l\t#2,%S0\n\tshar.l\t#2,%S0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    }
-	}
-      else if (count == 24 && !TARGET_H8300)
-	{
+	  info->remainder = count - 24;
+
 	  switch (shift_type)
 	    {
 	    case SHIFT_ASHIFT:
 	      info->special = "mov.b\t%s0,%t0\n\tsub.b\t%s0,%s0\n\tmov.w\t%f0,%e0\n\tsub.w\t%f0,%f0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
+	      info->shift1  = "shll.l\t%S0";
+	      info->shift2  = "shll.l\t#2,%S0";
+	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      info->special = "mov.w\t%e0,%f0\n\tmov.b\t%t0,%s0\n\textu.w\t%f0\n\textu.l\t%S0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
+	      info->shift1  = "shlr.l\t%S0";
+	      info->shift2  = "shlr.l\t#2,%S0";
+	      goto end;
 	    case SHIFT_ASHIFTRT:
 	      info->special = "mov.w\t%e0,%f0\n\tmov.b\t%t0,%s0\n\texts.w\t%f0\n\texts.l\t%S0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
-	    }
-	}
-      else if (count >= 28 && count <= 30 && !TARGET_H8300)
-	{
-	  if (shift_type == SHIFT_ASHIFTRT)
-	    {
-	      return SHIFT_LOOP;
-	    }
-	  else
-	    {
-	      info->shift1 = rotate_one[cpu_type][shift_type][shift_mode];
-	      if (TARGET_H8300S)
-		info->shift2 = rotate_two[shift_type][shift_mode];
-	      else
-		info->shift2 = NULL;
-	      info->cc_valid_p = 0;
-	      return SHIFT_ROT_AND;
+	      info->shift1  = "shar.l\t%S0";
+	      info->shift2  = "shar.l\t#2,%S0";
+	      goto end;
 	    }
 	}
       else if (count == 31)
 	{
-	  if (shift_type == SHIFT_ASHIFTRT)
+	  if (TARGET_H8300)
 	    {
-	      if (TARGET_H8300)
-		info->special = "shll\t%z0\n\tsubx\t%w0,%w0\n\tmov.b\t%w0,%x0\n\tmov.w\t%f0,%e0";
-	      else
-		info->special = "shll\t%e0\n\tsubx\t%w0,%w0\n\tmov.b\t%w0,%x0\n\tmov.w\t%f0,%e0";
-	      info->cc_valid_p = 0;
-	      return SHIFT_SPECIAL;
+	      switch (shift_type)
+		{
+		case SHIFT_ASHIFT:
+		  info->special = "sub.w\t%e0,%e0\n\tshlr\t%w0\n\tmov.w\t%e0,%f0\n\trotxr\t%z0";
+		  goto end;
+		case SHIFT_LSHIFTRT:
+		  info->special = "sub.w\t%f0,%f0\n\tshll\t%z0\n\tmov.w\t%f0,%e0\n\trotxl\t%w0";
+		  goto end;
+		case SHIFT_ASHIFTRT:
+		  info->special = "shll\t%z0\n\tsubx\t%w0,%w0\n\tmov.b\t%w0,%x0\n\tmov.w\t%f0,%e0";
+		  goto end;
+		}
 	    }
 	  else
 	    {
-	      if (TARGET_H8300)
+	      switch (shift_type)
 		{
-		  if (shift_type == SHIFT_ASHIFT)
-		    info->special = "sub.w\t%e0,%e0\n\tshlr\t%w0\n\tmov.w\t%e0,%f0\n\trotxr\t%z0";
-		  else
-		    info->special = "sub.w\t%f0,%f0\n\tshll\t%z0\n\tmov.w\t%f0,%e0\n\trotxl\t%w0";
-		  info->cc_valid_p = 0;
-		  return SHIFT_SPECIAL;
-		}
-	      else
-		{
-		  info->shift1 = rotate_one[cpu_type][shift_type][shift_mode];
-		  if (TARGET_H8300S)
-		    info->shift2 = rotate_two[shift_type][shift_mode];
-		  else
-		    info->shift2 = NULL;
-		  info->cc_valid_p = 0;
-		  return SHIFT_ROT_AND;
+		case SHIFT_ASHIFT:
+		  info->special = "shlr.l\t%S0\n\txor.l\t%S0,%S0\n\trotxr.l\t%S0";
+		  goto end;
+		case SHIFT_LSHIFTRT:
+		  info->special = "shll.l\t%S0\n\txor.l\t%S0,%S0\n\trotxl.l\t%S0";
+		  goto end;
+		case SHIFT_ASHIFTRT:
+		  info->special = "shll\t%e0\n\tsubx\t%w0,%w0\n\tmov.b\t%w0,%x0\n\tmov.w\t%f0,%e0";
+		  goto end;
 		}
 	    }
 	}
-      break;
+      abort ();
 
     default:
       abort ();
     }
 
-  /* No fancy method is available.  Just loop.  */
-  return SHIFT_LOOP;
+ end:
+  if (!TARGET_H8300S)
+    info->shift2 = NULL;
 }
 
 /* Emit the assembler code for doing shifts.  */
@@ -2567,7 +2684,6 @@ emit_a_shift (insn, operands)
   else
     {
       int n = INTVAL (operands[2]);
-      enum shift_alg alg;
 
       /* If the count is negative, make it 0.  */
       if (n < 0)
@@ -2578,11 +2694,17 @@ emit_a_shift (insn, operands)
       else if ((unsigned int) n > GET_MODE_BITSIZE (mode))
 	n = GET_MODE_BITSIZE (mode);
 
-      alg = get_shift_alg (shift_type, shift_mode, n, &info);
+      get_shift_alg (shift_type, shift_mode, n, &info);
 
-      switch (alg)
+      switch (info.alg)
 	{
+	case SHIFT_SPECIAL:
+	  output_asm_insn (info.special, operands);
+	  /* Fall through.  */
+
 	case SHIFT_INLINE:
+	  n = info.remainder;
+
 	  /* Emit two bit shifts first.  */
 	  while (n > 1 && info.shift2 != NULL)
 	    {
@@ -2664,10 +2786,6 @@ emit_a_shift (insn, operands)
 	    return "";
 	  }
 
-	case SHIFT_SPECIAL:
-	  output_asm_insn (info.special, operands);
-	  return "";
-
 	case SHIFT_LOOP:
 	  /* A loop to shift by a "large" constant value.
 	     If we have shift-by-2 insns, use them.  */
@@ -2726,8 +2844,8 @@ expand_a_rotate (code, operands)
 
       /* If the rotate amount is less than or equal to 0,
 	 we go out of the loop.  */
-      emit_cmp_and_jump_insns (rotate_amount, GEN_INT (0),
-			       LE, NULL_RTX, QImode, 0, 0, end_label);
+      emit_cmp_and_jump_insns (rotate_amount, GEN_INT (0), LE, NULL_RTX,
+			       QImode, 0, end_label);
 
       /* Initialize the loop counter.  */
       emit_move_insn (counter, rotate_amount);
@@ -2744,8 +2862,8 @@ expand_a_rotate (code, operands)
 
       /* If the loop counter is non-zero, we go back to the beginning
 	 of the loop.  */
-      emit_cmp_and_jump_insns (counter, GEN_INT (0),
-			       NE, NULL_RTX, QImode, 1, 0, start_label);
+      emit_cmp_and_jump_insns (counter, GEN_INT (0), NE, NULL_RTX, QImode, 1,
+			       start_label);
 
       emit_label (end_label);
     }
@@ -2935,7 +3053,7 @@ h8300_interrupt_function_p (func)
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("interrupt_handler", DECL_MACHINE_ATTRIBUTES (func));
+  a = lookup_attribute ("interrupt_handler", DECL_ATTRIBUTES (func));
   return a != NULL_TREE;
 }
 
@@ -2951,7 +3069,7 @@ h8300_os_task_function_p (func)
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("OS_Task", DECL_MACHINE_ATTRIBUTES (func));
+  a = lookup_attribute ("OS_Task", DECL_ATTRIBUTES (func));
   return a != NULL_TREE;
 }
 
@@ -2967,7 +3085,7 @@ h8300_monitor_function_p (func)
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("monitor", DECL_MACHINE_ATTRIBUTES (func));
+  a = lookup_attribute ("monitor", DECL_ATTRIBUTES (func));
   return a != NULL_TREE;
 }
 
@@ -2983,7 +3101,7 @@ h8300_funcvec_function_p (func)
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("function_vector", DECL_MACHINE_ATTRIBUTES (func));
+  a = lookup_attribute ("function_vector", DECL_ATTRIBUTES (func));
   return a != NULL_TREE;
 }
 
@@ -2999,7 +3117,7 @@ h8300_eightbit_data_p (decl)
   if (TREE_CODE (decl) != VAR_DECL)
     return 0;
 
-  a = lookup_attribute ("eightbit_data", DECL_MACHINE_ATTRIBUTES (decl));
+  a = lookup_attribute ("eightbit_data", DECL_ATTRIBUTES (decl));
   return a != NULL_TREE;
 }
 
@@ -3015,15 +3133,11 @@ h8300_tiny_data_p (decl)
   if (TREE_CODE (decl) != VAR_DECL)
     return 0;
 
-  a = lookup_attribute ("tiny_data", DECL_MACHINE_ATTRIBUTES (decl));
+  a = lookup_attribute ("tiny_data", DECL_ATTRIBUTES (decl));
   return a != NULL_TREE;
 }
 
-/* Return nonzero if ATTR is a valid attribute for DECL.
-   ATTRIBUTES are any existing attributes and ARGS are the arguments
-   supplied with ATTR.
-
-   Supported attributes:
+/* Supported attributes:
 
    interrupt_handler: output a prologue and epilogue suitable for an
    interrupt handler.
@@ -3037,47 +3151,87 @@ h8300_tiny_data_p (decl)
    tiny_data: This variable lives in the tiny data area and can be
    referenced with 16-bit absolute memory references.  */
 
-static int
-h8300_valid_decl_attribute (decl, attributes, attr, args)
-     tree decl;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree attr;
-     tree args;
+const struct attribute_spec h8300_attribute_table[] =
 {
-  if (args != NULL_TREE)
-    return 0;
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "interrupt_handler", 0, 0, true,  false, false, h8300_handle_fndecl_attribute },
+  { "OS_Task",           0, 0, true,  false, false, h8300_handle_fndecl_attribute },
+  { "monitor",           0, 0, true,  false, false, h8300_handle_fndecl_attribute },
+  { "function_vector",   0, 0, true,  false, false, h8300_handle_fndecl_attribute },
+  { "eightbit_data",     0, 0, true,  false, false, h8300_handle_eightbit_data_attribute },
+  { "tiny_data",         0, 0, true,  false, false, h8300_handle_tiny_data_attribute },
+  { NULL,                0, 0, false, false, false, NULL }
+};
 
-  if (is_attribute_p ("interrupt_handler", attr)
-      || is_attribute_p ("OS_Task", attr)
-      || is_attribute_p ("monitor", attr)
-      || is_attribute_p ("function_vector", attr))
-    return TREE_CODE (decl) == FUNCTION_DECL;
 
-  if (is_attribute_p ("eightbit_data", attr)
-      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+/* Handle an attribute requiring a FUNCTION_DECL; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+h8300_handle_fndecl_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      if (DECL_INITIAL (decl) == NULL_TREE)
-	{
-	  warning ("Only initialized variables can be placed into the 8-bit area.");
-	  return 0;
-	}
+      warning ("`%s' attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle an "eightbit_data" attribute; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+h8300_handle_eightbit_data_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  tree decl = *node;
+
+  if (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
+    {
       DECL_SECTION_NAME (decl) = build_string (7, ".eight");
-      return 1;
     }
-
-  if (is_attribute_p ("tiny_data", attr)
-      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+  else
     {
-      if (DECL_INITIAL (decl) == NULL_TREE)
-	{
-	  warning ("Only initialized variables can be placed into the 8-bit area.");
-	  return 0;
-	}
-      DECL_SECTION_NAME (decl) = build_string (6, ".tiny");
-      return 1;
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
     }
 
-  return 0;
+  return NULL_TREE;
+}
+
+/* Handle an "tiny_data" attribute; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+h8300_handle_tiny_data_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  tree decl = *node;
+
+  if (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
+    {
+      DECL_SECTION_NAME (decl) = build_string (6, ".tiny");
+    }
+  else
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
 }
 
 void
@@ -3086,13 +3240,13 @@ h8300_encode_label (decl)
 {
   const char *str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
   int len = strlen (str);
-  char *newstr;
+  char *newstr = alloca (len + 2);
 
-  newstr = ggc_alloc_string (NULL, len + 1);
+  newstr[0] = '&';
+  strcpy (&newstr[1], str);
 
-  strcpy (newstr + 1, str);
-  *newstr = '&';
-  XSTR (XEXP (DECL_RTL (decl), 0), 0) = newstr;
+  XSTR (XEXP (DECL_RTL (decl), 0), 0) =
+    ggc_alloc_string (newstr, len + 1);
 }
 
 const char *
@@ -3134,7 +3288,7 @@ h8300_adjust_insn_length (insn, length)
 {
   rtx pat;
 
-  /* We must filter these ou before calling get_attr_adjust_length.  */
+  /* We must filter these out before calling get_attr_adjust_length.  */
   if (GET_CODE (PATTERN (insn)) == USE
       || GET_CODE (PATTERN (insn)) == CLOBBER
       || GET_CODE (PATTERN (insn)) == SEQUENCE
@@ -3311,3 +3465,14 @@ h8300_adjust_insn_length (insn, length)
 
   return 0;
 }
+
+#ifndef OBJECT_FORMAT_ELF
+static void
+h8300_asm_named_section (name, flags)
+     const char *name;
+     unsigned int flags ATTRIBUTE_UNUSED;
+{
+  /* ??? Perhaps we should be using default_coff_asm_named_section.  */
+  fprintf (asm_out_file, "\t.section %s\n", name);
+}
+#endif /* ! OBJECT_FORMAT_ELF */

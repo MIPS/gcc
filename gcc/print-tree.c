@@ -1,29 +1,30 @@
 /* Prints out tree in human readable form - GNU C-compiler
-   Copyright (C) 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
-   Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "config.h"
 #include "system.h"
 #include "tree.h"
 #include "ggc.h"
+#include "langhooks.h"
 
 /* Define the hash table of nodes already seen.
    Such nodes are not repeated; brief cross-references are used.  */
@@ -433,8 +434,8 @@ print_node (file, prefix, node, indent)
 	}
 
       print_node_brief (file, "context", DECL_CONTEXT (node), indent + 4);
-      print_node_brief (file, "machine_attributes",
-			DECL_MACHINE_ATTRIBUTES (node), indent + 4);
+      print_node_brief (file, "attributes",
+			DECL_ATTRIBUTES (node), indent + 4);
       print_node_brief (file, "abstract_origin",
 			DECL_ABSTRACT_ORIGIN (node), indent + 4);
 
@@ -442,7 +443,7 @@ print_node (file, prefix, node, indent)
       print_node (file, "result", DECL_RESULT_FLD (node), indent + 4);
       print_node_brief (file, "initial", DECL_INITIAL (node), indent + 4);
 
-      print_lang_decl (file, node, indent);
+      (*lang_hooks.print_decl) (file, node, indent);
 
       if (DECL_RTL_SET_P (node))
 	{
@@ -574,7 +575,7 @@ print_node (file, prefix, node, indent)
       if (TYPE_CONTEXT (node))
 	print_node_brief (file, "context", TYPE_CONTEXT (node), indent + 4);
 
-      print_lang_type (file, node, indent);
+      (*lang_hooks.print_type) (file, node, indent);
 
       if (TYPE_POINTER_TO (node) || TREE_CHAIN (node))
 	indent_to (file, indent + 3);
@@ -719,7 +720,7 @@ print_node (file, prefix, node, indent)
 	  break;
 
 	case IDENTIFIER_NODE:
-	  print_lang_identifier (file, node, indent);
+	  (*lang_hooks.print_identifier) (file, node, indent);
 	  break;
 
 	case TREE_LIST:
@@ -740,14 +741,9 @@ print_node (file, prefix, node, indent)
 	      }
 	  break;
 
-	case OP_IDENTIFIER:
-	  print_node (file, "op1", TREE_PURPOSE (node), indent + 4);
-	  print_node (file, "op2", TREE_VALUE (node), indent + 4);
-	  break;
-
 	default:
 	  if (TREE_CODE_CLASS (TREE_CODE (node)) == 'x')
-	    lang_print_xnode (file, node, indent);
+	    (*lang_hooks.print_xnode) (file, node, indent);
 	  break;
 	}
 

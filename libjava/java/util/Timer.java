@@ -39,8 +39,8 @@ package java.util;
  * scheduling guarantees more or less that the task will be executed at a
  * specific time, but if there is ever a delay in execution then the period
  * between successive executions will be shorter. The first method of
- * repeated scheduling is prefered for repeated tasks in response to user
- * interaction, the second method of repeated scheduling is prefered for tasks
+ * repeated scheduling is preferred for repeated tasks in response to user
+ * interaction, the second method of repeated scheduling is preferred for tasks
  * that act like alarms.
  * <p>
  * The Timer keeps a binary heap as a task priority queue which means that
@@ -65,7 +65,7 @@ public class Timer
     /** Default size of this queue */
     private final int DEFAULT_SIZE = 32;
 
-    /** Wheter to return null when there is nothing in the queue */
+    /** Whether to return null when there is nothing in the queue */
     private boolean nullOnEmpty;
 
     /**
@@ -337,7 +337,7 @@ public class Timer
 		}
 	    }
 
-	  // Calculate next time and possibly re-enqueue
+	  // Calculate next time and possibly re-enqueue.
 	  if (task.scheduled >= 0)
 	    {
 	      if (task.fixed)
@@ -348,7 +348,15 @@ public class Timer
 		{
 		  task.scheduled = task.period + System.currentTimeMillis();
 		}
-	      queue.enqueue(task);
+
+	      try
+	        {
+	          queue.enqueue(task);
+		}
+	      catch (IllegalStateException ise)
+	        {
+		  // Ignore. Apparently the Timer queue has been stopped.
+		}
 	    }
 	}
     }
@@ -375,7 +383,7 @@ public class Timer
   private boolean canceled;
 
   /**
-   * Creates a new Timer with a non deamon Thread as Scheduler, with normal
+   * Creates a new Timer with a non daemon Thread as Scheduler, with normal
    * priority and a default name.
    */
   public Timer()
@@ -384,7 +392,7 @@ public class Timer
   }
 
   /**
-   * Creates a new Timer with a deamon Thread as scheduler if deamon is true,
+   * Creates a new Timer with a daemon Thread as scheduler if daemon is true,
    * with normal priority and a default name.
    */
   public Timer(boolean daemon)
@@ -393,7 +401,7 @@ public class Timer
   }
 
   /**
-   * Creates a new Timer with a deamon Thread as scheduler if deamon is true,
+   * Creates a new Timer with a daemon Thread as scheduler if daemon is true,
    * with the priority given and a default name.
    */
   private Timer(boolean daemon, int priority)
@@ -402,7 +410,7 @@ public class Timer
   }
 
   /**
-   * Creates a new Timer with a deamon Thread as scheduler if deamon is true,
+   * Creates a new Timer with a daemon Thread as scheduler if daemon is true,
    * with the priority and name given.E
    */
   private Timer(boolean daemon, int priority, String name)

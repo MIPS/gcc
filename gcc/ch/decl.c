@@ -1056,7 +1056,7 @@ do_decl (name, type, is_static, lifetime_bound, opt_init, opt_external)
 	  if (CH_TYPE_NONVALUE_P (type))
 	    {
 	      error_with_decl (decl,
-			       "no initialisation allowed for `%s'");
+			       "no initialization allowed for `%s'");
 	      temp = NULL_TREE;
 	    }
 	  else if (TREE_CODE (type) == REFERENCE_TYPE)
@@ -2278,7 +2278,7 @@ find_granted_decls ()
 	    }
 	  if (!found)
 	    {
-	      error_with_decl (alias, "Nothing named `%s' to grant.");
+	      error_with_decl (alias, "nothing named `%s' to grant");
 	      DECL_ABSTRACT_ORIGIN (alias) = error_mark_node;
 	    }
 	}
@@ -4475,7 +4475,7 @@ layout_enum (enumtype)
     }
 
   /* Fix all error_mark_nodes in enum. Increment maxnode and assign value.
-     This is neccessary to make a duplicate value check in the enum */
+     This is necessary to make a duplicate value check in the enum */
   for (pair = values; pair; pair = TREE_CHAIN (pair))
     {
       tree decl = TREE_VALUE (pair);
@@ -4615,7 +4615,7 @@ build_enumerator (name, value)
       if (!unnamed_value_warned)
 	{
 	  unnamed_value_warned = 1;
-	  warning ("undefined value in SET mode is obsolete and deprecated.");
+	  warning ("undefined value in SET mode is obsolete and deprecated");
 	}
       sprintf (buf, "__star_%d", next_dummy_enum_value++);
       name = get_identifier (buf);

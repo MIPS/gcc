@@ -113,7 +113,6 @@ static SPEW_INLINE void consume_token PARAMS ((void));
 static SPEW_INLINE int read_process_identifier PARAMS ((YYSTYPE *));
 
 static SPEW_INLINE void feed_input PARAMS ((struct unparsed_text *));
-static SPEW_INLINE void end_input PARAMS ((void));
 static SPEW_INLINE void snarf_block PARAMS ((const char *, int));
 static tree snarf_defarg PARAMS ((void));
 static int frob_id PARAMS ((int, int, tree *));
@@ -174,7 +173,7 @@ static tree defarg_parm;    /* current default parameter */
 static tree defarg_depfns;  /* list of unprocessed fns met during current fn. */
 static tree defarg_fnsdone; /* list of fns with circular defargs */
 
-/* Initialize obstacks. Called once, from init_parse.  */
+/* Initialize obstacks. Called once, from cxx_init.  */
 
 void
 init_spew ()
@@ -238,13 +237,10 @@ read_process_identifier (pyylval)
      the user's namespace, but is if '$' or double underscores are.  */
 
 #if !defined(JOINER) || JOINER == '$'
-  if (THIS_NAME_P (id)
-      || VPTR_NAME_P (id)
-      || DESTRUCTOR_NAME_P (id)
+  if (VPTR_NAME_P (id)
       || VTABLE_NAME_P (id)
       || TEMP_NAME_P (id)
-      || ANON_AGGRNAME_P (id)
-      || ANON_PARMNAME_P (id))
+      || ANON_AGGRNAME_P (id))
      warning (
 "identifier name `%s' conflicts with GNU C++ internal naming strategy",
 	      IDENTIFIER_POINTER (id));
@@ -331,8 +327,6 @@ read_token (t)
 #undef YYCODE
 
     case CPP_EOF:
-      if (cpp_pop_buffer (parse_in) != 0)
-	goto retry;
       t->yychar = 0;
       break;
       
@@ -360,7 +354,7 @@ read_token (t)
   return t->yychar;
 }
 
-static SPEW_INLINE void
+static void
 feed_input (input)
      struct unparsed_text *input;
 {
@@ -399,7 +393,7 @@ feed_input (input)
   feed = f;
 }
 
-static SPEW_INLINE void
+void
 end_input ()
 {
   struct feed *f = feed;
@@ -833,8 +827,13 @@ yylex ()
     got_object = NULL_TREE;
 
   yychar = yychr;
-  yylval = nth_token (0)->yylval;
-  lineno = nth_token (0)->lineno;
+  {
+    struct token *tok = nth_token (0);
+    
+    yylval = tok->yylval;
+    if (tok->lineno)
+      lineno = tok->lineno;
+  }
 
 #ifdef SPEW_DEBUG    
   if (spew_debug)
@@ -1353,7 +1352,7 @@ do_pending_defargs ()
         {
           /* This function's default args depend on unprocessed default args
              of defarg_fns. We will need to reprocess this function, and
-             check for circular dependancies.  */
+             check for circular dependencies.  */
           tree a, b;
           
           for (a = defarg_depfns, b = TREE_PURPOSE (current); a && b; 
@@ -1479,7 +1478,7 @@ yyerror (msgid)
   else if (last_token == CPP_CHAR || last_token == CPP_WCHAR)
     {
       unsigned int val = TREE_INT_CST_LOW (yylval.ttype);
-      const char *ell = (last_token == CPP_CHAR) ? "" : "L";
+      const char *const ell = (last_token == CPP_CHAR) ? "" : "L";
       if (val <= UCHAR_MAX && ISGRAPH (val))
 	error ("%s before %s'%c'", string, ell, val);
       else

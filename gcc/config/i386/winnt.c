@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Windows NT.
    Contributed by Douglas Rupp (drupp@cs.washington.edu)
-   Copyright (C) 1995, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -29,6 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "tm_p.h"
 #include "toplev.h"
+#include "hashtab.h"
 
 /* i386/PE specific attribute support.
 
@@ -48,51 +49,54 @@ int i386_pe_dllimport_p PARAMS ((tree));
 void i386_pe_mark_dllexport PARAMS ((tree));
 void i386_pe_mark_dllimport PARAMS ((tree));
 
-/* Return nonzero if ATTR is a valid attribute for DECL.
-   ATTRIBUTES are any existing attributes and ARGS are the arguments
-   supplied with ATTR.  */
-
-int
-i386_pe_valid_decl_attribute_p (decl, attributes, attr, args)
-     tree decl;
-     tree attributes;
-     tree attr;
+/* Handle a "dllimport" or "dllexport" attribute;
+   arguments as in struct attribute_spec.handler.  */
+tree
+ix86_handle_dll_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
      tree args;
+     int flags;
+     bool *no_add_attrs;
 {
-  if (args == NULL_TREE)
+  /* These attributes may apply to structure and union types being created,
+     but otherwise should pass to the declaration involved.  */
+  if (!DECL_P (*node))
     {
-      if (is_attribute_p ("dllexport", attr))
-	return 1;
-      if (is_attribute_p ("dllimport", attr))
-	return 1;
-      if (is_attribute_p ("shared", attr))
-	return TREE_CODE (decl) == VAR_DECL;
+      if (flags & ((int) ATTR_FLAG_DECL_NEXT | (int) ATTR_FLAG_FUNCTION_NEXT
+		   | (int) ATTR_FLAG_ARRAY_NEXT))
+	{
+	  *no_add_attrs = true;
+	  return tree_cons (name, args, NULL_TREE);
+	}
+      if (TREE_CODE (*node) != RECORD_TYPE && TREE_CODE (*node) != UNION_TYPE)
+	{
+	  warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+	  *no_add_attrs = true;
+	}
     }
 
-  return 0;
+  return NULL_TREE;
 }
 
-/* Return nonzero if ATTR is a valid attribute for TYPE.
-   ATTRIBUTES are any existing attributes and ARGS are the arguments
-   supplied with ATTR.  */
-
-int
-i386_pe_valid_type_attribute_p (type, attributes, attr, args)
-     tree type;
-     tree attributes;
-     tree attr;
-     tree args;
+/* Handle a "shared" attribute;
+   arguments as in struct attribute_spec.handler.  */
+tree
+ix86_handle_shared_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
 {
-  if (args == NULL_TREE
-      && (TREE_CODE (type) == RECORD_TYPE || TREE_CODE (type) == UNION_TYPE))
+  if (TREE_CODE (*node) != VAR_DECL)
     {
-      if (is_attribute_p ("dllexport", attr))
-	return 1;
-      if (is_attribute_p ("dllimport", attr))
-	return 1;
+      warning ("`%s' attribute only applies to variables",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
     }
 
-  return ix86_valid_type_attribute_p (type, attributes, attr, args);
+  return NULL_TREE;
 }
 
 /* Return the type that we should use to determine if DECL is
@@ -131,7 +135,7 @@ i386_pe_dllexport_p (decl)
   if (TREE_CODE (decl) != VAR_DECL
       && TREE_CODE (decl) != FUNCTION_DECL)
     return 0;
-  exp = lookup_attribute ("dllexport", DECL_MACHINE_ATTRIBUTES (decl));
+  exp = lookup_attribute ("dllexport", DECL_ATTRIBUTES (decl));
   if (exp)
     return 1;
 
@@ -162,7 +166,7 @@ i386_pe_dllimport_p (decl)
   if (TREE_CODE (decl) != VAR_DECL
       && TREE_CODE (decl) != FUNCTION_DECL)
     return 0;
-  imp = lookup_attribute ("dllimport", DECL_MACHINE_ATTRIBUTES (decl));
+  imp = lookup_attribute ("dllimport", DECL_ATTRIBUTES (decl));
   if (imp)
     return 1;
 
@@ -255,7 +259,7 @@ i386_pe_mark_dllimport (decl)
     abort ();
   if (i386_pe_dllexport_name_p (oldname))
     {
-      error ("`%s' declared as both exported to and imported from a DLL.",
+      error ("`%s' declared as both exported to and imported from a DLL",
              IDENTIFIER_POINTER (DECL_NAME (decl)));
       return;
     }
@@ -455,6 +459,98 @@ i386_pe_unique_section (decl, reloc)
 
   DECL_SECTION_NAME (decl) = build_string (len, string);
 }
+
+/* Select a set of attributes for section NAME based on the properties
+   of DECL and whether or not RELOC indicates that DECL's initializer
+   might contain runtime relocations.
+
+   We make the section read-only and executable for a function decl,
+   read-only for a const data decl, and writable for a non-const data decl.
+
+   If the section has already been defined, to not allow it to have
+   different attributes, as (1) this is ambiguous since we're not seeing
+   all the declarations up front and (2) some assemblers (e.g. SVR4)
+   do not recoginize section redefinitions.  */
+/* ??? This differs from the "standard" PE implementation in that we
+   handle the SHARED variable attribute.  Should this be done for all
+   PE targets?  */
+
+#define SECTION_PE_SHARED	SECTION_MACH_DEP
+
+unsigned int
+i386_pe_section_type_flags (decl, name, reloc)
+     tree decl;
+     const char *name;
+     int reloc;
+{
+  static htab_t htab;
+  unsigned int flags;
+  unsigned int **slot;
+
+  /* The names we put in the hashtable will always be the unique
+     versions gived to us by the stringtable, so we can just use
+     their addresses as the keys.  */
+  if (!htab)
+    htab = htab_create (31, htab_hash_pointer, htab_eq_pointer, NULL);
+
+  if (decl && TREE_CODE (decl) == FUNCTION_DECL)
+    flags = SECTION_CODE;
+  else if (decl && DECL_READONLY_SECTION (decl, reloc))
+    flags = 0;
+  else
+    {
+      flags = SECTION_WRITE;
+
+      if (decl && TREE_CODE (decl) == VAR_DECL
+	  && lookup_attribute ("shared", DECL_ATTRIBUTES (decl)))
+	flags |= SECTION_PE_SHARED;
+    }
+
+  if (decl && DECL_ONE_ONLY (decl))
+    flags |= SECTION_LINKONCE;
+
+  /* See if we already have an entry for this section.  */
+  slot = (unsigned int **) htab_find_slot (htab, name, INSERT);
+  if (!*slot)
+    {
+      *slot = (unsigned int *) xmalloc (sizeof (unsigned int));
+      **slot = flags;
+    }
+  else
+    {
+      if (decl && **slot != flags)
+	error_with_decl (decl, "%s causes a section type conflict");
+    }
+
+  return flags;
+}
+
+void
+i386_pe_asm_named_section (name, flags)
+     const char *name;
+     unsigned int flags;
+{
+  char flagchars[8], *f = flagchars;
+
+  if (flags & SECTION_CODE)
+    *f++ = 'x';
+  if (flags & SECTION_WRITE)
+    *f++ = 'w';
+  if (flags & SECTION_PE_SHARED)
+    *f++ = 's';
+  *f = '\0';
+
+  fprintf (asm_out_file, "\t.section\t%s,\"%s\"\n", name, flagchars);
+
+  if (flags & SECTION_LINKONCE)
+    {
+      /* Functions may have been compiled at various levels of
+         optimization so we can't use `same_size' here.
+         Instead, have the linker pick one.  */
+      fprintf (asm_out_file, "\t.linkonce %s\n",
+	       (flags & SECTION_CODE ? "discard" : "same_size"));
+    }
+}
 
 /* The Microsoft linker requires that every function be marked as
    DT_FCN.  When using gas on cygwin, we must emit appropriate .type
@@ -515,7 +611,7 @@ struct export_list
 {
   struct export_list *next;
   const char *name;
-  int is_data;		/* used to type tag exported symbols. */
+  int is_data;		/* used to type tag exported symbols.  */
 };
 
 static struct export_list *export_head;

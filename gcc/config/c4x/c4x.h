@@ -1194,269 +1194,6 @@ CUMULATIVE_ARGS;
 	fprintf (FILE, "\tpop\tar2\n");				\
      }
 
-/* There are three profiling modes for basic blocks available.
-   The modes are selected at compile time by using the options
-   -a or -ax of the gnu compiler.
-   The variable `profile_block_flag' will be set according to the
-   selected option.
-
-   profile_block_flag == 0, no option used:
-
-      No profiling done.
-
-   profile_block_flag == 1, -a option used.
-
-      Count frequency of execution of every basic block.
-
-   profile_block_flag == 2, -ax option used.
-
-      Generate code to allow several different profiling modes at run time. 
-      Available modes are:
-             Produce a trace of all basic blocks.
-             Count frequency of jump instructions executed.
-      In every mode it is possible to start profiling upon entering
-      certain functions and to disable profiling of some other functions.
-
-    The result of basic-block profiling will be written to a file `bb.out'.
-    If the -ax option is used parameters for the profiling will be read
-    from file `bb.in'.
-
-*/
-
-#define FUNCTION_BLOCK_PROFILER(FILE, BLOCKNO) 			\
-  if (profile_block_flag == 2)					\
-    {								\
-      if (! TARGET_C3X)						\
-      {								\
-	fprintf (FILE, "\tpush\tst\n");				\
-	fprintf (FILE, "\tpush\tar2\n");			\
-	fprintf (FILE, "\tpush\tr2\n");				\
-	fprintf (FILE, "\tldhi\t^LPBX0,ar2\n");			\
-	fprintf (FILE, "\tor\t#LPBX0,ar2\n");			\
-	if (BLOCKNO > 32767)					\
-	  {							\
-	    fprintf (FILE, "\tldhi\t%d,r2\n", (BLOCKNO) >> 16);	\
-	    fprintf (FILE, "\tor\t%d,r2\n", (BLOCKNO));		\
-	  }							\
- 	else							\
-	  {							\
-	    fprintf (FILE, "\tldiu\t%d,r2\n", (BLOCKNO));	\
-	  }							\
-	fprintf (FILE, "\tcall\t___bb_init_trace_func\n");	\
-	fprintf (FILE, "\tpop\tr2\n");				\
-	fprintf (FILE, "\tpop\tar2\n");				\
-	fprintf (FILE, "\tpop\tst\n");				\
-      }								\
-      else							\
-      {								\
-	fprintf (FILE, "\tpush\tst\n");				\
-	fprintf (FILE, "\tpush\tar2\n");			\
-	fprintf (FILE, "\tpush\tr2\n");				\
-	fprintf (FILE, "\tldiu\t^LPBX0,ar2\n");			\
-	fprintf (FILE, "\tlsh\t16,ar2\n");			\
-	fprintf (FILE, "\tor\t#LPBX0,ar2\n");			\
-	if (BLOCKNO > 32767)					\
-	  {							\
-	    fprintf (FILE, "\tldi\t%d,r2\n", (BLOCKNO) >> 16);	\
-	    fprintf (FILE, "\tlsh\t16,r2\n");			\
-	    fprintf (FILE, "\tor\t%d,r2\n", (BLOCKNO));		\
-	  }							\
- 	else							\
-	  {							\
-	    fprintf (FILE, "\tldiu\t%d,r2\n", (BLOCKNO));	\
-	  }							\
-	fprintf (FILE, "\tcall\t___bb_init_trace_func\n");	\
-	fprintf (FILE, "\tpop\tr2\n");				\
-	fprintf (FILE, "\tpop\tar2\n");				\
-	fprintf (FILE, "\tpop\tst\n");				\
-      }								\
-    }								\
-  else								\
-    {								\
-      if (! TARGET_C3X)						\
-      {								\
-	fprintf (FILE, "\tpush\tst\n");				\
-	fprintf (FILE, "\tpush\tar2\n");			\
-	fprintf (FILE, "\tldhi\t^LPBX0,ar2\n");			\
-	fprintf (FILE, "\tor\t#LPBX0,ar2\n");			\
-	fprintf (FILE, "\tcmpi\t0,*ar2\n");			\
-	fprintf (FILE, "\tbne\t$+2\n");				\
-	fprintf (FILE, "\tcall\t___bb_init_func\n");		\
-	fprintf (FILE, "\tpop\tar2\n");				\
-	fprintf (FILE, "\tpop\tst\n");				\
-      }								\
-      else							\
-      {								\
-	fprintf (FILE, "\tpush\tst\n");				\
-	fprintf (FILE, "\tpush\tar2\n");			\
-	fprintf (FILE, "\tpush\tr2\n");				\
-	fprintf (FILE, "\tldiu\t^LPBX0,ar2\n");			\
-	fprintf (FILE, "\tlsh\t16,ar2\n");			\
-	fprintf (FILE, "\tor\t#LPBX0,ar2\n");			\
-	fprintf (FILE, "\tldi\t*ar2,r2\n");			\
-	fprintf (FILE, "\tbne\t$+2\n");				\
-	fprintf (FILE, "\tcall\t___bb_init_func\n");		\
-	fprintf (FILE, "\tpop\tr2\n");				\
-	fprintf (FILE, "\tpop\tar2\n");				\
-	fprintf (FILE, "\tpop\tst\n");				\
-      }								\
-    }
-
-#define BLOCK_PROFILER(FILE, BLOCKNO) 				\
-  if (profile_block_flag == 2)					\
-    {								\
-      if (! TARGET_C3X)						\
-      {								\
-	fprintf (FILE, "\tpush\tst\n");				\
-	fprintf (FILE, "\tpush\tar2\n");			\
-	fprintf (FILE, "\tpush\tar0\n");			\
-	fprintf (FILE, "\tldhi\t^___bb,ar2\n");			\
-	fprintf (FILE, "\tor\t#___bb,ar2\n");			\
-	if (BLOCKNO > 32767)					\
-	  {							\
-	    fprintf (FILE, "\tldhi\t%d,ar0\n", (BLOCKNO) >> 16);\
-	    fprintf (FILE, "\tor\t%d,ar0\n", (BLOCKNO));	\
-	  }							\
- 	else							\
-	  {							\
-	    fprintf (FILE, "\tldiu\t%d,ar0\n", (BLOCKNO));	\
-	  }							\
-	fprintf (FILE, "\tsti\tar0,*ar2\n");			\
-	fprintf (FILE, "\tldhi\t^LPBX0,ar0\n");			\
-	fprintf (FILE, "\tor\t#LPBX0,ar0\n");			\
-	fprintf (FILE, "\tsti\tar0,*+ar2(1)\n");		\
-	fprintf (FILE, "\tcall\t___bb_trace_func\n");		\
-	fprintf (FILE, "\tpop\tar0\n");				\
-        fprintf (FILE, "\tpop\tar2\n");				\
-	fprintf (FILE, "\tpop\tst\n");				\
-      }								\
-      else							\
-      {								\
-	fprintf (FILE, "\tpush\tst\n");				\
-	fprintf (FILE, "\tpush\tar2\n");			\
-	fprintf (FILE, "\tpush\tar0\n");			\
-	fprintf (FILE, "\tldiu\t^___bb,ar2\n");			\
-	fprintf (FILE, "\tlsh\t16,ar2\n");			\
-	fprintf (FILE, "\tor\t#___bb,ar2\n");			\
-	if (BLOCKNO > 32767)					\
-	  {							\
-	    fprintf (FILE, "\tldi\t%d,ar0\n", (BLOCKNO) >> 16);	\
-	    fprintf (FILE, "\tlsh\t16,ar0\n");			\
-	    fprintf (FILE, "\tor\t%d,ar0\n", (BLOCKNO));	\
-	  }							\
- 	else							\
-	  {							\
-	    fprintf (FILE, "\tldiu\t%d,ar0\n", (BLOCKNO));	\
-	  }							\
-	fprintf (FILE, "\tsti\tar0,*ar2\n");			\
-	fprintf (FILE, "\tldiu\t^LPBX0,ar0\n");			\
-	fprintf (FILE, "\tlsh\t16,ar0\n");			\
-	fprintf (FILE, "\tor\t#LPBX0,ar0\n");			\
-	fprintf (FILE, "\tsti\tar0,*+ar2(1)\n");		\
-	fprintf (FILE, "\tcall\t___bb_trace_func\n");		\
-	fprintf (FILE, "\tpop\tar0\n");				\
-        fprintf (FILE, "\tpop\tar2\n");				\
-	fprintf (FILE, "\tpop\tst\n");				\
-      }								\
-    }								\
-  else								\
-    {								\
-      if (! TARGET_C3X)						\
-      {								\
-	fprintf (FILE, "\tpush\tar2\n");			\
-	fprintf (FILE, "\tpush\tar0\n");			\
-	fprintf (FILE, "\tldhi\t^LPBX2+%d,ar2\n", (BLOCKNO));	\
-	fprintf (FILE, "\tor\t#LPBX2+%d,ar2\n", (BLOCKNO));	\
-	fprintf (FILE, "\taddi3\t1,*ar2,ar0\n");		\
-	fprintf (FILE, "\tsti\tar0,*ar2\n");			\
-	fprintf (FILE, "\tpop\tar0\n");				\
-        fprintf (FILE, "\tpop\tar2\n");				\
-      }								\
-      else							\
-      {								\
-	fprintf (FILE, "\tpush\tar2\n");			\
-	fprintf (FILE, "\tpush\tar0\n");			\
-	fprintf (FILE, "\tldiu\t^LPBX2+%d,ar2\n", (BLOCKNO));	\
-	fprintf (FILE, "\tlsh\t16,ar2\n");			\
-	fprintf (FILE, "\tor\t#LPBX2+%d,ar2\n", (BLOCKNO));	\
-	fprintf (FILE, "\tldiu\t*ar2,ar0\n");			\
-	fprintf (FILE, "\taddi\t1,ar0\n");			\
-	fprintf (FILE, "\tsti\tar0,*ar2\n");			\
-	fprintf (FILE, "\tpop\tar0\n");				\
-        fprintf (FILE, "\tpop\tar2\n");				\
-      }								\
-    }
-
-#define FUNCTION_BLOCK_PROFILER_EXIT				\
-    {								\
-      emit_insn (gen_push_st ()); 				\
-      emit_insn (gen_pushqi (					\
-		gen_rtx_REG (QImode, AR2_REGNO)));		\
-      emit_call_insn (gen_nodb_call (				\
-		gen_rtx_SYMBOL_REF (QImode, "__bb_trace_ret")));\
-      emit_insn (gen_popqi_unspec (				\
-		gen_rtx_REG (QImode, AR2_REGNO)));		\
-      emit_insn (gen_pop_st ());				\
-    }
-
-#define	MACHINE_STATE_SAVE(ID)		\
-	asm("	push	r0");		\
-	asm("	pushf	r0");		\
-	asm("	push	r1");		\
-	asm("	pushf	r1");		\
-	asm("	push	r2");		\
-	asm("	pushf	r2");		\
-	asm("	push	r3");		\
-	asm("	pushf	r3");		\
-	asm("	push	ar0");		\
-	asm("	push	ar1");		\
-	asm("	.if	.BIGMODEL");	\
-	asm("	push	dp");		\
-	asm("	.endif");		\
-	asm("	push	ir0");		\
-	asm("	push	ir1");		\
-	asm("	push	bk");		\
-	asm("	push	rs");		\
-	asm("	push	re");		\
-	asm("	push	rc");		\
-	asm("	.if	.tms320C40");	\
-	asm("	push	r9");		\
-	asm("	pushf	r9");		\
-	asm("	push	r10");		\
-	asm("	pushf	r10");		\
-	asm("	push	r11");		\
-	asm("	pushf	r11");		\
-	asm("	.endif");
-
-#define	MACHINE_STATE_RESTORE(ID)	\
-	asm("	.if	.tms320C40");	\
-	asm("	popf	r11");		\
-	asm("	pop	r11");		\
-	asm("	popf	r10");		\
-	asm("	pop	r10");		\
-	asm("	popf	r9");		\
-	asm("	pop	r9");		\
-	asm("	.endif");		\
-	asm("	pop	rc");		\
-	asm("	pop	re");		\
-	asm("	pop	rs");		\
-	asm("	pop	bk");		\
-	asm("	pop	ir1");		\
-	asm("	pop	ir0");		\
-	asm("	.if	.BIGMODEL");	\
-	asm("	pop	dp");		\
-	asm("	.endif");		\
-	asm("	pop	ar1");		\
-	asm("	pop	ar0");		\
-	asm("	popf	r3");		\
-	asm("	pop	r3");		\
-	asm("	popf	r2");		\
-	asm("	pop	r2");		\
-	asm("	popf	r1");		\
-	asm("	pop	r1");		\
-	asm("	popf	r0");		\
-	asm("	pop	r0");		\
-
 /* Implicit Calls to Library Routines.  */
 
 #define MULQI3_LIBCALL      "__mulqi3"
@@ -1502,11 +1239,11 @@ CUMULATIVE_ARGS;
       = init_one_libfunc (MODQI3_LIBCALL);		\
     umod_optab->handlers[(int) QImode].libfunc		\
       = init_one_libfunc (UMODQI3_LIBCALL);		\
-    flodiv_optab->handlers[(int) QFmode].libfunc	\
+    sdiv_optab->handlers[(int) QFmode].libfunc		\
       = init_one_libfunc (DIVQF3_LIBCALL);		\
     smul_optab->handlers[(int) HFmode].libfunc		\
       = init_one_libfunc (MULHF3_LIBCALL);		\
-    flodiv_optab->handlers[(int) HFmode].libfunc	\
+    sdiv_optab->handlers[(int) HFmode].libfunc		\
       = init_one_libfunc (DIVHF3_LIBCALL);		\
     smul_optab->handlers[(int) HImode].libfunc		\
       = init_one_libfunc (MULHI3_LIBCALL);		\
@@ -1555,7 +1292,7 @@ CUMULATIVE_ARGS;
    The problem is a subtle one and deals with the manner in which the
    negative condition (N) flag is used on the C4x.  This flag does not
    reflect the status of the actual result but of the ideal result had
-   no overflow occured (when considering signed operands).
+   no overflow occurred (when considering signed operands).
 
    For example, 0x7fffffff + 1 => 0x80000000 Z=0 V=1 N=0 C=0.  Here
    the flags reflect the untruncated result, not the actual result.
@@ -1591,7 +1328,7 @@ CUMULATIVE_ARGS;
    To handle the problem where the N flag is set differently whenever
    there is an overflow we use a different CC mode, CC_NOOVmode which
    says that the CC reflects the comparison of the result against zero
-   if no overflow occured.
+   if no overflow occurred.
 
    For example, 
 
@@ -1953,11 +1690,6 @@ if (REG_P (OP1) && ! REG_P (OP0))			\
 
 #define BRANCH_COST			8
 
-/* Adjust the cost of dependencies.  */
-
-#define ADJUST_COST(INSN,LINK,DEP,COST) \
-  (COST) = c4x_adjust_cost (INSN, LINK, DEP, COST)
-
 #define	WORD_REGISTER_OPERATIONS
 
 /* Dividing the Output into Sections.  */
@@ -1979,50 +1711,17 @@ if (REG_P (OP1) && ! REG_P (OP0))			\
 
 #define FINI_SECTION_ASM_OP  "\t.sect\t\".fini\""
 
-/* Support const sections and the ctors and dtors sections for g++.
-   Note that there appears to be two different ways to support const
-   sections at the moment.  You can either #define the symbol
-   READONLY_DATA_SECTION (giving it some code which switches to the
-   readonly data section) or else you can #define the symbols
-   EXTRA_SECTIONS, EXTRA_SECTION_FUNCTIONS, SELECT_SECTION, and
-   SELECT_RTX_SECTION.  We do both here just to be on the safe side.  */
-
-/* Define a few machine-specific details of the implementation of
-   constructors.
-
-   The __CTORS_LIST__ goes in the .ctors section.  Define CTOR_LIST_BEGIN
-   and CTOR_LIST_END to contribute to the .ctors section an instruction to
-   push a word containing 0 (or some equivalent of that).
-
-   Define ASM_OUTPUT_CONSTRUCTOR to push the address of the constructor.  */
-
-#define CTORS_SECTION_ASM_OP	"\t.sect\t\".ctors\""
-#define DTORS_SECTION_ASM_OP    "\t.sect\t\".dtors\""
-
-/* Constructor list on stack is in reverse order.  Go to the end of the
-   list and go backwards to call constructors in the right order.  */
-
-#define DO_GLOBAL_CTORS_BODY					\
-do {								\
-  extern func_ptr __CTOR_LIST__[];				\
-  func_ptr *p, *beg = __CTOR_LIST__ + 1;			\
-  for (p = beg; *p ; p++) ;					\
-  while (p != beg)						\
-    (*--p) ();							\
-} while (0)
-
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_init, in_fini, in_ctors, in_dtors
+#define EXTRA_SECTIONS in_const, in_init, in_fini
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS					\
   CONST_SECTION_FUNCTION					\
   INIT_SECTION_FUNCTION						\
-  FINI_SECTION_FUNCTION						\
-  CTORS_SECTION_FUNCTION					\
-  DTORS_SECTION_FUNCTION
+  FINI_SECTION_FUNCTION
 
 #define INIT_SECTION_FUNCTION					\
+extern void init_section PARAMS ((void));			\
 void								\
 init_section ()							\
 {								\
@@ -2061,64 +1760,15 @@ const_section ()							\
 
 #define ASM_STABS_OP "\t.stabs\t"
 
-/* The ctors and dtors sections are not normally put into use 
-   by EXTRA_SECTIONS and EXTRA_SECTION_FUNCTIONS as defined in svr3.h,
-   but it can't hurt to define these macros for whatever systems use them.  */
-
-#define CTORS_SECTION_FUNCTION						\
-void									\
-ctors_section ()							\
-{									\
-  if (in_section != in_ctors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);		\
-      in_section = in_ctors;						\
-    }									\
-}
-
-#define DTORS_SECTION_FUNCTION						\
-void									\
-dtors_section ()							\
-{									\
-  if (in_section != in_dtors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);		\
-      in_section = in_dtors;						\
-    }									\
-}
-
-#define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC) \
-   fprintf (FILE, "\t.sect\t\"%s\"\n", NAME);
-
-/* This is machine-dependent because it needs to push something
-   on the stack.  */
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
-  do {									\
-    ctors_section ();							\
-    fprintf (FILE, "\t.word\t ");					\
-    assemble_name (FILE, NAME);						\
-    fprintf (FILE, "\n");						\
-  } while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       				\
-  do {									\
-    dtors_section ();                   				\
-    fprintf (FILE, "\t.word\t ");					\
-    assemble_name (FILE, NAME);              				\
-    fprintf (FILE, "\n");						\
-  } while (0)
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION c4x_asm_named_section
 
 /* A C statement or statements to switch to the appropriate
    section for output of DECL.  DECL is either a `VAR_DECL' node
    or a constant of some sort.  RELOC indicates whether forming
    the initial value of DECL requires link-time relocations.  */
 
-#define SELECT_SECTION(DECL, RELOC)					\
+#define SELECT_SECTION(DECL, RELOC, ALIGN)				\
 {									\
   if (TREE_CODE (DECL) == STRING_CST)					\
     {									\
@@ -2163,7 +1813,7 @@ dtors_section ()							\
    in the case of a `const_int' rtx.  Currently, these always
    go into the const section.  */
 
-#define SELECT_RTX_SECTION(MODE, RTX) const_section()
+#define SELECT_RTX_SECTION(MODE, RTX, ALIGN) const_section()
 
 
 /* Overall Framework of an Assembler File.  */
@@ -2184,8 +1834,8 @@ dtors_section ()							\
     fprintf (FILE, "\t.file\t");				\
     if (TARGET_TI)						\
       {								\
-        char *p;						\
-        char *after_dir = main_input_filename;			\
+        const char *p;						\
+        const char *after_dir = main_input_filename;		\
 	for (p = main_input_filename; *p; p++)			\
 	  if (*p == '/')					\
 	    after_dir = p + 1;					\
@@ -2210,7 +1860,7 @@ dtors_section ()							\
     REAL_VALUE_TO_TARGET_SINGLE (VALUE, l);		\
     REAL_VALUE_TO_DECIMAL (VALUE, "%20lf", str);	\
     if (sizeof (int) == sizeof (long))			\
-      fprintf (FILE, "\t.word\t0%08xh\t; %s\n", l, str);\
+      fprintf (FILE, "\t.word\t0%08xh\t; %s\n", (int) l, str);\
     else						\
       fprintf (FILE, "\t.word\t0%08lxh\t; %s\n", l, str);\
   } while (0);
@@ -2232,24 +1882,11 @@ dtors_section ()							\
     l[1] = (l[0] << 8) | ((l[1] >> 24) & 0xff);		\
     if (sizeof (int) == sizeof (long))			\
       fprintf (FILE, "\t.word\t0%08xh\t; %s\n\t.word\t0%08xh\n", \
-               l[0], str, l[1]);				\
+               (int) l[0], str, (int) l[1]);		\
     else							\
       fprintf (FILE, "\t.word\t0%08lxh\t; %s\n\t.word\t0%08lxh\n", \
                l[0], str, l[1]);				\
   } while (0);
-
-#define ASM_OUTPUT_CHAR(FILE, VALUE)			\
-  do {							\
-    fprintf (FILE, "\t.word\t");			\
-     output_addr_const (FILE, VALUE);			\
-     if (GET_CODE (VALUE) != SYMBOL_REF)		\
-       fprintf (FILE, " ; 0%08xh\n", INTVAL (VALUE));	\
-     else						\
-       fputc ('\n', FILE);				\
-  } while (0);
-
-#define ASM_OUTPUT_BYTE(FILE, VALUE)  \
-  fprintf (FILE, "\t.word\t0%xh\n", (VALUE))
 
 #define ASM_OUTPUT_ASCII(FILE, PTR, LEN) c4x_output_ascii (FILE, PTR, LEN)
 
@@ -2436,7 +2073,6 @@ do {						\
   cpp_register_pragma (PFILE, 0, "FUNC_NO_GLOBAL_ASG", c4x_pr_ignored);	\
   cpp_register_pragma (PFILE, 0, "FUNC_NO_IND_ASG", c4x_pr_ignored);	\
   cpp_register_pragma (PFILE, 0, "INTERRUPT", c4x_pr_INTERRUPT);	\
-  c4x_init_pragma (&c_lex);						\
 } while (0)
 
 /* Assembler Commands for Alignment.  */
@@ -2661,8 +2297,6 @@ do { fprintf (asm_out_file, "\t.sdef\t");		\
    is done just by pretending it is already truncated.  */
 
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
-
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
 
 /* We need to use direct addressing for large constants and addresses
    that cannot fit within an instruction.  We must check for these

@@ -71,8 +71,6 @@ Boston, MA 02111-1307, USA.  */
 #undef TYPE_OPERAND_FMT
 #define TYPE_OPERAND_FMT      "\"%s\""
 
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
-
 #undef ASCII_DATA_ASM_OP
 #define ASCII_DATA_ASM_OP	"\t.byte\t"
 
@@ -135,7 +133,7 @@ Boston, MA 02111-1307, USA.  */
 	          fprintf ((FILE), "\"\n");			\
 	          bytes_in_chunk = 0;				\
 	        }						\
-	      fprintf ((FILE), "%s%d\n", ASM_BYTE_OP, ch);	\
+	      assemble_aligned_integer (1, GEN_INT (ch));	\
 	    }							\
           else							\
 	    {							\

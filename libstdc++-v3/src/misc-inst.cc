@@ -233,46 +233,13 @@ namespace std
   template 
     string* 
     __uninitialized_fill_n_aux<string*, size_t, string>
-    (string*, size_t, string const &, _Bool<false>);
+    (string*, size_t, string const &, __false_type);
 
   template 
     string* 
     __uninitialized_copy_aux<vector<string>::const_iterator, string *>
     (vector<string>::const_iterator, vector<string>::const_iterator, 
-     string*, _Bool<false>);
-
-  template
-    void 
-    __pad_char(basic_ios<char>&, char*, const char*,
-		const streamsize, const streamsize);
-#ifdef _GLIBCPP_USE_WCHAR_T
-  template
-    void 
-    __pad_char(basic_ios<wchar_t>&, wchar_t*, const wchar_t*,
-		const streamsize, const streamsize);
-#endif
-
-  template
-    ostreambuf_iterator<char>
-    __pad_numeric(ostreambuf_iterator<char>, _Ios_Fmtflags, char, int,
-		  const char*, const char*, const char*);
-#ifdef _GLIBCPP_USE_WCHAR_T
-  template
-    ostreambuf_iterator<wchar_t>
-    __pad_numeric(ostreambuf_iterator<wchar_t>, _Ios_Fmtflags, wchar_t, int,
-		  const wchar_t*, const wchar_t*, const wchar_t*);
-#endif
-
-  template
-    ostreambuf_iterator<char>
-    __output_float(ostreambuf_iterator<char>, ios_base&, char, 
-		   const char*, size_t);
-#ifdef _GLIBCPP_USE_WCHAR_T
-  template
-    ostreambuf_iterator<wchar_t>
-    __output_float(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, 
-		   const char*, size_t);
-#endif
+     string*, __false_type);
 
   template
     streamsize

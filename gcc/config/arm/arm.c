@@ -38,6 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "reload.h"
 #include "function.h"
 #include "expr.h"
+#include "optabs.h"
 #include "toplev.h"
 #include "recog.h"
 #include "ggc.h"
@@ -67,6 +68,10 @@ static int       const_ok_for_op 		PARAMS ((Hint, enum rtx_code));
 static int       eliminate_lr2ip		PARAMS ((rtx *));
 static rtx	 emit_multi_reg_push		PARAMS ((int));
 static rtx	 emit_sfm			PARAMS ((int, int));
+#ifndef AOF_ASSEMBLER
+static bool	 arm_assemble_integer		PARAMS ((rtx, unsigned int,
+							 int));
+#endif
 static Ccstar    fp_const_from_val		PARAMS ((REAL_VALUE_TYPE *));
 static arm_cc    get_arm_condition_code		PARAMS ((rtx));
 static void      init_fpa_table			PARAMS ((void));
@@ -102,10 +107,9 @@ static int       current_file_function_operand	PARAMS ((rtx));
 static Ulong     arm_compute_save_reg_mask	PARAMS ((void));
 static Ulong     arm_isr_value 			PARAMS ((tree));
 static Ulong     arm_compute_func_type		PARAMS ((void));
-static int	 arm_valid_type_attribute_p	PARAMS ((tree, tree,
-							 tree, tree));
-static int	 arm_valid_decl_attribute_p	PARAMS ((tree, tree,
-							 tree, tree));
+static tree      arm_handle_fndecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
+static tree      arm_handle_isr_attribute PARAMS ((tree *, tree, tree, int, bool *));
+const struct attribute_spec arm_attribute_table[];
 static void	 arm_output_function_epilogue	PARAMS ((FILE *,
 							 HOST_WIDE_INT));
 static void	 arm_output_function_prologue	PARAMS ((FILE *,
@@ -114,6 +118,12 @@ static void	 thumb_output_function_prologue PARAMS ((FILE *,
 							 HOST_WIDE_INT));
 static int	 arm_comp_type_attributes	PARAMS ((tree, tree));
 static void	 arm_set_default_type_attributes	PARAMS ((tree));
+#ifdef OBJECT_FORMAT_ELF
+static void	 arm_elf_asm_named_section	PARAMS ((const char *,
+							 unsigned int));
+#endif
+static int	 arm_adjust_cost		PARAMS ((rtx, rtx, rtx, int));
+
 #undef Hint
 #undef Mmode
 #undef Ulong
@@ -125,15 +135,21 @@ static void	 arm_set_default_type_attributes	PARAMS ((tree));
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_dllimport_decl_attributes
 #endif
 
-#undef TARGET_VALID_TYPE_ATTRIBUTE
-#define TARGET_VALID_TYPE_ATTRIBUTE arm_valid_type_attribute_p
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE arm_attribute_table
 
-#undef TARGET_VALID_DECL_ATTRIBUTE
-#ifdef ARM_PE
-   static int arm_pe_valid_decl_attribute_p PARAMS ((tree, tree, tree, tree));
-#  define TARGET_VALID_DECL_ATTRIBUTE arm_pe_valid_decl_attribute_p
+#ifdef AOF_ASSEMBLER
+#undef TARGET_ASM_BYTE_OP
+#define TARGET_ASM_BYTE_OP "\tDCB\t"
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\tDCW\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\tDCD\t"
 #else
-#  define TARGET_VALID_DECL_ATTRIBUTE arm_valid_decl_attribute_p
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP NULL
+#undef TARGET_ASM_INTEGER
+#define TARGET_ASM_INTEGER arm_assemble_integer
 #endif
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
@@ -153,6 +169,9 @@ static void	 arm_set_default_type_attributes	PARAMS ((tree));
 
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN arm_expand_builtin
+
+#undef TARGET_SCHED_ADJUST_COST
+#define TARGET_SCHED_ADJUST_COST arm_adjust_cost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -239,7 +258,7 @@ int arm_is_strong = 0;
 /* Nonzero if this chip is an XScale.  */
 int arm_is_xscale = 0;
 
-/* Nonzero if this chip is a an ARM6 or an ARM7.  */
+/* Nonzero if this chip is an ARM6 or an ARM7.  */
 int arm_is_6_or_7 = 0;
 
 /* Nonzero if generating Thumb instructions.  */
@@ -275,7 +294,7 @@ rtx arm_target_insn;
 int arm_target_label;
 
 /* The condition codes of the ARM, and the inverse function.  */
-const char * arm_condition_codes[] =
+static const char *const arm_condition_codes[] =
 {
   "eq", "ne", "cs", "cc", "mi", "pl", "vs", "vc",
   "hi", "ls", "ge", "lt", "gt", "le", "al", "nv"
@@ -287,13 +306,13 @@ const char * arm_condition_codes[] =
 
 struct processors
 {
-  const char * name;
-  unsigned int flags;
+  const char *const name;
+  const unsigned int flags;
 };
 
 /* Not all of these give usefully different compilation alternatives,
    but there is no simple way of generalizing them.  */
-static struct processors all_cores[] =
+static const struct processors all_cores[] =
 {
   /* ARM Cores */
   
@@ -346,7 +365,7 @@ static struct processors all_cores[] =
   {NULL, 0}
 };
 
-static struct processors all_architectures[] =
+static const struct processors all_architectures[] =
 {
   /* ARM Architectures */
   
@@ -437,12 +456,12 @@ arm_override_options ()
   /* If the user did not specify a processor, choose one for them.  */
   if (insn_flags == 0)
     {
-      struct processors * sel;
+      const struct processors * sel;
       unsigned int        sought;
-      static struct cpu_default
+      static const struct cpu_default
       {
-	int          cpu;
-	const char * name;
+	const int cpu;
+	const char *const name;
       }
       cpu_defaults[] =
       {
@@ -461,7 +480,7 @@ arm_override_options ()
 	{ TARGET_CPU_generic,   "arm" },
 	{ 0, 0 }
       };
-      struct cpu_default * def;
+      const struct cpu_default * def;
 	  
       /* Find the default.  */
       for (def = cpu_defaults; def->name; def++)
@@ -514,7 +533,7 @@ arm_override_options ()
 	  if (sel->name == NULL)
 	    {
 	      unsigned int        current_bit_count = 0;
-	      struct processors * best_fit = NULL;
+	      const struct processors * best_fit = NULL;
 	      
 	      /* Ideally we would like to issue an error message here
 		 saying that it was not possible to find a CPU compatible
@@ -583,13 +602,13 @@ arm_override_options ()
   
   if (TARGET_THUMB && !(insn_flags & FL_THUMB))
     {
-      warning ("target CPU does not support THUMB instructions.");
+      warning ("target CPU does not support THUMB instructions");
       target_flags &= ~ARM_FLAG_THUMB;
     }
 
   if (TARGET_APCS_FRAME && TARGET_THUMB)
     {
-      /* warning ("ignoring -mapcs-frame because -mthumb was used."); */
+      /* warning ("ignoring -mapcs-frame because -mthumb was used"); */
       target_flags &= ~ARM_FLAG_APCS_FRAME;
     }
 
@@ -597,13 +616,13 @@ arm_override_options ()
      from here where no function is being compiled currently.  */
   if ((target_flags & (THUMB_FLAG_LEAF_BACKTRACE | THUMB_FLAG_BACKTRACE))
       && TARGET_ARM)
-    warning ("enabling backtrace support is only meaningful when compiling for the Thumb.");
+    warning ("enabling backtrace support is only meaningful when compiling for the Thumb");
 
   if (TARGET_ARM && TARGET_CALLEE_INTERWORKING)
-    warning ("enabling callee interworking support is only meaningful when compiling for the Thumb.");
+    warning ("enabling callee interworking support is only meaningful when compiling for the Thumb");
 
   if (TARGET_ARM && TARGET_CALLER_INTERWORKING)
-    warning ("enabling caller interworking support is only meaningful when compiling for the Thumb.");
+    warning ("enabling caller interworking support is only meaningful when compiling for the Thumb");
 
   /* If interworking is enabled then APCS-32 must be selected as well.  */
   if (TARGET_INTERWORK)
@@ -642,7 +661,7 @@ arm_override_options ()
     arm_pic_register = 10;
   
   if (TARGET_APCS_FLOAT)
-    warning ("Passing floating point arguments in fp regs not yet supported");
+    warning ("passing floating point arguments in fp regs not yet supported");
   
   /* Initialise boolean versions of the flags, for use in the arm.md file.  */
   arm_fast_multiply = (insn_flags & FL_FAST_MULT) != 0;
@@ -671,7 +690,7 @@ arm_override_options ()
       else if (streq (target_fp_name, "3"))
 	arm_fpu_arch = FP_SOFT3;
       else
-	error ("Invalid floating point emulation option: -mfpe-%s",
+	error ("invalid floating point emulation option: -mfpe-%s",
 	       target_fp_name);
     }
   else
@@ -695,7 +714,7 @@ arm_override_options ()
       if (size == 8 || size == 32)
 	arm_structure_size_boundary = size;
       else
-	warning ("Structure size boundary can only be set to 8 or 32");
+	warning ("structure size boundary can only be set to 8 or 32");
     }
 
   if (arm_pic_register_string != NULL)
@@ -712,7 +731,7 @@ arm_override_options ()
 	  || pic_register == HARD_FRAME_POINTER_REGNUM
 	  || pic_register == STACK_POINTER_REGNUM
 	  || pic_register >= PC_REGNUM)
-	error ("Unable to use '%s' for PIC register", arm_pic_register_string);
+	error ("unable to use '%s' for PIC register", arm_pic_register_string);
       else
 	arm_pic_register = pic_register;
     }
@@ -761,12 +780,12 @@ arm_add_gc_roots ()
 
 typedef struct
 {
-  const char * 	arg;
-  unsigned long	return_value;
+  const char *const arg;
+  const unsigned long return_value;
 }
 isr_attribute_arg;
 
-static isr_attribute_arg isr_attribute_args [] =
+static const isr_attribute_arg isr_attribute_args [] =
 {
   { "IRQ",   ARM_FT_ISR },
   { "irq",   ARM_FT_ISR },
@@ -790,7 +809,7 @@ static unsigned long
 arm_isr_value (argument)
      tree argument;
 {
-  isr_attribute_arg * ptr;
+  const isr_attribute_arg * ptr;
   const char *        arg;
 
   /* No argument - default to IRQ.  */
@@ -837,7 +856,7 @@ arm_compute_func_type ()
   if (current_function_needs_context)
     type |= ARM_FT_NESTED;
 
-  attr = DECL_MACHINE_ATTRIBUTES (current_function_decl);
+  attr = DECL_ATTRIBUTES (current_function_decl);
   
   a = lookup_attribute ("naked", attr);
   if (a != NULL_TREE)
@@ -934,14 +953,14 @@ int
 const_ok_for_arm (i)
      HOST_WIDE_INT i;
 {
-  unsigned HOST_WIDE_INT mask = ~HOST_UINT (0xFF);
+  unsigned HOST_WIDE_INT mask = ~(unsigned HOST_WIDE_INT)0xFF;
 
   /* For machines with >32 bit HOST_WIDE_INT, the bits above bit 31 must 
      be all zero, or all one.  */
-  if ((i & ~HOST_UINT (0xffffffff)) != 0
-      && ((i & ~HOST_UINT (0xffffffff)) 
-	  != ((~HOST_UINT (0))
-	      & ~HOST_UINT (0xffffffff))))
+  if ((i & ~(unsigned HOST_WIDE_INT) 0xffffffff) != 0
+      && ((i & ~(unsigned HOST_WIDE_INT) 0xffffffff)
+	  != ((~(unsigned HOST_WIDE_INT) 0)
+	      & ~(unsigned HOST_WIDE_INT) 0xffffffff)))
     return FALSE;
   
   /* Fast return for 0 and powers of 2 */
@@ -950,12 +969,13 @@ const_ok_for_arm (i)
 
   do
     {
-      if ((i & mask & HOST_UINT (0xffffffff)) == 0)
+      if ((i & mask & (unsigned HOST_WIDE_INT) 0xffffffff) == 0)
         return TRUE;
       mask =
-	  (mask << 2) | ((mask & HOST_UINT (0xffffffff))
-			 >> (32 - 2)) | ~(HOST_UINT (0xffffffff));
-    } while (mask != ~HOST_UINT (0xFF));
+	  (mask << 2) | ((mask & (unsigned HOST_WIDE_INT) 0xffffffff)
+			  >> (32 - 2)) | ~(unsigned HOST_WIDE_INT) 0xffffffff;
+    }
+  while (mask != ~(unsigned HOST_WIDE_INT) 0xFF);
 
   return FALSE;
 }
@@ -1102,7 +1122,7 @@ arm_gen_constant (code, mode, val, target, source, subtargets, generate)
   int set_zero_bit_copies = 0;
   int insns = 0;
   unsigned HOST_WIDE_INT temp1, temp2;
-  unsigned HOST_WIDE_INT remainder = val & HOST_UINT (0xffffffff);
+  unsigned HOST_WIDE_INT remainder = val & 0xffffffff;
 
   /* Find out which operations are safe for a given CODE.  Also do a quick
      check for degenerate cases; these can occur when DImode operations
@@ -1121,7 +1141,7 @@ arm_gen_constant (code, mode, val, target, source, subtargets, generate)
       break;
 
     case IOR:
-      if (remainder == HOST_UINT (0xffffffff))
+      if (remainder == 0xffffffff)
 	{
 	  if (generate)
 	    emit_insn (gen_rtx_SET (VOIDmode, target,
@@ -1145,7 +1165,7 @@ arm_gen_constant (code, mode, val, target, source, subtargets, generate)
 	    emit_insn (gen_rtx_SET (VOIDmode, target, const0_rtx));
 	  return 1;
 	}
-      if (remainder == HOST_UINT (0xffffffff))
+      if (remainder == 0xffffffff)
 	{
 	  if (reload_completed && rtx_equal_p (target, source))
 	    return 0;
@@ -1165,7 +1185,7 @@ arm_gen_constant (code, mode, val, target, source, subtargets, generate)
 	    emit_insn (gen_rtx_SET (VOIDmode, target, source));
 	  return 1;
 	}
-      if (remainder == HOST_UINT (0xffffffff))
+      if (remainder == 0xffffffff)
 	{
 	  if (generate)
 	    emit_insn (gen_rtx_SET (VOIDmode, target,
@@ -1293,16 +1313,15 @@ arm_gen_constant (code, mode, val, target, source, subtargets, generate)
 	 word.  We only look for the simplest cases, to do more would cost
 	 too much.  Be careful, however, not to generate this when the
 	 alternative would take fewer insns.  */
-      if (val & HOST_UINT (0xffff0000))
+      if (val & 0xffff0000)
 	{
-	  temp1 = remainder & HOST_UINT (0xffff0000);
+	  temp1 = remainder & 0xffff0000;
 	  temp2 = remainder & 0x0000ffff;
 
 	  /* Overlaps outside this range are best done using other methods.  */
 	  for (i = 9; i < 24; i++)
 	    {
-	      if ((((temp2 | (temp2 << i))
-		    & HOST_UINT (0xffffffff)) == remainder)
+	      if ((((temp2 | (temp2 << i)) & 0xffffffff) == remainder)
 		  && !const_ok_for_arm (temp2))
 		{
 		  rtx new_src = (subtargets
@@ -1440,11 +1459,11 @@ arm_gen_constant (code, mode, val, target, source, subtargets, generate)
       /* See if two shifts will do 2 or more insn's worth of work.  */
       if (clear_sign_bit_copies >= 16 && clear_sign_bit_copies < 24)
 	{
-	  HOST_WIDE_INT shift_mask = (((HOST_UINT (0xffffffff))
+	  HOST_WIDE_INT shift_mask = ((0xffffffff
 				       << (32 - clear_sign_bit_copies))
-				      & HOST_UINT (0xffffffff));
+				      & 0xffffffff);
 
-	  if ((remainder | shift_mask) != HOST_UINT (0xffffffff))
+	  if ((remainder | shift_mask) != 0xffffffff)
 	    {
 	      if (generate)
 		{
@@ -1477,7 +1496,7 @@ arm_gen_constant (code, mode, val, target, source, subtargets, generate)
 	{
 	  HOST_WIDE_INT shift_mask = (1 << clear_zero_bit_copies) - 1;
 	  
-	  if ((remainder | shift_mask) != HOST_UINT (0xffffffff))
+	  if ((remainder | shift_mask) != 0xffffffff)
 	    {
 	      if (generate)
 		{
@@ -1519,9 +1538,9 @@ arm_gen_constant (code, mode, val, target, source, subtargets, generate)
       num_bits_set++;
 
   if (code == AND || (can_invert && num_bits_set > 16))
-    remainder = (~remainder) & HOST_UINT (0xffffffff);
+    remainder = (~remainder) & 0xffffffff;
   else if (code == PLUS && num_bits_set > 16)
-    remainder = (-remainder) & HOST_UINT (0xffffffff);
+    remainder = (-remainder) & 0xffffffff;
   else
     {
       can_invert = 0;
@@ -1672,7 +1691,7 @@ arm_canonicalize_comparison (code, op1)
 
     case GT:
     case LE:
-      if (i != (((HOST_UINT (1)) << (HOST_BITS_PER_WIDE_INT - 1)) - 1)
+      if (i != ((((unsigned HOST_WIDE_INT) 1) << (HOST_BITS_PER_WIDE_INT - 1)) - 1)
 	  && (const_ok_for_arm (i + 1) || const_ok_for_arm (-(i + 1))))
 	{
 	  *op1 = GEN_INT (i + 1);
@@ -1682,7 +1701,7 @@ arm_canonicalize_comparison (code, op1)
 
     case GE:
     case LT:
-      if (i != ((HOST_UINT (1)) << (HOST_BITS_PER_WIDE_INT - 1))
+      if (i != (((unsigned HOST_WIDE_INT) 1) << (HOST_BITS_PER_WIDE_INT - 1))
 	  && (const_ok_for_arm (i - 1) || const_ok_for_arm (-(i - 1))))
 	{
 	  *op1 = GEN_INT (i - 1);
@@ -1692,7 +1711,7 @@ arm_canonicalize_comparison (code, op1)
 
     case GTU:
     case LEU:
-      if (i != ~(HOST_UINT (0))
+      if (i != ~((unsigned HOST_WIDE_INT) 0)
 	  && (const_ok_for_arm (i + 1) || const_ok_for_arm (-(i + 1))))
 	{
 	  *op1 = GEN_INT (i + 1);
@@ -1731,9 +1750,11 @@ arm_return_in_memory (type)
   /* For the arm-wince targets we choose to be compitable with Microsoft's
      ARM and Thumb compilers, which always return aggregates in memory.  */
 #ifndef ARM_WINCE
-  
-  if (int_size_in_bytes (type) > 4)
-    /* All structures/unions bigger than one word are returned in memory.  */
+  /* All structures/unions bigger than one word are returned in memory.
+     Also catch the case where int_size_in_bytes returns -1.  In this case
+     the aggregate is either huge or of varaible size, and in either case
+     we will want to return it via memory and not in a register.  */
+  if (((unsigned int) int_size_in_bytes (type)) > UNITS_PER_WORD)
     return 1;
   
   if (TREE_CODE (type) == RECORD_TYPE)
@@ -1901,39 +1922,120 @@ arm_pr_long_calls_off (pfile)
 }
 
 
-/* Return nonzero if IDENTIFIER with arguments ARGS is a valid machine
-   specific attribute for TYPE.  The attributes in ATTRIBUTES have
-   previously been assigned to TYPE.  */
-static int
-arm_valid_type_attribute_p (type, attributes, identifier, args)
-     tree type;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree identifier;
-     tree args;
+/* Table of machine attributes.  */
+const struct attribute_spec arm_attribute_table[] =
 {
-  if (   TREE_CODE (type) != FUNCTION_TYPE
-      && TREE_CODE (type) != METHOD_TYPE
-      && TREE_CODE (type) != FIELD_DECL
-      && TREE_CODE (type) != TYPE_DECL)
-    return 0;
-
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
   /* Function calls made to this symbol must be done indirectly, because
      it may lie outside of the 26 bit addressing range of a normal function
      call.  */
-  if (is_attribute_p ("long_call", identifier))
-    return (args == NULL_TREE);
-  
+  { "long_call",    0, 0, false, true,  true,  NULL },
   /* Whereas these functions are always known to reside within the 26 bit
      addressing range.  */
-  if (is_attribute_p ("short_call", identifier))
-    return (args == NULL_TREE);
-  
+  { "short_call",   0, 0, false, true,  true,  NULL },
   /* Interrupt Service Routines have special prologue and epilogue requirements.  */ 
-  if (is_attribute_p ("isr", identifier)
-      || is_attribute_p ("interrupt", identifier))
-    return arm_isr_value (args);
+  { "isr",          0, 1, false, false, false, arm_handle_isr_attribute },
+  { "interrupt",    0, 1, false, false, false, arm_handle_isr_attribute },
+  { "naked",        0, 0, true,  false, false, arm_handle_fndecl_attribute },
+#ifdef ARM_PE
+  /* ARM/PE has three new attributes:
+     interfacearm - ?
+     dllexport - for exporting a function/variable that will live in a dll
+     dllimport - for importing a function/variable from a dll
 
-  return 0;
+     Microsoft allows multiple declspecs in one __declspec, separating
+     them with spaces.  We do NOT support this.  Instead, use __declspec
+     multiple times.
+  */
+  { "dllimport",    0, 0, true,  false, false, NULL },
+  { "dllexport",    0, 0, true,  false, false, NULL },
+  { "interfacearm", 0, 0, true,  false, false, arm_handle_fndecl_attribute },
+#endif
+  { NULL,           0, 0, false, false, false, NULL }
+};
+
+/* Handle an attribute requiring a FUNCTION_DECL;
+   arguments as in struct attribute_spec.handler.  */
+static tree
+arm_handle_fndecl_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning ("`%s' attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle an "interrupt" or "isr" attribute;
+   arguments as in struct attribute_spec.handler.  */
+static tree
+arm_handle_isr_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args;
+     int flags;
+     bool *no_add_attrs;
+{
+  if (DECL_P (*node))
+    {
+      if (TREE_CODE (*node) != FUNCTION_DECL)
+	{
+	  warning ("`%s' attribute only applies to functions",
+		   IDENTIFIER_POINTER (name));
+	  *no_add_attrs = true;
+	}
+      /* FIXME: the argument if any is checked for type attributes;
+	 should it be checked for decl ones?  */
+    }
+  else
+    {
+      if (TREE_CODE (*node) == FUNCTION_TYPE
+	  || TREE_CODE (*node) == METHOD_TYPE)
+	{
+	  if (arm_isr_value (args) == ARM_FT_UNKNOWN)
+	    {
+	      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+	      *no_add_attrs = true;
+	    }
+	}
+      else if (TREE_CODE (*node) == POINTER_TYPE
+	       && (TREE_CODE (TREE_TYPE (*node)) == FUNCTION_TYPE
+		   || TREE_CODE (TREE_TYPE (*node)) == METHOD_TYPE)
+	       && arm_isr_value (args) != ARM_FT_UNKNOWN)
+	{
+	  *node = build_type_copy (*node);
+	  TREE_TYPE (*node) = build_type_attribute_variant (TREE_TYPE (*node),
+							    tree_cons (name,
+								       args,
+								       TYPE_ATTRIBUTES (TREE_TYPE (*node))));
+	  *no_add_attrs = true;
+	}
+      else
+	{
+	  /* Possibly pass this attribute on from the type to a decl.  */
+	  if (flags & ((int) ATTR_FLAG_DECL_NEXT
+		       | (int) ATTR_FLAG_FUNCTION_NEXT
+		       | (int) ATTR_FLAG_ARRAY_NEXT))
+	    {
+	      *no_add_attrs = true;
+	      return tree_cons (name, args, NULL_TREE);
+	    }
+	  else
+	    {
+	      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+	    }
+	}
+    }
+
+  return NULL_TREE;
 }
 
 /* Return 0 if the attributes for two types are incompatible, 1 if they
@@ -2048,8 +2150,8 @@ current_file_function_operand (sym_ref)
     return 1;
 
   /* The current function is always defined within the current compilation
-     unit.  if it s a weak defintion however, then this may not be the real
-     defintion of the function, and so we have to say no.  */
+     unit.  if it s a weak definition however, then this may not be the real
+     definition of the function, and so we have to say no.  */
   if (sym_ref == XEXP (DECL_RTL (current_function_decl), 0)
       && !DECL_WEAK (current_function_decl))
     return 1;
@@ -2170,9 +2272,12 @@ legitimize_pic_address (orig, mode, reg)
      enum machine_mode mode;
      rtx reg;
 {
-  if (GET_CODE (orig) == SYMBOL_REF)
+  if (GET_CODE (orig) == SYMBOL_REF
+      || GET_CODE (orig) == LABEL_REF)
     {
+#ifndef AOF_ASSEMBLER
       rtx pic_ref, address;
+#endif
       rtx insn;
       int subregs = 0;
 
@@ -2201,10 +2306,16 @@ legitimize_pic_address (orig, mode, reg)
       else
 	emit_insn (gen_pic_load_addr_thumb (address, orig));
 
-      pic_ref = gen_rtx_MEM (Pmode,
-			     gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
-					   address));
-      RTX_UNCHANGING_P (pic_ref) = 1;
+      if (GET_CODE (orig) == LABEL_REF && NEED_GOT_RELOC)
+	pic_ref = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, address);
+      else
+	{
+	  pic_ref = gen_rtx_MEM (Pmode,
+				 gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
+					       address));
+	  RTX_UNCHANGING_P (pic_ref) = 1;
+	}
+
       insn = emit_move_insn (reg, pic_ref);
 #endif
       current_function_uses_pic_offset_table = 1;
@@ -2265,25 +2376,6 @@ legitimize_pic_address (orig, mode, reg)
 
       return gen_rtx_PLUS (Pmode, base, offset);
     }
-  else if (GET_CODE (orig) == LABEL_REF)
-    {
-      current_function_uses_pic_offset_table = 1;
-      
-      if (NEED_GOT_RELOC)
-	{
-	  rtx pic_ref, address = gen_reg_rtx (Pmode);
-
-	  if (TARGET_ARM)
-	    emit_insn (gen_pic_load_addr_arm (address, orig));
-	  else
-	    emit_insn (gen_pic_load_addr_thumb (address, orig));
-
-	  pic_ref = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, address);
-	  
-	  emit_move_insn (address, pic_ref);
-	  return address;
-	}
-    }
 
   return orig;
 }
@@ -2296,7 +2388,7 @@ legitimize_pic_address (orig, mode, reg)
 
 void
 arm_finalize_pic (prologue)
-     int prologue;
+     int prologue ATTRIBUTE_UNUSED;
 {
 #ifndef AOF_ASSEMBLER
   rtx l1, pic_tmp, pic_tmp2, seq, pic_rtx;
@@ -2634,7 +2726,7 @@ arm_rtx_costs (x, code, outer)
       if (GET_CODE (XEXP (x, 1)) == CONST_INT)
 	{
 	  unsigned HOST_WIDE_INT i = (INTVAL (XEXP (x, 1))
-				      & HOST_UINT (0xffffffff));
+				      & (unsigned HOST_WIDE_INT) 0xffffffff);
 	  int add_cost = const_ok_for_arm (i) ? 4 : 8;
 	  int j;
 	  
@@ -2741,7 +2833,7 @@ arm_rtx_costs (x, code, outer)
     }
 }
 
-int
+static int
 arm_adjust_cost (insn, link, dep, cost)
      rtx insn;
      rtx link;
@@ -2826,7 +2918,7 @@ arm_adjust_cost (insn, link, dep, cost)
 
 static int fpa_consts_inited = 0;
 
-static const char * strings_fpa[8] =
+static const char *const strings_fpa[8] =
 {
   "0",   "1",   "2",   "3",
   "4",   "5",   "0.5", "10"
@@ -2978,7 +3070,7 @@ arm_reload_memory_operand (op, mode)
 
 /* Return 1 if OP is a valid memory address, but not valid for a signed byte
    memory access (architecture V4).
-   MODE is QImode if called when computing contraints, or VOIDmode when
+   MODE is QImode if called when computing constraints, or VOIDmode when
    emitting patterns.  In this latter case we cannot use memory_operand()
    because it will fail on badly formed MEMs, which is precisly what we are
    trying to catch.  */
@@ -3722,7 +3814,7 @@ load_multiple_sequence (operands, nops, regs, base, load_offset)
 
       /* Convert a subreg of a mem into the mem itself.  */
       if (GET_CODE (operands[nops + i]) == SUBREG)
-	operands[nops + i] = alter_subreg (operands[nops + i]);
+	operands[nops + i] = alter_subreg (operands + (nops + i));
 
       if (GET_CODE (operands[nops + i]) != MEM)
 	abort ();
@@ -3957,7 +4049,7 @@ store_multiple_sequence (operands, nops, regs, base, load_offset)
 
       /* Convert a subreg of a mem into the mem itself.  */
       if (GET_CODE (operands[nops + i]) == SUBREG)
-	operands[nops + i] = alter_subreg (operands[nops + i]);
+	operands[nops + i] = alter_subreg (operands + (nops + i));
 
       if (GET_CODE (operands[nops + i]) != MEM)
 	abort ();
@@ -4123,85 +4215,6 @@ multi_register_push (op, mode)
 
   return 1;
 }
-
-/* Routines for use with attributes.  */
-
-/* Return nonzero if ATTR is a valid attribute for DECL.
-   ATTRIBUTES are any existing attributes and ARGS are
-   the arguments supplied with ATTR.
-
-   Supported attributes:
-
-   naked:
-     don't output any prologue or epilogue code, the user is assumed
-     to do the right thing.
-   
-   isr or interrupt:
-     Interrupt Service Routine.
-
-   interfacearm:
-     Always assume that this function will be entered in ARM mode,
-     not Thumb mode, and that the caller wishes to be returned to in
-     ARM mode.  */
-static int
-arm_valid_decl_attribute_p (decl, attributes, attr, args)
-     tree decl;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree attr;
-     tree args;
-{
-  /* The interrupt attribute can take args, so check for it before
-     rejecting other attributes on the grounds that they did have args.  */
-  if (is_attribute_p ("isr", attr)
-      || is_attribute_p ("interrupt", attr))
-    return TREE_CODE (decl) == FUNCTION_DECL;
-
-  if (args != NULL_TREE)
-    return 0;
-
-  if (is_attribute_p ("naked", attr))
-    return TREE_CODE (decl) == FUNCTION_DECL;
-
-#ifdef ARM_PE
-  if (is_attribute_p ("interfacearm", attr))
-    return TREE_CODE (decl) == FUNCTION_DECL;
-#endif /* ARM_PE */
-  
-  return 0;
-}
-
-#ifdef ARM_PE
-
-/* ARM/PE has three new attributes:
-   naked - for interrupt functions
-   dllexport - for exporting a function/variable that will live in a dll
-   dllimport - for importing a function/variable from a dll
-
-   Microsoft allows multiple declspecs in one __declspec, separating
-   them with spaces.  We do NOT support this.  Instead, use __declspec
-   multiple times.
-*/
-
-static int
-arm_pe_valid_decl_attribute_p (decl, attributes, attr, args)
-     tree decl;
-     tree attributes;
-     tree attr;
-     tree args;
-{
-  if (args != NULL_TREE)
-    return 0;
-
-  if (is_attribute_p ("dllexport", attr))
-    return 1;
-  
-  if (is_attribute_p ("dllimport", attr))
-    return 1;
-
-  return arm_valid_decl_attribute_p (decl, attributes, attr, args);
-}
-
-#endif /* ARM_PE  */
 
 /* Routines for use in generating RTL.  */
 rtx
@@ -4884,9 +4897,9 @@ arm_reload_in_hi (operands)
       if (lo == 4095)
 	lo &= 0x7ff;
 
-      hi = ((((offset - lo) & HOST_INT (0xffffffff))
-	     ^ HOST_INT (0x80000000))
-	    -  HOST_INT (0x80000000));
+      hi = ((((offset - lo) & (HOST_WIDE_INT) 0xffffffff)
+	     ^ (HOST_WIDE_INT) 0x80000000)
+	    - (HOST_WIDE_INT) 0x80000000);
 
       if (hi + lo != offset)
 	abort ();
@@ -5026,9 +5039,9 @@ arm_reload_out_hi (operands)
       if (lo == 4095)
 	lo &= 0x7ff;
 
-      hi = ((((offset - lo) & HOST_INT (0xffffffff))
-	     ^ HOST_INT (0x80000000))
-	    - HOST_INT (0x80000000));
+      hi = ((((offset - lo) & (HOST_WIDE_INT) 0xffffffff)
+	     ^ (HOST_WIDE_INT) 0x80000000)
+	    - (HOST_WIDE_INT) 0x80000000);
 
       if (hi + lo != offset)
 	abort ();
@@ -5219,7 +5232,7 @@ struct minipool_node
      pushing fixes for forward references, all entries are sorted in order
      of increasing max_address.  */
   HOST_WIDE_INT max_address;
-  /* Similarly for a entry inserted for a backwards ref.  */
+  /* Similarly for an entry inserted for a backwards ref.  */
   HOST_WIDE_INT min_address;
   /* The number of fixes referencing this entry.  This can become zero
      if we "unpush" an entry.  In this case we ignore the entry when we
@@ -5341,7 +5354,7 @@ move_minipool_fix_forward_ref (mp, max_mp, max_address)
   /* Save the new entry.  */
   max_mp = mp;
 
-  /* Scan over the preceeding entries and adjust their addresses as
+  /* Scan over the preceding entries and adjust their addresses as
      required.  */
   while (mp->prev != NULL
 	 && mp->prev->max_address > mp->max_address - mp->prev->fix_size)
@@ -5447,7 +5460,7 @@ add_minipool_forward_ref (fix)
   /* Save the new entry.  */
   max_mp = mp;
 
-  /* Scan over the preceeding entries and adjust their addresses as
+  /* Scan over the preceding entries and adjust their addresses as
      required.  */
   while (mp->prev != NULL
 	 && mp->prev->max_address > mp->max_address - mp->prev->fix_size)
@@ -6747,7 +6760,7 @@ output_multi_immediate (operands, instr1, instr2, immed_op, n)
      HOST_WIDE_INT n;
 {
 #if HOST_BITS_PER_WIDE_INT > 32
-  n &= HOST_UINT (0xffffffff);
+  n &= 0xffffffff;
 #endif
 
   if (n == 0)
@@ -6896,7 +6909,7 @@ int_log2 (power)
 {
   HOST_WIDE_INT shift = 0;
 
-  while ((((HOST_INT (1)) << shift) & power) == 0)
+  while ((((HOST_WIDE_INT) 1 << shift) & power) == 0)
     {
       if (shift > 31)
 	abort ();
@@ -7313,7 +7326,7 @@ output_return_instruction (operand, really_return, reverse)
 void
 arm_poke_function_name (stream, name)
    FILE * stream;
-   char * name;
+   const char * name;
 {
   unsigned long alignlength;
   unsigned long length;
@@ -7324,8 +7337,8 @@ arm_poke_function_name (stream, name)
   
   ASM_OUTPUT_ASCII (stream, name, length);
   ASM_OUTPUT_ALIGN (stream, 2);
-  x = GEN_INT (HOST_UINT(0xff000000) + alignlength);
-  ASM_OUTPUT_INT (stream, x);
+  x = GEN_INT ((unsigned HOST_WIDE_INT) 0xff000000 + alignlength);
+  assemble_aligned_integer (UNITS_PER_WORD, x);
 }
 
 /* Place some comments into the assembler stream
@@ -7871,6 +7884,182 @@ emit_sfm (base_reg, count)
   return par;
 }
 
+/* Compute the distance from register FROM to register TO.
+   These can be the arg pointer (26), the soft frame pointer (25),
+   the stack pointer (13) or the hard frame pointer (11).
+   Typical stack layout looks like this:
+
+       old stack pointer -> |    |
+                             ----
+                            |    | \
+                            |    |   saved arguments for
+                            |    |   vararg functions
+			    |    | /
+                              --
+   hard FP & arg pointer -> |    | \
+                            |    |   stack
+                            |    |   frame
+                            |    | /
+                              --
+                            |    | \
+                            |    |   call saved
+                            |    |   registers
+      soft frame pointer -> |    | /
+                              --
+                            |    | \
+                            |    |   local
+                            |    |   variables
+                            |    | /
+                              --
+                            |    | \
+                            |    |   outgoing
+                            |    |   arguments
+   current stack pointer -> |    | /
+                              --
+
+  For a given funciton some or all of these stack compomnents
+  may not be needed, giving rise to the possibility of
+  eliminating some of the registers.
+
+  The values returned by this function must reflect the behaviour
+  of arm_expand_prologue() and arm_compute_save_reg_mask().
+
+  The sign of the number returned reflects the direction of stack
+  growth, so the values are positive for all eliminations except
+  from the soft frame pointer to the hard frame pointer.  */
+			    
+unsigned int
+arm_compute_initial_elimination_offset (from, to)
+     unsigned int from;
+     unsigned int to;
+{
+  unsigned int local_vars    = (get_frame_size () + 3) & ~3;
+  unsigned int outgoing_args = current_function_outgoing_args_size;
+  unsigned int stack_frame;
+  unsigned int call_saved_registers;
+  unsigned long func_type;
+  
+  func_type = arm_current_func_type ();
+
+  /* Volatile functions never return, so there is
+     no need to save call saved registers.  */
+  call_saved_registers = 0;
+  if (! IS_VOLATILE (func_type))
+    {
+      unsigned int reg;
+
+      /* In theory we should check all of the hard registers to
+	 see if they will be saved onto the stack.  In practice
+	 registers 11 upwards have special meanings and need to
+	 be check individually.  */
+      for (reg = 0; reg <= 10; reg ++)
+	if (regs_ever_live[reg] && ! call_used_regs[reg])
+	  call_saved_registers += 4;
+
+      /* Determine if register 11 will be clobbered.  */
+      if (! TARGET_APCS_FRAME
+	  && ! frame_pointer_needed
+	  && regs_ever_live[HARD_FRAME_POINTER_REGNUM]
+	  && ! call_used_regs[HARD_FRAME_POINTER_REGNUM])
+	call_saved_registers += 4;
+
+      /* The PIC register is fixed, so if the function will
+	 corrupt it, it has to be saved onto the stack.  */
+      if (flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
+	call_saved_registers += 4;
+
+      if (regs_ever_live[LR_REGNUM]
+	  /* If a stack frame is going to be created, the LR will
+	     be saved as part of that, so we do not need to allow
+	     for it here.  */
+	  && ! frame_pointer_needed)
+	call_saved_registers += 4;
+
+      /* If the hard floating point registers are going to be
+	 used then they must be saved on the stack as well.
+         Each register occupies 12 bytes of stack space.  */
+      for (reg = FIRST_ARM_FP_REGNUM; reg <= LAST_ARM_FP_REGNUM; reg ++)
+	if (regs_ever_live[reg] && ! call_used_regs[reg])
+	  call_saved_registers += 12;
+    }
+
+  /* The stack frame contains 4 registers - the old frame pointer,
+     the old stack pointer, the return address and PC of the start
+     of the function.  */
+  stack_frame = frame_pointer_needed ? 16 : 0;
+
+  /* OK, now we have enough information to compute the distances.
+     There must be an entry in these switch tables for each pair
+     of registers in ELIMINABLE_REGS, even if some of the entries
+     seem to be redundant or useless.  */
+  switch (from)
+    {
+    case ARG_POINTER_REGNUM:
+      switch (to)
+	{
+	case THUMB_HARD_FRAME_POINTER_REGNUM:
+	  return 0;
+
+	case FRAME_POINTER_REGNUM:
+	  /* This is the reverse of the soft frame pointer
+	     to hard frame pointer elimination below.  */
+	  if (call_saved_registers == 0 && stack_frame == 0)
+	    return 0;
+	  return (call_saved_registers + stack_frame - 4);
+
+	case ARM_HARD_FRAME_POINTER_REGNUM:
+	  /* If there is no stack frame then the hard
+	     frame pointer and the arg pointer coincide.  */
+	  if (stack_frame == 0 && call_saved_registers != 0)
+	    return 0;
+	  /* FIXME:  Not sure about this.  Maybe we should always return 0 ?  */
+	  return (frame_pointer_needed
+		  && current_function_needs_context
+		  && ! current_function_anonymous_args) ? 4 : 0;
+
+	case STACK_POINTER_REGNUM:
+	  /* If nothing has been pushed on the stack at all
+	     then this will return -4.  This *is* correct!  */
+	  return call_saved_registers + stack_frame + local_vars + outgoing_args - 4;
+
+	default:
+	  abort ();
+	}
+      break;
+
+    case FRAME_POINTER_REGNUM:
+      switch (to)
+	{
+	case THUMB_HARD_FRAME_POINTER_REGNUM:
+	  return 0;
+
+	case ARM_HARD_FRAME_POINTER_REGNUM:
+	  /* The hard frame pointer points to the top entry in the
+	     stack frame.  The soft frame pointer to the bottom entry
+	     in the stack frame.  If there is no stack frame at all,
+	     then they are identical.  */
+	  if (call_saved_registers == 0 && stack_frame == 0)
+	    return 0;
+	  return - (call_saved_registers + stack_frame - 4);
+
+	case STACK_POINTER_REGNUM:
+	  return local_vars + outgoing_args;
+
+	default:
+	  abort ();
+	}
+      break;
+
+    default:
+      /* You cannot eliminate from the stack pointer.
+	 In theory you could eliminate from the hard frame
+	 pointer to the stack pointer, but this will never
+	 happen, since if a stack frame is not needed the
+	 hard frame pointer will never be used.  */
+      abort ();
+    }
+}
+
 /* Generate the prologue instructions for entry into an ARM function.  */
 
 void
@@ -7883,6 +8072,8 @@ arm_expand_prologue ()
   unsigned long live_regs_mask;
   unsigned long func_type;
   int fp_offset = 0;
+  int saved_pretend_args = 0;
+  unsigned int args_to_push;
 
   func_type = arm_current_func_type ();
 
@@ -7890,6 +8081,9 @@ arm_expand_prologue ()
   if (IS_NAKED (func_type))
     return;
 
+  /* Make a copy of c_f_p_a_s as we may need to modify it locally.  */
+  args_to_push = current_function_pretend_args_size;
+  
   /* Compute which register we will have to save onto the stack.  */
   live_regs_mask = arm_compute_save_reg_mask ();
 
@@ -7916,8 +8110,8 @@ arm_expand_prologue ()
 	       1. The last argument register.
 	       2. A slot on the stack above the frame.  (This only
 	          works if the function is not a varargs function).
-		  
-	     If neither of these places is available, we abort (for now).
+	       3. Register r3, after pushing the argument registers
+	          onto the stack.
 
 	     Note - we only need to tell the dwarf2 backend about the SP
 	     adjustment in the second variant; the static chain register
@@ -7930,7 +8124,7 @@ arm_expand_prologue ()
 	      insn = gen_rtx_SET (SImode, insn, ip_rtx);
 	      insn = emit_insn (insn);
 	    }
-	  else if (current_function_pretend_args_size == 0)
+	  else if (args_to_push == 0)
 	    {
 	      rtx dwarf;
 	      insn = gen_rtx_PRE_DEC (SImode, stack_pointer_rtx);
@@ -7949,13 +8143,27 @@ arm_expand_prologue ()
 						    dwarf, REG_NOTES (insn));
 	    }
 	  else
-	    /* FIXME - the way to handle this situation is to allow
-	       the pretend args to be dumped onto the stack, then
-	       reuse r3 to save IP.  This would involve moving the
-	       copying of SP into IP until after the pretend args
-	       have been dumped, but this is not too hard.  */
-	    /* [See e.g. gcc.c-torture/execute/nest-stdar-1.c.]  */
-	    error ("Unable to find a temporary location for static chain register");
+	    {
+	      /* Store the args on the stack.  */
+	      if (current_function_anonymous_args)
+		insn = emit_multi_reg_push
+		  ((0xf0 >> (args_to_push / 4)) & 0xf);
+	      else
+		insn = emit_insn
+		  (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx, 
+			       GEN_INT (- args_to_push)));
+
+	      RTX_FRAME_RELATED_P (insn) = 1;
+
+	      saved_pretend_args = 1;
+	      fp_offset = args_to_push;
+	      args_to_push = 0;
+
+	      /* Now reuse r3 to preserve IP.  */
+	      insn = gen_rtx_REG (SImode, 3);
+	      insn = gen_rtx_SET (SImode, insn, ip_rtx);
+	      (void) emit_insn (insn);
+	    }
 	}
 
       if (fp_offset)
@@ -7970,16 +8178,16 @@ arm_expand_prologue ()
       RTX_FRAME_RELATED_P (insn) = 1;
     }
 
-  if (current_function_pretend_args_size)
+  if (args_to_push)
     {
       /* Push the argument registers, or reserve space for them.  */
       if (current_function_anonymous_args)
 	insn = emit_multi_reg_push
-	  ((0xf0 >> (current_function_pretend_args_size / 4)) & 0xf);
+	  ((0xf0 >> (args_to_push / 4)) & 0xf);
       else
 	insn = emit_insn
 	  (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx, 
-		       GEN_INT (-current_function_pretend_args_size)));
+		       GEN_INT (- args_to_push)));
       RTX_FRAME_RELATED_P (insn) = 1;
     }
 
@@ -8041,25 +8249,26 @@ arm_expand_prologue ()
   if (frame_pointer_needed)
     {
       /* Create the new frame pointer.  */
-      insn = GEN_INT (-(4 + current_function_pretend_args_size + fp_offset));
+      insn = GEN_INT (-(4 + args_to_push + fp_offset));
       insn = emit_insn (gen_addsi3 (hard_frame_pointer_rtx, ip_rtx, insn));
       RTX_FRAME_RELATED_P (insn) = 1;
       
       if (IS_NESTED (func_type))
 	{
 	  /* Recover the static chain register.  */
-	  if (regs_ever_live [3] == 0)
+	  if (regs_ever_live [3] == 0
+	      || saved_pretend_args)
 	    {
 	      insn = gen_rtx_REG (SImode, 3);
 	      insn = gen_rtx_SET (SImode, ip_rtx, insn);
-	      insn = emit_insn (insn);
+	      (void) emit_insn (insn);
 	    }
 	  else /* if (current_function_pretend_args_size == 0) */
 	    {
 	      insn = gen_rtx_PLUS (SImode, hard_frame_pointer_rtx, GEN_INT (4));
 	      insn = gen_rtx_MEM (SImode, insn);
 	      insn = gen_rtx_SET (SImode, ip_rtx, insn);
-	      insn = emit_insn (insn);
+	      (void) emit_insn (insn);
 	    }
 	}
     }
@@ -8099,7 +8308,7 @@ arm_expand_prologue ()
   /* If we are profiling, make sure no instructions are scheduled before
      the call to mcount.  Similarly if the user has requested no
      scheduling in the prolog.  */
-  if (profile_flag || profile_block_flag || TARGET_NO_SCHED_PRO)
+  if (profile_flag || TARGET_NO_SCHED_PRO)
     emit_insn (gen_blockage ());
 
   /* If the link register is being kept alive, with the return address in it,
@@ -8317,6 +8526,40 @@ arm_print_operand (stream, x, code)
 	}
     }
 }
+
+#ifndef AOF_ASSEMBLER
+/* Target hook for assembling integer objects.  The ARM version needs to
+   handle word-sized values specially.  */
+
+static bool
+arm_assemble_integer (x, size, aligned_p)
+     rtx x;
+     unsigned int size;
+     int aligned_p;
+{
+  if (size == UNITS_PER_WORD && aligned_p)
+    {
+      fputs ("\t.word\t", asm_out_file);
+      output_addr_const (asm_out_file, x);
+
+      /* Mark symbols as position independent.  We only do this in the
+	 .text segment, not in the .data segment. */
+      if (NEED_GOT_RELOC && flag_pic && making_const_table &&
+	  (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF))
+	{
+	  if (GET_CODE (x) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (x))
+	    fputs ("(GOTOFF)", asm_out_file);
+	  else if (GET_CODE (x) == LABEL_REF)
+	    fputs ("(GOTOFF)", asm_out_file);
+	  else
+	    fputs ("(GOT)", asm_out_file);
+	}
+      fputc ('\n', asm_out_file);
+      return true;
+    }
+  return default_assemble_integer (x, size, aligned_p);
+}
+#endif
 
 /* A finite state machine takes care of noticing whether or not instructions
    can be conditionally executed, and thus decrease execution time and code
@@ -8917,7 +9160,7 @@ arm_debugger_arg_offset (value, addr)
   if (value == 0)
     {
       debug_rtx (addr);
-      warning ("Unable to compute real location of stacked parameter");
+      warning ("unable to compute real location of stacked parameter");
       value = 8; /* XXX magic hack */
     }
 
@@ -8948,11 +9191,6 @@ arm_init_builtins ()
   /* Initialize arm V5 builtins.  */
   if (arm_arch5)
     def_builtin ("__builtin_clz", int_ftype_int, ARM_BUILTIN_CLZ);
-
-  /* Initialize arm V5E builtins.  */
-  if (arm_arch5e)
-    def_builtin ("__builtin_prefetch", void_ftype_pchar,
-		 ARM_BUILTIN_PREFETCH);
 }
 
 /* Expand an expression EXP that calls a built-in function,
@@ -8996,19 +9234,6 @@ arm_expand_builtin (exp, target, subtarget, mode, ignore)
 	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
 	target = gen_reg_rtx (tmode);
       pat = GEN_FCN (icode) (target, op0);
-      if (! pat)
-	return 0;
-      emit_insn (pat);
-      return target;
-
-    case ARM_BUILTIN_PREFETCH:
-      icode = CODE_FOR_prefetch;
-      arg0 = TREE_VALUE (arglist);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-
-      op0 = gen_rtx_MEM (SImode, copy_to_mode_reg (Pmode, op0));
-
-      pat = GEN_FCN (icode) (op0);
       if (! pat)
 	return 0;
       emit_insn (pat);
@@ -9538,7 +9763,7 @@ is_called_in_ARM_mode (func)
     return TRUE;
 
 #ifdef ARM_PE 
-  return lookup_attribute ("interfacearm", DECL_MACHINE_ATTRIBUTES (func)) != NULL_TREE;
+  return lookup_attribute ("interfacearm", DECL_ATTRIBUTES (func)) != NULL_TREE;
 #else
   return FALSE;
 #endif
@@ -9800,7 +10025,7 @@ thumb_expand_prologue ()
 
   if (IS_INTERRUPT (func_type))
     {
-      error ("Interrupt Service Routines cannot be coded in Thumb mode.");
+      error ("interrupt Service Routines cannot be coded in Thumb mode");
       return;
     }
 
@@ -9876,7 +10101,7 @@ thumb_expand_prologue ()
 	}
     }
   
-  if (profile_flag || profile_block_flag || TARGET_NO_SCHED_PRO)
+  if (profile_flag || TARGET_NO_SCHED_PRO)
     emit_insn (gen_blockage ());
 }
 
@@ -9913,7 +10138,7 @@ thumb_expand_epilogue ()
      the stack adjustment will not be deleted.  */
   emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
 
-  if (profile_flag || profile_block_flag || TARGET_NO_SCHED_PRO)
+  if (profile_flag || TARGET_NO_SCHED_PRO)
     emit_insn (gen_blockage ());
 }
 
@@ -10405,7 +10630,7 @@ thumb_condition_code (x, invert)
      rtx x;
      int invert;
 {
-  static const char * conds[] =
+  static const char *const conds[] =
   {
     "eq", "ne", "cs", "cc", "mi", "pl", "vs", "vc", 
     "hi", "ls", "ge", "lt", "gt", "le"
@@ -10479,7 +10704,7 @@ rtx aof_pic_label = NULL_RTX;
 struct pic_chain
 {
   struct pic_chain * next;
-  char * symname;
+  const char * symname;
 };
 
 static struct pic_chain * aof_pic_chain = NULL;
@@ -10569,14 +10794,14 @@ aof_data_section ()
 struct import
 {
   struct import * next;
-  char * name;
+  const char * name;
 };
 
 static struct import * imports_list = NULL;
 
 void
 aof_add_import (name)
-     char * name;
+     const char * name;
 {
   struct import * new;
 
@@ -10592,7 +10817,7 @@ aof_add_import (name)
 
 void
 aof_delete_import (name)
-     char * name;
+     const char * name;
 {
   struct import ** old;
 
@@ -10632,3 +10857,47 @@ aof_dump_imports (f)
     }
 }
 #endif /* AOF_ASSEMBLER */
+
+#ifdef OBJECT_FORMAT_ELF
+/* Switch to an arbitrary section NAME with attributes as specified
+   by FLAGS.  ALIGN specifies any known alignment requirements for
+   the section; 0 if the default should be used.
+
+   Differs from the default elf version only in the prefix character
+   used before the section type.  */
+
+static void
+arm_elf_asm_named_section (name, flags)
+     const char *name;
+     unsigned int flags;
+{
+  char flagchars[8], *f = flagchars;
+  const char *type;
+
+  if (!(flags & SECTION_DEBUG))
+    *f++ = 'a';
+  if (flags & SECTION_WRITE)
+    *f++ = 'w';
+  if (flags & SECTION_CODE)
+    *f++ = 'x';
+  if (flags & SECTION_SMALL)
+    *f++ = 's';
+  if (flags & SECTION_MERGE)
+    *f++ = 'M';
+  if (flags & SECTION_STRINGS)
+    *f++ = 'S';
+  *f = '\0';
+
+  if (flags & SECTION_BSS)
+    type = "nobits";
+  else
+    type = "progbits";
+
+  if (flags & SECTION_ENTSIZE)
+    fprintf (asm_out_file, "\t.section\t%s,\"%s\",%%%s,%d\n",
+	     name, flagchars, type, flags & SECTION_ENTSIZE);
+  else
+    fprintf (asm_out_file, "\t.section\t%s,\"%s\",%%%s\n",
+	     name, flagchars, type);
+}
+#endif

@@ -66,7 +66,7 @@ push_pending_label (target_label)
 
 /* Note that TARGET_LABEL is a possible successor instruction.
    Merge the type state etc.
-   Return NULL on sucess, or an error message on failure. */
+   Return NULL on success, or an error message on failure. */
 
 static const char *
 check_pending_block (target_label)
@@ -102,6 +102,22 @@ check_pending_block (target_label)
 	return "transfer out of subroutine";
     }
   return NULL;
+}
+
+/* Count the number of nested jsr calls needed to reach LABEL. */
+
+static int
+subroutine_nesting (tree label)
+{
+  int nesting = 0;
+  while (label != NULL_TREE && LABEL_IN_SUBR (label))
+    {
+      if (! LABEL_IS_SUBR_START(label))
+	label = LABEL_SUBR_START (label);
+      label = LABEL_SUBR_CONTEXT (label);
+      nesting++;
+    }
+  return nesting;
 }
 
 /* Return the "merged" types of TYPE1 and TYPE2.
@@ -398,7 +414,7 @@ pop_argument_types (arg_types)
 #define BCODE byte_ops
 
 /* Verify the bytecodes of the current method.
-   Return 1 on sucess, 0 on failure. */
+   Return 1 on success, 0 on failure. */
 int
 verify_jvm_instructions (jcf, byte_ops, length)
      JCF* jcf;
@@ -497,11 +513,9 @@ verify_jvm_instructions (jcf, byte_ops, length)
       if (current_subr 
 	  && PC == INVALID_PC)
 	{
-	  tree caller = LABEL_SUBR_CONTEXT (current_subr);
-
 	  if (pending_blocks == NULL_TREE
-	      || ! LABEL_IN_SUBR (pending_blocks)
-	      || LABEL_SUBR_START (pending_blocks) == caller)
+	      || (subroutine_nesting (pending_blocks)
+		  < subroutine_nesting (current_subr)))
 	    {
 	      int size = DECL_MAX_LOCALS(current_function_decl)+stack_pointer;
 	      tree ret_map = LABEL_RETURN_TYPE_STATE (current_subr);
@@ -511,7 +525,7 @@ verify_jvm_instructions (jcf, byte_ops, length)
 		 have returned to an earlier caller.  Obviously a
 		 "ret" can only return one level, but a throw may
 		 return many levels.*/
-	      current_subr = caller;
+	      current_subr = LABEL_SUBR_CONTEXT (current_subr);
 
 	      if (RETURN_MAP_ADJUSTED (ret_map))
 		{
@@ -594,7 +608,7 @@ verify_jvm_instructions (jcf, byte_ops, length)
 	  goto push_int;
 	push_int:
 	  if (byte_ops[PC] == OPCODE_newarray
-	      || byte_ops[PC] == OPCODE_newarray)
+	      || byte_ops[PC] == OPCODE_anewarray)
 	    int_value = i;
 	  PUSH_TYPE (int_type_node);  break;
 	case OPCODE_lconst_0:	case OPCODE_lconst_1:
@@ -1174,12 +1188,14 @@ verify_jvm_instructions (jcf, byte_ops, length)
 	  break;
 
 	case OPCODE_checkcast:
-	  pop_type (ptr_type_node);
+	  POP_TYPE (object_ptr_type_node,
+		    "checkcast operand is not a pointer");
 	  type = get_class_constant (current_jcf, IMMEDIATE_u2);
 	  PUSH_TYPE (type);
 	  break;
 	case OPCODE_instanceof:
-	  pop_type (ptr_type_node);
+	  POP_TYPE (object_ptr_type_node,
+		    "instanceof operand is not a pointer");
 	  get_class_constant (current_jcf, IMMEDIATE_u2);
 	  PUSH_TYPE (int_type_node);
 	  break;

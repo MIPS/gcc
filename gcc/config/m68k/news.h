@@ -171,7 +171,7 @@ do { char dstr[30];					\
 
 #if 0
 /* The NEWS assembler in version 3.4 complains about fmove.d, but this
-   macro proved not to work right.  3.4 is old, so forget about it. */
+   macro proved not to work right.  3.4 is old, so forget about it.  */
 #define ASM_OUTPUT_OPCODE(FILE, STRING) \
 {						\
   if (!strncmp (STRING, "fmove.d", 7)		\
@@ -285,7 +285,7 @@ do { char dstr[30];					\
       else								\
         { long l;							\
           REAL_VALUE_TO_TARGET_SINGLE (r, l);				\
-          fprintf (FILE, "#0x%x", l);					\
+          fprintf (FILE, "#0x%lx", l);					\
         }}								\
   else if (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) == XFmode)	\
     { REAL_VALUE_TYPE r;						\

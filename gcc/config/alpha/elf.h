@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha w/ELF.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
    Contributed by Richard Henderson (rth@tamu.edu).
 
 This file is part of GNU CC.
@@ -58,6 +59,8 @@ do {								\
     }								\
   fprintf (FILE, "\t.set noat\n");				\
   fprintf (FILE, "\t.set noreorder\n");				\
+  if (TARGET_EXPLICIT_RELOCS)					\
+    fprintf (FILE, "\t.set nomacro\n");				\
   if (TARGET_BWX | TARGET_MAX | TARGET_FIX | TARGET_CIX)	\
     {								\
       fprintf (FILE, "\t.arch %s\n",				\
@@ -162,12 +165,6 @@ do {									\
   ASM_OUTPUT_SKIP((FILE), (SIZE));					\
 } while (0)
 
-/* This is the pseudo-op used to generate a 64-bit word of data with a
-   specific value in some section.  */
-
-#undef  INT_ASM_OP
-#define INT_ASM_OP		"\t.quad\t"
-
 /* Biggest alignment supported by the object file format of this
    machine.  Use this macro to limit the alignment which can be
    specified using the `__attribute__ ((aligned (N)))' construct.  If
@@ -202,27 +199,6 @@ do {									\
 #undef  CONST_SECTION_ASM_OP
 #define CONST_SECTION_ASM_OP	"\t.section\t.rodata"
 
-/* Define the pseudo-ops used to switch to the .ctors and .dtors sections.
-
-   Note that we want to give these sections the SHF_WRITE attribute
-   because these sections will actually contain data (i.e. tables of
-   addresses of functions in the current root executable or shared library
-   file) and, in the case of a shared library, the relocatable addresses
-   will have to be properly resolved/relocated (and then written into) by
-   the dynamic linker when it actually attaches the given shared library
-   to the executing process.  (Note that on SVR4, you may wish to use the
-   `-z text' option to the ELF linker, when building a shared library, as
-   an additional check that you are doing everything right.  But if you do
-   use the `-z text' option when building a shared library, you will get
-   errors unless the .ctors and .dtors sections are marked as writable
-   via the SHF_WRITE attribute.)  */
-
-#undef  CTORS_SECTION_ASM_OP
-#define CTORS_SECTION_ASM_OP	"\t.section\t.ctors,\"aw\""
-#undef  DTORS_SECTION_ASM_OP
-#define DTORS_SECTION_ASM_OP	"\t.section\t.dtors,\"aw\""
-
-/* Handle the small data sections.  */
 #undef  BSS_SECTION_ASM_OP
 #define BSS_SECTION_ASM_OP	"\t.section\t.bss"
 #undef  SBSS_SECTION_ASM_OP
@@ -241,13 +217,23 @@ do {									\
 #undef  FINI_SECTION_ASM_OP
 #define FINI_SECTION_ASM_OP	"\t.section\t.fini"
 
+#ifdef HAVE_GAS_SUBSECTION_ORDERING
+
+#define ASM_SECTION_START_OP	"\t.subsection\t-1"
+
+/* Output assembly directive to move to the beginning of current section.  */
+#define ASM_OUTPUT_SECTION_START(FILE)	\
+  fprintf ((FILE), "%s\n", ASM_SECTION_START_OP)
+
+#endif
+
 /* A default list of other sections which we might be "in" at any given
    time.  For targets that use additional sections (e.g. .tdesc) you
    should override this definition in the target-specific file which
    includes this file.  */
 
 #undef  EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_ctors, in_dtors, in_sbss, in_sdata
+#define EXTRA_SECTIONS in_const, in_sbss, in_sdata
 
 /* A default list of extra section function definitions.  For targets
    that use additional sections (e.g. .tdesc) you should override this
@@ -256,13 +242,9 @@ do {									\
 #undef  EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
   CONST_SECTION_FUNCTION						\
-  SECTION_FUNCTION_TEMPLATE(ctors_section, in_ctors, CTORS_SECTION_ASM_OP) \
-  SECTION_FUNCTION_TEMPLATE(dtors_section, in_dtors, DTORS_SECTION_ASM_OP) \
   SECTION_FUNCTION_TEMPLATE(sbss_section, in_sbss, SBSS_SECTION_ASM_OP)	\
   SECTION_FUNCTION_TEMPLATE(sdata_section, in_sdata, SDATA_SECTION_ASM_OP)
 
-extern void ctors_section		PARAMS ((void));
-extern void dtors_section		PARAMS ((void));
 extern void sbss_section		PARAMS ((void));
 extern void sdata_section		PARAMS ((void));
 
@@ -294,91 +276,8 @@ void FN ()					\
     }						\
 }
 
-
-/* Switch into a generic section.
-
-   We make the section read-only and executable for a function decl,
-   read-only for a const data decl, and writable for a non-const data decl.
-
-   If the section has already been defined, we must not emit the
-   attributes here. The SVR4 assembler does not recognize section
-   redefinitions.  If DECL is NULL, no attributes are emitted.  */
-
-#undef  ASM_OUTPUT_SECTION_NAME
-#define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC)		\
-  do									\
-    {									\
-      static htab_t htab;                                               \
-                                                                        \
-      struct section_info                                               \
-      {									\
-	enum sect_enum {SECT_RW, SECT_RO, SECT_EXEC} type;		\
-      };                                                                \
-                                                                        \
-      struct section_info *s;						\
-      const char *mode;							\
-      enum sect_enum type;                                              \
-      PTR* slot;                                                        \
-                                                                        \
-      /* The names we put in the hashtable will always be the unique    \
-	 versions gived to us by the stringtable, so we can just use    \
-	 their addresses as the keys.  */                               \
-      if (!htab)                                                        \
-	htab = htab_create (31,                                         \
-			    htab_hash_pointer,                          \
-			    htab_eq_pointer,                            \
-			    NULL);                                      \
-                                                                        \
-      if (DECL && TREE_CODE (DECL) == FUNCTION_DECL)			\
-	type = SECT_EXEC, mode = "ax";					\
-      else if (DECL && DECL_READONLY_SECTION (DECL, RELOC))		\
-	type = SECT_RO, mode = "a";					\
-      else								\
-	type = SECT_RW, mode = "aw";					\
-      									\
-      /* See if we already have an entry for this section.  */          \
-      slot = htab_find_slot (htab, NAME, INSERT);                       \
-      if (!*slot)                                                       \
-	{                                                               \
-	  s = (struct section_info *) xmalloc (sizeof (* s));		\
-	  s->type = type;						\
-	  *slot = s;							\
-	  fprintf (FILE, "\t.section\t%s,\"%s\",@progbits\n",		\
-		   NAME, mode);						\
-	}								\
-      else								\
-	{								\
-	  s = (struct section_info *) *slot;                            \
-	  if (DECL && s->type != type)					\
-	    error_with_decl (DECL,                                      \
-			     "%s causes a section type conflict");      \
-	  								\
-	  fprintf (FILE, "\t.section\t%s\n", NAME);			\
-	}								\
-    }									\
-  while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#undef  ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(FILE, NAME)				\
-  do {									\
-    ctors_section ();							\
-    fprintf (FILE, "%s", INT_ASM_OP);					\
-    assemble_name (FILE, NAME);						\
-    fprintf (FILE, "\n");						\
-  } while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-#undef  ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(FILE, NAME)      				\
-  do {									\
-    dtors_section ();                   				\
-    fprintf (FILE, "%s", INT_ASM_OP);					\
-    assemble_name (FILE, NAME);              				\
-    fprintf (FILE, "\n");						\
-  } while (0)
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION  default_elf_asm_named_section
 
 /* A C statement or statements to switch to the appropriate
    section for output of DECL.  DECL is either a `VAR_DECL' node
@@ -397,13 +296,20 @@ void FN ()					\
 #define DO_SELECT_SECTION(SECNUM, DECL, RELOC)			\
   do								\
      {								\
+       HOST_WIDE_INT size;					\
        SECNUM = 1;						\
        if (TREE_CODE (DECL) == FUNCTION_DECL)			\
-	 SECNUM = 0;						\
+	 {							\
+	   SECNUM = 0;						\
+	   break;						\
+	 }							\
        else if (TREE_CODE (DECL) == STRING_CST)			\
 	 {							\
 	   if (flag_writable_strings)				\
 	     SECNUM = 2;					\
+	   else							\
+	     SECNUM = 0x101;					\
+	   break;						\
 	 }							\
        else if (TREE_CODE (DECL) == VAR_DECL)			\
 	 {							\
@@ -415,52 +321,81 @@ void FN ()					\
 		    || TREE_SIDE_EFFECTS (DECL)			\
 		    || ! TREE_CONSTANT (DECL_INITIAL (DECL)))	\
 	     SECNUM = 2;					\
+	  else if (flag_merge_constants >= 2)			\
+	    {							\
+	      /* C and C++ don't allow different variables to	\
+		 share the same location.  -fmerge-all-constants\
+		 allows even that (at the expense of not	\
+		 conforming).  */				\
+	      if (TREE_CODE (DECL_INITIAL (DECL)) == STRING_CST)\
+		SECNUM = 0x201;					\
+	      else						\
+		SECNUM = 0x301;					\
+	    }							\
 	 }							\
        else if (TREE_CODE (DECL) == CONSTRUCTOR)		\
 	 {							\
 	   if ((flag_pic && RELOC)				\
-	       || ! TREE_READONLY (DECL)			\
 	       || TREE_SIDE_EFFECTS (DECL)			\
 	       || ! TREE_CONSTANT (DECL))			\
 	     SECNUM = 2;					\
 	 }							\
 								\
        /* Select small data sections based on size.  */		\
-       if (SECNUM >= 2)						\
+       size = int_size_in_bytes (TREE_TYPE (DECL));		\
+       if (size >= 0 && size <= g_switch_value)			\
 	 {							\
-	   int size = int_size_in_bytes (TREE_TYPE (DECL));	\
-	   if (size >= 0 && size <= g_switch_value)		\
+	   if ((SECNUM & 0xff) >= 2)				\
 	     SECNUM += 1;					\
+	   /* Move readonly data to .sdata only if -msmall-data.  */ \
+	   /* ??? Consider .sdata.{lit4,lit8} as		\
+	      SHF_MERGE|SHF_ALPHA_GPREL.  */			\
+	   else if (TARGET_SMALL_DATA)				\
+	     SECNUM = 3;					\
 	 }							\
      }								\
    while (0)
 
 #undef  SELECT_SECTION
-#define SELECT_SECTION(DECL, RELOC)		\
-  do						\
-    {						\
-      typedef void (*sec_fn) PARAMS ((void));	\
-      static sec_fn const sec_functions[6] =	\
-      {						\
-	text_section,				\
-	const_section,				\
-	data_section,				\
-	sdata_section,				\
-	bss_section,				\
-	sbss_section				\
-      };					\
-						\
-      int sec;					\
-						\
-      DO_SELECT_SECTION (sec, DECL, RELOC);	\
-						\
-      (*sec_functions[sec]) ();			\
-    }						\
+#define SELECT_SECTION(DECL, RELOC, ALIGN)		\
+  do							\
+    {							\
+      typedef void (*sec_fn) PARAMS ((void));		\
+      static sec_fn const sec_functions[6] =		\
+      {							\
+	text_section,					\
+	const_section,					\
+	data_section,					\
+	sdata_section,					\
+	bss_section,					\
+	sbss_section					\
+      };						\
+							\
+      int sec;						\
+							\
+      DO_SELECT_SECTION (sec, DECL, RELOC);		\
+							\
+      switch (sec)					\
+	{						\
+	case 0x101:					\
+	  mergeable_string_section (DECL, ALIGN, 0);	\
+	  break;					\
+	case 0x201:					\
+	  mergeable_string_section (DECL_INITIAL (DECL),\
+				    ALIGN, 0);		\
+	  break;					\
+	case 0x301:					\
+	  mergeable_constant_section (DECL_MODE (DECL),	\
+				      ALIGN, 0);	\
+	  break;					\
+	default:					\
+	  (*sec_functions[sec]) ();			\
+	  break;					\
+	}						\
+    }							\
   while (0)
 
 #define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
-
-#define UNIQUE_SECTION_P(DECL)   (DECL_ONE_ONLY (DECL))
 
 #undef  UNIQUE_SECTION
 #define UNIQUE_SECTION(DECL, RELOC)					\
@@ -486,7 +421,7 @@ void FN ()					\
       STRIP_NAME_ENCODING (name, name);					\
       nlen = strlen (name);						\
 									\
-      prefix = prefixes[sec][DECL_ONE_ONLY(DECL)];			\
+      prefix = prefixes[sec & 0xff][DECL_ONE_ONLY(DECL)];		\
       plen = strlen (prefix);						\
 									\
       string = alloca (nlen + plen + 1);				\
@@ -505,8 +440,14 @@ void FN ()					\
    go into the const section.  */
 
 #undef  SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, RTX) \
-   const_section()
+#define SELECT_RTX_SECTION(MODE, RTX, ALIGN)				\
+do {									\
+  if (TARGET_SMALL_DATA && GET_MODE_SIZE (MODE) <= g_switch_value)	\
+     /* ??? Consider .sdata.{lit4,lit8} as SHF_MERGE|SHF_ALPHA_GPREL.  */ \
+    sdata_section ();							\
+  else									\
+    mergeable_constant_section((MODE), (ALIGN), 0);			\
+} while (0)
 
 /* Define the strings used for the special svr4 .type and .size directives.
    These strings generally do not vary from one system running svr4 to
@@ -683,12 +624,6 @@ void FN ()					\
 /* We support #pragma.  */
 #define HANDLE_SYSV_PRAGMA
 
-/* Undo the auto-alignment stuff from alpha.h.  ELF has unaligned data
-   pseudos natively.  */
-#undef UNALIGNED_SHORT_ASM_OP
-#undef UNALIGNED_INT_ASM_OP
-#undef UNALIGNED_DOUBLE_INT_ASM_OP
-
 /* Select a format to encode pointers in exception handling data.  CODE
    is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
    true if the symbol may be affected by dynamic relocations.
@@ -699,3 +634,11 @@ void FN ()					\
    only EH sections.  */
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)       \
   (((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4)
+
+/* If defined, a C statement to be executed just prior to the output of
+   assembler code for INSN.  */
+#define FINAL_PRESCAN_INSN(INSN, OPVEC, NOPERANDS)	\
+ (alpha_this_literal_sequence_number = 0,		\
+  alpha_this_gpdisp_sequence_number = 0)
+extern int alpha_this_literal_sequence_number;
+extern int alpha_this_gpdisp_sequence_number;

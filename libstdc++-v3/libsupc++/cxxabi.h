@@ -45,7 +45,7 @@
 #ifdef __cplusplus
 
 // We use the compiler builtins __SIZE_TYPE__ and __PTRDIFF_TYPE__ instead of
-// std::size_t and std::ptrdiff_t respectively. This makes us independant of
+// std::size_t and std::ptrdiff_t respectively. This makes us independent of
 // the conformance level of <cstddef> and whether -fhonor-std was supplied.
 // <cstddef> is not currently available during compiler building anyway.
 // Including <stddef.h> would be wrong, as that would rudely place size_t in
@@ -363,7 +363,7 @@ protected:
 class __vmi_class_type_info : public __class_type_info {
 /* abi defined member variables */
 public:
-  unsigned int __flags;         /* details about the class heirarchy */
+  unsigned int __flags;         /* details about the class hierarchy */
   unsigned int __base_count;    /* number of direct bases */
   __base_class_info const __base_info[1]; /* array of bases */
   /* The array of bases uses the trailing array struct hack
@@ -508,6 +508,11 @@ char *__cxa_demangle (const char *__mangled_name,
 		      char *__output_buffer,
 		      __SIZE_TYPE__ *__length,
 		      int *__status);
+
+// Returns the type_info for the currently handled exception [15.3/8], or
+// null if there is none.
+extern "C"
+std::type_info *__cxa_current_exception_type ();
 
 } /* namespace __cxxabiv1 */
 

@@ -1,5 +1,5 @@
 /* java.util.Properties
-   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -61,7 +61,8 @@ import java.io.*;
  * of <code>get/put</code>.
  *
  * @see PropertyResourceBundle
- * @author Jochen Hoenicke */
+ * @author Jochen Hoenicke
+ */
 public class Properties extends Hashtable
 {
   /**
@@ -124,12 +125,13 @@ public class Properties extends Hashtable
    * </pre>
    *
    * @param in the input stream
-   * @exception IOException if an error occured when reading
+   * @exception IOException if an error occurred when reading
    * from the input.  */
   public void load(InputStream inStream) throws IOException
   {
+    // The spec says that the file must be encoded using ISO-8859-1.
     BufferedReader reader =
-      new BufferedReader(new InputStreamReader(inStream));
+      new BufferedReader(new InputStreamReader(inStream, "ISO-8859-1"));
     String line;
     
     while ((line = reader.readLine()) != null)
@@ -145,7 +147,7 @@ public class Properties extends Hashtable
 	if (pos == line.length() || c == '#' || c == '!')
 	  continue;
 
-	// The characaters up to the next Whitespace, ':', or '='
+	// The characters up to the next Whitespace, ':', or '='
 	// describe the key.  But look for escape sequences.
 	StringBuffer key = new StringBuffer();
 	while (pos < line.length()
@@ -183,6 +185,7 @@ public class Properties extends Hashtable
 			    char uni = (char) Integer.parseInt
 			      (line.substring(pos, pos + 4), 16);
 			    key.append(uni);
+			    pos += 4;
 			  }	// else throw exception?
 			break;
 		      default:
@@ -245,6 +248,7 @@ public class Properties extends Hashtable
 			    char uni = (char) Integer.parseInt
 			      (line.substring(pos, pos + 4), 16);
 			    element.append(uni);
+			    pos += 4;
 			  }	// else throw exception?
 			break;
 		      default:
@@ -302,7 +306,9 @@ public class Properties extends Hashtable
    */
   public void store(OutputStream out, String header) throws IOException
   {
-    PrintWriter writer = new PrintWriter(out);
+    // The spec says that the file must be encoded using ISO-8859-1.
+    PrintWriter writer
+      = new PrintWriter(new OutputStreamWriter (out, "ISO-8859-1"));
     if (header != null)
       writer.println("#" + header);
     writer.println("#" + new Date().toString());

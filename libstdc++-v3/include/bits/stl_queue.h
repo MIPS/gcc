@@ -53,12 +53,13 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_queue.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
-#ifndef __SGI_STL_INTERNAL_QUEUE_H
-#define __SGI_STL_INTERNAL_QUEUE_H
+#ifndef __GLIBCPP_INTERNAL_QUEUE_H
+#define __GLIBCPP_INTERNAL_QUEUE_H
 
 #include <bits/concept_check.h>
 
@@ -82,9 +83,9 @@ template <class _Tp, class _Sequence>
 class queue
 {
   // concept requirements
-  __glibcpp_class_requires(_Tp, _SGIAssignableConcept);
-  __glibcpp_class_requires(_Sequence, _FrontInsertionSequenceConcept);
-  __glibcpp_class_requires(_Sequence, _BackInsertionSequenceConcept);
+  __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
+  __glibcpp_class_requires(_Sequence, _FrontInsertionSequenceConcept)
+  __glibcpp_class_requires(_Sequence, _BackInsertionSequenceConcept)
   typedef typename _Sequence::value_type _Sequence_value_type;
   __glibcpp_class_requires2(_Tp, _Sequence_value_type, _SameTypeConcept);
 
@@ -164,9 +165,9 @@ template <class _Tp,
 class priority_queue
 {
   // concept requirements
-  __glibcpp_class_requires(_Tp, _SGIAssignableConcept);
-  __glibcpp_class_requires(_Sequence, _SequenceConcept);
-  __glibcpp_class_requires(_Sequence, _RandomAccessContainerConcept);
+  __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
+  __glibcpp_class_requires(_Sequence, _SequenceConcept)
+  __glibcpp_class_requires(_Sequence, _RandomAccessContainerConcept)
   typedef typename _Sequence::value_type _Sequence_value_type;
   __glibcpp_class_requires2(_Tp, _Sequence_value_type, _SameTypeConcept);
   __glibcpp_class_requires4(_Compare, bool, _Tp, _Tp, _BinaryFunctionConcept);
@@ -200,19 +201,35 @@ public:
   bool empty() const { return c.empty(); }
   size_type size() const { return c.size(); }
   const_reference top() const { return c.front(); }
-  void push(const value_type& __x) {
-    __STL_TRY {
-      c.push_back(__x); 
-      push_heap(c.begin(), c.end(), comp);
-    }
-    __STL_UNWIND(c.clear());
+
+  void 
+  push(const value_type& __x) 
+  {
+    try 
+      {
+	c.push_back(__x); 
+	push_heap(c.begin(), c.end(), comp);
+      }
+    catch(...)
+      {
+	c.clear();
+	__throw_exception_again; 
+      }
   }
-  void pop() {
-    __STL_TRY {
-      pop_heap(c.begin(), c.end(), comp);
-      c.pop_back();
-    }
-    __STL_UNWIND(c.clear());
+
+  void 
+  pop() 
+  {
+    try 
+      {
+	pop_heap(c.begin(), c.end(), comp);
+	c.pop_back();
+      }
+    catch(...)
+      {
+	c.clear();
+	__throw_exception_again; 
+      }
   }
 };
 
@@ -220,7 +237,7 @@ public:
 
 } // namespace std
 
-#endif /* __SGI_STL_INTERNAL_QUEUE_H */
+#endif /* __GLIBCPP_INTERNAL_QUEUE_H */
 
 // Local Variables:
 // mode:C++

@@ -31,6 +31,11 @@
 // ISO C++ 14882: 27.7  String-based streams
 //
 
+/** @file std_sstream.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _CPP_SSTREAM
 #define _CPP_SSTREAM	1
 
@@ -85,7 +90,7 @@ namespace std
 	if (_M_mode & ios_base::out)
 	  {
 	    // This is the deal: _M_string.size() is a value that
-	    // represents the size of the intial string that makes
+	    // represents the size of the initial string that makes
 	    // _M_string, and may not be the correct size of the
 	    // current stringbuf internal buffer.
 	    __size_type __len = _M_string.size();
@@ -277,7 +282,7 @@ namespace std
       { this->init(&_M_stringbuf); }
 
       explicit 
-      basic_ostringstream(const __string_type __str,
+      basic_ostringstream(const __string_type& __str,
 			  ios_base::openmode __mode = ios_base::out)
       : __ostream_type(NULL), _M_stringbuf(__str, __mode | ios_base::out)
       { this->init(&_M_stringbuf); }

@@ -111,6 +111,38 @@ namespace std
 
   template<typename _CharT, typename _Traits>
     basic_ostream<_CharT, _Traits>& 
+    basic_ostream<_CharT, _Traits>::operator<<(__streambuf_type* __sbin)
+    {
+      sentry __cerb(*this);
+      if (__cerb)
+	{
+	  try
+	    {
+	      streamsize __xtrct = 0;
+	      if (__sbin)
+		{
+		  __streambuf_type* __sbout = this->rdbuf();
+		  __xtrct = __copy_streambufs(*this, __sbin, __sbout);
+		}
+	      else
+		this->setstate(ios_base::badbit);
+	      if (!__xtrct)
+		this->setstate(ios_base::failbit);
+	    }
+	  catch(exception& __fail)
+	    {
+	      // 27.6.2.5.1 Common requirements.
+	      // Turn this on without causing an ios::failure to be thrown.
+	      this->setstate(ios_base::badbit);
+	      if ((this->exceptions() & ios_base::badbit) != 0)
+		__throw_exception_again;
+	    }
+	}
+      return *this;
+    }
+
+  template<typename _CharT, typename _Traits>
+    basic_ostream<_CharT, _Traits>& 
     basic_ostream<_CharT, _Traits>::operator<<(bool __n)
     {
       sentry __cerb(*this);
@@ -337,20 +369,6 @@ namespace std
     }
 
   template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>& 
-    basic_ostream<_CharT, _Traits>::operator<<(__streambuf_type* __sbin)
-    {
-      streamsize __xtrct = 0;
-      __streambuf_type* __sbout = this->rdbuf();
-      sentry __cerb(*this);
-      if (__sbin && __cerb)
-	__xtrct = __copy_streambufs(*this, __sbin, __sbout);
-      if (!__sbin || !__xtrct)
-	this->setstate(ios_base::failbit);
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
     basic_ostream<_CharT, _Traits>&
     basic_ostream<_CharT, _Traits>::put(char_type __c)
     { 
@@ -418,7 +436,7 @@ namespace std
 
 // 129. Need error indication from seekp() and seekg()
 	  if (__err == pos_type(off_type(-1)))
-	    this->setstate(failbit);
+	    this->setstate(ios_base::failbit);
 #endif
 	}
       return *this;
@@ -440,100 +458,13 @@ namespace std
 
 // 129. Need error indication from seekp() and seekg()
 	  if (__err == pos_type(off_type(-1)))
-	    this->setstate(failbit);
+	    this->setstate(ios_base::failbit);
 	}
 #endif
       return *this;
     }
 
   // 27.6.2.5.4 Character inserters
-
-  // Construct correctly padded string, as per 22.2.2.2.2
-  // Similar in theory to __pad_numeric, from num_put, but it doesn't
-  // use _S_fill: perhaps it should.
-  // Assumes 
-  // __newlen > __oldlen
-  // __news is allocated for __newlen size
-  template<typename _CharT, typename _Traits>
-    void
-    __pad_char(basic_ios<_CharT, _Traits>& __ios, 
-	       _CharT* __news, const _CharT* __olds,
-	       const streamsize __newlen, const streamsize __oldlen)
-    {
-      typedef _CharT	char_type;
-      typedef _Traits	traits_type;
-      typedef typename traits_type::int_type int_type;
-      
-      int_type __plen = static_cast<size_t>(__newlen - __oldlen); 
-      char_type* __pads = static_cast<char_type*>(__builtin_alloca(sizeof(char_type) * __plen));
-      traits_type::assign(__pads, __plen, __ios.fill()); 
-
-      char_type* __beg;
-      char_type* __end;
-      size_t __mod = 0;
-      size_t __beglen; //either __plen or __oldlen
-      ios_base::fmtflags __fmt = __ios.flags() & ios_base::adjustfield;
-
-      if (__fmt == ios_base::left)
-	{
-	  // Padding last.
-	  __beg = const_cast<char_type*>(__olds);
-	  __beglen = __oldlen;
-	  __end = __pads;
-	}
-      else if (__fmt == ios_base::internal)
-	{
-	  // Pad after the sign, if there is one.
-	  // Pad after 0[xX], if there is one.
-	  // Who came up with these rules, anyway? Jeeze.
-	  typedef _Format_cache<_CharT> __cache_type;
-	  __cache_type const* __fmt = __cache_type::_S_get(__ios);
-	  const char_type* __minus = traits_type::find(__olds, __oldlen, 
-						       __fmt->_S_minus);
-	  const char_type* __plus = traits_type::find(__olds, __oldlen, 
-						      __fmt->_S_plus);
-	  bool __testsign = __minus || __plus;
-	  bool __testhex = __olds[0] == '0' 
-	    		   && (__olds[1] == 'x' || __olds[1] == 'X');
-
-	  if (__testhex)
-	    {
-	      __news[0] = __olds[0]; 
-	      __news[1] = __olds[1];
-	      __mod += 2;
-	      __beg = const_cast<char_type*>(__olds + __mod);
-	      __beglen = __oldlen - __mod;
-	      __end = __pads;
-	    }
-	  else if (__testsign)
-	    {
-	      __mod += __plen;
-	      const char_type* __sign = __minus ? __minus + 1: __plus + 1;
-	      __beg = const_cast<char_type*>(__olds);
-	      __beglen = __sign - __olds;
-	      __end = const_cast<char_type*>(__sign + __plen);
-	      traits_type::copy(__news + __beglen, __pads, __plen);
-	    }
-	  else
-	    {
-	      // Padding first.
-	      __beg = __pads;
-	      __beglen = __plen;
-	      __end = const_cast<char_type*>(__olds);
-	    }
-	}
-      else
-	{
-	  // Padding first.
-	  __beg = __pads;
-	  __beglen = __plen;
-	  __end = const_cast<char_type*>(__olds);
-	}
-
-      traits_type::copy(__news, __beg, __beglen);
-      traits_type::copy(__news + __beglen, __end, __newlen - __beglen - __mod);
-    }
-
   template<typename _CharT, typename _Traits>
     basic_ostream<_CharT, _Traits>&
     operator<<(basic_ostream<_CharT, _Traits>& __out, _CharT __c)
@@ -550,7 +481,7 @@ namespace std
 	      streamsize __len = 1;
 	      if (__w > __len)
 		{
-		  __pad_char(__out, __pads, &__c, __w, __len);
+		  __pad(__out, __out.fill(), __pads, &__c, __w, __len, false);
 		  __len = __w;
 		}
 	      __out.write(__pads, __len);
@@ -585,7 +516,7 @@ namespace std
 	      streamsize __len = 1;
 	      if (__w > __len)
 		{
-		  __pad_char(__out, __pads, &__c, __w, __len);
+		  __pad(__out, __out.fill(), __pads, &__c, __w, __len, false);
 		  __len = __w;
 		}
 	      __out.write(__pads, __len);
@@ -618,7 +549,7 @@ namespace std
 	      streamsize __len = static_cast<streamsize>(_Traits::length(__s));
 	      if (__w > __len)
 		{
-		  __pad_char(__out, __pads, __s, __w, __len);
+		  __pad(__out, __out.fill(), __pads, __s, __w, __len, false);
 		  __s = __pads;
 		  __len = __w;
 		}
@@ -644,6 +575,7 @@ namespace std
       typedef basic_ostream<_CharT, _Traits> __ostream_type;
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
 // 167.  Improper use of traits_type::length()
+// Note that this is only in 'Review' status.
       typedef char_traits<char>		     __ctraits_type;
 #endif
       typename __ostream_type::sentry __cerb(__out);
@@ -663,7 +595,7 @@ namespace std
 	      
 	      if (__w > __len)
 		{
-		  __pad_char(__out, __pads, __ws, __w, __len);
+		  __pad(__out, __out.fill(), __pads, __ws, __w, __len, false);
 		  __str = __pads;
 		  __len = __w;
 		}
@@ -698,7 +630,7 @@ namespace std
 	      streamsize __len = static_cast<streamsize>(_Traits::length(__s));
 	      if (__w > __len)
 		{
-		  __pad_char(__out, __pads, __s, __w, __len);
+		  __pad(__out, __out.fill(), __pads, __s, __w, __len, false);
 		  __s = __pads;
 		  __len = __w;
 		}
@@ -736,7 +668,7 @@ namespace std
 #endif
 	  if (__w > __len)
 	    {
-	      __pad_char(__out, __pads, __s, __w, __len);
+	      __pad(__out, __out.fill(), __pads, __s, __w, __len, false);
 	      __s = __pads;
 	      __len = __w;
 	    }
@@ -752,4 +684,3 @@ namespace std
 // Local Variables:
 // mode:C++
 // End:
-

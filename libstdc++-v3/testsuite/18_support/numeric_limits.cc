@@ -21,7 +21,65 @@
 // 18.2.1.1 template class numeric_limits
 
 #include <limits>
-#include <debug_assert.h>
+#include <limits.h>
+#include <float.h>
+#include <testsuite_hooks.h>
+
+template<typename T>
+struct extrema {
+  static T min;
+  static T max;
+};
+
+
+#define DEFINE_EXTREMA(T, m, M) \
+  template<> T extrema<T>::min = m; \
+  template<> T extrema<T>::max = M
+
+DEFINE_EXTREMA(char, CHAR_MIN, CHAR_MAX);
+DEFINE_EXTREMA(signed char, SCHAR_MIN, SCHAR_MAX);
+DEFINE_EXTREMA(unsigned char, 0, UCHAR_MAX);
+DEFINE_EXTREMA(short, SHRT_MIN, SHRT_MAX);
+DEFINE_EXTREMA(unsigned short, 0, USHRT_MAX);
+DEFINE_EXTREMA(int, INT_MIN, INT_MAX);
+DEFINE_EXTREMA(unsigned, 0U, UINT_MAX);
+DEFINE_EXTREMA(long, LONG_MIN, LONG_MAX);
+DEFINE_EXTREMA(unsigned long, 0UL, ULONG_MAX);
+
+DEFINE_EXTREMA(float, FLT_MIN, FLT_MAX);
+DEFINE_EXTREMA(double, DBL_MIN, DBL_MAX);
+DEFINE_EXTREMA(long double, LDBL_MIN, LDBL_MAX);
+
+#undef DEFINE_EXTREMA
+
+template<typename T>
+void test_extrema()
+{
+  VERIFY( extrema<T>::min == std::numeric_limits<T>::min() );
+  VERIFY( extrema<T>::max == std::numeric_limits<T>::max() );
+}
+
+#ifdef __CHAR_UNSIGNED__
+#define char_is_signed false
+#else
+#define char_is_signed true
+#endif
+
+void test_sign()
+{
+  VERIFY( std::numeric_limits<char>::is_signed == char_is_signed );
+  VERIFY( std::numeric_limits<signed char>::is_signed == true );
+  VERIFY( std::numeric_limits<unsigned char>::is_signed == false );
+  VERIFY( std::numeric_limits<short>::is_signed == true );
+  VERIFY( std::numeric_limits<unsigned short>::is_signed == false );
+  VERIFY( std::numeric_limits<int>::is_signed == true );
+  VERIFY( std::numeric_limits<unsigned>::is_signed == false );
+  VERIFY( std::numeric_limits<long>::is_signed == true );
+  VERIFY( std::numeric_limits<unsigned long>::is_signed == false );
+  VERIFY( std::numeric_limits<float>::is_signed == true );
+  VERIFY( std::numeric_limits<double>::is_signed == true );
+  VERIFY( std::numeric_limits<long double>::is_signed == true );
+}
 
 
 template<typename T>
@@ -34,7 +92,10 @@ template<typename T>
     operator==(int i) { return i == key; }
   };
 
-struct B { };
+struct B 
+{
+  B(int i = 0) { }
+};
 
 
 bool test01()
@@ -81,6 +142,8 @@ bool test01()
 }
 
 // test linkage of the generic bits
+template struct std::numeric_limits<B>;
+
 void test02()
 {
   typedef std::numeric_limits<B> b_nl_type;
@@ -92,9 +155,59 @@ void test02()
   const bool* pb1 = &b_nl_type::traps;
 }
 
+// libstdc++/5045
+bool test03()
+{
+  bool test = true;
+
+  VERIFY( std::numeric_limits<bool>::digits10 == 0 );
+  VERIFY( __glibcpp_s8_digits10 == 2 );
+  VERIFY( __glibcpp_u8_digits10 == 2 );
+  VERIFY( __glibcpp_s16_digits10 == 4 );
+  VERIFY( __glibcpp_u16_digits10 == 4 );
+  VERIFY( __glibcpp_s32_digits10 == 9 );
+  VERIFY( __glibcpp_u32_digits10 == 9 );
+  VERIFY( __glibcpp_s64_digits10 == 18 );
+  VERIFY( __glibcpp_u64_digits10 == 19 );
+
+#ifdef DEBUG_ASSERT
+  assert(test);
+#endif
+
+  return test;
+}
+
+
 int main()
 {
   test01();
   test02();
-  return 0;
+  test03();
+
+  test_extrema<char>();
+  test_extrema<signed char>();
+  test_extrema<unsigned char>();
+  
+  test_extrema<short>();
+  test_extrema<unsigned short>();
+
+  test_extrema<int>();
+  test_extrema<unsigned>();
+
+  test_extrema<long>();
+  test_extrema<unsigned long>();
+
+  test_extrema<float>();
+  test_extrema<double>();
+  test_extrema<long double>();
+
+  test_sign();
+
+    return 0;
 }
+
+
+
+
+
+

@@ -400,7 +400,7 @@ _Jv_AllocString(jsize len)
 #else
   // Class needs no initialization, and there is no finalizer, so
   // we can go directly to the collector's allocator interface.
-  jstring obj = (jstring) _Jv_AllocPtrFreeObj(&StringClass, sz);
+  jstring obj = (jstring) _Jv_AllocPtrFreeObj(sz, &StringClass);
 #endif
   obj->data = obj;
   obj->boffset = sizeof(java::lang::String);
@@ -523,6 +523,7 @@ java::lang::String::init (jbyteArray bytes, jint offset, jint count,
 	  avail -= done;
 	}
     }
+  converter->done ();
   this->data = array;
   this->boffset = (char *) elements (array) - (char *) array;
   this->count = outpos;
@@ -604,6 +605,7 @@ java::lang::String::getBytes (jstring enc)
 	  todo -= converted;
 	}
     }
+  converter->done ();
   if (bufpos == buflen)
     return buffer;
   jbyteArray result = JvNewByteArray(bufpos);

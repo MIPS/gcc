@@ -1148,7 +1148,7 @@
   [(set_attr "length" "1,2,2,3")])
 
 ;;;;- and instructions
-;; Bit-and on the pdp (like on the vax) is done with a clear-bits insn.
+;; Bit-and on the pdp (like on the VAX) is done with a clear-bits insn.
 (define_expand "andsi3"
   [(set (match_operand:SI 0 "general_operand" "=g")
 	(and:SI (match_operand:SI 1 "general_operand" "0")
@@ -1156,7 +1156,6 @@
   ""
   "
 {
-  extern rtx expand_unop ();
   if (GET_CODE (operands[2]) == CONST_INT)
     operands[2] = GEN_INT (~INTVAL (operands[2]));
   else
@@ -1170,7 +1169,6 @@
   ""
   "
 {
-  extern rtx expand_unop ();
   if (GET_CODE (operands[2]) == CONST_INT)
     operands[2] = GEN_INT (~INTVAL (operands[2]));
   else
@@ -1184,7 +1182,6 @@
   ""
   "
 {
-  extern rtx expand_unop ();
   rtx op = operands[2];
   if (GET_CODE (op) == CONST_INT)
     operands[2] = GEN_INT (((1 << 8) - 1) & ~INTVAL (op));

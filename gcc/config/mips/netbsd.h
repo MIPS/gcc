@@ -56,7 +56,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define TARGET_MEM_FUNCTIONS
 
-/* Define mips-specific netbsd predefines... */
+/* Define mips-specific netbsd predefines...  */
 #ifndef CPP_PREDEFINES
 #define CPP_PREDEFINES "-D__ANSI_COMPAT \
 -DMIPSEL -DR3000 -DSYSTYPE_BSD -D_SYSTYPE_BSD -D__NetBSD__ -Dmips \
@@ -152,7 +152,10 @@ Boston, MA 02111-1307, USA.  */
 	size_directive_output = 1;					\
 	fprintf (FILE, "%s", SIZE_ASM_OP);				\
 	assemble_name (FILE, NAME);					\
-	fprintf (FILE, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL)));	\
+	fprintf (FILE, ",");						\
+	fprintf (FILE, HOST_WIDE_INT_PRINT_DEC,				\
+	  int_size_in_bytes (TREE_TYPE (DECL)));			\
+	fprintf (FILE, "\n");						\
       }									\
     ASM_OUTPUT_LABEL(FILE, NAME);					\
   } while (0)
@@ -175,7 +178,10 @@ do {									 \
 	 size_directive_output = 1;					 \
 	 fprintf (FILE, "%s", SIZE_ASM_OP);				 \
 	 assemble_name (FILE, name);					 \
-	 fprintf (FILE, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL))); \
+	 fprintf (FILE, ",");						 \
+	 fprintf (FILE, HOST_WIDE_INT_PRINT_DEC,			 \
+		  int_size_in_bytes (TREE_TYPE (DECL)));		 \
+	 fprintf (FILE, "\n");						 \
        }								 \
    } while (0)
 
@@ -201,23 +207,21 @@ do {									 \
       }									\
   } while (0)
 
-/*
- A C statement to output something to the assembler file to switch to section
- NAME for object DECL which is either a FUNCTION_DECL, a VAR_DECL or
- NULL_TREE.  Some target formats do not support arbitrary sections.  Do not
- define this macro in such cases.
-*/
-#define ASM_OUTPUT_SECTION_NAME(F, DECL, NAME, RELOC)                        \
-do {                                                                         \
-  extern FILE *asm_out_text_file;                                            \
-  if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL)                           \
-    fprintf (asm_out_text_file, "\t.section %s,\"ax\",@progbits\n", (NAME)); \
-  else if ((DECL) && DECL_READONLY_SECTION (DECL, RELOC))                    \
-    fprintf (F, "\t.section %s,\"a\",@progbits\n", (NAME));                  \
-  else if (! strcmp (NAME, ".bss"))                         	             \
-    fprintf (F, "\t.section %s,\"aw\",@nobits\n", (NAME));      	     \
-  else                                                                       \
-    fprintf (F, "\t.section %s,\"aw\",@progbits\n", (NAME));                 \
+/* Switch into a generic section.  */
+#undef TARGET_ASM_NAMED_SECTION
+#define TARGET_ASM_NAMED_SECTION  default_elf_asm_named_section
+
+/* Not having TARGET_GAS here seems a mistake.  If we actually need to
+   be prepared for file switching, then we need a custom
+   TARGET_ASM_NAMED_SECTION too.  */
+
+#undef TEXT_SECTION
+#define TEXT_SECTION()				\
+do {						\
+  if (TARGET_FILE_SWITCHING)			\
+    abort ();					\
+  fputs (TEXT_SECTION_ASM_OP, asm_out_file);	\
+  fputc ('\n', asm_out_file);			\
 } while (0)
 
 /* Since gas and gld are standard on NetBSD, we don't need these */

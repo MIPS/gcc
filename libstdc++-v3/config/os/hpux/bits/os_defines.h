@@ -27,18 +27,20 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-
 #ifndef _GLIBCPP_OS_DEFINES
-#  define _GLIBCPP_OS_DEFINES
+#define _GLIBCPP_OS_DEFINES
 
-
-/* System-specific #define, typedefs, corrections, etc, go here.  This
-   file will come before all others. */
+// System-specific #define, typedefs, corrections, etc, go here.  This
+// file will come before all others.
 
 #define __off_t off_t
 #define __off64_t off64_t
 #define __ssize_t ssize_t
 
+#define __glibcpp_wchar_t_is_signed false
+
+#ifdef __LP64__
+#define __glibcpp_long_bits 64
 #endif
 
-
+#endif

@@ -66,6 +66,13 @@ _Jv_AllocBytes (jsize size)
   return obj;
 }
 
+void *
+_Jv_AllocRawObj (jsize size)
+{
+  total += size;
+  return calloc (size, 1);
+}
+
 void
 _Jv_RegisterFinalizer (void *, _Jv_FinalizerFunc *)
 {
@@ -82,6 +89,11 @@ void
 _Jv_RunAllFinalizers (void)
 {
   // FIXME: should still run all finalizers.
+}
+
+void
+_Jv_GCInitializeFinalizers (void (*) (void))
+{
 }
 
 void
@@ -129,6 +141,14 @@ _Jv_InitGC (void)
 #ifdef JV_HASH_SYNCHRONIZATION
 void *
 _Jv_AllocTraceOne (jsize size /* includes vtable slot */) 
+{
+  ptr_t obj = calloc(size, 1);
+  if (!obj) _Jv_ThrowNoMemory();
+  return result;
+}
+
+void *
+_Jv_AllocTraceTwo (jsize size /* includes vtable slot */) 
 {
   ptr_t obj = calloc(size, 1);
   if (!obj) _Jv_ThrowNoMemory();

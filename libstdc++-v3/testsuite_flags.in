@@ -34,6 +34,7 @@ case ${query} in
     --build-includes)
       INCLUDES="-nostdinc++ @GLIBCPP_INCLUDES@
 	        -I${SRC_DIR}/libsupc++ -I${SRC_DIR}/libio 
+		-I${SRC_DIR}/include/backward 
 		-I${SRC_DIR}/testsuite"
       echo ${INCLUDES}
       ;;
@@ -47,7 +48,8 @@ case ${query} in
       echo ${CXX}
       ;;
     --cxxflags)
-      CXXFLAGS=" -ggdb3 -DDEBUG_ASSERT @SECTION_FLAGS@ @SECTION_LDFLAGS@"
+      CXXFLAGS=' -g @SECTION_FLAGS@ @SECTION_LDFLAGS@ 
+		 -DDEBUG_ASSERT  -DLOCALEDIR="@glibcpp_localedir@" '
       echo ${CXXFLAGS}
       ;;
     *)
@@ -56,5 +58,3 @@ case ${query} in
 esac
 
 exit 0
-
-

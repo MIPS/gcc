@@ -1,5 +1,5 @@
 /* Definitions of target machine for gcc for Hitachi Super-H using ELF.
-   Copyright (C) 1996, 1997, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Ian Lance Taylor <ian@cygnus.com>.
 
 This file is part of GNU CC.
@@ -19,33 +19,33 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+/* Undefine some macros defined in both sh.h and svr4.h.  */
+#undef IDENT_ASM_OP
+#undef ASM_FILE_END
+#undef ASM_OUTPUT_SOURCE_LINE
+#undef DBX_OUTPUT_MAIN_SOURCE_FILE_END
+#undef TARGET_ASM_NAMED_SECTION
+#undef ASM_DECLARE_FUNCTION_NAME
+#undef MAX_OFILE_ALIGNMENT
+
+/* Be ELF-like.  */
+/* TODO: convert includes to ${tm_file} list in config.gcc.  */
+#include "dbxelf.h"
+#include "elfos.h"
+#include "svr4.h"
+
 /* No SDB debugging info.  */
 #undef SDB_DEBUGGING_INFO
 
 /* Generate DWARF2 debugging information and make it the default */
-#define DWARF2_DEBUGGING_INFO
+#undef DWARF2_DEBUGGING_INFO
+#define DWARF2_DEBUGGING_INFO 1
 
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
 /* use a more compact format for line information */
 #define DWARF2_ASM_LINE_DEBUG_INFO 1
-
-/* Undefine some macros defined in both sh.h and svr4.h.  */
-#undef IDENT_ASM_OP
-#undef ASM_FILE_END
-#undef ASM_OUTPUT_SOURCE_LINE
-#undef DBX_OUTPUT_MAIN_SOURCE_FILE_END
-#undef CTORS_SECTION_ASM_OP
-#undef DTORS_SECTION_ASM_OP
-#undef ASM_OUTPUT_SECTION_NAME
-#undef ASM_OUTPUT_CONSTRUCTOR
-#undef ASM_OUTPUT_DESTRUCTOR
-#undef ASM_DECLARE_FUNCTION_NAME
-#undef MAX_OFILE_ALIGNMENT
-
-/* Be ELF-like.  */
-#include "svr4.h"
 
 /* The prefix to add to user-visible assembler symbols.
    Note that svr4.h redefined it from the original value (that we want)

@@ -55,7 +55,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Put plabels into the data section so we can relocate them.  */
 #undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE,RTX)	\
+#define SELECT_RTX_SECTION(MODE,RTX,ALIGN)	\
   if (flag_pic && function_label_operand (RTX, MODE))	\
     data_section ();					\
   else							\
@@ -81,7 +81,7 @@ Boston, MA 02111-1307, USA.  */
 #define BSS_SECTION_ASM_OP "\t.section\t.bss"
 
 /* Output at beginning of assembler file.  We override the definition
-   from <linux.h> so that we can get the proper .LEVEL directive. */
+   from <linux.h> so that we can get the proper .LEVEL directive.  */
 #undef ASM_FILE_START
 #define ASM_FILE_START(FILE) \
   do								\

@@ -1,9 +1,10 @@
+// excess errors test - XFAIL xstormy16-*-*
 // Copyright (C) 2000 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 6 June 2000 <nathan@codesourcery.com>
 
 // Check we can throw a bad_alloc exception when malloc dies
 
-static __SIZE_TYPE__ arena[32767]; // so things can initialize
+static __SIZE_TYPE__ arena[64]; // so things can initialize
 static int fail;
 static unsigned pos;
 

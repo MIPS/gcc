@@ -1557,11 +1557,11 @@ demangle_operator_name (dm, short_name, num_args)
   struct operator_code
   {
     /* The mangled code for this operator.  */
-    const char *code;
+    const char *const code;
     /* The source name of this operator.  */
-    const char *name;
+    const char *const name;
     /* The number of arguments this operator takes.  */
-    int num_args;
+    const int num_args;
   };
 
   static const struct operator_code operators[] = 
@@ -1842,11 +1842,27 @@ demangle_special_name (dm)
 
   if (peek == 'G')
     {
-      /* A guard variable name.  Consume the G.  */
+      /* Consume the G.  */
       advance_char (dm);
-      RETURN_IF_ERROR (demangle_char (dm, 'V'));
-      RETURN_IF_ERROR (result_add (dm, "guard variable for "));
-      RETURN_IF_ERROR (demangle_name (dm, &unused));
+      switch (peek_char (dm))
+	{
+	case 'V':
+	  /* A guard variable name.  */
+	  advance_char (dm);
+	  RETURN_IF_ERROR (result_add (dm, "guard variable for "));
+	  RETURN_IF_ERROR (demangle_name (dm, &unused));
+	  break;
+
+	case 'R':
+	  /* A reference temporary.  */
+	  advance_char (dm);
+	  RETURN_IF_ERROR (result_add (dm, "reference temporary for "));
+	  RETURN_IF_ERROR (demangle_name (dm, &unused));
+	  break;
+	  
+	default:
+	  return "Unrecognized <special-name>.";
+	}
     }
   else if (peek == 'T')
     {

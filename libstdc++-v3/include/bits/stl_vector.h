@@ -53,12 +53,13 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_vector.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
-#ifndef __SGI_STL_INTERNAL_VECTOR_H
-#define __SGI_STL_INTERNAL_VECTOR_H
+#ifndef __GLIBCPP_INTERNAL_VECTOR_H
+#define __GLIBCPP_INTERNAL_VECTOR_H
 
 #include <bits/stl_iterator_base_funcs.h>
 #include <bits/functexcept.h>
@@ -147,21 +148,21 @@ template <class _Tp, class _Alloc = allocator<_Tp> >
 class vector : protected _Vector_base<_Tp, _Alloc> 
 {
   // concept requirements
-  __glibcpp_class_requires(_Tp, _SGIAssignableConcept);
+  __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
 
 private:
   typedef _Vector_base<_Tp, _Alloc> _Base;
   typedef vector<_Tp, _Alloc> vector_type;
 public:
-  typedef _Tp value_type;
-  typedef value_type* pointer;
-  typedef const value_type* const_pointer;
-  typedef __normal_iterator<pointer, vector_type> iterator;
+  typedef _Tp 						value_type;
+  typedef value_type* 					pointer;
+  typedef const value_type* 				const_pointer;
+  typedef __normal_iterator<pointer, vector_type> 	iterator;
   typedef __normal_iterator<const_pointer, vector_type> const_iterator;
-  typedef value_type& reference;
-  typedef const value_type& const_reference;
-  typedef size_t size_type;
-  typedef ptrdiff_t difference_type;
+  typedef value_type& 					reference;
+  typedef const value_type& 				const_reference;
+  typedef size_t 					size_type;
+  typedef ptrdiff_t 					difference_type;
 
   typedef typename _Base::allocator_type allocator_type;
   allocator_type get_allocator() const { return _Base::get_allocator(); }
@@ -437,11 +438,15 @@ protected:
                                                _ForwardIterator __last)
   {
     pointer __result = _M_allocate(__n);
-    __STL_TRY {
+    try {
       uninitialized_copy(__first, __last, __result);
       return __result;
     }
-    __STL_UNWIND(_M_deallocate(__result, __n));
+    catch(...)
+      { 
+	_M_deallocate(__result, __n);
+	__throw_exception_again;
+      }
   }
 
   template <class _InputIterator>
@@ -617,7 +622,7 @@ vector<_Tp, _Alloc>::_M_insert_aux(iterator __position, const _Tp& __x)
     const size_type __len = __old_size != 0 ? 2 * __old_size : 1;
     iterator __new_start(_M_allocate(__len));
     iterator __new_finish(__new_start);
-    __STL_TRY {
+    try {
       __new_finish = uninitialized_copy(iterator(_M_start), __position,
                                         __new_start);
       _Construct(__new_finish.base(), __x);
@@ -625,8 +630,12 @@ vector<_Tp, _Alloc>::_M_insert_aux(iterator __position, const _Tp& __x)
       __new_finish = uninitialized_copy(__position, iterator(_M_finish),
                                         __new_finish);
     }
-    __STL_UNWIND((_Destroy(__new_start,__new_finish), 
-                  _M_deallocate(__new_start.base(),__len)));
+    catch(...)
+      { 
+	_Destroy(__new_start,__new_finish); 
+	_M_deallocate(__new_start.base(),__len);
+	__throw_exception_again;
+      }
     _Destroy(begin(), end());
     _M_deallocate(_M_start, _M_end_of_storage - _M_start);
     _M_start = __new_start.base();
@@ -651,7 +660,7 @@ vector<_Tp, _Alloc>::_M_insert_aux(iterator __position)
     const size_type __len = __old_size != 0 ? 2 * __old_size : 1;
     pointer __new_start = _M_allocate(__len);
     pointer __new_finish = __new_start;
-    __STL_TRY {
+    try {
       __new_finish = uninitialized_copy(iterator(_M_start), __position, 
 					__new_start);
       _Construct(__new_finish);
@@ -659,8 +668,12 @@ vector<_Tp, _Alloc>::_M_insert_aux(iterator __position)
       __new_finish = uninitialized_copy(__position, iterator(_M_finish), 
 					__new_finish);
     }
-    __STL_UNWIND((_Destroy(__new_start,__new_finish), 
-                  _M_deallocate(__new_start,__len)));
+    catch(...)
+      {
+	_Destroy(__new_start,__new_finish); 
+	_M_deallocate(__new_start,__len);
+	__throw_exception_again;
+      }
     _Destroy(begin(), end());
     _M_deallocate(_M_start, _M_end_of_storage - _M_start);
     _M_start = __new_start;
@@ -697,14 +710,18 @@ void vector<_Tp, _Alloc>::_M_fill_insert(iterator __position, size_type __n,
       const size_type __len = __old_size + max(__old_size, __n);
       iterator __new_start(_M_allocate(__len));
       iterator __new_finish(__new_start);
-      __STL_TRY {
+      try {
         __new_finish = uninitialized_copy(begin(), __position, __new_start);
         __new_finish = uninitialized_fill_n(__new_finish, __n, __x);
         __new_finish
           = uninitialized_copy(__position, end(), __new_finish);
       }
-      __STL_UNWIND((_Destroy(__new_start,__new_finish), 
-                    _M_deallocate(__new_start.base(),__len)));
+      catch(...)
+	{
+	  _Destroy(__new_start,__new_finish); 
+	  _M_deallocate(__new_start.base(),__len);
+	  __throw_exception_again;
+	}
       _Destroy(_M_start, _M_finish);
       _M_deallocate(_M_start, _M_end_of_storage - _M_start);
       _M_start = __new_start.base();
@@ -761,15 +778,19 @@ vector<_Tp, _Alloc>::_M_range_insert(iterator __position,
       const size_type __len = __old_size + max(__old_size, __n);
       iterator __new_start(_M_allocate(__len));
       iterator __new_finish(__new_start);
-      __STL_TRY {
+      try {
         __new_finish = uninitialized_copy(iterator(_M_start), 
 					  __position, __new_start);
         __new_finish = uninitialized_copy(__first, __last, __new_finish);
         __new_finish
           = uninitialized_copy(__position, iterator(_M_finish), __new_finish);
       }
-      __STL_UNWIND((_Destroy(__new_start,__new_finish), 
-                    _M_deallocate(__new_start.base(),__len)));
+      catch(...)
+	{
+	  _Destroy(__new_start,__new_finish);
+	  _M_deallocate(__new_start.base(), __len);
+	  __throw_exception_again;
+	}
       _Destroy(_M_start, _M_finish);
       _M_deallocate(_M_start, _M_end_of_storage - _M_start);
       _M_start = __new_start.base();
@@ -781,7 +802,7 @@ vector<_Tp, _Alloc>::_M_range_insert(iterator __position,
 
 } // namespace std 
 
-#endif /* __SGI_STL_INTERNAL_VECTOR_H */
+#endif /* __GLIBCPP_INTERNAL_VECTOR_H */
 
 // Local Variables:
 // mode:C++

@@ -1,20 +1,20 @@
 /* Static Single Assignment conversion routines for the GNU compiler.
    Copyright (C) 2000, 2001 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to the Free
+along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
@@ -786,7 +786,7 @@ apply_delayed_renames (c)
       if (r->prev_reg == NULL_RTX && !HARD_REGISTER_P (r->old_reg))
 	{
 	  r->new_reg = r->old_reg;
-	  /* We want to restore RENAME_NO_RTX rather than NULL_RTX. */
+	  /* We want to restore RENAME_NO_RTX rather than NULL_RTX.  */
 	  r->prev_reg = RENAME_NO_RTX;
 	}
       else
@@ -833,6 +833,21 @@ rename_insn_1 (ptr, data)
 	rtx *destp = &SET_DEST (x);
 	rtx dest = SET_DEST (x);
 
+	/* An assignment to a paradoxical SUBREG does not read from
+	   the destination operand, and thus does not need to be
+	   wrapped into a SEQUENCE when translating into SSA form.
+	   We merely strip off the SUBREG and proceed normally for
+	   this case.  */
+	if (GET_CODE (dest) == SUBREG
+	    && (GET_MODE_SIZE (GET_MODE (dest))
+		> GET_MODE_SIZE (GET_MODE (SUBREG_REG (dest))))
+	    && GET_CODE (SUBREG_REG (dest)) == REG
+	    && CONVERT_REGISTER_TO_SSA_P (REGNO (SUBREG_REG (dest))))
+	  {
+	    destp = &XEXP (dest, 0);
+	    dest = XEXP (dest, 0);
+	  }
+
 	/* Some SETs also use the REG specified in their LHS.
 	   These can be detected by the presence of
 	   STRICT_LOW_PART, SUBREG, SIGN_EXTRACT, and ZERO_EXTRACT
@@ -842,11 +857,12 @@ rename_insn_1 (ptr, data)
 	   (sequence [(set (reg foo_1) (reg foo))
 	              (set (subreg (reg foo_1)) ...)])  
 
-	   FIXME: Much of the time this is too much.  For many libcalls,
-	   paradoxical SUBREGs, etc., the input register is dead.  We should
-	   recognise this in rename_block or here and not make a false
+	   FIXME: Much of the time this is too much.  For some constructs
+	   we know that the output register is strictly an output
+	   (paradoxical SUBREGs and some libcalls for example).
+
+	   For those cases we are better off not making the false
 	   dependency.  */
-	   
 	if (GET_CODE (dest) == STRICT_LOW_PART
 	    || GET_CODE (dest) == SUBREG
 	    || GET_CODE (dest) == SIGN_EXTRACT
@@ -877,8 +893,8 @@ rename_insn_1 (ptr, data)
 		context->new_renames = saved_new_renames;
 	      }
 	  }
-	else if (GET_CODE (dest) == REG &&
-		 CONVERT_REGISTER_TO_SSA_P (REGNO (dest)))
+	else if (GET_CODE (dest) == REG
+		 && CONVERT_REGISTER_TO_SSA_P (REGNO (dest)))
 	  {
 	    /* We found a genuine set of an interesting register.  Tag
 	       it so that we can create a new name for it after we finish
@@ -1215,7 +1231,7 @@ ephi_add_node (reg, nodes, n_nodes)
 /* Part one of the topological sort.  This is a forward (downward) search
    through the graph collecting a stack of nodes to process.  Assuming no
    cycles, the nodes at top of the stack when we are finished will have
-   no other dependancies.  */
+   no other dependencies.  */
 
 static int *
 ephi_forward (t, visited, succ, tstack)
@@ -1350,7 +1366,7 @@ eliminate_phi (e, reg_partition)
   if (n_nodes == 0)
     return;
 
-  /* Build the auxilliary graph R(B). 
+  /* Build the auxiliary graph R(B). 
 
      The nodes of the graph are the members of the register partition
      present in Phi(B).  There is an edge from FIND(T0)->FIND(T1) for
@@ -1482,8 +1498,7 @@ make_regs_equivalent_over_bad_edges (bb, reg_partition)
 
       /* Scan incoming abnormal critical edges.  */
       for (e = b->pred; e; e = e->pred_next)
-	if ((e->flags & (EDGE_ABNORMAL | EDGE_CRITICAL)) 
-		== (EDGE_ABNORMAL | EDGE_CRITICAL))
+	if ((e->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (e))
 	  {
 	    rtx *alt = phi_alternative (set, e->src->index);
 	    int alt_regno;
@@ -1586,14 +1601,14 @@ make_equivalent_phi_alternatives_equivalent (bb, reg_partition)
 		    abort ();
 
 		  /* If the alternatives aren't already in the same
-		     class ... */
+		     class ...  */
 		  if (partition_find (reg_partition, REGNO (*alt)) 
 		      != partition_find (reg_partition, REGNO (*alt2)))
 		    {
 		      /* ... make them so.  */
 		      if (conflicting_hard_regs_p (REGNO (*alt), REGNO (*alt2)))
 			/* It is illegal to unify a hard register with
-			   a different register. */
+			   a different register.  */
 			abort ();
 
 		      partition_union (reg_partition, 
@@ -1682,7 +1697,7 @@ coalesce_if_unconflicting (p, conflicts, reg1, reg2)
 {
   int reg;
 
-  /* Work only on SSA registers. */
+  /* Work only on SSA registers.  */
   if (!CONVERT_REGISTER_TO_SSA_P (reg1) || !CONVERT_REGISTER_TO_SSA_P (reg2))
     return 0;
 
@@ -2106,7 +2121,7 @@ rename_equivalent_regs (reg_partition)
 
 		  PATTERN (insn) = XVECEXP (s, 0, slen-1);
 		  for (i = 0; i < slen - 1; i++)
-		    emit_block_insn_before (XVECEXP (s, 0, i), insn, b);
+		    emit_insn_before (XVECEXP (s, 0, i), insn);
 		}
 	    }
 

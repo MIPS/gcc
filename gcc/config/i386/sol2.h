@@ -20,7 +20,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include "i386/sysv4.h"
 
 /* We use stabs-in-elf for debugging, because that is what the native
    toolchain uses.  */
@@ -56,7 +55,7 @@ Boston, MA 02111-1307, USA.  */
    bytes.  The linker pads it to 16 bytes with a single 0x90 byte, and
    two 0x00000090 ints, which generates a segmentation violation when
    executed.  This macro forces the assembler to do the padding, since
-   it knows what it is doing. */
+   it knows what it is doing.  */
 
 #define FORCE_INIT_SECTION_ALIGN asm (ALIGN_ASM_OP ## "16")
 #define FORCE_FINI_SECTION_ALIGN FORCE_INIT_SECTION_ALIGN
@@ -68,6 +67,13 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)			\
   (flag_pic ? (GLOBAL ? DW_EH_PE_indirect : 0) | DW_EH_PE_datarel	\
    : DW_EH_PE_absptr)
+
+/* Solaris 2/Intel uses a wint_t different from the default, as on SPARC.  */
+#undef	WINT_TYPE
+#define	WINT_TYPE "long int"
+
+#undef	WINT_TYPE_SIZE
+#define	WINT_TYPE_SIZE BITS_PER_WORD
 
 /* Add "sun" to the list of symbols defined for SVR4.  */
 #undef CPP_PREDEFINES
@@ -82,6 +88,14 @@ Boston, MA 02111-1307, USA.  */
    %{pthreads:-D_REENTRANT -D_PTHREADS} \
    %{!pthreads:%{threads:-D_REENTRANT -D_SOLARIS_THREADS}} \
    %{compat-bsd:-iwithprefixbefore ucbinclude -I/usr/ucbinclude}"
+
+/* For C++ we need to add some additional macro definitions required
+   by the C++ standard library.  */
+#define CPLUSPLUS_CPP_SPEC "\
+-D_XOPEN_SOURCE=500 -D_LARGEFILE_SOURCE=1 -D_LARGEFILE64_SOURCE=1 \
+-D__EXTENSIONS__ \
+%(cpp) \
+"
 
 #undef LIB_SPEC
 #define LIB_SPEC \

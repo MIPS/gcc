@@ -471,8 +471,9 @@ ptr_t cold_gc_frame;
 	          cold_gc_bs_pointer = bsp - 2048;
 		  if (cold_gc_bs_pointer < BACKING_STORE_BASE) {
 		    cold_gc_bs_pointer = BACKING_STORE_BASE;
+		  } else {
+		    GC_push_all_stack(BACKING_STORE_BASE, cold_gc_bs_pointer);
 		  }
-		  GC_push_all_stack(BACKING_STORE_BASE, cold_gc_bs_pointer);
 		} else {
 		  cold_gc_bs_pointer = BACKING_STORE_BASE;
 		}
@@ -500,6 +501,10 @@ void GC_push_gc_structures GC_PROTO((void))
       GC_push_thread_structures();
 #   endif
 }
+
+#ifdef THREAD_LOCAL_ALLOC
+  void GC_mark_thread_local_free_lists();
+#endif
 
 /*
  * Call the mark routines (GC_tl_push for a single pointer, GC_push_conditional
@@ -552,16 +557,22 @@ ptr_t cold_gc_frame;
 	   GC_push_gc_structures();
        }
 
+     /* Mark thread local free lists, even if their mark 	*/
+     /* descriptor excludes the link field.			*/
+#      ifdef THREAD_LOCAL_ALLOC
+         GC_mark_thread_local_free_lists();
+#      endif
+
     /*
      * Now traverse stacks.
      */
 #   if !defined(USE_GENERIC_PUSH_REGS)
 	GC_push_current_stack(cold_gc_frame);
-	/* IN the threads case, this only pushes collector frames.      */
+	/* In the threads case, this only pushes collector frames.      */
 	/* In the USE_GENERIC_PUSH_REGS case, this is done inside	*/
 	/* GC_push_regs, so that we catch callee-save registers saved	*/
 	/* inside the GC_push_regs frame.				*/
-	/* In the case of linux threads on Ia64, the hot section of	*/
+	/* In the case of linux threads on IA64, the hot section of	*/
 	/* the main stack is marked here, but the register stack	*/
 	/* backing store is handled in the threads-specific code.	*/
 #   endif

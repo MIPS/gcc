@@ -31,13 +31,18 @@
 // ISO C++ 14882: 22.1  Locales
 //
 
+/** @file localefwd.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _CPP_BITS_LOCCORE_H
 #define _CPP_BITS_LOCCORE_H	1
 
 #pragma GCC system_header
 
 #include <bits/c++config.h>
-#include <bits/c++locale.h>     // Defines __c_locale.
+#include <bits/c++locale.h>     // Defines __c_locale, config-specific includes
 #include <bits/std_climits.h>	// For CHAR_BIT
 #include <bits/std_string.h> 	// For string
 #include <bits/std_cctype.h>	// For isspace, etc.
@@ -47,9 +52,9 @@ namespace std
 {
   // NB: Don't instantiate required wchar_t facets if no wchar_t support.
 #ifdef _GLIBCPP_USE_WCHAR_T
-# define  _GLIBCPP_NUM_FACETS 26
+# define  _GLIBCPP_NUM_FACETS 28
 #else
-# define  _GLIBCPP_NUM_FACETS 13
+# define  _GLIBCPP_NUM_FACETS 14
 #endif
 
   // 22.1.1 Locale
@@ -124,6 +129,7 @@ namespace std
   // NB: Specialized for char and wchar_t in locale_facets.h.
 
   class codecvt_base;
+  class __enc_traits;
   template<typename _InternT, typename _ExternT, typename _StateT>
     class codecvt;
   template<> class codecvt<char, char, mbstate_t>;
@@ -233,7 +239,7 @@ namespace std
 
     template<typename _Facet>
       locale  
-      combine(const locale& __other);
+      combine(const locale& __other) const;
 
     // Locale operations:
     string 
@@ -276,7 +282,10 @@ namespace std
 
     static inline void  
     _S_initialize()
-    { if (!_S_classic) classic();  }
+    { 
+      if (!_S_classic) 
+	classic();  
+    }
 
     static category  
     _S_normalize_category(category);
@@ -310,7 +319,6 @@ namespace std
     size_t 				_M_references;
     __vec_facet* 			_M_facets;
     string 				_M_names[_S_num_categories];
-    __c_locale				_M_c_locale;
     static const locale::id* const 	_S_id_ctype[];
     static const locale::id* const 	_S_id_numeric[];
     static const locale::id* const 	_S_id_collate[];
@@ -339,7 +347,7 @@ namespace std
     _Impl(string __name, size_t);
    ~_Impl() throw();
 
-    bool
+    inline bool
     _M_check_same_name()
     {
       bool __ret = true;
@@ -347,6 +355,7 @@ namespace std
 	__ret &= _M_names[i] == _M_names[i + 1];
       return __ret;
     }
+
     void 
     _M_replace_categories(const _Impl*, category);
 
@@ -379,16 +388,24 @@ namespace std
   {
     friend class locale;
     friend class locale::_Impl;
+    friend class __enc_traits;
 
   protected:
+    // Contains data from the underlying "C" library for default "C"
+    // and "POSIX" locales.
+    static __c_locale		     _S_c_locale;
+
     explicit 
     facet(size_t __refs = 0) throw();
 
     virtual 
-    ~facet() { };
+    ~facet();
 
     static void
     _S_create_c_locale(__c_locale& __cloc, const char* __s);
+
+    static __c_locale
+    _S_clone_c_locale(__c_locale& __cloc);
 
     static void
     _S_destroy_c_locale(__c_locale& __cloc);
@@ -438,8 +455,7 @@ namespace std
   public:
     // NB: This class is always a static data member, and thus can be
     // counted on to be zero-initialized.
-    // XXX id() : _M_index(0) { }
-    id() { }
+    id();
   };
 
   template<typename _Facet>

@@ -31,6 +31,11 @@
 // ISO C++ 14882: 21 Strings library
 //
 
+/** @file basic_string.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _CPP_BITS_STRING_H
 #define _CPP_BITS_STRING_H	1
 
@@ -40,7 +45,6 @@
 
 namespace std
 {
-
   // Documentation?  What's that? 
   // Nathan Myers <ncm@cantrip.org>.
   //
@@ -192,22 +196,6 @@ namespace std
 
 	_CharT* 
 	_M_clone(const _Alloc&, size_type __res = 0);
-
-#if _GLIBCPP_ALLOC_CONTROL
-	// These function pointers allow you to modify the allocation
-	// policy used by the string classes.  By default they expand by
-	// powers of two, but this may be excessive for space-critical
-	// applications.
-	
-	// Returns true if ALLOCATED is too much larger than LENGTH
-	static bool (*_S_excess_slop) (size_t __length, size_t __allocated);
-
-	inline static bool 
-	__default_excess(size_t, size_t);
-#else
-	inline static bool 
-	_S_excess_slop(size_t, size_t);
-#endif
       };
 
       // Use empty-base optimization: http://www.cantrip.org/emptyopt.html
@@ -284,7 +272,7 @@ namespace std
         _S_copy_chars(_CharT* __p, _Iterator __k1, _Iterator __k2)
         { 
 	  for (; __k1 != __k2; ++__k1, ++__p) 
-	    traits_type::assign(*__p, *__k1); //these types are off
+	    traits_type::assign(*__p, *__k1); // These types are off.
 	}
 
       static void
@@ -337,7 +325,7 @@ namespace std
       basic_string(size_type __n, _CharT __c, const _Alloc& __a = _Alloc());
 
       template<class _InputIterator>
-        basic_string(_InputIterator __begin, _InputIterator __end,
+        basic_string(_InputIterator __beg, _InputIterator __end,
 		     const _Alloc& __a = _Alloc());
 
       ~basic_string() 
@@ -489,17 +477,53 @@ namespace std
 
       basic_string& 
       assign(const basic_string& __str, size_type __pos, size_type __n)
-      { 
-	return this->assign(__str._M_check(__pos), __str._M_fold(__pos, __n)); 
+      {
+	if (__pos > __str.size())
+	  __throw_out_of_range("basic_string::assign");
+	if (_M_rep()->_M_is_shared() || _M_rep() != __str._M_rep())
+	  return _M_replace_safe(_M_ibegin(), _M_iend(), 
+				 __str._M_check(__pos),
+				 __str._M_fold(__pos, __n));
+	else
+	  {
+	    // Work in-place.
+	    bool __testn = __n < __str.size() - __pos;
+	    const size_type __newsize = __testn ? __n : __str.size() - __pos;
+	    // Avoid move, if possible.
+	    if (__pos >= __newsize)
+	      traits_type::copy(_M_data(), __str._M_data() + __pos, __newsize);
+	    else if (__pos)	      
+	      traits_type::move(_M_data(), __str._M_data() + __pos, __newsize);
+	    // else nothing (avoid calling move unnecessarily)
+	    _M_rep()->_M_length = __newsize;
+	    return *this;
+	  }
       }
 
       basic_string& 
       assign(const _CharT* __s, size_type __n)
-      { return this->assign(__s, __s + __n); }
+      {
+	if (__n > this->max_size())
+	  __throw_length_error("basic_string::assign");
+	if (_M_rep()->_M_is_shared() || less<const _CharT*>()(__s, _M_data())
+	    || less<const _CharT*>()(_M_data() + this->size(), __s))
+	  return _M_replace_safe(_M_ibegin(), _M_iend(), __s, __s + __n);
+	else
+	  {
+	    // Work in-place
+	    const size_type __pos = __s - _M_data();
+	    if (__pos >= __n)
+	      traits_type::copy(_M_data(), __s, __n);
+	    else if (__pos)
+	      traits_type::move(_M_data(), __s, __n);
+	    _M_rep()->_M_length = __n;
+	    return *this;
+	  }
+      }
 
       basic_string& 
       assign(const _CharT* __s)
-      { return this->assign(__s, __s + traits_type::length(__s)); }
+      { return this->assign(__s, traits_type::length(__s)); }
 
       basic_string& 
       assign(size_type __n, _CharT __c)
@@ -651,10 +675,10 @@ namespace std
         _M_replace(iterator __i1, iterator __i2, _InputIterator __k1, 
 		   _InputIterator __k2, input_iterator_tag);
 
-      template<class _FwdIterator>
+      template<class _ForwardIterator>
         basic_string& 
-        _M_replace(iterator __i1, iterator __i2, _FwdIterator __k1, 
-		   _FwdIterator __k2, forward_iterator_tag);
+        _M_replace_safe(iterator __i1, iterator __i2, _ForwardIterator __k1, 
+		   _ForwardIterator __k2);
 
       // _S_construct_aux is used to implement the 21.3.1 para 15 which
       // requires special behaviour if _InIter is an integral type

@@ -24,7 +24,9 @@ Boston, MA 02111-1307, USA.  */
 
 /* Default to dwarf2 in ELF.  */
 
+#undef DWARF_DEBUGGING_INFO
 #define DWARF_DEBUGGING_INFO
+#undef DWARF2_DEBUGGING_INFO
 #define DWARF2_DEBUGGING_INFO
 
 #undef PREFERRED_DEBUGGING_TYPE
@@ -39,7 +41,6 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_DEFAULT (MASK_APP_REGS + MASK_EPILOGUE)
 
 /* US Software GOFAST library support.  */
-#include "gofast.h"
 #undef INIT_SUBTARGET_OPTABS
 #define INIT_SUBTARGET_OPTABS INIT_GOFAST_OPTABS      
 

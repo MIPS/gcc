@@ -21,7 +21,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include "svr4.h"
 
 #undef ASM_SPEC
 #undef ASM_FINAL_SPEC
@@ -189,6 +188,8 @@ extern int target_flags;
 
 #define CONDITIONAL_REGISTER_USAGE \
 {						\
+  unsigned int i;				\
+						\
   if (!TARGET_AM33)				\
     {						\
       for (i = FIRST_EXTENDED_REGNUM; 		\
@@ -338,10 +339,10 @@ enum reg_class {
 
 #ifndef REG_OK_STRICT
 # define REGNO_IN_RANGE_P(regno,min,max) \
-  (((regno) >= (min) && (regno) <= (max)) || (regno) >= FIRST_PSEUDO_REGISTER)
+  (IN_RANGE ((regno), (min), (max)) || (regno) >= FIRST_PSEUDO_REGISTER)
 #else
 # define REGNO_IN_RANGE_P(regno,min,max) \
-  (((regno) >= (min) && (regno) <= (max)) \
+  (IN_RANGE ((regno), (min), (max)) \
    || (reg_renumber \
        && reg_renumber[(regno)] >= (min) && reg_renumber[(regno)] <= (max)))
 #endif
@@ -793,7 +794,7 @@ struct cum_arg {int nbytes; };
 /* Tell final.c how to eliminate redundant test instructions.  */
 
 /* Here we define machine-dependent flags and fields in cc_status
-   (see `conditions.h').  No extra ones are needed for the vax.  */
+   (see `conditions.h').  No extra ones are needed for the VAX.  */
 
 /* Store in cc_status the expressions
    that the condition codes will describe
@@ -917,29 +918,6 @@ do { char dstr[30];					\
      fprintf (FILE, "\t.float %s\n", dstr);		\
    } while (0)
 
-/* This is how to output an assembler line defining an `int' constant.  */
-
-#define ASM_OUTPUT_INT(FILE, VALUE)		\
-( fprintf (FILE, "\t.long "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* Likewise for `char' and `short' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE, VALUE)		\
-( fprintf (FILE, "\t.hword "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE, VALUE)		\
-( fprintf (FILE, "\t.byte "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-#define ASM_OUTPUT_BYTE(FILE, VALUE)  \
-  fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
-
 /* This says how to output the assembler to define a global
    uninitialized but not common symbol.
    Try to use asm_output_bss to implement this macro.  */
@@ -1037,8 +1015,6 @@ do { char dstr[30];					\
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
 #define DWARF2_ASM_LINE_DEBUG_INFO 1
-
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
 
 /* GDB always assumes the current function's frame begins at the value
    of the stack pointer upon entry to the current function.  Accessing

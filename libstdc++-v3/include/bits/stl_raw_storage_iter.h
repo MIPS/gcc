@@ -53,8 +53,9 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- * You should not attempt to use it directly.
+/** @file stl_raw_storage_iter.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
 #ifndef _CPP_BITS_STL_RAW_STORAGE_ITERATOR_H
@@ -79,7 +80,7 @@ namespace std
       raw_storage_iterator& 
       operator=(const _Tp& __element) 
       {
-	construct(&*_M_iter, __element);
+	_Construct(&*_M_iter, __element);
 	return *this;
       }        
 

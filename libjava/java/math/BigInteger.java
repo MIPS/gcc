@@ -1,15 +1,32 @@
-// BigInteger.java -- an arbitrary-precision integer
+/* java.math.BigInteger -- Arbitary precision integers
+   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
-/* Copyright (C) 1999, 2000, 2001  Free Software Foundation
+This file is part of GNU Classpath.
 
-   This file is part of libgcj.
+GNU Classpath is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+ 
+GNU Classpath is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
 
-This software is copyrighted work licensed under the terms of the
-Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
-details.  */
+You should have received a copy of the GNU General Public License
+along with GNU Classpath; see the file COPYING.  If not, write to the
+Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+02111-1307 USA.
+
+As a special exception, if you link this library with other files to
+produce an executable, this library does not by itself cause the
+resulting executable to be covered by the GNU General Public License.
+This exception does not however invalidate any other reasons why the
+executable file might be covered by the GNU General Public License. */
 
 package java.math;
-import gnu.gcj.math.*;
+
+import gnu.java.math.*;
 import java.util.Random;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -24,7 +41,6 @@ import java.io.IOException;
  * Written using on-line Java Platform 1.2 API Specification, as well
  * as "The Java Class Libraries", 2nd edition (Addison-Wesley, 1998) and
  * "Applied Cryptography, Second Edition" by Bruce Schneier (Wiley, 1996).
-
  * 
  * Based primarily on IntNum.java BitOps.java by Per Bothner <per@bothner.com>
  * (found in Kawa 1.6.62).
@@ -147,18 +163,33 @@ public class BigInteger extends Number implements Comparable
     if (numBits < 0)
       throw new IllegalArgumentException();
 
-    // Result is always positive so tack on an extra zero word, it will be
-    // canonicalized out later if necessary.
-    int nwords = numBits / 32 + 2;
-    words = new int[nwords];
-    words[--nwords] = 0;
-    words[--nwords] = rnd.nextInt() >>> (numBits % 32);
-    while (--nwords >= 0)
-      words[nwords] = rnd.nextInt();
+    init(numBits, rnd);
+  }
 
-    BigInteger result = make(words, words.length);
-    this.ival = result.ival;
-    this.words = result.words;
+  private void init(int numBits, Random rnd)
+  {
+    int highbits = numBits & 31;
+    if (highbits > 0)
+      highbits = rnd.nextInt() >>> (32 - highbits);
+    int nwords = numBits / 32;
+
+    while (highbits == 0 && nwords > 0)
+      {
+	highbits = rnd.nextInt();
+	--nwords;
+      }
+    if (nwords == 0 && highbits >= 0)
+      {
+	ival = highbits;
+      }
+    else
+      {
+	ival = highbits < 0 ? nwords + 2 : nwords + 1;
+	words = new int[ival];
+	words[nwords] = highbits;
+	while (--nwords >= 0)
+	  words[nwords] = rnd.nextInt();
+      }
   }
 
   public BigInteger(int bitLength, int certainty, Random rnd)
@@ -171,9 +202,7 @@ public class BigInteger extends Number implements Comparable
 	if (isProbablePrime(certainty))
 	  return;
 
-	BigInteger next = new BigInteger(bitLength, rnd);
-	this.ival = next.ival;
-	this.words = next.words;
+	init(bitLength, rnd);
       }
   }
 
@@ -1398,7 +1427,7 @@ public class BigInteger extends Number implements Comparable
 	    MPN.rshift0 (words, x.words, word_count, d_len, count);
 	    ival = d_len;
 	    if (neg)
-	      words[d_len-1] |= -1 << (32 - count);
+	      words[d_len-1] |= -2 << (31 - count);
 	  }
       }
   }

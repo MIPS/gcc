@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.4 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -26,7 +26,6 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Fmap;     use Fmap;
 with Hostparm;
 with Namet;    use Namet;
 with Opt;      use Opt;
@@ -996,24 +995,12 @@ package body Osint is
          --  directory where the user said it was.
 
          elsif Look_In_Primary_Directory_For_Current_Main
-           and then Current_Main = N
-         then
+           and then Current_Main = N then
             return Locate_File (N, T, Primary_Directory, File_Name);
 
          --  Otherwise do standard search for source file
 
          else
-            --  Check the mapping of this file name
-
-            File := Mapped_Path_Name (N);
-
-            --  If the file name is mapped to a path name, return the
-            --  corresponding path name
-
-            if File /= No_File then
-               return File;
-            end if;
-
             --  First place to look is in the primary directory (i.e. the same
             --  directory as the source) unless this has been disabled with -I-
 

@@ -33,8 +33,9 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-attr.h"
 #include "tree.h"
 #include "function.h"
-#include "c-tree.h"
 #include "expr.h"
+#include "libfuncs.h"
+#include "c-tree.h"
 #include "flags.h"
 #include "recog.h"
 #include "toplev.h"
@@ -67,8 +68,25 @@ static void m88k_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void m88k_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void m88k_output_function_end_prologue PARAMS ((FILE *));
 static void m88k_output_function_begin_epilogue PARAMS ((FILE *));
+#if defined (CTOR_LIST_BEGIN) && !defined (OBJECT_FORMAT_ELF)
+static void m88k_svr3_asm_out_constructor PARAMS ((rtx, int));
+static void m88k_svr3_asm_out_destructor PARAMS ((rtx, int));
+#endif
+
+static int m88k_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_ASM_BYTE_OP
+#define TARGET_ASM_BYTE_OP "\tbyte\t"
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\thalf\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\tword\t"
+#undef TARGET_ASM_UNALIGNED_HI_OP
+#define TARGET_ASM_UNALIGNED_HI_OP "\tuahalf\t"
+#undef TARGET_ASM_UNALIGNED_SI_OP
+#define TARGET_ASM_UNALIGNED_SI_OP "\tuaword\t"
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE m88k_output_function_prologue
 #undef TARGET_ASM_FUNCTION_END_PROLOGUE
@@ -77,6 +95,9 @@ static void m88k_output_function_begin_epilogue PARAMS ((FILE *));
 #define TARGET_ASM_FUNCTION_BEGIN_EPILOGUE m88k_output_function_begin_epilogue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE m88k_output_function_epilogue
+
+#undef TARGET_SCHED_ADJUST_COST
+#define TARGET_SCHED_ADJUST_COST m88k_adjust_cost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -475,15 +496,15 @@ legitimize_address (pic, orig, reg, scratch)
 #define MOVSTR_SI_LIMIT_88110   72
 #define MOVSTR_DI_LIMIT_88110   72
 
-static enum machine_mode mode_from_align[] =
+static const enum machine_mode mode_from_align[] =
 			      {VOIDmode, QImode, HImode, VOIDmode, SImode,
 			       VOIDmode, VOIDmode, VOIDmode, DImode};
-static int max_from_align[] = {0, MOVSTR_QI, MOVSTR_HI, 0, MOVSTR_SI,
-			       0, 0, 0, MOVSTR_DI};
-static int all_from_align[] = {0, MOVSTR_QI, MOVSTR_ODD_HI, 0, MOVSTR_ODD_SI,
-			       0, 0, 0, MOVSTR_ODD_DI};
+static const int max_from_align[] = {0, MOVSTR_QI, MOVSTR_HI, 0, MOVSTR_SI,
+				     0, 0, 0, MOVSTR_DI};
+static const int all_from_align[] = {0, MOVSTR_QI, MOVSTR_ODD_HI, 0,
+				     MOVSTR_ODD_SI, 0, 0, 0, MOVSTR_ODD_DI};
 
-static int best_from_align[3][9] = {
+static const int best_from_align[3][9] = {
   {0, MOVSTR_QI_LIMIT_88100, MOVSTR_HI_LIMIT_88100, 0, MOVSTR_SI_LIMIT_88100,
    0, 0, 0, MOVSTR_DI_LIMIT_88100},
   {0, MOVSTR_QI_LIMIT_88110, MOVSTR_HI_LIMIT_88110, 0, MOVSTR_SI_LIMIT_88110,
@@ -876,7 +897,7 @@ output_call (operands, addr)
 			   - 2);
 #if (MONITOR_GCC & 0x2) /* How often do long branches happen?  */
 	  if ((unsigned) (delta + 0x8000) >= 0x10000)
-	    warning ("Internal gcc monitor: short-branch(%x)", delta);
+	    warning ("internal gcc monitor: short-branch(%x)", delta);
 #endif
 
 	  /* Delete the jump.  */
@@ -1524,7 +1545,8 @@ output_option (file, sep, type, name, indent, pos, max)
   return pos + fprintf (file, "%s%s%s", sep, type, name);
 }
 
-static struct { const char *name; int value; } m_options[] = TARGET_SWITCHES;
+static const struct { const char *const name; const int value; } m_options[] =
+TARGET_SWITCHES;
 
 static void
 output_options (file, f_options, f_len, W_options, W_len,
@@ -1549,9 +1571,6 @@ output_options (file, f_options, f_len, W_options, W_len,
     pos = output_option (file, sep, "-traditional", "", indent, pos, max);
   if (profile_flag)
     pos = output_option (file, sep, "-p", "", indent, pos, max);
-  if (profile_block_flag)
-    pos = output_option (file, sep, "-a", "", indent, pos, max);
-
   for (j = 0; j < f_len; j++)
     if (*f_options[j].variable == f_options[j].on_value)
       pos = output_option (file, sep, "-f", f_options[j].string,
@@ -1651,9 +1670,9 @@ output_ascii (file, opcode, max, p, size)
 	  num += 2;
 	  in_escape = 0;
 	}
-      else if (in_escape && c >= '0' && c <= '9')
+      else if (in_escape && ISDIGIT (c))
 	{
-	  /* If a digit follows an octal-escape, the Vax assembler fails
+	  /* If a digit follows an octal-escape, the VAX assembler fails
 	     to stop reading the escape after three digits.  Continue to
 	     output the values as an octal-escape until a non-digit is
 	     found.  */
@@ -1809,7 +1828,7 @@ m88k_layout_frame ()
   frame_size = get_frame_size ();
 
   /* Since profiling requires a call, make sure r1 is saved.  */
-  if (profile_flag || profile_block_flag)
+  if (profile_flag)
     save_regs[1] = 1;
 
   /* If we are producing debug information, store r1 and r30 where the
@@ -1891,15 +1910,10 @@ m88k_layout_frame ()
     int need
       = ((m88k_stack_size ? STACK_UNIT_BOUNDARY - STARTING_FRAME_OFFSET : 0)
 	 - (frame_size % STACK_UNIT_BOUNDARY));
-    if (need)
-      {
-	if (need < 0)
-	  need += STACK_UNIT_BOUNDARY;
-	(void) assign_stack_local (BLKmode, need, BITS_PER_UNIT);
-	frame_size = get_frame_size ();
-      }
+    if (need < 0)
+      need += STACK_UNIT_BOUNDARY;
     m88k_stack_size
-      = ROUND_CALL_BLOCK_SIZE (m88k_stack_size + frame_size
+      = ROUND_CALL_BLOCK_SIZE (m88k_stack_size + frame_size + need
 			       + current_function_pretend_args_size);
   }
 }
@@ -2011,7 +2025,7 @@ m88k_expand_prologue ()
     {
       rtx return_reg = gen_rtx_REG (SImode, 1);
       rtx label = gen_label_rtx ();
-      rtx temp_reg;
+      rtx temp_reg = NULL_RTX;
 
       if (! save_regs[1])
 	{
@@ -2025,7 +2039,7 @@ m88k_expand_prologue ()
       if (! save_regs[1])
 	emit_move_insn (return_reg, temp_reg);
     }
-  if (profile_flag || profile_block_flag)
+  if (profile_flag)
     emit_insn (gen_blockage ());
 }
 
@@ -2283,7 +2297,7 @@ m88k_debugger_offset (reg, offset)
 #if (MONITOR_GCC & 0x10) /* Watch for suspicious symbolic locations.  */
       if (! (GET_CODE (reg) == REG
 	     && REGNO (reg) >= FIRST_PSEUDO_REGISTER))
-	warning ("Internal gcc error: Can't express symbolic location");
+	warning ("internal gcc error: Can't express symbolic location");
 #endif
       return 0;
     }
@@ -2361,7 +2375,8 @@ output_tdesc (file, offset)
 
   tdesc_section ();
 
-  fprintf (file, "%s%d,%d", INT_ASM_OP, /* 8:0,22:(20 or 16),2:2 */
+  /* 8:0,22:(20 or 16),2:2 */
+  fprintf (file, "%s%d,%d", integer_asm_op (4, TRUE),
 	   (((xmask != 0) ? 20 : 16) << 2) | 2,
 	   flag_pic ? 2 : 1);
 
@@ -2402,7 +2417,7 @@ output_function_profiler (file, labelno, name, savep)
 {
   char label[256];
   char dbi[256];
-  const char *temp = (savep ? reg_names[2] : reg_names[10]);
+  const char *const temp = (savep ? reg_names[2] : reg_names[10]);
 
   /* Remember to update FUNCTION_PROFILER_LENGTH.  */
 
@@ -2601,7 +2616,7 @@ m88k_function_arg (args_so_far, mode, type, named)
 struct rtx_def *
 m88k_builtin_saveregs ()
 {
-  rtx addr, dest;
+  rtx addr;
   tree fntype = TREE_TYPE (current_function_decl);
   int argadj = ((!(TYPE_ARG_TYPES (fntype) != 0
 		   && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
@@ -2624,21 +2639,10 @@ m88k_builtin_saveregs ()
 
   /* Now store the incoming registers.  */
   if (fixed < 8)
-    {
-      dest = adjust_address (addr, Pmode, fixed * UNITS_PER_WORD);
-      move_block_from_reg (2 + fixed, dest, 8 - fixed,
-			   UNITS_PER_WORD * (8 - fixed));
-
-      if (current_function_check_memory_usage)
-	{
-	  emit_library_call (chkr_set_right_libfunc, 1, VOIDmode, 3,
-			     dest, ptr_mode,
-			     GEN_INT (UNITS_PER_WORD * (8 - fixed)),
-			     TYPE_MODE (sizetype),
-			     GEN_INT (MEMORY_USE_RW),
-			     TYPE_MODE (integer_type_node));
-	}
-    }
+    move_block_from_reg (2 + fixed,
+			 adjust_address (addr, Pmode, fixed * UNITS_PER_WORD),
+			 8 - fixed,
+			 UNITS_PER_WORD * (8 - fixed));
 
   /* Return the address of the save area, but don't put it in a
      register.  This fails when not optimizing and produces worse code
@@ -3284,4 +3288,62 @@ symbolic_operand (op, mode)
     default:
       return 0;
     }
+}
+
+#if defined (CTOR_LIST_BEGIN) && !defined (OBJECT_FORMAT_ELF)
+static void
+m88k_svr3_asm_out_constructor (symbol, priority)
+     rtx symbol;
+     int priority ATTRIBUTE_UNUSED;
+{
+  const char *name = XSTR (symbol, 0);
+
+  init_section ();
+  fprintf (asm_out_file, "\tor.u\t r13,r0,hi16(");
+  assemble_name (asm_out_file, name);
+  fprintf (asm_out_file, ")\n\tor\t r13,r13,lo16(");
+  assemble_name (asm_out_file, name);
+  fprintf (asm_out_file, ")\n\tsubu\t r31,r31,%d\n\tst\t r13,r31,%d\n",
+	   STACK_BOUNDARY / BITS_PER_UNIT, REG_PARM_STACK_SPACE (0));
+}
+
+static void
+m88k_svr3_asm_out_destructor (symbol, priority)
+     rtx symbol;
+     int priority ATTRIBUTE_UNUSED;
+{
+  int i;
+
+  fini_section ();
+  assemble_integer (symbol, UNITS_PER_WORD, BITS_PER_WORD, 1);
+  for (i = 1; i < 4; i++)
+    assemble_integer (constm1_rtx, UNITS_PER_WORD, BITS_PER_WORD, 1);
+}
+#endif /* INIT_SECTION_ASM_OP && ! OBJECT_FORMAT_ELF */
+
+/* Adjust the cost of INSN based on the relationship between INSN that
+   is dependent on DEP_INSN through the dependence LINK.  The default
+   is to make no adjustment to COST.
+
+   On the m88k, ignore the cost of anti- and output-dependencies.  On
+   the m88100, a store can issue two cycles before the value (not the
+   address) has finished computing.  */
+
+static int
+m88k_adjust_cost (insn, link, dep, cost)
+     rtx insn;
+     rtx link;
+     rtx dep;
+     int cost;
+{
+  if (REG_NOTE_KIND (link) != 0)
+    return 0;  /* Anti or output dependence.  */
+
+  if (! TARGET_88100
+      && recog_memoized (insn) >= 0
+      && get_attr_type (insn) == TYPE_STORE
+      && SET_SRC (PATTERN (insn)) == SET_DEST (PATTERN (dep)))
+    return cost - 4;  /* 88110 store reservation station.  */
+
+  return cost;
 }

@@ -79,7 +79,7 @@ extern tree stabilize_reference PARAMS ((tree));
 #define METHOD_MODIFIERS ACC_PUBLIC|ACC_PROTECTED|ACC_PRIVATE|ACC_ABSTRACT| \
 			 ACC_STATIC|ACC_FINAL|ACC_SYNCHRONIZED|ACC_NATIVE
 #define INTERFACE_MODIFIERS ACC_PUBLIC|ACC_ABSTRACT
-#define INTERFACE_INNER_MODIFIERS ACC_PUBLIC|ACC_PROTECTED|ACC_PRIVATE|ACC_ABSTRACT|ACC_STATIC
+#define INTERFACE_INNER_MODIFIERS ACC_PUBLIC|ACC_PROTECTED|ACC_ABSTRACT|ACC_STATIC
 #define INTERFACE_METHOD_MODIFIERS ACC_PUBLIC|ACC_ABSTRACT
 #define INTERFACE_FIELD_MODIFIERS ACC_PUBLIC|ACC_STATIC|ACC_FINAL
 
@@ -235,7 +235,7 @@ extern tree stabilize_reference PARAMS ((tree));
   }
 
 /* Build the string parm$<O> and store in into the identifier N. This
-   is used to contruct the name of hidden parameters used to
+   is used to construct the name of hidden parameters used to
    initialize outer scope aliases.  */
 #define MANGLE_ALIAS_INITIALIZER_PARAMETER_NAME_ID(N, O)		\
   {									\
@@ -562,24 +562,34 @@ typedef struct _jdeplist {
       }									\
   }
 
-#define WFL_STRIP_BRACKET(TARGET, TYPE)					\
-{									\
-  tree __type = (TYPE);							\
-  if (TYPE && TREE_CODE (TYPE) == EXPR_WITH_FILE_LOCATION)		\
-    {									\
-      tree _node = EXPR_WFL_NODE (TYPE);				\
-      const char *_ptr = IDENTIFIER_POINTER (_node);			\
-      const char *_ref = _ptr;						\
-      while (_ptr[0] == '[')						\
-	  _ptr++;							\
-      if (_ref != _ptr)							\
-	{								\
-	  tree _new = copy_node (TYPE);					\
-	  EXPR_WFL_NODE (_new) = get_identifier (_ptr);			\
-	  __type = _new;						\
-	}								\
-    }									\
-  (TARGET) = __type;							\
+#define WFL_STRIP_BRACKET(TARGET, TYPE)					  \
+{									  \
+  tree __type = (TYPE);							  \
+  if (TYPE && TREE_CODE (TYPE) == EXPR_WITH_FILE_LOCATION)		  \
+    {									  \
+      tree _node;							  \
+      if (build_type_name_from_array_name (EXPR_WFL_NODE (TYPE), &_node)) \
+        {								  \
+          tree _new = copy_node (TYPE);					  \
+          EXPR_WFL_NODE (_new) = _node;				  	  \
+          __type = _new;						  \
+        }								  \
+    }									  \
+  (TARGET) = __type;							  \
+}
+
+/* If NAME contains one or more trailing []s, NAMELEN will be the
+   adjusted to be the index of the last non bracket character in
+   NAME. ARRAY_DIMS will contain the number of []s found.  */
+
+#define STRING_STRIP_BRACKETS(NAME, NAMELEN, ARRAY_DIMS)                  \
+{									  \
+  ARRAY_DIMS = 0;							  \
+  while (NAMELEN >= 2 && (NAME)[NAMELEN - 1] == ']')			  \
+    {									  \
+      NAMELEN -= 2;							  \
+      (ARRAY_DIMS)++;							  \
+    }									  \
 }
 
 /* Promote a type if it won't be registered as a patch */
@@ -742,8 +752,6 @@ struct parser_ctxt {
   /* Indicates that a context already contains saved data and that the
      next save operation will require a new context to be created. */
   unsigned saved_data:1;
-  /* Integral literal overflow */
-  unsigned minus_seen:1;
   /* Report error when true */
   unsigned java_error_flag:1;
   /* @deprecated tag seen */
@@ -775,7 +783,7 @@ struct parser_ctxt {
 
   tree non_static_initialized;	    /* List of non static initialized fields */
   tree static_initialized;	    /* List of static non final initialized */
-  tree instance_initializers;	    /* List of instancei initializers stmts */
+  tree instance_initializers;	    /* List of instance initializers stmts */
 
   tree import_list;		    /* List of import */
   tree import_demand_list;	    /* List of import on demand */
@@ -904,6 +912,11 @@ struct parser_ctxt {
   if (CPC_INSTANCE_INITIALIZER_LIST(C))				\
     TREE_PURPOSE (CPC_INSTANCE_INITIALIZER_LIST (C)) = (S);
 
+/* This is used by the lexer to communicate with the parser.  It is
+   set on an integer constant if the radix is 10, so that the parser
+   can correctly diagnose a numeric overflow.  */
+#define JAVA_RADIX10_FLAG(NODE) TREE_LANG_FLAG_0(NODE)
+
 #ifndef JC1_LITE
 void java_complete_class PARAMS ((void));
 void java_check_circular_reference PARAMS ((void));
@@ -911,7 +924,6 @@ void java_fix_constructors PARAMS ((void));
 void java_layout_classes PARAMS ((void));
 void java_reorder_fields PARAMS ((void));
 tree java_method_add_stmt PARAMS ((tree, tree));
-void java_expand_switch PARAMS ((tree));
 int java_report_errors PARAMS ((void));
 extern tree do_resolve_class PARAMS ((tree, tree, tree, tree));
 #endif
@@ -934,6 +946,6 @@ ATTRIBUTE_NORETURN
 extern void java_expand_classes PARAMS ((void));
 
 extern struct parser_ctxt *ctxp;
-struct parser_ctxt *ctxp_for_generation;
+extern struct parser_ctxt *ctxp_for_generation;
 
 #endif /* ! GCC_JAVA_PARSE_H */

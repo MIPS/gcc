@@ -1,3 +1,9 @@
+# The structure is too large for the xstormy16 - won't fit in 16 bits.
+
+if { [istarget "xstormy16-*-*"] } {
+        return 1;
+}
+
 # Array 'a' in this test is too large to fit in 64K.
 
 global target_triplet

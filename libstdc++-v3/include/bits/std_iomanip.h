@@ -31,6 +31,11 @@
 // ISO C++ 14882: 27.6.3  Standard manipulators
 //
 
+/** @file std_iomanip.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _CPP_IOMANIP
 #define _CPP_IOMANIP 1
 
@@ -73,7 +78,7 @@ namespace std
   struct _Setiosflags { ios_base::fmtflags _M_mask; };
 
   inline _Setiosflags 
-  setiosflags (ios_base::fmtflags __mask)
+  setiosflags(ios_base::fmtflags __mask)
   { 
     _Setiosflags __x; 
     __x._M_mask = __mask; 
@@ -100,7 +105,7 @@ namespace std
   struct _Setbase { int _M_base; };
 
   inline _Setbase 
-  setbase (int __base)
+  setbase(int __base)
   { 
     _Setbase __x; 
     __x._M_base = __base; 
@@ -211,8 +216,6 @@ namespace std
       __os.width(__f._M_n); 
       return __os; 
     }
-
 } // namespace std
 
-#endif	/* __IOMANIP */
-
+#endif	

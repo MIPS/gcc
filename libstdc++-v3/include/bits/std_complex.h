@@ -34,12 +34,18 @@
 // Improved by Gabriel Dos Reis <dosreis@cmla.ens-cachan.fr>
 //
 
+/** @file std_complex.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _CPP_COMPLEX
 #define _CPP_COMPLEX	1
 
 #pragma GCC system_header
 
 #include <bits/c++config.h>
+#include <bits/cpp_type_traits.h>
 #include <bits/std_cmath.h>
 #include <bits/std_sstream.h>
 
@@ -56,7 +62,7 @@ namespace std
   template<typename _Tp> _Tp norm(const complex<_Tp>&);
 
   template<typename _Tp> complex<_Tp> conj(const complex<_Tp>&);
-  template<typename _Tp> complex<_Tp> polar(const _Tp&, const _Tp&);
+  template<typename _Tp> complex<_Tp> polar(const _Tp&, const _Tp& = 0);
 
   // Transcendentals:
   template<typename _Tp> complex<_Tp> cos(const complex<_Tp>&);
@@ -237,7 +243,7 @@ namespace std
     {
       const _Tp __r =  _M_real * __z.real() + _M_imag * __z.imag();
       const _Tp __n = norm(__z);
-      _M_imag = (_M_real * __z.imag() - _M_imag * __z.real()) / __n;
+      _M_imag = (_M_imag * __z.real() - _M_real * __z.imag()) / __n;
       _M_real = __r / __n;
       return *this;
     }
@@ -404,7 +410,7 @@ namespace std
     {
       _Tp __x = __z.real();
       _Tp __y = __z.imag();
-      const _Tp __s = abs(__x) + abs(__y);
+      const _Tp __s = max(abs(__x), abs(__y));
       if (__s == _Tp())  // well ...
         return __s;
       __x /= __s; 
@@ -417,12 +423,39 @@ namespace std
     arg(const complex<_Tp>& __z)
     { return atan2(__z.imag(), __z.real()); }
 
+  // 26.2.7/5: norm(__z) returns the squared magintude of __z.
+  //     As defined, norm() is -not- a norm is the common mathematical
+  //     sens used in numerics.  The helper class _Norm_helper<> tries to
+  //     distinguish between builtin floating point and the rest, so as
+  //     to deliver an answer as close as possible to the real value.
+  template<bool>
+    struct _Norm_helper
+    {
+      template<typename _Tp>
+        static inline _Tp _S_do_it(const complex<_Tp>& __z)
+        {
+          const _Tp __x = __z.real();
+          const _Tp __y = __z.imag();
+          return __x * __x + __y * __y;
+        }
+    };
+
+  template<>
+    struct _Norm_helper<true>
+    {
+      template<typename _Tp>
+        static inline _Tp _S_do_it(const complex<_Tp>& __z)
+        {
+          _Tp __res = abs(__z);
+          return __res * __res;
+        }
+    };
+  
   template<typename _Tp>
     inline _Tp
     norm(const complex<_Tp>& __z)
     {
-      _Tp __res = abs(__z);
-      return __res * __res;
+      return _Norm_helper<__is_floating<_Tp>::_M_type>::_S_do_it(__z);
     }
 
   template<typename _Tp>
@@ -930,14 +963,14 @@ namespace std
   inline complex<long double>&
   complex<long double>::operator*=(long double __r)
   {
-    __real__ _M_value *= __r;
+    _M_value *= __r;
     return *this;
   }
 
   inline complex<long double>&
   complex<long double>::operator/=(long double __r)
   {
-    __real__ _M_value /= __r;
+    _M_value /= __r;
     return *this;
   }
 

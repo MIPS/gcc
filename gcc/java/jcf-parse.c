@@ -36,6 +36,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "parse.h"
 #include "ggc.h"
 #include "debug.h"
+#include "assert.h"
 
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
@@ -261,14 +262,7 @@ parse_signature (jcf, sig_index)
 }
 
 void
-init_lex ()
-{
-  /* Make identifier nodes long enough for the language-specific slots.  */
-  set_identifier_size (sizeof (struct lang_identifier));
-}
-
-void
-set_yydebug (value)
+java_set_yydebug (value)
      int value;
 {
   yydebug = value;
@@ -650,7 +644,8 @@ load_class (class_or_name, verbose)
      tree class_or_name;
      int verbose;
 {
-  tree name;
+  tree name, saved;
+  int class_loaded;
 
   /* class_or_name can be the name of the class we want to load */
   if (TREE_CODE (class_or_name) == IDENTIFIER_NODE)
@@ -663,8 +658,31 @@ load_class (class_or_name, verbose)
   else
     name = DECL_NAME (TYPE_NAME (class_or_name));
 
-  if (read_class (name) == 0 && verbose)
-    error ("Cannot find file for class %s.", IDENTIFIER_POINTER (name));
+  saved = name;
+  while (1)
+    {
+      char *dollar;
+
+      if ((class_loaded = read_class (name)))
+	break;
+
+      /* We failed loading name. Now consider that we might be looking
+	 for a inner class but it's only available in source for in
+	 its enclosing context. */
+      if ((dollar = strrchr (IDENTIFIER_POINTER (name), '$')))
+	{
+	  int c = *dollar;
+	  *dollar = '\0';
+	  name = get_identifier (IDENTIFIER_POINTER (name));
+	  *dollar = c;
+	}
+      /* Otherwise, we failed, we bail. */
+      else
+	break;
+    }
+
+  if (!class_loaded && verbose)
+    error ("cannot find file for class %s", IDENTIFIER_POINTER (saved));
 }
 
 /* Parse the .class file JCF. */
@@ -732,7 +750,7 @@ jcf_parse (jcf)
 	 -fforce-classes-archive-check was specified. */
       if (!jcf->right_zip
 	  && (!flag_emit_class_files || flag_force_classes_archive_check))
-	fatal_error ("The `java.lang.Object' that was found in `%s' didn't have the special zero-length `gnu.gcj.gcj-compiled' attribute. This generally means that your classpath is incorrect set. Use `info gcj \"Input Options\"' to see the info page describing how to set the classpath.", jcf->filename);
+	fatal_error ("the `java.lang.Object' that was found in `%s' didn't have the special zero-length `gnu.gcj.gcj-compiled' attribute.  This generally means that your classpath is incorrectly set.  Use `info gcj \"Input Options\"' to see the info page describing how to set the classpath", jcf->filename);
     }
   else
     all_class_list = tree_cons (NULL_TREE,
@@ -816,6 +834,7 @@ parse_class_file ()
 
       if (DECL_CODE_OFFSET (method) == 0)
 	{
+	  current_function_decl = method;
 	  error ("missing Code attribute");
 	  continue;
 	}
@@ -1041,7 +1060,7 @@ yyparse ()
 	    {
 	      const char *saved_input_filename = input_filename;
 	      input_filename = value;
-	      warning ("source file seen twice on command line and will be compiled only once.");
+	      warning ("source file seen twice on command line and will be compiled only once");
 	      input_filename = saved_input_filename;
 	    }
 	  else
@@ -1059,12 +1078,28 @@ yyparse ()
   if (filename_count == 0)
     warning ("no input file specified");
 
+  if (resource_name)
+    {
+      char *resource_filename;
+      
+      /* Only one resource file may be compiled at a time.  */
+      assert (TREE_CHAIN (current_file_list) == NULL);
+
+      resource_filename = IDENTIFIER_POINTER (TREE_VALUE (current_file_list));
+      compile_resource_file (resource_name, resource_filename);
+      
+      java_expand_classes ();
+      if (!java_report_errors ())
+	emit_register_classes ();
+      return 0;
+    }
+
   current_jcf = main_jcf;
   current_file_list = nreverse (current_file_list);
   for (node = current_file_list; node; node = TREE_CHAIN (node))
     {
       unsigned char magic_string[4];
-      uint32 magic;
+      uint32 magic = 0;
       tree name = TREE_VALUE (node);
 
       /* Skip already parsed files */
@@ -1086,11 +1121,11 @@ yyparse ()
       input_filename = IDENTIFIER_POINTER (name);
 
       /* Figure what kind of file we're dealing with */
-      if (fread (magic_string, 1, 4, finput) != 4)
-	fatal_io_error ("Premature end of input file %s", 
-			IDENTIFIER_POINTER (name));
-      fseek (finput, 0L, SEEK_SET);
-      magic = GET_u4 (magic_string);
+      if (fread (magic_string, 1, 4, finput) == 4)
+	{
+	  fseek (finput, 0L, SEEK_SET);
+	  magic = GET_u4 (magic_string);
+	}
       if (magic == 0xcafebabe)
 	{
 	  CLASS_FILE_P (node) = 1;
@@ -1153,7 +1188,11 @@ yyparse ()
 
   java_expand_classes ();
   if (!java_report_errors () && !flag_syntax_only)
-    emit_register_classes ();
+    {
+      emit_register_classes ();
+      if (flag_indirect_dispatch)
+	emit_offset_symbol_table ();
+    }
   return 0;
 }
 
@@ -1221,7 +1260,7 @@ process_zip_dir (FILE *finput)
       class_name_in_zip_dir = ZIPDIR_FILENAME (zdir);
 
       /* We choose to not to process entries with a zero size or entries
-	 not bearing the .class extention.  */
+	 not bearing the .class extension.  */
       if (!zdir->size || !zdir->filename_offset ||
 	  strncmp (&class_name_in_zip_dir[zdir->filename_length-6], 
 		   ".class", 6))

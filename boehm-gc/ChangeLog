@@ -1,3 +1,94 @@
+2001-12-16  Jeff Sturm  <jsturm@one-point.com>
+
+	* dyn_load.c: Define ElfW (if needed) for all targets,
+	not just GNU/Linux.
+	(GC_FirstDLOpenedLinkMap): Use it.
+	(GC_register_dynamic_libraries_dl): Use it.
+	* include/private/gcconfig.h: Define CPP_WORDSZ, ELF_CLASS
+	for sparcv9.
+
+2001-12-16  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	PR other/3725
+	* configure.in: Add AC_SUBST(target_alias). 
+	* configure: Regenerated.
+
+2001-11-26  Loren J. Rittle  <ljrittle@acm.org>
+
+	* linux_threads.c (WRAP_FUNC(pthread_join)): Remove special
+	case for GC_FREEBSD_THREADS.
+	* configure.in (*-*-freebsd*): Clarify warning.
+	* configure: Rebuilt.
+
+2001-10-23  Loren J. Rittle  <ljrittle@acm.org>
+	    Andreas Tobler <toa@pop.agri.ch>
+
+	* include/private/solaris_threads.h: Update to use GC_SOLARIS_THREADS.
+
+2001-10-22  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* linux_threads.c (GC_init_parallel): Do not declare as a static
+	constructor.
+	* include/gc.h (GC_init): Declare here. Add description.
+	* include/private/gc_priv.h (GC_init): Remove declaration.
+
+2001-10-16  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/gc_pthread_redirects.h: Generalize test to use GC_PTHREADS.
+	* linux_threads.c (WRAP_FUNC(pthread_join)): Conditionalized on
+	GC_FREEBSD_THREADS, handle strange interaction between system
+	pthread implementation and boehm-gc signal-handler architecture.
+	* tests/test.c (main): Conditionalized on GC_FREEBSD_THREADS,
+	set stack.
+	* include/private/gcconfig.h (configuration keyed off FREEBSD):
+	Define SIG_SUSPEND, SIG_THR_RESTART.  Do not define
+	MPROTECT_VDB when GC_FREEBSD_THREADS is defined.
+
+2001-10-16  Loren J. Rittle  <ljrittle@acm.org>
+
+	* Makefile.am (test.o): Find tests/test.c in $(srcdir).
+	* Makefile.in: Rebuilt.
+
+2001-10-16  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.am, acinclude.m4, configure.in: Imported GC 6.1 Alpha 1 and
+	merged local changes.
+
+2001-09-26  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* solaris_threads.c (MAX_ORIG_STACK_SIZE) [I386]: Provide special
+	Solaris 2/Intel definition.
+	
+	* configure.in (i?86-*-solaris2.[89]*): Define
+	SOLARIS25_PROC_VDB_BUG_FIXED.
+	* include/private/gcconfig.h [I386 && SUNOS5]: Use it.
+	* configure: Regenerate.
+
+	* include/private/gcconfig.h [I386 && SUNOS5] (DATASTART): Use _etext.
+	(DATAEND): Define using _end.
+
+2001-09-11  Per Bothner  <per@bothner.com>
+
+	* include/Makefile.am:  New file.  It defines include_HEADERS.
+	* Makefile.am (SUBDIRS):  New macro, set to include.
+	* configure.in (AC_OUTPUT):  Add include/Makefile.
+
+2001-08-20  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.in: Always ask gcc for threads package.
+
+2001-08-17  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.am, acinclude.m4, configure.in: Imported GC 6.0 and
+	merged local changes.
+
+2001-08-02  David Billinghurst <David.Billinghurst>
+
+	* configure: Rebuilt.
+	* configure.in:  POSIX threads on cygwin does not link with
+	-lpthreads.
+
 2001-07-03  Tom Tromey  <tromey@redhat.com>
 
 	Fix for PR bootstrap/3281:

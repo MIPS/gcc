@@ -361,11 +361,11 @@ public:
     private:
 	friend class SetLS<T>;
 
-	Vix(const SetLS<T> *o, const ListS<T>::Vix& x): owner(o), vix(x)
+	Vix(const SetLS<T> *o, const typename ListS<T>::Vix& x): owner(o), vix(x)
 	    { }
 
 	const SetLS<T> *owner;
-	ListS<T>::Vix vix;
+	typename ListS<T>::Vix vix;
     };
     friend class Vix;
     

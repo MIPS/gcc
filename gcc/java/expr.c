@@ -82,6 +82,9 @@ static tree build_java_check_indexed_type PARAMS ((tree, tree));
 static tree java_array_data_offset PARAMS ((tree)); 
 static tree case_identity PARAMS ((tree, tree)); 
 static unsigned char peek_opcode_at_pc PARAMS ((struct JCF *, int, int));
+static bool emit_init_test_initialization PARAMS ((struct hash_entry *,
+						   PTR ptr));
+static int get_offset_table_index PARAMS ((tree));
 
 static tree operand_type[59];
 extern struct obstack permanent_obstack;
@@ -704,10 +707,12 @@ build_java_array_length_access (node)
   length = java_array_type_length (type);
   if (length >= 0)
     return build_int_2 (length, 0);
-  return fold (build1 (INDIRECT_REF, int_type_node,
-		       fold (build (PLUS_EXPR, ptr_type_node,
-				    java_check_reference (node, 1), 
-				    JAVA_ARRAY_LENGTH_OFFSET(node)))));
+  node = build1 (INDIRECT_REF, int_type_node,
+		 fold (build (PLUS_EXPR, ptr_type_node,
+			      java_check_reference (node, 1), 
+			      JAVA_ARRAY_LENGTH_OFFSET(node))));
+  IS_ARRAY_LENGTH_ACCESS (node) = 1;
+  return fold (node);
 }
 
 /* Optionally checks a reference against the NULL pointer.  ARG1: the
@@ -796,14 +801,21 @@ build_java_arrayaccess (array, type, index)
 	  TREE_SIDE_EFFECTS( throw ) = 1;
 	}
     }
-  
+
+  /* The SAVE_EXPR is for correct evaluation order.  It would be
+     cleaner to use force_evaluation_order (see comment there), but
+     that is difficult when we also have to deal with bounds
+     checking. The SAVE_EXPR is not necessary to do that when we're
+     not checking for array bounds. */
+  if (TREE_SIDE_EFFECTS (index) && throw)
+    throw = build (COMPOUND_EXPR, int_type_node, save_expr (array), throw);
+
   node = build1 (INDIRECT_REF, type, 
 		 fold (build (PLUS_EXPR, ptr_type_node, 
-			      java_check_reference (array, flag_check_references), 
+			      java_check_reference (array,
+						    flag_check_references), 
 			      (throw ? build (COMPOUND_EXPR, int_type_node, 
-					      throw, arith )
-			             : arith))));
-  
+					      throw, arith ) : arith))));
   return node;
 }
 
@@ -1120,15 +1132,31 @@ build_address_of (value)
   return build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (value)), value);
 }
 
+bool class_has_finalize_method (type)
+     tree type;
+{
+  tree super = CLASSTYPE_SUPER (type);
+
+  if (super == NULL_TREE)
+    return false;	/* Every class with a real finalizer inherits	*/
+   			/* from java.lang.Object.			*/
+  else
+    return HAS_FINALIZER_P (type) || class_has_finalize_method (super);
+}
+
 static void
 expand_java_NEW (type)
      tree type;
 {
+  tree alloc_node;
+
+  alloc_node = (class_has_finalize_method (type) ? alloc_object_node
+		  				 : alloc_no_finalizer_node);
   if (! CLASS_LOADED_P (type))
     load_class (type, 1);
   safe_layout_class (type);
   push_value (build (CALL_EXPR, promote_type (type),
-		     build_address_of (alloc_object_node),
+		     build_address_of (alloc_node),
 		     tree_cons (NULL_TREE, build_class_ref (type),
 				build_tree_list (NULL_TREE,
 						 size_in_bytes (type))),
@@ -1710,10 +1738,20 @@ build_class_init (clas, expr)
 		     TRUE, NULL);
       
       if (ite->init_test_decl == 0)
-	ite->init_test_decl = build_decl (VAR_DECL, NULL_TREE, 
-					  boolean_type_node);
-      /* Tell the check-init code to ignore this decl.  */
-      DECL_BIT_INDEX(ite->init_test_decl) = -1;
+	{
+	  /* Build a declaration and mark it as a flag used to track
+	     static class initializations. */
+	  ite->init_test_decl = build_decl (VAR_DECL, NULL_TREE,
+					    boolean_type_node);
+	  MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (ite->init_test_decl);
+	  LOCAL_CLASS_INITIALIZATION_FLAG (ite->init_test_decl) = 1;
+	  DECL_CONTEXT (ite->init_test_decl) = current_function_decl;
+	  DECL_FUNCTION_INIT_TEST_CLASS (ite->init_test_decl) = clas;
+	  /* Tell the check-init code to ignore this decl when not
+             optimizing class initialization. */
+	  if (!STATIC_CLASS_INIT_OPT_P ())
+	    DECL_BIT_INDEX(ite->init_test_decl) = -1;
+	}
 
       init = build (CALL_EXPR, void_type_node,
 		    build_address_of (soft_initclass_node),
@@ -1819,6 +1857,40 @@ invoke_build_dtable (is_invoke_interface, arg_list)
   return dtable;
 }
 
+/* Determine the index in the virtual offset table (otable) for a call to
+   METHOD. If this method has not been seen before, it will be added to the 
+   otable_methods. If it has, the existing otable slot will be reused. */
+
+int
+get_offset_table_index (method)
+     tree method;
+{
+  int i = 1;
+  tree method_list;
+  
+  if (otable_methods == NULL_TREE)
+    {
+      otable_methods = build_tree_list (method, method);
+      return 1;
+    }
+  
+  method_list = otable_methods;
+  
+  while (1)
+    {
+      if (TREE_VALUE (method_list) == method)
+        return i;
+      i++;
+      if (TREE_CHAIN (method_list) == NULL_TREE)
+        break;
+      else
+        method_list = TREE_CHAIN (method_list);
+    }
+
+  TREE_CHAIN (method_list) = build_tree_list (method, method);
+  return i;
+}
+
 tree 
 build_invokevirtual (dtable, method)
      tree dtable, method;
@@ -1826,16 +1898,41 @@ build_invokevirtual (dtable, method)
   tree func;
   tree nativecode_ptr_ptr_type_node
     = build_pointer_type (nativecode_ptr_type_node);
-  tree method_index = convert (sizetype, DECL_VINDEX (method));
+  tree method_index;
+  tree otable_index;
 
-  /* Add one to skip "class" field of dtable, and one to skip unused
-     vtable entry (for C++ compatibility). */
-  method_index = size_binop (PLUS_EXPR, method_index, size_int (2));
-  method_index = size_binop (MULT_EXPR, method_index,
-			     TYPE_SIZE_UNIT (nativecode_ptr_ptr_type_node));
+  if (flag_indirect_dispatch)
+    {
+      otable_index = build_int_2 (get_offset_table_index (method), 0);
+      method_index = build (ARRAY_REF, integer_type_node, otable_decl, 
+			    otable_index);
+    }
+  else
+    {
+      method_index = convert (sizetype, DECL_VINDEX (method));
+
+      if (TARGET_VTABLE_USES_DESCRIPTORS)
+	/* Add one to skip bogus descriptor for class and GC descriptor. */
+	method_index = size_binop (PLUS_EXPR, method_index, size_int (1));
+      else
+	/* Add 1 to skip "class" field of dtable, and 1 to skip GC descriptor.  */
+	method_index = size_binop (PLUS_EXPR, method_index, size_int (2));
+
+      method_index = size_binop (MULT_EXPR, method_index,
+				 TYPE_SIZE_UNIT (nativecode_ptr_ptr_type_node));
+
+      if (TARGET_VTABLE_USES_DESCRIPTORS)
+	method_index = size_binop (MULT_EXPR, method_index,
+				   size_int (TARGET_VTABLE_USES_DESCRIPTORS));
+    }
+
   func = fold (build (PLUS_EXPR, nativecode_ptr_ptr_type_node, dtable,
 		      convert (nativecode_ptr_ptr_type_node, method_index)));
-  func = build1 (INDIRECT_REF, nativecode_ptr_type_node, func);
+
+  if (TARGET_VTABLE_USES_DESCRIPTORS)
+    func = build1 (NOP_EXPR, nativecode_ptr_type_node, func);
+  else
+    func = build1 (INDIRECT_REF, nativecode_ptr_type_node, func);
 
   return func;
 }
@@ -1849,6 +1946,7 @@ build_invokeinterface (dtable, method)
   tree interface;
   tree idx;
   tree meth;
+  tree otable_index;
   int i;
 
   /* We expand invokeinterface here.  _Jv_LookupInterfaceMethod() will
@@ -1868,16 +1966,24 @@ build_invokeinterface (dtable, method)
   interface = DECL_CONTEXT (method);
   layout_class_methods (interface);
   
-  i = 1;
-  for (meth = TYPE_METHODS (interface); ; meth = TREE_CHAIN (meth), i++)
+  if (flag_indirect_dispatch)
     {
-      if (meth == method)
-        {
-	  idx = build_int_2 (i, 0);
-	  break;
+      otable_index = build_int_2 (get_offset_table_index (method), 0);
+      idx = build (ARRAY_REF, integer_type_node, otable_decl, otable_index);
+    }
+  else
+    {
+      i = 1;
+      for (meth = TYPE_METHODS (interface); ; meth = TREE_CHAIN (meth), i++)
+	{
+	  if (meth == method)
+            {
+	      idx = build_int_2 (i, 0);
+	      break;
+	    }
+	  if (meth == NULL_TREE)
+	    abort ();
 	}
-      if (meth == NULL_TREE)
-	abort ();
     }
 
   lookup_arg = tree_cons (NULL_TREE, dtable,
@@ -1904,7 +2010,7 @@ expand_invoke (opcode, method_ref_index, nargs)
   tree method_name = COMPONENT_REF_NAME (&current_jcf->cpool, method_ref_index);
   tree self_type = get_class_constant
     (current_jcf, COMPONENT_REF_CLASS_INDEX(&current_jcf->cpool, method_ref_index));
-  const char *self_name
+  const char *const self_name
     = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (self_type)));
   tree call, func, method, arg_list, method_type;
   tree check = NULL_TREE;
@@ -1926,7 +2032,7 @@ expand_invoke (opcode, method_ref_index, nargs)
 				 method_name, method_signature);
   if (method == NULL_TREE)
     {
-      error ("Class '%s' has no method named '%s' matching signature '%s'",
+      error ("class '%s' has no method named '%s' matching signature '%s'",
 	     self_name,
 	     IDENTIFIER_POINTER (method_name),
 	     IDENTIFIER_POINTER (method_signature));
@@ -2226,13 +2332,13 @@ expand_java_field_op (is_static, is_putting, field_ref_index)
     }
   else if (field_decl == NULL_TREE)
     {
-      error ("Missing field '%s' in '%s'",
+      error ("missing field '%s' in '%s'",
 	     IDENTIFIER_POINTER (field_name), self_name);
       is_error = 1;
     }
   else if (build_java_signature (TREE_TYPE (field_decl)) != field_signature)
     {
-      error ("Mismatching signature for field '%s' in '%s'",
+      error ("mismatching signature for field '%s' in '%s'",
 	     IDENTIFIER_POINTER (field_name), self_name);
       is_error = 1;
     }
@@ -2243,22 +2349,6 @@ expand_java_field_op (is_static, is_putting, field_ref_index)
 	push_value (convert (field_type, integer_zero_node));
       flush_quick_stack ();
       return;
-    }
-
-  /* Inline references to java.lang.PRIMTYPE.TYPE.
-     In addition to being a useful (minor) optimization,
-     this is also needed to avoid circularities in the implementation
-     of these fields in libjava. */
-  if (field_name == TYPE_identifier_node && ! is_putting
-      && ! flag_emit_class_files && field_type == class_ptr_type
-      && strncmp (self_name, "java.lang.", 10) == 0)
-    {
-      tree typ = build_primtype_type_ref (self_name);
-      if (typ)
-	{
-	  push_value (typ);
-	  return;
-	}
     }
 
   field_ref = build_field_ref (field_ref, self_type, field_name);
@@ -2292,38 +2382,6 @@ expand_java_field_op (is_static, is_putting, field_ref_index)
     push_value (field_ref);
 }
 
-tree
-build_primtype_type_ref (self_name)
-    const char *self_name;
-{
-  const char *class_name = self_name+10;
-  tree typ;
-  if (strncmp(class_name, "Byte", 4) == 0)
-    typ = byte_type_node;
-  else if (strncmp(class_name, "Short", 5) == 0)
-    typ = short_type_node;
-  else if (strncmp(class_name, "Integer", 7) == 0)
-    typ = int_type_node;
-  else if (strncmp(class_name, "Long", 4) == 0)
-    typ = long_type_node;
-  else if (strncmp(class_name, "Float", 5) == 0)
-    typ = float_type_node;
-  else if (strncmp(class_name, "Double", 6) == 0)
-    typ = double_type_node;
-  else if (strncmp(class_name, "Boolean", 7) == 0)
-    typ = boolean_type_node;
-  else if (strncmp(class_name, "Char", 4) == 0)
-    typ = char_type_node;
-  else if (strncmp(class_name, "Void", 4) == 0)
-    typ = void_type_node;
-  else
-    typ = NULL_TREE;
-  if (typ != NULL_TREE)
-    return build_class_ref (typ);
-  else
-    return NULL_TREE;
-}
-
 void
 load_type_state (label)
      tree label;
@@ -2337,7 +2395,7 @@ load_type_state (label)
 }
 
 /* Do the expansion of a Java switch. With Gcc, switches are front-end
-   dependant things, but they rely on gcc routines. This function is
+   dependent things, but they rely on gcc routines. This function is
    placed here because it uses things defined locally in parse.y. */
 
 static tree
@@ -2459,16 +2517,31 @@ java_lang_expand_expr (exp, target, tmode, modifier)
 	{
 	  tree local;
 	  tree body = BLOCK_EXPR_BODY (exp);
+	  /* Set to 1 or more when we found a static class
+             initialization flag. */
+	  int found_class_initialization_flag = 0;
+
 	  pushlevel (2);	/* 2 and above */
 	  expand_start_bindings (0);
 	  local = BLOCK_EXPR_DECLS (exp);
 	  while (local)
 	    {
 	      tree next = TREE_CHAIN (local);
+	      found_class_initialization_flag +=
+		LOCAL_CLASS_INITIALIZATION_FLAG_P (local);
 	      layout_decl (local, 0);
 	      expand_decl (pushdecl (local));
 	      local = next;
 	    }
+
+	  /* Emit initialization code for test flags if we saw one. */
+	  if (! always_initialize_class_p 
+	      && current_function_decl
+	      && found_class_initialization_flag)
+	    hash_traverse 
+	      (&DECL_FUNCTION_INIT_TEST_TABLE (current_function_decl),
+	       emit_init_test_initialization, NULL);
+
 	  /* Avoid deep recursion for long block.  */
 	  while (TREE_CODE (body) == COMPOUND_EXPR)
 	    {
@@ -2478,8 +2551,8 @@ java_lang_expand_expr (exp, target, tmode, modifier)
 	    }
 	  expand_expr (body, const0_rtx, VOIDmode, 0);
 	  emit_queue ();
-	  poplevel (1, 1, 0);
 	  expand_end_bindings (getdecls (), 1, 0);
+	  poplevel (1, 1, 0);
 	  return const0_rtx;
 	}
       return const0_rtx;
@@ -2538,7 +2611,7 @@ java_lang_expand_expr (exp, target, tmode, modifier)
 			  target, tmode, modifier);
 
     default:
-      internal_error ("Can't expand %s", tree_code_name [TREE_CODE (exp)]);
+      internal_error ("can't expand %s", tree_code_name [TREE_CODE (exp)]);
     }
 }
 
@@ -2759,7 +2832,7 @@ expand_byte_code (jcf, method)
 	  if (dead_code_index != -1)
 	    {
               /* We've just reached the end of a region of dead code.  */
-              warning ("Unreachable bytecode from %d to before %d.",
+              warning ("unreachable bytecode from %d to before %d",
                        dead_code_index, PC);
               dead_code_index = -1;
             }
@@ -2796,7 +2869,7 @@ expand_byte_code (jcf, method)
   if (dead_code_index != -1)
     {
       /* We've just reached the end of a region of dead code.  */
-      warning ("Unreachable bytecode from %d to the end of the method.", 
+      warning ("unreachable bytecode from %d to the end of the method", 
               dead_code_index);
     }
 }
@@ -3334,4 +3407,38 @@ force_evaluation_order (node)
 	}
     }
   return node;
+}
+
+/* Called for every element in DECL_FUNCTION_INIT_TEST_TABLE of a
+   method in order to emit initialization code for each test flag.  */
+
+static bool
+emit_init_test_initialization (entry, key)
+  struct hash_entry *entry;
+  hash_table_key key ATTRIBUTE_UNUSED;
+{
+  struct init_test_hash_entry *ite = (struct init_test_hash_entry *) entry;
+  tree klass = build_class_ref ((tree) entry->key);
+  tree rhs;
+
+  /* If the DECL_INITIAL of the test flag is set to true, it
+     means that the class is already initialized the time it
+     is in use. */
+  if (DECL_INITIAL (ite->init_test_decl) == boolean_true_node)
+    rhs = boolean_true_node;
+  /* Otherwise, we initialize the class init check variable by looking
+     at the `state' field of the class to see if it is already
+     initialized.  This makes things a bit faster if the class is
+     already initialized, which should be the common case.  */
+  else
+    rhs = build (GE_EXPR, boolean_type_node,
+		 build (COMPONENT_REF, byte_type_node,
+			build1 (INDIRECT_REF, class_type_node, klass),
+			lookup_field (&class_type_node,
+				      get_identifier ("state"))),
+		 build_int_2 (JV_STATE_DONE, 0));
+
+  expand_expr_stmt (build (MODIFY_EXPR, boolean_type_node, 
+			   ite->init_test_decl, rhs));
+  return true;
 }

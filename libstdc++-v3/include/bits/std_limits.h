@@ -846,7 +846,7 @@
 #endif
 
 #ifndef __glibcpp_long_double_is_bounded
-#define __glibcpp_long_double_is_bounded true
+#define __glibcpp_long_double_is_bounded false
 #endif
 
 #ifndef __glibcpp_long_double_is_modulo

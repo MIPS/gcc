@@ -1,22 +1,22 @@
 /* Functions to support general ended bitmaps.
    Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -38,8 +38,8 @@ static int bitmap_obstack_init = FALSE;
 #endif
 
 /* Global data */
-bitmap_element bitmap_zero_bits;	/* An element of all zero bits. */
-static bitmap_element *bitmap_free;	/* Freelist of bitmap elements. */
+bitmap_element bitmap_zero_bits;	/* An element of all zero bits.  */
+static bitmap_element *bitmap_free;	/* Freelist of bitmap elements.  */
 
 static void bitmap_element_free		PARAMS ((bitmap, bitmap_element *));
 static bitmap_element *bitmap_element_allocate PARAMS ((void));
@@ -70,7 +70,11 @@ bitmap_element_free (head, elt)
   /* Since the first thing we try is to insert before current,
      make current the next entry in preference to the previous.  */
   if (head->current == elt)
-    head->current = next != 0 ? next : prev;
+    {
+      head->current = next != 0 ? next : prev;
+      if (head->current)
+	head->indx = head->current->indx;
+    }
 
   elt->next = bitmap_free;
   bitmap_free = elt;
@@ -583,7 +587,7 @@ bitmap_operation (to, from1, from2, operation)
 	}
 
       /* Find the appropriate element from TO.  Begin by discarding
-	 elements that we've skipped. */
+	 elements that we've skipped.  */
       while (to_ptr && to_ptr->indx < indx)
 	{
 	  changed = 1;
@@ -671,7 +675,7 @@ bitmap_equal_p (a, b)
 }
 
 /* Or into bitmap TO bitmap FROM1 and'ed with the complement of
-   bitmap FROM2. */
+   bitmap FROM2.  */
 
 void
 bitmap_ior_and_compl (to, from1, from2)

@@ -1,24 +1,24 @@
 /* Implements exception handling.
-   Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 
+   Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 /* An exception is an event that can be signaled from within a
@@ -54,6 +54,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "function.h"
 #include "expr.h"
+#include "libfuncs.h"
 #include "insn-config.h"
 #include "except.h"
 #include "integrate.h"
@@ -68,7 +69,7 @@ Boston, MA 02111-1307, USA.  */
 #include "intl.h"
 #include "ggc.h"
 #include "tm_p.h"
-
+#include "target.h"
 
 /* Provide defaults for stuff that may not be defined when using
    sjlj exceptions.  */
@@ -127,7 +128,8 @@ struct eh_region
   /* Each region does exactly one thing.  */
   enum eh_region_type
   {
-    ERT_CLEANUP = 1,
+    ERT_UNKNOWN = 0,
+    ERT_CLEANUP,
     ERT_TRY,
     ERT_CATCH,
     ERT_ALLOWED_EXCEPTIONS,
@@ -136,7 +138,7 @@ struct eh_region
     ERT_FIXUP
   } type;
 
-  /* Holds the action to perform based on the preceeding type.  */
+  /* Holds the action to perform based on the preceding type.  */
   union {
     /* A list of catch blocks, a surrounding try block,
        and the label for continuing after a catch.  */
@@ -147,13 +149,13 @@ struct eh_region
       rtx continue_label;
     } try;
 
-    /* The list through the catch handlers, the type object
-       matched, and a pointer to the generated code.  */
+    /* The list through the catch handlers, the list of type objects
+       matched, and the list of associated filters.  */
     struct {
       struct eh_region *next_catch;
       struct eh_region *prev_catch;
-      tree type;
-      int filter;
+      tree type_list;
+      tree filter_list;
     } catch;
 
     /* A tree_list of allowed types.  */
@@ -162,7 +164,7 @@ struct eh_region
       int filter;
     } allowed;
 
-    /* The type given by a call to "throw foo();", or discovered 
+    /* The type given by a call to "throw foo();", or discovered
        for a throw.  */
     struct {
       tree type;
@@ -340,7 +342,7 @@ static void sjlj_output_call_site_table		PARAMS ((void));
 
 /* Routine to see if exception handling is turned on.
    DO_WARN is non-zero if we want to inform the user that exception
-   handling is turned off. 
+   handling is turned off.
 
    This is used to ensure that -fexceptions has been specified if the
    compiler tries to use any exception-specific functions.  */
@@ -477,6 +479,10 @@ mark_eh_region (region)
 
   switch (region->type)
     {
+    case ERT_UNKNOWN:
+      /* This can happen if a nested function is inside the body of a region
+	 and we do a GC as part of processing it.  */
+      break;
     case ERT_CLEANUP:
       ggc_mark_tree (region->u.cleanup.exp);
       break;
@@ -484,7 +490,8 @@ mark_eh_region (region)
       ggc_mark_rtx (region->u.try.continue_label);
       break;
     case ERT_CATCH:
-      ggc_mark_tree (region->u.catch.type);
+      ggc_mark_tree (region->u.catch.type_list);
+      ggc_mark_tree (region->u.catch.filter_list);
       break;
     case ERT_ALLOWED_EXCEPTIONS:
       ggc_mark_tree (region->u.allowed.type_list);
@@ -672,7 +679,7 @@ expand_eh_region_end ()
   struct eh_region *cur_region = cfun->eh->cur_region;
   rtx note;
 
-  /* Create a nute marking the end of this region.  */
+  /* Create a note marking the end of this region.  */
   note = emit_note (NULL, NOTE_INSN_EH_REGION_END);
   NOTE_EH_HANDLER (note) = cur_region->region_number;
 
@@ -708,10 +715,10 @@ expand_eh_region_end_cleanup (handler)
   emit_label (region->label);
 
   /* Give the language a chance to specify an action to be taken if an
-     exception is thrown that would propogate out of the HANDLER.  */
-  protect_cleanup_actions 
-    = (lang_protect_cleanup_actions 
-       ? (*lang_protect_cleanup_actions) () 
+     exception is thrown that would propagate out of the HANDLER.  */
+  protect_cleanup_actions
+    = (lang_protect_cleanup_actions
+       ? (*lang_protect_cleanup_actions) ()
        : NULL_TREE);
 
   if (protect_cleanup_actions)
@@ -766,26 +773,44 @@ expand_start_all_catch ()
   emit_jump (region->u.try.continue_label);
 }
 
-/* Begin a catch clause.  TYPE is the type caught, or null if this is
-   a catch-all clause.  */
+/* Begin a catch clause.  TYPE is the type caught, a list of such types, or
+   null if this is a catch-all clause. Providing a type list enables to
+   associate the catch region with potentially several exception types, which
+   is useful e.g. for Ada. */
 
 void
-expand_start_catch (type)
-     tree type;
+expand_start_catch (type_or_list)
+     tree type_or_list;
 {
   struct eh_region *t, *c, *l;
+  tree type_list;
 
   if (! doing_eh (0))
     return;
 
-  if (type)
-    add_type_for_runtime (type);
+  type_list = type_or_list;
+
+  if (type_or_list)
+    {
+      /* Ensure to always end up with a type list to normalize further
+         processing, then register each type against the runtime types
+         map.  */
+      tree type_node;
+
+      if (TREE_CODE (type_or_list) != TREE_LIST)
+        type_list = tree_cons (NULL_TREE, type_or_list, NULL_TREE);
+
+      type_node = type_list;
+      for (; type_node; type_node = TREE_CHAIN (type_node))
+        add_type_for_runtime (TREE_VALUE (type_node));
+    }
+
   expand_eh_region_start ();
 
   t = cfun->eh->try_region;
   c = cfun->eh->cur_region;
   c->type = ERT_CATCH;
-  c->u.catch.type = type;
+  c->u.catch.type_list = type_list;
   c->label = gen_label_rtx ();
 
   l = t->u.try.last_catch;
@@ -833,7 +858,11 @@ expand_end_all_catch ()
 
 /* End an exception region for an exception type filter.  ALLOWED is a
    TREE_LIST of types to be matched by the runtime.  FAILURE is an
-   expression to invoke if a mismatch ocurrs.  */
+   expression to invoke if a mismatch occurs.
+
+   ??? We could use these semantics for calls to rethrow, too; if we can
+   see the surrounding catch clause, we know that the exception we're
+   rethrowing satisfies the "filter" of the catch type.  */
 
 void
 expand_eh_region_end_allowed (allowed, failure)
@@ -993,7 +1022,12 @@ begin_protect_partials ()
 /* Start a new exception region for a region of code that has a
    cleanup action and push the HANDLER for the region onto
    protect_list. All of the regions created with add_partial_entry
-   will be ended when end_protect_partials is invoked.  */
+   will be ended when end_protect_partials is invoked.
+
+   ??? The only difference between this purpose and that of
+   expand_decl_cleanup is that in this case, we only want the cleanup to
+   run if an exception is thrown.  This should also be handled using
+   binding levels.  */
 
 void
 add_partial_entry (handler)
@@ -1010,7 +1044,7 @@ add_partial_entry (handler)
     begin_protect_partials ();
 
   /* Add this entry to the front of the list.  */
-  TREE_VALUE (cfun->eh->protect_list) 
+  TREE_VALUE (cfun->eh->protect_list)
     = tree_cons (NULL_TREE, handler, TREE_VALUE (cfun->eh->protect_list));
 }
 
@@ -1129,7 +1163,7 @@ remove_fixup_regions ()
 	&& fixup->type == ERT_FIXUP)
       {
 	if (fixup->u.fixup.real_region)
-	  XEXP (note, 1) = GEN_INT (fixup->u.fixup.real_region->region_number);
+	  XEXP (note, 0) = GEN_INT (fixup->u.fixup.real_region->region_number);
 	else
 	  remove_note (insn, note);
       }
@@ -1240,6 +1274,8 @@ convert_from_eh_region_ranges_1 (pinsns, orig_sp, cur)
 		  /* If we wanted exceptions for non-call insns, then
 		     any may_trap_p instruction could throw.  */
 		  || (flag_non_call_exceptions
+		      && GET_CODE (PATTERN (insn)) != CLOBBER
+		      && GET_CODE (PATTERN (insn)) != USE
 		      && may_trap_p (PATTERN (insn)))))
 	    {
 	      REG_NOTES (insn) = alloc_EXPR_LIST (REG_EH_REGION, GEN_INT (cur),
@@ -1341,7 +1377,7 @@ duplicate_eh_region_1 (o, map)
       break;
 
     case ERT_CATCH:
-      n->u.catch.type = o->u.catch.type;
+      n->u.catch.type_list = o->u.catch.type_list;
       break;
 
     case ERT_ALLOWED_EXCEPTIONS:
@@ -1350,7 +1386,7 @@ duplicate_eh_region_1 (o, map)
 
     case ERT_THROW:
       n->u.throw.type = o->u.throw.type;
-      
+
     default:
       abort ();
     }
@@ -1398,7 +1434,7 @@ duplicate_eh_region_2 (o, n_array)
     n->inner = n_array[o->inner->region_number];
   if (o->next_peer)
     n->next_peer = n_array[o->next_peer->region_number];
-}    
+}
 
 int
 duplicate_eh_regions (ifun, map)
@@ -1444,7 +1480,7 @@ duplicate_eh_regions (ifun, map)
 	cur->inner = root;
 
       for (i = 1; i <= ifun_last_region_number; ++i)
-	if (n_array[i]->outer == NULL)
+	if (n_array[i] && n_array[i]->outer == NULL)
 	  n_array[i]->outer = cur;
     }
   else
@@ -1468,9 +1504,6 @@ duplicate_eh_regions (ifun, map)
 }
 
 
-/* ??? Move from tree.c to tree.h.  */
-#define TYPE_HASH(TYPE) ((HOST_WIDE_INT) (TYPE) & 0777777)
-
 static int
 t2r_eq (pentry, pdata)
      const PTR pentry;
@@ -1521,7 +1554,7 @@ add_type_for_runtime (type)
       *slot = tree_cons (type, runtime, NULL_TREE);
     }
 }
-  
+
 static tree
 lookup_type_for_runtime (type)
      tree type;
@@ -1531,7 +1564,7 @@ lookup_type_for_runtime (type)
   slot = (tree *) htab_find_slot_with_hash (type_to_runtime_map, type,
 					    TYPE_HASH (type), NO_INSERT);
 
-  /* We should have always inserrted the data earlier.  */
+  /* We should have always inserted the data earlier.  */
   return TREE_VALUE (*slot);
 }
 
@@ -1653,7 +1686,7 @@ add_ehspec_entry (ehspec_hash, ttypes_hash, list)
       /* Look up each type in the list and encode its filter
 	 value as a uleb128.  Terminate the list with 0.  */
       for (; list ; list = TREE_CHAIN (list))
-	push_uleb128 (&cfun->eh->ehspec_data, 
+	push_uleb128 (&cfun->eh->ehspec_data,
 		      add_ttypes_entry (ttypes_hash, TREE_VALUE (list)));
       VARRAY_PUSH_UCHAR (cfun->eh->ehspec_data, 0);
     }
@@ -1689,7 +1722,36 @@ assign_filter_values ()
       switch (r->type)
 	{
 	case ERT_CATCH:
-	  r->u.catch.filter = add_ttypes_entry (ttypes, r->u.catch.type);
+	  /* Whatever type_list is (NULL or true list), we build a list
+	     of filters for the region.  */
+	  r->u.catch.filter_list = NULL_TREE;
+
+	  if (r->u.catch.type_list != NULL)
+	    {
+	      /* Get a filter value for each of the types caught and store
+		 them in the region's dedicated list.  */
+	      tree tp_node = r->u.catch.type_list;
+
+	      for (;tp_node; tp_node = TREE_CHAIN (tp_node))
+		{
+		  int flt = add_ttypes_entry (ttypes, TREE_VALUE (tp_node));
+		  tree flt_node = build_int_2 (flt, 0);
+
+		  r->u.catch.filter_list
+		    = tree_cons (NULL_TREE, flt_node, r->u.catch.filter_list);
+		}
+	    }
+	  else
+	    {
+	      /* Get a filter value for the NULL list also since it will need
+		 an action record anyway.  */
+	      int flt = add_ttypes_entry (ttypes, NULL);
+	      tree flt_node = build_int_2 (flt, 0);
+
+	      r->u.catch.filter_list
+		= tree_cons (NULL_TREE, flt_node, r->u.catch.filter_list);
+	    }
+
 	  break;
 
 	case ERT_ALLOWED_EXCEPTIONS:
@@ -1727,7 +1789,7 @@ build_post_landing_pads ()
 	       all the way up the chain until blocked by a cleanup.  */
 	  /* ??? Outer try regions can share landing pads with inner
 	     try regions if the types are completely non-overlapping,
-	     and there are no interveaning cleanups.  */
+	     and there are no intervening cleanups.  */
 
 	  region->post_landing_pad = gen_label_rtx ();
 
@@ -1743,13 +1805,27 @@ build_post_landing_pads ()
 	    for (c = region->u.try.catch; c ; c = c->u.catch.next_catch)
 	      {
 		/* ??? _Unwind_ForcedUnwind wants no match here.  */
-		if (c->u.catch.type == NULL)
+		if (c->u.catch.type_list == NULL)
 		  emit_jump (c->label);
 		else
-		  emit_cmp_and_jump_insns (cfun->eh->filter,
-					   GEN_INT (c->u.catch.filter),
-					   EQ, NULL_RTX, word_mode,
-					   0, 0, c->label);
+		  {
+		    /* Need for one cmp/jump per type caught. Each type
+		       list entry has a matching entry in the filter list
+		       (see assign_filter_values).  */
+		    tree tp_node = c->u.catch.type_list;
+		    tree flt_node = c->u.catch.filter_list;
+
+		    for (; tp_node; )
+		      {
+			emit_cmp_and_jump_insns
+			  (cfun->eh->filter,
+			   GEN_INT (tree_low_cst (TREE_VALUE (flt_node), 0)),
+			   EQ, NULL_RTX, word_mode, 0, c->label);
+
+			tp_node = TREE_CHAIN (tp_node);
+			flt_node = TREE_CHAIN (flt_node);
+		      }
+		  }
 	      }
 	  }
 
@@ -1775,8 +1851,7 @@ build_post_landing_pads ()
 
 	  emit_cmp_and_jump_insns (cfun->eh->filter,
 				   GEN_INT (region->u.allowed.filter),
-				   EQ, NULL_RTX, word_mode, 0, 0,
-				   region->label);
+				   EQ, NULL_RTX, word_mode, 0, region->label);
 
 	  /* We delay the generation of the _Unwind_Resume until we generate
 	     landing pads.  We emit a marker here so as to get good control
@@ -1846,7 +1921,7 @@ connect_post_landing_pads ()
       seq = get_insns ();
       end_sequence ();
       emit_insns_before (seq, region->resume);
-      flow_delete_insn (region->resume);
+      delete_insn (region->resume);
     }
 }
 
@@ -1861,6 +1936,7 @@ dw2_build_landing_pads ()
     {
       struct eh_region *region = cfun->eh->region_array[i];
       rtx seq;
+      bool clobbers_hard_regs = false;
 
       /* Mind we don't process a region more than once.  */
       if (!region || region->region_number != i)
@@ -1897,7 +1973,19 @@ dw2_build_landing_pads ()
 	  if (r == INVALID_REGNUM)
 	    break;
 	  if (! call_used_regs[r])
-	    emit_insn (gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, r)));
+	    {
+	      emit_insn (gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, r)));
+	      clobbers_hard_regs = true;
+	    }
+	}
+
+      if (clobbers_hard_regs)
+	{
+	  /* @@@ This is a kludge.  Not all machine descriptions define a
+	     blockage insn, but we must not allow the code we just generated
+	     to be reordered by scheduling.  So emit an ASM_INPUT to act as
+	     blockage insn.  */
+	  emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
 	}
 
       emit_move_insn (cfun->eh->exc_ptr,
@@ -1931,6 +2019,7 @@ sjlj_find_directly_reachable_regions (lp_info)
   for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
     {
       struct eh_region *region;
+      enum reachable_code rc;
       tree type_thrown;
       rtx note;
 
@@ -1952,11 +2041,14 @@ sjlj_find_directly_reachable_regions (lp_info)
 
       /* Find the first containing region that might handle the exception.
 	 That's the landing pad to which we will transfer control.  */
+      rc = RNL_NOT_CAUGHT;
       for (; region; region = region->outer)
-	if (reachable_next_level (region, type_thrown, 0) != RNL_NOT_CAUGHT)
-	  break;
-
-      if (region)
+	{
+	  rc = reachable_next_level (region, type_thrown, 0);
+	  if (rc != RNL_NOT_CAUGHT)
+	    break;
+	}
+      if (rc == RNL_MAYBE_CAUGHT || rc == RNL_CAUGHT)
 	{
 	  lp_info[region->region_number].directly_reachable = 1;
 	  found_one = true;
@@ -1997,14 +2089,13 @@ sjlj_assign_call_site_values (dispatch_label, lp_info)
 
      A region receives a dispatch index if it is directly reachable
      and requires in-function processing.  Regions that share post-landing
-     pads may share dispatch indicies.  */
+     pads may share dispatch indices.  */
   /* ??? Post-landing pad sharing doesn't actually happen at the moment
      (see build_post_landing_pads) so we don't bother checking for it.  */
 
   index = 0;
   for (i = cfun->eh->last_region_number; i > 0; --i)
-    if (lp_info[i].directly_reachable
-	&& lp_info[i].action_index >= 0)
+    if (lp_info[i].directly_reachable)
       lp_info[i].dispatch_index = index++;
 
   /* Finally: assign call-site values.  If dwarf2 terms, this would be
@@ -2037,9 +2128,6 @@ sjlj_mark_call_sites (lp_info)
 {
   int last_call_site = -2;
   rtx insn, mem;
-
-  mem = adjust_address (cfun->eh->sjlj_fc, TYPE_MODE (integer_type_node),
-			sjlj_fc_call_site_ofs);
 
   for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
     {
@@ -2083,53 +2171,11 @@ sjlj_mark_call_sites (lp_info)
       /* Don't separate a call from it's argument loads.  */
       before = insn;
       if (GET_CODE (insn) == CALL_INSN)
-	{
-	  HARD_REG_SET parm_regs;
-	  int nparm_regs;
-	  
-	  /* Since different machines initialize their parameter registers
-	     in different orders, assume nothing.  Collect the set of all
-	     parameter registers.  */
-	  CLEAR_HARD_REG_SET (parm_regs);
-	  nparm_regs = 0;
-	  for (p = CALL_INSN_FUNCTION_USAGE (insn); p ; p = XEXP (p, 1))
-	    if (GET_CODE (XEXP (p, 0)) == USE
-		&& GET_CODE (XEXP (XEXP (p, 0), 0)) == REG)
-	      {
-		if (REGNO (XEXP (XEXP (p, 0), 0)) >= FIRST_PSEUDO_REGISTER)
-		  abort ();
-
-		/* We only care about registers which can hold function
-		   arguments.  */
-		if (! FUNCTION_ARG_REGNO_P (REGNO (XEXP (XEXP (p, 0), 0))))
-		  continue;
-
-		SET_HARD_REG_BIT (parm_regs, REGNO (XEXP (XEXP (p, 0), 0)));
-		nparm_regs++;
-	      }
-
-	  /* Search backward for the first set of a register in this set.  */
-	  while (nparm_regs)
-	    {
-	      before = PREV_INSN (before);
-
-	      /* Given that we've done no other optimizations yet,
-		 the arguments should be immediately available.  */
-	      if (GET_CODE (before) == CODE_LABEL)
-		abort ();
-
-	      p = single_set (before);
-	      if (p && GET_CODE (SET_DEST (p)) == REG
-		  && REGNO (SET_DEST (p)) < FIRST_PSEUDO_REGISTER
-		  && TEST_HARD_REG_BIT (parm_regs, REGNO (SET_DEST (p))))
-		{
-		  CLEAR_HARD_REG_BIT (parm_regs, REGNO (SET_DEST (p)));
-		  nparm_regs--;
-		}
-	    }
-	}
+         before = find_first_parameter_load (insn, NULL_RTX);
 
       start_sequence ();
+      mem = adjust_address (cfun->eh->sjlj_fc, TYPE_MODE (integer_type_node),
+			    sjlj_fc_call_site_ofs);
       emit_move_insn (mem, GEN_INT (this_call_site));
       p = get_insns ();
       end_sequence ();
@@ -2167,11 +2213,11 @@ sjlj_emit_function_enter (dispatch_label)
     }
   else
     emit_move_insn (mem, const0_rtx);
-  
+
 #ifdef DONT_USE_BUILTIN_SETJMP
   {
     rtx x, note;
-    x = emit_library_call_value (setjmp_libfunc, NULL_RTX, LCT_NORMAL,
+    x = emit_library_call_value (setjmp_libfunc, NULL_RTX, LCT_RETURNS_TWICE,
 				 TYPE_MODE (integer_type_node), 1,
 				 plus_constant (XEXP (fc, 0),
 						sjlj_fc_jbuf_ofs), Pmode);
@@ -2180,8 +2226,7 @@ sjlj_emit_function_enter (dispatch_label)
     NOTE_EXPECTED_VALUE (note) = gen_rtx_EQ (VOIDmode, x, const0_rtx);
 
     emit_cmp_and_jump_insns (x, const0_rtx, NE, 0,
-			     TYPE_MODE (integer_type_node), 0, 0,
-			     dispatch_label);
+			     TYPE_MODE (integer_type_node), 0, dispatch_label);
   }
 #else
   expand_builtin_setjmp_setup (plus_constant (XEXP (fc, 0), sjlj_fc_jbuf_ofs),
@@ -2248,7 +2293,7 @@ sjlj_emit_dispatch_table (dispatch_label, lp_info)
   start_sequence ();
 
   emit_label (dispatch_label);
-  
+
 #ifndef DONT_USE_BUILTIN_SETJMP
   expand_builtin_setjmp_receiver (dispatch_label);
 #endif
@@ -2279,8 +2324,7 @@ sjlj_emit_dispatch_table (dispatch_label, lp_info)
   first_reachable = 0;
   for (i = cfun->eh->last_region_number; i > 0; --i)
     {
-      if (! lp_info[i].directly_reachable
-	  || lp_info[i].action_index < 0)
+      if (! lp_info[i].directly_reachable)
 	continue;
 
       if (! first_reachable)
@@ -2289,9 +2333,8 @@ sjlj_emit_dispatch_table (dispatch_label, lp_info)
 	  continue;
 	}
 
-      emit_cmp_and_jump_insns (dispatch,
-			       GEN_INT (lp_info[i].dispatch_index), EQ,
-			       NULL_RTX, TYPE_MODE (integer_type_node), 0, 0,
+      emit_cmp_and_jump_insns (dispatch, GEN_INT (lp_info[i].dispatch_index),
+			       EQ, NULL_RTX, TYPE_MODE (integer_type_node), 0,
 			       cfun->eh->region_array[i]->post_landing_pad);
     }
 
@@ -2348,7 +2391,7 @@ finish_eh_generation ()
 
   rebuild_jump_labels (get_insns ());
   find_basic_blocks (get_insns (), max_reg_num (), 0);
-  cleanup_cfg (0);
+  cleanup_cfg (CLEANUP_PRE_LOOP);
 
   /* These registers are used by the landing pads.  Make sure they
      have been generated.  */
@@ -2371,7 +2414,7 @@ finish_eh_generation ()
   find_exception_handler_labels ();
   rebuild_jump_labels (get_insns ());
   find_basic_blocks (get_insns (), max_reg_num (), 0);
-  cleanup_cfg (0);
+  cleanup_cfg (CLEANUP_PRE_LOOP);
 }
 
 /* This section handles removing dead code for flow.  */
@@ -2546,7 +2589,7 @@ check_handled (handled, type)
 /* A subroutine of reachable_next_level.  If we are collecting a list
    of handlers, add one.  After landing pad generation, reference
    it instead of the handlers themselves.  Further, the handlers are
-   all wired together, so by referencing one, we've got them all. 
+   all wired together, so by referencing one, we've got them all.
    Before landing pad generation we reference each handler individually.
 
    LP_REGION contains the landing pad; REGION is the handler.  */
@@ -2569,7 +2612,7 @@ add_reachable_handler (info, lp_region, region)
     info->handlers = alloc_INSN_LIST (region->label, info->handlers);
 }
 
-/* Process one level of exception regions for reachability.  
+/* Process one level of exception regions for reachability.
    If TYPE_THROWN is non-null, then it is the *exact* type being
    propagated.  If INFO is non-null, then collect handler labels
    and caught/allowed type information between invocations.  */
@@ -2599,7 +2642,7 @@ reachable_next_level (region, type_thrown, info)
 	    /* A catch-all handler ends the search.  */
 	    /* ??? _Unwind_ForcedUnwind will want outer cleanups
 	       to be run as well.  */
-	    if (c->u.catch.type == NULL)
+	    if (c->u.catch.type_list == NULL)
 	      {
 		add_reachable_handler (info, region, c);
 		return RNL_CAUGHT;
@@ -2607,14 +2650,20 @@ reachable_next_level (region, type_thrown, info)
 
 	    if (type_thrown)
 	      {
-		/* If we have a type match, end the search.  */
-		if (c->u.catch.type == type_thrown
-		    || (lang_eh_type_covers
-			&& (*lang_eh_type_covers) (c->u.catch.type,
-						   type_thrown)))
+		/* If we have a at least one type match, end the search.  */
+		tree tp_node = c->u.catch.type_list;
+
+		for (; tp_node; tp_node = TREE_CHAIN (tp_node))
 		  {
-		    add_reachable_handler (info, region, c);
-		    return RNL_CAUGHT;
+		    tree type = TREE_VALUE (tp_node);
+
+		    if (type == type_thrown
+			|| (lang_eh_type_covers
+			    && (*lang_eh_type_covers) (type, type_thrown)))
+		      {
+			add_reachable_handler (info, region, c);
+			return RNL_CAUGHT;
+		      }
 		  }
 
 		/* If we have definitive information of a match failure,
@@ -2623,19 +2672,49 @@ reachable_next_level (region, type_thrown, info)
 		  return RNL_NOT_CAUGHT;
 	      }
 
+	    /* At this point, we either don't know what type is thrown or
+	       don't have front-end assistance to help deciding if it is
+	       covered by one of the types in the list for this region.
+
+	       We'd then like to add this region to the list of reachable
+	       handlers since it is indeed potentially reachable based on the
+	       information we have.
+
+	       Actually, this handler is for sure not reachable if all the
+	       types it matches have already been caught. That is, it is only
+	       potentially reachable if at least one of the types it catches
+	       has not been previously caught.  */
+
 	    if (! info)
 	      ret = RNL_MAYBE_CAUGHT;
-
-	    /* A type must not have been previously caught.  */
-	    else if (! check_handled (info->types_caught, c->u.catch.type))
+	    else
 	      {
-		add_reachable_handler (info, region, c);
-		info->types_caught = tree_cons (NULL, c->u.catch.type,
-						info->types_caught);
+		tree tp_node = c->u.catch.type_list;
+		bool maybe_reachable = false;
 
-		/* ??? If the catch type is a base class of every allowed
-		   type, then we know we can stop the search.  */
-		ret = RNL_MAYBE_CAUGHT;
+		/* Compute the potential reachability of this handler and
+		   update the list of types caught at the same time.  */
+		for (; tp_node; tp_node = TREE_CHAIN (tp_node))
+		  {
+		    tree type = TREE_VALUE (tp_node);
+
+		    if (! check_handled (info->types_caught, type))
+		      {
+			info->types_caught
+			  = tree_cons (NULL, type, info->types_caught);
+
+			maybe_reachable = true;
+		      }
+		  }
+
+		if (maybe_reachable)
+		  {
+		    add_reachable_handler (info, region, c);
+
+		    /* ??? If the catch type is a base class of every allowed
+		       type, then we know we can stop the search.  */
+		    ret = RNL_MAYBE_CAUGHT;
+		  }
 	      }
 	  }
 
@@ -2656,8 +2735,8 @@ reachable_next_level (region, type_thrown, info)
 	info->types_allowed = tree_cons (NULL_TREE,
 					 region->u.allowed.type_list,
 					 info->types_allowed);
-	    
-      /* If we have definitive information about the type heirarchy,
+
+      /* If we have definitive information about the type hierarchy,
 	 then we can tell if the thrown type will pass through the
 	 filter.  */
       if (type_thrown && lang_eh_type_covers)
@@ -2693,6 +2772,7 @@ reachable_next_level (region, type_thrown, info)
 
     case ERT_THROW:
     case ERT_FIXUP:
+    case ERT_UNKNOWN:
       /* Shouldn't see these here.  */
       break;
     }
@@ -2728,14 +2808,20 @@ reachable_handlers (insn)
   region = cfun->eh->region_array[region_number];
 
   type_thrown = NULL_TREE;
-  if (region->type == ERT_THROW)
+  if (GET_CODE (insn) == JUMP_INSN
+      && GET_CODE (PATTERN (insn)) == RESX)
+    {
+      /* A RESX leaves a region instead of entering it.  Thus the
+	 region itself may have been deleted out from under us.  */
+      if (region == NULL)
+	return NULL;
+      region = region->outer;
+    }
+  else if (region->type == ERT_THROW)
     {
       type_thrown = region->u.throw.type;
       region = region->outer;
     }
-  else if (GET_CODE (insn) == JUMP_INSN
-	   && GET_CODE (PATTERN (insn)) == RESX)
-    region = region->outer;
 
   for (; region; region = region->outer)
     if (reachable_next_level (region, type_thrown, &info) >= RNL_CAUGHT)
@@ -2901,7 +2987,7 @@ void
 expand_builtin_unwind_init ()
 {
   /* Set this so all the registers get saved in our frame; we need to be
-     able to copy the saved values for any registers from frames we unwind. */
+     able to copy the saved values for any registers from frames we unwind.  */
   current_function_has_nonlocal_label = 1;
 
 #ifdef SETUP_FRAME_ADDRESSES
@@ -2933,7 +3019,7 @@ expand_builtin_eh_return_data_regno (arglist)
   iwhich = DBX_REGISTER_NUMBER (iwhich);
 #endif
 
-  return GEN_INT (iwhich);      
+  return GEN_INT (iwhich);
 }
 
 /* Given a value extracted from the return address register or stack slot,
@@ -2966,10 +3052,11 @@ rtx
 expand_builtin_frob_return_addr (addr_tree)
      tree addr_tree;
 {
-  rtx addr = expand_expr (addr_tree, NULL_RTX, Pmode, 0);
+  rtx addr = expand_expr (addr_tree, NULL_RTX, ptr_mode, 0);
 
 #ifdef POINTERS_EXTEND_UNSIGNED
-  addr = convert_memory_address (Pmode, addr);
+  if (GET_MODE (addr) != Pmode)
+    addr = convert_memory_address (Pmode, addr);
 #endif
 
 #ifdef RETURN_ADDR_OFFSET
@@ -2993,8 +3080,11 @@ expand_builtin_eh_return (stackadj_tree, handler_tree)
   handler = expand_expr (handler_tree, cfun->eh->ehr_handler, VOIDmode, 0);
 
 #ifdef POINTERS_EXTEND_UNSIGNED
-  stackadj = convert_memory_address (Pmode, stackadj);
-  handler = convert_memory_address (Pmode, handler);
+  if (GET_MODE (stackadj) != Pmode)
+    stackadj = convert_memory_address (Pmode, stackadj);
+
+  if (GET_MODE (handler) != Pmode)
+    handler = convert_memory_address (Pmode, handler);
 #endif
 
   if (! cfun->eh->ehr_label)
@@ -3058,6 +3148,17 @@ expand_eh_return ()
   emit_label (around_label);
 }
 
+/* In the following functions, we represent entries in the action table
+   as 1-based indices.  Special cases are:
+
+	 0:	null action record, non-null landing pad; implies cleanups
+	-1:	null action record, null landing pad; implies no action
+	-2:	no call-site entry; implies must_not_throw
+	-3:	we have yet to process outer regions
+
+   Further, no special cases apply to the "next" field of the record.
+   For next, 0 means end of list.  */
+
 struct action_record
 {
   int offset;
@@ -3105,7 +3206,7 @@ add_action_record (ar_hash, filter, next)
       /* The filter value goes in untouched.  The link to the next
 	 record is a "self-relative" byte offset, or zero to indicate
 	 that there is no next record.  So convert the absolute 1 based
-	 indicies we've been carrying around into a displacement.  */
+	 indices we've been carrying around into a displacement.  */
 
       push_sleb128 (&cfun->eh->action_record_data, filter);
       if (next)
@@ -3150,21 +3251,46 @@ collect_one_action_chain (ar_hash, region)
       /* Process the associated catch regions in reverse order.
 	 If there's a catch-all handler, then we don't need to
 	 search outer regions.  Use a magic -3 value to record
-	 that we havn't done the outer search.  */
+	 that we haven't done the outer search.  */
       next = -3;
       for (c = region->u.try.last_catch; c ; c = c->u.catch.prev_catch)
 	{
-	  if (c->u.catch.type == NULL)
-	    next = add_action_record (ar_hash, c->u.catch.filter, 0);
+	  if (c->u.catch.type_list == NULL)
+	    {
+	      /* Retrieve the filter from the head of the filter list
+		 where we have stored it (see assign_filter_values).  */
+	      int filter
+		= TREE_INT_CST_LOW (TREE_VALUE (c->u.catch.filter_list));
+
+	      next = add_action_record (ar_hash, filter, 0);
+	    }
 	  else
 	    {
+	      /* Once the outer search is done, trigger an action record for
+                 each filter we have.  */
+	      tree flt_node;
+
 	      if (next == -3)
 		{
 		  next = collect_one_action_chain (ar_hash, region->outer);
-		  if (next < 0)
+
+		  /* If there is no next action, terminate the chain.  */
+		  if (next == -1)
 		    next = 0;
+		  /* If all outer actions are cleanups or must_not_throw,
+		     we'll have no action record for it, since we had wanted
+		     to encode these states in the call-site record directly.
+		     Add a cleanup action to the chain to catch these.  */
+		  else if (next <= 0)
+		    next = add_action_record (ar_hash, 0, 0);
 		}
-	      next = add_action_record (ar_hash, c->u.catch.filter, next);
+
+	      flt_node = c->u.catch.filter_list;
+	      for (; flt_node; flt_node = TREE_CHAIN (flt_node))
+		{
+		  int filter = TREE_INT_CST_LOW (TREE_VALUE (flt_node));
+		  next = add_action_record (ar_hash, filter, next);
+		}
 	    }
 	}
       return next;
@@ -3326,7 +3452,7 @@ convert_to_eh_region_ranges ()
 	       are created.  */
 	    if (this_action >= -1)
 	      {
-		call_site = add_call_site (this_landing_pad, 
+		call_site = add_call_site (this_landing_pad,
 					   this_action < 0 ? 0 : this_action);
 		note = emit_note_before (NOTE_INSN_EH_REGION_BEG, iter);
 		NOTE_EH_HANDLER (note) = call_site;
@@ -3424,7 +3550,7 @@ sjlj_size_of_call_site_table ()
 static void
 dw2_output_call_site_table ()
 {
-  const char *function_start_lab
+  const char *const function_start_lab
     = IDENTIFIER_POINTER (current_function_func_begin_label);
   int n = cfun->eh->call_site_data_used;
   int i;
@@ -3521,7 +3647,7 @@ output_function_exception_table ()
   /* Note that varasm still thinks we're in the function's code section.
      The ".endp" directive that will immediately follow will take us back.  */
 #else
-  exception_section ();
+  (*targetm.asm_out.exception_section) ();
 #endif
 
   have_tt_data = (VARRAY_ACTIVE_SIZE (cfun->eh->ttype_data) > 0
@@ -3538,7 +3664,7 @@ output_function_exception_table ()
 #endif
       tt_format_size = size_of_encoded_value (tt_format);
 
-      assemble_eh_align (tt_format_size * BITS_PER_UNIT);
+      assemble_align (tt_format_size * BITS_PER_UNIT);
     }
 
   ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LLSDA", funcdef_number);
@@ -3572,7 +3698,7 @@ output_function_exception_table ()
     {
 #ifdef HAVE_AS_LEB128
       char ttype_after_disp_label[32];
-      ASM_GENERATE_INTERNAL_LABEL (ttype_after_disp_label, "LLSDATTD", 
+      ASM_GENERATE_INTERNAL_LABEL (ttype_after_disp_label, "LLSDATTD",
 				   funcdef_number);
       dw2_asm_output_delta_uleb128 (ttype_label, ttype_after_disp_label,
 				    "@TType base offset");
@@ -3645,22 +3771,25 @@ output_function_exception_table ()
 			 (i ? NULL : "Action record table"));
 
   if (have_tt_data)
-    assemble_eh_align (tt_format_size * BITS_PER_UNIT);
+    assemble_align (tt_format_size * BITS_PER_UNIT);
 
   i = VARRAY_ACTIVE_SIZE (cfun->eh->ttype_data);
   while (i-- > 0)
     {
       tree type = VARRAY_TREE (cfun->eh->ttype_data, i);
+      rtx value;
 
       if (type == NULL_TREE)
 	type = integer_zero_node;
       else
 	type = lookup_type_for_runtime (type);
 
-      dw2_asm_output_encoded_addr_rtx (tt_format,
-				       expand_expr (type, NULL_RTX, VOIDmode,
-						    EXPAND_INITIALIZER),
-				       NULL);
+      value = expand_expr (type, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
+      if (tt_format == DW_EH_PE_absptr || tt_format == DW_EH_PE_aligned)
+	assemble_integer (value, tt_format_size,
+			  tt_format_size * BITS_PER_UNIT, 1);
+      else
+        dw2_asm_output_encoded_addr_rtx (tt_format, value, NULL);
     }
 
 #ifdef HAVE_AS_LEB128

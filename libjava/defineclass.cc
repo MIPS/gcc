@@ -22,8 +22,6 @@ details.  */
 
 #include <java-interp.h>
 
-#ifdef INTERPRETER
-
 #include <stdlib.h>
 #include <java-cpool.h>
 #include <gcj/cni.h>
@@ -41,12 +39,11 @@ details.  */
 #include <java/lang/IncompatibleClassChangeError.h>
 #include <java/lang/reflect/Modifier.h>
 
-// we don't verify method names that match these.
-static _Jv_Utf8Const *clinit_name = _Jv_makeUtf8Const ("<clinit>", 8);
-static _Jv_Utf8Const *init_name = _Jv_makeUtf8Const ("<init>", 6);
+using namespace gcj;
 
+#ifdef INTERPRETER
 
-// these go in some seperate functions, to avoid having _Jv_InitClass
+// these go in some separate functions, to avoid having _Jv_InitClass
 // inserted all over the place.
 static void throw_internal_error (char *msg)
 	__attribute__ ((__noreturn__));
@@ -60,9 +57,6 @@ static void throw_incompatible_class_change_error (jstring msg)
 	__attribute__ ((__noreturn__));
 static void throw_class_circularity_error (jstring msg)
 	__attribute__ ((__noreturn__));
-
-static jdouble long_bits_to_double (jlong);
-static jfloat int_bits_to_float (jint);
 
 /**
  * We define class reading using a class.  It is practical, since then
@@ -274,28 +268,13 @@ struct _Jv_ClassReader {
    */
 };
 
-/* This is used for the isJavaIdentifierStart & isJavaIdentifierPart
-   methods, so we avoid doing _Jv_InitClass all the time */
-
-static const java::lang::Character *character = 0;
-static void prepare_character ();
-
 void
 _Jv_DefineClass (jclass klass, jbyteArray data, jint offset, jint length)
 {
-  if (character == 0)
-    prepare_character ();
-
   _Jv_ClassReader reader (klass, data, offset, length);
   reader.parse();
 
   /* that's it! */
-}
-
-/** put it after _Jv_DefineClass, so it doesn't get inlined */
-static void prepare_character ()
-{
-  character = new java::lang::Character ('!');
 }
 
 
@@ -506,10 +485,10 @@ void _Jv_ClassReader::read_methods ()
 
       check_tag (name_index, JV_CONSTANT_Utf8);
       prepare_pool_entry (descriptor_index, JV_CONSTANT_Utf8);
-      
+
       handleMethod (i, access_flags, name_index,
 		    descriptor_index);
-      
+
       for (int j = 0; j < attributes_count; j++)
 	{
 	  read_one_method_attribute (i);
@@ -526,10 +505,42 @@ void _Jv_ClassReader::read_one_method_attribute (int method_index)
 
   if (is_attribute_name (name, "Exceptions"))
     {
-      /* we ignore this for now */
-      skip (length);
+      _Jv_Method *method = reinterpret_cast<_Jv_Method *>
+	(&def->methods[method_index]);
+      if (method->throws != NULL)
+	throw_class_format_error ("only one Exceptions attribute allowed per method");
+
+      int num_exceptions = read2u ();
+      // We use malloc here because the GC won't scan the method
+      // objects.  FIXME this means a memory leak if we GC a class.
+      // (Currently we never do.)
+      _Jv_Utf8Const **exceptions =
+	(_Jv_Utf8Const **) _Jv_Malloc ((num_exceptions + 1) * sizeof (_Jv_Utf8Const *));
+
+      int out = 0;
+      _Jv_word *pool_data = def->constants.data;
+      for (int i = 0; i < num_exceptions; ++i)
+	{
+	  try
+	    {
+	      int ndx = read2u ();
+	      // JLS 2nd Ed. 4.7.5 requires that the tag not be 0.
+	      if (ndx != 0)
+		{
+		  check_tag (ndx, JV_CONSTANT_Class);
+		  exceptions[out++] = pool_data[ndx].utf8; 
+		}
+	    }
+	  catch (java::lang::Throwable *exc)
+	    {
+	      _Jv_Free (exceptions);
+	      throw exc;
+	    }
+	}
+      exceptions[out] = NULL;
+      method->throws = exceptions;
     }
-  
+
   else if (is_attribute_name (name, "Code"))
     {
       int start_off = pos;
@@ -556,7 +567,9 @@ void _Jv_ClassReader::read_one_method_attribute (int method_index)
 
 	  if (start_pc > end_pc
 	      || start_pc < 0
-	      || end_pc >= code_length
+	      // END_PC can be equal to CODE_LENGTH.
+	      // See JVM Spec 4.7.4.
+	      || end_pc > code_length
 	      || handler_pc >= code_length)
 	    throw_class_format_error ("erroneous exception handler info");
 
@@ -797,7 +810,7 @@ _Jv_ClassReader::prepare_pool_entry (int index, unsigned char this_tag)
 	    
     case JV_CONSTANT_Float:
       {
-	jfloat f = int_bits_to_float ((jint) get4 (this_data));
+	jfloat f = java::lang::Float::intBitsToFloat ((jint) get4 (this_data));
 	_Jv_storeFloat (&pool_data[index], f);
 	pool_tags[index] = JV_CONSTANT_Float;
       }
@@ -813,7 +826,8 @@ _Jv_ClassReader::prepare_pool_entry (int index, unsigned char this_tag)
 	    
     case JV_CONSTANT_Double:
       {
-	jdouble d = long_bits_to_double ((jlong) get8 (this_data));
+	jdouble d
+	  = java::lang::Double::longBitsToDouble ((jlong) get8 (this_data));
 	_Jv_storeDouble (&pool_data[index], d);
 	pool_tags[index] = JV_CONSTANT_Double;
       }
@@ -886,12 +900,12 @@ _Jv_ClassReader::handleClassBegin
       // interfaces have java.lang.Object as super.
       if (access_flags & Modifier::INTERFACE)
 	{
-	  def->superclass = (jclass)&java::lang::Class::class$;
+	  def->superclass = (jclass)&java::lang::Object::class$;
 	}
 
       // FIXME: Consider this carefully!  
       else if (!_Jv_equalUtf8Consts (def->name,
-				     java::lang::Class::class$.name))
+				     java::lang::Object::class$.name))
 	{
 	  throw_no_class_def_found_error ("loading java.lang.Object");
 	}
@@ -902,7 +916,11 @@ _Jv_ClassReader::handleClassBegin
   // to include references to this class.
 
   def->state = JV_STATE_PRELOADING;
-  _Jv_RegisterClass (def);
+
+  {
+    JvSynchronize sync (&java::lang::Class::class$);
+    _Jv_RegisterClass (def);
+  }
 
   if (super_class != 0)
     {
@@ -922,7 +940,7 @@ _Jv_ClassReader::handleClassBegin
       pool_data[super_class].clazz = the_super;
       pool_tags[super_class] = JV_CONSTANT_ResolvedClass;
     }
-	    
+
   // now we've come past the circularity problem, we can 
   // now say that we're loading...
 
@@ -1206,6 +1224,7 @@ void _Jv_ClassReader::handleMethod
 
   // intialize...
   method->ncode = 0;
+  method->throws = NULL;
   
   if (verify)
     {
@@ -1248,10 +1267,8 @@ void _Jv_ClassReader::handleCodeAttribute
   memcpy ((void*) method->bytecode (),
 	  (void*) (bytes+code_start),
 	  code_length);
-  
-  def->interpreted_methods[method_index] = method;
 
-  /* that's all we do for now */
+  def->interpreted_methods[method_index] = method;
 }
 
 void _Jv_ClassReader::handleExceptionTableEntry 
@@ -1300,7 +1317,6 @@ void _Jv_ClassReader::handleMethodsEnd ()
 	    throw_class_format_error ("method with no code");
 	}
     }
-
 }
 
 void _Jv_ClassReader::throw_class_format_error (char *msg)
@@ -1334,6 +1350,50 @@ void _Jv_ClassReader::throw_class_format_error (char *msg)
   ::throw_class_format_error (str);
 }
 
+/** Here we define the exceptions that can be thrown */
+
+static void
+throw_no_class_def_found_error (jstring msg)
+{
+  throw (msg
+	 ? new java::lang::NoClassDefFoundError (msg)
+	 : new java::lang::NoClassDefFoundError);
+}
+
+static void
+throw_no_class_def_found_error (char *msg)
+{
+  throw_no_class_def_found_error (JvNewStringLatin1 (msg));
+}
+
+static void
+throw_class_format_error (jstring msg)
+{
+  throw (msg
+	 ? new java::lang::ClassFormatError (msg)
+	 : new java::lang::ClassFormatError);
+}
+
+static void
+throw_internal_error (char *msg)
+{
+  throw new java::lang::InternalError (JvNewStringLatin1 (msg));
+}
+
+static void throw_incompatible_class_change_error (jstring msg)
+{
+  throw new java::lang::IncompatibleClassChangeError (msg);
+}
+
+static void throw_class_circularity_error (jstring msg)
+{
+  throw new java::lang::ClassCircularityError (msg);
+}
+
+#endif /* INTERPRETER */
+
+
+
 /** This section takes care of verifying integrity of identifiers,
     signatures, field ddescriptors, and class names */
 
@@ -1342,7 +1402,7 @@ void _Jv_ClassReader::throw_class_format_error (char *msg)
      int xxch = UTF8_GET(PTR,LIMIT); \
      PTR = xxkeep; xxch; })
 
-/* verify one element of a type descriptor or signature */
+/* Verify one element of a type descriptor or signature.  */
 static unsigned char*
 _Jv_VerifyOne (unsigned char* ptr, unsigned char* limit, bool void_ok)
 {
@@ -1354,7 +1414,8 @@ _Jv_VerifyOne (unsigned char* ptr, unsigned char* limit, bool void_ok)
   switch (ch)
     {
     case 'V':
-      if (! void_ok) return 0;
+      if (! void_ok)
+	return 0;
 
     case 'S': case 'B': case 'I': case 'J':
     case 'Z': case 'C': case 'F': case 'D': 
@@ -1363,16 +1424,18 @@ _Jv_VerifyOne (unsigned char* ptr, unsigned char* limit, bool void_ok)
     case 'L':
       {
 	unsigned char *start = ptr, *end;
-	do {
-	  if (ptr > limit)
-	    return 0;
-		
-	  end = ptr;
-		
-	  if ((ch = UTF8_GET (ptr, limit)) == -1)
-	    return 0;
-		
-	} while (ch != ';');
+	do
+	  {
+	    if (ptr > limit)
+	      return 0;
+
+	    end = ptr;
+
+	    if ((ch = UTF8_GET (ptr, limit)) == -1)
+	      return 0;
+
+	  }
+	while (ch != ';');
 	if (! _Jv_VerifyClassName (start, (unsigned short) (end-start)))
 	  return 0;
       }
@@ -1381,18 +1444,15 @@ _Jv_VerifyOne (unsigned char* ptr, unsigned char* limit, bool void_ok)
     case '[':
       return _Jv_VerifyOne (ptr, limit, false);
       break;
-	
+
     default:
       return 0;
     }
 
   return ptr;
-    
 }
 
-
-/** verification and loading procedures **/
-
+/* Verification and loading procedures.  */
 bool
 _Jv_VerifyFieldSignature (_Jv_Utf8Const*sig)
 {
@@ -1415,7 +1475,7 @@ _Jv_VerifyMethodSignature (_Jv_Utf8Const*sig)
 
   while (ptr && UTF8_PEEK (ptr, limit) != ')')
     ptr = _Jv_VerifyOne (ptr, limit, false);
-    
+
   if (UTF8_GET (ptr, limit) != ')')
     return false;
 
@@ -1425,9 +1485,8 @@ _Jv_VerifyMethodSignature (_Jv_Utf8Const*sig)
   return ptr == limit;
 }
 
-/* we try to avoid calling the Character methods all the time, 
-   in fact, they will only be called for non-standard things */
-
+/* We try to avoid calling the Character methods all the time, in
+   fact, they will only be called for non-standard things. */
 static __inline__ int 
 is_identifier_start (int c)
 {
@@ -1440,7 +1499,7 @@ is_identifier_start (int c)
   if (ch == 0x5FU)       		/* _ */
     return 1;
 
-  return character->isJavaIdentifierStart ((jchar) ch);
+  return java::lang::Character::isJavaIdentifierStart ((jchar) ch);
 }
 
 static __inline__ int 
@@ -1457,7 +1516,7 @@ is_identifier_part (int c)
   if (ch == 0x5FU || ch == 0x24U)       /* _ $ */
     return 1;
 
-  return character->isJavaIdentifierStart ((jchar) ch);
+  return java::lang::Character::isJavaIdentifierStart ((jchar) ch);
 }
 
 bool
@@ -1488,7 +1547,10 @@ _Jv_VerifyClassName (unsigned char* ptr, _Jv_ushort length)
 
   if ('[' == UTF8_PEEK (ptr, limit))
     {
-      if (! _Jv_VerifyOne (++ptr, limit, false))
+      unsigned char *end = _Jv_VerifyOne (++ptr, limit, false);
+      // _Jv_VerifyOne must leave us looking at the terminating nul
+      // byte.
+      if (! end || *end)
 	return false;
       else
         return true;
@@ -1520,9 +1582,8 @@ _Jv_VerifyClassName (_Jv_Utf8Const *name)
 			      (_Jv_ushort) name->length);
 }
 
-/** returns true, if name1 and name2 represents classes in the same
-    package. */
-    
+/* Returns true, if NAME1 and NAME2 represent classes in the same
+   package.  */
 bool
 _Jv_ClassNameSamePackage (_Jv_Utf8Const *name1, _Jv_Utf8Const *name2)
 {
@@ -1537,22 +1598,22 @@ _Jv_ClassNameSamePackage (_Jv_Utf8Const *name1, _Jv_Utf8Const *name2)
 
     if (ch1 == '.')
       last1 = ptr1;
-	
+
     else if (ch1 == -1)
       return false;
   }
 
-  // now the length of name1's package name is len
+  // Now the length of NAME1's package name is LEN.
   int len = last1 - (unsigned char*) name1->data;
 
-  // if this is longer than name2, then we're off
+  // If this is longer than NAME2, then we're off.
   if (len > name2->length)
     return false;
 
-  // then compare the first len bytes for equality
+  // Then compare the first len bytes for equality.
   if (memcmp ((void*) name1->data, (void*) name2->data, len) == 0)
     {
-      // check that there are no .'s after position len in name2
+      // Check that there are no .'s after position LEN in NAME2.
 
       unsigned char* ptr2 = (unsigned char*) name2->data + len;
       unsigned char* limit2 =
@@ -1568,58 +1629,3 @@ _Jv_ClassNameSamePackage (_Jv_Utf8Const *name1, _Jv_Utf8Const *name2)
     }
   return false;
 }
-
-
-
-/** Here we define the exceptions that can be thrown */
-
-static void
-throw_no_class_def_found_error (jstring msg)
-{
-  throw (msg
-	 ? new java::lang::NoClassDefFoundError (msg)
-	 : new java::lang::NoClassDefFoundError);
-}
-
-static void
-throw_no_class_def_found_error (char *msg)
-{
-  throw_no_class_def_found_error (JvNewStringLatin1 (msg));
-}
-
-static void
-throw_class_format_error (jstring msg)
-{
-  throw (msg
-	 ? new java::lang::ClassFormatError (msg)
-	 : new java::lang::ClassFormatError);
-}
-
-static void
-throw_internal_error (char *msg)
-{
-  throw new java::lang::InternalError (JvNewStringLatin1 (msg));
-}
-
-static jfloat int_bits_to_float (jint value)
-{
-  return java::lang::Float::intBitsToFloat (value);
-}
-
-static jdouble long_bits_to_double (jlong value)
-{
-  return java::lang::Double::longBitsToDouble (value);
-}
-
-static void throw_incompatible_class_change_error (jstring msg)
-{
-  throw new java::lang::IncompatibleClassChangeError (msg);
-}
-
-static void throw_class_circularity_error (jstring msg)
-{
-  throw new java::lang::ClassCircularityError (msg);
-}
-
-#endif /* INTERPRETER */
-

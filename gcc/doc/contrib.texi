@@ -3,6 +3,10 @@
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
+@node Contributors
+@unnumbered Contributors to GCC
+@cindex contributors
+
 The GCC project would like to thank its many contributors.  Without them the
 project would not have been nearly as successful as it has been.  Any omissions
 in this list are accidental.  Feel free to contact
@@ -384,8 +388,8 @@ NeXT, Inc.@: donated the front end that supports the Objective-C
 language.
 
 @item
-Hans-Peter Nilsson for improvements to the search engine
-setup, various documentation fixes and other small fixes.
+Hans-Peter Nilsson for the CRIS and MMIX ports, improvements to the search
+engine setup, various documentation fixes and other small fixes.
 
 @item
 Geoff Noer for this work on getting cygwin native builds working.
@@ -540,7 +544,7 @@ Teemu Torma for thread safe exception handling support.
 
 @item
 Leonard Tower wrote parts of the parser, RTL generator, and RTL
-definitions, and of the Vax machine description.
+definitions, and of the VAX machine description.
 
 @item
 Tom Tromey for internationalization support and his Java work.

@@ -28,15 +28,8 @@ EMPTY #define bar
 /* Check that directives always start a line, even if in middle of
    macro expansion.  */
 #define func(x) x
-func (2		/* { dg-error "unterminated" "" { target *-*-* } 32 } */
+func (2		/* { dg-error "unterminated" "" } */
 #define foobar	/* { dg-error "directives may not" } */
-
-/* For tidiness, I think the directive should still be processed
-   above.  Certainly, continuing to try to find the closing ')' can
-   lead to some really confusing error messages.  Hence this test.  */
-#ifndef foobar
-#error It is nice if the directive is processed!
-#endif
 
 /* Check newlines end directives, even in function-like macro
    invocations.  6.10 paragraph 1.

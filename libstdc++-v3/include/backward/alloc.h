@@ -48,18 +48,15 @@
 #include <bits/stl_alloc.h>
 
 using std::__malloc_alloc_template; 
+using std::__simple_alloc; 
+using std::__debug_alloc; 
+using std::__alloc; 
+using std::__single_client_alloc; 
+using std::allocator;
+#ifdef __USE_MALLOC
 using std::malloc_alloc; 
-using std::simple_alloc; 
-using std::debug_alloc; 
-#ifndef __USE_MALLOC
+#else
 using std::__default_alloc_template; 
 #endif
-using std::alloc; 
-using std::single_client_alloc; 
-using std::allocator;
 
-#endif /* _CPP_BACKWARD_ALLOC_H */
-
-// Local Variables:
-// mode:C++
-// End:
+#endif 

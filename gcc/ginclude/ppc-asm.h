@@ -105,6 +105,7 @@
 
 #if defined(_CALL_AIXDESC)
 #define FUNC_NAME(name) GLUE(.,name)
+#define JUMP_TARGET(name) FUNC_NAME(name)
 #define FUNC_START(name) \
 	.section DESC_SECTION,"aw"; \
 name: \
@@ -123,6 +124,7 @@ GLUE(.L,name): \
 
 #elif defined(__WINNT__)
 #define FUNC_NAME(name) GLUE(..,name)
+#define JUMP_TARGET(name) FUNC_NAME(name)
 #define FUNC_START(name) \
 	.pdata; \
 	.align 2; \
@@ -141,6 +143,7 @@ GLUE(FE_MOT_RESVD..,name):
 
 #elif defined(_CALL_NT)
 #define FUNC_NAME(name) GLUE(..,name)
+#define JUMP_TARGET(name) FUNC_NAME(name)
 #define FUNC_START(name) \
 	.section DESC_SECTION,"aw"; \
 name: \
@@ -156,8 +159,31 @@ GLUE(..,name):
 GLUE(.L,name): \
 	.size GLUE(..,name),GLUE(.L,name)-GLUE(..,name)
 
+#elif defined (__powerpc64__)
+#define FUNC_NAME(name) GLUE(.,name)
+#define FUNC_START(name) \
+	.section ".opd","aw"; \
+name: \
+	.quad GLUE(.,name); \
+	.quad .TOC.@tocbase; \
+	.quad 0; \
+	.previous; \
+	.type GLUE(.,name),@function; \
+	.globl name; \
+	.globl GLUE(.,name); \
+GLUE(.,name):
+
+#define FUNC_END(name) \
+GLUE(.L,name): \
+	.size GLUE(.,name),GLUE(.L,name)-GLUE(.,name)
+
 #else
 #define FUNC_NAME(name) GLUE(__USER_LABEL_PREFIX__,name)
+#if defined __PIC__ || defined __pic__
+#define JUMP_TARGET(name) FUNC_NAME(name@plt)
+#else
+#define JUMP_TARGET(name) FUNC_NAME(name)
+#endif
 #define FUNC_START(name) \
 	.type FUNC_NAME(name),@function; \
 	.globl FUNC_NAME(name); \

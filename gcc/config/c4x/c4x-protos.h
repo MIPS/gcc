@@ -39,10 +39,6 @@ extern void c4x_expand_epilogue PARAMS ((void));
 
 extern int c4x_null_epilogue_p PARAMS ((void));
 
-extern int c4x_handle_pragma PARAMS ((int (* p_getc) (void),
-				      void (* p_ungetc) (int),
-				      char *));
-
 extern void c4x_global_label (const char *);
 
 extern void c4x_external_ref (const char *);
@@ -106,8 +102,6 @@ extern char *c4x_output_cbranch PARAMS ((const char *, rtx));
 extern int c4x_label_conflict PARAMS ((rtx, rtx, rtx));
 
 extern int c4x_address_conflict PARAMS ((rtx, rtx, int, int));
-
-extern int c4x_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 
 extern void c4x_process_after_reload PARAMS ((rtx));
 
@@ -307,6 +301,7 @@ extern void c4x_pr_FUNC_NEVER_RETURNS	PARAMS ((cpp_reader *));
 extern void c4x_pr_INTERRUPT		PARAMS ((cpp_reader *));
 extern void c4x_pr_ignored		PARAMS ((cpp_reader *));
 extern void c4x_init_pragma		PARAMS ((int (*) (tree *)));
+extern tree code_tree, data_tree, pure_tree, noreturn_tree, interrupt_tree;
 #endif
 
 #endif /* ! GCC_C4X_PROTOS_H */

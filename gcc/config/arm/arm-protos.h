@@ -23,6 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_ARM_PROTOS_H
 #define GCC_ARM_PROTOS_H
 
+extern void   rdata_section		PARAMS ((void));
 extern void   arm_override_options	PARAMS ((void));
 extern int    use_return_insn		PARAMS ((int));
 extern int    arm_regno_class 		PARAMS ((int));
@@ -34,6 +35,7 @@ extern void   arm_expand_prologue	PARAMS ((void));
 extern void   assemble_align		PARAMS ((int)); 
 extern const char * arm_strip_name_encoding	PARAMS ((const char *));
 extern unsigned long arm_current_func_type	PARAMS ((void));
+extern unsigned int  arm_compute_initial_elimination_offset PARAMS ((unsigned int, unsigned int));
 
 #ifdef TREE_CODE
 extern int    arm_return_in_memory	PARAMS ((tree));
@@ -48,7 +50,6 @@ extern RTX_CODE arm_canonicalize_comparison PARAMS ((RTX_CODE, rtx *));
 extern int    legitimate_pic_operand_p	PARAMS ((rtx));
 extern rtx    legitimize_pic_address	PARAMS ((rtx, enum machine_mode, rtx));
 extern int    arm_rtx_costs		PARAMS ((rtx, RTX_CODE, RTX_CODE));
-extern int    arm_adjust_cost		PARAMS ((rtx, rtx, rtx, int));
 extern int    const_double_rtx_ok_for_fpu	PARAMS ((rtx));
 extern int    neg_const_double_rtx_ok_for_fpu	PARAMS ((rtx));
 
@@ -121,7 +122,7 @@ extern const char * output_add_immediate PARAMS ((rtx *));
 extern const char * arithmetic_instr	PARAMS ((rtx, int));
 extern void   output_ascii_pseudo_op	PARAMS ((FILE *, const unsigned char *, int));
 extern const char * output_return_instruction PARAMS ((rtx, int, int));
-extern void   arm_poke_function_name	PARAMS ((FILE *, char *));
+extern void   arm_poke_function_name	PARAMS ((FILE *, const char *));
 extern void   arm_print_operand		PARAMS ((FILE *, rtx, int));
 extern void   arm_print_operand_address	PARAMS ((FILE *, rtx));
 extern void   arm_final_prescan_insn	PARAMS ((rtx));
@@ -141,9 +142,11 @@ extern rtx    aof_pic_entry		PARAMS ((rtx));
 extern void   aof_dump_pic_table	PARAMS ((FILE *));
 extern char * aof_text_section		PARAMS ((void));
 extern char * aof_data_section		PARAMS ((void));
-extern void   aof_add_import		PARAMS ((char *));
-extern void   aof_delete_import		PARAMS ((char *));
+extern void   aof_add_import		PARAMS ((const char *));
+extern void   aof_delete_import		PARAMS ((const char *));
 extern void   aof_dump_imports		PARAMS ((FILE *));
+extern void   zero_init_section		PARAMS ((void));
+extern void   common_section		PARAMS ((void));
 #endif /* AOF_ASSEMBLER */
 
 #endif /* RTX_CODE */

@@ -67,31 +67,37 @@ enum processor_type {
   PROCESSOR_R4600,
   PROCESSOR_R4650,
   PROCESSOR_R5000,
-  PROCESSOR_R8000
+  PROCESSOR_R8000,
+  PROCESSOR_R4KC,
+  PROCESSOR_R5KC,
+  PROCESSOR_R20KC
 };
 
 /* Recast the cpu class to be the cpu attribute.  */
-#define mips_cpu_attr ((enum attr_cpu)mips_cpu)
+#define mips_cpu_attr ((enum attr_cpu)mips_tune)
 
 /* Which ABI to use.  These are constants because abi64.h must check their
    value at preprocessing time.
 
    ABI_32 (original 32, or o32), ABI_N32 (n32), ABI_64 (n64) are all
-   defined by SGI.  ABI_O64 is o32 extended to work on a 64 bit machine. */
+   defined by SGI.  ABI_O64 is o32 extended to work on a 64 bit machine.  */
 
 #define ABI_32  0
 #define ABI_N32 1
 #define ABI_64  2
 #define ABI_EABI 3
 #define ABI_O64  4
+/* MEABI is gcc's internal name for MIPS' new EABI (defined by MIPS)
+   which is not the same as the above EABI (defined by Cygnus,
+   Greenhills, and Toshiba?).  MEABI is not yet complete or published,
+   but at this point it looks like N32 as far as calling conventions go,
+   but allows for either 32 or 64 bit registers.
 
-#ifndef MIPS_ABI_DEFAULT
-/* We define this away so that there is no extra runtime cost if the target
-   doesn't support multiple ABIs.  */
-#define mips_abi ABI_32
-#else
-extern int mips_abi;
-#endif
+   Currently MIPS is calling their EABI "the" MIPS EABI, and Cygnus'
+   EABI the legacy EABI.  In the end we may end up calling both ABI's
+   EABI but give them different version numbers, but for now I'm going
+   with different names.  */
+#define ABI_MEABI 5
 
 /* Whether to emit abicalls code sequences or not.  */
 
@@ -112,7 +118,7 @@ enum block_move_type {
   BLOCK_MOVE_LAST			/* generate just the last store */
 };
 
-extern char mips_reg_names[][8];	/* register names (a0 vs. $4). */
+extern char mips_reg_names[][8];	/* register names (a0 vs. $4).  */
 extern char mips_print_operand_punct[];	/* print_operand punctuation chars */
 extern const char *current_function_file; /* filename current function is in */
 extern int num_source_filenames;	/* current .file # */
@@ -135,7 +141,6 @@ extern struct rtx_def *branch_cmp[2];	/* operands for compare */
 extern enum cmp_type branch_type;	/* what type of branch to use */
 extern enum processor_type mips_arch;   /* which cpu to codegen for */
 extern enum processor_type mips_tune;   /* which cpu to schedule for */
-extern enum processor_type mips_cpu;	/* historical codegen/sched */
 extern enum mips_abicalls_type mips_abicalls;/* for svr4 abi pic calls */
 extern int mips_isa;			/* architectural level */
 extern int mips16;			/* whether generating mips16 code */
@@ -149,6 +154,7 @@ extern const char *mips_abi_string;	/* for -mabi={32,n32,64} */
 extern const char *mips_entry_string;	/* for -mentry */
 extern const char *mips_no_mips16_string;/* for -mno-mips16 */
 extern const char *mips_explicit_type_size_string;/* for -mexplicit-type-size */
+extern const char *mips_cache_flush_func;/* for -mflush-func= and -mno-flush-func */
 extern int mips_split_addresses;	/* perform high/lo_sum support */
 extern int dslots_load_total;		/* total # load related delay slots */
 extern int dslots_load_filled;		/* # filled load delay slots */
@@ -177,7 +183,7 @@ extern void		sbss_section PARAMS ((void));
 #define HALF_PIC_NUMBER_REFS 0
 #define HALF_PIC_ENCODE(DECL)
 #define HALF_PIC_DECLARE(NAME)
-#define HALF_PIC_INIT()	error ("half-pic init called on systems that don't support it.")
+#define HALF_PIC_INIT()	error ("half-pic init called on systems that don't support it")
 #define HALF_PIC_ADDRESS_P(X) 0
 #define HALF_PIC_PTR(X) X
 #define HALF_PIC_FINISH(STREAM)
@@ -224,12 +230,14 @@ extern void		sbss_section PARAMS ((void));
 #define MASK_UNINIT_CONST_IN_RODATA \
 			   0x00800000	/* Store uninitialized
 					   consts in rodata */
+#define MASK_NO_FUSED_MADD 0x01000000   /* Don't generate floating point
+					   multiply-add operations.  */
 
 					/* Debug switches, not documented */
 #define MASK_DEBUG	0		/* unused */
 #define MASK_DEBUG_A	0		/* don't allow <label>($reg) addrs */
 #define MASK_DEBUG_B	0		/* GO_IF_LEGITIMATE_ADDRESS debug */
-#define MASK_DEBUG_C	0		/* don't expand seq, etc. */
+#define MASK_DEBUG_C	0		/* don't expand seq, etc.  */
 #define MASK_DEBUG_D	0		/* don't do define_split's */
 #define MASK_DEBUG_E	0		/* function_arg debug */
 #define MASK_DEBUG_F	0		/* ??? */
@@ -301,7 +309,7 @@ extern void		sbss_section PARAMS ((void));
 
 					/* always store uninitialized const
 					   variables in rodata, requires
-					   TARGET_EMBEDDED_DATA. */
+					   TARGET_EMBEDDED_DATA.  */
 #define TARGET_UNINIT_CONST_IN_RODATA	(target_flags & MASK_UNINIT_CONST_IN_RODATA)
 
 					/* generate big endian code.  */
@@ -312,6 +320,8 @@ extern void		sbss_section PARAMS ((void));
 
 #define TARGET_MAD		(target_flags & MASK_MAD)
 
+#define TARGET_FUSED_MADD	(! (target_flags & MASK_NO_FUSED_MADD))
+
 #define TARGET_4300_MUL_FIX     (target_flags & MASK_4300_MUL_FIX)
 
 #define TARGET_NO_CHECK_ZERO_DIV (target_flags & MASK_NO_CHECK_ZERO_DIV)
@@ -320,7 +330,8 @@ extern void		sbss_section PARAMS ((void));
 /* This is true if we must enable the assembly language file switching
    code.  */
 
-#define TARGET_FILE_SWITCHING	(TARGET_GP_OPT && ! TARGET_GAS)
+#define TARGET_FILE_SWITCHING \
+  (TARGET_GP_OPT && ! TARGET_GAS && ! TARGET_MIPS16)
 
 /* We must disable the function end stabs when doing the file switching trick,
    because the Lscope stabs end up in the wrong place, making it impossible
@@ -335,6 +346,8 @@ extern void		sbss_section PARAMS ((void));
 #define TARGET_MIPS4000             (mips_arch == PROCESSOR_R4000)
 #define TARGET_MIPS4100             (mips_arch == PROCESSOR_R4100)
 #define TARGET_MIPS4300             (mips_arch == PROCESSOR_R4300)
+#define TARGET_MIPS4KC              (mips_arch == PROCESSOR_R4KC)
+#define TARGET_MIPS5KC              (mips_arch == PROCESSOR_R5KC)
 
 /* Scheduling target defines.  */
 #define TUNE_MIPS3000               (mips_tune == PROCESSOR_R3000)
@@ -439,6 +452,10 @@ extern void		sbss_section PARAMS ((void));
      N_("Use multiply accumulate")},					\
   {"no-mad",		 -MASK_MAD,					\
      N_("Don't use multiply accumulate")},				\
+  {"no-fused-madd",       MASK_NO_FUSED_MADD,                           \
+     N_("Don't generate fused multiply/add instructions")},		\
+  {"fused-madd",         -MASK_NO_FUSED_MADD,                           \
+     N_("Generate fused multiply/add instructions")},			\
   {"fix4300",             MASK_4300_MUL_FIX,				\
      N_("Work around early 4300 hardware bug")},			\
   {"no-fix4300",         -MASK_4300_MUL_FIX,				\
@@ -534,8 +551,16 @@ extern void		sbss_section PARAMS ((void));
 #        if MIPS_ISA_DEFAULT == 4
 #          define MULTILIB_ISA_DEFAULT "mips4"
 #        else
+#          if MIPS_ISA_DEFAULT == 32
+#            define MULTILIB_ISA_DEFAULT "mips32"
+#          else
+#            if MIPS_ISA_DEFAULT == 64
+#              define MULTILIB_ISA_DEFAULT "mips64"
+#            else
 #          define MULTILIB_ISA_DEFAULT "mips1"
+#         endif
 #        endif
+#       endif
 #      endif
 #    endif
 #  endif
@@ -592,6 +617,10 @@ extern void		sbss_section PARAMS ((void));
       N_("Don't use MIPS16 instructions")},				\
   { "explicit-type-size", &mips_explicit_type_size_string,		\
       NULL},								\
+  { "no-flush-func", &mips_cache_flush_func,				\
+      N_("Don't call any cache flush functions")},			\
+  { "flush-func=", &mips_cache_flush_func,				\
+      N_("Specify cache flush function")},				\
 }
 
 /* This is meant to be redefined in the host dependent files.  */
@@ -599,9 +628,15 @@ extern void		sbss_section PARAMS ((void));
 
 #define GENERATE_BRANCHLIKELY  (!TARGET_MIPS16 && ISA_HAS_BRANCHLIKELY)
 
-/* Generate three-operand multiply instructions for both SImode and DImode.  */
-#define GENERATE_MULT3         (TARGET_MIPS3900				\
-				&& !TARGET_MIPS16)
+/* Generate three-operand multiply instructions for SImode.  */
+#define GENERATE_MULT3_SI       ((TARGET_MIPS3900                       \
+                                  || mips_isa == 32                     \
+                                  || mips_isa == 64)                    \
+                                 && !TARGET_MIPS16)
+
+/* Generate three-operand multiply instructions for DImode.  */
+#define GENERATE_MULT3_DI       ((TARGET_MIPS3900)                      \
+				 && !TARGET_MIPS16)
 
 /* Macros to decide whether certain features are available or not,
    depending on the instruction set architecture level.  */
@@ -609,19 +644,21 @@ extern void		sbss_section PARAMS ((void));
 #define BRANCH_LIKELY_P()	GENERATE_BRANCHLIKELY
 #define HAVE_SQRT_P()		(mips_isa != 1)
 
-/* ISA has instructions for managing 64 bit fp and gp regs (eg. mips3). */
-#define ISA_HAS_64BIT_REGS	(mips_isa == 3 || mips_isa == 4 	\
-                                )
+/* ISA has instructions for managing 64 bit fp and gp regs (eg. mips3).  */
+#define ISA_HAS_64BIT_REGS	(mips_isa == 3          \
+				 || mips_isa == 4 	\
+                                 || mips_isa == 64)
 
-/* ISA has branch likely instructions (eg. mips2). */
+/* ISA has branch likely instructions (eg. mips2).  */
 /* Disable branchlikely for tx39 until compare rewrite.  They haven't
    been generated up to this point.  */
 #define ISA_HAS_BRANCHLIKELY	(mips_isa != 1                          \
 				 /* || TARGET_MIPS3900 */)
 
-/* ISA has the conditional move instructions introduced in mips4. */
+/* ISA has the conditional move instructions introduced in mips4.  */
 #define ISA_HAS_CONDMOVE        (mips_isa == 4				\
-				 )
+				 || mips_isa == 32                      \
+				 || mips_isa == 64)
 
 /* ISA has just the integer condition move instructions (movn,movz) */
 #define ISA_HAS_INT_CONDMOVE     0
@@ -629,9 +666,10 @@ extern void		sbss_section PARAMS ((void));
 
 
 /* ISA has the mips4 FP condition code instructions: FP-compare to CC,
-   branch on CC, and move (both FP and non-FP) on CC. */
+   branch on CC, and move (both FP and non-FP) on CC.  */
 #define ISA_HAS_8CC		(mips_isa == 4				\
-				)
+                         	 || mips_isa == 32                      \
+				 || mips_isa == 64)
 
 
 /* This is a catch all for the other new mips4 instructions: indexed load and
@@ -643,9 +681,24 @@ extern void		sbss_section PARAMS ((void));
 /* ISA has conditional trap instructions.  */
 #define ISA_HAS_COND_TRAP	(mips_isa >= 2)
 
+/* ISA has multiply-accumulate instructions, madd and msub.  */
+#define ISA_HAS_MADD_MSUB       (mips_isa == 32                         \
+                                || mips_isa == 64                       \
+                                )
+
 /* ISA has nmadd and nmsub instructions.  */
 #define ISA_HAS_NMADD_NMSUB	(mips_isa == 4				\
 				)
+
+/* ISA has count leading zeroes/ones instruction (not implemented).  */
+#define ISA_HAS_CLZ_CLO         (mips_isa == 32                         \
+                                || mips_isa == 64                       \
+                                )
+
+/* ISA has double-word count leading zeroes/ones instruction (not
+   implemented).  */
+#define ISA_HAS_DCLZ_DCLO       (mips_isa == 64)
+
 
 /* CC1_SPEC causes -mips3 and -mips4 to set -mfp64 and -mgp64; -mips1 or
    -mips2 sets -mfp32 and -mgp32.  This can be overridden by an explicit
@@ -662,10 +715,7 @@ extern void		sbss_section PARAMS ((void));
 
 /* Switch  Recognition by gcc.c.  Add -G xx support */
 
-#ifdef SWITCH_TAKES_ARG
-#undef SWITCH_TAKES_ARG
-#endif
-
+#undef  SWITCH_TAKES_ARG
 #define SWITCH_TAKES_ARG(CHAR)						\
   (DEFAULT_SWITCH_TAKES_ARG (CHAR) || (CHAR) == 'G')
 
@@ -801,7 +851,7 @@ while (0)
 
 #define MIPS_AS_ASM_SPEC "\
 %{!.s:-nocpp} %{.s: %{cpp} %{nocpp}} \
-%{pipe: %e-pipe is not supported.} \
+%{pipe: %e-pipe is not supported} \
 %{K} %(subtarget_mips_as_asm_spec)"
 
 /* SUBTARGET_MIPS_AS_ASM_SPEC is passed when using the MIPS assembler
@@ -814,7 +864,51 @@ while (0)
 /* GAS_ASM_SPEC is passed when using gas, rather than the MIPS
    assembler.  */
 
-#define GAS_ASM_SPEC "%{march=*} %{mtune=*} %{mcpu=*} %{m4650} %{mmad:-m4650} %{m3900} %{v} %{mgp32} %{mgp64}"
+#define GAS_ASM_SPEC "%{march=*} %{mtune=*} %{mcpu=*} %{m4650} %{mmad:-m4650} %{m3900} %{v} %{mgp32} %{mgp64} %(abi_gas_asm_spec) %{mabi=32:%{!mips*:-mips1}}"
+
+
+/* We use the o32 abi as default for mips1 and mips2.  SGI uses n32/n64 for
+   mips3 and mips4 by default, however, this is unsupported at this point in
+   binutils so we use o64. This should change when n32/n64 is supported.  */
+
+extern int mips_abi;
+
+#ifndef MIPS_ABI_DEFAULT
+#define MIPS_ABI_DEFAULT ABI_32
+#endif
+
+#if MIPS_ABI_DEFAULT == ABI_32
+#define ABI_GAS_ASM_SPEC "%{mabi=*} \
+%{!mabi=*:%{mips3|mips4|mips5|mips64:-mabi=o64} %{!mips3:%{!mips4:%{!mips5:%{!mips64:-mabi=32}}}}}"
+#endif
+
+#if MIPS_ABI_DEFAULT == ABI_N32
+#define ABI_GAS_ASM_SPEC "%{mabi=*} %{!mabi=*:-mabi=n32}"
+#endif
+
+#if MIPS_ABI_DEFAULT == ABI_64
+#define ABI_GAS_ASM_SPEC "%{mabi=*} %{!mabi=*:-mabi=64}"
+#endif
+
+#if MIPS_ABI_DEFAULT == ABI_EABI
+#define ABI_GAS_ASM_SPEC "%{mabi=*} %{!mabi=*:-mabi=eabi}"
+#endif
+
+#if MIPS_ABI_DEFAULT == ABI_O64
+#define ABI_GAS_ASM_SPEC "\
+%{mabi=*} \
+%{!mabi=*:%{mips1|mips2|mips32:-mabi=32} %{!mips1:%{!mips2:%{!mips3:%{!mips32:-mabi=o64}}}}}"
+#endif
+
+#if MIPS_ABI_DEFAULT == ABI_MEABI
+#define ABI_GAS_ASM_SPEC "\
+%{mabi=*} \
+%{!mabi=*:-mabi=meabi }"
+#endif
+
+#ifndef ABI_GAS_ASM_SPEC
+ #error "Unhandled MIPS_ABI_DEFAULT"
+#endif
 
 /* TARGET_ASM_SPEC is used to select either MIPS_AS_ASM_SPEC or
    GAS_ASM_SPEC as the default, depending upon the value of
@@ -863,13 +957,13 @@ while (0)
 
 /* ASM_SPEC is the set of arguments to pass to the assembler.  */
 
+#undef ASM_SPEC
 #define ASM_SPEC "\
-%{!membedded-pic:%{G*}} %(endian_spec) %{mips1} %{mips2} %{mips3} %{mips4} \
+%{G*} %{EB} %{EL} %{mips1} %{mips2} %{mips3} %{mips4} %{mips32} %{mips64}\
 %{mips16:%{!mno-mips16:-mips16}} %{mno-mips16:-no-mips16} \
 %(subtarget_asm_optimizing_spec) \
 %(subtarget_asm_debugging_spec) \
 %{membedded-pic} \
-%{mfix7000} \
 %{mabi=32:-32}%{mabi=o32:-32}%{mabi=n32:-n32}%{mabi=64:-64}%{mabi=n64:-64} \
 %(target_asm_spec) \
 %(subtarget_asm_spec)"
@@ -907,7 +1001,7 @@ while (0)
 
 /* Redefinition of libraries used.  Mips doesn't support normal
    UNIX style profiling via calling _mcount.  It does offer
-   profiling that samples the PC, so do what we can... */
+   profiling that samples the PC, so do what we can...  */
 
 #ifndef LIB_SPEC
 #define LIB_SPEC "%{pg:-lprof1} %{p:-lprof1} -lc"
@@ -920,9 +1014,10 @@ while (0)
 #ifndef LINK_SPEC
 #define LINK_SPEC "\
 %(endian_spec) \
-%{G*} %{mips1} %{mips2} %{mips3} %{mips4} \
+%{G*} %{mips1} %{mips2} %{mips3} %{mips4} %{mips32} %{mips64} \
 %{bestGnum} %{shared} %{non_shared}"
-#endif	/* LINK_SPEC defined */
+#endif  /* LINK_SPEC defined */
+
 
 /* Specs for the compiler proper */
 
@@ -943,6 +1038,9 @@ while (0)
 #endif
 
 /* CC1_SPEC is the set of arguments to pass to the compiler proper.  */
+/* Note, we will need to adjust the following if we ever find a MIPS variant
+   that has 32-bit GPRs and 64-bit FPRs as well as fix all of the reload bugs
+   that show up in this case.  */
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "\
@@ -950,9 +1048,12 @@ while (0)
 %{mips1:-mfp32 -mgp32} %{mips2:-mfp32 -mgp32}\
 %{mips3:%{!msingle-float:%{!m4650:-mfp64}} -mgp64} \
 %{mips4:%{!msingle-float:%{!m4650:-mfp64}} -mgp64} \
+%{mips32:-mfp32 -mgp32} \
+%{mips64:%{!msingle-float:%{!m4650:-mfp64}} -mgp64} \
 %{mfp64:%{msingle-float:%emay not use both -mfp64 and -msingle-float}} \
 %{mfp64:%{m4650:%emay not use both -mfp64 and -m4650}} \
 %{mint64|mlong64|mlong32:-mexplicit-type-size }\
+%{mgp32: %{mfp64:%emay not use both -mgp32 and -mfp64} %{!mfp32: -mfp32}} \
 %{G*} %{EB:-meb} %{EL:-mel} %{EB:%{EL:%emay not use both -EB and -EL}} \
 %{pic-none:   -mno-half-pic} \
 %{pic-lib:    -mhalf-pic} \
@@ -970,7 +1071,7 @@ while (0)
 
 #ifndef SUBTARGET_CPP_SIZE_SPEC
 #define SUBTARGET_CPP_SIZE_SPEC "\
-%{mlong64:%{!mips1:%{!mips2:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}} \
+%{mlong64:%{!mips1:%{!mips2:%{!mips32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}} \
 %{!mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}"
 #endif
 
@@ -990,8 +1091,18 @@ while (0)
 #endif
 #endif
 
+/* Define appropriate macros for fpr register size.  */
+#ifndef CPP_FPR_SPEC
+#if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_FLOAT64)
+#define CPP_FPR_SPEC "-D__mips_fpr=64"
+#else
+#define CPP_FPR_SPEC "-D__mips_fpr=32"
+#endif
+#endif
+
 /* For C++ we need to ensure that _LANGUAGE_C_PLUS_PLUS is defined independent
    of the source file extension.  */
+#undef CPLUSPLUS_CPP_SPEC
 #define CPLUSPLUS_CPP_SPEC "\
 -D__LANGUAGE_C_PLUS_PLUS -D_LANGUAGE_C_PLUS_PLUS \
 %(cpp) \
@@ -1006,7 +1117,10 @@ while (0)
 %(subtarget_cpp_size_spec) \
 %{mips3:-U__mips -D__mips=3 -D__mips64} \
 %{mips4:-U__mips -D__mips=4 -D__mips64} \
+%{mips32:-U__mips -D__mips=32} \
+%{mips64:-U__mips -D__mips=64 -D__mips64} \
 %{mgp32:-U__mips64} %{mgp64:-D__mips64} \
+%{mfp32:-D__mips_fpr=32} %{mfp64:-D__mips_fpr=64} %{!mfp32: %{!mfp64: %{mgp32:-D__mips_fpr=32} %{!mgp32: %(cpp_fpr_spec)}}} \
 %{msingle-float:%{!msoft-float:-D__mips_single_float}} \
 %{m4650:%{!msoft-float:-D__mips_single_float}} \
 %{msoft-float:-D__mips_soft_float} \
@@ -1034,8 +1148,10 @@ while (0)
   { "subtarget_cpp_spec", SUBTARGET_CPP_SPEC },				\
   { "subtarget_cpp_size_spec", SUBTARGET_CPP_SIZE_SPEC },		\
   { "long_max_spec", LONG_MAX_SPEC },					\
+  { "cpp_fpr_spec", CPP_FPR_SPEC },					\
   { "mips_as_asm_spec", MIPS_AS_ASM_SPEC },				\
   { "gas_asm_spec", GAS_ASM_SPEC },					\
+  { "abi_gas_asm_spec", ABI_GAS_ASM_SPEC },                             \
   { "target_asm_spec", TARGET_ASM_SPEC },				\
   { "subtarget_mips_as_asm_spec", SUBTARGET_MIPS_AS_ASM_SPEC }, 	\
   { "subtarget_asm_optimizing_spec", SUBTARGET_ASM_OPTIMIZING_SPEC },	\
@@ -1100,14 +1216,14 @@ while (0)
 
 /* Local compiler-generated symbols must have a prefix that the assembler
    understands.   By default, this is $, although some targets (e.g.,
-   NetBSD-ELF) need to override this. */
+   NetBSD-ELF) need to override this.  */
 
 #ifndef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX	"$"
 #endif
 
 /* By default on the mips, external symbols do not have an underscore
-   prepended, but some targets (e.g., NetBSD) require this. */
+   prepended, but some targets (e.g., NetBSD) require this.  */
 
 #ifndef USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX	""
@@ -1124,7 +1240,7 @@ while (0)
 #undef DBX_CONTIN_LENGTH
 #define DBX_CONTIN_LENGTH 1500
 
-/* How to renumber registers for dbx and gdb. */
+/* How to renumber registers for dbx and gdb.  */
 #define DBX_REGISTER_NUMBER(REGNO) mips_dbx_regno[ (REGNO) ]
 
 /* The mapping from gcc register number to DWARF 2 CFA column number.
@@ -1159,7 +1275,9 @@ do {							\
 #define PUT_SDB_INT_VAL(a)				\
 do {							\
   extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t.val\t%d;", (a));	\
+  fprintf (asm_out_text_file, "\t.val\t");		\
+  fprintf (asm_out_text_file, HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT)(a)); \
+  fprintf (asm_out_text_file, ";");			\
 } while (0)
 
 #define PUT_SDB_VAL(a)					\
@@ -1201,7 +1319,9 @@ do {							\
 #define PUT_SDB_SIZE(a)					\
 do {							\
   extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t.size\t%d;", (a));	\
+  fprintf (asm_out_text_file, "\t.size\t");		\
+  fprintf (asm_out_text_file, HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT)(a)); \
+  fprintf (asm_out_text_file, ";");			\
 } while (0)
 
 #define PUT_SDB_DIM(a)					\
@@ -1311,19 +1431,6 @@ do {							\
 #define OBJECT_FORMAT_COFF	/* Object file looks like COFF */
 #define EXTENDED_COFF		/* ECOFF, not normal coff */
 #endif
-
-#if 0 /* These definitions normally have no effect because
-	 MIPS systems define USE_COLLECT2, so
-	 assemble_constructor does nothing anyway.  */
-
-/* Don't use the default definitions, because we don't have gld.
-   Also, we don't want stabs when generating ECOFF output.
-   Instead we depend on collect to handle these.  */
-
-#define ASM_OUTPUT_CONSTRUCTOR(file, name)
-#define ASM_OUTPUT_DESTRUCTOR(file, name)
-
-#endif /* 0 */
 
 /* Target machine storage layout */
 
@@ -1336,10 +1443,10 @@ do {							\
 */
 #define BITS_BIG_ENDIAN 0
 
-/* Define this if most significant byte of a word is the lowest numbered. */
+/* Define this if most significant byte of a word is the lowest numbered.  */
 #define BYTES_BIG_ENDIAN (TARGET_BIG_ENDIAN != 0)
 
-/* Define this if most significant word of a multiword number is the lowest. */
+/* Define this if most significant word of a multiword number is the lowest.  */
 #define WORDS_BIG_ENDIAN (TARGET_BIG_ENDIAN != 0)
 
 /* Define this to set the endianness to use in libgcc2.c, which can
@@ -1507,12 +1614,14 @@ do {							\
 
 /* Force right-alignment for small varargs in 32 bit little_endian mode */
 
-#define PAD_VARARGS_DOWN (TARGET_64BIT ? BYTES_BIG_ENDIAN : !BYTES_BIG_ENDIAN)
+#define PAD_VARARGS_DOWN (TARGET_64BIT                                  \
+			  || mips_abi == ABI_MEABI                      \
+			     ? BYTES_BIG_ENDIAN : !BYTES_BIG_ENDIAN)
 
 /* Define this macro if an argument declared as `char' or `short' in a
    prototype should actually be passed as an `int'.  In addition to
    avoiding errors in certain cases of mismatch, it also makes for
-   better code on certain machines. */
+   better code on certain machines.  */
 
 #define PROMOTE_PROTOTYPES 1
 
@@ -1607,6 +1716,25 @@ do {							\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1					\
 }
 
+/* Like `CALL_USED_REGISTERS' but used to overcome a historical
+   problem which makes CALL_USED_REGISTERS *always* include
+   all the FIXED_REGISTERS.  Until this problem has been
+   resolved this macro can be used to overcome this situation.
+   In particular, block_propagate() requires this list
+   be acurate, or we can remove registers which should be live.
+   This macro is used in regs_invalidated_by_call.  */
+
+
+#define CALL_REALLY_USED_REGISTERS                                      \
+{ /* General registers.  */                                             \
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,                       \
+  0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1,                       \
+  /* Floating-point registers.  */                                      \
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
+  1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
+  /* Others.  */                                                        \
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1					\
+}
 
 /* Internal macros to classify a register number as to whether it's a
    general purpose register, a floating point register, a
@@ -1662,10 +1790,7 @@ do {							\
    the R4000 with the FR bit set, the floating point uses register
    pairs, with the second register not being allocable.  */
 
-#define HARD_REGNO_NREGS(REGNO, MODE)					\
-  (! FP_REG_P (REGNO)							\
-	? ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD) \
-	: ((GET_MODE_SIZE (MODE) + UNITS_PER_FPREG - 1) / UNITS_PER_FPREG))
+#define HARD_REGNO_NREGS(REGNO, MODE) mips_hard_regno_nregs (REGNO, MODE)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode
    MODE.  In 32 bit mode, require that DImode and DFmode be in even
@@ -1888,7 +2013,7 @@ enum reg_class
    choose a class which is "minimal", meaning that no smaller class
    also contains the register.  */
 
-extern enum reg_class mips_regno_to_class[];
+extern const enum reg_class mips_regno_to_class[];
 
 #define REGNO_REG_CLASS(REGNO) mips_regno_to_class[ (REGNO) ]
 
@@ -1909,7 +2034,7 @@ extern enum reg_class mips_regno_to_class[];
 /* When SMALL_REGISTER_CLASSES is nonzero, the compiler allows
    registers explicitly used in the rtl to be used as spill registers
    but prevents the compiler from extending the lifetime of these
-   registers. */
+   registers.  */
 
 #define SMALL_REGISTER_CLASSES (TARGET_MIPS16)
 
@@ -2311,11 +2436,13 @@ extern struct mips_frame_info current_frame_info;
 	       + ((UNITS_PER_WORD - (POINTER_SIZE / BITS_PER_UNIT))	 \
 		  * (BYTES_BIG_ENDIAN != 0));				 \
   }									 \
+  else									 \
+    abort();								 \
 }
 
 /* If we generate an insn to push BYTES bytes,
    this says how many the stack pointer really advances by.
-   On the vax, sp@- in a byte insn really pushes a word.  */
+   On the VAX, sp@- in a byte insn really pushes a word.  */
 
 /* #define PUSH_ROUNDING(BYTES) 0 */
 
@@ -2532,6 +2659,7 @@ typedef struct mips_args {
 				/* ??? The size is doubled to work around a
 				   bug in the code that sets the adjustments
 				   in function_arg.  */
+  int prototype;                /* True if the function has a prototype.  */
   struct rtx_def *adjust[MAX_ARGS_IN_REGISTERS*2];
 } CUMULATIVE_ARGS;
 
@@ -2569,7 +2697,7 @@ typedef struct mips_args {
 
 /* For an arg passed partly in registers and partly in memory,
    this is the number of registers used.
-   For args passed entirely in registers or entirely in memory, zero. */
+   For args passed entirely in registers or entirely in memory, zero.  */
 
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
   function_arg_partial_nregs (&CUM, MODE, TYPE, NAMED)
@@ -2723,10 +2851,11 @@ typedef struct mips_args {
   /* Flush both caches.  We need to flush the data cache in case	    \
      the system has a write-back cache.  */				    \
   /* ??? Should check the return value for errors.  */			    \
-  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, CACHE_FLUSH_FUNC),	    \
-		     0, VOIDmode, 3, addr, Pmode,			    \
-		     GEN_INT (TRAMPOLINE_SIZE), TYPE_MODE (integer_type_node),\
-		     GEN_INT (3), TYPE_MODE (integer_type_node));	    \
+  if (mips_cache_flush_func && mips_cache_flush_func[0])		    \
+    emit_library_call (gen_rtx_SYMBOL_REF (Pmode, mips_cache_flush_func),   \
+		       0, VOIDmode, 3, addr, Pmode,			    \
+		       GEN_INT (TRAMPOLINE_SIZE), TYPE_MODE (integer_type_node),\
+		       GEN_INT (3), TYPE_MODE (integer_type_node));	    \
 }
 
 /* Addressing modes, and classification of registers for them.  */
@@ -2753,7 +2882,7 @@ typedef struct mips_args {
    : GP_REG_P (regno))
 
 #define GP_REG_OR_PSEUDO_STRICT_P(regno, mode)				    \
-  BASE_REG_P((regno < FIRST_PSEUDO_REGISTER) ? regno : reg_renumber[regno], \
+  BASE_REG_P((regno < FIRST_PSEUDO_REGISTER) ? (int) regno : reg_renumber[regno], \
 	     (mode))
 
 #define GP_REG_OR_PSEUDO_NONSTRICT_P(regno, mode) \
@@ -3098,10 +3227,6 @@ typedef struct mips_args {
    If you are changing this macro, you should look at
    mips_select_section and see if it needs a similar change.  */
 
-#ifndef UNIQUE_SECTION_P
-#define UNIQUE_SECTION_P(DECL) (0)
-#endif
-
 #define ENCODE_SECTION_INFO(DECL)					\
 do									\
   {									\
@@ -3121,7 +3246,7 @@ do									\
 	       references again.  We force it to work by putting string	\
 	       addresses in the constant pool and indirecting.  */	\
 	    && (! current_function_decl					\
-		|| ! UNIQUE_SECTION_P (current_function_decl)))		\
+		|| ! DECL_ONE_ONLY (current_function_decl)))		\
 	  {								\
 	    SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (DECL), 0)) = 1;	\
 	    mips_string_length += TREE_STRING_LENGTH (DECL);		\
@@ -3214,7 +3339,7 @@ while (0)
 /* Define as C expression which evaluates to nonzero if the tablejump
    instruction expects the table to contain offsets from the address of the
    table.
-   Do not define this if the table should contain absolute addresses. */
+   Do not define this if the table should contain absolute addresses.  */
 #define CASE_VECTOR_PC_RELATIVE (TARGET_MIPS16)
 
 /* Specify the tree operation to be used to convert reals to integers.  */
@@ -3252,7 +3377,7 @@ while (0)
 #define SLOW_ZERO_EXTEND
 
 /* Define this to be nonzero if shift instructions ignore all but the low-order
-   few bits. */
+   few bits.  */
 #define SHIFT_COUNT_TRUNCATED 1
 
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
@@ -3270,7 +3395,7 @@ while (0)
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.
 
-   For MIPS we make pointers are the smaller of longs and gp-registers. */
+   For MIPS we make pointers are the smaller of longs and gp-registers.  */
 
 #ifndef Pmode
 #define Pmode ((TARGET_LONG64 && TARGET_64BIT) ? DImode : SImode)
@@ -3389,7 +3514,7 @@ while (0)
       if (GET_CODE (symref) != SYMBOL_REF)				\
 	return COSTS_N_INSNS (4);					\
 									\
-      /* let's be paranoid.... */					\
+      /* let's be paranoid....  */					\
       if (INTVAL (offset) < -32768 || INTVAL (offset) > 32767)		\
 	return COSTS_N_INSNS (2);					\
 									\
@@ -3628,7 +3753,7 @@ while (0)
    different numbers of registers on machines with lots of registers.
 
    This macro will normally either not be defined or be defined as
-   a constant. */
+   a constant.  */
 
 #define ADDRESS_COST(ADDR) (REG_P (ADDR) ? 1 : mips_address_cost (ADDR))
 
@@ -3661,7 +3786,7 @@ while (0)
    all values except -1.  We could handle that case by using a signed
    divide, e.g.  -1 / 2 (or maybe 1 / -2?).  We'd have to emit a
    compare/branch to test the input value to see which instruction we
-   need to use.  This gets pretty messy, but it is feasible. */
+   need to use.  This gets pretty messy, but it is feasible.  */
 
 #define REGISTER_MOVE_COST(MODE, FROM, TO)	\
   ((FROM) == M16_REGS && GR_REG_CLASS_P (TO) ? 2			\
@@ -3702,16 +3827,6 @@ while (0)
   ((! TARGET_MIPS16							\
     && (TUNE_MIPS4000 || TUNE_MIPS6000))	\
    ? 2 : 1)
-
-/* A C statement (sans semicolon) to update the integer variable COST
-   based on the relationship between INSN that is dependent on
-   DEP_INSN through the dependence LINK.  The default is to make no
-   adjustment to COST.  On the MIPS, ignore the cost of anti- and
-   output-dependencies.  */
-
-#define ADJUST_COST(INSN,LINK,DEP_INSN,COST)				\
-  if (REG_NOTE_KIND (LINK) != 0)					\
-    (COST) = 0; /* Anti or output dependence.  */
 
 /* If defined, modifies the length assigned to instruction INSN as a
    function of the context in which it is used.  LENGTH is an lvalue
@@ -3823,12 +3938,16 @@ while (0)
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
 
+#ifndef ASM_APP_ON
 #define ASM_APP_ON " #APP\n"
+#endif
 
 /* Output to assembler file text saying following lines
    no longer contain unusual constructs.  */
 
+#ifndef ASM_APP_OFF
 #define ASM_APP_OFF " #NO_APP\n"
+#endif
 
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).
@@ -4120,9 +4239,10 @@ while (0)
 #define LABEL_AFTER_LOC(STREAM)
 #endif
 
-#undef ASM_OUTPUT_SOURCE_LINE
+#ifndef ASM_OUTPUT_SOURCE_LINE
 #define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE)				\
   mips_output_lineno (STREAM, LINE)
+#endif
 
 /* The MIPS implementation uses some labels for its own purpose.  The
    following lists what labels are created, and are all formed by the
@@ -4133,7 +4253,7 @@ while (0)
 	$Lb[0-9]+	Begin blocks for MIPS debug support
 	$Lc[0-9]+	Label for use in s<xx> operation.
 	$Le[0-9]+	End blocks for MIPS debug support
-	$Lp\..+		Half-pic labels. */
+	$Lp\..+		Half-pic labels.  */
 
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.
@@ -4226,32 +4346,27 @@ while (0)
 #define ASM_FILE_END(STREAM) mips_asm_file_end(STREAM)
 
 
+/* Play switch file games if we're optimizing the global pointer.  */
+
+#undef TEXT_SECTION
+#define TEXT_SECTION()					\
+do {							\
+  extern FILE *asm_out_text_file;			\
+  if (TARGET_FILE_SWITCHING)				\
+    asm_out_file = asm_out_text_file;			\
+  fputs (TEXT_SECTION_ASM_OP, asm_out_file);		\
+  fputc ('\n', asm_out_file);            		\
+} while (0)
+
+
 /* This is how to declare a function name.  The actual work of
    emitting the label is moved to function_prologue, so that we can
    get the line number correctly emitted before the .ent directive,
-   and after any .file directives.
-
-   Also, switch files if we are optimizing the global pointer.  */
+   and after any .file directives.  */
 
 #undef ASM_DECLARE_FUNCTION_NAME
-#define ASM_DECLARE_FUNCTION_NAME(STREAM,NAME,DECL)			\
-{									\
-  extern FILE *asm_out_text_file;					\
-  if (TARGET_GP_OPT && ! TARGET_MIPS16)					\
-    {									\
-      STREAM = asm_out_text_file;					\
-      /* ??? text_section gets called too soon.  If the previous	\
-	 function is in a special section and we're not, we have	\
-	 to switch back to the text section.  We can't call		\
-	 text_section again as gcc thinks we're already there.  */	\
-      /* ??? See varasm.c.  There are other things that get output	\
-	 too early, like alignment (before we've switched STREAM).  */	\
-      if (DECL_SECTION_NAME (DECL) == NULL_TREE)			\
-	fprintf (STREAM, "%s\n", TEXT_SECTION_ASM_OP);			\
-    }									\
-									\
-  HALF_PIC_DECLARE (NAME);						\
-}
+#define ASM_DECLARE_FUNCTION_NAME(STREAM,NAME,DECL)	\
+  HALF_PIC_DECLARE (NAME)
 
 /* This is how to output an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.  */
@@ -4280,69 +4395,6 @@ while (0)
 #define ASM_OUTPUT_FLOAT(STREAM,VALUE)					\
   mips_output_float (STREAM, VALUE)
 
-
-/* This is how to output an assembler line defining an `int' constant.  */
-
-#define ASM_OUTPUT_INT(STREAM,VALUE)					\
-do {									\
-  fprintf (STREAM, "\t.word\t");					\
-  output_addr_const (STREAM, (VALUE));					\
-  fprintf (STREAM, "\n");						\
-} while (0)
-
-/* Likewise for 64 bit, `char' and `short' constants.
-
-   FIXME: operand_subword can't handle some complex constant expressions
-   that output_addr_const can (for example it does not call
-   simplify_subtraction).  Since GAS can handle dword, even for mipsII,
-   rely on that to avoid operand_subword for most of the cases where this
-   matters.  Try gcc.c-torture/compile/930326-1.c with -mips2 -mlong64,
-   or the same case with the type of 'i' changed to long long.
-
-*/
-
-#define ASM_OUTPUT_DOUBLE_INT(STREAM,VALUE)				\
-do {									\
-  if (TARGET_64BIT || TARGET_GAS)					\
-    {									\
-      fprintf (STREAM, "\t.dword\t");					\
-      if (HOST_BITS_PER_WIDE_INT < 64 || GET_CODE (VALUE) != CONST_INT)	\
-	/* We can't use 'X' for negative numbers, because then we won't	\
-	   get the right value for the upper 32 bits.  */		\
-        output_addr_const (STREAM, VALUE);				\
-      else								\
-	/* We must use 'X', because otherwise LONG_MIN will print as	\
-	   a number that the Irix 6 assembler won't accept.  */		\
-        print_operand (STREAM, VALUE, 'X');				\
-      fprintf (STREAM, "\n");						\
-    }									\
-  else									\
-    {									\
-      assemble_integer (operand_subword ((VALUE), 0, 0, DImode),	\
-			UNITS_PER_WORD, 1);				\
-      assemble_integer (operand_subword ((VALUE), 1, 0, DImode),	\
-			UNITS_PER_WORD, 1);				\
-    }									\
-} while (0)
-
-#define ASM_OUTPUT_SHORT(STREAM,VALUE)					\
-{									\
-  fprintf (STREAM, "\t.half\t");					\
-  output_addr_const (STREAM, (VALUE));					\
-  fprintf (STREAM, "\n");						\
-}
-
-#define ASM_OUTPUT_CHAR(STREAM,VALUE)					\
-{									\
-  fprintf (STREAM, "\t.byte\t");					\
-  output_addr_const (STREAM, (VALUE));					\
-  fprintf (STREAM, "\n");						\
-}
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-
-#define ASM_OUTPUT_BYTE(STREAM,VALUE)					\
-  fprintf (STREAM, "\t.byte\t0x%x\n", (VALUE))
 
 /* This is how to output an element of a case-vector that is absolute.  */
 
@@ -4412,7 +4464,7 @@ do {									\
 #define SCCS_DIRECTIVE
 
 /* Output #ident as a in the read-only data section.  */
-#undef ASM_OUTPUT_IDENT
+#undef  ASM_OUTPUT_IDENT
 #define ASM_OUTPUT_IDENT(FILE, STRING)					\
 {									\
   const char *p = STRING;						\
@@ -4448,7 +4500,7 @@ do {									\
    address with faster (gp) register relative addressing, which can
    only get at sdata and sbss items (there is no stext !!)  However,
    if the constant is too large for sdata, and it's readonly, it
-   will go into the .rdata section. */
+   will go into the .rdata section.  */
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
@@ -4476,10 +4528,12 @@ rdata_section ()							\
    and select that section.  */
 
 #undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE,RTX)	mips_select_rtx_section (MODE, RTX)
+#define SELECT_RTX_SECTION(MODE, RTX, ALIGN) \
+  mips_select_rtx_section (MODE, RTX)
 
 #undef SELECT_SECTION
-#define SELECT_SECTION(DECL, RELOC)	mips_select_section (DECL, RELOC)
+#define SELECT_SECTION(DECL, RELOC, ALIGN) \
+  mips_select_section (DECL, RELOC)
 
 
 /* Store in OUTPUT a string (made with alloca) containing
@@ -4535,7 +4589,7 @@ while (0)
    and mips-tdump.c to print them out.
 
    These must match the corresponding definitions in gdb/mipsread.c.
-   Unfortunately, gcc and gdb do not currently share any directories. */
+   Unfortunately, gcc and gdb do not currently share any directories.  */
 
 #define CODE_MASK 0x8F300
 #define MIPS_IS_STAB(sym) (((sym)->index & 0xFFF00) == CODE_MASK)
@@ -4586,7 +4640,7 @@ do									\
 	  init_one_libfunc ("__mips16_subsf3");				\
 	smul_optab->handlers[(int) SFmode].libfunc =			\
 	  init_one_libfunc ("__mips16_mulsf3");				\
-	flodiv_optab->handlers[(int) SFmode].libfunc =			\
+	sdiv_optab->handlers[(int) SFmode].libfunc =			\
 	  init_one_libfunc ("__mips16_divsf3");				\
 									\
 	eqsf2_libfunc = init_one_libfunc ("__mips16_eqsf2");		\
@@ -4609,7 +4663,7 @@ do									\
 	      init_one_libfunc ("__mips16_subdf3");			\
 	    smul_optab->handlers[(int) DFmode].libfunc =		\
 	      init_one_libfunc ("__mips16_muldf3");			\
-	    flodiv_optab->handlers[(int) DFmode].libfunc =		\
+	    sdiv_optab->handlers[(int) DFmode].libfunc =		\
 	      init_one_libfunc ("__mips16_divdf3");			\
 									\
 	    extendsfdf2_libfunc =					\

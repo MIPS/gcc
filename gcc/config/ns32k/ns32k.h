@@ -113,8 +113,8 @@ extern int target_flags;
     { "sb", -32,							\
       N_("Register sb is zero. Use for absolute addressing")},		\
     { "nosb", 32, N_("Do not use register sb")},			\
-    { "bitfield", -64, N_("Do not use bitfield instructions")},		\
-    { "nobitfield", 64, N_("Use bitfield instructions")},		\
+    { "bitfield", -64, N_("Do not use bit-field instructions")},	\
+    { "nobitfield", 64, N_("Use bit-field instructions")},		\
     { "himem", 128, N_("Generate code for high memory")},		\
     { "nohimem", -128, N_("Generate code for low memory")},		\
     { "32381", 256, N_("32381 fpu")},					\
@@ -236,7 +236,7 @@ while (0)
    crossing a page boundary cause unpredictable results.  */
 #define STRICT_ALIGNMENT 1
 
-/* If bit field type is int, dont let it cross an int,
+/* If bit field type is int, don't let it cross an int,
    and give entire struct the alignment of an int.  */
 /* Required on the 386 since it doesn't have a full set of bitfield insns.
    (There is no signed extv insn.)  */
@@ -736,8 +736,8 @@ operands on the 32k are stored).  */
   fprintf (FILE, "\tjump " );						\
   PUT_ABSOLUTE_PREFIX (FILE);						\
   fprintf (FILE, "__trampoline\n" );					\
-  ASM_OUTPUT_INT (FILE, const0_rtx);					\
-  ASM_OUTPUT_INT (FILE, const0_rtx);					\
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);		\
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);		\
 }
 
 /* Length in units of the trampoline for entering a nested function.  */
@@ -855,7 +855,7 @@ __transfer_from_trampoline ()		\
    because registers of CLASS are needed for spill registers.
 
    The default definition won't do because class LONG_FLOAT_REG0 has two
-   registers which are always acessed as a pair */
+   registers which are always accessed as a pair */
 
 #define CLASS_LIKELY_SPILLED_P(CLASS) \
   (reg_class_size[(int) (CLASS)] == 1 || (CLASS) == LONG_FLOAT_REG0)
@@ -1295,28 +1295,6 @@ while (0)
 
 /* This is how to output an assembler line defining an `int' constant.  */
 
-#define ASM_OUTPUT_INT(FILE,VALUE)  \
-( fprintf (FILE, "\t.long "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* Likewise for `char' and `short' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE,VALUE)  \
-( fprintf (FILE, "\t.word "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE,VALUE)  \
-( fprintf (FILE, "\t.byte "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-
-#define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
-
 /* This is how to output an assembler line defining an external/static
    address which is not in tree format (for collect.c).  */
 
@@ -1441,7 +1419,6 @@ do {									\
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address(FILE, ADDR)
 
 extern unsigned int ns32k_reg_class_contents[N_REG_CLASSES][1];
-extern const char *const ns32k_out_reg_names[];
 extern enum reg_class regclass_map[];		/* smallest class containing REGNO */
 
 /*

@@ -800,6 +800,9 @@ static struct dump_file_info dump_files[TDI_end] =
   {".original", "dump-tree-original", 0, 0},
   {".optimized", "dump-tree-optimized", 0, 0},
   {".inlined", "dump-tree-inlined", 0, 0},
+  {".cfg", "dump-tree-cfg", 0, 0},
+  {".dot", "dump-tree-graphviz", 0, 0},
+  {".ssa", "dump-tree-ssa", 0, 0},
 };
 
 /* Define a name->number mapping for a dump flag value.  */
@@ -815,6 +818,8 @@ static const struct dump_option_value_info dump_options[] =
 {
   {"address", TDF_ADDRESS},
   {"slim", TDF_SLIM},
+  {"refs", TDF_REFS},
+  {"rdefs", TDF_RDEFS},
   {"all", ~0},
   {NULL, 0}
 };

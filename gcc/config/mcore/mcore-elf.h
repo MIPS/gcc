@@ -1,5 +1,5 @@
 /* Definitions of MCore target. 
-   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
 This file is part of GNU CC.
@@ -27,9 +27,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define SUBTARGET_CPP_PREDEFINES " -D__ELF__"
 
-#include "svr4.h"
-#include "mcore/mcore.h"
-
 /* Use DWARF2 debugging info.  */
 #ifndef DWARF2_DEBUGGING_INFO
 #define DWARF2_DEBUGGING_INFO 1
@@ -42,23 +39,6 @@ Boston, MA 02111-1307, USA.  */
 #ifndef DWARF_DEBUGGING_INFO
 #define DWARF_DEBUGGING_INFO 1
 #endif
-
-/* The numbers used to denote specific machine registers in the System V
-   Release 4 DWARF debugging information are quite likely to be totally
-   different from the numbers used in BSD stabs debugging information
-   for the same kind of target machine.  Thus, we undefine the macro
-   DBX_REGISTER_NUMBER here as an extra inducement to get people to
-   provide proper machine-specific definitions of DBX_REGISTER_NUMBER
-   (which is also used to provide DWARF registers numbers in dwarfout.c)
-   in their tm.h files which include this file.  */
-
-#undef  DBX_REGISTER_NUMBER
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
-
-/* MCore defines .long and .short to NOT force any alignment.
-   This lets you misalign as much as you wish.  */
-#define	UNALIGNED_INT_ASM_OP	"\t.long\t"
-#define	UNALIGNED_SHORT_ASM_OP	"\t.short\t"
 
 #define EXPORTS_SECTION_ASM_OP	"\t.section .exports"
 

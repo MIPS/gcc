@@ -2,22 +2,22 @@
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
    1999, 2000, 2001 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #ifndef GCC_C_TREE_H
 #define GCC_C_TREE_H
@@ -98,8 +98,13 @@ struct lang_decl
 /* In an IDENTIFIER_NODE, nonzero if this identifier is actually a
    keyword.  C_RID_CODE (node) is then the RID_* value of the keyword,
    and C_RID_YYCODE is the token number wanted by Yacc.  */
-
 #define C_IS_RESERVED_WORD(id) TREE_LANG_FLAG_0 (id)
+
+/* This function was declared inline.  This flag controls the linkage
+   semantics of 'inline'; whether or not the function is inlined is
+   controlled by DECL_INLINE.  */
+#define DECL_DECLARED_INLINE_P(NODE) \
+  (DECL_LANG_SPECIFIC (NODE)->base.declared_inline)
 
 /* In a RECORD_TYPE, a sorted array of the fields of the type.  */
 struct lang_type
@@ -135,7 +140,7 @@ struct lang_type
 /* For FUNCTION_TYPE, a hidden list of types of arguments.  The same as
    TYPE_ARG_TYPES for functions with prototypes, but created for functions
    without prototypes.  */
-#define TYPE_ACTUAL_ARG_TYPES(NODE) TYPE_NONCOPIED_PARTS (NODE)
+#define TYPE_ACTUAL_ARG_TYPES(NODE) TYPE_BINFO (NODE)
 
 
 /* in c-lang.c and objc-act.c */
@@ -147,20 +152,32 @@ extern int maybe_objc_comptypes                 PARAMS ((tree, tree, int));
 extern tree maybe_building_objc_message_expr    PARAMS ((void));
 extern int recognize_objc_keyword		PARAMS ((void));
 extern tree lookup_objc_ivar			PARAMS ((tree));
+
+/* in c-lang.c and objc/objc-act.c */
+extern int defer_fn				PARAMS ((tree));
 
 /* in c-parse.in */
 extern void c_parse_init			PARAMS ((void));
+extern void c_set_yydebug			PARAMS ((int));
 extern int yyparse_1				PARAMS ((void));
 
 /* in c-aux-info.c */
 extern void gen_aux_info_record                 PARAMS ((tree, int, int, int));
 
 /* in c-decl.c */
+extern void c_init_decl_processing		PARAMS ((void));
+extern void c_print_identifier			PARAMS ((FILE *, tree, int));
 extern tree build_array_declarator              PARAMS ((tree, tree, int, int));
 extern tree build_enumerator                    PARAMS ((tree, tree));
 
+/* in c-objc-common.c */
+extern int c_disregard_inline_limits		PARAMS ((tree));
+extern int c_cannot_inline_tree_fn		PARAMS ((tree *));
+extern const char *c_objc_common_init		PARAMS ((const char *));
+extern int c_missing_noreturn_ok_p		PARAMS ((tree));
+
 #define c_build_type_variant(TYPE, CONST_P, VOLATILE_P)		  \
-  c_build_qualified_type (TYPE, 				  \
+  c_build_qualified_type (TYPE,				  \
 			  ((CONST_P) ? TYPE_QUAL_CONST : 0) |	  \
 			  ((VOLATILE_P) ? TYPE_QUAL_VOLATILE : 0))
 extern int  c_decode_option                     PARAMS ((int, char **));
@@ -172,7 +189,6 @@ extern int  complete_array_type                 PARAMS ((tree, tree, int));
 extern void declare_parm_level                  PARAMS ((int));
 extern tree define_label                        PARAMS ((const char *, int,
 							 tree));
-extern void delete_block                        PARAMS ((tree));
 extern void finish_decl                         PARAMS ((tree, tree, tree));
 extern void finish_decl_top_level               PARAMS ((tree, tree, tree));
 extern tree finish_enum                         PARAMS ((tree, tree, tree));
@@ -213,16 +229,14 @@ extern tree start_struct                        PARAMS ((enum tree_code, tree));
 extern void store_parm_decls                    PARAMS ((void));
 extern tree xref_tag                            PARAMS ((enum tree_code, tree));
 extern tree c_begin_compound_stmt               PARAMS ((void));
+extern void c_expand_deferred_function          PARAMS ((tree));
 extern void c_expand_decl_stmt                  PARAMS ((tree));
 
 /* in c-typeck.c */
 extern tree require_complete_type		PARAMS ((tree));
 extern int comptypes				PARAMS ((tree, tree));
-extern tree c_sizeof                            PARAMS ((tree));
-extern tree c_sizeof_nowarn                     PARAMS ((tree));
+extern tree c_sizeof_nowarn			PARAMS ((tree));
 extern tree c_size_in_bytes                     PARAMS ((tree));
-extern tree c_alignof				PARAMS ((tree));
-extern tree c_alignof_expr			PARAMS ((tree));
 extern tree build_component_ref                 PARAMS ((tree, tree));
 extern tree build_indirect_ref                  PARAMS ((tree, const char *));
 extern tree build_array_ref                     PARAMS ((tree, tree));
@@ -247,6 +261,7 @@ extern tree pop_init_level			PARAMS ((int));
 extern void set_init_index			PARAMS ((tree, tree));
 extern void set_init_label			PARAMS ((tree));
 extern void process_init_element		PARAMS ((tree));
+extern tree build_compound_literal		PARAMS ((tree, tree));
 extern void pedwarn_c99				PARAMS ((const char *, ...))
 							ATTRIBUTE_PRINTF_1;
 extern tree c_start_case                        PARAMS ((tree));
@@ -275,7 +290,7 @@ extern int skip_evaluation;
 extern int dollars_in_ident;
 
 /* Nonzero means allow type mismatches in conditional expressions;
-   just make their values `void'.   */
+   just make their values `void'.  */
 
 extern int flag_cond_mismatch;
 
@@ -286,11 +301,6 @@ extern int flag_no_asm;
 /* Nonzero means warn about implicit declarations.  */
 
 extern int warn_implicit;
-
-/* Nonzero means warn about sizeof (function) or addition/subtraction
-   of function pointers.  */
-
-extern int warn_pointer_arith;
 
 /* Nonzero means warn for all old-style non-prototype function decls.  */
 
@@ -328,12 +338,12 @@ extern int warn_traditional;
 
 extern int warn_char_subscripts;
 
-/* Warn if main is suspicious. */
+/* Warn if main is suspicious.  */
 
 extern int warn_main;
 
 /* Nonzero means to allow single precision math even if we're generally
-   being traditional. */
+   being traditional.  */
 extern int flag_allow_single_precision;
 
 /* Warn if initializer is not completely bracketed.  */
@@ -344,7 +354,7 @@ extern int warn_missing_braces;
 
 extern int warn_sign_compare;
 
-/* Warn about testing equality of floating point numbers. */
+/* Warn about testing equality of floating point numbers.  */
 
 extern int warn_float_equal;
 

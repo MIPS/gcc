@@ -40,28 +40,6 @@ Boston, MA 02111-1307, USA.  */
 %{mfloat-vax:-D__G_FLOAT} \
 %{!mfloat-vax:-D__IEEE_FLOAT}"
 
-/* Under OSF4, -p and -pg require -lprof1, and -lprof1 requires -lpdf.  */
-
-#define LIB_SPEC "%{p:-lprof1 -lpdf} %{pg:-lprof1 -lpdf} %{a:-lprof2} -lc"
-
-/* Pass "-G 8" to ld because Alpha's CC does.  Pass -O3 if we are
-   optimizing, -O1 if we are not.  Pass -shared, -non_shared or
-   -call_shared as appropriate.  Also pass -pg.  */
-#define LINK_SPEC  \
-  "-G 8 %{O*:-O3} %{!O*:-O1} %{static:-non_shared} \
-   %{!static:%{shared:-shared} %{!shared:-call_shared}} %{pg} %{taso} \
-   %{rpath*}"
-
-/* We allow $'s in identifiers unless -ansi is used .. */
-
-#define DOLLARS_IN_IDENTIFIERS 2
-
-/* These match the definitions used in DECCRTL, the VMS C run-time library
-
-#define SIZE_TYPE	"unsigned int"
-#define PTRDIFF_TYPE	"int"
-*/
-
 /* By default, allow $ to be part of an identifier.  */
 #define DOLLARS_IN_IDENTIFIERS 2
 
@@ -80,14 +58,12 @@ Boston, MA 02111-1307, USA.  */
 #define STRUCT_VALUE 0
 #undef PCC_STATIC_STRUCT_RETURN
 
-/* no floating emulation.  */
-#undef REAL_ARITHMETIC
-
-/* "long" is 32 bits.  */
+/* "long" is 32 bits, but 64 bits for Ada.  */
 #undef LONG_TYPE_SIZE
 #define LONG_TYPE_SIZE 32
+#define ADA_LONG_TYPE_SIZE 64
 
-/* Pointer is 32 bits but the hardware has 64-bit addresses, sign extended. */
+/* Pointer is 32 bits but the hardware has 64-bit addresses, sign extended.  */
 #undef POINTER_SIZE
 #define POINTER_SIZE 32
 #define POINTERS_EXTEND_UNSIGNED 0
@@ -108,8 +84,56 @@ Boston, MA 02111-1307, USA.  */
   1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, \
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }
 
+/* List the order in which to allocate registers.  Each register must be
+   listed once, even those in FIXED_REGISTERS.
+
+   We allocate in the following order:
+   $f1			(nonsaved floating-point register)
+   $f10-$f15		(likewise)
+   $f22-$f30		(likewise)
+   $f21-$f16		(likewise, but input args)
+   $f0			(nonsaved, but return value)
+   $f2-$f9		(saved floating-point registers)
+   $1			(nonsaved integer registers)
+   $22-$25		(likewise)
+   $28			(likewise)
+   $0			(likewise, but return value)
+   $21-$16		(likewise, but input args)
+   $27			(procedure value in OSF, nonsaved in NT)
+   $2-$8		(saved integer registers)
+   $9-$14		(saved integer registers)
+   $26			(return PC)
+   $15			(frame pointer)
+   $29			(global pointer)
+   $30, $31, $f31	(stack pointer and always zero/ap & fp)  */
+
+#undef REG_ALLOC_ORDER
+#define REG_ALLOC_ORDER		\
+  {33,					\
+   42, 43, 44, 45, 46, 47,		\
+   54, 55, 56, 57, 58, 59, 60, 61, 62,	\
+   53, 52, 51, 50, 49, 48,		\
+   32,					\
+   34, 35, 36, 37, 38, 39, 40, 41,	\
+   1,					\
+   22, 23, 24, 25,			\
+   28,					\
+   0,					\
+   21, 20, 19, 18, 17, 16,		\
+   27,					\
+   2, 3, 4, 5, 6, 7, 8,			\
+   9, 10, 11, 12, 13, 14,		\
+   26,					\
+   15,					\
+   29,					\
+   30, 31, 63 }
+
 #undef HARD_FRAME_POINTER_REGNUM
 #define HARD_FRAME_POINTER_REGNUM 29
+
+/* Define registers used by the epilogue and return instruction.  */
+#undef EPILOGUE_USES
+#define EPILOGUE_USES(REGNO)    ((REGNO) == 26 || (REGNO) == 29)
 
 #undef CAN_ELIMINATE
 #define CAN_ELIMINATE(FROM, TO)  \
@@ -124,6 +148,8 @@ Boston, MA 02111-1307, USA.  */
 			     + get_frame_size ()			\
 			     + current_function_pretend_args_size)	\
 		- current_function_pretend_args_size);			\
+  else									\
+    abort();								\
   if ((TO) == STACK_POINTER_REGNUM)					\
     (OFFSET) += ALPHA_ROUND (current_function_outgoing_args_size);	\
 }
@@ -197,7 +223,7 @@ typedef struct {int num_args; enum avms_arg_type atypes[6];} avms_arg_info;
    However, if NO registers need to be saved, don't allocate any space.
    This is not only because we won't need the space, but because AP includes
    the current_pretend_args_size and we don't want to mess up any
-   ap-relative addresses already made.   */
+   ap-relative addresses already made.  */
 
 #undef SETUP_INCOMING_VARARGS
 #define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL)	\
@@ -249,7 +275,7 @@ typedef struct {int num_args; enum avms_arg_type atypes[6];} avms_arg_info;
 #define DTORS_SECTION_ASM_OP "\t.dtors"
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS	in_link, in_rdata, in_literals, in_ctors, in_dtors
+#define EXTRA_SECTIONS	in_link, in_rdata, in_literals
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS					\
@@ -279,31 +305,11 @@ literals_section ()						\
       fprintf (asm_out_file, "%s\n", LITERALS_SECTION_ASM_OP); 	\
       in_section = in_literals;					\
     }								\
-}								\
-void								\
-ctors_section ()						\
-{								\
-  if (in_section != in_ctors)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);	\
-      in_section = in_ctors;					\
-    }								\
-}								\
-void								\
-dtors_section ()						\
-{								\
-  if (in_section != in_dtors)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);	\
-      in_section = in_dtors;					\
-    }								\
 }
 
 extern void readonly_section	PARAMS ((void));
 extern void link_section	PARAMS ((void));
 extern void literals_section	PARAMS ((void));
-extern void ctors_section	PARAMS ((void));
-extern void dtors_section	PARAMS ((void));
 
 #undef ASM_OUTPUT_ADDR_DIFF_ELT
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) abort ()
@@ -345,8 +351,7 @@ do {									\
    The trampoline should set the static chain pointer to value placed
    into the trampoline and should branch to the specified routine.  
    Note that $27 has been set to the address of the trampoline, so we can
-   use it for addressability of the two data items.  Trampolines are always
-   aligned to FUNCTION_BOUNDARY, which is 64 bits.  */
+   use it for addressability of the two data items.  */
 
 #undef TRAMPOLINE_TEMPLATE
 #define TRAMPOLINE_TEMPLATE(FILE)		\
@@ -361,6 +366,11 @@ do {									\
 #undef TRAMPOLINE_SIZE
 #define TRAMPOLINE_SIZE    32
 
+/* The alignment of a trampoline, in bits.  */
+
+#undef TRAMPOLINE_ALIGNMENT
+#define TRAMPOLINE_ALIGNMENT  64
+
 /* Emit RTL insns to initialize the variable parts of a trampoline.
    FNADDR is an RTX for the address of the function's pure code.
    CXT is an RTX for the static chain value for the function.  */
@@ -369,31 +379,16 @@ do {									\
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT) \
   alpha_initialize_trampoline (TRAMP, FNADDR, CXT, 16, 24, -1)
 
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)		\
-  do {							\
-    ctors_section ();					\
-    fprintf (FILE, "\t.quad "); 			\
-    assemble_name (FILE, NAME); 			\
-    fprintf (FILE, "\n");				\
-  } while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.	*/
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)		\
-  do {							\
-    dtors_section ();					\
-    fprintf (FILE, "\t.quad "); 			\
-    assemble_name (FILE, NAME); 			\
-    fprintf (FILE, "\n");				\
-  } while (0)
+/* Control how constructors and destructors are emitted.  */
+#define TARGET_ASM_CONSTRUCTOR  vms_asm_out_constructor
+#define TARGET_ASM_DESTRUCTOR   vms_asm_out_destructor
 
 #undef SDB_DEBUGGING_INFO
 #undef MIPS_DEBUGGING_INFO
 #undef DBX_DEBUGGING_INFO
 
 #define DWARF2_DEBUGGING_INFO
+#define VMS_DEBUGGING_INFO
 
 /* This is how to output an assembler line
    that says to advance the location counter
@@ -403,30 +398,8 @@ do {									\
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
     fprintf (FILE, "\t.align %d\n", LOG);
 
-#define ASM_OUTPUT_SECTION(FILE,SECTION)			\
-   (strcmp (SECTION, ".text") == 0)				\
-     ? text_section ()						\
-     : named_section (NULL_TREE, SECTION, 0),			\
-       ASM_OUTPUT_ALIGN (FILE, 0)				\
-
-#define ASM_OUTPUT_SECTION_NAME(FILE,DECL,NAME,RELOC)		\
-  do								\
-    {								\
-      const char *flags;				 	\
-      int ovr = 0;						\
-      if (DECL && DECL_MACHINE_ATTRIBUTES (DECL)		\
-	  && lookup_attribute					\
-	      ("overlaid", DECL_MACHINE_ATTRIBUTES (DECL)))	\
-	flags = ",OVR", ovr = 1;				\
-      else if (strncmp (NAME,".debug", 6) == 0)			\
-	flags = ",NOWRT";					\
-      else							\
-	flags = "";						\
-      fputc ('\n', (FILE));					\
-      fprintf (FILE, ".section\t%s%s\n", NAME, flags);		\
-      if (ovr)							\
-        (NAME) = "";						\
-    } while (0)
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION vms_asm_named_section
 
 #define ASM_OUTPUT_DEF(FILE,LABEL1,LABEL2)				\
   do {	literals_section();                                             \
@@ -438,7 +411,7 @@ do {									\
   } while (0)
 
 #undef PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
+#define PREFERRED_DEBUGGING_TYPE VMS_AND_DWARF2_DEBUG
 
 #undef ASM_FORMAT_PRIVATE_NAME
 #define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
@@ -450,10 +423,38 @@ do {									\
 
 #undef ASM_SPEC
 #undef ASM_FINAL_SPEC
+
+/* The VMS convention is to always provide minimal debug info
+   for a traceback unless specifically overridden.  Defaulting this here
+   is a kludge.  */
+
+#define OPTIMIZATION_OPTIONS(OPTIMIZE, OPTIMIZE_SIZE) \
+{                                                  \
+   write_symbols = VMS_DEBUG;                      \
+   debug_info_level = (enum debug_info_level) 1;   \
+}
+
+/* Override traceback debug info on -g0.  */
+#undef OVERRIDE_OPTIONS
+#define OVERRIDE_OPTIONS                           \
+{                                                  \
+   if (write_symbols == NO_DEBUG)                  \
+     debug_info_level = (enum debug_info_level) 0; \
+   override_options ();                            \
+}
+
+/* Link with vms-dwarf2.o if -g (except -g0). This causes the
+   VMS link to pull all the dwarf2 debug sections together. */
 #undef LINK_SPEC
+#define LINK_SPEC "%{g:-g vms-dwarf2.o%s} %{g0} %{g1:-g1 vms-dwarf2.o%s} \
+%{g2:-g2 vms-dwarf2.o%s} %{g3:-g3 vms-dwarf2.o%s} %{shared} %{v} %{map}"
+
 #undef STARTFILE_SPEC
-#define ASM_SPEC "-nocpp %{pg}"
-#define LINK_SPEC "%{g3:-g3} %{g0:-g0} %{shared:-shared} %{v:-v}"
+#define STARTFILE_SPEC "%{!shared:%{mvms-return-codes:vcrt0.o%s} \
+%{!mvms-return-codes:pcrt0.o%s}}"
+
+#undef LIB_SPEC
+#define LIB_SPEC "-lc"
 
 /* Define the names of the division and modulus functions.  */
 #define DIVSI3_LIBCALL "OTS$DIV_I"
@@ -465,9 +466,8 @@ do {									\
 #define UMODSI3_LIBCALL "OTS$REM_UI"
 #define UMODDI3_LIBCALL "OTS$REM_UL"
 
-#define DIR_SEPARATOR ']'
-
-#define PREFIX "GNU_ROOT:"
+/* crt0 calls __main */
+#define HAS_INIT_SECTION
 
 /* XXX Really? Even with modern CRTL? */
 #define NEED_ATEXIT

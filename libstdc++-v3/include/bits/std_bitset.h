@@ -40,8 +40,13 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */ 
 
-#ifndef __SGI_STL_BITSET
-#define __SGI_STL_BITSET
+/** @file std_bitset.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
+#ifndef __GLIBCPP_BITSET
+#define __GLIBCPP_BITSET
 
 #pragma GCC system_header
 
@@ -55,18 +60,13 @@
 // individual bits.  This allows us to specialize _Base_bitset for the
 // important special case where the bitset is only a single word.
 
-// The C++ standard does not define the precise semantics of operator[].
-// In this implementation the const version of operator[] is equivalent
-// to test(), except that it does no range checking.  The non-const version
-// returns a reference to a bit, again without doing any range checking.
-
 
 #include <bits/std_cstddef.h>     // for size_t
 #include <bits/std_cstring.h>     // for memset
 #include <bits/std_string.h>
-#include <bits/std_stdexcept.h>   // for invalid_argument, out_of_range, 
-				  // overflow_error
-
+#include <bits/std_stdexcept.h>
+#include <bits/functexcept.h>   // for invalid_argument, out_of_range, 
+			         // overflow_error
 #include <bits/std_ostream.h>     // for ostream (operator<<)
 #include <bits/std_istream.h>     // for istream (operator>>)
 
@@ -249,7 +249,7 @@ unsigned long _Base_bitset<_Nw>::_M_do_to_ulong() const
 {
   for (size_t __i = 1; __i < _Nw; ++__i) 
     if (_M_w[__i]) 
-      __STL_THROW(overflow_error("bitset"));
+      __throw_overflow_error("bitset");
   
   return _M_w[0];
 }
@@ -495,7 +495,7 @@ public:
     : _Base() 
   {
     if (__pos > __s.size()) 
-      __STL_THROW(out_of_range("bitset"));
+      __throw_out_of_range("bitset");
     _M_copy_from_string(__s, __pos,
                         basic_string<_CharT, _Traits, _Alloc>::npos);
   }
@@ -506,7 +506,7 @@ public:
     : _Base() 
   {
     if (__pos > __s.size()) 
-      __STL_THROW(out_of_range("bitset"));
+      __throw_out_of_range("bitset");
     _M_copy_from_string(__s, __pos, __n);
   }
 
@@ -582,7 +582,7 @@ public:
 
   bitset<_Nb>& set(size_t __pos, bool __val = true) {
     if (__pos >= _Nb)
-      __STL_THROW(out_of_range("bitset"));
+      __throw_out_of_range("bitset");
 
     return _Unchecked_set(__pos, __val);
   }
@@ -594,7 +594,7 @@ public:
 
   bitset<_Nb>& reset(size_t __pos) {
     if (__pos >= _Nb)
-      __STL_THROW(out_of_range("bitset"));
+      __throw_out_of_range("bitset");
 
     return _Unchecked_reset(__pos);
   }
@@ -607,7 +607,7 @@ public:
 
   bitset<_Nb>& flip(size_t __pos) {
     if (__pos >= _Nb)
-      __STL_THROW(out_of_range("bitset"));
+      __throw_out_of_range("bitset");
 
     return _Unchecked_flip(__pos);
   }
@@ -618,6 +618,9 @@ public:
 
   // element access:
   //for b[i];
+  // _GLIBCPP_RESOLVE_LIB_DEFECTS Note that this implementation already
+  // resolves DR 11 (items 1 and 2), but does not do the range-checking
+  // required by that DR's resolution.  -pme
   reference operator[](size_t __pos) { return reference(*this,__pos); }
   bool operator[](size_t __pos) const { return _Unchecked_test(__pos); }
 
@@ -652,7 +655,7 @@ public:
 
   bool test(size_t __pos) const {
     if (__pos >= _Nb)
-      __STL_THROW(out_of_range("bitset"));
+      __throw_out_of_range("bitset");
 
     return _Unchecked_test(__pos);
   }
@@ -702,7 +705,7 @@ void bitset<_Nb>
       set(__i);
       break;
     default:
-      __STL_THROW(invalid_argument("bitset"));
+      __throw_invalid_argument("bitset");
     }
   }
 }
@@ -802,7 +805,7 @@ operator<<(basic_ostream<_CharT, _Traits>& __os, const bitset<_Nb>& __x)
 
 #undef __BITSET_WORDS
 
-#endif /* __SGI_STL_BITSET */
+#endif /* __GLIBCPP_BITSET */
 
 
 // Local Variables:

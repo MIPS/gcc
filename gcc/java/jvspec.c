@@ -1,4 +1,4 @@
- /* Specific flags and argument handling of the front-end of the 
+/* Specific flags and argument handling of the front-end of the 
    GNU compiler for the Java(TM) language.
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
@@ -42,6 +42,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #define ZIP_FILE_ARG	(1<<5)
 /* True if this arg is @FILE - where FILE contains a list of filenames. */
 #define INDIRECT_FILE_ARG (1<<6)
+/* True if this arg is a resource file.  */
+#define RESOURCE_FILE_ARG (1<<7)
 
 static char *find_spec_file	PARAMS ((const char *));
 
@@ -52,15 +54,17 @@ int lang_specific_extra_outfiles = 0;
 int shared_libgcc = 1;
 
 const char jvgenmain_spec[] =
-  "jvgenmain %{D*} %i %{!pipe:%umain.i} |\n\
-   cc1 %{!pipe:%Umain.i} %1 \
+  "jvgenmain %{D*} %b %{!pipe:%u.i} |\n\
+   cc1 %{!pipe:%U.i} %1 \
 		   %{!Q:-quiet} -dumpbase %b.c %{d*} %{m*} %{a*}\
 		   %{g*} %{O*} \
 		   %{v:-version} %{pg:-p} %{p}\
 		   %{<fbounds-check} %{<fno-bounds-check}\
 		   %{<fassume-compiled} %{<fno-assume-compiled}\
+                   %{<fcompile-resource*}\
 		   %{<femit-class-file} %{<femit-class-files} %{<fencoding*}\
 		   %{<fuse-boehm-gc} %{<fhash-synchronization} %{<fjni}\
+		   %{<findirect-dispatch} \
 		   %{<fclasspath*} %{<fCLASSPATH*} %{<foutput-class-dir}\
 		   %{<fuse-divide-subroutine} %{<fno-use-divide-subroutine}\
 		   %{<fcheck-references} %{<fno-check-references}\
@@ -68,8 +72,8 @@ const char jvgenmain_spec[] =
 		   %{f*} -fdollars-in-identifiers\
 		   %{aux-info*}\
 		   %{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
-		   %{S:%W{o*}%{!o*:-o %b.s}}%{!S:-o %{|!pipe:%Umain.s}} |\n\
-              %{!S:as %a %Y -o %d%w%umain%O %{!pipe:%Umain.s} %A\n }";
+		   %{S:%W{o*}%{!o*:-o %b.s}}%{!S:-o %{|!pipe:%g.s}} |\n\
+              %{!S:as %a %Y -o %d%w%u%O %{!pipe:%g.s} %A\n }";
 
 /* Return full path name of spec file if it is in DIR, or NULL if
    not.  */
@@ -164,7 +168,8 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
   int saw_libgcj ATTRIBUTE_UNUSED = 0;
 #endif
 
-  /* Saw -C or -o option, respectively. */
+  /* Saw -R, -C or -o options, respectively. */
+  int saw_R = 0;
   int saw_C = 0;
   int saw_o = 0;
 
@@ -256,6 +261,16 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	      library = 0;
 	      will_link = 0;
 	    }
+	  else if (strcmp (argv[i], "-R") == 0)
+	    {
+	      saw_R = 1;
+	      quote = argv[i];
+	      want_spec_file = 0;
+	      if (library != 0)
+		added -= 2;
+	      library = 0;
+	      will_link = 0;
+	    }
 	  else if (argv[i][1] == 'D')
 	    saw_D = 1;
 	  else if (argv[i][1] == 'g')
@@ -324,6 +339,13 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	      continue;
 	    }
 
+	  if (saw_R)
+	    {
+	      args[i] |= RESOURCE_FILE_ARG;
+	      last_input_index = i;
+	      added += 2;  /* for -xjava and -xnone */
+	    }
+
 	  if (argv[i][0] == '@')
 	    {
 	      args[i] |= INDIRECT_FILE_ARG;
@@ -362,12 +384,17 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
     fatal ("can't specify `-D' without `--main'\n");
 
   num_args = argc + added;
+  if (saw_R)
+    {
+      if (! saw_o)
+	fatal ("-R requires -o");
+    }
   if (saw_C)
     {
       num_args += 3;
       if (class_files_count + zip_files_count > 0)
 	{
-	  error ("Warning: already-compiled .class files ignored with -C"); 
+	  error ("warning: already-compiled .class files ignored with -C"); 
 	  num_args -= class_files_count + zip_files_count;
 	  class_files_count = 0;
 	  zip_files_count = 0;
@@ -433,6 +460,22 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 
       if ((args[i] & PARAM_ARG) || i == 0)
 	continue;
+
+      if ((args[i] & RESOURCE_FILE_ARG) != 0)
+	{
+	  arglist[j++] = "-xjava";
+	  arglist[j++] = argv[i];
+	  arglist[j] = "-xnone";
+	}
+
+      if (strcmp (argv[i], "-R") == 0)
+	{
+	  arglist[j] = concat ("-fcompile-resource=",
+			       *argv[i+1] == '/' ? "" : "/",
+			       argv[i+1], NULL);
+	  i++;
+	  continue;
+	}
 
       if (strcmp (argv[i], "-classpath") == 0
 	  || strcmp (argv[i], "-CLASSPATH") == 0)
@@ -529,8 +572,14 @@ lang_specific_pre_link ()
   int err;
   if (main_class_name == NULL)
     return 0;
-  input_filename = main_class_name;
-  input_filename_length = strlen (main_class_name);
+  /* Append `main' to make the filename unique and allow
+
+	gcj --main=hello -save-temps hello.java
+
+     to work.  jvgenmain needs to strip this `main' to arrive at the correct
+     class name.  Append dummy `.c' that can be stripped by set_input so %b
+     is correct.  */ 
+  set_input (concat (main_class_name, "main.c", NULL));
   err = do_spec (jvgenmain_spec);
   if (err == 0)
     {

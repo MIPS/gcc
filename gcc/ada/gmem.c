@@ -4,7 +4,7 @@
  *                                                                          *
  *                                 G M E M                                  *
  *                                                                          *
- *                             $Revision$
+ *                             $Revision: 1.3 $
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *

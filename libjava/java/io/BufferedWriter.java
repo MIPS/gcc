@@ -1,5 +1,5 @@
 /* BufferedWriter.java -- Buffer output into large blocks before writing
-   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -160,9 +160,6 @@ public class BufferedWriter extends Writer
    */
   public void write (char[] buf, int offset, int len) throws IOException
   {
-    if (offset < 0 || len < 0 || offset + len > buf.length)
-      throw new ArrayIndexOutOfBoundsException ();
-
     synchronized (lock)
       {
 	if (buffer == null)
@@ -199,9 +196,6 @@ public class BufferedWriter extends Writer
    */
   public void write (String str, int offset, int len) throws IOException
   {
-    if (offset < 0 || len < 0 || offset + len < str.length())
-      throw new ArrayIndexOutOfBoundsException ();
-
     synchronized (lock)
       {
 	if (buffer == null)
@@ -222,15 +216,13 @@ public class BufferedWriter extends Writer
       }
   }
 
+  // This should only be called with the lock held.
   private final void localFlush () throws IOException
   {
     if (count > 0)
       {
-	synchronized (lock)
-	  {
-	    out.write(buffer, 0, count);
-	    count = 0;
-	  }
+	out.write(buffer, 0, count);
+	count = 0;
       }
   }
 

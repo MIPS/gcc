@@ -2,12 +2,12 @@
 /* Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@cygnus.com>.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
 In addition to the permissions in the GNU General Public License, the
 Free Software Foundation gives you unlimited permission to link the
@@ -18,23 +18,26 @@ do apply in other respects; for example, they cover modification of
 the file, and distribution when not linked into a combine
 executable.)
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
+#ifndef _Unwind_Find_FDE
 #include "tconfig.h"
 #include "tsystem.h"
 #include "dwarf2.h"
 #include "unwind.h"
+#define NO_BASE_OF_ENCODED_VALUE
 #include "unwind-pe.h"
 #include "unwind-dw2-fde.h"
 #include "gthr.h"
+#endif
 
 /* The unseen_objects list contains objects that have been registered
    but not yet categorized in any way.  The seen_objects list has had
@@ -72,6 +75,10 @@ void
 __register_frame_info_bases (void *begin, struct object *ob,
 			     void *tbase, void *dbase)
 {
+  /* If .eh_frame is empty, don't register at all.  */
+  if (*(uword *)begin == 0)
+    return;
+
   ob->pc_begin = (void *)-1;
   ob->tbase = tbase;
   ob->dbase = dbase;
@@ -97,7 +104,13 @@ __register_frame_info (void *begin, struct object *ob)
 void
 __register_frame (void *begin)
 {
-  struct object *ob = (struct object *) malloc (sizeof (struct object));
+  struct object *ob;
+
+  /* If .eh_frame is empty, don't register at all.  */
+  if (*(uword *)begin == 0)
+    return;
+
+  ob = (struct object *) malloc (sizeof (struct object));
   __register_frame_info (begin, ob);                       
 }
 
@@ -157,6 +170,10 @@ __deregister_frame_info_bases (void *begin)
   struct object **p;
   struct object *ob = 0;
 
+  /* If .eh_frame is empty, we haven't registered.  */
+  if (*(uword *)begin == 0)
+    return ob;
+
   init_object_mutex_once ();
   __gthread_mutex_lock (&object_mutex);
 
@@ -206,7 +223,9 @@ __deregister_frame_info (void *begin)
 void
 __deregister_frame (void *begin)
 {
-  free (__deregister_frame_info (begin));
+  /* If .eh_frame is empty, we haven't registered.  */
+  if (*(uword *)begin != 0)
+    free (__deregister_frame_info (begin));
 }
 
 
@@ -242,18 +261,20 @@ get_cie_encoding (struct dwarf_cie *cie)
 {
   const unsigned char *aug, *p;
   _Unwind_Ptr dummy;
+  _Unwind_Word utmp;
+  _Unwind_Sword stmp;
 
   aug = cie->augmentation;
   if (aug[0] != 'z')
     return DW_EH_PE_absptr;
 
   p = aug + strlen (aug) + 1;		/* Skip the augmentation string.  */
-  p = read_uleb128 (p, &dummy);		/* Skip code alignment.  */
-  p = read_sleb128 (p, &dummy);		/* Skip data alignment.  */
+  p = read_uleb128 (p, &utmp);		/* Skip code alignment.  */
+  p = read_sleb128 (p, &stmp);		/* Skip data alignment.  */
   p++;					/* Skip return address column.  */
 
   aug++;				/* Skip 'z' */
-  p = read_uleb128 (p, &dummy);		/* Skip augmentation length.  */
+  p = read_uleb128 (p, &utmp);		/* Skip augmentation length.  */
   while (1)
     {
       /* This is what we're looking for.  */
@@ -290,14 +311,21 @@ get_fde_encoding (struct dwarf_fde *f)
 
 /* Comparison routines.  Three variants of increasing complexity.  */
 
-static saddr
+static int
 fde_unencoded_compare (struct object *ob __attribute__((unused)),
 		       fde *x, fde *y)
 {
-  return *(saddr *)x->pc_begin - *(saddr *)y->pc_begin;
+  _Unwind_Ptr x_ptr = *(_Unwind_Ptr *) x->pc_begin;
+  _Unwind_Ptr y_ptr = *(_Unwind_Ptr *) y->pc_begin;
+
+  if (x_ptr > y_ptr)
+    return 1;
+  if (x_ptr < y_ptr)
+    return -1;
+  return 0;
 }
 
-static saddr
+static int
 fde_single_encoding_compare (struct object *ob, fde *x, fde *y)
 {
   _Unwind_Ptr base, x_ptr, y_ptr;
@@ -306,10 +334,14 @@ fde_single_encoding_compare (struct object *ob, fde *x, fde *y)
   read_encoded_value_with_base (ob->s.b.encoding, base, x->pc_begin, &x_ptr);
   read_encoded_value_with_base (ob->s.b.encoding, base, y->pc_begin, &y_ptr);
 
-  return x_ptr - y_ptr;
+  if (x_ptr > y_ptr)
+    return 1;
+  if (x_ptr < y_ptr)
+    return -1;
+  return 0;
 }
 
-static saddr
+static int
 fde_mixed_encoding_compare (struct object *ob, fde *x, fde *y)
 {
   int x_encoding, y_encoding;
@@ -323,10 +355,14 @@ fde_mixed_encoding_compare (struct object *ob, fde *x, fde *y)
   read_encoded_value_with_base (y_encoding, base_from_object (y_encoding, ob),
 				y->pc_begin, &y_ptr);
 
-  return x_ptr - y_ptr;
+  if (x_ptr > y_ptr)
+    return 1;
+  if (x_ptr < y_ptr)
+    return -1;
+  return 0;
 }
 
-typedef saddr (*fde_compare_t) (struct object *, fde *, fde *);
+typedef int (*fde_compare_t) (struct object *, fde *, fde *);
 
 
 /* This is a special mix of insertion sort and heap sort, optimized for
@@ -435,11 +471,11 @@ frame_heapsort (struct object *ob, fde_compare_t fde_compare,
 {
   /* For a description of this algorithm, see:
      Samuel P. Harbison, Guy L. Steele Jr.: C, a reference manual, 2nd ed.,
-     p. 60-61. */
+     p. 60-61.  */
   fde ** a = erratic->array;
   /* A portion of the array is called a "heap" if for all i>=0:
      If i and 2i+1 are valid indices, then a[i] >= a[2i+1].
-     If i and 2i+2 are valid indices, then a[i] >= a[2i+2]. */
+     If i and 2i+2 are valid indices, then a[i] >= a[2i+2].  */
 #define SWAP(x,y) do { fde * tmp = x; x = y; y = tmp; } while (0)
   size_t n = erratic->count;
   size_t m = n;
@@ -447,7 +483,7 @@ frame_heapsort (struct object *ob, fde_compare_t fde_compare,
 
   while (m > 0)
     {
-      /* Invariant: a[m..n-1] is a heap. */
+      /* Invariant: a[m..n-1] is a heap.  */
       m--;
       for (i = m; 2*i+1 < n; )
         {
@@ -469,7 +505,7 @@ frame_heapsort (struct object *ob, fde_compare_t fde_compare,
     }
   while (n > 1)
     {
-      /* Invariant: a[0..n-1] is a heap. */
+      /* Invariant: a[0..n-1] is a heap.  */
       n--;
       SWAP (a[0], a[n]);
       for (i = 0; 2*i+1 < n; )
@@ -493,7 +529,7 @@ frame_heapsort (struct object *ob, fde_compare_t fde_compare,
 #undef SWAP
 }
 
-/* Merge V1 and V2, both sorted, and put the result into V1. */
+/* Merge V1 and V2, both sorted, and put the result into V1.  */
 static inline void
 fde_merge (struct object *ob, fde_compare_t fde_compare,
 	   struct fde_vector *v1, struct fde_vector *v2)
@@ -939,7 +975,7 @@ _Unwind_Find_FDE (void *pc, struct dwarf_eh_bases *bases)
   __gthread_mutex_lock (&object_mutex);
 
   /* Linear search through the classified objects, to find the one
-     containing the pc.  Note that pc_begin is sorted decending, and
+     containing the pc.  Note that pc_begin is sorted descending, and
      we expect objects to be non-overlapping.  */
   for (ob = seen_objects; ob; ob = ob->next)
     if (pc >= ob->pc_begin)

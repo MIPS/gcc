@@ -6,22 +6,22 @@
    Free Software Foundation, Inc.
    Contributed by Michael Meissner (meissner@cygnus.com).
    
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 /* Here is a brief description of the MIPS ECOFF symbol table.  The
@@ -681,7 +681,7 @@ main ()
 #endif
 
 #define IS_ASM_IDENT(ch) \
-  (ISALNUM (ch) || (ch) == '_' || (ch) == '.' || (ch) == '$')
+  (ISIDNUM (ch) || (ch) == '.' || (ch) == '$')
 
 
 /* Redefinition of storage classes as an enumeration for better
@@ -1778,10 +1778,10 @@ hash_string (text, hash_len, hash_tbl, ret_hash_index)
      shash_t **hash_tbl;		/* hash table */
      symint_t *ret_hash_index;		/* ptr to store hash index */
 {
-  register unsigned long hi;
-  register Ptrdiff_t i;
-  register shash_t *ptr;
-  register int first_ch = *text;
+  unsigned long hi;
+  Ptrdiff_t i;
+  shash_t *ptr;
+  int first_ch = *text;
 
   hi = hash_len;
   for (i = 0; i < hash_len; i++)
@@ -1815,17 +1815,17 @@ add_string (vp, hash_tbl, start, end_p1, ret_hash)
      const char *end_p1;		/* 1st byte after string */
      shash_t **ret_hash;		/* return hash pointer */
 {
-  register Ptrdiff_t len = end_p1 - start;
-  register shash_t *hash_ptr;
+  Ptrdiff_t len = end_p1 - start;
+  shash_t *hash_ptr;
   symint_t hi;
 
   if (len >= (Ptrdiff_t) PAGE_USIZE)
-    fatal ("String too big (%ld bytes)", (long) len);
+    fatal ("string too big (%ld bytes)", (long) len);
 
   hash_ptr = hash_string (start, len, hash_tbl, &hi);
   if (hash_ptr == (shash_t *) 0)
     {
-      register char *p;
+      char *p;
 
       if (vp->objects_last_page + len >= (long) PAGE_USIZE)
 	{
@@ -1869,14 +1869,14 @@ add_local_symbol (str_start, str_end_p1, type, storage, value, indx)
      symint_t value;			/* value of symbol */
      symint_t indx;			/* index to local/aux. syms */
 {
-  register symint_t ret;
-  register SYMR *psym;
-  register scope_t *pscope;
-  register thead_t *ptag_head;
-  register tag_t *ptag;
-  register tag_t *ptag_next;
-  register varray_t *vp = &cur_file_ptr->symbols;
-  register int scope_delta = 0;
+  symint_t ret;
+  SYMR *psym;
+  scope_t *pscope;
+  thead_t *ptag_head;
+  tag_t *ptag;
+  tag_t *ptag_next;
+  varray_t *vp = &cur_file_ptr->symbols;
+  int scope_delta = 0;
   shash_t *hash_ptr = (shash_t *) 0;
 
   if (vp->objects_last_page == vp->objects_per_page)
@@ -2045,8 +2045,8 @@ add_ext_symbol (esym, ifd)
 {
   const char *str_start;		/* first byte in string */
   const char *str_end_p1;		/* first byte after string */
-  register EXTR *psym;
-  register varray_t *vp = &ext_symbols;
+  EXTR *psym;
+  varray_t *vp = &ext_symbols;
   shash_t *hash_ptr = (shash_t *) 0;
 
   str_start = ORIG_ESTRS (esym->asym.iss);
@@ -2096,9 +2096,9 @@ STATIC symint_t
 add_aux_sym_symint (aux_word)
      symint_t aux_word;		/* auxiliary information word */
 {
-  register AUXU *aux_ptr;
-  register efdr_t *file_ptr = cur_file_ptr;
-  register varray_t *vp = &file_ptr->aux_syms;
+  AUXU *aux_ptr;
+  efdr_t *file_ptr = cur_file_ptr;
+  varray_t *vp = &file_ptr->aux_syms;
 
   if (vp->objects_last_page == vp->objects_per_page)
     add_varray_page (vp);
@@ -2117,9 +2117,9 @@ add_aux_sym_rndx (file_index, sym_index)
      int file_index;
      symint_t sym_index;
 {
-  register AUXU *aux_ptr;
-  register efdr_t *file_ptr = cur_file_ptr;
-  register varray_t *vp = &file_ptr->aux_syms;
+  AUXU *aux_ptr;
+  efdr_t *file_ptr = cur_file_ptr;
+  varray_t *vp = &file_ptr->aux_syms;
 
   if (vp->objects_last_page == vp->objects_per_page)
     add_varray_page (vp);
@@ -2141,9 +2141,9 @@ add_aux_sym_tir (t, state, hash_tbl)
      hash_state_t state;	/* whether to hash type or not */
      thash_t **hash_tbl;	/* pointer to hash table to use */
 {
-  register AUXU *aux_ptr;
-  register efdr_t *file_ptr = cur_file_ptr;
-  register varray_t *vp = &file_ptr->aux_syms;
+  AUXU *aux_ptr;
+  efdr_t *file_ptr = cur_file_ptr;
+  varray_t *vp = &file_ptr->aux_syms;
   static AUXU init_aux;
   symint_t ret;
   int i;
@@ -2186,8 +2186,8 @@ add_aux_sym_tir (t, state, hash_tbl)
 
   if (state != hash_no)
     {
-      register thash_t *hash_ptr;
-      register symint_t hi;
+      thash_t *hash_ptr;
+      symint_t hi;
 
       hi = aux.isym & ((1 << HASHBITS) - 1);
       hi %= THASH_SIZE;
@@ -2243,8 +2243,8 @@ add_aux_sym_tir (t, state, hash_tbl)
       || t->basic_type == bt_Union
       || t->basic_type == bt_Enum)
     {
-      register symint_t file_index = t->tag_ptr->ifd;
-      register symint_t sym_index  = t->tag_ptr->indx;
+      symint_t file_index = t->tag_ptr->ifd;
+      symint_t sym_index  = t->tag_ptr->indx;
 
       if (t->unknown_tag)
 	{
@@ -2258,7 +2258,7 @@ add_aux_sym_tir (t, state, hash_tbl)
 	}
       else
 	{
-	  register forward_t *forward_ref = allocate_forward ();
+	  forward_t *forward_ref = allocate_forward ();
 
 	  forward_ref->type_ptr = aux_ptr;
 	  forward_ref->next = t->tag_ptr->forward_ref;
@@ -2414,15 +2414,15 @@ add_procedure (func_start, func_end_p1)
      const char *func_start;		/* 1st byte of func name */
      const char *func_end_p1;		/* 1st byte after func name */
 {
-  register PDR *new_proc_ptr;
-  register efdr_t *file_ptr = cur_file_ptr;
-  register varray_t *vp = &file_ptr->procs;
-  register symint_t value = 0;
-  register st_t proc_type = st_Proc;
-  register shash_t *shash_ptr = hash_string (func_start,
-					    func_end_p1 - func_start,
-					    &orig_str_hash[0],
-					    (symint_t *) 0);
+  PDR *new_proc_ptr;
+  efdr_t *file_ptr = cur_file_ptr;
+  varray_t *vp = &file_ptr->procs;
+  symint_t value = 0;
+  st_t proc_type = st_Proc;
+  shash_t *shash_ptr = hash_string (func_start,
+				    func_end_p1 - func_start,
+				    &orig_str_hash[0],
+				    (symint_t *) 0);
 
   if (debug)
     fputc ('\n', stderr);
@@ -2439,8 +2439,8 @@ add_procedure (func_start, func_end_p1)
   cur_oproc_ptr = (PDR *) 0;
   if (shash_ptr != (shash_t *) 0)
     {
-      register PDR *old_proc_ptr = shash_ptr->proc_ptr;
-      register SYMR *sym_ptr = shash_ptr->sym_ptr;
+      PDR *old_proc_ptr = shash_ptr->proc_ptr;
+      SYMR *sym_ptr = shash_ptr->sym_ptr;
 
       if (old_proc_ptr != (PDR *) 0
 	  && sym_ptr != (SYMR *) 0
@@ -2457,7 +2457,7 @@ add_procedure (func_start, func_end_p1)
     }
 
   if (cur_oproc_ptr == (PDR *) 0)
-    error ("Did not find a PDR block for %.*s",
+    error ("did not find a PDR block for %.*s",
 	   (int) (func_end_p1 - func_start), func_start);
 
   /* Determine the start of symbols.  */
@@ -2482,9 +2482,9 @@ add_file (file_start, file_end_p1)
 {
   static char zero_bytes[2] = { '\0', '\0' };
 
-  register Ptrdiff_t len = file_end_p1 - file_start;
-  register int first_ch = *file_start;
-  register efdr_t *file_ptr;
+  Ptrdiff_t len = file_end_p1 - file_start;
+  int first_ch = *file_start;
+  efdr_t *file_ptr;
 
   if (debug)
     fprintf (stderr, "\tfile\t%.*s\n", (int) len, file_start);
@@ -2526,7 +2526,7 @@ add_file (file_start, file_end_p1)
 		  (shash_t **) 0);
 
       if (file_end_p1 - file_start > (long) PAGE_USIZE-2)
-	fatal ("Filename goes over one page boundary.");
+	fatal ("filename goes over one page boundary");
 
       /* Push the start of the filename. We assume that the filename
          will be stored at string offset 1.  */
@@ -2561,9 +2561,9 @@ add_bytes (vp, input_ptr, nitems)
      char *input_ptr;			/* start of the bytes */
      Size_t nitems;			/* # items to move */
 {
-  register Size_t move_items;
-  register Size_t move_bytes;
-  register char *ptr;
+  Size_t move_items;
+  Size_t move_bytes;
+  char *ptr;
 
   while (nitems > 0)
     {
@@ -2673,10 +2673,10 @@ STATIC char *
 read_line ()
 {
   static   int line_split_p	= 0;
-  register int string_p		= 0;
-  register int comment_p	= 0;
-  register int ch;
-  register char *ptr;
+  int string_p		= 0;
+  int comment_p	= 0;
+  int ch;
+  char *ptr;
 
   if (cur_line_start == (char *) 0)
     {				/* allocate initial page */
@@ -2694,8 +2694,8 @@ read_line ()
     {
       if (++cur_line_nbytes >= cur_line_alloc-1)
 	{
-	  register int num_pages = cur_line_alloc / PAGE_SIZE;
-	  register char *old_buffer = cur_line_start;
+	  int num_pages = cur_line_alloc / PAGE_SIZE;
+	  char *old_buffer = cur_line_start;
 
 	  cur_line_alloc += PAGE_SIZE;
 	  cur_line_start = (char *) allocate_multiple_pages (num_pages+1);
@@ -2713,7 +2713,7 @@ read_line ()
 	}
 
       else if (ch == '\0')
-	error ("Null character found in input");
+	error ("null character found in input");
 
       else if (!comment_p)
 	{
@@ -2775,14 +2775,14 @@ parse_begin (start)
 
   if (hash_ptr == (shash_t *) 0)
     {
-      error ("Label %.*s not found for #.begin",
+      error ("label %.*s not found for #.begin",
 	     (int) (end_p1 - start), start);
       return;
     }
 
   if (cur_oproc_begin == (SYMR *) 0)
     {
-      error ("Procedure table %.*s not found for #.begin",
+      error ("procedure table %.*s not found for #.begin",
 	     (int) (end_p1 - start), start);
       return;
     }
@@ -2827,13 +2827,13 @@ parse_bend (start)
 
   if (hash_ptr == (shash_t *) 0)
     {
-      error ("Label %.*s not found for #.bend", (int) (end_p1 - start), start);
+      error ("label %.*s not found for #.bend", (int) (end_p1 - start), start);
       return;
     }
 
   if (cur_oproc_begin == (SYMR *) 0)
     {
-      error ("Procedure table %.*s not found for #.bend",
+      error ("procedure table %.*s not found for #.bend",
 	     (int) (end_p1 - start), start);
       return;
     }
@@ -3289,7 +3289,7 @@ parse_def (name_start)
 	{
 	  if (tag_start == (char *) 0)
 	    {
-	      error ("No tag specified for %.*s",
+	      error ("no tag specified for %.*s",
 		     (int) (name_end_p1 - name_start),
 		     name_start);
 	      return;
@@ -3435,10 +3435,10 @@ STATIC void
 parse_end (start)
      const char *start;			/* start of directive */
 {
-  register const char *start_func, *end_func_p1;
-  register int ch;
-  register symint_t value;
-  register FDR *orig_fdr;
+  const char *start_func, *end_func_p1;
+  int ch;
+  symint_t value;
+  FDR *orig_fdr;
 
   if (cur_file_ptr == (efdr_t *) 0)
     {
@@ -3480,7 +3480,7 @@ parse_end (start)
     value = cur_oproc_end->value;
 
   else
-    error ("Cannot find .end block for %.*s",
+    error ("cannot find .end block for %.*s",
 	   (int) (end_func_p1 - start_func), start_func);
 
   (void) add_local_symbol (start_func, end_func_p1,
@@ -3498,8 +3498,8 @@ STATIC void
 parse_ent (start)
      const char *start;			/* start of directive */
 {
-  register const char *start_func, *end_func_p1;
-  register int ch;
+  const char *start_func, *end_func_p1;
+  int ch;
 
   if (cur_file_ptr == (efdr_t *) 0)
     {
@@ -3537,20 +3537,20 @@ parse_file (start)
      const char *start;			/* start of directive */
 {
   char *p;
-  register char *start_name, *end_name_p1;
+  char *start_name, *end_name_p1;
 
   (void) strtol (start, &p, 0);
   if (start == p
       || (start_name = strchr (p, '"')) == (char *) 0
       || (end_name_p1 = strrchr (++start_name, '"')) == (char *) 0)
     {
-      error ("Invalid .file directive");
+      error ("invalid .file directive");
       return;
     }
 
   if (cur_proc_ptr != (PDR *) 0)
     {
-      error ("No way to handle .file within .ent/.end section");
+      error ("no way to handle .file within .ent/.end section");
       return;
     }
 
@@ -3625,7 +3625,7 @@ parse_stabs_common (string_start, string_end, rest)
   /* Read code from stabs.  */
   if (!ISDIGIT (*rest))
     {
-      error ("Invalid .stabs/.stabn directive, code is non-numeric");
+      error ("invalid .stabs/.stabn directive, code is non-numeric");
       return;
     }
 
@@ -3645,7 +3645,7 @@ parse_stabs_common (string_start, string_end, rest)
       /* Skip ,0, */
       if (p[0] != ',' || p[1] != '0' || p[2] != ',' || !ISDIGIT (p[3]))
 	{
-	  error ("Invalid line number .stabs/.stabn directive");
+	  error ("invalid line number .stabs/.stabn directive");
 	  return;
 	}
 
@@ -3653,14 +3653,14 @@ parse_stabs_common (string_start, string_end, rest)
       ch = *++p;
       if (p[-1] != ',' || ISDIGIT (ch) || !IS_ASM_IDENT (ch))
 	{
-	  error ("Invalid line number .stabs/.stabn directive");
+	  error ("invalid line number .stabs/.stabn directive");
 	  return;
 	}
 
       dummy_symr.index = code;
       if (dummy_symr.index != code)
 	{
-	  error ("Line number (%lu) for .stabs/.stabn directive cannot fit in index field (20 bits)",
+	  error ("line number (%lu) for .stabs/.stabn directive cannot fit in index field (20 bits)",
 		 code);
 
 	  return;
@@ -3674,13 +3674,13 @@ parse_stabs_common (string_start, string_end, rest)
       if (shash_ptr == (shash_t *) 0
 	  || (sym_ptr = shash_ptr->sym_ptr) == (SYMR *) 0)
 	{
-	  error ("Invalid .stabs/.stabn directive, value not found");
+	  error ("invalid .stabs/.stabn directive, value not found");
 	  return;
 	}
 
       if ((st_t) sym_ptr->st != st_Label)
 	{
-	  error ("Invalid line number .stabs/.stabn directive");
+	  error ("invalid line number .stabs/.stabn directive");
 	  return;
 	}
 
@@ -3705,7 +3705,7 @@ parse_stabs_common (string_start, string_end, rest)
       if (!IS_ASM_IDENT (ch) && ch != '-')
 	{
 	failure:
-	  error ("Invalid .stabs/.stabn directive, bad character");
+	  error ("invalid .stabs/.stabn directive, bad character");
 	  return;
 	}
 
@@ -3716,13 +3716,13 @@ parse_stabs_common (string_start, string_end, rest)
 	  value = strtol (p, &p, 0);
 	  if (*p != '\n')
 	    {
-	      error ("Invalid .stabs/.stabn directive, stuff after numeric value");
+	      error ("invalid .stabs/.stabn directive, stuff after numeric value");
 	      return;
 	    }
 	}
       else if (!IS_ASM_IDENT (ch))
 	{
-	  error ("Invalid .stabs/.stabn directive, bad character");
+	  error ("invalid .stabs/.stabn directive, bad character");
 	  return;
 	}
       else
@@ -3754,7 +3754,7 @@ parse_stabs_common (string_start, string_end, rest)
 	      if (shash_ptr == (shash_t *) 0
 		  || shash_ptr->esym_ptr == (EXTR *) 0)
 		{
-		  error ("Invalid .stabs/.stabn directive, value not found");
+		  error ("invalid .stabs/.stabn directive, value not found");
 		  return;
 		}
 	      else
@@ -3780,7 +3780,7 @@ parse_stabs_common (string_start, string_end, rest)
 	      if (((!ISDIGIT (*end_p1)) && (*end_p1 != '-'))
 		  || ((ch != '+') && (ch != '-')))
 		{
-		  error ("Invalid .stabs/.stabn directive, badly formed value");
+		  error ("invalid .stabs/.stabn directive, badly formed value");
 		  return;
 		}
 	      if (ch == '+')
@@ -3790,7 +3790,7 @@ parse_stabs_common (string_start, string_end, rest)
 
 	      if (*p != '\n')
 		{
-		  error ("Invalid .stabs/.stabn directive, stuff after numeric value");
+		  error ("invalid .stabs/.stabn directive, stuff after numeric value");
 		  return;
 		}
 	    }
@@ -3812,7 +3812,7 @@ parse_stabs (start)
 
   if (*start != '"' || end == (const char *) 0 || end[1] != ',')
     {
-      error ("Invalid .stabs directive, no string");
+      error ("invalid .stabs directive, no string");
       return;
     }
 
@@ -3834,11 +3834,11 @@ parse_stabn (start)
 STATIC void
 parse_input ()
 {
-  register char *p;
-  register Size_t i;
-  register thead_t *ptag_head;
-  register tag_t *ptag;
-  register tag_t *ptag_next;
+  char *p;
+  Size_t i;
+  thead_t *ptag_head;
+  tag_t *ptag;
+  tag_t *ptag_next;
 
   if (debug)
     fprintf (stderr, "\tinput\n");
@@ -3897,8 +3897,8 @@ parse_input ()
 STATIC void
 update_headers ()
 {
-  register symint_t i;
-  register efdr_t *file_ptr;
+  symint_t i;
+  efdr_t *file_ptr;
 
   /* Set up the symbolic header.  */
   file_offset = sizeof (symbolic_header) + orig_file_header.f_symptr;
@@ -3924,10 +3924,10 @@ update_headers ()
        file_ptr != (efdr_t *) 0;
        file_ptr = file_ptr->next_file)
     {
-      register SYMR *sym_start;
-      register SYMR *sym;
-      register SYMR *sym_end_p1;
-      register FDR *fd_ptr = file_ptr->orig_fdr;
+      SYMR *sym_start;
+      SYMR *sym;
+      SYMR *sym_end_p1;
+      FDR *fd_ptr = file_ptr->orig_fdr;
 
       cur_file_ptr = file_ptr;
 
@@ -3941,9 +3941,9 @@ update_headers ()
 	{
 	  if ((st_t)sym->st == st_Static)
 	    {
-	      register char *str = ORIG_LSTRS (fd_ptr->issBase + sym->iss);
-	      register Size_t len = strlen (str);
-	      register shash_t *hash_ptr;
+	      char *str = ORIG_LSTRS (fd_ptr->issBase + sym->iss);
+	      Size_t len = strlen (str);
+	      shash_t *hash_ptr;
 
 	      /* Ignore internal labels.  */
 	      if (str[0] == '$' && str[1] == 'L')
@@ -4115,7 +4115,7 @@ write_varray (vp, offset, str)
 	pfatal_with_name (object_name);
 
       else if (sys_write != num_write)
-	fatal ("Wrote %d bytes to %s, system returned %d",
+	fatal ("wrote %d bytes to %s, system returned %d",
 	       num_write,
 	       object_name,
 	       sys_write);
@@ -4151,7 +4151,7 @@ write_object ()
     pfatal_with_name (object_name);
 
   else if (sys_write != sizeof (symbolic_header))
-    fatal ("Wrote %d bytes to %s, system returned %d",
+    fatal ("wrote %d bytes to %s, system returned %d",
 	   (int) sizeof (symbolic_header),
 	   object_name,
 	   sys_write);
@@ -4185,7 +4185,7 @@ write_object ()
 	pfatal_with_name (object_name);
 
       else if (sys_write != symbolic_header.cbLine)
-	fatal ("Wrote %ld bytes to %s, system returned %ld",
+	fatal ("wrote %ld bytes to %s, system returned %ld",
 	       (long) symbolic_header.cbLine,
 	       object_name,
 	       sys_write);
@@ -4220,7 +4220,7 @@ write_object ()
 	pfatal_with_name (object_name);
 
       else if (sys_write != num_write)
-	fatal ("Wrote %ld bytes to %s, system returned %ld",
+	fatal ("wrote %ld bytes to %s, system returned %ld",
 	       num_write,
 	       object_name,
 	       sys_write);
@@ -4312,7 +4312,7 @@ write_object ()
 	    pfatal_with_name (object_name);
 
 	  else if (sys_write != sizeof (FDR))
-	    fatal ("Wrote %d bytes to %s, system returned %d",
+	    fatal ("wrote %d bytes to %s, system returned %d",
 		   (int) sizeof (FDR),
 		   object_name,
 		   sys_write);
@@ -4348,7 +4348,7 @@ write_object ()
 	pfatal_with_name (object_name);
 
       else if (sys_write != (long)num_write)
-	fatal ("Wrote %lu bytes to %s, system returned %ld",
+	fatal ("wrote %lu bytes to %s, system returned %ld",
 	       num_write,
 	       object_name,
 	       sys_write);
@@ -4404,7 +4404,7 @@ read_seek (size, offset, str)
 	    pfatal_with_name (obj_in_name);
 
 	  if ((symint_t)sys_read != difference)
-	    fatal ("Wanted to read %lu bytes from %s, system returned %ld",
+	    fatal ("wanted to read %lu bytes from %s, system returned %ld",
 		   (unsigned long) size,
 		   obj_in_name,
 		   sys_read);
@@ -4418,7 +4418,7 @@ read_seek (size, offset, str)
     pfatal_with_name (obj_in_name);
 
   if (sys_read != (long) size)
-    fatal ("Wanted to read %lu bytes from %s, system returned %ld",
+    fatal ("wanted to read %lu bytes from %s, system returned %ld",
 	   (unsigned long) size,
 	   obj_in_name,
 	   sys_read);
@@ -4440,13 +4440,13 @@ STATIC void
 copy_object ()
 {
   char buffer[ PAGE_SIZE ];
-  register int sys_read;
-  register int remaining;
-  register int num_write;
-  register int sys_write;
-  register int fd, es;
-  register int delete_ifd = 0;
-  register int *remap_file_number;
+  int sys_read;
+  int remaining;
+  int num_write;
+  int sys_write;
+  int fd, es;
+  int delete_ifd = 0;
+  int *remap_file_number;
   struct stat stat_buf;
 
   if (debug)
@@ -4468,7 +4468,7 @@ copy_object ()
     return;			/* create a .T file sans file header */
 
   else if (sys_read < (int) sizeof (struct filehdr))
-    fatal ("Wanted to read %d bytes from %s, system returned %d",
+    fatal ("wanted to read %d bytes from %s, system returned %d",
 	   (int) sizeof (struct filehdr),
 	   obj_in_name,
 	   sys_read);
@@ -4492,7 +4492,7 @@ copy_object ()
     pfatal_with_name (object_name);
 
   else if (sys_read < (int) sizeof (struct filehdr))
-    fatal ("Wanted to read %d bytes from %s, system returned %d",
+    fatal ("wanted to read %d bytes from %s, system returned %d",
 	   (int) sizeof (struct filehdr),
 	   obj_in_name,
 	   sys_read);
@@ -4570,7 +4570,7 @@ copy_object ()
 
   /* Abort if the symbol table is not last.  */
   if (max_file_offset != stat_buf.st_size)
-    fatal ("Symbol table is not last (symbol table ends at %ld, .o ends at %ld",
+    fatal ("symbol table is not last (symbol table ends at %ld, .o ends at %ld",
 	   max_file_offset,
 	   (long) stat_buf.st_size);
 
@@ -4597,8 +4597,8 @@ copy_object ()
 
   for (fd = delete_ifd; fd < orig_sym_hdr.ifdMax; fd++)
     {
-      register FDR *fd_ptr = ORIG_FILES (fd);
-      register char *filename = ORIG_LSTRS (fd_ptr->issBase + fd_ptr->rss);
+      FDR *fd_ptr = ORIG_FILES (fd);
+      char *filename = ORIG_LSTRS (fd_ptr->issBase + fd_ptr->rss);
 
       /* file support itself.  */
       add_file (filename, filename + strlen (filename));
@@ -4622,8 +4622,8 @@ copy_object ()
 
   for (es = 0; es < orig_sym_hdr.iextMax; es++)
     {
-      register EXTR *eptr = orig_ext_syms + es;
-      register unsigned ifd = eptr->ifd;
+      EXTR *eptr = orig_ext_syms + es;
+      unsigned ifd = eptr->ifd;
 
       (void) add_ext_symbol (eptr, ((long) ifd < orig_sym_hdr.ifdMax)
 			     ? remap_file_number[ ifd ] : ifd );
@@ -4635,14 +4635,14 @@ copy_object ()
 
   for (fd = delete_ifd; fd < orig_sym_hdr.ifdMax; fd++)
     {
-      register FDR *fd_ptr = ORIG_FILES (fd);
-      register char *filename = ORIG_LSTRS (fd_ptr->issBase + fd_ptr->rss);
-      register SYMR *sym_start;
-      register SYMR *sym;
-      register SYMR *sym_end_p1;
-      register PDR *proc_start;
-      register PDR *proc;
-      register PDR *proc_end_p1;
+      FDR *fd_ptr = ORIG_FILES (fd);
+      char *filename = ORIG_LSTRS (fd_ptr->issBase + fd_ptr->rss);
+      SYMR *sym_start;
+      SYMR *sym;
+      SYMR *sym_end_p1;
+      PDR *proc_start;
+      PDR *proc;
+      PDR *proc_end_p1;
 
       /* file support itself.  */
       add_file (filename, filename + strlen (filename));
@@ -4683,12 +4683,12 @@ copy_object ()
 	    case st_StaticProc:
 	      {
 		auto symint_t hash_index;
-		register char *str = ORIG_LSTRS (fd_ptr->issBase + sym->iss);
-		register Size_t len = strlen (str);
-		register shash_t *shash_ptr = hash_string (str,
-							   (Ptrdiff_t)len,
-							   &orig_str_hash[0],
-							   &hash_index);
+		char *str = ORIG_LSTRS (fd_ptr->issBase + sym->iss);
+		Size_t len = strlen (str);
+		shash_t *shash_ptr = hash_string (str,
+						  (Ptrdiff_t)len,
+						  &orig_str_hash[0],
+						  &hash_index);
 
 		if (shash_ptr != (shash_t *) 0)
 		  error ("internal error, %s is already in original symbol table", str);
@@ -4710,15 +4710,15 @@ copy_object ()
 	    case st_End:
 	      if ((sc_t) sym->sc == sc_Text)
 		{
-		  register char *str = ORIG_LSTRS (fd_ptr->issBase + sym->iss);
+		  char *str = ORIG_LSTRS (fd_ptr->issBase + sym->iss);
 
 		  if (*str != '\0')
 		    {
-		      register Size_t len = strlen (str);
-		      register shash_t *shash_ptr = hash_string (str,
-								 (Ptrdiff_t)len,
-								 &orig_str_hash[0],
-								 (symint_t *) 0);
+		      Size_t len = strlen (str);
+		      shash_t *shash_ptr = hash_string (str,
+							(Ptrdiff_t)len,
+							&orig_str_hash[0],
+							(symint_t *) 0);
 
 		      if (shash_ptr != (shash_t *) 0)
 			shash_ptr->end_ptr = sym;
@@ -4742,13 +4742,13 @@ copy_object ()
       proc_end_p1 = proc_start + fd_ptr->cpd;
       for (proc = proc_start; proc < proc_end_p1; proc++)
 	{
-	  register SYMR *proc_sym = ORIG_LSYMS (fd_ptr->isymBase + proc->isym);
-	  register char *str = ORIG_LSTRS (fd_ptr->issBase + proc_sym->iss);
-	  register Size_t len = strlen (str);
-	  register shash_t *shash_ptr = hash_string (str,
-						     (Ptrdiff_t)len,
-						     &orig_str_hash[0],
-						     (symint_t *) 0);
+	  SYMR *proc_sym = ORIG_LSYMS (fd_ptr->isymBase + proc->isym);
+	  char *str = ORIG_LSTRS (fd_ptr->issBase + proc_sym->iss);
+	  Size_t len = strlen (str);
+	  shash_t *shash_ptr = hash_string (str,
+					    (Ptrdiff_t)len,
+					    &orig_str_hash[0],
+					    (symint_t *) 0);
 
 	  if (shash_ptr == (shash_t *) 0)
 	    error ("internal error, function %s is not in original symbol table", str);
@@ -4786,7 +4786,7 @@ copy_object ()
 	pfatal_with_name (obj_in_name);
 
       else if (sys_read != num_write)
-	fatal ("Wanted to read %d bytes from %s, system returned %d",
+	fatal ("wanted to read %d bytes from %s, system returned %d",
 	       num_write,
 	       obj_in_name,
 	       sys_read);
@@ -4796,7 +4796,7 @@ copy_object ()
 	pfatal_with_name (object_name);
 
       else if (sys_write != num_write)
-	fatal ("Wrote %d bytes to %s, system returned %d",
+	fatal ("wrote %d bytes to %s, system returned %d",
 	       num_write,
 	       object_name,
 	       sys_write);
@@ -4827,12 +4827,12 @@ main (argc, argv)
 
 #if !defined(__SABER__) && !defined(lint)
   if (sizeof (efdr_t) > PAGE_USIZE)
-    fatal ("Efdr_t has a sizeof %d bytes, when it should be less than %d",
+    fatal ("efdr_t has a sizeof %d bytes, when it should be less than %d",
 	   (int) sizeof (efdr_t),
 	   (int) PAGE_USIZE);
 
   if (sizeof (page_t) != PAGE_USIZE)
-    fatal ("Page_t has a sizeof %d bytes, when it should be %d",
+    fatal ("page_t has a sizeof %d bytes, when it should be %d",
 	   (int) sizeof (page_t),
 	   (int) PAGE_USIZE);
 
@@ -5091,7 +5091,7 @@ STATIC page_t *
 allocate_cluster (npages)
      Size_t npages;
 {
-  register page_t *value = (page_t *) xcalloc (npages, PAGE_USIZE);
+  page_t *value = (page_t *) xcalloc (npages, PAGE_USIZE);
 
   if (debug > 3)
     fprintf (stderr, "\talloc\tnpages = %d, value = 0x%.8x\n", npages, value);
@@ -5105,7 +5105,7 @@ STATIC page_t *
 allocate_cluster (npages)
      Size_t npages;
 {
-  register page_t *ptr = (page_t *) sbrk (0);	/* current sbreak */
+  page_t *ptr = (page_t *) sbrk (0);	/* current sbreak */
   unsigned long offset = ((unsigned long) ptr) & (PAGE_SIZE - 1);
 
   if (offset != 0)			/* align to a page boundary */
@@ -5227,7 +5227,7 @@ allocate_page ()
 STATIC scope_t *
 allocate_scope ()
 {
-  register scope_t *ptr;
+  scope_t *ptr;
   static scope_t initial_scope;
 
 #ifndef MALLOC_CHECK
@@ -5237,8 +5237,8 @@ allocate_scope ()
 
   else
     {
-      register int unallocated	= alloc_counts[ (int)alloc_type_scope ].unallocated;
-      register page_t *cur_page	= alloc_counts[ (int)alloc_type_scope ].cur_page;
+      int unallocated	= alloc_counts[ (int)alloc_type_scope ].unallocated;
+      page_t *cur_page	= alloc_counts[ (int)alloc_type_scope ].cur_page;
 
       if (unallocated == 0)
 	{
@@ -5285,12 +5285,12 @@ free_scope (ptr)
 STATIC vlinks_t *
 allocate_vlinks ()
 {
-  register vlinks_t *ptr;
+  vlinks_t *ptr;
   static vlinks_t initial_vlinks;
 
 #ifndef MALLOC_CHECK
-  register int unallocated	= alloc_counts[ (int)alloc_type_vlinks ].unallocated;
-  register page_t *cur_page	= alloc_counts[ (int)alloc_type_vlinks ].cur_page;
+  int unallocated	= alloc_counts[ (int)alloc_type_vlinks ].unallocated;
+  page_t *cur_page	= alloc_counts[ (int)alloc_type_vlinks ].cur_page;
 
   if (unallocated == 0)
     {
@@ -5318,12 +5318,12 @@ allocate_vlinks ()
 STATIC shash_t *
 allocate_shash ()
 {
-  register shash_t *ptr;
+  shash_t *ptr;
   static shash_t initial_shash;
 
 #ifndef MALLOC_CHECK
-  register int unallocated	= alloc_counts[ (int)alloc_type_shash ].unallocated;
-  register page_t *cur_page	= alloc_counts[ (int)alloc_type_shash ].cur_page;
+  int unallocated	= alloc_counts[ (int)alloc_type_shash ].unallocated;
+  page_t *cur_page	= alloc_counts[ (int)alloc_type_shash ].cur_page;
 
   if (unallocated == 0)
     {
@@ -5351,12 +5351,12 @@ allocate_shash ()
 STATIC thash_t *
 allocate_thash ()
 {
-  register thash_t *ptr;
+  thash_t *ptr;
   static thash_t initial_thash;
 
 #ifndef MALLOC_CHECK
-  register int unallocated	= alloc_counts[ (int)alloc_type_thash ].unallocated;
-  register page_t *cur_page	= alloc_counts[ (int)alloc_type_thash ].cur_page;
+  int unallocated	= alloc_counts[ (int)alloc_type_thash ].unallocated;
+  page_t *cur_page	= alloc_counts[ (int)alloc_type_thash ].cur_page;
 
   if (unallocated == 0)
     {
@@ -5384,7 +5384,7 @@ allocate_thash ()
 STATIC tag_t *
 allocate_tag ()
 {
-  register tag_t *ptr;
+  tag_t *ptr;
   static tag_t initial_tag;
 
 #ifndef MALLOC_CHECK
@@ -5394,8 +5394,8 @@ allocate_tag ()
 
   else
     {
-      register int unallocated	= alloc_counts[ (int)alloc_type_tag ].unallocated;
-      register page_t *cur_page	= alloc_counts[ (int)alloc_type_tag ].cur_page;
+      int unallocated	= alloc_counts[ (int)alloc_type_tag ].unallocated;
+      page_t *cur_page	= alloc_counts[ (int)alloc_type_tag ].cur_page;
 
       if (unallocated == 0)
 	{
@@ -5442,7 +5442,7 @@ free_tag (ptr)
 STATIC forward_t *
 allocate_forward ()
 {
-  register forward_t *ptr;
+  forward_t *ptr;
   static forward_t initial_forward;
 
 #ifndef MALLOC_CHECK
@@ -5452,8 +5452,8 @@ allocate_forward ()
 
   else
     {
-      register int unallocated	= alloc_counts[ (int)alloc_type_forward ].unallocated;
-      register page_t *cur_page	= alloc_counts[ (int)alloc_type_forward ].cur_page;
+      int unallocated	= alloc_counts[ (int)alloc_type_forward ].unallocated;
+      page_t *cur_page	= alloc_counts[ (int)alloc_type_forward ].cur_page;
 
       if (unallocated == 0)
 	{
@@ -5500,7 +5500,7 @@ free_forward (ptr)
 STATIC thead_t *
 allocate_thead ()
 {
-  register thead_t *ptr;
+  thead_t *ptr;
   static thead_t initial_thead;
 
 #ifndef MALLOC_CHECK
@@ -5510,8 +5510,8 @@ allocate_thead ()
 
   else
     {
-      register int unallocated	= alloc_counts[ (int)alloc_type_thead ].unallocated;
-      register page_t *cur_page	= alloc_counts[ (int)alloc_type_thead ].cur_page;
+      int unallocated	= alloc_counts[ (int)alloc_type_thead ].unallocated;
+      page_t *cur_page	= alloc_counts[ (int)alloc_type_thead ].cur_page;
 
       if (unallocated == 0)
 	{
@@ -5561,16 +5561,8 @@ free_thead (ptr)
 void
 fatal VPARAMS ((const char *format, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *format;
-#endif
-  va_list ap;
-
-  VA_START (ap, format);
-
-#ifndef ANSI_PROTOTYPES
-  format = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, format);
+  VA_FIXEDARG (ap, const char *, format);
 
   if (line_number > 0)
     fprintf (stderr, "%s, %s:%ld ", progname, input_name, line_number);
@@ -5578,7 +5570,7 @@ fatal VPARAMS ((const char *format, ...))
     fprintf (stderr, "%s:", progname);
 
   vfprintf (stderr, format, ap);
-  va_end (ap);
+  VA_CLOSE (ap);
   fprintf (stderr, "\n");
   if (line_number > 0)
     fprintf (stderr, "line:\t%s\n", cur_line_start);
@@ -5591,16 +5583,8 @@ fatal VPARAMS ((const char *format, ...))
 void
 error VPARAMS ((const char *format, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  char *format;
-#endif
-  va_list ap;
-
-  VA_START (ap, format);
-
-#ifndef ANSI_PROTOTYPES
-  format = va_arg (ap, char *);
-#endif
+  VA_OPEN (ap, format);
+  VA_FIXEDARG (ap, char *, format);
 
   if (line_number > 0)
     fprintf (stderr, "%s, %s:%ld ", progname, input_name, line_number);
@@ -5613,7 +5597,7 @@ error VPARAMS ((const char *format, ...))
     fprintf (stderr, "line:\t%s\n", cur_line_start);
 
   had_errors++;
-  va_end (ap);
+  VA_CLOSE (ap);
 
   saber_stop ();
 }
@@ -5624,7 +5608,7 @@ error VPARAMS ((const char *format, ...))
 void
 fancy_abort ()
 {
-  fatal ("Internal abort.");
+  fatal ("internal abort");
 }
 
 

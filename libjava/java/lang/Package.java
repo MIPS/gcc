@@ -39,12 +39,12 @@ import java.util.StringTokenizer;
  * <a href="http://java.sun.com/products/jdk/1.3/docs/guide/versioning/spec/VersioningSpecification.html">Product Versioning Specification</a>.
  * It also allows packages to be sealed with respect to the originating URL.
  * <p>
- * The most usefull method is the <code>isCompatibleWith()</code> method that
+ * The most useful method is the <code>isCompatibleWith()</code> method that
  * compares a desired version of a specification with the version of the
  * specification as implemented by a package. A package is considered
  * compatible with another version if the version of the specification is
  * equal or higher then the requested version. Version numbers are represented
- * as strings of positive numbers seperated by dots (e.g. "1.2.0").
+ * as strings of positive numbers separated by dots (e.g. "1.2.0").
  * The first number is called the major number, the second the minor,
  * the third the micro, etc. A version is considered higher then another
  * version if it has a bigger major number then the another version or when

@@ -118,6 +118,9 @@ static struct fr30_frame_info 	current_frame_info;
 /* Zero structure to initialize current_frame_info.  */
 static struct fr30_frame_info 	zero_frame_info;
 
+static rtx fr30_pass_by_reference PARAMS ((tree, tree));
+static rtx fr30_pass_by_value PARAMS ((tree, tree));
+
 #define FRAME_POINTER_MASK 	(1 << (FRAME_POINTER_REGNUM))
 #define RETURN_POINTER_MASK 	(1 << (RETURN_POINTER_REGNUM))
 
@@ -138,6 +141,10 @@ static struct fr30_frame_info 	zero_frame_info;
 #endif
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.hword\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -327,12 +334,12 @@ fr30_expand_prologue ()
       RTX_FRAME_RELATED_P (insn) = 1;
     }
 
-  if (profile_flag || profile_block_flag)
+  if (profile_flag)
     emit_insn (gen_blockage ());
 }
 
 /* Called after register allocation to add any instructions needed for the
-   epilogue.  Using a epilogue insn is favored compared to putting all of the
+   epilogue.  Using an epilogue insn is favored compared to putting all of the
    instructions in output_function_epilogue(), since it allows the scheduler
    to intermix instructions with the restores of the caller saved registers.
    In some cases, it might be necessary to emit a barrier instruction as the
@@ -473,7 +480,7 @@ fr30_print_operand (file, x, code)
       /* Compute the register name of the second register in a hi/lo
 	 register pair.  */
       if (GET_CODE (x) != REG)
-	output_operand_lossage ("fr30_print_operand: unrecognised %p code");
+	output_operand_lossage ("fr30_print_operand: unrecognized %p code");
       else
 	fprintf (file, "r%d", REGNO (x) + 1);
       return;
@@ -493,7 +500,7 @@ fr30_print_operand (file, x, code)
 	case GTU: fprintf (file, "hi"); break;
 	case GEU: fprintf (file, "nc");  break;
 	default:
-	  output_operand_lossage ("fr30_print_operand: unrecognised %b code");
+	  output_operand_lossage ("fr30_print_operand: unrecognized %b code");
 	  break;
 	}
       return;
@@ -514,7 +521,7 @@ fr30_print_operand (file, x, code)
 	case GTU: fprintf (file, "ls"); break;
 	case GEU: fprintf (file, "c"); break;
 	default:
-	  output_operand_lossage ("fr30_print_operand: unrecognised %B code");
+	  output_operand_lossage ("fr30_print_operand: unrecognized %B code");
 	  break;
 	}
       return;
@@ -1085,7 +1092,7 @@ fr30_move_double (operands)
 	}
     }
   else
-    /* This should have been prevented by the contraints on movdi_insn.  */
+    /* This should have been prevented by the constraints on movdi_insn.  */
     abort ();
   
   val = gen_sequence ();

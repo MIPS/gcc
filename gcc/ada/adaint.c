@@ -4,7 +4,7 @@
  *                                                                          *
  *                               A D A I N T                                *
  *                                                                          *
- *                            $Revision$
+ *                            $Revision: 1.6 $
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *

@@ -3,22 +3,25 @@
    Copyright (C) 1987, 1991, 1994, 1997, 1998,
    1999, 2000, 2001 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
+
+/* Compute branch alignments based on frequency information in the CFG.  */
+extern void compute_alignments  PARAMS ((void));
 
 /* Initialize data in final at the beginning of a compilation.  */
 extern void init_final		PARAMS ((const char *));
@@ -74,7 +77,7 @@ extern rtx final_scan_insn	PARAMS ((rtx, FILE *, int, int, int));
 
 /* Replace a SUBREG with a REG or a MEM, based on the thing it is a
    subreg of.  */
-extern rtx alter_subreg PARAMS ((rtx));
+extern rtx alter_subreg PARAMS ((rtx *));
 
 /* Report inconsistency between the assembler template and the operands.
    In an `asm', it's the user's fault; otherwise, the compiler's fault.  */
@@ -132,12 +135,16 @@ extern void leaf_renumber_regs_insn PARAMS ((rtx));
 /* Locate the proper template for the given insn-code.  */
 extern const char *get_insn_template PARAMS ((int, rtx));
 
+/* Add function NAME to the weak symbols list.  VALUE is a weak alias
+   associated with NAME.  */
+extern int add_weak PARAMS ((const char *, const char *));
+
 /* Functions in flow.c */
 extern void allocate_for_life_analysis	PARAMS ((void));
-extern int regno_uninitialized		PARAMS ((int));
+extern int regno_uninitialized		PARAMS ((unsigned int));
 extern int regno_clobbered_at_setjmp	PARAMS ((int));
 extern void find_basic_blocks		PARAMS ((rtx, int, FILE *));
-extern void cleanup_cfg			PARAMS ((int));
+extern bool cleanup_cfg			PARAMS ((int));
 extern void check_function_return_warnings PARAMS ((void));
 #endif
 
@@ -156,12 +163,8 @@ extern void force_data_section		PARAMS ((void));
    the text section.  */
 extern void readonly_data_section	PARAMS ((void));
 
-/* Determine if we're in the text section. */
+/* Determine if we're in the text section.  */
 extern int in_text_section		PARAMS ((void));
-
-#ifdef EH_FRAME_SECTION_ASM_OP
-extern void eh_frame_section		PARAMS ((void));
-#endif
 
 #ifdef CTORS_SECTION_ASM_OP
 extern void ctors_section PARAMS ((void));
@@ -187,8 +190,24 @@ extern void init_section PARAMS ((void));
 extern void fini_section PARAMS ((void));
 #endif
 
+#ifdef EXPORTS_SECTION_ASM_OP
+extern void exports_section PARAMS ((void));
+#endif
+
 #ifdef TDESC_SECTION_ASM_OP
 extern void tdesc_section PARAMS ((void));
+#endif
+
+#ifdef DRECTVE_SECTION_ASM_OP
+extern void drectve_section PARAMS ((void));
+#endif
+
+#ifdef SDATA_SECTION_ASM_OP
+extern void sdata_section PARAMS ((void));
+#endif
+
+#ifdef RDATA_SECTION_ASM_OP
+extern void rdata_section PARAMS ((void));
 #endif
 
 #ifdef TREE_CODE
@@ -201,8 +220,14 @@ extern void named_section		PARAMS ((tree, const char *, int));
 /* Tell assembler to switch to the section for function DECL.  */
 extern void function_section		PARAMS ((tree));
 
-/* Tell assembler to switch to the section for the exception table.  */
-extern void exception_section		PARAMS ((void));
+/* Tell assembler to switch to the section for string merging.  */
+extern void mergeable_string_section	PARAMS ((tree, unsigned HOST_WIDE_INT,
+						 unsigned int));
+
+/* Tell assembler to switch to the section for constant merging.  */
+extern void mergeable_constant_section	PARAMS ((enum machine_mode,
+						 unsigned HOST_WIDE_INT,
+						 unsigned int));
 
 /* Declare DECL to be a weak symbol.  */
 extern void declare_weak		PARAMS ((tree));
@@ -261,21 +286,6 @@ extern void assemble_variable		PARAMS ((tree, int, int, int));
 extern void assemble_external		PARAMS ((tree));
 #endif /* TREE_CODE */
 
-/* Record an element in the table of global destructors.
-   How this is done depends on what sort of assembler and linker
-   are in use.
-
-   NAME should be the name of a global function to be called
-   at exit time.  This name is output using assemble_name.  */
-extern void assemble_destructor		PARAMS ((const char *));
-
-/* Likewise for global constructors.  */
-extern void assemble_constructor	PARAMS ((const char *));
-
-/* Likewise for entries we want to record for garbage collection.
-   Garbage collection is still under development.  */
-extern void assemble_gc_entry		PARAMS ((const char *));
-
 /* Assemble code to leave SIZE bytes of zeros.  */
 extern void assemble_zeros		PARAMS ((int));
 
@@ -305,19 +315,40 @@ extern void assemble_eh_label		PARAMS ((const char *));
    Many macros in the tm file are defined to call this function.  */
 extern void assemble_name		PARAMS ((FILE *, const char *));
 
-#ifdef RTX_CODE
-/* Assemble the integer constant X into an object of SIZE bytes.
-   X must be either a CONST_INT or CONST_DOUBLE.
+/* Return the assembler directive for creating a given kind of integer
+   object.  SIZE is the number of bytes in the object and ALIGNED_P
+   indicates whether it is known to be aligned.  Return NULL if the
+   assembly dialect has no such directive.
 
-   Return 1 if we were able to output the constant, otherwise 0.  If FORCE is
-   non-zero, abort if we can't output the constant.  */
-extern int assemble_integer		PARAMS ((rtx, int, int));
-extern int assemble_eh_integer		PARAMS ((rtx, int, int));
+   The returned string should be printed at the start of a new line and
+   be followed immediately by the object's initial value.  */
+extern const char *integer_asm_op	PARAMS ((int, int));
+
+#ifdef RTX_CODE
+/* Use directive OP to assemble an integer object X.  Print OP at the
+   start of the line, followed immediately by the value of X.  */
+extern void assemble_integer_with_op	PARAMS ((const char *, rtx));
+
+/* The default implementation of the asm_out.integer target hook.  */
+extern bool default_assemble_integer	PARAMS ((rtx, unsigned int, int));
+
+/* Assemble the integer constant X into an object of SIZE bytes.  ALIGN is
+   the alignment of the integer in bits.  Return 1 if we were able to output
+   the constant, otherwise 0.  If FORCE is non-zero, abort if we can't output
+   the constant.  */
+extern bool assemble_integer		PARAMS ((rtx, unsigned, unsigned, int));
+
+/* An interface to assemble_integer for the common case in which a value is
+   fully aligned and must be printed.  VALUE is the value of the integer
+   object and SIZE is the number of bytes it contains.  */
+#define assemble_aligned_integer(SIZE, VALUE) \
+  assemble_integer (VALUE, SIZE, (SIZE) * BITS_PER_UNIT, 1)
 
 #ifdef REAL_VALUE_TYPE
 /* Assemble the floating-point constant D into an object of size MODE.  */
 extern void assemble_real		PARAMS ((REAL_VALUE_TYPE,
-					       enum machine_mode));
+					         enum machine_mode,
+						 unsigned));
 #endif
 #endif
 
@@ -360,8 +391,11 @@ extern tree initializer_constant_valid_p	PARAMS ((tree, tree));
    Assumes output_addressed_constants has been done on EXP already.
 
    Generate exactly SIZE bytes of assembler data, padding at the end
-   with zeros if necessary.  SIZE must always be specified.  */
-extern void output_constant		PARAMS ((tree, int));
+   with zeros if necessary.  SIZE must always be specified.
+
+   ALIGN is the alignment in bits that may be assumed for the data.  */
+extern void output_constant		PARAMS ((tree, HOST_WIDE_INT,
+						 unsigned int));
 #endif
 
 #ifdef RTX_CODE
@@ -396,7 +430,7 @@ extern const char *weak_global_object_name;
 /* Nonzero if function being compiled doesn't contain any calls
    (ignoring the prologue and epilogue).  This is set prior to
    local register allocation and is valid for the remaining
-   compiler passes. */
+   compiler passes.  */
 
 extern int current_function_is_leaf;
 
@@ -407,7 +441,7 @@ extern int current_function_nothrow;
 
 /* Nonzero if function being compiled doesn't modify the stack pointer
    (ignoring the prologue and epilogue).  This is only valid after
-   life_analysis has run. */
+   life_analysis has run.  */
 
 extern int current_function_sp_is_unchanging;
 
@@ -457,5 +491,56 @@ extern int profile_label_no;
 /* Default target function prologue and epilogue assembler output.  */
 extern void default_function_pro_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
+/* Tell assembler to switch to the section for the exception table.  */
+extern void default_exception_section	PARAMS ((void));
+
+/* Tell assembler to switch to the section for the EH frames.  */
+extern void default_eh_frame_section	PARAMS ((void));
+
 /* Default target hook that outputs nothing to a stream.  */
 extern void no_asm_to_stream PARAMS ((FILE *));
+
+/* Flags controling properties of a section.  */
+#define SECTION_ENTSIZE	 0x000ff	/* entity size in section */
+#define SECTION_CODE	 0x00100	/* contains code */
+#define SECTION_WRITE	 0x00200	/* data is writable */
+#define SECTION_DEBUG	 0x00400	/* contains debug data */
+#define SECTION_LINKONCE 0x00800	/* is linkonce */
+#define SECTION_SMALL	 0x01000	/* contains "small data" */
+#define SECTION_BSS	 0x02000	/* contains zeros only */
+#define SECTION_FORGET	 0x04000	/* forget that we've entered the section */
+#define SECTION_MERGE	 0x08000	/* contains mergeable data */
+#define SECTION_STRINGS  0x10000	/* contains zero terminated strings without
+					   embedded zeros */
+#define SECTION_MACH_DEP 0x20000	/* subsequent bits reserved for target */
+
+extern unsigned int get_named_section_flags PARAMS ((const char *));
+extern bool set_named_section_flags	PARAMS ((const char *, unsigned int));
+extern void named_section_flags		PARAMS ((const char *, unsigned int));
+extern bool named_section_first_declaration PARAMS((const char *));
+
+union tree_node;
+extern unsigned int default_section_type_flags PARAMS ((union tree_node *,
+							const char *, int));
+
+extern void default_no_named_section PARAMS ((const char *, unsigned int));
+extern void default_elf_asm_named_section PARAMS ((const char *, unsigned int));
+extern void default_coff_asm_named_section PARAMS ((const char *,
+						    unsigned int));
+extern void default_pe_asm_named_section PARAMS ((const char *, unsigned int));
+
+extern void default_stabs_asm_out_destructor PARAMS ((struct rtx_def *, int));
+extern void default_named_section_asm_out_destructor PARAMS ((struct rtx_def *,
+							      int));
+extern void default_dtor_section_asm_out_destructor PARAMS ((struct rtx_def *,
+							     int));
+extern void default_stabs_asm_out_constructor PARAMS ((struct rtx_def *, int));
+extern void default_named_section_asm_out_constructor PARAMS ((struct rtx_def *,
+							       int));
+extern void default_ctor_section_asm_out_constructor PARAMS ((struct rtx_def *,
+							      int));
+
+/* Emit data for vtable gc for GNU binutils.  */
+extern void assemble_vtable_entry PARAMS ((struct rtx_def *, HOST_WIDE_INT));
+extern void assemble_vtable_inherit PARAMS ((struct rtx_def *,
+					     struct rtx_def *));

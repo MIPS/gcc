@@ -613,8 +613,8 @@ enum reg_class {
   {(3 << REG_X)|(3 << REG_Y)|(3 << REG_Z)|(3 << REG_W)|(0xff << 16),	\
      0x00000000},	/* LD_REGS, r16 - r31 */			\
   {0x0000ffff,0x00000000}, 	/* NO_LD_REGS  r0 - r15 */              \
-  {0xffffffffu,0x00000000},	/* GENERAL_REGS, r0 - r31 */		\
-  {0xffffffffu,0x00000003}	/* ALL_REGS */				\
+  {0xffffffff,0x00000000},	/* GENERAL_REGS, r0 - r31 */		\
+  {0xffffffff,0x00000003}	/* ALL_REGS */				\
 }
 /* An initializer containing the contents of the register classes, as
    integers which are bit masks.  The Nth integer specifies the
@@ -791,7 +791,7 @@ enum reg_class {
    class of registers.  In that case, secondary reload registers are
    not needed and would not be helpful.  Instead, a stack location
    must be used to perform the copy and the `movM' pattern should use
-   memory as a intermediate storage.  This case often occurs between
+   memory as an intermediate storage.  This case often occurs between
    floating-point and general registers.  */
 
 /* `SECONDARY_MEMORY_NEEDED (CLASS1, CLASS2, M)'
@@ -1110,7 +1110,7 @@ enum reg_class {
    FUNDECL is a C variable whose value is a tree node that describes
    the function in question.  Normally it is a node of type
    `FUNCTION_DECL' that describes the declaration of the function.
-   From this you can obtain the DECL_MACHINE_ATTRIBUTES of the
+   From this you can obtain the DECL_ATTRIBUTES of the
    function.
 
    FUNTYPE is a C variable whose value is a tree node that describes
@@ -1132,7 +1132,7 @@ enum reg_class {
    argument popping will always be the responsibility of the calling
    function.
 
-   On the Vax, all functions always pop their arguments, so the
+   On the VAX, all functions always pop their arguments, so the
    definition of this macro is STACK-SIZE.  On the 68000, using the
    standard calling convention, no functions pop their arguments, so
    the value of the macro is always 0 in this case.  But an
@@ -1157,7 +1157,7 @@ enum reg_class {
    hard register in which to pass the argument, or zero to pass the
    argument on the stack.
 
-   For machines like the Vax and 68000, where normally all arguments
+   For machines like the VAX and 68000, where normally all arguments
    are pushed, zero suffices as a definition.
 
    The value of the expression can also be a `parallel' RTX.  This is
@@ -1842,23 +1842,7 @@ do {									    \
 #define NO_RECURSIVE_FUNCTION_CSE
 /* Define this macro if it is as good or better for a function to call
    itself with an explicit address than to call an address kept in a
-   register.
-
-   `ADJUST_COST (INSN, LINK, DEP_INSN, COST)'
-   A C statement (sans semicolon) to update the integer variable COST
-   based on the relationship between INSN that is dependent on
-   DEP_INSN through the dependence LINK.  The default is to make no
-   adjustment to COST.  This can be used for example to specify to
-   the scheduler that an output- or anti-dependence does not incur
-   the same cost as a data-dependence.
-
-   `ADJUST_PRIORITY (INSN)'
-   A C statement (sans semicolon) to update the integer scheduling
-   priority `INSN_PRIORITY(INSN)'.  Reduce the priority to execute
-   the INSN earlier, increase the priority to execute INSN later.
-   Do not define this macro if you do not need to adjust the
-   scheduling priorities of insns.  */
-
+   register.  */
 
 #define TEXT_SECTION_ASM_OP "\t.text"
 /* A C expression whose value is a string containing the assembler
@@ -1906,7 +1890,7 @@ progmem_section (void)							      \
    If these items should be placed in the text section, this macro
    should not be defined.  */
 
-/* `SELECT_SECTION (EXP, RELOC)'
+/* `SELECT_SECTION (EXP, RELOC, ALIGN)'
    A C statement or statements to switch to the appropriate section
    for output of EXP.  You can assume that EXP is either a `VAR_DECL'
    node or a constant of some sort.  RELOC indicates whether the
@@ -1917,7 +1901,7 @@ progmem_section (void)							      \
    Do not define this macro if you put all read-only variables and
    constants in the read-only data section (usually the text section).  */
 
-/* `SELECT_RTX_SECTION (MODE, RTX)'
+/* `SELECT_RTX_SECTION (MODE, RTX, ALIGN)'
    A C statement or statements to switch to the appropriate section
    for output of RTX in mode MODE.  You can assume that RTX is some
    kind of constant in RTL.  The argument MODE is redundant except in
@@ -1956,12 +1940,6 @@ progmem_section (void)							      \
    Decode SYM_NAME and store the real name part in VAR, sans the
    characters that encode section info.  Define this macro if
    `ENCODE_SECTION_INFO' alters the symbol's name string.  */
-/* `UNIQUE_SECTION_P (DECL)'
-   A C expression which evaluates to true if DECL should be placed
-   into a unique section for some target-specific reason.  If you do
-   not define this macro, the default is `0'.  Note that the flag
-   `-ffunction-sections' will also cause functions to be placed into
-   unique sections.  */
 
 #define UNIQUE_SECTION(DECL, RELOC) unique_section (DECL, RELOC)
 /* `UNIQUE_SECTION (DECL, RELOC)'
@@ -1970,7 +1948,6 @@ progmem_section (void)							      \
    RELOC indicates whether the initial value of EXP requires
    link-time relocations.  If you do not define this macro, GNU CC
    will use the symbol name prefixed by `.' as the section name.  */
-
 
 #define ASM_FILE_START(STREAM) asm_file_start (STREAM)
 /* A C expression which outputs to the stdio stream STREAM some
@@ -2022,19 +1999,8 @@ progmem_section (void)							      \
    This macro need not be defined if the standard form of debugging
    information for the debugger in use is appropriate.  */
 
-#define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC) \
-  asm_output_section_name(FILE, DECL, NAME, RELOC)
-
-/* `ASM_OUTPUT_SECTION_NAME (STREAM, DECL, NAME, RELOC)'
-   A C statement to output something to the assembler file to switch
-   to section NAME for object DECL which is either a `FUNCTION_DECL',
-   a `VAR_DECL' or `NULL_TREE'.  RELOC indicates whether the initial
-   value of EXP requires link-time relocations.  Some target formats
-   do not support arbitrary sections.  Do not define this macro in
-   such cases.
-
-   At present this macro is only used to support section attributes.
-   When this macro is undefined, section attributes are disabled.  */
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION default_elf_asm_named_section
 
 #define OBJC_PROLOGUE {}
 /* A C statement to output any assembler statements which are
@@ -2058,39 +2024,6 @@ progmem_section (void)							      \
    `REAL_VALUE_TO_TARGET_DOUBLE' are useful for writing these
    definitions.  */
 
-
-#define ASM_OUTPUT_INT(FILE, VALUE)			\
- ( fprintf (FILE, "\t.long "),				\
-   output_addr_const (FILE, (VALUE)),			\
-   fputs ("\n", FILE))
-
- /* Likewise for `short' and `char' constants.   */
-
-#define ASM_OUTPUT_SHORT(FILE,VALUE) asm_output_short(FILE,VALUE)
-#define ASM_OUTPUT_CHAR(FILE,VALUE) asm_output_char(FILE,VALUE)
-
-/* `ASM_OUTPUT_QUADRUPLE_INT (STREAM, EXP)'
-   A C statement to output to the stdio stream STREAM an assembler
-   instruction to assemble an integer of 16, 8, 4, 2 or 1 bytes,
-   respectively, whose value is VALUE.  The argument EXP will be an
-   RTL expression which represents a constant value.  Use
-   `output_addr_const (STREAM, EXP)' to output this value as an
-   assembler expression.
-
-   For sizes larger than `UNITS_PER_WORD', if the action of a macro
-   would be identical to repeatedly calling the macro corresponding to
-   a size of `UNITS_PER_WORD', once for each word, you need not define
-   the macro.  */
-
-
-#define ASM_OUTPUT_BYTE(FILE,VALUE) asm_output_byte (FILE,VALUE)
-/* A C statement to output to the stdio stream STREAM an assembler
-   instruction to assemble a single byte containing the number VALUE.  */
-
-#define ASM_BYTE_OP "\t.byte "
-/* A C string constant giving the pseudo-op to use for a sequence of
-   single-byte constants.  If this macro is not defined, the default
-   is `"\t.byte\t"'.  */
 
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)	 gas_output_ascii (FILE,P,SIZE)
 /* `ASM_OUTPUT_ASCII (STREAM, PTR, LEN)'
@@ -2621,8 +2554,8 @@ sprintf (STRING, "*.%s%d", PREFIX, NUM)
    If this macro is not defined, nothing special is output at the end
    of the jump-table.  */
 
-#define ASM_OUTPUT_SKIP(STREAM, n)		\
-fprintf (STREAM, "\t.skip %d,0\n", n)
+#define ASM_OUTPUT_SKIP(STREAM, N)		\
+fprintf (STREAM, "\t.skip %d,0\n", N)
 /* A C statement to output to the stdio stream STREAM an assembler
    instruction to advance the location counter by NBYTES bytes.
    Those bytes should be zero when loaded.  NBYTES will be a C
@@ -2741,7 +2674,7 @@ extern int avr_case_values_threshold;
    the most combinations to be found.  */
 
 #define TRAMPOLINE_TEMPLATE(FILE) \
-  internal_error ("Trampolines not supported\n")
+  internal_error ("trampolines not supported")
 
 /* Length in units of the trampoline for entering a nested function.  */
 
@@ -3096,8 +3029,6 @@ extern struct rtx_def *ldi_reg_rtx;
 #define REAL_ARITHMETIC
 
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
-
-#define DBX_REGISTER_NUMBER(r) (r)
 
 /* Get the standard ELF stabs definitions.  */
 #include "dbxelf.h"

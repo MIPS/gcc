@@ -296,7 +296,7 @@ GNAT_ADA_OBJS = \
  exp_code.o exp_dbug.o exp_disp.o exp_dist.o exp_fixd.o exp_aggr.o exp_imgv.o \
  exp_intr.o exp_pakd.o exp_prag.o exp_smem.o \
  exp_strm.o exp_tss.o exp_util.o exp_vfpt.o expander.o fname.o fname-uf.o \
- fmap.o freeze.o frontend.o gnat.o g-hesora.o g-htable.o g-os_lib.o \
+ freeze.o frontend.o gnat.o g-hesora.o g-htable.o g-os_lib.o \
  g-speche.o s-crc32.o get_targ.o gnatvsn.o \
  hlo.o hostparm.o impunit.o \
  interfac.o itypes.o inline.o krunch.o lib.o \
@@ -326,7 +326,7 @@ GNATBIND_OBJS = \
  alloc.o bcheck.o binde.o \
  binderr.o bindgen.o bindusg.o \
  butil.o casing.o csets.o \
- debug.o fmap.o fname.o gnat.o g-hesora.o g-htable.o \
+ debug.o fname.o gnat.o g-hesora.o g-htable.o \
  g-os_lib.o gnatbind.o gnatvsn.o hostparm.o \
  krunch.o namet.o opt.o osint.o output.o rident.o s-crc32.o s-assert.o \
  s-parame.o s-sopco3.o s-sopco4.o s-sopco5.o s-stache.o s-stalib.o \
@@ -364,7 +364,7 @@ GNATCMD_RTL_OBJS = adaint.o argv.o raise.o exit.o final.o init.o \
    s-stache.o s-sopco3.o s-sopco4.o s-sopco5.o \
    s-strops.o s-soflin.o s-wchcon.o s-wchcnv.o s-wchjis.o s-unstyp.o 
 
-GNATCMD_OBJS = alloc.o debug.o fmap.o fname.o gnatcmd.o gnatvsn.o hostparm.o \
+GNATCMD_OBJS = alloc.o debug.o fname.o gnatcmd.o gnatvsn.o hostparm.o \
    krunch.o namet.o opt.o osint.o casing.o csets.o widechar.o \
    output.o sdefault.o switch.o stylesw.o validsw.o table.o tree_io.o types.o \
    $(GNATCMD_RTL_OBJS) $(EXTRA_GNATTOOLS_OBJS)
@@ -394,7 +394,7 @@ GNATLINK_RTL_OBJS = \
    s-memory.o s-traceb.o s-wchcnv.o s-wchcon.o s-wchjis.o
 
 GNATLINK_OBJS = gnatlink.o link.o \
-   alloc.o debug.o fmap.o gnatvsn.o hostparm.o namet.o \
+   alloc.o debug.o gnatvsn.o hostparm.o namet.o \
    opt.o osint.o output.o sdefault.o stylesw.o validsw.o \
    switch.o table.o tree_io.o types.o widechar.o \
    $(GNATLINK_RTL_OBJS) $(EXTRA_GNATTOOLS_OBJS)
@@ -483,7 +483,6 @@ GNATLS_OBJS = \
  einfo.o    \
  elists.o   \
  errout.o   \
- fmap.o     \
  fname.o    \
  gnatls.o   \
  gnatvsn.o  \
@@ -554,7 +553,7 @@ GNATMAKE_RTL_OBJS = adaint.o argv.o raise.o exit.o a-comlin.o \
 
 GNATMAKE_OBJS = ali.o ali-util.o \
  alloc.o atree.o binderr.o butil.o casing.o csets.o debug.o einfo.o elists.o \
- errout.o fmap.o fname.o fname-uf.o fname-sf.o \
+ errout.o fname.o fname-uf.o fname-sf.o \
  gnatmake.o gnatvsn.o hostparm.o krunch.o lib.o make.o makeusg.o \
  mlib.o mlib-fil.o mlib-prj.o mlib-tgt.o mlib-utl.o \
  namet.o nlists.o opt.o osint.o output.o \
@@ -707,7 +706,7 @@ GNATXREF_RTL_OBJS =  \
    s-valuti.o s-valuns.o s-valint.o s-wchcon.o s-wchjis.o s-wchcnv.o
 
 GNATXREF_OBJS = gnatxref.o xr_tabls.o xref_lib.o \
-   alloc.o debug.o fmap.o gnatvsn.o hostparm.o types.o output.o \
+   alloc.o debug.o gnatvsn.o hostparm.o types.o output.o \
    sdefault.o stylesw.o validsw.o tree_io.o opt.o table.o osint.o \
    switch.o widechar.o namet.o \
    $(GNATXREF_RTL_OBJS) $(EXTRA_GNATTOOLS_OBJS)
@@ -730,7 +729,7 @@ GNATFIND_RTL_OBJS = \
    s-valuns.o s-valuti.o s-wchcnv.o s-wchcon.o s-wchjis.o
 
 GNATFIND_OBJS = gnatfind.o xr_tabls.o xref_lib.o \
-   alloc.o debug.o fmap.o gnatvsn.o hostparm.o namet.o opt.o \
+   alloc.o debug.o gnatvsn.o hostparm.o namet.o opt.o \
    osint.o output.o sdefault.o stylesw.o validsw.o switch.o table.o \
    tree_io.o types.o widechar.o \
    $(GNATFIND_RTL_OBJS) $(EXTRA_GNATTOOLS_OBJS)
@@ -1060,6 +1059,7 @@ ifeq ($(strip $(filter-out sparc sun solaris2% sunos5%,$(targ))),)
   a-intnam.ads<4sintnam.ads \
   s-inmaop.adb<7sinmaop.adb \
   s-intman.adb<5sintman.adb \
+  s-mastop.adb<5smastop.adb \
   s-osinte.adb<5sosinte.adb \
   s-osinte.ads<5sosinte.ads \
   s-osprim.adb<5posprim.adb \
@@ -1085,6 +1085,7 @@ ifeq ($(strip $(filter-out sparc sun solaris2% sunos5%,$(targ))),)
     a-intnam.ads<4sintnam.ads \
     s-inmaop.adb<7sinmaop.adb \
     s-intman.adb<5sintman.adb \
+    s-mastop.adb<5smastop.adb \
     s-osinte.adb<7sosinte.adb \
     s-osinte.ads<5tosinte.ads \
     s-osprim.adb<5posprim.adb \
@@ -1103,6 +1104,7 @@ ifeq ($(strip $(filter-out sparc sun solaris2% sunos5%,$(targ))),)
     a-intnam.ads<4sintnam.ads \
     s-inmaop.adb<7sinmaop.adb \
     s-intman.adb<7sintman.adb \
+    s-mastop.adb<5smastop.adb \
     s-osinte.adb<5iosinte.adb \
     s-osinte.ads<54osinte.ads \
     s-osprim.adb<5posprim.adb \
@@ -1906,8 +1908,6 @@ HIE_SOURCES = \
  s-fatlfl.ads \
  s-fatllf.ads \
  s-fatsfl.ads \
- s-secsta.ads \
- s-secsta.adb \
  a-tags.ads   \
  a-tags.adb $(EXTRA_HIE_SOURCES)
 
@@ -1922,19 +1922,23 @@ HIE_OBJS =  \
  s-stoele.o \
  s-maccod.o \
  s-unstyp.o \
- s-fatflt.o \
- s-fatlfl.o \
- s-fatllf.o \
- s-secsta.o \
  a-tags.o $(EXTRA_HIE_OBJS)
 
 # Files which are needed in ravenscar mode
 
 RAVEN_SOURCES = \
  $(HIE_SOURCES) \
+ s-arit64.ads \
+ s-arit64.adb \
  s-parame.ads \
  s-parame.adb \
  g-except.ads \
+ s-stalib.ads \
+ s-stalib.adb \
+ s-soflin.ads \
+ s-soflin.adb \
+ s-secsta.ads \
+ s-secsta.adb \
  s-osinte.ads \
  s-osinte.adb \
  s-tasinf.ads \
@@ -1943,12 +1947,9 @@ RAVEN_SOURCES = \
  s-taprop.ads \
  s-taprop.adb \
  s-taskin.ads \
- s-taskin.adb \
  s-interr.ads \
  s-interr.adb \
- a-interr.ads \
- a-interr.adb \
- a-intnam.ads \
+ s-taskin.adb \
  a-reatim.ads \
  a-reatim.adb \
  a-retide.ads \
@@ -1961,24 +1962,33 @@ RAVEN_SOURCES = \
  s-tarest.ads \
  s-tarest.adb $(EXTRA_RAVEN_SOURCES)
 
+# Files that need to be preprocessed before inclusion in a ravenscar run time
+
+RAVEN_MOD = \
+ s-tposen.adb \
+ s-tarest.adb
+
 # Objects to generate for the ravenscar run time
 
 RAVEN_OBJS = \
  $(HIE_OBJS) \
- s-parame.o  \
  g-except.o  \
- s-osinte.o  \
+ s-stalib.o  \
+ s-arit64.o  \
+ s-parame.o  \
+ s-soflin.o  \
+ s-secsta.o  \
  s-tasinf.o  \
+ s-osinte.o  \
  s-taspri.o  \
  s-taprop.o  \
  s-taskin.o  \
- s-interr.o  \
- a-interr.o  \
- a-intnam.o  \
- a-reatim.o  \
- a-retide.o  \
  s-taprob.o  \
  s-tposen.o  \
+ s-interr.o  \
+ a-interr.o  \
+ a-reatim.o  \
+ a-retide.o  \
  s-tasres.o  \
  s-tarest.o  $(EXTRA_RAVEN_OBJS)
 
@@ -3119,9 +3129,6 @@ fname.o : ada.ads a-except.ads alloc.ads debug.ads fname.ads fname.adb \
    system.ads s-assert.ads s-exctab.ads s-stalib.ads s-wchcon.ads \
    table.ads table.adb tree_io.ads types.ads unchconv.ads unchdeal.ads 
 
-fmap.o : alloc.ads debug.ads fmap.ads fmap.adb hostparm.ads namet.ads opt.ads \
-   osint.ads output.ads table.ads table.adb tree_io.ads types.ads
-
 fname-sf.o : alloc.ads casing.ads fname.ads fname-sf.ads fname-sf.adb \
    fname-uf.ads gnat.ads g-os_lib.ads namet.ads osint.ads sfn_scan.ads \
    system.ads s-exctab.ads s-stalib.ads s-stoele.ads table.ads types.ads \
@@ -3515,12 +3522,12 @@ opt.o : ada.ads a-except.ads gnat.ads g-os_lib.ads gnatvsn.ads \
    hostparm.ads opt.ads opt.adb system.ads s-exctab.ads s-stalib.ads \
    s-wchcon.ads tree_io.ads types.ads unchconv.ads unchdeal.ads 
 
-osint.o : ada.ads a-except.ads a-uncdea.ads alloc.ads debug.ads fmap.ads \
-   gnat.ads g-htable.ads g-htable.adb g-os_lib.ads hostparm.ads namet.ads \
-   opt.ads osint.ads osint.adb output.ads sdefault.ads system.ads \
-   s-assert.ads s-exctab.ads s-secsta.ads s-soflin.ads s-stache.ads \
-   s-stalib.ads s-stoele.ads s-wchcon.ads table.ads table.adb tree_io.ads \
-   types.ads  unchconv.ads unchdeal.ads
+osint.o : ada.ads a-except.ads a-uncdea.ads alloc.ads debug.ads gnat.ads \
+   g-htable.ads g-htable.adb g-os_lib.ads hostparm.ads namet.ads opt.ads \
+   osint.ads osint.adb output.ads sdefault.ads system.ads s-assert.ads \
+   s-exctab.ads s-secsta.ads s-soflin.ads s-stache.ads s-stalib.ads \
+   s-stoele.ads s-wchcon.ads table.ads table.adb tree_io.ads types.ads \
+   unchconv.ads unchdeal.ads 
 
 output.o : gnat.ads g-os_lib.ads output.ads output.adb system.ads \
    s-exctab.ads s-stalib.ads types.ads unchconv.ads unchdeal.ads 

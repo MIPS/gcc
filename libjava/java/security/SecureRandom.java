@@ -1,5 +1,5 @@
 /* SecureRandom.java --- Secure Random class implmentation
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -52,10 +52,10 @@ public class SecureRandom extends Random
      new SecureRandom by instantating the first SecureRandom 
      algorithm in the default security provier. 
 
-     It is not seeded and should be seeded using setseed or else
+     It is not seeded and should be seeded using setSeed or else
      on the first call to getnextBytes it will force a seed.
 
-     It is maintained for backwards compatability and programs
+     It is maintained for backwards compatibility and programs
      should use getInstance.
    */
   public SecureRandom()
@@ -115,7 +115,7 @@ public class SecureRandom extends Random
      It is seeded with the passed function and is useful if the user
      has access to hardware random device (like a radiation detector).
 
-     It is maintained for backwards compatability and programs
+     It is maintained for backwards compatibility and programs
      should use getInstance.
 
      @param seed Seed bytes for class
@@ -267,12 +267,24 @@ public class SecureRandom extends Random
    */
   public void setSeed(long seed)
   {
-    byte tmp[] = { (byte) (0xff & (seed >> 56)), (byte) (0xff & (seed >> 48)),
-      (byte) (0xff & (seed >> 40)), (byte) (0xff & (seed >> 32)),
-      (byte) (0xff & (seed >> 24)), (byte) (0xff & (seed >> 16)),
-      (byte) (0xff & (seed >> 8)), (byte) (0xff & seed)
-    };
-    secureRandomSpi.engineSetSeed(tmp);
+    // This particular setSeed will be called by Random.Random(), via
+    // our own constructor, before secureRandomSpi is initialized.  In
+    // this case we can't call a method on secureRandomSpi, and we
+    // definitely don't want to throw a NullPointerException.
+    // Therefore we test.
+    if (secureRandomSpi != null)
+      {
+        byte tmp[] = { (byte) (0xff & (seed >> 56)),
+		       (byte) (0xff & (seed >> 48)),
+		       (byte) (0xff & (seed >> 40)),
+		       (byte) (0xff & (seed >> 32)),
+		       (byte) (0xff & (seed >> 24)),
+		       (byte) (0xff & (seed >> 16)),
+		       (byte) (0xff & (seed >> 8)),
+		       (byte) (0xff & seed)
+	};
+	secureRandomSpi.engineSetSeed(tmp);
+      }
   }
 
   /**

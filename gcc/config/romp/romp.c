@@ -33,10 +33,11 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "expr.h"
 #include "obstack.h"
 #include "tree.h"
 #include "function.h"
+#include "expr.h"
+#include "toplev.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -1546,7 +1547,7 @@ output_fpop (code, op0, op1, op2, insn)
       goto win;
 
   /* We have never seen this operation before.  */
-  fpop = (struct fp_op *) oballoc (sizeof (struct fp_op));
+  fpop = (struct fp_op *) xmalloc (sizeof (struct fp_op));
   fpop->mem_offset = data_offset;
   fpop->opcode = code;
   fpop->noperands = noperands;
@@ -2044,4 +2045,29 @@ romp_debugger_arg_correction (offset)
      register argument, but we don't handle it here.  */
 
   return (offset - fp_to_argp);
+}
+
+void
+romp_initialize_trampoline (tramp, fnaddr, cxt)
+     rtx tramp, fnaddr, cxt;
+{
+  rtx addr, temp, val;
+
+  temp = expand_simple_binop (SImode, PLUS, tramp, GEN_INT (4),
+			       0, 1, OPTAB_LIB_WIDEN);
+  emit_move_insn (gen_rtx_MEM (SImode, memory_address (SImode, tramp)), temp);
+
+  val = force_reg (SImode, cxt);
+  addr = memory_address (HImode, plus_constant (tramp, 10));
+  emit_move_insn (gen_rtx_MEM (HImode, addr), gen_lowpart (HImode, val));
+  temp = expand_shift (RSHIFT_EXPR, SImode, val, build_int_2 (16, 0), 0, 1);
+  addr = memory_address (HImode, plus_constant (tramp, 6));
+  emit_move_insn (gen_rtx_MEM (HImode, addr), gen_lowpart (HImode, temp));
+
+  val = force_reg (SImode, fnaddr);
+  addr = memory_address (HImode, plus_constant (tramp, 24));
+  emit_move_insn (gen_rtx_MEM (HImode, addr), gen_lowpart (HImode, val));
+  temp = expand_shift (RSHIFT_EXPR, SImode, val, build_int_2 (16, 0), 0, 1);
+  addr = memory_address (HImode, plus_constant (tramp, 20));
+  emit_move_insn (gen_rtx_MEM (HImode, addr), gen_lowpart (HImode, temp));
 }

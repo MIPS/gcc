@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.2 $
 --                                                                          --
 --            Copyright (C) 1991-2001, Florida State University             --
 --                                                                          --
@@ -174,7 +174,8 @@ package body Ada.Real_Time is
       --  Extract the integer part of T, truncating towards zero.
 
       if T_Val < 0.5 then
-         SC := 0;
+            SC := 0;
+
       else
          SC := Seconds_Count (Time_Span' (T_Val - 0.5));
       end if;

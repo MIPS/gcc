@@ -1,7 +1,7 @@
 /*{{{  Comment.  */ 
 
 /* Definitions of FR30 target. 
-   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
 This file is part of GNU CC.
@@ -20,12 +20,6 @@ You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
-
-/*}}}*/ 
-/*{{{  Includes.  */ 
-
-/* Set up System V.4 (aka ELF) defaults.  */
-#include "svr4.h"
 
 /*}}}*/ 
 /*{{{  Driver configuration.  */ 
@@ -297,7 +291,7 @@ extern int target_flags;
         there is no need to define this macro when the format is IEEE.
 
    VAX_FLOAT_FORMAT'
-        This code indicates the peculiar format used on the Vax.
+        This code indicates the peculiar format used on the VAX.
 
    UNKNOWN_FLOAT_FORMAT'
         This code indicates any other format.
@@ -623,11 +617,6 @@ enum reg_class
 /*}}}*/ 
 /*{{{  CONSTANTS.  */ 
 
-/* Return true if a value is inside a range */
-#define IN_RANGE(VALUE, LOW, HIGH)					\
-  (   ((unsigned HOST_WIDE_INT)((VALUE) - (LOW)))			\
-   <= ((unsigned HOST_WIDE_INT)( (HIGH) - (LOW))))
-
 /* A C expression that defines the machine-dependent operand constraint letters
    (`I', `J', `K', .. 'P') that specify particular ranges of integer values.
    If C is one of those letters, the expression should check that VALUE, an
@@ -824,7 +813,7 @@ enum reg_class
    FUNDECL is a C variable whose value is a tree node that describes the
    function in question.  Normally it is a node of type `FUNCTION_DECL' that
    describes the declaration of the function.  From this it is possible to
-   obtain the DECL_MACHINE_ATTRIBUTES of the function.
+   obtain the DECL_ATTRIBUTES of the function.
 
    FUNTYPE is a C variable whose value is a tree node that describes the
    function in question.  Normally it is a node of type `FUNCTION_TYPE' that
@@ -842,7 +831,7 @@ enum reg_class
    variable number of bytes is passed, it is zero, and argument popping will
    always be the responsibility of the calling function.
 
-   On the Vax, all functions always pop their arguments, so the definition of
+   On the VAX, all functions always pop their arguments, so the definition of
    this macro is STACK-SIZE.  On the 68000, using the standard calling
    convention, no functions pop their arguments, so the value of the macro is
    always 0 in this case.  But an alternative calling convention is available
@@ -1455,43 +1444,6 @@ do										\
 	       t[0], ASM_COMMENT_START, str, t[1]);		\
     }								\
   while (0)
-
-/* This is how to output an assembler line defining a `char' constant.  */
-#define ASM_OUTPUT_CHAR(FILE, VALUE)		\
-  do						\
-    {						\
-      fprintf (FILE, "\t.byte\t");		\
-      output_addr_const (FILE, (VALUE));	\
-      fprintf (FILE, "\n");			\
-    }						\
-  while (0)
-
-/* This is how to output an assembler line defining a `short' constant.  */
-#define ASM_OUTPUT_SHORT(FILE, VALUE)		\
-  do						\
-    {						\
-      fprintf (FILE, "\t.hword\t");		\
-      output_addr_const (FILE, (VALUE));	\
-      fprintf (FILE, "\n");			\
-    }						\
-  while (0)
-
-/* This is how to output an assembler line defining an `int' constant.
-   We also handle symbol output here.  */
-#define ASM_OUTPUT_INT(FILE, VALUE)		\
-  do						\
-    {						\
-      fprintf (FILE, "\t.word\t");		\
-      output_addr_const (FILE, (VALUE));	\
-      fprintf (FILE, "\n");			\
-    }						\
-  while (0)
-
-/* A C statement to output to the stdio stream STREAM an assembler instruction
-   to assemble a single byte containing the number VALUE.  */
-#define ASM_OUTPUT_BYTE(STREAM, VALUE) \
-  fprintf (STREAM, "%s0x%x\n", ASM_BYTE_OP, (VALUE))
-
 /*}}}*/ 
 /*{{{  Output and Generation of Labels.  */ 
 
@@ -1630,26 +1582,6 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
    will be a C expression of type `int'.  */
 #define ASM_OUTPUT_ALIGN(STREAM, POWER) \
   fprintf ((STREAM), "\t.p2align %d\n", (POWER))
-
-/*}}}*/ 
-/*{{{  Macros Affecting all Debug Formats.  */ 
-
-/* A C expression that returns the DBX register number for the compiler
-   register number REGNO.  In simple cases, the value of this expression may be
-   REGNO itself.  But sometimes there are some registers that the compiler
-   knows about and DBX does not, or vice versa.  In such cases, some register
-   may need to have one number in the compiler and another for DBX.
-
-   If two registers have consecutive numbers inside GNU CC, and they can be
-   used as a pair to hold a multiword value, then they *must* have consecutive
-   numbers after renumbering with `DBX_REGISTER_NUMBER'.  Otherwise, debuggers
-   will be unable to access such a pair, because they expect register pairs to
-   be consecutive in their own numbering scheme.
-
-   If you find yourself defining `DBX_REGISTER_NUMBER' in way that does not
-   preserve register pairs, then what you must do instead is redefine the
-   actual register numbering scheme.  */
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
 
 /*}}}*/ 
 /*{{{  Macros for SDB and Dwarf Output.  */ 

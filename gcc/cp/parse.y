@@ -45,10 +45,6 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "ggc.h"
 
-/* Since parsers are distinct for each language, put the language string
-   definition here.  (fnf) */
-const char * const language_string = "GNU C++";
-
 extern struct obstack permanent_obstack;
 
 /* Like YYERROR but do call yyerror.  */
@@ -123,7 +119,13 @@ frob_specs (specs_attrs, lookups)
     current_declspecs = build_tree_list (NULL_TREE, current_declspecs);
   if (have_extern_spec && !used_extern_spec)
     {
-      current_declspecs = tree_cons (NULL_TREE, 
+      /* We have to indicate that there is an "extern", but that it
+         was part of a language specifier.  For instance,
+	 
+    	    extern "C" typedef int (*Ptr) ();
+
+         is well formed.  */
+      current_declspecs = tree_cons (error_mark_node,
 				     get_identifier ("extern"), 
 				     current_declspecs);
       used_extern_spec = 1;
@@ -164,7 +166,7 @@ parse_field (declarator, attributes, asmspec, init)
      tree declarator, attributes, asmspec, init;
 {
   tree d = grokfield (declarator, current_declspecs, init, asmspec,
-		      build_tree_list (attributes, prefix_attributes));
+		      chainon (attributes, prefix_attributes));
   decl_type_access_control (d);
   return d;
 }
@@ -182,7 +184,7 @@ parse_bitfield (declarator, attributes, width)
      tree declarator, attributes, width;
 {
   tree d = grokbitfield (declarator, current_declspecs, width);
-  cplus_decl_attributes (&d, attributes, prefix_attributes, 0);
+  cplus_decl_attributes (&d, chainon (attributes, prefix_attributes), 0);
   decl_type_access_control (d);
   return d;
 }
@@ -383,7 +385,7 @@ cp_parse_init ()
 %token <pi> PRE_PARSED_FUNCTION_DECL 
 %type <ttype> component_constructor_declarator
 %type <ttype> fn.def2 return_id constructor_declarator
-%type <itype> ctor_initializer_opt function_try_block
+%type <ttype> .begin_function_body
 %type <ttype> named_class_head_sans_basetype
 %type <ftype> class_head named_class_head 
 %type <ftype> named_complex_class_head_sans_basetype 
@@ -669,7 +671,8 @@ template_parm:
 		{
 		  if (TREE_CODE ($3) != TEMPLATE_DECL
 		      && TREE_CODE ($3) != TEMPLATE_TEMPLATE_PARM
-		      && TREE_CODE ($3) != TYPE_DECL)
+		      && TREE_CODE ($3) != TYPE_DECL
+		      && TREE_CODE ($3) != UNBOUND_CLASS_TEMPLATE)
 		    {
 		      error ("invalid default template argument");
 		      $3 = error_mark_node;
@@ -736,15 +739,15 @@ datadef:
 		}
 	| error ';'
 	| error '}'
+	| error END_OF_SAVED_INPUT
+		{ end_input (); }
 	| ';'
 	| bad_decl
 	;
 
 ctor_initializer_opt:
 	  nodecls
-		{ $$ = 0; }
 	| base_init
-		{ $$ = 1; }
 	;
 
 maybe_return_init:
@@ -758,11 +761,18 @@ eat_saved_input:
 	| END_OF_SAVED_INPUT
 	;
 
+function_body:
+	  .begin_function_body ctor_initializer_opt compstmt
+		{
+		  finish_function_body ($1);
+		}
+	;
+
 fndef:
-	  fn.def1 maybe_return_init ctor_initializer_opt compstmt_or_error
-		{ expand_body (finish_function ((int)$3)); }
+	  fn.def1 maybe_return_init function_body
+		{ expand_body (finish_function (0)); }
 	| fn.def1 maybe_return_init function_try_block
-		{ expand_body (finish_function ((int)$3)); }
+		{ expand_body (finish_function (0)); }
 	| fn.def1 maybe_return_init error
 		{ }
 	;
@@ -885,25 +895,21 @@ return_init:
 	;
 
 base_init:
-	  ':' .set_base_init member_init_list
+	  ':' member_init_list
 		{
-		  if ($3.new_type_flag == 0)
+		  if (! DECL_CONSTRUCTOR_P (current_function_decl))
+		    error ("only constructors take base initializers");
+		  else if ($2.new_type_flag == 0)
 		    error ("no base or member initializers given following ':'");
 
-		  finish_mem_initializers ($3.t);
+		  finish_mem_initializers ($2.t);
 		}
 	;
 
-.set_base_init:
+.begin_function_body:
 	  /* empty */
 		{
-		  if (DECL_CONSTRUCTOR_P (current_function_decl))
-		    /* Make a contour for the initializer list.  */
-		    do_pushlevel ();
-		  else if (current_class_type == NULL_TREE)
-		    error ("base initializers not allowed for non-member functions");
-		  else if (! DECL_CONSTRUCTOR_P (current_function_decl))
-		    error ("only constructors take base initializers");
+		  $$ = begin_function_body ();
 		}
 	;
 
@@ -1098,6 +1104,16 @@ template_arg:
 		    $$ = TREE_TYPE ($$);
 		}
 	| expr_no_comma_rangle
+	| nested_name_specifier TEMPLATE identifier
+		{
+		  if (!processing_template_decl)
+		    {
+		      cp_error ("use of template qualifier outside template");
+		      $$ = error_mark_node;
+		    }
+		  else
+		    $$ = make_unbound_class_template ($1, $3, 1);
+		}
 	;
 
 unop:
@@ -1178,16 +1194,6 @@ compstmtend:
 	| maybe_label_decls error '}'
 	;
 
-already_scoped_stmt:
-	  save_lineno '{'
-		{ $<ttype>$ =  begin_compound_stmt (1); }
-	  compstmtend
-		{ STMT_LINENO ($<ttype>3) = $1;
-		  finish_compound_stmt (1, $<ttype>3); }
-	| save_lineno simple_stmt
-		{ if ($2) STMT_LINENO ($2) = $1; }
-	;
-
 nontrivial_exprlist:
 	  expr_no_commas ',' expr_no_commas
 		{ $$ = tree_cons (NULL_TREE, $$, 
@@ -1226,14 +1232,14 @@ unary_expr:
 	| ANDAND identifier
 		{ $$ = finish_label_address_expr ($2); }
 	| SIZEOF unary_expr  %prec UNARY
-		{ $$ = expr_sizeof ($2); }
+		{ $$ = finish_sizeof ($2); }
 	| SIZEOF '(' type_id ')'  %prec HYPERUNARY
-		{ $$ = c_sizeof (groktypename ($3.t));
+		{ $$ = finish_sizeof (groktypename ($3.t));
 		  check_for_new_type ("sizeof", $3); }
 	| ALIGNOF unary_expr  %prec UNARY
-		{ $$ = grok_alignof ($2); }
+		{ $$ = finish_alignof ($2); }
 	| ALIGNOF '(' type_id ')'  %prec HYPERUNARY
-		{ $$ = c_alignof (groktypename ($3.t)); 
+		{ $$ = finish_alignof (groktypename ($3.t)); 
 		  check_for_new_type ("alignof", $3); }
 
 	/* The %prec EMPTY's here are required by the = init initializer
@@ -2203,14 +2209,14 @@ initlist:
 	;
 
 pending_inline:
-	  PRE_PARSED_FUNCTION_DECL maybe_return_init ctor_initializer_opt compstmt_or_error
+	  PRE_PARSED_FUNCTION_DECL maybe_return_init function_body
 		{
-		  expand_body (finish_function ((int)$3 | 2));
+		  expand_body (finish_function (2));
 		  process_next_inline ($1);
 		}
 	| PRE_PARSED_FUNCTION_DECL maybe_return_init function_try_block
 		{ 
-		  expand_body (finish_function ((int)$3 | 2)); 
+		  expand_body (finish_function (2)); 
                   process_next_inline ($1);
 		}
 	| PRE_PARSED_FUNCTION_DECL maybe_return_init error
@@ -2402,6 +2408,13 @@ named_complex_class_head_sans_basetype:
 		{ 
 		  current_aggr = $1; 
 		  $$.t = $3;
+		  push_scope (CP_DECL_CONTEXT ($$.t));
+		  $$.new_type_flag = 1;
+		}
+	| aggr global_scope nested_name_specifier apparent_template_type
+		{ 
+		  current_aggr = $1; 
+		  $$.t = $4;
 		  push_scope (CP_DECL_CONTEXT ($$.t));
 		  $$.new_type_flag = 1;
 		}
@@ -2639,11 +2652,9 @@ component_decl_1:
 		  $$ = NULL_TREE; 
 		}
 	| notype_declarator maybeasm maybe_attribute maybe_init
-		{ $$ = grokfield ($$, NULL_TREE, $4, $2,
-				  build_tree_list ($3, NULL_TREE)); }
+		{ $$ = grokfield ($$, NULL_TREE, $4, $2, $3); }
 	| constructor_declarator maybeasm maybe_attribute maybe_init
-		{ $$ = grokfield ($$, NULL_TREE, $4, $2,
-				  build_tree_list ($3, NULL_TREE)); }
+		{ $$ = grokfield ($$, NULL_TREE, $4, $2, $3); }
 	| ':' expr_no_commas
 		{ $$ = grokbitfield (NULL_TREE, NULL_TREE, $2); }
 	| error
@@ -2661,10 +2672,9 @@ component_decl_1:
 		{ tree specs, attrs;
 		  split_specs_attrs ($1.t, &specs, &attrs);
 		  $$ = grokfield ($2, specs, $5, $3,
-				  build_tree_list ($4, attrs)); }
+				  chainon ($4, attrs)); }
 	| component_constructor_declarator maybeasm maybe_attribute maybe_init
-		{ $$ = grokfield ($$, NULL_TREE, $4, $2,
-				  build_tree_list ($3, NULL_TREE)); }
+		{ $$ = grokfield ($$, NULL_TREE, $4, $2, $3); }
 	| using_decl
 		{ $$ = do_class_using_decl ($1); }
 
@@ -3025,6 +3035,13 @@ nested_name_specifier:
 	| nested_name_specifier TEMPLATE explicit_template_type SCOPE
                 { got_scope = $$ 
 		    = make_typename_type ($1, $3, /*complain=*/1); }
+	/* Error handling per Core 125.  */
+	| nested_name_specifier IDENTIFIER SCOPE
+                { got_scope = $$ 
+		    = make_typename_type ($1, $2, /*complain=*/1); }
+	| nested_name_specifier PTYPENAME SCOPE
+                { got_scope = $$ 
+		    = make_typename_type ($1, $2, /*complain=*/1); }
 	;
 
 /* Why the @#$%^& do type_name and notype_identifier need to be expanded
@@ -3054,16 +3071,6 @@ nested_name_specifier_1:
 		}
 	| template_type SCOPE
 		{ got_scope = $$ = complete_type (TREE_TYPE ($1)); }
-/* 	These break 'const i;'
-	| IDENTIFIER SCOPE
-		{
-		 failed_scope:
-		  cp_error ("`%D' is not an aggregate typedef", 
-			    lastiddecl ? lastiddecl : $$);
-		  $$ = error_mark_node;
-		}
-	| PTYPENAME SCOPE
-		{ goto failed_scope; } */
 	;
 
 typename_sub:
@@ -3322,13 +3329,6 @@ label_decl:
 		}
 	;
 
-/* This is the body of a function definition.
-   It causes syntax errors to ignore to the next openbrace.  */
-compstmt_or_error:
-	  compstmt
-	| error compstmt
-	;
-
 compstmt:
 	  save_lineno '{'
                 { $<ttype>$ = begin_compound_stmt (0); }
@@ -3388,7 +3388,7 @@ simple_stmt:
 		}
 	  paren_cond_or_null
                 { finish_while_stmt_cond ($3, $<ttype>2); }
-	  already_scoped_stmt
+	  implicitly_scoped_stmt
                 { $$ = $<ttype>2;
 		  finish_while_stmt ($<ttype>2); }
 	| DO
@@ -3409,7 +3409,7 @@ simple_stmt:
                 { finish_for_cond ($6, $<ttype>2); }
 	  xexpr ')'
                 { finish_for_expr ($9, $<ttype>2); }
-	  already_scoped_stmt
+	  implicitly_scoped_stmt
                 { $$ = $<ttype>2;
 		  finish_for_stmt ($<ttype>2); }
 	| SWITCH 
@@ -3493,13 +3493,10 @@ simple_stmt:
 function_try_block:
 	  TRY
 		{ $<ttype>$ = begin_function_try_block (); }
-	  ctor_initializer_opt compstmt
+	  function_body
 		{ finish_function_try_block ($<ttype>2); }
 	  handler_seq
-		{
-		  finish_function_handler_sequence ($<ttype>2);
-		  $$ = $3;
-		}
+		{ finish_function_handler_sequence ($<ttype>2); }
 	;
 
 try_block:
@@ -3608,7 +3605,9 @@ nonnull_asm_operands:
 
 asm_operand:
 	  STRING '(' expr ')'
-		{ $$ = build_tree_list ($$, $3); }
+		{ $$ = build_tree_list (build_tree_list (NULL_TREE, $1), $3); }
+	| '[' identifier ']' STRING '(' expr ')'
+		{ $$ = build_tree_list (build_tree_list ($2, $4), $6); }
 	;
 
 asm_clobbers:

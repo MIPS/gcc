@@ -1049,7 +1049,6 @@ struct pj_args
   fprintf (FILE,"\t! %s\n", TARGET_LITTLE_ENDIAN ? ".little" : ".big");      \
   fprintf (FILE,"\t.align 4\n");
 
-#define ASM_LONG ".long"
 #define ASM_APP_ON              ""
 #define ASM_APP_OFF             ""
 #define FILE_ASM_OP             "\t.file\n"
@@ -1162,10 +1161,12 @@ do { fputs (current_function_varargs || current_function_stdarg         \
 #define LOCAL_LABEL_PREFIX "."
 
 /* Make an internal label into a string.  */
+#undef  ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(STRING, PREFIX, NUM) \
   sprintf ((STRING), "*%s%s%ld", LOCAL_LABEL_PREFIX, (PREFIX), (long)(NUM))
 
 /* Output an internal label definition.  */
+#undef  ASM_OUTPUT_INTERNAL_LABEL
 #define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM) \
   asm_fprintf ((FILE), "%L%s%d:\n", (PREFIX), (NUM))
 
@@ -1199,27 +1200,10 @@ do { char dstr[30];                                     \
      fprintf ((FILE), "\t.float %s\n", dstr);           \
    } while (0)
 
-#define ASM_OUTPUT_INT(STREAM, EXP)             \
-  (fprintf ((STREAM), "\t.long\t"),             \
-   output_addr_const ((STREAM), (EXP)),         \
-   fputc ('\n', (STREAM)))
-
-#define ASM_OUTPUT_SHORT(STREAM, EXP)   \
-  (fprintf ((STREAM), "\t.short\t"),    \
-   output_addr_const ((STREAM), (EXP)), \
-   fputc ('\n', (STREAM)))
-
-#define ASM_OUTPUT_CHAR(STREAM, EXP)            \
-  (fprintf ((STREAM), "\t.byte\t"),             \
-   output_addr_const ((STREAM), (EXP)),         \
-   fputc ('\n', (STREAM)))
-
-#define ASM_OUTPUT_BYTE(STREAM, VALUE)          \
-  fprintf ((STREAM), "\t.byte\t%d\n", (VALUE))  
-
 /* This is how to output an assembler line
    that says to advance the location counter by SIZE bytes.  */
 
+#undef  ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE,SIZE) \
   fprintf ((FILE), "\t.space %d\n", (SIZE))
 

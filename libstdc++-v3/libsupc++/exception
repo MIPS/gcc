@@ -62,7 +62,6 @@ namespace std
   {
   public:
     bad_exception() throw() { }
-    virtual ~bad_exception() throw();
   };
 
   /// If you write a replacement %terminate handler, it must be of this type.
@@ -95,6 +94,17 @@ namespace std
   bool uncaught_exception() throw();
 } // namespace std
 
+namespace __gnu_cxx
+{
+  /** A replacement for the standard terminate_handler which prints more
+      information about the terminating exception (if any) on stderr.
+
+        std::set_terminate (__gnu_cxx::__verbose_terminate_handler)
+
+      to use.  */
+  void __verbose_terminate_handler ();
+} // namespace __gnu_cxx
+  
 } // extern "C++"
 
 #endif

@@ -1,6 +1,6 @@
 #
 # Makefile
-#   Copyright (C) 1990, 91-99, 2000
+#   Copyright (C) 1990, 91-99, 2000, 2001
 #   Free Software Foundation
 #
 # This file is part of the libiberty library.
@@ -56,6 +56,8 @@ CC = @CC@
 CFLAGS = @CFLAGS@
 LIBCFLAGS = $(CFLAGS)
 RANLIB = @RANLIB@
+MAKEINFO = @MAKEINFO@
+PERL = @PERL@
 
 PICFLAG =
 
@@ -94,6 +96,7 @@ FLAGS_TO_PASS = \
 # Subdirectories to recurse into. We need to override this during cleaning
 SUBDIRS = testsuite
 
+# FIXME: add @BUILD_INFO@ once we're sure it works for everyone.
 all: stamp-picdir $(TARGETLIB) needed-list required-list all-subdir
 	@$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=all
 
@@ -112,16 +115,11 @@ COMPILE.c = $(CC) -c @DEFS@ $(LIBCFLAGS) -I. -I$(INCDIR) $(HDEFINES) @ac_libiber
 	else true; fi
 	$(COMPILE.c) $<
 
-info: info-subdir
-install-info: install-info-subdir
-clean-info: clean-info-subdir
-dvi: dvi-subdir
-
 # NOTE: If you add new files to the library, add them to this list
 # (alphabetical), and add them to REQUIRED_OFILES or funcs in
 # configure.in.
 CFILES = asprintf.c alloca.c argv.c atexit.c basename.c bcmp.c bcopy.c	      \
-	bzero.c calloc.c choose-temp.c clock.c concat.c cplus-dem.c	      \
+	bsearch.c bzero.c calloc.c choose-temp.c clock.c concat.c cplus-dem.c \
         cp-demangle.c dyn-string.c fdmatch.c fnmatch.c ffs.c getcwd.c	      \
 	getpwd.c getopt.c getopt1.c getpagesize.c getruntime.c		      \
 	floatformat.c hashtab.c hex.c index.c insque.c lbasename.c            \
@@ -133,7 +131,7 @@ CFILES = asprintf.c alloca.c argv.c atexit.c basename.c bcmp.c bcopy.c	      \
 	strncasecmp.c strchr.c strdup.c strerror.c strncmp.c strrchr.c        \
 	strsignal.c strstr.c strtod.c strtol.c strtoul.c tmpnam.c vasprintf.c \
 	vfork.c vfprintf.c vprintf.c vsprintf.c waitpid.c xatexit.c xexit.c   \
-	xmalloc.c xmemdup.c xstrdup.c xstrerror.c ternary.c
+	xmalloc.c xmemdup.c xstrdup.c xstrerror.c ternary.c fibheap.c
 
 # These are always included in the library.
 REQUIRED_OFILES = argv.o alloca.o choose-temp.o concat.o cplus-dem.o          \
@@ -142,13 +140,64 @@ REQUIRED_OFILES = argv.o alloca.o choose-temp.o concat.o cplus-dem.o          \
         md5.o make-temp-file.o objalloc.o				      \
 	obstack.o partition.o pexecute.o regex.o safe-ctype.o sort.o spaces.o \
 	splay-tree.o strerror.o strsignal.o xatexit.o xexit.o xmalloc.o       \
-	xmemdup.o xstrdup.o xstrerror.o ternary.o
+	xmemdup.o xstrdup.o xstrerror.o ternary.o fibheap.o
+
+# These are all the objects that configure may add to the library via
+# $funcs.  This list exists here only for "make maint-missing".
+CONFIGURED_OFILES = asprintf.o atexit.o basename.o bcmp.o bcopy.o	\
+	bsearch.o bzero.o calloc.o clock.o ffs.o getcwd.o		\
+	getpagesize.o index.o insque.o memchr.o memcmp.o memcpy.o	\
+	memmove.o memset.o mkstemps.o putenv.o random.o rename.o	\
+	rindex.o setenv.o sigsetmask.o strcasecmp.o strchr.o strdup.o	\
+	strncasecmp.o strncmp.o strrchr.o strstr.o strtod.o strtol.o	\
+	strtoul.o tmpnam.o vasprintf.o vfork.o vfprintf.o vprintf.o	\
+	vsprintf.o waitpid.o
 
 $(TARGETLIB): $(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS)
-	-rm -f $(TARGETLIB)
+	-rm -f $(TARGETLIB) pic/$(TARGETLIB)
 	$(AR) $(AR_FLAGS) $(TARGETLIB) \
 	  $(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS)
 	$(RANLIB) $(TARGETLIB)
+	if [ x"$(PICFLAG)" != x ]; then \
+	  cd pic; \
+	  $(AR) $(AR_FLAGS) $(TARGETLIB) \
+	    $(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS); \
+	  $(RANLIB) $(TARGETLIB); \
+	  cd ..; \
+	else true; fi
+
+info: libiberty.info info-subdir
+install-info: install-info-subdir
+clean-info: clean-info-subdir
+dvi: libiberty.dvi dvi-subdir
+html: libiberty.html
+
+TEXISRC = \
+	$(srcdir)/libiberty.texi \
+	$(srcdir)/copying-lib.texi \
+	$(srcdir)/obstacks.texi \
+	$(srcdir)/functions.texi
+
+# Additional files that have texi snippets that need to be collected
+# and sorted.  Some are here because the sources are imported from
+# elsewhere.  Others represent headers in ../include.
+TEXIFILES = fnmatch.txh
+
+libiberty.info : $(srcdir)/libiberty.texi $(TEXISRC)
+	$(MAKEINFO) -I$(srcdir) $(srcdir)/libiberty.texi
+
+libiberty.dvi : $(srcdir)/libiberty.texi $(TEXISRC)
+	texi2dvi $(srcdir)/libiberty.texi
+
+libiberty.html : $(srcdir)/libiberty.texi $(TEXISRC)
+	$(MAKEINFO) --html -I$(srcdir) $(srcdir)/libiberty.texi
+
+@MAINT@$(srcdir)/functions.texi : stamp-functions
+@MAINT@	@true
+
+@MAINT@stamp-functions : $(CFILES) $(TEXIFILES) $(srcdir)/gather-docs Makefile
+@MAINT@@HAVE_PERL@	$(PERL) $(srcdir)/gather-docs $(srcdir) $(srcdir)/functions.texi $(CFILES) $(TEXIFILES)
+@MAINT@	echo stamp > stamp-functions
 
 INSTALL_DEST = @INSTALL_DEST@
 install: install_to_$(INSTALL_DEST) install-subdir
@@ -208,6 +257,17 @@ demangle:
 ls:
 	@echo Makefile $(CFILES)
 
+# Various targets for maintainers.
+
+maint-missing :
+	@$(PERL) $(srcdir)/maint-tool -s $(srcdir) missing $(CFILES) $(REQUIRED_OFILES) $(CONFIGURED_OFILES)
+
+maint-buildall : $(REQUIRED_OFILES) $(CONFIGURED_OFILES)
+	@true
+
+maint-undoc : $(srcdir)/functions.texi
+	@$(PERL) $(srcdir)/maint-tool -s $(srcdir) undoc
+
 # Need to deal with profiled libraries, too.
 
 # Cleaning has to be done carefully to ensure that we don't clean our SUBDIRS
@@ -216,10 +276,15 @@ mostlyclean: mostlyclean-subdir
 	-rm -rf *.o pic core errs \#* *.E a.out
 	-rm -f needed.awk needed2.awk errors dummy needed-list config.h stamp-*
 	-rm -f $(CONFIG_H) $(NEEDED_LIST) stamp-picdir
+	-rm -f libiberty.aux libiberty.cp libiberty.cps libiberty.fn libiberty.ky
+	-rm -f libiberty.log libiberty.tmp libiberty.tps libiberty.pg
+	-rm -f libiberty.pgs libiberty.toc libiberty.tp libiberty.tpl libiberty.vr
+	-rm -f libtexi.stamp
 	@$(MULTICLEAN) multi-clean DO=mostlyclean
 clean: clean-subdir
 	$(MAKE) SUBDIRS="" mostlyclean
 	-rm -f *.a required-list tmpmulti.out
+	-rm -f libiberty.dvi libiberty.info* libiberty.html
 	@$(MULTICLEAN) multi-clean DO=clean
 distclean: distclean-subdir
 	$(MAKE) SUBDIRS="" clean
@@ -235,17 +300,22 @@ force:
 Makefile: $(srcdir)/Makefile.in config.status
 	CONFIG_FILES=Makefile CONFIG_HEADERS= $(SHELL) ./config.status
 
+# Depending on Makefile makes sure that config.status has been re-run
+# if needed.  This prevents problems with parallel builds.
 config.h: stamp-h ; @true
-stamp-h: config.in config.status
+stamp-h: config.in config.status Makefile
 	CONFIG_FILES= CONFIG_HEADERS=config.h:config.in $(SHELL) ./config.status
 
 config.status: $(srcdir)/configure $(srcdir)/config.table
 	$(SHELL) ./config.status --recheck
 
+# Depending on config.h makes sure that config.status has been re-run
+# if needed.  This prevents problems with parallel builds, in case
+# subdirectories need to run config.status also.
 all-subdir check-subdir installcheck-subdir info-subdir	\
 install-info-subdir clean-info-subdir dvi-subdir install-subdir	\
 etags-subdir mostlyclean-subdir clean-subdir distclean-subdir \
-maintainer-clean-subdir:
+maintainer-clean-subdir: config.h
 	@subdirs='$(SUBDIRS)'; \
 	target=`echo $@ | sed -e 's/-subdir//'`; \
 	for dir in $$subdirs ; do \
@@ -260,11 +330,12 @@ argv.o: config.h $(INCDIR)/libiberty.h
 basename.o: $(INCDIR)/libiberty.h
 choose-temp.o: config.h
 clock.o: config.h
-concat.o: $(INCDIR)/libiberty.h
+concat.o: config.h $(INCDIR)/libiberty.h
 cplus-dem.o: config.h $(INCDIR)/demangle.h
 cp-demangle.o: config.h $(INCDIR)/dyn-string.h $(INCDIR)/demangle.h
 dyn-string.o: config.h $(INCDIR)/dyn-string.h
 fdmatch.o: $(INCDIR)/libiberty.h
+fibheap.o: config.h $(INCDIR)/libiberty.h $(INCDIR)/fibheap.h
 fnmatch.o: config.h $(INCDIR)/fnmatch.h
 getcwd.o: config.h
 getopt.o: config.h $(INCDIR)/getopt.h
@@ -282,7 +353,7 @@ objalloc.o: config.h $(INCDIR)/objalloc.h
 obstack.o: config.h $(INCDIR)/obstack.h
 partition.o: config.h $(INCDIR)/partition.h
 pexecute.o: config.h $(INCDIR)/libiberty.h
-regex.o: $(INCDIR)/xregex.h $(INCDIR)/xregex2.h
+regex.o: config.h $(INCDIR)/xregex.h $(INCDIR)/xregex2.h
 rename.o: config.h
 setenv.o: config.h
 sort.o: config.h $(INCDIR)/sort.h $(INCDIR)/ansidecl.h

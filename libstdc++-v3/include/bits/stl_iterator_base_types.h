@@ -53,12 +53,13 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_iterator_base_types.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
-#ifndef __SGI_STL_INTERNAL_ITERATOR_BASE_TYPES_H
-#define __SGI_STL_INTERNAL_ITERATOR_BASE_TYPES_H
+#ifndef __GLIBCPP_INTERNAL_ITERATOR_BASE_TYPES_H
+#define __GLIBCPP_INTERNAL_ITERATOR_BASE_TYPES_H
 
 // This file contains all of the general iterator-related utility
 // types, such as iterator_traits and struct iterator.
@@ -172,7 +173,7 @@ namespace std
 
 } // namespace std
 
-#endif /* __SGI_STL_INTERNAL_ITERATOR_BASE_TYPES_H */
+#endif /* __GLIBCPP_INTERNAL_ITERATOR_BASE_TYPES_H */
 
 
 // Local Variables:

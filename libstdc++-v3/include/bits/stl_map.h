@@ -53,8 +53,9 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_map.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
 #ifndef _CPP_BITS_STL_MAP_H
@@ -70,7 +71,7 @@ template <class _Key, class _Tp, class _Compare = less<_Key>,
 class map
 {
   // concept requirements
-  __glibcpp_class_requires(_Tp, _SGIAssignableConcept);
+  __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
   __glibcpp_class_requires4(_Compare, bool, _Key, _Key, _BinaryFunctionConcept);
 
 public:

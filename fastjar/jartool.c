@@ -17,9 +17,33 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
-/* $Id: jartool.c,v 1.5 2001/05/03 21:40:47 danglin Exp $
+/* $Id: jartool.c,v 1.9 2001/10/12 00:49:42 bryce Exp $
 
    $Log: jartool.c,v $
+   Revision 1.9  2001/10/12 00:49:42  bryce
+           * jatool.c (extract_jar): Account for null termination when
+   	determining whether to expand "filename".
+
+   Revision 1.8  2001/08/29 01:35:31  apbianco
+   2001-08-28  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+   	* jartool.c (add_to_jar): Return 1 if `stat' initialy failed.
+   	Fixes PR java/3949.
+
+   (http://gcc.gnu.org/ml/gcc-patches/2001-08/msg01641.html)
+
+   Revision 1.7  2001/08/27 23:09:37  tromey
+   	* jartool.c (jarfile): Remove length limitation.
+   	(main): Use jt_strdup when initializing jarfile.
+
+   Revision 1.6  2001/07/04 18:33:53  tromey
+   	Modified from patch by Julian Hall <jules@acris.co.uk>:
+   	* jartool.c (errno): Conditionally declare.
+   	(O_BINARY): Conditionally define.
+   	(main): Use open, not creat.  Use O_BINARY everywhere.
+   	(make_manifest): Use O_BINARY.
+   	(add_to_jar): Likewise.
+
    Revision 1.5  2001/05/03 21:40:47  danglin
    	* jartool.c (jt_strdup): New function.
    	(get_next_arg): Use jt_strdup instead of strdup.
@@ -241,7 +265,7 @@ ub1 data_descriptor[16];
 int do_compress;
 int seekable;
 int verbose;
-char jarfile[256];
+char *jarfile;
 
 /* If non zero, then don't recurse in directory. Instead, add the
    directory entry and relie on an explicit list of files to populate
@@ -357,7 +381,7 @@ int main(int argc, char **argv){
     if(i >= argc)
       usage(argv[0]);
 
-    strncpy(jarfile, argv[i++], 256);
+    jarfile = jt_strdup (argv[i++]);
   }
   if(manifest_file){
     if(i >= argc)
@@ -370,7 +394,7 @@ int main(int argc, char **argv){
     if(i >= argc)
       usage(argv[0]);
 
-    strncpy(jarfile, argv[i++], 256);
+    jarfile = jt_strdup (argv[i++]);
   }
 
   /* create the jarfile */
@@ -791,6 +815,7 @@ int add_to_jar(int fd, const char *new_dir, const char *file){
   
   if(stat_return == -1){
     perror(file);
+    return 1;
   } else if(S_ISDIR(statbuf.st_mode)){
     char *fullname;
     char *t_ptr;
@@ -1289,7 +1314,7 @@ int extract_jar(int fd, char **files, int file_num){
 #endif
     }
 
-    if(filename_len < fnlen){
+    if(filename_len < fnlen + 1){
       if(filename != NULL)
         free(filename);
       

@@ -61,13 +61,13 @@ bool ffebad_is_inhibited_ = FALSE;
 
 struct _ffebad_message_
   {
-    ffebadSeverity severity;
-    const char *message;
+    const ffebadSeverity severity;
+    const char *const message;
   };
 
 /* Static objects accessed by functions in this module.	 */
 
-static struct _ffebad_message_ ffebad_messages_[]
+static const struct _ffebad_message_ ffebad_messages_[]
 =
 {
 #define FFEBAD_MSGS1(KWD,SEV,MSG) { SEV, MSG },
@@ -182,44 +182,40 @@ ffebad_start_ (bool lex_override, ffebad errnum, ffebadSeverity sev,
       ffebad_message_ = message;
     }
 
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
-  {
-    switch (ffebad_severity_)
-      {				/* Tell toplev.c about this message. */
-      case FFEBAD_severityINFORMATIONAL:
-      case FFEBAD_severityTRIVIAL:
-	if (inhibit_warnings)
-	  {			/* User wants no warnings. */
-	    ffebad_is_temp_inhibited_ = TRUE;
-	    return FALSE;
-	  }
-	/* Fall through.  */
-      case FFEBAD_severityWARNING:
-      case FFEBAD_severityPECULIAR:
-      case FFEBAD_severityPEDANTIC:
-	if ((ffebad_severity_ != FFEBAD_severityPEDANTIC)
-	    || !flag_pedantic_errors)
-	  {
-	    if (count_error (1) == 0)
-	      {			/* User wants no warnings. */
-		ffebad_is_temp_inhibited_ = TRUE;
-		return FALSE;
-	      }
-	    break;
-	  }
-	/* Fall through (PEDANTIC && flag_pedantic_errors).  */
-      case FFEBAD_severityFATAL:
-      case FFEBAD_severityWEIRD:
-      case FFEBAD_severitySEVERE:
-      case FFEBAD_severityDISASTER:
-	count_error (0);
-	break;
+  switch (ffebad_severity_)
+    {				/* Tell toplev.c about this message. */
+    case FFEBAD_severityINFORMATIONAL:
+    case FFEBAD_severityTRIVIAL:
+      if (inhibit_warnings)
+	{			/* User wants no warnings. */
+	  ffebad_is_temp_inhibited_ = TRUE;
+	  return FALSE;
+	}
+      /* Fall through.  */
+    case FFEBAD_severityWARNING:
+    case FFEBAD_severityPECULIAR:
+    case FFEBAD_severityPEDANTIC:
+      if ((ffebad_severity_ != FFEBAD_severityPEDANTIC)
+	  || !flag_pedantic_errors)
+	{
+	  if (count_error (1) == 0)
+	    {			/* User wants no warnings. */
+	      ffebad_is_temp_inhibited_ = TRUE;
+	      return FALSE;
+	    }
+	  break;
+	}
+      /* Fall through (PEDANTIC && flag_pedantic_errors).  */
+    case FFEBAD_severityFATAL:
+    case FFEBAD_severityWEIRD:
+    case FFEBAD_severitySEVERE:
+    case FFEBAD_severityDISASTER:
+      count_error (0);
+      break;
 
-      default:
-	break;
-      }
-  }
-#endif	/* FFECOM_targetCURRENT == FFECOM_targetGCC */
+    default:
+      break;
+    }
 
   ffebad_is_temp_inhibited_ = FALSE;
   ffebad_errnum_ = errnum;
@@ -349,7 +345,7 @@ void
 ffebad_finish ()
 {
 #define MAX_SPACES 132
-  static const char *spaces
+  static const char *const spaces
   = "...>\
 \040\040\040\040\040\040\040\040\040\040\040\040\040\040\040\040\
 \040\040\040\040\040\040\040\040\040\040\040\040\040\040\040\040\
@@ -420,20 +416,13 @@ ffebad_finish ()
 	{
 	  if (bi != 0)
 	    fputc ('\n', stderr);
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
 	  report_error_function (fn);
-#endif	/* FFECOM_targetCURRENT == FFECOM_targetGCC */
 	  fprintf (stderr,
-#if 0
-		   "Line %" ffewhereLineNumber_f "u of %s:\n   %s\n   %s%c",
-		   rn, fn,
-#else
 		   /* the trailing space on the <file>:<line>: line
 		      fools emacs19 compilation mode into finding the
 		      report */
 		   "%s:%" ffewhereLineNumber_f "u: %s\n   %s\n   %s%c",
 		   fn, rn,
-#endif
 		   s,
 		   ffewhere_line_content (l),
 		   &spaces[cn > MAX_SPACES ? 0 : MAX_SPACES - cn + 4],
@@ -484,7 +473,7 @@ ffebad_finish ()
       if (c == '%')
 	{
 	  c = ffebad_message_[++i];
-	  if (ISALPHA (c) && ISUPPER (c))
+	  if (ISUPPER (c))
 	    {
 	      index = c - 'A';
 
