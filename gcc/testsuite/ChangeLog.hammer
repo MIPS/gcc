@@ -1,0 +1,4 @@
+2003-07-18  Josef Zlomek  <zlomekj@suse.cz>
+
+	PR optimization/11559
+	* gcc.c-torture/compile/vrp-1.c: New test.
