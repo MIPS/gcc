@@ -1,3 +1,7 @@
+Tue Mar 25 23:13:49 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (test patterns):  Allow memory operand in operand1.
+
 Tue Mar 25 20:57:40 CET 2003  Jan Hubicka <jh@suse.cz>
 
 	* i386.h (RTX_COST): Fix for -fpic.
