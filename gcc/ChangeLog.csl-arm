@@ -1,3 +1,12 @@
+2005-03-14  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/lib1funcs.asm (ashldi3): Don't define on SymbianOS.
+	(aeabi_llsl): Likewise.
+	(ashrdi3): Likewise.
+	(aeabi_lasr): Likewise.
+	(lshrdi3): Likewise.
+	(aeabi_llsr): Likewise. 
+
 2005-03-10  Julian Brown  <julian@codesourcery.com>
 
 	* config.gcc: Disable shared libgcc for SymbianOS.
