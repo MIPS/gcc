@@ -197,6 +197,8 @@ unlink_block (basic_block b)
 {
   b->next_bb->prev_bb = b->prev_bb;
   b->prev_bb->next_bb = b->next_bb;
+  b->prev_bb = NULL;
+  b->next_bb = NULL;
 }
 
 /* Sequentially order blocks and compact the arrays.  */

@@ -1,3 +1,7 @@
+2004-01-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfg.c (unlink_block): Reset prev_bb and next_bb.
+
 2004-01-29  Jeff Law <law@redhat.com>
 	    Andrew MacLeod <amacleod@redhat.com>
 
