@@ -29,10 +29,11 @@ delete_dead_jumptables ()
   ;
 }
 
-/* There should be precisely one load of ->code.  If there is
-   more than, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times "->code" 1 "dom2"} } */
+/* There should be no loads of ->code.  If any exist, then we failed to
+   optimize away all the IF statements and the statements feeding
+   their conditions.  */
+/* { dg-final { scan-tree-dump-times "->code" 0 "dom2"} } */
    
-/* There should be one IF statement.  */
-/* { dg-final { scan-tree-dump-times "if " 1 "dom2"} } */
+/* There should be no IF statements.  */
+/* { dg-final { scan-tree-dump-times "if " 0 "dom2"} } */
 

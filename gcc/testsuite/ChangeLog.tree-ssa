@@ -1,5 +1,9 @@
 2003-09-24  Jeff Law  <law@redhat.com>
 
+	* gcc.dg/tree-ssa/20030708-1.c: Expect all IF conditions to be
+	removed.
+	* gcc.dg/tree-ssa/20030808-1.c: Similarly.
+
 	* gcc.dg/tree-ssa/20030807-9.c: Add additional test.
 
 2003-09-22  Jeff Law  <law@redhat.com>

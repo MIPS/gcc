@@ -31,11 +31,11 @@ nonlocal_mentioned_p (x)
   blah (&x);
 }
 
-/* There should be precisely one cast to a short unsigned int.  If there is
-   more than one, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times "\\(short unsigned int\\)" 1 "dom2"} } */
+/* There should be no casts to a short unsigned int since the entire
+   set of conditionals should optimize away.  */
+/* { dg-final { scan-tree-dump-times "\\(short unsigned int\\)" 0 "dom2"} } */
                                                                                 
-/* There should be one IF conditional.  */
-/* { dg-final { scan-tree-dump-times "if " 1 "dom2"} } */
+/* There should be no IF conditionals.  */
+/* { dg-final { scan-tree-dump-times "if " 0 "dom2"} } */
                                                                                 
 
