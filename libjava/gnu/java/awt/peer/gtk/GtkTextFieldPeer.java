@@ -79,7 +79,7 @@ public class GtkTextFieldPeer extends GtkTextComponentPeer
 
     create (text_width);
 
-    setEditable (((TextField) awtComponent).isEditable ());
+    setEditable (tf.isEditable ());
   }
 
   native int gtkEntryGetBorderWidth ();
