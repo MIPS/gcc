@@ -439,7 +439,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 	else
 	  {
 	    char string[100];
-	    REAL_VALUE_TO_DECIMAL (d, "%e", string);
+	    REAL_VALUE_TO_DECIMAL (d, string, -1);
 	    output_add_string (buffer, string);
 	  }
 #else

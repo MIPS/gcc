@@ -1,5 +1,9 @@
 2002-09-20  Diego Novillo  <dnovillo@redhat.com>
 
+	* c-pretty-print.c (dump_c_node): Fix call to REAL_VALUE_TO_DECIMAL.
+
+2002-09-20  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-dfa.c (find_refs_in_stmt): Fix botched call to
 	clobber_vars_r with CLEANUP_STMT nodes.
 
