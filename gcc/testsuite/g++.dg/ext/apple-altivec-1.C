@@ -8,7 +8,7 @@ vector signed int
 LoadUnalignedSI( signed int *p)
 {
     vector signed int vload1 = vec_ld( 0, (vector signed int *)p);
-    if ( ((int)p) * 0xF){
+    if ( ((long)p) * 0xF){
         vector signed int vload2 = vec_ld( 16, (vector signed int *)p);
         vector unsigned char vperm = vec_ldl( 0, p);
 
