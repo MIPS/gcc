@@ -680,7 +680,7 @@ arm*-*-ecos-elf)
 	;;
 arm*-*-rtems*)
 	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h arm/rtems-elf.h rtems.h"
-	tmake_file="arm/t-arm-elf t-rtems"
+	tmake_file="arm/t-arm-elf t-rtems arm/t-rtems"
 	;;
 arm*-*-elf | ep9312-*-elf)
 	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h"
@@ -700,12 +700,16 @@ arm*-*-kaos*)
 	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h kaos.h arm/kaos-arm.h"
 	tmake_file=arm/t-arm-elf
 	;;
+avr-*-rtems*)
+	tm_file="avr/avr.h dbxelf.h avr/rtems.h rtems.h"
+	tmake_file="avr/t-avr t-rtems avr/t-rtems"
+	;;
 avr-*-*)
 	tm_file="avr/avr.h dbxelf.h"
 	use_fixproto=yes
 	;;
 c4x-*-rtems* | tic4x-*-rtems*)
-	tmake_file="c4x/t-c4x t-rtems"
+	tmake_file="c4x/t-c4x t-rtems c4x/t-rtems"
 	tm_file="c4x/c4x.h c4x/rtems.h rtems.h"
 	c_target_objs="c4x-c.o"
 	cxx_target_objs="c4x-c.o"

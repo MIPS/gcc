@@ -1,3 +1,79 @@
+2004-11-25  Ralf Corsepius <ralf.corsepius@rtems.org>
+
+	* config.gcc (avr-*-rtems*): Fix typo.
+
+2004-11-24  Uros Bizjak  <uros@kss-loka.si>
+
+	PR rtl-optimization/18614
+	* simplify-rtx.c (simplify_binary_operation): Do not
+	simplify inner elements of constant arguments of
+	VEC_CONCAT insn.
+
+2004-11-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	Backport from mainline:
+	2004-10-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+                    Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/17813
+	* dojump.c (discard_pending_stack_adjust): New function.
+	(clear_pending_stack_adjust): Call it.
+	* expr.h (discard_pending_stack_adjust): Declare it.
+	* explow.c (emit_stack_save): Emit pending stack adjustments
+	before saving the stack pointer.
+	(emit_stack_restore): Discard pending stack adjustments before
+	restoring the stack pointer.
+
+2004-11-23  Ralf Corsepius <ralf.corsepius@rtems.org>
+
+	* config/c4x/t-rtems: New.
+	* config.gcc: Reflect having added c4x/t-rtems.
+
+2004-11-23  Ralf Corsepius <ralf.corsepius@rtems.org>
+
+	* config/arm/t-rtems: New.
+	* config.gcc: Reflect having added arm/t-rtems.
+
+2004-11-23  Ralf Corsepius <ralf.corsepius@rtems.org>
+
+	* config.gcc: Add avr-*-rtems*.
+	* config/avr/t-rtems: New.
+	* config/avr/rtems.h: New.
+
+2004-11-22  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR rtl-optimization/14838
+	* emit-rtl.c (get_first_nonnote_insn): Don't assume first insn is a
+	note.
+	(get_last_nonnote_insn): Don't assume last insn is a note.
+
+2004-11-21  Roger Sayle  <roger@eyesopen.com>
+
+	* fixinc/inclhack.def (alpha_pthread_init): Fix technical problems
+	with the last check-in caused by CVS variable substitution.
+	* fixinc/fixincl.x: Likewise.
+	* fixinc/tests/base/pthread.h: Likewise.
+
+2004-11-21  Roger Sayle  <roger@eyesopen.com>
+	    Bruce Korb  <bkorb@gnu.org>
+
+	Synchronize with mainline
+	* fixinc/inclhack.def (alpha_pthread_init): New fix.
+	* fixinc/fixincl.x: Regenerate.
+	* fixinc/tests/base/pthread.h: Update for new test.
+
+2004-11-17  Ramana Radhakrishnan  <ramana.radhakrishnan@codito.com>
+
+	PR target/18263
+	* config/arc/lib1funcs.asm (___umulsidi3): Change use of cmp to the
+	equivalent on the A4.
+
+2004-11-16  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/18498
+	* c-decl.c (grokdeclarator): Call check_bitfield_type_and_width
+	after processing the declarator.
+
 2004-11-22  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	* config/s390/s390.c (s390_backchain_string): Removed.
