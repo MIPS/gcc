@@ -50,6 +50,10 @@
 
 2003-12-12  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (optimize_stmt): Don't call cleanup_control_expr
+	here.  Instead just note that we need to cleanup the cfg (which
+	will DTRT).
+
 	* timevar.def (TV_TREE_SSA_THREAD_JUMPS): Kill.
 	* tree-dump.c (dump_files): Kill .thread dump.
 	* tree.h (TDI_thread_jumps): Kill.

@@ -2218,14 +2218,43 @@ optimize_stmt (struct dom_walk_data *walk_data, block_stmt_iterator si)
 				   ann);
 
   /* If STMT is a COND_EXPR and it was modified, then we may know
-     where it goes.  In which case we can remove some edges, simplify
-     some PHI nodes, maybe even avoid optimizing some blocks completely,
-     etc.  */
+     where it goes.  If that is the case, then mark the CFG as altered.
+
+     This will cause us to later call remove_unreachable_blocks and
+     cleanup_tree_cfg when it is safe to do so.  It is not safe to 
+     clean things up here since removal of edges and such can trigger
+     the removal of PHI nodes, which in turn can release SSA_NAMEs to
+     the manager.
+
+     That's all fine and good, except that once SSA_NAMEs are released
+     to the manager, we must not call create_ssa_name until all references
+     to released SSA_NAMEs have been eliminated.
+
+     All references to the deleted SSA_NAMEs can not be eliminated until
+     we remove unreachable blocks.
+
+     We can not remove unreachable blocks until after we have completed
+     any queued jump threading.
+
+     We can not complete any queued jump threads until we have taken
+     appropriate variables out of SSA form.  Taking variables out of
+     SSA form can call create_ssa_name and thus we lose.
+
+     Ultimately I suspect we're going to need to change the interface
+     into the SSA_NAME manager.  */
+
   if (ann->modified)
     {
-      if (TREE_CODE (stmt) == COND_EXPR
-	  || TREE_CODE (stmt) == SWITCH_EXPR)
-	cfg_altered |= cleanup_control_expr_graph (bb_for_stmt (stmt), si);
+      tree val = NULL;
+
+      if (TREE_CODE (stmt) == COND_EXPR)
+	val = COND_EXPR_COND (stmt);
+      else if (TREE_CODE (stmt) == SWITCH_EXPR)
+	val = SWITCH_COND (stmt);
+
+      if (val && TREE_CODE (val) == INTEGER_CST
+	  && find_taken_edge (bb_for_stmt (stmt), val))
+	cfg_altered = true;
     }
                                                                                 
   return may_have_exposed_new_symbols;
