@@ -1,6 +1,6 @@
 // Typedefs for the front end.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -21,6 +21,8 @@
 
 #ifndef GCJX_TYPEDEFS_HH
 #define GCJX_TYPEDEFS_HH
+
+#include <gcjx-config.h>
 
 // Must be included before anything else on Mac OS 10.3 (and probably other
 // systems) when _GLIBCPP_USE_C99 is defined, or the compiler can't

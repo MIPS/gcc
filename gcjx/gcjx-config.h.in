@@ -1,4 +1,4 @@
-/* config.h.in.  Generated from configure.ac by autoheader.  */
+/* gcjx-config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* Default -bootclasspath */
 #undef BOOTCLASSPATH

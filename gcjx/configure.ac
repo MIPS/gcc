@@ -5,7 +5,7 @@ AC_PREREQ(2.59)
 AC_INIT(gcjx, 0.1, [tromey@redhat.com])
 AC_CONFIG_SRCDIR([name.cc])
 AM_INIT_AUTOMAKE
-AC_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADER([gcjx-config.h])
 AM_MAINTAINER_MODE
 
 AC_ARG_WITH([bootclasspath],

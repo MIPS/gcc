@@ -1,5 +1,11 @@
 2005-01-12  Tom Tromey  <tromey@redhat.com>
 
+	* Makefile.in, aclocal.m4, configure: Rebuilt.
+	* config.h.in: Removed.
+	* gcjx-config.h.in: New file.
+	* typedefs.hh: Include gcjx-config.h.
+	* configure.ac: Renamed header to gcjx-config.h.
+
 	Initial checkin to GCC:
 	* .cvsignore: Emptied.
 	* configure.ac: Use AM_MAINTAINER_MODE.
