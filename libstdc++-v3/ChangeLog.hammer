@@ -2,6 +2,13 @@
 
 	PR libstdc++/14220
 	* include/bits/locale_facets.tcc (num_put<>::_M_convert_float):
+	Fix previous commit: in case of non-fixed outputs __max_digits
+	is still needed in order to upper bound the size of the buffer.
+
+2004-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/14220
+	* include/bits/locale_facets.tcc (num_put<>::_M_convert_float):
 	Don't clip the precision passed down to __convert_from_v:
 	22.2.2.2.2 nowhere says so.
 

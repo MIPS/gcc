@@ -884,6 +884,8 @@ namespace std
 	streamsize __prec = __io.precision();
 	if (__prec < static_cast<streamsize>(0))
 	  __prec = static_cast<streamsize>(6);
+	
+	const int __max_digits = numeric_limits<_ValueT>::digits10;
 
 	typedef numpunct<_CharT>  __facet_type;
 	typedef __locale_cache<numpunct<_CharT> > __cache_type;
@@ -898,7 +900,7 @@ namespace std
 #ifdef _GLIBCPP_USE_C99
 	// First try a buffer perhaps big enough (for sure sufficient
 	// for non-ios_base::fixed outputs)
-	int __cs_size = __prec * 3;
+	int __cs_size = __max_digits * 3;
 	char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
 
 	_S_format_float(__io, __fbuf, __mod, __prec);
@@ -921,10 +923,10 @@ namespace std
 	// ios_base::fixed outputs may need up to __max_exp+1 chars
 	// for the integer part + up to __prec chars for the
 	// fractional part + 3 chars for sign, decimal point, '\0'. On
-	// the other hand, for non-fixed outputs __prec * 3 chars
+	// the other hand, for non-fixed outputs __max_digits * 3 chars
 	// are largely sufficient.
 	const int __cs_size = __fixed ? __max_exp + __prec + 4 
-	                              : __prec * 3;
+	                              : __max_digits * 3;
 	char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
 
 	_S_format_float(__io, __fbuf, __mod, __prec);
