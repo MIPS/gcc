@@ -1,3 +1,9 @@
+2003-01-14  Paul Brook  <paul@codesourcery.com>
+
+	* config.gcc (with_arch): Add armv6.
+	* config/arm/arm.h: Rename TARGET_CPU_*_s to TARGET_CPU_*s.
+	* config/arm/arm.c (arm_overrride_options): Ditto.
+
 2004-01-08  Richard Earnshaw  <rearnsha@arm.com>
 
 	* arm.c (FL_ARCH3M): Renamed from FL_FAST_MULT.

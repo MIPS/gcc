@@ -589,10 +589,10 @@ arm_override_options (void)
 	{ TARGET_CPU_xscale,    "xscale" },
 	{ TARGET_CPU_ep9312,    "ep9312" },
 	{ TARGET_CPU_iwmmxt,    "iwmmxt" },
-	{ TARGET_CPU_arm926ej_s, "arm926ej-s" },
-	{ TARGET_CPU_arm1026ej_s, "arm1026ej-s" },
-	{ TARGET_CPU_arm1136j_s, "arm1136j_s" },
-	{ TARGET_CPU_arm1136jf_s, "arm1136jf_s" },
+	{ TARGET_CPU_arm926ejs, "arm926ej-s" },
+	{ TARGET_CPU_arm1026ejs, "arm1026ej-s" },
+	{ TARGET_CPU_arm1136js, "arm1136j-s" },
+	{ TARGET_CPU_arm1136jfs, "arm1136jf-s" },
 	{ TARGET_CPU_generic,   "arm" },
 	{ 0, 0 }
       };

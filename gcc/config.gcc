@@ -1,5 +1,5 @@
 # GCC target-specific configuration file.
-# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
 # Free Software Foundation, Inc.
 
 #This file is part of GCC.
@@ -2426,7 +2426,7 @@ fi
 
 		case "$with_arch" in
 		"" \
-		| armv[2345] | armv2a | armv3m | armv4t | armv5t \
+		| armv[23456] | armv2a | armv3m | armv4t | armv5t \
 		| armv5te | armv6j | ep9312)
 			# OK
 			;;

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for ARM.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com)
@@ -97,10 +97,10 @@
 #define TARGET_CPU_xscale       0x0100
 #define TARGET_CPU_ep9312	0x0200
 #define TARGET_CPU_iwmmxt	0x0400
-#define TARGET_CPU_arm926ej_s   0x0800
-#define TARGET_CPU_arm1026ej_s  0x1000
-#define TARGET_CPU_arm1136j_s   0x2000
-#define TARGET_CPU_arm1136jf_s  0x4000
+#define TARGET_CPU_arm926ejs	0x0800
+#define TARGET_CPU_arm1026ejs	0x1000
+#define TARGET_CPU_arm1136js	0x2000
+#define TARGET_CPU_arm1136jfs	0x4000
 /* Configure didn't specify.  */
 #define TARGET_CPU_generic	0x8000
 
@@ -198,12 +198,12 @@ extern GTY(()) rtx aof_pic_label;
 #if TARGET_CPU_DEFAULT == TARGET_CPU_iwmmxt
 #define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_5TE__ -D__XSCALE__ -D__IWMMXT__"
 #else
-#if (TARGET_CPU_DEFAULT == TARGET_CPU_arm926ej_s || \
-     TARGET_CPU_DEFAULT == TARGET_CPU_arm1026ej_s)
+#if (TARGET_CPU_DEFAULT == TARGET_CPU_arm926ejs || \
+     TARGET_CPU_DEFAULT == TARGET_CPU_arm1026ejs)
 #define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_5TEJ__"
 #else
-#if (TARGET_CPU_DEFAULT == TARGET_CPU_arm1136j_s || \
-     TARGET_CPU_DEFAULT == TARGET_CPU_arm1136jf_s)
+#if (TARGET_CPU_DEFAULT == TARGET_CPU_arm1136js || \
+     TARGET_CPU_DEFAULT == TARGET_CPU_arm1136jfs)
 #define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_6J__"
 #else
 #error Unrecognized value in TARGET_CPU_DEFAULT.
