@@ -895,12 +895,6 @@ cfg_layout_duplicate_bb (bb, e)
 void
 cfg_layout_initialize ()
 {
-  VARRAY_GENERIC_PTR_INIT (insn_scope, get_max_uid (), "insn scopes");
-  scope_tree = build_scope_tree ();
-  if (rtl_dump_file)
-    dump_scope_tree (rtl_dump_file, scope_tree);
-  remove_scope_notes ();
-
   alloc_aux_for_blocks (sizeof (struct reorder_block_def));
   cleanup_unconditional_jumps ();
   scope_to_insns_initialize ();
