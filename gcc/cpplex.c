@@ -563,10 +563,20 @@ _cpp_expand_name_space (list, len)
 	    list->tokens[i].val.str.text += (list->namebuf - old_namebuf);
 #if __BOUNDED_POINTERS__
 	    __ptrlow list->tokens[i].val.str.text += (list->namebuf - old_namebuf);
-	    __ptrhigh list->tokens[i].val.str.text += (list->namebuf - old_namebuf);
+	    __ptrhigh list->tokens[i].val.str.text += (list->namebuf - old_namebuf) + len;
 #endif
 	  }
     }
+#if __BOUNDED_POINTERS__
+  else
+    {
+      unsigned int i;
+
+      for (i = 0; i < list->tokens_used; i++)
+	if (TOKEN_SPELL (&list->tokens[i]) == SPELL_STRING)
+	  __ptrhigh list->tokens[i].val.str.text += len;
+    }
+#endif
 }
 
 /* If there is not enough room for LEN more characters, expand the
