@@ -1,5 +1,28 @@
 2001-01-29  Daniel Berlin  <dberlin@redhat.com>
 
+	* ssa.c  (mark_phi_and_copy_regs): Test rtx against 0, not NULL,
+	and test pattern against 0 too.
+	
+	* reload1.c (finish_spills): Call find_reg_given_constraints
+	rather than retry_global_alloc.
+
+	* df.c (df_insn_regno_def_p): Reverse return values so that it
+	does what the function says it does, so that dataflow analysis of
+	call clobbered registers works.
+
+	* new-regalloc.h: Add definitions of external functions, stop
+	including other files.
+	
+	* new-regalloc.c: Move inclusion of those files to here.
+	(perform_new_regalloc_init): Fix data flow analysis problem.
+	(rewrite_program): Change call to reload to tell it we are calling
+	from the global register allocator, now that it calls the right
+	retry routine.
+	
+		
+
+2001-01-29  Daniel Berlin  <dberlin@redhat.com>
+
 	* new-regalloc.c (find_reg_given_constraints): Fix the *other* bug
 	in spilling, causing things taking up > 1 register to be spilled
 	if register 0 was free. Duh. (The arguments to x_okay_in_direction

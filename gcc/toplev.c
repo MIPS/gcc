@@ -3011,7 +3011,6 @@ rest_of_compilation (decl)
 	}
 
       tem = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
-
       /* If we are not running the second CSE pass, then we are no longer
 	 expecting CSE to be run.  */
       cse_not_expected = !flag_rerun_cse_after_loop;
@@ -3198,7 +3197,6 @@ rest_of_compilation (decl)
 
 	  reg_scan (insns, max_reg_num (), 0);
 	  tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
-
 	  if (tem)
 	    {
 	      timevar_push (TV_JUMP);
@@ -3409,7 +3407,7 @@ rest_of_compilation (decl)
      epilogue thus changing register elimination offsets.  */
   current_function_is_leaf = leaf_function_p ();
 
-  //timevar_push (TV_LOCAL_ALLOC);
+  timevar_push (TV_LOCAL_ALLOC);
   open_dump_file (DFI_lreg, decl);
 
   /* Allocate pseudo-regs that are used only within 1 basic block.
@@ -3422,6 +3420,7 @@ rest_of_compilation (decl)
   regclass (insns, max_reg_num (), rtl_dump_file);
 #ifdef NEW_REGISTER_ALLOCATOR
   init_new_regalloc();
+  timevar_pop (TV_LOCAL_ALLOC);
 #else
   rebuild_label_notes_after_reload = local_alloc ();
 

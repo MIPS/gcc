@@ -261,7 +261,7 @@ static void df_insns_modify PARAMS((struct df *, basic_block,
 				    rtx, rtx));
 static int df_rtx_mem_replace PARAMS ((rtx *, void *));
 static int df_rtx_reg_replace PARAMS ((rtx *, void *));
-static void df_refs_reg_replace PARAMS ((struct df *, sbitmap,
+void df_refs_reg_replace PARAMS ((struct df *, sbitmap,
 					 struct df_link *, rtx, rtx));
 
 static int df_def_dominates_all_uses_p PARAMS((struct df *, struct ref *def));
@@ -2587,7 +2587,7 @@ df_rtx_reg_replace (px, data)
 /* Replace the reg within every ref on CHAIN that is within the set
    BLOCKS of basic blocks with NEWREG.  Also update the regs within
    REG_NOTES.  */
-static void
+void
 df_refs_reg_replace (df, blocks, chain, oldreg, newreg)
      struct df *df;
      sbitmap blocks;
@@ -2887,10 +2887,10 @@ df_insn_regno_def_p (df, bb, insn, regno)
       struct ref *def = link->ref;
       
       if (DF_REF_REGNO (def) == regno)
-	return 0;
+	return 1;
     }
 
-  return 1;
+  return 0;
 }
 
 

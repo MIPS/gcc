@@ -121,7 +121,11 @@ Boston, MA 02111-1307, USA.
    allocator if we wanted to.
    
 */
-#include "new-regalloc.h"
+#include "config.h"
+#include "system.h"
+#include "rtl.h"
+#include "sbitmap.h"
+#include "tm_p.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "rtl.h"
@@ -1234,7 +1238,6 @@ int x_okay_in_direction(okay, currReg, direction, numRegs, mode)
       return 0;
   return 1;
 }
-static
 int find_reg_given_constraints(okay, currReg)
      HARD_REG_SET okay;
      unsigned int currReg;
@@ -1398,7 +1401,7 @@ rewrite_program(call_reload)
 
   build_insn_chain(get_insns());
   if (call_reload)
-    reload (get_insns(), 0);
+    reload (get_insns(), 1);
 }
 
 /* Perform iterated register coalescing */  
@@ -1485,10 +1488,12 @@ perform_new_regalloc_init()
   */
   df_analyse(dataflowAnalyser, 0, DF_ALL | DF_HARD_REGS);
   
+
   /* Place register candidates into initial, and setup interference
      graph nodes for them */
   for (i=0; i < max_reg_num(); i++)
-    if ((HARD_REGISTER_NUM_P(i) && is_reg_candidate(i)) || (HARD_REGISTER_NUM_P(i) && DF_REGNO_LAST_USE(dataflowAnalyser, i) != NULL))
+    if ((HARD_REGISTER_NUM_P (i) && is_reg_candidate (i)) || 
+	(HARD_REGISTER_NUM_P (i) && (DF_REGNO_LAST_USE (dataflowAnalyser,i) != 0)))
       {
 	regInfo[i] = ig_node_new();
 	regInfo[i]->degree = INT_MAX; /* If they have more than

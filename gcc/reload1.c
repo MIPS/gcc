@@ -41,6 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "cselib.h"
 #include "real.h"
 #include "toplev.h"
+#include "new-regalloc.h"
 
 #if !defined PREFERRED_STACK_BOUNDARY && defined STACK_BOUNDARY
 #define PREFERRED_STACK_BOUNDARY STACK_BOUNDARY
@@ -3665,7 +3666,15 @@ finish_spills (global)
 	    COPY_HARD_REG_SET (forbidden, bad_spill_regs_global);
 	    IOR_HARD_REG_SET (forbidden, pseudo_forbidden_regs[i]);
 	    IOR_HARD_REG_SET (forbidden, pseudo_previous_regs[i]);
-	    retry_global_alloc (i, forbidden);
+	    COMPL_HARD_REG_SET(forbidden,forbidden);
+	    reg_renumber[i] = find_reg_given_constraints(forbidden,i);
+	    /* If we found a register, modify the RTL for the register to
+	       show the hard register, and mark that register live.  */
+	    if (reg_renumber[i] >= 0)
+	      {
+		REGNO (regno_reg_rtx[i]) = reg_renumber[i];
+		mark_home_live (i);
+	      }
 	    if (reg_renumber[i] >= 0)
 	      CLEAR_REGNO_REG_SET (&spilled_pseudos, i);
 	  }

@@ -19,8 +19,6 @@ You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
-#include "config.h"
-#include "system.h"
-#include "rtl.h"
-#include "sbitmap.h"
-#include "tm_p.h"
+
+int find_reg_given_constraints PARAMS((HARD_REG_SET, unsigned int));
+void init_new_regalloc PARAMS((void));

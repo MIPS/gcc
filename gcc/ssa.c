@@ -1955,9 +1955,11 @@ mark_phi_and_copy_regs (phi_set)
 	rtx pattern;
 	rtx src;
 
-	if (insn == NULL)
+	if (insn == 0)
 	  continue;
 	pattern = PATTERN (insn);
+	if (pattern == 0)
+	  continue;
 	/* Sometimes we get PARALLEL insns.  These aren't phi nodes or
 	   copies.  */
 	if (GET_CODE (pattern) != SET)
