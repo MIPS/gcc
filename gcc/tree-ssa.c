@@ -868,8 +868,8 @@ create_temp (tree t)
 }
 
 
-/* This helper function fill insert a copy from one variable to another
-   on the specified edge.  */
+/* This helper function fill insert a copy from a constant or a variable to 
+   a variable on the specified edge.  */
 
 static void
 insert_copy_on_edge (edge e, tree dest, tree src)
@@ -1254,7 +1254,14 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 			print_exprs (dump_file, "ABNORMAL: Coalescing ", var,
 				     " and ", tmp, " over abnormal edge.\n");
 		      }
-		    var_union (map, var, tmp);
+		    if (var_union (map, var, tmp) == NO_PARTITION)
+		      {
+			print_exprs (stderr, "\nUnable to coalesce", 
+				     partition_to_var (map, x), " and ", 
+				     partition_to_var (map, y),
+				     " across an abnormal edge\n");
+			abort ();
+		      }
 		    conflict_graph_merge_regs (graph, x, y);
 		  }
 		else
@@ -1518,7 +1525,7 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
      becomes live on entry to the block. Mark these now.  */
   FOR_EACH_BB (bb)
     {
-      tree phi;
+      tree phi, arg;
       int p;
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	{
@@ -1533,7 +1540,10 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
 	     which are not coalesced to the result to the coalesce list.  */
 	  for (x = 0; x < PHI_NUM_ARGS (phi); x++)
 	    {
-	      p2 = var_to_partition (map, PHI_ARG_DEF (phi, x));
+	      arg = PHI_ARG_DEF (phi, x);
+	      if (TREE_CONSTANT (arg))
+	        continue;
+	      p2 = var_to_partition (map, arg);
 #ifdef ENABLE_CHECKING
 	      if (p2 == NO_PARTITION)
 	        abort();

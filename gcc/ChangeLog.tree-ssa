@@ -1,3 +1,12 @@
+2003-07-31  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-dfa.c (add_stmt_operand): Don't treat complex types as scalars.
+	* tree-ssa-live.c (var_union):  Change comment.
+	(coalesce_tpa_members): Don't proceed if var_union fails.
+	* tree-ssa.c (insert_copy_on_edge): Change comment.
+	(coalesce_abnormal_edges): Handle var_union failing.
+	(coalesce_vars): Skip constant PHI arguments.
+
 2003-07-30  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (bsi_remove): Don't remove a COMPOUND_EXPR with empty

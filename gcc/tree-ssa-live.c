@@ -128,7 +128,9 @@ register_ssa_partition (var_map map, tree ssa_var)
     }
 }
 
-/* This function will combine 2 partitions.  */
+/* This function will combine 2 partitions.  Returns the partition which 
+   represents the new partition. If the two partitions cannot be combined, 
+   NO_PARTITION is returned. */
 
 int
 var_union (var_map map, tree var1, tree var2)
@@ -1300,10 +1302,13 @@ coalesce_tpa_members (tpa_p tpa, conflict_graph graph, var_map map,
 	      if (tpa_find_tree (tpa, x) == TPA_NONE 
 		  || tpa_find_tree (tpa, y) == TPA_NONE)
 		continue;
-	      conflict_graph_merge_regs (graph, x, y);
 	      var = partition_to_var (map, x);
 	      tmp = partition_to_var (map, y);
 	      z = var_union (map, var, tmp);
+	      if (z == NO_PARTITION)
+	        continue;
+	      conflict_graph_merge_regs (graph, x, y);
+
 	      /* z is the new combined partition. We need to remove the other
 	         partition from the list. Set x to be that other partition.  */
 	      if (z == x)
@@ -1344,8 +1349,9 @@ coalesce_tpa_members (tpa_p tpa, conflict_graph graph, var_map map,
 		  if (tpa_find_tree (tpa, y) == TPA_NONE 
 		      || tpa_find_tree (tpa, z) == TPA_NONE)
 		    continue;
-		  /* Var might change as a result of the var_union.  */
-		  var_union (map, var, tmp);
+		  if (var_union (map, var, tmp) == NO_PARTITION)
+		    continue;
+
 		  tpa_remove_partition (tpa, x, z);
 		  conflict_graph_merge_regs (graph, y, z);
 		  if (debug)

@@ -565,7 +565,9 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
   /* If the original variable is not a scalar, it will be added to the list
      of virtual operands.  In that case, use its base symbol as the virtual
      variable representing it.  */
-  is_scalar = (SSA_VAR_P (var) && !AGGREGATE_TYPE_P (TREE_TYPE (var)));
+  is_scalar = (SSA_VAR_P (var)
+               && !AGGREGATE_TYPE_P (TREE_TYPE (var))
+	       && TREE_CODE (TREE_TYPE (var)) != COMPLEX_TYPE);
   if (!is_scalar && !DECL_P (var))
     var = get_virtual_var (var);
 
