@@ -1605,7 +1605,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags)
 		  tree lhs = NULL;
 		  if (TREE_CODE (stmt) == MODIFY_EXPR)
 		    lhs = TREE_OPERAND (stmt, 0);
-		  if (v_ann->mem_tag_kind == NOT_A_TAG
+		  if (v_ann->mem_tag_kind != TYPE_TAG
 		      && lhs
 		      && handled_component_p (lhs))
 		    {
@@ -1640,7 +1640,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags)
 	      tree rhs = NULL;
 	      if (TREE_CODE (stmt) == MODIFY_EXPR)
 		rhs = TREE_OPERAND (stmt, 1);
-	      if (v_ann->mem_tag_kind == NOT_A_TAG
+	      if (v_ann->mem_tag_kind != TYPE_TAG
 		  && rhs
 		  && handled_component_p (rhs))
 		{
@@ -1682,34 +1682,90 @@ add_stmt_operand (tree *var_p, tree stmt, int flags)
 
 	  if (flags & opf_is_def)
 	    {
+	      tree lhs = NULL;
+	      unsigned int bytepos = 0;
+	      unsigned int bytesize = ~0;
+	      
+
 	      /* If the variable is also an alias tag, add a virtual
 		 operand for it, otherwise we will miss representing
 		 references to the members of the variable's alias set.
 		 This fixes the bug in gcc.c-torture/execute/20020503-1.c.  */
 	      if (v_ann->is_alias_tag)
 		append_v_may_def (var, 0, ~0);
-
+	      
+	      if (TREE_CODE (stmt) == MODIFY_EXPR)
+		lhs = TREE_OPERAND (stmt, 0);
+	      
+	      if (v_ann->mem_tag_kind != TYPE_TAG
+		  && lhs
+		  && handled_component_p (lhs))
+		{
+		  HOST_WIDE_INT bitsize;
+		  HOST_WIDE_INT bitpos;
+		  tree offset;
+		  enum machine_mode mode;
+		  int unsignedp;
+		  int volatilep;
+		  
+		  get_inner_reference (lhs, &bitsize,
+				       &bitpos, &offset,
+				       &mode, &unsignedp, &volatilep);
+		  if (offset == NULL && bitsize != -1)
+		    {
+		      bytepos = bitpos / BITS_PER_UNIT;
+		      bytesize = bitsize / BITS_PER_UNIT;
+		      
+		    }
+		}
+	      
 	      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
 		{
 		  tree alias = VARRAY_TREE (aliases, i);
-		  if (var_ann (alias)->is_alias_tag)
-		    append_v_may_def (alias, 0, ~0);
-		  else
-		    append_v_may_def (alias, 0,  tree_low_cst (DECL_SIZE_UNIT (alias), 1));		 
+		  append_v_may_def (alias, bytepos, bytesize);
 		}
 	      if (s_ann)
 		s_ann->makes_aliased_stores = 1;
 	    }
 	  else
 	    {
+	      tree rhs = NULL;
+	      unsigned int bytepos = 0;
+	      unsigned int bytesize = ~0;
 	      /* Similarly, append a virtual uses for VAR itself, when
 		 it is an alias tag.  */
 	      if (v_ann->is_alias_tag)
 		append_vuse (var, 0, ~0);
 
+	      if (TREE_CODE (stmt) == MODIFY_EXPR)
+		rhs = TREE_OPERAND (stmt, 1);
+	      
+	      if (v_ann->mem_tag_kind != TYPE_TAG
+		  && rhs
+		  && handled_component_p (rhs))
+		{
+		  HOST_WIDE_INT bitsize;
+		  HOST_WIDE_INT bitpos;
+		  tree offset;
+		  enum machine_mode mode;
+		  int unsignedp;
+		  int volatilep;
+		  
+		  get_inner_reference (rhs, &bitsize,
+				       &bitpos, &offset,
+				       &mode, &unsignedp, &volatilep);
+		  if (offset == NULL && bitsize != -1)
+		    {
+		      bytepos = bitpos / BITS_PER_UNIT;
+		      bytesize = bitsize / BITS_PER_UNIT;		      
+		    }
+		}
+	      
 	      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-		append_vuse (VARRAY_TREE (aliases, i), 0, ~0);
-
+		{
+		  tree alias = VARRAY_TREE (aliases, i);
+		  append_vuse (alias, bytepos, bytesize);
+		}
 	      if (s_ann)
 		s_ann->makes_aliased_loads = 1;
 	    }

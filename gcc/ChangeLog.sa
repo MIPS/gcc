@@ -1,3 +1,31 @@
+2004-09-30  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-loop-ivopts.c (rewrite_use_address): Mark new variables
+	for renaming.
+	(tree_ssa_iv_optimize): Call rewrite_into_ssa and
+	rewrite_into_loop_closed_ssa.
+	* tree-ssa-operands.c (add_stmt_operand): We don't want to deal
+	with type tags.  Add support for trying to find partial use/def
+	info.
+	* tree-into-ssa.c (rewrite_stmt): Call
+	get_intersecting_reaching_def for partial uses.
+	(ssa_rewrite_stmt): Ditto.
+	(rewrite_operand): Inlined into caller and removed.
+	(find_may_def_for_use): New function.
+	(find_must_def_for_use): Ditto.
+	(find_partial_def_for_use): Ditto.
+	* tree-ssa-structalias.c (process_unification_queue): Fix bug in
+	determing whether variable merging changed the solution.
+	Print out names being unified.
+	(get_constraint_for_component_ref): Update for integer_id.
+	(get_constraint_for): Assignments from integers now get
+	the INTEGER constraint.
+	(create_alias_vars): Mark var_readonly as address taken.
+	Add in integer constraint.
+	(alias_get_name):Call alias_get_name, not get_name, to
+	get ssa variable name, since alias_get_name knows 
+	what to do with unnamed variables.
+	
 2004-09-29  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-ccp.c (substitute_and_fold): Don't try to access

@@ -183,6 +183,11 @@ static varinfo_t var_readonly;
 static tree readonly_tree;
 static unsigned int readonly_id;
 
+/* Variable that represents integers.  */
+static varinfo_t var_integer;
+static tree integer_tree;
+static unsigned int integer_id;
+
 /* Return a new variable info structure consisting for a variable
    named NAME, ending at id END, and using constraint graph node
    NODE.  */
@@ -445,6 +450,7 @@ process_constraint (constraint_t t)
   
   gcc_assert (rhs.var < VEC_length (varinfo_t, varmap));
   gcc_assert (lhs.var < VEC_length (varinfo_t, varmap));
+
   /* ANYTHING == ANYTHING is pointless.  */
   if (lhs.var == anything_id && lhs.var == anything_id)
     return;
@@ -608,7 +614,7 @@ get_constraint_for_component_ref (tree t)
   if (!integer_zerop (t))
     {
       varlookup = get_constraint_exp_from_ssa_var (t);
-      if (varlookup.var <= readonly_id)
+      if (varlookup.var <= integer_id)
 	result.type = DEREF;
       
       result.var = varlookup.var;
@@ -688,9 +694,9 @@ get_constraint_for (tree t)
 {
   struct constraint_expr temp;
 
-  if (is_gimple_min_invariant (t) && integer_zerop (t))
+  if (is_gimple_min_invariant (t) && TREE_CODE (t) == INTEGER_CST)
     {
-      temp.var = nothing_id;
+      temp.var = integer_id;
       temp.type = SCALAR;
       temp.offset = 0;
       return temp;
@@ -1351,10 +1357,10 @@ static bool int_add_graph_edge (constraint_graph_t, unsigned int,
 				unsigned int, unsigned int);
 static bool add_graph_edge (constraint_graph_t, struct constraint_edge);
 static bitmap get_graph_weights (constraint_graph_t, struct constraint_edge);
-static void 
+
 
 /* Merge graph nodes w and n into node n.  */
-
+static void
 merge_graph_nodes (constraint_graph_t graph, unsigned int n, unsigned int w)
 {
   VEC(constraint_edge_t) *succvec = graph->succs[w];
@@ -1628,7 +1634,9 @@ process_unification_queue (constraint_graph_t graph, struct scc_info *si,
       unsigned int n = get_varinfo (tounify)->node;
       bool domore = false;
       if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "Unifying %d to %d\n", tounify, n);
+	fprintf (dump_file, "Unifying %s to %s\n", 
+		 get_varinfo (tounify)->name,
+		 get_varinfo (n)->name);
       if (update_changed)
 	stats.unified_vars_dynamic++;
       else
@@ -1657,13 +1665,16 @@ process_unification_queue (constraint_graph_t graph, struct scc_info *si,
 	  tounify = VARRAY_UINT (si->unification_queue, i);
 	  if (get_varinfo (tounify)->node != n)
 	    domore = true;
-	}
+	}     
       if (domore)
 	{
 	  struct constraint_edge edge;
-	  if (bitmap_a_or_b (tmp, tmp, get_varinfo (n)->solution))
+	  /* If the solution changes because of the merging, we need to mark
+	     the variable as changed.  */
+	  if (bitmap_a_or_b (get_varinfo (n)->solution,
+			     tmp,
+			     get_varinfo (n)->solution))
 	    {
-	      bitmap_copy (get_varinfo (n)->solution, tmp);
 	      if (update_changed && !TEST_BIT (changed, n))
 		{
 		  SET_BIT (changed, n);
@@ -2183,9 +2194,18 @@ create_alias_vars (void)
   rhs.type = ADDRESSOF;
   rhs.var = readonly_id;
   rhs.offset = 0;
-  var_anything->address_taken = true;
+  var_readonly->address_taken = true;
   VEC_safe_push (constraint_t, constraints, 
 		 new_constraint (lhs, rhs));
+  
+  /* Create the INTEGER variable, used to represent that a variable points
+     to an INTEGER.  */
+  integer_tree = create_tmp_var_raw (void_type_node, "INTEGER");
+  var_integer = new_var_info (integer_tree, "INTEGER", 4, 3);
+  insert_id_for_tree (integer_tree, 3);
+  var_integer->is_artificial_var = 1;
+  integer_id = 3;
+  VEC_safe_push (varinfo_t, varmap, var_integer);
 
   create_variable_infos ();
   /* Now walk all statements and derive aliases.  */
@@ -2318,7 +2338,7 @@ alias_get_name (tree t)
     {
       char *result = alloca (128);
       char *newname;
-      sprintf (result, "%s_%d", get_name (SSA_NAME_VAR (t)),
+      sprintf (result, "%s_%d", alias_get_name (SSA_NAME_VAR (t)),
 	       SSA_NAME_VERSION (t));
       newname = ggc_alloc (strlen (result) + 1);
       strcpy (newname, result);

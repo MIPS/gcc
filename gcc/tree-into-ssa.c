@@ -151,9 +151,10 @@ static bool prepare_def_operand_for_rename (tree def, size_t *uid_p);
 static void insert_phi_nodes (bitmap *, bitmap);
 static void rewrite_stmt (struct dom_walk_data *, basic_block,
 			  block_stmt_iterator);
-static inline void rewrite_operand (use_operand_p);
 static void insert_phi_nodes_for (tree, bitmap *, varray_type *);
 static tree get_reaching_def (tree);
+static tree get_intersecting_reaching_def (tree, unsigned int, unsigned int);
+		
 static hashval_t def_blocks_hash (const void *);
 static int def_blocks_eq (const void *, const void *);
 static void def_blocks_free (void *);
@@ -976,6 +977,7 @@ rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 {
   stmt_ann_t ann;
   tree stmt;
+  unsigned int offset, size;
   use_operand_p use_p;
   def_operand_p def_p;
   ssa_op_iter iter;
@@ -995,9 +997,18 @@ rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   gcc_assert (!ann->modified);
 
   /* Step 1.  Rewrite USES and VUSES in the statement.  */
-  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
-    rewrite_operand (use_p);
+  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE | SSA_OP_VMAYUSE)
+    {
+      if (TREE_CODE (USE_FROM_PTR (use_p)) != SSA_NAME)
+	SET_USE (use_p, get_reaching_def (USE_FROM_PTR (use_p)));
+    }
 
+  FOR_EACH_SSA_PARTUSE_OPERAND (use_p, offset, size, stmt, iter)
+    {
+      if (TREE_CODE (USE_FROM_PTR (use_p)) != SSA_NAME)
+	SET_USE (use_p, get_intersecting_reaching_def (USE_FROM_PTR (use_p),
+						       offset, size));
+    }
   /* Step 2.  Register the statement's DEF and VDEF operands.  */
   FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_ALL_DEFS)
     {
@@ -1022,6 +1033,8 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
   stmt_ann_t ann;
   tree stmt, var;
   ssa_op_iter iter;
+  unsigned int offset;
+  unsigned int size;
   use_operand_p use_p;
   def_operand_p def_p;
   sbitmap names_to_rename = walk_data->global_data;
@@ -1041,10 +1054,17 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
   gcc_assert (!ann->modified);
 
   /* Step 1.  Rewrite USES and VUSES in the statement.  */
-  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
+  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE | SSA_OP_VMAYUSE)
     {
       if (TEST_BIT (names_to_rename, SSA_NAME_VERSION (USE_FROM_PTR (use_p))))
 	SET_USE (use_p, get_reaching_def (USE_FROM_PTR (use_p)));
+    }
+
+  FOR_EACH_SSA_PARTUSE_OPERAND (use_p, offset, size, stmt, iter)
+    {
+      if (TEST_BIT (names_to_rename, SSA_NAME_VERSION (USE_FROM_PTR (use_p))))
+	SET_USE (use_p, get_intersecting_reaching_def (USE_FROM_PTR (use_p),
+						       offset, size));
     }
 
   /* Step 2.  Register the statement's DEF and VDEF operands.  */
@@ -1058,16 +1078,6 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
       SET_DEF (def_p, duplicate_ssa_name (var, stmt));
       register_new_def (var, DEF_FROM_PTR (def_p), &block_defs_stack);
     }
-}
-
-/* Replace the operand pointed by OP_P with its immediate reaching
-   definition.  */
-
-static inline void
-rewrite_operand (use_operand_p op_p)
-{
-  if (TREE_CODE (USE_FROM_PTR (op_p)) != SSA_NAME)
-    SET_USE (op_p, get_reaching_def (USE_FROM_PTR (op_p)));
 }
 
 /* Register DEF (an SSA_NAME) to be a new definition for its underlying
@@ -1109,6 +1119,122 @@ register_new_def (tree var, tree def, varray_type *block_defs_p)
 
   /* Set the current reaching definition for VAR to be DEF.  */
   set_current_def (var, def);
+}
+
+
+/* Find the may_def in MAYDEFOPS that has USE as its result.
+   Fill in INDEX to be the index of that v_may_def.
+   Return false if we can't find such a may_def, or true if we did. */
+
+static bool
+find_may_def_for_use (v_may_def_optype maydefops, tree use, 
+		      unsigned int *index)
+{
+  unsigned int i;
+  for (i = 0; i < NUM_V_MAY_DEFS (maydefops); i++)
+    if (V_MAY_DEF_RESULT (maydefops, i) == use)
+      {
+	*index = i;
+	return true;
+      }
+  return false;
+}
+
+
+/* Find the must_def in MUSTDEFOPS that is a MUSTDEF of USE.
+   Fill in INDEX to be the index of that must_def.
+   Return false if we can't find such a must_def, or true if we did.  */
+   
+static bool
+find_must_def_for_use (v_must_def_optype mustdefops, tree use, 
+		       unsigned int *index)
+{
+  unsigned int i;
+  for (i = 0; i < NUM_V_MUST_DEFS (mustdefops); i++)
+    if (V_MUST_DEF_OP (mustdefops, i) == use)
+      {
+	*index = i;
+	return true;
+      }
+  return false;
+}
+
+/* Find the nearest definition of USE that overlaps  UBITPOS and UBITSIZE */
+
+static tree
+find_partial_def_for_use (tree use, 
+			 unsigned int ubytepos, 
+			 unsigned int ubytesize)
+{
+  unsigned int bytesize, bytepos;
+  tree defstmt = SSA_NAME_DEF_STMT (use);
+  v_may_def_optype vmaydefs;
+  v_must_def_optype vmustdefs;
+  bool result;
+  unsigned int i = 0;
+  
+  if (TREE_CODE (defstmt) != MODIFY_EXPR)
+    return use;
+  vmustdefs = STMT_V_MUST_DEF_OPS (defstmt);
+  result = find_must_def_for_use (vmustdefs, use, &i);
+  if (result)
+    return use;
+
+  vmaydefs = STMT_V_MAY_DEF_OPS (defstmt);
+  result = find_may_def_for_use (vmaydefs, use, &i);
+  /* If we can't find a may_def or must_def that has this as it's result,
+     the use-def chaining is broken.  */
+  gcc_assert (result != false);
+  
+  bytesize =  V_MAY_DEF_SIZE (vmaydefs, i);
+  bytepos = V_MAY_DEF_OFFSET (vmaydefs, i);
+  if (bytepos + bytesize <= ubytepos
+      || ubytepos + ubytesize <= bytepos)
+    return find_partial_def_for_use (V_MAY_DEF_OP (vmaydefs, i),
+				     ubytepos, ubytesize);
+  return use;  
+}
+/* Return the current definition for variable VAR.  If none is found,
+   create a new SSA name to act as the zeroth definition for VAR.  If VAR
+   is call clobbered and there exists a more recent definition of
+   GLOBAL_VAR, return the definition for GLOBAL_VAR.  This means that VAR
+   has been clobbered by a function call since its last assignment.  */
+
+static tree
+get_intersecting_reaching_def (tree var, unsigned int offset, 
+			       unsigned int size)
+{
+  tree default_d, currdef_var, avar;
+  
+  /* Lookup the current reaching definition for VAR.  */
+  default_d = NULL_TREE;
+  currdef_var = get_current_def (var);
+
+  /* If there is no reaching definition for VAR, create and register a
+     default definition for it (if needed).  */
+  if (currdef_var == NULL_TREE)
+    {
+      if (TREE_CODE (var) == SSA_NAME)
+	avar = SSA_NAME_VAR (var);
+      else
+	avar = var;
+
+      default_d = default_def (avar);
+      if (default_d == NULL_TREE)
+	{
+	  default_d = make_ssa_name (avar, build_empty_stmt ());
+	  set_default_def (avar, default_d);
+	}
+      set_current_def (var, default_d);
+      currdef_var = default_d;
+    }
+  else
+    {
+      currdef_var = find_partial_def_for_use (currdef_var,
+					      offset, size);
+    }
+
+  return currdef_var;
 }
 
 /* Return the current definition for variable VAR.  If none is found,

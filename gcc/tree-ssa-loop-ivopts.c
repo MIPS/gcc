@@ -3983,7 +3983,7 @@ do_rewrite:
     orig = unshare_and_remove_ssa_names (*op);
 
   *op = build1 (INDIRECT_REF, TREE_TYPE (*op), with);
-
+  
   /* Record the original reference, for purposes of alias analysis.  */
   REF_ORIGINAL (*op) = orig;
 }
@@ -4004,6 +4004,7 @@ rewrite_use_address (struct ivopts_data *data,
     bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
 
   rewrite_address_base (&bsi, use->op_p, op);
+  mark_new_vars_to_rename (use->stmt, vars_to_rename);
 }
 
 /* Rewrites USE (the condition such that one of the arguments is an iv) using
@@ -4497,6 +4498,9 @@ tree_ssa_iv_optimize (struct loops *loops)
 	flow_loop_dump (loop, dump_file, NULL, 1);
       if (tree_ssa_iv_optimize_loop (&data, loop))
 	{
+	  rewrite_into_ssa (false);
+	  rewrite_into_loop_closed_ssa ();
+
 #ifdef ENABLE_CHECKING
 	  verify_loop_closed_ssa ();
           verify_stmts ();
