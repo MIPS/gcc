@@ -227,20 +227,25 @@ bb_empty_p (b)
 /*---------------------------------------------------------------------------
 		 Iterators for statements inside a basic block
 ---------------------------------------------------------------------------*/
-static inline void gsi_step_in_bb	PARAMS ((gimple_stmt_iterator *,
-      						 basic_block));
-static inline void gsi_step_bb		PARAMS ((gimple_stmt_iterator *));
-static inline bool gsi_end_bb_p		PARAMS ((gimple_stmt_iterator));
-extern gimple_stmt_iterator gsi_start_bb PARAMS ((basic_block));
-extern void gsi_remove			PARAMS ((gimple_stmt_iterator));
 
-#if 0
-/* FIXME Not implemented yet.  */
-extern void gsi_insert_before (tree stmt, gimple_stmt_iterator, basic_block);
-extern void gsi_insert_after (tree stmt, gimple_stmt_iterator, basic_block);
-extern void gsi_replace (tree stmt, gimple_stmt_iterator, basic_block);
-#endif
+/* Iterator object for traversing over BASIC BLOCKs.  */
 
+typedef struct {
+  tree *tp;
+  tree context;		/* Stack for decending into BIND_EXPR's.  */
+} block_stmt_iterator;
+
+extern block_stmt_iterator bsi_start 	PARAMS ((basic_block));
+static inline bool bsi_end_p		PARAMS ((block_stmt_iterator));
+static inline void bsi_next		PARAMS ((block_stmt_iterator *));
+static inline void bsi_prev		PARAMS ((block_stmt_iterator *));
+static inline tree bsi_stmt		PARAMS ((block_stmt_iterator));
+static inline tree *bsi_stmt_ptr	PARAMS ((block_stmt_iterator));
+static inline tree *bsi_container	PARAMS ((block_stmt_iterator));
+
+extern void bsi_remove			PARAMS ((block_stmt_iterator));
+
+void bsi_next_in_bb			PARAMS ((block_stmt_iterator *, basic_block));
 
 /*---------------------------------------------------------------------------
 			      Global declarations

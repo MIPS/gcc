@@ -872,7 +872,7 @@ compute_immediate_uses (flags)
      int flags;
 {
   basic_block bb;
-  gimple_stmt_iterator si;
+  block_stmt_iterator si;
 
   FOR_EACH_BB (bb)
     {
@@ -881,8 +881,8 @@ compute_immediate_uses (flags)
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	compute_immediate_uses_for (phi, flags);
 
-      for (si = gsi_start_bb (bb); !gsi_end_bb_p (si); gsi_step_bb (&si))
-	compute_immediate_uses_for (gsi_stmt (si), flags);
+      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	compute_immediate_uses_for (bsi_stmt (si), flags);
     }
 }
 
@@ -1134,7 +1134,7 @@ dump_immediate_uses (file)
      FILE *file;
 {
   basic_block bb;
-  gimple_stmt_iterator si;
+  block_stmt_iterator si;
 
   fprintf (file, "\nDef-use edges for function %s\n", current_function_name);
 
@@ -1145,8 +1145,8 @@ dump_immediate_uses (file)
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	dump_immediate_uses_for (file, phi);
 
-      for (si = gsi_start_bb (bb); !gsi_end_bb_p (si); gsi_step_bb (&si))
-	dump_immediate_uses_for (file, gsi_stmt (si));
+      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	dump_immediate_uses_for (file, bsi_stmt (si));
     }
 
   fprintf (file, "\n");
@@ -1305,7 +1305,7 @@ collect_dfa_stats (dfa_stats_p)
 {
   htab_t htab;
   basic_block bb;
-  gimple_stmt_iterator i;
+  block_stmt_iterator i;
 
   if (dfa_stats_p == NULL)
     abort ();
@@ -1316,8 +1316,8 @@ collect_dfa_stats (dfa_stats_p)
      basic block 0, but don't stop at block boundaries.  */
   htab = htab_create (30, htab_hash_pointer, htab_eq_pointer, NULL);
 
-  for (i = gsi_start_bb (BASIC_BLOCK (0)); !gsi_end_bb_p (i); gsi_step_bb (&i))
-    walk_tree (gsi_stmt_ptr (i), collect_dfa_stats_r, (void *) dfa_stats_p,
+  for (i = bsi_start (BASIC_BLOCK (0)); !bsi_end_p (i); bsi_next (&i))
+    walk_tree (bsi_stmt_ptr (i), collect_dfa_stats_r, (void *) dfa_stats_p,
 	       (void *) htab);
 
   htab_delete (htab);
@@ -1429,7 +1429,7 @@ compute_may_aliases ()
   static htab_t indirect_refs_found;
   static htab_t addressable_vars_found;
   basic_block bb;
-  gimple_stmt_iterator si;
+  block_stmt_iterator si;
   htab_t walk_state[3];
 
   timevar_push (TV_TREE_MAY_ALIAS);
@@ -1460,8 +1460,8 @@ compute_may_aliases ()
   walk_state[2] = addressable_vars_found;
 
   FOR_EACH_BB (bb)
-    for (si = gsi_start_bb (bb); !gsi_end_bb_p (si); gsi_step_bb (&si))
-      walk_tree (gsi_stmt_ptr (si), find_vars_r, &walk_state, NULL);
+    for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+      walk_tree (bsi_stmt_ptr (si), find_vars_r, &walk_state, NULL);
 
   htab_delete (vars_found);
   htab_delete (indirect_refs_found);

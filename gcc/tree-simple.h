@@ -22,6 +22,9 @@ Boston, MA 02111-1307, USA.  */
 #ifndef _TREE_SIMPLE_H
 #define _TREE_SIMPLE_H 1
 
+
+#include "tree-iterator.h"
+
 /* Interface used in [break/goto]-elimination: to be declared in a .h file. */
 extern void insert_before_continue_end PARAMS ((tree, tree));
 extern void tree_build_scope           PARAMS ((tree *));
@@ -99,83 +102,5 @@ tree voidify_wrapper_expr		PARAMS ((tree));
 tree gimple_build_eh_filter		PARAMS ((tree, tree, tree));
 tree maybe_protect_cleanup		PARAMS ((tree));
 
-
-/* Iterator object for GIMPLE statements.  */
-typedef struct {
-  tree *tp;
-} gimple_stmt_iterator;
-
-static inline gimple_stmt_iterator gsi_start PARAMS ((tree *));
-static inline bool gsi_end_p		PARAMS ((gimple_stmt_iterator));
-static inline void gsi_step		PARAMS ((gimple_stmt_iterator *));
-static inline tree gsi_stmt		PARAMS ((gimple_stmt_iterator));
-static inline tree *gsi_stmt_ptr	PARAMS ((gimple_stmt_iterator));
-static inline tree *gsi_container	PARAMS ((gimple_stmt_iterator));
-
-static inline gimple_stmt_iterator
-gsi_start (tp)
-     tree *tp;
-{
-  gimple_stmt_iterator i;
-  i.tp = tp;
-  return i;
-}
-
-static inline bool
-gsi_end_p (i)
-     gimple_stmt_iterator i;
-{
-  return (i.tp == NULL || *(i.tp) == error_mark_node);
-}
-
-static inline void
-gsi_step (i)
-     gimple_stmt_iterator *i;
-{
-  tree t = *(i->tp);
-  STRIP_NOPS (t);
-  if (TREE_CODE (t) == COMPOUND_EXPR)
-    i->tp = &(TREE_OPERAND (t, 1));
-  else
-    i->tp = NULL;
-}
-
-static inline tree *
-gsi_stmt_ptr (i)
-     gimple_stmt_iterator i;
-{
-  tree t;
-
-#if defined ENABLE_CHECKING
-  if (i.tp == NULL || *i.tp == NULL_TREE)
-    abort ();
-#endif
-
-  t = *(i.tp);
-  STRIP_NOPS (t);
-
-  if (TREE_CODE (t) == COMPOUND_EXPR)
-    return &TREE_OPERAND (t, 0);
-  else
-    return i.tp;
-}
-
-static inline tree
-gsi_stmt (i)
-     gimple_stmt_iterator i;
-{
-  tree t = *(gsi_stmt_ptr (i));
-  STRIP_NOPS (t);
-  if (t == empty_stmt_node || t == error_mark_node)
-    t = NULL_TREE;
-  return t;
-}
-
-static inline tree *
-gsi_container (i)
-     gimple_stmt_iterator i;
-{
-  return i.tp;
-}
 
 #endif /* _TREE_SIMPLE_H  */

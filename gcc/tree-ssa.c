@@ -281,7 +281,7 @@ mark_def_sites (idom)
      dominance_info idom;
 {
   basic_block bb;
-  gimple_stmt_iterator si;
+  block_stmt_iterator si;
   sbitmap nonlocal_vars;
   sbitmap killed_vars;
 
@@ -304,14 +304,14 @@ mark_def_sites (idom)
 	 zero out KILLED_VARS.  */
       sbitmap_zero (killed_vars);
 
-      for (si = gsi_start_bb (bb); !gsi_end_bb_p (si); gsi_step_bb (&si))
+      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
 	  varray_type ops;
 	  size_t i;
 	  tree stmt;
 	  tree *dest;
 
-	  stmt = gsi_stmt (si);
+	  stmt = bsi_stmt (si);
 	  STRIP_NOPS (stmt);
 
 	  get_stmt_operands (stmt);
@@ -507,14 +507,14 @@ rewrite_out_of_ssa (fndecl)
      tree fndecl;
 {
   basic_block bb;
-  gimple_stmt_iterator si;
+  block_stmt_iterator si;
 
   FOR_EACH_BB (bb)
-    for (si = gsi_start_bb (bb); !gsi_end_bb_p (si); gsi_step_bb (&si))
+    for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
       {
 	size_t i;
 	varray_type ops;
-	tree stmt = gsi_stmt (si);
+	tree stmt = bsi_stmt (si);
 	STRIP_NOPS (stmt);
 
 	get_stmt_operands (stmt);
@@ -723,7 +723,7 @@ rewrite_stmts (bb, block_defs_p)
      basic_block bb;
      varray_type *block_defs_p;
 {
-  gimple_stmt_iterator si;
+  block_stmt_iterator si;
   tree phi;
 
   /* Process PHI nodes in the block.  Conceptually, all the PHI nodes are
@@ -735,8 +735,8 @@ rewrite_stmts (bb, block_defs_p)
   /* Rewrite every variable used in each statement the block with its
      immediate reaching definitions.  Update the current definition of a
      variable when a new real or virtual definition is found.  */
-  for (si = gsi_start_bb (bb); !gsi_end_bb_p (si); gsi_step_bb (&si))
-    rewrite_stmt (gsi_stmt (si), block_defs_p);
+  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+    rewrite_stmt (bsi_stmt (si), block_defs_p);
 }
 
 

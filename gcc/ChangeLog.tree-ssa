@@ -1,3 +1,37 @@
+2003-02-05  Andrew MacLeod  <amacleod@redhat.com>
+
+	* Makefile.in : Include new file tree-iterator.h in tree-simple.h
+	* gimplify.c (simplify_cleanup_point_expr): Use tsi_ rather than gsi_.
+	* tree-cfg.c (make_blocks, remove_bb): Use tsi_ not gsi_ routines.
+	(bsi_remove): Renamed from gsi_remove, use bsi_ routines.
+	(successor_block, first_exec_stmt): Use tsi_ not gsi_ routines.
+	(first_stmt, last_stmt, last_stmt_ptr): Use bsi_ not gsi_ routines.
+	(bsi_init): Split out from bsi_start.
+	(bsi_start): Renamed from gsi_start_bb, use bsi_ routines.
+	(bsi_next_in_bb): Moved from tree-flow-inline.h and renamed from 
+	gsi_step_in_bb. Also verify BB of new stmt.
+	* tree-dfa.c (compute_immediate_uses, dump_immediate_uses, 
+	collect_dfa_stats, compute_may_aliases): Use block_stmt_iterator.
+	* tree-flow-inline.h (gsi_step_in_bb): Moved to tree-cfg.c
+	(bsi_end_p): Renamed from gsi_end_bb_p.
+	(bsi_next): renamed from gsi_step_bb
+	(bsi_prev): New function.
+	(bsi_stmt_ptr): Block version of gsi_stmt_ptr.
+	(bsi_stmt): Block version of gsi_stmt.
+	(bsi_container): Block version of gsi_container.
+	* tree-flow.h (block_stmt_iterator): New iterator type.
+	* tree-iterator.h: New include file for tree_iterator.
+	* tree-simple.h : Include tree-iterator.h
+	(gimple_stmt_iterator, gsi_start, gsi_end_p, gsi_stmt_ptr,
+	gsi_stmt, gsi_container): Move to tree-iterator.h and rename to tsi_.
+	(gsi_step): Move to tree-iterator.h and renamed to tsi_next.
+	* tree-ssa-ccp.c (simulate_block, substitute_and_fold): Use block
+	iterators instead of gimple_stmt_iterator.
+	* tree-ssa-dce.c (mark_control_parent_necessary, find_useful_stmts,
+	remove_dead_stmts, remove_dead_stmt): Use block_stmt_iterator.
+	* tree-ssa.c (mark_def_sites, rewrite_out_of_ssa, rewrite_stmts): Use
+	block_stmt_iterator.
+
 2003-02-04  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-alias-common.c (get_alias_var_decl): If it's a global var,
