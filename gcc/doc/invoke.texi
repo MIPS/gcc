@@ -289,7 +289,7 @@ in the following sections.
 -fsched-spec-load-dangerous  -fsignaling-nans @gol
 -fsingle-precision-constant  -fssa -fssa-ccp -fssa-dce @gol
 -fstrength-reduce  -fstrict-aliasing  -ftracer -fthread-jumps @gol
--funroll-all-loops  -funroll-loops  @gol
+-funroll-all-loops  -funroll-loops -fweb @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -3194,6 +3194,9 @@ with @samp{r}.
 @item y
 @opindex dy
 Dump debugging information during parsing, to standard error.
+@item Z
+@opindex dZ
+Dump after web construction pass, to @file{@var{file}.10.web}.
 @end table
 
 @item -fdump-unnumbered
@@ -4044,6 +4047,15 @@ of registers left over after register allocation.  This optimization
 will most benefit processors with lots of registers.  It can, however,
 make debugging impossible, since variables will no longer stay in
 a ``home register''.
+
+@item -fweb
+@opindex fweb
+Constructs webs as commonly used for register allocation purposes and assign
+each web individual pseudo register.  This allows our register allocation pass
+to operate on pseudos directly, but also strengthens several other optimization
+passes, such as CSE, loop optimizer and trivial dead code remover.  It can,
+however, make debugging impossible, since variables will no longer stay in a
+``home register''.
 
 Enabled at levels @option{-O3}.
 

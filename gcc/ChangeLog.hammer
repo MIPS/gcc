@@ -1,3 +1,16 @@
+Fri Feb  7 02:35:26 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* Makefile.in (web.o): New.
+	* web.c: New file.
+	* rtl.h (web_main): Declare.
+	* timervar.def (TV_WEB): New.
+	* toplev.c (dump_file_index, dump_file_info): Add DFI_web.
+	(flag_web): New static variable.
+	(lang_independent_ptions): Add "web".
+	(rest_of_compilation): Call web_main.
+	(parse_options_and_default_flags): Add flag_web.
+	* invoke.texi (-fweb): Document.
+
 Wed Feb  5 15:50:47 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (hammer-3_3-merge-20030205)
