@@ -20,70 +20,184 @@
 
 ; See c.opt for a description of this file's format.
 
-; Please try to keep this file in ASCII collating order.
-
 Language
 Java
 
-I
-Java Joined
-; Documented for C
-
-M
-Java
-; Documented for C
-
-MD_
-Java Undocumented
-; Documented for C
-
-MF
-Java Separate
-; Documented for C
-
-MM
-Java
-; Documented for C
-
-MMD_
-Java Undocumented
-; Documented for C
-
-MP
-Java
-; Documented for C
-
-MT
-Java Separate
-; Documented for C
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Warnings.  Keep this section in sync with main.cc
+;;
 
 Wall
 Java
 ; Documented for C
 
+Werror
+Java
+; Documented in common.opt
+
+Wassert
+Java
+use of `assert' keyword
+
+Wenum
+Java
+use of `enum' keyword
+
+Wcanonical-modifier-order
+Java
+misplaced modifiers
+
+Wredundant-modifier
+Java
+redundant modifiers
+
 Wdeprecated
 Java Var(warn_deprecated) VarExists
-Warn if a deprecated compiler feature, class, method, or field is used
+use of deprecated elements
 
-Wextraneous-semicolon
-Java Var(flag_extraneous_semicolon)
-Warn if deprecated empty statements are found
+Wjava-lang-import
+Java
+import of `java.lang'
 
-Wout-of-date
-Java Var(flag_newer) Init(1)
-Warn if .class files are out of date
+Wunused-import
+Java
+unused imports
 
-Wredundant-modifiers
-Java Var(flag_redundant)
-Warn if modifiers are specified when not necessary
+Wnon-static-context
+Java
+non-static qualifier for static member
+
+Wdollar-identifier
+Java
+`$' in identifiers
+
+Wascii-escape
+Java
+\\u representing an ASCII character
+
+Wconstructor-name
+Java
+method with name of constructor
+
+Wfinalize-spelling
+Java
+`finalise' misspelling
+
+Wassignment-no-effect
+Java
+assignment with no effect
+
+Wstring-plus-char-array
+Java
+String `+' with char[]
+
+Wfinally-abnormal-completion
+Java
+`finally' can't complete normally
+
+Wunneeded-instanceof
+Java
+unnecessary `instanceof'
+
+Wunused-private-members
+Java
+unused private member
+
+Wbad-serialization-field
+Java
+bad serialization fields
+
+Wunneeded-else
+Java
+unnecessary `else'
+
+Wbitwise-boolean
+Java
+bitwise boolean operations
+
+Wunused-label
+Java
+unused labels
+
+Wunneeded-extends
+Java
+unnecessary `extends'
+
+Warray-size
+Java
+bogus array sizes
+
+Wenclosing-access
+Java
+enclosing access requires accessor method
+
+Wzero-shift
+Java
+warn about zero shift count
+
+Wnegative-shift
+Java
+warn about negative shift count
+
+Wlarge-shift
+Java
+warn about over-large shift count
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Generic feature flags.  Keep this section in sync with main.cc
+;;
+
+fassert
+Java
+accept the `assert' feature
+
+fenum
+Java
+accept the `enum' feature
+
+fstatic-import
+Java
+accept the `static import' feature
+
+fenhanced-for
+Java
+accept the enhanced `for' loop
+
+fgenerics
+Java
+accept generics
+
+fboxing-conversion
+Java
+accept boxing conversion
+
+fvarargs
+Java
+accept variable-arity methods
+
+fannotations
+Java
+accept annotations
+
+fgenerate-assert
+Java
+generate code for `assert'
+
+fverify
+Java
+verify bytecode after creating it
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Feature flags specific to tree generation, and other miscellanea.
+;;
 
 fCLASSPATH=
 Java JoinedOrMissing RejectNegative
 --CLASSPATH	Deprecated; use --classpath instead
-
-fassert
-Java Var(flag_assert) Init(1)
-Permit the use of the assert keyword
 
 fassume-compiled
 Java
@@ -157,6 +271,10 @@ fjni
 Java Var(flag_jni)
 Assume native functions are implemented using JNI
 
+fcni-headers
+Java Var(flag_emit_cni_headers)
+Emit CNI headers while compiling
+
 foptimize-static-class-initialization
 Java Var(flag_optimize_sci)
 Enable optimization of static class initialization code
@@ -178,3 +296,36 @@ Call a library routine to do integer divisions
 
 version
 Java
+; Documented for C
+
+I
+Java Joined
+; Documented for C
+
+M
+Java
+; Documented for C
+
+MD_
+Java Undocumented
+; Documented for C
+
+MF
+Java Separate
+; Documented for C
+
+MM
+Java
+; Documented for C
+
+MMD_
+Java Undocumented
+; Documented for C
+
+MP
+Java
+; Documented for C
+
+MT
+Java Separate
+; Documented for C

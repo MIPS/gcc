@@ -1,0 +1,483 @@
+// Initialization and compiler driving.
+
+// Copyright (C) 2004 Free Software Foundation, Inc.
+//
+// This file is part of GCC.
+//
+// GCC is free software; you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2, or (at your option)
+// any later version.
+//
+// GCC is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with GCC; see the file COPYING.  If not, write to the Free
+// Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
+
+#include "tree/glue.hh"
+
+#include "bytecode/bytegen.hh"
+#include "tree/treegen.hh"
+#include "header/cni.hh"
+#include "source/ucs2.hh"
+
+// An object of this type is used to hold command line argument
+// information.
+struct arg_info
+{
+  // Classpath-related information.
+  const char *bootclasspath;
+  const char *classpath;
+  std::list<std::string> dash_i_args;
+
+  // Encoding for source files.
+  const char *encoding;
+
+  // Output directory.
+  const char *output;
+
+  // Input file name.
+  const char *filename;
+
+  arg_info ()
+    : bootclasspath (NULL),
+      classpath (NULL),
+      encoding (NULL),
+      output (NULL),
+      filename (NULL)
+  {
+  }
+};
+
+
+// With GCC we only have a single compiler.
+static compiler *our_compiler;
+
+// Global state for argument parsing.
+static arg_info *arguments;
+
+
+// Process java-specific compiler command-line options.  Return 0, but
+// do not complain if the option is not recognized.
+int
+gcjx::handle_option (size_t scode, const char *arg, int value)
+{
+  assert (our_compiler);
+  assert (arguments);
+
+  enum opt_code code = (enum opt_code) scode;
+
+  switch (code)
+    {
+    case OPT_I:
+      arguments->dash_i_args.push_back (arg);
+      break;
+
+    case OPT_M:
+    case OPT_MD_:
+    case OPT_MF:
+    case OPT_MM:
+    case OPT_MMD_:
+    case OPT_MP:
+    case OPT_MT:
+      // fixme
+      break;
+
+    case OPT_Wall:
+      // Do nothing for -Wno-all.  FIXME: clear it instead?
+      if (value)
+	our_compiler->set_wall (WARN);
+      break;
+
+    case OPT_Wassert:
+      our_compiler->set_warning (WARN_ASSERT, value ? WARN : OFF);
+      break;
+
+    case OPT_Wenum:
+      our_compiler->set_warning (WARN_ENUM, value ? WARN : OFF);
+      break;
+
+    case OPT_Wcanonical_modifier_order:
+      our_compiler->set_warning (WARN_CANONICAL_MODIFIER_ORDER,
+				 value ? WARN : OFF);
+      break;
+
+    case OPT_Wredundant_modifier:
+      our_compiler->set_warning (WARN_REDUNDANT_MODIFIER, value ? WARN : OFF);
+      break;
+
+    case OPT_Wdeprecated:
+      our_compiler->set_warning (WARN_DEPRECATED, value ? WARN : OFF);
+      break;
+
+    case OPT_Wjava_lang_import:
+      our_compiler->set_warning (WARN_JAVA_LANG_IMPORT, value ? WARN : OFF);
+      break;
+
+    case OPT_Wunused_import:
+      our_compiler->set_warning (WARN_UNUSED_IMPORT, value ? WARN : OFF);
+      break;
+
+    case OPT_Wnon_static_context:
+      our_compiler->set_warning (WARN_NON_STATIC_CONTEXT, value ? WARN : OFF);
+      break;
+
+    case OPT_Wdollar_identifier:
+      our_compiler->set_warning (WARN_DOLLAR_IDENTIFIER, value ? WARN : OFF);
+      break;
+
+    case OPT_Wascii_escape:
+      our_compiler->set_warning (WARN_ASCII_ESCAPE, value ? WARN : OFF);
+      break;
+
+    case OPT_Wconstructor_name:
+      our_compiler->set_warning (WARN_CONSTRUCTOR_NAME, value ? WARN : OFF);
+      break;
+
+    case OPT_Wfinalize_spelling:
+      our_compiler->set_warning (WARN_FINALIZE_SPELLING, value ? WARN : OFF);
+      break;
+
+    case OPT_Wassignment_no_effect:
+      our_compiler->set_warning (WARN_ASSIGNMENT_NO_EFFECT,
+				 value ? WARN : OFF);
+      break;
+
+    case OPT_Wstring_plus_char_array:
+      our_compiler->set_warning (WARN_STRING_PLUS_CHAR_ARRAY,
+				 value ? WARN : OFF);
+      break;
+
+    case OPT_Wfinally_abnormal_completion:
+      our_compiler->set_warning (WARN_FINALLY_ABNORMAL_COMPLETION,
+				 value ? WARN : OFF);
+      break;
+
+    case OPT_Wunneeded_instanceof:
+      our_compiler->set_warning (WARN_UNNEEDED_INSTANCEOF, value ? WARN : OFF);
+      break;
+
+    case OPT_Wunused_private_members:
+      our_compiler->set_warning (WARN_UNUSED_PRIVATE_MEMBERS,
+				 value ? WARN : OFF);
+      break;
+
+    case OPT_Wbad_serialization_field:
+      our_compiler->set_warning (WARN_BAD_SERIALIZATION_FIELD,
+				 value ? WARN : OFF);
+      break;
+
+    case OPT_Wunneeded_else:
+      our_compiler->set_warning (WARN_UNNEEDED_ELSE, value ? WARN : OFF);
+      break;
+
+    case OPT_Wbitwise_boolean:
+      our_compiler->set_warning (WARN_BITWISE_BOOLEAN, value ? WARN : OFF);
+      break;
+
+    case OPT_Wunused_label:
+      our_compiler->set_warning (WARN_UNUSED_LABEL, value ? WARN : OFF);
+      break;
+
+    case OPT_Wunneeded_extends:
+      our_compiler->set_warning (WARN_UNNEEDED_EXTENDS, value ? WARN : OFF);
+      break;
+
+    case OPT_Warray_size:
+      our_compiler->set_warning (WARN_ARRAY_SIZE, value ? WARN : OFF);
+      break;
+
+    case OPT_Wenclosing_access:
+      our_compiler->set_warning (WARN_ENCLOSING_ACCESS, value ? WARN : OFF);
+      break;
+
+    case OPT_Wzero_shift:
+      our_compiler->set_warning (WARN_ZERO_SHIFT, value ? WARN : OFF);
+      break;
+
+    case OPT_Wnegative_shift:
+      our_compiler->set_warning (WARN_NEGATIVE_SHIFT, value ? WARN : OFF);
+      break;
+
+    case OPT_Wlarge_shift:
+      our_compiler->set_warning (WARN_LARGE_SHIFT, value ? WARN : OFF);
+      break;
+
+    case OPT_Werror:
+      our_compiler->warnings_are_errors = true;
+      break;
+
+    case OPT_fassert:
+      our_compiler->feature_assert = value;
+      break;
+
+    case OPT_fenum:
+      our_compiler->feature_enum = value;
+      break;
+
+    case OPT_fstatic_import:
+      our_compiler->feature_static_import = value;
+      break;
+
+    case OPT_fenhanced_for:
+      our_compiler->feature_enhanced_for = value;
+      break;
+
+    case OPT_fgenerics:
+      our_compiler->feature_generics = value;
+      break;
+
+    case OPT_fboxing_conversion:
+      our_compiler->feature_boxing_conversion = value;
+      break;
+
+    case OPT_fvarargs:
+      our_compiler->feature_varargs = value;
+      break;
+
+    case OPT_fannotations:
+      our_compiler->feature_annotations = value;
+      break;
+
+    case OPT_fgenerate_assert:
+      our_compiler->target_assert = value;
+      break;
+
+    case OPT_fverify:
+      our_compiler->target_verify = value;
+      break;
+
+    case OPT_fenable_assertions_:
+      // add_enable_assert (arg, value);
+      break;
+
+    case OPT_fenable_assertions:
+      // add_enable_assert ("", value);
+      break;
+
+    case OPT_fdisable_assertions_:
+      // add_enable_assert (arg, !value);
+      break;
+
+    case OPT_fdisable_assertions:
+      // add_enable_assert ("", !value);
+      break;
+
+    case OPT_fbootclasspath_:
+      arguments->bootclasspath = arg;
+      break;
+
+    case OPT_fclasspath_:
+      arguments->classpath = arg;
+      break;
+
+    case OPT_fcompile_resource_:
+      //      resource_name = arg;
+      break;
+
+    case OPT_fdump_:
+//       if (!dump_switch_p (arg))
+// 	return 0;
+      break;
+
+    case OPT_fencoding_:
+      arguments->encoding = arg;
+      break;
+
+    case OPT_fextdirs_:
+      // jcf_path_extdirs_arg (arg);
+      break;
+
+    case OPT_finline_functions:
+      flag_inline_functions = value;
+      break;
+
+    case OPT_foutput_class_dir_:
+      arguments->output = arg;
+      break;
+
+    case OPT_version:
+      // v_flag = 1;
+      break;
+      
+    default:
+      // Other Java options are assumed to be handled by our caller.
+      // Non-Java options are a bug.
+      assert ((cl_options[code].flags & CL_Java) != 0);
+      break;
+    }
+
+  return 1;
+}
+
+unsigned int
+gcjx::init_options (unsigned int, const char **)
+{
+  // Initialize libgcjx.  FIXME: poor naming.
+  initialize_primitive_types ();
+
+  // Set some flags that might be modified by command-line options.
+  flag_bounds_check = 1;
+  // FIXME: not sure if the user can reasonably change these two.
+  // If not, should move to java_init().
+  flag_exceptions = 1;
+  flag_non_call_exceptions = 1;
+
+  arguments = new arg_info ();
+  our_compiler = new compiler ("gcj");
+
+  return CL_Java;
+}
+
+static void
+add_cp (std::list<class_factory *> &facs, const std::list<std::string> &path)
+{
+  for (std::list<std::string>::const_iterator i = path.begin ();
+       i != path.end ();
+       ++i)
+    {
+      class_factory *a_factory = class_factory::get_class_factory (*i, false);
+      if (a_factory != NULL)
+        facs.push_back (a_factory);
+    }
+}
+
+bool
+gcjx::post_options (const char **filename_ptr)
+{
+  assert (*filename_ptr);
+  arguments->filename = *filename_ptr;
+
+  // Compute the class path.
+  std::list<class_factory *> facs;
+  if (arguments->bootclasspath != NULL)
+    add_cp (facs, split (arguments->bootclasspath, ':'));
+  if (arguments->classpath != NULL)
+    add_cp (facs, split (arguments->classpath, ':'));
+  add_cp (facs, arguments->dash_i_args);
+  if (arguments->bootclasspath == NULL
+      && arguments->classpath == NULL
+      && arguments->dash_i_args.empty ()
+      && getenv ("CLASSPATH") != NULL)
+    add_cp (facs, split (getenv ("CLASSPATH"), ':'));
+  our_compiler->set_class_factory (new classpath_class_factory (facs));
+
+  // Compute the output directory.
+  if (arguments->output == NULL)
+    arguments->output = ".";
+  our_compiler->set_output_directory (arguments->output);
+
+  // Compute the source file encoding.
+  our_compiler->set_encoding (arguments->encoding ? arguments->encoding
+			      : compute_default_encoding ());
+
+  // Set up code generators.  Note that JNI headers and stubs are
+  // handled via a separate main().
+  directory_cache &dircache (our_compiler->get_directory_cache ());
+  // FIXME: should be possible to generate class files, headers, and
+  // object code all at once
+  if (flag_emit_class_files)
+    {
+      our_compiler->add_code_generator (new bytecode_code_generator (our_compiler,
+								     dircache));
+      if (flag_emit_cni_headers)
+	our_compiler->add_code_generator (new cni_code_generator (our_compiler,
+								  dircache));
+    }
+  else if (! flag_syntax_only)
+    our_compiler->add_code_generator (new tree_code_generator (our_compiler,
+							       dircache));
+
+  // Final setup for use of compiler.
+  global->set_compiler (our_compiler);
+
+  return false;
+}
+
+bool
+gcjx::init ()
+{
+  // In Java floating point operations never trap.
+  flag_trapping_math = 0;
+
+  // In Java arithmetic overflow always wraps around.
+  flag_wrapv = 1;
+
+  // Java requires left-to-right evaluation of subexpressions.
+  flag_evaluation_order = 1;
+
+  if (flag_inline_functions)
+    flag_inline_trees = 1;
+
+  // Force minimum function alignment if g++ uses the least
+  // significant bit of function pointers to store the virtual
+  // bit. This is required to keep vtables compatible.
+  if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn
+      && force_align_functions_log < 1)
+    force_align_functions_log = 1;
+
+  initialize_decls ();
+  using_eh_for_cleanups ();
+
+  return true;
+}
+
+void
+gcjx::finish ()
+{
+  // We're done with the command-line arguments.
+  delete arguments;
+  arguments = NULL;
+
+  global->set_compiler (NULL);
+  delete our_compiler;
+  our_compiler = NULL;
+}
+
+// This handles the processing for a single file.  It feeds the
+// contents of the file to the compiler as appropriate.  For instance,
+// ".java" files are parsed and marked for code generation.
+static void
+process_one_file (const std::string &filename)
+{
+  // FIXME: need special handling for resources, class files, jar
+  // files.
+  our_compiler->load_source_file (filename);
+}
+
+void
+gcjx::parse_file (int)
+{
+  // Parse the source file.  If an "@-file" was specified, read it and
+  // parse all the source files.
+  if (flag_filelist_file)
+    {
+      std::list<std::string> names;
+      try
+	{
+	  read_at_file (arguments->filename, names);
+	}
+      catch (io_error &ex)
+	{
+	  // FIXME: use fatal_error here?  Error handling in general
+	  // needs some help.
+	  std::cerr << ex;
+	  exit (1);
+	}
+      for (std::list<std::string>::const_iterator i = names.begin ();
+	   i != names.end ();
+	   ++i)
+	process_one_file (*i);
+    }
+  else
+    process_one_file (arguments->filename);
+
+  // Compile, then generate code if everything went ok.
+  if (our_compiler->semantic_analysis ())
+    our_compiler->generate_code ();
+}

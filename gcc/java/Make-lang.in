@@ -48,12 +48,11 @@ GCJH_TARGET_INSTALL_NAME := $(target_noncanonical)-$(shell echo gcjh|sed '$(prog
 GCJ = gcj
 
 # Define the names for selecting java in LANGUAGES.
-java: jc1$(exeext) $(GCJ)$(exeext) jvgenmain$(exeext) \
-      gcjh$(exeext) jv-scan$(exeext) jcf-dump$(exeext)
+java: jc1$(exeext) $(GCJ)$(exeext) jvgenmain$(exeext)
 
 # Define the name of target independent tools to be installed in $(bindir)
 # Names are subject to changes
-JAVA_TARGET_INDEPENDENT_BIN_TOOLS = gcjh jv-scan jcf-dump
+JAVA_TARGET_INDEPENDENT_BIN_TOOLS =
 
 # Tell GNU make to ignore these if they exist.
 .PHONY: java
@@ -76,28 +75,9 @@ $(GCJ)-cross$(exeext): $(GCJ)$(exeext)
 	-rm -f $(GCJ)-cross$(exeext)
 	cp $(GCJ)$(exeext) $(GCJ)-cross$(exeext)
 
-java.srcextra: java/parse.c java/parse-scan.c
-	-cp -p $^ $(srcdir)/java
-
-java/parse.c: java/parse.y
-	-$(BISON) -t --name-prefix=java_ $(BISONFLAGS) -o $@ $<
-
-java/parse-scan.c: java/parse-scan.y
-	-$(BISON) -t $(BISONFLAGS) -o $@ $< 
-
-$(srcdir)/java/keyword.h: $(srcdir)/java/keyword.gperf
-	(cd $(srcdir)/java || exit 1; \
-	gperf -L ANSI-C -C -F ', 0' -p -t -j1 -i 1 -g -o -N java_keyword -k1,4,$$ \
-		keyword.gperf > k$$$$.h || { \
-	echo "Please update gperf from ftp://ftp.gnu.org/pub/gnu/gperf/" >&2; \
-	rm -f k$$$$.h; \
-	exit 1; } ; \
-	mv -f k$$$$.h keyword.h)
-
-gt-java-class.h gt-java-constants.h gt-java-decl.h : s-gtype ; @true
-gt-java-expr.h gt-java-jcf-parse.h gt-java-jcf-write.h : s-gtype ; @true
-gt-java-lang.h gt-java-mangle.h gt-java-parse.h : s-gtype ; @true
-gt-java-builtins.h gtype-java.h gt-java-resource.h : s-gtype ; @true
+gt-java-abi.h gt-java-builtins.h gt-java-decl.h : s-gtype ; @true
+gt-java-driver.h gt-java-langhooks.h gt-java-lower.h : s-gtype ; @true
+gt-java-tree.h gt-java-treegen.h: s-gtype ; @true
 
 # Executables built by this Makefile:
 JAVA_OBJS = java/parse.o java/class.o java/decl.o java/expr.o \
@@ -136,14 +116,6 @@ jc1$(exeext): $(JAVA_OBJS) $(BACKEND) $(LIBDEPS)
 	rm -f $@
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
 		$(JAVA_OBJS) $(BACKEND) $(ZLIB) $(LIBICONV) $(LIBS)
-
-gcjh$(exeext): $(GCJH_OBJS) $(LIBDEPS)
-	rm -f $@
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(GCJH_OBJS) $(CPPLIBS) $(ZLIB) $(LIBS)
-
-jv-scan$(exeext): $(JVSCAN_OBJS) $(LIBDEPS)
-	rm -f $@
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(JVSCAN_OBJS) $(LIBICONV) $(LIBS)
 
 jcf-dump$(exeext): $(JCFDUMP_OBJS) $(LIBDEPS)
 	rm -f $@

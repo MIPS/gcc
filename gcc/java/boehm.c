@@ -34,7 +34,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "parse.h"
 #include "toplev.h"
 
-static void mark_reference_fields (tree, unsigned HOST_WIDE_INT *,
+static void mark_reference_fields (tree, tree, unsigned HOST_WIDE_INT *,
 				   unsigned HOST_WIDE_INT *, unsigned int,
 				   int *, int *, int *, HOST_WIDE_INT *);
 static void set_bit (unsigned HOST_WIDE_INT *, unsigned HOST_WIDE_INT *,
@@ -59,9 +59,34 @@ set_bit (unsigned HOST_WIDE_INT *low, unsigned HOST_WIDE_INT *high,
   *which |= (unsigned HOST_WIDE_INT) 1 << n;
 }
 
+/* Return true if this field, from Class, should be marked.  Return
+   false otherwise.  */
+static bool
+mark_class_field_p (tree field)
+{
+  char *name;
+
+  assert (DECL_CONTEXT (field) == type_class);
+
+  /* Only pointer and record fields are marked.  */
+  if (TREE_CODE (TREE_TYPE (field)) != POINTER_TYPE
+      && TREE_CODE (TREE_TYPE (field)) != RECORD_TYPE)
+    return false;
+
+  /* A few fields need not be visible to the collector.  */
+  name = IDENTIFIER_POINTER (DECL_NAME (field));
+  if (! strcmp (name, "next")
+      || ! strcmp (name, "thread")
+      || ! strcmp (name, "chain"))
+    return false;
+
+  return true;  
+}
+
 /* Recursively mark reference fields.  */
 static void
-mark_reference_fields (tree field,
+mark_reference_fields (tree klass,
+		       tree field,
 		       unsigned HOST_WIDE_INT *low,
 		       unsigned HOST_WIDE_INT *high,
 		       unsigned int ubit,
@@ -73,7 +98,8 @@ mark_reference_fields (tree field,
   /* See if we have fields from our superclass.  */
   if (DECL_NAME (field) == NULL_TREE)
     {
-      mark_reference_fields (TYPE_FIELDS (TREE_TYPE (field)),
+      mark_reference_fields (TREE_TYPE (field),
+			     TYPE_FIELDS (TREE_TYPE (field)),
 			     low, high, ubit,
 			     pointer_after_end, all_bits_set,
 			     last_set_index, last_view_index);
@@ -90,10 +116,12 @@ mark_reference_fields (tree field,
 
       offset = int_byte_position (field);
       size_bytes = int_size_in_bytes (TREE_TYPE (field));
-      if (JREFERENCE_TYPE_P (TREE_TYPE (field))
-	  /* An `object' of type gnu.gcj.RawData is actually non-Java
-	     data.  */
-	  && TREE_TYPE (field) != rawdata_ptr_type_node)
+      if ((type == type_class && mark_class_field_p (field))
+	  || (type != type_class
+	      && JREFERENCE_TYPE_P (TREE_TYPE (field))
+	      /* An `object' of type gnu.gcj.RawData is actually
+		 non-Java data.  */
+	      && TREE_TYPE (field) != rawdata_ptr_type_node))
 	{
 	  unsigned int count;
 	  unsigned int size_words;
@@ -101,31 +129,68 @@ mark_reference_fields (tree field,
 
 	  /* If this reference slot appears to overlay a slot we think
 	     we already covered, then we are doomed.  */
-	  if (offset <= *last_view_index)
-	    abort ();
+	  assert (offset > *last_view_index);
 
-	  count = offset * BITS_PER_UNIT / POINTER_SIZE;
-	  size_words = size_bytes * BITS_PER_UNIT / POINTER_SIZE;
+	  /* When handling Class we might run into a record type.  We
+	     don't try to be fully general here but instead just
+	     handle it in an ad hoc way.  */
+	  if (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE)
+	    {
+	      tree subfield;
+	      HOST_WIDE_INT saved_offset = offset;
+	      assert (type == type_class);
+	      for (subfield = TYPE_FIELDS (TREE_TYPE (field));
+		   subfield != NULL_TREE;
+		   subfield = TREE_CHAIN (subfield))
+		{
+		  if (TREE_CODE (TREE_TYPE (subfield)) == POINTER_TYPE)
+		    {
+		      offset = saved_offset + int_byte_position (subfield);
+		      count = offset * BITS_PER_UNIT / POINTER_SIZE;
+		      size_bytes = int_size_in_bytes (TREE_TYPE (subfield));
+		      size_words = size_bytes * BITS_PER_UNIT / POINTER_SIZE;
 
-	  *last_set_index = count;
+		      *last_set_index = count;
+		      for (i = 0; i < size_words; ++i)
+			set_bit (low, high, ubit - count - i - 1);
+
+		      if (count >= ubit - 2)
+			*pointer_after_end = 1;
+
+		      /* If we saw a non-reference field earlier, then
+			 we can't use the count representation.  We
+			 keep track of that in *ALL_BITS_SET.  */
+		      if (! *all_bits_set)
+			*all_bits_set = -1;
+		    }
+		}
+	    }
+	  else
+	    {
+	      count = offset * BITS_PER_UNIT / POINTER_SIZE;
+	      size_words = size_bytes * BITS_PER_UNIT / POINTER_SIZE;
+
+	      *last_set_index = count;
 	     
-	  /* First word in object corresponds to most significant byte of 
-	     bitmap. 
-	     
-	     In the case of a multiple-word record, we set pointer 
-	     bits for all words in the record. This is conservative, but the 
-	     size_words != 1 case is impossible in regular java code. */
-	  for (i = 0; i < size_words; ++i)
-	    set_bit (low, high, ubit - count - i - 1);
+	      /* First word in object corresponds to most significant byte of 
+		 bitmap.
 
-	  if (count >= ubit - 2)
-	    *pointer_after_end = 1;
+		 In the case of a multiple-word record, we set pointer
+		 bits for all words in the record. This is
+		 conservative, but the size_words != 1 case is
+		 impossible in regular java code. */
+	      for (i = 0; i < size_words; ++i)
+		set_bit (low, high, ubit - count - i - 1);
 
-	  /* If we saw a non-reference field earlier, then we can't
-	     use the count representation.  We keep track of that in
-	     *ALL_BITS_SET.  */
-	  if (! *all_bits_set)
-	    *all_bits_set = -1;
+	      if (count >= ubit - 2)
+		*pointer_after_end = 1;
+
+	      /* If we saw a non-reference field earlier, then we
+		 can't use the count representation.  We keep track of
+		 that in *ALL_BITS_SET.  */
+	      if (! *all_bits_set)
+		*all_bits_set = -1;
+	    }
 	}
       else if (*all_bits_set > 0)
 	*all_bits_set = 0;
@@ -162,23 +227,15 @@ get_boehm_type_descriptor (tree type)
      and 64 bit targets, so we need to know that the log2 is one of
      our values.  */
   log2_size = exact_log2 (bit);
-  if (bit == -1 || (log2_size != 2 && log2_size != 3))
-    {
-      /* This means the GC isn't supported.  We should probably
-	 abort or give an error.  Instead, for now, we just silently
-	 revert.  FIXME.  */
-      return null_pointer_node;
-    }
+  assert (bit != -1);
+  assert (log2_size == 2 || log2_size == 3);
   bit *= BITS_PER_UNIT;
 
   /* Warning avoidance.  */
   ubit = (unsigned int) bit;
 
-  if (type == class_type_node)
-    goto procedure_object_descriptor;
-
   field = TYPE_FIELDS (type);
-  mark_reference_fields (field, &low, &high, ubit,
+  mark_reference_fields (type, field, &low, &high, ubit,
 			 &pointer_after_end, &all_bits_set,
 			 &last_set_index, &last_view_index);
 
@@ -223,6 +280,7 @@ get_boehm_type_descriptor (tree type)
 	    | DS_PROC)
 	 Here DS_PROC == 2.  */
     procedure_object_descriptor:
+      assert (type != type_class);
       value = build_int_cst (value_type, 2);
     }
 

@@ -1,3 +1,28 @@
+2005-01-12  Tom Tromey  <tromey@redhat.com>
+
+	Initial checkin of gcjx.  See gcjx/ChangeLog for earlier changes
+	to the gcjx tree back end.
+	* Make-lang.in (java): Removed gcjh, jv-scan, jcf-dump.
+	(JAVA_TARGET_INDEPENDENT_BIN_TOOLS): Emptied.
+	(java.srcextra, java/parse.c, java/parse-scan.c, keyword.h):
+	Removed targets.
+	(gcjh, jv-scan, jcf-dump): Likewise.
+	Updated gt-*.h targets.
+	* config-lang.in: Updated.
+	* abi.cc, abi.hh, builtins.cc, builtins.hh, decl.cc, driver.cc,
+	glue.hh, hooks.hh, lang.opt, langhooks.cc, lower.cc, tree.cc,
+	tree.hh, treegen.cc, treegen.hh: New files.
+	* buffer.c, buffer.h, chartables.h, check-init.c, class.c,
+	constants.c, convert.h, decl.c, except.c, expr.c, gen-table.pl,
+	gjavah.c, java-except.h, java-opcodes.h, java-tree.def,
+	java-tree.h, javaop.def, javaop.h, jcf-depend.c, jcf-dump.c,
+	jcf-io.c, jcf-parse.c, jcf-path.c, jcf-reader.c, jcf-write.c,
+	jcf.h, jv-scan.c, keyword.gperf, keyword.h, lang.c, lex.c, lex.h,
+	parse-scan.y, parse.h, parse.y, resource.c, typeck.c, verify.c,
+	win32-host.c, xref.c, xref.h, zextract.c, zipfile.h: Removed.
+	* verify-glue.c, verify-impl.c, verify.h, builtins.c: Removed.
+	* lang.opt (Wdeprecated): Incorporated gcjx changes.
+	
 2005-01-12  Ranjit Mathew  <rmathew@hotmail.com>
 
 	* expr.c (build_jni_stub): Replace mistaken use of TYPE_SIZE_UNIT
