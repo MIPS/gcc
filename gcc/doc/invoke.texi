@@ -5431,12 +5431,19 @@ with a single instruction, e.g., sqrt.  A program that relies on
 IEEE exceptions for math error handling may want to use this flag
 for speed while maintaining IEEE arithmetic compatibility.
 
+@c APPLE LOCAL disable math-errno
+@ignore
 This option should never be turned on by any @option{-O} option since
 it can result in incorrect output for programs which depend on
 an exact implementation of IEEE or ISO rules/specifications for
 math functions.
 
 The default is @option{-fmath-errno}.
+@end ignore
+(APPLE ONLY) The Darwin math libraries never set errno, so there is
+no point in having the compiler generate code that assumes they
+might.  Therefore, the default is @option{-fno-math-errno} on Darwin.
+@c APPLE LOCAL end disable math-errno
 
 @item -funsafe-math-optimizations
 @opindex funsafe-math-optimizations

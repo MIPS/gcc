@@ -1980,6 +1980,9 @@ optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
 	 where interblock scheduling occurs (if-then-else's) are
 	 little better than random, so disable this unless requested. */
       flag_schedule_interblock = 0;
+      /* The Darwin libraries never set errno, so we might as well
+	 avoid calling them when that's the only reason we would.  */
+      flag_errno_math = 0;
     }
   /* APPLE LOCAL end tweak default optimizations */
 }

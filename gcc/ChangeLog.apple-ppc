@@ -1,3 +1,10 @@
+2004-12-15  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3619824
+	* config/rs6000/rs6000.c (optimization_options): Clear
+	flag_errno_math.
+	* doc/invoke.texi:  Document that -fno-math-errno is the default.
+
 2004-12-15  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3918376

@@ -1,3 +1,8 @@
+2004-12-15  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3619824
+	* gcc.apple/no-math-errno.c: New.
+
 2004-12-15  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3918376
