@@ -1,3 +1,18 @@
+2004-02-02  Alan Modra  <amodra@bigpond.net.au>
+
+	Backport from mainline.
+	2004-01-21  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/sysv4.h (DWARF2_FRAME_REG_OUT): Define.
+	* dwarf2out.c (output_cfi): Map regs using DWARF2_FRAME_REG_OUT.
+	* doc/tm.texi (DWARF_FRAME_REGNUM, DWARF2_FRAME_REG_OUT): Document.
+
+	2004-01-07  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.c (rs6000_dbx_register_number): New function.
+	* config/rs6000/rs6000-protos.h (rs6000_dbx_register_number): Declare.
+	* config/rs6000/rs6000.h (DWARF_FRAME_REGNUM): Define.
+	(DWARF_REG_TO_UNWIND_COLUMN): Correct column adjustment and comment.
+	* config/rs6000/sysv4.h (DBX_REGISTER_NUMBER): Define.
+
 2004-01-31  Alan Modra  <amodra@bigpond.net.au>
 
 	Backport from mainline.

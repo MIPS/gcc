@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -725,6 +725,9 @@ extern int rs6000_alignment_flags;
 
 /* This must be included for pre gcc 3.0 glibc compatibility.  */
 #define PRE_GCC3_DWARF_FRAME_REGISTERS 77
+
+/* Use gcc hard register numbering for eh_frame.  */
+#define DWARF_FRAME_REGNUM(REGNO) (REGNO)
 
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.

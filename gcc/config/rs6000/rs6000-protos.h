@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -190,6 +191,7 @@ extern int uses_TOC PARAMS ((void));
 extern void rs6000_emit_prologue PARAMS ((void));
 extern void rs6000_emit_load_toc_table PARAMS ((int));
 extern void rs6000_aix_emit_builtin_unwind_init PARAMS ((void));
+extern unsigned int rs6000_dbx_register_number PARAMS ((unsigned int));
 extern void rs6000_emit_epilogue PARAMS ((int));
 extern void debug_stack_info PARAMS ((rs6000_stack_t *));
 extern const char * output_isel PARAMS ((rtx *));
