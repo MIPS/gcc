@@ -1,3 +1,10 @@
+2005-03-03  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3897244
+	* config/i386/darwin.h:  Define REGISTER_TARGET_PRAGMAS
+	and ROUND_TYPE_ALIGN.
+	* config/i386/i386.c (x86_field_alignment):  Support Mac68K alignment.
+
 2005-03-02  Devang Patel  <dpatel@apple.com>
 
 	Undo Radar 4023104
