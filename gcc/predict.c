@@ -54,10 +54,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "loop.h"
 #include "cfgloop.h"
 
-/* real constants: 0, 1, 1-1/REG_BR_PROB_BASE, REG_BR_PROB_BASE, 0.5,
-                   BB_FREQ_MAX.  */
+/* real constants: 0, 1, 1-1/REG_BR_PROB_BASE, REG_BR_PROB_BASE,
+		   1/REG_BR_PROB_BASE, 0.5, BB_FREQ_MAX.  */
 static sreal real_zero, real_one, real_almost_one, real_br_prob_base,
-	     real_one_half, real_bb_freq_max;
+	     real_inv_br_prob_base, real_one_half, real_bb_freq_max;
 
 /* Random guesstimation given names.  */
 #define PROB_VERY_UNLIKELY	(REG_BR_PROB_BASE / 10 - 1)
@@ -1001,21 +1001,21 @@ propagate_freq (loop)
 
 		sreal_init (&tmp, e->probability, 0);
 		sreal_mul (&tmp, &tmp, &BLOCK_INFO (e->src)->frequency);
-		sreal_div (&tmp, &tmp, &real_br_prob_base);
+		sreal_mul (&tmp, &tmp, &real_inv_br_prob_base);
 		sreal_add (&frequency, &frequency, &tmp);
 	      }
 
 	  if (sreal_compare (&cyclic_probability, &real_zero) == 0)
 	    {
 	      memcpy (&BLOCK_INFO (bb)->frequency, &frequency,
-		      sizeof (real_zero));
+		      sizeof (frequency));
 	    }
 	  else
 	    {
 	      if (sreal_compare (&cyclic_probability, &real_almost_one) > 0)
 		{
 		  memcpy (&cyclic_probability, &real_almost_one,
-			  sizeof (real_zero));
+			  sizeof (real_almost_one));
 		}
 
 	      /* BLOCK_INFO (bb)->frequency = frequency 
@@ -1041,8 +1041,8 @@ propagate_freq (loop)
 
 	    sreal_init (&tmp, e->probability, 0);
 	    sreal_mul (&tmp, &tmp, &BLOCK_INFO (bb)->frequency);
-	    sreal_div (&EDGE_INFO (e)->back_edge_prob,
-		       &tmp, &real_br_prob_base);
+	    sreal_mul (&EDGE_INFO (e)->back_edge_prob,
+		       &tmp, &real_inv_br_prob_base);
 	  }
 
       /* Propagate to successor blocks.  */
@@ -1171,9 +1171,8 @@ estimate_bb_frequencies (loops)
       sreal_init (&real_br_prob_base, REG_BR_PROB_BASE, 0);
       sreal_init (&real_bb_freq_max, BB_FREQ_MAX, 0);
       sreal_init (&real_one_half, 1, -1);
-
-      sreal_div (&real_almost_one, &real_one, &real_br_prob_base);
-      sreal_sub (&real_almost_one, &real_one, &real_almost_one);
+      sreal_div (&real_inv_br_prob_base, &real_one, &real_br_prob_base);
+      sreal_sub (&real_almost_one, &real_one, &real_inv_br_prob_base);
 
       mark_dfs_back_edges ();
       /* Fill in the probability values in flowgraph based on the REG_BR_PROB
@@ -1215,8 +1214,9 @@ estimate_bb_frequencies (loops)
 	  for (e = bb->succ; e; e = e->succ_next)
 	    {
 	      sreal_init (&EDGE_INFO (e)->back_edge_prob, e->probability, 0);
-	      sreal_div (&EDGE_INFO (e)->back_edge_prob,
-			 &EDGE_INFO (e)->back_edge_prob, &real_br_prob_base);
+	      sreal_mul (&EDGE_INFO (e)->back_edge_prob,
+			 &EDGE_INFO (e)->back_edge_prob,
+			 &real_inv_br_prob_base);
 	    }
 	}
 

@@ -1,5 +1,12 @@
 2003-01-26  Josef Zlomek  <zlomekj@suse.cz>
 
+	* predict.c (real_inv_br_prob_base): New variable.
+	(propagate_freq): Use multiply by reciprocal instead of
+	division.  Don't divide by 1.0 at all.
+	(estimate_bb_frequencies): Likewise.
+
+2003-01-26  Josef Zlomek  <zlomekj@suse.cz>
+
 	* toplev.c (rest_of_compilation): Run variable tracking (only) if
 	flag_var_tracking != 0.
 	(parse_options_and_default_flags): do not set flag_var_tracking
