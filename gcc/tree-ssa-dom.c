@@ -481,12 +481,13 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
 	      if (dest && ! phi_nodes (dest))
 		{
 		  block_stmt_iterator dest_iterator = bsi_start (dest);
-		  tree dest_stmt = bsi_stmt (dest_iterator);
+		  tree dest_stmt = first_stmt (dest);
 		  tree label, goto_stmt;
 
 		  /* We need a label at our final destination.  If it does
 		     not already exist, create it.  */
-		  if (TREE_CODE (dest_stmt) != LABEL_EXPR)
+		  if (!dest_stmt
+		      || TREE_CODE (dest_stmt) != LABEL_EXPR)
 		    {
 		      label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
 		      DECL_CONTEXT (label) = current_function_decl;

@@ -2707,6 +2707,12 @@ linearize_cond_expr (tree *entry_p, basic_block bb)
 	}
     }
 
+  /* There should be no other entry edges into the branches, otherwise
+     merging the blocks would be an error.  */
+  if ((then_block && then_block->pred->pred_next)
+      || (else_block && else_block->pred->pred_next))
+    return false;
+  
   /* Linearize 'if (1)'.  */
   if (always_true && body_is_empty (else_clause))
     {
