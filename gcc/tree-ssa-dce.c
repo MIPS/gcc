@@ -1,5 +1,5 @@
 /* Dead code elimination pass for the GNU compiler.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Ben Elliston <bje@redhat.com>
    and Andrew MacLeod <amacleod@redhat.com>
    Adapted to use control dependence by Steven Bosscher, SUSE Labs.
@@ -54,7 +54,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
-#include "obstack.h"
 #include "basic-block.h"
 
 #include "tree.h"
@@ -93,10 +92,6 @@ static sbitmap last_stmt_necessary;
    on the Ith edge.  */
 bitmap *control_dependence_map;
 
-/* Vector indicating that a basic block has already had all the edges
-   processed that it is control dependent on.  */
-sbitmap visited_control_parents;
-
 /* Execute CODE for each edge (given number EDGE_NUMBER within the CODE)
    for which the block with index N is control dependent.  */
 #define EXECUTE_IF_CONTROL_DEPENDENT(N, EDGE_NUMBER, CODE)		      \
@@ -117,7 +112,7 @@ static void find_control_dependence (struct edge_list *, int);
 static inline basic_block find_pdom (basic_block);
 
 static inline void mark_stmt_necessary (tree, bool);
-static inline void mark_operand_necessary (tree, bool);
+static inline void mark_operand_necessary (tree);
 
 static void mark_stmt_if_obviously_necessary (tree, bool);
 static void find_obviously_necessary_stmts (struct edge_list *);
@@ -239,11 +234,10 @@ mark_stmt_necessary (tree stmt, bool add_to_worklist)
     VARRAY_PUSH_TREE (worklist, stmt);
 }
 
-/* Mark the statement defining operand OP as necessary.  PHIONLY is true
-   if we should only mark it necessary if it is a phi node.  */
+/* Mark the statement defining operand OP as necessary.  */
 
 static inline void
-mark_operand_necessary (tree op, bool phionly)
+mark_operand_necessary (tree op)
 {
   tree stmt;
   int ver;
@@ -259,8 +253,7 @@ mark_operand_necessary (tree op, bool phionly)
   gcc_assert (stmt);
 
   if (NECESSARY (stmt)
-      || IS_EMPTY_STMT (stmt)
-      || (phionly && TREE_CODE (stmt) != PHI_NODE))
+      || IS_EMPTY_STMT (stmt))
     return;
 
   NECESSARY (stmt) = 1;
@@ -268,7 +261,7 @@ mark_operand_necessary (tree op, bool phionly)
 }
 
 
-/* Mark STMT as necessary if it obviously is.  Add it to the worklist if
+/* Mark STMT as necessary if it is obviously is.  Add it to the worklist if
    it can make other statements necessary.
 
    If AGGRESSIVE is false, control statements are conservatively marked as
@@ -330,12 +323,22 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
       break;
 
     case GOTO_EXPR:
-      gcc_assert (!simple_goto_p (stmt));
-      mark_stmt_necessary (stmt, true);
+      if (! simple_goto_p (stmt))
+	mark_stmt_necessary (stmt, true);
       return;
 
     case COND_EXPR:
-      gcc_assert (EDGE_COUNT (bb_for_stmt (stmt)->succs) == 2);
+      if (GOTO_DESTINATION (COND_EXPR_THEN (stmt))
+	  == GOTO_DESTINATION (COND_EXPR_ELSE (stmt)))
+	{
+	  /* A COND_EXPR is obviously dead if the target labels are the same.
+	     We cannot kill the statement at this point, so to prevent the
+	     statement from being marked necessary, we replace the condition
+	     with a constant.  The stmt is killed later on in cfg_cleanup.  */
+	  COND_EXPR_COND (stmt) = integer_zero_node;
+	  modify_stmt (stmt);
+	  return;
+	}
       /* Fall through.  */
 
     case SWITCH_EXPR:
@@ -486,6 +489,11 @@ find_obviously_necessary_stmts (struct edge_list *el)
 	  NECESSARY (stmt) = 0;
 	  mark_stmt_if_obviously_necessary (stmt, el != NULL);
 	}
+
+      /* Mark this basic block as `not visited'.  A block will be marked
+	 visited when the edges that it is control dependent on have been
+	 marked.  */
+      bb->flags &= ~BB_VISITED;
     }
 
   if (el)
@@ -508,7 +516,7 @@ find_obviously_necessary_stmts (struct edge_list *el)
 static void
 mark_control_dependent_edges_necessary (basic_block bb, struct edge_list *el)
 {
-  unsigned edge_number;
+  int edge_number;
 
   gcc_assert (bb != EXIT_BLOCK_PTR);
 
@@ -564,10 +572,9 @@ propagate_necessity (struct edge_list *el)
 	     containing `i' is control dependent on, but only if we haven't
 	     already done so.  */
 	  basic_block bb = bb_for_stmt (i);
-	  if (bb != ENTRY_BLOCK_PTR
-	      && ! TEST_BIT (visited_control_parents, bb->index))
+	  if (! (bb->flags & BB_VISITED))
 	    {
-	      SET_BIT (visited_control_parents, bb->index);
+	      bb->flags |= BB_VISITED;
 	      mark_control_dependent_edges_necessary (bb, el);
 	    }
 	}
@@ -585,7 +592,7 @@ propagate_necessity (struct edge_list *el)
             {
 	      tree arg = PHI_ARG_DEF (i, k);
 	      if (TREE_CODE (arg) == SSA_NAME)
-		mark_operand_necessary (arg, false);
+		mark_operand_necessary (arg);
 	    }
 
 	  if (aggressive)
@@ -593,10 +600,9 @@ propagate_necessity (struct edge_list *el)
 	      for (k = 0; k < PHI_NUM_ARGS (i); k++)
 		{
 		  basic_block arg_bb = PHI_ARG_EDGE (i, k)->src;
-		  if (arg_bb != ENTRY_BLOCK_PTR
-		      && ! TEST_BIT (visited_control_parents, arg_bb->index))
+		  if (! (arg_bb->flags & BB_VISITED))
 		    {
-		      SET_BIT (visited_control_parents, arg_bb->index);
+		      arg_bb->flags |= BB_VISITED;
 		      mark_control_dependent_edges_necessary (arg_bb, el);
 		    }
 		}
@@ -618,79 +624,11 @@ propagate_necessity (struct edge_list *el)
 	     links).  */
 
 	  FOR_EACH_SSA_TREE_OPERAND (use, i, iter, SSA_OP_ALL_USES)
-	    mark_operand_necessary (use, false);
+	    mark_operand_necessary (use);
 	}
     }
 }
-
-
-/* Propagate necessity around virtual phi nodes used in kill operands.
-   The reason this isn't done during propagate_necessity is because we don't
-   want to keep phis around that are just there for must-defs, unless we
-   absolutely have to.  After we've rewritten the reaching definitions to be
-   correct in the previous part of the fixup routine, we can simply propagate
-   around the information about which of these virtual phi nodes are really
-   used, and set the NECESSARY flag accordingly.
-   Note that we do the minimum here to ensure that we keep alive the phis that
-   are actually used in the corrected SSA form.  In particular, some of these
-   phis may now have all of the same operand, and will be deleted by some
-   other pass.  */
-
-static void
-mark_really_necessary_kill_operand_phis (void)
-{
-  basic_block bb;
-  int i;
-
-  /* Seed the worklist with the new virtual phi arguments and virtual
-     uses */
-  FOR_EACH_BB (bb)
-    {
-      block_stmt_iterator bsi;
-      tree phi;
-      
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	{
-	  if (!is_gimple_reg (PHI_RESULT (phi)) && NECESSARY (phi))
-	    {
-	      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-		mark_operand_necessary (PHI_ARG_DEF (phi, i), true);
-	    }
-	}
-      
-      for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
-	{
-	  tree stmt = bsi_stmt (bsi);
-	
-	  if (NECESSARY (stmt))
-	    {
-	      use_operand_p use_p;
-	      ssa_op_iter iter;
-	      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter,
-					SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_KILLS)
-		{
-		  tree use = USE_FROM_PTR (use_p);
-		  mark_operand_necessary (use, true);
-		}
-	    }
-	}
-    }
-  
-  /* Mark all virtual phis still in use as necessary, and all of their
-     arguments that are phis as necessary.  */
-  while (VARRAY_ACTIVE_SIZE (worklist) > 0)
-    {
-      tree use = VARRAY_TOP_TREE (worklist);
-      VARRAY_POP (worklist);
-      
-      for (i = 0; i < PHI_NUM_ARGS (use); i++)
-	mark_operand_necessary (PHI_ARG_DEF (use, i), true);
-    }
-}
-
-
 
-
 /* Eliminate unnecessary statements. Any instruction not marked as necessary
    contributes nothing to the program, and can be deleted.  */
 
@@ -702,7 +640,7 @@ eliminate_unnecessary_stmts (void)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nEliminating unnecessary statements:\n");
-  
+
   clear_special_calls ();
   FOR_EACH_BB (bb)
     {
@@ -712,23 +650,23 @@ eliminate_unnecessary_stmts (void)
       /* Remove dead statements.  */
       for (i = bsi_start (bb); ! bsi_end_p (i) ; )
 	{
-         tree t = bsi_stmt (i);
+	  tree t = bsi_stmt (i);
 
-         stats.total++;
+	  stats.total++;
 
-         /* If `i' is not necessary then remove it.  */
-         if (! NECESSARY (t))
-           remove_dead_stmt (&i, bb);
-         else
-           {
-             tree call = get_call_expr_in (t);
-             if (call)
-               notice_special_calls (call);
-             bsi_next (&i);
-           }
+	  /* If `i' is not necessary then remove it.  */
+	  if (! NECESSARY (t))
+	    remove_dead_stmt (&i, bb);
+	  else
+	    {
+	      tree call = get_call_expr_in (t);
+	      if (call)
+		notice_special_calls (call);
+	      bsi_next (&i);
+	    }
 	}
     }
- }
+}
 
 /* Remove dead PHI nodes from block BB.  */
 
@@ -773,9 +711,6 @@ static void
 remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 {
   tree t = bsi_stmt (*i);
-  def_operand_p def_p;
-
-  ssa_op_iter iter;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -830,16 +765,9 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
       while (EDGE_COUNT (bb->succs) != 1)
         remove_edge (EDGE_SUCC (bb, 1));
     }
-  
-  FOR_EACH_SSA_DEF_OPERAND (def_p, t, iter, 
-			    SSA_OP_VIRTUAL_DEFS | SSA_OP_VIRTUAL_KILLS)
-    {
-      tree def = DEF_FROM_PTR (def_p);
-      bitmap_set_bit (vars_to_rename,
-		      var_ann (SSA_NAME_VAR (def))->uid);
-    }
-  bsi_remove (i);  
-  release_defs (t); 
+
+  bsi_remove (i);
+  release_defs (t);
 }
 
 /* Print out removed statement statistics.  */
@@ -879,7 +807,7 @@ tree_dce_init (bool aggressive)
       control_dependence_map 
 	= xmalloc (last_basic_block * sizeof (bitmap));
       for (i = 0; i < last_basic_block; ++i)
-	control_dependence_map[i] = BITMAP_ALLOC (NULL);
+	control_dependence_map[i] = BITMAP_XMALLOC ();
 
       last_stmt_necessary = sbitmap_alloc (last_basic_block);
       sbitmap_zero (last_stmt_necessary);
@@ -901,10 +829,9 @@ tree_dce_done (bool aggressive)
       int i;
 
       for (i = 0; i < last_basic_block; ++i)
-	BITMAP_FREE (control_dependence_map[i]);
+	BITMAP_XFREE (control_dependence_map[i]);
       free (control_dependence_map);
 
-      sbitmap_free (visited_control_parents);
       sbitmap_free (last_stmt_necessary);
     }
 
@@ -941,9 +868,6 @@ perform_tree_ssa_dce (bool aggressive)
       find_all_control_dependences (el);
       timevar_pop (TV_CONTROL_DEPENDENCES);
 
-      visited_control_parents = sbitmap_alloc (last_basic_block);
-      sbitmap_zero (visited_control_parents);
-
       mark_dfs_back_edges ();
     }
 
@@ -951,15 +875,19 @@ perform_tree_ssa_dce (bool aggressive)
 
   propagate_necessity (el);
 
-  mark_really_necessary_kill_operand_phis ();
   eliminate_unnecessary_stmts ();
 
   if (aggressive)
     free_dominance_info (CDI_POST_DOMINATORS);
 
+  cleanup_tree_cfg ();
+
   /* Debugging dumps.  */
   if (dump_file)
-    print_stats ();
+    {
+      dump_function_to_file (current_function_decl, dump_file, dump_flags);
+      print_stats ();
+    }
 
   tree_dce_done (aggressive);
 
@@ -998,7 +926,7 @@ struct tree_opt_pass pass_dce =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_fix_def_def_chains | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_ssa,	/* todo_flags_finish */
+  TODO_ggc_collect | TODO_verify_ssa,	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -1015,7 +943,7 @@ struct tree_opt_pass pass_cd_dce =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_fix_def_def_chains | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_ssa | TODO_verify_flow,
+  TODO_ggc_collect | TODO_verify_ssa | TODO_verify_flow,
 					/* todo_flags_finish */
   0					/* letter */
 };

@@ -1,7 +1,7 @@
 /* Gcov.c: prepend line execution counts and branch probabilities to a
    source file.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by James E. Wilson of Cygnus Support.
    Mangled by Bob Manson of Cygnus Support.
    Mangled further by Nathan Sidwell <nathan@codesourcery.com>
@@ -47,7 +47,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tm.h"
 #include "intl.h"
 #include "version.h"
-#undef abort
 
 #include <getopt.h>
 
@@ -373,17 +372,6 @@ fnotice (FILE *file, const char *msgid, ...)
   vfprintf (file, _(msgid), ap);
   va_end (ap);
 }
-
-/* More 'friendly' abort that prints the line and file.
-   config.h can #define abort fancy_abort if you like that sort of thing.  */
-extern void fancy_abort (void) ATTRIBUTE_NORETURN;
-
-void
-fancy_abort (void)
-{
-  fnotice (stderr, "Internal gcov abort.\n");
-  exit (FATAL_EXIT_CODE);
-}
 
 /* Print a usage message and exit.  If ERROR_P is nonzero, this is an error,
    otherwise the output of --help.  */
@@ -420,11 +408,12 @@ static void
 print_version (void)
 {
   fnotice (stdout, "gcov (GCC) %s\n", version_string);
-  fnotice (stdout, "Copyright (C) 2003 Free Software Foundation, Inc.\n");
+  fprintf (stdout, "Copyright %s 2004 Free Software Foundation, Inc.\n",
+	   _("(C)"));
   fnotice (stdout,
-	   "This is free software; see the source for copying conditions.\n"
-  	   "There is NO warranty; not even for MERCHANTABILITY or \n"
-	   "FITNESS FOR A PARTICULAR PURPOSE.\n\n");
+	   _("This is free software; see the source for copying conditions.\n"
+	     "There is NO warranty; not even for MERCHANTABILITY or \n"
+	     "FITNESS FOR A PARTICULAR PURPOSE.\n\n"));
   exit (SUCCESS_EXIT_CODE);
 }
 
@@ -895,18 +884,16 @@ read_graph_file (void)
 	}
       gcov_sync (base, length);
       if (gcov_is_error ())
-	break;
-    }
-  if (!gcov_is_eof ())
-    {
-    corrupt:;
-      fnotice (stderr, "%s:corrupted\n", bbg_file_name);
-      gcov_close ();
-      return 1;
+	{
+	corrupt:;
+	  fnotice (stderr, "%s:corrupted\n", bbg_file_name);
+	  gcov_close ();
+	  return 1;
+	}
     }
   gcov_close ();
 
-  /* We built everything backwards, so nreverse them all */
+  /* We built everything backwards, so nreverse them all.  */
 
   /* Reverse sources. Not strictly necessary, but we'll then process
      them in the 'expected' order.  */
@@ -1054,14 +1041,11 @@ read_count_file (void)
 	}
       gcov_sync (base, length);
       if ((error = gcov_is_error ()))
-	break;
-    }
-
-  if (!gcov_is_eof ())
-    {
-      fnotice (stderr, error < 0 ? "%s:overflowed\n" : "%s:corrupted\n",
-	       da_file_name);
-      goto cleanup;
+	{
+	  fnotice (stderr, error < 0 ? "%s:overflowed\n" : "%s:corrupted\n",
+		   da_file_name);
+	  goto cleanup;
+	}
     }
 
   gcov_close ();
@@ -1390,7 +1374,7 @@ function_summary (const coverage_t *coverage, const char *title)
 	     format_gcov (coverage->lines_executed, coverage->lines, 2),
 	     coverage->lines);
   else
-    fnotice (stdout, "No executable lines");
+    fnotice (stdout, "No executable lines\n");
 
   if (flag_branches)
     {
@@ -1737,7 +1721,7 @@ accumulate_line_counts (source_t *src)
     }
 }
 
-/* Ouput information about ARC number IX.  Returns nonzero if
+/* Output information about ARC number IX.  Returns nonzero if
    anything is output.  */
 
 static int

@@ -1,6 +1,6 @@
 /* scan-decls.c - Extracts declarations from cpp output.
    Copyright (C) 1993, 1995, 1997, 1998,
-   1999, 2000, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -165,6 +165,8 @@ scan_decls (cpp_reader *pfile, int argc ATTRIBUTE_UNUSED,
 	    {
 	      int nesting = 1;
 	      int have_arg_list = 0;
+	      const struct line_map *map;
+	      unsigned int line;
 	      for (;;)
 		{
 		  token = get_a_token (pfile);
@@ -182,7 +184,9 @@ scan_decls (cpp_reader *pfile, int argc ATTRIBUTE_UNUSED,
 			   || token->type == CPP_ELLIPSIS)
 		    have_arg_list = 1;
 		}
-	      recognized_function (&prev_id, token->line,
+	      map = linemap_lookup (&line_table, token->src_loc);
+	      line = SOURCE_LINE (map, token->src_loc);
+	      recognized_function (&prev_id, line,
 				   (saw_inline ? 'I'
 				    : in_extern_C_brace || current_extern_C
 				    ? 'F' : 'f'), have_arg_list);

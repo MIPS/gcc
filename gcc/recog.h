@@ -1,5 +1,5 @@
 /* Declarations for interface to insn recognizer and insn-output.c.
-   Copyright (C) 1987, 1996, 1997, 1998, 1999, 2000, 2001, 2003
+   Copyright (C) 1987, 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -38,7 +38,7 @@ struct operand_alternative
   const char *constraint;
 
   /* The register class valid for this alternative (possibly NO_REGS).  */
-  enum reg_class class;
+  enum reg_class cl;
 
   /* "Badness" of this alternative, computed from number of '?' and '!'
      characters in the constraint string.  */
@@ -88,7 +88,6 @@ extern int strict_memory_address_p (enum machine_mode, rtx);
 extern int validate_replace_rtx_subexp (rtx, rtx, rtx, rtx *);
 extern int validate_replace_rtx (rtx, rtx, rtx);
 extern void validate_replace_rtx_group (rtx, rtx, rtx);
-extern int validate_replace_src (rtx, rtx, rtx);
 extern void validate_replace_src_group (rtx, rtx, rtx);
 extern int num_changes_pending (void);
 #ifdef HAVE_cc0
@@ -96,22 +95,6 @@ extern int next_insn_tests_no_inequality (rtx);
 #endif
 extern int reg_fits_class_p (rtx, enum reg_class, int, enum machine_mode);
 extern rtx *find_single_use (rtx, rtx, rtx *);
-
-extern int general_operand (rtx, enum machine_mode);
-extern int address_operand (rtx, enum machine_mode);
-extern int register_operand (rtx, enum machine_mode);
-extern int pmode_register_operand (rtx, enum machine_mode);
-extern int scratch_operand (rtx, enum machine_mode);
-extern int immediate_operand (rtx, enum machine_mode);
-extern int const_int_operand (rtx, enum machine_mode);
-extern int const_double_operand (rtx, enum machine_mode);
-extern int nonimmediate_operand (rtx, enum machine_mode);
-extern int nonmemory_operand (rtx, enum machine_mode);
-extern int push_operand (rtx, enum machine_mode);
-extern int pop_operand (rtx, enum machine_mode);
-extern int memory_operand (rtx, enum machine_mode);
-extern int indirect_operand (rtx, enum machine_mode);
-extern int comparison_operator (rtx, enum machine_mode);
 
 extern int offsettable_memref_p (rtx);
 extern int offsettable_nonstrict_memref_p (rtx);
@@ -221,7 +204,7 @@ struct insn_operand_data
 
   const char *const constraint;
 
-  const ENUM_BITFIELD(machine_mode) mode : 16;
+  ENUM_BITFIELD(machine_mode) const mode : 16;
 
   const char strict_low;
 
@@ -238,7 +221,19 @@ struct insn_operand_data
 struct insn_data
 {
   const char *const name;
-  const void *output;
+#if HAVE_DESIGNATED_INITIALIZERS
+  union {
+    const char *single;
+    const char *const *multi;
+    insn_output_fn function;
+  } output;
+#else
+  struct {
+    const char *single;
+    const char *const *multi;
+    insn_output_fn function;
+  } output;
+#endif
   const insn_gen_fn genfun;
   const struct insn_operand_data *const operand;
 

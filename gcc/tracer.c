@@ -1,6 +1,6 @@
 /* The tracer pass for the GNU compiler.
    Contributed by Jan Hubicka, SuSE Labs.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -45,6 +45,7 @@
 #include "cfglayout.h"
 #include "fibheap.h"
 #include "flags.h"
+#include "timevar.h"
 #include "params.h"
 #include "coverage.h"
 
@@ -85,7 +86,9 @@ count_insns (basic_block bb)
   rtx insn;
   int n = 0;
 
-  for (insn = bb->head; insn != NEXT_INSN (bb->end); insn = NEXT_INSN (insn))
+  for (insn = BB_HEAD (bb);
+       insn != NEXT_INSN (BB_END (bb));
+       insn = NEXT_INSN (insn))
     if (active_insn_p (insn))
       n++;
   return n;
@@ -115,8 +118,9 @@ find_best_successor (basic_block bb)
 {
   edge e;
   edge best = NULL;
+  edge_iterator ei;
 
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     if (!best || better_p (e, best))
       best = e;
   if (!best || ignore_bb_p (best->dest))
@@ -133,8 +137,9 @@ find_best_predecessor (basic_block bb)
 {
   edge e;
   edge best = NULL;
+  edge_iterator ei;
 
-  for (e = bb->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, ei, bb->preds)
     if (!best || better_p (e, best))
       best = e;
   if (!best || ignore_bb_p (best->src))
@@ -154,8 +159,8 @@ find_trace (basic_block bb, basic_block *trace)
   int i = 0;
   edge e;
 
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Trace seed %i [%i]", bb->index, bb->frequency);
+  if (dump_file)
+    fprintf (dump_file, "Trace seed %i [%i]", bb->index, bb->frequency);
 
   while ((e = find_best_predecessor (bb)) != NULL)
     {
@@ -163,12 +168,12 @@ find_trace (basic_block bb, basic_block *trace)
       if (seen (bb2) || (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
 	  || find_best_successor (bb2) != e)
 	break;
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ",%i [%i]", bb->index, bb->frequency);
+      if (dump_file)
+	fprintf (dump_file, ",%i [%i]", bb->index, bb->frequency);
       bb = bb2;
     }
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, " forward %i [%i]", bb->index, bb->frequency);
+  if (dump_file)
+    fprintf (dump_file, " forward %i [%i]", bb->index, bb->frequency);
   trace[i++] = bb;
 
   /* Follow the trace in forward direction.  */
@@ -178,12 +183,12 @@ find_trace (basic_block bb, basic_block *trace)
       if (seen (bb) || (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
 	  || find_best_predecessor (bb) != e)
 	break;
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ",%i [%i]", bb->index, bb->frequency);
+      if (dump_file)
+	fprintf (dump_file, ",%i [%i]", bb->index, bb->frequency);
       trace[i++] = bb;
     }
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "\n");
+  if (dump_file)
+    fprintf (dump_file, "\n");
   return i;
 }
 
@@ -244,8 +249,7 @@ tail_duplicate (void)
 
       if (ignore_bb_p (bb))
 	continue;
-      if (seen (bb))
-	abort ();
+      gcc_assert (!seen (bb));
 
       n = find_trace (bb, trace);
 
@@ -267,16 +271,19 @@ tail_duplicate (void)
 	      blocks[bb2->index] = NULL;
 	    }
 	  traced_insns += bb2->frequency * counts [bb2->index];
-	  if (bb2->pred && bb2->pred->pred_next
-	      && cfg_layout_can_duplicate_bb_p (bb2))
+	  if (EDGE_COUNT (bb2->preds) > 1
+	      && can_duplicate_block_p (bb2))
 	    {
-	      edge e = bb2->pred;
+	      edge e;
+	      edge_iterator ei;
 	      basic_block old = bb2;
 
-	      while (e->src != bb)
-		e = e->pred_next;
+	      FOR_EACH_EDGE (e, ei, bb2->preds)
+		if (e->src == bb)
+		  break;
+
 	      nduplicated += counts [bb2->index];
-	      bb2 = cfg_layout_duplicate_bb (bb2, e);
+	      bb2 = duplicate_block (bb2, e);
 
 	      /* Reconsider the original copy of block we've duplicated.
 	         Removing the most common predecessor may make it to be
@@ -284,8 +291,8 @@ tail_duplicate (void)
 	      blocks[old->index] =
 		fibheap_insert (heap, -old->frequency, old);
 
-	      if (rtl_dump_file)
-		fprintf (rtl_dump_file, "Duplicated %i as %i [%i]\n",
+	      if (dump_file)
+		fprintf (dump_file, "Duplicated %i as %i [%i]\n",
 			 old->index, bb2->index, bb2->frequency);
 	    }
 	  bb->rbi->next = bb2;
@@ -295,12 +302,12 @@ tail_duplicate (void)
 	  if (ignore_bb_p (bb))
 	    break;
 	}
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, " covered now %.1f\n\n",
+      if (dump_file)
+	fprintf (dump_file, " covered now %.1f\n\n",
 		 traced_insns * 100.0 / weighted_insns);
     }
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Duplicated %i insns (%i%%)\n", nduplicated,
+  if (dump_file)
+    fprintf (dump_file, "Duplicated %i insns (%i%%)\n", nduplicated,
 	     nduplicated * 100 / ninsns);
 
   free (blocks);
@@ -317,18 +324,19 @@ tail_duplicate (void)
 static void
 layout_superblocks (void)
 {
-  basic_block end = ENTRY_BLOCK_PTR->succ->dest;
-  basic_block bb = ENTRY_BLOCK_PTR->succ->dest->next_bb;
+  basic_block end = EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest;
+  basic_block bb = EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest->next_bb;
 
   while (bb != EXIT_BLOCK_PTR)
     {
+      edge_iterator ei;
       edge e, best = NULL;
       while (end->rbi->next)
 	end = end->rbi->next;
 
-      for (e = end->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, end->succs)
 	if (e->dest != EXIT_BLOCK_PTR
-	    && e->dest != ENTRY_BLOCK_PTR->succ->dest
+	    && e->dest != EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest
 	    && !e->dest->rbi->visited
 	    && (!best || EDGE_FREQUENCY (e) > EDGE_FREQUENCY (best)))
 	  best = e;
@@ -351,22 +359,29 @@ layout_superblocks (void)
     }
 }
 
-/* Main entry point to this file.  */
+/* Main entry point to this file.  FLAGS is the set of flags to pass
+   to cfg_layout_initialize().  */
 
 void
-tracer (void)
+tracer (unsigned int flags)
 {
   if (n_basic_blocks <= 1)
     return;
-  cfg_layout_initialize ();
+
+  timevar_push (TV_TRACER);
+
+  cfg_layout_initialize (flags);
   mark_dfs_back_edges ();
-  if (rtl_dump_file)
-    dump_flow_info (rtl_dump_file);
+  if (dump_file)
+    dump_flow_info (dump_file);
   tail_duplicate ();
   layout_superblocks ();
-  if (rtl_dump_file)
-    dump_flow_info (rtl_dump_file);
+  if (dump_file)
+    dump_flow_info (dump_file);
   cfg_layout_finalize ();
+
   /* Merge basic blocks in duplicated traces.  */
   cleanup_cfg (CLEANUP_EXPENSIVE);
+
+  timevar_pop (TV_TRACER);
 }

@@ -22,9 +22,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define GCC_ALIAS_H
 
 extern HOST_WIDE_INT new_alias_set (void);
+extern void record_alias_subset (HOST_WIDE_INT, HOST_WIDE_INT);
 extern HOST_WIDE_INT get_varargs_alias_set (void);
 extern HOST_WIDE_INT get_frame_alias_set (void);
 extern void record_base_value (unsigned int, rtx, int);
-extern bool component_uses_parent_alias_set (tree);
+extern int can_address_p (tree);
 
 #endif /* GCC_ALIAS_H */

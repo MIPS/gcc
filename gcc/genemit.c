@@ -1,6 +1,6 @@
 /* Generate code from machine description to emit insns as rtl.
    Copyright (C) 1987, 1988, 1991, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -32,7 +32,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static int max_opno;
 static int max_dup_opno;
 static int max_scratch_opno;
-static int register_constraints;
 static int insn_code_number;
 static int insn_index_number;
 
@@ -83,10 +82,6 @@ max_operand_1 (rtx x)
 
   code = GET_CODE (x);
 
-  if (code == MATCH_OPERAND && XSTR (x, 2) != 0 && *XSTR (x, 2) != '\0')
-    register_constraints = 1;
-  if (code == MATCH_SCRATCH && XSTR (x, 1) != 0 && *XSTR (x, 1) != '\0')
-    register_constraints = 1;
   if (code == MATCH_OPERAND || code == MATCH_OPERATOR
       || code == MATCH_PARALLEL)
     max_opno = MAX (max_opno, XINT (x, 0));
@@ -183,7 +178,10 @@ gen_exp (rtx x, enum rtx_code subroutine_type, char *used)
       return;
 
     case MATCH_OP_DUP:
-      printf ("gen_rtx (GET_CODE (operand%d), ", XINT (x, 0));
+      printf ("gen_rtx_fmt_");
+      for (i = 0; i < XVECLEN (x, 1); i++)
+	printf ("e");
+      printf (" (GET_CODE (operand%d), ", XINT (x, 0));
       if (GET_MODE (x) == VOIDmode)
 	printf ("GET_MODE (operand%d)", XINT (x, 0));
       else
@@ -197,7 +195,10 @@ gen_exp (rtx x, enum rtx_code subroutine_type, char *used)
       return;
 
     case MATCH_OPERATOR:
-      printf ("gen_rtx (GET_CODE (operand%d)", XINT (x, 0));
+      printf ("gen_rtx_fmt_");
+      for (i = 0; i < XVECLEN (x, 2); i++)
+	printf ("e");
+      printf (" (GET_CODE (operand%d)", XINT (x, 0));
       printf (", %smode", GET_MODE_NAME (GET_MODE (x)));
       for (i = 0; i < XVECLEN (x, 2); i++)
 	{
@@ -222,6 +223,14 @@ gen_exp (rtx x, enum rtx_code subroutine_type, char *used)
     case PC:
       printf ("pc_rtx");
       return;
+    case CLOBBER:
+      if (REG_P (XEXP (x, 0)))
+	{
+	  printf ("gen_hard_reg_clobber (%smode, %i)", GET_MODE_NAME (GET_MODE (XEXP (x, 0))),
+			  			     REGNO (XEXP (x, 0)));
+	  return;
+	}
+      break;
 
     case CC0:
       printf ("cc0_rtx");
@@ -234,6 +243,10 @@ gen_exp (rtx x, enum rtx_code subroutine_type, char *used)
 	printf ("const1_rtx");
       else if (INTVAL (x) == -1)
 	printf ("constm1_rtx");
+      else if (-MAX_SAVED_CONST_INT <= INTVAL (x)
+	  && INTVAL (x) <= MAX_SAVED_CONST_INT)
+	printf ("const_int_rtx[MAX_SAVED_CONST_INT + (%d)]",
+		(int) INTVAL (x));
       else if (INTVAL (x) == STORE_FLAG_VALUE)
 	printf ("const_true_rtx");
       else
@@ -247,7 +260,7 @@ gen_exp (rtx x, enum rtx_code subroutine_type, char *used)
     case CONST_DOUBLE:
       /* These shouldn't be written in MD files.  Instead, the appropriate
 	 routines in varasm.c should be called.  */
-      abort ();
+      gcc_unreachable ();
 
     default:
       break;
@@ -264,25 +277,36 @@ gen_exp (rtx x, enum rtx_code subroutine_type, char *used)
       if (fmt[i] == '0')
 	break;
       printf (",\n\t");
-      if (fmt[i] == 'e' || fmt[i] == 'u')
-	gen_exp (XEXP (x, i), subroutine_type, used);
-      else if (fmt[i] == 'i')
-	printf ("%u", XINT (x, i));
-      else if (fmt[i] == 's')
-	printf ("\"%s\"", XSTR (x, i));
-      else if (fmt[i] == 'E')
+      switch (fmt[i])
 	{
-	  int j;
-	  printf ("gen_rtvec (%d", XVECLEN (x, i));
-	  for (j = 0; j < XVECLEN (x, i); j++)
-	    {
-	      printf (",\n\t\t");
-	      gen_exp (XVECEXP (x, i, j), subroutine_type, used);
-	    }
-	  printf (")");
+	case 'e': case 'u':
+	  gen_exp (XEXP (x, i), subroutine_type, used);
+	  break;
+
+	case 'i':
+	  printf ("%u", XINT (x, i));
+	  break;
+
+	case 's':
+	  printf ("\"%s\"", XSTR (x, i));
+	  break;
+
+	case 'E':
+	  {
+	    int j;
+	    printf ("gen_rtvec (%d", XVECLEN (x, i));
+	    for (j = 0; j < XVECLEN (x, i); j++)
+	      {
+		printf (",\n\t\t");
+		gen_exp (XVECEXP (x, i, j), subroutine_type, used);
+	      }
+	    printf (")");
+	    break;
+	  }
+
+	default:
+	  gcc_unreachable ();
 	}
-      else
-	abort ();
     }
   printf (")");
 }
@@ -308,7 +332,7 @@ gen_insn (rtx insn, int lineno)
 	  if (GET_CODE (XVECEXP (insn, 1, i)) != CLOBBER)
 	    break;
 
-	  if (GET_CODE (XEXP (XVECEXP (insn, 1, i), 0)) == REG)
+	  if (REG_P (XEXP (XVECEXP (insn, 1, i), 0)))
 	    has_hard_reg = 1;
 	  else if (GET_CODE (XEXP (XVECEXP (insn, 1, i), 0)) != MATCH_SCRATCH)
 	    break;
@@ -342,7 +366,7 @@ gen_insn (rtx insn, int lineno)
 		  if (! (GET_MODE (old) == GET_MODE (new)
 			 && ((GET_CODE (old) == MATCH_SCRATCH
 			      && GET_CODE (new) == MATCH_SCRATCH)
-			     || (GET_CODE (old) == REG && GET_CODE (new) == REG
+			     || (REG_P (old) && REG_P (new)
 				 && REGNO (old) == REGNO (new)))))
 		    break;
 		}
@@ -376,9 +400,7 @@ gen_insn (rtx insn, int lineno)
 
   printf ("/* %s:%d */\n", read_rtx_filename, lineno);
 
-  /* Find out how many operands this function has,
-     and also whether any of them have register constraints.  */
-  register_constraints = 0;
+  /* Find out how many operands this function has.  */
   operands = max_operand_vec (insn, 1);
   if (max_dup_opno >= operands)
     fatal ("match_dup operand number has no match_operand");
@@ -396,7 +418,7 @@ gen_insn (rtx insn, int lineno)
   printf (")\n");
   printf ("{\n");
 
-  /* Output code to construct and return the rtl for the instruction body */
+  /* Output code to construct and return the rtl for the instruction body.  */
 
   if (XVECLEN (insn, 1) == 1)
     {
@@ -431,10 +453,7 @@ gen_expand (rtx expand)
   if (XVEC (expand, 1) == 0)
     fatal ("define_expand for %s lacks a pattern", XSTR (expand, 0));
 
-  /* Find out how many operands this function has,
-     and also whether any of them have register constraints.  */
-  register_constraints = 0;
-
+  /* Find out how many operands this function has.  */
   operands = max_operand_vec (expand, 1);
 
   /* Output the function name and argument declarations.  */
@@ -528,7 +547,7 @@ gen_expand (rtx expand)
 	       || (GET_CODE (next) == PARALLEL
 		   && GET_CODE (XVECEXP (next, 0, 0)) == CALL))
 	printf ("  emit_call_insn (");
-      else if (GET_CODE (next) == CODE_LABEL)
+      else if (LABEL_P (next))
 	printf ("  emit_label (");
       else if (GET_CODE (next) == MATCH_OPERAND
 	       || GET_CODE (next) == MATCH_DUP
@@ -591,8 +610,9 @@ gen_split (rtx split)
     }
   else
     {
-      printf ("extern rtx gen_split_%d (rtx *);\n", insn_code_number);
-      printf ("rtx\ngen_%s_%d (rtx *operands%s)\n", name, insn_code_number, unused);
+      printf ("extern rtx gen_split_%d (rtx, rtx *);\n", insn_code_number);
+      printf ("rtx\ngen_split_%d (rtx curr_insn ATTRIBUTE_UNUSED, rtx *operands%s)\n", 
+	      insn_code_number, unused);
     }
   printf ("{\n");
 
@@ -637,7 +657,7 @@ gen_split (rtx split)
 	       || (GET_CODE (next) == PARALLEL
 		   && GET_CODE (XVECEXP (next, 0, 0)) == CALL))
 	printf ("  emit_call_insn (");
-      else if (GET_CODE (next) == CODE_LABEL)
+      else if (LABEL_P (next))
 	printf ("  emit_label (");
       else if (GET_CODE (next) == MATCH_OPERAND
 	       || GET_CODE (next) == MATCH_OPERATOR
@@ -698,14 +718,15 @@ output_add_clobbers (void)
     }
 
   printf ("    default:\n");
-  printf ("      abort ();\n");
+  printf ("      gcc_unreachable ();\n");
   printf ("    }\n");
   printf ("}\n");
 }
 
-/* Write a function, `added_clobbers_hard_reg_p' this is given an insn_code
-   number that needs clobbers and returns 1 if they include a clobber of a
-   hard reg and 0 if they just clobber SCRATCH.  */
+/* Write a function, `added_clobbers_hard_reg_p' that is given an insn_code
+   number that will have clobbers added (as indicated by `recog') and returns
+   1 if those include a clobber of a hard reg or 0 if all of them just clobber
+   SCRATCH.  */
 
 static void
 output_added_clobbers_hard_reg_p (void)
@@ -735,7 +756,7 @@ output_added_clobbers_hard_reg_p (void)
     }
 
   printf ("    default:\n");
-  printf ("      abort ();\n");
+  printf ("      gcc_unreachable ();\n");
   printf ("    }\n");
   printf ("}\n");
 }
@@ -788,9 +809,6 @@ main (int argc, char **argv)
   rtx desc;
 
   progname = "genemit";
-
-  if (argc <= 1)
-    fatal ("no input file name");
 
   if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);

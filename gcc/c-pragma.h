@@ -1,5 +1,5 @@
 /* Pragma related interfaces.
-   Copyright (C) 1995, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1995, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -21,6 +21,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifndef GCC_C_PRAGMA_H
 #define GCC_C_PRAGMA_H
+
+#include <cpplib.h> /* For enum cpp_ttype.  */
 
 /* Cause the `yydebug' variable to be defined.  */
 #define YYDEBUG 1
@@ -44,6 +46,11 @@ extern struct cpp_reader* parse_in;
 #define HANDLE_PRAGMA_PACK 1
 #endif /* HANDLE_PRAGMA_PACK_PUSH_POP */
 
+/* It's safe to always leave visibility pragma enabled as if
+   visibility is not supported on the host OS platform the
+   statements are ignored.  */
+#define HANDLE_PRAGMA_VISIBILITY 1
+
 extern void init_pragma (void);
 
 /* Front-end wrapper for pragma registration to avoid dragging
@@ -54,6 +61,17 @@ extern void maybe_apply_pragma_weak (tree);
 extern tree maybe_apply_renaming_pragma (tree, tree);
 extern void add_to_renaming_pragma_list (tree, tree);
 
-extern int c_lex (tree *);
+extern enum cpp_ttype c_lex (tree *);
+extern enum cpp_ttype c_lex_with_flags (tree *, unsigned char *);
+
+/* If 1, then lex strings into the execution character set.  
+   If 0, lex strings into the host character set.
+   If -1, lex both, and chain them together, such that the former
+   is the TREE_CHAIN of the latter.  */
+extern int c_lex_string_translate;
+
+/* If true, strings should be passed to the caller of c_lex completely
+   unmolested (no concatenation, no translation).  */
+extern bool c_lex_return_raw_strings;
 
 #endif /* GCC_C_PRAGMA_H */

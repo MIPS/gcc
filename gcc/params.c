@@ -1,5 +1,5 @@
 /* params.c - Run-time parameters.
-   Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -73,5 +73,5 @@ set_param_value (const char *name, int value)
       }
 
   /* If we didn't find this parameter, issue an error message.  */
-  error ("invalid parameter `%s'", name);
+  error ("invalid parameter %qs", name);
 }

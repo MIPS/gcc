@@ -1,6 +1,5 @@
 /* Conditional constant propagation pass for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Adapted from original RTL SSA-CCP by Daniel Berlin <dberlin@dberlin.org>
    Adapted to GIMPLE trees by Diego Novillo <dnovillo@redhat.com>
 
@@ -580,18 +579,16 @@ substitute_and_fold (void)
 	    {
 	      bool changed = fold_stmt (bsi_stmt_ptr (i));
 	      stmt = bsi_stmt(i);
-
 	      /* If we folded a builtin function, we'll likely
 		 need to rename VDEFs.  */
 	      if (replaced_address || changed)
-		mark_new_vars_to_rename (stmt, vars_to_rename);
-
-              /* If we cleaned up EH information from the statement,
-                 remove EH edges.  */
-	      if (maybe_clean_eh_stmt (stmt))
-		tree_purge_dead_eh_edges (bb);
-
-	      modify_stmt (stmt);
+		{
+		  mark_new_vars_to_rename (stmt, vars_to_rename);
+		  if (maybe_clean_eh_stmt (stmt))
+		    tree_purge_dead_eh_edges (bb);
+		}
+	      else
+		modify_stmt (stmt);
 	    }
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -631,6 +628,9 @@ ccp_finalize (void)
 {
   /* Perform substitutions based on the known constant values.  */
   substitute_and_fold ();
+
+  /* Now cleanup any unreachable code.  */
+  cleanup_tree_cfg ();
 
   free (value_vector);
 }
@@ -850,7 +850,9 @@ ccp_fold (tree stmt)
 	    op0 = get_value (op0)->const_val;
 	}
 
-      retval = fold_unary_to_constant (code, TREE_TYPE (rhs), op0);
+      retval = nondestructive_fold_unary_to_constant (code,
+		     				      TREE_TYPE (rhs),
+						      op0);
 
       /* If we folded, but did not create an invariant, then we can not
 	 use this expression.  */
@@ -901,7 +903,9 @@ ccp_fold (tree stmt)
 	    op1 = val->const_val;
 	}
 
-      retval = fold_binary_to_constant (code, TREE_TYPE (rhs), op0, op1);
+      retval = nondestructive_fold_binary_to_constant (code,
+		     				       TREE_TYPE (rhs),
+						       op0, op1);
 
       /* If we folded, but did not create an invariant, then we can not
 	 use this expression.  */
@@ -1037,7 +1041,7 @@ visit_assignment (tree stmt, tree *output_p)
     {
       /* If we make it here, then stmt only has one definition:
          a V_MUST_DEF.  */
-      lhs = V_MUST_DEF_RESULT (v_must_defs, 0);
+      lhs = V_MUST_DEF_OP (v_must_defs, 0);
     }
 
   if (TREE_CODE (rhs) == SSA_NAME)
@@ -1056,35 +1060,21 @@ visit_assignment (tree stmt, tree *output_p)
       val = *nval;
     }
   else
-    /* Evaluate the statement.  */
+    {
+      /* Evaluate the statement.  */
       val = evaluate_stmt (stmt);
+    }
 
-  /* If the original LHS was a VIEW_CONVERT_EXPR, modify the constant
-     value to be a VIEW_CONVERT_EXPR of the old constant value.  This is
-     valid because a VIEW_CONVERT_EXPR is valid everywhere an operand of
-     aggregate type is valid.
-
-     ??? Also, if this was a definition of a bitfield, we need to widen
+  /* FIXME: Hack.  If this was a definition of a bitfield, we need to widen
      the constant value into the type of the destination variable.  This
      should not be necessary if GCC represented bitfields properly.  */
   {
-    tree orig_lhs = TREE_OPERAND (stmt, 0);
-
-    if (TREE_CODE (orig_lhs) == VIEW_CONVERT_EXPR
-	&& val.lattice_val == CONSTANT)
-      {
-	val.const_val = build1 (VIEW_CONVERT_EXPR,
-				TREE_TYPE (TREE_OPERAND (orig_lhs, 0)),
-				val.const_val);
-	orig_lhs = TREE_OPERAND (orig_lhs, 1);
-      }
-
+    tree lhs = TREE_OPERAND (stmt, 0);
     if (val.lattice_val == CONSTANT
-	&& TREE_CODE (orig_lhs) == COMPONENT_REF
-	&& DECL_BIT_FIELD (TREE_OPERAND (orig_lhs, 1)))
+	&& TREE_CODE (lhs) == COMPONENT_REF
+	&& DECL_BIT_FIELD (TREE_OPERAND (lhs, 1)))
       {
-	tree w = widen_bitfield (val.const_val, TREE_OPERAND (orig_lhs, 1),
-				 orig_lhs);
+	tree w = widen_bitfield (val.const_val, TREE_OPERAND (lhs, 1), lhs);
 
 	if (w && is_gimple_min_invariant (w))
 	  val.const_val = w;
@@ -1133,7 +1123,7 @@ visit_cond_stmt (tree stmt, edge *taken_edge_p)
      to the worklist.  If no single edge can be determined statically,
      return SSA_PROP_VARYING to feed all the outgoing edges to the
      propagation engine.  */
-  *taken_edge_p = val.const_val ? find_taken_edge (block, val.const_val) : 0;
+  *taken_edge_p = find_taken_edge (block, val.const_val);
   if (*taken_edge_p)
     return SSA_PROP_INTERESTING;
   else
@@ -1239,7 +1229,7 @@ struct tree_opt_pass pass_ccp =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_cleanup_cfg | TODO_dump_func | TODO_rename_vars
+  TODO_dump_func | TODO_rename_vars
     | TODO_ggc_collect | TODO_verify_ssa
     | TODO_verify_stmts,		/* todo_flags_finish */
   0					/* letter */
@@ -1450,39 +1440,45 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 	continue;
 
       field_type = TREE_TYPE (f);
+      if (cmp < 0)
+	{
+	  /* Don't care about offsets into the middle of scalars.  */
+	  if (!AGGREGATE_TYPE_P (field_type))
+	    continue;
+
+	  /* Check for array at the end of the struct.  This is often
+	     used as for flexible array members.  We should be able to
+	     turn this into an array access anyway.  */
+	  if (TREE_CODE (field_type) == ARRAY_TYPE)
+	    tail_array_field = f;
+
+	  /* Check the end of the field against the offset.  */
+	  if (!DECL_SIZE_UNIT (f)
+	      || TREE_CODE (DECL_SIZE_UNIT (f)) != INTEGER_CST)
+	    continue;
+	  t = int_const_binop (MINUS_EXPR, offset, DECL_FIELD_OFFSET (f), 1);
+	  if (!tree_int_cst_lt (t, DECL_SIZE_UNIT (f)))
+	    continue;
+
+	  /* If we matched, then set offset to the displacement into
+	     this field.  */
+	  offset = t;
+	}
 
       /* Here we exactly match the offset being checked.  If the types match,
 	 then we can return that field.  */
-      if (cmp == 0
-	  && lang_hooks.types_compatible_p (orig_type, field_type))
+      else if (lang_hooks.types_compatible_p (orig_type, field_type))
 	{
 	  if (base_is_ptr)
 	    base = build1 (INDIRECT_REF, record_type, base);
 	  t = build (COMPONENT_REF, field_type, base, f, NULL_TREE);
 	  return t;
 	}
-      
-      /* Don't care about offsets into the middle of scalars.  */
-      if (!AGGREGATE_TYPE_P (field_type))
-	continue;
 
-      /* Check for array at the end of the struct.  This is often
-	 used as for flexible array members.  We should be able to
-	 turn this into an array access anyway.  */
-      if (TREE_CODE (field_type) == ARRAY_TYPE)
-	tail_array_field = f;
+      /* Don't care about type-punning of scalars.  */
+      else if (!AGGREGATE_TYPE_P (field_type))
+	return NULL_TREE;
 
-      /* Check the end of the field against the offset.  */
-      if (!DECL_SIZE_UNIT (f)
-	  || TREE_CODE (DECL_SIZE_UNIT (f)) != INTEGER_CST)
-	continue;
-      t = int_const_binop (MINUS_EXPR, offset, field_offset, 1);
-      if (!tree_int_cst_lt (t, DECL_SIZE_UNIT (f)))
-	continue;
-
-      /* If we matched, then set offset to the displacement into
-	 this field.  */
-      offset = t;
       goto found;
     }
 
@@ -1491,7 +1487,6 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 
   f = tail_array_field;
   field_type = TREE_TYPE (f);
-  offset = int_const_binop (MINUS_EXPR, offset, byte_position (f), 1);
 
  found:
   /* If we get here, we've got an aggregate field, and a possibly 
@@ -1961,7 +1956,7 @@ ccp_fold_builtin (tree stmt, tree fn)
     }
 
   /* Try to use the dataflow information gathered by the CCP process.  */
-  visited = BITMAP_ALLOC (NULL);
+  visited = BITMAP_XMALLOC ();
 
   memset (strlen_val, 0, sizeof (strlen_val));
   for (i = 0, a = arglist;
@@ -1974,7 +1969,7 @@ ccp_fold_builtin (tree stmt, tree fn)
 	  strlen_val[i] = NULL_TREE;
       }
 
-  BITMAP_FREE (visited);
+  BITMAP_XFREE (visited);
 
   result = NULL_TREE;
   switch (DECL_FUNCTION_CODE (callee))

@@ -1,5 +1,5 @@
 /* Generate code from machine description to extract operands from insn as rtl.
-   Copyright (C) 1987, 1991, 1992, 1993, 1997, 1998, 1999, 2000, 2003
+   Copyright (C) 1987, 1991, 1992, 1993, 1997, 1998, 1999, 2000, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -326,7 +326,7 @@ print_path (const char *path)
       else if (ISDIGIT(path[i]))
 	printf ("XEXP (");
       else
-	abort ();
+	gcc_unreachable ();
     }
 
   printf ("pat");
@@ -338,7 +338,7 @@ print_path (const char *path)
       else if (ISDIGIT(path[i]))
 	printf (", %d)", path[i] - '0');
       else
-	abort ();
+	gcc_unreachable ();
     }
 }
 
@@ -353,9 +353,6 @@ main (int argc, char **argv)
   const char *name;
 
   progname = "genextract";
-
-  if (argc <= 1)
-    fatal ("no input file name");
 
   if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
@@ -387,8 +384,10 @@ from the machine description file `md'.  */\n\n");
   printf ("  rtx **ro_loc = recog_data.operand_loc;\n");
   printf ("  rtx pat = PATTERN (insn);\n");
   printf ("  int i ATTRIBUTE_UNUSED;\n\n");
-  printf ("  memset (ro, 0, sizeof (*ro) * MAX_RECOG_OPERANDS);\n");
-  printf ("  memset (ro_loc, 0, sizeof (*ro_loc) * MAX_RECOG_OPERANDS);\n");
+#ifdef ENABLE_CHECKING
+  printf ("  memset (ro, 0xab, sizeof (*ro) * MAX_RECOG_OPERANDS);\n");
+  printf ("  memset (ro_loc, 0xab, sizeof (*ro_loc) * MAX_RECOG_OPERANDS);\n");
+#endif
   printf ("  switch (INSN_CODE (insn))\n");
   printf ("    {\n");
   printf ("    case -1:\n");
@@ -479,7 +478,7 @@ from the machine description file `md'.  */\n\n");
   /* This should never be reached.  Note that we would also reach this abort
    if we tried to extract something whose INSN_CODE was a DEFINE_EXPAND or
    DEFINE_SPLIT, but that is correct.  */
-  printf ("    default:\n      abort ();\n");
+  printf ("    default:\n      gcc_unreachable ();\n");
 
   printf ("    }\n}\n");
 

@@ -39,6 +39,8 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-pass.h"
 #include "langhooks.h"
 
+extern void rename_ssa_copies (void);
+
 /* The following routines implement the SSA copy renaming phase.
 
    This optimization looks for copies between 2 SSA_NAMES, either through a
@@ -291,7 +293,7 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
    then cause the SSA->normal pass to attempt to coalesce them all to the same 
    variable.  */
 
-static void
+void
 rename_ssa_copies (void)
 {
   var_map map;

@@ -41,7 +41,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
-#include "obstack.h"
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "expr.h"
@@ -296,13 +295,13 @@ static void
 find_defs (struct loop *loop, basic_block *body, struct df *df)
 {
   unsigned i;
-  bitmap blocks = BITMAP_ALLOC (NULL);
+  bitmap blocks = BITMAP_XMALLOC ();
 
   for (i = 0; i < loop->num_nodes; i++)
     bitmap_set_bit (blocks, body[i]->index);
 
   df_analyze_subcfg (df, blocks, DF_UD_CHAIN | DF_HARD_REGS | DF_EQUIV_NOTES);
-  BITMAP_FREE (blocks);
+  BITMAP_XFREE (blocks);
 }
 
 /* Creates a new invariant for definition DEF in INSN, depending on invariants
@@ -447,10 +446,10 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed,
 	return;
     }
 
-  depends_on = BITMAP_ALLOC (NULL);
+  depends_on = BITMAP_XMALLOC ();
   if (!check_dependencies (insn, df, depends_on))
     {
-      BITMAP_FREE (depends_on);
+      BITMAP_XFREE (depends_on);
       return;
     }
 
@@ -557,10 +556,10 @@ find_invariants_body (struct loop *loop, basic_block *body,
 static void
 find_invariants (struct loop *loop, struct df *df)
 {
-  bitmap may_exit = BITMAP_ALLOC (NULL);
-  bitmap always_reached = BITMAP_ALLOC (NULL);
-  bitmap has_exit = BITMAP_ALLOC (NULL);
-  bitmap always_executed = BITMAP_ALLOC (NULL);
+  bitmap may_exit = BITMAP_XMALLOC ();
+  bitmap always_reached = BITMAP_XMALLOC ();
+  bitmap has_exit = BITMAP_XMALLOC ();
+  bitmap always_executed = BITMAP_XMALLOC ();
   basic_block *body = get_loop_body_in_dom_order (loop);
 
   find_exits (loop, body, may_exit, has_exit);
@@ -570,10 +569,10 @@ find_invariants (struct loop *loop, struct df *df)
   find_defs (loop, body, df);
   find_invariants_body (loop, body, always_reached, always_executed, df);
 
-  BITMAP_FREE (always_reached);
-  BITMAP_FREE (always_executed);
-  BITMAP_FREE (may_exit);
-  BITMAP_FREE (has_exit);
+  BITMAP_XFREE (always_reached);
+  BITMAP_XFREE (always_executed);
+  BITMAP_XFREE (may_exit);
+  BITMAP_XFREE (has_exit);
   free (body);
 }
 
@@ -863,7 +862,7 @@ free_inv_motion_data (struct df *df)
   for (i = 0; i < VARRAY_ACTIVE_SIZE (invariants); i++)
     {
       inv = VARRAY_GENERIC_PTR_NOGC (invariants, i);
-      BITMAP_FREE (inv->depends_on);
+      BITMAP_XFREE (inv->depends_on);
       free (inv);
     }
   VARRAY_POP_ALL (invariants);

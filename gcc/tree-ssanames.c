@@ -62,7 +62,7 @@ Boston, MA 02111-1307, USA.  */
 varray_type ssa_names;
 
 /* Bitmap of ssa names marked for rewriting.  */
-static bitmap ssa_names_to_rewrite;
+bitmap ssa_names_to_rewrite;
 
 /* Free list of SSA_NAMEs.  This list is wiped at the end of each function
    after we leave SSA form.  */
@@ -82,7 +82,11 @@ unsigned int ssa_name_nodes_created;
 bool
 marked_for_rewrite_p (tree var)
 {
-  return bitmap_bit_p (ssa_names_to_rewrite, SSA_NAME_VERSION (var));
+  if (ssa_names_to_rewrite
+      && bitmap_bit_p (ssa_names_to_rewrite, SSA_NAME_VERSION (var)))
+    return true;
+
+  return false;
 }
 
 /* Returns true if any ssa name is marked for rewrite.  */
@@ -93,7 +97,7 @@ any_marked_for_rewrite_p (void)
   if (!ssa_names_to_rewrite)
     return false;
 
-  return !bitmap_empty_p (ssa_names_to_rewrite);
+  return bitmap_first_set_bit (ssa_names_to_rewrite) != -1;
 }
 
 /* Mark ssa name VAR for rewriting.  */
@@ -101,6 +105,9 @@ any_marked_for_rewrite_p (void)
 void
 mark_for_rewrite (tree var)
 {
+  if (!ssa_names_to_rewrite)
+    ssa_names_to_rewrite = BITMAP_XMALLOC ();
+
   bitmap_set_bit (ssa_names_to_rewrite, SSA_NAME_VERSION (var));
 }
 
@@ -109,6 +116,9 @@ mark_for_rewrite (tree var)
 void
 unmark_all_for_rewrite (void)
 {
+  if (!ssa_names_to_rewrite)
+    return;
+
   bitmap_clear (ssa_names_to_rewrite);
 }
 
@@ -118,9 +128,9 @@ unmark_all_for_rewrite (void)
 bitmap
 marked_ssa_names (void)
 {
-  bitmap ret = BITMAP_ALLOC (NULL);
-
-  bitmap_copy (ret, ssa_names_to_rewrite);
+  bitmap ret = BITMAP_XMALLOC ();
+  if (ssa_names_to_rewrite)
+    bitmap_copy (ret, ssa_names_to_rewrite);
 
   return ret;
 }
@@ -138,7 +148,6 @@ init_ssanames (void)
      large.  */
   VARRAY_PUSH_TREE (ssa_names, NULL_TREE);
   free_ssanames = NULL;
-  ssa_names_to_rewrite = BITMAP_ALLOC (NULL);
 }
 
 /* Finalize management of SSA_NAMEs.  */
@@ -146,7 +155,6 @@ init_ssanames (void)
 void
 fini_ssanames (void)
 {
-  BITMAP_FREE (ssa_names_to_rewrite);
   ggc_free (ssa_names);
   ssa_names = NULL;
   free_ssanames = NULL;

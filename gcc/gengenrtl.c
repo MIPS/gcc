@@ -1,5 +1,5 @@
 /* Generate code to allocate RTL structures.
-   Copyright (C) 1997, 1998, 1999, 2000, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -22,19 +22,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "bconfig.h"
 #include "system.h"
-#include "coretypes.h"
-#include "tm.h"
-
-#define NO_GENRTL_H
-#include "rtl.h"
-#undef abort
-
-#include "real.h"
 
 struct rtx_definition
 {
   const char *const enumname, *const name, *const format;
 };
+
+/* rtl.def needs CONST_DOUBLE_FORMAT, but we don't care what
+   CONST_DOUBLE_FORMAT is because we're not going to be generating
+   anything for CONST_DOUBLE anyway.  */
+#define CONST_DOUBLE_FORMAT ""
 
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS) { #ENUM, NAME, FORMAT },
 
@@ -42,6 +39,7 @@ static const struct rtx_definition defs[] =
 {
 #include "rtl.def"		/* rtl expressions are documented here */
 };
+#define NUM_RTX_CODE ARRAY_SIZE(defs)
 
 static const char *formats[NUM_RTX_CODE];
 
@@ -86,7 +84,7 @@ type_from_format (int c)
     case 'B':
       return "struct basic_block_def *";  /* basic block - typedef not available */
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -122,7 +120,7 @@ accessor_from_format (int c)
       return "XBBDEF";
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -167,7 +165,7 @@ excluded_rtx (int idx)
 static void
 find_formats (void)
 {
-  int i;
+  unsigned int i;
 
   for (i = 0; i < NUM_RTX_CODE; i++)
     {
@@ -270,10 +268,8 @@ gendef (const char *format)
      the memory and initializes it.  */
   puts ("{");
   puts ("  rtx rt;");
-  printf ("  rt = ggc_alloc_rtx (%d);\n", (int) strlen (format));
+  puts ("  rt = rtx_alloc (code);\n");
 
-  puts ("  memset (rt, 0, sizeof (struct rtx_def) - sizeof (rtunion));\n");
-  puts ("  PUT_CODE (rt, code);");
   puts ("  PUT_MODE (rt, mode);");
 
   for (p = format, i = j = 0; *p ; ++p, ++i)
@@ -298,7 +294,7 @@ genlegend (void)
 static void
 genheader (void)
 {
-  int i;
+  unsigned int i;
   const char **fmt;
 
   puts ("#ifndef GCC_GENRTL_H");

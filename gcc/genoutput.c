@@ -1,6 +1,6 @@
 /* Generate code from to output assembler insns as recognized from rtl.
    Copyright (C) 1987, 1988, 1992, 1994, 1995, 1997, 1998, 1999, 2000, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -160,6 +160,7 @@ struct data
   const char *template;
   int code_number;
   int index_number;
+  const char *filename;
   int lineno;
   int n_operands;		/* Number of operands this insn recognizes */
   int n_dups;			/* Number times match_dup appears in pattern */
@@ -286,10 +287,12 @@ output_insn_data (void)
 	break;
       }
 
+  printf ("#if GCC_VERSION >= 2007\n__extension__\n#endif\n");
   printf ("\nconst struct insn_data insn_data[] = \n{\n");
 
   for (d = idata; d; d = d->next)
     {
+      printf ("  /* %s:%d */\n", d->filename, d->lineno);
       printf ("  {\n");
 
       if (d->name)
@@ -322,13 +325,22 @@ output_insn_data (void)
       switch (d->output_format)
 	{
 	case INSN_OUTPUT_FORMAT_NONE:
-	  printf ("    0,\n");
+	  printf ("#if HAVE_DESIGNATED_INITIALIZERS\n");
+	  printf ("    { 0 },\n");
+	  printf ("#else\n");
+	  printf ("    { 0, 0, 0 },\n");
+	  printf ("#endif\n");
 	  break;
 	case INSN_OUTPUT_FORMAT_SINGLE:
 	  {
 	    const char *p = d->template;
 	    char prev = 0;
 
+	    printf ("#if HAVE_DESIGNATED_INITIALIZERS\n");
+	    printf ("    { .single =\n");
+	    printf ("#else\n");
+	    printf ("    {\n");
+	    printf ("#endif\n");
 	    printf ("    \"");
 	    while (*p)
 	      {
@@ -345,14 +357,29 @@ output_insn_data (void)
 		++p;
 	      }
 	    printf ("\",\n");
+	    printf ("#if HAVE_DESIGNATED_INITIALIZERS\n");
+	    printf ("    },\n");
+	    printf ("#else\n");
+	    printf ("    0, 0 },\n");
+	    printf ("#endif\n");
 	  }
 	  break;
 	case INSN_OUTPUT_FORMAT_MULTI:
+	  printf ("#if HAVE_DESIGNATED_INITIALIZERS\n");
+	  printf ("    { .multi = output_%d },\n", d->code_number);
+	  printf ("#else\n");
+	  printf ("    { 0, output_%d, 0 },\n", d->code_number);
+	  printf ("#endif\n");
+	  break;
 	case INSN_OUTPUT_FORMAT_FUNCTION:
-	  printf ("    (const void *) output_%d,\n", d->code_number);
+	  printf ("#if HAVE_DESIGNATED_INITIALIZERS\n");
+	  printf ("    { .function = output_%d },\n", d->code_number);
+	  printf ("#else\n");
+	  printf ("    { 0, 0, output_%d },\n", d->code_number);
+	  printf ("#endif\n");
 	  break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       if (d->name && d->name[0] != '*')
@@ -657,11 +684,22 @@ process_template (struct data *d, const char *template)
 
       for (i = 0, cp = &template[1]; *cp; )
 	{
+	  const char *ep, *sp;
+
 	  while (ISSPACE (*cp))
 	    cp++;
 
 	  printf ("  \"");
-	  while (!IS_VSPACE (*cp) && *cp != '\0')
+
+	  for (ep = sp = cp; !IS_VSPACE (*ep) && *ep != '\0'; ++ep)
+	    if (!ISSPACE (*ep))
+	      sp = ep + 1;
+
+	  if (sp != ep)
+	    message_with_line (d->lineno,
+			       "trailing whitespace in output template");
+
+	  while (cp < sp)
 	    {
 	      putchar (*cp);
 	      cp++;
@@ -787,6 +825,7 @@ gen_insn (rtx insn, int lineno)
 
   d->code_number = next_code_number;
   d->index_number = next_index_number;
+  d->filename = read_rtx_filename;
   d->lineno = lineno;
   if (XSTR (insn, 0)[0])
     d->name = XSTR (insn, 0);
@@ -828,6 +867,7 @@ gen_peephole (rtx peep, int lineno)
 
   d->code_number = next_code_number;
   d->index_number = next_index_number;
+  d->filename = read_rtx_filename;
   d->lineno = lineno;
   d->name = 0;
 
@@ -866,6 +906,7 @@ gen_expand (rtx insn, int lineno)
 
   d->code_number = next_code_number;
   d->index_number = next_index_number;
+  d->filename = read_rtx_filename;
   d->lineno = lineno;
   if (XSTR (insn, 0)[0])
     d->name = XSTR (insn, 0);
@@ -909,6 +950,7 @@ gen_split (rtx split, int lineno)
 
   d->code_number = next_code_number;
   d->index_number = next_index_number;
+  d->filename = read_rtx_filename;
   d->lineno = lineno;
   d->name = 0;
 
@@ -945,9 +987,6 @@ main (int argc, char **argv)
   rtx desc;
 
   progname = "genoutput";
-
-  if (argc <= 1)
-    fatal ("no input file name");
 
   if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
@@ -1037,8 +1076,7 @@ check_constraint_len (void)
 
   for (p = ",#*+=&%!1234567890"; *p; p++)
     for (d = -9; d < 9; d++)
-      if (constraint_len (p, d) != d)
-	abort ();
+      gcc_assert (constraint_len (p, d) == d);
 }
 
 static int
@@ -1046,8 +1084,7 @@ constraint_len (const char *p, int genoutput_default_constraint_len)
 {
   /* Check that we still match defaults.h .  First we do a generation-time
      check that fails if the value is not the expected one...  */
-  if (DEFAULT_CONSTRAINT_LEN (*p, p) != 1)
-    abort ();
+  gcc_assert (DEFAULT_CONSTRAINT_LEN (*p, p) == 1);
   /* And now a compile-time check that should give a diagnostic if the
      definition doesn't exactly match.  */
 #define DEFAULT_CONSTRAINT_LEN(C,STR) 1

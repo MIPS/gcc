@@ -1,5 +1,5 @@
 /* Definitions for describing one tree-ssa optimization pass.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 
 This file is part of GCC.
@@ -78,7 +78,6 @@ struct dump_file_info
 {
   const char *suffix;           /* suffix to give output file.  */
   const char *swtch;            /* command line switch */
-  const char *glob;             /* command line glob  */
   int flags;                    /* user flags */
   int state;                    /* state of play */
   int num;                      /* dump file number */
@@ -107,8 +106,6 @@ struct dump_file_info
 #define TODO_verify_ssa		(1 << 3)
 #define TODO_verify_flow	(1 << 4)
 #define TODO_verify_stmts	(1 << 5)
-#define TODO_fix_def_def_chains (1 << 6)        /* rewrite def-def chains  */
-#define TODO_cleanup_cfg        (1 << 7)        /* cleanup the cfg.  */
 
 #define TODO_verify_all \
   (TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts)
@@ -143,7 +140,6 @@ extern struct tree_opt_pass pass_del_ssa;
 extern struct tree_opt_pass pass_dominator;
 extern struct tree_opt_pass pass_dce;
 extern struct tree_opt_pass pass_cd_dce;
-extern struct tree_opt_pass pass_merge_phi;
 extern struct tree_opt_pass pass_may_alias;
 extern struct tree_opt_pass pass_split_crit_edges;
 extern struct tree_opt_pass pass_pre;
@@ -160,12 +156,10 @@ extern struct tree_opt_pass pass_redundant_phi;
 extern struct tree_opt_pass pass_dse;
 extern struct tree_opt_pass pass_nrv;
 extern struct tree_opt_pass pass_remove_useless_vars;
-extern struct tree_opt_pass pass_mark_used_blocks;
 extern struct tree_opt_pass pass_rename_ssa_copies;
 extern struct tree_opt_pass pass_expand;
 extern struct tree_opt_pass pass_rest_of_compilation;
 extern struct tree_opt_pass pass_fre;
 extern struct tree_opt_pass pass_linear_transform;
-extern struct tree_opt_pass pass_maybe_create_global_var;
 
 #endif /* GCC_TREE_PASS_H */

@@ -3,7 +3,7 @@
    in the form of comments (the mips assembler does not support
    assembly access to debug information).
    Copyright (C) 1991, 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003 Free Software Foundation, Inc.
+   2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Meissner (meissner@cygnus.com).
 
 This file is part of GCC.
@@ -637,7 +637,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    so they can't be static.  */
 
 extern void pfatal_with_name (const char *) ATTRIBUTE_NORETURN;
-extern void fancy_abort (void) ATTRIBUTE_NORETURN;
 extern void botch (const char *) ATTRIBUTE_NORETURN;
 
 extern void fatal (const char *format, ...) ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
@@ -738,7 +737,7 @@ typedef enum st {
   st_StaticProc	= stStaticProc,	/* load time only static procs */
   st_Constant	= stConstant,	/* const */
   st_Str	= stStr,	/* string */
-  st_Number	= stNumber,	/* pure number (ie. 4 NOR 2+2) */
+  st_Number	= stNumber,	/* pure number (i.e. 4 NOR 2+2) */
   st_Expr	= stExpr,	/* 2+2 vs. 4 */
   st_Type	= stType,	/* post-coercion SER */
   st_Max	= stMax		/* max type+1 */
@@ -4774,7 +4773,7 @@ main (int argc, char **argv)
   if (version)
     {
       printf (_("mips-tfile (GCC) %s\n"), version_string);
-      fputs (_("Copyright (C) 2003 Free Software Foundation, Inc.\n"), stdout);
+      fputs ("Copyright (C) 2004 Free Software Foundation, Inc.\n", stdout);
       fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
 	     stdout);
@@ -5471,13 +5470,12 @@ error (const char *format, ...)
   saber_stop ();
 }
 
-/* More 'friendly' abort that prints the line and file.
-   config.h can #define abort fancy_abort if you like that sort of thing.  */
+/* More 'friendly' abort that prints the line and file.  */
 
 void
-fancy_abort (void)
+fancy_abort (const char *file, int line, const char *func)
 {
-  fatal ("internal abort");
+  fatal ("abort in %s, at %s:%d", func, file, line);
 }
 
 

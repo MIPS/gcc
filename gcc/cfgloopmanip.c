@@ -1,5 +1,5 @@
 /* Loop manipulation code for GNU compiler.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,35 +29,33 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfglayout.h"
 #include "output.h"
 
-static struct loop * duplicate_loop (struct loops *, struct loop *,
-				     struct loop *);
 static void duplicate_subloops (struct loops *, struct loop *, struct loop *);
 static void copy_loops_to (struct loops *, struct loop **, int,
 			   struct loop *);
 static void loop_redirect_edge (edge, basic_block);
 static bool loop_delete_branch_edge (edge, int);
-static void remove_bbs (dominance_info, basic_block *, int);
+static void remove_bbs (basic_block *, int);
 static bool rpe_enum_p (basic_block, void *);
-static int find_path (edge, dominance_info, basic_block **);
+static int find_path (edge, basic_block **);
 static bool alp_enum_p (basic_block, void *);
 static void add_loop (struct loops *, struct loop *);
-static void fix_loop_placements (struct loop *);
+static void fix_loop_placements (struct loops *, struct loop *);
 static bool fix_bb_placement (struct loops *, basic_block);
 static void fix_bb_placements (struct loops *, basic_block);
 static void place_new_loop (struct loops *, struct loop *);
 static void scale_loop_frequencies (struct loop *, int, int);
 static void scale_bbs_frequencies (basic_block *, int, int, int);
-static basic_block create_preheader (struct loop *, dominance_info, int);
+static basic_block create_preheader (struct loop *, int);
 static void fix_irreducible_loops (basic_block);
+
+#define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
 
 /* Splits basic block BB after INSN, returns created edge.  Updates loops
    and dominators.  */
 edge
-split_loop_bb (struct loops *loops, basic_block bb, rtx insn)
+split_loop_bb (basic_block bb, void *insn)
 {
   edge e;
-  basic_block *dom_bbs;
-  int n_dom_bbs, i;
 
   /* Split the block.  */
   e = split_block (bb, insn);
@@ -65,44 +63,27 @@ split_loop_bb (struct loops *loops, basic_block bb, rtx insn)
   /* Add dest to loop.  */
   add_bb_to_loop (e->dest, e->src->loop_father);
 
-  /* Fix dominators.  */
-  add_to_dominance_info (loops->cfg.dom, e->dest);
-  n_dom_bbs = get_dominated_by (loops->cfg.dom, e->src, &dom_bbs);
-  for (i = 0; i < n_dom_bbs; i++)
-    set_immediate_dominator (loops->cfg.dom, dom_bbs[i], e->dest);
-  free (dom_bbs);
-  set_immediate_dominator (loops->cfg.dom, e->dest, e->src);
-
   return e;
 }
 
-/* Checks whether basic block BB is dominated by RPE->DOM, where
-   RPE is passed through DATA.  */
-struct rpe_data
- {
-   basic_block dom;
-   dominance_info doms;
- };
-
+/* Checks whether basic block BB is dominated by DATA.  */
 static bool
 rpe_enum_p (basic_block bb, void *data)
 {
-  struct rpe_data *rpe = data;
-  return dominated_by_p (rpe->doms, bb, rpe->dom);
+  return dominated_by_p (CDI_DOMINATORS, bb, data);
 }
 
 /* Remove basic blocks BBS from loop structure and dominance info,
    and delete them afterwards.  */
 static void
-remove_bbs (dominance_info dom, basic_block *bbs, int nbbs)
+remove_bbs (basic_block *bbs, int nbbs)
 {
   int i;
 
   for (i = 0; i < nbbs; i++)
     {
       remove_bb_from_loops (bbs[i]);
-      delete_from_dominance_info (dom, bbs[i]);
-      delete_block (bbs[i]);
+      delete_basic_block (bbs[i]);
     }
 }
 
@@ -113,19 +94,14 @@ remove_bbs (dominance_info dom, basic_block *bbs, int nbbs)
    alter anything by this function).  The number of basic blocks in the
    path is returned.  */
 static int
-find_path (edge e, dominance_info doms, basic_block **bbs)
+find_path (edge e, basic_block **bbs)
 {
-  struct rpe_data rpe;
-
-  if (e->dest->pred->pred_next)
-    abort ();
+  gcc_assert (EDGE_COUNT (e->dest->preds) <= 1);
 
   /* Find bbs in the path.  */
-  rpe.dom = e->dest;
-  rpe.doms = doms;
   *bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
   return dfs_enumerate_from (e->dest, 0, rpe_enum_p, *bbs,
-			     n_basic_blocks, &rpe);
+			     n_basic_blocks, e->dest);
 }
 
 /* Fix placement of basic block BB inside loop hierarchy stored in LOOPS --
@@ -139,9 +115,10 @@ static bool
 fix_bb_placement (struct loops *loops, basic_block bb)
 {
   edge e;
+  edge_iterator ei;
   struct loop *loop = loops->tree_root, *act;
 
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     {
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
@@ -204,6 +181,7 @@ fix_bb_placements (struct loops *loops, basic_block from)
 
   while (qbeg != qend)
     {
+      edge_iterator ei;
       from = *qbeg;
       qbeg++;
       if (qbeg == qtop)
@@ -224,7 +202,7 @@ fix_bb_placements (struct loops *loops, basic_block from)
 	}
 
       /* Something has changed, insert predecessors into queue.  */
-      for (e = from->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, from->preds)
 	{
 	  basic_block pred = e->src;
 	  struct loop *nca;
@@ -286,10 +264,11 @@ fix_irreducible_loops (basic_block from)
 
   while (stack_top)
     {
+      edge_iterator ei;
       bb = stack[--stack_top];
       RESET_BIT (on_stack, bb->index);
 
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	if (e->flags & EDGE_IRREDUCIBLE_LOOP)
 	  break;
       if (e)
@@ -300,13 +279,10 @@ fix_irreducible_loops (basic_block from)
 	edges = get_loop_exit_edges (bb->loop_father, &n_edges);
       else
 	{
-	  n_edges = 0;
-	  for (e = bb->succ; e; e = e->succ_next)
-	    n_edges++;
+	  n_edges = EDGE_COUNT (bb->succs);
 	  edges = xmalloc (n_edges * sizeof (edge));
-	  n_edges = 0;
-	  for (e = bb->succ; e; e = e->succ_next)
-	    edges[n_edges++] = e;
+	  FOR_EACH_EDGE (e, ei, bb->succs)
+	    edges[ei.index] = e;
 	}
 
       for (i = 0; i < n_edges; i++)
@@ -344,6 +320,7 @@ remove_path (struct loops *loops, edge e)
   basic_block *rem_bbs, *bord_bbs, *dom_bbs, from, bb;
   int i, nrem, n_bord_bbs, n_dom_bbs;
   sbitmap seen;
+  bool deleted;
 
   if (!loop_delete_branch_edge (e, 0))
     return false;
@@ -352,20 +329,20 @@ remove_path (struct loops *loops, edge e)
      e, but we only have basic block dominators.  This is easy to
      fix -- when e->dest has exactly one predecessor, this corresponds
      to blocks dominated by e->dest, if not, split the edge.  */
-  if (e->dest->pred->pred_next)
-    e = loop_split_edge_with (e, NULL_RTX, loops)->pred;
+  if (EDGE_COUNT (e->dest->preds) > 1)
+    e = EDGE_PRED (loop_split_edge_with (e, NULL_RTX), 0);
 
   /* It may happen that by removing path we remove one or more loops
      we belong to.  In this case first unloop the loops, then proceed
      normally.   We may assume that e->dest is not a header of any loop,
      as it now has exactly one predecessor.  */
   while (e->src->loop_father->outer
-	 && dominated_by_p (loops->cfg.dom,
+	 && dominated_by_p (CDI_DOMINATORS,
 			    e->src->loop_father->latch, e->dest))
     unloop (loops, e->src->loop_father);
 
   /* Identify the path.  */
-  nrem = find_path (e, loops->cfg.dom, &rem_bbs);
+  nrem = find_path (e, &rem_bbs);
 
   n_bord_bbs = 0;
   bord_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
@@ -377,8 +354,9 @@ remove_path (struct loops *loops, edge e)
     SET_BIT (seen, rem_bbs[i]->index);
   for (i = 0; i < nrem; i++)
     {
+      edge_iterator ei;
       bb = rem_bbs[i];
-      for (ae = rem_bbs[i]->succ; ae; ae = ae->succ_next)
+      FOR_EACH_EDGE (ae, ei, rem_bbs[i]->succs)
 	if (ae->dest != EXIT_BLOCK_PTR && !TEST_BIT (seen, ae->dest->index))
 	  {
 	    SET_BIT (seen, ae->dest->index);
@@ -388,8 +366,8 @@ remove_path (struct loops *loops, edge e)
 
   /* Remove the path.  */
   from = e->src;
-  if (!loop_delete_branch_edge (e, 1))
-    abort ();
+  deleted = loop_delete_branch_edge (e, 1);
+  gcc_assert (deleted);
   dom_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
 
   /* Cancel loops contained in the path.  */
@@ -397,7 +375,7 @@ remove_path (struct loops *loops, edge e)
     if (rem_bbs[i]->loop_father->header == rem_bbs[i])
       cancel_loop_tree (loops, rem_bbs[i]->loop_father);
 
-  remove_bbs (loops->cfg.dom, rem_bbs, nrem);
+  remove_bbs (rem_bbs, nrem);
   free (rem_bbs);
 
   /* Find blocks whose dominators may be affected.  */
@@ -405,25 +383,24 @@ remove_path (struct loops *loops, edge e)
   sbitmap_zero (seen);
   for (i = 0; i < n_bord_bbs; i++)
     {
-      int j, nldom;
-      basic_block *ldom;
+      basic_block ldom;
 
-      bb = get_immediate_dominator (loops->cfg.dom, bord_bbs[i]);
+      bb = get_immediate_dominator (CDI_DOMINATORS, bord_bbs[i]);
       if (TEST_BIT (seen, bb->index))
 	continue;
       SET_BIT (seen, bb->index);
 
-      nldom = get_dominated_by (loops->cfg.dom, bb, &ldom);
-      for (j = 0; j < nldom; j++)
-	if (!dominated_by_p (loops->cfg.dom, from, ldom[j]))
-	  dom_bbs[n_dom_bbs++] = ldom[j];
-      free(ldom);
+      for (ldom = first_dom_son (CDI_DOMINATORS, bb);
+	   ldom;
+	   ldom = next_dom_son (CDI_DOMINATORS, ldom))
+	if (!dominated_by_p (CDI_DOMINATORS, from, ldom))
+	  dom_bbs[n_dom_bbs++] = ldom;
     }
 
   free (seen);
 
   /* Recount dominators.  */
-  iterate_fix_dominators (loops->cfg.dom, dom_bbs, n_dom_bbs);
+  iterate_fix_dominators (CDI_DOMINATORS, dom_bbs, n_dom_bbs);
   free (dom_bbs);
 
   /* These blocks have lost some predecessor(s), thus their irreducible
@@ -435,7 +412,7 @@ remove_path (struct loops *loops, edge e)
   /* Fix placements of basic blocks inside loops and the placement of
      loops in the loop tree.  */
   fix_bb_placements (loops, from);
-  fix_loop_placements (from->loop_father);
+  fix_loop_placements (loops, from->loop_father);
 
   return true;
 }
@@ -481,9 +458,10 @@ scale_bbs_frequencies (basic_block *bbs, int nbbs, int num, int den)
 
   for (i = 0; i < nbbs; i++)
     {
+      edge_iterator ei;
       bbs[i]->frequency = (bbs[i]->frequency * num) / den;
-      bbs[i]->count = (bbs[i]->count * num) / den;
-      for (e = bbs[i]->succ; e; e = e->succ_next)
+      bbs[i]->count = RDIV (bbs[i]->count * num, den);
+      FOR_EACH_EDGE (e, ei, bbs[i]->succs)
 	e->count = (e->count * num) /den;
     }
 }
@@ -504,43 +482,53 @@ scale_loop_frequencies (struct loop *loop, int num, int den)
    accordingly. Everything between them plus LATCH_EDGE destination must
    be dominated by HEADER_EDGE destination, and back-reachable from
    LATCH_EDGE source.  HEADER_EDGE is redirected to basic block SWITCH_BB,
-   SWITCH_BB->succ to original destination of LATCH_EDGE and
-   SWITCH_BB->succ->succ_next to original destination of HEADER_EDGE.
+   FALLTHRU_EDGE (SWITCH_BB) to original destination of HEADER_EDGE and
+   BRANCH_EDGE (SWITCH_BB) to original destination of LATCH_EDGE.
    Returns newly created loop.  */
+
 struct loop *
-loopify (struct loops *loops, edge latch_edge, edge header_edge, basic_block switch_bb)
+loopify (struct loops *loops, edge latch_edge, edge header_edge, 
+	 basic_block switch_bb, bool redirect_all_edges)
 {
   basic_block succ_bb = latch_edge->dest;
   basic_block pred_bb = header_edge->src;
   basic_block *dom_bbs, *body;
-  unsigned n_dom_bbs, i, j;
+  unsigned n_dom_bbs, i;
   sbitmap seen;
   struct loop *loop = xcalloc (1, sizeof (struct loop));
   struct loop *outer = succ_bb->loop_father->outer;
   int freq, prob, tot_prob;
   gcov_type cnt;
   edge e;
+  edge_iterator ei;
 
   loop->header = header_edge->dest;
   loop->latch = latch_edge->src;
 
   freq = EDGE_FREQUENCY (header_edge);
   cnt = header_edge->count;
-  prob = switch_bb->succ->probability;
-  tot_prob = prob + switch_bb->succ->succ_next->probability;
+  prob = EDGE_SUCC (switch_bb, 0)->probability;
+  tot_prob = prob + EDGE_SUCC (switch_bb, 1)->probability;
   if (tot_prob == 0)
     tot_prob = 1;
 
   /* Redirect edges.  */
   loop_redirect_edge (latch_edge, loop->header);
-  loop_redirect_edge (header_edge, switch_bb);
-  loop_redirect_edge (switch_bb->succ->succ_next, loop->header);
-  loop_redirect_edge (switch_bb->succ, succ_bb);
+  loop_redirect_edge (BRANCH_EDGE (switch_bb), succ_bb);
 
-  /* Update dominators.  */
-  set_immediate_dominator (loops->cfg.dom, switch_bb, pred_bb);
-  set_immediate_dominator (loops->cfg.dom, loop->header, switch_bb);
-  set_immediate_dominator (loops->cfg.dom, succ_bb, switch_bb);
+  /* During loop versioning, one of the switch_bb edge is already properly
+     set. Do not redirect it again unless redirect_all_edges is true.  */
+  if (redirect_all_edges)
+    {
+      loop_redirect_edge (header_edge, switch_bb);
+      loop_redirect_edge (FALLTHRU_EDGE (switch_bb), loop->header); 
+     
+      /* Update dominators.  */
+      set_immediate_dominator (CDI_DOMINATORS, switch_bb, pred_bb);
+      set_immediate_dominator (CDI_DOMINATORS, loop->header, switch_bb);
+    }
+
+  set_immediate_dominator (CDI_DOMINATORS, succ_bb, switch_bb);
 
   /* Compute new loop.  */
   add_loop (loops, loop);
@@ -552,7 +540,7 @@ loopify (struct loops *loops, edge latch_edge, edge header_edge, basic_block swi
   /* Fix frequencies.  */
   switch_bb->frequency = freq;
   switch_bb->count = cnt;
-  for (e = switch_bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, switch_bb->succs)
     e->count = (switch_bb->count * e->probability) / REG_BR_PROB_BASE;
   scale_loop_frequencies (loop, prob, tot_prob);
   scale_loop_frequencies (succ_bb->loop_father, tot_prob - prob, tot_prob);
@@ -569,20 +557,19 @@ loopify (struct loops *loops, edge latch_edge, edge header_edge, basic_block swi
 
   for (i = 0; i < loop->num_nodes; i++)
     {
-      unsigned nldom;
-      basic_block *ldom;
+      basic_block ldom;
 
-      nldom = get_dominated_by (loops->cfg.dom, body[i], &ldom);
-      for (j = 0; j < nldom; j++)
-	if (!TEST_BIT (seen, ldom[j]->index))
+      for (ldom = first_dom_son (CDI_DOMINATORS, body[i]);
+	   ldom;
+	   ldom = next_dom_son (CDI_DOMINATORS, ldom))
+	if (!TEST_BIT (seen, ldom->index))
 	  {
-	    SET_BIT (seen, ldom[j]->index);
-	    dom_bbs[n_dom_bbs++] = ldom[j];
+	    SET_BIT (seen, ldom->index);
+	    dom_bbs[n_dom_bbs++] = ldom;
 	  }
-      free (ldom);
     }
 
-  iterate_fix_dominators (loops->cfg.dom, dom_bbs, n_dom_bbs);
+  iterate_fix_dominators (CDI_DOMINATORS, dom_bbs, n_dom_bbs);
 
   free (body);
   free (seen);
@@ -633,7 +620,7 @@ unloop (struct loops *loops, struct loop *loop)
   loops->parray[loop->num] = NULL;
   flow_loop_free (loop);
 
-  remove_edge (latch->succ);
+  remove_edge (EDGE_SUCC (latch, 0));
   fix_bb_placements (loops, latch);
 
   /* If the loop was inside an irreducible region, we would have to somehow
@@ -658,11 +645,12 @@ fix_loop_placement (struct loop *loop)
   basic_block *body;
   unsigned i;
   edge e;
+  edge_iterator ei;
   struct loop *father = loop->pred[0], *act;
 
   body = get_loop_body (loop);
   for (i = 0; i < loop->num_nodes; i++)
-    for (e = body[i]->succ; e; e = e->succ_next)
+    FOR_EACH_EDGE (e, ei, body[i]->succs)
       if (!flow_bb_inside_loop_p (loop, e->dest))
 	{
 	  act = find_common_loop (loop, e->dest->loop_father);
@@ -687,7 +675,7 @@ fix_loop_placement (struct loop *loop)
    It is used in case when we removed some edges coming out of LOOP, which
    may cause the right placement of LOOP inside loop tree to change.  */
 static void
-fix_loop_placements (struct loop *loop)
+fix_loop_placements (struct loops *loops, struct loop *loop)
 {
   struct loop *outer;
 
@@ -696,6 +684,13 @@ fix_loop_placements (struct loop *loop)
       outer = loop->outer;
       if (!fix_loop_placement (loop))
         break;
+
+      /* Changing the placement of a loop in the loop tree may alter the
+	 validity of condition 2) of the description of fix_bb_placement
+	 for its preheader, because the successor is the header and belongs
+	 to the loop.  So call fix_bb_placements to fix up the placement
+	 of the preheader and (possibly) of its predecessors.  */
+      fix_bb_placements (loops, loop_preheader_edge (loop)->src);
       loop = outer;
     }
 }
@@ -713,7 +708,7 @@ place_new_loop (struct loops *loops, struct loop *loop)
 
 /* Copies copy of LOOP as subloop of TARGET loop, placing newly
    created loop into LOOPS structure.  */
-static struct loop *
+struct loop *
 duplicate_loop (struct loops *loops, struct loop *loop, struct loop *target)
 {
   struct loop *cloop;
@@ -777,47 +772,37 @@ static bool
 loop_delete_branch_edge (edge e, int really_delete)
 {
   basic_block src = e->src;
+  basic_block newdest;
   int irr;
   edge snd;
 
-  if (src->succ->succ_next)
-    {
-      basic_block newdest;
+  gcc_assert (EDGE_COUNT (src->succs) > 1);
+  
+  /* Cannot handle more than two exit edges.  */
+  if (EDGE_COUNT (src->succs) > 2)
+    return false;
+  /* And it must be just a simple branch.  */
+  if (!any_condjump_p (BB_END (src)))
+    return false;
 
-      /* Cannot handle more than two exit edges.  */
-      if (src->succ->succ_next->succ_next)
-	return false;
-      /* And it must be just a simple branch.  */
-      if (!any_condjump_p (src->end))
-	return false;
+  snd = e == EDGE_SUCC (src, 0) ? EDGE_SUCC (src, 1) : EDGE_SUCC (src, 0);
+  newdest = snd->dest;
+  if (newdest == EXIT_BLOCK_PTR)
+    return false;
 
-      snd = e == src->succ ? src->succ->succ_next : src->succ;
-      newdest = snd->dest;
-      if (newdest == EXIT_BLOCK_PTR)
-	return false;
+  /* Hopefully the above conditions should suffice.  */
+  if (!really_delete)
+    return true;
 
-      /* Hopefully the above conditions should suffice.  */
-      if (!really_delete)
-	return true;
+  /* Redirecting behaves wrongly wrto this flag.  */
+  irr = snd->flags & EDGE_IRREDUCIBLE_LOOP;
 
-      /* Redirecting behaves wrongly wrto this flag.  */
-      irr = snd->flags & EDGE_IRREDUCIBLE_LOOP;
-
-      if (!redirect_edge_and_branch (e, newdest))
-	return false;
-      src->succ->flags &= ~EDGE_IRREDUCIBLE_LOOP;
-      src->succ->flags |= irr;
-
-      return true;
-    }
-  else
-    {
-      /* Cannot happen -- we are using this only to remove an edge
-	 from branch.  */
-      abort ();
-    }
-
-  return false;  /* To avoid warning, cannot get here.  */
+  if (!redirect_edge_and_branch (e, newdest))
+    return false;
+  EDGE_SUCC (src, 0)->flags &= ~EDGE_IRREDUCIBLE_LOOP;
+  EDGE_SUCC (src, 0)->flags |= irr;
+  
+  return true;
 }
 
 /* Check whether LOOP's body can be duplicated.  */
@@ -833,7 +818,30 @@ can_duplicate_loop_p (struct loop *loop)
   return ret;
 }
 
-#define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
+/* The NBBS blocks in BBS will get duplicated and the copies will be placed
+   to LOOP.  Update the single_exit information in superloops of LOOP.  */
+
+void
+update_single_exits_after_duplication (basic_block *bbs, unsigned nbbs,
+				       struct loop *loop)
+{
+  unsigned i;
+
+  for (i = 0; i < nbbs; i++)
+    bbs[i]->rbi->duplicated = 1;
+
+  for (; loop->outer; loop = loop->outer)
+    {
+      if (!loop->single_exit)
+	continue;
+
+      if (loop->single_exit->src->rbi->duplicated)
+	loop->single_exit = NULL;
+    }
+
+  for (i = 0; i < nbbs; i++)
+    bbs[i]->rbi->duplicated = 0;
+}
 
 /* Duplicates body of LOOP to given edge E NDUPL times.  Takes care of updating
    LOOPS structure and dominators.  E's destination must be LOOP header for
@@ -868,18 +876,14 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
   int prob_pass_thru, prob_pass_wont_exit, prob_pass_main;
   int add_irreducible_flag;
 
-  if (e->dest != loop->header)
-    abort ();
-  if (ndupl <= 0)
-    abort ();
+  gcc_assert (e->dest == loop->header);
+  gcc_assert (ndupl > 0);
 
   if (orig)
     {
       /* Orig must be edge out of the loop.  */
-      if (!flow_bb_inside_loop_p (loop, orig->src))
-	abort ();
-      if (flow_bb_inside_loop_p (loop, orig->dest))
-	abort ();
+      gcc_assert (flow_bb_inside_loop_p (loop, orig->src));
+      gcc_assert (!flow_bb_inside_loop_p (loop, orig->dest));
     }
 
   bbs = get_loop_body (loop);
@@ -895,8 +899,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
   /* In case we are doing loop peeling and the loop is in the middle of
      irreducible region, the peeled copies will be inside it too.  */
   add_irreducible_flag = e->flags & EDGE_IRREDUCIBLE_LOOP;
-  if (is_latch && add_irreducible_flag)
-    abort ();
+  gcc_assert (!is_latch || !add_irreducible_flag);
 
   /* Find edge from latch.  */
   latch_edge = loop_latch_edge (loop);
@@ -948,11 +951,9 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
 	  scale_act = REG_BR_PROB_BASE - prob_pass_thru;
 	}
       for (i = 0; i < ndupl; i++)
-	if (scale_step[i] < 0 || scale_step[i] > REG_BR_PROB_BASE)
-	  abort ();
-      if (scale_main < 0 || scale_main > REG_BR_PROB_BASE
-	  || scale_act < 0  || scale_act > REG_BR_PROB_BASE)
-	abort ();
+	gcc_assert (scale_step[i] >= 0 && scale_step[i] <= REG_BR_PROB_BASE);
+      gcc_assert (scale_main >= 0 && scale_main <= REG_BR_PROB_BASE
+		  && scale_act >= 0  && scale_act <= REG_BR_PROB_BASE);
     }
 
   /* Loop the new bbs will belong to.  */
@@ -977,6 +978,10 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
       first_active_latch = latch;
     }
 
+  /* Update the information about single exits.  */
+  if (loops->state & LOOPS_HAVE_MARKED_SINGLE_EXITS)
+    update_single_exits_after_duplication (bbs, n, target);
+
   /* Record exit edge in original loop body.  */
   if (orig && TEST_BIT (wont_exit, 0))
     to_remove[(*n_to_remove)++] = orig;
@@ -990,7 +995,10 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
       copy_loops_to (loops, orig_loops, n_orig_loops, target);
 
       /* Copy bbs.  */
-      copy_bbs (bbs, n, new_bbs, spec_edges, 2, new_spec_edges, loop, loops);
+      copy_bbs (bbs, n, new_bbs, spec_edges, 2, new_spec_edges, loop);
+
+      for (i = 0; i < n; i++)
+	new_bbs[i]->rbi->copy_number = j + 1;
 
       /* Note whether the blocks and edges belong to an irreducible loop.  */
       if (add_irreducible_flag)
@@ -999,11 +1007,12 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
 	    new_bbs[i]->rbi->duplicated = 1;
 	  for (i = 0; i < n; i++)
 	    {
+	      edge_iterator ei;
 	      new_bb = new_bbs[i];
 	      if (new_bb->loop_father == target)
 		new_bb->flags |= BB_IRREDUCIBLE_LOOP;
 
-	      for (ae = new_bb->succ; ae; ae = ae->succ_next)
+	      FOR_EACH_EDGE (ae, ei, new_bb->succs)
 		if (ae->dest->rbi->duplicated
 		    && (ae->src->loop_father == target
 			|| ae->dest->loop_father == target))
@@ -1019,7 +1028,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
 	  redirect_edge_and_branch_force (latch_edge, new_bbs[0]);
 	  redirect_edge_and_branch_force (new_spec_edges[SE_LATCH],
 					  loop->header);
-	  set_immediate_dominator (loops->cfg.dom, new_bbs[0], latch);
+	  set_immediate_dominator (CDI_DOMINATORS, new_bbs[0], latch);
 	  latch = loop->latch = new_bbs[1];
 	  e = latch_edge = new_spec_edges[SE_LATCH];
 	}
@@ -1028,7 +1037,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
 	  redirect_edge_and_branch_force (new_spec_edges[SE_LATCH],
 					  loop->header);
 	  redirect_edge_and_branch_force (e, new_bbs[0]);
-	  set_immediate_dominator (loops->cfg.dom, new_bbs[0], e->src);
+	  set_immediate_dominator (CDI_DOMINATORS, new_bbs[0], e->src);
 	  e = new_spec_edges[SE_LATCH];
 	}
 
@@ -1056,7 +1065,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
   
   /* Update the original loop.  */
   if (!is_latch)
-    set_immediate_dominator (loops->cfg.dom, e->dest, e->src);
+    set_immediate_dominator (CDI_DOMINATORS, e->dest, e->src);
   if (flags & DLTHE_FLAG_UPDATE_FREQ)
     {
       scale_bbs_frequencies (bbs, n, scale_main, REG_BR_PROB_BASE);
@@ -1070,15 +1079,17 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
       int n_dom_bbs,j;
 
       bb = bbs[i];
-      n_dom_bbs = get_dominated_by (loops->cfg.dom, bb, &dom_bbs);
+      bb->rbi->copy_number = 0;
+
+      n_dom_bbs = get_dominated_by (CDI_DOMINATORS, bb, &dom_bbs);
       for (j = 0; j < n_dom_bbs; j++)
 	{
 	  dominated = dom_bbs[j];
 	  if (flow_bb_inside_loop_p (loop, dominated))
 	    continue;
 	  dom_bb = nearest_common_dominator (
-			loops->cfg.dom, first_active[i], first_active_latch);
-          set_immediate_dominator (loops->cfg.dom, dominated, dom_bb);
+			CDI_DOMINATORS, first_active[i], first_active_latch);
+          set_immediate_dominator (CDI_DOMINATORS, dominated, dom_bb);
 	}
       free (dom_bbs);
     }
@@ -1089,49 +1100,70 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
   return true;
 }
 
+/* A callback for make_forwarder block, to redirect all edges except for
+   MFB_KJ_EDGE to the entry part.  E is the edge for that we should decide
+   whether to redirect it.  */
+
+static edge mfb_kj_edge;
+static bool
+mfb_keep_just (edge e)
+{
+  return e != mfb_kj_edge;
+}
+
+/* A callback for make_forwarder block, to update data structures for a basic
+   block JUMP created by redirecting an edge (only the latch edge is being
+   redirected).  */
+
+static void
+mfb_update_loops (basic_block jump)
+{
+  struct loop *loop = EDGE_SUCC (jump, 0)->dest->loop_father;
+
+  if (dom_computed[CDI_DOMINATORS])
+    set_immediate_dominator (CDI_DOMINATORS, jump, EDGE_PRED (jump, 0)->src);
+  add_bb_to_loop (jump, loop);
+  loop->latch = jump;
+}
+
 /* Creates a pre-header for a LOOP.  Returns newly created block.  Unless
    CP_SIMPLE_PREHEADERS is set in FLAGS, we only force LOOP to have single
    entry; otherwise we also force preheader block to have only one successor.
-   The function also updates dominators stored in DOM.  */
+   The function also updates dominators.  */
+
 static basic_block
-create_preheader (struct loop *loop, dominance_info dom, int flags)
+create_preheader (struct loop *loop, int flags)
 {
   edge e, fallthru;
   basic_block dummy;
-  basic_block jump, src = 0;
   struct loop *cloop, *ploop;
   int nentry = 0;
-  rtx insn;
+  bool irred = false;
+  edge_iterator ei;
 
   cloop = loop->outer;
 
-  for (e = loop->header->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, ei, loop->header->preds)
     {
       if (e->src == loop->latch)
 	continue;
+      irred |= (e->flags & EDGE_IRREDUCIBLE_LOOP) != 0;
       nentry++;
     }
-  if (!nentry)
-    abort ();
+  gcc_assert (nentry);
   if (nentry == 1)
     {
-      for (e = loop->header->pred; e->src == loop->latch; e = e->pred_next);
-      if (!(flags & CP_SIMPLE_PREHEADERS)
-	  || !e->src->succ->succ_next)
+      FOR_EACH_EDGE (e, ei, loop->header->preds)
+	if (e->src != loop->latch)
+	  break;
+
+      if (!(flags & CP_SIMPLE_PREHEADERS) || EDGE_COUNT (e->src->succs) == 1)
 	return NULL;
     }
 
-  insn = first_insn_after_basic_block_note (loop->header);
-  if (insn)
-    insn = PREV_INSN (insn);
-  else
-    insn = get_last_insn ();
-  if (insn == loop->header->end)
-    {
-      /* Split_block would not split block after its end.  */
-      emit_note_after (NOTE_INSN_DELETED, insn);
-    }
-  fallthru = split_block (loop->header, insn);
+  mfb_kj_edge = loop_latch_edge (loop);
+  fallthru = make_forwarder_block (loop->header, mfb_keep_just,
+				   mfb_update_loops);
   dummy = fallthru->src;
   loop->header = fallthru->dest;
 
@@ -1141,37 +1173,24 @@ create_preheader (struct loop *loop, dominance_info dom, int flags)
     if (ploop->latch == dummy)
       ploop->latch = fallthru->dest;
 
-  add_to_dominance_info (dom, fallthru->dest);
+  /* Reorganize blocks so that the preheader is not stuck in the middle of the
+     loop.  */
+  FOR_EACH_EDGE (e, ei, dummy->preds)
+    if (e->src != loop->latch)
+      break;
+  move_block_after (dummy, e->src);
 
-  /* Redirect edges.  */
-  for (e = dummy->pred; e; e = e->pred_next)
-    {
-      src = e->src;
-      if (src == loop->latch)
-	break;
-    }
-  if (!e)
-    abort ();
-
-  dummy->frequency -= EDGE_FREQUENCY (e);
-  dummy->count -= e->count;
-  fallthru->count -= e->count;
-  jump = redirect_edge_and_branch_force (e, loop->header);
-  if (jump)
-    {
-      add_to_dominance_info (dom, jump);
-      set_immediate_dominator (dom, jump, src);
-      add_bb_to_loop (jump, loop);
-      loop->latch = jump;
-    }
-
-  /* Update structures.  */
-  redirect_immediate_dominators (dom, dummy, loop->header);
-  set_immediate_dominator (dom, loop->header, dummy);
   loop->header->loop_father = loop;
   add_bb_to_loop (dummy, cloop);
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Created preheader block for loop %i\n",
+
+  if (irred)
+    {
+      dummy->flags |= BB_IRREDUCIBLE_LOOP;
+      EDGE_SUCC (dummy, 0)->flags |= EDGE_IRREDUCIBLE_LOOP;
+    }
+
+  if (dump_file)
+    fprintf (dump_file, "Created preheader block for loop %i\n",
 	     loop->num);
 
   return dummy;
@@ -1184,7 +1203,7 @@ create_preheaders (struct loops *loops, int flags)
 {
   unsigned i;
   for (i = 1; i < loops->num; i++)
-    create_preheader (loops->parray[i], loops->cfg.dom, flags);
+    create_preheader (loops->parray[i], flags);
   loops->state |= LOOPS_HAVE_PREHEADERS;
 }
 
@@ -1199,15 +1218,16 @@ force_single_succ_latches (struct loops *loops)
 
   for (i = 1; i < loops->num; i++)
     {
+      edge_iterator ei;
       loop = loops->parray[i];
-      if (loop->latch != loop->header
-	  && !loop->latch->succ->succ_next)
+      if (loop->latch != loop->header && EDGE_COUNT (loop->latch->succs) == 1)
 	continue;
 
-      for (e = loop->header->pred; e->src != loop->latch; e = e->pred_next)
-	continue;
+      FOR_EACH_EDGE (e, ei, loop->header->preds)
+	if (e->src == loop->latch)
+	  break;
 
-      loop_split_edge_with (e, NULL_RTX, loops);
+      loop_split_edge_with (e, NULL_RTX);
     }
   loops->state |= LOOPS_HAVE_SIMPLE_LATCHES;
 }
@@ -1217,11 +1237,10 @@ force_single_succ_latches (struct loops *loops)
    be ok after this function.  The created block is placed on correct place
    in LOOPS structure and its dominator is set.  */
 basic_block
-loop_split_edge_with (edge e, rtx insns, struct loops *loops)
+loop_split_edge_with (edge e, rtx insns)
 {
   basic_block src, dest, new_bb;
   struct loop *loop_c;
-  edge new_e;
 
   src = e->src;
   dest = e->dest;
@@ -1231,26 +1250,108 @@ loop_split_edge_with (edge e, rtx insns, struct loops *loops)
   /* Create basic block for it.  */
 
   new_bb = split_edge (e);
-  add_to_dominance_info (loops->cfg.dom, new_bb);
   add_bb_to_loop (new_bb, loop_c);
-  new_bb->flags = insns ? BB_SUPERBLOCK : 0;
-
-  new_e = new_bb->succ;
-  if (e->flags & EDGE_IRREDUCIBLE_LOOP)
-    {
-      new_bb->flags |= BB_IRREDUCIBLE_LOOP;
-      new_e->flags |= EDGE_IRREDUCIBLE_LOOP;
-    }
+  new_bb->flags |= (insns ? BB_SUPERBLOCK : 0);
 
   if (insns)
-    emit_insn_after (insns, new_bb->end);
-
-  set_immediate_dominator (loops->cfg.dom, new_bb, src);
-  set_immediate_dominator (loops->cfg.dom, dest,
-    recount_dominator (loops->cfg.dom, dest));
+    emit_insn_after (insns, BB_END (new_bb));
 
   if (dest->loop_father->latch == src)
     dest->loop_father->latch = new_bb;
 
   return new_bb;
+}
+
+/* Uses the natural loop discovery to recreate loop notes.  */
+void
+create_loop_notes (void)
+{
+  rtx insn, head, end;
+  struct loops loops;
+  struct loop *loop;
+  basic_block *first, *last, bb, pbb;
+  struct loop **stack, **top;
+
+#ifdef ENABLE_CHECKING
+  /* Verify that there really are no loop notes.  */
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    gcc_assert (!NOTE_P (insn) ||
+		NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_BEG);
+#endif
+
+  flow_loops_find (&loops, LOOP_TREE);
+  free_dominance_info (CDI_DOMINATORS);
+  if (loops.num > 1)
+    {
+      last = xcalloc (loops.num, sizeof (basic_block));
+
+      FOR_EACH_BB (bb)
+	{
+	  for (loop = bb->loop_father; loop->outer; loop = loop->outer)
+	    last[loop->num] = bb;
+	}
+
+      first = xcalloc (loops.num, sizeof (basic_block));
+      stack = xcalloc (loops.num, sizeof (struct loop *));
+      top = stack;
+
+      FOR_EACH_BB (bb)
+	{
+	  for (loop = bb->loop_father; loop->outer; loop = loop->outer)
+	    {
+	      if (!first[loop->num])
+		{
+		  *top++ = loop;
+		  first[loop->num] = bb;
+		}
+
+	      if (bb == last[loop->num])
+		{
+		  /* Prevent loops from overlapping.  */
+		  while (*--top != loop)
+		    last[(*top)->num] = EXIT_BLOCK_PTR;
+
+		  /* If loop starts with jump into it, place the note in
+		     front of the jump.  */
+		  insn = PREV_INSN (BB_HEAD (first[loop->num]));
+		  if (insn
+		      && BARRIER_P (insn))
+		    insn = PREV_INSN (insn);
+		  
+		  if (insn
+		      && JUMP_P (insn)
+		      && any_uncondjump_p (insn)
+		      && onlyjump_p (insn))
+		    {
+		      pbb = BLOCK_FOR_INSN (insn);
+		      gcc_assert (pbb && EDGE_COUNT (pbb->succs) == 1);
+
+		      if (!flow_bb_inside_loop_p (loop, EDGE_SUCC (pbb, 0)->dest))
+			insn = BB_HEAD (first[loop->num]);
+		    }
+		  else
+		    insn = BB_HEAD (first[loop->num]);
+		    
+		  head = BB_HEAD (first[loop->num]);
+		  emit_note_before (NOTE_INSN_LOOP_BEG, insn);
+		  BB_HEAD (first[loop->num]) = head;
+
+		  /* Position the note correctly wrto barrier.  */
+		  insn = BB_END (last[loop->num]);
+		  if (NEXT_INSN (insn)
+		      && BARRIER_P (NEXT_INSN (insn)))
+		    insn = NEXT_INSN (insn);
+		  
+		  end = BB_END (last[loop->num]);
+		  emit_note_after (NOTE_INSN_LOOP_END, insn);
+		  BB_END (last[loop->num]) = end;
+		}
+	    }
+	}
+
+      free (first);
+      free (last);
+      free (stack);
+    }
+  flow_loops_free (&loops);
 }

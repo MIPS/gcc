@@ -1,6 +1,6 @@
 /* Generate code from machine description to recognize rtl as insns.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -58,7 +58,6 @@
 #include "errors.h"
 #include "gensupport.h"
 
-
 #define OUTPUT_LABEL(INDENT_STRING, LABEL_NUMBER) \
   printf("%sL%d: ATTRIBUTE_UNUSED_LABEL\n", (INDENT_STRING), (LABEL_NUMBER))
 
@@ -90,6 +89,7 @@ struct decision_test
     {
       DT_mode, DT_code, DT_veclen,
       DT_elt_zero_int, DT_elt_one_int, DT_elt_zero_wide, DT_elt_zero_wide_safe,
+      DT_const_int,
       DT_veclen_ge, DT_dup, DT_pred, DT_c_test,
       DT_accept_op, DT_accept_insn
     } type;
@@ -102,7 +102,8 @@ struct decision_test
     struct
     {
       const char *name;		/* Predicate to call.  */
-      int index;		/* Index into `preds' or -1.  */
+      const struct pred_data *data;
+                                /* Optimization hints for this predicate.  */
       enum machine_mode mode;	/* Machine mode for node.  */
     } pred;
 
@@ -161,11 +162,6 @@ static int next_number;
 
 static int next_insn_code;
 
-/* Similar, but counts all expressions in the MD file; used for
-   error messages.  */
-
-static int next_index;
-
 /* Record the highest depth we ever have so we know how many variables to
    allocate in each subroutine we make.  */
 
@@ -177,61 +173,219 @@ static int pattern_lineno;
 /* Count of errors.  */
 static int error_count;
 
-/* This table contains a list of the rtl codes that can possibly match a
-   predicate defined in recog.c.  The function `maybe_both_true' uses it to
-   deduce that there are no expressions that can be matches by certain pairs
-   of tree nodes.  Also, if a predicate can match only one code, we can
-   hardwire that code into the node testing the predicate.  */
+/* Predicate handling. 
 
-static const struct pred_table
+   We construct from the machine description a table mapping each
+   predicate to a list of the rtl codes it can possibly match.  The
+   function 'maybe_both_true' uses it to deduce that there are no
+   expressions that can be matches by certain pairs of tree nodes.
+   Also, if a predicate can match only one code, we can hardwire that
+   code into the node testing the predicate.
+
+   Some predicates are flagged as special.  validate_pattern will not
+   warn about modeless match_operand expressions if they have a
+   special predicate.  Predicates that allow only constants are also
+   treated as special, for this purpose.
+
+   validate_pattern will warn about predicates that allow non-lvalues
+   when they appear in destination operands.
+
+   Calculating the set of rtx codes that can possibly be accepted by a
+   predicate expression EXP requires a three-state logic: any given
+   subexpression may definitively accept a code C (Y), definitively
+   reject a code C (N), or may have an indeterminate effect (I).  N
+   and I is N; Y or I is Y; Y and I, N or I are both I.  Here are full
+   truth tables.
+
+     a b  a&b  a|b
+     Y Y   Y    Y
+     N Y   N    Y
+     N N   N    N
+     I Y   I    Y
+     I N   N    I
+     I I   I    I
+
+   We represent Y with 1, N with 0, I with 2.  If any code is left in
+   an I state by the complete expression, we must assume that that
+   code can be accepted.  */
+
+#define N 0
+#define Y 1
+#define I 2
+
+#define TRISTATE_AND(a,b)			\
+  ((a) == I ? ((b) == N ? N : I) :		\
+   (b) == I ? ((a) == N ? N : I) :		\
+   (a) && (b))
+
+#define TRISTATE_OR(a,b)			\
+  ((a) == I ? ((b) == Y ? Y : I) :		\
+   (b) == I ? ((a) == Y ? Y : I) :		\
+   (a) || (b))
+
+#define TRISTATE_NOT(a)				\
+  ((a) == I ? I : !(a))
+
+/* Recursively calculate the set of rtx codes accepted by the
+   predicate expression EXP, writing the result to CODES.  */
+static void
+compute_predicate_codes (rtx exp, char codes[NUM_RTX_CODE])
 {
-  const char *const name;
-  const RTX_CODE codes[NUM_RTX_CODE];
-} preds[] = {
-  {"general_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
-		       LABEL_REF, SUBREG, REG, MEM, ADDRESSOF}},
-#ifdef PREDICATE_CODES
-  PREDICATE_CODES
-#endif
-  {"address_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
-		       LABEL_REF, SUBREG, REG, MEM, ADDRESSOF,
-		       PLUS, MINUS, MULT}},
-  {"register_operand", {SUBREG, REG, ADDRESSOF}},
-  {"pmode_register_operand", {SUBREG, REG, ADDRESSOF}},
-  {"scratch_operand", {SCRATCH, REG}},
-  {"immediate_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
-			 LABEL_REF}},
-  {"const_int_operand", {CONST_INT}},
-  {"const_double_operand", {CONST_INT, CONST_DOUBLE}},
-  {"nonimmediate_operand", {SUBREG, REG, MEM, ADDRESSOF}},
-  {"nonmemory_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
-			 LABEL_REF, SUBREG, REG, ADDRESSOF}},
-  {"push_operand", {MEM}},
-  {"pop_operand", {MEM}},
-  {"memory_operand", {SUBREG, MEM}},
-  {"indirect_operand", {SUBREG, MEM}},
-  {"comparison_operator", {EQ, NE, LE, LT, GE, GT, LEU, LTU, GEU, GTU,
-			   UNORDERED, ORDERED, UNEQ, UNGE, UNGT, UNLE,
-			   UNLT, LTGT}}
-};
+  char op0_codes[NUM_RTX_CODE];
+  char op1_codes[NUM_RTX_CODE];
+  char op2_codes[NUM_RTX_CODE];
+  int i;
 
-#define NUM_KNOWN_PREDS ARRAY_SIZE (preds)
+  switch (GET_CODE (exp))
+    {
+    case AND:
+      compute_predicate_codes (XEXP (exp, 0), op0_codes);
+      compute_predicate_codes (XEXP (exp, 1), op1_codes);
+      for (i = 0; i < NUM_RTX_CODE; i++)
+	codes[i] = TRISTATE_AND (op0_codes[i], op1_codes[i]);
+      break;
 
-static const char *const special_mode_pred_table[] = {
-#ifdef SPECIAL_MODE_PREDICATES
-  SPECIAL_MODE_PREDICATES
-#endif
-  "pmode_register_operand"
-};
+    case IOR:
+      compute_predicate_codes (XEXP (exp, 0), op0_codes);
+      compute_predicate_codes (XEXP (exp, 1), op1_codes);
+      for (i = 0; i < NUM_RTX_CODE; i++)
+	codes[i] = TRISTATE_OR (op0_codes[i], op1_codes[i]);
+      break;
+    case NOT:
+      compute_predicate_codes (XEXP (exp, 0), op0_codes);
+      for (i = 0; i < NUM_RTX_CODE; i++)
+	codes[i] = TRISTATE_NOT (op0_codes[i]);
+      break;
 
-#define NUM_SPECIAL_MODE_PREDS ARRAY_SIZE (special_mode_pred_table)
+    case IF_THEN_ELSE:
+      /* a ? b : c  accepts the same codes as (a & b) | (!a & c).  */ 
+      compute_predicate_codes (XEXP (exp, 0), op0_codes);
+      compute_predicate_codes (XEXP (exp, 1), op1_codes);
+      compute_predicate_codes (XEXP (exp, 2), op2_codes);
+      for (i = 0; i < NUM_RTX_CODE; i++)
+	codes[i] = TRISTATE_OR (TRISTATE_AND (op0_codes[i], op1_codes[i]),
+				TRISTATE_AND (TRISTATE_NOT (op0_codes[i]),
+					      op2_codes[i]));
+      break;
 
+    case MATCH_CODE:
+      /* MATCH_CODE allows a specified list of codes.  */
+      memset (codes, N, NUM_RTX_CODE);
+      {
+	const char *next_code = XSTR (exp, 0);
+	const char *code;
+
+	if (*next_code == '\0')
+	  {
+	    message_with_line (pattern_lineno, "empty match_code expression");
+	    error_count++;
+	    break;
+	  }
+
+	while ((code = scan_comma_elt (&next_code)) != 0)
+	  {
+	    size_t n = next_code - code;
+	    
+	    for (i = 0; i < NUM_RTX_CODE; i++)
+	      if (!strncmp (code, GET_RTX_NAME (i), n)
+		  && GET_RTX_NAME (i)[n] == '\0')
+		{
+		  codes[i] = Y;
+		  break;
+		}
+	  }
+      }
+      break;
+
+    case MATCH_OPERAND:
+      /* MATCH_OPERAND disallows the set of codes that the named predicate
+	 disallows, and is indeterminate for the codes that it does allow.  */
+      {
+	struct pred_data *p = lookup_predicate (XSTR (exp, 1));
+	if (!p)
+	  {
+	    message_with_line (pattern_lineno,
+			       "reference to unknown predicate '%s'",
+			       XSTR (exp, 1));
+	    error_count++;
+	    break;
+	  }
+	for (i = 0; i < NUM_RTX_CODE; i++)
+	  codes[i] = p->codes[i] ? I : N;
+      }
+      break;
+
+
+    case MATCH_TEST:
+      /* (match_test WHATEVER) is completely indeterminate.  */
+      memset (codes, I, NUM_RTX_CODE);
+      break;
+
+    default:
+      message_with_line (pattern_lineno,
+	 "'%s' cannot be used in a define_predicate expression",
+	 GET_RTX_NAME (GET_CODE (exp)));
+      error_count++;
+      memset (codes, I, NUM_RTX_CODE);
+      break;
+    }
+}
+
+#undef TRISTATE_OR
+#undef TRISTATE_AND
+#undef TRISTATE_NOT
+
+/* Process a define_predicate expression: compute the set of predicates
+   that can be matched, and record this as a known predicate.  */
+static void
+process_define_predicate (rtx desc)
+{
+  struct pred_data *pred = xcalloc (sizeof (struct pred_data), 1);
+  char codes[NUM_RTX_CODE];
+  bool seen_one = false;
+  int i;
+
+  pred->name = XSTR (desc, 0);
+  if (GET_CODE (desc) == DEFINE_SPECIAL_PREDICATE)
+    pred->special = 1;
+
+  compute_predicate_codes (XEXP (desc, 1), codes);
+
+  for (i = 0; i < NUM_RTX_CODE; i++)
+    if (codes[i] != N)
+      {
+	pred->codes[i] = true;
+	if (GET_RTX_CLASS (i) != RTX_CONST_OBJ)
+	  pred->allows_non_const = true;
+	if (i != REG
+	    && i != SUBREG
+	    && i != MEM
+	    && i != CONCAT
+	    && i != PARALLEL
+	    && i != STRICT_LOW_PART)
+	  pred->allows_non_lvalue = true;
+
+	if (seen_one)
+	  pred->singleton = UNKNOWN;
+	else
+	  {
+	    pred->singleton = i;
+	    seen_one = true;
+	  }
+      }
+  add_predicate (pred);
+}
+#undef I
+#undef N
+#undef Y
+
+
 static struct decision *new_decision
   (const char *, struct decision_head *);
 static struct decision_test *new_decision_test
   (enum decision_type, struct decision_test ***);
 static rtx find_operand
-  (rtx, int);
+  (rtx, int, rtx);
 static rtx find_matching_operand
   (rtx, int);
 static void validate_pattern
@@ -345,19 +499,21 @@ new_decision_test (enum decision_type type, struct decision_test ***pplace)
   return test;
 }
 
-/* Search for and return operand N.  */
+/* Search for and return operand N, stop when reaching node STOP.  */
 
 static rtx
-find_operand (rtx pattern, int n)
+find_operand (rtx pattern, int n, rtx stop)
 {
   const char *fmt;
   RTX_CODE code;
   int i, j, len;
   rtx r;
 
+  if (pattern == stop)
+    return stop;
+
   code = GET_CODE (pattern);
   if ((code == MATCH_SCRATCH
-       || code == MATCH_INSN
        || code == MATCH_OPERAND
        || code == MATCH_OPERATOR
        || code == MATCH_PARALLEL)
@@ -371,18 +527,19 @@ find_operand (rtx pattern, int n)
       switch (fmt[i])
 	{
 	case 'e': case 'u':
-	  if ((r = find_operand (XEXP (pattern, i), n)) != NULL_RTX)
+	  if ((r = find_operand (XEXP (pattern, i), n, stop)) != NULL_RTX)
 	    return r;
 	  break;
 
 	case 'V':
 	  if (! XVEC (pattern, i))
 	    break;
-	  /* FALLTHRU */
+	  /* Fall through.  */
 
 	case 'E':
 	  for (j = 0; j < XVECLEN (pattern, i); j++)
-	    if ((r = find_operand (XVECEXP (pattern, i, j), n)) != NULL_RTX)
+	    if ((r = find_operand (XVECEXP (pattern, i, j), n, stop))
+		!= NULL_RTX)
 	      return r;
 	  break;
 
@@ -390,7 +547,7 @@ find_operand (rtx pattern, int n)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -429,7 +586,7 @@ find_matching_operand (rtx pattern, int n)
 	case 'V':
 	  if (! XVEC (pattern, i))
 	    break;
-	  /* FALLTHRU */
+	  /* Fall through.  */
 
 	case 'E':
 	  for (j = 0; j < XVECLEN (pattern, i); j++)
@@ -441,7 +598,7 @@ find_matching_operand (rtx pattern, int n)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -466,14 +623,22 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
     {
     case MATCH_SCRATCH:
       return;
-
-    case MATCH_INSN:
+    case MATCH_DUP:
+    case MATCH_OP_DUP:
+    case MATCH_PAR_DUP:
+      if (find_operand (insn, XINT (pattern, 0), pattern) == pattern)
+	{
+	  message_with_line (pattern_lineno,
+			     "operand %i duplicated before defined",
+			     XINT (pattern, 0));
+          error_count++;
+	}
+      break;
     case MATCH_OPERAND:
     case MATCH_OPERATOR:
       {
 	const char *pred_name = XSTR (pattern, 1);
-	int allows_non_lvalue = 1, allows_non_const = 1;
-	int special_mode_pred = 0;
+	const struct pred_data *pred;
 	const char *c_test;
 
 	if (GET_CODE (insn) == DEFINE_INSN)
@@ -483,55 +648,14 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
 
 	if (pred_name[0] != 0)
 	  {
-	    for (i = 0; i < NUM_KNOWN_PREDS; i++)
-	      if (! strcmp (preds[i].name, pred_name))
-		break;
-
-	    if (i < NUM_KNOWN_PREDS)
-	      {
-		int j;
-
-		allows_non_lvalue = allows_non_const = 0;
-		for (j = 0; preds[i].codes[j] != 0; j++)
-		  {
-		    RTX_CODE c = preds[i].codes[j];
-		    if (c != LABEL_REF
-			&& c != SYMBOL_REF
-			&& c != CONST_INT
-			&& c != CONST_DOUBLE
-			&& c != CONST
-			&& c != HIGH
-			&& c != CONSTANT_P_RTX)
-		      allows_non_const = 1;
-
-		    if (c != REG
-			&& c != SUBREG
-			&& c != MEM
-			&& c != ADDRESSOF
-			&& c != CONCAT
-			&& c != PARALLEL
-			&& c != STRICT_LOW_PART)
-		      allows_non_lvalue = 1;
-		  }
-	      }
-	    else
-	      {
-#ifdef PREDICATE_CODES
-		/* If the port has a list of the predicates it uses but
-		   omits one, warn.  */
-		message_with_line (pattern_lineno,
-				   "warning: `%s' not in PREDICATE_CODES",
-				   pred_name);
-#endif
-	      }
-
-	    for (i = 0; i < NUM_SPECIAL_MODE_PREDS; ++i)
-	      if (strcmp (pred_name, special_mode_pred_table[i]) == 0)
-		{
-		  special_mode_pred = 1;
-		  break;
-		}
+	    pred = lookup_predicate (pred_name);
+	    if (!pred)
+	      message_with_line (pattern_lineno,
+				 "warning: unknown predicate '%s'",
+				 pred_name);
 	  }
+	else
+	  pred = 0;
 
 	if (code == MATCH_OPERAND)
 	  {
@@ -584,39 +708,33 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
 	/* Allowing non-lvalues in destinations -- particularly CONST_INT --
 	   while not likely to occur at runtime, results in less efficient
 	   code from insn-recog.c.  */
-	if (set
-	    && pred_name[0] != '\0'
-	    && allows_non_lvalue)
-	  {
-	    message_with_line (pattern_lineno,
-			"warning: destination operand %d allows non-lvalue",
-			XINT (pattern, 0));
-	  }
+	if (set && pred && pred->allows_non_lvalue)
+	  message_with_line (pattern_lineno,
+			     "warning: destination operand %d "
+			     "allows non-lvalue",
+			     XINT (pattern, 0));
 
-	/* A modeless MATCH_OPERAND can be handy when we can
-	   check for multiple modes in the c_test.  In most other cases,
-	   it is a mistake.  Only DEFINE_INSN is eligible, since SPLIT
-	   and PEEP2 can FAIL within the output pattern.  Exclude
-	   address_operand, since its mode is related to the mode of
-	   the memory not the operand.  Exclude the SET_DEST of a call
-	   instruction, as that is a common idiom.  */
+	/* A modeless MATCH_OPERAND can be handy when we can check for
+	   multiple modes in the c_test.  In most other cases, it is a
+	   mistake.  Only DEFINE_INSN is eligible, since SPLIT and
+	   PEEP2 can FAIL within the output pattern.  Exclude special
+	   predicates, which check the mode themselves.  Also exclude
+	   predicates that allow only constants.  Exclude the SET_DEST
+	   of a call instruction, as that is a common idiom.  */
 
 	if (GET_MODE (pattern) == VOIDmode
 	    && code == MATCH_OPERAND
 	    && GET_CODE (insn) == DEFINE_INSN
-	    && allows_non_const
-	    && ! special_mode_pred
-	    && pred_name[0] != '\0'
-	    && strcmp (pred_name, "address_operand") != 0
+	    && pred
+	    && !pred->special
+	    && pred->allows_non_const
 	    && strstr (c_test, "operands") == NULL
 	    && ! (set
 		  && GET_CODE (set) == SET
 		  && GET_CODE (SET_SRC (set)) == CALL))
-	  {
-	    message_with_line (pattern_lineno,
-			       "warning: operand %d missing mode?",
-			       XINT (pattern, 0));
-	  }
+	  message_with_line (pattern_lineno,
+			     "warning: operand %d missing mode?",
+			     XINT (pattern, 0));
 	return;
       }
 
@@ -633,17 +751,17 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
 	if (GET_CODE (dest) == STRICT_LOW_PART)
 	  dest = XEXP (dest, 0);
 
-	/* Find the referant for a DUP.  */
+	/* Find the referent for a DUP.  */
 
 	if (GET_CODE (dest) == MATCH_DUP
 	    || GET_CODE (dest) == MATCH_OP_DUP
 	    || GET_CODE (dest) == MATCH_PAR_DUP)
-	  dest = find_operand (insn, XINT (dest, 0));
+	  dest = find_operand (insn, XINT (dest, 0), NULL);
 
 	if (GET_CODE (src) == MATCH_DUP
 	    || GET_CODE (src) == MATCH_OP_DUP
 	    || GET_CODE (src) == MATCH_PAR_DUP)
-	  src = find_operand (insn, XINT (src, 0));
+	  src = find_operand (insn, XINT (src, 0), NULL);
 
 	dmode = GET_MODE (dest);
 	smode = GET_MODE (src);
@@ -733,7 +851,7 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 }
@@ -812,16 +930,15 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
 	 beyond the end of the vector.  */
       test = new_decision_test (DT_veclen_ge, &place);
       test->u.veclen = XVECLEN (pattern, 2);
-      /* FALLTHRU */
+      /* Fall through.  */
 
     case MATCH_OPERAND:
     case MATCH_SCRATCH:
     case MATCH_OPERATOR:
-    case MATCH_INSN:
       {
-	const char *pred_name;
 	RTX_CODE was_code = code;
-	int allows_const_int = 1;
+	const char *pred_name;
+	bool allows_const_int = true;
 
 	if (code == MATCH_SCRATCH)
 	  {
@@ -839,51 +956,43 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
 
 	if (pred_name[0] != 0)
 	  {
+	    const struct pred_data *pred;
+
 	    test = new_decision_test (DT_pred, &place);
 	    test->u.pred.name = pred_name;
 	    test->u.pred.mode = mode;
 
-	    /* See if we know about this predicate and save its number.
-	       If we do, and it only accepts one code, note that fact.
+	    /* See if we know about this predicate.
+	       If we do, remember it for use below.
 
-	       If we know that the predicate does not allow CONST_INT,
-	       we know that the only way the predicate can match is if
-	       the modes match (here we use the kludge of relying on the
-	       fact that "address_operand" accepts CONST_INT; otherwise,
-	       it would have to be a special case), so we can test the
-	       mode (but we need not).  This fact should considerably
-	       simplify the generated code.  */
-
-	    for (i = 0; i < NUM_KNOWN_PREDS; i++)
-	      if (! strcmp (preds[i].name, pred_name))
-		break;
-
-	    if (i < NUM_KNOWN_PREDS)
+	       We can optimize the generated code a little if either
+	       (a) the predicate only accepts one code, or (b) the
+	       predicate does not allow CONST_INT, in which case it
+	       can match only if the modes match.  */
+	    pred = lookup_predicate (pred_name);
+	    if (pred)
 	      {
-		int j;
-
-		test->u.pred.index = i;
-
-		if (preds[i].codes[1] == 0 && code == UNKNOWN)
-		  code = preds[i].codes[0];
-
-		allows_const_int = 0;
-		for (j = 0; preds[i].codes[j] != 0; j++)
-		  if (preds[i].codes[j] == CONST_INT)
-		    {
-		      allows_const_int = 1;
-		      break;
-		    }
+		test->u.pred.data = pred;
+		allows_const_int = pred->codes[CONST_INT];
+		if (was_code == MATCH_PARALLEL
+		    && pred->singleton != PARALLEL)
+		  message_with_line (pattern_lineno,
+			"predicate '%s' used in match_parallel "
+			"does not allow only PARALLEL", pred->name);
+		else
+		  code = pred->singleton;
 	      }
 	    else
-	      test->u.pred.index = -1;
+	      message_with_line (pattern_lineno,
+			"warning: unknown predicate '%s' in '%s' expression",
+			pred_name, GET_RTX_NAME (was_code));
 	  }
 
 	/* Can't enforce a mode if we allow const_int.  */
 	if (allows_const_int)
 	  mode = VOIDmode;
 
-	/* Accept the operand, ie. record it in `operands'.  */
+	/* Accept the operand, i.e. record it in `operands'.  */
 	test = new_decision_test (DT_accept_op, &place);
 	test->u.opno = XINT (pattern, 0);
 
@@ -941,18 +1050,18 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
     {
       if (fmt[i] == 'i')
 	{
-	  if (i == 0)
+	  gcc_assert (i < 2);
+	  
+	  if (!i)
 	    {
 	      test = new_decision_test (DT_elt_zero_int, &place);
 	      test->u.intval = XINT (pattern, i);
 	    }
-	  else if (i == 1)
+	  else
 	    {
 	      test = new_decision_test (DT_elt_one_int, &place);
 	      test->u.intval = XINT (pattern, i);
 	    }
-	  else
-	    abort ();
 	}
       else if (fmt[i] == 'w')
 	{
@@ -962,16 +1071,14 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
 	    = ((int) XWINT (pattern, i) == XWINT (pattern, i))
 	      ? DT_elt_zero_wide_safe : DT_elt_zero_wide;
 
-	  if (i != 0)
-	    abort ();
+	  gcc_assert (!i);
 
 	  test = new_decision_test (type, &place);
 	  test->u.intval = XWINT (pattern, i);
 	}
       else if (fmt[i] == 'E')
 	{
-	  if (i != 0)
-	    abort ();
+	  gcc_assert (!i);
 
 	  test = new_decision_test (DT_veclen, &place);
 	  test->u.veclen = XVECLEN (pattern, i);
@@ -1008,7 +1115,7 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -1030,8 +1137,7 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
     }
 
   /* If we didn't insert any tests or accept nodes, hork.  */
-  if (this->tests == NULL)
-    abort ();
+  gcc_assert (this->tests);
 
  ret:
   free (subpos);
@@ -1099,39 +1205,28 @@ maybe_both_true_2 (struct decision_test *d1, struct decision_test *d2)
 	     separate DT_mode that will make maybe_both_true_1 return 0.  */
 	}
 
-      if (d1->u.pred.index >= 0)
+      if (d1->u.pred.data)
 	{
 	  /* If D2 tests a code, see if it is in the list of valid
 	     codes for D1's predicate.  */
 	  if (d2->type == DT_code)
 	    {
-	      const RTX_CODE *c = &preds[d1->u.pred.index].codes[0];
-	      while (*c != 0)
-		{
-		  if (*c == d2->u.code)
-		    break;
-		  ++c;
-		}
-	      if (*c == 0)
+	      if (!d1->u.pred.data->codes[d2->u.code])
 		return 0;
 	    }
 
 	  /* Otherwise see if the predicates have any codes in common.  */
-	  else if (d2->type == DT_pred && d2->u.pred.index >= 0)
+	  else if (d2->type == DT_pred && d2->u.pred.data)
 	    {
-	      const RTX_CODE *c1 = &preds[d1->u.pred.index].codes[0];
-	      int common = 0;
+	      bool common = false;
+	      enum rtx_code c;
 
-	      while (*c1 != 0 && !common)
-		{
-		  const RTX_CODE *c2 = &preds[d2->u.pred.index].codes[0];
-		  while (*c2 != 0 && !common)
-		    {
-		      common = (*c1 == *c2);
-		      ++c2;
-		    }
-		  ++c1;
-		}
+	      for (c = 0; c < NUM_RTX_CODE; c++)
+		if (d1->u.pred.data->codes[c] && d2->u.pred.data->codes[c])
+		  {
+		    common = true;
+		    break;
+		  }
 
 	      if (!common)
 		return 0;
@@ -1213,8 +1308,7 @@ maybe_both_true (struct decision *d1, struct decision *d2,
   cmp = strcmp (d1->position, d2->position);
   if (cmp != 0)
     {
-      if (toplevel)
-	abort ();
+      gcc_assert (!toplevel);
 
       /* If the d2->position was lexically lower, swap.  */
       if (cmp > 0)
@@ -1292,7 +1386,7 @@ nodes_identical_1 (struct decision_test *d1, struct decision_test *d2)
       return 1;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -1394,8 +1488,7 @@ merge_trees (struct decision_head *oldh, struct decision_head *addh)
     }
 
   /* Trying to merge bits at different positions isn't possible.  */
-  if (strcmp (oldh->first->position, addh->first->position))
-    abort ();
+  gcc_assert (!strcmp (oldh->first->position, addh->first->position));
 
   for (add = addh->first; add ; add = next)
     {
@@ -1734,6 +1827,20 @@ write_afterward (struct decision *start, struct decision *afterward,
     }
 }
 
+/* Emit a HOST_WIDE_INT as an integer constant expression.  We need to take
+   special care to avoid "decimal constant is so large that it is unsigned"
+   warnings in the resulting code.  */
+
+static void
+print_host_wide_int (HOST_WIDE_INT val)
+{
+  HOST_WIDE_INT min = (unsigned HOST_WIDE_INT)1 << (HOST_BITS_PER_WIDE_INT-1);
+  if (val == min)
+    printf ("(" HOST_WIDE_INT_PRINT_DEC_C "-1)", val + 1);
+  else
+    printf (HOST_WIDE_INT_PRINT_DEC_C, val);
+}
+
 /* Emit a switch statement, if possible, for an initial sequence of
    nodes at START.  Return the first node yet untested.  */
 
@@ -1799,22 +1906,22 @@ write_switch (struct decision *start, int depth)
       else
 	ret = p;
 
-      while (p && p->tests->type == DT_pred
-	     && p->tests->u.pred.index >= 0)
+      while (p && p->tests->type == DT_pred && p->tests->u.pred.data)
 	{
-	  const RTX_CODE *c;
-
-	  for (c = &preds[p->tests->u.pred.index].codes[0]; *c ; ++c)
-	    if (codemap[(int) *c] != 0)
+	  const struct pred_data *data = p->tests->u.pred.data;
+	  RTX_CODE c;
+	  for (c = 0; c < NUM_RTX_CODE; c++)
+	    if (codemap[c] && data->codes[c])
 	      goto pred_done;
 
-	  for (c = &preds[p->tests->u.pred.index].codes[0]; *c ; ++c)
-	    {
-	      printf ("    case ");
-	      print_code (*c);
-	      printf (":\n");
-	      codemap[(int) *c] = 1;
-	    }
+	  for (c = 0; c < NUM_RTX_CODE; c++)
+	    if (data->codes[c])
+	      {
+		fputs ("    case ", stdout);
+		print_code (c);
+		fputs (":\n", stdout);
+		codemap[c] = 1;
+	      }
 
 	  printf ("      goto L%d;\n", p->number);
 	  p->need_label = 1;
@@ -1877,7 +1984,7 @@ write_switch (struct decision *start, int depth)
 	  printf ("(int) XWINT (x%d, 0)", depth);
 	  break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
       printf (")\n%s    {\n", indent);
 
@@ -1907,10 +2014,10 @@ write_switch (struct decision *start, int depth)
 	    case DT_elt_one_int:
 	    case DT_elt_zero_wide:
 	    case DT_elt_zero_wide_safe:
-	      printf (HOST_WIDE_INT_PRINT_DEC_C, p->tests->u.intval);
+	      print_host_wide_int (p->tests->u.intval);
 	      break;
 	    default:
-	      abort ();
+	      gcc_unreachable ();
 	    }
 	  printf (":\n%s      goto L%d;\n", indent, p->success.first->number);
 	  p->success.first->need_label = 1;
@@ -1964,7 +2071,12 @@ write_cond (struct decision_test *p, int depth,
     case DT_elt_zero_wide:
     case DT_elt_zero_wide_safe:
       printf ("XWINT (x%d, 0) == ", depth);
-      printf (HOST_WIDE_INT_PRINT_DEC_C, p->u.intval);
+      print_host_wide_int (p->u.intval);
+      break;
+
+    case DT_const_int:
+      printf ("x%d == const_int_rtx[MAX_SAVED_CONST_INT + (%d)]",
+	      depth, (int) p->u.intval);
       break;
 
     case DT_veclen_ge:
@@ -1985,21 +2097,13 @@ write_cond (struct decision_test *p, int depth,
       break;
 
     case DT_accept_insn:
-      switch (subroutine_type)
-	{
-	case RECOG:
-	  if (p->u.insn.num_clobbers_to_add == 0)
-	    abort ();
-	  printf ("pnum_clobbers != NULL");
-	  break;
-
-	default:
-	  abort ();
-	}
+      gcc_assert (subroutine_type == RECOG);
+      gcc_assert (p->u.insn.num_clobbers_to_add);
+      printf ("pnum_clobbers != NULL");
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -2034,14 +2138,12 @@ write_action (struct decision *p, struct decision_test *test,
       if (test->next)
 	{
 	  test = test->next;
-	  if (test->type != DT_accept_insn)
-	    abort ();
+	  gcc_assert (test->type == DT_accept_insn);
 	}
     }
 
   /* Sanity check that we're now at the end of the list of tests.  */
-  if (test->next)
-    abort ();
+  gcc_assert (!test->next);
 
   if (test->type == DT_accept_insn)
     {
@@ -2051,11 +2153,13 @@ write_action (struct decision *p, struct decision_test *test,
 	  if (test->u.insn.num_clobbers_to_add != 0)
 	    printf ("%s*pnum_clobbers = %d;\n",
 		    indent, test->u.insn.num_clobbers_to_add);
-	  printf ("%sreturn %d;\n", indent, test->u.insn.code_number);
+	  printf ("%sreturn %d;  /* %s */\n", indent,
+		  test->u.insn.code_number,
+		  insn_name_ptr[test->u.insn.code_number]);
 	  break;
 
 	case SPLIT:
-	  printf ("%sreturn gen_split_%d (operands);\n",
+	  printf ("%sreturn gen_split_%d (insn, operands);\n",
 		  indent, test->u.insn.code_number);
 	  break;
 
@@ -2077,7 +2181,7 @@ write_action (struct decision *p, struct decision_test *test,
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
   else
@@ -2112,7 +2216,7 @@ is_unconditional (struct decision_test *t, enum routine_type subroutine_type)
 	case PEEPHOLE2:
 	  return -1;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -2129,6 +2233,23 @@ write_node (struct decision *p, int depth,
   struct decision_test *test, *last_test;
   int uncond;
 
+  /* Scan the tests and simplify comparisons against small
+     constants.  */
+  for (test = p->tests; test; test = test->next)
+    {
+      if (test->type == DT_code
+	  && test->u.code == CONST_INT
+	  && test->next
+	  && test->next->type == DT_elt_zero_wide_safe
+	  && -MAX_SAVED_CONST_INT <= test->next->u.intval
+	  && test->next->u.intval <= MAX_SAVED_CONST_INT)
+	{
+	  test->type = DT_const_int;
+	  test->u.intval = test->next->u.intval;
+	  test->next = test->next->next;
+	}
+    }
+
   last_test = test = p->tests;
   uncond = is_unconditional (test, subroutine_type);
   if (uncond == 0)
@@ -2138,11 +2259,8 @@ write_node (struct decision *p, int depth,
 
       while ((test = test->next) != NULL)
 	{
-	  int uncond2;
-
 	  last_test = test;
-	  uncond2 = is_unconditional (test, subroutine_type);
-	  if (uncond2 != 0)
+	  if (is_unconditional (test, subroutine_type))
 	    break;
 
 	  printf ("\n      && ");
@@ -2394,8 +2512,7 @@ make_insn_sequence (rtx insn, enum routine_type type)
   char c_test_pos[2];
 
   /* We should never see an insn whose C test is false at compile time.  */
-  if (truth == 0)
-    abort ();
+  gcc_assert (truth);
 
   record_insn_name (next_insn_code, (type == RECOG ? XSTR (insn, 0) : NULL));
 
@@ -2478,7 +2595,7 @@ make_insn_sequence (rtx insn, enum routine_type type)
 	    {
 	      rtx y = XVECEXP (x, 0, i - 1);
 	      if (GET_CODE (y) != CLOBBER
-		  || (GET_CODE (XEXP (y, 0)) != REG
+		  || (!REG_P (XEXP (y, 0))
 		      && GET_CODE (XEXP (y, 0)) != MATCH_SCRATCH))
 		break;
 	    }
@@ -2538,7 +2655,7 @@ make_insn_sequence (rtx insn, enum routine_type type)
 
     case SPLIT:
       /* Define the subroutine we will call below and emit in genemit.  */
-      printf ("extern rtx gen_split_%d (rtx *);\n", next_insn_code);
+      printf ("extern rtx gen_split_%d (rtx, rtx *);\n", next_insn_code);
       break;
 
     case PEEPHOLE2:
@@ -2593,14 +2710,10 @@ main (int argc, char **argv)
   memset (&split_tree, 0, sizeof split_tree);
   memset (&peephole2_tree, 0, sizeof peephole2_tree);
 
-  if (argc <= 1)
-    fatal ("no input file name");
-
   if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
 
   next_insn_code = 0;
-  next_index = 0;
 
   write_header ();
 
@@ -2612,26 +2725,33 @@ main (int argc, char **argv)
       if (desc == NULL)
 	break;
 
-      if (GET_CODE (desc) == DEFINE_INSN)
+      switch (GET_CODE (desc))
 	{
+	case DEFINE_PREDICATE:
+	case DEFINE_SPECIAL_PREDICATE:
+	  process_define_predicate (desc);
+	  break;
+
+	case DEFINE_INSN:
 	  h = make_insn_sequence (desc, RECOG);
 	  merge_trees (&recog_tree, &h);
-	}
-      else if (GET_CODE (desc) == DEFINE_SPLIT)
-	{
+	  break;
+
+	case DEFINE_SPLIT:
 	  h = make_insn_sequence (desc, SPLIT);
 	  merge_trees (&split_tree, &h);
-	}
-      else if (GET_CODE (desc) == DEFINE_PEEPHOLE2)
-	{
+	  break;
+
+	case DEFINE_PEEPHOLE2:
 	  h = make_insn_sequence (desc, PEEPHOLE2);
 	  merge_trees (&peephole2_tree, &h);
-	}
 
-      next_index++;
+	default:
+	  /* do nothing */;
+	}
     }
 
-  if (error_count)
+  if (error_count || have_error)
     return FATAL_EXIT_CODE;
 
   puts ("\n\n");
@@ -2738,7 +2858,7 @@ debug_decision_2 (struct decision_test *test)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 

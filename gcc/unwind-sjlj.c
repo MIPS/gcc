@@ -1,5 +1,5 @@
 /* SJLJ exception handling and frame unwind runtime interface routines.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -182,10 +182,10 @@ _Unwind_GetGR (struct _Unwind_Context *context, int index)
 /* Get the value of the CFA as saved in CONTEXT.  */
 
 _Unwind_Word
-_Unwind_GetCFA (struct _Unwind_Context *context)
+_Unwind_GetCFA (struct _Unwind_Context *context __attribute__((unused)))
 {
   /* ??? Ideally __builtin_setjmp places the CFA in the jmpbuf.  */
-  return NULL;
+  return (_Unwind_Word) 0;
 }
 
 void
@@ -223,7 +223,7 @@ _Unwind_GetRegionStart (struct _Unwind_Context *context __attribute__((unused)) 
 }
 
 void *
-_Unwind_FindEnclosingFunction (void *pc)
+_Unwind_FindEnclosingFunction (void *pc __attribute__((unused)))
 {
   return NULL;
 }
@@ -270,16 +270,13 @@ uw_init_context (struct _Unwind_Context *context)
   context->fc = _Unwind_SjLj_GetContext ();
 }
 
-/* ??? There appear to be bugs in integrate.c wrt __builtin_longjmp and
-   virtual-stack-vars.  An inline version of this segfaults on SPARC.  */
-#define uw_install_context(CURRENT, TARGET)		\
-  do							\
-    {							\
-      _Unwind_SjLj_SetContext ((TARGET)->fc);		\
-      longjmp ((TARGET)->fc->jbuf, 1);			\
-    }							\
-  while (0)
-
+static void __attribute__((noreturn))
+uw_install_context (struct _Unwind_Context *current __attribute__((unused)),
+                    struct _Unwind_Context *target)
+{
+  _Unwind_SjLj_SetContext (target->fc);
+  longjmp (target->fc->jbuf, 1);
+}
 
 static inline _Unwind_Ptr
 uw_identify_context (struct _Unwind_Context *context)

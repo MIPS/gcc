@@ -29,6 +29,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
+#include "basic-block.h"
 #include "regs.h"
 #include "function.h"
 #include "flags.h"
@@ -310,7 +311,7 @@ add_deps_for_use (ddg_ptr g, struct df *df, struct ref *use)
 static void
 build_inter_loop_deps (ddg_ptr g, struct df *df)
 {
-  unsigned rd_num, u_num;
+  int rd_num, u_num;
   struct bb_info *bb_info;
   bitmap_iterator bi;
 

@@ -1,5 +1,5 @@
 /* Function integration definitions for GCC
-   Copyright (C) 1990, 1995, 1998, 1999, 2000, 2001, 2003
+   Copyright (C) 1990, 1995, 1998, 1999, 2000, 2001, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -35,23 +35,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 struct inline_remap
 {
-  /* True if we are doing function integration, false otherwise.
-     Used to control whether RTX_UNCHANGING bits are copied by
-     copy_rtx_and_substitute.  */
-  int integrating;
   /* Definition of function be inlined.  */
   tree fndecl;
   /* Place to put insns needed at start of function.  */
   rtx insns_at_start;
-  /* Mapping from old BLOCKs to new BLOCKs.  */
-  varray_type block_map;
   /* Mapping from old registers to new registers.
      It is allocated and deallocated in `expand_inline_function' */
   rtx *reg_map;
-#if defined (LEAF_REGISTERS) && defined (LEAF_REG_REMAP)
-  /* Mapping from old leaf registers to new leaf registers.  */
-  rtx leaf_reg_map[FIRST_PSEUDO_REGISTER][NUM_MACHINE_MODES];
-#endif
   /* Mapping from old code-labels to new code-labels.
      The first element of this map is label_map[min_labelno].  */
   rtx *label_map;
@@ -85,8 +75,6 @@ struct inline_remap
 #define CONST_AGE_PARM (-1)
   unsigned int const_age;
 
-  /* Target of the inline function being expanded, or NULL if none.  */
-  rtx inline_target;
   /* When an insn is being copied by copy_rtx_and_substitute,
      this is nonzero if we have copied an ASM_OPERANDS.
      In that case, it is the original input-operand vector.  */
@@ -97,9 +85,6 @@ struct inline_remap
   rtvec copy_asm_operands_vector;
   /* Likewise, this is the copied constraints vector.  */
   rtvec copy_asm_constraints_vector;
-
-  /* Target of a return insn, if needed and inlining.  */
-  rtx local_return_label;
 
   /* Indications for regs being pointers and their alignment.  */
   unsigned char *regno_pointer_align;
@@ -156,8 +141,6 @@ extern tree copy_decl_for_inlining (tree, tree, tree);
    makes the function uninlinable.  Returns false if it finds any,
    true otherwise.  */
 extern bool function_attribute_inlinable_p (tree);
-
-extern void try_constants (rtx, struct inline_remap *);
 
 /* Return the label indicated.  */
 extern rtx get_label_from_map (struct inline_remap *, int);

@@ -1,6 +1,6 @@
 /* Subroutines used by or related to instruction recognition.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -213,8 +213,7 @@ validate_change (rtx object, rtx *loc, rtx new, int in_group)
   if (old == new || rtx_equal_p (old, new))
     return 1;
 
-  if (in_group == 0 && num_changes != 0)
-    abort ();
+  gcc_assert (in_group != 0 || num_changes == 0);
 
   *loc = new;
 
@@ -235,7 +234,7 @@ validate_change (rtx object, rtx *loc, rtx new, int in_group)
   changes[num_changes].loc = loc;
   changes[num_changes].old = old;
 
-  if (object && GET_CODE (object) != MEM)
+  if (object && !MEM_P (object))
     {
       /* Set INSN_CODE to force rerecognition of insn.  Save old code in
 	 case invalid.  */
@@ -341,7 +340,7 @@ apply_change_group (void)
       if (object == 0 || object == last_validated)
 	continue;
 
-      if (GET_CODE (object) == MEM)
+      if (MEM_P (object))
 	{
 	  if (! memory_address_p (GET_MODE (object), XEXP (object, 0)))
 	    break;
@@ -436,7 +435,7 @@ cancel_changes (int num)
   for (i = num_changes - 1; i >= num; i--)
     {
       *changes[i].loc = changes[i].old;
-      if (changes[i].object && GET_CODE (changes[i].object) != MEM)
+      if (changes[i].object && !MEM_P (changes[i].object))
 	INSN_CODE (changes[i].object) = changes[i].old_code;
     }
   num_changes = num;
@@ -469,7 +468,7 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
      operands look similar.  */
 
   if (x == from
-      || (GET_CODE (x) == REG && GET_CODE (from) == REG
+      || (REG_P (x) && REG_P (from)
 	  && GET_MODE (x) == GET_MODE (from)
 	  && REGNO (x) == REGNO (from))
       || (GET_CODE (x) == GET_CODE (from) && GET_MODE (x) == GET_MODE (from)
@@ -479,16 +478,38 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
       return;
     }
 
-  /* Call ourself recursively to perform the replacements.  */
+  /* Call ourself recursively to perform the replacements.
+     We must not replace inside already replaced expression, otherwise we
+     get infinite recursion for replacements like (reg X)->(subreg (reg X))
+     done by regmove, so we must special case shared ASM_OPERANDS.  */
 
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+  if (GET_CODE (x) == PARALLEL)
     {
-      if (fmt[i] == 'e')
-	validate_replace_rtx_1 (&XEXP (x, i), from, to, object);
-      else if (fmt[i] == 'E')
-	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  validate_replace_rtx_1 (&XVECEXP (x, i, j), from, to, object);
+      for (j = XVECLEN (x, 0) - 1; j >= 0; j--)
+	{
+	  if (j && GET_CODE (XVECEXP (x, 0, j)) == SET
+	      && GET_CODE (SET_SRC (XVECEXP (x, 0, j))) == ASM_OPERANDS)
+	    {
+	      /* Verify that operands are really shared.  */
+	      gcc_assert (ASM_OPERANDS_INPUT_VEC (SET_SRC (XVECEXP (x, 0, 0)))
+			  == ASM_OPERANDS_INPUT_VEC (SET_SRC (XVECEXP
+							      (x, 0, j))));
+	      validate_replace_rtx_1 (&SET_DEST (XVECEXP (x, 0, j)),
+				      from, to, object);
+	    }
+	  else
+	    validate_replace_rtx_1 (&XVECEXP (x, 0, j), from, to, object);
+	}
     }
+  else
+    for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+      {
+	if (fmt[i] == 'e')
+	  validate_replace_rtx_1 (&XEXP (x, i), from, to, object);
+	else if (fmt[i] == 'E')
+	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	    validate_replace_rtx_1 (&XVECEXP (x, i, j), from, to, object);
+      }
 
   /* If we didn't substitute, there is nothing more to do.  */
   if (num_changes == prev_changes)
@@ -502,11 +523,11 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
   /* Do changes needed to keep rtx consistent.  Don't do any other
      simplifications, as it is not our job.  */
 
-  if ((GET_RTX_CLASS (code) == '<' || GET_RTX_CLASS (code) == 'c')
+  if (SWAPPABLE_OPERANDS_P (x)
       && swap_commutative_operands_p (XEXP (x, 0), XEXP (x, 1)))
     {
       validate_change (object, loc,
-		       gen_rtx_fmt_ee (GET_RTX_CLASS (code) == 'c' ? code
+		       gen_rtx_fmt_ee (COMMUTATIVE_ARITH_P (x) ? code
 				       : swap_condition (code),
 				       GET_MODE (x), XEXP (x, 1),
 				       XEXP (x, 0)), 1);
@@ -567,7 +588,7 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
          likely to be an insertion operation; if it was, nothing bad will
          happen, we might just fail in some cases).  */
 
-      if (GET_CODE (XEXP (x, 0)) == MEM
+      if (MEM_P (XEXP (x, 0))
 	  && GET_CODE (XEXP (x, 1)) == CONST_INT
 	  && GET_CODE (XEXP (x, 2)) == CONST_INT
 	  && !mode_dependent_address_p (XEXP (XEXP (x, 0), 0))
@@ -681,15 +702,6 @@ validate_replace_src_group (rtx from, rtx to, rtx insn)
   d.insn = insn;
   note_uses (&PATTERN (insn), validate_replace_src_1, &d);
 }
-
-/* Same as validate_replace_src_group, but validate by seeing if
-   INSN is still valid.  */
-int
-validate_replace_src (rtx from, rtx to, rtx insn)
-{
-  validate_replace_src_group (from, to, insn);
-  return apply_change_group ();
-}
 
 #ifdef HAVE_cc0
 /* Return 1 if the insn using CC0 set by INSN does not contain
@@ -705,9 +717,7 @@ next_insn_tests_no_inequality (rtx insn)
   if (next == 0)
     return 0;
 
-  return ((GET_CODE (next) == JUMP_INSN
-	   || GET_CODE (next) == INSN
-	   || GET_CODE (next) == CALL_INSN)
+  return (INSN_P (next)
 	  && ! inequality_comparisons_p (PATTERN (next)));
 }
 #endif
@@ -745,9 +755,9 @@ find_single_use_1 (rtx dest, rtx *loc)
 	 need just check the source.  */
       if (GET_CODE (SET_DEST (x)) != CC0
 	  && GET_CODE (SET_DEST (x)) != PC
-	  && GET_CODE (SET_DEST (x)) != REG
+	  && !REG_P (SET_DEST (x))
 	  && ! (GET_CODE (SET_DEST (x)) == SUBREG
-		&& GET_CODE (SUBREG_REG (SET_DEST (x))) == REG
+		&& REG_P (SUBREG_REG (SET_DEST (x)))
 		&& (((GET_MODE_SIZE (GET_MODE (SUBREG_REG (SET_DEST (x))))
 		      + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
 		    == ((GET_MODE_SIZE (GET_MODE (SET_DEST (x)))
@@ -773,7 +783,7 @@ find_single_use_1 (rtx dest, rtx *loc)
       if (fmt[i] == 'e')
 	{
 	  if (dest == XEXP (x, i)
-	      || (GET_CODE (dest) == REG && GET_CODE (XEXP (x, i)) == REG
+	      || (REG_P (dest) && REG_P (XEXP (x, i))
 		  && REGNO (dest) == REGNO (XEXP (x, i))))
 	    this_result = loc;
 	  else
@@ -792,8 +802,8 @@ find_single_use_1 (rtx dest, rtx *loc)
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    {
 	      if (XVECEXP (x, i, j) == dest
-		  || (GET_CODE (dest) == REG
-		      && GET_CODE (XVECEXP (x, i, j)) == REG
+		  || (REG_P (dest)
+		      && REG_P (XVECEXP (x, i, j))
 		      && REGNO (XVECEXP (x, i, j)) == REGNO (dest)))
 		this_result = loc;
 	      else
@@ -840,7 +850,7 @@ find_single_use (rtx dest, rtx insn, rtx *ploc)
     {
       next = NEXT_INSN (insn);
       if (next == 0
-	  || (GET_CODE (next) != INSN && GET_CODE (next) != JUMP_INSN))
+	  || (!NONJUMP_INSN_P (next) && !JUMP_P (next)))
 	return 0;
 
       result = find_single_use_1 (dest, &PATTERN (next));
@@ -850,11 +860,11 @@ find_single_use (rtx dest, rtx insn, rtx *ploc)
     }
 #endif
 
-  if (reload_completed || reload_in_progress || GET_CODE (dest) != REG)
+  if (reload_completed || reload_in_progress || !REG_P (dest))
     return 0;
 
   for (next = next_nonnote_insn (insn);
-       next != 0 && GET_CODE (next) != CODE_LABEL;
+       next != 0 && !LABEL_P (next);
        next = next_nonnote_insn (next))
     if (INSN_P (next) && dead_or_set_p (next, dest))
       {
@@ -914,9 +924,7 @@ general_operand (rtx op, enum machine_mode mode)
   if (CONSTANT_P (op))
     return ((GET_MODE (op) == VOIDmode || GET_MODE (op) == mode
 	     || mode == VOIDmode)
-#ifdef LEGITIMATE_PIC_OPERAND_P
 	    && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
-#endif
 	    && LEGITIMATE_CONSTANT_P (op));
 
   /* Except for certain constants with VOIDmode, already checked for,
@@ -932,7 +940,7 @@ general_operand (rtx op, enum machine_mode mode)
 #ifdef INSN_SCHEDULING
       /* On machines that have insn scheduling, we want all memory
 	 reference to be explicit, so outlaw paradoxical SUBREGs.  */
-      if (GET_CODE (sub) == MEM
+      if (MEM_P (sub)
 	  && GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (sub)))
 	return 0;
 #endif
@@ -943,7 +951,7 @@ general_operand (rtx op, enum machine_mode mode)
 
 	 ??? This is a kludge.  */
       if (!reload_completed && SUBREG_BYTE (op) != 0
-	  && GET_CODE (sub) == MEM)
+	  && MEM_P (sub))
 	return 0;
 
       /* FLOAT_MODE subregs can't be paradoxical.  Combine will occasionally
@@ -968,23 +976,12 @@ general_operand (rtx op, enum machine_mode mode)
       if (! volatile_ok && MEM_VOLATILE_P (op))
 	return 0;
 
-      if (GET_CODE (y) == ADDRESSOF)
-	return 1;
-
       /* Use the mem's mode, since it will be reloaded thus.  */
-      mode = GET_MODE (op);
-      GO_IF_LEGITIMATE_ADDRESS (mode, y, win);
+      if (memory_address_p (GET_MODE (op), y))
+	return 1;
     }
 
-  /* Pretend this is an operand for now; we'll run force_operand
-     on its replacement in fixup_var_refs_1.  */
-  if (code == ADDRESSOF)
-    return 1;
-
   return 0;
-
- win:
-  return 1;
 }
 
 /* Return 1 if OP is a valid memory address for a memory reference
@@ -1029,11 +1026,11 @@ register_operand (rtx op, enum machine_mode mode)
 	 (Ideally, (SUBREG (MEM)...) should not exist after reload,
 	 but currently it does result from (SUBREG (REG)...) where the
 	 reg went on the stack.)  */
-      if (! reload_completed && GET_CODE (sub) == MEM)
+      if (! reload_completed && MEM_P (sub))
 	return general_operand (op, mode);
 
 #ifdef CANNOT_CHANGE_MODE_CLASS
-      if (GET_CODE (sub) == REG
+      if (REG_P (sub)
 	  && REGNO (sub) < FIRST_PSEUDO_REGISTER
 	  && REG_CANNOT_CHANGE_MODE_P (REGNO (sub), GET_MODE (sub), mode)
 	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_INT
@@ -1050,14 +1047,9 @@ register_operand (rtx op, enum machine_mode mode)
       op = sub;
     }
 
-  /* If we have an ADDRESSOF, consider it valid since it will be
-     converted into something that will not be a MEM.  */
-  if (GET_CODE (op) == ADDRESSOF)
-    return 1;
-
   /* We don't consider registers whose class is NO_REGS
      to be a register operand.  */
-  return (GET_CODE (op) == REG
+  return (REG_P (op)
 	  && (REGNO (op) >= FIRST_PSEUDO_REGISTER
 	      || REGNO_REG_CLASS (REGNO (op)) != NO_REGS));
 }
@@ -1090,7 +1082,7 @@ scratch_operand (rtx op, enum machine_mode mode)
     return 0;
 
   return (GET_CODE (op) == SCRATCH
-	  || (GET_CODE (op) == REG
+	  || (REG_P (op)
 	      && (REGNO (op) < FIRST_PSEUDO_REGISTER || while_newra
 	          || (newra_in_progress && !SPILL_SLOT_P (REGNO (op)))))
 	  || (while_newra && GET_CODE (op) == SUBREG));
@@ -1116,18 +1108,10 @@ immediate_operand (rtx op, enum machine_mode mode)
       && trunc_int_for_mode (INTVAL (op), mode) != INTVAL (op))
     return 0;
 
-  /* Accept CONSTANT_P_RTX, since it will be gone by CSE1 and
-     result in 0/1.  It seems a safe assumption that this is
-     in range for everyone.  */
-  if (GET_CODE (op) == CONSTANT_P_RTX)
-    return 1;
-
   return (CONSTANT_P (op)
 	  && (GET_MODE (op) == mode || mode == VOIDmode
 	      || GET_MODE (op) == VOIDmode)
-#ifdef LEGITIMATE_PIC_OPERAND_P
 	  && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
-#endif
 	  && LEGITIMATE_CONSTANT_P (op));
 }
 
@@ -1193,9 +1177,7 @@ nonmemory_operand (rtx op, enum machine_mode mode)
 
       return ((GET_MODE (op) == VOIDmode || GET_MODE (op) == mode
 	       || mode == VOIDmode)
-#ifdef LEGITIMATE_PIC_OPERAND_P
 	      && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
-#endif
 	      && LEGITIMATE_CONSTANT_P (op));
     }
 
@@ -1210,14 +1192,14 @@ nonmemory_operand (rtx op, enum machine_mode mode)
 	 (Ideally, (SUBREG (MEM)...) should not exist after reload,
 	 but currently it does result from (SUBREG (REG)...) where the
 	 reg went on the stack.)  */
-      if (! reload_completed && GET_CODE (SUBREG_REG (op)) == MEM)
+      if (! reload_completed && MEM_P (SUBREG_REG (op)))
 	return general_operand (op, mode);
       op = SUBREG_REG (op);
     }
 
   /* We don't consider registers whose class is NO_REGS
      to be a register operand.  */
-  return (GET_CODE (op) == REG
+  return (REG_P (op)
 	  && (REGNO (op) >= FIRST_PSEUDO_REGISTER
 	      || REGNO_REG_CLASS (REGNO (op)) != NO_REGS));
 }
@@ -1237,7 +1219,7 @@ push_operand (rtx op, enum machine_mode mode)
   rounded_size = PUSH_ROUNDING (rounded_size);
 #endif
 
-  if (GET_CODE (op) != MEM)
+  if (!MEM_P (op))
     return 0;
 
   if (mode != VOIDmode && GET_MODE (op) != mode)
@@ -1277,7 +1259,7 @@ push_operand (rtx op, enum machine_mode mode)
 int
 pop_operand (rtx op, enum machine_mode mode)
 {
-  if (GET_CODE (op) != MEM)
+  if (!MEM_P (op))
     return 0;
 
   if (mode != VOIDmode && GET_MODE (op) != mode)
@@ -1296,9 +1278,6 @@ pop_operand (rtx op, enum machine_mode mode)
 int
 memory_address_p (enum machine_mode mode ATTRIBUTE_UNUSED, rtx addr)
 {
-  if (GET_CODE (addr) == ADDRESSOF)
-    return 1;
-
   GO_IF_LEGITIMATE_ADDRESS (mode, addr, win);
   return 0;
 
@@ -1320,7 +1299,7 @@ memory_operand (rtx op, enum machine_mode mode)
   if (! reload_completed)
     /* Note that no SUBREG is a memory operand before end of reload pass,
        because (SUBREG (MEM...)) forces reloading into a register.  */
-    return GET_CODE (op) == MEM && general_operand (op, mode);
+    return MEM_P (op) && general_operand (op, mode);
 
   if (mode != VOIDmode && GET_MODE (op) != mode)
     return 0;
@@ -1329,7 +1308,7 @@ memory_operand (rtx op, enum machine_mode mode)
   if (GET_CODE (inner) == SUBREG)
     inner = SUBREG_REG (inner);
 
-  return (GET_CODE (inner) == MEM && general_operand (op, mode));
+  return (MEM_P (inner) && general_operand (op, mode));
 }
 
 /* Return 1 if OP is a valid indirect memory reference with mode MODE;
@@ -1340,7 +1319,7 @@ indirect_operand (rtx op, enum machine_mode mode)
 {
   /* Before reload, a SUBREG isn't in memory (see memory_operand, above).  */
   if (! reload_completed
-      && GET_CODE (op) == SUBREG && GET_CODE (SUBREG_REG (op)) == MEM)
+      && GET_CODE (op) == SUBREG && MEM_P (SUBREG_REG (op)))
     {
       int offset = SUBREG_BYTE (op);
       rtx inner = SUBREG_REG (op);
@@ -1360,7 +1339,7 @@ indirect_operand (rtx op, enum machine_mode mode)
 		  && general_operand (XEXP (XEXP (inner, 0), 0), Pmode)));
     }
 
-  return (GET_CODE (op) == MEM
+  return (MEM_P (op)
 	  && memory_operand (op, mode)
 	  && general_operand (XEXP (op, 0), Pmode));
 }
@@ -1372,7 +1351,7 @@ int
 comparison_operator (rtx op, enum machine_mode mode)
 {
   return ((mode == VOIDmode || GET_MODE (op) == mode)
-	  && GET_RTX_CLASS (GET_CODE (op)) == '<');
+	  && COMPARISON_P (op));
 }
 
 /* If BODY is an insn body that uses ASM_OPERANDS,
@@ -1593,7 +1572,7 @@ decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
   return template;
 }
 
-/* Check if an asm_operand matches it's constraints.
+/* Check if an asm_operand matches its constraints.
    Return > 0 if ok, = 0 if bad, < 0 if inconclusive.  */
 
 int
@@ -1602,8 +1581,7 @@ asm_operand_ok (rtx op, const char *constraint)
   int result = 0;
 
   /* Use constrain_operands after reload.  */
-  if (reload_completed)
-    abort ();
+  gcc_assert (!reload_completed);
 
   while (*constraint)
     {
@@ -1661,7 +1639,7 @@ asm_operand_ok (rtx op, const char *constraint)
 
 	     Match any memory and hope things are resolved after reload.  */
 
-	  if (GET_CODE (op) == MEM
+	  if (MEM_P (op)
 	      && (1
 		  || GET_CODE (XEXP (op, 0)) == PRE_DEC
 		  || GET_CODE (XEXP (op, 0)) == POST_DEC))
@@ -1669,7 +1647,7 @@ asm_operand_ok (rtx op, const char *constraint)
 	  break;
 
 	case '>':
-	  if (GET_CODE (op) == MEM
+	  if (MEM_P (op)
 	      && (1
 		  || GET_CODE (XEXP (op, 0)) == PRE_INC
 		  || GET_CODE (XEXP (op, 0)) == POST_INC))
@@ -1700,14 +1678,10 @@ asm_operand_ok (rtx op, const char *constraint)
 	      || (GET_CODE (op) == CONST_DOUBLE
 		  && GET_MODE (op) == VOIDmode))
 	    break;
-	  /* FALLTHRU */
+	  /* Fall through.  */
 
 	case 'i':
-	  if (CONSTANT_P (op)
-#ifdef LEGITIMATE_PIC_OPERAND_P
-	      && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
-#endif
-	      )
+	  if (CONSTANT_P (op) && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op)))
 	    result = 1;
 	  break;
 
@@ -1761,6 +1735,7 @@ asm_operand_ok (rtx op, const char *constraint)
 
 	case 'X':
 	  result = 1;
+	  break;
 
 	case 'g':
 	  if (general_operand (op, VOIDmode))
@@ -1779,20 +1754,16 @@ asm_operand_ok (rtx op, const char *constraint)
 		result = 1;
 	    }
 #ifdef EXTRA_CONSTRAINT_STR
-	  if (EXTRA_CONSTRAINT_STR (op, c, constraint))
+	  else if (EXTRA_CONSTRAINT_STR (op, c, constraint))
 	    result = 1;
-	  if (EXTRA_MEMORY_CONSTRAINT (c, constraint))
-	    {
-	      /* Every memory operand can be reloaded to fit.  */
-	      if (memory_operand (op, VOIDmode))
-	        result = 1;
-	    }
-	  if (EXTRA_ADDRESS_CONSTRAINT (c, constraint))
-	    {
-	      /* Every address operand can be reloaded to fit.  */
-	      if (address_operand (op, VOIDmode))
-	        result = 1;
-	    }
+	  else if (EXTRA_MEMORY_CONSTRAINT (c, constraint)
+		   /* Every memory operand can be reloaded to fit.  */
+		   && memory_operand (op, VOIDmode))
+	    result = 1;
+	  else if (EXTRA_ADDRESS_CONSTRAINT (c, constraint)
+		   /* Every address operand can be reloaded to fit.  */
+		   && address_operand (op, VOIDmode))
+	    result = 1;
 #endif
 	  break;
 	}
@@ -1867,7 +1838,7 @@ find_constant_term_loc (rtx *p)
 int
 offsettable_memref_p (rtx op)
 {
-  return ((GET_CODE (op) == MEM)
+  return ((MEM_P (op))
 	  && offsettable_address_p (1, GET_MODE (op), XEXP (op, 0)));
 }
 
@@ -1877,7 +1848,7 @@ offsettable_memref_p (rtx op)
 int
 offsettable_nonstrict_memref_p (rtx op)
 {
-  return ((GET_CODE (op) == MEM)
+  return ((MEM_P (op))
 	  && offsettable_address_p (0, GET_MODE (op), XEXP (op, 0)));
 }
 
@@ -1936,7 +1907,7 @@ offsettable_address_p (int strictp, enum machine_mode mode, rtx y)
       return good;
     }
 
-  if (GET_RTX_CLASS (ycode) == 'a')
+  if (GET_RTX_CLASS (ycode) == RTX_AUTOINC)
     return 0;
 
   /* The offset added here is chosen as the maximum offset that
@@ -2010,7 +1981,7 @@ extract_insn_cached (rtx insn)
   extract_insn (insn);
   recog_data.insn = insn;
 }
-/* Do cached extract_insn, constrain_operand and complain about failures.
+/* Do cached extract_insn, constrain_operands and complain about failures.
    Used by insn_attrtab.  */
 void
 extract_constrain_insn_cached (rtx insn)
@@ -2020,7 +1991,7 @@ extract_constrain_insn_cached (rtx insn)
       && !constrain_operands (reload_completed))
     fatal_insn_not_found (insn);
 }
-/* Do cached constrain_operand and complain about failures.  */
+/* Do cached constrain_operands and complain about failures.  */
 int
 constrain_operands_cached (int strict)
 {
@@ -2075,8 +2046,7 @@ extract_insn (rtx insn)
 	  /* This insn is an `asm' with operands.  */
 
 	  /* expand_asm_operands makes sure there aren't too many operands.  */
-	  if (noperands > MAX_RECOG_OPERANDS)
-	    abort ();
+	  gcc_assert (noperands <= MAX_RECOG_OPERANDS);
 
 	  /* Now get the operand values and constraints out of the insn.  */
 	  decode_asm_operands (body, recog_data.operand,
@@ -2124,8 +2094,7 @@ extract_insn (rtx insn)
 	 : recog_data.constraints[i][0] == '+' ? OP_INOUT
 	 : OP_IN);
 
-  if (recog_data.n_alternatives > MAX_RECOG_ALTERNATIVES)
-    abort ();
+  gcc_assert (recog_data.n_alternatives <= MAX_RECOG_ALTERNATIVES);
 }
 
 /* After calling extract_insn, you can use this function to extract some
@@ -2136,7 +2105,10 @@ preprocess_constraints (void)
 {
   int i;
 
-  memset (recog_op_alt, 0, sizeof recog_op_alt);
+  for (i = 0; i < recog_data.n_operands; i++)
+    memset (recog_op_alt[i], 0, (recog_data.n_alternatives
+				 * sizeof (struct operand_alternative)));
+
   for (i = 0; i < recog_data.n_operands; i++)
     {
       int j;
@@ -2147,7 +2119,7 @@ preprocess_constraints (void)
 
       for (j = 0; j < recog_data.n_alternatives; j++)
 	{
-	  op_alt[j].class = NO_REGS;
+	  op_alt[j].cl = NO_REGS;
 	  op_alt[j].constraint = p;
 	  op_alt[j].matches = -1;
 	  op_alt[j].matched = -1;
@@ -2222,12 +2194,14 @@ preprocess_constraints (void)
 
 		case 'p':
 		  op_alt[j].is_address = 1;
-		  op_alt[j].class = reg_class_subunion[(int) op_alt[j].class]
+		  op_alt[j].cl = reg_class_subunion[(int) op_alt[j].cl]
 		    [(int) MODE_BASE_REG_CLASS (VOIDmode)];
 		  break;
 
-		case 'g': case 'r':
-		  op_alt[j].class = reg_class_subunion[(int) op_alt[j].class][(int) GENERAL_REGS];
+		case 'g':
+		case 'r':
+		  op_alt[j].cl =
+		   reg_class_subunion[(int) op_alt[j].cl][(int) GENERAL_REGS];
 		  break;
 
 		default:
@@ -2239,16 +2213,16 @@ preprocess_constraints (void)
 		  if (EXTRA_ADDRESS_CONSTRAINT (c, p))
 		    {
 		      op_alt[j].is_address = 1;
-		      op_alt[j].class
+		      op_alt[j].cl
 			= (reg_class_subunion
-			   [(int) op_alt[j].class]
+			   [(int) op_alt[j].cl]
 			   [(int) MODE_BASE_REG_CLASS (VOIDmode)]);
 		      break;
 		    }
 
-		  op_alt[j].class
+		  op_alt[j].cl
 		    = (reg_class_subunion
-		       [(int) op_alt[j].class]
+		       [(int) op_alt[j].cl]
 		       [(int) REG_CLASS_FROM_CONSTRAINT ((unsigned char) c, p)]);
 		  break;
 		}
@@ -2331,12 +2305,12 @@ constrain_operands (int strict)
 
 	  /* A unary operator may be accepted by the predicate, but it
 	     is irrelevant for matching constraints.  */
-	  if (GET_RTX_CLASS (GET_CODE (op)) == '1')
+	  if (UNARY_P (op))
 	    op = XEXP (op, 0);
 
 	  if (GET_CODE (op) == SUBREG)
 	    {
-	      if (GET_CODE (SUBREG_REG (op)) == REG
+	      if (REG_P (SUBREG_REG (op))
 		  && REGNO (SUBREG_REG (op)) < FIRST_PSEUDO_REGISTER)
 		offset = subreg_regno_offset (REGNO (SUBREG_REG (op)),
 					      GET_MODE (SUBREG_REG (op)),
@@ -2404,9 +2378,9 @@ constrain_operands (int strict)
 
 		      /* A unary operator may be accepted by the predicate,
 			 but it is irrelevant for matching constraints.  */
-		      if (GET_RTX_CLASS (GET_CODE (op1)) == '1')
+		      if (UNARY_P (op1))
 			op1 = XEXP (op1, 0);
-		      if (GET_RTX_CLASS (GET_CODE (op2)) == '1')
+		      if (UNARY_P (op2))
 			op2 = XEXP (op2, 0);
 
 		      val = operands_match_p (op1, op2);
@@ -2452,7 +2426,7 @@ constrain_operands (int strict)
 		   but the hard reg is not in the class GENERAL_REGS.  */
 		if (strict < 0
 		    || GENERAL_REGS == ALL_REGS
-		    || GET_CODE (op) != REG
+		    || !REG_P (op)
 		    || ((reload_in_progress || newra_in_progress)
 			&& REGNO (op) >= FIRST_PSEUDO_REGISTER)
 		    || reg_fits_class_p (op, GENERAL_REGS, offset, mode))
@@ -2467,28 +2441,42 @@ constrain_operands (int strict)
 		break;
 
 	      case 'm':
-		if (GET_CODE (op) == MEM
-		    /* Before reload, accept what reload can turn into mem.  */
-		    || (strict < 0 && CONSTANT_P (op))
-		    /* During reload, accept a pseudo  */
-		    || (reload_in_progress && GET_CODE (op) == REG
-                        && REGNO (op) >= FIRST_PSEUDO_REGISTER)
-                    /* With the graph coloring allocator only accept stack
-                       pseudos, but not normal ones.  */
-                    || (newra_in_progress && GET_CODE (op) == REG
-                        && SPILL_SLOT_P (REGNO (op))))
+		/* Memory operands must be valid, to the extent
+		   required by STRICT.  */
+		if (MEM_P (op))
+		  {
+		    if (strict > 0
+			&& !strict_memory_address_p (GET_MODE (op),
+						     XEXP (op, 0)))
+		      break;
+		    if (strict == 0
+			&& !memory_address_p (GET_MODE (op), XEXP (op, 0)))
+		      break;
+		    win = 1;
+		  }
+		/* Before reload, accept what reload can turn into mem.  */
+		else if (strict < 0 && CONSTANT_P (op))
+		  win = 1;
+		/* During reload, accept a pseudo  */
+		else if (reload_in_progress && REG_P (op)
+			 && REGNO (op) >= FIRST_PSEUDO_REGISTER)
+		  win = 1;
+                /* With the graph coloring allocator only accept stack
+		   pseudos, but not normal ones.  */
+                else if (newra_in_progress && GET_CODE (op) == REG
+                         && SPILL_SLOT_P (REGNO (op)))
 		  win = 1;
 		break;
 
 	      case '<':
-		if (GET_CODE (op) == MEM
+		if (MEM_P (op)
 		    && (GET_CODE (XEXP (op, 0)) == PRE_DEC
 			|| GET_CODE (XEXP (op, 0)) == POST_DEC))
 		  win = 1;
 		break;
 
 	      case '>':
-		if (GET_CODE (op) == MEM
+		if (MEM_P (op)
 		    && (GET_CODE (XEXP (op, 0)) == PRE_INC
 			|| GET_CODE (XEXP (op, 0)) == POST_INC))
 		  win = 1;
@@ -2540,7 +2528,7 @@ constrain_operands (int strict)
 		break;
 
 	      case 'V':
-		if (GET_CODE (op) == MEM
+		if (MEM_P (op)
                     /* Bah.  We can't call the memref checkers if the addresses
                        contain pseudos, which they do while the new ra is
                        running.  */
@@ -2548,9 +2536,9 @@ constrain_operands (int strict)
                         || (!newra_in_progress && strict > 0
                             && ! offsettable_memref_p (op))
 			|| (strict < 0
-			    && !(CONSTANT_P (op) || GET_CODE (op) == MEM))
+			    && !(CONSTANT_P (op) || MEM_P (op)))
 			|| (reload_in_progress
-			    && !(GET_CODE (op) == REG
+			    && !(REG_P (op)
 				 && REGNO (op) >= FIRST_PSEUDO_REGISTER))))
 		  win = 1;
 		break;
@@ -2562,25 +2550,25 @@ constrain_operands (int strict)
 		    || (strict == 0 && offsettable_nonstrict_memref_p (op))
 		    /* Before reload, accept what reload can handle.  */
 		    || (strict < 0
-			&& (CONSTANT_P (op) || GET_CODE (op) == MEM))
+			&& (CONSTANT_P (op) || MEM_P (op)))
 		    /* During reload, accept a pseudo  */
-		    || (reload_in_progress && GET_CODE (op) == REG
+		    || (reload_in_progress && REG_P (op)
                         && REGNO (op) >= FIRST_PSEUDO_REGISTER)
-                    || (newra_in_progress && GET_CODE (op) == REG
+                    || (newra_in_progress && REG_P (op)
                         && SPILL_SLOT_P (REGNO (op))))
 		  win = 1;
 		break;
 
 	      default:
 		{
-		  enum reg_class class;
+		  enum reg_class cl;
 
-		  class = (c == 'r'
+		  cl = (c == 'r'
 			   ? GENERAL_REGS : REG_CLASS_FROM_CONSTRAINT (c, p));
                   /* In the new ra handle all REGs first.  We accept all
                      normal pseudos, but no stack pseudos, as they represent
                      memory slots.  */
-		  if (class != NO_REGS)
+		  if (cl != NO_REGS)
 		    {
                       /* If we accept any reg at all, then accept everything
                          if we do extra lax checking, accept all pseudo regs
@@ -2589,41 +2577,34 @@ constrain_operands (int strict)
                          ra is running also accept non stack pseudos.  */
 		      if (strict < 0
 			  || (strict == 0
-			      && GET_CODE (op) == REG
+			      && REG_P (op)
 			      && REGNO (op) >= FIRST_PSEUDO_REGISTER)
 			  || (strict == 0 && GET_CODE (op) == SCRATCH)
-			  || (GET_CODE (op) == REG
+			  || (REG_P (op)
                               && ((newra_in_progress
                                    && REGNO (op) >= FIRST_PSEUDO_REGISTER
                                    && !SPILL_SLOT_P (REGNO (op)))
-                                  || reg_fits_class_p (op, class, offset, mode))))
+                                  || reg_fits_class_p (op, cl, offset, mode))))
 		        win = 1;
 		    }
 #ifdef EXTRA_CONSTRAINT_STR
 		  else if (EXTRA_CONSTRAINT_STR (op, c, p))
 		    win = 1;
 
-		  if (EXTRA_MEMORY_CONSTRAINT (c, p))
-		    {
-		      /* Every memory operand can be reloaded to fit.  */
-		      if (strict < 0 && GET_CODE (op) == MEM)
-			win = 1;
-
-		      /* Before reload, accept what reload can turn into mem.  */
-		      if (strict < 0 && CONSTANT_P (op))
-			win = 1;
-
-		      /* During reload, accept a pseudo  */
-		      if (reload_in_progress && GET_CODE (op) == REG
-			  && REGNO (op) >= FIRST_PSEUDO_REGISTER)
-			win = 1;
-		    }
-		  if (EXTRA_ADDRESS_CONSTRAINT (c, p))
-		    {
-		      /* Every address operand can be reloaded to fit.  */
-		      if (strict < 0)
-		        win = 1;
-		    }
+		  else if (EXTRA_MEMORY_CONSTRAINT (c, p)
+			   /* Every memory operand can be reloaded to fit.  */
+			   && ((strict < 0 && MEM_P (op))
+			       /* Before reload, accept what reload can turn
+				  into mem.  */
+			       || (strict < 0 && CONSTANT_P (op))
+			       /* During reload, accept a pseudo  */
+			       || (reload_in_progress && REG_P (op)
+				   && REGNO (op) >= FIRST_PSEUDO_REGISTER)))
+		    win = 1;
+		  else if (EXTRA_ADDRESS_CONSTRAINT (c, p)
+			   /* Every address operand can be reloaded to fit.  */
+			   && strict < 0)
+		    win = 1;
 #endif
 		  break;
 		}
@@ -2651,11 +2632,11 @@ constrain_operands (int strict)
 		 because we would often report failure when we have
 		 two memory operands, one of which was formerly a REG.  */
 	      if (earlyclobber[eopno]
-                  && GET_CODE (recog_data.operand[eopno]) == REG
+                  && REG_P (recog_data.operand[eopno])
                   && !(newra_in_progress
                        && SPILL_SLOT_P (REGNO (recog_data.operand[eopno]))))
 		for (opno = 0; opno < recog_data.n_operands; opno++)
-		  if ((GET_CODE (recog_data.operand[opno]) == MEM
+		  if ((MEM_P (recog_data.operand[opno])
 		       || recog_data.operand_type[opno] != OP_OUT)
 		      && opno != eopno
 		      /* Ignore things like match_operator operands.  */
@@ -2698,19 +2679,19 @@ constrain_operands (int strict)
    If REG occupies multiple hard regs, all of them must be in CLASS.  */
 
 int
-reg_fits_class_p (rtx operand, enum reg_class class, int offset,
+reg_fits_class_p (rtx operand, enum reg_class cl, int offset,
 		  enum machine_mode mode)
 {
   int regno = REGNO (operand);
   if (regno < FIRST_PSEUDO_REGISTER
-      && TEST_HARD_REG_BIT (reg_class_contents[(int) class],
+      && TEST_HARD_REG_BIT (reg_class_contents[(int) cl],
 			    regno + offset))
     {
       int sr;
       regno += offset;
-      for (sr = HARD_REGNO_NREGS (regno, mode) - 1;
+      for (sr = hard_regno_nregs[regno][mode] - 1;
 	   sr > 0; sr--)
-	if (! TEST_HARD_REG_BIT (reg_class_contents[(int) class],
+	if (! TEST_HARD_REG_BIT (reg_class_contents[(int) cl],
 				 regno + sr))
 	  break;
       return sr == 0;
@@ -2719,61 +2700,40 @@ reg_fits_class_p (rtx operand, enum reg_class class, int offset,
   return 0;
 }
 
-/* Split single instruction.  Helper function for split_all_insns.
-   Return last insn in the sequence if successful, or NULL if unsuccessful.  */
+/* Split single instruction.  Helper function for split_all_insns and
+   split_all_insns_noflow.  Return last insn in the sequence if successful,
+   or NULL if unsuccessful.  */
+
 static rtx
 split_insn (rtx insn)
 {
-  rtx set;
-  if (!INSN_P (insn))
-    ;
-  /* Don't split no-op move insns.  These should silently
-     disappear later in final.  Splitting such insns would
-     break the code that handles REG_NO_CONFLICT blocks.  */
+  /* Split insns here to get max fine-grain parallelism.  */
+  rtx first = PREV_INSN (insn);
+  rtx last = try_split (PATTERN (insn), insn, 1);
 
-  else if ((set = single_set (insn)) != NULL && set_noop_p (set))
-    {
-      /* Nops get in the way while scheduling, so delete them
-         now if register allocation has already been done.  It
-         is too risky to try to do this before register
-         allocation, and there are unlikely to be very many
-         nops then anyways.  */
-      if (reload_completed)
-	delete_insn_and_edges (insn);
-    }
-  else
-    {
-      /* Split insns here to get max fine-grain parallelism.  */
-      rtx first = PREV_INSN (insn);
-      rtx last = try_split (PATTERN (insn), insn, 1);
+  if (last == insn)
+    return NULL_RTX;
 
-      if (last != insn)
+  /* try_split returns the NOTE that INSN became.  */
+  SET_INSN_DELETED (insn);
+
+  /* ??? Coddle to md files that generate subregs in post-reload
+     splitters instead of computing the proper hard register.  */
+  if (reload_completed && first != last)
+    {
+      first = NEXT_INSN (first);
+      for (;;)
 	{
-	  /* try_split returns the NOTE that INSN became.  */
-	  PUT_CODE (insn, NOTE);
-	  NOTE_SOURCE_FILE (insn) = 0;
-	  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-
-	  /* ??? Coddle to md files that generate subregs in post-
-	     reload splitters instead of computing the proper
-	     hard register.  */
-	  if (reload_completed && first != last)
-	    {
-	      first = NEXT_INSN (first);
-	      while (1)
-		{
-		  if (INSN_P (first))
-		    cleanup_subreg_operands (first);
-		  if (first == last)
-		    break;
-		  first = NEXT_INSN (first);
-		}
-	    }
-	  return last;
+	  if (INSN_P (first))
+	    cleanup_subreg_operands (first);
+	  if (first == last)
+	    break;
+	  first = NEXT_INSN (first);
 	}
     }
-  return NULL_RTX;
+  return last;
 }
+
 /* Split all insns in the function.  If UPD_LIFE, update life info after.  */
 
 void
@@ -2792,26 +2752,54 @@ split_all_insns (int upd_life)
       rtx insn, next;
       bool finish = false;
 
-      for (insn = bb->head; !finish ; insn = next)
+      for (insn = BB_HEAD (bb); !finish ; insn = next)
 	{
-	  rtx last;
-
 	  /* Can't use `next_real_insn' because that might go across
 	     CODE_LABELS and short-out basic blocks.  */
 	  next = NEXT_INSN (insn);
-	  finish = (insn == bb->end);
-	  last = split_insn (insn);
-	  if (last)
+	  finish = (insn == BB_END (bb));
+	  if (INSN_P (insn))
 	    {
-	      /* The split sequence may include barrier, but the
-		 BB boundary we are interested in will be set to previous
-		 one.  */
+	      rtx set = single_set (insn);
 
-	      while (GET_CODE (last) == BARRIER)
-		last = PREV_INSN (last);
-	      SET_BIT (blocks, bb->index);
-	      changed = true;
-	      insn = last;
+	      /* Don't split no-op move insns.  These should silently
+		 disappear later in final.  Splitting such insns would
+		 break the code that handles REG_NO_CONFLICT blocks.  */
+	      if (set && set_noop_p (set))
+		{
+		  /* Nops get in the way while scheduling, so delete them
+		     now if register allocation has already been done.  It
+		     is too risky to try to do this before register
+		     allocation, and there are unlikely to be very many
+		     nops then anyways.  */
+		  if (reload_completed)
+		    {
+		      /* If the no-op set has a REG_UNUSED note, we need
+			 to update liveness information.  */
+		      if (find_reg_note (insn, REG_UNUSED, NULL_RTX))
+			{
+			  SET_BIT (blocks, bb->index);
+			  changed = true;
+			}
+		      /* ??? Is life info affected by deleting edges?  */
+		      delete_insn_and_edges (insn);
+		    }
+		}
+	      else
+		{
+		  rtx last = split_insn (insn);
+		  if (last)
+		    {
+		      /* The split sequence may include barrier, but the
+			 BB boundary we are interested in will be set to
+			 previous one.  */
+
+		      while (BARRIER_P (last))
+			last = PREV_INSN (last);
+		      SET_BIT (blocks, bb->index);
+		      changed = true;
+		    }
+		}
 	    }
 	}
     }
@@ -2828,7 +2816,7 @@ split_all_insns (int upd_life)
 
   if (changed && upd_life)
     update_life_info (blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
-		      PROP_DEATH_NOTES | PROP_REG_INFO);
+		      PROP_DEATH_NOTES);
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
@@ -2848,9 +2836,28 @@ split_all_insns_noflow (void)
   for (insn = get_insns (); insn; insn = next)
     {
       next = NEXT_INSN (insn);
-      split_insn (insn);
+      if (INSN_P (insn))
+	{
+	  /* Don't split no-op move insns.  These should silently
+	     disappear later in final.  Splitting such insns would
+	     break the code that handles REG_NO_CONFLICT blocks.  */
+	  rtx set = single_set (insn);
+	  if (set && set_noop_p (set))
+	    {
+	      /* Nops get in the way while scheduling, so delete them
+		 now if register allocation has already been done.  It
+		 is too risky to try to do this before register
+		 allocation, and there are unlikely to be very many
+		 nops then anyways.
+
+		 ??? Should we use delete_insn when the CFG isn't valid?  */
+	      if (reload_completed)
+		delete_insn_and_edges (insn);
+	    }
+	  else
+	    split_insn (insn);
+	}
     }
-  return;
 }
 
 #ifdef HAVE_peephole2
@@ -2875,8 +2882,7 @@ static int peep2_current;
 rtx
 peep2_next_insn (int n)
 {
-  if (n >= MAX_INSNS_PER_PEEP2 + 1)
-    abort ();
+  gcc_assert (n < MAX_INSNS_PER_PEEP2 + 1);
 
   n += peep2_current;
   if (n >= MAX_INSNS_PER_PEEP2 + 1)
@@ -2893,15 +2899,13 @@ peep2_next_insn (int n)
 int
 peep2_regno_dead_p (int ofs, int regno)
 {
-  if (ofs >= MAX_INSNS_PER_PEEP2 + 1)
-    abort ();
+  gcc_assert (ofs < MAX_INSNS_PER_PEEP2 + 1);
 
   ofs += peep2_current;
   if (ofs >= MAX_INSNS_PER_PEEP2 + 1)
     ofs -= MAX_INSNS_PER_PEEP2 + 1;
 
-  if (peep2_insn_data[ofs].insn == NULL_RTX)
-    abort ();
+  gcc_assert (peep2_insn_data[ofs].insn != NULL_RTX);
 
   return ! REGNO_REG_SET_P (peep2_insn_data[ofs].live_before, regno);
 }
@@ -2913,18 +2917,16 @@ peep2_reg_dead_p (int ofs, rtx reg)
 {
   int regno, n;
 
-  if (ofs >= MAX_INSNS_PER_PEEP2 + 1)
-    abort ();
+  gcc_assert (ofs < MAX_INSNS_PER_PEEP2 + 1);
 
   ofs += peep2_current;
   if (ofs >= MAX_INSNS_PER_PEEP2 + 1)
     ofs -= MAX_INSNS_PER_PEEP2 + 1;
 
-  if (peep2_insn_data[ofs].insn == NULL_RTX)
-    abort ();
+  gcc_assert (peep2_insn_data[ofs].insn != NULL_RTX);
 
   regno = REGNO (reg);
-  n = HARD_REGNO_NREGS (regno, GET_MODE (reg));
+  n = hard_regno_nregs[regno][GET_MODE (reg)];
   while (--n >= 0)
     if (REGNO_REG_SET_P (peep2_insn_data[ofs].live_before, regno + n))
       return 0;
@@ -2947,12 +2949,12 @@ peep2_find_free_register (int from, int to, const char *class_str,
 			  enum machine_mode mode, HARD_REG_SET *reg_set)
 {
   static int search_ofs;
-  enum reg_class class;
+  enum reg_class cl;
   HARD_REG_SET live;
   int i;
 
-  if (from >= MAX_INSNS_PER_PEEP2 + 1 || to >= MAX_INSNS_PER_PEEP2 + 1)
-    abort ();
+  gcc_assert (from < MAX_INSNS_PER_PEEP2 + 1);
+  gcc_assert (to < MAX_INSNS_PER_PEEP2 + 1);
 
   from += peep2_current;
   if (from >= MAX_INSNS_PER_PEEP2 + 1)
@@ -2961,8 +2963,7 @@ peep2_find_free_register (int from, int to, const char *class_str,
   if (to >= MAX_INSNS_PER_PEEP2 + 1)
     to -= MAX_INSNS_PER_PEEP2 + 1;
 
-  if (peep2_insn_data[from].insn == NULL_RTX)
-    abort ();
+  gcc_assert (peep2_insn_data[from].insn != NULL_RTX);
   REG_SET_TO_HARD_REG_SET (live, peep2_insn_data[from].live_before);
 
   while (from != to)
@@ -2971,13 +2972,12 @@ peep2_find_free_register (int from, int to, const char *class_str,
 
       if (++from >= MAX_INSNS_PER_PEEP2 + 1)
 	from = 0;
-      if (peep2_insn_data[from].insn == NULL_RTX)
-	abort ();
+      gcc_assert (peep2_insn_data[from].insn != NULL_RTX);
       REG_SET_TO_HARD_REG_SET (this_live, peep2_insn_data[from].live_before);
       IOR_HARD_REG_SET (live, this_live);
     }
 
-  class = (class_str[0] == 'r' ? GENERAL_REGS
+  cl = (class_str[0] == 'r' ? GENERAL_REGS
 	   : REG_CLASS_FROM_CONSTRAINT (class_str[0], class_str));
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -2998,7 +2998,7 @@ peep2_find_free_register (int from, int to, const char *class_str,
       if (fixed_regs[regno])
 	continue;
       /* Make sure the register is of the right class.  */
-      if (! TEST_HARD_REG_BIT (reg_class_contents[class], regno))
+      if (! TEST_HARD_REG_BIT (reg_class_contents[cl], regno))
 	continue;
       /* And can support the mode we need.  */
       if (! HARD_REGNO_MODE_OK (regno, mode))
@@ -3012,7 +3012,7 @@ peep2_find_free_register (int from, int to, const char *class_str,
 	continue;
 
       success = 1;
-      for (j = HARD_REGNO_NREGS (regno, mode) - 1; j >= 0; j--)
+      for (j = hard_regno_nregs[regno][mode] - 1; j >= 0; j--)
 	{
 	  if (TEST_HARD_REG_BIT (*reg_set, regno + j)
 	      || TEST_HARD_REG_BIT (live, regno + j))
@@ -3023,7 +3023,7 @@ peep2_find_free_register (int from, int to, const char *class_str,
 	}
       if (success)
 	{
-	  for (j = HARD_REGNO_NREGS (regno, mode) - 1; j >= 0; j--)
+	  for (j = hard_regno_nregs[regno][mode] - 1; j >= 0; j--)
 	    SET_HARD_REG_BIT (*reg_set, regno + j);
 
 	  /* Start the next search with the next register.  */
@@ -3091,7 +3091,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
       pbi = init_propagate_block_info (bb, live, NULL, NULL, PROP_DEATH_NOTES);
 #endif
 
-      for (insn = bb->end; ; insn = prev)
+      for (insn = BB_END (bb); ; insn = prev)
 	{
 	  prev = PREV_INSN (insn);
 	  if (INSN_P (insn))
@@ -3124,20 +3124,19 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 		      if (j >= MAX_INSNS_PER_PEEP2 + 1)
 			j -= MAX_INSNS_PER_PEEP2 + 1;
 		      old_insn = peep2_insn_data[j].insn;
-		      if (GET_CODE (old_insn) != CALL_INSN)
+		      if (!CALL_P (old_insn))
 			continue;
 		      was_call = true;
 
 		      new_insn = try;
 		      while (new_insn != NULL_RTX)
 			{
-			  if (GET_CODE (new_insn) == CALL_INSN)
+			  if (CALL_P (new_insn))
 			    break;
 			  new_insn = NEXT_INSN (new_insn);
 			}
 
-		      if (new_insn == NULL_RTX)
-			abort ();
+		      gcc_assert (new_insn != NULL_RTX);
 
 		      CALL_INSN_FUNCTION_USAGE (new_insn)
 			= CALL_INSN_FUNCTION_USAGE (old_insn);
@@ -3166,8 +3165,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 			  if (j >= MAX_INSNS_PER_PEEP2 + 1)
 			    j -= MAX_INSNS_PER_PEEP2 + 1;
 			  old_insn = peep2_insn_data[j].insn;
-			  if (GET_CODE (old_insn) == CALL_INSN)
-			    abort ();
+			  gcc_assert (!CALL_P (old_insn));
 			}
 		      break;
 		    }
@@ -3189,14 +3187,14 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 		  if (note || (was_call && nonlocal_goto_handler_labels))
 		    {
 		      edge eh_edge;
+		      edge_iterator ei;
 
-		      for (eh_edge = bb->succ; eh_edge
-			   ; eh_edge = eh_edge->succ_next)
+		      FOR_EACH_EDGE (eh_edge, ei, bb->succs)
 			if (eh_edge->flags & (EDGE_EH | EDGE_ABNORMAL_CALL))
 			  break;
 
 		      for (x = try ; x != before_try ; x = PREV_INSN (x))
-			if (GET_CODE (x) == CALL_INSN
+			if (CALL_P (x)
 			    || (flag_non_call_exceptions
 				&& may_trap_p (PATTERN (x))
 				&& !find_reg_note (x, REG_EH_REGION, NULL)))
@@ -3207,7 +3205,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 						     XEXP (note, 0),
 						     REG_NOTES (x));
 
-			    if (x != bb->end && eh_edge)
+			    if (x != BB_END (bb) && eh_edge)
 			      {
 				edge nfte, nehe;
 				int flags;
@@ -3215,7 +3213,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 				nfte = split_block (bb, x);
 				flags = (eh_edge->flags
 					 & (EDGE_EH | EDGE_ABNORMAL));
-				if (GET_CODE (x) == CALL_INSN)
+				if (CALL_P (x))
 				  flags |= EDGE_ABNORMAL_CALL;
 				nehe = make_edge (nfte->src, eh_edge->dest,
 						  flags);
@@ -3283,7 +3281,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 		  /* If we generated a jump instruction, it won't have
 		     JUMP_LABEL set.  Recompute after we're done.  */
 		  for (x = try; x != before_try; x = PREV_INSN (x))
-		    if (GET_CODE (x) == JUMP_INSN)
+		    if (JUMP_P (x))
 		      {
 		        do_rebuild_jump_labels = true;
 			break;
@@ -3291,7 +3289,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 		}
 	    }
 
-	  if (insn == bb->head)
+	  if (insn == BB_HEAD (bb))
 	    break;
 	}
 
@@ -3337,10 +3335,9 @@ store_data_bypass_p (rtx out_insn, rtx in_insn)
   rtx out_set, in_set;
 
   in_set = single_set (in_insn);
-  if (! in_set)
-    abort ();
+  gcc_assert (in_set);
 
-  if (GET_CODE (SET_DEST (in_set)) != MEM)
+  if (!MEM_P (SET_DEST (in_set)))
     return false;
 
   out_set = single_set (out_insn);
@@ -3355,8 +3352,7 @@ store_data_bypass_p (rtx out_insn, rtx in_insn)
       int i;
 
       out_pat = PATTERN (out_insn);
-      if (GET_CODE (out_pat) != PARALLEL)
-	abort ();
+      gcc_assert (GET_CODE (out_pat) == PARALLEL);
 
       for (i = 0; i < XVECLEN (out_pat, 0); i++)
 	{
@@ -3365,8 +3361,7 @@ store_data_bypass_p (rtx out_insn, rtx in_insn)
 	  if (GET_CODE (exp) == CLOBBER)
 	    continue;
 
-	  if (GET_CODE (exp) != SET)
-	    abort ();
+	  gcc_assert (GET_CODE (exp) == SET);
 
 	  if (reg_mentioned_p (SET_DEST (exp), SET_DEST (in_set)))
 	    return false;
@@ -3389,9 +3384,8 @@ if_test_bypass_p (rtx out_insn, rtx in_insn)
   in_set = single_set (in_insn);
   if (! in_set)
     {
-      if (GET_CODE (in_insn) == JUMP_INSN || GET_CODE (in_insn) == CALL_INSN)
-	return false;
-      abort ();
+      gcc_assert (JUMP_P (in_insn) || CALL_P (in_insn));
+      return false;
     }
 
   if (GET_CODE (SET_SRC (in_set)) != IF_THEN_ELSE)
@@ -3411,8 +3405,7 @@ if_test_bypass_p (rtx out_insn, rtx in_insn)
       int i;
 
       out_pat = PATTERN (out_insn);
-      if (GET_CODE (out_pat) != PARALLEL)
-	abort ();
+      gcc_assert (GET_CODE (out_pat) == PARALLEL);
 
       for (i = 0; i < XVECLEN (out_pat, 0); i++)
 	{
@@ -3421,8 +3414,7 @@ if_test_bypass_p (rtx out_insn, rtx in_insn)
 	  if (GET_CODE (exp) == CLOBBER)
 	    continue;
 
-	  if (GET_CODE (exp) != SET)
-	    abort ();
+	  gcc_assert (GET_CODE (exp) == SET);
 
 	  if (reg_mentioned_p (SET_DEST (out_set), XEXP (in_set, 1))
 	      || reg_mentioned_p (SET_DEST (out_set), XEXP (in_set, 2)))

@@ -1,6 +1,6 @@
 /* Control flow graph analysis code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -31,6 +31,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "recog.h"
 #include "toplev.h"
 #include "tm_p.h"
+#include "timevar.h"
 
 /* Store the data structures necessary for depth-first search.  */
 struct depth_first_search_dsS {
@@ -51,8 +52,6 @@ static void flow_dfs_compute_reverse_add_bb (depth_first_search_ds,
 					     basic_block);
 static basic_block flow_dfs_compute_reverse_execute (depth_first_search_ds);
 static void flow_dfs_compute_reverse_finish (depth_first_search_ds);
-static void remove_fake_successors (basic_block);
-static bool need_fake_edge_p (rtx);
 static bool flow_active_insn_p (rtx);
 
 /* Like active_insn_p, except keep the return value clobber around
@@ -70,7 +69,7 @@ flow_active_insn_p (rtx insn)
      function.  If we allow it to be skipped, we introduce the
      possibility for register livetime aborts.  */
   if (GET_CODE (PATTERN (insn)) == CLOBBER
-      && GET_CODE (XEXP (PATTERN (insn), 0)) == REG
+      && REG_P (XEXP (PATTERN (insn), 0))
       && REG_FUNCTION_VALUE_P (XEXP (PATTERN (insn), 0)))
     return true;
 
@@ -86,15 +85,15 @@ forwarder_block_p (basic_block bb)
   rtx insn;
 
   if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR
-      || !bb->succ || bb->succ->succ_next)
+      || EDGE_COUNT (bb->succs) != 1)
     return false;
 
-  for (insn = bb->head; insn != bb->end; insn = NEXT_INSN (insn))
+  for (insn = BB_HEAD (bb); insn != BB_END (bb); insn = NEXT_INSN (insn))
     if (INSN_P (insn) && flow_active_insn_p (insn))
       return false;
 
   return (!INSN_P (insn)
-	  || (GET_CODE (insn) == JUMP_INSN && simplejump_p (insn))
+	  || (JUMP_P (insn) && simplejump_p (insn))
 	  || !flow_active_insn_p (insn));
 }
 
@@ -103,17 +102,44 @@ forwarder_block_p (basic_block bb)
 bool
 can_fallthru (basic_block src, basic_block target)
 {
-  rtx insn = src->end;
-  rtx insn2 = target == EXIT_BLOCK_PTR ? NULL : target->head;
+  rtx insn = BB_END (src);
+  rtx insn2;
+  edge e;
+  edge_iterator ei;
 
+  if (target == EXIT_BLOCK_PTR)
+    return true;
   if (src->next_bb != target)
     return 0;
+  FOR_EACH_EDGE (e, ei, src->succs)
+    if (e->dest == EXIT_BLOCK_PTR
+	&& e->flags & EDGE_FALLTHRU)
+      return 0;
 
+  insn2 = BB_HEAD (target);
   if (insn2 && !active_insn_p (insn2))
     insn2 = next_active_insn (insn2);
 
   /* ??? Later we may add code to move jump tables offline.  */
   return next_active_insn (insn) == insn2;
+}
+
+/* Return nonzero if we could reach target from src by falling through,
+   if the target was made adjacent.  If we already have a fall-through
+   edge to the exit block, we can't do that.  */
+bool
+could_fall_through (basic_block src, basic_block target)
+{
+  edge e;
+  edge_iterator ei;
+
+  if (target == EXIT_BLOCK_PTR)
+    return true;
+  FOR_EACH_EDGE (e, ei, src->succs)
+    if (e->dest == EXIT_BLOCK_PTR
+	&& e->flags & EDGE_FALLTHRU)
+      return 0;
+  return true;
 }
 
 /* Mark the back edges in DFS traversal.
@@ -129,7 +155,7 @@ can_fallthru (basic_block src, basic_block target)
 bool
 mark_dfs_back_edges (void)
 {
-  edge *stack;
+  edge_iterator *stack;
   int *pre;
   int *post;
   int sp;
@@ -143,7 +169,7 @@ mark_dfs_back_edges (void)
   post = xcalloc (last_basic_block, sizeof (int));
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge));
+  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge_iterator));
   sp = 0;
 
   /* Allocate bitmap to track nodes that have been visited.  */
@@ -153,19 +179,19 @@ mark_dfs_back_edges (void)
   sbitmap_zero (visited);
 
   /* Push the first edge on to the stack.  */
-  stack[sp++] = ENTRY_BLOCK_PTR->succ;
+  stack[sp++] = ei_start (ENTRY_BLOCK_PTR->succs);
 
   while (sp)
     {
-      edge e;
+      edge_iterator ei;
       basic_block src;
       basic_block dest;
 
       /* Look at the edge on the top of the stack.  */
-      e = stack[sp - 1];
-      src = e->src;
-      dest = e->dest;
-      e->flags &= ~EDGE_DFS_BACK;
+      ei = stack[sp - 1];
+      src = ei_edge (ei)->src;
+      dest = ei_edge (ei)->dest;
+      ei_edge (ei)->flags &= ~EDGE_DFS_BACK;
 
       /* Check if the edge destination has been visited yet.  */
       if (dest != EXIT_BLOCK_PTR && ! TEST_BIT (visited, dest->index))
@@ -174,11 +200,11 @@ mark_dfs_back_edges (void)
 	  SET_BIT (visited, dest->index);
 
 	  pre[dest->index] = prenum++;
-	  if (dest->succ)
+	  if (EDGE_COUNT (dest->succs) > 0)
 	    {
 	      /* Since the DEST node has been visited for the first
 		 time, check its successors.  */
-	      stack[sp++] = dest->succ;
+	      stack[sp++] = ei_start (dest->succs);
 	    }
 	  else
 	    post[dest->index] = postnum++;
@@ -188,13 +214,13 @@ mark_dfs_back_edges (void)
 	  if (dest != EXIT_BLOCK_PTR && src != ENTRY_BLOCK_PTR
 	      && pre[src->index] >= pre[dest->index]
 	      && post[dest->index] == 0)
-	    e->flags |= EDGE_DFS_BACK, found = true;
+	    ei_edge (ei)->flags |= EDGE_DFS_BACK, found = true;
 
-	  if (! e->succ_next && src != ENTRY_BLOCK_PTR)
+	  if (ei_one_before_end_p (ei) && src != ENTRY_BLOCK_PTR)
 	    post[src->index] = postnum++;
 
-	  if (e->succ_next)
-	    stack[sp - 1] = e->succ_next;
+	  if (!ei_one_before_end_p (ei))
+	    ei_next (&stack[sp - 1]);
 	  else
 	    sp--;
 	}
@@ -218,8 +244,9 @@ set_edge_can_fallthru_flag (void)
   FOR_EACH_BB (bb)
     {
       edge e;
+      edge_iterator ei;
 
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  e->flags &= ~EDGE_CAN_FALLTHRU;
 
@@ -230,166 +257,16 @@ set_edge_can_fallthru_flag (void)
 
       /* If the BB ends with an invertible condjump all (2) edges are
 	 CAN_FALLTHRU edges.  */
-      if (!bb->succ || !bb->succ->succ_next || bb->succ->succ_next->succ_next)
+      if (EDGE_COUNT (bb->succs) != 2)
 	continue;
-      if (!any_condjump_p (bb->end))
+      if (!any_condjump_p (BB_END (bb)))
 	continue;
-      if (!invert_jump (bb->end, JUMP_LABEL (bb->end), 0))
+      if (!invert_jump (BB_END (bb), JUMP_LABEL (BB_END (bb)), 0))
 	continue;
-      invert_jump (bb->end, JUMP_LABEL (bb->end), 0);
-      bb->succ->flags |= EDGE_CAN_FALLTHRU;
-      bb->succ->succ_next->flags |= EDGE_CAN_FALLTHRU;
+      invert_jump (BB_END (bb), JUMP_LABEL (BB_END (bb)), 0);
+      EDGE_SUCC (bb, 0)->flags |= EDGE_CAN_FALLTHRU;
+      EDGE_SUCC (bb, 1)->flags |= EDGE_CAN_FALLTHRU;
     }
-}
-
-/* Return true if we need to add fake edge to exit.
-   Helper function for the flow_call_edges_add.  */
-
-static bool
-need_fake_edge_p (rtx insn)
-{
-  if (!INSN_P (insn))
-    return false;
-
-  if ((GET_CODE (insn) == CALL_INSN
-       && !SIBLING_CALL_P (insn)
-       && !find_reg_note (insn, REG_NORETURN, NULL)
-       && !find_reg_note (insn, REG_ALWAYS_RETURN, NULL)
-       && !CONST_OR_PURE_CALL_P (insn)))
-    return true;
-
-  return ((GET_CODE (PATTERN (insn)) == ASM_OPERANDS
-	   && MEM_VOLATILE_P (PATTERN (insn)))
-	  || (GET_CODE (PATTERN (insn)) == PARALLEL
-	      && asm_noperands (insn) != -1
-	      && MEM_VOLATILE_P (XVECEXP (PATTERN (insn), 0, 0)))
-	  || GET_CODE (PATTERN (insn)) == ASM_INPUT);
-}
-
-/* Add fake edges to the function exit for any non constant and non noreturn
-   calls, volatile inline assembly in the bitmap of blocks specified by
-   BLOCKS or to the whole CFG if BLOCKS is zero.  Return the number of blocks
-   that were split.
-
-   The goal is to expose cases in which entering a basic block does not imply
-   that all subsequent instructions must be executed.  */
-
-int
-flow_call_edges_add (sbitmap blocks)
-{
-  int i;
-  int blocks_split = 0;
-  int last_bb = last_basic_block;
-  bool check_last_block = false;
-
-  if (n_basic_blocks == 0)
-    return 0;
-
-  if (! blocks)
-    check_last_block = true;
-  else
-    check_last_block = TEST_BIT (blocks, EXIT_BLOCK_PTR->prev_bb->index);
-
-  /* In the last basic block, before epilogue generation, there will be
-     a fallthru edge to EXIT.  Special care is required if the last insn
-     of the last basic block is a call because make_edge folds duplicate
-     edges, which would result in the fallthru edge also being marked
-     fake, which would result in the fallthru edge being removed by
-     remove_fake_edges, which would result in an invalid CFG.
-
-     Moreover, we can't elide the outgoing fake edge, since the block
-     profiler needs to take this into account in order to solve the minimal
-     spanning tree in the case that the call doesn't return.
-
-     Handle this by adding a dummy instruction in a new last basic block.  */
-  if (check_last_block)
-    {
-      basic_block bb = EXIT_BLOCK_PTR->prev_bb;
-      rtx insn = bb->end;
-
-      /* Back up past insns that must be kept in the same block as a call.  */
-      while (insn != bb->head
-	     && keep_with_call_p (insn))
-	insn = PREV_INSN (insn);
-
-      if (need_fake_edge_p (insn))
-	{
-	  edge e;
-
-	  for (e = bb->succ; e; e = e->succ_next)
-	    if (e->dest == EXIT_BLOCK_PTR)
-	      {
-		insert_insn_on_edge (gen_rtx_USE (VOIDmode, const0_rtx), e);
-		commit_edge_insertions ();
-		break;
-	      }
-	}
-    }
-
-  /* Now add fake edges to the function exit for any non constant
-     calls since there is no way that we can determine if they will
-     return or not...  */
-
-  for (i = 0; i < last_bb; i++)
-    {
-      basic_block bb = BASIC_BLOCK (i);
-      rtx insn;
-      rtx prev_insn;
-
-      if (!bb)
-	continue;
-
-      if (blocks && !TEST_BIT (blocks, i))
-	continue;
-
-      for (insn = bb->end; ; insn = prev_insn)
-	{
-	  prev_insn = PREV_INSN (insn);
-	  if (need_fake_edge_p (insn))
-	    {
-	      edge e;
-	      rtx split_at_insn = insn;
-
-	      /* Don't split the block between a call and an insn that should
-	         remain in the same block as the call.  */
-	      if (GET_CODE (insn) == CALL_INSN)
-		while (split_at_insn != bb->end
-		       && keep_with_call_p (NEXT_INSN (split_at_insn)))
-		  split_at_insn = NEXT_INSN (split_at_insn);
-
-	      /* The handling above of the final block before the epilogue
-	         should be enough to verify that there is no edge to the exit
-		 block in CFG already.  Calling make_edge in such case would
-		 cause us to mark that edge as fake and remove it later.  */
-
-#ifdef ENABLE_CHECKING
-	      if (split_at_insn == bb->end)
-		for (e = bb->succ; e; e = e->succ_next)
-		  if (e->dest == EXIT_BLOCK_PTR)
-		    abort ();
-#endif
-
-	      /* Note that the following may create a new basic block
-		 and renumber the existing basic blocks.  */
-	      if (split_at_insn != bb->end)
-		{
-		  e = split_block (bb, split_at_insn);
-		  if (e)
-		    blocks_split++;
-		}
-
-	      make_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
-	    }
-
-	  if (insn == bb->head)
-	    break;
-	}
-    }
-
-  if (blocks_split)
-    verify_flow_info ();
-
-  return blocks_split;
 }
 
 /* Find unreachable blocks.  An unreachable block will have 0 in
@@ -400,6 +277,7 @@ void
 find_unreachable_blocks (void)
 {
   edge e;
+  edge_iterator ei;
   basic_block *tos, *worklist, bb;
 
   tos = worklist = xmalloc (sizeof (basic_block) * n_basic_blocks);
@@ -413,7 +291,7 @@ find_unreachable_blocks (void)
      be only one.  It isn't inconceivable that we might one day directly
      support Fortran alternate entry points.  */
 
-  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     {
       *tos++ = e->dest;
 
@@ -427,7 +305,7 @@ find_unreachable_blocks (void)
     {
       basic_block b = *--tos;
 
-      for (e = b->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, b->succs)
 	if (!(e->dest->flags & BB_REACHABLE))
 	  {
 	    *tos++ = e->dest;
@@ -459,6 +337,7 @@ create_edge_list (void)
   int num_edges;
   int block_count;
   basic_block bb;
+  edge_iterator ei;
 
   block_count = n_basic_blocks + 2;   /* Include the entry and exit blocks.  */
 
@@ -468,8 +347,7 @@ create_edge_list (void)
      edges on each basic block.  */
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
-      for (e = bb->succ; e; e = e->succ_next)
-	num_edges++;
+      num_edges += EDGE_COUNT (bb->succs);
     }
 
   elist = xmalloc (sizeof (struct edge_list));
@@ -481,7 +359,7 @@ create_edge_list (void)
 
   /* Follow successors of blocks, and register these edges.  */
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
-    for (e = bb->succ; e; e = e->succ_next)
+    FOR_EACH_EDGE (e, ei, bb->succs)
       elist->index_to_edge[num_edges++] = e;
 
   return elist;
@@ -534,10 +412,11 @@ verify_edge_list (FILE *f, struct edge_list *elist)
   int pred, succ, index;
   edge e;
   basic_block bb, p, s;
+  edge_iterator ei;
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  pred = e->src->index;
 	  succ = e->dest->index;
@@ -565,14 +444,14 @@ verify_edge_list (FILE *f, struct edge_list *elist)
       {
 	int found_edge = 0;
 
-	for (e = p->succ; e; e = e->succ_next)
+	FOR_EACH_EDGE (e, ei, p->succs)
 	  if (e->dest == s)
 	    {
 	      found_edge = 1;
 	      break;
 	    }
 
-	for (e = s->pred; e; e = e->pred_next)
+	FOR_EACH_EDGE (e, ei, s->preds)
 	  if (e->src == p)
 	    {
 	      found_edge = 1;
@@ -588,6 +467,22 @@ verify_edge_list (FILE *f, struct edge_list *elist)
 	  fprintf (f, "*** Edge (%d, %d) has index %d, but there is no edge\n",
 		   p->index, s->index, EDGE_INDEX (elist, p, s));
       }
+}
+
+/* Given PRED and SUCC blocks, return the edge which connects the blocks.
+   If no such edge exists, return NULL.  */
+
+edge
+find_edge (basic_block pred, basic_block succ)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, pred->succs)
+    if (e->dest == succ)
+      return e;
+
+  return NULL;
 }
 
 /* This routine will determine what, if any, edge there is between
@@ -640,22 +535,22 @@ flow_edge_list_print (const char *str, const edge *edge_list, int num_edges, FIL
 }
 
 
-/* This routine will remove any fake successor edges for a basic block.
-   When the edge is removed, it is also removed from whatever predecessor
+/* This routine will remove any fake predecessor edges for a basic block.
+   When the edge is removed, it is also removed from whatever successor
    list it is in.  */
 
 static void
-remove_fake_successors (basic_block bb)
+remove_fake_predecessors (basic_block bb)
 {
   edge e;
+  edge_iterator ei;
 
-  for (e = bb->succ; e;)
+  for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei)); )
     {
-      edge tmp = e;
-
-      e = e->succ_next;
-      if ((tmp->flags & EDGE_FAKE) == EDGE_FAKE)
-	remove_edge (tmp);
+      if ((e->flags & EDGE_FAKE) == EDGE_FAKE)
+	remove_edge (e);
+      else
+	ei_next (&ei);
     }
 }
 
@@ -668,9 +563,18 @@ remove_fake_edges (void)
 {
   basic_block bb;
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
-    remove_fake_successors (bb);
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR->next_bb, NULL, next_bb)
+    remove_fake_predecessors (bb);
 }
+
+/* This routine will remove all fake edges to the EXIT_BLOCK.  */
+
+void
+remove_fake_exit_edges (void)
+{
+  remove_fake_predecessors (EXIT_BLOCK_PTR);
+}
+
 
 /* This function will add a fake edge between any block which has no
    successors, and the exit block. Some data flow equations require these
@@ -682,7 +586,7 @@ add_noreturn_fake_exit_edges (void)
   basic_block bb;
 
   FOR_EACH_BB (bb)
-    if (bb->succ == NULL)
+    if (EDGE_COUNT (bb->succs) == 0)
       make_single_succ_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
 }
 
@@ -728,13 +632,13 @@ connect_infinite_loops_to_exit (void)
 void
 flow_reverse_top_sort_order_compute (int *rts_order)
 {
-  edge *stack;
+  edge_iterator *stack;
   int sp;
   int postnum = 0;
   sbitmap visited;
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge));
+  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge_iterator));
   sp = 0;
 
   /* Allocate bitmap to track nodes that have been visited.  */
@@ -744,18 +648,18 @@ flow_reverse_top_sort_order_compute (int *rts_order)
   sbitmap_zero (visited);
 
   /* Push the first edge on to the stack.  */
-  stack[sp++] = ENTRY_BLOCK_PTR->succ;
+  stack[sp++] = ei_start (ENTRY_BLOCK_PTR->succs);
 
   while (sp)
     {
-      edge e;
+      edge_iterator ei;
       basic_block src;
       basic_block dest;
 
       /* Look at the edge on the top of the stack.  */
-      e = stack[sp - 1];
-      src = e->src;
-      dest = e->dest;
+      ei = stack[sp - 1];
+      src = ei_edge (ei)->src;
+      dest = ei_edge (ei)->dest;
 
       /* Check if the edge destination has been visited yet.  */
       if (dest != EXIT_BLOCK_PTR && ! TEST_BIT (visited, dest->index))
@@ -763,20 +667,20 @@ flow_reverse_top_sort_order_compute (int *rts_order)
 	  /* Mark that we have visited the destination.  */
 	  SET_BIT (visited, dest->index);
 
-	  if (dest->succ)
+	  if (EDGE_COUNT (dest->succs) > 0)
 	    /* Since the DEST node has been visited for the first
 	       time, check its successors.  */
-	    stack[sp++] = dest->succ;
+	    stack[sp++] = ei_start (dest->succs);
 	  else
 	    rts_order[postnum++] = dest->index;
 	}
       else
 	{
-	  if (! e->succ_next && src != ENTRY_BLOCK_PTR)
+	  if (ei_one_before_end_p (ei) && src != ENTRY_BLOCK_PTR)
 	   rts_order[postnum++] = src->index;
 
-	  if (e->succ_next)
-	    stack[sp - 1] = e->succ_next;
+	  if (!ei_one_before_end_p (ei))
+	    ei_next (&stack[sp - 1]);
 	  else
 	    sp--;
 	}
@@ -796,14 +700,14 @@ flow_reverse_top_sort_order_compute (int *rts_order)
 int
 flow_depth_first_order_compute (int *dfs_order, int *rc_order)
 {
-  edge *stack;
+  edge_iterator *stack;
   int sp;
   int dfsnum = 0;
   int rcnum = n_basic_blocks - 1;
   sbitmap visited;
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge));
+  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge_iterator));
   sp = 0;
 
   /* Allocate bitmap to track nodes that have been visited.  */
@@ -813,18 +717,18 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
   sbitmap_zero (visited);
 
   /* Push the first edge on to the stack.  */
-  stack[sp++] = ENTRY_BLOCK_PTR->succ;
+  stack[sp++] = ei_start (ENTRY_BLOCK_PTR->succs);
 
   while (sp)
     {
-      edge e;
+      edge_iterator ei;
       basic_block src;
       basic_block dest;
 
       /* Look at the edge on the top of the stack.  */
-      e = stack[sp - 1];
-      src = e->src;
-      dest = e->dest;
+      ei = stack[sp - 1];
+      src = ei_edge (ei)->src;
+      dest = ei_edge (ei)->dest;
 
       /* Check if the edge destination has been visited yet.  */
       if (dest != EXIT_BLOCK_PTR && ! TEST_BIT (visited, dest->index))
@@ -837,10 +741,10 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
 
 	  dfsnum++;
 
-	  if (dest->succ)
+	  if (EDGE_COUNT (dest->succs) > 0)
 	    /* Since the DEST node has been visited for the first
 	       time, check its successors.  */
-	    stack[sp++] = dest->succ;
+	    stack[sp++] = ei_start (dest->succs);
 	  else if (rc_order)
 	    /* There are no successors for the DEST node so assign
 	       its reverse completion number.  */
@@ -848,14 +752,14 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
 	}
       else
 	{
-	  if (! e->succ_next && src != ENTRY_BLOCK_PTR
+	  if (ei_one_before_end_p (ei) && src != ENTRY_BLOCK_PTR
 	      && rc_order)
 	    /* There are no more successors for the SRC node
 	       so assign its reverse completion number.  */
 	    rc_order[rcnum--] = src->index;
 
-	  if (e->succ_next)
-	    stack[sp - 1] = e->succ_next;
+	  if (!ei_one_before_end_p (ei))
+	    ei_next (&stack[sp - 1]);
 	  else
 	    sp--;
 	}
@@ -864,140 +768,10 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
   free (stack);
   sbitmap_free (visited);
 
-  /* The number of nodes visited should not be greater than
-     n_basic_blocks.  */
-  if (dfsnum > n_basic_blocks)
-    abort ();
-
-  /* There are some nodes left in the CFG that are unreachable.  */
-  if (dfsnum < n_basic_blocks)
-    abort ();
+  /* The number of nodes visited should be the number of blocks.  */
+  gcc_assert (dfsnum == n_basic_blocks);
 
   return dfsnum;
-}
-
-struct dfst_node
-{
-    unsigned nnodes;
-    struct dfst_node **node;
-    struct dfst_node *up;
-};
-
-/* Compute a preorder transversal ordering such that a sub-tree which
-   is the source of a cross edge appears before the sub-tree which is
-   the destination of the cross edge.  This allows for easy detection
-   of all the entry blocks for a loop.
-
-   The ordering is compute by:
-
-     1) Generating a depth first spanning tree.
-
-     2) Walking the resulting tree from right to left.  */
-
-void
-flow_preorder_transversal_compute (int *pot_order)
-{
-  edge e;
-  edge *stack;
-  int i;
-  int max_successors;
-  int sp;
-  sbitmap visited;
-  struct dfst_node *node;
-  struct dfst_node *dfst;
-  basic_block bb;
-
-  /* Allocate stack for back-tracking up CFG.  */
-  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge));
-  sp = 0;
-
-  /* Allocate the tree.  */
-  dfst = xcalloc (last_basic_block, sizeof (struct dfst_node));
-
-  FOR_EACH_BB (bb)
-    {
-      max_successors = 0;
-      for (e = bb->succ; e; e = e->succ_next)
-	max_successors++;
-
-      dfst[bb->index].node
-	= (max_successors
-	   ? xcalloc (max_successors, sizeof (struct dfst_node *)) : NULL);
-    }
-
-  /* Allocate bitmap to track nodes that have been visited.  */
-  visited = sbitmap_alloc (last_basic_block);
-
-  /* None of the nodes in the CFG have been visited yet.  */
-  sbitmap_zero (visited);
-
-  /* Push the first edge on to the stack.  */
-  stack[sp++] = ENTRY_BLOCK_PTR->succ;
-
-  while (sp)
-    {
-      basic_block src;
-      basic_block dest;
-
-      /* Look at the edge on the top of the stack.  */
-      e = stack[sp - 1];
-      src = e->src;
-      dest = e->dest;
-
-      /* Check if the edge destination has been visited yet.  */
-      if (dest != EXIT_BLOCK_PTR && ! TEST_BIT (visited, dest->index))
-	{
-	  /* Mark that we have visited the destination.  */
-	  SET_BIT (visited, dest->index);
-
-	  /* Add the destination to the preorder tree.  */
-	  if (src != ENTRY_BLOCK_PTR)
-	    {
-	      dfst[src->index].node[dfst[src->index].nnodes++]
-		= &dfst[dest->index];
-	      dfst[dest->index].up = &dfst[src->index];
-	    }
-
-	  if (dest->succ)
-	    /* Since the DEST node has been visited for the first
-	       time, check its successors.  */
-	    stack[sp++] = dest->succ;
-	}
-
-      else if (e->succ_next)
-	stack[sp - 1] = e->succ_next;
-      else
-	sp--;
-    }
-
-  free (stack);
-  sbitmap_free (visited);
-
-  /* Record the preorder transversal order by
-     walking the tree from right to left.  */
-
-  i = 0;
-  node = &dfst[ENTRY_BLOCK_PTR->next_bb->index];
-  pot_order[i++] = 0;
-
-  while (node)
-    {
-      if (node->nnodes)
-	{
-	  node = node->node[--node->nnodes];
-	  pot_order[i++] = node - dfst;
-	}
-      else
-	node = node->up;
-    }
-
-  /* Free the tree.  */
-
-  for (i = 0; i < last_basic_block; i++)
-    if (dfst[i].node)
-      free (dfst[i].node);
-
-  free (dfst);
 }
 
 /* Compute the depth first search order on the _reverse_ graph and
@@ -1068,13 +842,14 @@ flow_dfs_compute_reverse_execute (depth_first_search_ds data)
 {
   basic_block bb;
   edge e;
+  edge_iterator ei;
 
   while (data->sp > 0)
     {
       bb = data->stack[--data->sp];
 
       /* Perform depth-first search on adjacent vertices.  */
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	if (!TEST_BIT (data->visited_blocks,
 		       e->src->index - (INVALID_BLOCK + 1)))
 	  flow_dfs_compute_reverse_add_bb (data, e->src);
@@ -1115,25 +890,24 @@ dfs_enumerate_from (basic_block bb, int reverse,
   while (sp)
     {
       edge e;
+      edge_iterator ei;
       lbb = st[--sp];
       if (reverse)
         {
-          for (e = lbb->pred; e; e = e->pred_next)
+	  FOR_EACH_EDGE (e, ei, lbb->preds)
 	    if (!(e->src->flags & BB_VISITED) && predicate (e->src, data))
 	      {
-	        if (tv == rslt_max)
-	          abort ();
+	        gcc_assert (tv != rslt_max);
 	        rslt[tv++] = st[sp++] = e->src;
 	        e->src->flags |= BB_VISITED;
 	      }
         }
       else
         {
-          for (e = lbb->succ; e; e = e->succ_next)
+	  FOR_EACH_EDGE (e, ei, lbb->succs)
 	    if (!(e->dest->flags & BB_VISITED) && predicate (e->dest, data))
 	      {
-	        if (tv == rslt_max)
-	          abort ();
+	        gcc_assert (tv != rslt_max);
 	        rslt[tv++] = st[sp++] = e->dest;
 	        e->dest->flags |= BB_VISITED;
 	      }
@@ -1144,3 +918,83 @@ dfs_enumerate_from (basic_block bb, int reverse,
     rslt[sp]->flags &= ~BB_VISITED;
   return tv;
 }
+
+
+/* Computing the Dominance Frontier:
+
+   As described in Morgan, section 3.5, this may be done simply by
+   walking the dominator tree bottom-up, computing the frontier for
+   the children before the parent.  When considering a block B,
+   there are two cases:
+
+   (1) A flow graph edge leaving B that does not lead to a child
+   of B in the dominator tree must be a block that is either equal
+   to B or not dominated by B.  Such blocks belong in the frontier
+   of B.
+
+   (2) Consider a block X in the frontier of one of the children C
+   of B.  If X is not equal to B and is not dominated by B, it
+   is in the frontier of B.  */
+
+static void
+compute_dominance_frontiers_1 (bitmap *frontiers, basic_block bb, sbitmap done)
+{
+  edge e;
+  edge_iterator ei;
+  basic_block c;
+
+  SET_BIT (done, bb->index);
+
+  /* Do the frontier of the children first.  Not all children in the
+     dominator tree (blocks dominated by this one) are children in the
+     CFG, so check all blocks.  */
+  for (c = first_dom_son (CDI_DOMINATORS, bb);
+       c;
+       c = next_dom_son (CDI_DOMINATORS, c))
+    {
+      if (! TEST_BIT (done, c->index))
+    	compute_dominance_frontiers_1 (frontiers, c, done);
+    }
+      
+  /* Find blocks conforming to rule (1) above.  */
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    {
+      if (e->dest == EXIT_BLOCK_PTR)
+	continue;
+      if (get_immediate_dominator (CDI_DOMINATORS, e->dest) != bb)
+	bitmap_set_bit (frontiers[bb->index], e->dest->index);
+    }
+
+  /* Find blocks conforming to rule (2).  */
+  for (c = first_dom_son (CDI_DOMINATORS, bb);
+       c;
+       c = next_dom_son (CDI_DOMINATORS, c))
+    {
+      int x;
+      bitmap_iterator bi;
+
+      EXECUTE_IF_SET_IN_BITMAP (frontiers[c->index], 0, x, bi)
+	{
+	  if (get_immediate_dominator (CDI_DOMINATORS, BASIC_BLOCK (x)) != bb)
+	    bitmap_set_bit (frontiers[bb->index], x);
+	}
+    }
+}
+
+
+void
+compute_dominance_frontiers (bitmap *frontiers)
+{
+  sbitmap done = sbitmap_alloc (last_basic_block);
+
+  timevar_push (TV_DOM_FRONTIERS);
+
+  sbitmap_zero (done);
+
+  compute_dominance_frontiers_1 (frontiers, EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest, done);
+
+  sbitmap_free (done);
+
+  timevar_pop (TV_DOM_FRONTIERS);
+}
+

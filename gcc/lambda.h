@@ -29,14 +29,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    and scalar multiplication.  In this vector space, an element is a list of
    integers.  */
 typedef int *lambda_vector;
-
 /* An integer matrix.  A matrix consists of m vectors of length n (IE
    all vectors are the same length).  */
 typedef lambda_vector *lambda_matrix;
 
-/* A transformation matrix, which is a self-contained ROWSIZE x COLSIZE
-   matrix.  Rather than use floats, we simply keep a single DENOMINATOR that
-   represents the denominator for every element in the matrix.  */
+/* A transformation matrix.  */
 typedef struct
 {
   lambda_matrix matrix;
@@ -49,15 +46,7 @@ typedef struct
 #define LTM_COLSIZE(T) ((T)->colsize)
 #define LTM_DENOMINATOR(T) ((T)->denominator)
 
-/* A vector representing a statement in the body of a loop.
-   The COEFFICIENTS vector contains a coefficient for each induction variable
-   in the loop nest containing the statement.
-   The DENOMINATOR represents the denominator for each coefficient in the
-   COEFFICIENT vector.
-
-   This structure is used during code generation in order to rewrite the old
-   induction variable uses in a statement in terms of the newly created
-   induction variables.  */
+/* A vector representing a statement in the body of a loop.  */
 typedef struct
 {
   lambda_vector coefficients;
@@ -68,18 +57,7 @@ typedef struct
 #define LBV_SIZE(T) ((T)->size)
 #define LBV_DENOMINATOR(T) ((T)->denominator)
 
-/* Piecewise linear expression.  
-   This structure represents a linear expression with terms for the invariants
-   and induction variables of a loop. 
-   COEFFICIENTS is a vector of coefficients for the induction variables, one
-   per loop in the loop nest.
-   CONSTANT is the constant portion of the linear expression
-   INVARIANT_COEFFICIENTS is a vector of coefficients for the loop invariants,
-   one per invariant.
-   DENOMINATOR is the denominator for all of the coefficients and constants in
-   the expression.  
-   The linear expressions can be linked together using the NEXT field, in
-   order to represent MAX or MIN of a group of linear expressions.  */
+/* Piecewise linear expression.  */
 typedef struct lambda_linear_expression_s
 {
   lambda_vector coefficients;
@@ -99,12 +77,7 @@ lambda_linear_expression lambda_linear_expression_new (int, int);
 void print_lambda_linear_expression (FILE *, lambda_linear_expression, int,
 				     int, char);
 
-/* Loop structure.  Our loop structure consists of a constant representing the
-   STEP of the loop, a set of linear expressions representing the LOWER_BOUND
-   of the loop, a set of linear expressions representing the UPPER_BOUND of
-   the loop, and a set of linear expressions representing the LINEAR_OFFSET of
-   the loop.  The linear offset is a set of linear expressions that are
-   applied to *both* the lower bound, and the upper bound.  */
+/* Loop structure.  */
 typedef struct lambda_loop_s
 {
   lambda_linear_expression lower_bound;
@@ -118,12 +91,7 @@ typedef struct lambda_loop_s
 #define LL_LINEAR_OFFSET(T) ((T)->linear_offset)
 #define LL_STEP(T)   ((T)->step)
 
-/* Loop nest structure.  
-   The loop nest structure consists of a set of loop structures (defined
-   above) in LOOPS, along with an integer representing the DEPTH of the loop,
-   and an integer representing the number of INVARIANTS in the loop.  Both of
-   these integers are used to size the associated coefficient vectors in the
-   linear expression structures.  */
+/* Loop nest structure.  */
 typedef struct
 {
   lambda_loop *loops;

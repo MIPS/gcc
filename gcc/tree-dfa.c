@@ -1,5 +1,5 @@
 /* Data flow functions for trees.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -109,6 +109,7 @@ find_referenced_vars (void)
   block_stmt_iterator si;
   struct walk_state walk_state;
 
+  cgraph_reset_static_var_maps ();
   vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
   memset (&walk_state, 0, sizeof (walk_state));
   walk_state.vars_found = vars_found;
@@ -131,7 +132,7 @@ struct tree_opt_pass pass_referenced_vars =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  TV_FIND_REFERENCED_VARS,		/* tv_id */
+  0,					/* tv_id */
   PROP_gimple_leh | PROP_cfg,		/* properties_required */
   PROP_referenced_vars,			/* properties_provided */
   0,					/* properties_destroyed */
@@ -312,14 +313,7 @@ compute_immediate_uses_for_stmt (tree stmt, int flags, bool (*calc_for)(tree))
 	  if (!IS_EMPTY_STMT (imm_rdef_stmt) && (!calc_for || calc_for (use)))
 	    add_immediate_use (imm_rdef_stmt, stmt);
 	}
-      
-      FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_ALL_KILLS)
-	{
-	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (use);
-	  if (!IS_EMPTY_STMT (imm_rdef_stmt) && (!calc_for || calc_for (use)))
-	    add_immediate_use (imm_rdef_stmt, stmt);
-	}
-    }  
+    }
 }
 
 
@@ -688,7 +682,7 @@ dump_dfa_stats (FILE *file)
 
   size = num_referenced_vars * sizeof (tree);
   total += size;
-  fprintf (file, fmt_str_1, "Referenced variables", (unsigned long)num_referenced_vars,
+  fprintf (file, fmt_str_1, "Referenced variables", num_referenced_vars,
 	   SCALE (size), LABEL (size));
 
   size = dfa_stats.num_stmt_anns * sizeof (struct stmt_ann_d);
@@ -901,7 +895,8 @@ add_referenced_var (tree var, struct walk_state *walk_state)
       /* Scan DECL_INITIAL for pointer variables as they may contain
 	 address arithmetic referencing the address of other
 	 variables.  */
-      if (DECL_INITIAL (var))
+      if (DECL_INITIAL (var)
+	  && POINTER_TYPE_P (TREE_TYPE (var)))
       	walk_tree (&DECL_INITIAL (var), find_vars_r, walk_state, 0);
     }
 }
@@ -956,7 +951,7 @@ mark_new_vars_to_rename (tree stmt, bitmap vars_to_rename)
   int v_may_defs_before, v_may_defs_after;
   int v_must_defs_before, v_must_defs_after;
 
-  vars_in_vops_to_rename = BITMAP_ALLOC (NULL);
+  vars_in_vops_to_rename = BITMAP_XMALLOC ();
 
   /* Before re-scanning the statement for operands, mark the existing
      virtual operands to be renamed again.  We do this because when new
@@ -1003,9 +998,9 @@ mark_new_vars_to_rename (tree stmt, bitmap vars_to_rename)
   if (found_exposed_symbol
       || v_may_defs_before > v_may_defs_after
       || v_must_defs_before > v_must_defs_after)
-    bitmap_ior_into (vars_to_rename, vars_in_vops_to_rename);
+    bitmap_a_or_b (vars_to_rename, vars_to_rename, vars_in_vops_to_rename);
 
-  BITMAP_FREE (vars_in_vops_to_rename);
+  BITMAP_XFREE (vars_in_vops_to_rename);
 }
 
 /* Find all variables within the gimplified statement that were not previously
@@ -1030,19 +1025,4 @@ void
 find_new_referenced_vars (tree *stmt_p)
 {
   walk_tree (stmt_p, find_new_referenced_vars_1, NULL, NULL);
-}
-
-
-/* Mark all call-clobbered variables for renaming.  */
-
-void
-mark_call_clobbered_vars_to_rename (void)
-{
-  unsigned i;
-  bitmap_iterator bi;
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
-    {
-      tree var = referenced_var (i);
-      bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
-    }
 }

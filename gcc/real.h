@@ -1,6 +1,6 @@
 /* Definitions of floating-point access for GNU compiler.
    Copyright (C) 1989, 1991, 1994, 1996, 1997, 1998, 1999,
-   2000, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -42,13 +42,22 @@ enum real_value_class {
 
 struct real_value GTY(())
 {
-  ENUM_BITFIELD (real_value_class) class : 2;
+  /* Use the same underlying type for all bit-fields, so as to make
+     sure they're packed together, otherwise REAL_VALUE_TYPE_SIZE will
+     be miscomputed.  */
+  unsigned int /* ENUM_BITFIELD (real_value_class) */ cl : 2;
   unsigned int sign : 1;
   unsigned int signalling : 1;
   unsigned int canonical : 1;
-  signed int exp : EXP_BITS;
+  unsigned int uexp : EXP_BITS;
   unsigned long sig[SIGSZ];
 };
+
+#define REAL_EXP(REAL) \
+  ((int)((REAL)->uexp ^ (unsigned int)(1 << (EXP_BITS - 1))) \
+   - (1 << (EXP_BITS - 1)))
+#define SET_REAL_EXP(REAL, EXP) \
+  ((REAL)->uexp = ((unsigned int)(EXP) & (unsigned int)((1 << EXP_BITS) - 1)))
 
 /* Various headers condition prototypes on #ifdef REAL_VALUE_TYPE, so it
    needs to be a macro.  We do need to continue to have a structure tag
@@ -143,9 +152,10 @@ struct real_format
 
 /* The target format used for each floating floating point mode.
    Indexed by MODE - QFmode.  */
-extern const struct real_format *real_format_for_mode[TFmode - QFmode + 1];
+extern const struct real_format *
+  real_format_for_mode[MAX_MODE_FLOAT - MIN_MODE_FLOAT + 1];
 
-#define REAL_MODE_FORMAT(MODE) (real_format_for_mode[(MODE) - QFmode])
+#define REAL_MODE_FORMAT(MODE) (real_format_for_mode[(MODE) - MIN_MODE_FLOAT])
 
 /* Declare functions in real.c.  */
 
@@ -371,5 +381,10 @@ extern void real_floor (REAL_VALUE_TYPE *, enum machine_mode,
 			const REAL_VALUE_TYPE *);
 extern void real_ceil (REAL_VALUE_TYPE *, enum machine_mode,
 		       const REAL_VALUE_TYPE *);
+extern void real_round (REAL_VALUE_TYPE *, enum machine_mode,
+			const REAL_VALUE_TYPE *);
+
+/* Set the sign of R to the sign of X.  */
+extern void real_copysign (REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *);
 
 #endif /* ! GCC_REAL_H */

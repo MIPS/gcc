@@ -1,5 +1,5 @@
 /* Timing variables for measuring compiler performance.
-   Copyright (C) 2000, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Alex Samuel <samuel@codesourcery.com>
 
 This file is part of GCC.
@@ -263,8 +263,7 @@ timevar_push (timevar_id_t timevar)
   tv->used = 1;
 
   /* Can't push a standalone timer.  */
-  if (tv->standalone)
-    abort ();
+  gcc_assert (!tv->standalone);
 
   /* What time is it?  */
   get_time (&now);
@@ -309,13 +308,8 @@ timevar_pop (timevar_id_t timevar)
   if (!timevar_enable)
     return;
 
-  if (&timevars[timevar] != stack->timevar)
-    {
-      sorry ("cannot timevar_pop '%s' when top of timevars stack is '%s'",
-             timevars[timevar].name, stack->timevar->name);
-      abort ();
-    }
-
+  gcc_assert (&timevars[timevar] == stack->timevar);
+  
   /* What time is it?  */
   get_time (&now);
 
@@ -352,8 +346,7 @@ timevar_start (timevar_id_t timevar)
 
   /* Don't allow the same timing variable to be started more than
      once.  */
-  if (tv->standalone)
-    abort ();
+  gcc_assert (!tv->standalone);
   tv->standalone = 1;
 
   get_time (&tv->start_time);
@@ -372,8 +365,7 @@ timevar_stop (timevar_id_t timevar)
     return;
 
   /* TIMEVAR must have been started via timevar_start.  */
-  if (!tv->standalone)
-    abort ();
+  gcc_assert (tv->standalone);
 
   get_time (&now);
   timevar_accumulate (&tv->elapsed, &tv->start_time, &now);
@@ -496,6 +488,11 @@ timevar_print (FILE *fp)
 #endif
 #ifdef HAVE_WALL_TIME
   fprintf (fp, "%7.2f\n", total->wall);
+#endif
+
+#ifdef ENABLE_CHECKING
+  fprintf (fp, "Extra diagnostic checks enabled; compiler may run slowly.\n");
+  fprintf (fp, "Configure with --disable-checking to disable checks.\n");
 #endif
 
 #endif /* defined (HAVE_USER_TIME) || defined (HAVE_SYS_TIME)

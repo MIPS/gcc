@@ -1,5 +1,5 @@
 /* If-conversion for vectorizer.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004 Free Software Foundation, Inc.
    Contributed by Devang Patel <dpatel@apple.com>
 
 This file is part of GCC.
@@ -24,7 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    A short description of if-conversion:
 
-     o Decide if a loop is if-convertible or not.
+     o Decide if a loop is if-convertable or not.
      o Walk all loop basic blocks in breadth first order (BFS order).
        o Remove conditional statements (at the end of basic block)
          and propagate condition into destination basic blocks'
@@ -108,13 +108,13 @@ static tree tree_if_convert_stmt (struct loop *loop, tree, tree,
 				  block_stmt_iterator *);
 static void tree_if_convert_cond_expr (struct loop *, tree, tree,
 				       block_stmt_iterator *);
-static bool if_convertible_phi_p (struct loop *, basic_block, tree);
-static bool if_convertible_modify_expr_p (struct loop *, basic_block, tree);
-static bool if_convertible_stmt_p (struct loop *, basic_block, tree);
-static bool if_convertible_bb_p (struct loop *, basic_block, bool);
-static bool if_convertible_loop_p (struct loop *, bool);
+static bool if_convertable_phi_p (struct loop *, basic_block, tree);
+static bool if_convertable_modify_expr_p (struct loop *, basic_block, tree);
+static bool if_convertable_stmt_p (struct loop *, basic_block, tree);
+static bool if_convertable_bb_p (struct loop *, basic_block, bool);
+static bool if_convertable_loop_p (struct loop *, bool);
 static void add_to_predicate_list (basic_block, tree);
-static tree add_to_dst_predicate_list (struct loop * loop, basic_block, tree, tree,
+static tree add_to_dst_predicate_list (struct loop * loop, tree, tree, tree,
 				       block_stmt_iterator *);
 static void clean_predicate_lists (struct loop *loop);
 static basic_block find_phi_replacement_condition (basic_block, tree *,
@@ -138,7 +138,7 @@ static basic_block *ifc_bbs;
    for vectorizer or not. If it is used for vectorizer, additional checks are
    used. (Vectorization checks are not yet implemented).  */
 
-static bool
+bool
 tree_if_conversion (struct loop *loop, bool for_vectorizer)
 {
   basic_block bb;
@@ -149,8 +149,8 @@ tree_if_conversion (struct loop *loop, bool for_vectorizer)
   ifc_bbs = NULL;
 
   /* if-conversion is not appropriate for all loops. First, check if loop  is
-     if-convertible or not.  */
-  if (!if_convertible_loop_p (loop, for_vectorizer))
+     if-convertable or not.  */
+  if (!if_convertable_loop_p (loop, for_vectorizer))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file,"-------------------------\n");
@@ -271,13 +271,14 @@ static void
 tree_if_convert_cond_expr (struct loop *loop, tree stmt, tree cond,
 			   block_stmt_iterator *bsi)
 {
-  tree c, c2, new_cond;
-  edge true_edge, false_edge;
+  tree then_clause, else_clause, c, new_cond;
   new_cond = NULL_TREE;
 
   gcc_assert (TREE_CODE (stmt) == COND_EXPR);
 
-  c = COND_EXPR_COND (stmt);
+  c = TREE_OPERAND (stmt, 0);
+  then_clause = TREE_OPERAND (stmt, 1);
+  else_clause = TREE_OPERAND (stmt, 2);
 
   /* Create temp. for condition.  */
   if (!is_gimple_condexpr (c))
@@ -288,26 +289,27 @@ tree_if_convert_cond_expr (struct loop *loop, tree stmt, tree cond,
       c = TREE_OPERAND (new_stmt, 0);
     }
 
-  extract_true_false_edges_from_block (bb_for_stmt (stmt),
- 				       &true_edge, &false_edge);
-
   /* Add new condition into destination's predicate list.  */
+  if (then_clause)
+    /* if 'c' is true then then_clause is reached.  */
+    new_cond = add_to_dst_predicate_list (loop, then_clause, cond, 
+					  unshare_expr (c), bsi);
 
-  /* If 'c' is true then TRUE_EDGE is taken.  */
-  new_cond = add_to_dst_predicate_list (loop, true_edge->dest, cond,
-					unshare_expr (c), bsi);
-
-  if (!is_gimple_reg(c) && is_gimple_condexpr (c))
+  if (else_clause)
     {
-      tree new_stmt;
-      new_stmt = ifc_temp_var (TREE_TYPE (c), unshare_expr (c));
-      bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
-      c = TREE_OPERAND (new_stmt, 0);
-    }
+      tree c2;
+      if (!is_gimple_reg(c) && is_gimple_condexpr (c))
+	{
+	  tree new_stmt;
+	  new_stmt = ifc_temp_var (TREE_TYPE (c), unshare_expr (c));
+	  bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
+	  c = TREE_OPERAND (new_stmt, 0);
+	}
 
-  /* If 'c' is false then FALSE_EDGE is taken.  */
-  c2 = invert_truthvalue (unshare_expr (c));
-  add_to_dst_predicate_list (loop, false_edge->dest, cond, c2, bsi);
+      /* if 'c' is false then else_clause is reached.  */
+      c2 = invert_truthvalue (unshare_expr (c));
+      add_to_dst_predicate_list (loop, else_clause, cond, c2, bsi);
+    }
 
   /* Now this conditional statement is redundant. Remove it.
      But, do not remove exit condition! Update exit condition
@@ -320,14 +322,14 @@ tree_if_convert_cond_expr (struct loop *loop, tree stmt, tree cond,
   return;
 }
 
-/* Return true, iff PHI is if-convertible. PHI is part of loop LOOP
+/* Return true, iff PHI is if-convertable. PHI is part of loop LOOP
    and it belongs to basic block BB.
-   PHI is not if-convertible
+   PHI is not if-convertable
    - if it has more than 2 arguments.
    - Virtual PHI is immediately used in another PHI node.  */
 
 static bool
-if_convertible_phi_p (struct loop *loop, basic_block bb, tree phi)
+if_convertable_phi_p (struct loop *loop, basic_block bb, tree phi)
 {
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -362,8 +364,8 @@ if_convertible_phi_p (struct loop *loop, basic_block bb, tree phi)
   return true;
 }
 
-/* Return true, if M_EXPR is if-convertible.
-   MODIFY_EXPR is not if-convertible if,
+/* Return true, if M_EXPR is if-convertable.
+   MODIFY_EXPR is not if-convertable if,
    - It is not movable.
    - It could trap.
    - LHS is not var decl.
@@ -371,7 +373,7 @@ if_convertible_phi_p (struct loop *loop, basic_block bb, tree phi)
 */
 
 static bool
-if_convertible_modify_expr_p (struct loop *loop, basic_block bb, tree m_expr)
+if_convertable_modify_expr_p (struct loop *loop, basic_block bb, tree m_expr)
 {
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -419,14 +421,14 @@ if_convertible_modify_expr_p (struct loop *loop, basic_block bb, tree m_expr)
   return true;
 }
 
-/* Return true, iff STMT is if-convertible.
-   Statement is if-convertible if,
-   - It is if-convertible MODIFY_EXPR
+/* Return true, iff STMT is if-convertable.
+   Statement is if-convertable if,
+   - It is if-convertable MODIFY_EXPR
    - IT is LABEL_EXPR, GOTO_EXPR or COND_EXPR.
    STMT is inside block BB, which is inside loop LOOP.  */
 
 static bool
-if_convertible_stmt_p (struct loop *loop, basic_block bb, tree stmt)
+if_convertable_stmt_p (struct loop *loop, basic_block bb, tree stmt)
 {
   switch (TREE_CODE (stmt))
     {
@@ -435,7 +437,7 @@ if_convertible_stmt_p (struct loop *loop, basic_block bb, tree stmt)
 
     case MODIFY_EXPR:
 
-      if (!if_convertible_modify_expr_p (loop, bb, stmt))
+      if (!if_convertable_modify_expr_p (loop, bb, stmt))
 	return false;
       break;
 
@@ -457,9 +459,9 @@ if_convertible_stmt_p (struct loop *loop, basic_block bb, tree stmt)
   return true;
 }
 
-/* Return true, iff BB is if-convertible.
+/* Return true, iff BB is if-convertable.
    Note: This routine does _not_ check basic block statements and phis.
-   Basic block is not if-convertible if,
+   Basic block is not if-convertable if,
    - Basic block is non-empty and it is after exit block (in BFS order).
    - Basic block is after exit block but before latch.
    - Basic block edge(s) is not normal.
@@ -467,7 +469,7 @@ if_convertible_stmt_p (struct loop *loop, basic_block bb, tree stmt)
    BB is inside loop LOOP.  */
 
 static bool
-if_convertible_bb_p (struct loop *loop, basic_block bb, bool exit_bb_seen)
+if_convertable_bb_p (struct loop *loop, basic_block bb, bool exit_bb_seen)
 {
   edge e;
   edge_iterator ei;
@@ -504,19 +506,19 @@ if_convertible_bb_p (struct loop *loop, basic_block bb, bool exit_bb_seen)
   return true;
 }
 
-/* Return true, iff LOOP is if-convertible.
-   LOOP is if-convertible if,
+/* Return true, iff LOOP is if-convertable.
+   LOOP is if-convertable if,
    - It is innermost.
    - It has two or more basic blocks.
    - It has only one exit.
    - Loop header is not the exit edge.
-   - If its basic blocks and phi nodes are if convertible. See above for
+   - If its basic blocks and phi nodes are if convertable. See above for
      more info.
    FOR_VECTORIZER enables vectorizer specific checks. For example, support
    for vector conditions, data dependency checks etc.. (Not implemented yet).  */
 
 static bool
-if_convertible_loop_p (struct loop *loop, bool for_vectorizer ATTRIBUTE_UNUSED)
+if_convertable_loop_p (struct loop *loop, bool for_vectorizer ATTRIBUTE_UNUSED)
 {
   tree phi;
   basic_block bb;
@@ -579,18 +581,18 @@ if_convertible_loop_p (struct loop *loop, bool for_vectorizer ATTRIBUTE_UNUSED)
     {
       bb = ifc_bbs[i];
 
-      if (!if_convertible_bb_p (loop, bb, exit_bb_seen))
+      if (!if_convertable_bb_p (loop, bb, exit_bb_seen))
 	return false;
 
       /* Check statements.  */
       for (itr = bsi_start (bb); !bsi_end_p (itr); bsi_next (&itr))
-	if (!if_convertible_stmt_p (loop, bb, bsi_stmt (itr)))
+	if (!if_convertable_stmt_p (loop, bb, bsi_stmt (itr)))
 	  return false;
       /* ??? Check data dependency for vectorizer.  */
 
       /* What about phi nodes ? */
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	if (!if_convertible_phi_p (loop, bb, phi))
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	if (!if_convertable_phi_p (loop, bb, phi))
 	  return false;
 
       if (bb_with_exit_edge_p (bb))
@@ -622,16 +624,19 @@ add_to_predicate_list (basic_block bb, tree new_cond)
   bb->aux = cond;
 }
 
-/* Add condition COND into BB's predicate list.  PREV_COND is
+/* Add condition COND into DST's predicate list.  PREV_COND is
    existing condition.  */
 
 static tree
-add_to_dst_predicate_list (struct loop * loop, basic_block bb,
+add_to_dst_predicate_list (struct loop * loop, tree dst,
 			   tree prev_cond, tree cond,
 			   block_stmt_iterator *bsi)
 {
+  basic_block bb;
   tree new_cond = NULL_TREE;
 
+  gcc_assert (TREE_CODE (dst) == GOTO_EXPR);
+  bb = label_to_block (TREE_OPERAND (dst, 0));
   if (!flow_bb_inside_loop_p (loop, bb))
     return NULL_TREE;
 
@@ -639,23 +644,10 @@ add_to_dst_predicate_list (struct loop * loop, basic_block bb,
     new_cond = unshare_expr (cond);
   else
     {
-      tree tmp;
-      tree tmp_stmt = NULL_TREE;
-      tree tmp_stmts1 = NULL_TREE;
-      tree tmp_stmts2 = NULL_TREE;
-      prev_cond = force_gimple_operand (unshare_expr (prev_cond),
-					&tmp_stmts1, true, NULL);
-      if (tmp_stmts1)
-        bsi_insert_before (bsi, tmp_stmts1, BSI_SAME_STMT);
-
-      cond = force_gimple_operand (unshare_expr (cond),
-				   &tmp_stmts2, true, NULL);
-      if (tmp_stmts2)
-        bsi_insert_before (bsi, tmp_stmts2, BSI_SAME_STMT);
-
+      tree tmp_stmt;
       /* new_cond == prev_cond AND cond */
-      tmp = build (TRUTH_AND_EXPR, boolean_type_node,
-		   unshare_expr (prev_cond), cond);
+      tree tmp = build (TRUTH_AND_EXPR, boolean_type_node,
+			unshare_expr (prev_cond), cond);
       tmp_stmt = ifc_temp_var (boolean_type_node, tmp);
       bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
       new_cond = TREE_OPERAND (tmp_stmt, 0);
@@ -670,13 +662,10 @@ add_to_dst_predicate_list (struct loop * loop, basic_block bb,
 static void
 clean_predicate_lists (struct loop *loop)
 {
-  basic_block *bb;
   unsigned int i;
-  bb = get_loop_body (loop);
-  for (i = 0; i < loop->num_nodes; i++)
-    bb[i]->aux = NULL;
 
-  free (bb);
+  for (i = 0; i < loop->num_nodes; i++)
+    ifc_bbs[i]->aux = NULL;
 }
 
 /* Basic block BB has two predecessors. Using predecessor's aux field, set
@@ -770,7 +759,7 @@ replace_phi_with_cond_modify_expr (tree phi, tree cond, basic_block true_bb,
   arg_1 = NULL_TREE;
 
   /* Use condition that is not TRUTH_NOT_EXPR in conditional modify expr.  */
-  if (EDGE_PRED (bb, 1)->src == true_bb)
+  if (PHI_ARG_EDGE(phi, 1)->src == true_bb)
     {
       arg_0 = PHI_ARG_DEF (phi, 1);
       arg_1 = PHI_ARG_DEF (phi, 0);
@@ -839,7 +828,7 @@ process_phi_nodes (struct loop *loop)
 
       while (phi)
 	{
-	  tree next = PHI_CHAIN (phi);
+	  tree next = TREE_CHAIN (phi);
 	  replace_phi_with_cond_modify_expr (phi, cond, true_bb, &bsi);
 	  release_phi_node (phi);
 	  phi = next;
@@ -904,9 +893,9 @@ combine_blocks (struct loop *loop)
 
       /* It is time to remove this basic block.	 First remove edges.  */
       while (EDGE_COUNT (bb->succs) > 0)
-	remove_edge (EDGE_SUCC (bb, 0));
+	ssa_remove_edge (EDGE_SUCC (bb, 0));
       while (EDGE_COUNT (bb->preds) > 0)
-	remove_edge (EDGE_PRED (bb, 0));
+	ssa_remove_edge (EDGE_PRED (bb, 0));
 
       /* Remove labels and make stmts member of loop->header.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); )
@@ -974,7 +963,7 @@ ifc_temp_var (tree type, tree exp)
   stmt = build (MODIFY_EXPR, type, var, exp);
 
   /* Get SSA name for the new variable and set make new statement
-     its definition statement.  */
+     its definition statment.  */
   new_name = make_ssa_name (var, stmt);
   TREE_OPERAND (stmt, 0) = new_name;
   SSA_NAME_DEF_STMT (new_name) = stmt;
@@ -1017,7 +1006,7 @@ get_loop_body_in_if_conv_order (const struct loop *loop)
   gcc_assert (loop->latch != EXIT_BLOCK_PTR);
 
   blocks = xcalloc (loop->num_nodes, sizeof (basic_block));
-  visited = BITMAP_ALLOC (NULL);
+  visited = BITMAP_XMALLOC ();
 
   blocks_in_bfs_order = get_loop_body_in_bfs_order (loop);
 
@@ -1052,7 +1041,7 @@ get_loop_body_in_if_conv_order (const struct loop *loop)
 	}
     }
   free (blocks_in_bfs_order);
-  BITMAP_FREE (visited);
+  BITMAP_XFREE (visited);
   return blocks;
 }
 

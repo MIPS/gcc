@@ -1,5 +1,5 @@
 /* Exception Handling interface routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
@@ -35,62 +35,25 @@ struct eh_region;
 /* Test: is exception handling turned on?  */
 extern int doing_eh (int);
 
-/* Start an exception handling region.  All instructions emitted after
-   this point are considered to be part of the region until an
-   expand_eh_region_end variant is invoked.  */
-extern void expand_eh_region_start (void);
-
-/* End an exception handling region for a cleanup.  HANDLER is an
-   expression to expand for the cleanup.  */
-extern void expand_eh_region_end_cleanup (tree);
-
-/* End an exception handling region for a try block, and prepares
-   for subsequent calls to expand_start_catch.  */
-extern void expand_start_all_catch (void);
-
-/* Begin a catch clause.  TYPE is an object to be matched by the
-   runtime, or a list of such objects, or null if this is a catch-all
-   clause.  */
-extern void expand_start_catch (tree);
-
-/* End a catch clause.  Control will resume after the try/catch block.  */
-extern void expand_end_catch (void);
-
-/* End a sequence of catch handlers for a try block.  */
-extern void expand_end_all_catch (void);
-
-/* End an exception region for an exception type filter.  ALLOWED is a
-   TREE_LIST of TREE_VALUE objects to be matched by the runtime.
-   FAILURE is a function to invoke if a mismatch occurs.  */
-extern void expand_eh_region_end_allowed (tree, tree);
-
-/* End an exception region for a must-not-throw filter.  FAILURE is a
-   function to invoke if an uncaught exception propagates this far.  */
-extern void expand_eh_region_end_must_not_throw (tree);
-
-/* End an exception region for a throw.  No handling goes on here,
-   but it's the easiest way for the front-end to indicate what type
-   is being thrown.  */
-extern void expand_eh_region_end_throw (tree);
-
-/* End a fixup region.  Within this region the cleanups for the immediately
-   enclosing region are _not_ run.  This is used for goto cleanup to avoid
-   destroying an object twice.  */
-extern void expand_eh_region_end_fixup (tree);
-
 /* Note that the current EH region (if any) may contain a throw, or a
    call to a function which itself may contain a throw.  */
-extern void note_eh_region_may_contain_throw (void);
+extern void note_eh_region_may_contain_throw (struct eh_region *);
+extern void note_current_region_may_contain_throw (void);
 
 /* Invokes CALLBACK for every exception handler label.  Only used by old
    loop hackery; should not be used by new code.  */
 extern void for_each_eh_label (void (*) (rtx));
 
+/* Invokes CALLBACK for every exception region in the current function.  */
+extern void for_each_eh_region (void (*) (struct eh_region *));
+
 /* Determine if the given INSN can throw an exception.  */
+extern bool can_throw_internal_1 (int);
 extern bool can_throw_internal (rtx);
+extern bool can_throw_external_1 (int);
 extern bool can_throw_external (rtx);
 
-/* Set current_function_nothrow and cfun->all_throwers_are_sibcalls.  */
+/* Set TREE_NOTHROW and cfun->all_throwers_are_sibcalls.  */
 extern void set_nothrow_function_flags (void);
 
 /* After initial rtl generation, call back to finish generating
@@ -117,11 +80,34 @@ extern rtx expand_builtin_frob_return_addr (tree);
 extern rtx expand_builtin_dwarf_sp_column (void);
 extern void expand_builtin_eh_return (tree, tree);
 extern void expand_eh_return (void);
+extern rtx expand_builtin_extend_pointer (tree);
 extern rtx get_exception_pointer (struct function *);
+extern rtx get_exception_filter (struct function *);
 extern int duplicate_eh_regions (struct function *, struct inline_remap *);
+extern int check_handled (tree, tree);
 
 extern void sjlj_emit_function_exit_after (rtx);
 
+extern struct eh_region *gen_eh_region_cleanup (struct eh_region *,
+						struct eh_region *);
+extern struct eh_region *gen_eh_region_try (struct eh_region *);
+extern struct eh_region *gen_eh_region_catch (struct eh_region *, tree);
+extern struct eh_region *gen_eh_region_allowed (struct eh_region *, tree);
+extern struct eh_region *gen_eh_region_must_not_throw (struct eh_region *);
+extern int get_eh_region_number (struct eh_region *);
+extern bool get_eh_region_may_contain_throw (struct eh_region *);
+extern tree get_eh_region_tree_label (struct eh_region *);
+extern void set_eh_region_tree_label (struct eh_region *, tree);
+
+extern void foreach_reachable_handler (int, bool,
+				       void (*) (struct eh_region *, void *),
+				       void *);
+
+extern void collect_eh_region_array (void);
+extern void expand_resx_expr (tree);
+
+/* tree-eh.c */
+extern int lookup_stmt_eh_region (tree);
 
 /* If non-NULL, this is a function that returns an expression to be
    executed if an unhandled exception is propagated out of a cleanup
@@ -144,7 +130,7 @@ extern tree (*lang_eh_runtime_type) (tree);
 
 #ifndef MUST_USE_SJLJ_EXCEPTIONS
 # if !(defined (EH_RETURN_DATA_REGNO)			\
-       && (defined (IA64_UNWIND_INFO)			\
+       && (defined (TARGET_UNWIND_INFO)			\
 	   || (DWARF2_UNWIND_INFO			\
 	       && (defined (EH_RETURN_HANDLER_RTX)	\
 		   || defined (HAVE_eh_return)))))
@@ -166,8 +152,8 @@ extern tree (*lang_eh_runtime_type) (tree);
 #  if !defined(EH_RETURN_HANDLER_RTX) && !defined(HAVE_eh_return)
     #error "EH_RETURN_HANDLER_RTX or eh_return required"
 #  endif
-#  if !defined(DWARF2_UNWIND_INFO) && !defined(IA64_UNWIND_INFO)
-    #error "{DWARF2,IA64}_UNWIND_INFO required"
+#  if !defined(DWARF2_UNWIND_INFO) && !defined(TARGET_UNWIND_INFO)
+    #error "{DWARF2,TARGET}_UNWIND_INFO required"
 #  endif
 # endif
 #else

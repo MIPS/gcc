@@ -1,5 +1,5 @@
 /* Data references and dependences detectors.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -109,14 +109,10 @@ array_base_name_differ_p (struct data_reference *a,
 {
   tree base_a = DR_BASE_NAME (a);
   tree base_b = DR_BASE_NAME (b);
-  tree ta, tb;
+  tree ta = TREE_TYPE (base_a);
+  tree tb = TREE_TYPE (base_b);
 
-  if (!base_a || !base_b)
-    return false;
 
-  ta = TREE_TYPE (base_a);
-  tb = TREE_TYPE (base_b);
-  
   /* Determine if same base.  Example: for the array accesses
      a[i], b[i] or pointer accesses *a, *b, bases are a, b.  */
   if (base_a == base_b)
@@ -178,6 +174,24 @@ array_base_name_differ_p (struct data_reference *a,
       || (TREE_CODE (base_b) == VAR_DECL
        && (TREE_CODE (base_a) == COMPONENT_REF
            && TREE_CODE (TREE_OPERAND (base_a, 0)) == VAR_DECL)))
+    {
+      *differ_p = true;
+      return true;
+    }
+
+  if (!alias_sets_conflict_p (get_alias_set (base_a), get_alias_set (base_b)))
+    {
+      *differ_p = true;
+      return true;
+    }
+
+  /* An instruction writing through a restricted pointer is
+     "independent" of any instruction reading or writing through a
+     different pointer, in the same block/scope.  */
+  if ((TREE_CODE (ta) == POINTER_TYPE && TYPE_RESTRICT (ta)
+       && !DR_IS_READ(a))
+      || (TREE_CODE (tb) == POINTER_TYPE && TYPE_RESTRICT (tb)
+	  && !DR_IS_READ(b)))
     {
       *differ_p = true;
       return true;
@@ -499,12 +513,11 @@ estimate_niter_from_size_of_data (struct loop *loop,
   array_size = TYPE_SIZE (TREE_TYPE (opnd0));
   element_size = TYPE_SIZE (TREE_TYPE (TREE_TYPE (opnd0)));
   if (array_size == NULL_TREE 
-      || TREE_CODE (array_size) != INTEGER_CST
-      || TREE_CODE (element_size) != INTEGER_CST)
+      || element_size == NULL_TREE)
     return;
 
   data_size = fold (build2 (EXACT_DIV_EXPR, integer_type_node, 
-			    array_size, element_size));
+			   array_size, element_size));
 
   if (init != NULL_TREE
       && step != NULL_TREE
@@ -1097,7 +1110,7 @@ compute_overlap_steps_for_affine_univar (int niter, int step_a, int step_b,
    | y (t, u, v) = {{0, +, 1336}_u, +, 1}_v
    | z (t, u, v) = {{{0, +, 1}_t, +, 1335}_u, +, 1}_v
 
-   FORNOW: This is a specialized implementation for a case occurring in
+   FORNOW: This is a specialized implementation for a case occuring in
    a common benchmark.  Implement the general algorithm.  */
 
 static void
@@ -1422,21 +1435,12 @@ analyze_subscript_affine_affine (tree chrec_a,
 
 		  if (j1 > 0)
 		    {
-		      int last_conflict, min_multiple;
+		      int last_conflict;
 		      tau1 = MAX (tau1, CEIL (-j0, j1));
 		      tau2 = MIN (tau2, FLOOR_DIV (niter - j0, j1));
 
-		      x0 = i1 * tau1 + i0;
-		      y0 = j1 * tau1 + j0;
-
-		      /* At this point (x0, y0) is one of the
-			 solutions to the Diophantine equation.  The
-			 next step has to compute the smallest
-			 positive solution: the first conflicts.  */
-		      min_multiple = MIN (x0 / i1, y0 / j1);
-		      x0 -= i1 * min_multiple;
-		      y0 -= j1 * min_multiple;
-
+		      x0 = (i1 * tau1 + i0) % i1;
+		      y0 = (j1 * tau1 + j0) % j1;
 		      tau1 = (x0 - i0)/i1;
 		      last_conflict = tau2 - tau1;
 
@@ -1767,15 +1771,12 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
 
    DDR is the data dependence relation to build a vector from.
    NB_LOOPS is the total number of loops we are considering.
-   FIRST_LOOP_DEPTH is the loop->depth of the first loop in the analyzed
-   loop nest.  
-   Return FALSE if the dependence relation is outside of the loop nest
-   starting at FIRST_LOOP_DEPTH. 
-   Return TRUE otherwise.  */
+   FIRST_LOOP is the loop->num of the first loop in the analyzed 
+   loop nest.  */
 
-static bool
+static void
 build_classic_dist_vector (struct data_dependence_relation *ddr, 
-			   int nb_loops, int first_loop_depth)
+			   int nb_loops, unsigned int first_loop)
 {
   unsigned i;
   lambda_vector dist_v, init_v;
@@ -1786,7 +1787,7 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
   lambda_vector_clear (init_v, nb_loops);
   
   if (DDR_ARE_DEPENDENT (ddr) != NULL_TREE)
-    return true;
+    return;
   
   for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
     {
@@ -1796,7 +1797,7 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
       if (chrec_contains_undetermined (SUB_DISTANCE (subscript)))
 	{
 	  non_affine_dependence_relation (ddr);
-	  return true;
+	  return;
 	}
 
       access_fn_a = DR_ACCESS_FN (DDR_A (ddr), i);
@@ -1805,19 +1806,11 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
       if (TREE_CODE (access_fn_a) == POLYNOMIAL_CHREC 
 	  && TREE_CODE (access_fn_b) == POLYNOMIAL_CHREC)
 	{
-	  int dist, loop_nb, loop_depth;
+	  int dist, loop_nb;
 	  int loop_nb_a = CHREC_VARIABLE (access_fn_a);
 	  int loop_nb_b = CHREC_VARIABLE (access_fn_b);
 	  struct loop *loop_a = current_loops->parray[loop_nb_a];
 	  struct loop *loop_b = current_loops->parray[loop_nb_b];
-
-	  /* If the loop for either variable is at a lower depth than 
-	     the first_loop's depth, then we can't possibly have a
-	     dependency at this level of the loop.  */
-	     
-	  if (loop_a->depth < first_loop_depth
-	      || loop_b->depth < first_loop_depth)
-	    return false;
 
 	  if (loop_nb_a != loop_nb_b
 	      && !flow_loop_nested_p (loop_a, loop_b)
@@ -1835,7 +1828,7 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
 		 the dependence relation cannot be captured by the
 		 distance abstraction.  */
 	      non_affine_dependence_relation (ddr);
-	      return true;
+	      return;
 	    }
 
 	  /* The dependence is carried by the outermost loop.  Example:
@@ -1847,17 +1840,17 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
 	     | endloop_1
 	     In this case, the dependence is carried by loop_1.  */
 	  loop_nb = loop_nb_a < loop_nb_b ? loop_nb_a : loop_nb_b;
-	  loop_depth = current_loops->parray[loop_nb]->depth - first_loop_depth;
+	  loop_nb -= first_loop;
 
 	  /* If the loop number is still greater than the number of
 	     loops we've been asked to analyze, or negative,
 	     something is borked.  */
-	  gcc_assert (loop_depth >= 0);
-	  gcc_assert (loop_depth < nb_loops);
+	  gcc_assert (loop_nb >= 0);
+	  gcc_assert (loop_nb < nb_loops);
 	  if (chrec_contains_undetermined (SUB_DISTANCE (subscript)))
 	    {
 	      non_affine_dependence_relation (ddr);
-	      return true;
+	      return;
 	    }
 	  
 	  dist = int_cst_value (SUB_DISTANCE (subscript));
@@ -1868,15 +1861,15 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
 	     |   ... = T[i][i]
 	     | endloop
 	     There is no dependence.  */
-	  if (init_v[loop_depth] != 0
-	      && dist_v[loop_depth] != dist)
+	  if (init_v[loop_nb] != 0
+	      && dist_v[loop_nb] != dist)
 	    {
 	      finalize_ddr_dependent (ddr, chrec_known);
-	      return true;
+	      return;
 	    }
 
-	  dist_v[loop_depth] = dist;
-	  init_v[loop_depth] = 1;
+	  dist_v[loop_nb] = dist;
+	  init_v[loop_nb] = 1;
 	}
     }
   
@@ -1891,43 +1884,43 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
     struct loop *lca, *loop_a, *loop_b;
     struct data_reference *a = DDR_A (ddr);
     struct data_reference *b = DDR_B (ddr);
-    int lca_depth;
+    int lca_nb;
     loop_a = loop_containing_stmt (DR_STMT (a));
     loop_b = loop_containing_stmt (DR_STMT (b));
     
     /* Get the common ancestor loop.  */
     lca = find_common_loop (loop_a, loop_b); 
     
-    lca_depth = lca->depth;
-    lca_depth -= first_loop_depth;
-    gcc_assert (lca_depth >= 0);
-    gcc_assert (lca_depth < nb_loops);
+    lca_nb = lca->num;
+    lca_nb -= first_loop;
+    gcc_assert (lca_nb >= 0);
+    gcc_assert (lca_nb < nb_loops);
 
     /* For each outer loop where init_v is not set, the accesses are
        in dependence of distance 1 in the loop.  */
     if (lca != loop_a
 	&& lca != loop_b
-	&& init_v[lca_depth] == 0)
-      dist_v[lca_depth] = 1;
+	&& init_v[lca_nb] == 0)
+      dist_v[lca_nb] = 1;
     
     lca = lca->outer;
     
     if (lca)
       {
-	lca_depth = lca->depth - first_loop_depth;
+	lca_nb = lca->num - first_loop;
 	while (lca->depth != 0)
 	  {
 	    /* If we're considering just a sub-nest, then don't record
 	       any information on the outer loops.  */
-	    if (lca_depth < 0)
+	    if (lca_nb < 0)
 	      break;
 
-	    gcc_assert (lca_depth < nb_loops);
+	    gcc_assert (lca_nb < nb_loops);
 
-	    if (init_v[lca_depth] == 0)
-	      dist_v[lca_depth] = 1;
+	    if (init_v[lca_nb] == 0)
+	      dist_v[lca_nb] = 1;
 	    lca = lca->outer;
-	    lca_depth = lca->depth - first_loop_depth;
+	    lca_nb = lca->num - first_loop;
 	  
 	  }
       }
@@ -1935,22 +1928,18 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
   
   DDR_DIST_VECT (ddr) = dist_v;
   DDR_SIZE_VECT (ddr) = nb_loops;
-  return true;
 }
 
 /* Compute the classic per loop direction vector.  
 
    DDR is the data dependence relation to build a vector from.
    NB_LOOPS is the total number of loops we are considering.
-   FIRST_LOOP_DEPTH is the loop->depth of the first loop in the analyzed 
-   loop nest.
-   Return FALSE if the dependence relation is outside of the loop nest
-   at FIRST_LOOP_DEPTH. 
-   Return TRUE otherwise.  */
+   FIRST_LOOP is the loop->num of the first loop in the analyzed 
+   loop nest.  */
 
-static bool
+static void
 build_classic_dir_vector (struct data_dependence_relation *ddr, 
-			  int nb_loops, int first_loop_depth)
+			  int nb_loops, unsigned int first_loop)
 {
   unsigned i;
   lambda_vector dir_v, init_v;
@@ -1961,7 +1950,7 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
   lambda_vector_clear (init_v, nb_loops);
   
   if (DDR_ARE_DEPENDENT (ddr) != NULL_TREE)
-    return true;
+    return;
   
   for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
     {
@@ -1971,7 +1960,7 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
       if (chrec_contains_undetermined (SUB_DISTANCE (subscript)))
 	{
 	  non_affine_dependence_relation (ddr);
-	  return true;
+	  return;
 	}
 
       access_fn_a = DR_ACCESS_FN (DDR_A (ddr), i);
@@ -1979,20 +1968,12 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
       if (TREE_CODE (access_fn_a) == POLYNOMIAL_CHREC
 	  && TREE_CODE (access_fn_b) == POLYNOMIAL_CHREC)
 	{
-	  int dist, loop_nb, loop_depth;
+	  int dist, loop_nb;
 	  enum data_dependence_direction dir = dir_star;
 	  int loop_nb_a = CHREC_VARIABLE (access_fn_a);
 	  int loop_nb_b = CHREC_VARIABLE (access_fn_b);
 	  struct loop *loop_a = current_loops->parray[loop_nb_a];
 	  struct loop *loop_b = current_loops->parray[loop_nb_b];
- 
-	  /* If the loop for either variable is at a lower depth than 
-	     the first_loop's depth, then we can't possibly have a
-	     dependency at this level of the loop.  */
-	     
-	  if (loop_a->depth < first_loop_depth
-	      || loop_b->depth < first_loop_depth)
-	    return false;
 
 	  if (loop_nb_a != loop_nb_b
 	      && !flow_loop_nested_p (loop_a, loop_b)
@@ -2010,7 +1991,7 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
 		 the dependence relation cannot be captured by the
 		 distance abstraction.  */
 	      non_affine_dependence_relation (ddr);
-	      return true;
+	      return;
 	    }
 
 	  /* The dependence is carried by the outermost loop.  Example:
@@ -2022,18 +2003,18 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
 	     | endloop_1
 	     In this case, the dependence is carried by loop_1.  */
 	  loop_nb = loop_nb_a < loop_nb_b ? loop_nb_a : loop_nb_b;
-	  loop_depth = current_loops->parray[loop_nb]->depth - first_loop_depth;
+	  loop_nb -= first_loop;
 
 	  /* If the loop number is still greater than the number of
 	     loops we've been asked to analyze, or negative,
 	     something is borked.  */
-	  gcc_assert (loop_depth >= 0);
-	  gcc_assert (loop_depth < nb_loops);
+	  gcc_assert (loop_nb >= 0);
+	  gcc_assert (loop_nb < nb_loops);
 
 	  if (chrec_contains_undetermined (SUB_DISTANCE (subscript)))
 	    {
 	      non_affine_dependence_relation (ddr);
-	      return true;
+	      return;
 	    }
 
 	  dist = int_cst_value (SUB_DISTANCE (subscript));
@@ -2051,17 +2032,17 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
 	     |   ... = T[i][i]
 	     | endloop
 	     There is no dependence.  */
-	  if (init_v[loop_depth] != 0
+	  if (init_v[loop_nb] != 0
 	      && dir != dir_star
-	      && (enum data_dependence_direction) dir_v[loop_depth] != dir
-	      && (enum data_dependence_direction) dir_v[loop_depth] != dir_star)
+	      && (enum data_dependence_direction) dir_v[loop_nb] != dir
+	      && (enum data_dependence_direction) dir_v[loop_nb] != dir_star)
 	    {
 	      finalize_ddr_dependent (ddr, chrec_known);
-	      return true;
+	      return;
 	    }
 	  
-	  dir_v[loop_depth] = dir;
-	  init_v[loop_depth] = 1;
+	  dir_v[loop_nb] = dir;
+	  init_v[loop_nb] = 1;
 	}
     }
   
@@ -2076,41 +2057,41 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
     struct loop *lca, *loop_a, *loop_b;
     struct data_reference *a = DDR_A (ddr);
     struct data_reference *b = DDR_B (ddr);
-    int lca_depth;
+    int lca_nb;
     loop_a = loop_containing_stmt (DR_STMT (a));
     loop_b = loop_containing_stmt (DR_STMT (b));
     
     /* Get the common ancestor loop.  */
     lca = find_common_loop (loop_a, loop_b); 
-    lca_depth = lca->depth - first_loop_depth;
+    lca_nb = lca->num - first_loop;
 
-    gcc_assert (lca_depth >= 0);
-    gcc_assert (lca_depth < nb_loops);
+    gcc_assert (lca_nb >= 0);
+    gcc_assert (lca_nb < nb_loops);
 
     /* For each outer loop where init_v is not set, the accesses are
        in dependence of distance 1 in the loop.  */
     if (lca != loop_a
 	&& lca != loop_b
-	&& init_v[lca_depth] == 0)
-      dir_v[lca_depth] = dir_positive;
+	&& init_v[lca_nb] == 0)
+      dir_v[lca_nb] = dir_positive;
     
     lca = lca->outer;
     if (lca)
       {
-	lca_depth = lca->depth - first_loop_depth;
+	lca_nb = lca->num - first_loop;
 	while (lca->depth != 0)
 	  {
 	    /* If we're considering just a sub-nest, then don't record
 	       any information on the outer loops.  */
-	    if (lca_depth < 0)
+	    if (lca_nb < 0)
 	      break;
 
-	    gcc_assert (lca_depth < nb_loops);
+	    gcc_assert (lca_nb < nb_loops);
 
-	    if (init_v[lca_depth] == 0)
-	      dir_v[lca_depth] = dir_positive;
+	    if (init_v[lca_nb] == 0)
+	      dir_v[lca_nb] = dir_positive;
 	    lca = lca->outer;
-	    lca_depth = lca->depth - first_loop_depth;
+	    lca_nb = lca->num - first_loop;
 	   
 	  }
       }
@@ -2118,7 +2099,6 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
   
   DDR_DIR_VECT (ddr) = dir_v;
   DDR_SIZE_VECT (ddr) = nb_loops;
-  return true;
 }
 
 /* Returns true when all the access functions of A are affine or
@@ -2215,23 +2195,23 @@ compute_all_dependences (varray_type datarefs,
    DATAREFS.  Returns chrec_dont_know when failing to analyze a
    difficult case, returns NULL_TREE otherwise.
    
-   TODO: This function should be made smarter so that it can handle address
-   arithmetic as if they were array accesses, etc.  */
+   FIXME: This is a "dumb" walker over all the trees in the loop body.
+   Find another technique that avoids this costly walk.  This is
+   acceptable for the moment, since this function is used only for
+   debugging purposes.  */
 
 tree 
 find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 {
   bool dont_know_node_not_inserted = true;
-  basic_block bb, *bbs;
-  unsigned int i;
+  basic_block bb;
   block_stmt_iterator bsi;
 
-  bbs = get_loop_body (loop);
-
-  for (i = 0; i < loop->num_nodes; i++)
+  FOR_EACH_BB (bb)
     {
-      bb = bbs[i];
-
+      if (!flow_bb_inside_loop_p (loop, bb))
+	continue;
+      
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
         {
 	  tree stmt = bsi_stmt (bsi);
@@ -2244,7 +2224,7 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 	      && !V_MUST_DEF_OPS (ann)
 	      && !V_MAY_DEF_OPS (ann))
 	    continue;
-	  
+
 	  /* In the GIMPLE representation, a modify expression
   	     contains a single load or store to memory.  */
 	  if (TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_REF)
@@ -2256,6 +2236,7 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 	    VARRAY_PUSH_GENERIC_PTR 
 		    (*datarefs, analyze_array (stmt, TREE_OPERAND (stmt, 1), 
 					       true));
+
   	  else
 	    {
 	      if (dont_know_node_not_inserted)
@@ -2268,6 +2249,7 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 		  DR_BASE_NAME (res) = NULL;
 		  DR_IS_READ (res) = false;
 		  VARRAY_PUSH_GENERIC_PTR (*datarefs, res);
+
 		  dont_know_node_not_inserted = false;
 		}
 	    }
@@ -2281,8 +2263,6 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
       if (bb->loop_father->estimated_nb_iterations == NULL_TREE)
 	compute_estimated_nb_iterations (bb->loop_father);
     }
-
-  free (bbs);
 
   return dont_know_node_not_inserted ? NULL_TREE : chrec_dont_know;
 }
@@ -2302,7 +2282,6 @@ compute_data_dependences_for_loop (unsigned nb_loops,
 				   varray_type *dependence_relations)
 {
   unsigned int i;
-  varray_type allrelations;
 
   /* If one of the data references is not computable, give up without
      spending time to compute other dependences.  */
@@ -2314,23 +2293,19 @@ compute_data_dependences_for_loop (unsigned nb_loops,
 	 chrec_dont_know.  */
       ddr = initialize_data_dependence_relation (NULL, NULL);
       VARRAY_PUSH_GENERIC_PTR (*dependence_relations, ddr);
-      build_classic_dist_vector (ddr, nb_loops, loop->depth);
-      build_classic_dir_vector (ddr, nb_loops, loop->depth);
+      build_classic_dist_vector (ddr, nb_loops, loop->num);
+      build_classic_dir_vector (ddr, nb_loops, loop->num);
       return;
     }
 
-  VARRAY_GENERIC_PTR_INIT (allrelations, 1, "Data dependence relations");
-  compute_all_dependences (*datarefs, &allrelations);
+  compute_all_dependences (*datarefs, dependence_relations);
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (allrelations); i++)
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (*dependence_relations); i++)
     {
       struct data_dependence_relation *ddr;
-      ddr = VARRAY_GENERIC_PTR (allrelations, i);
-      if (build_classic_dist_vector (ddr, nb_loops, loop->depth))
-	{
-	  VARRAY_PUSH_GENERIC_PTR (*dependence_relations, ddr);
-	  build_classic_dir_vector (ddr, nb_loops, loop->depth);
-	}
+      ddr = VARRAY_GENERIC_PTR (*dependence_relations, i);
+      build_classic_dist_vector (ddr, nb_loops, loop->num);
+      build_classic_dir_vector (ddr, nb_loops, loop->num);    
     }
 }
 
@@ -2463,12 +2438,8 @@ free_data_refs (varray_type datarefs)
     {
       struct data_reference *dr = (struct data_reference *) 
 	VARRAY_GENERIC_PTR (datarefs, i);
-      if (dr)
-	{
-	  if (DR_ACCESS_FNS (dr))
-	    varray_clear (DR_ACCESS_FNS (dr));
-	  free (dr);
-	}
+      if (dr && DR_ACCESS_FNS (dr))
+	varray_clear (DR_ACCESS_FNS (dr));
     }
   varray_clear (datarefs);
 }
