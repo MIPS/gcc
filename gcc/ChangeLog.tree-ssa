@@ -1,4 +1,9 @@
 2003-12-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* stmt.c (expand_start_loop, expand_loop_continue_here,
+	expand_end_loop): Don't create loop notes.
+
+2003-12-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 	    Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (tree_node_shared_p): Explicitly allow sharing of

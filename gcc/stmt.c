@@ -2572,7 +2572,6 @@ expand_start_loop (int exit_flag)
 
   do_pending_stack_adjust ();
   emit_queue ();
-  emit_note (NOTE_INSN_LOOP_BEG);
   emit_label (thisloop->data.loop.start_label);
 
   return thisloop;
@@ -2622,7 +2621,6 @@ void
 expand_loop_continue_here (void)
 {
   do_pending_stack_adjust ();
-  emit_note (NOTE_INSN_LOOP_CONT);
   emit_label (loop_stack->data.loop.continue_label);
 }
 
@@ -2637,10 +2635,6 @@ expand_end_loop (void)
   int eh_regions, debug_blocks;
   bool empty_test;
 
-  /* Mark the continue-point at the top of the loop if none elsewhere.  */
-  if (start_label == loop_stack->data.loop.continue_label)
-    emit_note_before (NOTE_INSN_LOOP_CONT, start_label);
-
   do_pending_stack_adjust ();
 
   /* If the loop starts with a loop exit, roll that to the end where
@@ -2648,7 +2642,6 @@ expand_end_loop (void)
 
      If the loop presently looks like this (in pseudo-C):
 
-	LOOP_BEG
 	start_label:
 	  if (test) goto end_label;
 	LOOP_END_TOP_COND
@@ -2658,7 +2651,6 @@ expand_end_loop (void)
 
      transform it to look like:
 
-	LOOP_BEG
 	  goto start_label;
 	top_label:
 	  body;
@@ -2687,16 +2679,12 @@ expand_end_loop (void)
 	if (NOTE_LINE_NUMBER (etc_note) == NOTE_INSN_LOOP_END_TOP_COND)
 	  break;
 
-	/* We must not walk into a nested loop.  */
-	else if (NOTE_LINE_NUMBER (etc_note) == NOTE_INSN_LOOP_BEG)
-	  {
-	    etc_note = NULL_RTX;
-	    break;
-	  }
+	if (NOTE_LINE_NUMBER (etc_note) == NOTE_INSN_LOOP_BEG)
+	  abort ();
 
 	/* At the same time, scan for EH region notes, as we don't want
 	   to scrog region nesting.  This shouldn't happen, but...  */
-	else if (NOTE_LINE_NUMBER (etc_note) == NOTE_INSN_EH_REGION_BEG)
+	if (NOTE_LINE_NUMBER (etc_note) == NOTE_INSN_EH_REGION_BEG)
 	  eh_regions++;
 	else if (NOTE_LINE_NUMBER (etc_note) == NOTE_INSN_EH_REGION_END)
 	  {
@@ -2736,12 +2724,6 @@ expand_end_loop (void)
       rtx top_label = gen_label_rtx ();
       rtx start_move = start_label;
 
-      /* If the start label is preceded by a NOTE_INSN_LOOP_CONT note,
-	 then we want to move this note also.  */
-      if (GET_CODE (PREV_INSN (start_move)) == NOTE
-	  && NOTE_LINE_NUMBER (PREV_INSN (start_move)) == NOTE_INSN_LOOP_CONT)
-	start_move = PREV_INSN (start_move);
-
       emit_label_before (top_label, start_move);
 
       /* Actually move the insns.  If the debug scopes are nested, we
@@ -2773,8 +2755,10 @@ expand_end_loop (void)
       start_label = top_label;
     }
 
+  if (etc_note)
+    delete_insn (etc_note);
+
   emit_jump (start_label);
-  emit_note (NOTE_INSN_LOOP_END);
   emit_label (loop_stack->data.loop.end_label);
 
   POPSTACK (loop_stack);
