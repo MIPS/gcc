@@ -7936,7 +7936,7 @@ ggc_mark_struct_function (f)
     (*mark_lang_status) (f);
 
   if (f->original_arg_vector)
-    ggc_mark_rtvec ((rtvec) f->original_arg_vector);
+    ggc_mark_rtvec (f->original_arg_vector);
   if (f->original_decl_initial)
     ggc_mark_tree (f->original_decl_initial);
   if (f->outer)

@@ -355,8 +355,7 @@ struct function
   /* For integrate.c.  */
   int inlinable;
   int no_debugging_symbols;
-  /* This is in fact an rtvec.  */
-  void *original_arg_vector;
+  rtvec original_arg_vector;
   tree original_decl_initial;
   /* Last insn of those whose job was to put parms into their nominal
      homes.  */

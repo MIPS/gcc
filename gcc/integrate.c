@@ -663,7 +663,7 @@ expand_inline_function (fndecl, parms, target, ignore, type,
   rtx stack_save = 0;
   rtx temp;
   struct inline_remap *map = 0;
-  rtvec arg_vector = (rtvec) inl_f->original_arg_vector;
+  rtvec arg_vector = inl_f->original_arg_vector;
   rtx static_chain_value = 0;
   int inl_max_uid;
   int eh_region_offset;

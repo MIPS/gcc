@@ -1,3 +1,13 @@
+2002-02-13  Geoffrey Keating  <geoffk@redhat.com>
+
+	* varray.h (VARRAY_RTVEC_INIT): A varray of rtvec contains
+	'struct rtvec_def *', not 'struct rtvec_def'.
+
+	* function.h (original_arg_vector): Make a real rtvec.
+	* function.c (ggc_mark_struct_function): Adjust.
+	* integrate.c (expand_inline_function): Adjust.
+
+*** End of pch-branch ChangeLog  ***
 2002-02-11  Hans-Peter Nilsson  <hp@bitrange.com>
 
 	* config/mmix/mmix.c (mmix_assemble_integer) <case 1, 2>: Handle

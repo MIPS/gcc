@@ -133,7 +133,7 @@ extern varray_type varray_init	PARAMS ((size_t, size_t, const char *));
   va = varray_init (num, sizeof (struct rtx_def *), name)
 
 #define VARRAY_RTVEC_INIT(va, num, name) \
-  va = varray_init (num, sizeof (struct rtvec_def), name)
+  va = varray_init (num, sizeof (struct rtvec_def *), name)
 
 #define VARRAY_TREE_INIT(va, num, name) \
   va = varray_init (num, sizeof (union tree_node *), name)
