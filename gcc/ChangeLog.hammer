@@ -1,3 +1,15 @@
+2004-06-22  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c: Fix some comments.
+	(frame_stack_adjust): New.
+	(vt_stack_adjustments): Init stack_adjust of entry block to
+	minus stack adjustment of function prologue.
+	(vt_add_function_parameters): Do not adjust locations of
+	function arguments.
+	(vt_initialize): Compute the stack adjustment of function
+	prologue and offset the initial "location" of frame_base_decl
+	from the stack pointer after prologue.
+
 2004-06-14  Josef Zlomek  <zlomekj@suse.cz>
 
 	* Merge from 3.3-branch (gcc_3_3_4_release)

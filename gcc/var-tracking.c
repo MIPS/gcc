@@ -265,6 +265,9 @@ static bool emit_notes;
 /* Fake variable for stack pointer.  */
 GTY(()) tree frame_base_decl;
 
+/* Stack adjust caused by function prologue.  */
+static HOST_WIDE_INT frame_stack_adjust;
+
 /* Local function prototypes.  */
 static void stack_adjust_offset_pre_post	PARAMS ((rtx, HOST_WIDE_INT *,
 							 HOST_WIDE_INT *));
@@ -494,7 +497,7 @@ bb_stack_adjust_offset (bb)
   VTI (bb)->out.stack_adjust = offset;
 }
 
-/* Compute stack adjustment caused by function prolog.  */
+/* Compute stack adjustment caused by function prologue.  */
 
 static HOST_WIDE_INT
 prologue_stack_adjust ()
@@ -538,7 +541,7 @@ vt_stack_adjustments ()
 
   /* Initialize entry block.  */
   VTI (ENTRY_BLOCK_PTR)->visited = true;
-  VTI (ENTRY_BLOCK_PTR)->out.stack_adjust = 0;
+  VTI (ENTRY_BLOCK_PTR)->out.stack_adjust = frame_stack_adjust;
 
   /* Allocate stack for back-tracking up CFG.  */
   stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge));
@@ -1985,9 +1988,8 @@ variable_was_changed (var, htab)
 }
 
 /* Set the location of frame_base_decl to LOC in dataflow set SET.  This
-   function expects that
-   frame_base_decl has already one location for offset 0 in the variable table.
- */
+   function expects that frame_base_decl has already one location for offset 0
+   in the variable table.  */
 
 static void
 set_frame_base_location (set, loc)
@@ -2580,11 +2582,7 @@ static void
 vt_add_function_parameters ()
 {
   tree parm;
-  HOST_WIDE_INT stack_adjust = 0;
   
-  if (!frame_pointer_needed)
-    stack_adjust = prologue_stack_adjust ();
-
   for (parm = DECL_ARGUMENTS (current_function_decl);
        parm; parm = TREE_CHAIN (parm))
     {
@@ -2619,8 +2617,6 @@ vt_add_function_parameters ()
 #endif
 
       incoming = eliminate_regs (incoming, 0, NULL_RTX);
-      if (!frame_pointer_needed && GET_CODE (incoming) == MEM)
-	incoming = adjust_stack_reference (incoming, -stack_adjust);
       out = &VTI (ENTRY_BLOCK_PTR)->out;
 
       if (GET_CODE (incoming) == REG)
@@ -2786,6 +2782,8 @@ vt_initialize ()
     {
       rtx base;
 
+      frame_stack_adjust = -prologue_stack_adjust ();
+
       /* Create fake variable for tracking stack pointer changes.  */
       frame_base_decl = make_node (VAR_DECL);
       DECL_NAME (frame_base_decl) = get_identifier ("___frame_base_decl");
@@ -2793,7 +2791,9 @@ vt_initialize ()
       DECL_ARTIFICIAL (frame_base_decl) = 1;
 
       /* Set its initial "location".  */
-      base = gen_rtx_MEM (Pmode, stack_pointer_rtx);
+      base = gen_rtx_MEM (Pmode,
+			  gen_rtx_PLUS (Pmode, stack_pointer_rtx,
+					GEN_INT (frame_stack_adjust)));
       set_variable_part (&VTI (ENTRY_BLOCK_PTR)->out, base, frame_base_decl, 0);
     }
   else
