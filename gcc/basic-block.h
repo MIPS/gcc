@@ -269,8 +269,8 @@ typedef struct basic_block_def {
 #define BB_IRREDUCIBLE_LOOP	16
 #define BB_SUPERBLOCK		32
 
-/* Block contains a control flow expression.  */
-#define BB_CONTROL_EXPR		16
+/* Block contains a control flow container.  */
+#define BB_CONTROL_STRUCTURE	16
 
 /* Number of basic blocks in the current function.  */
 

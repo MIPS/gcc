@@ -408,6 +408,7 @@ extern GTY(()) varray_type call_clobbered_vars;
 /* In tree-cfg.c  */
 extern void build_tree_cfg (tree);
 extern void delete_tree_cfg (void);
+extern bool is_ctrl_structure (tree);
 extern bool is_ctrl_stmt (tree);
 extern bool is_ctrl_altering_stmt (tree);
 extern bool is_computed_goto (tree);

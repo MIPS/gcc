@@ -513,7 +513,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
   children = dom_children (bb);
   if (children)
     {
-      if (bb->flags & BB_CONTROL_EXPR)
+      if (bb->flags & BB_CONTROL_STRUCTURE)
 	{
 	  tree last = last_stmt (bb);
 	  EXECUTE_IF_SET_IN_BITMAP (children, 0, i,

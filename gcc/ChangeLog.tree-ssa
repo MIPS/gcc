@@ -1,3 +1,32 @@
+2003-09-11  Jason Merrill  <jason@redhat.com>
+
+	Make EDGE_FALLTHRU meaningful for tree-cfg.
+	* tree-cfg.c (make_edges): Set EDGE_FALLTHRU on fallthrough edge.
+	(make_exit_edges): Likewise.
+	(make_ctrl_stmt_edges): Don't set EDGE_FALLTHRU on edges into a
+	control structure.
+	(handle_switch_fallthru): Clear EDGE_FALLTHRU after inserting a goto.
+	(find_insert_location): Only insert after a CALL_EXPR or MODIFY_EXPR.
+	(bsi_insert_on_edge_immediate): Count outgoing abnormal edges.
+	Insert before all control stmts.
+	(bsi_link_after): Handle a block with nops after the last stmt.
+
+	Rename some things to clarify difference between "control structures"
+	(i.e. COND_EXPR) and "control statements" (also GOTO_EXPR).
+	* basic-block.h (BB_CONTROL_STRUCTURE): Rename from BB_CONTROL_EXPR.
+	* tree-cfg.c (REMOVE_NON_CONTROL_STRUCTS): Rename from
+	REMOVE_NON_CONTROL_STMTS.
+	(REMOVE_CONTROL_STRUCTS): Rename from REMOVE_CONTROL_STMTS.
+	(make_ctrl_stmt_edges): Move GOTO_EXPR/RETURN_EXPR handling here...
+	(make_exit_edges): ...from here.
+	(is_ctrl_altering_stmt): Don't accept GOTO_EXPR/RETURN_EXPR.
+	(is_ctrl_structure): Renamed from old is_ctrl_stmt.
+	(is_ctrl_stmt): New fn.
+	(bsi_move_to_bb_end): Use it.
+	(stmt_starts_bb_p): Use is_ctrl_stmt and is_ctrl_altering_stmt.
+	* tree-flow.h: Add prototype.
+	* tree-ssa-ccp.c, tree-ssa-dom.c: Update for name changes.
+
 2003-09-10  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (ephi_has_bottom): Remove dead function.

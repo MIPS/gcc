@@ -126,8 +126,8 @@ static void tree_loop_optimizer_finalize (struct loops *, FILE *);
    should be removed.  */
 #define REMOVE_ALL_STMTS -1
 #define REMOVE_NO_STMTS 0
-#define REMOVE_NON_CONTROL_STMTS 0x1
-#define REMOVE_CONTROL_STMTS 0x2
+#define REMOVE_NON_CONTROL_STRUCTS 0x1
+#define REMOVE_CONTROL_STRUCTS 0x2
 
 static void remove_unreachable_block (basic_block);
 static void remove_bb (basic_block, int);
@@ -560,7 +560,7 @@ make_cond_expr_blocks (tree *cond_p, tree next_block_link,
 {
   tree_stmt_iterator si;
   tree cond = *cond_p;
-  entry->flags |= BB_CONTROL_EXPR;
+  entry->flags |= BB_CONTROL_STRUCTURE;
 
   /* Determine NEXT_BLOCK_LINK for statements inside the COND_EXPR body.  */
   si = tsi_start (cond_p);
@@ -608,7 +608,7 @@ make_try_expr_blocks (tree *expr_p, tree next_block_link,
 {
   tree_stmt_iterator si;
   tree expr = *expr_p;
-  entry->flags |= BB_CONTROL_EXPR;
+  entry->flags |= BB_CONTROL_STRUCTURE;
 
   /* Determine NEXT_BLOCK_LINK for statements inside the body.  */
   si = tsi_start (expr_p);
@@ -657,7 +657,7 @@ make_catch_expr_blocks (tree *expr_p, tree next_block_link,
 {
   tree_stmt_iterator si;
   tree expr = *expr_p;
-  entry->flags |= BB_CONTROL_EXPR;
+  entry->flags |= BB_CONTROL_STRUCTURE;
 
   /* Determine NEXT_BLOCK_LINK for statements inside the body.  */
   si = tsi_start (expr_p);
@@ -681,7 +681,7 @@ make_eh_filter_expr_blocks (tree *expr_p, tree next_block_link,
 {
   tree_stmt_iterator si;
   tree expr = *expr_p;
-  entry->flags |= BB_CONTROL_EXPR;
+  entry->flags |= BB_CONTROL_STRUCTURE;
 
   /* Determine NEXT_BLOCK_LINK for statements inside the body.  */
   si = tsi_start (expr_p);
@@ -713,7 +713,7 @@ make_switch_expr_blocks (tree *switch_e_p, tree next_block_link,
 {
   tree_stmt_iterator si;
   tree switch_e = *switch_e_p;
-  entry->flags |= BB_CONTROL_EXPR;
+  entry->flags |= BB_CONTROL_STRUCTURE;
 
   /* Determine NEXT_BLOCK_LINK for statements inside the COND_EXPR body.  */
   si = tsi_start (switch_e_p);
@@ -935,7 +935,7 @@ make_edges (void)
       /* Finally, if no edges were created above, this is a regular
 	 basic block that only needs a fallthru edge.  */
       if (bb->succ == NULL)
-	make_edge (bb, successor_block (bb), 0);
+	make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
     }
 
   /* We do not care about fake edges, so remove any that the CFG
@@ -1119,6 +1119,23 @@ make_ctrl_stmt_edges (basic_block bb)
 
   switch (TREE_CODE (last))
     {
+    case GOTO_EXPR:
+      make_goto_expr_edges (bb);
+
+      /* If this is potentially a nonlocal goto, then this should also
+	 create an edge to the exit block.   */
+      if ((TREE_CODE (GOTO_DESTINATION (last)) == LABEL_DECL
+	   && (decl_function_context (GOTO_DESTINATION (last))
+	       != current_function_decl))
+	  || (TREE_CODE (GOTO_DESTINATION (last)) != LABEL_DECL
+	      && DECL_CONTEXT (current_function_decl)))
+	make_edge (bb, EXIT_BLOCK_PTR, EDGE_ABNORMAL);
+      break;
+
+    case RETURN_EXPR:
+      make_edge (bb, EXIT_BLOCK_PTR, 0);
+      break;
+
     case COND_EXPR:
       make_cond_expr_edges (bb);
       break;
@@ -1141,7 +1158,7 @@ make_ctrl_stmt_edges (basic_block bb)
 
       /* FALLTHRU */
     case TRY_CATCH_EXPR:
-      make_edge (bb, bb_for_stmt (TREE_OPERAND (last, 0)), EDGE_FALLTHRU);
+      make_edge (bb, bb_for_stmt (TREE_OPERAND (last, 0)), 0);
 
       /* Make an edge to the next cleanup if applicable.  */
       if (stmt_ann (last)->reachable_exception_handlers)
@@ -1154,11 +1171,11 @@ make_ctrl_stmt_edges (basic_block bb)
       break;
 
     case CATCH_EXPR:
-      make_edge (bb, bb_for_stmt (CATCH_BODY (last)), EDGE_FALLTHRU);
+      make_edge (bb, bb_for_stmt (CATCH_BODY (last)), 0);
       break;
 
     case EH_FILTER_EXPR:
-      make_edge (bb, bb_for_stmt (EH_FILTER_FAILURE (last)), EDGE_FALLTHRU);
+      make_edge (bb, bb_for_stmt (EH_FILTER_FAILURE (last)), 0);
       break;
 
     default:
@@ -1178,8 +1195,8 @@ make_call_expr_edges (basic_block bb, tree call, tree stmt)
   if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
     make_goto_expr_edges (bb);
 
-  /* If this statement has reachable exception handlers, then
-     create abnormal edges to them.  */
+  /* If this statement might throw and has reachable exception handlers,
+     then create abnormal edges to them.  */
   if (stmt_ann (stmt)->reachable_exception_handlers
       && !TREE_NOTHROW (call))
     {
@@ -1204,7 +1221,8 @@ make_call_expr_edges (basic_block bb, tree call, tree stmt)
       return;
     }
 
-  /* Don't forget the fall-thru edge.  */
+  /* We need to explicitly add the fall-thru edge, since we've added
+     others.  */
   make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
 }
 
@@ -1222,25 +1240,8 @@ make_exit_edges (basic_block bb)
 
   switch (TREE_CODE (last))
     {
-    case GOTO_EXPR:
-      make_goto_expr_edges (bb);
-
-      /* If this is potentially a nonlocal goto, then this should also
-	 create an edge to the exit block.   */
-      if ((TREE_CODE (GOTO_DESTINATION (last)) == LABEL_DECL
-	   && (decl_function_context (GOTO_DESTINATION (last))
-	       != current_function_decl))
-	  || (TREE_CODE (GOTO_DESTINATION (last)) != LABEL_DECL
-	      && DECL_CONTEXT (current_function_decl)))
-	make_edge (bb, EXIT_BLOCK_PTR, EDGE_ABNORMAL);
-      break;
-
     case CALL_EXPR:
       make_call_expr_edges (bb, last, last);
-      break;
-
-    case RETURN_EXPR:
-      make_edge (bb, EXIT_BLOCK_PTR, 0);
       break;
 
     case MODIFY_EXPR:
@@ -1266,7 +1267,7 @@ make_exit_edges (basic_block bb)
 			   EDGE_ABNORMAL);
 	    }
 
-          make_edge (bb, successor_block (bb), 0);
+          make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
 	}
       break;
 
@@ -1780,7 +1781,7 @@ remove_unreachable_blocks (void)
 static void
 remove_unreachable_block (basic_block bb)
 {
-  if (bb->flags & BB_CONTROL_EXPR)
+  if (bb->flags & BB_CONTROL_STRUCTURE)
     {
       tree *last_p = last_stmt_ptr (bb);
       tree *dummy_p;
@@ -1823,7 +1824,7 @@ remove_unreachable_block (basic_block bb)
 	    COND_EXPR_COND (*last_p) = integer_zero_node;
 	  else if (TREE_CODE (*last_p) == SWITCH_EXPR)
 	    SWITCH_COND (*last_p) = integer_zero_node;
-	  remove_bb (bb, REMOVE_NON_CONTROL_STMTS);
+	  remove_bb (bb, REMOVE_NON_CONTROL_STRUCTS);
 	}
 
       BITMAP_XFREE (subblocks);
@@ -1896,12 +1897,12 @@ remove_bb (basic_block bb, int remove_stmt_flags)
       set_bb_for_stmt (stmt, NULL);
       if (remove_stmt_flags)
         {
-	  int ctrl_stmt = is_ctrl_stmt (stmt);
+	  int ctrl_struct = is_ctrl_structure (stmt);
 
 	  loc.file = get_filename (stmt);
 	  loc.line = get_lineno (stmt);
-	  if ((ctrl_stmt && (remove_stmt_flags & REMOVE_CONTROL_STMTS))
-	      || (!ctrl_stmt && (remove_stmt_flags & REMOVE_NON_CONTROL_STMTS)))
+	  if ((ctrl_struct && (remove_stmt_flags & REMOVE_CONTROL_STRUCTS))
+	      || (!ctrl_struct && (remove_stmt_flags & REMOVE_NON_CONTROL_STRUCTS)))
 	    bsi_remove (&i);
         }
     }
@@ -2036,9 +2037,8 @@ bsi_move_to_bb_end (block_stmt_iterator from, basic_block bb)
   block_stmt_iterator last = bsi_last (bb);
   
   /* Have to check bsi_end_p because it could be an empty block.  */
-  if (!bsi_end_p (last) 
-      && (is_ctrl_altering_stmt (bsi_stmt (last)) 
-	  || is_ctrl_stmt (bsi_stmt (last))))
+  if (!bsi_end_p (last)
+      && is_ctrl_stmt (bsi_stmt (last)))
     {
       bsi_move_before (from, last);
     }
@@ -2085,8 +2085,8 @@ remove_stmt (tree *stmt_p, bool remove_annotations)
 
   /* If the statement is a control structure, clear the appropriate BB_*
      flags from the basic block.  */
-  if (bb && is_ctrl_stmt (stmt))
-    bb->flags &= ~BB_CONTROL_EXPR;
+  if (bb && is_ctrl_structure (stmt))
+    bb->flags &= ~BB_CONTROL_STRUCTURE;
 
   /* If the statement is a LABEL_EXPR, remove the LABEL_DECL from
      the symbol table.  */
@@ -2184,7 +2184,7 @@ cleanup_control_flow (void)
   basic_block bb;
 
   FOR_EACH_BB (bb)
-    if (bb->flags & BB_CONTROL_EXPR)
+    if (bb->flags & BB_CONTROL_STRUCTURE)
       {
 	tree last = last_stmt (bb);
 	if (last)
@@ -2326,7 +2326,7 @@ find_taken_edge (basic_block bb, tree val)
   stmt = last_stmt (bb);
 
 #if defined ENABLE_CHECKING
-  if (stmt == NULL_TREE || !is_ctrl_stmt (stmt))
+  if (stmt == NULL_TREE || !is_ctrl_structure (stmt))
     abort ();
 #endif
 
@@ -2467,7 +2467,7 @@ linearize_control_structures (void)
     {
       tree *entry_p;
 
-      if (!(bb->flags & BB_CONTROL_EXPR))
+      if (!(bb->flags & BB_CONTROL_STRUCTURE))
 	continue;
 
       /* After converting the current COND_EXPR into straight line code it
@@ -2987,10 +2987,10 @@ successor_block (basic_block bb)
 }
 
 
-/* Return true if T represents a control statement.  */
+/* Return true if T represents a control structure.  */
 
 bool
-is_ctrl_stmt (tree t)
+is_ctrl_structure (tree t)
 {
 #if defined ENABLE_CHECKING
   if (t == NULL)
@@ -3006,9 +3006,18 @@ is_ctrl_stmt (tree t)
 	  || TREE_CODE (t) == SWITCH_EXPR);
 }
 
+/* Return true if T represents a stmt that always transfers control.  */
 
-/* Return true if T alters the flow of control (i.e., return true if T is
-   GOTO, RETURN or a call to a non-returning function.  */
+bool
+is_ctrl_stmt (tree t)
+{
+  return (is_ctrl_structure (t)
+	  || TREE_CODE (t) == GOTO_EXPR
+	  || TREE_CODE (t) == RETURN_EXPR);
+}
+
+/* Return true if T is a stmt that may or may not alter the flow of control
+   (i.e., a call to a non-returning function).  */
 
 bool
 is_ctrl_altering_stmt (tree t)
@@ -3021,10 +3030,6 @@ is_ctrl_altering_stmt (tree t)
 #endif
 
   code = TREE_CODE (t);
-
-  /* GOTO_EXPRs and RETURN_EXPRs always alter flow control.  */
-  if (TREE_CODE (t) == GOTO_EXPR || TREE_CODE (t) == RETURN_EXPR)
-    return true;
 
   /* A CALL_EXPR alters flow control if the current function has
      nonlocal labels.  */
@@ -3147,14 +3152,7 @@ stmt_starts_bb_p (tree t, tree prev_t)
 static inline bool
 stmt_ends_bb_p (tree t)
 {
-  enum tree_code code = TREE_CODE (t);
-
-  return (code == COND_EXPR
-	  || code == SWITCH_EXPR
-	  || code == EH_FILTER_EXPR
-	  || code == TRY_CATCH_EXPR
-	  || code == TRY_FINALLY_EXPR
-	  || code == CATCH_EXPR
+  return (is_ctrl_stmt (t)
 	  || is_ctrl_altering_stmt (t));
 }
 
@@ -3568,7 +3566,6 @@ set_bb_for_stmt (tree t, basic_block bb)
 
 /* Insert routines.  */
 
-
 /* Because of the way containers and CE nodes are maintained, linking a new
    stmt in can have significant consequences on the basic block information.
    The basic block structure maintains the head and tail pointers as
@@ -3598,7 +3595,8 @@ bsi_link_after (tree_stmt_iterator *this_tsi, tree t,
   enum link_after_cases { NO_UPDATE,
 			  END_OF_CHAIN,
 			  PENULTIMATE_STMT,
-			  AFTER_LAST_STMT };
+			  AFTER_LAST_STMT,
+			  JUST_UPDATE };
   enum link_after_cases update_form = NO_UPDATE;
   basic_block bb;
   tree_stmt_iterator same_tsi, next_tsi;
@@ -3609,25 +3607,27 @@ bsi_link_after (tree_stmt_iterator *this_tsi, tree t,
   tsi_next (&next_tsi);
   if (tsi_end_p (next_tsi))
     update_form = END_OF_CHAIN;
-  else
-    /* This is the penultimate case. The next stmt is actually the last stmt
-       in the block, so we need to update the tail pointer to be the new
-       container for that stmt after we link in the new one.  */
-    if (tsi_container (next_tsi) == curr_bb->end_tree_p)
-      update_form = PENULTIMATE_STMT;
-    else
-      /* The ugly case which requires updating pointers in a different
-	 basic block.  */
-      if (this_container == curr_bb->end_tree_p)
-	{
-	  /* Double check to make sure the next stmt is indeed the head of
-	     a different block.  */
-	  bb = bb_for_stmt (*tsi_container (next_tsi));
-	  if (bb
-	      && bb != curr_bb
-	      && bb->head_tree_p == tsi_container (next_tsi))
-	    update_form = AFTER_LAST_STMT;
-	}
+  /* This is the penultimate case. The next stmt is actually the last stmt
+     in the block, so we need to update the tail pointer to be the new
+     container for that stmt after we link in the new one.  */
+  else if (tsi_container (next_tsi) == curr_bb->end_tree_p)
+    update_form = PENULTIMATE_STMT;
+  /* The ugly case which requires updating pointers in a different
+     basic block.  */
+  else if (this_container == curr_bb->end_tree_p)
+    {
+      /* Double check to make sure the next stmt is indeed the head of
+	 a different block.  */
+      bb = bb_for_stmt (*tsi_container (next_tsi));
+      if (bb
+	  && bb != curr_bb
+	  && bb->head_tree_p == tsi_container (next_tsi))
+	update_form = AFTER_LAST_STMT;
+      else
+	/* There are nops between the end of this block and the beginning
+	   of the next, so we only need to update our end pointer.  */
+	update_form = JUST_UPDATE;
+    }
 
   tsi_link_after (&same_tsi, t, TSI_SAME_STMT);
   if (update_form == END_OF_CHAIN)
@@ -3644,34 +3644,35 @@ bsi_link_after (tree_stmt_iterator *this_tsi, tree t,
 
   switch (update_form)
     {
-      case END_OF_CHAIN:
-	if (this_container == curr_bb->end_tree_p)
-	  curr_bb->end_tree_p = tsi_container (*this_tsi);
-	break;
-
-      case PENULTIMATE_STMT:
-        next_tsi = *this_tsi;
-	tsi_next (&next_tsi);
-	curr_bb->end_tree_p = tsi_container (next_tsi);
-	break;
-
-      case AFTER_LAST_STMT:
-	/* This is now the end of block.  */
+    case END_OF_CHAIN:
+    case JUST_UPDATE:
+      if (this_container == curr_bb->end_tree_p)
 	curr_bb->end_tree_p = tsi_container (*this_tsi);
+      break;
 
-	/* And the next basic block's head needs updating too.  */
-	next_tsi = *this_tsi;
-	tsi_next (&next_tsi);
-	bb = bb_for_stmt (tsi_stmt (next_tsi));
-        /* Oh, and we also need to check if this is both the head *and* the
-	   end of the next block.  */
-	if (bb->end_tree_p == bb->head_tree_p)
-	  bb->end_tree_p = tsi_container (next_tsi);
-	bb->head_tree_p = tsi_container (next_tsi);
-	break;
+    case PENULTIMATE_STMT:
+      next_tsi = *this_tsi;
+      tsi_next (&next_tsi);
+      curr_bb->end_tree_p = tsi_container (next_tsi);
+      break;
 
-      default:
-        break;
+    case AFTER_LAST_STMT:
+      /* This is now the end of block.  */
+      curr_bb->end_tree_p = tsi_container (*this_tsi);
+
+      /* And the next basic block's head needs updating too.  */
+      next_tsi = *this_tsi;
+      tsi_next (&next_tsi);
+      bb = bb_for_stmt (tsi_stmt (next_tsi));
+      /* Oh, and we also need to check if this is both the head *and* the
+	 end of the next block.  */
+      if (bb->end_tree_p == bb->head_tree_p)
+	bb->end_tree_p = tsi_container (next_tsi);
+      bb->head_tree_p = tsi_container (next_tsi);
+      break;
+
+    default:
+      break;
     }
 
   return same_tsi;
@@ -3880,6 +3881,7 @@ handle_switch_fallthru (tree sw_stmt, basic_block dest, basic_block new_bb)
 	    SET_PENDING_STMT (e, NULL_TREE);
 	    bsi_insert_on_edge_immediate (e, goto_stmt, NULL, &tmp_bb);
 	    SET_PENDING_STMT (e, tmp);
+	    e->flags = e->flags & ~EDGE_FALLTHRU;
 	    /* Insertion should never cause a new block, unless STMT needs
 	       to be the last statement in E->SRC (e.g., STMT is a
 	       CALL_EXPR that may throw).  */
@@ -3980,6 +3982,7 @@ handle_switch_split (basic_block src, basic_block dest)
 	  SET_PENDING_STMT (e, NULL_TREE);
 	  bsi_insert_on_edge_immediate (e, goto_stmt, NULL, &new_bb);
 	  SET_PENDING_STMT (e, tmp_tree);
+	  e->flags = e->flags & ~EDGE_FALLTHRU;
 
 	  /* Splitting this edge should never result in a new block.  */
 	  if (new_bb)
@@ -4129,18 +4132,16 @@ find_insert_location (basic_block src, basic_block dest, basic_block new_block,
 	      }
 	    break;
 
-	  default:
-	    if (is_ctrl_altering_stmt (stmt) || is_ctrl_stmt (stmt))
-	      {
-	        /* The block ends in a CALL or something else which likely has
-		   abnormal edges.  In that case, we simple create a new block
-		   right after this one, and then fall through to the
-		   destination  block.  */
-		ret = src->end_tree_p;
-		*location = EDGE_INSERT_LOCATION_AFTER;
-		break;
-	      }
+	case CALL_EXPR:
+	case MODIFY_EXPR:
+	    /* The block ends in a CALL which has abnormal edges.  In
+	       that case, we simply create a new block right after this
+	       one, and then fall through to the destination block.  */
+	    ret = src->end_tree_p;
+	    *location = EDGE_INSERT_LOCATION_AFTER;
+	    break;
 
+	default:
 	    /* All cases ought to have been covered by now.  */
 	    abort ();
 	}
@@ -4193,18 +4194,14 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
 
   num_exit = num_entry = 0;
 
-  /* Multiple successors on abnormal edges do not cause an edge to be split.
-     A stmt can be inserted immediately following the last stmt in the block
-     if there is only a single *normal* edge successor.  */
   for (e2 = src->succ; e2; e2 = e2->succ_next)
-    if (!(e2->flags & EDGE_ABNORMAL))
-      num_exit++;
+    num_exit++;
 
   for (e2 = dest->pred; e2; e2 = e2->pred_next)
     num_entry++;
 
-  /* If it is a single exit block, and it isn't the entry block, and the edge
-     is not abnormal, then insert at the end of the block, if we can.  */
+  /* If src is a single-exit block, and it isn't the entry block, then
+     insert at the end of the block, if we can.  */
 
   if (num_exit == 1 && src != ENTRY_BLOCK_PTR)
     {
@@ -4217,14 +4214,16 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
 	  return bsi;
 	}
 
-      last = bsi_stmt (bsi);
-
-      /* If the last stmt isn't a control altering stmt, then we can simply
-	 append this stmt to the basic block. This should mean the edge is
-	 a fallthrough edge.  */
-
-      if (!is_ctrl_stmt (last) && !is_ctrl_altering_stmt (last))
+      /* If this is a fallthrough edge, then we can simply append this stmt
+	 to the basic block.  */
+      if (e->flags & EDGE_FALLTHRU)
 	{
+#ifdef ENABLE_CHECKING
+	  /* Control statement edges should not be marked FALLTHRU.  */
+	  if (is_ctrl_stmt (bsi_stmt (bsi)))
+	    abort ();
+#endif
+
 	  if (src->head_tree_p == src->end_tree_p 
 	      && IS_EMPTY_STMT (*src->head_tree_p))
 	    {
@@ -4243,9 +4242,17 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
 	    }
 	}
 
-      /* If the last stmt is a GOTO, the we can simply insert before it.  */
-      if (TREE_CODE (last) == GOTO_EXPR)
+      /* Otherwise, the last stmt is a control altering stmt, so we need to
+	 insert before it.  */
+      else
 	{
+#ifdef ENABLE_CHECKING
+	  /* A block with a normal non-FALLTHRU edge should end with a
+	     control statement.  */
+	  if (!is_ctrl_stmt (bsi_stmt (bsi)))
+	    abort ();
+#endif
+
 	  bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
 	  if (old_bsi)
 	    {
@@ -4256,7 +4263,7 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
 	}
     }
 
-  /* If it is a single entry destination, and it isn't the exit block, the new
+  /* If dest is a single entry destination, and it isn't the exit block, the new
      stmt can be inserted at the beginning of the destination block.  */
 
   if (num_entry == 1 && dest != EXIT_BLOCK_PTR)
@@ -4267,19 +4274,6 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
       if (bsi_end_p (bsi))
 	{
 	  bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
-	  return bsi;
-	}
-
-      /* If the first stmt isnt a label, insert before it.  */
-      first = bsi_stmt (bsi);
-      if (!is_label_stmt (first))
-	{
-	  bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
-	  if (old_bsi)
-	    {
-	      *old_bsi = bsi;
-	      bsi_next (old_bsi);
-	    }
 	  return bsi;
 	}
 
@@ -4619,7 +4613,7 @@ merge_tree_blocks (basic_block bb1, basic_block bb2)
 
   /* Step 1.  Chain all the statements in BB2 at the end of BB1.  */
   t1 = last_stmt (bb1);
-  if (is_ctrl_stmt (t1))
+  if (is_ctrl_structure (t1))
     {
       /* If BB1 ends in a control statement C, BB2 is the first block of
 	 C's body.  In this case we don't need to insert statements from
@@ -4664,7 +4658,7 @@ merge_tree_blocks (basic_block bb1, basic_block bb2)
 
   /* BB1 may no longer be a control expression after merging with BB2.
      Copy BB2's flags into BB1.  */
-  bb1->flags &= ~BB_CONTROL_EXPR;
+  bb1->flags &= ~BB_CONTROL_STRUCTURE;
   bb1->flags |= bb2->flags;
 
   /* Before removing BB2, clear out its predecessors, successors and
