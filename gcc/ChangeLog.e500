@@ -1,4 +1,17 @@
-Backport from mainline:
+2005-01-19  Aldy Hernandez  <aldyh@redhat.com>
+	
+	Backport from mainline:
+
+	2004-11-23  Richard Henderson  <rth@redhat.com>
+
+        * emit-rtl.c, rtl.h (subreg_hard_regno): Remove.
+        * caller-save.c (mark_set_regs): Use subreg_regno instead.
+        * final.c (alter_subreg): Likewise.
+        * local-alloc.c (reg_is_born): Likewise.
+
+2005-01-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	Backport from mainline:
 
 	2004-11-23  Richard Henderson  <rth@redhat.com>
 
