@@ -1381,6 +1381,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   tree return_slot_addr;
   location_t saved_location;
   struct cgraph_edge *edge;
+  const char *reason;
 
   /* See what we've got.  */
   id = (inline_data *) data;
@@ -1466,18 +1467,20 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
       /* FN must have address taken so it can be passed as argument.  */
       if (!dest->needed)
 	abort ();
-      cgraph_create_edge (id->node, dest, t);
+      cgraph_create_edge (id->node, dest, t)->inline_failed
+	= N_("originally indirect function call not considered for inlining");
       goto egress;
     }
 
   /* Don't try to inline functions that are not well-suited to
      inlining.  */
-  if (!DECL_SAVED_TREE (fn) || !cgraph_inline_p (edge))
+  if (!cgraph_inline_p (edge, &reason))
     {
-      if (warn_inline && DECL_INLINE (fn) && DECL_DECLARED_INLINE_P (fn)
-	  && !DECL_IN_SYSTEM_HEADER (fn))
+      if (warn_inline && DECL_DECLARED_INLINE_P (fn)
+	  && !DECL_IN_SYSTEM_HEADER (fn)
+	  && strlen (reason))
 	{
-	  warning ("%Jinlining failed in call to '%F'", fn, fn);
+	  warning ("%Jinlining failed in call to '%F': %s", fn, fn, reason);
 	  warning ("called from here");
 	}
       goto egress;
@@ -1838,7 +1841,7 @@ optimize_inline_calls (tree fn)
 
       /* Double check that we inlined everything we are supposed to inline.  */
       for (e = id.node->callees; e; e = e->next_callee)
-	if (e->inline_call)
+	if (!e->inline_failed)
 	  abort ();
     }
 #endif

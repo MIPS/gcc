@@ -352,9 +352,9 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
 	  saved_node = cgraph_clone_node (node);
 	  for (e = saved_node->callees; e; e = e->next_callee)
-	    if (e->inline_call)
+	    if (!e->inline_failed)
 	      {
-		e->inline_call = 0;
+		e->inline_failed = "";
 		cgraph_mark_inline_edge (e);
 	      }
 	}
@@ -365,7 +365,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
     {
       struct cgraph_edge *e;
       for (e = node->callees; e; e = e->next_callee)
-	if (e->inline_call || warn_inline)
+	if (!e->inline_failed || warn_inline)
 	  break;
       if (e)
 	{
