@@ -1302,13 +1302,15 @@ compute_class_name (struct ZipDirectory *zdir)
   char *class_name_in_zip_dir = ZIPDIR_FILENAME (zdir);
   char *class_name;
   int i;
-  int filename_length;
+  int filename_length = zdir->filename_length;
 
-  while (strncmp (class_name_in_zip_dir, "./", 2) == 0)
-    class_name_in_zip_dir += 2;
+  while (filename_length > 2 && strncmp (class_name_in_zip_dir, "./", 2) == 0)
+    {
+      class_name_in_zip_dir += 2;
+      filename_length -= 2;
+    }
 
-  filename_length = (strlen (class_name_in_zip_dir)
-		     - strlen (".class"));
+  filename_length -= strlen (".class");
   class_name = ALLOC (filename_length + 1);
   memcpy (class_name, class_name_in_zip_dir, filename_length);
   class_name [filename_length] = '\0';

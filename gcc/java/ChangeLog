@@ -1,5 +1,8 @@
 2004-11-02  Tom Tromey  <tromey@redhat.com>
 
+	* jcf-parse.c (compute_class_name): Use filename length from zip
+	directory, not strlen.
+
 	* expr.c (expand_invoke): Mark new interface methods as abstract.
 
 2004-11-01  Tom Tromey  <tromey@redhat.com>
