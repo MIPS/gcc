@@ -229,6 +229,11 @@ finish_file ()
   strcpy (ch, input_filename);
   ch = strcat (ch, ".pch");
   datafilename = strdup(ch);
+  if (datafile)
+    {
+      dbm_close (datafile);
+      datafile = NULL;
+    }
   lang_write_pch ();
   free (ch);
   if (written_pointers)
@@ -279,7 +284,10 @@ finish_file ()
       }
   }
   if (datafile)
+    {
+      datafile = NULL;
       dbm_close (datafile);
+    }
 }
 
 /* Called during diagnostic message formatting process to print a

@@ -5175,7 +5175,7 @@ read_tree (id)
   if (id == 0)
     return NULL_TREE;
   if (read_trees == NULL)
-    read_trees = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+    read_trees = splay_tree_new (splay_tree_compare_ints, NULL, NULL);
   result = splay_tree_lookup (read_trees, (splay_tree_key) id);
   if (result)
     return (tree) result->value;

@@ -1933,7 +1933,7 @@ size_binop (code, arg0, arg1)
   tree type = TREE_TYPE (arg0);
 
   if (TREE_CODE (type) != INTEGER_TYPE || ! TYPE_IS_SIZETYPE (type)
-      || type != TREE_TYPE (arg1))
+      || TYPE_UID (type) != TYPE_UID (TREE_TYPE (arg1)))
     abort ();
 
   /* Handle the special case of two integer constants faster.  */
