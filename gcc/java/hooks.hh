@@ -1,6 +1,6 @@
 // Declare functions we use in lang hooks.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -98,6 +98,7 @@ extern GTY (()) tree field_slot_j;
 extern GTY (()) tree field_slot_f;
 extern GTY (()) tree field_slot_d;
 extern GTY (()) tree field_slot_o;
+extern GTY (()) tree gcj_abi_version;
 
 
 extern tree build_address_of (tree);

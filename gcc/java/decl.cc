@@ -137,6 +137,9 @@ tree field_slot_f;
 tree field_slot_d;
 tree field_slot_o;
 
+// Version number.
+tree gcj_abi_version;
+
 
 
 static void
@@ -300,7 +303,7 @@ static void
 build_class_type ()
 {
   tree field = NULL_TREE;
-  push_field (type_class, field, "next", type_class_ptr, true);
+  push_field (type_class, field, "next_or_version", type_class_ptr, true);
   push_field (type_class, field, "name", type_utf8const_ptr, true);
   push_field (type_class, field, "accflags", type_jushort, true);
   push_field (type_class, field, "superclass", type_class_ptr, true);
@@ -703,6 +706,16 @@ initialize_builtin_functions ()
   // FIXME: initialize builtin_fmod.
 }
 
+static void
+initialize_version ()
+{
+  int version = __GNUC__ * 10000 + __GNUC_MINOR__ * 10;
+  if (flag_indirect_dispatch)
+    version += 5;
+  gcj_abi_version = build1 (NOP_EXPR, type_class_ptr,
+			    build_int_cst (type_jint, version));
+}
+
 tree
 gcjx::builtin_function (const char *name,
 			tree type,
@@ -745,6 +758,8 @@ gcjx::initialize_decls ()
   build_class_type ();
   build_class_union ();
   initialize_builtin_functions ();
+
+  initialize_version ();
 }
 
 #include "gt-java-hooks.h"

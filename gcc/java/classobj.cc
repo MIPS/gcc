@@ -250,7 +250,7 @@ class_object_creator::create_class_instance (tree class_tree)
     inst.set_field ("sync_info", null_pointer_node);
 
   // Now fields from Class.
-  inst.set_field ("next", null_pointer_node);
+  inst.set_field ("next_or_version", gcj_abi_version);
   inst.set_field ("name",
 		  builtins->map_utf8const (real_class->get_fully_qualified_name ()));
 

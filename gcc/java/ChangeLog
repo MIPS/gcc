@@ -1,5 +1,15 @@
 2005-02-09  Tom Tromey  <tromey@redhat.com>
 
+	* hooks.hh (gcj_abi_version): Declare.
+	* classobj.cc (create_class_instance): Rename 'next' field.
+	and initialize it properly.
+	* decl.cc (build_class_type): Renamed 'next' field.
+	(gcj_abi_version): New global.
+	(initialize_version): New function.
+	(initialize_decls): Call it.
+
+2005-02-09  Tom Tromey  <tromey@redhat.com>
+
 	* classobj.cc (record_creator): Initialize new fields.
 	(set_field): Updated.
 	(create_class_instance): Initialize fields of Object.
