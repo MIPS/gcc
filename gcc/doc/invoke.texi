@@ -270,7 +270,7 @@ in the following sections.
 @xref{Optimize Options,,Options that Control Optimization}.
 @gccoptlist{-falign-functions=@var{n}  -falign-jumps=@var{n} @gol
 -falign-labels=@var{n}  -falign-loops=@var{n}  @gol
--fbounds-check -fmudflap @gol
+-fbounds-check -fmudflap -fmudflapth -fmudflapir @gol
 -fbranch-probabilities -fprofile-values -fvpt -fbranch-target-load-optimize @gol
 -fbranch-target-load-optimize2 -fcaller-saves  -fcprop-registers @gol
 -fcse-follow-jumps  -fcse-skip-blocks  -fdata-sections @gol
@@ -3983,8 +3983,10 @@ indices used to access arrays are within the declared range.  This is
 currently only supported by the Java and Fortran front-ends, where
 this option defaults to true and false respectively.
 
-@item -fmudflap
+@item -fmudflap -fmudflapth -fmudflapir
 @opindex fmudflap
+@opindex fmudflapth
+@opindex fmudflapir
 @cindex bounds checking
 @cindex mudflap
 For front-ends that support it (C and C++), instrument all risky
@@ -3998,6 +4000,14 @@ library (@file{libmudflap}), which will be linked into a program if
 instrumented program is controlled by the @env{MUDFLAP_OPTIONS}
 environment variable.  See @code{env MUDFLAP_OPTIONS=-help a.out}
 for its options.
+
+Use @option{-fmudflapth} instead of @option{-fmudflap} to compile and to
+link if your program is multi-threaded.  Use @option{-fmudflapir}, in
+addition to @option{-fmudflap} or @option{-fmudflapth}, if
+instrumentation should ignore pointer reads.  This produces less
+instrumentation (and therefore faster execution) and still provides
+some protection against outright memory corrupting writes, but allows
+erroneously read data to propagate within a program.
 
 @item -fstrength-reduce
 @opindex fstrength-reduce
