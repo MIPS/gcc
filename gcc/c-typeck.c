@@ -1440,7 +1440,7 @@ build_component_ref (tree datum, tree component)
   tree field = NULL;
   tree ref;
 
-  if (c_dialect_objc () && !objc_is_public (datum, component))
+  if (!objc_is_public (datum, component))
     return error_mark_node;
 
   /* If DATUM is a COMPOUND_EXPR, move our reference inside it.
@@ -2917,7 +2917,7 @@ build_c_cast (tree type, tree expr)
   /* The ObjC front-end uses TYPE_MAIN_VARIANT to tie together types differing
      only in <protocol> qualifications.  But when constructing cast expressions,
      the protocols do matter and must be kept around.  */
-  if (c_dialect_objc () && objc_is_object_ptr (type) && type != TREE_TYPE (expr))
+  if (objc_is_object_ptr (type) && objc_is_object_ptr (TREE_TYPE (expr)))
     return build1 (NOP_EXPR, type, expr);
 
   type = TYPE_MAIN_VARIANT (type);
