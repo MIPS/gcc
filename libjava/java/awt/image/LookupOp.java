@@ -113,8 +113,8 @@ public class LookupOp implements BufferedImageOp, RasterOp {
       int[] tmp = new int[tmpBands];
         
       // Filter the pixels
-      for (int y = src.getMinY(); y < src.getHeight() - src.getMinY(); y++)
-        for (int x = src.getMinX(); x < src.getWidth() - src.getMinX(); x++)
+      for (int y = src.getMinY(); y < src.getHeight() + src.getMinY(); y++)
+        for (int x = src.getMinX(); x < src.getWidth() + src.getMinX(); x++)
         {	
           // Filter only color components, but also copy alpha
           sr.getPixel(x, y, dbuf);
@@ -131,8 +131,8 @@ public class LookupOp implements BufferedImageOp, RasterOp {
     int[] dbuf = new int[src.getColorModel().getNumComponents()];
         
     // Filter the pixels
-    for (int y = src.getMinY(); y < src.getHeight() - src.getMinY(); y++)
-      for (int x = src.getMinX(); x < src.getWidth() - src.getMinX(); x++)
+    for (int y = src.getMinY(); y < src.getHeight() + src.getMinY(); y++)
+      for (int x = src.getMinX(); x < src.getWidth() + src.getMinX(); x++)
         dr.setPixel(x, y, lut.lookupPixel(sr.getPixel(x, y, dbuf), dbuf));
 
     if (tgt != dst)
@@ -226,8 +226,8 @@ public class LookupOp implements BufferedImageOp, RasterOp {
     int[] tmp = new int[src.getNumBands()];
     
     // Filter the pixels
-    for (int y = src.getMinY(); y < src.getHeight() - src.getMinY(); y++)
-      for (int x = src.getMinX(); x < src.getWidth() - src.getMinX(); x++)
+    for (int y = src.getMinY(); y < src.getHeight() + src.getMinY(); y++)
+      for (int x = src.getMinX(); x < src.getWidth() + src.getMinX(); x++)
         dest.setPixel(x, y, lut.lookupPixel(src.getPixel(x, y, tmp), tmp));
     return dest;
   }

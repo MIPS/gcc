@@ -97,8 +97,8 @@ public class BandCombineOp implements RasterOp
     // Filter the pixels
     float[] spix = new float[matrix[0].length];
     float[] dpix = new float[matrix.length];
-    for (int y = src.getMinY(); y < src.getHeight() - src.getMinY(); y++)
-      for (int x = src.getMinX(); x < src.getWidth() - src.getMinX(); x++)
+    for (int y = src.getMinY(); y < src.getHeight() + src.getMinY(); y++)
+      for (int x = src.getMinX(); x < src.getWidth() + src.getMinX(); x++)
       {
         // In case matrix rows have implicit translation
         spix[spix.length - 1] = 1.0f;
