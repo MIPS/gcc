@@ -1,3 +1,7 @@
+2004-07-22  Steven Bosscher  <stevenb@suse.de>
+
+	* ifcvt.c (find_if_case_1): Use then_bb->pred, not succ. Typo.
+
 2004-07-22  Ben Elliston  <bje@au.ibm.com>
 
 	* cfg.c (redirect_edge_succ): Use FOR_EACH_EDGE for consistency.

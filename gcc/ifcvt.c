@@ -2893,7 +2893,7 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
     return FALSE;
 
   /* THEN has one predecessor.  */
-  if (EDGE_COUNT (then_bb->succ) != 1)
+  if (EDGE_COUNT (then_bb->pred) != 1)
     return FALSE;
 
   /* THEN must do something.  */
