@@ -162,7 +162,7 @@ static void scev_analyze_modify_expr (unsigned, tree, tree, tree,
 				      tree *, tree *);
 static void scev_follow_ssa_edge (tree, tree);
 static void scev_follow_ssa_edge_same_loop (tree, tree);
-static void scev_analyze_inner_loop_phi (tree, tree)
+static void scev_analyze_inner_loop_phi (tree, tree);
 static void scev_follow_ssa_edge_inner_loop (tree, tree);
 static tree compute_overall_effect_of_inner_loop (tree, unsigned);
 static inline bool no_ssa_name_in_arguments_of_phi_node (tree);
