@@ -1911,7 +1911,7 @@ find_referenced_vars (tree fndecl)
      all target libraries.  Compile times were found to take 1% more
      compared to using .GLOBAL_VAR.  */
   {
-    const int n_calls = 2500;
+    const int n_calls = 0;
     const size_t n_clobbers = 200;
 
     if (walk_state.num_calls * num_call_clobbered_vars < n_calls * n_clobbers)
