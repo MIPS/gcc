@@ -1039,7 +1039,7 @@ free_ssa_operands (stmt_operands_p ops)
    statement is marked modified by a call to mark_stmt_modified().  */
 
 void
-get_stmt_operands (tree stmt)
+update_stmt_operands (tree stmt)
 {
   stmt_ann_t ann;
   stmt_operands_t old_operands;
@@ -1058,7 +1058,6 @@ get_stmt_operands (tree stmt)
 
   ann = get_stmt_ann (stmt);
 
-  /* If the statement has not been modified, the operands are still valid.  */
   if (!ann->modified)
     return;
 

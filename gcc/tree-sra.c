@@ -1401,7 +1401,7 @@ mark_all_v_defs (tree stmt)
   tree sym;
   ssa_op_iter iter;
 
-  get_stmt_operands (stmt);
+  update_stmt_operands (stmt);
 
   FOR_EACH_SSA_TREE_OPERAND (sym, stmt, iter, SSA_OP_VIRTUAL_DEFS)
     {

@@ -83,7 +83,7 @@ update_complex_assignment (block_stmt_iterator *bsi, tree r, tree i)
   
   type = TREE_TYPE (TREE_OPERAND (stmt, 1));
   TREE_OPERAND (stmt, 1) = build (COMPLEX_EXPR, type, r, i);
-  modify_stmt (stmt);
+  mark_stmt_modified (stmt);
 }
 
 /* Expand complex addition to scalars:
@@ -352,7 +352,7 @@ expand_complex_comparison (block_stmt_iterator *bsi, tree ar, tree ai,
       gcc_unreachable ();
     }
 
-  modify_stmt (stmt);
+  mark_stmt_modified (stmt);
 }
 
 /* Process one statement.  If we identify a complex operation, expand it.  */
@@ -474,6 +474,7 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
     default:
       gcc_unreachable ();
     }
+  update_stmt_operands (stmt);
 }
 
 /* Build a constant of type TYPE, made of VALUE's bits replicated
@@ -839,7 +840,7 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
         *p_rhs = expand_vector_addition (bsi, do_binop, do_plus_minus, type,
 		      		         TREE_OPERAND (rhs, 0),
 				         TREE_OPERAND (rhs, 1), code);
-	modify_stmt (bsi_stmt (*bsi));
+	mark_stmt_modified (bsi_stmt (*bsi));
         return;
 
       case NEGATE_EXPR:
@@ -849,7 +850,7 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
         *p_rhs = expand_vector_addition (bsi, do_unop, do_negate, type,
 		      		         TREE_OPERAND (rhs, 0),
 					 NULL_TREE, code);
-	modify_stmt (bsi_stmt (*bsi));
+	mark_stmt_modified (bsi_stmt (*bsi));
         return;
 
       case BIT_AND_EXPR:
@@ -858,14 +859,14 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
         *p_rhs = expand_vector_parallel (bsi, do_binop, type,
 		      		         TREE_OPERAND (rhs, 0),
 				         TREE_OPERAND (rhs, 1), code);
-	modify_stmt (bsi_stmt (*bsi));
+	mark_stmt_modified (bsi_stmt (*bsi));
         return;
 
       case BIT_NOT_EXPR:
         *p_rhs = expand_vector_parallel (bsi, do_unop, type,
 		      		         TREE_OPERAND (rhs, 0),
 					 NULL_TREE, code);
-	modify_stmt (bsi_stmt (*bsi));
+	mark_stmt_modified (bsi_stmt (*bsi));
         return;
 
       default:
@@ -881,7 +882,7 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
 				      TREE_OPERAND (rhs, 0),
 				      TREE_OPERAND (rhs, 1), code);
 
-  modify_stmt (bsi_stmt (*bsi));
+  mark_stmt_modified (bsi_stmt (*bsi));
 }
 
 static void

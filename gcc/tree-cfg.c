@@ -2706,7 +2706,7 @@ update_new_stmt (tree t)
 {
   gcc_assert (TREE_CODE (t) != STATEMENT_LIST);
   if (stmt_modified_p (t))
-    get_stmt_operands (t);
+    update_stmt_operands (t);
 }
 
 /* Returns direction in that local dominance numbering should be expanded

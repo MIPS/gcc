@@ -1,3 +1,8 @@
+2004-10-20  Zdenek Dvorak  <dvorakz@suse.cz>
+	    Andrew MacLeod  <amacleod@redhat.com>
+
+	Merge changes from immuse-rewrite-branch. 
+
 2004-10-19  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	* tree-cfg.c (LDN_BITS, LDN_STARTING_VALUE, LDN_FINAL_EXPAND,

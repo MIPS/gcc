@@ -145,11 +145,6 @@ mark_stmt_modified (tree t)
   ann->modified = 1;
 }
 
-static inline void
-modify_stmt (tree t)
-{
-  mark_stmt_modified (t);
-}
 /* Mark statement T as modified, and update it.  */
 static inline void
 update_stmt (tree t)
@@ -157,7 +152,28 @@ update_stmt (tree t)
   if (TREE_CODE (t) == PHI_NODE)
     return;
   mark_stmt_modified (t);
-  get_stmt_operands (t);
+  update_stmt_operands (t);
+}
+
+static inline void 
+get_stmt_operands (tree stmt ATTRIBUTE_UNUSED)
+{
+#ifdef ENABLE_CHECKING
+  stmt_ann_t ann;
+                                                                                
+  /* The optimizers cannot handle statements that are nothing but a
+     _DECL.  This indicates a bug in the gimplifier.  */
+  gcc_assert (!SSA_VAR_P (stmt));
+                                                                                
+  /* Ignore error statements.  */
+  if (TREE_CODE (stmt) == ERROR_MARK)
+    return;
+                                                                                
+  ann = get_stmt_ann (stmt);
+  gcc_assert (!ann->modified);
+
+  return;
+#endif
 }
 
 /* Return true if T is marked as modified, false otherwise.  */
@@ -167,8 +183,8 @@ stmt_modified_p (tree t)
   stmt_ann_t ann = stmt_ann (t);
 
   /* Note that if the statement doesn't yet have an annotation, we consider it
-     modified.  This will force the next call to get_stmt_operands to scan the
-     statement.  */
+     modified.  This will force the next call to update_stmt_operands to scan 
+     the statement.  */
   return ann ? ann->modified : true;
 }
 

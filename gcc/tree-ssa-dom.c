@@ -361,6 +361,17 @@ tree_ssa_dominator_optimize (void)
 	  bitmap_clear (vars_to_rename);
 	}
 
+  {
+    block_stmt_iterator bsi;
+    basic_block bb;
+    FOR_EACH_BB (bb)
+      {
+	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	  {
+	    update_stmt_operands (bsi_stmt (bsi));
+	  }
+      }
+  }
       /* Thread jumps, creating duplicate blocks as needed.  */
       cfg_altered = thread_through_all_blocks ();
 
@@ -426,17 +437,6 @@ tree_ssa_dominator_optimize (void)
     }
 
 
-  {
-    block_stmt_iterator bsi;
-    basic_block bb;
-    FOR_EACH_BB (bb)
-      {
-	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	  {
-	    get_stmt_operands (bsi_stmt (bsi));
-	  }
-      }
-  }
 
 }
 
@@ -1931,7 +1931,7 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 		  /* If this is not a real stmt, ann will be NULL and we
 		     avoid processing the operands.  */
 		  if (ann)
-		    modify_stmt (stmt);
+		    mark_stmt_modified (stmt);
 
 		  /* Lookup the condition and return its known value if it
 		     exists.  */
@@ -2175,7 +2175,7 @@ simplify_switch_and_lookup_avail_expr (tree stmt, int insert)
 	      if (!fail)
 		{
 		  SWITCH_COND (stmt) = def;
-		  modify_stmt (stmt);
+		  mark_stmt_modified (stmt);
 
 		  return lookup_avail_expr (stmt, insert);
 		}
@@ -2381,7 +2381,7 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
 	retval = true;
 
       propagate_tree_value (expr_p, cached_lhs);
-      modify_stmt (stmt);
+      mark_stmt_modified (stmt);
     }
   return retval;
 }
@@ -2610,7 +2610,7 @@ cprop_operand (tree stmt, use_operand_p op_p)
       /* And note that we modified this statement.  This is now
 	 safe, even if we changed virtual operands since we will
 	 rescan the statement and rewrite its operands again.  */
-      modify_stmt (stmt);
+      mark_stmt_modified (stmt);
     }
   return may_have_exposed_new_symbols;
 }
@@ -2672,7 +2672,7 @@ optimize_stmt (struct dom_walk_data *walk_data, basic_block bb,
 
   stmt = bsi_stmt (si);
 
-  get_stmt_operands (stmt);
+  update_stmt_operands (stmt);
   ann = stmt_ann (stmt);
   opt_stats.num_stmts++;
   may_have_exposed_new_symbols = false;
@@ -2842,7 +2842,7 @@ update_rhs_and_lookup_avail_expr (tree stmt, tree new_rhs, bool insert)
 
   /* And make sure we record the fact that we modified this
      statement.  */
-  modify_stmt (stmt);
+  mark_stmt_modified (stmt);
 
   return cached_lhs;
 }
