@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2003 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -37,6 +37,10 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef PATH_MAX
 #define PATH_MAX 1024
+#endif
+
+#ifndef MAP_FAILED
+#define MAP_FAILED ((void *) -1)
 #endif
 
 /* This implementation of stream I/O is based on the paper:
@@ -561,7 +565,7 @@ mmap_alloc (unix_stream * s, offset_t where, int *len)
   length = ((where - offset) & page_mask) + 2 * page_size;
 
   p = mmap (NULL, length, s->prot, MAP_SHARED, s->fd, offset);
-  if (p == MAP_FAILED)
+  if (p == (char *) MAP_FAILED)
     return FAILURE;
 
   s->mmaped = 1;
@@ -672,7 +676,7 @@ mmap_open (unix_stream * s)
   page_mask = ~0;
 
   p = mmap (0, page_size, s->prot, MAP_SHARED, s->fd, 0);
-  if (p == MAP_FAILED)
+  if (p == (char *) MAP_FAILED)
     {
       fd_open (s);
       return SUCCESS;
