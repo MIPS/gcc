@@ -6319,7 +6319,7 @@
 	 (match_operator 3 "comparison_operator"
 	  [(plus:SI
 	    (match_operand:SI 1 "s_register_operand" "%l,l,l,0")
-	    (match_operand:SI 2 "reg_or_int_operand" "J,l,I,L"))
+	    (match_operand:SI 2 "reg_or_int_operand" "J,l,L,IJ"))
 	   (const_int 0)])
 	 (label_ref (match_operand 4 "" ""))
 	 (pc)))
@@ -6340,10 +6340,16 @@
 	 output_asm_insn (\"cmn\t%1, %2\", operands);
 	 break;
        case 2:
-	 output_asm_insn (\"add\t%0, %1, %2\", operands);
+	 if (INTVAL (operands[2]) < 0)
+	   output_asm_insn (\"sub\t%0, %1, %2\", operands);
+	 else
+	   output_asm_insn (\"add\t%0, %1, %2\", operands);
 	 break;
        case 3:
-	 output_asm_insn (\"add\t%0, %0, %2\", operands);
+	 if (INTVAL (operands[2]) < 0)
+	   output_asm_insn (\"sub\t%0, %0, %2\", operands);
+	 else
+	   output_asm_insn (\"add\t%0, %0, %2\", operands);
 	 break;
        }
 

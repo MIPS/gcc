@@ -1,5 +1,10 @@
 2004-10-12  Paul Brook  <paul@codesourcery.com>
 
+	* config/arm/arm.md (addsi3_cbranch_scratch): Correct constraints.
+	Handle negative constants.
+
+2004-10-12  Paul Brook  <paul@codesourcery.com>
+
 	* configure.ac: Don't look for host assembler when building a canadian
 	cross.
 	* configure: Regenerate.
