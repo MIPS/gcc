@@ -620,6 +620,9 @@ format_item:
     case FMT_BADSTRING:
       goto finished;
 
+    case FMT_RPAREN:
+      goto finished;
+
     default:
       error = unexpected_element;
       goto finished;

@@ -7,7 +7,7 @@
 --                                 B o d y                                  --
 --                                                                          --
 --             Copyright (C) 1991-1994, Florida State University            --
---             Copyright (C) 1995-2003, Ada Core Technologies               --
+--             Copyright (C) 1995-2004, Ada Core Technologies               --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -322,10 +322,6 @@ package body Ada.Task_Attributes is
      (Access_Node, Access_Address);
    --  To store pointer to list of indirect attributes
 
-   function To_Access_Node is new Unchecked_Conversion
-     (Access_Address, Access_Node);
-   --  To fetch pointer to list of indirect attributes
-
    pragma Warnings (Off);
    function To_Access_Wrapper is new Unchecked_Conversion
      (Access_Dummy_Wrapper, Access_Wrapper);
@@ -398,8 +394,8 @@ package body Ada.Task_Attributes is
      (T    : Task_Identification.Task_Id := Task_Identification.Current_Task)
       return Attribute_Handle
    is
-      TT            : Task_ID := To_Task_ID (T);
-      Error_Message : constant String := "Trying to get the reference of a ";
+      TT            : constant Task_ID := To_Task_ID (T);
+      Error_Message : constant String  := "Trying to get the reference of a ";
 
    begin
       if TT = null then
@@ -488,8 +484,8 @@ package body Ada.Task_Attributes is
    procedure Reinitialize
      (T : Task_Identification.Task_Id := Task_Identification.Current_Task)
    is
-      TT : Task_ID := To_Task_ID (T);
-      Error_Message : constant String := "Trying to Reinitialize a ";
+      TT            : constant Task_ID := To_Task_ID (T);
+      Error_Message : constant String  := "Trying to Reinitialize a ";
 
    begin
       if TT = null then
@@ -558,8 +554,8 @@ package body Ada.Task_Attributes is
      (Val : Attribute;
       T   : Task_Identification.Task_Id := Task_Identification.Current_Task)
    is
-      TT            : Task_ID := To_Task_ID (T);
-      Error_Message : constant String := "Trying to Set the Value of a ";
+      TT            : constant Task_ID := To_Task_ID (T);
+      Error_Message : constant String  := "Trying to Set the Value of a ";
 
    begin
       if TT = null then
@@ -644,11 +640,11 @@ package body Ada.Task_Attributes is
    -----------
 
    function Value
-     (T    : Task_Identification.Task_Id := Task_Identification.Current_Task)
+     (T : Task_Identification.Task_Id := Task_Identification.Current_Task)
       return Attribute
    is
-      TT            : Task_ID := To_Task_ID (T);
-      Error_Message : constant String := "Trying to get the Value of a ";
+      TT            : constant Task_ID := To_Task_ID (T);
+      Error_Message : constant String  := "Trying to get the Value of a ";
 
    begin
       if TT = null then

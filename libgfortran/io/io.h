@@ -23,8 +23,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* IO library include.  */
 
+#include <setjmp.h>
 #include "libgfortran.h"
-
 #define DEFAULT_TEMPDIR "/var/tmp"
 
 /* Basic types used in data transfers.  */
@@ -172,9 +172,10 @@ typedef struct
   }
   library_return;
 
-  int *iostat, *exist, *opened, *number, *named, *rec, *nextrec, *size;
+  int *iostat, *exist, *opened, *number, *named, rec, *nextrec, *size;
 
-  off_t *recl_in, *recl_out;
+  int recl_in; 
+  int *recl_out;
 
   char *file;
   int file_len;
@@ -300,6 +301,7 @@ typedef struct
   unit_blank blank_status;
   enum {SIGN_S, SIGN_SS, SIGN_SP} sign_status;
   int scale_factor;
+  jmp_buf eof_jump;  
 }
 global_t;
 
@@ -476,6 +478,9 @@ unit_t *get_unit (int);
 
 #define test_endfile prefix(test_endfile)
 void test_endfile (unit_t *);
+
+#define new_unit prefix(new_unit)
+void new_unit (unit_flags *);
 
 /* format.c */
 

@@ -6670,7 +6670,14 @@ package body Sem_Ch12 is
       Decl_Node :=
         Make_Subprogram_Renaming_Declaration (Loc,
           Specification => New_Spec,
-          Name => Nam);
+          Name          => Nam);
+
+      --  If we do not have an actual and the formal specified <> then
+      --  set to get proper default.
+
+      if No (Actual) and then Box_Present (Formal) then
+         Set_From_Default (Decl_Node);
+      end if;
 
       --  Gather possible interpretations for the actual before analyzing the
       --  instance. If overloaded, it will be resolved when analyzing the
@@ -7892,6 +7899,7 @@ package body Sem_Ch12 is
             --  actual must correspond to a discriminant of the formal.
 
             elsif Has_Discriminants (Act_T)
+              and then not Has_Unknown_Discriminants (Act_T)
               and then Has_Discriminants (Ancestor)
             then
                Actual_Discr   := First_Discriminant (Act_T);
@@ -7923,7 +7931,9 @@ package body Sem_Ch12 is
             --  for constrainedness, but the check here is added for
             --  completeness.
 
-            elsif Has_Discriminants (Act_T) then
+            elsif Has_Discriminants (Act_T)
+              and then not Has_Unknown_Discriminants (Act_T)
+            then
                Error_Msg_NE
                  ("actual for & must not have discriminants", Actual, Gen_T);
                Abandon_Instantiation (Actual);

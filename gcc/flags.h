@@ -184,7 +184,7 @@ extern bool warn_deprecated_decl;
 /* Nonzero means warn about constructs which might not be strict
    aliasing safe.  */
 
-extern bool warn_strict_aliasing;
+extern int warn_strict_aliasing;
 
 /* Nonzero if generating code to do profiling.  */
 
@@ -209,6 +209,11 @@ extern int flag_branch_probabilities;
 /* Nonzero if basic blocks should be reordered.  */
 
 extern int flag_reorder_blocks;
+
+/* Nonzero if basic blocks should be partitioned into hot and cold
+   sections of the .o file, in addition to being reordered.  */
+
+extern int flag_reorder_blocks_and_partition;
 
 /* Nonzero if functions should be reordered.  */
 
@@ -725,6 +730,10 @@ extern int flag_scalar_evolutions;
 /* Enable the analysis of all the data dependences.  */
 extern int flag_all_data_deps;
 
+/* Enable loop optimizations on trees.  */
+
+extern int flag_tree_loop;
+
 /* Enable linear loop transforms on trees. */
 extern int flag_tree_loop_linear;
 
@@ -743,6 +752,9 @@ extern int flag_tree_combine_temps;
 /* Enable SSA->normal pass expression replacement.  */
 extern int flag_tree_ter;
 
+/* Enable SSA_>normal live range splitting.  */
+extern int flag_tree_live_range_split;
+
 /* Enable dominator optimizations.  */
 extern int flag_tree_dom;
 
@@ -751,9 +763,6 @@ extern int flag_tree_ch;
 
 /* Enable dead store and redundant load elimination */
 extern int flag_tree_dse;
-
-/* Enable loop optimization on tree-ssa.  */
-extern int flag_tree_loop;
 
 /* Enable scalar replacement of aggregates.  */
 extern int flag_tree_sra;

@@ -789,7 +789,7 @@ expand_fixup (tree tree_label, rtx rtl_label, rtx last_insn)
 	TREE_USED (block) = 1;
 
 	if (!cfun->x_whole_function_mode_p)
-	  (*lang_hooks.decls.insert_block) (block);
+	  lang_hooks.decls.insert_block (block);
 	else
 	  {
 	    BLOCK_CHAIN (block)
@@ -906,8 +906,8 @@ fixup_gotos (struct nesting *thisblock, rtx stack_level,
 	     logically be inserting the fixup code.  We do this for the
 	     sake of getting the debugging information right.  */
 
-	  (*lang_hooks.decls.pushlevel) (0);
-	  (*lang_hooks.decls.set_block) (f->context);
+	  lang_hooks.decls.pushlevel (0);
+	  lang_hooks.decls.set_block (f->context);
 
 	  /* Expand the cleanups for blocks this jump exits.  */
 	  if (f->cleanup_list_list)
@@ -946,7 +946,7 @@ fixup_gotos (struct nesting *thisblock, rtx stack_level,
 	     destructed are still "in scope".  */
 
 	  cleanup_insns = get_insns ();
-	  (*lang_hooks.decls.poplevel) (1, 0, 0);
+	  lang_hooks.decls.poplevel (1, 0, 0);
 
 	  end_sequence ();
 	  emit_insn_after (cleanup_insns, f->before_jump);
@@ -980,12 +980,12 @@ fixup_gotos (struct nesting *thisblock, rtx stack_level,
 	  if (TREE_CHAIN (lists) == thisblock->data.block.outer_cleanups)
 	    {
 	      start_sequence ();
-	      (*lang_hooks.decls.pushlevel) (0);
-	      (*lang_hooks.decls.set_block) (f->context);
+	      lang_hooks.decls.pushlevel (0);
+	      lang_hooks.decls.set_block (f->context);
 	      expand_cleanups (TREE_VALUE (lists), 1, 1);
 	      do_pending_stack_adjust ();
 	      cleanup_insns = get_insns ();
-	      (*lang_hooks.decls.poplevel) (1, 0, 0);
+	      lang_hooks.decls.poplevel (1, 0, 0);
 	      end_sequence ();
 	      if (cleanup_insns != 0)
 		f->before_jump
@@ -1500,7 +1500,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	      || (DECL_P (val)
 		  && GET_CODE (DECL_RTL (val)) == REG
 		  && GET_MODE (DECL_RTL (val)) != TYPE_MODE (type))))
-	(*lang_hooks.mark_addressable) (val);
+	lang_hooks.mark_addressable (val);
 
       if (is_inout)
 	ninout++;
@@ -1529,7 +1529,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	return;
 
       if (! allows_reg && allows_mem)
-	(*lang_hooks.mark_addressable) (TREE_VALUE (tail));
+	lang_hooks.mark_addressable (TREE_VALUE (tail));
     }
 
   /* Second pass evaluates arguments.  */
@@ -2980,7 +2980,7 @@ expand_value_return (rtx val)
       tree type = TREE_TYPE (DECL_RESULT (current_function_decl));
       if (targetm.calls.promote_function_return (TREE_TYPE (current_function_decl)))
       {
-	int unsignedp = TREE_UNSIGNED (type);
+	int unsignedp = TYPE_UNSIGNED (type);
 	enum machine_mode old_mode
 	  = DECL_MODE (DECL_RESULT (current_function_decl));
 	enum machine_mode mode
@@ -3334,7 +3334,7 @@ tail_recursion_args (tree actuals, tree formals)
       else
 	{
 	  rtx tmp = argvec[i];
-	  int unsignedp = TREE_UNSIGNED (TREE_TYPE (TREE_VALUE (a)));
+	  int unsignedp = TYPE_UNSIGNED (TREE_TYPE (TREE_VALUE (a)));
 	  promote_mode(TREE_TYPE (TREE_VALUE (a)), GET_MODE (tmp),
 		       &unsignedp, 0);
 	  if (DECL_MODE (f) != GET_MODE (DECL_RTL (f)))
@@ -3808,7 +3808,7 @@ expand_decl (tree decl)
 	   && (DECL_REGISTER (decl) || DECL_ARTIFICIAL (decl) || optimize))
     {
       /* Automatic variable that can go in a register.  */
-      int unsignedp = TREE_UNSIGNED (type);
+      int unsignedp = TYPE_UNSIGNED (type);
       enum machine_mode reg_mode
 	= promote_mode (type, DECL_MODE (decl), &unsignedp, 0);
 
@@ -3876,13 +3876,8 @@ expand_decl (tree decl)
       do_pending_stack_adjust ();
       save_stack_pointer ();
 
-      /* In function-at-a-time mode, variable_size doesn't expand this,
-	 so do it now.  */
-      if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type))
-	expand_expr (TYPE_MAX_VALUE (TYPE_DOMAIN (type)),
-		     const0_rtx, VOIDmode, 0);
-
-      /* Compute the variable's size, in bytes.  */
+      /* Compute the variable's size, in bytes.  This will expand any
+	 needed SAVE_EXPRs for the first time.  */
       size = expand_expr (DECL_SIZE_UNIT (decl), NULL_RTX, VOIDmode, 0);
       free_temp_slots ();
 
@@ -4061,12 +4056,12 @@ expand_decl_cleanup (tree decl, tree cleanup)
 	  emit_move_insn (flag, const1_rtx);
 
 	  cond = build_decl (VAR_DECL, NULL_TREE,
-			     (*lang_hooks.types.type_for_mode) (word_mode, 1));
+			     lang_hooks.types.type_for_mode (word_mode, 1));
 	  SET_DECL_RTL (cond, flag);
 
 	  /* Conditionalize the cleanup.  */
 	  cleanup = build (COND_EXPR, void_type_node,
-			   (*lang_hooks.truthvalue_conversion) (cond),
+			   lang_hooks.truthvalue_conversion (cond),
 			   cleanup, integer_zero_node);
 	  cleanup = fold (cleanup);
 
@@ -4967,7 +4962,7 @@ expand_end_case_type (tree orig_index, tree orig_type)
 
   index_expr = thiscase->data.case_stmt.index_expr;
   index_type = TREE_TYPE (index_expr);
-  unsignedp = TREE_UNSIGNED (index_type);
+  unsignedp = TYPE_UNSIGNED (index_type);
   if (orig_type == NULL)
     orig_type = TREE_TYPE (orig_index);
 
@@ -5763,7 +5758,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 		 tree index_type)
 {
   /* If INDEX has an unsigned type, we must make unsigned branches.  */
-  int unsignedp = TREE_UNSIGNED (index_type);
+  int unsignedp = TYPE_UNSIGNED (index_type);
   enum machine_mode mode = GET_MODE (index);
   enum machine_mode imode = TYPE_MODE (index_type);
 
@@ -5816,6 +5811,42 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 				       LT, NULL_RTX, mode, unsignedp,
 				       label_rtx (node->left->code_label));
 	      emit_case_nodes (index, node->right, default_label, index_type);
+	    }
+
+	  /* If both children are single-valued cases with no
+	     children, finish up all the work.  This way, we can save
+	     one ordered comparison.  */
+	  else if (tree_int_cst_equal (node->right->low, node->right->high)
+		   && node->right->left == 0
+		   && node->right->right == 0
+		   && tree_int_cst_equal (node->left->low, node->left->high)
+		   && node->left->left == 0
+		   && node->left->right == 0)
+	    {
+	      /* Neither node is bounded.  First distinguish the two sides;
+		 then emit the code for one side at a time.  */
+
+	      /* See if the value matches what the right hand side
+		 wants.  */
+	      do_jump_if_equal (index,
+				convert_modes (mode, imode,
+					       expand_expr (node->right->low,
+							    NULL_RTX,
+							    VOIDmode, 0),
+					       unsignedp),
+				label_rtx (node->right->code_label),
+				unsignedp);
+
+	      /* See if the value matches what the left hand side
+		 wants.  */
+	      do_jump_if_equal (index,
+				convert_modes (mode, imode,
+					       expand_expr (node->left->low,
+							    NULL_RTX,
+							    VOIDmode, 0),
+					       unsignedp),
+				label_rtx (node->left->code_label),
+				unsignedp);
 	    }
 
 	  else
@@ -6082,7 +6113,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	  else if (!low_bound && !high_bound)
 	    {
 	      /* Widen LOW and HIGH to the same width as INDEX.  */
-	      tree type = (*lang_hooks.types.type_for_mode) (mode, unsignedp);
+	      tree type = lang_hooks.types.type_for_mode (mode, unsignedp);
 	      tree low = build1 (CONVERT_EXPR, type, node->low);
 	      tree high = build1 (CONVERT_EXPR, type, node->high);
 	      rtx low_rtx, new_index, new_bound;

@@ -371,7 +371,7 @@ init_eh (void)
     {
       tree f_jbuf, f_per, f_lsda, f_prev, f_cs, f_data, tmp;
 
-      sjlj_fc_type_node = (*lang_hooks.types.make_type) (RECORD_TYPE);
+      sjlj_fc_type_node = lang_hooks.types.make_type (RECORD_TYPE);
 
       f_prev = build_decl (FIELD_DECL, get_identifier ("__prev"),
 			   build_pointer_type (sjlj_fc_type_node));
@@ -382,7 +382,7 @@ init_eh (void)
       DECL_FIELD_CONTEXT (f_cs) = sjlj_fc_type_node;
 
       tmp = build_index_type (build_int_2 (4 - 1, 0));
-      tmp = build_array_type ((*lang_hooks.types.type_for_mode) (word_mode, 1),
+      tmp = build_array_type (lang_hooks.types.type_for_mode (word_mode, 1),
 			      tmp);
       f_data = build_decl (FIELD_DECL, get_identifier ("__data"), tmp);
       DECL_FIELD_CONTEXT (f_data) = sjlj_fc_type_node;
@@ -743,10 +743,12 @@ expand_start_all_catch (void)
   emit_jump (region->u.try.continue_label);
 }
 
-/* Begin a catch clause.  TYPE is the type caught, a list of such types, or
-   null if this is a catch-all clause. Providing a type list enables to
-   associate the catch region with potentially several exception types, which
-   is useful e.g. for Ada.  */
+/* Begin a catch clause.  TYPE is the type caught, a list of such
+   types, (in the case of Java) an ADDR_EXPR which points to the
+   runtime type to match, or null if this is a catch-all
+   clause. Providing a type list enables to associate the catch region
+   with potentially several exception types, which is useful e.g. for
+   Ada.  */
 
 void
 expand_start_catch (tree type_or_list)
@@ -1155,7 +1157,18 @@ remove_unreachable_regions (rtx insns)
     }
 
   for (insn = insns; insn; insn = NEXT_INSN (insn))
-    reachable[uid_region_num[INSN_UID (insn)]] = true;
+    {
+      reachable[uid_region_num[INSN_UID (insn)]] = true;
+
+      if (GET_CODE (insn) == CALL_INSN
+	  && GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER)
+	for (i = 0; i < 3; i++)
+	  {
+	    rtx sub = XEXP (PATTERN (insn), i);
+	    for (; sub ; sub = NEXT_INSN (sub))
+	      reachable[uid_region_num[INSN_UID (sub)]] = true;
+	  }
+    }
 
   for (i = cfun->eh->last_region_number; i > 0; --i)
     {
@@ -3572,8 +3585,18 @@ collect_one_action_chain (htab_t ar_hash, struct eh_region *region)
       /* An exception specification adds its filter to the
 	 beginning of the chain.  */
       next = collect_one_action_chain (ar_hash, region->outer);
-      return add_action_record (ar_hash, region->u.allowed.filter,
-				next < 0 ? 0 : next);
+
+      /* If there is no next action, terminate the chain.  */
+      if (next == -1)
+	next = 0;
+      /* If all outer actions are cleanups or must_not_throw,
+	 we'll have no action record for it, since we had wanted
+	 to encode these states in the call-site record directly.
+	 Add a cleanup action to the chain to catch these.  */
+      else if (next <= 0)
+	next = add_action_record (ar_hash, 0, 0);
+      
+      return add_action_record (ar_hash, region->u.allowed.filter, next);
 
     case ERT_MUST_NOT_THROW:
       /* A must-not-throw region with no inner handlers or cleanups
@@ -3935,7 +3958,7 @@ output_function_exception_table (void)
   /* Note that varasm still thinks we're in the function's code section.
      The ".endp" directive that will immediately follow will take us back.  */
 #else
-  (*targetm.asm_out.exception_section) ();
+  targetm.asm_out.exception_section ();
 #endif
 
   have_tt_data = (VARRAY_ACTIVE_SIZE (cfun->eh->ttype_data) > 0
@@ -3956,7 +3979,7 @@ output_function_exception_table (void)
       assemble_align (tt_format_size * BITS_PER_UNIT);
     }
 
-  (*targetm.asm_out.internal_label) (asm_out_file, "LLSDA",
+  targetm.asm_out.internal_label (asm_out_file, "LLSDA",
 			     current_function_funcdef_no);
 
   /* The LSDA header.  */

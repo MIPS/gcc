@@ -1420,19 +1420,13 @@ component_ref_for_mem_expr (tree ref)
     inner = component_ref_for_mem_expr (inner);
   else
     {
-      tree placeholder_ptr = 0;
-
       /* Now remove any conversions: they don't change what the underlying
-	 object is.  Likewise for SAVE_EXPR.  Also handle PLACEHOLDER_EXPR.  */
+	 object is.  Likewise for SAVE_EXPR.  */
       while (TREE_CODE (inner) == NOP_EXPR || TREE_CODE (inner) == CONVERT_EXPR
 	     || TREE_CODE (inner) == NON_LVALUE_EXPR
 	     || TREE_CODE (inner) == VIEW_CONVERT_EXPR
-	     || TREE_CODE (inner) == SAVE_EXPR
-	     || TREE_CODE (inner) == PLACEHOLDER_EXPR)
-	if (TREE_CODE (inner) == PLACEHOLDER_EXPR)
-	  inner = find_placeholder (inner, &placeholder_ptr);
-	else
-	  inner = TREE_OPERAND (inner, 0);
+	     || TREE_CODE (inner) == SAVE_EXPR)
+	inner = TREE_OPERAND (inner, 0);
 
       if (! DECL_P (inner))
 	inner = NULL_TREE;
@@ -1521,8 +1515,9 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
   MEM_IN_STRUCT_P (ref) = AGGREGATE_TYPE_P (type);
   RTX_UNCHANGING_P (ref)
     |= ((lang_hooks.honor_readonly
-	 && (TYPE_READONLY (type) || TREE_READONLY (t)))
+	 && (TYPE_READONLY (type) || (t != type && TREE_READONLY (t))))
 	|| (! TYPE_P (t) && TREE_CONSTANT (t)));
+  MEM_POINTER (ref) = POINTER_TYPE_P (type);
 
   /* If we are making an object of this type, or if this is a DECL, we know
      that it is a scalar if the type is not an aggregate.  */
@@ -1618,20 +1613,14 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 		index = fold (build (MINUS_EXPR, TREE_TYPE (index),
 				     index, low_bound));
 
-	      /* If the index has a self-referential type, pass it to a
-		 WITH_RECORD_EXPR; if the component size is, pass our
-		 component to one.  */
-	      if (CONTAINS_PLACEHOLDER_P (index))
-		index = build (WITH_RECORD_EXPR, TREE_TYPE (index), index, t2);
-	      if (CONTAINS_PLACEHOLDER_P (unit_size))
-		unit_size = build (WITH_RECORD_EXPR, sizetype,
-				   unit_size, array);
-
+	      /* If the index has a self-referential type, instantiate it;
+		 likewise for the component size.  */
+	      index = SUBSTITUTE_PLACEHOLDER_IN_EXPR (index, t2);
+	      unit_size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (unit_size, array);
 	      off_tree
 		= fold (build (PLUS_EXPR, sizetype,
 			       fold (build (MULT_EXPR, sizetype,
-					    index,
-					    unit_size)),
+					    index, unit_size)),
 			       off_tree));
 	      t2 = TREE_OPERAND (t2, 0);
 	    }
@@ -4773,7 +4762,7 @@ emit (rtx x)
 }
 
 /* Space for free sequence stack entries.  */
-static GTY ((deletable (""))) struct sequence_stack *free_sequence_stack;
+static GTY ((deletable)) struct sequence_stack *free_sequence_stack;
 
 /* Begin emitting insns to a sequence which can be packaged in an
    RTL_EXPR.  If this sequence will contain something that might cause
@@ -5335,7 +5324,7 @@ init_emit_once (int line_numbers)
   REAL_VALUE_FROM_INT (dconstm2, -2, -1, double_mode);
 
   dconsthalf = dconst1;
-  dconsthalf.exp--;
+  SET_REAL_EXP (&dconsthalf, REAL_EXP (&dconsthalf) - 1);
 
   real_arithmetic (&dconstthird, RDIV_EXPR, &dconst1, &dconst3);
 
@@ -5505,7 +5494,7 @@ emit_copy_of_insn_after (rtx insn, rtx after)
   return new;
 }
 
-static GTY((deletable(""))) rtx hard_reg_clobbers [NUM_MACHINE_MODES][FIRST_PSEUDO_REGISTER];
+static GTY((deletable)) rtx hard_reg_clobbers [NUM_MACHINE_MODES][FIRST_PSEUDO_REGISTER];
 rtx
 gen_hard_reg_clobber (enum machine_mode mode, unsigned int regno)
 {

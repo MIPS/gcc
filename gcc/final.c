@@ -1380,7 +1380,7 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
     }
 
   /* First output the function prologue: code to set up the stack frame.  */
-  (*targetm.asm_out.function_prologue) (file, get_frame_size ());
+  targetm.asm_out.function_prologue (file, get_frame_size ());
 
   /* If the machine represents the prologue as RTL, the profiling code must
      be emitted when NOTE_INSN_PROLOGUE_END is scanned.  */
@@ -1418,7 +1418,7 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
       int align = MIN (BIGGEST_ALIGNMENT, LONG_TYPE_SIZE);
       data_section ();
       ASM_OUTPUT_ALIGN (file, floor_log2 (align / BITS_PER_UNIT));
-      (*targetm.asm_out.internal_label) (file, "LP", current_function_funcdef_no);
+      targetm.asm_out.internal_label (file, "LP", current_function_funcdef_no);
       assemble_integer (const0_rtx, LONG_TYPE_SIZE / BITS_PER_UNIT, align, 1);
     }
 
@@ -1474,7 +1474,7 @@ final_end_function (void)
 
   /* Finally, output the function epilogue:
      code to restore the stack frame and return to the caller.  */
-  (*targetm.asm_out.function_epilogue) (asm_out_file, get_frame_size ());
+  targetm.asm_out.function_epilogue (asm_out_file, get_frame_size ());
 
   /* And debug output.  */
   (*debug_hooks->end_epilogue) (last_linenum, last_filename);
@@ -1607,7 +1607,7 @@ output_alternate_entry_point (FILE *file, rtx insn)
       ASM_WEAKEN_LABEL (file, name);
 #endif
     case LABEL_GLOBAL_ENTRY:
-      (*targetm.asm_out.globalize_label) (file, name);
+      targetm.asm_out.globalize_label (file, name);
     case LABEL_STATIC_ENTRY:
 #ifdef ASM_OUTPUT_TYPE_DIRECTIVE
       ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
@@ -1619,6 +1619,35 @@ output_alternate_entry_point (FILE *file, rtx insn)
     default:
       abort ();
     }
+}
+
+/* Return boolean indicating if there is a NOTE_INSN_UNLIKELY_EXECUTED_CODE
+   note in the instruction chain (going forward) between the current
+   instruction, and the next 'executable' instruction.  */
+
+bool
+scan_ahead_for_unlikely_executed_note (rtx insn)
+{
+  rtx temp;
+  int bb_note_count = 0;
+
+  for (temp = insn; temp; temp = NEXT_INSN (temp))
+    {
+      if (GET_CODE (temp) == NOTE
+	  && NOTE_LINE_NUMBER (temp) == NOTE_INSN_UNLIKELY_EXECUTED_CODE)
+	return true;
+      if (GET_CODE (temp) == NOTE
+	  && NOTE_LINE_NUMBER (temp) == NOTE_INSN_BASIC_BLOCK)
+	{
+	  bb_note_count++;
+	  if (bb_note_count > 1)
+	    return false;
+	}
+      if (INSN_P (temp))
+	return false;
+    }
+  
+  return false;
 }
 
 /* The final scan for one insn, INSN.
@@ -1670,7 +1699,31 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	case NOTE_INSN_EXPECTED_VALUE:
 	  break;
 
+	case NOTE_INSN_UNLIKELY_EXECUTED_CODE:
+	  
+	  /* The presence of this note indicates that this basic block
+	     belongs in the "cold" section of the .o file.  If we are
+	     not already writing to the cold section we need to change
+	     to it.  */
+	  
+	  unlikely_text_section ();
+	  break;
+	  
 	case NOTE_INSN_BASIC_BLOCK:
+	  
+	  /* If we are performing the optimization that paritions
+	     basic blocks into hot & cold sections of the .o file,
+	     then at the start of each new basic block, before
+	     beginning to write code for the basic block, we need to
+	     check to see whether the basic block belongs in the hot
+	     or cold section of the .o file, and change the section we
+	     are writing to appropriately.  */
+	  
+	  if (flag_reorder_blocks_and_partition
+	      && in_unlikely_text_section()
+	      && !scan_ahead_for_unlikely_executed_note (insn))
+	    text_section ();
+
 #ifdef IA64_UNWIND_INFO
 	  IA64_UNWIND_EMIT (asm_out_file, insn);
 #endif
@@ -1699,7 +1752,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_PROLOGUE_END:
-	  (*targetm.asm_out.function_end_prologue) (file);
+	  targetm.asm_out.function_end_prologue (file);
 	  profile_after_prologue (file);
 
 	  if ((*seen & (SEEN_EMITTED | SEEN_NOTE)) == SEEN_NOTE)
@@ -1713,7 +1766,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_EPILOGUE_BEG:
-	  (*targetm.asm_out.function_begin_epilogue) (file);
+	  targetm.asm_out.function_begin_epilogue (file);
 	  break;
 
 	case NOTE_INSN_FUNCTION_BEG:
@@ -1857,6 +1910,27 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
       if (LABEL_NAME (insn))
 	(*debug_hooks->label) (insn);
 
+      /* If we are doing the optimization that partitions hot & cold
+	 basic blocks into separate sections of the .o file, we need
+	 to ensure the jump table ends up in the correct section...  */
+      
+      if (flag_reorder_blocks_and_partition)
+	{
+	  rtx tmp_table, tmp_label;
+	  if (GET_CODE (insn) == CODE_LABEL
+	      && tablejump_p (NEXT_INSN (insn), &tmp_label, &tmp_table))
+	    {
+	      /* Do nothing; Do NOT change the current section.  */
+	    }
+	  else if (scan_ahead_for_unlikely_executed_note (insn)) 
+	    unlikely_text_section ();
+	  else 
+	    {
+	      if (in_unlikely_text_section ())
+		text_section ();
+	    }
+	}
+
       if (app_on)
 	{
 	  fputs (ASM_APP_OFF, file);
@@ -1899,7 +1973,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	      ASM_OUTPUT_CASE_LABEL (file, "L", CODE_LABEL_NUMBER (insn),
 				     NEXT_INSN (insn));
 #else
-	      (*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (insn));
+	      targetm.asm_out.internal_label (file, "L", CODE_LABEL_NUMBER (insn));
 #endif
 #endif
 	      break;
@@ -1908,7 +1982,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
       if (LABEL_ALT_ENTRY_P (insn))
 	output_alternate_entry_point (file, insn);
       else
-	(*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (insn));
+	targetm.asm_out.internal_label (file, "L", CODE_LABEL_NUMBER (insn));
       break;
 
     default:

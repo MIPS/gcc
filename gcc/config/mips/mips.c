@@ -87,10 +87,12 @@ enum internal_test {
 #define UNSPEC_ADDRESS_TYPE(X) \
   ((enum mips_symbol_type) (XINT (X, 1) - UNSPEC_ADDRESS_FIRST))
 
-/* True if X is (const $gp).  This is used to initialize the mips16
-   gp pseudo register.  */
+/* True if X is (const (unspec [(const_int 0)] UNSPEC_GP)).  This is used
+   to initialize the mips16 gp pseudo register.  */
 #define CONST_GP_P(X) \
-  (GET_CODE (X) == CONST && XEXP (X, 0) == pic_offset_table_rtx)
+  (GET_CODE (X) == CONST			\
+   && GET_CODE (XEXP (X, 0)) == UNSPEC		\
+   && XINT (XEXP (X, 0), 1) == UNSPEC_GP)
 
 /* The maximum distance between the top of the stack frame and the
    value $sp has when we save & restore registers.
@@ -644,6 +646,7 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
   { "vr4100", PROCESSOR_R4100, 3 },
   { "vr4111", PROCESSOR_R4111, 3 },
   { "vr4120", PROCESSOR_R4120, 3 },
+  { "vr4130", PROCESSOR_R4130, 3 },
   { "vr4300", PROCESSOR_R4300, 3 },
   { "r4400", PROCESSOR_R4000, 3 }, /* = r4000 */
   { "r4600", PROCESSOR_R4600, 3 },
@@ -1553,6 +1556,11 @@ move_operand (rtx op, enum machine_mode mode)
       if (TARGET_MIPS16)
 	return true;
 
+      /* When generating 32-bit code, allow DImode move_operands to
+	 match arbitrary constants.  We split them after reload.  */
+      if (!TARGET_64BIT && mode == DImode)
+	return true;
+
       /* Otherwise check whether the constant can be loaded in a single
 	 instruction.  */
       return LUI_INT (op) || SMALL_INT (op) || SMALL_INT_UNSIGNED (op);
@@ -1978,13 +1986,9 @@ mips_legitimize_move (enum machine_mode mode, rtx dest, rtx src)
       return true;
     }
 
-  /* The source of an SImode move must be a move_operand.  Likewise
-     DImode moves on 64-bit targets.  We need to deal with constants
-     that would be legitimate immediate_operands but not legitimate
-     move_operands.  */
-  if (GET_MODE_SIZE (mode) <= UNITS_PER_WORD
-      && CONSTANT_P (src)
-      && !move_operand (src, mode))
+  /* We need to deal with constants that would be legitimate
+     immediate_operands but not legitimate move_operands.  */
+  if (CONSTANT_P (src) && !move_operand (src, mode))
     {
       mips_legitimize_const_move (mode, dest, src);
       set_unique_reg_note (get_last_insn (), REG_EQUAL, copy_rtx (src));
@@ -3901,7 +3905,7 @@ mips_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	  int off, i;
 
 	  /* Set OFF to the offset from virtual_incoming_args_rtx of
-	     the first float register.   The FP save area lies below
+	     the first float register.  The FP save area lies below
 	     the integer one, and is aligned to UNITS_PER_FPVALUE bytes.  */
 	  off = -gp_saved * UNITS_PER_WORD;
 	  off &= ~(UNITS_PER_FPVALUE - 1);
@@ -4651,6 +4655,7 @@ override_options (void)
 	case PROCESSOR_R4100:
 	case PROCESSOR_R4111:
 	case PROCESSOR_R4120:
+	case PROCESSOR_R4130:
 	  target_flags |= MASK_SOFT_FLOAT;
 	  break;
 
@@ -5560,7 +5565,7 @@ print_operand (FILE *file, rtx op, int letter)
     fputs (code == EQ ? "t" : "f", file);
 
   else if (CONST_GP_P (op))
-    print_operand (file, XEXP (op, 0), letter);
+    fputs (reg_names[GLOBAL_POINTER_REGNUM], file);
 
   else
     output_addr_const (file, op);
@@ -5973,7 +5978,7 @@ mips_output_aligned_decl_common (FILE *stream, tree decl, const char *name,
 				 unsigned int align)
 {
   /* If the target wants uninitialized const declarations in
-     .rdata then don't put them in .comm.   */
+     .rdata then don't put them in .comm.  */
   if (TARGET_EMBEDDED_DATA && TARGET_UNINIT_CONST_IN_RODATA
       && TREE_CODE (decl) == VAR_DECL && TREE_READONLY (decl)
       && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
@@ -7016,7 +7021,7 @@ mips_expand_epilogue (int sibcall_p)
 			      stack_pointer_rtx,
 			      GEN_INT (step2)));
 
-  /* Add in the __builtin_eh_return stack adjustment.   We need to
+  /* Add in the __builtin_eh_return stack adjustment.  We need to
      use a temporary in mips16 code.  */
   if (current_function_calls_eh_return)
     {
@@ -7501,7 +7506,7 @@ mips_function_value (tree valtype, tree func ATTRIBUTE_UNUSED,
       int unsignedp;
 
       mode = TYPE_MODE (valtype);
-      unsignedp = TREE_UNSIGNED (valtype);
+      unsignedp = TYPE_UNSIGNED (valtype);
 
       /* Since we define TARGET_PROMOTE_FUNCTION_RETURN that returns
 	 true, we must promote the mode just as PROMOTE_MODE does.  */
@@ -7795,7 +7800,7 @@ mips16_gp_pseudo_reg (void)
 {
   if (cfun->machine->mips16_gp_pseudo_rtx == NULL_RTX)
     {
-      rtx const_gp;
+      rtx unspec;
       rtx insn, scan;
 
       cfun->machine->mips16_gp_pseudo_rtx = gen_reg_rtx (Pmode);
@@ -7803,10 +7808,10 @@ mips16_gp_pseudo_reg (void)
 
       /* We want to initialize this to a value which gcc will believe
          is constant.  */
-      const_gp = gen_rtx_CONST (Pmode, pic_offset_table_rtx);
       start_sequence ();
+      unspec = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, const0_rtx), UNSPEC_GP);
       emit_move_insn (cfun->machine->mips16_gp_pseudo_rtx,
-		      const_gp);
+		      gen_rtx_CONST (Pmode, unspec));
       insn = get_insns ();
       end_sequence ();
 
@@ -8713,8 +8718,10 @@ mips_avoid_hazards (void)
   cfun->machine->ignore_hazard_length_p = true;
   shorten_branches (get_insns ());
 
-  /* The profiler code uses assembler macros.  */
-  cfun->machine->all_noreorder_p = !current_function_profile;
+  /* The profiler code uses assembler macros.  -mfix-vr4120 relies on
+     assembler nop insertion.  */
+  cfun->machine->all_noreorder_p = (!current_function_profile
+				    && !TARGET_FIX_VR4120);
 
   last_insn = 0;
   hilo_delay = 2;
@@ -8752,14 +8759,23 @@ mips_reorg (void)
     }
 }
 
-/* We need to use a special set of functions to handle hard floating
-   point code in mips16 mode.  Also, allow for --enable-gofast.  */
+/* This function does three things:
+
+   - Register the special divsi3 and modsi3 functions if -mfix-vr4120.
+   - Register the mips16 hardware floating point stubs.
+   - Register the gofast functions if selected using --enable-gofast.  */
 
 #include "config/gofast.h"
 
 static void
 mips_init_libfuncs (void)
 {
+  if (TARGET_FIX_VR4120)
+    {
+      set_optab_libfunc (sdiv_optab, SImode, "__vr4120_divsi3");
+      set_optab_libfunc (smod_optab, SImode, "__vr4120_modsi3");
+    }
+
   if (TARGET_MIPS16 && mips16_hard_float)
     {
       set_optab_libfunc (add_optab, SFmode, "__mips16_addsf3");
@@ -9186,7 +9202,7 @@ mips_output_conditional_branch (rtx insn, rtx *operands, int two_operands_p,
    the division is not immediately followed by a shift[1][2].  We also
    need to stop the division from being put into a branch delay slot[3].
    The easiest way to avoid both problems is to add a nop after the
-   division.  When a divide-by-zero check is neeeded, this nop can be
+   division.  When a divide-by-zero check is needed, this nop can be
    used to fill the branch delay slot.
 
    [1] If a double-word or a variable shift executes immediately

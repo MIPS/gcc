@@ -308,6 +308,9 @@ package body MLib.Prj is
       Libdecgnat_Needed : Boolean := False;
       --  On OpenVMS, set to True if library needs to be linked with libdecgnat
 
+      Check_Libdecgnat : Boolean := Hostparm.OpenVMS;
+      --  Set to False if package Dec is part of the library sources.
+
       Data : Project_Data := Projects.Table (For_Project);
 
       Object_Directory_Path : constant String :=
@@ -372,7 +375,8 @@ package body MLib.Prj is
       --  to link with -lgnarl (this is the case when there is a dependency
       --  on s-osinte.ads). On OpenVMS, set Libdecgnat_Needed if the ALI file
       --  indicates that there is a need to link with -ldecgnat (this is the
-      --  case when there is a dependency on dec.ads).
+      --  case when there is a dependency on dec.ads, except when it is the
+      --  DEC library, the one that contains package DEC).
 
       procedure Process (The_ALI : File_Name_Type);
       --  Check if the closure of a library unit which is or should be in the
@@ -504,12 +508,17 @@ package body MLib.Prj is
          Text     : Text_Buffer_Ptr;
          Id       : ALI.ALI_Id;
 
-         pragma Warnings (Off, Id);
-         --  Comment needed ???
-
       begin
+         --  On OpenVMS, if we have package DEC, it means this is the DEC lib:
+         --  no need to link with itself.
+
+         if Check_Libdecgnat and then ALI_File = "dec.ali" then
+            Check_Libdecgnat := False;
+            Libdecgnat_Needed := False;
+         end if;
+
          if not Libgnarl_Needed or
-           (Hostparm.OpenVMS and then (not Libdecgnat_Needed))
+           (Check_Libdecgnat and then (not Libdecgnat_Needed))
          then
             --  Scan the ALI file
 
@@ -526,7 +535,7 @@ package body MLib.Prj is
                           Read_Lines => "D");
             Free (Text);
 
-            --  Look for s-osinte.ads in the dependencies
+            --  Look for s-osinte.ads and dec.ads in the dependencies
 
             for Index in ALI.ALIs.Table (Id).First_Sdep ..
                          ALI.ALIs.Table (Id).Last_Sdep
@@ -534,7 +543,7 @@ package body MLib.Prj is
                if ALI.Sdep.Table (Index).Sfile = S_Osinte_Ads then
                   Libgnarl_Needed := True;
 
-               elsif Hostparm.OpenVMS and then
+               elsif Check_Libdecgnat and then
                      ALI.Sdep.Table (Index).Sfile = S_Dec_Ads
                then
                   Libdecgnat_Needed := True;
@@ -671,14 +680,9 @@ package body MLib.Prj is
             if not Processed_Projects.Get (Data.Name) then
                Processed_Projects.Set (Data.Name, True);
 
-               --  If it is a library project, add it to Library_Projs
-
-               if Project /= For_Project and then Data.Library then
-                  Library_Projs.Increment_Last;
-                  Library_Projs.Table (Library_Projs.Last) := Project;
-               end if;
-
-               --  Call Process_Project recursively for any imported project
+               --  Call Process_Project recursively for any imported project.
+               --  We first process the imported projects to guarantee that
+               --  we have a proper reverse order for the libraries.
 
                while Imported /= Empty_Project_List loop
                   Element := Project_Lists.Table (Imported);
@@ -689,69 +693,40 @@ package body MLib.Prj is
 
                   Imported := Element.Next;
                end loop;
+
+               --  If it is a library project, add it to Library_Projs
+
+               if Project /= For_Project and then Data.Library then
+                  Library_Projs.Increment_Last;
+                  Library_Projs.Table (Library_Projs.Last) := Project;
+               end if;
+
             end if;
          end Process_Project;
 
       --  Start of processing for Process_Imported_Libraries
 
       begin
-         --  Build list of library projects imported directly or indirectly
+         --  Build list of library projects imported directly or indirectly,
+         --  in the reverse order.
 
          Process_Project (For_Project);
 
-         --  If there are more that one library project file, make sure
-         --  that if libA depends on libB, libB is first in order.
+         --  Add the -L and -l switches and, if the Rpath option is supported,
+         --  add the directory to the Rpath.
+         --  As the library projects are in the wrong order, process from the
+         --  last to the first.
 
-         if Library_Projs.Last > 1 then
-            declare
-               Index : Integer := 1;
-               Proj1 : Project_Id;
-               Proj2 : Project_Id;
-               List  : Project_List := Empty_Project_List;
-
-            begin
-               Library_Loop : while Index < Library_Projs.Last loop
-                  Proj1 := Library_Projs.Table (Index);
-                  List  := Projects.Table (Proj1).Imported_Projects;
-
-                  List_Loop : while List /= Empty_Project_List loop
-                     Proj2 := Project_Lists.Table (List).Project;
-
-                     for J in Index + 1 .. Library_Projs.Last loop
-                        if Proj2 = Library_Projs.Table (J) then
-                           Library_Projs.Table (J) := Proj1;
-                           Library_Projs.Table (Index) := Proj2;
-                           exit List_Loop;
-                        end if;
-                     end loop;
-
-                     List := Project_Lists.Table (List).Next;
-                  end loop List_Loop;
-
-                  if List = Empty_Project_List then
-                     Index := Index + 1;
-                  end if;
-               end loop Library_Loop;
-            end;
-         end if;
-
-         --  Now that we have a correct order, add the -L and -l switches and,
-         --  if the Rpath option is supported, add the directory to the Rpath.
-
-         for Index in 1 .. Library_Projs.Last loop
+         for Index in reverse 1 .. Library_Projs.Last loop
             Current := Library_Projs.Table (Index);
 
+            Get_Name_String (Projects.Table (Current).Library_Dir);
             Opts.Increment_Last;
             Opts.Table (Opts.Last) :=
-              new String'
-                ("-L" &
-                 Get_Name_String
-                   (Projects.Table (Current).Library_Dir));
+              new String'("-L" & Name_Buffer (1 .. Name_Len));
 
             if Path_Option /= null then
-               Add_Rpath
-                  (Get_Name_String
-                     (Projects.Table (Current).Library_Dir));
+               Add_Rpath (Name_Buffer (1 .. Name_Len));
             end if;
 
             Opts.Increment_Last;
@@ -1975,7 +1950,10 @@ package body MLib.Prj is
       end if;
 
       Status := fclose (Fd);
-      --  Is it really right to ignore any close error ???
+
+      --  It is safe to ignore any error when closing, because the file was
+      --  only opened for reading.
+
    end Process_Binder_File;
 
    ------------------

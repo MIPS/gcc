@@ -1,5 +1,9 @@
 2004-04-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	Merge from tree-ssa branch (lno-merge-20040425).
+
+2004-04-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* tree-ssa-loop-ivopts.c (force_gimple_operand): Strip useless type
 	conversions.
 	(number_of_iterations_cond): Fix typo.

@@ -882,7 +882,6 @@ package body System.Task_Primitives.Operations is
    -----------------------------
 
    function Register_Foreign_Thread return Task_ID is
-
    begin
       if Is_Valid_Task then
          return Self;
@@ -1037,7 +1036,6 @@ package body System.Task_Primitives.Operations is
       if Is_Self then
          Specific.Set (null);
       end if;
-
    end Finalize_TCB;
 
    ---------------
@@ -1467,7 +1465,7 @@ package body System.Task_Primitives.Operations is
    function Check_Sleep (Reason : Task_States) return Boolean is
       pragma Unreferenced (Reason);
 
-      Self_ID : Task_ID := Self;
+      Self_ID : constant Task_ID := Self;
       P       : Lock_Ptr;
 
    begin

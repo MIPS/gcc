@@ -1162,8 +1162,12 @@ c_common_post_options (const char **pfilename)
 
   *pfilename = this_input_filename
     = cpp_read_main_file (parse_in, in_fnames[0]);
+  /* Don't do any compilation or preprocessing if there is no input file.  */
   if (this_input_filename == NULL)
-    return true;
+    {
+      errorcount++;
+      return false;
+    }
 
   if (flag_working_directory
       && flag_preprocess_only && ! flag_no_line_commands)
@@ -1184,7 +1188,7 @@ c_common_init (void)
   cpp_opts->char_precision = TYPE_PRECISION (char_type_node);
   cpp_opts->int_precision = TYPE_PRECISION (integer_type_node);
   cpp_opts->wchar_precision = TYPE_PRECISION (wchar_type_node);
-  cpp_opts->unsigned_wchar = TREE_UNSIGNED (wchar_type_node);
+  cpp_opts->unsigned_wchar = TYPE_UNSIGNED (wchar_type_node);
   cpp_opts->bytes_big_endian = BYTES_BIG_ENDIAN;
 
   /* This can't happen until after wchar_precision and bytes_big_endian
@@ -1207,41 +1211,24 @@ c_common_init (void)
 /* Initialize the integrated preprocessor after debug output has been
    initialized; loop over each input file.  */
 void
-c_common_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
+c_common_parse_file (int set_yydebug)
 {
-  unsigned file_index;
-  
 #if YYDEBUG != 0
   yydebug = set_yydebug;
 #else
-  warning ("YYDEBUG not defined");
+  if (set_yydebug)
+    warning ("YYDEBUG not defined");
 #endif
 
-  file_index = 0;
-  
-  do
-    {
-      if (file_index > 0)
-	{
-	  /* Reset the state of the parser.  */
-	  c_reset_state();
+  if (num_in_fnames > 1)
+    fatal_error ("sorry, inter-module analysis temporarily out of commission");
 
-	  /* Reset cpplib's macros and start a new file.  */
-	  cpp_undef_all (parse_in);
-	  main_input_filename = this_input_filename
-	    = cpp_read_main_file (parse_in, in_fnames[file_index]);
-	  if (this_input_filename == NULL)
-	    break;
-	}
-      finish_options ();
-      if (file_index == 0)
-	pch_init();
-      c_parse_file ();
-
-      file_index++;
-    } while (file_index < num_in_fnames);
-  
+  finish_options ();
+  pch_init ();
+  push_file_scope ();
+  c_parse_file ();
   finish_file ();
+  pop_file_scope ();
 }
 
 /* Common finish hook for the C, ObjC and C++ front ends.  */

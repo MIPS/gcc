@@ -340,6 +340,16 @@ DEFPARAM(PARAM_MAX_ALIASED_VOPS,
 	 "The maximum number of virtual operands allowed to represent aliases before triggering alias grouping.",
 	 500)
 
+DEFPARAM(PARAM_MAX_SCHED_REGION_BLOCKS,
+	 "max-sched-region-blocks",
+	 "The maximum number of blocks in a region to be considered for interblock scheduling",
+	 10)
+
+DEFPARAM(PARAM_MAX_SCHED_REGION_INSNS,
+	 "max-sched-region-insns",
+	 "The maximum number of insns in a region to be considered for interblock scheduling",
+	 100)
+
 /*
 Local variables:
 mode:c

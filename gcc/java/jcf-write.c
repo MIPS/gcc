@@ -1,5 +1,5 @@
 /* Write out a Java(TM) class file.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -633,10 +633,7 @@ get_access_flags (tree decl)
 {
   int flags = 0;
   int isfield = TREE_CODE (decl) == FIELD_DECL || TREE_CODE (decl) == VAR_DECL;
-  if (CLASS_PUBLIC (decl))  /* same as FIELD_PUBLIC and METHOD_PUBLIC */
-    flags |= ACC_PUBLIC;
-  if (CLASS_FINAL (decl))  /* same as FIELD_FINAL and METHOD_FINAL */
-    flags |= ACC_FINAL;
+
   if (isfield || TREE_CODE (decl) == FUNCTION_DECL)
     {
       if (TREE_PROTECTED (decl))
@@ -646,6 +643,10 @@ get_access_flags (tree decl)
     }
   else if (TREE_CODE (decl) == TYPE_DECL)
     {
+      if (CLASS_PUBLIC (decl))
+	flags |= ACC_PUBLIC;
+      if (CLASS_FINAL (decl))
+	flags |= ACC_FINAL;
       if (CLASS_SUPER (decl))
 	flags |= ACC_SUPER;
       if (CLASS_ABSTRACT (decl))
@@ -669,6 +670,10 @@ get_access_flags (tree decl)
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
+      if (METHOD_PUBLIC (decl))
+	flags |= ACC_PUBLIC;
+      if (METHOD_FINAL (decl))
+	flags |= ACC_FINAL;
       if (METHOD_NATIVE (decl))
 	flags |= ACC_NATIVE;
       if (METHOD_STATIC (decl))
@@ -682,6 +687,10 @@ get_access_flags (tree decl)
     }
   if (isfield)
     {
+      if (FIELD_PUBLIC (decl))
+	flags |= ACC_PUBLIC;
+      if (FIELD_FINAL (decl))
+	flags |= ACC_FINAL;
       if (FIELD_STATIC (decl))
 	flags |= ACC_STATIC;
       if (FIELD_VOLATILE (decl))
@@ -2232,7 +2241,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 		    /* Already converted to int, if needed. */
 		    if (TYPE_PRECISION (dst_type) <= 8)
 		      OP1 (OPCODE_i2b);
-		    else if (TREE_UNSIGNED (dst_type))
+		    else if (TYPE_UNSIGNED (dst_type))
 		      OP1 (OPCODE_i2c);
 		    else
 		      OP1 (OPCODE_i2s);
@@ -3383,9 +3392,11 @@ make_class_file_name (tree clas)
       if (s == NULL)
 	break;
       *s = '\0';
+      /* Try to make directory if it doesn't already exist.  */
       if (stat (r, &sb) == -1
-	  /* Try to make it.  */
-	  && mkdir (r, 0755) == -1)
+	  && mkdir (r, 0755) == -1
+	  /* The directory might have been made by another process.  */
+	  && errno != EEXIST)
 	fatal_error ("can't create directory %s: %m", r);
 
       *s = sep;

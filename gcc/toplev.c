@@ -255,6 +255,11 @@ int flag_branch_probabilities = 0;
 
 int flag_reorder_blocks = 0;
 
+/* Nonzero if blocks should be partitioned into hot and cold sections in
+   addition to being reordered. */
+
+int flag_reorder_blocks_and_partition = 0;
+
 /* Nonzero if functions should be reordered.  */
 
 int flag_reorder_functions = 0;
@@ -820,14 +825,14 @@ int flag_tree_elim_checks = 0;
 /* Enable linear loop transforms on trees.  */
 int flag_tree_loop_linear = 0;
 
+/* Enable loop optimizations on trees.  */
+int flag_tree_loop = 0;
+
 /* Enable loop vectorization on trees */
 int flag_tree_vectorize = 0;
 
 /* Enable loop header copying on tree-ssa.  */
 int flag_tree_ch = 0;
-
-/* Enable loop optimization on tree-ssa.  */
-int flag_tree_loop = 0;
 
 /* Enable scalar replacement of aggregates.  */
 int flag_tree_sra = 0;
@@ -837,6 +842,9 @@ int flag_tree_combine_temps = 0;
 
 /* Enable SSA->normal pass expression replacement.  */
 int flag_tree_ter = 0;
+
+/* Enable SSA->normal live range splitting.  */
+int flag_tree_live_range_split = 0;
 
 /* Enable dominator optimizations.  */
 int flag_tree_dom = 0;
@@ -1016,6 +1024,7 @@ static const lang_independent_options f_options[] =
   {"profile", &profile_flag, 1 },
   {"tree-based-profiling", &flag_tree_based_profiling, 1 },
   {"reorder-blocks", &flag_reorder_blocks, 1 },
+  {"reorder-blocks-and-partition", &flag_reorder_blocks_and_partition, 1},
   {"reorder-functions", &flag_reorder_functions, 1 },
   {"rename-registers", &flag_rename_registers, 1 },
   {"cprop-registers", &flag_cprop_registers, 1 },
@@ -1072,10 +1081,11 @@ static const lang_independent_options f_options[] =
   { "tree-dse", &flag_tree_dse, 1 },
   { "tree-combine-temps", &flag_tree_combine_temps, 1 },
   { "tree-ter", &flag_tree_ter, 1 },
-  { "tree-ch", &flag_tree_ch, 1 },
   { "tree-loop-optimize", &flag_tree_loop, 1 },
   { "tree-loop-linear", &flag_tree_loop_linear, 1},
-  { "tree-vectorize", &flag_tree_vectorize, 1}
+  { "tree-vectorize", &flag_tree_vectorize, 1},
+  { "tree-lrs", &flag_tree_live_range_split, 1 },
+  { "tree-ch", &flag_tree_ch, 1 }
 };
 
 /* Here is a table, controlled by the tm.h file, listing each -m switch
@@ -1134,7 +1144,12 @@ bool
 set_src_pwd (const char *pwd)
 {
   if (src_pwd)
-    return false;
+    {
+      if (strcmp (src_pwd, pwd) == 0)
+	return true;
+      else
+	return false;
+    }
 
   src_pwd = xstrdup (pwd);
   return true;
@@ -1163,7 +1178,7 @@ announce_function (tree decl)
       if (rtl_dump_and_exit)
 	verbatim ("%s ", IDENTIFIER_POINTER (DECL_NAME (decl)));
       else
-	verbatim (" %s", (*lang_hooks.decl_printable_name) (decl, 2));
+	verbatim (" %s", lang_hooks.decl_printable_name (decl, 2));
       fflush (stderr);
       pp_needs_newline (global_dc->printer) = true;
       diagnostic_set_last_function (global_dc);
@@ -1400,7 +1415,7 @@ wrapup_global_declarations (tree *vec, int len)
 	DECL_DEFER_OUTPUT (decl) = 0;
 
       if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0)
-	(*lang_hooks.finish_incomplete_decl) (decl);
+	lang_hooks.finish_incomplete_decl (decl);
     }
 
   /* Now emit any global variables or functions that we have been
@@ -1537,7 +1552,7 @@ check_global_declarations (tree *vec, int len)
 	  /* Global register variables must be declared to reserve them.  */
 	  && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
 	  /* Otherwise, ask the language.  */
-	  && (*lang_hooks.decls.warn_unused_global) (decl))
+	  && lang_hooks.decls.warn_unused_global (decl))
 	warning ("%J'%D' defined but not used", decl, decl);
 
       /* Avoid confusing the debug information machinery when there are
@@ -1638,11 +1653,11 @@ compile_file (void)
 
   /* Call the parser, which parses the entire file (calling
      rest_of_compilation for each function).  */
-  (*lang_hooks.parse_file) (set_yydebug);
+  lang_hooks.parse_file (set_yydebug);
 
   /* In case there were missing block closers,
      get us back to the global binding level.  */
-  (*lang_hooks.clear_binding_stack) ();
+  lang_hooks.clear_binding_stack ();
 
   /* Compilation is now finished except for writing
      what's left of the symbol table output.  */
@@ -1651,7 +1666,7 @@ compile_file (void)
   if (flag_syntax_only)
     return;
 
-  (*lang_hooks.decls.final_write_globals)();
+  lang_hooks.decls.final_write_globals ();
 
   cgraph_varpool_assemble_pending_decls ();
 
@@ -2181,7 +2196,7 @@ default_tree_printer (pretty_printer * pp, text_info *text)
       {
         tree t = va_arg (*text->args_ptr, tree);
         const char *n = DECL_NAME (t)
-          ? (*lang_hooks.decl_printable_name) (t, 2)
+          ? lang_hooks.decl_printable_name (t, 2)
           : "<anonymous>";
         pp_string (pp, n);
       }
@@ -2267,7 +2282,7 @@ process_options (void)
      initialization based on the command line options.  This hook also
      sets the original filename if appropriate (e.g. foo.i -> foo.c)
      so we can correctly initialize debug output.  */
-  no_backend = (*lang_hooks.post_options) (&main_input_filename);
+  no_backend = lang_hooks.post_options (&main_input_filename);
   input_filename = main_input_filename;
 
 #ifdef OVERRIDE_OPTIONS
@@ -2528,7 +2543,7 @@ lang_dependent_init (const char *name)
     dump_base_name = name ? name : "gccdump";
 
   /* Other front-end initialization.  */
-  if ((*lang_hooks.init) () == 0)
+  if (lang_hooks.init () == 0)
     return 0;
 
   init_asm_output (name);
@@ -2537,6 +2552,7 @@ lang_dependent_init (const char *name)
      front end is initialized.  */
   init_eh ();
   init_optabs ();
+  init_optimization_passes ();
 
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */
@@ -2605,7 +2621,7 @@ finalize (void)
   free_reg_info ();
 
   /* Language-specific end of compilation actions.  */
-  (*lang_hooks.finish) ();
+  lang_hooks.finish ();
 }
 
 /* Initialize the compiler, and compile the input file.  */

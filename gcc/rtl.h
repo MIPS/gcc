@@ -240,12 +240,14 @@ struct rtx_def GTY((chain_next ("RTX_NEXT (&%h)"),
      1 in a SYMBOL_REF, means that emit_library_call
      has used it as the function.  */
   unsigned int used : 1;
+  /* FIXME.  This should be unused now that we do inlinining on trees,
+     but it is now being used for MEM_SCALAR_P.  It should be renamed,
+     or some other field should be overloaded.  */
+  unsigned integrated : 1;
   /* 1 in an INSN or a SET if this rtx is related to the call frame,
      either changing how we compute the frame address or saving and
      restoring registers in the prologue and epilogue.
-     1 in a MEM if the MEM refers to a scalar, rather than a member of
-     an aggregate.
-     1 in a REG if the register is a pointer.
+     1 in a REG or MEM if it is a pointer.
      1 in a SYMBOL_REF if it addresses something in the per-function
      constant string pool.  */
   unsigned frame_related : 1;
@@ -850,6 +852,11 @@ enum reg_note
      computed goto.  */
   REG_NON_LOCAL_GOTO,
 
+  /* Indicates that a jump crosses between hot and cold sections
+     in a (partitioned) assembly or .o file, and therefore should not be
+     reduced to a simpler jump by optimizations.  */
+  REG_CROSSING_JUMP,
+
   /* This kind of note is generated at each to `setjmp',
      and similar functions that can return twice.  */
   REG_SETJMP,
@@ -1011,6 +1018,10 @@ enum insn_note
   /* Record a prediction.  Uses NOTE_PREDICTION.  */
   NOTE_INSN_PREDICTION,
 
+  /* Record that the current basic block is unlikely to be executed and
+     should be moved to the UNLIKELY_EXECUTED_TEXT_SECTION.  */
+  NOTE_INSN_UNLIKELY_EXECUTED_CODE,
+
   /* The location of a variable.  */
   NOTE_INSN_VAR_LOCATION,
 
@@ -1129,6 +1140,10 @@ enum label_kind
 #define REG_POINTER(RTX)						\
   (RTL_FLAG_CHECK1("REG_POINTER", (RTX), REG)->frame_related)
 
+/* 1 if RTX is a mem that holds a pointer value.  */
+#define MEM_POINTER(RTX)						\
+  (RTL_FLAG_CHECK1("MEM_POINTER", (RTX), MEM)->frame_related)
+
 /* 1 if the given register REG corresponds to a hard register.  */
 #define HARD_REGISTER_P(REG) (HARD_REGISTER_NUM_P (REGNO (REG)))
 
@@ -1244,7 +1259,7 @@ do {									\
 /* 1 if RTX is a mem that refers to a scalar.  If zero, RTX may or may
    not refer to a scalar.  */
 #define MEM_SCALAR_P(RTX)						\
-  (RTL_FLAG_CHECK1("MEM_SCALAR_P", (RTX), MEM)->frame_related)
+  (RTL_FLAG_CHECK1("MEM_SCALAR_P", (RTX), MEM)->integrated)
 
 /* 1 if RTX is a mem that cannot trap.  */
 #define MEM_NOTRAP_P(RTX) \
@@ -1745,8 +1760,10 @@ extern rtx simplify_binary_operation (enum rtx_code, enum machine_mode, rtx,
 				      rtx);
 extern rtx simplify_ternary_operation (enum rtx_code, enum machine_mode,
 				       enum machine_mode, rtx, rtx, rtx);
+extern rtx simplify_const_relational_operation (enum rtx_code,
+						enum machine_mode, rtx, rtx);
 extern rtx simplify_relational_operation (enum rtx_code, enum machine_mode,
-					  rtx, rtx);
+					  enum machine_mode, rtx, rtx);
 extern rtx simplify_gen_binary (enum rtx_code, enum machine_mode, rtx, rtx);
 extern rtx simplify_gen_unary (enum rtx_code, enum machine_mode, rtx,
 			       enum machine_mode);
@@ -2402,6 +2419,8 @@ extern rtx addr_side_effect_eval (rtx, int, int);
 extern bool memory_modified_in_insn_p (rtx, rtx);
 extern rtx find_base_term (rtx);
 extern rtx gen_hard_reg_clobber (enum machine_mode, unsigned int);
+extern rtx get_reg_known_value (unsigned int);
+extern bool get_reg_known_equiv_p (unsigned int);
 
 /* In sibcall.c */
 typedef enum {
@@ -2435,9 +2454,6 @@ extern void tracer (void);
 
 /* In stor-layout.c.  */
 extern void get_mode_bounds (enum machine_mode, int, rtx *, rtx *);
-
-/* In doloop.c.  */
-extern rtx doloop_condition_get (rtx);
 
 /* In loop-unswitch.c  */
 extern rtx reversed_condition (rtx);

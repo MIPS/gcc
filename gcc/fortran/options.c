@@ -59,7 +59,6 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.warn_unused_labels = 0;
 
   gfc_option.flag_dollar_ok = 0;
-  gfc_option.flag_g77_calls = 1;
   gfc_option.flag_underscoring = 1;
   gfc_option.flag_second_underscore = 1;
   gfc_option.flag_implicit_none = 0;
@@ -220,11 +219,6 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_ffree_form:
       gfc_option.source_form = FORM_FREE;
-      break;
-
-    case OPT_fg77_calls:
-      /*TODO: the non-g77 calling convention is broken beyond hope.  */
-      /*gfc_option.flag_g77_calls = value;*/
       break;
 
     case OPT_funderscoring:

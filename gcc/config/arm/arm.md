@@ -137,9 +137,11 @@
 ; scheduling decisions for the load unit and the multiplier.
 (define_attr "is_strongarm" "no,yes" (const (symbol_ref "arm_is_strong")))
 
+; IS_XSCALE is set to 'yes' when compiling for XScale.
+(define_attr "is_xscale" "no,yes" (const (symbol_ref "arm_tune_xscale")))
+
 ;; Operand number of an input operand that is shifted.  Zero if the
 ;; given instruction does not shift one of its input operands.
-(define_attr "is_xscale" "no,yes" (const (symbol_ref "arm_tune_xscale")))
 (define_attr "shift" "" (const_int 0))
 
 ; Floating Point Unit.  If we only have floating point emulation, then there
@@ -452,8 +454,8 @@
   "
   if (TARGET_ARM && GET_CODE (operands[2]) == CONST_INT)
     {
-      arm_split_constant (PLUS, SImode, INTVAL (operands[2]), operands[0],
-			  operands[1],
+      arm_split_constant (PLUS, SImode, NULL_RTX,
+	                  INTVAL (operands[2]), operands[0], operands[1],
 			  (no_new_pseudos ? 0 : preserve_subexpressions_p ()));
       DONE;
     }
@@ -491,7 +493,8 @@
         || const_ok_for_arm (-INTVAL (operands[2])))"
   [(clobber (const_int 0))]
   "
-  arm_split_constant (PLUS, SImode, INTVAL (operands[2]), operands[0],
+  arm_split_constant (PLUS, SImode, curr_insn,
+	              INTVAL (operands[2]), operands[0],
 		      operands[1], 0);
   DONE;
   "
@@ -938,7 +941,8 @@
     {
       if (TARGET_ARM)
         {
-          arm_split_constant (MINUS, SImode, INTVAL (operands[1]), operands[0],
+          arm_split_constant (MINUS, SImode, NULL_RTX,
+	                      INTVAL (operands[1]), operands[0],
 	  		      operands[2],
 			      (no_new_pseudos ? 0
 			       :  preserve_subexpressions_p ()));
@@ -972,8 +976,8 @@
    && !const_ok_for_arm (INTVAL (operands[1]))"
   [(clobber (const_int 0))]
   "
-  arm_split_constant (MINUS, SImode, INTVAL (operands[1]), operands[0],
-		      operands[2], 0);
+  arm_split_constant (MINUS, SImode, curr_insn,
+                      INTVAL (operands[1]), operands[0], operands[2], 0);
   DONE;
   "
   [(set_attr "length" "4,16")
@@ -1514,7 +1518,8 @@
     {
       if (GET_CODE (operands[2]) == CONST_INT)
         {
-          arm_split_constant (AND, SImode, INTVAL (operands[2]), operands[0],
+          arm_split_constant (AND, SImode, NULL_RTX,
+	                      INTVAL (operands[2]), operands[0],
 			      operands[1],
 			      (no_new_pseudos
 			       ? 0 : preserve_subexpressions_p ()));
@@ -1581,8 +1586,8 @@
 	|| const_ok_for_arm (~INTVAL (operands[2])))"
   [(clobber (const_int 0))]
   "
-  arm_split_constant  (AND, SImode, INTVAL (operands[2]), operands[0],
-		       operands[1], 0);
+  arm_split_constant  (AND, SImode, curr_insn, 
+	               INTVAL (operands[2]), operands[0], operands[1], 0);
   DONE;
   "
   [(set_attr "length" "4,4,16")
@@ -2067,8 +2072,8 @@
     {
       if (TARGET_ARM)
         {
-          arm_split_constant (IOR, SImode, INTVAL (operands[2]), operands[0],
-		 	      operands[1],
+          arm_split_constant (IOR, SImode, NULL_RTX,
+	                      INTVAL (operands[2]), operands[0], operands[1],
 			      (no_new_pseudos
 			      ? 0 : preserve_subexpressions_p ()));
           DONE;
@@ -2092,8 +2097,8 @@
    && !const_ok_for_arm (INTVAL (operands[2]))"
   [(clobber (const_int 0))]
   "
-  arm_split_constant (IOR, SImode, INTVAL (operands[2]), operands[0],
-		      operands[1], 0);
+  arm_split_constant (IOR, SImode, curr_insn, 
+                      INTVAL (operands[2]), operands[0], operands[1], 0);
   DONE;
   "
   [(set_attr "length" "4,16")
@@ -3746,57 +3751,15 @@
   }"
 )
 
-; Rather than restricting all byte accesses to memory addresses that ldrsb
-; can handle, we fix up the ones that ldrsb can't grok with a split.
 (define_insn "*extendqihi_insn"
-  [(set (match_operand:HI                 0 "s_register_operand" "=r")
-	(sign_extend:HI (match_operand:QI 1 "memory_operand"      "m")))]
+  [(set (match_operand:HI 0 "s_register_operand" "=r")
+	(sign_extend:HI (match_operand:QI 1 "memory_operand" "Uq")))]
   "TARGET_ARM && arm_arch4"
-  "*
-  /* If the address is invalid, this will split the instruction into two.  */
-  if (bad_signed_byte_operand (operands[1], VOIDmode))
-    return \"#\";
-  return \"ldr%?sb\\t%0, %1\";
-  "
+  "ldr%?sb\\t%0, %1"
   [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")
-   (set_attr "length" "8")
    (set_attr "pool_range" "256")
    (set_attr "neg_pool_range" "244")]
-)
-
-(define_split
-  [(set (match_operand:HI 0 "s_register_operand" "")
-	(sign_extend:HI (match_operand:QI 1 "bad_signed_byte_operand" "")))]
-  "TARGET_ARM && arm_arch4 && reload_completed"
-  [(set (match_dup 3) (match_dup 1))
-   (set (match_dup 0) (sign_extend:HI (match_dup 2)))]
-  "
-  {
-    HOST_WIDE_INT offset;
-
-    operands[3] = gen_rtx_REG (SImode, REGNO (operands[0]));
-    operands[2] = gen_rtx_MEM (QImode, operands[3]);
-    MEM_COPY_ATTRIBUTES (operands[2], operands[1]);
-    operands[1] = XEXP (operands[1], 0);
-    if (GET_CODE (operands[1]) == PLUS
-	&& GET_CODE (XEXP (operands[1], 1)) == CONST_INT
-	&& !(const_ok_for_arm (offset = INTVAL (XEXP (operands[1], 1)))
-	     || const_ok_for_arm (-offset)))
-      {
-	HOST_WIDE_INT low = (offset > 0
-			     ? (offset & 0xff) : -((-offset) & 0xff));
-	XEXP (operands[2], 0) = plus_constant (operands[3], low);
-	operands[1] = plus_constant (XEXP (operands[1], 0), offset - low);
-      }
-    /* Ensure the sum is in correct canonical form.  */
-    else if (GET_CODE (operands[1]) == PLUS
-	     && GET_CODE (XEXP (operands[1], 1)) != CONST_INT
-	     && !s_register_operand (XEXP (operands[1], 1), VOIDmode))
-      operands[1] = gen_rtx_PLUS (GET_MODE (operands[1]),
-					   XEXP (operands[1], 1),
-					   XEXP (operands[1], 0));
-  }"
 )
 
 (define_expand "extendqisi2"
@@ -3831,42 +3794,26 @@
   }"
 )
 
-; Rather than restricting all byte accesses to memory addresses that ldrsb
-; can handle, we fix up the ones that ldrsb can't grok with a split.
 (define_insn "*arm_extendqisi"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
-	(sign_extend:SI (match_operand:QI 1 "memory_operand" "m")))]
+	(sign_extend:SI (match_operand:QI 1 "memory_operand" "Uq")))]
   "TARGET_ARM && arm_arch4 && !arm_arch6"
-  "*
-  /* If the address is invalid, this will split the instruction into two.  */
-  if (bad_signed_byte_operand (operands[1], VOIDmode))
-    return \"#\";
-  return \"ldr%?sb\\t%0, %1\";
-  "
+  "ldr%?sb\\t%0, %1"
   [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")
-   (set_attr "length" "8")
    (set_attr "pool_range" "256")
    (set_attr "neg_pool_range" "244")]
 )
 
 (define_insn "*arm_extendqisi_v6"
   [(set (match_operand:SI 0 "s_register_operand" "=r,r")
-	(sign_extend:SI (match_operand:QI 1 "nonimmediate_operand" "r,m")))]
+	(sign_extend:SI (match_operand:QI 1 "nonimmediate_operand" "r,Uq")))]
   "TARGET_ARM && arm_arch6"
-  "*
-  if (which_alternative == 0)
-    return \"sxtb%?\\t%0, %1\";
-
-  /* If the address is invalid, this will split the instruction into two.  */
-  if (bad_signed_byte_operand (operands[1], VOIDmode))
-    return \"#\";
-
-  return \"ldr%?sb\\t%0, %1\";
-  "
+  "@
+   sxtb%?\\t%0, %1
+   ldr%?sb\\t%0, %1"
   [(set_attr "type" "alu_shift,load_byte")
    (set_attr "predicable" "yes")
-   (set_attr "length" "4,8")
    (set_attr "pool_range" "*,256")
    (set_attr "neg_pool_range" "*,244")]
 )
@@ -3879,39 +3826,6 @@
   "sxtab%?\\t%0, %2, %1"
   [(set_attr "type" "alu_shift")
    (set_attr "predicable" "yes")]
-)
-
-(define_split
-  [(set (match_operand:SI 0 "s_register_operand" "")
-	(sign_extend:SI (match_operand:QI 1 "bad_signed_byte_operand" "")))]
-  "TARGET_ARM && arm_arch4 && reload_completed"
-  [(set (match_dup 0) (match_dup 1))
-   (set (match_dup 0) (sign_extend:SI (match_dup 2)))]
-  "
-  {
-    HOST_WIDE_INT offset;
-
-    operands[2] = gen_rtx_MEM (QImode, operands[0]);
-    MEM_COPY_ATTRIBUTES (operands[2], operands[1]);
-    operands[1] = XEXP (operands[1], 0);
-    if (GET_CODE (operands[1]) == PLUS
-	&& GET_CODE (XEXP (operands[1], 1)) == CONST_INT
-	&& !(const_ok_for_arm (offset = INTVAL (XEXP (operands[1], 1)))
-	     || const_ok_for_arm (-offset)))
-      {
-	HOST_WIDE_INT low = (offset > 0
-			     ? (offset & 0xff) : -((-offset) & 0xff));
-	XEXP (operands[2], 0) = plus_constant (operands[0], low);
-	operands[1] = plus_constant (XEXP (operands[1], 0), offset - low);
-      }
-    /* Ensure the sum is in correct canonical form.  */
-    else if (GET_CODE (operands[1]) == PLUS
-	     && GET_CODE (XEXP (operands[1], 1)) != CONST_INT
-	     && !s_register_operand (XEXP (operands[1], 1), VOIDmode))
-      operands[1] = gen_rtx_PLUS (GET_MODE (operands[1]),
-					   XEXP (operands[1], 1),
-					   XEXP (operands[1], 0));
-  }"
 )
 
 (define_insn "*thumb_extendqisi2"
@@ -4235,8 +4149,8 @@
           && !(const_ok_for_arm (INTVAL (operands[1]))
                || const_ok_for_arm (~INTVAL (operands[1]))))
         {
-           arm_split_constant (SET, SImode, INTVAL (operands[1]), operands[0],
-		    	      NULL_RTX,
+           arm_split_constant (SET, SImode, NULL_RTX,
+	                       INTVAL (operands[1]), operands[0], NULL_RTX,
 			      (no_new_pseudos ? 0
 			       : preserve_subexpressions_p ()));
           DONE;
@@ -4286,8 +4200,8 @@
         || const_ok_for_arm (~INTVAL (operands[1]))))"
   [(clobber (const_int 0))]
   "
-  arm_split_constant (SET, SImode, INTVAL (operands[1]), operands[0],
-		      NULL_RTX, 0);
+  arm_split_constant (SET, SImode, NULL_RTX, 
+                      INTVAL (operands[1]), operands[0], NULL_RTX, 0);
   DONE;
   "
 )
@@ -7439,8 +7353,8 @@
 	    (const_string "no")))
    (set (attr "length") 
         (if_then_else
-	    (and (ge (minus (match_dup 0) (pc)) (const_int -2048))
-		 (le (minus (match_dup 0) (pc)) (const_int 2044)))
+	    (and (ge (minus (match_dup 0) (pc)) (const_int -2044))
+		 (le (minus (match_dup 0) (pc)) (const_int 2048)))
   	    (const_int 2)
 	    (const_int 4)))]
 )
@@ -10191,7 +10105,7 @@
 
 (define_insn "align_8"
   [(unspec_volatile [(const_int 0)] VUNSPEC_ALIGN8)]
-  "TARGET_REALLY_IWMMXT"
+  "TARGET_EITHER"
   "*
   assemble_align (64);
   return \"\";

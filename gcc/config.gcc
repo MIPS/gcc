@@ -30,7 +30,7 @@
 #
 #  with_*		Various variables as set by configure.
 #
-#  enable_threads_flag	Either the name, yes or no depending on whether
+#  enable_threads	Either the name, yes or no depending on whether
 #			threads support was requested.
 #
 #  default_use_cxa_atexit
@@ -167,7 +167,6 @@ thread_file=
 # configure entries modify them.
 gas="$gas_flag"
 gnu_ld="$gnu_ld_flag"
-enable_threads=$enable_threads_flag
 default_use_cxa_atexit=no
 target_gtfiles=
 need_64bit_hwint=
@@ -790,13 +789,15 @@ hppa1.1-*-hpux10* | hppa2*-*-hpux10*)
 	target_cpu_default="(MASK_PA_11 | MASK_BIG_SWITCH)"
 	tm_file="${tm_file} pa/pa32-regs.h dbxelf.h pa/som.h pa/pa-hpux.h pa/pa-hpux10.h"
 	tmake_file="pa/t-pa pa/t-pa-hpux pa/t-hpux-shlib"
-	if test x$enable_threads = x; then
-	    enable_threads=$have_pthread_h
-	fi
-	case x${enable_threads} in
-	xyes | xdce)
-		tmake_file="${tmake_file} pa/t-dce-thr"
-		;;
+	case ${enable_threads} in
+	  "")
+	    if test x$have_pthread_h = xyes ; then
+	      tmake_file="${tmake_file} pa/t-dce-thr"
+	    fi
+	    ;;
+	  yes | dce)
+	    tmake_file="${tmake_file} pa/t-dce-thr"
+	    ;;
 	esac
 	use_collect2=yes
 	use_fixproto=yes
@@ -804,13 +805,15 @@ hppa1.1-*-hpux10* | hppa2*-*-hpux10*)
 hppa1.0-*-hpux10*)
 	tm_file="${tm_file} pa/pa32-regs.h dbxelf.h pa/som.h pa/pa-hpux.h pa/pa-hpux10.h"
 	tmake_file="pa/t-pa pa/t-pa-hpux pa/t-hpux-shlib"
-	if test x$enable_threads = x; then
-	    enable_threads=$have_pthread_h
-	fi
-	case x${enable_threads} in
-	xyes | xdce)
-		tmake_file="${tmake_file} pa/t-dce-thr"
-		;;
+	case ${enable_threads} in
+	  "")
+	    if test x$have_pthread_h = xyes ; then
+	      tmake_file="${tmake_file} pa/t-dce-thr"
+	    fi
+	    ;;
+	  yes | dce)
+	    tmake_file="${tmake_file} pa/t-dce-thr"
+	    ;;
 	esac
 	use_collect2=yes
 	use_fixproto=yes
@@ -985,19 +988,11 @@ i[34567]86-*-solaris2*)
 		tmake_file="$tmake_file t-slibgcc-sld"
 	fi
 	extra_parts="crt1.o crti.o crtn.o gcrt1.o gmon.o crtbegin.o crtend.o"
-	if test x${enable_threads} = x; then
-	    enable_threads=$have_pthread_h
-	    if test x${enable_threads} = x; then
-		enable_threads=$have_thread_h
-	    fi
-	fi
-	if test x${enable_threads} = xyes; then
-	    if test x${have_pthread_h} = xyes; then
-		thread_file='posix'
-	    else
-		thread_file='solaris'
-	    fi
-	fi
+	case ${enable_threads}:${have_pthread_h}:${have_thread_h} in
+	  no:*:*) ;;
+	  *:yes:* ) thread_file=posix ;;
+	  yes:*:* | *:*:yes ) thread_file=solaris ;;
+	esac
 	;;
 i[34567]86-*-sysv5*)           # Intel x86 on System V Release 5
        tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h i386/sysv4.h i386/sysv5.h"
@@ -1414,7 +1409,6 @@ mips64-*-elf* | mips64el-*-elf*)
 	;;
 mips64vr-*-elf* | mips64vrel-*-elf*)
         tm_file="mips/vr.h ${tm_file} mips/elf64.h"
-        tm_defines="MIPS_ABI_DEFAULT=ABI_O64 MIPS_MARCH_CONTROLS_SOFT_FLOAT=1"
         tmake_file=mips/t-vr
 	use_fixproto=yes
         ;;
@@ -1507,7 +1501,6 @@ powerpc-*-darwin*)
 	tm_file="${tm_file} rs6000/darwin.h"
 	tmake_file="${tmake_file} rs6000/t-darwin"
 	extra_headers=altivec.h
-	rebuild_banshee=yes
 	;;
 powerpc*-*-freebsd*)
 	tm_file="${tm_file} dbxelf.h elfos.h ${fbsd_tm_file} rs6000/sysv4.h rs6000/freebsd.h"
@@ -1554,7 +1547,7 @@ powerpc-*-eabi*)
 	;;
 powerpc-*-rtems*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/eabi.h rs6000/rtems.h rtems.h"
-	tmake_file="rs6000/t-fprules t-rtems rs6000/t-ppccomm"
+	tmake_file="rs6000/t-fprules rs6000/t-rtems t-rtems rs6000/t-ppccomm"
 	;;
 powerpc-*-linux*altivec*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/linux.h rs6000/linuxaltivec.h"
@@ -1707,13 +1700,13 @@ sh-*-elf* | sh[2346l]*-*-elf* | sh*-*-kaos*)
 	esac
 	use_fixproto=yes
 	;;
-sh-*-rtemself*)
-	tmake_file="sh/t-sh sh/t-elf t-rtems"
-	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/elf.h sh/embed-elf.h sh/rtemself.h rtems.h"
-	;;
-sh-*-rtems*)
+sh-*-rtemscoff*)
 	tmake_file="sh/t-sh t-rtems"
 	tm_file="${tm_file} dbxcoff.h sh/coff.h sh/rtems.h rtems.h"
+	;;
+sh-*-rtems*)
+	tmake_file="sh/t-sh sh/t-elf t-rtems"
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/elf.h sh/embed-elf.h sh/rtemself.h rtems.h"
 	;;
 sh-*-linux* | sh[2346lbe]*-*-linux*)
 	tmake_file="sh/t-sh sh/t-elf ${tmake_file}"
@@ -1786,10 +1779,6 @@ sh-*-*)
 	tm_file="${tm_file} dbxcoff.h sh/coff.h"
 	use_fixproto=yes
 	;;
-sparc-tti-*)
-	tm_file="${tm_file} sparc/pbd.h"
-	use_fixproto=yes
-	;;
 sparc-*-netbsdelf*)
 	tm_file="${tm_file} elfos.h svr4.h sparc/sysv4.h netbsd.h netbsd-elf.h sparc/netbsd-elf.h"
 	;;
@@ -1836,19 +1825,11 @@ sparc64-*-solaris2* | sparcv9-*-solaris2*)
 		tmake_file="$tmake_file t-slibgcc-sld"
 	fi
 	extra_parts="crt1.o crti.o crtn.o gcrt1.o crtbegin.o crtend.o"
-	if test x${enable_threads} = x ; then
-	    enable_threads=$have_pthread_h
-	    if test x${enable_threads} = x ; then
-		enable_threads=$have_thread_h
-	    fi
-	fi
-	if test x${enable_threads} = xyes ; then
-	    if test x${have_pthread_h} = xyes ; then
-		thread_file='posix'
-	    else
-		thread_file='solaris'
-	    fi
-	fi
+	case ${enable_threads}:${have_pthread_h}:${have_thread_h} in
+	  no:*:*) ;;
+	  *:yes:* ) thread_file=posix ;;
+	  yes:*:* | *:*:yes ) thread_file=solaris ;;
+	esac
 	need_64bit_hwint=yes
 	;;
 sparc-*-solaris2*)
@@ -1881,19 +1862,11 @@ sparc-*-solaris2*)
 		;;
 	esac
 	extra_parts="crt1.o crti.o crtn.o gcrt1.o gmon.o crtbegin.o crtend.o"
-	if test x${enable_threads} = x; then
-	    enable_threads=$have_pthread_h
-	    if test x${enable_threads} = x; then
-		enable_threads=$have_thread_h
-	    fi
-	fi
-	if test x${enable_threads} = xyes; then
-	    if test x${have_pthread_h} = xyes; then
-		thread_file='posix'
-	    else
-		thread_file='solaris'
-	    fi
-	fi
+	case ${enable_threads}:${have_pthread_h}:${have_thread_h} in
+	  no:*:*) ;;
+	  *:yes:* ) thread_file=posix ;;
+	  yes:*:* | *:*:yes ) thread_file=solaris ;;
+	esac
 	;;
 sparc-*-sysv4*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/sysv4-only.h"
@@ -2228,7 +2201,7 @@ fi
 		;;
 
 	arm*-*-*)
-		supported_defaults="arch cpu float tune fpu"
+		supported_defaults="arch cpu float tune fpu abi"
 		for which in cpu tune; do
 			eval "val=\$with_$which"
 			case "$val" in
@@ -2282,13 +2255,24 @@ fi
 			# OK
 			;;
 		*)
-			echo "Unknown fpu used in --with-fpu=$fpu" 2>&1
+			echo "Unknown fpu used in --with-fpu=$with_fpu" 2>&1
+			exit 1
+			;;
+		esac
+
+		case "$with_abi" in
+		"" \
+		| apcs-gnu | atpcs | aapcs | iwmmxt )
+			#OK
+			;;
+		*)
+			echo "Unknown ABI used in --with-abi=$with_abi"
 			exit 1
 			;;
 		esac
 
 		if test "x$with_arch" != x && test "x$with_cpu" != x; then
-			echo "Warning: --with-arch overrides --with-cpu" 1>&2
+			echo "Warning: --with-arch overrides --with-cpu=$with_cpu" 1>&2
 		fi
 		;;
 
@@ -2298,6 +2282,20 @@ fi
 		fr400) ;;
 		*)
 			echo "Unknown cpu used in --with-cpu=$with_cpu" 1>&2
+			exit 1
+			;;
+		esac
+		;;
+
+	m68k*-linux*)
+		supported_defaults="cpu"
+		case "$with_cpu" in
+		"" | "m68020" | "m68030" | "m68040" | "m68060" | "m68020-40" | "m68020-60")
+			# OK
+			;;
+		*)
+			echo "Unknown CPU used in --with-cpu=$with_cpu, known values:"  1>&2
+			echo "m68020 m68030 m68040 m68060 m68020-40 m68020-60" 1>&2
 			exit 1
 			;;
 		esac
@@ -2491,6 +2489,37 @@ fi
 
 		*)
 			target_cpu_default2="TARGET_CPU_$with_cpu"
+			;;
+		esac
+		;;
+
+	m68k*-linux*)
+		case "x$with_cpu" in
+		x)
+			# The most generic
+			target_cpu_default2="(MASK_68020|MASK_68881|MASK_BITFIELD)"
+			;;
+		xm68020)
+			target_cpu_default2="(MASK_68020|MASK_68881|MASK_BITFIELD)"
+			;;
+		xm68030)
+			target_cpu_default2="(MASK_68030|MASK_68020|MASK_68881|MASK_BITFIELD)"
+			;;
+		xm68040)
+			target_cpu_default2="(MASK_68040|MASK_68040_ONLY|MASK_68020|MASK_68881|MASK_BITFIELD)"
+			;;
+		xm68060)
+			target_cpu_default2="(MASK_68060|MASK_68040_ONLY|MASK_68020|MASK_68881|MASK_BITFIELD)"
+			;;
+		xm68020-40)
+			target_cpu_default2="(MASK_BITFIELD|MASK_68881|MASK_68020|MASK_68040)"
+			;;
+		xm68020-60)
+			target_cpu_default2="(MASK_BITFIELD|MASK_68881|MASK_68020|MASK_68040|MASK_68060)"
+			;;
+		*)
+			echo "Unknown CPU used in --with-cpu=$with_cpu"  1>&2
+			exit 1
 			;;
 		esac
 		;;

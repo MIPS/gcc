@@ -624,7 +624,8 @@ find_func_aliases (tree stp)
       else
 	{
 	  /* x.f = y  or x->f = y */
-	  if (TREE_CODE (op0) == COMPONENT_REF 
+	  if ((TREE_CODE (op0) == COMPONENT_REF 
+	       || TREE_CODE (op0) == BIT_FIELD_REF)
 	      && is_gimple_variable (op1))
 	    {
 	      if (rhsAV != NULL)

@@ -36,7 +36,6 @@ static cxx_scope *innermost_nonclass_level (void);
 static tree select_decl (cxx_binding *, int);
 static cxx_binding *binding_for_name (cxx_scope *, tree);
 static tree lookup_name_current_level (tree);
-static void push_local_binding (tree, tree, int);
 static tree push_overloaded_decl (tree, int);
 static bool lookup_using_namespace (tree, cxx_binding *, tree,
                                     tree, int);
@@ -62,7 +61,7 @@ GTY(()) tree anonymous_namespace_name;
 
 /* A free list of "binding_entry"s awaiting for re-use.  */
 
-static GTY((deletable(""))) binding_entry free_binding_entry = NULL;
+static GTY((deletable)) binding_entry free_binding_entry = NULL;
 
 /* Create a binding_entry object for (NAME, TYPE).  */
 
@@ -318,7 +317,7 @@ binding_table_foreach (binding_table table, bt_foreach_proc proc, void *data)
 
 /* A free list of "cxx_binding"s, connected by their PREVIOUS.  */
 
-static GTY((deletable (""))) cxx_binding *free_bindings;
+static GTY((deletable)) cxx_binding *free_bindings;
 
 /* Zero out a cxx_binding pointed to by B.  */
 #define cxx_binding_clear(B) memset ((B), 0, sizeof (cxx_binding))
@@ -440,13 +439,20 @@ supplement_binding (cxx_binding *binding, tree decl)
   if (TREE_CODE (decl) == TYPE_DECL && DECL_ARTIFICIAL (decl))
     /* The new name is the type name.  */
     binding->type = decl;
-  else if (!bval || bval == error_mark_node)
-    /* VALUE is null when push_class_level_binding moves an inherited
-       type-binding out of the way to make room for a new value binding.
-       It is an error_mark_node when DECL's name has been used in a
-       non-class scope prior declaration.  In that case, we should have
-       already issued a diagnostic; for graceful error recovery purpose,
-       pretend this was the intended declaration for that name.  */
+  else if (/* BVAL is null when push_class_level_binding moves an
+	      inherited type-binding out of the way to make room for a
+	      new value binding.  */
+	   !bval 
+	   /* BVAL is error_mark_node when DECL's name has been used
+	      in a non-class scope prior declaration.  In that case,
+	      we should have already issued a diagnostic; for graceful
+	      error recovery purpose, pretend this was the intended
+	      declaration for that name.  */
+	   || bval == error_mark_node
+	   /* If BVAL is a built-in that has not yet been declared,
+	      pretend it is not there at all.  */
+	   || (TREE_CODE (bval) == FUNCTION_DECL
+	       && DECL_ANTICIPATED (bval)))
     binding->value = decl;
   else if (TREE_CODE (bval) == TYPE_DECL && DECL_ARTIFICIAL (bval))
     {
@@ -526,9 +532,13 @@ add_decl_to_level (tree decl, cxx_scope *b)
       b->names = decl;
       b->names_size++;
 
-      /* If appropriate, add decl to separate list of statics.  */
+      /* If appropriate, add decl to separate list of statics.  We
+	 include extern variables because they might turn out to be 
+	 static later.  It's OK for this list to contain a few false
+	 positives. */
       if (b->kind == sk_namespace)
-	if ((TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+	if ((TREE_CODE (decl) == VAR_DECL
+	     && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
 	    || (TREE_CODE (decl) == FUNCTION_DECL
 		&& (!TREE_PUBLIC (decl) || DECL_DECLARED_INLINE_P (decl))))
 	  VARRAY_PUSH_TREE (b->static_decls, decl);
@@ -643,13 +653,7 @@ pushdecl (tree x)
 	    t = NULL_TREE;
 	}
 
-      if (t == error_mark_node)
-	{
-	  /* error_mark_node is 0 for a while during initialization!  */
-	  t = NULL_TREE;
-	  cp_error_at ("`%#D' used prior to declaration", x);
-	}
-      else if (t != NULL_TREE)
+      if (t && t != error_mark_node)
 	{
 	  if (different_binding_level)
 	    {
@@ -702,7 +706,7 @@ pushdecl (tree x)
 
 		  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
 		}
-	      else if (DECL_MAIN_P (x))
+	      else if (DECL_MAIN_P (x) && TREE_CODE (t) == FUNCTION_DECL)
 		{
 		  /* A redeclaration of main, but not a duplicate of the
 		     previous one.
@@ -825,24 +829,6 @@ pushdecl (tree x)
  		  || TREE_CODE (x) == CONST_DECL
  		  || TREE_CODE (x) == TEMPLATE_DECL))
  	    SET_IDENTIFIER_NAMESPACE_VALUE (name, x);
-
-	  /* Don't forget if the function was used via an implicit decl.  */
-	  if (IDENTIFIER_IMPLICIT_DECL (name)
-	      && TREE_USED (IDENTIFIER_IMPLICIT_DECL (name)))
-	    TREE_USED (x) = 1;
-
-	  /* Don't forget if its address was taken in that way.  */
-	  if (IDENTIFIER_IMPLICIT_DECL (name)
-	      && TREE_ADDRESSABLE (IDENTIFIER_IMPLICIT_DECL (name)))
-	    TREE_ADDRESSABLE (x) = 1;
-
-	  /* Warn about mismatches against previous implicit decl.  */
-	  if (IDENTIFIER_IMPLICIT_DECL (name) != NULL_TREE
-	      /* If this real decl matches the implicit, don't complain.  */
-	      && ! (TREE_CODE (x) == FUNCTION_DECL
-		    && TREE_TYPE (TREE_TYPE (x)) == integer_type_node))
-	    warning
-	      ("`%D' was previously implicitly declared to return `int'", x);
 
 	  /* If new decl is `static' and an `extern' was seen previously,
 	     warn about it.  */
@@ -1031,7 +1017,7 @@ maybe_push_decl (tree decl)
    doesn't really belong to this binding level, that it got here
    through a using-declaration.  */
 
-static void
+void
 push_local_binding (tree id, tree decl, int flags)
 {
   struct cp_binding_level *b;
@@ -1246,7 +1232,7 @@ namespace_scope_ht_size (tree ns)
 
 /* A chain of binding_level structures awaiting reuse.  */
 
-static GTY((deletable (""))) struct cp_binding_level *free_binding_level;
+static GTY((deletable)) struct cp_binding_level *free_binding_level;
 
 /* Create a new KIND scope and make it the top of the active scopes stack.
    ENTITY is the scope of the associated C++ entity (namespace, class,
@@ -1421,7 +1407,8 @@ innermost_nonclass_level (void)
 void
 maybe_push_cleanup_level (tree type)
 {
-  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
+  if (type != error_mark_node
+      && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
       && current_binding_level->more_cleanups_ok == 0)
     {
       begin_scope (sk_cleanup, NULL);
@@ -2208,9 +2195,21 @@ do_nonmember_using_decl (tree scope, tree name, tree oldval, tree oldtype,
 	  if (tmp1)
 	    continue;
 	    
+	  /* If we are adding to an existing OVERLOAD, then we no
+	     longer know the type of the set of functions.  */
+	  if (*newval && TREE_CODE (*newval) == OVERLOAD)
+	    TREE_TYPE (*newval) = unknown_type_node;
+	  /* Add this new function to the set.  */
 	  *newval = build_overload (OVL_CURRENT (tmp), *newval);
+	  /* If there is only one function, then we use its type.  (A
+	     using-declaration naming a single function can be used in
+	     contexts where overload resolution cannot be
+	     performed.)  */
 	  if (TREE_CODE (*newval) != OVERLOAD)
-	    *newval = ovl_cons (*newval, NULL_TREE);
+	    {
+	      *newval = ovl_cons (*newval, NULL_TREE);
+	      TREE_TYPE (*newval) = TREE_TYPE (OVL_CURRENT (tmp));
+	    }
 	  OVL_USED (*newval) = 1;
 	}
     }
@@ -2274,7 +2273,10 @@ do_local_using_decl (tree decl, tree scope, tree name)
 	push_local_binding (name, newval, PUSH_USING);
     }
   if (newtype)
-    set_identifier_type_value (name, newtype);
+    {
+      push_local_binding (name, newtype, PUSH_USING);
+      set_identifier_type_value (name, newtype);
+    }
 
   /* Emit debug info.  */
   if (!processing_template_decl)
@@ -4476,11 +4478,15 @@ lookup_arg_dependent (tree name, tree fns, tree args)
      we found were brought into the current namespace via a using
      declaration, we have not really checked the namespace from which
      they came.  Therefore, we check all namespaces here -- unless the
-     function we have is from the current namespace.  */
+     function we have is from the current namespace.  Even then, we
+     must check all namespaces if the function is a local
+     declaration; any other declarations present at namespace scope
+     should be visible during argument-dependent lookup.  */
   if (fns)
     fn = OVL_CURRENT (fns);
   if (fn && TREE_CODE (fn) == FUNCTION_DECL 
-      && CP_DECL_CONTEXT (fn) != current_decl_namespace ())
+      && (CP_DECL_CONTEXT (fn) != current_decl_namespace ()
+	  || DECL_LOCAL_FUNCTION_P (fn)))
     k.namespaces = NULL_TREE;
   else
     /* Setting NAMESPACES is purely an optimization; it prevents
@@ -4837,7 +4843,6 @@ push_to_top_level (void)
   s->bindings = b;
   s->need_pop_function_context = need_pop;
   s->function_decl = current_function_decl;
-  s->last_parms = last_function_parms;
 
   scope_chain = s;
   current_function_decl = NULL_TREE;
@@ -4875,7 +4880,6 @@ pop_from_top_level (void)
   if (s->need_pop_function_context)
     pop_function_context_from (NULL_TREE);
   current_function_decl = s->function_decl;
-  last_function_parms = s->last_parms;
   timevar_pop (TV_NAME_LOOKUP);
 }
 

@@ -55,7 +55,6 @@ Boston, MA 02111-1307, USA.  */
  */
 
 unit_t *current_unit;
-
 static int sf_seen_eor = 0;
 
 char scratch[SCRATCH_SIZE];
@@ -874,6 +873,7 @@ pre_position (void)
 static void
 data_transfer_init (int read_flag)
 {
+  unit_flags u_flags;  /* used for creating a unit if needed */
 
   g.mode = read_flag ? READING : WRITING;
 
@@ -881,6 +881,20 @@ data_transfer_init (int read_flag)
     *ioparm.size = 0;		/* Initialize the count */
 
   current_unit = get_unit (read_flag);
+  if (current_unit == NULL)
+  {  /* open the unit with some default flags */
+     memset (&u_flags, '\0', sizeof (u_flags));
+     u_flags.access = ACCESS_SEQUENTIAL;
+     u_flags.action = ACTION_READWRITE;
+     u_flags.form = FORM_UNSPECIFIED;
+     u_flags.delim = DELIM_UNSPECIFIED;
+     u_flags.blank = BLANK_UNSPECIFIED;
+     u_flags.pad = PAD_UNSPECIFIED;
+     u_flags.status = STATUS_UNKNOWN;
+     new_unit(&u_flags);
+     current_unit = get_unit (read_flag);
+  }
+
   if (current_unit == NULL)
     return;
 
@@ -930,14 +944,14 @@ data_transfer_init (int read_flag)
 
   /* Check the record number */
 
-  if (current_unit->flags.access == ACCESS_DIRECT && ioparm.rec == NULL)
+  if (current_unit->flags.access == ACCESS_DIRECT && ioparm.rec == 0)
     {
       generate_error (ERROR_MISSING_OPTION,
 		      "Direct access data transfer requires record number");
       return;
     }
 
-  if (current_unit->flags.access == ACCESS_SEQUENTIAL && ioparm.rec != NULL)
+  if (current_unit->flags.access == ACCESS_SEQUENTIAL && ioparm.rec != 0)
     {
       generate_error (ERROR_OPTION_CONFLICT,
 		      "Record number not allowed for sequential access data transfer");
@@ -999,15 +1013,15 @@ data_transfer_init (int read_flag)
 
   /* Sanity checks on the record number */
 
-  if (ioparm.rec != NULL)
+  if (ioparm.rec)
     {
-      if (*ioparm.rec <= 0)
+      if (ioparm.rec <= 0)
 	{
 	  generate_error (ERROR_BAD_OPTION, "Record number must be positive");
 	  return;
 	}
 
-      if (*ioparm.rec >= current_unit->maxrec)
+      if (ioparm.rec >= current_unit->maxrec)
 	{
 	  generate_error (ERROR_BAD_OPTION, "Record number too large");
 	  return;
@@ -1016,7 +1030,7 @@ data_transfer_init (int read_flag)
       /* Position the file */
 
       if (sseek (current_unit->s,
-		 (*ioparm.rec - 1) * current_unit->recl) == FAILURE)
+               (ioparm.rec - 1) * current_unit->recl) == FAILURE)
 	generate_error (ERROR_OS, NULL);
     }
 
@@ -1144,7 +1158,7 @@ next_record_r (int done)
 
     case FORMATTED_SEQUENTIAL:
       length = 1;
-      if ((!done) || (sf_seen_eor && done))
+      if (sf_seen_eor && done)
          break;
 
       do
@@ -1244,13 +1258,13 @@ next_record_w (int done)
       length = 1;
       p = salloc_w (current_unit->s, &length);
 
-      if (!(is_internal_unit()) && p == NULL)
+      if (!is_internal_unit())
         {
-           goto io_error;
+          if (p)
+            *p = '\n'; /* no CR for internal writes */
+          else
+            goto io_error;
         }
-
-      if (p != NULL)
-         *p = '\n';
 
       if (sfree (current_unit->s) == FAILURE)
  	goto io_error;
@@ -1281,7 +1295,11 @@ next_record (int done)
     next_record_w (done);
 
   current_unit->current_record = 0;
-  current_unit->last_record++;
+  if (current_unit->flags.access == ACCESS_DIRECT)
+    current_unit->last_record = file_position (current_unit->s) 
+                               / current_unit->recl;
+  else
+    current_unit->last_record++;
 
   if (!done)
     pre_position ();
@@ -1294,6 +1312,13 @@ next_record (int done)
 static void
 finalize_transfer (void)
 {
+
+  if (setjmp (g.eof_jump))
+    {
+       generate_error (ERROR_END, NULL);
+       return;
+    }
+
   if ((ionml != NULL) && (ioparm.namelist_name != NULL))
     {
        if (ioparm.namelist_read_mode)

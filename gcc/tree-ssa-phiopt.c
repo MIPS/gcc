@@ -340,6 +340,10 @@ conditional_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
           cond = convert (TREE_TYPE (result), new_var_1);
 #endif
         }
+      
+      if (TREE_CODE (cond) == TRUTH_NOT_EXPR
+          &&  !is_gimple_val (TREE_OPERAND (cond, 0)))
+        return false;
 
       new = build (MODIFY_EXPR, TREE_TYPE (PHI_RESULT (phi)),
                     PHI_RESULT (phi), cond);

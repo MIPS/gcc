@@ -574,6 +574,13 @@ get_true_reg (rtx *pat)
       case FIX:
       case FLOAT_EXTEND:
 	pat = & XEXP (*pat, 0);
+	break;
+
+      case FLOAT_TRUNCATE:
+	if (!flag_unsafe_math_optimizations)
+	  return pat;
+	pat = & XEXP (*pat, 0);
+	break;
       }
 }
 
@@ -1759,6 +1766,65 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 		regstack->reg[++regstack->top] = REGNO (*dest);
 		SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
 		replace_reg (dest, FIRST_STACK_REG);
+		break;
+
+	      case UNSPEC_SINCOS_COS:
+	      case UNSPEC_TAN_ONE:
+		/* These insns operate on the top two stack slots,
+		   first part of one input, double output insn.  */
+
+		src1 = get_true_reg (&XVECEXP (pat_src, 0, 0));
+
+		emit_swap_insn (insn, regstack, *src1);
+
+		src1_note = find_regno_note (insn, REG_DEAD, REGNO (*src1));
+
+		/* Push the result back onto stack. Empty stack slot
+		   will be filled in second part of insn. */
+		if (STACK_REG_P (*dest)) {
+		  regstack->reg[regstack->top + 1] = REGNO (*dest);
+		  SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
+		  replace_reg (dest, FIRST_STACK_REG);
+		}
+
+		if (src1_note)
+		  {
+		    replace_reg (&XEXP (src1_note, 0), FIRST_STACK_REG);
+		    regstack->top--;
+		    CLEAR_HARD_REG_BIT (regstack->reg_set, REGNO (*src1));
+		  }
+		replace_reg (src1, FIRST_STACK_REG);
+		break;
+
+	      case UNSPEC_SINCOS_SIN:
+	      case UNSPEC_TAN_TAN:
+		/* These insns operate on the top two stack slots,
+		   second part of one input, double output insn.  */
+
+		src1 = get_true_reg (&XVECEXP (pat_src, 0, 0));
+
+		emit_swap_insn (insn, regstack, *src1);
+
+		src1_note = find_regno_note (insn, REG_DEAD, REGNO (*src1));
+
+		/* Push the result back onto stack. Fill empty slot from
+		   first part of insn and fix top of stack pointer.  */
+		if (STACK_REG_P (*dest)) {
+		  regstack->reg[regstack->top] = REGNO (*dest);
+		  SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
+		  replace_reg (dest, FIRST_STACK_REG + 1);
+
+		  regstack->top++;
+		}
+
+		if (src1_note)
+		  {
+		    replace_reg (&XEXP (src1_note, 0), FIRST_STACK_REG);
+		    regstack->top--;
+		    CLEAR_HARD_REG_BIT (regstack->reg_set, REGNO (*src1));
+		  }
+
+		replace_reg (src1, FIRST_STACK_REG);
 		break;
 
 	      case UNSPEC_SAHF:

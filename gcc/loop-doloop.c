@@ -65,6 +65,75 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifdef HAVE_doloop_end
 
+/* Return the loop termination condition for PATTERN or zero
+ *    if it is not a decrement and branch jump insn.  */
+
+static rtx
+doloop_condition_get (rtx pattern)
+{
+  rtx cmp;
+  rtx inc;
+  rtx reg;
+  rtx condition;
+
+  /* The canonical doloop pattern we expect is:
+
+     (parallel [(set (pc) (if_then_else (condition)
+					(label_ref (label))
+					(pc)))
+		(set (reg) (plus (reg) (const_int -1)))
+		(additional clobbers and uses)])
+     
+     Some machines (IA-64) make the decrement conditional on
+     the condition as well, so we don't bother verifying the
+     actual decrement.  In summary, the branch must be the
+     first entry of the parallel (also required by jump.c),
+     and the second entry of the parallel must be a set of
+     the loop counter register.  */
+
+  if (GET_CODE (pattern) != PARALLEL)
+    return 0;
+
+  cmp = XVECEXP (pattern, 0, 0);
+  inc = XVECEXP (pattern, 0, 1);
+
+  /* Check for (set (reg) (something)).  */
+  if (GET_CODE (inc) != SET || ! REG_P (SET_DEST (inc)))
+    return 0;
+
+  /* Extract loop counter register.  */
+  reg = SET_DEST (inc);
+
+  /* Check for (set (pc) (if_then_else (condition)
+				       (label_ref (label))
+				       (pc))).  */
+  if (GET_CODE (cmp) != SET
+      || SET_DEST (cmp) != pc_rtx
+      || GET_CODE (SET_SRC (cmp)) != IF_THEN_ELSE
+      || GET_CODE (XEXP (SET_SRC (cmp), 1)) != LABEL_REF
+      || XEXP (SET_SRC (cmp), 2) != pc_rtx)
+    return 0;
+
+  /* Extract loop termination condition.  */
+  condition = XEXP (SET_SRC (cmp), 0);
+
+  if ((GET_CODE (condition) != GE && GET_CODE (condition) != NE)
+      || GET_CODE (XEXP (condition, 1)) != CONST_INT)
+    return 0;
+
+  if (XEXP (condition, 0) == reg)
+    return condition;
+
+  if (GET_CODE (XEXP (condition, 0)) == PLUS
+      && XEXP (XEXP (condition, 0), 0) == reg)
+    return condition;
+
+  /* ??? If a machine uses a funny comparison, we could return a
+     canonicalised form here.  */
+
+  return 0;
+}
+
 /* Return nonzero if the loop specified by LOOP is suitable for
    the use of special low-overhead looping instructions.  DESC
    describes the number of iterations of the loop.  */

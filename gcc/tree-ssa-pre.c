@@ -799,6 +799,7 @@ expr_phi_insertion (bitmap *dfs, struct expr_info *ei)
       tree leftp = VARRAY_TREE (ei->lefts, i);
       tree left = leftp ? leftp : NULL;
       bitmap temp;
+      stmt_ann_t ann;
 
 #ifdef ENABLE_CHECKING
       if ((kill && occur) || (left && occur) || (kill && left))
@@ -811,7 +812,8 @@ expr_phi_insertion (bitmap *dfs, struct expr_info *ei)
       if (kill != NULL)
 	continue;
       get_stmt_operands (occurp);     
-      uses = STMT_USE_OPS (occurp);
+      ann = stmt_ann (occurp);
+      uses = USE_OPS (ann);
       for (j = 0; j < NUM_USES (uses); j ++)
 	{
 	  tree use = USE_OP (uses, j);
@@ -824,7 +826,7 @@ expr_phi_insertion (bitmap *dfs, struct expr_info *ei)
 	}
       if (ei->loadpre_cand && TREE_CODE (ei->expr) == INDIRECT_REF)
 	{  
-	  vuses = STMT_VUSE_OPS (occurp);
+	  vuses = VUSE_OPS (ann);
 	  for (j = 0; j < NUM_VUSES (vuses); j ++)
 	    {
 	      tree use = VUSE_OP (vuses, j);
@@ -1429,9 +1431,10 @@ static bool
 same_e_version_phi_result (struct expr_info *ei, tree def, tree exp,
 				tree use)
 {
+  stmt_ann_t ann = stmt_ann (exp);
   bool not_mod = true;
   size_t i;
-  use_optype real_expuses = STMT_USE_OPS (exp);
+  use_optype real_expuses = USE_OPS (ann);
   vuse_optype expuses;
   
 
@@ -1451,7 +1454,7 @@ same_e_version_phi_result (struct expr_info *ei, tree def, tree exp,
   
   if (not_mod && ei->loadpre_cand)
     {
-      expuses = STMT_VUSE_OPS (exp);
+      expuses = VUSE_OPS (ann);
       
       for (i = 0; i < NUM_VUSES (expuses) && not_mod; i++)
 	{
@@ -2112,9 +2115,9 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
     }
 		      
   /* Do the insertion.  */
-  /* ??? Previously we did bizzare searching, presumably to get
+  /* ??? Previously we did bizarre searching, presumably to get
      around bugs elsewhere in the infrastructure.  I'm not sure
-     if we really should be using bsi_insert_on_edge_immediate,
+     if we really should be using bsi_insert_on_edge_immediate
      or just bsi_insert_after at the end of BB.  */
   bsi_insert_on_edge_immediate (succ, expr);
 
@@ -3011,11 +3014,12 @@ process_left_occs_and_kills (varray_type bexprs, tree expr)
 {
   size_t i, j, k;
   
+  stmt_ann_t ann = stmt_ann (expr);
   vdef_optype vdefs;
   vuse_optype vuses;
   def_optype defs;
-  defs = STMT_DEF_OPS (expr);
-  vdefs = STMT_VDEF_OPS (expr);
+  defs = DEF_OPS (ann);
+  vdefs = VDEF_OPS (ann);
   if (NUM_DEFS (defs) == 0 && NUM_VDEFS (vdefs) == 0)
     return;
 

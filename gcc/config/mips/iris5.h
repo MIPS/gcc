@@ -213,6 +213,7 @@ current_section_name (void)						\
   switch (in_section)							\
     {									\
     case no_section:	return NULL;					\
+    case in_unlikely_executed_text:					\
     case in_text:	return ".text";					\
     case in_data:	return ".data";					\
     case in_bss:	return ".bss";					\
@@ -223,8 +224,8 @@ current_section_name (void)						\
 	return ".rdata";						\
     case in_named:							\
       return in_named_name;						\
+    default: abort();							\
     }									\
-  abort ();								\
 }									\
 									\
 unsigned int								\
@@ -233,13 +234,14 @@ current_section_flags (void)						\
   switch (in_section)							\
     {									\
     case no_section:	return 0;					\
+    case in_unlikely_executed_text:					\
     case in_text:	return SECTION_CODE;				\
     case in_data:	return SECTION_WRITE;				\
     case in_bss:	return SECTION_WRITE | SECTION_BSS;		\
     case in_readonly_data: return 0;					\
     case in_named:	return get_named_section_flags (in_named_name);	\
+    default: abort ();							\
     }									\
-  abort ();								\
 }
 
 /* Some assemblers have a bug that causes backslash escaped chars in .ascii

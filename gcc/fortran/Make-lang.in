@@ -95,7 +95,7 @@ F95 f95: f951$(exeext)
 # Tell GNU make to ignore files by these names if they exist.
 .PHONY: F95 f95
 
-gfortranspec.o: $(srcdir)/fortran/gfortranspec.c $(SYSTEM_H) $(GCC_H) $(CONFIG_H)
+gfortranspec.o: $(srcdir)/fortran/gfortranspec.c $(SYSTEM_H) $(TM_H) $(GCC_H) $(CONFIG_H)
 	(SHLIB_LINK='$(SHLIB_LINK)' \
 	SHLIB_MULTILIB='$(SHLIB_MULTILIB)'; \
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(DRIVER_DEFINES) \
@@ -150,23 +150,25 @@ check-f95 : check-gfortran
 lang_checks += check-gfortran
 
 # GFORTRAN documentation.
-fortran/gfortran.info: $(srcdir)/fortran/gfortran.texi \
-			$(srcdir)/doc/include/fdl.texi \
-			$(srcdir)/doc/include/gpl.texi \
-			$(srcdir)/doc/include/funding.texi \
-			$(srcdir)/doc/include/gcc-common.texi
+GFORTRAN_TEXI = \
+  $(srcdir)/fortran/gfortran.texi \
+  $(srcdir)/fortran/invoke.texi \
+  $(srcdir)/doc/include/fdl.texi \
+  $(srcdir)/doc/include/gpl.texi \
+  $(srcdir)/doc/include/funding.texi \
+  $(srcdir)/doc/include/gcc-common.texi
+
+fortran/gfortran.info: $(GFORTRAN_TEXI)
 	if [ x$(BUILD_INFO) = xinfo ]; then \
 	  rm -f fortran/gfortran.info-*; \
-	  $(MAKEINFO) -I$(srcdir)/doc/include -o fortran/gfortran.info $(srcdir)/fortran/gfortran.texi; \
+	  $(MAKEINFO) -I$(srcdir)/doc/include -I$(srcdir)/fortran \
+	    -o fortran/gfortran.info $(srcdir)/fortran/gfortran.texi; \
 	else true; fi
 
-fortran/gfortran.dvi: $(srcdir)/fortran/gfortran.texi \
-		$(srcdir)/doc/include/fdl.texi \
-		$(srcdir)/doc/include/gpl.texi \
-		$(srcdir)/doc/include/funding.texi \
-		$(srcdir)/doc/include/gcc-common.texi
-		s=`cd $(srcdir); ${PWD}`; export s; \
-		cd fortran && $(TEXI2DVI) -I $$s/doc/include $$s/fortran/gfortran.texi
+fortran/gfortran.dvi: $(GFORTRAN_TEXI)
+	s=`cd $(srcdir); ${PWD}`; export s; \
+	cd fortran && $(TEXI2DVI) -I $$s/doc/include -I $$s/fortran \
+	  $$s/fortran/gfortran.texi
 
 #
 # Install hooks:

@@ -147,6 +147,8 @@ struct vstring
 #if defined (_WIN32)
 #include <dir.h>
 #include <windows.h>
+#undef DIR_SEPARATOR
+#define DIR_SEPARATOR '\\'
 #endif
 
 #include "adaint.h"
@@ -616,6 +618,21 @@ __gnat_open_create (char *path, int fmode)
 }
 
 int
+__gnat_create_output_file (char *path)
+{
+  int fd;
+#if defined (VMS)
+  fd = open (path, O_WRONLY | O_CREAT | O_TRUNC | O_TEXT, PERM,
+             "rfm=stmlf", "ctx=rec", "rat=none", "rop=nlk",
+             "shr=del,get,put,upd");
+#else
+  fd = open (path, O_WRONLY | O_CREAT | O_TRUNC | O_TEXT, PERM);
+#endif
+
+  return fd < 0 ? -1 : fd;
+}
+
+int
 __gnat_open_append (char *path, int fmode)
 {
   int fd;
@@ -699,6 +716,21 @@ __gnat_file_length (int fd)
   struct stat statbuf;
 
   ret = fstat (fd, &statbuf);
+  if (ret || !S_ISREG (statbuf.st_mode))
+    return 0;
+
+  return (statbuf.st_size);
+}
+
+/* Return the number of bytes in the specified named file.  */
+
+long
+__gnat_named_file_length (char *name)
+{
+  int ret;
+  struct stat statbuf;
+
+  ret = __gnat_stat (name, &statbuf);
   if (ret || !S_ISREG (statbuf.st_mode))
     return 0;
 
@@ -2375,6 +2407,7 @@ _flush_cache()
 #if defined (CROSS_COMPILE)  \
   || (! (defined (sparc) && defined (sun) && defined (__SVR4)) \
       && ! (defined (linux) && defined (i386)) \
+      && ! defined (__FreeBSD__) \
       && ! defined (hpux) \
       && ! defined (_AIX) \
       && ! (defined (__alpha__)  && defined (__osf__)) \
@@ -2494,4 +2527,3 @@ get_gcc_version (void)
 {
   return 3;
 }
-

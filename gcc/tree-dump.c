@@ -1,5 +1,5 @@
 /* Tree-dumping functionality for intermediate representation.
-   Copyright (C) 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>
 
 This file is part of GCC.
@@ -347,7 +347,7 @@ dequeue_and_dump (dump_info_p di)
   else if (code_class == 't')
     {
       /* All types have qualifiers.  */
-      int quals = (*lang_hooks.tree_dump.type_quals) (t);
+      int quals = lang_hooks.tree_dump.type_quals (t);
 
       if (quals != TYPE_UNQUALIFIED)
 	{
@@ -378,7 +378,7 @@ dequeue_and_dump (dump_info_p di)
   /* Give the language-specific code a chance to print something.  If
      it's completely taken care of things, don't bother printing
      anything more ourselves.  */
-  if ((*lang_hooks.tree_dump.dump_tree) (di, t))
+  if (lang_hooks.tree_dump.dump_tree (di, t))
     goto done;
 
   /* Now handle the various kinds of nodes.  */
@@ -410,7 +410,7 @@ dequeue_and_dump (dump_info_p di)
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
       dump_int (di, "prec", TYPE_PRECISION (t));
-      if (TREE_UNSIGNED (t))
+      if (TYPE_UNSIGNED (t))
 	dump_string (di, "unsigned");
       dump_child ("min", TYPE_MIN_VALUE (t));
       dump_child ("max", TYPE_MAX_VALUE (t));

@@ -16,16 +16,17 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 AC_INIT
-AC_PREREQ([2.59])
-
 AC_CONFIG_SRCDIR([Makefile.in])
 
-# Command-line options.
+# This is an autoconf 2.5x script.
+AC_PREREQ([2.59])
+
 # Very limited version of AC_MAINTAINER_MODE.
-AC_ARG_ENABLE([maintainer-mode],
-  [AC_HELP_STRING([--enable-maintainer-mode],
+AC_ARG_ENABLE(
+  [maintainer-mode],
+  AC_HELP_STRING([--enable-maintainer-mode],
                  [enable make rules and dependencies not useful (and
-                  sometimes confusing) to the casual installer])],
+                  sometimes confusing) to the casual installer]),
   [case ${enable_maintainer_mode} in
      yes) MAINT='' ;;
      no) MAINT='#' ;;
@@ -35,61 +36,30 @@ AC_ARG_ENABLE([maintainer-mode],
   [MAINT='#'])
 AC_SUBST([MAINT])dnl
 
-AC_ARG_ENABLE([shared],
-[AC_HELP_STRING([--disable-shared],
-                [don't provide a shared libgnat])],
-[
-case $enable_shared in
+# Start of actual configure tests
+
+# Output: create a Makefile.
+AC_CONFIG_FILES([Makefile])
+
+AC_CANONICAL_SYSTEM
+
+AC_ARG_ENABLE(shared,
+[  --disable-shared        don't provide a shared libgnat],
+[ 
+  case $enable_shared in
   yes | no) ;;
   *)
     enable_shared=no
     IFS="${IFS=         }"; ac_save_ifs="$IFS"; IFS="${IFS}:,"
     for pkg in $enableval; do
-      case $pkg in
-        ada | libada)
-          enable_shared=yes ;;
-      esac
+      if test "$pkg" = "ada" || test "$pkg" = "libada"; then
+        enable_shared=yes
+      fi
     done
     IFS="$ac_save_ifs"
     ;;
-esac
+  esac
 ], [enable_shared=yes])
-AC_SUBST([enable_shared])
-
-# Start of actual configure tests
-
-AC_PROG_INSTALL
-
-AC_CANONICAL_SYSTEM
-
-sinclude(../config/acx.m4)
-_GCC_TOPLEV_NONCANONICAL_TARGET
-AC_SUBST(target_noncanonical)
-
-# Need to pass this down for now :-P
-AC_PROG_LN_S
-
-# Determine x_ada_cflags
-case $host in
-  hppa*) x_ada_cflags=-mdisable-indexing ;;
-  *) x_ada_cflags= ;;
-esac
-AC_SUBST([x_ada_cflags])
-
-# Determine what to build for 'gnatlib'
-if test $build = $target \
-   && test ${enable_shared} = yes ; then
-  # Note that build=target is almost certainly the wrong test; FIXME
-  default_gnatlib_target="gnatlib-shared"
-  default_gnattools_target="gnattools-cross"
-else
-  default_gnatlib_target="gnatlib-plain"
-  default_gnattools_target="gnattools-native"
-fi
-AC_SUBST([default_gnatlib_target])
-AC_SUBST([default_gnattools_target])
-
-# Output: create a Makefile.
-AC_CONFIG_FILES([Makefile])
+AC_SUBST(enable_shared)
 
 AC_OUTPUT

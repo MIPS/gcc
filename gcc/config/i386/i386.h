@@ -207,6 +207,9 @@ extern int target_flags;
 #endif
 #endif
 
+#define HAS_LONG_COND_BRANCH 1
+#define HAS_LONG_UNCOND_BRANCH 1
+
 /* Avoid adding %gs:0 in TLS references; use %gs:address directly.  */
 #define TARGET_TLS_DIRECT_SEG_REFS (target_flags & MASK_TLS_DIRECT_SEG_REFS)
 
@@ -219,6 +222,7 @@ extern int target_flags;
 #define TARGET_PENTIUM4 (ix86_tune == PROCESSOR_PENTIUM4)
 #define TARGET_K8 (ix86_tune == PROCESSOR_K8)
 #define TARGET_ATHLON_K8 (TARGET_K8 || TARGET_ATHLON)
+#define TARGET_NOCONA (ix86_tune == PROCESSOR_NOCONA)
 
 #define TUNEMASK (1 << ix86_tune)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
@@ -606,6 +610,8 @@ extern int x86_prefetch_sse;
 	builtin_define ("__tune_k8__");				\
       else if (TARGET_PENTIUM4)					\
 	builtin_define ("__tune_pentium4__");			\
+      else if (TARGET_NOCONA)					\
+	builtin_define ("__tune_nocona__");			\
 								\
       if (TARGET_MMX)						\
 	builtin_define ("__MMX__");				\
@@ -673,6 +679,11 @@ extern int x86_prefetch_sse;
 	{							\
 	  builtin_define ("__pentium4");			\
 	  builtin_define ("__pentium4__");			\
+	}							\
+      else if (ix86_arch == PROCESSOR_NOCONA)			\
+	{							\
+	  builtin_define ("__nocona");				\
+	  builtin_define ("__nocona__");			\
 	}							\
     }								\
   while (0)
@@ -2664,9 +2675,7 @@ do {							\
 
 /* A C expression whose value is reversed condition code of the CODE for
    comparison done in CC_MODE mode.  */
-#define REVERSE_CONDITION(CODE, MODE) \
-  ((MODE) != CCFPmode && (MODE) != CCFPUmode ? reverse_condition (CODE) \
-   : reverse_condition_maybe_unordered (CODE))
+#define REVERSE_CONDITION(CODE, MODE) ix86_reverse_condition ((CODE), (MODE))
 
 
 /* Control the assembler format that we output, to the extent
@@ -2950,6 +2959,7 @@ enum processor_type
   PROCESSOR_ATHLON,
   PROCESSOR_PENTIUM4,
   PROCESSOR_K8,
+  PROCESSOR_NOCONA,
   PROCESSOR_max
 };
 

@@ -1849,14 +1849,6 @@ java_expand_body (tree fndecl)
   tree_rest_of_compilation (fndecl, 0);
 }
 
-/* Expand a Java statement.  */
-
-void
-java_expand_stmt (tree t)
-{
-  expand_expr_stmt_value (t, 0, 0);
-}
-
 /* We pessimistically marked all methods and fields external until we
    knew what set of classes we were planning to compile.  Now mark those
    associated with CLASS to be generated locally as not external.  */

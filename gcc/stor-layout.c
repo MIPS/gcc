@@ -66,6 +66,7 @@ static void place_union_field (record_layout_info, tree);
 static int excess_unit_span (HOST_WIDE_INT, HOST_WIDE_INT, HOST_WIDE_INT,
 			     HOST_WIDE_INT, tree);
 #endif
+static void force_type_save_exprs_1 (tree);
 extern void debug_rli (record_layout_info);
 
 /* SAVE_EXPRs for sizes of types and decls, waiting to be expanded.  */
@@ -140,16 +141,11 @@ variable_size (tree size)
      just return SIZE unchanged.  Likewise for self-referential sizes and
      constant sizes.  */
   if (TREE_CONSTANT (size)
-      || (*lang_hooks.decls.global_bindings_p) () < 0
+      || lang_hooks.decls.global_bindings_p () < 0
       || CONTAINS_PLACEHOLDER_P (size))
     return size;
 
-  if (TREE_CODE (size) == MINUS_EXPR && integer_onep (TREE_OPERAND (size, 1)))
-    /* If this is the upper bound of a C array, leave the minus 1 outside
-       the SAVE_EXPR so it can be folded away.  */
-    TREE_OPERAND (size, 0) = save = save_expr (TREE_OPERAND (size, 0));
-  else
-    size = save = save_expr (size);
+  size = save_expr (size);
 
   /* If an array with a variable number of elements is declared, and
      the elements require destruction, we will emit a cleanup for the
@@ -159,6 +155,7 @@ variable_size (tree size)
      `unsaved', i.e., all SAVE_EXPRs are recalculated.  However, we do
      not wish to do that here; the array-size is the same in both
      places.  */
+  save = skip_simple_arithmetic (size);
   if (TREE_CODE (save) == SAVE_EXPR)
     SAVE_EXPR_PERSISTENT_P (save) = 1;
 
@@ -167,7 +164,7 @@ variable_size (tree size)
        that determine sizes for variable size objects.  Trust it.  */
     return size;
 
-  if ((*lang_hooks.decls.global_bindings_p) ())
+  if (lang_hooks.decls.global_bindings_p ())
     {
       if (TREE_CONSTANT (size))
 	error ("type size can't be explicitly evaluated");
@@ -183,6 +180,60 @@ variable_size (tree size)
     put_pending_size (save);
 
   return size;
+}
+
+/* Given a type T, force elaboration of any SAVE_EXPRs used in the definition
+   of that type.  */
+
+void
+force_type_save_exprs (tree t)
+{
+  tree field;
+
+  switch (TREE_CODE (t))
+    {
+    case ERROR_MARK:
+      return;
+
+    case ARRAY_TYPE:
+    case SET_TYPE:
+    case VECTOR_TYPE:
+      /* It's probably overly-conservative to force elaboration of bounds and
+	 also the sizes, but it's better to be safe than sorry.  */
+      force_type_save_exprs_1 (TYPE_MIN_VALUE (TYPE_DOMAIN (t)));
+      force_type_save_exprs_1 (TYPE_MAX_VALUE (TYPE_DOMAIN (t)));
+      break;
+
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+      for (field = TYPE_FIELDS (t); field; field = TREE_CHAIN (field))
+	if (TREE_CODE (field) == FIELD_DECL)
+	  {
+	    force_type_save_exprs (TREE_TYPE (field));
+	    force_type_save_exprs_1 (DECL_FIELD_OFFSET (field));
+	  }
+      break;
+
+    default:
+      break;
+    }
+
+  force_type_save_exprs_1 (TYPE_SIZE (t));
+  force_type_save_exprs_1 (TYPE_SIZE_UNIT (t));
+}
+
+/* Utility routine of above, to verify that SIZE has been elaborated and
+   do so it it is a SAVE_EXPR and has not been.  */
+
+static void
+force_type_save_exprs_1 (tree size)
+{
+  if (size
+      && (size = skip_simple_arithmetic (size))
+      && TREE_CODE (size) == SAVE_EXPR
+      && !SAVE_EXPR_RTL (size))
+    expand_expr (size, NULL_RTX, VOIDmode, 0);
 }
 
 #ifndef MAX_FIXED_MODE_SIZE
@@ -363,7 +414,7 @@ layout_decl (tree decl, unsigned int known_align)
      size in bytes from the size in bits.  If we have already set the mode,
      don't set it again since we can be called twice for FIELD_DECLs.  */
 
-  TREE_UNSIGNED (decl) = TREE_UNSIGNED (type);
+  DECL_UNSIGNED (decl) = TYPE_UNSIGNED (type);
   if (DECL_MODE (decl) == VOIDmode)
     DECL_MODE (decl) = TYPE_MODE (type);
 
@@ -393,7 +444,7 @@ layout_decl (tree decl, unsigned int known_align)
 	     field.  */
 	  if (integer_zerop (DECL_SIZE (decl))
 	      && ! DECL_PACKED (decl)
-	      && ! (*targetm.ms_bitfield_layout_p) (DECL_FIELD_CONTEXT (decl)))
+	      && ! targetm.ms_bitfield_layout_p (DECL_FIELD_CONTEXT (decl)))
 	    {
 #ifdef PCC_BITFIELD_TYPE_MATTERS
 	      if (PCC_BITFIELD_TYPE_MATTERS)
@@ -693,7 +744,7 @@ update_alignment_for_field (record_layout_info rli, tree field,
   /* Record must have at least as much alignment as any field.
      Otherwise, the alignment of the field within the record is
      meaningless.  */
-  if (is_bitfield && (* targetm.ms_bitfield_layout_p) (rli->t))
+  if (is_bitfield && targetm.ms_bitfield_layout_p (rli->t))
     {
       /* Here, the alignment of the underlying type of a bitfield can
 	 affect the alignment of a record; even a zero-sized field
@@ -913,7 +964,7 @@ place_field (record_layout_info rli, tree field)
      variable-sized fields, we need not worry about compatibility.  */
 #ifdef PCC_BITFIELD_TYPE_MATTERS
   if (PCC_BITFIELD_TYPE_MATTERS
-      && ! (* targetm.ms_bitfield_layout_p) (rli->t)
+      && ! targetm.ms_bitfield_layout_p (rli->t)
       && TREE_CODE (field) == FIELD_DECL
       && type != error_mark_node
       && DECL_BIT_FIELD (field)
@@ -946,7 +997,7 @@ place_field (record_layout_info rli, tree field)
 
 #ifdef BITFIELD_NBYTES_LIMITED
   if (BITFIELD_NBYTES_LIMITED
-      && ! (* targetm.ms_bitfield_layout_p) (rli->t)
+      && ! targetm.ms_bitfield_layout_p (rli->t)
       && TREE_CODE (field) == FIELD_DECL
       && type != error_mark_node
       && DECL_BIT_FIELD_TYPE (field)
@@ -997,7 +1048,7 @@ place_field (record_layout_info rli, tree field)
      Note: for compatibility, we use the type size, not the type alignment
      to determine alignment, since that matches the documentation */
 
-  if ((* targetm.ms_bitfield_layout_p) (rli->t)
+  if (targetm.ms_bitfield_layout_p (rli->t)
        && ((DECL_BIT_FIELD_TYPE (field) && ! DECL_PACKED (field))
 	  || (rli->prev_field && ! DECL_PACKED (rli->prev_field))))
     {
@@ -1531,7 +1582,7 @@ layout_type (tree type)
     case CHAR_TYPE:
       if (TREE_CODE (TYPE_MIN_VALUE (type)) == INTEGER_CST
 	  && tree_int_cst_sgn (TYPE_MIN_VALUE (type)) >= 0)
-	TREE_UNSIGNED (type) = 1;
+	TYPE_UNSIGNED (type) = 1;
 
       TYPE_MODE (type) = smallest_mode_for_size (TYPE_PRECISION (type),
 						 MODE_INT);
@@ -1546,25 +1597,20 @@ layout_type (tree type)
       break;
 
     case COMPLEX_TYPE:
-      TREE_UNSIGNED (type) = TREE_UNSIGNED (TREE_TYPE (type));
+      TYPE_UNSIGNED (type) = TYPE_UNSIGNED (TREE_TYPE (type));
       TYPE_MODE (type)
 	= mode_for_size (2 * TYPE_PRECISION (TREE_TYPE (type)),
-			 (TREE_CODE (TREE_TYPE (type)) == INTEGER_TYPE
-			  ? MODE_COMPLEX_INT : MODE_COMPLEX_FLOAT),
+			 (TREE_CODE (TREE_TYPE (type)) == REAL_TYPE
+			  ? MODE_COMPLEX_FLOAT : MODE_COMPLEX_INT),
 			 0);
       TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (type)));
       TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (TYPE_MODE (type)));
       break;
 
     case VECTOR_TYPE:
-      {
-	tree subtype;
-
-	subtype = TREE_TYPE (type);
-	TREE_UNSIGNED (type) = TREE_UNSIGNED (subtype);
-	TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (type)));
-	TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (TYPE_MODE (type)));
-      }
+      TYPE_UNSIGNED (type) = TYPE_UNSIGNED (TREE_TYPE (type));
+      TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (type)));
+      TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (TYPE_MODE (type)));
       break;
 
     case VOID_TYPE:
@@ -1604,7 +1650,7 @@ layout_type (tree type)
 
 	TYPE_SIZE (type) = bitsize_int (nbits);
 	TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (mode));
-	TREE_UNSIGNED (type) = 1;
+	TYPE_UNSIGNED (type) = 1;
 	TYPE_PRECISION (type) = nbits;
       }
       break;
@@ -1654,7 +1700,7 @@ layout_type (tree type)
 	       sure the size is never negative.  We should really do this
 	       if *either* bound is non-constant, but this is the best
 	       compromise between C and Ada.  */
-	    if (! TREE_UNSIGNED (sizetype)
+	    if (!TYPE_UNSIGNED (sizetype)
 		&& TREE_CODE (TYPE_MIN_VALUE (index)) != INTEGER_CST
 		&& TREE_CODE (TYPE_MAX_VALUE (index)) != INTEGER_CST)
 	      length = size_binop (MAX_EXPR, length, size_zero_node);
@@ -1853,7 +1899,7 @@ initialize_sizetypes (void)
   TYPE_USER_ALIGN (t) = 0;
   TYPE_SIZE (t) = build_int_2 (GET_MODE_BITSIZE (SImode), 0);
   TYPE_SIZE_UNIT (t) = build_int_2 (GET_MODE_SIZE (SImode), 0);
-  TREE_UNSIGNED (t) = 1;
+  TYPE_UNSIGNED (t) = 1;
   TYPE_PRECISION (t) = GET_MODE_BITSIZE (SImode);
   TYPE_MIN_VALUE (t) = build_int_2 (0, 0);
   TYPE_IS_SIZETYPE (t) = 1;
@@ -1890,21 +1936,21 @@ set_sizetype (tree type)
 
   /* Make copies of nodes since we'll be setting TYPE_IS_SIZETYPE.  */
   sizetype = copy_node (type);
-  TYPE_DOMAIN (sizetype) = type;
+  TYPE_ORIG_SIZE_TYPE (sizetype) = type;
   TYPE_IS_SIZETYPE (sizetype) = 1;
   bitsizetype = make_node (INTEGER_TYPE);
   TYPE_NAME (bitsizetype) = TYPE_NAME (type);
   TYPE_PRECISION (bitsizetype) = precision;
   TYPE_IS_SIZETYPE (bitsizetype) = 1;
 
-  if (TREE_UNSIGNED (type))
+  if (TYPE_UNSIGNED (type))
     fixup_unsigned_type (bitsizetype);
   else
     fixup_signed_type (bitsizetype);
 
   layout_type (bitsizetype);
 
-  if (TREE_UNSIGNED (type))
+  if (TYPE_UNSIGNED (type))
     {
       usizetype = sizetype;
       ubitsizetype = bitsizetype;

@@ -355,6 +355,12 @@ in @file{tree-ssa-dse.c} and is described by @code{pass_dse}.
 This pass transforms tail recursion into a loop.  It is located in
 @file{tree-tailcall.c} and is described by @code{pass_tail_recursion}.
 
+@item Partial redundancy elimination
+
+This pass eliminates partially redundant computations, as well as
+performing load motion.  The pass is located in @file{tree-ssa-pre.c}
+and is described by @code{pass_pre}.
+
 @item Loop optimization
 
 TODO: Presumably we're going to do something with loops here.  At

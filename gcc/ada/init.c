@@ -359,6 +359,22 @@ __gnat_initialize (void)
 {
 }
 
+/***************************************/
+/* __gnat_initialize (RTEMS version) */
+/***************************************/
+
+#elif defined(__rtems__)
+
+extern void __gnat_install_handler (void);
+
+/* For RTEMS, each bsp will provide a custom __gnat_install_handler (). */
+
+void
+__gnat_initialize (void)
+{
+   __gnat_install_handler ();
+}
+
 /****************************************/
 /* __gnat_initialize (Dec Unix Version) */
 /****************************************/
@@ -1344,7 +1360,10 @@ extern char *__gnat_error_prehandler_stack;   /* Alternate signal stack */
 extern struct Exception_Data Non_Ada_Error;
 
 #define Coded_Exception system__vms_exception_table__coded_exception
-extern struct Exception_Data *Coded_Exception (int);
+extern struct Exception_Data *Coded_Exception (Exception_Code);
+
+#define Base_Code_In system__vms_exception_table__base_code_in
+extern Exception_Code Base_Code_In (Exception_Code);
 #endif
 
 /* Define macro symbols for the VMS conditions that become Ada exceptions.
@@ -1374,6 +1393,8 @@ long
 __gnat_error_handler (int *sigargs, void *mechargs)
 {
   struct Exception_Data *exception = 0;
+  Exception_Code base_code;
+
   char *msg = "";
   char message[256];
   long prvhnd;
@@ -1410,8 +1431,11 @@ __gnat_error_handler (int *sigargs, void *mechargs)
   }
 
 #ifdef IN_RTS
-  /* See if it's an imported exception. Mask off severity bits. */
-  exception = Coded_Exception (sigargs[1] & 0xfffffff8);
+  /* See if it's an imported exception. Beware that registered exceptions
+     are bound to their base code, with the severity bits masked off.  */
+  base_code = Base_Code_In ((Exception_Code) sigargs [1]);
+  exception = Coded_Exception (base_code);
+
   if (exception)
     {
       msgdesc.len = 256;
@@ -1424,7 +1448,7 @@ __gnat_error_handler (int *sigargs, void *mechargs)
       exception->Name_Length = 19;
       /* The full name really should be get sys$getmsg returns. ??? */
       exception->Full_Name = "IMPORTED_EXCEPTION";
-      exception->Import_Code = sigargs[1] & 0xfffffff8;
+      exception->Import_Code = base_code;
     }
 #endif
 
@@ -1769,20 +1793,44 @@ __gnat_initialize (void)
 {
   __gnat_init_float ();
 
-  /* Assume an environment task stack size of 20kB.
+  /* On targets where we might be using the ZCX scheme, we need to register
+     the frame tables.
 
-     Using a constant is necessary because we do not want each Ada application
-     to depend on the optional taskShow library,
-     which is required to get the actual stack information.
+     For application "modules", the crtstuff objects linked in (crtbegin/endS)
+     are tailored to provide this service a-la C++ constructor fashion,
+     typically triggered by the dynamic loader. This is achieved by way of a
+     special variable declaration in the crt object, the name of which has
+     been deduced by analyzing the output of the "munching" step documented
+     for C++.  The de-registration call is handled symetrically, a-la C++
+     destructor fashion and typically triggered by the dynamic unloader. With
+     this scheme, a mixed Ada/C++ application has to be linked and loaded as
+     separate modules for each language, which is not unreasonable anyway.
 
-     The consequence of this is that with -fstack-check
-     the environment task must have an actual stack size
-     of at least 20kB and the usable size will be about 14kB.
-  */
+     For applications statically linked with the kernel, the module scheme
+     above would lead to duplicated symbols because the VxWorks kernel build
+     "munches" by default. To prevent those conflicts, we link against
+     crtbegin/end objects that don't include the special variable and directly
+     call the appropriate function here. We'll never unload that, so there is
+     no de-registration to worry about.
 
-  __gnat_set_stack_size (14336);
-  /* Allow some head room for the stack checking code, and for
-     stack space consumed during initialization */
+     We can differentiate by looking at the __module_has_ctors value provided
+     by each class of crt objects. As of today, selecting the crt set intended
+     for applications to be statically linked with the kernel is triggered by
+     adding "-static" to the gcc *link* command line options.
+
+     This is a first approach, tightly synchronized with a number of GCC
+     configuration and crtstuff changes. We need to ensure that those changes
+     are there to activate this circuitry.  */
+
+#if DWARF2_UNWIND_INFO && defined (_ARCH_PPC)
+ {
+   extern const int __module_has_ctors;
+   extern void __do_global_ctors ();
+
+   if (! __module_has_ctors)
+     __do_global_ctors ();
+ }
+#endif
 }
 
 /********************************/
@@ -1853,22 +1901,6 @@ __gnat_initialize (void)
 {
   __gnat_install_handler ();
   __gnat_init_float ();
-}
-
-/***************************************/
-/* __gnat_initialize (RTEMS version) */
-/***************************************/
-
-#elif defined(__rtems__)
-
-extern void __gnat_install_handler (void);
-
-/* For RTEMS, each bsp will provide a custom __gnat_install_handler (). */
-
-void
-__gnat_initialize (void)
-{
-   __gnat_install_handler ();
 }
 
 #else

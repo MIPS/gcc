@@ -512,7 +512,7 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 #define PARM_BOUNDARY 64
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
-#define STACK_BOUNDARY 64
+#define STACK_BOUNDARY 128
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
 #define FUNCTION_BOUNDARY 32
@@ -1839,6 +1839,3 @@ do {							\
 
 /* Generate calls to memcpy, etc., not bcopy, etc.  */
 #define TARGET_MEM_FUNCTIONS 1
-
-/* Pass complex arguments independently.  */
-#define SPLIT_COMPLEX_ARGS 1

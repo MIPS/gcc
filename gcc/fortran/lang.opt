@@ -81,10 +81,6 @@ ffree-form
 F95
 Assume that the source file is free form
 
-fg77-calls
-F95
-Generate g77-compatible calls
-
 funderscoring
 F95
 Append underscores to externally visible names

@@ -1,5 +1,5 @@
 /* Expression translation
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -20,7 +20,7 @@ along with GNU G95; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* trans-expr.c-- generate SIMPLE trees for gfc_expr.  */
+/* trans-expr.c-- generate GENERIC trees for gfc_expr.  */
 
 #include "config.h"
 #include "system.h"
@@ -142,20 +142,18 @@ gfc_conv_expr_present (gfc_symbol * sym)
 /* Generate code to initialize a string length variable. Returns the
    value.  */
 
-tree
-gfc_conv_init_string_length (gfc_symbol * sym, stmtblock_t * pblock)
+void
+gfc_trans_init_string_length (gfc_charlen * cl, stmtblock_t * pblock)
 {
   gfc_se se;
   tree tmp;
 
   gfc_init_se (&se, NULL);
-  gfc_conv_expr_type (&se, sym->ts.cl->length, gfc_strlen_type_node);
+  gfc_conv_expr_type (&se, cl->length, gfc_strlen_type_node);
   gfc_add_block_to_block (pblock, &se.pre);
 
-  tmp = GFC_DECL_STRING_LENGTH (sym->backend_decl);
+  tmp = cl->backend_decl;
   gfc_add_modify_expr (pblock, tmp, se.expr);
-
-  return se.expr;
 }
 
 static void
@@ -229,7 +227,7 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
 
   if (c->ts.type == BT_CHARACTER)
     {
-      tmp = GFC_DECL_STRING_LENGTH (field);
+      tmp = c->ts.cl->backend_decl;
       assert (tmp);
       if (!INTEGER_CST_P (tmp))
 	gfc_todo_error ("Unknown length character component");
@@ -288,7 +286,8 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 
       /* Dereference scalar dummy variables.  */
       if (sym->attr.dummy
-	  && !(GFC_DECL_STRING (se->expr) || sym->attr.dimension))
+	  && sym->ts.type != BT_CHARACTER
+	  && !sym->attr.dimension)
 	se->expr = gfc_build_indirect_ref (se->expr);
 
       /* Dereference pointer variables.  */
@@ -306,8 +305,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
   /* For character variables, also get the length.  */
   if (sym->ts.type == BT_CHARACTER)
     {
-      assert (GFC_DECL_STRING (se->expr));
-      se->string_length = GFC_DECL_STRING_LENGTH (se->expr);
+      se->string_length = sym->ts.cl->backend_decl;
       assert (se->string_length);
     }
 
@@ -691,11 +689,8 @@ gfc_conv_concat_op (gfc_se * se, gfc_expr * expr)
   gfc_add_block_to_block (&se->pre, &rse.pre);
 
   type = gfc_get_character_type (expr->ts.kind, expr->ts.cl);
-  if (GFC_KNOWN_SIZE_STRING_TYPE (type))
-    {
-      len = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
-    }
-  else
+  len = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
+  if (len == NULL_TREE)
     {
       len = fold (build (PLUS_EXPR, TREE_TYPE (lse.string_length),
 			 lse.string_length, rse.string_length));
@@ -945,7 +940,6 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   tree type;
   tree var;
   tree len;
-  int g77;
   tree stringargs;
   gfc_formal_arglist *formal;
 
@@ -1001,9 +995,12 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	}
       else if (sym->ts.type == BT_CHARACTER)
 	{
+	  assert (sym->ts.cl && sym->ts.cl->length
+		  && sym->ts.cl->length->expr_type == EXPR_CONSTANT);
+	  len = gfc_conv_mpz_to_tree
+	    (sym->ts.cl->length->value.integer, sym->ts.cl->length->ts.kind);
+	  sym->ts.cl->backend_decl = len;
 	  type = gfc_get_character_type (sym->ts.kind, sym->ts.cl);
-	  assert (GFC_KNOWN_SIZE_STRING_TYPE (type));
-	  len = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
 	  type = build_pointer_type (type);
 
 	  var = gfc_conv_string_tmp (se, type, len);
@@ -1016,8 +1013,6 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
     }
 
   formal = sym->formal;
-  /* Use g77 calling convention if neccessary.  */
-  g77 = (gfc_option.flag_g77_calls);
   /* Evaluate the arguments.  */
   for (; arg != NULL; arg = arg->next, formal = formal ? formal->next : NULL)
     {
@@ -1080,7 +1075,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	      f = (formal != NULL)
 		  && !formal->sym->attr.pointer
 		  && formal->sym->as->type != AS_ASSUMED_SHAPE;
-	      f = g77 && (f || !sym->attr.always_explicit);
+	      f = f || !sym->attr.always_explicit;
 	      gfc_conv_array_parameter (&parmse, arg->expr, argss, f);
 	    } 
 	}
@@ -1552,23 +1547,8 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 }
 
 
-/* Get the decl for the length of a string from an expression.  */
-
-tree
-gfc_conv_string_length (tree expr)
-{
-  /* TODO: string lengths of components.  */
-  while (TREE_CODE (expr) == INDIRECT_REF)
-    expr = TREE_OPERAND (expr, 0);
-
-  if (!(DECL_P (expr) && GFC_DECL_STRING (expr)))
-    return NULL_TREE;
-
-  return GFC_DECL_STRING_LENGTH (expr);
-}
-
-
 /* Makes sure se is suitable for passing as a function string parameter.  */
+/* TODO: Need to check all callers fo this function.  It may be abused.  */
 
 void
 gfc_conv_string_parameter (gfc_se * se)
@@ -1584,9 +1564,7 @@ gfc_conv_string_parameter (gfc_se * se)
   type = TREE_TYPE (se->expr);
   if (TYPE_STRING_FLAG (type))
     {
-      assert (TREE_CODE (se->expr) == VAR_DECL
-	      || TREE_CODE (se->expr) == COMPONENT_REF
-	      || TREE_CODE (se->expr) == PARM_DECL);
+      assert (TREE_CODE (se->expr) != INDIRECT_REF);
       se->expr = gfc_build_addr_expr (pchar_type_node, se->expr);
     }
 

@@ -196,6 +196,7 @@ package body Sinfo is
       (N : Node_Id) return Boolean is
    begin
       pragma Assert (False
+        or else NT (N).Nkind = N_Access_Definition
         or else NT (N).Nkind = N_Access_To_Object_Definition);
       return Flag15 (N);
    end All_Present;
@@ -457,6 +458,7 @@ package body Sinfo is
       (N : Node_Id) return Boolean is
    begin
       pragma Assert (False
+        or else NT (N).Nkind = N_Access_Definition
         or else NT (N).Nkind = N_Access_To_Object_Definition
         or else NT (N).Nkind = N_Object_Declaration);
       return Flag17 (N);
@@ -1193,6 +1195,14 @@ package body Sinfo is
       return Flag4 (N);
    end From_At_Mod;
 
+   function From_Default
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Subprogram_Renaming_Declaration);
+      return Flag6 (N);
+   end From_Default;
+
    function Generic_Associations
       (N : Node_Id) return List_Id is
    begin
@@ -1823,6 +1833,24 @@ package body Sinfo is
         or else NT (N).Nkind = N_Record_Definition);
       return Flag13 (N);
    end Null_Present;
+
+   function Null_Exclusion_Present
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Access_Definition
+        or else NT (N).Nkind = N_Access_Function_Definition
+        or else NT (N).Nkind = N_Access_Procedure_Definition
+        or else NT (N).Nkind = N_Access_To_Object_Definition
+        or else NT (N).Nkind = N_Allocator
+        or else NT (N).Nkind = N_Component_Definition
+        or else NT (N).Nkind = N_Derived_Type_Definition
+        or else NT (N).Nkind = N_Discriminant_Specification
+        or else NT (N).Nkind = N_Object_Declaration
+        or else NT (N).Nkind = N_Parameter_Specification
+        or else NT (N).Nkind = N_Subtype_Declaration);
+      return Flag9 (N);
+   end Null_Exclusion_Present;
 
    function Null_Record_Present
       (N : Node_Id) return Boolean is
@@ -2654,6 +2682,7 @@ package body Sinfo is
       (N : Node_Id; Val : Boolean := True) is
    begin
       pragma Assert (False
+        or else NT (N).Nkind = N_Access_Definition
         or else NT (N).Nkind = N_Access_To_Object_Definition);
       Set_Flag15 (N, Val);
    end Set_All_Present;
@@ -2915,6 +2944,7 @@ package body Sinfo is
       (N : Node_Id; Val : Boolean := True) is
    begin
       pragma Assert (False
+        or else NT (N).Nkind = N_Access_Definition
         or else NT (N).Nkind = N_Access_To_Object_Definition
         or else NT (N).Nkind = N_Object_Declaration);
       Set_Flag17 (N, Val);
@@ -3641,6 +3671,14 @@ package body Sinfo is
       Set_Flag4 (N, Val);
    end Set_From_At_Mod;
 
+   procedure Set_From_Default
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Subprogram_Renaming_Declaration);
+      Set_Flag6 (N, Val);
+   end Set_From_Default;
+
    procedure Set_Generic_Associations
       (N : Node_Id; Val : List_Id) is
    begin
@@ -4271,6 +4309,24 @@ package body Sinfo is
         or else NT (N).Nkind = N_Record_Definition);
       Set_Flag13 (N, Val);
    end Set_Null_Present;
+
+   procedure Set_Null_Exclusion_Present
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Access_Definition
+        or else NT (N).Nkind = N_Access_Function_Definition
+        or else NT (N).Nkind = N_Access_Procedure_Definition
+        or else NT (N).Nkind = N_Access_To_Object_Definition
+        or else NT (N).Nkind = N_Allocator
+        or else NT (N).Nkind = N_Component_Definition
+        or else NT (N).Nkind = N_Derived_Type_Definition
+        or else NT (N).Nkind = N_Discriminant_Specification
+        or else NT (N).Nkind = N_Object_Declaration
+        or else NT (N).Nkind = N_Parameter_Specification
+        or else NT (N).Nkind = N_Subtype_Declaration);
+      Set_Flag9 (N, Val);
+   end Set_Null_Exclusion_Present;
 
    procedure Set_Null_Record_Present
       (N : Node_Id; Val : Boolean := True) is

@@ -37,6 +37,7 @@
 #include "debug.h"
 #include "convert.h"
 #include "target.h"
+#include "function.h"
 
 #include "ada.h"
 #include "types.h"
@@ -1402,7 +1403,7 @@ create_field_decl (tree field_name,
   tree field_decl = build_decl (FIELD_DECL, field_name, field_type);
 
   DECL_CONTEXT (field_decl) = record_type;
-  TREE_READONLY (field_decl) = TREE_READONLY (field_type);
+  TREE_READONLY (field_decl) = TYPE_READONLY (field_type);
 
   /* If FIELD_TYPE is BLKmode, we must ensure this is aligned to at least a
      byte boundary since GCC cannot handle less-aligned BLKmode bitfields.  */
@@ -1920,7 +1921,15 @@ end_subprog_body (void)
   /* If we're only annotating types, don't actually compile this
      function.  */
   if (!type_annotate_only)
-    rest_of_compilation (current_function_decl);
+    {
+      rest_of_compilation (current_function_decl);
+      if (! DECL_DEFER_OUTPUT (current_function_decl))
+	{
+	  free_after_compilation (cfun);
+	  DECL_STRUCT_FUNCTION (current_function_decl) = 0;
+	}
+      cfun = 0;
+    }
 
   if (function_nesting_depth > 1)
     ggc_pop_context ();
@@ -2060,7 +2069,11 @@ float_type_for_precision (int precision, enum machine_mode mode)
 tree
 gnat_type_for_mode (enum machine_mode mode, int unsignedp)
 {
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+  if (mode == BLKmode)
+    return NULL_TREE;
+  else if (mode == VOIDmode)
+    return void_type_node;
+  else if (GET_MODE_CLASS (mode) == MODE_FLOAT)
     return float_type_for_precision (GET_MODE_PRECISION (mode), mode);
   else
     return gnat_type_for_size (GET_MODE_BITSIZE (mode), unsignedp);
@@ -2118,7 +2131,7 @@ gnat_signed_type (tree type_node)
 tree
 gnat_signed_or_unsigned_type (int unsignedp, tree type)
 {
-  if (! INTEGRAL_TYPE_P (type) || TREE_UNSIGNED (type) == unsignedp)
+  if (! INTEGRAL_TYPE_P (type) || TYPE_UNSIGNED (type) == unsignedp)
     return type;
   else
     return gnat_type_for_size (TYPE_PRECISION (type), unsignedp);
@@ -2180,8 +2193,6 @@ max_size (tree exp, int max_p)
 	    gigi_abort (407);
 	  else if (code == COMPOUND_EXPR)
 	    return max_size (TREE_OPERAND (exp, 1), max_p);
-	  else if (code == WITH_RECORD_EXPR)
-	    return exp;
 
 	  {
 	    tree lhs = max_size (TREE_OPERAND (exp, 0), max_p);
@@ -2275,12 +2286,9 @@ build_template (tree template_type, tree array_type, tree expr)
       max = convert (TREE_TYPE (field), TYPE_MAX_VALUE (bounds));
 
       /* If either MIN or MAX involve a PLACEHOLDER_EXPR, we must
-	 surround them with a WITH_RECORD_EXPR giving EXPR as the
-	 OBJECT.  */
-      if (CONTAINS_PLACEHOLDER_P (min))
-	min = build (WITH_RECORD_EXPR, TREE_TYPE (min), min, expr);
-      if (CONTAINS_PLACEHOLDER_P (max))
-	max = build (WITH_RECORD_EXPR, TREE_TYPE (max), max, expr);
+	 substitute it from OBJECT.  */
+      min = SUBSTITUTE_PLACEHOLDER_IN_EXPR (min, expr);
+      max = SUBSTITUTE_PLACEHOLDER_IN_EXPR (max, expr);
 
       template_elts = tree_cons (TREE_CHAIN (field), max,
 				 tree_cons (field, min, template_elts));
@@ -2360,19 +2368,19 @@ build_vms_descriptor (tree type, Mechanism_Type mech, Entity_Id gnat_entity)
 	switch (GET_MODE_BITSIZE (TYPE_MODE (type)))
 	  {
 	  case 8:
-	    dtype = TREE_UNSIGNED (type) ? 2 : 6;
+	    dtype = TYPE_UNSIGNED (type) ? 2 : 6;
 	    break;
 	  case 16:
-	    dtype = TREE_UNSIGNED (type) ? 3 : 7;
+	    dtype = TYPE_UNSIGNED (type) ? 3 : 7;
 	    break;
 	  case 32:
-	    dtype = TREE_UNSIGNED (type) ? 4 : 8;
+	    dtype = TYPE_UNSIGNED (type) ? 4 : 8;
 	    break;
 	  case 64:
-	    dtype = TREE_UNSIGNED (type) ? 5 : 9;
+	    dtype = TYPE_UNSIGNED (type) ? 5 : 9;
 	    break;
 	  case 128:
-	    dtype = TREE_UNSIGNED (type) ? 25 : 26;
+	    dtype = TYPE_UNSIGNED (type) ? 25 : 26;
 	    break;
 	  }
       break;
@@ -2670,24 +2678,30 @@ update_pointer_to (tree old_type, tree new_type)
   /* Otherwise, first handle the simple case.  */
   if (TREE_CODE (new_type) != UNCONSTRAINED_ARRAY_TYPE)
     {
-      if (ptr != 0)
-	TREE_TYPE (ptr) = new_type;
       TYPE_POINTER_TO (new_type) = ptr;
-
-      if (ref != 0)
-	TREE_TYPE (ref) = new_type;
       TYPE_REFERENCE_TO (new_type) = ref;
 
-      if (ptr != 0 && TYPE_NAME (ptr) != 0
-	  && TREE_CODE (TYPE_NAME (ptr)) == TYPE_DECL
-	  && TREE_CODE (new_type) != ENUMERAL_TYPE)
-	rest_of_decl_compilation (TYPE_NAME (ptr), NULL,
-				  global_bindings_p (), 0);
-      if (ref != 0 && TYPE_NAME (ref) != 0
-	  && TREE_CODE (TYPE_NAME (ref)) == TYPE_DECL
-	  && TREE_CODE (new_type) != ENUMERAL_TYPE)
-	rest_of_decl_compilation (TYPE_NAME (ref), NULL,
-				  global_bindings_p (), 0);
+      for (; ptr; ptr = TYPE_NEXT_PTR_TO (ptr))
+	{
+	  TREE_TYPE (ptr) = new_type;
+
+	  if (TYPE_NAME (ptr) != 0
+	      && TREE_CODE (TYPE_NAME (ptr)) == TYPE_DECL
+	      && TREE_CODE (new_type) != ENUMERAL_TYPE)
+	    rest_of_decl_compilation (TYPE_NAME (ptr), NULL,
+				      global_bindings_p (), 0);
+	}
+
+      for (; ref; ref = TYPE_NEXT_PTR_TO (ref))
+	{
+	  TREE_TYPE (ref) = new_type;
+
+	  if (TYPE_NAME (ref) != 0
+	      && TREE_CODE (TYPE_NAME (ref)) == TYPE_DECL
+	      && TREE_CODE (new_type) != ENUMERAL_TYPE)
+	    rest_of_decl_compilation (TYPE_NAME (ref), NULL,
+				      global_bindings_p (), 0);
+	}
     }
 
   /* Now deal with the unconstrained array case. In this case the "pointer"
@@ -2865,12 +2879,6 @@ convert (tree type, tree expr)
   else if (AGGREGATE_TYPE_P (type)
 	   && TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (etype))
     return build1 (NOP_EXPR, type, expr);
-  /* If EXPR is a WITH_RECORD_EXPR, do the conversion inside and then make a
-     new one.  */
-  else if (TREE_CODE (expr) == WITH_RECORD_EXPR)
-    return build (WITH_RECORD_EXPR, type,
-		  convert (type, TREE_OPERAND (expr, 0)),
-		  TREE_OPERAND (expr, 1));
 
   /* If the input type has padding, remove it by doing a component reference
      to the field.  If the output type has padding, make a constructor
@@ -3250,13 +3258,6 @@ maybe_unconstrained_array (tree exp)
 					     (TREE_TYPE (TREE_TYPE (exp))))),
 		       TREE_OPERAND (exp, 0));
 
-      else if (code == WITH_RECORD_EXPR
-	       && (TREE_OPERAND (exp, 0)
-		   != (new = maybe_unconstrained_array
-		       (TREE_OPERAND (exp, 0)))))
-	return build (WITH_RECORD_EXPR, TREE_TYPE (new), new,
-		      TREE_OPERAND (exp, 1));
-
     case RECORD_TYPE:
       /* If this is a padded type, convert to the unpadded type and see if
 	 it contains a template.  */
@@ -3294,13 +3295,6 @@ unchecked_convert (tree type, tree expr, int notrunc_p)
   /* If the expression is already the right type, we are done.  */
   if (etype == type)
     return expr;
-
-  /* If EXPR is a WITH_RECORD_EXPR, do the conversion inside and then make a
-     new one.  */
-  if (TREE_CODE (expr) == WITH_RECORD_EXPR)
-    return build (WITH_RECORD_EXPR, type,
-		  unchecked_convert (type, TREE_OPERAND (expr, 0), notrunc_p),
-		  TREE_OPERAND (expr, 1));
 
   /* If both types types are integral just do a normal conversion.
      Likewise for a conversion to an unconstrained array.  */
@@ -3407,15 +3401,15 @@ unchecked_convert (tree type, tree expr, int notrunc_p)
       && 0 != compare_tree_int (TYPE_RM_SIZE (type),
 				GET_MODE_BITSIZE (TYPE_MODE (type)))
       && ! (INTEGRAL_TYPE_P (etype)
-	    && TREE_UNSIGNED (type) == TREE_UNSIGNED (etype)
+	    && TYPE_UNSIGNED (type) == TYPE_UNSIGNED (etype)
 	    && operand_equal_p (TYPE_RM_SIZE (type),
 				(TYPE_RM_SIZE (etype) != 0
 				 ? TYPE_RM_SIZE (etype) : TYPE_SIZE (etype)),
 				0))
-      && ! (TREE_UNSIGNED (type) && TREE_UNSIGNED (etype)))
+      && ! (TYPE_UNSIGNED (type) && TYPE_UNSIGNED (etype)))
     {
       tree base_type = gnat_type_for_mode (TYPE_MODE (type),
-					   TREE_UNSIGNED (type));
+					   TYPE_UNSIGNED (type));
       tree shift_expr
 	= convert (base_type,
 		   size_binop (MINUS_EXPR,

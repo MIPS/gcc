@@ -261,6 +261,8 @@ static void ia64_hpux_add_extern_decl (tree decl)
      ATTRIBUTE_UNUSED;
 static void ia64_hpux_file_end (void)
      ATTRIBUTE_UNUSED;
+static void ia64_init_libfuncs (void)
+     ATTRIBUTE_UNUSED;
 static void ia64_hpux_init_libfuncs (void)
      ATTRIBUTE_UNUSED;
 static void ia64_vms_init_libfuncs (void)
@@ -1104,7 +1106,10 @@ ia64_encode_section_info (tree decl, rtx rtl, int first)
 {
   default_encode_section_info (decl, rtl, first);
 
+  /* Careful not to prod global register variables.  */
   if (TREE_CODE (decl) == VAR_DECL
+      && GET_CODE (DECL_RTL (decl)) == MEM
+      && GET_CODE (XEXP (DECL_RTL (decl), 0)) == SYMBOL_REF
       && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
     ia64_encode_addr_area (decl, XEXP (rtl, 0));
 }
@@ -8717,7 +8722,7 @@ ia64_hpux_file_end (void)
   for (p = extern_func_head; p; p = p->next)
     {
       tree decl = p->decl;
-      tree id = DECL_NAME (decl);
+      tree id = DECL_ASSEMBLER_NAME (decl);
 
       if (!id)
 	abort ();
@@ -8737,11 +8742,25 @@ ia64_hpux_file_end (void)
   extern_func_head = 0;
 }
 
+/* Set SImode div/mod functions, init_integral_libfuncs only initializes
+   modes of word_mode and larger.  */
+
+static void
+ia64_init_libfuncs (void)
+{
+  set_optab_libfunc (sdiv_optab, SImode, "__divsi3");
+  set_optab_libfunc (udiv_optab, SImode, "__udivsi3");
+  set_optab_libfunc (smod_optab, SImode, "__modsi3");
+  set_optab_libfunc (umod_optab, SImode, "__umodsi3");
+}
+
 /* Rename all the TFmode libfuncs using the HPUX conventions.  */
 
 static void
 ia64_hpux_init_libfuncs (void)
 {
+  ia64_init_libfuncs ();
+
   set_optab_libfunc (add_optab, TFmode, "_U_Qfadd");
   set_optab_libfunc (sub_optab, TFmode, "_U_Qfsub");
   set_optab_libfunc (smul_optab, TFmode, "_U_Qfmpy");

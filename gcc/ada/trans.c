@@ -104,6 +104,9 @@ Node_Id error_gnat_node;
 static GTY(()) tree gnu_return_label_stack;
 
 static tree tree_transform (Node_Id);
+static rtx first_nondeleted_insn (rtx);
+static tree build_block_stmt (List_Id);
+static tree make_expr_stmt_from_rtl (rtx, Node_Id);
 static void elaborate_all_entities (Node_Id);
 static void process_freeze_entity (Node_Id);
 static void process_inlined_subprograms (Node_Id);
@@ -255,15 +258,60 @@ tree
 gnat_to_gnu (Node_Id gnat_node)
 {
   tree gnu_root;
+  bool made_sequence = false;
+    
+  /* We support the use of this on statements now as a transition
+     to full function-at-a-time processing.  So we need to see if anything
+     we do generates RTL and returns error_mark_node.  */
+  if (!global_bindings_p ())
+    {
+      start_sequence ();
+      emit_note (NOTE_INSN_DELETED);
+      made_sequence = true;
+    }
 
   /* Save node number in case error */
   error_gnat_node = gnat_node;
 
   gnu_root = tree_transform (gnat_node);
 
-  /* If we got no code as a result, something is wrong.  */
-  if (gnu_root == error_mark_node && ! type_annotate_only)
-    gigi_abort (303);
+  if (gnu_root == error_mark_node)
+    {
+      if (!made_sequence)
+	{
+	  if (type_annotate_only)
+	    return gnu_root;
+	  else
+	    gigi_abort (303);
+	}
+
+      gnu_root = make_expr_stmt_from_rtl (first_nondeleted_insn (get_insns ()),
+					  gnat_node);
+      end_sequence ();
+    }
+  else if (made_sequence)
+    {
+      rtx insns = first_nondeleted_insn (get_insns ());
+
+      end_sequence ();
+
+      if (insns)
+	{
+	  /* If we have a statement, we need to first evaluate any RTL we
+	     made in the process of building it and then the statement.  */
+	  if (IS_STMT (gnu_root))
+	    {
+	      tree gnu_expr_stmt = make_expr_stmt_from_rtl (insns, gnat_node);
+
+	      TREE_CHAIN (gnu_expr_stmt) = gnu_root;
+	      gnu_root = build_nt (BLOCK_STMT, gnu_expr_stmt);
+	      TREE_TYPE (gnu_root) = void_type_node;
+	      TREE_SLOC (gnu_root) = Sloc (gnat_node);
+	    }
+	  else
+	    emit_insn (insns);
+	}
+    }
 
   return gnu_root;
 }
@@ -289,6 +337,10 @@ tree_transform (Node_Id gnat_node)
 
   /* Set input_file_name and lineno from the Sloc in the GNAT tree. */
   set_lineno (gnat_node, 0);
+
+  if (IN (Nkind (gnat_node), N_Statement_Other_Than_Procedure_Call)
+      && type_annotate_only)
+    return error_mark_node;
 
   /* If this is a Statement and we are at top level, we add the statement
      as an elaboration for a null tree.  That will cause it to be placed
@@ -1236,8 +1288,8 @@ tree_transform (Node_Id gnat_node)
 	    if (CONTAINS_PLACEHOLDER_P (gnu_result))
 	      {
 		if (TREE_CODE (gnu_prefix) != TYPE_DECL)
-		  gnu_result = build (WITH_RECORD_EXPR, TREE_TYPE (gnu_result),
-				      gnu_result, gnu_expr);
+		  gnu_result = substitute_placeholder_in_expr (gnu_result,
+							       gnu_expr);
 		else
 		  gnu_result = max_size (gnu_result, 1);
 	      }
@@ -1381,9 +1433,8 @@ tree_transform (Node_Id gnat_node)
 	      /* If this has a PLACEHOLDER_EXPR, qualify it by the object
 		 we are handling.  Note that these attributes could not
 		 have been used on an unconstrained array type.  */
-	      if (CONTAINS_PLACEHOLDER_P (gnu_result))
-		gnu_result = build (WITH_RECORD_EXPR, TREE_TYPE (gnu_result),
-				    gnu_result, gnu_prefix);
+	      gnu_result = SUBSTITUTE_PLACEHOLDER_IN_EXPR (gnu_result,
+							   gnu_prefix);
 
 	      break;
 	    }
@@ -1486,9 +1537,8 @@ tree_transform (Node_Id gnat_node)
 
 	      /* If this has a PLACEHOLDER_EXPR, qualify it by the object
 		 we are handling. */
-	      if (CONTAINS_PLACEHOLDER_P (gnu_result))
-		gnu_result = build (WITH_RECORD_EXPR, TREE_TYPE (gnu_result),
-				    gnu_result, gnu_prefix);
+	      gnu_result = SUBSTITUTE_PLACEHOLDER_IN_EXPR (gnu_result,
+							   gnu_prefix);
 
 	      break;
 	    }
@@ -1496,7 +1546,7 @@ tree_transform (Node_Id gnat_node)
 	  case Attr_Min:
 	  case Attr_Max:
 	    gnu_lhs = gnat_to_gnu (First (Expressions (gnat_node)));
-	    gnu_rhs =  gnat_to_gnu (Next (First (Expressions (gnat_node))));
+	    gnu_rhs = gnat_to_gnu (Next (First (Expressions (gnat_node))));
 
 	    gnu_result_type = get_unpadded_type (Etype (gnat_node));
 	    gnu_result = build_binary_op (attribute == Attr_Min
@@ -1695,9 +1745,7 @@ tree_transform (Node_Id gnat_node)
 	{
 	  unsigned int align = known_alignment (gnu_result);
 	  tree gnu_obj_type = TREE_TYPE (gnu_result_type);
-	  unsigned int oalign
-	    = TREE_CODE (gnu_obj_type) == FUNCTION_TYPE
-	      ? FUNCTION_BOUNDARY : TYPE_ALIGN (gnu_obj_type);
+	  unsigned int oalign = TYPE_ALIGN (gnu_obj_type);
 
 	  if (align != 0 && align < oalign && ! TYPE_ALIGN_OK (gnu_obj_type))
 	    post_error_ne_tree_2
@@ -1799,7 +1847,7 @@ tree_transform (Node_Id gnat_node)
 
 	gnu_result_type = get_unpadded_type (Etype (gnat_node));
 
-	if (RTL_EXPR_SEQUENCE (gnu_rhs_side) != 0)
+	if (first_nondeleted_insn (RTL_EXPR_SEQUENCE (gnu_rhs_side)))
 	  gnu_rhs = build (COMPOUND_EXPR, gnu_result_type, gnu_rhs_side,
 			   gnu_rhs);
 
@@ -1890,10 +1938,10 @@ tree_transform (Node_Id gnat_node)
 	/* For right shifts, the type says what kind of shift to do,
 	   so we may need to choose a different type.  */
 	if (Nkind (gnat_node) == N_Op_Shift_Right
-	    && ! TREE_UNSIGNED (gnu_type))
+	    && ! TYPE_UNSIGNED (gnu_type))
 	  gnu_type = gnat_unsigned_type (gnu_type);
 	else if (Nkind (gnat_node) == N_Op_Shift_Right_Arithmetic
-		 && TREE_UNSIGNED (gnu_type))
+		 && TYPE_UNSIGNED (gnu_type))
 	  gnu_type = gnat_signed_type (gnu_type);
 
 	if (gnu_type != gnu_result_type)
@@ -2024,31 +2072,17 @@ tree_transform (Node_Id gnat_node)
     /***************************/
 
     case N_Label:
-      if (! type_annotate_only)
-	{
-	  tree gnu_label = gnat_to_gnu (Identifier (gnat_node));
-	  Node_Id gnat_parent = Parent (gnat_node);
-
-	  expand_label (gnu_label);
-
-	  /* If this is the first label of an exception handler, we must
-	     mark that any CALL_INSN can jump to it.  */
-	  if (Present (gnat_parent)
-	      && Nkind (gnat_parent) == N_Exception_Handler
-	      && First (Statements (gnat_parent)) == gnat_node)
-	    nonlocal_goto_handler_labels
-	      = gen_rtx_EXPR_LIST (VOIDmode, label_rtx (gnu_label),
-				   nonlocal_goto_handler_labels);
-	}
+      gnu_result = build_nt (LABEL_STMT, gnat_to_gnu (Identifier (gnat_node)));
+      LABEL_STMT_FIRST_IN_EH (gnu_result)
+	=  (Present (Parent (gnat_node))
+	    && Nkind (Parent (gnat_node)) == N_Exception_Handler
+	    && First (Statements (Parent (gnat_node))) == gnat_node);
       break;
 
     case N_Null_Statement:
       break;
 
     case N_Assignment_Statement:
-      if (type_annotate_only)
-	break;
-
       /* Get the LHS and RHS of the statement and convert any reference to an
 	 unconstrained array into a reference to the underlying array.  */
       gnu_lhs = maybe_unconstrained_array (gnat_to_gnu (Name (gnat_node)));
@@ -2075,53 +2109,28 @@ tree_transform (Node_Id gnat_node)
       break;
 
     case N_If_Statement:
-      /* Start an IF statement giving the condition.  */
-      gnu_expr = gnat_to_gnu (Condition (gnat_node));
-      set_lineno (gnat_node, 1);
-      expand_start_cond (gnu_expr, 0);
+      gnu_result = NULL_TREE;
 
-      /* Generate code for the statements to be executed if the condition
-	 is true.  */
-
-      for (gnat_temp = First (Then_Statements (gnat_node));
-	   Present (gnat_temp);
-	   gnat_temp = Next (gnat_temp))
-	gnat_to_code (gnat_temp);
-
-      /* Generate each of the "else if" parts.  */
+      /* Make an IF_STMT for each of the "else if" parts.  */
       if (Present (Elsif_Parts (gnat_node)))
-	{
-	  for (gnat_temp = First (Elsif_Parts (gnat_node));
-	       Present (gnat_temp);
-	       gnat_temp = Next (gnat_temp))
-	    {
-	      Node_Id gnat_statement;
+	for (gnat_temp = First (Elsif_Parts (gnat_node));
+	     Present (gnat_temp); gnat_temp = Next (gnat_temp))
+	  {
+	    tree gnu_elseif
+	      = build_nt (IF_STMT, gnat_to_gnu (Condition (gnat_temp)),
+			  build_block_stmt (Then_Statements (gnat_temp)),
+			  NULL_TREE, NULL_TREE);
 
-	      expand_start_else ();
+	    TREE_SLOC (gnu_elseif) = Sloc (Condition (gnat_temp));
+	    TREE_CHAIN (gnu_elseif) = gnu_result;
+	    TREE_TYPE (gnu_elseif) = void_type_node;
+	    gnu_result = gnu_elseif;
+	  }
 
-	      /* Set up the line numbers for each condition we test.  */
-	      set_lineno (Condition (gnat_temp), 1);
-	      expand_elseif (gnat_to_gnu (Condition (gnat_temp)));
-
-	      for (gnat_statement = First (Then_Statements (gnat_temp));
-		   Present (gnat_statement);
-		   gnat_statement = Next (gnat_statement))
-		gnat_to_code (gnat_statement);
-	    }
-	}
-
-      /* Finally, handle any statements in the "else" part.  */
-      if (Present (Else_Statements (gnat_node)))
-	{
-	  expand_start_else ();
-
-	  for (gnat_temp = First (Else_Statements (gnat_node));
-	       Present (gnat_temp);
-	       gnat_temp = Next (gnat_temp))
-	    gnat_to_code (gnat_temp);
-	}
-
-      expand_end_cond ();
+      gnu_result = build_nt (IF_STMT, gnat_to_gnu (Condition (gnat_node)),
+			     build_block_stmt (Then_Statements (gnat_node)),
+			     nreverse (gnu_result),
+			     build_block_stmt (Else_Statements (gnat_node)));
       break;
 
     case N_Case_Statement:
@@ -2460,9 +2469,6 @@ tree_transform (Node_Id gnat_node)
       break;
 
     case N_Return_Statement:
-      if (type_annotate_only)
-	break;
-
       {
 	/* The gnu function type of the subprogram currently processed.  */
 	tree gnu_subprog_type = TREE_TYPE (current_function_decl);
@@ -2482,7 +2488,11 @@ tree_transform (Node_Id gnat_node)
 	   a branch to that label.  */
 
 	if (TREE_VALUE (gnu_return_label_stack) != 0)
-	  expand_goto (TREE_VALUE (gnu_return_label_stack));
+	  {
+	    gnu_result = build_nt (GOTO_STMT,
+				   TREE_VALUE (gnu_return_label_stack));
+	    break;
+	  }
 
 	else if (TYPE_CI_CO_LIST (gnu_subprog_type) != NULL_TREE)
 	  {
@@ -2542,25 +2552,12 @@ tree_transform (Node_Id gnat_node)
 	      }
 	  }
 
-	set_lineno (gnat_node, 1);
-	if (gnu_ret_val)
-	  expand_return (build_binary_op (MODIFY_EXPR, NULL_TREE,
-					  DECL_RESULT (current_function_decl),
-					  gnu_ret_val));
-	else
-	  expand_null_return ();
-
+	gnu_result = build_nt (RETURN_STMT, gnu_ret_val);
       }
       break;
 
     case N_Goto_Statement:
-      if (type_annotate_only)
-	break;
-
-      gnu_expr = gnat_to_gnu (Name (gnat_node));
-      TREE_USED (gnu_expr) = 1;
-      set_lineno (gnat_node, 1);
-      expand_goto (gnu_expr);
+      gnu_result = build_nt (GOTO_STMT, gnat_to_gnu (Name (gnat_node)));
       break;
 
     /****************************/
@@ -3638,30 +3635,14 @@ tree_transform (Node_Id gnat_node)
 		  if (Present (Renamed_Object (gnat_ex_id)))
 		    gnat_ex_id = Renamed_Object (gnat_ex_id);
 
-		  /* ??? Note that we have to use gnat_to_gnu_entity here
-		     since the type of the exception will be wrong in the
-		     VMS case and that's exactly what this test is for.  */
 		  gnu_expr = gnat_to_gnu_entity (gnat_ex_id, NULL_TREE, 0);
 
-		  /* If this was a VMS exception, check import_code
-		     against the value of the exception.  */
-		  if (TREE_CODE (TREE_TYPE (gnu_expr)) == INTEGER_TYPE)
-		    this_choice
-		      = build_binary_op
-			(EQ_EXPR, integer_type_node,
-			 build_component_ref
-			 (build_unary_op
-			  (INDIRECT_REF, NULL_TREE,
-			   TREE_VALUE (gnu_except_ptr_stack)),
-			  get_identifier ("import_code"), NULL_TREE, 0),
-			 gnu_expr);
-		  else
-		    this_choice
-		      = build_binary_op
-			(EQ_EXPR, integer_type_node,
-			 TREE_VALUE (gnu_except_ptr_stack),
-			 convert
-			 (TREE_TYPE (TREE_VALUE (gnu_except_ptr_stack)),
+		  this_choice
+		    = build_binary_op
+		      (EQ_EXPR, integer_type_node,
+		       TREE_VALUE (gnu_except_ptr_stack),
+		       convert
+		         (TREE_TYPE (TREE_VALUE (gnu_except_ptr_stack)),
 			  build_unary_op (ADDR_EXPR, NULL_TREE, gnu_expr)));
 
 		  /* If this is the distinguished exception "Non_Ada_Error"
@@ -3744,6 +3725,9 @@ tree_transform (Node_Id gnat_node)
 
  		  gnu_etype
 		    = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_expr);
+
+		  /* The Non_Ada_Error case for VMS exceptions is handled
+		     by the personality routine.  */
  		}
  	      else
  		gigi_abort (337);
@@ -4191,17 +4175,128 @@ tree_transform (Node_Id gnat_node)
   return gnu_result;
 }
 
+/* INSN is a list of insns.  Return the first rtl in the list that isn't
+   an INSN_NOTE_DELETED.  */
+
+static rtx
+first_nondeleted_insn (rtx insns)
+{
+  for (; insns && GET_CODE (insns) == NOTE
+       && NOTE_LINE_NUMBER (insns) == NOTE_INSN_DELETED;
+       insns = NEXT_INSN (insns))
+    ;
+
+  return insns;
+}
+
+/* Build a BLOCK_STMT from GNAT_LIST, a possibly-empty list of statements.  */
+
+static tree
+build_block_stmt (List_Id gnat_list)
+{
+  tree gnu_result = NULL_TREE;
+  Node_Id gnat_node;
+
+  if (No (gnat_list) || Is_Empty_List (gnat_list))
+    return NULL_TREE;
+
+  for (gnat_node = First (gnat_list);
+       Present (gnat_node);
+       gnat_node = Next (gnat_node))
+    gnu_result = chainon (gnat_to_gnu (gnat_node), gnu_result);
+
+  gnu_result = build_nt (BLOCK_STMT, nreverse (gnu_result));
+  TREE_SLOC (gnu_result) = TREE_SLOC (BLOCK_STMT_LIST (gnu_result));
+  TREE_TYPE (gnu_result) = void_type_node;
+  return gnu_result;
+} 
+
+/* Build an EXPR_STMT to evaluate INSNS.  Use Sloc from GNAT_NODE.   */
+
+static tree
+make_expr_stmt_from_rtl (rtx insns, Node_Id gnat_node)
+{
+  tree gnu_result = make_node (RTL_EXPR);
+
+  TREE_TYPE (gnu_result) = void_type_node;
+  RTL_EXPR_RTL (gnu_result) = RTL_EXPR_ALT_RTL (gnu_result) = const0_rtx;
+  RTL_EXPR_SEQUENCE (gnu_result) = insns;
+  rtl_expr_chain = tree_cons (NULL_TREE, gnu_result, rtl_expr_chain);
+
+  gnu_result = build_nt (EXPR_STMT, gnu_result);
+  TREE_SLOC (gnu_result) = Sloc (gnat_node);
+  TREE_TYPE (gnu_result) = void_type_node;
+
+  return gnu_result;
+}
+
 /* GNU_STMT is a statement.  We generate code for that statement.  */
 
 void
 gnat_expand_stmt (tree gnu_stmt)
 {
-  set_lineno_from_sloc (TREE_SLOC (gnu_stmt), 1);
+  tree gnu_elmt;
+
+  if (TREE_SLOC (gnu_stmt))
+    set_lineno_from_sloc (TREE_SLOC (gnu_stmt), 1);
 
   switch (TREE_CODE (gnu_stmt))
     {
     case EXPR_STMT:
       expand_expr_stmt (EXPR_STMT_EXPR (gnu_stmt));
+      break;
+
+    case BLOCK_STMT:
+      for (gnu_elmt = BLOCK_STMT_LIST (gnu_stmt); gnu_elmt;
+	   gnu_elmt = TREE_CHAIN (gnu_elmt))
+	expand_expr_stmt (gnu_elmt);
+      break;
+
+    case IF_STMT:
+      expand_start_cond (IF_STMT_COND (gnu_stmt), 0);
+
+      if (IF_STMT_TRUE (gnu_stmt))
+	expand_expr_stmt (IF_STMT_TRUE (gnu_stmt));
+
+      for (gnu_elmt = IF_STMT_ELSEIF (gnu_stmt); gnu_elmt;
+	   gnu_elmt = TREE_CHAIN (gnu_elmt))
+	{
+	  expand_start_else ();
+	  set_lineno_from_sloc (TREE_SLOC (gnu_elmt), 1);
+	  expand_elseif (IF_STMT_COND (gnu_elmt));
+	  expand_expr_stmt (IF_STMT_TRUE (gnu_elmt));
+	}
+
+      if (IF_STMT_ELSE (gnu_stmt))
+	{
+	  expand_start_else ();
+	  expand_expr_stmt (IF_STMT_ELSE (gnu_stmt));
+	}
+
+      expand_end_cond ();
+      break;
+
+    case GOTO_STMT:
+      TREE_USED (GOTO_STMT_LABEL (gnu_stmt)) = 1;
+      expand_goto (GOTO_STMT_LABEL (gnu_stmt));
+      break;
+
+    case LABEL_STMT:
+      expand_label (LABEL_STMT_LABEL (gnu_stmt));
+      if (LABEL_STMT_FIRST_IN_EH (gnu_stmt))
+	nonlocal_goto_handler_labels
+	  = gen_rtx_EXPR_LIST (VOIDmode,
+			       label_rtx (LABEL_STMT_LABEL (gnu_stmt)),
+			       nonlocal_goto_handler_labels);
+      break;
+
+    case RETURN_STMT:
+      if (RETURN_STMT_EXPR (gnu_stmt))
+	expand_return (build_binary_op (MODIFY_EXPR, NULL_TREE,
+					DECL_RESULT (current_function_decl),
+					RETURN_STMT_EXPR (gnu_stmt)));
+      else
+	expand_null_return ();
       break;
 
     default:
@@ -4637,13 +4732,8 @@ emit_index_check (tree gnu_array_object,
 
   /* If GNU_LOW or GNU_HIGH are a PLACEHOLDER_EXPR, qualify them by
      the object we are handling. */
-  if (CONTAINS_PLACEHOLDER_P (gnu_low))
-    gnu_low = build (WITH_RECORD_EXPR, TREE_TYPE (gnu_low),
-		     gnu_low, gnu_array_object);
-
-  if (CONTAINS_PLACEHOLDER_P (gnu_high))
-    gnu_high = build (WITH_RECORD_EXPR, TREE_TYPE (gnu_high),
-		      gnu_high, gnu_array_object);
+  gnu_low = SUBSTITUTE_PLACEHOLDER_IN_EXPR (gnu_low, gnu_array_object);
+  gnu_high = SUBSTITUTE_PLACEHOLDER_IN_EXPR (gnu_high, gnu_array_object);
 
   /* There's no good type to use here, so we might as well use
      integer_type_node.   */
@@ -4716,10 +4806,6 @@ convert_with_check (Entity_Id gnat_type,
   tree gnu_in_basetype = get_base_type (gnu_in_type);
   tree gnu_base_type = get_base_type (gnu_type);
   tree gnu_ada_base_type = get_ada_base_type (gnu_type);
-  tree gnu_in_lb = TYPE_MIN_VALUE (gnu_in_basetype);
-  tree gnu_in_ub = TYPE_MAX_VALUE (gnu_in_basetype);
-  tree gnu_out_lb = TYPE_MIN_VALUE (gnu_base_type);
-  tree gnu_out_ub = TYPE_MAX_VALUE (gnu_base_type);
   tree gnu_result = gnu_expr;
 
   /* If we are not doing any checks, the output is an integral type, and
@@ -4747,21 +4833,25 @@ convert_with_check (Entity_Id gnat_type,
       /* Ensure GNU_EXPR only gets evaluated once.  */
       tree gnu_input = protect_multiple_eval (gnu_result);
       tree gnu_cond = integer_zero_node;
+      tree gnu_in_lb = TYPE_MIN_VALUE (gnu_in_basetype);
+      tree gnu_in_ub = TYPE_MAX_VALUE (gnu_in_basetype);
+      tree gnu_out_lb = TYPE_MIN_VALUE (gnu_base_type);
+      tree gnu_out_ub = TYPE_MAX_VALUE (gnu_base_type);
 
       /* Convert the lower bounds to signed types, so we're sure we're
 	 comparing them properly.  Likewise, convert the upper bounds
 	 to unsigned types.  */
-      if (INTEGRAL_TYPE_P (gnu_in_basetype) && TREE_UNSIGNED (gnu_in_basetype))
+      if (INTEGRAL_TYPE_P (gnu_in_basetype) && TYPE_UNSIGNED (gnu_in_basetype))
 	gnu_in_lb = convert (gnat_signed_type (gnu_in_basetype), gnu_in_lb);
 
       if (INTEGRAL_TYPE_P (gnu_in_basetype)
-	  && ! TREE_UNSIGNED (gnu_in_basetype))
+	  && !TYPE_UNSIGNED (gnu_in_basetype))
 	gnu_in_ub = convert (gnat_unsigned_type (gnu_in_basetype), gnu_in_ub);
 
-      if (INTEGRAL_TYPE_P (gnu_base_type) && TREE_UNSIGNED (gnu_base_type))
+      if (INTEGRAL_TYPE_P (gnu_base_type) && TYPE_UNSIGNED (gnu_base_type))
 	gnu_out_lb = convert (gnat_signed_type (gnu_base_type), gnu_out_lb);
 
-      if (INTEGRAL_TYPE_P (gnu_base_type) && ! TREE_UNSIGNED (gnu_base_type))
+      if (INTEGRAL_TYPE_P (gnu_base_type) && !TYPE_UNSIGNED (gnu_base_type))
 	gnu_out_ub = convert (gnat_unsigned_type (gnu_base_type), gnu_out_ub);
 
       /* Check each bound separately and only if the result bound

@@ -130,7 +130,7 @@ prove_truth_value_ge (tree type, tree chrec0, tree chrec1, bool *value)
 static inline bool
 prove_truth_value_eq (tree type, tree chrec0, tree chrec1, bool *value)
 {
-  tree diff = chrec_fold_minus (integer_type_node, chrec0, chrec1);
+  tree diff = chrec_fold_minus (type, chrec0, chrec1);
   
   if (TREE_CODE (diff) == INTEGER_CST)
     {

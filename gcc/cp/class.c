@@ -213,7 +213,7 @@ static tree get_vcall_index (tree, tree);
 /* Macros for dfs walking during vtt construction. See
    dfs_ctor_vtable_bases_queue_p, dfs_build_secondary_vptr_vtt_inits
    and dfs_fixup_binfo_vtbls.  */
-#define VTT_TOP_LEVEL_P(NODE) TREE_UNSIGNED (NODE)
+#define VTT_TOP_LEVEL_P(NODE) (TREE_LIST_CHECK (NODE)->common.unsigned_flag)
 #define VTT_MARKED_BINFO_P(NODE) TREE_USED (NODE)
 
 /* Variables shared between class.c and call.c.  */
@@ -1426,8 +1426,8 @@ finish_struct_bits (tree t)
       TYPE_POLYMORPHIC_P (variants) = TYPE_POLYMORPHIC_P (t);
       TYPE_USES_VIRTUAL_BASECLASSES (variants) = TYPE_USES_VIRTUAL_BASECLASSES (t);
       /* Copy whatever these are holding today.  */
-      TYPE_MIN_VALUE (variants) = TYPE_MIN_VALUE (t);
-      TYPE_MAX_VALUE (variants) = TYPE_MAX_VALUE (t);
+      TYPE_VFIELD (variants) = TYPE_VFIELD (t);
+      TYPE_METHODS (variants) = TYPE_METHODS (t);
       TYPE_FIELDS (variants) = TYPE_FIELDS (t);
       TYPE_SIZE (variants) = TYPE_SIZE (t);
       TYPE_SIZE_UNIT (variants) = TYPE_SIZE_UNIT (t);
@@ -2714,11 +2714,11 @@ check_bitfield_decl (tree field)
       else if (TREE_CODE (type) == ENUMERAL_TYPE
 	       && (0 > compare_tree_int (w,
 					 min_precision (TYPE_MIN_VALUE (type),
-							TREE_UNSIGNED (type)))
+							TYPE_UNSIGNED (type)))
 		   ||  0 > compare_tree_int (w,
 					     min_precision
 					     (TYPE_MAX_VALUE (type),
-					      TREE_UNSIGNED (type)))))
+					      TYPE_UNSIGNED (type)))))
 	cp_warning_at ("`%D' is too small to hold all values of `%#T'",
 		       field, type);
     }
@@ -2927,8 +2927,29 @@ check_field_decls (tree t, tree *access_decls,
 
       /* If we've gotten this far, it's a data member, possibly static,
 	 or an enumerator.  */
-
       DECL_CONTEXT (x) = t;
+
+      /* When this goes into scope, it will be a non-local reference.  */
+      DECL_NONLOCAL (x) = 1;
+
+      if (TREE_CODE (t) == UNION_TYPE)
+	{
+	  /* [class.union]
+
+	     If a union contains a static data member, or a member of
+	     reference type, the program is ill-formed. */
+	  if (TREE_CODE (x) == VAR_DECL)
+	    {
+	      cp_error_at ("`%D' may not be static because it is a member of a union", x);
+	      continue;
+	    }
+	  if (TREE_CODE (type) == REFERENCE_TYPE)
+	    {
+	      cp_error_at ("`%D' may not have reference type `%T' because it is a member of a union",
+			   x, type);
+	      continue;
+	    }
+	}
 
       /* ``A local class cannot have static data members.'' ARM 9.4 */
       if (current_function_decl && TREE_STATIC (x))
@@ -2953,20 +2974,8 @@ check_field_decls (tree t, tree *access_decls,
       if (type == error_mark_node)
 	continue;
 	  
-      /* When this goes into scope, it will be a non-local reference.  */
-      DECL_NONLOCAL (x) = 1;
-
-      if (TREE_CODE (x) == CONST_DECL)
+      if (TREE_CODE (x) == CONST_DECL || TREE_CODE (x) == VAR_DECL)
 	continue;
-
-      if (TREE_CODE (x) == VAR_DECL)
-	{
-	  if (TREE_CODE (t) == UNION_TYPE)
-	    /* Unions cannot have static members.  */
-	    cp_error_at ("field `%D' declared static in union", x);
-	      
-	  continue;
-	}
 
       /* Now it can only be a FIELD_DECL.  */
 
@@ -2997,6 +3006,14 @@ check_field_decls (tree t, tree *access_decls,
       
       if (TYPE_PTR_P (type))
 	has_pointers = 1;
+
+      if (CLASS_TYPE_P (type))
+	{
+	  if (CLASSTYPE_REF_FIELDS_NEED_INIT (type))
+	    SET_CLASSTYPE_REF_FIELDS_NEED_INIT (t, 1);
+	  if (CLASSTYPE_READONLY_FIELDS_NEED_INIT (type))
+	    SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT (t, 1);
+	}
 
       if (DECL_MUTABLE_P (x) || TYPE_HAS_MUTABLE_P (type))
 	CLASSTYPE_HAS_MUTABLE (t) = 1;
@@ -3687,11 +3704,6 @@ check_methods (tree t)
 
   for (x = TYPE_METHODS (t); x; x = TREE_CHAIN (x))
     {
-      /* If this was an evil function, don't keep it in class.  */
-      if (DECL_ASSEMBLER_NAME_SET_P (x) 
-	  && IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (x)))
-	continue;
-
       check_for_override (x, t);
       if (DECL_PURE_VIRTUAL_P (x) && ! DECL_VINDEX (x))
 	cp_error_at ("initializer specified for non-virtual method `%D'", x);
@@ -6898,15 +6910,13 @@ build_vtt_inits (tree binfo, tree t, tree* inits, tree* index)
   return inits;
 }
 
-/* Called from build_vtt_inits via dfs_walk.  BINFO is the binfo
-   for the base in most derived. DATA is a TREE_LIST who's
-   TREE_CHAIN is the type of the base being
-   constructed whilst this secondary vptr is live.  The TREE_UNSIGNED
-   flag of DATA indicates that this is a constructor vtable.  The
+/* Called from build_vtt_inits via dfs_walk.  BINFO is the binfo for the base
+   in most derived. DATA is a TREE_LIST who's TREE_CHAIN is the type of the
+   base being constructed whilst this secondary vptr is live.  The
    TREE_TOP_LEVEL flag indicates that this is the primary VTT.  */
 
 static tree
-dfs_build_secondary_vptr_vtt_inits (tree binfo, void* data)
+dfs_build_secondary_vptr_vtt_inits (tree binfo, void *data)
 {
   tree l; 
   tree t;

@@ -1867,14 +1867,10 @@ gimplify_self_mod_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	      | val
 
     PRE_P points to the list where side effects that must happen before
-	*EXPR_P should be stored.
-
-    POST_P points to the list where side effects that must happen after
 	*EXPR_P should be stored.  */
 
 static enum gimplify_status
-gimplify_call_expr (tree *expr_p, tree *pre_p, tree *post_p,
-		    bool (*gimple_test_f) (tree))
+gimplify_call_expr (tree *expr_p, tree *pre_p, bool (*gimple_test_f) (tree))
 {
   tree decl;
   tree arglist;
@@ -1930,7 +1926,10 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	}
     }
 
-  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+  /* There is a sequence point before the call, so any side effects in
+     the calling expression must occur before the actual call.  Force
+     gimplify_expr to use an internal post queue.  */
+  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, NULL,
 		       is_gimple_val, fb_rvalue);
 
   if (PUSH_ARGS_REVERSED)
@@ -1939,8 +1938,14 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, tree *post_p,
        arglist = TREE_CHAIN (arglist))
     {
       enum gimplify_status t;
-      t = gimplify_expr (&TREE_VALUE (arglist), pre_p, post_p,
-			 is_gimple_val, fb_rvalue);
+
+      /* There is a sequence point before a function call.  Side effects in
+	 the argument list must occur before the actual call. So, when
+	 gimplifying arguments, force gimplify_expr to use an internal
+	 post queue which is then appended to the end of PRE_P.  */
+      t = gimplify_expr (&TREE_VALUE (arglist), pre_p, NULL, is_gimple_val,
+			 fb_rvalue);
+
       if (t == GS_ERROR)
 	ret = GS_ERROR;
     }
@@ -3075,7 +3080,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case CALL_EXPR:
-	  ret = gimplify_call_expr (expr_p, pre_p, post_p, gimple_test_f);
+	  ret = gimplify_call_expr (expr_p, pre_p, gimple_test_f);
 	  break;
 
 	case TREE_LIST:

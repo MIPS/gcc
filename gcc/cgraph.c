@@ -478,7 +478,7 @@ cgraph_rtl_info (tree decl)
 const char *
 cgraph_node_name (struct cgraph_node *node)
 {
-  return (*lang_hooks.decl_printable_name) (node->decl, 2);
+  return lang_hooks.decl_printable_name (node->decl, 2);
 }
 
 /* Dump given cgraph node.  */

@@ -69,35 +69,41 @@ Boston, MA 02111-1307, USA.  */
 #endif /* IN_LIBGCC2 */
 #define TARGET_ARCH64 (! TARGET_ARCH32)
 
-/* Code model selection.
-   -mcmodel is used to select the v9 code model.
-   Different code models aren't supported for v7/8 code.
+/* Code model selection in 64-bit environment.
 
-   TARGET_CM_32:     32 bit address space, top 32 bits = 0,
-		     pointers are 32 bits.  Note that this isn't intended
-                     to imply a v7/8 abi.
+   The machine mode used for addresses is 32-bit wide:
 
-   TARGET_CM_MEDLOW: 32 bit address space, top 32 bits = 0,
-                     avoid generating %uhi and %ulo terms,
-		     pointers are 64 bits.
+   TARGET_CM_32:     32-bit address space.
+                     It is the code model used when generating 32-bit code.
 
-   TARGET_CM_MEDMID: 64 bit address space.
-                     The executable must be in the low 16 TB of memory.
-                     This corresponds to the low 44 bits, and the %[hml]44
-                     relocs are used.  The text segment has a maximum size
-                     of 31 bits.
+   The machine mode used for addresses is 64-bit wide:
 
-   TARGET_CM_MEDANY: 64 bit address space.
-                     The text and data segments have a maximum size of 31
-                     bits and may be located anywhere.  The maximum offset
-                     from any instruction to the label _GLOBAL_OFFSET_TABLE_
-                     is 31 bits.
+   TARGET_CM_MEDLOW: 32-bit address space.
+                     The executable must be in the low 32 bits of memory.
+                     This avoids generating %uhi and %ulo terms.  Programs
+                     can be statically or dynamically linked.
 
-   TARGET_CM_EMBMEDANY: 64 bit address space.
-                     The text and data segments have a maximum size of 31 bits
-                     and may be located anywhere.  Register %g4 contains
-                     the start address of the data segment.
-*/
+   TARGET_CM_MEDMID: 44-bit address space.
+                     The executable must be in the low 44 bits of memory,
+                     and the %[hml]44 terms are used.  The text and data
+                     segments have a maximum size of 2GB (31-bit span).
+                     The maximum offset from any instruction to the label
+                     _GLOBAL_OFFSET_TABLE_ is 2GB (31-bit span).
+
+   TARGET_CM_MEDANY: 64-bit address space.
+                     The text and data segments have a maximum size of 2GB
+                     (31-bit span) and may be located anywhere in memory.
+                     The maximum offset from any instruction to the label
+                     _GLOBAL_OFFSET_TABLE_ is 2GB (31-bit span).
+
+   TARGET_CM_EMBMEDANY: 64-bit address space.
+                     The text and data segments have a maximum size of 2GB
+                     (31-bit span) and may be located anywhere in memory.
+                     The global register %g4 contains the start address of
+                     the data segment.  Programs are statically linked and
+                     PIC is not supported.
+
+   Different code models are not supported in 32-bit environment.  */
 
 enum cmodel {
   CM_32,
@@ -693,14 +699,9 @@ extern struct sparc_cpu_select sparc_select[];
 #define LONG_LONG_TYPE_SIZE	64
 #define FLOAT_TYPE_SIZE		32
 #define DOUBLE_TYPE_SIZE	64
-
-#if 0
-/* ??? This does not work in SunOS 4.x, so it is not enabled here.
-   Instead, it is enabled in sol2.h, because it does work under Solaris.  */
-/* Define for support of TFmode long double.
-   SPARC ABI says that long double is 4 words.  */
-#define LONG_DOUBLE_TYPE_SIZE 128
-#endif
+/* LONG_DOUBLE_TYPE_SIZE is defined per OS even though the
+   SPARC ABI says that it is 128-bit wide.  */
+/* #define LONG_DOUBLE_TYPE_SIZE	128 */
 
 /* Width in bits of a pointer.
    See also the macro `Pmode' defined below.  */
@@ -711,23 +712,15 @@ extern struct sparc_cpu_select sparc_select[];
    if ptr_mode and Pmode are the same.  */
 #define POINTERS_EXTEND_UNSIGNED 1
 
-/* A macro to update MODE and UNSIGNEDP when an object whose type
-   is TYPE and which has the specified mode and signedness is to be
-   stored in a register.  This macro is only called when TYPE is a
-   scalar type.  */
-#define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE) \
+/* For TARGET_ARCH64 we need this, as we don't have instructions
+   for arithmetic operations which do zero/sign extension at the same time,
+   so without this we end up with a srl/sra after every assignment to an
+   user variable,  which means very very bad code.  */
+#define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE) \
 if (TARGET_ARCH64				\
     && GET_MODE_CLASS (MODE) == MODE_INT	\
     && GET_MODE_SIZE (MODE) < UNITS_PER_WORD)	\
   (MODE) = word_mode;
-
-/* This is only needed for TARGET_ARCH64, but since PROMOTE_MODE is a no-op
-   for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime test
-   for this value.  For TARGET_ARCH64 we need it, as we don't have instructions
-   for arithmetic operations which do zero/sign extension at the same time,
-   so without this we end up with a srl/sra after every assignment to an
-   user variable,  which means very very bad code.  */
-#define PROMOTE_FOR_CALL_ONLY
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY (TARGET_ARCH64 ? 64 : 32)
@@ -801,15 +794,6 @@ if (TARGET_ARCH64				\
    because the linker fails to align the text section enough!
    Put them in the data section.  This macro is only used in this file.  */
 #define MAX_TEXT_ALIGN 32
-
-/* This forces all variables and constants to the data section when PIC.
-   This is because the SunOS 4 shared library scheme thinks everything in
-   text is a function, and patches the address to point to a loader stub.  */
-/* This is defined to zero for every system which doesn't use the a.out object
-   file format.  */
-#ifndef SUNOS4_SHARED_LIBRARIES
-#define SUNOS4_SHARED_LIBRARIES 0
-#endif
 
 /* Standard register usage.  */
 
@@ -2221,9 +2205,7 @@ do {                                                                    \
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
-/* Specify the machine mode that pointers have.
-   After generation of rtl, the compiler makes no further distinction
-   between pointers and any other objects of this machine mode.  */
+/* Specify the machine mode used for addresses.  */
 #define Pmode (TARGET_ARCH64 ? DImode : SImode)
 
 /* Generate calls to memcpy, memcmp and memset.  */
@@ -2265,8 +2247,9 @@ do {                                                                    \
 /* Assume by default that we do not have the Solaris-specific conversion
    routines nor 64-bit integer multiply and divide routines.  */
 
-#define SUN_CONVERSION_LIBFUNCS 0
-#define SUN_INTEGER_MULTIPLY_64 0
+#define SUN_CONVERSION_LIBFUNCS 	0
+#define DITF_CONVERSION_LIBFUNCS	0
+#define SUN_INTEGER_MULTIPLY_64 	0
 
 /* Compute extra cost of moving data between one register class
    and another.  */

@@ -338,11 +338,10 @@ grokclassfn (tree ctype, tree function, enum overload_flags flags, tree quals)
       qual_type = cp_build_qualified_type (type, this_quals);
       parm = build_artificial_parm (this_identifier, qual_type);
       c_apply_type_quals_to_decl (this_quals, parm);
-      TREE_CHAIN (parm) = last_function_parms;
-      last_function_parms = parm;
+      TREE_CHAIN (parm) = DECL_ARGUMENTS (function);
+      DECL_ARGUMENTS (function) = parm;
     }
 
-  DECL_ARGUMENTS (function) = last_function_parms;
   DECL_CONTEXT (function) = ctype;
 
   if (flags == DTOR_FLAG)
@@ -382,7 +381,8 @@ grok_array_decl (tree array_expr, tree index_exp)
   /* If they have an `operator[]', use that.  */
   if (IS_AGGR_TYPE (type) || IS_AGGR_TYPE (TREE_TYPE (index_exp)))
     expr = build_new_op (ARRAY_REF, LOOKUP_NORMAL,
-			 array_expr, index_exp, NULL_TREE);
+			 array_expr, index_exp, NULL_TREE,
+			 /*overloaded_p=*/NULL);
   else
     {
       tree p1, p2, i1, i2;
@@ -1401,7 +1401,9 @@ comdat_linkage (tree decl)
 
 /* For win32 we also want to put explicit instantiations in
    linkonce sections, so that they will be merged with implicit
-   instantiations; otherwise we get duplicate symbol errors.  */
+   instantiations; otherwise we get duplicate symbol errors.  
+   For Darwin we do not want explicit instantiations to be 
+   linkonce. */
 
 void
 maybe_make_one_only (tree decl)
@@ -1420,13 +1422,18 @@ maybe_make_one_only (tree decl)
      to for variables so that cp_finish_decl will update their linkage,
      because their DECL_INITIAL may not have been set properly yet.  */
 
-  make_decl_one_only (decl);
-
-  if (TREE_CODE (decl) == VAR_DECL)
+  if (TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY
+      || (! DECL_EXPLICIT_INSTANTIATION (decl)
+	  && ! DECL_TEMPLATE_SPECIALIZATION (decl)))
     {
-      DECL_COMDAT (decl) = 1;
-      /* Mark it needed so we don't forget to emit it.  */
-      mark_referenced (DECL_ASSEMBLER_NAME (decl));
+      make_decl_one_only (decl);
+
+      if (TREE_CODE (decl) == VAR_DECL)
+	{
+	  DECL_COMDAT (decl) = 1;
+	  /* Mark it needed so we don't forget to emit it.  */
+	  mark_referenced (DECL_ASSEMBLER_NAME (decl));
+	}
     }
 }
 
@@ -3030,6 +3037,7 @@ mark_used (tree decl)
 		  generate its body to find that out.  */
 	       || TREE_NOTHROW (decl)
 	       || !cfun
+	       || !current_function_decl
 	       /* If we already know the current function can't throw,
 		  then we don't need to work hard to prove it.  */
 	       || TREE_NOTHROW (current_function_decl)

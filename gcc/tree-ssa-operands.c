@@ -676,13 +676,13 @@ get_stmt_operands (tree stmt)
   if (TREE_CODE (stmt) == ERROR_MARK)
     return;
 
+  ann = get_stmt_ann (stmt);
+
   /* If the statement has not been modified, the operands are still valid.  */
-  if (!stmt_modified_p (stmt))
+  if (!ann->modified)
     return;
 
   timevar_push (TV_TREE_OPS);
-
-  ann = get_stmt_ann (stmt);
 
   /* Initially assume that the statement has no volatile operands.
      Statements marked with 'has_volatile_ops' are not processed by the
@@ -769,9 +769,9 @@ get_stmt_operands (tree stmt)
 	    get_expr_operands (stmt, &TREE_VALUE (link), 0, &prev_vops);
 	  }
 
+	/* Clobber memory for asm ("" : : : "memory");  */
 	for (link = ASM_CLOBBERS (stmt); link; link = TREE_CHAIN (link))
-	  if (!strcmp (TREE_STRING_POINTER (TREE_VALUE (link)), "memory")
-	      && bitmap_first_set_bit (call_clobbered_vars) >= 0)
+	  if (!strcmp (TREE_STRING_POINTER (TREE_VALUE (link)), "memory"))
 	    add_call_clobber_ops (stmt, &prev_vops);
       }
       break;
@@ -1077,11 +1077,13 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
       return;
     }
 
-  /* VA_ARG_EXPR nodes read and modify the argument pointer.  Add it to
-     VOPS to avoid optimizations messing it up.  */
+
+  /* Mark VA_ARG_EXPR nodes as making volatile references.  FIXME,
+     this is needed because we currently do not gimplify VA_ARG_EXPR
+     properly.  */
   if (code == VA_ARG_EXPR)
     {
-      add_stmt_operand (&TREE_OPERAND (expr, 0), stmt, opf_is_def, prev_vops);
+      stmt_ann (stmt)->has_volatile_ops = true;
       return;
     }
 

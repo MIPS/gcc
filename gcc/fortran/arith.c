@@ -390,7 +390,6 @@ cosine (mpf_t * arg, mpf_t * result)
 }
 
 
-
 /* Calculate atan(arg).
 
    Similar to sine but requires special handling for x near 1.  */
@@ -515,6 +514,49 @@ arctangent (mpf_t * arg, mpf_t * result)
   mpf_clear (x);
 }
 
+
+/* Calculate atan2 (y, x)
+
+atan2(y, x) = atan(y/x)				if x > 0,
+	      sign(y)*(pi - atan(|y/x|))	if x < 0,
+	      0					if x = 0 && y == 0,
+	      sign(y)*pi/2			if x = 0 && y != 0.
+*/
+
+void
+arctangent2 (mpf_t * y, mpf_t * x, mpf_t * result)
+{
+  mpf_t t;
+
+  mpf_init (t);
+
+  switch (mpf_sgn (*x))
+    {
+    case 1:
+      mpf_div (t, *y, *x);
+      arctangent (&t, result);
+      break;
+    case -1:
+      mpf_div (t, *y, *x);
+      mpf_abs (t, t);
+      arctangent (&t, &t);
+      mpf_sub (*result, pi, t);
+      if (mpf_sgn (*y) == -1)
+	mpf_neg (*result, *result);
+      break;
+    case 0:
+      if (mpf_sgn (*y) == 0)
+	mpf_set_ui (*result, 0);
+      else
+	{
+	  mpf_set (*result, half_pi);
+	  if (mpf_sgn (*y) == -1)
+	    mpf_neg (*result, *result);
+	}
+       break;
+    }
+  mpf_clear (t);
+}
 
 /* Calculate cosh(arg). */
 
@@ -1405,8 +1447,8 @@ gfc_arith_divide (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 
       mpf_mul (x, op1->value.complex.i, op2->value.complex.r);
       mpf_mul (y, op1->value.complex.r, op2->value.complex.i);
-      mpf_sub (result->value.complex.r, x, y);
-      mpf_div (result->value.complex.r, result->value.complex.r, div);
+      mpf_sub (result->value.complex.i, x, y);
+      mpf_div (result->value.complex.i, result->value.complex.i, div);
 
       mpf_clear (x);
       mpf_clear (y);
@@ -2426,9 +2468,15 @@ gfc_expr *
 gfc_convert_integer (const char *buffer, int kind, int radix, locus * where)
 {
   gfc_expr *e;
+  const char *t;
 
   e = gfc_constant_result (BT_INTEGER, kind, where);
-  mpz_set_str (e->value.integer, buffer, radix);
+  /* a leading plus is allowed, but not by mpz_set_str */
+  if (buffer[0] == '+')
+    t = buffer + 1;
+  else
+    t = buffer;
+  mpz_set_str (e->value.integer, t, radix);
 
   return e;
 }
@@ -2440,9 +2488,15 @@ gfc_expr *
 gfc_convert_real (const char *buffer, int kind, locus * where)
 {
   gfc_expr *e;
+  const char *t;
 
   e = gfc_constant_result (BT_REAL, kind, where);
-  mpf_set_str (e->value.real, buffer, 10);
+  /* a leading plus is allowed, but not by mpf_set_str */
+  if (buffer[0] == '+')
+    t = buffer + 1;
+  else
+    t = buffer;
+  mpf_set_str (e->value.real, t, 10);
 
   return e;
 }

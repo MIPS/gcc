@@ -2545,7 +2545,7 @@ legitimize_pic_address (rtx orig, rtx reg)
                   addr = gen_rtx_PLUS (Pmode, addr, op1);
                   addr = gen_rtx_CONST (Pmode, addr);
                   addr = force_const_mem (Pmode, addr);
-	  emit_move_insn (temp, addr);
+		  emit_move_insn (temp, addr);
 
                   new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, temp);
                   if (reg != 0)
@@ -2560,11 +2560,10 @@ legitimize_pic_address (rtx orig, rtx reg)
              that was pulled out of the literal pool.  Force it back in.  */
 
 	  else if (GET_CODE (op0) == UNSPEC
-	           && GET_CODE (op1) == CONST_INT)
+	           && GET_CODE (op1) == CONST_INT
+	           && XINT (op0, 1) == UNSPEC_GOTOFF)
             {
 	      if (XVECLEN (op0, 0) != 1)
-                abort ();
-              if (XINT (op0, 1) != UNSPEC_GOTOFF)
                 abort ();
 
               new = force_const_mem (Pmode, orig);
@@ -6122,7 +6121,7 @@ s390_function_value (tree type, enum machine_mode mode)
 {
   if (type)
     {
-      int unsignedp = TREE_UNSIGNED (type);
+      int unsignedp = TYPE_UNSIGNED (type);
       mode = promote_mode (type, TYPE_MODE (type), &unsignedp, 1);
     }
 

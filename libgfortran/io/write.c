@@ -55,18 +55,6 @@ write_a (fnode * f, const char *source, int len)
     }
 }
 
-
-void
-write_l (fnode * f, char *p, int len)
-{
-  p = write_block (f->u.w);
-  if (p == NULL)
-    return;
-
-  memset (p, ' ', f->u.w - 1);
-  p[f->u.w - 1] = *((int *) p) ? 'T' : 'F';
-}
-
 static int64_t
 extract_int (const void *p, int len)
 {
@@ -416,7 +404,7 @@ output_float (fnode *f, double value, int len)
   intstr = itoa (intval);
   intlen = strlen (intstr);
 
-  q = rtoa (n, len, d-1);
+  q = rtoa (n, len, d);
   digits = strlen (q);
 
   /* Select a width if none was specified.  */
@@ -435,6 +423,12 @@ output_float (fnode *f, double value, int len)
        with_exp = 0;
        nesign -= 1;
        nblank = w - (nsign + intlen + d + nesign);
+     }
+  /* don't let a leading '0' cause field overflow */
+  if (nblank == -1 && ft == FMT_F && q[0] == '0')
+     {
+        q++;
+        nblank = 0;
      }
 
   if (nblank < 0)
@@ -488,6 +482,20 @@ done:
   return ;
 }
 
+void
+write_l (fnode * f, char *source, int len)
+{
+  char *p;
+  int64_t n;
+                                                                                
+  p = write_block (f->u.w);
+  if (p == NULL)
+    return;
+
+  memset (p, ' ', f->u.w - 1);
+  n = extract_int (source, len);
+  p[f->u.w - 1] = (n) ? 'T' : 'F';
+}
 
 /* write_float() -- output a real number according to its format */
 

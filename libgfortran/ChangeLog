@@ -1,3 +1,99 @@
+2004-04-25  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14942
+	* io/list_read.c(list_formatted_read): finish consuming the
+	spaces and seperators at eoln to get ready for next item.
+
+2004-04-23  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15113
+	* io/read.c(read_a): Handle field width > destination and no field width.
+
+2004-04-22  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14906
+	* io/format.c (format_item): gracefully handle a ')'
+        when it is the first character encountered in the string.
+
+2004-04-11  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14904
+	* io/transfer.c (next_record): Update last_record when
+	more than one record is written to a direct access file
+	with one write statement.
+
+2004-04-11  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14901
+	* io/transfer.c (next_record_w) : No '\n' if internal.
+	* io/unix.c (empty_internal_buffer) : Init to spaces, not '\n'.
+
+2004-04-11  Bud Davis  <bdavis9659@comcast.net>
+
+	* io.h (ioparm): Interface from FE is 32 bit, irregardless of offset_t.
+	Will need to change this later to support direct access files > 2gb.
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14762
+	* io/transfer.c (next_record_r) : Skip to next record.
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14836
+	* io/transfer.c (next_record): Update last_record for DIRECT
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14837
+	* io/unix.c (find_file0): Use fd field of struct
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+ 
+	PR 14831
+	* io/inquire.c (inquire_via_unit): Changed return string for
+	BLANK=NULL. Use correct variable for ACTION.
+
+2004-04-01  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 14746
+	* io/read.c (read_f): Allow a decimal without a leading digit.
+	* io/write.c (output_float): remove a leading '0' to keep from
+	overflowing the field (F edit descriptor).
+
+2004-04-01  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14565
+	* io/open.c (new_unit),
+	* io/io.h : new_unit is now visible
+	* io/transfer.c (data_transfer_init): open unit if no OPEN statement.
+	* io/transfer.c (data_transfer_init): remove compile warnings.
+	* io/rewind.c (st_rewind): ftruncate if writing.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	* write.c (write_l): Use extract_int for 'L' edit descriptor.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 13919
+	* io/io.h (global_t):
+	* io/list_read.c (next_char,list_formatted_read,ist_formatted_read):
+          Move eof_jmp to a global structure.
+	* io/transfer.c(finalize_transfer) : Set up eof_jump for callers.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	* m4/cexp.m4 (csqrt): Actually use the passed value.
+	* generated/exp_c?.c: Regenerate.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 12921
+	* io.h, transfer.c, open.c : recl_in changed from ptr to variable.
+	* open.c (new_unit): Moved test for positioned direct access error.
+	(init_units): Corrected calculation of max records.
+
 2004-02-06  Feng Wang  <fengwang@nudt.edu.cn>
 
 	* Makefile.am: Add m4/dotprodc.m4. And fix spelling.

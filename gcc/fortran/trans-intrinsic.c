@@ -1,5 +1,5 @@
-/* Expression translation
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+/* Intrinsic translation
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -20,7 +20,7 @@ along with GNU G95; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* trans-expr.c-- generate SIMPLE trees for gfc_expr.  */
+/* trans-intrinsic.c-- generate GENERIC trees for calls to intrinsics.  */
 
 #include "config.h"
 #include "system.h"
@@ -747,9 +747,14 @@ gfc_conv_intrinsic_cmplx (gfc_se * se, gfc_expr * expr, int both)
   type = gfc_typenode_for_spec (&expr->ts);
   arg = gfc_conv_intrinsic_function_args (se, expr);
   real = convert (TREE_TYPE (type), TREE_VALUE (arg));
-  arg = TREE_CHAIN (arg);
   if (both)
-    imag = convert (TREE_TYPE (type), TREE_VALUE (arg));
+    imag = convert (TREE_TYPE (type), TREE_VALUE (TREE_CHAIN (arg)));
+  else if (TREE_CODE (TREE_TYPE (TREE_VALUE (arg))) == COMPLEX_TYPE)
+    {
+      arg = TREE_VALUE (arg);
+      imag = build1 (IMAGPART_EXPR, TREE_TYPE (TREE_TYPE (arg)), arg);
+      imag = convert (TREE_TYPE (type), imag);
+    }
   else
     imag = build_real_from_int_cst (TREE_TYPE (type), integer_zero_node);
 
@@ -1877,8 +1882,7 @@ gfc_conv_intrinsic_len (gfc_se * se, gfc_expr * expr)
 		&& (sym->result == sym))
 	      decl = gfc_get_fake_result_decl (sym);
 
-	    assert (GFC_DECL_STRING (decl));
-	    len = GFC_DECL_STRING_LENGTH (decl);
+	    len = sym->ts.cl->backend_decl;
 	    assert (len);
 	  }
 	else

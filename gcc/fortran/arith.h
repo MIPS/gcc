@@ -35,6 +35,7 @@ void exponential (mpf_t *, mpf_t *);
 void sine (mpf_t *, mpf_t *);
 void cosine (mpf_t *, mpf_t *);
 void arctangent (mpf_t *, mpf_t *);
+void arctangent2 (mpf_t *, mpf_t *, mpf_t *);
 void hypercos (mpf_t *, mpf_t *);
 void hypersine (mpf_t *, mpf_t *);
 

@@ -136,7 +136,8 @@ package body Prj.Nmsc is
       Data            : in out Project_Data;
       Location        : Source_Ptr;
       Current_Source  : in out String_List_Id;
-      Source_Recorded : in out Boolean);
+      Source_Recorded : in out Boolean;
+      Trusted_Mode    : Boolean);
    --  Put a unit in the list of units of a project, if the file name
    --  corresponds to a valid unit name.
 
@@ -587,7 +588,8 @@ package body Prj.Nmsc is
 
    procedure Ada_Check
      (Project      : Project_Id;
-      Report_Error : Put_Line_Access)
+      Report_Error : Put_Line_Access;
+      Trusted_Mode : Boolean)
    is
       Data         : Project_Data;
       Languages    : Variable_Value := Nil_Variable_Value;
@@ -665,9 +667,12 @@ package body Prj.Nmsc is
                Source_Recorded := False;
                Element := String_Elements.Table (Source_Dir);
                if Element.Value /= No_Name then
+                  Get_Name_String (Element.Display_Value);
                   declare
                      Source_Directory : constant String :=
-                       Get_Name_String (Element.Value);
+                        Name_Buffer (1 .. Name_Len) & Directory_Separator;
+                     Dir_Last  : constant Natural :=
+                        Compute_Directory_Last (Source_Directory);
 
                   begin
                      if Current_Verbosity = High then
@@ -677,7 +682,8 @@ package body Prj.Nmsc is
 
                      --  We look to every entry in the source directory
 
-                     Open (Dir, Source_Directory);
+                     Open (Dir, Source_Directory
+                             (Source_Directory'First .. Dir_Last));
 
                      --  Canonical_Case_File_Name (Source_Directory);
 
@@ -691,25 +697,19 @@ package body Prj.Nmsc is
 
                         exit when Name_Len = 0;
 
-                        --  Canonical_Case_File_Name
-                        --    (Name_Buffer (1 .. Name_Len));
-
                         declare
                            File_Name : constant Name_Id := Name_Find;
-                           Dir       : constant String :=
-                                         Source_Directory &
-                                         Directory_Separator;
-                           Dir_Last  : constant Natural :=
-                                         Compute_Directory_Last (Dir);
                            Path      : constant String :=
                                   Normalize_Pathname
                                     (Name      => Name_Buffer (1 .. Name_Len),
-                                     Directory => Dir (Dir'First .. Dir_Last));
+                                     Directory => Source_Directory
+                                       (Source_Directory'First .. Dir_Last),
+                                     Resolve_Links => False,
+                                     Case_Sensitive => True);
                            Path_Name : Name_Id;
 
                         begin
-                           if Is_Regular_File (Path) then
-
+                           if Trusted_Mode or else Is_Regular_File (Path) then
                               Name_Len := Path'Length;
                               Name_Buffer (1 .. Name_Len) := Path;
                               Path_Name := Name_Find;
@@ -727,7 +727,8 @@ package body Prj.Nmsc is
                                  Data            => Data,
                                  Location        => No_Location,
                                  Current_Source  => Current_Source,
-                                 Source_Recorded => Source_Recorded);
+                                 Source_Recorded => Source_Recorded,
+                                 Trusted_Mode    => Trusted_Mode);
                            end if;
                         end;
                      end loop;
@@ -843,7 +844,8 @@ package body Prj.Nmsc is
                         Data            => Data,
                         Location        => NL.Location,
                         Current_Source  => Current_Source,
-                        Source_Recorded => Source_Recorded);
+                        Source_Recorded => Source_Recorded,
+                        Trusted_Mode    => Trusted_Mode);
                   end if;
                end loop;
 
@@ -2593,7 +2595,7 @@ package body Prj.Nmsc is
 
             The_Path : constant String :=
                          Normalize_Pathname (Get_Name_String (Path)) &
-            Directory_Separator;
+                         Directory_Separator;
 
             The_Path_Last : constant Natural :=
                               Compute_Directory_Last (The_Path);
@@ -2694,7 +2696,9 @@ package body Prj.Nmsc is
                                      (Name      => Name (1 .. Last),
                                       Directory =>
                                         The_Path
-                                          (The_Path'First .. The_Path_Last));
+                                          (The_Path'First .. The_Path_Last),
+                                      Resolve_Links  => False,
+                                      Case_Sensitive => True);
 
                   begin
                      if Is_Directory (Path_Name) then
@@ -2721,15 +2725,6 @@ package body Prj.Nmsc is
       begin
          if Current_Verbosity = High then
             Write_Str ("Find_Source_Dirs (""");
-         end if;
-
-         Get_Name_String (From);
-         Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
-
-         --  Directory    := Name_Buffer (1 .. Name_Len);
-         --  Why is above line commented out ???
-
-         if Current_Verbosity = High then
             Write_Str (Directory);
             Write_Line (""")");
          end if;
@@ -2772,7 +2767,9 @@ package body Prj.Nmsc is
                             Normalize_Pathname
                               (Name      => Get_Name_String (Base_Dir),
                                Directory =>
-                                 Get_Name_String (Data.Display_Directory));
+                                 Get_Name_String (Data.Display_Directory),
+                               Resolve_Links  => False,
+                               Case_Sensitive => True);
 
             begin
                if Root_Dir'Length = 0 then
@@ -3555,13 +3552,24 @@ package body Prj.Nmsc is
          if Is_Directory (The_Name) then
             declare
                Normed : constant String :=
-                 Normalize_Pathname (The_Name);
+                          Normalize_Pathname
+                            (The_Name,
+                             Resolve_Links  => False,
+                             Case_Sensitive => True);
+
+               Canonical_Path : constant String :=
+                                  Normalize_Pathname
+                                    (Normed,
+                                     Resolve_Links  => True,
+                                     Case_Sensitive => False);
 
             begin
                Name_Len := Normed'Length;
                Name_Buffer (1 .. Name_Len) := Normed;
                Display := Name_Find;
-               Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
+
+               Name_Len := Canonical_Path'Length;
+               Name_Buffer (1 .. Name_Len) := Canonical_Path;
                Dir := Name_Find;
             end;
          end if;
@@ -3576,13 +3584,24 @@ package body Prj.Nmsc is
             if Is_Directory (Full_Path) then
                declare
                   Normed : constant String :=
-                             Normalize_Pathname (Full_Path);
+                             Normalize_Pathname
+                               (Full_Path,
+                                Resolve_Links  => False,
+                                Case_Sensitive => True);
+
+                  Canonical_Path : constant String :=
+                                     Normalize_Pathname
+                                       (Normed,
+                                        Resolve_Links  => True,
+                                        Case_Sensitive => False);
 
                begin
                   Name_Len := Normed'Length;
                   Name_Buffer (1 .. Name_Len) := Normed;
                   Display := Name_Find;
-                  Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
+
+                  Name_Len := Canonical_Path'Length;
+                  Name_Buffer (1 .. Name_Len) := Canonical_Path;
                   Dir := Name_Find;
                end;
             end if;
@@ -3648,7 +3667,8 @@ package body Prj.Nmsc is
       Data            : in out Project_Data;
       Location        : Source_Ptr;
       Current_Source  : in out String_List_Id;
-      Source_Recorded : in out Boolean)
+      Source_Recorded : in out Boolean;
+      Trusted_Mode    : Boolean)
    is
       Canonical_File_Name : Name_Id;
       Canonical_Path_Name : Name_Id;
@@ -3666,9 +3686,18 @@ package body Prj.Nmsc is
       Get_Name_String (File_Name);
       Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
       Canonical_File_Name := Name_Find;
-      Get_Name_String (Path_Name);
-      Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
-      Canonical_Path_Name := Name_Find;
+
+      declare
+         Canonical_Path : constant String :=
+                            Normalize_Pathname
+                              (Get_Name_String (Path_Name),
+                               Resolve_Links => not Trusted_Mode,
+                               Case_Sensitive => False);
+      begin
+         Name_Len := 0;
+         Add_Str_To_Name_Buffer (Canonical_Path);
+         Canonical_Path_Name := Name_Find;
+      end;
 
       --  Find out the unit name, the unit kind and if it needs
       --  a specific SFN pragma.
@@ -3761,6 +3790,11 @@ package body Prj.Nmsc is
                      Remove_Forbidden_File_Name
                        (The_Unit_Data.File_Names (Unit_Kind).Name);
                   end if;
+
+                  --  Record the file name in the hash table Files_Htable
+
+                  Unit_Prj := (Unit => The_Unit, Project => Project);
+                  Files_Htable.Set (Canonical_File_Name, Unit_Prj);
 
                   The_Unit_Data.File_Names (Unit_Kind) :=
                     (Name         => Canonical_File_Name,

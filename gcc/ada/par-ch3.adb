@@ -387,7 +387,8 @@ package body Ch3 is
       loop
          case Token is
 
-            when Tok_Access =>
+            when Tok_Access |
+                 Tok_Not    => --  Ada 0Y (AI-231)
                Typedef_Node := P_Access_Type_Definition;
                TF_Semicolon;
                exit;
@@ -720,15 +721,15 @@ package body Ch3 is
    --------------------------------
 
    --  SUBTYPE_DECLARATION ::=
-   --    subtype DEFINING_IDENTIFIER is SUBTYPE_INDICATION;
+   --    subtype DEFINING_IDENTIFIER is [NULL_EXCLUSION] SUBTYPE_INDICATION;
 
    --  The caller has checked that the initial token is SUBTYPE
 
    --  Error recovery: can raise Error_Resync
 
    function P_Subtype_Declaration return Node_Id is
-      Decl_Node : Node_Id;
-
+      Decl_Node        : Node_Id;
+      Not_Null_Present : Boolean := False;
    begin
       Decl_Node := New_Node (N_Subtype_Declaration, Token_Ptr);
       Scan; -- past SUBTYPE
@@ -740,7 +741,13 @@ package body Ch3 is
          Scan; -- past NEW
       end if;
 
-      Set_Subtype_Indication (Decl_Node, P_Subtype_Indication);
+      if Extensions_Allowed then                      --  Ada 0Y (AI-231)
+         Not_Null_Present := P_Null_Exclusion;
+         Set_Null_Exclusion_Present (Decl_Node, Not_Null_Present);
+      end if;
+
+      Set_Subtype_Indication
+        (Decl_Node, P_Subtype_Indication (Not_Null_Present));
       TF_Semicolon;
       return Decl_Node;
    end P_Subtype_Declaration;
@@ -749,17 +756,43 @@ package body Ch3 is
    -- 3.2.2  Subtype Indication --
    -------------------------------
 
-   --  SUBTYPE_INDICATION ::= SUBTYPE_MARK [CONSTRAINT]
+   --  SUBTYPE_INDICATION ::=
+   --    [NOT NULL] SUBTYPE_MARK [CONSTRAINT]
 
    --  Error recovery: can raise Error_Resync
 
-   function P_Subtype_Indication return Node_Id is
-      Type_Node : Node_Id;
+   function P_Null_Exclusion return Boolean is
+   begin
+      if Token /= Tok_Not then
+         return False;
+
+      else
+         if not Extensions_Allowed then
+            Error_Msg_SP
+              ("null-excluding access is an Ada 0Y extension");
+            Error_Msg_SP ("\unit must be compiled with -gnatX switch");
+         end if;
+
+         Scan; --  past NOT
+
+         if Token = Tok_Null then
+            Scan; --  past NULL
+         else
+            Error_Msg_SP ("(Ada 0Y) missing NULL");
+         end if;
+
+         return True;
+      end if;
+   end P_Null_Exclusion;
+
+   function P_Subtype_Indication
+     (Not_Null_Present : Boolean := False) return Node_Id is
+      Type_Node        : Node_Id;
 
    begin
       if Token = Tok_Identifier or else Token = Tok_Operator_Symbol then
          Type_Node := P_Subtype_Mark;
-         return P_Subtype_Indication (Type_Node);
+         return P_Subtype_Indication (Type_Node, Not_Null_Present);
 
       else
          --  Check for error of using record definition and treat it nicely,
@@ -782,9 +815,11 @@ package body Ch3 is
 
    --  Error recovery: can raise Error_Resync
 
-   function P_Subtype_Indication (Subtype_Mark : Node_Id) return Node_Id is
-      Indic_Node  : Node_Id;
-      Constr_Node : Node_Id;
+   function P_Subtype_Indication
+     (Subtype_Mark     : Node_Id;
+      Not_Null_Present : Boolean := False) return Node_Id is
+      Indic_Node       : Node_Id;
+      Constr_Node      : Node_Id;
 
    begin
       Constr_Node := P_Constraint_Opt;
@@ -792,6 +827,10 @@ package body Ch3 is
       if No (Constr_Node) then
          return Subtype_Mark;
       else
+         if Not_Null_Present then
+            Error_Msg_SP ("(Ada 0Y) constrained null-exclusion not allowed");
+         end if;
+
          Indic_Node := New_Node (N_Subtype_Indication, Sloc (Subtype_Mark));
          Set_Subtype_Mark (Indic_Node, Check_Subtype_Mark (Subtype_Mark));
          Set_Constraint (Indic_Node, Constr_Node);
@@ -978,9 +1017,9 @@ package body Ch3 is
    --  This routine scans out a declaration starting with an identifier:
 
    --  OBJECT_DECLARATION ::=
-   --    DEFINING_IDENTIFIER_LIST : [constant] [aliased]
-   --      SUBTYPE_INDICATION [:= EXPRESSION];
-   --  | DEFINING_IDENTIFIER_LIST : [constant] [aliased]
+   --    DEFINING_IDENTIFIER_LIST : [aliased] [constant]
+   --      [NULL_EXCLUSION] SUBTYPE_INDICATION [:= EXPRESSION];
+   --  | DEFINING_IDENTIFIER_LIST : [aliased] [constant]
    --      ARRAY_TYPE_DEFINITION [:= EXPRESSION];
 
    --  NUMBER_DECLARATION ::=
@@ -1017,16 +1056,17 @@ package body Ch3 is
       Done    : out Boolean;
       In_Spec : Boolean)
    is
-      Acc_Node   : Node_Id;
-      Decl_Node  : Node_Id;
-      Type_Node  : Node_Id;
-      Ident_Sloc : Source_Ptr;
-      Scan_State : Saved_Scan_State;
-      List_OK    : Boolean := True;
-      Ident      : Nat;
-      Init_Expr  : Node_Id;
-      Init_Loc   : Source_Ptr;
-      Con_Loc    : Source_Ptr;
+      Acc_Node         : Node_Id;
+      Decl_Node        : Node_Id;
+      Type_Node        : Node_Id;
+      Ident_Sloc       : Source_Ptr;
+      Scan_State       : Saved_Scan_State;
+      List_OK          : Boolean := True;
+      Ident            : Nat;
+      Init_Expr        : Node_Id;
+      Init_Loc         : Source_Ptr;
+      Con_Loc          : Source_Ptr;
+      Not_Null_Present : Boolean := False;
 
       Idents : array (Int range 1 .. 4096) of Entity_Id;
       --  Used to save identifiers in the identifier list. The upper bound
@@ -1241,6 +1281,11 @@ package body Ch3 is
             Init_Expr := Init_Expr_Opt;
 
             if Present (Init_Expr) then
+               if Not_Null_Present then
+                  Error_Msg_SP ("(Ada 0Y) null-exclusion not allowed in "
+                                & "numeric expression");
+               end if;
+
                Decl_Node := New_Node (N_Number_Declaration, Ident_Sloc);
                Set_Expression (Decl_Node, Init_Expr);
 
@@ -1248,6 +1293,7 @@ package body Ch3 is
 
             else
                Decl_Node := New_Node (N_Object_Declaration, Ident_Sloc);
+               Set_Null_Exclusion_Present (Decl_Node, Not_Null_Present);
                Set_Constant_Present (Decl_Node, True);
 
                if Token_Name = Name_Aliased then
@@ -1264,8 +1310,15 @@ package body Ch3 is
                if Token = Tok_Array then
                   Set_Object_Definition
                     (Decl_Node, P_Array_Type_Definition);
+
                else
-                  Set_Object_Definition (Decl_Node, P_Subtype_Indication);
+                  if Extensions_Allowed then              --  Ada 0Y (AI-231)
+                     Not_Null_Present := P_Null_Exclusion;
+                     Set_Null_Exclusion_Present (Decl_Node, Not_Null_Present);
+                  end if;
+
+                  Set_Object_Definition (Decl_Node,
+                     P_Subtype_Indication (Not_Null_Present));
                end if;
 
                if Token = Tok_Renames then
@@ -1298,6 +1351,7 @@ package body Ch3 is
             Scan; -- past ALIASED
             Decl_Node := New_Node (N_Object_Declaration, Ident_Sloc);
             Set_Aliased_Present (Decl_Node, True);
+            Set_Null_Exclusion_Present (Decl_Node, Not_Null_Present);
 
             if Token = Tok_Constant then
                Scan; -- past CONSTANT
@@ -1307,8 +1361,15 @@ package body Ch3 is
             if Token = Tok_Array then
                Set_Object_Definition
                  (Decl_Node, P_Array_Type_Definition);
+
             else
-               Set_Object_Definition (Decl_Node, P_Subtype_Indication);
+               if Extensions_Allowed then               --  Ada 0Y (AI-231)
+                  Not_Null_Present := P_Null_Exclusion;
+                  Set_Null_Exclusion_Present (Decl_Node, Not_Null_Present);
+               end if;
+
+               Set_Object_Definition (Decl_Node,
+                  P_Subtype_Indication (Not_Null_Present));
             end if;
 
          --  Array case
@@ -1344,11 +1405,20 @@ package body Ch3 is
          --  Subtype indication case
 
          else
+            if Extensions_Allowed then                   --  Ada 0Y (AI-231)
+               Not_Null_Present := P_Null_Exclusion;
+            end if;
+
             Type_Node := P_Subtype_Mark;
 
             --  Object renaming declaration
 
             if Token_Is_Renames then
+               if Not_Null_Present then
+                  Error_Msg_SP
+                    ("(Ada 0Y) null-exclusion not allowed in renamings");
+               end if;
+
                No_List;
                Decl_Node :=
                  New_Node (N_Object_Renaming_Declaration, Ident_Sloc);
@@ -1359,8 +1429,10 @@ package body Ch3 is
 
             else
                Decl_Node := New_Node (N_Object_Declaration, Ident_Sloc);
+               Set_Null_Exclusion_Present (Decl_Node, Not_Null_Present);
                Set_Object_Definition
-                 (Decl_Node, P_Subtype_Indication (Type_Node));
+                 (Decl_Node,
+                  P_Subtype_Indication (Type_Node, Not_Null_Present));
 
                --  RENAMES at this point means that we had the combination of
                --  a constraint on the Type_Node and renames, which is illegal
@@ -1447,7 +1519,8 @@ package body Ch3 is
    -------------------------------------------------------------------------
 
    --  DERIVED_TYPE_DEFINITION ::=
-   --    [abstract] new parent_SUBTYPE_INDICATION [RECORD_EXTENSION_PART]
+   --    [abstract] new [NULL_EXCLUSION] parent_SUBTYPE_INDICATION
+   --    [RECORD_EXTENSION_PART]
 
    --  PRIVATE_EXTENSION_DECLARATION ::=
    --     type DEFINING_IDENTIFIER [DISCRIMINANT_PART] is
@@ -1466,9 +1539,9 @@ package body Ch3 is
    --  Error recovery: can raise Error_Resync;
 
    function P_Derived_Type_Def_Or_Private_Ext_Decl return Node_Id is
-      Typedef_Node  : Node_Id;
-      Typedecl_Node : Node_Id;
-
+      Typedef_Node     : Node_Id;
+      Typedecl_Node    : Node_Id;
+      Not_Null_Present : Boolean := False;
    begin
       Typedef_Node := New_Node (N_Derived_Type_Definition, Token_Ptr);
       T_New;
@@ -1478,7 +1551,13 @@ package body Ch3 is
          Scan;
       end if;
 
-      Set_Subtype_Indication (Typedef_Node, P_Subtype_Indication);
+      if Extensions_Allowed then                         --  Ada 0Y (AI-231)
+         Not_Null_Present := P_Null_Exclusion;
+         Set_Null_Exclusion_Present (Typedef_Node, Not_Null_Present);
+      end if;
+
+      Set_Subtype_Indication (Typedef_Node,
+         P_Subtype_Indication (Not_Null_Present));
 
       --  Deal with record extension, note that we assume that a WITH is
       --  missing in the case of "type X is new Y record ..." or in the
@@ -2038,18 +2117,19 @@ package body Ch3 is
    --    DISCRETE_SUBTYPE_INDICATION | RANGE
 
    --  COMPONENT_DEFINITION ::=
-   --    [aliased] SUBTYPE_INDICATION | ACCESS_DEFINITION
+   --    [aliased] [NULL_EXCLUSION] SUBTYPE_INDICATION | ACCESS_DEFINITION
 
    --  The caller has checked that the initial token is ARRAY
 
    --  Error recovery: can raise Error_Resync
 
    function P_Array_Type_Definition return Node_Id is
-      Array_Loc    : Source_Ptr;
-      CompDef_Node : Node_Id;
-      Def_Node     : Node_Id;
-      Subs_List    : List_Id;
-      Scan_State   : Saved_Scan_State;
+      Array_Loc        : Source_Ptr;
+      CompDef_Node     : Node_Id;
+      Def_Node         : Node_Id;
+      Not_Null_Present : Boolean := False;
+      Subs_List        : List_Id;
+      Scan_State       : Saved_Scan_State;
 
    begin
       Array_Loc := Token_Ptr;
@@ -2134,7 +2214,13 @@ package body Ch3 is
             Scan; -- past ALIASED
          end if;
 
-         Set_Subtype_Indication (CompDef_Node, P_Subtype_Indication);
+         if Extensions_Allowed then                       --  Ada 0Y (AI-231)
+            Not_Null_Present := P_Null_Exclusion;
+            Set_Null_Exclusion_Present (CompDef_Node, Not_Null_Present);
+         end if;
+
+         Set_Subtype_Indication (CompDef_Node,
+            P_Subtype_Indication (Not_Null_Present));
       end if;
 
       Set_Component_Definition (Def_Node, CompDef_Node);
@@ -2300,7 +2386,7 @@ package body Ch3 is
    --    (DISCRIMINANT_SPECIFICATION {; DISCRIMINANT_SPECIFICATION})
 
    --  DISCRIMINANT_SPECIFICATION ::=
-   --    DEFINING_IDENTIFIER_LIST : SUBTYPE_MARK
+   --    DEFINING_IDENTIFIER_LIST : [NULL_EXCLUSION] SUBTYPE_MARK
    --      [:= DEFAULT_EXPRESSION]
    --  | DEFINING_IDENTIFIER_LIST : ACCESS_DEFINITION
    --      [:= DEFAULT_EXPRESSION]
@@ -2315,6 +2401,7 @@ package body Ch3 is
       Ident_Sloc         : Source_Ptr;
       Scan_State         : Saved_Scan_State;
       Num_Idents         : Nat;
+      Not_Null_Present   : Boolean;
       Ident              : Nat;
 
       Idents : array (Int range 1 .. 4096) of Entity_Id;
@@ -2358,6 +2445,8 @@ package body Ch3 is
                  New_Node (N_Discriminant_Specification, Ident_Sloc);
                Set_Defining_Identifier (Specification_Node, Idents (Ident));
 
+               Not_Null_Present := P_Null_Exclusion;       --  Ada 0Y (AI-231)
+
                if Token = Tok_Access then
                   if Ada_83 then
                      Error_Msg_SC
@@ -2366,10 +2455,15 @@ package body Ch3 is
 
                   Set_Discriminant_Type
                     (Specification_Node, P_Access_Definition);
+                  Set_Null_Exclusion_Present               --  Ada 0Y (AI-231)
+                    (Discriminant_Type (Specification_Node),
+                     Not_Null_Present);
                else
                   Set_Discriminant_Type
                     (Specification_Node, P_Subtype_Mark);
                   No_Constraint;
+                  Set_Null_Exclusion_Present               --  Ada 0Y (AI-231)
+                    (Specification_Node, Not_Null_Present);
                end if;
 
                Set_Expression
@@ -2773,7 +2867,7 @@ package body Ch3 is
    --      [:= DEFAULT_EXPRESSION];
 
    --  COMPONENT_DEFINITION ::=
-   --    [aliased] SUBTYPE_INDICATION | ACCESS_DEFINITION
+   --    [aliased] [NULL_EXCLUSION] SUBTYPE_INDICATION | ACCESS_DEFINITION
 
    --  Error recovery: cannot raise Error_Resync, if an error occurs,
    --  the scan is positioned past the following semicolon.
@@ -2782,12 +2876,13 @@ package body Ch3 is
    --  items, do we need to add this capability sometime in the future ???
 
    procedure P_Component_Items (Decls : List_Id) is
-      CompDef_Node : Node_Id;
-      Decl_Node    : Node_Id;
-      Scan_State   : Saved_Scan_State;
-      Num_Idents   : Nat;
-      Ident        : Nat;
-      Ident_Sloc   : Source_Ptr;
+      CompDef_Node     : Node_Id;
+      Decl_Node        : Node_Id;
+      Scan_State       : Saved_Scan_State;
+      Not_Null_Present : Boolean := False;
+      Num_Idents       : Nat;
+      Ident            : Nat;
+      Ident_Sloc       : Source_Ptr;
 
       Idents : array (Int range 1 .. 4096) of Entity_Id;
       --  This array holds the list of defining identifiers. The upper bound
@@ -2844,7 +2939,7 @@ package body Ch3 is
                if not Extensions_Allowed then
                   Error_Msg_SP
                     ("Generalized use of anonymous access types " &
-                     "is an Ada0X extension");
+                     "is an Ada 0Y extension");
                   Error_Msg_SP ("\unit must be compiled with -gnatX switch");
                end if;
 
@@ -2870,7 +2965,13 @@ package body Ch3 is
                   raise Error_Resync;
                end if;
 
-               Set_Subtype_Indication (CompDef_Node, P_Subtype_Indication);
+               if Extensions_Allowed then                 --  Ada 0Y (AI-231)
+                  Not_Null_Present := P_Null_Exclusion;
+                  Set_Null_Exclusion_Present (CompDef_Node, Not_Null_Present);
+               end if;
+
+               Set_Subtype_Indication (CompDef_Node,
+                  P_Subtype_Indication (Not_Null_Present));
             end if;
 
             Set_Component_Definition (Decl_Node, CompDef_Node);
@@ -3117,13 +3218,14 @@ package body Ch3 is
    --  | ACCESS_TO_SUBPROGRAM_DEFINITION
 
    --  ACCESS_TO_OBJECT_DEFINITION ::=
-   --    access [GENERAL_ACCESS_MODIFIER] SUBTYPE_INDICATION
+   --    [NULL_EXCLUSION] access [GENERAL_ACCESS_MODIFIER] SUBTYPE_INDICATION
 
    --  GENERAL_ACCESS_MODIFIER ::= all | constant
 
    --  ACCESS_TO_SUBPROGRAM_DEFINITION
-   --    access [protected] procedure PARAMETER_PROFILE
-   --  | access [protected] function PARAMETER_AND_RESULT_PROFILE
+   --    [NULL_EXCLUSION] access [protected] procedure PARAMETER_PROFILE
+   --  | [NULL_EXCLUSION] access [protected] function
+   --    PARAMETER_AND_RESULT_PROFILE
 
    --  PARAMETER_PROFILE ::= [FORMAL_PART]
 
@@ -3134,9 +3236,10 @@ package body Ch3 is
    --  Error recovery: can raise Error_Resync
 
    function P_Access_Type_Definition return Node_Id is
-      Prot_Flag     : Boolean;
-      Access_Loc    : Source_Ptr;
-      Type_Def_Node : Node_Id;
+      Prot_Flag        : Boolean;
+      Access_Loc       : Source_Ptr;
+      Not_Null_Present : Boolean := False;
+      Type_Def_Node    : Node_Id;
 
       procedure Check_Junk_Subprogram_Name;
       --  Used in access to subprogram definition cases to check for an
@@ -3163,6 +3266,10 @@ package body Ch3 is
    --  Start of processing for P_Access_Type_Definition
 
    begin
+      if Extensions_Allowed then                          --  Ada 0Y (AI-231)
+         Not_Null_Present := P_Null_Exclusion;
+      end if;
+
       Access_Loc := Token_Ptr;
       Scan; -- past ACCESS
 
@@ -3187,6 +3294,7 @@ package body Ch3 is
          end if;
 
          Type_Def_Node := New_Node (N_Access_Procedure_Definition, Access_Loc);
+         Set_Null_Exclusion_Present (Type_Def_Node, Not_Null_Present);
          Scan; -- past PROCEDURE
          Check_Junk_Subprogram_Name;
          Set_Parameter_Specifications (Type_Def_Node, P_Parameter_Profile);
@@ -3198,6 +3306,7 @@ package body Ch3 is
          end if;
 
          Type_Def_Node := New_Node (N_Access_Function_Definition, Access_Loc);
+         Set_Null_Exclusion_Present (Type_Def_Node, Not_Null_Present);
          Scan; -- past FUNCTION
          Check_Junk_Subprogram_Name;
          Set_Parameter_Specifications (Type_Def_Node, P_Parameter_Profile);
@@ -3209,6 +3318,7 @@ package body Ch3 is
       else
          Type_Def_Node :=
            New_Node (N_Access_To_Object_Definition, Access_Loc);
+         Set_Null_Exclusion_Present (Type_Def_Node, Not_Null_Present);
 
          if Token = Tok_All or else Token = Tok_Constant then
             if Ada_83 then
@@ -3225,7 +3335,8 @@ package body Ch3 is
             Scan; -- past ALL or CONSTANT
          end if;
 
-         Set_Subtype_Indication (Type_Def_Node, P_Subtype_Indication);
+         Set_Subtype_Indication (Type_Def_Node,
+            P_Subtype_Indication (Not_Null_Present));
       end if;
 
       return Type_Def_Node;
@@ -3253,7 +3364,8 @@ package body Ch3 is
    -- 3.10  Access Definition --
    -----------------------------
 
-   --  ACCESS_DEFINITION ::= access SUBTYPE_MARK
+   --  ACCESS_DEFINITION ::=
+   --    [NULL_EXCLUSION] access [GENERAL_ACCESS_MODIFIER] SUBTYPE_MARK
 
    --  The caller has checked that the initial token is ACCESS
 
@@ -3265,6 +3377,20 @@ package body Ch3 is
    begin
       Def_Node := New_Node (N_Access_Definition, Token_Ptr);
       Scan; -- past ACCESS
+
+      --  Ada 0Y (AI-231)
+
+      if Extensions_Allowed then
+         if Token = Tok_All then
+            Scan; -- past ALL
+            Set_All_Present (Def_Node);
+
+         elsif Token = Tok_Constant then
+            Scan; -- past CONSTANT
+            Set_Constant_Present (Def_Node);
+         end if;
+      end if;
+
       Set_Subtype_Mark (Def_Node, P_Subtype_Mark);
       No_Constraint;
       return Def_Node;

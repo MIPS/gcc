@@ -1,5 +1,5 @@
 /* Complex exponential functions
-   Copyright 2002 Free Software Foundation, Inc.
+   Copyright 2002, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfor).
@@ -92,8 +92,8 @@ csqrtf (GFC_COMPLEX_4 z)
   GFC_REAL_4 im;
   GFC_COMPLEX_4 v;
 
-  re = REALPART (re);
-  im = IMAGPART (im);
+  re = REALPART (z);
+  im = IMAGPART (z);
   if (im == 0.0)
     {
       if (re < 0.0)

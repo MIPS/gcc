@@ -41,6 +41,8 @@
 #include <ext/mt_allocator.h>
 #include <ext/new_allocator.h>
 #include <ext/malloc_allocator.h>
+#include <ext/bitmap_allocator.h>
+#include <ext/pool_allocator.h>
 #include <cxxabi.h>
 #include <testsuite_performance.h>
 
@@ -49,6 +51,8 @@ using namespace std;
 using __gnu_cxx::__mt_alloc;
 using __gnu_cxx::new_allocator;
 using __gnu_cxx::malloc_allocator;
+using __gnu_cxx::bitmap_allocator;
+using __gnu_cxx::__pool_alloc;
 using abi::__cxa_demangle;
 
 typedef int test_type;
@@ -56,6 +60,8 @@ typedef less<test_type> compare_type;
 typedef malloc_allocator<test_type> malloc_alloc_type;
 typedef new_allocator<test_type> new_alloc_type;
 typedef __mt_alloc<test_type> so_alloc_type;
+typedef bitmap_allocator<test_type> bit_alloc_type;
+typedef __pool_alloc<test_type> po_alloc_type;
 
 // The number of iterations to be performed.
 int iterations = 10000;
@@ -123,8 +129,9 @@ template<typename Container>
   Queue<Container>::push_back(const typename Container::value_type& value)
   {
     AutoLock auto_lock(lock);
+    const bool signal = queue.empty();
     queue.insert(queue.end(), value);
-    if (queue.size() == 1) pthread_cond_signal(&condition);
+    if (signal) pthread_cond_signal(&condition);
   }
 
 template<typename Container>
@@ -283,14 +290,20 @@ template<typename Container>
 
 int main(void)
 {
-#ifdef TEST_T1
+#ifdef TEST_T0
   test_container(vector<test_type, malloc_alloc_type>());
 #endif
-#ifdef TEST_T2
+#ifdef TEST_T1
   test_container(vector<test_type, new_alloc_type>());
 #endif
-#ifdef TEST_T3
+#ifdef TEST_T2
   test_container(vector<test_type, so_alloc_type>());
+#endif
+#ifdef TEST_T3
+  test_container(vector<test_type, bit_alloc_type>());
+#endif
+#ifdef TEST_T4
+  test_container(vector<test_type, po_alloc_type>());
 #endif
 
 #ifdef TEST_T5
@@ -302,15 +315,27 @@ int main(void)
 #ifdef TEST_T7
   test_container(list<test_type, so_alloc_type>());
 #endif
-
+#ifdef TEST_T8
+  test_container(list<test_type, bit_alloc_type>());
+#endif
 #ifdef TEST_T9
+  test_container(list<test_type, po_alloc_type>());
+#endif
+
+#ifdef TEST_T10
   test_container(map<test_type, test_type, compare_type, malloc_alloc_type>());
 #endif
-#ifdef TEST_T10
+#ifdef TEST_T11
   test_container(map<test_type, test_type, compare_type, new_alloc_type>());
 #endif
-#ifdef TEST_T11
+#ifdef TEST_T12
   test_container(map<test_type, test_type, compare_type, so_alloc_type>());
+#endif
+#ifdef TEST_T13
+  test_container(map<test_type, test_type, compare_type, bit_alloc_type>());
+#endif
+#ifdef TEST_T14
+  test_container(map<test_type, test_type, compare_type, po_alloc_type>());
 #endif
 
   return 0;

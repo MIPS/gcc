@@ -520,7 +520,7 @@ static tree
 build_int_cst (tree type, unsigned HOST_WIDE_INT val)
 {
   unsigned bits = TYPE_PRECISION (type);
-  bool signed_p = !TREE_UNSIGNED (type);
+  bool signed_p = !TYPE_UNSIGNED (type);
   bool negative = ((val >> (bits - 1)) & 1) != 0;
   tree ival;
 

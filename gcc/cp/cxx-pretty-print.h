@@ -1,5 +1,5 @@
 /* Interface for the GNU C++ pretty-printer.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -40,6 +40,9 @@ typedef struct
   /* This is the enclosing scope of the entity being pretty-printed.  */
   tree enclosing_scope;
 } cxx_pretty_printer;
+
+#define pp_cxx_cv_qualifier_seq(PP, T)   \
+   pp_c_type_qualifier_list (pp_c_base (PP), T)
 
 void pp_cxx_pretty_printer_init (cxx_pretty_printer *);
 

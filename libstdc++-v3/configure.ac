@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script, like so:
 # aclocal && autoconf && autoheader && automake
 
-AC_PREREQ(2.57)
+AC_PREREQ(2.59)
 AC_INIT(package-unused, version-unused,, libstdc++)
 AC_CONFIG_SRCDIR(src/ios.cc)
 AC_CONFIG_HEADER(config.h)
@@ -84,6 +84,7 @@ GLIBCXX_ENABLE_PCH($is_hosted)
 # NB: C_MBCHAR must come early.
 GLIBCXX_ENABLE_CSTDIO
 GLIBCXX_ENABLE_CLOCALE
+GLIBCXX_ENABLE_ALLOCATOR
 GLIBCXX_ENABLE_CHEADERS($c_model)  dnl c_model from configure.host
 GLIBCXX_ENABLE_C_MBCHAR([yes])
 GLIBCXX_ENABLE_C99([yes])

@@ -1,6 +1,6 @@
 /* Prints out trees in human readable form.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -157,8 +157,6 @@ cxx_print_identifier (FILE *file, tree node, int indent)
   cxx_print_binding (file, IDENTIFIER_BINDING (node), "local bindings");
   print_node (file, "label", IDENTIFIER_LABEL_VALUE (node), indent + 4);
   print_node (file, "template", IDENTIFIER_TEMPLATE (node), indent + 4);
-  print_node (file, "implicit", IDENTIFIER_IMPLICIT_DECL (node), indent + 4);
-  print_node (file, "error locus", IDENTIFIER_ERROR_LOCUS (node), indent + 4);
 }
 
 void

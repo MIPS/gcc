@@ -91,6 +91,7 @@ extern GTY(()) tree pchar_type_node;
 
 #define gfc_character1_type_node gfc_type_nodes[F95_CHARACTER1_TYPE]
 
+#define gfc_strlen_kind 4
 #define gfc_strlen_type_node gfc_int4_type_node
 
 /* These C-specific types are used while building builtin function decls.
@@ -135,5 +136,8 @@ void gfc_finish_type (tree);
 
 /* Some functions have an extra parameter for the return value.  */
 int gfc_return_by_reference (gfc_symbol *);
+
+/* Returns true if the array sym does not require a descriptor.  */
+int gfc_is_nodesc_array (gfc_symbol *);
 
 #endif

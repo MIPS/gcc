@@ -270,7 +270,7 @@ open_dump_file (enum dump_file_index index, tree decl)
 
   if (decl)
     fprintf (dump_file, "\n;; Function %s%s\n\n",
-	     (*lang_hooks.decl_printable_name) (decl, 2),
+	     lang_hooks.decl_printable_name (decl, 2),
 	     cfun->function_frequency == FUNCTION_FREQUENCY_HOT
 	     ? " (hot)"
 	     : cfun->function_frequency == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED
@@ -523,7 +523,7 @@ rest_of_handle_stack_regs (tree decl, rtx insns)
     {
       if (cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
 		       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0))
-	  && flag_reorder_blocks)
+	  && (flag_reorder_blocks || flag_reorder_blocks_and_partition))
 	{
 	  reorder_basic_blocks ();
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
@@ -557,7 +557,7 @@ rest_of_handle_machine_reorg (tree decl, rtx insns)
   timevar_push (TV_MACH_DEP);
   open_dump_file (DFI_mach, decl);
 
-  (*targetm.machine_dependent_reorg) ();
+  targetm.machine_dependent_reorg ();
 
   close_dump_file (DFI_mach, print_rtl, insns);
   timevar_pop (TV_MACH_DEP);
@@ -719,9 +719,9 @@ rest_of_handle_reorder_blocks (tree decl, rtx insns)
 
   if (flag_sched2_use_traces && flag_schedule_insns_after_reload)
     tracer ();
-  if (flag_reorder_blocks)
+  if (flag_reorder_blocks || flag_reorder_blocks_and_partition)
     reorder_basic_blocks ();
-  if (flag_reorder_blocks
+  if (flag_reorder_blocks || flag_reorder_blocks_and_partition
       || (flag_sched2_use_traces && flag_schedule_insns_after_reload))
     changed |= cleanup_cfg (CLEANUP_EXPENSIVE
 			    | (!HAVE_conditional_execution
@@ -1272,7 +1272,7 @@ rest_of_handle_loop_optimize (tree decl, rtx insns)
       reg_scan (insns, max_reg_num (), 1);
     }
   cleanup_barriers ();
-  loop_optimize (insns, dump_file, do_unroll | LOOP_BCT | do_prefetch);
+  loop_optimize (insns, dump_file, do_unroll | do_prefetch);
 
   /* Loop can create trivially dead instructions.  */
   delete_trivially_dead_insns (insns, max_reg_num ());
@@ -1292,6 +1292,12 @@ rest_of_handle_loop2 (tree decl, rtx insns)
 {
   struct loops *loops;
   basic_block bb;
+
+  if (!flag_unswitch_loops
+      && !flag_peel_loops
+      && !flag_unroll_loops
+      && !flag_branch_on_count_reg)
+    return;
 
   timevar_push (TV_LOOP);
   open_dump_file (DFI_loop2, decl);
@@ -1381,6 +1387,10 @@ rest_of_compilation (tree decl)
     finalize_block_changes ();
 
   init_flow ();
+
+  /* Dump the rtl code if we are dumping rtl.  */
+  if (open_dump_file (DFI_rtl, decl))
+    close_dump_file (DFI_rtl, print_rtl, get_insns ());
 
   /* Convert from NOTE_INSN_EH_REGION style notes, and do other
      sorts of eh initialization.  Delay this until after the
@@ -1490,7 +1500,7 @@ rest_of_compilation (tree decl)
 
 #ifdef SETJMP_VIA_SAVE_AREA
   /* This must be performed before virtual register instantiation.
-     Please be aware the everything in the compiler that can look
+     Please be aware that everything in the compiler that can look
      at the RTL up to this point must understand that REG_SAVE_AREA
      is just like a use of the REG contained inside.  */
   if (current_function_calls_alloca)
@@ -1618,6 +1628,20 @@ rest_of_compilation (tree decl)
 
   if (flag_if_conversion)
     rest_of_handle_if_after_combine (decl, insns);
+
+  /* The optimization to partition hot/cold basic blocks into separate
+     sections of the .o file does not work well with exception handling.
+     Don't call it if there are exceptions. */
+
+  if (flag_reorder_blocks_and_partition && !flag_exceptions)
+    {
+      no_new_pseudos = 0;
+      partition_hot_cold_basic_blocks ();
+      allocate_reg_life_data ();
+      update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES, 
+			PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES);
+      no_new_pseudos = 1;
+    }
 
   if (optimize > 0 && (flag_regmove || flag_expensive_optimizations))
     rest_of_handle_regmove (decl, insns);
@@ -1899,7 +1923,7 @@ rest_of_compilation (tree decl)
 
   timevar_pop (TV_FINAL);
 
-  if ((*targetm.binds_local_p) (current_function_decl))
+  if (targetm.binds_local_p (current_function_decl))
     {
       int pref = cfun->preferred_stack_boundary;
       if (cfun->recursive_call_emit
@@ -1923,18 +1947,17 @@ rest_of_compilation (tree decl)
   /* We're done with this function.  Free up memory if we can.  */
   free_after_parsing (cfun);
 
+  ggc_collect ();
+
   timevar_pop (TV_REST_OF_COMPILATION);
 }
 
 void
 init_optimization_passes (void)
 {
-  if (flag_unit_at_a_time)
-    {
-      open_dump_file (DFI_cgraph, NULL);
-      cgraph_dump_file = dump_file;
-      dump_file = NULL;
-    }
+  open_dump_file (DFI_cgraph, NULL);
+  cgraph_dump_file = dump_file;
+  dump_file = NULL;
 }
 
 void
@@ -1959,12 +1982,9 @@ finish_optimization_passes (void)
       timevar_pop (TV_DUMP);
     }
 
-  if (flag_unit_at_a_time)
-    {
-      dump_file = cgraph_dump_file;
-      cgraph_dump_file = NULL;
-      close_dump_file (DFI_cgraph, NULL, NULL_RTX);
-    }
+  dump_file = cgraph_dump_file;
+  cgraph_dump_file = NULL;
+  close_dump_file (DFI_cgraph, NULL, NULL_RTX);
 
   /* Do whatever is necessary to finish printing the graphs.  */
   if (graph_dump_format != no_graph)
