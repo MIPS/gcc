@@ -101,7 +101,7 @@ typedef struct cp_lexer
 {
   /* The memory allocated for the buffer.  Never NULL.  */
   cp_token *buffer;
-  /* A pointer just past the end of the allocated for the buffer.  */
+  /* A pointer just past the end of the memory allocated for the buffer.  */
   cp_token *buffer_end;
   /* The first valid token in the buffer, or NULL if none.  */
   cp_token *first_token;
@@ -858,7 +858,7 @@ cp_lexer_stop_debugging (lexer)
    --------
 
    A cp_parser parses the token stream as specified by the C++
-   grammar.  It's job is purely parsing, not semantic analysis.  For
+   grammar.  Its job is purely parsing, not semantic analysis.  For
    example, the parser breaks the token stream into declarators,
    expressions, statements, and other similar syntactic constructs.
    It does not check that the types of the expressions on either side
@@ -887,7 +887,7 @@ cp_lexer_stop_debugging (lexer)
    require arbitrary look ahead to disambiguate.  For example, it is
    impossible, in the general case, to tell whether a statement is an
    expression or declaration without scanning the entire statement.
-   Therefore, the parser is capable of "parsing tenatively."  When the
+   Therefore, the parser is capable of "parsing tentatively."  When the
    parser is not sure what construct comes next, it enters this mode.
    Then, while we attempt to parse the construct, the parser queues up
    error messages, rather than issuing them immediately, and saves the
@@ -909,9 +909,9 @@ cp_lexer_stop_debugging (lexer)
        operator-precedence technique.  Therefore, parsing a simple
        identifier requires multiple recursive calls.
 
-     - We could often eliminate the need to parse tenatively by
+     - We could often eliminate the need to parse tentatively by
        looking ahead a little bit.  In some places, this appraoch
-       might not entirely eliminate the need to parse tenatively, but
+       might not entirely eliminate the need to parse tentatively, but
        it might still speed up the average case.
 
    FIXME: Discuss error-handling (i.e., when to use cp_parser_error),
@@ -1002,21 +1002,21 @@ typedef struct cp_parser
      and then decide not to consume it.  */
   tree scope;
 
-  /* If the stack is non-empty, we are parsing tenatively.
+  /* If the stack is non-empty, we are parsing tentatively.
 
-     We parse tenatively in order to determine which construct is in
+     We parse tentatively in order to determine which construct is in
      use in some situations.  For example, in order to determine
      whether a statement is an expression-statement or a
-     declaration-statement we parse it tenatively as a
+     declaration-statement we parse it tentatively as a
      declaration-statement.  If that fails, we then reparse the same
      token stream as an expression-statement.  
 
      Each entry in the stack is an integer.  If it is zero, then no
-     error has occurred during the most recent tenative parse.  If it
-     is one, an error has occurred during the most recent tenative
+     error has occurred during the most recent tentative parse.  If it
+     is one, an error has occurred during the most recent tentative
      parse.  If it is two, then we have decided to take this
      alternative regardless of whether or not an error has occurred.  */
-  varray_type parsing_tenatively;
+  varray_type parsing_tentatively;
 
   /* True if we are parsing GNU C++.  If this flag is not set, then
      GNU extensions are not recognized.  */
@@ -1415,17 +1415,17 @@ static cp_token *cp_parser_require
   PARAMS ((cp_parser *, enum cpp_ttype, const char *));
 static cp_token *cp_parser_require_keyword
   PARAMS ((cp_parser *, enum rid, const char *));
-static void cp_parser_parse_tenatively 
+static void cp_parser_parse_tentatively 
   PARAMS ((cp_parser *));
-static void cp_parser_commit_to_tenative_parse
+static void cp_parser_commit_to_tentative_parse
   PARAMS ((cp_parser *));
-static void cp_parser_abort_tenative_parse
+static void cp_parser_abort_tentative_parse
   PARAMS ((cp_parser *));
 static bool cp_parser_parse_definitely
   PARAMS ((cp_parser *));
-static bool cp_parser_parsing_tenatively
+static bool cp_parser_parsing_tentatively
   PARAMS ((cp_parser *));
-static bool cp_parser_committed_to_tenative_parse
+static bool cp_parser_committed_to_tentative_parse
   PARAMS ((cp_parser *));
 static void cp_parser_error
   PARAMS ((cp_parser *, const char *));
@@ -1534,16 +1534,16 @@ cp_parser_error (parser, message)
   cp_error (message);
 }
 
-/* If we are parsing tenatively, remember that an error has occurred
-   during this tenative parse.  */
+/* If we are parsing tentatively, remember that an error has occurred
+   during this tentative parse.  */
 
 static void
 cp_parser_simulate_error (parser)
      cp_parser *parser;
 {
-  if (cp_parser_parsing_tenatively (parser)
-      && !cp_parser_committed_to_tenative_parse (parser))
-    VARRAY_TOP_UINT (parser->parsing_tenatively) = 1;
+  if (cp_parser_parsing_tentatively (parser)
+      && !cp_parser_committed_to_tentative_parse (parser))
+    VARRAY_TOP_UINT (parser->parsing_tentatively) = 1;
 }
 
 /* Consume tokens until the next token has the indicated
@@ -1608,9 +1608,9 @@ cp_parser_new ()
 
   parser = (cp_parser *) xcalloc (1, sizeof (cp_parser));
   parser->lexer = cp_lexer_new (parse_in);
-  VARRAY_UINT_INIT (parser->parsing_tenatively,
+  VARRAY_UINT_INIT (parser->parsing_tentatively,
 		    CP_PARSER_PARSING_TENATIVELY_STACK_SIZE,
-		    "parsing_tenatively");
+		    "parsing_tentatively");
 		
   /* For now, we always accept GNU extensions.  */
   parser->allow_gnu_extensions_p = 1;
@@ -1632,12 +1632,12 @@ cp_parser_delete (parser)
      cp_parser *parser;
 {
   /* When we're done parsing, we should be in the midst of any
-     tenative parsing.  */
-  my_friendly_assert (!cp_parser_parsing_tenatively (parser),
+     tentative parsing.  */
+  my_friendly_assert (!cp_parser_parsing_tentatively (parser),
 		      20010712);
 
   cp_lexer_delete (parser->lexer);
-  VARRAY_FREE (parser->parsing_tenatively);
+  VARRAY_FREE (parser->parsing_tentatively);
   free (parser);
 }
 
@@ -1981,7 +1981,7 @@ cp_parser_unqualified_id (parser)
 
 	/* We don't know yet whether or not this will be a
 	   template-id.  */
-	cp_parser_parse_tenatively (parser);
+	cp_parser_parse_tentatively (parser);
 	/* Try a template-id.  */
 	/* FIXME: Are there ways to get here after just having seen
 	   `template'?  */
@@ -2028,7 +2028,7 @@ cp_parser_unqualified_id (parser)
 
 	  /* We don't know whether we're looking at an
 	     operator-function-id or a conversion-function-id.  */
-	  cp_parser_parse_tenatively (parser);
+	  cp_parser_parse_tentatively (parser);
 	  /* Try an operator-function-id.  */
 	  id = cp_parser_operator_function_id (parser);
 	  /* If that didn't work, try a conversion-function-id.  */
@@ -2079,8 +2079,8 @@ cp_parser_nested_name_specifier_opt (parser, typename_keyword_p)
 	break;
 
       /* The nested-name-specifier is optional, so we parse
-	 tenatively.  */
-      cp_parser_parse_tenatively (parser);
+	 tentatively.  */
+      cp_parser_parse_tentatively (parser);
 
       /* Save the old scope since the name lookup we are about to do
 	 might destroy it.  */
@@ -2184,7 +2184,7 @@ cp_parser_class_or_namespace_name (parser,
      it.  */
   saved_scope = parser->scope;
   /* Try for a class-name first.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
   scope = cp_parser_class_name (parser, 
 				typename_keyword_p,
 				template_keyword_p);
@@ -2307,7 +2307,7 @@ cp_parser_postfix_expression (parser)
 	cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
 	/* We can't be sure yet whether we're looking at a type-id or an
 	   expression.  */
-	cp_parser_parse_tenatively (parser);
+	cp_parser_parse_tentatively (parser);
 	/* Try a type-id first.  */
 	type = cp_parser_type_id (parser);
 	/* Look for the `)' token.  Otherwise, we can't be sure that
@@ -2357,7 +2357,7 @@ cp_parser_postfix_expression (parser)
 	  }
 	/* We don't know whether we're looking at a template-id or an
 	   identifier.  */
-	cp_parser_parse_tenatively (parser);
+	cp_parser_parse_tentatively (parser);
 	/* Try a template-id.  */
 	id = cp_parser_template_id (parser, template_p);
 	/* If that didn't work, try an identifier.  */
@@ -2379,7 +2379,7 @@ cp_parser_postfix_expression (parser)
 	   looking at a functional cast.  We could also be looking at
 	   an id-expression.  So, we try the functional cast, and if
 	   that doesn't work we fall back to the primary-expression.  */
-	cp_parser_parse_tenatively (parser);
+	cp_parser_parse_tentatively (parser);
 	/* Look for the simple-type-specifier.  */
 	type = cp_parser_simple_type_specifier (parser, 
 						CP_PARSER_FLAGS_NONE);
@@ -2397,7 +2397,7 @@ cp_parser_postfix_expression (parser)
 	  {
 	    tree initializer_list = NULL_TREE;
 
-	    cp_parser_parse_tenatively (parser);
+	    cp_parser_parse_tentatively (parser);
 	    /* Look for the `('.  */
 	    if (cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
 	      {
@@ -2633,7 +2633,7 @@ cp_parser_postfix_expression (parser)
 	    /* Consume the `.' or `->' operator.  */
 	    cp_lexer_consume_token (parser->lexer);
 	    /* Try the id-expression production first.  */
-	    cp_parser_parse_tenatively (parser);
+	    cp_parser_parse_tentatively (parser);
 	    /* Peek at the next token.  */
 	    token = cp_lexer_peek_token (parser->lexer);
 	    /* If it is the optional `template' keyword, consume
@@ -2896,7 +2896,7 @@ cp_parser_unary_expression (parser)
 
 		/* We can't be sure yet whether we're looking at a
 		   type-specifier or an expression.  */
-		cp_parser_parse_tenatively (parser);
+		cp_parser_parse_tentatively (parser);
 		/* Consume the `('.  */
 		cp_lexer_consume_token (parser->lexer);
 		/* Parse the type-specifier.  */
@@ -3080,7 +3080,7 @@ cp_parser_new_expression (parser)
   cp_parser_require_keyword (parser, RID_NEW, "`new'");
   /* There's no easy way to tell a new-placement from the
      `( type-id )' construct.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
   /* Look for a new-placement.  */
   placement = cp_parser_new_placement (parser);
   /* If that didn't work out, there's no new-placement.  */
@@ -3177,7 +3177,7 @@ cp_parser_new_declarator_opt (parser)
   tree cv_qualifier_seq;
 
   /* We don't know if there's a ptr-operator next, or not.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
   /* Look for a ptr-operator.  */
   code = cp_parser_ptr_operator (parser, &type, &cv_qualifier_seq);
   /* If that worked, look for more new-declarators.  */
@@ -3345,8 +3345,8 @@ cp_parser_cast_expression (parser)
 
       /* There's no way to know yet whether or not this is a cast.
 	 For example, `(int (3))' is a unary-expression, while `(int)
-	 3' is a cast.  So, we resort to parsing tenatively.  */
-      cp_parser_parse_tenatively (parser);
+	 3' is a cast.  So, we resort to parsing tentatively.  */
+      cp_parser_parse_tentatively (parser);
       /* Consume the `('.  */
       cp_lexer_consume_token (parser->lexer);
       /* A very tricky bit is that `(struct S) { 3 }' is a
@@ -4067,7 +4067,7 @@ cp_parser_statement (parser)
   /* Everything else must be a declaration-statement or an
      expression-statement.  Try for the declaration-statement 
      first.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
   /* Try to parse the declaration-statement.  */
   cp_parser_declaration_statement (parser);
   /* If that worked, we're done.  */
@@ -4465,10 +4465,10 @@ cp_parser_for_init_statement (parser)
 {
   /* We're going to speculatively look for a declaration, falling back
      to an expression, if necessary.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
   /* Parse the declaration.  */
   cp_parser_simple_declaration (parser);
-  /* If the tenative parse failed, then we shall need to look for an
+  /* If the tentative parse failed, then we shall need to look for an
      expression-statement.  */
   if (!cp_parser_parse_definitely (parser))
     cp_parser_expression_statement (parser);
@@ -4722,8 +4722,8 @@ cp_parser_declaration (parser)
      definition.  */
   else
     {
-      /* Begin parsing tenatively.  */
-      cp_parser_parse_tenatively (parser);
+      /* Begin parsing tentatively.  */
+      cp_parser_parse_tentatively (parser);
       /* Try to parse a block-declaration.  */
       cp_parser_block_declaration (parser);
       /* If that fails, try a function-definition.  */
@@ -4987,7 +4987,7 @@ cp_parser_decl_specifier_seq (parser, flags, attributes,
 
 	  /* If the next thing is a class-name naming the class, then
 	     it's a constructor.  */
-	  cp_parser_parse_tenatively (parser);
+	  cp_parser_parse_tentatively (parser);
 	  /* When we look up the class type, there is no
 	     qualification.  */
 	  parser->scope = NULL_TREE;
@@ -5003,7 +5003,7 @@ cp_parser_decl_specifier_seq (parser, flags, attributes,
 	      && TREE_TYPE (class_name) == current_class_type)
 	    constructor_p = true;
 	  /* We did not really want to consume any tokens.  */
-	  cp_parser_abort_tenative_parse (parser);
+	  cp_parser_abort_tentative_parse (parser);
 	}
       /* Outside a class-scope we are looking at a constructor
 	 declarator, and not a decl-specifier, if we see a
@@ -5017,7 +5017,7 @@ cp_parser_decl_specifier_seq (parser, flags, attributes,
 
 	  /* We have no way of knowing whether we will really be
 	     looking at a constructor declarator or not.  */
-	  cp_parser_parse_tenatively (parser);
+	  cp_parser_parse_tentatively (parser);
 	  /* Look for the optional `::' operator.  */
 	  cp_parser_global_scope_opt (parser,
 				      /*current_scope_valid_p=*/false);
@@ -5038,7 +5038,7 @@ cp_parser_decl_specifier_seq (parser, flags, attributes,
 				     scope))
 	    constructor_p = true;
 	  /* We did not really want to consume any tokens.  */
-	  cp_parser_abort_tenative_parse (parser);
+	  cp_parser_abort_tentative_parse (parser);
 	}
 
       /* If we don't have a DECL_SPEC yet, then we must be looking at
@@ -5252,7 +5252,7 @@ cp_parser_conversion_declarator_opt (parser)
   tree cv_qualifier_seq;
 
   /* We don't know if there's a ptr-operator next, or not.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
   /* Try the ptr-operator.  */
   code = cp_parser_ptr_operator (parser, &type, &cv_qualifier_seq);
   /* If it worked, look for more conversion-declarators.  */
@@ -5416,7 +5416,7 @@ cp_parser_mem_initializer_id (parser)
 				 /*typename_keyword_p=*/true,
 				 /*template_keyword_p=*/false);
   /* Otherwise, we could also be looking for an ordinary identifier.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
   /* Try a class-name.  */
   id = cp_parser_class_name (parser, 
 			     /*typename_keyword_p=*/true,
@@ -6129,7 +6129,7 @@ cp_parser_template_argument (parser)
        the corresponding template-parameter.  
 
      Therefore, we try a type-id first.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
   /* Otherwise, try a type-id.  */
   argument = cp_parser_type_id (parser);
   /* If the next token isn't a `,' or a `>', then this argument wasn't
@@ -6141,7 +6141,7 @@ cp_parser_template_argument (parser)
   if (cp_parser_parse_definitely (parser))
     return argument;
   /* We're still not sure what the argument will be.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
   /* Try an assignment-expression.  */
   argument = cp_parser_assignment_expression (parser);
   /* If that worked, we're done.  */
@@ -6327,9 +6327,9 @@ cp_parser_type_specifier (parser,
     case RID_STRUCT:
     case RID_UNION:
     case RID_ENUM:
-      /* Parse tenatively so that we can back up if we don't find a
+      /* Parse tentatively so that we can back up if we don't find a
 	 class-specifier or enum-specifier.  */
-      cp_parser_parse_tenatively (parser);
+      cp_parser_parse_tentatively (parser);
       /* Look for the class-specifier or enum-specifier.  */
       if (keyword == RID_ENUM)
 	type_spec = cp_parser_enum_specifier (parser);
@@ -6450,7 +6450,7 @@ cp_parser_simple_type_specifier (parser, flags)
       /* Don't gobble tokens or issue error messages if this iss an
 	 optional type-specifier.  */
       if (flags & CP_PARSER_FLAGS_OPTIONAL)
-	cp_parser_parse_tenatively (parser);
+	cp_parser_parse_tentatively (parser);
 
       /* Look for the optional `::' operator.  */
       cp_parser_global_scope_opt (parser,
@@ -6520,7 +6520,7 @@ cp_parser_type_name (parser)
      nested-name-specifier.  */
 
   /* We can't know yet whether it is a class-name or not.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
   /* Try a class-name.  */
   type_decl = cp_parser_class_name (parser, 
 				    /*typename_keyword_p=*/false,
@@ -6632,7 +6632,7 @@ cp_parser_elaborated_type_specifier (parser, is_friend)
       /* If we didn't see `template', we don't know if there's a
          template-id or not.  */
       if (!template_p)
-	cp_parser_parse_tenatively (parser);
+	cp_parser_parse_tentatively (parser);
       /* Parse the template-id.  */
       decl = cp_parser_template_id (parser, template_p);
       /* If we didn't find a template-id, look for an ordinary
@@ -7283,7 +7283,7 @@ cp_parser_init_declarator (parser,
   /* Because start_decl has side-effects, we should only call it if we
      know we're going ahead.  By this point, we know that we cannot
      possibly be looking at any other construct.  */
-  cp_parser_commit_to_tenative_parse (parser);
+  cp_parser_commit_to_tentative_parse (parser);
 
   /* Check that the number of template-parameter-lists is OK.  */
   if (!cp_parser_check_template_parameters 
@@ -7427,7 +7427,7 @@ cp_parser_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
   /* Check for the ptr-operator production.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
   /* Parse the ptr-operator.  */
   code = cp_parser_ptr_operator (parser, 
 				 &class_type, 
@@ -7438,7 +7438,7 @@ cp_parser_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
       /* The dependent declarator is optional if we are parsing an
 	 abstract-declarator.  */
       if (abstract_p)
-	cp_parser_parse_tenatively (parser);
+	cp_parser_parse_tentatively (parser);
 
       /* Parse the dependent declarator.  */
       declarator = cp_parser_declarator (parser, abstract_p,
@@ -7660,8 +7660,8 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
 	     replace the tokens consumed in the process and continue.  */
 	  tree params;
 
-	  /* We are now parsing tenatively.  */
-	  cp_parser_parse_tenatively (parser);
+	  /* We are now parsing tentatively.  */
+	  cp_parser_parse_tentatively (parser);
 	  
 	  /* Consume the `('.  */
 	  cp_lexer_consume_token (parser->lexer);
@@ -7771,7 +7771,7 @@ cp_parser_ptr_operator (parser, type, cv_qualifier_seq)
   else
     {
       /* Try the pointer-to-member case.  */
-      cp_parser_parse_tenatively (parser);
+      cp_parser_parse_tentatively (parser);
       /* Look for the optional `::' operator.  */
       cp_parser_global_scope_opt (parser,
 				  /*current_scope_valid_p=*/false);
@@ -7904,7 +7904,7 @@ cp_parser_declarator_id (parser)
 
   /* Try the second alternative (used to declare a constructor)
      first.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
   /* Look for the optional `::' operator.  */
   cp_parser_global_scope_opt (parser,
 			      /*current_scope_valid_p=*/false);
@@ -7956,7 +7956,7 @@ cp_parser_type_id (parser)
     = cp_parser_type_specifier_seq (parser);
 
   /* There might or might not be an abstract declarator.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
   /* Look for the declarator.  */
   abstract_declarator 
     = cp_parser_declarator (parser, /*abstract_p=*/true, NULL);
@@ -7997,7 +7997,7 @@ cp_parser_type_specifier_seq (parser)
   while (true)
     {
       /* This type-specifier is optional.  */
-      cp_parser_parse_tenatively (parser);
+      cp_parser_parse_tentatively (parser);
       /* Look for the type-specifier.  */
       type_specifier = cp_parser_type_specifier (parser, 
 						 CP_PARSER_FLAGS_NONE,
@@ -8204,7 +8204,7 @@ cp_parser_parameter_declaration (parser, greater_than_is_operator_p)
     {
       /* We don't know whether the declarator will be abstract or
 	 not.  So, first we try an ordinary declarator.  */
-      cp_parser_parse_tenatively (parser);
+      cp_parser_parse_tentatively (parser);
       declarator = cp_parser_declarator (parser,
 					 /*abstract_p=*/false,
 					 /*ctor_dtor_or_conv_p=*/NULL);
@@ -8651,7 +8651,7 @@ cp_parser_class_name (parser, typename_keyword_p, template_keyword_p)
 
   /* We don't know whether what comes next is a template-id or 
      not.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
   /* Try a template-id.  */
   /* FIXME: Do we ever get here after having just seen `template'?  */
   decl = cp_parser_template_id (parser, template_keyword_p);
@@ -8714,7 +8714,7 @@ cp_parser_class_specifier (parser)
     return error_mark_node;
   /* At this point, we're going ahead with the class-specifier, even
      if some other problem occurs.  */
-  cp_parser_commit_to_tenative_parse (parser);
+  cp_parser_commit_to_tentative_parse (parser);
   /* Start the class.  */
   type = begin_class_definition (type);
   /* FIXME: What's this about?  */
@@ -8862,7 +8862,7 @@ cp_parser_class_head (parser, nested_name_specifier_p)
     {
       /* We don't know whether what comes next is a template-id,
 	 an identifier, or nothing at all.  */
-      cp_parser_parse_tenatively (parser);
+      cp_parser_parse_tentatively (parser);
       /* Check for a template-id.  */
       id = cp_parser_template_id (parser, 
 				  /*template_keyword_p=*/false);
@@ -9093,7 +9093,7 @@ cp_parser_member_declaration (parser)
 
   /* We can't tell whether we're looking at a declaration or a
      function-definition.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
 
   /* Parse the decl-specifier-seq.  */
   decl_specifiers 
@@ -9730,7 +9730,7 @@ cp_parser_exception_declaration (parser)
     {
       /* Otherwise, we can't be sure whether we are looking at a
 	 direct, or an abstract, declarator.  */
-      cp_parser_parse_tenatively (parser);
+      cp_parser_parse_tentatively (parser);
       /* Try an ordinary declarator.  */
       declarator = cp_parser_declarator (parser,
 					 /*abstract_p=*/false,
@@ -9760,7 +9760,7 @@ cp_parser_throw_expression (parser)
 
   cp_parser_require_keyword (parser, RID_THROW, "`throw'");
   /* We can't be sure if there is an assignment-expression or not.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
   /* Try it.  */
   expression = cp_parser_assignment_expression (parser);
   /* If it didn't work, this is just a rethrow.  */
@@ -10667,7 +10667,7 @@ cp_parser_single_declaration (parser,
 
   /* Parse the dependent declaration.  We don't know yet
      whether it will be a function-definition.  */
-  cp_parser_parse_tenatively (parser);
+  cp_parser_parse_tentatively (parser);
   /* Try the `decl-specifier-seq [opt] init-declarator [opt]'
      alternative.  */
   decl_specifiers 
@@ -10850,41 +10850,41 @@ cp_parser_require_keyword (parser, keyword, token_desc)
   return token;
 }
 
-/* Begin parsing tenatively.  We always save tokens while parsing
-   tenatively so that if the tenative parsing fails we can restore the
+/* Begin parsing tentatively.  We always save tokens while parsing
+   tentatively so that if the tentative parsing fails we can restore the
    tokens.  */
 
 static void
-cp_parser_parse_tenatively (parser)
+cp_parser_parse_tentatively (parser)
      cp_parser *parser;
 {
-  /* Indicate that we are parsing tenatively, and that no error has
+  /* Indicate that we are parsing tentatively, and that no error has
      ocurred yet.  */
-  VARRAY_PUSH_UINT (parser->parsing_tenatively, 0);
+  VARRAY_PUSH_UINT (parser->parsing_tentatively, 0);
   /* Begin saving tokens.  */
   cp_lexer_save_tokens (parser->lexer);
   /* Any error messages that we issue must be queued up until we know
-     whether or not we want to commit to this tenative parse.  */
-  diagnostic_issue_tenatively (diagnostic_buffer);
+     whether or not we want to commit to this tentative parse.  */
+  diagnostic_issue_tentatively (diagnostic_buffer);
 }
 
-/* Commit to the currently active tenative parse.  */
+/* Commit to the currently active tentative parse.  */
 
 static void
-cp_parser_commit_to_tenative_parse (parser)
+cp_parser_commit_to_tentative_parse (parser)
      cp_parser *parser;
 {
   size_t i;
 
-  /* Commit to the tenative parse.  */
+  /* Commit to the tentative parse.  */
   for (i = 0; 
-       i < VARRAY_ACTIVE_SIZE (parser->parsing_tenatively);
+       i < VARRAY_ACTIVE_SIZE (parser->parsing_tentatively);
        ++i)
     {
-      if (VARRAY_UINT (parser->parsing_tenatively, i) != 2)
+      if (VARRAY_UINT (parser->parsing_tentatively, i) != 2)
 	{
 	  /* Mark this level as having been committed.  */
-	  VARRAY_UINT (parser->parsing_tenatively, i) = 2;
+	  VARRAY_UINT (parser->parsing_tentatively, i) = 2;
 	  /* Issue any diagnostics queud up until this point, and begin
 	     issuing diagnostics immediately.  */
 	  diagnostic_commit (diagnostic_buffer);
@@ -10892,11 +10892,11 @@ cp_parser_commit_to_tenative_parse (parser)
     }
 }
 
-/* Abort the currently active tenative parse.  All consumed tokens
+/* Abort the currently active tentative parse.  All consumed tokens
    will be rolled back, and no diagnostics will be issued.  */
 
 static void
-cp_parser_abort_tenative_parse (parser)
+cp_parser_abort_tentative_parse (parser)
      cp_parser *parser;
 {
   cp_parser_simulate_error (parser);
@@ -10905,7 +10905,7 @@ cp_parser_abort_tenative_parse (parser)
   cp_parser_parse_definitely (parser);
 }
 
-/* Stop parsing tenatively.  If a parse error has ocurred, restore the
+/* Stop parsing tentatively.  If a parse error has ocurred, restore the
    token stream.  Otherwise, commit to the tokens we have consumed.
    Returns true if no error occurred; false otherwise.  */
 
@@ -10919,16 +10919,16 @@ cp_parser_parse_definitely (parser)
   /* Remember whether or not an error ocurred, since we are about to
      destroy that information.  */
   error_occurred = cp_parser_error_occurred (parser);
-  /* Similary, for whether or not we committed to this tenative
+  /* Similary, for whether or not we committed to this tentative
      parse.  */
-  committed = cp_parser_committed_to_tenative_parse (parser);
-  /* We are no longer parsing tenatively.  */
-  VARRAY_POP (parser->parsing_tenatively);
+  committed = cp_parser_committed_to_tentative_parse (parser);
+  /* We are no longer parsing tentatively.  */
+  VARRAY_POP (parser->parsing_tentatively);
   /* Restore the tokens, or commit to consuming them.  */
   if (!error_occurred)
     {
       cp_lexer_commit_tokens (parser->lexer);
-      /* If we already committed to this tenative parse then we
+      /* If we already committed to this tentative parse then we
 	 committed the diagnostics at that point.  */
       if (!committed)
 	diagnostic_commit (diagnostic_buffer);
@@ -10942,35 +10942,35 @@ cp_parser_parse_definitely (parser)
     }
 }
 
-/* Returns non-zero if we are parsing tenatively.  */
+/* Returns non-zero if we are parsing tentatively.  */
 
 static bool
-cp_parser_parsing_tenatively (parser)
+cp_parser_parsing_tentatively (parser)
      cp_parser *parser;
 {
-  return VARRAY_ACTIVE_SIZE (parser->parsing_tenatively) != 0;
+  return VARRAY_ACTIVE_SIZE (parser->parsing_tentatively) != 0;
 }
 
-/* Returns true if we are parsing tenatively -- but have decided that
-   we will stick with this tenative parse, even if errors occur.  */
+/* Returns true if we are parsing tentatively -- but have decided that
+   we will stick with this tentative parse, even if errors occur.  */
 
 static bool
-cp_parser_committed_to_tenative_parse (parser)
+cp_parser_committed_to_tentative_parse (parser)
      cp_parser *parser;
 {
-  return (cp_parser_parsing_tenatively (parser)
-	  && VARRAY_TOP_UINT (parser->parsing_tenatively) == 2);
+  return (cp_parser_parsing_tentatively (parser)
+	  && VARRAY_TOP_UINT (parser->parsing_tentatively) == 2);
 }
 
 /* Returns non-zero iff an error has occurred during the most recent
-   tenative parse.  */
+   tentative parse.  */
    
 static bool
 cp_parser_error_occurred (parser)
      cp_parser *parser;
 {
-  return (cp_parser_parsing_tenatively (parser)
-	  && VARRAY_TOP_UINT (parser->parsing_tenatively) == 1);
+  return (cp_parser_parsing_tentatively (parser)
+	  && VARRAY_TOP_UINT (parser->parsing_tentatively) == 1);
 }
 
 /* Returns non-zero if GNU extensions are allowed.  */
