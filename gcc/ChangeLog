@@ -1,3 +1,16 @@
+2002-06-29  Aldy Hernandez  <aldyh@quesejoda.com>
+            Diego Novillo  <dnovillo@redhat.com>
+
+        * c-simplify.c (simplify_call_expr): Do not bail on all builtins.
+        (is_simple_call_expr): Same.
+	(simplify_addr_expr): New function.
+	(simplify_expr): Call it.
+
+        * tree-simple.c (is_simplifiable_builtin): New.
+        (is_simple_compound_lval): Do not bail on INDIRECT_REF.
+
+        * tree-simple.h: New prototype for is_simplifiable_builtin.
+
 2002-06-26  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa.c (tree_build_ssa): Call free_dominance_info, not

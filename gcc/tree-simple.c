@@ -670,21 +670,15 @@ int
 is_simple_call_expr (t)
      tree t;
 {
-  tree decl;
-
   if (t == NULL_TREE)
     return 1;
 
   if (TREE_CODE (t) != CALL_EXPR)
     return 0;
 
-  /* Consider that calls to builtin functions are in SIMPLE form already.
-
-     FIXME: The simplifier will not simplify these calls because some
-	    builtins need specific arguments (e.g., __builtin_stdarg_start
-	    wants one of the function arguments as its last parameters).  */
-  decl = get_callee_fndecl (t);
-  if (decl && DECL_BUILT_IN (decl))
+  /* Some builtins cannot be simplified because the require specific
+     arguments.  */
+  if (!is_simplifiable_builtin (t))
     return 1;
 
   return (is_simple_id (TREE_OPERAND (t, 0))
@@ -1005,4 +999,67 @@ is_simple_exprseq (t)
           || (TREE_CODE (t) == COMPOUND_EXPR
 	      && is_simple_expr (TREE_OPERAND (t, 0))
 	      && is_simple_exprseq (TREE_OPERAND (t, 1))));
+}
+
+/* Return nonzero if FNDECL can be simplified.  This is needed for
+   builtins like __builtin_stdarg_start expects its last parameter to be
+   one of the current function's arguments.  */
+
+int
+is_simplifiable_builtin (expr)
+     tree expr;
+{
+  enum built_in_function fcode;
+  tree decl, t1, t2, t3;
+
+  decl = get_callee_fndecl (expr);
+
+  if (decl == NULL_TREE || !DECL_BUILT_IN (decl))
+    return 1;
+
+  fcode = DECL_FUNCTION_CODE (decl);
+
+  switch (fcode)
+    {
+      /* Many of the string builtins fold certain string patterns into
+         constants.  Make sure we don't simplify something which will
+         be folded by the builtin later.  */
+
+      /* foo (const char *, const char *, ...).  */
+    case BUILT_IN_STRNCMP:
+    case BUILT_IN_STRSPN:
+    case BUILT_IN_STRSTR:
+    case BUILT_IN_STRCSPN:
+      t1 = TREE_VALUE (TREE_OPERAND (expr, 1));
+      t2 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (expr, 1)));
+
+      return !(string_constant (t1, &t3) || string_constant (t2, &t3));
+
+      /* foo (const char *, ...).  */
+    case BUILT_IN_STRLEN:
+    case BUILT_IN_STRRCHR:
+    case BUILT_IN_STRCHR:
+    case BUILT_IN_INDEX:
+    case BUILT_IN_FPUTS:
+      t1 = TREE_VALUE (TREE_OPERAND (expr, 1));
+
+      return !string_constant (t1, &t3);
+
+      /* foo (..., const char *, ...).  */
+    case BUILT_IN_STRCPY:
+    case BUILT_IN_STRNCPY:
+    case BUILT_IN_STRCAT:
+    case BUILT_IN_STRNCAT:
+      t2 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (expr, 1)));
+
+      return !string_constant (t2, &t3);
+
+    case BUILT_IN_STDARG_START:
+    case BUILT_IN_VARARGS_START:
+    case BUILT_IN_VA_COPY:
+      return 0;
+
+    default:
+      return 1;
+    }
 }

@@ -92,6 +92,7 @@ static void simplify_expr_wfl        PARAMS ((tree *, tree *, tree *,
 static void simplify_save_expr       PARAMS ((tree *, tree *));
 static void simplify_stmt_expr       PARAMS ((tree *, tree *));
 static void simplify_compound_literal_expr PARAMS ((tree *, tree *, tree *));
+static void simplify_addr_expr       PARAMS ((tree *, tree *, tree *));
 static void make_type_writable       PARAMS ((tree));
 static tree add_tree                 PARAMS ((tree, tree *));
 static tree insert_before_continue   PARAMS ((tree, tree));
@@ -1116,8 +1117,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
       break;
 
     case ADDR_EXPR:
-      simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-		     is_simple_addr_expr_arg, fb_lvalue);
+      simplify_addr_expr (expr_p, pre_p, post_p);
       break;
 
     /* va_arg expressions should also be left alone to avoid confusing the
@@ -1501,16 +1501,12 @@ simplify_call_expr (expr_p, pre_p, post_p)
      tree *pre_p;
      tree *post_p;
 {
-  tree id;
-
   if (TREE_CODE (*expr_p) != CALL_EXPR)
     abort ();
 
-  /* Do not simplify calls to builtin functions as they may require
-     specific tree nodes (e.g., __builtin_stdarg_start).
-     FIXME: We should identify which builtins can be simplified safely.  */
-  id = get_callee_fndecl (*expr_p);
-  if (id && DECL_BUILT_IN (id))
+  /* Some builtins cannot be simplified because they require specific
+     arguments (e.g., __builtin_stdarg_start).  */
+  if (!is_simplifiable_builtin (*expr_p))
     return;
 
   simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, is_simple_id,
@@ -1518,7 +1514,6 @@ simplify_call_expr (expr_p, pre_p, post_p)
   simplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p, is_simple_arglist,
                  fb_rvalue);
 }
-
 
 /*  Simplify the TREE_LIST node pointed by EXPR_P.
 
@@ -1945,6 +1940,38 @@ simplify_stmt_expr (expr_p, pre_p)
   simplify_stmt (&body);
   add_tree (body, pre_p);
 }
+
+/*  Re-write the ADDR_EXPR node pointed by EXPR_P
+
+    PRE_P points to the list where side effects that must happen before
+	*EXPR_P should be stored.
+
+    POST_P points to the list where side effects that must happen after
+	*EXPR_P should be stored.  */
+
+static void
+simplify_addr_expr (expr_p, pre_p, post_p)
+     tree *expr_p;
+     tree *pre_p;
+     tree *post_p;
+{
+  /* Check if we are dealing with an expression of the form '&*ptr'.
+     While the front end folds away '&*ptr' into 'ptr', these
+     expressions may be generated internally by the compiler (e.g.,
+     builtins like __builtin_va_end).  */
+  if (TREE_CODE (TREE_OPERAND (*expr_p, 0)) != INDIRECT_REF)
+    simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, 
+		   is_simple_addr_expr_arg, fb_lvalue);
+  else
+    {
+      /* Fold &*EXPR into EXPR and simplify EXPR into a legal argument for
+	 ADDR_EXPR.  Notice that we need to request an rvalue because EXPR is
+	 already the lvalue that we were looking for originally.  */
+      *expr_p = TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 0);
+      simplify_expr (expr_p, pre_p, post_p, is_simple_addr_expr_arg, fb_rvalue);
+    }
+}
+
 
 /* Code generation.  */
 

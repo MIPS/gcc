@@ -64,5 +64,6 @@ int is_simple_exprseq                  PARAMS ((tree));
 int is_simple_constructor              PARAMS ((tree));
 int is_simple_constructor_elt          PARAMS ((tree));
 int is_simple_initializer              PARAMS ((tree));
+int is_simplifiable_builtin            PARAMS ((tree));
 
 #endif /* _TREE_SIMPLE_H */
