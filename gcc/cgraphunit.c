@@ -1246,7 +1246,7 @@ cgraph_optimize (void)
     }
 
   if (flag_peel_structs)
-    peel_structs ();
+    lang_hooks.optimize.structure_reorg_optimization ();
 
   if (flag_matrix_flattening)
     matrix_reorg ();

@@ -43,7 +43,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 #include "params.h"
 #include "fibheap.h"
-#include "c-common.h"
 #include "intl.h"
 #include "function.h"
 #include "basic-block.h"
@@ -864,13 +863,13 @@ free_bb_access_list_for_struct (struct data_structure *ds, struct function *f)
    new type decl.  Pieces of this function were copied from the functions
    start_struct and finish_struct.  */
 
-static tree
-build_basic_struct (struct new_type_node *new_type, char * name,
-		    tree orig_struct)
+tree
+build_basic_struct (void *new_type_info, char * name, tree orig_struct)
 {
   /* Takes a struct new_type_node and builds (and returns) a type
      tree.  */
 
+  struct new_type_node *new_type = (struct new_type_node *) new_type_info;
   tree attributes = NULL_TREE;
   tree ref = 0;
   tree x;
@@ -886,7 +885,8 @@ build_basic_struct (struct new_type_node *new_type, char * name,
   /* From finish_struct (ref, tree fieldlist, tree attributes);  */
 
   TYPE_SIZE (ref) = 0;
-  decl_attributes (&ref, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
+  lang_hooks.optimize.decl_attributes (&ref, attributes, 
+				       (int) ATTR_FLAG_TYPE_IN_PLACE);
   TYPE_PACKED (ref) = TYPE_PACKED (orig_struct);
   C_TYPE_FIELDS_READONLY (ref) = C_TYPE_FIELDS_READONLY (orig_struct);
   C_TYPE_FIELDS_VOLATILE (ref) = C_TYPE_FIELDS_VOLATILE (orig_struct);
@@ -1168,7 +1168,8 @@ build_child_struct (struct struct_tree_list *struct_list, int count,
   new_type->next = NULL;
   new_type->sub_type = false;
       
-  new_struct = build_basic_struct (new_type, new_name, orig_struct);
+  new_struct = lang_hooks.optimize.build_data_struct ((void *) new_type, new_name,
+						      orig_struct);
   
   for (current = struct_list; current; current = current->next)
     update_field_mappings (current->data, new_struct, struct_data);
@@ -1311,7 +1312,8 @@ create_and_assemble_new_types (struct data_structure *struct_data,
 
   new_types->next = NULL;
 
-  new_type = build_basic_struct (new_types, new_name, struct_data->decl);
+  new_type = lang_hooks.optimize.build_data_struct ((void *) new_types, new_name,
+						    struct_data->decl);
 
   if (child_struct)
     update_field_mappings (child_struct->data, new_type, struct_data);
@@ -1936,185 +1938,6 @@ is_constant_0 (tree t)
     return false;
 }
 
-/* Look up COMPONENT in a structure or union DECL.
-
-   If the component name is not found, returns NULL_TREE.  Otherwise,
-   the return value is a TREE_LIST, with each TREE_VALUE a FIELD_DECL
-   stepping down the chain to the component, which is in the last
-   TREE_VALUE of the list.  Normally the list is of length one, but if
-   the component is embedded within (nested) anonymous structures or
-   unions, the list steps down the chain to the component.  
-
-   This function is an exact copy of lookup_field, from c-typck.c
-   (except for the slightly modified function name).  I will need to
-   fix this eventually.  I did this, because it is needed by 
-   build_component_ref_2 (see next function), which I need to use to
-   build field references in the new structs.  Unfortunately, using the
-   original functions causes the c++ compiler to not build, because the
-   original functions are in c-typeck.c, which is in the c-specific
-   front end.  (FIX ME!!)  */
-
-static tree
-lookup_field_2 (tree decl, tree component)
-{
-  tree type = TREE_TYPE (decl);
-  tree field;
-
-  /* If TYPE_LANG_SPECIFIC is set, then it is a sorted array of pointers
-     to the field elements.  Use a binary search on this array to quickly
-     find the element.  Otherwise, do a linear search.  TYPE_LANG_SPECIFIC
-     will always be set for structures which have many elements.  */
-
-  if (TYPE_LANG_SPECIFIC (type))
-    {
-      int bot, top, half;
-      tree *field_array = &TYPE_LANG_SPECIFIC (type)->s->elts[0];
-
-      field = TYPE_FIELDS (type);
-      bot = 0;
-      top = TYPE_LANG_SPECIFIC (type)->s->len;
-      while (top - bot > 1)
-	{
-	  half = (top - bot + 1) >> 1;
-	  field = field_array[bot+half];
-
-	  if (DECL_NAME (field) == NULL_TREE)
-	    {
-	      /* Step through all anon unions in linear fashion.  */
-	      while (DECL_NAME (field_array[bot]) == NULL_TREE)
-		{
-		  field = field_array[bot++];
-		  if (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE
-		      || TREE_CODE (TREE_TYPE (field)) == UNION_TYPE)
-		    {
-		      tree anon = lookup_field_2 (field, component);
-
-		      if (anon)
-			return tree_cons (NULL_TREE, field, anon);
-		    }
-		}
-
-	      /* Entire record is only anon unions.  */
-	      if (bot > top)
-		return NULL_TREE;
-
-	      /* Restart the binary search, with new lower bound.  */
-	      continue;
-	    }
-
-	  if (DECL_NAME (field) == component)
-	    break;
-	  if (DECL_NAME (field) < component)
-	    bot += half;
-	  else
-	    top = bot + half;
-	}
-
-      if (DECL_NAME (field_array[bot]) == component)
-	field = field_array[bot];
-      else if (DECL_NAME (field) != component)
-	return NULL_TREE;
-    }
-  else
-    {
-      for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
-	{
-	  if (DECL_NAME (field) == NULL_TREE
-	      && (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE
-		  || TREE_CODE (TREE_TYPE (field)) == UNION_TYPE))
-	    {
-	      tree anon = lookup_field_2 (field, component);
-
-	      if (anon)
-		return tree_cons (NULL_TREE, field, anon);
-	    }
-
-	  if (DECL_NAME (field) == component)
-	    break;
-	}
-
-      if (field == NULL_TREE)
-	return NULL_TREE;
-    }
-
-  return tree_cons (NULL_TREE, field, NULL_TREE);
-}
-
-/* Make an expression to refer to the COMPONENT field of
-   structure or union value DATUM.  COMPONENT is an IDENTIFIER_NODE.  */
-
-/* ??FIX ME!! I had to make a static copy of this (from c-typeck.c)
-   because it's not linked in with the c++ code, so cc1plus wasn't 
-   building...(see explanation for lookup_field_2, above).  */
-
-static tree
-build_component_ref_2 (tree datum, tree component)
-{
-  tree type = TREE_TYPE (datum);
-  enum tree_code code = TREE_CODE (type);
-  tree field = NULL;
-  tree ref;
-
-  if (!objc_is_public (datum, component))
-    return error_mark_node;
-
-  /* See if there is a field or component with name COMPONENT.  */
-
-  if (code == RECORD_TYPE || code == UNION_TYPE)
-    {
-      if (!COMPLETE_TYPE_P (type))
-	{
-	  fprintf (stderr, 
-		   "\n\n ** c_incomplete_type_error goes here! ** \n\n");
-	  return error_mark_node;
-	}
-
-      field = lookup_field_2 (datum, component);
-
-      if (!field)
-	{
-	  error ("%qT has no member named %qs", type,
-		 IDENTIFIER_POINTER (component));
-	  return error_mark_node;
-	}
-
-      /* Chain the COMPONENT_REFs if necessary down to the FIELD.
-	 This might be better solved in future the way the C++ front
-	 end does it - by giving the anonymous entities each a
-	 separate name and type, and then have build_component_ref
-	 recursively call itself.  We can't do that here.  */
-      do
-	{
-	  tree subdatum = TREE_VALUE (field);
-
-	  if (TREE_TYPE (subdatum) == error_mark_node)
-	    return error_mark_node;
-
-	  ref = build3 (COMPONENT_REF, TREE_TYPE (subdatum), datum, subdatum,
-			NULL_TREE);
-	  if (TREE_READONLY (datum) || TREE_READONLY (subdatum))
-	    TREE_READONLY (ref) = 1;
-	  if (TREE_THIS_VOLATILE (datum) || TREE_THIS_VOLATILE (subdatum))
-	    TREE_THIS_VOLATILE (ref) = 1;
-
-	  if (TREE_DEPRECATED (subdatum))
-	    warn_deprecated_use (subdatum);
-
-	  datum = ref;
-
-	  field = TREE_CHAIN (field);
-	}
-      while (field);
-
-      return ref;
-    }
-  else if (code != ERROR_MARK)
-    error ("request for member %qs in something not a structure or union",
-	    IDENTIFIER_POINTER (component));
-
-  return error_mark_node;
-}
-
 static void
 add_field_mallocs (tree cur_lhs,
 		   tree cur_struct,
@@ -2153,8 +1976,9 @@ add_field_mallocs (tree cur_lhs,
 	  tree assign_stmt;
 	  tree void_pointer_type;
 
-	  new_struct_size = c_sizeof_or_alignof_type (field_type,
-						      SIZEOF_EXPR, 0);
+
+	  new_struct_size = lang_hooks.optimize.sizeof_type (field_type,
+							     SIZEOF_EXPR, 0);
 	  arg_list = build_tree_list (NULL_TREE, new_struct_size);
 	  call_expr = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (malloc_fn_decl)),
 			      build1 (ADDR_EXPR,
@@ -2178,17 +2002,19 @@ add_field_mallocs (tree cur_lhs,
 				build1 (CONVERT_EXPR, save_type, tmp_var1));
 
 	  append_to_statement_list (convert_stmt, new_mallocs_list);
+	  new_lhs = lang_hooks.optimize.build_field_reference (lang_hooks.optimize.build_pointer_ref 
+							       (cur_lhs, ""),
+							       field_identifier);
 
-	  new_lhs = build_component_ref_2 (build_indirect_ref (cur_lhs, ""),
-					   field_identifier);
 	  new_malloc_stmt = build (MODIFY_EXPR, TREE_TYPE (new_lhs),
 				   new_lhs,
 				   tmp_var2);
 
 	  append_to_statement_list (new_malloc_stmt, new_mallocs_list);
 
-	  new_rhs = build_component_ref_2 (build_indirect_ref (cur_lhs, ""),
-					   field_identifier);
+	  new_rhs = lang_hooks.optimize.build_field_reference (lang_hooks.optimize.build_pointer_ref 
+							       (cur_lhs, ""),
+							       field_identifier);
 
 	  tmp_var3 = create_tmp_var_raw (TREE_TYPE (new_rhs), NULL);
 	  gimple_add_tmp_var (tmp_var3);
@@ -2252,7 +2078,8 @@ create_cascading_mallocs (struct malloc_struct *cur_malloc,
   while (POINTER_TYPE_P (new_struct_type))
     new_struct_type = TREE_TYPE (new_struct_type);
 
-  new_struct_size = c_sizeof_or_alignof_type (new_struct_type, SIZEOF_EXPR, 0);
+  new_struct_size = lang_hooks.optimize.sizeof_type (new_struct_type, 
+						     SIZEOF_EXPR, 0);
 
   arg_list = build_tree_list (NULL_TREE, new_struct_size);
   call_expr = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (malloc_fn_decl)),
@@ -2408,11 +2235,11 @@ create_new_mallocs (struct struct_list *data_struct_list,
 				  new_struct_type = TREE_TYPE 
 				                            (new_struct_type);
 				
-				orig_struct_size = c_sizeof_or_alignof_type
+				orig_struct_size = lang_hooks.optimize.sizeof_type
 		                                        (struct_data->decl,
 							 SIZEOF_EXPR,
 							 0);
-				new_struct_size = c_sizeof_or_alignof_type
+				new_struct_size = lang_hooks.optimize.sizeof_type
 			                                (new_struct_type,
 							 SIZEOF_EXPR, 
 							 0);
@@ -2966,7 +2793,7 @@ build_new_stmts (tree lhs, struct new_var_data *new_vars, tree stmt,
 	if (lhs == tmp_lhs)
 	  new_lhs = new_var_decl;
 	else if (TREE_CODE (lhs) == INDIRECT_REF)
-	  new_lhs = build_indirect_ref (cur_lhs->data, "");
+	  new_lhs = lang_hooks.optimize.build_pointer_ref (cur_lhs->data, "");
 	else if (TREE_CODE (lhs) == ARRAY_REF)
 	  {
 	    new_lhs = copy_node (lhs);
@@ -2986,8 +2813,10 @@ build_new_stmts (tree lhs, struct new_var_data *new_vars, tree stmt,
 	    
 	    field_identifier = DECL_NAME (field_identifier);
 
-	    if (lookup_field_2 (TREE_TYPE (cur_lhs->data), field_identifier))
-	      new_lhs = build_component_ref_2 (build_indirect_ref (cur_lhs->data, 
+	    if (lang_hooks.optimize.lookup_field (TREE_TYPE (cur_lhs->data), 
+						  field_identifier))
+	      new_lhs = lang_hooks.optimize.build_field_reference
+		                              (lang_hooks.optimize.build_pointer_ref (cur_lhs->data, 
 								   ""),
 					       field_identifier);
 	    else
@@ -3142,8 +2971,8 @@ update_struct_offset (struct struct_list *data_struct_list,
   else
     struct_data = cur_struct->struct_data;
 			  
-  orig_struct_size = c_sizeof_or_alignof_type (struct_data->decl,
-					       SIZEOF_EXPR, 0);
+  orig_struct_size = lang_hooks.optimize.sizeof_type (struct_data->decl,
+						      SIZEOF_EXPR, 0);
 
   index_var = create_tmp_var_raw (new_int_type, NULL);
   
@@ -3173,8 +3002,8 @@ update_struct_offset (struct struct_list *data_struct_list,
 				     NULL);
       gimple_add_tmp_var (size_var);
       
-      new_struct_size = c_sizeof_or_alignof_type (new_struct_type, 
-						  SIZEOF_EXPR, 0);
+      new_struct_size = lang_hooks.optimize.sizeof_type (new_struct_type, 
+							 SIZEOF_EXPR, 0);
       
       new_stmt1 = build (MODIFY_EXPR, new_int_type,
 			 size_var,
@@ -3376,15 +3205,15 @@ update_field_accesses (struct struct_list *data_struct_list,
 				      new_stmt = build (MODIFY_EXPR,
 							save_type,
 							new_var,
-							build_component_ref_2 
-							(build_indirect_ref 
+							lang_hooks.optimize.build_field_reference
+							(lang_hooks.optimize.build_pointer_ref 
 							 (old_var, ""),
 							 field_identifier));
 				    else
 				      new_stmt = build (MODIFY_EXPR,
 							save_type,
 							new_var,
-							build_component_ref_2
+							lang_hooks.optimize.build_field_reference
 							    (old_var,
 							     field_identifier));
 
@@ -3396,11 +3225,13 @@ update_field_accesses (struct struct_list *data_struct_list,
 				  {
 				    field_identifier = DECL_NAME (arg1);
 				    if (is_indirect_ref)
-				      new_access = build_component_ref_2
-					(build_indirect_ref (old_var, ""),
+				      new_access = 
+					lang_hooks.optimize.build_field_reference
+					(lang_hooks.optimize.build_pointer_ref (old_var, ""),
 					 field_identifier);
 				    else
-				      new_access = build_component_ref_2
+				      new_access = 
+					lang_hooks.optimize.build_field_reference
 					(old_var, field_identifier);
 				  }
 			      }
@@ -4219,15 +4050,20 @@ perform_escape_analysis (bitmap escaped_vars, bitmap escaped_types,
 	      for ( ; arg_list ; arg_list = TREE_CHAIN (arg_list))
 		{
 		  tree arg = TREE_VALUE (arg_list);
+		  tree arg_type = TREE_TYPE (arg);
+
+		  while (POINTER_TYPE_P (arg_type))
+		    arg_type = TREE_TYPE (arg_type);
+
 		  if (DECL_P (arg))
 		    {
 		      bitmap_set_bit (escaped_vars, arg->decl.uid);
 		      if (type_check_p
-			  && (AGGREGATE_TYPE_P (TREE_TYPE (arg)))
-			  && !bitmap_bit_p (escaped_types, 
-					    (TREE_TYPE (arg))->type.uid))
+			  && (AGGREGATE_TYPE_P (arg_type))
+			  && !bitmap_bit_p (escaped_types,
+					    arg_type->type.uid))
 			bitmap_set_bit (escaped_types, 
-					(TREE_TYPE (arg))->type.uid);
+					arg_type->type.uid);
 		    }
 		}
 	    }
@@ -4247,15 +4083,19 @@ perform_escape_analysis (bitmap escaped_vars, bitmap escaped_types,
 		     arg_list = TREE_CHAIN (arg_list))
 		  {
 		    tree arg = TREE_VALUE (arg_list);
+		    tree arg_type = TREE_TYPE (arg);
+
+		    while (POINTER_TYPE_P (arg_type))
+		      arg_type = TREE_TYPE (arg_type);
 		    if (DECL_P (arg))
 		      {
 			bitmap_set_bit (escaped_vars, arg->decl.uid);
 			if (type_check_p
-			    && (AGGREGATE_TYPE_P (TREE_TYPE (arg)))
+			    && (AGGREGATE_TYPE_P (arg_type))
 			    && !bitmap_bit_p (escaped_types, 
-					      (TREE_TYPE (arg))->type.uid))
+					      arg_type->type.uid))
 			  bitmap_set_bit (escaped_types, 
-					  (TREE_TYPE (arg))->type.uid);
+					  arg_type->type.uid);
 		      }
 		  }
 	      
@@ -4419,13 +4259,10 @@ peel_structs (void)
    
   vcg_dump = fopen (concat (dump_base_name, ".struct-reorg.vcg", NULL), "w");
 
-  /* Verify that this compiler invocation was passed *all* the user-written
-     code for this program.  */
-  
   if (! flag_whole_program)
     {
-      inform 
-      ("Whole program not passed to compiler: Can't perform struct peeling.");
+      inform
+	("Whole program not passed to compiler: Can't perform struct peeling.");
       return;
     }
 

@@ -1,3 +1,64 @@
+2005-01-25  Caroline Tice  <ctice@apple.com>
+
+	* c-lang.c (cgraph.h): Add include statement.
+	(LANG_HOOKS_OPTIMIZE_BUILD_FIELD_REFERENCE): New lang hooks definition.
+	(LANG_HOOKS_OPTIMIZE_BUILD_POINTER_REF): Likewise.
+	(LANG_HOOKS_OPTIMIZE_LOOKUP_FIELD): Likewise.
+	(LANG_HOOKS_OPTIMIZE_BUILD_DATA_STRUCT): Likewise.
+	(LANG_HOOKS_OPTIMIZE_SIZEOF_TYPE): Likewise.
+	(LANG_HOOKS_OPTIMIZE_DECL_ATTRIBUTES): Likewise.
+	(LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION): Likewise.
+	* c-tree.h (lookup_field):  Add extern function declaration.
+	* c-typeck.c (lookup_field):  Remove 'static' from function declaration.
+	* cgraph.h (build_basic_struct): Add function declaration.
+	* cgraphunit.c (cgraph_optimize): Change call to peel_structs to use 
+	lang_hooks.
+	* langhooks-def.h (lhd_optimize_build_field_reference): New extern 
+	function declaration.
+	(lhd_optimize_build_pointer_ref): Likewise.
+	(lhd_optimize_lookup_field): Likewise.
+	(lhd_optimize_build_data_struct): Likewise.
+	(lhd_optimize_sizeof_type): Likewise.
+	(lhd_optimize_decl_attributes): Likewise.
+	(lhd_optimize_structure_reorg_optimization): Likewise.
+	(LANG_HOOKS_OPTIMIZE_BUILD_DATA_STRUCT): New macro definition.
+	(LANG_HOOKS_OPTIMIZE_BUILD_POINTER_REF): Likewise. 
+	(LANG_HOOKS_OPTIMIZE_SIZEOF_TYPE): Likewise.
+	(LANG_HOOKS_OPTIMIZE_DECL_ATTRIBUTES):  Likewise.
+	(LANG_HOOKS_OPTIMIZE_LOOKUP_FIELD): Likewise.
+	(LANG_HOOKS_OPTIMIZE_BUILD_FIELD_REFERENCE): Likewise.
+	(LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION): Likewise.
+	(LANG_HOOKS_OPTIMIZE_INITIALIZER): New lang_hooks initializer macro.
+	(LANG_HOOKS_INITIALIZER):  Add new initializer to initializer list.
+	* langhooks.c (lhd_optimize_build_field_reference): New dummy function.
+	(lhd_optimize_decl_attributes): Likewise.
+	(lhd_optimize_build_pointer_ref): Likewise.
+	(lhd_optimize_lookup_field): Likewise.
+	(lhd_optimize_build_data_struct): Likewise.
+	(lhd_optimize_sizeof_type): Likewise.
+	(lhd+_optimize_structure_reorg_optimization): Likewise.
+	* langhooks.h (struct lang_hooks_for_optimizations): New structure.
+	(struct lang_hooks): Add new field, optimize, of type struct 
+	lang_hooks_for_optimizations.
+	* struct-reorg.c (c-common.h): Remove include statement.
+	(build_basic_struct):  Remove 'static' from function definition;
+	change call to decl_attributes into call to 
+	lang_hooks.optimize.decl_attributes.
+	(build_child_struct):  Change call to build_basic_struct into call to
+	lang_hooks.optimize.build_data_struct.
+	(create_and_assemble_new_types): Likewise.
+	(lookup_field_2): Remove function.
+	(build_component_ref_2): Remove function.
+	(add_field_mallocs): Change calls to c_sizeof_or_alignof_type into calls 
+	to lang_hooks.optimize.sizeof_type; Change calls to build_component_ref_2
+	into calls ot lang_hooks.optimize.build_field_reference; change calls to
+	build_indirect_ref into calls to lang_hooks.optimize.build_pointer_ref.
+	(create_cascading_mallocs): Likewise.
+	(build_new_stmts): Likewise.
+	(update_struct_offset): Likewise.
+	(update_field_accesses): Likewise.
+	(perform_excape_analysis):  Add code to check for pointer-to-struct types.
+	
 2005-01-24  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	Merged with tree-profiling branch, as of 2005-01-22.  Tag on

@@ -304,6 +304,7 @@ bool cgraph_default_inline_p (struct cgraph_node *);
 /* In struct-reorg.c  */
 void peel_structs (void);
 void add_call_to_malloc_list (tree);
+tree build_basic_struct (void *, char *, tree);
 
 /* In matrix-transpose.c  */
 void matrix_reorg (void);

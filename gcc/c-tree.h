@@ -462,6 +462,7 @@ extern tree build_indirect_ref (tree, const char *);
 extern tree build_array_ref (tree, tree);
 extern tree build_external_ref (tree, int);
 extern void pop_maybe_used (bool);
+extern tree lookup_field (tree, tree);
 extern struct c_expr c_expr_sizeof_expr (struct c_expr);
 extern struct c_expr c_expr_sizeof_type (struct c_type_name *);
 extern struct c_expr parser_build_binary_op (enum tree_code, struct c_expr,
