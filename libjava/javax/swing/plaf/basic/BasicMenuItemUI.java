@@ -40,6 +40,7 @@ package javax.swing.plaf.basic;
 import java.awt.AWTKeyStroke;
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -57,6 +58,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.util.Vector;
 import javax.swing.AbstractButton;
 import javax.swing.ButtonModel;
 import javax.swing.Icon;
@@ -64,6 +66,7 @@ import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
+import javax.swing.JPopupMenu;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.KeyStroke;
 import javax.swing.MenuElement;
@@ -86,7 +89,7 @@ import javax.swing.plaf.MenuItemUI;
  * DOCUMENT ME!
  *
  * @author $author$
- * @version $Revision: 1.1.2.7 $
+ * @version $Revision: 1.1.2.8 $
  */
 public class BasicMenuItemUI extends MenuItemUI
 {
@@ -167,6 +170,7 @@ public class BasicMenuItemUI extends MenuItemUI
    * String that separates description of the modifiers and the key
    */
   private String acceleratorDelimiter;
+  private PropertyChangeListener propertyChangeListener;
 
   /**
    * Number of spaces between accelerator and menu item's label.
@@ -178,6 +182,7 @@ public class BasicMenuItemUI extends MenuItemUI
     mouseInputListener = createMouseInputListener(menuItem);
     menuDragMouseListener = createMenuDragMouseListener(menuItem);
     menuKeyListener = createMenuKeyListener(menuItem);
+    propertyChangeListener = new PropertyChangeHandler();
   }
 
   protected MenuDragMouseListener createMenuDragMouseListener(JComponent c)
@@ -263,8 +268,24 @@ public class BasicMenuItemUI extends MenuItemUI
    */
   public MenuElement[] getPath()
   {
-    // TODO
-    return null;
+    Vector path = new Vector();
+    Component c = menuItem;
+    while (c instanceof MenuElement)
+      {
+	path.add(c);
+
+	if (c instanceof JPopupMenu)
+	  c = ((JPopupMenu) c).getInvoker();
+	else
+	  c = c.getParent();
+      }
+
+    // convert from vector to array
+    MenuElement[] pathArray = new MenuElement[path.size()];
+    for (int i = 0; i < path.size(); i++)
+      pathArray[i] = (MenuElement) path.get(path.size() - i - 1);
+
+    return pathArray;
   }
 
   /**
@@ -324,15 +345,15 @@ public class BasicMenuItemUI extends MenuItemUI
 	  d.height = checkIcon.getIconHeight();
       }
 
-     if (arrowIcon != null && (c instanceof JMenu))
+    if (arrowIcon != null && (c instanceof JMenu))
       {
-       d.width = d.width + arrowIcon.getIconWidth() + defaultTextIconGap;
+	d.width = d.width + arrowIcon.getIconWidth() + defaultTextIconGap;
 
-       if (arrowIcon.getIconHeight() > d.height)
-         d.height = arrowIcon.getIconHeight();
-       }
+	if (arrowIcon.getIconHeight() > d.height)
+	  d.height = arrowIcon.getIconHeight();
+      }
 
-     return d;
+    return d;
   }
 
   /**
@@ -392,6 +413,7 @@ public class BasicMenuItemUI extends MenuItemUI
     menuItem.addMouseListener(mouseInputListener);
     menuItem.addMenuDragMouseListener(menuDragMouseListener);
     menuItem.addMenuKeyListener(menuKeyListener);
+    menuItem.addPropertyChangeListener(propertyChangeListener);
   }
 
   /**
@@ -624,6 +646,7 @@ public class BasicMenuItemUI extends MenuItemUI
     menuItem.removeMouseListener(mouseInputListener);
     menuItem.removeMenuDragMouseListener(menuDragMouseListener);
     menuItem.removeMenuKeyListener(menuKeyListener);
+    menuItem.removePropertyChangeListener(propertyChangeListener);
   }
 
   /**
@@ -646,7 +669,7 @@ public class BasicMenuItemUI extends MenuItemUI
    */
   public void update(Graphics g, JComponent c)
   {
-    // TODO
+    paint(g, c);
   }
 
   /**
@@ -712,7 +735,7 @@ public class BasicMenuItemUI extends MenuItemUI
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.1.2.7 $
+   * @version $Revision: 1.1.2.8 $
    */
   protected class MouseInputHandler implements MouseInputListener
   {
@@ -809,7 +832,7 @@ public class BasicMenuItemUI extends MenuItemUI
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.1.2.7 $
+   * @version $Revision: 1.1.2.8 $
    */
   protected class MenuDragMouseHandler implements MenuDragMouseListener
   {
@@ -854,7 +877,7 @@ public class BasicMenuItemUI extends MenuItemUI
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.1.2.7 $
+   * @version $Revision: 1.1.2.8 $
    */
   protected class MenuKeyHandler implements MenuKeyListener
   {
@@ -890,9 +913,9 @@ public class BasicMenuItemUI extends MenuItemUI
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.1.2.7 $
+   * @version $Revision: 1.1.2.8 $
    */
-  protected class PropertyChangeHandler
+  protected class PropertyChangeHandler implements PropertyChangeListener
   {
     /**
      * DOCUMENT ME!

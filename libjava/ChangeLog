@@ -1,3 +1,15 @@
+2004-05-21  Olga Rodimina  <rodimina@redhat.com>
+
+	* javax/swing/plaf/basic/BasicMenuItemUI.java:
+	(BasicMenuItemUI): Create propertyChangeListener.
+	(getPath):Implemented.
+	(installListeners): Add propertyChangeListener to menuItem.
+	(uninstallListeners): Remove propertyChangeListener from menuItem.
+	(update): Implemented.
+	* javax/swing/plaf/basic/BasicMenuUI.MouseInputHandler:
+	(mouseEntered): Take insets of popup menu into account when
+	calculating position of popup menu.	
+ 	
 2004-05-18  Olga Rodimina  <rodimina@redhat.com>
 
 	* Makefile.am: Added new file. 

@@ -74,7 +74,7 @@ import javax.swing.plaf.MenuItemUI;
  * DOCUMENT ME!
  *
  * @author $author$
- * @version $Revision: 1.1.2.1 $
+ * @version $Revision: 1.1.2.2 $
  */
 public class BasicMenuUI extends BasicMenuItemUI
 {
@@ -275,7 +275,7 @@ public class BasicMenuUI extends BasicMenuItemUI
   * DOCUMENT ME!
   *
   * @author $author$
-  * @version $Revision: 1.1.2.1 $
+  * @version $Revision: 1.1.2.2 $
   */
   protected class MouseInputHandler implements MouseInputListener
   {
@@ -309,10 +309,11 @@ public class BasicMenuUI extends BasicMenuItemUI
         {
 	  JMenuBar mb = (JMenuBar) subMenu.getParent();
 
-	  // Take into account menu bar margin when calculating y coordinate
-	  // of the popup menu.
+	  // Subtract menuBar's insets.bottom and popupMenu's insets.top, 
+	  // s.t. the space between menu bar and its popup menu is equal to 
+	  // menuBar's margin. By default menuBar's margin is Insets(0,0,0,0).
 	  y = subMenu.getHeight() - mb.getInsets().bottom
-	      + mb.getMargin().bottom;
+	      - subMenu.getPopupMenu().getInsets().top + mb.getMargin().bottom;
         }
       else
 	x = subMenu.getWidth();
