@@ -458,7 +458,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       if (assignment)
         {
 	  /* Do not create a statement containing a naked RESULT_DECL.  */
-	  if (keep_function_tree_in_gimple_form (id->decl))
+	  if (lang_hooks.gimple_before_inlining)
 	    if (TREE_CODE (assignment) == RESULT_DECL)
 	      gimplify_stmt (&assignment);
 
@@ -724,7 +724,7 @@ initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree bind_ex
       TREE_CHAIN (var) = vars;
       vars = var;
       /* Make gimplifier happy about this variable.  */
-      var->decl.seen_in_bind_expr = keep_function_tree_in_gimple_form (fn);
+      var->decl.seen_in_bind_expr = lang_hooks.gimple_before_inlining;
 
       /* Even if P was TREE_READONLY, the new VAR should not be.
 	 In the original code, we would have constructed a
@@ -789,8 +789,7 @@ initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree bind_ex
 					 value);
     }
 
-  if (gimplify_init_stmts_p
-      && keep_function_tree_in_gimple_form (fn))
+  if (gimplify_init_stmts_p && lang_hooks.gimple_before_inlining)
     gimplify_body (&init_stmts, fn);
 
   add_var_to_bind_expr (bind_expr, vars);
@@ -1605,7 +1604,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   /* If we are working with gimple form, then we need to keep the tree
      in gimple form.  If we are not in gimple form, we can just replace
      *tp with the new BIND_EXPR.  */ 
-  if (keep_function_tree_in_gimple_form (id->decl))
+  if (lang_hooks.gimple_before_inlining)
     {
       tree save_decl;
 
@@ -1732,7 +1731,7 @@ expand_calls_inline (tree *tp, inline_data *id)
      recursively as we do not know anything about the structure
      of the tree.  */
 
-  if (! keep_function_tree_in_gimple_form (id->decl))
+  if (!lang_hooks.gimple_before_inlining)
     {
       walk_tree (tp, expand_call_inline, id, id->tree_pruner);
       return;

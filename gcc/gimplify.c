@@ -3147,52 +3147,18 @@ gimplify_body (tree *body_p, tree fndecl)
   input_location = saved_location;
 }
 
-/* Return nonzero if we should keep FNDECL in gimple form during inlining.  */
+/* Entry point to the gimplification pass.  FNDECL is the FUNCTION_DECL
+   node for the function we want to gimplify.  */
 
-int
-keep_function_tree_in_gimple_form (tree fndecl)
-{
-  tree fnbody;
-
-  /* If the front-end does not support gimplification, then this
-     function was never in gimple form to begin with.  */
-  if (lang_hooks.gimplify_expr == lhd_gimplify_expr)
-    return 0;
-
-  /* If the function has no body, then we consider it not in gimple
-     form.  */
-  fnbody = DECL_SAVED_TREE (fndecl);
-  if (fnbody == NULL_TREE)
-    return 0;
-
-  return 1;
-}
-
-/*  Entry point to the gimplification pass.  FNDECL is the FUNCTION_DECL
-    node for the function we want to gimplify.  */
-
-bool
+void
 gimplify_function_tree (tree fndecl)
 {
-  tree fnbody;
   tree oldfn;
-
-  /* FIXME.  Hack.  If this front end does not support gimplification,
-     do nothing.  */
-  if (lang_hooks.gimplify_expr == lhd_gimplify_expr)
-    return false;
-
-  fnbody = DECL_SAVED_TREE (fndecl);
-  if (fnbody == NULL_TREE)
-    return false;
 
   oldfn = current_function_decl;
   current_function_decl = fndecl;
 
-  gimplify_body (&fnbody, fndecl);
+  gimplify_body (&DECL_SAVED_TREE (fndecl), fndecl);
 
-  DECL_SAVED_TREE (fndecl) = fnbody;
   current_function_decl = oldfn;
-
-  return true;
 }

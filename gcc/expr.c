@@ -1676,9 +1676,6 @@ emit_block_move_via_loop (rtx x, rtx y, rtx size,
 {
   rtx cmp_label, top_label, iter, x_addr, y_addr, tmp;
   enum machine_mode iter_mode;
-  int create_notes
-    = ! keep_function_tree_in_gimple_form (current_function_decl);
-
 
   iter_mode = GET_MODE (size);
   if (iter_mode == VOIDmode)
@@ -1693,9 +1690,6 @@ emit_block_move_via_loop (rtx x, rtx y, rtx size,
   x_addr = force_operand (XEXP (x, 0), NULL_RTX);
   y_addr = force_operand (XEXP (y, 0), NULL_RTX);
   do_pending_stack_adjust ();
-
-  if (create_notes)
-    emit_note (NOTE_INSN_LOOP_BEG);
 
   emit_jump (cmp_label);
   emit_label (top_label);
@@ -1713,15 +1707,10 @@ emit_block_move_via_loop (rtx x, rtx y, rtx size,
   if (tmp != iter)
     emit_move_insn (iter, tmp);
 
-  if (create_notes)
-    emit_note (NOTE_INSN_LOOP_CONT);
   emit_label (cmp_label);
 
   emit_cmp_and_jump_insns (iter, size, LT, NULL_RTX, iter_mode,
 			   true, top_label);
-
-  if (create_notes)
-    emit_note (NOTE_INSN_LOOP_END);
 }
 
 /* Copy all or part of a value X into registers starting at REGNO.

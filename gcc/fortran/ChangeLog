@@ -1,5 +1,11 @@
 2003-10-23  Richard Henderson  <rth@redhat.com>
 
+	* f96-lang.c (gfc_gimplify_expr): Remove.
+	(LANG_HOOKS_GIMPLIFY_EXPR): Remove.
+	(LANG_HOOKS_GIMPLE_BEFORE_INLINING): New.
+
+2003-10-23  Richard Henderson  <rth@redhat.com>
+
 	* f95-lang.c (gfc_gimplify_expr): Return gimplify_status.
 
 2003-10-20  Paul Brook  <paul@nowt.org>

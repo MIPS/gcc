@@ -277,31 +277,29 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
       nested_p = true;
     }
 
-  /* Gimplify the function.  Don't try to optimize the function if
-     gimplification failed.  */
-  if (keep_function_tree_in_gimple_form (fndecl)
-      || gimplify_function_tree (fndecl))
-    {
-      /* Debugging dump after gimplification.  */
-      dump_function (TDI_gimple, fndecl);
+  /* If the function has not already been gimplified, do so now.  */
+  if (!lang_hooks.gimple_before_inlining)
+    gimplify_function_tree (fndecl);
 
-      /* Run a pass over the statements deleting any obviously useless
-	 statements before we build the CFG.  */
-      remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), false);
-      dump_function (TDI_useless, fndecl);
+  /* Debugging dump after gimplification.  */
+  dump_function (TDI_gimple, fndecl);
 
-      /* Run a pass to lower magic exception handling constructs into,
-	 well, less magic though not completely mundane constructs.  */
-      lower_eh_constructs (&DECL_SAVED_TREE (fndecl));
+  /* Run a pass over the statements deleting any obviously useless
+     statements before we build the CFG.  */
+  remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), false);
+  dump_function (TDI_useless, fndecl);
 
-      /* Lower the structured statements.  */
-      lower_function_body (&DECL_SAVED_TREE (fndecl));
-      dump_function (TDI_lower, fndecl);
+  /* Run a pass to lower magic exception handling constructs into,
+     well, less magic though not completely mundane constructs.  */
+  lower_eh_constructs (&DECL_SAVED_TREE (fndecl));
 
-      /* Invoke the SSA tree optimizer.  */
-      if (optimize >= 1 && !flag_disable_tree_ssa)
-        optimize_function_tree (fndecl);
-    }
+  /* Lower the structured statements.  */
+  lower_function_body (&DECL_SAVED_TREE (fndecl));
+  dump_function (TDI_lower, fndecl);
+
+  /* Invoke the SSA tree optimizer.  */
+  if (optimize >= 1 && !flag_disable_tree_ssa)
+    optimize_function_tree (fndecl);
 
   /* If the function has a variably modified type, there may be
      SAVE_EXPRs in the parameter types.  Their context must be set to

@@ -207,6 +207,7 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 
 /* Hooks for tree gimplification.  */
 #define LANG_HOOKS_GIMPLIFY_EXPR lhd_gimplify_expr
+#define LANG_HOOKS_GIMPLE_BEFORE_INLINING true
 
 /* Tree dump hooks.  */
 extern bool lhd_tree_dump_dump_tree (void *, tree);
@@ -319,7 +320,8 @@ extern int lhd_tree_dump_type_quals (tree);
   LANG_HOOKS_DECLS, \
   LANG_HOOKS_FOR_TYPES_INITIALIZER, \
   LANG_HOOKS_RTL_EXPAND_INITIALIZER, \
-  LANG_HOOKS_GIMPLIFY_EXPR \
+  LANG_HOOKS_GIMPLIFY_EXPR, \
+  LANG_HOOKS_GIMPLE_BEFORE_INLINING \
 }
 
 #endif /* GCC_LANG_HOOKS_DEF_H */

@@ -106,7 +106,6 @@ void set_block (tree);
 static void gfc_be_parse_file (int);
 static int gfc_expand_decl (tree t);
 static void gfc_expand_stmt (tree t);
-static int gfc_gimplify_expr (tree *, tree *, tree *);
 
 #undef LANG_HOOKS_NAME
 #undef LANG_HOOKS_INIT
@@ -124,7 +123,7 @@ static int gfc_gimplify_expr (tree *, tree *, tree *);
 #undef LANG_HOOKS_UNSIGNED_TYPE
 #undef LANG_HOOKS_SIGNED_TYPE
 #undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
-#undef LANG_HOOKS_GIMPLIFY_EXPR
+#undef LANG_HOOKS_GIMPLE_BEFORE_INLINING
 #undef LANG_HOOKS_RTL_EXPAND_STMT
 
 /* Define lang hooks.  */
@@ -144,8 +143,7 @@ static int gfc_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_UNSIGNED_TYPE           gfc_unsigned_type
 #define LANG_HOOKS_SIGNED_TYPE             gfc_signed_type
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE gfc_signed_or_unsigned_type
-/* We need to provide this otherwise the gimplifier ignores us.  */
-#define LANG_HOOKS_GIMPLIFY_EXPR        gfc_gimplify_expr
+#define LANG_HOOKS_GIMPLE_BEFORE_INLINING false
 #define LANG_HOOKS_RTL_EXPAND_STMT	gfc_expand_stmt
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -360,18 +358,6 @@ gfc_print_identifier (FILE * file ATTRIBUTE_UNUSED,
 		      int indent ATTRIBUTE_UNUSED)
 {
   return;
-}
-
-
-/* This must exist otherwise the gimplifier ignores us.  */
-
-static int
-gfc_gimplify_expr (tree * expr_p ATTRIBUTE_UNUSED,
-                   tree * pre_p ATTRIBUTE_UNUSED,
-                   tree *post_p ATTRIBUTE_UNUSED)
-{
-  /* Just let the gimplifier handle everything.  */
-  return GS_UNHANDLED;
 }
 
 

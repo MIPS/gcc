@@ -3443,10 +3443,9 @@ extern int containing_blocks_have_cleanups_or_stack_level (void);
 void optimize_function_tree (tree);
 
 /* In gimplify.c.  */
-extern bool gimplify_function_tree (tree);
+extern void gimplify_function_tree (tree);
 extern const char *get_name (tree);
 extern tree unshare_expr (tree);
-extern int keep_function_tree_in_gimple_form (tree);
 
 /* If KIND=='I', return a suitable global initializer (constructor) name.
    If KIND=='D', return a suitable global clean-up (destructor) name.  */

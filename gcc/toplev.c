@@ -3323,8 +3323,7 @@ rest_of_compilation (tree decl)
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP
 	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
-  if (keep_function_tree_in_gimple_form (current_function_decl))
-    create_loop_notes ();
+  create_loop_notes ();
 
   if (optimize)
     {
