@@ -318,9 +318,47 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		}
 	    }
 
-	  if (best_edge)
-	    /* Found suitable successor.  */
+	  if (best_edge) /* Found suitable successor.  */
 	    {
+	      /* Check for a situation
+
+		  A
+		 /|
+		B |
+		 \|
+		  C
+
+	      where
+	      EDGE_FREQUENCY (AB) + EDGE_FREQUENCY (BC) >= EDGE_FREQUENCY (AC).
+	      (i.e. 2 * B->frequency >= EDGE_FREQUENCY (AC) )
+	      Best ordering is then A B C. 
+
+	      This situation is created for example by:
+
+	      if (A) B;
+	      C;
+
+	      */
+
+	      for (e = bb->succ; e; e = e->succ_next)
+		if (e != best_edge && (e->flags & EDGE_CAN_FALLTHRU)
+		    && !(e->flags & EDGE_COMPLEX)
+		    && !RBI (e->dest)->visited
+		    && !e->dest->pred->pred_next
+		    && e->dest->succ
+		    && (e->dest->succ->flags & EDGE_CAN_FALLTHRU)
+		    && !(e->dest->succ->flags & EDGE_COMPLEX)
+		    && !e->dest->succ->succ_next
+		    && e->dest->succ->dest == best_edge->dest
+		    && 2 * e->dest->frequency >= EDGE_FREQUENCY (best_edge))
+		  {
+		    best_edge = e;
+		    if (rtl_dump_file)
+		      fprintf (rtl_dump_file, "Selecting BB %d\n",
+			  best_edge->dest->index);
+		    break;
+		  }
+
 	      if (RBI (best_edge->dest)->visited == *n_traces)
 		{
 		  if (bb != best_edge->dest)
