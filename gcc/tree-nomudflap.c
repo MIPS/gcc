@@ -49,7 +49,7 @@ tree
 mudflap_c_function (t)
      tree t ATTRIBUTE_UNUSED;
 {
-  abort ();
+  internal_error ("mudflap: this language is not supported");
   return NULL;
 }
 
@@ -79,6 +79,20 @@ void
 mudflap_finish_file ()
 {
   internal_error ("mudflap: this language is not supported");
+}
+
+
+int
+mf_marked_p (tree t)
+{
+  internal_error ("mudflap: this language is not supported");
+}
+
+tree
+mf_mark (tree t)
+{
+  internal_error ("mudflap: this language is not supported");
+  return NULL;
 }
 
 
