@@ -397,6 +397,7 @@ copy_node (node)
   TREE_CHAIN (t) = 0;
   TREE_ASM_WRITTEN (t) = 0;
   TREE_VISITED (t) = 0;
+  t->common.ann = 0;
 
   if (TREE_CODE_CLASS (code) == 'd')
     DECL_UID (t) = next_decl_uid++;

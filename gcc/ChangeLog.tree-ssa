@@ -1,5 +1,9 @@
 2003-04-05  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree.c (copy_node): Never copy tree annotations.
+
+2003-04-05  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-ssa-ccp.c (visit_cond_stmt): Don't short circuit evaluation
 	of UNDEFINED conditional expressions.
 
