@@ -1,5 +1,9 @@
 2004-09-17  Jan Hubicka  <jh@suse.cz>
 
+	* tree-cfg.c (thread_jumps): Fix profile updating.
+
+2004-09-17  Jan Hubicka  <jh@suse.cz>
+
 	* basic-block.h (update_bb_profile_after_threading): Declare.
 	* cfg.c (update_bb_profile_after_threading): Break out from ...
 	* cfgcleanup.c (try_forward_edges): ... here; use it.
