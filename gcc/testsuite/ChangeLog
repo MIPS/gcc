@@ -1,3 +1,11 @@
+2003-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20030711-1.c: New test.
+
+2003-04-26  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* doc/md.texi (cmpstr): Document additional restrictions.
+
 2003-06-26  Roger Sayle  <roger@eyesopen.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 
