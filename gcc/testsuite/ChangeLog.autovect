@@ -1,3 +1,7 @@
+2005-02-21  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/vect/vect-dv-1.c: New test.
+
 2005-02-16  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* gcc.dg/vect/vect.exp: Add flag -ftree-vectorizer-verbose=3.

@@ -1,3 +1,8 @@
+2005-02-21  Devang Patel  <dpatel@apple.com>
+
+	* gcc/tree-vectorizer.c (vect_analyze_data_ref_dependence): Check for NULL
+	distance vector.
+
 2005-02-16  Dorit Naishlos  <dorit@il.ibm.com>
 
 	Merge vectorizer related changes made on mainline
