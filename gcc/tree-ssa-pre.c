@@ -1407,8 +1407,8 @@ compute_du_info (struct expr_info *ei)
 	    {
 	      if (TREE_CODE (def) == EPHI_NODE)
 		add_ephi_use (def, ephi, j);
-	      else
 #if ENABLE_CHECKING
+	      else
 		if (! (TREE_CODE (def) == EUSE_NODE && !EUSE_PHIOP (def)))
 		  abort();
 #endif

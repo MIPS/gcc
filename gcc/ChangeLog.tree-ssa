@@ -1,5 +1,10 @@
 2003-08-27  Daniel Berlin  <dberlin@dberlin.org>
 
+	* tree-ssa-pre.c (compute_du_info): Move #if ENABLE_CHECKING up one 
+	line.
+	
+2003-08-27  Daniel Berlin  <dberlin@dberlin.org>
+
 	* tree.h (struct ephi_arg_d): New structure.
 	(struct eref_common): Remove non-used members, move some members
 	elsewhere. 
