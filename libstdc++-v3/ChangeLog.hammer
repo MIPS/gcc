@@ -1,4 +1,10 @@
 2004-10-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_memory.h (__get_temporary_buffer): Don't use
+	INT_MAX, prefer numeric_limits<ptrdiff_t>::max(), ok on 64-bit
+	platforms too.
+
+2004-10-14  Paolo Carlini  <pcarlini@suse.de>
 	    Magnus Fromreide  <magfr@lysator.liu.se>
 	    
 	* include/bits/boost_concept_check.h (struct _SequenceConcept):

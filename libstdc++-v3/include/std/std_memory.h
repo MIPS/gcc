@@ -1,6 +1,6 @@
 // <memory> -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -57,6 +57,7 @@
 #include <bits/stl_iterator_base_types.h> //for iterator_traits
 #include <bits/stl_uninitialized.h>
 #include <bits/stl_raw_storage_iter.h>
+#include <limits>
 
 namespace std
 {
@@ -72,9 +73,10 @@ namespace std
     pair<_Tp*, ptrdiff_t>
     __get_temporary_buffer(ptrdiff_t __len, _Tp*)
     {
-      if (__len > ptrdiff_t(INT_MAX / sizeof(_Tp)))
-	__len = INT_MAX / sizeof(_Tp);
-      
+      const ptrdiff_t __max = numeric_limits<ptrdiff_t>::max() / sizeof(_Tp);
+      if (__len > __max)
+	__len = __max;
+     
       while (__len > 0) 
 	{
 	  _Tp* __tmp = (_Tp*) std::malloc((std::size_t)__len * sizeof(_Tp));
