@@ -46,46 +46,6 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_CPU_DEFAULT ((char *)0)
 #endif
 
-/* Common CPP definitions used by CPP_SPEC among the various targets
-   for handling -mcpu=xxx switches.  */
-#define CPP_CPU_SPEC \
-"%{!mcpu*: \
-  %{mpower: %{!mpower2: -D_ARCH_PWR}} \
-  %{mpower2: -D_ARCH_PWR2} \
-  %{mpowerpc*: -D_ARCH_PPC} \
-  %{mno-power: %{!mpowerpc*: -D_ARCH_COM}} \
-  %{!mno-power: %{!mpower2: %(cpp_default)}}} \
-%{mcpu=common: -D_ARCH_COM} \
-%{mcpu=power: -D_ARCH_PWR} \
-%{mcpu=power2: -D_ARCH_PWR2} \
-%{mcpu=powerpc: -D_ARCH_PPC} \
-%{mcpu=rios: -D_ARCH_PWR} \
-%{mcpu=rios1: -D_ARCH_PWR} \
-%{mcpu=rios2: -D_ARCH_PWR2} \
-%{mcpu=rsc: -D_ARCH_PWR} \
-%{mcpu=rsc1: -D_ARCH_PWR} \
-%{mcpu=401: -D_ARCH_PPC} \
-%{mcpu=403: -D_ARCH_PPC} \
-%{mcpu=405: -D_ARCH_PPC} \
-%{mcpu=505: -D_ARCH_PPC} \
-%{mcpu=601: -D_ARCH_PPC -D_ARCH_PWR} \
-%{mcpu=602: -D_ARCH_PPC} \
-%{mcpu=603: -D_ARCH_PPC} \
-%{mcpu=603e: -D_ARCH_PPC} \
-%{mcpu=ec603e: -D_ARCH_PPC} \
-%{mcpu=604: -D_ARCH_PPC} \
-%{mcpu=604e: -D_ARCH_PPC} \
-%{mcpu=620: -D_ARCH_PPC} \
-%{mcpu=740: -D_ARCH_PPC} \
-%{mcpu=7400: -D_ARCH_PPC} \
-%{mcpu=7450: -D_ARCH_PPC} \
-%{mcpu=750: -D_ARCH_PPC} \
-%{mcpu=801: -D_ARCH_PPC} \
-%{mcpu=821: -D_ARCH_PPC} \
-%{mcpu=823: -D_ARCH_PPC} \
-%{mcpu=860: -D_ARCH_PPC} \
-%{maltivec: -D__ALTIVEC__}"
-
 /* Common ASM definitions used by ASM_SPEC among the various targets
    for handling -mcpu=xxx switches.  */
 #define ASM_CPU_SPEC \
@@ -98,6 +58,8 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=common: -mcom} \
 %{mcpu=power: -mpwr} \
 %{mcpu=power2: -mpwrx} \
+%{mcpu=power3: -m604} \
+%{mcpu=power4: -m604} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rios: -mpwr} \
 %{mcpu=rios1: -mpwr} \
@@ -116,6 +78,7 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=604: -mppc} \
 %{mcpu=604e: -mppc} \
 %{mcpu=620: -mppc} \
+%{mcpu=630: -m604} \
 %{mcpu=740: -mppc} \
 %{mcpu=7400: -mppc} \
 %{mcpu=7450: -mppc} \
@@ -143,7 +106,6 @@ Boston, MA 02111-1307, USA.  */
 #define SUBTARGET_EXTRA_SPECS
 
 #define EXTRA_SPECS							\
-  { "cpp_cpu",			CPP_CPU_SPEC },				\
   { "cpp_default",		CPP_DEFAULT_SPEC },			\
   { "asm_cpu",			ASM_CPU_SPEC },				\
   { "asm_default",		ASM_DEFAULT_SPEC },			\
@@ -395,7 +357,8 @@ enum processor_type
    PROCESSOR_PPC630,
    PROCESSOR_PPC750,
    PROCESSOR_PPC7400,
-   PROCESSOR_PPC7450
+   PROCESSOR_PPC7450,
+   PROCESSOR_POWER4
 };
 
 extern enum processor_type rs6000_cpu;
@@ -488,15 +451,19 @@ extern int rs6000_default_long_calls;
 /* Define this to change the optimizations performed by default.  */
 #define OPTIMIZATION_OPTIONS(LEVEL,SIZE) optimization_options(LEVEL,SIZE)
 
+/* Show we can debug even without a frame pointer.  */
+#define CAN_DEBUG_WITHOUT_FP
+
 /* Target pragma.  */
 #define REGISTER_TARGET_PRAGMAS(PFILE) do { \
   cpp_register_pragma (PFILE, 0, "longcall", rs6000_pragma_longcall); \
 } while (0)
 
-/* Show we can debug even without a frame pointer.  */
-#define CAN_DEBUG_WITHOUT_FP
+/* Target #defines.  */
+#define TARGET_CPU_CPP_BUILTINS() \
+  rs6000_cpu_cpp_builtins (pfile)
 
-/* target machine storage layout */
+/* Target machine storage layout.  */
 
 /* Define this macro if it is advisable to hold scalars in registers
    in a wider mode than that declared by the program.  In such cases,
@@ -2298,6 +2265,7 @@ do {									     \
         return COSTS_N_INSNS (4);					\
       case PROCESSOR_PPC620:						\
       case PROCESSOR_PPC630:						\
+      case PROCESSOR_POWER4:						\
         return (GET_CODE (XEXP (X, 1)) != CONST_INT			\
 		? GET_MODE (XEXP (X, 1)) != DImode			\
 		? COSTS_N_INSNS (5) : COSTS_N_INSNS (7)			\
@@ -2337,6 +2305,7 @@ do {									     \
 	return COSTS_N_INSNS (20);					\
       case PROCESSOR_PPC620:						\
       case PROCESSOR_PPC630:						\
+      case PROCESSOR_POWER4:						\
         return (GET_MODE (XEXP (X, 1)) != DImode			\
 		? COSTS_N_INSNS (21)					\
 		: COSTS_N_INSNS (37));					\
@@ -2370,18 +2339,6 @@ do {									     \
    to express in the length attribute.  */
 
 /* #define ADJUST_INSN_LENGTH(X,LENGTH) */
-
-/* Add any extra modes needed to represent the condition code.
-
-   For the RS/6000, we need separate modes when unsigned (logical) comparisons
-   are being done and we need a separate mode for floating-point.  We also
-   use a mode for the case when we are comparing the results of two
-   comparisons, as then only the EQ bit is valid in the register.  */
-
-#define EXTRA_CC_MODES		\
-    CC(CCUNSmode,  "CCUNS")	\
-    CC(CCFPmode,   "CCFP")	\
-    CC(CCEQmode,   "CCEQ")
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a
    COMPARE, return the mode to be used for the comparison.  For

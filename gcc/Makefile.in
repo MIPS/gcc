@@ -259,6 +259,7 @@ tmake_file=@dep_tmake_file@
 out_file=$(srcdir)/config/@out_file@
 out_object_file=@out_object_file@
 md_file=$(srcdir)/config/@md_file@
+tm_defines=@tm_defines@
 tm_p_file_list=@tm_p_file_list@
 tm_p_file=@tm_p_file@
 build_xm_file_list=@build_xm_file_list@
@@ -544,11 +545,11 @@ CONFIG_H = $(GCONFIG_H) insn-constants.h insn-flags.h
 TCONFIG_H = tconfig.h $(xm_file_list)
 TARGET_H = target.h
 HOOKS_H = hooks.h
-LANGHOOKS_DEF_H = langhooks.h $(HOOKS_H)
+LANGHOOKS_DEF_H = langhooks-def.h $(HOOKS_H)
 TARGET_DEF_H = target-def.h $(HOOKS_H)
 TM_P_H = tm_p.h $(tm_p_file_list) tm-preds.h
 
-MACHMODE_H = machmode.h machmode.def
+MACHMODE_H = machmode.h machmode.def @extra_modes_file@
 RTL_BASE_H = rtl.h rtl.def $(MACHMODE_H)
 RTL_H = $(RTL_BASE_H) genrtl.h
 PARAMS_H = params.h params.def
@@ -756,7 +757,7 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  insn-output.c insn-recog.c insn-emit.c insn-extract.c insn-peep.c \
  insn-attr.h insn-attrtab.c insn-opinit.c insn-constants.h tm-preds.h \
  tree-check.h \
- s-flags s-config s-codes s-mlib s-under s-genrtl \
+ s-flags s-config s-codes s-mlib s-under s-genrtl s-gtype \
  s-output s-recog s-emit s-extract s-peep s-check \
  s-attr s-attrtab s-opinit s-preds s-constants s-crt0 \
  genemit$(build_exeext) genoutput$(build_exeext) genrecog$(build_exeext) \
@@ -765,7 +766,7 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  genattr$(build_exeext) genopinit$(build_exeext) gengenrtl$(build_exeext) \
  gencheck$(build_exeext) genpreds$(build_exeext) genconstants$(build_exeext) \
  gengtype$(build_exeext) \
- genrtl.c genrtl.h \
+ genrtl.c genrtl.h gt-*.h gtype-*.h gtype-desc.c \
  xgcc$(exeext) cpp$(exeext) cc1$(exeext) $(EXTRA_PASSES) \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) cc1obj$(exeext) \
  enquire$(exeext) protoize$(exeext) unprotoize$(exeext) \
@@ -848,22 +849,26 @@ tconfig.h: cs-tconfig.h ; @true
 tm_p.h: cs-tm_p.h ; @true
 
 cs-config.h: Makefile
-	HEADERS="$(host_xm_file)" DEFINES="$(host_xm_defines)" \
+	TM_DEFINES="$(tm_defines)" \
+	HEADERS="$(host_xm_file)" XM_DEFINES="$(host_xm_defines)" \
 	TARGET_CPU_DEFAULT="$(target_cpu_default)" \
 	$(SHELL) $(srcdir)/mkconfig.sh config.h
 
 cs-hconfig.h: Makefile
-	HEADERS="$(build_xm_file)" DEFINES="$(build_xm_defines)" \
+	TM_DEFINES="$(tm_defines)" \
+	HEADERS="$(build_xm_file)" XM_DEFINES="$(build_xm_defines)" \
 	TARGET_CPU_DEFAULT="$(target_cpu_default)" \
 	$(SHELL) $(srcdir)/mkconfig.sh hconfig.h
 
 cs-tconfig.h: Makefile
-	HEADERS="$(xm_file)" DEFINES="$(xm_defines)" \
+	TM_DEFINES="$(tm_defines)" \
+	HEADERS="$(xm_file)" XM_DEFINES="$(xm_defines)" \
 	TARGET_CPU_DEFAULT="" \
 	$(SHELL) $(srcdir)/mkconfig.sh tconfig.h
 
 cs-tm_p.h: Makefile
-	HEADERS="$(tm_p_file)" DEFINES="" TARGET_CPU_DEFAULT="" \
+	TM_DEFINES="" \
+	HEADERS="$(tm_p_file)" XM_DEFINES="" TARGET_CPU_DEFAULT="" \
 	$(SHELL) $(srcdir)/mkconfig.sh tm_p.h
 
 # Don't automatically run autoconf, since configure.in might be accidentally
@@ -997,7 +1002,7 @@ xlimits.h: glimits.h limitx.h limity.h
 LIB2ADD = $(LIB2FUNCS_EXTRA)
 LIB2ADD_ST = $(LIB2FUNCS_STATIC_EXTRA)
 
-libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) xgcc$(exeext)
+libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) xgcc$(exeext) specs
 	objext='$(objext)' \
 	LIB1ASMFUNCS='$(LIB1ASMFUNCS)' \
 	LIB2FUNCS_1='$(LIB2FUNCS_1)' \
@@ -1234,7 +1239,7 @@ s-under: $(GCC_PASSES)
 c-common.o : c-common.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(OBSTACK_H) \
 	$(C_COMMON_H) flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
 	$(EXPR_H) $(TM_P_H) builtin-types.def builtin-attrs.def $(TARGET_H) \
-	diagnostic.h tree-inline.h except.h gt-c-common.h real.h
+	diagnostic.h tree-inline.h except.h gt-c-common.h real.h langhooks.h
 
 # A file used by all variants of C and some other languages.
 
@@ -1524,7 +1529,7 @@ resource.o : resource.c $(CONFIG_H) $(RTL_H) hard-reg-set.h $(SYSTEM_H) \
 lcm.o : lcm.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) hard-reg-set.h flags.h \
    real.h insn-config.h $(INSN_ATTR_H) $(RECOG_H) $(EXPR_H) $(BASIC_BLOCK_H) \
    $(TM_P_H) df.h
-ssa.o : ssa.c $(CONFIG_H) $(SYSTEM_H) $(REGS_H) varray.h $(EXPR_H) \
+ssa.o : ssa.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) varray.h $(EXPR_H) \
    hard-reg-set.h flags.h function.h real.h insn-config.h $(RECOG_H)	\
    $(BASIC_BLOCK_H) output.h ssa.h
 ssa-dce.o : ssa-dce.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) hard-reg-set.h \
@@ -2126,7 +2131,7 @@ libcpp.a: $(LIBCPP_OBJS)
 	$(AR) $(AR_FLAGS) libcpp.a $(LIBCPP_OBJS)
 	-$(RANLIB) libcpp.a
 
-cppmain.o:  cppmain.c  $(CONFIG_H) $(CPPLIB_H) intl.h $(SYSTEM_H)
+cppmain.o:  cppmain.c  $(CONFIG_H) $(LIBCPP_DEPS)
 
 cpperror.o: cpperror.c $(CONFIG_H) $(LIBCPP_DEPS)
 cppexp.o:   cppexp.c   $(CONFIG_H) $(LIBCPP_DEPS)
@@ -2473,7 +2478,8 @@ gccint.dvi: $(TEXI_GCCINT_FILES)
 	$(TEXI2DVI) -I $(docdir) -I $(docdir)/include $(docdir)/gccint.texi
 
 gccinstall.dvi: $(TEXI_GCCINSTALL_FILES)
-	$(TEXI2DVI) -I $(docdir) -I $(docdir)/include -o $@ $(docdir)/install.texi
+	s=`cd $(srcdir); ${PWD}`; export s; \
+	$(TEXI2DVI) -I $$s/doc -I $$s/doc/include -o $@ $$s/doc/install.texi
 
 cppinternals.dvi: $(TEXI_CPPINT_FILES)
 	$(TEXI2DVI) -I $(docdir) -I $(docdir)/include $(docdir)/cppinternals.texi
@@ -2559,6 +2565,7 @@ mostlyclean: $(INTL_MOSTLYCLEAN) lang.mostlyclean
 	-rm -f xlimits.h
 # Delete other built files.
 	-rm -f t-float.h-cross xsys-protos.hT
+	-rm -f specs.h options.h gencheck.h
 # Delete the stamp and temporary files.
 	-rm -f s-* tmp-* stamp-* stmp-*
 	-rm -f */stamp-* */tmp-*
@@ -2614,21 +2621,25 @@ distclean: clean $(INTL_DISTCLEAN) lang.distclean
 	-rm -f cstamp-h
 	-rm -f config.status config.run config.cache config.bak
 	-rm -f Make-lang Make-hooks Make-host Make-target
-	-rm -f Makefile specs.h options.h gencheck.h *.oaux
+	-rm -f Makefile *.oaux
 	-rm -f gthr-default.h
 	-rm -f */stage1 */stage2 */stage3 */stage4 */include
 	-rm -f c-parse.output
 	-rm -f *.asm
 	-rm -f float.h
 	-rm -f site.exp site.bak testsuite/site.exp testsuite/site.bak
-	-rm -f testsuite/{gcc,g++}.{log,sum}
+	-rm -f testsuite/*.log testsuite/*.sum
+	-cd testsuite && rm -f x *.x *.x? *.exe *.rpo *.o *.s *.S *.c
+	-cd testsuite && rm -f *.out *.gcov *.bb *.bbg
 	-rm -rf ${QMTEST_DIR} stamp-qmtest
 	-rm -f intl/libintl.h libintl.h
 	-rm -f cxxmain.c
-	-rm -f mklibgcc gccbug .gdbinit configargs.h
+	-rm -f mklibgcc mkheaders gccbug .gdbinit configargs.h
 	-rm -f gcov.pod
 	-rm -f fixinc/Makefile
-	-rmdir ada cp f java objc fixinc intl po 2>/dev/null
+# Delete po/*.gmo only if we are not building in the source directory.
+	-if [ ! -f po/exgettext ]; then rm -f po/*.gmo; fi
+	-rmdir ada cp f java objc fixinc intl po testsuite 2>/dev/null
 
 # Delete anything likely to be found in the source directory
 # that shouldn't be in the distribution.
@@ -2774,12 +2785,14 @@ install-common: native $(EXTRA_PARTS) lang.install-common
 	fi
 	$(INSTALL_SCRIPT) gccbug $(bindir)/$(GCCBUG_INSTALL_NAME)
 
-# Install the driver program as $(target_alias)-gcc
+# Install the driver program as $(target_alias)-gcc, 
+# $(target-alias)-gcc-$(version)
 # and also as either gcc (if native) or $(gcc_tooldir)/bin/gcc.
 install-driver: installdirs xgcc$(exeext)
 	-if [ -f gcc-cross$(exeext) ] ; then \
 	  rm -f $(bindir)/$(GCC_CROSS_NAME)$(exeext); \
 	  $(INSTALL_PROGRAM) gcc-cross$(exeext) $(bindir)/$(GCC_CROSS_NAME)$(exeext); \
+	  $(LN) $(bindir)/$(GCC_CROSS_NAME)$(exeext) $(bindir)/$(target_alias)-gcc-$(version) ; \
 	  if [ -d $(gcc_tooldir)/bin/. ] ; then \
 	    rm -f $(gcc_tooldir)/bin/gcc$(exeext); \
 	    $(INSTALL_PROGRAM) gcc-cross$(exeext) $(gcc_tooldir)/bin/gcc$(exeext); \
@@ -2787,9 +2800,10 @@ install-driver: installdirs xgcc$(exeext)
 	else \
 	  rm -f $(bindir)/$(GCC_INSTALL_NAME)$(exeext); \
 	  $(INSTALL_PROGRAM) xgcc$(exeext) $(bindir)/$(GCC_INSTALL_NAME)$(exeext); \
-	  rm -f $(bindir)/$(target_alias)-gcc-1$(exeext); \
-	  $(LN) $(bindir)/$(GCC_INSTALL_NAME)$(exeext) $(bindir)/$(target_alias)-gcc-1$(exeext); \
-	  mv $(bindir)/$(target_alias)-gcc-1$(exeext) $(bindir)/$(GCC_TARGET_INSTALL_NAME)$(exeext); \
+	  $(LN) $(bindir)/$(GCC_INSTALL_NAME)$(exeext) $(bindir)/$(target_alias)-gcc-$(version) ; \
+	  rm -f $(bindir)/$(target_alias)-gcc-tmp$(exeext); \
+	  $(LN) $(bindir)/$(GCC_INSTALL_NAME)$(exeext) $(bindir)/$(target_alias)-gcc-tmp$(exeext); \
+	  mv $(bindir)/$(target_alias)-gcc-tmp$(exeext) $(bindir)/$(GCC_TARGET_INSTALL_NAME)$(exeext); \
 	fi
 
 # Install the info files.

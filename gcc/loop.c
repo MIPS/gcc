@@ -1949,11 +1949,10 @@ move_movables (loop, movables, threshold, insn_count)
 
 		  start_sequence ();
 		  emit_move_insn (m->set_dest, m->set_src);
-		  temp = get_insns ();
-		  seq = gen_sequence ();
+		  seq = get_insns ();
 		  end_sequence ();
 
-		  add_label_notes (m->set_src, temp);
+		  add_label_notes (m->set_src, seq);
 
 		  i1 = loop_insn_hoist (loop, seq);
 		  if (! find_reg_note (i1, REG_EQUAL, NULL_RTX))
@@ -2088,7 +2087,7 @@ move_movables (loop, movables, threshold, insn_count)
 			    abort ();
 			  if (tem != reg)
 			    emit_move_insn (reg, tem);
-			  sequence = gen_sequence ();
+			  sequence = get_insns ();
 			  end_sequence ();
 			  i1 = loop_insn_hoist (loop, sequence);
 			}
@@ -2109,11 +2108,10 @@ move_movables (loop, movables, threshold, insn_count)
 			     use the REG_EQUAL note.  */
 			  start_sequence ();
 			  emit_move_insn (m->set_dest, m->set_src);
-			  temp = get_insns ();
-			  seq = gen_sequence ();
+			  seq = get_insns ();
 			  end_sequence ();
 
-			  add_label_notes (m->set_src, temp);
+			  add_label_notes (m->set_src, seq);
 
 			  i1 = loop_insn_hoist (loop, seq);
 			  if (! find_reg_note (i1, REG_EQUAL, NULL_RTX))
@@ -4154,7 +4152,7 @@ emit_prefetch_instructions (loop)
 	    loc = force_reg (Pmode, loc);
 	  emit_insn (gen_prefetch (loc, GEN_INT (info[i].write),
 				   GEN_INT (3)));
-	  seq = gen_sequence ();
+	  seq = get_insns ();
 	  end_sequence ();
 	  emit_insn_before (seq, before_insn);
 
@@ -4249,8 +4247,8 @@ static rtx addr_placeholder;
    LOOP and INSN parameters pass MAYBE_MULTIPLE and NOT_EVERY_ITERATION to the
    callback.
 
-   NOT_EVERY_ITERATION if current insn is not executed at least once for every
-   loop iteration except for the last one.
+   NOT_EVERY_ITERATION is 1 if current insn is not known to be executed at
+   least once for every loop iteration except for the last one.
 
    MAYBE_MULTIPLE is 1 if current insn may be executed more than once for every
    loop iteration.
@@ -4260,8 +4258,6 @@ for_each_insn_in_loop (loop, fncall)
      struct loop *loop;
      loop_insn_callback fncall;
 {
-  /* This is 1 if current insn is not executed at least once for every loop
-     iteration.  */
   int not_every_iteration = 0;
   int maybe_multiple = 0;
   int past_loop_latch = 0;
@@ -4273,8 +4269,7 @@ for_each_insn_in_loop (loop, fncall)
   if (prev_nonnote_insn (loop->scan_start) != prev_nonnote_insn (loop->start))
     maybe_multiple = back_branch_in_range_p (loop, loop->scan_start);
 
-  /* Scan through loop to find all possible bivs.  */
-
+  /* Scan through loop and update NOT_EVERY_ITERATION and MAYBE_MULTIPLE. */
   for (p = next_insn_in_loop (loop, loop->scan_start);
        p != NULL_RTX;
        p = next_insn_in_loop (loop, p))
@@ -4331,9 +4326,9 @@ for_each_insn_in_loop (loop, fncall)
          This can be any kind of jump, since we want to know if insns
          will be executed if the loop is executed.  */
 	  && !(JUMP_LABEL (p) == loop->top
-	     && ((NEXT_INSN (NEXT_INSN (p)) == loop->end
-		  && any_uncondjump_p (p))
-		 || (NEXT_INSN (p) == loop->end && any_condjump_p (p)))))
+	       && ((NEXT_INSN (NEXT_INSN (p)) == loop->end
+		    && any_uncondjump_p (p))
+		   || (NEXT_INSN (p) == loop->end && any_condjump_p (p)))))
 	{
 	  rtx label = 0;
 
@@ -5948,7 +5943,8 @@ check_final_value (loop, v)
 #endif
 
   if ((final_value = final_giv_value (loop, v))
-      && (v->always_computable || last_use_this_basic_block (v->dest_reg, v->insn)))
+      && (v->always_executed
+	  || last_use_this_basic_block (v->dest_reg, v->insn)))
     {
       int biv_increment_seen = 0, before_giv_insn = 0;
       rtx p = v->insn;
@@ -7735,7 +7731,7 @@ gen_add_mult (b, m, a, reg)
   result = expand_mult_add (b, reg, m, a, GET_MODE (reg), 1);
   if (reg != result)
     emit_move_insn (reg, result);
-  seq = gen_sequence ();
+  seq = get_insns ();
   end_sequence ();
 
   return seq;
@@ -7749,24 +7745,29 @@ loop_regs_update (loop, seq)
      const struct loop *loop ATTRIBUTE_UNUSED;
      rtx seq;
 {
+  rtx insn;
+
   /* Update register info for alias analysis.  */
 
-  if (GET_CODE (seq) == SEQUENCE)
+  if (seq == NULL_RTX)
+    return;
+
+  if (INSN_P (seq))
     {
-      int i;
-      for (i = 0; i < XVECLEN (seq, 0); ++i)
+      insn = seq;
+      while (insn != NULL_RTX)
 	{
-	  rtx set = single_set (XVECEXP (seq, 0, i));
+	  rtx set = single_set (insn);
+
 	  if (set && GET_CODE (SET_DEST (set)) == REG)
 	    record_base_value (REGNO (SET_DEST (set)), SET_SRC (set), 0);
+
+	  insn = NEXT_INSN (insn);
 	}
     }
-  else
-    {
-      if (GET_CODE (seq) == SET
-	  && GET_CODE (SET_DEST (seq)) == REG)
-	record_base_value (REGNO (SET_DEST (seq)), SET_SRC (seq), 0);
-    }
+  else if (GET_CODE (seq) == SET
+	   && GET_CODE (SET_DEST (seq)) == REG)
+    record_base_value (REGNO (SET_DEST (seq)), SET_SRC (seq), 0);
 }
 
 
@@ -7889,16 +7890,20 @@ iv_add_mult_cost (b, m, a, reg)
 }
 
 /* Test whether A * B can be computed without
-   an actual multiply insn.  Value is 1 if so.  */
+   an actual multiply insn.  Value is 1 if so.
+
+  ??? This function stinks because it generates a ton of wasted RTL
+  ??? and as a result fragments GC memory to no end.  There are other
+  ??? places in the compiler which are invoked a lot and do the same
+  ??? thing, generate wasted RTL just to see if something is possible.  */
 
 static int
 product_cheap_p (a, b)
      rtx a;
      rtx b;
 {
-  int i;
   rtx tmp;
-  int win = 1;
+  int win, n_insns;
 
   /* If only one is constant, make it B.  */
   if (GET_CODE (a) == CONST_INT)
@@ -7918,31 +7923,31 @@ product_cheap_p (a, b)
 
   start_sequence ();
   expand_mult (GET_MODE (a), a, b, NULL_RTX, 1);
-  tmp = gen_sequence ();
+  tmp = get_insns ();
   end_sequence ();
 
-  if (GET_CODE (tmp) == SEQUENCE)
+  win = 1;
+  if (INSN_P (tmp))
     {
-      if (XVEC (tmp, 0) == 0)
-	win = 1;
-      else if (XVECLEN (tmp, 0) > 3)
-	win = 0;
-      else
-	for (i = 0; i < XVECLEN (tmp, 0); i++)
-	  {
-	    rtx insn = XVECEXP (tmp, 0, i);
+      n_insns = 0;
+      while (tmp != NULL_RTX)
+	{
+	  rtx next = NEXT_INSN (tmp);
 
-	    if (GET_CODE (insn) != INSN
-		|| (GET_CODE (PATTERN (insn)) == SET
-		    && GET_CODE (SET_SRC (PATTERN (insn))) == MULT)
-		|| (GET_CODE (PATTERN (insn)) == PARALLEL
-		    && GET_CODE (XVECEXP (PATTERN (insn), 0, 0)) == SET
-		    && GET_CODE (SET_SRC (XVECEXP (PATTERN (insn), 0, 0))) == MULT))
-	      {
-		win = 0;
-		break;
-	      }
-	  }
+	  if (++n_insns > 3
+	      || GET_CODE (tmp) != INSN
+	      || (GET_CODE (PATTERN (tmp)) == SET
+		  && GET_CODE (SET_SRC (PATTERN (tmp))) == MULT)
+	      || (GET_CODE (PATTERN (tmp)) == PARALLEL
+		  && GET_CODE (XVECEXP (PATTERN (tmp), 0, 0)) == SET
+		  && GET_CODE (SET_SRC (XVECEXP (PATTERN (tmp), 0, 0))) == MULT))
+	    {
+	      win = 0;
+	      break;
+	    }
+
+	  tmp = next;
+	}
     }
   else if (GET_CODE (tmp) == SET
 	   && GET_CODE (SET_SRC (tmp)) == MULT)
@@ -8433,7 +8438,7 @@ check_dbra_loop (loop, insn_count)
 		 create a sequence to hold all the insns from expand_inc.  */
 	      start_sequence ();
 	      expand_inc (reg, new_add_val);
-	      tem = gen_sequence ();
+	      tem = get_insns ();
 	      end_sequence ();
 
 	      p = loop_insn_emit_before (loop, 0, bl->biv->insn, tem);
@@ -8474,7 +8479,7 @@ check_dbra_loop (loop, insn_count)
 	      emit_cmp_and_jump_insns (reg, const0_rtx, cmp_code, NULL_RTX,
 				       GET_MODE (reg), 0,
 				       XEXP (jump_label, 0));
-	      tem = gen_sequence ();
+	      tem = get_insns ();
 	      end_sequence ();
 	      emit_jump_insn_before (tem, loop_end);
 
@@ -9654,7 +9659,7 @@ loop_regs_scan (loop, extra_size)
   if (LOOP_INFO (loop)->has_call)
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
       if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i)
-	  && rtx_varies_p (gen_rtx_REG (Pmode, i), /*for_alias=*/1))
+	  && rtx_varies_p (regno_reg_rtx[i], 1))
 	{
 	  regs->array[i].may_not_optimize = 1;
 	  regs->array[i].set_in_loop = 1;
@@ -10492,7 +10497,7 @@ gen_load_of_final_value (reg, final_value)
   final_value = force_operand (final_value, reg);
   if (final_value != reg)
     emit_move_insn (reg, final_value);
-  seq = gen_sequence ();
+  seq = get_insns ();
   end_sequence ();
   return seq;
 }

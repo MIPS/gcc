@@ -6740,7 +6740,11 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF
    && prev_nonnote_insn (insn) == operands[0]"
   [(const_int 0)]
-  "DONE;")
+  "
+{
+  emit_note (NULL, NOTE_INSN_DELETED);
+  DONE;
+}")
 
 (define_insn "*builtin_setjmp_receiver_1"
   [(unspec_volatile [(label_ref (match_operand 0 "" ""))] UNSPECV_SETJMPR)]
@@ -7301,12 +7305,12 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
     {
       rtx mask = alpha_expand_zap_mask (INTVAL (operands[2]));
 
-      if (operands[1] == const0_rtx)
+      if (mask == const0_rtx)
 	{
 	  emit_move_insn (operands[0], const0_rtx);
 	  DONE;
 	}
-      if (operands[1] == constm1_rtx)
+      if (mask == constm1_rtx)
 	{
 	  emit_move_insn (operands[0], operands[1]);
 	  DONE;
@@ -7385,7 +7389,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_expand "builtin_zapnot"
   [(set (match_operand:DI 0 "register_operand" "")
 	(and:DI (unspec:DI
-		  [(not:QI (match_operand:QI 2 "reg_or_const_int_operand" ""))]
+		  [(not:QI (match_operand:DI 2 "reg_or_const_int_operand" ""))]
 		  UNSPEC_ZAP)
 		(match_operand:DI 1 "reg_or_const_int_operand" "")))]
   ""
@@ -7394,12 +7398,12 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
     {
       rtx mask = alpha_expand_zap_mask (~ INTVAL (operands[2]));
 
-      if (operands[1] == const0_rtx)
+      if (mask == const0_rtx)
 	{
 	  emit_move_insn (operands[0], const0_rtx);
 	  DONE;
 	}
-      if (operands[1] == constm1_rtx)
+      if (mask == constm1_rtx)
 	{
 	  emit_move_insn (operands[0], operands[1]);
 	  DONE;

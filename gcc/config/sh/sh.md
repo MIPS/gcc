@@ -1688,9 +1688,8 @@
       rtx addr = force_reg (SImode, sym);
       rtx insns = gen_mulsi3_call (operands[0], operands[1],
 				   operands[2], addr);
-      first = XVECEXP (insns, 0, 0);
-      last = XVECEXP (insns, 0, XVECLEN (insns, 0) - 1);
-      emit_insn (insns);
+      first = insns;
+      last = emit_insn (insns);
     }
   else
     {
@@ -5067,12 +5066,13 @@
   "
 {
   if (TARGET_SH1)
-    emit_insn (gen_jump_compact (operands[0]));
+    emit_jump_insn (gen_jump_compact (operands[0]));
   else if (TARGET_SHMEDIA)
     {
       if (reload_in_progress || reload_completed)
 	FAIL;
-      emit_insn (gen_jump_media (gen_rtx_LABEL_REF (DImode, operands[0])));
+      emit_jump_insn (gen_jump_media (gen_rtx_LABEL_REF (DImode,
+							 operands[0])));
     }
   DONE;
 }")
@@ -5129,7 +5129,7 @@
   [(const_int 0)]
   "
 {
-  rtx lab = gen_call_site ();
+  rtx lab = PATTERN (gen_call_site ());
 
   if (SYMBOL_REF_FLAG (operands[0]))
     emit_insn (gen_sym_label2reg (operands[2], operands[0], lab));
@@ -5228,7 +5228,7 @@
   [(const_int 0)]
   "
 {
-  rtx lab = gen_call_site ();
+  rtx lab = PATTERN (gen_call_site ());
 
   if (SYMBOL_REF_FLAG (operands[1]))
     emit_insn (gen_sym_label2reg (operands[3], operands[1], lab));
@@ -5676,7 +5676,7 @@
   [(const_int 0)]
   "
 {
-  rtx lab = gen_call_site ();
+  rtx lab = PATTERN (gen_call_site ());
   rtx call_insn;
 
   emit_insn (gen_sym_label2reg (operands[2], operands[0], lab));
@@ -6149,7 +6149,7 @@
     {
       rtx tr = gen_rtx_REG (DImode, TR0_REG);
       rtx dipic = operands[0];
-      rtx lab = gen_call_site ();
+      rtx lab = PATTERN (gen_call_site ());
       rtx insn, equiv;
 
       equiv = operands[1];

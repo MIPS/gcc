@@ -268,7 +268,7 @@ extern int target_flags;
 #define CPP_PA10_SPEC ""
 #define CPP_PA11_SPEC "-D_PA_RISC1_1 -D__hp9000s700"
 #define CPP_PA20_SPEC "-D_PA_RISC2_0 -D__hp9000s800"
-#define CPP_64BIT_SPEC "-D__LP64__ -D__LONG_MAX__=9223372036854775807L"
+#define CPP_64BIT_SPEC "-D__LP64__"
 
 #if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_PA_11) == 0
 #define CPP_CPU_DEFAULT_SPEC "%(cpp_pa10)"
@@ -1514,11 +1514,6 @@ do { 									\
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
 #define Pmode word_mode
-
-/* Add any extra modes needed to represent the condition code.
-
-   HPPA floating comparisons produce condition codes.  */
-#define EXTRA_CC_MODES CC(CCFPmode, "CCFP")
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point, CCFPmode

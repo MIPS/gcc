@@ -212,14 +212,8 @@ extern const char *ia64_tls_size_string;
    CPP.  It can also specify how to translate options you give to GNU CC into
    options for GNU CC to pass to the CPP.  */
 
-/* ??? __LONG_MAX__ depends on LP64/ILP32 switch.  */
-/* ??? An alternative is to modify glimits.h to check for __LP64__ instead
-   of checked for CPU specific defines.  We could also get rid of all LONG_MAX
-   defines in other tm.h files.  */
 #define CPP_SPEC \
-  "%{mcpu=itanium:-D__itanium__} %{mbig-endian:-D__BIG_ENDIAN__}	\
-   %(cpp_cpu)	\
-   -D__LONG_MAX__=9223372036854775807L"
+  "%{mcpu=itanium:-D__itanium__} %{mbig-endian:-D__BIG_ENDIAN__} %(cpp_cpu)"
 
 /* A C string constant that tells the GNU CC driver program options to pass to
    `cc1'.  It can also specify how to translate options you give to GNU CC into
@@ -348,8 +342,21 @@ while (0)
    function descriptors instead.  The value of this macro says how
    many words wide the descriptor is (normally 2).  It is assumed
    that the address of a function descriptor may be treated as a
-   pointer to a function.  */
-#define TARGET_VTABLE_USES_DESCRIPTORS 2
+   pointer to a function.
+
+   For reasons known only to HP, the vtable entries (as opposed to
+   normal function descriptors) are 16 bytes wide in 32-bit mode as
+   well, even though the 3rd and 4th words are unused.  */
+#define TARGET_VTABLE_USES_DESCRIPTORS (TARGET_ILP32 ? 4 : 2)
+
+/* Due to silliness in the HPUX linker, vtable entries must be
+   8-byte aligned even in 32-bit mode.  Rather than create multiple
+   ABIs, force this restriction on everyone else too.  */
+#define TARGET_VTABLE_ENTRY_ALIGN  64
+
+/* Due to the above, we need extra padding for the data entries below 0
+   to retain the alignment of the descriptors.  */
+#define TARGET_VTABLE_DATA_ENTRY_DISTANCE (TARGET_ILP32 ? 2 : 1)
 
 /* Layout of Source Language Data Types */
 
@@ -594,14 +601,6 @@ while (0)
 
 #define LOCAL_REGNO(REGNO) \
   (IN_REGNO_P (REGNO) || LOC_REGNO_P (REGNO))
-
-/* Add any extra modes needed to represent the condition code.
-
-   CCImode is used to mark a single predicate register instead
-   of a register pair.  This is currently only used in reg_raw_mode
-   so that flow doesn't do something stupid.  */
-
-#define EXTRA_CC_MODES		CC(CCImode, "CCI")
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  Must be defined if
@@ -1468,9 +1467,14 @@ do {									\
 do {									\
   if ((PART) == 0)							\
     {									\
-      fputs ("\tdata16.ua @iplt(", FILE);				\
+      if (TARGET_ILP32)							\
+        fputs ("\tdata8.ua @iplt(", FILE);				\
+      else								\
+        fputs ("\tdata16.ua @iplt(", FILE);				\
       assemble_name (FILE, XSTR (XEXP (DECL_RTL (DECL), 0), 0));	\
       fputs (")\n", FILE);						\
+      if (TARGET_ILP32)							\
+	fputs ("\tdata8.ua 0\n", FILE);					\
     }									\
 } while (0)
 

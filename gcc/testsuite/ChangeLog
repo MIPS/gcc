@@ -1,3 +1,50 @@
+2002-06-15  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.c-torture/execute/20020615-1.c: New test.
+
+2002-06-15  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-tortuture/execute/compare-1.c: New test case.
+	* gcc.c-tortuture/execute/compare-2.c: New test case.
+	* gcc.c-tortuture/execute/compare-3.c: New test case.
+
+2002-06-13  Richard Henderson  <rth@redhat.com>
+
+	* g++.old-deja/g++.abi/vtable2.C (INC_VDATA): New.  Define for
+	ia64 ilp32.
+
+2002-06-12  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/template/typename2.C: Update error message.
+
+2002-06-12  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.c-torture/execute/20020611-1.c: New test.
+
+2002-06-11  Bob Wilson  <bob.wilson@acm.org>
+
+	* g++.old-deja/g++.pt/static11.C: Add xtensa-*-elf* to the
+	list of targets to skip.
+
+2002-06-10  Bob Wilson  <bob.wilson@acm.org>
+
+	* gcc.c-torture/compile/20001226-1.x: Only xfail for Xtensa
+	targets if not optimizing.
+
+2002-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20020605-1.c: New test.
+
+	* g++.dg/opt/vt1.C: New test.
+
+	* gcc.dg/20020531-1.c: New test.
+
+	* gcc.dg/20020530-1.c: New test.
+
+	* gcc.dg/20020527-1.c: New test.
+
+	* g++.dg/opt/cse1.C: New test.
+
 2002-06-07  Roger Sayle  <roger@eyesopen.com>
 
 	* gcc.dg/20020607-2.c: New test case.

@@ -180,8 +180,9 @@ static int mova_p PARAMS ((rtx));
 static rtx find_barrier PARAMS ((int, rtx, rtx));
 static int noncall_uses_reg PARAMS ((rtx, rtx, rtx *));
 static rtx gen_block_redirect PARAMS ((rtx, int, int));
-static void output_stack_adjust PARAMS ((int, rtx, int));
-static void push PARAMS ((int));
+static void output_stack_adjust PARAMS ((int, rtx, int, rtx (*) (rtx)));
+static rtx frame_insn PARAMS ((rtx));
+static rtx push PARAMS ((int));
 static void pop PARAMS ((int));
 static void push_regs PARAMS ((HOST_WIDE_INT *));
 static void calc_live_regs PARAMS ((int *, HOST_WIDE_INT *));
@@ -4204,10 +4205,11 @@ static int extra_push;
   of a general register that we may clobber.  */
 
 static void
-output_stack_adjust (size, reg, temp)
+output_stack_adjust (size, reg, temp, emit_fn)
      int size;
      rtx reg;
      int temp;
+     rtx (*emit_fn) PARAMS ((rtx));
 {
   if (size)
     {
@@ -4217,19 +4219,20 @@ output_stack_adjust (size, reg, temp)
 	abort ();
 
       if (CONST_OK_FOR_ADD (size))
-	emit_insn (GEN_ADD3 (reg, reg, GEN_INT (size)));
+	emit_fn (GEN_ADD3 (reg, reg, GEN_INT (size)));
       /* Try to do it with two partial adjustments; however, we must make
 	 sure that the stack is properly aligned at all times, in case
 	 an interrupt occurs between the two partial adjustments.  */
       else if (CONST_OK_FOR_ADD (size / 2 & -align)
 	       && CONST_OK_FOR_ADD (size - (size / 2 & -align)))
 	{
-	  emit_insn (GEN_ADD3 (reg, reg, GEN_INT (size / 2 & -align)));
-	  emit_insn (GEN_ADD3 (reg, reg, GEN_INT (size - (size / 2 & -align))));
+	  emit_fn (GEN_ADD3 (reg, reg, GEN_INT (size / 2 & -align)));
+	  emit_fn (GEN_ADD3 (reg, reg, GEN_INT (size - (size / 2 & -align))));
 	}
       else
 	{
 	  rtx const_reg;
+	  rtx insn;
 
 	  /* If TEMP is invalid, we could temporarily save a general
 	     register to MACL.  However, there is currently no need
@@ -4244,20 +4247,36 @@ output_stack_adjust (size, reg, temp)
 	  if (size < 0)
 	    {
 	      emit_insn (GEN_MOV (const_reg, GEN_INT (-size)));
-	      emit_insn (GEN_SUB3 (reg, reg, const_reg));
+	      insn = emit_fn (GEN_SUB3 (reg, reg, const_reg));
 	    }
 	  else
 	    {
 	      emit_insn (GEN_MOV (const_reg, GEN_INT (size)));
-	      emit_insn (GEN_ADD3 (reg, reg, const_reg));
+	      insn = emit_fn (GEN_ADD3 (reg, reg, const_reg));
 	    }
+	  if (emit_fn == frame_insn)
+	    REG_NOTES (insn)
+	      = (gen_rtx_EXPR_LIST
+		 (REG_FRAME_RELATED_EXPR,
+		  gen_rtx_SET (VOIDmode, reg,
+			       gen_rtx_PLUS (SImode, reg, GEN_INT (size))),
+		  REG_NOTES (insn)));
 	}
     }
 }
 
+static rtx
+frame_insn (x)
+     rtx x;
+{
+  x = emit_insn (x);
+  RTX_FRAME_RELATED_P (x) = 1;
+  return x;
+}
+
 /* Output RTL to push register RN onto the stack.  */
 
-static void
+static rtx
 push (rn)
      int rn;
 {
@@ -4276,10 +4295,11 @@ push (rn)
   else
     x = gen_push (gen_rtx_REG (SImode, rn));
 
-  x = emit_insn (x);
+  x = frame_insn (x);
   REG_NOTES (x)
     = gen_rtx_EXPR_LIST (REG_INC,
 			 gen_rtx_REG (SImode, STACK_POINTER_REGNUM), 0);
+  return x;
 }
 
 /* Output RTL to pop register RN from the stack.  */
@@ -4342,7 +4362,6 @@ calc_live_regs (count_ptr, live_regs_mask)
   int reg;
   int count;
   int interrupt_handler;
-  rtx pr_initial;
   int pr_live;
 
   if ((lookup_attribute
@@ -4365,12 +4384,18 @@ calc_live_regs (count_ptr, live_regs_mask)
 	  target_flags &= ~FPU_SINGLE_BIT;
 	  break;
 	}
-  pr_initial = has_hard_reg_initial_val (Pmode,
-					 TARGET_SHMEDIA
-					 ? PR_MEDIA_REG : PR_REG);
-  pr_live = (pr_initial
-	     ? REGNO (pr_initial) != (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG)
-	     : regs_ever_live[TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG]);
+  /* PR_MEDIA_REG is a general purpose register, thus global_alloc already
+     knows how to use it.  That means the pseudo originally allocated for
+     the initial value can become the PR_MEDIA_REG hard register, as seen for
+     execute/20010122-1.c:test9.  */
+  if (TARGET_SHMEDIA)
+    pr_live = regs_ever_live[PR_MEDIA_REG];
+  else
+    {
+      rtx pr_initial = has_hard_reg_initial_val (Pmode, PR_REG);
+      pr_live = (pr_initial
+		 ? REGNO (pr_initial) != (PR_REG) : regs_ever_live[PR_REG]);
+    }
   /* Force PR to be live if the prologue has to call the SHmedia
      argument decoder or register saver.  */
   if (TARGET_SHCOMPACT
@@ -4473,7 +4498,7 @@ sh_expand_prologue ()
      and partially on the stack, e.g. a large structure.  */
   output_stack_adjust (-current_function_pretend_args_size
 		       - current_function_args_info.stack_regs * 8,
-		       stack_pointer_rtx, TARGET_SH5 ? 0 : 1);
+		       stack_pointer_rtx, TARGET_SH5 ? 0 : 1, frame_insn);
 
   extra_push = 0;
 
@@ -4537,11 +4562,14 @@ sh_expand_prologue ()
 	  for (i = 0; i < NPARM_REGS(SImode); i++)
 	    {
 	      int rn = NPARM_REGS(SImode) + FIRST_PARM_REG - i - 1;
+	      rtx insn;
+
 	      if (i >= (NPARM_REGS(SImode) 
 			- current_function_args_info.arg_count[(int) SH_ARG_INT]
 			))
 		break;
-	      push (rn);
+	      insn = push (rn);
+	      RTX_FRAME_RELATED_P (insn) = 0;
 	      extra_push += 4;
 	    }
 	}
@@ -4571,7 +4599,7 @@ sh_expand_prologue ()
 		      - d % (STACK_BOUNDARY / BITS_PER_UNIT));
 
       offset = d + d_rounding;
-      output_stack_adjust (-offset, stack_pointer_rtx, 1);
+      output_stack_adjust (-offset, stack_pointer_rtx, 1, frame_insn);
 
       /* We loop twice: first, we save 8-byte aligned registers in the
 	 higher addresses, that are known to be aligned.  Then, we
@@ -4757,10 +4785,10 @@ sh_expand_prologue ()
   target_flags = save_flags;
 
   output_stack_adjust (-rounded_frame_size (d) + d_rounding,
-		       stack_pointer_rtx, TARGET_SH5 ? 0 : 1);
+		       stack_pointer_rtx, TARGET_SH5 ? 0 : 1, frame_insn);
 
   if (frame_pointer_needed)
-    emit_insn (GEN_MOV (frame_pointer_rtx, stack_pointer_rtx));
+    frame_insn (GEN_MOV (frame_pointer_rtx, stack_pointer_rtx));
 
   if (TARGET_SHCOMPACT
       && (current_function_args_info.call_cookie & ~ CALL_COOKIE_RET_TRAMP(1)))
@@ -4794,7 +4822,7 @@ sh_expand_epilogue ()
 
   if (frame_pointer_needed)
     {
-      output_stack_adjust (frame_size, frame_pointer_rtx, 7);
+      output_stack_adjust (frame_size, frame_pointer_rtx, 7, emit_insn);
 
       /* We must avoid moving the stack pointer adjustment past code
 	 which reads from the local frame, else an interrupt could
@@ -4810,7 +4838,7 @@ sh_expand_epilogue ()
 	 occur after the SP adjustment and clobber data in the local
 	 frame.  */
       emit_insn (gen_blockage ());
-      output_stack_adjust (frame_size, stack_pointer_rtx, 7);
+      output_stack_adjust (frame_size, stack_pointer_rtx, 7, emit_insn);
     }
 
   if (SHMEDIA_REGS_STACK_ADJUST ())
@@ -4986,7 +5014,7 @@ sh_expand_epilogue ()
   output_stack_adjust (extra_push + current_function_pretend_args_size
 		       + d + d_rounding
 		       + current_function_args_info.stack_regs * 8,
-		       stack_pointer_rtx, 7);
+		       stack_pointer_rtx, 7, emit_insn);
 
   /* Switch back to the normal stack if necessary.  */
   if (sp_switch)
@@ -5011,11 +5039,9 @@ sh_need_epilogue ()
 
       start_sequence ();
       sh_expand_epilogue ();
-      epilogue = gen_sequence ();
+      epilogue = get_insns ();
       end_sequence ();
-      sh_need_epilogue_known
-	= (GET_CODE (epilogue) == SEQUENCE && XVECLEN (epilogue, 0) == 0
-	   ? -1 : 1);
+      sh_need_epilogue_known = (epilogue == NULL ? -1 : 1);
     }
   return sh_need_epilogue_known > 0;
 }
@@ -6673,6 +6699,26 @@ sh_can_redirect_branch (branch1, branch2)
 	}
     }
   return 0;
+}
+
+/* Return non-zero if register old_reg can be renamed to register new_reg.  */
+int
+sh_hard_regno_rename_ok (old_reg, new_reg)
+     unsigned int old_reg ATTRIBUTE_UNUSED;
+     unsigned int new_reg;
+{
+
+/* Interrupt functions can only use registers that have already been
+   saved by the prologue, even if they would normally be
+   call-clobbered.  */
+
+   if ((lookup_attribute ("interrupt_handler",
+			  DECL_ATTRIBUTES (current_function_decl))
+	!= NULL_TREE)
+       && !regs_ever_live[new_reg])
+     return 0;
+
+   return 1;
 }
 
 /* A C statement (sans semicolon) to update the integer variable COST

@@ -644,7 +644,7 @@ get_secondary_mem (x, mode, opnum, type)
 	       : type == RELOAD_FOR_OUTPUT ? RELOAD_FOR_OUTPUT_ADDRESS
 	       : RELOAD_OTHER);
 
-      find_reloads_address (mode, (rtx*) 0, XEXP (loc, 0), &XEXP (loc, 0),
+      find_reloads_address (mode, &loc, XEXP (loc, 0), &XEXP (loc, 0),
 			    opnum, type, 0, 0);
     }
 
@@ -677,6 +677,7 @@ find_valid_class (m1, n, dest_regno)
   enum reg_class best_class = NO_REGS;
   enum reg_class dest_class = REGNO_REG_CLASS (dest_regno);
   unsigned int best_size = 0;
+  int cost;
 
   for (class = 1; class < N_REG_CLASSES; class++)
     {
@@ -687,9 +688,13 @@ find_valid_class (m1, n, dest_regno)
 	    && ! HARD_REGNO_MODE_OK (regno + n, m1))
 	  bad = 1;
 
-      if (! bad && reg_class_size[class] > best_size
-	  && (best_cost < 0
-	      || best_cost >= REGISTER_MOVE_COST (m1, class, dest_class)))
+      if (bad)
+	continue;
+      cost = REGISTER_MOVE_COST (m1, class, dest_class);
+
+      if ((reg_class_size[class] > best_size
+	   && (best_cost < 0 || best_cost >= cost))
+	  || best_cost > cost)
 	{
 	  best_class = class;
 	  best_size = reg_class_size[class];
@@ -4589,9 +4594,9 @@ find_reloads_address (mode, memrefloc, ad, loc, opnum, type, ind_levels, insn)
 	      tem = make_memloc (ad, regno);
 	      if (! strict_memory_address_p (GET_MODE (tem), XEXP (tem, 0)))
 		{
-		  find_reloads_address (GET_MODE (tem), (rtx*) 0, XEXP (tem, 0),
-					&XEXP (tem, 0), opnum, ADDR_TYPE (type),
-					ind_levels, insn);
+		  find_reloads_address (GET_MODE (tem), &tem, XEXP (tem, 0),
+					&XEXP (tem, 0), opnum,
+					ADDR_TYPE (type), ind_levels, insn);
 		}
 	      /* We can avoid a reload if the register's equivalent memory
 		 expression is valid as an indirect memory address.
@@ -5319,7 +5324,7 @@ find_reloads_address_1 (mode, x, context, loc, opnum, type, ind_levels, insn)
 		       We can't use ADDR_TYPE (type) here, because we need to
 		       write back the value after reading it, hence we actually
 		       need two registers.  */
-		    find_reloads_address (GET_MODE (tem), 0, XEXP (tem, 0),
+		    find_reloads_address (GET_MODE (tem), &tem, XEXP (tem, 0),
 					  &XEXP (tem, 0), opnum,
 					  RELOAD_OTHER,
 					  ind_levels, insn);

@@ -89,6 +89,7 @@ static void default_diagnostic_finalizer PARAMS ((diagnostic_context *,
                                                   diagnostic_info *));
 
 static void error_recursion PARAMS ((diagnostic_context *)) ATTRIBUTE_NORETURN;
+static bool text_specifies_location PARAMS ((text_info *, location_t *));
 
 extern int rtl_dump_and_exit;
 extern int warnings_are_errors;
@@ -495,7 +496,8 @@ output_buffer_to_stream (buffer)
    %c: character.
    %s: string.
    %%: `%'.
-   %*.s: a substring the length of which is specified by an integer.  */
+   %*.s: a substring the length of which is specified by an integer.
+   %H: location_t.  */
 static void
 output_format (buffer, text)
      output_buffer *buffer;
@@ -575,6 +577,16 @@ output_format (buffer, text)
 	case '%':
 	  output_add_character (buffer, '%');
 	  break;
+
+        case 'H':
+          {
+            const location_t *locus = va_arg (*text->args_ptr, location_t *);
+            output_add_string (buffer, "file '");
+            output_add_string (buffer, locus->file);
+            output_add_string (buffer, "', line ");
+            output_decimal (buffer, locus->line);
+          }
+          break;
 
 	case '.':
 	  {
@@ -766,6 +778,31 @@ diagnostic_initialize (context)
 
   diagnostic_starter (context) = default_diagnostic_starter;
   diagnostic_finalizer (context) = default_diagnostic_finalizer;
+  context->warnings_are_errors_message = warnings_are_errors;
+}
+
+/* Returns true if the next format specifier in TEXT is a format specifier
+   for a location_t.  If so, update the object pointed by LOCUS to reflect
+   the specified location in *TEXT->args_ptr.  */
+static bool
+text_specifies_location (text, locus)
+     text_info *text;
+     location_t *locus;
+{
+  const char *p;
+  /* Skip any leading text.  */
+  for (p = text->format_spec; *p && *p != '%'; ++p)
+    ;
+
+  /* Extract the location information if any.  */
+  if (*p == '%' && *++p == 'H')
+    {
+      *locus = *va_arg (*text->args_ptr, location_t *);
+      text->format_spec = p + 1;
+      return true;
+    }
+
+  return false;
 }
 
 void
@@ -779,8 +816,13 @@ diagnostic_set_info (diagnostic, msgid, args, file, line, kind)
 {
   diagnostic->message.format_spec = msgid;
   diagnostic->message.args_ptr = args;
-  diagnostic->location.file = file;
-  diagnostic->location.line = line;
+  /* If the diagnostic message doesn't specify a loccation,
+     use FILE and LINE.  */
+  if (!text_specifies_location (&diagnostic->message, &diagnostic->location))
+    {
+      diagnostic->location.file = file;
+      diagnostic->location.line = line;
+    }
   diagnostic->kind = kind;
 }
 
@@ -819,7 +861,7 @@ diagnostic_for_decl (diagnostic, decl)
   if (global_dc->lock++)
     error_recursion (global_dc);
 
-  if (diagnostic_count_error (global_dc, diagnostic->kind))
+  if (diagnostic_count_diagnostic (global_dc, diagnostic->kind))
     {
       diagnostic_report_current_function (global_dc);
       output_set_prefix
@@ -839,29 +881,42 @@ diagnostic_flush_buffer (context)
   fflush (output_buffer_attached_stream (&context->buffer));
 }
 
-/* Count an error or warning.  Return true if the message should be
-   printed.  */
+/* Count a diagnostic.  Return true if the message should be printed.  */
 bool
-diagnostic_count_error (context, kind)
+diagnostic_count_diagnostic (context, kind)
     diagnostic_context *context;
     diagnostic_t kind;
 {
-  if (kind == DK_WARNING && !diagnostic_report_warnings_p ())
-    return false;
-
-  if (kind == DK_WARNING && !warnings_are_errors)
-    ++diagnostic_kind_count (context, DK_WARNING);
-  else
+  switch (kind)
     {
-      static bool warning_message = false;
+    default:
+      abort();
+      break;
 
-      if (kind == DK_WARNING && !warning_message)
-	{
+    case DK_FATAL: case DK_ICE: case DK_SORRY:
+    case DK_ANACHRONISM: case DK_NOTE:
+      ++diagnostic_kind_count (context, kind);
+      break;
+
+    case DK_WARNING:
+      if (!diagnostic_report_warnings_p ())
+        return false;
+      else if (!warnings_are_errors)
+        {
+          ++diagnostic_kind_count (context, DK_WARNING);
+          break;
+        }
+      /* else fall through.  */
+
+    case DK_ERROR:
+      if (kind == DK_WARNING && context->warnings_are_errors_message)
+        {
 	  output_verbatim (&context->buffer,
                            "%s: warnings being treated as errors\n", progname);
-	  warning_message = true;
-	}
+          context->warnings_are_errors_message = false;
+        }
       ++diagnostic_kind_count (context, DK_ERROR);
+      break;
     }
 
   return true;
@@ -1220,7 +1275,7 @@ diagnostic_report_diagnostic (context, diagnostic)
   if (context->lock++)
     error_recursion (context);
 
-  if (diagnostic_count_error (context, diagnostic->kind))
+  if (diagnostic_count_diagnostic (context, diagnostic->kind))
     {
       (*diagnostic_starter (context)) (context, diagnostic);
       output_format (&context->buffer, &diagnostic->message);

@@ -2655,6 +2655,7 @@ rest_of_compilation (decl)
   free_bb_for_insn ();
   copy_loop_headers (insns);
   purge_line_number_notes (insns);
+  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 
   timevar_pop (TV_JUMP);
   close_dump_file (DFI_jump, print_rtl, insns);
@@ -2675,7 +2676,6 @@ rest_of_compilation (decl)
       timevar_push (TV_TO_SSA);
       open_dump_file (DFI_ssa, decl);
 
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       convert_to_ssa ();
 
@@ -2730,29 +2730,21 @@ rest_of_compilation (decl)
       timevar_pop (TV_FROM_SSA);
 
       ggc_collect ();
-      /* CFG is no longer maintained up-to-date.  */
-      free_bb_for_insn ();
     }
 
   timevar_push (TV_JUMP);
+  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
-  if (flag_delete_null_pointer_checks || flag_if_conversion)
+  /* Try to identify useless null pointer tests and delete them.  */
+  if (flag_delete_null_pointer_checks)
     {
       open_dump_file (DFI_null, decl);
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
       if (rtl_dump_file)
 	dump_flow_info (rtl_dump_file);
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
-      /* Try to identify useless null pointer tests and delete them.  */
-      if (flag_delete_null_pointer_checks)
-	delete_null_pointer_checks (insns);
+      if (delete_null_pointer_checks (insns))
+        cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
-      timevar_push (TV_IFCVT);
-      if (flag_if_conversion)
-	if_convert (0);
-      timevar_pop (TV_IFCVT);
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       close_dump_file (DFI_null, print_rtl_with_bb, insns);
     }
 
@@ -2762,8 +2754,6 @@ rest_of_compilation (decl)
      maximum instruction UID, so if we can reduce the maximum UID
      we'll save big on memory.  */
   renumber_insns (rtl_dump_file);
-  if (optimize)
-    compute_bb_for_insn (get_max_uid ());
   timevar_pop (TV_JUMP);
 
   close_dump_file (DFI_jump, print_rtl_with_bb, insns);
@@ -2798,20 +2788,19 @@ rest_of_compilation (decl)
       if (tem || optimize > 1)
 	cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       /* Try to identify useless null pointer tests and delete them.  */
-      if (flag_delete_null_pointer_checks || flag_thread_jumps)
+      if (flag_delete_null_pointer_checks)
 	{
 	  timevar_push (TV_JUMP);
 
 	  if (flag_delete_null_pointer_checks)
-	    delete_null_pointer_checks (insns);
-	  /* CFG is no longer maintained up-to-date.  */
+	    if (delete_null_pointer_checks (insns))
+	      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 	  timevar_pop (TV_JUMP);
 	}
 
       /* The second pass of jump optimization is likely to have
          removed a bunch more instructions.  */
       renumber_insns (rtl_dump_file);
-      compute_bb_for_insn (get_max_uid ());
 
       timevar_pop (TV_CSE);
       close_dump_file (DFI_cse, print_rtl_with_bb, insns);
@@ -2838,7 +2827,6 @@ rest_of_compilation (decl)
       timevar_push (TV_GCSE);
       open_dump_file (DFI_gcse, decl);
 
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       tem = gcse_main (insns, rtl_dump_file);
       rebuild_jump_labels (insns);
       delete_trivially_dead_insns (insns, max_reg_num ());
@@ -2929,6 +2917,7 @@ rest_of_compilation (decl)
       delete_trivially_dead_insns (insns, max_reg_num ());
       close_dump_file (DFI_loop, print_rtl, insns);
       timevar_pop (TV_LOOP);
+      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 
       ggc_collect ();
     }
@@ -2938,8 +2927,6 @@ rest_of_compilation (decl)
 
   timevar_push (TV_FLOW);
   open_dump_file (DFI_cfg, decl);
-
-  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
@@ -5066,6 +5053,9 @@ lang_independent_init ()
   init_stringpool ();
   init_obstacks ();
 
+  /* init_emit_once uses reg_raw_mode and therefore must be called
+     after init_regs which initialized reg_raw_mode.  */
+  init_regs ();
   init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
 		  || debug_info_level == DINFO_LEVEL_VERBOSE
 #ifdef VMS_DEBUGGING_INFO
@@ -5074,7 +5064,7 @@ lang_independent_init ()
 #endif
 		    || flag_test_coverage
 		    || warn_notreached);
-  init_regs ();
+  init_fake_stack_mems ();
   init_alias_once ();
   init_loop ();
   init_reload ();

@@ -69,18 +69,35 @@ struct dummy
    Variadic macros cannot occur with traditional cpp.  */
 struct cpp_macro
 {
-  cpp_hashnode **params;	/* Parameters, if any.  */
+  /* Parameters, if any.  */
+  cpp_hashnode **params;
+
+  /* Replacement tokens (ISO) or replacement text (traditional).  See
+     comment at top of cpptrad.c for how traditional function-like
+     macros are encoded.  */
   union
   {
-    cpp_token *tokens;	        /* Tokens of replacement list (ISO).  */
-    const uchar *text;		/* Expansion text (traditional).  */
+    cpp_token *tokens;
+    const uchar *text;
   } exp;
-  unsigned int line;		/* Starting line number.  */
-  unsigned int count;		/* Number of tokens / bytes in expansion.  */
-  unsigned short paramc;	/* Number of parameters.  */
-  unsigned int fun_like : 1;	/* If a function-like macro.  */
-  unsigned int variadic : 1;	/* If a variadic macro.  */
-  unsigned int syshdr   : 1;	/* If macro defined in system header.  */
+
+  /* Definition line number.  */
+  unsigned int line;
+
+  /* Number of tokens in expansion, or bytes for traditional macros.  */
+  unsigned int count;
+
+  /* Number of parameters.  */
+  unsigned short paramc;
+
+  /* If a function-like macro.  */
+  unsigned int fun_like : 1;
+
+  /* If a variadic macro.  */
+  unsigned int variadic : 1;
+
+  /* If macro defined in system header.  */
+  unsigned int syshdr   : 1;
 };
 
 /* A generic memory buffer, and operations on it.  */
@@ -281,7 +298,7 @@ struct cpp_buffer
   struct search_path dir;
 
   /* Used for buffer overlays by cpptrad.c.  */
-  const uchar *saved_cur, *saved_rlimit, *saved_line_base;
+  const uchar *saved_cur, *saved_rlimit;
 };
 
 /* A cpp_reader encapsulates the "state" of a pre-processor run.
@@ -389,10 +406,18 @@ struct cpp_reader
   /* Whether cpplib owns the hashtable.  */
   unsigned char our_hashtable;
 
-  /* Traditional preprocessing output buffer.  */
-  uchar *trad_out_base, *trad_out_limit;
-  uchar *trad_out_cur;
-  unsigned int trad_line;
+  /* Traditional preprocessing output buffer (a logical line).  */
+  struct
+  {
+    uchar *base;
+    uchar *limit;
+    uchar *cur;
+    unsigned int first_line;
+  } out;
+
+  /* Used to save the original line number during traditional
+     preprocessing.  */
+  unsigned int saved_line;
 };
 
 /* Character classes.  Based on the more primitive macros in safe-ctype.h.
@@ -438,9 +463,12 @@ extern void _cpp_free_definition	PARAMS ((cpp_hashnode *));
 extern bool _cpp_create_definition	PARAMS ((cpp_reader *, cpp_hashnode *));
 extern void _cpp_pop_context		PARAMS ((cpp_reader *));
 extern void _cpp_push_text_context	PARAMS ((cpp_reader *, cpp_hashnode *,
-						 const uchar *, const uchar*));
+						 const uchar *, size_t));
 extern bool _cpp_save_parameter		PARAMS ((cpp_reader *, cpp_macro *,
 						 cpp_hashnode *));
+extern bool _cpp_arguments_ok		PARAMS ((cpp_reader *, cpp_macro *,
+						 const cpp_hashnode *,
+						 unsigned int));
 
 /* In cpphash.c */
 extern void _cpp_init_hashtable		PARAMS ((cpp_reader *, hash_table *));
@@ -493,9 +521,11 @@ extern void _cpp_pop_buffer PARAMS ((cpp_reader *));
 extern bool _cpp_read_logical_line_trad PARAMS ((cpp_reader *));
 extern void _cpp_overlay_buffer PARAMS ((cpp_reader *pfile, const uchar *,
 					 size_t));
-extern cpp_hashnode *_cpp_lex_identifier_trad PARAMS ((cpp_reader *));
+extern void _cpp_remove_overlay PARAMS ((cpp_reader *));
 extern void _cpp_set_trad_context PARAMS ((cpp_reader *));
 extern bool _cpp_create_trad_definition PARAMS ((cpp_reader *, cpp_macro *));
+extern bool _cpp_expansions_different_trad PARAMS ((const cpp_macro *,
+						    const cpp_macro *));
 
 /* Utility routines and macros.  */
 #define DSC(str) (const uchar *)str, sizeof str - 1

@@ -658,7 +658,7 @@ static int handle_avail_expr	PARAMS ((rtx, struct expr *));
 static int classic_gcse		PARAMS ((void));
 static int one_classic_gcse_pass PARAMS ((int));
 static void invalidate_nonnull_info PARAMS ((rtx, rtx, void *));
-static void delete_null_pointer_checks_1 PARAMS ((unsigned int *,
+static int delete_null_pointer_checks_1 PARAMS ((unsigned int *,
 						  sbitmap *, sbitmap *,
 						  struct null_pointer_info *));
 static rtx process_insert_insn	PARAMS ((struct expr *));
@@ -4541,7 +4541,7 @@ bypass_conditional_jumps ()
 	       insn = NEXT_INSN (insn))
 	    if (GET_CODE (insn) == INSN)
 	      {
-		if (!setcc)
+		if (setcc)
 		  break;
 		if (GET_CODE (PATTERN (insn)) != SET)
 		  break;
@@ -4819,7 +4819,7 @@ process_insert_insn (expr)
   else if (insn_invalid_p (emit_insn (gen_rtx_SET (VOIDmode, reg, exp))))
     abort ();
 
-  pat = gen_sequence ();
+  pat = get_insns ();
   end_sequence ();
 
   return pat;
@@ -4843,10 +4843,15 @@ insert_insn_end_bb (expr, bb, pre)
   rtx new_insn;
   rtx reg = expr->reaching_reg;
   int regno = REGNO (reg);
-  rtx pat;
-  int i;
+  rtx pat, pat_end;
 
   pat = process_insert_insn (expr);
+  if (pat == NULL_RTX || ! INSN_P (pat))
+    abort ();
+
+  pat_end = pat;
+  while (NEXT_INSN (pat_end) != NULL_RTX)
+    pat_end = NEXT_INSN (pat_end);
 
   /* If the last insn is a jump, insert EXPR in front [taking care to
      handle cc0, etc. properly].  Similary we need to care trapping
@@ -4934,26 +4939,16 @@ insert_insn_end_bb (expr, bb, pre)
   else
     new_insn = emit_insn_after (pat, insn);
 
-  /* Keep block number table up to date.
-     Note, PAT could be a multiple insn sequence, we have to make
-     sure that each insn in the sequence is handled.  */
-  if (GET_CODE (pat) == SEQUENCE)
+  while (1)
     {
-      for (i = 0; i < XVECLEN (pat, 0); i++)
+      if (INSN_P (pat))
 	{
-	  rtx insn = XVECEXP (pat, 0, i);
-	  if (INSN_P (insn))
-	    add_label_notes (PATTERN (insn), new_insn);
-
-	  note_stores (PATTERN (insn), record_set_info, insn);
+	  add_label_notes (PATTERN (pat), new_insn);
+	  note_stores (PATTERN (pat), record_set_info, pat);
 	}
-    }
-  else
-    {
-      add_label_notes (pat, new_insn);
-
-      /* Keep register set table up to date.  */
-      record_one_set (regno, new_insn);
+      if (pat == pat_end)
+	break;
+      pat = NEXT_INSN (pat);
     }
 
   gcse_create_count++;
@@ -5157,6 +5152,11 @@ gcse_emit_move_after (src, dest, insn)
      we've verified to be valid.  */
 
   new = emit_insn_after (gen_rtx_SET (VOIDmode, dest, src), insn);
+
+  /* want_to_gcse_p verifies that this move will be valid.  Still this call
+     is mandatory as it may create clobbers required by the pattern.  */
+  if (insn_invalid_p (insn))
+    abort ();
 
   /* Note the equivalence for local CSE pass.  */
   if ((note = find_reg_equal_equiv_note (insn)))
@@ -5473,7 +5473,7 @@ invalidate_nonnull_info (x, setter, data)
    NPI.  NONNULL_AVIN and NONNULL_AVOUT are pre-allocated sbitmaps;
    they are not our responsibility to free.  */
 
-static void
+static int
 delete_null_pointer_checks_1 (block_reg, nonnull_avin,
 			      nonnull_avout, npi)
      unsigned int *block_reg;
@@ -5484,6 +5484,7 @@ delete_null_pointer_checks_1 (block_reg, nonnull_avin,
   basic_block bb, current_block;
   sbitmap *nonnull_local = npi->nonnull_local;
   sbitmap *nonnull_killed = npi->nonnull_killed;
+  int something_changed = 0;
 
   /* Compute local properties, nonnull and killed.  A register will have
      the nonnull property if at the end of the current block its value is
@@ -5605,6 +5606,7 @@ delete_null_pointer_checks_1 (block_reg, nonnull_avin,
 	  emit_barrier_after (new_jump);
 	}
 
+      something_changed = 1;
       delete_insn (last_insn);
       if (compare_and_branch == 2)
 	delete_insn (earliest);
@@ -5615,6 +5617,8 @@ delete_null_pointer_checks_1 (block_reg, nonnull_avin,
 	 block.)  */
       block_reg[bb->index] = 0;
     }
+
+  return something_changed;
 }
 
 /* Find EQ/NE comparisons against zero which can be (indirectly) evaluated
@@ -5641,7 +5645,7 @@ delete_null_pointer_checks_1 (block_reg, nonnull_avin,
 
    This could probably be integrated with global cprop with a little work.  */
 
-void
+int
 delete_null_pointer_checks (f)
      rtx f ATTRIBUTE_UNUSED;
 {
@@ -5652,10 +5656,11 @@ delete_null_pointer_checks (f)
   int regs_per_pass;
   int max_reg;
   struct null_pointer_info npi;
+  int something_changed = 0;
 
   /* If we have only a single block, then there's nothing to do.  */
   if (n_basic_blocks <= 1)
-    return;
+    return 0;
 
   /* Trying to perform global optimizations on flow graphs which have
      a high connectivity will take a long time and is unlikely to be
@@ -5666,7 +5671,7 @@ delete_null_pointer_checks (f)
      a couple switch statements.  So we require a relatively large number
      of basic blocks and the ratio of edges to blocks to be high.  */
   if (n_basic_blocks > 1000 && n_edges / n_basic_blocks >= 20)
-    return;
+    return 0;
 
   /* We need four bitmaps, each with a bit for each register in each
      basic block.  */
@@ -5719,8 +5724,10 @@ delete_null_pointer_checks (f)
     {
       npi.min_reg = reg;
       npi.max_reg = MIN (reg + regs_per_pass, max_reg);
-      delete_null_pointer_checks_1 (block_reg, nonnull_avin,
-				    nonnull_avout, &npi);
+      something_changed |= delete_null_pointer_checks_1 (block_reg,
+							 nonnull_avin,
+							 nonnull_avout,
+							 &npi);
     }
 
   /* Free the table of registers compared at the end of every block.  */
@@ -5731,6 +5738,8 @@ delete_null_pointer_checks (f)
   sbitmap_vector_free (npi.nonnull_killed);
   sbitmap_vector_free (nonnull_avin);
   sbitmap_vector_free (nonnull_avout);
+
+  return something_changed;
 }
 
 /* Code Hoisting variables and subroutines.  */

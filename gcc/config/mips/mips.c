@@ -1970,7 +1970,7 @@ embedded_pic_fnaddr_reg ()
       start_sequence ();
       emit_insn (gen_get_fnaddr (cfun->machine->embedded_pic_fnaddr_rtx,
 				 XEXP (DECL_RTL (current_function_decl), 0)));
-      seq = gen_sequence ();
+      seq = get_insns ();
       end_sequence ();
       push_topmost_sequence ();
       emit_insn_after (seq, get_insns ());
@@ -4211,9 +4211,9 @@ function_arg_advance (cum, mode, type, named)
       rtx reg = gen_rtx_REG (word_mode, GP_ARG_FIRST + info.reg_offset);
 
       if (TARGET_64BIT)
-	cum->adjust[cum->num_adjusts++] = gen_ashldi3 (reg, reg, amount);
+	cum->adjust[cum->num_adjusts++] = PATTERN (gen_ashldi3 (reg, reg, amount));
       else
-	cum->adjust[cum->num_adjusts++] = gen_ashlsi3 (reg, reg, amount);
+	cum->adjust[cum->num_adjusts++] = PATTERN (gen_ashlsi3 (reg, reg, amount));
     }
 
   if (!info.fpr_p)
@@ -6025,7 +6025,11 @@ mips_output_filename (stream, name)
   static int first_time = 1;
   char ltext_label_name[100];
 
-  if (first_time)
+  /* If we are emitting DWARF-2, let dwarf2out handle the ".file"
+     directives.  */
+  if (write_symbols == DWARF2_DEBUG)
+    return;
+  else if (first_time)
     {
       first_time = 0;
       SET_FILE_NUMBER ();
@@ -6949,7 +6953,11 @@ mips_output_function_prologue (file, size)
 #endif
   HOST_WIDE_INT tsize = current_frame_info.total_size;
 
-  ASM_OUTPUT_SOURCE_FILENAME (file, DECL_SOURCE_FILE (current_function_decl));
+  /* ??? When is this really needed?  At least the GNU assembler does not
+     need the source filename more than once in the file, beyond what is
+     emitted by the debug information.  */
+  if (!TARGET_GAS)
+    ASM_OUTPUT_SOURCE_FILENAME (file, DECL_SOURCE_FILE (current_function_decl));
 
 #ifdef SDB_DEBUGGING_INFO
   if (debug_info_level != DINFO_LEVEL_TERSE && write_symbols == SDB_DEBUG)
@@ -7371,7 +7379,7 @@ mips_expand_prologue ()
 					    GEN_INT (gp_offset
 						     - base_offset))),
 			  reg_rtx);
-	  reg_18_save = gen_sequence ();
+	  reg_18_save = get_insns ();
 	  end_sequence ();
 	}
 
@@ -7608,7 +7616,7 @@ mips_expand_epilogue ()
 
   if (mips_can_use_return_insn ())
     {
-      emit_insn (gen_return ());
+      emit_jump_insn (gen_return ());
       return;
     }
 
@@ -8343,7 +8351,7 @@ mips16_gp_pseudo_reg ()
       start_sequence ();
       emit_move_insn (cfun->machine->mips16_gp_pseudo_rtx,
 		      const_gp);
-      insn = gen_sequence ();
+      insn = get_insns ();
       end_sequence ();
 
       push_topmost_sequence ();

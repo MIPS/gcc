@@ -1961,7 +1961,8 @@ do {									\
    return an rtx for the address of the word in the frame
    that holds the dynamic chain--the previous frame's address.
    ??? -mflat support? */
-#define DYNAMIC_CHAIN_ADDRESS(frame) plus_constant (frame, 14 * UNITS_PER_WORD)
+#define DYNAMIC_CHAIN_ADDRESS(frame)	\
+  plus_constant (frame, 14 * UNITS_PER_WORD + SPARC_STACK_BIAS)
 
 /* The return address isn't on the stack, it is in a register, so we can't
    access it from the current frame pointer.  We can access it from the
@@ -2483,26 +2484,6 @@ do {                                                                    \
 
 /* Generate calls to memcpy, memcmp and memset.  */
 #define TARGET_MEM_FUNCTIONS
-
-/* Add any extra modes needed to represent the condition code.
-
-   On the Sparc, we have a "no-overflow" mode which is used when an add or
-   subtract insn is used to set the condition code.  Different branches are
-   used in this case for some operations.
-
-   We also have two modes to indicate that the relevant condition code is
-   in the floating-point condition code register.  One for comparisons which
-   will generate an exception if the result is unordered (CCFPEmode) and
-   one for comparisons which will never trap (CCFPmode).
-
-   CCXmode and CCX_NOOVmode are only used by v9.  */
-
-#define EXTRA_CC_MODES			\
-    CC(CCXmode,	     "CCX")		\
-    CC(CC_NOOVmode,  "CC_NOOV")		\
-    CC(CCX_NOOVmode, "CCX_NOOV")	\
-    CC(CCFPmode,     "CCFP")		\
-    CC(CCFPEmode,    "CCFPE")
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point,

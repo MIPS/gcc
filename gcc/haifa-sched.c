@@ -2368,8 +2368,6 @@ sched_init (dump_file)
 
   init_dependency_caches (luid);
 
-  compute_bb_for_insn (old_max_uid);
-
   init_alias_analysis ();
 
   if (write_symbols != NO_DEBUG)

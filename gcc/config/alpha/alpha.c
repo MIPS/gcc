@@ -980,7 +980,7 @@ direct_call_operand (op, mode)
 }
 
 /* Return true if OP is a LABEL_REF, or SYMBOL_REF or CONST referencing
-   a variable known to be defined in this file.  */
+   a (non-tls) variable known to be defined in this file.  */
 
 int
 local_symbolic_operand (op, mode)
@@ -1014,7 +1014,7 @@ local_symbolic_operand (op, mode)
 
   str = XSTR (op, 0);
 
-  /* If @[VS], then alpha_encode_section_info sez it's local.  */
+  /* If @[LS], then alpha_encode_section_info sez it's local.  */
   if (str[0] == '@' && (str[1] == 'L' || str[1] == 'S'))
     return 1;
 
@@ -2519,6 +2519,8 @@ alpha_set_memflags_1 (x, in_struct_p, volatile_p, unchanging_p)
   switch (GET_CODE (x))
     {
     case SEQUENCE:
+      abort ();
+
     case PARALLEL:
       for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
 	alpha_set_memflags_1 (XVECEXP (x, 0, i), in_struct_p, volatile_p,
@@ -2553,11 +2555,11 @@ alpha_set_memflags_1 (x, in_struct_p, volatile_p, unchanging_p)
     }
 }
 
-/* Given INSN, which is either an INSN or a SEQUENCE generated to
-   perform a memory operation, look for any MEMs in either a SET_DEST or
-   a SET_SRC and copy the in-struct, unchanging, and volatile flags from
-   REF into each of the MEMs found.  If REF is not a MEM, don't do
-   anything.  */
+/* Given INSN, which is an INSN list or the PATTERN of a single insn
+   generated to perform a memory operation, look for any MEMs in either
+   a SET_DEST or a SET_SRC and copy the in-struct, unchanging, and
+   volatile flags from REF into each of the MEMs found.  If REF is not
+   a MEM, don't do anything.  */
 
 void
 alpha_set_memflags (insn, ref)
@@ -6343,6 +6345,8 @@ enum alpha_builtin
   ALPHA_BUILTIN_AMASK,
   ALPHA_BUILTIN_IMPLVER,
   ALPHA_BUILTIN_RPCC,
+  ALPHA_BUILTIN_THREAD_POINTER,
+  ALPHA_BUILTIN_SET_THREAD_POINTER,
 
   /* TARGET_MAX */
   ALPHA_BUILTIN_MINUB8,
@@ -6396,6 +6400,8 @@ static unsigned int const code_for_builtin[ALPHA_BUILTIN_max] = {
   CODE_FOR_builtin_amask,
   CODE_FOR_builtin_implver,
   CODE_FOR_builtin_rpcc,
+  CODE_FOR_load_tp,
+  CODE_FOR_set_tp,
 
   /* TARGET_MAX */
   CODE_FOR_builtin_minub8,
@@ -6513,6 +6519,16 @@ alpha_init_builtins ()
   for (i = 0; i < ARRAY_SIZE (two_arg_builtins); ++i, ++p)
     if ((target_flags & p->target_mask) == p->target_mask)
       builtin_function (p->name, ftype, p->code, BUILT_IN_MD, NULL);
+
+  ftype = build_function_type (ptr_type_node, void_list_node);
+  builtin_function ("__builtin_thread_pointer", ftype,
+		    ALPHA_BUILTIN_THREAD_POINTER, BUILT_IN_MD, NULL);
+
+  ftype = build_function_type (void_type_node, tree_cons (NULL_TREE,
+							  ptr_type_node,
+							  void_list_node));
+  builtin_function ("__builtin_set_thread_pointer", ftype,
+		    ALPHA_BUILTIN_SET_THREAD_POINTER, BUILT_IN_MD, NULL);
 }
 
 /* Expand an expression EXP that calls a built-in function,
@@ -6537,13 +6553,15 @@ alpha_expand_builtin (exp, target, subtarget, mode, ignore)
   enum insn_code icode;
   rtx op[MAX_ARGS], pat;
   int arity;
-  enum machine_mode tmode;
+  bool nonvoid;
 
   if (fcode >= ALPHA_BUILTIN_max)
     internal_error ("bad builtin fcode");
   icode = code_for_builtin[fcode];
   if (icode == 0)
     internal_error ("bad builtin fcode");
+
+  nonvoid = TREE_TYPE (TREE_TYPE (fndecl)) != void_type_node;
 
   for (arglist = TREE_OPERAND (exp, 1), arity = 0;
        arglist;
@@ -6557,18 +6575,22 @@ alpha_expand_builtin (exp, target, subtarget, mode, ignore)
       if (arity > MAX_ARGS)
 	return NULL_RTX;
 
-      op[arity] = expand_expr (arg, NULL_RTX, VOIDmode, 0);
+      insn_op = &insn_data[icode].operand[arity + nonvoid];
 
-      insn_op = &insn_data[icode].operand[arity + 1];
+      op[arity] = expand_expr (arg, NULL_RTX, insn_op->mode, 0);
+
       if (!(*insn_op->predicate) (op[arity], insn_op->mode))
 	op[arity] = copy_to_mode_reg (insn_op->mode, op[arity]);
     }
 
-  tmode = insn_data[icode].operand[0].mode;
-  if (!target
-      || GET_MODE (target) != tmode
-      || !(*insn_data[icode].operand[0].predicate) (target, tmode))
-    target = gen_reg_rtx (tmode);
+  if (nonvoid)
+    {
+      enum machine_mode tmode = insn_data[icode].operand[0].mode;
+      if (!target
+	  || GET_MODE (target) != tmode
+	  || !(*insn_data[icode].operand[0].predicate) (target, tmode))
+	target = gen_reg_rtx (tmode);
+    }
 
   switch (arity)
     {
@@ -6576,7 +6598,10 @@ alpha_expand_builtin (exp, target, subtarget, mode, ignore)
       pat = GEN_FCN (icode) (target);
       break;
     case 1:
-      pat = GEN_FCN (icode) (target, op[0]);
+      if (nonvoid)
+        pat = GEN_FCN (icode) (target, op[0]);
+      else
+	pat = GEN_FCN (icode) (op[0]);
       break;
     case 2:
       pat = GEN_FCN (icode) (target, op[0], op[1]);
@@ -6588,7 +6613,10 @@ alpha_expand_builtin (exp, target, subtarget, mode, ignore)
     return NULL_RTX;
   emit_insn (pat);
 
-  return target;
+  if (nonvoid)
+    return target;
+  else
+    return const0_rtx;
 }
 
 /* This page contains routines that are used to determine what the function
@@ -6873,22 +6901,30 @@ alpha_write_verstamp (file)
 static rtx
 set_frame_related_p ()
 {
-  rtx seq = gen_sequence ();
+  rtx seq = get_insns ();
+  rtx insn;
+
   end_sequence ();
 
-  if (GET_CODE (seq) == SEQUENCE)
+  if (!seq)
+    return NULL_RTX;
+
+  if (INSN_P (seq))
     {
-      int i = XVECLEN (seq, 0);
-      while (--i >= 0)
-	RTX_FRAME_RELATED_P (XVECEXP (seq, 0, i)) = 1;
-     return emit_insn (seq);
+      insn = seq;
+      while (insn != NULL_RTX)
+	{
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	  insn = NEXT_INSN (insn);
+	}
+      seq = emit_insn (seq);
     }
   else
     {
       seq = emit_insn (seq);
       RTX_FRAME_RELATED_P (seq) = 1;
-      return seq;
     }
+  return seq;
 }
 
 #define FRP(exp)  (start_sequence (), exp, set_frame_related_p ())

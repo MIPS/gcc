@@ -1,3 +1,61 @@
+2002-06-13  Akim Demaille  <akim@epita.fr>
+
+	* parse.y (class_declaration, interface_declaration): Make sure
+	all their rules have an action, in order to avoid meaningless `$$
+	= $1' and their type clashes.
+
+2002-06-11  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-write.c (generate_classfile): Use FIELD_SYNTHETIC.
+	* parse-scan.y (statement_without_trailing_substatement): Added
+	assert_statement.
+	(assert_statement): New rule.
+	* java-tree.h (struct lang_type) [assertions]: New field.
+	(TYPE_USES_ASSERTIONS): New macro.
+	(CLASS_USES_ASSERTIONS): Likewise.
+	(FIELD_SYNTHETIC): New define.
+	* lex.c (java_lval;): Added ASSERT_TK.
+	* parse.y (ASSERT_TK): Added.
+	(statement_without_trailing_substatement): Added assert_statement.
+	(assert_statement): New rule.
+	(build_assertion): New function.
+	(maybe_generate_pre_expand_clinit): Create and initialize
+	$assertionsDisabled.
+	(lookup_package_type): Removed decl.
+	* keyword.h: Rebuilt.
+	* keyword.gperf (assert): New token.
+
+2002-06-10  Akim Demaille  <akim@epita.fr>
+
+	* parse.y (interface_type_list, class_member_declaration)
+	(unary_expression_not_plus_minus): Remove duplicate %type.
+	Whitespace changes.
+
+2002-06-09  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (java/lang.o): Use LANGHOOKS_DEF_H.
+
+	* parse.y (method_header): Give error message in all cases.
+	Fixes PR java/6865.
+
+2002-06-10  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Don't use RTL inlining. Fix for PR java/6820.
+	* lang.c (LANG_HOOKS_POST_OPTIONS): Define.
+	(flag_really_inline): New.
+	(java_decode_option): Set flag_really_inline if -finline-functions
+	is seen.
+	(java_post_options): New function. Turn off inlining unless
+	flag_really_inline is set.
+
+2002-06-10  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* gjavah.c (throwable_p): Accept argument as either a classname or 
+	signature fragment. Create null-terminated classname string for super
+	when calling itself recursively.
+	(decode_signature_piece): Skip first character from class name 
+	signature when calling throwable_p.
+
 2002-06-08  H.J. Lu  (hjl@gnu.org)
 
 	* jcf-path.c (jcf_path_init): Allocate 1 more byte for string.

@@ -2033,7 +2033,7 @@ init_ready_list (ready)
       next = NEXT_INSN (insn);
 
       if (INSN_DEP_COUNT (insn) == 0
-	  && (SCHED_GROUP_P (next) == 0 || ! INSN_P (next)))
+	  && (! INSN_P (next) || SCHED_GROUP_P (next) == 0))
 	ready_add (ready, insn);
       if (!(SCHED_GROUP_P (insn)))
 	target_n_insns++;
@@ -2079,8 +2079,8 @@ init_ready_list (ready)
 		next = next_nonnote_insn (insn);
 		if (INSN_DEP_COUNT (insn) == 0
 		    && (! next
-			|| SCHED_GROUP_P (next) == 0
-			|| ! INSN_P (next)))
+			|| ! INSN_P (next)
+			|| SCHED_GROUP_P (next) == 0))
 		  ready_add (ready, insn);
 	      }
 	  }
@@ -3016,7 +3016,7 @@ schedule_insns (dump_file)
      best way to test for this kind of thing...  */
 
   allocate_reg_life_data ();
-  compute_bb_for_insn (get_max_uid ());
+  compute_bb_for_insn ();
 
   any_large_regions = 0;
   large_region_blocks = sbitmap_alloc (last_basic_block);
