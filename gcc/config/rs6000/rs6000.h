@@ -685,6 +685,7 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 #define CR3_REGNO    71
 #define CR4_REGNO    72
 #define MAX_CR_REGNO 75
+#define XER_REGNO    76
 
 /* List the order in which to allocate registers.  Each register must be
    listed once, even those in FIXED_REGISTERS.
@@ -707,7 +708,7 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 	mq		(not saved; best to use it if we can)
 	ctr		(not saved; when we have the choice ctr is better)
 	lr		(saved)
-        cr5, r1, r2, ap, fpmem (fixed)  */
+        cr5, r1, r2, ap, xer (fixed)  */
 
 #define REG_ALLOC_ORDER					\
   {32, 							\
@@ -738,7 +739,7 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 
 /* True if register is the temporary memory location used for int/float
    conversion.  */
-#define FPMEM_REGNO_P(N) ((N) == FPMEM_REGNUM)
+#define XER_REGNO_P(N) ((N) == XER_REGNO)
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.
@@ -749,7 +750,7 @@ extern int rs6000_debug_arg;		/* debug argument handling */
    PowerPC64 GPRs and FPRs point register holds 64 bits worth.  */
 
 #define HARD_REGNO_NREGS(REGNO, MODE)					\
-  (FP_REGNO_P (REGNO) || FPMEM_REGNO_P (REGNO)				\
+  (FP_REGNO_P (REGNO)							\
    ? ((GET_MODE_SIZE (MODE) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD) \
    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
@@ -765,7 +766,7 @@ extern int rs6000_debug_arg;		/* debug argument handling */
     || (GET_MODE_CLASS (MODE) == MODE_INT				\
 	&& GET_MODE_SIZE (MODE) == UNITS_PER_FP_WORD))			\
    : CR_REGNO_P (REGNO) ? GET_MODE_CLASS (MODE) == MODE_CC		\
-   : FPMEM_REGNO_P (REGNO) ? ((MODE) == DImode || (MODE) == DFmode)	\
+   : XER_REGNO_P (REGNO) ? (MODE) == PSImode				\
    : ! INT_REGNO_P (REGNO) ? (GET_MODE_CLASS (MODE) == MODE_INT		\
 			      && GET_MODE_SIZE (MODE) <= UNITS_PER_WORD) \
    : 1)
@@ -891,9 +892,6 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 /* Count register number. */
 #define COUNT_REGISTER_REGNUM 66
 
-/* Special register that represents memory, used for float/int conversions.  */
-#define FPMEM_REGNUM 76
-
 /* Place that structure value return address is placed.
 
    On the RS/6000, it is passed as an extra parameter.  */
@@ -952,8 +950,7 @@ enum reg_class
   CR0_REGS,
   CR_REGS,
   NON_FLOAT_REGS,
-  FPMEM_REGS,
-  FLOAT_OR_FPMEM_REGS,
+  XER_REGS,
   ALL_REGS,
   LIM_REG_CLASSES
 };
@@ -978,8 +975,7 @@ enum reg_class
   "CR0_REGS",								\
   "CR_REGS",								\
   "NON_FLOAT_REGS",							\
-  "FPMEM_REGS",								\
-  "FLOAT_OR_FPMEM_REGS",						\
+  "XER_REGS",								\
   "ALL_REGS"								\
 }
 
@@ -1003,8 +999,7 @@ enum reg_class
   { 0x00000000, 0x00000000, 0x00000010 },	/* CR0_REGS */		\
   { 0x00000000, 0x00000000, 0x00000ff0 },	/* CR_REGS */		\
   { 0xffffffff, 0x00000000, 0x0000ffff },	/* NON_FLOAT_REGS */	\
-  { 0x00000000, 0x00000000, 0x00010000 },	/* FPMEM_REGS */	\
-  { 0x00000000, 0xffffffff, 0x00010000 },	/* FLOAT_OR_FPMEM_REGS */ \
+  { 0x00000000, 0x00000000, 0x00010000 },	/* XER_REGS */		\
   { 0xffffffff, 0xffffffff, 0x0001ffff }	/* ALL_REGS */		\
 }
 
@@ -1023,7 +1018,7 @@ enum reg_class
   : (REGNO) == 65 ? LINK_REGS		\
   : (REGNO) == 66 ? CTR_REGS		\
   : (REGNO) == 67 ? BASE_REGS		\
-  : (REGNO) == 76 ? FPMEM_REGS		\
+  : (REGNO) == 76 ? XER_REGS		\
   : NO_REGS)
 
 /* The class value for index registers, and the one for base regs.  */
@@ -1041,7 +1036,7 @@ enum reg_class
    : (C) == 'l' ? LINK_REGS	\
    : (C) == 'x' ? CR0_REGS	\
    : (C) == 'y' ? CR_REGS	\
-   : (C) == 'z' ? FPMEM_REGS	\
+   : (C) == 'z' ? XER_REGS	\
    : NO_REGS)
 
 /* The letters I, J, K, L, M, N, and P in a register constraint string
@@ -1134,15 +1129,14 @@ enum reg_class
    On RS/6000, this is the size of MODE in words,
    except in the FP regs, where a single reg is enough for two words.  */
 #define CLASS_MAX_NREGS(CLASS, MODE)					\
- (((CLASS) == FLOAT_REGS || (CLASS) == FPMEM_REGS			\
-   || (CLASS) == FLOAT_OR_FPMEM_REGS)					\
+ (((CLASS) == FLOAT_REGS) 						\
   ? ((GET_MODE_SIZE (MODE) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD) \
   : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 /* If defined, gives a class of registers that cannot be used as the
    operand of a SUBREG that changes the size of the object.  */
 
-#define CLASS_CANNOT_CHANGE_SIZE	FLOAT_OR_FPMEM_REGS
+#define CLASS_CANNOT_CHANGE_SIZE      FLOAT_REGS
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -1166,7 +1160,6 @@ typedef struct rs6000_stack {
   int toc_save_p;		/* true if the TOC needs to be saved */
   int push_p;			/* true if we need to allocate stack space */
   int calls_p;			/* true if the function makes any calls */
-  int fpmem_p;			/* true if float/int conversion temp needed */
   enum rs6000_abi abi;		/* which ABI to use */
   int gp_save_offset;		/* offset to save GP regs from initial SP */
   int fp_save_offset;		/* offset to save FP regs from initial SP */
@@ -1174,7 +1167,6 @@ typedef struct rs6000_stack {
   int cr_save_offset;		/* offset to save CR from initial SP */
   int toc_save_offset;		/* offset to save the TOC pointer */
   int varargs_save_offset;	/* offset to save the varargs registers */
-  int fpmem_offset;		/* offset for float/int conversion temp */
   int reg_size;			/* register size (4 or 8) */
   int varargs_size;		/* size to hold V.4 args passed in regs */
   int vars_size;		/* variable save area size */
@@ -1185,7 +1177,6 @@ typedef struct rs6000_stack {
   int fp_size;			/* size of saved FP registers */
   int cr_size;			/* size to hold CR if not in save_size */
   int lr_size;			/* size to hold LR if not in save_size */
-  int fpmem_size;		/* size to hold float/int conversion */
   int toc_size;			/* size to hold TOC if not in save_size */
   int total_size;		/* total bytes allocated for stack */
 } rs6000_stack_t;
@@ -1218,11 +1209,6 @@ typedef struct rs6000_stack {
 #define RS6000_SAVE_TOC gen_rtx_MEM (Pmode, \
 				     plus_constant (stack_pointer_rtx, \
 						    (TARGET_32BIT ? 20 : 40)))
-
-/* Offset & size for fpmem stack locations used for converting between
-   float and integral types.  */
-extern int rs6000_fpmem_offset;
-extern int rs6000_fpmem_size;
 
 /* Size of the V.4 varargs area if needed */
 #define RS6000_VARARGS_AREA 0
@@ -2513,7 +2499,7 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0). */
   &rs6000_reg_names[74][0],	/* cr6  */				\
   &rs6000_reg_names[75][0],	/* cr7  */				\
 									\
-  &rs6000_reg_names[76][0],	/* fpmem */				\
+  &rs6000_reg_names[76][0],	/* xer  */				\
 }
 
 /* print-rtl can't handle the above REGISTER_NAMES, so define the
@@ -2532,7 +2518,7 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0). */
     "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",		\
      "mq",  "lr", "ctr",  "ap",						\
     "cr0", "cr1", "cr2", "cr3", "cr4", "cr5", "cr6", "cr7",		\
-  "fpmem"								\
+  "xer"									\
 }
 
 /* Table of additional register names to use in user input.  */
@@ -2741,7 +2727,7 @@ do {									\
   {"mask_operand", {CONST_INT}},				\
   {"mask64_operand", {CONST_INT, CONST_DOUBLE}},		\
   {"count_register_operand", {REG}},				\
-  {"fpmem_operand", {REG}},					\
+  {"xer_operand", {REG}},					\
   {"call_operand", {SYMBOL_REF, REG}},				\
   {"current_file_function_operand", {SYMBOL_REF}},		\
   {"input_operand", {SUBREG, MEM, REG, CONST_INT, 		\

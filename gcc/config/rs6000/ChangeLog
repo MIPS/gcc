@@ -1,3 +1,26 @@
+2000-03-05  Clinton Popetz  <cpopetz@cygnus.com>
+
+	* config/rs6000/rs6000.c (rs6000_fpmem_offset, rs6000_fpmem_size,
+	fpmem_operand) Delete.
+	(xer_operand) New.
+	(rs6000_reg_names, alt_reg_names): Change fpmem to xer.
+	(machine_function): Remove fpmem_size, fpmem_offset, save_toc_p.
+	(rs6000_save_machine_status, rs6000_restore_machine_status, 
+	rs6000_init_expanders, rs6000_stack_info, debug_stack_info): Remove 
+	references to above variables.
+	(gpc_reg_operand): Use XER_REGNO_P instead of FPMEM_REGNO_P.
+	* config/rs6000/rs6000.h (REG_ALLOC_ORDER, REGISTER_NAMES,
+	DEBUG_REGISTER_NAMES): Chagne fpmem to xer.
+	(FPMEM_REGNO_P, FPMEM_REGNUM): Delete.
+	(XER_REGNO_P, XER_REGNO): New.
+	(rs6000_stack): Remove fpmem_p, fpmem_offset, fpmem_size.
+	(PREDICATE_CODES): Change fpmem_operand to xer_operand.
+	(HARD_REGNO_NREGS, HARD_REGNO_MODE_OK): Change FPMEM_REGNO_P to 
+	XER_REGNO_P.
+	(reg_class, REG_CLASS_NAMES, REG_CLASS_CONTENTS, REGNO_REG_CLASS,
+	REG_CLASS_FROM_LETTER, CLASS_MAX_NREGS): Change FPMEM_REGS to XER_REGS,		and remove FLOAT_OR_FPMEM_REGS.
+	(CLASS_CANNOT_CHANGE_SIZE): Change to FLOAT_REGS.
+	
 2000-02-29  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
 
 	* aix.h (FP_SAVE_INLINE, ASM_OUTPUT_INTERNAL_LABEL_PREFIX,

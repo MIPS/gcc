@@ -103,11 +103,6 @@ int rs6000_sysv_varargs_p;
 /* ABI enumeration available for subtarget to use.  */
 enum rs6000_abi rs6000_current_abi;
 
-/* Offset & size for fpmem stack locations used for converting between
-   float and integral types.  */
-int rs6000_fpmem_offset;
-int rs6000_fpmem_size;
-
 /* Debug flags */
 const char *rs6000_debug_name;
 int rs6000_debug_stack;		/* debug stack applications */
@@ -146,7 +141,7 @@ char rs6000_reg_names[][8] =
      "24", "25", "26", "27", "28", "29", "30", "31",
      "mq", "lr", "ctr","ap",
       "0",  "1",  "2",  "3",  "4",  "5",  "6",  "7",
-  "fpmem"
+      "xer"
 };
 
 #ifdef TARGET_REGNAMES
@@ -162,7 +157,7 @@ static char alt_reg_names[][8] =
   "%f24",  "%f25", "%f26", "%f27", "%f28", "%f29", "%f30", "%f31",
     "mq",    "lr",  "ctr",   "ap",
   "%cr0",  "%cr1", "%cr2", "%cr3", "%cr4", "%cr5", "%cr6", "%cr7",
- "fpmem"
+  "xer"
 };
 #endif
 
@@ -519,23 +514,16 @@ count_register_operand(op, mode)
   return 0;
 }
 
-/* Returns 1 if op is memory location for float/int conversions that masquerades
-   as a register.  */
 int
-fpmem_operand(op, mode)
+xer_operand(op, mode)
      register rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   if (GET_CODE (op) != REG)
     return 0;
 
-  if (FPMEM_REGNO_P (REGNO (op)))
+  if (XER_REGNO_P (REGNO (op)))
     return 1;
-
-#if 0
-  if (REGNO (op) > FIRST_PSEUDO_REGISTER)
-    return 1;
-#endif
 
   return 0;
 }
@@ -584,7 +572,7 @@ gpc_reg_operand (op, mode)
   return (register_operand (op, mode)
 	  && (GET_CODE (op) != REG
 	      || (REGNO (op) >= ARG_POINTER_REGNUM 
-		  && !FPMEM_REGNO_P (REGNO (op)))
+		  && !XER_REGNO_P (REGNO (op)))
 	      || REGNO (op) < MQ_REGNO));
 }
 
@@ -3223,12 +3211,9 @@ rs6000_got_register (value)
 struct machine_function
 {
   int sysv_varargs_p;
-  int save_toc_p;
-  int fpmem_size;
-  int fpmem_offset;
 };
 
-/* Functions to save and restore rs6000_fpmem_size.
+/* Functions to save and restore sysv_varargs_p.
    These will be called, via pointer variables,
    from push_function_context and pop_function_context.  */
 
@@ -3241,8 +3226,6 @@ rs6000_save_machine_status (p)
 
   p->machine = machine;
   machine->sysv_varargs_p = rs6000_sysv_varargs_p;
-  machine->fpmem_size     = rs6000_fpmem_size;
-  machine->fpmem_offset   = rs6000_fpmem_offset;
 }
 
 void
@@ -3252,8 +3235,6 @@ rs6000_restore_machine_status (p)
   struct machine_function *machine = p->machine;
 
   rs6000_sysv_varargs_p = machine->sysv_varargs_p;
-  rs6000_fpmem_size     = machine->fpmem_size;
-  rs6000_fpmem_offset   = machine->fpmem_offset;
 
   free (machine);
   p->machine = (struct machine_function *)0;
@@ -3264,10 +3245,8 @@ rs6000_restore_machine_status (p)
 void
 rs6000_init_expanders ()
 {
-  /* Reset varargs and save TOC indicator */
+  /* Reset varargs */
   rs6000_sysv_varargs_p = 0;
-  rs6000_fpmem_size = 0;
-  rs6000_fpmem_offset = 0;
 
   /* Arrange to save and restore machine status around nested functions.  */
   save_machine_status = rs6000_save_machine_status;
@@ -4177,9 +4156,6 @@ rs6000_stack_info ()
   /* Does this function call anything? */
   info_ptr->calls_p = ! current_function_is_leaf;
 
-  /* Does this machine need the float/int conversion area? */
-  info_ptr->fpmem_p = regs_ever_live[FPMEM_REGNUM];
-
   /* Determine if we need to save the link register */
   if (regs_ever_live[LINK_REGISTER_REGNUM]
       || (DEFAULT_ABI == ABI_AIX && profile_flag)
@@ -4212,7 +4188,6 @@ rs6000_stack_info ()
   info_ptr->varargs_size = RS6000_VARARGS_AREA;
   info_ptr->vars_size    = RS6000_ALIGN (get_frame_size (), 8);
   info_ptr->parm_size    = RS6000_ALIGN (current_function_outgoing_args_size, 8);
-  info_ptr->fpmem_size	 = (info_ptr->fpmem_p) ? 8 : 0;
   info_ptr->save_size    = RS6000_ALIGN (info_ptr->fp_size
 				  + info_ptr->gp_size
 				  + info_ptr->cr_size
@@ -4230,7 +4205,6 @@ rs6000_stack_info ()
     case ABI_AIX_NODESC:
       info_ptr->fp_save_offset   = - info_ptr->fp_size;
       info_ptr->gp_save_offset   = info_ptr->fp_save_offset - info_ptr->gp_size;
-      info_ptr->fpmem_offset	 = info_ptr->gp_save_offset - info_ptr->fpmem_size;
       info_ptr->cr_save_offset   = reg_size; /* first word when 64-bit.  */
       info_ptr->lr_save_offset   = 2*reg_size;
       break;
@@ -4241,22 +4215,12 @@ rs6000_stack_info ()
       info_ptr->gp_save_offset   = info_ptr->fp_save_offset - info_ptr->gp_size;
       info_ptr->cr_save_offset   = info_ptr->gp_save_offset - info_ptr->cr_size;
       info_ptr->toc_save_offset  = info_ptr->cr_save_offset - info_ptr->toc_size;
-      info_ptr->fpmem_offset	 = info_ptr->toc_save_offset - info_ptr->fpmem_size;
       info_ptr->lr_save_offset   = reg_size;
       break;
     }
 
-  /* Ensure that fpmem_offset will be aligned to an 8-byte boundary. */
-  if (info_ptr->fpmem_p && info_ptr->fpmem_offset % 8 != 0)
-    {
-      int needed_size = 8 - (info_ptr->fpmem_offset & 7);
-      info_ptr->fpmem_size += needed_size;
-      info_ptr->fpmem_offset -= needed_size;
-    }
-
   total_raw_size	 = (info_ptr->vars_size
 			    + info_ptr->parm_size
-			    + info_ptr->fpmem_size
 			    + info_ptr->save_size
 			    + info_ptr->varargs_size
 			    + info_ptr->fixed_size);
@@ -4267,7 +4231,7 @@ rs6000_stack_info ()
 
      For AIX we need to push the stack if a frame pointer is needed (because
      the stack might be dynamically adjusted), if we are debugging, if we
-     make calls, or if the sum of fp_save, gp_save, fpmem, and local variables
+     make calls, or if the sum of fp_save, gp_save, and local variables
      are more than the space needed to save all non-volatile registers:
      32-bit: 18*8 + 19*4 = 220 or 64-bit: 18*8 + 18*8 = 288 (GPR13 reserved).
 
@@ -4286,16 +4250,6 @@ rs6000_stack_info ()
 			|| write_symbols != NO_DEBUG
 			|| ((total_raw_size - info_ptr->fixed_size)
 			    > (TARGET_32BIT ? 220 : 288)));
-
-  if (info_ptr->fpmem_p)
-    {
-      rs6000_fpmem_size   = info_ptr->fpmem_size;
-      rs6000_fpmem_offset = (info_ptr->push_p
-			     ? info_ptr->total_size + info_ptr->fpmem_offset
-			     : info_ptr->fpmem_offset);
-    }
-  else
-    info_ptr->fpmem_offset = 0;  
 
   /* Zero offsets if we're not saving those registers */
   if (info_ptr->fp_size == 0)
@@ -4363,9 +4317,6 @@ debug_stack_info (info)
   if (info->calls_p)
     fprintf (stderr, "\tcalls_p             = %5d\n", info->calls_p);
 
-  if (info->fpmem_p)
-    fprintf (stderr, "\tfpmem_p             = %5d\n", info->fpmem_p);
-
   if (info->gp_save_offset)
     fprintf (stderr, "\tgp_save_offset      = %5d\n", info->gp_save_offset);
 
@@ -4384,9 +4335,6 @@ debug_stack_info (info)
   if (info->varargs_save_offset)
     fprintf (stderr, "\tvarargs_save_offset = %5d\n", info->varargs_save_offset);
 
-  if (info->fpmem_offset)
-    fprintf (stderr, "\tfpmem_offset        = %5d\n", info->fpmem_offset);
-
   if (info->total_size)
     fprintf (stderr, "\ttotal_size          = %5d\n", info->total_size);
 
@@ -4398,9 +4346,6 @@ debug_stack_info (info)
 
   if (info->parm_size)
     fprintf (stderr, "\tparm_size           = %5d\n", info->parm_size);
-
-  if (info->fpmem_size)
-    fprintf (stderr, "\tfpmem_size          = %5d\n", info->fpmem_size);
 
   if (info->fixed_size)
     fprintf (stderr, "\tfixed_size          = %5d\n", info->fixed_size);
