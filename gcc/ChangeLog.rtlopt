@@ -1,3 +1,10 @@
+2003-11-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* df.c (hybrid_search_bitmap): Unused now.
+	(df_analyse_1): Pass order instead of weights to
+	iterative_dataflow_bitmap.
+	(iterative_dataflow_bitmap): Don't use heaps. Don't use hybrid search.
+
 2003-10-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cse.c (fold_rtx): Disable the autoinc restriction.

@@ -296,7 +296,7 @@ static void hybrid_search_bitmap PARAMS ((basic_block, bitmap *, bitmap *,
 					  bitmap *, bitmap *, enum df_flow_dir,
 					  enum df_confluence_op,
 					  transfer_function_bitmap,
-					  sbitmap, sbitmap, edge *, void *));
+					  sbitmap, sbitmap, edge *, void *)) ATTRIBUTE_UNUSED;
 static void hybrid_search_sbitmap PARAMS ((basic_block, sbitmap *, sbitmap *,
 					   sbitmap *, sbitmap *, enum df_flow_dir,
 					   enum df_confluence_op,
@@ -2091,9 +2091,10 @@ df_analyse_1 (df, blocks, flags, update)
 	    gen[bb->index] = DF_BB_INFO (df, bb)->rd_gen;
 	    kill[bb->index] = DF_BB_INFO (df, bb)->rd_kill;
 	  }
-	iterative_dataflow_bitmap (in, out, gen, kill, df->all_blocks,
-				   DF_FORWARD, DF_UNION, df_rd_transfer_function,
-				   df->inverse_rc_map, NULL);
+	iterative_dataflow_bitmap (in, out, gen, kill, NULL,
+				   DF_FORWARD, DF_UNION,
+				   df_rd_transfer_function,
+				   df->rc_order, NULL);
 	free (in);
 	free (out);
 	free (gen);
@@ -2127,9 +2128,10 @@ df_analyse_1 (df, blocks, flags, update)
 	    gen[bb->index] = DF_BB_INFO (df, bb)->ru_gen;
 	    kill[bb->index] = DF_BB_INFO (df, bb)->ru_kill;
 	  }
-	iterative_dataflow_bitmap (in, out, gen, kill, df->all_blocks,
-				   DF_BACKWARD, DF_UNION, df_ru_transfer_function,
-				   df->inverse_rts_map, NULL);
+	iterative_dataflow_bitmap (in, out, gen, kill, NULL,
+				   DF_BACKWARD, DF_UNION,
+				   df_ru_transfer_function,
+				   df->rts_order, NULL);
 	free (in);
 	free (out);
 	free (gen);
@@ -2166,9 +2168,9 @@ df_analyse_1 (df, blocks, flags, update)
 	    use[bb->index] = DF_BB_INFO (df, bb)->lr_use;
 	    def[bb->index] = DF_BB_INFO (df, bb)->lr_def;
 	  }
-	iterative_dataflow_bitmap (in, out, use, def, df->all_blocks,
+	iterative_dataflow_bitmap (in, out, use, def, NULL,
 				   DF_BACKWARD, DF_UNION, df_lr_transfer_function,
-				   df->inverse_rts_map, NULL);
+				   df->rts_order, NULL);
 	free (in);
 	free (out);
 	free (use);
@@ -3651,7 +3653,7 @@ debug_df_chain (link)
 static void
 hybrid_search_bitmap (block, in, out, gen, kill, dir,
 		      conf_op, transfun, visited, pending,
-		      stack, data)
+		      stack, data) 
      basic_block block;
      bitmap *in, *out, *gen, *kill;
      enum df_flow_dir dir;
@@ -4015,7 +4017,6 @@ iterative_dataflow_sbitmap (in, out, gen, kill, blocks,
   free (stack);
 }
 
-
 /* Exactly the same as iterative_dataflow_sbitmap, except it works on
    bitmaps instead.  */
 void
@@ -4029,55 +4030,122 @@ iterative_dataflow_bitmap (in, out, gen, kill, blocks,
      int *order;
      void *data;
 {
-  int i;
-  struct heap *worklist;
+  int i, b;
   basic_block bb;
-  sbitmap visited, pending;
-  edge *stack = xmalloc (n_basic_blocks * sizeof (edge));
+  sbitmap pending;
+  int n_seq = 0;
+  int *seq = xmalloc (n_basic_blocks * sizeof (int));
+  int n_pending = 0;
 
   pending = sbitmap_alloc (last_basic_block);
-  visited = sbitmap_alloc (last_basic_block);
   sbitmap_zero (pending);
-  sbitmap_zero (visited);
-  worklist = heap_alloc (n_basic_blocks);
 
-  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
-  {
-    heap_insert (worklist, order[i], (void *) (size_t) i);
-    SET_BIT (pending, i);
-    if (dir == DF_FORWARD)
-      bitmap_copy (out[i], gen[i]);
-    else
-      bitmap_copy (in[i], gen[i]);
-  });
-
-  while (sbitmap_first_set_bit (pending) != -1)
+  for (i = 0; i < n_basic_blocks; i++)
     {
-      while (heap_size (worklist) > 0)
-	{
-	  i = (size_t) heap_extract_min (worklist);
-	  bb = BASIC_BLOCK (i);
-	  if (!TEST_BIT (visited, bb->index))
-	    hybrid_search_bitmap (bb, in, out, gen, kill, dir,
-				  conf_op, transfun, visited, pending,
-				  stack, data);
-	}
+      b = order[i];
+      if (!blocks || !bitmap_bit_p (blocks, b))
+	continue;
 
-      if (sbitmap_first_set_bit (pending) != -1)
-	{
-	  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
-	  {
-	    heap_insert (worklist, order[i], (void *) (size_t) i);
-	  });
-	  sbitmap_zero (visited);
-	}
+      seq[n_seq++] = b;
+      SET_BIT (pending, b);
+      n_pending++;
+      if (dir == DF_FORWARD)
+	bitmap_copy (out[b], gen[b]);
       else
+	bitmap_copy (in[b], gen[b]);
+    }
+    
+  while (n_pending)
+    {
+      for (i = 0; i < n_seq; i++)
 	{
-	  break;
+	  int changed;
+	  edge e;
+
+	  bb = BASIC_BLOCK (seq[i]);
+	  if (!TEST_BIT (pending, bb->index))
+	    continue;
+
+	  RESET_BIT (pending, bb->index);
+	  n_pending--;
+
+	  if (dir == DF_FORWARD)
+	    {
+	      /*  Calculate <conf_op> of predecessor_outs.  */
+	      bitmap_zero (in[i]);
+	      for (e = bb->pred; e != 0; e = e->pred_next)
+		{
+		  if (e->src == ENTRY_BLOCK_PTR)
+		    continue;
+		  switch (conf_op)
+		    {
+		    case DF_UNION:
+		      bitmap_a_or_b (in[i], in[i], out[e->src->index]);
+		      break;
+		    case DF_INTERSECTION:
+		      bitmap_a_and_b (in[i], in[i], out[e->src->index]);
+		      break;
+		    }
+		}
+	    }
+	  else
+	    {
+	      /* Calculate <conf_op> of successor ins.  */
+	      bitmap_zero (out[i]);
+	      for (e = bb->succ; e != 0; e = e->succ_next)
+		{
+		  if (e->dest == EXIT_BLOCK_PTR)
+		    continue;
+		  switch (conf_op)
+		    {
+		    case DF_UNION:
+		      bitmap_a_or_b (out[i], out[i], in[e->dest->index]);
+		      break;
+		    case DF_INTERSECTION:
+		      bitmap_a_and_b (out[i], out[i], in[e->dest->index]);
+		      break;
+		    }
+		}
+	    }
+	  /* Common part */
+	  (*transfun)(i, &changed, in[i], out[i], gen[i], kill[i], data);
+	  RESET_BIT (pending, i);
+	  n_pending--;
+	  if (changed)
+	    {
+	      if (dir == DF_FORWARD)
+		{
+		  for (e = bb->succ; e != 0; e = e->succ_next)
+		    {
+		      if (e->dest == EXIT_BLOCK_PTR || e->dest == bb)
+			continue;
+		      if (!TEST_BIT (pending, e->dest->index))
+			{
+			  n_pending++;
+			  SET_BIT (pending, e->dest->index);
+			}
+		    }
+		}
+	      else
+		{
+		  for (e = bb->pred; e != 0; e = e->pred_next)
+		    {
+		      if (e->src == ENTRY_BLOCK_PTR || e->src == bb)
+			continue;
+		      if (!TEST_BIT (pending, e->src->index))
+			{
+			  SET_BIT (pending, e->src->index);
+			  n_pending++;
+			}
+		    }
+		}
+	    }
+
+	  if (!n_pending)
+	    break;
 	}
     }
+
   sbitmap_free (pending);
-  sbitmap_free (visited);
-  free (worklist);
-  free (stack);
+  free (seq);
 }
