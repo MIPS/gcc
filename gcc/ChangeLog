@@ -1,3 +1,8 @@
+Tue Nov 19 00:11:44 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* convert.c (strip_float_extensions): New function.
+	(convert_to_real): Optimize some cases.
+
 Sun Nov 17 14:01:09 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (negsf2_ifs, negdf2_ifs, negdf2_ifs_rex64, abssf2_ifs,
