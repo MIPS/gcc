@@ -1,3 +1,33 @@
+2004-01-26  Hartmut Penner  <hpenner@de.ibm.com>
+
+	Backport new 64bit altivec changes from mainline.
+	2003-10-17  Segher Boessenkool  <boessen@de.ibm.com>
+		    Hartmut Penner  <hpenner@de.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_expand_lv_builtin): New function.
+	(altivec_expand_stv_builtin): Adjust for the memory_operand.
+	(altivec_expand_builtin): Call altivec_expand_lv_builtin.
+	(altivec_init_builtins): Use `long int' for memory offsets.
+
+	2003-04-01  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (input_operand): Allow vector constants.
+
+	* config/rs6000/rs6000.h (PREDICATE_CODES): Add
+	easy_vector_constant, easy_vector_constant_add_self.
+	(EXTRA_CONSTRAINT): Add 'W'.
+
+	2003-06-20  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR/11092
+	* config/rs6000/rs6000.h (LEGITIMATE_CONSTANT_P): Adjust for
+	vectors.
+
+        2004-01-06  Geoffrey Keating  <geoffk@apple.com>	
+
+	* simplify-rtx.c (simplify_immed_subreg): New.
+	(simplify_subreg): Use simplify_immed_subreg.
+
 2004-01-24  Alan Modra  <amodra@bigpond.net.au>
 
 	* config.gcc (powerpc-*-linux*): Allow biarch builds.

@@ -1298,6 +1298,7 @@ enum reg_class
    'S' is a constant that can be placed into a 64-bit mask operand
    'T' is a constant that can be placed into a 32-bit mask operand
    'U' is for V.4 small data references.
+   'W' is a vector constant that can be easily generated (no mem refs).
    't' is for AND masks that can be performed by two rldic{l,r} insns.  */
 
 #define EXTRA_CONSTRAINT(OP, C)						\
@@ -1311,6 +1312,7 @@ enum reg_class
 		   && (fixed_regs[CR0_REGNO]				\
 		       || !logical_operand (OP, DImode))		\
 		   && !mask64_operand (OP, DImode))			\
+   : (C) == 'W' ? (easy_vector_constant (OP, GET_MODE (OP)))		\
    : 0)
 
 /* Given an rtx X being reloaded into a reg required to be
@@ -2003,9 +2005,12 @@ typedef struct rs6000_args
    acceptable.  */
 
 #define LEGITIMATE_CONSTANT_P(X)				\
-  ((GET_CODE (X) != CONST_DOUBLE || GET_MODE (X) == VOIDmode	\
+  (((GET_CODE (X) != CONST_DOUBLE				\
+     && GET_CODE (X) != CONST_VECTOR)				\
+    || GET_MODE (X) == VOIDmode					\
     || (TARGET_POWERPC64 && GET_MODE (X) == DImode)		\
-    || easy_fp_constant (X, GET_MODE (X)))			\
+    || easy_fp_constant (X, GET_MODE (X))			\
+    || easy_vector_constant (X, GET_MODE (X)))			\
    && !rs6000_tls_referenced_p (X))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
