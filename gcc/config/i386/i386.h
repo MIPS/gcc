@@ -168,44 +168,54 @@ extern const int x86_use_loop, x86_use_fiop;
 
 #define ASSEMBLER_DIALECT ((target_flags & MASK_INTEL_SYNTAX) != 0)
 
-#define TARGET_SWITCHES							\
-{ { "80387",			 MASK_80387, "Use hardware fp" },	\
-  { "no-80387",			-MASK_80387, "Do not use hardware fp" },\
-  { "hard-float",		 MASK_80387, "Use hardware fp" },	\
-  { "soft-float",		-MASK_80387, "Do not use hardware fp" },\
-  { "no-soft-float",		 MASK_80387, "Use hardware fp" },	\
-  { "386",			 0, "Optimize for i80386" },		\
-  { "no-386",			 0, "" },				\
-  { "486",			 0, "Optimize for i80486" },		\
-  { "no-486",			 0, "" },				\
-  { "pentium",			 0, "Optimize for Pentium" },		\
-  { "pentiumpro",		 0, "Optimize for Pentium Pro, Pentium II" },\
-  { "rtd",			 MASK_RTD, "Alternate calling convention" },\
-  { "no-rtd",			-MASK_RTD, "Use normal calling convention" },\
-  { "align-double",		 MASK_ALIGN_DOUBLE, "Align some doubles on dword boundary" },\
-  { "no-align-double",		-MASK_ALIGN_DOUBLE, "Align doubles on word boundary" },		\
-  { "svr3-shlib",		 MASK_SVR3_SHLIB, "Uninitialized locals in .bss"  },			\
-  { "no-svr3-shlib",		-MASK_SVR3_SHLIB, "Uninitialized locals in .data" },			\
-  { "ieee-fp",			 MASK_IEEE_FP, "Use IEEE math for fp comparisons" },	\
-  { "no-ieee-fp",		-MASK_IEEE_FP, "Do not use IEEE math for fp comparisons" },			\
-  { "fp-ret-in-387",		 MASK_FLOAT_RETURNS, "Return values of functions in FPU registers" },			\
-  { "no-fp-ret-in-387",		-MASK_FLOAT_RETURNS , "Do not return values of functions in FPU registers"},			\
-  { "no-fancy-math-387",	 MASK_NO_FANCY_MATH_387, "Do not generate sin, cos, sqrt for 387" },		\
-  { "fancy-math-387",		-MASK_NO_FANCY_MATH_387, "Generate sin, cos, sqrt for FPU"},		\
-  { "omit-leaf-frame-pointer",	 MASK_OMIT_LEAF_FRAME_POINTER }, 	\
-  { "no-omit-leaf-frame-pointer",-MASK_OMIT_LEAF_FRAME_POINTER },       \
-  { "debug-addr",		 MASK_DEBUG_ADDR },			\
-  { "no-debug-addr",		-MASK_DEBUG_ADDR },			\
-  { "debug-arg",		 MASK_DEBUG_ARG },			\
-  { "no-debug-arg",		-MASK_DEBUG_ARG },			\
-  { "stack-arg-probe",		 MASK_STACK_PROBE },			\
-  { "no-stack-arg-probe",	-MASK_STACK_PROBE },			\
-  { "windows",			0 },					\
-  { "dll",			0 },					\
-  { "intel-syntax",		MASK_INTEL_SYNTAX },			\
-  { "no-intel-syntax",		-MASK_INTEL_SYNTAX },			\
-  SUBTARGET_SWITCHES							\
-  { "", TARGET_DEFAULT}}
+#define TARGET_SWITCHES							      \
+{ { "80387",			 MASK_80387, "Use hardware fp" },	      \
+  { "no-80387",			-MASK_80387, "Do not use hardware fp" },      \
+  { "hard-float",		 MASK_80387, "Use hardware fp" },	      \
+  { "soft-float",		-MASK_80387, "Do not use hardware fp" },      \
+  { "no-soft-float",		 MASK_80387, "Use hardware fp" },	      \
+  { "386",			 0, "Same as -mcpu=i386" },		      \
+  { "486",			 0, "Same as -mcpu=i486" },		      \
+  { "pentium",			 0, "Same as -mcpu=pentium" },		      \
+  { "pentiumpro",		 0, "Same as -mcpu=pentiumpro" },	      \
+  { "rtd",			 MASK_RTD, "Alternate calling convention" },  \
+  { "no-rtd",			-MASK_RTD, "Use normal calling convention" }, \
+  { "align-double",		 MASK_ALIGN_DOUBLE,			      \
+    "Align some doubles on dword boundary" },				      \
+  { "no-align-double",		-MASK_ALIGN_DOUBLE,			      \
+    "Align doubles on word boundary" },					      \
+  { "svr3-shlib",		 MASK_SVR3_SHLIB,			      \
+    "Uninitialized locals in .bss"  },					      \
+  { "no-svr3-shlib",		-MASK_SVR3_SHLIB,			      \
+    "Uninitialized locals in .data" },					      \
+  { "ieee-fp",			 MASK_IEEE_FP,				      \
+    "Use IEEE math for fp comparisons" },				      \
+  { "no-ieee-fp",		-MASK_IEEE_FP,				      \
+    "Do not use IEEE math for fp comparisons" },			      \
+  { "fp-ret-in-387",		 MASK_FLOAT_RETURNS,			      \
+    "Return values of functions in FPU registers" },			      \
+  { "no-fp-ret-in-387",		-MASK_FLOAT_RETURNS ,			      \
+    "Do not return values of functions in FPU registers"},		      \
+  { "no-fancy-math-387",	 MASK_NO_FANCY_MATH_387,		      \
+    "Do not generate sin, cos, sqrt for FPU" },				      \
+  { "fancy-math-387",		-MASK_NO_FANCY_MATH_387,		      \
+     "Generate sin, cos, sqrt for FPU"},				      \
+  { "omit-leaf-frame-pointer",	 MASK_OMIT_LEAF_FRAME_POINTER,		      \
+    "Omit the frame pointer in leaf functions" },			      \
+  { "no-omit-leaf-frame-pointer",-MASK_OMIT_LEAF_FRAME_POINTER, "" },	      \
+  { "debug-addr",		 MASK_DEBUG_ADDR, 0 /* undocumented */ },     \
+  { "no-debug-addr",		-MASK_DEBUG_ADDR, 0 /* undocumented */ },     \
+  { "debug-arg",		 MASK_DEBUG_ARG, 0 /* undocumented */ },      \
+  { "no-debug-arg",		-MASK_DEBUG_ARG, 0 /* undocumented */ },      \
+  { "stack-arg-probe",		 MASK_STACK_PROBE, "Enable stack probing" },  \
+  { "no-stack-arg-probe",	-MASK_STACK_PROBE, "" },		      \
+  { "windows",			0, 0 /* undocumented */ },		      \
+  { "dll",			0,  0 /* undocumented */ },		      \
+  { "intel-syntax",		MASK_INTEL_SYNTAX,			      \
+    "Emit Intel syntax assembler opcodes" },				      \
+  { "no-intel-syntax",		-MASK_INTEL_SYNTAX, "" },		      \
+  SUBTARGET_SWITCHES							      \
+  { "", TARGET_DEFAULT, 0 }}
 
 /* Which processor to schedule for. The cpu attribute defines a list that
    mirrors this list, so changes to i386.md must be made at the same time.  */
@@ -233,16 +243,24 @@ extern int ix86_arch;
    variable, type `char *', is set to the variable part of the given
    option if the fixed part matches.  The actual option name is made
    by appending `-m' to the specified name.  */
-#define TARGET_OPTIONS							\
-{ { "cpu=",		&ix86_cpu_string, "Schedule code for given CPU"}, \
-  { "arch=",		&ix86_arch_string, "Generate code for given CPU"}, \
-  { "reg-alloc=",	&ix86_reg_alloc_order, "Control allocation order of integer registers" }, \
-  { "regparm=",		&ix86_regparm_string, "Number of registers used to pass integer arguments" }, \
-  { "align-loops=",	&ix86_align_loops_string, "Loop code aligned to this power of 2" }, \
-  { "align-jumps=",	&ix86_align_jumps_string, "Jump targets are aligned to this power of 2" }, \
-  { "align-functions=",	&ix86_align_funcs_string, "Function starts are aligned to this power of 2" }, \
-  { "branch-cost=",	&ix86_branch_cost_string },			\
-  SUBTARGET_OPTIONS							\
+#define TARGET_OPTIONS						\
+{ { "cpu=",		&ix86_cpu_string,			\
+    "Schedule code for given CPU"},				\
+  { "arch=",		&ix86_arch_string,			\
+    "Generate code for given CPU"},				\
+  { "reg-alloc=",	&ix86_reg_alloc_order,			\
+    "Control allocation order of integer registers" },		\
+  { "regparm=",		&ix86_regparm_string,			\
+    "Number of registers used to pass integer arguments" },	\
+  { "align-loops=",	&ix86_align_loops_string,		\
+    "Loop code aligned to this power of 2" },			\
+  { "align-jumps=",	&ix86_align_jumps_string,		\
+    "Jump targets are aligned to this power of 2" },		\
+  { "align-functions=",	&ix86_align_funcs_string,		\
+    "Function starts are aligned to this power of 2" },		\
+  { "branch-cost=",	&ix86_branch_cost_string,		\
+    0 /* undocumented */ },					\
+  SUBTARGET_OPTIONS						\
 }
 
 /* Sometimes certain combinations of command options do not make
@@ -2395,6 +2413,7 @@ extern void function_arg_advance XPARAMS((CUMULATIVE_ARGS*,xmode,xtree,int));
 extern xrtx function_arg XPARAMS((CUMULATIVE_ARGS*, xmode, xtree, int));
 
 extern int symbolic_operand XPARAMS((xrtx, xmode));
+extern int pic_symbolic_operand XPARAMS((xrtx, xmode));
 extern int call_insn_operand XPARAMS((xrtx, xmode));
 extern int expander_call_insn_operand XPARAMS((xrtx, xmode));
 extern int constant_call_address_operand XPARAMS((xrtx, xmode));
@@ -2406,11 +2425,13 @@ extern int reg_no_sp_operand XPARAMS((xrtx, xmode));
 extern int q_regs_operand XPARAMS((xrtx, xmode));
 extern int non_q_regs_operand XPARAMS((xrtx, xmode));
 extern int no_comparison_operator XPARAMS((xrtx, xmode));
+extern int fcmov_comparison_operator XPARAMS((xrtx, xmode));
 extern int cmp_fp_expander_operand XPARAMS((xrtx, xmode));
 extern int extract_operator XPARAMS((xrtx, xmode));
 extern int binary_fp_operator XPARAMS((xrtx, xmode));
 extern int mult_operator XPARAMS((xrtx, xmode));
 extern int div_operator XPARAMS((xrtx, xmode));
+extern int arith_or_logical_operator XPARAMS((xrtx, xmode));
 
 extern int standard_80387_constant_p XPARAMS((xrtx));
 extern int symbolic_reference_mentioned_p XPARAMS((xrtx));
@@ -2448,15 +2469,23 @@ extern int ix86_expand_setcc XPARAMS((xcode, int, xrtx));
 extern int ix86_expand_int_movcc XPARAMS((xrtx[]));
 extern int ix86_expand_fp_movcc XPARAMS((xrtx[]));
 extern int ix86_split_movdi XPARAMS((xrtx[]));
+extern void ix86_split_ashldi XPARAMS((xrtx *, xrtx));
+extern void ix86_split_ashrdi XPARAMS((xrtx *, xrtx));
+extern void ix86_split_lshrdi XPARAMS((xrtx *, xrtx));
 extern void ix86_expand_strlensi_unroll_1 XPARAMS((xrtx, xrtx, xrtx));
 
 extern void save_386_machine_status XPARAMS((struct function *));
 extern void restore_386_machine_status XPARAMS((struct function *));
 extern void clear_386_stack_locals XPARAMS((void));
 extern xrtx assign_386_stack_local XPARAMS((xmode, int));
+extern int ix86_attr_length_default XPARAMS((xrtx));
 
 extern int ix86_issue_rate XPARAMS((void));
 extern int ix86_adjust_cost XPARAMS((xrtx, xrtx, xrtx, int));
+extern void ix86_sched_init XPARAMS((FILE *, int));
+extern void ix86_sched_reorder XPARAMS((FILE *, int, xrtx *, int));
+extern int ix86_variable_issue XPARAMS((FILE *, int, xrtx, int));
+
 
 #undef XPARAMS
 #undef xrtx
@@ -2465,22 +2494,22 @@ extern int ix86_adjust_cost XPARAMS((xrtx, xrtx, xrtx, int));
 #undef xcode
 
 /* Variables in i386.c */
-extern char *ix86_cpu_string;			/* for -mcpu=<xxx> */
-extern char *ix86_arch_string;			/* for -march=<xxx> */
-extern char *ix86_reg_alloc_order;		/* register allocation order */
-extern char *ix86_regparm_string;		/* # registers to use to pass args */
-extern char *ix86_align_loops_string;		/* power of two alignment for loops */
-extern char *ix86_align_jumps_string;		/* power of two alignment for non-loop jumps */
-extern char *ix86_align_funcs_string;		/* power of two alignment for functions */
-extern char *ix86_branch_cost_string;		/* values 1-5: see jump.c */
+extern const char *ix86_cpu_string;		/* for -mcpu=<xxx> */
+extern const char *ix86_arch_string;		/* for -march=<xxx> */
+extern const char *ix86_reg_alloc_order;	/* register allocation order */
+extern const char *ix86_regparm_string;		/* # registers to use to pass args */
+extern const char *ix86_align_loops_string;	/* power of two alignment for loops */
+extern const char *ix86_align_jumps_string;	/* power of two alignment for non-loop jumps */
+extern const char *ix86_align_funcs_string;	/* power of two alignment for functions */
+extern const char *ix86_branch_cost_string;	/* values 1-5: see jump.c */
 extern int ix86_regparm;			/* ix86_regparm_string as a number */
 extern int ix86_align_loops;			/* power of two alignment for loops */
 extern int ix86_align_jumps;			/* power of two alignment for non-loop jumps */
 extern int ix86_align_funcs;			/* power of two alignment for functions */
 extern int ix86_branch_cost;			/* values 1-5: see jump.c */
-extern char * const hi_reg_name[];		/* names for 16 bit regs */
-extern char * const qi_reg_name[];		/* names for 8 bit regs (low) */
-extern char * const qi_high_reg_name[];		/* names for 8 bit regs (high) */
+extern const char * const hi_reg_name[];	/* names for 16 bit regs */
+extern const char * const qi_reg_name[];	/* names for 8 bit regs (low) */
+extern const char * const qi_high_reg_name[];	/* names for 8 bit regs (high) */
 extern enum reg_class const regclass_map[];	/* smalled class containing REGNO */
 extern struct rtx_def *ix86_compare_op0;	/* operand 0 for comparisons */
 extern struct rtx_def *ix86_compare_op1;	/* operand 1 for comparisons */

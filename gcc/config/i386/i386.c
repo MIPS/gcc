@@ -135,9 +135,9 @@ const int x86_use_fiop = ~m_PPRO;
 
 #define AT_BP(mode) (gen_rtx_MEM ((mode), frame_pointer_rtx))
 
-char * const hi_reg_name[] = HI_REGISTER_NAMES;
-char * const qi_reg_name[] = QI_REGISTER_NAMES;
-char * const qi_high_reg_name[] = QI_HIGH_REGISTER_NAMES;
+const char * const hi_reg_name[] = HI_REGISTER_NAMES;
+const char * const qi_reg_name[] = QI_REGISTER_NAMES;
+const char * const qi_high_reg_name[] = QI_HIGH_REGISTER_NAMES;
 
 /* Array of the smallest class containing reg number REGNO, indexed by
    REGNO.  Used by REGNO_REG_CLASS in i386.h. */
@@ -170,15 +170,15 @@ enum processor_type ix86_cpu;
 int ix86_arch;
 
 /* Strings to hold which cpu and instruction set architecture  to use.  */
-char *ix86_cpu_string;		/* for -mcpu=<xxx> */
-char *ix86_arch_string;		/* for -march=<xxx> */
+const char *ix86_cpu_string;		/* for -mcpu=<xxx> */
+const char *ix86_arch_string;		/* for -march=<xxx> */
 
 /* Register allocation order */
-char *ix86_reg_alloc_order;
+const char *ix86_reg_alloc_order;
 static char regs_allocated[FIRST_PSEUDO_REGISTER];
 
 /* # of registers to use to pass arguments. */
-char *ix86_regparm_string;
+const char *ix86_regparm_string;
 
 /* ix86_regparm_string as a number */
 int ix86_regparm;
@@ -186,18 +186,18 @@ int ix86_regparm;
 /* Alignment to use for loops and jumps:  */
 
 /* Power of two alignment for loops. */
-char *ix86_align_loops_string;
+const char *ix86_align_loops_string;
 
 /* Power of two alignment for non-loop jumps. */
-char *ix86_align_jumps_string;
+const char *ix86_align_jumps_string;
 
 /* Values 1-5: see jump.c */
 int ix86_branch_cost;
-char *ix86_branch_cost_string;
+const char *ix86_branch_cost_string;
 
 /* Power of two alignment for functions. */
 int ix86_align_funcs;
-char *ix86_align_funcs_string;
+const char *ix86_align_funcs_string;
 
 /* Power of two alignment for loops. */
 int ix86_align_loops;
@@ -1350,7 +1350,6 @@ ix86_expand_prologue ()
 				  || current_function_uses_const_pool);
   long tsize = get_frame_size ();
   rtx insn;
-  int cfa_offset = INCOMING_FRAME_SP_OFFSET, cfa_store_offset = cfa_offset;
 
   /* Note: AT&T enter does NOT have reversed args.  Enter is probably
      slower on all targets.  Also sdb doesn't like it.  */
@@ -3161,7 +3160,6 @@ output_fp_compare (insn, operands, eflags_p, unordered_p)
      int eflags_p, unordered_p;
 {
   int stack_top_dies;
-  rtx body = XVECEXP (PATTERN (insn), 0, 0);
   rtx cmp_op0 = operands[0];
   rtx cmp_op1 = operands[1];
 
@@ -3456,7 +3454,7 @@ ix86_output_function_block_profiler (file, block_or_label)
 
 void
 ix86_output_block_profiler (file, blockno)
-     FILE *file;
+     FILE *file ATTRIBUTE_UNUSED;
      int blockno;
 {
   rtx xops[8], cnt_rtx;
@@ -4230,7 +4228,6 @@ int
 ix86_expand_int_movcc (operands)
      rtx operands[];
 {
-  enum machine_mode ccmode;
   enum rtx_code code = GET_CODE (operands[1]), compare_code;
   rtx compare_seq, compare_op;
 
@@ -5386,8 +5383,8 @@ ix86_dump_ppro_packet (dump)
 
 void
 ix86_sched_init (dump, sched_verbose)
-     FILE *dump;
-     int sched_verbose;
+     FILE *dump ATTRIBUTE_UNUSED;
+     int sched_verbose ATTRIBUTE_UNUSED;
 {
   memset (&ix86_sched_data, 0, sizeof (ix86_sched_data));
 }
@@ -5413,8 +5410,8 @@ ix86_reorder_insn (insnp, slot)
 
 void
 ix86_sched_reorder (dump, sched_verbose, ready, n_ready)
-     FILE *dump;
-     int sched_verbose;
+     FILE *dump ATTRIBUTE_UNUSED;
+     int sched_verbose ATTRIBUTE_UNUSED;
      rtx *ready;
      int n_ready;
 {
