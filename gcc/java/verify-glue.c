@@ -396,7 +396,8 @@ vfy_note_stack_type (vfy_method *method, int pc, int slot, vfy_jclass type)
 }
 
 void
-vfy_note_local_type (vfy_method *method, int pc, int slot, vfy_jclass type)
+vfy_note_local_type (vfy_method *method ATTRIBUTE_UNUSED, int pc, int slot,
+		     vfy_jclass type)
 {
   tree label = lookup_label (pc);
   tree vec = LABEL_TYPE_STATE (label);

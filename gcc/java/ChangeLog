@@ -1,5 +1,8 @@
 2004-10-15  Tom Tromey  <tromey@redhat.com>
 
+	* verify-glue.c (vfy_note_local_type): Mark argument as unused.
+	* verify.h (vfy_fail): Fixed formatting.
+
 	* verify-impl.c (vfr): Fixed comment formatting.
 	(collapse_type): New function.
 	(verify_instructions): Notify compiler about type map.

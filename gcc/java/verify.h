@@ -116,7 +116,8 @@ vfy_jclass vfy_throwable_type (void);
 vfy_jclass vfy_unsuitable_type (void);
 vfy_jclass vfy_return_address_type (void);
 vfy_jclass vfy_null_type (void);
-int vfy_fail (const char *message, int pc, vfy_jclass ignore1, vfy_method *method);
+int vfy_fail (const char *message, int pc, vfy_jclass ignore1,
+	      vfy_method *method);
 void vfy_notify_verified (int pc);
 vfy_jclass vfy_get_primitive_type (int type);
 void vfy_note_stack_depth (vfy_method *method, int pc, int depth);
