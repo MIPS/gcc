@@ -1404,6 +1404,12 @@ simplify_call_expr (expr_p, pre_p, post_p, simple_test_f)
 		 is_simple_id, fb_rvalue);
   simplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
 		 is_simple_arglist, fb_rvalue);
+
+  /* If the function is "const", then clear TREE_SIDE_EFFECTS on its
+     decl.  This allows us to eliminate redundant or useless
+     calls to "const" functions.  */
+  if (decl && TREE_READONLY (decl) && ! TREE_THIS_VOLATILE (decl))
+    TREE_SIDE_EFFECTS (*expr_p) = 0;
 }
 
 /*  Simplify the TREE_LIST node pointed by EXPR_P.

@@ -46,6 +46,9 @@
 	
 2003-06-11  Jeff Law  <law@redhat.com>
 
+	* gimplify.c (simplify_call_expr): Clear TREE_SIDE_EFFECTS for
+	calls to "const" functions.
+
 	* tree-inline.c (expand_call_inline): Recalculate TREE_SIDE_EFFECTS
 	properly when inlining gimplified functions.
 
