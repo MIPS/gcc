@@ -1,3 +1,14 @@
+Sat Dec  7 19:42:20 CET 2002  Josef Zlomek <zlomj9am@artax.karlin.mff.cuni.cz>
+
+	* bb-reorder.c (array_size): New variable.
+	(original_last_basic_block): Killed.
+	(FREE, GET_ARRAY_SIZE): New macro.
+	(find_traces_1_round): Copy loop header of few-iterating loop.
+	(copy_bb): Grow the arrays (end_of_trace etc.) when needed.
+	(connect_traces): Do not check the index since the array is large
+	enough.
+	(*): Use FREE, array_size instead of free, original_last_basic_block.
+
 Sat Dec  7 15:17:02 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* cfglayout.c (cfg_layout_split_block): New function.

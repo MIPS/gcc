@@ -89,8 +89,12 @@ static int exec_threshold[N_ROUNDS] = {500, 200, 50, 0};
 /* Length of unconditional jump instruction.  */
 static int uncond_jump_length;
 
-/* Original number (before duplications) of basic blocks.  */
-static int original_last_basic_block;
+/* The current size of the following dynamic arrays.  */
+static int array_size;
+
+/* To avoid frequent reallocation the size of arrays is greater than needed,
+   the number of elements is (not less than) 1.2 * size_wanted.  */
+#define GET_ARRAY_SIZE(X) ((((X) / 5) + 1) * 6)
 
 /* Which trace is the bb start of (-1 means it is not a start of a trace).  */
 static int *start_of_trace;
@@ -99,6 +103,10 @@ static int *end_of_trace;
 /* Which heap and node is BB in?  */
 static fibheap_t *bb_heap;
 static fibnode_t *bb_node;
+
+/* Free the memory and set the pointer to NULL.  */
+#define FREE(P) \
+  do { if (P) { free (P); P = 0; } else { abort (); } } while (0)
 
 struct trace
 {
@@ -145,17 +153,13 @@ find_traces (n_traces, traces)
   edge e;
   fibheap_t heap;
 
-  /* We need to remember the old number of basic blocks because
-     while connecting traces, blocks can be copied and thus their
-     index can be higher than the size of arrays.  */
-  original_last_basic_block = last_basic_block;
-
   /* We need to know some information for each basic block.  */
-  start_of_trace = xmalloc (original_last_basic_block * sizeof (int));
-  end_of_trace = xmalloc (original_last_basic_block * sizeof (int));
-  bb_heap = xmalloc (original_last_basic_block * sizeof (fibheap_t));
-  bb_node = xmalloc (original_last_basic_block * sizeof (fibnode_t));
-  for (i = 0; i < original_last_basic_block; i++)
+  array_size = GET_ARRAY_SIZE (last_basic_block);
+  start_of_trace = xmalloc (array_size * sizeof (int));
+  end_of_trace = xmalloc (array_size * sizeof (int));
+  bb_heap = xmalloc (array_size * sizeof (fibheap_t));
+  bb_node = xmalloc (array_size * sizeof (fibnode_t));
+  for (i = 0; i < array_size; i++)
     {
       start_of_trace[i] = -1;
       end_of_trace[i] = -1;
@@ -195,8 +199,8 @@ find_traces (n_traces, traces)
 			   count_threshold, traces, n_traces, i, &heap);
     }
   fibheap_delete (heap);
-  free (bb_node);
-  free (bb_heap);
+  FREE (bb_node);
+  FREE (bb_heap);
 
   if (rtl_dump_file)
     {
@@ -512,6 +516,10 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 		      RBI (bb)->next = best_edge->dest;
 		      bb = rotate_loop (best_edge, trace, *n_traces);
 		    }
+		  else if (copy_bb_p (best_edge->dest))
+		    {
+		      bb = copy_bb (best_edge->dest, best_edge, bb, *n_traces);
+		    }
 
 		  /* Terminate the trace.  */
 		  break;
@@ -608,11 +616,11 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
    (TRACE is a number of trace which OLD_BB is duplicated to).  */
 
 static basic_block
-copy_bb (old_bb, e, bb, n_traces)
+copy_bb (old_bb, e, bb, trace)
      basic_block old_bb;
      edge e;
      basic_block bb;
-     int n_traces;
+     int trace;
 {
   basic_block new_bb;
 
@@ -625,8 +633,43 @@ copy_bb (old_bb, e, bb, n_traces)
     fprintf (rtl_dump_file,
 	     "Duplicated bb %d (created bb %d)\n",
 	     old_bb->index, new_bb->index);
-  RBI (new_bb)->visited = n_traces;
+  RBI (new_bb)->visited = trace;
   RBI (bb)->next = new_bb;
+
+  if (new_bb->index >= array_size || last_basic_block > array_size)
+    {
+      int i;
+      int new_size;
+      
+      new_size = MAX (last_basic_block, new_bb->index + 1);
+      new_size = GET_ARRAY_SIZE (new_size);
+      
+      start_of_trace = xrealloc (start_of_trace, new_size * sizeof (int));
+      end_of_trace = xrealloc (end_of_trace, new_size * sizeof (int));
+      for (i = array_size; i < new_size; i++)
+	{
+	  start_of_trace[i] = -1;
+	  end_of_trace[i] = -1;
+	}
+      if (bb_heap)
+	{
+	  bb_heap = xrealloc (bb_heap, new_size * sizeof (fibheap_t));
+	  bb_node = xrealloc (bb_node, new_size * sizeof (fibnode_t));
+	  for (i = array_size; i < new_size; i++)
+	    {
+	      bb_heap[i] = NULL;
+	      bb_node[i] = NULL;
+	    }
+	}
+      array_size = new_size;
+      
+      if (rtl_dump_file)
+	{
+	  fprintf (rtl_dump_file,
+		   "Growing the dynamic arrays to %d elements.\n",
+		   array_size);
+	}
+    }
 
   return new_bb;
 }
@@ -759,7 +802,6 @@ connect_traces (n_traces, traces)
 		  if (e->src != ENTRY_BLOCK_PTR
 		      && (e->flags & EDGE_CAN_FALLTHRU)
 		      && !(e->flags & EDGE_COMPLEX)
-		      && si < original_last_basic_block
 		      && end_of_trace[si] >= 0
 		      && !connected[end_of_trace[si]]
 		      && (!best 
@@ -803,7 +845,6 @@ connect_traces (n_traces, traces)
 		  if (e->dest != EXIT_BLOCK_PTR
 		      && (e->flags & EDGE_CAN_FALLTHRU)
 		      && !(e->flags & EDGE_COMPLEX)
-		      && di < original_last_basic_block
 		      && start_of_trace[di] >= 0
 		      && !connected[start_of_trace[di]]
 		      && (!best
@@ -846,7 +887,6 @@ connect_traces (n_traces, traces)
 
 			    if (e2->dest == EXIT_BLOCK_PTR
 				|| ((e2->flags & EDGE_CAN_FALLTHRU)
-				    && di < original_last_basic_block
 				    && start_of_trace[di] >= 0
 				    && !connected[start_of_trace[di]]
 				    && (EDGE_FREQUENCY (e2) >= freq_threshold)
@@ -927,9 +967,9 @@ connect_traces (n_traces, traces)
       fflush (rtl_dump_file);
     }
 
-  free (connected);
-  free (end_of_trace);
-  free (start_of_trace);
+  FREE (connected);
+  FREE (end_of_trace);
+  FREE (start_of_trace);
 }
 
 /* Return true when BB can and should be copied.  */
@@ -1014,7 +1054,7 @@ reorder_basic_blocks ()
   n_traces = 0;
   find_traces (&n_traces, traces);
   connect_traces (n_traces, traces);
-  free (traces);
+  FREE (traces);
 
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
