@@ -1,3 +1,11 @@
+2005-03-02  Robert Bowdidge <bowdidge@apple.com
+	Radar 4025293
+	* cp/typeck.c (convert_member_func_to_ptr) Ban casts from pointer-to-
+        member-function to pointer-to-function whenever the -fapple-kext flag
+	was passed to the compiler.  Behavior changed between 3.3 and 4.0 in
+	incompatible ways, and the IOKit team wants all kexts to use a macro
+	that provides the correct (3.3) behavior.
+
 2005-02-21  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3809189

@@ -1,3 +1,7 @@
+2005-03-02  Robert Bowdidge <bowdidge@apple.com>
+	Radar 4025923
+	* g++.dg/kext11.C: add new test for ptmf casts in kexts
+
 2005-03-02  Stan Shebs  <shebs@apple.com>
 
 	Radar 3951637
