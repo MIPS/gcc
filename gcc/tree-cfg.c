@@ -2210,26 +2210,6 @@ is_ctrl_altering_stmt (tree t)
   return tree_can_throw_internal (t);
 }
 
-/* Return flags associated with the function called by T
-   (see ECF_* in rtl.h).  */
-
-int
-call_expr_flags (tree t)
-{
-  int flags;
-  tree decl = get_callee_fndecl (t);
-
-  if (decl)
-    flags = flags_from_decl_or_type (decl);
-  else
-    {
-      t = TREE_OPERAND (t, 0);
-      flags = flags_from_decl_or_type (TREE_TYPE (TREE_TYPE (t)));
-    }
-
-  return flags;
-}
-
 /* Return true if T is a computed goto.  */
 
 bool

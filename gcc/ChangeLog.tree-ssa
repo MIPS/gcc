@@ -1,3 +1,19 @@
+2003-11-14  Jason Merrill  <jason@redhat.com>
+
+	PR middle-end/12526
+	* tree-cfg.c (call_expr_flags): Move to calls.c.
+	* tree-flow.h: Move prototype to tree.h.
+
+	PR c++/13033
+	* c-simplify.c (gimplify_c_loop): Wrap the increment in a 
+	CLEANUP_POINT_EXPR.
+
+	* tree-dfa.c (get_stmt_operands) <ASM_EXPR>: A memory clobber
+	clobbers all call-clobbered variables.   Clobber clobber.
+
+	* gimplify.c (canonicalize_component_ref): Remove redundant call
+	to recalculate_side_effects.
+
 2003-11-14  Richard Henderson  <rth@redhat.com>
 
 	PR c++/12751

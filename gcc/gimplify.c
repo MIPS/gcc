@@ -1268,7 +1268,6 @@ canonicalize_component_ref (tree *expr_p)
 
       /* And wrap the whole thing inside a NOP_EXPR.  */
       expr = build1 (NOP_EXPR, old_type, expr);
-      recalculate_side_effects (expr);
 
       *expr_p = expr;
     }

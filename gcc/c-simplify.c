@@ -671,6 +671,8 @@ gimplify_c_loop (tree cond, tree body, tree incr, bool cond_is_first)
   cont_block = begin_bc_block (bc_continue);
 
   gimplify_stmt (&body);
+  if (incr && stmts_are_full_exprs_p ())
+    incr = fold (build1 (CLEANUP_POINT_EXPR, void_type_node, incr));
   gimplify_stmt (&incr);
 
   body = finish_bc_block (cont_block, body);
