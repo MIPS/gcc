@@ -1258,6 +1258,7 @@ javax/swing/text/PlainView.java \
 javax/swing/text/Position.java \
 javax/swing/text/Segment.java \
 javax/swing/text/SimpleAttributeSet.java \
+javax/swing/text/StringContent.java \
 javax/swing/text/Style.java \
 javax/swing/text/StyleConstants.java \
 javax/swing/text/StyleContext.java \
@@ -3429,7 +3430,8 @@ javax/swing/text/JTextComponent.lo javax/swing/text/Keymap.lo \
 javax/swing/text/LayeredHighlighter.lo javax/swing/text/PasswordView.lo \
 javax/swing/text/PlainDocument.lo javax/swing/text/PlainView.lo \
 javax/swing/text/Position.lo javax/swing/text/Segment.lo \
-javax/swing/text/SimpleAttributeSet.lo javax/swing/text/Style.lo \
+javax/swing/text/SimpleAttributeSet.lo \
+javax/swing/text/StringContent.lo javax/swing/text/Style.lo \
 javax/swing/text/StyleConstants.lo javax/swing/text/StyleContext.lo \
 javax/swing/text/TabableView.lo javax/swing/text/TabExpander.lo \
 javax/swing/text/TabSet.lo javax/swing/text/TabStop.lo \
@@ -5659,7 +5661,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/text/PlainView.P .deps/javax/swing/text/Position.P \
 .deps/javax/swing/text/Segment.P \
 .deps/javax/swing/text/SimpleAttributeSet.P \
-.deps/javax/swing/text/Style.P .deps/javax/swing/text/StyleConstants.P \
+.deps/javax/swing/text/StringContent.P .deps/javax/swing/text/Style.P \
+.deps/javax/swing/text/StyleConstants.P \
 .deps/javax/swing/text/StyleContext.P \
 .deps/javax/swing/text/StyledDocument.P \
 .deps/javax/swing/text/StyledEditorKit.P \

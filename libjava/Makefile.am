@@ -1662,6 +1662,7 @@ javax/swing/text/PlainView.java \
 javax/swing/text/Position.java \
 javax/swing/text/Segment.java \
 javax/swing/text/SimpleAttributeSet.java \
+javax/swing/text/StringContent.java \
 javax/swing/text/Style.java \
 javax/swing/text/StyleConstants.java \
 javax/swing/text/StyleContext.java \
