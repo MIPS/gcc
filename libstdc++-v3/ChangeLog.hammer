@@ -1,3 +1,18 @@
+2004-07-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/15565
+	* include/bits/locale_facets.tcc (__int_to_char(unsigned long),
+	__int_to_char(unsigned long long)): Showpos is not relevant
+	for unsigned types.
+
+2004-07-30  Paolo Carlini  <pcarlini@suse.de>
+
+	Backport from mainline/3.4:
+	2003-04-22  Loren J. Rittle  <ljrittle@acm.org>
+
+	* testsuite/27_io/filebuf_members.cc (test_06): Adjust timings
+	to avoid spurious failures.
+
 2004-07-15  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/basic_string.tcc (assign(const _CharT*, size_type)):

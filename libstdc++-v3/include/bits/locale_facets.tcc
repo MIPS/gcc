@@ -670,7 +670,11 @@ namespace std
     inline int
     __int_to_char(_CharT* __out, const int __size, unsigned long __v,
 		       const _CharT* __lit, ios_base::fmtflags __flags)
-    { return __int_to_char(__out, __size, __v, __lit, __flags, false); }
+    {
+      // About showpos, see Table 60 and C99 7.19.6.1, p6 (+).
+      return __int_to_char(__out, __size, __v, __lit,
+			   __flags & ~ios_base::showpos, false);
+    }
 
 #ifdef _GLIBCPP_USE_LONG_LONG
   template<typename _CharT>
@@ -692,7 +696,8 @@ namespace std
     inline int
     __int_to_char(_CharT* __out, const int __size, unsigned long long __v,
 		       const _CharT* __lit, ios_base::fmtflags __flags)
-    { return __int_to_char(__out, __size, __v, __lit, __flags, false); }
+    { return __int_to_char(__out, __size, __v, __lit,
+			   __flags & ~ios_base::showpos, false); }
 #endif
       
   template<typename _CharT, typename _ValueT>
