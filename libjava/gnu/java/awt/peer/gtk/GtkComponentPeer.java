@@ -477,10 +477,28 @@ public class GtkComponentPeer extends GtkGenericPeer
   }
 
   protected void postKeyEvent (int id, long when, int mods,
-			       int keyCode, char keyChar, int keyLocation)
+                               int keyCode, char keyChar, int keyLocation)
   {
-    q.postEvent (new KeyEvent (awtComponent, id, when, mods,
-                               keyCode, keyChar, keyLocation));
+    KeyEvent keyEvent = new KeyEvent (awtComponent, id, when, mods,
+                                      keyCode, keyChar, keyLocation);
+
+    // Also post a KEY_TYPED event if keyEvent is a key press that
+    // doesn't represent an action or modifier key.
+    if (keyEvent.getID () == KeyEvent.KEY_PRESSED
+        && (!keyEvent.isActionKey ()
+            && keyCode != KeyEvent.VK_SHIFT
+            && keyCode != KeyEvent.VK_CONTROL
+            && keyCode != KeyEvent.VK_ALT))
+      {
+        synchronized (q)
+          {
+            q.postEvent (keyEvent);
+            q.postEvent (new KeyEvent (awtComponent, KeyEvent.KEY_TYPED, when, mods,
+                                        KeyEvent.VK_UNDEFINED, keyChar, keyLocation));
+          }
+      }
+    else
+      q.postEvent (keyEvent);
   }
 
   protected void postFocusEvent (int id, boolean temporary)

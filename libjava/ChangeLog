@@ -1,3 +1,10 @@
+2004-05-17  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java (postKeyEvent):
+	Post KEY_TYPED events.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c
+	(generates_key_typed_event): Remove function.
+
 2004-05-17  Olga Rodimina  <rodimina@redhat.com>
 
 	* javax/swing/JRootPane.java
