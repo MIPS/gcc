@@ -1,3 +1,10 @@
+2002-10-03  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (mf_offset_expr_of_array_ref): Don't emit
+	intermediate variables for constant index values.
+	(mx_xfn_indirect_ref): For constant valid index values and
+	known valid array sizes, omit bounds checks.
+
 2002-10-03  Jason Merrill  <jason@ariel.home>
 
 	* c-simplify.c (simplify_bind_expr): Don't clear TREE_SIDE_EFFECTS

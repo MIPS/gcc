@@ -572,8 +572,9 @@ mf_offset_expr_of_array_ref (t, offset, base, decls)
   /* Replace the array index operand [1] with a temporary variable.
      This is meant to emulate SAVE_EXPRs that are sometimes screwed up
      by other parts of gcc.  */
-  if (TREE_CODE (t) == ARRAY_REF ||
-      TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE)
+  if ((TREE_CODE (t) == ARRAY_REF ||
+       TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE) &&
+      ! really_constant_p (*offset))
     {
       static unsigned declindex;
       char declname[20];
@@ -878,7 +879,6 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	tree base_array, base_obj_type, base_ptr_type;
 	tree offset_expr;
 	tree value_ptr, check_ptr, check_size;
-	tree tmp;
 	tree check_decls = NULL_TREE;
 
 	/* Unshare the whole darned tree.  */
@@ -893,7 +893,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	/* We now have a tree representing the array in base_array, 
 	   and a tree representing the complete desired offset in
 	   offset_expr. */
-	
+
 	base_obj_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND(*t,0)));
 	base_ptr_type = build_pointer_type (base_obj_type);
 
@@ -918,16 +918,42 @@ mx_xfn_indirect_ref (t, continue_p, data)
 					       integer_one_node,
 					       offset_expr))));
 
-	/* In case we're instrumenting an expression like a[b[c]], the
-	   following call is meant to eliminate the
-	   redundant/recursive check of the outer size=b[c] check. */
-	* (htab_find_slot (verboten, check_size, INSERT)) = check_size;
-	* (htab_find_slot (verboten, check_ptr, INSERT)) = check_ptr;
-  
-	tmp = mf_build_check_statement_for (value_ptr, check_ptr, check_size,
-					    check_decls,
-					    last_filename, last_lineno);
-	*t = mx_flag (build1 (INDIRECT_REF, base_obj_type, tmp));
+	/* As an optimization, omit checking if the base object is
+	   known to be large enough.  Only certain kinds of
+	   declarations and indexes/sizes are trustworthy.  */
+	if (TREE_CODE (check_size) == INTEGER_CST && /* constant offset */
+	    TREE_CODE (base_array) == VAR_DECL && /* not a PARM_DECL */
+	    ! DECL_EXTERNAL (base_array) && /* has known size */
+	    TREE_CODE (TREE_TYPE (base_array)) == ARRAY_TYPE && /* an array */
+	    (int_size_in_bytes (TREE_TYPE (base_array)) >= TREE_INT_CST_LOW (check_size) &&
+	     TREE_INT_CST_HIGH (check_size) == 0)) /* offset within bounds */
+	  {
+#if 0
+	    warning ("mudflap is omitting array bounds checks");
+	    fprintf (stderr, "  for expression: ");
+	    print_c_tree (stderr, *t);
+	    fprintf (stderr, " array-size=%u", int_size_in_bytes (TREE_TYPE (base_array)));
+	    fprintf (stderr, " check-size=%u", TREE_INT_CST_LOW (check_size));
+	    fprintf (stderr, "\n");
+#endif
+	    if (check_decls != NULL_TREE) abort();
+	    break;
+	  }
+	else
+	  {
+	    tree tmp;
+
+	    /* In case we're instrumenting an expression like a[b[c]], the
+	       following call is meant to eliminate the
+	       redundant/recursive check of the outer size=b[c] check. */
+	    * (htab_find_slot (verboten, check_size, INSERT)) = check_size;
+	    * (htab_find_slot (verboten, check_ptr, INSERT)) = check_ptr;
+	    
+	    tmp = mf_build_check_statement_for (value_ptr, check_ptr, check_size,
+						check_decls,
+						last_filename, last_lineno);
+	    *t = mx_flag (build1 (INDIRECT_REF, base_obj_type, tmp));
+	  }
       }
       break;
       
