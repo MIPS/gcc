@@ -15483,7 +15483,7 @@ min_insn_size (insn)
    window.  */
 
 static void
-ix86_avoid_jump_misspredicts ()
+ix86_avoid_jump_misspredicts (void)
 {
   rtx insn, start = get_insns ();
   int nbytes = 0, njumps = 0;
