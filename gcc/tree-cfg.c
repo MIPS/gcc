@@ -209,7 +209,7 @@ build_tree_cfg (fnbody)
      non-executable statements at the start of the function.  Otherwise
      we'll end up with an empty basic block 0, which is useless.  */
 
-  if (fnbody == empty_stmt_node || TREE_CODE (fnbody) != BIND_EXPR)
+  if (IS_EMPTY_STMT (fnbody) || TREE_CODE (fnbody) != BIND_EXPR)
     {
       timevar_pop (TV_TREE_CFG);
       return;
@@ -282,7 +282,7 @@ make_blocks (first_p, next_block_link, parent_stmt, bb)
   bool start_new_block;
 
   if (first_p == NULL
-      || *first_p == empty_stmt_node
+      || IS_EMPTY_STMT (*first_p)
       || *first_p == error_mark_node)
     return NULL;
 
@@ -295,7 +295,7 @@ make_blocks (first_p, next_block_link, parent_stmt, bb)
       tree *stmt_p = tsi_container (i);
 
       /* Ignore empty containers.  */
-      if (*stmt_p == empty_stmt_node || *stmt_p == error_mark_node)
+      if (IS_EMPTY_STMT (*stmt_p) || *stmt_p == error_mark_node)
 	continue;
 
       prev_stmt = stmt;
@@ -807,7 +807,7 @@ set_parent_stmt (stmt_p, parent_stmt)
       ann->parent_stmt = parent_stmt;
       t = (TREE_CODE (t) == COMPOUND_EXPR) ? TREE_OPERAND (t, 0) : NULL_TREE;
     }
-  while (t && t != empty_stmt_node);
+  while (t && ! IS_EMPTY_STMT (t));
 }
 
 
@@ -1756,7 +1756,7 @@ bsi_remove (i)
       remove_stmt (&TREE_OPERAND (t, 0));
 
       /* If both operands are empty, delete the whole COMPOUND_EXPR.  */
-      if (TREE_OPERAND (t, 1) == empty_stmt_node)
+      if (IS_EMPTY_STMT (TREE_OPERAND (t, 1)))
 	remove_stmt (i->tp);
     }
   else
@@ -1808,17 +1808,17 @@ remove_stmt (stmt_p)
      FIXME: We should probably traverse all the def-use edges originating at
 	    this statement to update each use of the definitions made here, but
 	    that is expensive and can easily be checked by every pass by
-	    checking if SSA_NAME_DEF_STMT is empty_stmt_node.  */
+	    checking if SSA_NAME_DEF_STMT is a nop.  */
   def_p = def_op (stmt);
   if (def_p && TREE_CODE (*def_p) == SSA_NAME)
-    SSA_NAME_DEF_STMT (*def_p) = empty_stmt_node;
+    SSA_NAME_DEF_STMT (*def_p) = build_empty_stmt ();
 
   vdefs = vdef_ops (stmt);
   for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs); i++)
     {
       tree vdef = VDEF_RESULT (VARRAY_TREE (vdefs, i));
       if (TREE_CODE (vdef) == SSA_NAME)
-	SSA_NAME_DEF_STMT (vdef) = empty_stmt_node;
+	SSA_NAME_DEF_STMT (vdef) = build_empty_stmt ();
     }
 
   stmt->common.ann = NULL;
@@ -1836,8 +1836,8 @@ remove_stmt (stmt_p)
       && TREE_OPERAND (stmt, 1)->common.ann->common.type == TREE_ANN_COMMON)
     TREE_OPERAND (stmt, 1)->common.ann = NULL;
 
-  /* Replace STMT with empty_stmt_node.  */
-  *stmt_p = empty_stmt_node;
+  /* Replace STMT with an empty statement.  */
+  *stmt_p = build_empty_stmt ();
 }
 
 
@@ -2817,7 +2817,7 @@ first_exec_block (entry_p)
 {
   tree *exec_p;
 
-  if (entry_p == NULL || *entry_p == empty_stmt_node)
+  if (entry_p == NULL || IS_EMPTY_STMT (*entry_p))
     return NULL;
 
   exec_p = first_exec_stmt (entry_p);
@@ -2868,8 +2868,8 @@ first_stmt (bb)
 /* Return the last statement in basic block BB, stripped of any NOP
    containers.
 
-   empty_stmt_nodes are never returned. NULL is returned if there are no
-   such statements.  */
+   empty statement nodes are never returned. NULL is returned if there are
+   no such statements.  */
 
 tree
 last_stmt (bb)
@@ -2961,7 +2961,7 @@ bsi_init (tp, bb)
 }
 
 /* Similar to tsi_step() but stops at basic block boundaries and ignores
-   empty_stmt_nodes inside a basic block.  */
+   empty statement nodes inside a basic block.  */
 
 void
 bsi_next_in_bb (i, bb)
@@ -3029,7 +3029,7 @@ bsi_next_in_bb (i, bb)
 }
 
 /* Similar to tsi_start() but initializes the iterator at the first
-   statement in basic block BB which isn't an empty_stmt_node.
+   statement in basic block BB which isn't an empty statement node.
 
    NULL is returned if there are no such statements.  */
 
@@ -3083,7 +3083,7 @@ bsi_last (bb)
   b = bsi_init (bb->end_tree_p, bb);
 
   /* If the last stmt pointer isn't something a BSI can represent (ie, an
-     empty_stmt_node), then find the last stmt the slow way.  */
+     empty statement node), then find the last stmt the slow way.  */
   if (b.tp == NULL)
     {
       for (tmp = b = bsi_start (bb); !bsi_end_p (tmp); bsi_next (&tmp))
@@ -3182,7 +3182,7 @@ set_bb_for_stmt (t, bb)
 {
   stmt_ann_t ann;
 
-  if (t == empty_stmt_node)
+  if (IS_EMPTY_STMT (t))
     return;
 
   do
@@ -3200,7 +3200,7 @@ set_bb_for_stmt (t, bb)
       ann->bb = bb;
       t = (TREE_CODE (t) == COMPOUND_EXPR) ? TREE_OPERAND (t, 0) : NULL_TREE;
     }
-  while (t && t != empty_stmt_node);
+  while (t && !IS_EMPTY_STMT (t));
 }
 
 
@@ -3347,18 +3347,18 @@ bsi_insert_after (curr_bsi, t, mode)
     {
       curr_stmt = NULL_TREE;
       parent = NULL_TREE;
+
       /* bsi_start () will initialize the context pointer to the basic block
          if the the block is completely devoid of instructions, except
-	 for possibnly an empty_stmt_node.  */
+	 for possibly an empty statement node.  */
       if (curr_bsi->tp == NULL && curr_bsi->context != NULL)
         curr_bb = (basic_block)(curr_bsi->context);
       else
         abort ();
     }
 
-  /* Some blocks are empty. The block iterator points to an empty_stmt_node
-     in those cases only.  */
-
+  /* Some blocks are empty. The block iterator points to an empty statement
+     node in those cases only.  */
   if (curr_stmt == NULL_TREE)
     {
       /* An empty block should have only one successor, so try to find the 

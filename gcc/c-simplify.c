@@ -437,7 +437,7 @@ simplify_cleanup (stmt_p, next_p)
 
   c_simplify_stmt (&body);
 
-  if (body == empty_stmt_node)
+  if (IS_EMPTY_STMT (body))
     {
       /* If the body of a TRY_FINALLY is empty, then we can just
 	 emit the handler without the enclosing TRY_FINALLY. 
@@ -448,7 +448,7 @@ simplify_cleanup (stmt_p, next_p)
       if (code == TRY_FINALLY_EXPR)
 	*stmt_p = cleanup;
       else if (! find_reachable_label (cleanup))
-	*stmt_p = empty_stmt_node;
+	*stmt_p = build_empty_stmt ();
     }
   else
     *stmt_p = build (code, void_type_node, body, cleanup);
@@ -482,7 +482,7 @@ simplify_expr_stmt (stmt_p)
     {
       if (!TREE_SIDE_EFFECTS (stmt))
 	{
-	  if (stmt != empty_stmt_node
+	  if (!IS_EMPTY_STMT (stmt)
 	      && !(TREE_CODE (stmt) == CONVERT_EXPR
 		   && VOID_TYPE_P (TREE_TYPE (stmt))))
 	    warning ("statement with no effect");
@@ -625,7 +625,7 @@ simplify_c_loop (cond, body, incr, cond_is_first)
     {
       simplify_condition (&cond);
       exit = build_bc_goto (bc_break);
-      exit = build (COND_EXPR, void_type_node, cond, empty_stmt_node, exit);
+      exit = build (COND_EXPR, void_type_node, cond, build_empty_stmt (), exit);
       exit = fold (exit);
     }
   else
@@ -967,7 +967,7 @@ simplify_stmt_expr (expr_p)
       if (stmts_are_full_exprs_p ())
 	last_expr = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (last_expr),
 			    last_expr);
-      EXPR_STMT_EXPR (last_expr_stmt) = empty_stmt_node;
+      EXPR_STMT_EXPR (last_expr_stmt) = build_empty_stmt ();
 #if defined ENABLE_CHECKING
       if (!is_last_stmt_of_scope (last_expr_stmt))
 	abort ();
@@ -985,7 +985,7 @@ simplify_stmt_expr (expr_p)
       else
 	substmt = body;
 
-      if (substmt == empty_stmt_node)
+      if (IS_EMPTY_STMT (substmt))
 	substmt = last_expr;
       else
 	substmt = build (COMPOUND_EXPR, TREE_TYPE (last_expr),
@@ -1193,8 +1193,7 @@ mostly_copy_tree_r (tp, walk_subtrees, data)
       || TREE_CODE_CLASS (code) == 'd'
       || TREE_CODE_CLASS (code) == 'c'
       || TREE_CODE_CLASS (code) == 'b'
-      || code == SAVE_EXPR
-      || *tp == empty_stmt_node)
+      || code == SAVE_EXPR)
     *walk_subtrees = 0;
   else if (code == STMT_EXPR || code == SCOPE_STMT || code == BIND_EXPR)
     /* Unsharing STMT_EXPRs doesn't make much sense; they tend to be

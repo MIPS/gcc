@@ -355,7 +355,7 @@ okay_injuring_def (inj, var)
      1. aren't empty statements.
      2. aren't phi nodes.
      3. contain a use of VAR on the RHS.  */
-  if (!inj || inj == empty_stmt_node 
+  if (!inj || IS_EMPTY_STMT (inj)
       || TREE_CODE (inj) == PHI_NODE
       || !maybe_find_rhs_use_for_var (inj, var))
     return false;
@@ -369,7 +369,7 @@ is_injuring_def (ei, inj)
      tree inj;
 {
   /* Things that are never injuring definitions. */
-  if (!inj || inj == empty_stmt_node || TREE_CODE (inj) == PHI_NODE) 
+  if (!inj || IS_EMPTY_STMT (inj) || TREE_CODE (inj) == PHI_NODE) 
     return false;
   
   /* Things we can't handle. */
@@ -872,8 +872,8 @@ defs_match_p (ei, t1uses, t2)
 	  use2 = factor_through_injuries (ei, use2, SSA_NAME_VAR (use2));
 	}
       
-      if (SSA_NAME_DEF_STMT (use1) == empty_stmt_node 
-	  || SSA_NAME_DEF_STMT (use2) == empty_stmt_node)
+      if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (use1))
+	  || IS_EMPTY_STMT (SSA_NAME_DEF_STMT (use2)))
 	return false;
       
       if (SSA_NAME_DEF_STMT (use1) != SSA_NAME_DEF_STMT (use2))

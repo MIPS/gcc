@@ -197,7 +197,7 @@ get_stmt_operands (stmt)
   stmt_ann_t ann;
   voperands_t prev_vops = NULL;
 
-  if (stmt == error_mark_node || stmt == empty_stmt_node)
+  if (stmt == error_mark_node || IS_EMPTY_STMT (stmt))
     return;
 
   STRIP_NOPS (stmt);
@@ -1090,7 +1090,7 @@ compute_immediate_uses_for (stmt, flags)
       for (i = 0; i < PHI_NUM_ARGS (stmt); i++)
 	{
 	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (PHI_ARG_DEF (stmt, i));
-	  if (imm_rdef_stmt != empty_stmt_node)
+	  if (!IS_EMPTY_STMT (imm_rdef_stmt))
 	    add_immediate_use (imm_rdef_stmt, stmt);
 	}
       return;
@@ -1106,7 +1106,7 @@ compute_immediate_uses_for (stmt, flags)
 	{
 	  tree *use_p = VARRAY_GENERIC_PTR (ops, i);
 	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (*use_p);
-	  if (imm_rdef_stmt != empty_stmt_node)
+	  if (!IS_EMPTY_STMT (imm_rdef_stmt))
 	    add_immediate_use (imm_rdef_stmt, stmt);
 	}
     }
@@ -1118,7 +1118,7 @@ compute_immediate_uses_for (stmt, flags)
 	{
 	  tree vuse = VARRAY_TREE (ops, i);
 	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (vuse);
-	  if (imm_rdef_stmt != empty_stmt_node)
+	  if (!IS_EMPTY_STMT (imm_rdef_stmt))
 	    add_immediate_use (imm_rdef_stmt, stmt);
 	}
     }
@@ -1208,8 +1208,8 @@ create_stmt_ann (t)
   stmt_ann_t ann;
 
 #if defined ENABLE_CHECKING
-  if (t == empty_stmt_node
-      || t == NULL_TREE
+  if (t == NULL_TREE
+      || IS_EMPTY_STMT (t)
       || TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
       || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
     abort ();

@@ -479,10 +479,6 @@ java_init_decl_processing (void)
   null_pointer_node = build_int_2 (0, 0);
   TREE_TYPE (null_pointer_node) = ptr_type_node;
 
-  /* Used by the parser to represent empty statements and blocks. */
-  empty_stmt_node = build1 (NOP_EXPR, void_type_node, size_zero_node);
-  CAN_COMPLETE_NORMALLY (empty_stmt_node) = 1;
-
 #if 0
   /* Make a type to be the domain of a few array types
      whose domains don't really matter.

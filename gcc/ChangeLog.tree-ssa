@@ -1,3 +1,21 @@
+2003-04-30  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree.c (build_empty_stmt): New function.
+	* tree.h (IS_EMPTY_STMT): Define.
+	(TI_EMPTY_STMT): Remove.
+	(empty_stmt_node): Remove.
+	Replace 'X = empty_stmt_node' with 'X = build_empty_stmt ()',
+	and 'X == empty_stmt_node' with 'IS_EMPTY_STMT (X)' everywhere.
+	(build_empty_stmt): Declare.
+
+	* cp/cp-simplify.c (cp_simplify_stmt): Use IS_EMPTY_STMT.
+
+	* java/java-tree.h (build_java_empty_stmt): Declare.
+	* java/expr.c (build_java_empty_stmt): New function.
+	* java/decl.c (java_init_decl_processing): Don't build empty_stmt_node.
+	Replace 'X = empty_stmt_node' with 'X = build_java_empty_stmt ()',
+	and 'X == empty_stmt_node' with 'IS_EMPTY_STMT (X)' everwhere.
+
 2003-04-30  Jeff Law  <law@redhat.com>
 
 	* tree-dfa.c (get_expr_operands): Do not ignore operands of an

@@ -887,7 +887,7 @@ rationalize_compound_expr (top)
      tree top;
 {
   if (top == NULL_TREE)
-    top = empty_stmt_node;
+    top = build_empty_stmt ();
   else if (TREE_CODE (top) == COMPOUND_EXPR)
     top = right_assocify_expr (top);
 

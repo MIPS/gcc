@@ -379,8 +379,9 @@ block_stmt_iterator i;
   return (i.tp == NULL || bsi_stmt (i) == NULL_TREE);
 }
 
-/* Similar to tsi_next() but stops at basic block boundaries. Assumes stmt
-   has bb_for_stmt() set (can't be an empty_stmt_node).  */
+/* Similar to tsi_next() but stops at basic block boundaries.  Assumes stmt
+   has bb_for_stmt() set (can't be an empty statement node).  */
+
 static inline void
 bsi_next (i)
      block_stmt_iterator *i;
@@ -417,7 +418,7 @@ bsi_stmt (i)
 {
   tree t = *(bsi_stmt_ptr (i));
   STRIP_NOPS (t);
-  if (t == empty_stmt_node || t == error_mark_node)
+  if (IS_EMPTY_STMT (t) || t == error_mark_node)
     t = NULL_TREE;
   return t;
 }
@@ -442,7 +443,7 @@ static inline bool
 is_exec_stmt (t)
      tree t;
 {
-  return (t && t != empty_stmt_node && t != error_mark_node);
+  return (t && !IS_EMPTY_STMT (t) && t != error_mark_node);
 }
 
 

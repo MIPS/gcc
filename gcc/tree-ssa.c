@@ -2321,7 +2321,7 @@ get_reaching_def (var)
      default definition for it.  */
   if (currdef_var == NULL_TREE)
     {
-      default_def = make_ssa_name (var, empty_stmt_node);
+      default_def = make_ssa_name (var, build_empty_stmt ());
       set_value_for (var, default_def, currdefs);
     }
 

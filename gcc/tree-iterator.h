@@ -115,7 +115,7 @@ tsi_stmt (i)
 {
   tree t = *(tsi_stmt_ptr (i));
   STRIP_NOPS (t);
-  if (t == empty_stmt_node || t == error_mark_node)
+  if (IS_EMPTY_STMT (t) || t == error_mark_node)
     t = NULL_TREE;
   return t;
 }

@@ -1627,10 +1627,8 @@ copy_tree_r (tp, walk_subtrees, data)
 {
   enum tree_code code = TREE_CODE (*tp);
 
-  /* We make copies of most nodes, except empty_stmt_node.  */
-  if (*tp == empty_stmt_node)
-    *walk_subtrees = 0;
-  else if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
+  /* We make copies of most nodes.  */
+  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
       || TREE_CODE_CLASS (code) == 'r'
       || TREE_CODE_CLASS (code) == 'c'
       || TREE_CODE_CLASS (code) == 's'

@@ -1418,7 +1418,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	const char *saved_input_filename = input_filename;
 	tree body = EXPR_WFL_NODE (exp);
 	int saved_lineno = lineno;
-	if (body == empty_stmt_node)
+	if (IS_EMPTY_STMT (body))
 	  break;
 	input_filename = EXPR_WFL_FILENAME (exp);
 	lineno = EXPR_WFL_LINENO (exp);
@@ -1763,7 +1763,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
     case RETURN_EXPR:
       exp = TREE_OPERAND (exp, 0);
       if (exp == NULL_TREE)
-	exp = empty_stmt_node;
+	exp = build_java_empty_stmt ();
       else if (TREE_CODE (exp) != MODIFY_EXPR) 
 	abort ();
       else

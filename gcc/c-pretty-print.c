@@ -758,7 +758,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 	  output_add_character (buffer, ')');
 	  if (!brief_dump)
 	    {
-	      if (COND_EXPR_THEN (node) == empty_stmt_node)
+	      if (IS_EMPTY_STMT (COND_EXPR_THEN (node)))
 		{
 		  output_add_character (buffer, ';');
 		}
@@ -771,7 +771,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 		  newline_and_indent (buffer, spc+2);
 		  output_add_character (buffer, '}');
 		}
-	      if (COND_EXPR_ELSE (node) != empty_stmt_node)
+	      if (!IS_EMPTY_STMT (COND_EXPR_ELSE (node)))
 		{
 		  newline_and_indent (buffer, spc);
 		  output_add_string (buffer, "else");

@@ -770,7 +770,7 @@ check_init (tree exp, words before)
       break;
 
     case NOP_EXPR:
-      if (exp == empty_stmt_node)
+      if (IS_EMPTY_STMT (exp))
 	break;
       /* ... else fall through ... */
     case UNARY_PLUS_EXPR:
@@ -891,7 +891,7 @@ check_init (tree exp, words before)
 	tree saved_wfl = wfl;
 	tree body = EXPR_WFL_NODE (exp);
 	int saved_lineno = lineno;
-	if (body == empty_stmt_node)
+	if (IS_EMPTY_STMT (body))
 	  break;
 	wfl = exp;
 	input_filename = EXPR_WFL_FILENAME (exp);

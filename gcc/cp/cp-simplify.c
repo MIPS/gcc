@@ -61,7 +61,7 @@ cp_simplify_stmt (stmt_p, next_p)
     case USING_STMT:
       /* Just ignore for now.  Eventually we will want to pass this on to
 	 the debugger.  */
-      *stmt_p = empty_stmt_node;
+      *stmt_p = build_empty_stmt ();
       return 1;
 
     default:

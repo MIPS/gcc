@@ -904,7 +904,7 @@ class_body_declaration:
 |	constructor_declaration
 |	block			/* Added, JDK1.1, instance initializer */
 		{
-		  if ($1 != empty_stmt_node)
+		  if (!IS_EMPTY_STMT ($1))
 		    {
 		      TREE_CHAIN ($1) = CPC_INSTANCE_INITIALIZER_STMT (ctxp);
 		      SET_CPC_INSTANCE_INITIALIZER_STMT (ctxp, $1);
@@ -1192,7 +1192,7 @@ constructor_body:
 	   addition (super invocation and field initialization) */
 	block_begin constructor_block_end
 		{
-		  BLOCK_EXPR_BODY ($2) = empty_stmt_node;
+		  BLOCK_EXPR_BODY ($2) = build_java_empty_stmt ();
 		  $$ = $2;
 		}
 |	block_begin explicit_constructor_invocation constructor_block_end
@@ -1355,7 +1355,7 @@ block:
 		  if (current_function_decl && flag_emit_xref)
 		    DECL_END_SOURCE_LINE (current_function_decl) =
 		      EXPR_WFL_ADD_COL ($2.location, 1);
-		  $$ = empty_stmt_node;
+		  $$ = build_java_empty_stmt ();
 		}
 |	block_begin block_statements block_end
 		{ $$ = $3; }
@@ -1376,7 +1376,7 @@ block_end:
 		      EXPR_WFL_ADD_COL ($1.location, 1);
 		  $$ = exit_block ();
 		  if (!BLOCK_SUBBLOCKS ($$))
-		    BLOCK_SUBBLOCKS ($$) = empty_stmt_node;
+		    BLOCK_SUBBLOCKS ($$) = build_java_empty_stmt ();
 		}
 ;
 
@@ -1455,7 +1455,7 @@ empty_statement:
 		      EXPR_WFL_SET_LINECOL (wfl_operator, lineno, -1);
 		      parse_warning_context (wfl_operator, "An empty declaration is a deprecated feature that should not be used");
 		    }
-		  $$ = empty_stmt_node;
+		  $$ = build_java_empty_stmt ();
 		}
 ;
 
@@ -1698,7 +1698,7 @@ for_statement:
 		  $$ = finish_for_loop (0, NULL_TREE, $4, $6);
 		  /* We have not condition, so we get rid of the EXIT_EXPR */
 		  LOOP_EXPR_BODY_CONDITION_EXPR (LOOP_EXPR_BODY ($$), 0) =
-		    empty_stmt_node;
+		    build_java_empty_stmt ();
 		}
 |	for_begin SC_TK error
 		{yyerror ("Invalid control expression"); RECOVER;}
@@ -1716,7 +1716,7 @@ for_statement_nsi:
 		  $$ = finish_for_loop (0, NULL_TREE, $4, $6);
 		  /* We have not condition, so we get rid of the EXIT_EXPR */
 		  LOOP_EXPR_BODY_CONDITION_EXPR (LOOP_EXPR_BODY ($$), 0) =
-		    empty_stmt_node;
+		    build_java_empty_stmt ();
 		}
 ;
 
@@ -1747,7 +1747,7 @@ for_begin:
 		}
 ;
 for_init:			/* Can be empty */
-		{ $$ = empty_stmt_node; }
+		{ $$ = build_java_empty_stmt (); }
 |	statement_expression_list
 		{
 		  /* Init statement recorded within the previously
@@ -1765,7 +1765,7 @@ for_init:			/* Can be empty */
 ;
 
 for_update:			/* Can be empty */
-		{$$ = empty_stmt_node;}
+		{$$ = build_java_empty_stmt ();}
 |	statement_expression_list
 		{ $$ = build_debugable_stmt (BUILD_LOCATION (), $1); }
 ;
@@ -2974,7 +2974,7 @@ parse_jdk1_1_error (const char *msg)
 {
   sorry (": `%s' JDK1.1(TM) feature", msg);
   java_error_count++;
-  return empty_stmt_node;
+  return build_java_empty_stmt ();
 }
 
 static int do_warning = 0;
@@ -7369,7 +7369,7 @@ source_end_java_method (void)
   /* Turn function bodies with only a NOP expr null, so they don't get
      generated at all and we won't get warnings when using the -W
      -Wall flags. */
-  if (BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (fndecl)) == empty_stmt_node)
+  if (IS_EMPTY_STMT (BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (fndecl))))
     BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (fndecl)) = NULL_TREE;
 
   /* We've generated all the trees for this function, and it has been
@@ -7728,7 +7728,7 @@ maybe_generate_pre_expand_clinit (tree class_type)
       /* We build the assignment expression that will initialize the
 	 field to its value. There are strict rules on static
 	 initializers (8.5). FIXME */
-      if (TREE_CODE (stmt) != BLOCK && stmt != empty_stmt_node)
+      if (TREE_CODE (stmt) != BLOCK && !IS_EMPTY_STMT (stmt))
 	stmt = build_debugable_stmt (EXPR_WFL_LINECOL (stmt), stmt);
       java_method_add_stmt (mdecl, stmt);
     }
@@ -7822,7 +7822,7 @@ maybe_yank_clinit (tree mdecl)
     bbody = BLOCK_EXPR_BODY (bbody);
   else
     return 0;
-  if (bbody && ! flag_emit_class_files && bbody != empty_stmt_node)
+  if (bbody && ! flag_emit_class_files && !IS_EMPTY_STMT (bbody))
     return 0;
 
   type = DECL_CONTEXT (mdecl);
@@ -7856,7 +7856,7 @@ maybe_yank_clinit (tree mdecl)
 
   /* Now we analyze the method body and look for something that
      isn't a MODIFY_EXPR */
-  if (bbody != empty_stmt_node && analyze_clinit_body (type, bbody))
+  if (!IS_EMPTY_STMT (bbody) && analyze_clinit_body (type, bbody))
     return 0;
 
   /* Get rid of <clinit> in the class' list of methods */
@@ -8791,7 +8791,7 @@ fix_constructors (tree mdecl)
 	{
 	  compound = add_stmt_to_compound (compound, NULL_TREE,
 					   TREE_OPERAND (found_call, 0));
-	  TREE_OPERAND (found_call, 0) = empty_stmt_node;
+	  TREE_OPERAND (found_call, 0) = build_java_empty_stmt ();
 	}
 
       DECL_INIT_CALLS_THIS (mdecl) = invokes_this;
@@ -10748,7 +10748,7 @@ patch_invoke (tree patch, tree method, tree args)
       tree save = save_expr (force_evaluation_order (patch));
       tree type = TREE_TYPE (patch);
 
-      patch = build (COMPOUND_EXPR, type, save, empty_stmt_node);
+      patch = build (COMPOUND_EXPR, type, save, build_java_empty_stmt ());
       list = tree_cons (method, patch,
 			DECL_FUNCTION_STATIC_METHOD_INVOCATION_COMPOUND (fndecl));
 
@@ -11532,12 +11532,12 @@ java_complete_lhs (tree node)
              long blocks. */
 	  ptr = &BLOCK_EXPR_BODY (node);
 	  while (TREE_CODE (*ptr) == COMPOUND_EXPR
-		 && TREE_OPERAND (*ptr, 1) != empty_stmt_node)
+		 && !IS_EMPTY_STMT (TREE_OPERAND (*ptr, 1)))
 	    {
 	      tree cur = java_complete_tree (TREE_OPERAND (*ptr, 0));
 	      tree *next = &TREE_OPERAND (*ptr, 1);
 	      TREE_OPERAND (*ptr, 0) = cur;
-	      if (cur == empty_stmt_node)
+	      if (IS_EMPTY_STMT (cur))
 		{
 		  /* Optimization;  makes it easier to detect empty bodies.
 		     Most useful for <clinit> with all-constant initializer. */
@@ -11596,9 +11596,9 @@ java_complete_lhs (tree node)
     case TRY_FINALLY_EXPR:
       COMPLETE_CHECK_OP_0 (node);
       COMPLETE_CHECK_OP_1 (node);
-      if (TREE_OPERAND (node, 0) == empty_stmt_node)
+      if (IS_EMPTY_STMT (TREE_OPERAND (node, 0)))
 	return TREE_OPERAND (node, 1);
-      if (TREE_OPERAND (node, 1) == empty_stmt_node)
+      if (IS_EMPTY_STMT (TREE_OPERAND (node, 1)))
 	return TREE_OPERAND (node, 0);
       CAN_COMPLETE_NORMALLY (node)
 	= (CAN_COMPLETE_NORMALLY (TREE_OPERAND (node, 0))
@@ -11613,7 +11613,7 @@ java_complete_lhs (tree node)
       TREE_TYPE (node) = void_type_node;
       POP_LABELED_BLOCK ();
 
-      if (LABELED_BLOCK_BODY (node) == empty_stmt_node)
+      if (IS_EMPTY_STMT (LABELED_BLOCK_BODY (node)))
 	{
 	  LABELED_BLOCK_BODY (node) = NULL_TREE;
 	  CAN_COMPLETE_NORMALLY (node) = 1;
@@ -11769,7 +11769,7 @@ java_complete_lhs (tree node)
       wfl_op2 = TREE_OPERAND (node, 1);
       TREE_OPERAND (node, 0) = nn =
 	java_complete_tree (TREE_OPERAND (node, 0));
-      if (wfl_op2 == empty_stmt_node)
+      if (IS_EMPTY_STMT (wfl_op2))
 	CAN_COMPLETE_NORMALLY (node) = CAN_COMPLETE_NORMALLY (nn);
       else
 	{
@@ -11840,7 +11840,7 @@ java_complete_lhs (tree node)
 	  EXPR_WFL_NODE (node) = body;
 	  TREE_SIDE_EFFECTS (node) = TREE_SIDE_EFFECTS (body);
 	  CAN_COMPLETE_NORMALLY (node) = CAN_COMPLETE_NORMALLY (body);
-	  if (body == empty_stmt_node || TREE_CONSTANT (body))
+	  if (IS_EMPTY_STMT (body) || TREE_CONSTANT (body))
 	    {
 	      /* Makes it easier to constant fold, detect empty bodies. */
 	      return body;
@@ -11969,7 +11969,7 @@ java_complete_lhs (tree node)
 		  else
 		    DECL_INITIAL (nn) = TREE_OPERAND (node, 1);
 		  DECL_FIELD_FINAL_IUD (nn) = 1;
-		  return empty_stmt_node;
+		  return build_java_empty_stmt ();
 		}
 	    }
 	  if (! flag_emit_class_files)
@@ -12413,14 +12413,14 @@ build_wfl_wrap (tree node, int location)
   return wfl;
 }
 
-/* Build a super() constructor invocation. Returns empty_stmt_node if
+/* Build a super() constructor invocation. Returns an empty statement if
    we're currently dealing with the class java.lang.Object. */
 
 static tree
 build_super_invocation (tree mdecl)
 {
   if (DECL_CONTEXT (mdecl) == object_type_node)
-    return empty_stmt_node;
+    return build_java_empty_stmt ();
   else
     {
       tree super_wfl = build_wfl_node (super_identifier_node);
@@ -14732,7 +14732,7 @@ build_if_else_statement (int location, tree expression, tree if_body,
 {
   tree node;
   if (!else_body)
-    else_body = empty_stmt_node;
+    else_body = build_java_empty_stmt ();
   node = build (COND_EXPR, NULL_TREE, expression, if_body, else_body);
   EXPR_WFL_LINECOL (node) = location;
   node = build_debugable_stmt (location, node);
@@ -14769,7 +14769,8 @@ patch_if_else_statement (tree node)
 	node = TREE_OPERAND (node, 1);
       if (CAN_COMPLETE_NORMALLY (node) != can_complete_normally)
 	{
-	  node = build (COMPOUND_EXPR, void_type_node, node, empty_stmt_node);
+	  node = build (COMPOUND_EXPR, void_type_node, node,
+		        build_java_empty_stmt ());
 	  CAN_COMPLETE_NORMALLY (node) = can_complete_normally;
 	}
       return node;
@@ -14882,7 +14883,8 @@ build_loop_body (int location, tree condition, int reversed)
   second = (reversed ? condition : body);
   return
     build (COMPOUND_EXPR, NULL_TREE,
-	   build (COMPOUND_EXPR, NULL_TREE, first, second), empty_stmt_node);
+	   build (COMPOUND_EXPR, NULL_TREE, first, second),
+		  build_java_empty_stmt ());
 }
 
 /* Install CONDITION (if any) and loop BODY (using REVERSED to tell
@@ -14922,7 +14924,7 @@ finish_for_loop (int location, tree condition, tree update, tree body)
      this because the (current interpretation of the) JLS requires
      that the update expression be considered reachable even if the
      for loop's body doesn't complete normally.  */
-  if (update != NULL_TREE && update != empty_stmt_node)
+  if (update != NULL_TREE && !IS_EMPTY_STMT (update))
     {
       tree up2 = update;
       if (TREE_CODE (up2) == EXPR_WITH_FILE_LOCATION)

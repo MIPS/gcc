@@ -899,6 +899,11 @@ struct tree_vec GTY(())
 
 /* Define fields and accessors for some nodes that represent expressions.  */
 
+/* Non-zero if NODE is an emtpy statement (NOP_EXPR <0>).  */
+#define IS_EMPTY_STMT(NODE)	(TREE_CODE (NODE) == NOP_EXPR \
+				 && VOID_TYPE_P (TREE_TYPE (NODE)) \
+				 && TREE_OPERAND (NODE, 0) == size_zero_node)
+
 /* In a SAVE_EXPR node.  */
 #define SAVE_EXPR_CONTEXT(NODE) TREE_OPERAND (SAVE_EXPR_CHECK (NODE), 1)
 #define SAVE_EXPR_RTL(NODE) (*(rtx *) &SAVE_EXPR_CHECK (NODE)->exp.operands[2])
@@ -2256,8 +2261,6 @@ enum tree_index
   TI_SIZE_ZERO,
   TI_SIZE_ONE,
 
-  TI_EMPTY_STMT,
-
   TI_BITSIZE_ZERO,
   TI_BITSIZE_ONE,
   TI_BITSIZE_UNIT,
@@ -2335,8 +2338,6 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define bitsize_zero_node		global_trees[TI_BITSIZE_ZERO]
 #define bitsize_one_node		global_trees[TI_BITSIZE_ONE]
 #define bitsize_unit_node		global_trees[TI_BITSIZE_UNIT]
-
-#define empty_stmt_node 		global_trees[TI_EMPTY_STMT]
 
 /* Base access nodes.  */
 #define access_public_node		NULL_TREE
@@ -2555,6 +2556,7 @@ extern tree build_tree_list		PARAMS ((tree, tree));
 extern tree build_decl			PARAMS ((enum tree_code, tree, tree));
 extern tree build_block			PARAMS ((tree, tree, tree, tree, tree));
 extern void annotate_with_file_line	PARAMS ((tree, const char *, int));
+extern tree build_empty_stmt		(void);
 
 /* Construct various nodes representing data types.  */
 

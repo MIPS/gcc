@@ -117,7 +117,7 @@ mark_tree_necessary (t)
   void **slot;
 
   if (t == NULL
-      || t == empty_stmt_node
+      || IS_EMPTY_STMT (t)
       || t == error_mark_node
       || necessary_p (t))
     return 0;

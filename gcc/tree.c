@@ -4729,9 +4729,6 @@ build_common_tree_nodes_2 (short_double)
   TYPE_ALIGN (void_type_node) = BITS_PER_UNIT;
   TYPE_USER_ALIGN (void_type_node) = 0;
 
-  /* Used in the tree IR to represent empty statements and blocks. */
-  empty_stmt_node = build1 (CONVERT_EXPR, void_type_node, size_zero_node);
-
   null_pointer_node = build_int_2 (0, 0);
   TREE_TYPE (null_pointer_node) = build_pointer_type (void_type_node);
   layout_type (TREE_TYPE (null_pointer_node));
@@ -4924,8 +4921,8 @@ make_phi_node (var, len)
 }
 
 
-/* Return an SSA_NAME node for variable VAR defined in statement STMT.  STMT
-   may be empty_stmt_node for artificial references (e.g., default
+/* Return an SSA_NAME node for variable VAR defined in statement STMT.
+   STMT may be an empty statement for artificial references (e.g., default
    definitions created when a variable is used without a preceding
    definition.  See currdef_for.)  */
 
@@ -4945,7 +4942,7 @@ make_ssa_name (var, stmt)
 	  && TREE_CODE (stmt) != ASM_EXPR
 	  && TREE_CODE (stmt) != RETURN_EXPR
 	  && TREE_CODE (stmt) != PHI_NODE
-	  && stmt != empty_stmt_node))
+	  && !IS_EMPTY_STMT (stmt)))
     abort ();
 #endif
 
@@ -4975,6 +4972,14 @@ build_vdef_expr (var)
   return build (VDEF_EXPR, TREE_TYPE (var), var, var);
 }
 
+
+/* Build an empty statement.  */
+
+tree
+build_empty_stmt (void)
+{
+  return build1 (NOP_EXPR, void_type_node, size_zero_node);
+}
 
 
 /* Links a stmt before the current stmt.  */
@@ -5063,10 +5068,10 @@ tsi_delink (i)
       /* This stmt is the last link in the CE chain, but we're screwed because
          there isn't access to the node itself. the choices are either adding a
 	 NULL link to the right side of the CE node, which is bad, or replacing
-	 this node with an empty_stmt_node. Choose the latter for now, and 
+	 this node with an empty statement. Choose the latter for now, and 
 	 make the iterator return NULL, so that no further iterating takes 
 	 place.  */
-      *(i->tp) = empty_stmt_node;
+      *(i->tp) = build_empty_stmt ();
       i->tp = NULL;
     }
 }
@@ -5112,7 +5117,7 @@ body_is_empty (t)
 {
   tree_stmt_iterator i;
 
-  if (t == empty_stmt_node)
+  if (IS_EMPTY_STMT (t))
     return true;
 
   for (i = tsi_start (&t); !tsi_end_p (i); tsi_next (&i))

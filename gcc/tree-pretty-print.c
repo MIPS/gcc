@@ -155,7 +155,7 @@ dump_generic_node (buffer, node, spc, flags)
   if (node == NULL_TREE)
     return spc;
 
-  if (node != empty_stmt_node && node != error_mark_node)
+  if (!IS_EMPTY_STMT (node) && node != error_mark_node)
     {
       basic_block curr_bb = bb_for_stmt (node);
 
@@ -703,7 +703,7 @@ dump_generic_node (buffer, node, spc, flags)
 	  output_add_character (buffer, ')');
 	  if (!(flags & TDF_SLIM))
 	    {
-	      if (COND_EXPR_THEN (node) == empty_stmt_node)
+	      if (IS_EMPTY_STMT (COND_EXPR_THEN (node)))
 		{
 		  output_add_character (buffer, ';');
 		}
@@ -717,7 +717,7 @@ dump_generic_node (buffer, node, spc, flags)
 		  newline_and_indent (buffer, spc+2);
 		  output_add_character (buffer, '}');
 		}
-	      if (COND_EXPR_ELSE (node) != empty_stmt_node)
+	      if (!IS_EMPTY_STMT (COND_EXPR_ELSE (node)))
 		{
 		  newline_and_indent (buffer, spc);
 		  output_add_string (buffer, "else");

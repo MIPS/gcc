@@ -434,10 +434,10 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  break;
 
 	case CONVERT_EXPR:
-	  if (*expr_p == empty_stmt_node)
+	case NOP_EXPR:
+	  if (IS_EMPTY_STMT (*expr_p))
 	    break;
 
-	case NOP_EXPR:
 	  if (VOID_TYPE_P (TREE_TYPE (*expr_p)))
 	    {
 	      /* Just strip a conversion to void and try again.  */
@@ -793,7 +793,7 @@ voidify_wrapper_expr (wrapper)
       else
 	{
 	  temp = create_tmp_var (TREE_TYPE (wrapper), "retval");
-	  if (*p != empty_stmt_node)
+	  if (!IS_EMPTY_STMT (*p))
 	    *p = build (MODIFY_EXPR, TREE_TYPE (temp), temp, *p);
 	}
 
@@ -983,7 +983,7 @@ gimplify_exit_expr (expr_p, pre_p)
   simplify_expr (&cond, pre_p, NULL, is_simple_condexpr, fb_rvalue);
 
   expr = build1 (GOTO_EXPR, void_type_node, label);
-  expr = build (COND_EXPR, void_type_node, cond, expr, empty_stmt_node);
+  expr = build (COND_EXPR, void_type_node, cond, expr, build_empty_stmt ());
   *expr_p = expr;
 }
 
@@ -1459,7 +1459,7 @@ simplify_cond_expr (expr_p, pre_p, target)
 	  tree pred = TREE_OPERAND (expr, 0);
 	  TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
 	  expr = build (COND_EXPR, void_type_node, TREE_OPERAND (pred, 0),
-			expr, empty_stmt_node);
+			expr, build_empty_stmt ());
 	}
       while (TREE_CODE (TREE_OPERAND (expr, 0)) == TRUTH_ANDIF_EXPR);
 
@@ -1673,7 +1673,7 @@ simplify_boolean_expr (expr_p, pre_p)
     if_cond = build (EQ_EXPR, TREE_TYPE (t), t, integer_zero_node);
 
   if_stmt = build (COND_EXPR, void_type_node, if_cond, if_body,
-		   empty_stmt_node);
+		   build_empty_stmt ());
   /* Simplify the IF_STMT and insert it in the PRE_P chain.  */
   simplify_stmt (&if_stmt);
   add_tree (if_stmt, pre_p);
@@ -2177,8 +2177,7 @@ mostly_copy_tree_r (tp, walk_subtrees, data)
   enum tree_code code = TREE_CODE (*tp);
   /* Don't unshare types and SAVE_EXPR nodes.  */
   if (TREE_CODE_CLASS (code) == 't'
-      || code == SAVE_EXPR
-      || *tp == empty_stmt_node)
+      || code == SAVE_EXPR)
     *walk_subtrees = 0;
   else if (code == BIND_EXPR)
     abort ();
@@ -2264,7 +2263,7 @@ simplify_cleanup_point_expr (expr_p, pre_p)
 	  if (TREE_CODE (*container) == COMPOUND_EXPR)
 	    next = TREE_OPERAND (*container, 1);
 	  else
-	    next = empty_stmt_node;
+	    next = build_empty_stmt ();
 
 	  tfe = build (TRY_FINALLY_EXPR, void_type_node,
 		       next, TREE_OPERAND (wce, 1));
@@ -2350,7 +2349,8 @@ gimple_push_cleanup (cleanup, pre_p)
       tree flag = create_tmp_var (integer_type_node, "cleanup");
       tree ffalse = build (MODIFY_EXPR, void_type_node, flag, integer_zero_node);
       tree ftrue = build (MODIFY_EXPR, void_type_node, flag, integer_one_node);
-      cleanup = build (COND_EXPR, void_type_node, flag, cleanup, empty_stmt_node);
+      cleanup = build (COND_EXPR, void_type_node, flag, cleanup,
+		       build_empty_stmt ());
       wce = build (WITH_CLEANUP_EXPR, void_type_node, NULL_TREE,
 		   cleanup, NULL_TREE);
       add_tree (ffalse, &gimplify_ctxp->conditional_cleanups);

@@ -703,7 +703,7 @@ java_check_reference (tree expr, int check)
 		    build (CALL_EXPR, void_type_node, 
 			   build_address_of (soft_nullpointer_node),
 			   NULL_TREE, NULL_TREE),
-		    empty_stmt_node);
+		    build_java_empty_stmt ());
       expr = build (COMPOUND_EXPR, TREE_TYPE (expr), cond, expr);
     }
 
@@ -3443,5 +3443,16 @@ build_expr_wfl (node, file, line, col)
 
   return wfl;
 }
-#include "gt-java-expr.h"
 
+
+/* Build a node to represent empty statements and blocks. */
+
+tree
+build_java_empty_stmt (void)
+{
+  tree t = build_empty_stmt ();
+  CAN_COMPLETE_NORMALLY (t) = 1;
+  return t;
+}
+
+#include "gt-java-expr.h"
