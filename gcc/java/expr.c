@@ -251,6 +251,9 @@ push_type_0 (tree type)
   n_words = 1 + TYPE_IS_WIDE (type);
   if (stack_pointer + n_words > DECL_MAX_STACK (current_function_decl))
     return 0;
+  /* Allocate decl for this variable now, so we get a temporary that
+     survives the whole method. */
+  find_stack_slot (stack_pointer, type);
   stack_type_map[stack_pointer++] = type;
   n_words--;
   while (--n_words >= 0)
@@ -389,7 +392,7 @@ pop_type (tree type)
   return type;
 }
 
-/* Return 1f if SOURCE_TYPE can be safely widened to TARGET_TYPE.
+/* Return 1 if SOURCE_TYPE can be safely widened to TARGET_TYPE.
    Handles array types and interfaces.  */
 
 int
@@ -1330,7 +1333,7 @@ expand_iinc (unsigned int local_var_index, int ival, int pc)
     constant_value = build_int_2 (ival, ival < 0 ? -1 : 0);
     res = fold (build (PLUS_EXPR, int_type_node, local_var, constant_value));
     java_add_stmt (build (MODIFY_EXPR, TREE_TYPE (local_var), local_var, res));
-    update_aliases (local_var, local_var_index);
+    update_aliases (local_var, local_var_index, pc);
 }
 
       
@@ -1737,30 +1740,6 @@ expand_java_add_case (tree switch_expr, int match, int target_pc)
   append_to_statement_list (x, &SWITCH_BODY (switch_expr));
 }
 
-#if 0
-static void
-expand_java_call (int target_pc, int return_address)
-     int target_pc, return_address;
-{
-  tree target_label = lookup_label (target_pc);
-  tree value = build_int_2 (return_address, return_address < 0 ? -1 : 0);
-  push_value (value);
-  flush_quick_stack ();
-  expand_goto (target_label);
-}
-
-static void
-expand_java_ret (tree return_address ATTRIBUTE_UNUSED)
-{
-  warning ("ret instruction not implemented");
-#if 0
-  tree target_label = lookup_label (target_pc);
-  flush_quick_stack ();
-  expand_goto (target_label);
-#endif
-}
-#endif
-
 static tree
 pop_arguments (tree arg_types)
 {
@@ -2041,7 +2020,6 @@ build_invokeinterface (tree dtable, tree method)
   tree lookup_arg;
   tree interface;
   tree idx;
-  tree otable_index;
 
   /* We expand invokeinterface here.  _Jv_LookupInterfaceMethod() will
      ensure that the selected method exists, is public and not
@@ -3089,7 +3067,8 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
   {									\
     int saw_index = 0;							\
     int index     = OPERAND_VALUE;					\
-    build_java_ret (find_local_variable (index, ptr_type_node, oldpc));	\
+    build_java_ret							\
+      (find_local_variable (index, return_address_type_node, oldpc));	\
   }
 
 #define JSR(OPERAND_TYPE, OPERAND_VALUE) \
@@ -3268,7 +3247,7 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
     decl = find_local_variable (index, type, oldpc);		\
     set_local_type (index, type);				\
     java_add_stmt (build (MODIFY_EXPR, type, decl, value));	\
-    update_aliases (decl, index);				\
+    update_aliases (decl, index, PC);				\
   }
 
 #define STORE(OPERAND_TYPE, OPERAND_VALUE) \
