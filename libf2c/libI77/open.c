@@ -136,6 +136,7 @@ integer f_open(olist *a)
 #ifndef NON_UNIX_STDIO
 	int n;
 #endif
+	f__external = 1;
 	if(a->ounit>=MXUNIT || a->ounit<0)
 		err(a->oerr,101,"open")
 	if (!f__init)
