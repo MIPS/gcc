@@ -1,4 +1,8 @@
-2003-10-11  Paul Brook  <paul@nowt.org>
+2003-10-13  Paul Brook  <paul@nowt.org>
+
+	* trans-decl.c (generate_local_decl): Don't create junk variables.
+
+2003-10-13  Paul Brook  <paul@nowt.org>
 
 	* resolve.c (resolve_formal_arglist): Use function result decl in
 	preference to function decl.
