@@ -3492,7 +3492,10 @@ struct var_loc_node GTY ((chain_next ("%h.next")))
 struct var_loc_list_def GTY (())
 {
   struct var_loc_node * GTY (()) first;
-  struct var_loc_node * GTY (()) last;
+
+  /* Do not mark the last element of the chained list because
+     it is marked through the chain.  */
+  struct var_loc_node * GTY ((skip ("%h"))) last;
 };
 typedef struct var_loc_list_def var_loc_list;
 
