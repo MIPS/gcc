@@ -796,13 +796,24 @@ simplify_return_expr (stmt, pre_p)
       /* We need to pass the full MODIFY_EXPR down so that special handling
 	 can replace it with something else.  FIXME this code is way too
 	 complicated.  */
-      simplify_expr (&ret_expr, pre_p, NULL, is_simple_stmt, fb_none);
-      if (VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl)))
-	  || TREE_CODE (ret_expr) != MODIFY_EXPR)
+      if (VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
 	{
-	  /* We are trying to return an expression in a void function, or
-	     our return expression isn't a simple bitwise copy.  Move the
-	     expression to before the return.  */
+	  /* We are trying to return an expression in a void function; move
+	     the expression to before the return.   Note that RET_EXPR
+	     might be a POSTINCREMENT_EXPR or similar expression which
+	     requires even more special handling.  Ugh.  */
+	  simplify_expr (&ret_expr, pre_p, NULL, is_simple_stmt, fb_either);
+	  add_tree (ret_expr, pre_p);
+	  TREE_OPERAND (stmt, 0) = NULL_TREE;
+	  return;
+	}
+
+      simplify_expr (&ret_expr, pre_p, NULL, is_simple_stmt, fb_none);
+      if (TREE_CODE (ret_expr) != MODIFY_EXPR)
+	{
+	  /* We're returning a value that is not necessarily a bitwise
+	     copy.  As in the previous case, move the expression to before
+	     the return.  */
 	  add_tree (ret_expr, pre_p);
 	  TREE_OPERAND (stmt, 0) = NULL_TREE;
 	}

@@ -693,6 +693,10 @@ widen_bitfield (val, field, var)
     abort ();
 #endif
 
+  /* If VAL is not an integer constant, then give up.  */
+  if (TREE_CODE (val) != INTEGER_CST)
+    return NULL;
+
   /* If the sign bit of the value is not set, return it unmodified.  */
   if ((TREE_INT_CST_LOW (val) & (1 << (field_size - 1))) == 0)
     return val;
