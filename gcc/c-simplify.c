@@ -877,27 +877,38 @@ simplify_return_stmt (stmt, pre_p)
      tree stmt;
      tree *pre_p;
 {
-  if (!VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl)))
-      && RETURN_EXPR (stmt))
+  tree ret_expr = RETURN_EXPR (stmt);
+
+  if (ret_expr)
     {
-      tree ret_expr;
-      
-      /* A return expression is represented by a MODIFY_EXPR node that
-	 assigns the return value into a RESULT_DECL.  */
-      if (TREE_CODE (RETURN_EXPR (stmt)) != MODIFY_EXPR)
-	abort ();
+      if (VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
+	{
+	  /* We are trying to return an expression in a void function.
+	     Move the expression to before the return.  */
+	  walk_tree (&ret_expr, mostly_copy_tree_r, NULL, NULL);
+	  simplify_expr (&ret_expr, pre_p, NULL, is_simple_expr, fb_rvalue);
+	  add_tree (ret_expr, pre_p);
+	  RETURN_EXPR (stmt) = NULL_TREE;
+	}
+      else
+	{
+	  /* A return expression is represented by a MODIFY_EXPR node that
+	     assigns the return value into a RESULT_DECL.  */
+	  if (TREE_CODE (ret_expr) != MODIFY_EXPR
+	      && TREE_CODE (ret_expr) != INIT_EXPR)
+	    abort ();
 
-      ret_expr = TREE_OPERAND (RETURN_EXPR (stmt), 1);
+	  /* The grammar calls for a simple VAL here, but the RETURN_STMT
+	     already uses a MODIFY_EXPR, and using a full RHS allows us to
+	     optimize returning a call to a function of struct type.  */
+	  if (is_simple_rhs (TREE_OPERAND (ret_expr, 1)))
+	    return;
 
-      /* The grammar calls for a simple VAL here, but the RETURN_STMT
-	 already uses a MODIFY_EXPR, and using a full RHS allows us to
-	 optimize returning a call to a function of struct type.  */
-      if (is_simple_rhs (ret_expr))
-	return;
-
-      walk_tree (&ret_expr, mostly_copy_tree_r, NULL, NULL);
-      simplify_expr (&ret_expr, pre_p, NULL, is_simple_rhs, fb_rvalue);
-      TREE_OPERAND (RETURN_EXPR (stmt), 1) = ret_expr;
+	  walk_tree (&TREE_OPERAND (ret_expr, 1), mostly_copy_tree_r,
+		     NULL, NULL);
+	  simplify_expr (&TREE_OPERAND (ret_expr, 1), pre_p, NULL,
+			 is_simple_rhs, fb_rvalue);
+	}
     }
 }
 
@@ -1928,13 +1939,27 @@ simplify_stmt_expr (expr_p, pre_p)
 	    last_expr_stmt = substmt;
 	}
 
-      if (!last_expr_stmt || !is_last_stmt_of_scope (last_expr_stmt))
+      if (!last_expr_stmt)
 	abort ();
 
       last_expr = EXPR_STMT_EXPR (last_expr_stmt);
-      temp = create_tmp_var (TREE_TYPE (last_expr), "retval");
-      mod = build_modify_expr (temp, NOP_EXPR, last_expr);
-      EXPR_STMT_EXPR (last_expr_stmt) = mod;
+
+      if (TREE_CHAIN (last_expr_stmt) == NULL_TREE
+	  && TREE_CODE (last_expr) == INIT_EXPR)
+	{
+	  /* The C++ frontend already did this for us.  */;
+	  temp = TREE_OPERAND (last_expr, 0);
+	}
+      else
+	{
+	  if (!is_last_stmt_of_scope (last_expr_stmt))
+	    abort ();
+
+	  temp = create_tmp_var (TREE_TYPE (last_expr), "retval");
+	  mod = build (INIT_EXPR, TREE_TYPE (temp), temp, last_expr);
+	  EXPR_STMT_EXPR (last_expr_stmt) = mod;
+	}
+
       *expr_p = temp;
     }
 

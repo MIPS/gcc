@@ -1,3 +1,10 @@
+2002-07-19  Jason Merrill  <jason@redhat.com>
+
+	* c-simplify.c (simplify_return_stmt): Do simplify a returned
+	expression in a void function.
+
+	* c-simplify.c (simplify_stmt_expr): Handle C++ return semantics.
+
 2002-07-20  Andreas Jaeger  <aj@suse.de>
 
 	* doc/invoke.texi (Option Summary): Fix syntax.
