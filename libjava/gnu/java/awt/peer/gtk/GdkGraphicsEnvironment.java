@@ -47,7 +47,7 @@ import java.util.Locale;
 public class GdkGraphicsEnvironment extends GraphicsEnvironment
 {
   
-  GdkGraphicsEnvironment ()
+  public GdkGraphicsEnvironment ()
   {
   	super();
   }
@@ -64,7 +64,7 @@ public class GdkGraphicsEnvironment extends GraphicsEnvironment
 
   public Graphics2D createGraphics (BufferedImage image)
   {
-    throw new java.lang.UnsupportedOperationException ();
+    return new GdkGraphics2D (image);
   }
 
   public Font[] getAllFonts ()

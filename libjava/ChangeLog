@@ -1,3 +1,20 @@
+2004-02-24  Olga Rodimina  <rodimina@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java
+	(bimage): New field.
+	(GdkGraphics2D): New Constructor. Constructs Graphics
+	object that can be used to draw into the Buffered Image.
+	* gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java:
+	(GdkGraphicsEnvironment): Fixed to include public 
+	keyword.
+	(createGraphics): Implemented.
+	* gnu/java/awt/peer/gtk/GtkToolkit.java
+	(getLocalGraphicsEnvironment): Implemented.
+	* java/awt/GraphicsEnvironment.java:
+	(getLocalGraphicsEnvironment): Implemented.
+	* java/awt/image/BufferedImage.java:
+	(createGraphics): Implemented.
+		
 2004-02-24  David Jee  <djee@redhat.com>
 
 	* java/awt/Component.java

@@ -47,6 +47,7 @@ import java.awt.im.InputMethodHighlight;
 import java.awt.image.ColorModel;
 import java.awt.image.ImageObserver;
 import java.awt.image.ImageProducer;
+import java.awt.GraphicsEnvironment;
 import java.awt.peer.*;
 import java.net.URL;
 import java.util.Hashtable;
@@ -431,7 +432,9 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
 
   public GraphicsEnvironment getLocalGraphicsEnvironment()
   {
-    throw new java.lang.UnsupportedOperationException ();
+    GraphicsEnvironment ge;
+    ge = new GdkGraphicsEnvironment ();  
+    return ge;
   }
 
   public Font createFont(int format, java.io.InputStream stream)

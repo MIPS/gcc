@@ -84,6 +84,7 @@ public class GdkGraphics2D extends Graphics2D
   private GtkComponentPeer component;
   private Font font;  
   private RenderingHints hints;
+  private BufferedImage bimage;
 
   private Stack stateStack;
   
@@ -178,6 +179,23 @@ public class GdkGraphics2D extends Graphics2D
     setRenderingHints (getDefaultHints());
 
     stateStack = new Stack ();
+  }
+
+  GdkGraphics2D (BufferedImage bimage)
+  {
+    
+    this.bimage = bimage;    
+    initState (bimage.getWidth(), bimage.getHeight());
+
+    setColor(Color.black);
+    setBackground (Color.black);
+    setPaint (getColor());
+    setFont (new Font("SansSerif", Font.PLAIN, 12));
+    setTransform (new AffineTransform ());
+    setStroke (new BasicStroke ());
+    setRenderingHints (getDefaultHints());
+
+    stateStack = new Stack();
   }
 
 
