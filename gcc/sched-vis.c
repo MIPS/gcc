@@ -124,7 +124,8 @@ get_visual_tbl_length ()
   int n, n1;
   char *s;
 
-  if (targetm.sched.use_dfa_pipeline_interface)
+  if (targetm.sched.use_dfa_pipeline_interface
+      && (*targetm.sched.use_dfa_pipeline_interface) ())
     {
       visual_tbl_line_length = 1;
       return 1; /* Can't return 0 because that will cause problems

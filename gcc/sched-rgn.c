@@ -2143,13 +2143,14 @@ init_ready_list (ready)
 
 	    if (!CANT_MOVE (insn)
 		&& (!IS_SPECULATIVE_INSN (insn)
-		    || ((0
+		    || ((((!targetm.sched.use_dfa_pipeline_interface
+			   || !(*targetm.sched.use_dfa_pipeline_interface) ())
+			  && insn_issue_delay (insn) <= 3)
 			 || (targetm.sched.use_dfa_pipeline_interface
+			     && (*targetm.sched.use_dfa_pipeline_interface) ()
 			     && recog_memoized (insn) >= 0
 			     && min_insn_conflict_delay (curr_state, insn,
-							 insn) <= 3)
-			 || (!targetm.sched.use_dfa_pipeline_interface
-			     && insn_issue_delay (insn) <= 3))
+							 insn) <= 3))
 			&& check_live (insn, bb_src)
 			&& is_exception_free (insn, bb_src, target_bb))))
 	      {
@@ -2259,10 +2260,12 @@ new_ready (next)
 	  || (IS_SPECULATIVE_INSN (next)
 	      && (0
 		  || (targetm.sched.use_dfa_pipeline_interface
+		      && (*targetm.sched.use_dfa_pipeline_interface) ()
 		      && (recog_memoized (next) < 0
 			  || min_insn_conflict_delay (curr_state, next,
 						      next) > 3))
-		  || (!targetm.sched.use_dfa_pipeline_interface
+		  || ((!targetm.sched.use_dfa_pipeline_interface
+		       || !(*targetm.sched.use_dfa_pipeline_interface) ())
 		      && insn_issue_delay (next) > 3)
 		  || !check_live (next, INSN_BB (next))
 		  || !is_exception_free (next, INSN_BB (next), target_bb)))))
@@ -2655,7 +2658,8 @@ debug_dependencies ()
 	  fprintf (sched_dump, "\n;;   --- Region Dependences --- b %d bb %d \n",
 		   BB_TO_BLOCK (bb), bb);
 
-	  if (targetm.sched.use_dfa_pipeline_interface)
+	  if (targetm.sched.use_dfa_pipeline_interface
+	      && (*targetm.sched.use_dfa_pipeline_interface) ())
 	    {
 	      fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
 		       "insn", "code", "bb", "dep", "prio", "cost",
@@ -2694,7 +2698,8 @@ debug_dependencies ()
 		  continue;
 		}
 
-	      if (targetm.sched.use_dfa_pipeline_interface)
+	      if (targetm.sched.use_dfa_pipeline_interface
+		  && (*targetm.sched.use_dfa_pipeline_interface) ())
 		{
 		  fprintf (sched_dump,
 			   ";;   %s%5d%6d%6d%6d%6d%6d   ",

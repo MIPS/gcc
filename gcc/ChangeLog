@@ -1,3 +1,14 @@
+2001-08-31  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* haifa-sched.c (insn_cost, schedule_insn, queue_to_ready,
+	schedule_block, sched_init, sched_finish): Add missed calls of
+	use_dfa_pipeline_interface.
+
+	* sched-rgn.c (init_ready_list, new_ready, debug_dependencies):
+	Ditto.
+
+	* sched-vis.c (get_visual_tbl_length): Ditto.
+	
 Thu Aug 30 19:22:15 2001  J"orn Rennecke <amylaar@redhat.com>
 
 	* config.gcc (h8300-*-elf*): New case.
