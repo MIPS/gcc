@@ -35,6 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "tree-flow.h"
 #include "tree-dchain.h"
+#include "tree-dump.h"
 #include "timevar.h"
 
 /** @file tree-optimize.c
@@ -49,8 +50,6 @@ optimize_function_tree (fndecl)
      tree fndecl;
 {
   tree fnbody;
-  FILE *dump_file;
-  int dump_flags;
 
   /* Don't bother doing anything if the program has errors.  */
   if (errorcount || sorrycount)
@@ -104,51 +103,9 @@ optimize_function_tree (fndecl)
 #endif
 
   /* Debugging dump after optimization.  */
-  dump_file = dump_begin (TDI_optimized, &dump_flags);
-  if (dump_file)
-    {
-      dump_current_function (dump_file, dump_flags);
-      dump_end (TDI_optimized, dump_file);
-      dump_file = NULL;
-    }
+  dump_function (TDI_optimized, fndecl);
 
   /* Flush out flow graph and SSA data.  */
   delete_tree_ssa (fnbody);
   delete_tree_cfg ();
-}
-
-
-/** @brief Dump the body of current_function_decl to DUMP_FILE.
-    @param dump_file is the file to dump the function body to.
-    @param dump_flags affects dumping options (see TDF_* in tree.h).  */
-
-void
-dump_current_function (dump_file, dump_flags)
-     FILE *dump_file;
-     int dump_flags;
-{
-  tree fnbody;
-  tree arg;
-
-  fprintf (dump_file, "%s(", get_name (current_function_decl));
-
-  arg = DECL_ARGUMENTS (current_function_decl);
-  while (arg)
-    {
-      print_generic_expr (dump_file, arg, 0);
-      if (TREE_CHAIN (arg))
-	fprintf (dump_file, ", ");
-      arg = TREE_CHAIN (arg);
-    }
-
-  fprintf (dump_file, ")\n");
-
-  fnbody = DECL_SAVED_TREE (current_function_decl);
-
-  if (dump_flags & TDF_RAW)
-    dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
-  else
-    print_generic_stmt (dump_file, fnbody, dump_flags);
-
-  fprintf (dump_file, "\n\n");
 }

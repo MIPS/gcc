@@ -50,6 +50,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-inline.h"
 #include "tree-flow.h"
 #include "tree-simple.h"
+#include "tree-dump.h"
 #include "timevar.h"
 
 /* Possible lattice values.  */
@@ -170,8 +171,6 @@ tree_ssa_ccp (fndecl)
   /* Debugging dumps.  */
   if (dump_file)
     {
-      dump_current_function (dump_file, dump_flags);
-
       if (dump_flags & TDF_DETAILS)
 	{
 	  compute_reaching_defs ();
@@ -182,8 +181,9 @@ tree_ssa_ccp (fndecl)
 	}
 
       dump_end (TDI_ccp, dump_file);
-      dump_file = NULL;
     }
+
+  dump_function (TDI_ccp, fndecl);
 }
 
 

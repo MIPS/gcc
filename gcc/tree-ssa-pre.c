@@ -44,6 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-simple.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
+#include "tree-dump.h"
 #include "timevar.h"
 
 #define EXTRANEOUS_EPHI_REMOVAL 0
@@ -3327,12 +3328,9 @@ tree_perform_ssapre (fndecl)
   splay_tree_delete (new_stmt_map);
   splay_tree_delete (old_new_map);  
   
+  dump_end (TDI_pre, dump_file);
   timevar_pop (TV_TREE_PRE);
 
   /* Debugging dump after SSA PRE */
-  if (dump_file)
-    {
-      dump_current_function (dump_file, dump_flags);
-      dump_end (TDI_pre, dump_file);
-    }
+  dump_function (TDI_pre, fndecl);
 }

@@ -1,3 +1,26 @@
+2003-01-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dump.c (dump_function_to_file): New function.
+	(dump_function): Call it.
+	Convert argument declaration to K&R format.
+	* tree-dump.h: Include splay-tree.h.
+	(dump_function_to_file): Declare.
+
+	* tree-optimize.c (optimize_function_tree): Remove unused variables
+	dump_file and dump_flags.
+	(dump_current_function): Remove.  Update all users by calling
+	dump_function instead.
+	* tree.h (dump_current_function): Remove declaration.
+
+	* Makefile.in (TREE_DUMP_H): Define.
+	Update targets depending on tree-dump.h to depend on $(TREE_DUMP_H).
+	(tree-ssa-cp.o): Remove unused target.
+	(tree-cfg.o): Add dependency on $(TREE_DUMP_H).
+	(tree-optimize.o): Likewise.
+	(tree-ssa-dce.o): Likewise.
+	(tree-ssa-ccp.o): Likewise.
+	(tree-ssa-pre.o): Likewise.
+
 2003-01-02  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (rename_2): Fix a false matching condition.

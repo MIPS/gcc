@@ -6528,12 +6528,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   if (!flag_disable_simple && simplify_function_tree (fndecl))
     {
       /* Debugging dump after simplification.  */
-      dump_file = dump_begin (TDI_simple, &dump_flags);
-      if (dump_file)
-	{
-	  dump_current_function (dump_file, dump_flags);
-	  dump_end (TDI_simple, dump_file);
-	}
+      dump_function (TDI_simple, fndecl);
 
       if (flag_mudflap)
 	{

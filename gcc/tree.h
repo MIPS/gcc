@@ -3197,7 +3197,6 @@ extern void declare_nonlocal_label	PARAMS ((tree));
 
 /* In tree-optimize.c.  */
 void optimize_function_tree		PARAMS ((tree));
-void dump_current_function		PARAMS ((FILE *, int));
 
 /* If KIND=='I', return a suitable global initializer (constructor) name.
    If KIND=='D', return a suitable global clean-up (destructor) name.  */

@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "tree-flow.h"
 #include "timevar.h"
+#include "tree-dump.h"
    
 /** @file tree-cfg.c
     @brief Build the control flow graph for a function tree. 
@@ -1532,7 +1533,7 @@ dump_tree_cfg (file, flags)
     }
 
   if (n_basic_blocks > 0)
-    dump_current_function (file, flags|TDF_BLOCK);
+    dump_function_to_file (current_function_decl, file, flags|TDF_BLOCK);
 }
 
 

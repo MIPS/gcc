@@ -854,7 +854,9 @@ dump_switch_p (arg)
 /* Dump FUNCTION_DECL FN as tree dump PHASE.  */
 
 void
-dump_function (enum tree_dump_index phase, tree fn)
+dump_function (phase, fn)
+     enum tree_dump_index phase;
+     tree fn;
 {
   FILE *stream;
   int flags;
@@ -868,11 +870,39 @@ dump_function (enum tree_dump_index phase, tree fn)
 	       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn)));
       fprintf (stream, ";; enabled by -%s\n", dump_flag_name (phase));
       fprintf (stream, "\n");
-      
-      if (flags & TDF_RAW)
-	dump_node (fn, TDF_SLIM | flags, stream);
-      else
-	print_generic_stmt (stream, DECL_SAVED_TREE (fn), 0);
+
+      dump_function_to_file (fn, stream, flags);
       dump_end (phase, stream);
     }
+}
+
+
+/* Dump FUNCTION_DECL FN to file STREAM using FLAGS (see TDF_* in tree.h)  */
+
+void
+dump_function_to_file (fn, stream, flags)
+     tree fn;
+     FILE *stream;
+     int flags;
+{
+  tree arg;
+
+  fprintf (stream, "%s (", (*lang_hooks.decl_printable_name) (fn, 2));
+
+  arg = DECL_ARGUMENTS (fn);
+  while (arg)
+    {
+      print_generic_expr (stream, arg, 0);
+      if (TREE_CHAIN (arg))
+	fprintf (stream, ", ");
+      arg = TREE_CHAIN (arg);
+    }
+  fprintf (stream, ")\n");
+
+  if (flags & TDF_RAW)
+    dump_node (fn, TDF_SLIM | flags, stream);
+  else
+    print_generic_stmt (stream, DECL_SAVED_TREE (fn), flags);
+
+  fprintf (stream, "\n\n");
 }

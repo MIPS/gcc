@@ -60,6 +60,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "tree-flow.h"
 #include "tree-simple.h"
+#include "tree-dump.h"
 #include "timevar.h"
 
 
@@ -164,12 +165,14 @@ mark_control_parent_necessary (bb)
 static void
 print_stats ()
 {
+  dump_file = dump_begin (TDI_dce, &dump_flags);
   if (dump_file && (dump_flags & (TDF_STATS|TDF_DETAILS)))
     {
       float percg;
       percg = ((float) stats.removed / (float) stats.total) * 100;
       fprintf (dump_file, "Removed %d of %d statements (%d%%)\n",
 			  stats.removed, stats.total, (int) percg);
+      dump_end (TDI_dce, dump_file);
     }
 }
 
@@ -485,13 +488,11 @@ tree_ssa_eliminate_dead_code (fndecl)
 
   remove_dead_stmts ();
 
+  dump_end (TDI_dce, dump_file);
+
   timevar_pop (TV_TREE_DCE);
 
-  if (dump_file)
-    {
-      /* Dump the function tree after DCE.  */
-      dump_current_function (dump_file, dump_flags);
-      print_stats ();
-      fclose (dump_file);
-    }
+  /* Dump the function tree after DCE.  */
+  dump_function (TDI_dce, fndecl);
+  print_stats ();
 }
