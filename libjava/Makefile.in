@@ -805,6 +805,7 @@ java/awt/geom/FlatteningPathIterator.java \
 java/awt/geom/GeneralPath.java \
 java/awt/geom/QuadCurve2D.java \
 java/awt/image/BufferedImage.java \
+java/awt/image/ByteLookupTable.java \
 java/awt/image/ColorModel.java \
 java/awt/image/ComponentColorModel.java \
 java/awt/image/ComponentSampleModel.java \
@@ -827,6 +828,7 @@ java/awt/image/PixelInterleavedSampleModel.java \
 java/awt/image/Raster.java \
 java/awt/image/RasterOp.java \
 java/awt/image/SampleModel.java \
+java/awt/image/ShortLookupTable.java \
 java/awt/image/SinglePixelPackedSampleModel.java \
 java/awt/image/WritableRaster.java \
 java/awt/image/AreaAveragingScaleFilter.java \
@@ -3005,8 +3007,8 @@ java/awt/geom/RoundRectangle2D.lo java/awt/geom/Line2D.lo \
 java/awt/geom/Arc2D.lo java/awt/geom/Area.lo \
 java/awt/geom/CubicCurve2D.lo java/awt/geom/FlatteningPathIterator.lo \
 java/awt/geom/GeneralPath.lo java/awt/geom/QuadCurve2D.lo \
-java/awt/image/BufferedImage.lo java/awt/image/ColorModel.lo \
-java/awt/image/ComponentColorModel.lo \
+java/awt/image/BufferedImage.lo java/awt/image/ByteLookupTable.lo \
+java/awt/image/ColorModel.lo java/awt/image/ComponentColorModel.lo \
 java/awt/image/ComponentSampleModel.lo java/awt/image/DataBuffer.lo \
 java/awt/image/DataBufferByte.lo java/awt/image/DataBufferDouble.lo \
 java/awt/image/DataBufferFloat.lo java/awt/image/DataBufferInt.lo \
@@ -3017,6 +3019,7 @@ java/awt/image/ImageProducer.lo java/awt/image/IndexColorModel.lo \
 java/awt/image/LookupTable.lo java/awt/image/PackedColorModel.lo \
 java/awt/image/PixelInterleavedSampleModel.lo java/awt/image/Raster.lo \
 java/awt/image/RasterOp.lo java/awt/image/SampleModel.lo \
+java/awt/image/ShortLookupTable.lo \
 java/awt/image/SinglePixelPackedSampleModel.lo \
 java/awt/image/WritableRaster.lo \
 java/awt/image/AreaAveragingScaleFilter.lo \
@@ -4276,6 +4279,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/awt/image/BufferStrategy.P \
 .deps/java/awt/image/BufferedImage.P \
 .deps/java/awt/image/BufferedImageOp.P \
+.deps/java/awt/image/ByteLookupTable.P \
 .deps/java/awt/image/ColorModel.P \
 .deps/java/awt/image/ComponentColorModel.P \
 .deps/java/awt/image/ComponentSampleModel.P \
@@ -4303,6 +4307,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/awt/image/RasterOp.P .deps/java/awt/image/RenderedImage.P \
 .deps/java/awt/image/ReplicateScaleFilter.P \
 .deps/java/awt/image/SampleModel.P \
+.deps/java/awt/image/ShortLookupTable.P \
 .deps/java/awt/image/SinglePixelPackedSampleModel.P \
 .deps/java/awt/image/TileObserver.P \
 .deps/java/awt/image/VolatileImage.P \

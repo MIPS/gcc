@@ -1,3 +1,10 @@
+2004-07-15  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/image/ShortLookupTable.java: New file.
+	* java/awt/image/ByteLookupTable.java: New file.
+	* Makefile.am: Added new files.
+	* Makefile.in: Regenerated.
+
 2004-07-14  Jerry Quinn  <jlquinn@optonline.net>
 
 	* java/awt/image/LookupTable.java: New file.
