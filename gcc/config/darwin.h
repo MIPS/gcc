@@ -1199,7 +1199,12 @@ extern int flag_export_coalesced;
 #define COALESCING_TEMPLATES_P(DECL)				\
         (COALESCING_ENABLED_P () && flag_coalesce_templates)
 
+/* Experimentally, putting jump tables in text is faster on SPEC.
+   Also this is needed for correctness for coalesced functions.  */
+
+#ifndef JUMP_TABLES_IN_TEXT_SECTION
 #define JUMP_TABLES_IN_TEXT_SECTION 1
+#endif
 
 #define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
 
