@@ -1,5 +1,27 @@
 2004-10-16  Michael Koch  <konqueror@gmx.de>
 
+	* gnu/java/awt/BitwiseXORComposite.java,
+	gnu/java/awt/ClasspathToolkit.java,
+	gnu/java/awt/image/XBMDecoder.java,
+	gnu/java/awt/peer/GLightweightPeer.java,
+	gnu/java/awt/peer/gtk/GdkGlyphVector.java:
+	Reorganized import statements.
+
+2004-10-16  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/awt/Button.java
+	(next_button_number): Removed useless initializer.
+	* java/awt/Frame.java
+	(next_frame_number): Likewise.
+	* java/awt/Panel.java
+	(next_panel_number): Likewise,
+	* java/awt/Scrollbar.java
+	(next_scrollbar_number): Likewise.
+	* java/awt/TextArea.java
+	(next_text_number): Likewise.
+
+2004-10-16  Michael Koch  <konqueror@gmx.de>
+
 	* java/awt/image/ByteLookupTable.java
 	(ByteLookupTable) :Fixed HTML entities in javadocs.
 	(lookupPixel): Fix case when dst is null.
