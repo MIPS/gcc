@@ -80,7 +80,6 @@ static splay_tree alias_annot;
 static GTY ((param_is (struct alias_typevar_def))) varray_type alias_vars = NULL;
 static varray_type local_alias_vars;
 static varray_type local_alias_varnums;
-#include "gt-tree-alias-steen.h"
 #define STEEN_DEBUG 1
 static void steen_simple_assign PARAMS ((struct tree_alias_ops *,
 					 alias_typevar, alias_typevar));
@@ -1177,3 +1176,4 @@ init_alias_vars ()
   if (alias_annot == NULL)
     alias_annot = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
 }
+#include "gt-tree-alias-steen.h"

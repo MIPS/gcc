@@ -1,3 +1,9 @@
+2002-07-18  Daniel Berlin <dberlin@dberlin.org>
+	
+	* tree-alias-type.c: Move gt-tree-alias-type include to end of file.
+
+	* tree-alias-steen.c: Move gt-tree-alias-steen include to end of file.
+
 2002-07-18  Daniel Berlin  <dberlin@dberlin.org>
 
 	* gengtype.c (get_base_file_bitmap): Mark tree-alias-* and
