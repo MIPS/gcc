@@ -438,7 +438,7 @@ struct loop_desc
 {
   int postincr;		/* 1 if increment/decrement is done after loop exit condition.  */
   rtx var;		/* Loop control variable.  */
-  int grow;		/* 1 if it grows, 0 if it decreases.  */
+  rtx stride;		/* Value added to VAR in each iteration.  */
   rtx lim;		/* Expression var is compared with.  */
   rtx init;		/* Initial value of var.  */
   HOST_WIDE_INT lim_n;

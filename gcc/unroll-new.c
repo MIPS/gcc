@@ -224,7 +224,7 @@ simple_condition_p (loop, body, condition, desc)
 }
 
 /* Checks whether DESC->var is incremented/decremented exactly once each
-   iteration.  Fills in DESC->grow and returns block in that DESC->var is
+   iteration.  Fills in DESC->stride and returns block in that DESC->var is
    modified.  */
 static basic_block
 simple_increment (loops, loop, body, desc)
@@ -274,12 +274,10 @@ simple_increment (loops, loop, body, desc)
   if (!rtx_equal_p (XEXP (set_src, 0), desc->var))
     return NULL;
 
-  /* Set desc->grow.  */
+  /* Set desc->stride.  */
   set_add = XEXP (set_src, 1);
-  if (set_add == const1_rtx)
-    desc->grow = 1;
-  else if (set_add == constm1_rtx)
-    desc->grow = 0;
+  if (CONSTANT_P (set_add))
+    desc->stride = set_add;
   else
     return NULL;
 
@@ -414,8 +412,9 @@ simple_loop_p (loops, loop, desc)
 	  print_simple_rtl (rtl_dump_file, desc->var);
 	  fputc ('\n', rtl_dump_file);
 	}
-      fprintf (rtl_dump_file,
-	       desc->grow ? ";  Counter grows\n": ";  Counter decreases\n");
+      fprintf (rtl_dump_file, ";  Stride:");
+      print_simple_rtl (rtl_dump_file, desc->stride);
+      fputc ('\n', rtl_dump_file);
       if (desc->init)
 	{
 	  fprintf (rtl_dump_file, ";  Initial value:");
@@ -463,9 +462,10 @@ count_loop_iterations (desc, initial)
      struct loop_desc *desc;
      bool initial;
 {
-  int delta;
   enum rtx_code cond = desc->cond;
   rtx exp = initial && desc->init ? copy_rtx (desc->init) : desc->var;
+  rtx stride = desc->stride;
+  rtx mod;
 
   /* Give up on floating point modes and friends.  It can be possible to do
      the job for constant loop bounds, but it is probably not worthwhile.  */
@@ -477,7 +477,7 @@ count_loop_iterations (desc, initial)
     cond = reverse_condition (cond);
 
   /* Compute absolute value of the difference of initial and final value.  */
-  if (desc->grow)
+  if (INTVAL (stride) > 0)
     {
       /* Bypass nonsential tests.  */
       if (cond == EQ || cond == GE || cond == GT || cond == GEU
@@ -493,17 +493,31 @@ count_loop_iterations (desc, initial)
 	  || cond == LTU)
 	return NULL;
       exp = simplify_gen_binary (MINUS, GET_MODE (desc->var),
-				 exp, copy_rtx (desc->lim));
+				  exp, copy_rtx (desc->lim));
+      stride = simplify_gen_unary (NEG, GET_MODE (desc->var),
+				   stride, GET_MODE (desc->var));
     }
 
-  delta = 0;
+  /* Normalize difference so the value is always first examined
+     and later incremented.  */
+
   if (!desc->postincr)
-    delta--;
+    exp = simplify_gen_binary (MINUS, GET_MODE (desc->var),
+			       exp, stride);
 
   /* Determine delta caused by exit condition.  */
   switch (cond)
     {
     case NE:
+      /* For NE tests, make sure that the iteration variable won't miss
+	 the final value.  If EXP mod STRIDE is not zero, then the
+	 iteration variable will overflow before the loop exits, and we
+	 can not calculate the number of iterations easilly.  */
+      if (stride != const1_rtx
+	  && (simplify_gen_binary (UMOD, GET_MODE (desc->var), exp, stride)
+              != const0_rtx))
+	return NULL;
+      break;
     case LT:
     case GT:
     case LTU:
@@ -513,15 +527,41 @@ count_loop_iterations (desc, initial)
     case GE:
     case LEU:
     case GEU:
-      delta++;
+      exp = simplify_gen_binary (PLUS, GET_MODE (desc->var),
+				 exp, const1_rtx);
       break;
     default:
       abort ();
     }
 
-  if (delta)
-    exp = simplify_gen_binary (PLUS, GET_MODE (desc->var),
-			       exp, GEN_INT (delta));
+  if (stride != const1_rtx)
+    {
+      /* Number of iterations is now (EXP + STRIDE - 1 / STRIDE),
+	 but we need to take care for overflows.   */
+
+      mod = simplify_gen_binary (UMOD, GET_MODE (desc->var), exp, stride);
+
+      /* This is dirty trick.  When we can't compute number of iterations
+	 to be constant, we simply ignore the possible overflow, as
+	 runtime unroller always use power of 2 amounts and does not
+	 care about possible lost bits.  */
+
+      if (GET_CODE (mod) != CONST_INT)
+	{
+	  rtx stridem1 = simplify_gen_binary (PLUS, GET_MODE (desc->var),
+					      stride, constm1_rtx);
+	  exp = simplify_gen_binary (PLUS, GET_MODE (desc->var),
+				     exp, stridem1);
+	  exp = simplify_gen_binary (UDIV, GET_MODE (desc->var), exp, stride);
+	}
+      else
+	{
+	  exp = simplify_gen_binary (UDIV, GET_MODE (desc->var), exp, stride);
+	  if (mod != const0_rtx)
+	    exp = simplify_gen_binary (PLUS, GET_MODE (desc->var),
+				       exp, const1_rtx);
+	}
+    }
 
   if (rtl_dump_file)
     {
@@ -556,7 +596,7 @@ test_for_iteration (desc, iter)
 
   /* Compute the value of induction variable.  */
   addval = simplify_gen_binary (MULT, GET_MODE (desc->var),
-				desc->grow ? const1_rtx : constm1_rtx,
+				desc->stride,
 				gen_int_mode (desc->postincr
 					      ? iter : iter + 1,
 					      GET_MODE (desc->var)));
