@@ -136,7 +136,7 @@ all: libobjc.la $(OBJC_BOEHM_GC)
 
 OBJC_H = hash.h objc-list.h sarray.h objc.h objc-api.h \
 	 NXConstStr.h Object.h Protocol.h encoding.h typedstream.h \
-	 thr.h objc-deps.h
+	 thr.h objc-decls.h
 
 # Modules that comprise the runtime library.
 

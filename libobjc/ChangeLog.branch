@@ -1,3 +1,7 @@
+2004-02-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* Makefile.in (OBJC_H): Change objc-deps.h to objc-decls.h.
+
 2004-02-03  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* Makefile.in (OBJC_H): Add objc-deps.h.
