@@ -123,18 +123,9 @@ struct lang_type
    without prototypes.  */
 #define TYPE_ACTUAL_ARG_TYPES(NODE) TYPE_NONCOPIED_PARTS (NODE)
 
-/* For a FUNCTION TYPE
-   that is identical except that it has !TYPE_BOUNDED; and vice versa.  */
-#define TYPE_BOUNDEDLY_OPPOSITE(NODE) TYPE_BINFO (NODE)
-
 /* In a FIELD_DECL, nonzero if the decl was originally a bitfield.  */
 #define DECL_C_BIT_FIELD(NODE) DECL_LANG_FLAG_4 (NODE)
 
-/* For a FUNCTION_DECL node with pointer depth > 0, the decl that has
-   the opposite boundeness.  Used for functions that have va_list as a
-   return type or in their argument list.  The decl we use depends on
-   the value of pointers_bounded_by_default at the point of call.  */
-#define DECL_BOUNDEDLY_OPPOSITE(NODE) ((tree) DECL_CHECK (NODE)->decl.lang_specific)
 
 /* in c-lang.c and objc-act.c */
 extern tree lookup_interface			PARAMS ((tree));

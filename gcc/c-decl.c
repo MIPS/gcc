@@ -4970,19 +4970,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
     if (C_TYPE_FIELDS_VOLATILE (TREE_TYPE (decl)))
       mark_addressable (decl);
 
-#if 0 /* GKM FIXME: this stuff is incomplete.  Is it useful?  */
-    if (TREE_CODE (decl) == FUNCTION_DECL
-	&& DECL_POINTER_DEPTH (decl) == VA_LIST_POINTER_DEPTH
-	&& !default_pointer_boundedness)
-      {
-	default_pointer_boundedness = 1;
-	DECL_BOUNDEDLY_OPPOSITE (decl)
-	  = grokdeclarator (orig_declspecs, orig_declarator,
-			    orig_decl_context, initialized, NULL_TREE);
-	default_pointer_boundedness = 0;
-      }
-#endif
-
     return decl;
   }
 }
