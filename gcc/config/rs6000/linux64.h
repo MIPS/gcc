@@ -339,6 +339,12 @@ Boston, MA 02111-1307, USA.  */
 #undef  LIB_DEFAULT_SPEC
 #define LIB_DEFAULT_SPEC "%(lib_linux)"
 
+#if defined (CROSS_COMPILE) && defined (NATIVE_CROSS)
+/* Really native, look in standard places.  The multilib support will
+   add ../lib64/ as needed.  */
+#define STARTFILE_PREFIX_SPEC STANDARD_STARTFILE_PREFIX " /lib/ /usr/lib/"
+#endif
+
 #undef  STARTFILE_DEFAULT_SPEC
 #define STARTFILE_DEFAULT_SPEC "%(startfile_linux)"
 

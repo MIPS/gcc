@@ -2527,7 +2527,10 @@ add_prefix (pprefix, prefix, component, priority, require_machine_suffix,
   (*prev) = pl;
 }
 
-/* Same as add_prefix, but prepending target_system_root to prefix.  */
+/* Same as add_prefix, but prepending target_system_root to an absolute
+   PREFIX.  For native compilers, a relative PREFIX is based on
+   standard_exec_prefix and also on gcc_exec_prefix if that is defined.
+   For cross compilers, a relative PREFIX is ignored.  */ 
 static void
 add_sysrooted_prefix (pprefix, prefix, component, priority,
 		      require_machine_suffix, warn, os_multilib)
@@ -2540,9 +2543,25 @@ add_sysrooted_prefix (pprefix, prefix, component, priority,
      int os_multilib;
 {
   if (!IS_ABSOLUTE_PATHNAME (prefix))
-    abort ();
+    {
+      /* If prefix is relative, base it on standard_exec_prefix.  This
+	 lets us move the installed tree as a unit.  If GCC_EXEC_PREFIX
+	 is defined, base prefix on that as well.
 
-  if (target_system_root)
+	 If the prefix is relative, only search it for native compilers;
+	 otherwise we will search a directory containing host libraries.  */
+      if (*cross_compile != 0 && *startfile_prefix_spec == 0)
+	return;
+
+      if (gcc_exec_prefix)
+	add_prefix (pprefix,
+		    concat (gcc_exec_prefix, machine_suffix, prefix, NULL),
+		    component, priority,
+		    require_machine_suffix, warn, os_multilib);
+
+      prefix = concat (standard_exec_prefix, machine_suffix, prefix, NULL);
+    }
+  else if (target_system_root)
     {
       prefix = concat (target_system_root, prefix, NULL);
       /* We have to override this because GCC's notion of sysroot
@@ -6340,23 +6359,8 @@ main (argc, argv)
 	add_sysrooted_prefix (&startfile_prefixes, md_startfile_prefix_1,
 			      "GCC", PREFIX_PRIORITY_LAST, 0, NULL, 1);
 
-      /* Base standard_startfile_prefix (unlibsubdir) on standard_exec_prefix.
-	 This lets us move the installed tree as a unit.  If GCC_EXEC_PREFIX
-	 is defined, base standard_startfile_prefix on that as well.  */
-      if (*cross_compile == '0')
-	{
-	  if (gcc_exec_prefix)
-	    add_prefix (&startfile_prefixes,
-			concat (gcc_exec_prefix, machine_suffix,
-				standard_startfile_prefix, NULL),
-			NULL, PREFIX_PRIORITY_LAST, 0, NULL, 1);
-	  add_prefix (&startfile_prefixes,
-		      concat (standard_exec_prefix,
-			      machine_suffix,
-			      standard_startfile_prefix, NULL),
-		      NULL, PREFIX_PRIORITY_LAST, 0, NULL, 1);
-	}
-
+      add_sysrooted_prefix (&startfile_prefixes, standard_startfile_prefix,
+			    "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL, 1);
       add_sysrooted_prefix (&startfile_prefixes, standard_startfile_prefix_1,
 			    "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL, 1);
       add_sysrooted_prefix (&startfile_prefixes, standard_startfile_prefix_2,
