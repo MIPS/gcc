@@ -1,5 +1,9 @@
 2003-07-26  Paul Brook  <paul@nowt.org>
 
+	* gfortran.texi: Replace references to g95.
+
+2003-07-26  Paul Brook  <paul@nowt.org>
+
 	Rename g95_* to gfc_*.
 
 2003-07-25  Paul Brook  <paul@nowt.org>

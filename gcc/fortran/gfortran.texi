@@ -180,12 +180,12 @@ rather than on writing user documentation.
 @node Getting Started
 @chapter Getting Started
 
-G95 is the GNU Fortran 95 compiler front end,
+Gfortran is the GNU Fortran 95 compiler front end,
 designed initially as a free replacement for,
 or alternative to, the unix @command{f95} command;
 @command{gfortran} is command you'll use to invoke the compiler.
 
-G95 is still in an early state of development.
+Gfortran is still in an early state of development.
 @command{gfortran} can generate code for most constructs and expressoins,
 but much work remains to be done.
 
@@ -245,7 +245,7 @@ This machine code is organized into @dfn{modules} and is located
 and @dfn{linked} to the user program. 
 @end itemize
 
-G95 consists of several components:
+Gfortran consists of several components:
 
 @itemize @bullet
 @item
@@ -280,7 +280,7 @@ and routines for interaction with files and the operating system.
 
 @item
 The Fortran compiler itself, (@command{f951}).
-This is the G95 parser and code generator,
+This is the gfotran parser and code generator,
 linked to and interfaced with the GCC backend library.
 @command{f951} ``translates'' the source code to
 assembler code.  You would typically not use this
@@ -292,11 +292,11 @@ programs will call it for you.
 
 
 @c ---------------------------------------------------------------------
-@c G95 and GCC
+@c GFORTRAN and GCC
 @c ---------------------------------------------------------------------
 
-@node G95 and GCC
-@chapter G95 and GCC
+@node GFORTRAN and GCC
+@chapter GFORTRAN and GCC
 @cindex GNU Compiler Collection
 
 GCC used to be the GNU ``C'' Compiler,
@@ -354,7 +354,7 @@ An Objective-C front end
 @item
 The GNU Fortran 77 front end @command{g77},
 the compiler that, in a way, saved FORTRAN from an
-early death.  See @ref{G95 and G77}
+early death.  See @ref{GFORTRAN and G77}
 
 @item
 The GNAT Ada 95 front end from Ada Core Technologies.
@@ -376,24 +376,24 @@ including very serious ones like GNU Pascal,
 but also many toy front ends,
 and front ends used for teaching courses in compiler design.
 
-The goal of the G95 project is to build a new front end for GCC:
+The goal of the gfortran project is to build a new front end for GCC:
 A Fortran 95 front end.
-In a non-G95 installation,
+In a non-gfortran installation,
 @command{gcc} will not be able to compile Fortran 95 source code
 (only the ``C'' front end has to be compiled if you want to build GCC,
 all other languages are optional).
-If you build GCC with G95, @command{gcc} will recognize
+If you build GCC with gfortran, @command{gcc} will recognize
 @file{.f/.f90/.f95} source files and accepts Fortran 95 specific
 command line options.
 
 
 
 @c ---------------------------------------------------------------------
-@c G95 and G77
+@c GFORTRAN and G77
 @c ---------------------------------------------------------------------
 
-@node G95 and G77
-@chapter G95 and G77
+@node GFORTRAN and G77
+@chapter GFORTRAN and G77
 @cindex Fortran 77
 @cindex G77
 
@@ -438,30 +438,30 @@ and then build a Fortran 95 compiler out of it.
 @chapter Compiling and Testing
 
 @menu
-* General notes about compiling G95::
-* Compiling G95::
+* General notes about compiling GFORTRAN::
+* Compiling GFORTRAN::
 * Testing::
 @end menu
 
-@node General notes about compiling G95
-@section General notes about compiling G95
+@node General notes about compiling GFORTRAN
+@section General notes about compiling GFORTRAN
 @cindex GMP
 @cindex Multiple Precision
 
-Compiling G95 requires the presence of GMP,
+Compiling gfortran requires the presence of GMP,
 the GNU Multiple Precision library version 4.0
 or better in order to do its arithmetic.
 Download @code{gmp} from your favorite GNU mirror,
 configure and compile it.  Your mileage may vary.
 
 
-@node Compiling G95
-@section Compiling G95
+@node Compiling GFORTRAN
+@section Compiling GFORTRAN
 @cindex Make-lang.in
 
-To build G95,
+To build gfortran,
 you first need to get a copy of the GCC source tree.
-G95 uses the new @dfn{GENERIC} intermediate representation
+gfortran uses the new @dfn{GENERIC} intermediate representation
 to communicate with the back end.
 This new IR has not been merged yet with the GCC mainline,
 so you'll need to get a snapshot of the
@@ -486,7 +486,7 @@ but with the f95 front end enabled
 @cindex Testing
 
 The number of possible Fortran 95 programs is unlimited,
-and this means that G95 has to correctly handle lots of possible inputs.
+and this means that gfortran has to correctly handle lots of possible inputs.
 Whenever you make any changes to the compiler,
 you should first test your change on a test program,
 then test your change against the gfortran test suite.
@@ -527,7 +527,7 @@ The start of the GNU Fortran 95 project was announced on
 the GCC homepage in March 18, 2000
 (even though Andy had already been working on it for a while,
 or course).
-What is the current status of G95?
+What is the current status of gfortran?
 
 @menu
 * Compiler Status::
@@ -590,7 +590,7 @@ See @ref{Projects}.
 
 @item Back end interface
 Work on this interface has only started recently.
-The interface translates G95's syntax tree to a
+The interface translates gfortran's syntax tree to a
 data structure from which the back end can generate code.
 
 This is supposedly an easier part of the work.
@@ -727,7 +727,7 @@ Flag for maximum errors before ending compile.
 @item
 Generate code to check for null pointer dereferences -- prints locus of
 dereference instead of segfaulting.  There was some discussion about this
-option in the G95 development mailing list.
+option in the g95 development mailing list.
 
 @item
 Allow setting default unit number.
@@ -837,7 +837,7 @@ also the initiator of the whole project.  Thanks Andy!
 Most of the interface with GCC was written by @emph{Paul Brook}.
 
 The following individuals have contributed code and/or
-ideas and significant help to the G95 project
+ideas and significant help to the gfortran project
 (in no particular order): 
 
 @itemize @minus
@@ -906,7 +906,8 @@ please contact a project maintainer.
 @c ---------------------------------------------------------------------
 
 @node Standards
-@section Standards
+@chapter Standards
+@cindex Standards
 
 The GNU Fortran 95 Compiler aims to be a conforming implementation of
 ISO/IEC 1539:1997 (Fortran 95).
