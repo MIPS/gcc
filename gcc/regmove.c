@@ -1642,7 +1642,7 @@ find_matches (insn, matchp)
 }
 
 /* Try to replace output operand DST in SET, with input operand SRC.  SET is
-   the only set in INSN.  INSN has just been recgnized and constrained.
+   the only set in INSN.  INSN has just been recognized and constrained.
    SRC is operand number OPERAND_NUMBER in INSN.
    DST is operand number MATCH_NUMBER in INSN.
    If BACKWARD is nonzero, we have been called in a backward pass.
@@ -1737,11 +1737,11 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
       if ((dst_note = find_regno_note (p, REG_DEAD, REGNO (dst)))
 	  && (GET_MODE (XEXP (dst_note, 0)) == GET_MODE (dst)))
 	{
-	  /* If an optimization is done, the flags for P may be changed. 
-	     Check that P is not in or ending the shadow of a live flags
-	     register.  Note that the `ending' part (p is a flags user)
-	     means that we have to check the _previous_ insn.  */
-	  if (GET_MODE (PREV_INSN (p)) != VOIDmode)
+	  /* If we would be moving INSN, check that we won't move it
+	     into the shadow of a live a live flags register.  */
+	  /* ??? We only try to move it in front of P, although
+		 we could move it anywhere between OVERLAP and P.  */
+	  if (overlap && GET_MODE (PREV_INSN (p)) != VOIDmode)
 	    break;
 
 	  if (! src_note)
@@ -1851,8 +1851,11 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
 	break;
       if (! src_note && reg_overlap_mentioned_p (src, PATTERN (p)))
 	{
-	  /* INSN was already checked to be movable when
-	     we found no REG_DEAD note for src on it.  */
+	  /* INSN was already checked to be movable wrt. the registers that it
+	     sets / uses when we found no REG_DEAD note for src on it, but it
+	     still might clobber the flags register.  We'll have to check that
+	     we won't insert it into the shadow of a live flags register when
+	     we finally know where we are to move it.  */
 	  overlap = p;
 	  src_note = find_reg_note (p, REG_DEAD, src);
 	}
