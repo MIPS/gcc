@@ -1,5 +1,23 @@
 2004-06-14  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c (drawString):
+	Wrap baseline y value in PANGO_PIXELS macro, rather than simply
+	dividing by PANGO_SCALE.  Call gdk_flush before leaving GDK
+	critical region.
+	(drawLine): Call gdk_flush before leaving GDK critical region.
+	(fillRect): Likewise.
+	(drawRect): Likewise.
+	(copyArea): Likewise.
+	(copyPixmap): Likewise.
+	(clearRect): Likewise.
+	(drawArc): Likewise.
+	(drawPolyline): Likewise.
+	(drawPolygon): Likewise.
+	(fillPolygon): Likewise.
+	(fillArc): Likewise.
+	(drawOval): Likewise.
+	(fillOval): Likewise.
+
 	* gnu/java/awt/peer/gtk/GdkFontMetrics.java (initState): Add
 	style parameter.
 	(GdkFontMetrics): Add style argument to initState call.
