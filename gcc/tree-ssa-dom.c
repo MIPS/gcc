@@ -387,7 +387,7 @@ tree_ssa_dominator_optimize (void)
       cfg_altered = cleanup_tree_cfg ();
       calculate_dominance_info (CDI_DOMINATORS);
 
-      rewrite_ssa_into_ssa ();
+      update_ssa_form_for_registered_defs (0);
 
       /* Reinitialize the various tables.  */
       bitmap_clear (nonzero_vars);

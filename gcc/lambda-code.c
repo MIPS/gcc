@@ -2305,10 +2305,8 @@ perfect_nestify (struct loops *loops,
 	return false;
       VEC_safe_push (tree, phis, PHI_RESULT (phi));
       VEC_safe_push (tree, phis, PHI_ARG_DEF (phi, 0));
-      mark_for_rewrite (PHI_RESULT (phi));
     }
   e = redirect_edge_and_branch (EDGE_SUCC (preheaderbb, 0), headerbb);
-  unmark_all_for_rewrite ();
   bb_ann (olddest)->phi_nodes = NULL;
   /* Add back the old exit phis.  */
   while (VEC_length (tree, phis) != 0)

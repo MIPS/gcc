@@ -481,9 +481,6 @@ extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *);
 extern void add_phi_args_after_copy_bb (basic_block);
 extern void add_phi_args_after_copy (basic_block *, unsigned);
-extern void rewrite_to_new_ssa_names_bb (basic_block, struct htab *);
-extern void rewrite_to_new_ssa_names (basic_block *, unsigned, htab_t);
-extern void allocate_ssa_names (bitmap, struct htab **);
 extern bool tree_purge_dead_eh_edges (basic_block);
 extern bool tree_purge_all_dead_eh_edges (bitmap);
 extern tree gimplify_val (block_stmt_iterator *, tree, tree);
@@ -568,7 +565,6 @@ extern void kill_redundant_phi_nodes (void);
 
 /* In tree-into-ssa.c  */
 extern void rewrite_into_ssa (bool);
-extern void rewrite_ssa_into_ssa (void);
 
 void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);
@@ -727,6 +723,66 @@ extern bool expr_invariant_in_loop_p (struct loop *loop, tree expr);
 /* In gimplify.c  */
 
 tree force_gimple_operand (tree, tree *, bool, tree);
+
+/* SSA form updating:  */
+
+/* List of defs of a value.  */
+
+struct usf_def_list
+{
+  def_operand_p op;		/* The position of the definition.  */
+  struct usf_def_list *next;	/* Next definition in the list.  */
+};
+
+/* List of uses of a value.  */
+
+struct usf_use_list
+{
+  use_operand_p op;		/* The position of the use.  */
+  struct usf_use_list *next;	/* Next use in the list.  */
+};
+
+/* Description of a value for that the ssa form should be updated.  */
+
+struct ssa_update_value
+{
+  tree decl;			/* Base for the new phi nodes.  */
+  tree orig_name;		/* Original ssa name from that the information
+				   attached to newly created names is
+				   copied.  */
+  struct usf_def_list *defs;	/* A list of definitions of the value.  */
+  struct usf_use_list *uses;	/* A list of uses of the value.  */
+  struct ssa_update_value *next;	/* Next value in the list.  */
+
+  /* For internal use of update_ssa_form.  */
+  unsigned id;			/* Id for the value.  */
+  bitmap life_area;		/* Area in that the value is live.  */
+  struct valdef *stack;		/* Stack of definitions of the value.  */
+};
+
+/* Possible flags for update_ssa_form.  */
+
+enum update_ssa_form_flags
+{
+  USF_PHIS_ALREADY_EXIST = 1
+};
+
+void update_ssa_form (struct ssa_update_value *, unsigned);
+void update_ssa_form_for_registered_defs (unsigned);
+tree rewrite_new_def (tree, def_operand_p);
+tree original_equivalent_name (tree);
+void release_ssa_name_from_eqto (tree);
+struct ssa_update_value *get_values_for_ssa_form_update (void);
+bool any_values_for_ssa_update_p (void);
+bitmap ssa_names_for_ssa_update (void);
+struct usf_def_list *get_defs_to_update (tree);
+tree determine_def_stmt (const struct usf_def_list *);
+basic_block determine_def_bb (const struct usf_def_list *);
+void rewrite_uses_region (basic_block *, unsigned, unsigned);
+void rewrite_uses_bb (basic_block, unsigned);
+void free_def_list (struct usf_def_list *);
+void ssa_form_updated (tree);
+void ssa_form_updated_all (void);
 
 #include "tree-flow-inline.h"
 

@@ -103,22 +103,15 @@ static void
 copy_phis_to_block (basic_block new_bb, basic_block bb, edge e)
 {
   tree phi, arg;
+  tree new_phi;
 
   /* Walk over every PHI in BB.  */
-  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+  for (phi = phi_nodes (bb), new_phi = phi_nodes (new_bb);
+       phi;
+       phi = PHI_CHAIN (phi), new_phi = PHI_CHAIN (new_phi))
     {
-      tree new_phi;
-
-      /* First try to find a PHI node in NEW_BB which has the same
-         PHI_RESULT as the PHI from BB we are currently processing.  */
-      for (new_phi = phi_nodes (new_bb); new_phi;
-	   new_phi = PHI_CHAIN (new_phi))
-	if (PHI_RESULT (new_phi) == PHI_RESULT (phi))
-	  break;
-
-      /* If we did not find a suitable PHI in NEW_BB, create one.  */
-      if (!new_phi)
-	new_phi = create_phi_node (PHI_RESULT (phi), new_bb);
+      gcc_assert (original_equivalent_name (PHI_RESULT (phi))
+		  == original_equivalent_name (PHI_RESULT (new_phi)));
 
       /* Extract the argument corresponding to E from the current PHI
          node in BB.  */

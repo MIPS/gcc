@@ -888,7 +888,7 @@ C_OBJS = c-parse.o c-lang.o stub-objc.o $(C_AND_OBJC_OBJS)
 OBJS-common = \
  tree-chrec.o tree-scalar-evolution.o tree-data-ref.o			   \
  tree-cfg.o tree-dfa.o tree-eh.o tree-ssa.o tree-optimize.o tree-gimple.o  \
- gimplify.o tree-pretty-print.o tree-into-ssa.o          \
+ gimplify.o tree-pretty-print.o tree-into-ssa.o tree-update-ssa.o	   \
  tree-outof-ssa.o tree-ssa-ccp.o tree-vn.o             \
  tree-ssa-dce.o  tree-ssa-copy.o tree-nrv.o tree-ssa-copyrename.o  \
  tree-ssa-pre.o tree-ssa-live.o tree-ssa-operands.o tree-ssa-alias.o       \
@@ -1609,6 +1609,10 @@ tree-into-ssa.o : tree-into-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    errors.h toplev.h function.h $(TIMEVAR_H) \
    $(TM_H) coretypes.h $(TREE_DUMP_H) langhooks.h domwalk.h tree-pass.h \
    $(GGC_H)
+tree-update-ssa.o : tree-update-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
+   $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) output.h diagnostic.h \
+   errors.h toplev.h function.h $(TIMEVAR_H) \
+   $(TM_H) coretypes.h $(TREE_DUMP_H) langhooks.h
 tree-outof-ssa.o : tree-outof-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) output.h diagnostic.h \
    errors.h toplev.h function.h $(TIMEVAR_H) \

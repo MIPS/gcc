@@ -2812,13 +2812,6 @@ extern void replace_ssa_name_symbol (tree, tree);
 extern void ssanames_print_statistics (void);
 #endif
 
-extern void mark_for_rewrite (tree);
-extern void unmark_all_for_rewrite (void);
-extern bool marked_for_rewrite_p (tree);
-extern bool any_marked_for_rewrite_p (void);
-extern struct bitmap_head_def *marked_ssa_names (void);
-
-
 /* Return the (unique) IDENTIFIER_NODE node for a given name.
    The name is supplied as a char *.  */
 
@@ -3957,5 +3950,8 @@ extern bool thread_through_all_blocks (void);
 
 /* In tree-gimple.c.  */
 extern tree get_base_address (tree t);
+
+/* In tree-update-ssa.c  */
+void ssa_name_eqto_init (void);
 
 #endif  /* GCC_TREE_H  */

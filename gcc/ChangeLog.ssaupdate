@@ -1,3 +1,62 @@
+2004-11-03  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* Makefile.in (tree-update-ssa.o): Add.
+	* lambda-code.c (perfect_nestify): Do not call mark_for_rewrite
+	and unmark_all_for_rewrite.
+	* toplev.c (general_init): Call ssa_name_eqto_init.
+	* tree-cfg.c (tree_duplicate_bb): Use rewrite_new_def instead of
+	mark_for_rewrite.
+	(add_phi_args_after_copy_bb): Check that the corresponding phi nodes
+	have the same original ssa name.
+	(struct ssa_name_map_entry, ssa_name_map_entry_hash,
+	ssa_name_map_entry_eq, allocate_ssa_names,
+	rewrite_to_new_ssa_names_def, rewrite_to_new_ssa_names_use,
+	rewrite_to_new_ssa_names_bb, rewrite_to_new_ssa_names): Removed.
+	(tree_duplicate_sese_region): Use new ssa updating functions.
+	* tree-flow.h (rewrite_to_new_ssa_names_bb, rewrite_to_new_ssa_names,
+	allocate_ssa_names, rewrite_ssa_into_ssa): Declaration removed.
+	(struct usf_def_list, struct usf_use_list, struct ssa_update_value):
+	New structures.
+	(USF_PHIS_ALREADY_EXIST): New constant.
+	(update_ssa_form, update_ssa_form_for_registered_defs, rewrite_new_def,
+	original_equivalent_name, release_ssa_name_from_eqto,
+	get_values_for_ssa_form_update, any_values_for_ssa_update_p,
+	ssa_names_for_ssa_update, get_defs_to_update, determine_def_stmt,
+	determine_def_bb, rewrite_uses_region, rewrite_uses_bb,
+	free_def_list, ssa_form_updated, ssa_form_updated_all): Declare.
+	* tree-into-ssa.c (struct def_blocks_d): Remove phi_blocks field.
+	(struct mark_def_sites_global_data): Remove names_to_rename field.
+	(struct ssa_name_info): Removed.
+	(get_ssa_name_ann, ssa_mark_def_sites_initialize_block,
+	ssa_mark_phi_uses, ssa_mark_def_sites, ssa_register_new_def,
+	ssa_rewrite_phi_arguments, ssa_rewrite_finalize_block,
+	ssa_rewrite_stmt, rewrite_ssa_into_ssa): Removed.
+	(get_phi_state, set_phi_state, get_current_def, set_current_def,
+	mark_def_sites, set_def_block, insert_phi_nodes, insert_phi_nodes_for,
+	def_blocks_free, get_def_blocks_for, rewrite_into_ssa): Remove parts
+	dealing with updating over ssa form.
+	* tree-pretty-print.c (dump_generic_node): Dump the original ssa name
+	for ssa names.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Use
+	update_ssa_form_for_registered_defs.
+	* tree-ssa-loop-manip.c (add_exit_phis_edge, find_uses_to_rename_use,
+	find_uses_to_rename_stmt, find_uses_to_rename,
+	rewrite_into_loop_closed_ssa, rename_variables,
+	tree_duplicate_loop_to_header_edge): Use new ssa form updating functions.
+	(set_phi_def_stmts): Removed.
+	* tree-ssa-threadupdate.c (copy_phis_to_block): Use the fact that phi
+	nodes in copied block come in the same order as those in the original.
+	* tree-ssanames.c (ssa_names_to_rewrite, marked_for_rewrite_p,
+	any_marked_for_rewrite_p, mark_for_rewrite, unmark_all_for_rewrite,
+	marked_ssa_names): Removed.
+	(release_ssa_name): Do not check marked_for_rewrite_p, call
+	release_ssa_name_from_eqto.
+	* tree-update-ssa.c: New file.
+	* tree.h (mark_for_rewrite, unmark_all_for_rewrite,
+	marked_for_rewrite_p, any_marked_for_rewrite_p, marked_ssa_names):
+	Declaration removed.
+	(ssa_name_eqto_init): Declare.
+
 2004-10-22  Zdenek Dvorak  <dvorakz@suse.cz>
 	    Andrew MacLeod  <amacleod@redhat.com>
 

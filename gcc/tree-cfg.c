@@ -4505,8 +4505,9 @@ tree_duplicate_bb (basic_block bb)
 {
   basic_block new_bb;
   block_stmt_iterator bsi, bsi_tgt;
-  tree phi, val;
+  tree phi, new_phi;
   ssa_op_iter op_iter;
+  def_operand_p def;
 
   new_bb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
 
@@ -4515,8 +4516,8 @@ tree_duplicate_bb (basic_block bb)
      the same order, so that we can add them later.  */
   for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
     {
-      mark_for_rewrite (PHI_RESULT (phi));
-      create_phi_node (PHI_RESULT (phi), new_bb);
+      new_phi = create_phi_node (PHI_RESULT (phi), new_bb);
+      rewrite_new_def (new_phi, PHI_RESULT_PTR (new_phi));
     }
   set_phi_nodes (new_bb, nreverse (phi_nodes (new_bb)));
 
@@ -4529,12 +4530,7 @@ tree_duplicate_bb (basic_block bb)
       if (TREE_CODE (stmt) == LABEL_EXPR)
 	continue;
 
-      /* Record the definitions.  */
       get_stmt_operands (stmt);
-
-      FOR_EACH_SSA_TREE_OPERAND (val, stmt, op_iter, SSA_OP_ALL_DEFS)
-	mark_for_rewrite (val);
-
       copy = unshare_expr (stmt);
 
       /* Copy also the virtual operands.  */
@@ -4542,6 +4538,11 @@ tree_duplicate_bb (basic_block bb)
       copy_virtual_operands (copy, stmt);
       
       bsi_insert_after (&bsi_tgt, copy, BSI_NEW_STMT);
+      get_stmt_operands (copy);
+
+      /* Record the definitions.  */
+      FOR_EACH_SSA_DEF_OPERAND (def, copy, op_iter, SSA_OP_ALL_DEFS)
+	rewrite_new_def (copy, def);
     }
 
   return new_bb;
@@ -4591,7 +4592,8 @@ add_phi_args_after_copy_bb (basic_block bb_copy)
 	{
 	  phi_next = TREE_CHAIN (phi);
 
-	  gcc_assert (PHI_RESULT (phi) == PHI_RESULT (phi_copy));
+	  gcc_assert (original_equivalent_name (PHI_RESULT (phi))
+		      == original_equivalent_name (PHI_RESULT (phi_copy)));
 	  def = PHI_ARG_DEF_FROM_EDGE (phi, e);
 	  add_phi_arg (&phi_copy, def, e_copy);
 	}
@@ -4617,190 +4619,6 @@ add_phi_args_after_copy (basic_block *region_copy, unsigned n_region)
     region_copy[i]->rbi->duplicated = 0;
 }
 
-/* Maps the old ssa name FROM_NAME to TO_NAME.  */
-
-struct ssa_name_map_entry
-{
-  tree from_name;
-  tree to_name;
-};
-
-/* Hash function for ssa_name_map_entry.  */
-
-static hashval_t
-ssa_name_map_entry_hash (const void *entry)
-{
-  const struct ssa_name_map_entry *en = entry;
-  return SSA_NAME_VERSION (en->from_name);
-}
-
-/* Equality function for ssa_name_map_entry.  */
-
-static int
-ssa_name_map_entry_eq (const void *in_table, const void *ssa_name)
-{
-  const struct ssa_name_map_entry *en = in_table;
-
-  return en->from_name == ssa_name;
-}
-
-/* Allocate duplicates of ssa names in list DEFINITIONS and store the mapping
-   to MAP.  */
-
-void
-allocate_ssa_names (bitmap definitions, htab_t *map)
-{
-  tree name;
-  struct ssa_name_map_entry *entry;
-  PTR *slot;
-  unsigned ver;
-  bitmap_iterator bi;
-
-  if (!*map)
-    *map = htab_create (10, ssa_name_map_entry_hash,
-			ssa_name_map_entry_eq, free);
-  EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver, bi)
-    {
-      name = ssa_name (ver);
-      slot = htab_find_slot_with_hash (*map, name, SSA_NAME_VERSION (name),
-				       INSERT);
-      if (*slot)
-	entry = *slot;
-      else
-	{
-	  entry = xmalloc (sizeof (struct ssa_name_map_entry));
-	  entry->from_name = name;
-	  *slot = entry;
-	}
-      entry->to_name = duplicate_ssa_name (name, SSA_NAME_DEF_STMT (name));
-    }
-}
-
-/* Rewrite the definition DEF in statement STMT to new ssa name as specified
-   by the mapping MAP.  */
-
-static void
-rewrite_to_new_ssa_names_def (def_operand_p def, tree stmt, htab_t map)
-{
-  tree name = DEF_FROM_PTR (def);
-  struct ssa_name_map_entry *entry;
-
-  gcc_assert (TREE_CODE (name) == SSA_NAME);
-
-  entry = htab_find_with_hash (map, name, SSA_NAME_VERSION (name));
-  if (!entry)
-    return;
-
-  SET_DEF (def, entry->to_name);
-  SSA_NAME_DEF_STMT (entry->to_name) = stmt;
-}
-
-/* Rewrite the USE to new ssa name as specified by the mapping MAP.  */
-
-static void
-rewrite_to_new_ssa_names_use (use_operand_p use, htab_t map)
-{
-  tree name = USE_FROM_PTR (use);
-  struct ssa_name_map_entry *entry;
-
-  if (TREE_CODE (name) != SSA_NAME)
-    return;
-
-  entry = htab_find_with_hash (map, name, SSA_NAME_VERSION (name));
-  if (!entry)
-    return;
-
-  SET_USE (use, entry->to_name);
-}
-
-/* Rewrite the ssa names in basic block BB to new ones as specified by the
-   mapping MAP.  */
-
-void
-rewrite_to_new_ssa_names_bb (basic_block bb, htab_t map)
-{
-  unsigned i;
-  edge e;
-  edge_iterator ei;
-  tree phi, stmt;
-  block_stmt_iterator bsi;
-  use_optype uses;
-  vuse_optype vuses;
-  def_optype defs;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
-  stmt_ann_t ann;
-
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    if (e->flags & EDGE_ABNORMAL)
-      break;
-
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-    {
-      rewrite_to_new_ssa_names_def (PHI_RESULT_PTR (phi), phi, map);
-      if (e)
-	SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)) = 1;
-    }
-
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-    {
-      stmt = bsi_stmt (bsi);
-      get_stmt_operands (stmt);
-      ann = stmt_ann (stmt);
-
-      uses = USE_OPS (ann);
-      for (i = 0; i < NUM_USES (uses); i++)
-	rewrite_to_new_ssa_names_use (USE_OP_PTR (uses, i), map);
-
-      defs = DEF_OPS (ann);
-      for (i = 0; i < NUM_DEFS (defs); i++)
-	rewrite_to_new_ssa_names_def (DEF_OP_PTR (defs, i), stmt, map);
-
-      vuses = VUSE_OPS (ann);
-      for (i = 0; i < NUM_VUSES (vuses); i++)
-	rewrite_to_new_ssa_names_use (VUSE_OP_PTR (vuses, i), map);
-
-      v_may_defs = V_MAY_DEF_OPS (ann);
-      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-	{
-	  rewrite_to_new_ssa_names_use
-		  (V_MAY_DEF_OP_PTR (v_may_defs, i), map);
-	  rewrite_to_new_ssa_names_def
-		  (V_MAY_DEF_RESULT_PTR (v_may_defs, i), stmt, map);
-	}
-
-      v_must_defs = V_MUST_DEF_OPS (ann);
-      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-	rewrite_to_new_ssa_names_def
-		(V_MUST_DEF_OP_PTR (v_must_defs, i), stmt, map);
-    }
-
-  FOR_EACH_EDGE (e, ei, bb->succs)
-    for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-      {
-	rewrite_to_new_ssa_names_use
-		(PHI_ARG_DEF_PTR_FROM_EDGE (phi, e), map);
-
-	if (e->flags & EDGE_ABNORMAL)
-	  {
-	    tree op = PHI_ARG_DEF_FROM_EDGE (phi, e);
-	    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op) = 1;
-	  }
-      }
-}
-
-/* Rewrite the ssa names in N_REGION blocks REGION to the new ones as specified
-   by the mapping MAP.  */
-
-void
-rewrite_to_new_ssa_names (basic_block *region, unsigned n_region, htab_t map)
-{
-  unsigned r;
-
-  for (r = 0; r < n_region; r++)
-    rewrite_to_new_ssa_names_bb (region[r], map);
-}
-
 /* Duplicates a REGION (set of N_REGION basic blocks) with just a single
    important exit edge EXIT.  By important we mean that no SSA name defined
    inside region is live over the other exit edges of the region.  All entry
@@ -4823,7 +4641,6 @@ tree_duplicate_sese_region (edge entry, edge exit,
   bitmap definitions;
   tree phi, var;
   basic_block *doms;
-  htab_t ssa_name_map = NULL;
   edge redirected;
   bitmap_iterator bi;
 
@@ -4871,7 +4688,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
       free_region_copy = true;
     }
 
-  gcc_assert (!any_marked_for_rewrite_p ());
+  gcc_assert (!any_values_for_ssa_update_p ());
 
   /* Record blocks outside the region that are duplicated by something
      inside.  */
@@ -4879,7 +4696,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
   n_doms = get_dominated_by_region (CDI_DOMINATORS, region, n_region, doms);
 
   copy_bbs (region, n_region, region_copy, &exit, 1, &exit_copy, loop);
-  definitions = marked_ssa_names ();
+  definitions = ssa_names_for_ssa_update ();
 
   if (copying_header)
     {
@@ -4912,30 +4729,38 @@ tree_duplicate_sese_region (edge entry, edge exit,
      are used outside region.  */
   EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver, bi)
     {
-      tree name = ssa_name (ver);
+      tree name, new_orig_name;
+      struct usf_def_list *copy_def, *orig_def;
+
+      name = ssa_name (ver);
+
+      /* First entry in the list should be the original definition,
+	 the second one should be the one in the copy.  */
+      orig_def = get_defs_to_update (name);
+      copy_def = orig_def->next;
+      gcc_assert (DEF_FROM_PTR (orig_def->op) == name);
+
+      /* Create new definition inside copied region.  */
+      new_orig_name = rewrite_new_def (determine_def_stmt (orig_def),
+				       orig_def->op);
 
       phi = create_phi_node (name, exit->dest);
-      add_phi_arg (&phi, name, exit);
-      add_phi_arg (&phi, name, exit_copy);
-
+      add_phi_arg (&phi, new_orig_name, exit);
+      add_phi_arg (&phi, DEF_FROM_PTR (copy_def->op), exit_copy);
       SSA_NAME_DEF_STMT (name) = phi;
-    }
 
-  /* And create new definitions inside region and its copy.  TODO -- once we
-     have immediate uses, it might be better to leave definitions in region
-     unchanged, create new ssa names for phi nodes on exit, and rewrite
-     the uses, to avoid changing the copied region.  */
-  allocate_ssa_names (definitions, &ssa_name_map);
-  rewrite_to_new_ssa_names (region, n_region, ssa_name_map);
-  allocate_ssa_names (definitions, &ssa_name_map);
-  rewrite_to_new_ssa_names (region_copy, n_region, ssa_name_map);
-  htab_delete (ssa_name_map);
+      free_def_list (copy_def);
+    }
+  BITMAP_XFREE (definitions);
+
+  /* Replace the uses in original region and its copy.  */
+  rewrite_uses_region (region, n_region, 2);
+  rewrite_uses_region (region_copy, n_region, 1);
+
+  ssa_form_updated_all ();
 
   if (free_region_copy)
     free (region_copy);
-
-  unmark_all_for_rewrite ();
-  BITMAP_XFREE (definitions);
 
   return true;
 }

@@ -1454,9 +1454,21 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case SSA_NAME:
-      dump_generic_node (buffer, SSA_NAME_VAR (node), spc, flags, false);
-      pp_string (buffer, "_");
-      pp_decimal_int (buffer, SSA_NAME_VERSION (node));
+      {
+	tree orig;
+
+	dump_generic_node (buffer, SSA_NAME_VAR (node), spc, flags, false);
+	pp_string (buffer, "_");
+	pp_decimal_int (buffer, SSA_NAME_VERSION (node));
+	orig = original_equivalent_name (node);
+
+	if (orig != node)
+	  {
+	    pp_string (buffer, "{eqto ");
+	    dump_generic_node (buffer, orig, spc, flags, false);
+	    pp_string (buffer, "}");
+	  }
+      }
       break;
 
     case WITH_SIZE_EXPR:
