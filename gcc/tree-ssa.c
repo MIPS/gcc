@@ -4090,19 +4090,28 @@ warn_uninit (tree t, const char *msgid, location_t *locus)
   tree var = SSA_NAME_VAR (t);
   tree def = SSA_NAME_DEF_STMT (t);
 
-  /* Default uses (indicated by an empty definition statement), are
-     uninitialized.  Except for PARMs of course, which are always
-     initialized.  TREE_NO_WARNING either means we already warned,
-     or the front end wishes to suppress the warning.  */
-  if (IS_EMPTY_STMT (def)
-      && TREE_CODE (var) != PARM_DECL
-      && !TREE_NO_WARNING (var))
-    {
-      if (!locus)
-	locus = &DECL_SOURCE_LOCATION (var);
-      warning (msgid, locus, var);
-      TREE_NO_WARNING (var) = 1;
-    }
+  /* Default uses (indicated by an empty definition statement),
+     are uninitialized.  */
+  if (!IS_EMPTY_STMT (def))
+    return;
+
+  /* Except for PARMs of course, which are always initialized.  */
+  if (TREE_CODE (var) == PARM_DECL)
+    return;
+
+  /* Hard register variables get their initial value from the ether.  */
+  if (DECL_HARD_REGISTER (var))
+    return;
+
+  /* TREE_NO_WARNING either means we already warned, or the front end
+     wishes to suppress the warning.  */
+  if (TREE_NO_WARNING (var))
+    return;
+
+  if (!locus)
+    locus = &DECL_SOURCE_LOCATION (var);
+  warning (msgid, locus, var);
+  TREE_NO_WARNING (var) = 1;
 }
    
 /* Called via walk_tree, look for SSA_NAMEs that have empty definitions
