@@ -1,3 +1,7 @@
+2003-09-11  Mike Stump  <mrs@apple.com>
+
+	* c-lex.c (fe_file_change): Don't transform to_line with SOURCE_LINE.
+
 2003-09-09  Mike Stump  <mrs@apple.com>
 
 	* common.opt (fserver): Make it JoinedOrMissing.

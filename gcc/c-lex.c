@@ -220,14 +220,11 @@ cb_dir_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const char *dir)
 void
 fe_file_change (const struct line_map *new_map)
 {
-  unsigned int to_line;
   if (new_map == NULL)
     {
       map = NULL;
       return;
     }
-
-  to_line = SOURCE_LINE (new_map, new_map->to_line);
 
   if (new_map->reason == LC_ENTER)
     {
@@ -265,13 +262,13 @@ fe_file_change (const struct line_map *new_map)
 #endif
       pop_srcloc ();
 
-      (*debug_hooks->end_source_file) (to_line);
+      (*debug_hooks->end_source_file) (new_map->to_line);
     }
 
   update_header_times (new_map->to_file);
   in_system_header = new_map->sysp != 0;
   input_filename = new_map->to_file;
-  input_line = to_line;
+  input_line = new_map->to_line;
   map = new_map;
 
   /* Hook for C++.  */
