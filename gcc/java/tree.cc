@@ -2336,8 +2336,10 @@ tree
 tree_generator::build_mod (tree result_type, tree lhs, tree rhs)
 {
   tree func;
-  if (result_type == type_jfloat || result_type == type_jdouble)
-    func = builtin_fmod;
+  if (result_type == type_jfloat)
+    func = build_address_of (built_in_decls[BUILT_IN_FMODF]);
+  else if (result_type == type_jdouble)
+    func = build_address_of (built_in_decls[BUILT_IN_FMOD]);
   else
     {
       if (! flag_use_divide_subroutine)

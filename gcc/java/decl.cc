@@ -26,6 +26,58 @@
 // this explicitly.
 extern "C" rtx init_one_libfunc (const char *);
 
+static tree max_builtin (tree, tree);
+static tree min_builtin (tree, tree);
+static tree abs_builtin (tree, tree);
+
+
+
+/* Functions of this type are used to inline a given call.  Such a
+   function should either return an expression, if the call is to be
+   inlined, or NULL_TREE if a real call should be emitted.  Arguments
+   are method return type and arguments to call.  */
+typedef tree builtin_creator_function (tree, tree);
+
+/* Hold a char*, before initialization, or a tree, after
+   initialization.  */
+union string_or_tree GTY(())
+{
+  const char * GTY ((tag ("0"))) s;
+  tree GTY ((tag ("1"))) t;
+};
+
+/* Used to hold a single builtin record.  */
+struct builtin_record GTY(())
+{
+  union string_or_tree GTY ((desc ("1"))) class_name;
+  union string_or_tree GTY ((desc ("1"))) method_name;
+  builtin_creator_function * GTY((skip)) creator;
+  enum built_in_function builtin_code;
+};
+
+static GTY(()) struct builtin_record java_builtins[] =
+{
+  { { "java.lang.Math" }, { "min" }, min_builtin, (built_in_function) -1 },
+  { { "java.lang.Math" }, { "max" }, max_builtin, (built_in_function) -1 },
+  { { "java.lang.Math" }, { "abs" }, abs_builtin, (built_in_function) -1 },
+  { { "java.lang.Math" }, { "acos" }, NULL, BUILT_IN_ACOS },
+  { { "java.lang.Math" }, { "asin" }, NULL, BUILT_IN_ASIN },
+  { { "java.lang.Math" }, { "atan" }, NULL, BUILT_IN_ATAN },
+  { { "java.lang.Math" }, { "atan2" }, NULL, BUILT_IN_ATAN2 },
+  { { "java.lang.Math" }, { "ceil" }, NULL, BUILT_IN_CEIL },
+  { { "java.lang.Math" }, { "cos" }, NULL, BUILT_IN_COS },
+  { { "java.lang.Math" }, { "exp" }, NULL, BUILT_IN_EXP },
+  { { "java.lang.Math" }, { "floor" }, NULL, BUILT_IN_FLOOR },
+  { { "java.lang.Math" }, { "log" }, NULL, BUILT_IN_LOG },
+  { { "java.lang.Math" }, { "pow" }, NULL, BUILT_IN_POW },
+  { { "java.lang.Math" }, { "sin" }, NULL, BUILT_IN_SIN },
+  { { "java.lang.Math" }, { "sqrt" }, NULL, BUILT_IN_SQRT },
+  { { "java.lang.Math" }, { "tan" }, NULL, BUILT_IN_TAN },
+  { { NULL }, { NULL }, NULL, END_BUILTINS }
+};
+
+
+
 // Used when computing the ABI version.
 #define GCJ_BINARYCOMPAT_ADDITION 5
 
@@ -117,7 +169,6 @@ tree builtin_Jv_divI;
 tree builtin_Jv_remI;
 tree builtin_Jv_divJ;
 tree builtin_Jv_remJ;
-tree builtin_fmod;
 
 // Vtables for primitive types.
 tree boolean_array_vtable;
@@ -742,8 +793,6 @@ initialize_builtin_functions ()
 			      0, NOT_BUILT_IN, NULL, NULL_TREE);
   builtin_Jv_remJ
     = build_address_of (builtin_Jv_remJ);
-
-  // FIXME: initialize builtin_fmod.
 }
 
 static void
@@ -789,6 +838,127 @@ initialize_version ()
   gcj_abi_version = build_int_cstu (ptr_type_node, abi_version);
 }
 
+
+
+/* Internal functions which implement various builtin conversions.  */
+
+static tree
+max_builtin (tree method_return_type, tree method_arguments)
+{
+  return fold (build2 (MAX_EXPR, method_return_type,
+		       TREE_VALUE (method_arguments),
+		       TREE_VALUE (TREE_CHAIN (method_arguments))));
+}
+
+static tree
+min_builtin (tree method_return_type, tree method_arguments)
+{
+  return fold (build2 (MIN_EXPR, method_return_type,
+		       TREE_VALUE (method_arguments),
+		       TREE_VALUE (TREE_CHAIN (method_arguments))));
+}
+
+static tree
+abs_builtin (tree method_return_type, tree method_arguments)
+{
+  return fold (build1 (ABS_EXPR, method_return_type,
+		       TREE_VALUE (method_arguments)));
+}
+
+/* Define a single builtin.  */
+static void
+define_builtin (enum built_in_function val,
+		const char *name,
+		tree type,
+		const char *libname)
+{
+  tree decl;
+
+  decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
+  DECL_EXTERNAL (decl) = 1;
+  TREE_PUBLIC (decl) = 1;
+  SET_DECL_ASSEMBLER_NAME (decl, get_identifier (libname));
+  make_decl_rtl (decl);
+  pushdecl (decl);
+  DECL_BUILT_IN_CLASS (decl) = BUILT_IN_NORMAL;
+  DECL_FUNCTION_CODE (decl) = val;
+
+  implicit_built_in_decls[val] = decl;
+  built_in_decls[val] = decl;
+}
+
+/* Initialize the builtins.  */
+static void
+initialize_builtins ()
+{
+  tree double_ftype_double, double_ftype_double_double;
+  tree float_ftype_float, float_ftype_float_float;
+  tree t;
+  int i;
+
+  for (i = 0; java_builtins[i].builtin_code != END_BUILTINS; ++i)
+    {
+      tree klass_id = get_identifier (java_builtins[i].class_name.s);
+      tree m = get_identifier (java_builtins[i].method_name.s);
+
+      java_builtins[i].class_name.t = klass_id;
+      java_builtins[i].method_name.t = m;
+    }
+
+  // Some possible confusion here, because we assume that
+  // float_type_node == type_jfloat, and likewise for double.
+  // Hopefully these assertions suffice.
+  assert (TYPE_PRECISION (float_type_node) == TYPE_PRECISION (type_jfloat));
+  assert (TYPE_PRECISION (double_type_node) == TYPE_PRECISION (type_jdouble));
+
+  t = tree_cons (NULL_TREE, float_type_node, void_list_node);
+  float_ftype_float = build_function_type (float_type_node, t);
+  t = tree_cons (NULL_TREE, float_type_node, t);
+  float_ftype_float_float = build_function_type (float_type_node, t);
+
+  t = tree_cons (NULL_TREE, double_type_node, void_list_node);
+  double_ftype_double = build_function_type (double_type_node, t);
+  t = tree_cons (NULL_TREE, double_type_node, t);
+  double_ftype_double_double = build_function_type (double_type_node, t);
+
+  define_builtin (BUILT_IN_FMOD, "__builtin_fmod",
+		  double_ftype_double_double, "fmod");
+  define_builtin (BUILT_IN_FMODF, "__builtin_fmodf",
+		  float_ftype_float_float, "fmodf");
+
+  define_builtin (BUILT_IN_ACOS, "__builtin_acos",
+		  double_ftype_double, "_ZN4java4lang4Math4acosEd");
+  define_builtin (BUILT_IN_ASIN, "__builtin_asin",
+		  double_ftype_double, "_ZN4java4lang4Math4asinEd");
+  define_builtin (BUILT_IN_ATAN, "__builtin_atan",
+		  double_ftype_double, "_ZN4java4lang4Math4atanEd");
+  define_builtin (BUILT_IN_ATAN2, "__builtin_atan2",
+		  double_ftype_double_double, "_ZN4java4lang4Math5atan2Edd");
+  define_builtin (BUILT_IN_CEIL, "__builtin_ceil",
+		  double_ftype_double, "_ZN4java4lang4Math4ceilEd");
+  define_builtin (BUILT_IN_COS, "__builtin_cos",
+		  double_ftype_double, "_ZN4java4lang4Math3cosEd");
+  define_builtin (BUILT_IN_EXP, "__builtin_exp",
+		  double_ftype_double, "_ZN4java4lang4Math3expEd");
+  define_builtin (BUILT_IN_FLOOR, "__builtin_floor",
+		  double_ftype_double, "_ZN4java4lang4Math5floorEd");
+  define_builtin (BUILT_IN_LOG, "__builtin_log",
+		  double_ftype_double, "_ZN4java4lang4Math3logEd");
+  define_builtin (BUILT_IN_POW, "__builtin_pow",
+		  double_ftype_double_double, "_ZN4java4lang4Math3powEdd");
+  define_builtin (BUILT_IN_SIN, "__builtin_sin",
+		  double_ftype_double, "_ZN4java4lang4Math3sinEd");
+  define_builtin (BUILT_IN_SQRT, "__builtin_sqrt",
+		  double_ftype_double, "_ZN4java4lang4Math4sqrtEd");
+  define_builtin (BUILT_IN_TAN, "__builtin_tan",
+		  double_ftype_double, "_ZN4java4lang4Math3tanEd");
+
+  // Only on trunk for now.
+  // build_common_builtin_nodes ();
+}
+
+
+
 tree
 gcjx::builtin_function (const char *name,
 			tree type,
@@ -832,8 +1002,11 @@ gcjx::initialize_decls ()
   build_class_union ();
   initialize_builtin_functions ();
 
+  initialize_builtins ();
+
   initialize_version ();
 }
 
+#include "gt-java-decl.h"
 #include "gt-java-hooks.h"
 #include "gtype-java.h"

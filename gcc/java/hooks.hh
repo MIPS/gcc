@@ -84,7 +84,6 @@ extern GTY (()) tree builtin_Jv_divI;
 extern GTY (()) tree builtin_Jv_remI;
 extern GTY (()) tree builtin_Jv_divJ;
 extern GTY (()) tree builtin_Jv_remJ;
-extern GTY (()) tree builtin_fmod;
 extern GTY (()) tree boolean_array_vtable;
 extern GTY (()) tree byte_array_vtable;
 extern GTY (()) tree char_array_vtable;

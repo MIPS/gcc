@@ -717,10 +717,9 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  {
 	    tree val2 = pop (type_jfloat);
 	    tree val1 = pop (type_jfloat);
-	    // FIXME: convert to/from jfloat
 	    insn = push (build3 (CALL_EXPR,
 				 type_jfloat,
-				 builtin_fmod,
+				 build_address_of (built_in_decls[BUILT_IN_FMODF]),
 				 tree_cons (NULL_TREE, val1,
 					    build_tree_list (NULL_TREE,
 							     val2)),
@@ -734,7 +733,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    tree val1 = pop (type_jdouble);
 	    insn = push (build3 (CALL_EXPR,
 				 type_jdouble,
-				 builtin_fmod,
+				 build_address_of (built_in_decls[BUILT_IN_FMOD]),
 				 tree_cons (NULL_TREE, val1,
 					    build_tree_list (NULL_TREE,
 							     val2)),
