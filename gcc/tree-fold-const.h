@@ -39,30 +39,6 @@ extern tree tree_fold_factorial (tree);
 
 
 
-/* When computing on chrecs, determine the type of the result from the
-   types TYPE0 and TYPE1 of the operands.  */
-
-static inline tree 
-chrec_merge_types (tree type0, 
-		   tree type1)
-{
-  if (type0 == type1)
-    return type0;
-  
-  if (type0 == char_type_node
-      || type1 == char_type_node)
-    return char_type_node;
-  
-  if (type0 == integer_type_node
-      || type1 == integer_type_node)
-    return integer_type_node;
-  
-  /* FIXME.  */
-  return type0;
-}
-
-
-
 /* Fold the addition.  */
 
 static inline tree 

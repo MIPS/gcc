@@ -90,7 +90,8 @@ extern tree chrec_replace_initial_condition (tree, tree);
 extern tree update_initial_condition_to_origin (tree);
 extern tree initial_condition (tree);
 extern tree evolution_part_in_loop_num (tree, unsigned);
-extern tree evolution_function_in_loop_num (tree, unsigned);
+extern tree hide_evolution_in_other_loops_than_loop (tree, unsigned);
+extern tree hide_evolution_in_loop (tree, unsigned);
 extern tree reset_evolution_in_loop (unsigned, tree, tree);
 extern tree chrec_eval_next_init_cond (unsigned, tree);
 extern tree chrec_merge (tree, tree);
@@ -113,9 +114,6 @@ static inline bool symbolic_parameter_expr_p (tree);
 static inline bool evolution_function_is_constant_p (tree);
 static inline bool evolution_function_is_affine_p (tree);
 static inline bool chrec_should_remain_symbolic (tree);
-
-/* Analyzers.  */
-extern void analyze_overlapping_iterations (tree, tree, tree *, tree *);
 
 
 

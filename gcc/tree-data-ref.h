@@ -141,16 +141,11 @@ struct data_dependence_relation GTY(())
 
 
 extern void analyze_all_data_dependences (struct loops *);
-extern void find_data_references (varray_type *);
+extern void compute_data_dependences_for_loop (unsigned, struct loop *, 
+					       varray_type *, varray_type *, 
+					       varray_type *, varray_type *);
+extern struct data_reference *analyze_array (tree, tree);
 
-extern void compute_distance_vector (struct data_dependence_relation *);
-extern void compute_direction_vector (struct data_dependence_relation *);
-extern void compute_affine_dependence (struct data_dependence_relation *);
-
-extern void debug_data_reference (struct data_reference *);
-extern void debug_data_references (varray_type);
-extern void debug_data_dependence_relation (struct data_dependence_relation *);
-extern void debug_data_dependence_relations (varray_type);
 
 extern void dump_data_reference (FILE *, struct data_reference *);
 extern void dump_data_references (FILE *, varray_type);
@@ -159,8 +154,6 @@ extern void dump_data_dependence_relation (FILE *,
 extern void dump_data_dependence_relations (FILE *, varray_type);
 extern void dump_data_dependence_direction (FILE *, 
 					    enum data_dependence_direction);
-extern void compute_all_dependences (varray_type, varray_type *);
-extern struct data_reference *analyze_array (tree, tree);
 
 
 
@@ -187,8 +180,5 @@ array_base_name_differ_p (struct data_reference *a,
   
   return true;
 }
-
-/* Flag to indicate availability of dependency info.  */
-extern bool dd_info_available;
 
 #endif  /* GCC_TREE_DATA_REF_H  */

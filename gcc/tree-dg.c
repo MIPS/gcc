@@ -60,7 +60,6 @@ static dependence_node alloc_dependence_node (void);
 static dependence_edge alloc_dependence_edge (void);
 static dependence_node dg_create_node (tree);
 static dependence_edge dg_find_edge (dependence_node, dependence_node, bool);
-static bool gate_ddg (void);
 static void dump_dg (FILE *, int);
 static void dg_delete_edges (void);
 static void dg_delete_node (dependence_node);
@@ -73,6 +72,8 @@ static int dependence_graph_size = 25;
 static GTY (()) varray_type dependence_graph;
 static GTY (()) varray_type datarefs;
 static GTY (()) varray_type dependence_relations;
+static GTY (()) varray_type classic_dist;
+static GTY (()) varray_type classic_dir;
 
 /* Total dependence node count.  */
 static int n_dependence_node = 0;
@@ -87,21 +88,21 @@ void dg_init_graph (void)
 }
 
 /* Create dependency graph.  */
-void dg_create_graph (void)
+void dg_create_graph (struct loops *loops)
 {
   unsigned int i;
-  int nb_data_refs;
 
+  VARRAY_GENERIC_PTR_INIT (classic_dist, 10, "classic_dist");
+  VARRAY_GENERIC_PTR_INIT (classic_dir, 10, "classic_dir");
   VARRAY_GENERIC_PTR_INIT (datarefs, 10, "datarefs");
-  find_data_references (&datarefs);
-  nb_data_refs = VARRAY_ACTIVE_SIZE (datarefs);
-  VARRAY_GENERIC_PTR_INIT (dependence_relations, 
-			   nb_data_refs * nb_data_refs,
+  VARRAY_GENERIC_PTR_INIT (dependence_relations, 10 * 10,
 			   "dependence_relations");
 
   /* Analyze data references and dependence relations using scev.  */
   
-  compute_all_dependences (datarefs, &dependence_relations);
+  compute_data_dependences_for_loop (loops->num, loop_from_num (loops, 0), 
+				     &datarefs, &dependence_relations, 
+				     &classic_dist, &classic_dir);
   
   /* Initialize.  */
   dg_init_graph ();
@@ -142,7 +143,6 @@ void dg_create_graph (void)
     {
       dump_dg (dump_file, dump_flags);
     }
-  
 }
 
 /* Delete data dependence graph.  */
@@ -164,6 +164,12 @@ dg_delete_graph (void)
 
       if (dependence_relations)
 	VARRAY_CLEAR (dependence_relations);
+
+      if (classic_dir)
+	VARRAY_CLEAR (classic_dir);
+
+      if (classic_dist)
+	VARRAY_CLEAR (classic_dist);
 
       /* Clear dependence graph itself.  */
       VARRAY_CLEAR (dependence_graph);
@@ -507,56 +513,6 @@ ddg_distance_between_stmts (tree stmt1, tree stmt2, int loop_num)
 
   return SUB_DISTANCE (sub);
 }
-
-
-
-/*---------------------------------------------------------------------------
-                         Pass management
----------------------------------------------------------------------------*/
-
-static bool
-gate_ddg (void)
-{
-  return dd_info_available && flag_ddg && flag_scalar_evolutions != 0;
-}
-
-struct tree_opt_pass pass_ddg =
-{
-  "ddg",				/* name */
-  gate_ddg,			        /* gate */
-  dg_create_graph,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_DEP_GRAPH,			        /* tv_id */
-  PROP_scev,      			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
-};
-
-static bool
-gate_delete_ddg (void)
-{
-  return flag_ddg && flag_scalar_evolutions != 0 && dependence_graph;
-}
-
-struct tree_opt_pass pass_delete_ddg =
-{
-  "delete ddg",				/* name */
-  gate_delete_ddg,		        /* gate */
-  dg_delete_graph,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_DEP_GRAPH,			        /* tv_id */
-  0,      			        /* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
-};
 
 /*---------------------------------------------------------------------------
 			 Printing and debugging

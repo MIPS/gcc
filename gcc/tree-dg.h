@@ -67,7 +67,7 @@ typedef struct dependence_node_def *dependence_node;
 #define DN_ID(node) (node->node_id)
 
 /* Create dependency graph.  */
-extern void dg_create_graph (void);
+extern void dg_create_graph (struct loops *);
 
 /* Delete dependency graph.  */
 extern void dg_delete_graph (void);

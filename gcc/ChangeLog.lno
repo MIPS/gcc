@@ -1,3 +1,58 @@
+2004-04-15  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
+	* tree-fold-const.h (chrec_merge_types): Move it...
+	* tree-chrec.c (multiply_int, divide_int, add_int, substract_int, 
+	integer_divides_p, lcm, gcd, update_initial_condition_to_origin, 
+	remove_initial_condition, ): Removed.
+	(evolution_function_in_loop_num): Renamed into
+	hide_evolution_in_other_loops_than_loop.
+	(hide_evolution_in_loop, hide_evolution_in_other_loops_than_loop): New.
+	(chrec_merge_types): ... here.
+	(chrec_merge): Answer chrec_top on EXPONENTIAL_CHREC. 
+	(ziv_subscript_p, siv_subscript_p, analyze_ziv_subscript, 
+	analyze_siv_subscript, analyze_siv_subscript_cst_affine, 
+	analyze_siv_subscript_affine_cst, analyze_siv_subscript_affine_affine, 
+	chrec_steps_divide_constant_p, analyze_miv_subscript, 
+	analyze_overlapping_iterations): Moved from here...
+	* tree-chrec.h (evolution_function_in_loop_num): Rename declaration.
+	(hide_evolution_in_other_loops_than_loop, hide_evolution_in_loop): New.
+	(analyze_overlapping_iterations): No longer extern.
+
+	* tree-data-ref.c (ziv_subscript_p, siv_subscript_p, 
+	analyze_ziv_subscript, 
+	analyze_siv_subscript, analyze_siv_subscript_cst_affine, 
+	analyze_siv_subscript_affine_cst, analyze_siv_subscript_affine_affine, 
+	chrec_steps_divide_constant_p, analyze_miv_subscript, 
+	analyze_overlapping_iterations): ... there.
+	(initialize_data_dependence_relation,
+	access_functions_are_affine_or_constant_p): Moved down.
+	(compute_all_dependences): Moved down.  Now is static.
+	(build_classic_dir_vector): New.
+	(build_classic_dist_vector): 
+	(find_data_references): Renamed find_data_references_in_loop. 
+	Now is static.
+	(compute_data_dependences_for_loop): New.
+	(analyze_all_data_dependences): Use compute_data_dependences_for_loop.
+	* tree-data-ref.h (dd_info_available): Don't declare it extern.
+
+	* tree-scalar-evolution.c (dd_info_available): Declare static.
+	(select_outer_and_current_evolutions): Removed.
+	(stats_*): Move the static variables in the chrec_stats structure.
+	(chrec_stats): New structure.
+	(first_iteration_non_satisfying_1): In the multivariate case, 
+	don't forget that the outer loops can change the number of iterations.
+	(cannot_analyze_loop_nb_iterations_yet): Removed.
+	(follow_ssa_edge_inner_loop_phi): Refine the case where the
+	evolution of the inner loop is symbolic.  
+	(number_of_iterations_in_loop): Factor the end of the cases.
+
+	* tree-dg.c (classic_dist, classic_dir): Declared static.
+	(dg_delete_graph): Delete the classic_dist and classic_dir.
+	(dg_create_graph): Adapt to use compute_data_dependences_for_loop.
+	(gate_ddg, gate_delete_ddg, pass_ddg, pass_delete_ddg): Moved in 
+	tree-scalar-evolution.c.
+	* tree-dg.h (dg_create_graph): Pass in struct loops.
+
 2004-04-15  Dorit Naishlos <dorit@il.ibm.com>
 
         * tree-data-ref.h (struct data_reference): New field "aux".

@@ -212,7 +212,7 @@ try_eliminate_check (tree cond)
 
   if (automatically_generated_chrec_p (nb_iters))
     return;
-  
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "(try_eliminate_check \n");

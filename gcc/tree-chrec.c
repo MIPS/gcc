@@ -37,131 +37,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-chrec.h"
 #include "tree-pass.h"
 
-/* Operations.  */
-static tree chrec_merge_intervals (tree, tree);
-static tree remove_initial_condition (tree);
-
-/* Observers.  */
-static bool is_multivariate_chrec_rec (tree, unsigned int);
-static inline bool is_not_constant_evolution (tree);
-
-/* Analyzers.  */
-static inline bool ziv_subscript_p (tree, tree);
-static bool siv_subscript_p (tree, tree);
-static void analyze_ziv_subscript (tree, tree, tree*, tree*);
-static void analyze_siv_subscript (tree, tree, tree*, tree*);
-static void analyze_siv_subscript_cst_affine (tree, tree, tree*, tree*);
-static void analyze_siv_subscript_affine_cst (tree, tree, tree*, tree*);
-static void analyze_siv_subscript_affine_affine (tree, tree, tree*, tree*);
-static bool chrec_steps_divide_constant_p (tree, tree);
-static void analyze_miv_subscript (tree, tree, tree*, tree*);
-
-/* Basic arithmetics.  */
-static int lcm (int, int);
-static int gcd (int, int);
-static inline int multiply_int (int, int);
-static inline int divide_int (int, int);
-static inline int add_int (int, int);
-static inline int substract_int (int, int);
-static inline bool integer_divides_p (int, int);
-
-
-
-/* Multiply integers.  */
-
-static inline int 
-multiply_int (int a, int b)
-{
-  return a * b;
-}
-
-/* Divide integers.  */
-
-static inline int 
-divide_int (int a, int b)
-{
-  return a / b;
-}
-
-/* Add integers.  */
-
-static inline int 
-add_int (int a, int b)
-{
-  return a + b;
-}
-
-/* Substract integers.  */
-
-static inline int 
-substract_int (int a, int b)
-{
-  return a - b;
-}
-
-/* Determines whether a divides b.  */
-
-static inline bool 
-integer_divides_p (int a, int b)
-{
-  return (a == gcd (a, b));
-}
-
-/* Least common multiple.  */
-
-static int 
-lcm (int a, 
-     int b)
-{
-  int pgcd;
-
-  if (a == 1) 
-    return b;
-
-  if (b == 1) 
-    return a;
-
-  if (a == 0 || b == 0) 
-    return 0;
-
-  pgcd = gcd (a, b);
-
-  if (pgcd == 1)
-    return multiply_int (a, b);
-
-  return pgcd * lcm (divide_int (a, pgcd), 
-		     divide_int (b, pgcd));
-}
-
-/* Greatest common divisor.  */
-
-static int 
-gcd (int a, 
-     int b)
-{
-  if (a == 0) 
-    return b;
-  
-  if (b == 0) 
-    return a;
-  
-  if (a < 0)
-    a = multiply_int (a, -1);
-  
-  if (b < 0)
-    b = multiply_int (b, -1);
-  
-  if (a == b)
-    return a;
-  
-  if (a > b)
-    return gcd (substract_int (a, b), b);
-
-  /* if (b > a)  */
-  return gcd (substract_int (b, a), a);
-}
-
-
 
 /* Extended folder for chrecs.  */
 
@@ -1235,6 +1110,7 @@ chrec_fold_multiply (tree type,
 	}
     }
 }
+
 
 
 /* Operations.  */
@@ -1341,7 +1217,7 @@ chrec_apply (unsigned var,
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "  (var = %d\n", var);
+      fprintf (dump_file, "  (varying_loop = %d\n", var);
       fprintf (dump_file, ")\n  (chrec = ");
       print_generic_expr (dump_file, chrec, 0);
       fprintf (dump_file, ")\n  (x = ");
@@ -1385,48 +1261,6 @@ chrec_replace_initial_condition (tree chrec,
     }
 }
 
-/* Updates the initial condition to the origin, ie. zero for a 
-   polynomial function, and one for an exponential function.  */
-
-tree 
-update_initial_condition_to_origin (tree chrec)
-{
-  if (automatically_generated_chrec_p (chrec))
-    return chrec;
-  
-  switch (TREE_CODE (chrec))
-    {
-    case POLYNOMIAL_CHREC:
-      if (TREE_CODE (CHREC_LEFT (chrec)) == POLYNOMIAL_CHREC
-	  || TREE_CODE (CHREC_LEFT (chrec)) == EXPONENTIAL_CHREC)
-	return build_polynomial_chrec 
-	  (CHREC_VARIABLE (chrec),
-	   update_initial_condition_to_origin (CHREC_LEFT (chrec)),
-	   CHREC_RIGHT (chrec));
-      else
-	return build_polynomial_chrec
-	  (CHREC_VARIABLE (chrec),
-	   integer_zero_node,
-	   CHREC_RIGHT (chrec));
-      
-    case EXPONENTIAL_CHREC:
-      if (TREE_CODE (CHREC_LEFT (chrec)) == POLYNOMIAL_CHREC
-	  || TREE_CODE (CHREC_LEFT (chrec)) == EXPONENTIAL_CHREC)
-	return build_exponential_chrec
-	  (CHREC_VARIABLE (chrec),
-	   integer_one_node,
-	   CHREC_RIGHT (chrec));
-      else
-	return build_polynomial_chrec
-	  (CHREC_VARIABLE (chrec),
-	   integer_zero_node,
-	   CHREC_RIGHT (chrec));
-      
-    default:
-      return chrec_top;
-    }
-}
-
 /* Returns the initial condition of a given CHREC.  */
 
 tree 
@@ -1442,12 +1276,48 @@ initial_condition (tree chrec)
     return chrec;
 }
 
-/* Returns a univariate function that represents the evolution in
-   LOOP_NUM.  */
+/* Returns a multivariate function that has no evolution in LOOP_NUM.
+   Mask the evolution LOOP_NUM.  */
 
 tree 
-evolution_function_in_loop_num (tree chrec, 
-				unsigned loop_num)
+hide_evolution_in_loop (tree chrec, unsigned loop_num)
+{
+  if (automatically_generated_chrec_p (chrec))
+    return chrec;
+  
+  switch (TREE_CODE (chrec))
+    {
+    case POLYNOMIAL_CHREC:
+      if (CHREC_VARIABLE (chrec) >= loop_num)
+	return hide_evolution_in_loop (CHREC_LEFT (chrec), loop_num);
+
+      else
+	return build_polynomial_chrec 
+	  (CHREC_VARIABLE (chrec), 
+	   hide_evolution_in_loop (CHREC_LEFT (chrec), loop_num), 
+	   CHREC_RIGHT (chrec));
+
+    case EXPONENTIAL_CHREC:
+      if (CHREC_VARIABLE (chrec) >= loop_num)
+	return hide_evolution_in_loop (CHREC_LEFT (chrec), loop_num);
+
+      else
+	return build_exponential_chrec 
+	  (CHREC_VARIABLE (chrec),
+	   hide_evolution_in_loop (CHREC_LEFT (chrec), loop_num),
+	   CHREC_RIGHT (chrec));
+
+    default:
+      return chrec;
+    }
+}
+
+/* Returns a univariate function that represents the evolution in
+   LOOP_NUM.  Mask the evolution of any other loop.  */
+
+tree 
+hide_evolution_in_other_loops_than_loop (tree chrec, 
+					 unsigned loop_num)
 {
   if (automatically_generated_chrec_p (chrec))
     return chrec;
@@ -1458,7 +1328,8 @@ evolution_function_in_loop_num (tree chrec,
       if (CHREC_VARIABLE (chrec) == loop_num)
 	return build_polynomial_chrec 
 	  (loop_num, 
-	   evolution_function_in_loop_num (CHREC_LEFT (chrec), loop_num), 
+	   hide_evolution_in_other_loops_than_loop (CHREC_LEFT (chrec), 
+						    loop_num), 
 	   CHREC_RIGHT (chrec));
       
       else if (CHREC_VARIABLE (chrec) < loop_num)
@@ -1466,13 +1337,15 @@ evolution_function_in_loop_num (tree chrec,
 	return initial_condition (chrec);
       
       else
-	return evolution_function_in_loop_num (CHREC_LEFT (chrec), loop_num);
+	return hide_evolution_in_other_loops_than_loop (CHREC_LEFT (chrec), 
+							loop_num);
       
     case EXPONENTIAL_CHREC:
       if (CHREC_VARIABLE (chrec) == loop_num)
 	return build_exponential_chrec 
 	  (loop_num,
-	   evolution_function_in_loop_num (CHREC_LEFT (chrec), loop_num),
+	   hide_evolution_in_other_loops_than_loop (CHREC_LEFT (chrec), 
+						    loop_num),
 	   CHREC_RIGHT (chrec));
       
       else if (CHREC_VARIABLE (chrec) < loop_num)
@@ -1480,7 +1353,8 @@ evolution_function_in_loop_num (tree chrec,
 	return initial_condition (chrec);
       
       else
-	return evolution_function_in_loop_num (CHREC_LEFT (chrec), loop_num);
+	return hide_evolution_in_other_loops_than_loop (CHREC_LEFT (chrec), 
+							loop_num);
       
     default:
       return chrec;
@@ -1620,32 +1494,37 @@ chrec_eval_next_init_cond (unsigned loop_nb,
     return init_cond;
 }
 
-/* Merge the information contained in two intervals. 
+/* Determine the type of the result after the merge of types TYPE0 and
+   TYPE1.  */
+
+static inline tree 
+chrec_merge_types (tree type0, 
+		   tree type1)
+{
+  if (type0 == type1)
+    return type0;
+
+  else 
+    /* FIXME.  */
+    return NULL_TREE;
+}
+
+/* Merge the information contained in intervals or scalar constants. 
    merge ([a, b], [c, d])  ->  [min (a, c), max (b, d)],
    merge ([a, b], c)       ->  [min (a, c), max (b, c)],
    merge (a, [b, c])       ->  [min (a, b), max (a, c)],
    merge (a, b)            ->  [min (a, b), max (a, b)].  */
 
-static tree 
+static inline tree 
 chrec_merge_intervals (tree chrec1, 
 		       tree chrec2)
 {
-  tree type;
+  tree type1 = chrec_type (chrec1);
+  tree type2 = chrec_type (chrec2);
+  tree type = chrec_merge_types (type1, type2);
   
-  /* Don't modify abstract values.  */
-  if (chrec1 == chrec_top
-      || chrec2 == chrec_top)
+  if (type == NULL_TREE)
     return chrec_top;
-  if (chrec1 == chrec_bot 
-      || chrec2 == chrec_bot)
-    return chrec_bot;
-  if (chrec1 == chrec_not_analyzed_yet)
-    return chrec2;
-  if (chrec2 == chrec_not_analyzed_yet)
-    return chrec1;
-  
-  type = chrec_merge_types 
-    (chrec_type (chrec1), chrec_type (chrec2));
   
   if (TREE_CODE (chrec1) == INTERVAL_CHREC)
     {
@@ -1675,11 +1554,19 @@ tree
 chrec_merge (tree chrec1, 
 	     tree chrec2)
 {
+  if (chrec1 == chrec_top
+      || chrec2 == chrec_top)
+    return chrec_top;
+
+  if (chrec1 == chrec_bot 
+      || chrec2 == chrec_bot)
+    return chrec_bot;
+
   if (chrec1 == chrec_not_analyzed_yet)
     return chrec2;
   if (chrec2 == chrec_not_analyzed_yet)
     return chrec1;
- 
+
   if (operand_equal_p (chrec1, chrec2, 0))
     return chrec1;
 
@@ -1704,10 +1591,7 @@ chrec_merge (tree chrec1,
 	    (CHREC_VARIABLE (chrec2),
 	     chrec_merge (chrec1, CHREC_LEFT (chrec2)),
 	     chrec_merge (integer_one_node, CHREC_RIGHT (chrec2)));
-	  
-	  return chrec_merge_intervals 
-	    (chrec1, build_interval_chrec (chrec2, chrec2));
-	  
+
 	default:
 	  return chrec_top;
 	}
@@ -1740,88 +1624,18 @@ chrec_merge (tree chrec1,
 	       chrec_merge (CHREC_RIGHT (chrec1), integer_zero_node));
 	  
 	case EXPONENTIAL_CHREC:
-	  if (CHREC_VARIABLE (chrec1) == CHREC_VARIABLE (chrec2))
-	    return chrec_top;
-	  else if (CHREC_VARIABLE (chrec1) < CHREC_VARIABLE (chrec2))
-	    return build_exponential_chrec
-	      (CHREC_VARIABLE (chrec2),
-	       chrec_merge (chrec1, CHREC_LEFT (chrec2)),
-	       chrec_merge (integer_one_node, CHREC_RIGHT (chrec2)));
-	  else
-	    return build_polynomial_chrec
-	      (CHREC_VARIABLE (chrec1),
-	       chrec_merge (CHREC_LEFT (chrec1), chrec2),
-	       chrec_merge (CHREC_RIGHT (chrec1), integer_zero_node));
+	  return chrec_top;
 	  
 	default:
 	  return chrec_top;
 	}
       
     case EXPONENTIAL_CHREC:
-      switch (TREE_CODE (chrec2))
-	{
-	case INTEGER_CST:
-	case INTERVAL_CHREC:
-	  return build_exponential_chrec 
-	    (CHREC_VARIABLE (chrec1),
-	     chrec_merge (CHREC_LEFT (chrec1), chrec2),
-	     chrec_merge (CHREC_RIGHT (chrec1), integer_one_node));
-	  
-	case POLYNOMIAL_CHREC:
-	  if (CHREC_VARIABLE (chrec1) == CHREC_VARIABLE (chrec2))
-	    return chrec_top;
-	  else if (CHREC_VARIABLE (chrec1) < CHREC_VARIABLE (chrec2))
-	    return build_polynomial_chrec
-	      (CHREC_VARIABLE (chrec2),
-	       chrec_merge (chrec1, CHREC_LEFT (chrec2)),
-	       chrec_merge (integer_zero_node, CHREC_RIGHT (chrec2)));
-	  else
-	    return build_exponential_chrec
-	      (CHREC_VARIABLE (chrec1),
-	       chrec_merge (CHREC_LEFT (chrec1), chrec2),
-	       chrec_merge (CHREC_RIGHT (chrec1), integer_one_node));
-	  
-	case EXPONENTIAL_CHREC:
-	  return build_exponential_chrec 
-	    (CHREC_VARIABLE (chrec1), 
-	     chrec_merge (CHREC_LEFT (chrec1), CHREC_LEFT (chrec2)),
-	     chrec_merge (CHREC_RIGHT (chrec1), CHREC_RIGHT (chrec2)));
-	  
-	default:
-	  return chrec_top;
-	}
-      
+      return chrec_top;
+
     default:
       return chrec_top;
     }
-}
-
-/* Returns a chrec for which the initial condition has been removed.
-   Example: {{1, +, 2}, +, 3} returns {2, +, 3}.  */
-
-static tree
-remove_initial_condition (tree chrec)
-{
-  tree left;
-  
-  if (chrec == NULL_TREE)
-    return NULL_TREE;
-  
-  if (TREE_CODE (chrec) != POLYNOMIAL_CHREC
-      && TREE_CODE (chrec) != EXPONENTIAL_CHREC)
-    return NULL_TREE;
-  
-  left = remove_initial_condition (CHREC_LEFT (chrec));
-  if (left == NULL_TREE)
-    return CHREC_RIGHT (chrec);
-  
-  if (TREE_CODE (chrec) == POLYNOMIAL_CHREC)
-    return build_polynomial_chrec 
-      (CHREC_VARIABLE (chrec), left, CHREC_RIGHT (chrec));
-  
-  else
-    return build_exponential_chrec
-      (CHREC_VARIABLE (chrec), left, CHREC_RIGHT (chrec));
 }
 
 
@@ -1898,7 +1712,7 @@ no_evolution_in_loop_p (tree chrec,
   if (chrec == chrec_top)
     return false;
 
-  scev = evolution_function_in_loop_num (chrec, loop_num);
+  scev = hide_evolution_in_other_loops_than_loop (chrec, loop_num);
   return (TREE_CODE (scev) != POLYNOMIAL_CHREC
 	  && TREE_CODE (scev) != EXPONENTIAL_CHREC);
 }
@@ -2118,710 +1932,6 @@ evolution_function_is_univariate_p (tree chrec)
       
     default:
       return true;
-    }
-}
-
-
-
-/* Analyzers.  */
-
-/* This is the ZIV test.  ZIV = Zero Index Variable, ie. both
-   functions do not depend on the iterations of a loop.  */
-
-static inline bool
-ziv_subscript_p (tree chrec_a, 
-		 tree chrec_b)
-{
-  return (evolution_function_is_constant_p (chrec_a)
-	  && evolution_function_is_constant_p (chrec_b));
-}
-
-/* Determines whether the subscript depends on the evolution of a
-   single loop or not.  SIV = Single Index Variable.  */
-
-static bool
-siv_subscript_p (tree chrec_a,
-		 tree chrec_b)
-{
-  if ((evolution_function_is_constant_p (chrec_a)
-       && evolution_function_is_univariate_p (chrec_b))
-      || (evolution_function_is_constant_p (chrec_b)
-	  && evolution_function_is_univariate_p (chrec_a)))
-    return true;
-  
-  if (evolution_function_is_univariate_p (chrec_a)
-      && evolution_function_is_univariate_p (chrec_b))
-    {
-      switch (TREE_CODE (chrec_a))
-	{
-	case POLYNOMIAL_CHREC:
-	case EXPONENTIAL_CHREC:
-	  switch (TREE_CODE (chrec_b))
-	    {
-	    case POLYNOMIAL_CHREC:
-	    case EXPONENTIAL_CHREC:
-	      if (CHREC_VARIABLE (chrec_a) != CHREC_VARIABLE (chrec_b))
-		return false;
-	      
-	    default:
-	      return true;
-	    }
-	  
-	default:
-	  return true;
-	}
-    }
-  
-  return false;
-}
-
-/* Analyze a ZIV (Zero Index Variable) subscript.  */
-
-static void 
-analyze_ziv_subscript (tree chrec_a, 
-		       tree chrec_b, 
-		       tree *overlaps_a,
-		       tree *overlaps_b)
-{
-  tree difference;
-  
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "(analyze_ziv_subscript \n");
-  
-  difference = chrec_fold_minus (integer_type_node, chrec_a, chrec_b);
-  
-  switch (TREE_CODE (difference))
-    {
-    case INTEGER_CST:
-      if (integer_zerop (difference))
-	{
-	  /* The difference is equal to zero: the accessed index
-	     overlaps for each iteration in the loop.  */
-	  *overlaps_a = integer_zero_node;
-	  *overlaps_b = integer_zero_node;
-	}
-      else
-	{
-	  /* The accesses do not overlap.  */
-	  *overlaps_a = chrec_bot;
-	  *overlaps_b = chrec_bot;	  
-	}
-      break;
-      
-    case INTERVAL_CHREC:
-      if (integer_zerop (CHREC_LOW (difference)) 
-	  && integer_zerop (CHREC_UP (difference)))
-	{
-	  /* The difference is equal to zero: the accessed index 
-	     overlaps for each iteration in the loop.  */
-	  *overlaps_a = integer_zero_node;
-	  *overlaps_b = integer_zero_node;
-	}
-      else 
-	{
-	  /* There could be an overlap, conservative answer: 
-	     "don't know".  */
-	  *overlaps_a = chrec_top;
-	  *overlaps_b = chrec_top;	  
-	}
-      break;
-      
-    default:
-      /* We're not sure whether the indexes overlap.  For the moment, 
-	 conservatively answer "don't know".  */
-      *overlaps_a = chrec_top;
-      *overlaps_b = chrec_top;	  
-      break;
-    }
-  
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, ")\n");
-}
-
-/* Analyze single index variable subscript.  Note that the dependence
-   testing is not commutative, and that's why both versions of
-   analyze_siv_subscript_x_y and analyze_siv_subscript_y_x are
-   implemented.  */
-
-static void
-analyze_siv_subscript (tree chrec_a, 
-		       tree chrec_b,
-		       tree *overlaps_a, 
-		       tree *overlaps_b)
-{
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "(analyze_siv_subscript \n");
-  
-  if (evolution_function_is_constant_p (chrec_a)
-      && evolution_function_is_affine_p (chrec_b))
-    analyze_siv_subscript_cst_affine (chrec_a, chrec_b, 
-				      overlaps_a, overlaps_b);
-  
-  else if (evolution_function_is_affine_p (chrec_a)
-	   && evolution_function_is_constant_p (chrec_b))
-    analyze_siv_subscript_affine_cst (chrec_a, chrec_b, 
-				      overlaps_a, overlaps_b);
-  
-  else if (evolution_function_is_affine_p (chrec_a)
-	   && evolution_function_is_affine_p (chrec_b)
-	   && (CHREC_VARIABLE (chrec_a) == CHREC_VARIABLE (chrec_b)))
-    analyze_siv_subscript_affine_affine (chrec_a, chrec_b, 
-					 overlaps_a, overlaps_b);
-  else
-    {
-      *overlaps_a = chrec_top;
-      *overlaps_b = chrec_top;
-    }
-  
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, ")\n");
-}
-
-/* This is a part of the SIV subscript analyzer (Single Index
-   Variable).  */
-
-static void
-analyze_siv_subscript_cst_affine (tree chrec_a, 
-				  tree chrec_b,
-				  tree *overlaps_a, 
-				  tree *overlaps_b)
-{
-  bool value0, value1, value2;
-  tree difference = chrec_fold_minus 
-    (integer_type_node, CHREC_LEFT (chrec_b), chrec_a);
-  
-  if (!chrec_is_positive (initial_condition (difference), &value0))
-    {
-      /* Static analysis failed.  */
-      *overlaps_a = chrec_top;
-      *overlaps_b = chrec_top;      
-      return;
-    }
-  else
-    {
-      if (value0 == false)
-	{
-	  if (!chrec_is_positive (CHREC_RIGHT (chrec_b), &value1))
-	    {
-	      /* The static analysis failed.  */
-	      *overlaps_a = chrec_top;
-	      *overlaps_b = chrec_top;      
-	      return;
-	    }
-	  else
-	    {
-	      if (value1 == true)
-		{
-		  /* Example:  
-		     chrec_a = 12
-		     chrec_b = {10, +, 1}
-		  */
-		  
-		  if (tree_fold_divides_p 
-		      (integer_type_node, CHREC_RIGHT (chrec_b), difference))
-		    {
-		      *overlaps_a = integer_zero_node;
-		      *overlaps_b = tree_fold_exact_div 
-			(integer_type_node, 
-			 tree_fold_abs (integer_type_node, difference), 
-			 CHREC_RIGHT (chrec_b));
-		      return;
-		    }
-		  
-		  /* When the step does not divides the difference, there are
-		     no overlaps.  */
-		  else
-		    {
-		      *overlaps_a = chrec_bot;
-		      *overlaps_b = chrec_bot;      
-		      return;
-		    }
-		}
-	      
-	      else
-		{
-		  /* Example:  
-		     chrec_a = 12
-		     chrec_b = {10, +, -1}
-		     
-		     In this case, chrec_a will not overlap with chrec_b.  */
-		  *overlaps_a = chrec_bot;
-		  *overlaps_b = chrec_bot;
-		  return;
-		}
-	    }
-	}
-      else 
-	{
-	  if (!chrec_is_positive (CHREC_RIGHT (chrec_b), &value2))
-	    {
-	      /* Static analysis failed.  */
-	      *overlaps_a = chrec_top;
-	      *overlaps_b = chrec_top;      
-	      return;
-	    }
-	  else
-	    {
-	      if (value2 == false)
-		{
-		  /* Example:  
-		     chrec_a = 3
-		     chrec_b = {10, +, -1}
-		  */
-		  if (tree_fold_divides_p 
-		      (integer_type_node, CHREC_RIGHT (chrec_b), difference))
-		    {
-		      *overlaps_a = integer_zero_node;
-		      *overlaps_b = tree_fold_exact_div 
-			(integer_type_node, difference, CHREC_RIGHT (chrec_b));
-		      return;
-		    }
-		  
-		  /* When the step does not divides the difference, there
-		     are no overlaps.  */
-		  else
-		    {
-		      *overlaps_a = chrec_bot;
-		      *overlaps_b = chrec_bot;      
-		      return;
-		    }
-		}
-	      else
-		{
-		  /* Example:  
-		     chrec_a = 3  
-		     chrec_b = {4, +, 1}
-		 
-		     In this case, chrec_a will not overlap with chrec_b.  */
-		  *overlaps_a = chrec_bot;
-		  *overlaps_b = chrec_bot;
-		  return;
-		}
-	    }
-	}
-    }
-}
-
-/* This is a part of the SIV subscript analyzer (Single Index
-   Variable).  */
-
-static void
-analyze_siv_subscript_affine_cst (tree chrec_a, 
-				  tree chrec_b,
-				  tree *overlaps_a, 
-				  tree *overlaps_b)
-{
-  analyze_siv_subscript_cst_affine (chrec_b, chrec_a, overlaps_b, overlaps_a);
-}
-
-/* This is a part of the SIV subscript analyzer (Single Index
-   Variable).  */
-
-static void
-analyze_siv_subscript_affine_affine (tree chrec_a, 
-				     tree chrec_b,
-				     tree *overlaps_a, 
-				     tree *overlaps_b)
-{
-  tree left_a, left_b, right_a, right_b;
-  
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "(analyze_siv_subscript_affine_affine \n");
-  
-  /* For determining the initial intersection, we have to solve a
-     Diophantine equation.  This is the most time consuming part.
-     
-     For answering to the question: "Is there a dependence?" we have
-     to prove that there exists a solution to the Diophantine
-     equation, and that the solution is in the iteration domain,
-     ie. the solution is positive or zero, and that the solution
-     happens before the upper bound loop.nb_iterations.  Otherwise
-     there is no dependence.  This function outputs a description of
-     the iterations that hold the intersections.  */
-
-  left_a = CHREC_LEFT (chrec_a);
-  left_b = CHREC_LEFT (chrec_b);
-  right_a = CHREC_RIGHT (chrec_a);
-  right_b = CHREC_RIGHT (chrec_b);
-  
-  if (chrec_zerop (chrec_fold_minus (integer_type_node, left_a, left_b)))
-    {
-      /* The first element accessed twice is on the first
-	 iteration.  */
-      *overlaps_a = build_polynomial_chrec 
-	(CHREC_VARIABLE (chrec_a), 
-	 integer_zero_node, integer_one_node);
-      *overlaps_b = build_polynomial_chrec 
-	(CHREC_VARIABLE (chrec_b), 
-	 integer_zero_node, integer_one_node);
-    }
-  
-  else if (TREE_CODE (left_a) == INTEGER_CST
-	   && TREE_CODE (left_b) == INTEGER_CST
-	   && TREE_CODE (right_a) == INTEGER_CST 
-	   && TREE_CODE (right_b) == INTEGER_CST
-	   
-	   /* Both functions should have the same evolution sign.  */
-	   && ((tree_int_cst_sgn (right_a) > 0 
-		&& tree_int_cst_sgn (right_b) > 0)
-	       || (tree_int_cst_sgn (right_a) < 0
-		   && tree_int_cst_sgn (right_b) < 0)))
-    {
-      /* Here we have to solve the Diophantine equation.  Reference
-	 book: "Loop Transformations for Restructuring Compilers - The
-	 Foundations" by Utpal Banerjee, pages 59-80.
-	 
-	 ALPHA * X0 = BETA * Y0 + GAMMA.  
-	 
-	 with:
-	 ALPHA = RIGHT_A
-	 BETA = RIGHT_B
-	 GAMMA = LEFT_B - LEFT_A
-	 CHREC_A = {LEFT_A, +, RIGHT_A}
-	 CHREC_B = {LEFT_B, +, RIGHT_B}
-	 
-	 The Diophantine equation has a solution if and only if gcd
-	 (ALPHA, BETA) divides GAMMA.  This is commonly known under
-	 the name of the "gcd-test".
-      */
-      tree alpha, beta, gamma;
-      tree la, lb;
-      tree gcd_alpha_beta;
-      tree u11, u12, u21, u22;
-
-      /* Both alpha and beta have to be integer_type_node. The gcd
-	 function does not work correctly otherwise.  */
-      alpha = copy_node (right_a);
-      beta = copy_node (right_b);
-      la = copy_node (left_a);
-      lb = copy_node (left_b);
-      TREE_TYPE (alpha) = integer_type_node;
-      TREE_TYPE (beta) = integer_type_node;
-      TREE_TYPE (la) = integer_type_node;
-      TREE_TYPE (lb) = integer_type_node;
-      
-      gamma = tree_fold_minus (integer_type_node, lb, la);
-      
-      /* FIXME: Use lambda_*_Hermite for implementing Bezout.  */
-      gcd_alpha_beta = tree_fold_bezout 
-	(alpha, 
-	 tree_fold_multiply (integer_type_node, beta, integer_minus_one_node),
-	 &u11, &u12, 
-	 &u21, &u22);
-      
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "  (alpha = ");
-	  print_generic_expr (dump_file, alpha, 0);
-	  fprintf (dump_file, ")\n  (beta = ");
-	  print_generic_expr (dump_file, beta, 0);
-	  fprintf (dump_file, ")\n  (gamma = ");
-	  print_generic_expr (dump_file, gamma, 0);
-	  fprintf (dump_file, ")\n  (gcd_alpha_beta = ");
-	  print_generic_expr (dump_file, gcd_alpha_beta, 0);
-	  fprintf (dump_file, ")\n");
-	}
-      
-      /* The classic "gcd-test".  */
-      if (!tree_fold_divides_p (integer_type_node, gcd_alpha_beta, gamma))
-	{
-	  /* The "gcd-test" has determined that there is no integer
-	     solution, ie. there is no dependence.  */
-	  *overlaps_a = chrec_bot;
-	  *overlaps_b = chrec_bot;
-	}
-      
-      else
-	{
-	  /* The solutions are given by:
-	     | 
-	     | [GAMMA/GCD_ALPHA_BETA  t].[u11 u12]  = [X]
-	     |                           [u21 u22]    [Y]
-	     
-	     For a given integer t.  Using the following variables,
-	     
-	     | i0 = u11 * gamma / gcd_alpha_beta
-	     | j0 = u12 * gamma / gcd_alpha_beta
-	     | i1 = u21
-	     | j1 = u22
-	     
-	     the solutions are:
-	     
-	     | x = i0 + i1 * t, 
-	     | y = j0 + j1 * t.  */
-	  
-	  tree i0, j0, i1, j1, t;
-	  tree gamma_gcd;
-	  
-	  /* X0 and Y0 are the first iterations for which there is a
-	     dependence.  X0, Y0 are two solutions of the Diophantine
-	     equation: chrec_a (X0) = chrec_b (Y0).  */
-	  tree x0, y0;
-      
-	  /* Exact div because in this case gcd_alpha_beta divides
-	     gamma.  */
-	  gamma_gcd = tree_fold_exact_div 
-	    (integer_type_node, gamma, gcd_alpha_beta);
-	  i0 = tree_fold_multiply (integer_type_node, u11, gamma_gcd);
-	  j0 = tree_fold_multiply (integer_type_node, u12, gamma_gcd);
-	  i1 = u21;
-	  j1 = u22;
-	  
-	  if ((tree_int_cst_sgn (i1) == 0
-	       && tree_int_cst_sgn (i0) < 0)
-	      || (tree_int_cst_sgn (j1) == 0
-		  && tree_int_cst_sgn (j0) < 0))
-	    {
-	      /* There is no solution.  
-		 FIXME: The case "i0 > nb_iterations, j0 > nb_iterations" 
-		 falls in here, but for the moment we don't look at the 
-		 upper bound of the iteration domain.  */
-	      *overlaps_a = chrec_bot;
-	      *overlaps_b = chrec_bot;
-  	    }
-	  
-	  else 
-	    {
-	      if (tree_int_cst_sgn (i1) > 0)
-		{
-		  t = tree_fold_ceil_div 
-		    (integer_type_node, 
-		     tree_fold_multiply (integer_type_node, i0, 
-					 integer_minus_one_node), 
-		     i1);
-		  
-		  if (tree_int_cst_sgn (j1) > 0)
-		    {
-		      t = tree_fold_max 
-			(integer_type_node, t, 
-			 tree_fold_ceil_div (integer_type_node, 
-					     tree_fold_multiply 
-					     (integer_type_node, j0, 
-					      integer_minus_one_node), 
-					     j1));
-		      
-		      x0 = tree_fold_plus 
-			(integer_type_node, i0, 
-			 tree_fold_multiply (integer_type_node, i1, t));
-		      y0 = tree_fold_plus 
-			(integer_type_node, j0, 
-			 tree_fold_multiply (integer_type_node, j1, t));
-		      
-		      *overlaps_a = build_polynomial_chrec 
-			(CHREC_VARIABLE (chrec_a), x0, u21);
-		      *overlaps_b = build_polynomial_chrec 
-			(CHREC_VARIABLE (chrec_b), y0, u22);
-		    }
-		  else
-		    {
-		      /* FIXME: For the moment, the upper bound of the
-			 iteration domain for j is not checked. */
-		      *overlaps_a = chrec_top;
-		      *overlaps_b = chrec_top;
-		    }
-		}
-	      
-	      else
-		{
-		  /* FIXME: For the moment, the upper bound of the
-		     iteration domain for i is not checked. */
-		  *overlaps_a = chrec_top;
-		  *overlaps_b = chrec_top;
-		}
-	    }
-	}
-    }
-  
-  else
-    {
-      /* For the moment, "don't know".  */
-      *overlaps_a = chrec_top;
-      *overlaps_b = chrec_top;
-    }
-  
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "  (overlaps_a = ");
-      print_generic_expr (dump_file, *overlaps_a, 0);
-      fprintf (dump_file, ")\n  (overlaps_b = ");
-      print_generic_expr (dump_file, *overlaps_b, 0);
-      fprintf (dump_file, ")\n");
-    }
-  
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, ")\n");
-}
-
-/* Helper for determining whether the evolution steps of an affine
-   CHREC divide the constant CST.  */
-
-static bool
-chrec_steps_divide_constant_p (tree chrec, 
-			       tree cst)
-{
-  switch (TREE_CODE (chrec))
-    {
-    case POLYNOMIAL_CHREC:
-      return (tree_fold_divides_p (integer_type_node, CHREC_RIGHT (chrec), cst)
-	      && chrec_steps_divide_constant_p (CHREC_LEFT (chrec), cst));
-      
-    default:
-      /* On the initial condition, return true.  */
-      return true;
-    }
-}
-
-/* This is the MIV subscript analyzer (Multiple Index Variable).  */
-
-static void
-analyze_miv_subscript (tree chrec_a, 
-		       tree chrec_b, 
-		       tree *overlaps_a, 
-		       tree *overlaps_b)
-{
-  /* FIXME:  This is a MIV subscript, not yet handled.
-     Example: (A[{1, +, 1}_1] vs. A[{1, +, 1}_2]) that comes from 
-     (A[i] vs. A[j]).  
-     
-     In the SIV test we had to solve a Diophantine equation with two
-     variables.  In the MIV case we have to solve a Diophantine
-     equation with 2*n variables (if the subscript uses n IVs).
-  */
-  tree difference;
-  
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "(analyze_miv_subscript \n");
-  
-  difference = chrec_fold_minus (integer_type_node, chrec_a, chrec_b);
-  
-  if (chrec_zerop (difference))
-    {
-      /* Access functions are the same: all the elements are accessed
-	 in the same order.  */
-      *overlaps_a = integer_zero_node;
-      *overlaps_b = integer_zero_node;
-    }
-  
-  else if (evolution_function_is_constant_p (difference)
-	   /* For the moment, the following is verified:
-	      evolution_function_is_affine_multivariate_p (chrec_a) */
-	   && !chrec_steps_divide_constant_p (chrec_a, difference))
-    {
-      /* testsuite/.../ssa-chrec-33.c
-	 {{21, +, 2}_1, +, -2}_2  vs.  {{20, +, 2}_1, +, -2}_2 
-        
-	 The difference is 1, and the evolution steps are equal to 2,
-	 consequently there are no overlapping elements.  */
-      *overlaps_a = chrec_bot;
-      *overlaps_b = chrec_bot;
-    }
-  
-  else if (evolution_function_is_univariate_p (chrec_a)
-	   && evolution_function_is_univariate_p (chrec_b))
-    {
-      /* testsuite/.../ssa-chrec-35.c
-	 {0, +, 1}_2  vs.  {0, +, 1}_3
-	 the overlapping elements are respectively located at iterations:
-	 {0, +, 1}_3 and {0, +, 1}_2.
-        
-	 The overlaps are computed by the classic siv tester, then the
-	 evolution loops are exchanged.
-      */
-      
-      tree fake_b, fake_overlaps_a;
-      fake_b = build_polynomial_chrec 
-	(CHREC_VARIABLE (chrec_a), 
-	 CHREC_LEFT (chrec_b), CHREC_RIGHT (chrec_b));
-      /* Analyze the siv.  */
-      analyze_siv_subscript (chrec_a, fake_b, 
-			     &fake_overlaps_a, overlaps_b);
-      
-      /* Exchange the variables.  */
-      if (evolution_function_is_constant_p (*overlaps_b))
-	*overlaps_b = build_polynomial_chrec 
-	  (CHREC_VARIABLE (chrec_a), *overlaps_b, 
-	   integer_one_node);
-      
-      if (evolution_function_is_constant_p (fake_overlaps_a))
-	*overlaps_a = build_polynomial_chrec 
-	  (CHREC_VARIABLE (chrec_b), fake_overlaps_a, 
-	   integer_one_node);
-      
-      else
-	*overlaps_a = build_polynomial_chrec 
-	  (CHREC_VARIABLE (chrec_b), 
-	   CHREC_LEFT (fake_overlaps_a),
-	   CHREC_RIGHT (fake_overlaps_a));
-    }
-  
-  else
-    {
-      /* When the analysis is too difficult, answer "don't know".  */
-      *overlaps_a = chrec_top;
-      *overlaps_b = chrec_top;
-    }
-  
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, ")\n");
-}
-
-/* Determines the iterations for which CHREC_A is equal to CHREC_B.
-   OVERLAP_ITERATIONS_A and OVERLAP_ITERATIONS_B are two functions
-   that describe the iterations that contain conflicting elements.
-   
-   Remark: For an integer k >= 0, the following equality is true:
-   
-   CHREC_A (OVERLAP_ITERATIONS_A (k)) == CHREC_B (OVERLAP_ITERATIONS_B (k)).
-*/
-
-void 
-analyze_overlapping_iterations (tree chrec_a, 
-				tree chrec_b, 
-				tree *overlap_iterations_a, 
-				tree *overlap_iterations_b)
-{
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "(analyze_overlapping_iterations \n");
-      fprintf (dump_file, "  (chrec_a = ");
-      print_generic_expr (dump_file, chrec_a, 0);
-      fprintf (dump_file, ")\n  chrec_b = ");
-      print_generic_expr (dump_file, chrec_b, 0);
-      fprintf (dump_file, ")\n");
-    }
-  
-  if (chrec_a == NULL_TREE
-      || chrec_b == NULL_TREE
-      || chrec_contains_undetermined (chrec_a)
-      || chrec_contains_undetermined (chrec_b)
-      || chrec_contains_symbols (chrec_a)
-      || chrec_contains_symbols (chrec_b)
-      || chrec_contains_intervals (chrec_a)
-      || chrec_contains_intervals (chrec_b))
-    {
-      *overlap_iterations_a = chrec_top;
-      *overlap_iterations_b = chrec_top;
-    }
-  
-  else if (ziv_subscript_p (chrec_a, chrec_b))
-    analyze_ziv_subscript (chrec_a, chrec_b, 
-			   overlap_iterations_a, overlap_iterations_b);
-  
-  else if (siv_subscript_p (chrec_a, chrec_b))
-    analyze_siv_subscript (chrec_a, chrec_b, 
-			   overlap_iterations_a, overlap_iterations_b);
-  
-  else
-    analyze_miv_subscript (chrec_a, chrec_b, 
-			   overlap_iterations_a, overlap_iterations_b);
-  
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "  (overlap_iterations_a = ");
-      print_generic_expr (dump_file, *overlap_iterations_a, 0);
-      fprintf (dump_file, ")\n  (overlap_iterations_b = ");
-      print_generic_expr (dump_file, *overlap_iterations_b, 0);
-      fprintf (dump_file, ")\n");
     }
 }
 
