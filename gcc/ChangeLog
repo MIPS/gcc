@@ -1,3 +1,16 @@
+2001-09-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-common.h (tree_dump_index): Add more comments.
+	(TDF_REFS): New dump flag.
+	* c-dump.c (dump_files): Name flags `tree' rather than `ast'.
+	(dump_option_value_info): New struct.
+	(dump_options): New array.
+	(dump_switch_p): Parse switch options symbolically.
+	* doc/invoke.texi (-fdump-ast): Rename to ...
+	(-fdump-tree): ... here. Document options are symbolic, and
+	not all are applicable. Combine ssa related flags into the other
+	tree dump flags.
+
 2001-08-27  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (tree-ssa.o): Update dependencies.

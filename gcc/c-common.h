@@ -838,9 +838,10 @@ extern int c_safe_from_p                        PARAMS ((rtx, tree));
 
 extern int c_unsafe_for_reeval			PARAMS ((tree));
 
-/* In dump.c */
+/* In c-dump.c */
 
-/* Different tree dump places. */
+/* Different tree dump places.  When you add new tree dump places,
+   extend the DUMP_FILES array in c-dump.c */
 enum tree_dump_index
 {
   TDI_all,			/* dump the whole translation unit */
@@ -856,9 +857,12 @@ enum tree_dump_index
   TDI_end
 };
 
-/* Bit masks to control tree dumping. */
+/* Bit masks to control tree dumping. Not all values are applicable to
+   all tree dumps. Add new ones at the end. When you define new
+   values, extend the DUMP_OPTIONS array in c-dump.c */
 #define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
 #define TDF_SLIM	(1 << 1)	/* don't go wild following links */
+#define TDF_REFS	(1 << 0)	/* dump ssa variable refs */
 
 typedef struct dump_info *dump_info_p;
 
