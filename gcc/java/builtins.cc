@@ -376,8 +376,20 @@ tree_builtins::map_utf8const (const std::string &value)
   std::map<std::string, tree>::const_iterator it = utf8map.find (value);
   if (it == utf8map.end ())
     {
-      // FIXME
-      utf8map[value] = NULL;
+      record_creator utf (type_utf8const);
+      utf.set_field ("hash", build_int_cst (type_jushort, 0)); // FIXME
+      utf.set_field ("length", build_int_cst (type_jushort, value.length ()));
+
+      tree str = build_string (value.length (), value.c_str ());
+      tree strtype = build_index_type (build_int_cst (type_jushort,
+						      value.length ()));
+      TREE_TYPE (str) = strtype;
+      TREE_CONSTANT (str) = 1;
+      TREE_READONLY (str) = 1;
+      TREE_STATIC (str) = 1;
+      utf.set_field ("data", str);
+
+      utf8map[value] = build_address_of (utf.finish_record ());
     }
   return utf8map[value];
 }

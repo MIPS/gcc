@@ -206,7 +206,7 @@ static void
 build_utf8_record ()
 {
   tree field = NULL_TREE;
-  tree type_utf8const = make_node (RECORD_TYPE);
+  type_utf8const = make_node (RECORD_TYPE);
   push_field (type_utf8const, field, "hash", type_jushort);
   push_field (type_utf8const, field, "length", type_jushort);
   push_field (type_utf8const, field, "data",

@@ -1,5 +1,11 @@
 2005-02-10  Tom Tromey  <tromey@redhat.com>
 
+	* decl.cc (build_utf8_record): Correctly initialize global
+	type_utf8const.
+	* builtins.cc (map_utf8const): Wrote.
+
+2005-02-10  Tom Tromey  <tromey@redhat.com>
+
 	* classobj.hh (class_object_creator::create_one_field_record):
 	Declare.
 	* classobj.cc (create_method_array): Wrote.
