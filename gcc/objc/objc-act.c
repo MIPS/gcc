@@ -6020,7 +6020,7 @@ build_objc_method_call (super_flag, method_prototype, lookup_object,
       lookup_object = save_expr (lookup_object);
       selector = save_expr (selector);
 
-      if (!supper_flag)
+      if (!super_flag)
         object = lookup_object;
 
       lookup_object = build_c_cast (rcv_p, lookup_object);
