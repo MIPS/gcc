@@ -181,6 +181,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 /* In hook.c.  */
 #define TARGET_CANNOT_MODIFY_JUMPS_P hook_void_bool_false
+#define TARGET_CANNOT_FORCE_CONST_MEM hook_bool_rtx_false
 
 /* The whole shebang.  */
 #define TARGET_INITIALIZER			\
@@ -199,6 +200,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_EXPAND_BUILTIN,			\
   TARGET_SECTION_TYPE_FLAGS,			\
   TARGET_CANNOT_MODIFY_JUMPS_P,			\
+  TARGET_CANNOT_FORCE_CONST_MEM,		\
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_CTORS_DTORS,			\
   TARGET_HAVE_TLS				\
