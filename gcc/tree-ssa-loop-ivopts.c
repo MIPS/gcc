@@ -88,6 +88,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* The infinite cost.  */
 #define INFTY 10000000
 
+/* The expected number of loop iterations.  TODO -- use profiling instead of
+   this.  */
+#define AVG_LOOP_NITER(LOOP) 5
+
 /* Just to shorten the ugly names.  */
 #define EXEC_BINARY nondestructive_fold_binary_to_constant
 #define EXEC_UNARY nondestructive_fold_unary_to_constant
@@ -100,6 +104,7 @@ struct iv
   tree ssa_name;	/* The ssa name with the value.  */
   bool biv_p;		/* Is it a biv?  */
   bool have_use_for;	/* Do we already have a use for it?  */
+  unsigned use_id;	/* The identificator in the use if it is the case.  */
 };
 
 /* The currently optimized loop.  ??? Perhaps it would be better to pass it
@@ -118,6 +123,7 @@ struct version_info
   bool has_nonlin_use;	/* For a loop-level invariant, whether it is used in
 			   an expression that is not an induction variable.  */
   unsigned inv_id;	/* Id of an invariant.  */
+  bool preserve_biv;	/* For the original biv, whether to preserve it.  */
   struct loop *outermost_usage;
 			/* The outermost loop in that the variable is used.  */
 };
@@ -158,6 +164,7 @@ struct loop_data
 enum use_type
 {
   USE_NONLINEAR_EXPR,	/* Use in a nonlinear expression.  */
+  USE_OUTER,		/* The induction variable is used outside the loop.  */
   USE_ADDRESS,		/* Use in an address.  */
   USE_COMPARE		/* Use is a compare.  */
 };
@@ -218,7 +225,10 @@ struct iv_cand
 			   incremented.  */
   tree var_before;	/* The variable used for it before incrementation.  */
   tree var_after;	/* The variable used for it after incrementation.  */
-  struct iv *iv;	/* The value of the candidate.  */
+  struct iv *iv;	/* The value of the candidate.  NULL for
+			   "pseudocandidate" used to indicate the possibility
+			   to replace the final value of an iv by direct
+			   computation of the value.  */
   unsigned cost;	/* Cost of the candidate.  */
 };
 
@@ -298,6 +308,10 @@ dump_use (FILE *file, struct iv_use *use)
       fprintf (file, "  generic\n");
       break;
 
+    case USE_OUTER:
+      fprintf (file, "  outside\n");
+      break;
+
     case USE_ADDRESS:
       fprintf (file, "  address\n");
       break;
@@ -305,6 +319,9 @@ dump_use (FILE *file, struct iv_use *use)
     case USE_COMPARE:
       fprintf (file, "  compare\n");
       break;
+
+    default:
+      abort ();
     }
 
    fprintf (file, "  in statement ");
@@ -364,6 +381,12 @@ dump_cand (FILE *file, struct iv_cand *cand)
 
   fprintf (file, "candidate %d%s\n",
 	   cand->id, cand->important ? " (important)" : "");
+
+  if (!iv)
+    {
+      fprintf (file, "  final value replacement\n");
+      return;
+    }
 
   switch (cand->pos)
     {
@@ -996,6 +1019,7 @@ alloc_iv (tree base, tree step)
   iv->step = step;
   iv->biv_p = false;
   iv->have_use_for = false;
+  iv->use_id = 0;
   iv->ssa_name = NULL_TREE;
 
   return iv;
@@ -1791,7 +1815,7 @@ find_induction_variables (void)
 
 /* Records a use of type USE_TYPE at *USE_P in STMT whose value is IV.  */
 
-static void
+static struct iv_use *
 record_use (tree *use_p, struct iv *iv, tree stmt, enum use_type use_type)
 {
   struct iv_use *use = xcalloc (1, sizeof (struct iv_use));
@@ -1807,6 +1831,8 @@ record_use (tree *use_p, struct iv *iv, tree stmt, enum use_type use_type)
     dump_use (tree_dump_file, use);
 
   VARRAY_PUSH_GENERIC_PTR_NOGC (iv_uses, use);
+
+  return use;
 }
 
 /* Checks whether OP is a loop-level invariant and if so, records it.
@@ -1848,8 +1874,21 @@ find_interesting_uses_op (tree *op_p)
     return;
 
   iv = get_iv (*op_p);
-  if (!iv || iv->have_use_for)
+  if (!iv)
     return;
+  
+  if (iv->have_use_for)
+    {
+      struct iv_use *use = VARRAY_GENERIC_PTR_NOGC (iv_uses, iv->use_id);
+
+      if (use->type != USE_NONLINEAR_EXPR
+	  && use->type != USE_OUTER)
+	abort ();
+
+      use->type = USE_NONLINEAR_EXPR;
+      return;
+    }
+
   if (zero_p (iv->step))
     {
       record_invariant (*op_p, true);
@@ -1860,7 +1899,50 @@ find_interesting_uses_op (tree *op_p)
   civ = xmalloc (sizeof (struct iv));
   *civ = *iv;
 
-  record_use (op_p, civ, SSA_NAME_DEF_STMT (*op_p), USE_NONLINEAR_EXPR);
+  iv->use_id = record_use (op_p, civ, SSA_NAME_DEF_STMT (*op_p),
+			   USE_NONLINEAR_EXPR)->id;
+}
+
+/* Records a definition of induction variable *OP_P that is used outside of the
+   loop.  */
+
+static void
+find_interesting_uses_outer (tree *op_p)
+{
+  struct iv *iv;
+  struct iv *civ;
+  tree stmt;
+
+  if (TREE_CODE (*op_p) != SSA_NAME)
+    abort ();
+
+  iv = get_iv (*op_p);
+  if (!iv)
+    abort ();
+  
+  if (iv->have_use_for)
+    {
+      struct iv_use *use = VARRAY_GENERIC_PTR_NOGC (iv_uses, iv->use_id);
+
+      if (use->type != USE_NONLINEAR_EXPR
+	  && use->type != USE_OUTER)
+	abort ();
+
+      return;
+    }
+
+  if (zero_p (iv->step))
+    {
+      record_invariant (*op_p, true);
+      return;
+    }
+  iv->have_use_for = true;
+
+  civ = xmalloc (sizeof (struct iv));
+  *civ = *iv;
+
+  stmt = SSA_NAME_DEF_STMT (*op_p);
+  iv->use_id = record_use (op_p, civ, stmt, USE_OUTER)->id;
 }
 
 /* Checks whether the condition *COND_P in STMT is interesting
@@ -2071,15 +2153,13 @@ find_interesting_uses_stmt (tree stmt)
 
 	  if (iv)
 	    {
-	      /* If the variable is used outside of the loop, we must preserve it.
-
-		 TODO -- add posibility to replace it by the known final value,
-		 or to express the final value using the other ivs.  */
+	      /* If the variable is used outside of the loop, we must either
+		 preserve it or express the final value in other way.  */
 	      loop = name_info (lhs)->outermost_usage;
 	      if (loop
 		  && loop != current_loop
 		  && !flow_loop_nested_p (current_loop, loop))
-		find_interesting_uses_op (&lhs);
+		find_interesting_uses_outer (&TREE_OPERAND (stmt, 0));
 
 	      return;
 	    }
@@ -2114,15 +2194,14 @@ find_interesting_uses_stmt (tree stmt)
 
       if (iv)
 	{
-	  /* If the variable is used outside of the loop, we must preserve it.
-	     FIXME -- we do not handle this case correctly, since we just try
-	     to replace the rhs of the phi.  */
+	  /* If the variable is used outside of the loop, we must preserve it
+	     or express the final value in other way.  */
 	      
 	  loop = name_info (lhs)->outermost_usage;
 	  if (loop
 	      && loop != current_loop
 	      && !flow_loop_nested_p (current_loop, loop))
-	    find_interesting_uses_op (&lhs);
+	    find_interesting_uses_outer (&PHI_RESULT (stmt));
 
 	  return;
 	}
@@ -2202,7 +2281,8 @@ find_interesting_uses (void)
 
 /* Adds a candidate BASE + STEP * i.  Important field is set to IMPORTANT and
    position to POS.  If USE is not NULL, the candidate is set as related to
-   it.  */
+   it.  If both BASE and STEP are NULL, we add a pseudocandidate for the
+   replacement of the final value of the iv by a direct computation.  */
 
 static struct iv_cand *
 add_candidate_1 (tree base, tree step, bool important, enum iv_position pos,
@@ -2219,6 +2299,17 @@ add_candidate_1 (tree base, tree step, bool important, enum iv_position pos,
 	continue;
 
       if (cand->incremented_at != incremented_at)
+	continue;
+
+      if (!cand->iv)
+	{
+	  if (!base && !step)
+	    break;
+
+	  continue;
+	}
+
+      if (!base && !step)
 	continue;
 
       if (!operand_equal_p (base, cand->iv->base, 0))
@@ -2240,9 +2331,14 @@ add_candidate_1 (tree base, tree step, bool important, enum iv_position pos,
     {
       cand = xcalloc (1, sizeof (struct iv_cand));
       cand->id = i;
-      cand->iv = alloc_iv (base, step);
+
+      if (!base && !step)
+	cand->iv = NULL;
+      else
+	cand->iv = alloc_iv (base, step);
+
       cand->pos = pos;
-      if (pos != IP_ORIGINAL)
+      if (pos != IP_ORIGINAL && cand->iv)
 	{
 	  cand->var_before = create_tmp_var_raw (TREE_TYPE (base), "ivtmp");
 	  cand->var_after = cand->var_before;
@@ -2394,6 +2490,27 @@ add_address_candidates (struct iv *iv, struct iv_use *use)
     }
 }
 
+/* Possibly adds pseudocandidate for replacing the final value of USE by
+   a direct computation.  */
+
+static void
+add_iv_outer_candidates (struct iv_use *use)
+{
+  struct tree_niter_desc *niter;
+
+  /* We must know where we exit the loop and how many times does it roll.  */
+  if (!LOOP_DATA (current_loop)->single_exit)
+    return;
+
+  niter = &LOOP_DATA (current_loop)->niter;
+  if (!niter->niter
+      || !operand_equal_p (niter->assumptions, boolean_true_node, 0)
+      || !operand_equal_p (niter->may_be_zero, boolean_false_node, 0))
+    return;
+
+  add_candidate_1 (NULL, NULL, false, IP_NORMAL, use, NULL_TREE);
+}
+
 /* Adds candidates based on the uses.  */
 
 static void
@@ -2416,9 +2533,20 @@ add_derived_ivs_candidates (void)
 	  add_iv_value_candidates (use->iv, use);
 	  break;
 
+	case USE_OUTER:
+	  add_iv_value_candidates (use->iv, use);
+
+	  /* Additionally, add the pseudocandidate for the possibility to
+	     replace the final value by a direct computation.  */
+	  add_iv_outer_candidates (use);
+	  break;
+
 	case USE_ADDRESS:
 	  add_address_candidates (use->iv, use);
 	  break;
+
+	default:
+	  abort ();
 	}
     }
 }
@@ -2638,23 +2766,22 @@ computation_cost (tree expr)
   return cost;
 }
 
-/* Returns variable containing the value of candidate CAND at position
-   of USE.  */
+/* Returns variable containing the value of candidate CAND at statement AT.  */
 
 static tree
-var_at_use (struct iv_use *use, struct iv_cand *cand)
+var_at_stmt (struct iv_cand *cand, tree stmt)
 {
-  if (stmt_after_increment (cand, use->stmt))
+  if (stmt_after_increment (cand, stmt))
     return cand->var_after;
   else
     return cand->var_before;
 }
 
 /* Determines the expression by that USE is expressed from induction variable
-   CAND.  */
+   CAND at statement AT.  */
 
 static tree
-get_computation (struct iv_use *use, struct iv_cand *cand)
+get_computation_at (struct iv_use *use, struct iv_cand *cand, tree at)
 {
   tree ubase = use->iv->base, ustep = use->iv->step;
   tree cbase = cand->iv->base, cstep = cand->iv->step;
@@ -2664,7 +2791,7 @@ get_computation (struct iv_use *use, struct iv_cand *cand)
   unsigned HOST_WIDE_INT ustepi, cstepi;
   HOST_WIDE_INT ratioi;
 
-  expr = var_at_use (use, cand);
+  expr = var_at_stmt (cand, at);
 
   if (TYPE_PRECISION (utype) > TYPE_PRECISION (ctype))
     {
@@ -2695,7 +2822,7 @@ get_computation (struct iv_use *use, struct iv_cand *cand)
     }
 
   /* We may need to shift the value if we are after the increment.  */
-  if (stmt_after_increment (cand, use->stmt))
+  if (stmt_after_increment (cand, at))
     cbase = fold (build (PLUS_EXPR, utype, cbase, cstep));
 
   /* use = ubase + ratio * (var - cbase).  If either cbase is a constant
@@ -2730,6 +2857,15 @@ get_computation (struct iv_use *use, struct iv_cand *cand)
     }
 
   return expr;
+}
+
+/* Determines the expression by that USE is expressed from induction variable
+   CAND.  */
+
+static tree
+get_computation (struct iv_use *use, struct iv_cand *cand)
+{
+  return get_computation_at (use, cand, use->stmt);
 }
 
 /* Strips constant offsets from EXPR and adds them to OFFSET.  */
@@ -3288,21 +3424,29 @@ difference_cost (tree e1, tree e2, bool *symbol_present, bool *var_present,
    from induction variable CAND.  If ADDRESS_P is true, we just need
    to create an address from it, otherwise we want to get it into
    register.  A set of invariants we depend on is stored in
-   DEPENDS_ON.  */
+   DEPENDS_ON.  AT is the statement at that the value is computed.  */
 
 static unsigned
-get_computation_cost (struct iv_use *use, struct iv_cand *cand,
-		      bool address_p, bitmap *depends_on)
+get_computation_cost_at (struct iv_use *use, struct iv_cand *cand,
+			 bool address_p, bitmap *depends_on, tree at)
 {
   tree ubase = use->iv->base, ustep = use->iv->step;
-  tree cbase = cand->iv->base, cstep = cand->iv->step;
-  tree utype = TREE_TYPE (ubase), ctype = TREE_TYPE (cbase);
+  tree cbase, cstep;
+  tree utype = TREE_TYPE (ubase), ctype;
   unsigned HOST_WIDE_INT ustepi, cstepi, offset = 0;
   HOST_WIDE_INT ratio, aratio;
   bool var_present, symbol_present;
   unsigned cost = 0, n_sums;
 
   *depends_on = NULL;
+
+  /* Only consider real candidates.  */
+  if (!cand->iv)
+    return INFTY;
+
+  cbase = cand->iv->base;
+  cstep = cand->iv->step;
+  ctype = TREE_TYPE (cbase);
 
   if (TYPE_PRECISION (utype) > TYPE_PRECISION (ctype))
     {
@@ -3365,7 +3509,7 @@ get_computation_cost (struct iv_use *use, struct iv_cand *cand,
 
   /* If we are after the increment, the value of the candidate is higher by
      one iteration.  */
-  if (stmt_after_increment (cand, use->stmt))
+  if (stmt_after_increment (cand, at))
     offset -= ratio * cstepi;
 
   /* Now the computation is in shape symbol + var1 + const + ratio * var2.
@@ -3398,7 +3542,7 @@ get_computation_cost (struct iv_use *use, struct iv_cand *cand,
 fallback:
   {
     /* Just get the expression, expand it and measure the cost.  */
-    tree comp = get_computation (use, cand);
+    tree comp = get_computation_at (use, cand, at);
 
     if (!comp)
       return INFTY;
@@ -3408,6 +3552,19 @@ fallback:
 
     return computation_cost (comp);
   }
+}
+
+/* Determines the cost of the computation by that USE is expressed
+   from induction variable CAND.  If ADDRESS_P is true, we just need
+   to create an address from it, otherwise we want to get it into
+   register.  A set of invariants we depend on is stored in
+   DEPENDS_ON.  */
+
+static unsigned
+get_computation_cost (struct iv_use *use, struct iv_cand *cand,
+		      bool address_p, bitmap *depends_on)
+{
+  return get_computation_cost_at (use, cand, address_p, depends_on, use->stmt);
 }
 
 /* Determines cost of basing replacement of USE on CAND in a generic
@@ -3433,21 +3590,31 @@ determine_use_iv_cost_address (struct iv_use *use, struct iv_cand *cand)
   set_use_iv_cost (use, cand, cost, depends_on);
 }
 
-/* Computes value of candidate CAND at position USE in iteration NITER.  */
+/* Computes value of induction variable IV in iteration NITER.  */
 
 static tree
-cand_value_at (struct iv_cand *cand, struct iv_use *use, tree niter)
+iv_value (struct iv *iv, tree niter)
 {
   tree val;
   tree type = TREE_TYPE (niter);
 
-  if (stmt_after_increment (cand, use->stmt))
+  val = fold (build (MULT_EXPR, type, iv->step, niter));
+
+  return fold (build (PLUS_EXPR, type, iv->base, val));
+}
+
+/* Computes value of candidate CAND at position AT in iteration NITER.  */
+
+static tree
+cand_value_at (struct iv_cand *cand, tree at, tree niter)
+{
+  tree type = TREE_TYPE (niter);
+
+  if (stmt_after_increment (cand, at))
     niter = fold (build (PLUS_EXPR, type, niter,
 			 convert (type, integer_one_node)));
 
-  val = fold (build (MULT_EXPR, type, cand->iv->step, niter));
-
-  return fold (build (PLUS_EXPR, type, cand->iv->base, val));
+  return iv_value (cand->iv, niter);
 }
 
 /* Check whether it is possible to express the condition in USE by comparison
@@ -3481,7 +3648,7 @@ may_eliminate_iv (struct iv_use *use, struct iv_cand *cand,
   else
     *compare = NE_EXPR;
 
-  *bound = cand_value_at (cand, use, niter->niter);
+  *bound = cand_value_at (cand, use->stmt, niter->niter);
 
   return true;
 }
@@ -3494,9 +3661,16 @@ determine_use_iv_cost_condition (struct iv_use *use, struct iv_cand *cand)
   tree bound;
   enum tree_code compare;
 
+  /* Only consider real candidates.  */
+  if (!cand->iv)
+    {
+      set_use_iv_cost (use, cand, INFTY, NULL);
+      return;
+    }
+
   if (may_eliminate_iv (use, cand, &compare, &bound))
     {
-      bitmap depends_on = BITMAP_XMALLOC ();
+      bitmap depends_on = NULL;
       unsigned cost = force_var_cost (bound, &depends_on);
 
       set_use_iv_cost (use, cand, cost, depends_on);
@@ -3517,6 +3691,79 @@ determine_use_iv_cost_condition (struct iv_use *use, struct iv_cand *cand)
   determine_use_iv_cost_generic (use, cand);
 }
 
+/* Checks whether it is possible to replace the final value of USE by
+   a direct computation.  If so, the formula is stored to *VALUE.  */
+
+static bool
+may_replace_final_value (struct iv_use *use, tree *value)
+{
+  edge exit;
+  struct tree_niter_desc *niter;
+
+  exit = LOOP_DATA (current_loop)->single_exit;
+  if (!exit)
+    return false;
+
+  if (!dominated_by_p (CDI_DOMINATORS, exit->src,
+		       bb_for_stmt (use->stmt)))
+    abort ();
+
+  niter = &LOOP_DATA (current_loop)->niter;
+  if (!niter->niter
+      || !operand_equal_p (niter->assumptions, boolean_true_node, 0)
+      || !operand_equal_p (niter->may_be_zero, boolean_false_node, 0))
+    return false;
+
+  *value = iv_value (use->iv, niter->niter);
+
+  return true;
+}
+
+/* Determines cost of replacing final value of USE using CAND.  */
+
+static void
+determine_use_iv_cost_outer (struct iv_use *use, struct iv_cand *cand)
+{
+  bitmap depends_on;
+  unsigned cost;
+  edge exit;
+  tree value;
+	  
+  if (!cand->iv)
+    {
+      if (!may_replace_final_value (use, &value))
+	{
+	  set_use_iv_cost (use, cand, INFTY, NULL);
+	  return;
+	}
+
+      depends_on = NULL;
+      cost = force_var_cost (value, &depends_on);
+
+      cost /= AVG_LOOP_NITER (current_loop);
+
+      set_use_iv_cost (use, cand, cost, depends_on);
+      return;
+    }
+
+  exit = LOOP_DATA (current_loop)->single_exit;
+  if (exit)
+    {
+      /* If there is just a single exit, we may use value of the candidate
+	 after we take it to determine the value of use.  */
+      cost = get_computation_cost_at (use, cand, false, &depends_on,
+				      last_stmt (exit->src));
+      cost /= AVG_LOOP_NITER (current_loop);
+    }
+  else
+    {
+      /* Otherwise we just need to compute the iv.  */
+      cost = get_computation_cost (use, cand, false, &depends_on);
+    }
+				   
+  set_use_iv_cost (use, cand, cost, depends_on);
+}
+
 /* Determines cost of basing replacement of USE on CAND.  */
 
 static void
@@ -3526,6 +3773,10 @@ determine_use_iv_cost (struct iv_use *use, struct iv_cand *cand)
     {
     case USE_NONLINEAR_EXPR:
       determine_use_iv_cost_generic (use, cand);
+      break;
+
+    case USE_OUTER:
+      determine_use_iv_cost_outer (use, cand);
       break;
 
     case USE_ADDRESS:
@@ -3628,17 +3879,23 @@ static void
 determine_iv_cost (struct iv_cand *cand)
 {
   unsigned cost_base, cost_step;
-  tree base = cand->iv->base;
+  tree base;
+
+  if (!cand->iv)
+    {
+      cand->cost = 0;
+      return;
+    }
 
   /* There are two costs associated with the candidate -- its incrementation
      and its initialization.  The second is almost negligible for any loop
      that rolls enough, so we take it just very little into account.  */
 
+  base = cand->iv->base;
   cost_base = force_var_cost (base, NULL);
   cost_step = add_cost (TYPE_MODE (TREE_TYPE (base)));
 
-  /* TODO use profile to determine the ratio here.  */
-  cand->cost = cost_step + cost_base / 5;
+  cand->cost = cost_step + cost_base / AVG_LOOP_NITER (current_loop);
 
   /* Prefer the original iv unless we may gain something by replacing it.  */
   if (cand->pos == IP_ORIGINAL)
@@ -3893,8 +4150,12 @@ set_cost (bitmap sol, bitmap inv)
 
   EXECUTE_IF_SET_IN_BITMAP (used_ivs, 0, i,
     {
-      size++;
       cand = VARRAY_GENERIC_PTR_NOGC (iv_candidates, i);
+
+      /* Do not count the pseudocandidates.  */
+      if (cand->iv)
+	size++;
+
       cost += cand->cost;
     });
   EXECUTE_IF_SET_IN_BITMAP (used_inv, 0, i, size++);
@@ -4127,6 +4388,9 @@ create_new_iv (struct iv_cand *cand)
   tree base;
   bool after = false;
 
+  if (!cand->iv)
+    return;
+
   switch (cand->pos)
     {
 #if DISABLE_IP_START
@@ -4153,7 +4417,9 @@ create_new_iv (struct iv_cand *cand)
       break;
 
     case IP_ORIGINAL:
-      /* Nothing to do here.  */
+      /* Mark that the iv is preserved.  */
+      name_info (cand->var_before)->preserve_biv = true;
+      name_info (cand->var_after)->preserve_biv = true;
       return;
     }
  
@@ -4181,6 +4447,25 @@ create_new_ivs (bitmap set)
     });
 }
 
+/* Removes statement STMT (real or a phi node).  */
+
+static void
+remove_statement (tree stmt)
+{
+  if (TREE_CODE (stmt) == PHI_NODE)
+    {
+      /* Prevent the ssa name defined by the statement from being removed.  */
+      PHI_RESULT (stmt) = NULL;
+      remove_phi_node (stmt, NULL_TREE, bb_for_stmt (stmt));
+    }
+  else
+    {
+      block_stmt_iterator bsi = stmt_bsi (stmt);
+
+      bsi_remove (&bsi);
+    }
+}
+
 /* Rewrites USE (definition of iv used in a nonlinear expression)
    using candidate CAND.  */
 
@@ -4188,23 +4473,48 @@ static void
 rewrite_use_nonlinear_expr (struct iv_use *use, struct iv_cand *cand)
 {
   tree comp = unshare_expr (get_computation (use, cand));
-  tree op, stmts;
-  block_stmt_iterator bsi;
+  tree op, stmts, tgt, ass;
+  block_stmt_iterator bsi, pbsi;
  
   if (TREE_CODE (use->stmt) == PHI_NODE)
     {
-      /* TODO -- handle rewriting of the phi node.  This may only occur when
-	 the result of the phi node is used outside of the loop.  */
-      return;
+      tgt = PHI_RESULT (use->stmt);
+
+      /* If we should keep the biv, do not replace it.  */
+      if (name_info (tgt)->preserve_biv)
+	return;
+
+      pbsi = bsi = bsi_start (bb_for_stmt (use->stmt));
+      while (!bsi_end_p (pbsi)
+	     && TREE_CODE (bsi_stmt (pbsi)) == LABEL_EXPR)
+	{
+	  bsi = pbsi;
+	  bsi_next (&pbsi);
+	}
+    }
+  else
+    {
+      tgt = TREE_OPERAND (use->stmt, 0);
+      bsi = stmt_bsi (use->stmt);
     }
 
-  bsi = stmt_bsi (use->stmt);
-  op = force_gimple_operand (comp, &stmts,
-			     SSA_NAME_VAR (TREE_OPERAND (use->stmt, 0)),
-			     false);
-  if (stmts)
-    bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
-  TREE_OPERAND (use->stmt, 1) = op;
+  op = force_gimple_operand (comp, &stmts, SSA_NAME_VAR (tgt), false);
+
+  if (TREE_CODE (use->stmt) == PHI_NODE)
+    {
+      if (stmts)
+	bsi_insert_after (&bsi, stmts, BSI_CONTINUE_LINKING);
+      ass = build (MODIFY_EXPR, TREE_TYPE (tgt), tgt, op);
+      bsi_insert_after (&bsi, ass, BSI_NEW_STMT);
+      remove_statement (use->stmt);
+      SSA_NAME_DEF_STMT (tgt) = ass;
+    }
+  else
+    {
+      if (stmts)
+	bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
+      TREE_OPERAND (use->stmt, 1) = op;
+    }
 }
 
 /* Rewrites USE (address that is an iv) using candidate CAND.  */
@@ -4273,7 +4583,7 @@ rewrite_use_compare (struct iv_use *use, struct iv_cand *cand)
 	bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
 
       *use->op_p = build (compare, boolean_type_node,
-			  var_at_use (use, cand), op);
+			  var_at_stmt (cand, use->stmt), op);
       modify_stmt (use->stmt);
       return;
     }
@@ -4295,6 +4605,48 @@ rewrite_use_compare (struct iv_use *use, struct iv_cand *cand)
   *op_p = op;
 }
 
+/* Rewrites the final value of USE (that is only needed outside of the loop)
+   using candidate CAND.  */
+
+static void
+rewrite_use_outer (struct iv_use *use, struct iv_cand *cand)
+{
+  edge exit;
+  tree value, op, stmts, tgt = *use->op_p, type = TREE_TYPE (tgt), ass;
+
+  exit = LOOP_DATA (current_loop)->single_exit;
+
+  /* If the variable is going to be preserved anyway, there is nothing to
+     do.  TODO except if the final value is a constant or something similarly
+     simple to compute.  */
+  if (name_info (tgt)->preserve_biv)
+    return;
+
+  if (exit)
+    {
+      if (!cand->iv)
+	{
+	  if (!may_replace_final_value (use, &value))
+	    abort ();
+	}
+      else
+	value = get_computation_at (use, cand, last_stmt (exit->src));
+
+      op = force_gimple_operand (value, &stmts, SSA_NAME_VAR (tgt), false);
+
+      if (stmts)
+	bsi_insert_on_edge (exit, stmts);
+      ass = build (MODIFY_EXPR, type, tgt, op);
+      bsi_insert_on_edge (exit, ass);
+      remove_statement (use->stmt);
+      SSA_NAME_DEF_STMT (tgt) = ass;
+      return;
+    }
+
+  /* Otherwise we just need to compute the iv.  */
+  rewrite_use_nonlinear_expr (use, cand);
+}
+
 /* Rewrites USE using candidate CAND.  */
 
 static void
@@ -4306,6 +4658,10 @@ rewrite_use (struct iv_use *use, struct iv_cand *cand)
 	rewrite_use_nonlinear_expr (use, cand);
 	break;
 
+      case USE_OUTER:
+	rewrite_use_outer (use, cand);
+	break;
+
       case USE_ADDRESS:
 	rewrite_use_address (use, cand);
 	break;
@@ -4313,6 +4669,9 @@ rewrite_use (struct iv_use *use, struct iv_cand *cand)
       case USE_COMPARE:
 	rewrite_use_compare (use, cand);
 	break;
+
+      default:
+	abort ();
     }
   modify_stmt (use->stmt);
 }
@@ -4353,6 +4712,7 @@ free_loop_data (void)
 	free (info->iv);
       info->iv = NULL;
       info->has_nonlin_use = false;
+      info->preserve_biv = false;
       info->inv_id = 0;
     });
   bitmap_clear (relevant);
@@ -4375,7 +4735,8 @@ free_loop_data (void)
     {
       struct iv_cand *cand = VARRAY_GENERIC_PTR_NOGC (iv_candidates, i);
 
-      free (cand->iv);
+      if (cand->iv)
+	free (cand->iv);
       free (cand);
     }
   VARRAY_POP_ALL (iv_candidates);
@@ -4475,6 +4836,7 @@ tree_ssa_iv_optimize_loop (struct loop *loop)
   
   /* Rewrite the uses (item 4, part 2).  */
   rewrite_uses ();
+  loop_commit_inserts ();
 
   BITMAP_XFREE (iv_set);
 finish:

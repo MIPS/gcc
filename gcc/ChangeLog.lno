@@ -1,3 +1,36 @@
+2003-03-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-flow.h (loop_commit_inserts): Declare.
+	* tree-ssa-loop-im.c (commit_inserts): Rename to...
+	(loop_commit_inserts): ... this.
+	* move_computations (move_computations, determine_lsm): Use
+	loop_commit_inserts.
+	* tree-ssa-loop-ivopts.c (AVG_LOOP_NITER): New macro.
+	(struct iv): New field use_id.
+	(struct version_info): New field preserve_biv.
+	(alloc_iv, record_use, free_loop_data): Initialize new fields.
+	(enum use_type): Add USE_OUTER.
+	(dump_use, find_interesting_uses_op, add_derived_ivs_candidates,
+	determine_use_iv_cost, rewrite_use): Handle USE_OUTER.
+	(dump_cand, find_interesting_uses_stmt, add_candidate_1,
+	determine_use_iv_cost_condition, determine_iv_cost, set_cost,
+	create_new_iv, rewrite_use_nonlinear_expr): Handle final value
+	replacement.
+	(find_interesting_uses_outer, add_iv_outer_candidates,
+	may_replace_final_value, determine_use_iv_cost_outer,
+	remove_statement, rewrite_use_outer): New functions.
+	(var_at_use): Replaced by ...
+	(var_at_stmt): ... this.
+	(get_computation_at): Split from ...
+	(get_computation): ... here.
+	(get_computation_cost_at): Split from ...
+	(get_computation_cost): ... here.
+	(iv_value): Split from ...
+	(cand_value_at): ... here.
+	(may_eliminate_iv, rewrite_use_compare): Reflect these changes.
+	(tree_ssa_iv_optimize_loop): Call loop_commit_inserts.
+	* tree-ssanames.c (make_ssa_name): Handle NULL argument.
+
 2003-03-18  Devang Patel  <dpatel@apple.com>
 
 	* tree-ssa-live.c (new_tree_live_info): Set num_blocks to 

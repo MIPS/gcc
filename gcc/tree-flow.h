@@ -612,6 +612,7 @@ void test_loop_versioning (struct loops *loops);
 bool tree_ssa_loop_version (struct loops *, struct loop *, tree);
 bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void linear_transform_loops (struct loops *, varray_type);
+void loop_commit_inserts (void);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);

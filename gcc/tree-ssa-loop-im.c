@@ -475,8 +475,8 @@ determine_invariantness (void)
 
 /* Commits edge inserts and updates loop info.  */
 
-static void
-commit_inserts (void)
+void
+loop_commit_inserts (void)
 {
   unsigned old_last_basic_block, i;
   basic_block bb;
@@ -554,7 +554,7 @@ move_computations (void)
   walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
   fini_walk_dominator_tree (&walk_data);
 
-  commit_inserts ();
+  loop_commit_inserts ();
   rewrite_into_ssa (false);
   bitmap_clear (vars_to_rename);
 }
@@ -922,7 +922,7 @@ determine_lsm (struct loops *loops)
 	  if (loop == loops->tree_root)
 	    {
 	      free_df ();
-	      commit_inserts ();
+	      loop_commit_inserts ();
 	      return;
 	    }
 	}

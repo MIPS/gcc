@@ -167,6 +167,9 @@ make_ssa_name (tree var, tree stmt)
 void
 release_ssa_name (tree var)
 {
+  if (!var)
+    return;
+
   /* release_ssa_name can be called multiple times on a single SSA_NAME.
      However, it should only end up on our free list one time.   We
      keep a status bit in the SSA_NAME node itself to indicate it has
