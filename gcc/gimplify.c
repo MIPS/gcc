@@ -256,11 +256,13 @@ gimplify_body (tree *body_p, tree fndecl)
   location_t saved_location = input_location;
 
   timevar_push (TV_TREE_GIMPLIFY);
-
   push_gimplify_context ();
 
   /* Unshare most shared trees in the body.  */
   unshare_all_trees (*body_p);
+
+  /* Make sure input_location isn't set to something wierd.  */
+  input_location = DECL_SOURCE_LOCATION (fndecl);
 
   /* Gimplify the function's body.  */
   done = gimplify_stmt (body_p);
@@ -271,19 +273,17 @@ gimplify_body (tree *body_p, tree fndecl)
   /* If there isn't an outer BIND_EXPR, add one.  */
   if (TREE_CODE (*body_p) != BIND_EXPR)
     {
-      *body_p = build (BIND_EXPR, void_type_node, NULL_TREE, *body_p, NULL_TREE);
+      *body_p = build (BIND_EXPR, void_type_node, NULL_TREE,
+		       *body_p, NULL_TREE);
       TREE_SIDE_EFFECTS (*body_p) = 1;
-      input_location = DECL_SOURCE_LOCATION (fndecl);
     }
-  else
-    input_location = saved_location;
 
   /* Declare the new temporary variables.  */
   declare_tmp_vars (gimplify_ctxp->temps, *body_p);
 
   pop_gimplify_context ();
-
   timevar_pop (TV_TREE_GIMPLIFY);
+  input_location = saved_location;
 
   return done;
 }
@@ -355,13 +355,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
   if (post_p == NULL)
     post_p = &internal_post;
 
+  saved_location = input_location;
   locus = EXPR_LOCUS (*expr_p);
-
   if (locus)
-    {
-      saved_location = input_location;
-      input_location = *locus;
-    }
+    input_location = *locus;
 
   /* Loop over the specific gimplifiers until the toplevel node remains the
      same.  */
@@ -768,10 +765,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
     }
 
  out:
-
-  if (locus)
-    input_location = saved_location;
-
+  input_location = saved_location;
   return 1;
 }
 

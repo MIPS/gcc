@@ -1,3 +1,17 @@
+2003-10-14  Richard Henderson  <rth@redhat.com>
+
+	* decl.c (finish_method): Set cfun->function_end_locus.
+	* java-gimplify.c (java_gimplify_expr): Set input_location
+	for EXPR_WITH_FILE_LOCATION.  Use annotate_all_with_locus.
+	* parse.h (DECL_SOURCE_LINE_MERGE): Remove.
+	(DECL_SOURCE_LINE_FIRST, DECL_SOURCE_LINE_LAST): Remove.
+	* parse.y (missing_return_error): Use DECL_FUNCTION_LAST_LINE.
+	(finish_method_declaration): Likewise.
+	(start_artificial_method_body): Likewise.
+	(lookup_cl): Use DECL_SOURCE_LINE.
+	(start_complete_expand_method): Likewise.
+	(java_complete_lhs): Fix IS_EXPR_CODE_CLASS check.
+
 2003-10-13  Richard Henderson  <rth@redhat.com>
 
 	* decl.c (java_add_stmt): Use annotate_with_locus.

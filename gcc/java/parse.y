@@ -3135,7 +3135,7 @@ find_expr_with_wfl (tree node)
 static void
 missing_return_error (tree method)
 {
-  EXPR_WFL_SET_LINECOL (wfl_operator, DECL_SOURCE_LINE_LAST (method), -2);
+  EXPR_WFL_SET_LINECOL (wfl_operator, DECL_FUNCTION_LAST_LINE (method), -2);
   parse_error_context (wfl_operator, "Missing return statement");
 }
 
@@ -4766,7 +4766,7 @@ finish_method_declaration (tree method_body)
   /* Merge last line of the function with first line, directly in the
      function decl. It will be used to emit correct debug info. */
   if (!flag_emit_xref)
-    DECL_SOURCE_LINE_MERGE (current_function_decl, ctxp->last_ccb_indent1);
+    DECL_FUNCTION_LAST_LINE (current_function_decl) = ctxp->last_ccb_indent1;
 
   /* Since function's argument's list are shared, reset the
      ARG_FINAL_P parameter that might have been set on some of this
@@ -6715,7 +6715,7 @@ lookup_cl (tree decl)
     }
 
   EXPR_WFL_FILENAME_NODE (cl_v) = get_identifier (DECL_SOURCE_FILE (decl));
-  EXPR_WFL_SET_LINECOL (cl_v, DECL_SOURCE_LINE_FIRST (decl), -1);
+  EXPR_WFL_SET_LINECOL (cl_v, DECL_SOURCE_LINE (decl), -1);
 
   line = java_get_line_col (EXPR_WFL_FILENAME (cl_v),
 			    EXPR_WFL_LINENO (cl_v), EXPR_WFL_COLNO (cl_v));
@@ -7424,7 +7424,7 @@ static void
 start_artificial_method_body (tree mdecl)
 {
   DECL_SOURCE_LINE (mdecl) = 1;
-  DECL_SOURCE_LINE_MERGE (mdecl, 1);
+  DECL_FUNCTION_LAST_LINE (mdecl) = 1;
   source_start_java_method (mdecl);
   enter_block ();
 }
@@ -7966,7 +7966,7 @@ start_complete_expand_method (tree mdecl)
       TREE_CHAIN (tem) = next;
     }
   pushdecl_force_head (DECL_ARGUMENTS (mdecl));
-  input_line = DECL_SOURCE_LINE_FIRST (mdecl);
+  input_line = DECL_SOURCE_LINE (mdecl);
   build_result_decl (mdecl);
 }
 
@@ -11995,7 +11995,7 @@ java_complete_lhs (tree node)
 	    arguments = TREE_VALUE (TREE_OPERAND (node, 1));
 	  else
 	    arguments = NULL_TREE;
-	  if (IS_EXPR_CODE_CLASS (node))
+	  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (node))))
 	    check_thrown_exceptions (EXPR_WFL_LINECOL (node), decl,
 				     arguments);
 	  /* If we call this(...), register signature and positions */

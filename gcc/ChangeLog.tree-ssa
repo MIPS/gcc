@@ -1,5 +1,11 @@
 2003-10-14  Richard Henderson  <rth@redhat.com>
 
+	* gimplify.c (gimplify_body): Save and restore input_location;
+	initialize input_location to DECL_SOURCE_LOCATION.
+	(gimplify_expr): Always save and restore input_location.
+
+2003-10-14  Richard Henderson  <rth@redhat.com>
+
 	* expr.c (expand_expr): Break out EXPR_LOCUS code from ...
 	(expand_expr_1): ... here, renamed from expand_expr.
 

@@ -70,12 +70,10 @@ java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
       return 1;
 
     case EXPR_WITH_FILE_LOCATION:
-      {
-	tree wfl = *expr_p;
-	*expr_p = EXPR_WFL_NODE (wfl);
-	annotate_with_file_line (*expr_p, EXPR_WFL_FILENAME (wfl),
-				 EXPR_WFL_LINENO (wfl));
-      }
+      input_location.file = EXPR_WFL_FILENAME (*expr_p);
+      input_location.line = EXPR_WFL_LINENO (*expr_p);
+      *expr_p = EXPR_WFL_NODE (*expr_p);
+      annotate_all_with_locus (expr_p, input_location);
       return 1;
 
     case CASE_EXPR:

@@ -1862,8 +1862,16 @@ finish_method (tree fndecl)
   /* Convert function tree to GENERIC prior to inlining.  */
   java_genericize (fndecl);
 
-  /* In unit-at-a-time mode, defer inlining, expansion to the
-     cgraph optimizers.  */
+  /* Store the end of the function, so that we get good line number
+     info for the epilogue.  */
+  if (DECL_SAVED_INSNS (fndecl))
+    cfun = DECL_SAVED_INSNS (fndecl);
+  else
+    allocate_struct_function (fndecl);
+  cfun->function_end_locus.file = DECL_SOURCE_FILE (fndecl);
+  cfun->function_end_locus.line = DECL_FUNCTION_LAST_LINE (fndecl);
+
+  /* Defer inlining and expansion to the cgraph optimizers.  */
   cgraph_finalize_function (fndecl, false);
 }
 
