@@ -75,6 +75,8 @@ static void gimple_pop_condition	PARAMS ((tree *));
 static void gimple_push_cleanup		PARAMS ((tree, tree *));
 static void gimplify_loop_expr		PARAMS ((tree *));
 static void gimplify_exit_expr		PARAMS ((tree *, tree *));
+static void gimplify_switch_expr (tree *, tree *);
+static void gimple_add_case_label (tree);
 
 static struct gimplify_ctx
 {
@@ -83,6 +85,7 @@ static struct gimplify_ctx
   tree conditional_cleanups;
   int conditions;
   tree exit_label;
+  varray_type case_labels;
 } *gimplify_ctxp;
 
 static void
@@ -157,7 +160,7 @@ gimple_pop_condition (pre_p)
     abort ();
 }
 
-/* Return nonzero if we should keep FNDECL is gimple form during inlining.  */
+/* Return nonzero if we should keep FNDECL in gimple form during inlining.  */
 
 int 
 keep_function_tree_in_gimple_form (fndecl)
@@ -478,9 +481,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  break;
 
 	case SWITCH_EXPR:
-	  simplify_expr (&SWITCH_COND (*expr_p), pre_p, NULL,
-			 is_simple_val, fb_rvalue);
-	  simplify_stmt (&SWITCH_BODY (*expr_p));
+	  gimplify_switch_expr (expr_p, pre_p);
 	  break;
 
 	case LABELED_BLOCK_EXPR:
@@ -518,7 +519,10 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  }
 
 	case LABEL_EXPR:
+	  break;
+
 	case CASE_LABEL_EXPR:
+	  gimple_add_case_label (*expr_p);
 	  break;
 
 	case RETURN_EXPR:
@@ -908,8 +912,50 @@ gimplify_loop_expr (expr_p)
       tree expr = build1 (LABEL_EXPR, void_type_node,
 			  gimplify_ctxp->exit_label);
       add_tree (expr, expr_p);
-      gimplify_ctxp->exit_label = saved_label;
     }
+
+  gimplify_ctxp->exit_label = saved_label;
+}
+
+/* Simplify a SWITCH_EXPR, and collect a TREE_VEC of the labels it can
+   branch to.  */
+
+static void
+gimplify_switch_expr (tree *expr_p, tree *pre_p)
+{
+  tree label_vec;
+  int i, len;
+  varray_type labels;
+  tree switch_expr = *expr_p;
+
+  varray_type saved_labels = gimplify_ctxp->case_labels;
+  if (SWITCH_LABELS (switch_expr))
+    /* Don't do this work again.  */
+    gimplify_ctxp->case_labels = NULL;
+  else
+    VARRAY_TREE_INIT (gimplify_ctxp->case_labels, 8, "case_labels");
+
+  simplify_expr (&SWITCH_COND (switch_expr), pre_p, NULL,
+		 is_simple_val, fb_rvalue);
+  simplify_stmt (&SWITCH_BODY (switch_expr));
+
+  labels = gimplify_ctxp->case_labels;
+  if (labels)
+    {
+      len = VARRAY_ACTIVE_SIZE (labels);
+      label_vec = make_tree_vec (len);
+      for (i = 0; i < len; ++i)
+	TREE_VEC_ELT (label_vec, i) = VARRAY_TREE (labels, i);
+      SWITCH_LABELS (*expr_p) = label_vec;
+    }
+  gimplify_ctxp->case_labels = saved_labels;
+}
+
+static void
+gimple_add_case_label (tree expr)
+{
+  if (gimplify_ctxp->case_labels)
+    VARRAY_PUSH_TREE (gimplify_ctxp->case_labels, CASE_LABEL (expr));
 }
 
 /* Simplify an EXIT_EXPR by converting to a GOTO_EXPR inside a COND_EXPR.
@@ -1405,14 +1451,24 @@ simplify_cond_expr (expr_p, pre_p, target)
 
   /* Turn if (a && b) into if (a) if (b).  This only works if there is no
      'else'.  */
-  if (! TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 2)))
-    while (TREE_CODE (TREE_OPERAND (expr, 0)) == TRUTH_ANDIF_EXPR)
-      {
-	tree pred = TREE_OPERAND (expr, 0);
-	TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
-	expr = build (COND_EXPR, void_type_node, TREE_OPERAND (pred, 0),
-		      expr, empty_stmt_node);
-      }
+  if (! TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 2))
+      && TREE_CODE (TREE_OPERAND (expr, 0)) == TRUTH_ANDIF_EXPR)
+    {
+      do
+	{
+	  tree pred = TREE_OPERAND (expr, 0);
+	  TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
+	  expr = build (COND_EXPR, void_type_node, TREE_OPERAND (pred, 0),
+			expr, empty_stmt_node);
+	}
+      while (TREE_CODE (TREE_OPERAND (expr, 0)) == TRUTH_ANDIF_EXPR);
+
+      if (!tmp)
+	/* Don't simplify our children now; simplify_expr will re-simplify
+	   us, since we've changed *expr_p.  */
+	goto skip;
+    }
+      
 
   /* Now do the normal simplification.  */
   simplify_expr (&TREE_OPERAND (expr, 0), pre_p, NULL,
@@ -1425,6 +1481,7 @@ simplify_cond_expr (expr_p, pre_p, target)
 
   gimple_pop_condition (pre_p);
 
+ skip:
   /* If we had a value, move the COND_EXPR to the prequeue and use the temp
      in its place.  */
   if (tmp)

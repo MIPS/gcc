@@ -1,3 +1,16 @@
+2003-04-24  Jason Merrill  <jason@redhat.com>
+
+	* gimplify.c (simplify_cond_expr): Avoid redundant gimplification.
+
+	Add TREE_VEC of case labels to the SWITCH_EXPR during gimplification.
+	* tree.def (CASE_LABEL_EXPR): Add an operand for the LABEL_DECL.
+	* tree.h (SWITCH_LABELS, CASE_LABEL): New macros.
+	* c-simplify.c (c_simplify_stmt) <CASE_LABEL>: Create LABEL_DECL here.
+	* expr.c (expand_expr) <CASE_LABEL_EXPR>: Not here.
+	* gimplify.c (gimplify_ctx): Add case_labels field.
+	(gimplify_switch_expr, gimple_add_case_label): New fns.
+	(simplify_expr): Use them.
+
 2003-04-24  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-flow.h (processed_out_of_ssa): Rename to out_of_ssa_tag.

@@ -959,11 +959,13 @@ struct tree_vec GTY(())
    of the switch statement, respectively.  */
 #define SWITCH_COND(NODE)       TREE_OPERAND ((NODE), 0)
 #define SWITCH_BODY(NODE)       TREE_OPERAND ((NODE), 1)
+#define SWITCH_LABELS(NODE)     TREE_OPERAND ((NODE), 2)
 
 /* CASE_LABEL accessors. These give access to the high and low values
    of a case label, respectively.  */
 #define CASE_LOW(NODE)          TREE_OPERAND ((NODE), 0)
 #define CASE_HIGH(NODE)         TREE_OPERAND ((NODE), 1)
+#define CASE_LABEL(NODE)        TREE_OPERAND ((NODE), 2)
 
 /* The operands of a BIND_EXPR.  */
 #define BIND_EXPR_VARS(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 0))

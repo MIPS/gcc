@@ -258,8 +258,12 @@ c_simplify_stmt (stmt_p)
 	  break;
 
 	case CASE_LABEL:
-	  stmt = build (CASE_LABEL_EXPR, void_type_node,
-			CASE_LOW (stmt), CASE_HIGH (stmt));
+	  {
+	    tree label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+	    DECL_CONTEXT (label) = current_function_decl;
+	    stmt = build (CASE_LABEL_EXPR, void_type_node,
+			  CASE_LOW (stmt), CASE_HIGH (stmt), label);
+	  }
 	  break;
 
 	case CONTINUE_STMT:

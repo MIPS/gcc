@@ -844,15 +844,15 @@ DEFTREECODE (EXIT_BLOCK_EXPR, "exit_block_expr", 's', 2)
 
    Operand 0 is the expression used to perform the branch,
    Operand 1 is the body of the switch, which probably contains CASE_LABEL_EXPRs.
-   Operand 2 is either NULL_TREE or a TREE_VEC of all the CASE_LABEL_EXPRs in the
-   switch.  */
+   Operand 2 is either NULL_TREE or a TREE_VEC of the LABEL_DECLs of all the
+     cases.  */
 DEFTREECODE (SWITCH_EXPR, "switch_expr", 's', 3)
 
 /* Used to represent a case label. The operands are CASE_LOW and
    CASE_HIGH, respectively. If CASE_LOW is NULL_TREE, the label is a
    'default' label. If CASE_HIGH is NULL_TREE, the label is a normal case
-   label.  */
-DEFTREECODE (CASE_LABEL_EXPR, "case_label_expr", 's', 2)
+   label.  CASE_LABEL is the corresponding LABEL_DECL.  */
+DEFTREECODE (CASE_LABEL_EXPR, "case_label_expr", 's', 3)
 
 /* Used to represent an inline assembly statement.  ASM_STRING returns a
    STRING_CST for the instruction (e.g., "mov x, y"). ASM_OUTPUTS,

@@ -9594,8 +9594,7 @@ expand_expr (exp, target, tmode, modifier)
     case CASE_LABEL_EXPR:
       {
 	tree duplicate = 0;
-	add_case_node (CASE_LOW (exp), CASE_HIGH (exp),
-		       build_decl (LABEL_DECL, NULL_TREE, NULL_TREE), 
+	add_case_node (CASE_LOW (exp), CASE_HIGH (exp), CASE_LABEL (exp),
 		       &duplicate);
 	if (duplicate)
 	  abort ();
