@@ -840,7 +840,6 @@ static const char *cc1_options =
  %{fastf:-O3}\
  %{fastcp:-O3}"
 /* APPLE LOCAL end -fast */
-/* APPLE LOCAL Symbol Separation */
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
  %{c|S:%{o*:-auxbase-strip %*}%{!o*:-auxbase %b}}%{!c:%{!S:-auxbase %b}}\
@@ -6443,7 +6442,7 @@ int
 main (int argc, const char **argv)
 {
   size_t i;
-  int value;
+  int value = 0;
   int linker_was_run = 0;
   int lang_n_infiles = 0;
   int num_linker_inputs = 0;
@@ -6910,6 +6909,13 @@ main (int argc, const char **argv)
 		  error ("%s: %s compiler not installed on this system",
 			 input_filename, &input_file_compiler->spec[1]);
 		  this_file_error = 1;
+		}
+	      else if (capital_e_flag)
+		{
+		  value = do_spec (input_file_compiler->spec);
+		  infiles[i].preprocessed = TRUE;
+		  if (value < 0)
+		    this_file_error = 1;
 		}
 	      else if (save_temps_flag)
 		{
