@@ -5089,4 +5089,22 @@ tsi_stmt_list_head (anchor)
   return i;
 }
 
+/* Return true if the chain of statements starting with T.  */
+
+bool
+body_is_empty (t)
+     tree t;
+{
+  tree_stmt_iterator i;
+
+  if (t == empty_stmt_node)
+    return true;
+
+  for (i = tsi_start (&t); !tsi_end_p (i); tsi_next (&i))
+    if (tsi_stmt (i))
+      return false;
+
+  return true;
+}
+
 #include "gt-tree.h"

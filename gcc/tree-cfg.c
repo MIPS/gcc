@@ -112,6 +112,11 @@ static void disconnect_unreachable_case_labels PARAMS ((basic_block));
 static edge find_taken_edge_cond_expr	PARAMS ((basic_block, tree));
 static edge find_taken_edge_switch_expr	PARAMS ((basic_block, tree));
 static bool value_matches_some_label	PARAMS ((edge, tree, edge *));
+static void linearize_control_structures (void);
+static bool linearize_cond_expr		(tree *, basic_block);
+static void replace_stmt		(tree *, tree *);
+static void merge_tree_blocks		(basic_block, basic_block);
+static bool remap_stmts			(basic_block, basic_block, tree *);
 
 /* Block iterator helpers.  */
 
@@ -531,6 +536,10 @@ make_bind_expr_blocks (bind_p, next_block_link, entry, parent_stmt)
 		      entry);
 }
 
+
+/* Set PARENT_STMT to be the control structure that contains the statement
+   pointed by STMT_P.  */
+
 static inline void
 set_parent_stmt (stmt_p, parent_stmt)
      tree *stmt_p;
@@ -538,7 +547,7 @@ set_parent_stmt (stmt_p, parent_stmt)
 {
   tree t;
 
-  /* *STMT_P (and the trees it contains) to its control parent.  */
+  /* Associate *STMT_P (and the trees it contains) to its control parent.  */
   t = *stmt_p;
   do
     {
@@ -547,7 +556,6 @@ set_parent_stmt (stmt_p, parent_stmt)
       t = (TREE_CODE (t) == COMPOUND_EXPR) ? TREE_OPERAND (t, 0) : NULL_TREE;
     }
   while (t && t != empty_stmt_node);
-
 }
 
 
@@ -937,9 +945,12 @@ make_case_label_edges (bb)
 void
 cleanup_tree_cfg ()
 {
+  timevar_push (TV_TREE_CLEANUP_CFG);
   cleanup_control_flow ();
   remove_unreachable_blocks ();
+  linearize_control_structures ();
   compact_blocks ();
+  timevar_pop (TV_TREE_CLEANUP_CFG);
 }
 
 
@@ -1032,7 +1043,7 @@ remove_bb (bb, remove_stmts)
   dump_file = dump_begin (TDI_cfg, &dump_flags);
   if (dump_file)
     {
-      fprintf (dump_file, "Removing unreachable basic block %d\n", bb->index);
+      fprintf (dump_file, "Removing basic block %d\n", bb->index);
       dump_tree_bb (dump_file, "", bb, 0);
       fprintf (dump_file, "\n");
       dump_end (TDI_cfg, dump_file);
@@ -1061,8 +1072,11 @@ remove_bb (bb, remove_stmts)
         bsi_next (&i);
     }
 
-  set_bb_for_stmt (*bb->head_tree_p, NULL);
-  set_bb_for_stmt (*bb->end_tree_p, NULL);
+  if (bb->head_tree_p)
+    set_bb_for_stmt (*bb->head_tree_p, NULL);
+
+  if (bb->end_tree_p)
+    set_bb_for_stmt (*bb->end_tree_p, NULL);
 
   /* Remove the edges into and out of this block.  */
   while (bb->pred != NULL)
@@ -1090,9 +1104,9 @@ remove_bb (bb, remove_stmts)
          alternative.  */
       for (phi = phi_nodes (bb->succ->dest); phi; phi = TREE_CHAIN (phi))
 	remove_phi_arg (phi, bb);
+
       remove_edge (bb->succ);
     }
-
 
   bb->pred = NULL;
   bb->succ = NULL;
@@ -1253,6 +1267,19 @@ remove_stmt (stmt_p)
 
   STRIP_NOPS (stmt);
 
+  /* If the statement is a control structure, clear the appropriate BB_*
+     flags from the basic block.  */
+  if (is_ctrl_stmt (stmt))
+    {
+      basic_block bb = bb_for_stmt (stmt);
+      if (bb)
+	{
+	  bb->flags &= ~BB_CONTROL_EXPR;
+	  if (TREE_CODE (stmt) == LOOP_EXPR)
+	    bb->flags &= ~BB_LOOP_CONTROL_EXPR;
+	}
+    }
+
   /* If the statement is a LABEL_EXPR, remove the LABEL_DECL from
      the symbol table.  */
   if (TREE_CODE (stmt) == LABEL_EXPR)
@@ -1307,11 +1334,15 @@ cleanup_control_flow ()
   FOR_EACH_BB (bb)
     if (bb->flags & BB_CONTROL_EXPR)
       {
-	enum tree_code code = TREE_CODE (last_stmt (bb));
-	if (code == COND_EXPR)
-	  cleanup_cond_expr_graph (bb);
-	else if (code == SWITCH_EXPR)
-	  cleanup_switch_expr_graph (bb);
+	tree last = last_stmt (bb);
+	if (last)
+	  {
+	    enum tree_code code = TREE_CODE (last);
+	    if (code == COND_EXPR)
+	      cleanup_cond_expr_graph (bb);
+	    else if (code == SWITCH_EXPR)
+	      cleanup_switch_expr_graph (bb);
+	  }
       }
 }
 
@@ -1588,6 +1619,83 @@ value_matches_some_label (dest_edge, val, default_edge_p)
 	  if (simple_cst_equal (label_val, val) == 1)
 	    return true;
 	}
+    }
+
+  return false;
+}
+
+
+/* Convert control structures into linear code whenever possible.  */
+
+static void
+linearize_control_structures ()
+{
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    {
+      tree *entry_p;
+
+      if (!(bb->flags & BB_CONTROL_EXPR))
+	continue;
+
+      /* After converting the current COND_EXPR into straight line code it
+	 may happen that the block that was merged into BB also ends in a
+	 COND_EXPR (nested conditionals).  Therefore, we need to iterate
+	 until we either fail to linearize the conditional or BB ends in
+	 something other than a conditional.  */
+      entry_p = last_stmt_ptr (bb);
+      while (entry_p
+	     && TREE_CODE (*entry_p) == COND_EXPR
+	     && linearize_cond_expr (entry_p, bb))
+	entry_p = last_stmt_ptr (bb);
+    }
+}
+
+
+/* Convert conditional expressions of the form 'if (1)' and 'if (0)' into
+   straight line code.  ENTRY_P is a pointer to the COND_EXPR statement to
+   check.  Return true if the conditional was modified.  */
+
+static bool
+linearize_cond_expr (tree *entry_p, basic_block bb)
+{
+  tree entry = *entry_p;
+  tree pred = COND_EXPR_COND (entry);
+  tree then_clause = COND_EXPR_THEN (entry);
+  tree else_clause = COND_EXPR_ELSE (entry);
+
+  /* Remove the conditional if both branches have been removed.  */
+  if (body_is_empty (then_clause) && body_is_empty (else_clause))
+    {
+      remove_stmt (entry_p);
+      return true;
+    }
+
+  /* Linearize 'if (1)'.  */
+  if (simple_cst_equal (pred, integer_one_node) == 1
+	   && body_is_empty (else_clause))
+    {
+      /* If there is no THEN_CLAUSE, remove the conditional.  */
+      if (body_is_empty (then_clause))
+	remove_stmt (entry_p);
+      else
+	merge_tree_blocks (bb, bb_for_stmt (then_clause));
+
+      return true;
+    }
+
+  /* Linearize 'if (0)'.  */
+  if (simple_cst_equal (pred, integer_zero_node) == 1
+	   && body_is_empty (then_clause))
+    {
+      /* If there is no ELSE_CLAUSE, remove the conditional.  */
+      if (body_is_empty (else_clause))
+	remove_stmt (entry_p);
+      else
+	merge_tree_blocks (bb, bb_for_stmt (else_clause));
+
+      return true;
     }
 
   return false;
@@ -2235,16 +2343,9 @@ last_stmt (bb)
      basic_block bb;
 {
   block_stmt_iterator b;
-  tree t;
   
   b = bsi_last (bb);
-
-  if (bsi_end_p (b))
-    t = NULL_TREE;
-  else
-    t = bsi_stmt (b);
-
-  return t;
+  return (!bsi_end_p (b)) ? bsi_stmt (b) : NULL_TREE;
 }
 
 
@@ -2257,7 +2358,7 @@ last_stmt_ptr (bb)
   block_stmt_iterator last;
 
   last = bsi_last (bb);
-  return bsi_stmt_ptr (last);
+  return (!bsi_end_p (last)) ? bsi_stmt_ptr (last) : NULL;
 }
 
 
@@ -2307,7 +2408,6 @@ bsi_init (tp, bb)
 		  bind.context = tmp;
 		    
 		return bind;
-
 	      }
 	    else
 	      /* If the children of the BIND_EXPR are no good, try the next
@@ -2374,7 +2474,6 @@ bsi_next_in_bb (i, bb)
 	    bind.context = tmp;
 	  *i = bind;
 	}
-	
     }
 
   if (i->tp == NULL && i->context != NULL_TREE)
@@ -2933,3 +3032,167 @@ bsi_insert_on_edge (e, stmt)
   return bsi;
 }
 
+
+/* Replace the statement pointed by TP1 with the statement pointed by TP2.
+   Note that this function will not replace COMPOUND_EXPR nodes, only
+   individual statements.
+   
+   If TP1 is pointing to a COMPOUND_EXPR node, only its LHS operand will be
+   replaced. If TP2 points to a COMPOUND_EXPR, a new BIND_EXPR will be
+   created to wrap the whole chain of statements into a single block.  */
+
+void
+replace_stmt (tree *tp1, tree *tp2)
+{
+  tree t;
+
+  if (TREE_CODE (*tp2) == COMPOUND_EXPR)
+    {
+      /* If TP2 points to a COMPOUND_EXPR, create a BIND_EXPR to hold the
+	 chain of statements.  */
+      t = build (BIND_EXPR, void_type_node, NULL_TREE, *tp2, NULL_TREE);
+    }
+  else
+    {
+      /* Otherwise use TP2 statement directly.  */
+      t = *tp2;
+    }
+
+  /* Relocate annotations for the replacement statement.  */
+  TREE_LOCUS (t) = TREE_LOCUS (*tp1);
+  add_stmt_to_bb (&t, bb_for_stmt (*tp1), NULL_TREE);
+
+  /* Don't replace COMPOUND_EXPRs.  Only their operands.  */
+  if (TREE_CODE (*tp1) == COMPOUND_EXPR)
+    TREE_OPERAND (*tp1, 0) = t;
+  else
+    *tp1 = t;
+}
+
+
+/* Given two blocks BB1 and BB2, merge the two blocks by moving all the
+   statements in BB2 after the last statement of BB1.
+   Note that no error checking is done, if there is more than one edges
+   coming into BB2 this function will happily munge the CFG.  */
+
+static void
+merge_tree_blocks (basic_block bb1, basic_block bb2)
+{
+  tree t1;
+
+  /* Step 1.  Chain all the statements in BB2 at the end of BB1.  */
+  t1 = last_stmt (bb1);
+  if (is_ctrl_stmt (t1))
+    {
+      /* If BB1 ends in a control statement C, BB2 is the first block of
+	 C's body.  In this case we don't need to insert statements from
+	 BB2 into BB1, we can simply replace C with the first statement of
+	 BB2.  */
+      if (TREE_CODE (t1) == COND_EXPR
+	  || TREE_CODE (t1) == LOOP_EXPR)
+	replace_stmt (bb1->end_tree_p, bb2->head_tree_p);
+      else if (TREE_CODE (t1) == SWITCH_EXPR)
+	{
+	  /* Skip over all the CASE labels.  */
+	  block_stmt_iterator bi2 = bsi_start (bb2);
+	  while (!bsi_end_p (bi2)
+	         && TREE_CODE (bsi_stmt (bi2)) == CASE_LABEL_EXPR)
+	    bsi_next (&bi2);
+
+	  if (!bsi_end_p (bi2))
+	    replace_stmt (bb1->end_tree_p, bsi_container (bi2));
+	}
+      else
+	abort ();
+    }
+  else
+    {
+      /* Insert the first statement of BB2 after the last statement of BB1.  */
+      block_stmt_iterator bi1 = bsi_from_tsi (tsi_start (bb1->end_tree_p));
+      bsi_insert_after (&bi1, *(bb2->head_tree_p), BSI_SAME_STMT);
+    }
+
+  /* Step 2.  After chaining the statements from BB2 at the end of BB1, we
+     need to map all the statements between BB1->END_TREE_P and
+     BB2->END_TREE_P to BB1.  */
+  remap_stmts (bb1, bb2, bb1->end_tree_p);
+
+  /* Step 3.  Update edges and dominator children for BB1, and remove BB2.  */
+  {
+    bb_ann_t ann1, ann2;
+
+    /* BB2's successors are now BB1's.  */
+    while (bb1->succ)
+      remove_edge (bb1->succ);
+
+    while (bb2->succ)
+      {
+	edge e = bb2->succ;
+	make_edge (bb1, e->dest, e->flags);
+	remove_edge (e);
+      }
+
+    /* BB2's dominator children are now BB1's.  Also, remove BB2 as a
+       dominator child of BB1.  */
+    ann1 = bb_ann (bb1);
+    ann2 = bb_ann (bb2);
+    if (ann1->dom_children)
+      {
+	bitmap_clear_bit (ann1->dom_children, bb2->index);
+	if (ann2->dom_children)
+	  bitmap_a_or_b (ann1->dom_children, ann1->dom_children,
+			ann2->dom_children);
+      }
+
+    /* BB1 may no longer be a control expression after merging with BB2.
+       Copy BB2's flags into BB1.  */
+    bb1->flags &= ~BB_CONTROL_EXPR;
+    bb1->flags |= bb2->flags;
+
+    /* Before removing BB2, clear out its predecessors, successors and
+       head/tail statements, otherwise remove_bb will try to remove
+       statements and edges that now belong to BB1.  */
+    bb2->head_tree_p = NULL;
+    bb2->end_tree_p = NULL;
+    bb2->pred = NULL;
+    bb2->succ = NULL;
+    remove_bb (bb2, 0);
+  }
+}
+
+
+/* Map all the statements from block BB2 to block BB1 starting at the
+   statement pointed by FIRST_P.  Note that we cannot use block iterators
+   here.  This would confuse bsi_end_p() because, when moving from one
+   statement s1 to its successor s2, both s1 and s2 will be in different
+   blocks and bsi_end_p will stop the iteration.
+
+   Return true after mapping the last statement.  */
+
+static bool
+remap_stmts (basic_block bb1, basic_block bb2, tree *first_p)
+{
+  tree_stmt_iterator ti;
+  tree parent = parent_stmt (*(bb1->head_tree_p));
+
+  for (ti = tsi_start (first_p); !tsi_end_p (ti); tsi_next (&ti))
+    {
+      tree stmt;
+      tree *container = tsi_container (ti);
+      basic_block bb = bb_for_stmt (*container);
+
+      /* If we have gone past the end of BB2, we're done.  */
+      if (bb != bb1 && bb != bb2)
+	return true;
+
+      append_stmt_to_bb (container, bb1, parent);
+
+      /* Recurse into BIND_EXPR bodies.  */
+      stmt = tsi_stmt (ti);
+      if (stmt && TREE_CODE (stmt) == BIND_EXPR)
+	if (remap_stmts (bb1, bb2, &BIND_EXPR_BODY (stmt)))
+	  return true;
+    }
+
+  return false;
+}

@@ -297,7 +297,7 @@ static inline basic_block
 parent_block (bb)
      basic_block bb;
 {
-  tree parent = parent_stmt (*bb->head_tree_p);
+  tree parent = (bb->head_tree_p) ? parent_stmt (*bb->head_tree_p) : NULL_TREE;
   return parent ? bb_for_stmt (parent) : NULL;
 }
 

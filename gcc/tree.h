@@ -3302,6 +3302,7 @@ extern void build_common_tree_nodes	PARAMS ((int));
 extern void build_common_tree_nodes_2	PARAMS ((int));
 extern tree build_range_type		PARAMS ((tree, tree, tree));
 extern tree add_to_compound_expr	PARAMS ((tree, tree));
+extern bool body_is_empty		PARAMS ((tree));
 
 /* In function.c */
 extern void setjmp_protect_args		PARAMS ((void));

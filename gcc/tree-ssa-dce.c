@@ -550,6 +550,7 @@ tree_ssa_dce (fndecl)
     fprintf (dump_file, "\nEliminating unnecessary instructions:\n");
 
   remove_dead_stmts ();
+  cleanup_tree_cfg ();
 
   if (dump_file)
     dump_end (TDI_dce, dump_file);

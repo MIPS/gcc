@@ -266,17 +266,6 @@ static inline tree phi_nodes		PARAMS ((basic_block));
 static inline void add_dom_child	PARAMS ((basic_block, basic_block));
 static inline bitmap dom_children	PARAMS ((basic_block));
 
-/* Some basic blocks are nothing but markers used to give structure to the
-   flow graph (see make_while_stmt_blocks).  They contain no useful
-   instructions.  */
-static inline bool bb_empty_p		PARAMS ((basic_block));
-static inline bool
-bb_empty_p (b)
-     basic_block b;
-{
-  return *(b->head_tree_p) == empty_stmt_node;
-}
-
 
 /*---------------------------------------------------------------------------
 		 Iterators for statements inside a basic block

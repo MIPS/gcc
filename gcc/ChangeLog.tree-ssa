@@ -1,3 +1,32 @@
+2003-03-31  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (STRICT_WARN, STRICT2_WARN): Remove -Wtraditional.
+	* timevar.def (TV_TREE_CLEANUP_CFG): Define.
+	* tree-cfg.c (set_parent_stmt): Add documentation.
+	(replace_stmt): New function.
+	(merge_tree_blocks): New function.
+	(remap_stmts): New function.
+	(linearize_cond_expr): New function.
+	(linearize_control_structures): New function.
+	(cleanup_tree_cfg): Call it.
+	Use new timevar TV_TREE_CLEANUP_CFG.
+	(remove_bb): Update debugging message.
+	Make sure that bb->head_tree_p and bb->end_tree_p exist before
+	resetting their basic blocks.
+	(remove_stmt): When removing a control flow expression, update
+	basic block flags.
+	(cleanup_control_flow): Make sure that the block contains
+	statements.
+	(last_stmt): Reformat for readability.
+	(last_stmt_ptr): Return NULL if the block has no statements.
+	* tree-flow-inline.h (parent_block): Check that the block is not
+	empty.
+	* tree-flow.h (bb_empty_p): Remove.
+	* tree-inline.c (copy_tree_r): Do not copy empty_stmt_node.
+	* tree-ssa-dce.c (tree_ssa_dce): Call cleanup_tree_cfg.
+	* tree.c (body_is_empty): New function.
+	* tree.h (body_is_empty): Declare.
+
 2003-03-31  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-ccp.c (simulate_block): Add abnormal edges out of a
