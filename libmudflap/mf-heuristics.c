@@ -1,4 +1,3 @@
-
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
    Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
@@ -9,7 +8,10 @@
    XXX: libgcc license?
 */
 
+#include "config.h"
+
 #include <stdio.h>
+
 #include "mf-runtime.h"
 #include "mf-impl.h"
 
@@ -17,23 +19,15 @@
 #error "Do not compile this file with -fmudflap!"
 #endif
 
-/* XXX */
+
 extern char _end;
 extern char _start;
+/* XXX: linux-x86 specific */
 static const uintptr_t stack_segment_base = 0xC0000000;
 static const uintptr_t stack_segment_top  = 0xBF800000;
 
 
-static int
-is_stack_address (uintptr_t addr)
-{
-  return 
-    (addr <= stack_segment_base) &&
-    (addr >= stack_segment_top);
-}
-
-
-#if 0
+#if 0 /* if only glibc exported these */
 /* These are used by heur_argv_envp below.  */
 static int system_argc;
 static char **system_argv;
@@ -147,9 +141,9 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 			  
 			  /* XXX: bad hack; permit __mf_register to do its job.  */
 			  __mf_state = active;
-			  __mf_register ((uintptr_t) low, (uintptr_t) (high-low),
-					 __MF_TYPE_GUESS, 
-					 "/proc/self/maps segment");
+			  __mfu_register ((uintptr_t) low, (uintptr_t) (high-low),
+					  __MF_TYPE_GUESS, 
+					  "/proc/self/maps segment");
 			  __mf_state = reentrant;
 			  
 			  return 0; /* undecided (tending to cachable) */
@@ -185,7 +179,7 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 	      int i;
 	      while (system_envp[envp_length]) envp_length ++;
 	      if (envp_length)
-		__mf_register ((uintptr_t) system_envp,
+		__mfu_register ((uintptr_t) system_envp,
 			       (uintptr_t) (sizeof (char*) * (envp_length + 1)),
 			       __MF_TYPE_GUESS, "environ[]");
 
@@ -195,7 +189,7 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 		  if (env)
 		    {
 		      unsigned len = strlen (env);
-		      __mf_register ((uintptr_t) env,
+		      __mfu_register ((uintptr_t) env,
 				     (uintptr_t) len+1,
 				     __MF_TYPE_GUESS,
 				     "envp[i]");
@@ -208,7 +202,7 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 	    {
 	      int i;
 
-	      __mf_register ((uintptr_t) system_argv,
+	      __mfu_register ((uintptr_t) system_argv,
 			     (uintptr_t) (sizeof (char *) * (system_argc + 1)),
 			     __MF_TYPE_GUESS,
 			     "argv");
@@ -219,7 +213,7 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 		  if (arg)
 		    {
 		      unsigned len = strlen (arg);
-		      __mf_register ((uintptr_t) arg,
+		      __mfu_register ((uintptr_t) arg,
 				     (uintptr_t) (len + 1),
 				     __MF_TYPE_GUESS,
 				     "argv[i]");

@@ -9,9 +9,19 @@ XXX: libgcc license?
 
 #include "config.h"
 
+/* These attempt to coax various unix flavours to declare all our
+   needed tidbits in the system headers.  */
+#define _POSIX_SOURCE
+#define _GNU_SOURCE 
+#define _XOPEN_SOURCE
+#define _BSD_TYPES
+#define __EXTENSIONS__
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
 #include <sys/time.h>
+#include <time.h>
 #include <unistd.h>
 #ifdef HAVE_EXECINFO_H
 #include <execinfo.h>
@@ -32,29 +42,19 @@ XXX: libgcc license?
 
 
 /* ------------------------------------------------------------------------ */
-
-#ifndef max
-#define max(a,b) ((a) > (b) ? (a) : (b))
-#endif
-
-#ifndef min
-#define min(a,b) ((a) < (b) ? (a) : (b))
-#endif
-
-
-/* ------------------------------------------------------------------------ */
 /* Utility macros */
+
+#define CTOR  __attribute__ ((constructor))
+#define DTOR  __attribute__ ((destructor))
 
 
 /* Codes to describe the context in which a violation occurs. */
-
 #define __MF_VIOL_UNKNOWN 0
 #define __MF_VIOL_READ 1
 #define __MF_VIOL_WRITE 2
 #define __MF_VIOL_REGISTER 3
 #define __MF_VIOL_UNREGISTER 4
 #define __MF_VIOL_WATCH 5
-
 
 /* Protect against recursive calls. */
 #define BEGIN_RECURSION_PROTECT           \
@@ -66,6 +66,7 @@ XXX: libgcc license?
 
 #define END_RECURSION_PROTECT             \
   __mf_state = old_state;
+
 
 
 /* ------------------------------------------------------------------------ */
@@ -80,23 +81,112 @@ uintptr_t __mf_lc_mask = LOOKUP_CACHE_MASK_DFL;
 unsigned char __mf_lc_shift = LOOKUP_CACHE_SHIFT_DFL;
 #define LOOKUP_CACHE_SIZE (__mf_lc_mask + 1)
 
-
 struct __mf_options __mf_opts;
 enum __mf_state __mf_state = inactive;
-#ifdef HAVE_PTHREAD_H
-pthread_mutex_t __mf_biglock = PTHREAD_MUTEX_INITIALIZER;
+
+#ifdef LIBMUDFLAPTH
+pthread_mutex_t __mf_biglock =
+#ifdef PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP
+       PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
+#else
+       PTHREAD_MUTEX_INITIALIZER;
 #endif
-#ifdef PIC
-struct __mf_dynamic __mf_dynamic;
 #endif
 
+/* Use HAVE_PTHREAD_H here instead of LIBMUDFLAPTH, so that even
+   the libmudflap.la (no threading support) can diagnose whether
+   the application is linked with -lpthread.  See __mf_usage() below.  */
 #if HAVE_PTHREAD_H
-#pragma weak pthread_create
-const void *threads_active_p = (void *) pthread_create;
+#pragma weak pthread_join
+const void *threads_active_p = (void *) pthread_join;
 #endif
 
 
+/* ------------------------------------------------------------------------ */
+/* stats-related globals.  */
+
+static unsigned long __mf_count_check;
+static unsigned long __mf_lookup_cache_reusecount [LOOKUP_CACHE_SIZE_MAX];
+static unsigned long __mf_treerot_left, __mf_treerot_right;
+static unsigned long __mf_count_register;
+static unsigned long __mf_total_register_size [__MF_TYPE_MAX+1];
+static unsigned long __mf_count_unregister;
+static unsigned long __mf_total_unregister_size;
+static unsigned long __mf_count_violation [__MF_VIOL_WATCH+1];
+static unsigned long __mf_sigusr1_received;
+static unsigned long __mf_sigusr1_handled;
+
+
+/* ------------------------------------------------------------------------ */
+/* mode-check-related globals.  */
+
+typedef struct __mf_object
+{
+  uintptr_t low, high; /* __mf_register parameters */
+  const char *name;
+  char type; /* __MF_TYPE_something */
+  char watching_p; /* Trigger a VIOL_WATCH on access? */
+  unsigned read_count; /* Number of times __mf_check/read was called on this object.  */
+  unsigned write_count; /* Likewise for __mf_check/write.  */
+  unsigned liveness; /* A measure of recent checking activity.  */
+  unsigned description_epoch; /* Last epoch __mf_describe_object printed this.  */
+
+  uintptr_t alloc_pc;
+  struct timeval alloc_time;
+  char **alloc_backtrace;
+  size_t alloc_backtrace_size;
+
+  int deallocated_p;
+  uintptr_t dealloc_pc;
+  struct timeval dealloc_time;
+  char **dealloc_backtrace;
+  size_t dealloc_backtrace_size;
+} __mf_object_t;
+
+
+typedef struct __mf_object_tree
+{
+  __mf_object_t data;
+  struct __mf_object_tree *left;
+  struct __mf_object_tree *right;
+} __mf_object_tree_t;
+
+/* Live objects: binary tree on __mf_object_t.low */
+static __mf_object_tree_t *__mf_object_root;
+
+/* Dead objects: circular arrays; _MIN_CEM .. _MAX_CEM only */
+static unsigned __mf_object_dead_head[__MF_TYPE_MAX_CEM+1]; /* next empty spot */
+static __mf_object_tree_t *__mf_object_cemetary[__MF_TYPE_MAX_CEM+1][__MF_PERSIST_MAX];
+
+/* Deferred registration/unregistration requests. */
+typedef struct {
+  int register_p; /* or else unregister */
+  void *base;
+  size_t size;
+  int type;
+  char *name;
+} deferred_request_t;
+
+#define MAX_DEFERRED_REQUESTS 2000
+static deferred_request_t __mf_deferred_requests[MAX_DEFERRED_REQUESTS];
+static unsigned __mf_num_deferred_requests = 0;
+
+
+/* ------------------------------------------------------------------------ */
+/* Forward function declarations */
+
+static void __mf_init () CTOR;
 static void __mf_sigusr1_respond ();
+static unsigned __mf_find_objects (uintptr_t ptr_low, uintptr_t ptr_high, 
+				   __mf_object_tree_t **objs, unsigned max_objs);
+static unsigned __mf_find_dead_objects (uintptr_t ptr_low, uintptr_t ptr_high, 
+					__mf_object_tree_t **objs, unsigned max_objs);
+static void __mf_link_object (__mf_object_tree_t *obj);
+static void __mf_age_tree (__mf_object_tree_t *obj);
+static void __mf_adapt_cache ();
+static void __mf_unlink_object (__mf_object_tree_t *obj);
+static void __mf_describe_object (__mf_object_t *obj);
+static unsigned __mf_watch_or_not (void *ptr, size_t sz, char flag);
 
 
 
@@ -108,26 +198,16 @@ __mf_set_default_options ()
 {
   memset (& __mf_opts, 0, sizeof (__mf_opts));
 
-  __mf_opts.trace_mf_calls = 0;
-  __mf_opts.verbose_trace = 0;
-  __mf_opts.collect_stats = 0;
-  __mf_opts.internal_checking = 0;
   __mf_opts.tree_aging =    13037;
   __mf_opts.adapt_cache = 1000003;
-  __mf_opts.print_leaks = 0;
   __mf_opts.abbreviate = 1;
-  __mf_opts.check_initialization = 0;
   __mf_opts.verbose_violations = 1;
-  /* __mf_opts.multi_threaded = 0; */
   __mf_opts.free_queue_length = 4;
   __mf_opts.persistent_count = 100;
   __mf_opts.crumple_zone = 32;
   __mf_opts.backtrace = 4;
   __mf_opts.mudflap_mode = mode_check;
   __mf_opts.violation_mode = viol_nop;
-  __mf_opts.heur_proc_map = 0;
-  __mf_opts.heur_stack_bound = 0;
-  __mf_opts.heur_start_end = 0;
   __mf_opts.heur_argv_environ = 1;
 }
 
@@ -202,12 +282,6 @@ options [] =
     {"abbreviate", 
      "abbreviate repetitive listings",
      set_option, 1, &__mf_opts.abbreviate},
-    /* XXX: this should be sensitive to gcc --enable-threading= setting */
-    /*
-    {"multi-threaded", 
-     "support multiple threads",
-     set_option, 1, &__mf_opts.multi_threaded},
-    */
     {"wipe-stack",
      "wipe stack objects at unwind",
      set_option, 1, &__mf_opts.wipe_stack},
@@ -226,7 +300,6 @@ options [] =
     {"heur-argv-environ", 
      "support argv/environ heuristics",
      set_option, 1, &__mf_opts.heur_argv_environ},
-     
     {"free-queue-length", 
      "queue N deferred free() calls before performing them",
      read_integer_option, 0, &__mf_opts.free_queue_length},
@@ -258,7 +331,7 @@ __mf_usage ()
   struct option *opt;
 
   fprintf (stderr, 
-	   "This is a %sGCC \"mudflap\" memory-checked binary.\n"
+	   "This is a %s%sGCC \"mudflap\" memory-checked binary.\n"
 	   "Mudflap is Copyright (C) 2002-2003 Free Software Foundation, Inc.\n"
 	   "\n"
 	   "The mudflap code can be controlled by an environment variable:\n"
@@ -270,11 +343,17 @@ __mf_usage ()
 	   "any of the following options.  Use `-no-OPTION' to disable options.\n"
 	   "\n",
 #if HAVE_PTHREAD_H
-	   (threads_active_p ? "multi-threaded " : "single-threaded ")
+	   (threads_active_p ? "multi-threaded " : "single-threaded "),
 #else
-	    ""
+	   "",
+#endif
+#if LIBMUDFLAPTH
+	   "thread-aware "
+#else
+	   "thread-unaware "
 #endif
 	    );
+  /* XXX: The multi-threaded thread-unaware combination is bad.  */
 
   for (opt = options; opt->name; opt++)
     {
@@ -306,6 +385,17 @@ __mf_usage ()
 
 int 
 __mf_set_options (const char *optstr)
+{
+  int rc;
+  LOCKTH ();
+  rc = __mfu_set_options (optstr);
+  UNLOCKTH ();
+  return rc;
+}
+
+
+int 
+__mfu_set_options (const char *optstr)
 {
   struct option *opts = 0;
   char *nxt = 0;
@@ -404,120 +494,70 @@ __mf_set_options (const char *optstr)
   return rc;
 }
 
-#define CTOR  __attribute__ ((constructor))
-#define DTOR  __attribute__ ((destructor))
 
 #ifdef PIC
 
-static void 
-resolve_single_dynamic (void **target, const char *name)
+void 
+__mf_resolve_single_dynamic (struct __mf_dynamic_entry *e)
 {
   char *err;
-  assert (target);
-  *target = NULL;
-  *target = dlsym (RTLD_NEXT, name);
+
+  assert (e);
+  e->pointer = NULL;
+
+#if HAVE_DLVSYM
+  if (e->version != NULL && e->version[0] != '\0') /* non-null/empty */
+    e->pointer = dlvsym (RTLD_NEXT, e->name, e->version);
+  else
+#endif
+    e->pointer = dlsym (RTLD_NEXT, e->name);
+  
   err = dlerror ();
+
   if (err)
     {
       fprintf (stderr, "mf: error in dlsym(\"%s\"): %s\n",
-	       name, err);
+	       e->name, err);
       abort ();
     }  
-  if (! *target)
+  if (! e->pointer)
     {
-      fprintf (stderr, "mf: dlsym(\"%s\") = NULL\n", name);
+      fprintf (stderr, "mf: dlsym(\"%s\") = NULL\n", e->name);
       abort ();
     }
 }
 
-void 
+
+static void 
 __mf_resolve_dynamics () 
 {
-#define RESOLVE(fname) \
-resolve_single_dynamic (&__mf_dynamic.dyn_ ## fname, #fname)
-  RESOLVE(calloc);
-  RESOLVE(free);
-  RESOLVE(malloc);
-  RESOLVE(mmap);
-  RESOLVE(munmap);
-  RESOLVE(realloc);
-#undef RESOLVE
+  int i;
+  for (i = 0; i < dyn_INITRESOLVE; i++)
+    __mf_resolve_single_dynamic (& __mf_dynamic[i]);
 }
+
+
+/* NB: order must match enums in mf-impl.h */
+struct __mf_dynamic_entry __mf_dynamic [] =
+{
+  {NULL, "calloc", NULL},
+  {NULL, "free", NULL},
+  {NULL, "malloc", NULL},
+  {NULL, "mmap", NULL},
+  {NULL, "munmap", NULL},
+  {NULL, "realloc", NULL},
+  {NULL, "DUMMY", NULL}, /* dyn_INITRESOLVE */
+#ifdef LIBMUDFLAPTH
+  {NULL, "pthread_create", PTHREAD_CREATE_VERSION}
+#endif
+};
 
 #endif /* PIC */
 
 
 
 /* ------------------------------------------------------------------------ */
-/* stats-related globals.  */
 
-static unsigned long __mf_count_check;
-static unsigned long __mf_lookup_cache_reusecount [LOOKUP_CACHE_SIZE_MAX];
-static unsigned long __mf_treerot_left, __mf_treerot_right;
-static unsigned long __mf_count_register;
-static unsigned long __mf_total_register_size [__MF_TYPE_MAX+1];
-static unsigned long __mf_count_unregister;
-static unsigned long __mf_total_unregister_size;
-static unsigned long __mf_count_violation [__MF_VIOL_WATCH+1];
-static unsigned long __mf_sigusr1_received;
-static unsigned long __mf_sigusr1_handled;
-
-
-/* ------------------------------------------------------------------------ */
-/* mode-check-related globals.  */
-
-typedef struct __mf_object
-{
-  uintptr_t low, high; /* __mf_register parameters */
-  const char *name;
-  char type; /* __MF_TYPE_something */
-  char watching_p; /* Trigger a VIOL_WATCH on access? */
-  unsigned read_count; /* Number of times __mf_check/read was called on this object.  */
-  unsigned write_count; /* Likewise for __mf_check/write.  */
-  unsigned liveness; /* A measure of recent checking activity.  */
-  unsigned description_epoch; /* Last epoch __mf_describe_object printed this.  */
-
-  uintptr_t alloc_pc;
-  struct timeval alloc_time;
-  char **alloc_backtrace;
-  size_t alloc_backtrace_size;
-
-  int deallocated_p;
-  uintptr_t dealloc_pc;
-  struct timeval dealloc_time;
-  char **dealloc_backtrace;
-  size_t dealloc_backtrace_size;
-} __mf_object_t;
-
-
-typedef struct __mf_object_tree
-{
-  __mf_object_t data;
-  struct __mf_object_tree *left;
-  struct __mf_object_tree *right;
-} __mf_object_tree_t;
-
-/* Live objects: binary tree on __mf_object_t.low */
-__mf_object_tree_t *__mf_object_root;
-/* Dead objects: circular arrays; _MIN_CEM .. _MAX_CEM only */
-unsigned __mf_object_dead_head[__MF_TYPE_MAX_CEM+1]; /* next empty spot */
-__mf_object_tree_t *__mf_object_cemetary[__MF_TYPE_MAX_CEM+1][__MF_PERSIST_MAX];
-
-static unsigned __mf_find_objects (uintptr_t ptr_low, uintptr_t ptr_high, 
-				   __mf_object_tree_t **objs, unsigned max_objs);
-static unsigned __mf_find_dead_objects (uintptr_t ptr_low, uintptr_t ptr_high, 
-					__mf_object_tree_t **objs, unsigned max_objs);
-static void __mf_link_object (__mf_object_tree_t *obj);
-static void __mf_age_tree (__mf_object_tree_t *obj);
-static void __mf_adapt_cache ();
-static void __mf_unlink_object (__mf_object_tree_t *obj);
-static void __mf_describe_object (__mf_object_t *obj);
-static unsigned __mf_watch_or_not (void *ptr, size_t sz, char flag);
-
-
-/* ------------------------------------------------------------------------ */
-
-extern void __mf_init () CTOR;
 void __mf_init ()
 {
   char *ov = 0;
@@ -533,7 +573,7 @@ void __mf_init ()
   ov = getenv ("MUDFLAP_OPTIONS");
   if (ov)
     {
-      int rc = __mf_set_options (ov);
+      int rc = __mfu_set_options (ov);
       if (rc < 0)
 	{
 	  __mf_usage ();
@@ -545,7 +585,7 @@ void __mf_init ()
   __mf_describe_object (NULL);
 
 #define REG_RESERVED(obj) \
-  __mf_register (& obj, sizeof(obj), __MF_TYPE_NOACCESS, # obj)
+  __mfu_register (& obj, sizeof(obj), __MF_TYPE_NOACCESS, # obj)
 
   REG_RESERVED (__mf_lookup_cache);
   REG_RESERVED (__mf_lc_mask);
@@ -553,21 +593,21 @@ void __mf_init ()
   /* XXX: others of our statics?  */
 
   /* Prevent access to *NULL. */
-  __mf_register (MINPTR, 1, __MF_TYPE_NOACCESS, "NULL");
+  __mfu_register (MINPTR, 1, __MF_TYPE_NOACCESS, "NULL");
   __mf_lookup_cache[0].low = (uintptr_t) -1;
 
   /* XXX: bad hack: assumes Linux process layout */
   if (__mf_opts.heur_argv_environ)
     {
       int foo = 0;
-      __mf_register (& foo,
-		     (size_t) 0xC0000000 - (size_t) (& foo),
-		     __MF_TYPE_GUESS,
-		     "argv/environ area");
+      __mfu_register (& foo,
+		      (size_t) 0xC0000000 - (size_t) (& foo),
+		      __MF_TYPE_GUESS,
+		      "argv/environ area");
       /* XXX: separate heuristic? */
-      __mf_register (& errno, sizeof (errno),
-		     __MF_TYPE_GUESS,
-		     "errno area");
+      __mfu_register (& errno, sizeof (errno),
+		      __MF_TYPE_GUESS,
+		      "errno area");
     }
 }
 
@@ -576,7 +616,7 @@ extern void __mf_fini () DTOR;
 void __mf_fini ()
 {
   TRACE ("mf: __mf_fini\n");
-  __mf_report ();
+  __mfu_report ();
 }
 
 
@@ -585,6 +625,14 @@ void __mf_fini ()
 /* __mf_check */
 
 void __mf_check (void *ptr, size_t sz, int type, const char *location)
+{
+  LOCKTH ();
+  __mfu_check (ptr, sz, type, location);
+  UNLOCKTH ();
+}
+
+
+void __mfu_check (void *ptr, size_t sz, int type, const char *location)
 {
   unsigned entry_idx = __MF_CACHE_INDEX (ptr);
   struct __mf_cache *entry = & __mf_lookup_cache [entry_idx];
@@ -890,6 +938,15 @@ __mf_uncache_object (__mf_object_t *old_obj)
 void
 __mf_register (void *ptr, size_t sz, int type, const char *name)
 {
+  LOCKTH ();
+  __mfu_register (ptr, sz, type, name);
+  UNLOCKTH ();
+}
+
+
+void
+__mfu_register (void *ptr, size_t sz, int type, const char *name)
+{
   /* if (UNLIKELY (!(__mf_state == active || __mf_state == starting))) return; */
 
   TRACE ("mf: register ptr=%08lx size=%lu type=%x name='%s'\n", ptr, sz, 
@@ -905,7 +962,7 @@ __mf_register (void *ptr, size_t sz, int type, const char *name)
 
 
   if (UNLIKELY (__mf_opts.sigusr1_report))
-  __mf_sigusr1_respond ();
+    __mf_sigusr1_respond ();
 
   switch (__mf_opts.mudflap_mode)
     {
@@ -1010,15 +1067,15 @@ __mf_register (void *ptr, size_t sz, int type, const char *name)
 		    if (all_ovr_objs[n]->data.low > next_low) /* Gap? */
 		      {
 			uintptr_t next_high = CLAMPSUB (all_ovr_objs[n]->data.low, 1);
-			__mf_register ((void *) next_low, next_high-next_low+1,
-				       __MF_TYPE_GUESS, name);
+			__mfu_register ((void *) next_low, next_high-next_low+1,
+					__MF_TYPE_GUESS, name);
 		      }
 		    next_low = CLAMPADD (all_ovr_objs[n]->data.high, 1);
 		  }
 		/* Add in any leftover room at the top.  */
 		if (next_low <= high)
-		  __mf_register ((void *) next_low, high-next_low+1,
-				 __MF_TYPE_GUESS, name);
+		  __mfu_register ((void *) next_low, high-next_low+1,
+				  __MF_TYPE_GUESS, name);
 
 		/* XXX: future optimization: allow consecutive GUESS regions to
 		   be glued together.  */
@@ -1045,10 +1102,10 @@ __mf_register (void *ptr, size_t sz, int type, const char *name)
   		   located GUESS region should end up being split up
   		   in any case.  */
 		END_RECURSION_PROTECT;
-		__mf_unregister ((void *) old_low, old_high-old_low+1);
-		__mf_register ((void *) low, sz, type, name);
-		__mf_register ((void *) old_low, old_high-old_low+1,
-			       __MF_TYPE_GUESS, old_name);
+		__mfu_unregister ((void *) old_low, old_high-old_low+1);
+		__mfu_register ((void *) low, sz, type, name);
+		__mfu_register ((void *) old_low, old_high-old_low+1,
+				__MF_TYPE_GUESS, old_name);
 		return;
 	      }
 
@@ -1078,9 +1135,17 @@ __mf_register (void *ptr, size_t sz, int type, const char *name)
 }
 
 
-
 void
 __mf_unregister (void *ptr, size_t sz)
+{
+  LOCKTH ();
+  __mfu_unregister (ptr, sz);
+  UNLOCKTH ();
+}
+
+
+void
+__mfu_unregister (void *ptr, size_t sz)
 {
   DECLARE (void, free, void *ptr);
 
@@ -1761,6 +1826,14 @@ __mf_report_leaks (__mf_object_tree_t *node)
 void
 __mf_report ()
 {
+  LOCKTH ();
+  __mfu_report ();
+  UNLOCKTH ();
+}
+
+void
+__mfu_report ()
+{
   /* if (UNLIKELY (__mf_state == active)) return; */
 
   if (__mf_opts.collect_stats)
@@ -2080,17 +2153,22 @@ __mf_violation (void *ptr, size_t sz, uintptr_t pc,
 /* ------------------------------------------------------------------------ */
 
 
-/* ------------------------------------------------------------------------ */
-/* __mf_check */
-
 unsigned __mf_watch (void *ptr, size_t sz)
 {
-  return __mf_watch_or_not (ptr, sz, 1);
+  unsigned rc;
+  LOCKTH ();
+  rc = __mf_watch_or_not (ptr, sz, 1);
+  UNLOCKTH ();
+  return rc;
 }
 
 unsigned __mf_unwatch (void *ptr, size_t sz)
 {
-  return __mf_watch_or_not (ptr, sz, 0);
+  unsigned rc;
+  LOCKTH ();
+  rc = __mf_watch_or_not (ptr, sz, 0);
+  UNLOCKTH ();
+  return rc;
 }
 
 

@@ -22,6 +22,10 @@ extern struct __mf_cache __mf_lookup_cache [];
 extern uintptr_t __mf_lc_mask;
 extern unsigned char __mf_lc_shift;
 
+/* Multithreading support.  */
+#ifdef _MUDFLAPTH
+/* extern pthread_mutex_t __mf_biglock; */
+#endif
 
 /* Codes to describe the type of access to check: __mf_check arg 3 */
 

@@ -20,6 +20,34 @@ AC_SUBST(target_alias)
 
 AM_CONFIG_HEADER(config.h)
 
+AC_LANG_C
+AC_PROG_CC
+if test "x$GCC" != "xyes"; then
+  AC_MSG_ERROR([libmudflap must be built with GCC])
+fi
+AC_PROG_CPP
+
+# Some hosts don't have dlsym(RTLD_NEXT, "symbol") for use in
+# symbol interposition.  We disable shared libraries for these.
+AC_MSG_CHECKING([whether dlsym(RTLD_NEXT,...) is available])
+AC_TRY_COMPILE([
+#define _GNU_SOURCE
+#include <dlfcn.h>
+],
+[void *foo = dlsym (RTLD_NEXT, "exit");],
+[AC_MSG_RESULT(yes)],
+[AC_MSG_RESULT(no)
+enable_shared=no])
+
+AC_CHECK_HEADERS(stdint.h execinfo.h signal.h pthread.h dlfcn.h)
+AC_CHECK_FUNCS(backtrace backtrace_symbols gettimeofday signal)
+
+# Disable shared libraries for hosts without pthread.h
+if test "x$ac_have_pthread_h" = ""; then
+   enable_shared=no
+fi
+
+
 AC_LIBTOOL_DLOPEN
 AM_PROG_LIBTOOL
 AC_SUBST(enable_shared)
@@ -36,16 +64,53 @@ else
 fi
 AC_SUBST(MF_HAVE_UINTPTR_T)
 
-AC_CHECK_HEADERS(stdint.h execinfo.h signal.h pthread.h)
-AC_CHECK_FUNCS(backtrace backtrace_symbols gettimeofday signal)
+if test ! -d pth
+then
+  # libmudflapth objects are built in this subdirectory
+  mkdir pth
+fi
+
+pthread_create_version='""'
+AM_CONDITIONAL(LIBMUDFLAPTH, [test "x$ac_have_pthread_h" != ""])
+
 AC_CHECK_LIB(dl, dlsym)
 
-if ${CONFIG_SHELL-/bin/sh} ./libtool --tag CC --features |
-   grep "enable shared" > /dev/null; then
-  LIBMUDFLAP_PICFLAGS=-prefer-pic
-else
-  LIBMUDFLAP_PICFLAGS=
+if test "x$enable_shared" = "xyes" && test "x$ac_have_pthread_h" != ""; then
+  # NB: don't check for -lpthread here, because then it would be
+  # added to LIBS.  For the thread-unaware libmudflap.la, we don't
+  # want it there.
+
+  # glibc-related hacks.  dlsym() may pick the wrong version of
+  # interposed functions like pthread_create on modern glibc.
+  # We need to find the proper symbol version string, and use
+  # the nonstandard dlvsym().
+  AC_CHECK_FUNCS(dlvsym)
+  AC_CHECK_TOOL(NM, nm)
+  if test "x$ac_cv_have_dlvsym" != ""; then
+    # Try compiling a simple pthreads program.  Find the shared libraries it
+    # ends up with.  Then use "nm" on those libraries to extract the
+    # default symbol versioning suffix ("@@"), if any.  But that's tricky.
+    # Rather, run nm on the resulting executable.  Unfortunately, autoconf
+    # doesn't appear to have a macro that builds a test executable for
+    # subsequent analysis ... so we do it by hand here. 
+    cat >> conftest.c << EOF
+#include <pthread.h>
+int main () { void *p = (void *) & pthread_create; return (int) p; }
+EOF
+    oldLIBS="$LIBS"
+    LIBS="$LIBS -lpthread"
+    AC_MSG_CHECKING(pthread_create symbol version)
+    if eval $ac_link 2>&5 && test -s conftest${ac_exeext}; then
+      version=`$NM conftest${ac_exeect} | grep 'pthread_create@@' | sed -e 's/^.*@@//'`
+      if test "x$version" != "x"; then
+        pthread_create_version="\"$version\""
+        AC_MSG_RESULT($pthread_create_version)
+      fi
+    fi
+    LIBS="$oldLIBS"
+  fi
 fi
-AC_SUBST(LIBMUDFLAP_PICFLAGS)
+AC_DEFINE_UNQUOTED(PTHREAD_CREATE_VERSION, $pthread_create_version, [pthread_create symbol version])   
+
 
 AC_OUTPUT([Makefile testsuite/Makefile mf-runtime.h])

@@ -7,6 +7,11 @@ This file is part of GCC.
 XXX: libgcc license?
 */
 
+#include "config.h"
+
+#define _POSIX_SOURCE
+#define _GNU_SOURCE
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +19,8 @@ XXX: libgcc license?
 #include <sys/types.h>
 #include <unistd.h>
 #include <assert.h>
+#include <errno.h>
+#include <limits.h>
 #include <time.h>
 
 #include "mf-runtime.h"
@@ -176,21 +183,23 @@ WRAPPER(void *, realloc, void *buf, size_t c)
 
   /* Ensure heap wiping doesn't occur during this peculiar
      unregister/reregister pair.  */
+  LOCKTH ();
   saved_wipe_heap = __mf_opts.wipe_heap;
   __mf_opts.wipe_heap = 0;
 
   if (LIKELY(buf))
-    __mf_unregister (buf, 0);
+    __mfu_unregister (buf, 0);
   
   if (LIKELY(result))
     {
       result += __mf_opts.crumple_zone;
-      __mf_register (result, c, __MF_TYPE_HEAP_I, "realloc region");
+      __mfu_register (result, c, __MF_TYPE_HEAP_I, "realloc region");
       /* XXX: register __MF_TYPE_NOACCESS for crumple zones.  */
     }
 
   /* Restore previous setting.  */
   __mf_opts.wipe_heap = saved_wipe_heap;
+  UNLOCKTH ();
 
   return result;
 }
@@ -887,3 +896,220 @@ WRAPPER2(struct tm*, gmtime, const time_t *timep)
 
 
 /* ------------------------------------------------------------------------ */
+
+#ifdef WRAP_pthreadstuff
+#ifndef LIBMUDFLAPTH
+#error "pthreadstuff is to be included only in libmudflapth"
+#endif
+
+
+/* Describes a thread (dead or alive). */
+struct pthread_info
+{
+  short used_p;  /* Is this slot in use?  */
+
+  pthread_t self; /* The thread id.  */
+  short dead_p;  /* Has thread died?  */
+
+  /* The user's thread entry point and argument.  */
+  void * (*user_fn)(void *);
+  void *user_arg;
+
+  /* If libmudflapth allocated the stack, store its base/size.  */
+  void *stack;
+  size_t stack_size;
+};
+
+
+/* To avoid dynamic memory allocation, use static array.
+   This should be defined in <limits.h>.  */
+#ifndef PTHREAD_THREADS_MAX
+#define PTHREAD_THREADS_MAX 1000
+#endif
+
+static struct pthread_info __mf_pthread_info[PTHREAD_THREADS_MAX];
+/* XXX: needs a lock */
+
+
+static void 
+__mf_pthread_cleanup (void *arg)
+{
+  struct pthread_info *pi = arg;
+  pi->dead_p = 1;
+  /* Some subsequent pthread_create will garbage_collect our stack.  */
+}
+
+
+
+static void *
+__mf_pthread_spawner (void *arg)
+{
+  struct pthread_info *pi = arg;
+  void *result = NULL;
+
+  /* XXX: register thread errno */
+  pthread_cleanup_push (& __mf_pthread_cleanup, arg);
+
+  pi->self = pthread_self ();
+
+  /* Call user thread */
+  result = pi->user_fn (pi->user_arg);
+
+  pthread_cleanup_pop (1 /* execute */);
+
+  /* NB: there is a slight race here.  The pthread_info field will now
+     say this thread is dead, but it may still be running .. right
+     here.  We try to check for this possibility using the
+     pthread_signal test below. */
+  /* XXX: Consider using pthread_key_t objects instead of cleanup
+     stacks. */
+
+  return result;
+}
+
+
+#if PIC
+/* A special bootstrap variant. */
+static int
+__mf_0fn_pthread_create (pthread_t *thr, pthread_attr_t *attr, 
+			 void * (*start) (void *), void *arg)
+{
+  return -1;
+}
+#endif
+
+
+#undef pthread_create
+WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr, 
+	 void * (*start) (void *), void *arg)
+{
+  DECLARE(void, free, void *p);
+  DECLARE(void *, malloc, size_t c);
+  DECLARE(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr, 
+	  void * (*start) (void *), void *arg);
+  int result;
+  struct pthread_info *pi;
+  pthread_attr_t override_attr;
+  void *override_stack;
+  size_t override_stacksize;
+  unsigned i;
+
+  TRACE ("mf: pthread_create\n");
+
+  LOCKTH();
+
+  /* Garbage collect dead thread stacks.  */
+  for (i = 0; i < PTHREAD_THREADS_MAX; i++)
+    {
+      pi = & __mf_pthread_info [i];
+      if (pi->used_p && pi->dead_p 
+	  && !pthread_kill (pi->self, 0)) /* Really dead?  XXX: safe?  */ 
+	{
+	  if (pi->stack != NULL)
+	    CALL_REAL (free, pi->stack);
+
+	  pi->stack = NULL;
+	  pi->stack_size = 0;
+	  pi->used_p = 0;
+	}
+    }
+
+  /* Find a slot in __mf_pthread_info to track this thread.  */
+  for (i = 0; i < PTHREAD_THREADS_MAX; i++)
+    {
+      pi = & __mf_pthread_info [i];
+      if (! pi->used_p)
+	{
+	  pi->used_p = 1;
+	  break;
+	}
+    }
+  UNLOCKTH();
+
+  if (i == PTHREAD_THREADS_MAX) /* no slots free - simulated out-of-memory.  */
+    {
+      errno = EAGAIN;
+      pi->used_p = 0;
+      return -1;
+    }
+
+  /* Let's allocate a stack for this thread, if one is not already
+     supplied by the caller.  We don't want to let e.g. the
+     linuxthreads manager thread do this allocation.  */
+  if (attr != NULL)
+    override_attr = *attr;
+  else
+    pthread_attr_init (& override_attr);
+
+  /* Get supplied attributes.  Give up on error.  */
+  if (pthread_attr_getstackaddr (& override_attr, & override_stack) != 0 ||
+      pthread_attr_getstacksize (& override_attr, & override_stacksize) != 0)
+    {
+      errno = EAGAIN;
+      pi->used_p = 0;
+      return -1;
+    }
+
+  /* Do we need to allocate the new thread's stack?  */
+  if (override_stack == NULL)
+    {
+      uintptr_t alignment = 256; /* Must be a power of 2.  */
+
+      /* Use glibc x86 defaults */
+      if (override_stacksize < alignment)
+/* Should have been defined in <limits.h> */
+#ifndef PTHREAD_STACK_MIN
+#define PTHREAD_STACK_MIN 65536
+#endif
+	override_stacksize = max (PTHREAD_STACK_MIN, 2 * 1024 * 1024);
+
+      override_stack = CALL_REAL (malloc, override_stacksize);
+      if (override_stack == NULL)
+	{
+	  errno = EAGAIN;
+	  pi->used_p = 0;
+	  return -1;
+	}
+
+      pi->stack = override_stack;
+      pi->stack_size = override_stacksize;
+
+      /* The stackaddr pthreads attribute is a candidate stack pointer.
+	 It must point near the top or the bottom of this buffer, depending
+	 on whether stack grows downward or upward, and suitably aligned.
+	 On the x86, it grows down, so we set stackaddr near the top.  */
+      override_stack = (void *)
+	(((uintptr_t) override_stack + override_stacksize - alignment)
+	 & (~(uintptr_t)(alignment-1)));
+      
+      if (pthread_attr_setstackaddr (& override_attr, override_stack) != 0 ||
+	  pthread_attr_setstacksize (& override_attr, override_stacksize) != 0)
+	{
+	  /* Er, what now?  */
+	  CALL_REAL (free, pi->stack);
+	  pi->stack = NULL;
+	  errno = EAGAIN;
+	  pi->used_p = 0;
+	  return -1;
+	}
+
+  }
+
+  /* Fill in remaining fields.  */
+  pi->user_fn = start;
+  pi->user_arg = arg;
+  pi->dead_p = 0;
+
+  /* Actually create the thread.  */
+  result = CALL_REAL (pthread_create, thr, & override_attr,
+		      & __mf_pthread_spawner, (void *) pi);
+  
+  /* May need to clean up if we created a pthread_attr_t of our own.  */
+  if (attr == NULL)
+    pthread_attr_destroy (& override_attr); /* NB: this shouldn't deallocate stack */
+
+  return result;
+}
+
+
+#endif /* pthreadstuff */

@@ -65,19 +65,21 @@ target_alias = @target_alias@
 target_triplet = @target@
 AS = @AS@
 CC = @CC@
+CPP = @CPP@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 DLLTOOL = @DLLTOOL@
 EXEEXT = @EXEEXT@
 GCJ = @GCJ@
 GCJFLAGS = @GCJFLAGS@
-LIBMUDFLAP_PICFLAGS = @LIBMUDFLAP_PICFLAGS@
+LDD = @LDD@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MF_HAVE_STDINT_H = @MF_HAVE_STDINT_H@
 MF_HAVE_UINTPTR_T = @MF_HAVE_UINTPTR_T@
+NM = @NM@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
@@ -93,8 +95,10 @@ MAINT_CHARSET = latin1
 SUBDIRS = testsuite
 
 AM_CFLAGS = -ansi -Wall
+@LIBMUDFLAPTH_TRUE@libmudflapth = @LIBMUDFLAPTH_TRUE@libmudflapth.la
+@LIBMUDFLAPTH_FALSE@libmudflapth = 
 
-lib_LTLIBRARIES = libmudflap.la
+lib_LTLIBRARIES = libmudflap.la $(libmudflapth)
 include_HEADERS = mf-runtime.h
 
 libmudflap_la_SOURCES = \
@@ -142,9 +146,57 @@ HOOKOBJS = \
  gmtime-hook.lo \
  localtime-hook.lo
 
-libmudflap_la_LDFLAGS = 
+
+# Hook objects only for libmudflapth use 
+PTHHOOKOBJS = \
+ pth/malloc-hook.lo \
+ pth/free-hook.lo \
+ pth/calloc-hook.lo \
+ pth/realloc-hook.lo \
+ pth/memcpy-hook.lo \
+ pth/memmove-hook.lo \
+ pth/memset-hook.lo \
+ pth/memcmp-hook.lo \
+ pth/memchr-hook.lo \
+ pth/memrchr-hook.lo \
+ pth/strcpy-hook.lo \
+ pth/strncpy-hook.lo \
+ pth/strcat-hook.lo \
+ pth/strncat-hook.lo \
+ pth/strcmp-hook.lo \
+ pth/strcasecmp-hook.lo \
+ pth/strncmp-hook.lo \
+ pth/strncasecmp-hook.lo \
+ pth/strdup-hook.lo \
+ pth/strndup-hook.lo \
+ pth/strchr-hook.lo \
+ pth/strrchr-hook.lo \
+ pth/strstr-hook.lo \
+ pth/memmem-hook.lo \
+ pth/strlen-hook.lo \
+ pth/strnlen-hook.lo \
+ pth/bzero-hook.lo \
+ pth/bcopy-hook.lo \
+ pth/bcmp-hook.lo \
+ pth/index-hook.lo \
+ pth/rindex-hook.lo \
+ pth/mmap-hook.lo \
+ pth/munmap-hook.lo \
+ pth/alloca-hook.lo \
+ pth/asctime-hook.lo \
+ pth/ctime-hook.lo \
+ pth/gmtime-hook.lo \
+ pth/localtime-hook.lo \
+ pth/pthreadstuff-hook.lo
+
+
+libmudflapth_la_SOURCES = 
+
 libmudflap_la_LIBADD = $(HOOKOBJS)
 libmudflap_la_DEPENDENCIES = $(libmudflap_la_LIBADD)
+
+libmudflapth_la_LIBADD = pth/mf-runtime.lo pth/mf-heuristics.lo $(PTHHOOKOBJS)
+libmudflapth_la_DEPENDENCIES = $(libmudflapth_la_LIBADD)
 
 # XXX hack alert
 # From libffi/Makefile.am
@@ -208,7 +260,10 @@ DEFS = @DEFS@ -I. -I$(srcdir) -I.
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
+libmudflap_la_LDFLAGS = 
 libmudflap_la_OBJECTS =  mf-runtime.lo mf-heuristics.lo
+libmudflapth_la_LDFLAGS = 
+libmudflapth_la_OBJECTS = 
 CFLAGS = @CFLAGS@
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -216,7 +271,7 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
 HEADERS =  $(include_HEADERS)
 
-DIST_COMMON =  ./stamp-h.in ChangeLog Makefile.am Makefile.in acconfig.h \
+DIST_COMMON =  ./stamp-h.in ChangeLog Makefile.am Makefile.in \
 acinclude.m4 aclocal.m4 config.h.in configure configure.in \
 mf-runtime.h.in
 
@@ -226,8 +281,8 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 TAR = gtar
 GZIP_ENV = --best
 DEP_FILES =  .deps/mf-heuristics.P .deps/mf-runtime.P
-SOURCES = $(libmudflap_la_SOURCES)
-OBJECTS = $(libmudflap_la_OBJECTS)
+SOURCES = $(libmudflap_la_SOURCES) $(libmudflapth_la_SOURCES)
+OBJECTS = $(libmudflap_la_OBJECTS) $(libmudflapth_la_OBJECTS)
 
 all: all-redirect
 .SUFFIXES:
@@ -262,7 +317,7 @@ $(srcdir)/config.h.in: @MAINTAINER_MODE_TRUE@$(srcdir)/stamp-h.in
 		rm -f $(srcdir)/stamp-h.in; \
 		$(MAKE) $(srcdir)/stamp-h.in; \
 	else :; fi
-$(srcdir)/stamp-h.in: $(top_srcdir)/configure.in $(ACLOCAL_M4) acconfig.h
+$(srcdir)/stamp-h.in: $(top_srcdir)/configure.in $(ACLOCAL_M4) 
 	cd $(top_srcdir) && $(AUTOHEADER)
 	@echo timestamp > $(srcdir)/stamp-h.in 2> /dev/null
 
@@ -342,6 +397,9 @@ maintainer-clean-libtool:
 
 libmudflap.la: $(libmudflap_la_OBJECTS) $(libmudflap_la_DEPENDENCIES)
 	$(LINK) -rpath $(libdir) $(libmudflap_la_LDFLAGS) $(libmudflap_la_OBJECTS) $(libmudflap_la_LIBADD) $(LIBS)
+
+libmudflapth.la: $(libmudflapth_la_OBJECTS) $(libmudflapth_la_DEPENDENCIES)
+	$(LINK) -rpath $(libdir) $(libmudflapth_la_LDFLAGS) $(libmudflapth_la_OBJECTS) $(libmudflapth_la_LIBADD) $(LIBS)
 
 install-includeHEADERS: $(include_HEADERS)
 	@$(NORMAL_INSTALL)
@@ -589,7 +647,8 @@ mostlyclean-am:  mostlyclean-hdr mostlyclean-libLTLIBRARIES \
 mostlyclean: mostlyclean-recursive
 
 clean-am:  clean-hdr clean-libLTLIBRARIES clean-compile clean-libtool \
-		clean-tags clean-depend clean-generic mostlyclean-am
+		clean-tags clean-depend clean-generic mostlyclean-am \
+		clean-local
 
 clean: clean-recursive
 
@@ -635,10 +694,19 @@ installdirs mostlyclean-generic distclean-generic clean-generic \
 maintainer-clean-generic clean mostlyclean distclean maintainer-clean
 
 
-#.NOTPARALLEL: # Otherwise the following loop will be executed in parallel!
 $(HOOKOBJS): mf-hooks.c mf-runtime.h mf-impl.h
 	hook=`basename $@ -hook.lo`; \
 	$(LTCOMPILE) -DWRAP_$$hook -c $(srcdir)/mf-hooks.c -o $@
+
+clean-local:
+	rm -f pth/*.o pth/*.lo
+pth/mf-runtime.lo: mf-runtime.c mf-runtime.h mf-impl.h
+	$(LTCOMPILE) -DLIBMUDFLAPTH -c $(srcdir)/mf-runtime.c -o $@
+pth/mf-heuristics.lo: mf-heuristics.c mf-runtime.h mf-impl.h
+	$(LTCOMPILE) -DLIBMUDFLAPTH -c $(srcdir)/mf-heuristics.c -o $@
+$(PTHHOOKOBJS): mf-hooks.c mf-runtime.h mf-impl.h
+	hook=`basename $@ -hook.lo`; \
+	$(LTCOMPILE) -DLIBMUDFLAPTH -DWRAP_$$hook -c $(srcdir)/mf-hooks.c -o $@
 
 # Multilib support.
 .PHONY: all-multi mostlyclean-multi clean-multi distclean-multi \

@@ -19,6 +19,8 @@
 
 #if HAVE_PTHREAD_H
 #include <pthread.h>
+#elif LIBMUDFLAPTH
+#error "Cannot build libmudflapth without pthread.h."
 #endif
 
 
@@ -28,11 +30,15 @@
 #define __MF_TYPE_MAX __MF_TYPE_GUESS
 
 
+#ifndef max
+#define max(a,b) ((a) > (b) ? (a) : (b))
+#endif
+
+#ifndef min
+#define min(a,b) ((a) < (b) ? (a) : (b))
+#endif
 
 /* Address calculation macros.  */
-
-
-/* XXX: these macros should be in an __MF*-like namespace. */
 
 #define MINPTR ((uintptr_t) 0)
 #define MAXPTR (~ (uintptr_t) 0)
@@ -57,9 +63,7 @@ extern void __mf_violation (void *ptr, size_t sz,
 			    uintptr_t pc, const char *location, 
 			    int type);
 extern size_t __mf_backtrace (char ***, void *, unsigned);
-extern void __mf_resolve_dynamics ();
 extern int __mf_heuristic_check (uintptr_t, uintptr_t);
-
 
 /* ------------------------------------------------------------------------ */
 /* Type definitions. */
@@ -169,14 +173,23 @@ struct __mf_options
 
 /* This is a table of dynamically resolved function pointers. */
 
-struct __mf_dynamic 
+struct __mf_dynamic_entry
 {
-  void * dyn_calloc;
-  void * dyn_free;
-  void * dyn_malloc;
-  void * dyn_mmap;
-  void * dyn_munmap;
-  void * dyn_realloc;
+  void *pointer;
+  char *name;
+  char *version;
+};
+
+/* The definition of the array (mf-runtime.c) must match the enums!  */
+extern struct __mf_dynamic_entry __mf_dynamic[];
+enum __mf_dynamic_index
+{ 
+  dyn_calloc, dyn_free, dyn_malloc, dyn_mmap,
+  dyn_munmap, dyn_realloc, 
+  dyn_INITRESOLVE,  /* Marker for last init-time resolution. */
+#ifdef LIBMUDFLAPTH 
+  dyn_pthread_create
+#endif
 };
 
 #endif /* PIC */
@@ -185,14 +198,19 @@ struct __mf_dynamic
 /* Private global variables. */
 /* ------------------------------------------------------------------------ */
 
-#ifdef HAVE_PTHREAD_H
+#ifdef LIBMUDFLAPTH
 extern pthread_mutex_t __mf_biglock;
+#define LOCKTH() do { int rc = pthread_mutex_lock (& __mf_biglock); \
+                      assert (rc==0); } while (0)
+#define UNLOCKTH() do { int rc = pthread_mutex_unlock (& __mf_biglock); \
+                        assert (rc==0); } while (0)
+#else
+#define LOCKTH() do {} while (0)
+#define UNLOCKTH() do {} while (0)
 #endif
+
 extern enum __mf_state __mf_state;
 extern struct __mf_options __mf_opts;
-#ifdef PIC
-extern struct __mf_dynamic __mf_dynamic;
-#endif 
 
 /* ------------------------------------------------------------------------ */
 /* Utility macros. */
@@ -252,7 +270,10 @@ extern struct __mf_dynamic __mf_dynamic;
 
 
 #ifdef PIC
-#define __USE_GNU
+
+extern void __mf_resolve_single_dynamic (struct __mf_dynamic_entry *);
+
+#define _GNU_SOURCE
 #include <dlfcn.h>
 
 #define WRAPPER(ret, fname, ...)                      \
@@ -264,9 +285,9 @@ ret fname (__VA_ARGS__)
 #define DECLARE(ty, fname, ...)                       \
  typedef ty (*__mf_fn_ ## fname) (__VA_ARGS__)
 #define CALL_REAL(fname, ...)                         \
-  ({ if (UNLIKELY(!__mf_dynamic.dyn_ ## fname))       \
-     __mf_resolve_dynamics ();                        \
-  ((__mf_fn_ ## fname)(__mf_dynamic.dyn_ ## fname))   \
+  ({ if (UNLIKELY(!__mf_dynamic[dyn_ ## fname].pointer))  \
+     __mf_resolve_single_dynamic (& __mf_dynamic[dyn_ ## fname]);  \
+  ((__mf_fn_ ## fname)(__mf_dynamic[dyn_ ## fname].pointer)) \
                       (__VA_ARGS__);})
 #define CALL_BACKUP(fname, ...)                       \
   __mf_0fn_ ## fname(__VA_ARGS__)
@@ -291,6 +312,14 @@ ret __wrap_ ## fname (__VA_ARGS__)
 /* WRAPPER2 is for functions intercepted via macros at compile time. */
 #define WRAPPER2(ret, fname, ...)                     \
 ret __mfwrap_ ## fname (__VA_ARGS__)
+
+
+/* Unlocked variants of main entry points from mf-runtime.h.  */
+extern void __mfu_check (void *ptr, size_t sz, int type, const char *location);
+extern void __mfu_register (void *ptr, size_t sz, int type, const char *name);
+extern void __mfu_unregister (void *ptr, size_t sz);
+extern void __mfu_report ();
+extern int __mfu_set_options (const char *opts);
 
 
 #endif /* __MF_IMPL_H */

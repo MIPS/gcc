@@ -10,7 +10,13 @@ SUBDIRS = testsuite
 
 AM_CFLAGS = -ansi -Wall
 
-lib_LTLIBRARIES = libmudflap.la
+if LIBMUDFLAPTH
+libmudflapth = libmudflapth.la
+else
+libmudflapth =
+endif
+
+lib_LTLIBRARIES = libmudflap.la $(libmudflapth)
 include_HEADERS = mf-runtime.h
 
 libmudflap_la_SOURCES = \
@@ -57,14 +63,70 @@ HOOKOBJS = \
  gmtime-hook.lo \
  localtime-hook.lo
 
-#.NOTPARALLEL: # Otherwise the following loop will be executed in parallel!
 $(HOOKOBJS): mf-hooks.c mf-runtime.h mf-impl.h
 	hook=`basename $@ -hook.lo`; \
 	$(LTCOMPILE) -DWRAP_$$hook -c $(srcdir)/mf-hooks.c -o $@
 
-libmudflap_la_LDFLAGS = 
+# Hook objects only for libmudflapth use 
+PTHHOOKOBJS= \
+ pth/malloc-hook.lo \
+ pth/free-hook.lo \
+ pth/calloc-hook.lo \
+ pth/realloc-hook.lo \
+ pth/memcpy-hook.lo \
+ pth/memmove-hook.lo \
+ pth/memset-hook.lo \
+ pth/memcmp-hook.lo \
+ pth/memchr-hook.lo \
+ pth/memrchr-hook.lo \
+ pth/strcpy-hook.lo \
+ pth/strncpy-hook.lo \
+ pth/strcat-hook.lo \
+ pth/strncat-hook.lo \
+ pth/strcmp-hook.lo \
+ pth/strcasecmp-hook.lo \
+ pth/strncmp-hook.lo \
+ pth/strncasecmp-hook.lo \
+ pth/strdup-hook.lo \
+ pth/strndup-hook.lo \
+ pth/strchr-hook.lo \
+ pth/strrchr-hook.lo \
+ pth/strstr-hook.lo \
+ pth/memmem-hook.lo \
+ pth/strlen-hook.lo \
+ pth/strnlen-hook.lo \
+ pth/bzero-hook.lo \
+ pth/bcopy-hook.lo \
+ pth/bcmp-hook.lo \
+ pth/index-hook.lo \
+ pth/rindex-hook.lo \
+ pth/mmap-hook.lo \
+ pth/munmap-hook.lo \
+ pth/alloca-hook.lo \
+ pth/asctime-hook.lo \
+ pth/ctime-hook.lo \
+ pth/gmtime-hook.lo \
+ pth/localtime-hook.lo \
+ pth/pthreadstuff-hook.lo
+
+clean-local:
+	rm -f pth/*.o pth/*.lo
+
+libmudflapth_la_SOURCES =
+pth/mf-runtime.lo: mf-runtime.c mf-runtime.h mf-impl.h
+	$(LTCOMPILE) -DLIBMUDFLAPTH -c $(srcdir)/mf-runtime.c -o $@
+pth/mf-heuristics.lo: mf-heuristics.c mf-runtime.h mf-impl.h
+	$(LTCOMPILE) -DLIBMUDFLAPTH -c $(srcdir)/mf-heuristics.c -o $@
+$(PTHHOOKOBJS): mf-hooks.c mf-runtime.h mf-impl.h
+	hook=`basename $@ -hook.lo`; \
+	$(LTCOMPILE) -DLIBMUDFLAPTH -DWRAP_$$hook -c $(srcdir)/mf-hooks.c -o $@
+
 libmudflap_la_LIBADD = $(HOOKOBJS)
 libmudflap_la_DEPENDENCIES = $(libmudflap_la_LIBADD)
+
+libmudflapth_la_LIBADD = pth/mf-runtime.lo pth/mf-heuristics.lo $(PTHHOOKOBJS)
+libmudflapth_la_DEPENDENCIES = $(libmudflapth_la_LIBADD)
+
 
 
 # XXX hack alert

@@ -1,3 +1,26 @@
+2003-05-09  Frank Ch. Eigler  <fche@redhat.com>
+
+	* configure.in: Add pthread support, plus glibc and porting hacks.
+	* Makefile.am (LIBMUDFLAPTH): New conditional, to build -lmudflapth
+	from objects built into ./pth/.
+	* mf-runtime.c (__mfu_watch,register,...): Fork new unlocked
+	functions for internal entry points.  Update callers to pick
+	locked vs. unlocked variants.
+	(__mf_resolve_single_dynamic): Extend to support symbol versioning
+	info coming in from a static data structure.
+	(*): Reorder miscellaneous declarations to group data vs functions.
+	(__mf_set_default_options): Simplify.
+	(__mf_usage): Mention threading status of host executable.
+	* mf-impl.h: Move max/min decls here.  Reorganize __mf_dynamic
+	decls to match above.
+	(LOCKTH, UNLOCKTH): New macros for Big Libmudflap Lock management.
+	* mf-heuristics.c: Choose between locked/unlocked calls.  Add
+	some lock/unlock markers.  Remove some unused code.
+	* mf-hooks: Ditto.
+	(pthread_create): New hook function.
+	(__mf_pthread_cleanup, _spawner): New helper functions.
+	* configure. aclocal.m4, config.h.in, Makefile.in: Regenerated.
+
 2003-05-02  Frank Ch. Eigler  <fche@redhat.com>
 
 	* testsuite/libmudflap.c/fail27-frag.c: Add more volatile flags.
