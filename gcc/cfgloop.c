@@ -1274,7 +1274,7 @@ expected_loop_iterations (loop)
       if (count_in == 0)
 	return 0;
 
-      expected = (count_latch + 2 * count_in - 1) / count_in;
+      expected = (count_latch + count_in - 1) / count_in;
 
       /* Avoid overflows.  */
       return (expected > REG_BR_PROB_BASE ? REG_BR_PROB_BASE : expected);
@@ -1295,7 +1295,7 @@ expected_loop_iterations (loop)
       if (freq_in == 0)
 	return 0;
 
-      return (freq_latch + 2 * freq_in - 1) / freq_in;
+      return (freq_latch + freq_in - 1) / freq_in;
     }
 }
 
