@@ -1,3 +1,8 @@
+2004-03-17  Jan Hubicka  <jh@suse.cz>
+
+	* tree-optimize.c (pass_cleanup_cfg): New.
+	(init_tree_optimization_passes): add cleanupcfg pass after profilng.
+
 2004-03-16  Jan Hubicka  <jh@suse.cz>
 
 	* cfgexpand.c (expand_block): DO not expand COND_EXPR twice;

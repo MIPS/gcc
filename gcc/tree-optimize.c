@@ -124,6 +124,23 @@ static struct tree_opt_pass pass_gimple =
   TODO_dump_func			/* todo_flags_finish */
 };
 
+
+static struct tree_opt_pass pass_cleanup_cfg = 
+{
+  "cleanupcfg",				/* name */
+  NULL,					/* gate */
+  cleanup_tree_cfg,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func			/* todo_flags_finish */
+};
+
 /* Pass: replace the outermost BIND_EXPR.  We removed all of them while
    optimizing, but the tree->rtl expander requires it.  */
 
@@ -307,6 +324,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_lower_eh);
   NEXT_PASS (pass_build_cfg);
   NEXT_PASS (pass_tree_profile);
+  NEXT_PASS (pass_cleanup_cfg);
   NEXT_PASS (pass_all_optimizations);
   NEXT_PASS (pass_del_cfg);
   NEXT_PASS (pass_mudflap_2);
