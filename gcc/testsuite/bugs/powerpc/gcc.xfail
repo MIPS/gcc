@@ -794,21 +794,41 @@
 3968090: gcc.c-torture/execute/builtin-prefetch-3.c compilation,  -fast
 3968090: gcc.c-torture/execute/index-1.c compilation,  -fast
 3968090: gcc.c-torture/execute/struct-ini-4.c compilation,  -fast
-0000000: gcc.c-torture/execute/990208-1.c execution,  -fast
-0000000: gcc.dg/pch/apple-altivec-1.c -O0 -g (test for excess errors)
-0000000: gcc.dg/pch/apple-altivec-1.c -O0 -g (test for excess errors) #1
-0000000: gcc.dg/pch/apple-altivec-1.c  -O0  (test for excess errors)
-0000000: gcc.dg/pch/apple-altivec-1.c  -O0  (test for excess errors) #1
-0000000: gcc.dg/pch/apple-altivec-1.c  -O1  (test for excess errors)
-0000000: gcc.dg/pch/apple-altivec-1.c  -O1  (test for excess errors) #1
-0000000: gcc.dg/pch/apple-altivec-1.c  -O2  (test for excess errors)
-0000000: gcc.dg/pch/apple-altivec-1.c  -O2  (test for excess errors) #1
-0000000: gcc.dg/pch/apple-altivec-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-0000000: gcc.dg/pch/apple-altivec-1.c  -O3 -fomit-frame-pointer  (test for excess errors) #1
-0000000: gcc.dg/pch/apple-altivec-1.c  -O3 -g  (test for excess errors)
-0000000: gcc.dg/pch/apple-altivec-1.c  -O3 -g  (test for excess errors) #1
-0000000: gcc.dg/pch/apple-altivec-1.c  -Os  (test for excess errors)
-0000000: gcc.dg/pch/apple-altivec-1.c  -Os  (test for excess errors) #1
+3968607: gcc.c-torture/execute/990208-1.c execution,  -fast
+3968604: gcc.dg/pch/apple-altivec-1.c -O0 -g (test for excess errors)
+3968604: gcc.dg/pch/apple-altivec-1.c -O0 -g (test for excess errors) #1
+3968604: gcc.dg/pch/apple-altivec-1.c  -O0  (test for excess errors)
+3968604: gcc.dg/pch/apple-altivec-1.c  -O0  (test for excess errors) #1
+3968604: gcc.dg/pch/apple-altivec-1.c  -O1  (test for excess errors)
+3968604: gcc.dg/pch/apple-altivec-1.c  -O1  (test for excess errors) #1
+3968604: gcc.dg/pch/apple-altivec-1.c  -O2  (test for excess errors)
+3968604: gcc.dg/pch/apple-altivec-1.c  -O2  (test for excess errors) #1
+3968604: gcc.dg/pch/apple-altivec-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3968604: gcc.dg/pch/apple-altivec-1.c  -O3 -fomit-frame-pointer  (test for excess errors) #1
+3968604: gcc.dg/pch/apple-altivec-1.c  -O3 -g  (test for excess errors)
+3968604: gcc.dg/pch/apple-altivec-1.c  -O3 -g  (test for excess errors) #1
+3968604: gcc.dg/pch/apple-altivec-1.c  -Os  (test for excess errors)
+3968604: gcc.dg/pch/apple-altivec-1.c  -Os  (test for excess errors) #1
+3962992: gcc.apple/inttypes-3.c (test for excess errors)
+3968602: gcc.c-torture/execute/20030811-1.c compilation,  -fast
+3968560: gcc.c-torture/execute/20040302-1.c compilation,  -O0
+3968560: gcc.c-torture/execute/20040302-1.c compilation,  -O1
+3968560: gcc.c-torture/execute/20040302-1.c compilation,  -O3 -fomit-frame-pointer
+3968560: gcc.c-torture/execute/20040302-1.c compilation,  -O3 -g
+3968560: gcc.c-torture/execute/20040302-1.c compilation,  -Os
+3968560: gcc.c-torture/execute/920302-1.c compilation,  -O1
+3968560: gcc.c-torture/execute/920302-1.c compilation,  -O2
+3968560: gcc.c-torture/execute/920302-1.c compilation,  -O3 -fomit-frame-pointer
+3968560: gcc.c-torture/execute/920302-1.c compilation,  -O3 -fomit-frame-pointer -funroll-loops
+3968560: gcc.c-torture/execute/920302-1.c compilation,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+3968560: gcc.c-torture/execute/920302-1.c compilation,  -O3 -g
+3968560: gcc.c-torture/execute/920302-1.c compilation,  -Os
+3968560: gcc.c-torture/execute/comp-goto-1.c compilation,  -O1
+3968560: gcc.c-torture/execute/comp-goto-1.c compilation,  -O2
+3968560: gcc.c-torture/execute/comp-goto-1.c compilation,  -O3 -fomit-frame-pointer
+3968560: gcc.c-torture/execute/comp-goto-1.c compilation,  -O3 -fomit-frame-pointer -funroll-loops
+3968560: gcc.c-torture/execute/comp-goto-1.c compilation,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+3968560: gcc.c-torture/execute/comp-goto-1.c compilation,  -O3 -g
 #
 #3906388: gcc.dg/vmx/1b-07.c  -Os  (test for excess errors)
 #3906388: gcc.dg/vmx/1b-07.c  -fast  (test for excess errors)

@@ -278,4 +278,6 @@
 3939078: g++.dg/bprob/g++-bprob-1.C execution,    -fastcp  -ftree-based-profiling -fprofile-arcs
 3967626: g++.dg/eh/forced1.C execution test
 3967626: g++.old-deja/g++.eh/terminate2.C execution test
+3968560: g++.dg/ext/label3.C (test for excess errors)
+3968612: g++.old-deja/g++.brendan/new3.C execution test
 #
