@@ -3328,38 +3328,29 @@ gfc_simplify_shape (gfc_expr * source)
 gfc_expr *
 gfc_simplify_size (gfc_expr * array, gfc_expr * dim)
 {
-  mpz_t shape[GFC_MAX_DIMENSIONS];
-  gfc_array_ref *ar;
+  mpz_t size;
   gfc_expr *result;
-  int n, d;
+  int d;
 
   if (dim == NULL)
     {
-      if (gfc_array_size (array, &shape[0]) == FAILURE)
+      if (gfc_array_size (array, &size) == FAILURE)
 	return NULL;
-      n = 1;
-      d = 1;
     }
   else
     {
-      if (dim->expr_type != EXPR_CONSTANT
-	  || array->expr_type != EXPR_VARIABLE)
+      if (dim->expr_type != EXPR_CONSTANT)
 	return NULL;
 
-      d = mpz_get_ui (dim->value.integer);
-      ar = gfc_find_array_ref (array);
-      if (gfc_array_ref_shape (ar, shape) == FAILURE)
+      d = mpz_get_ui (dim->value.integer) - 1;
+      if (gfc_array_dimen_size (array, d, &size) == FAILURE)
 	return NULL;
-      n = (ar->type == AR_FULL) ? ar->as->rank : ar->dimen;
     }
 
   result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind (),
 				&array->where);
 
-  mpz_set (result->value.integer, shape[d - 1]);
-
-  for (d = 0; d < n; d++)
-    mpz_clear (shape[d]);
+  mpz_set (result->value.integer, size);
 
   return result;
 }

@@ -3,8 +3,11 @@ program testsize
    implicit none
    real, dimension(:, :), allocatable :: a
    integer, dimension(5) :: j
+   integer, dimension(2, 3) :: b
    integer i
 
+   if (size (b(2, :), 1) .ne. 3) call abort
+   
    allocate (a(3:8, 5:7))
 
    ! With one parameter
