@@ -1,3 +1,8 @@
+2004-01-29  Richard Henderson  <rth@redhat.com>
+
+	* tree-pretty-print.c (dump_generic_node): If TDF_DETAILS, dump
+	both name and uid.
+
 2004-01-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfg.c (unlink_block): Reset prev_bb and next_bb.

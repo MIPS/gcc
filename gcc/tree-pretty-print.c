@@ -517,7 +517,17 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case LABEL_DECL:
       if (DECL_NAME (node))
-	pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+	{
+	  pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+	  if (flags & TDF_DETAILS)
+	    {
+	      if (LABEL_DECL_UID (node) != -1)
+		pp_printf (buffer, "<L" HOST_WIDE_INT_PRINT_DEC ">",
+			   LABEL_DECL_UID (node));
+	      else
+		pp_printf (buffer, "<D%u>", DECL_UID (node));
+	    }
+	}
       else if (LABEL_DECL_UID (node) != -1)
         pp_printf (buffer, "<L" HOST_WIDE_INT_PRINT_DEC ">",
 		   LABEL_DECL_UID (node));
@@ -527,7 +537,11 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case CONST_DECL:
       if (DECL_NAME (node))
-	pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+	{
+	  pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+	  if (flags & TDF_DETAILS)
+	    pp_printf (buffer, "<D%u>", DECL_UID (node));
+	}
       else
         pp_printf (buffer, "<D%u>", DECL_UID (node));
       break;
@@ -564,7 +578,11 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case VAR_DECL:
     case PARM_DECL:
       if (DECL_NAME (node))
-	pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+	{
+	  pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+	  if (flags & TDF_DETAILS)
+	    pp_printf (buffer, "<D%u>", DECL_UID (node));
+	}
       else
         pp_printf (buffer, "<D%u>", DECL_UID (node));
       break;
