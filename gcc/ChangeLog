@@ -1,3 +1,8 @@
+2003-06-25  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c (expand_builtin_strcpy): Construct new argument list
+	manually instead of using chainon to modify the original arglist.
+
 2003-04-23  Roger Sayle  <roger@eyesopen.com>
 
 	PR optimization/10339
