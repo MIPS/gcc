@@ -300,7 +300,17 @@ fix_basic_block_boundaries (bb, last, head, tail)
 	      /* It may happen that code got moved past unconditional jump in
 	         case the code is completely dead.  Kill it.  */
 	      else
-		delete_insn_chain (head, insn);
+		{
+		  rtx next = next_nonnote_insn (insn);
+		  delete_insn_chain (head, insn);
+		  /* We keep some notes in the way that may split barrier from the
+		     jump.  */
+		  if (GET_CODE (next) == BARRIER)
+		     {
+		       emit_barrier_after (prev_nonnote_insn (head));
+		       delete_insn (next);
+		     }
+		}
 	    }
 	  else
 	    {
@@ -335,7 +345,6 @@ schedule_ebb (head, tail)
   int first_bb = BLOCK_FOR_INSN (head) -> index;
   int last_bb = BLOCK_FOR_INSN (tail) -> index;
 
-  verify_flow_info ();
   if (no_real_insns_p (head, tail))
     return BLOCK_FOR_INSN (tail);
 
@@ -478,9 +487,14 @@ schedule_ebbs (dump_file)
   if (write_symbols != NO_DEBUG)
     rm_redundant_line_notes ();
 
-  verify_flow_info ();
-
   scope_to_insns_finalize ();
 
   sched_finish ();
+
+  /* We occasinally split barrier from insn by an note.  verify_flow_info
+     is unhappy about this idea.  */
+
+#ifdef ENABLE_CHECKING
+  verify_flow_info ();
+#endif
 }
