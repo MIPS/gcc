@@ -714,10 +714,9 @@ public class Window extends Container implements Accessible
    *
    * @deprecated
    */
-  public boolean postEvent(Event e)
+  public boolean postEvent (Event e)
   {
-    // FIXME
-    return false;
+    return handleEvent (e);
   }
 
   /**

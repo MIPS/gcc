@@ -856,6 +856,16 @@ public class Container extends Component
    */
   public void deliverEvent(Event e)
   {
+    if (!handleEvent (e))
+      {
+        synchronized (getTreeLock ())
+          {
+            Component parent = getParent ();
+
+            if (parent != null)
+              parent.deliverEvent (e);
+          }
+      }
   }
 
   /**
