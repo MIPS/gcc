@@ -1586,7 +1586,7 @@ cfgloopanal.o : cfgloopanal.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
 cfgloopmanip.o : cfgloopmanip.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h output.h
 loop-init.o : loop-init.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) gcov-io.h \
-   $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h profile.h
+   gcov-iov.h $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h profile.h
 loop-unswitch.o : loop-unswitch.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h params.h \
    output.h $(expr.h)
