@@ -824,6 +824,7 @@ parse_class_file (void)
   java_layout_seen_class_methods ();
 
   input_location = DECL_SOURCE_LOCATION (TYPE_NAME (current_class));
+  file_start_location = input_location;
   (*debug_hooks->start_source_file) (input_line, input_filename);
 
   /* Currently we always have to emit calls to _Jv_InitClass when

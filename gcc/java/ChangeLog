@@ -1,3 +1,7 @@
+2004-11-24  Andrew Haley  <aph@redhat.com>
+
+	* jcf-parse.c (parse_class_file): Set file_start_location.
+
 2004-11-10  Tom Tromey  <tromey@redhat.com>
 
 	* class.c (make_field_value): Don't call build_static_field_ref.
