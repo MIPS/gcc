@@ -688,7 +688,7 @@ track_expr_p (expr)
   rtx rtx;
 
   /* If EXPR is not a parameter or a variable do not track it.  */
-  if (TREE_CODE (expr) != VAR_DECL || TREE_CODE (expr) != PARM_DECL)
+  if (TREE_CODE (expr) != VAR_DECL && TREE_CODE (expr) != PARM_DECL)
     return 0;
  
   /* It also must have a name...  */

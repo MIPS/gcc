@@ -1,3 +1,8 @@
+2003-01-22  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (track_expr_p): VAR_DECL or PARM_DECL should be
+	tracked.
+
 2003-01-21  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (VARIABLE_P): Replaced by ...
