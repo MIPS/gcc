@@ -1,3 +1,8 @@
+2004-01-05  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-ccp.c (ccp_fold_builtin): Return early for builtins
+	taking no arugment.
+
 2004-01-05  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* tree-ssa-dce.c: Clean up whitespace.

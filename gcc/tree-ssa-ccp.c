@@ -2096,6 +2096,21 @@ ccp_fold_builtin (tree stmt, tree fn)
   if (result)
     return result;
 
+  /* If the builtin could not be folded, and it has no argument list, we're
+     done.  */
+  if (!arglist)
+    return NULL_TREE;
+  /* Limit the work only for builtins we know how to simplify.  */
+  switch (DECL_FUNCTION_CODE (callee))
+    {
+      case BUILT_IN_STRLEN:
+      case BUILT_IN_FPUTS:
+      case BUILT_IN_FPUTS_UNLOCKED:
+	break;
+      default:
+	return NULL_TREE;
+    }
+
   /* Otherwise, try to use the dataflow information gathered by the CCP
      process.  */
   visited = BITMAP_XMALLOC ();
