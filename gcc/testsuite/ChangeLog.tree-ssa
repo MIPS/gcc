@@ -1,5 +1,7 @@
 2003-11-13  Jeff Law  <law@redhat.com>
 
+	* gcc.dg/tree-ssa/20030728-1.c: Update for jump threading changes.
+
 	* gcc.dg/tree-ssa/20030730-1.c: No longer expect abort declaration
 	to be present.
 
