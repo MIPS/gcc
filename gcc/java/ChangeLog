@@ -1,5 +1,8 @@
 2004-08-13  Tom Tromey  <tromey@redhat.com>
 
+	* class.c (build_static_field_ref): Re-enable atable lookups for
+	static fields.
+
 	* parse.y (strip_out_static_field_access_decl): Indentation fix.
 
 2004-08-11  Tom Tromey  <tromey@redhat.com>

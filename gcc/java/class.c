@@ -1087,10 +1087,7 @@ build_static_field_ref (tree fdecl)
       return fdecl;
     }
 
-  /* FIXME: The gcj runtime is broken in that atable references to
-     static fields in interpreted classes aren't fixed up until too
-     late.  When this is fixed we can re-enable this code.  */
-  if (0 && flag_indirect_dispatch)
+  if (flag_indirect_dispatch)
     {
       tree table_index 
 	= build_int_2 (get_symbol_table_index 
