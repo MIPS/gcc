@@ -1,5 +1,12 @@
 2004-06-23  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JPopupMenu.java: Removed CVS tags.
+	* javax/swing/UIDefaults.java: Reformatted.
+	* javax/swing/plaf/basic/BasicRootPaneUI.java:
+	Explicitely import used classes.
+
+2004-06-23  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/text/AbstractDocument.java
 	(replace): Dont use protected method of java.util.Vector directly.
 

@@ -69,9 +69,6 @@ import javax.swing.plaf.PopupMenuUI;
 
 /**
  * DOCUMENT ME!
- *
- * @author $author$
- * @version $Revision: 1.3.8.8 $
  */
 public class JPopupMenu extends JComponent implements Accessible, MenuElement
 {
