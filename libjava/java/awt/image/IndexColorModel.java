@@ -379,7 +379,18 @@ public class IndexColorModel extends ColorModel
     return 0;
   }
     
-  //pixel_bits is number of bits to be in generated mask
+  /**
+   * Get the RGB color values of all pixels in the map using the default
+   * RGB color model. 
+   *
+   * @param rgb The destination array.
+   */
+  public final void getRGBs (int[] rgb)
+  {
+    System.arraycopy(this.rgb, 0, rgb, 0, map_size);
+  }
+    
+   //pixel_bits is number of bits to be in generated mask
   private int generateMask (int offset)
   {
     return (((2 << pixel_bits ) - 1) << (pixel_bits * offset));
@@ -408,6 +419,39 @@ public class IndexColorModel extends ColorModel
   public BigInteger getValidPixels()
   {
     return validBits;
+  }
+  
+  /**
+   * Construct a BufferedImage with rgb pixel values from a Raster.
+   * 
+   * Constructs a new BufferedImage in which each pixel is an RGBA int from
+   * a Raster with index-valued pixels.  If this model has no alpha component
+   * or transparent pixel, the type of the new BufferedImage is TYPE_INT_RGB.
+   * Otherwise the type is TYPE_INT_ARGB.  If forceARGB is true, the type is
+   * forced to be TYPE_INT_ARGB no matter what.
+   * 
+   * @param raster The source of pixel values.
+   * @param forceARGB True if type must be TYPE_INT_ARGB.
+   * @return New BufferedImage with RBGA int pixel values.
+   */
+  public BufferedImage convertToIntDiscrete(Raster raster, boolean forceARGB)
+  {
+    int type = forceARGB ? BufferedImage.TYPE_INT_ARGB
+      : ((opaque && trans == -1) ? BufferedImage.TYPE_INT_RGB :
+	 BufferedImage.TYPE_INT_ARGB); 
+
+    // FIXME: assuming that raster has only 1 band since pixels are supposed
+    // to be int indexes.
+    // FIXME: it would likely be more efficient to fetch a complete array,
+    // but it would take much more memory.
+    // FIXME: I'm not sure if transparent pixels or alpha values need special
+    // handling here.
+    BufferedImage im = new BufferedImage(raster.width, raster.height, type);
+    for (int x = raster.minX; x < raster.width + raster.minX; x++)
+      for (int y = raster.minY; y < raster.height + raster.minY; y++)
+        im.setRGB(x, y, rgb[raster.getSample(x, y, 0)]);
+
+    return im;
   }
 }
 
