@@ -1949,6 +1949,10 @@ extern int gcse_main			PARAMS ((rtx, FILE *));
 /* In web.c */
 extern void web_main			PARAMS ((void));
 
+/* In coalesce.c */
+void coalesce				PARAMS ((void));
+
+
 /* In global.c */
 extern void mark_elimination		PARAMS ((int, int));
 #ifdef BUFSIZ
