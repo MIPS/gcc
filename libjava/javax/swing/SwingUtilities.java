@@ -51,6 +51,7 @@ import java.awt.Rectangle;
 import java.awt.Shape;
 import java.awt.Toolkit;
 import java.awt.Window;
+import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import java.lang.reflect.InvocationTargetException;
 
@@ -845,6 +846,43 @@ public class SwingUtilities implements SwingConstants
       ownerFrame = new Frame();
     return ownerFrame;
   }
-  
 
+  /**
+   * Returns true if left mouse button was clicked.
+   *
+   * @param event the event to check
+   *
+   * @return true if left mouse was clicked, false otherwise.
+   */
+  public static boolean isLeftMouseButton(MouseEvent event)
+  {
+    return ((event.getModifiers() & InputEvent.BUTTON1_DOWN_MASK)
+	     == InputEvent.BUTTON1_DOWN_MASK);
+  }
+
+  /**
+   * Returns true if middle mouse button was clicked.
+   *
+   * @param event the event to check
+   *
+   * @return true if middle mouse was clicked, false otherwise.
+   */
+  public static boolean isMiddleMouseButton(MouseEvent event)
+  {
+    return ((event.getModifiers() & InputEvent.BUTTON2_DOWN_MASK)
+	     == InputEvent.BUTTON2_DOWN_MASK);
+  }
+
+  /**
+   * Returns true if right mouse button was clicked.
+   *
+   * @param event the event to check
+   *
+   * @return true if right mouse was clicked, false otherwise.
+   */
+  public static boolean isRightMouseButton(MouseEvent event)
+  {
+    return ((event.getModifiers() & InputEvent.BUTTON3_DOWN_MASK)
+	     == InputEvent.BUTTON3_DOWN_MASK);
+  }
 }

@@ -1,5 +1,12 @@
 2004-06-08  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/SwingUtilities.java
+	(isLeftMouseButton): New method.
+	(isMiddleMouseButton): New method.
+	(isRightMouseButton): New method.
+
+2004-06-08  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/AbstractButton.java,
 	javax/swing/CellRendererPane.java,
 	javax/swing/JCheckBoxMenuItem.java,
