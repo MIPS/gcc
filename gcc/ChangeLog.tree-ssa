@@ -1,5 +1,39 @@
 2003-11-19  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (true_exprs, false_exprs): New hash tables.
+	(nonzero_vars): New varray.
+	(dom_walk_block_data): Add true_exprs, false_exprs and nonzero_vars.
+	(get_value_for, set_value_for): Accept additional argument indicating
+	which table to use.  Callers updated.
+	(tree_ssa_dominator_optimize_1): Initialize and wipe our new hash
+	tables and varray appropriately.
+	(dom_opt_initialize_block): Initialize new block local varrays for
+	true expressions, false expressions and nonzero vars.  Update call
+	to record_equivalences_from_incoming_edge.
+	(dom_opt_finalize_block): Put equivalences from taken edges
+	into the true_exprs and false_exprs hash tables.  Restore global
+	state for true_exprs, false_exprs and nonzero_vars  too.
+	(record_equivalences_from_incoming_edge): Accept dom_walk structure
+	instead of a gazillion varrays.  Pass down block local
+	true_exprs, false_exprs and nonzero_vars varrays to various children.
+	(optimize_stmt):  Accept block local nonzero_vars argument.  Pass
+	new varrays down to record_equivalences_from_stmt.
+	(thread_jumps_walk_stmt): Pass new varrays down to 
+	record_equivalences_from_stmt.
+	(dom_opt_walk_stmt): Pass new varrays down to optimize_stmt.
+	(dump_dominator_optimizer_statistics): Dump new hash tables.
+	(record_cond_is_true, record_cond_is_false): Record info into
+	the true/false hash tables/varrays instead of the main expression
+	varrays.  Don't create useless tree nodes.
+	(record_var_is_nonzero): New function.
+	(record_equivalences_from_stmt): Don't generate useless tree nodes.
+	(lookup_avail_expr): Consult nonzero_vars and the true/false
+	expression tables as well.
+	(get_eq_expr_value): Record local true/false expressions in the
+	local true/false varrays rather than the main local expression
+	varray.
+	(true_false_expr_hash, true_false_expr_eq): New functions.
+	
         * Makefile.in (OBJS-sommon): Add tree-ssanames.o.
         (tree-ssanames.o): Add dependencies.
         * tree-dfa.c (remove_phi_node): Release SSA_NAME expression when
