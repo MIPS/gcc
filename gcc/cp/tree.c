@@ -1717,25 +1717,15 @@ cp_tree_equal (t1, t2)
   return -1;
 }
 
-/* Build a wrapper around some pointer PTR so we can use it as a tree.  */
+/* Build a wrapper around a 'struct z_candidate' so we can use it as a
+   tree.  */
 
 tree
-build_ptr_wrapper (ptr)
-     void *ptr;
+build_zc_wrapper (ptr)
+     struct z_candidate *ptr;
 {
   tree t = make_node (WRAPPER);
-  WRAPPER_PTR (t) = ptr;
-  return t;
-}
-
-/* Build a wrapper around some integer I so we can use it as a tree.  */
-
-tree
-build_int_wrapper (i)
-     int i;
-{
-  tree t = make_node (WRAPPER);
-  WRAPPER_INT (t) = i;
+  WRAPPER_ZC (t) = ptr;
   return t;
 }
 

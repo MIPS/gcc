@@ -41,6 +41,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 %token UNION "union"
 %token STRUCT "struct"
 %token ENUM "enum"
+%token ALIAS "ptr_alias"
 %token VARRAY_TYPE "varray_type"
 %token NUM
 %token PERCENTPERCENT "%%"
@@ -54,6 +55,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 %type <p> struct_fields yacc_ids yacc_typematch
 %type <t> type lasttype
 %type <o> optionsopt options option optionseq optionseqopt
+%type <s> type_option
 
 %%
 
@@ -254,10 +256,15 @@ optionsopt: { $$ = NULL; }
 
 options: GTY_TOKEN '(' '(' optionseqopt ')' ')' { $$ = $4; }
 
-option:	VARRAY_TYPE '(' type ')'
+type_option : VARRAY_TYPE
+	        { $$ = "varray_type"; }
+	      | ALIAS
+	        { $$ = "ptr_alias"; }
+
+option:	type_option '(' type ')'
 	   {
 	     options_p o = xmalloc (sizeof (*o));
-	     o->name = "varray_type";
+	     o->name = $1;
 	     o->info = $3;
 	     $$ = o;
 	   }

@@ -1,3 +1,35 @@
+2002-05-08  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Make-lang.in (cp/decl.o): Add debug.h dependency.
+	* call.c (struct z_candidate): Use gengtype.
+	(USER_CONV_CAND): Use WRAPPER_ZC.
+	(convert_class_to_reference): Use build_zc_wrapper.
+	(build_type_conversion_1): Likewise.
+	(build_over_call): Use WRAPPER_ZC.
+	(add_warning): Use build_zc_wrapper.
+	* cp-lang.c (LANG_HOOKS_MARK_TREE): Delete.
+	* cp-tree.h (struct lang_identifier): Use gengtype.
+	(struct template_parm_index_s): Likewise.
+	(struct ptrmem_cst): Likewise.
+	(struct tree_binding): Likewise.
+	(struct tree_overload): Likewise.
+	(struct tree_srcloc): Likewise.
+	(struct tree_wrapper): Likewise.  Also modify to have a pointer
+	to struct z_candidate rather than void.
+	(enum cp_tree_node_structure_enum): New.
+	(union lang_tree_node): New.
+	(cxx_mark_tree): Delete prototype.
+	(cp_tree_node_structure): New prototype.
+	(build_ptr_wrapper): Delete prototype.
+	(build_int_wrapper): Delete prototype.
+	(build_zc_wrapper): New prototype.
+	* decl.c: Include debug.h
+	(cxx_mark_tree): Delete.
+	(cp_tree_node_structure): New.
+	* tree.c (build_ptr_wrapper): Delete.
+	(build_int_wrapper): Delete.
+	(build_zc_wrapper): New.
+
 2002-05-07  Geoffrey Keating  <geoffk@redhat.com>
 
 	* cp-tree.h [! ENABLE_TREE_CHECKING] (LANG_TYPE_PTRMEM_CHECK):

@@ -35,15 +35,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Statistics about the allocation.  */
 static ggc_statistics *ggc_stats;
 
-/* Trees that have been marked, but whose children still need marking.  */
-varray_type ggc_pending_trees;
-
 static void ggc_mark_rtx_children_1 PARAMS ((rtx));
 static void ggc_mark_rtx_varray_ptr PARAMS ((void *));
 static void ggc_mark_tree_varray_ptr PARAMS ((void *));
 static void ggc_mark_tree_hash_table_ptr PARAMS ((void *));
 static int ggc_htab_delete PARAMS ((void **, void *));
-static void ggc_mark_trees PARAMS ((void));
 static bool ggc_mark_tree_hash_table_entry PARAMS ((struct hash_entry *,
 						    hash_table_key));
 
@@ -195,8 +191,6 @@ ggc_mark_roots ()
   const struct ggc_root_tab *rti;
   size_t i;
   
-  VARRAY_TREE_INIT (ggc_pending_trees, 4096, "ggc_pending_trees");
-
   for (rt = gt_ggc_deletable_rtab; *rt; rt++)
     for (rti = *rt; rti->base != NULL; rti++)
       memset (rti->base, 0, rti->stride);
@@ -217,19 +211,10 @@ ggc_mark_roots ()
 	(*cb)(elt);
     }
 
-  /* Mark all the queued up trees, and their children.  */
-  ggc_mark_trees ();
-  VARRAY_FREE (ggc_pending_trees);
-
   /* Now scan all hash tables that have objects which are to be deleted if
-     they are not already marked.  Since these may mark more trees, we need
-     to reinitialize that varray.  */
-  VARRAY_TREE_INIT (ggc_pending_trees, 1024, "ggc_pending_trees");
-
+     they are not already marked.  */
   for (y = d_htab_roots; y != NULL; y = y->next)
     htab_traverse (y->htab, ggc_htab_delete, (PTR) y);
-  ggc_mark_trees ();
-  VARRAY_FREE (ggc_pending_trees);
 }
 
 /* R had not been previously marked, but has now been marked via
@@ -364,151 +349,6 @@ ggc_mark_rtx_children_1 (r)
   while ((r = next_rtx) != NULL);
 }
 
-/* Recursively set marks on all of the children of the
-   GCC_PENDING_TREES.  */
-
-static void
-ggc_mark_trees ()
-{
-  while (ggc_pending_trees->elements_used)
-    {
-      tree t;
-      enum tree_code code;
-
-      t = VARRAY_TOP_TREE (ggc_pending_trees);
-      VARRAY_POP (ggc_pending_trees);
-      code = TREE_CODE (t);
-
-      /* Collect statistics, if appropriate.  */
-      if (ggc_stats)
-	{
-	  ++ggc_stats->num_trees[(int) code];
-	  ggc_stats->size_trees[(int) code] += ggc_get_size (t);
-	}
-
-      /* Bits from common.  */
-      ggc_mark_tree (TREE_TYPE (t));
-      ggc_mark_tree (TREE_CHAIN (t));
-
-      /* Some nodes require special handling.  */
-      switch (code)
-	{
-	case TREE_LIST:
-	  ggc_mark_tree (TREE_PURPOSE (t));
-	  ggc_mark_tree (TREE_VALUE (t));
-	  continue;
-
-	case TREE_VEC:
-	  {
-	    int i = TREE_VEC_LENGTH (t);
-
-	    while (--i >= 0)
-	      ggc_mark_tree (TREE_VEC_ELT (t, i));
-	    continue;
-	  }
-
-	case COMPLEX_CST:
-	  ggc_mark_tree (TREE_REALPART (t));
-	  ggc_mark_tree (TREE_IMAGPART (t));
-	  break;
-
-	case PARM_DECL:
-	  ggc_mark_rtx (DECL_INCOMING_RTL (t));
-	  break;
-
-	case FIELD_DECL:
-	  ggc_mark_tree (DECL_FIELD_BIT_OFFSET (t));
-	  break;
-
-	case IDENTIFIER_NODE:
-	  (*lang_hooks.mark_tree) (t);
-	  continue;
-
-	default:
-	  break;
-	}
-  
-      /* But in general we can handle them by class.  */
-      switch (TREE_CODE_CLASS (code))
-	{
-	case 'd': /* A decl node.  */
-	  ggc_mark_tree (DECL_SIZE (t));
-	  ggc_mark_tree (DECL_SIZE_UNIT (t));
-	  ggc_mark_tree (DECL_NAME (t));
-	  ggc_mark_tree (DECL_CONTEXT (t));
-	  ggc_mark_tree (DECL_ARGUMENTS (t));
-	  ggc_mark_tree (DECL_RESULT_FLD (t));
-	  ggc_mark_tree (DECL_INITIAL (t));
-	  ggc_mark_tree (DECL_ABSTRACT_ORIGIN (t));
-	  ggc_mark_tree (DECL_SECTION_NAME (t));
-	  ggc_mark_tree (DECL_ATTRIBUTES (t));
-	  if (DECL_RTL_SET_P (t))
-	    ggc_mark_rtx (DECL_RTL (t));
-	  ggc_mark_rtx (DECL_LIVE_RANGE_RTL (t));
-	  ggc_mark_tree (DECL_VINDEX (t));
-	  if (DECL_ASSEMBLER_NAME_SET_P (t))
-	    ggc_mark_tree (DECL_ASSEMBLER_NAME (t));
-	  if (TREE_CODE (t) == FUNCTION_DECL)
-	    {
-	      ggc_mark_tree (DECL_SAVED_TREE (t));
-	      ggc_mark_tree (DECL_INLINED_FNS (t));
-	      if (DECL_SAVED_INSNS (t))
-		gt_ggc_m_function (DECL_SAVED_INSNS (t));
-	    }
-	  (*lang_hooks.mark_tree) (t);
-	  break;
-
-	case 't': /* A type node.  */
-	  ggc_mark_tree (TYPE_SIZE (t));
-	  ggc_mark_tree (TYPE_SIZE_UNIT (t));
-	  ggc_mark_tree (TYPE_ATTRIBUTES (t));
-	  ggc_mark_tree (TYPE_VALUES (t));
-	  ggc_mark_tree (TYPE_POINTER_TO (t));
-	  ggc_mark_tree (TYPE_REFERENCE_TO (t));
-	  ggc_mark_tree (TYPE_NAME (t));
-	  ggc_mark_tree (TYPE_MIN_VALUE (t));
-	  ggc_mark_tree (TYPE_MAX_VALUE (t));
-	  ggc_mark_tree (TYPE_NEXT_VARIANT (t));
-	  ggc_mark_tree (TYPE_MAIN_VARIANT (t));
-	  ggc_mark_tree (TYPE_BINFO (t));
-	  ggc_mark_tree (TYPE_CONTEXT (t));
-	  (*lang_hooks.mark_tree) (t);
-	  break;
-
-	case 'b': /* A lexical block.  */
-	  ggc_mark_tree (BLOCK_VARS (t));
-	  ggc_mark_tree (BLOCK_SUBBLOCKS (t));
-	  ggc_mark_tree (BLOCK_SUPERCONTEXT (t));
-	  ggc_mark_tree (BLOCK_ABSTRACT_ORIGIN (t));
-	  break;
-
-	case 'c': /* A constant.  */
-	  ggc_mark_rtx (TREE_CST_RTL (t));
-	  break;
-
-	case 'r': case '<': case '1':
-	case '2': case 'e': case 's': /* Expressions.  */
-	  {
-	    int i = TREE_CODE_LENGTH (TREE_CODE (t));
-	    int first_rtl = first_rtl_op (TREE_CODE (t));
-
-	    while (--i >= 0)
-	      {
-		if (i >= first_rtl)
-		  ggc_mark_rtx ((rtx) TREE_OPERAND (t, i));
-		else
-		  ggc_mark_tree (TREE_OPERAND (t, i));
-	      }
-	    break;	
-	  }
-
-	case 'x':
-	  (*lang_hooks.mark_tree) (t);
-	  break;
-	}
-    }
-}
-
 /* Mark all the elements of the varray V, which contains rtxs.  */
 
 void
@@ -592,13 +432,6 @@ gt_ggc_m_rtx_def (x)
      void *x;
 {
   ggc_mark_rtx((rtx)x);
-}
-
-void
-gt_ggc_m_tree_node (x)
-     void *x;
-{
-  ggc_mark_tree((tree)x);
 }
 
 /* Allocate a block of memory, then clear it.  */

@@ -1343,7 +1343,7 @@ ggc-page.o: ggc-page.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
 	toplev.h $(GGC_H) varray.h $(TIMEVAR_H) $(TM_P_H)
 
 stringpool.o: stringpool.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(OBSTACK_H) \
-	flags.h toplev.h
+	flags.h toplev.h $(GGC_H)
 
 hashtable.o: hashtable.c hashtable.h $(CONFIG_H) $(SYSTEM_H) $(OBSTACK_H)
 
@@ -1475,7 +1475,7 @@ dwarf2out.o : dwarf2out.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf2.h \
    hard-reg-set.h $(REGS_H) $(EXPR_H) libfuncs.h toplev.h dwarf2out.h varray.h \
    $(GGC_H) except.h dwarf2asm.h $(TM_P_H) langhooks.h
 dwarf2asm.o : dwarf2asm.c $(CONFIG_H) $(SYSTEM_H) flags.h $(RTL_H) $(TREE_H) \
-   output.h dwarf2asm.h $(TM_P_H)
+   output.h dwarf2asm.h $(TM_P_H) $(GGC_H)
 vmsdbgout.o : vmsdbgout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
    output.h vmsdbg.h debug.h langhooks.h
 xcoffout.o : xcoffout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) xcoffout.h \
@@ -1823,7 +1823,7 @@ s-preds: genpreds$(build_exeext) $(srcdir)/move-if-change
 
 GTFILES = $(GCONFIG_H) \
   $(srcdir)/bitmap.h $(srcdir)/function.h  $(srcdir)/rtl.h $(srcdir)/optabs.h \
-  $(srcdir)/tree.h $(srcdir)/libfuncs.h \
+  $(srcdir)/tree.h $(srcdir)/libfuncs.h $(srcdir)/hashtable.h \
   $(srcdir)/c-common.h $(srcdir)/c-tree.h \
   $(srcdir)/alias.c $(srcdir)/cselib.c $(srcdir)/emit-rtl.c \
   $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \

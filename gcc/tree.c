@@ -1511,6 +1511,44 @@ first_rtl_op (code)
     }
 }
 
+/* Return which tree structure is used by T.  */
+
+enum tree_node_structure_enum
+tree_node_structure (t)
+     tree t;
+{
+  enum tree_code code = TREE_CODE (t);
+  
+  switch (TREE_CODE_CLASS (code))
+    {
+    case 'd':	return TS_DECL;
+    case 't':	return TS_TYPE;
+    case 'b':	return TS_BLOCK;
+    case 'r': case '<': case '1': case '2': case 'e': case 's': 
+      return TS_EXP;
+    default:  /* 'c' and 'x' */
+      break;
+    }
+  switch (code)
+    {
+      /* 'c' cases.  */
+    case INTEGER_CST:		return TS_INT_CST;
+    case REAL_CST:		return TS_REAL_CST;
+    case COMPLEX_CST:		return TS_COMPLEX;
+    case VECTOR_CST:		return TS_VECTOR;
+    case STRING_CST:		return TS_STRING;
+      /* 'x' cases.  */
+    case ERROR_MARK:		return TS_COMMON;
+    case IDENTIFIER_NODE:	return TS_IDENTIFIER;
+    case TREE_LIST:		return TS_LIST;
+    case TREE_VEC:		return TS_VEC;
+    case PLACEHOLDER_EXPR:	return TS_COMMON;
+
+    default:
+      abort ();
+    }
+}
+
 /* Perform any modifications to EXPR required when it is unsaved.  Does
    not recurse into EXPR's subtrees.  */
 

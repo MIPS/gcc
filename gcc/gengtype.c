@@ -337,8 +337,25 @@ note_yacc_type (o, fields, typeinfo, pos)
   do_typedef ("YYSTYPE", find_structure ("yy_union", 1), pos);
 }
 
+static void process_gc_options PARAMS ((options_p, enum gc_used_enum, int *));
 static void set_gc_used_type PARAMS ((type_p, enum gc_used_enum));
 static void set_gc_used PARAMS ((pair_p));
+
+static void
+process_gc_options (opt, level, maybe_undef)
+     options_p opt;
+     enum gc_used_enum level;
+     int *maybe_undef;
+{
+  options_p o;
+  for (o = opt; o; o = o->next)
+    if (strcmp (o->name, "ptr_alias") == 0 && level == GC_POINTED_TO)
+      set_gc_used_type ((type_p) o->info, GC_POINTED_TO);
+    else if (strcmp (o->name, "varray_type") == 0)
+      set_gc_used_type ((type_p) o->info, GC_POINTED_TO);
+    else if (strcmp (o->name, "maybe_undef") == 0)
+      *maybe_undef = 1;
+}
 
 static void
 set_gc_used_type (t, level)
@@ -356,14 +373,14 @@ set_gc_used_type (t, level)
     case TYPE_UNION:
       {
 	pair_p f;
+	int dummy;
+
+	process_gc_options (t->u.s.opt, level, &dummy);
+
 	for (f = t->u.s.fields; f; f = f->next)
 	  {
-	    options_p o;
 	    int maybe_undef = 0;
-	    
-	    for (o = f->opt; o; o = o->next)
-	      if (strcmp (o->name, "maybe_undef") == 0)
-		maybe_undef = 1;
+	    process_gc_options (t->u.s.opt, level, &maybe_undef);
 	    
 	    if (maybe_undef && f->type->kind == TYPE_POINTER)
 	      set_gc_used_type (f->type->u.p, GC_MAYBE_POINTED_TO);
@@ -730,7 +747,7 @@ close_output_files PARAMS ((void))
 
 static void write_gc_structure_fields 
   PARAMS ((FILE *, type_p, const char *, const char *, options_p, 
-	   int, struct fileloc *));
+	   int, struct fileloc *, lang_bitmap));
 static void write_gc_marker_routine_for_structure PARAMS ((type_p));
 static void write_gc_types PARAMS ((type_p structures));
 static void put_mangled_filename PARAMS ((FILE *, const char *));
@@ -741,7 +758,7 @@ static void write_gc_roots PARAMS ((pair_p));
 static int gc_counter;
 
 static void
-write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
+write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap)
      FILE *of;
      type_p s;
      const char *val;
@@ -749,13 +766,19 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
      options_p opts;
      int indent;
      struct fileloc *line;
+     lang_bitmap bitmap;
 {
   pair_p f;
   int tagcounter = -1;
 
   if (! s->u.s.line.file)
     error_at_line (line, "incomplete structure `%s'", s->u.s.tag);
-
+  else if ((s->u.s.bitmap & bitmap) != bitmap)
+    {
+      error_at_line (line, "structure defined for mismatching languages");
+      error_at_line (&s->u.s.line, "one structure defined here");
+    }
+  
   if (s->kind == TYPE_UNION)
     {
       const char *tagexpr = NULL;
@@ -766,6 +789,11 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
       for (oo = opts; oo; oo = oo->next)
 	if (strcmp (oo->name, "desc") == 0)
 	  tagexpr = (const char *)oo->info;
+      if (tagexpr == NULL)
+	{
+	  tagexpr = "1";
+	  error_at_line (line, "missing `desc' option");
+	}
 
       fprintf (of, "%*s{\n", indent, "");
       indent += 2;
@@ -794,10 +822,11 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
       int always_p = 0;
       int maybe_undef_p = 0;
       options_p oo;
+      type_p t = f->type;
       
-      if (f->type->kind == TYPE_SCALAR
-	  || (f->type->kind == TYPE_ARRAY 
-	      && f->type->u.a.p->kind == TYPE_SCALAR))
+      if (t->kind == TYPE_SCALAR
+	  || (t->kind == TYPE_ARRAY 
+	      && t->u.a.p->kind == TYPE_SCALAR))
 	continue;
       
       for (oo = f->opt; oo; oo = oo->next)
@@ -813,20 +842,20 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 	  skip_p = 1;
 	else if (strcmp (oo->name, "always") == 0)
 	  always_p = 1;
-	else if (strcmp (oo->name, "desc") == 0 && f->type->kind == TYPE_UNION)
+	else if (strcmp (oo->name, "desc") == 0 && UNION_P (t))
 	  ;
 	else if (strcmp (oo->name, "descbits") == 0 
-		 && f->type->kind == TYPE_UNION)
+		 && t->kind == TYPE_UNION)
 	  ;
 	else
-	  error_at_line (&f->line, "unknown option `%s'\n", oo->name);
+	  error_at_line (&f->line, "unknown field option `%s'\n", oo->name);
 
       if (skip_p)
 	continue;
 
       if (maybe_undef_p
-	  && (f->type->kind != TYPE_POINTER
-	      || f->type->u.p->kind != TYPE_STRUCT))
+	  && (t->kind != TYPE_POINTER
+	      || t->u.p->kind != TYPE_STRUCT))
 	error_at_line (&f->line, 
 		       "field `%s' has invalid option `maybe_undef_p'\n",
 		       f->name);
@@ -842,12 +871,29 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 	  indent += 2;
 	}
       
-      switch (f->type->kind)
+      switch (t->kind)
 	{
 	case TYPE_STRING:
 	  /* Do nothing; strings go in the string pool.  */
 	  break;
 
+	case TYPE_LANG_STRUCT:
+	  {
+	    type_p ti;
+	    for (ti = t->u.s.lang_struct; ti; ti = ti->next)
+	      if (ti->u.s.bitmap & bitmap)
+		{
+		  t = ti;
+		  break;
+		}
+	    if (ti == NULL)
+	      {
+		error_at_line (&f->line, 
+			       "structure not defined for this language");
+		break;
+	      }
+	  }
+	  /* Fall through... */
 	case TYPE_STRUCT:
 	case TYPE_UNION:
 	  {
@@ -855,8 +901,8 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 
 	    newval = xmalloc (strlen (val) + sizeof (".") + strlen (f->name));
 	    sprintf (newval, "%s.%s", val, f->name);
-	    write_gc_structure_fields (of, f->type, newval, val,
-				       f->opt, indent, &f->line);
+	    write_gc_structure_fields (of, t, newval, val,
+				       f->opt, indent, &f->line, bitmap);
 	    free (newval);
 	    break;
 	  }
@@ -865,20 +911,20 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 	  if (! length)
 	    {
 	      if (maybe_undef_p
-		  && f->type->u.p->u.s.line.file == NULL)
+		  && t->u.p->u.s.line.file == NULL)
 		fprintf (of, "%*sif (%s.%s) abort();\n", indent, "",
 			 val, f->name);
-	      else if (f->type->u.p->kind == TYPE_STRUCT
-		       || f->type->u.p->kind == TYPE_UNION
-		       || f->type->u.p->kind == TYPE_LANG_STRUCT)
+	      else if (t->u.p->kind == TYPE_STRUCT
+		       || t->u.p->kind == TYPE_UNION
+		       || t->u.p->kind == TYPE_LANG_STRUCT)
 		fprintf (of, "%*sgt_ggc_m_%s (%s.%s);\n", indent, "", 
-			 f->type->u.p->u.s.tag, val, f->name);
+			 t->u.p->u.s.tag, val, f->name);
 	      else
 		error_at_line (&f->line, "field `%s' is pointer to scalar",
 			       f->name);
 	      break;
 	    }
-	  else if (f->type->u.p->kind == TYPE_SCALAR)
+	  else if (t->u.p->kind == TYPE_SCALAR)
 	    fprintf (of, "%*sggc_mark (%s.%s);\n", indent, "", 
 		     val, f->name);
 	  else
@@ -901,7 +947,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 		  fprintf (of, "(%s)", val);
 	      fprintf (of, "); i%d++) {\n", loopcounter);
 	      indent += 2;
-	      switch (f->type->u.p->kind)
+	      switch (t->u.p->kind)
 		{
 		case TYPE_STRUCT:
 		case TYPE_UNION:
@@ -910,16 +956,17 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 		    
 		    newval = xmalloc (strlen (val) + 8 + strlen (f->name));
 		    sprintf (newval, "%s.%s[i%d]", val, f->name, loopcounter);
-		    write_gc_structure_fields (of, f->type->u.p, newval, val,
-					       f->opt, indent, &f->line);
+		    write_gc_structure_fields (of, t->u.p, newval, val,
+					       f->opt, indent, &f->line,
+					       bitmap);
 		    free (newval);
 		    break;
 		  }
 		case TYPE_POINTER:
-		  if (f->type->u.p->u.p->kind == TYPE_STRUCT
-		      || f->type->u.p->u.p->kind == TYPE_UNION)
+		  if (t->u.p->u.p->kind == TYPE_STRUCT
+		      || t->u.p->u.p->kind == TYPE_UNION)
 		    fprintf (of, "%*sgt_ggc_m_%s (%s.%s[i%d]);\n", indent, "", 
-			     f->type->u.p->u.p->u.s.tag, val, f->name,
+			     t->u.p->u.p->u.s.tag, val, f->name,
 			     loopcounter);
 		  else
 		    error_at_line (&f->line, 
@@ -940,13 +987,13 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 	  break;
 
 	case TYPE_VARRAY:
-	  if (f->type->u.p->kind == TYPE_SCALAR)
+	  if (t->u.p->kind == TYPE_SCALAR)
 	    ;
-	  else if (f->type->u.p->kind == TYPE_POINTER
-		   && (f->type->u.p->u.p->kind == TYPE_STRUCT
-		       || f->type->u.p->u.p->kind == TYPE_UNION))
+	  else if (t->u.p->kind == TYPE_POINTER
+		   && (t->u.p->u.p->kind == TYPE_STRUCT
+		       || t->u.p->u.p->kind == TYPE_UNION))
 	    {
-	      const char *name = f->type->u.p->u.p->u.s.tag;
+	      const char *name = t->u.p->u.p->u.s.tag;
 	      if (strcmp (name, "rtx_def") == 0)
 		fprintf (of, "%*sggc_mark_rtx_varray (%s.%s);\n",
 			 indent, "", val, f->name);
@@ -967,20 +1014,20 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 	case TYPE_ARRAY:
 	  {
 	    int loopcounter = ++gc_counter;
-	    type_p t;
+	    type_p ta;
 	    int i;
 
 	    if (! length &&
-		(strcmp (f->type->u.a.len, "0") == 0
-		 || strcmp (f->type->u.a.len, "1") == 0))
+		(strcmp (t->u.a.len, "0") == 0
+		 || strcmp (t->u.a.len, "1") == 0))
 	      error_at_line (&f->line, 
 			     "field `%s' is array of size %s",
-			     f->name, f->type->u.a.len);
+			     f->name, t->u.a.len);
 	    
 	    /* Arrays of scalars can be ignored.  */
-	    for (t = f->type; t->kind == TYPE_ARRAY; t = t->u.a.p)
+	    for (ta = t; ta->kind == TYPE_ARRAY; ta = ta->u.a.p)
 	      ;
-	    if (t->kind == TYPE_SCALAR)
+	    if (ta->kind == TYPE_SCALAR)
 	      break;
 
 	    fprintf (of, "%*s{\n", indent, "");
@@ -1001,7 +1048,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 		length = "first_rtl_op (TREE_CODE ((tree)&%))";
 	      }
 
-	    for (t = f->type, i=0; t->kind == TYPE_ARRAY; t = t->u.a.p, i++)
+	    for (ta = t, i = 0; ta->kind == TYPE_ARRAY; ta = ta->u.a.p, i++)
 	      {
 		const char *p;
 		fprintf (of, "%*ssize_t i%d_%d;\n", 
@@ -1017,11 +1064,11 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 			fprintf (of, "(%s)", val);
 		  }
 		else
-		  fputs (t->u.a.len, of);
+		  fputs (ta->u.a.len, of);
 		fputs (");\n", of);
 	      }
 		
-	    for (t = f->type, i=0; t->kind == TYPE_ARRAY; t = t->u.a.p, i++)
+	    for (ta = t, i = 0; ta->kind == TYPE_ARRAY; ta = ta->u.a.p, i++)
 	      {
 		fprintf (of, 
 		 "%*sfor (i%d_%d = 0; i%d_%d < ilimit%d_%d; i%d_%d++) {\n",
@@ -1030,43 +1077,43 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 		indent += 2;
 	      }
 
-	    if (t->kind == TYPE_POINTER
-		&& (t->u.p->kind == TYPE_STRUCT
-		    || t->u.p->kind == TYPE_UNION))
+	    if (ta->kind == TYPE_POINTER
+		&& (ta->u.p->kind == TYPE_STRUCT
+		    || ta->u.p->kind == TYPE_UNION))
 	      {
 		fprintf (of, "%*sgt_ggc_m_%s (%s.%s", 
-			 indent, "", t->u.p->u.s.tag, val, f->name);
-		for (t = f->type, i=0; 
-		     t->kind == TYPE_ARRAY; 
-		     t = t->u.a.p, i++)
+			 indent, "", ta->u.p->u.s.tag, val, f->name);
+		for (ta = t, i = 0; 
+		     ta->kind == TYPE_ARRAY; 
+		     ta = ta->u.a.p, i++)
 		  fprintf (of, "[i%d_%d]", loopcounter, i);
 		fputs (");\n", of);
 	      }
-	    else if (t->kind == TYPE_STRUCT || t->kind == TYPE_UNION)
+	    else if (ta->kind == TYPE_STRUCT || ta->kind == TYPE_UNION)
 	      {
 		char *newval;
 		int len;
 		
 		len = strlen (val) + strlen (f->name) + 2;
-		for (t = f->type; t->kind == TYPE_ARRAY; t = t->u.a.p)
+		for (ta = t; ta->kind == TYPE_ARRAY; ta = ta->u.a.p)
 		  len += sizeof ("[i_]") + 2*6;
 		
 		newval = xmalloc (len);
 		sprintf (newval, "%s.%s", val, f->name);
-		for (t = f->type, i=0; 
-		     t->kind == TYPE_ARRAY; 
-		     t = t->u.a.p, i++)
+		for (ta = t, i = 0; 
+		     ta->kind == TYPE_ARRAY; 
+		     ta = ta->u.a.p, i++)
 		  sprintf (newval + strlen (newval), "[i%d_%d]", 
 			   loopcounter, i);
-		write_gc_structure_fields (of, f->type->u.p, newval, val,
-					   f->opt, indent, &f->line);
+		write_gc_structure_fields (of, t->u.p, newval, val,
+					   f->opt, indent, &f->line, bitmap);
 		free (newval);
 	      }
 	    else
 	      error_at_line (&f->line, 
 			     "field `%s' is array of unimplemented type",
 			     f->name);
-	    for (t = f->type, i=0; t->kind == TYPE_ARRAY; t = t->u.a.p, i++)
+	    for (ta = t, i = 0; ta->kind == TYPE_ARRAY; ta = ta->u.a.p, i++)
 	      {
 		indent -= 2;
 		fprintf (of, "%*s}\n", indent, "");
@@ -1128,7 +1175,7 @@ write_gc_marker_routine_for_structure (s)
   
   gc_counter = 0;
   write_gc_structure_fields (f, s, "(*x)", "not valid postage",
-			     s->u.s.opt, 2, &s->u.s.line);
+			     s->u.s.opt, 2, &s->u.s.line, s->u.s.bitmap);
   
   fputs ("}\n", f);
 }
@@ -1145,8 +1192,28 @@ write_gc_types (structures)
     if (s->gc_used == GC_POINTED_TO
 	|| s->gc_used == GC_MAYBE_POINTED_TO)
       {
+	options_p opt;
+	
 	if (s->gc_used == GC_MAYBE_POINTED_TO
 	    && s->u.s.line.file == NULL)
+	  continue;
+
+	for (opt = s->u.s.opt; opt; opt = opt->next)
+	  if (strcmp (opt->name, "ptr_alias") == 0)
+	    {
+	      type_p t = (type_p) opt->info;
+	      if (t->kind == TYPE_STRUCT 
+		  || t->kind == TYPE_UNION
+		  || t->kind == TYPE_LANG_STRUCT)
+		fprintf (header_file,
+			 "#define gt_ggc_m_%s gt_ggc_m_%s\n",
+			 s->u.s.tag, t->u.s.tag);
+	      else
+		error_at_line (&s->u.s.line, 
+			       "structure alias is not a structure");
+	      break;
+	    }
+	if (opt)
 	  continue;
 
 	/* Declare the marker procedure only once.  */
@@ -1487,7 +1554,7 @@ write_gc_roots (variables)
 	      fprintf (f, "    for (i = 0; i < (%s); i++)\n", length);
 	      fputs ("      {\n", f);
 	      write_gc_structure_fields (f, s, "x[i]", "x[i]",
-					 v->opt, 8, &v->line);
+					 v->opt, 8, &v->line, s->u.s.bitmap);
 	      fputs ("      }\n", f);
 	    }
 
@@ -1595,9 +1662,6 @@ main(argc, argv)
   set_gc_used_type (find_structure ("mem_attrs", 0), GC_POINTED_TO);
   set_gc_used_type (find_structure ("type_hash", 0), GC_POINTED_TO);
   set_gc_used_type (find_structure ("deferred_string", 0), GC_POINTED_TO);
-  set_gc_used_type (find_structure ("lang_type", 0), GC_POINTED_TO);
-  set_gc_used_type (find_structure ("lang_decl", 0), GC_POINTED_TO);
-  set_gc_used_type (find_structure ("lang_id2", 0), GC_POINTED_TO);
   set_gc_used_type (find_structure ("ehl_map_entry", 0), GC_POINTED_TO);
 
   open_base_files ();

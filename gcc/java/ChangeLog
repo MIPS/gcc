@@ -1,3 +1,14 @@
+2002-05-08  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Make-lang.in (java/parse.o): Depend on debug.h.
+	* java-tree.h (struct lang_identifier): Use gengtype.
+	(union lang_tree_node): New.
+	(struct lang_decl_func): Use gengtype.
+	(struct lang_decl_var): Likewise.
+	(struct lang_decl): Likewise.
+	* parse.y: Include debug.h.
+	* lang.c (LANG_HOOKS_MARK_TREE): Delete.
+
 2002-05-03  Geoffrey Keating  <geoffk@redhat.com>
 
 	* lang.c (struct language_function): New dummy structure.

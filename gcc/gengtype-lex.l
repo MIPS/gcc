@@ -49,7 +49,7 @@ update_lineno (l, len)
 
 ID	[[:alpha:]][[:alnum:]_]*
 WS	[[:space:]]+
-IWORD	short|long|(un)?signed|char|int|HOST_WIDE_INT
+IWORD	short|long|(un)?signed|char|int|HOST_WIDE_INT|bool
 ITYPE	{IWORD}({WS}{IWORD})*
 
 %x in_struct in_struct_comment in_comment in_yacc_escape
@@ -187,6 +187,7 @@ ITYPE	{IWORD}({WS}{IWORD})*
 "union"/[^[:alnum:]_]		{ return UNION; }
 "struct"/[^[:alnum:]_]		{ return STRUCT; }
 "enum"/[^[:alnum:]_]		{ return ENUM; }
+"ptr_alias"/[^[:alnum:]_]	{ return ALIAS; }
 [0-9]+				{ return NUM; }
 
 {IWORD}({WS}{IWORD})*/[^[:alnum:]_]		|

@@ -183,10 +183,10 @@ enum c_tree_index
 
 /* Identifier part common to the C front ends.  Inherits from
    tree_identifier, despite appearances.  */
-struct c_common_identifier
+struct c_common_identifier GTY(())
 {
   struct tree_common common;
-  struct cpp_hashnode node;
+  struct cpp_hashnode GTY ((skip (""))) node;
 };
 
 #define wchar_type_node			c_global_trees[CTI_WCHAR_TYPE]

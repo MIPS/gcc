@@ -1,3 +1,61 @@
+2002-05-08  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Makefile.in (stringpool.o): Add $(GGC_H).
+	(dwarf2asm.o): Likewise.
+	(GTFILES): Add hashtable.h.
+	* c-common.h (struct c_common_identifier): Use gengtype.
+	* c-decl.h (c_mark_tree): Delete.
+	* c-lang.c (LANG_HOOKS_MARK_TREE): Delete.
+	* c-tree.h (struct lang_identifier): Use gengtype.
+	(union lang_tree_node): New.
+	(c_mark_tree): Delete prototype.
+	* dwarf2out.c [!DWARF2_DEBUGGING_INFO]: Define dummy 
+	dwarf2_debug_hooks.
+	* gengtype-lex.l (IWORD): Allow 'bool'.
+	(ptr_alias): Match.
+	* gengtype-yacc.y (ALIAS): New token.
+	(type_option): New rule.
+	(option): Use type_option.
+	* gengtype.c (process_gc_options): New.
+	(set_gc_used_type): Use it.
+	(write_gc_structure_fields): Add 'bitmap' parameter, change callers.
+	Add new variable 't' to hold the type of the field being processed.
+	Add more error checking.  Use UNION_P when looking at 'desc' option.
+	Handle language-specific structures containing other
+	language-specific structures.
+	(write_gc_types): Handle 'ptr_alias' option.
+	(main): Don't need to specially output lang_type, lang_decl, lang_id2.
+	* ggc-common.c (ggc_pending_trees): Delete.
+	(ggc_mark_roots): Don't manipulate ggc_pending_trees.
+	(ggc_mark_trees): Delete.
+	(gt_ggc_m_tree_node): Delete.
+	* ggc.h (ggc_pending_trees): Delete.
+	(ggc_mark_tree): Make alias of gt_ggc_m_tree_node.
+	* hashtable.h (ht_identifier): Use gengtype.
+	* langhooks-def.h (LANG_HOOKS_MARK_TREE): Delete.
+	* langhooks.h (struct lang_hooks): Delete mark_tree.
+	* sdbout.c [! SDB_DEBUGGING_INFO]: Define dummy sdb_debug_hooks
+	anyway.
+	* system.h: Poison LANG_HOOKS_MARK_TREE.
+	* tree.c (tree_node_structure): New.
+	* tree.h (struct tree_common): Use gengtype.
+	(struct tree_int_cst): Likewise.
+	(struct tree_real_cst): Likewise.
+	(struct tree_string): Likewise.
+	(struct tree_complex): Likewise.
+	(struct tree_vector): Likewise.
+	(struct tree_identifier): Likewise.
+	(struct tree_list): Likewise.
+	(struct tree_vec): Likewise.
+	(struct tree_exp): Likewise.
+	(struct tree_block): Likewise.
+	(struct tree_type): Likewise.
+	(struct tree_decl): Likewise.
+	(enum tree_structure_enum): New.
+	(union tree_node): Use gengtype, with an alias.
+	(tree_node_structure): Prototype.
+	* objc/objc-lang.c (LANG_HOOKS_MARK_TREE): Delete.
+
 2002-05-06  Geoffrey Keating  <geoffk@redhat.com>
 
 	Merge to tag pch-merge-20020430.  The LANG_HOOKS_FUNCTION_MARK

@@ -233,9 +233,9 @@ extern int flag_huge_objects;
 
 /* Language-dependent contents of an identifier.  */
 
-struct lang_identifier
+struct lang_identifier GTY(())
 {
-  struct c_common_identifier ignore;
+  struct c_common_identifier c_common;
   tree namespace_bindings;
   tree bindings;
   tree class_value;
@@ -269,7 +269,7 @@ typedef struct flagged_type_tree_s GTY(())
   tree lookups;
 } flagged_type_tree;
 
-typedef struct
+typedef struct template_parm_index_s GTY(())
 {
   struct tree_common common;
   HOST_WIDE_INT index;
@@ -278,14 +278,15 @@ typedef struct
   tree decl;
 } template_parm_index;
 
-typedef struct ptrmem_cst
+struct ptrmem_cst GTY(())
 {
   struct tree_common common;
   /* This isn't used, but the middle-end expects all constants to have
      this field.  */
   rtx rtl;
   tree member;
-}* ptrmem_cst_t;
+};
+typedef struct ptrmem_cst * ptrmem_cst_t;
 
 /* Nonzero if this binding is for a local scope, as opposed to a class
    or namespace scope.  */
@@ -347,13 +348,13 @@ typedef struct ptrmem_cst
     && MAIN_NAME_P (DECL_NAME (NODE)))
 
 
-struct tree_binding
+struct tree_binding GTY(())
 {
   struct tree_common common;
-  union {
-    tree scope;
-    struct cp_binding_level *level;
-  } scope;
+  union tree_binding_u {
+    tree GTY ((tag ("0"))) scope;
+    struct cp_binding_level * GTY ((tag ("1"))) level;
+  } GTY ((desc ("BINDING_HAS_LEVEL_P ((tree)&%0)"))) scope;
   tree value;
 };
 
@@ -371,7 +372,7 @@ struct tree_binding
    is not important for this node. */
 #define OVL_USED(NODE)        TREE_USED (NODE)
 
-struct tree_overload
+struct tree_overload GTY(())
 {
   struct tree_common common;
   tree function;
@@ -385,21 +386,17 @@ struct tree_overload
 #define SET_BASELINK_P(NODE) \
   (TREE_LANG_FLAG_1 (NODE) = 1)
 
-#define WRAPPER_PTR(NODE) (((struct tree_wrapper*)WRAPPER_CHECK (NODE))->u.ptr)
-#define WRAPPER_INT(NODE) (((struct tree_wrapper*)WRAPPER_CHECK (NODE))->u.i)
+#define WRAPPER_ZC(NODE) (((struct tree_wrapper*)WRAPPER_CHECK (NODE))->z_c)
 
-struct tree_wrapper
+struct tree_wrapper GTY(())
 {
   struct tree_common common;
-  union {
-    void *ptr;
-    int i;
-  } u;
+  struct z_candidate *z_c;
 };
 
 #define SRCLOC_FILE(NODE) (((struct tree_srcloc*)SRCLOC_CHECK (NODE))->filename)
 #define SRCLOC_LINE(NODE) (((struct tree_srcloc*)SRCLOC_CHECK (NODE))->linenum)
-struct tree_srcloc
+struct tree_srcloc GTY(())
 {
   struct tree_common common;
   const char *filename;
@@ -496,6 +493,35 @@ struct tree_srcloc
 /* Store a value in that field.  */
 #define C_SET_EXP_ORIGINAL_CODE(EXP, CODE) \
   (TREE_COMPLEXITY (EXP) = (int)(CODE))
+
+enum cp_tree_node_structure_enum {
+  TS_CP_COMMON,
+  TS_CP_GENERIC,
+  TS_CP_IDENTIFIER,
+  TS_CP_TPI,
+  TS_CP_PTRMEM,
+  TS_CP_BINDING,
+  TS_CP_OVERLOAD,
+  TS_CP_WRAPPER,
+  TS_CP_SRCLOC,
+  LAST_TS_CP_ENUM
+};
+
+/* The resulting tree type.  */
+union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)")))
+{
+  struct tree_common GTY ((tag ("TS_CP_COMMON"))) common;
+  union tree_node GTY ((tag ("TS_CP_GENERIC"),
+			desc ("tree_node_structure (&%h)"))) generic;
+  struct template_parm_index_s GTY ((tag ("TS_CP_TPI"))) tpi;
+  struct ptrmem_cst GTY ((tag ("TS_CP_PTRMEM"))) ptrmem;
+  struct tree_binding GTY ((tag ("TS_CP_BINDING"))) binding;
+  struct tree_overload GTY ((tag ("TS_CP_OVERLOAD"))) overload;
+  struct tree_wrapper GTY ((tag ("TS_CP_WRAPPER"))) wrapper;
+  struct tree_srcloc GTY ((tag ("TS_CP_SRCLOC"))) srcloc;
+  struct lang_identifier GTY ((tag ("TS_CP_IDENTIFIER"))) identifier;
+};
+
 
 enum cp_tree_index
 {
@@ -3720,7 +3746,8 @@ extern void insert_block			PARAMS ((tree));
 extern void set_block				PARAMS ((tree));
 extern tree pushdecl				PARAMS ((tree));
 extern void cxx_init_decl_processing		PARAMS ((void));
-extern void cxx_mark_tree			PARAMS ((tree));
+enum cp_tree_node_structure_enum cp_tree_node_structure 
+  PARAMS ((union lang_tree_node *));
 extern void cxx_insert_default_attributes	PARAMS ((tree));
 extern bool cxx_mark_addressable		PARAMS ((tree));
 extern void cxx_push_function_context		PARAMS ((struct function *));
@@ -4338,8 +4365,7 @@ extern tree vec_binfo_member			PARAMS ((tree, tree));
 extern tree decl_namespace_context		PARAMS ((tree));
 extern tree lvalue_type				PARAMS ((tree));
 extern tree error_type				PARAMS ((tree));
-extern tree build_ptr_wrapper			PARAMS ((void *));
-extern tree build_int_wrapper			PARAMS ((int));
+extern tree build_zc_wrapper			PARAMS ((struct z_candidate *));
 extern tree build_srcloc_here			PARAMS ((void));
 extern int varargs_function_p			PARAMS ((tree));
 extern int really_overloaded_fn			PARAMS ((tree));

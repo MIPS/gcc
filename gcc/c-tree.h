@@ -34,11 +34,26 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    lang_identifier nodes, because some keywords are only special in a
    particular context.  */
 
-struct lang_identifier
+struct lang_identifier GTY(())
 {
-  struct c_common_identifier ignore;
-  tree global_value, local_value, label_value, implicit_decl;
-  tree error_locus, limbo_value;
+  struct c_common_identifier common_id;
+  tree global_value;
+  tree local_value;
+  tree label_value;
+  tree implicit_decl;
+  tree error_locus;
+  tree limbo_value;
+};
+
+/* The resulting tree type.  */
+
+union lang_tree_node 
+  GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE")))
+{
+  union tree_node GTY ((tag ("0"), 
+			desc ("tree_node_structure (&%h)"))) 
+    generic;
+  struct lang_identifier GTY ((tag ("1"))) identifier;
 };
 
 /* Language-specific declaration information.  */
@@ -178,7 +193,6 @@ extern void c_insert_default_attributes		PARAMS ((tree));
 extern void c_init_decl_processing		PARAMS ((void));
 extern void c_dup_lang_specific_decl		PARAMS ((tree));
 extern void c_print_identifier			PARAMS ((FILE *, tree, int));
-extern void c_mark_tree				PARAMS ((tree));
 extern tree build_array_declarator              PARAMS ((tree, tree, int, int));
 extern tree build_enumerator                    PARAMS ((tree, tree));
 extern int  c_decode_option                     PARAMS ((int, char **));

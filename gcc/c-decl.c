@@ -7030,28 +7030,6 @@ c_dup_lang_specific_decl (decl)
   DECL_LANG_SPECIFIC (decl) = ld;
 }
 
-/* Mark the language specific bits in T for GC.  */
-
-void
-c_mark_tree (t)
-     tree t;
-{
-  if (TREE_CODE (t) == IDENTIFIER_NODE)
-    {
-      struct lang_identifier *i = (struct lang_identifier *) t;
-      ggc_mark_tree (i->global_value);
-      ggc_mark_tree (i->local_value);
-      ggc_mark_tree (i->label_value);
-      ggc_mark_tree (i->implicit_decl);
-      ggc_mark_tree (i->error_locus);
-      ggc_mark_tree (i->limbo_value);
-    }
-  else if (TYPE_P (t))
-    gt_ggc_m_lang_type (TYPE_LANG_SPECIFIC (t));
-  else if (DECL_P (t))
-    gt_ggc_m_lang_decl (DECL_LANG_SPECIFIC (t));
-}
-
 /* The functions below are required for functionality of doing
    function at once processing in the C front end. Currently these
    functions are not called from anywhere in the C front end, but as

@@ -678,14 +678,25 @@ extern struct CPool *outgoing_cpool;
 
 extern const char *cyclic_inheritance_report;
 
-struct lang_identifier
+struct lang_identifier GTY(())
 {
   struct tree_identifier ignore;
-  tree global_value, local_value;
+  tree global_value;
+  tree local_value;
 
   /* If non-NULL:  An ADDR_REF to a VAR_DECL that contains
    * the Utf8Const representation of the identifier.  */
   tree utf8_ref;
+};
+
+/* The resulting tree type.  */
+union lang_tree_node 
+  GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE")))
+{
+  union tree_node GTY ((tag ("0"), 
+			desc ("tree_node_structure (&%h)"))) 
+    generic;
+  struct lang_identifier GTY ((tag ("1"))) identifier;
 };
 
 /* Macros for access to language-specific slots in an identifier.  */
@@ -924,7 +935,7 @@ struct lang_identifier
 #define DECL_BIT_INDEX(DECL) (DECL_CHECK (DECL)->decl.pointer_alias_set)
 
 /* DECL_LANG_SPECIFIC for FUNCTION_DECLs. */
-struct lang_decl_func
+struct lang_decl_func GTY(())
 {
   /*  tree chain; not yet used. */
   long code_offset;
@@ -964,7 +975,7 @@ struct init_test_hash_entry
 
 /* DECL_LANG_SPECIFIC for VAR_DECL, PARM_DECL and sometimes FIELD_DECL
    (access methods on outer class fields) and final fields. */
-struct lang_decl_var
+struct lang_decl_var GTY(())
 {
   int slot_number;
   int start_pc;
@@ -983,13 +994,13 @@ enum lang_decl_desc {
   LANG_DECL_VAR
 };
 
-struct lang_decl
+struct lang_decl GTY(())
 {
   enum lang_decl_desc desc;
   union lang_decl_u {
-    struct lang_decl_func f;
-    struct lang_decl_var v;
-  } u;
+    struct lang_decl_func GTY ((tag ("LANG_DECL_FUNC"))) f;
+    struct lang_decl_var GTY ((tag ("LANG_DECL_VAR"))) v;
+  } GTY ((desc ("%0.desc"))) u;
 };
 
 /* Macro to access fields in `struct lang_type'.  */

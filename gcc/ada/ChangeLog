@@ -1,3 +1,15 @@
+2002-05-08  Geoffrey Keating  <geoffk@redhat.com>
+
+	* ada-tree.h: Update all macros for new tree description.
+	(struct tree_loop_id): New.
+	(union lang_tree_node): New.
+	(struct lang_decl): New.
+	(struct lang_type): New.
+	* misc.c (gnat_mark_tree): Delete.
+	(LANG_HOOKS_MARK_TREE): Delete.
+	* trans.c (tree_transform): No longer any need to cast
+	for TREE_LOOP_ID.
+
 2002-05-03  Geoffrey Keating  <geoffk@redhat.com>
 
 	* utils.c (struct language_function): New dummy structure.

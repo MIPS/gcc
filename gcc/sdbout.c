@@ -43,6 +43,7 @@ AT&T C compiler.  From the example below I would conclude the following:
 
 #include "config.h"
 #include "system.h"
+#include "debug.h"
 #include "tree.h"
 #include "ggc.h"
 
@@ -59,7 +60,6 @@ static GTY(()) tree anonymous_types;
 #include "toplev.h"
 #include "tm_p.h"
 #include "gsyms.h"
-#include "debug.h"
 #include "langhooks.h"
 
 /* 1 if PARM is passed to this function in memory.  */
@@ -1761,6 +1761,11 @@ sdbout_init (input_file_name)
       sdbout_symbol (t, 0);
 #endif  
 }
+
+#else  /* SDB_DEBUGGING_INFO */
+
+/* This should never be used, but its address is needed for comparisons.  */
+const struct gcc_debug_hooks sdb_debug_hooks;
 
 #endif /* SDB_DEBUGGING_INFO */
 

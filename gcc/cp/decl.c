@@ -48,6 +48,7 @@ Boston, MA 02111-1307, USA.  */
 #include "c-common.h"
 #include "c-pragma.h"
 #include "diagnostic.h"
+#include "debug.h"
 
 #ifndef BOOL_TYPE_SIZE
 /* `bool' has size and alignment `1', on all platforms.  */
@@ -14535,36 +14536,25 @@ cxx_pop_function_context (f)
   f->language = 0;
 }
 
-void
-cxx_mark_tree (t)
-     tree t;
+/* Return which tree structure is used by T, or TS_CP_GENERIC if T is
+   one of the language-independent trees.  */
+
+enum cp_tree_node_structure_enum
+cp_tree_node_structure (t)
+     union lang_tree_node *t;
 {
-  enum tree_code code = TREE_CODE (t);
-  if (code == IDENTIFIER_NODE)
+  switch (TREE_CODE (&t->generic))
     {
-      struct lang_identifier *li = (struct lang_identifier *) t;
-      ggc_mark_tree (li->namespace_bindings);
-      ggc_mark_tree (li->bindings);
-      ggc_mark_tree (li->class_value);
-      ggc_mark_tree (li->class_template_info);
-      gt_ggc_m_lang_id2 (li->x);
+    case DEFAULT_ARG:		return TS_CP_IDENTIFIER;
+    case IDENTIFIER_NODE:	return TS_CP_IDENTIFIER;
+    case CPLUS_BINDING:		return TS_CP_BINDING;
+    case OVERLOAD:		return TS_CP_OVERLOAD;
+    case TEMPLATE_PARM_INDEX:	return TS_CP_TPI;
+    case PTRMEM_CST:		return TS_CP_PTRMEM;
+    case WRAPPER:		return TS_CP_WRAPPER;
+    case SRCLOC:		return TS_CP_SRCLOC;
+    default:			return TS_CP_GENERIC;
     }
-  else if (code == CPLUS_BINDING)
-    {
-      if (BINDING_HAS_LEVEL_P (t))
-	gt_ggc_m_cp_binding_level (&BINDING_LEVEL (t));
-      else
-	ggc_mark_tree (BINDING_SCOPE (t));
-      ggc_mark_tree (BINDING_VALUE (t));
-    }
-  else if (code == OVERLOAD)
-    ggc_mark_tree (OVL_FUNCTION (t));
-  else if (code == TEMPLATE_PARM_INDEX)
-    ggc_mark_tree (TEMPLATE_PARM_DECL (t));
-   else if (TYPE_P (t))
-    gt_ggc_m_lang_type (TYPE_LANG_SPECIFIC (t));
-  else if (DECL_P (t))
-    gt_ggc_m_lang_decl (DECL_LANG_SPECIFIC (t));
 }
 
 /* Return the IDENTIFIER_GLOBAL_VALUE of T, for use in common code, since

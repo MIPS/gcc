@@ -92,6 +92,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "intl.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
+#include "debug.h"
 
 /* VMS-specific definitions */
 #ifdef VMS
@@ -573,12 +574,14 @@ static const struct f_binding_level clear_binding_level
 
 /* Language-dependent contents of an identifier.  */
 
-struct lang_identifier
-  {
-    struct tree_identifier ignore;
-    tree global_value, local_value, label_value;
-    bool invented;
-  };
+struct lang_identifier GTY(())
+{
+  struct tree_identifier common;
+  tree global_value;
+  tree local_value;
+  tree label_value;
+  bool invented;
+};
 
 /* Macros for access to language-specific slots in an identifier.  */
 /* Each of these slots contains a DECL node or null.  */
@@ -598,6 +601,24 @@ struct lang_identifier
 /* This is nonzero if the identifier was "made up" by g77 code.  */
 #define IDENTIFIER_INVENTED(NODE)	\
   (((struct lang_identifier *)(NODE))->invented)
+
+/* The resulting tree type.  */
+union lang_tree_node 
+  GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE")))
+{
+  union tree_node GTY ((tag ("0"), 
+			desc ("tree_node_structure (&%h)"))) 
+    generic;
+  struct lang_identifier GTY ((tag ("1"))) identifier;
+};
+
+/* Fortran doesn't use either of these.  */
+struct lang_decl GTY(()) 
+{
+};
+struct lang_type GTY(())
+{
+};
 
 /* In identifiers, C uses the following fields in a special way:
    TREE_PUBLIC	      to record that there was a previous local extern decl.
@@ -14100,7 +14121,6 @@ static const char *ffe_init PARAMS ((const char *));
 static void ffe_finish PARAMS ((void));
 static void ffe_init_options PARAMS ((void));
 static void ffe_print_identifier PARAMS ((FILE *, tree, int));
-static void ffe_mark_tree (tree);
 
 struct language_function GTY(())
 {
@@ -14119,8 +14139,6 @@ struct language_function GTY(())
 #define LANG_HOOKS_DECODE_OPTION	ffe_decode_option
 #undef  LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE		ffe_parse_file
-#undef  LANG_HOOKS_MARK_TREE
-#define LANG_HOOKS_MARK_TREE		ffe_mark_tree
 #undef  LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE	ffe_mark_addressable
 #undef  LANG_HOOKS_PRINT_IDENTIFIER
@@ -15043,21 +15061,6 @@ ffe_unsigned_type (type)
     }
 
   return type;
-}
-
-static void
-ffe_mark_tree (t)
-     tree t;
-{
-  if (TREE_CODE (t) == IDENTIFIER_NODE)
-    {
-      struct lang_identifier *i = (struct lang_identifier *) t;
-      ggc_mark_tree (IDENTIFIER_GLOBAL_VALUE (i));
-      ggc_mark_tree (IDENTIFIER_LOCAL_VALUE (i));
-      ggc_mark_tree (IDENTIFIER_LABEL_VALUE (i));
-    }
-  else if (TYPE_P (t) && TYPE_LANG_SPECIFIC (t))
-    ggc_mark (TYPE_LANG_SPECIFIC (t));
 }
 
 /* From gcc/cccp.c, the code to handle -I.  */

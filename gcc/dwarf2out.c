@@ -12301,4 +12301,9 @@ dwarf2out_finish (input_filename)
   if (debug_str_hash)
     ht_forall (debug_str_hash, output_indirect_string, NULL);
 }
-#endif /* DWARF2_DEBUGGING_INFO || DWARF2_UNWIND_INFO */
+#else
+
+/* This should never be used, but its address is needed for comparisons.  */
+const struct gcc_debug_hooks dwarf2_debug_hooks;
+
+#endif /* DWARF2_DEBUGGING_INFO */

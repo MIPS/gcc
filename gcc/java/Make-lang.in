@@ -261,7 +261,7 @@ JAVA_LEX_C = java/lex.c java/keyword.h java/chartables.h
 
 java/parse.o: java/parse.c java/jcf-reader.c $(CONFIG_H) $(SYSTEM_H) \
   function.h $(JAVA_TREE_H) $(JAVA_LEX_C) java/parse.h java/lex.h $(GGC_H) \
-  gt-java-parse.h gtype-java.h
+  debug.h gt-java-parse.h gtype-java.h
 java/jcf-dump.o: $(CONFIG_H) $(SYSTEM_H) $(JAVA_TREE_H) java/jcf-dump.c \
   java/jcf-reader.c java/jcf.h java/javaop.h java/javaop.def version.h
 java/gjavah.o: $(CONFIG_H) $(SYSTEM_H) $(JAVA_TREE_H) java/gjavah.c \

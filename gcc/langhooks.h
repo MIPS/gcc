@@ -286,9 +286,6 @@ struct lang_hooks
      for the passed TARGET_EXPR.  Return NULL if there is none.  */
   tree (*maybe_build_cleanup) PARAMS ((tree));
 
-  /* Mark nodes held through the lang_specific hooks in the tree.  */
-  void (*mark_tree) PARAMS ((tree));
-
   /* Set the DECL_ASSEMBLER_NAME for a node.  If it is the sort of
      thing that the assembler should talk about, set
      DECL_ASSEMBLER_NAME to an appropriate IDENTIFIER_NODE.

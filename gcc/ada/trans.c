@@ -2315,7 +2315,7 @@ tree_transform (gnat_node)
 	  {
 	    tree gnu_loop_id = make_node (GNAT_LOOP_ID);
 
-	    TREE_LOOP_ID (gnu_loop_id) = (rtx) loop_id;
+	    TREE_LOOP_ID (gnu_loop_id) = loop_id;
 	    save_gnu_tree (Entity (Identifier (gnat_node)), gnu_loop_id, 1);
 	  }
 
@@ -2404,8 +2404,7 @@ tree_transform (gnat_node)
 
 	if (Present (Name (gnat_node)))
 	  loop_id
-	    = (struct nesting *)
-	      TREE_LOOP_ID (get_gnu_tree (Entity (Name (gnat_node))));
+	    = TREE_LOOP_ID (get_gnu_tree (Entity (Name (gnat_node))));
 
 	if (Present (Condition (gnat_node)))
 	  gnu_cond = invert_truthvalue (gnat_truthvalue_conversion

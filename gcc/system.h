@@ -617,7 +617,8 @@ typedef char _Bool;
 	TRADITIONAL_RETURN_FLOAT free_machine_status
 
 /* Hooks that are no longer used.  */
- #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE
+ #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\
+	LANG_HOOKS_MARK_TREE
 
 #endif /* IN_GCC */
 

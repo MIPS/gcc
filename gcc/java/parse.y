@@ -65,6 +65,7 @@ definitions and other extensions.  */
 #include "function.h"
 #include "except.h"
 #include "ggc.h"
+#include "debug.h"
 
 #ifndef DIR_SEPARATOR
 #define DIR_SEPARATOR '/'

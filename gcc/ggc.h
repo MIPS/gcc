@@ -37,9 +37,6 @@ extern const char empty_string[];	/* empty string */
 extern const char digit_vector[];	/* "0" .. "9" */
 #define digit_string(d) (digit_vector + ((d) * 2))
 
-/* Trees that have been marked, but whose children still need marking.  */
-extern varray_type ggc_pending_trees;
-
 /* Manipulate global roots that are needed between calls to gc.  */
 extern void ggc_add_root		PARAMS ((void *base, int nelt,
 						 int size, void (*)(void *)));
@@ -95,12 +92,7 @@ extern void ggc_mark_rtx_children	PARAMS ((struct rtx_def *));
       ggc_mark_rtx_children (r__);              \
   } while (0)
 
-#define ggc_mark_tree(EXPR)				\
-  do {							\
-    tree const t__ = (EXPR);				\
-    if (ggc_test_and_set_mark (t__))			\
-      VARRAY_PUSH_TREE (ggc_pending_trees, t__);	\
-  } while (0)
+#define ggc_mark_tree gt_ggc_m_tree_node
 
 #define ggc_mark(EXPR)				\
   do {						\
