@@ -1,0 +1,2 @@
+# configuration for BeOS
+INSTALL=install -c
