@@ -1,3 +1,8 @@
+2002-11-25  Jason Merrill  <jason@redhat.com>
+
+	* init.c (build_vec_init): Use a FOR_STMT instead of an IF_STMT
+	and a DO_STMT.
+
 2002-11-21  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	Remove traditional C constructs 1/n.
