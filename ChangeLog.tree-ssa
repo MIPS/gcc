@@ -1,3 +1,7 @@
+2003-08-23  Paul Brook  <paul@nowt.org>
+
+	* Makefile.in: Regenerate.
+
 2003-07-26  Paul Brook  <paul@nowt.org>
 
 	* Makefile.def: Add libgfortran and GFORTRAN_FOR_TARGET.

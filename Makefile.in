@@ -22684,15 +22684,13 @@ maybe-configure-target-libmudflap:
 
 # There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
 $(TARGET_SUBDIR)/libmudflap/multilib.out: multilib.out
-	@[ -d $(TARGET_SUBDIR)/libmudflap ] || \
-	  mkdir $(TARGET_SUBDIR)/libmudflap; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libmudflap ; \
 	rm -f $(TARGET_SUBDIR)/libmudflap/Makefile || : ; \
 	cp multilib.out $(TARGET_SUBDIR)/libmudflap/multilib.out
 
 configure-target-libmudflap: $(TARGET_SUBDIR)/libmudflap/multilib.out
 	@test ! -f $(TARGET_SUBDIR)/libmudflap/Makefile || exit 0; \
-	[ -d $(TARGET_SUBDIR)/libmudflap ] || \
-	  mkdir $(TARGET_SUBDIR)/libmudflap;\
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libmudflap ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
@@ -22992,15 +22990,13 @@ maybe-configure-target-libgfortran:
 
 # There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
 $(TARGET_SUBDIR)/libgfortran/multilib.out: multilib.out
-	@[ -d $(TARGET_SUBDIR)/libgfortran ] || \
-	  mkdir $(TARGET_SUBDIR)/libgfortran; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libgfortran ; \
 	rm -f $(TARGET_SUBDIR)/libgfortran/Makefile || : ; \
 	cp multilib.out $(TARGET_SUBDIR)/libgfortran/multilib.out
 
 configure-target-libgfortran: $(TARGET_SUBDIR)/libgfortran/multilib.out
 	@test ! -f $(TARGET_SUBDIR)/libgfortran/Makefile || exit 0; \
-	[ -d $(TARGET_SUBDIR)/libgfortran ] || \
-	  mkdir $(TARGET_SUBDIR)/libgfortran;\
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libgfortran ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
