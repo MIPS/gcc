@@ -183,8 +183,6 @@ finish_file (void)
 }
 
 /* APPLE LOCAL begin Objective-C++ */
-#if 1
-/* MERGE FIXME - sort this out... */
 /* Include the GC roots here instead of in cp/decl.c, so we can
    conditionalize on OBJCPLUS.  */
 #include "decl.h"
@@ -200,9 +198,6 @@ tree objcp_dummy = 0;
 #include "gtype-objcp.h"
 #else
 tree cp_dummy = 0;
-#include "gtype-cp.h"
-#endif
-#else
 #include "gtype-cp.h"
 #endif
 /* APPLE LOCAL end Objective-C++ */
