@@ -53,11 +53,16 @@ tree_ssa_loop_opt (void)
       /* Ensure there is a place to move the computations to.  */
       create_preheaders (loops, CP_SIMPLE_PREHEADERS);
 
+#if 0
       /* Test unrolling and peeling.  */
       test_unrolling_and_peeling (loops);
+#endif
 
       /* Move the expensive loop invariants.  */
       tree_ssa_lim (loops);
+
+      /* Optimize the induction variables.  */
+      tree_ssa_iv_optimize (loops);
 
       loop_optimizer_finalize (loops,
 			       (tree_dump_flags & TDF_DETAILS

@@ -3313,6 +3313,8 @@ extern tree nondestructive_fold_unary_to_constant (enum tree_code, tree, tree);
 extern tree nondestructive_fold_binary_to_constant (enum tree_code, tree, tree, tree);
 extern tree fold_read_from_constant_string (tree);
 extern tree int_const_binop (enum tree_code, tree, tree, int);
+extern enum tree_code invert_tree_comparison (enum tree_code);
+extern enum tree_code swap_tree_comparison (enum tree_code);
 
 /* In builtins.c */
 extern tree fold_builtin (tree);

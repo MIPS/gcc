@@ -6433,6 +6433,9 @@ expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 	return temp;
       }
 
+    case SSA_NAME:
+      return expand_expr_1 (SSA_NAME_VAR (exp), target, tmode, modifier);
+
     case PARM_DECL:
       if (!DECL_RTL_SET_P (exp))
 	{

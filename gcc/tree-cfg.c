@@ -2460,6 +2460,20 @@ set_bb_for_stmt (tree t, basic_block bb)
     }
 }
 
+/* Finds iterator for STMT.  */
+
+extern block_stmt_iterator
+stmt_bsi (tree stmt)
+{
+  block_stmt_iterator bsi;
+
+  for (bsi = bsi_start (bb_for_stmt (stmt)); !bsi_end_p (bsi); bsi_next (&bsi))
+    if (bsi_stmt (bsi) == stmt)
+      return bsi;
+
+  abort ();
+}
+
 /* Insert a statement, or statement list, before the given pointer.  */
 
 void

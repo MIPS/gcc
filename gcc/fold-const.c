@@ -69,8 +69,6 @@ static tree const_binop (enum tree_code, tree, tree, int);
 static hashval_t size_htab_hash (const void *);
 static int size_htab_eq (const void *, const void *);
 static tree fold_convert (tree, tree);
-static enum tree_code invert_tree_comparison (enum tree_code);
-static enum tree_code swap_tree_comparison (enum tree_code);
 static int comparison_to_compcode (enum tree_code);
 static enum tree_code compcode_to_comparison (int);
 static int truth_value_p (enum tree_code);
@@ -1830,7 +1828,7 @@ pedantic_non_lvalue (tree x)
    of the given code.  It is not safe to do this for floating-point
    comparisons, except for NE_EXPR and EQ_EXPR.  */
 
-static enum tree_code
+enum tree_code
 invert_tree_comparison (enum tree_code code)
 {
   switch (code)
@@ -1855,7 +1853,7 @@ invert_tree_comparison (enum tree_code code)
 /* Similar, but return the comparison that results if the operands are
    swapped.  This is safe for floating-point.  */
 
-static enum tree_code
+enum tree_code
 swap_tree_comparison (enum tree_code code)
 {
   switch (code)

@@ -620,6 +620,7 @@ get_base_symbol (tree t)
 	case COMPONENT_REF:
 	case REALPART_EXPR:
 	case IMAGPART_EXPR:
+	case INDIRECT_REF:
 	  t = TREE_OPERAND (t, 0);
 	  break;
 

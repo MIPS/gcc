@@ -1,5 +1,23 @@
 2004-01-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* tree-ssa-loop-ivopts.c: New file.
+	* Makefile.in (tree-ssa-loop-ivopts.o): Add.
+	* expr.c (expand_expr_1): Handle expand_expr_1.
+	* fold-const.c (invert_tree_comparison, invert_tree_comparison):
+	Export.
+	* tree-cfg.c (stmt_bsi): New function.
+	* tree-flow.h (stmt_bsi, tree_ssa_dce_no_cfg_changes,
+	tree_ssa_iv_optimize): Declare.
+	* tree-simple.c (get_base_symbol): Handle INDIRECT_REF.
+	* tree-ssa-dce.c (tree_ssa_dce_no_cfg_changes): Split from ...
+	(tree_ssa_dce): ... here.
+	* tree-ssa-loop.c (tree_ssa_loop_opt): Call tree_ssa_iv_optimize.
+	* tree-ssanames.c (make_ssa_name): Allow creating ssa name without
+	statement.
+	* tree.h (invert_tree_comparison, swap_tree_comparison): Declare.
+
+2004-01-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* doloop.c (doloop_optimize): Test for loop->top instead of
 	loop->scan_start.
 

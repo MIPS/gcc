@@ -382,6 +382,7 @@ static inline void bsi_next (block_stmt_iterator *);
 static inline void bsi_prev (block_stmt_iterator *);
 static inline tree bsi_stmt (block_stmt_iterator);
 static inline tree * bsi_stmt_ptr (block_stmt_iterator);
+extern block_stmt_iterator stmt_bsi (tree);
 
 extern void bsi_remove (block_stmt_iterator *);
 extern void bsi_move_before (block_stmt_iterator *, block_stmt_iterator *);
@@ -539,8 +540,12 @@ extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
 extern void propagate_copy (tree *, tree);
 
+/* In tree-ssa-dce.c.  */
+void tree_ssa_dce_no_cfg_changes (void);
+
 /* In tree-ssa-loop*.c  */
 void tree_ssa_lim (struct loops *loops);
+void tree_ssa_iv_optimize (struct loops *);
 void test_unrolling_and_peeling (struct loops *loops);
 bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					 unsigned int, sbitmap,

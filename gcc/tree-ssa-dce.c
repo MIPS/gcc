@@ -511,10 +511,10 @@ should_remove_dead_stmt (tree t)
   return true;
 }
 
-/* Main routine to eliminate dead code.  */
+/* Cleanup the dead code, but avoid cfg changes.  */
 
-static void
-tree_ssa_dce (void)
+void
+tree_ssa_dce_no_cfg_changes (void)
 {
   memset ((void *) &stats, 0, sizeof (stats));
 
@@ -536,6 +536,14 @@ tree_ssa_dce (void)
   sbitmap_free (processed);
 
   remove_dead_stmts ();
+}
+
+/* Main routine to eliminate dead code.  */
+
+static void
+tree_ssa_dce (void)
+{
+  tree_ssa_dce_no_cfg_changes ();
   cleanup_tree_cfg ();
 
   /* Debugging dumps.  */
