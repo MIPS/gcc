@@ -4997,6 +4997,7 @@ parse_options_and_default_flags (argc, argv)
       flag_tracer = 1;
       flag_unit_at_time = 1;
       flag_web = 1;
+      flag_unswitch_loops = 1;
     }
 
   if (optimize < 2 || optimize_size)

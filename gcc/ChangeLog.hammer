@@ -1,3 +1,8 @@
+Sun Feb  9 17:57:46 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* toplev.c (parse_options_and_default_flags):  Enable -funswitch-loops
+	at -O3.
+
 Sat Feb  8 02:03:22 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (ahi?v*3): Set third operand type to TImode.
