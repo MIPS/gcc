@@ -1,3 +1,8 @@
+2004-12-15  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3922635 3807105 3893215
+	* tree-scalar-evolution.c (follow_ssa_edge_in_rhs): Make MINUS work.
+
 2004-12-14  Stuart Hastings <stuart@apple.com>
 
 	Radar 3910248
