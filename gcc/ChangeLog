@@ -1,3 +1,8 @@
+2002-12-11  Zack Weinberg  <zack@codesourcery.com>
+
+	* Makefile.in (GTFILES): Add $(host_xm_file_list) and
+	$(tm_file_list).
+
 2002-12-11  David Edelsohn  <edelsohn@gnu.org>
 
 	* config/rs6000/t-rs6000-c-rule: Add coretypes.h $(TM_H) dependencies.
@@ -99,7 +104,7 @@ Thu Dec  5 00:52:37 CET 2002  Jan Hubicka  <jh@suse.cz>
 	* i386.md (negsf2_ifs, negdf2_ifs, negdf2_ifs_rex64, abssf2_ifs,
 	absdf2_ifs, absdf2_ifs_rex64): Fix constraints.
 	neg?f2_ifs, abs?f2_ifs splitters): Refuse memory operand; do not
-        generate unnecesary subregs.
+	generate unnecesary subregs.
 
 Wed Dec  4 11:53:07 CET 2002  Jan Hubicka  <jh@suse.cz>
 
