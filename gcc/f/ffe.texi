@@ -149,6 +149,9 @@ constructing the appropriate GBE information and calling
 the appropriate GBE routines.
 
 Details on the transformational phases follow.
+Keep in mind that Fortran numbering is used,
+so the first character on a line is column 1,
+decimal numbering is used, and so on.
 
 @menu
 * g77stripcard::
@@ -199,21 +202,52 @@ Users could use that to @code{sed} out such lines, if they wished---it
 seems silly to provide a command-line option to delete information
 when it can be so easily filtered out by another program.
 
+(This inserted comment should be designed to ``fit in'' well
+with whatever the Fortran community is using these days for
+preprocessor, translator, and other such products, like OpenMP.
+What that's all about, and how @code{g77} can elegantly fit its
+special comment conventions into it all, is TBD as well.
+We don't want to reinvent the wheel here, but if there turn out
+to be too many conflicting conventions, we might have to invent
+one that looks nothing like the others, but which offers their
+host products a better infrastructure in which to fit and coexist
+peacefully.)
+
 @node lex.c
 @subsection lex.c
 
 To help make the lexer simple, fast, and easy to maintain,
 while also having @code{g77} generally encourage Fortran programmers
-to write simple, maintainable, portable code:
+to write simple, maintainable, portable code by maximizing the
+performance of compiling that kind of code:
 
 @itemize @bullet
 @item
-There'll be just lexer, for both fixed-form and free-form source.
+There'll be just one lexer, for both fixed-form and free-form source.
 
 @item
 It'll care about the form only when handling the first 7 columns of
 text, stuff like spaces between strings of alphanumerics, and
 how lines are continued.
+
+Some other distinctions will be handled by subsequent phases,
+so at least one of them will have to know which form is involved.
+
+For example, @samp{I = 2 . 4} is acceptable in fixed form,
+and works in free form as well given the implementation @code{g77}
+presently uses.
+But the standard requires a diagnostic for it in free form,
+so the parser has to be able to recognize that
+the lexemes aren't contiguous
+(information the lexer @emph{does} have to provide)
+and that free-form source is being parsed,
+so it can provide the diagnostic.
+
+The @code{g77} lexer doesn't try to gather @samp{2 . 4} into a single lexeme.
+Otherwise, it'd have to know a whole lot more about how to parse Fortran,
+or subsequent phases (mainly parsing) would have two paths through
+lots of critical code---one to handle the lexeme @samp{2}, @samp{.},
+and @samp{4} in sequence, another to handle the lexeme @samp{2.4}.
 
 @item
 It won't worry about line lengths
@@ -236,8 +270,18 @@ Code that has ``garbage'' beyond the last column
 such as code using columns 73-80 for ``sequence numbers'')
 will have to be run through @code{g77stripcard} first.
 
+Also, keeping track of the maximum column position while also watching out
+for the end of a line @emph{and} while reading from a file
+just makes things slower.
+Since a file must be read, and watching for the end of the line
+is necessary (unless the typical input file was preprocessed to
+include the necessary number of trailing spaces),
+dropping the tracking of the maximum column position
+is the only way to reduce the complexity of the pertinent code
+while maintaining high performance.
+
 @item
-ASCII coding is assumed.
+ASCII encoding is assumed for the input file.
 
 Code written in other character sets will have to be converted first.
 
@@ -316,7 +360,7 @@ This avoids the confusion introduced by some Fortran compiler vendors
 providing C-like interpretation of backslashes,
 while others provide straight-through interpretation.
 
-Some kind of lexical construct will be provided to allow
+Some kind of lexical construct (TBD) will be provided to allow
 flagging of a @code{CHARACTER}
 (but probably not a Hollerith)
 constant that permits backslashes.
@@ -337,6 +381,24 @@ that converts prefix all constants
 with the desired designation,
 so printouts of code can be read
 without knowing the compile-time options used when compiling it.
+
+If such a program is provided
+(let's name it @code{g77slash} for now),
+then a command-line option to @code{g77} should not be provided.
+(Though, given that it'll be easy to implement, it might be hard
+to resist user requests for it ``to compile faster than if we
+have to invoke another filter''.)
+
+This program would take a command-line option to specify the
+default interpretation of slashes,
+affecting which prefix it uses for constants.
+
+@code{g77slash} probably should automatically convert Hollerith
+constants that contain slashes
+to the appropriate @code{CHARACTER} constants.
+Then @code{g77} wouldn't have to define a prefix syntax for Hollerith
+constants specifying whether they want C-style or straight-through
+backslashes.
 @end itemize
 
 The above implements nearly exactly what is specified by
@@ -448,6 +510,35 @@ Perhaps the old @email{gcc2@@cygnus.com} list.
 
 If someone could dig references to these up and get them to me,
 that would be much appreciated!
+Even though modules are not on the short-term list for implementation,
+it'd be helpful to know @emph{now} how to avoid making them harder to
+implement them @emph{later}.
+
+@item
+Should the @code{g77} command become just a script that invokes
+all the various preprocessing that might be needed,
+thus making it seem slower than necessary for legacy code
+that people are unwilling to convert,
+or should we provide a separate script for that,
+thus encouraging people to convert their code once and for all?
+
+At least, a separate script to behave as old @code{g77} did,
+perhaps named @code{g77old}, might ease the transition,
+as might a corresponding one that converts source codes
+named @code{g77oldnew}.
+
+These scripts would take all the pertinent options @code{g77} used
+to take and run the appropriate filters,
+passing the results to @code{g77} or just making new sources out of them
+(in a subdirectory, leaving the user to do the dirty deed of
+moving or copying them over the old sources).
+
+@item
+Do other Fortran compilers provide a prefix syntax
+to govern the treatment of backslashes in @code{CHARACTER}
+(or Hollerith) constants?
+
+Knowing what other compilers provide would help.
 @end itemize
 
 @node Philosophy of Code Generation
