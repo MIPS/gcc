@@ -1,3 +1,13 @@
+2003-06-05  Jason Merrill  <jason@redhat.com>
+
+	* stmt.c (asm_op_is_mem_input): New fn.
+	(resolve_asm_operand_names): Rename from resolve_operand_names.  No longer 
+	static.  Avoid needless copying.  Don't build array of constraints.
+	(expand_asm_operands): Build it here.
+	* tree.h: Declare new fns.
+	* gimplify.c (simplify_asm_expr): Call resolve_asm_operand_names.
+	Use is_simple_modify_expr_lhs for mem input ops.
+
 2003-06-05  Frank Ch. Eigler  <fche@redhat.com>
 
 	* c-mudflap.c (mflang_register_call): Give the synthetic decl

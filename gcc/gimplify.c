@@ -1372,6 +1372,15 @@ simplify_call_expr (expr_p, pre_p, post_p, simple_test_f)
     abort ();
 #endif
 
+  /* Some builtins cannot be simplified because they require specific
+     arguments (e.g., MD builtins).  */
+  if (!is_simplifiable_builtin (*expr_p))
+    {
+      /* Mark the whole expression not simplifiable.  */
+      mark_not_simple (expr_p);
+      return;
+    }
+
   /* This may be a call to a builtin function.
 
      Builtin function calls may be transformed into different
@@ -2028,13 +2037,25 @@ simplify_asm_expr (expr, pre_p)
 {
   tree link;
 
-  for (link = ASM_INPUTS (expr); link; link = TREE_CHAIN (link))
-    simplify_expr (&TREE_VALUE (link), pre_p, NULL,
-		   is_simple_val, fb_rvalue);
+  ASM_STRING (expr)
+    = resolve_asm_operand_names (ASM_STRING (expr), ASM_OUTPUTS (expr),
+				 ASM_INPUTS (expr));
 
   for (link = ASM_OUTPUTS (expr); link; link = TREE_CHAIN (link))
     simplify_expr (&TREE_VALUE (link), pre_p, NULL,
 		   is_simple_modify_expr_lhs, fb_lvalue);
+
+  for (link = ASM_INPUTS (expr); link; link = TREE_CHAIN (link))
+    {
+      /* If the operand is a memory input, it should be an lvalue.  */
+      if (asm_op_is_mem_input (link, expr))
+	simplify_expr (&TREE_VALUE (link), pre_p, NULL,
+		       is_simple_modify_expr_lhs, fb_lvalue);
+      else
+	simplify_expr (&TREE_VALUE (link), pre_p, NULL,
+		       is_simple_val, fb_rvalue);
+    }
+
 }
 
 /* Apply FN to each statement under *STMT_P, which may be a COMPOUND_EXPR

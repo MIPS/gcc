@@ -404,8 +404,6 @@ static void fixup_gotos			PARAMS ((struct nesting *, rtx, tree,
 					       rtx, int));
 static bool check_operand_nalternatives	PARAMS ((tree, tree));
 static bool check_unique_operand_names	PARAMS ((tree, tree));
-static tree resolve_operand_names	PARAMS ((tree, tree, tree,
-						 const char **));
 static char *resolve_operand_name_1	PARAMS ((char *, tree, tree));
 static void expand_null_return_1	PARAMS ((rtx));
 static enum br_predictor return_prediction PARAMS ((rtx));
@@ -1447,6 +1445,33 @@ parse_input_constraint (constraint_p, input_num, ninputs, noutputs, ninout,
   return true;
 }
 
+/* INPUT is one of the input operands from EXPR, an ASM_EXPR.  Returns true
+   if it is an operand which must be passed in memory (i.e. an "m"
+   constraint), false otherwise.  */
+
+bool
+asm_op_is_mem_input (tree input, tree expr)
+{
+  const char *constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (input)));
+  tree outputs = ASM_OUTPUTS (expr);
+  int noutputs = list_length (outputs);
+  const char **constraints
+    = (const char **) alloca ((noutputs) * sizeof (const char *));
+  int i = 0;
+  bool allows_mem, allows_reg;
+  tree t;
+
+  /* Collect output constraints.  */
+  for (t = outputs; t ; t = TREE_CHAIN (t), i++)
+    constraints[i] = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
+
+  /* We pass 0 for input_num, ninputs and ninout; they are only used for
+     error checking which will be done at expand time.  */
+  parse_input_constraint (&constraint, 0, 0, noutputs, 0, constraints,
+			  &allows_mem, &allows_reg);
+  return (!allows_reg && allows_mem);
+}
+
 /* Check for overlap between registers marked in CLOBBERED_REGS and
    anything inappropriate in DECL.  Emit error and return TRUE for error,
    FALSE for ok.  */
@@ -1517,6 +1542,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
   HARD_REG_SET clobbered_regs;
   int clobber_conflict_found = 0;
   tree tail;
+  tree t;
   int i;
   /* Vector of RTX's of evaluated output operands.  */
   rtx *output_rtx = (rtx *) alloca (noutputs * sizeof (rtx));
@@ -1538,7 +1564,14 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
   if (! check_unique_operand_names (outputs, inputs))
     return;
 
-  string = resolve_operand_names (string, outputs, inputs, constraints);
+  string = resolve_asm_operand_names (string, outputs, inputs);
+
+  /* Collect constraints.  */
+  i = 0;
+  for (t = outputs; t ; t = TREE_CHAIN (t), i++)
+    constraints[i] = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
+  for (t = inputs; t ; t = TREE_CHAIN (t), i++)
+    constraints[i] = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
 
 #ifdef MD_ASM_CLOBBERS
   /* Sometimes we wish to automatically clobber registers across an asm.
@@ -2079,21 +2112,37 @@ check_unique_operand_names (outputs, inputs)
    in *POUTPUTS and *PINPUTS to numbers, and replace the name expansions in
    STRING and in the constraints to those numbers.  */
 
-static tree
-resolve_operand_names (string, outputs, inputs, pconstraints)
-     tree string;
-     tree outputs, inputs;
-     const char **pconstraints;
+tree
+resolve_asm_operand_names (tree string, tree outputs, tree inputs)
 {
-  char *buffer = xstrdup (TREE_STRING_POINTER (string));
+  char *buffer;
   char *p;
   tree t;
+
+  /* Substitute [<name>] in input constraint strings.  There should be no
+     named operands in output constraints.  */
+  for (t = inputs; t ; t = TREE_CHAIN (t))
+    {
+      const char *c = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
+      if (strchr (c, '[') != NULL)
+	{
+	  p = buffer = xstrdup (c);
+	  while ((p = strchr (p, '[')) != NULL)
+	    p = resolve_operand_name_1 (p, outputs, inputs);
+	  TREE_VALUE (TREE_PURPOSE (t))
+	    = build_string (strlen (buffer), buffer);
+	  free (buffer);
+	}
+    }
+
+  if (strchr (TREE_STRING_POINTER (string), '[') == NULL)
+    return string;
 
   /* Assume that we will not need extra space to perform the substitution.
      This because we get to remove '[' and ']', which means we cannot have
      a problem until we have more than 999 operands.  */
 
-  p = buffer;
+  p = buffer = xstrdup (TREE_STRING_POINTER (string));
   while ((p = strchr (p, '%')) != NULL)
     {
       if (p[1] == '[')
@@ -2111,29 +2160,6 @@ resolve_operand_names (string, outputs, inputs, pconstraints)
 
   string = build_string (strlen (buffer), buffer);
   free (buffer);
-
-  /* Collect output constraints here because it's convenient.
-     There should be no named operands here; this is verified
-     in expand_asm_operand.  */
-  for (t = outputs; t ; t = TREE_CHAIN (t), pconstraints++)
-    *pconstraints = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
-
-  /* Substitute [<name>] in input constraint strings.  */
-  for (t = inputs; t ; t = TREE_CHAIN (t), pconstraints++)
-    {
-      const char *c = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
-      if (strchr (c, '[') == NULL)
-	*pconstraints = c;
-      else
-	{
-	  p = buffer = xstrdup (c);
-	  while ((p = strchr (p, '[')) != NULL)
-	    p = resolve_operand_name_1 (p, outputs, inputs);
-
-	  *pconstraints = ggc_alloc_string (buffer, -1);
-	  free (buffer);
-	}
-    }
 
   return string;
 }
