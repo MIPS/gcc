@@ -1554,9 +1554,6 @@ finalize_1 (ei, temp)
                     expruse_def (X) = new occurrence. 
 		  */		  
 
-		/* FIXME: Hack.  Passing the address of local trees to
-		   create_ref is not correct.  We should keep statement and
-		   expression pointers here.  */
 		  set_expruse_def (X,create_ref (expr, E_USE, 0,
 						 ref_bb (X), bb->end_tree_p,
 						 place, place,  true));
