@@ -7,7 +7,7 @@
 AUTOMAKE_OPTIONS = 1.3 cygnus
 MAINT_CHARSET = latin1
 
-TESTS_ENVIRONMENT = MUDFLAP_OPTIONS='-mode-check -viol-abort -no-heur-proc-map'
+TESTS_ENVIRONMENT = LD_LIBRARY_PATH='.libs' MUDFLAP_OPTIONS='-mode-check -viol-abort -no-heur-proc-map'
 
 TESTS = test/fail1.x test/fail10.x test/fail11.x test/fail12.x				\
  test/fail13.x test/fail14.x test/fail15.x test/fail16.x test/fail17.x			\

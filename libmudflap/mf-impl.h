@@ -218,8 +218,13 @@ extern struct __mf_dynamic __mf_dynamic;
 #define __USE_GNU
 #include <dlfcn.h>
 
-#define WRAPPER(fname) fname
-#define DECLARE(ty, fname, ...) \
+#define WRAPPER(ret, fname, ...)                      \
+ret __wrap_ ## fname (__VA_ARGS__)                    \
+    __attribute__ (( alias  (#fname)  ));             \
+ret __real_ ## fname (__VA_ARGS__)                    \
+    __attribute__ (( alias  (#fname)  ));             \
+ret fname (__VA_ARGS__)
+#define DECLARE(ty, fname, ...)                       \
  typedef ty (*__mf_fn_ ## fname) (__VA_ARGS__);
 #define CALL_REAL(fname, ...)                         \
   ({ if (UNLIKELY(!__mf_dynamic.dyn_ ## fname))       \
@@ -227,10 +232,10 @@ extern struct __mf_dynamic __mf_dynamic;
   ((__mf_fn_ ## fname)(__mf_dynamic.dyn_ ## fname))   \
                       (__VA_ARGS__);})
 
-
 #else /* not PIC --> static library */
 
-#define WRAPPER(fname) __wrap_ ## fname
+#define WRAPPER(ret, fname, ...)            \
+ret __wrap_ ## fname (__VA_ARGS__)
 #define DECLARE(ty, fname, ...)             \
  extern ty __real_ ## fname (__VA_ARGS__);
 #define CALL_REAL(fname, ...)               \
