@@ -1,3 +1,11 @@
+2002-06-08  Jason Merrill  <jason@redhat.com>
+
+	* tree-simple.c (is_simple_arraybase): New function.
+	(is_simple_arrayref): Use it to check the array base again.
+	* tree-simple.h: Add declaration.
+	* c-simplify.c (simplify_array_ref): Do simplify the base.
+	* expr.c (expand_expr): First make sure the type has a size.
+
 2002-06-07  Jason Merrill  <jason@redhat.com>
 
 	* cppexp.c (num_equality_op): Use a temporary variable to work

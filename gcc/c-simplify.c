@@ -1178,7 +1178,11 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, stmt)
 
     STMT is the statement tree that contains EXPR.  It's used in cases
 	where simplifying an expression requires creating new statement
-	trees.  */
+	trees.
+
+    FIXME: ARRAY_REF currently doesn't accept a pointer as the array
+    argument, so this simplification uses an INDIRECT_REF of ARRAY_TYPE.
+    ARRAY_REF should be extended.  */
 
 static void
 simplify_array_ref (expr_p, pre_p, post_p, stmt)
@@ -1187,7 +1191,7 @@ simplify_array_ref (expr_p, pre_p, post_p, stmt)
      tree *post_p;
      tree stmt;
 {
-  tree base;
+  tree base, array;
   varray_type dim_stack;
 
   if (TREE_CODE (*expr_p) != ARRAY_REF)
@@ -1209,9 +1213,21 @@ simplify_array_ref (expr_p, pre_p, post_p, stmt)
      and 'dim_stack' is a stack of pointers to all the dimensions in left
      to right order (the leftmost dimension is at the top of the stack).
 
-     Simplify each of the dimensions from left to right.  Note that the
-     base of the array is never simplified because that would break the
-     semantics of C arrays.  */
+     Simplify the base, and then each of the dimensions from left to
+     right.  */
+
+  array = TREE_OPERAND (base, 0);
+  if (TREE_CODE (TREE_TYPE (array)) != ARRAY_TYPE)
+    abort ();
+  if (! is_simple_arraybase (array))
+    {
+      array = fold (build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (array)),
+			    array));
+      simplify_expr (&array, pre_p, post_p, is_simple_id, stmt);
+      array = build_indirect_ref (array, "");
+      TREE_OPERAND (base, 0) = array;
+    }
+
   while (VARRAY_ACTIVE_SIZE (dim_stack) > 0)
     {
       tree *dim_p = (tree *)VARRAY_TOP_GENERIC_PTR (dim_stack);
@@ -1774,8 +1790,6 @@ simplify_lvalue_expr (expr_p, pre_p, post_p, stmt)
     }
   else if (TREE_CODE (*expr_p) == ARRAY_REF)
     {
-      /* We do not simplify array basenames (yet).  Simplifying the
-	  whole reference will just re-write the index, which is OK.  */
       simplify_expr (expr_p, pre_p, post_p, is_simple_varname, stmt);
     }
   else if (TREE_CODE (*expr_p) == COMPONENT_REF)

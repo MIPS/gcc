@@ -49,6 +49,7 @@ int is_simple_const                    PARAMS ((tree));
 int is_simple_id                       PARAMS ((tree));
 int is_simple_varname                  PARAMS ((tree));
 int is_simple_val                      PARAMS ((tree));
+int is_simple_arraybase                PARAMS ((tree));
 int is_simple_arrayref                 PARAMS ((tree));
 int is_simple_compref                  PARAMS ((tree));
 int is_simple_compref_lhs              PARAMS ((tree));

@@ -7148,6 +7148,7 @@ expand_expr (exp, target, tmode, modifier)
 	       size of the type isn't the same size as the bitfield,
 	       we must use bitfield operations.  */
 	    || (bitsize >= 0
+		&& TYPE_SIZE (TREE_TYPE (exp))
 		&& (TREE_CODE (TYPE_SIZE (TREE_TYPE (exp)))
 		    == INTEGER_CST)
 		&& 0 != compare_tree_int (TYPE_SIZE (TREE_TYPE (exp)),

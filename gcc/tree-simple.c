@@ -186,16 +186,9 @@ Boston, MA 02111-1307, USA.  */
 	      | ID
 
       arrayref
-	      : arraybase reflist	=> 'arraybase' is any valid C array
-					   name.  Original grammar only
-					   allowed 'ID reflist'.  This
-					   causes splits like k.d[2][3]
-					   into
-					   
-					   	t1 = &(k.d[2])
-  						t2 = *(&t1[3])
-
-					   which is invalid.
+	      : ID reflist
+	      | '(' '*' ID ')' reflist  => extension because ARRAY_REF
+	      				   requires an ARRAY_TYPE argument.
 
       reflist
 	      : '[' val ']'
@@ -789,16 +782,25 @@ is_simple_val (t)
     Return nonzero if T is an array reference of the form:
 
       arrayref
-	      : arraybase reflist	=> 'arraybase' is any valid C array
-					    name.  The original grammar
-					    allowed only ID here, but we
-					    cannot simplify array bases
-					    because we may get invalid
-					    code.
+	      : ID reflist
+	      | '(' '*' ID ')' reflist  => extension because ARRAY_REF
+	      				   requires an ARRAY_TYPE argument.
 
       reflist
 	      : '[' val ']'
 	      | reflist '[' val ']'  */
+
+int
+is_simple_arraybase (t)
+     tree t;
+{
+  if (t == NULL_TREE)
+    return 1;
+
+  return (is_simple_id (t)
+	  || (TREE_CODE (t) == INDIRECT_REF
+	      && is_simple_id (TREE_OPERAND (t, 0))));
+}
 
 int
 is_simple_arrayref (t)
@@ -813,6 +815,8 @@ is_simple_arrayref (t)
     return is_simple_arrayref (TREE_OPERAND (t, 0));
 
   return (TREE_CODE (t) == ARRAY_REF
+	  && (is_simple_arraybase (TREE_OPERAND (t, 0))
+	      || is_simple_arrayref (TREE_OPERAND (t, 0)))
           && is_simple_val (TREE_OPERAND (t, 1)));
 }
 
