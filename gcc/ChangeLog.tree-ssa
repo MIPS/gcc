@@ -1,3 +1,12 @@
+2003-03-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* cfg.c (dump_edge_info): Add labels for EDGE_TRUE_VALUE,
+	EDGE_FALSE_VALUE and EDGE_EXECUTABLE.
+	* tree-cfg.c (dump_tree_bb): Change formatting.  Show all
+	statements in the block.
+	* tree-simple.c: Update documentation for GIMPLE conditional
+	expressions.
+
 2003-03-24  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (get_expr_operands): If there are no call clobbered

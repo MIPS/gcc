@@ -1640,16 +1640,14 @@ dump_tree_bb (outf, prefix, bb, indent)
 {
   edge e;
   char *s_indent;
-  int lineno;
   basic_block loop_bb;
-  tree head = (bb->head_tree_p) ? *(bb->head_tree_p) : NULL_TREE;
-  tree end = (bb->end_tree_p) ? *(bb->end_tree_p) : NULL_TREE;
+  block_stmt_iterator si;
 
   s_indent = (char *) alloca ((size_t) indent + 1);
   memset ((void *) s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
-  fprintf (outf, "%s%sBasic block %d", s_indent, prefix, bb->index);
+  fprintf (outf, "%s%sBLOCK       %d", s_indent, prefix, bb->index);
 
   loop_bb = is_latch_block_for (bb);
   if (loop_bb)
@@ -1657,55 +1655,42 @@ dump_tree_bb (outf, prefix, bb, indent)
   else
     fprintf (outf, "\n");
 
-  fprintf (outf, "%s%sPredecessors: ", s_indent, prefix);
+  fprintf (outf, "%s%sPRED:      ", s_indent, prefix);
   for (e = bb->pred; e; e = e->pred_next)
     dump_edge_info (outf, e, 0);
   putc ('\n', outf);
 
-  fprintf (outf, "%s%sSuccessors: ", s_indent, prefix);
+  fprintf (outf, "%s%sSUCC:      ", s_indent, prefix);
   for (e = bb->succ; e; e = e->succ_next)
     dump_edge_info (outf, e, 1);
   putc ('\n', outf);
 
-  fprintf (outf, "%s%sHead: ", s_indent, prefix);
-  if (head)
-    {
-      lineno = get_lineno (head);
-      print_generic_stmt (outf, head, TDF_SLIM);
-      fprintf (outf, " (line: %d)\n", lineno);
-    }
-  else
-    fputs ("nil\n", outf);
-
-  fprintf (outf, "%s%sEnd: ", s_indent, prefix);
-  if (end)
-    {
-      lineno = get_lineno (end);
-      print_generic_stmt (outf, end, TDF_SLIM);
-      fprintf (outf, " (line: %d)\n", lineno);
-    }
-  else
-    fputs ("nil\n", outf);
-
-  fprintf (outf, "%s%sParent block: ", s_indent, prefix);
+  fprintf (outf, "%s%sPARENT:     ", s_indent, prefix);
   if (bb->aux && parent_block (bb))
     fprintf (outf, "%d\n", parent_block (bb)->index);
   else
     fputs ("nil\n", outf);
 
-  fprintf (outf, "%s%sLoop depth: %d\n", s_indent, prefix, bb->loop_depth);
+  fprintf (outf, "%s%sLOOP DEPTH: %d\n", s_indent, prefix, bb->loop_depth);
 
-  fprintf (outf, "%s%sNext block: ", s_indent, prefix);
+  fprintf (outf, "%s%sNEXT BLOCK: ", s_indent, prefix);
   if (bb->next_bb)
     fprintf (outf, "%d\n", bb->next_bb->index);
   else
     fprintf (outf, "nil\n");
 
-  fprintf (outf, "%s%sPrevious block: ", s_indent, prefix);
+  fprintf (outf, "%s%sPREV BLOCK: ", s_indent, prefix);
   if (bb->prev_bb)
     fprintf (outf, "%d\n", bb->prev_bb->index);
   else
     fprintf (outf, "nil\n");
+
+  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+    {
+      fprintf (outf, "%s%s%d  ", s_indent, prefix, get_lineno (bsi_stmt (si)));
+      print_generic_stmt (outf, bsi_stmt (si), TDF_SLIM);
+      fprintf (outf, "\n");
+    }
 }
 
 
