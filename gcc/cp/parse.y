@@ -1,5 +1,5 @@
 /* YACC parser for C++ syntax.
-   Copyright (C) 1988, 89, 93, 94, 95, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1988, 89, 93-97, 1998 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -913,10 +913,7 @@ apparent_template_type:
 	  template_type
 	| identifier '<' template_arg_list_opt '>'
 	    .finish_template_type
-		{
-		  cp_error ("template class %T was not declared yet", $1);
-		  $$ = $5;
-		}
+		{ $$ = $5; }
 
 self_template_type:
 	  SELFNAME  '<' template_arg_list_opt template_close_bracket
@@ -1316,7 +1313,16 @@ notype_unqualified_id:
 	;
 
 do_id:
-		{ $$ = do_identifier ($<ttype>-1, 1, NULL_TREE); }
+		{
+		  /* If lastiddecl is a TREE_LIST, it's a baselink, which
+		     means that we're in an expression like S::f<int>, so
+		     don't do_identifier; we only do that for unqualified
+		     identifiers.  */
+		  if (lastiddecl && TREE_CODE (lastiddecl) != TREE_LIST)
+		    $$ = do_identifier ($<ttype>-1, 1, NULL_TREE);
+		  else
+		    $$ = $<ttype>-1;
+		}
 
 template_id:
           PFUNCNAME '<' do_id template_arg_list_opt template_close_bracket 
@@ -2233,12 +2239,17 @@ named_class_head:
 		{ 
                   pop_scope (CP_DECL_CONTEXT ($1));
 		  $$ = TREE_TYPE ($1);
-		  if (TREE_INT_CST_LOW (current_aggr) == union_type 
+		  if (current_aggr == union_type_node
 		      && TREE_CODE ($$) != UNION_TYPE)
 		    cp_pedwarn ("`union' tag used in declaring `%#T'", $$);
 		  else if (TREE_CODE ($$) == UNION_TYPE
-			   && TREE_INT_CST_LOW (current_aggr) != union_type)
+			   && current_aggr != union_type_node)
 		    cp_pedwarn ("non-`union' tag used in declaring `%#T'", $$);
+		  else if (TREE_CODE ($$) == RECORD_TYPE)
+		    /* We might be specializing a template with a different
+		       class-key; deal.  */
+		    CLASSTYPE_DECLARED_CLASS ($$) = (current_aggr
+						     == class_type_node);
 		  if ($3)
 		    {
 		      maybe_process_partial_specialization ($$);

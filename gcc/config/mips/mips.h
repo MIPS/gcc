@@ -76,12 +76,16 @@ enum processor_type {
 #define mips_cpu_attr ((enum attr_cpu)mips_cpu)
 
 /* Which ABI to use.  These are constants because abi64.h must check their
-   value at preprocessing time.  */
+   value at preprocessing time.
+
+   ABI_32 (original 32, or o32), ABI_N32 (n32), ABI_64 (n64) are all
+   defined by SGI.  ABI_O64 is o32 extended to work on a 64 bit machine. */
 
 #define ABI_32  0
 #define ABI_N32 1
 #define ABI_64  2
 #define ABI_EABI 3
+#define ABI_O64  4
 
 #ifndef MIPS_ABI_DEFAULT
 /* We define this away so that there is no extra runtime cost if the target
@@ -332,16 +336,18 @@ extern void		mips_select_section ();
 #define MASK_4300_MUL_FIX 0x00080000    /* Work-around early Vr4300 CPU bug */
 #define MASK_MIPS3900	0x00100000	/* like -mips1 only 3900 */
 #define MASK_MIPS16	0x01000000	/* Generate mips16 code */
+#define MASK_NO_CHECK_ZERO_DIV 0x04000000	/* divide by zero checking */
+#define MASK_CHECK_RANGE_DIV 0x08000000	/* divide result range checking */
 
 					/* Dummy switches used only in spec's*/
 #define MASK_MIPS_TFILE	0x00000000	/* flag for mips-tfile usage */
 
 					/* Debug switches, not documented */
-#define MASK_DEBUG	0x40000000	/* Eliminate version # in .s file */
-#define MASK_DEBUG_A	0x20000000	/* don't allow <label>($reg) addrs */
-#define MASK_DEBUG_B	0x10000000	/* GO_IF_LEGITIMATE_ADDRESS debug */
-#define MASK_DEBUG_C	0x08000000	/* don't expand seq, etc. */
-#define MASK_DEBUG_D	0x04000000	/* don't do define_split's */
+#define MASK_DEBUG	0		/* Eliminate version # in .s file */
+#define MASK_DEBUG_A	0x40000000	/* don't allow <label>($reg) addrs */
+#define MASK_DEBUG_B	0x20000000	/* GO_IF_LEGITIMATE_ADDRESS debug */
+#define MASK_DEBUG_C	0x10000000	/* don't expand seq, etc. */
+#define MASK_DEBUG_D	0		/* don't do define_split's */
 #define MASK_DEBUG_E	0		/* function_arg debug */
 #define MASK_DEBUG_F	0
 #define MASK_DEBUG_G	0		/* don't support 64 bit arithmetic */
@@ -421,6 +427,9 @@ extern void		mips_select_section ();
 
 #define TARGET_4300_MUL_FIX     (target_flags & MASK_4300_MUL_FIX)
 
+#define TARGET_NO_CHECK_ZERO_DIV (target_flags & MASK_NO_CHECK_ZERO_DIV)
+#define TARGET_CHECK_RANGE_DIV  (target_flags & MASK_CHECK_RANGE_DIV)
+
 /* This is true if we must enable the assembly language file switching
    code.  */
 
@@ -486,6 +495,10 @@ extern void		mips_select_section ();
   {"no-fix4300",         -MASK_4300_MUL_FIX},				\
   {"4650",		  MASK_MAD | MASK_SINGLE_FLOAT},		\
   {"3900",		  MASK_MIPS3900},                               \
+  {"check-zero-division",-MASK_NO_CHECK_ZERO_DIV},			\
+  {"no-check-zero-division", MASK_NO_CHECK_ZERO_DIV},			\
+  {"check-range-division",MASK_CHECK_RANGE_DIV},			\
+  {"no-check-range-division",-MASK_CHECK_RANGE_DIV},			\
   {"debug",		  MASK_DEBUG},					\
   {"debuga",		  MASK_DEBUG_A},				\
   {"debugb",		  MASK_DEBUG_B},				\
@@ -2140,6 +2153,7 @@ extern struct mips_frame_info current_frame_info;
  { RETURN_ADDRESS_POINTER_REGNUM, STACK_POINTER_REGNUM},		\
  { RETURN_ADDRESS_POINTER_REGNUM, GP_REG_FIRST + 30},			\
  { RETURN_ADDRESS_POINTER_REGNUM, GP_REG_FIRST + 17},			\
+ { RETURN_ADDRESS_POINTER_REGNUM, GP_REG_FIRST + 31},			\
  { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},				\
  { FRAME_POINTER_REGNUM, GP_REG_FIRST + 30},				\
  { FRAME_POINTER_REGNUM, GP_REG_FIRST + 17}}
@@ -2165,11 +2179,14 @@ extern struct mips_frame_info current_frame_info;
    */
 
 #define CAN_ELIMINATE(FROM, TO)						\
-  ((TO) == HARD_FRAME_POINTER_REGNUM					\
+  (((FROM) == RETURN_ADDRESS_POINTER_REGNUM && (! leaf_function_p ()	\
+   || TO == GP_REG_FIRST + 31 && leaf_function_p))   			\
+  || ((FROM) != RETURN_ADDRESS_POINTER_REGNUM				\
+   && ((TO) == HARD_FRAME_POINTER_REGNUM 				\
    || ((TO) == STACK_POINTER_REGNUM && ! frame_pointer_needed		\
        && ! (TARGET_MIPS16 && TARGET_64BIT)                             \
        && (! TARGET_MIPS16						\
-	   || compute_frame_size (get_frame_size ()) < 32768)))
+	   || compute_frame_size (get_frame_size ()) < 32768)))))
 
 /* This macro is similar to `INITIAL_FRAME_POINTER_OFFSET'.  It
    specifies the initial difference between the specified pair of
@@ -2187,18 +2204,24 @@ extern struct mips_frame_info current_frame_info;
 	   && (TO) == HARD_FRAME_POINTER_REGNUM)			 \
     (OFFSET) = (current_frame_info.total_size				 \
 		- current_function_outgoing_args_size			 \
-		- ((mips_abi != ABI_32 && mips_abi != ABI_EABI)		 \
+		- ((mips_abi != ABI_32 					 \
+		    && mips_abi != ABI_O64				 \
+		    && mips_abi != ABI_EABI)				 \
 		   ? current_function_pretend_args_size			 \
 		   : 0));						 \
   else if ((FROM) == ARG_POINTER_REGNUM)				 \
     (OFFSET) = (current_frame_info.total_size				 \
-		- ((mips_abi != ABI_32 && mips_abi != ABI_EABI)		 \
+		- ((mips_abi != ABI_32 					 \
+		    && mips_abi != ABI_O64				 \
+		    && mips_abi != ABI_EABI)				 \
 		   ? current_function_pretend_args_size			 \
 		   : 0));						 \
   /* Some ABIs store 64 bits to the stack, but Pmode is 32 bits,	 \
      so we must add 4 bytes to the offset to get the right value.  */	 \
   else if ((FROM) == RETURN_ADDRESS_POINTER_REGNUM)			 \
-    (OFFSET) = current_frame_info.gp_sp_offset				 \
+   if (leaf_function_p ()) 						 \
+      (OFFSET) = 0;				 			 \
+   else (OFFSET) = current_frame_info.gp_sp_offset			 \
 	       + ((UNITS_PER_WORD - (POINTER_SIZE / BITS_PER_UNIT))	 \
 		  * (BYTES_BIG_ENDIAN != 0));				 \
 }
@@ -2626,11 +2649,11 @@ typedef struct mips_args {
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT */
-/* #define HAVE_POST_DECREMENT */
+/* #define HAVE_POST_INCREMENT 0 */
+/* #define HAVE_POST_DECREMENT 0 */
 
-/* #define HAVE_PRE_DECREMENT */
-/* #define HAVE_PRE_INCREMENT */
+/* #define HAVE_PRE_DECREMENT 0 */
+/* #define HAVE_PRE_INCREMENT 0 */
 
 /* These assume that REGNO is a hard or pseudo reg number.
    They give nonzero only if REGNO is a hard reg of the suitable class
@@ -2825,7 +2848,9 @@ typedef struct mips_args {
           /* ??? Reject combining an address with a register for the MIPS  \
 	     64 bit ABI, because the SGI assembler can not handle this.  */ \
 	  if (!TARGET_DEBUG_A_MODE					\
-	      && (mips_abi == ABI_32 || mips_abi == ABI_EABI)		\
+	      && (mips_abi == ABI_32					\
+		  || mips_abi == ABI_O64				\
+		  || mips_abi == ABI_EABI)				\
 	      && CONSTANT_ADDRESS_P (xplus1)				\
 	      && ! mips_split_addresses					\
 	      && (!TARGET_EMBEDDED_PIC					\
@@ -2856,7 +2881,9 @@ typedef struct mips_args {
     || GET_CODE (X) == CONST_INT || GET_CODE (X) == HIGH		\
     || (GET_CODE (X) == CONST						\
 	&& ! (flag_pic && pic_address_needs_scratch (X))		\
-	&& (mips_abi == ABI_32 || mips_abi == ABI_EABI)))		\
+	&& (mips_abi == ABI_32						\
+	    || mips_abi == ABI_O64					\
+	    || mips_abi == ABI_EABI)))					\
    && (!HALF_PIC_P () || !HALF_PIC_ADDRESS_P (X)))
 
 /* Define this, so that when PIC, reload won't try to reload invalid
@@ -2876,7 +2903,9 @@ typedef struct mips_args {
   ((GET_CODE (X) != CONST_DOUBLE					\
     || mips_const_double_ok (X, GET_MODE (X)))				\
    && ! (GET_CODE (X) == CONST						\
-	 && mips_abi != ABI_32 && mips_abi != ABI_EABI)			\
+	 && mips_abi != ABI_32 						\
+	 && mips_abi != ABI_O64 					\
+         && mips_abi != ABI_EABI)					\
    && (! TARGET_MIPS16 || mips16_constant (X, GET_MODE (X), 0, 0)))
 
 /* A C compound statement that attempts to replace X with a valid
@@ -2939,7 +2968,9 @@ typedef struct mips_args {
   if (GET_CODE (xinsn) == CONST						\
       && ((flag_pic && pic_address_needs_scratch (xinsn))		\
 	  /* ??? SGI's Irix 6 assembler can't handle CONST.  */		\
-	  || (mips_abi != ABI_32 && mips_abi != ABI_EABI)))		\
+	  || (mips_abi != ABI_32 					\
+	      && mips_abi != ABI_O64					\
+	      && mips_abi != ABI_EABI)))				\
     {									\
       rtx ptr_reg = gen_reg_rtx (Pmode);				\
       rtx constant = XEXP (XEXP (xinsn, 0), 1);				\
@@ -4222,7 +4253,7 @@ do {									\
     fprintf (STREAM, "\t%s\t%sL%d-%sLS%d\n",				\
 	     Pmode == DImode ? ".dword" : ".word",			\
 	     LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
-  else if (mips_abi == ABI_32)						\
+  else if (mips_abi == ABI_32 || mips_abi == ABI_O64)			\
     fprintf (STREAM, "\t%s\t%sL%d\n",					\
 	     Pmode == DImode ? ".gpdword" : ".gpword",			\
 	     LOCAL_LABEL_PREFIX, VALUE);				\
@@ -4479,7 +4510,9 @@ while (0)
 /* See mips_expand_prologue's use of loadgp for when this should be
    true.  */
 
-#define DONT_ACCESS_GBLS_AFTER_EPILOGUE (TARGET_ABICALLS && mips_abi != ABI_32)
+#define DONT_ACCESS_GBLS_AFTER_EPILOGUE (TARGET_ABICALLS 		\
+					 && mips_abi != ABI_32		\
+					 && mips_abi != ABI_O64)
 
 /* In mips16 mode, we need to look through the function to check for
    PC relative loads that are out of range.  */

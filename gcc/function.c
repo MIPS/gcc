@@ -57,6 +57,10 @@ Boston, MA 02111-1307, USA.  */
 #include "obstack.h"
 #include "toplev.h"
 
+#if !defined PREFERRED_STACK_BOUNDARY && defined STACK_BOUNDARY
+#define PREFERRED_STACK_BOUNDARY STACK_BOUNDARY
+#endif
+
 #ifndef TRAMPOLINE_ALIGNMENT
 #define TRAMPOLINE_ALIGNMENT FUNCTION_BOUNDARY
 #endif
@@ -243,10 +247,12 @@ int function_call_count;
 
 tree nonlocal_labels;
 
-/* RTX for stack slot that holds the current handler for nonlocal gotos.
+/* List (chain of EXPR_LIST) of stack slots that hold the current handlers
+   for nonlocal gotos.  There is one for every nonlocal label in the function;
+   this list matches the one in nonlocal_labels.
    Zero when function does not have nonlocal labels.  */
 
-rtx nonlocal_goto_handler_slot;
+rtx nonlocal_goto_handler_slots;
 
 /* RTX for stack slot that holds the stack pointer value to restore
    for a nonlocal goto.
@@ -528,7 +534,7 @@ push_function_context_to (context)
   p->parm_reg_stack_loc = parm_reg_stack_loc;
   p->outgoing_args_size = current_function_outgoing_args_size;
   p->return_rtx = current_function_return_rtx;
-  p->nonlocal_goto_handler_slot = nonlocal_goto_handler_slot;
+  p->nonlocal_goto_handler_slots = nonlocal_goto_handler_slots;
   p->nonlocal_goto_stack_level = nonlocal_goto_stack_level;
   p->nonlocal_labels = nonlocal_labels;
   p->cleanup_label = cleanup_label;
@@ -612,7 +618,7 @@ pop_function_context_from (context)
   parm_reg_stack_loc = p->parm_reg_stack_loc;
   current_function_outgoing_args_size = p->outgoing_args_size;
   current_function_return_rtx = p->return_rtx;
-  nonlocal_goto_handler_slot = p->nonlocal_goto_handler_slot;
+  nonlocal_goto_handler_slots = p->nonlocal_goto_handler_slots;
   nonlocal_goto_stack_level = p->nonlocal_goto_stack_level;
   nonlocal_labels = p->nonlocal_labels;
   cleanup_label = p->cleanup_label;
@@ -669,7 +675,7 @@ void pop_function_context ()
 /* Allocate fixed slots in the stack frame of the current function.  */
 
 /* Return size needed for stack frame based on slots so far allocated.
-   This size counts from zero.  It is not rounded to STACK_BOUNDARY;
+   This size counts from zero.  It is not rounded to PREFERRED_STACK_BOUNDARY;
    the caller may have to do that.  */
 
 HOST_WIDE_INT
@@ -3660,13 +3666,22 @@ delete_handlers ()
 		TREE_CHAIN (last_t) = TREE_CHAIN (t);
 	    }
 	}
-      if (GET_CODE (insn) == INSN
-	  && ((nonlocal_goto_handler_slot != 0
-	       && reg_mentioned_p (nonlocal_goto_handler_slot, PATTERN (insn)))
+      if (GET_CODE (insn) == INSN)
+	{
+	  int can_delete = 0;
+	  rtx t;
+	  for (t = nonlocal_goto_handler_slots; t != 0; t = XEXP (t, 1))
+	    if (reg_mentioned_p (t, PATTERN (insn)))
+	      {
+		can_delete = 1;
+		break;
+	      }
+	  if (can_delete
 	      || (nonlocal_goto_stack_level != 0
 		  && reg_mentioned_p (nonlocal_goto_stack_level,
-				      PATTERN (insn)))))
-	delete_insn (insn);
+				      PATTERN (insn))))
+	    delete_insn (insn);
+	}
     }
 }
 
@@ -4645,8 +4660,8 @@ assign_parms (fndecl, second_time)
 #endif
 #endif
 
-#ifdef STACK_BOUNDARY
-#define STACK_BYTES (STACK_BOUNDARY / BITS_PER_UNIT)
+#ifdef PREFERRED_STACK_BOUNDARY
+#define STACK_BYTES (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)
 
   current_function_args_size
     = ((current_function_args_size + STACK_BYTES - 1)
@@ -5448,7 +5463,7 @@ init_function_start (subr, filename, line)
   stack_slot_list = 0;
 
   /* There is no stack slot for handling nonlocal gotos.  */
-  nonlocal_goto_handler_slot = 0;
+  nonlocal_goto_handler_slots = 0;
   nonlocal_goto_stack_level = 0;
 
   /* No labels have been declared for nonlocal use.  */
@@ -5968,7 +5983,8 @@ expand_function_end (filename, line, end_bindings)
     }
 
   /* Delete handlers for nonlocal gotos if nothing uses them.  */
-  if (nonlocal_goto_handler_slot != 0 && !current_function_has_nonlocal_label)
+  if (nonlocal_goto_handler_slots != 0
+      && ! current_function_has_nonlocal_label)
     delete_handlers ();
 
   /* End any sequences that failed to be closed due to syntax errors.  */

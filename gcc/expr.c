@@ -65,9 +65,6 @@ Boston, MA 02111-1307, USA.  */
 #endif
 #endif
 
-/* Like STACK_BOUNDARY but in units of bytes, not bits.  */
-#define STACK_BYTES (STACK_BOUNDARY / BITS_PER_UNIT)
-
 /* Assume that case vectors are not pc-relative.  */
 #ifndef CASE_VECTOR_PC_RELATIVE
 #define CASE_VECTOR_PC_RELATIVE 0
@@ -1445,40 +1442,32 @@ move_by_pieces (to, from, len, align)
   if (!(data.autinc_from && data.autinc_to)
       && move_by_pieces_ninsns (len, align) > 2)
     {
-#ifdef HAVE_PRE_DECREMENT
-      if (data.reverse && ! data.autinc_from)
+      if (HAVE_PRE_DECREMENT && data.reverse && ! data.autinc_from)
 	{
 	  data.from_addr = copy_addr_to_reg (plus_constant (from_addr, len));
 	  data.autinc_from = 1;
 	  data.explicit_inc_from = -1;
 	}
-#endif
-#ifdef HAVE_POST_INCREMENT
-      if (! data.autinc_from)
+      if (HAVE_POST_INCREMENT && ! data.autinc_from)
 	{
 	  data.from_addr = copy_addr_to_reg (from_addr);
 	  data.autinc_from = 1;
 	  data.explicit_inc_from = 1;
 	}
-#endif
       if (!data.autinc_from && CONSTANT_P (from_addr))
 	data.from_addr = copy_addr_to_reg (from_addr);
-#ifdef HAVE_PRE_DECREMENT
-      if (data.reverse && ! data.autinc_to)
+      if (HAVE_PRE_DECREMENT && data.reverse && ! data.autinc_to)
 	{
 	  data.to_addr = copy_addr_to_reg (plus_constant (to_addr, len));
 	  data.autinc_to = 1;
 	  data.explicit_inc_to = -1;
 	}
-#endif
-#ifdef HAVE_POST_INCREMENT
-      if (! data.reverse && ! data.autinc_to)
+      if (HAVE_POST_INCREMENT && ! data.reverse && ! data.autinc_to)
 	{
 	  data.to_addr = copy_addr_to_reg (to_addr);
 	  data.autinc_to = 1;
 	  data.explicit_inc_to = 1;
 	}
-#endif
       if (!data.autinc_to && CONSTANT_P (to_addr))
 	data.to_addr = copy_addr_to_reg (to_addr);
     }
@@ -1589,20 +1578,16 @@ move_by_pieces_1 (genfun, mode, data)
 						      data->offset))));
       MEM_IN_STRUCT_P (from1) = data->from_struct;
 
-#ifdef HAVE_PRE_DECREMENT
-      if (data->explicit_inc_to < 0)
+      if (HAVE_PRE_DECREMENT && data->explicit_inc_to < 0)
 	emit_insn (gen_add2_insn (data->to_addr, GEN_INT (-size)));
-      if (data->explicit_inc_from < 0)
+      if (HAVE_PRE_DECREMENT && data->explicit_inc_from < 0)
 	emit_insn (gen_add2_insn (data->from_addr, GEN_INT (-size)));
-#endif
 
       emit_insn ((*genfun) (to1, from1));
-#ifdef HAVE_POST_INCREMENT
-      if (data->explicit_inc_to > 0)
+      if (HAVE_POST_INCREMENT && data->explicit_inc_to > 0)
 	emit_insn (gen_add2_insn (data->to_addr, GEN_INT (size)));
-      if (data->explicit_inc_from > 0)
+      if (HAVE_POST_INCREMENT && data->explicit_inc_from > 0)
 	emit_insn (gen_add2_insn (data->from_addr, GEN_INT (size)));
-#endif
 
       if (! data->reverse) data->offset += size;
 
@@ -2270,22 +2255,18 @@ clear_by_pieces (to, len, align)
   if (!data.autinc_to
       && move_by_pieces_ninsns (len, align) > 2)
     {
-#ifdef HAVE_PRE_DECREMENT
-      if (data.reverse && ! data.autinc_to)
+      if (HAVE_PRE_DECREMENT && data.reverse && ! data.autinc_to)
 	{
 	  data.to_addr = copy_addr_to_reg (plus_constant (to_addr, len));
 	  data.autinc_to = 1;
 	  data.explicit_inc_to = -1;
 	}
-#endif
-#ifdef HAVE_POST_INCREMENT
-      if (! data.reverse && ! data.autinc_to)
+      if (HAVE_POST_INCREMENT && ! data.reverse && ! data.autinc_to)
 	{
 	  data.to_addr = copy_addr_to_reg (to_addr);
 	  data.autinc_to = 1;
 	  data.explicit_inc_to = 1;
 	}
-#endif
       if (!data.autinc_to && CONSTANT_P (to_addr))
 	data.to_addr = copy_addr_to_reg (to_addr);
     }
@@ -2348,16 +2329,12 @@ clear_by_pieces_1 (genfun, mode, data)
 							data->offset))));
       MEM_IN_STRUCT_P (to1) = data->to_struct;
 
-#ifdef HAVE_PRE_DECREMENT
-      if (data->explicit_inc_to < 0)
+      if (HAVE_PRE_DECREMENT && data->explicit_inc_to < 0)
 	emit_insn (gen_add2_insn (data->to_addr, GEN_INT (-size)));
-#endif
 
       emit_insn ((*genfun) (to1, const0_rtx));
-#ifdef HAVE_POST_INCREMENT
-      if (data->explicit_inc_to > 0)
+      if (HAVE_POST_INCREMENT && data->explicit_inc_to > 0)
 	emit_insn (gen_add2_insn (data->to_addr, GEN_INT (size)));
-#endif
 
       if (! data->reverse) data->offset += size;
 

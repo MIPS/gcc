@@ -58,7 +58,6 @@ struct JCF;
    6: CAN_COMPLETE_NORMALLY (in statement nodes).
 
    Usage of TYPE_LANG_FLAG_?:
-   0: CLASS_METHOD_CHECKED_P (in RECORD_TYPE)
    1: TYPE_ARRAY_P (in RECORD_TYPE).
    2: CLASS_LOADED_P (in RECORD_TYPE).
    3: CLASS_FROM_SOURCE_P (in RECORD_TYPE).
@@ -113,6 +112,9 @@ extern tree main_class;
 /* The class we are currently processing. */
 extern tree current_class;
 
+/* List of all class DECLs seen so far.  */
+extern tree all_class_list;
+
 /* Nonzero if we want to automatically do array bounds checking;
    on by default.  Use -fno-bounds-check to disable.  */
 
@@ -124,6 +126,12 @@ extern int flag_bounds_check;
 extern int flag_assume_compiled;
 
 extern int flag_emit_class_files;
+
+/* Turned to 1 if -Wall was encountered. See lang.c for their meanings.  */
+extern int flag_wall;
+extern int flag_redundant;
+extern int flag_not_overriding;
+extern int flag_static_local_jdk1_1;
 
 /* The Java .class file that provides main_class;  the main input file. */
 extern struct JCF main_jcf[1], *current_jcf;
@@ -182,6 +190,7 @@ extern tree float_type_node;
 extern tree double_type_node;
 
 extern tree object_type_node;
+extern tree unqualified_object_id_node;
 extern tree object_ptr_type_node;
 extern tree string_type_node;
 extern tree throwable_type_node;
@@ -239,6 +248,8 @@ extern tree field_info_union_node;
 extern tree method_type_node;
 extern tree method_ptr_type_node;
 #define nativecode_ptr_type_node ptr_type_node
+
+extern tree end_params_node;
 
 /* References to internal libjava functions we use. */
 extern tree alloc_object_node;
@@ -467,7 +478,7 @@ extern tree get_constant PROTO ((struct JCF*, int));
 extern tree get_name_constant PROTO ((struct JCF*, int));
 extern tree get_class_constant PROTO ((struct JCF*, int));
 extern tree parse_signature PROTO ((struct JCF *jcf, int sig_index));
-extern int jcf_parse PROTO ((struct JCF*));
+extern void jcf_parse PROTO ((struct JCF*));
 extern tree add_field PROTO ((tree, tree, tree, int));
 extern tree add_method PROTO ((tree, int, tree, tree));
 extern tree add_method_1 PROTO ((tree, int, tree, tree));
@@ -477,6 +488,8 @@ extern tree unmangle_classname PROTO ((const char *name, int name_length));
 extern tree parse_signature_string PROTO ((const unsigned char *, int));
 extern tree get_type_from_signature PROTO ((tree));
 extern void layout_class PROTO ((tree));
+extern tree layout_class_method PROTO ((tree, tree, tree, tree));
+extern void layout_class_methods PROTO ((tree));
 extern tree make_class ();
 extern tree build_class_ref PROTO ((tree));
 extern tree build_dtable_decl PROTO ((tree));
@@ -518,7 +531,6 @@ extern tree build_field_ref PROTO ((tree, tree, tree));
 extern void pushdecl_force_head PROTO ((tree));
 extern tree build_java_binop PROTO ((enum tree_code, tree, tree, tree));
 extern tree binary_numeric_promotion PROTO ((tree, tree, tree *, tree *));
-extern tree build_decl_no_layout PROTO ((enum tree_code, tree, tree));
 extern tree build_java_arrayaccess PROTO ((tree, tree, tree));
 extern tree build_newarray PROTO ((int, tree));
 extern tree build_anewarray PROTO ((tree, tree));
@@ -548,6 +560,9 @@ extern void write_classfile PROTO ((tree));
 extern char *print_int_node PROTO ((tree));
 extern void parse_error_context VPROTO ((tree cl, char *msg, ...));
 extern tree build_primtype_type_ref PROTO ((char *));
+extern tree java_get_real_method_name PROTO ((tree));
+extern void finish_class PROTO ((tree));
+extern void java_layout_seen_class_methods PROTO (());
 
 /* Access flags etc for a method (a FUNCTION_DECL): */
 
@@ -678,9 +693,6 @@ extern tree *type_map;
 /* Given an array type, give the type of the elements. */
 /* FIXME this use of TREE_TYPE conflicts with something or other. */
 #define TYPE_ARRAY_ELEMENT(ATYPE) TREE_TYPE(ATYPE)
-
-/* True if methods in class TYPE have been checked.  */
-#define CLASS_METHOD_CHECKED_P(TYPE) TYPE_LANG_FLAG_0 (TYPE)
 
 /* True if class TYPE has been loaded. */
 #define CLASS_LOADED_P(TYPE) TYPE_LANG_FLAG_2 (TYPE)
@@ -819,8 +831,8 @@ extern tree *type_map;
 /* Using a CATCH_EXPR node */
 #define CATCH_EXPR_GET_EXPR(NODE, V) (V ? LABELED_BLOCK_BODY (NODE) : (NODE))
 
-/* Non zero if TYPE is an unchecked expression */
-#define IS_UNCHECKED_EXPRESSION_P(TYPE)				\
+/* Non zero if TYPE is an unchecked exception */
+#define IS_UNCHECKED_EXCEPTION_P(TYPE)				\
   (inherits_from_p ((TYPE), runtime_exception_type_node)	\
    || inherits_from_p ((TYPE), error_exception_type_node))
 
@@ -830,8 +842,5 @@ extern tree *type_map;
   {									\
      extern int java_error_count;					\
      if (java_error_count)						\
-       {								\
-         java_report_errors ();						\
-	 return;							\
-       }								\
+       return;								\
    }

@@ -21,6 +21,7 @@
 #Boston, MA 02111-1307, USA.
 
 # Initialization and defaults
+AC_PREREQ(2.12.1)
 AC_INIT(tree.c)
 AC_CONFIG_HEADER(auto-host.h:config.in)
 
@@ -323,7 +324,8 @@ EGCS_PROG_INSTALL
 AC_HEADER_STDC
 AC_HEADER_TIME
 GCC_HEADER_STRING
-AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h fcntl.h unistd.h stab.h sys/file.h sys/time.h sys/resource.h sys/param.h sys/times.h wait.h sys/wait.h)
+AC_HEADER_SYS_WAIT
+AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h fcntl.h unistd.h stab.h sys/file.h sys/time.h sys/resource.h sys/param.h sys/times.h sys/stat.h)
 
 # Check for thread headers.
 AC_CHECK_HEADER(thread.h, [have_thread_h=yes], [have_thread_h=])
@@ -557,7 +559,7 @@ changequote([,])dnl
  		fi
 		;;
 	alpha*-*-netbsd*)
-		tm_file="${tm_file} alpha/elf.h alpha/netbsd.h alpha/netbsdl-elf.h"
+		tm_file="${tm_file} alpha/elf.h alpha/netbsd.h alpha/netbsd-elf.h"
 		target_cpu_default="MASK_GAS"
 		tmake_file="alpha/t-crtbe"
 		extra_parts="crtbegin.o crtend.o"
@@ -828,7 +830,7 @@ changequote([,])dnl
 		install_headers_dir=install-headers-cpio
 		use_collect2=yes
 		;;
-	hppa1.1-*-hpux10*)
+	hppa1.1-*-hpux10* | hppa2*-*-hpux10*)
 		target_cpu_default=1
 		tm_file="${tm_file} pa/pa-hpux.h pa/pa-hpux10.h"
 		xm_file=pa/xm-pahpux.h
@@ -866,7 +868,7 @@ changequote([,])dnl
 		install_headers_dir=install-headers-cpio
 		use_collect2=yes
 		;;
-	hppa1.1-*-hpux*)
+	hppa1.1-*-hpux* | hppa2*-*-hpux*)
 		target_cpu_default=1
 		tm_file="${tm_file} pa/pa-hpux.h pa/pa-hpux9.h"
 		xm_file=pa/xm-pahpux.h
@@ -889,7 +891,7 @@ changequote([,])dnl
 		install_headers_dir=install-headers-cpio
 		use_collect2=yes
 		;;
-	hppa1.1-*-hiux*)
+	hppa1.1-*-hiux* | hppa2*-*-hiux*)
 		target_cpu_default=1
 		tm_file="${tm_file} pa/pa-hpux.h pa/pa-hiux.h"
 		xm_file=pa/xm-pahpux.h
@@ -1870,6 +1872,12 @@ changequote([,])dnl
 		extra_headers=math-68881.h
 		float_format=m68k
 		;;
+	m68020-*-elf* | m68k-*-elf*)
+		tm_file="m68k/m68020-elf.h libgloss.h"
+		xm_file=m68k/xm-m68kv.h
+		tmake_file=m68k/t-m68kelf
+		header_files=math-68881.h
+		;;
 	m68k-*-lynxos*)
 		if test x$gas = xyes
 		then
@@ -2197,6 +2205,15 @@ changequote([,])dnl
 		tm_file=mips/netbsd.h
 		# On NetBSD, the headers are already okay, except for math.h.
 		tmake_file=t-netbsd
+		;;
+	mipsel-*-linux*)			# Little endian Linux MIPS
+		xmake_file=x-linux
+		xm_file="xm-siglist.h ${xm_file}"
+		tm_file="mips/elfl.h mips/linux.h"
+		extra_parts="crtbegin.o crtend.o"
+		gnu_ld=yes
+		gas=yes
+		fixincludes=Makefile.in 
 		;;
 	mips-sony-bsd* | mips-sony-newsos*)	# Sony NEWS 3600 or risc/news.
 		tm_file="mips/news4.h ${tm_file}"
@@ -3295,7 +3312,7 @@ fi
 if test x$enable_haifa = x
 then
   case $target in
-    alpha*-* | hppa1.?-* | powerpc*-* | rs6000-* | *sparc*-* | m32r*-*)
+    alpha*-* | hppa*-* | powerpc*-* | rs6000-* | *sparc*-* | m32r*-*)
       enable_haifa=yes;;
   esac
 fi
@@ -3709,6 +3726,16 @@ fi
 AC_MSG_RESULT($gcc_cv_as_subsections)
 
 # Figure out what language subdirectories are present.
+# Look if the user specified --enable-languages="..."; if not, use
+# the environment variable $LANGUAGES if defined. $LANGUAGES might
+# go away some day.
+if test x"${enable_languages+set}" != xset; then
+	if test x"${LANGUAGES+set}" = xset; then
+		enable_languages="`echo ${LANGUAGES} | tr ' ' ','`"
+	else
+		enable_languages=all
+	fi
+fi
 subdirs=
 for lang in ${srcdir}/*/config-lang.in ..
 do
@@ -3717,13 +3744,39 @@ do
 	# The odd quoting in the next line works around
 	# an apparent bug in bash 1.12 on linux.
 changequote(,)dnl
-	${srcdir}/ada/config-lang.in)
-	  if test x$gnat = xyes ; then
-		subdirs="$subdirs `echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`"
-	  fi
-	;;
 	${srcdir}/[*]/config-lang.in) ;;
-	*) subdirs="$subdirs `echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`" ;;
+	*)
+	  lang_alias=`sed -n -e 's,^language=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^language=\([^ 	]*\).*$,\1,p' $lang`
+	  if test "x$lang_alias" = x
+	  then
+		echo "$lang doesn't set \$language." 1>&2
+		exit 1
+	  fi
+	  if test x"${enable_languages}" = xall; then
+	  	add_this_lang=yes
+	  else
+		case "${enable_languages}" in
+		    ${lang_alias} | "${lang_alias},"* | *",${lang_alias},"* | *",${lang_alias}" )
+			add_this_lang=yes
+			;;
+		    * )
+			add_this_lang=no
+			;;
+		esac
+	  fi
+	  if test x"${add_this_lang}" = xyes; then
+		case $lang in
+		    ${srcdir}/ada/config-lang.in)
+			if test x$gnat = xyes ; then
+				subdirs="$subdirs `echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`"
+			fi
+			;;
+		    *)
+			subdirs="$subdirs `echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`"
+			;;
+		esac
+	  fi
+	  ;;
 changequote([,])dnl
 	esac
 done

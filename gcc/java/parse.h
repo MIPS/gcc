@@ -122,11 +122,18 @@ extern tree stabilize_reference PROTO ((tree));
 		 (s1 [0]=='S' ? "Supertype" : "supertype") :	\
 		 (s1 [0] > 'A' ? "Type" : "type")))
 
+#define GET_REAL_TYPE(TYPE) 					\
+  (TREE_CODE (TYPE) == TREE_LIST ? TREE_PURPOSE (TYPE) : TYPE)
+
+#define GET_METHOD_NAME(METHOD)					\
+  (TREE_CODE (DECL_NAME (METHOD)) == EXPR_WITH_FILE_LOCATION ?	\
+   EXPR_WFL_NODE (DECL_NAME (METHOD)) : DECL_NAME (METHOD))
+
 /* Pedantic warning on obsolete modifiers. Note: when cl is NULL,
    flags was set artificially, such as for a interface method */
 #define OBSOLETE_MODIFIER_WARNING(cl, flags, modifier, format, arg)          \
   {                                                                          \
-    if ((cl) && ((flags) & (modifier)))					     \
+    if (flag_redundant && (cl) && ((flags) & (modifier)))		     \
       parse_warning_context (cl,                                             \
 			     "Discouraged redundant use of `%s' modifier "   \
 			     "in declaration of " format,                    \
@@ -140,10 +147,10 @@ extern tree stabilize_reference PROTO ((tree));
     TYPE_NAME (ptr) = name;			\
   }
 
-#define INCOMPLETE_TYPE_P(NODE)					\
-  ((TREE_CODE (NODE) == TREE_LIST) 				\
-   && (TREE_CODE (TREE_PURPOSE (NODE)) == POINTER_TYPE) 	\
-   && (TREE_TYPE (TREE_PURPOSE (NODE)) == NULL_TREE))
+#define INCOMPLETE_TYPE_P(NODE)				\
+  ((TREE_CODE (NODE) == POINTER_TYPE)			\
+   && !TREE_TYPE (NODE) 				\
+   && TREE_CODE (TYPE_NAME (NODE)) == IDENTIFIER_NODE)
 
 /* Set the EMIT_LINE_NOTE flag of a EXPR_WLF to 1 if debug information
    are requested. Works in the context of a parser rule. */
@@ -411,22 +418,37 @@ static jdeplist *reverse_jdep_list ();
 /* if TYPE can't be resolved, obtain something suitable for its
    resolution (TYPE is saved in SAVE before being changed). and set
    CHAIN to 1. Otherwise, type is set to something usable. CHAIN is
-   usually used to determine that a new DEP must be installed on TYPE.  */
-#define SET_TYPE_FOR_RESOLUTION(TYPE, SAVE, CHAIN)	\
-  {							\
-    tree returned_type;					\
-    (CHAIN) = 0;					\
-    if (unresolved_type_p (type, &returned_type))	\
-      {							\
-	if (returned_type)				\
-	  (TYPE) = returned_type;			\
-	else						\
-	  {						\
-	    (SAVE) = (TYPE);				\
-	    (TYPE) = obtain_incomplete_type (TYPE);	\
-	    CHAIN = 1;					\
-	  }						\
-      }							\
+   usually used to determine that a new DEP must be installed on TYPE.
+   Note that when compiling java.lang.Object, references to Object are
+   java.lang.Object.  */
+#define SET_TYPE_FOR_RESOLUTION(TYPE, SAVE, CHAIN)			\
+  {									\
+    tree returned_type;							\
+    (CHAIN) = 0;							\
+    if (TREE_TYPE (ctxp->current_parsed_class) == object_type_node	\
+	&& TREE_CODE (TYPE) == EXPR_WITH_FILE_LOCATION 			\
+	&& EXPR_WFL_NODE (TYPE) == unqualified_object_id_node)		\
+      (TYPE) = object_type_node;					\
+    else								\
+      {									\
+	if (unresolved_type_p (type, &returned_type))			\
+	  {								\
+	    if (returned_type)						\
+	      (TYPE) = returned_type;					\
+	    else							\
+	      {								\
+		(SAVE) = (TYPE);					\
+		(TYPE) = obtain_incomplete_type (TYPE);			\
+		CHAIN = 1;						\
+	      }								\
+	  }								\
+      }									\
+  }
+/* Promote a type if it won't be registered as a patch */
+#define PROMOTE_RECORD_IF_COMPLETE(TYPE, IS_INCOMPLETE)		\
+  {								\
+    if (!(IS_INCOMPLETE) && TREE_CODE (TYPE) == RECORD_TYPE)	\
+      (TYPE) = promote_type (TYPE);				\
   }
 
 /* Insert a DECL in the current block */
@@ -489,7 +511,8 @@ static jdeplist *reverse_jdep_list ();
   {								\
     (WHERE) = build (CALL_EXPR, int_type_node,			\
 		     build_address_of (soft_monitorenter_node),	\
-		     build_tree_list (NULL_TREE, (ARG)));	\
+		     build_tree_list (NULL_TREE, (ARG)), 	\
+		     NULL_TREE);				\
     TREE_SIDE_EFFECTS (WHERE) = 1;				\
   }
 
@@ -497,7 +520,8 @@ static jdeplist *reverse_jdep_list ();
   {								\
     (WHERE) = build (CALL_EXPR, int_type_node,			\
 		     build_address_of (soft_monitorexit_node),	\
-		     build_tree_list (NULL_TREE, (ARG)));	\
+		     build_tree_list (NULL_TREE, (ARG)),	\
+		     NULL_TREE);				\
     TREE_SIDE_EFFECTS (WHERE) = 1;				\
   }
 
@@ -571,13 +595,13 @@ struct parser_ctxt {
   int parser_ccb_indent;	     /* Keep track of {} indent, parser */
   int osb_number;		     /* Keep track of ['s */
   int minus_seen;		     /* Integral literal overflow */
-  int lineno;			    /* Current lineno */
-  int java_error_flag;		    /* Report error when true */
+  int lineno;			     /* Current lineno */
+  int java_error_flag;		     /* Report error when true */
   int deprecated;		     /* @deprecated tag seen */
 
   /* This section is defined only if we compile jc1 */
 #ifndef JC1_LITE
-  tree modifier_ctx [11];	     /* WFL of modifiers */
+  tree modifier_ctx [11];	    /* WFL of modifiers */
   tree current_class;		    /* Current class */
   tree current_function_decl;	    /* Current function decl, save/restore */
 
@@ -591,210 +615,51 @@ struct parser_ctxt {
 
   tree package;			    /* Defined package ID */
 
+  /* Those tow list are saved accross file traversal */
   tree  incomplete_class;	    /* List of non-complete classes */
-  tree  current_parsed_class;	    /* Class currently parsed */
-  tree  current_parsed_class_un;    /* Curr. parsed class unqualified name */
+  tree  gclass_list;		    /* All classes seen from source code */
+
+  /* These two lists won't survive file traversal */
   tree  class_list;		    /* List of classes in a CU */
-  tree  gclass_list;		    /* All classes seen so far. */
   jdeplist *classd_list;	    /* Classe dependencies in a CU */
   
+  tree  current_parsed_class;	    /* Class currently parsed */
+  tree  current_parsed_class_un;    /* Curr. parsed class unqualified name */
+
   tree non_static_initialized;	    /* List of non static initialized fields */
   tree static_initialized;	    /* List of static non final initialized */
 
   tree import_list;		    /* List of import */
   tree import_demand_list;	    /* List of import on demand */
 
-  tree current_loop;		     /* List of the currently nested loops/switches */
-  tree current_labeled_block;	     /* List of currently nested
-					labeled blocks. */
+  tree current_loop;		    /* List of the currently nested 
+				       loops/switches */
+  tree current_labeled_block;	    /* List of currently nested
+				       labeled blocks. */
 
-  int pending_block;		     /* Pending block to close */
+  int pending_block;		    /* Pending block to close */
 
-  int explicit_constructor_p;	     /* True when processing an
-					explicit constructor. This flag is 
-					used to trap illegal argument usage 
-					during an explicit constructor
-					invocation. */
+  int explicit_constructor_p;	    /* True when processing an explicit
+				       constructor. This flag is used to trap
+				       illegal argument usage during an
+				       explicit constructor invocation. */
 #endif /* JC1_LITE */
 };
 
-/* Functions declarations */
 #ifndef JC1_LITE
-static char *java_accstring_lookup PROTO ((int));
-static void  classitf_redefinition_error PROTO ((char *,tree, tree, tree));
-static void  variable_redefinition_error PROTO ((tree, tree, tree, int));
-static void  check_modifiers PROTO ((char *, int, int));
-static tree  create_class PROTO ((int, tree, tree, tree));
-static tree  create_interface PROTO ((int, tree, tree));
-static tree  find_field PROTO ((tree, tree));
-static tree lookup_field_wrapper PROTO ((tree, tree));
-static int   duplicate_declaration_error_p PROTO ((tree, tree, tree));
-static void  register_fields PROTO ((int, tree, tree));
-static tree parser_qualified_classname PROTO ((tree));
-static int  parser_check_super PROTO ((tree, tree, tree));
-static int  parser_check_super_interface PROTO ((tree, tree, tree));
-static void check_modifiers_consistency PROTO ((int));
-static tree lookup_cl PROTO ((tree));
-static tree lookup_java_method2 PROTO ((tree, tree, int));
-static tree method_header PROTO ((int, tree, tree, tree));
-static void fix_method_argument_names PROTO ((tree ,tree));
-static tree method_declarator PROTO ((tree, tree));
-static void parse_warning_context VPROTO ((tree cl, char *msg, ...));
-static void issue_warning_error_from_context PROTO ((tree, char *msg, va_list));
-static tree parse_jdk1_1_error PROTO ((char *));
-static void complete_class_report_errors PROTO ((jdep *));
-static int process_imports PROTO ((void));
-static void read_import_dir PROTO ((tree));
-static int find_in_imports_on_demand PROTO ((tree));
-static int find_in_imports PROTO ((tree));
-static int check_pkg_class_access PROTO ((tree, tree));
-static tree resolve_package PROTO ((tree, tree *));
-static tree lookup_package_type PROTO ((char *, int));
-static tree resolve_class PROTO ((tree, tree, tree));
-static tree do_resolve_class PROTO ((tree, tree, tree));
-static void declare_local_variables PROTO ((int, tree, tree));
-static void source_start_java_method PROTO ((tree));
-static void source_end_java_method PROTO ((void));
-static void expand_start_java_method PROTO ((tree));
-static tree find_name_in_single_imports PROTO ((tree));
-static void check_abstract_method_header PROTO ((tree));
-static tree lookup_java_interface_method2 PROTO ((tree, tree));
-static tree resolve_expression_name PROTO ((tree, tree *));
-static tree maybe_create_class_interface_decl PROTO ((tree, tree, tree));
-static int check_class_interface_creation PROTO ((int, int, tree, 
-						  tree, tree, tree));
-static tree patch_method_invocation PROTO ((tree, tree, tree, 
-					    int *, tree *, int));
-static int breakdown_qualified PROTO ((tree *, tree *, tree));
-static tree resolve_and_layout PROTO ((tree, tree));
-static tree resolve_no_layout PROTO ((tree, tree));
-static int invocation_mode PROTO ((tree, int));
-static tree find_applicable_accessible_methods_list PROTO ((int, tree, 
-							    tree, tree));
-static tree find_most_specific_methods_list PROTO ((tree));
-static int argument_types_convertible PROTO ((tree, tree));
-static tree patch_invoke PROTO ((tree, tree, tree, int));
-static tree lookup_method_invoke PROTO ((int, tree, tree, tree, tree));
-static tree register_incomplete_type PROTO ((int, tree, tree, tree));
-static tree obtain_incomplete_type PROTO ((tree));
-static tree java_complete_tree PROTO ((tree));
-static void java_complete_expand_method PROTO ((tree));
-static int  unresolved_type_p PROTO ((tree, tree *));
-static void create_jdep_list PROTO ((struct parser_ctxt *));
-static tree build_expr_block PROTO ((tree, tree));
-static tree enter_block PROTO ((void));
-static tree enter_a_block PROTO ((tree));
-static tree exit_block PROTO ((void));
-static tree lookup_name_in_blocks PROTO ((tree));
-static void maybe_absorb_scoping_blocks PROTO ((void));
-static tree build_method_invocation PROTO ((tree, tree));
-static tree build_new_invocation PROTO ((tree, tree));
-static tree build_assignment PROTO ((int, int, tree, tree));
-static tree build_binop PROTO ((enum tree_code, int, tree, tree));
-static int check_final_assignment PROTO ((tree ,tree));
-static tree patch_assignment PROTO ((tree, tree, tree ));
-static tree patch_binop PROTO ((tree, tree, tree));
-static tree build_unaryop PROTO ((int, int, tree));
-static tree build_incdec PROTO ((int, int, tree, int));
-static tree patch_unaryop PROTO ((tree, tree));
-static tree build_cast PROTO ((int, tree, tree));
-static tree build_null_of_type PROTO ((tree));
-static tree patch_cast PROTO ((tree, tree));
-static int valid_ref_assignconv_cast_p PROTO ((tree, tree, int));
-static int valid_builtin_assignconv_identity_widening_p PROTO ((tree, tree));
-static int valid_cast_to_p PROTO ((tree, tree));
-static int valid_method_invocation_conversion_p PROTO ((tree, tree));
-static tree try_builtin_assignconv PROTO ((tree, tree, tree));
-static tree try_reference_assignconv PROTO ((tree, tree));
-static tree build_unresolved_array_type PROTO ((tree));
-static tree build_array_from_name PROTO ((tree, tree, tree, tree *));
-static tree build_array_ref PROTO ((int, tree, tree));
-static tree patch_array_ref PROTO ((tree, tree, tree));
-static tree make_qualified_name PROTO ((tree, tree, int));
-static tree merge_qualified_name PROTO ((tree, tree));
-static tree make_qualified_primary PROTO ((tree, tree, int));
-static int resolve_qualified_expression_name PROTO ((tree, tree *, tree *, tree *));
-static void qualify_ambiguous_name PROTO ((tree));
-static void maybe_generate_clinit PROTO ((void));
-static tree resolve_field_access PROTO ((tree, tree *, tree *));
-static tree build_newarray_node PROTO ((tree, tree, int));
-static tree patch_newarray PROTO ((tree));
-static tree resolve_type_during_patch PROTO ((tree));
-static int not_initialized_as_it_should_p PROTO ((tree));
-static tree build_this PROTO ((int));
-static tree build_return PROTO ((int, tree));
-static tree patch_return PROTO ((tree));
-static tree maybe_access_field PROTO ((tree, tree, tree));
-static int complete_function_arguments PROTO ((tree));
-static int check_for_static_method_reference PROTO ((tree, tree, tree, tree, tree));
-static int not_accessible_p PROTO ((tree, tree, int));
-static void check_deprecation PROTO ((tree, tree));
-static int class_in_current_package PROTO ((tree));
-static tree build_if_else_statement PROTO ((int, tree, tree, tree));
-static tree patch_if_else_statement PROTO ((tree));
-static tree add_stmt_to_compound PROTO ((tree, tree, tree));
-static tree add_stmt_to_block PROTO ((tree, tree, tree));
-static tree patch_exit_expr PROTO ((tree));
-static tree build_labeled_block PROTO ((int, tree));
-static tree generate_labeled_block PROTO (());
-static tree complete_labeled_statement PROTO ((tree, tree));
-static tree build_bc_statement PROTO ((int, int, tree));
-static tree patch_bc_statement PROTO ((tree));
-static tree patch_loop_statement PROTO ((tree));
-static tree build_new_loop PROTO ((tree));
-static tree build_loop_body PROTO ((int, tree, int));
-static tree complete_loop_body PROTO ((int, tree, tree, int));
-static tree build_debugable_stmt PROTO ((int, tree));
-static tree complete_for_loop PROTO ((int, tree, tree, tree));
-static tree patch_switch_statement PROTO ((tree));
-static tree string_constant_concatenation PROTO ((tree, tree));
-static tree build_string_concatenation PROTO ((tree, tree));
-static tree patch_string_cst PROTO ((tree));
-static tree patch_string PROTO ((tree));
-static tree build_jump_to_finally PROTO ((tree, tree, tree, tree));
-static tree build_try_statement PROTO ((int, tree, tree, tree));
-static tree patch_try_statement PROTO ((tree));
-static tree patch_synchronized_statement PROTO ((tree, tree));
-static tree patch_throw_statement PROTO ((tree, tree));
-static void check_thrown_exceptions PROTO ((int, tree));
-static int check_thrown_exceptions_do PROTO ((tree));
-static void purge_unchecked_exceptions PROTO ((tree));
-static void check_throws_clauses PROTO ((tree, tree, tree));
-static void complete_method_declaration PROTO ((tree));
-static tree build_super_invocation PROTO (());
-static int verify_constructor_circularity PROTO ((tree, tree));
-static char *constructor_circularity_msg PROTO ((tree, tree));
-static tree build_this_super_qualified_invocation PROTO ((int, tree, tree,
-							  int, int));
-static char *get_printable_method_name PROTO ((tree));
-static tree patch_conditional_expr PROTO ((tree, tree, tree));
-static void maybe_generate_finit PROTO (());
-static void fix_constructors PROTO ((tree));
-static int verify_constructor_super PROTO (());
-static tree create_artificial_method PROTO ((tree, int, tree, tree, tree));
-static void start_artificial_method_body PROTO ((tree));
-static void end_artificial_method_body PROTO ((tree));
-static tree generate_field_initialization_code PROTO ((tree));
-static int check_method_redefinition PROTO ((tree, tree));
-static int reset_method_name PROTO ((tree));
-static void java_check_regular_methods PROTO ((tree));
-static void java_check_abstract_methods PROTO ((tree));
-static tree maybe_build_primttype_type_ref PROTO ((tree, tree));
-
 void safe_layout_class PROTO ((tree));
 void java_complete_class PROTO ((void));
 void java_check_circular_reference PROTO ((void));
 void java_check_final PROTO ((void));
-void java_check_methods PROTO ((void));
 void java_layout_classes PROTO ((void));
 tree java_method_add_stmt PROTO ((tree, tree));
 char *java_get_line_col PROTO ((char *, int, int));
 void java_expand_switch PROTO ((tree));
 tree java_get_catch_block PROTO ((tree, int));
-#endif /* JC1_LITE */
+int java_report_errors PROTO (());
+#endif
 
 /* Always in use, no matter what you compile */
-
 void java_push_parser_context PROTO ((void));
 void java_pop_parser_context PROTO ((int));
 void java_init_lex PROTO ((void));

@@ -1,5 +1,5 @@
 /* Process declarations and variables for C compiler.
-   Copyright (C) 1988, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1988, 92-97, 1998 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -453,6 +453,7 @@ int flag_vtable_gc;
 
 static struct { char *string; int *variable; int on_value;} lang_f_options[] =
 {
+  /* C/C++ options.  */
   {"signed-char", &flag_signed_char, 1},
   {"unsigned-char", &flag_signed_char, 0},
   {"signed-bitfields", &flag_signed_bitfields, 1},
@@ -460,41 +461,43 @@ static struct { char *string; int *variable; int on_value;} lang_f_options[] =
   {"short-enums", &flag_short_enums, 1},
   {"short-double", &flag_short_double, 1},
   {"cond-mismatch", &flag_cond_mismatch, 1},
-  {"squangle", &flag_do_squangling, 1},
   {"asm", &flag_no_asm, 0},
   {"builtin", &flag_no_builtin, 0},
   {"ident", &flag_no_ident, 0},
-  {"labels-ok", &flag_labels_ok, 1},
+
+  /* C++-only options.  */
+  {"access-control", &flag_access_control, 1},
+  {"check-new", &flag_check_new, 1},
+  {"conserve-space", &flag_conserve_space, 1},
   {"const-strings", &flag_const_strings, 1},
-  {"stats", &flag_detailed_statistics, 1},
-  {"this-is-variable", &flag_this_is_variable, 1},
-  {"strict-prototype", &flag_strict_prototype, 1},
-  {"elide-constructors", &flag_elide_constructors, 1},
-  {"handle-exceptions", &flag_exceptions, 1},
-  {"handle-signatures", &flag_handle_signatures, 1},
   {"default-inline", &flag_default_inline, 1},
   {"dollars-in-identifiers", &dollars_in_ident, 1},
-  {"honor-std", &flag_honor_std, 1},
-  {"rtti", &flag_rtti, 1},
-  {"xref", &flag_gnu_xref, 1},
-  {"implement-inlines", &flag_implement_inlines, 1},
+  {"elide-constructors", &flag_elide_constructors, 1},
   {"external-templates", &flag_external_templates, 1},
-  {"implicit-templates", &flag_implicit_templates, 1},
-  {"implicit-inline-templates", &flag_implicit_inline_templates, 1},
-  {"init-priority", &flag_init_priority, 1},
-  {"huge-objects", &flag_huge_objects, 1},
-  {"conserve-space", &flag_conserve_space, 1},
-  {"vtable-gc", &flag_vtable_gc, 1},
-  {"vtable-thunks", &flag_vtable_thunks, 1},
-  {"access-control", &flag_access_control, 1},
-  {"nonansi-builtins", &flag_no_nonansi_builtin, 0},
+  {"for-scope", &flag_new_for_scope, 2},
   {"gnu-keywords", &flag_no_gnu_keywords, 0},
+  {"handle-exceptions", &flag_exceptions, 1},
+  {"handle-signatures", &flag_handle_signatures, 1},
+  {"honor-std", &flag_honor_std, 1},
+  {"huge-objects", &flag_huge_objects, 1},
+  {"implement-inlines", &flag_implement_inlines, 1},
+  {"implicit-inline-templates", &flag_implicit_inline_templates, 1},
+  {"implicit-templates", &flag_implicit_templates, 1},
+  {"init-priority", &flag_init_priority, 1},
+  {"labels-ok", &flag_labels_ok, 1},
+  {"nonansi-builtins", &flag_no_nonansi_builtin, 0},
   {"operator-names", &flag_operator_names, 1},
   {"optional-diags", &flag_optional_diags, 1},
-  {"check-new", &flag_check_new, 1},
   {"repo", &flag_use_repository, 1},
-  {"for-scope", &flag_new_for_scope, 2},
-  {"weak", &flag_weak, 1}
+  {"rtti", &flag_rtti, 1},
+  {"squangle", &flag_do_squangling, 1},
+  {"stats", &flag_detailed_statistics, 1},
+  {"strict-prototype", &flag_strict_prototype, 1},
+  {"this-is-variable", &flag_this_is_variable, 1},
+  {"vtable-gc", &flag_vtable_gc, 1},
+  {"vtable-thunks", &flag_vtable_thunks, 1},
+  {"weak", &flag_weak, 1},
+  {"xref", &flag_gnu_xref, 1}
 };
 
 /* Decode the string P as a language-specific option.
@@ -858,17 +861,14 @@ grok_x_components (specs)
   struct pending_inline **p;
   tree t;
 
-  t = groktypename (build_decl_list (strip_attrs (specs), NULL_TREE)); 
-  
-  if (t == NULL_TREE)
-    {
-      cp_error ("invalid member declaration");
-      return;
-    }
+  specs = strip_attrs (specs);
+
+  check_tag_decl (specs);
+  t = groktypename (build_decl_list (specs, NULL_TREE)); 
 
   /* The only case where we need to do anything additional here is an
      anonymous union field, e.g.: `struct S { union { int i; }; };'.  */
-  if (!ANON_UNION_TYPE_P (t))
+  if (t == NULL_TREE || !ANON_UNION_TYPE_P (t))
     return;
 
   fixup_anonymous_union (t);
@@ -1425,8 +1425,8 @@ check_classfn (ctype, function)
 		}
 	      break;		/* loser */
 	    }
-	  else if (TREE_CODE (fndecl) == TEMPLATE_DECL 
-		   && DECL_CONV_FN_P (fndecl)
+	  else if (TREE_CODE (OVL_CURRENT (fndecl)) == TEMPLATE_DECL 
+		   && DECL_CONV_FN_P (OVL_CURRENT (fndecl))
 		   && DECL_CONV_FN_P (function))
 	    /* The method in the class is a member template
 	       conversion operator.  We are declaring another
@@ -1645,18 +1645,7 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
       && (TREE_CODE (value) == VAR_DECL || TREE_CODE (value) == FUNCTION_DECL))
     value = push_template_decl (value);
 
-  /* Check to see if a field redeclares a template parameter. */
-  if (current_template_parms 
-      && TREE_CODE (declarator) == IDENTIFIER_NODE
-      && IDENTIFIER_LOCAL_VALUE (declarator))
-      {
-	tree olddecl = IDENTIFIER_LOCAL_VALUE (declarator);
-	if (decl_template_parm_p (olddecl))
-	  {
-	    cp_error ("redeclaration of template parameter `%T'", declarator);
-	    cp_error_at (" previously declared here `%#D'", olddecl);
-	  }
-      }
+  check_template_shadow (value);
 
   if (attrlist)
     cplus_decl_attributes (value, TREE_PURPOSE (attrlist),
@@ -2299,15 +2288,14 @@ coerce_new_type (type)
 
   if (TREE_CODE (type) == METHOD_TYPE)
     type = build_function_type (TREE_TYPE (type), TREE_CHAIN (TYPE_ARG_TYPES (type)));
-  if (TREE_TYPE (type) != ptr_type_node)
+  if (! same_type_p (TREE_TYPE (type), ptr_type_node))
     e1 = 1, error ("`operator new' must return type `void *'");
 
   /* Technically the type must be `size_t', but we may not know
      what that is.  */
   if (TYPE_ARG_TYPES (type) == NULL_TREE)
     e1 = 1, error ("`operator new' takes type `size_t' parameter");
-  else if (TREE_CODE (TREE_VALUE (TYPE_ARG_TYPES (type))) != INTEGER_TYPE
-	   || TYPE_PRECISION (TREE_VALUE (TYPE_ARG_TYPES (type))) != TYPE_PRECISION (sizetype))
+  else if (! same_type_p (TREE_VALUE (TYPE_ARG_TYPES (type)), sizetype))
     e2 = 1, error ("`operator new' takes type `size_t' as first parameter");
   if (e2)
     type = build_function_type (ptr_type_node, tree_cons (NULL_TREE, sizetype, TREE_CHAIN (TYPE_ARG_TYPES (type))));
@@ -2336,7 +2324,7 @@ coerce_delete_type (type)
     e1 = 1, error ("`operator delete' must return type `void'");
 
   if (arg_types == NULL_TREE
-      || TREE_VALUE (arg_types) != ptr_type_node)
+      || ! same_type_p (TREE_VALUE (arg_types), ptr_type_node))
     e2 = 1, error ("`operator delete' takes type `void *' as first parameter");
 
 #if 0
@@ -2347,8 +2335,7 @@ coerce_delete_type (type)
       /* Again, technically this argument must be `size_t', but again
 	 we may not know what that is.  */
       tree t2 = TREE_VALUE (TREE_CHAIN (arg_types));
-      if (TREE_CODE (t2) != INTEGER_TYPE
-	  || TYPE_PRECISION (t2) != TYPE_PRECISION (sizetype))
+      if (! same_type_p (t2, sizetype))
 	e3 = 1, error ("second argument to `operator delete' must be of type `size_t'");
       else if (TREE_CHAIN (TREE_CHAIN (arg_types)) != void_list_node)
 	{
@@ -4693,9 +4680,20 @@ validate_nonmember_using_decl (decl, scope, name)
     {
       *scope = TREE_OPERAND (decl, 0);
       *name = TREE_OPERAND (decl, 1);
+
+      /* [namespace.udecl]
+
+	 A using-declaration for a class member shall be a
+	 member-declaration.  */
+      if (TREE_CODE (*scope) != NAMESPACE_DECL)
+	{
+	  cp_error ("`%D' is not a namespace", *scope);
+	  return NULL_TREE;
+	}
     }
   else if (TREE_CODE (decl) == IDENTIFIER_NODE
-           || TREE_CODE (decl) == TYPE_DECL)
+           || TREE_CODE (decl) == TYPE_DECL
+	   || TREE_CODE (decl) == TEMPLATE_DECL)
     {
       *scope = global_namespace;
       *name = decl;
@@ -4946,6 +4944,8 @@ handle_class_head (aggr, scope, id)
 {
   if (TREE_CODE (id) == TYPE_DECL)
     return id;
+  if (DECL_CLASS_TEMPLATE_P (id))
+    return DECL_TEMPLATE_RESULT (id);
 
   if (scope)
     cp_error ("`%T' does not have a nested type named `%D'", scope, id);

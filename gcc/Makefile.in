@@ -39,7 +39,8 @@ SUBDIRS =@subdirs@
 
 # Selection of languages to be made.
 # This is overridden by configure.
-LANGUAGES = c proto gcov$(exeext) @all_languages@
+CONFIG_LANGUAGES = @all_languages@
+LANGUAGES = c proto gcov$(exeext) $(CONFIG_LANGUAGES)
 
 # Selection of languages to be made during stage1 build.
 # This is overridden by configure.
@@ -113,6 +114,11 @@ P =
 RANLIB = ranlib
 # Test to use to see whether ranlib exists on the system.
 RANLIB_TEST = [ -f /usr/bin/ranlib -o -f /bin/ranlib ]
+
+HOST_AR = ar
+HOST_AR_FLAGS = rc
+HOST_RANLIB = ranlib
+HOST_RANLIB_TEST = [ -f /usr/bin/ranlib -o -f /bin/ranlib ]
 
 # Compiler to use for compiling libgcc1.a.
 # OLDCC should not be the GNU C compiler,
@@ -289,7 +295,8 @@ exeext = @host_exeext@
 build_exeext = @build_exeext@
 
 # Directory in which to put man pages.
-mandir = @mandir@/man1
+mandir = @mandir@
+man1dir = $(mandir)/man1
 # Directory in which to find other cross-compilation tools and headers.
 # Used in install-cross.
 tooldir = $(libsubdir)/$(unlibsubdir)/../$(target_alias)
@@ -642,7 +649,7 @@ OBJS = toplev.o version.o tree.o print-tree.o stor-layout.o fold-const.o \
  insn-peep.o reorg.o $(SCHED_PREFIX)sched.o final.o recog.o reg-stack.o \
  insn-opinit.o insn-recog.o insn-extract.o insn-output.o insn-emit.o \
  profile.o insn-attrtab.o $(out_object_file) getpwd.o $(EXTRA_OBJS) convert.o \
- mbchar.o dyn-string.o splay-tree.o
+ mbchar.o dyn-string.o splay-tree.o graph.o
 
 # GEN files are listed separately, so they can be built before doing parallel
 #  makes for cc1 or cc1plus.  Otherwise sequent parallel make attempts to load
@@ -672,7 +679,7 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  gcov$(exeext) *.bp \
  *.greg *.lreg *.combine *.flow *.cse *.jump *.rtl *.tree *.loop \
  *.dbr *.jump2 *.sched *.cse2 *.sched2 *.stack *.gcse \
- *.[si] \
+ *.[si] libcpp.a \
  $(LANG_STAGESTUFF)
 
 # Members of libgcc1.a.
@@ -758,7 +765,7 @@ Makefile: $(srcdir)/Makefile.in config.status $(srcdir)/version.c \
 	$(SHELL) $(srcdir)/configure.frag $(srcdir) "$(SUBDIRS)" \
 		"$(xmake_file)" "$(tmake_file)"
 	cp config.status config.run
-	$(SHELL) config.run
+	LANGUAGES="$(CONFIG_LANGUAGES)" $(SHELL) config.run
 	rm -f config.run
 
 $(srcdir)/configure: $(srcdir)/configure.in
@@ -780,7 +787,7 @@ $(srcdir)/cstamp-h.in: $(srcdir)/configure.in $(srcdir)/acconfig.h
 	echo timestamp > $(srcdir)/cstamp-h.in
 auto-host.h: cstamp-h ; @true
 cstamp-h: config.in config.status
-	CONFIG_HEADERS=auto-host.h:config.in $(SHELL) config.status
+	CONFIG_HEADERS=auto-host.h:config.in LANGUAGES="$(CONFIG_LANGUAGES)" $(SHELL) config.status
 
 # Really, really stupid make features, such as SUN's KEEP_STATE, may force
 # a target to build even if it is up-to-date.  So we must verify that
@@ -790,7 +797,7 @@ config.status: configure version.c
 	  echo You must configure gcc.  Look at the INSTALL file for details.; \
 	  false; \
 	else \
-	  $(SHELL) config.status --recheck; \
+	  LANGUAGES="$(CONFIG_LANGUAGES)" $(SHELL) config.status --recheck; \
 	fi
 
 all.internal: start.encap rest.encap
@@ -1284,6 +1291,8 @@ c-pragma.o: c-pragma.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) except.h \
 c-iterate.o: c-iterate.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) c-tree.h \
     flags.h toplev.h $(EXPR_H)
 mbchar.o: mbchar.c $(CONFIG_H) system.h mbchar.h
+graph.o: graph.c $(CONFIG_H) system.h toplev.h flags.h output.h $(RTL_H) \
+    hard-reg-set.h basic-block.h
 
 collect2$(exeext): collect2.o tlink.o hash.o cplus-dem.o underscore.o \
 	version.o choose-temp.o mkstemp.o $(LIBDEPS)
@@ -1522,7 +1531,7 @@ final.o : final.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h $(REGS_H) \
 recog.o : recog.c $(CONFIG_H) system.h $(RTL_H)  \
    $(REGS_H) $(RECOG_H) hard-reg-set.h flags.h insn-config.h insn-attr.h \
    insn-flags.h insn-codes.h real.h toplev.h
-reg-stack.o : reg-stack.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) \
+reg-stack.o : reg-stack.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) recog.h \
    $(REGS_H) hard-reg-set.h flags.h insn-config.h insn-flags.h toplev.h
 dyn-string.o: dyn-string.c dyn-string.h $(CONFIG_H) system.h
 
@@ -1879,9 +1888,15 @@ cccp.o: cccp.c $(CONFIG_H) pcp.h version.c config.status system.h \
 LIBCPP_OBJS =	cpplib.o cpphash.o cppalloc.o cpperror.o cppexp.o cppfiles.o \
 		cppulp.o prefix.o version.o mbchar.o @extra_cpp_objs@
 
+# All the other archives built/used by this makefile are for targets.  This
+# one is strictly for the host.
+#
+# For various reasons AR, RANLIB, etc are all set to the target tools and
+# must not be used here.  Instead explicitly use the host versions.
+#
 libcpp.a: $(LIBCPP_OBJS)
-	$(AR) $(ARFLAGS) libcpp.a $(LIBCPP_OBJS)
-	if $(RANLIB_TEST) ; then $(RANLIB) libcpp.a ; else true ; fi
+	$(HOST_AR) $(HOST_AR_FLAGS) libcpp.a $(LIBCPP_OBJS)
+	if $(HOST_RANLIB_TEST) ; then $(HOST_RANLIB) libcpp.a ; else true ; fi
 
 cppmain$(exeext): cppmain.o libcpp.a $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o cppmain$(exeext) cppmain.o \
@@ -2366,12 +2381,12 @@ installdirs:
 	-if [ -d $(tooldir) ] ; then true ; else mkdir $(tooldir) ; chmod a+rx $(tooldir) ; fi
 	-if [ -d $(assertdir) ] ; then true ; else mkdir $(assertdir) ; chmod a+rx $(assertdir) ; fi
 	-if [ -d $(infodir) ] ; then true ; else mkdir $(infodir) ; chmod a+rx $(infodir) ; fi
-# We don't use mkdir -p to create the parents of mandir,
+# We don't use mkdir -p to create the parents of man1dir,
 # because some systems don't support it.
-# Instead, we use this technique to create the immediate parent of mandir.
-	-parent=`echo $(mandir)|sed -e 's@/[^/]*$$@@'`; \
+# Instead, we use this technique to create the immediate parent of man1dir.
+	-parent=`echo $(man1dir)|sed -e 's@/[^/]*$$@@'`; \
 	if [ -d $$parent ] ; then true ; else mkdir $$parent ; chmod a+rx $$parent ; fi
-	-if [ -d $(mandir) ] ; then true ; else mkdir $(mandir) ; chmod a+rx $(mandir) ; fi
+	-if [ -d $(man1dir) ] ; then true ; else mkdir $(man1dir) ; chmod a+rx $(man1dir) ; fi
 
 # Install the compiler executables built during cross compilation.
 install-common: native installdirs $(EXTRA_PARTS) lang.install-common
@@ -2467,17 +2482,17 @@ install-info: doc installdirs lang.install-info
 # Install the man pages.
 install-man: installdirs $(srcdir)/gcc.1 $(srcdir)/cccp.1 lang.install-man
 	-if [ -f gcc-cross$(exeext) ] ; then \
-	  rm -f $(mandir)/$(GCC_CROSS_NAME)$(manext); \
-	  $(INSTALL_DATA) $(srcdir)/gcc.1 $(mandir)/$(GCC_CROSS_NAME)$(manext); \
-	  chmod a-x $(mandir)/$(GCC_CROSS_NAME)$(manext); \
+	  rm -f $(man1dir)/$(GCC_CROSS_NAME)$(manext); \
+	  $(INSTALL_DATA) $(srcdir)/gcc.1 $(man1dir)/$(GCC_CROSS_NAME)$(manext); \
+	  chmod a-x $(man1dir)/$(GCC_CROSS_NAME)$(manext); \
 	else \
-	  rm -f $(mandir)/$(GCC_INSTALL_NAME)$(manext); \
-	  $(INSTALL_DATA) $(srcdir)/gcc.1 $(mandir)/$(GCC_INSTALL_NAME)$(manext); \
-	  chmod a-x $(mandir)/$(GCC_INSTALL_NAME)$(manext); \
+	  rm -f $(man1dir)/$(GCC_INSTALL_NAME)$(manext); \
+	  $(INSTALL_DATA) $(srcdir)/gcc.1 $(man1dir)/$(GCC_INSTALL_NAME)$(manext); \
+	  chmod a-x $(man1dir)/$(GCC_INSTALL_NAME)$(manext); \
 	fi
-	-rm -f $(mandir)/cccp$(manext)
-	-$(INSTALL_DATA) $(srcdir)/cccp.1 $(mandir)/cccp$(manext)
-	-chmod a-x $(mandir)/cccp$(manext)
+	-rm -f $(man1dir)/cccp$(manext)
+	-$(INSTALL_DATA) $(srcdir)/cccp.1 $(man1dir)/cccp$(manext)
+	-chmod a-x $(man1dir)/cccp$(manext)
 
 # Install the library.
 install-libgcc: libgcc.a installdirs
@@ -2575,11 +2590,11 @@ uninstall: lang.uninstall
 	-rm -rf $(bindir)/protoize$(exeext)
 	-rm -rf $(bindir)/unprotoize$(exeext)
 	-rm -rf $(bindir)/gcov$(exeext)
-	-rm -rf $(mandir)/$(GCC_INSTALL_NAME)$(manext)
-	-rm -rf $(mandir)/$(GCC_CROSS_NAME)$(manext)
-	-rm -rf $(mandir)/cccp$(manext)
-	-rm -rf $(mandir)/protoize$(manext)
-	-rm -rf $(mandir)/unprotoize$(manext)
+	-rm -rf $(man1dir)/$(GCC_INSTALL_NAME)$(manext)
+	-rm -rf $(man1dir)/$(GCC_CROSS_NAME)$(manext)
+	-rm -rf $(man1dir)/cccp$(manext)
+	-rm -rf $(man1dir)/protoize$(manext)
+	-rm -rf $(man1dir)/unprotoize$(manext)
 	-rm -f $(infodir)/cpp.info* $(infodir)/gcc.info*
 #
 # These targets are for the dejagnu testsuites. The file site.exp 

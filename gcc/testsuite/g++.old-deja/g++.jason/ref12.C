@@ -1,5 +1,1 @@
-void f (char *const &) { }
-main ()
-{
-  f ("hi");
-}
+int main ()

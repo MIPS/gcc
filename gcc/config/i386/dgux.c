@@ -29,6 +29,7 @@ struct option
   char *string;
   int *variable;
   int on_value;
+  char *description;
 };
 
 static int

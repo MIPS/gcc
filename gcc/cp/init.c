@@ -1,5 +1,5 @@
 /* Handle initialization things in C++.
-   Copyright (C) 1987, 89, 92-96, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1987, 89, 92-97, 1998 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -1138,14 +1138,13 @@ expand_default_init (binfo, true_exp, exp, init, flags)
       if (true_exp != exp)
 	abort ();
 
-      /* We special-case TARGET_EXPRs here to avoid an error about
-	 private copy constructors for temporaries bound to reference vars.
-	 If the TARGET_EXPR represents a call to a function that has
-	 permission to create such objects, a reference can bind directly
-	 to the return value.  An object variable must be initialized
-	 via the copy constructor, even if the call is elided.  */
-      if (! (TREE_CODE (exp) == VAR_DECL && DECL_ARTIFICIAL (exp)
-	     && TREE_CODE (init) == TARGET_EXPR && TREE_TYPE (init) == type))
+      if (flags & DIRECT_BIND)
+	/* Do nothing.  We hit this in two cases:  Reference initialization,
+	   where we aren't initializing a real variable, so we don't want
+	   to run a new constructor; and catching an exception, where we
+	   have already built up the constructor call so we could wrap it
+	   in an exception region.  */;
+      else
 	init = ocp_convert (type, init, CONV_IMPLICIT|CONV_FORCE_TEMP, flags);
 
       if (TREE_CODE (init) == TRY_CATCH_EXPR)
@@ -2798,6 +2797,8 @@ expand_vec_init (decl, base, maxindex, init, from_array)
       tree elts;
       tree baseref = build1 (INDIRECT_REF, type, base);
 
+      from_array = 0;
+
       for (elts = CONSTRUCTOR_ELTS (init); elts; elts = TREE_CHAIN (elts))
 	{
 	  tree elt = TREE_VALUE (elts);
@@ -2853,10 +2854,14 @@ expand_vec_init (decl, base, maxindex, init, from_array)
 
   /* Now, default-initialize any remaining elements.  We don't need to
      do that if a) the type does not need constructing, or b) we've
-     already initialized all the elements.  */
-  if (TYPE_NEEDS_CONSTRUCTING (type)
-      && !(TREE_CODE (maxindex) == INTEGER_CST
-	   && num_initialized_elts == TREE_INT_CST_LOW (maxindex) + 1))
+     already initialized all the elements.
+
+     We do need to keep going if we're copying an array.  */
+
+  if (from_array
+      || (TYPE_NEEDS_CONSTRUCTING (type)
+	  && !(TREE_CODE (maxindex) == INTEGER_CST
+	       && num_initialized_elts == TREE_INT_CST_LOW (maxindex) + 1)))
     {
       /* If the ITERATOR is equal to -1, then we don't have to loop;
 	 we've already initialized all the elements.  */

@@ -1,3 +1,25 @@
+Fri Nov 27 13:10:32 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* fini.c: Rename variable `spaces' to `xspaces' to avoid
+	conflicting with function `spaces' from libiberty.
+
+	* g77spec.c: Don't prototype libiberty functions.
+	* malloc.c: Likewise.
+
+1998-11-20  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.texi: Assorted minor changes.
+
+1998-11-19  Dave Love  <d.love@dl.ac.uk>
+
+	* bugs.texi: Formatting changes from Craig.
+
+	* intdoc.in: Terminate some @xrefs with `,'.
+
+1998-11-19  Manfred Hollstein  <manfred@s-direktnet.de>
+
+	* Make-lang.in (mandir): Replace all uses of $(mandir) by $(man1dir).
+
 Mon Nov  9 23:15:39 1998  Jeffrey A Law  (law@cygnus.com)
 
 	* g77.texi, news.texi: Updates from Craig.

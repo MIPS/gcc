@@ -1,5 +1,1 @@
-#include <typeinfo>
-
-main() {
-  typeid(bool);
-}
+int main() {

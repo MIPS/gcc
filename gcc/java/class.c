@@ -28,6 +28,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "tree.h"
 #include "rtl.h"
+#include "flags.h"
 #include "java-tree.h"
 #include "jcf.h"
 #include "obstack.h"
@@ -138,7 +139,10 @@ tree
 unmangle_classname (name, name_length)
      const char *name;  int name_length;
 {
-  return ident_subst (name, name_length, "", '/', '.', "");
+  tree to_return = ident_subst (name, name_length, "", '/', '.', "");
+  if (to_return != get_identifier ((char *)name))
+    QUALIFIED_P (to_return) = 1;
+  return to_return;
 }
 
 tree
@@ -991,7 +995,11 @@ make_class_data (type)
   for (method = TYPE_METHODS (CLASS_TO_HANDLE_TYPE (type));
        method != NULL_TREE; method = TREE_CHAIN (method))
     {
-      tree init = make_method_value (method, this_class_addr);
+      tree init;
+      if (METHOD_PRIVATE (method)
+	  && (flag_inline_functions || optimize))
+	continue;
+      init = make_method_value (method, this_class_addr);
       method_count++;
       methods = tree_cons (NULL_TREE, init, methods);
     }
@@ -1080,8 +1088,13 @@ make_class_data (type)
   START_RECORD_CONSTRUCTOR (cons, class_type_node);
   PUSH_SUPER_VALUE (cons, temp);
   PUSH_FIELD_VALUE (cons, "next", null_pointer_node);
+#if 0
+  /* Need to fix _Jv_FindClassFromSignature. */
+  PUSH_FIELD_VALUE (cons, "name", build_utf8_ref (DECL_NAME (type_decl)));
+#else
   PUSH_FIELD_VALUE (cons, "name",
 		    build_utf8_ref (build_internal_class_name (type)));
+#endif
   PUSH_FIELD_VALUE (cons, "accflags",
 		    build_int_2 (get_access_flags_from_decl (type_decl), 0));
 
@@ -1098,7 +1111,6 @@ make_class_data (type)
   PUSH_FIELD_VALUE (cons, "field_count", build_int_2 (field_count, 0));
   PUSH_FIELD_VALUE (cons, "static_field_count",
 		    build_int_2 (static_field_count, 0));
-  /* For now, we let Kaffe fill in the dtable.  */
   PUSH_FIELD_VALUE (cons, "dtable",
 		    dtable_decl == NULL_TREE ? null_pointer_node
 		    : build1 (ADDR_EXPR, dtable_ptr_type, dtable_decl));
@@ -1113,6 +1125,35 @@ make_class_data (type)
 
   DECL_INITIAL (decl) = cons;
   rest_of_decl_compilation (decl, (char*) 0, 1, 0);
+}
+
+void
+finish_class (cl)
+     tree cl;
+{
+  tree method;
+
+  /* Emit deferred inline methods. */
+  for ( method = TYPE_METHODS (CLASS_TO_HANDLE_TYPE (current_class));
+	method != NULL_TREE; method = TREE_CHAIN (method))
+    {
+      if (! TREE_ASM_WRITTEN (method) && DECL_SAVED_INSNS (method) != 0)
+	{
+	  /* It's a deferred inline method.  Decide if we need to emit it. */
+	  if (flag_keep_inline_functions
+	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (method))
+	      || ! METHOD_PRIVATE (method))
+	    {
+	      temporary_allocation ();
+	      output_inline_function (method);
+	      permanent_allocation (1);
+	    }
+	}
+    }
+
+  make_class_data (current_class);
+  register_class ();
+  rest_of_decl_compilation (TYPE_NAME (current_class), (char*) 0, 1, 0);
 }
 
 /* Return 2 if CLASS is compiled by this compilation job;
@@ -1320,38 +1361,54 @@ push_super_field (this_class, super_class)
   DECL_SIZE (base_decl) = TYPE_SIZE (super_class);
 }
 
+/* Handle the different manners we may have to lay out a super class.  */
+
+static tree
+maybe_layout_super_class (super_class)
+     tree super_class;
+{
+  if (TREE_CODE (super_class) == RECORD_TYPE)
+    {
+      if (!CLASS_LOADED_P (super_class) 
+	  && CLASS_FROM_SOURCE_P (super_class))
+	safe_layout_class (super_class);
+      if (!CLASS_LOADED_P (super_class))
+	load_class (super_class, 1);
+    }
+  /* We might have to layout the class before its dependency on
+     the super class gets resolved by java_complete_class  */
+  else if (TREE_CODE (super_class) == TREE_LIST)
+    {
+      tree name = TYPE_NAME (TREE_PURPOSE (super_class));
+      load_class (name, 1);
+      super_class = IDENTIFIER_CLASS_VALUE (name);
+      if (!super_class)
+	    return;
+      super_class = TREE_TYPE (super_class);
+    }
+  if (!TYPE_SIZE (super_class))
+    safe_layout_class (super_class);
+
+  return super_class;
+}
+
 void
 layout_class (this_class)
      tree this_class;
 {
   tree super_class = CLASSTYPE_SUPER (this_class);
-  tree handle_type = CLASS_TO_HANDLE_TYPE (this_class);
-  tree method_decl, field;
-  tree dtable_count;
-  int i;
+  tree field;
 
   if (super_class)
     {
-      /* Class seen in source are now complete and can be layed out.
-	 Once layed out, a class seen in the source has its
-	 CLASS_LOADED_P flag set */
-      if (CLASS_FROM_SOURCE_P (super_class) && !CLASS_LOADED_P (super_class))
-	safe_layout_class (super_class);
-      if (! CLASS_LOADED_P (super_class))
-	load_class (super_class, 1);
+      super_class = maybe_layout_super_class (super_class);
       if (TREE_CODE (TYPE_SIZE (super_class)) == ERROR_MARK)
 	{
 	  TYPE_SIZE (this_class) = error_mark_node;
 	  return;
 	}
-      dtable_count = TYPE_NVIRTUALS (super_class);
-
       if (TYPE_SIZE (this_class) == NULL_TREE)
 	push_super_field (this_class, super_class);
-    }
-  else
-    {
-      dtable_count = integer_zero_node;
     }
 
   for (field = TYPE_FIELDS (this_class);
@@ -1365,171 +1422,198 @@ layout_class (this_class)
     }
 
   layout_type (this_class);
+}
 
+void
+layout_class_methods (this_class)
+     tree this_class;
+{
+  tree method_decl, dtable_count;
+  tree super_class, handle_type;
+
+  if (TYPE_NVIRTUALS (this_class))
+    return;
+
+  push_obstacks (&permanent_obstack, &permanent_obstack);
+  super_class = CLASSTYPE_SUPER (this_class);
+  handle_type = CLASS_TO_HANDLE_TYPE (this_class);
+
+  if (super_class)
+    {
+      super_class = maybe_layout_super_class (super_class);
+      if (!TYPE_NVIRTUALS (super_class))
+	layout_class_methods (super_class);
+      dtable_count = TYPE_NVIRTUALS (super_class);
+    }
+  else
+    dtable_count = integer_zero_node;
+  
   TYPE_METHODS (handle_type) = nreverse (TYPE_METHODS (handle_type));
 
-  for (method_decl = TYPE_METHODS (handle_type), i = 0;
-       method_decl; method_decl = TREE_CHAIN (method_decl), i++)
-    {
-      char *ptr;
-      char buf[8];
-      char *asm_name;
-      tree method_name = DECL_NAME (method_decl);
-#if 1
-      /* Remove this once we no longer need old (Kaffe / JDK 1.0)  mangling. */
-      if (! flag_assume_compiled && METHOD_NATIVE (method_decl))
-	{
-	  for (ptr = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (this_class)));
-	       *ptr; )
-	    {
-	      int ch = *ptr++;
-	      if (ch == '.')
-		ch = '_';
-	      obstack_1grow (&temporary_obstack, (char) ch);
-	    }
-	  obstack_1grow (&temporary_obstack, (char) '_');
-	  if (method_name == init_identifier_node)
-	    obstack_grow (&temporary_obstack, "INIT", 4);
-	  else
-	    obstack_grow (&temporary_obstack,
-			  IDENTIFIER_POINTER (method_name),
-			  IDENTIFIER_LENGTH (method_name));
-	}
-      else
-#endif
-	{
-	  int len;  tree arg, arglist, t;
-	  int method_name_needs_escapes = 0;
-	  if (method_name != init_identifier_node 
-	      && method_name != finit_identifier_node)
-	    {
-	      int encoded_len
-		= unicode_mangling_length (IDENTIFIER_POINTER (method_name), 
-					   IDENTIFIER_LENGTH (method_name));
-	      if (encoded_len > 0)
-		{
-		  method_name_needs_escapes = 1;
-		  emit_unicode_mangled_name (&temporary_obstack,
-					     IDENTIFIER_POINTER (method_name), 
-					     IDENTIFIER_LENGTH (method_name));
-		}
-	      else
-		{
-		  obstack_grow (&temporary_obstack,
-				IDENTIFIER_POINTER (method_name),
-				IDENTIFIER_LENGTH (method_name));
-		}
-	    }
+  for (method_decl = TYPE_METHODS (handle_type);
+       method_decl; method_decl = TREE_CHAIN (method_decl))
+    dtable_count = layout_class_method (this_class, super_class, 
+					method_decl, dtable_count);
 
-	  obstack_grow (&temporary_obstack, "__", 2);
-	  if (method_name == finit_identifier_node)
-	    obstack_grow (&temporary_obstack, "finit", 5);
-	  append_gpp_mangled_type (&temporary_obstack, this_class);
-	  TREE_PUBLIC (method_decl) = 1;
-
-	  t = TREE_TYPE (method_decl);
-	  arglist = TYPE_ARG_TYPES (t);
-	  if (TREE_CODE (t) == METHOD_TYPE)
-	    arglist = TREE_CHAIN (arglist);
-	  for (arg = arglist; arg != NULL_TREE;  )
-	    {
-	      tree a = arglist;
-	      tree argtype = TREE_VALUE (arg);
-	      int tindex = 1;
-	      if (TREE_CODE (argtype) == POINTER_TYPE)
-		{
-		  /* This is O(N**2).  Do we care?  Cfr gcc/cp/method.c. */
-		  while (a != arg && argtype != TREE_VALUE (a))
-		    a = TREE_CHAIN (a), tindex++;
-		}
-	      else
-		a = arg;
-	      if (a != arg)
-		{
-		  char buf[12];
-		  int nrepeats = 0;
-		  do
-		    {
-		      arg = TREE_CHAIN (arg); nrepeats++;
-		    }
-		  while (arg != NULL_TREE && argtype == TREE_VALUE (arg));
-		  if (nrepeats > 1)
-		    {
-		      obstack_1grow (&temporary_obstack, 'N');
-		      sprintf (buf, "%d", nrepeats);
-		      obstack_grow (&temporary_obstack, buf, strlen (buf));
-		      if (nrepeats > 9)
-			obstack_1grow (&temporary_obstack, '_');
-		    }
-		  else
-		    obstack_1grow (&temporary_obstack, 'T');
-		  sprintf (buf, "%d", tindex);
-		  obstack_grow (&temporary_obstack, buf, strlen (buf));
-		  if (tindex > 9)
-		    obstack_1grow (&temporary_obstack, '_');
-		}
-	      else
-		{
-		  append_gpp_mangled_type (&temporary_obstack, argtype);
-		  arg = TREE_CHAIN (arg);
-		}
-	    }
-	  if (method_name_needs_escapes)
-	    obstack_1grow (&temporary_obstack, 'U');
-	}
-      obstack_1grow (&temporary_obstack, '\0');
-      asm_name = obstack_finish (&temporary_obstack);
-      DECL_ASSEMBLER_NAME (method_decl) = get_identifier (asm_name);
-      if (! METHOD_ABSTRACT (method_decl))
-	make_function_rtl (method_decl);
-      obstack_free (&temporary_obstack, asm_name);
-
-      if (method_name == init_identifier_node)
-	{
-	  char *p = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (this_class)));
-	  for (ptr = p; *ptr; )
-	    {
-	      if (*ptr++ == '.')
-		p = ptr;
-	    }
-	  DECL_NAME (method_decl) = get_identifier (p);
-	  DECL_CONSTRUCTOR_P (method_decl) = 1;
-	}
-      else if (! METHOD_STATIC (method_decl) && !DECL_ARTIFICIAL (method_decl))
-	{
-	  tree method_sig = build_java_argument_signature (TREE_TYPE (method_decl));
-	  tree super_method = lookup_argument_method (super_class, method_name,
-						  method_sig);
-	  if (super_method != NULL_TREE)
-	    {
-	      DECL_VINDEX (method_decl) = DECL_VINDEX (super_method);
-	      if (DECL_VINDEX (method_decl) == NULL_TREE)
-		error_with_decl (method_decl,
-			 "non-static method '%s' overrides static method");
-#if 0
-	      else if (TREE_TYPE (TREE_TYPE (method_decl))
-		       != TREE_TYPE (TREE_TYPE (super_method)))
-		{
-		  error_with_decl (method_decl,
-				 "Method `%s' redefined with different return type");  
-		  error_with_decl (super_method,
-				 "Overridden decl is here");
-		}
-#endif
-	    }
-	  else if (! METHOD_FINAL (method_decl)
-		   && ! CLASS_FINAL (TYPE_NAME (this_class)))
-	    {
-	      DECL_VINDEX (method_decl) = dtable_count;
-	      dtable_count = build_int_2 (1+TREE_INT_CST_LOW (dtable_count), 0);
-	    }
-	}
-    }
   TYPE_NVIRTUALS (this_class) = dtable_count;
 
 #ifdef JAVA_USE_HANDLES
   layout_type (handle_type);
 #endif
+  pop_obstacks ();
+}
+
+/* Lay METHOD_DECL out, returning a possibly new value of
+   DTABLE_COUNT.  */
+
+tree
+layout_class_method (this_class, super_class, method_decl, dtable_count)
+     tree this_class, super_class, method_decl, dtable_count;
+{
+  char *ptr;
+  char buf[8];
+  char *asm_name;
+  tree arg, arglist, t;
+  int method_name_needs_escapes = 0;
+  tree method_name = DECL_NAME (method_decl);
+  int method_name_is_wfl = 
+    (TREE_CODE (method_name) == EXPR_WITH_FILE_LOCATION);
+  if (method_name_is_wfl)
+    method_name = java_get_real_method_name (method_decl);
+
+  if (method_name != init_identifier_node 
+      && method_name != finit_identifier_node)
+    {
+      int encoded_len
+	= unicode_mangling_length (IDENTIFIER_POINTER (method_name), 
+				   IDENTIFIER_LENGTH (method_name));
+      if (encoded_len > 0)
+	{
+	  method_name_needs_escapes = 1;
+	  emit_unicode_mangled_name (&temporary_obstack,
+				     IDENTIFIER_POINTER (method_name), 
+				     IDENTIFIER_LENGTH (method_name));
+	}
+      else
+	{
+	  obstack_grow (&temporary_obstack,
+			IDENTIFIER_POINTER (method_name),
+			IDENTIFIER_LENGTH (method_name));
+	}
+    }
+      
+  obstack_grow (&temporary_obstack, "__", 2);
+  if (method_name == finit_identifier_node)
+    obstack_grow (&temporary_obstack, "finit", 5);
+  append_gpp_mangled_type (&temporary_obstack, this_class);
+  TREE_PUBLIC (method_decl) = 1;
+
+  t = TREE_TYPE (method_decl);
+  arglist = TYPE_ARG_TYPES (t);
+  if (TREE_CODE (t) == METHOD_TYPE)
+    arglist = TREE_CHAIN (arglist);
+  for (arg = arglist; arg != end_params_node;  )
+    {
+      tree a = arglist;
+      tree argtype = TREE_VALUE (arg);
+      int tindex = 1;
+      if (TREE_CODE (argtype) == POINTER_TYPE)
+	{
+	  /* This is O(N**2).  Do we care?  Cfr gcc/cp/method.c. */
+	  while (a != arg && argtype != TREE_VALUE (a))
+	    a = TREE_CHAIN (a), tindex++;
+	}
+      else
+	a = arg;
+      if (a != arg)
+	{
+	  char buf[12];
+	  int nrepeats = 0;
+	  do
+	    {
+	      arg = TREE_CHAIN (arg); nrepeats++;
+	    }
+	  while (arg != end_params_node && argtype == TREE_VALUE (arg));
+	  if (nrepeats > 1)
+	    {
+	      obstack_1grow (&temporary_obstack, 'N');
+	      sprintf (buf, "%d", nrepeats);
+	      obstack_grow (&temporary_obstack, buf, strlen (buf));
+	      if (nrepeats > 9)
+		obstack_1grow (&temporary_obstack, '_');
+	    }
+	  else
+	    obstack_1grow (&temporary_obstack, 'T');
+	  sprintf (buf, "%d", tindex);
+	  obstack_grow (&temporary_obstack, buf, strlen (buf));
+	  if (tindex > 9)
+	    obstack_1grow (&temporary_obstack, '_');
+	}
+      else
+	{
+	  append_gpp_mangled_type (&temporary_obstack, argtype);
+	  arg = TREE_CHAIN (arg);
+	}
+    }
+  if (method_name_needs_escapes)
+    obstack_1grow (&temporary_obstack, 'U');
+
+  obstack_1grow (&temporary_obstack, '\0');
+  asm_name = obstack_finish (&temporary_obstack);
+  DECL_ASSEMBLER_NAME (method_decl) = get_identifier (asm_name);
+  if (! METHOD_ABSTRACT (method_decl))
+    make_function_rtl (method_decl);
+  obstack_free (&temporary_obstack, asm_name);
+  
+  if (method_name == init_identifier_node)
+    {
+      char *p = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (this_class)));
+      for (ptr = p; *ptr; )
+	{
+	  if (*ptr++ == '.')
+	    p = ptr;
+	}
+      if (method_name_is_wfl)
+	EXPR_WFL_NODE (DECL_NAME (method_decl)) = get_identifier (p);
+      else
+	DECL_NAME (method_decl) = get_identifier (p);
+      DECL_CONSTRUCTOR_P (method_decl) = 1;
+      build_java_argument_signature (TREE_TYPE (method_decl));
+    }
+  else if (! METHOD_STATIC (method_decl) && !DECL_ARTIFICIAL (method_decl))
+    {
+      tree method_sig = 
+	build_java_argument_signature (TREE_TYPE (method_decl));
+      tree super_method = lookup_argument_method (super_class, method_name,
+						  method_sig);
+      if (super_method != NULL_TREE)
+	{
+	  DECL_VINDEX (method_decl) = DECL_VINDEX (super_method);
+	  if (DECL_VINDEX (method_decl) == NULL_TREE &&
+	      ! TREE_PRIVATE (method_decl))
+	    error_with_decl (method_decl,
+			     "non-static method '%s' overrides static method");
+#if 0
+	  else if (TREE_TYPE (TREE_TYPE (method_decl))
+		   != TREE_TYPE (TREE_TYPE (super_method)))
+	    {
+	      error_with_decl (method_decl,
+			       "Method `%s' redefined with different return type");  
+	      error_with_decl (super_method,
+			       "Overridden decl is here");
+	    }
+#endif
+	}
+      else if (! METHOD_FINAL (method_decl)
+	       && ! METHOD_PRIVATE (method_decl)
+	       && ! CLASS_FINAL (TYPE_NAME (this_class))
+	       && dtable_count)
+	{
+	  DECL_VINDEX (method_decl) = dtable_count;
+	  dtable_count = build_int_2 (1+TREE_INT_CST_LOW (dtable_count), 0);
+	}
+    }
+  return dtable_count;
 }
 
 static tree registered_class = NULL_TREE;
@@ -1560,7 +1644,7 @@ emit_register_classes ()
 
   extern tree get_file_function_name PROTO((int));
   tree init_name = get_file_function_name ('I');
-  tree init_type = build_function_type (void_type_node, NULL_TREE);
+  tree init_type = build_function_type (void_type_node, end_params_node);
   tree init_decl;
   tree t;
 
@@ -1585,7 +1669,6 @@ emit_register_classes ()
   poplevel (1, 0, 1);
   { 
     /* Force generation, even with -O3 or deeper. Gross hack. FIXME */
-    extern int flag_inline_functions;
     int saved_flag = flag_inline_functions;
     flag_inline_functions = 0;	
     rest_of_compilation (init_decl);

@@ -509,11 +509,6 @@ int current_function_returns_null;
 
 tree current_function_return_value;
 
-/* Set to nonzero by `grokdeclarator' for a function
-   whose return type is defaulted, if warnings for this are desired.  */
-
-static int warn_about_return_type;
-
 /* Nonzero means give `double' the same size as `float'.  */
 
 extern int flag_short_double;
@@ -1043,12 +1038,6 @@ pushlevel_temporary (tag_transparent)
    and create a "block" (a BLOCK node) for the level
    to record its declarations and subblocks for symbol table output.
 
-   If KEEP == 2, this level's subblocks go to the front,
-   not the back of the current binding level.  This happens,
-   for instance, when code for constructors and destructors
-   need to generate code at the end of a function which must
-   be moved up to the front of the function.
-
    If FUNCTIONBODY is nonzero, this level is the body of a function,
    so create a block as if KEEP were set and also clear out all
    label names.
@@ -1074,6 +1063,11 @@ poplevel (keep, reverse, functionbody)
   tree block = NULL_TREE;
   tree decl;
   int block_previously_created;
+
+  /* We used to use KEEP == 2 to indicate that the new block should go
+     at the beginning of the list of blocks at this binding level,
+     rather than the end.  This hack is no longer used.  */
+  my_friendly_assert (keep == 0 || keep == 1, 0);
 
   GNU_xref_end_scope ((HOST_WIDE_INT) current_binding_level,
 		      (HOST_WIDE_INT) current_binding_level->level_chain,
@@ -1325,14 +1319,8 @@ poplevel (keep, reverse, functionbody)
      must be carried forward so they will later become subblocks
      of something else.  */
   else if (subblocks)
-    {
-      if (keep == 2)
-	current_binding_level->blocks
-	  = chainon (subblocks, current_binding_level->blocks);
-      else
-	current_binding_level->blocks
-	  = chainon (current_binding_level->blocks, subblocks);
-    }
+    current_binding_level->blocks
+      = chainon (current_binding_level->blocks, subblocks);
 
   /* Take care of compiler's internal binding structures.  */
   if (tmp == 2)
@@ -3464,6 +3452,8 @@ pushdecl (x)
 	    }
 	}
 
+      check_template_shadow (x);
+
       if (TREE_CODE (x) == FUNCTION_DECL && ! DECL_FUNCTION_MEMBER_P (x))
 	{
 	  t = push_overloaded_decl (x, 1);
@@ -3683,16 +3673,6 @@ pushdecl (x)
 	      if (warnstring)
 		warning (warnstring, IDENTIFIER_POINTER (name));
 	    }
-	  /* Check to see if decl redeclares a template parameter. */
- 	  if (oldlocal && (current_class_type || current_function_decl) 
- 	      && current_template_parms)
- 	    {
- 	      if (decl_template_parm_p (oldlocal))
- 		{
-		  cp_error ("re-using name of template parameter `%T' in this scope", name);
- 		  cp_error_at (" previously declared here `%#D'", oldlocal);
- 		}
- 	    }
 	}
 
       if (TREE_CODE (x) == FUNCTION_DECL)
@@ -3828,7 +3808,6 @@ pushdecl_class_level (x)
 	     Types, enums, and static vars are checked here; other
 	     members are checked in finish_struct.  */
 	  tree icv = IDENTIFIER_CLASS_VALUE (name);
-	  tree ilv = IDENTIFIER_LOCAL_VALUE (name);
 
 	  if (icv && icv != x
 	      && flag_optional_diags
@@ -3843,17 +3822,7 @@ pushdecl_class_level (x)
 			     icv);
 	    }
 
-	  /* Check to see if decl redeclares a template parameter. */
-	  if (ilv && ! decls_match (ilv, x)
-	      && (current_class_type || current_function_decl) 
-	      && current_template_parms)
-	    {
-	      if (decl_template_parm_p (ilv))
-		{
-		  cp_error ("re-using name of template parameter `%T' in this scope", name);
-		  cp_error_at (" previously declared here `%#D'", ilv);
-		}
-	    }
+	  check_template_shadow (x);
 	}
 
       push_class_level_binding (name, x);
@@ -5782,7 +5751,7 @@ init_decl_processing ()
   pushdecl (build_decl (TYPE_DECL, NULL_TREE, intDI_type_node));
 #if HOST_BITS_PER_WIDE_INT >= 64
   intTI_type_node = make_signed_type (GET_MODE_BITSIZE (TImode));
-  pushdecl (build_decl (TYPE_DECL, NULL_TREE, intTI_type_node));
+  pushdecl (build_decl (TYPE_DECL, get_identifier ("__int128_t"), intTI_type_node));
 #endif
   unsigned_intQI_type_node = make_unsigned_type (GET_MODE_BITSIZE (QImode));
   pushdecl (build_decl (TYPE_DECL, NULL_TREE, unsigned_intQI_type_node));
@@ -5794,7 +5763,7 @@ init_decl_processing ()
   pushdecl (build_decl (TYPE_DECL, NULL_TREE, unsigned_intDI_type_node));
 #if HOST_BITS_PER_WIDE_INT >= 64
   unsigned_intTI_type_node = make_unsigned_type (GET_MODE_BITSIZE (TImode));
-  pushdecl (build_decl (TYPE_DECL, NULL_TREE, unsigned_intTI_type_node));
+  pushdecl (build_decl (TYPE_DECL, get_identifier ("__uint128_t"), unsigned_intTI_type_node));
 #endif
 
   float_type_node = make_node (REAL_TYPE);
@@ -6464,6 +6433,79 @@ fixup_anonymous_union (t)
     error ("an anonymous union cannot have function members");
 }
 
+/* Make sure that a declaration with no declarator is well-formed, i.e.
+   just defines a tagged type or anonymous union.
+
+   Returns the type defined, if any.  */
+
+tree
+check_tag_decl (declspecs)
+     tree declspecs;
+{
+  int found_type = 0;
+  tree ob_modifier = NULL_TREE;
+  register tree link;
+  register tree t = NULL_TREE;
+
+  for (link = declspecs; link; link = TREE_CHAIN (link))
+    {
+      register tree value = TREE_VALUE (link);
+
+      if (TYPE_P (value))
+	{
+	  ++found_type;
+
+	  if (IS_AGGR_TYPE (value) || TREE_CODE (value) == ENUMERAL_TYPE)
+	    {
+	      my_friendly_assert (TYPE_MAIN_DECL (value) != NULL_TREE, 261);
+	      t = value;
+	    }
+	}
+      else if (value == ridpointers[(int) RID_FRIEND])
+	{
+	  if (current_class_type == NULL_TREE
+	      || current_scope () != current_class_type)
+	    ob_modifier = value;
+	}
+      else if (value == ridpointers[(int) RID_STATIC]
+	       || value == ridpointers[(int) RID_EXTERN]
+	       || value == ridpointers[(int) RID_AUTO]
+	       || value == ridpointers[(int) RID_REGISTER]
+	       || value == ridpointers[(int) RID_INLINE]
+	       || value == ridpointers[(int) RID_VIRTUAL]
+	       || value == ridpointers[(int) RID_CONST]
+	       || value == ridpointers[(int) RID_VOLATILE]
+	       || value == ridpointers[(int) RID_EXPLICIT])
+	ob_modifier = value;
+    }
+
+  if (found_type > 1)
+    error ("multiple types in one declaration");
+
+  /* Inside a class, we might be in a friend or access declaration.
+     Until we have a good way of detecting the latter, don't warn.  */
+  if (t == NULL_TREE && ! current_class_type)
+    pedwarn ("declaration does not declare anything");
+  else if (t && ANON_UNION_TYPE_P (t))
+    /* Anonymous unions are objects, so they can have specifiers.  */;
+  else if (ob_modifier)
+    {
+      if (ob_modifier == ridpointers[(int) RID_INLINE]
+	  || ob_modifier == ridpointers[(int) RID_VIRTUAL])
+	cp_error ("`%D' can only be specified for functions", ob_modifier);
+      else if (ob_modifier == ridpointers[(int) RID_FRIEND])
+	cp_error ("`%D' can only be specified inside a class", ob_modifier);
+      else if (ob_modifier == ridpointers[(int) RID_EXPLICIT])
+	cp_error ("`%D' can only be specified for constructors",
+		  ob_modifier);
+      else
+	cp_error ("`%D' can only be specified for objects and functions",
+		  ob_modifier);
+    }
+
+  return t;
+}
+
 /* Called when a declaration is seen that contains no names to declare.
    If its type is a reference to a structure, union or enum inherited
    from a containing scope, shadow that tag name for the current scope
@@ -6479,48 +6521,17 @@ void
 shadow_tag (declspecs)
      tree declspecs;
 {
-  int found_tag = 0;
-  tree ob_modifier = NULL_TREE;
-  register tree link;
-  register enum tree_code code, ok_code = ERROR_MARK;
-  register tree t = NULL_TREE;
+  tree t = check_tag_decl (declspecs);
 
-  for (link = declspecs; link; link = TREE_CHAIN (link))
-    {
-      register tree value = TREE_VALUE (link);
-
-      code = TREE_CODE (value);
-      if (IS_AGGR_TYPE_CODE (code) || code == ENUMERAL_TYPE)
-	{
-	  my_friendly_assert (TYPE_MAIN_DECL (value) != NULL_TREE, 261);
-
-	  maybe_process_partial_specialization (value);
-
-	  t = value;
-	  ok_code = code;
-	  found_tag++;
-	}
-      else if (value == ridpointers[(int) RID_STATIC]
-	       || value == ridpointers[(int) RID_EXTERN]
-	       || value == ridpointers[(int) RID_AUTO]
-	       || value == ridpointers[(int) RID_REGISTER]
-	       || value == ridpointers[(int) RID_INLINE]
-	       || value == ridpointers[(int) RID_VIRTUAL]
-	       || value == ridpointers[(int) RID_EXPLICIT])
-	ob_modifier = value;
-    }
+  if (t)
+    maybe_process_partial_specialization (t);
 
   /* This is where the variables in an anonymous union are
      declared.  An anonymous union declaration looks like:
      union { ... } ;
      because there is no declarator after the union, the parser
      sends that declaration here.  */
-  if (ok_code == UNION_TYPE
-      && t != NULL_TREE
-      && ((TREE_CODE (TYPE_NAME (t)) == IDENTIFIER_NODE
-	   && ANON_AGGRNAME_P (TYPE_NAME (t)))
-	  || (TREE_CODE (TYPE_NAME (t)) == TYPE_DECL
-	      && ANON_AGGRNAME_P (TYPE_IDENTIFIER (t)))))
+  if (t && ANON_UNION_TYPE_P (t))
     {
       fixup_anonymous_union (t);
 
@@ -6530,29 +6541,6 @@ shadow_tag (declspecs)
 				      NULL_TREE);
 	  finish_anon_union (decl);
 	}
-    }
-  else
-    {
-      /* Anonymous unions are objects, that's why we only check for
-	 inappropriate specifiers in this branch.  */
-
-      if (ob_modifier)
-	{
-	  if (ob_modifier == ridpointers[(int) RID_INLINE]
-	      || ob_modifier == ridpointers[(int) RID_VIRTUAL])
-	    cp_error ("`%D' can only be specified for functions", ob_modifier);
-	  else if (ob_modifier == ridpointers[(int) RID_EXPLICIT])
-	    cp_error ("`%D' can only be specified for constructors",
-		      ob_modifier);
-	  else
-	    cp_error ("`%D' can only be specified for objects and functions",
-		      ob_modifier);
-	}
-
-      if (found_tag == 0)
-	cp_error ("abstract declarator used as declaration");
-      else if (found_tag > 1)
-	pedwarn ("multiple types in one declaration");
     }
 }
 
@@ -6760,7 +6748,17 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
       DECL_IN_AGGR_P (decl) = 0;
       if ((DECL_LANG_SPECIFIC (decl) && DECL_USE_TEMPLATE (decl)) 
 	  || CLASSTYPE_USE_TEMPLATE (context))
-	SET_DECL_TEMPLATE_SPECIALIZATION (decl);
+	{
+	  SET_DECL_TEMPLATE_SPECIALIZATION (decl);
+	  /* [temp.expl.spec] An explicit specialization of a static data
+	     member of a template is a definition if the declaration
+	     includes an initializer; otherwise, it is a declaration.
+
+	     We check for processing_specialization so this only applies
+	     to the new specialization syntax.  */
+	  if (DECL_INITIAL (decl) == NULL_TREE && processing_specialization)
+	    DECL_EXTERNAL (decl) = 1;
+	}
 
       if (DECL_EXTERNAL (decl) && ! DECL_TEMPLATE_SPECIALIZATION (decl))
 	cp_pedwarn ("declaration of `%#D' outside of class is not definition",
@@ -7852,14 +7850,39 @@ expand_static_init (decl, init)
       /* Remember this information until end of file.  */
       push_obstacks (&permanent_obstack, &permanent_obstack);
 
-      /* Emit code to perform this initialization but once.  */
+      /* Emit code to perform this initialization but once.  This code
+	 looks like:
+
+           static int temp = 0;
+           if (!temp) {
+             // Do initialization.
+	     temp = 1;
+	     // Register variable for destruction at end of program.
+	   }
+
+	 Note that the `temp' variable is only set to 1 *after* the
+	 initialization is complete.  This ensures that an exception,
+	 thrown during the construction, will cause the variable to
+	 reinitialized when we pass through this code again, as per:
+	 
+	   [stmt.dcl]
+
+	   If the initialization exits by throwing an exception, the
+	   initialization is not complete, so it will be tried again
+	   the next time control enters the declaration.
+
+         In theory, this process should be thread-safe, too; multiple
+	 threads should not be able to initialize the variable more
+	 than once.  We don't yet attempt to ensure thread-safety.  */
       temp = get_temp_name (integer_type_node, 1);
       rest_of_decl_compilation (temp, NULL_PTR, 0, 0);
+
+      /* Begin the conditional initialization.  */
       expand_start_cond (build_binary_op (EQ_EXPR, temp,
 					  integer_zero_node, 1), 0);
       expand_start_target_temps ();
 
-      expand_assignment (temp, integer_one_node, 0, 0);
+      /* Do the initialization itself.  */
       if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl))
 	  || (init && TREE_CODE (init) == TREE_LIST))
 	{
@@ -7869,9 +7892,17 @@ expand_static_init (decl, init)
       else if (init)
 	expand_assignment (decl, init, 0, 0);
 
-      /* Cleanup any temporaries needed for the initial value.  */
+      /* Set TEMP to 1.  */
+      expand_assignment (temp, integer_one_node, 0, 0);
+
+      /* Cleanup any temporaries needed for the initial value.  If
+	 destroying one of the temporaries causes an exception to be
+	 thrown, then the object itself has still been fully
+	 constructed.  */
       expand_end_target_temps ();
 
+      /* Use atexit to register a function for destroying this static
+	 variable.  */
       if (TYPE_NEEDS_DESTRUCTOR (TREE_TYPE (decl)))
 	{
 	  tree cleanup, fcall;
@@ -9124,24 +9155,16 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	}
       else
 	{
-	  if (funcdef_flag)
-	    {
-	      if (warn_return_type
-		  && return_type == return_normal)
-		/* Save warning until we know what is really going on.  */
-		warn_about_return_type = 1;
-	    }
-	  else if (RIDBIT_SETP (RID_TYPEDEF, specbits))
-	    pedwarn ("ANSI C++ forbids typedef which does not specify a type");
-	  else if (innermost_code != CALL_EXPR || pedantic
-		   || (warn_return_type && return_type == return_normal))
-	    {
-	      if (innermost_code == CALL_EXPR)
-		cp_pedwarn ("return-type of `%D' defaults to `int'", dname);
-	      else
-		cp_pedwarn ("ANSI C++ forbids declaration `%D' with no type",
-			    dname);
-	    }
+	  if (! pedantic && ! warn_return_type
+	      && funcdef_flag
+	      && MAIN_NAME_P (dname)
+	      && ctype == NULL_TREE
+	      && in_namespace == NULL_TREE
+	      && current_namespace == global_namespace)
+	    /* Let `main () { }' slide, since it's so common.  */;
+	  else
+	    cp_pedwarn ("ANSI C++ forbids declaration `%D' with no type",
+			dname);
 	  type = integer_type_node;
 	}
     }
@@ -9692,7 +9715,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		  }
 
 		if (TREE_CODE (TREE_TYPE (size)) != INTEGER_TYPE
-		    && TREE_CODE (TREE_TYPE (size)) != ENUMERAL_TYPE)
+		    && TREE_CODE (TREE_TYPE (size)) != ENUMERAL_TYPE
+		    && TREE_CODE (TREE_TYPE (size)) != BOOLEAN_TYPE)
 		  {
 		    cp_error ("size of array `%D' has non-integer type",
 			      dname);
@@ -10305,7 +10329,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
       if (decl_context == FIELD)
 	{
-	  if (declarator == current_class_name)
+	  if (declarator == constructor_name (current_class_type))
 	    cp_pedwarn ("ANSI C++ forbids nested type `%D' with same name as enclosing class",
 			declarator);
 	  decl = build_lang_decl (TYPE_DECL, declarator, type);
@@ -10530,7 +10554,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
     if (decl_context == PARM)
       {
-	decl = build_decl (PARM_DECL, declarator, complete_type (type));
+	decl = build_decl (PARM_DECL, declarator, type);
 
 	bad_specifiers (decl, "parameter", virtualp, quals != NULL_TREE,
 			inlinep, friendp, raises != NULL_TREE);
@@ -10780,14 +10804,14 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 							   type))
 		  /* If we just return the declaration, crashes
 		     will sometimes occur.  We therefore return
-			 void_type_node, as if this was a friend
-			 declaration, to cause callers to completely
-			 ignore this declaration.  */
+		     void_type_node, as if this was a friend
+		     declaration, to cause callers to completely
+		     ignore this declaration.  */
 		  return void_type_node;
 	      }
 
 	    /* 9.2p13 [class.mem] */
-	    if (declarator == current_class_name)
+	    if (declarator == constructor_name (current_class_type))
 	      cp_pedwarn ("ANSI C++ forbids data member `%D' with same name as enclosing class",
 			  declarator);
 
@@ -11014,6 +11038,8 @@ require_complete_types_for_parms (parms)
 	    error ("parameter has incomplete type");
 	  TREE_TYPE (parms) = error_mark_node;
 	}
+      else
+	layout_decl (parms, 0);
 #if 0
       /* If the arg types are incomplete in a declaration,
 	 they must include undefined tags.
@@ -11707,6 +11733,27 @@ grok_op_properties (decl, virtualp, friendp)
     }
 }
 
+static char *
+tag_name (code)
+     enum tag_types code;
+{
+  switch (code)
+    {
+    case record_type:
+      return "struct";
+    case class_type:
+      return "class";
+    case union_type:
+      return "union ";
+    case enum_type:
+      return "enum";
+    case signature_type:
+      return "signature";
+    default:
+      my_friendly_abort (981122);
+    }
+}
+
 /* Get the struct, enum or union (CODE says which) with tag NAME.
    Define the tag as a forward-reference if it is not defined.
 
@@ -11776,19 +11823,9 @@ xref_tag (code_type_node, name, globalize)
 
   if (! globalize)
     {
-      if (t && (TREE_CODE (t) == TEMPLATE_TYPE_PARM 
-			    || TREE_CODE (t) == TEMPLATE_TEMPLATE_PARM))
-	{
-	  cp_error ("redeclaration of template type-parameter `%T'", name);
-	  cp_error_at ("  previously declared here `%#D'", 
-		       TEMPLATE_TYPE_DECL (t));
-	}
-      if (t && TYPE_CONTEXT (t) && got_type)
-	ref = t;
-      else
-	/* If we know we are defining this tag, only look it up in
-	   this scope and don't try to find it as a type.  */
-	ref = lookup_tag (code, name, b, 1);
+      /* If we know we are defining this tag, only look it up in
+	 this scope and don't try to find it as a type.  */
+      ref = lookup_tag (code, name, b, 1);
     }
   else
     {
@@ -11821,7 +11858,12 @@ xref_tag (code_type_node, name, globalize)
       else 
 	{
 	  if (t)
-	    ref = t;
+	    {
+	      if (t != TYPE_MAIN_VARIANT (t))
+		cp_pedwarn ("using typedef-name `%D' after `%s'",
+			    TYPE_NAME (t), tag_name (tag_code));
+	      ref = t;
+	    }
 	  else
 	    ref = lookup_tag (code, name, b, 0);
 	  
@@ -12460,7 +12502,6 @@ start_function (declspecs, declarator, attrs, pre_parsed_p)
   /* Assume, until we see it does.  */
   current_function_returns_value = 0;
   current_function_returns_null = 0;
-  warn_about_return_type = 0;
   named_labels = 0;
   shadowed_labels = 0;
   current_function_assigns_this = 0;
@@ -12575,7 +12616,6 @@ start_function (declspecs, declarator, attrs, pre_parsed_p)
 		pedwarn ("return type for `main' changed to `int'");
 	      TREE_TYPE (decl1) = fntype = default_function_type;
 	    }
-	  warn_about_return_type = 0;
 	}
     }
 
@@ -12625,9 +12665,6 @@ start_function (declspecs, declarator, attrs, pre_parsed_p)
 	  && CLASSTYPE_ABSTRACT_VIRTUALS (TREE_TYPE (fntype)))
 	abstract_virtuals_error (decl1, TREE_TYPE (fntype));
     }
-
-  if (warn_about_return_type)
-    pedwarn ("return-type defaults to `int'");
 
   /* Effective C++ rule 15.  See also c_expand_return.  */
   if (warn_ecpp
@@ -13299,7 +13336,7 @@ finish_function (lineno, call_poplevel, nested)
 
 	  /* End of destructor.  */
 	  expand_end_bindings (NULL_TREE, getdecls () != NULL_TREE, 0);
-	  poplevel (2, 0, 0);	/* XXX change to 1 */
+	  poplevel (getdecls () != NULL_TREE, 0, 0);
 
 	  /* Back to the top of destructor.  */
 	  /* Don't execute destructor code if `this' is NULL.  */
@@ -13718,6 +13755,8 @@ start_method (declspecs, declarator, attrlist)
       return void_type_node;
     }
 
+  check_template_shadow (fndecl);
+
   DECL_THIS_INLINE (fndecl) = 1;
 
   if (flag_default_inline)
@@ -14084,7 +14123,6 @@ struct cp_function
 {
   int returns_value;
   int returns_null;
-  int warn_about_return_type;
   int assigns_this;
   int just_assigned_this;
   int parms_stored;
@@ -14131,7 +14169,6 @@ push_cp_function_context (context)
   p->shadowed_labels = shadowed_labels;
   p->returns_value = current_function_returns_value;
   p->returns_null = current_function_returns_null;
-  p->warn_about_return_type = warn_about_return_type;
   p->binding_level = current_binding_level;
   p->ctor_label = ctor_label;
   p->dtor_label = dtor_label;
@@ -14174,7 +14211,6 @@ pop_cp_function_context (context)
   shadowed_labels = p->shadowed_labels;
   current_function_returns_value = p->returns_value;
   current_function_returns_null = p->returns_null;
-  warn_about_return_type = p->warn_about_return_type;
   current_binding_level = p->binding_level;
   ctor_label = p->ctor_label;
   dtor_label = p->dtor_label;

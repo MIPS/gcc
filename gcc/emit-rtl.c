@@ -505,11 +505,9 @@ gen_reg_rtx (mode)
 {
   register rtx val;
 
-  /* Don't let anything called by or after reload create new registers
-     (actually, registers can't be created after flow, but this is a good
-     approximation).  */
-
-  if (reload_in_progress || reload_completed)
+  /* Don't let anything called after initial flow analysis create new
+     registers.  */
+  if (no_new_pseudos)
     abort ();
 
   if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
@@ -783,9 +781,6 @@ gen_lowpart_common (mode, x)
 
       i = INTVAL (x);
       r = REAL_VALUE_FROM_TARGET_SINGLE (i);
-      /* Avoid changing the bit pattern of a NaN.  */
-      if (REAL_VALUE_ISNAN (r))
-	return 0;
       return CONST_DOUBLE_FROM_REAL_VALUE (r, mode);
     }
 #else
@@ -824,8 +819,6 @@ gen_lowpart_common (mode, x)
 	i[0] = low, i[1] = high;
 
       r = REAL_VALUE_FROM_TARGET_DOUBLE (i);
-      if (REAL_VALUE_ISNAN (r))
-	return 0;
       return CONST_DOUBLE_FROM_REAL_VALUE (r, mode);
     }
 #else

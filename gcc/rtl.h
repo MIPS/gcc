@@ -699,6 +699,22 @@ extern char *note_insn_name[];
 #define AUTO_INC_DEC
 #endif
 
+#ifndef HAVE_PRE_INCREMENT
+#define HAVE_PRE_INCREMENT 0
+#endif
+
+#ifndef HAVE_PRE_DECREMENT
+#define HAVE_PRE_DECREMENT 0
+#endif
+
+#ifndef HAVE_POST_INCREMENT
+#define HAVE_POST_INCREMENT 0
+#endif
+
+#ifndef HAVE_POST_DECREMENT
+#define HAVE_POST_DECREMENT 0
+#endif
+
 /* Accessors for RANGE_INFO.  */
 /* For RANGE_{START,END} notes return the RANGE_START note.  */
 #define RANGE_INFO_NOTE_START(INSN) (XEXP (INSN, 0))
@@ -824,19 +840,6 @@ extern rtvec gen_rtvec			PVPROTO((int, ...));
 
 #ifdef BUFSIZ
 extern rtx read_rtx			PROTO((FILE *));
-#endif
-
-#if 0
-/* At present, don't prototype xrealloc, since all of the callers don't
-   cast their pointers to char *, and all of the xrealloc's don't use
-   void * yet.  */
-extern char *xmalloc			PROTO((size_t));
-extern char *xcalloc			PROTO((size_t, size_t));
-extern char *xrealloc			PROTO((void *, size_t));
-#else
-extern char *xmalloc ();
-extern char *xcalloc ();
-extern char *xrealloc ();
 #endif
 
 extern char *oballoc			PROTO((int));
@@ -966,6 +969,7 @@ extern int reg_referenced_p		PROTO((rtx, rtx));
 extern int reg_used_between_p		PROTO((rtx, rtx, rtx));
 extern int reg_referenced_between_p	PROTO((rtx, rtx, rtx));
 extern int reg_set_between_p		PROTO((rtx, rtx, rtx));
+extern int regs_set_between_p		PROTO((rtx, rtx, rtx));
 extern int modified_between_p		PROTO((rtx, rtx, rtx));
 extern int no_labels_between_p		PROTO((rtx, rtx));
 extern int modified_in_p		PROTO((rtx, rtx));
@@ -1206,6 +1210,10 @@ extern int reload_in_progress;
    the same indirect address eventually.  */
 extern int cse_not_expected;
 
+/* Set to nonzero before life analysis to indicate that it is unsafe to
+   generate any new pseudo registers.  */
+extern int no_new_pseudos;
+
 /* Indexed by pseudo register number, gives the rtx for that pseudo.
    Allocated in parallel with regno_pointer_flag.  */
 extern rtx *regno_reg_rtx;
@@ -1432,6 +1440,7 @@ extern void init_optabs			PROTO ((void));
 extern void dump_local_alloc		PROTO ((FILE *));
 #endif
 extern void local_alloc			PROTO ((void));
+extern int function_invariant_p		PROTO ((rtx));
 
 /* In reload1.c */
 extern void reload_cse_regs		PROTO ((rtx));
@@ -1512,5 +1521,6 @@ extern void end_alias_analysis		PROTO ((void));
 
 extern void record_base_value		PROTO ((int, rtx, int));
 extern void record_alias_subset         PROTO ((int, int));
+extern rtx addr_side_effect_eval	PROTO ((rtx, int, int));
 
 #endif /* _RTL_H */

@@ -1,3 +1,240 @@
+1998-12-05  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl2.c (coerce_new_type): Use same_type_p.
+	(coerce_delete_type): Likewise.
+
+	* call.c (check_dtor_name): Return 1, not error_mark_node.
+
+1998-12-04  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* lex.c (handle_cp_pragma): Disable #pragma interface/implementation
+	if MULTIPLE_SYMBOL_SPACES.
+
+	* pt.c (check_template_shadow): New fn.
+	* decl2.c (grokfield): Use it.
+	* decl.c (pushdecl): Likewise.
+	(pushdecl_class_level): Likewise.
+	(start_method): Likewise.
+	(xref_tag): Don't try to use 't' if we're defining.
+
+	* call.c (check_dtor_name): Just return an error_mark_node.
+	* pt.c (lookup_template_class): Complain about using non-template here.
+	* parse.y (apparent_template_type): Not here.
+
+	* pt.c (check_explicit_specialization): Complain about specialization
+	with C linkage.
+
+	* lang-options.h: Add -f{no-,}implicit-inline-templates.
+
+	* pt.c (convert_nontype_argument): Don't assume that any integer
+	argument is intended to be a constant-expression.
+
+1998-12-03  Mark Mitchell  <mark@markmitchell.com>
+
+	* class.c (handle_using_decl): Fix comment.  Don't lookup
+	constructors in base classes.
+	(validate_lhs): Fix typo in comment.
+	* search.c (lookup_field_1): Don't return a USING_DECL.
+	
+	* cp-tree.h (DECL_ACCESS): Improve documentation.
+
+	* decl.c (expand_static_init): Don't set the initialization-done
+	flag until the initialization is done.
+	
+1998-12-02  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl2.c (validate_nonmember_using_decl): Complain about using
+	declarations for class members.
+
+1998-11-29  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* typeck2.c (process_init_constructor): Use same_type_p.
+
+	* decl.c (check_tag_decl): Don't warn about null decl inside a 
+	class.
+
+	* pt.c (unify, case OFFSET_TYPE): Pass down 'strict' rather than
+	UNIFY_ALLOW_NONE.
+	(convert_nontype_argument): Use TYPE_PTRMEMFUNC_FN_TYPE.
+	(resolve_overloaded_unification): Strip baselinks.
+
+Fri Nov 27 13:07:23 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++spec.c: Don't prototype xmalloc.
+
+1998-11-25  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* except.c (expand_throw): Use TYPE_PTR_P to check for pointers.
+
+	* decl.c (check_tag_decl): Do complain about null friend decl at
+	file scope.
+
+1998-11-25  Andreas Schwab  <schwab@issan.cs.uni-dortmund.de>
+
+	* lex.c (make_lang_type): Clear the whole struct lang_type, not
+	only the first multiple of sizeof (int).
+
+1998-11-24  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (start_decl): An explicit specialization of a static data
+	member is only a definition if it has an initializer.
+
+	* except.c (expand_throw): Use cp_finish_decl for the throw temp.
+	* cvt.c (build_up_reference): Pass DIRECT_BIND down into
+	cp_finish_decl.
+	* init.c (expand_default_init): Check for DIRECT_BIND instead of
+	DECL_ARTIFICIAL.
+
+	* call.c (build_over_call): Use build_decl.
+
+	* except.c (expand_throw): Just use convert, not
+	build_reinterpret_cast.
+
+	* lex.c (handle_generic_pragma): Use token_buffer.
+
+	* decl.c (check_tag_decl): Don't complain about null friend decl.
+
+1998-11-24  Dave Pitts  <dpitts@cozx.com>
+
+	* Make-lang.in (DEMANGLER_PROG): Move the output argumnts to the 
+	first position.
+	* lex.c (check_newline): Use ISALPHA.
+	(readescape): Use ISGRAPH.
+	(yyerror): Use ISGRAPH.
+
+1998-11-24  Nathan Sidwell  <nathan@acm.org>
+
+	* search.c (get_abstract_virtuals): Do not use initial
+	CLASSTYPE_ABSTRACT_VIRTUALS.
+	* typeck2.c (abstract_virtuals_error): Show location of abstract
+	declaration.
+	* call.c (build_new_method_call): Use
+	CLASSTYPE_ABSTRACT_VIRTUAL, rather than recalculate.
+	* class.c (finish_struct_bits): Don't bother working out whether
+	get_abstract_virtuals will do anything, just do it.
+
+1998-11-24  Graham <grahams@rcp.co.uk>
+
+	* typeck.c (build_component_ref): Remove unused statement.
+
+1998-11-24  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* class.c (add_method): Catch invalid overloads.
+
+	* class.c (add_method): Build up OVERLOADs properly for conversion ops.
+	* search.c (lookup_conversions): Handle getting real OVERLOADs.
+	(add_conversions): Likewise.  Revert last change.
+	* call.c (add_conv_candidate): Pass totype to add_candidate instead
+	of fn.  Don't add a new candidate if the last one was for the same 
+	type.
+	(print_z_candidates): Handle getting a type as a function.
+	(joust): If we got two conversion candidates to the same type, 
+	just pick one.
+	(build_object_call): Lose 'templates'.
+	(build_user_type_conversion_1): Handle getting real OVERLOADs.
+
+1998-11-23  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* typeck2.c (process_init_constructor): If there are elements
+	that don't have initializers and they need to have constructors
+	run, supply them with initializers.
+
+	* class.c (finish_struct_1): A class with a 0-width bitfield is
+	still empty.
+
+1998-11-23  Mark Mitchell  <mark@markmitchell.com>
+
+	* pt.c (instantiate_class_template): Don't try to figure out what
+	specialization to use for a partial instantiation.  Correct
+	typos in a couple of comments.  Avoid calling uses_template_parms
+	multiple times.
+
+1998-11-23  Benjamin Kosnik  <bkoz@cygnus.com>
+
+        * method.c (process_overload_item): Add call to
+        build_mangled_C9x_name for intTI_type_nodes.
+        (build_mangled_C9x_name): Add prototype, define.
+        * decl.c (init_decl_processing): Add names for
+        TImode_type_node. 
+	
+1998-11-23  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* parse.y (named_class_head): Update CLASSTYPE_DECLARED_CLASS.
+
+	* class.c (finish_struct_1): Set things up for 0-width bitfields
+	like we do for others.
+
+	* decl.c (check_tag_decl): New fn.
+	(shadow_tag): Split out from here.
+	* decl2.c (grok_x_components): Call it.
+
+1998-11-22  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c: Lose warn_about_return_type.
+	(grokdeclarator): Always complain about implicit int, except for
+	`main () { ... }'.
+
+	* decl.c (tag_name): New fn.
+	(xref_tag): Complain about using typedef-name after class-key.
+
+	* init.c (expand_vec_init): Also keep going if from_array.
+
+	* tree.c (is_overloaded_fn): Also handle the output of
+	build_offset_ref.
+
+	* decl.c (grokdeclarator): Use constructor_name when comparing
+	field name against enclosing class.
+	* class.c (finish_struct_anon): Likewise.
+
+1998-11-22  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl.c (poplevel): Remove code to handle KEEP == 2.
+	(finish_function): Don't confuse BLOCK-order when
+	processing a destructor.
+
+1998-11-21  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (require_complete_types_for_parms): Call layout_decl
+	after we've completed the type.
+
+1998-11-21  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+
+	* decl2.c (validate_nonmember_using_decl): Allow using templates
+	from the global namespace.
+
+1998-11-21  Jason Merrill  <jason@yorick.cygnus.com>
+
+	Handle specifying template args to member function templates.
+	* tree.c (build_overload): Always create an OVERLOAD for a template.
+	* search.c (add_conversions): Handle finding an OVERLOAD.
+	* decl2.c (check_classfn): Likewise.
+	* lex.c (identifier_type): See through a baselink.
+	* parse.y (do_id): Don't call do_identifier if we got a baselink.
+	* class.c (instantiate_type, case TREE_LIST): Recurse.
+
+	* decl.c (grokdeclarator): Allow a boolean constant for array
+	bounds, odd as that sounds.
+
+	* pt.c (unify): Be more strict about non-type parms, except for
+	array bounds.
+	(UNIFY_ALLOW_INTEGER): New macro.
+
+1998-11-19  Manfred Hollstein  <manfred@s-direktnet.de>
+
+	* Make-lang.in (mandir): Replace all uses of $(mandir) by $(man1dir).
+
+1998-11-19  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* semantics.c (begin_class_definition): Call
+	maybe_process_partial_specialization before push_template_decl.
+	Don't call push_template_decl for a specialization.
+	* search.c (lookup_field): Do return a member template class.
+	* decl2.c (handle_class_head): Handle member template classes.
+
+	* decl.c (grokdeclarator): A parm type need not be complete.
+
+	* pt.c (convert_nontype_argument): Fix thinko.
+
 1998-11-18  Mark Mitchell  <mark@markmitchell.com>
 
 	* cp-tree.h (PTRMEM_CST_CLASS): Fix typo.
@@ -1210,7 +1447,6 @@ Tue Oct  6 07:57:26 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 	* decl2.c (merge_functions): Remove duplicates.
 
 	* decl2.c: Add -f{no-,}implicit-inline-templates.
-	(lang_decode_option): Unset it if -frepo.
 	(import_export_decl): Check it.
 
 	* decl.c (lookup_name_real): Template parms also take precedence

@@ -156,6 +156,23 @@ extern int errno;
 # define O_WRONLY 1
 #endif
 
+#ifdef HAVE_SYS_WAIT_H
+#include <sys/wait.h>
+#endif
+
+#ifndef WIFSIGNALED
+#define WIFSIGNALED(S) (((S) & 0xff) != 0 && ((S) & 0xff) != 0x7f)
+#endif
+#ifndef WTERMSIG
+#define WTERMSIG(S) ((S) & 0x7f)
+#endif
+#ifndef WIFEXITED
+#define WIFEXITED(S) (((S) & 0xff) == 0)
+#endif
+#ifndef WEXITSTATUS
+#define WEXITSTATUS(S) (((S) & 0xff00) >> 8)
+#endif
+
 
 
 #ifndef bcopy
@@ -338,5 +355,22 @@ extern void abort ();
 /* These macros are here in preparation for the use of gettext in egcs.  */
 #define _(String) String
 #define N_(String) String
+
+#if HAVE_SYS_STAT_H
+# include <sys/stat.h>
+#endif
+
+/* Test if something is a normal file.  */
+#ifndef S_ISREG
+#define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#endif
+
+/* Test if something is a directory.  */
+#ifndef S_ISDIR
+#define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
+#endif
+
+/* Get libiberty declarations. */
+#include "libiberty.h"
 
 #endif /* __GCC_SYSTEM_H__ */

@@ -2295,7 +2295,7 @@ check_newline ()
      it and ignore it; otherwise, ignore the line, with an error
      if the word isn't `pragma'.  */
 
-  if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))
+  if (ISALPHA (c))
     {
       if (c == 'p')
 	{
@@ -2780,7 +2780,7 @@ readescape (ignore_ptr)
 	pedwarn ("unknown escape sequence `\\%c'", c);
       return c;
     }
-  if (c >= 040 && c < 0177)
+  if (ISGRAPH (c))
     pedwarn ("unknown escape sequence `\\%c'", c);
   else
     pedwarn ("unknown escape sequence: `\\' followed by char code 0x%x", c);
@@ -2809,6 +2809,10 @@ identifier_type (decl)
     }
   if (looking_for_template && really_overloaded_fn (decl))
     {
+      /* See through a baselink.  */
+      if (TREE_CODE (decl) == TREE_LIST)
+	decl = TREE_VALUE (decl);
+
       for (t = decl; t != NULL_TREE; t = OVL_CHAIN (t))
 	if (DECL_FUNCTION_TEMPLATE_P (OVL_FUNCTION (t))) 
 	  return PFUNCNAME;
@@ -4673,9 +4677,8 @@ make_lang_type (code)
   if (IS_AGGR_TYPE_CODE (code))
     {
       struct obstack *obstack = current_obstack;
-      register int i = sizeof (struct lang_type) / sizeof (int);
-      register int *pi;
-      
+      struct lang_type *pi;
+
       SET_IS_AGGR_TYPE (t, 1);
 
       if (! TREE_PERMANENT (t))
@@ -4683,11 +4686,10 @@ make_lang_type (code)
       else
 	my_friendly_assert (obstack == &permanent_obstack, 236);
 
-      pi = (int *) obstack_alloc (obstack, sizeof (struct lang_type));
-      while (i > 0)
-	pi[--i] = 0;
+      pi = (struct lang_type *) obstack_alloc (obstack, sizeof (struct lang_type));
+      bzero ((char *) pi, (int) sizeof (struct lang_type));
 
-      TYPE_LANG_SPECIFIC (t) = (struct lang_type *) pi;
+      TYPE_LANG_SPECIFIC (t) = pi;
       CLASSTYPE_AS_LIST (t) = build_expr_list (NULL_TREE, t);
       SET_CLASSTYPE_INTERFACE_UNKNOWN_X (t, interface_unknown);
       CLASSTYPE_INTERFACE_ONLY (t) = interface_only;
@@ -4772,7 +4774,7 @@ yyerror (string)
     strcat (buf, " before string constant");
   else if (token_buffer[0] == '\'')
     strcat (buf, " before character constant");
-  else if (token_buffer[0] < 040 || (unsigned char) token_buffer[0] >= 0177)
+  else if (!ISGRAPH (token_buffer[0]))
     sprintf (buf + strlen (buf), " before character 0%o",
 	     (unsigned char) token_buffer[0]);
   else
@@ -4851,7 +4853,7 @@ handle_cp_pragma (pname)
       if (token != END_OF_LINE)
 	warning ("garbage after `#pragma interface' ignored");
 
-#ifndef NO_LINKAGE_HEURISTICS
+#ifndef MULTIPLE_SYMBOL_SPACES
       write_virtuals = 3;
 
       if (impl_file_chain == 0)
@@ -4878,7 +4880,7 @@ handle_cp_pragma (pname)
       interface_unknown = 0;
       TREE_INT_CST_LOW (fileinfo) = interface_only;
       TREE_INT_CST_HIGH (fileinfo) = interface_unknown;
-#endif /* NO_LINKAGE_HEURISTICS */
+#endif /* MULTIPLE_SYMBOL_SPACES */
 
       return 1;
     }
@@ -4904,7 +4906,7 @@ handle_cp_pragma (pname)
       if (token != END_OF_LINE)
 	warning ("garbage after `#pragma implementation' ignored");
 
-#ifndef NO_LINKAGE_HEURISTICS
+#ifndef MULTIPLE_SYMBOL_SPACES
       if (write_virtuals == 3)
 	{
 	  struct impl_files *ifiles = impl_file_chain;
@@ -4949,7 +4951,7 @@ handle_cp_pragma (pname)
 #endif
       TREE_INT_CST_LOW (fileinfo) = interface_only;
       TREE_INT_CST_HIGH (fileinfo) = interface_unknown;
-#endif /* NO_LINKAGE_HEURISTICS */
+#endif /* MULTIPLE_SYMBOL_SPACES */
 
       return 1;
     }
@@ -4995,29 +4997,21 @@ handle_generic_pragma (token)
 	{
 	case IDENTIFIER:
 	case TYPENAME:
-	case STRING:
-	case CONSTANT:
-	  handle_pragma_token (IDENTIFIER_POINTER(yylval.ttype), yylval.ttype);
+        case STRING:
+        case CONSTANT:
+	  handle_pragma_token (token_buffer, yylval.ttype);
 	  break;
-	case '(':
-	  handle_pragma_token ("(", NULL_TREE);
-	  break;
-	case ')':
-	  handle_pragma_token (")", NULL_TREE);
-	  break;
-	case ',':
-	  handle_pragma_token (",", NULL_TREE);
-	  break;
-	case '=':
-	  handle_pragma_token ("=", NULL_TREE);
-	  break;
+
 	case LEFT_RIGHT:
 	  handle_pragma_token ("(", NULL_TREE);
 	  handle_pragma_token (")", NULL_TREE);
 	  break;
+
 	case END_OF_LINE:
-	default:
 	  return handle_pragma_token (NULL_PTR, NULL_TREE);
+
+	default:
+	  handle_pragma_token (token_buffer, NULL);
 	}
       
       token = real_yylex ();

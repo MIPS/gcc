@@ -1,6 +1,6 @@
 /* Breadth-first and depth-first routines for
    searching multiple-inheritance lattice for GNU C++.
-   Copyright (C) 1987, 89, 92-96, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1987, 89, 92-97, 1998 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -523,7 +523,14 @@ lookup_field_1 (type, name)
 	  if (temp)
 	    return temp;
 	}
-      if (DECL_NAME (field) == name)
+      if (TREE_CODE (field) == USING_DECL)
+	/* For now, we're just treating member using declarations as
+	   old ARM-style access declarations.  Thus, there's no reason
+	   to return a USING_DECL, and the rest of the compiler can't
+	   handle it.  Once the class is defined, these are purged
+	   from TYPE_FIELDS anyhow; see handle_using_decl.  */
+	;
+      else if (DECL_NAME (field) == name)
 	{
 	  if ((TREE_CODE(field) == VAR_DECL || TREE_CODE(field) == CONST_DECL)
 	      && DECL_ASSEMBLER_NAME (field) != NULL)
@@ -1190,6 +1197,11 @@ lookup_field (xbasetype, name, protect, want_type)
       && ! currently_open_class (BINFO_TYPE (rval_binfo))
       && uses_template_parms (type))
     {
+      /* We need to return a member template class so we can define partial
+	 specializations.  Is there a better way?  */
+      if (DECL_CLASS_TEMPLATE_P (rval))
+	return rval;
+
       /* Don't return a non-type.  Actually, we ought to return something
 	 so lookup_name_real can give a warning.  */
       if (TREE_CODE (rval) != TYPE_DECL)
@@ -1947,7 +1959,7 @@ get_abstract_virtuals (type)
      tree type;
 {
   tree vbases;
-  tree abstract_virtuals = CLASSTYPE_ABSTRACT_VIRTUALS (type);
+  tree abstract_virtuals = NULL;
 
   /* First get all from non-virtual bases.  */
   abstract_virtuals
@@ -3297,34 +3309,24 @@ add_conversions (binfo)
 {
   int i;
   tree method_vec = CLASSTYPE_METHOD_VEC (BINFO_TYPE (binfo));
-  tree name = NULL_TREE;
 
   for (i = 2; i < TREE_VEC_LENGTH (method_vec); ++i)
     {
       tree tmp = TREE_VEC_ELT (method_vec, i);
+      tree name;
 
       if (!tmp || ! DECL_CONV_FN_P (OVL_CURRENT (tmp)))
 	break;
 
-      /* We don't want to mark 'name' until we've seen all the overloads
-	 in this class; we could be overloading on the quals of 'this'.  */
-      if (name && name != DECL_NAME (tmp))
-	{
-	  IDENTIFIER_MARKED (name) = 1;
-	  name = NULL_TREE;
-	}
+      name = DECL_NAME (OVL_CURRENT (tmp));
 
       /* Make sure we don't already have this conversion.  */
-      if (! IDENTIFIER_MARKED (DECL_NAME (tmp)))
+      if (! IDENTIFIER_MARKED (name))
 	{
 	  conversions = scratch_tree_cons (binfo, tmp, conversions);
-	  name = DECL_NAME (tmp);
+	  IDENTIFIER_MARKED (name) = 1;
 	}
     }
-
-  if (name)
-     IDENTIFIER_MARKED (name) = 1;
-
   return NULL_TREE;
 }
 
@@ -3340,7 +3342,7 @@ lookup_conversions (type)
     breadth_first_search (TYPE_BINFO (type), add_conversions, 0);
 
   for (t = conversions; t; t = TREE_CHAIN (t))
-    IDENTIFIER_MARKED (DECL_NAME (TREE_VALUE (t))) = 0;
+    IDENTIFIER_MARKED (DECL_NAME (OVL_CURRENT (TREE_VALUE (t)))) = 0;
 
   return conversions;
 }

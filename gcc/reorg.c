@@ -1377,7 +1377,7 @@ mostly_true_jump (jump_insn, condition)
      always gives a correct answer.  */
   if (flag_branch_probabilities)
     {
-      rtx note = find_reg_note (jump_insn, REG_BR_PROB, 0);;
+      rtx note = find_reg_note (jump_insn, REG_BR_PROB, 0);
       if (note)
 	{
 	  int prob = XINT (note, 0);
@@ -4197,6 +4197,40 @@ relax_delay_slots (first)
 	{
 	  delete_from_delay_slot (XVECEXP (pat, 0, 1));
 	  next = prev_active_insn (next);
+	  continue;
+	}
+
+      /* See if we have a RETURN insn with a filled delay slot followed
+	 by a RETURN insn with an unfilled a delay slot.  If so, we can delete
+	 the first RETURN (but not it's delay insn).  This gives the same
+	 effect in fewer instructions.
+
+	 Only do so if optimizing for size since this results in slower, but
+	 smaller code.  */
+      if (optimize_size
+	  && GET_CODE (PATTERN (delay_insn)) == RETURN
+	  && next
+	  && GET_CODE (next) == JUMP_INSN
+	  && GET_CODE (PATTERN (next)) == RETURN)
+	{
+	  int i;
+
+	  /* Delete the RETURN and just execute the delay list insns.
+
+	     We do this by deleting the INSN containing the SEQUENCE, then
+	     re-emitting the insns separately, and then deleting the RETURN.
+	     This allows the count of the jump target to be properly
+	     decremented.  */
+
+	  /* Clear the from target bit, since these insns are no longer
+	     in delay slots.  */
+	  for (i = 0; i < XVECLEN (pat, 0); i++)
+	    INSN_FROM_TARGET_P (XVECEXP (pat, 0, i)) = 0;
+
+	  trial = PREV_INSN (insn);
+	  delete_insn (insn);
+	  emit_insn_after (pat, trial);
+	  delete_scheduled_jump (delay_insn);
 	  continue;
 	}
 

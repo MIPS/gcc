@@ -66,7 +66,7 @@ extern struct jumplabel_array jmplbl[];
 extern int datalbl_ndx, jmplbl_ndx, label_pending, program_counter;
 extern enum section current_section;
 extern char *sectname[4];
-extern char *xstrdup(), *float_label();
+extern char *float_label();
 extern struct rtx_def *function_arg ();
 extern char *movcnt_regno_adjust ();
 extern char *mod_regno_adjust ();
@@ -707,10 +707,10 @@ enum reg_class { NO_REGS, R2, R0_1, INDEX_REGS, BASE_REGS, ALL_REGS, LIM_REG_CLA
 
 /* 1750 doesn't have a lot of auto-incr./decr. - just for the stack ptr. */
 
-/* #define HAVE_POST_INCREMENT  just for R15 (stack pointer) */
-/* #define HAVE_POST_DECREMENT */
-/* #define HAVE_PRE_DECREMENT   just for R15 (stack pointer) */
-/* #define HAVE_PRE_INCREMENT */
+/* #define HAVE_POST_INCREMENT 0 just for R15 (stack pointer) */
+/* #define HAVE_POST_DECREMENT 0 */
+/* #define HAVE_PRE_DECREMENT 0  just for R15 (stack pointer) */
+/* #define HAVE_PRE_INCREMENT 0 */
 
 /* Macros to check register numbers against specific register classes.  */
 

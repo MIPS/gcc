@@ -1099,7 +1099,7 @@ generate_bytecode_conditional (exp, true_label, false_label,
 	case REAL_TYPE:
 	  generate_bytecode_insns (exp0, STACK_TARGET, state);
 	  generate_bytecode_insns (exp1, STACK_TARGET, state);
-	  if (op == OPCODE_if_icmplt || op == op == OPCODE_if_icmple)
+	  if (op == OPCODE_if_icmplt || op == OPCODE_if_icmple)
 	    opf = OPCODE_fcmpg;
 	  else
 	    opf = OPCODE_fcmpl;
@@ -1555,7 +1555,6 @@ generate_bytecode_insns (exp, target, state)
 	for (;  body_block != sw_state.default_label;  body_block = body_block->next)
 	  body_block->pc += switch_length;
 
-	free (sw_state.cases);
 	state->sw_state = sw_state.prev;
 	break;
       }
@@ -1665,7 +1664,7 @@ generate_bytecode_insns (exp, target, state)
 	  generate_bytecode_insns (TREE_OPERAND (exp, 0), STACK_TARGET, state);
 	  emit_dup (1, 0, state);
 	  /* Stack:  ..., objectref, objectref. */
-	  field_op (TREE_OPERAND (exp, 1), OPCODE_getstatic, state);
+	  field_op (TREE_OPERAND (exp, 1), OPCODE_getfield, state);
 	  NOTE_PUSH (size);
 	  /* Stack:  ..., objectref, oldvalue. */
 	  offset = 1;
@@ -1697,8 +1696,11 @@ generate_bytecode_insns (exp, target, state)
       /* Stack, if ARRAY_REF:  ..., [result, ] array, index, oldvalue. */
       /* Stack, if COMPONENT_REF:  ..., [result, ] objectref, oldvalue. */
       /* Stack, otherwise:  ..., [result, ] oldvalue. */
-      push_int_const (value, state); /* FIXME - assumes int! */
-      NOTE_PUSH (1);
+      if (size == 1)
+	push_int_const (value, state);
+      else
+	push_long_const (value, value >= 0 ? 0 : -1, state);
+      NOTE_PUSH (size);
       emit_binop (OPCODE_iadd + adjust_typed_op (type, 3), type, state);
       if (target != IGNORE_TARGET && ! post_op)
 	emit_dup (size, offset, state);
@@ -1951,7 +1953,10 @@ generate_bytecode_insns (exp, target, state)
 	    tree catch_clause = TREE_OPERAND (clause, 0);
 	    tree exception_decl = BLOCK_EXPR_DECLS (catch_clause);
 	    struct jcf_handler *handler = alloc_handler (start_label, end_label, state);
-	    handler->type = TREE_TYPE (TREE_TYPE (exception_decl));
+	    if (exception_decl == NULL_TREE)
+	      handler->type = NULL_TREE;
+	    else
+	      handler->type = TREE_TYPE (TREE_TYPE (exception_decl));
 	    generate_bytecode_insns (catch_clause, IGNORE_TARGET, state);
 	    if (CAN_COMPLETE_NORMALLY (catch_clause))
 	      emit_goto (finished_label, state);
@@ -2052,6 +2057,22 @@ generate_bytecode_insns (exp, target, state)
 	    RESERVE (3);
 	    OP1 (OPCODE_anewarray);
 	    OP2 (index);
+	    break;
+	  }
+	else if (f == soft_monitorenter_node
+		 || f == soft_monitorexit_node
+		 || f == throw_node)
+	  {
+	    if (f == soft_monitorenter_node)
+	      op = OPCODE_monitorenter;
+	    else if (f == soft_monitorexit_node)
+	      op = OPCODE_monitorexit;
+	    else
+	      op = OPCODE_athrow;
+	    generate_bytecode_insns (TREE_VALUE (x), STACK_TARGET, state);
+	    RESERVE (1);
+	    OP1 (op);
+	    NOTE_POP (1);
 	    break;
 	  }
 	else if (exp == soft_exceptioninfo_call_node)
@@ -2343,7 +2364,8 @@ generate_classfile (clas, state)
   else
     i = 8 + 2 * total_supers;
   ptr = append_chunk (NULL, i, state);
-  i = get_access_flags (TYPE_NAME (clas));  PUT2 (i); /* acces_flags */
+  i = get_access_flags (TYPE_NAME (clas)) | ACC_SUPER;
+  PUT2 (i); /* acces_flags */
   i = find_class_constant (&state->cpool, clas);  PUT2 (i);  /* this_class */
   if (clas == object_type_node)
     {

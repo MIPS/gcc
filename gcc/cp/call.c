@@ -347,6 +347,10 @@ check_dtor_name (basetype, name)
 {
   name = TREE_OPERAND (name, 0);
 
+  /* Just accept something we've already complained about.  */
+  if (name == error_mark_node)
+    return 1;
+
   if (TREE_CODE (name) == TYPE_DECL)
     name = TREE_TYPE (name);
   else if (TREE_CODE_CLASS (TREE_CODE (name)) == 't')
@@ -1217,7 +1221,13 @@ add_function_candidate (candidates, fn, arglist, flags)
 /* Create an overload candidate for the conversion function FN which will
    be invoked for expression OBJ, producing a pointer-to-function which
    will in turn be called with the argument list ARGLIST, and add it to
-   CANDIDATES.  FLAGS is passed on to implicit_conversion.  */
+   CANDIDATES.  FLAGS is passed on to implicit_conversion.
+
+   Actually, we don't really care about FN; we care about the type it
+   converts to.  There may be multiple conversion functions that will
+   convert to that type, and we rely on build_user_type_conversion_1 to
+   choose the best one; so when we create our candidate, we record the type
+   instead of the function.  */
 
 static struct z_candidate *
 add_conv_candidate (candidates, fn, obj, arglist)
@@ -1232,6 +1242,10 @@ add_conv_candidate (candidates, fn, obj, arglist)
   tree argnode = arglist;
   int viable = 1;
   int flags = LOOKUP_NORMAL;
+
+  /* Don't bother looking up the same type twice.  */
+  if (candidates && candidates->fn == totype)
+    return candidates;
 
   for (i = 0; i < len; ++i)
     {
@@ -1277,7 +1291,7 @@ add_conv_candidate (candidates, fn, obj, arglist)
 	break;
       }
 
-  return add_candidate (candidates, fn, convs, viable);
+  return add_candidate (candidates, totype, convs, viable);
 }
 
 static struct z_candidate *
@@ -2058,6 +2072,8 @@ print_z_candidates (candidates)
 	    cp_error ("%s %D(%T) <builtin>", str, candidates->fn,
 		      TREE_TYPE (TREE_VEC_ELT (candidates->convs, 0)));
 	}
+      else if (TYPE_P (candidates->fn))
+	cp_error ("%s %T <conversion>", str, candidates->fn);
       else
 	cp_error_at ("%s %+D%s", str, candidates->fn,
 		     candidates->viable == -1 ? " <near match>" : "");
@@ -2143,7 +2159,7 @@ build_user_type_conversion_1 (totype, expr, flags)
       if (TREE_CODE (totype) == REFERENCE_TYPE)
 	convflags |= LOOKUP_NO_TEMP_BIND;
 
-      if (TREE_CODE (fns) != TEMPLATE_DECL)
+      if (TREE_CODE (OVL_CURRENT (fns)) != TEMPLATE_DECL)
 	ics = implicit_conversion
 	  (totype, TREE_TYPE (TREE_TYPE (OVL_CURRENT (fns))), 0, convflags);
       else
@@ -2369,7 +2385,6 @@ build_object_call (obj, args)
   struct z_candidate *candidates = 0, *cand;
   tree fns, convs, mem_args = NULL_TREE;
   tree type = TREE_TYPE (obj);
-  tree templates = NULL_TREE;
 
   if (TYPE_PTRMEMFUNC_P (type))
     {
@@ -2399,7 +2414,6 @@ build_object_call (obj, args)
 	  tree fn = OVL_CURRENT (fns);
 	  if (TREE_CODE (fn) == TEMPLATE_DECL)
 	    {
-	      templates = scratch_tree_cons (NULL_TREE, fn, templates);
 	      candidates 
 		= add_template_candidate (candidates, fn, NULL_TREE,
 					  mem_args, NULL_TREE, 
@@ -2429,7 +2443,6 @@ build_object_call (obj, args)
 	    tree fn = OVL_CURRENT (fns);
 	    if (TREE_CODE (fn) == TEMPLATE_DECL) 
 	      {
-		templates = scratch_tree_cons (NULL_TREE, fn, templates);
 		candidates = add_template_conv_candidate (candidates,
 							  fn,
 							  obj,
@@ -3403,8 +3416,7 @@ build_over_call (cand, args, flags)
 	    return arg;
 	  else if (TYPE_HAS_TRIVIAL_INIT_REF (DECL_CONTEXT (fn)))
 	    {
-	      val = build (VAR_DECL, DECL_CONTEXT (fn));
-	      layout_decl (val, 0);
+	      val = build_decl (VAR_DECL, NULL_TREE, DECL_CONTEXT (fn));
 	      val = build (TARGET_EXPR, DECL_CONTEXT (fn), val, arg, 0, 0);
 	      TREE_SIDE_EFFECTS (val) = 1;
 	      return val;
@@ -3662,7 +3674,7 @@ build_new_method_call (instance, name, args, basetype_path, flags)
       && instance == current_class_ref
       && DECL_CONSTRUCTOR_P (current_function_decl)
       && ! (flags & LOOKUP_NONVIRTUAL)
-      && value_member (cand->fn, get_abstract_virtuals (basetype)))
+      && value_member (cand->fn, CLASSTYPE_ABSTRACT_VIRTUALS (basetype)))
     cp_error ("abstract virtual `%#D' called from constructor", cand->fn);
   if (TREE_CODE (TREE_TYPE (cand->fn)) == METHOD_TYPE
       && is_dummy_object (instance_ptr))
@@ -4218,6 +4230,11 @@ joust (cand1, cand2, warn)
     return 1;
   if (cand1->viable < cand2->viable)
     return -1;
+
+  /* If we have two pseudo-candidates for conversions to the same type,
+     arbitrarily pick one.  */
+  if (TYPE_P (cand1->fn) && cand1->fn == cand2->fn)
+    return 1;
 
   /* a viable function F1
      is defined to be a better function than another viable function F2  if

@@ -337,9 +337,9 @@ local_alloc ()
   qty_n_refs = (int *) alloca (max_qty * sizeof (int));
   qty_changes_size = (char *) alloca (max_qty * sizeof (char));
 
-  reg_qty = (int *) alloca (max_regno * sizeof (int));
-  reg_offset = (char *) alloca (max_regno * sizeof (char));
-  reg_next_in_qty = (int *) alloca (max_regno * sizeof (int));
+  reg_qty = (int *) xmalloc (max_regno * sizeof (int));
+  reg_offset = (char *) xmalloc (max_regno * sizeof (char));
+  reg_next_in_qty = (int *) xmalloc(max_regno * sizeof (int));
 
   /* Allocate the reg_renumber array */
   allocate_reg_info (max_regno, FALSE, TRUE);
@@ -406,6 +406,10 @@ local_alloc ()
       alloca (0);
 #endif
     }
+
+  free (reg_qty);
+  free (reg_offset);
+  free (reg_next_in_qty);
 }
 
 /* Depth of loops we are in while in update_equiv_regs.  */
@@ -626,6 +630,22 @@ memref_used_between_p (memref, start, end)
   return 0;
 }
 
+/* Return nonzero if the rtx X is invariant over the current function.  */
+int
+function_invariant_p (x)
+     rtx x;
+{
+  if (CONSTANT_P (x))
+    return 1;
+  if (x == frame_pointer_rtx || x == arg_pointer_rtx)
+    return 1;
+  if (GET_CODE (x) == PLUS
+      && (XEXP (x, 0) == frame_pointer_rtx || XEXP (x, 0) == arg_pointer_rtx)
+      && CONSTANT_P (XEXP (x, 1)))
+    return 1;
+  return 0;
+}
+
 /* Find registers that are equivalent to a single value throughout the
    compilation (either because they can be referenced in memory or are set once
    from a single constant).  Lower their priority for a register.
@@ -750,7 +770,7 @@ update_equiv_regs ()
 	 calculate_needs, but we traditionally work around this problem
 	 here by rejecting equivalences when the destination is in a register
 	 that's likely spilled.  This is fragile, of course, since the
-	 preferred class of a pseudo depends on all intructions that set
+	 preferred class of a pseudo depends on all instructions that set
 	 or use it.  */
 
       if (GET_CODE (dest) != REG
@@ -794,7 +814,7 @@ update_equiv_regs ()
 
       if (REG_N_SETS (regno) != 1
 	  && (! note
-	      || ! CONSTANT_P (XEXP (note, 0))
+	      || ! function_invariant_p (XEXP (note, 0))
 	      || (reg_equiv_replacement[regno]
 		  && ! rtx_equal_p (XEXP (note, 0),
 				    reg_equiv_replacement[regno]))))
@@ -808,7 +828,7 @@ update_equiv_regs ()
 
       /* If this register is known to be equal to a constant, record that
 	 it is always equivalent to the constant.  */
-      if (note && CONSTANT_P (XEXP (note, 0)))
+      if (note && function_invariant_p (XEXP (note, 0)))
 	PUT_MODE (note, (enum machine_mode) REG_EQUIV);
 
       /* If this insn introduces a "constant" register, decrease the priority

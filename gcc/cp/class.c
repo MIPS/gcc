@@ -1,5 +1,5 @@
 /* Functions related to building classes and their related objects.
-   Copyright (C) 1987, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1987, 92-97, 1998 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -1208,6 +1208,26 @@ add_method (type, fields, method)
 
 		  if (TREE_CODE (method) != TEMPLATE_DECL)
 		    {
+		      /* [over.load] Member function declarations with the
+			 same name and the same parameter types cannot be
+			 overloaded if any of them is a static member
+			 function declaration.  */
+		      if (DECL_STATIC_FUNCTION_P (fn)
+			  != DECL_STATIC_FUNCTION_P (method))
+			{
+			  tree parms1 = TYPE_ARG_TYPES (TREE_TYPE (fn));
+			  tree parms2 = TYPE_ARG_TYPES (TREE_TYPE (method));
+
+			  if (! DECL_STATIC_FUNCTION_P (fn))
+			    parms1 = TREE_CHAIN (parms1);
+			  else
+			    parms2 = TREE_CHAIN (parms2);
+
+			  if (compparms (parms1, parms2))
+			    cp_error ("`%#D' and `%#D' cannot be overloaded",
+				      fn, method);
+			}
+
 		      /* Since this is an ordinary function in a
 			 non-template class, it's mangled name can be
 			 used as a unique identifier.  This technique
@@ -1235,7 +1255,9 @@ add_method (type, fields, method)
 		}
 	    }
 
-	  if (DECL_CONV_FN_P (method))
+	  if (TREE_VEC_ELT (method_vec, i))
+	    /* We found a match.  */;
+	  else if (DECL_CONV_FN_P (method))
 	    {
 	      /* Type conversion operators have to come before
 		 ordinary methods; add_conversions depends on this to
@@ -1435,8 +1457,7 @@ alter_access (t, binfo, fdecl, access)
 }
 
 /* Process the USING_DECL, which is a member of T.  The METHOD_VEC, if
-   non-NULL, is the methods of T.  The FIELDS are the fields of T.
-   Returns 1 if the USING_DECL was valid, 0 otherwise.  */
+   non-NULL, is the methods of T.  The FIELDS are the fields of T.  */
 
 void
 handle_using_decl (using_decl, t, method_vec, fields)
@@ -1463,8 +1484,11 @@ handle_using_decl (using_decl, t, method_vec, fields)
   
   if (name == constructor_name (ctype)
       || name == constructor_name_full (ctype))
-    cp_error_at ("using-declaration for constructor", using_decl);
-  
+    {
+      cp_error_at ("using-declaration for constructor", using_decl);
+      return;
+    }
+
   fdecl = lookup_member (binfo, name, 0, 0);
   
   if (!fdecl)
@@ -1942,24 +1966,15 @@ finish_struct_bits (t, max_has_virtual)
 
   if (n_baseclasses && max_has_virtual)
     {
-      /* Done by `finish_struct' for classes without baseclasses.  */
-      int might_have_abstract_virtuals = CLASSTYPE_ABSTRACT_VIRTUALS (t) != 0;
-      tree binfos = TYPE_BINFO_BASETYPES (t);
-      for (i = n_baseclasses-1; i >= 0; i--)
-	{
-	  might_have_abstract_virtuals
-	    |= (CLASSTYPE_ABSTRACT_VIRTUALS (BINFO_TYPE (TREE_VEC_ELT (binfos, i))) != 0);
-	  if (might_have_abstract_virtuals)
-	    break;
-	}
-      if (might_have_abstract_virtuals)
-	{
-	  /* We use error_mark_node from override_one_vtable to signal
-	     an artificial abstract.  */
-	  if (CLASSTYPE_ABSTRACT_VIRTUALS (t) == error_mark_node)
-	    CLASSTYPE_ABSTRACT_VIRTUALS (t) = NULL_TREE;
-	  CLASSTYPE_ABSTRACT_VIRTUALS (t) = get_abstract_virtuals (t);
-	}
+      /* for a class w/o baseclasses, `finish_struct' has set
+       * CLASS_TYPE_ABSTRACT_VIRTUALS correctly (by definition). Similarly
+       * for a class who's base classes do not have vtables. When neither of
+       * these is true, we might have removed abstract virtuals (by
+       * providing a definition), added some (by declaring new ones), or
+       * redeclared ones from a base class. We need to recalculate what's
+       * really an abstract virtual at this point (by looking in the vtables).
+       */
+      CLASSTYPE_ABSTRACT_VIRTUALS (t) = get_abstract_virtuals (t);
     }
 
   if (n_baseclasses)
@@ -3143,7 +3158,7 @@ finish_struct_anon (t)
 	      if (DECL_ARTIFICIAL (*uelt))
 		continue;
 
-	      if (DECL_NAME (*uelt) == TYPE_IDENTIFIER (t))
+	      if (DECL_NAME (*uelt) == constructor_name (t))
 		cp_pedwarn_at ("ANSI C++ forbids member `%D' with same name as enclosing class",
 			       *uelt);
 
@@ -3453,7 +3468,11 @@ finish_struct_1 (t, warn_anon)
       if (TREE_CODE (x) == FIELD_DECL)
 	{
 	  DECL_PACKED (x) |= TYPE_PACKED (t);
-	  empty = 0;
+
+	  if (DECL_C_BIT_FIELD (x) && integer_zerop (DECL_INITIAL (x)))
+	    /* A zero-width bitfield doesn't do the trick.  */;
+	  else
+	    empty = 0;
 	}
 
       if (TREE_CODE (x) == USING_DECL)
@@ -3669,23 +3688,24 @@ finish_struct_1 (t, warn_anon)
 				 x, TREE_TYPE (x));
 		}
 
-	      if (DECL_INITIAL (x) == NULL_TREE)
-		;
-	      else if (width == 0)
-		{
-#ifdef EMPTY_FIELD_BOUNDARY
-		  DECL_ALIGN (x) = MAX (DECL_ALIGN (x), EMPTY_FIELD_BOUNDARY);
-#endif
-#ifdef PCC_BITFIELD_TYPE_MATTERS
-		  DECL_ALIGN (x) = MAX (DECL_ALIGN (x),
-					TYPE_ALIGN (TREE_TYPE (x)));
-#endif
-		}
-	      else
+	      if (DECL_INITIAL (x))
 		{
 		  DECL_INITIAL (x) = NULL_TREE;
 		  DECL_FIELD_SIZE (x) = width;
 		  DECL_BIT_FIELD (x) = 1;
+
+		  if (width == 0)
+		    {
+#ifdef EMPTY_FIELD_BOUNDARY
+		      DECL_ALIGN (x) = MAX (DECL_ALIGN (x),
+					    EMPTY_FIELD_BOUNDARY);
+#endif
+#ifdef PCC_BITFIELD_TYPE_MATTERS
+		      if (PCC_BITFIELD_TYPE_MATTERS)
+			DECL_ALIGN (x) = MAX (DECL_ALIGN (x),
+					      TYPE_ALIGN (TREE_TYPE (x)));
+#endif
+		    }
 		}
 	    }
 	  else
@@ -4976,7 +4996,7 @@ validate_lhs (lhstype, complain)
 
 /* This function will instantiate the type of the expression given in
    RHS to match the type of LHSTYPE.  If errors exist, then return
-   error_mark_node.  If only complain is COMPLAIN is set.  If we are
+   error_mark_node.  We only complain is COMPLAIN is set.  If we are
    not complaining, never modify rhs, as overload resolution wants to
    try many possible instantiations, in hopes that at least one will
    work.
@@ -5227,8 +5247,6 @@ instantiate_type (lhstype, rhs, complain)
 
     case TREE_LIST:
       {
-	tree elem, baselink, name = NULL_TREE;
-
 	if (TREE_PURPOSE (rhs) == error_mark_node)
 	  {
 	    /* Make sure we don't drop the non-local flag, as the old code
@@ -5242,41 +5260,12 @@ instantiate_type (lhstype, rhs, complain)
 	/* Now we should have a baselink. */
 	my_friendly_assert (TREE_CODE (TREE_PURPOSE (rhs)) == TREE_VEC,
 			    980331);
-	/* First look for an exact match.  Search member functions.
-	   May have to undo what `default_conversion' might do to
-	   lhstype.  */
-
-	lhstype = validate_lhs (lhstype, complain);
-	if (lhstype == error_mark_node)
-	  return lhstype;
-
 	my_friendly_assert (TREE_CHAIN (rhs) == NULL_TREE, 181);
 	my_friendly_assert (TREE_CODE (TREE_VALUE (rhs)) == FUNCTION_DECL
 			    || TREE_CODE (TREE_VALUE (rhs)) == OVERLOAD,
 			    182);
 
-	for (baselink = rhs; baselink;
-	     baselink = next_baselink (baselink))
-	  {
-	    elem = TREE_VALUE (baselink);
-	    while (elem)
-	      if (same_type_p (lhstype, TREE_TYPE (OVL_CURRENT (elem))))
-		{
-		  mark_used (OVL_CURRENT (elem));
-		  return OVL_CURRENT (elem);
-		}
-	      else
-		elem = OVL_NEXT (elem);
-	  }
-
-	name = rhs;
-	while (TREE_CODE (name) == TREE_LIST)
-	  name = TREE_VALUE (name);
-	name = DECL_NAME (OVL_CURRENT (name));
-
-	if (complain)
-	  cp_error ("no compatible member functions named `%D'", name);
-	return error_mark_node;
+	return instantiate_type (lhstype, TREE_VALUE (rhs), complain);
       }
 
     case CALL_EXPR:

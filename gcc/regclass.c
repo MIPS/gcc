@@ -41,6 +41,9 @@ Boston, MA 02111-1307, USA.  */
 #define REGISTER_MOVE_COST(x, y) 2
 #endif
 
+static void init_reg_sets_1	PROTO((void));
+static void init_reg_modes	PROTO((void));
+
 /* If we have auto-increment or auto-decrement and we can have secondary
    reloads, we are not allowed to use classes requiring secondary
    reloads for pseudos auto-incremented since reload can't handle it.  */
@@ -233,6 +236,25 @@ init_reg_sets ()
   bcopy (initial_call_used_regs, call_used_regs, sizeof call_used_regs);
   bzero (global_regs, sizeof global_regs);
 
+  /* Do any additional initialization regsets may need */
+  INIT_ONCE_REG_SET ();
+}
+
+/* After switches have been processed, which perhaps alter
+   `fixed_regs' and `call_used_regs', convert them to HARD_REG_SETs.  */
+
+static void
+init_reg_sets_1 ()
+{
+  register unsigned int i, j;
+
+  /* This macro allows the fixed or call-used registers
+     and the register classes to depend on target flags.  */
+
+#ifdef CONDITIONAL_REGISTER_USAGE
+  CONDITIONAL_REGISTER_USAGE;
+#endif
+
   /* Compute number of hard regs in each class.  */
 
   bzero ((char *) reg_class_size, sizeof reg_class_size);
@@ -335,25 +357,6 @@ init_reg_sets ()
 	  *p = (enum reg_class) i;
 	}
     }
-
-  /* Do any additional initialization regsets may need */
-  INIT_ONCE_REG_SET ();
-}
-
-/* After switches have been processed, which perhaps alter
-   `fixed_regs' and `call_used_regs', convert them to HARD_REG_SETs.  */
-
-static void
-init_reg_sets_1 ()
-{
-  register unsigned int i, j;
-
-  /* This macro allows the fixed or call-used registers
-     to depend on target flags.  */
-
-#ifdef CONDITIONAL_REGISTER_USAGE
-  CONDITIONAL_REGISTER_USAGE;
-#endif
 
   /* Initialize "constant" tables.  */
 
@@ -1767,25 +1770,21 @@ auto_inc_dec_reg_p (reg, mode)
      rtx reg;
      enum machine_mode mode;
 {
-#ifdef HAVE_POST_INCREMENT
-  if (memory_address_p (mode, gen_rtx_POST_INC (Pmode, reg)))
+  if (HAVE_POST_INCREMENT
+      && memory_address_p (mode, gen_rtx_POST_INC (Pmode, reg)))
     return 1;
-#endif
 
-#ifdef HAVE_POST_DECREMENT
-  if (memory_address_p (mode, gen_rtx_POST_DEC (Pmode, reg)))
+  if (HAVE_POST_DECREMENT
+      && memory_address_p (mode, gen_rtx_POST_DEC (Pmode, reg)))
     return 1;
-#endif
 
-#ifdef HAVE_PRE_INCREMENT
-  if (memory_address_p (mode, gen_rtx_PRE_INC (Pmode, reg)))
+  if (HAVE_PRE_INCREMENT
+      && memory_address_p (mode, gen_rtx_PRE_INC (Pmode, reg)))
     return 1;
-#endif
 
-#ifdef HAVE_PRE_DECREMENT
-  if (memory_address_p (mode, gen_rtx_PRE_DEC (Pmode, reg)))
+  if (HAVE_PRE_DECREMENT
+      && memory_address_p (mode, gen_rtx_PRE_DEC (Pmode, reg)))
     return 1;
-#endif
 
   return 0;
 }

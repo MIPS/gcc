@@ -778,7 +778,7 @@
 
 (define_insn "extendsfdf2"
   [(set (match_operand:DF 0 "register_operand" "=a,a,a")
-	(float_extend:SF (match_operand:SF 1 "general_operand" "r,R,Q")))]
+	(float_extend:DF (match_operand:SF 1 "general_operand" "r,R,Q")))]
   "TARGET_FPU"
   "@
    mov %1, -(sp)\;ldcfd (sp)+,%0
@@ -1432,7 +1432,7 @@
   [(set (match_operand:HI 0 "general_operand" "=r")
 	(ashift:HI (match_operand:HI 1 "general_operand" "0")
 		   (match_operand:HI 2 "expand_shift_operand" "O")))]
-  "TARGET_TIME"
+  "! optimize_size"
   "*
 {
   register int i;

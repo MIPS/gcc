@@ -1,5 +1,5 @@
 /* Language-level data type conversion for GNU C++.
-   Copyright (C) 1987, 88, 92-96, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 92-97, 1998 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -354,11 +354,13 @@ build_up_reference (type, arg, flags)
 	  DECL_ARTIFICIAL (arg) = 1;
 	}
       DECL_INITIAL (arg) = targ;
-      cp_finish_decl (arg, targ, NULL_TREE, 0, LOOKUP_ONLYCONVERTING);
+      cp_finish_decl (arg, targ, NULL_TREE, 0,
+		      LOOKUP_ONLYCONVERTING|DIRECT_BIND);
     }
   else if (!(flags & DIRECT_BIND) && ! lvalue_p (arg))
     {
       tree slot = build_decl (VAR_DECL, NULL_TREE, argtype);
+      DECL_ARTIFICIAL (slot) = 1;
       arg = build (TARGET_EXPR, argtype, slot, arg, NULL_TREE, NULL_TREE);
       TREE_SIDE_EFFECTS (arg) = 1;
     }

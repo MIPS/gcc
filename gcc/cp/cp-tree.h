@@ -1,5 +1,5 @@
 /* Definitions for C++ parsing and type checking.
-   Copyright (C) 1987, 93, 94, 95, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1987, 92-97, 1998 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -1687,8 +1687,12 @@ extern int flag_new_for_scope;
    NULL_TREE.  */
 #define DECL_FRIENDLIST(NODE)		(DECL_INITIAL (NODE))
 
-/* The DECL_ACCESS is used to record under which context
-   special access rules apply.  */
+/* The DECL_ACCESS, if non-NULL, is a TREE_LIST.  The TREE_PURPOSE of
+   each node is a type; the TREE_VALUE is the access granted for this
+   DECL in that type.  The DECL_ACCESS is set by access declarations.
+   For example, if a member that would normally be public in a
+   derived class is made protected, then the derived class and the
+   protected_access_node will appear in the DECL_ACCESS for the node.  */
 #define DECL_ACCESS(NODE) (DECL_LANG_SPECIFIC(NODE)->decl_flags.access)
 
 /* C++: all of these are overloaded!
@@ -2706,6 +2710,7 @@ extern int init_type_desc			PROTO((void));
 extern tree define_function
 	PROTO((char *, tree, enum built_in_function,
 	       void (*) (tree), char *));
+extern tree check_tag_decl			PROTO((tree));
 extern void shadow_tag				PROTO((tree));
 extern tree groktypename			PROTO((tree));
 extern tree start_decl				PROTO((tree, tree, int, tree, tree));

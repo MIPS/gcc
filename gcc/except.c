@@ -767,8 +767,13 @@ add_new_handler (region, newhandler)
     function_eh_regions[region].handlers = newhandler;
   else 
     {
-      for ( ; last->next != NULL; last = last->next)
-        ;
+      for ( ; ; last = last->next)
+	{
+	  if (last->type_info == CATCH_ALL_TYPE)
+	    pedwarn ("additional handler after ...");
+	  if (last->next == NULL)
+	    break;
+	}
       last->next = newhandler;
     }
 }
@@ -2023,7 +2028,7 @@ set_exception_lang_code (code)
 /* This routine will set the language version code for exceptions. */
 void
 set_exception_version_code (code)
-     short code;
+     int code;
 {
   version_code = code;
 }

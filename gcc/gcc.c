@@ -38,44 +38,12 @@ compilation is specified by a string called a "spec".  */
 
 #include "obstack.h"
 
-
 /* ??? Need to find a GCC header to put these in.  */
-extern int pexecute PROTO ((const char *, char * const *, const char *,
-			    const char *, char **, char **, int));
-extern int pwait PROTO ((int, int *, int));
 extern char *update_path PROTO((char *, char *));
 extern void set_std_prefix PROTO((char *, int));
-/* Flag arguments to pexecute.  */
-#define PEXECUTE_FIRST   1
-#define PEXECUTE_LAST    2
-#define PEXECUTE_SEARCH  4
-#define PEXECUTE_VERBOSE 8
-
-#ifndef WIFSIGNALED
-#define WIFSIGNALED(S) (((S) & 0xff) != 0 && ((S) & 0xff) != 0x7f)
-#endif
-#ifndef WTERMSIG
-#define WTERMSIG(S) ((S) & 0x7f)
-#endif
-#ifndef WIFEXITED
-#define WIFEXITED(S) (((S) & 0xff) == 0)
-#endif
-#ifndef WEXITSTATUS
-#define WEXITSTATUS(S) (((S) & 0xff00) >> 8)
-#endif
 
 #ifdef VMS
 #define exit __posix_exit
-#endif
-
-/* Test if something is a normal file.  */
-#ifndef S_ISREG
-#define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
-#endif
-
-/* Test if something is a directory.  */
-#ifndef S_ISDIR
-#define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
 #endif
 
 /* By default there is no special suffix for executables.  */
@@ -218,7 +186,6 @@ static void clear_failure_queue PROTO((void));
 static int check_live_switch	PROTO((int, int));
 static char *handle_braces	PROTO((char *));
 static char *save_string	PROTO((char *, int));
-static char *concat		PVPROTO((char *, ...));
 extern int do_spec		PROTO((char *));
 static int do_spec_1		PROTO((char *, int, char *));
 static char *find_file		PROTO((char *));
@@ -238,8 +205,6 @@ static void error		PVPROTO((char *, ...));
 static void display_help 	PROTO((void));
 
 void fancy_abort		PROTO((void)) ATTRIBUTE_NORETURN;
-char *xmalloc ();
-char *xrealloc ();
 
 #ifdef LANG_SPECIFIC_DRIVER
 /* Called before processing to change/add/remove arguments. */
@@ -604,8 +569,10 @@ static struct compiler default_compilers[] =
      were not present when we built the driver, we will hit these copies
      and be given a more meaningful error than "file not used since
      linking is not done".  */
-  {".cc", {"#C++"}}, {".cxx", {"#C++"}}, {".cpp", {"#C++"}}, {".c++", {"#C++"}},
-  {".C", {"#C++"}}, {".ads", {"#Ada"}}, {".adb", {"#Ada"}}, {".ada", {"#Ada"}},
+  {".m", {"#Objective-C"}},
+  {".cc", {"#C++"}}, {".cxx", {"#C++"}}, {".cpp", {"#C++"}},
+  {".c++", {"#C++"}}, {".C", {"#C++"}},
+  {".ads", {"#Ada"}}, {".adb", {"#Ada"}}, {".ada", {"#Ada"}},
   {".f", {"#Fortran"}}, {".for", {"#Fortran"}}, {".F", {"#Fortran"}},
   {".fpp", {"#Fortran"}},
   {".p", {"#Pascal"}}, {".pas", {"#Pascal"}},
@@ -614,12 +581,13 @@ static struct compiler default_compilers[] =
   {"@c",
    {
 #if USE_CPPLIB
-     "%{E|M|MM:cpp -lang-c%{ansi:89} %{nostdinc*} %{C} %{v} %{A*} %{I*} %{P} %I\
+     "%{E|M|MM:cpp -lang-c %(ansi:-std=c89} %{std*} %{nostdinc*}\
+	%{C} %{v} %{A*} %{I*} %{P} %I\
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
 	%{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
         -undef -D__GNUC__=%v1 -D__GNUC_MINOR__=%v2\
-	%{ansi:-trigraphs -D__STRICT_ANSI__}\
-	%{!undef:%{!ansi:%p} %P} %{trigraphs} \
+	%{ansi|std=*:%{!std=gnu:-trigraphs -D__STRICT_ANSI__}}\
+	%{!undef:%{!ansi:%{!std=*:%p}%{std=gnu:%p}} %P} %{trigraphs}\
         %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
         %{traditional} %{ftraditional:-traditional}\
         %{traditional-cpp:-traditional}\
@@ -627,20 +595,20 @@ static struct compiler default_compilers[] =
 	%{g*} %{W*} %{w} %{pedantic*} %{H} %{d*} %C %{D*} %{U*} %{i*} %Z\
         %i %{E:%W{o*}}%{M:%W{o*}}%{MM:%W{o*}}\n}\
       %{!E:%{!M:%{!MM:cc1 %i %1 \
-                  -lang-c%{ansi:89} %{nostdinc*} %{A*} %{I*} %I\
+                  %{std*} %{nostdinc*} %{A*} %{I*} %I\
                   %{!Q:-quiet} -dumpbase %b.c %{d*} %{m*} %{a*}\
                   %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
                   -undef -D__GNUC__=%v1 -D__GNUC_MINOR__=%v2\
-                  %{ansi:-trigraphs -D__STRICT_ANSI__}\
-                  %{!undef:%{!ansi:%p} %P} %{trigraphs} \
+		  %{ansi|std=*:%{!std=gnu:-trigraphs -D__STRICT_ANSI__}}\
+		  %{!undef:%{!ansi:%{!std=*:%p}%{std=gnu:%p}} %P} %{trigraphs}\
                   %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
                   %{H} %C %{D*} %{U*} %{i*} %Z\
                   %{ftraditional:-traditional}\
                   %{traditional-cpp:-traditional}\
 		  %{traditional} %{v:-version} %{pg:-p} %{p} %{f*}\
 		  %{aux-info*}\
-		  %{--help:--help} \
-		  %{g*} %{O*} %{W*} %{w} %{pedantic*} %{ansi} \
+		  %{--help:--help}\
+		  %{g*} %{O*} %{W*} %{w} %{pedantic*}\
 		  %{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
 		  %{S:%W{o*}%{!o*:-o %b.s}}%{!S:-o %{|!pipe:%g.s}} |\n\
                   %{!S:as %a %Y\
@@ -648,12 +616,13 @@ static struct compiler default_compilers[] =
                      %{!pipe:%g.s} %A\n }}}}"
   }},
 #else /* ! USE_CPPLIB */
-    "cpp -lang-c%{ansi:89} %{nostdinc*} %{C} %{v} %{A*} %{I*} %{P} %I\
+    "cpp -lang-c %{ansi:-std=c89} %{std*} %{nostdinc*}\
+	%{C} %{v} %{A*} %{I*} %{P} %I\
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
 	%{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
         -undef -D__GNUC__=%v1 -D__GNUC_MINOR__=%v2\
-	%{ansi:-trigraphs -D__STRICT_ANSI__}\
-	%{!undef:%{!ansi:%p} %P} %{trigraphs} \
+	%{ansi|std=*:%{!std=gnu:-trigraphs -D__STRICT_ANSI__}}\
+	%{!undef:%{!ansi:%{!std=*:%p}%{std=gnu:%p}} %P} %{trigraphs}\
         %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
         %{traditional} %{ftraditional:-traditional}\
         %{traditional-cpp:-traditional}\
@@ -662,7 +631,7 @@ static struct compiler default_compilers[] =
         %i %{!M:%{!MM:%{!E:%{!pipe:%g.i}}}}%{E:%W{o*}}%{M:%W{o*}}%{MM:%W{o*}} |\n",
    "%{!M:%{!MM:%{!E:cc1 %{!pipe:%g.i} %1 \
 		   %{!Q:-quiet} -dumpbase %b.c %{d*} %{m*} %{a*}\
-		   %{g*} %{O*} %{W*} %{w} %{pedantic*} %{ansi} \
+		   %{g*} %{O*} %{W*} %{w} %{pedantic*} %{std*}\
 		   %{traditional} %{v:-version} %{pg:-p} %{p} %{f*}\
 		   %{aux-info*}\
 		   %{--help:--help} \
@@ -674,12 +643,13 @@ static struct compiler default_compilers[] =
   }},
 #endif /* ! USE_CPPLIB */
   {"-",
-   {"%{E:cpp -lang-c%{ansi:89} %{nostdinc*} %{C} %{v} %{A*} %{I*} %{P} %I\
+   {"%{E:cpp -lang-c %{ansi:-std=c89} %{std*} %{nostdinc*}\
+	%{C} %{v} %{A*} %{I*} %{P} %I\
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
 	%{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
         -undef -D__GNUC__=%v1 -D__GNUC_MINOR__=%v2\
-	%{ansi:-trigraphs -D__STRICT_ANSI__}\
-	%{!undef:%{!ansi:%p} %P} %{trigraphs}\
+	%{ansi|std=*:%{!std=gnu:-trigraphs -D__STRICT_ANSI__}}\
+	%{!undef:%{!ansi:%{!std=*:%p}%{std=gnu:%p}} %P} %{trigraphs}\
         %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
         %{traditional} %{ftraditional:-traditional}\
         %{traditional-cpp:-traditional}\
@@ -687,31 +657,6 @@ static struct compiler default_compilers[] =
 	%{g*} %{W*} %{w} %{pedantic*} %{H} %{d*} %C %{D*} %{U*} %{i*} %Z\
         %i %W{o*}}\
     %{!E:%e-E required when input is from standard input}"}},
-  {".m", {"@objective-c"}},
-  {"@objective-c",
-   {"cpp -lang-objc %{nostdinc*} %{C} %{v} %{A*} %{I*} %{P} %I\
-	%{C:%{!E:%eGNU C does not support -C without using -E}}\
-	%{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
-        -undef -D__OBJC__ -D__GNUC__=%v1 -D__GNUC_MINOR__=%v2\
-	 %{ansi:-trigraphs -D__STRICT_ANSI__}\
-	%{!undef:%{!ansi:%p} %P} %{trigraphs}\
-        %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
-        %{traditional} %{ftraditional:-traditional}\
-        %{traditional-cpp:-traditional}\
-	%{fleading-underscore} %{fno-leading-underscore}\
-	%{g*} %{W*} %{w} %{pedantic*} %{H} %{d*} %C %{D*} %{U*} %{i*} %Z\
-        %i %{!M:%{!MM:%{!E:%{!pipe:%g.i}}}}%{E:%W{o*}}%{M:%W{o*}}%{MM:%W{o*}} |\n",
-    "%{!M:%{!MM:%{!E:cc1obj %{!pipe:%g.i} %1 \
-		   %{!Q:-quiet} -dumpbase %b.m %{d*} %{m*} %{a*}\
-		   %{g*} %{O*} %{W*} %{w} %{pedantic*} %{ansi} \
-		   %{traditional} %{v:-version} %{pg:-p} %{p} %{f*} \
-    		   -lang-objc %{gen-decls} \
-		   %{aux-info*}\
-		   %{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
-		   %{S:%W{o*}%{!o*:-o %b.s}}%{!S:-o %{|!pipe:%g.s}} |\n\
-              %{!S:as %a %Y\
-		      %{c:%W{o*}%{!o*:-o %w%b%O}}%{!c:-o %d%w%u%O}\
-                      %{!pipe:%g.s} %A\n }}}}"}},
   {".h", {"@c-header"}},
   {"@c-header",
    {"%{!E:%eCompilation of header file requested} \
@@ -719,8 +664,8 @@ static struct compiler default_compilers[] =
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
 	 %{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
         -undef -D__GNUC__=%v1 -D__GNUC_MINOR__=%v2\
-	 %{ansi:-trigraphs -D__STRICT_ANSI__}\
-	%{!undef:%{!ansi:%p} %P} %{trigraphs}\
+	%{std=*:%{!std=gnu:-trigraphs -D__STRICT_ANSI__}}\
+	%{!undef:%{!std=*:%p}%{std=gnu:%p} %P} %{trigraphs}\
         %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
         %{traditional} %{ftraditional:-traditional}\
         %{traditional-cpp:-traditional}\
@@ -730,7 +675,7 @@ static struct compiler default_compilers[] =
   {".i", {"@cpp-output"}},
   {"@cpp-output",
    {"%{!M:%{!MM:%{!E:cc1 %i %1 %{!Q:-quiet} %{d*} %{m*} %{a*}\
-			%{g*} %{O*} %{W*} %{w} %{pedantic*} %{ansi}\
+			%{g*} %{O*} %{W*} %{w} %{pedantic*} %{std*}\
 			%{traditional} %{v:-version} %{pg:-p} %{p} %{f*}\
 			%{aux-info*}\
 			%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
@@ -887,6 +832,7 @@ struct option_map option_map[] =
    {"--no-warnings", "-w", 0},
    {"--optimize", "-O", "oj"},
    {"--output", "-o", "a"},
+   {"--output-class-directory", "-foutput-class-dir=", "ja"},
    {"--pedantic", "-pedantic", 0},
    {"--pedantic-errors", "-pedantic-errors", 0},
    {"--pipe", "-pipe", 0},
@@ -907,6 +853,7 @@ struct option_map option_map[] =
    {"--silent", "-q", 0},
    {"--specs", "-specs=", "aj"},
    {"--static", "-static", 0},
+   {"--std", "-std=", "aj"},
    {"--symbolic", "-symbolic", 0},
    {"--target", "-b", "a"},
    {"--trace-includes", "-H", 0},
@@ -1337,8 +1284,6 @@ static struct temp_name {
   int filename_length;	/* strlen (filename).  */
   struct temp_name *next;
 } *temp_names;
-#else
-extern char *choose_temp_base PROTO((void));
 #endif
 
 
@@ -2513,6 +2458,7 @@ display_help ()
   printf ("  -save-temps              Do not delete intermediate files\n");
   printf ("  -pipe                    Use pipes rather than intermediate files\n");
   printf ("  -specs=<file>            Override builtin specs with the contents of <file>\n");
+  printf ("  -std=<standard>          Assume that the input sources are for <standard>\n");
   printf ("  -B <directory>           Add <directory> to the compiler's search paths\n");
   printf ("  -b <machine>             Run gcc for target <machine>, if installed\n");
   printf ("  -V <version>             Run gcc version number <version>, if installed\n");
@@ -5265,79 +5211,25 @@ lookup_compiler (name, length, language)
   return 0;
 }
 
-char *
+PTR
 xmalloc (size)
-     unsigned size;
+  size_t size;
 {
-  register char *value = (char *) malloc (size);
+  register PTR value = (PTR) malloc (size);
   if (value == 0)
     fatal ("virtual memory exhausted");
   return value;
 }
 
-char *
+PTR
 xrealloc (ptr, size)
-     char *ptr;
-     unsigned size;
+  PTR ptr;
+  size_t size;
 {
-  register char *value = (char *) realloc (ptr, size);
+  register PTR value = (PTR) realloc (ptr, size);
   if (value == 0)
     fatal ("virtual memory exhausted");
   return value;
-}
-
-/* This function is based on the one in libiberty.  */
-
-static char *
-concat VPROTO((char *first, ...))
-{
-  register int length;
-  register char *newstr;
-  register char *end;
-  register char *arg;
-  va_list args;
-#ifndef ANSI_PROTOTYPES
-  char *first;
-#endif
-
-  /* First compute the size of the result and get sufficient memory.  */
-
-  VA_START (args, first);
-#ifndef ANSI_PROTOTYPES
-  first = va_arg (args, char *);
-#endif
-
-  arg = first;
-  length = 0;
-
-  while (arg != 0)
-    {
-      length += strlen (arg);
-      arg = va_arg (args, char *);
-    }
-
-  newstr = (char *) xmalloc (length + 1);
-  va_end (args);
-
-  /* Now copy the individual pieces to the result string.  */
-
-  VA_START (args, first);
-#ifndef ANSI_PROTOTYPES
-  first = va_arg (args, char *);
-#endif
-
-  end = newstr;
-  arg = first;
-  while (arg != 0)
-    {
-      while (*arg)
-	*end++ = *arg++;
-      arg = va_arg (args, char *);
-    }
-  *end = '\000';
-  va_end (args);
-
-  return (newstr);
 }
 
 static char *

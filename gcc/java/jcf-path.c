@@ -141,7 +141,8 @@ add_entry (entp, filename, is_system)
   n->next = NULL;
 
   len = strlen (filename);
-  if (len > 4 && ! strcmp (filename + len - 4, ".zip"))
+  if (len > 4 && (strcmp (filename + len - 4, ".zip") == 0
+		  || strcmp (filename + len - 4, ".jar") == 0))
     {
       n->flags |= FLAG_ZIP;
       /* If the user uses -classpath then he'll have to include

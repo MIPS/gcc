@@ -1,5 +1,5 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
-   Copyright (C) 1987, 88, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 92-97, 1998 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -1294,9 +1294,15 @@ is_overloaded_fn (x)
      tree x;
 {
   /* XXX A baselink is also considered an overloaded function.
-     As is a placeholder from push_class_decls.  */
+     As is a placeholder from push_class_decls.
+     As is an expression like X::f.  */
   if (TREE_CODE (x) == TREE_LIST)
     {
+      if (TREE_PURPOSE (x) == error_mark_node)
+	{
+	  x = TREE_VALUE (x);
+	  my_friendly_assert (TREE_CODE (x) == TREE_LIST, 981121);
+	}
       my_friendly_assert (TREE_CODE (TREE_PURPOSE (x)) == TREE_VEC
 			  || TREE_CODE (TREE_PURPOSE (x)) == IDENTIFIER_NODE,
 			  388);
@@ -1370,9 +1376,9 @@ build_overload (decl, chain)
      tree decl;
      tree chain;
 {
-  if (!chain)
+  if (! chain && TREE_CODE (decl) != TEMPLATE_DECL)
     return decl;
-  if (TREE_CODE (chain) != OVERLOAD)
+  if (chain && TREE_CODE (chain) != OVERLOAD)
     chain = ovl_cons (chain, NULL_TREE);
   return ovl_cons (decl, chain);
 }

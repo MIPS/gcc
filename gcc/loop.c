@@ -88,14 +88,6 @@ int *loop_outer_loop;
 int *loop_used_count_register;
 #endif  /* HAVE_decrement_and_branch_on_count */
 
-/* For each loop, keep track of its unrolling factor.
-   Potential values:
-      0: unrolled
-      1: not unrolled.
-     -1: completely unrolled
-     >0: holds the unroll exact factor.  */
-int *loop_unroll_factor;
-
 /* Indexed by loop number, contains a nonzero value if the "loop" isn't
    really a loop (an insn outside the loop branches into it).  */
 
@@ -117,14 +109,6 @@ rtx *loop_number_exit_labels;
    loop_number_exit_labels for this loop and all loops nested inside it.  */
 
 int *loop_number_exit_count;
-
-/* Holds the number of loop iterations.  It is zero if the number could not be
-   calculated.  Must be unsigned since the number of iterations can
-   be as high as 2^wordsize-1.  For loops with a wider iterator, this number
-   will be zero if the number of loop iterations is too large for an
-   unsigned integer to hold.  */
-
-unsigned HOST_WIDE_INT loop_n_iterations;
 
 /* Nonzero if there is a subroutine call in the current loop.  */
 
@@ -320,14 +304,15 @@ static void find_single_use_in_loop PROTO((rtx, rtx, varray_type));
 static int valid_initial_value_p PROTO((rtx, rtx, int, rtx));
 static void find_mem_givs PROTO((rtx, rtx, int, rtx, rtx));
 static void record_biv PROTO((struct induction *, rtx, rtx, rtx, rtx, int, int));
-static void check_final_value PROTO((struct induction *, rtx, rtx));
+static void check_final_value PROTO((struct induction *, rtx, rtx, 
+				     unsigned HOST_WIDE_INT));
 static void record_giv PROTO((struct induction *, rtx, rtx, rtx, rtx, rtx, int, enum g_types, int, rtx *, rtx, rtx));
 static void update_giv_derive PROTO((rtx));
 static int basic_induction_var PROTO((rtx, enum machine_mode, rtx, rtx, rtx *, rtx *));
 static rtx simplify_giv_expr PROTO((rtx, int *));
 static int general_induction_var PROTO((rtx, rtx *, rtx *, rtx *, int, int *));
 static int consec_sets_giv PROTO((int, rtx, rtx, rtx, rtx *, rtx *));
-static int check_dbra_loop PROTO((rtx, int, rtx));
+static int check_dbra_loop PROTO((rtx, int, rtx, struct loop_info *));
 static rtx express_from_1 PROTO((rtx, rtx, rtx));
 static rtx express_from PROTO((struct induction *, struct induction *));
 static rtx combine_givs_p PROTO((struct induction *, struct induction *));
@@ -365,7 +350,7 @@ typedef struct rtx_pair {
 
 #ifdef HAVE_decrement_and_branch_on_count
 /* Test whether BCT applicable and safe.  */
-static void insert_bct PROTO((rtx, rtx));
+static void insert_bct PROTO((rtx, rtx, struct loop_info *));
 
 /* Auxiliary function that inserts the BCT pattern into the loop.  */
 static void instrument_loop_bct PROTO((rtx, rtx, rtx));
@@ -477,12 +462,6 @@ loop_optimize (f, dumpfile, unroll_p, bct_p)
   loop_invalid = (char *) alloca (max_loop_num * sizeof (char));
   loop_number_exit_labels = (rtx *) alloca (max_loop_num * sizeof (rtx));
   loop_number_exit_count = (int *) alloca (max_loop_num * sizeof (int));
-
-  /* This is initialized by the unrolling code, so we go ahead
-     and clear them just in case we are not performing loop
-     unrolling.  */
-  loop_unroll_factor = (int *) alloca (max_loop_num *sizeof (int));
-  bzero ((char *) loop_unroll_factor, max_loop_num * sizeof (int));
 
 #ifdef HAVE_decrement_and_branch_on_count
   /* Allocate for BCT optimization */
@@ -2014,6 +1993,8 @@ move_movables (movables, threshold, insn_count, loop_start, end, nregs)
 			      REG_NOTES (i1) = REG_NOTES (temp);
 			      delete_insn (temp);
 			    }
+			  if (new_start == 0)
+			    new_start = first;
 			}
 		      if (m->savemode != VOIDmode)
 			{
@@ -3571,6 +3552,8 @@ strength_reduce (scan_start, end, loop_top, insn_count,
   rtx test;
   rtx end_insert_before;
   int loop_depth = 0;
+  struct loop_info loop_iteration_info;
+  struct loop_info *loop_info = &loop_iteration_info;
 
   reg_iv_type = (enum iv_mode *) alloca (max_reg_before_loop
 					 * sizeof (enum iv_mode));
@@ -3769,7 +3752,8 @@ strength_reduce (scan_start, end, loop_top, insn_count,
       /* Can still unroll the loop anyways, but indicate that there is no
 	 strength reduction info available.  */
       if (unroll_p)
-	unroll_loop (loop_end, insn_count, loop_start, end_insert_before, 0);
+	unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
+		     loop_info, 0);
 
       return;
     }
@@ -4038,7 +4022,7 @@ strength_reduce (scan_start, end, loop_top, insn_count,
      be called after all giv's have been identified, since otherwise it may
      fail if the iteration variable is a giv.  */
 
-  loop_n_iterations = loop_iterations (loop_start, loop_end);
+  loop_iterations (loop_start, loop_end, loop_info);
 
   /* Now for each giv for which we still don't know whether or not it is
      replaceable, check to see if it is replaceable because its final value
@@ -4051,13 +4035,13 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 
       for (v = bl->giv; v; v = v->next_iv)
 	if (! v->replaceable && ! v->not_replaceable)
-	  check_final_value (v, loop_start, loop_end);
+	  check_final_value (v, loop_start, loop_end, loop_info->n_iterations);
     }
 
   /* Try to prove that the loop counter variable (if any) is always
      nonnegative; if so, record that fact with a REG_NONNEG note
      so that "decrement and branch until zero" insn can be used.  */
-  check_dbra_loop (loop_end, insn_count, loop_start);
+  check_dbra_loop (loop_end, insn_count, loop_start, loop_info);
 
   /* Create reg_map to hold substitutions for replaceable giv regs.  */
   reg_map = (rtx *) alloca (max_reg_before_loop * sizeof (rtx));
@@ -4097,7 +4081,8 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 	   && ! bl->nonneg
 #endif
 	   && ! reg_mentioned_p (bl->biv->dest_reg, SET_SRC (bl->init_set)))
-	  || ((final_value = final_biv_value (bl, loop_start, loop_end))
+	  || ((final_value = final_biv_value (bl, loop_start, loop_end, 
+					      loop_info->n_iterations))
 #ifdef HAVE_decrement_and_branch_until_zero
 	      && ! bl->nonneg
 #endif
@@ -4166,14 +4151,18 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 	  if (v->giv_type == DEST_ADDR
 	      && GET_CODE (v->mult_val) == CONST_INT)
 	    {
-#if defined (HAVE_POST_INCREMENT) || defined (HAVE_PRE_INCREMENT)
-	      if (INTVAL (v->mult_val) == GET_MODE_SIZE (v->mem_mode))
+	      if (HAVE_POST_INCREMENT
+		  && INTVAL (v->mult_val) == GET_MODE_SIZE (v->mem_mode))
 		benefit += add_cost * bl->biv_count;
-#endif
-#if defined (HAVE_POST_DECREMENT) || defined (HAVE_PRE_DECREMENT)
-	      if (-INTVAL (v->mult_val) == GET_MODE_SIZE (v->mem_mode))
+	      else if (HAVE_PRE_INCREMENT
+		       && INTVAL (v->mult_val) == GET_MODE_SIZE (v->mem_mode))
 		benefit += add_cost * bl->biv_count;
-#endif
+	      else if (HAVE_POST_DECREMENT
+		       && -INTVAL (v->mult_val) == GET_MODE_SIZE (v->mem_mode))
+		benefit += add_cost * bl->biv_count;
+	      else if (HAVE_PRE_DECREMENT
+		       && -INTVAL (v->mult_val) == GET_MODE_SIZE (v->mem_mode))
+		benefit += add_cost * bl->biv_count;
 	    }
 #endif
 
@@ -4556,13 +4545,14 @@ strength_reduce (scan_start, end, loop_top, insn_count,
      collected.  */
   
   if (unroll_p)
-    unroll_loop (loop_end, insn_count, loop_start, end_insert_before, 1);
+    unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
+		 loop_info, 1);
 
 #ifdef HAVE_decrement_and_branch_on_count
   /* Instrument the loop with BCT insn.  */
   if (HAVE_decrement_and_branch_on_count && bct_p
       && flag_branch_on_count_reg)
-    insert_bct (loop_start, loop_end);
+    insert_bct (loop_start, loop_end, loop_info);
 #endif  /* HAVE_decrement_and_branch_on_count */
 
   if (loop_dump_stream)
@@ -5052,9 +5042,10 @@ record_giv (v, insn, src_reg, dest_reg, mult_val, add_val, benefit,
    have been identified.  */
 
 static void
-check_final_value (v, loop_start, loop_end)
+check_final_value (v, loop_start, loop_end, n_iterations)
      struct induction *v;
      rtx loop_start, loop_end;
+     unsigned HOST_WIDE_INT n_iterations;
 {
   struct iv_class *bl;
   rtx final_value = 0;
@@ -5081,7 +5072,7 @@ check_final_value (v, loop_start, loop_end)
   v->replaceable = 0;
 #endif
 
-  if ((final_value = final_giv_value (v, loop_start, loop_end))
+  if ((final_value = final_giv_value (v, loop_start, loop_end, n_iterations))
       && (v->always_computable || last_use_this_basic_block (v->dest_reg, v->insn)))
     {
       int biv_increment_seen = 0;
@@ -6643,10 +6634,11 @@ product_cheap_p (a, b)
    final_[bg]iv_value.  */
 
 static int
-check_dbra_loop (loop_end, insn_count, loop_start)
+check_dbra_loop (loop_end, insn_count, loop_start, loop_info)
      rtx loop_end;
      int insn_count;
      rtx loop_start;
+     struct loop_info *loop_info;
 {
   struct iv_class *bl;
   rtx reg;
@@ -7059,16 +7051,29 @@ check_dbra_loop (loop_end, insn_count, loop_start)
 		   better to have a testcase first.  */
 		return 0;
 
-	      /* Add insn to decrement register, and delete insn
-		 that incremented the register.  */
-	      p = emit_insn_before (gen_add2_insn (reg, new_add_val),
-				    bl->biv->insn);
+	      /* We may not have a single insn which can increment a reg, so
+		 create a sequence to hold all the insns from expand_inc.  */
+	      start_sequence ();
+	      expand_inc (reg, new_add_val);
+              tem = gen_sequence ();
+              end_sequence ();
+
+	      p = emit_insn_before (tem, bl->biv->insn);
 	      delete_insn (bl->biv->insn);
 		      
 	      /* Update biv info to reflect its new status.  */
 	      bl->biv->insn = p;
 	      bl->initial_value = start_value;
 	      bl->biv->add_val = new_add_val;
+
+	      /* Update loop info.  */
+	      loop_info->initial_value = bl->initial_value;
+	      loop_info->initial_equiv_value = bl->initial_value;
+	      loop_info->final_value = const0_rtx;
+	      loop_info->final_equiv_value = const0_rtx;
+	      loop_info->comparison_value = const0_rtx;
+	      loop_info->comparison_code = cmp_code;
+	      loop_info->increment = new_add_val;
 
 	      /* Inc LABEL_NUSES so that delete_insn will
 		 not delete the label.  */
@@ -7097,16 +7102,18 @@ check_dbra_loop (loop_end, insn_count, loop_start)
 	      end_sequence ();
 	      emit_jump_insn_before (tem, loop_end);
 
+	      for (tem = PREV_INSN (loop_end);
+		   tem && GET_CODE (tem) != JUMP_INSN;
+		   tem = PREV_INSN (tem))
+		;
+
+	      if (tem)
+		JUMP_LABEL (tem) = XEXP (jump_label, 0);
+
 	      if (nonneg)
 		{
-		  for (tem = PREV_INSN (loop_end);
-		       tem && GET_CODE (tem) != JUMP_INSN;
-		       tem = PREV_INSN (tem))
-		    ;
 		  if (tem)
 		    {
-		      JUMP_LABEL (tem) = XEXP (jump_label, 0);
-
 		      /* Increment of LABEL_NUSES done above.  */
 		      /* Register is now always nonnegative,
 			 so add REG_NONNEG note to the branch.  */
@@ -7953,8 +7960,9 @@ get_condition_for_loop (x)
  */
 
 static void
-insert_bct (loop_start, loop_end)
+insert_bct (loop_start, loop_end, loop_info)
      rtx loop_start, loop_end;
+     struct loop_info *loop_info;
 {
   int i;
   unsigned HOST_WIDE_INT n_iterations;
@@ -7970,7 +7978,7 @@ insert_bct (loop_start, loop_end)
   int loop_num = uid_loop_num [INSN_UID (loop_start)];
 
   /* It's impossible to instrument a competely unrolled loop.  */
-  if (loop_unroll_factor [loop_num] == -1)
+  if (loop_info->unroll_number == -1)
     return;
 
   /* Make sure that the count register is not in use.  */
@@ -8028,10 +8036,10 @@ insert_bct (loop_start, loop_end)
     }
 
   /* Account for loop unrolling in instrumented iteration count.  */
-  if (loop_unroll_factor [loop_num] > 1)
-    n_iterations = loop_n_iterations / loop_unroll_factor [loop_num];
+  if (loop_info->unroll_number > 1)
+    n_iterations = loop_info->n_iterations / loop_info->unroll_number;
   else
-    n_iterations = loop_n_iterations;
+    n_iterations = loop_info->n_iterations;
 
   if (n_iterations != 0 && n_iterations < 3)
     {
@@ -8059,7 +8067,7 @@ insert_bct (loop_start, loop_end)
      at compile time.  In this case we generate run_time calculation
      of the number of iterations.  */
 
-  if (loop_iteration_var == 0)
+  if (loop_info->iteration_var == 0)
     {
       if (loop_dump_stream)
 	fprintf (loop_dump_stream,
@@ -8068,8 +8076,8 @@ insert_bct (loop_start, loop_end)
       return;
     }
 
-  if (GET_MODE_CLASS (GET_MODE (loop_iteration_var)) != MODE_INT
-      || GET_MODE_SIZE (GET_MODE (loop_iteration_var)) != UNITS_PER_WORD)
+  if (GET_MODE_CLASS (GET_MODE (loop_info->iteration_var)) != MODE_INT
+      || GET_MODE_SIZE (GET_MODE (loop_info->iteration_var)) != UNITS_PER_WORD)
     {
       if (loop_dump_stream)
 	fprintf (loop_dump_stream,
@@ -8079,7 +8087,7 @@ insert_bct (loop_start, loop_end)
     }
 
   /* With runtime bounds, if the compare is of the form '!=' we give up */
-  if (loop_comparison_code == NE)
+  if (loop_info->comparison_code == NE)
     {
       if (loop_dump_stream)
 	fprintf (loop_dump_stream,

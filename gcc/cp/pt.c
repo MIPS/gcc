@@ -1,5 +1,5 @@
 /* Handle parameterized types (templates) for GNU C++.
-   Copyright (C) 1992, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93-97, 1998 Free Software Foundation, Inc.
    Written by Ken Raeburn (raeburn@cygnus.com) while at Watchmaker Computing.
    Rewritten by Jason Merrill (jason@cygnus.com).
 
@@ -75,6 +75,7 @@ static tree saved_trees;
 #define UNIFY_ALLOW_MORE_CV_QUAL 1
 #define UNIFY_ALLOW_LESS_CV_QUAL 2
 #define UNIFY_ALLOW_DERIVED 4
+#define UNIFY_ALLOW_INTEGER 8
 
 static int unify PROTO((tree, tree, tree, tree, int, int*));
 static int resolve_overloaded_unification PROTO((tree, tree, tree, tree,
@@ -1205,6 +1206,8 @@ check_explicit_specialization (declarator, decl, template_count, flags)
 	      ("default argument specified in explicit specialization");
 	    break;
 	  }
+      if (current_lang_name == lang_name_c)
+	cp_error ("template specialization with C linkage");
     }
 
   if (specialization || member_specialization || explicit_instantiation)
@@ -1512,8 +1515,33 @@ int decl_template_parm_p (old_decl)
   return 0;
 }
 
+/* Complain if DECL shadows a template parameter.
 
- /* Return a new TEMPLATE_PARM_INDEX with the indicated INDEX, LEVEL,
+   [temp.local]: A template-parameter shall not be redeclared within its
+   scope (including nested scopes).  */
+
+void
+check_template_shadow (decl)
+     tree decl;
+{
+  if (current_template_parms 
+      && IDENTIFIER_LOCAL_VALUE (DECL_NAME (decl)))
+    {
+      tree olddecl = IDENTIFIER_LOCAL_VALUE (DECL_NAME (decl));
+
+      /* We check for decl != olddecl to avoid bogus errors for using a
+	 name inside a class.  We check TPFI to avoid duplicate errors for
+	 inline member templates.  */
+      if (decl != olddecl && decl_template_parm_p (olddecl)
+	  && ! TEMPLATE_PARMS_FOR_INLINE (current_template_parms))
+	{
+	  cp_error_at ("declaration of `%#D'", decl);
+	  cp_error_at (" shadows template parm `%#D'", olddecl);
+	}
+    }
+}
+
+/* Return a new TEMPLATE_PARM_INDEX with the indicated INDEX, LEVEL,
    ORIG_LEVEL, DECL, and TYPE.  */
 
 static tree
@@ -2470,22 +2498,9 @@ convert_nontype_argument (type, expr)
        Check this first since if expr_type is the unknown_type_node
        we would otherwise complain below.  */
     ;
-  else if (INTEGRAL_TYPE_P (expr_type) 
-	   || TYPE_PTRMEM_P (expr_type) 
-	   || TYPE_PTRMEMFUNC_P (expr_type)
-	   /* The next two are g++ extensions.  */
-	   || TREE_CODE (expr_type) == REAL_TYPE
-	   || TREE_CODE (expr_type) == COMPLEX_TYPE)
-    {
-      if (! TREE_CONSTANT (expr))
-	{
-	non_constant:
-	  cp_error ("non-constant `%E' cannot be used as template argument",
-		    expr);
-	  return NULL_TREE;
-	}
-    }
-  else if (TYPE_PTR_P (expr_type) 
+  else if (TYPE_PTR_P (expr_type)
+	   || TREE_CODE (expr_type) == ARRAY_TYPE
+	   || TREE_CODE (type) == REFERENCE_TYPE
 	   /* If expr is the address of an overloaded function, we
 	      will get the unknown_type_node at this point.  */
 	   || expr_type == unknown_type_node)
@@ -2494,21 +2509,27 @@ convert_nontype_argument (type, expr)
       tree e = expr;
       STRIP_NOPS (e);
 
-      if (TREE_CODE (e) != ADDR_EXPR)
+      if (TREE_CODE (type) == REFERENCE_TYPE
+	  || TREE_CODE (expr_type) == ARRAY_TYPE)
+	referent = e;
+      else
 	{
-	bad_argument:
-	  cp_error ("`%E' is not a valid template argument", expr);
-	  error ("it must be %s%s with external linkage",
-		 TREE_CODE (TREE_TYPE (expr)) == POINTER_TYPE
-		 ? "a pointer to " : "",
-		 TREE_CODE (TREE_TYPE (TREE_TYPE (expr))) == FUNCTION_TYPE
-		 ? "a function" : "an object");
-	  return NULL_TREE;
+	  if (TREE_CODE (e) != ADDR_EXPR)
+	    {
+	    bad_argument:
+	      cp_error ("`%E' is not a valid template argument", expr);
+	      error ("it must be %s%s with external linkage",
+		     TREE_CODE (TREE_TYPE (expr)) == POINTER_TYPE
+		     ? "a pointer to " : "",
+		     TREE_CODE (TREE_TYPE (TREE_TYPE (expr))) == FUNCTION_TYPE
+		     ? "a function" : "an object");
+	      return NULL_TREE;
+	    }
+
+	  referent = TREE_OPERAND (e, 0);
+	  STRIP_NOPS (referent);
 	}
 
-      referent = TREE_OPERAND (e, 0);
-      STRIP_NOPS (referent);
-      
       if (TREE_CODE (referent) == STRING_CST)
 	{
 	  cp_error ("string literal %E is not a valid template argument", 
@@ -2528,10 +2549,20 @@ convert_nontype_argument (type, expr)
 	  return error_mark_node;
 	}
     }
-  else if (TREE_CODE (expr) == VAR_DECL)
+  else if (INTEGRAL_TYPE_P (expr_type) 
+	   || TYPE_PTRMEM_P (expr_type) 
+	   || TYPE_PTRMEMFUNC_P (expr_type)
+	   /* The next two are g++ extensions.  */
+	   || TREE_CODE (expr_type) == REAL_TYPE
+	   || TREE_CODE (expr_type) == COMPLEX_TYPE)
     {
-      if (!TREE_PUBLIC (expr))
-	goto bad_argument;
+      if (! TREE_CONSTANT (expr))
+	{
+	non_constant:
+	  cp_error ("non-constant `%E' cannot be used as template argument",
+		    expr);
+	  return NULL_TREE;
+	}
     }
   else 
     {
@@ -2555,7 +2586,7 @@ convert_nontype_argument (type, expr)
       expr = digest_init (type, expr, (tree*) 0);
 
       if (TREE_CODE (expr) != INTEGER_CST)
-	/* Curiously, some TREE_CONSTNAT integral expressions do not
+	/* Curiously, some TREE_CONSTANT integral expressions do not
 	   simplify to integer constants.  For example, `3 % 0',
 	   remains a TRUNC_MOD_EXPR.  */
 	goto non_constant;
@@ -2687,8 +2718,8 @@ convert_nontype_argument (type, expr)
 	       identical) type of the template-argument.  The
 	       template-parameter is bound directly to the
 	       template-argument, which must be an lvalue.  */
-	    if (!same_type_p (TYPE_MAIN_VARIANT (expr_type),
-			      TYPE_MAIN_VARIANT (type))
+	    if ((TYPE_MAIN_VARIANT (expr_type)
+		 != TYPE_MAIN_VARIANT (type_referred_to))
 		|| !at_least_as_qualified_p (type_referred_to,
 					     expr_type)
 		|| !real_lvalue_p (expr))
@@ -2736,7 +2767,7 @@ convert_nontype_argument (type, expr)
 
 	fns = TREE_OPERAND (expr, 0);
 	
-	fn = instantiate_type (TREE_TYPE (TREE_TYPE (type)), 
+	fn = instantiate_type (TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE (type)),
 			       fns, 0);
 	
 	if (fn == error_mark_node)
@@ -3414,10 +3445,11 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope)
     }
   else if (TREE_CODE (d1) == TYPE_DECL && IS_AGGR_TYPE (TREE_TYPE (d1)))
     {
-      if (CLASSTYPE_TEMPLATE_INFO (TREE_TYPE (d1)) == NULL_TREE)
-	return error_mark_node;
-      template = CLASSTYPE_TI_TEMPLATE (TREE_TYPE (d1));
-      d1 = DECL_NAME (template);
+      if (CLASSTYPE_TEMPLATE_INFO (TREE_TYPE (d1)))
+	{
+	  template = CLASSTYPE_TI_TEMPLATE (TREE_TYPE (d1));
+	  d1 = DECL_NAME (template);
+	}
     }
   else if (TREE_CODE (d1) == ENUMERAL_TYPE 
 	   || (TREE_CODE_CLASS (TREE_CODE (d1)) == 't' 
@@ -3441,7 +3473,10 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope)
      We don't want to do that, but we have to deal with the situation, so
      let's give them some syntax errors to chew on instead of a crash.  */
   if (! template)
-    return error_mark_node;
+    {
+      cp_error ("`%T' is not a template", d1);
+      return error_mark_node;
+    }
 
   if (context == NULL_TREE)
     context = global_namespace;
@@ -4451,6 +4486,7 @@ instantiate_class_template (type)
 {
   tree template, args, pattern, t;
   tree typedecl;
+  int is_partial_instantiation;
 
   if (type == error_mark_node)
     return error_mark_node;
@@ -4464,29 +4500,52 @@ instantiate_class_template (type)
      argument coercion and such is simply lost.  */
   push_momentary ();
 
+  /* Figure out which template is being instantiated.  */
   template = most_general_template (CLASSTYPE_TI_TEMPLATE (type));
-  args = CLASSTYPE_TI_ARGS (type);
   my_friendly_assert (TREE_CODE (template) == TEMPLATE_DECL, 279);
-  t = most_specialized_class (template, args);
 
-  if (t == error_mark_node)
+  /* Figure out which arguments are being used to do the
+     instantiation.  */
+  args = CLASSTYPE_TI_ARGS (type);
+  is_partial_instantiation = uses_template_parms (args);
+
+  if (is_partial_instantiation)
+    /* There's no telling which specialization is appropriate at this
+       point.  Since all peeking at the innards of this partial
+       instantiation are extensions (like the "implicit typename"
+       extension, which allows users to omit the keyword `typename' on
+       names that are declared as types in template base classes), we
+       are free to do what we please.
+
+       Trying to figure out which partial instantiation to use can
+       cause a crash.  (Some of the template arguments don't even have
+       types.)  So, we just use the most general version.  */
+    t = NULL_TREE;
+  else
     {
-      char *str = "candidates are:";
-      cp_error ("ambiguous class template instantiation for `%#T'", type);
-      for (t = DECL_TEMPLATE_SPECIALIZATIONS (template); t; t = TREE_CHAIN (t))
+      t = most_specialized_class (template, args);
+
+      if (t == error_mark_node)
 	{
-	  if (get_class_bindings (TREE_VALUE (t), TREE_PURPOSE (t),
-				  args))
+	  char *str = "candidates are:";
+	  cp_error ("ambiguous class template instantiation for `%#T'", type);
+	  for (t = DECL_TEMPLATE_SPECIALIZATIONS (template); t; 
+	       t = TREE_CHAIN (t))
 	    {
-	      cp_error_at ("%s %+#T", str, TREE_TYPE (t));
-	      str = "               ";
+	      if (get_class_bindings (TREE_VALUE (t), TREE_PURPOSE (t),
+				      args))
+		{
+		  cp_error_at ("%s %+#T", str, TREE_TYPE (t));
+		  str = "               ";
+		}
 	    }
+	  TYPE_BEING_DEFINED (type) = 1;
+	  type = error_mark_node;
+	  goto end;
 	}
-      TYPE_BEING_DEFINED (type) = 1;
-      type = error_mark_node;
-      goto end;
     }
-  else if (t)
+
+  if (t)
     pattern = TREE_TYPE (t);
   else
     pattern = TREE_TYPE (template);
@@ -4522,14 +4581,14 @@ instantiate_class_template (type)
 	args = inner_args;
     }
 
-  if (pedantic && uses_template_parms (args))
+  if (pedantic && is_partial_instantiation)
     {
-      /* If there are still template parameters amongst the args, then
-	 we can't instantiate the type; there's no telling whether or not one
-	 of the template parameters might eventually be instantiated to some
-	 value that results in a specialization being used.  We do the
-	 type as complete so that, for example, declaring one of its
-	 members to be a friend will not be rejected.  */
+      /* If this is a partial instantiation, then we can't instantiate
+	 the type; there's no telling whether or not one of the
+	 template parameters might eventually be instantiated to some
+	 value that results in a specialization being used.  We do
+	 mark the type as complete so that, for example, declaring one
+	 of its members to be a friend will not be rejected.  */
       TYPE_SIZE (type) = integer_zero_node;
       goto end;
     }
@@ -4602,7 +4661,7 @@ instantiate_class_template (type)
   /* If this is a partial instantiation, don't tsubst anything.  We will
      only use this type for implicit typename, so the actual contents don't
      matter.  All that matters is whether a particular name is a type.  */
-  if (uses_template_parms (type))
+  if (is_partial_instantiation)
     {
       TYPE_BINFO_BASETYPES (type) = TYPE_BINFO_BASETYPES (pattern);
       TYPE_FIELDS (type) = TYPE_FIELDS (pattern);
@@ -7126,6 +7185,11 @@ resolve_overloaded_unification (tparms, targs, parm, arg, strict,
 
   if (TREE_CODE (arg) == ADDR_EXPR)
     arg = TREE_OPERAND (arg, 0);
+
+  /* Strip baselink information.  */
+  while (TREE_CODE (arg) == TREE_LIST)
+    arg = TREE_VALUE (arg);
+
   if (TREE_CODE (arg) == TEMPLATE_ID_EXPR)
     {
       /* If we got some explicit template args, we need to plug them into
@@ -7304,7 +7368,10 @@ check_cv_quals_for_unify (strict, arg, parm)
      UNIFY_ALLOW_DERIVED:
        Allow the deduced ARG to be a template base class of ARG,
        or a pointer to a template base class of the type pointed to by
-       ARG.  */
+       ARG.
+     UNIFY_ALLOW_INTEGER:
+       Allow any integral type to be deduced.  See the TEMPLATE_PARM_INDEX
+       case for more information.  */
 
 int
 unify (tparms, targs, parm, arg, strict, explicit_mask)
@@ -7331,7 +7398,7 @@ unify (tparms, targs, parm, arg, strict, explicit_mask)
     return 0;
 
   /* If PARM uses template parameters, then we can't bail out here,
-     even in ARG == PARM, since we won't record unifications for the
+     even if ARG == PARM, since we won't record unifications for the
      template parameters.  We might need them if we're trying to
      figure out which of two things is more specialized.  */
   if (arg == parm && !uses_template_parms (parm))
@@ -7487,6 +7554,22 @@ unify (tparms, targs, parm, arg, strict, explicit_mask)
 	    my_friendly_abort (42);
 	}
 
+      /* [temp.deduct.type] If, in the declaration of a function template
+	 with a non-type template-parameter, the non-type
+	 template-parameter is used in an expression in the function
+	 parameter-list and, if the corresponding template-argument is
+	 deduced, the template-argument type shall match the type of the
+	 template-parameter exactly, except that a template-argument
+	 deduced from an array bound may be of any integral type.  */
+      if (same_type_p (TREE_TYPE (arg), TREE_TYPE (parm)))
+	/* OK */;
+      else if ((strict & UNIFY_ALLOW_INTEGER)
+	       && (TREE_CODE (TREE_TYPE (parm)) == INTEGER_TYPE
+		   || TREE_CODE (TREE_TYPE (parm)) == BOOLEAN_TYPE))
+	/* OK */;
+      else
+	return 1;
+
       TREE_VEC_ELT (targs, idx) = copy_to_permanent (arg);
       return 0;
 
@@ -7560,11 +7643,13 @@ unify (tparms, targs, parm, arg, strict, explicit_mask)
 	{
 	  if (TYPE_MIN_VALUE (parm) && TYPE_MIN_VALUE (arg)
 	      && unify (tparms, targs, TYPE_MIN_VALUE (parm),
-			TYPE_MIN_VALUE (arg), UNIFY_ALLOW_NONE, explicit_mask))
+			TYPE_MIN_VALUE (arg), UNIFY_ALLOW_INTEGER,
+			explicit_mask))
 	    return 1;
 	  if (TYPE_MAX_VALUE (parm) && TYPE_MAX_VALUE (arg)
 	      && unify (tparms, targs, TYPE_MAX_VALUE (parm),
-			TYPE_MAX_VALUE (arg), UNIFY_ALLOW_NONE, explicit_mask))
+			TYPE_MAX_VALUE (arg), UNIFY_ALLOW_INTEGER,
+			explicit_mask))
 	    return 1;
 	}
       /* We use the TYPE_MAIN_VARIANT since we have already
@@ -7665,7 +7750,7 @@ unify (tparms, targs, parm, arg, strict, explicit_mask)
 		 TYPE_OFFSET_BASETYPE (arg), UNIFY_ALLOW_NONE, explicit_mask))
 	return 1;
       return unify (tparms, targs, TREE_TYPE (parm), TREE_TYPE (arg),
-		    UNIFY_ALLOW_NONE, explicit_mask);
+		    strict, explicit_mask);
 
     case CONST_DECL:
       if (arg != decl_constant_value (parm)) 
@@ -7695,8 +7780,7 @@ unify (tparms, targs, parm, arg, strict, explicit_mask)
 					     integer_type_node,
 					     arg, t2));
 
-	  return unify (tparms, targs, t1, t, UNIFY_ALLOW_NONE,
-			explicit_mask);
+	  return unify (tparms, targs, t1, t, strict, explicit_mask);
 	}
       /* else fall through */
 

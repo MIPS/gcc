@@ -910,6 +910,7 @@ expand_java_NEW (type)
 {
   if (! CLASS_LOADED_P (type))
     load_class (type, 1);
+  layout_class_methods (type);
   push_value (build (CALL_EXPR, promote_type (type),
 		     build_address_of (alloc_object_node),
 		     tree_cons (NULL_TREE, build_class_ref (type),
@@ -1027,23 +1028,7 @@ build_java_binop (op, type, arg1, arg2)
 	  return call;
 	}
       break;
-
-#if 0	/* not required */
-    case PLUS_EXPR:
-    case MULT_EXPR:
-    case MINUS_EXPR:
-    case TRUNC_DIV_EXPR:
-    case RDIV_EXPR:
-/*    case REM_EXPR: */
-    case BIT_AND_EXPR:
-    case BIT_IOR_EXPR:
-    case BIT_XOR_EXPR:
-      break;
-    default:
-      error ("unknown opcode");
-      return error_mark_node;
-#endif
-
+    default:  ;
     }
   return fold (build (op, type, arg1, arg2));
 }
@@ -1277,7 +1262,7 @@ void
 pop_argument_types (arg_types)
      tree arg_types;
 {
-  if (arg_types == NULL_TREE)
+  if (arg_types == end_params_node)
     return;
   if (TREE_CODE (arg_types) == TREE_LIST)
     {
@@ -1292,7 +1277,7 @@ tree
 pop_arguments (arg_types)
      tree arg_types;
 {
-  if (arg_types == NULL_TREE)
+  if (arg_types == end_params_node)
     return NULL_TREE;
   if (TREE_CODE (arg_types) == TREE_LIST)
     {
@@ -1485,6 +1470,7 @@ expand_invoke (opcode, method_ref_index, nargs)
       if (TREE_CODE (TYPE_SIZE (self_type)) == ERROR_MARK)
 	fatal ("failed to find class '%s'", self_name);
     }
+  layout_class_methods (self_type);
 
   if (method_name == init_identifier_node)
     method = lookup_java_constructor (CLASS_TO_HANDLE_TYPE (self_type),
@@ -1540,7 +1526,8 @@ expand_invoke (opcode, method_ref_index, nargs)
   func = NULL_TREE;
   if (opcode == OPCODE_invokestatic || opcode == OPCODE_invokespecial
       || (opcode == OPCODE_invokevirtual
-	  && (METHOD_FINAL (method) || CLASS_FINAL (TYPE_NAME (self_type)))))
+	  && (METHOD_PRIVATE (method)
+	      || METHOD_FINAL (method) || CLASS_FINAL (TYPE_NAME (self_type)))))
     func = build_known_method_ref (method, method_type, self_type,
 				   method_signature, arg_list);
   else
@@ -1674,6 +1661,8 @@ build_primtype_type_ref (self_name)
     typ = long_type_node;
   else if (strncmp(class_name, "Float", 5) == 0)
     typ = float_type_node;
+  else if (strncmp(class_name, "Double", 6) == 0)
+    typ = double_type_node;
   else if (strncmp(class_name, "Boolean", 7) == 0)
     typ = boolean_type_node;
   else if (strncmp(class_name, "Char", 4) == 0)
@@ -1748,6 +1737,7 @@ java_lang_expand_expr (exp, target, tmode, modifier)
 	  while (TREE_CODE (body) == COMPOUND_EXPR)
 	    {
 	      expand_expr (TREE_OPERAND (body, 0), const0_rtx, VOIDmode, 0);
+	      emit_queue ();
 	      body = TREE_OPERAND (body, 1);
 	    }
 	  to_return = expand_expr (body, target, tmode, modifier);
@@ -1761,7 +1751,8 @@ java_lang_expand_expr (exp, target, tmode, modifier)
       {
 	tree duplicate;
 	if (pushcase (TREE_OPERAND (exp, 0), case_identity,
-		      build_decl (LABEL_DECL, NULL_TREE, NULL_TREE), &duplicate) == 2)
+		      build_decl (LABEL_DECL, NULL_TREE, NULL_TREE), 
+		      &duplicate) == 2)
 	  {
 	    EXPR_WFL_LINECOL (wfl_operator) = EXPR_WFL_LINECOL (exp);
 	    parse_error_context
@@ -1772,7 +1763,8 @@ java_lang_expand_expr (exp, target, tmode, modifier)
       }
 
     case DEFAULT_EXPR:
-      pushcase (NULL_TREE, 0, build_decl (LABEL_DECL, NULL_TREE, NULL_TREE), NULL);
+      pushcase (NULL_TREE, 0, 
+		build_decl (LABEL_DECL, NULL_TREE, NULL_TREE), NULL);
       return const0_rtx;
 
     case SWITCH_EXPR:
@@ -1877,7 +1869,7 @@ expand_byte_code (jcf, method)
 #define VAR_INDEX_1 (saw_index = 1, IMMEDIATE_u1)
 #define VAR_INDEX_2 (saw_index = 1, IMMEDIATE_u2)
 
-#define CHECK_PC_IN_RANGE(PC) 1 /* Already handled by verifier. */
+#define CHECK_PC_IN_RANGE(PC) ((void)1) /* Already handled by verifier. */
 
   instruction_bits = oballoc (length + 1);
   bzero (instruction_bits, length + 1);

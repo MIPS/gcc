@@ -1,3 +1,81 @@
+1998-12-06  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* gcc.dg/ultrasp1.c: New test.
+
+Sun Dec  6 00:40:12 1998  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/execute/981206.c: New test.
+
+1998-12-06  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.ns/template7.C: New test.
+
+	* g++.old-deja/g++.other/expr1.C: New test.
+
+	* g++.old-deja/g++.eh/tmpl3.C: New test.
+
+	* g++.old-deja/g++.eh/tmpl2.C: New test.
+
+1998-12-04  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.other/using5.C: usified using[567].C here
+	* g++.old-deja/g++.other/using6.C: removed
+	* g++.old-deja/g++.other/using7.C: Mark Mitchel removed it
+
+	* g++.old-deja/g++.pt/spec20.C: Re-insert non-bogus ERROR marks.
+
+1998-12-03  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.pt/overload8.C: New test.
+
+	* g++.old-deja/g++.pt/overload7.C: New test.
+
+	* g++.old-deja/g++.pt/spec20.C: ERROR marks were bogus
+
+	* lib/old-dejagnu.exp (old-dejagnu): ignore collect recompiling
+	and relinking messages
+	* lib/g++.exp (g++_target_compile): remove .rpo file when
+	compiling with -frepo
+
+1998-12-01  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.pt/lookup6.C: New test.
+
+1998-11-27  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.pt/explicit76.C: New test.
+
+	* g++.old-deja/g++.pt/friend38.C: New test.
+
+	* g++.old-deja/g++.ns/crash2.C: New test.
+
+	* g++.old-deja/g++.pt/defarg8.C: New test.
+
+	* g++.old-deja/g++.pt/instantiate6.C: New test.
+
+	* g++.old-deja/g++.pt/static6.C: New test.
+
+	* g++.old-deja/g++.pt/decl2.C: New test.
+
+1998-11-26  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.other/lookup5.C: New test.  Not sure the
+	problem is actually related with name lookup, but so what? :-)
+
+	* g++.old-deja/g++.pt/friend37.C: New test.
+
+1998-11-25  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/execute/u77-test.f (main): Avoid testing [f]statb
+	element, which fails on some systems.
+
+	* g77.f-torture/execute/labug1.f: New test.
+
+Sat Nov 21 21:41:05 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/980526-1.c: Do nothing if NO_LABEL_VALUES
+	is defined.
+
 1998-11-18  Dave Love  <d.love@dl.ac.uk>
 
 	* g77.f-torture/compile/981117-1.f: New test.

@@ -45,8 +45,6 @@
 #include "recog.h"
 #include "c-tree.h"
 
-extern void iteration_info ();	/* in unroll.c */
-
 static int c4x_leaf_function;
 
 static char *float_reg_names[] = FLOAT_REGISTER_NAMES;
@@ -159,9 +157,6 @@ tree interrupt_tree = NULL_TREE;
 void
 c4x_override_options ()
 {
-  /* Convert foo / 8.0 into foo * 0.125, etc.  */
-  flag_fast_math = 1;
-
   if (c4x_rpts_cycles_string)
     c4x_rpts_cycles = atoi (c4x_rpts_cycles_string);
   else
@@ -204,8 +199,21 @@ c4x_override_options ()
   else
     target_flags &= ~C3X_FLAG;
 
+  /* Convert foo / 8.0 into foo * 0.125, etc.  */
+  flag_fast_math = 1;
+
+  /* We should phase out the following at some stage.
+     This provides compatibility with the old -mno-rptb option.  */
+  if (!TARGET_RPTB && flag_branch_on_count_reg)
+    flag_branch_on_count_reg = 0;
+
+  /* We should phase out the following at some stage.
+     This provides compatibility with the old -mno-aliases option.  */
+  if (!TARGET_ALIASES && !flag_argument_noalias)
+    flag_argument_noalias = 1;
 }
 
+/* This is called before c4x_override_options.  */
 void
 c4x_optimization_options (level, size)
      int level;
@@ -213,7 +221,7 @@ c4x_optimization_options (level, size)
 {
   /* When optimizing, enable use of RPTB instruction.  */
   if (level >= 1)
-      flag_branch_on_count_reg = 1;
+    flag_branch_on_count_reg = 1;
 }
 
 /* Write an ASCII string.  */
@@ -1419,30 +1427,26 @@ c4x_gen_compare_reg (code, x, y)
 }
 
 char *
-c4x_output_cbranch (reversed, insn)
-     int reversed;
-     rtx insn;
+c4x_output_cbranch (form, seq)
+     char *form;
+     rtx seq;
 {
   int delayed = 0;
   int annultrue = 0;
   int annulfalse = 0;
   rtx delay;
   char *cp;
-  static char str[20];
+  static char str[100];
   
   if (final_sequence)
     {
       delay = XVECEXP (final_sequence, 0, 1);
-      delayed = !INSN_ANNULLED_BRANCH_P (insn);
-      annultrue = INSN_ANNULLED_BRANCH_P (insn) && !INSN_FROM_TARGET_P (delay);
-      annulfalse = INSN_ANNULLED_BRANCH_P (insn) && INSN_FROM_TARGET_P (delay);
+      delayed = !INSN_ANNULLED_BRANCH_P (seq);
+      annultrue = INSN_ANNULLED_BRANCH_P (seq) && !INSN_FROM_TARGET_P (delay);
+      annulfalse = INSN_ANNULLED_BRANCH_P (seq) && INSN_FROM_TARGET_P (delay);
     }
-  cp = str;
-  *cp++ = 'b';
-  *cp++ = '%';
-  if (reversed)
-    *cp++ = 'I';
-  *cp++ = '0';
+  strcpy (str, form);
+  cp = &str [strlen (str)];
   if (delayed)
     {
       *cp++ = '%';
@@ -1465,7 +1469,6 @@ c4x_output_cbranch (reversed, insn)
   *cp = 0;
   return str;
 }
-
 
 void
 c4x_print_operand (file, op, letter)
@@ -2040,10 +2043,19 @@ c4x_rptb_insert (insn)
 {
   rtx end_label;
   rtx start_label;
-  
+  rtx count_reg;
+
+  /* If the count register has not been allocated to RC, say if
+     there is a movstr pattern in the loop, then do not insert a
+     RPTB instruction.  Instead we emit a decrement and branch
+     at the end of the loop.  */
+  count_reg = XEXP (XEXP (SET_SRC (XVECEXP (PATTERN (insn), 0, 0)), 0), 0);
+  if (REGNO (count_reg) != RC_REGNO)
+    return;
+
   /* Extract the start label from the jump pattern (rptb_end).  */
   start_label = XEXP (XEXP (SET_SRC (XVECEXP (PATTERN (insn), 0, 0)), 1), 0);
-
+  
   /* We'll have to update the basic blocks.  */
   end_label = gen_label_rtx ();
   emit_label_after (end_label, insn);
@@ -3123,6 +3135,9 @@ c4x_address_conflict (op0, op1, store0, store1)
   int disp0;
   int disp1;
   
+  if (MEM_VOLATILE_P (op0) && MEM_VOLATILE_P (op1))
+    return 1;
+
   c4x_S_address_parse (op0, &base0, &incdec0, &index0, &disp0);
   c4x_S_address_parse (op1, &base1, &incdec1, &index1, &disp1);
 
@@ -3137,12 +3152,7 @@ c4x_address_conflict (op0, op1, store0, store1)
 	 have an aliased address if both locations are not marked
 	 volatile, it is probably safer to flag a potential conflict
 	 if either location is volatile.  */
-      if (!TARGET_ALIASES)
-	{
-	  if (MEM_VOLATILE_P (op0) && MEM_VOLATILE_P (op1))
-	    return 1;
-	}
-      else
+      if (!flag_argument_noalias)
 	{
 	  if (MEM_VOLATILE_P (op0) || MEM_VOLATILE_P (op1))
 	    return 1;
@@ -3199,8 +3209,7 @@ c4x_label_conflict (insn, jump, db)
 
 /* Validate combination of operands for parallel load/store instructions.  */
 
-int
-valid_parallel_operands_4 (operands, mode)
+valid_parallel_load_store (operands, mode)
      rtx *operands;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
@@ -3221,6 +3230,14 @@ valid_parallel_operands_4 (operands, mode)
   /* The patterns should only allow ext_low_reg_operand() or
      par_ind_operand() operands.  Thus of the 4 operands, only 2
      should be REGs and the other 2 should be MEMs.  */
+
+  /* This test prevents the multipack pass from using this pattern if
+     op0 is used as an index or base register in op2 or op3, since
+     this combination will require reloading.  */
+  if (GET_CODE (op0) == REG
+      && ((GET_CODE (op2) == MEM && reg_mentioned_p (op0, XEXP (op2, 0)))
+	  || (GET_CODE (op3) == MEM && reg_mentioned_p (op0, XEXP (op3, 0)))))
+    return 0;
 
   /* LDI||LDI  */
   if (GET_CODE (op0) == REG && GET_CODE (op2) == REG)
@@ -3246,31 +3263,71 @@ valid_parallel_operands_4 (operands, mode)
   return 0;
 }
 
-/* We only use this to check operands 1 and 2 since these may be
-   commutative.  It will need extending for the C32 opcodes.  */
+
+int
+valid_parallel_operands_4 (operands, mode)
+     rtx *operands;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  int regs = 0;
+  rtx op0 = operands[0];
+  rtx op2 = operands[2];
+
+  if (GET_CODE (op0) == SUBREG)
+    op0 = SUBREG_REG (op0);
+  if (GET_CODE (op2) == SUBREG)
+    op2 = SUBREG_REG (op2);
+
+  /* This test prevents the multipack pass from using this pattern if
+     op0 is used as an index or base register in op2, since this combination
+     will require reloading.  */
+  if (GET_CODE (op0) == REG
+      && GET_CODE (op2) == MEM
+      && reg_mentioned_p (op0, XEXP (op2, 0)))
+    return 0;
+
+  return 1;
+}
+
+
 int
 valid_parallel_operands_5 (operands, mode)
      rtx *operands;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   int regs = 0;
-  rtx op0 = operands[1];
-  rtx op1 = operands[2];
+  rtx op0 = operands[0];
+  rtx op1 = operands[1];
+  rtx op2 = operands[2];
+  rtx op3 = operands[3];
 
   if (GET_CODE (op0) == SUBREG)
     op0 = SUBREG_REG (op0);
   if (GET_CODE (op1) == SUBREG)
     op1 = SUBREG_REG (op1);
+  if (GET_CODE (op2) == SUBREG)
+    op2 = SUBREG_REG (op2);
 
   /* The patterns should only allow ext_low_reg_operand() or
-     par_ind_operand() operands. */
-
-  if (GET_CODE (op0) == REG)
-    regs++;
+     par_ind_operand() operands.  Operands 1 and 2 may be commutative
+     but only one of them can be a register.  */
   if (GET_CODE (op1) == REG)
     regs++;
+  if (GET_CODE (op2) == REG)
+    regs++;
 
-  return regs == 1;
+  if (regs != 1)
+    return 0;
+
+  /* This test prevents the multipack pass from using this pattern if
+     op0 is used as an index or base register in op3, since this combination
+     will require reloading.  */
+  if (GET_CODE (op0) == REG
+      && GET_CODE (op3) == MEM
+      && reg_mentioned_p (op0, XEXP (op3, 0)))
+    return 0;
+
+  return 1;
 }
 
 
@@ -3280,47 +3337,48 @@ valid_parallel_operands_6 (operands, mode)
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   int regs = 0;
-  rtx op0 = operands[1];
-  rtx op1 = operands[2];
-  rtx op2 = operands[4];
-  rtx op3 = operands[5];
+  rtx op0 = operands[0];
+  rtx op1 = operands[1];
+  rtx op2 = operands[2];
+  rtx op4 = operands[4];
+  rtx op5 = operands[5];
 
-  if (GET_CODE (op0) == SUBREG)
-    op0 = SUBREG_REG (op0);
   if (GET_CODE (op1) == SUBREG)
     op1 = SUBREG_REG (op1);
   if (GET_CODE (op2) == SUBREG)
     op2 = SUBREG_REG (op2);
-  if (GET_CODE (op3) == SUBREG)
-    op3 = SUBREG_REG (op3);
+  if (GET_CODE (op4) == SUBREG)
+    op4 = SUBREG_REG (op4);
+  if (GET_CODE (op5) == SUBREG)
+    op5 = SUBREG_REG (op5);
 
   /* The patterns should only allow ext_low_reg_operand() or
      par_ind_operand() operands.  Thus of the 4 input operands, only 2
      should be REGs and the other 2 should be MEMs.  */
 
-  if (GET_CODE (op0) == REG)
-    regs++;
   if (GET_CODE (op1) == REG)
     regs++;
   if (GET_CODE (op2) == REG)
     regs++;
-  if (GET_CODE (op3) == REG)
+  if (GET_CODE (op4) == REG)
+    regs++;
+  if (GET_CODE (op5) == REG)
     regs++;
 
   /* The new C30/C40 silicon dies allow 3 regs of the 4 input operands. 
      Perhaps we should count the MEMs as well?  */
-  return regs == 2;
-}
+  if (regs != 2)
+    return 0;
 
+  /* This test prevents the multipack pass from using this pattern if
+     op0 is used as an index or base register in op4 or op5, since
+     this combination will require reloading.  */
+  if (GET_CODE (op0) == REG
+      && ((GET_CODE (op4) == MEM && reg_mentioned_p (op0, XEXP (op4, 0)))
+	  || (GET_CODE (op5) == MEM && reg_mentioned_p (op0, XEXP (op5, 0)))))
+    return 0;
 
-int
-legitimize_parallel_operands_6 (operands, mode)
-     rtx *operands;
-     enum machine_mode mode;
-{
-  /* It's gonna be hard to legitimize operands for a parallel
-     instruction... TODO...  */
-  return valid_parallel_operands_6 (operands, mode);
+  return 1;
 }
 
 
@@ -4104,772 +4162,6 @@ c4x_valid_type_attribute_p (type, attributes, identifier, args)
     return 1;
   
   return 0;
-}
-
-
-/* This is a modified version of modified_between_p that doesn't give
-   up if a changing MEM is found.  It checks all insns between START
-   and END to see if any registers mentioned in X are set. */
-static int
-c4x_modified_between_p (x, start, end)
-     rtx x;
-     rtx start, end;
-{
-  enum rtx_code code = GET_CODE (x);
-  char *fmt;
-  int i, j;
-
-  switch (code)
-    {
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST:
-    case SYMBOL_REF:
-    case LABEL_REF:
-      return 0;
-
-    case PC:
-    case CC0:
-      return 1;
-
-    case MEM:
-      break;
-
-    case REG:
-      return reg_set_between_p (x, start, end);
-      
-    default:
-      break;
-    }
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e' && c4x_modified_between_p (XEXP (x, i), start, end))
-	return 1;
-
-      if (fmt[i] == 'E')
-	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  if (c4x_modified_between_p (XVECEXP (x, i, j), start, end))
-	    return 1;
-    }
-
-  return 0;
-}
-
-/* Return 1 if rtx X references memory that is changing.  */
-static int
-c4x_mem_ref_p (x)
-     rtx x;
-{
-  enum rtx_code code = GET_CODE (x);
-  char *fmt;
-  int i, j;
-
-  if (code == MEM && !RTX_UNCHANGING_P (x))
-    return 1;
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e' && c4x_mem_ref_p (XEXP (x, i)))
-	return 1;
-
-      if (fmt[i] == 'E')
-	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  if (c4x_mem_ref_p (XVECEXP (x, i, j)))
-	    return 1;
-    }
-
-  return 0;
-}
-
-/* Return 1 if rtx X sets or clobbers memory.  */
-static int
-c4x_mem_set_p (x)
-     rtx x;
-{
-  enum rtx_code code = GET_CODE (x);
-  char *fmt;
-  int i, j;
-
-  if ((code == SET || code == CLOBBER)
-      && (GET_CODE (SET_DEST (x)) == MEM))
-    return 1;
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e' && c4x_mem_set_p (XEXP (x, i)))
-	return 1;
-
-      if (fmt[i] == 'E')
-	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  if (c4x_mem_set_p (XVECEXP (x, i, j)))
-	    return 1;
-    }
-
-  return 0;
-}
-
-
-/* Return 1 if any insns between START and END (exclusive) sets
-   or clobbers memory.  */
-static int
-c4x_mem_modified_between_p (start, end)
-     rtx start, end;
-{
-  rtx insn;
-
-  if (start == end)
-    return 0;
-
-  for (insn = NEXT_INSN (start); insn != end; insn = NEXT_INSN (insn))
-    if (GET_RTX_CLASS (GET_CODE (insn)) == 'i'
-	&& c4x_mem_set_p (PATTERN (insn)))
-      return 1;
-  return 0;
-}
-
-
-/* Returns 1 if INSN can be moved past all the insns between START and
-   END exclusive.  If TARGET_ALIASES is not set and a memory store is
-   detected, then 0 is returned.  */
-static int
-c4x_insn_moveable_p (insn, start, end)
-     rtx insn;
-     rtx start, end;
-{
-  if (start == end)
-    return 1;
-
-  /* We can't use modified_between_p since this will
-     return 1 if set1 contains a MEM.  */
-  if (c4x_modified_between_p (insn, start, end))
-    return 0;
-
-  return 1;
-}
-
-
-/* See if the insns INSN1 and INSN2 can be packed into a PARALLEL.
-   Return 0 if the insns cannot be packed or the rtx of the packed
-   insn (with clobbers added as necessary).  If DEPEND is non zero,
-   then the destination register of INSN1 must be used by INSN2.  */
-static rtx
-c4x_parallel_pack (insn1, insn2, depend)
-     rtx insn1;
-     rtx insn2;
-     int depend;
-{
-  rtx set1;
-  rtx set2;
-  rtx pack;
-  enum machine_mode mode1;
-  enum machine_mode mode2;
-  int num_clobbers;
-  int insn_code_number;
-
-  /* We could generalise things to not just rely on single sets.  */
-  if (!(set1 = single_set (insn1))
-      || !(set2 = single_set (insn2)))
-    return 0;
-
-  mode1 = GET_MODE (SET_DEST (set1));
-  mode2 = GET_MODE (SET_DEST (set2));
-  if (mode1 != mode2)
-    return 0;
-
-  if (depend)
-    {
-      rtx dst1;
-
-      /* Require insn2 to be dependent upon the result of insn1.  */
-      dst1 = SET_DEST (set1);
-      
-      if (!REG_P (dst1))
-	return 0;
-
-      if (!reg_mentioned_p (dst1, set2))
-	return 0;
-
-      /* The dependent register must die in insn2 since a parallel
-	 insn will generate a new value.  */
-      if (!find_regno_note (insn2, REG_DEAD, REGNO (dst1)))
-	return 0;
-    }
-
-  pack = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, set1, set2));
-  num_clobbers = 0;
-  if ((insn_code_number = recog (pack, pack, &num_clobbers)) < 0)
-    return 0;
-
-  if (num_clobbers != 0)
-    {
-      rtx newpack;
-      int i;
-
-      newpack = gen_rtx_PARALLEL (VOIDmode,
-				  gen_rtvec (GET_CODE (pack) == PARALLEL
-				    ? XVECLEN (pack, 0) + num_clobbers
-				    : num_clobbers + 1));
-
-      if (GET_CODE (pack) == PARALLEL)
-	for (i = 0; i < XVECLEN (pack, 0); i++)
-	  XVECEXP (newpack, 0, i) = XVECEXP (pack, 0, i);
-      else
-	XVECEXP (newpack, 0, 0) = pack;
-
-      add_clobbers (newpack, insn_code_number);
-      pack = newpack;
-    }
-
-  return pack;
-}
-
-
-static rtx
-c4x_parallel_find (insn1, loop_end, depend, insn2)
-     rtx insn1;
-     rtx loop_end;
-     int depend;
-     rtx *insn2;
-{
-  rtx insn;
-  rtx pack;
-
-  /* We could use the logical links if depend is non zero?  */
-
-  for (insn = NEXT_INSN (insn1); insn != loop_end; insn = NEXT_INSN(insn))
-    {
-      switch (GET_CODE (insn))
-	{
-	default:
-	case JUMP_INSN:
-	case CALL_INSN:
-	case NOTE:
-	  break;
-
-	case INSN:
-	  if (!(pack = c4x_parallel_pack (insn1, insn, depend)))
-	    break;
-
-	  /* What if insn1 or insn2 sets cc and is required by another
-	     insn?  */
-
-#if 0
-	  /* Check that nothing between insn1 and insn will spoil the
-	     show.  */
-	  if (NEXT_INSN (insn1) != insn 
-	      && c4x_modified_between_p (insn, NEXT_INSN (insn1), insn))
-	    return 0;
-#else
-	  /* This will do in the interim.  If the insns between
-	     insn1 and insn are harmless, we can move things around
-	     if we're careful.  */
-	  if (next_nonnote_insn (insn1) != insn)
-	    return 0;
-#endif
-	  
-	  /* Do some checks here... */
-	  *insn2 = insn;
-	  return pack;
-	}
-    }
-  return 0;
-}
-
-
-/* Update the register info for reg REG found in the basic block BB,
-   where SET is 1 if the register is being set.  */
-static void
-c4x_update_info_reg (reg, set, bb)
-     rtx reg;
-     int set;
-     int bb;
-{
-  int regno;
-
-  if (!REG_P (reg))
-    fatal_insn ("Expecting register rtx", reg);
-
-  regno = REGNO (reg);
-
-  /* REGNO_FIRST_UID and REGNO_LAST_UID don't need setting.  */
-
-  SET_REGNO_REG_SET (basic_block_live_at_start[bb], regno);
-  REG_BASIC_BLOCK (regno) = REG_BLOCK_GLOBAL;
-  if (set)
-    REG_N_SETS (regno)++;  
-  else
-    REG_N_REFS (regno)++;  
-}
-
-
-/* Update the register info for all the regs in X found in the basic
-   block BB.  */
-static void
-c4x_update_info_regs(x, bb)
-     rtx x;
-     int bb;
-{
-  enum rtx_code code;
-  char *fmt;
-  int i, j;
-
-  if (!x)
-    return;
-
-  code = GET_CODE (x);
-  switch (code)
-    {
-    case CLOBBER:
-#if 0
-      if (REG_P (SET_DEST (x)))
-	return;
-      break;
-#endif
-
-    case SET:
-      if (REG_P (SET_DEST (x)))
-	c4x_update_info_reg (SET_DEST (x), 1, bb);
-      else
-	c4x_update_info_regs (SET_DEST (x), bb);
-
-      if (code == SET)
-	c4x_update_info_regs (SET_SRC (x), bb);
-      return;
-
-    case REG:
-      c4x_update_info_reg (x, 0, bb);
-      return;
-
-    default:
-      break;
-    }
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e')
-	c4x_update_info_regs (XEXP (x, i), bb);
-      else if (fmt[i] == 'E')
-	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  c4x_update_info_regs (XVECEXP (x, i, j), bb);
-    }
-}
-
-
-static void
-c4x_copy_insn_after(insn, prev, bb)
-     rtx insn;
-     rtx prev;
-     int bb;
-{
-  rtx note;
-  rtx new;
-
-  emit_insn_after (copy_rtx (PATTERN (insn)), prev);
-
-  new = NEXT_INSN (prev);
-
-  /* Copy the REG_NOTES from insn to the new insn.  */
-  for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
-    REG_NOTES (new) = gen_rtx (GET_CODE (note),
-			       REG_NOTE_KIND (note),
-			       XEXP (note, 0),
-			       REG_NOTES (new));
-
-  /* Handle all the registers within insn and update the reg info.  */
-  c4x_update_info_regs (PATTERN (insn), bb);
-}
-
-
-static void
-c4x_copy_insns_after(start, end, pprev, bb)
-     rtx start;
-     rtx end;
-     rtx *pprev;
-     int bb;
-{
-  rtx insn;
-
-  for (insn = start; insn != NEXT_INSN (end); insn = NEXT_INSN(insn))
-    {
-      switch (GET_CODE (insn))
-	{
-	case CALL_INSN:
-	  /* We could allow a libcall with no side effects??? */
-	  fatal_insn("Repeat block loop contains a call", insn);
-	  break;
-	  
-	case INSN:
-	  c4x_copy_insn_after(insn, *pprev, bb - 1);
-	  *pprev = NEXT_INSN (*pprev);
-	  break;
-
-	default:
-	  break;
-	}
-    }
-}
-
-
-/* Merge the notes of insn2 with the notes of insn.  */
-static void
-c4x_merge_notes(insn, insn2)
-     rtx insn;
-     rtx insn2;
-{
-  rtx note;
-	   
-  for (note = REG_NOTES (insn2); note; note = XEXP (note, 1))
-    {
-      rtx link;
-      
-      for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
-	if (REG_NOTE_KIND (note) == REG_NOTE_KIND (link)
-	    && XEXP (note, 0) == XEXP (link, 0))
-	  remove_note (insn, note);
-    }
-  for (note = REG_NOTES (insn2); note; note = XEXP (note, 1))
-    REG_NOTES (insn) = gen_rtx (GET_CODE (note),
-				REG_NOTE_KIND (note),
-				XEXP (note, 0),
-				REG_NOTES (insn));
-}
-
-
-/* This pass must update information that subsequent passes expect to be
-   correct.  Namely: reg_n_refs, reg_n_sets, reg_n_deaths,
-   reg_n_calls_crossed, and reg_live_length.  Also, basic_block_head,
-   basic_block_end.   */
-
-static int
-c4x_parallel_process (loop_start, loop_end)
-     rtx loop_start;
-     rtx loop_end;
-{
-  rtx insn;
-  rtx insn2;
-  rtx pack;
-  rtx hoist_pos;
-  rtx sink_pos;
-  rtx loop_count;
-  rtx loop_count_set;
-  rtx loop_count_reg;
-  rtx jump_insn;
-  rtx end_label;
-  int num_packs;
-  int bb;
-
-  jump_insn = PREV_INSN (loop_end);
-
-  /* The loop must have a calculable number of iterations
-     since we need to reduce the loop count by one.  
-
-     For now, only process repeat block loops, since we can tell that
-     these have a calculable number of iterations. 
-
-     The loop count must be at least 2?  */
-
-  loop_count = PREV_INSN (loop_start);
-  
-  if (!(loop_count_set = single_set (loop_count)))
-    return 0;
-
-#if 0
-  /* Disable this optimisation until REG_LOOP_COUNT note
-     added.  */
-  if (!find_reg_note (loop_count, REG_LOOP_COUNT, NULL_RTX))
-    return 0;
-#else
-  return 0;
-#endif
-
-  loop_count_reg = SET_DEST (loop_count_set);
-		  
-  /* Determine places to hoist and sink insns out of the loop. 
-     We need to hoist insns before the label at the top of the loop. 
-     We'll have to update basic_block_head.  */
-  
-  /* Place in the rtx where we hoist insns after.  */
-  hoist_pos = loop_count;
-
-  /* Place in the rtx where we sink insns after.  */
-  sink_pos = loop_end;
-
-  /* There must be an easier way to work out which basic block we are
-     in.  */
-  for (bb = 0; bb < n_basic_blocks; bb++)
-    if (basic_block_head[bb] == NEXT_INSN (loop_end))
-      break;
-
-  if (bb >= n_basic_blocks)
-    fatal_insn("Cannot find basic block for insn", NEXT_INSN (loop_end));
-
-  /* Skip to label at top of loop.  */
-  for (; GET_CODE (loop_start) != CODE_LABEL;
-       loop_start = NEXT_INSN(loop_start));
-  
-  num_packs = 0;
-  for (insn = loop_start; insn != loop_end; insn = NEXT_INSN(insn))
-    {
-      switch (GET_CODE (insn))
-	{
-	default:
-	case JUMP_INSN:
-	case CALL_INSN:
-	case NOTE:
-	  break;
-
-	case INSN:
-
-	  /* Look for potential insns to combine where the second one
-	     is dependent upon the first.  We could have another pass
-	     that tries combining independent insns but that is not so
-	     important.  We could do this afterwards as a more generic
-	     peepholer.  */
-	     
-	  if ((pack = c4x_parallel_find(insn, loop_end, 1, &insn2)))
-	    {
-	      rtx set1;
-	      rtx set2;
-	      rtx note;
-	      rtx seq_start;
-
-	      set1 = single_set (insn);
-	      set2 = single_set (insn2);
-
-	      /* We need to hoist a copy of insn1 out of the loop and
-		 to sink a copy insn2 out of the loop.  We can avoid
-		 the latter if the destination of insn2 is used
-		 by a following insn within the loop.
-		 
-		 We cannot hoist insn1 out of the loop if any of the
-		 preceeding insns within the loop modifies the destination
-		 of insn1 or modifies any of the operands of insn1.  */
-
-	      /* If the user has flagged that there are potential aliases,
-		 then we can't move the insn if it references memory
-		 past any insns that modify memory.  */
-	      if (TARGET_ALIASES 
-		  && c4x_mem_ref_p (PATTERN (insn))
-		  && c4x_mem_modified_between_p (loop_start, loop_end))
-		break;
-
-	      /* None of the registers used in insn can be modified by
-		 any of the insns from the start of the loop until insn.  */
-	      if (!c4x_insn_moveable_p (set1, loop_start, insn))
-		break;
-
-	      /* None of the registers used in insn can be modified by
-		 any of the insns after insn2 until the end of the
-		 loop, especially the result which needs to be saved
-		 for the next iteration. */
-	      if (!c4x_insn_moveable_p (set1, insn2, loop_end))
-		break;
-
-	      /* We need to hoist all the insns from the loop top
-		 to and including insn.  */
-	      c4x_copy_insns_after (NEXT_INSN (loop_start), insn,
-				    &hoist_pos, bb);
-
-	      /* We need to sink all the insns after insn to 
-		 loop_end.  */
-	      c4x_copy_insns_after (NEXT_INSN (insn), PREV_INSN (jump_insn),
-				    &sink_pos, bb + 1);
-
-	      /* Change insn to the new parallel insn, retaining the notes
-		 of the old insn.  */
-	      if (!validate_change (insn, &PATTERN (insn), pack, 0))
-		fatal_insn("Cannot replace insn with parallel insn", pack);
-
-	      /* Copy the REG_NOTES from insn2 to the new insn
-		 avoiding duplicates.  */
-	      c4x_merge_notes (insn, insn2);
-
-	      delete_insn (insn2);
-	      
-	      /* The destination register of insn1 no longer dies in
-	      this composite insn.  Don't use remove_death since that
-	      alters REG_N_DEATHS.  The REG_DEAD note has just been
-	      moved.  */
-	      note = find_regno_note (insn, REG_DEAD, REGNO (SET_DEST (set1)));
-	      if (note)
-		remove_note (insn, note);
-
-	      /* ??? Do we have to modify the LOG_LINKS?  */
-
-	      /* We need to decrement the loop count.  We probably
-		 should test if the loop count is negative and branch
-		 to end label if so.  */
-	      if (GET_CODE (SET_SRC (loop_count_set)) == CONST_INT)
-		{
-		  /* The loop count must be more than 1 surely?  */
-		  SET_SRC (loop_count_set) 
-		    = GEN_INT (INTVAL (SET_SRC (loop_count_set)) - 1);
-		}
-	      else if (GET_CODE (SET_SRC (loop_count_set)) == PLUS
-		       && GET_CODE (XEXP (SET_SRC (loop_count_set), 1))
-		       == CONST_INT)
-		{
-		  XEXP (SET_SRC (loop_count_set), 1)
-		    = GEN_INT (INTVAL (XEXP (SET_SRC (loop_count_set), 1))
-			       - 1);
-		}
-	      else
-		{
-		  start_sequence ();
-		  expand_binop (QImode, sub_optab, loop_count_reg,
-				GEN_INT (1), loop_count_reg,		
-				1, OPTAB_DIRECT);
-		  seq_start = get_insns ();
-		  end_sequence ();
-		  emit_insns_after (seq_start, loop_count);
-
-		  /* Check this.  What if we emit more than one insn?
-		     Can we emit more than one insn? */
-		  REG_NOTES (seq_start)
-		    = gen_rtx_EXPR_LIST (REG_UNUSED,
-			       loop_count_reg,
-			       REG_NOTES (seq_start));
-		}
-
-	      if (GET_CODE (SET_SRC (loop_count_set)) != CONST_INT)
-		{
-		  end_label = gen_label_rtx();
-		  start_sequence ();
-		  emit_cmp_insn (loop_count_reg,
-				 const0_rtx, LT, NULL_RTX, word_mode, 0, 0);
-		  emit_jump_insn (gen_blt (end_label));
-		  seq_start = get_insns ();
-		  end_sequence ();
-		  emit_insns_after (seq_start, hoist_pos);
-		  emit_label_after (end_label, sink_pos);
-		 
-#if 0 
-		  /* This is a bit of a hack...but why was it necessary?  */
-		  REG_NOTES (NEXT_INSN (seq_start))
-		    = gen_rtx_EXPR_LIST (REG_DEAD,
-					 loop_count_reg,
-					 REG_NOTES (NEXT_INSN (seq_start)));
-#endif
-		}
-
-	      if (TARGET_DEVEL)
-		debug_rtx(insn);
-
-	      num_packs ++;
-	      
-#if 1
-	      /* If we want to pack more than one parallel insn
-		 we will have to tag which insns have been
-		 hoisted/sunk/paired.  We might need a recursive approach. */
-	      
-	      return num_packs;
-#endif
-	    }
-	  break;
-	}
-    }
-  return num_packs;
-}
-
-
-static void
-c4x_combine_parallel_independent (insns)
-     rtx insns ATTRIBUTE_UNUSED;
-{
-  /* Combine independent insns like
-     (set (mem (reg 0)) (reg 1))
-     (set (reg 2) (mem (reg 3)))
-     where (reg 1) != (reg 2) unless there is a REG_DEAD note
-     on the first insn. */
-
-}
-
-static void
-c4x_combine_parallel_dependent (insns)
-     rtx insns;
-{
-  rtx insn;
-  rtx loop_start;
-  rtx loop_end;
-  int num_jumps;
-  int num_insns;
-
-   /* Find the innermost loop and check that it is unjumped.  */
-  loop_start = NULL_RTX;
-  num_jumps = 0;
-  for (insn = insns; insn; insn = NEXT_INSN(insn))
-    {
-      switch (GET_CODE (insn))
-	{
-	case INSN:
-	  num_insns++;
-	  break;
-
-	case CALL_INSN:
-	  /* We could allow a libcall with no side effects??? */
-	case JUMP_INSN:
-	  num_jumps++;
-	  break;
-
-	case NOTE:
-	  switch (NOTE_LINE_NUMBER (insn))
-	    {
-	    case NOTE_INSN_LOOP_BEG:
-	      loop_start = insn;
-	      num_jumps = 0;
-	      num_insns = 0;
-	      break;
-
-	    case NOTE_INSN_LOOP_CONT:
-	      if (!loop_start)
-		break;
-	      /* We can't handle a loop with jumps or calls.
-		 If there are too many insns, we are unlikely
-		 to be able to find a suitable case for optimisation.
-		 The maximum number of insns may require tweaking.  */
-	      if (!num_jumps && num_insns < 20)
-		{
-		  /* Skip to end of loop.  */
-		  loop_end = NULL_RTX;
-		  for (; insn; insn = NEXT_INSN(insn))
-		    if (GET_CODE (insn) == NOTE
-			&& NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END)
-		      break;
-		  loop_end = insn;
-		  if (!loop_end)
-		    fatal_insn("Could not find note at end of loop", 
-			       loop_start);
-		  c4x_parallel_process(loop_start, loop_end);
-		}
-	      loop_start = NULL_RTX;
-	      break;
-
-	    default:
-	      break;
-	    }
-	default:
-	  break;
-	}
-    }
-}
-
-
-void
-c4x_combine_parallel (insns)
-     rtx insns;
-{
- /* Only let people who know how to shoot themselves in the foot do so!  */
-  if (!TARGET_PARALLEL_PACK)
-    return;
-  
-  c4x_combine_parallel_dependent (insns);
-
-  c4x_combine_parallel_independent (insns);
 }
 
 

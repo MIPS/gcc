@@ -61,7 +61,10 @@ tree current_class = NULL_TREE;
 /* The class we started with. */
 tree main_class = NULL_TREE;
 
-/* The FIELD_DECL for the current field. */
+/* List of all class DECL seen so far.  */
+tree all_class_list = NULL_TREE;
+
+/* The FIELD_DECL for the current field.  */
 static tree current_field = NULL_TREE;
 
 /* The METHOD_DECL for the current method.  */
@@ -72,6 +75,7 @@ static tree give_name_to_class PROTO ((JCF *jcf, int index));
 void parse_zip_file_entries PROTO (());
 void process_zip_dir PROTO (());
 static void parse_source_file PROTO ((tree));
+static void jcf_parse_source PROTO ((JCF *));
 
 /* Handle "SourceFile" attribute. */
 
@@ -271,12 +275,10 @@ get_constant (jcf, index)
 #ifdef REAL_ARITHMETIC
 	d = REAL_VALUE_FROM_TARGET_DOUBLE (num);
 #else
-	{
-	  union { double d;  jint i[2]; } u;
-	  u.i[0] = (jint) num[0];
-	  u.i[1] = (jint) num[1];
-	  d = u.d;
-	}
+	union { double d;  jint i[2]; } u;
+	u.i[0] = (jint) num[0];
+	u.i[1] = (jint) num[1];
+	d = u.d;
 #endif
 	value = build_real (double_type_node, d);
 	break;
@@ -451,14 +453,24 @@ load_class (class_or_name, verbose)
      int verbose;
 {
   JCF this_jcf, *jcf;
-  tree name = (TREE_CODE (class_or_name) == IDENTIFIER_NODE ?
-	       class_or_name : DECL_NAME (TYPE_NAME (class_or_name)));
+  tree name;
   tree save_current_class = current_class;
   char *save_input_filename = input_filename;
   JCF *save_current_jcf = current_jcf;
   long saved_pos;
   if (current_jcf->read_state)
     saved_pos = ftell (current_jcf->read_state);
+
+  /* class_or_name can be the name of the class we want to load */
+  if (TREE_CODE (class_or_name) == IDENTIFIER_NODE)
+    name = class_or_name;
+  /* In some cases, it's a dependency that we process earlier that
+     we though */
+  else if (TREE_CODE (class_or_name) == TREE_LIST)
+    name = TYPE_NAME (TREE_PURPOSE (class_or_name));
+  /* Or it's a type in the making */
+  else
+    name = DECL_NAME (TYPE_NAME (class_or_name));
 
   push_obstacks (&permanent_obstack, &permanent_obstack);
 
@@ -495,10 +507,12 @@ load_class (class_or_name, verbose)
   if (current_jcf->java_source)
     jcf_parse_source (current_jcf);
   else {
-    int saved_lineno = lineno;
+    java_parser_context_save_global ();
+    java_push_parser_context ();
     input_filename = current_jcf->filename;
     jcf_parse (current_jcf);
-    lineno = saved_lineno;
+    java_pop_parser_context (0);
+    java_parser_context_restore_global ();
   }
 
   if (!current_jcf->seen_in_zip)
@@ -515,7 +529,7 @@ load_class (class_or_name, verbose)
 
 /* Parse a source file when JCF refers to a source file.  */
 
-int
+void
 jcf_parse_source (jcf)
      JCF *jcf;
 {
@@ -525,17 +539,23 @@ jcf_parse_source (jcf)
   java_push_parser_context ();
   input_filename = current_jcf->filename;
   file = get_identifier (input_filename);
-  if (!(finput = fopen (input_filename, "r")))
-    fatal ("input file `%s' just disappeared - jcf_parse_source",
-	   input_filename);
-  parse_source_file (file);
+  if (!HAS_BEEN_ALREADY_PARSED_P (file))
+    {
+      if (!(finput = fopen (input_filename, "r")))
+	fatal ("input file `%s' just disappeared - jcf_parse_source",
+	       input_filename);
+      parse_source_file (file);
+      if (fclose (finput))
+	fatal ("can't close input file `%s' stream - jcf_parse_source",
+	       input_filename);
+    }
   java_pop_parser_context (IS_A_COMMAND_LINE_FILENAME_P (file));
   java_parser_context_restore_global ();
 }
 
 /* Parse the .class file JCF. */
 
-int
+void
 jcf_parse (jcf)
      JCF* jcf;
 {
@@ -584,6 +604,11 @@ jcf_parse (jcf)
 
   push_obstacks (&permanent_obstack, &permanent_obstack);
   layout_class (current_class);
+  if (current_class == object_type_node)
+    layout_class_methods (object_type_node);
+  else
+    all_class_list = tree_cons (NULL_TREE, 
+				TYPE_NAME (current_class), all_class_list );
   pop_obstacks ();
 }
 
@@ -609,6 +634,8 @@ parse_class_file ()
   tree method;
   char *save_input_filename = input_filename;
   int save_lineno = lineno;
+
+  java_layout_seen_class_methods ();
 
   input_filename = DECL_SOURCE_FILE (TYPE_NAME (current_class));
   lineno = 0;
@@ -665,9 +692,8 @@ parse_class_file ()
 
   if (flag_emit_class_files)
     write_classfile (current_class);
-  make_class_data (current_class);
-  register_class ();
-  rest_of_decl_compilation (TYPE_NAME (current_class), (char*) 0, 1, 0);
+
+  finish_class (current_class);
 
   debug_end_source_file (save_lineno);
   input_filename = save_input_filename;
@@ -751,7 +777,7 @@ yyparse ()
       
       /* Set jcf up and open a new file */
       JCF_ZERO (main_jcf);
-      main_jcf->read_state = fopen (IDENTIFIER_POINTER (name), "r");
+      main_jcf->read_state = fopen (IDENTIFIER_POINTER (name), "rb");
       if (main_jcf->read_state == NULL)
 	pfatal_with_name (IDENTIFIER_POINTER (name));
       
@@ -782,8 +808,9 @@ yyparse ()
 	  break;
 	}
     }
+
   java_expand_classes ();
-  if (! flag_emit_class_files)
+  if (!java_report_errors () && !flag_emit_class_files)
     emit_register_classes ();
   return 0;
 }

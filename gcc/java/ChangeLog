@@ -1,3 +1,351 @@
+Sun Dec  6 13:21:18 1998  Per Bothner  <bothner@cygnus.com>
+
+	* jcf-dump.c (INVOKE):  If invokeinterface, print number of args.
+
+Thu Dec  3 17:11:12 1998  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* java-tree.h (java_layout_seen_class_methods): New function
+ 	prototype.
+	(LAYOUT_SEEN_CLASS_METHODS): Macro removed.
+	* jcf-parse.c (parse_class_file): Call java_layout_seen_class_methods.
+	* parse.h (PROMOTE_RECORD_IF_COMPLETE): New macro.
+	* parse.y (method_declarator:): Defined action.
+	(issue_warning_error_from_context): input_filename saved, set to
+ 	the appropriate value and restored after java_error is called.
+	(build_unresolved_array_type): Fixed comment.
+	(register_fields): Use PROMOTE_RECORD_IF_COMPLETE.
+	(method_header): Deal with return type the same way type are
+ 	handled for fields and method's parameters and local variables
+ 	types are handled.
+	(check_method_redefinition): Removed extra CR.
+	(declare_local_variables): Use PROMOTE_RECORD_IF_COMPLETE.
+	(java_layout_seen_class_methods): New function.
+	(java_layout_classes): Call java_layout_seen_class_methods.
+	
+Thu Dec  3 15:56:50 1998  Per Bothner  <bothner@cygnus.com>
+
+	* parse,y (patch_synchronized_statement):  Set CAN_COMPLETE_NORMALLY.
+
+Thu Dec  3 15:08:30 1998  Per Bothner  <bothner@cygnus.com>
+
+	* jcf-dump.c (main):  Fix error message.
+	* jcf-path.c (add_entry):  Style fix.
+
+Wed Dec  2 15:52:25 1998  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* class.c (layout_class_method): Call build_java_argument_signature
+	on constructors too.
+	* parse.y (check_method_redefinition): Use TYPE_ARGUMENT_SIGNATURE.
+	(patch_method_invocation): Define a primary when resolving an
+ 	expression name. Augmented comment on code checking illegal `this'
+ 	usage. Loosened it test by accepting NEW_CLASS_EXPR.
+
+Tue Dec  1 13:53:24 1998  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* class.c (layout_class_method): Don't report error on non-static
+ 	overriding static if the method is private.
+	* java-tree.h (finish_class): Prototype added.
+	* lex.c (java_get_line_col): Handle col argument -2 value.
+	* parse.h: All static method declarations moved to parse.y.
+	* parse.y: Now contains all static method declarations previously
+ 	found in parse.h.
+	(find_expr_with_wfl, missing_return_error,
+ 	unreachable_stmt_error): New functions.
+	(java_get_real_method_name): Identify constructors bearing class
+ 	names in source code compiled classes only.
+	(java_complete_expand_methods): Call missing_return_error.
+	(invocation_mode): Private methods invoked as static methods.
+	(java_complete_tree): Call unreachable_stmt_error.
+
+1998-12-01  Tom Tromey  <tromey@cygnus.com>
+
+	* Makefile.in (+target): Removed.
+	(+xmake_file): Likewise.
+	(+tmake_file): Likewise.
+	(.NOEXPORT): Removed duplicate.
+
+Fri Nov 27 13:20:51 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (jc1, jv-scan): Link with $(SUBDIR_OBSTACK).
+
+	* jv-scan.c: Fix xmalloc prototype.  Provide an xmalloc definition.
+	
+	* jvgenmain.c: Remove the xmalloc prototype, we get it from
+	libiberty.h.  Provide an xmalloc definition.
+
+	* jvspec.c: Remove the xmalloc prototype.
+
+	* parse-scan.y: Include config.h and system.h.  Don't include
+	OS headers or gansidecl.h.  Don't prototype xmalloc/xstrdup.
+	Provide an xstrdup definition.
+
+Wed Nov 26 22:03:58 1998  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* jcf-path.c (add_entry): recognize ".jar" too
+	* lang-specs.h: ditto
+
+Thu Nov 26 12:44:07 1998  Per Bothner  <bothner@cygnus.com>
+
+	* jcf-write.c (generate_bytecode_insns):  In Call_EXPR, handle
+	soft_monitorenter_node, soft_monitorexit_node, throw_node.
+
+	* jcf-write.c (generate_bytecode_insns):
+  	Handle pre/post-increment/decrement of long.
+
+	* jcf-write.c (generate_bytecode_insns):
+	Handle missing exception handler (finally for synchronized).
+
+Wed Nov 25 09:47:15 1998  Per Bothner  <bothner@cygnus.com>
+
+	* java-tree.h (end_params_node):  Declare global.
+	* decl.c (end_params_node):  New global.
+	(init_decl_processing, start_java_method):  Use end_params_node for
+	end of list of parameter types.  Follows correct gcc conventions.
+	* expr.c (pop_argument_types, pop_arguments):  Likewise.
+	* lang.c (put_decl_node):  Likewise.
+	* typeck.c (various places):  Likewise.
+	* class.y (various places):  Likewise.
+	* parse.y (various places):  Likewise.
+
+	* parse.y (java_complete_tree):  Move CAN_COMPLETE_NORMALLY.
+	(build_jump_to_finally):  Add missing CAN_COMPLETE_NORMALLY.
+
+	* class.c:  Add #include flags.h, remove no-longer needed declaration.
+
+	* class.c (layout_class_method):  Remove commented-out code, re-format.
+	Don't add vtable entry (or index) for private methods.
+	* expr.c (expand_invoke):  A private method is implicitly final.
+	* class.c (make_class_data):  If inlining or optimizing,
+	skip private methods.
+
+	* class.c (finish_class):  New function.  Calls existing methods,
+	but alls emits deferred inline functions.
+	* jcf-parse.c (parse_class_file):  Call finish_class.
+	* parse.y (java_complete_expand_methods):  Likewise.
+
+	* expr.c (build_java_binop):  Explicit default, to silence -Wall.
+
+	* expr.c (CHECK_PC_IN_RANGE):  Add void cast to kill warnings.
+
+Wed Nov 25 00:50:58 1998  Marc Espie <espie@quatramaran.ens.fr>
+
+	* jcf-write.c (generate_bytecode_conditional): Fix typo.
+
+Tue Nov 24 17:06:38 1998  Per Bothner  <bothner@cygnus.com>
+
+	* (generate_classfile): Always write class access flag with
+ 	ACC_SUPER set.
+
+Tue Nov 24 16:34:33 1998  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* class.c (maybe_layout_super_class): New function.
+	(layout_class): Reorganized. Loop on class methods dispatched into
+ 	a new function. Call maybe_layout_super_class.
+	(layout_class_methods, layout_class_method): New functions.
+	* expr.c (expand_java_NEW): Call layout_class_methods on loaded
+ 	class.
+	(expand_invoke): Likewise.
+	* java-tree.h (all_class_list): New global variable declared.
+	(layout_class_methods, layout_class_method): New function
+ 	prototypes.
+	(LAYOUT_SEEN_CLASS_METHODS): New macro.
+	* jcf-parse.c (all_class_list): New global variable.
+	(load_class): Extended what class_or_name can be. Use parser
+ 	context mechanism to save globals before calling jcf_parse.
+	(jcf_parse_source): Don't parse twice if HAS_BEEN_ALREADY_PARSED_P
+ 	is set on the file name.
+	(jcf_parse): Layout class methods when Object is loaded, otherwise
+ 	record class in all_class_list for delayed method layout.
+	(parse_class_file): Use LAYOUT_SEEN_CLASS_METHODS.
+	* lang.c (put_decl_node): Decode <init> into the decl context
+ 	class name.
+	* lex.c (java_allocate_new_line): Use xmalloc.
+	* parse.h (INCOMPLETE_TYPE_P): Redefined to work with incomplete
+ 	pointers, not TREE_LIST elements.
+	(struct parser_ctxt): Fixed comment indentations, added comments
+ 	and reordered some fields.
+	(java_check_methods): Function prototype removed.
+	* parse.y (java_push_parser_context): Use xmalloc.
+	(java_parser_context_restore_global): Pop extra pushed ctxp only
+ 	when there's nothing next.
+	(maybe_create_class_interface_decl): Fixed comment, add new
+ 	created class decl to all_class_list.
+	(method_header): Use GET_REAL_TYPE on argument's types.
+	(method_declarator): Use GET_REAL_TYPE, change type to the real
+ 	type in TREE_LIST dependency node. Build argument list with the
+ 	real type.
+	(create_jdep_list): Use xmalloc. Removed allocation error message.
+	(obtain_incomplete_type): Fixed leading comment. Broadened
+ 	incoming argument meaning.
+	(register_incomplete_type): Use xmalloc. Removed allocation error
+ 	message.
+	(safe_layout_class): Fixed leading comment.
+	(jdep_resolve_class): Reversed if statement condition and switch
+ 	if and else bodies.
+	(resolve_and_layout): Fixed leading comment. Broadened incoming
+ 	argument meaning.
+	(complete_class_report_errors): New local variable name, for
+ 	clarity. purify_type_name used for all error cases.
+	(java_get_real_method_name): Stricter check on constructors.
+	(java_check_regular_methods): Reverse methods list only if not
+ 	already laid out. Layout artificial constructor.
+	(java_check_methods): Deleted.
+	(source_start_java_method): Obtain incomplete type for patchable
+ 	method arguments.
+	(java_layout_classes): Fixed leading comment. Use
+ 	LAYOUT_SEEN_CLASS_METHODS, use a loop to check methods. Added else
+ 	statement to layout operation, reuse LAYOUT_SEEN_CLASS_METHODS
+ 	before returning. Fixed comments.
+	(java_expand_classes): Check for errors up front.
+	(patch_method_invocation): Class to search is resolved and laid
+ 	out.
+	
+Tue Nov 24 12:57:13 1998  Per Bothner  <bothner@cygnus.com>
+
+	* expr.c (java_lang_expand_expr):  Add missing emit_queue.
+
+	* javaop.h (int8):  Removed - not used.
+	(jbyte):  Redefine portably with correct signedness.
+
+	* jcf-write.c (generate_bytecode_insns):  Don't free sw_state.cases.
+
+	* jcf-write.c (generate_bytecode_insns):  Fix typo
+	OPCODE_getstatic to OPCODE_getfield.
+
+	* java-tree.def (CASE_EXPR, DEFAULT_EXPR):  Kind is 'x', not '1'.
+	* parse.y (java_complete_tree):  For CASE_EXPR and DEFAULT_EXPR,
+	set TREE_SIDE_EFFECTS (otherwise expand_expr may skip them).
+
+Thu Nov 19 11:16:55 1998  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* jcf-parse.c (jcf_parse_source): Function returned type is
+ 	void. Added prototype.
+	(jcf_parse): Function returned type is void.
+	(yyparse): Remove call to fclose on the last parsed file.
+
+	* java-tree.h (jcf_parse): Changed jcf_parse prototype.
+
+Wed Nov 18 23:54:53 1998  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* class.c (unmangle_classname): Set QUALIFIED_P when appropriate.
+	(layout_class): Cope with methods featuring WFL in decl names.
+	* decl.c (unqualified_object_id_node): New global variable,
+ 	initialized.
+	(build_decl_no_layout): Removed.
+	* expr.c (build_primtype_type_ref): Handle Double.
+	(java_lang_expand_expr): Fixed indentations.
+	* java-tree.h (CLASS_METHOD_CHECKED_P): Flag deleted.
+	(flag_wall, flag_redundant, flag_not_overriding,
+ 	flag_static_local_jdk1_1, unqualified_object_id_node): Global
+ 	variable declarations.
+	(build_decl_no_layout): Removed prototype.
+	(java_get_real_method_name): Added prototype.
+	(IS_UNCHECKED_EXPRESSION_P): Renamed IS_UNCHECKED_EXCEPTION_P.
+	(java_parse_abort_on_error): Macro now just returns.
+	* jcf-parse.c (jcf_parse_source): Check fclose returned
+ 	value. Call emit_register_classes if java_report_errors returns
+ 	zero.
+	* lanc.c (flag_wall, flag_redundant, flag_not_overriding,
+ 	flag_static_local_jdk1_1): New integer flags.
+	(lang_decode_option): New flags set here.
+	* parse.h (GET_REAL_TYPE, GET_METHOD_NAME): New macros.
+	(OBSOLETE_MODIFIER_WARNING): Issue error message conditionally to
+ 	the flag_redundant variable.
+	(SET_TYPE_FOR_RESOLUTION): Consider Object being java.lang.Object
+ 	when parsing java.lang.Object class.
+	(BUILD_MONITOR_ENTER, BUILD_MONITOR_EXIT): Added terminal
+ 	NULL_TREE to build.
+	(resolve_qualified_expression_name): Fixed indentation.
+	(patch_array_ref): Changed prototype.
+	(not_initialized_as_it_should_p): Prototype removed.
+	(java_report_errors): Added function prototype.
+	* parse.y (formal_parameter:): Changed error message for not yet
+ 	supported final parameters.
+	(class_type_list:): Set both PURPOSE and VALUE of created
+ 	TREE_LIST to be class_type.
+	(primary_no_new_array:): Handle class literals on primitive types.
+	(parse_warning_context): Reinstalled correct force_error and
+ 	do_warning flags setups.
+	(java_report_errors): Changed prototype. Return java_error_count
+ 	value.
+	(variable_redefinition_error): Consider treating variable type as
+ 	a fake pointer.
+	(create_interface): Warn about redundant abstract modifier if
+ 	flag_redundant is set. Changed error message.
+	(lookup_field_wrapper): Save/restore globals before/after looking
+ 	up field.
+	(duplicate_declaration_error_p): Consider treating declaration
+ 	type as a fake pointer.
+	(register_fields): Extract real type from dependency node. Check
+ 	for duplicate field declaration after type adjustment. Use
+ 	DECL_INITIAL to store static final initialized values.
+	(method_header): Extract real function type from dependency node.
+	(check_abstract_method_header): Use GET_METHOD_NAME.
+	(obtain_incomplete_type): Layout fake pointer type.
+	(safe_layout_class): Don't try to check for methods before layout.
+	(java_complete_class): Don't check for correct throws clause
+ 	elements inheritance here.
+	(resolve_and_layout): Broadened name parameter meaning.
+	(reset_method_name): Use GET_METHOD_NAME.
+	(java_get_real_method_name): New function.
+	(java_check_regular_methods): Don't check methods in
+ 	java.lang.Object.  Verify lineage of throws clause elements. Use
+ 	flag_no_overriding in warning report.
+	(check_throws_clauses): Don't check if class was from
+ 	bytecode. Use IS_UNCHECKED_EXCEPTION_P macro.
+	(java_check_methods): Don't set CLASS_METHOD_CHECKED_P flag.
+	(declare_local_variables): Use flag_static_local_jdk1_1 to report
+ 	warning on unsupported final local variables. Use build_decl
+ 	instead of build_decl_no_layout. Get real local variable type from
+ 	dependency node.
+	(source_start_java_method): Get real parameter type from
+ 	dependency node. Call build_decl instead of build_decl_no_layout.
+	(java_layout_classes): Reverse tree and layout type and class as
+ 	required. Mark class as loaded when done.
+	(resolve_field_access): Fixed indentation. Restricted condition
+ 	leading to static field access code generation. Set field_type
+ 	decl's TREE_TYPE if QUAL_DECL_TYPE not available.
+	(resolve_qualified_expression_name): Initialize type_found to
+ 	null. Handle static field resolved during qualification. Fixed
+ 	layout on non primitive field decl types.
+	(not_accessible_p): Fixed typo in comment.
+	(patch_method_invocation): Resolve and layout class to search from
+ 	type.
+	(lookup_method_invoke): Keep integer constant 0 as is. Resolve and
+ 	layout non primitive type, if necessary. Make method node only to
+ 	report errors.
+	(find_applicable_accessible_methods_list): Consider WFL'ed method
+ 	decl names. Fixed indentation.
+	(argument_types_convertible): Resolve and layout target type if
+ 	necessary.
+	(java_complete_tree): Fixed indentation problems. Rewrote
+ 	CALL_EXPR thrown exceptions check. Re-installed further processing
+ 	of the assignment in certain cases.
+	(patch_assignment): Call maybe_build_primttype_type_ref to perform
+ 	inlining on class literals.
+	(valid_builtin_assignconv_identity_widening_p): Cope with constant
+ 	0 literal.
+	(valid_method_invocation_conversion_p): Likewise.
+	(patch_string): Temporary disable forbidden use of `this' in
+ 	explicit constructor invocations when doing string concatenation
+ 	within their scope.
+	(patch_unaryop): Added comment. Reinstalled code to disable
+ 	further check on assignment operation with cast expression RHS.
+	(patch_switch_statement): Fixed indentation.
+	(build_try_statement): Call build_decl instead of
+ 	build_decl_no_layout.
+	(patch_synchronized_statement): Likewise.
+	(patch_throw_statement): Use IS_UNCHECKED_EXCEPTION_P instead of
+ 	IS_UNCHECKED_EXPRESSION_P.
+	(check_thrown_exceptions_do): Changed leading comment. Resolve and
+ 	layout argument exception type.
+	(purge_unchecked_exceptions): Use IS_UNCHECKED_EXCEPTION_P instead
+ 	of IS_UNCHECKED_EXPRESSION_P.
+	
+Wed Nov 18 14:21:48 1998  Anthony Green  <green@cygnus.com>
+
+	* jcf-parse.c (yyparse): Open class file in binary mode.
+
 Sun Nov 15 17:14:17 1998  Per Bothner  <bothner@cygnus.com>
 
 	* jvgenmain.c:  Need to #include "gansidecl.h" (to get PROTO).
