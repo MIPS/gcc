@@ -1,3 +1,9 @@
+Wed Nov  6 17:16:48 CET 2002  Jan Hubicka  <jh@.suse.cz>
+
+	* i386.md (negsf splitter): Accept memory operand in second register.
+	(abssf/absdf splitters): Simplify
+	(sse_loadss, sse_loadsd): Turn into expander.
+
 Tue Nov  5 14:34:36 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (float_truncate SSE splitter): Ensure that operand is not
