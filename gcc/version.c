@@ -5,7 +5,7 @@
    please modify this string to indicate that, e.g. by putting your
    organization's name in parentheses at the end of the string.  */
 
-const char version_string[] = "3.4.0";
+const char version_string[] = "3.4.0 20040422 (Red Hat Linux 3.4.0-1)";
 
 /* This is the location of the online document giving instructions for
    reporting bugs.  If you distribute a modified version of GCC,
@@ -14,4 +14,4 @@ const char version_string[] = "3.4.0";
    forward us bugs reported to you, if you determine that they are
    not bugs in your modifications.)  */
 
-const char bug_report_url[] = "<URL:http://gcc.gnu.org/bugs.html>";
+const char bug_report_url[] = "<URL:http://bugzilla.redhat.com/bugzilla>";
