@@ -1,3 +1,9 @@
+2003-08-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (tree-pretty-print.o): Add tree-iterator.h dependency.
+	* tree-pretty-print.c: Include tree-iterator.h.
+	(dump_generic_node): Avoid recursing into COMPOUND_EXPRs.
+
 2003-08-12  Jeff Law  <law@redhat.com>
 
  	* tree-ssa-dom.c (optimize_stmt): Optimize ABS_EXPR when we know

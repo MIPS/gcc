@@ -30,6 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "tree-flow.h"
 #include "langhooks.h"
+#include "tree-iterator.h"
 
 /* Local functions, macros and variables.  */
 static int op_prio (tree);
@@ -135,6 +136,7 @@ dump_generic_node (output_buffer *buffer, tree node, int spc, int flags)
   tree type;
   tree op0, op1;
   const char* str;
+  tree_stmt_iterator si;
 
   if (node == NULL_TREE)
     return spc;
@@ -643,19 +645,31 @@ dump_generic_node (output_buffer *buffer, tree node, int spc, int flags)
       if (dumping_stmts)
 	{
 	  dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
-	  if (!(flags & TDF_SLIM))
+	  if (flags & TDF_SLIM)
+	    break;
+	  output_add_character (buffer, ';');
+
+	  for (si = tsi_start (&TREE_OPERAND (node, 1));
+	       !tsi_end_p (si);
+	       tsi_next (&si))
 	    {
-	      output_add_character (buffer, ';');
 	      newline_and_indent (buffer, spc);
-	      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags);
+	      dump_generic_node (buffer, tsi_stmt (si), spc, flags);
+	      output_add_character (buffer, ';');
 	    }
 	}
       else
 	{
 	  dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
-	  output_add_character (buffer, ',');
-	  output_add_space (buffer);
-	  dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags);
+
+	  for (si = tsi_start (&TREE_OPERAND (node, 1));
+	       !tsi_end_p (si);
+	       tsi_next (&si))
+	    {
+	      output_add_character (buffer, ',');
+	      output_add_space (buffer);
+	      dump_generic_node (buffer, tsi_stmt (si), spc, flags);
+	    }
 	}
       break;
 
