@@ -1,3 +1,9 @@
+2004-11-02  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3846637
+	* config/rs6000/rs6000.md: Remove condition for
+	HONOR_SIGNED_ZEROS from fnmsub generation.
+
 2004-11-01  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 2810013 (fix from mainline)
