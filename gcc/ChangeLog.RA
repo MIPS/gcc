@@ -1,3 +1,19 @@
+2001-07-13  Michael Matz <matzmich@cs.tu-berlin.de>
+ 
+        preliminar dump_constraints()
+ 
+        * ra.c : (struct web_part): New member crosses_call.
+        (struct web): Dito.
+        (union_web_parts): Merge it.
+        (live_out_1): Set it.
+        (parts_to_webs): Copy it.
+        Restore use-undefined for each DEF on one insn,
+        and only update it after all the effects of it have been seen.
+        (init_web_parts): Don't initialize web_part.sub_conflicts member.
+        (dump_constraints): New.
+        (reg_alloc): Call it.
+        Don't dump complete RTL for each pass.
+
 2001-07-07  Michael Matz <matzmich@cs.tu-berlin.de>
  
         * ra.c : (copy_insn_p): Subregs in move insns don't prevent them

@@ -121,6 +121,7 @@ struct web_part
   /* The IDs of conflicting root's of other web(part)s.  Only valid,
      if !uplink (part is root).  */
   struct tagged_conflict *sub_conflicts;
+  unsigned int crosses_call : 1;
 };
 
 /* Web structure used to store info about connected live ranges.  */
@@ -161,6 +162,7 @@ struct web
 		     rtx doesn't show up in the program.  For such things
 		     an "artificial" subweb is built, and this flag is true
 		     for them.  */
+  int crosses_call;
   int num_conflicts;  /* Number of conflicts currently */
   int num_uses; /* Number of uses this web spans */
   int num_defs; /* Number of defs this web spans. */
@@ -338,12 +340,18 @@ static void select_spill PARAMS ((void));
 static int get_free_reg PARAMS ((HARD_REG_SET, HARD_REG_SET,
 				 enum machine_mode));
 static int count_long_blocks PARAMS ((HARD_REG_SET, int));
+static char * hardregset_to_string PARAMS ((HARD_REG_SET));
 static void colorize_one_web PARAMS ((struct web *, int));
 static void assign_colors PARAMS ((void));
+static void spill_coalescing PARAMS ((sbitmap, sbitmap));
 static void allocate_spill_web PARAMS ((struct web *));
 static void rewrite_program PARAMS ((void));
+static void actual_spill PARAMS ((void));
 static void emit_colors PARAMS ((struct df *));
+static void delete_insn_bb PARAMS ((rtx));
+static void delete_moves PARAMS ((void));
 static int one_pass PARAMS ((struct df *));
+static void dump_constraints PARAMS ((void));
 static void dump_ra PARAMS ((struct df *));
 static void init_ra PARAMS ((void));
 void reg_alloc PARAMS ((void));
@@ -460,7 +468,6 @@ copy_insn_p (insn, source, target)
      rtx *target;
 {
   rtx d, s;
-  int subreg_seen = 0;
   int uid = INSN_UID (insn);
 
   if (copy_cache[uid].seen)
@@ -704,6 +711,7 @@ union_web_part_roots (r1, r2)
 	    }
 	}
       r2->sub_conflicts = NULL;
+      r1->crosses_call |= r2->crosses_call;
     }
   return r1;
 }
@@ -866,6 +874,8 @@ live_out_1 (df, use, insn)
       struct df_link *link;
       unsigned int source_regno = ~0;
       unsigned int regno = use->regno;
+      unsigned HOST_WIDE_INT orig_undef = use->undefined;
+      unsigned HOST_WIDE_INT final_undef = use->undefined;
       rtx s = NULL, t;
       wp = find_web_part (wp);
       wp->spanned_insns++;
@@ -892,10 +902,13 @@ live_out_1 (df, use, insn)
 	  source_regno = REGNO (GET_CODE (s) == SUBREG ? SUBREG_REG (s) : s);
 	  remember_move (insn);
 	}
+      if (GET_CODE (insn) == CALL_INSN)
+	wp->crosses_call = 1;
       for (link = DF_INSN_DEFS (df, insn); link; link = link->next)
         if (link->ref)
 	  {
 	    int lap;
+	    use->undefined = orig_undef;
 	    if ((lap = defuse_overlap_p (DF_REF_REG (link->ref), use)) != 0)
 	      {
 		if (lap == -1)
@@ -917,7 +930,8 @@ live_out_1 (df, use, insn)
 		else
 		  /* We have a partial overlap.  */
 		  {
-		    if (use->undefined == 0)
+		    final_undef &= use->undefined;
+		    if (final_undef == 0)
 		      /* Now the USE is completely defined, which means, that
 			 we can stop looking for former DEFs.  */
 		      defined = 1;
@@ -925,7 +939,7 @@ live_out_1 (df, use, insn)
 		       in USE undefined, we normally would need to create
 		       conflicts between that undefined part and the part of
 		       this DEF which overlapped with some of the formerly
-		       undfined bits.  We don't need to do this, because both
+		       undefined bits.  We don't need to do this, because both
 		       parts of this DEF (that which overlaps, and that which
 		       doesn't) are written together in this one DEF, and can
 		       not be colored in a way which would conflict with
@@ -983,6 +997,10 @@ live_out_1 (df, use, insn)
 		  }
 	      }
 	  }
+      if (defined)
+	use->undefined = 0;
+      else
+	use->undefined = final_undef;
     }
 
   return !defined;
@@ -1548,12 +1566,10 @@ init_web_parts (df)
   for (no = 0; no < df->def_id; no++)
     {
       web_parts[no].ref = df->defs[no];
-      web_parts[no].sub_conflicts = NULL;
     }
   for (no = 0; no < df->use_id; no++)
     {
       web_parts[no + df->def_id].ref = df->uses[no];
-      web_parts[no + df->def_id].sub_conflicts = NULL;
     }
   num_webs = df->def_id + df->use_id;
 
@@ -1787,6 +1803,7 @@ parts_to_webs (df, part2web)
 	  init_one_web (web, GET_CODE (reg) == SUBREG ? SUBREG_REG (reg) : reg);
 	  web->id = webnum;
 	  web->span_insns = wp->spanned_insns;
+	  web->crosses_call = wp->crosses_call;
 	  id2web[webnum] = web;
 	  webnum++;
 	  if (web->regno < FIRST_PSEUDO_REGISTER)
@@ -1849,7 +1866,7 @@ parts_to_webs (df, part2web)
      XXX we need to merge this loop with the one above, which means, we need
      a way to later override the artificiality.  Beware: currently
      add_subweb_2() relies on the existence of normal subwebs for deducing
-     sane mode to use for the artificial subwebs.  */
+     a sane mode to use for the artificial subwebs.  */
   for (i = 0; i < df->def_id + df->use_id; i++)
     {
       struct web_part *wp = &web_parts[i];
@@ -3183,7 +3200,6 @@ colorize_one_web (web, hard)
      int hard;
 {
   struct conflict_link *wl;
-  int i;
   HARD_REG_SET colors, conflict_colors;
   int c = -1;
   int bestc = -1;
@@ -3665,7 +3681,6 @@ static void
 actual_spill (void)
 {
   sbitmap spilled;
-  struct web *web;
   struct dlist *d;
   spilled = sbitmap_alloc (num_webs);
   sbitmap_zero (spilled);
@@ -3883,6 +3898,38 @@ one_pass (df)
   return 0;
 }
 
+static void
+dump_constraints (void)
+{
+  rtx insn;
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      {
+	int code;
+	int uid = INSN_UID (insn);
+	int o;
+	/* Don't simply force rerecognition, as combine might left us
+	   with some unrecongnizable ones, which later leads to aborts
+	   in regclass, if we now destroy the remembered INSN_CODE().  */
+	/*INSN_CODE (insn) = -1;*/
+	code = recog_memoized (insn);
+	if (code < 0)
+	  {
+	    debug_msg (0, "%d: asm insn or not recognizable.\n", uid);
+	    continue;
+	  }
+	debug_msg (0, "%d: code %d {%s}, %d operands, constraints: ",
+		   uid, code, insn_data[code].name, recog_data.n_operands);
+        extract_insn (insn);
+	/*preprocess_constraints ();*/
+	for (o = 0; o < recog_data.n_operands; o++)
+	  {
+	    debug_msg (0, "%d:%s ", o, recog_data.constraints[o]);
+	  }
+	debug_msg (0, "\n");
+      }
+}
+
 /* Dump debugging info for the register allocator.  */
 static void
 dump_ra (df)
@@ -4020,17 +4067,20 @@ reg_alloc (void)
 	{
           emit_colors (df);
 	  delete_moves ();
+	  dump_constraints ();
 	}
       dump_ra (df);
       if (changed && rtl_dump_file)
-	print_rtl_with_bb (rtl_dump_file, get_insns ());
+	{
+	  /*print_rtl_with_bb (rtl_dump_file, get_insns ());*/
+	}
       free_all_lists ();
       free_mem (df);
       df_finish (df);
     }
   while (changed);
-  if (rtl_dump_file)
-    print_rtl_with_bb (rtl_dump_file, get_insns ());
+  /*if (rtl_dump_file)
+    print_rtl_with_bb (rtl_dump_file, get_insns ());*/
 
   no_new_pseudos = 1;
   compute_bb_for_insn (get_max_uid ());
