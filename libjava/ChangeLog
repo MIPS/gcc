@@ -1,3 +1,12 @@
+2004-09-27  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/image/IndexColorModel.java: Add class docs.
+
+2004-09-27  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/image/IndexColorModel.java (isValid, getValidPixels):
+	Implement.
+
 2004-09-27  Michael Koch  <konqueror@gmx.de>
 
 	* java/awt/MenuBar.java,
