@@ -1,3 +1,7 @@
+2004-03-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.dg/tree-ssa/tailrecursion-5.c: New test.
+
 2004-03-02  Diego Novillo  <dnovillo@redhat.com>
 
 	* testsuite/gcc.dg/tree-ssa/20030815-1.c: Expect 1 type cast.
