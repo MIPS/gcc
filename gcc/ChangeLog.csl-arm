@@ -1,3 +1,7 @@
+2004-10-01  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/crti.asm: Give _init and _fini function type.
+
 2004-09-30  Paul Brook  <paul@coudesourcery.com>
 
 	* config.gcc: Add armv6{k,z,zk}
