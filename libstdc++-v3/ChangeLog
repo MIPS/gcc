@@ -1,3 +1,92 @@
+2002-10-18  Loren J. Rittle  <ljrittle@acm.org>
+
+	* configure.target (freebsd*): Use abi_baseline_triplet.
+	* config/abi/i386-unknown-freebsd4/baseline_symbols.txt: New file.
+	* config/abi/i386-unknown-freebsd4.7/baseline_symbols.txt: Remove.
+
+	* testsuite/thread/pthread1.cc: Remove needless workaround
+	for FreeBSD 5.
+
+2002-10-18  Loren J. Rittle  <ljrittle@acm.org>
+	    Brad Spencer  <spencer@infointeractive.com> (provided alternate
+						         patch and improvements)
+
+	* docs/html/23_containers/howto.html (GLIBCPP_FORCE_NEW): Document
+	new environment variable which replaces all uses of __USE_MALLOC
+	macro.
+	* docs/html/ext/howto.html (GLIBCPP_FORCE_NEW): Likewise.
+	(__mem_interface): Remove all references to old internal typedef.
+	* include/backward/alloc.h (__USE_MALLOC): Remove it and all
+	guarded code.
+	* include/bits/c++config (__USE_MALLOC): Update related error
+	message and comment.
+	* include/bits/stl_alloc.h (__USE_MALLOC): Remove it and all
+	guarded code.  Update all related comments.
+	(__mem_interface): Unconditionally replace it with __new_alloc.
+	However, leave the typedef around in case anyone used it.
+	(__default_alloc_template<>::_S_force_new): New class static.
+	(__default_alloc_template<>::allocate, deallocate): Add
+	run-time controlled feature similar to what __USE_MALLOC code
+	path had provided.
+	* src/stl-inst.cc (__USE_MALLOC): Remove it and all
+	guarded code.
+	* testsuite/21_strings/capacity.cc: Remove reference to __USE_MALLOC.
+	Add documentation on GLIBCPP_FORCE_NEW environment variable.
+	* testsuite/ext/allocators.cc: Likewise.
+
+2002-10-18  Phil Edwards  <pme@gcc.gnu.org>
+
+	* configure.in:  Use target, not target_alias, when matching triplet
+	patterns.
+	* configure:  Regenerate.
+
+2002-10-17  Momchil Velikov  <velco@fadata.bg>
+	    Loren J. Rittle  <ljrittle@acm.org>
+
+	* configure.in: Add *-freebsd* to cross list.
+	* configure: Rebuilt.
+
+2002-10-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_facets.h (__timepunct::__timepunct): Allocate
+	_M_name_timepunct.
+	(__timepunct::~__timepunct): Deallocate, remove specialization
+	declarations.
+	(messages::messages): Allocate _M_name_messages.
+	(messages::~messages): Deallocate.
+	(messages_byname): Same.
+	* config/locale/gnu/time_members.cc (__timepunct::~__timepunct):
+	Remove.
+	* config/locale/generic/time_members.cc (__timepunct::~__timepunct):
+	Remove.
+
+	* docs/html/install.html: Add es_MX, en_PH to required locales list.
+
+2002-10-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/linker-map.gnu: Add exports for codecvt constructors
+	where size_t == unsigned long.
+
+2002-10-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/globals.cc (__gnu_cxx::c_locale_impl_compat): Add, alias to
+	c_locale_impl.
+	* testsuite/abi_check.cc (line_to_symbol_info): Collect size info.
+	* docs/html/abi.txt: Update.
+	
+2002-10-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/22_locale/static_members.cc (test02): Less provincial.
+
+2002-10-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/22_locale/static_members.cc (test02): Disable for 
+	systems without named locale support.
+	* testsuite/22_locale/ctor_copy_dtor.cc (test04): Don't assume
+	running the testsuites in "C" environment.
+	Add new tests.
+	* docs/html/22_locale/locale.html: Update.
+
 2002-10-13  Danny Smith  <dannysmith@users.sourceforge.net> 
 
 	* include/bits/stl_threads.h (_GLIBCPP_mutex,

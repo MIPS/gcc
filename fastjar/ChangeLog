@@ -1,7 +1,16 @@
+2002-10-20  Tom Tromey  <tromey@redhat.com>
+
+	* jartool.c: Use mode 0666 when opening new file.
+
 2002-09-16  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	* jargrep.c (chk_wrd): Remove unused variable(s).
 	* jartool.c (main, create_central_header, list_jar): Likewise.
+
+2002-10-15  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* configure, config.h.in: Rebuilt.
+	* configure.in: Call gcc_AC_FUNC_MKDIR_TAKES_ONE_ARG.
 
 2002-09-11  Tom Tromey  <tromey@redhat.com>
 
@@ -120,7 +129,7 @@
 	* aclocal.m4: Regenerated.
 	* stamp-h.in: Regenerated.
 	* jargrep.c: Eliminate some signed/unsigned and default
-	uninitialized warnings. Use HAVE_STDLIB_H instead of 
+	uninitialized warnings. Use HAVE_STDLIB_H instead of
 	STDC_HEADERS macro.
 	* jartool.c: Likewise.
 	* compress.c: Likewise.

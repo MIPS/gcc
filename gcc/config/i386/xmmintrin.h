@@ -30,6 +30,10 @@
 #ifndef _XMMINTRIN_H_INCLUDED
 #define _XMMINTRIN_H_INCLUDED
 
+#ifndef __SSE__
+# error "SSE instruction set not enabled"
+#else
+
 /* We need type definitions from the MMX header file.  */
 #include <mmintrin.h>
 
@@ -245,13 +249,21 @@ _mm_cmple_ss (__m128 __A, __m128 __B)
 static __inline __m128
 _mm_cmpgt_ss (__m128 __A, __m128 __B)
 {
-  return (__m128) __builtin_ia32_cmpgtss ((__v4sf)__A, (__v4sf)__B);
+  return (__m128) __builtin_ia32_movss ((__v4sf) __A,
+					(__v4sf)
+					__builtin_ia32_cmpltss ((__v4sf) __B,
+								(__v4sf)
+								__A));
 }
 
 static __inline __m128
 _mm_cmpge_ss (__m128 __A, __m128 __B)
 {
-  return (__m128) __builtin_ia32_cmpgess ((__v4sf)__A, (__v4sf)__B);
+  return (__m128) __builtin_ia32_movss ((__v4sf) __A,
+					(__v4sf)
+					__builtin_ia32_cmpless ((__v4sf) __B,
+								(__v4sf)
+								__A));
 }
 
 static __inline __m128
@@ -275,13 +287,21 @@ _mm_cmpnle_ss (__m128 __A, __m128 __B)
 static __inline __m128
 _mm_cmpngt_ss (__m128 __A, __m128 __B)
 {
-  return (__m128) __builtin_ia32_cmpngtss ((__v4sf)__A, (__v4sf)__B);
+  return (__m128) __builtin_ia32_movss ((__v4sf) __A,
+					(__v4sf)
+					__builtin_ia32_cmpnltss ((__v4sf) __B,
+								 (__v4sf)
+								 __A));
 }
 
 static __inline __m128
 _mm_cmpnge_ss (__m128 __A, __m128 __B)
 {
-  return (__m128) __builtin_ia32_cmpngess ((__v4sf)__A, (__v4sf)__B);
+  return (__m128) __builtin_ia32_movss ((__v4sf) __A,
+					(__v4sf)
+					__builtin_ia32_cmpnless ((__v4sf) __B,
+								 (__v4sf)
+								 __A));
 }
 
 static __inline __m128
@@ -586,7 +606,7 @@ _mm_cvtps_pi16(__m128 __A)
   __v4sf __losf = __builtin_ia32_movhlps (__hisf, __hisf);
   __v2si __hisi = __builtin_ia32_cvtps2pi (__hisf);
   __v2si __losi = __builtin_ia32_cvtps2pi (__losf);
-  return (__m64) __builtin_ia32_packssdw (__losi, __hisi);
+  return (__m64) __builtin_ia32_packssdw (__hisi, __losi);
 }
 
 /* Convert the four SPFP values in A to four signed 8-bit integers.  */
@@ -1017,7 +1037,7 @@ _mm_prefetch (void *__P, enum _mm_hint __I)
 static __inline void
 _mm_stream_pi (__m64 *__P, __m64 __A)
 {
-  __builtin_ia32_movntq (__P, __A);
+  __builtin_ia32_movntq (__P, (long long)__A);
 }
 
 /* Likewise.  The address must be 16-byte aligned.  */
@@ -1066,8 +1086,158 @@ typedef int __v4si __attribute__ ((mode (V4SI)));
 typedef int __v8hi __attribute__ ((mode (V8HI)));
 typedef int __v16qi __attribute__ ((mode (V16QI)));
 
-#define __m128i __m128
+/* Create a selector for use with the SHUFPD instruction.  */
+#define _MM_SHUFFLE2(fp1,fp0) \
+ (((fp1) << 1) | (fp0))
+
+#define __m128i __v2di
 #define __m128d __v2df
+
+/* Create a vector with element 0 as *P and the rest zero.  */
+static __inline __m128d
+_mm_load_sd (double *__P)
+{
+  return (__m128d) __builtin_ia32_loadsd (__P);
+}
+
+/* Create a vector with all two elements equal to *P.  */
+static __inline __m128d
+_mm_load1_pd (double *__P)
+{
+  __v2df __tmp = __builtin_ia32_loadsd (__P);
+  return (__m128d) __builtin_ia32_shufpd (__tmp, __tmp, _MM_SHUFFLE2 (0,0));
+}
+
+static __inline __m128d
+_mm_load_pd1 (double *__P)
+{
+  return _mm_load1_pd (__P);
+}
+
+/* Load two DPFP values from P.  The addresd must be 16-byte aligned.  */
+static __inline __m128d
+_mm_load_pd (double *__P)
+{
+  return (__m128d) __builtin_ia32_loadapd (__P);
+}
+
+/* Load two DPFP values from P.  The addresd need not be 16-byte aligned.  */
+static __inline __m128d
+_mm_loadu_pd (double *__P)
+{
+  return (__m128d) __builtin_ia32_loadupd (__P);
+}
+
+/* Load two DPFP values in reverse order.  The addresd must be aligned.  */
+static __inline __m128d
+_mm_loadr_pd (double *__P)
+{
+  __v2df __tmp = __builtin_ia32_loadapd (__P);
+  return (__m128d) __builtin_ia32_shufpd (__tmp, __tmp, _MM_SHUFFLE2 (0,1));
+}
+
+/* Create a vector with element 0 as F and the rest zero.  */
+static __inline __m128d
+_mm_set_sd (double __F)
+{
+  return (__m128d) __builtin_ia32_loadsd (&__F);
+}
+
+/* Create a vector with all two elements equal to F.  */
+static __inline __m128d
+_mm_set1_pd (double __F)
+{
+  __v2df __tmp = __builtin_ia32_loadsd (&__F);
+  return (__m128d) __builtin_ia32_shufpd (__tmp, __tmp, _MM_SHUFFLE2 (0,0));
+}
+
+static __inline __m128d
+_mm_set_pd1 (double __F)
+{
+  return _mm_set1_pd (__F);
+}
+
+/* Create the vector [Z Y].  */
+static __inline __m128d
+_mm_set_pd (double __Z, double __Y)
+{
+  union {
+    double __a[2];
+    __m128d __v;
+  } __u;
+
+  __u.__a[0] = __Y;
+  __u.__a[1] = __Z;
+
+  return __u.__v;
+}
+
+/* Create the vector [Y Z].  */
+static __inline __m128d
+_mm_setr_pd (double __Z, double __Y)
+{
+  return _mm_set_pd (__Y, __Z);
+}
+
+/* Create a vector of zeros.  */
+static __inline __m128d
+_mm_setzero_pd (void)
+{
+  return (__m128d) __builtin_ia32_setzeropd ();
+}
+
+/* Stores the lower DPFP value.  */
+static __inline void
+_mm_store_sd (double *__P, __m128d __A)
+{
+  __builtin_ia32_storesd (__P, (__v2df)__A);
+}
+
+/* Store the lower DPFP value acrosd two words.  */
+static __inline void
+_mm_store1_pd (double *__P, __m128d __A)
+{
+  __v2df __va = (__v2df)__A;
+  __v2df __tmp = __builtin_ia32_shufpd (__va, __va, _MM_SHUFFLE2 (0,0));
+  __builtin_ia32_storeapd (__P, __tmp);
+}
+
+static __inline void
+_mm_store_pd1 (double *__P, __m128d __A)
+{
+  _mm_store1_pd (__P, __A);
+}
+
+/* Store two DPFP values.  The addresd must be 16-byte aligned.  */
+static __inline void
+_mm_store_pd (double *__P, __m128d __A)
+{
+  __builtin_ia32_storeapd (__P, (__v2df)__A);
+}
+
+/* Store two DPFP values.  The addresd need not be 16-byte aligned.  */
+static __inline void
+_mm_storeu_pd (double *__P, __m128d __A)
+{
+  __builtin_ia32_storeupd (__P, (__v2df)__A);
+}
+
+/* Store two DPFP values in reverse order.  The addresd must be aligned.  */
+static __inline void
+_mm_storer_pd (double *__P, __m128d __A)
+{
+  __v2df __va = (__v2df)__A;
+  __v2df __tmp = __builtin_ia32_shufpd (__va, __va, _MM_SHUFFLE2 (0,1));
+  __builtin_ia32_storeapd (__P, __tmp);
+}
+
+/* Sets the low DPFP value of A from the low value of B.  */
+static __inline __m128d
+_mm_move_sd (__m128d __A, __m128d __B)
+{
+  return (__m128d) __builtin_ia32_movsd ((__v2df)__A, (__v2df)__B);
+}
+
 
 static __inline __m128d
 _mm_add_pd (__m128d __A, __m128d __B)
@@ -1123,10 +1293,12 @@ _mm_sqrt_pd (__m128d __A)
   return (__m128d)__builtin_ia32_sqrtpd ((__v2df)__A);
 }
 
+/* Return pair {sqrt (A[0), B[1]}.  */
 static __inline __m128d
-_mm_sqrt_sd (__m128d __A)
+_mm_sqrt_sd (__m128d __A, __m128d __B)
 {
-  return (__m128d)__builtin_ia32_sqrtsd ((__v2df)__A);
+  __v2df __tmp = __builtin_ia32_movsd ((__v2df)__A, (__v2df)__B);
+  return (__m128d)__builtin_ia32_sqrtsd ((__v2df)__tmp);
 }
 
 static __inline __m128d
@@ -1150,7 +1322,7 @@ _mm_max_pd (__m128d __A, __m128d __B)
 static __inline __m128d
 _mm_max_sd (__m128d __A, __m128d __B)
 {
-  return (__m128d)__builtin_ia32_minsd ((__v2df)__A, (__v2df)__B);
+  return (__m128d)__builtin_ia32_maxsd ((__v2df)__A, (__v2df)__B);
 }
 
 static __inline __m128d
@@ -1270,13 +1442,21 @@ _mm_cmple_sd (__m128d __A, __m128d __B)
 static __inline __m128d
 _mm_cmpgt_sd (__m128d __A, __m128d __B)
 {
-  return (__m128d)__builtin_ia32_cmpgtsd ((__v2df)__A, (__v2df)__B);
+  return (__m128d) __builtin_ia32_movsd ((__v2df) __A,
+					 (__v2df)
+					 __builtin_ia32_cmpltsd ((__v2df) __B,
+								 (__v2df)
+								 __A));
 }
 
 static __inline __m128d
 _mm_cmpge_sd (__m128d __A, __m128d __B)
 {
-  return (__m128d)__builtin_ia32_cmpgesd ((__v2df)__A, (__v2df)__B);
+  return (__m128d) __builtin_ia32_movsd ((__v2df) __A,
+					 (__v2df)
+					 __builtin_ia32_cmplesd ((__v2df) __B,
+								 (__v2df)
+								 __A));
 }
 
 static __inline __m128d
@@ -1300,13 +1480,21 @@ _mm_cmpnle_sd (__m128d __A, __m128d __B)
 static __inline __m128d
 _mm_cmpngt_sd (__m128d __A, __m128d __B)
 {
-  return (__m128d)__builtin_ia32_cmpngtsd ((__v2df)__A, (__v2df)__B);
+  return (__m128d) __builtin_ia32_movsd ((__v2df) __A,
+					 (__v2df)
+					 __builtin_ia32_cmpnltsd ((__v2df) __B,
+								  (__v2df)
+								  __A));
 }
 
 static __inline __m128d
 _mm_cmpnge_sd (__m128d __A, __m128d __B)
 {
-  return (__m128d)__builtin_ia32_cmpngesd ((__v2df)__A, (__v2df)__B);
+  return (__m128d) __builtin_ia32_movsd ((__v2df) __A,
+					 (__v2df)
+					 __builtin_ia32_cmpnlesd ((__v2df) __B,
+								  (__v2df)
+								  __A));
 }
 
 static __inline __m128d
@@ -1489,7 +1677,7 @@ _mm_cvtss_sd (__m128d __A, __m128d __B)
   return (__m128d)__builtin_ia32_cvtss2sd ((__v2df) __A, (__v4sf)__B);
 }
 
-#define _mm_shuffle_pd(__A, __B, __C) ((__m128d)__builtin_ia32_shufpd ((__v2df)__A, (__v2df)__B, (C)))
+#define _mm_shuffle_pd(__A, __B, __C) ((__m128d)__builtin_ia32_shufpd ((__v2df)__A, (__v2df)__B, (__C)))
 
 static __inline __m128d
 _mm_unpackhi_pd (__m128d __A, __m128d __B)
@@ -1504,25 +1692,25 @@ _mm_unpacklo_pd (__m128d __A, __m128d __B)
 }
 
 static __inline __m128d
-_mm_loadh_pd (__m128d __A, __m128d *__B)
+_mm_loadh_pd (__m128d __A, double *__B)
 {
   return (__m128d)__builtin_ia32_loadhpd ((__v2df)__A, (__v2si *)__B);
 }
 
 static __inline void
-_mm_storeh_pd (__m128d *__A, __m128d __B)
+_mm_storeh_pd (double *__A, __m128d __B)
 {
   __builtin_ia32_storehpd ((__v2si *)__A, (__v2df)__B);
 }
 
 static __inline __m128d
-_mm_loadl_pd (__m128d __A, __m128d *__B)
+_mm_loadl_pd (__m128d __A, double *__B)
 {
   return (__m128d)__builtin_ia32_loadlpd ((__v2df)__A, (__v2si *)__B);
 }
 
 static __inline void
-_mm_storel_pd (__m128d *__A, __m128d __B)
+_mm_storel_pd (double *__A, __m128d __B)
 {
   __builtin_ia32_storelpd ((__v2si *)__A, (__v2df)__B);
 }
@@ -1791,6 +1979,22 @@ _mm_srai_epi32 (__m128i __A, int __B)
   return (__m128i)__builtin_ia32_psradi128 ((__v4si)__A, __B);
 }
 
+#if 0
+static __m128i __attribute__((__always_inline__))
+_mm_srli_si128 (__m128i __A, const int __B)
+{
+  return ((__m128i)__builtin_ia32_psrldqi128 (__A, __B))
+}
+
+static __m128i __attribute__((__always_inline__))
+_mm_srli_si128 (__m128i __A, const int __B)
+{
+  return ((__m128i)__builtin_ia32_pslldqi128 (__A, __B))
+}
+#endif
+#define _mm_srli_si128(__A, __B) ((__m128i)__builtin_ia32_psrldqi128 (__A, __B))
+#define _mm_slli_si128(__A, __B) ((__m128i)__builtin_ia32_pslldqi128 (__A, __B))
+
 static __inline __m128i
 _mm_srli_epi16 (__m128i __A, int __B)
 {
@@ -1979,6 +2183,7 @@ _mm_mfence (void)
   __builtin_ia32_mfence ();
 }
 
-#endif /* __SSE2_BUILTINS__  */
+#endif /* __SSE2__  */
 
+#endif /* __SSE__ */
 #endif /* _XMMINTRIN_H_INCLUDED */

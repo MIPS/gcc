@@ -122,6 +122,13 @@ struct gcc_target
 
     /* Output a destructor for a symbol with a given priority.  */
     void (* destructor) PARAMS ((rtx, int));
+
+    /* Output the assembler code for a thunk function.  */
+    void (* output_mi_thunk) PARAMS ((FILE *, tree, HOST_WIDE_INT, tree));
+
+    /* Output the assembler code for a thunk function with a vcall offset.  */
+    void (* output_mi_vcall_thunk) PARAMS ((FILE *, tree, HOST_WIDE_INT,
+					    HOST_WIDE_INT, tree));
   } asm_out;
 
   /* Functions relating to instruction scheduling.  */

@@ -46,6 +46,7 @@ Boston, MA 02111-1307, USA.  */
 
 static void i960_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void i960_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void i960_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT, tree));
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -97,6 +98,9 @@ static int ret_label = 0;
 #define TARGET_ASM_FUNCTION_PROLOGUE i960_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE i960_output_function_epilogue
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK i960_output_mi_thunk
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1785,7 +1789,6 @@ i960_print_operand (file, x, code)
     }
   else if (rtxcode == CONST_DOUBLE)
     {
-      REAL_VALUE_TYPE d;
       char dstr[30];
 
       if (x == CONST0_RTX (GET_MODE (x)))
@@ -1799,8 +1802,7 @@ i960_print_operand (file, x, code)
 	  return;
 	}
 
-      REAL_VALUE_FROM_CONST_DOUBLE (d, x);
-      REAL_VALUE_TO_DECIMAL (d, dstr, -1);
+      real_to_decimal (dstr, CONST_DOUBLE_REAL_VALUE (x), sizeof (dstr), 0, 1);
       fprintf (file, "0f%s", dstr);
       return;
     }
@@ -2825,4 +2827,26 @@ i960_scan_opcode (p)
         i960_last_insn_type = I_TYPE_REG;
       break;
     }
+}
+
+static void
+i960_output_mi_thunk (file, thunk, delta, function)
+     FILE *file;
+     tree thunk ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     tree function;
+{
+  int d = delta;
+  if (d < 0 && d > -32)							
+    fprintf (file, "\tsubo %d,g0,g0\n", -d);				
+  else if (d > 0 && d < 32)						
+    fprintf (file, "\taddo %d,g0,g0\n", d);				
+  else									
+    {									
+      fprintf (file, "\tldconst %d,r5\n", d);				
+      fprintf (file, "\taddo r5,g0,g0\n");				
+    }									
+  fprintf (file, "\tbx ");						
+  assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));	
+  fprintf (file, "\n");							
 }

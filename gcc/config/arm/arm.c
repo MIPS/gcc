@@ -128,6 +128,8 @@ static void	 arm_encode_section_info	PARAMS ((tree, int));
 static void	 aof_globalize_label		PARAMS ((FILE *, const char *));
 #endif
 static void	 arm_internal_label		PARAMS ((FILE *, const char *, unsigned long));
+static void arm_output_mi_thunk			PARAMS ((FILE *, tree,
+							 HOST_WIDE_INT, tree));
 
 #undef Hint
 #undef Mmode
@@ -195,6 +197,9 @@ static void	 arm_internal_label		PARAMS ((FILE *, const char *, unsigned long));
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL arm_function_ok_for_sibcall
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK arm_output_mi_thunk
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -11153,4 +11158,41 @@ arm_internal_label (stream, prefix, labelno)
       arm_target_insn = NULL;
     }
   default_internal_label (stream, prefix, labelno);
+}
+
+/* Output code to add DELTA to the first argument, and then jump
+   to FUNCTION.  Used for C++ multiple inheritance.  */
+
+static void
+arm_output_mi_thunk (file, thunk, delta, function)
+     FILE *file;
+     tree thunk ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     tree function;
+{
+  int mi_delta = delta;
+  const char *const mi_op = mi_delta < 0 ? "sub" : "add";
+  int shift = 0;
+  int this_regno = (aggregate_value_p (TREE_TYPE (TREE_TYPE (function)))
+                    ? 1 : 0);
+  if (mi_delta < 0)
+    mi_delta = - mi_delta;
+  while (mi_delta != 0)
+    {
+      if ((mi_delta & (3 << shift)) == 0)
+        shift += 2;
+      else
+        {
+          asm_fprintf (file, "\t%s\t%r, %r, #%d\n",
+                       mi_op, this_regno, this_regno,
+                       mi_delta & (0xff << shift));
+          mi_delta &= ~(0xff << shift);
+          shift += 8;
+        }
+    }
+  fputs ("\tb\t", file);
+  assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));
+  if (NEED_PLT_RELOC)
+    fputs ("(PLT)", file);
+  fputc ('\n', file);
 }

@@ -1181,17 +1181,12 @@ expand_default_init (binfo, true_exp, exp, init, flags)
 	   to run a new constructor; and catching an exception, where we
 	   have already built up the constructor call so we could wrap it
 	   in an exception region.  */;
-      else if (TREE_CODE (init) == CONSTRUCTOR)
+      else if (TREE_CODE (init) == CONSTRUCTOR 
+	       && TREE_HAS_CONSTRUCTOR (init))
 	{
-	  if (!TYPE_HAS_CONSTRUCTOR (type))
-	    /* A brace-enclosed initializer has whatever type is
-	       required.  There's no need to convert it.  */
-	    ;
-	  else
-	    init = ocp_convert (type, 
-				TREE_VALUE (CONSTRUCTOR_ELTS (init)),
-				CONV_IMPLICIT | CONV_FORCE_TEMP, 
-				flags);
+	  /* A brace-enclosed initializer for an aggregate.  */
+	  my_friendly_assert (CP_AGGREGATE_TYPE_P (type), 20021016);
+	  init = digest_init (type, init, (tree *)NULL);
 	}
       else
 	init = ocp_convert (type, init, CONV_IMPLICIT|CONV_FORCE_TEMP, flags);
@@ -3099,8 +3094,7 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {
     handle_array:
-      if (TREE_SIDE_EFFECTS (addr))
-	addr = save_expr (addr);
+      
       if (TYPE_DOMAIN (type) == NULL_TREE)
 	{
 	  error ("unknown array size in delete");
@@ -3342,15 +3336,13 @@ build_vec_delete (base, maxindex, auto_delete_vec, use_global_delete)
 
   base = stabilize_reference (base);
 
-  /* Since we can use base many times, save_expr it.  */
-  if (TREE_SIDE_EFFECTS (base))
-    base = save_expr (base);
-
   if (TREE_CODE (type) == POINTER_TYPE)
     {
       /* Step back one from start of vector, and read dimension.  */
       tree cookie_addr;
 
+      if (TREE_SIDE_EFFECTS (base))
+	base = save_expr (base);
       type = strip_array_types (TREE_TYPE (type));
       cookie_addr = build (MINUS_EXPR,
 			   build_pointer_type (sizetype),
@@ -3364,6 +3356,8 @@ build_vec_delete (base, maxindex, auto_delete_vec, use_global_delete)
       maxindex = array_type_nelts_total (type);
       type = strip_array_types (type);
       base = build_unary_op (ADDR_EXPR, base, 1);
+      if (TREE_SIDE_EFFECTS (base))
+	base = save_expr (base);
     }
   else
     {

@@ -4,6 +4,69 @@
 	inverted test in the conditional determining the possibility
 	of sibcalls in PIC mode.
 
+2002-10-20  Richard Henderson  <rth@redhat.com>
+
+	* target.h (struct gcc_target): Line wrap.
+
+	* config/alpha/alpha.c (alpha_output_mi_thunk_osf): Static.
+	(TARGET_ASM_OUTPUT_MI_THUNK): Define here...
+	* config/alpha/alpha.h: ... not here.
+	* config/alpha/alpha-protos.h: Update.
+
+	* config/arm/arm.c, config/arm/arm.h, config/arm/arm-protos.h
+	config/cris/cris-protos.h, config/cris/cris.c, config/cris/cris.h,
+	config/frv/frv-protos.h, config/frv/frv.c, config/frv/frv.h,
+	config/i386/i386-protos.h, config/i386/i386.c, config/i386/openbsd.h,
+	config/i386/unix.h, config/i960/i960-protos.h, config/i960/i960.c,
+	config/i960/i960.h, config/ia64/ia64-protos.h, config/ia64/ia64.c,
+	config/ia64/ia64.h, config/m68k/linux.h, config/m68k/m68k-protos.h,
+	config/m68k/m68k.c, config/m68k/netbsd-elf.h, config/m68k/openbsd.h,
+	config/mmix/mmix-protos.h, config/mmix/mmix.c, config/mmix/mmix.h,
+	config/pa/pa-protos.h, config/pa/pa.c, config/pa/pa.h,
+	config/s390/s390-protos.h, config/s390/s390.c, config/s390/s390.h,
+	config/sparc/openbsd.h, config/sparc/sparc-protos.h,
+	config/sparc/sparc.c, config/sparc/sparc.h,
+	config/stormy16/stormy16-protos.h, config/stormy16/stormy16.c,
+	config/stormy16/stormy16.h: Similarly.
+
+	* config/m68k/m68k.c (m68k_output_mi_thunk): Replicate mnemonic
+	selection logic from call patterns.
+
+2002-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/m68k/m68k.c (m68k_output_mi_thunk): Fix typo.
+
+2002-10-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR other/8202
+	* i386.c (ix86_init_mmx_sse_builtins, ix86_expand_builtin): Define and
+	expand __builtin_ia32_pslldqi128 and __builtin_ia32_psrldqi128.
+	* i386.h (IX86_BUILTIN_PSLLDQI128, IX86_BUILTIN_PSRLDQI128): New.
+	* xmmintrin.h (_mm_srli_si128, _mm_slli_si128): New.
+
+2002-10-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR c/761
+	* toplev.c (flag_unsafe_profile_arcs): Remove.
+	(flag_bounded_pointers): Remove.
+	(flag_bounds_check): Correct comments.
+	(lang_independent_options): Remove -funsafe-profile-arcs and
+	-fbounded-pointers.  Correct -fbounds-check comments.
+
+	* flags.h: Correct flag_schedule_interblock comments.
+	(flag_bounded_pointers): Remove prototype.
+	(flag_bounds_check): Correct comments.
+
+	* c-opts.c (c_common_init_options): No need to mark
+	flag_bounds_check as unspecified.
+	(c_common_post_options): And no need to set it from
+	flag_bounded_pointers if its still unspecified.
+
+	* doc/invoke.texi: Fix some overfull hboxes in "make dvi".
+	Document --version, -feliminate-dwarf-2-dups, -fno-sched-interblock,
+	-fno-sched-spec, -fsched-spec-load, -fsched-spec-load-dangerous,
+	-fsched-verbose=n, -fno-branch-count-reg and -fbounds-check.
+
 Sat Oct 19 22:02:28 2002  Alexandre Oliva  <aoliva@redhat.com>
 	Angela Marie Thomas  <angela@releasedominatrix.com>
 	Brendan Kehoe  <brendan@zen.org>
@@ -43,10 +106,294 @@ Sat Oct 19 22:02:28 2002  Alexandre Oliva  <aoliva@redhat.com>
 	* doc/install.texi (--with-sysroot): Document.
 	(--with-headers, --with-libs): Deprecate.
 
+2002-10-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* alpha-protos.h (alpha_output_mi_thunk_osf): Update signature to
+	match target.h.
+	* arm-protos.h, arm.c (arm_output_mi_thunk): Likewise.
+	* cris-protos.h, cris.c (cris_asm_output_mi_thunk): Likewise.
+	* frv-protos.h, frv.c (frv_asm_output_mi_thunk): Likewise.
+	* i386-protos.h, i386.c (x86_output_mi_vcall_thunk,
+	x86_output_mi_thunk): Likewise.
+	* i960-protos.h, i960.c (i960_output_mi_thunk): Likewise.
+	* ia64-protos.h, ia64.c (ia64_output_mi_thunk): Likewise.
+	* m68k-protos.h, m68k.c (m68k_output_mi_thunk): Likewise.
+	* mmix-protos.h, mmix.c (mmix_asm_output_mi_thunk): Likewise.
+	* rs6000-protos.h, rs6000.c (output_mi_thunk): Likewise.
+	* s390-protos.h, s390.c (s390_output_mi_thunk): Likewise.
+	* stormy16-protos.h, stormy16.c (xstormy16_asm_output_mi_thunk):
+	Likewise.
+	* vax-protos.h, vax.c (vax_output_mi_thunk): Likewise.
+
+	* target.h (gcc_target): Update output_mi_thunk and
+	output_mi_vcall_thunk to take a HOST_WIDE_INT delta and
+	vcall_index.
+
+	* config/alpha/alpha.c: Replace ASM_OUTPUT_MI_THUNK with
+	TARGET_ASM_OUTPUT_MI_THUNK in comments.
+	* config/alpha/vms.h (ASM_OUTPUT_MI_THUNK): Don't #undef it.
+	(TARGET_ASM_OUTPUT_MI_THUNK): #undef it.
+	* config/frv/frv.h (DEFAULT_VTABLE_THUNKS): Remove definition.
+	* config/i386/i386-protos.h (x86_output_mi_vcall_thunk): Update
+	signature.
+	* config/i386/i386.c (x86_output_mi_vcall_thunk): Likewise.
+	* config/i386/openbsd.h: Replace ASM_OUTPUT_MI_THUNK with
+	TARGET_ASM_OUTPUT_MI_THUNK in comments.
+	* config/i960/i960.h (ASM_OUTPUT_MI_THUNK): Don't define.
+	(TARGET_ASM_OUTPUT_MI_THUNK): Do define.
+	* config/m68k/openbsd.h: Replace ASM_OUTPUT_MI_THUNK with
+	TARGET_ASM_OUTPUT_MI_THUNK in comments.
+	* config/rs6000/rs6000.c (rs6000_ra_ever_killed): Remove #ifdef
+	ASM_OUTPUT_MI_THUNK and replace with check of targetm.
+
+	* doc/tm.texi (TARGET_ASM_OUTPUT_MI_THUNK): Update signature.
+	(TARGET_ASM_OUTPU_MI_VCALL_THUNK): Likewise.
+
+2002-10-19  Brad Lucier  <lucier@math.purdue.edu>
+
+	* real.c (do_add): Fix 0+0 sign corner case.
+	(do_divide): Fix Inf/0 corner case.
+
+Sun Oct 20 00:31:31 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (classify_argument): Pass MMX arguments in memory
+	(ix86_expand_builtin): Expand proper address mode for cflush.
+	* i386.md (movdqa): Fix typo.
+	(sse2_cflush): Accept DImode addresses.
+
+	* xmmintrin.h (_mm_sqrt_sd): Accept two arguments.
+	(_mm_max_sd): Fix pasto.
+	(_mm_storeh_pd, _mm_storel_pd): Fix.
+
+	* i386.c (bdesc_comi): Fix to match specification.
+	(ix86_expand_sse_comi): Emit the comparison properly.
+	* i386.md (sse_comi, sse2_comi, sse_ucomi, sse2_ucomi):
+	Do not use comparison operator.
+	(vnmaskcmp): Fix template.
+
+	* xmmintrin.h (_mm_cvtps_pi16): Fix.
+
+2002-10-19  Sebastian Pop  <s.pop@laposte.net>
+
+	* dependence.c : Removed.
+	* Makefile.in : Remove dependence.o.
+
+Sat Oct 19 10:46:52 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* mmintrin.h (__m64): typedef it to v2si.
+	(_mm_cvtsi32_si64, _mm_cvtsi32_si64_mm_sll_pi16,
+	_mm_sll_pi32, _mm_sll_pi64, _mm_slli_pi64, _mm_sra_pi16,
+	_mm_sra_pi32, _mm_srl_pi16, _mm_srl_pi32, _mm_srl_pi64,
+	_mm_srli_pi64, _mm_and_si64, _mm_andnot_si64,
+	_mm_or_si64, _mm_xor_si64): Add neccesary casts.
+	* xmmintrin.h (_mm_setzero_si64): Likewise.
+
+	* i386.h (ALIGN_MODE_128): Update comment; add missing modes
+	(SSE_REG_MODE_P, MMX_REG_MODE_P): New macros.
+
+	PR target/7693
+	Patch by Shawn Wagner
+	* mmintrin.h: Replace pi64 by si64.
+
+2002-10-18  David Edelsohn  <edelsohn@gnu.org>
+
+	* rs6000.md (movdf_hardfloat32): Order alternatives consistently.
+	Use length of 4 not *.
+	(movdf_hardfloat64): Same.  Support DFmode moves to/from CTR/LR.
+	(movdf_softfloat64): Likewise.
+	(movdi_internal32): Use length of 4 not *.
+	(movti_power): Same.
+	(ctrsi, ctrdi): Same.
+
+2002-10-18  Zack Weinberg  <zack@codesourcery.com>
+
+	* c-decl.c (start_decl): Point users of the old initialized-
+	typedef extension at __typeof__.
+
+2002-10-18  Richard Henderson  <rth@redhat.com>
+
+	* real.c (cmp_significand_0, rtd_divmod, ten_to_mptwo): New.
+	(real_to_decimal): Re-implement using the logic from the
+	gcc 3.2 etoasc.  Comment heavily.
+	(div_significands): Simplify loop startup and comparison logic.
+
+2002-10-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* target-def.h (TARGET_ASM_OUTPUT_MI_THUNK): Default to NULL.
+	(TARGET_ASM_OUTPUT_MI_VCALL_THUNK): Likewise.
+	(TARGET_ASM_OUT): Add them.
+	* target.h (asm_out): Add output_mi_thunk and
+	output_mi_vcall_thunk.
+	* config/alpha/alpha.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/arm/arm-protos.h (arm_output_mi_thunk): Declare.
+	* config/arm/arm.c (arm_output_mi_thunk): Define.
+	* config/arm/arm.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/cris/cris.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/frv/frv.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/i386/i386-protos.h (x86_output_mi_thunk): Adjust
+	prototype.
+	(x86_output_mi_vcall_thunk): Declare.
+	* config/i386/i386.c (override_options): Clear
+	output_mi_vcall_thunk in 64-bit mode.
+	(ix86_fntype_regparm): New function.
+	(ix86_return_pops_args): Use it.
+	(ia32_this_parameter): New function.
+	(x86_output_mi_vcall_thunk): New function.
+	(x86_output_mi_thunk): Use it
+	* config/i386/unix.h (TARGET_ASM_OUTPUT_MI_THUNK): Adjust.
+	(TARGET_ASM_OUTPUT_MI_VCALL_THUNK): Define.
+	* config/i960/i960-protos.h (i960_output_mi_thunk): Declare.
+	* config/i960/i960.c (i960_output_mi_thunk): New function.
+	* config/i960/i960.h (ASM_OUTPUT_MI_THUNK): Adjust.
+	* config/ia64/ia64-protos.h (ia64_output_mi_thunk): Declare.
+	* config/ia64/ia64.c (ia64_output_mi_thunk): Define.
+	* config/ia64/ia64.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/m68k/m68k-protos.h (m68k_output_mi_thunk): New function.
+	* config/m68k/linux.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/m68k/netbsd-elf.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/mmix/mmix.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/pa/pa.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/rs6000/sysv4.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/s390/s390-protos.h (s390_output_mi_thunk): Declare.
+	* config/s390/s390.c (s390_output_mi_thunk): Define.
+	* config/s390/s390.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/sparc/sparc.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/stormy16/stormy16.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* config/vax/vax-protos.h (vax_output_mi_thunk): Declare.
+	* config/vax/vax.c (vax_output_mi_thunk): Define.
+	* config/vax/vax.h (ASM_OUTPUT_MI_THUNK): Rename to ...
+	(TARGET_ASM_OUTPUT_MI_THUNK): ... this.
+	* doc/tm.texi: Adjust documentation.
+
+2002-10-18  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/netbsd.h (NETBSD_ENABLE_EXECUTE_STACK): Define
+	__enable_execute_stack function.
+	* config/alpha/netbsd.h (TRANSFER_FROM_TRAMPOLINE): Define
+	as NETBSD_ENABLE_EXECUTE_STACK.
+	* config/i386/netbsd-elf.h (TRANSFER_FROM_TRAMPOLINE): Ditto.
+	* config/i386/netbsd.h (TRANSFER_FROM_TRAMPOLINE): Ditto.
+	* config/i386/netbsd64.h (TRANSFER_FROM_TRAMPOLINE): Ditto.
+	* config/sparc/netbsd-elf.h (TRANSFER_FROM_TRAMPOLINE): Ditto.
+	* config/sparc/netbsd.h (TRANSFER_FROM_TRAMPOLINE): Ditto.
+
+2002-10-18  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/i386/i386.c (x86_initialize_trampoline): Emit a call
+	to __enable_execute_stack with the address of the trampoline
+	if TRANSFER_FROM_TRAMPOLINE is defined.
+	* config/i386/i386.h (TARGET_64BIT): Expand to a compile-time
+	constant if building libgcc2.
+
 Thu Oct 17 17:40:05 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (pentium4_cost): Fix according to Intel recommendations.
 	(ix86_memory_move_cost): Fix for 64bit compilation.
+
+2002-10-17  Roger Sayle  <roger@eyesopen.com>
+
+	* doc/c-tree.texi: Update description of COND_EXPR tree nodes.
+
+2002-10-17  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/rs6000/rs6000.h (HARD_REGNO_MODE_OK): Allow arbitrary modes
+	in CTR/LR/MQ.
+	* config/rs6000/rs6000.md (movcc_internal1): Support CCmode moves
+	to/from CTR/LR/MQ.
+	(movsf_hardfloat): Support SFmode moves to/from CTR/LR/MQ.
+	(movsf_softfloat): Likewise.
+
+2002-10-17  Janis Johnson  <janis187@us.ibm.com>
+
+	* Makefile.in (site.exp): Add ALT_CXX_UNDER_TEST and COMPAT_OPTIONS.
+
+2002-10-17  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/alpha/alpha.c (alpha_initialize_trampoline): Use
+	tramp, not addr, to pass the trampoline address to
+	__enable_execute_stack.
+
+Thu Oct 17 18:40:47 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* mmintrin.h: Guard by __MMX__
+	* xmmintrin.h: Guard by __SSE__
+
+	PR other/8062
+	* xmmintrin.h (_MM_SHUFFLE2): New macro.
+	(_mm_load*_?d): New functions.
+	(_mm_set*_?d): New functions.
+	(_mm_store*_?d): New functions.
+
+Wed Oct 16 15:01:29 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	Really commit patch announced at Oct 14
+	PR c/7344
+	* predict.c (can_predict_insn_p): New function.
+	(estimate_probability): Avoid unnecesary work.
+	(process_note_prediction): Likewise.
+	* toplev.c (rest_of_compilation): Account early branch prediction pass
+	as TV_BRANCH_PROB.
+
+	PR other/8048
+	Found by Ian Ollmann
+	* xmmintrin.h (_mm_shuffle_pd): Fix typo.
+	(_mm_load?_pd): Likewise.
+	(_mm_store?_pd): Likewise.
+
+	PR target/7386
+	* i386.c (builtin_description):Drop cmpg[te]s[sd].
+	* xmmintrin.h (__mm_cmpg[te]_s[sd]): Rewrite using
+	swapped alternative.
+
+	PR opt/7630
+	* reload1.c (reload_inner_reg_of_subreg): New argument output;
+	(push_reload): Update call.
+
+2002-10-17  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config.gcc (mips*-*-*): Add OBJECT_FORMAT_ELF to $tm_defines
+	if using mips/elf.h or mips/elf64.h.
+	* config/mips/elf.h (OBJECT_FORMAT_ELF): Remove.
+	* config/mips/elf64.h (OBJECT_FORMAT_ELF): Remove.
+
+2002-10-16  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (function_arg): Set inner mode of V1DI to
+	SI.
+
+2002-10-16  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/linux.h (ASM_DOUBLE, _ASM_OUTPUT_LONG): Remove.
+	(LPREFIX): Likewise.
+	(ASM_COMMENT_START, LOCAL_LABEL_PREFIX, ASM_FORMAT_PRIVATE_NAME,
+	ASM_OUTPUT_ADDR_VEC_ELT, ASM_OUTPUT_ADDR_DIFF_ELT,
+	ASM_OUTPUT_ALIGN, ASM_OUTPUT_SKIP, ASM_OUTPUT_ALIGNED_BSS,
+	TEXT_SECTION_ASM_OP, DATA_SECTION_ASM_OP, BSS_SECTION_ASM_OP,
+	GLOBAL_ASM_OP, ASM_OUTPUT_MI_THUNK): Move to s390.h.
+
+	* config/s390/s390.h (ASM_COMMENT_START, LOCAL_LABEL_PREFIX,
+	ASM_FORMAT_PRIVATE_NAME, ASM_OUTPUT_ALIGN, ASM_OUTPUT_SKIP,
+	ASM_OUTPUT_ALIGNED_BSS, TEXT_SECTION_ASM_OP, DATA_SECTION_ASM_OP,
+	BSS_SECTION_ASM_OP): Move from linux.h.
+	(ASM_OUTPUT_ADDR_VEC_ELT, ASM_OUTPUT_ADDR_DIFF_ELT): Likewise.
+	Also, use ASM_GENERATE_INTERNAL_LABEL instead of LPREFIX.
+
+	* config/s390/s390.c (s390_function_profiler): Use
+	ASM_GENERATE_INTERNAL_LABEL instead of LPREFIX.
 
 2002-10-15  Eric Christopher  <echristo@redhat.com>
 
@@ -54,10 +401,217 @@ Thu Oct 17 17:40:05 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	* java/parse.y (obtain_incomplete_type): Make pointer
 	ptr_mode.
 
+2002-10-15  Richard Henderson  <rth@redhat.com>
+
+	* real.c (real_to_decimal): Accept BUF_SIZE and CROP_TRAILING_ZEROS
+	as arguments.  Bound DIGITS by the available buffer size.
+	(real_to_hexadecimal): Likewise.
+	* real.h (real_to_decimal, real_to_hexadecimal): Update prototypes.
+	(REAL_VALUE_TO_DECIMAL): Remove.
+	* c-common.c, c-pretty-print.c, print-rtl.c, print-tree.c,
+	sched-vis.c, config/arc/arc.c, config/c4x/c4x.c, config/fr30/fr30.c,
+	config/i370/i370.h, config/i386/i386.c, config/i960/i960.c,
+	config/ip2k/ip2k.c, config/m32r/m32r.c, config/m68hc11/m68hc11.c,
+	config/m68k/hp320.h, config/m68k/m68k.h, config/m68k/sun2o4.h,
+	config/m68k/sun3.h, config/mips/mips.c, config/ns32k/ns32k.c,
+	config/pdp11/pdp11.h, config/vax/vax.h: Update all callers to
+	use real_to_decimal directly, and with the proper arguments.
+	* doc/tm.texi (REAL_VALUE_TO_DECIMAL): Remove.
+
+2002-10-15  Jim Wilson  <wilson@redhat.com>
+
+	* reload1.c (merge_assigned_reloads): After converting overlapping
+	reloads to RELOAD_OTHER, abort if there are now conflicting reloads.
+
+	* config/i386/i386.md (adddi3_1): Add call to ix86_binary_operator_ok.
+
+Tue Oct 15 22:08:35 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* expr.c (do_tablejump): Fix typo in my previous commit.
+
+2002-10-15  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/vr.h (DRIVER_SELF_SPECS): Change %<mgp32 to %{<mgp32}.
+
+2002-10-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_split_branches): Add return
+	value.  Add parameters TEMP_REG and TEMP_USED.  Use unspec 104.
+
+	(find_base_register_in_addr): New function.
+	(find_base_register_ref): New function.
+	(replace_base_register_ref): New function.
+
+	(struct constant_pool): Add members pool_insn, insns, and anchor.
+	Remove member last_insn.
+	(s390_start_pool): Initialize them.
+	(s390_end_pool): Emit pool placeholder insn.
+	(s390_add_pool_insn): New function.
+	(s390_find_pool): Use insns bitmap instead of addresses.
+	(s390_dump_pool): Replace placeholder insn.  Emit anchor.
+	Replace unspec 104 by local-pool-relative references.
+	(s390_output_constant_pool): Output anchor label if required.
+	(s390_output_symbolic_const): Handle unspec 104 and 105.
+	(s390_add_pool): Remove, replace by ...
+	(s390_add_constant, s390_find_constant): ... these new functions.
+	(s390_add_anchor): New function.
+
+	(s390_chunkify_pool): Delete, replace by ...
+	(s390_chunkify_start, s390_chunkify_finish,
+	s390_chunkify_cancel): ... these new functions.
+	(s390_optimize_prolog): Add parameter TEMP_REGNO.
+	Recompute register live data for special registers.
+	(s390_fixup_clobbered_return_reg): New function.
+	(s390_machine_dependent_reorg): Rewrite to use new
+	s390_chunkify_... routines.
+
+	config/s390/s390.md ("reload_base"): Rename to ...
+	("reload_base_31"): ... this.
+	("reload_base_64"): New insn.
+	("reload_base2"): Remove.
+	("reload_anchor"): New insn.
+	("pool"): New insn.
+
+	s390.c (s390_pool_overflow): Remove.
+	s390.h (s390_pool_overflow): Likewise.
+	s390.md ("cjump", "icjump", "doloop_si"): Remove s390_pool_overflow.
+
+Tue Oct 15 16:51:04 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.md (movv8qi_i+2): Don't split if source is -1.
+
+2002-10-15  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/install.texi: Formatting changes for conformance to HTML 4.01.
+
+2002-10-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR opt/7409
+	* loop.c (loop_regs_scan): Mark registers used for function
+	argument passing as MAY_NOT_OPTIMIZE.
+
 Mon Oct 14 19:22:19 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* gcov-io.h (gcov_info): Fix type.
 	* profile.c (create_profiler): Fix type mismatch.
+
+Mon Oct 14 20:33:12 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (movv2di_internal): New pattern.
+	(movv2df_internal, movv8hi_internal, movv16qi_internal): Fix predicate.
+	(movv2di): New expander.
+	* i386.c (ix86_preferred_reload_class): Return NO_REGS for vector operands.
+
+	* i386.c (ix86_expand_timode_binop_builtin): Delete.
+	(builtin_description): Add SSE1 logicals; rename SSE2 logicals.
+	(ix86_init_mmx_sse_builtins): Kill SSE1 logicals.
+	(ix86_expand_builtin): Likewise.
+	* i386.h (sse_andti4_df_1, sse_andti3_df_2, sse_andti3_sf_1, sse_andti3_sf_2,
+	sse_andti3,
+	sse_andnti4_df_1, sse_andti3_df_2, sse_andti3_sf_1, sse_andti3_sf_2,
+	sse_andnti3,
+	sse_orti4_df_1, sse_orti3_df_2, sse_orti3_sf_1, sse_orti3_sf_2,
+	sse_orti3,
+	sse_xorti4_df_1, sse_xorti3_df_2, sse_xorti3_sf_1, sse_xorti3_sf_2,
+	sse_xorti3): Kill.
+	(sse_andv4sf3, sse_andnv4sf3, sse_orv2df3, sse_xorv2df3, sse_andv2df3,
+	 sse_andnv2df3, sse_orv2df3, sse_xorv2df3): New expanders.
+	(*sse_andv4sf3, *sse_andnv2df3, *sse_orv4sf3, *sse_xorv4sf3, *sse_andv2df3,
+	 *sse_andnv2df3, *sse_orv2df3, *sse_xorv2df3): New patterns.
+	(*sse_andsf3, *sse_andndf3, *sse_ordf3, *sse_xordf3, *sse_anddf3,
+	 *sse_andndf3, *sse_orv2df3, *sse_xorv2df3): New patterns.
+
+	* xmmintrin.h (__m128i): Define as __v2di.
+
+	PR c++/6419
+	(expand_expr): Use DECL_RTL_SET_P.
+
+2002-10-14  Roger Sayle  <roger@eyesopen.com>
+
+	* combine.c (simplify_set):  Treat MODE_CC registers like cc0.
+
+2002-10-14  Roger Sayle  <roger@eyesopen.com>
+	    Zack Weinberg <zack@codesourcery.com>
+
+	* config/i386/i386.c (k6_cost): Correct typo.
+
+2002-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR optimization/6631
+	* alias.c (objects_must_conflict_p): Check honor_readonly when
+	examining TYPE_READONLY.
+	* function.c (assign_stack_temp_for_type): Likewise.
+
+2002-10-14  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
+
+	* config/alpha/alpha.md (extendsidi2_nofix, extendsidi2_fix):
+	Swap zero extension arguments.
+	(umaxhi3): Fix instruction class.
+	PR target/7211
+	(prefetch): Fix prefetch instructions.
+	PR target/7238
+	(pkwb): Fix output constraint.
+
+2002-10-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/mips/mips.c (print_operand): Increase buffer size for
+	real numbers.
+
+2002-10-14  Richard Henderson  <rth@redhat.com>
+
+	PR opt/8165
+	* gcse.c (adjust_libcall_notes): Revert last change.
+	* simplify-rtx.c (simplify_replace_rtx): Handle LO_SUM.
+
+2002-10-14  Andrew Haley  <aph@redhat.com>
+
+	* tree-inline.c (remap_block): All local class initialization
+	flags go in the outermost scope.
+	(expand_call_inline): Call java_inlining_map_static_initializers.
+	(expand_call_inline): Call java_inlining_merge_static_initializers.
+	* java/lang.c (merge_init_test_initialization): New.
+	(java_inlining_merge_static_initializers): New.
+	(inline_init_test_initialization): New.
+	(java_inlining_map_static_initializers): New.
+
+	* tree-inline.c (expand_call_inline): Convert retvar to expected
+	type.
+
+2002-10-14  Graham Stott  <graham.stott@btinternet.com>
+
+	* stmt.c (decl_conflicts_with_clobbers_p): Add REG_P check.
+
+2002-10-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* stmt.c: Fix typo in comment.
+
+Mon Oct 14 11:35:49 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* c-common.c (c_common_type_for_mode): Add V2HImode case.
+	* tree.c (build_common_tree_nodes_2): Initialize
+	unsigned_V2HI_type_node and V2HI_type_node.
+	* tree.h (enum tree_index): Add TI_UV2HI_TYPE and TI_V2HI_TYPE.
+	(unsigned_V2HI_type_node, V2HI_type_node): Define.
+
+2002-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.h (ASM_OUTPUT_REG_PUSH, ASM_OUTPUT_REG_POP):
+	Handle TARGET_64BIT.
+
+2002-10-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/vr.h (DRIVER_SELF_SPECS): Define.
+	* config/mips/t-vr (MULTILIB_OPTIONS): Remove mlong32.
+	(MULTILIB_DIRNAMES): Remove long32.
+	(MULTILIB_EXCEPTIONS): Don't build -mabi=32 -mgp32 multilibs.
+	(MULTILIB_REDUNDANT_DIRS): Remove.
+
+2002-10-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* doc/tm.texi (DRIVER_SELF_SPECS): Document.
+	* gcc.c (driver_self_specs): New variable.
+	(do_self_spec): New function.
+	(main): Use it to process driver_self_specs.
 
 2002-10-13  Richard Henderson  <rth@redhat.com>
 
@@ -154,7 +708,7 @@ Fri Oct 11 22:22:38 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	PR c/7344
 	* cfgbuild.c (make_edges): Create edge cache when we do have
 	large jumptable.
-	(do_tablejump): Note size of maximal jumptable.
+	* expr.c (do_tablejump): Note size of maximal jumptable.
 	* function.c (prepare_function_start): Zero out size.
 	* function.h (function): Add max_jumptable_ents.
 
@@ -3490,7 +4044,7 @@ Tue Sep 17 13:40:13 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 	* cfgcleanup.c (try_crossjump_to_edge): Fix updating of liveness
 	information.
 
-2002-09-07  Graham Stott  <graham.stott@btinternet.con>
+2002-09-07  Graham Stott  <graham.stott@btinternet.com>
 
        * rtlanal.c (dead_or_set_regno_p): Fix typo.
 

@@ -7292,7 +7292,7 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
     switch (TREE_CODE (decl))
       {
       case TYPE_DECL:
-	error ("typedef `%D' is initialized", decl);
+	error ("typedef `%D' is initialized (use __typeof__ instead)", decl);
 	initialized = 0;
 	break;
 
@@ -7836,7 +7836,7 @@ reshape_init (tree type, tree *initp)
       return old_init;
     }
 
-  if (TREE_CODE (old_init) == STRING_CST
+  if (TREE_CODE (old_init_value) == STRING_CST
       && TREE_CODE (type) == ARRAY_TYPE
       && char_type_p (TREE_TYPE (type)))
     {

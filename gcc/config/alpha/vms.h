@@ -451,7 +451,7 @@ do {									\
 #define ASM_PN_FORMAT "%s___%lu"
 
 /* ??? VMS uses different linkage.  */
-#undef ASM_OUTPUT_MI_THUNK
+#undef TARGET_ASM_OUTPUT_MI_THUNK
 
 #undef ASM_SPEC
 #undef ASM_FINAL_SPEC

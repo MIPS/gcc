@@ -50,6 +50,8 @@ static rtx emit_addhi3_postreload PARAMS ((rtx, rtx, rtx));
 static void xstormy16_asm_out_constructor PARAMS ((rtx, int));
 static void xstormy16_asm_out_destructor PARAMS ((rtx, int));
 static void xstormy16_encode_section_info PARAMS ((tree, int));
+static void xstormy16_asm_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
+						   tree));
 
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  */
@@ -1380,11 +1382,11 @@ xstormy16_function_value (valtype, func)
    extracted from it.)  It might possibly be useful on some targets, but
    probably not.  */
 
-void
+static void
 xstormy16_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
      FILE *file;
      tree thunk_fndecl ATTRIBUTE_UNUSED;
-     int delta;
+     HOST_WIDE_INT delta;
      tree function;
 {
   int regnum = FIRST_ARGUMENT_REGISTER;
@@ -1393,7 +1395,7 @@ xstormy16_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
   if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function))))
     regnum += 1;
   
-  fprintf (file, "\tadd %s,#0x%x\n", reg_names[regnum], (delta) & 0xFFFF);
+  fprintf (file, "\tadd %s,#0x%x\n", reg_names[regnum], (int) delta & 0xFFFF);
   fputs ("\tjmpf ", file);
   assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));
   putc ('\n', file);
@@ -2030,5 +2032,8 @@ xstormy16_handle_interrupt_attribute (node, name, args, flags, no_add_attrs)
 #define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO xstormy16_encode_section_info
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK xstormy16_asm_output_mi_thunk
 
 struct gcc_target targetm = TARGET_INITIALIZER;
