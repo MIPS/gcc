@@ -492,6 +492,11 @@ create_varref (sym, ref_type, bb, parent_stmt, parent_expr)
   /* Add this reference to the list of references for the symbol.  */
   VARRAY_PUSH_GENERIC_PTR (get_tree_ann (sym)->refs, ref);
 
+  /* Add this reference to the list of references for the containing
+     statement.  */
+  if (parent_stmt)
+    VARRAY_PUSH_GENERIC_PTR (get_tree_ann (parent_stmt)->refs, ref);
+
   /* Add this reference to the list of references for the basic block.  */
   VARRAY_PUSH_GENERIC_PTR (get_bb_ann (bb)->refs, ref);
 

@@ -1,3 +1,8 @@
+2001-10-15  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (create_varref): If the new reference is inside a
+	statement, add it to the list of references for that statement.
+
 2001-10-14  Diego Novillo  <dnovillo@redhat.com>
 
 	* Merge from mainline:
