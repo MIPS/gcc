@@ -1,3 +1,8 @@
+2003-06-25  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/noncompile/920507-1.c: Return a value so that the
+	variable "a" is always used.
+
 2003-06-11  Jeff Law  <law@redhat.com>
 
 	* gcc.c-torture/gcc.dg/tree-ssa/20030611-1.c: New test.
