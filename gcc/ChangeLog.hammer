@@ -18,6 +18,10 @@
 
 2004-01-29  Alan Modra  <amodra@bigpond.net.au>
 
+	* gcc.c (add_sysrooted_prefix): Fix typo in 2004-01-27 change.
+
+2004-01-29  Alan Modra  <amodra@bigpond.net.au>
+
 	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Ensure
 	target_flags has MASK_POWERPC64 when -m64.
 	(MASK_PROFILE_KERNEL): Bump in anticipation of MASK_MFCRF.
