@@ -1,3 +1,11 @@
+2002-04-10  Michael Matz  <matz@suse.de>
+
+	* ra.c (init_one_web_common, remember_web_was_spilled, combine):
+	Subtract add_hardregs from num_freedom.
+	(reg_alloc): Set while_newra.
+	* recog.c (while_newra): New variable.
+	(scratch_operand): Use it to accept pseudos, when set.
+
 Sun Apr  7 15:58:46 2002  Denis Chertykov  <denisc@overta.ru>
 
 	* ra.c (emit_colors): Choose mode from insn not from
@@ -24,7 +32,7 @@ Thu Mar 21 22:31:53 2002  Denis Chertykov  <denisc@overta.ru>
 	* ra.c (restore_conflicts_from_coalesce): Restore usable_regs before
 	call to record_conflict.
 
-2001-03-21  Michael Matz  <matz@suse.de>
+2002-03-21  Michael Matz  <matz@suse.de>
 
 	* reload.c: Include <pre-reload.h> after <hard-reg-set.h>.
 

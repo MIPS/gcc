@@ -2410,6 +2410,7 @@ init_one_web_common (web, reg)
       prune_hardregs_for_mode (&web->usable_regs,
 			       PSEUDO_REGNO_MODE (web->regno));
       web->num_freedom = hard_regs_count (web->usable_regs);
+      web->num_freedom -= web->add_hardregs;
       if (!web->num_freedom)
 	abort();
     }
@@ -3478,6 +3479,9 @@ remember_web_was_spilled (web)
   adjust = web->add_hardregs;
   web->add_hardregs =
     CLASS_MAX_NREGS (web->regclass, PSEUDO_REGNO_MODE (web->regno)) - 1;
+  web->num_freedom -= web->add_hardregs;
+  if (!web->num_freedom)
+    abort();
   adjust -= web->add_hardregs;
   web->num_conflicts -= adjust;
 }
@@ -4953,6 +4957,7 @@ combine (u, v)
      but that could also happen, if U and V together had too many
      conflicts.  */
   u->num_freedom = hard_regs_count (u->usable_regs);
+  u->num_freedom -= u->add_hardregs;
   /* The next would mean an invalid coalesced move (both webs have no
      possible hardreg in common), so abort.  */
   if (!u->num_freedom)
@@ -6009,7 +6014,7 @@ recolor_spills (void)
       if (web->type == SPILLED)
 	try_recolor_web (web);
     }
-  /* It might have bee decided in try_recolor_web() (in colorize_one_web())
+  /* It might have been decided in try_recolor_web() (in colorize_one_web())
      that a coalesced web should be spilled, so it was put on the
      select stack.  Those webs need recoloring again, and all remaining
      coalesced webs might need their color updated, so simply call
@@ -6858,7 +6863,7 @@ insert_stores (new_deaths)
 	}
       /* Clear emitted stores if a new load is seen here.  */
       /* XXX If we emit the stack-ref directly into the using insn the
-         following need a change, because that is no new insn.  Preferably
+         following needs a change, because that is no new insn.  Preferably
 	 we would add some notes to the insn, what stackslots are needed
 	 for it.  */
       if (uid >= last_max_uid)
@@ -9295,6 +9300,9 @@ remove_suspicious_death_notes (void)
   regnos_coalesced_to_hardregs = NULL;
 }
 
+/* XXX see recog.c  */
+extern int while_newra;
+
 /* Main register allocator entry point.  */
 void
 reg_alloc (void)
@@ -9322,7 +9330,7 @@ reg_alloc (void)
   regclass (get_insns (), max_reg_num (), rtl_dump_file);
   rtl_dump_file = ra_dump_file;
 
-  ra_info = ra_info_init (max_reg_num ());
+/*  ra_info = ra_info_init (max_reg_num ());
   pre_reload (ra_info);
   {
     allocate_reg_info (max_reg_num (), FALSE, FALSE);
@@ -9334,7 +9342,7 @@ reg_alloc (void)
     regclass (get_insns (), max_reg_num (), rtl_dump_file);
   }
   ra_info_free (ra_info);
-  free (ra_info);
+  free (ra_info);*/
   
   split_live_ranges = FALSE;
   /* XXX the REG_EQUIV notes currently are screwed up, when pseudos are
@@ -9444,7 +9452,7 @@ reg_alloc (void)
 	     free our own version.  reg_renumber[] will again be destroyed
 	     later.  We right now need it in dump_constraints() for
 	     constrain_operands(1) whose subproc sometimes reference
-	     it (because we are checking strictly, i.e. as if
+	     it (because we are cehcking strictly, i.e. as if
 	     after reload).  */
 	  setup_renumber (0);
 	  delete_moves ();
@@ -9491,6 +9499,7 @@ reg_alloc (void)
   no_new_pseudos = 0;
   allocate_reg_info (max_reg_num (), FALSE, FALSE);
   compute_bb_for_insn (get_max_uid ());
+  while_newra = 1;
   store_motion ();
   no_new_pseudos = 1;
   rtl_dump_file = ra_dump_file;
@@ -9527,6 +9536,7 @@ reg_alloc (void)
   /*update_equiv_regs ();*/
   /* We must maintain our own reg_renumber[] array, because life_analysis()
      destroys any prior set up reg_renumber[].  */
+  while_newra = 0;
   setup_renumber (1);
   sbitmap_free (insns_with_deaths);
 

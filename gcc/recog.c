@@ -1089,6 +1089,16 @@ pmode_register_operand (op, mode)
 /* Return 1 if OP should match a MATCH_SCRATCH, i.e., if it is a SCRATCH
    or a hard register.  */
 
+/* XXX gross hack, because pre-reload also allocates SCRATCHes,
+   which might make some clobbers, which only should be scratch_operands
+   be registers (pseudos, which then got a hardreg, but were not substituted
+   already).  This means, that right after allocation, but before reload,
+   there's a timeframe, where some insns would not be recognized anymore.
+   As we are running things like cfg_cleanup(), they must, so we simply
+   also recognize pseudos as scratch_operands for that timeframe.
+   This variable is 1 in that case.  */
+int while_newra = 0;
+
 int
 scratch_operand (op, mode)
      register rtx op;
@@ -1099,7 +1109,7 @@ scratch_operand (op, mode)
 
   return (GET_CODE (op) == SCRATCH
 	  || (GET_CODE (op) == REG
-	      && REGNO (op) < FIRST_PSEUDO_REGISTER));
+	      && (REGNO (op) < FIRST_PSEUDO_REGISTER || while_newra)));
 }
 
 /* Return 1 if OP is a valid immediate operand for mode MODE.
