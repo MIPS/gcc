@@ -478,18 +478,8 @@ cgraph_varpool_node_name (struct cgraph_varpool_node *node)
 
 /* Names used to print out the availability enum.  */
 static const char * const availability_names[] = 
-  {"not_available", "overwrittable", "available", "local"};
-
-/* Return name of the node used in debug output.  */
-static const char *
-cgraph_varpool_node_name (struct cgraph_varpool_node *node)
-{
-  return lang_hooks.decl_printable_name (node->decl, 2);
-}
-
-/* Names used to print out the availability enum.  */
-static const char * const availability_names[] = 
-  {"not_available", "overwrittable", "available", "local"};
+  {"unset", "not_available", "overwrittable",
+   "overwrittable_but_inlinable", "available", "local"};
 
 /* Dump given cgraph node.  */
 void

@@ -208,24 +208,6 @@ extern GTY(()) int cgraph_varpool_n_nodes;
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_first_unanalyzed_node;
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
 
-enum availability
-{
-  /* Function body/variable initializer is unknown.  */
-  AVAIL_NOT_AVAILABLE,
-  /* Function body/variable initializer is known but might be replaced
-     by different on from other compilation unit and thus can be dealt with only
-     as a hint.  */
-  AVAIL_OVERWRITTABLE,
-  /* Function body/variable initializer is known and will be used in final
-     program.  */
-  AVAIL_AVAILABLE,
-  /* Function body/variable initializer is known and all it's uses are explicitly
-     visible within current unit (ie it's address is never taken and it is not
-     exported to other units).
-     Currently used only for functions.  */
-  AVAIL_LOCAL
-};
-
 /* In cgraph.c  */
 void dump_cgraph (FILE *);
 void dump_cgraph_node (FILE *, struct cgraph_node *);

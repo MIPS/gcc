@@ -1,3 +1,11 @@
+2004-11-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* Makefile.in: Rename ipa_static-vars-anal.o to
+	ipa-static-vars-anal.o.
+	* cgraph.c (cgraph_varpool_node_name): Remove one definition.
+	(availability_names): Update for the new enum availability's.
+	* cgraph.h (enum availability): Remove one definition.
+
 2004-11-02  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c (cgraph_varpool_node_name): New function.
