@@ -1,3 +1,7 @@
+2002-10-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/sibcall-5.c: Correct { dg-do run } line.
+
 2002-10-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* testsuite/gcc.dg/i386-sse-3.c: Add tests for _mm_srli_si128 and
