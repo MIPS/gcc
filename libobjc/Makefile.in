@@ -314,7 +314,6 @@ config.status: configure
 	CONFIG_SITE=no-such-file CC='$(CC)' AR='$(AR)' CFLAGS='$(CFLAGS)' \
 	CPPFLAGS='$(CPPFLAGS)' $(SHELL) config.status --recheck
 
-# APPLE LOCAL libobjc maintainer-mode
 ${srcdir}/configure: @MAINT@ configure.ac
 	rm -f config.cache
 	cd ${srcdir} && autoconf

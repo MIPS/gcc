@@ -329,7 +329,7 @@ split_block (basic_block bb, void *i)
     }
   /* APPLE LOCAL end lno */
  
-  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+  if (dom_info_available_p (CDI_DOMINATORS))
     {
       redirect_immediate_dominators (CDI_DOMINATORS, bb, new_bb);
       set_immediate_dominator (CDI_DOMINATORS, new_bb, bb);
@@ -400,7 +400,6 @@ split_edge (edge e)
   gcov_type count = e->count;
   int freq = EDGE_FREQUENCY (e);
   edge f;
-  /* APPLE LOCAL lno */
   bool irr = (e->flags & EDGE_IRREDUCIBLE_LOOP) != 0;
 
   if (!cfg_hooks->split_edge)
@@ -411,6 +410,13 @@ split_edge (edge e)
   ret->frequency = freq;
   EDGE_SUCC (ret, 0)->probability = REG_BR_PROB_BASE;
   EDGE_SUCC (ret, 0)->count = count;
+
+  if (irr)
+    {
+      ret->flags |= BB_IRREDUCIBLE_LOOP;
+      EDGE_PRED (ret, 0)->flags |= EDGE_IRREDUCIBLE_LOOP;
+      EDGE_SUCC (ret, 0)->flags |= EDGE_IRREDUCIBLE_LOOP;
+    }
 
   if (dom_computed[CDI_DOMINATORS])
     set_immediate_dominator (CDI_DOMINATORS, ret, EDGE_PRED (ret, 0)->src);
@@ -618,7 +624,7 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
     }
   /* APPLE LOCAL end lno */
 
-  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+  if (dom_info_available_p (CDI_DOMINATORS))
     {
       basic_block doms_to_fix[2];
 
@@ -820,4 +826,3 @@ flow_call_edges_add (sbitmap blocks)
 
   return (cfg_hooks->flow_call_edges_add) (blocks);
 }
-

@@ -1,3 +1,50 @@
+2004-10-07  Paul Brook  <paul@codesourcery.com>
+
+	* io/transfer.c (finalize_transfer): Free internal streams.
+	* io/unix.c (mem_close): Free stream object.
+
+2004-10-07  Paul Brook  <paul@codesourcery.com>
+
+	* intrinsics/string_intrinsics.c (string_verify): Fix off by one
+	error.
+
+2004-10-06  Paul Brook  <paul@codesourcery.com>
+
+	PR libfortran/17709
+	* io/transfer.c (data_transfer_init): Reset sf_seen_eor.
+
+2004-10-04  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* intrinsics/mvbits.c: Commit the file.
+
+2004-10-04  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/17283
+	* intrinsics/pack_generic.c (__pack): Allocate memory for return array
+	if not done by caller.
+	(__pack_s): New function.
+	* runtime/memory.c (internal_malloc, internal_malloc64): Allow
+	allocating zero memory.
+
+	PR fortran/17631
+	* Makefile.am (gfor_helper_src): Add intrinsics/mvbits.h.
+	* Makefile.in: Regenerate.
+	* intrinsics/mvbits.h: New file.
+
+	PR fortran/17776
+	* intrinsics/system.c: New file.
+	* Makefile.am: Add dependency for the new file.
+	* Makefile.in: Regenerate.
+
+2004-10-04  Paul Brook  <paul@codesourcery.com>
+	Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/17706
+	PR fortran/16434
+	* io/format.c (parse_format_list): Set repeat count for S, SP, SS,
+	BN and BZ formats.
+	* io/write.c (output_float): Don't output minus zero.
+
 2004-10-03  Aaron W. LaFramboise <aaronavay62@aaronwl.com>
 
 	* intrinsics/abort.c ("libgfortran.h"): Move.

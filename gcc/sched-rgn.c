@@ -1992,6 +1992,7 @@ propagate_deps (int bb, struct deps *pred_deps)
     {
       struct deps *succ_deps;
       int reg;
+      reg_set_iterator rsi;
 
       /* Only bbs "below" bb, in the same region, are interesting.  */
       if (e->dest == EXIT_BLOCK_PTR
@@ -2002,7 +2003,7 @@ propagate_deps (int bb, struct deps *pred_deps)
       succ_deps = bb_deps + BLOCK_TO_BB (e->dest->index);
 
       /* The reg_last lists are inherited by successor.  */
-      EXECUTE_IF_SET_IN_REG_SET (&pred_deps->reg_last_in_use, 0, reg,
+      EXECUTE_IF_SET_IN_REG_SET (&pred_deps->reg_last_in_use, 0, reg, rsi)
 	{
 	  struct deps_reg *pred_rl = &pred_deps->reg_last[reg];
 	  struct deps_reg *succ_rl = &succ_deps->reg_last[reg];
@@ -2013,7 +2014,7 @@ propagate_deps (int bb, struct deps *pred_deps)
 						succ_rl->clobbers);
 	  succ_rl->uses_length += pred_rl->uses_length;
 	  succ_rl->clobbers_length += pred_rl->clobbers_length;
-	});
+	}
       IOR_REG_SET (&succ_deps->reg_last_in_use, &pred_deps->reg_last_in_use);
 
       /* Mem read/write lists are inherited by successor.  */

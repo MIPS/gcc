@@ -306,6 +306,21 @@ driver how to place a reference to @file{libgcc} on the link command
 line, but, unlike @code{LIBGCC_SPEC}, it is used unmodified.
 @end defmac
 
+@defmac USE_LD_AS_NEEDED
+A macro that controls the modifications to @code{LIBGCC_SPEC}
+mentioned in @code{REAL_LIBGCC_SPEC}.  If nonzero, a spec will be
+generated that uses --as-needed and the shared libgcc in place of the
+static exception handler library, when linking without any of
+@code{-static}, @code{-static-libgcc}, or @code{-shared-libgcc}.
+@end defmac
+
+@defmac LINK_EH_SPEC
+If defined, this C string constant is added to @code{LINK_SPEC}.
+When @code{USE_LD_AS_NEEDED} is zero or undefined, it also affects
+the modifications to @code{LIBGCC_SPEC} mentioned in
+@code{REAL_LIBGCC_SPEC}.
+@end defmac
+
 @defmac STARTFILE_SPEC
 Another C string constant used much like @code{LINK_SPEC}.  The
 difference between the two is that @code{STARTFILE_SPEC} is used at
@@ -2387,6 +2402,13 @@ the selection of a base register in a mode dependent manner.  If
 @code{BASE_REG_CLASS}.
 @end defmac
 
+@defmac MODE_BASE_REG_REG_CLASS (@var{mode})
+A C expression whose value is the register class to which a valid
+base register must belong in order to be used in a base plus index
+register address.  You should define this macro if base plus index
+addresses have different requirements than other base register uses.
+@end defmac
+
 @defmac INDEX_REG_CLASS
 A macro whose definition is the name of the class to which a valid
 index register must belong.  An index register is one used in an
@@ -2438,6 +2460,15 @@ that expression may examine the mode of the memory reference in
 reference affects whether a register may be used as a base register.  If
 you define this macro, the compiler will use it instead of
 @code{REGNO_OK_FOR_BASE_P}.
+@end defmac
+
+@defmac REGNO_MODE_OK_FOR_REG_BASE_P (@var{num}, @var{mode})
+A C expression which is nonzero if register number @var{num} is suitable for
+use as a base register in base plus index operand addresses, accessing
+memory in mode @var{mode}.  It may be either a suitable hard register or a
+pseudo register that has been allocated such a hard register.  You should
+define this macro if base plus index addresses have different requirements
+than other base register uses.
 @end defmac
 
 @defmac REGNO_OK_FOR_INDEX_P (@var{num})
@@ -4343,7 +4374,7 @@ You need not define this macro if you did not define
 @code{DELAY_SLOTS_FOR_EPILOGUE}.
 @end defmac
 
-@deftypefn {Target Hook} void TARGET_ASM_OUTPUT_MI_THUNK (FILE *@var{file}, tree @var{thunk_fndecl}, HOST_WIDE_INT @var{delta}, tree @var{function})
+@deftypefn {Target Hook} void TARGET_ASM_OUTPUT_MI_THUNK (FILE *@var{file}, tree @var{thunk_fndecl}, HOST_WIDE_INT @var{delta}, HOST_WIDE_INT @var{vcall_offset}, tree @var{function})
 A function that outputs the assembler code for a thunk
 function, used to implement C++ virtual function calls with multiple
 inheritance.  The thunk acts as a wrapper around a virtual function,
@@ -4357,7 +4388,15 @@ in C++.  This is the incoming argument @emph{before} the function prologue,
 e.g.@: @samp{%o0} on a sparc.  The addition must preserve the values of
 all other incoming arguments.
 
-After the addition, emit code to jump to @var{function}, which is a
+Then, if @var{vcall_offset} is nonzero, an additional adjustment should be
+made after adding @code{delta}.  In particular, if @var{p} is the
+adjusted pointer, the following adjustment should be made:
+
+@smallexample
+p += (*((ptrdiff_t **)p))[vcall_offset/sizeof(ptrdiff_t)]
+@end smallexample
+
+After the additions, emit code to jump to @var{function}, which is a
 @code{FUNCTION_DECL}.  This is a direct pure jump, not a call, and does
 not touch the return address.  Hence returning from @var{FUNCTION} will
 return to whoever called the current @samp{thunk}.
@@ -4377,19 +4416,12 @@ front end will generate a less efficient heavyweight thunk that calls
 not support varargs.
 @end deftypefn
 
-@deftypefn {Target Hook} void TARGET_ASM_OUTPUT_MI_VCALL_THUNK (FILE *@var{file}, tree @var{thunk_fndecl}, HOST_WIDE_INT @var{delta}, int @var{vcall_offset}, tree @var{function})
-A function like @code{TARGET_ASM_OUTPUT_MI_THUNK}, except that if
-@var{vcall_offset} is nonzero, an additional adjustment should be made
-after adding @code{delta}.  In particular, if @var{p} is the
-adjusted pointer, the following adjustment should be made:
-
-@smallexample
-p += (*((ptrdiff_t **)p))[vcall_offset/sizeof(ptrdiff_t)]
-@end smallexample
-
-@noindent
-If this function is defined, it will always be used in place of
-@code{TARGET_ASM_OUTPUT_MI_THUNK}.
+@deftypefn {Target Hook} bool TARGET_ASM_CAN_OUTPUT_MI_THUNK (tree @var{thunk_fndecl}, HOST_WIDE_INT @var{delta}, HOST_WIDE_INT @var{vcall_offset}, tree @var{function})
+A function that returns true if TARGET_ASM_OUTPUT_MI_THUNK would be able
+to output the assembler code for the thunk function specified by the
+arguments it is passed, and false otherwise.  In the latter case, the
+generic approach will be used by the C++ front end, with the limitations
+previously exposed.
 @end deftypefn
 
 @node Profiling
@@ -4986,6 +5018,15 @@ that expression may examine the mode of the memory reference in
 reference affects whether a register may be used as a base register.  If
 you define this macro, the compiler will use it instead of
 @code{REG_OK_FOR_BASE_P}.
+@end defmac
+
+@defmac REG_MODE_OK_FOR_REG_BASE_P (@var{x}, @var{mode})
+A C expression which is nonzero if @var{x} (assumed to be a @code{reg} RTX)
+is suitable for use as a base register in base plus index operand addresses,
+accessing memory in mode @var{mode}.  It may be either a suitable hard
+register or a pseudo register that has been allocated such a hard register. 
+You should define this macro if base plus index addresses have different
+requirements than other base register uses.
 @end defmac
 
 @defmac REG_OK_FOR_INDEX_P (@var{x})
@@ -6227,17 +6268,6 @@ A C statement to output the string @var{string} to the stdio stream
 in your config files, GCC will only call it to output filenames to
 the assembler source.  So you can use it to canonicalize the format
 of the filename using this macro.
-@end defmac
-
-@defmac ASM_OUTPUT_SOURCE_LINE (@var{stream}, @var{line}, @var{counter})
-A C statement to output DBX or SDB debugging information before code
-for line number @var{line} of the current source file to the
-stdio stream @var{stream}. @var{counter} is the number of time the
-macro was invoked, including the current invocation; it is intended
-to generate unique labels in the assembly output.
-
-This macro need not be defined if the standard form of debugging
-information for the debugger in use is appropriate.
 @end defmac
 
 @defmac ASM_OUTPUT_IDENT (@var{stream}, @var{string})
@@ -7947,11 +7977,6 @@ passed in registers.  DBX format does not customarily provide any way to
 do this.  The default is @code{'P'}.
 @end defmac
 
-@defmac DBX_MEMPARM_STABS_LETTER
-The letter to use in DBX symbol data to identify a symbol as a stack
-parameter.  The default is @code{'p'}.
-@end defmac
-
 @defmac DBX_FUNCTION_FIRST
 Define this macro if the DBX information for a function and its
 arguments should precede the assembler code for the function.  Normally,
@@ -7960,9 +7985,16 @@ code.
 @end defmac
 
 @defmac DBX_BLOCKS_FUNCTION_RELATIVE
-Define this macro if the value of a symbol describing the scope of a
-block (@code{N_LBRAC} or @code{N_RBRAC}) should be relative to the start
-of the enclosing function.  Normally, GCC uses an absolute address.
+Define this macro, with value 1, if the value of a symbol describing
+the scope of a block (@code{N_LBRAC} or @code{N_RBRAC}) should be
+relative to the start of the enclosing function.  Normally, GCC uses
+an absolute address.
+@end defmac
+
+@defmac DBX_LINES_FUNCTION_RELATIVE
+Define this macro, with value 1, if the value of a symbol indicating
+the current line number (@code{N_SLINE}) should be relative to the
+start of the enclosing function.  Normally, GCC uses an absolute address.
 @end defmac
 
 @defmac DBX_USE_BINCL
@@ -7996,12 +8028,15 @@ Define this macro if the target machine requires special handling to
 output an @code{N_FUN} entry for the function @var{decl}.
 @end defmac
 
-@defmac DBX_OUTPUT_FUNCTION_END (@var{stream}, @var{function})
-Define this macro if the target machine requires special output at the
-end of the debugging information for a function.  The definition should
-be a C statement (sans semicolon) to output the appropriate information
-to @var{stream}.  @var{function} is the @code{FUNCTION_DECL} node for
-the function.
+@defmac DBX_OUTPUT_SOURCE_LINE (@var{stream}, @var{line}, @var{counter})
+A C statement to output DBX debugging information before code for line
+number @var{line} of the current source file to the stdio stream
+@var{stream}. @var{counter} is the number of time the macro was
+invoked, including the current invocation; it is intended to generate
+unique labels in the assembly output.
+
+This macro should not be defined if the default output is correct, or
+if it can be made correct by defining @code{DBX_LINES_FUNCTION_RELATIVE}.
 @end defmac
 
 @defmac NO_DBX_FUNCTION_END
@@ -8050,6 +8085,13 @@ If you don't define this macro, nothing special is output at the end
 of compilation, which is correct for most machines.
 @end defmac
 
+@defmac DBX_OUTPUT_NULL_N_SO_AT_MAIN_SOURCE_FILE_END
+Define this macro @emph{instead of} defining
+@code{DBX_OUTPUT_MAIN_SOURCE_FILE_END}, if what needs to be output at
+the end of compilation is a @code{N_SO} stab with an empty string,
+whose value is the highest absolute text address in the file.
+@end defmac
+
 @need 2000
 @node SDB and DWARF
 @subsection Macros for SDB and DWARF Output
@@ -8084,13 +8126,6 @@ Define this macro to a nonzero value if GCC should always output
 Dwarf 2 frame information.  If @code{DWARF2_UNWIND_INFO}
 (@pxref{Exception Region Output} is nonzero, GCC will output this
 information not matter how you define @code{DWARF2_FRAME_INFO}.
-@end defmac
-
-@defmac DWARF2_GENERATE_TEXT_SECTION_LABEL
-By default, the Dwarf 2 debugging information generator will generate a
-label to mark the beginning of the text section.  If it is better simply
-to use the name of the text section itself, rather than an explicit label,
-to indicate the beginning of the text section, define this macro to zero.
 @end defmac
 
 @defmac DWARF2_ASM_LINE_DEBUG_INFO
@@ -8147,6 +8182,12 @@ it.
 Define this macro to allow references to structure, union, or
 enumeration tags that have not yet been seen to be handled.  Some
 assemblers choke if forward tags are used, while some require it.
+@end defmac
+
+@defmac SDB_OUTPUT_SOURCE_LINE (@var{stream}, @var{line})
+A C statement to output SDB debugging information before code for line
+number @var{line} of the current source file to the stdio stream
+@var{stream}.  The default is to emit an @code{.ln} directive.
 @end defmac
 
 @need 2000
@@ -8923,9 +8964,21 @@ instructions, or if the value generated by these instructions is 1.
 @defmac FLOAT_STORE_FLAG_VALUE (@var{mode})
 A C expression that gives a nonzero @code{REAL_VALUE_TYPE} value that is
 returned when comparison operators with floating-point results are true.
-Define this macro on machine that have comparison operations that return
+Define this macro on machines that have comparison operations that return
 floating-point values.  If there are no such operations, do not define
 this macro.
+@end defmac
+
+@defmac VECTOR_STORE_FLAG_VALUE (@var{mode})
+A C expression that gives a rtx representing the non-zero true element
+for vector comparisons.  The returned rtx should be valid for the inner
+mode of @var{mode} which is guaranteed to be a vector mode.  Define
+this macro on machines that have vector comparison operations that
+return a vector result.  If there are no such operations, do not define
+this macro.  Typically, this macro is defined as @code{const1_rtx} or
+@code{constm1_rtx}.  This macro may return @code{NULL_RTX} to prevent
+the compiler optimizing such vector comparison operations for the
+given mode.
 @end defmac
 
 @defmac CLZ_DEFINED_VALUE_AT_ZERO (@var{mode}, @var{value})

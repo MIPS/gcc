@@ -1263,6 +1263,8 @@ extern const struct mips_cpu_info *mips_tune_info;
 /* The number of bytes in a double.  */
 #define UNITS_PER_DOUBLE (TYPE_PRECISION (double_type_node) / BITS_PER_UNIT)
 
+#define UNITS_PER_SIMD_WORD (TARGET_PAIRED_SINGLE_FLOAT ? 8 : 0)
+
 /* Set the sizes of the core types.  */
 #define SHORT_TYPE_SIZE 16
 #define INT_TYPE_SIZE (TARGET_INT64 ? 64 : 32)
@@ -2788,20 +2790,15 @@ while (0)
 #define ASM_OUTPUT_SOURCE_FILENAME(STREAM, NAME)			\
   mips_output_filename (STREAM, NAME)
 
-/* This is defined so that it can be overridden in iris6.h.  */
-#define ASM_OUTPUT_FILENAME(STREAM, NUM_SOURCE_FILENAMES, NAME) \
-do								\
-  {								\
-    fprintf (STREAM, "\t.file\t%d ", NUM_SOURCE_FILENAMES);	\
-    output_quoted_string (STREAM, NAME);			\
-    fputs ("\n", STREAM);					\
-  }								\
-while (0)
+/* mips-tfile does not understand .stabd directives.  */
+#define DBX_OUTPUT_SOURCE_LINE(STREAM, LINE, COUNTER)		\
+  fprintf (STREAM, "%sLM%d:\n\t.stabn\t%d,0,%d,%sLM%d\n",	\
+	   LOCAL_LABEL_PREFIX, COUNTER, N_SLINE, LINE,		\
+	   LOCAL_LABEL_PREFIX, COUNTER)
 
-#ifndef ASM_OUTPUT_SOURCE_LINE
-#define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE, COUNTER)		\
-  mips_output_lineno (STREAM, LINE)
-#endif
+/* Use .loc directives for SDB line numbers.  */
+#define SDB_OUTPUT_SOURCE_LINE(STREAM, LINE)			\
+  fprintf (STREAM, "\t.loc\t%d %d", num_source_filenames, LINE)
 
 /* The MIPS implementation uses some labels for its own purpose.  The
    following lists what labels are created, and are all formed by the

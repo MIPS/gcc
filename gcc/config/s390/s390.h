@@ -126,10 +126,12 @@ extern int target_flags;
 #define TARGET_IEEE_FLOAT          1
 
 #ifdef DEFAULT_TARGET_64BIT
-#define TARGET_DEFAULT             0x31
+#define TARGET_DEFAULT             (MASK_64BIT | MASK_ZARCH | MASK_HARD_FLOAT)
 #else
-#define TARGET_DEFAULT             0x1
+#define TARGET_DEFAULT             MASK_HARD_FLOAT
 #endif
+
+#define TARGET_DEFAULT_BACKCHAIN ""
 
 #define TARGET_SWITCHES                                                  \
 { { "hard-float",      1, N_("Use hardware fp")},                        \
@@ -542,13 +544,14 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
 
 #define EXTRA_CONSTRAINT_STR(OP, C, STR)                               	\
   s390_extra_constraint_str ((OP), (C), (STR))
-#define EXTRA_MEMORY_CONSTRAINT(C, STR)				\
-  ((C) == 'Q' || (C) == 'R' || (C) == 'S' || (C) == 'T')
-#define EXTRA_ADDRESS_CONSTRAINT(C, STR)			\
+#define EXTRA_MEMORY_CONSTRAINT(C, STR)					\
+  ((C) == 'Q' || (C) == 'R' || (C) == 'S' || (C) == 'T' || (C) == 'A')
+#define EXTRA_ADDRESS_CONSTRAINT(C, STR)				\
   ((C) == 'U' || (C) == 'W' || (C) == 'Y')
 
-#define CONSTRAINT_LEN(C, STR)                                   \
-  ((C) == 'N' ? 5 : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
+#define CONSTRAINT_LEN(C, STR)                                  	\
+  ((C) == 'N' ? 5 : 							\
+   (C) == 'A' ? 2 : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
 
 /* Stack layout and calling conventions.  */
 
@@ -727,7 +730,7 @@ CUMULATIVE_ARGS;
 
 /* Trampolines for nested functions.  */
 
-#define TRAMPOLINE_SIZE (TARGET_64BIT ? 36 : 20)
+#define TRAMPOLINE_SIZE (TARGET_64BIT ? 32 : 16)
 
 #define INITIALIZE_TRAMPOLINE(ADDR, FNADDR, CXT)                       \
    s390_initialize_trampoline ((ADDR), (FNADDR), (CXT))
@@ -1015,7 +1018,6 @@ do {									\
 /* Define the codes that are matched by predicates in aux-output.c.  */
 #define PREDICATE_CODES							\
   {"s_operand",       { SUBREG, MEM }},					\
-  {"s_imm_operand",   { CONST_INT, CONST_DOUBLE, SUBREG, MEM }},	\
   {"shift_count_operand", { REG, SUBREG, PLUS, CONST_INT }},		\
   {"bras_sym_operand",{ SYMBOL_REF, CONST }},				\
   {"larl_operand",    { SYMBOL_REF, CONST, CONST_INT, CONST_DOUBLE }},	\

@@ -25,6 +25,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "line-map.h"
 #include "cpplib.h"
 #include "getopt.h"
+#include "mkdeps.h"
 
 /* APPLE LOCAL begin CW asm blocks -sshebs */
 /* Dummies needed because we use them from cpplib, yuck.  */
@@ -125,7 +126,7 @@ parse_options (int argc, char **argv)
 	    usage (2);
 	  }
 	return optind;
-	
+
       default:
 	abort ();
       }

@@ -620,6 +620,8 @@ dnl GLIBCXX_ENABLE_SYMVERS and GLIBCXX_IS_NATIVE must be done before this.
 dnl
 dnl Sets:
 dnl  enable_abi_check / GLIBCXX_TEST_ABI
+dnl  GLIBCXX_TEST_WCHAR_T
+dnl  GLIBCXX_TEST_THREAD
 dnl Substs:
 dnl  baseline_dir
 dnl
@@ -652,6 +654,7 @@ AC_DEFUN([GLIBCXX_CONFIGURE_TESTSUITE], [
   AC_SUBST(baseline_dir)
 
   GLIBCXX_CONDITIONAL(GLIBCXX_TEST_WCHAR_T, test $enable_wchar_t = yes)
+  GLIBCXX_CONDITIONAL(GLIBCXX_TEST_THREAD, test $enable_thread = yes)
   GLIBCXX_CONDITIONAL(GLIBCXX_TEST_ABI, test $enable_abi_check = yes)
 ])
 
@@ -1734,6 +1737,15 @@ AC_DEFUN([GLIBCXX_ENABLE_THREADS], [
   fi
 
   glibcxx_thread_h=gthr-$target_thread_file.h
+
+  dnl Check for __GTHREADS define.
+  gthread_file=${toplevel_srcdir}/gcc/${glibcxx_thread_h}
+  if grep __GTHREADS $gthread_file >/dev/null 2>&1 ; then
+    enable_thread=yes
+  else
+   enable_thread=no
+  fi
+
   AC_SUBST(glibcxx_thread_h)
 ])
 

@@ -151,9 +151,11 @@ set_source_filename (JCF *jcf, int index)
       char *dot = strrchr (class_name, '.');
       if (dot != NULL)
 	{
-	  int i = dot - class_name;
+	  int i = dot - class_name + 1;
 	  /* Concatenate current package prefix with new sfname. */
 	  char *buf = xmalloc (i+new_len+3);
+	  memcpy (buf, class_name, i);
+	  strcpy (buf + i, sfname);
 	  /* Replace '.' by DIR_SEPARATOR. */
 	  for (; i >= 0;  i--)
 	    {
@@ -726,7 +728,7 @@ jcf_parse (JCF* jcf)
 	 -fforce-classes-archive-check was specified. */
       if (!jcf->right_zip
 	  && (!flag_emit_class_files || flag_force_classes_archive_check))
-	fatal_error ("the `java.lang.Object' that was found in `%s' didn't have the special zero-length `gnu.gcj.gcj-compiled' attribute.  This generally means that your classpath is incorrectly set.  Use `info gcj \"Input Options\"' to see the info page describing how to set the classpath", jcf->filename);
+	fatal_error ("the %<java.lang.Object%> that was found in %qs didn't have the special zero-length %<gnu.gcj.gcj-compiled%> attribute.  This generally means that your classpath is incorrectly set.  Use %<info gcj \"Input Options\"%> to see the info page describing how to set the classpath", jcf->filename);
     }
   else
     all_class_list = tree_cons (NULL_TREE,
@@ -1229,13 +1231,22 @@ compute_class_name (struct ZipDirectory *zdir)
 {
   char *class_name_in_zip_dir = ZIPDIR_FILENAME (zdir);
   char *class_name;
-  int j;
+  int i;
+  int filename_length;
 
-  class_name = ALLOC (zdir->filename_length + 1 - 6);
-  strncpy (class_name, class_name_in_zip_dir, zdir->filename_length - 6);
-  class_name [zdir->filename_length - 6] = '\0';
-  for (j = 0; class_name[j]; ++j)
-    class_name[j] = class_name[j] == '/' ? '.' : class_name[j];
+  while (strncmp (class_name_in_zip_dir, "./", 2) == 0)
+    class_name_in_zip_dir += 2;
+
+  filename_length = (strlen (class_name_in_zip_dir)
+		     - strlen (".class"));
+  class_name = ALLOC (filename_length + 1);
+  memcpy (class_name, class_name_in_zip_dir, filename_length);
+  class_name [filename_length] = '\0';
+
+  for (i = 0; i < filename_length; i++)
+    if (class_name[i] == '/')
+      class_name[i] = '.';
+
   return class_name;
 }
 
@@ -1288,6 +1299,19 @@ parse_zip_file_entries (void)
 	    FREE (class_name);
 	    current_jcf = TYPE_JCF (class);
 	    output_class = current_class = class;
+
+	    /* This is for a corner case where we have a superclass
+	       but no superclass fields.  
+
+	       This can happen if we earlier failed to lay out this
+	       class because its superclass was still in the process
+	       of being laid out; this occurs when we have recursive
+	       class dependencies via inner classes.  Setting
+	       TYPE_SIZE to null here causes CLASS_LOADED_P to return
+	       false, so layout_class() will be called again.  */
+	    if (TYPE_SIZE (class) && CLASSTYPE_SUPER (class)
+		&& integer_zerop (TYPE_SIZE (class)))
+	      TYPE_SIZE (class) = NULL_TREE;
 
 	    if (! CLASS_LOADED_P (class))
 	      {

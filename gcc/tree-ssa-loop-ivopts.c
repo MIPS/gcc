@@ -219,6 +219,9 @@ struct ivopts_data
   /* The candidates.  */
   varray_type iv_candidates;
 
+  /* A bitmap of important candidates.  */
+  bitmap important_candidates;
+
   /* Whether to consider just related and important candidates when replacing a
      use.  */
   bool consider_all_candidates;
@@ -1191,7 +1194,7 @@ find_interesting_uses_cond (struct ivopts_data *data, tree stmt, tree *cond_p)
 /* Returns true if expression EXPR is obviously invariant in LOOP,
    i.e. if all its operands are defined outside of the LOOP.  */
 
-static bool
+bool
 expr_invariant_in_loop_p (struct loop *loop, tree expr)
 {
   basic_block def_bb;
@@ -3474,7 +3477,9 @@ find_best_candidate (struct ivopts_data *data,
   else
     {
       asol = BITMAP_XMALLOC ();
-      bitmap_a_and_b (asol, sol, use->related_cands);
+
+      bitmap_a_or_b (asol, data->important_candidates, use->related_cands);
+      bitmap_a_and_b (asol, asol, sol);
     }
 
   EXECUTE_IF_SET_IN_BITMAP (asol, 0, c, bi)
@@ -3741,6 +3746,15 @@ find_optimal_iv_set (struct ivopts_data *data)
   bitmap inv = BITMAP_XMALLOC ();
   struct iv_use *use;
 
+  data->important_candidates = BITMAP_XMALLOC ();
+  for (i = 0; i < n_iv_cands (data); i++)
+    {
+      struct iv_cand *cand = iv_cand (data, i);
+
+      if (cand->important)
+	bitmap_set_bit (data->important_candidates, i);
+    }
+
   /* Set the upper bound.  */
   cost = get_initial_solution (data, set, inv);
   if (cost == INFTY)
@@ -3783,6 +3797,7 @@ find_optimal_iv_set (struct ivopts_data *data)
     }
 
   BITMAP_XFREE (inv);
+  BITMAP_XFREE (data->important_candidates);
 
   return set;
 }
@@ -3863,7 +3878,7 @@ remove_statement (tree stmt, bool including_defined_name)
     }
   else
     {
-      block_stmt_iterator bsi = stmt_for_bsi (stmt);
+      block_stmt_iterator bsi = bsi_for_stmt (stmt);
 
       bsi_remove (&bsi);
     }
@@ -3901,7 +3916,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 
     case MODIFY_EXPR:
       tgt = TREE_OPERAND (use->stmt, 0);
-      bsi = stmt_for_bsi (use->stmt);
+      bsi = bsi_for_stmt (use->stmt);
       break;
 
     default:
@@ -4040,7 +4055,7 @@ rewrite_use_address (struct ivopts_data *data,
 {
   tree comp = unshare_expr (get_computation (data->current_loop,
 					     use, cand));
-  block_stmt_iterator bsi = stmt_for_bsi (use->stmt);
+  block_stmt_iterator bsi = bsi_for_stmt (use->stmt);
   tree stmts;
   tree op = force_gimple_operand (comp, &stmts, true, NULL_TREE);
 
@@ -4059,7 +4074,7 @@ rewrite_use_compare (struct ivopts_data *data,
 {
   tree comp;
   tree *op_p, cond, op, stmts, bound;
-  block_stmt_iterator bsi = stmt_for_bsi (use->stmt);
+  block_stmt_iterator bsi = bsi_for_stmt (use->stmt);
   enum tree_code compare;
   
   if (may_eliminate_iv (data->current_loop,
@@ -4539,13 +4554,8 @@ tree_ssa_iv_optimize (struct loops *loops)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	flow_loop_dump (loop, dump_file, NULL, 1);
-      if (tree_ssa_iv_optimize_loop (&data, loop))
-	{
-#ifdef ENABLE_CHECKING
-	  verify_loop_closed_ssa ();
-          verify_stmts ();
-#endif
-	}
+
+      tree_ssa_iv_optimize_loop (&data, loop);
 
       if (loop->next)
 	{
@@ -4556,6 +4566,11 @@ tree_ssa_iv_optimize (struct loops *loops)
       else
 	loop = loop->outer;
     }
+
+#ifdef ENABLE_CHECKING
+  verify_loop_closed_ssa ();
+  verify_stmts ();
+#endif
 
   tree_ssa_iv_optimize_finalize (loops, &data);
 }

@@ -216,7 +216,7 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
 
       /* Update dominance info.  Note that bb_join's data was
          updated by split_block.  */
-      if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+      if (dom_info_available_p (CDI_DOMINATORS))
         {
           set_immediate_dominator (CDI_DOMINATORS, bb_true, bb_cond);
           set_immediate_dominator (CDI_DOMINATORS, bb_false, bb_cond);
@@ -254,7 +254,7 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
   t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, min, ratio);
   div = gimplify_build2 (bsi, PLUS_EXPR, inner_type, t1, max);
 
-  /* Result is now ((ar + ai*ratio)/div) + i((ai - ar*ratio)/div). */
+  /* Result is now ((ar + ai*ratio)/div) + i((ai - ar*ratio)/div).  */
   t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ai, ratio);
   t2 = gimplify_build2 (bsi, PLUS_EXPR, inner_type, ar, t1);
   rr = gimplify_build2 (bsi, code, inner_type, t2, div);

@@ -2434,6 +2434,15 @@ declaration as a whole.  In the obsolescent usage where a type of
 specifiers and qualifiers may be an attribute specifier list with no
 other specifiers or qualifiers.
 
+At present, the first parameter in a function prototype must have some
+type specifier which is not an attribute specifier; this resolves an
+ambiguity in the interpretation of @code{void f(int
+(__attribute__((foo)) x))}, but is subject to change.  At present, if
+the parentheses of a function declarator contain only attributes then
+those attributes are ignored, rather than yielding an error or warning
+or implying a single parameter of type int, but this is subject to
+change.
+
 An attribute specifier list may appear immediately before a declarator
 (other than the first) in a comma-separated list of declarators in a
 declaration of more than one identifier using a single list of
@@ -3642,6 +3651,23 @@ register int *result asm ("r0");
 asm ("sysint" : "=r" (result) : "0" (p1), "r" (p2));
 @end smallexample
 
+@anchor{Example of asm with clobbered asm reg}
+In the above example, beware that a register that is call-clobbered by
+the target ABI will be overwritten by any function call in the
+assignment, including library calls for arithmetic operators.
+Assuming it is a call-clobbered register, this may happen to @code{r0}
+above by the assignment to @code{p2}.  If you have to use such a
+register, use temporary variables for expressions between the register
+assignment and use:
+
+@smallexample
+int t1 = @dots{};
+register int *p1 asm ("r0") = @dots{};
+register int *p2 asm ("r1") = t1;
+register int *result asm ("r0");
+asm ("sysint" : "=r" (result) : "0" (p1), "r" (p2));
+@end smallexample
+
 Some instructions clobber specific hard registers.  To describe this,
 write a third colon after the input operands, followed by the names of
 the clobbered hard registers (given as strings).  Here is a realistic
@@ -3790,8 +3816,8 @@ if your instruction does have a side effect on a variable that otherwise
 appears not to change, the old value of the variable may be reused later
 if it happens to be found in a register.
 
-You can prevent an @code{asm} instruction from being deleted, moved
-significantly, or combined, by writing the keyword @code{volatile} after
+You can prevent an @code{asm} instruction from being deleted
+by writing the keyword @code{volatile} after
 the @code{asm}.  For example:
 
 @smallexample
@@ -3803,40 +3829,42 @@ the @code{asm}.  For example:
 @end smallexample
 
 @noindent
-If you write an @code{asm} instruction with no outputs, GCC will know
-the instruction has side-effects and will not delete the instruction or
-move it outside of loops.
-
 The @code{volatile} keyword indicates that the instruction has
 important side-effects.  GCC will not delete a volatile @code{asm} if
 it is reachable.  (The instruction can still be deleted if GCC can
 prove that control-flow will never reach the location of the
-instruction.)  In addition, GCC will not reschedule instructions
-across a volatile @code{asm} instruction.  For example:
+instruction.)  Note that even a volatile @code{asm} instruction 
+can be moved relative to other code, including across jump
+instructions.  For example, on many targets there is a system 
+register which can be set to control the rounding mode of 
+floating point operations.  You might try
+setting it with a volatile @code{asm}, like this PowerPC example:
 
 @smallexample
-*(volatile int *)addr = foo;
-asm volatile ("eieio" : : );
+       asm volatile("mtfsf 255,%0" : : "f" (fpenv));
+       sum = x + y;
 @end smallexample
 
 @noindent
-Assume @code{addr} contains the address of a memory mapped device
-register.  The PowerPC @code{eieio} instruction (Enforce In-order
-Execution of I/O) tells the CPU to make sure that the store to that
-device register happens before it issues any other I/O@.
+This will not work reliably, as the compiler may move the addition back
+before the volatile @code{asm}.  To make it work you need to add an
+artificial dependency to the @code{asm} referencing a variable in the code
+you don't want moved, for example:
 
-Note that even a volatile @code{asm} instruction can be moved in ways
-that appear insignificant to the compiler, such as across jump
-instructions.  You can't expect a sequence of volatile @code{asm}
-instructions to remain perfectly consecutive.  If you want consecutive
-output, use a single @code{asm}.  Also, GCC will perform some
-optimizations across a volatile @code{asm} instruction; GCC does not
-``forget everything'' when it encounters a volatile @code{asm}
-instruction the way some other compilers do.
+@smallexample
+    asm volatile ("mtfsf 255,%1" : "=X"(sum): "f"(fpenv));
+    sum = x + y;
+@end smallexample
 
-An @code{asm} instruction without any operands or clobbers (an ``old
-style'' @code{asm}) will be treated identically to a volatile
-@code{asm} instruction.
+Similarly, you can't expect a
+sequence of volatile @code{asm} instructions to remain perfectly
+consecutive.  If you want consecutive output, use a single @code{asm}.
+Also, GCC will perform some optimizations across a volatile @code{asm}
+instruction; GCC does not ``forget everything'' when it encounters
+a volatile @code{asm} instruction the way some other compilers do.
+
+An @code{asm} instruction without any output operands will be treated
+identically to a volatile @code{asm} instruction.
 
 It is a natural idea to look for a way to give access to the condition
 code left by the assembler instruction.  However, when we attempted to
@@ -4195,6 +4223,20 @@ for the operand.
 Stores into local register variables may be deleted when they appear to be dead
 according to dataflow analysis.  References to local register variables may
 be deleted or moved or simplified.
+
+As for global register variables, it's recommended that you choose a
+register which is normally saved and restored by function calls on
+your machine, so that library routines will not clobber it.  A common
+pitfall is to initialize multiple call-clobbered registers with
+arbitrary expressions, where a function call or library call for an
+arithmetic operator will overwrite a register value from a previous
+assignment, for example @code{r0} below:
+@smallexample
+register int *p1 asm ("r0") = @dots{};
+register int *p2 asm ("r1") = @dots{};
+@end smallexample
+In those cases, a solution is to use a temporary variable for
+each arbitrary expression.   @xref{Example of asm with clobbered asm reg}.
 
 @c APPLE LOCAL begin CW asm blocks
 @node Asm Blocks and Functions
@@ -5440,6 +5482,7 @@ instructions, but allow the compiler to schedule those calls.
 * ARM Built-in Functions::
 * FR-V Built-in Functions::
 * X86 Built-in Functions::
+* MIPS Paired-Single Support::
 * PowerPC AltiVec Built-in Functions::
 @end menu
 
@@ -6322,6 +6365,321 @@ v2sf __builtin_ia32_pi2fw (v2si)
 v2sf __builtin_ia32_pswapdsf (v2sf)
 v2si __builtin_ia32_pswapdsi (v2si)
 @end smallexample
+
+@node MIPS Paired-Single Support
+@subsection MIPS Paired-Single Support
+
+The MIPS64 architecture includes a number of instructions that
+operate on pairs of single-precision floating-point values.
+Each pair is packed into a 64-bit floating-point register,
+with one element being designated the ``upper half'' and
+the other being designated the ``lower half''.
+
+GCC supports paired-single operations using both the generic
+vector extensions (@pxref{Vector Extensions}) and a collection of
+MIPS-specific built-in functions.  Both kinds of support are
+enabled by the @option{-mpaired-single} command-line option.
+
+The vector type associated with paired-single values is usually
+called @code{v2sf}.  It can be defined in C as follows:
+
+@smallexample
+typedef float v2sf __attribute__ ((vector_size (8)));
+@end smallexample
+
+@code{v2sf} values are initialized in the same way as aggregates.
+For example:
+
+@smallexample
+v2sf a = @{1.5, 9.1@};
+v2sf b;
+float e, f;
+b = (v2sf) @{e, f@};
+@end smallexample
+
+@emph{Note:} The CPU's endianness determines which value is stored in
+the upper half of a register and which value is stored in the lower half.
+On little-endian targets, the first value is the lower one and the second
+value is the upper one.  The opposite order applies to big-endian targets.
+For example, the code above will set the lower half of @code{a} to
+@code{1.5} on little-endian targets and @code{9.1} on big-endian targets.
+
+@menu
+* Paired-Single Arithmetic::
+* Paired-Single Built-in Functions::
+* MIPS-3D Built-in Functions::
+@end menu
+
+@node Paired-Single Arithmetic
+@subsubsection Paired-Single Arithmetic
+
+The table below lists the @code{v2sf} operations for which hardware
+support exists.  @code{a}, @code{b} and @code{c} are @code{v2sf}
+values and @code{x} is an integral value.
+
+@multitable @columnfractions .50 .50
+@item C code @tab MIPS instruction
+@item @code{a + b} @tab @code{add.ps}
+@item @code{a - b} @tab @code{sub.ps}
+@item @code{-a} @tab @code{neg.ps}
+@item @code{a * b} @tab @code{mul.ps}
+@item @code{a * b + c} @tab @code{madd.ps}
+@item @code{a * b - c} @tab @code{msub.ps}
+@item @code{-(a * b + c)} @tab @code{nmadd.ps}
+@item @code{-(a * b - c)} @tab @code{nmsub.ps}
+@item @code{x ? a : b} @tab @code{movn.ps}/@code{movz.ps}
+@end multitable
+
+Note that the multiply-accumulate instructions can be disabled
+using the command-line option @code{-mno-fused-madd}.
+
+@node Paired-Single Built-in Functions
+@subsubsection Paired-Single Built-in Functions
+
+The following paired-single functions map directly to a particular
+MIPS instruction.  Please refer to the architecture specification
+for details on what each instruction does.
+
+@table @code
+@item v2sf __builtin_mips_pll_ps (v2sf, v2sf)
+Pair lower lower (@code{pll.ps}).
+
+@item v2sf __builtin_mips_pul_ps (v2sf, v2sf)
+Pair upper lower (@code{pul.ps}).
+
+@item v2sf __builtin_mips_plu_ps (v2sf, v2sf)
+Pair lower upper (@code{plu.ps}).
+
+@item v2sf __builtin_mips_puu_ps (v2sf, v2sf)
+Pair upper upper (@code{puu.ps}).
+
+@item v2sf __builtin_mips_cvt_ps_s (float, float)
+Convert pair to paired single (@code{cvt.ps.s}).
+
+@item float __builtin_mips_cvt_s_pl (v2sf)
+Convert pair lower to single (@code{cvt.s.pl}).
+
+@item float __builtin_mips_cvt_s_pu (v2sf)
+Convert pair upper to single (@code{cvt.s.pu}).
+
+@item v2sf __builtin_mips_abs_ps (v2sf)
+Absolute value (@code{abs.ps}).
+
+@item v2sf __builtin_mips_alnv_ps (v2sf, v2sf, int)
+Align variable (@code{alnv.ps}).
+
+@emph{Note:} The value of the third parameter must be 0 or 4
+modulo 8, otherwise the result will be unpredictable.  Please read the
+instruction description for details.
+@end table
+
+The following multi-instruction functions are also available.
+In each case, @var{cond} can be any of the 16 floating-point conditions:
+@code{f}, @code{un}, @code{eq}, @code{ueq}, @code{olt}, @code{ult},
+@code{ole}, @code{ule}, @code{sf}, @code{ngle}, @code{seq}, @code{ngl},
+@code{lt}, @code{nge}, @code{le} or @code{ngt}.
+
+@table @code
+@item v2sf __builtin_mips_movt_c_@var{cond}_ps (v2sf @var{a}, v2sf @var{b}, v2sf @var{c}, v2sf @var{d})
+@itemx v2sf __builtin_mips_movf_c_@var{cond}_ps (v2sf @var{a}, v2sf @var{b}, v2sf @var{c}, v2sf @var{d})
+Conditional move based on floating point comparison (@code{c.@var{cond}.ps},
+@code{movt.ps}/@code{movf.ps}).
+
+The @code{movt} functions return the value @var{x} computed by:
+
+@smallexample
+c.@var{cond}.ps @var{cc},@var{a},@var{b}
+mov.ps @var{x},@var{c}
+movt.ps @var{x},@var{d},@var{cc}
+@end smallexample
+
+The @code{movf} functions are similar but use @code{movf.ps} instead
+of @code{movt.ps}.
+
+@item int __builtin_mips_upper_c_@var{cond}_ps (v2sf @var{a}, v2sf @var{b})
+@itemx int __builtin_mips_lower_c_@var{cond}_ps (v2sf @var{a}, v2sf @var{b})
+Comparison of two paired-single values (@code{c.@var{cond}.ps},
+@code{bc1t}/@code{bc1f}).
+
+These functions compare @var{a} and @var{b} using @code{c.@var{cond}.ps}
+and return either the upper or lower half of the result.  For example:
+
+@smallexample
+v2sf a, b;
+if (__builtin_mips_upper_c_eq_ps (a, b))
+  upper_halves_are_equal ();
+else
+  upper_halves_are_unequal ();
+
+if (__builtin_mips_lower_c_eq_ps (a, b))
+  lower_halves_are_equal ();
+else
+  lower_halves_are_unequal ();
+@end smallexample
+@end table
+
+@node MIPS-3D Built-in Functions
+@subsubsection MIPS-3D Built-in Functions
+
+The MIPS-3D Application-Specific Extension (ASE) includes additional
+paired-single instructions that are designed to improve the performance
+of 3D graphics operations.  Support for these instructions is controlled
+by the @option{-mips3d} command-line option.
+
+The functions listed below map directly to a particular MIPS-3D
+instruction.  Please refer to the architecture specification for
+more details on what each instruction does.
+
+@table @code
+@item v2sf __builtin_mips_addr_ps (v2sf, v2sf)
+Reduction add (@code{addr.ps}).
+
+@item v2sf __builtin_mips_mulr_ps (v2sf, v2sf)
+Reduction multiply (@code{mulr.ps}).
+
+@item v2sf __builtin_mips_cvt_pw_ps (v2sf)
+Convert paired single to paired word (@code{cvt.pw.ps}).
+
+@item v2sf __builtin_mips_cvt_ps_pw (v2sf)
+Convert paired word to paired single (@code{cvt.ps.pw}).
+
+@item float __builtin_mips_recip1_s (float)
+@itemx double __builtin_mips_recip1_d (double)
+@itemx v2sf __builtin_mips_recip1_ps (v2sf)
+Reduced precision reciprocal (sequence step 1) (@code{recip1.@var{fmt}}).
+
+@item float __builtin_mips_recip2_s (float, float)
+@itemx double __builtin_mips_recip2_d (double, double)
+@itemx v2sf __builtin_mips_recip2_ps (v2sf, v2sf)
+Reduced precision reciprocal (sequence step 2) (@code{recip2.@var{fmt}}).
+
+@item float __builtin_mips_rsqrt1_s (float)
+@itemx double __builtin_mips_rsqrt1_d (double)
+@itemx v2sf __builtin_mips_rsqrt1_ps (v2sf)
+Reduced precision reciprocal square root (sequence step 1)
+(@code{rsqrt1.@var{fmt}}).
+
+@item float __builtin_mips_rsqrt2_s (float, float)
+@itemx double __builtin_mips_rsqrt2_d (double, double)
+@itemx v2sf __builtin_mips_rsqrt2_ps (v2sf, v2sf)
+Reduced precision reciprocal square root (sequence step 2)
+(@code{rsqrt2.@var{fmt}}).
+@end table
+
+The following multi-instruction functions are also available.
+In each case, @var{cond} can be any of the 16 floating-point conditions:
+@code{f}, @code{un}, @code{eq}, @code{ueq}, @code{olt}, @code{ult},
+@code{ole}, @code{ule}, @code{sf}, @code{ngle}, @code{seq},
+@code{ngl}, @code{lt}, @code{nge}, @code{le} or @code{ngt}.
+
+@table @code
+@item int __builtin_mips_cabs_@var{cond}_s (float @var{a}, float @var{b})
+@itemx int __builtin_mips_cabs_@var{cond}_d (double @var{a}, double @var{b})
+Absolute comparison of two scalar values (@code{cabs.@var{cond}.@var{fmt}},
+@code{bc1t}/@code{bc1f}).
+
+These functions compare @var{a} and @var{b} using @code{cabs.@var{cond}.s}
+or @code{cabs.@var{cond}.d} and return the result as a boolean value.
+For example:
+
+@smallexample
+float a, b;
+if (__builtin_mips_cabs_eq_s (a, b))
+  true ();
+else
+  false ();
+@end smallexample
+
+@item int __builtin_mips_upper_cabs_@var{cond}_ps (v2sf @var{a}, v2sf @var{b})
+@itemx int __builtin_mips_lower_cabs_@var{cond}_ps (v2sf @var{a}, v2sf @var{b})
+Absolute comparison of two paired-single values (@code{cabs.@var{cond}.ps},
+@code{bc1t}/@code{bc1f}).
+
+These functions compare @var{a} and @var{b} using @code{cabs.@var{cond}.ps}
+and return either the upper or lower half of the result.  For example:
+
+@smallexample
+v2sf a, b;
+if (__builtin_mips_upper_cabs_eq_ps (a, b))
+  upper_halves_are_equal ();
+else
+  upper_halves_are_unequal ();
+
+if (__builtin_mips_lower_cabs_eq_ps (a, b))
+  lower_halves_are_equal ();
+else
+  lower_halves_are_unequal ();
+@end smallexample
+
+@item v2sf __builtin_mips_movt_cabs_@var{cond}_ps (v2sf @var{a}, v2sf @var{b}, v2sf @var{c}, v2sf @var{d})
+@itemx v2sf __builtin_mips_movf_cabs_@var{cond}_ps (v2sf @var{a}, v2sf @var{b}, v2sf @var{c}, v2sf @var{d})
+Conditional move based on absolute comparison (@code{cabs.@var{cond}.ps},
+@code{movt.ps}/@code{movf.ps}).
+
+The @code{movt} functions return the value @var{x} computed by:
+
+@smallexample
+cabs.@var{cond}.ps @var{cc},@var{a},@var{b}
+mov.ps @var{x},@var{c}
+movt.ps @var{x},@var{d},@var{cc}
+@end smallexample
+
+The @code{movf} functions are similar but use @code{movf.ps} instead
+of @code{movt.ps}.
+
+@item int __builtin_mips_any_c_@var{cond}_ps (v2sf @var{a}, v2sf @var{b})
+@itemx int __builtin_mips_all_c_@var{cond}_ps (v2sf @var{a}, v2sf @var{b})
+@itemx int __builtin_mips_any_cabs_@var{cond}_ps (v2sf @var{a}, v2sf @var{b})
+@itemx int __builtin_mips_all_cabs_@var{cond}_ps (v2sf @var{a}, v2sf @var{b})
+Comparison of two paired-single values
+(@code{c.@var{cond}.ps}/@code{cabs.@var{cond}.ps},
+@code{bc1any2t}/@code{bc1any2f}).
+
+These functions compare @var{a} and @var{b} using @code{c.@var{cond}.ps}
+or @code{cabs.@var{cond}.ps}.  The @code{any} forms return true if either
+result is true and the @code{all} forms return true if both results are true.
+For example:
+
+@smallexample
+v2sf a, b;
+if (__builtin_mips_any_c_eq_ps (a, b))
+  one_is_true ();
+else
+  both_are_false ();
+
+if (__builtin_mips_all_c_eq_ps (a, b))
+  both_are_true ();
+else
+  one_is_false ();
+@end smallexample
+
+@item int __builtin_mips_any_c_@var{cond}_4s (v2sf @var{a}, v2sf @var{b}, v2sf @var{c}, v2sf @var{d})
+@itemx int __builtin_mips_all_c_@var{cond}_4s (v2sf @var{a}, v2sf @var{b}, v2sf @var{c}, v2sf @var{d})
+@itemx int __builtin_mips_any_cabs_@var{cond}_4s (v2sf @var{a}, v2sf @var{b}, v2sf @var{c}, v2sf @var{d})
+@itemx int __builtin_mips_all_cabs_@var{cond}_4s (v2sf @var{a}, v2sf @var{b}, v2sf @var{c}, v2sf @var{d})
+Comparison of four paired-single values
+(@code{c.@var{cond}.ps}/@code{cabs.@var{cond}.ps},
+@code{bc1any4t}/@code{bc1any4f}).
+
+These functions use @code{c.@var{cond}.ps} or @code{cabs.@var{cond}.ps}
+to compare @var{a} with @var{b} and to compare @var{c} with @var{d}.
+The @code{any} forms return true if any of the four results are true
+and the @code{all} forms return true if all four results are true.
+For example:
+
+@smallexample
+v2sf a, b, c, d;
+if (__builtin_mips_any_c_eq_4s (a, b, c, d))
+  some_are_true ();
+else
+  all_are_false ();
+
+if (__builtin_mips_all_c_eq_4s (a, b, c, d))
+  all_are_true ();
+else
+  some_are_false ();
+@end smallexample
+@end table
 
 @node PowerPC AltiVec Built-in Functions
 @subsection PowerPC AltiVec Built-in Functions

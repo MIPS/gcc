@@ -124,6 +124,7 @@ extern char * output_cbranch (rtx, const char *, int, rtx);
 extern char * output_e500_flip_eq_bit (rtx, rtx);
 extern rtx rs6000_emit_set_const (rtx, enum machine_mode, rtx, int);
 extern int rs6000_emit_cmove (rtx, rtx, rtx, rtx);
+extern int rs6000_emit_vector_cond_expr (rtx, rtx, rtx, rtx, rtx, rtx);
 extern void rs6000_emit_minmax (rtx, enum rtx_code, rtx, rtx);
 extern void output_toc (FILE *, rtx, int, enum machine_mode);
 extern void rs6000_initialize_trampoline (rtx, rtx, rtx);
@@ -141,7 +142,7 @@ extern void rs6000_emit_move (rtx, rtx, enum machine_mode);
 extern rtx rs6000_legitimize_address (rtx, rtx, enum machine_mode);
 /* APPLE LOCAL pass reload addr by address */
 extern rtx rs6000_legitimize_reload_address (rtx *, enum machine_mode,
-			    int, int, int, int *);
+					     int, int, int, int *);
 extern int rs6000_legitimate_address (enum machine_mode, rtx, int);
 extern bool rs6000_mode_dependent_address (rtx);
 extern rtx rs6000_return_addr (int, rtx);
@@ -149,20 +150,21 @@ extern void rs6000_output_symbol_ref (FILE*, rtx);
 extern HOST_WIDE_INT rs6000_initial_elimination_offset (int, int);
 extern bool rs6000_legitimate_offset_address_p (enum machine_mode, rtx, int);
 
-extern rtx rs6000_machopic_legitimize_pic_address (rtx orig, 
-                            enum machine_mode mode, rtx reg);
+extern rtx rs6000_machopic_legitimize_pic_address (rtx orig,
+						   enum machine_mode mode,
+						   rtx reg);
 
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
 extern unsigned int rs6000_special_round_type_align (tree, int, int);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
-					  tree, int);
+				  tree, int);
 extern int function_arg_boundary (enum machine_mode, tree);
 extern struct rtx_def *function_arg (CUMULATIVE_ARGS *,
-					     enum machine_mode, tree, int);
+				     enum machine_mode, tree, int);
 extern int function_arg_partial_nregs (CUMULATIVE_ARGS *,
-					       enum machine_mode, tree, int);
+				       enum machine_mode, tree, int);
 extern rtx rs6000_function_value (tree, tree);
 extern rtx rs6000_libcall_value (enum machine_mode);
 extern struct rtx_def *rs6000_va_arg (tree, tree);
@@ -202,7 +204,7 @@ extern void rs6000_emit_eh_reg_restore (rtx, rtx);
 extern const char * output_isel (rtx *);
 extern int vrsave_operation (rtx, enum machine_mode);
 extern int rs6000_register_move_cost (enum machine_mode,
-					      enum reg_class, enum reg_class);
+				      enum reg_class, enum reg_class);
 extern int rs6000_memory_move_cost (enum machine_mode, enum reg_class, int);
 extern bool rs6000_tls_referenced_p (rtx);
 extern int rs6000_tls_symbol_ref (rtx, enum machine_mode);

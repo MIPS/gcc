@@ -80,6 +80,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coverage.h"
 #include "value-prof.h"
 #include "alloc-pool.h"
+#include "tree-mudflap.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -452,7 +453,7 @@ int warn_return_type;
 FILE *asm_out_file;
 FILE *aux_info_file;
 FILE *dump_file = NULL;
-char *dump_file_name;
+const char *dump_file_name;
 
 /* The current working directory of a translation.  It's generally the
    directory from which compilation was initiated, but a preprocessed
@@ -1108,6 +1109,10 @@ compile_file (void)
      Else the coverage initializer would not be emitted if all the
      functions in this compilation unit were deferred.  */
   coverage_finish ();
+
+  /* Likewise for mudflap static object registrations.  */
+  if (flag_mudflap)
+    mudflap_finish_file ();
 
   /* Write out any pending weak symbol declarations.  */
 

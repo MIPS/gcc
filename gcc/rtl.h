@@ -1432,6 +1432,10 @@ extern void push_to_full_sequence (rtx, rtx);
 extern rtx immed_double_const (HOST_WIDE_INT, HOST_WIDE_INT,
 			       enum machine_mode);
 
+/* In loop-iv.c  */
+
+extern rtx lowpart_subreg (enum machine_mode, rtx, enum machine_mode);
+
 /* In varasm.c  */
 extern rtx force_const_mem (enum machine_mode, rtx);
 
@@ -1442,8 +1446,6 @@ extern rtx get_pool_constant (rtx);
 extern rtx get_pool_constant_mark (rtx, bool *);
 extern enum machine_mode get_pool_mode (rtx);
 extern rtx get_pool_constant_for_function (struct function *, rtx);
-extern enum machine_mode get_pool_mode_for_function (struct function *, rtx);
-extern int get_pool_offset (rtx);
 extern rtx simplify_subtraction (rtx);
 
 /* In function.c  */
@@ -1569,6 +1571,7 @@ extern rtx simplify_gen_subreg (enum machine_mode, rtx, enum machine_mode,
 extern rtx simplify_replace_rtx (rtx, rtx, rtx);
 extern rtx simplify_rtx (rtx);
 extern rtx avoid_constant_pool_reference (rtx);
+extern bool mode_signbit_p (enum machine_mode, rtx);
 
 /* In regclass.c  */
 extern enum machine_mode choose_hard_reg_mode (unsigned int, unsigned int,
@@ -1601,22 +1604,18 @@ extern int rtx_varies_p (rtx, int);
 extern int rtx_addr_varies_p (rtx, int);
 extern HOST_WIDE_INT get_integer_term (rtx);
 extern rtx get_related_value (rtx);
-extern rtx get_jump_table_offset (rtx, rtx *);
 extern int global_reg_mentioned_p (rtx);
 extern int reg_mentioned_p (rtx, rtx);
 extern int count_occurrences (rtx, rtx, int);
 extern int reg_referenced_p (rtx, rtx);
 extern int reg_used_between_p (rtx, rtx, rtx);
-extern int reg_referenced_between_p (rtx, rtx, rtx);
 extern int reg_set_between_p (rtx, rtx, rtx);
 extern int regs_set_between_p (rtx, rtx, rtx);
 extern int commutative_operand_precedence (rtx);
 extern int swap_commutative_operands_p (rtx, rtx);
 extern int modified_between_p (rtx, rtx, rtx);
 extern int no_labels_between_p (rtx, rtx);
-extern int no_jumps_between_p (rtx, rtx);
 extern int modified_in_p (rtx, rtx);
-extern int insn_dependent_p (rtx, rtx);
 extern int reg_set_p (rtx, rtx);
 extern rtx single_set_2 (rtx, rtx);
 extern int multiple_sets (rtx);
@@ -1963,7 +1962,6 @@ extern void push_topmost_sequence (void);
 extern void pop_topmost_sequence (void);
 extern void reverse_comparison (rtx);
 extern void set_new_first_and_last_insn (rtx, rtx);
-extern void set_new_last_label_num (int);
 extern void unshare_all_rtl (void);
 extern void unshare_all_rtl_again (rtx);
 extern void unshare_all_rtl_in_chain (rtx);

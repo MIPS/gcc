@@ -96,8 +96,8 @@ enum rid
 
   /* C extensions */
   RID_ASM,       RID_TYPEOF,   RID_ALIGNOF,  RID_ATTRIBUTE,  RID_VA_ARG,
-  RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_PTRBASE,
-  RID_PTREXTENT, RID_PTRVALUE, RID_CHOOSE_EXPR, RID_TYPES_COMPATIBLE_P,
+  RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_CHOOSE_EXPR,
+  RID_TYPES_COMPATIBLE_P,
 
   /* Too many ways of getting the name of a function as a string */
   RID_FUNCTION_NAME, RID_PRETTY_FUNCTION_NAME, RID_C99_FUNCTION_NAME,
@@ -116,7 +116,7 @@ enum rid
   RID_CONSTCAST, RID_DYNCAST, RID_REINTCAST, RID_STATCAST,
 
   /* Objective-C */
-  RID_ID,          RID_AT_ENCODE,    RID_AT_END,
+  RID_AT_ENCODE,   RID_AT_END,
   RID_AT_CLASS,    RID_AT_ALIAS,     RID_AT_DEFS,
   RID_AT_PRIVATE,  RID_AT_PROTECTED, RID_AT_PUBLIC,
   RID_AT_PROTOCOL, RID_AT_SELECTOR,  
@@ -137,16 +137,16 @@ enum rid
 };
 
 #define OBJC_IS_AT_KEYWORD(rid) \
-  ((unsigned int)(rid) >= (unsigned int)RID_FIRST_AT && \
-   (unsigned int)(rid) <= (unsigned int)RID_LAST_AT)
+  ((unsigned int) (rid) >= (unsigned int) RID_FIRST_AT && \
+   (unsigned int) (rid) <= (unsigned int) RID_LAST_AT)
 
 #define OBJC_IS_PQ_KEYWORD(rid) \
-  ((unsigned int)(rid) >= (unsigned int)RID_FIRST_PQ && \
-   (unsigned int)(rid) <= (unsigned int)RID_LAST_PQ)
+  ((unsigned int) (rid) >= (unsigned int) RID_FIRST_PQ && \
+   (unsigned int) (rid) <= (unsigned int) RID_LAST_PQ)
 
 /* The elements of `ridpointers' are identifier nodes for the reserved
    type names and storage classes.  It is indexed by a RID_... value.  */
-extern GTY ((length ("(int)RID_MAX"))) tree *ridpointers;
+extern GTY ((length ("(int) RID_MAX"))) tree *ridpointers;
 
 /* Standard named or nameless data types of the C compiler.  */
 
@@ -323,7 +323,6 @@ extern void pop_file_scope (void);
 extern int yyparse (void);
 extern stmt_tree current_stmt_tree (void);
 extern tree push_stmt_list (void);
-extern tree re_push_stmt_list (tree);
 extern tree pop_stmt_list (tree);
 extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);

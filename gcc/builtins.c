@@ -107,14 +107,14 @@ static rtx expand_builtin_memcmp (tree, tree, rtx, enum machine_mode);
 static rtx expand_builtin_strcmp (tree, rtx, enum machine_mode);
 static rtx expand_builtin_strncmp (tree, rtx, enum machine_mode);
 static rtx builtin_memcpy_read_str (void *, HOST_WIDE_INT, enum machine_mode);
-static rtx expand_builtin_strcat (tree, rtx, enum machine_mode);
+static rtx expand_builtin_strcat (tree, tree, rtx, enum machine_mode);
 static rtx expand_builtin_strncat (tree, rtx, enum machine_mode);
 static rtx expand_builtin_strspn (tree, rtx, enum machine_mode);
 static rtx expand_builtin_strcspn (tree, rtx, enum machine_mode);
 static rtx expand_builtin_memcpy (tree, rtx, enum machine_mode);
-static rtx expand_builtin_mempcpy (tree, rtx, enum machine_mode, int);
-static rtx expand_builtin_memmove (tree, rtx, enum machine_mode);
-static rtx expand_builtin_bcopy (tree);
+static rtx expand_builtin_mempcpy (tree, tree, rtx, enum machine_mode, int);
+static rtx expand_builtin_memmove (tree, tree, rtx, enum machine_mode);
+static rtx expand_builtin_bcopy (tree, tree);
 static rtx expand_builtin_strcpy (tree, rtx, enum machine_mode);
 static rtx expand_builtin_stpcpy (tree, rtx, enum machine_mode);
 static rtx builtin_strncpy_read_str (void *, HOST_WIDE_INT, enum machine_mode);
@@ -162,8 +162,8 @@ static tree fold_builtin_ceil (tree);
 static tree fold_builtin_round (tree);
 static tree fold_builtin_bitop (tree);
 static tree fold_builtin_memcpy (tree);
-static tree fold_builtin_mempcpy (tree);
-static tree fold_builtin_memmove (tree);
+static tree fold_builtin_mempcpy (tree, tree, int);
+static tree fold_builtin_memmove (tree, tree);
 static tree fold_builtin_strchr (tree);
 static tree fold_builtin_memcmp (tree);
 static tree fold_builtin_strcmp (tree);
@@ -2544,8 +2544,9 @@ builtin_memcpy_read_str (void *data, HOST_WIDE_INT offset,
    otherwise try to get the result in TARGET, if convenient (and in
    mode MODE if that's convenient).  */
 static rtx
-expand_builtin_memcpy (tree arglist, rtx target, enum machine_mode mode)
+expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
 {
+  tree arglist = TREE_OPERAND (exp, 1);
   if (!validate_arglist (arglist,
 			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return 0;
@@ -2559,26 +2560,14 @@ expand_builtin_memcpy (tree arglist, rtx target, enum machine_mode mode)
       unsigned int dest_align
 	= get_pointer_alignment (dest, BIGGEST_ALIGNMENT);
       rtx dest_mem, src_mem, dest_addr, len_rtx;
+      tree result = fold_builtin_memcpy (exp);
+
+      if (result)
+	return expand_expr (result, target, mode, EXPAND_NORMAL);
 
       /* If DEST is not a pointer type, call the normal function.  */
       if (dest_align == 0)
 	return 0;
-
-      /* If the LEN parameter is zero, return DEST.  */
-      if (integer_zerop (len))
-	{
-	  /* Evaluate and ignore SRC in case it has side-effects.  */
-	  expand_expr (src, const0_rtx, VOIDmode, EXPAND_NORMAL);
-	  return expand_expr (dest, target, mode, EXPAND_NORMAL);
-	}
-
-      /* If SRC and DEST are the same (and not volatile), return DEST.  */
-      if (operand_equal_p (src, dest, 0))
-	{
-	  /* Evaluate and ignore LEN in case it has side-effects.  */
-	  expand_expr (len, const0_rtx, VOIDmode, EXPAND_NORMAL);
-	  return expand_expr (dest, target, mode, EXPAND_NORMAL);
-	}
 
       /* If either SRC is not a pointer type, don't do this
          operation in-line.  */
@@ -2632,7 +2621,7 @@ expand_builtin_memcpy (tree arglist, rtx target, enum machine_mode mode)
    stpcpy.  */
 
 static rtx
-expand_builtin_mempcpy (tree arglist, rtx target, enum machine_mode mode,
+expand_builtin_mempcpy (tree arglist, tree type, rtx target, enum machine_mode mode,
 			int endp)
 {
   if (!validate_arglist (arglist,
@@ -2659,46 +2648,18 @@ expand_builtin_mempcpy (tree arglist, rtx target, enum machine_mode mode,
       unsigned int dest_align
 	= get_pointer_alignment (dest, BIGGEST_ALIGNMENT);
       rtx dest_mem, src_mem, len_rtx;
+      tree result = fold_builtin_mempcpy (arglist, type, endp);
 
-      /* If DEST is not a pointer type, call the normal function.  */
-      if (dest_align == 0)
+      if (result)
+	return expand_expr (result, target, mode, EXPAND_NORMAL);
+      
+      /* If either SRC or DEST is not a pointer type, don't do this
+         operation in-line.  */
+      if (dest_align == 0 || src_align == 0)
 	return 0;
-
-      /* If SRC and DEST are the same (and not volatile), do nothing.  */
-      if (operand_equal_p (src, dest, 0))
-	{
-	  tree expr;
-
-	  if (endp == 0)
-	    {
-	      /* Evaluate and ignore LEN in case it has side-effects.  */
-	      expand_expr (len, const0_rtx, VOIDmode, EXPAND_NORMAL);
-	      return expand_expr (dest, target, mode, EXPAND_NORMAL);
-	    }
-
-	  if (endp == 2)
-	    len = fold (build2 (MINUS_EXPR, TREE_TYPE (len), len,
-				integer_one_node));
-	  len = fold_convert (TREE_TYPE (dest), len);
-	  expr = fold (build2 (PLUS_EXPR, TREE_TYPE (dest), dest, len));
-	  return expand_expr (expr, target, mode, EXPAND_NORMAL);
-	}
 
       /* If LEN is not constant, call the normal function.  */
       if (! host_integerp (len, 1))
-	return 0;
-
-      /* If the LEN parameter is zero, return DEST.  */
-      if (tree_low_cst (len, 1) == 0)
-	{
-	  /* Evaluate and ignore SRC in case it has side-effects.  */
-	  expand_expr (src, const0_rtx, VOIDmode, EXPAND_NORMAL);
-	  return expand_expr (dest, target, mode, EXPAND_NORMAL);
-	}
-
-      /* If either SRC is not a pointer type, don't do this
-         operation in-line.  */
-      if (src_align == 0)
 	return 0;
 
       len_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
@@ -2746,7 +2707,8 @@ expand_builtin_mempcpy (tree arglist, rtx target, enum machine_mode mode,
    if we failed the caller should emit a normal call.  */
 
 static rtx
-expand_builtin_memmove (tree arglist, rtx target, enum machine_mode mode)
+expand_builtin_memmove (tree arglist, tree type, rtx target,
+			enum machine_mode mode)
 {
   if (!validate_arglist (arglist,
 			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
@@ -2760,26 +2722,14 @@ expand_builtin_memmove (tree arglist, rtx target, enum machine_mode mode)
       unsigned int src_align = get_pointer_alignment (src, BIGGEST_ALIGNMENT);
       unsigned int dest_align
 	= get_pointer_alignment (dest, BIGGEST_ALIGNMENT);
+      tree result = fold_builtin_memmove (arglist, type);
+
+      if (result)
+	return expand_expr (result, target, mode, EXPAND_NORMAL);
 
       /* If DEST is not a pointer type, call the normal function.  */
       if (dest_align == 0)
 	return 0;
-
-      /* If the LEN parameter is zero, return DEST.  */
-      if (integer_zerop (len))
-	{
-	  /* Evaluate and ignore SRC in case it has side-effects.  */
-	  expand_expr (src, const0_rtx, VOIDmode, EXPAND_NORMAL);
-	  return expand_expr (dest, target, mode, EXPAND_NORMAL);
-	}
-
-      /* If SRC and DEST are the same (and not volatile), return DEST.  */
-      if (operand_equal_p (src, dest, 0))
-	{
-	  /* Evaluate and ignore LEN in case it has side-effects.  */
-	  expand_expr (len, const0_rtx, VOIDmode, EXPAND_NORMAL);
-	  return expand_expr (dest, target, mode, EXPAND_NORMAL);
-	}
 
       /* If either SRC is not a pointer type, don't do this
          operation in-line.  */
@@ -2801,7 +2751,7 @@ expand_builtin_memmove (tree arglist, rtx target, enum machine_mode mode)
 	 it is ok to use memcpy as well.  */
       if (integer_onep (len))
         {
-	  rtx ret = expand_builtin_mempcpy (arglist, target, mode,
+	  rtx ret = expand_builtin_mempcpy (arglist, type, target, mode,
 					    /*endp=*/0);
 	  if (ret)
 	    return ret;
@@ -2816,7 +2766,7 @@ expand_builtin_memmove (tree arglist, rtx target, enum machine_mode mode)
    if we failed the caller should emit a normal call.  */
 
 static rtx
-expand_builtin_bcopy (tree arglist)
+expand_builtin_bcopy (tree arglist, tree type)
 {
   tree src, dest, size, newarglist;
 
@@ -2837,7 +2787,7 @@ expand_builtin_bcopy (tree arglist)
   newarglist = tree_cons (NULL_TREE, src, newarglist);
   newarglist = tree_cons (NULL_TREE, dest, newarglist);
 
-  return expand_builtin_memmove (newarglist, const0_rtx, VOIDmode);
+  return expand_builtin_memmove (newarglist, type, const0_rtx, VOIDmode);
 }
 
 #ifndef HAVE_movstr
@@ -2913,36 +2863,20 @@ expand_movstr (tree dest, tree src, rtx target, int endp)
    convenient).  */
 
 static rtx
-expand_builtin_strcpy (tree arglist, rtx target, enum machine_mode mode)
+expand_builtin_strcpy (tree exp, rtx target, enum machine_mode mode)
 {
-  tree fn, len, src, dst;
+  tree arglist = TREE_OPERAND (exp, 1);
+  if (validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+    {
+      tree result = fold_builtin_strcpy (exp, 0);
+      if (result)
+	return expand_expr (result, target, mode, EXPAND_NORMAL);
 
-  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
-    return 0;
-
-  src = TREE_VALUE (TREE_CHAIN (arglist));
-  dst = TREE_VALUE (arglist);
-
-  /* If SRC and DST are equal (and not volatile), return DST.  */
-  if (operand_equal_p (src, dst, 0))
-    return expand_expr (dst, target, mode, EXPAND_NORMAL);
-
-  len = c_strlen (src, 1);
-  if (len == 0 || TREE_SIDE_EFFECTS (len))
-    return expand_movstr (TREE_VALUE (arglist),
-			  TREE_VALUE (TREE_CHAIN (arglist)),
-			  target, /*endp=*/0);
-
-  fn = implicit_built_in_decls[BUILT_IN_MEMCPY];
-  if (!fn)
-    return 0;
-
-  len = size_binop (PLUS_EXPR, len, ssize_int (1));
-  arglist = build_tree_list (NULL_TREE, len);
-  arglist = tree_cons (NULL_TREE, src, arglist);
-  arglist = tree_cons (NULL_TREE, dst, arglist);
-  return expand_expr (build_function_call_expr (fn, arglist),
-		      target, mode, EXPAND_NORMAL);
+      return expand_movstr (TREE_VALUE (arglist),
+			    TREE_VALUE (TREE_CHAIN (arglist)),
+			    target, /*endp=*/0);
+    }
+  return 0;
 }
 
 /* Expand a call to the stpcpy builtin, with arguments in ARGLIST.
@@ -2951,8 +2885,9 @@ expand_builtin_strcpy (tree arglist, rtx target, enum machine_mode mode)
    mode MODE if that's convenient).  */
 
 static rtx
-expand_builtin_stpcpy (tree arglist, rtx target, enum machine_mode mode)
+expand_builtin_stpcpy (tree exp, rtx target, enum machine_mode mode)
 {
+  tree arglist = TREE_OPERAND (exp, 1);
   /* If return value is ignored, transform stpcpy into strcpy.  */
   if (target == const0_rtx)
     {
@@ -2987,7 +2922,8 @@ expand_builtin_stpcpy (tree arglist, rtx target, enum machine_mode mode)
       narglist = build_tree_list (NULL_TREE, lenp1);
       narglist = tree_cons (NULL_TREE, src, narglist);
       narglist = tree_cons (NULL_TREE, dst, narglist);
-      ret = expand_builtin_mempcpy (narglist, target, mode, /*endp=*/2);
+      ret = expand_builtin_mempcpy (narglist, TREE_TYPE (exp),
+				    target, mode, /*endp=*/2);
 
       if (ret)
 	return ret;
@@ -2998,7 +2934,7 @@ expand_builtin_stpcpy (tree arglist, rtx target, enum machine_mode mode)
 
 	  if (GET_CODE (len_rtx) == CONST_INT)
 	    {
-	      ret = expand_builtin_strcpy (arglist, target, mode);
+	      ret = expand_builtin_strcpy (exp, target, mode);
 
 	      if (ret)
 		{
@@ -3047,35 +2983,21 @@ builtin_strncpy_read_str (void *data, HOST_WIDE_INT offset,
    if we failed the caller should emit a normal call.  */
 
 static rtx
-expand_builtin_strncpy (tree arglist, rtx target, enum machine_mode mode)
+expand_builtin_strncpy (tree exp, rtx target, enum machine_mode mode)
 {
-  if (!validate_arglist (arglist,
-			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
-    return 0;
-  else
+  tree arglist = TREE_OPERAND (exp, 1);
+  if (validate_arglist (arglist,
+			POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     {
       tree slen = c_strlen (TREE_VALUE (TREE_CHAIN (arglist)), 1);
       tree len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-      tree fn;
+      tree result = fold_builtin_strncpy (exp, slen);
+      
+      if (result)
+	return expand_expr (result, target, mode, EXPAND_NORMAL);
 
-      /* We must be passed a constant len parameter.  */
-      if (TREE_CODE (len) != INTEGER_CST)
-	return 0;
-
-      /* If the len parameter is zero, return the dst parameter.  */
-      if (integer_zerop (len))
-	{
-	  /* Evaluate and ignore the src argument in case it has
-	     side-effects.  */
-	  expand_expr (TREE_VALUE (TREE_CHAIN (arglist)), const0_rtx,
-		       VOIDmode, EXPAND_NORMAL);
-	  /* Return the dst parameter.  */
-	  return expand_expr (TREE_VALUE (arglist), target, mode,
-			      EXPAND_NORMAL);
-	}
-
-      /* Now, we must be passed a constant src ptr parameter.  */
-      if (slen == 0 || TREE_CODE (slen) != INTEGER_CST)
+      /* We must be passed a constant len and src parameter.  */
+      if (!host_integerp (len, 1) || !slen || !host_integerp (slen, 1))
 	return 0;
 
       slen = size_binop (PLUS_EXPR, slen, ssize_int (1));
@@ -3105,14 +3027,8 @@ expand_builtin_strncpy (tree arglist, rtx target, enum machine_mode mode)
 	  dest_mem = convert_memory_address (ptr_mode, dest_mem);
 	  return dest_mem;
 	}
-
-      /* OK transform into builtin memcpy.  */
-      fn = implicit_built_in_decls[BUILT_IN_MEMCPY];
-      if (!fn)
-	return 0;
-      return expand_expr (build_function_call_expr (fn, arglist),
-			  target, mode, EXPAND_NORMAL);
     }
+  return 0;
 }
 
 /* Callback routine for store_by_pieces.  Read GET_MODE_BITSIZE (MODE)
@@ -3647,7 +3563,7 @@ expand_builtin_strncmp (tree exp, rtx target, enum machine_mode mode)
    otherwise try to get the result in TARGET, if convenient.  */
 
 static rtx
-expand_builtin_strcat (tree arglist, rtx target, enum machine_mode mode)
+expand_builtin_strcat (tree arglist, tree type, rtx target, enum machine_mode mode)
 {
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return 0;
@@ -3697,7 +3613,7 @@ expand_builtin_strcat (tree arglist, rtx target, enum machine_mode mode)
                  pass in a target of zero, it should never actually be
                  used.  If this was successful return the original
                  dst, not the result of mempcpy.  */
-	      if (expand_builtin_mempcpy (arglist, /*target=*/0, mode, /*endp=*/0))
+	      if (expand_builtin_mempcpy (arglist, type, /*target=*/0, mode, /*endp=*/0))
 		return expand_expr (dst, target, mode, EXPAND_NORMAL);
 	      else
 		return 0;
@@ -3945,6 +3861,11 @@ expand_builtin_va_start (tree arglist)
 
   chain = TREE_CHAIN (arglist);
 
+  if (!chain)
+    {
+      error ("too few arguments to function %<va_start%>");
+      return const0_rtx;
+    }
   if (TREE_CHAIN (chain))
     error ("too many arguments to function %<va_start%>");
 
@@ -5422,25 +5343,25 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRCPY:
-      target = expand_builtin_strcpy (arglist, target, mode);
+      target = expand_builtin_strcpy (exp, target, mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STRNCPY:
-      target = expand_builtin_strncpy (arglist, target, mode);
+      target = expand_builtin_strncpy (exp, target, mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STPCPY:
-      target = expand_builtin_stpcpy (arglist, target, mode);
+      target = expand_builtin_stpcpy (exp, target, mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STRCAT:
-      target = expand_builtin_strcat (arglist, target, mode);
+      target = expand_builtin_strcat (arglist, TREE_TYPE (exp), target, mode);
       if (target)
 	return target;
       break;
@@ -5490,25 +5411,25 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_MEMCPY:
-      target = expand_builtin_memcpy (arglist, target, mode);
+      target = expand_builtin_memcpy (exp, target, mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_MEMPCPY:
-      target = expand_builtin_mempcpy (arglist, target, mode, /*endp=*/ 1);
+      target = expand_builtin_mempcpy (arglist, TREE_TYPE (exp), target, mode, /*endp=*/ 1);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_MEMMOVE:
-      target = expand_builtin_memmove (arglist, target, mode);
+      target = expand_builtin_memmove (arglist, TREE_TYPE (exp), target, mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_BCOPY:
-      target = expand_builtin_bcopy (arglist);
+      target = expand_builtin_bcopy (arglist, TREE_TYPE (exp));
       if (target)
 	return target;
       break;
@@ -5915,8 +5836,15 @@ fold_builtin_inf (tree type, int warn)
 {
   REAL_VALUE_TYPE real;
 
+  /* __builtin_inff is intended to be usable to define INFINITY on all
+     targets.  If an infinity is not available, INFINITY expands "to a
+     positive constant of type float that overflows at translation
+     time", footnote "In this case, using INFINITY will violate the
+     constraint in 6.4.4 and thus require a diagnostic." (C99 7.12#4).
+     Thus we pedwarn to ensure this constraint violation is
+     diagnosed.  */
   if (!MODE_HAS_INFINITIES (TYPE_MODE (type)) && warn)
-    warning ("target format does not support infinity");
+    pedwarn ("target format does not support infinity");
 
   real_inf (&real);
   return build_real (type, real);
@@ -7034,31 +6962,34 @@ fold_builtin_memcpy (tree exp)
    NULL_TREE if no simplification can be made.  */
 
 static tree
-fold_builtin_mempcpy (tree exp)
+fold_builtin_mempcpy (tree arglist, tree type, int endp)
 {
-  tree arglist = TREE_OPERAND (exp, 1);
-  tree dest, src, len;
-
-  if (!validate_arglist (arglist,
-			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
-    return 0;
-
-  dest = TREE_VALUE (arglist);
-  src = TREE_VALUE (TREE_CHAIN (arglist));
-  len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-
-  /* If the LEN parameter is zero, return DEST.  */
-  if (integer_zerop (len))
-    return omit_one_operand (TREE_TYPE (exp), dest, src);
-
-  /* If SRC and DEST are the same (and not volatile), return DEST+LEN.  */
-  if (operand_equal_p (src, dest, 0))
+  if (validate_arglist (arglist,
+			POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     {
-      tree temp = fold_convert (TREE_TYPE (dest), len);
-      temp = fold (build2 (PLUS_EXPR, TREE_TYPE (dest), dest, temp));
-      return fold_convert (TREE_TYPE (exp), temp);
-    }
+      tree dest = TREE_VALUE (arglist);
+      tree src = TREE_VALUE (TREE_CHAIN (arglist));
+      tree len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
 
+      /* If the LEN parameter is zero, return DEST.  */
+      if (integer_zerop (len))
+	return omit_one_operand (type, dest, src);
+
+      /* If SRC and DEST are the same (and not volatile), return DEST+LEN.  */
+      if (operand_equal_p (src, dest, 0))
+        {
+	  if (endp == 0)
+	    return omit_one_operand (type, dest, len);
+
+	  if (endp == 2)
+	    len = fold (build2 (MINUS_EXPR, TREE_TYPE (len), len,
+				ssize_int (1)));
+      
+	  len = fold_convert (TREE_TYPE (dest), len);
+	  len = fold (build2 (PLUS_EXPR, TREE_TYPE (dest), dest, len));
+	  return fold_convert (type, len);
+	}
+    }
   return 0;
 }
 
@@ -7066,9 +6997,8 @@ fold_builtin_mempcpy (tree exp)
    NULL_TREE if no simplification can be made.  */
 
 static tree
-fold_builtin_memmove (tree exp)
+fold_builtin_memmove (tree arglist, tree type)
 {
-  tree arglist = TREE_OPERAND (exp, 1);
   tree dest, src, len;
 
   if (!validate_arglist (arglist,
@@ -7081,11 +7011,11 @@ fold_builtin_memmove (tree exp)
 
   /* If the LEN parameter is zero, return DEST.  */
   if (integer_zerop (len))
-    return omit_one_operand (TREE_TYPE (exp), dest, src);
+    return omit_one_operand (type, dest, src);
 
   /* If SRC and DEST are the same (and not volatile), return DEST.  */
   if (operand_equal_p (src, dest, 0))
-    return omit_one_operand (TREE_TYPE (exp), dest, len);
+    return omit_one_operand (type, dest, len);
 
   return 0;
 }
@@ -8022,10 +7952,10 @@ fold_builtin_1 (tree exp, bool ignore)
       return fold_builtin_memcpy (exp);
 
     case BUILT_IN_MEMPCPY:
-      return fold_builtin_mempcpy (exp);
+      return fold_builtin_mempcpy (arglist, type, /*endp=*/1);
 
     case BUILT_IN_MEMMOVE:
-      return fold_builtin_memmove (exp);
+      return fold_builtin_memmove (arglist, type);
 
     case BUILT_IN_SIGNBIT:
     case BUILT_IN_SIGNBITF:

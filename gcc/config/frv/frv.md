@@ -1558,14 +1558,7 @@
   [(set (match_operand:QI 0 "general_operand" "")
 	(match_operand:QI 1 "general_operand" ""))]
   ""
-  "
-{
-  if (!reload_in_progress
-      && !reload_completed
-      && !register_operand (operands[0], QImode)
-      && !reg_or_0_operand (operands[1], QImode))
-    operands[1] = copy_to_mode_reg (QImode, operands[1]);
-}")
+  "{ frv_emit_move (QImode, operands[0], operands[1]); DONE; }")
 
 (define_insn "*movqi_load"
   [(set (match_operand:QI 0 "register_operand" "=d,f")
@@ -1587,14 +1580,7 @@
   [(set (match_operand:HI 0 "general_operand" "")
 	(match_operand:HI 1 "general_operand" ""))]
   ""
-  "
-{
-  if (!reload_in_progress
-      && !reload_completed
-      && !register_operand (operands[0], HImode)
-      && !reg_or_0_operand (operands[1], HImode))
-    operands[1] = copy_to_mode_reg (HImode, operands[1]);
-}")
+  "{ frv_emit_move (HImode, operands[0], operands[1]); DONE; }")
 
 (define_insn "*movhi_load"
   [(set (match_operand:HI 0 "register_operand" "=d,f")
@@ -1645,11 +1631,7 @@
   [(set (match_operand:SI 0 "move_destination_operand" "")
 	(match_operand:SI 1 "move_source_operand" ""))]
   ""
-  "
-{
-  if (frv_emit_movsi (operands[0], operands[1]))
-    DONE;
-}")
+  "{ frv_emit_move (SImode, operands[0], operands[1]); DONE; }")
 
 ;; Note - it is best to only have one movsi pattern and to handle
 ;; all the various contingencies by the use of alternatives.  This
@@ -1673,7 +1655,9 @@
 ;; re-recognize them again after the substitution for memory.  So keep
 ;; a memory constraint available, just make sure reload won't be
 ;; tempted to use it.
-
+;;
+		   
+		   
 (define_insn "*movsi_load"
   [(set (match_operand:SI 0 "register_operand" "=d,f")
 	(match_operand:SI 1 "frv_load_operand" "m,m"))]
@@ -1752,14 +1736,7 @@
   [(set (match_operand:DI 0 "nonimmediate_operand" "")
 	(match_operand:DI 1 "general_operand" ""))]
   ""
-  "
-{
-  if (!reload_in_progress
-      && !reload_completed
-      && !register_operand (operands[0], DImode)
-      && !reg_or_0_operand (operands[1], DImode))
-    operands[1] = copy_to_mode_reg (DImode, operands[1]);
-}")
+  "{ frv_emit_move (DImode, operands[0], operands[1]); DONE; }")
 
 (define_insn "*movdi_double"
   [(set (match_operand:DI 0 "move_destination_operand" "=e,?h,??d,??f,R,?R,??m,??m,e,?h,??d,??f,?e,??d,?h,??f,R,m,e,??d,e,??d,?h,??f")
@@ -1856,7 +1833,7 @@
 	(match_operand:DI 1 "const_int_operand" ""))]
   "reload_completed"
   [(set (match_dup 2) (match_dup 4))
-   (set (match_dup 3) (match_dup 1))]
+   (set (match_dup 3) (match_dup 5))]
   "
 {
   rtx op0 = operands[0];
@@ -1864,7 +1841,18 @@
 
   operands[2] = gen_highpart (SImode, op0);
   operands[3] = gen_lowpart (SImode, op0);
-  operands[4] = GEN_INT ((INTVAL (op1) < 0) ? -1 : 0);
+  if (HOST_BITS_PER_WIDE_INT <= 32)
+    {
+      operands[4] = GEN_INT ((INTVAL (op1) < 0) ? -1 : 0);
+      operands[5] = op1;
+    }
+  else
+    {
+      operands[4] = GEN_INT ((((unsigned HOST_WIDE_INT)INTVAL (op1) >> 16)
+			      >> 16) ^ ((unsigned HOST_WIDE_INT)1 << 31)
+			     - ((unsigned HOST_WIDE_INT)1 << 31));
+      operands[5] = GEN_INT (trunc_int_for_mode (INTVAL (op1), SImode));
+    }
 }")
 
 (define_split
@@ -1893,14 +1881,7 @@
   [(set (match_operand:SF 0 "general_operand" "")
 	(match_operand:SF 1 "general_operand" ""))]
   ""
-  "
-{
-  if (!reload_in_progress
-      && !reload_completed
-      && !register_operand (operands[0], SFmode)
-      && !reg_or_0_operand (operands[1], SFmode))
-    operands[1] = copy_to_mode_reg (SFmode, operands[1]);
-}")
+  "{ frv_emit_move (SFmode, operands[0], operands[1]); DONE; }")
 
 (define_split
   [(set (match_operand:SF 0 "integer_register_operand" "")
@@ -1962,14 +1943,7 @@
   [(set (match_operand:DF 0 "nonimmediate_operand" "")
 	(match_operand:DF 1 "general_operand" ""))]
   ""
-  "
-{
-  if (!reload_in_progress
-      && !reload_completed
-      && !register_operand (operands[0], DFmode)
-      && !reg_or_0_operand (operands[1], DFmode))
-    operands[1] = copy_to_mode_reg (DFmode, operands[1]);
-}")
+  "{ frv_emit_move (DFmode, operands[0], operands[1]); DONE; }")
 
 (define_insn "*movdf_double"
   [(set (match_operand:DF 0 "move_destination_operand" "=h,?e,??f,??d,R,?R,??m,??m,h,?e,??f,??d,?h,??f,?e,??d,R,m,h,??f,e,??d,e,??d")
@@ -2068,7 +2042,7 @@
 	(match_operand:DF 1 "const_int_operand" ""))]
   "reload_completed"
   [(set (match_dup 2) (match_dup 4))
-   (set (match_dup 3) (match_dup 1))]
+   (set (match_dup 3) (match_dup 5))]
   "
 {
   rtx op0 = operands[0];
@@ -2076,7 +2050,18 @@
 
   operands[2] = gen_highpart (SImode, op0);
   operands[3] = gen_lowpart (SImode, op0);
-  operands[4] = GEN_INT ((INTVAL (op1) < 0) ? -1 : 0);
+  if (HOST_BITS_PER_WIDE_INT <= 32)
+    {
+      operands[4] = GEN_INT ((INTVAL (op1) < 0) ? -1 : 0);
+      operands[5] = op1;
+    }
+  else
+    {
+      operands[4] = GEN_INT ((((unsigned HOST_WIDE_INT)INTVAL (op1) >> 16)
+			      >> 16) ^ ((unsigned HOST_WIDE_INT)1 << 31)
+			     - ((unsigned HOST_WIDE_INT)1 << 31));
+      operands[5] = GEN_INT (trunc_int_for_mode (INTVAL (op1), SImode));
+    }
 }")
 
 (define_split
@@ -2977,57 +2962,30 @@
 ;; ::::::::::::::::::::
 
 ;; Addition
-(define_expand "adddi3"
-  [(parallel [(set (match_operand:DI 0 "integer_register_operand" "")
-		   (plus:DI (match_operand:DI 1 "integer_register_operand" "")
-			    (match_operand:DI 2 "gpr_or_int10_operand" "")))
-	      (clobber (match_scratch:CC 3 ""))])]
+(define_insn_and_split "adddi3"
+  [(set (match_operand:DI 0 "integer_register_operand" "=&e,e")
+	(plus:DI (match_operand:DI 1 "integer_register_operand" "%e,0")
+		 (match_operand:DI 2 "gpr_or_int10_operand" "eJ,eJ")))
+   (clobber (match_scratch:CC 3 "=t,t"))]
   ""
-  "
-{
-  if (GET_CODE (operands[2]) == CONST_INT
-      && INTVAL (operands[2]) == -2048
-      && !no_new_pseudos)
-    operands[2] = force_reg (DImode, operands[2]);
-}")
-
-(define_insn_and_split "*adddi3_internal"
-  [(set (match_operand:DI 0 "integer_register_operand" "=&e,e,e,&e,e,&e,e")
-	(plus:DI (match_operand:DI 1 "integer_register_operand" "%e,0,e,e,0,e,0")
-		 (match_operand:DI 2 "gpr_or_int10_operand" "e,e,0,N,N,OP,OP")))
-   (clobber (match_scratch:CC 3 "=t,t,t,t,t,t,t"))]
-  "GET_CODE (operands[2]) != CONST_INT || INTVAL (operands[2]) != -2048"
   "#"
   "reload_completed"
   [(match_dup 4)
    (match_dup 5)]
   "
 {
-  rtx op0_high = gen_highpart (SImode, operands[0]);
-  rtx op1_high = gen_highpart (SImode, operands[1]);
-  rtx op0_low  = gen_lowpart (SImode, operands[0]);
-  rtx op1_low  = gen_lowpart (SImode, operands[1]);
-  rtx op2 = operands[2];
-  rtx op3 = operands[3];
+  rtx parts[3][2];
+  int op, part;
 
-  if (GET_CODE (op2) != CONST_INT)
-    {
-      rtx op2_high = gen_highpart (SImode, operands[2]);
-      rtx op2_low  = gen_lowpart (SImode, operands[2]);
-      operands[4] = gen_adddi3_lower (op0_low, op1_low, op2_low, op3);
-      operands[5] = gen_adddi3_upper (op0_high, op1_high, op2_high, op3);
-    }
-  else if (INTVAL (op2) >= 0)
-    {
-      operands[4] = gen_adddi3_lower (op0_low, op1_low, op2, op3);
-      operands[5] = gen_adddi3_upper (op0_high, op1_high, const0_rtx, op3);
-    }
-  else
-    {
-      operands[4] = gen_subdi3_lower (op0_low, op1_low,
-				      GEN_INT (- INTVAL (op2)), op3);
-      operands[5] = gen_subdi3_upper (op0_high, op1_high, const0_rtx, op3);
-    }
+  for (op = 0; op < 3; op++)
+    for (part = 0; part < 2; part++)
+      parts[op][part] = simplify_gen_subreg (SImode, operands[op],
+					     DImode, part * UNITS_PER_WORD);
+
+  operands[4] = gen_adddi3_lower (parts[0][1], parts[1][1], parts[2][1],
+				  operands[3]);
+  operands[5] = gen_adddi3_upper (parts[0][0], parts[1][0], parts[2][0],
+				  copy_rtx (operands[3]));
 }"
   [(set_attr "length" "8")
    (set_attr "type" "multi")])
@@ -3064,50 +3022,46 @@
 (define_insn "adddi3_lower"
   [(set (match_operand:SI 0 "integer_register_operand" "=d")
 	(plus:SI (match_operand:SI 1 "integer_register_operand" "d")
-		 (match_operand:SI 2 "gpr_or_int10_operand" "dOP")))
+		 (match_operand:SI 2 "gpr_or_int10_operand" "dJ")))
    (set (match_operand:CC 3 "icc_operand" "=t")
 	(compare:CC (plus:SI (match_dup 1)
 			     (match_dup 2))
 		    (const_int 0)))]
-  "GET_CODE (operands[2]) != CONST_INT || INTVAL (operands[2]) >= 0"
+  ""
   "add%I2cc %1,%2,%0,%3"
   [(set_attr "length" "4")
    (set_attr "type" "int")])
 
 (define_insn "adddi3_upper"
-  [(set (match_operand:SI 0 "integer_register_operand" "=d,d")
-	(plus:SI (match_operand:SI 1 "integer_register_operand" "d,d")
-		 (plus:SI (match_operand:SI 2 "reg_or_0_operand" "d,O")
-			  (match_operand:CC 3 "icc_operand" "t,t"))))]
+  [(set (match_operand:SI 0 "integer_register_operand" "=d")
+	(plus:SI (match_operand:SI 1 "integer_register_operand" "d")
+		 (plus:SI (match_operand:SI 2 "gpr_or_int10_operand" "dJ")
+			  (match_operand:CC 3 "icc_operand" "t"))))]
   ""
-  "@
-   addx %1,%2,%0,%3
-   addx %1,%.,%0,%3"
+  "addx%I2 %1,%2,%0,%3"
   [(set_attr "length" "4")
    (set_attr "type" "int")])
 
 (define_insn "subdi3_lower"
   [(set (match_operand:SI 0 "integer_register_operand" "=d")
 	(minus:SI (match_operand:SI 1 "integer_register_operand" "d")
-		  (match_operand:SI 2 "gpr_or_int10_operand" "dOP")))
+		  (match_operand:SI 2 "integer_register_operand" "d")))
    (set (match_operand:CC 3 "icc_operand" "=t")
 	(compare:CC (plus:SI (match_dup 1)
 			     (match_dup 2))
 		    (const_int 0)))]
-  "GET_CODE (operands[2]) != CONST_INT || INTVAL (operands[2]) >= 0"
-  "sub%I2cc %1,%2,%0,%3"
+  ""
+  "subcc %1,%2,%0,%3"
   [(set_attr "length" "4")
    (set_attr "type" "int")])
 
 (define_insn "subdi3_upper"
-  [(set (match_operand:SI 0 "integer_register_operand" "=d,d")
-	(minus:SI (match_operand:SI 1 "integer_register_operand" "d,d")
-		  (minus:SI (match_operand:SI 2 "reg_or_0_operand" "d,O")
-			    (match_operand:CC 3 "icc_operand" "t,t"))))]
+  [(set (match_operand:SI 0 "integer_register_operand" "=d")
+	(minus:SI (match_operand:SI 1 "integer_register_operand" "d")
+		  (minus:SI (match_operand:SI 2 "integer_register_operand" "d")
+			    (match_operand:CC 3 "icc_operand" "t"))))]
   ""
-  "@
-   subx %1,%2,%0,%3
-   subx %1,%.,%0,%3"
+  "subx %1,%2,%0,%3"
   [(set_attr "length" "4")
    (set_attr "type" "int")])
 

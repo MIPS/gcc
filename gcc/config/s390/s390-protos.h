@@ -37,7 +37,6 @@ extern int const0_operand (rtx, enum machine_mode);
 extern int consttable_operand (rtx, enum machine_mode);
 extern int larl_operand (rtx, enum machine_mode);
 extern int s_operand (rtx, enum machine_mode);
-extern int s_imm_operand (rtx, enum machine_mode);
 extern int shift_count_operand (rtx, enum machine_mode);
 extern int bras_sym_operand (rtx, enum machine_mode);
 extern int load_multiple_operation (rtx, enum machine_mode);
@@ -45,6 +44,7 @@ extern int store_multiple_operation (rtx, enum machine_mode);
 extern int s390_single_part (rtx, enum machine_mode, enum machine_mode, int);
 extern unsigned HOST_WIDE_INT s390_extract_part (rtx, enum machine_mode, int);
 extern bool s390_split_ok_p (rtx, rtx, enum machine_mode, int);
+extern bool s390_offset_p (rtx, rtx, rtx);
 extern int tls_symbolic_operand (rtx);
 
 extern int s390_match_ccmode (rtx, enum machine_mode);
@@ -88,6 +88,8 @@ extern rtx s390_emit_call (rtx, rtx, rtx, rtx);
 extern void s390_expand_logical_operator (enum rtx_code,
 					  enum machine_mode, rtx *);
 extern bool s390_logical_operator_ok_p (rtx *);
+extern void s390_narrow_logical_operator (enum rtx_code, rtx *, rtx *);
+extern bool s390_pool_operand (rtx);
 
 extern bool s390_output_addr_const_extra (FILE*, rtx);
 extern void print_operand_address (FILE *, rtx);

@@ -270,8 +270,8 @@ unchecked_make_edge (basic_block src, basic_block dst, int flags)
   e = ggc_alloc_cleared (sizeof (*e));
   n_edges++;
 
-  VEC_safe_insert (edge, src->succs, 0, e);
-  VEC_safe_insert (edge, dst->preds, 0, e);
+  VEC_safe_push (edge, src->succs, e);
+  VEC_safe_push (edge, dst->preds, e);
 
   e->src = src;
   e->dest = dst;
@@ -365,7 +365,7 @@ remove_edge (edge e)
     {
       if (tmp == e)
 	{
-	  VEC_ordered_remove (edge, src->succs, ei.index);
+	  VEC_unordered_remove (edge, src->succs, ei.index);
 	  found = true;
 	  break;
 	}
@@ -380,7 +380,7 @@ remove_edge (edge e)
     {
       if (tmp == e)
 	{
-	  VEC_ordered_remove (edge, dest->preds, ei.index);
+	  VEC_unordered_remove (edge, dest->preds, ei.index);
 	  found = true;
 	  break;
 	}
@@ -407,7 +407,7 @@ redirect_edge_succ (edge e, basic_block new_succ)
     {
       if (tmp == e)
 	{
-	  VEC_ordered_remove (edge, e->dest->preds, ei.index);
+	  VEC_unordered_remove (edge, e->dest->preds, ei.index);
 	  found = true;
 	  break;
 	}
@@ -418,7 +418,7 @@ redirect_edge_succ (edge e, basic_block new_succ)
   gcc_assert (found);
 
   /* Reconnect the edge to the new successor block.  */
-  VEC_safe_insert (edge, new_succ->preds, 0, e);
+  VEC_safe_push (edge, new_succ->preds, e);
   e->dest = new_succ;
 }
 
@@ -465,7 +465,7 @@ redirect_edge_pred (edge e, basic_block new_pred)
     {
       if (tmp == e)
 	{
-	  VEC_ordered_remove (edge, e->src->succs, ei.index);
+	  VEC_unordered_remove (edge, e->src->succs, ei.index);
 	  found = true;
 	  break;
 	}
@@ -476,7 +476,7 @@ redirect_edge_pred (edge e, basic_block new_pred)
   gcc_assert (found);
 
   /* Reconnect the edge to the new predecessor block.  */
-  VEC_safe_insert (edge, new_pred->succs, 0, e);
+  VEC_safe_push (edge, new_pred->succs, e);
   e->src = new_pred;
 }
 
@@ -619,14 +619,6 @@ dump_flow_info (FILE *file)
       fprintf (file, "\nSuccessors: ");
       FOR_EACH_EDGE (e, ei, bb->succs)
 	dump_edge_info (file, e, 1);
-
-      fprintf (file, "\nRegisters live at start:");
-      dump_regset (bb->global_live_at_start, file);
-
-      fprintf (file, "\nRegisters live at end:");
-      dump_regset (bb->global_live_at_end, file);
-  
-      putc ('\n', file);
 
       if (bb->global_live_at_start)
 	{

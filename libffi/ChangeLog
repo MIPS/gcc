@@ -1,3 +1,38 @@
+2004-10-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR other/18138
+	* testsuite/lib/libffi-dg.exp: Accept more than one multilib libgcc.
+
+2004-10-25  Kazuhiro Inaoka <inaoka.kazuhiro@renesas.com>
+
+	* src/m32r/libffitarget.h (FFI_CLOSURES): Set to 0.
+
+2004-10-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* src/sh/sysv.S (ffi_call_SYSV): Don't align for double data.
+	* testsuite/libffi.call/float3.c: New test case.
+
+2004-10-18  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* src/sh/ffi.c (ffi_prep_closure): Set T bit in trampoline for
+	the function returning a structure pointed with R2.
+	* src/sh/sysv.S (ffi_closure_SYSV): Use R2 as the pointer to
+	the structure return value if T bit set.  Emit position
+	independent code and EH data if PIC.
+
+2004-10-13  Kazuhiro Inaoka  <inaoka.kazuhiro@renesas.com>
+
+	* Makefile.am: Add m32r support.
+	* configure.ac: Likewise.
+	* Makefile.in: Regenerate.
+	* confiugre: Regenerate.
+	* src/types.c: Add m32r port to FFI_INTERNAL_TYPEDEF
+	(uint64, sint64, double, longdouble)
+	* src/m32r: New directory.
+	* src/m32r/ffi.c: New file.
+	* src/m32r/sysv.S: Likewise.
+	* src/m32r/ffitarget.h: Likewise.
+
 2004-10-02  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* testsuite/libffi.call/negint.c: New test case.

@@ -36,6 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
+#include "tree-data-ref.h"
 #include "params.h"
 #include "flags.h"
 #include "tree-inline.h"
@@ -53,7 +54,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 */
 
 /* Returns true if ARG is either NULL_TREE or constant zero.  Unlike
-   integer_zerop, it does not care about overflow flags. */
+   integer_zerop, it does not care about overflow flags.  */
 
 bool
 zero_p (tree arg)
@@ -68,7 +69,7 @@ zero_p (tree arg)
 }
 
 /* Returns true if ARG a nonzero constant.  Unlike integer_nonzerop, it does
-   not care about overflow flags. */
+   not care about overflow flags.  */
 
 static bool
 nonzero_p (tree arg)
@@ -82,22 +83,83 @@ nonzero_p (tree arg)
   return (TREE_INT_CST_LOW (arg) != 0 || TREE_INT_CST_HIGH (arg) != 0);
 }
 
+/* Returns number of zeros at the end of binary representation of X.
+   
+   ??? Use ffs if available?  */
+
+static tree
+num_ending_zeros (tree x)
+{
+  unsigned HOST_WIDE_INT fr, nfr;
+  unsigned num, abits;
+  tree type = TREE_TYPE (x);
+
+  if (TREE_INT_CST_LOW (x) == 0)
+    {
+      num = HOST_BITS_PER_WIDE_INT;
+      fr = TREE_INT_CST_HIGH (x);
+    }
+  else
+    {
+      num = 0;
+      fr = TREE_INT_CST_LOW (x);
+    }
+
+  for (abits = HOST_BITS_PER_WIDE_INT / 2; abits; abits /= 2)
+    {
+      nfr = fr >> abits;
+      if (nfr << abits == fr)
+	{
+	  num += abits;
+	  fr = nfr;
+	}
+    }
+
+  if (num > TYPE_PRECISION (type))
+    num = TYPE_PRECISION (type);
+
+  return build_int_cst_type (type, num);
+}
+
 /* Returns inverse of X modulo 2^s, where MASK = 2^s-1.  */
 
 static tree
 inverse (tree x, tree mask)
 {
   tree type = TREE_TYPE (x);
-  tree ctr = EXEC_BINARY (RSHIFT_EXPR, type, mask, integer_one_node);
-  tree rslt = build_int_cst_type (type, 1);
+  tree rslt;
+  unsigned ctr = tree_floor_log2 (mask);
 
-  while (nonzero_p (ctr))
+  if (TYPE_PRECISION (type) <= HOST_BITS_PER_WIDE_INT)
     {
-      rslt = EXEC_BINARY (MULT_EXPR, type, rslt, x);
+      unsigned HOST_WIDE_INT ix;
+      unsigned HOST_WIDE_INT imask;
+      unsigned HOST_WIDE_INT irslt = 1;
+
+      gcc_assert (cst_and_fits_in_hwi (x));
+      gcc_assert (cst_and_fits_in_hwi (mask));
+
+      ix = int_cst_value (x);
+      imask = int_cst_value (mask);
+
+      for (; ctr; ctr--)
+	{
+	  irslt *= ix;
+	  ix *= ix;
+	}
+      irslt &= imask;
+
+      rslt = build_int_cst_type (type, irslt);
+    }
+  else
+    {
+      rslt = build_int_cst_type (type, 1);
+      for (; ctr; ctr--)
+	{
+	  rslt = EXEC_BINARY (MULT_EXPR, type, rslt, x);
+	  x = EXEC_BINARY (MULT_EXPR, type, x, x);
+	}
       rslt = EXEC_BINARY (BIT_AND_EXPR, type, rslt, mask);
-      x = EXEC_BINARY (MULT_EXPR, type, x, x);
-      x = EXEC_BINARY (BIT_AND_EXPR, type, x, mask);
-      ctr = EXEC_BINARY (RSHIFT_EXPR, type, ctr, integer_one_node);
     }
 
   return rslt;
@@ -128,6 +190,7 @@ number_of_iterations_cond (tree type, tree base0, tree step0,
   tree assumptions = boolean_true_node;
   tree noloop_assumptions = boolean_false_node;
   tree niter_type, signed_niter_type;
+  tree bits;
 
   /* The meaning of these assumptions is this:
      if !assumptions
@@ -349,26 +412,16 @@ number_of_iterations_cond (tree type, tree base0, tree step0,
       base1 = fold_convert (niter_type, base1);
       step0 = fold_convert (niter_type, step0);
 
-      /* Let nsd (s, size of mode) = d.  If d does not divide c, the loop
+      /* Let nsd (step, size of mode) = d.  If d does not divide c, the loop
 	 is infinite.  Otherwise, the number of iterations is
 	 (inverse(s/d) * (c/d)) mod (size of mode/d).  */
-      s = step0;
-      d = integer_one_node;
-      bound = build_int_cst (niter_type, -1);
-      while (1)
-	{
-	  tmp = EXEC_BINARY (BIT_AND_EXPR, niter_type, s,
-			     build_int_cst (niter_type, 1));
-	  if (nonzero_p (tmp))
-	    break;
-	  
-	  s = EXEC_BINARY (RSHIFT_EXPR, niter_type, s,
-			   build_int_cst (niter_type, 1));
-	  d = EXEC_BINARY (LSHIFT_EXPR, niter_type, d,
-			   build_int_cst (niter_type, 1));
-	  bound = EXEC_BINARY (RSHIFT_EXPR, niter_type, bound,
-			       build_int_cst (niter_type, 1));
-	}
+      bits = num_ending_zeros (step0);
+      d = EXEC_BINARY (LSHIFT_EXPR, niter_type,
+		       build_int_cst_type (niter_type, 1), bits);
+      s = EXEC_BINARY (RSHIFT_EXPR, niter_type, step0, bits);
+      bound = EXEC_BINARY (RSHIFT_EXPR, niter_type,
+			   build_int_cst (niter_type, -1),
+			   bits);
 
       assumption = fold (build2 (FLOOR_MOD_EXPR, niter_type, base1, d));
       assumption = fold (build2 (EQ_EXPR, boolean_type_node,
@@ -943,24 +996,10 @@ find_loop_niter_by_eval (struct loop *loop, edge *exit)
 
 */
 
-/* The structure describing a bound on number of iterations of a loop.  */
-
-struct nb_iter_bound
-{
-  tree bound;		/* The expression whose value is an upper bound on the
-			   number of executions of anything after ...  */
-  tree at_stmt;		/* ... this statement during one execution of loop.  */
-  tree additional;	/* A conjunction of conditions the operands of BOUND
-			   satisfy.  The additional information about the value
-			   of the bound may be derived from it.  */
-  struct nb_iter_bound *next;
-			/* The next bound in a list.  */
-};
-
 /* Records that AT_STMT is executed at most BOUND times in LOOP.  The
    additional condition ADDITIONAL is recorded with the bound.  */
 
-static void
+void
 record_estimate (struct loop *loop, tree bound, tree additional, tree at_stmt)
 {
   struct nb_iter_bound *elt = xmalloc (sizeof (struct nb_iter_bound));
@@ -1010,8 +1049,14 @@ estimate_numbers_of_iterations_loop (struct loop *loop)
     }
   free (exits);
   
-  /* TODO Here we could use other possibilities, like bounds of arrays accessed
-     in the loop.  */
+  /* Analyzes the bounds of arrays accessed in the loop.  */
+  if (loop->estimated_nb_iterations == NULL_TREE)
+    {
+      varray_type datarefs;
+      VARRAY_GENERIC_PTR_INIT (datarefs, 3, "datarefs");
+      find_data_references_in_loop (loop, &datarefs);
+      free_data_refs (datarefs);
+    }
 }
 
 /* Records estimates on numbers of iterations of LOOPS.  */

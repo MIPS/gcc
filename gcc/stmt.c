@@ -122,7 +122,8 @@ static int node_has_low_bound (case_node_ptr, tree);
 static int node_has_high_bound (case_node_ptr, tree);
 static int node_is_bounded (case_node_ptr, tree);
 static void emit_case_nodes (rtx, case_node_ptr, rtx, tree);
-static struct case_node *add_case_node (struct case_node *, tree, tree, tree);
+static struct case_node *add_case_node (struct case_node *, tree,
+					tree, tree, tree);
 
 
 /* Return the rtx-label that corresponds to a LABEL_DECL,
@@ -555,33 +556,6 @@ parse_input_constraint (const char **constraint_p, int input_num,
     warning ("matching constraint does not allow a register");
 
   return true;
-}
-
-/* INPUT is one of the input operands from EXPR, an ASM_EXPR.  Returns true
-   if it is an operand which must be passed in memory (i.e. an "m"
-   constraint), false otherwise.  */
-
-bool
-asm_op_is_mem_input (tree input, tree expr)
-{
-  const char *constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (input)));
-  tree outputs = ASM_OUTPUTS (expr);
-  int noutputs = list_length (outputs);
-  const char **constraints
-    = (const char **) alloca ((noutputs) * sizeof (const char *));
-  int i = 0;
-  bool allows_mem, allows_reg;
-  tree t;
-
-  /* Collect output constraints.  */
-  for (t = outputs; t ; t = TREE_CHAIN (t), i++)
-    constraints[i] = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
-
-  /* We pass 0 for input_num, ninputs and ninout; they are only used for
-     error checking which will be done at expand time.  */
-  parse_input_constraint (&constraint, 0, 0, noutputs, 0, constraints,
-			  &allows_mem, &allows_reg);
-  return (!allows_reg && allows_mem);
 }
 
 /* Check for overlap between registers marked in CLOBBERED_REGS and
@@ -1107,7 +1081,7 @@ expand_asm_expr (tree exp)
     {
       if (o[i] != TREE_VALUE (tail))
 	{
-	  expand_assignment (o[i], TREE_VALUE (tail), 0);
+	  expand_assignment (o[i], TREE_VALUE (tail));
 	  free_temp_slots ();
 
 	  /* Restore the original value so that it's correct the next
@@ -2052,48 +2026,6 @@ expand_stack_restore (tree var)
   emit_stack_restore (SAVE_BLOCK, sa, NULL_RTX);
 }
 
-/* Emit code to perform the initialization of a declaration DECL.  */
-
-void
-expand_decl_init (tree decl)
-{
-  int was_used = TREE_USED (decl);
-
-  /* If this is a CONST_DECL, we don't have to generate any code.  Likewise
-     for static decls.  */
-  if (TREE_CODE (decl) == CONST_DECL
-      || TREE_STATIC (decl))
-    return;
-
-  /* Compute and store the initial value now.  */
-
-  push_temp_slots ();
-
-  if (DECL_INITIAL (decl) == error_mark_node)
-    {
-      enum tree_code code = TREE_CODE (TREE_TYPE (decl));
-
-      if (code == INTEGER_TYPE || code == REAL_TYPE || code == ENUMERAL_TYPE
-	  || code == POINTER_TYPE || code == REFERENCE_TYPE)
-	expand_assignment (decl, convert (TREE_TYPE (decl), integer_zero_node),
-			   0);
-    }
-  else if (DECL_INITIAL (decl) && TREE_CODE (DECL_INITIAL (decl)) != TREE_LIST)
-    {
-      emit_line_note (DECL_SOURCE_LOCATION (decl));
-      expand_assignment (decl, DECL_INITIAL (decl), 0);
-    }
-
-  /* Don't let the initialization count as "using" the variable.  */
-  TREE_USED (decl) = was_used;
-
-  /* Free any temporaries we made while initializing the decl.  */
-  preserve_temp_slots (NULL_RTX);
-  free_temp_slots ();
-  pop_temp_slots ();
-}
-
-
 /* DECL is an anonymous union.  CLEANUP is a cleanup for DECL.
    DECL_ELTS is the list of elements that belong to DECL's type.
    In each, the TREE_VALUE is a VAR_DECL, and the TREE_PURPOSE a cleanup.  */
@@ -2157,19 +2089,61 @@ expand_anon_union_decl (tree decl, tree cleanup ATTRIBUTE_UNUSED,
 /* Do the insertion of a case label into case_list.  The labels are
    fed to us in descending order from the sorted vector of case labels used
    in the tree part of the middle end.  So the list we construct is
-   sorted in ascending order.  */
+   sorted in ascending order.  The bounds on the case range, LOW and HIGH,
+   are converted to case's index type TYPE.  */
 
-struct case_node *
-add_case_node (struct case_node *head, tree low, tree high, tree label)
+static struct case_node *
+add_case_node (struct case_node *head, tree type, tree low, tree high,
+	       tree label)
 {
+  tree min_value, max_value;
   struct case_node *r;
+
+  gcc_assert (TREE_CODE (low) == INTEGER_CST);
+  gcc_assert (!high || TREE_CODE (high) == INTEGER_CST);
+
+  min_value = TYPE_MIN_VALUE (type);
+  max_value = TYPE_MAX_VALUE (type);
 
   /* If there's no HIGH value, then this is not a case range; it's
      just a simple case label.  But that's just a degenerate case
      range.
      If the bounds are equal, turn this into the one-value case.  */
   if (!high || tree_int_cst_equal (low, high))
-    high = low;
+    {
+      /* If the simple case value is unreachable, ignore it.  */
+      if ((TREE_CODE (min_value) == INTEGER_CST
+            && tree_int_cst_compare (low, min_value) < 0)
+	  || (TREE_CODE (max_value) == INTEGER_CST
+	      && tree_int_cst_compare (low, max_value) > 0))
+	return head;
+      low = fold_convert (type, low);
+      high = low;
+    }
+  else
+    {
+      /* If the entire case range is unreachable, ignore it.  */
+      if ((TREE_CODE (min_value) == INTEGER_CST
+            && tree_int_cst_compare (high, min_value) < 0)
+	  || (TREE_CODE (max_value) == INTEGER_CST
+	      && tree_int_cst_compare (low, max_value) > 0))
+	return head;
+
+      /* If the lower bound is less than the index type's minimum
+	 value, truncate the range bounds.  */
+      if (TREE_CODE (min_value) == INTEGER_CST
+            && tree_int_cst_compare (low, min_value) < 0)
+	low = min_value;
+      low = fold_convert (type, low);
+
+      /* If the upper bound is greater than the index type's maximum
+	 value, truncate the range bounds.  */
+      if (TREE_CODE (max_value) == INTEGER_CST
+	  && tree_int_cst_compare (high, max_value) > 0)
+	high = max_value;
+      high = fold_convert (type, high);
+    }
+
 
   /* Add this label to the chain.  */
   r = ggc_alloc (sizeof (struct case_node));
@@ -2349,7 +2323,7 @@ expand_case (tree exp)
   rtx table_label;
   int ncases;
   rtx *labelvec;
-  int i;
+  int i, fail;
   rtx before_case, end, lab;
 
   tree vec = SWITCH_LABELS (exp);
@@ -2367,68 +2341,55 @@ expand_case (tree exp)
   struct case_node *case_list = 0;
 
   /* Label to jump to if no case matches.  */
-  tree default_label_decl = 0;
+  tree default_label_decl;
 
   /* The switch body is lowered in gimplify.c, we should never have
      switches with a non-NULL SWITCH_BODY here.  */
   gcc_assert (!SWITCH_BODY (exp));
   gcc_assert (SWITCH_LABELS (exp));
 
-  for (i = TREE_VEC_LENGTH (vec); --i >= 0; )
-    {
-      tree elt = TREE_VEC_ELT (vec, i);
-
-      /* Handle default labels specially.  */
-      if (!CASE_HIGH (elt) && !CASE_LOW (elt))
-	{
-	  gcc_assert (!default_label_decl);
-	  default_label_decl = CASE_LABEL (elt);
-        }
-      else
-        case_list = add_case_node (case_list, CASE_LOW (elt), CASE_HIGH (elt),
-				   CASE_LABEL (elt));
-    }
-
   do_pending_stack_adjust ();
-
-  /* Make sure start points to something that won't need any transformation
-     before the end of this function.  */
-  if (!NOTE_P (get_last_insn ()))
-    emit_note (NOTE_INSN_DELETED);
-
-  start = get_last_insn ();
 
   /* An ERROR_MARK occurs for various reasons including invalid data type.  */
   if (index_type != error_mark_node)
     {
-      int fail;
+      tree elt;
 
-      /* If we don't have a default-label, create one here,
-	 after the body of the switch.  */
-      if (default_label_decl == 0)
+      /* The default case is at the end of TREE_VEC.  */
+      elt = TREE_VEC_ELT (vec, TREE_VEC_LENGTH (vec) - 1);
+      gcc_assert (!CASE_HIGH (elt));
+      gcc_assert (!CASE_LOW (elt));
+      default_label_decl = CASE_LABEL (elt);
+
+      for (i = TREE_VEC_LENGTH (vec) - 1; --i >= 0; )
 	{
-	  default_label_decl
-	    = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-	  expand_label (default_label_decl);
+	  elt = TREE_VEC_ELT (vec, i);
+	  gcc_assert (CASE_LOW (elt));
+	  case_list = add_case_node (case_list, index_type,
+				     CASE_LOW (elt), CASE_HIGH (elt),
+				     CASE_LABEL (elt));
 	}
+
+
+      /* Make sure start points to something that won't need any
+	 transformation before the end of this function.  */
+      start = get_last_insn ();
+      if (! NOTE_P (start))
+	{
+	  emit_note (NOTE_INSN_DELETED);
+	  start = get_last_insn ();
+	}
+
       default_label = label_rtx (default_label_decl);
 
       before_case = get_last_insn ();
 
-      /* Get upper and lower bounds of case values.
-	 Also convert all the case values to the index expr's data type.  */
+      /* Get upper and lower bounds of case values.  */
 
       uniq = 0;
       count = 0;
       for (n = case_list; n; n = n->right)
 	{
-	  /* Check low and high label values are integers.  */
-	  gcc_assert (TREE_CODE (n->low) == INTEGER_CST);
-	  gcc_assert (TREE_CODE (n->high) == INTEGER_CST);
-
-	  n->low = convert (index_type, n->low);
-	  n->high = convert (index_type, n->high);
-
 	  /* Count the elements and track the largest and smallest
 	     of them (treating them as signed even if they are not).  */
 	  if (count++ == 0)

@@ -377,6 +377,7 @@ Objective-C and Objective-C++ Dialects}.
 -fstrength-reduce  -fstrict-aliasing  -ftracer  -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -fsplit-ivs-in-unroller -funswitch-loops @gol
+-fvariable-expansion-in-unroller @gol
 -ftree-pre  -ftree-ccp  -ftree-dce -ftree-loop-optimize @gol
 -ftree-loop-linear -ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename @gol
@@ -700,7 +701,7 @@ See RS/6000 and PowerPC Options.
 -mabi=spe  -mabi=no-spe @gol
 -misel=yes  -misel=no @gol
 -mspe=yes  -mspe=no @gol
--mfloat-gprs=yes  -mfloat-gprs=no @gol
+-mfloat-gprs=yes  -mfloat-gprs=no -mfloat-gprs=single -mfloat-gprs=double @gol
 -mprototype  -mno-prototype @gol
 -msim  -mmvme  -mads  -myellowknife  -memb  -msdata @gol
 -msdata=@var{opt}  -mvxworks  -mwindiss  -G @var{num}  -pthread}
@@ -4848,7 +4849,7 @@ by separate flags.
 Perform cross-jumping transformation. This transformation unifies equivalent code and save code size. The
 resulting code may or may not perform better than without cross-jumping.
 
-Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fif-conversion
 @opindex if-conversion
@@ -5140,6 +5141,11 @@ a single basic block, this is not reliable.  It also does not work at all
 on some of the architectures due to restrictions in the CSE pass.
 
 This optimization is enabled by default.
+
+@item -fvariable-expansion-in-unroller
+@opindex -fvariable-expansion-in-unroller
+With this option, the compiler will create multiple copies of some 
+local variables when unrolling a loop which can result in superior code.
 
 @item -fprefetch-loop-arrays
 @opindex fprefetch-loop-arrays
@@ -7235,7 +7241,8 @@ assembly code.  Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{arm968e-s}, @samp{arm926ej-s}, @samp{arm940t}, @samp{arm9tdmi},
 @samp{arm10tdmi}, @samp{arm1020t}, @samp{arm1026ej-s},
 @samp{arm10e}, @samp{arm1020e}, @samp{arm1022e},
-@samp{arm1136j-s}, @samp{arm1136jf-s} ,@samp{xscale}, @samp{iwmmxt},
+@samp{arm1136j-s}, @samp{arm1136jf-s}, @samp{mpcore}, @samp{mpcorenovfp},
+@samp{arm1176jz-s}, @samp{arm1176jzf-s}, @samp{xscale}, @samp{iwmmxt},
 @samp{ep9312}.
 
 @itemx -mtune=@var{name}
@@ -9972,14 +9979,17 @@ operations.  This is the default.
 @itemx -mno-paired-single
 @opindex mpaired-single
 @opindex mno-paired-single
-Use (do not use) the paired single instructions.
+Use (do not use) paired-single floating-point instructions.
+@xref{MIPS Paired-Single Support}.  This option can only be used
+when generating 64-bit code and requires hardware floating-point
+support to be enabled.
 
 @itemx -mips3d
 @itemx -mno-mips3d
 @opindex mips3d
 @opindex mno-mips3d
-Use (do not use) the MIPS-3D ASE.  The option @option{-mips3d} implies
-@option{-mpaired-single}.
+Use (do not use) the MIPS-3D ASE.  @xref{MIPS-3D Built-in Functions}.
+The option @option{-mips3d} implies @option{-mpaired-single}.
 
 @item -mint64
 @opindex mint64
@@ -10753,8 +10763,9 @@ scheduling parameters set by @option{-mtune}.
 @itemx -mno-altivec
 @opindex maltivec
 @opindex mno-altivec
-These switches enable or disable the use of built-in functions that
-allow access to the AltiVec instruction set.  You may also need to set
+Generate code that uses (does not use) AltiVec instructions, and also
+enable the use of built-in functions that allow more direct access to
+the AltiVec instruction set.  You may also need to set
 @option{-mabi=altivec} to adjust the current ABI with AltiVec ABI
 enhancements.
 
@@ -10779,12 +10790,23 @@ This switch enables or disables the generation of ISEL instructions.
 This switch enables or disables the generation of SPE simd
 instructions.
 
-@item -mfloat-gprs=@var{yes/no}
+@item -mfloat-gprs=@var{yes/single/double/no}
 @itemx -mfloat-gprs
 @opindex mfloat-gprs
 This switch enables or disables the generation of floating point
 operations on the general purpose registers for architectures that
-support it.  This option is currently only available on the MPC8540.
+support it.
+
+The argument @var{yes} or @var{single} enables the use of
+single-precision floating point operations.
+
+The argument @var{double} enables the use of single and
+double-precision floating point operations.
+
+The argument @var{no} disables floating point operations on the
+general purpose registers.
+
+This option is currently only available on the MPC854x.
 
 @item -m32
 @itemx -m64

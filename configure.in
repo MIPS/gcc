@@ -80,10 +80,17 @@ AC_SUBST(TOPLEVEL_CONFIGURE_ARGUMENTS)
 
 moveifchange=${srcdir}/move-if-change
 
+srcpwd=`cd ${srcdir} ; ${PWDCMD-pwd}`
+
+# We pass INSTALL explicitly to sub-makes.  Make sure that it is not
+# a relative path.
+if test "$INSTALL" = "${srcdir}/install-sh -c"; then
+  INSTALL="${srcpwd}/install-sh -c"
+fi
+
 # Set srcdir to "." if that's what it is.
 # This is important for multilib support.
 pwd=`${PWDCMD-pwd}`
-srcpwd=`cd ${srcdir} ; ${PWDCMD-pwd}`
 if test "${pwd}" = "${srcpwd}" ; then
   srcdir=.
 fi
@@ -506,7 +513,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs ${libgcj} target-newlib target-libgloss"
     ;;
   crx-*-*)
-    noconfigdirs="$noconfigdirs target-libgloss target-libstdc++-v3 target-mudflap ${libgcj}"
+    noconfigdirs="$noconfigdirs target-libstdc++-v3 target-mudflap ${libgcj}"
     ;;
   d10v-*-*)
     noconfigdirs="$noconfigdirs target-libstdc++-v3 target-libgloss ${libgcj}"
@@ -593,10 +600,9 @@ case "${target}" in
     target_configdirs="$target_configdirs target-libtermcap target-winsup"
     noconfigdirs="$noconfigdirs target-gperf target-libgloss ${libgcj}"
     # always build newlib if winsup directory is present.
-    if test -d "$srcdir/winsup"
-    then
+    if test -d "$srcdir/winsup"; then
       skipdirs=`echo " ${skipdirs} " | sed -e 's/ target-newlib / /'`
-    else
+    elif test -d "$srcdir/newlib"; then
       echo "Warning: winsup is missing so newlib can't be built."
     fi
 

@@ -160,7 +160,7 @@ static void mfsplay_tree_rebalance (mfsplay_tree sp);
 /* Required globals.  */
 
 #define LOOKUP_CACHE_MASK_DFL 1023
-#define LOOKUP_CACHE_SIZE_MAX 4096 /* Allows max CACHE_MASK 0x0FFF */
+#define LOOKUP_CACHE_SIZE_MAX 65536 /* Allows max CACHE_MASK 0xFFFF */
 #define LOOKUP_CACHE_SHIFT_DFL 2
 
 struct __mf_cache __mf_lookup_cache [LOOKUP_CACHE_SIZE_MAX];
@@ -310,36 +310,36 @@ static struct option
       set_option,
       read_integer_option,
     } type;
-  int value;
-  int *target;
+  unsigned value;
+  unsigned *target;
 } 
 options [] =
   {
     {"mode-nop", 
      "mudflaps do nothing", 
-     set_option, (int)mode_nop, (int *)&__mf_opts.mudflap_mode},    
+     set_option, (unsigned)mode_nop, (unsigned *)&__mf_opts.mudflap_mode},    
     {"mode-populate", 
      "mudflaps populate object tree", 
-     set_option, (int)mode_populate, (int *)&__mf_opts.mudflap_mode},    
+     set_option, (unsigned)mode_populate, (unsigned *)&__mf_opts.mudflap_mode},    
     {"mode-check", 
      "mudflaps check for memory violations",
-     set_option, (int)mode_check, (int *)&__mf_opts.mudflap_mode},
+     set_option, (unsigned)mode_check, (unsigned *)&__mf_opts.mudflap_mode},
     {"mode-violate", 
      "mudflaps always cause violations (diagnostic)",
-     set_option, (int)mode_violate, (int *)&__mf_opts.mudflap_mode},
+     set_option, (unsigned)mode_violate, (unsigned *)&__mf_opts.mudflap_mode},
    
     {"viol-nop", 
      "violations do not change program execution",
-     set_option, (int)viol_nop, (int *)&__mf_opts.violation_mode},
+     set_option, (unsigned)viol_nop, (unsigned *)&__mf_opts.violation_mode},
     {"viol-abort", 
      "violations cause a call to abort()",
-     set_option, (int)viol_abort, (int *)&__mf_opts.violation_mode},
+     set_option, (unsigned)viol_abort, (unsigned *)&__mf_opts.violation_mode},
     {"viol-segv", 
      "violations are promoted to SIGSEGV signals",
-     set_option, (int)viol_segv, (int *)&__mf_opts.violation_mode},
+     set_option, (unsigned)viol_segv, (unsigned *)&__mf_opts.violation_mode},
     {"viol-gdb", 
      "violations fork a gdb process attached to current program",
-     set_option, (int)viol_gdb, (int *)&__mf_opts.violation_mode},
+     set_option, (unsigned)viol_gdb, (unsigned *)&__mf_opts.violation_mode},
     {"trace-calls", 
      "trace calls to mudflap runtime library",
      set_option, 1, &__mf_opts.trace_mf_calls},
@@ -728,6 +728,7 @@ __wrap_main (int argc, char* argv[])
 {
   extern char **environ;
   extern int main ();
+  extern int __real_main ();
   static int been_here = 0;
 
   if (__mf_opts.heur_std_data && ! been_here)
@@ -916,7 +917,7 @@ void __mfu_check (void *ptr, size_t sz, int type, const char *location)
                   judgement = -1;
               }
 
-            /* We now know that the access spans one or more valid objects.  */
+            /* We now know that the access spans one or more only valid objects.  */
             if (LIKELY (judgement >= 0))
               for (i = 0; i < obj_count; i++)
                 {
@@ -930,11 +931,57 @@ void __mfu_check (void *ptr, size_t sz, int type, const char *location)
                       entry->high = obj->high;
                       judgement = 1;
                     }
-
-                  /* XXX: Access runs off left or right side of this
-                          object.  That could be okay, if there are
-                          other objects that fill in all the holes. */
                 }
+
+            /* This access runs off the end of one valid object.  That
+                could be okay, if other valid objects fill in all the
+                holes.  We allow this only for HEAP and GUESS type
+                objects.  Accesses to STATIC and STACK variables
+                should not be allowed to span.  */
+            if (UNLIKELY ((judgement == 0) && (obj_count > 1)))
+              {
+                unsigned uncovered = 0;
+                for (i = 0; i < obj_count; i++)
+                  {
+                    __mf_object_t *obj = all_ovr_obj[i];
+                    int j, uncovered_low_p, uncovered_high_p;
+                    uintptr_t ptr_lower, ptr_higher;
+
+                    uncovered_low_p = ptr_low < obj->low;
+                    ptr_lower = CLAMPSUB (obj->low, 1);
+                    uncovered_high_p = ptr_high > obj->high;
+                    ptr_higher = CLAMPADD (obj->high, 1);
+
+                    for (j = 0; j < obj_count; j++)
+                      {
+                        __mf_object_t *obj2 = all_ovr_obj[j];
+
+                        if (i == j) continue;
+
+                        /* Filter out objects that cannot be spanned across.  */
+                        if (obj2->type == __MF_TYPE_STACK 
+                            || obj2->type == __MF_TYPE_STATIC)
+                          continue;
+
+                          /* Consider a side "covered" if obj2 includes
+                             the next byte on that side.  */
+                          if (uncovered_low_p
+                              && (ptr_lower >= obj2->low && ptr_lower <= obj2->high))
+                            uncovered_low_p = 0;
+                          if (uncovered_high_p
+                              && (ptr_high >= obj2->low && ptr_higher <= obj2->high))
+                            uncovered_high_p = 0;
+                      }
+                    
+                    if (uncovered_low_p || uncovered_high_p)
+                      uncovered ++;
+                  }
+
+                /* Success if no overlapping objects are uncovered.  */
+                if (uncovered == 0)
+                  judgement = 1;
+                }
+
 
             if (dealloc_me != NULL)
               CALL_REAL (free, dealloc_me);
@@ -1412,7 +1459,7 @@ __mf_adapt_cache ()
       cache_utilization += 1.0;
   cache_utilization /= (1 + __mf_lc_mask);
 
-  new_mask |= 0x3ff; /* XXX: force a large cache.  */
+  new_mask |= 0xffff; /* XXX: force a large cache.  */
   new_mask &= (LOOKUP_CACHE_SIZE_MAX - 1);
 
   VERBOSE_TRACE ("adapt cache obj=%u/%u sizes=%lu/%.0f/%.0f => "

@@ -551,7 +551,7 @@ mf_build_check_statement_for (tree base, tree addr, tree limit,
 
   /* Update dominance info.  Note that bb_join's data was
      updated by split_block.  */
-  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+  if (dom_info_available_p (CDI_DOMINATORS))
     {
       set_immediate_dominator (CDI_DOMINATORS, then_bb, cond_bb);
       set_immediate_dominator (CDI_DOMINATORS, join_bb, cond_bb);
@@ -1207,7 +1207,7 @@ mudflap_enqueue_decl (tree obj)
       for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_static_decls); i++)
         if (VARRAY_TREE (deferred_static_decls, i) == obj)
           {
-            warning ("mudflap cannot track lifetime of %qs",
+            warning ("mudflap cannot track unknown size extern %qs",
                      IDENTIFIER_POINTER (DECL_NAME (obj)));
             return;
           }

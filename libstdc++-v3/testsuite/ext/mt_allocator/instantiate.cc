@@ -25,4 +25,11 @@
 #include <cstdlib>
 #include <ext/mt_allocator.h>
 
-template class __gnu_cxx::__mt_alloc<int>;
+using namespace __gnu_cxx;
+template class __mt_alloc<int>;
+template class __mt_alloc<short, __common_pool_policy<false> >;
+template class __mt_alloc<short, __per_type_pool_policy<short, false> >;
+#ifdef __GTHREADS
+template class __mt_alloc<short, __common_pool_policy<true> >;
+template class __mt_alloc<short, __per_type_pool_policy<short, true> >;
+#endif

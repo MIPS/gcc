@@ -135,9 +135,9 @@ get_fileinfo (const char *name)
   struct c_fileinfo *fi;
 
   if (!file_info_tree)
-    file_info_tree = splay_tree_new ((splay_tree_compare_fn)strcmp,
+    file_info_tree = splay_tree_new ((splay_tree_compare_fn) strcmp,
 				     0,
-				     (splay_tree_delete_value_fn)free);
+				     (splay_tree_delete_value_fn) free);
 
   n = splay_tree_lookup (file_info_tree, (splay_tree_key) name);
   if (n)
@@ -186,7 +186,7 @@ dump_time_statistics (void)
   print_time ("header files (total)", header_time);
   print_time ("main file (total)", this_time - body_time);
   fprintf (stderr, "ratio = %g : 1\n",
-	   (double)header_time / (double)(this_time - body_time));
+	   (double) header_time / (double) (this_time - body_time));
   fprintf (stderr, "\n******\n");
 
   splay_tree_foreach (file_info_tree, dump_one_header, 0);
@@ -198,7 +198,7 @@ cb_ident (cpp_reader * ARG_UNUSED (pfile),
 	  const cpp_string * ARG_UNUSED (str))
 {
 #ifdef ASM_OUTPUT_IDENT
-  if (! flag_no_ident)
+  if (!flag_no_ident)
     {
       /* Convert escapes in the string.  */
       cpp_string cstr = { 0, 0 };
@@ -206,7 +206,7 @@ cb_ident (cpp_reader * ARG_UNUSED (pfile),
       if (cpp_interpret_string (pfile, str, 1, &cstr, false, false))
 	{
 	  ASM_OUTPUT_IDENT (asm_out_file, (const char *) cstr.text);
-	  free ((void *)cstr.text);
+	  free ((void *) cstr.text);
 	}
     }
 #endif
@@ -240,7 +240,7 @@ fe_file_change (const struct line_map *new_map)
     {
       /* Don't stack the main buffer on the input stack;
 	 we already did in compile_file.  */
-      if (! MAIN_FILE_P (new_map))
+      if (!MAIN_FILE_P (new_map))
 	{
 #ifdef USE_MAPPED_LOCATION
           int included_at = LAST_SOURCE_LINE_LOCATION (new_map - 1);
@@ -574,7 +574,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
       /* else fall through */
 
     case CPP_PRAGMA:
-      *value = build_string (tok->val.str.len, (char *)tok->val.str.text);
+      *value = build_string (tok->val.str.len, (char *) tok->val.str.text);
       break;
 
       /* These tokens should not be visible outside cpplib.  */
@@ -593,7 +593,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
     --c_lex_depth;
   /* APPLE LOCAL end CW asm blocks */
 
-  if (! no_more_pch)
+  if (!no_more_pch)
     {
       no_more_pch = true;
       c_common_no_more_pch ();
@@ -632,8 +632,8 @@ narrowest_unsigned_type (unsigned HOST_WIDE_INT low,
     {
       tree upper = TYPE_MAX_VALUE (integer_types[itk]);
 
-      if ((unsigned HOST_WIDE_INT)TREE_INT_CST_HIGH (upper) > high
-	  || ((unsigned HOST_WIDE_INT)TREE_INT_CST_HIGH (upper) == high
+      if ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (upper) > high
+	  || ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (upper) == high
 	      && TREE_INT_CST_LOW (upper) >= low))
 	return itk;
     }
@@ -660,8 +660,8 @@ narrowest_signed_type (unsigned HOST_WIDE_INT low,
     {
       tree upper = TYPE_MAX_VALUE (integer_types[itk]);
       
-      if ((unsigned HOST_WIDE_INT)TREE_INT_CST_HIGH (upper) > high
-	  || ((unsigned HOST_WIDE_INT)TREE_INT_CST_HIGH (upper) == high
+      if ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (upper) > high
+	  || ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (upper) == high
 	      && TREE_INT_CST_LOW (upper) >= low))
 	return itk;
     }
@@ -734,7 +734,7 @@ interpret_integer (const cpp_token *token, unsigned int flags)
 
   if (itk > itk_unsigned_long
       && (flags & CPP_N_WIDTH) != CPP_N_LARGE
-      && ! in_system_header && ! flag_isoc99)
+      && !in_system_header && !flag_isoc99)
     pedwarn ("integer constant is too large for %qs type",
 	     (flags & CPP_N_UNSIGNED) ? "unsigned long" : "long");
 
@@ -795,13 +795,13 @@ interpret_float (const cpp_token *token, unsigned int flags)
   real_from_string (&real, copy);
   real_convert (&real, TYPE_MODE (type), &real);
 
-  /* A diagnostic is required for "soft" overflow by some ISO C
-     testsuites.  This is not pedwarn, because some people don't want
-     an error for this.
-     ??? That's a dubious reason... is this a mandatory diagnostic or
-     isn't it?   -- zw, 2001-08-21.  */
+  /* Both C and C++ require a diagnostic for a floating constant
+     outside the range of representable values of its type.  Since we
+     have __builtin_inf* to produce an infinity, it might now be
+     appropriate for this to be a mandatory pedwarn rather than
+     conditioned on -pedantic.  */
   if (REAL_VALUE_ISINF (real) && pedantic)
-    warning ("floating constant exceeds range of %<%s%>", type_name);
+    pedwarn ("floating constant exceeds range of %<%s%>", type_name);
 
   /* Create a node with determined type and value.  */
   value = build_real (type, real);
@@ -896,8 +896,8 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
       /* APPLE LOCAL pascal strings */
       (parse_in, strs, count, &istr, wide, pascal_p))
     {
-      value = build_string (istr.len, (char *)istr.text);
-      free ((void *)istr.text);
+      value = build_string (istr.len, (char *) istr.text);
+      free ((void *) istr.text);
 
       if (c_lex_string_translate == -1)
 	{
@@ -908,17 +908,17 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
 	     then the untranslated parsing will always succeed.  */
 	  gcc_assert (xlated);
 	  
-	  if (TREE_STRING_LENGTH (value) != (int)istr.len
-	      || 0 != strncmp (TREE_STRING_POINTER (value), (char *)istr.text,
+	  if (TREE_STRING_LENGTH (value) != (int) istr.len
+	      || 0 != strncmp (TREE_STRING_POINTER (value), (char *) istr.text,
 			       istr.len))
 	    {
 	      /* Arrange for us to return the untranslated string in
 		 *valp, but to set up the C type of the translated
 		 one.  */
-	      *valp = build_string (istr.len, (char *)istr.text);
+	      *valp = build_string (istr.len, (char *) istr.text);
 	      valp = &TREE_CHAIN (*valp);
 	    }
-	  free ((void *)istr.text);
+	  free ((void *) istr.text);
 	}
     }
   else

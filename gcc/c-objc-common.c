@@ -94,7 +94,7 @@ c_cannot_inline_tree_fn (tree *fnp)
       goto cannot_inline;
     }
 
-  if (! function_attribute_inlinable_p (fn))
+  if (!function_attribute_inlinable_p (fn))
     {
       if (do_warning)
 	warning ("%Jfunction %qF can never be inlined because it uses "
@@ -118,7 +118,7 @@ c_cannot_inline_tree_fn (tree *fnp)
 	}
     }
 
-  if (! DECL_FILE_SCOPE_P (fn))
+  if (!DECL_FILE_SCOPE_P (fn))
     {
       /* If a nested function has pending sizes, we may have already
          saved them.  */

@@ -119,7 +119,7 @@ T_ADAFLAGS =
 # See below for how to change them for certain systems.
 
 # List of language subdirectories.
-SUBDIRS =@subdirs@
+SUBDIRS =@subdirs@ build
 
 # Selection of languages to be made.
 CONFIG_LANGUAGES = @all_languages@
@@ -188,12 +188,12 @@ GCC_WARN_CFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG) $($@-warn)
 # These files are to have -Werror bypassed in stage2:
 # These are very hard to completely clean due to target complexities.
 gcc.o-warn = -Wno-error
-insn-conditions.o-warn = -Wno-error
+build/insn-conditions.o-warn = -Wno-error
 # Bison-1.75 output often yields (harmless) -Wtraditional warnings
-gengtype-yacc.o-warn = -Wno-error
+build/gengtype-yacc.o-warn = -Wno-error
 c-parse.o-warn = -Wno-error
 # flex output may yield harmless "no previous prototype" warnings
-gengtype-lex.o-warn = -Wno-error
+build/gengtype-lex.o-warn = -Wno-error
 # SYSCALLS.c misses prototypes
 SYSCALLS.c.X-warn = -Wno-strict-prototypes -Wno-error
 # These files need -Wno-error because the gimplifier triggers hard to fix
@@ -727,7 +727,7 @@ SCHED_INT_H = sched-int.h $(INSN_ATTR_H) $(BASIC_BLOCK_H) $(RTL_H)
 INTEGRATE_H = integrate.h varray.h
 CFGLAYOUT_H = cfglayout.h $(BASIC_BLOCK_H)
 CFGLOOP_H = cfgloop.h $(BASIC_BLOCK_H) $(RTL_H)
-CGRAPH_H = cgraph.h bitmap.h tree.h $(HASHTAB_H)
+CGRAPH_H = cgraph.h tree.h 
 DF_H = df.h bitmap.h sbitmap.h $(BASIC_BLOCK_H)
 DDG_H = ddg.h sbitmap.h $(DF_H)
 GCC_H = gcc.h version.h
@@ -943,7 +943,7 @@ OBJS-common = \
  params.o postreload.o postreload-gcse.o predict.o			   \
  insn-preds.o integrate.o intl.o jump.o langhooks.o lcm.o lists.o 	   \
  local-alloc.o loop.o modulo-sched.o optabs.o options.o opts.o		   \
- params.o postreload.o postreload-gcse.o predict.o			   \
+ params.o pointer-set.o postreload.o postreload-gcse.o predict.o 	   \
  print-rtl.o print-tree.o value-prof.o var-tracking.o			   \
  profile.o ra.o ra-build.o ra-colorize.o ra-debug.o ra-rewrite.o	   \
  real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
@@ -1625,7 +1625,7 @@ tree-inline.o : tree-inline.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(RTL_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h insn-config.h \
    $(INTEGRATE_H) $(VARRAY_H) $(HASHTAB_H) $(SPLAY_TREE_H) toplev.h \
    langhooks.h $(C_COMMON_H) tree-inline.h $(CGRAPH_H) intl.h function.h \
-   $(TREE_GIMPLE_H)
+   pointer-set.h $(TREE_GIMPLE_H)
 print-tree.o : print-tree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(GGC_H) langhooks.h real.h
 stor-layout.o : stor-layout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -1722,7 +1722,7 @@ tree-iterator.o : tree-iterator.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    coretypes.h $(GGC_H) tree-iterator.h tree-gimple.h gt-tree-iterator.h
 tree-dfa.o : tree-dfa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h diagnostic.h \
-   errors.h tree-inline.h $(HASHTAB_H) $(FLAGS_H) function.h $(TIMEVAR_H) \
+   errors.h tree-inline.h $(HASHTAB_H) pointer-set.h $(FLAGS_H) function.h $(TIMEVAR_H) \
    convert.h $(TM_H) coretypes.h langhooks.h \
    $(TREE_DUMP_H) tree-pass.h params.h $(CGRAPH_H)
 tree-ssa-operands.o : tree-ssa-operands.c $(TREE_FLOW_H) $(CONFIG_H) \
@@ -1748,7 +1748,7 @@ tree-ssa-loop-prefetch.o : tree-ssa-loop-prefetch.c $(TREE_FLOW_H) $(CONFIG_H) \
 tree-ssa-loop-niter.o : tree-ssa-loop-niter.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) cfgloop.h $(PARAMS_H) tree-inline.h \
    output.h diagnostic.h $(TM_H) coretypes.h $(TREE_DUMP_H) $(FLAGS_H) \
-   tree-pass.h $(SCEV_H)		 
+   tree-pass.h $(SCEV_H) tree-data-ref.h
 tree-ssa-loop-ivcanon.o : tree-ssa-loop-ivcanon.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) $(PARAMS_H) tree-inline.h \
    output.h diagnostic.h $(TM_H) coretypes.h $(TREE_DUMP_H) $(FLAGS_H) \
@@ -1836,9 +1836,9 @@ tree-pretty-print.o : tree-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
 fold-const.o : fold-const.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(FLAGS_H) real.h toplev.h $(HASHTAB_H) $(EXPR_H) $(RTL_H) $(GGC_H) \
    $(TM_P_H) langhooks.h $(MD5_H)
-diagnostic.o : diagnostic.c $(DIAGNOSTIC_H) real.h \
-   $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) version.h $(TM_P_H) $(FLAGS_H) $(GGC_H) \
-   input.h toplev.h intl.h langhooks.h $(LANGHOOKS_DEF_H)
+diagnostic.o : diagnostic.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   $(TREE_H) version.h $(TM_P_H) $(FLAGS_H) input.h toplev.h intl.h \
+   $(DIAGNOSTIC_H) langhooks.h $(LANGHOOKS_DEF_H)
 opts.o : opts.c opts.h options.h toplev.h $(CONFIG_H) $(SYSTEM_H) \
 	coretypes.h $(TREE_H) $(TM_H) langhooks.h $(GGC_H) $(RTL_H) \
 	output.h $(DIAGNOSTIC_H) $(TM_P_H) $(INSN_ATTR_H) intl.h target.h
@@ -1972,7 +1972,7 @@ cgraph.o : cgraph.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    output.h intl.h
 cgraphunit.o : cgraphunit.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    langhooks.h tree-inline.h toplev.h $(FLAGS_H) $(GGC_H)  $(TARGET_H) $(CGRAPH_H) intl.h \
-   function.h $(TREE_GIMPLE_H) $(TREE_FLOW_H)
+   pointer-set.h function.h $(TREE_GIMPLE_H) $(TREE_FLOW_H)
 coverage.o : coverage.c gcov-io.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(RTL_H) $(TREE_H) $(FLAGS_H) output.h $(REGS_H) $(EXPR_H) function.h \
    toplev.h $(GGC_H) $(TARGET_H) langhooks.h $(COVERAGE_H) libfuncs.h \
@@ -2099,7 +2099,7 @@ loop-unswitch.o : loop-unswitch.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    output.h $(EXPR_H) coretypes.h $(TM_H)
 loop-unroll.o: loop-unroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h $(CFGLOOP_H) $(CFGLAYOUT_H) $(PARAMS_H) \
-   output.h $(EXPR_H) coretypes.h $(TM_H) $(HASHTAB_H) $(RECOG_H)
+   output.h $(EXPR_H) coretypes.h $(TM_H) $(HASHTAB_H) $(RECOG_H) $(VARRAY_H)
 dominance.o : dominance.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    hard-reg-set.h $(BASIC_BLOCK_H) et-forest.h
 et-forest.o : et-forest.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) et-forest.h alloc-pool.h
@@ -2234,8 +2234,10 @@ lambda-code.o: lambda-code.c $(LAMBDA_H) $(GGC_H) $(SYSTEM_H) $(CONFIG_H) \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h \
    $(TREE_DATA_REF_H) $(SCEV_H)
 params.o : params.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(PARAMS_H) toplev.h
+pointer-set.o: pointer-set.c pointer-set.h $(CONFIG_H) $(SYSTEM_H)
 hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(HOOKS_H)
-pretty-print.o: $(CONFIG_H) $(SYSTEM_H) pretty-print.c $(PRETTY_PRINT_H)
+pretty-print.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h intl.h $(PRETTY_PRINT_H) \
+   $(TREE_H)
 errors.o : errors.c $(CONFIG_H) $(SYSTEM_H) errors.h
 
 # APPLE LOCAL debugging
@@ -2483,7 +2485,6 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/cselib.h $(srcdir)/basic-block.h  $(srcdir)/cgraph.h \
   $(srcdir)/c-common.h $(srcdir)/c-tree.h $(srcdir)/reload.h \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c $(srcdir)/cgraph.c \
-  $(srcdir)/cgraphunit.c \
   $(srcdir)/dbxout.c $(srcdir)/dwarf2out.c $(srcdir)/dwarf2asm.c \
   $(srcdir)/dojump.c \
   $(srcdir)/emit-rtl.c $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
@@ -2974,6 +2975,7 @@ stmp-fixproto: fixhdr.ready fixproto stmp-int-hdrs
 	else \
 	  : This line works around a 'make' bug in BSDI 1.1.; \
 	  FIXPROTO_DEFINES="$(FIXPROTO_DEFINES)"; export FIXPROTO_DEFINES; \
+	  FIX_HEADER="build/fix-header$(build_exeext)"; export FIX_HEADER; \
 	  mkinstalldirs="$(mkinstalldirs)"; \
 	    export mkinstalldirs; \
 	  if [ -d "$(SYSTEM_HEADER_DIR)" ]; then \
@@ -3185,7 +3187,7 @@ mostlyclean: lang.mostlyclean
 # that don't exist in the distribution.
 clean: mostlyclean lang.clean
 	-rm -f libgcc.a libgcc_eh.a libgcov.a
-	-rm -f libgcc_s$(SHLIB_EXT) libgcc_s$(SHLIB_EXT).1
+	-rm -f libgcc_s*
 	-rm -f libunwind*
 	-rm -f config.h tconfig.h bconfig.h tm_p.h tm.h
 	-rm -f options.c options.h optionlist
@@ -3998,6 +4000,7 @@ stage1-start:
 # If SPECS is overridden, make sure it is `installed' as specs.
 	-mv $(SPECS) stage1/specs
 	-mv $(STAGEMOVESTUFF) stage1
+	-mv build/* stage1/build
 	-cp -p $(STAGECOPYSTUFF) stage1
 # Copy as/ld if they exist to stage dir, so that running xgcc from the stage
 # dir will work properly.
@@ -4006,7 +4009,7 @@ stage1-start:
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stage1/libgcc.a stage1/libgcc_eh.a stage1/libgcov.a
 	-rm -f stage1/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage1/libunwind*
+	-rm -f stage1/libunwind.a stage1/libunwind*$(SHLIB_EXT)
 	-cp libgcc.a stage1
 	-$(RANLIB_FOR_TARGET) stage1/libgcc.a
 	-cp libgcov.a stage1
@@ -4015,7 +4018,7 @@ stage1-start:
 	   $(RANLIB_FOR_TARGET) stage1/libgcc_eh.a; \
 	fi
 	-cp libgcc_s*$(SHLIB_EXT) stage1
-	-cp libunwind* stage1
+	-cp libunwind.a libunwind*$(SHLIB_EXT) stage1
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage1/$${f} . ; \
 	else true; \
@@ -4036,6 +4039,7 @@ stage2-start:
 # If SPECS is overridden, make sure it is `installed' as specs.
 	-mv $(SPECS) stage2/specs
 	-mv $(STAGEMOVESTUFF) stage2
+	-mv build/* stage2/build
 	-cp -p $(STAGECOPYSTUFF) stage2
 # Copy as/ld if they exist to stage dir, so that running xgcc from the stage
 # dir will work properly.
@@ -4044,7 +4048,7 @@ stage2-start:
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stage2/libgcc.a stage2/libgcov.a stage2/libgcc_eh.a
 	-rm -f stage2/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage2/libunwind*
+	-rm -f stage2/libunwind.a stage2/libunwind*$(SHLIB_EXT)
 	-cp libgcc.a stage2
 	-$(RANLIB_FOR_TARGET) stage2/libgcc.a
 	-cp libgcov.a stage2
@@ -4053,7 +4057,7 @@ stage2-start:
 	   $(RANLIB_FOR_TARGET) stage2/libgcc_eh.a; \
 	fi
 	-cp libgcc_s*$(SHLIB_EXT) stage2
-	-cp libunwind* stage2
+	-cp libunwind.a libunwind*$(SHLIB_EXT) stage2
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage2/$${f} . ; \
 	else true; \
@@ -4070,6 +4074,7 @@ stage3-start:
 # If SPECS is overridden, make sure it is `installed' as specs.
 	-mv $(SPECS) stage3/specs
 	-mv $(STAGEMOVESTUFF) stage3
+	-mv build/* stage3/build
 	-cp -p $(STAGECOPYSTUFF) stage3
 # Copy as/ld if they exist to stage dir, so that running xgcc from the stage
 # dir will work properly.
@@ -4078,7 +4083,7 @@ stage3-start:
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stage3/libgcc.a stage3/libgcov.a stage3/libgcc_eh.a
 	-rm -f stage3/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage3/libunwind*
+	-rm -f stage3/libunwind.a stage3/libunwind*$(SHLIB_EXT)
 	-cp libgcc.a stage3
 	-$(RANLIB_FOR_TARGET) stage3/libgcc.a
 	-cp libgcov.a stage3
@@ -4087,7 +4092,7 @@ stage3-start:
 	   $(RANLIB_FOR_TARGET) stage3/libgcc_eh.a; \
 	fi
 	-cp libgcc_s*$(SHLIB_EXT) stage3
-	-cp libunwind* stage3
+	-cp libunwind.a libunwind*$(SHLIB_EXT) stage3
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage3/$${f} . ; \
 	else true; \
@@ -4104,6 +4109,7 @@ stage4-start:
 # If SPECS is overridden, make sure it is `installed' as specs.
 	-mv $(SPECS) stage4/specs
 	-mv $(STAGEMOVESTUFF) stage4
+	-mv build/* stage4/build
 	-cp -p $(STAGECOPYSTUFF) stage4
 # Copy as/ld if they exist to stage dir, so that running xgcc from the stage
 # dir will work properly.
@@ -4112,7 +4118,7 @@ stage4-start:
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stage4/libgcc.a stage4/libgcov.a stage4/libgcc_eh.a
 	-rm -f stage4/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage4/libunwind*
+	-rm -f stage4/libunwind.a stage4/libunwind*$(SHLIB_EXT)
 	-cp libgcc.a stage4
 	-$(RANLIB_FOR_TARGET) stage4/libgcc.a
 	-cp libgcov.a stage4
@@ -4121,7 +4127,7 @@ stage4-start:
 	   $(RANLIB_FOR_TARGET) stage4/libgcc_eh.a; \
 	fi
 	-cp libgcc_s*$(SHLIB_EXT) stage4
-	-cp libunwind* stage4
+	-cp libunwind.a libunwind*$(SHLIB_EXT) stage4
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage4/$${f} . ; \
 	else true; \
@@ -4136,6 +4142,7 @@ stageprofile-start:
 	   if [ -d stageprofile/$$dir ] ; then true ; else mkdir stageprofile/$$dir ; fi ; \
 	 done
 	-mv $(STAGEMOVESTUFF) stageprofile
+	-mv build/* stageprofile/build
 	-cp -p $(STAGECOPYSTUFF) stageprofile
 # Copy as/ld if they exist to stage dir, so that running xgcc from the stage
 # dir will work properly.
@@ -4144,7 +4151,7 @@ stageprofile-start:
 	-if [ -f collect-ld$(exeext) ] ; then (cd stageprofile && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stageprofile/libgcc.a stageprofile/libgcov.a stageprofile/libgcc_eh.a
 	-rm -f stageprofile/libgcc_s*$(SHLIB_EXT)
-	-rm -f stageprofile/libunwind*
+	-rm -f stageprofile/libunwind.a stageprofile/libunwind*$(SHLIB_EXT)
 	-cp libgcc.a stageprofile
 	-$(RANLIB_FOR_TARGET) stageprofile/libgcc.a
 	-cp libgcov.a stageprofile
@@ -4153,7 +4160,7 @@ stageprofile-start:
 	   $(RANLIB_FOR_TARGET) stageprofile/libgcc_eh.a; \
 	fi
 	-cp libgcc_s*$(SHLIB_EXT) stageprofile
-	-cp libunwind* stageprofile
+	-cp libunwind.a libunwind*$(SHLIB_EXT) stageprofile
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stageprofile/$${f} . ; \
 	else true; \
@@ -4168,6 +4175,7 @@ stagefeedback-start:
 	   if [ -d stagefeedback/$$dir ] ; then true ; else mkdir stagefeedback/$$dir ; fi ; \
 	 done
 	-mv $(STAGEMOVESTUFF) stagefeedback
+	-mv build/* stagefeedback/build
 	-cp -p $(STAGECOPYSTUFF) stagefeedback
 # Copy as/ld if they exist to stage dir, so that running xgcc from the stage
 # dir will work properly.
@@ -4176,7 +4184,7 @@ stagefeedback-start:
 	-if [ -f collect-ld$(exeext) ] ; then (cd stagefeedback && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stagefeedback/libgcc.a stagefeedback/libgcov.a stagefeedback/libgcc_eh.a
 	-rm -f stagefeedback/libgcc_s*$(SHLIB_EXT)
-	-rm -f stagefeedback/libunwind*
+	-rm -f stagefeedback/libunwind.a stagefeedback/libunwind*$(SHLIB_EXT)
 	-rm -f *.da
 	-for dir in fixinc po testsuite $(SUBDIRS); \
 	 do \
@@ -4190,7 +4198,7 @@ stagefeedback-start:
 	   $(RANLIB_FOR_TARGET) stagefeedback/libgcc_eh.a; \
 	fi
 	-cp libgcc_s*$(SHLIB_EXT) stagefeedback
-	-cp libunwind* stagefeedback
+	-cp libunwind.a libunwind*$(SHLIB_EXT) stagefeedback
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stagefeedback/$${f} . ; \
 	else true; \

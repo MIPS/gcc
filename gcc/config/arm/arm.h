@@ -917,10 +917,16 @@ extern const char * structure_size_string;
       fixed_regs[10]     = 1;					\
       call_used_regs[10] = 1;					\
     }								\
-  if (TARGET_APCS_FRAME)					\
+  /* -mcaller-super-interworking reserves r11 for calls to	\
+     _interwork_r11_call_via_rN().  Making the register global	\
+     is an easy way of ensuring that it remains valid for all	\
+     calls.  */							\
+  if (TARGET_APCS_FRAME || TARGET_CALLER_INTERWORKING)		\
     {								\
       fixed_regs[ARM_HARD_FRAME_POINTER_REGNUM] = 1;		\
       call_used_regs[ARM_HARD_FRAME_POINTER_REGNUM] = 1;	\
+      if (TARGET_CALLER_INTERWORKING)				\
+	global_regs[ARM_HARD_FRAME_POINTER_REGNUM] = 1;		\
     }								\
   SUBTARGET_CONDITIONAL_REGISTER_USAGE				\
 }
@@ -1218,12 +1224,14 @@ enum reg_class
 
 /* For the Thumb the high registers cannot be used as base registers
    when addressing quantities in QI or HI mode; if we don't know the
-   mode, then we must be conservative.  After reload we must also be
-   conservative, since we can't support SP+reg addressing, and we
-   can't fix up any bad substitutions.  */
+   mode, then we must be conservative.  */
 #define MODE_BASE_REG_CLASS(MODE)					\
     (TARGET_ARM ? GENERAL_REGS :					\
-     (((MODE) == SImode && !reload_completed) ? BASE_REGS : LO_REGS))
+     (((MODE) == SImode) ? BASE_REGS : LO_REGS))
+
+/* For Thumb we can not support SP+reg addressing, so we return LO_REGS
+   instead of BASE_REGS.  */
+#define MODE_BASE_REG_REG_CLASS(MODE) BASE_REG_CLASS
 
 /* When SMALL_REGISTER_CLASSES is nonzero, the compiler allows
    registers explicitly used in the rtl to be used as spill registers
@@ -1516,6 +1524,20 @@ enum reg_class
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
 #define FRAME_GROWS_DOWNWARD 1
+
+/* The amount of scratch space needed by _interwork_{r7,r11}_call_via_rN().
+   When present, it is one word in size, and sits at the top of the frame,
+   between the soft frame pointer and either r7 or r11.
+
+   We only need _interwork_rM_call_via_rN() for -mcaller-super-interworking,
+   and only then if some outgoing arguments are passed on the stack.  It would
+   be tempting to also check whether the stack arguments are passed by indirect
+   calls, but there seems to be no reason in principle why a post-reload pass
+   couldn't convert a direct call into an indirect one.  */
+#define CALLER_INTERWORKING_SLOT_SIZE			\
+  (TARGET_CALLER_INTERWORKING				\
+   && current_function_outgoing_args_size != 0		\
+   ? UNITS_PER_WORD : 0)
 
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
@@ -1980,6 +2002,11 @@ typedef struct
    ? THUMB_REGNO_MODE_OK_FOR_BASE_P (REGNO, MODE)	\
    : ARM_REGNO_OK_FOR_BASE_P (REGNO))
 
+/* Nonzero if X can be the base register in a reg+reg addressing mode.
+   For Thumb, we can not use SP + reg, so reject SP.  */
+#define REGNO_MODE_OK_FOR_REG_BASE_P(X, MODE)	\
+  REGNO_OK_FOR_INDEX_P (X)
+
 /* For ARM code, we don't care about the mode, but for Thumb, the index
    must be suitable for use in a QImode load.  */
 #define REGNO_OK_FOR_INDEX_P(REGNO)	\
@@ -2123,6 +2150,10 @@ typedef struct
    ? THUMB_REG_OK_FOR_INDEX_P (X)		\
    : ARM_REG_OK_FOR_INDEX_P (X))
 
+/* Nonzero if X can be the base register in a reg+reg addressing mode.
+   For Thumb, we can not use SP + reg, so reject SP.  */
+#define REG_MODE_OK_FOR_REG_BASE_P(X, MODE)	\
+  REG_OK_FOR_INDEX_P (X)
 
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
    that is a valid memory address for an instruction.

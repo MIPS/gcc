@@ -9265,6 +9265,12 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       }
       break;
 
+    case FIX_TRUNC_EXPR:
+    case FIX_CEIL_EXPR:
+    case FIX_FLOOR_EXPR:
+    case FIX_ROUND_EXPR:
+      return 0;
+
     default:
       /* Leave front-end specific codes as simply unknown.  This comes
 	 up, for instance, with the C STMT_EXPR.  */
@@ -9884,19 +9890,33 @@ rtl_for_decl_location (tree decl)
     {
       if (rtl == NULL_RTX || is_pseudo_reg (rtl))
 	{
-	  tree declared_type = type_main_variant (TREE_TYPE (decl));
-	  tree passed_type = type_main_variant (DECL_ARG_TYPE (decl));
+	  tree declared_type = TREE_TYPE (decl);
+	  tree passed_type = DECL_ARG_TYPE (decl);
+	  enum machine_mode dmode = TYPE_MODE (declared_type);
+	  enum machine_mode pmode = TYPE_MODE (passed_type);
 
 	  /* This decl represents a formal parameter which was optimized out.
 	     Note that DECL_INCOMING_RTL may be NULL in here, but we handle
 	     all cases where (rtl == NULL_RTX) just below.  */
-	  if (declared_type == passed_type)
+	  if (dmode == pmode)
 	    rtl = DECL_INCOMING_RTL (decl);
-	  else if (! BYTES_BIG_ENDIAN
-		   && TREE_CODE (declared_type) == INTEGER_TYPE
-		   && (GET_MODE_SIZE (TYPE_MODE (declared_type))
-		       <= GET_MODE_SIZE (TYPE_MODE (passed_type))))
-	    rtl = DECL_INCOMING_RTL (decl);
+	  else if (SCALAR_INT_MODE_P (dmode)
+		   && GET_MODE_SIZE (dmode) <= GET_MODE_SIZE (pmode)
+		   && DECL_INCOMING_RTL (decl))
+	    {
+	      rtx inc = DECL_INCOMING_RTL (decl);
+	      if (REG_P (inc))
+		rtl = inc;
+	      else if (MEM_P (inc))
+		{
+		  if (BYTES_BIG_ENDIAN)
+		    rtl = adjust_address_nv (inc, dmode,
+					     GET_MODE_SIZE (pmode)
+					     - GET_MODE_SIZE (dmode));
+		  else
+		    rtl = inc;
+		}
+	    }
 	}
 
       /* If the parm was passed in registers, but lives on the stack, then
@@ -10725,8 +10745,9 @@ add_calling_convention_attribute (dw_die_ref subr_die, tree type)
 
   value = targetm.dwarf_calling_convention (type);
 
-  /* Only add the attribute if the backend requests it.  */
-  if (value)
+  /* Only add the attribute if the backend requests it, and
+     is not DW_CC_normal.  */
+  if (value && (value != DW_CC_normal))
     add_AT_unsigned (subr_die, DW_AT_calling_convention, value);
 }
 
@@ -11485,6 +11506,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	}
 #endif
     }
+  /* Add the calling convention attribute if requested.  */
+  add_calling_convention_attribute (subr_die, TREE_TYPE (decl));
+
 }
 
 /* Generate a DIE to represent a declared data object.  */
@@ -12026,7 +12050,6 @@ gen_subroutine_type_die (tree type, dw_die_ref context_die)
   equate_type_number_to_die (type, subr_die);
   add_prototyped_attribute (subr_die, type);
   add_type_attribute (subr_die, return_type, 0, 0, context_die);
-  add_calling_convention_attribute (subr_die, type);
   gen_formal_types_die (type, subr_die);
 }
 
@@ -13355,10 +13378,7 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
   ASM_GENERATE_INTERNAL_LABEL (text_end_label, TEXT_END_LABEL, 0);
   ASM_GENERATE_INTERNAL_LABEL (abbrev_section_label,
 			       DEBUG_ABBREV_SECTION_LABEL, 0);
-  if (DWARF2_GENERATE_TEXT_SECTION_LABEL)
-    ASM_GENERATE_INTERNAL_LABEL (text_section_label, TEXT_SECTION_LABEL, 0);
-  else
-    strcpy (text_section_label, stripattributes (TEXT_SECTION_NAME));
+  ASM_GENERATE_INTERNAL_LABEL (text_section_label, TEXT_SECTION_LABEL, 0);
 
   ASM_GENERATE_INTERNAL_LABEL (debug_info_section_label,
 			       DEBUG_INFO_SECTION_LABEL, 0);
@@ -13381,11 +13401,8 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
       ASM_OUTPUT_LABEL (asm_out_file, macinfo_section_label);
     }
 
-  if (DWARF2_GENERATE_TEXT_SECTION_LABEL)
-    {
-      text_section ();
-      ASM_OUTPUT_LABEL (asm_out_file, text_section_label);
-    }
+  text_section ();
+  ASM_OUTPUT_LABEL (asm_out_file, text_section_label);
 }
 
 /* A helper function for dwarf2out_finish called through

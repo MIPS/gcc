@@ -1,3 +1,127 @@
+2004-10-17  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* Make-lang.in (F95_ADDITIONAL_OBJS): Kill.
+	(f951): Do not depend on F95_ADDITIONAL_OBJS and don't
+	link it in.
+
+2004-10-14  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* trans-decl.c (generate_local_decl): Simplify logic, fix comment
+	typo.
+	(gfc_generate_function_code): Fix formatting issue.
+
+2004-10-10  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* module.c: Fix formatting issues.
+
+2004-10-09  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* module.c (mio_interface_rest): Set where member of interface
+	while loading.
+
+2004-10-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR fortran/17901
+	* options.c (gfc_handle_option): Add break after handing the
+	J/M option.
+
+2004-10-08  Tobias Schlueter  <tobias.shclueter@physik.uni-muenchen.de>
+
+	* arith.c: Fix formatting issues.
+	
+2004-10-07  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/17676
+	* resolve.c (resolve_operator): Use correct operator name in message.
+
+2004-10-07  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* primary.c (match_boz_constant): Allow kind parameter suffixes.
+	Move standard warning further to the front.
+
+2004-10-07  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* trans-stmt.c: Fix a comment typo.
+
+2004-10-07  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/17678
+	* trans-array.c (gfc_trans_deferred_array): Leave use associated
+	variables alone.
+
+2004-10-06  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/17568
+	* simplify.c (twos_complement): New function.
+	(gfc_simplify_ishft, gfc_simplify_ishftc): Revise.
+
+	* simplify.c (gfc_simplify_abs): Use mpfr_hypot for CABS.
+
+2004-10-06  Paul Brook  <paul@codesourcery.com>
+
+	* trans-stmt.c (gfc_trans_simple_do): New function.
+	(gfc_trans_do): Use it.  Evaluate iteration bounds before entering
+	loop.  Update comments.
+
+2004-10-04  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/17283
+	* iresolve.c (gfc_resolve_pack): Choose function depending if mask
+	is scalar.
+
+	PR fortran/17631
+	* intrinsic.c (add_sym_5): Remove.
+	(add_subroutines): Add resolution function for MVBITS.
+	* intrinsic.h (gfc_resolve_mvbits): Declare resolution function for
+	MVBITS
+	* iresolve.c (gfc_resolve_mvbits): New function.
+	(gfc_resolve_random_number): Remove empty line at end of function.
+
+	* trans-const.c (gfc_build_cstring_const): New function.
+	(gfc_init_cst): Use new function.
+	* trans-const.h (gfc_build_cstring_const): Add prototype.
+	* trans-io.c (set_string, set_error_locus): Use new function.
+	* trans-stmt.c (gfc_trans_goto): Use new function.
+	
+	PR fortran/17708
+	* parse.c (accept_statement): Don't treat END DO like END IF and
+	END SELECT.
+	(parse_do_block): Generate possible END DO label inside END DO
+	block.
+
+	PR fortran/17776
+	* check.c (gfc_check_system_sub): New function.
+	* gfortran.h (gfc_generic_isym_id): Add GFC_ISYM_SYSTEM.
+	* intrinsic.c (add_functions): Add 'system'.
+	(add_subroutines): Add 'system'.
+	* intrinsic.h (gfc_check_etime_sub, gfc_check_getcwd_sub):
+	Move prototypes to other suborutines.
+	(gfc_check_system_sub, gfc_resolve_system, gfc_resolve_system_sub):
+	Add prototype.
+	(gfc_resolve_system_clock): Fix formatting of prototype.
+	* iresolve.c (gfc_resolve_system, gfc_resolve_system_sub): New
+	functions.
+	* trans-intrinsic.c (gfc_conv_intrinsic_function): Deal with
+	GFC_ISYM_SYSTEM.
+
+2004-10-04  Erik Schnetter  <schnetter@aei.mpg.de>
+
+	* scanner.c (preprocessor_line): Accept preprocessor lines without
+	file names.  Check file names for closing quotes.  Handle escaped
+	quotes in file names.
+
+2004-10-04  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+	Paul Brook  <paul@codesourcery.com>
+
+	* trans-array.c (gfc_conv_expr_descriptor): Check for substriungs.
+	Use gfc_get_expr_charlen.
+	* trans-expr.c (gfc_get_expr_charlen): New function.
+	* trans.h (gfc_get_expr_charlen): Add prototype.
+
+2004-10-04  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* trans-intrinsic.c: Fix a comment typo.
+
 2004-10-03  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	* simplify.c (range_check): Remove blank line at beginning of function.

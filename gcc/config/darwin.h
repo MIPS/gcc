@@ -467,8 +467,7 @@ do {					\
 /* #define ENDFILE_SPEC "" */
 
 /* Default Darwin ASM_SPEC, very simple.  */
-#define ASM_SPEC "-arch %(darwin_arch) \
-  %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL}"
+#define ASM_SPEC "-arch %(darwin_arch)"
 
 /* We use Dbx symbol format.  */
 
@@ -505,12 +504,7 @@ do {					\
 
 /* gdb needs a null N_SO at the end of each file for scattered loading.  */
 
-#undef	DBX_OUTPUT_MAIN_SOURCE_FILE_END
-#define DBX_OUTPUT_MAIN_SOURCE_FILE_END(FILE, FILENAME)			\
-do { text_section ();							\
-     fprintf (FILE,							\
-	      "\t.stabs \"%s\",%d,0,0,Letext\nLetext:\n", "" , N_SO);	\
-   } while (0)
+#define DBX_OUTPUT_NULL_N_SO_AT_MAIN_SOURCE_FILE_END
 
 /* GCC's definition of 'one_only' is the same as its definition of 'weak'.  */
 #define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
@@ -1056,13 +1050,6 @@ objc_section_init (void)			\
 
 #undef TARGET_ASM_MARK_DECL_PRESERVED
 #define TARGET_ASM_MARK_DECL_PRESERVED darwin_mark_decl_preserved
-
-/* Since we have a separate readonly data section, define this so that
-   jump tables end up in text rather than data.  */
-
-#ifndef JUMP_TABLES_IN_TEXT_SECTION
-#define JUMP_TABLES_IN_TEXT_SECTION 1
-#endif
 
 /* Set on a symbol with SYMBOL_FLAG_FUNCTION or
    MACHO_SYMBOL_FLAG_VARIABLE to indicate that the function or

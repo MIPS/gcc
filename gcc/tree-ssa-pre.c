@@ -363,7 +363,7 @@ expr_pred_trans_eq (const void *p1, const void *p2)
     return false;
 
   /* If they are for the same basic block, determine if the
-     expressions are equal.   */  
+     expressions are equal.  */  
   if (expressions_equal_p (ve1->e, ve2->e))
     return true;
   
@@ -866,7 +866,7 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
     case tcc_reference:
-      /* XXX: Until we have PRE of loads working, none will be ANTIC. */
+      /* XXX: Until we have PRE of loads working, none will be ANTIC.  */
       return NULL;
 
     case tcc_binary:
@@ -1941,7 +1941,7 @@ init_pre (void)
   unary_node_pool = create_alloc_pool ("Unary tree nodes",
 				       tree_code_size (NEGATE_EXPR), 30);
   reference_node_pool = create_alloc_pool ("Reference tree nodes",
-					   tree_code_size (COMPONENT_REF), 30);
+					   tree_code_size (ARRAY_REF), 30);
   FOR_ALL_BB (bb)
     {
       EXP_GEN (bb) = set_new (true);

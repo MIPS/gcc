@@ -1,5 +1,5 @@
 /* Simple bitmaps.
-   Copyright (C) 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -103,7 +103,7 @@ sbitmap_resize (sbitmap bmap, unsigned int n_elms, int def)
   return bmap;
 }
 
-/* Re-allocate a simple bitmap of N_ELMS bits. New storage is uninitialized.   */
+/* Re-allocate a simple bitmap of N_ELMS bits. New storage is uninitialized.  */
 
 sbitmap
 sbitmap_realloc (sbitmap src, unsigned int n_elms)

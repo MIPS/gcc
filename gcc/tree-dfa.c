@@ -24,6 +24,7 @@ Boston, MA 02111-1307, USA.  */
 #include "coretypes.h"
 #include "tm.h"
 #include "hashtab.h"
+#include "pointer-set.h"
 #include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -108,7 +109,6 @@ find_referenced_vars (void)
   block_stmt_iterator si;
   struct walk_state walk_state;
 
-  cgraph_reset_static_var_maps ();
   vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
   memset (&walk_state, 0, sizeof (walk_state));
   walk_state.vars_found = vars_found;
@@ -131,7 +131,7 @@ struct tree_opt_pass pass_referenced_vars =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_FIND_REFERENCED_VARS,		/* tv_id */
   PROP_gimple_leh | PROP_cfg,		/* properties_required */
   PROP_referenced_vars,			/* properties_provided */
   0,					/* properties_destroyed */
@@ -188,7 +188,7 @@ compute_immediate_uses (int flags, bool (*calc_for)(tree))
 }
 
 
-/* Invalidates dataflow information for a statement STMT.   */
+/* Invalidates dataflow information for a statement STMT.  */
 
 void
 free_df_for_stmt (tree stmt)
@@ -758,7 +758,7 @@ debug_dfa_stats (void)
 static void
 collect_dfa_stats (struct dfa_stats_d *dfa_stats_p)
 {
-  htab_t htab;
+  struct pointer_set_t *pset;
   basic_block bb;
   block_stmt_iterator i;
 
@@ -768,13 +768,13 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p)
 
   /* Walk all the trees in the function counting references.  Start at
      basic block 0, but don't stop at block boundaries.  */
-  htab = htab_create (30, htab_hash_pointer, htab_eq_pointer, NULL);
+  pset = pointer_set_create ();
 
   for (i = bsi_start (BASIC_BLOCK (0)); !bsi_end_p (i); bsi_next (&i))
     walk_tree (bsi_stmt_ptr (i), collect_dfa_stats_r, (void *) dfa_stats_p,
-	       (void *) htab);
+	       pset);
 
-  htab_delete (htab);
+  pointer_set_destroy (pset);
 
   FOR_EACH_BB (bb)
     {

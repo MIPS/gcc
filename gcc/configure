@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP EGREP strict1_warn warn_cflags WERROR nocommon_flag TREEBROWSER valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep SET_MAKE AWK LN_S LN RANLIB ac_ct_RANLIB ranlib_flags INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON NM AR stage1_cflags COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LTLIBICONV LIBICONV_DEP manext objext gthread_flags extra_modes_file PACKAGE VERSION USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS CROSS ALL SYSTEM_HEADER_DIR inhibit_libc CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO collect2 libgcc_visibility GGC zlibdir zlibinc MAINT gcc_tooldir dollar slibdir objdir subdirs srcdir all_boot_languages all_compilers all_gtfiles all_gtfiles_files_langs all_gtfiles_files_files all_lang_makefrags all_lang_makefiles all_languages all_stagestuff build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cc_set_by_configure quoted_cc_set_by_configure cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir libstdcxx_incdir gcc_version gcc_version_full gcc_version_trigger host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file stage_prefix_set_by_configure quoted_stage_prefix_set_by_configure symbolic_link thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines c_target_objs cxx_target_objs target_cpu_default set_gcc_lib_path GMPLIBS GMPINC LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP EGREP strict1_warn warn_cflags WERROR nocommon_flag TREEBROWSER valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep SET_MAKE AWK LN_S LN RANLIB ac_ct_RANLIB ranlib_flags INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON NM AR stage1_cflags COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LTLIBICONV LIBICONV_DEP manext objext gthread_flags extra_modes_file PACKAGE VERSION USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS CROSS ALL SYSTEM_HEADER_DIR inhibit_libc CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO collect2 libgcc_visibility GGC zlibdir zlibinc MAINT gcc_tooldir dollar slibdir objdir subdirs srcdir all_boot_languages all_compilers all_gtfiles all_gtfiles_files_langs all_gtfiles_files_files all_lang_makefrags all_lang_makefiles all_languages all_stagestuff build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cc_set_by_configure quoted_cc_set_by_configure cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir libstdcxx_incdir gcc_version gcc_version_full gcc_version_trigger host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file stage_prefix_set_by_configure quoted_stage_prefix_set_by_configure thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines c_target_objs cxx_target_objs target_cpu_default set_gcc_lib_path GMPLIBS GMPINC LIBOBJS LTLIBOBJS'
 ac_subst_files='language_hooks'
 
 # Initialize some variables set by options.
@@ -7046,7 +7046,12 @@ else
   then
     gcc_cv_prog_LN_S=ln
   else
-    gcc_cv_prog_LN_S=cp
+    if cp -p conftestdata_f conftestdata_t 2>/dev/null
+    then
+      gcc_cv_prog_LN_S="cp -p"
+    else
+      gcc_cv_prog_LN_S=cp
+    fi
   fi
 fi
 rm -f conftestdata_f conftestdata_t
@@ -7061,8 +7066,8 @@ else
     echo "$as_me:$LINENO: result: no, using ln" >&5
 echo "${ECHO_T}no, using ln" >&6
   else
-    echo "$as_me:$LINENO: result: no, and neither does ln, so using cp" >&5
-echo "${ECHO_T}no, and neither does ln, so using cp" >&6
+    echo "$as_me:$LINENO: result: no, and neither does ln, so using $gcc_cv_prog_LN_S" >&5
+echo "${ECHO_T}no, and neither does ln, so using $gcc_cv_prog_LN_S" >&6
   fi
 fi
 
@@ -7519,7 +7524,7 @@ if test "${gcc_cv_prog_makeinfo_modern+set}" = set; then
 else
     ac_prog_version=`$MAKEINFO --version 2>&1 |
                    sed -n 's/^.*GNU texinfo.* \([0-9][0-9.]*\).*$/\1/p'`
-  echo "configure:7522: version of makeinfo is $ac_prog_version" >&5
+  echo "configure:7375: version of makeinfo is $ac_prog_version" >&5
   case $ac_prog_version in
     '')     gcc_cv_prog_makeinfo_modern=no;;
     4.[2-9]*)
@@ -11186,6 +11191,71 @@ _ACEOF
   fi
 
 
+
+  echo "$as_me:$LINENO: checking for nl_langinfo and CODESET" >&5
+echo $ECHO_N "checking for nl_langinfo and CODESET... $ECHO_C" >&6
+if test "${am_cv_langinfo_codeset+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <langinfo.h>
+int
+main ()
+{
+char* cs = nl_langinfo(CODESET);
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  am_cv_langinfo_codeset=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+am_cv_langinfo_codeset=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+
+fi
+echo "$as_me:$LINENO: result: $am_cv_langinfo_codeset" >&5
+echo "${ECHO_T}$am_cv_langinfo_codeset" >&6
+  if test $am_cv_langinfo_codeset = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_LANGINFO_CODESET 1
+_ACEOF
+
+  fi
+
+
 # We will need to find libiberty.h and ansidecl.h
 saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
@@ -12572,32 +12642,24 @@ do
 done
 tmake_file="${tmake_file_}"
 
-symbolic_link='ln -s'
-
 # If the host doesn't support symlinks, modify CC in
 # FLAGS_TO_PASS so CC="stage1/xgcc -Bstage1/" works.
 # Otherwise, we can use "CC=$(CC)".
 rm -f symtest.tem
-if $symbolic_link $srcdir/gcc.c symtest.tem 2>/dev/null
-then
-	cc_set_by_configure="\$(CC)"
-	quoted_cc_set_by_configure="\$(CC)"
-	stage_prefix_set_by_configure="\$(STAGE_PREFIX)"
-	quoted_stage_prefix_set_by_configure="\$(STAGE_PREFIX)"
-else
-	rm -f symtest.tem
-	if cp -p $srcdir/gcc.c symtest.tem 2>/dev/null
-	then
-		symbolic_link="cp -p"
-	else
-		symbolic_link="cp"
-	fi
-	cc_set_by_configure="\`case '\$(CC)' in stage*) echo '\$(CC)' | sed -e 's|stage|../stage|g';; *) echo '\$(CC)';; esac\`"
-	quoted_cc_set_by_configure="\\\`case '\\\$(CC)' in stage*) echo '\\\$(CC)' | sed -e 's|stage|../stage|g';; *) echo '\\\$(CC)';; esac\\\`"
-	stage_prefix_set_by_configure="\`case '\$(STAGE_PREFIX)' in stage*) echo '\$(STAGE_PREFIX)' | sed -e 's|stage|../stage|g';; *) echo '\$(STAGE_PREFIX)';; esac\`"
-	quoted_stage_prefix_set_by_configure="\\\`case '\\\$(STAGE_PREFIX)' in stage*) echo '\\\$(STAGE_PREFIX)' | sed -e 's|stage|../stage|g';; *) echo '\\\$(STAGE_PREFIX)';; esac\\\`"
-fi
-rm -f symtest.tem
+case "$LN_S" in
+	*-s*)
+		cc_set_by_configure="\$(CC)"
+		quoted_cc_set_by_configure="\$(CC)"
+		stage_prefix_set_by_configure="\$(STAGE_PREFIX)"
+		quoted_stage_prefix_set_by_configure="\$(STAGE_PREFIX)"
+		;;
+	*)
+		cc_set_by_configure="\`case '\$(CC)' in stage*) echo '\$(CC)' | sed -e 's|stage|../stage|g';; *) echo '\$(CC)';; esac\`"
+		quoted_cc_set_by_configure="\\\`case '\\\$(CC)' in stage*) echo '\\\$(CC)' | sed -e 's|stage|../stage|g';; *) echo '\\\$(CC)';; esac\\\`"
+		stage_prefix_set_by_configure="\`case '\$(STAGE_PREFIX)' in stage*) echo '\$(STAGE_PREFIX)' | sed -e 's|stage|../stage|g';; *) echo '\$(STAGE_PREFIX)';; esac\`"
+		quoted_stage_prefix_set_by_configure="\\\`case '\\\$(STAGE_PREFIX)' in stage*) echo '\\\$(STAGE_PREFIX)' | sed -e 's|stage|../stage|g';; *) echo '\\\$(STAGE_PREFIX)';; esac\\\`"
+		;;
+esac
 
 out_object_file=`basename $out_file .c`.o
 
@@ -12852,7 +12914,7 @@ gcc_cv_gas_vers=`expr \( \( $gcc_cv_gas_major_version \* 1000 \) \
 			    + $gcc_cv_gas_patch_version`
 
   rm -f as$host_exeext
-  $symbolic_link ../gas/as-new$host_exeext as$host_exeext 2>/dev/null
+  $LN_S ../gas/as-new$host_exeext as$host_exeext 2>/dev/null
   in_tree_gas_is_elf=no
   if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
      || (grep 'obj_format = multi' ../gas/Makefile \
@@ -12897,12 +12959,16 @@ if test "x$gcc_cv_as" = x; then
 		gcc_cv_as=`echo as | sed "${program_transform_name}"`$host_exeext
 	fi
 
-	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
-		   $test_prefix/libexec/gcc/$target_noncanonical \
-		   /usr/lib/gcc/$target_noncanonical/$gcc_version \
-		   /usr/lib/gcc/$target_noncanonical \
-		   $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
-		   $test_prefix/$target_noncanonical/bin"
+	if test x$host = x$build; then
+	    test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
+		       $test_prefix/libexec/gcc/$target_noncanonical \
+		       /usr/lib/gcc/$target_noncanonical/$gcc_version \
+		       /usr/lib/gcc/$target_noncanonical \
+		       $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
+		       $test_prefix/$target_noncanonical/bin"
+	else
+	    test_dirs=
+	fi
 
 	if test x$host = x$target; then
 	    test_dirs="$test_dirs \
@@ -12979,8 +13045,7 @@ elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
 	gcc_cv_gld_major_version=`expr "$gcc_cv_gld_version" : "VERSION=\([0-9]*\)"`
 	gcc_cv_gld_minor_version=`expr "$gcc_cv_gld_version" : "VERSION=[0-9]*\.\([0-9]*\)"`
 	rm -f collect-ld$host_exeext
-	$symbolic_link ../ld/ld-new$host_exeext collect-ld$host_exeext \
-		2>/dev/null
+	$LN_S ../ld/ld-new$host_exeext collect-ld$host_exeext 2>/dev/null
 elif test -x "$LD_FOR_TARGET"; then
         gcc_cv_ld="$LD_FOR_TARGET"
 elif test -x "$LD" && test x$host = x$target; then
@@ -13018,12 +13083,16 @@ if test "x$gcc_cv_ld" = x; then
 		gcc_cv_ld=`echo ld | sed "${program_transform_name}"`$host_exeext
 	fi
 
-	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
-		   $test_prefix/libexec/gcc/$target_noncanonical \
-		   /usr/lib/gcc/$target_noncanonical/$gcc_version \
-		   /usr/lib/gcc/$target_noncanonical \
-		   $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
-		   $test_prefix/$target_noncanonical/bin"
+	if test x$host = x$build; then
+	    test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
+		       $test_prefix/libexec/gcc/$target_noncanonical \
+		       /usr/lib/gcc/$target_noncanonical/$gcc_version \
+		       /usr/lib/gcc/$target_noncanonical \
+		       $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
+		       $test_prefix/$target_noncanonical/bin"
+	else
+	    test_dirs=
+	fi
 
 	if test x$host = x$target; then
 	    test_dirs="$test_dirs \
@@ -13070,7 +13139,7 @@ elif test -f $gcc_cv_binutils_srcdir/configure.in \
 	in_tree_nm=yes
 	gcc_cv_nm=./nm$host_exeext
 	rm -f nm$host_exeext
-	$symbolic_link ../binutils/nm-new$host_exeext nm$host_exeext 2>/dev/null
+	$LN_S ../binutils/nm-new$host_exeext nm$host_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_nm=${program_prefix}nm$host_exeext
 else
@@ -13095,8 +13164,7 @@ elif test -f $gcc_cv_binutils_srcdir/configure.in \
 	in_tree_objdump=yes
 	gcc_cv_objdump=./objdump$host_exeext
 	rm -f objdump$host_exeext
-	$symbolic_link ../binutils/objdump$host_exeext \
-		objdump$host_exeext 2>/dev/null
+	$LN_S ../binutils/objdump$host_exeext objdump$host_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_objdump=${program_prefix}objdump$host_exeext
 else
@@ -14514,7 +14582,8 @@ fi
 	mfcr 3,128';;
       *-*-darwin*) conftest_s='	.text
 	mfcr r3,128';;
-      *)       conftest_s='	.text
+      *) conftest_s='	.machine power4
+	.text
 	mfcr 3,128';;
     esac
 
@@ -15300,7 +15369,6 @@ objdir=`${PWDCMD-pwd}`
 
 
 
-
 if test x"$SET_GCC_LIB_PATH_CMD" != x; then
   # SET_GCC_LIB_PATH_CMD is "XXX=path; export XXX;". It is expanded to
   #
@@ -15870,8 +15938,6 @@ cat >>$CONFIG_STATUS <<_ACEOF
 #
 
 subdirs='$subdirs'
-symbolic_link='$symbolic_link'
-
 
 _ACEOF
 
@@ -16123,7 +16189,6 @@ s,@out_file@,$out_file,;t t
 s,@out_object_file@,$out_object_file,;t t
 s,@stage_prefix_set_by_configure@,$stage_prefix_set_by_configure,;t t
 s,@quoted_stage_prefix_set_by_configure@,$quoted_stage_prefix_set_by_configure,;t t
-s,@symbolic_link@,$symbolic_link,;t t
 s,@thread_file@,$thread_file,;t t
 s,@tm_file_list@,$tm_file_list,;t t
 s,@tm_include_list@,$tm_include_list,;t t
@@ -16729,18 +16794,20 @@ done
 # FLAGS_TO_PASS has been modified to solve the problem there.
 # This is virtually a duplicate of what happens in configure.lang; we do
 # an extra check to make sure this only happens if ln -s can be used.
-if test "$symbolic_link" = "ln -s"; then
- for d in ${subdirs} ; do
+case "$LN_S" in
+  *-s*)
+    for d in ${subdirs} ; do
 	STARTDIR=`${PWDCMD-pwd}`
 	cd $d
 	for t in stage1 stage2 stage3 stage4 stageprofile stagefeedback include
 	do
 		rm -f $t
-		$symbolic_link ../$t $t 2>/dev/null
+		$LN_S ../$t $t 2>/dev/null
 	done
 	cd $STARTDIR
- done
-else true ; fi
+    done
+  ;;
+esac
  ;;
   esac
 done

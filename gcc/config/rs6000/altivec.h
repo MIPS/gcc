@@ -8479,8 +8479,7 @@ __ch ((__bin_args_eq (__vector bool int, (a1), __vector signed int, (a2)) \
       || __bin_args_eq (__vector signed int, (a1), __vector signed int, (a2))), \
       ((__vector signed int) __builtin_altivec_vaddsws ((__vector signed int) (a1), (__vector signed int) (a2))), \
     __builtin_altivec_compiletime_error ("vec_adds")))))))
-
-/* APPLE LOCAL end AltiVec speedup */
+/* APPLE LOCAL end AltiVec speed up */
 
 #define vec_vaddsws(a1, a2) \
 __ch (__bin_args_eq (__vector bool int, (a1), __vector signed int, (a2)), \
@@ -8536,6 +8535,7 @@ __ch (__bin_args_eq (__vector unsigned char, (a1), __vector unsigned char, (a2))
       ((__vector unsigned char) __builtin_altivec_vaddubs ((__vector signed char) (a1), (__vector signed char) (a2))), \
   __builtin_altivec_compiletime_error ("vec_vaddubs"))))
 
+/* APPLE LOCAL begin AltiVec speed up */
 #define vec_and(a1, a2) \
 __ch ((__bin_args_eq (__vector float, (a1), __vector float, (a2)) \
       || __bin_args_eq (__vector float, (a1), __vector bool int, (a2)) \

@@ -292,6 +292,7 @@ static void mips_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 static int symbolic_expression_p (rtx);
 static void mips_select_rtx_section (enum machine_mode, rtx,
 				     unsigned HOST_WIDE_INT);
+static void mips_function_rodata_section (tree);
 static bool mips_in_small_data_p (tree);
 static int mips_fpr_return_fields (tree, tree *);
 static bool mips_return_in_msb (tree);
@@ -722,6 +723,8 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 #define TARGET_ASM_FUNCTION_EPILOGUE mips_output_function_epilogue
 #undef TARGET_ASM_SELECT_RTX_SECTION
 #define TARGET_ASM_SELECT_RTX_SECTION mips_select_rtx_section
+#undef TARGET_ASM_FUNCTION_RODATA_SECTION
+#define TARGET_ASM_FUNCTION_RODATA_SECTION mips_function_rodata_section
 
 #undef TARGET_SCHED_REORDER
 #define TARGET_SCHED_REORDER mips_sched_reorder
@@ -5055,7 +5058,6 @@ irix_output_external_libcall (rtx fun)
 void
 mips_output_filename (FILE *stream, const char *name)
 {
-  char ltext_label_name[100];
 
   /* If we are emitting DWARF-2, let dwarf2out handle the ".file"
      directives.  */
@@ -5066,44 +5068,24 @@ mips_output_filename (FILE *stream, const char *name)
       mips_output_filename_first_time = 0;
       num_source_filenames += 1;
       current_function_file = name;
-      ASM_OUTPUT_FILENAME (stream, num_source_filenames, name);
+      fprintf (stream, "\t.file\t%d ", num_source_filenames);
+      output_quoted_string (stream, name);
+      putc ('\n', stream);
     }
 
+  /* If we are emitting stabs, let dbxout.c handle this (except for
+     the mips_output_filename_first_time case).  */
   else if (write_symbols == DBX_DEBUG)
-    {
-      ASM_GENERATE_INTERNAL_LABEL (ltext_label_name, "Ltext", 0);
-      fputs ("\t.stabs\t", stream);
-      output_quoted_string (stream, name);
-      fprintf (stream, ",%d,0,0,%s\n", N_SOL, &ltext_label_name[1]);
-    }
+    return;
 
   else if (name != current_function_file
 	   && strcmp (name, current_function_file) != 0)
     {
       num_source_filenames += 1;
       current_function_file = name;
-      ASM_OUTPUT_FILENAME (stream, num_source_filenames, name);
-    }
-}
-
-/* Emit a linenumber.  For encapsulated stabs, we need to put out a stab
-   as well as a .loc, since it is possible that MIPS ECOFF might not be
-   able to represent the location for inlines that come from a different
-   file.  */
-
-void
-mips_output_lineno (FILE *stream, int line)
-{
-  if (write_symbols == DBX_DEBUG)
-    {
-      ++sym_lineno;
-      fprintf (stream, "%sLM%d:\n\t.stabn\t%d,0,%d,%sLM%d\n",
-	       LOCAL_LABEL_PREFIX, sym_lineno, N_SLINE, line,
-	       LOCAL_LABEL_PREFIX, sym_lineno);
-    }
-  else
-    {
-      fprintf (stream, "\n\t.loc\t%d %d\n", num_source_filenames, line);
+      fprintf (stream, "\t.file\t%d ", num_source_filenames);
+      output_quoted_string (stream, name);
+      putc ('\n', stream);
     }
 }
 
@@ -5960,7 +5942,7 @@ mips_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 
 #ifdef SDB_DEBUGGING_INFO
   if (debug_info_level != DINFO_LEVEL_TERSE && write_symbols == SDB_DEBUG)
-    ASM_OUTPUT_SOURCE_LINE (file, DECL_SOURCE_LINE (current_function_decl), 0);
+    SDB_OUTPUT_SOURCE_LINE (file, DECL_SOURCE_LINE (current_function_decl));
 #endif
 
   /* In mips16 mode, we may need to generate a 32 bit to handle
@@ -6572,6 +6554,42 @@ mips_select_rtx_section (enum machine_mode mode, rtx x,
       else
 	mergeable_constant_section (mode, align, 0);
     }
+}
+
+/* Implement TARGET_ASM_FUNCTION_RODATA_SECTION.
+
+   The complication here is that, with the combination TARGET_ABICALLS
+   && !TARGET_GPWORD, jump tables will use absolute addresses, and should
+   therefore not be included in the read-only part of a DSO.  Handle such
+   cases by selecting a normal data section instead of a read-only one.
+   The logic apes that in default_function_rodata_section.  */
+
+static void
+mips_function_rodata_section (tree decl)
+{
+  if (!TARGET_ABICALLS || TARGET_GPWORD)
+    default_function_rodata_section (decl);
+  else if (decl && DECL_SECTION_NAME (decl))
+    {
+      const char *name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+      if (DECL_ONE_ONLY (decl) && strncmp (name, ".gnu.linkonce.t.", 16) == 0)
+	{
+	  char *rname = ASTRDUP (name);
+	  rname[14] = 'd';
+	  named_section_real (rname, SECTION_LINKONCE | SECTION_WRITE, decl);
+	}
+      else if (flag_function_sections && flag_data_sections
+	       && strncmp (name, ".text.", 6) == 0)
+	{
+	  char *rname = ASTRDUP (name);
+	  memcpy (rname + 1, "data", 4);
+	  named_section_flags (rname, SECTION_WRITE);
+	}
+      else
+	data_section ();
+    }
+  else
+    data_section ();
 }
 
 /* Implement TARGET_IN_SMALL_DATA_P.  Return true if it would be safe to

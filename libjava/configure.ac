@@ -658,7 +658,7 @@ case "$THREADS" in
 	# the command line.  For now, the user must provide the -pthread
 	# switch to link code compiled with gcj.  In future, consider adding
 	# support for weak references to pthread_* functions ala gthr.h API.
-	THREADSPEC='%{!pthread: %eUnder this configuration, the user must provide -pthread when linking.}'
+	THREADSPEC='%{!pthread: %{!shared: %eUnder this configuration, the user must provide -pthread when linking.}}'
 	;;
      *-*-freebsd*)
 	# FreeBSD 5 implements a model much closer to other modern UNIX
@@ -1316,8 +1316,8 @@ case "${host}" in
  sparc*-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h
     ;;
- sh-*-linux* | sh[[34]]*-*-linux*)
-    SIGNAL_HANDLER=include/dwarf2-signal.h
+ sh*-*-linux*)
+    SIGNAL_HANDLER=include/sh-signal.h
     ;;
  *mingw*)
     SIGNAL_HANDLER=include/win32-signal.h

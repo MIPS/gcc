@@ -378,8 +378,8 @@ grok_array_decl (tree array_expr, tree index_exp)
 	array_expr = p2, index_exp = i1;
       else
 	{
-	  error ("invalid types `%T[%T]' for array subscript",
-		    type, TREE_TYPE (index_exp));
+	  error ("invalid types %<%T[%T]%> for array subscript",
+                 type, TREE_TYPE (index_exp));
 	  return error_mark_node;
 	}
 
@@ -423,14 +423,14 @@ delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete)
   /* An array can't have been allocated by new, so complain.  */
   if (TREE_CODE (exp) == VAR_DECL
       && TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE)
-    warning ("deleting array `%#D'", exp);
+    warning ("deleting array %q#D", exp);
 
   t = build_expr_type_conversion (WANT_POINTER, exp, true);
 
   if (t == NULL_TREE || t == error_mark_node)
     {
-      error ("type `%#T' argument given to `delete', expected pointer",
-		TREE_TYPE (exp));
+      error ("type %q#T argument given to %<delete%>, expected pointer",
+             TREE_TYPE (exp));
       return error_mark_node;
     }
 
@@ -441,14 +441,15 @@ delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete)
   /* You can't delete functions.  */
   if (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
     {
-      error ("cannot delete a function.  Only pointer-to-objects are valid arguments to `delete'");
+      error ("cannot delete a function.  Only pointer-to-objects are "
+             "valid arguments to %<delete%>");
       return error_mark_node;
     }
 
   /* Deleting ptr to void is undefined behavior [expr.delete/3].  */
   if (TREE_CODE (TREE_TYPE (type)) == VOID_TYPE)
     {
-      warning ("deleting `%T' is undefined", type);
+      warning ("deleting %qT is undefined", type);
       doing_vec = 0;
     }
 
@@ -484,8 +485,8 @@ check_member_template (tree tmpl)
 	/* 14.5.2.2 [temp.mem]
 	   
 	   A local class shall not have member templates.  */
-	error ("invalid declaration of member template `%#D' in local class",
-		  decl);
+	error ("invalid declaration of member template %q#D in local class",
+               decl);
       
       if (TREE_CODE (decl) == FUNCTION_DECL && DECL_VIRTUAL_P (decl))
 	{
@@ -493,7 +494,7 @@ check_member_template (tree tmpl)
 
 	     A member function template shall not be virtual.  */
 	  error 
-	    ("invalid use of `virtual' in template declaration of `%#D'",
+	    ("invalid use of %<virtual%> in template declaration of %q#D",
 	     decl);
 	  DECL_VIRTUAL_P (decl) = 0;
 	}
@@ -503,7 +504,7 @@ check_member_template (tree tmpl)
       DECL_IGNORED_P (tmpl) = 1;
     } 
   else
-    error ("template declaration of `%#D'", decl);
+    error ("template declaration of %q#D", decl);
 }
 
 /* Return true iff TYPE is a valid Java parameter or return type.  */
@@ -552,8 +553,8 @@ check_java_method (tree method)
 
   if (!acceptable_java_type (ret_type))
     {
-      error ("Java method '%D' has non-Java return type `%T'",
-		method, ret_type);
+      error ("Java method %qD has non-Java return type %qT",
+             method, ret_type);
       jerr = true;
     }
 
@@ -568,8 +569,8 @@ check_java_method (tree method)
       tree type = TREE_VALUE (arg_types);
       if (!acceptable_java_type (type))
 	{
-	  error ("Java method '%D' has non-Java parameter type `%T'",
-		    method, type);
+          error ("Java method %qD has non-Java parameter type %qT",
+                 method, type);
 	  jerr = true;
 	}
     }
@@ -595,7 +596,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
   if (DECL_USE_TEMPLATE (function)
       && !(TREE_CODE (function) == TEMPLATE_DECL
 	   && DECL_TEMPLATE_SPECIALIZATION (function))
-      && is_member_template (DECL_TI_TEMPLATE (function)))
+      && DECL_MEMBER_TEMPLATE_P (DECL_TI_TEMPLATE (function)))
     /* Since this is a specialization of a member template,
        we're not going to find the declaration in the class.
        For example, in:
@@ -621,11 +622,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
   /* OK, is this a definition of a member template?  */
   is_template = (template_parms != NULL_TREE);
 
-  ix = lookup_fnfields_1 (complete_type (ctype),
-			  DECL_CONSTRUCTOR_P (function) ? ctor_identifier :
-			  DECL_DESTRUCTOR_P (function) ? dtor_identifier :
-			  DECL_NAME (function));
-
+  ix = class_method_index_for_fn (complete_type (ctype), function);
   if (ix >= 0)
     {
       VEC(tree) *methods = CLASSTYPE_METHOD_VEC (ctype);
@@ -715,7 +712,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
   else if (!COMPLETE_TYPE_P (ctype))
     cxx_incomplete_type_error (function, ctype);
   else
-    error ("no `%#D' member function declared in class `%T'",
+    error ("no %q#D member function declared in class %qT",
 	   function, ctype);
 
   /* If we did not find the method in the class, add it to avoid
@@ -778,7 +775,7 @@ finish_static_data_member_decl (tree decl, tree init, tree asmspec_tree,
     note_vague_linkage_var (decl);
 
   if (LOCAL_CLASS_P (current_class_type))
-    pedwarn ("local class `%#T' shall not have static data member `%#D'",
+    pedwarn ("local class %q#T shall not have static data member %q#D",
 	     current_class_type, decl);
 
   /* Static consts need not be initialized in the class definition.  */
@@ -853,7 +850,7 @@ grokfield (const cp_declarator *declarator,
 
   if (TREE_CODE (value) == TYPE_DECL && init)
     {
-      error ("typedef `%D' is initialized (use __typeof__ instead)", value);
+      error ("typedef %qD is initialized (use __typeof__ instead)", value);
       init = NULL_TREE;
     }
 
@@ -870,8 +867,8 @@ grokfield (const cp_declarator *declarator,
   if (DECL_NAME (value) != NULL_TREE
       && IDENTIFIER_POINTER (DECL_NAME (value))[0] == '_'
       && ! strcmp (IDENTIFIER_POINTER (DECL_NAME (value)), "_vptr"))
-    error ("member `%D' conflicts with virtual function table field name",
-	      value);
+    error ("member %qD conflicts with virtual function table field name",
+           value);
 
   /* Stash away type declarations.  */
   if (TREE_CODE (value) == TYPE_DECL)
@@ -882,13 +879,15 @@ grokfield (const cp_declarator *declarator,
       if (processing_template_decl)
 	value = push_template_decl (value);
 
+      if (attrlist)
+	cplus_decl_attributes (&value, attrlist, 0);
+
       return value;
     }
 
   if (DECL_IN_AGGR_P (value))
     {
-      error ("`%D' is already defined in `%T'", value,
-		DECL_CONTEXT (value));
+      error ("%qD is already defined in %qT", value, DECL_CONTEXT (value));
       return void_type_node;
     }
 
@@ -1008,7 +1007,7 @@ grokbitfield (const cp_declarator *declarator,
 
   if (TREE_CODE (value) == TYPE_DECL)
     {
-      error ("cannot declare `%D' to be a bit-field type", value);
+      error ("cannot declare %qD to be a bit-field type", value);
       return NULL_TREE;
     }
 
@@ -1018,21 +1017,21 @@ grokbitfield (const cp_declarator *declarator,
      check here.  */
   if (TREE_CODE (value) == FUNCTION_DECL)
     {
-      error ("cannot declare bit-field `%D' with function type",
+      error ("cannot declare bit-field %qD with function type",
 	     DECL_NAME (value));
       return NULL_TREE;
     }
 
   if (DECL_IN_AGGR_P (value))
     {
-      error ("`%D' is already defined in the class %T", value,
-		  DECL_CONTEXT (value));
+      error ("%qD is already defined in the class %qT", value,
+             DECL_CONTEXT (value));
       return void_type_node;
     }
 
   if (TREE_STATIC (value))
     {
-      error ("static member `%D' cannot be a bit-field", value);
+      error ("static member %qD cannot be a bit-field", value);
       return NULL_TREE;
     }
   cp_finish_decl (value, NULL_TREE, NULL_TREE, 0);
@@ -1091,11 +1090,11 @@ grok_function_init (tree decl, tree init)
   tree type = TREE_TYPE (decl);
 
   if (TREE_CODE (type) == FUNCTION_TYPE)
-    error ("initializer specified for non-member function `%D'", decl);
+    error ("initializer specified for non-member function %qD", decl);
   else if (integer_zerop (init))
     DECL_PURE_VIRTUAL_P (decl) = 1;
   else
-    error ("invalid initializer for virtual method `%D'", decl);
+    error ("invalid initializer for virtual method %qD", decl);
 }
 
 void
@@ -1140,16 +1139,16 @@ build_anon_union_vars (tree object)
 	continue;
       if (TREE_CODE (field) != FIELD_DECL)
 	{
-	  cp_pedwarn_at ("\
-`%#D' invalid; an anonymous union can only have non-static data members",
+	  cp_pedwarn_at ("%q#D invalid; an anonymous union can only "
+                         "have non-static data members",
 			 field);
 	  continue;
 	}
 
       if (TREE_PRIVATE (field))
-	cp_pedwarn_at ("private member `%#D' in anonymous union", field);
+	cp_pedwarn_at ("private member %q#D in anonymous union", field);
       else if (TREE_PROTECTED (field))
-	cp_pedwarn_at ("protected member `%#D' in anonymous union", field);
+	cp_pedwarn_at ("protected member %q#D in anonymous union", field);
 
       if (processing_template_decl)
 	ref = build_min_nt (COMPONENT_REF, object,
@@ -1186,9 +1185,15 @@ build_anon_union_vars (tree object)
 void
 finish_anon_union (tree anon_union_decl)
 {
-  tree type = TREE_TYPE (anon_union_decl);
+  tree type;
   tree main_decl;
-  bool public_p = TREE_PUBLIC (anon_union_decl);
+  bool public_p;
+
+  if (anon_union_decl == error_mark_node)
+    return;
+
+  type = TREE_TYPE (anon_union_decl);
+  public_p = TREE_PUBLIC (anon_union_decl);
 
   /* The VAR_DECL's context is the same as the TYPE's context.  */
   DECL_CONTEXT (anon_union_decl) = DECL_CONTEXT (TYPE_NAME (type));
@@ -1239,7 +1244,10 @@ coerce_new_type (tree type)
   gcc_assert (TREE_CODE (type) == FUNCTION_TYPE);
   
   if (!same_type_p (TREE_TYPE (type), ptr_type_node))
-    e = 1, error ("`operator new' must return type `%T'", ptr_type_node);
+    {
+      e = 1;
+      error ("%<operator new%> must return type %qT", ptr_type_node);
+    }
 
   if (!args || args == void_list_node
       || !same_type_p (TREE_VALUE (args), size_type_node))
@@ -1247,7 +1255,8 @@ coerce_new_type (tree type)
       e = 2;
       if (args && args != void_list_node)
         args = TREE_CHAIN (args);
-      pedwarn ("`operator new' takes type `size_t' (`%T') as first parameter", size_type_node);
+      pedwarn ("%<operator new%> takes type %<size_t%> (%qT) "
+               "as first parameter", size_type_node);
     }
   switch (e)
   {
@@ -1273,7 +1282,10 @@ coerce_delete_type (tree type)
   gcc_assert (TREE_CODE (type) == FUNCTION_TYPE);
 
   if (!same_type_p (TREE_TYPE (type), void_type_node))
-    e = 1, error ("`operator delete' must return type `%T'", void_type_node);
+    {
+      e = 1;
+      error ("%<operator delete%> must return type %qT", void_type_node);
+    }
 
   if (!args || args == void_list_node
       || !same_type_p (TREE_VALUE (args), ptr_type_node))
@@ -1281,7 +1293,8 @@ coerce_delete_type (tree type)
       e = 2;
       if (args && args != void_list_node)
         args = TREE_CHAIN (args);
-      error ("`operator delete' takes type `%T' as first parameter", ptr_type_node);
+      error ("%<operator delete%> takes type %qT as first parameter",
+             ptr_type_node);
     }
   switch (e)
   {
@@ -3099,11 +3112,6 @@ cp_finish_file (void)
   cgraph_finalize_compilation_unit ();
   cgraph_optimize ();
 
-  /* Emit mudflap static registration function.  This must be done
-     after all the user functions have been expanded.  */
-  if (flag_mudflap)
-    mudflap_finish_file ();
-
   /* Now, issue warnings about static, but not defined, functions,
      etc., and emit debugging information.  */
   walk_namespaces (wrapup_globals_for_namespace, /*data=*/&reconsider);
@@ -3210,7 +3218,7 @@ check_default_args (tree x)
 	saw_def = true;
       else if (saw_def)
 	{
-	  cp_error_at ("default argument missing for parameter %P of `%+#D'",
+	  cp_error_at ("default argument missing for parameter %P of %q+#D",
 		       i, x);
 	  break;
 	}

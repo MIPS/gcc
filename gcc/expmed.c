@@ -338,6 +338,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
   unsigned HOST_WIDE_INT bitpos = bitnum % unit;
   rtx op0 = str_rtx;
   int byte_offset;
+  rtx orig_value;
 
   enum machine_mode op_mode = mode_for_extraction (EP_insv, 3);
 
@@ -601,6 +602,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
      corresponding size.  This can occur on a machine with 64 bit registers
      that uses SFmode for float.  This can also occur for unaligned float
      structure fields.  */
+  orig_value = value;
   if (GET_MODE_CLASS (GET_MODE (value)) != MODE_INT
       && GET_MODE_CLASS (GET_MODE (value)) != MODE_PARTIAL_INT)
     value = gen_lowpart ((GET_MODE (value) == VOIDmode
@@ -673,8 +675,8 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	  store_bit_field (tempreg, bitsize, bitpos, 
 	      (GET_MODE_CLASS (fieldmode) != MODE_INT
 		&& GET_MODE_CLASS (fieldmode) != MODE_PARTIAL_INT)
-	      ? GET_MODE (value) : fieldmode,
-	    value);
+	      ? GET_MODE (orig_value) : fieldmode,
+	    orig_value);
 	  /* APPLE LOCAL end do not use float fieldmode */
 	  emit_move_insn (op0, tempreg);
 	  return value;
@@ -3201,7 +3203,7 @@ expand_mult_highpart (enum machine_mode mode, rtx op0,
 static rtx
 expand_smod_pow2 (enum machine_mode mode, rtx op0, HOST_WIDE_INT d)
 {
-  unsigned HOST_WIDE_INT mask;
+  unsigned HOST_WIDE_INT masklow, maskhigh;
   rtx result, temp, shift, label;
   int logd;
 
@@ -3217,14 +3219,14 @@ expand_smod_pow2 (enum machine_mode mode, rtx op0, HOST_WIDE_INT d)
       if (signmask)
 	{
 	  signmask = force_reg (mode, signmask);
-	  mask = ((HOST_WIDE_INT) 1 << logd) - 1;
+	  masklow = ((HOST_WIDE_INT) 1 << logd) - 1;
 	  shift = GEN_INT (GET_MODE_BITSIZE (mode) - logd);
 
 	  /* Use the rtx_cost of a LSHIFTRT instruction to determine
 	     which instruction sequence to use.  If logical right shifts
 	     are expensive the use 2 XORs, 2 SUBs and an AND, otherwise
 	     use a LSHIFTRT, 1 ADD, 1 SUB and an AND.  */
-	     
+
 	  temp = gen_rtx_LSHIFTRT (mode, result, shift);
 	  if (lshr_optab->handlers[mode].insn_code == CODE_FOR_nothing
 	      || rtx_cost (temp, SET) > COSTS_N_INSNS (2))
@@ -3233,7 +3235,7 @@ expand_smod_pow2 (enum machine_mode mode, rtx op0, HOST_WIDE_INT d)
 				   NULL_RTX, 1, OPTAB_LIB_WIDEN);
 	      temp = expand_binop (mode, sub_optab, temp, signmask,
 				   NULL_RTX, 1, OPTAB_LIB_WIDEN);
-	      temp = expand_binop (mode, and_optab, temp, GEN_INT (mask),
+	      temp = expand_binop (mode, and_optab, temp, GEN_INT (masklow),
 				   NULL_RTX, 1, OPTAB_LIB_WIDEN);
 	      temp = expand_binop (mode, xor_optab, temp, signmask,
 				   NULL_RTX, 1, OPTAB_LIB_WIDEN);
@@ -3248,7 +3250,7 @@ expand_smod_pow2 (enum machine_mode mode, rtx op0, HOST_WIDE_INT d)
 
 	      temp = expand_binop (mode, add_optab, op0, signmask,
 				   NULL_RTX, 1, OPTAB_LIB_WIDEN);
-	      temp = expand_binop (mode, and_optab, temp, GEN_INT (mask),
+	      temp = expand_binop (mode, and_optab, temp, GEN_INT (masklow),
 				   NULL_RTX, 1, OPTAB_LIB_WIDEN);
 	      temp = expand_binop (mode, sub_optab, temp, signmask,
 				   NULL_RTX, 1, OPTAB_LIB_WIDEN);
@@ -3262,11 +3264,19 @@ expand_smod_pow2 (enum machine_mode mode, rtx op0, HOST_WIDE_INT d)
      can avoid an explicit compare operation in the following comparison
      against zero.  */
 
-  mask = (HOST_WIDE_INT) -1 << (GET_MODE_BITSIZE (mode) - 1)
-	 | (((HOST_WIDE_INT) 1 << logd) - 1);
+  masklow = ((HOST_WIDE_INT) 1 << logd) - 1;
+  if (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
+    {
+      masklow |= (HOST_WIDE_INT) -1 << (GET_MODE_BITSIZE (mode) - 1);
+      maskhigh = -1;
+    }
+  else
+    maskhigh = (HOST_WIDE_INT) -1
+		 << (GET_MODE_BITSIZE (mode) - HOST_BITS_PER_WIDE_INT - 1);
 
-  temp = expand_binop (mode, and_optab, op0, GEN_INT (mask), result,
-		       1, OPTAB_LIB_WIDEN);
+  temp = expand_binop (mode, and_optab, op0,
+		       immed_double_const (masklow, maskhigh, mode),
+		       result, 1, OPTAB_LIB_WIDEN);
   if (temp != result)
     emit_move_insn (result, temp);
 
@@ -3275,9 +3285,11 @@ expand_smod_pow2 (enum machine_mode mode, rtx op0, HOST_WIDE_INT d)
 
   temp = expand_binop (mode, sub_optab, result, const1_rtx, result,
 		       0, OPTAB_LIB_WIDEN);
-  mask = (HOST_WIDE_INT) -1 << logd;
-  temp = expand_binop (mode, ior_optab, temp, GEN_INT (mask), result,
-		       1, OPTAB_LIB_WIDEN);
+  masklow = (HOST_WIDE_INT) -1 << logd;
+  maskhigh = -1;
+  temp = expand_binop (mode, ior_optab, temp,
+		       immed_double_const (masklow, maskhigh, mode),
+		       result, 1, OPTAB_LIB_WIDEN);
   temp = expand_binop (mode, add_optab, temp, const1_rtx, result,
 		       0, OPTAB_LIB_WIDEN);
   if (temp != result)
@@ -3312,6 +3324,11 @@ expand_sdiv_pow2 (enum machine_mode mode, rtx op0, HOST_WIDE_INT d)
   if (BRANCH_COST >= 2)
     {
       rtx temp2;
+
+      /* ??? emit_conditional_move forces a stack adjustment via
+	 compare_from_rtx so, if the sequence is discarded, it will
+	 be lost.  Do it now instead.  */
+      do_pending_stack_adjust ();
 
       start_sequence ();
       temp2 = copy_to_mode_reg (mode, op0);

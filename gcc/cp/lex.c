@@ -288,7 +288,6 @@ static const struct resword reswords[] =
      All of them will remain _disabled_, since they are context-
      sensitive.  */
 
-  { "id",		RID_ID,			D_OBJC },
   /* These ObjC keywords are recognized only immediately after
      an '@'.  NB: The following C++ keywords double as
      ObjC keywords in this context: RID_CLASS, RID_PRIVATE,
@@ -619,11 +618,11 @@ unqualified_name_lookup_error (tree name)
   if (IDENTIFIER_OPNAME_P (name))
     {
       if (name != ansi_opname (ERROR_MARK))
-	error ("`%D' not defined", name);
+	error ("%qD not defined", name);
     }
   else
     {
-      error ("`%D' was not declared in this scope", name);
+      error ("%qD was not declared in this scope", name);
       /* Prevent repeated error messages by creating a VAR_DECL with
 	 this NAME in the innermost block scope.  */
       if (current_function_decl)
@@ -660,8 +659,8 @@ unqualified_fn_lookup_error (tree name)
 	 Note that we have the exact wording of the following message in
 	 the manual (trouble.texi, node "Name lookup"), so they need to
 	 be kept in synch.  */
-      pedwarn ("there are no arguments to `%D' that depend on a template "
-	       "parameter, so a declaration of `%D' must be available", 
+      pedwarn ("there are no arguments to %qD that depend on a template "
+	       "parameter, so a declaration of %qD must be available", 
 	       name, name);
       
       if (!flag_permissive)

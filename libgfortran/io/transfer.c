@@ -1074,6 +1074,7 @@ data_transfer_init (int read_flag)
   g.seen_dollar = 0;
   g.first_item = 1;
   g.item_count = 0;
+  sf_seen_eor = 0;
 
   pre_position ();
 
@@ -1348,7 +1349,8 @@ next_record (int done)
 
 
 /* Finalize the current data transfer.  For a nonadvancing transfer,
-   this means advancing to the next record.  */
+   this means advancing to the next record.  For internal units close the
+   steam associated with the unit.  */
 
 static void
 finalize_transfer (void)
@@ -1391,6 +1393,9 @@ finalize_transfer (void)
     }
 
   sfree (current_unit->s);
+
+  if (is_internal_unit ())
+    sclose (current_unit->s);
 }
 
 

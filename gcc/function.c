@@ -287,8 +287,6 @@ pop_function_context_from (tree context ATTRIBUTE_UNUSED)
   current_function_decl = p->decl;
   reg_renumber = 0;
 
-  restore_emit_status (p);
-
   lang_hooks.function.leave_nested (p);
 
   /* Reset variables that have known state during rtx generation.  */
@@ -552,7 +550,6 @@ insert_slot_to_list (struct temp_slot *temp, struct temp_slot **list)
 static struct temp_slot **
 temp_slots_at_level (int level)
 {
-  level++;
 
   if (!used_temp_slots)
     VARRAY_GENERIC_PTR_INIT (used_temp_slots, 3, "used_temp_slots");
@@ -1363,10 +1360,20 @@ instantiate_decl (rtx x, HOST_WIDE_INT size, int valid_only)
   enum machine_mode mode;
   rtx addr;
 
+  if (x == 0)
+    return;
+
+  /* If this is a CONCAT, recurse for the pieces.  */
+  if (GET_CODE (x) == CONCAT)
+    {
+      instantiate_decl (XEXP (x, 0), size / 2, valid_only);
+      instantiate_decl (XEXP (x, 1), size / 2, valid_only);
+      return;
+    }
+
   /* If this is not a MEM, no need to do anything.  Similarly if the
      address is a constant or a register that is not a virtual register.  */
-
-  if (x == 0 || !MEM_P (x))
+  if (!MEM_P (x))
     return;
 
   addr = XEXP (x, 0);
@@ -2530,8 +2537,12 @@ assign_parm_setup_block_p (struct assign_parm_data_one *data)
     return true;
 
 #ifdef BLOCK_REG_PADDING
-  if (data->locate.where_pad == (BYTES_BIG_ENDIAN ? upward : downward)
-      && GET_MODE_SIZE (data->promoted_mode) < UNITS_PER_WORD)
+  /* Only assign_parm_setup_block knows how to deal with register arguments
+     that are padded at the least significant end.  */
+  if (REG_P (data->entry_parm)
+      && GET_MODE_SIZE (data->promoted_mode) < UNITS_PER_WORD
+      && (BLOCK_REG_PADDING (data->passed_mode, data->passed_type, 1)
+	  == (BYTES_BIG_ENDIAN ? upward : downward)))
     return true;
 #endif
 
@@ -2736,7 +2747,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 
       /* TREE_USED gets set erroneously during expand_assignment.  */
       save_tree_used = TREE_USED (parm);
-      expand_assignment (parm, make_tree (data->nominal_type, tempreg), 0);
+      expand_assignment (parm, make_tree (data->nominal_type, tempreg));
       TREE_USED (parm) = save_tree_used;
       all->conversion_insns = get_insns ();
       end_sequence ();

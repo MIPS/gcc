@@ -1,6 +1,6 @@
 /* Threads compatibility routines for libgcc2 and libobjc.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1997, 1999, 2000, 2001, 2002, 2003
+/* Copyright (C) 1997, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -105,7 +105,8 @@ typedef pthread_mutex_t __gthread_recursive_mutex_t;
 static inline int
 __gthread_active_p (void)
 {
-  static void *const __gthread_active_ptr = (void *) &pthread_create;
+  static void *const __gthread_active_ptr 
+    = __extension__ (void *) &pthread_create;
   return __gthread_active_ptr != 0;
 }
 

@@ -83,46 +83,24 @@ do {									\
   reg_set_to_hard_reg_set (&TO, FROM);					\
 } while (0)
 
+typedef bitmap_iterator reg_set_iterator;
+
 /* Loop over all registers in REGSET, starting with MIN, setting REGNUM to the
    register number and executing CODE for all registers that are set.  */
-#define EXECUTE_IF_SET_IN_REG_SET(REGSET, MIN, REGNUM, CODE)		\
-  do									\
-    {									\
-      bitmap_iterator bi;						\
-									\
-      EXECUTE_IF_SET_IN_BITMAP (REGSET, MIN, REGNUM, bi)		\
-	{								\
-	  CODE;								\
-        }								\
-    } while (0)
+#define EXECUTE_IF_SET_IN_REG_SET(REGSET, MIN, REGNUM, RSI)	\
+  EXECUTE_IF_SET_IN_BITMAP (REGSET, MIN, REGNUM, RSI)
 
 /* Loop over all registers in REGSET1 and REGSET2, starting with MIN, setting
    REGNUM to the register number and executing CODE for all registers that are
    set in the first regset and not set in the second.  */
-#define EXECUTE_IF_AND_COMPL_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, CODE) \
-  do									\
-    {									\
-      bitmap_iterator bi;						\
-									\
-      EXECUTE_IF_AND_COMPL_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, bi) \
-	{								\
-	  CODE;								\
-        }								\
-    } while (0)
+#define EXECUTE_IF_AND_COMPL_IN_REG_SET(REGSET, MIN, REGNUM, RSI)	\
+  EXECUTE_IF_AND_COMPL_IN_BITMAP (REGSET, MIN, REGNUM, RSI)
 
 /* Loop over all registers in REGSET1 and REGSET2, starting with MIN, setting
    REGNUM to the register number and executing CODE for all registers that are
    set in both regsets.  */
-#define EXECUTE_IF_AND_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, CODE) \
-  do									\
-    {									\
-      bitmap_iterator bi;						\
-									\
-      EXECUTE_IF_AND_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, bi)	\
-	{								\
-	  CODE;								\
-        }								\
-    } while (0)
+#define EXECUTE_IF_AND_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, RSI) \
+  EXECUTE_IF_AND_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, RSI)	\
 
 /* Allocate a register set with oballoc.  */
 #define OBSTACK_ALLOC_REG_SET(OBSTACK) BITMAP_OBSTACK_ALLOC (OBSTACK)
@@ -473,7 +451,6 @@ extern basic_block create_basic_block_structure (rtx, rtx, rtx, basic_block);
 extern void clear_bb_flags (void);
 extern void flow_reverse_top_sort_order_compute (int *);
 extern int flow_depth_first_order_compute (int *, int *);
-extern void flow_preorder_transversal_compute (int *);
 extern int dfs_enumerate_from (basic_block, int,
 			       bool (*)(basic_block, void *),
 			       basic_block *, int, void *);
@@ -564,12 +541,22 @@ struct edge_list
 
 typedef struct {
   unsigned index;
-  VEC(edge) *container;
+  VEC(edge) **container;
 } edge_iterator;
+
+static inline VEC(edge) *
+ei_container (edge_iterator i)
+{
+  gcc_assert (i.container);
+  return *i.container;
+}
+
+#define ei_start(iter) ei_start_1 (&(iter))
+#define ei_last(iter) ei_last_1 (&(iter))
 
 /* Return an iterator pointing to the start of an edge vector.  */
 static inline edge_iterator
-ei_start (VEC(edge) *ev)
+ei_start_1 (VEC(edge) **ev)
 {
   edge_iterator i;
 
@@ -580,13 +567,13 @@ ei_start (VEC(edge) *ev)
 }
 
 /* Return an iterator pointing to the last element of an edge
-   vector. */
+   vector.  */
 static inline edge_iterator
-ei_last (VEC(edge) *ev)
+ei_last_1 (VEC(edge) **ev)
 {
   edge_iterator i;
 
-  i.index = EDGE_COUNT (ev) - 1;
+  i.index = EDGE_COUNT (*ev) - 1;
   i.container = ev;
 
   return i;
@@ -596,7 +583,7 @@ ei_last (VEC(edge) *ev)
 static inline bool
 ei_end_p (edge_iterator i)
 {
-  return (i.index == EDGE_COUNT (i.container));
+  return (i.index == EDGE_COUNT (ei_container (i)));
 }
 
 /* Is the iterator `i' at one position before the end of the
@@ -604,14 +591,14 @@ ei_end_p (edge_iterator i)
 static inline bool
 ei_one_before_end_p (edge_iterator i)
 {
-  return (i.index + 1 == EDGE_COUNT (i.container));
+  return (i.index + 1 == EDGE_COUNT (ei_container (i)));
 }
 
 /* Advance the iterator to the next element.  */
 static inline void
 ei_next (edge_iterator *i)
 {
-  gcc_assert (i->index < EDGE_COUNT (i->container));
+  gcc_assert (i->index < EDGE_COUNT (ei_container (*i)));
   i->index++;
 }
 
@@ -627,7 +614,7 @@ ei_prev (edge_iterator *i)
 static inline edge
 ei_edge (edge_iterator i)
 {
-  return EDGE_I (i.container, i.index);
+  return EDGE_I (ei_container (i), i.index);
 }
 
 /* Return an edge pointed to by the iterator.  Do it safely so that
@@ -816,9 +803,6 @@ extern bool mark_dfs_back_edges (void);
 extern void set_edge_can_fallthru_flag (void);
 extern void update_br_prob_note (basic_block);
 extern void fixup_abnormal_edges (void);
-extern bool can_hoist_insn_p (rtx, rtx, regset);
-extern rtx hoist_insn_after (rtx, rtx, rtx, rtx);
-extern rtx hoist_insn_to_edge (rtx, edge, rtx, rtx);
 extern bool inside_basic_block_p (rtx);
 extern bool control_flow_insn_p (rtx);
 
@@ -842,14 +826,13 @@ enum cdi_direction
 enum dom_state
 {
   DOM_NONE,		/* Not computed at all.  */
-  DOM_CONS_OK,		/* The data is conservatively OK, i.e. if it says you that A dominates B,
-			   it indeed does.  */
   DOM_NO_FAST_QUERY,	/* The data is OK, but the fast query data are not usable.  */
   DOM_OK		/* Everything is ok.  */
 };
 
 extern enum dom_state dom_computed[2];
 
+extern bool dom_info_available_p (enum cdi_direction);
 extern void calculate_dominance_info (enum cdi_direction);
 extern void free_dominance_info (enum cdi_direction);
 extern basic_block nearest_common_dominator (enum cdi_direction,

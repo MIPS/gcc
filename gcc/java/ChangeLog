@@ -1,3 +1,122 @@
+2004-10-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR java/17265
+	* class.c (make_local_function_alias): Revert 2004-08-18 change.
+	(make_method_value): Likewise.
+
+2004-10-21  Andrew Haley  <aph@redhat.com>
+
+	PR java/18091:
+	* jcf-parse.c (set_source_filename): Add code to build new sfname.
+
+2004-10-20  Andrew Haley  <aph@redhat.com>
+
+	* decl.c (end_java_method): Don't expand if flag_syntax_only.
+	Remove duplicated code block.
+
+2004-10-18  Steven Bosscher  <stevenb@suse.de>
+
+	* Make-lang.in (java/parse.o-warn, java/parse-scan.o-warn):
+	New rules to work around old Bison warnings.
+
+2004-10-17  Steven Bosscher  <stevenb@suse.de>
+
+	* class.c (ident_subst): Always alloca buffer.
+	* java-opcodes.h (LAST_AND_UNUSED_JAVA_OPCODE): Add this dummy
+	opcode after including javaop.def.
+	* jcf-dump.c (CHECK_PC_IN_RANGE): Return 0 from the arm of the
+	conditional expression that exits, to avoid warnings.
+	* verify.c (CHECK_PC_IN_RANGE): Mark the __GNUC__ definition as
+	a user of an extension.
+	* win32-host.c: Move check down to have non-empty file when
+	WIN32 is not defined.
+
+	* Make-lang.in (java-warn): Add STRICT_WARN.
+	(java/jcf-io.o-warn): Don't have Werror for this file.
+	* jcf-io.c (caching_stat): Add FIXME for non-POSIX scandir use.
+
+2004-10-16  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* expr.c (expr_add_location): Move declaration to before all
+	statements.
+	* parse.y (java_expand_classes): Ditto.
+	* lex.c (java_peek_unicode): Ditto.
+
+2004-10-16  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* check-init.c: Use %<, %> and %q for quoting in diagnostics,
+	if possible, else convert `foo' to 'foo'.
+	* class.c: Likewise.
+	* decl.c: Likewise.
+	* expr.c: Likewise.
+	* jcf-io.c: Likewise.
+	* jcf-parse.c: Likewise.
+	* lang.c: Likewise.
+	* lex.c: Likewise.
+	* parse.h: Likewise.
+
+2004-10-16  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* parse.y (parse_warning_context): Remove ATTRIBUTE_PRINTF_2 and
+	rename parameter 'msg' to 'msgid' in function declaration.
+	(issue_warning_error_from_context): Likewise.
+	(yyerror): Rename parameter 'msg' to 'msgid'.
+	(all over): Use new quoting style for diagnostics.
+
+2004-10-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* boehm.c, builtins.c, java-except.h, jcf-io.c, jcf-path.c,
+	jcf.h, lang-specs.h, lex.c, lex.h, resource.c, win32-host.c:
+	Update copyright.
+
+2004-10-14  Matt Austern  <austern@apple.com>
+
+	* lang.c (java_tree_inlining_walk_subtrees): Last arg is struct
+	pointer_set_t* now.
+	
+2004-10-13  Tom Tromey  <tromey@redhat.com>
+
+	PR java/15578:
+	* lang.opt (--extdirs): Document.
+	* jvspec.c (lang_specific_driver): Recognize -encoding and
+	-extdirs.
+
+2004-10-06  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* parse.y (issue_warning_error_from_context): Use va_list *
+	instead of va_list parameter.
+	(parse_error_context): Update call.
+	(parse_warning_context): Likewise.
+
+2004-10-05  Zack Weinberg  <zack@codesourcery.com>
+
+	* parse.y, parse-scan.y: Add list of diagnostic messages to
+	insulate translation template from version of yacc/bison used
+	to compile the grammar.
+
+2004-10-05  Ranjit Mathew  <rmathew@hotmail.com>
+
+	Prepare for %q, %< and %> in diagnostic message strings.
+	* java-tree.h (parse_error_context): remove ATTRIBUTE_PRINTF_2.
+	Name second parameter 'msgid'.
+	* parse.y: Additionally include pretty-print.h and diagnostic.h.
+	(issue_warning_error_from_context): Use pretty-printer functions
+	instead of vsprintf for constructing formatted messages. Rename
+	parameter 'msg' to 'msgid'.
+	(parse_error_context): Rename parameter 'msg' to 'msgid'.
+	(parse_warning_context): Likewise.
+
+2004-10-05  Andrew Haley  <aph@redhat.com>
+
+	PR java/17779
+	* jcf-parse.c (parse_zip_file_entries): If a class has a
+	superclass and a TYPE_SIZE of zero, lay it out.
+
+2004-09-30  Andrew Haley  <aph@redhat.com>
+
+	PR java/17733
+	* jcf-parse.c (compute_class_name): Rewrite.
+
 2004-10-01  Jan Hubicka  <jh@suse.cz>
 
 	* java.c (java_expand_body): Update call of tree_rest_of_compilation.
@@ -207,7 +326,7 @@
 	Fix bootstrap.
 	* gjavah.c (free_method_name_list): Fix function definition so
 	it's a proper C prototype.
-	
+
 2004-09-21  Tom Tromey  <tromey@redhat.com>
 
 	PR java/17575:

@@ -633,6 +633,8 @@ extern enum m32r_sdata m32r_sdata;
   SUBTARGET_CALL_USED_REGISTERS	\
 }
 
+#define CALL_REALLY_USED_REGISTERS CALL_USED_REGISTERS
+
 /* Zero or more C statements that may conditionally modify two variables
    `fixed_regs' and `call_used_regs' (both of type `char []') after they
    have been initialized from the two preceding macros.
@@ -649,7 +651,10 @@ extern enum m32r_sdata m32r_sdata;
   do							 \
     {							 \
       if (flag_pic)					 \
-          fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;	 \
+       {						 \
+         fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;	 \
+         call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;	 \
+       }						 \
     }							 \
   while (0)
 #endif
@@ -1520,8 +1525,7 @@ L2:     .word STATIC
    a word so don't ever force line number labels to begin at the beginning
    of a word.  */
 
-#undef	ASM_OUTPUT_SOURCE_LINE
-#define ASM_OUTPUT_SOURCE_LINE(file, line, counter)			\
+#define DBX_OUTPUT_SOURCE_LINE(file, line, counter)			\
   do									\
     {									\
       fprintf (file, ".stabn 68,0,%d,.LM%d-",				\

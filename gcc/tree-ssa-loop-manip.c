@@ -785,7 +785,7 @@ struct loop *
 tree_ssa_loop_version (struct loops *loops, struct loop * loop, 
 		       tree cond_expr, basic_block *condition_bb)
 {
-  edge entry, latch_edge, exit;
+  edge entry, latch_edge, exit, true_edge, false_edge;
   basic_block first_head, second_head;
   int irred_flag;
   struct loop *nloop;
@@ -819,10 +819,12 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop,
 					    cond_expr); 
 
   latch_edge = EDGE_SUCC (loop->latch->rbi->copy, 0);
+  
+  extract_true_false_edges_from_block (*condition_bb, &true_edge, &false_edge);
   nloop = loopify (loops, 
 		   latch_edge,
 		   EDGE_PRED (loop->header->rbi->copy, 0),
-		   *condition_bb,
+		   *condition_bb, true_edge, false_edge,
 		   false /* Do not redirect all edges.  */);
 
   exit = loop->single_exit;
@@ -833,7 +835,8 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop,
   lv_update_pending_stmts (latch_edge);
 
   /* loopify redirected condition_bb's succ edge. Update its PENDING_STMTS.  */ 
-  lv_update_pending_stmts (FALLTHRU_EDGE (*condition_bb));
+  extract_true_false_edges_from_block (*condition_bb, &true_edge, &false_edge);
+  lv_update_pending_stmts (false_edge);
 
   /* Adjust irreducible flag.  */
   if (irred_flag)
@@ -846,7 +849,7 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop,
 
   /* At this point condition_bb is loop predheader with two successors, 
      first_head and second_head.   Make sure that loop predheader has only 
-     one successor. */
+     one successor.  */
   loop_split_edge_with (loop_preheader_edge (loop), NULL);
   loop_split_edge_with (loop_preheader_edge (nloop), NULL);
 

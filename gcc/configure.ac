@@ -1027,6 +1027,8 @@ AC_SUBST(LIBICONV_DEP)
 
 AM_LC_MESSAGES
 
+AM_LANGINFO_CODESET
+
 # We will need to find libiberty.h and ansidecl.h
 saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
@@ -1493,32 +1495,24 @@ do
 done
 tmake_file="${tmake_file_}"
 
-symbolic_link='ln -s'
-
 # If the host doesn't support symlinks, modify CC in
 # FLAGS_TO_PASS so CC="stage1/xgcc -Bstage1/" works.
 # Otherwise, we can use "CC=$(CC)".
 rm -f symtest.tem
-if $symbolic_link $srcdir/gcc.c symtest.tem 2>/dev/null
-then
-	cc_set_by_configure="\$(CC)"
-	quoted_cc_set_by_configure="\$(CC)"
-	stage_prefix_set_by_configure="\$(STAGE_PREFIX)"
-	quoted_stage_prefix_set_by_configure="\$(STAGE_PREFIX)"
-else
-	rm -f symtest.tem
-	if cp -p $srcdir/gcc.c symtest.tem 2>/dev/null
-	then
-		symbolic_link="cp -p"
-	else
-		symbolic_link="cp"
-	fi
-	cc_set_by_configure="\`case '\$(CC)' in stage*) echo '\$(CC)' | sed -e 's|stage|../stage|g';; *) echo '\$(CC)';; esac\`"
-	quoted_cc_set_by_configure="\\\`case '\\\$(CC)' in stage*) echo '\\\$(CC)' | sed -e 's|stage|../stage|g';; *) echo '\\\$(CC)';; esac\\\`"
-	stage_prefix_set_by_configure="\`case '\$(STAGE_PREFIX)' in stage*) echo '\$(STAGE_PREFIX)' | sed -e 's|stage|../stage|g';; *) echo '\$(STAGE_PREFIX)';; esac\`"
-	quoted_stage_prefix_set_by_configure="\\\`case '\\\$(STAGE_PREFIX)' in stage*) echo '\\\$(STAGE_PREFIX)' | sed -e 's|stage|../stage|g';; *) echo '\\\$(STAGE_PREFIX)';; esac\\\`"
-fi
-rm -f symtest.tem
+case "$LN_S" in
+	*-s*)
+		cc_set_by_configure="\$(CC)"
+		quoted_cc_set_by_configure="\$(CC)"
+		stage_prefix_set_by_configure="\$(STAGE_PREFIX)"
+		quoted_stage_prefix_set_by_configure="\$(STAGE_PREFIX)"
+		;;
+	*)
+		cc_set_by_configure="\`case '\$(CC)' in stage*) echo '\$(CC)' | sed -e 's|stage|../stage|g';; *) echo '\$(CC)';; esac\`"
+		quoted_cc_set_by_configure="\\\`case '\\\$(CC)' in stage*) echo '\\\$(CC)' | sed -e 's|stage|../stage|g';; *) echo '\\\$(CC)';; esac\\\`"
+		stage_prefix_set_by_configure="\`case '\$(STAGE_PREFIX)' in stage*) echo '\$(STAGE_PREFIX)' | sed -e 's|stage|../stage|g';; *) echo '\$(STAGE_PREFIX)';; esac\`"
+		quoted_stage_prefix_set_by_configure="\\\`case '\\\$(STAGE_PREFIX)' in stage*) echo '\\\$(STAGE_PREFIX)' | sed -e 's|stage|../stage|g';; *) echo '\\\$(STAGE_PREFIX)';; esac\\\`"
+		;;
+esac
 
 out_object_file=`basename $out_file .c`.o
 
@@ -1751,7 +1745,7 @@ elif test -f $gcc_cv_as_gas_srcdir/configure.in \
   in_tree_gas=yes
   _gcc_COMPUTE_GAS_VERSION
   rm -f as$host_exeext
-  $symbolic_link ../gas/as-new$host_exeext as$host_exeext 2>/dev/null
+  $LN_S ../gas/as-new$host_exeext as$host_exeext 2>/dev/null
   in_tree_gas_is_elf=no
   if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
      || (grep 'obj_format = multi' ../gas/Makefile \
@@ -1797,12 +1791,16 @@ if test "x$gcc_cv_as" = x; then
 		gcc_cv_as=`echo as | sed "${program_transform_name}"`$host_exeext
 	fi
 
-	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
-		   $test_prefix/libexec/gcc/$target_noncanonical \
-		   /usr/lib/gcc/$target_noncanonical/$gcc_version \
-		   /usr/lib/gcc/$target_noncanonical \
-		   $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
-		   $test_prefix/$target_noncanonical/bin"
+	if test x$host = x$build; then
+	    test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
+		       $test_prefix/libexec/gcc/$target_noncanonical \
+		       /usr/lib/gcc/$target_noncanonical/$gcc_version \
+		       /usr/lib/gcc/$target_noncanonical \
+		       $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
+		       $test_prefix/$target_noncanonical/bin"
+	else
+	    test_dirs=
+	fi
 
 	if test x$host = x$target; then
 	    test_dirs="$test_dirs \
@@ -1880,8 +1878,7 @@ changequote(,)dnl
 	gcc_cv_gld_minor_version=`expr "$gcc_cv_gld_version" : "VERSION=[0-9]*\.\([0-9]*\)"`
 changequote([,])dnl
 	rm -f collect-ld$host_exeext
-	$symbolic_link ../ld/ld-new$host_exeext collect-ld$host_exeext \
-		2>/dev/null
+	$LN_S ../ld/ld-new$host_exeext collect-ld$host_exeext 2>/dev/null
 elif test -x "$LD_FOR_TARGET"; then
         gcc_cv_ld="$LD_FOR_TARGET"
 elif test -x "$LD" && test x$host = x$target; then
@@ -1919,12 +1916,16 @@ if test "x$gcc_cv_ld" = x; then
 		gcc_cv_ld=`echo ld | sed "${program_transform_name}"`$host_exeext
 	fi
 
-	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
-		   $test_prefix/libexec/gcc/$target_noncanonical \
-		   /usr/lib/gcc/$target_noncanonical/$gcc_version \
-		   /usr/lib/gcc/$target_noncanonical \
-		   $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
-		   $test_prefix/$target_noncanonical/bin"
+	if test x$host = x$build; then
+	    test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
+		       $test_prefix/libexec/gcc/$target_noncanonical \
+		       /usr/lib/gcc/$target_noncanonical/$gcc_version \
+		       /usr/lib/gcc/$target_noncanonical \
+		       $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
+		       $test_prefix/$target_noncanonical/bin"
+	else
+	    test_dirs=
+	fi
 
 	if test x$host = x$target; then
 	    test_dirs="$test_dirs \
@@ -1968,7 +1969,7 @@ elif test -f $gcc_cv_binutils_srcdir/configure.in \
 	in_tree_nm=yes
 	gcc_cv_nm=./nm$host_exeext
 	rm -f nm$host_exeext
-	$symbolic_link ../binutils/nm-new$host_exeext nm$host_exeext 2>/dev/null
+	$LN_S ../binutils/nm-new$host_exeext nm$host_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_nm=${program_prefix}nm$host_exeext
 else
@@ -1990,8 +1991,7 @@ elif test -f $gcc_cv_binutils_srcdir/configure.in \
 	in_tree_objdump=yes
 	gcc_cv_objdump=./objdump$host_exeext
 	rm -f objdump$host_exeext
-	$symbolic_link ../binutils/objdump$host_exeext \
-		objdump$host_exeext 2>/dev/null
+	$LN_S ../binutils/objdump$host_exeext objdump$host_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_objdump=${program_prefix}objdump$host_exeext
 else
@@ -2696,7 +2696,8 @@ foo:	nop
 	mfcr 3,128';;
       *-*-darwin*) conftest_s='	.text
 	mfcr r3,128';;
-      *)       conftest_s='	.text
+      *) conftest_s='	.machine power4
+	.text
 	mfcr 3,128';;
     esac
 
@@ -3243,7 +3244,6 @@ AC_SUBST(out_file)
 AC_SUBST(out_object_file)
 AC_SUBST(stage_prefix_set_by_configure)
 AC_SUBST(quoted_stage_prefix_set_by_configure)
-AC_SUBST(symbolic_link)
 AC_SUBST(thread_file)
 AC_SUBST(tm_file_list)
 AC_SUBST(tm_include_list)
@@ -3306,20 +3306,20 @@ done
 # FLAGS_TO_PASS has been modified to solve the problem there.
 # This is virtually a duplicate of what happens in configure.lang; we do
 # an extra check to make sure this only happens if ln -s can be used.
-if test "$symbolic_link" = "ln -s"; then
- for d in ${subdirs} ; do
+case "$LN_S" in
+  *-s*)
+    for d in ${subdirs} ; do
 	STARTDIR=`${PWDCMD-pwd}`
 	cd $d
 	for t in stage1 stage2 stage3 stage4 stageprofile stagefeedback include
 	do
 		rm -f $t
-		$symbolic_link ../$t $t 2>/dev/null
+		$LN_S ../$t $t 2>/dev/null
 	done
 	cd $STARTDIR
- done
-else true ; fi
+    done
+  ;;
+esac
 ], 
-[subdirs='$subdirs'
-symbolic_link='$symbolic_link'
-])
+[subdirs='$subdirs'])
 AC_OUTPUT
