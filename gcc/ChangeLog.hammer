@@ -1,3 +1,7 @@
+2004-02-02  Josef Zlomek  <zlomekj@suse.cz>
+
+	* tree-inline.c (copy_body_r): Do not replace ret_label.
+
 2004-02-02  Alan Modra  <amodra@bigpond.net.au>
 
 	Backport from mainline.
