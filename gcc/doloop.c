@@ -57,8 +57,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifdef HAVE_doloop_end
 
-static rtx doloop_condition_get
-  PARAMS ((rtx));
 static unsigned HOST_WIDE_INT doloop_iterations_max
   PARAMS ((const struct loop_info *, enum machine_mode, int));
 static int doloop_valid_p
@@ -71,7 +69,7 @@ static int doloop_modify_runtime
 
 /* Return the loop termination condition for PATTERN or zero
    if it is not a decrement and branch jump insn.  */
-static rtx
+rtx
 doloop_condition_get (pattern)
      rtx pattern;
 {

@@ -29,6 +29,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "expr.h"
 
+/* We need to use the macro exact_log2. */
+#include "toplev.h"
+
+
+
 static void decide_unrolling_and_peeling PARAMS ((struct loops *, int));
 static void peel_loops_completely PARAMS ((struct loops *, int));
 static void decide_peel_simple PARAMS ((struct loops *, struct loop *, int));
@@ -44,6 +49,8 @@ static void unroll_loop_constant_iterations PARAMS ((struct loops *,
 						     struct loop *));
 static void unroll_loop_runtime_iterations PARAMS ((struct loops *,
 						    struct loop *));
+static void expand_bct                     PARAMS ((edge, int));
+static bool discard_increment              PARAMS ((struct loop *));
 
 /* Unroll and peel (depending on FLAGS) LOOPS.  */
 void
@@ -367,6 +374,11 @@ peel_loop_completely (loops, loop)
   unsigned n_remove_edges, i;
   edge *remove_edges;
   struct loop_desc *desc = &loop->desc;
+  bool discard_inc = false;
+  bool is_bct;
+
+  if ((is_bct = is_bct_cond (BB_END (loop->desc.out_edge->src))))
+    discard_inc = discard_increment (loop);
   
   npeel = desc->niter;
 
@@ -387,6 +399,11 @@ peel_loop_completely (loops, loop)
 
   free (wont_exit);
 
+  /* Expand the branch and count.  */
+  if (is_bct)
+    for (i = 0; i < n_remove_edges; i++)
+       expand_bct (remove_edges[i], discard_inc);
+
   /* Remove the exit edges.  */
   for (i = 0; i < n_remove_edges; i++)
     remove_path (loops, remove_edges[i]);
@@ -399,6 +416,10 @@ peel_loop_completely (loops, loop)
 
   if (!e)
     abort ();
+
+  /* Expand the branch and count.  */
+  if (is_bct)
+    expand_bct (e, discard_inc);  
 
   remove_path (loops, e);
 
@@ -505,6 +526,8 @@ unroll_loop_constant_iterations (loops, loop)
   edge *remove_edges;
   unsigned max_unroll = loop->lpt_decision.times;
   struct loop_desc *desc = &loop->desc;
+  bool discard_inc = false;
+  bool is_bct;
 
   niter = desc->niter;
 
@@ -518,6 +541,31 @@ unroll_loop_constant_iterations (loops, loop)
 
   remove_edges = xcalloc (max_unroll + exit_mod + 1, sizeof (edge));
   n_remove_edges = 0;
+
+  /* For a loop ending with a branch and count for which the increment
+     of the count register will be discarded, adjust the initialization of
+     the count register.  */
+  if ((is_bct = is_bct_cond (BB_END (desc->out_edge->src)))
+      && (discard_inc = discard_increment (loop)))
+    { 
+      rtx ini_var;
+     
+      rtx init_code;
+      int n_peel, new_bct_value;
+
+      /* Get expression for number of iterations.  */
+      start_sequence ();
+      
+      n_peel = (niter+1) % (max_unroll+1);
+      new_bct_value = (niter+1 - n_peel) / (max_unroll+1) ;
+      ini_var = GEN_INT (new_bct_value);        
+      
+      emit_move_insn (desc->var, ini_var);
+      init_code = get_insns ();
+      end_sequence ();
+
+      loop_split_edge_with (loop_preheader_edge (loop), init_code, loops); 
+    }    
 
   if (desc->postincr)
     {
@@ -576,6 +624,11 @@ unroll_loop_constant_iterations (loops, loop)
     abort ();
 
   free (wont_exit);
+
+ /* Expand the branch and count.  */
+  if (is_bct)
+    for (i = 0; i < n_remove_edges; i++)
+      expand_bct (remove_edges[i], discard_inc);
 
   /* Remove the edges.  */
   for (i = 0; i < n_remove_edges; i++)
@@ -671,6 +724,8 @@ unroll_loop_runtime_iterations (loops, loop)
   bool extra_zero_check, last_may_exit;
   unsigned max_unroll = loop->lpt_decision.times;
   struct loop_desc *desc = &loop->desc;
+  bool discard_inc = false;
+  bool is_bct;
 
   /* Remember blocks whose dominators will have to be updated.  */
   dom_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
@@ -720,6 +775,34 @@ unroll_loop_runtime_iterations (loops, loop)
 			       niter,
 			       GEN_INT (max_unroll),
 			       NULL_RTX, 0, OPTAB_LIB_WIDEN);
+ /* For a loop ending with a branch and count for which the increment
+     of the count register will be discarded, adjust the initialization of
+     the count register.  */
+  if ((is_bct = is_bct_cond (BB_END (desc->out_edge->src)))
+      && (discard_inc = discard_increment (loop)))
+    { 
+      rtx count, count2, count_unroll_mod;
+      int count_unroll;
+
+      /* start_sequence (); */
+                  
+      count = count_loop_iterations (desc, NULL, NULL);
+      
+      count_unroll = loop->lpt_decision.times+1;
+
+
+
+      count_unroll_mod =  GEN_INT (exact_log2 (count_unroll));
+      count = expand_simple_binop (GET_MODE (desc->var), LSHIFTRT,
+				  count, count_unroll_mod,
+				  0, 0, OPTAB_LIB_WIDEN);
+
+      count2 = expand_simple_binop (GET_MODE (desc->var), PLUS,
+				     count, GEN_INT (2),
+				     0, 0, OPTAB_LIB_WIDEN);
+     
+      emit_move_insn (desc->var, count2);
+    }
 
   init_code = get_insns ();
   end_sequence ();
@@ -766,8 +849,24 @@ unroll_loop_runtime_iterations (loops, loop)
 	  j = n_peel - i - (extra_zero_check ? 0 : 1);
 	  p = REG_BR_PROB_BASE / (i + 2);
 
-	  preheader = loop_split_edge_with (loop_preheader_edge (loop),
-					    NULL_RTX, loops);
+   /* If modulo is zero do not jump to the header of the unrolled loops.  
+         Jump instead to the last branch and count that precedes it.  */
+      if (is_bct && discard_inc && (j == 0))
+	{
+	  basic_block lastbb = loop_preheader_edge(loop)->src;
+	  rtx split_after;
+
+          /* Skip dummy basic blocks generated during the unrolling.  */	  
+	  while (!is_bct_cond (BB_END (lastbb))) 
+	    lastbb = lastbb->pred->src;
+
+	  split_after = PREV_INSN (BB_END (lastbb));
+
+	  preheader = split_loop_bb (loops, lastbb , split_after)->dest;
+	}
+      else
+	preheader = loop_split_edge_with (loop_preheader_edge (loop),
+					  NULL_RTX, loops);	 
 	  label = block_label (preheader);
 	  start_sequence ();
 	  do_compare_rtx_and_jump (copy_rtx (niter), GEN_INT (j), EQ, 0,
@@ -840,6 +939,11 @@ unroll_loop_runtime_iterations (loops, loop)
     abort ();
 
   free (wont_exit);
+
+  /* Expand the branch and count.  */
+  if (is_bct)
+    for (i = 0; i < n_remove_edges; i++)
+      expand_bct (remove_edges[i], discard_inc);
 
   /* Remove the edges.  */
   for (i = 0; i < n_remove_edges; i++)
@@ -1043,3 +1147,116 @@ unroll_loop_stupid (loops, loop)
     fprintf (rtl_dump_file, ";; Unrolled loop %d times, %i insns\n",
 	     nunroll, num_loop_insns (loop));
 }
+/* Expand a bct instruction in a branch and an increment. */
+void expand_bct (edge e, int flag_inc)
+{
+  rtx bct_insn = BB_END (e->src);
+  rtx cmp;
+  rtx inc;
+  rtx seq;
+
+  rtx tgt;
+  rtx condition;
+  rtx label;
+  rtx reg;
+  rtx jump;
+  rtx pattern = PATTERN(bct_insn);
+  
+  if (!(is_bct_cond(bct_insn)))
+    return;
+
+  inc = get_var_set_from_bct (bct_insn);
+  cmp = XVECEXP (pattern, 0, 0);
+  reg = SET_DEST (inc);
+
+  start_sequence ();
+  if (!flag_inc)
+    {
+      tgt = force_operand (XEXP (inc, 1), XEXP (inc, 0));
+      if (tgt != XEXP (inc, 0))
+	emit_move_insn (XEXP (inc, 0), tgt);
+    }
+
+  condition = XEXP (SET_SRC (cmp), 0);
+  label = XEXP (SET_SRC (cmp), 1);
+
+  do_compare_rtx_and_jump (copy_rtx (reg), XEXP (condition, 1), 
+			   GET_CODE (condition), 0,
+			   GET_MODE (reg), NULL_RTX, NULL_RTX,
+			   label);
+  jump = get_last_insn ();
+  JUMP_LABEL (jump) = label;
+  seq = get_insns ();
+  end_sequence ();
+  emit_insn_after (seq, bct_insn);
+
+  delete_insn (bct_insn);
+
+  return;
+}
+
+/* Check that the increment of the count register can be discarded.  */
+bool
+discard_increment (struct loop *loop)
+{
+  struct loop_desc *desc = &loop->desc;
+  rtx inc, set_src, reg;
+  rtx bct_insn;
+  unsigned int i;
+  basic_block *body;
+  
+  bct_insn = BB_END (desc->out_edge->src);
+  if (!is_bct_cond (bct_insn))
+    abort();  
+
+  inc = get_var_set_from_bct (bct_insn);
+
+  /* Check that inc is of the form reg = reg - 1.  */
+  reg = SET_DEST (inc);
+  set_src = SET_SRC (inc);
+
+  if (GET_CODE (set_src) != PLUS)
+    return false;
+
+  if (!rtx_equal_p (XEXP (set_src, 0), reg))
+    return false;
+  
+  if (!CONSTANT_P (XEXP (set_src, 1)))
+     return false;
+
+  if (INTVAL (XEXP (set_src, 1)) != -1)
+     return false;
+  
+  /* We need to check that the register has no other uses beside the branch and
+     count.  */
+  body = get_loop_body (loop);
+  for(i=0; i < loop->num_nodes; i++)
+    {
+      if (reg_mentioned_p (desc->var, BB_HEAD (body[i])))
+	return false;
+
+      if (body[i] != desc->out_edge->src)
+	if (reg_mentioned_p (desc->var, BB_END (body[i])))
+	  return false;
+
+      if (reg_used_between_p (desc->var, BB_HEAD (body[i]), BB_END (body[i])))
+	return false;
+    }
+
+  /* Check that the branch and count ends the latch.  */
+  if (desc->out_edge->src != loop->latch)
+    {
+      rtx insn;
+
+      /* Latch is a dummy block generated by loop-init.  */
+      if (BRANCH_EDGE(desc->out_edge->src)->dest != loop->latch)
+	return false;
+
+      for (insn = BB_HEAD (loop->latch); insn != NEXT_INSN (BB_END (loop->latch)); 
+	   insn = NEXT_INSN (insn))
+        if (INSN_P (insn)) return false;
+    }
+
+  return true;
+}
+

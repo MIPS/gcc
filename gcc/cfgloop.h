@@ -363,4 +363,5 @@ enum
 };
 
 extern void unroll_and_peel_loops	PARAMS ((struct loops *, int));
-
+extern bool is_bct_cond                 PARAMS ((rtx));
+extern rtx get_var_set_from_bct         PARAMS ((rtx));

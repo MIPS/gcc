@@ -2926,11 +2926,7 @@ rest_of_compilation (decl)
 
   if (optimize > 0)
     {
-      open_dump_file (DFI_cse, decl);
-      if (rtl_dump_file)
-	dump_flow_info (rtl_dump_file);
-      timevar_push (TV_CSE);
-
+      /* CSE before unrollinh to enable constant propagation for complete peeling */    
       reg_scan (insns, max_reg_num (), 1);
 
       tem = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
@@ -2941,9 +2937,6 @@ rest_of_compilation (decl)
 
       delete_trivially_dead_insns (insns, max_reg_num ());
 
-      /* If we are not running more CSE passes, then we are no longer
-	 expecting CSE to be run.  But always rerun it in a cheap mode.  */
-      cse_not_expected = !flag_rerun_cse_after_loop && !flag_gcse;
 
       if (tem || optimize > 1)
 	cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
@@ -2961,8 +2954,6 @@ rest_of_compilation (decl)
          removed a bunch more instructions.  */
       renumber_insns (rtl_dump_file);
 
-      timevar_pop (TV_CSE);
-      close_dump_file (DFI_cse, print_rtl_with_bb, insns);
     }
 
   open_dump_file (DFI_addressof, decl);
@@ -3233,7 +3224,51 @@ rest_of_compilation (decl)
   /* Perform loop optimalizations.  */
   if (optimize > 0
       && (flag_peel_loops || flag_unroll_loops))
+    { 
+
+
+ if (optimize > 0)
     {
+      open_dump_file (DFI_cse, decl);
+      if (rtl_dump_file)
+        dump_flow_info (rtl_dump_file);
+      timevar_push (TV_CSE);
+
+      reg_scan (insns, max_reg_num (), 1);
+
+      tem = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+      if (tem)
+        rebuild_jump_labels (insns);
+      if (purge_all_dead_edges (0))
+        delete_unreachable_blocks ();
+
+      delete_trivially_dead_insns (insns, max_reg_num ());
+
+      /* If we are not running more CSE passes, then we are no longer
+         expecting CSE to be run.  But always rerun it in a cheap mode.  */
+      cse_not_expected = !flag_rerun_cse_after_loop && !flag_gcse;
+
+      if (tem || optimize > 1)
+        cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+      /* Try to identify useless null pointer tests and delete them.  */
+      if (flag_delete_null_pointer_checks)
+        {
+          timevar_push (TV_JUMP);
+
+          if (delete_null_pointer_checks (insns))
+            cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+          timevar_pop (TV_JUMP);
+        }
+
+      /* The second pass of jump optimization is likely to have
+         removed a bunch more instructions.  */
+      renumber_insns (rtl_dump_file);
+
+      timevar_pop (TV_CSE);
+      close_dump_file (DFI_cse, print_rtl_with_bb, insns);
+    }
+
+
       struct loops *loops;
       timevar_push (TV_LOOP);
       open_dump_file (DFI_loop2, decl);

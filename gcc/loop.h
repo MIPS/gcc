@@ -426,4 +426,5 @@ rtx loop_insn_sink PARAMS((const struct loop *, rtx));
 rtx loop_insn_hoist PARAMS((const struct loop *, rtx));
 
 /* Forward declarations for non-static functions declared in doloop.c.  */
+rtx doloop_condition_get PARAMS ((rtx));
 int doloop_optimize PARAMS ((const struct loop *));
