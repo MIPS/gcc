@@ -234,9 +234,10 @@ public abstract class AbstractDocument
 
     public void replace(int offset, int length, Element[] elems)
     {
-      children.removeRange(offset, offset + length);
-
       for (int index = 0 ; index < length; ++index)
+	children.removeElementAt(offset);
+
+      for (int index = 0 ; index < elems.length; ++index)
 	children.add(offset + index, elems[index]);
     }
 
