@@ -1,5 +1,10 @@
 2004-06-08  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/ScrollPaneLayout.java: Renamed all memeber variables all
+	over.
+
+2004-06-08  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/Box.java
 	(AccessibleBoxFiller): Extends AccessibleAWTComponent.
 	(AccessibleBoxFiller.serialVersionUID): New member variable.
