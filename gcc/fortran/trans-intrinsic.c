@@ -747,9 +747,14 @@ gfc_conv_intrinsic_cmplx (gfc_se * se, gfc_expr * expr, int both)
   type = gfc_typenode_for_spec (&expr->ts);
   arg = gfc_conv_intrinsic_function_args (se, expr);
   real = convert (TREE_TYPE (type), TREE_VALUE (arg));
-  arg = TREE_CHAIN (arg);
   if (both)
-    imag = convert (TREE_TYPE (type), TREE_VALUE (arg));
+    imag = convert (TREE_TYPE (type), TREE_VALUE (TREE_CHAIN (arg)));
+  else if (TREE_CODE (TREE_TYPE (TREE_VALUE (arg))) == COMPLEX_TYPE)
+    {
+      arg = TREE_VALUE (arg);
+      imag = build1 (IMAGPART_EXPR, TREE_TYPE (TREE_TYPE (arg)), arg);
+      imag = convert (TREE_TYPE (type), imag);
+    }
   else
     imag = build_real_from_int_cst (TREE_TYPE (type), integer_zero_node);
 

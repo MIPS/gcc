@@ -1,5 +1,11 @@
 2004-04-11  Feng Wang  <fengwang@nudt.edu.cn>
 
+	PR 14395
+	* trans-intrinsic.c (gfc_conv_intrinsic_cmplx): Fix the imag part of
+	the result.
+
+2004-04-11  Feng Wang  <fengwang@nudt.edu.cn>
+
 	PR fortran/14377
 	* simplify.c (simplify_min_max): Convert the type of the result.
 
