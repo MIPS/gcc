@@ -874,7 +874,9 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	  always_p = 1;
 	else if (strcmp (oo->name, "desc") == 0 && UNION_P (t))
 	  ;
-	else if (strcmp (oo->name, "descbits") == 0 && UNION_P (t))
+ 	else if (strcmp (oo->name, "descbits") == 0 && UNION_P (t))
+	  ;
+ 	else if (strcmp (oo->name, "param_is") == 0)
 	  ;
 	else if (strcmp (oo->name, "use_param") == 0)
 	  {
@@ -1211,7 +1213,11 @@ write_gc_marker_routine_for_structure (s, param)
      type_p s;
      type_p param;
 {
-  FILE *f = get_output_file_with_visibility (s->u.s.line.file);
+  FILE *f;
+  if (param == NULL)
+    f = get_output_file_with_visibility (s->u.s.line.file);
+  else
+    f = get_output_file_with_visibility (param->u.s.line.file);
   
   fputc ('\n', f);
   fputs ("void\n", f);

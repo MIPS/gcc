@@ -298,8 +298,7 @@ static tree maybe_make_nested_class_name PARAMS ((tree));
 static void make_nested_class_name PARAMS ((tree));
 static void set_nested_class_simple_name_value PARAMS ((tree, int));
 static void link_nested_class_to_enclosing PARAMS ((void));
-static tree resolve_inner_class PARAMS ((struct hash_table *, tree, tree *,
-					 tree *, tree));
+static tree resolve_inner_class PARAMS ((htab_t, tree, tree *, tree *, tree));
 static tree find_as_inner_class PARAMS ((tree, tree, tree));
 static tree find_as_inner_class_do PARAMS ((tree, tree));
 static int check_inner_class_redefinition PARAMS ((tree, tree));
@@ -334,9 +333,8 @@ static void create_new_parser_context PARAMS ((int));
 static void mark_parser_ctxt PARAMS ((void *));
 static tree maybe_build_class_init_for_field PARAMS ((tree, tree));
 
-static bool attach_init_test_initialization_flags PARAMS ((struct hash_entry *,
-							  PTR));
-static bool emit_test_initialization PARAMS ((struct hash_entry *, PTR));
+static int attach_init_test_initialization_flags PARAMS ((PTR *, PTR));
+static int emit_test_initialization PARAMS ((PTR *, PTR));
 
 static char *string_convert_int_cst PARAMS ((tree));
 
@@ -3528,7 +3526,7 @@ check_inner_class_redefinition (raw_name, cl)
 
 static tree
 resolve_inner_class (circularity_hash, cl, enclosing, super, class_type)
-     struct hash_table *circularity_hash;
+     htab_t circularity_hash;
      tree cl, *enclosing, *super, class_type;
 {
   tree local_enclosing = *enclosing;
@@ -3538,8 +3536,8 @@ resolve_inner_class (circularity_hash, cl, enclosing, super, class_type)
     {
       tree intermediate, decl;
 
-      hash_lookup (circularity_hash, 
-		   (const  hash_table_key) local_enclosing, TRUE, NULL);
+      *htab_find_slot (circularity_hash, local_enclosing, INSERT) =
+	local_enclosing;
 
       if ((decl = find_as_inner_class (local_enclosing, class_type, cl)))
 	return decl;
@@ -3567,8 +3565,7 @@ resolve_inner_class (circularity_hash, cl, enclosing, super, class_type)
 
       /* We may not have checked for circular inheritance yet, so do so
          here to prevent an infinite loop. */
-      if (hash_lookup (circularity_hash,
-		       (const hash_table_key) local_super, FALSE, NULL))
+      if (htab_find (circularity_hash, local_super) != NULL)
         {
           if (!cl)
             cl = lookup_cl (local_enclosing);
@@ -5742,14 +5739,14 @@ do_resolve_class (enclosing, class_type, decl, cl)
   tree new_class_decl = NULL_TREE, super = NULL_TREE;
   tree saved_enclosing_type = enclosing ? TREE_TYPE (enclosing) : NULL_TREE;
   tree decl_result;
-  struct hash_table _ht, *circularity_hash = &_ht;
+  htab_t circularity_hash;
 
   /* This hash table is used to register the classes we're going
      through when searching the current class as an inner class, in
      order to detect circular references. Remember to free it before
      returning the section 0- of this function. */
-  hash_table_init (circularity_hash, hash_newfunc,
-		   java_hash_hash_tree_node, java_hash_compare_tree_node);
+  circularity_hash = htab_create (20, htab_hash_pointer, htab_eq_pointer, 
+				  NULL);
 
   /* 0- Search in the current class as an inner class.
      Maybe some code here should be added to load the class or
@@ -5771,7 +5768,7 @@ do_resolve_class (enclosing, class_type, decl, cl)
 	enclosing = NULL_TREE;
     }
 
-  hash_table_free (circularity_hash);
+  htab_delete (circularity_hash);
 
   if (new_class_decl)
     return new_class_decl;
@@ -7003,19 +7000,17 @@ static void
 register_package (name)
      tree name;
 {
-  static struct hash_table _pht, *pht = NULL;
+  static htab_t pht;
+  PTR *e;
 
-  if (!pht)
-    {
-      hash_table_init (&_pht, hash_newfunc, 
-		       java_hash_hash_tree_node, java_hash_compare_tree_node);
-      pht = &_pht;
-    }
-  
-  if (!hash_lookup (pht, (const hash_table_key) name, FALSE, NULL))
+  if (pht == NULL)
+    pht = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
+
+  e = htab_find_slot (pht, name, INSERT);
+  if (*e == NULL)
     {
       package_list = chainon (package_list, build_tree_list (name, NULL));
-      hash_lookup (pht, (const hash_table_key) name, TRUE, NULL);
+      *e = name;
     }
 }
 
@@ -8011,7 +8006,7 @@ java_complete_expand_method (mdecl)
       
       /* Before we check initialization, attached all class initialization
 	 variable to the block_body */
-      hash_traverse (&DECL_FUNCTION_INIT_TEST_TABLE (mdecl),
+      htab_traverse (DECL_FUNCTION_INIT_TEST_TABLE (mdecl),
 		     attach_init_test_initialization_flags, block_body);
       
       if (! flag_emit_xref && ! METHOD_NATIVE (mdecl))
@@ -8028,9 +8023,11 @@ java_complete_expand_method (mdecl)
 		 MDECL. This used with caution helps removing extra
 		 initialization of self. */
 	      if (METHOD_STATIC (mdecl))
-		hash_lookup (&DECL_FUNCTION_INITIALIZED_CLASS_TABLE (mdecl),
-			     (hash_table_key) DECL_CONTEXT (mdecl),
-			     TRUE, NULL);
+		{
+		  *(htab_find_slot 
+		    (DECL_FUNCTION_INITIALIZED_CLASS_TABLE (mdecl),
+		     DECL_CONTEXT (mdecl), INSERT)) = DECL_CONTEXT (mdecl);
+		}
 	    }
 	}
       ctxp->explicit_constructor_p = 0;
@@ -8098,7 +8095,7 @@ java_expand_method_bodies (class)
 	      /* For each class definitely initialized in
 		 CALLED_METHOD, fill ASSIGNMENT_COMPOUND with
 		 assignment to the class initialization flag. */
-	      hash_traverse (&DECL_FUNCTION_INITIALIZED_CLASS_TABLE (called_method),
+	      htab_traverse (DECL_FUNCTION_INITIALIZED_CLASS_TABLE (called_method),
 			     emit_test_initialization,
 			     assignment_compound_list);
 
@@ -10851,7 +10848,7 @@ find_applicable_accessible_methods_list (lc, class, name, arglist)
      int lc;
      tree class, name, arglist;
 {
-  static struct hash_table t, *searched_classes = NULL;
+  static htab_t searched_classes;
   static int search_not_done = 0;
   tree list = NULL_TREE, all_list = NULL_TREE;
 
@@ -10859,20 +10856,17 @@ find_applicable_accessible_methods_list (lc, class, name, arglist)
      already. */
   if (searched_classes)
     {
-      if (hash_lookup (searched_classes, 
-                      (const hash_table_key) class, FALSE, NULL))
-       return NULL;
+      if (htab_find (searched_classes, class) != NULL)
+	return NULL;
     }
   else
     {
-      hash_table_init (&t, hash_newfunc, java_hash_hash_tree_node,
-                      java_hash_compare_tree_node);
-      searched_classes = &t;
+      searched_classes = htab_create (10, htab_hash_pointer,
+				      htab_eq_pointer, NULL);
     }
     
   search_not_done++;
-  hash_lookup (searched_classes, 
-	       (const hash_table_key) class, TRUE, NULL);
+  *htab_find_slot (searched_classes, class, INSERT) = class;
 
   if (!CLASS_LOADED_P (class) && !CLASS_FROM_SOURCE_P (class))
     {
@@ -10952,15 +10946,13 @@ find_applicable_accessible_methods_list (lc, class, name, arglist)
     {
       if (!lc
 	  && TYPE_METHODS (object_type_node)
-	  && !hash_lookup (searched_classes, 
-                           (const hash_table_key) object_type_node, 
-                           FALSE, NULL))
+	  && htab_find (searched_classes, object_type_node) == NULL)
 	{
           search_applicable_methods_list (lc, 
                                           TYPE_METHODS (object_type_node),
                                           name, arglist, &list, &all_list);
         }
-      hash_table_free (searched_classes);
+      htab_delete (searched_classes);
       searched_classes = NULL;
     }
 
@@ -16020,16 +16012,16 @@ init_src_parse ()
 
 /* Attach to PTR (a block) the declaration found in ENTRY. */
 
-static bool
+static int
 attach_init_test_initialization_flags (entry, ptr)
-     struct hash_entry *entry;
+     PTR *entry;
      PTR ptr;
 {
   tree block = (tree)ptr;
-  struct init_test_hash_entry *ite = (struct init_test_hash_entry *) entry;
+  struct treetreehash_entry *ite = (struct treetreehash_entry *) *entry;
   
-  TREE_CHAIN (ite->init_test_decl) = BLOCK_EXPR_DECLS (block);
-  BLOCK_EXPR_DECLS (block) = ite->init_test_decl;
+  TREE_CHAIN (ite->value) = BLOCK_EXPR_DECLS (block);
+  BLOCK_EXPR_DECLS (block) = ite->value;
   return true;
 }
 
@@ -16039,28 +16031,29 @@ attach_init_test_initialization_flags (entry, ptr)
    initialized static class flags if a flag already existed, otherwise
    a new one is created.  */
 
-static bool
-emit_test_initialization (entry, info)
-     struct hash_entry *entry;
+static int
+emit_test_initialization (entry_p, info)
+     PTR *entry_p;
      PTR info;
 {
   tree l = (tree) info;
   tree decl, init;
-
-  struct init_test_hash_entry *ite = (struct init_test_hash_entry *)
-    hash_lookup (&DECL_FUNCTION_INIT_TEST_TABLE (current_function_decl),
-		 entry->key,
-		 current_function_decl != TREE_PURPOSE (l), NULL);
+  tree key = (tree) *entry_p;
+  tree *ite;
+  htab_t cf_ht = DECL_FUNCTION_INIT_TEST_TABLE (current_function_decl);
 
   /* If we haven't found a flag and we're dealing with self registered
      with current_function_decl, then don't do anything. Self is
      always added as definitely initialized but this information is
      valid only if used outside the current function. */
-  if (! ite)
+  if (current_function_decl == TREE_PURPOSE (l)
+      && java_treetreehash_find (cf_ht, key) == NULL)
     return true;
+    
+  ite = java_treetreehash_new (cf_ht, key);
 
   /* If we don't have a variable, create one and install it. */
-  if (! ite->init_test_decl)
+  if (*ite == NULL)
     {
       tree block;
       
@@ -16074,10 +16067,10 @@ emit_test_initialization (entry, info)
       block = BLOCK_SUBBLOCKS (GET_CURRENT_BLOCK (current_function_decl));
       TREE_CHAIN (decl) = BLOCK_EXPR_DECLS (block);
       BLOCK_EXPR_DECLS (block) = decl;
-      ite->init_test_decl = decl;
+      *ite = decl;
     }
   else
-    decl = ite->init_test_decl;
+    decl = *ite;
 
   /* Now simply augment the compound that holds all the assignments
      pertaining to this method invocation. */

@@ -26,7 +26,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 /* Hacked by Per Bothner <bothner@cygnus.com> February 1996. */
 
-#include "hash.h"
+#include "hashtab.h"
 
 /* Java language-specific tree codes.  */
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) SYM,
@@ -951,9 +951,13 @@ struct lang_decl_func GTY(())
   tree function_decl_body;	/* Hold all function's statements */
   tree called_constructor;	/* When decl is a constructor, the
 				   list of other constructor it calls */
-  struct hash_table init_test_table;
-				/* Class initialization test variables  */
-  struct hash_table ict;	/* Initialized (static) Class Table */
+
+  /* Class initialization test variables  */
+  htab_t GTY ((param_is (struct treetreehash_entry))) init_test_table;
+				
+  /* Initialized (static) Class Table */
+  htab_t GTY ((param_is (union tree_node))) ict;
+
   tree smic;			/* Static method invocation compound */
   tree inner_access;		/* The identifier of the access method
 				   used for invocation from inner classes */
@@ -966,12 +970,15 @@ struct lang_decl_func GTY(())
   unsigned int strictfp : 1;
 };
 
-/* init_test_table hash table entry structure.  */
-struct init_test_hash_entry
+struct treetreehash_entry GTY(())
 {
-  struct hash_entry root;
-  tree init_test_decl;
+  tree key;
+  tree value;
 };
+
+extern tree java_treetreehash_find PARAMS ((htab_t, tree));
+extern tree * java_treetreehash_new PARAMS ((htab_t, tree));
+extern htab_t java_treetreehash_create PARAMS ((size_t size, int ggc));
 
 /* DECL_LANG_SPECIFIC for VAR_DECL, PARM_DECL and sometimes FIELD_DECL
    (access methods on outer class fields) and final fields. */
@@ -1071,7 +1078,6 @@ struct lang_type GTY(())
 #define JCF_u2 unsigned short
 
 extern void java_parse_file PARAMS ((int));
-extern void java_mark_tree PARAMS ((tree));
 extern bool java_mark_addressable PARAMS ((tree));
 extern tree java_type_for_mode PARAMS ((enum machine_mode, int));
 extern tree java_type_for_size PARAMS ((unsigned int, int));
@@ -1267,11 +1273,6 @@ extern void safe_layout_class PARAMS ((tree));
 
 extern tree get_boehm_type_descriptor PARAMS ((tree));
 extern bool class_has_finalize_method PARAMS ((tree));
-extern unsigned long java_hash_hash_tree_node PARAMS ((hash_table_key));
-extern bool java_hash_compare_tree_node PARAMS ((hash_table_key, 
-						    hash_table_key));
-extern bool attach_initialized_static_class PARAMS ((struct hash_entry *,
-						     PTR));
 extern void java_check_methods PARAMS ((tree));
 extern void init_jcf_parse PARAMS((void));
 extern void init_src_parse PARAMS((void));

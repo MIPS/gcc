@@ -256,7 +256,7 @@ java.stage4: stage4-start
 
 #
 # .o:.h dependencies.
-JAVA_TREE_H = $(TREE_H) java/java-tree.h java/java-tree.def
+JAVA_TREE_H = $(TREE_H) $(HASHTAB_H) java/java-tree.h java/java-tree.def
 JAVA_LEX_C = java/lex.c java/keyword.h java/chartables.h
 
 java/parse.o: java/parse.c java/jcf-reader.c $(CONFIG_H) $(SYSTEM_H) \

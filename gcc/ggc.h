@@ -24,14 +24,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Symbols are marked with `ggc' for `gcc gc' so as not to interfere with
    an external gc library that might be linked in.  */
 
-/* These structures are defined in various headers throughout the
-   compiler.  However, rather than force everyone who includes this
-   header to include all the headers in which they are declared, we
-   just forward-declare them here.  */
-struct eh_status;
-struct hash_table;
-struct label_node;
-
 /* Constants for general use.  */
 extern const char empty_string[];	/* empty string */
 extern const char digit_vector[];	/* "0" .. "9" */
@@ -44,8 +36,6 @@ extern void ggc_add_rtx_varray_root	PARAMS ((struct varray_head_tag **,
 						 int nelt));
 extern void ggc_add_tree_varray_root	PARAMS ((struct varray_head_tag **,
 						 int nelt));
-extern void ggc_add_tree_hash_table_root PARAMS ((struct hash_table **,
-						  int nelt));
 
 /* Structures for the easy way to mark roots.  
    In an array, terminated by having base == NULL.*/
@@ -75,7 +65,6 @@ extern void ggc_add_deletable_htab	PARAMS ((PTR, ggc_htab_marked_p,
    pointers to mark other objects too.  */
 extern void ggc_mark_rtx_varray		PARAMS ((struct varray_head_tag *));
 extern void ggc_mark_tree_varray	PARAMS ((struct varray_head_tag *));
-extern void ggc_mark_tree_hash_table	PARAMS ((struct hash_table *));
 extern void ggc_mark_roots		PARAMS ((void));
 
 extern void ggc_mark_rtx_children	PARAMS ((struct rtx_def *));

@@ -1820,44 +1820,4 @@ end_java_method ()
   current_function_decl = NULL_TREE;
 }
 
-/* Mark language-specific parts of T for garbage-collection.  */
-
-void
-java_mark_tree (t)
-     tree t;
-{
-  if (TREE_CODE (t) == IDENTIFIER_NODE)
-    {
-      struct lang_identifier *li = (struct lang_identifier *) t;
-      ggc_mark_tree (li->global_value);
-      ggc_mark_tree (li->local_value);
-      ggc_mark_tree (li->utf8_ref);
-    }
-  else if (TYPE_P (t))
-    gt_ggc_m_lang_type (TYPE_LANG_SPECIFIC (t));
-  else if (DECL_P (t))
-    {
-      struct lang_decl * const x = DECL_LANG_SPECIFIC (t);
-      if (ggc_test_and_set_mark (x))
-	{
-	  unsigned int tag3 = ((*x).desc);
-	  if (tag3 == (LANG_DECL_FUNC)) {
-	    gt_ggc_m_tree_node ((*x).u.f.wfl);
-	    gt_ggc_m_tree_node ((*x).u.f.throws_list);
-	    gt_ggc_m_tree_node ((*x).u.f.function_decl_body);
-	    gt_ggc_m_tree_node ((*x).u.f.called_constructor);
-	    gt_ggc_m_tree_node ((*x).u.f.smic);
-	    gt_ggc_m_tree_node ((*x).u.f.inner_access);
-	    ggc_mark_tree_hash_table (&(*x).u.f.init_test_table);
-	    ggc_mark_tree_hash_table (&(*x).u.f.ict);
-	  }
-	  if (tag3 == (LANG_DECL_VAR)) {
-	    gt_ggc_m_tree_node ((*x).u.v.slot_chain);
-	    gt_ggc_m_tree_node ((*x).u.v.am);
-	    gt_ggc_m_tree_node ((*x).u.v.wfl);
-	  }
-	}
-    }
-}
-
 #include "gt-java-decl.h"

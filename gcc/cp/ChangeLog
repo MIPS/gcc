@@ -1,5 +1,14 @@
 2002-05-10  Geoffrey Keating  <geoffk@redhat.com>
 
+	* decl.c: Include hashtab.h instead of hash.h.
+	(typename_hash): Update to use htab_h.
+	(typename_compare): Likewise.
+	(typename_htab): Use gengtype to mark.
+	(build_typename_type): Update to use htab_h.
+	* Make-lang.in (cp/decl.o): Use HASHTAB_H instead of hash.h.
+
+2002-05-10  Geoffrey Keating  <geoffk@redhat.com>
+
 	* Make-lang.in (gt-cp-tree.h): New rule.
 	(cp/tree.o): Depend on gt-cp-tree.h.
 	* config-lang.in (gtfiles): Add cp/tree.c.

@@ -41,7 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "except.h"
 #include "toplev.h"
-#include "../hash.h"
+#include "hashtab.h"
 #include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
@@ -95,8 +95,8 @@ static void bad_specifiers PARAMS ((tree, const char *, int, int, int, int,
 				  int));
 static tree maybe_process_template_type_declaration PARAMS ((tree, int, struct cp_binding_level*));
 static void check_for_uninitialized_const_var PARAMS ((tree));
-static unsigned long typename_hash PARAMS ((hash_table_key));
-static bool typename_compare PARAMS ((hash_table_key, hash_table_key));
+static hashval_t typename_hash PARAMS ((const void *));
+static int typename_compare PARAMS ((const void *, const void *));
 static void push_binding PARAMS ((tree, tree, struct cp_binding_level*));
 static int add_binding PARAMS ((tree, tree));
 static void pop_binding PARAMS ((tree, tree));
@@ -5492,26 +5492,25 @@ lookup_namespace_name (namespace, name)
 
 /* Hash a TYPENAME_TYPE.  K is really of type `tree'.  */
 
-static unsigned long
+static hashval_t
 typename_hash (k)
-     hash_table_key k;
+     const void * k;
 {
-  unsigned long hash;
-  tree t;
+  hashval_t hash;
+  tree t = (tree) k;
 
-  t = (tree) k;
-  hash = (((unsigned long) TYPE_CONTEXT (t))
-	  ^ ((unsigned long) DECL_NAME (TYPE_NAME (t))));
+  hash = (((hashval_t) TYPE_CONTEXT (t))
+	  ^ ((hashval_t) DECL_NAME (TYPE_NAME (t))));
 
   return hash;
 }
 
 /* Compare two TYPENAME_TYPEs.  K1 and K2 are really of type `tree'.  */
 
-static bool
+static int
 typename_compare (k1, k2)
-     hash_table_key k1;
-     hash_table_key k2;
+     const void * k1;
+     const void * k2;
 {
   tree t1;
   tree t2;
@@ -5539,6 +5538,8 @@ typename_compare (k1, k2)
 
    Returns the new TYPENAME_TYPE.  */
 
+static GTY ((param_is (union tree_node))) htab_t typename_htab;
+
 tree
 build_typename_type (context, name, fullname, base_type)
      tree context;
@@ -5548,16 +5549,12 @@ build_typename_type (context, name, fullname, base_type)
 {
   tree t;
   tree d;
-  struct hash_entry *e;
+  PTR *e;
 
-  static struct hash_table ht;
-
-  if (!ht.table)
+  if (typename_htab == NULL)
     {
-      static struct hash_table *h = &ht;
-
-      hash_table_init (&ht, &hash_newfunc, &typename_hash, &typename_compare);
-      ggc_add_tree_hash_table_root (&h, 1);
+      typename_htab = htab_create_ggc (61, &typename_hash, 
+				       &typename_compare, NULL);
     }
 
   /* Build the TYPENAME_TYPE.  */
@@ -5574,12 +5571,11 @@ build_typename_type (context, name, fullname, base_type)
   DECL_ARTIFICIAL (d) = 1;
 
   /* See if we already have this type.  */
-  e = hash_lookup (&ht, t, /*create=*/false, /*copy=*/0);
-  if (e)
-    t = (tree) e->key;
+  e = htab_find_slot (typename_htab, t, INSERT);
+  if (*e)
+    t = (tree) *e;
   else
-    /* Insert the type into the table.  */
-    hash_lookup (&ht, t, /*create=*/true, /*copy=*/0);
+    *e = t;
 
   return t;
 }

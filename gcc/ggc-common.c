@@ -26,7 +26,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tree.h"
 #include "tm_p.h"
-#include "hash.h"
 #include "hashtab.h"
 #include "varray.h"
 #include "ggc.h"
@@ -38,10 +37,7 @@ static ggc_statistics *ggc_stats;
 static void ggc_mark_rtx_children_1 PARAMS ((rtx));
 static void ggc_mark_rtx_varray_ptr PARAMS ((void *));
 static void ggc_mark_tree_varray_ptr PARAMS ((void *));
-static void ggc_mark_tree_hash_table_ptr PARAMS ((void *));
 static int ggc_htab_delete PARAMS ((void **, void *));
-static bool ggc_mark_tree_hash_table_entry PARAMS ((struct hash_entry *,
-						    hash_table_key));
 
 /* Maintain global roots that are preserved during GC.  */
 
@@ -101,17 +97,6 @@ ggc_add_tree_varray_root (base, nelt)
 {
   ggc_add_root (base, nelt, sizeof (varray_type), 
 		ggc_mark_tree_varray_ptr);
-}
-
-/* Register a hash table of trees as a GC root.  */
-
-void
-ggc_add_tree_hash_table_root (base, nelt)
-     struct hash_table **base;
-     int nelt;
-{
-  ggc_add_root (base, nelt, sizeof (struct hash_table *), 
-		ggc_mark_tree_hash_table_ptr);
 }
 
 /* Add a hash table to be scanned when all roots have been processed.  We
@@ -375,26 +360,6 @@ ggc_mark_tree_varray (v)
       ggc_mark_tree (VARRAY_TREE (v, i));
 }
 
-/* Mark the hash table-entry HE.  Its key field is really a tree.  */
-
-static bool
-ggc_mark_tree_hash_table_entry (he, k)
-     struct hash_entry *he;
-     hash_table_key k ATTRIBUTE_UNUSED;
-{
-  ggc_mark_tree ((tree) he->key);
-  return true;
-}
-
-/* Mark all the elements of the hash-table H, which contains trees.  */
-
-void
-ggc_mark_tree_hash_table (ht)
-     struct hash_table *ht;
-{
-  hash_traverse (ht, ggc_mark_tree_hash_table_entry, /*info=*/0);
-}
-
 /* Type-correct function to pass to ggc_add_root.  It just forwards
    ELT (which is really a varray_type *) to ggc_mark_rtx_varray.  */
 
@@ -413,17 +378,6 @@ ggc_mark_tree_varray_ptr (elt)
      void *elt;
 {
   ggc_mark_tree_varray (*(varray_type *) elt);
-}
-
-/* Type-correct function to pass to ggc_add_root.  It just forwards
-   ELT (which is really a struct hash_table **) to
-   ggc_mark_tree_hash_table.  */
-
-static void
-ggc_mark_tree_hash_table_ptr (elt)
-     void *elt;
-{
-  ggc_mark_tree_hash_table (*(struct hash_table **) elt);
 }
 
 /* Various adaptor functions.  */

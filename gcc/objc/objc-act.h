@@ -133,23 +133,21 @@ enum objc_tree_code {
 typedef struct hashed_entry	*hash;
 typedef struct hashed_attribute	*attr;
 
-struct hashed_attribute
+struct hashed_attribute GTY(())
 {
   attr next;
   tree value;
 };
-struct hashed_entry
+struct hashed_entry GTY(())
 {
   attr list;
   hash next;
   tree key;
 };
 
-extern hash *nst_method_hash_list;
-extern hash *cls_method_hash_list;
+extern GTY ((length ("SIZEHASHTABLE"))) hash *nst_method_hash_list;
+extern GTY ((length ("SIZEHASHTABLE"))) hash *cls_method_hash_list;
 
-#define HASH_ALLOC_LIST_SIZE	170
-#define ATTR_ALLOC_LIST_SIZE	170
 #define SIZEHASHTABLE 		257
 
 /* Objective-C/Objective-C++ @implementation list.  */

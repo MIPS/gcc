@@ -1,5 +1,63 @@
 2002-05-10  Geoffrey Keating  <geoffk@redhat.com>
 
+	* objc/objc-act.h (struct hashed_attribute): Use gengtype.
+	(struct hashed_entry): Likewise.
+	(nst_method_hash_list): Likewise.
+	(cls_method_hash_list): Likewise.
+	(HASH_ALLOC_LIST_SIZE): Delete.
+	(ATTR_ALLOC_LIST_SIZE): Delete.
+	* objc/objc-act.c (hash_init): Use ggc to allocate
+	nst_method_hash_list, cls_method_hash_list.
+	(hash_enter): Use ggc to allocate; allocate one entry at a time.
+	(hash_add_attr): Likewise.
+	(ggc_mark_hash_table): Delete.
+	(objc_act_parse_init): Delete.
+	(objc_init): Delete reference to objc_act_parse_init.
+	* tlink.c: Replace hash.h with hashtab.h.  Explicitly include
+	obstack.h.  Replace references to 'struct hash_table' with htab_t.
+	(struct symbol_hash_entry): Replace hash header with key field.
+	(struct file_hash_entry): Replace hash header with key field.
+	(struct demangled_hash_entry): Replace hash header with key field.
+	(hash_string_eq): New.
+	(hash_string_hash): New.
+	(symbol_hash_newfunc): Delete.
+	(symbol_hash_lookup): Modify to use htab_t.
+	(file_hash_newfunc): Delete.
+	(file_hash_lookup): Modify to use htab_t.
+	(demangled_hash_newfunc): Delete.
+	(demangled_hash_lookup): Modify to use htab_t.
+	(tlink_init): Modify to use htab_t.
+	* hash.h: Delete.
+	* hash.c: Delete.
+	* ggc.h: Delete forward structure declarations.
+	Delete prototypes for deleted functions.
+	* ggc-common.c: Don't include hash.h.
+	(ggc_add_tree_hash_table_root): Delete.
+	(ggc_mark_tree_hash_table_entry): Delete.
+	(ggc_mark_tree_hash_table): Delete.
+	(ggc_mark_tree_hash_table_ptr): Delete.
+	* gengtype.c (write_gc_structure_fields): Allow param_is option.
+	(write_gc_marker_routine_for_structure): Use visibility of
+	the parameter if there is one.
+	* function.c: Replace hash.h with hashtab.h.  Replace references
+	to 'struct hash_table *' with htab_t.
+	(struct insns_for_mem_entry): Include a plain key.
+	(fixup_var_refs_insns_with_hash): Update to use htab_t.
+	(insns_for_mem_newfunc): Delete.
+	(insns_for_mem_hash): Update to use htab_t.
+	(insns_for_mem_comp): Likewise.
+	(insns_for_mem_walk): Likewise.
+	* c-lang.c: Include ggc.h.
+	* Makefile.in (OBJS): Remove hash.o.
+	(c-lang.o): Add GGC_H.
+	(COLLECT2_OBJS): Remove hash.o.
+	(tlink.o): Remove hash.h, add HASHTAB_H and OBSTACK_H.
+	(ggc-common.o): Remove hash.h.
+	(function.o): Remove hash.h, add HASHTAB_H.
+	(genautomata.o): Remove hash.h, add HASHTAB_H.
+
+2002-05-10  Geoffrey Keating  <geoffk@redhat.com>
+
 	* varasm.c (mark_const_str_htab_1): Delete.
 	(mark_const_str_htab): Delete.
 	(const_str_htab_del): Delete.

@@ -55,7 +55,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "obstack.h"
 #include "toplev.h"
-#include "hash.h"
+#include "hashtab.h"
 #include "ggc.h"
 #include "tm_p.h"
 #include "integrate.h"
@@ -213,9 +213,9 @@ struct fixup_replacement GTY(())
 
 struct insns_for_mem_entry
 {
-  /* The KEY in HE will be a MEM.  */
-  struct hash_entry he;
-  /* These are the INSNS which reference the MEM.  */
+  /* A MEM.  */
+  rtx key;
+  /* These are the INSNs which reference the MEM.  */
   rtx insns;
 };
 
@@ -227,18 +227,18 @@ static struct temp_slot *find_temp_slot_from_address  PARAMS ((rtx));
 static void put_reg_into_stack	PARAMS ((struct function *, rtx, tree,
 					 enum machine_mode, enum machine_mode,
 					 int, unsigned int, int,
-					 struct hash_table *));
+					 htab_t));
 static void schedule_fixup_var_refs PARAMS ((struct function *, rtx, tree,
 					     enum machine_mode,
-					     struct hash_table *));
+					     htab_t));
 static void fixup_var_refs	PARAMS ((rtx, enum machine_mode, int, rtx,
-					 struct hash_table *));
+					 htab_t));
 static struct fixup_replacement
   *find_fixup_replacement	PARAMS ((struct fixup_replacement **, rtx));
 static void fixup_var_refs_insns PARAMS ((rtx, rtx, enum machine_mode,
 					  int, int, rtx));
 static void fixup_var_refs_insns_with_hash
-				PARAMS ((struct hash_table *, rtx,
+				PARAMS ((htab_t, rtx,
 					 enum machine_mode, int, rtx));
 static void fixup_var_refs_insn PARAMS ((rtx, rtx, enum machine_mode,
 					 int, int, rtx));
@@ -278,21 +278,18 @@ static int contains		PARAMS ((rtx, varray_type));
 #ifdef HAVE_return
 static void emit_return_into_block PARAMS ((basic_block, rtx));
 #endif
-static void put_addressof_into_stack PARAMS ((rtx, struct hash_table *));
+static void put_addressof_into_stack PARAMS ((rtx, htab_t));
 static bool purge_addressof_1 PARAMS ((rtx *, rtx, int, int,
-					  struct hash_table *));
+					  htab_t));
 static void purge_single_hard_subreg_set PARAMS ((rtx));
 #if defined(HAVE_epilogue) && defined(INCOMING_RETURN_ADDR_RTX)
 static rtx keep_stack_depressed PARAMS ((rtx));
 #endif
 static int is_addressof		PARAMS ((rtx *, void *));
-static struct hash_entry *insns_for_mem_newfunc PARAMS ((struct hash_entry *,
-							 struct hash_table *,
-							 hash_table_key));
-static unsigned long insns_for_mem_hash PARAMS ((hash_table_key));
-static bool insns_for_mem_comp PARAMS ((hash_table_key, hash_table_key));
+static hashval_t insns_for_mem_hash PARAMS ((const void *));
+static int insns_for_mem_comp PARAMS ((const void *, const void *));
 static int insns_for_mem_walk   PARAMS ((rtx *, void *));
-static void compute_insns_for_mem PARAMS ((rtx, rtx, struct hash_table *));
+static void compute_insns_for_mem PARAMS ((rtx, rtx, htab_t));
 static void prepare_function_start PARAMS ((void));
 static void do_clobber_return_reg PARAMS ((rtx, void *));
 static void do_use_return_reg PARAMS ((rtx, void *));
@@ -1485,7 +1482,7 @@ put_reg_into_stack (function, reg, type, promoted_mode, decl_mode, volatile_p,
      int volatile_p;
      unsigned int original_regno;
      int used_p;
-     struct hash_table *ht;
+     htab_t ht;
 {
   struct function *func = function ? function : cfun;
   rtx new = 0;
@@ -1533,7 +1530,7 @@ schedule_fixup_var_refs (function, reg, type, promoted_mode, ht)
      rtx reg;
      tree type;
      enum machine_mode promoted_mode;
-     struct hash_table *ht;
+     htab_t ht;
 {
   int unsigned_p = type ? TREE_UNSIGNED (type) : 0;
 
@@ -1559,7 +1556,7 @@ fixup_var_refs (var, promoted_mode, unsignedp, may_share, ht)
      rtx var;
      enum machine_mode promoted_mode;
      int unsignedp;
-     struct hash_table *ht;
+     htab_t ht;
      rtx may_share;
 {
   tree pending;
@@ -1695,17 +1692,18 @@ fixup_var_refs_insns (insn, var, promoted_mode, unsignedp, toplevel, may_share)
 
 static void
 fixup_var_refs_insns_with_hash (ht, var, promoted_mode, unsignedp, may_share)
-     struct hash_table *ht;
+     htab_t ht;
      rtx var;
      enum machine_mode promoted_mode;
      int unsignedp;
      rtx may_share;
 {
-  struct insns_for_mem_entry *ime
-    = (struct insns_for_mem_entry *) hash_lookup (ht, var,
-						  /*create=*/0, /*copy=*/0);
+  struct insns_for_mem_entry tmp;
+  struct insns_for_mem_entry *ime;
   rtx insn_list;
 
+  tmp.key = var;
+  ime = (struct insns_for_mem_entry *) htab_find (ht, &tmp);
   for (insn_list = ime->insns; insn_list != 0; insn_list = XEXP (insn_list, 1))
     if (INSN_P (XEXP (insn_list, 0)))
       fixup_var_refs_insn (XEXP (insn_list, 0), var, promoted_mode,
@@ -2967,7 +2965,7 @@ flush_addressof (decl)
 static void
 put_addressof_into_stack (r, ht)
      rtx r;
-     struct hash_table *ht;
+     htab_t ht;
 {
   tree decl, type;
   int volatile_p, used_p;
@@ -3019,7 +3017,7 @@ purge_addressof_1 (loc, insn, force, store, ht)
      rtx *loc;
      rtx insn;
      int force, store;
-     struct hash_table *ht;
+     htab_t ht;
 {
   rtx x;
   RTX_CODE code;
@@ -3279,50 +3277,34 @@ purge_addressof_1 (loc, insn, force, store, ht)
   return result;
 }
 
-/* Return a new hash table entry in HT.  */
-
-static struct hash_entry *
-insns_for_mem_newfunc (he, ht, k)
-     struct hash_entry *he;
-     struct hash_table *ht;
-     hash_table_key k ATTRIBUTE_UNUSED;
-{
-  struct insns_for_mem_entry *ifmhe;
-  if (he)
-    return he;
-
-  ifmhe = ((struct insns_for_mem_entry *)
-	   hash_allocate (ht, sizeof (struct insns_for_mem_entry)));
-  ifmhe->insns = NULL_RTX;
-
-  return &ifmhe->he;
-}
-
 /* Return a hash value for K, a REG.  */
 
-static unsigned long
+static hashval_t
 insns_for_mem_hash (k)
-     hash_table_key k;
+     const void * k;
 {
-  /* K is really a RTX.  Just use the address as the hash value.  */
-  return (unsigned long) k;
+  /* Use the address of the key for the hash value.  */
+  struct insns_for_mem_entry *m = (struct insns_for_mem_entry *) k;
+  return (hashval_t) m->key;
 }
 
 /* Return non-zero if K1 and K2 (two REGs) are the same.  */
 
-static bool
+static int
 insns_for_mem_comp (k1, k2)
-     hash_table_key k1;
-     hash_table_key k2;
+     const void * k1;
+     const void * k2;
 {
-  return k1 == k2;
+  struct insns_for_mem_entry *m1 = (struct insns_for_mem_entry *) k1;
+  struct insns_for_mem_entry *m2 = (struct insns_for_mem_entry *) k2;
+  return m1->key == m2->key;
 }
 
 struct insns_for_mem_walk_info
 {
   /* The hash table that we are using to record which INSNs use which
      MEMs.  */
-  struct hash_table *ht;
+  htab_t ht;
 
   /* The INSN we are currently processing.  */
   rtx insn;
@@ -3344,18 +3326,26 @@ insns_for_mem_walk (r, data)
 {
   struct insns_for_mem_walk_info *ifmwi
     = (struct insns_for_mem_walk_info *) data;
+  struct insns_for_mem_entry tmp;
+  tmp.insns = NULL_RTX;
 
   if (ifmwi->pass == 0 && *r && GET_CODE (*r) == ADDRESSOF
       && GET_CODE (XEXP (*r, 0)) == REG)
-    hash_lookup (ifmwi->ht, XEXP (*r, 0), /*create=*/1, /*copy=*/0);
+    {
+      PTR *e;
+      tmp.key = XEXP (*r, 0);
+      e = htab_find_slot (ifmwi->ht, &tmp, INSERT);
+      if (*e == NULL)
+	{
+	  *e = ggc_alloc (sizeof (tmp));
+	  memcpy (*e, &tmp, sizeof (tmp));
+	}
+    }
   else if (ifmwi->pass == 1 && *r && GET_CODE (*r) == REG)
     {
-      /* Lookup this MEM in the hashtable, creating it if necessary.  */
-      struct insns_for_mem_entry *ifme
-	= (struct insns_for_mem_entry *) hash_lookup (ifmwi->ht,
-						      *r,
-						      /*create=*/0,
-						      /*copy=*/0);
+      struct insns_for_mem_entry *ifme;
+      tmp.key = *r;
+      ifme = (struct insns_for_mem_entry *) htab_find (ifmwi->ht, &tmp);
 
       /* If we have not already recorded this INSN, do so now.  Since
 	 we process the INSNs in order, we know that if we have
@@ -3375,7 +3365,7 @@ static void
 compute_insns_for_mem (insns, last_insn, ht)
      rtx insns;
      rtx last_insn;
-     struct hash_table *ht;
+     htab_t ht;
 {
   rtx insn;
   struct insns_for_mem_walk_info ifmwi;
@@ -3410,7 +3400,7 @@ purge_addressof (insns)
      rtx insns;
 {
   rtx insn;
-  struct hash_table ht;
+  htab_t ht;
 
   /* When we actually purge ADDRESSOFs, we turn REGs into MEMs.  That
      requires a fixup pass over the instruction stream to correct
@@ -3419,23 +3409,20 @@ purge_addressof (insns)
      mentioned in very many instructions.  So, we speed up the process
      by pre-calculating which REGs occur in which INSNs; that allows
      us to perform the fixup passes much more quickly.  */
-  hash_table_init (&ht,
-		   insns_for_mem_newfunc,
-		   insns_for_mem_hash,
-		   insns_for_mem_comp);
-  compute_insns_for_mem (insns, NULL_RTX, &ht);
+  ht = htab_create_ggc (1000, insns_for_mem_hash, insns_for_mem_comp, NULL);
+  compute_insns_for_mem (insns, NULL_RTX, ht);
 
   for (insn = insns; insn; insn = NEXT_INSN (insn))
     if (GET_CODE (insn) == INSN || GET_CODE (insn) == JUMP_INSN
 	|| GET_CODE (insn) == CALL_INSN)
       {
 	if (! purge_addressof_1 (&PATTERN (insn), insn,
-				 asm_noperands (PATTERN (insn)) > 0, 0, &ht))
+				 asm_noperands (PATTERN (insn)) > 0, 0, ht))
 	  /* If we could not replace the ADDRESSOFs in the insn,
 	     something is wrong.  */
 	  abort ();
 
-	if (! purge_addressof_1 (&REG_NOTES (insn), NULL_RTX, 0, 0, &ht))
+	if (! purge_addressof_1 (&REG_NOTES (insn), NULL_RTX, 0, 0, ht))
 	  {
 	    /* If we could not replace the ADDRESSOFs in the insn's notes,
 	       we can just remove the offending notes instead.  */
@@ -3456,7 +3443,6 @@ purge_addressof (insns)
       }
 
   /* Clean up.  */
-  hash_table_free (&ht);
   purge_bitfield_addressof_replacements = 0;
   purge_addressof_replacements = 0;
 

@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree.h"
 #include "c-tree.h"
 #include "c-common.h"
+#include "ggc.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
 
