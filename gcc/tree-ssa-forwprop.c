@@ -328,10 +328,10 @@ substitute_single_use_vars (varray_type *cond_worklist,
       propagated_uses = 0;
       num_uses = 0;
 
-      if (NUM_DEFS (STMT_DEF_OPS (def_stmt)) != 1)
+      def = SINGLE_SSA_TREE_OPERAND (def_stmt, SSA_OP_DEF);
+      if (def == NULL)
         continue;
 
-      def = DEF_OP (STMT_DEF_OPS (def_stmt), 0);
       /* If TEST_VAR is used more than once and is not a boolean set
 	 via TRUTH_NOT_EXPR with another SSA_NAME as its argument, then
 	 we can not optimize.  */

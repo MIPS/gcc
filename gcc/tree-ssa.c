@@ -600,7 +600,7 @@ verify_ssa (bool check_modified_stmt)
 	    }
 
 	  if (stmt_ann (stmt)->makes_aliased_stores 
-	      && NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) == 0)
+	      && ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF))
 	    {
 	      error ("Statement makes aliased stores, but has no V_MAY_DEFS");
 	      print_generic_stmt (stderr, stmt, TDF_VOPS);

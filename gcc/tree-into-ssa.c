@@ -347,7 +347,7 @@ ssa_mark_phi_uses (struct dom_walk_data *walk_data, basic_block bb)
    for every variable in the function.  For every statement S in block
    BB:
 
-   1- Variables defined by S in DEF_OPS(S) are marked in the bitmap
+   1- Variables defined by S in the DEFS of S are marked in the bitmap
       WALK_DATA->GLOBAL_DATA->KILLS.
 
    2- If S uses a variable VAR and there is no preceding kill of VAR,

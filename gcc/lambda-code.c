@@ -1919,8 +1919,8 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       tree oldiv = VEC_index (tree, old_ivs, i);
       tree oldiv_stmt = SSA_NAME_DEF_STMT (oldiv);
 
-      gcc_assert (NUM_DEFS (STMT_DEF_OPS (oldiv_stmt)) == 1);
-      oldiv_def = DEF_OP (STMT_DEF_OPS (oldiv_stmt), 0);
+      oldiv_def = SINGLE_SSA_TREE_OPERAND (oldiv_stmt, SSA_OP_DEF);
+      gcc_assert (oldiv_def != NULL_TREE);
 
       FOR_EACH_IMM_USE_SAFE (imm_use, imm_iter, oldiv_def)
 	{

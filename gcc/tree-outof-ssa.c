@@ -1663,12 +1663,8 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	  free_value_expr (tab, p);
 	}
 
-      /* A V_MAY_DEF kills any expression using a virtual operand.  */
-      if (NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann)) > 0)
-        kill_virtual_exprs (tab, true);
-	
-      /* A V_MUST_DEF kills any expression using a virtual operand.  */
-      if (NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann)) > 0)
+      /* A V_{MAY,MUST}_DEF kills any expression using a virtual operand.  */
+      if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_DEFS))
         kill_virtual_exprs (tab, true);
     }
 }
@@ -1719,7 +1715,8 @@ dump_replaceable_exprs (FILE *f, tree *expr)
     if (expr[x])
       {
         stmt = expr[x];
-	var = DEF_OP (STMT_DEF_OPS (stmt), 0);
+	var = SINGLE_SSA_TREE_OPERAND (stmt, SSA_OP_DEF);
+	gcc_assert (var != NULL_TREE);
 	print_generic_expr (f, var, TDF_SLIM);
 	fprintf (f, " replace with --> ");
 	print_generic_expr (f, TREE_OPERAND (stmt, 1), TDF_SLIM);

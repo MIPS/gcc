@@ -404,9 +404,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 
       /* If the statement has virtual or volatile operands, fail.  */
       ann = stmt_ann (stmt);
-      if (NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann))
-          || NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann))
-	  || NUM_VUSES (VUSE_OPS (ann))
+      if (!ZERO_SSA_OPERANDS (stmt, (SSA_OP_VUSE | SSA_OP_VIRTUAL_DEFS))
 	  || ann->has_volatile_ops)
 	return;
     }

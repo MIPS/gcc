@@ -1766,14 +1766,11 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
         {
 	  tree stmt = bsi_stmt (bsi);
-	  stmt_ann_t ann = stmt_ann (stmt);
 
 	  if (TREE_CODE (stmt) != MODIFY_EXPR)
 	    continue;
 
-	  if (!VUSE_OPS (ann)
-	      && !V_MUST_DEF_OPS (ann)
-	      && !V_MAY_DEF_OPS (ann))
+	  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_USES))
 	    continue;
 
 	  /* In the GIMPLE representation, a modify expression
