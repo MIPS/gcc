@@ -9958,6 +9958,11 @@ gen_lowpart_for_combine (mode, x)
   if (GET_MODE (x) == mode)
     return x;
 
+  /* CONSTs don't have modes, but the lowpart Pmode of an assembly
+     constant is itself.  */
+  if (mode == Pmode && GET_CODE (x) == CONST)
+    return x;
+
   /* We can only support MODE being wider than a word if X is a
      constant integer or has a mode the same size.  */
 
@@ -10040,6 +10045,8 @@ gen_lowpart_for_combine (mode, x)
 	{
 	  sub_mode = int_mode_for_mode (mode);
 	  x = gen_lowpart_common (sub_mode, x);
+	  if (x == 0)
+	    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
 	}
       res = simplify_gen_subreg (mode, x, sub_mode, offset);
       if (res)

@@ -1,5 +1,10 @@
 2003-03-13  Richard Sandiford  <rsandifo@redhat.com>
 
+	* combine.c (gen_lowpart_for_combine): Treat the lowpart Pmode of
+	a CONST as identity.  Check the return value of gen_lowpart_common.
+
+2003-03-13  Richard Sandiford  <rsandifo@redhat.com>
+
 	* config/mips/mips.c (mips_legitimize_symbol): Handle small data
 	references for TARGET_EXPLICIT_RELOCS.
 	(mips_reloc_string): Return "%gp_rel(" for RELOC_GPREL16 if
