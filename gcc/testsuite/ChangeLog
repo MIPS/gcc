@@ -1,3 +1,8 @@
+2003-07-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/11320
+	* gcc.c-torture/execute/20030715-1.c: New test.
+
 2004-01-09  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/13392
