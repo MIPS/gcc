@@ -1,3 +1,22 @@
+2003-01-30  Daniel Berlin  <dberlin@dberlin.org>
+	
+	Remove all traces of steensgaard's algorithm.
+	* tree-alias-steen.c: Removed.
+	* tree-alias-steen.h: Ditto.
+	* tree-alias-ecr.c: Ditto.
+	* tree-alias-ecr.h: Ditto.
+	* disjoint-set.c: Ditto.
+	* disjoint-set.h: Ditto.
+	* Makefile.in: Remove removed files.
+	* c-config-lang.in: Ditto.
+	* gengtype.c: Ditto.	
+	* tree-alias-common.c: Don't use steen_alias_ops anymore.
+	* toplev.c: Remove help text and steen option.
+	* tree-alias-common.h: Remove PTA_STEEN.
+	* tree-alias-type.c: Remove all steensgaard related types and
+	functions.
+	* tree-alias-type.h: Ditto.
+	
 2003-01-30  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (struct cfg_stats_d): New.

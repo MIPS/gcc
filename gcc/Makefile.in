@@ -770,9 +770,8 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o xcoffout.o \
  tree-nomudflap.o tree-pretty-print.o tree-cfg.o tree-dfa.o tree-ssa.o     \
  tree-optimize.o tree-simple.o simple-break-elim.o simple-goto-elim.o      \
- tree-alias-type.o gimplify.o  				   \
- tree-alias-ecr.o tree-alias-common.o tree-alias-steen.o disjoint-set.o    \
- tree-ssa-ccp.o tree-ssa-dce.o tree-browser.o @ANDER@ 			   \
+ tree-alias-type.o gimplify.o tree-alias-common.o 	   		   \
+ tree-ssa-ccp.o tree-browser.o @ANDER@ tree-ssa-dce.o			   \
  alloc-pool.o et-forest.o $(GGC) $(out_object_file) $(EXTRA_OBJS)
 
 BACKEND = main.o libbackend.a
@@ -1403,23 +1402,14 @@ old-tree-inline.o : old-tree-inline.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H)
    expr.h flags.h params.h input.h insn-config.h $(INTEGRATE_H) \
    $(VARRAY_H) $(HASHTAB_H) $(SPLAY_TREE_H) toplev.h langhooks.h \
    $(C_COMMON_H) tree-inline.h $(TM_H) coretypes.h
-disjoint-set.o: disjoint-set.c disjoint-set.h $(SYSTEM_H) $(CONFIG_H) $(GGC_H) \
-   $(TM_H) coretypes.h
 print-tree.o : print-tree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(GGC_H) langhooks.h real.h
 stor-layout.o : stor-layout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    flags.h function.h $(EXPR_H) $(RTL_H) toplev.h $(GGC_H) $(TM_P_H) $(TARGET_H) \
    langhooks.h
-tree-alias-ecr.o: tree-alias-ecr.c tree-alias-ecr.h disjoint-set.h \
-   tree-alias-type.h  $(SYSTEM_H) $(CONFIG_H) $(GGC_H) $(TM_H) coretypes.h \
-   $(VARRAY_H)
 tree-alias-type.o: tree-alias-type.c tree-alias-type.h $(SYSTEM_H) $(CONFIG_H) \
-   $(GGC_H) gt-tree-alias-type.h $(TM_H) coretypes.h \
-   $(VARRAY_H)
+   $(GGC_H) $(TM_H) coretypes.h $(VARRAY_H)
 tree-alias-ander.o: tree-alias-ander.c tree-alias-ander.h $(SYSTEM_H) \
-   $(CONFIG_H) $(GGC_H) $(TREE_H) $(TREE_FLOW_H) tree-alias-common.h \
-   $(TM_H) coretypes.h
-tree-alias-steen.o: tree-alias-steen.c tree-alias-steen.h $(SYSTEM_H) \
    $(CONFIG_H) $(GGC_H) $(TREE_H) $(TREE_FLOW_H) tree-alias-common.h \
    $(TM_H) coretypes.h
 tree-alias-common.o: tree-alias-common.c tree-alias-common.h $(SYSTEM_H) \
@@ -1430,6 +1420,10 @@ tree-ssa.o : tree-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    ssa.h errors.h toplev.h function.h $(TIMEVAR_H) tree-alias-common.h \
    $(TM_H) coretypes.h $(TREE_DUMP_H)
 tree-ssa-pre.o : tree-ssa-pre.c $(TREE_FLOW_H) $(CONFIG_H) \
+   $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
+   $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h $(TIMEVAR_H) \
+   $(TM_H) coretypes.h $(TREE_DUMP_H)
+tree-ssa-pre2.o : tree-ssa-pre2.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h $(TIMEVAR_H) \
    $(TM_H) coretypes.h $(TREE_DUMP_H)
@@ -1962,7 +1956,6 @@ GTFILES = $(srcdir)/location.h $(srcdir)/coretypes.h $(srcdir)/cpplib.h \
   $(srcdir)/varray.h $(srcdir)/ssa.h $(srcdir)/insn-addr.h $(srcdir)/cselib.h \
   $(srcdir)/basic-block.h $(srcdir)/location.h \
   $(srcdir)/c-common.h $(srcdir)/c-tree.h \
-  $(srcdir)/disjoint-set.h \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c \
   $(srcdir)/dependence.c  \
   $(srcdir)/dbxout.c $(srcdir)/dwarf2out.c $(srcdir)/dwarf2asm.c \
@@ -1972,7 +1965,7 @@ GTFILES = $(srcdir)/location.h $(srcdir)/coretypes.h $(srcdir)/cpplib.h \
   $(srcdir)/profile.c $(srcdir)/ra-build.c $(srcdir)/regclass.c \
   $(srcdir)/reg-stack.c \
   $(srcdir)/sdbout.c $(srcdir)/stmt.c $(srcdir)/stor-layout.c \
-  $(srcdir)/disjoint-set.c $(srcdir)/tree-mudflap.c $(srcdir)/tree-flow.h \
+  $(srcdir)/tree-mudflap.c $(srcdir)/tree-flow.h \
   $(srcdir)/c-objc-common.c $(srcdir)/c-common.c $(srcdir)/c-parse.in \
   $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
   $(out_file) \
@@ -1991,7 +1984,6 @@ gt-expr.h gt-sdbout.h gt-optabs.h gt-bitmap.h gt-dwarf2out.h : s-gtype ; @true
 gt-ra-build.h gt-reg-stack.h gt-dwarf2asm.h gt-dbxout.h : s-gtype ; @true
 gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h : s-gtype; @true
 gt-tree-alias-common.h : s-gtype ; @true
-gt-tree-alias-type.h : s-gtype ; @true
 gt-tree-mudflap.h : s-gtype ; @true
 gt-dependence.h : s-gtype ; @true
 gt-c-objc-common.h gtype-c.h gt-location.h gt-stringpool.h : s-gtype ; @true

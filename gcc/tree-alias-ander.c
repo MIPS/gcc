@@ -26,7 +26,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "tm.h"
 #include "ggc.h"
 #include "tree-alias-type.h"
-#include "tree-alias-ecr.h"
 #include "tree-alias-ander.h"
 
 #include "flags.h"

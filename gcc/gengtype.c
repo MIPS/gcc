@@ -1113,8 +1113,7 @@ open_base_files ()
       "hashtab.h", "splay-tree.h", "bitmap.h", "tree.h", "rtl.h",
       "function.h", "insn-config.h", "expr.h", "hard-reg-set.h",
       "basic-block.h", "cselib.h", "insn-addr.h", "ssa.h", "optabs.h",
-      "libfuncs.h", "debug.h", "ggc.h",
-      "tree-alias-type.h", "tree-alias-ecr.h", "tree-flow.h", "disjoint-set.h",
+      "libfuncs.h", "debug.h", "ggc.h", "tree-alias-type.h", "tree-flow.h",
       NULL
     };
     const char *const *ifp;

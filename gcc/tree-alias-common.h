@@ -1,6 +1,5 @@
 #ifndef TREE_ALIAS_COMMON
 #define TREE_ALIAS_COMMON
-#include "tree-alias-ecr.h"
 #include "tree-alias-type.h"
 /**
    @brief Alias analysis function pointers.
@@ -130,7 +129,6 @@ extern bool ptr_may_alias_var PARAMS ((tree, tree));
 enum pta_type
   {
     PTA_NONE,
-    PTA_STEEN,
     PTA_ANDERSEN
   };
 extern enum pta_type flag_tree_points_to;

@@ -24,9 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "tm.h"
 #include "ggc.h"
 #include "tree-alias-type.h"
-#include "tree-alias-ecr.h"
 #include "tree-alias-common.h"
-#include "tree-alias-steen.h"
 /* If we have andersen's points-to analysis, include it. */
 #ifdef HAVE_BANSHEE
 #include "tree-alias-ander.h"
@@ -923,31 +921,6 @@ create_alias_var (decl)
   return avar;
 }
 
-#if 0
-/* This function is only used in create_alias_vars where it is commented
-   out.  */
-static void display_points_to_set_helper PARAMS ((alias_typevar));
-
-static void
-display_points_to_set_helper (tvar)
-	alias_typevar tvar;
-{
-  size_t i;
-  varray_type tmp;
-  if (ALIAS_TVAR_KIND (tvar) != ECR_ATVAR)
-	  return;
-  tmp = alias_tvar_pointsto (tvar);
-  if (VARRAY_ACTIVE_SIZE (tmp) <= 0)
-    return;
-  fprintf (stderr, " %s => { ", alias_get_name (ALIAS_TVAR_DECL (tvar)));
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (tmp); i++)
-    {
-      alias_typevar tmpatv = (alias_typevar) VARRAY_GENERIC_PTR (tmp, i);
-      fprintf (stderr, "%s, ", alias_get_name (ALIAS_TVAR_DECL (tmpatv)));
-    }
-  fprintf (stderr, " }\n");
-}
-#endif
 
 /**
    @brief Create points-to sets for a function.
@@ -971,9 +944,18 @@ create_alias_vars (fndecl)
   i = 0;
 
 #if HAVE_BANSHEE
-  current_alias_ops = flag_tree_points_to == PTA_ANDERSEN ? andersen_alias_ops : steen_alias_ops; 
+  if (flag_tree_points_to == PTA_ANDERSEN)
+    current_alias_ops = andersen_alias_ops;
+  else
+   {
+     current_alias_ops = NULL;
+     flag_tree_points_to = PTA_NONE;
+     return;
+   }
 #else
-  current_alias_ops = steen_alias_ops;
+     current_alias_ops = NULL;
+     flag_tree_points_to = PTA_NONE;
+     return;
 #endif
   
   /* If fndecl is current_function_decl, we are at the top level. */
@@ -989,12 +971,6 @@ create_alias_vars (fndecl)
       find_func_decls, NULL);*/
   walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
 				find_func_aliases, NULL);
-#if 0
-  fprintf (stderr, "\nOriginal points to sets for function %s:\n",
-	   IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_vars); i++)
-     display_points_to_set_helper (VARRAY_GENERIC_PTR (alias_vars, i));
-#endif
 }
 
 /**
@@ -1030,7 +1006,6 @@ delete_alias_vars ()
 void
 init_alias_vars ()
 {
-  init_alias_type ();
   current_alias_ops->init (current_alias_ops);
   VARRAY_GENERIC_PTR_INIT (local_alias_vars, 10, "Local alias vars");
   VARRAY_INT_INIT (local_alias_varnums, 10, "Local alias varnums");

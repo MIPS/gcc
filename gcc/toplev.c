@@ -3758,7 +3758,7 @@ display_help ()
   printf (_("  -fmessage-length=<number> Limits diagnostics messages lengths to <number> characters per line.  0 suppresses line-wrapping\n"));
   printf (_("  -fdiagnostics-show-location=[once | every-line] Indicates how often source location information should be emitted, as prefix, at the beginning of diagnostics when line-wrapping\n"));
   printf (_("  -ftls-model=[global-dynamic | local-dynamic | initial-exec | local-exec] Indicates the default thread-local storage code generation model\n"));
-  printf (_("  -ftree-points-to=[steen | andersen] Turn on points-to analysis using the specified algorithm.\n"));
+  printf (_("  -ftree-points-to=[andersen] Turn on points-to analysis using the specified algorithm.\n"));
   for (i = ARRAY_SIZE (f_options); i--;)
     {
       const char *description = f_options[i].description;
@@ -4038,9 +4038,7 @@ decode_f_option (arg)
     }
   else if ((option_value = skip_leading_substring (arg, "tree-points-to=")))
     {
-      if (strcmp (option_value, "steen") == 0)
-        flag_tree_points_to = PTA_STEEN;
-      else if (strcmp (option_value, "andersen") == 0)
+      if (strcmp (option_value, "andersen") == 0)
 	{
 #ifdef HAVE_BANSHEE
         flag_tree_points_to = PTA_ANDERSEN;
