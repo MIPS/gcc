@@ -1,3 +1,9 @@
+2004-12-06  Tom Tromey  <tromey@redhat.com>
+ 
+	For PR java/14853:
+	* testsuite/libjava.compile/PR14853.java: New file.
+	* testsuite/libjava.compile/PR14853.xfail: New file.
+
 2004-11-17  Michael Koch  <konqueror@gmx.de>
 
 	* java/net/URL.java (URL): Handle case when argument is null.
