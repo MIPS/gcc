@@ -53,7 +53,7 @@ Boston, MA 02111-1307, USA.  */
    For strength reduction addition, see
    http://citeseer.nj.nec.com/kennedy98strength.html
 
-   Pieces are also taken from Open64's SSAPRE implementation.
+   Some of the algorithms are also based on Open64's SSAPRE implementation.
 
    Since the papers are a bit dense to read, take a while to grasp,
    and have a few bugs, i'll give a quick rundown:
@@ -317,7 +317,7 @@ static int
 add_ephi_pred (tree phi, tree def, edge e)
 {
   int i = EPHI_NUM_ARGS (phi);
-  
+
   EPHI_ARG_PRED (phi, i) = def;
   EPHI_ARG_EDGE (phi, i) = e;
   EPHI_NUM_ARGS (phi)++;
@@ -1124,7 +1124,9 @@ injured_phi_result_real_occ (struct expr_info *ei ATTRIBUTE_UNUSED,
   return false;
 }
 
-/* Delayed rename handling as implemented in open64. */
+/* Delayed rename handling is done like open64 does it.  Basically,
+   like the delayed renaming is described in the paper, with
+   extensions for strength reduction.  */
 static void
 process_delayed_rename (struct expr_info *ei, tree use, tree real_occ)
 {
@@ -1202,7 +1204,9 @@ process_delayed_rename (struct expr_info *ei, tree use, tree real_occ)
     }
 }
 
-/* Renaming as implemented in Open64. */
+/* Renaming is done like Open64 does it.  Basically as the paper says, 
+   except that we try to use earlier defined occurrences if they are
+   available in order to keep the number of saves down.  */
 void
 rename_1 (struct expr_info *ei)
 {
@@ -1703,25 +1707,6 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
   newtemp = make_ssa_name (temp, expr);  
   TREE_OPERAND (expr, 0) = newtemp;
   copy = TREE_OPERAND (expr, 1);
-#if 0
-  {
-    if (TREE_OPERAND (copy, 0)
-	&& SSA_VAR_P (TREE_OPERAND (copy, 0)))
-      {
-	TREE_OPERAND (copy, 0) =
-	  reaching_def (TREE_OPERAND (copy, 0),
-			NULL_TREE, bb_for_stmt (x), NULL_TREE);
-      }
-			
-    if (TREE_OPERAND (copy, 1)
-	&& SSA_VAR_P (TREE_OPERAND (copy, 1)))
-      {
-	TREE_OPERAND (copy, 1)  =
-	  reaching_def (TREE_OPERAND (copy, 1),
-			NULL_TREE, bb_for_stmt (x), NULL_TREE);
-      }
-  }
-#endif
   if (dump_file)
     {
       fprintf (dump_file, "In BB %d, insert save of ",

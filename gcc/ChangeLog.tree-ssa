@@ -1,3 +1,8 @@
+2003-08-27  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-ssa-pre.c: Update comments to reflect reality.
+	(insert_one_operand): Remove #if'0d code.
+
 2003-08-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gcov.c (typedef struct arc_info): New field cs_count.
