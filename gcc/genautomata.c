@@ -5904,6 +5904,11 @@ create_automata ()
        curr_automaton != NULL;
        curr_automaton = curr_automaton->next_automaton)
     {
+      if (curr_automaton->corresponding_automaton_decl == NULL)
+	fprintf (stderr, "Create anonymous automaton ...");
+      else
+	fprintf (stderr, "Create automaton `%s'...",
+		 curr_automaton->corresponding_automaton_decl->name);
       create_alt_states (curr_automaton);
       form_ainsn_with_same_reservs (curr_automaton);
       build_automaton (curr_automaton);
@@ -5911,6 +5916,7 @@ create_automata ()
       ticker_on (&equiv_time);
       set_insn_equiv_classes (curr_automaton);
       ticker_off (&equiv_time);
+      fprintf (stderr, "done\n");
     }
 }
 
@@ -8319,10 +8325,8 @@ generate ()
   transform_insn_regexps ();
   fprintf (stderr, "done\n");
   ticker_off (&transform_time);
-  fprintf (stderr, "Create automata...");
   fflush (stderr);
   create_automata ();
-  fprintf (stderr, "done\n");
   ticker_off (&automaton_generation_time);
 }
 
