@@ -214,6 +214,9 @@ public class BasicPopupMenuUI extends PopupMenuUI
    */
   protected void uninstallListeners()
   {
+    popupMenu.removeMouseListener(mouseInputListener);
+    popupMenu.removeMouseMotionListener(mouseInputListener);
+    popupMenu.removePopupMenuListener(popupMenuListener);
   }
 
   /**

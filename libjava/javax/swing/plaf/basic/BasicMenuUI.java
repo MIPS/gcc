@@ -236,7 +236,9 @@ public class BasicMenuUI extends BasicMenuItemUI
   protected void installListeners()
   {
     ((JMenu) menuItem).addMouseListener(mouseInputListener);
+    ((JMenu) menuItem).addMouseMotionListener(mouseInputListener);
     ((JMenu) menuItem).addMenuListener(menuListener);
+    ((JMenu) menuItem).addMenuDragMouseListener(menuDragMouseListener);
   }
 
   protected void setupPostTimer(JMenu menu)
@@ -452,6 +454,8 @@ public class BasicMenuUI extends BasicMenuItemUI
      */
     public void menuDragMouseDragged(MenuDragMouseEvent e)
     {
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+      manager.setSelectedPath(e.getPath());
     }
 
     /**
@@ -462,6 +466,8 @@ public class BasicMenuUI extends BasicMenuItemUI
      */
     public void menuDragMouseEntered(MenuDragMouseEvent e)
     {
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+      manager.setSelectedPath(e.getPath());
     }
 
     /**

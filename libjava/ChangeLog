@@ -1,3 +1,34 @@
+2004-07-09  Olga Rodimina <rodimina@redhat.com>
+	
+	* javax/swing/JMenuItem.java:
+	(processMouseEvent): Reimplemented to deal with
+	mouse drag events.
+	(createMenuDragMouseEvent): New private helper method.
+	Creates MenuDragMouseEvent.
+	* javax/swing/MenuSelectionManager.java
+	(componentForPoint): Implemented.
+	(isComponentPartOfCurrentMenu): Made public.
+	(processMouseEvent): Reimplemented to deal with 
+	mouse drag events.
+	(setSelectedPath): Corrected small mistake that caused
+	path to be set incorrectly.
+	(getPath): If given component is JMenu then also add this
+	menu's popup menu to the selected path.
+	* javax/swing/plaf/basic/BasicMenuItemUI.java:
+	(getPath): Ditto.
+	(getPreferredSize): Call getPreferredMenuItemSize().
+	(getPreferredItemSize): Moved code from getPreferredSize to here.
+	(installListeners): Install MouseMotionListeners.
+	(MouseInputHandler): Pass mouse release event to MenuSelectionManager 
+	if mouse wasn't released in the bounds of this menu item.
+	(MenuDragMouseHandler): Implemented.
+	* javax/swing/plaf/basic/BasicMenuUI.java:
+	(installListeners): Install MouseMotionListener and 
+	MenuDrageMouseListener.
+	(MenuDragMouseHandler): Implemented.
+	* javax/swing/plaf/basic/BasicPopupMenuUI.java:
+	(uninstallListeners): Implemented.
+	
 2004-07-07  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/JCheckBox.java: Reformated.

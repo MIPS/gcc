@@ -279,6 +279,11 @@ public class BasicMenuItemUI extends MenuItemUI
   public MenuElement[] getPath()
   {
     ArrayList path = new ArrayList();
+
+    // Path to menu should also include its popup menu.
+    if (menuItem instanceof JMenu)
+      path.add(((JMenu) menuItem).getPopupMenu());
+
     Component c = menuItem;
     while (c instanceof MenuElement)
       {
@@ -308,19 +313,6 @@ public class BasicMenuItemUI extends MenuItemUI
   protected Dimension getPreferredMenuItemSize(JComponent c, Icon checkIcon,
                                                Icon arrowIcon,
                                                int defaultTextIconGap)
-  {
-    // FIXME: Need to implement.
-    return null;
-  }
-
-  /**
-   * Returns preferred size of the given component
-   *
-   * @param c component for which to return preferred size
-   *
-   * @return $Dimension$ preferred size for the given component
-   */
-  public Dimension getPreferredSize(JComponent c)
   {
     JMenuItem m = (JMenuItem) c;
     Dimension d = BasicGraphicsUtils.getPreferredButtonSize(m,
@@ -364,9 +356,21 @@ public class BasicMenuItemUI extends MenuItemUI
   }
 
   /**
+   * Returns preferred size of the given component
+   *
+   * @param c component for which to return preferred size
+   *
+   * @return $Dimension$ preferred size for the given component
+   */
+  public Dimension getPreferredSize(JComponent c)
+  {
+    return getPreferredMenuItemSize(c, checkIcon, arrowIcon, defaultTextIconGap);
+  }
+
+  /**
    * DOCUMENT ME!
    *
-   * @return $returnType$ DOCUMENT ME!
+   * @return DOCUMENT ME!
    */
   protected String getPropertyPrefix()
   {
@@ -419,6 +423,7 @@ public class BasicMenuItemUI extends MenuItemUI
   protected void installListeners()
   {
     menuItem.addMouseListener(mouseInputListener);
+    menuItem.addMouseMotionListener(mouseInputListener);
     menuItem.addMenuDragMouseListener(menuDragMouseListener);
     menuItem.addMenuKeyListener(menuKeyListener);
     menuItem.addPropertyChangeListener(propertyChangeListener);
@@ -884,14 +889,17 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void mouseReleased(MouseEvent e)
     {
-      Rectangle size = menuItem.getBounds(); //this.getParent().getSize();
+      Rectangle size = menuItem.getBounds();
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
       if (e.getX() > 0 && e.getX() < size.width && e.getY() > 0
           && e.getY() < size.height)
         {
-	  MenuSelectionManager manager = MenuSelectionManager.defaultManager();
 	  manager.clearSelectedPath();
-	  menuItem.doClick(0);
+	  menuItem.doClick();
         }
+
+      else
+	manager.processMouseEvent(e);
     }
   }
 
@@ -907,6 +915,8 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void menuDragMouseDragged(MenuDragMouseEvent e)
     {
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+      manager.setSelectedPath(e.getPath());
     }
 
     /**
@@ -917,6 +927,8 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void menuDragMouseEntered(MenuDragMouseEvent e)
     {
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+      manager.setSelectedPath(e.getPath());
     }
 
     /**
@@ -937,6 +949,13 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void menuDragMouseReleased(MenuDragMouseEvent e)
     {
+      MenuElement[] path = e.getPath();
+
+      if (path[path.length - 1] instanceof JMenuItem)
+	((JMenuItem) path[path.length - 1]).doClick();
+
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+      manager.clearSelectedPath();
     }
   }
 
