@@ -1,5 +1,11 @@
 2005-03-24  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (build_class_ref): Handle array types.
+	(build_new_object_array): Use build_class_ref.
+	* abi.cc (build_class_reference): Added assertion.
+
+2005-03-24  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_for): Use 'result' when building BIND_EXPR.
 	Fixed order of arguments.
 

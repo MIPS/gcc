@@ -1941,9 +1941,7 @@ tree_generator::build_new_object_array (model_type *elt_type, tree size)
 {
   model_class *array_type = assert_cast<model_class *> (elt_type->array ());
 
-  gcj_abi *abi = gcc_builtins->find_abi ();
-  tree elt_type_tree
-    = abi->build_class_reference (gcc_builtins, class_wrapper, elt_type);
+  tree elt_type_tree = build_class_ref (array_type, elt_type);
   tree array_type_tree = gcc_builtins->lay_out_class (array_type);
 
   tree args = tree_cons (NULL_TREE, size,
@@ -2018,6 +2016,14 @@ tree_generator::build_class_ref (model_type *t, model_element *request)
 		      request);
       result = gcc_builtins->map_field_ref (class_wrapper, NULL_TREE,
 					    field);
+    }
+  else if (t->array_p ())
+    {
+      // We can't refer to array types directly, so we emit a
+      // reference via the constant pool.
+      model_class *klass = assert_cast<model_class *> (t);
+      result = build_ref_from_constant_pool (type_class_ptr,
+					     class_wrapper->add (klass));
     }
   else
     {

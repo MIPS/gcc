@@ -202,7 +202,7 @@ cxx_abi::build_class_reference (tree_builtins *builtins,
 				aot_class *,
 				model_type *klass)
 {
-  // FIXME: handle primitive type.
+  assert (! klass->primitive_p () && klass != primitive_void_type);
   tree class_obj
     = builtins->map_class_object (assert_cast<model_class *> (klass));
   return build1 (ADDR_EXPR, type_class_ptr, class_obj);
