@@ -67,15 +67,6 @@ static struct cfg_stats_d cfg_stats;
 /* Nonzero if we found a computed goto while building basic blocks.  */
 static bool found_computed_goto;
 
-/* If we found computed gotos, then they are all revectored to this
-   location.  We try to unfactor them after we have translated out
-   of SSA form.  */
-static GTY(()) tree factored_computed_goto_label;
-
-/* The factored computed goto.  We cache this so we can easily recover
-   the destination of computed gotos when unfactoring them.  */
-static GTY(()) tree factored_computed_goto;
-
 /* Basic blocks and flowgraphs.  */
 static basic_block create_bb (void *, void *, basic_block);
 static void create_block_annotation (basic_block);
@@ -223,6 +214,7 @@ factor_computed_gotos (void)
   basic_block bb;
   tree factored_label_decl = NULL;
   tree var = NULL;
+  tree factored_computed_goto = NULL;
 
   /* We know there are one or more computed gotos in this function.
      Examine the last statement in each basic block to see if the block
@@ -246,6 +238,7 @@ factor_computed_gotos (void)
       if (computed_goto_p (last))
 	{
 	  tree assignment;
+	  tree factored_computed_goto_label;
 
 	  /* The first time we find a computed goto we need to create
 	     the factored goto block and the variable each original
@@ -2468,20 +2461,11 @@ disband_implicit_edges (void)
 	abort ();
 
       label = tree_block_label (e->dest);
-      /* ??? Why bother putting this back together when rtl is just
-	 about to take it apart again?  */
-      if (factored_computed_goto_label
-	  && label == LABEL_EXPR_LABEL (factored_computed_goto_label))
-	label = GOTO_DESTINATION (factored_computed_goto);
-
       bsi_insert_after (&last,
 			build1 (GOTO_EXPR, void_type_node, label),
 			BSI_NEW_STMT);
       e->flags &= ~EDGE_FALLTHRU;
     }
-
-  factored_computed_goto = NULL;
-  factored_computed_goto_label = NULL;
 }
 
 /* Remove all the blocks and edges that make up the flowgraph.  */

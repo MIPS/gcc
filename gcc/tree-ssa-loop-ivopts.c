@@ -251,7 +251,7 @@ static varray_type decl_rtl_to_reset;
 
 #define SWAP(X, Y) do { void *tmp = (X); (X) = (Y); (Y) = tmp; } while (0)
 
-static tree force_gimple_operand (tree, tree *, tree, bool);
+static tree force_gimple_operand (tree, tree *, bool);
 
 /* Number of uses recorded in DATA.  */
 
@@ -636,7 +636,6 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 struct idx_fs_data
 {
   tree stmts;
-  tree var;
 };
 
 static bool
@@ -645,7 +644,7 @@ idx_force_simple (tree base ATTRIBUTE_UNUSED, tree *idx, void *data)
   struct idx_fs_data *d = data;
   tree stmts;
 
-  *idx = force_gimple_operand (*idx, &stmts, d->var, true);
+  *idx = force_gimple_operand (*idx, &stmts, true);
 
   if (stmts)
     {
@@ -678,18 +677,18 @@ update_addressable_flag (tree expr)
 }
 
 /* Expands EXPR to list of gimple statements STMTS, forcing it to become
-   a gimple operand that is returned.  Temporary variables (if needed)
-   are based on VAR.  If SIMPLE is true, force the operand to be either
-   ssa_name or integer constant.  */
+   a gimple operand that is returned.  If SIMPLE is true, force the operand
+   to be either ssa_name or integer constant.  */
 
 static tree
-force_gimple_operand (tree expr, tree *stmts, tree var, bool simple)
+force_gimple_operand (tree expr, tree *stmts, bool simple)
 {
   enum tree_code code = TREE_CODE (expr);
   char class = TREE_CODE_CLASS (code);
   tree op0, op1, stmts0, stmts1, stmt, rhs, name;
   tree_stmt_iterator tsi;
   struct idx_fs_data d;
+  tree atmp;
 
   if (is_gimple_val (expr)
       && (!simple
@@ -707,24 +706,20 @@ force_gimple_operand (tree expr, tree *stmts, tree var, bool simple)
     {
       op0 = TREE_OPERAND (expr, 0);
       if (TREE_CODE (op0) == INDIRECT_REF)
-	return force_gimple_operand (TREE_OPERAND (op0, 0), stmts, var,
-				     simple);
+	return force_gimple_operand (TREE_OPERAND (op0, 0), stmts, simple);
     }
 
-  if (!var)
-    {
-      var = create_tmp_var (TREE_TYPE (expr), "fgotmp");
-      add_referenced_tmp_var (var);
-    }
+  atmp = create_tmp_var (TREE_TYPE (expr), "fgotmp");
+  add_referenced_tmp_var (atmp);
 
   switch (class)
     {
     case '1':
     case '2':
-      op0 = force_gimple_operand (TREE_OPERAND (expr, 0), &stmts0, var, false);
+      op0 = force_gimple_operand (TREE_OPERAND (expr, 0), &stmts0, false);
       if (class == '2')
 	{
-	  op1 = force_gimple_operand (TREE_OPERAND (expr, 1), &stmts1, var, false);
+	  op1 = force_gimple_operand (TREE_OPERAND (expr, 1), &stmts1, false);
 	  rhs = build (code, TREE_TYPE (expr), op0, op1);
 	}
       else
@@ -733,8 +728,8 @@ force_gimple_operand (tree expr, tree *stmts, tree var, bool simple)
 	  stmts1 = NULL_TREE;
 	}
 
-      stmt = build (MODIFY_EXPR, void_type_node, var, rhs);
-      name = make_ssa_name (var, stmt);
+      stmt = build (MODIFY_EXPR, void_type_node, atmp, rhs);
+      name = make_ssa_name (atmp, stmt);
       TREE_OPERAND (stmt, 0) = name;
 
       if (stmts0)
@@ -763,8 +758,8 @@ force_gimple_operand (tree expr, tree *stmts, tree var, bool simple)
   switch (TREE_CODE (expr))
     {
     case ADDR_EXPR:
-      stmt = build (MODIFY_EXPR, void_type_node, var, expr);
-      name = make_ssa_name (var, stmt);
+      stmt = build (MODIFY_EXPR, void_type_node, atmp, expr);
+      name = make_ssa_name (atmp, stmt);
       TREE_OPERAND (stmt, 0) = name;
 
       *stmts = alloc_stmt_list ();
@@ -772,7 +767,6 @@ force_gimple_operand (tree expr, tree *stmts, tree var, bool simple)
       tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
 
       d.stmts = *stmts;
-      d.var = var;
       for_each_index (&TREE_OPERAND (expr, 0), idx_force_simple, &d);
 
       update_addressable_flag (TREE_OPERAND (stmt, 1));
@@ -783,8 +777,8 @@ force_gimple_operand (tree expr, tree *stmts, tree var, bool simple)
       if (!TREE_OVERFLOW (expr))
 	abort ();
 
-      stmt = build (MODIFY_EXPR, void_type_node, var, expr);
-      name = make_ssa_name (var, stmt);
+      stmt = build (MODIFY_EXPR, void_type_node, atmp, expr);
+      name = make_ssa_name (atmp, stmt);
       TREE_OPERAND (stmt, 0) = name;
 
       *stmts = alloc_stmt_list ();
@@ -1105,7 +1099,7 @@ determine_biv_step (tree phi)
 static bool
 find_bivs (struct ivopts_data *data)
 {
-  tree phi, step;
+  tree phi, base, step, type;
   bool found = false;
   struct loop *loop = data->current_loop;
 
@@ -1114,10 +1108,13 @@ find_bivs (struct ivopts_data *data)
       step = determine_biv_step (phi);
       if (!step)
 	continue;
+      base = phi_element_for_edge (phi, loop_preheader_edge (loop))->def;
 
-      set_iv (data, PHI_RESULT (phi),
-	      phi_element_for_edge (phi, loop_preheader_edge (loop))->def,
-	      step);
+      type = TREE_TYPE (PHI_RESULT (phi));
+      base = convert (type, base);
+      step = convert (type, step);
+
+      set_iv (data, PHI_RESULT (phi), base, step);
       found |= (integer_nonzerop (step) != 0);
     }
 
@@ -4425,7 +4422,7 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
   else
     bsi_insert_before (incr_pos, stmt, BSI_NEW_STMT);
 
-  initial = force_gimple_operand (base, &stmts, var, false);
+  initial = force_gimple_operand (base, &stmts, false);
   if (stmts)
     {
       basic_block new_bb;
@@ -4557,7 +4554,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
       bsi = stmt_bsi (use->stmt);
     }
 
-  op = force_gimple_operand (comp, &stmts, SSA_NAME_VAR (tgt), false);
+  op = force_gimple_operand (comp, &stmts, false);
 
   if (TREE_CODE (use->stmt) == PHI_NODE)
     {
@@ -4586,7 +4583,7 @@ rewrite_use_address (struct ivopts_data *data,
 					     use, cand));
   block_stmt_iterator bsi = stmt_bsi (use->stmt);
   tree stmts;
-  tree op = force_gimple_operand (comp, &stmts, NULL_TREE, false);
+  tree op = force_gimple_operand (comp, &stmts, false);
   tree var, tmp_var, name;
 
   if (stmts)
@@ -4647,8 +4644,7 @@ rewrite_use_compare (struct ivopts_data *data,
   if (may_eliminate_iv (data->current_loop,
 			use, cand, &compare, &bound))
     {
-      op = force_gimple_operand (unshare_expr (bound), &stmts,
-				 NULL_TREE, false);
+      op = force_gimple_operand (unshare_expr (bound), &stmts, false);
 
       if (stmts)
 	bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
@@ -4670,7 +4666,7 @@ rewrite_use_compare (struct ivopts_data *data,
       || zero_p (get_iv (data, *op_p)->step))
     op_p = &TREE_OPERAND (cond, 1);
 
-  op = force_gimple_operand (comp, &stmts, SSA_NAME_VAR (*op_p), false);
+  op = force_gimple_operand (comp, &stmts, false);
   if (stmts)
     bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
 
@@ -4835,7 +4831,7 @@ rewrite_use_outer (struct ivopts_data *data,
 	value = get_computation_at (data->current_loop,
 				    use, cand, last_stmt (exit->src));
 
-      op = force_gimple_operand (value, &stmts, SSA_NAME_VAR (tgt), true);
+      op = force_gimple_operand (value, &stmts, true);
 	  
       /* If we will preserve the iv anyway and we would need to perform
 	 some computation to replace the final value, do nothing.  */

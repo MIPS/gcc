@@ -1,3 +1,21 @@
+2004-04-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgrtl.c (purge_dead_edges): Clean the EDGE_ABNORMAL_CALL flags.
+	* loop-iv.c (iv_number_of_iterations): Handle the case when we prove
+	that the loop does not roll.
+	* opts.c (decode_options): Enable -floop-optimize2 and
+	-ftree-loop-optimize by default.
+	* tree-cfg.c (factored_computed_goto_label,
+	factored_computed_goto): Removed.
+	(factor_computed_gotos): Do not record them.
+	(disband_implicit_edges): Do not unfactor computed jumps.
+	* tree-ssa-loop-ivopts.c (force_gimple_operand): Give correct types
+	to temporary variables.
+	(idx_force_simple, create_iv, rewrite_use_nonlinear_expr,
+	rewrite_use_address, rewrite_use_compare, rewrite_use_outer):
+	Changed due to force_gimple_operand change.
+	(find_bivs): Handle ill-typed assignments correctly.
+
 2004-04-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* passes.c (rest_of_compilation): Enable rest_of_handle_loop2 by
