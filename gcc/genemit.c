@@ -69,7 +69,6 @@ static void gen_insn			PROTO((rtx));
 static void gen_expand			PROTO((rtx));
 static void gen_split			PROTO((rtx));
 static void output_add_clobbers		PROTO((void));
-static void output_init_mov_optab	PROTO((void));
 static void gen_rtx_scratch		PROTO((rtx, enum rtx_code));
 static void output_peephole2_scratches	PROTO((rtx));
 
@@ -740,40 +739,6 @@ output_peephole2_scratches (split)
       else if (GET_CODE (elt) != MATCH_DUP)
 	insn_nr++;
     }
-}
-
-/* Write a function, init_mov_optab, that is called to set up entries
-   in mov_optab for EXTRA_CC_MODES.  */
-
-static void
-output_init_mov_optab ()
-{
-#ifdef EXTRA_CC_NAMES
-  static char *cc_names[] = { EXTRA_CC_NAMES };
-  char *p;
-  size_t i;
-
-  printf ("\nvoid\ninit_mov_optab ()\n{\n");
-
-  for (i = 0; i < sizeof cc_names / sizeof cc_names[0]; i++)
-    {
-      printf ("#ifdef HAVE_mov");
-      for (p = cc_names[i]; *p; p++)
-	printf ("%c", *p >= 'A' && *p <= 'Z' ? *p - 'A' + 'a' : *p);
-      printf ("\n");
-      printf ("  if (HAVE_mov");
-      for (p = cc_names[i]; *p; p++)
-	printf ("%c", *p >= 'A' && *p <= 'Z' ? *p - 'A' + 'a' : *p);
-      printf (")\n");
-      printf ("    mov_optab->handlers[(int) %smode].insn_code = CODE_FOR_mov",
-	      cc_names[i]);
-      for (p = cc_names[i]; *p; p++)
-	printf ("%c", *p >= 'A' && *p <= 'Z' ? *p - 'A' + 'a' : *p);
-      printf (";\n#endif\n");
-    }
-
-  printf ("}\n");
-#endif
 }
 
 PTR
