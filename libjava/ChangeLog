@@ -1,3 +1,9 @@
+2004-12-26  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/awt/EventDispatchThread.java,
+	java/awt/Toolkit.java:
+	Don't catch java.lang.ThreadDeath.
+
 2004-12-24  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/text/PasswordView.java
