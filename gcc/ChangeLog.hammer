@@ -1,3 +1,20 @@
+2003-10-24  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	Merge from mainline:
+
+	2003-06-13  Richard Henderson  <rth@redhat.com>
+
+		* cfgbuild.c (make_edges): Set ABNORMAL with SIBCALL.
+		* cfgrtl.c (purge_dead_edges): Expect it too.
+
+	2003-06-07  Richard Henderson  <rth@redhat.com>
+
+		* basic-block.h (EDGE_SIBCALL): New.
+		(EDGE_ALL_FLAGS): Update.
+		* cfg.c (dump_edge_info): Add sibcall name.
+		* cfgbuild.c (make_edges): Use EDGE_SIBCALL.
+		* cfgrtl.c (purge_dead_edges): Handle sibcalls.
+
 2003-10-23  Josef Zlomek  <zlomekj@suse.cz>
 
 	* vrp.c (compute_ranges_for_pending): Delete.

@@ -153,6 +153,7 @@ typedef struct edge_def {
 #define EDGE_DFS_BACK		32	/* A backwards edge */
 #define EDGE_CAN_FALLTHRU	64	/* Candidate for straight line
 					   flow.  */
+#define EDGE_SIBCALL            128     /* Edge from sibcall to exit.  */
 
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 
