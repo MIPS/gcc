@@ -1117,7 +1117,7 @@ find_file0 (unit_t * u, struct stat *st1)
   if (u == NULL)
     return NULL;
 
-  if (fstat (((unix_stream *) u)->fd, &st2) >= 0 &&
+  if (fstat (((unix_stream *) u->s)->fd, &st2) >= 0 &&
       st1->st_dev == st2.st_dev && st1->st_ino == st2.st_ino)
     return u;
 

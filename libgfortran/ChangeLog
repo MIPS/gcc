@@ -1,4 +1,9 @@
 2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
+        PR gfortran/14837
+        * io/unix.c (find_file0): Use fd field of struct
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
  
 	PR 14831
 	* io/inquire.c (inquire_via_unit): Changed return string for
