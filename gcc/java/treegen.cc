@@ -56,6 +56,13 @@ tree_code_generator::generate (model_class *the_class)
        i != methods.end ();
        ++i)
     {
+      // No need to do anything for abstract methods.
+      // FIXME: Or... set line number??
+      // We could generate stubs that throw an exception with
+      // nice information...
+      if (((*i)->get_modifiers () & ACC_ABSTRACT) != 0)
+	continue;
+
       tree_generator gen (builtins, wrapper);
       tree method = gen.generate ((*i).get ());
 

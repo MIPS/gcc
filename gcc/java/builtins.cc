@@ -567,45 +567,52 @@ tree_builtins::lay_out_class (model_class *klass)
   // Fix the ordering.
   TYPE_METHODS (klass_record) = nreverse (TYPE_METHODS (klass_record));
 
-  // Ensure all non-static fields have been added.
-  std::list<ref_field> fields = klass->get_fields ();
-  for (std::list<ref_field>::const_iterator i = fields.begin ();
-       i != fields.end ();
-       ++i)
-    add (klass_record, (*i).get ());
-
-  // For arrays, add a "data" member.  This field isn't visible to
-  // java, but is needed for code generation.
-  if (klass->array_p ())
+  // FIXME: This is sort of bogus, because we could easily create
+  // Class and Object here.  Meanwhile, these two classes have their
+  // fields added elsewhere.  Skipping any class that already has
+  // fields should suffice.
+  if (TYPE_FIELDS (klass_record) == NULL_TREE)
     {
-      tree elt_type = map_type (klass->element_type ());
-      tree data = build_decl (FIELD_DECL, get_identifier ("data"),
-			      build_array_type (elt_type,
-						build_index_type (integer_zero_node)));
-      DECL_CONTEXT (data) = klass_record;
-      TREE_PUBLIC (data) = 1;
-      DECL_ARTIFICIAL (data) = 1;
+      // Ensure all non-static fields have been added.
+      std::list<ref_field> fields = klass->get_fields ();
+      for (std::list<ref_field>::const_iterator i = fields.begin ();
+	   i != fields.end ();
+	   ++i)
+	add (klass_record, (*i).get ());
 
-      TREE_CHAIN (data) = TYPE_FIELDS (klass_record);
-      TYPE_FIELDS (klass_record) = data;
+      // For arrays, add a "data" member.  This field isn't visible to
+      // java, but is needed for code generation.
+      if (klass->array_p ())
+	{
+	  tree elt_type = map_type (klass->element_type ());
+	  tree data = build_decl (FIELD_DECL, get_identifier ("data"),
+				  build_array_type (elt_type,
+						    build_index_type (integer_zero_node)));
+	  DECL_CONTEXT (data) = klass_record;
+	  TREE_PUBLIC (data) = 1;
+	  DECL_ARTIFICIAL (data) = 1;
 
-      // Also update the "length" field.
-      tree length_field = find_decl (klass_record, "length");
-      TREE_READONLY (length_field) = 1;
-    }
+	  TREE_CHAIN (data) = TYPE_FIELDS (klass_record);
+	  TYPE_FIELDS (klass_record) = data;
 
-  // Fix the ordering.
-  TYPE_FIELDS (klass_record) = nreverse (TYPE_FIELDS (klass_record));
+	  // Also update the "length" field.
+	  tree length_field = find_decl (klass_record, "length");
+	  TREE_READONLY (length_field) = 1;
+	}
 
-  // Link to the superclass.
-  if (super_record != NULL_TREE)
-    {
-      tree base = build_decl (FIELD_DECL, NULL_TREE, super_record);
-      DECL_IGNORED_P (base) = 1;
-      TREE_CHAIN (base) = TYPE_FIELDS (klass_record);
-      TYPE_FIELDS (klass_record) = base;
-      DECL_SIZE (base) = TYPE_SIZE (super_record);
-      DECL_SIZE_UNIT (base) = TYPE_SIZE_UNIT (super_record);
+      // Fix the ordering.
+      TYPE_FIELDS (klass_record) = nreverse (TYPE_FIELDS (klass_record));
+
+      // Link to the superclass.
+      if (super_record != NULL_TREE)
+	{
+	  tree base = build_decl (FIELD_DECL, NULL_TREE, super_record);
+	  DECL_IGNORED_P (base) = 1;
+	  TREE_CHAIN (base) = TYPE_FIELDS (klass_record);
+	  TYPE_FIELDS (klass_record) = base;
+	  DECL_SIZE (base) = TYPE_SIZE (super_record);
+	  DECL_SIZE_UNIT (base) = TYPE_SIZE_UNIT (super_record);
+	}
     }
 
   lay_out_vtable (klass);

@@ -132,6 +132,7 @@ tree_generator::visit_method (model_method *meth,
 	{
 	  tree k;
 	  if (meth->static_p ())
+	    // FIXME: this is kind of wrong for new ABI code.
 	    k = build_class_ref (meth->get_declaring_class ());
 	  else
 	    k = this_tree;
@@ -623,8 +624,14 @@ tree_generator::visit_if (model_if *element,
   tree cond_tree = current;
   true_branch->visit (this);
   tree true_tree = current;
-  false_branch->visit (this);
-  tree false_tree = current;
+  tree false_tree;
+  if (false_branch)
+    {
+      false_branch->visit (this);
+      false_tree = current;
+    }
+  else
+    false_tree = build_empty_stmt ();
 
   current = build3 (COND_EXPR, void_type_node, cond_tree,
 		    true_tree, false_tree);
@@ -750,6 +757,7 @@ tree_generator::wrap_synchronized (tree expr, tree body)
   tree expr_decl = build_decl (VAR_DECL, get_identifier (buf),
 			       TREE_TYPE (expr));
   DECL_INITIAL (expr_decl) = current;
+  DECL_CONTEXT (expr_decl) = method_tree;
   TREE_CHAIN (expr_decl) = BLOCK_VARS (current_block);
   BLOCK_VARS (current_block) = expr_decl;
 
@@ -1053,6 +1061,7 @@ tree_generator::visit_arith_binary (model_plus *model,
 				    const ref_expression &lhs,
 				    const ref_expression &rhs)
 {
+  //  FIXME: String '+'.
   binary_operator (PLUS_EXPR, lhs, rhs);
 }
 

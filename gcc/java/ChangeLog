@@ -1,5 +1,19 @@
 2005-03-01  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (wrap_synchronized): Set DECL_CONTEXT on new variable.
+
+	* treegen.cc (generate): Skip abstract methods.
+
+	* tree.cc (visit_if): Handle case where there is no 'else'
+	statement.
+
+	* abi.cc (get_vtable_index): Handle final methods from Object.
+
+	* builtins.cc (lay_out_class): Skip types that already have
+	fields.
+
+2005-03-01  Tom Tromey  <tromey@redhat.com>
+
 	* builtins.cc (find_decl): Restructured to use assert instead of
 	abort.
 

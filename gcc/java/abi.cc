@@ -213,6 +213,11 @@ cxx_abi::get_vtable_index (aot_class *klass, model_method *method)
   assert (method->get_declaring_class () == klass->get ());
   if (method->static_p () || method->constructor_p ())
     return integer_minus_one_node;
+  // A special case for methods that are never virtual.
+  if (method->final_p ()
+      && (method->get_declaring_class ()
+	  == global->get_compiler ()->java_lang_Object ()))
+    return integer_minus_one_node;
   return build_int_cst (type_jint, klass->find_in_vtable (method));
 }
 
