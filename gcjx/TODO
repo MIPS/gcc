@@ -1,3 +1,6 @@
+we currently reject a meta-annotation applied to itself,
+like @Documented.  However, this is perfectly valid
+
 we still get bogus error messages when reading a malformed .class file
 extra newline, no file name, bogus "while reading:" leader
 

@@ -1,6 +1,6 @@
 // Read a class and put it in the model.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -143,6 +143,7 @@ class class_reader
   class_file_error error (const char *) const;
   class_known_attribute find_attribute_type (const std::string &);
 
+  ref_forwarding_type parse_field_descriptor (uint16);
   ref_forwarding_type one_type (const std::string &, unsigned int &);
   ref_forwarding_type parse_method_descriptor (const std::string &,
 					       std::list<ref_forwarding_type> &);

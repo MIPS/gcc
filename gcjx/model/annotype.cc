@@ -1,6 +1,6 @@
 // Represent an annotation type.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -51,14 +51,24 @@ model_annotation_type::add_annotation_member (const ref_annotation_member &mem)
 void
 model_annotation_type::resolve_hook (resolution_scope *scope)
 {
-  assert (interfaces.empty ());
+  model_class *annot
+    = global->get_compiler ()->java_lang_annotation_Annotation ();
+  if (from_class)
+    {
+      if (interfaces.size () != 1)
+	throw error ("annotation implements wrong number of interfaces");
+      // FIXME: check that we have just Annotation here.
+    }
+  else
+    {
+      // When parsing we don't add the interface.
+      assert (interfaces.empty ());
 
-  location w = get_location ();
-  ref_forwarding_type anno
-    = new model_forwarding_resolved (w,
-				     global->get_compiler ()->java_lang_annotation_Annotation ());
-  std::list<ref_forwarding_type> ifaces;
-  set_implements (ifaces);
+      location w = get_location ();
+      ref_forwarding_type anno = new model_forwarding_resolved (w, annot);
+      std::list<ref_forwarding_type> ifaces;
+      set_implements (ifaces);
+    }
 
   for (member_type::const_iterator i = anno_members.begin ();
        i != anno_members.end ();

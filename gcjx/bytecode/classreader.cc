@@ -155,13 +155,11 @@ class_reader::parse_annotation_value ()
 
     case 'e':
       {
-	std::string class_name;
 	std::string field_name;
-	std::string descriptor;
 	uint16 index = read_u2 ();
-	pool->get_fieldref (index, class_name, field_name, descriptor);
-	ref_forwarding_type base = new model_forwarding_full (where,
-							      descriptor);
+	ref_forwarding_type base = parse_field_descriptor (index);
+	uint16 fn_index = read_u2 ();
+	field_name = pool->get_utf8 (fn_index);
 	// FIXME.
 // 	val = new model_enum_field_ref (where, base, field_name);
       }
@@ -170,8 +168,7 @@ class_reader::parse_annotation_value ()
     case 'c':
       {
 	uint16 index = read_u2 ();
-	std::string cname = pool->get_class (index);
-	ref_forwarding_type t = new model_forwarding_full (cname);
+	ref_forwarding_type t = parse_field_descriptor (index);
 	val = new model_class_ref (where, t);
       }
       break;
@@ -202,7 +199,7 @@ ref_annotation
 class_reader::parse_annotation ()
 {
   uint16 index = read_u2 ();
-  std::string anno_type_name = pool->get_utf8 (index);
+  ref_forwarding_type anno_type = parse_field_descriptor (index);
 
   uint16 count = read_u2 ();
   std::list<ref_annotation_value> values;
@@ -214,9 +211,7 @@ class_reader::parse_annotation ()
       values.push_back (new model_annotation_value (where, name, expr));
     }
 
-  return new model_annotation (where,
-			       new model_forwarding_full (anno_type_name),
-			       values);
+  return new model_annotation (where, anno_type, values);
 }
 
 void
@@ -789,6 +784,17 @@ class_reader::parse_method ()
     }
 }
 
+ref_forwarding_type
+class_reader::parse_field_descriptor (uint16 name_index)
+{
+  std::string name = pool->get_utf8 (name_index);
+  unsigned int off = 0;
+  ref_forwarding_type t = one_type (name, off);
+  if (off != name.length ())
+    throw error ("malformed type descriptor %1") % name;
+  return t;
+}
+
 void
 class_reader::parse_field ()
 {
@@ -797,12 +803,7 @@ class_reader::parse_field ()
   uint16 descriptor_index = read_u2 ();
 
   std::string name = pool->get_utf8 (name_index);
-  std::string sig = pool->get_utf8 (descriptor_index);
-  unsigned int off = 0;
-  ref_forwarding_type vtype = one_type (sig, off);
-  if (off != sig.length ())
-    throw error ("malformed descriptor while parsing field %1")
-      % name;
+  ref_forwarding_type vtype = parse_field_descriptor (descriptor_index);
 
   current_field = new model_field (where, name, vtype, result.get ());
   current_field->set_from_class ();

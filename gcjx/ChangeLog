@@ -1,3 +1,15 @@
+2005-01-19  Tom Tromey  <tromey@redhat.com>
+
+	* model/annotype.cc (resolve_hook): Allow one interface when read
+	from .class.
+	* bytecode/classreader.hh (class_reader::parse_field_descriptor):
+	Declare.
+	* bytecode/classreader.cc (parse_field_descriptor): New method.
+	(parse_field): Use it.
+	(parse_annotation): Use it.
+	(parse_annotation_value): Use it when parsing class constants and
+	enum constants.
+
 2005-01-18  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/classreader.cc (parse_signature): Don't set interfaces
