@@ -1,3 +1,9 @@
+2003-08-14  Paul Brook  <paul@nowt.org>
+
+	* trans-stmt.c (gfc_trans_allocate): Handle NULL refs. Allocate the
+	size of	the type, not the pointer.
+	* resolve.c (resolve_symbol): Give more accurate error message.
+
 2003-08-10  Paul Brook  <paul@nowt.org>
 
 	* trans-decl.c (gfc_build_function_decl): Only mangle global symbols.

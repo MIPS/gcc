@@ -3766,8 +3766,12 @@ resolve_symbol (gfc_symbol * sym)
 	{
 	  if (sym->attr.allocatable)
 	    {
-	      gfc_error ("Allocatable array at %L must have a deferred shape",
-			 &sym->declared_at);
+	      if (sym->attr.dimension)
+		gfc_error ("Allocatable array at %L must have a deferred shape",
+			   &sym->declared_at);
+	      else
+		gfc_error ("Object at %L may not be ALLOCATABLE",
+			   &sym->declared_at);
 	      return;
 	    }
 

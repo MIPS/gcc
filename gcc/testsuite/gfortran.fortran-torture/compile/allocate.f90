@@ -11,7 +11,8 @@ program test_allocate
    end type
    integer, allocatable, dimension(:, :) :: a
    type (t), pointer, dimension(:) :: b
-   type (pt) :: c
+   type (pt), pointer :: c
+   integer, pointer:: p
    integer n
 
    n = 10
@@ -19,5 +20,7 @@ program test_allocate
    allocate (a(5:n, n:14))
    allocate (a(6, 8))
    allocate (b(n))
+   allocate (c)
    allocate (c%p)
+   allocate (p)
 end program
