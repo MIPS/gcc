@@ -1,3 +1,28 @@
+2002-05-13  Geoffrey Keating  <geoffk@redhat.com>
+
+	* emit-rtl.c (const_int_htab): Use gengtype to clear unused entries.
+	(mem_attrs_htab): Likewise.
+	(init_emit_once): Don't call ggc_add_deletable_htab.
+	* fold-const.c (size_htab): Use gengtype to clear unused entries.
+	(size_int_type_wide): Don't call ggc_add_deletable_htab.
+	* gengtype.c (finish_root_table): Add LASTNAME and TNAME
+	parameters, use them, change callers.
+	(write_gc_root): Add IF_MARKED parameter, use it, change callers.
+	(write_gc_roots): Handle 'if_marked' option.
+	(main): Don't need to call set_gc_used_type any more.
+	* ggc.h (ggc_htab_marked_p): Delete.
+	(ggc_htab_mark): Delete.
+	(struct ggc_cache_tab): New.
+	(gt_ggc_cache_rtab): New declaration.
+	* ggc-common.c (struct d_htab_root): Delete.
+	(d_htab_roots): Delete.
+	(ggc_add_deletable_htab): Delete.
+	(ggc_htab_delete): Handle new htab-deleting mechanism.
+	(ggc_mark_roots): Use new htab-deleting mechanism.
+	* tree.c (type_hash_table): Use gengtype to clear unused entries.
+	Make static.
+	(init_obstacks): Don't call ggc_add_deletable_htab.
+
 2002-05-10  Geoffrey Keating  <geoffk@redhat.com>
 
 	* objc/objc-act.h (struct hashed_attribute): Use gengtype.

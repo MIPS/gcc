@@ -50,16 +50,18 @@ struct ggc_root_tab {
 extern const struct ggc_root_tab * const gt_ggc_rtab[];
 extern const struct ggc_root_tab * const gt_ggc_deletable_rtab[];
 
-/* Types used for mark test and marking functions, if specified, in call
-   below.  */
-typedef int (*ggc_htab_marked_p) PARAMS ((const void *));
-typedef void (*ggc_htab_mark) PARAMS ((const void *));
-
-/* Add a hash table to be scanned when all roots have been processed.  We
-   delete any entry in the table that has not been marked.  The argument is
-   really htab_t.  */
-extern void ggc_add_deletable_htab	PARAMS ((PTR, ggc_htab_marked_p,
-						 ggc_htab_mark));
+/* Structure for hash table cache marking.  */
+struct htab;
+struct ggc_cache_tab {
+  struct htab * *base;
+  size_t nelt;
+  size_t stride;
+  void (*cb) PARAMS ((void *));
+  int (*marked_p) PARAMS ((const void *));
+};
+#define LAST_GGC_CACHE_TAB { NULL, 0, 0, NULL, NULL }
+/* Pointers to arrays of ggc_cache_tab, terminated by NULL.  */
+extern const struct ggc_cache_tab * const gt_ggc_cache_rtab[];
 
 /* Mark nodes from the gc_add_root callback.  These functions follow
    pointers to mark other objects too.  */

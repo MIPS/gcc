@@ -120,7 +120,8 @@ struct type_hash GTY(())
    same table, they are completely independent, and the hash code is
    computed differently for each of these.  */
 
-htab_t type_hash_table;
+static GTY ((if_marked ("type_hash_marked_p"), param_is (struct type_hash)))
+     htab_t type_hash_table;
 
 static void set_type_quals PARAMS ((tree, int));
 static void append_random_chars PARAMS ((char *));
@@ -144,8 +145,6 @@ init_obstacks ()
   /* Initialize the hash table of types.  */
   type_hash_table = htab_create (TYPE_HASH_INITIAL_SIZE, type_hash_hash,
 				 type_hash_eq, 0);
-  ggc_add_deletable_htab (type_hash_table, type_hash_marked_p,
-			  gt_ggc_m_type_hash);
 }
 
 

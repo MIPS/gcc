@@ -143,10 +143,12 @@ rtx const_int_rtx[MAX_SAVED_CONST_INT * 2 + 1];
 /* A hash table storing CONST_INTs whose absolute value is greater
    than MAX_SAVED_CONST_INT.  */
 
-static htab_t const_int_htab;
+static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
+     htab_t const_int_htab;
 
 /* A hash table storing memory attribute structures.  */
-static htab_t mem_attrs_htab;
+static GTY ((if_marked ("ggc_marked_p"), param_is (struct mem_attrs)))
+     htab_t mem_attrs_htab;
 
 /* start_sequence and gen_sequence can make a lot of rtx expressions which are
    shortly thrown away.  We use two mechanisms to prevent this waste:
@@ -4767,11 +4769,9 @@ init_emit_once (line_numbers)
   /* Initialize the CONST_INT and memory attribute hash tables.  */
   const_int_htab = htab_create (37, const_int_htab_hash,
 				const_int_htab_eq, NULL);
-  ggc_add_deletable_htab (const_int_htab, 0, 0);
 
   mem_attrs_htab = htab_create (37, mem_attrs_htab_hash,
 				mem_attrs_htab_eq, NULL);
-  ggc_add_deletable_htab (mem_attrs_htab, 0, gt_ggc_m_mem_attrs);
 
   no_line_numbers = ! line_numbers;
 

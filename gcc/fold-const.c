@@ -1373,8 +1373,10 @@ size_int_wide (number, kind)
 
 /* Likewise, but the desired type is specified explicitly.  */
 
-static GTY(()) tree new_const;
-static htab_t size_htab;
+static GTY (()) tree new_const;
+static GTY ((if_marked ("ggc_marked_p"), param_is (union tree_node)))
+     htab_t size_htab;
+
 tree
 size_int_type_wide (number, type)
      HOST_WIDE_INT number;
@@ -1385,7 +1387,6 @@ size_int_type_wide (number, type)
   if (size_htab == 0)
     {
       size_htab = htab_create (1024, size_htab_hash, size_htab_eq, NULL);
-      ggc_add_deletable_htab (size_htab, NULL, NULL);
       new_const = make_node (INTEGER_CST);
     }
 

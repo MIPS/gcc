@@ -773,14 +773,24 @@ close_output_files PARAMS ((void))
     }
 }
 
+struct flist {
+  struct flist *next;
+  int started_p;
+  const char *name;
+  FILE *f;
+};
+
 static void write_gc_structure_fields 
   PARAMS ((FILE *, type_p, const char *, const char *, options_p, 
 	   int, struct fileloc *, lang_bitmap, type_p));
 static void write_gc_marker_routine_for_structure PARAMS ((type_p, type_p));
 static void write_gc_types PARAMS ((type_p structures, type_p param_structs));
 static void put_mangled_filename PARAMS ((FILE *, const char *));
+static void finish_root_table PARAMS ((struct flist *flp, const char *pfx, 
+				       const char *tname, const char *lastname,
+				       const char *name));
 static void write_gc_root PARAMS ((FILE *, pair_p, type_p, const char *, int,
-				   struct fileloc *));
+				   struct fileloc *, const char *));
 static void write_gc_roots PARAMS ((pair_p));
 
 static int gc_counter;
@@ -1352,15 +1362,13 @@ put_mangled_filename (f, fn)
       fputc ('_', f);
 }
 
-struct flist {
-  struct flist *next;
-  int started_p;
-  const char *name;
-  FILE *f;
-};
-
 static void
-finish_root_table (struct flist *flp, const char *pfx, const char *name)
+finish_root_table (flp, pfx, lastname, tname, name)
+     struct flist *flp;
+     const char *pfx;
+     const char *tname;
+     const char *lastname;
+     const char *name;
 {
   struct flist *fli2;
   unsigned started_bitmap = 0;
@@ -1368,7 +1376,7 @@ finish_root_table (struct flist *flp, const char *pfx, const char *name)
   for (fli2 = flp; fli2; fli2 = fli2->next)
     if (fli2->started_p)
       {
-	fputs ("  LAST_GGC_ROOT_TAB\n", fli2->f);
+	fprintf (fli2->f, "  %s\n", lastname);
 	fputs ("};\n\n", fli2->f);
       }
 
@@ -1382,8 +1390,8 @@ finish_root_table (struct flist *flp, const char *pfx, const char *name)
 	  if (bitmap & 1)
 	    {
 	      fprintf (base_files[fnum],
-		       "extern const struct ggc_root_tab gt_ggc_%s_", 
-		       pfx);
+		       "extern const struct %s gt_ggc_%s_",
+		       tname, pfx);
 	      put_mangled_filename (base_files[fnum], fli2->name);
 	      fputs ("[];\n", base_files[fnum]);
 	    }
@@ -1403,8 +1411,8 @@ finish_root_table (struct flist *flp, const char *pfx, const char *name)
 	      if (! (started_bitmap & (1 << fnum)))
 		{
 		  fprintf (base_files [fnum],
-			   "const struct ggc_root_tab * const %s[] = {\n",
-			   name);
+			   "const struct %s * const %s[] = {\n",
+			   tname, name);
 		  started_bitmap |= 1 << fnum;
 		}
 	      fprintf (base_files[fnum], "  gt_ggc_%s_", pfx);
@@ -1427,13 +1435,14 @@ finish_root_table (struct flist *flp, const char *pfx, const char *name)
 }
 
 static void
-write_gc_root (f, v, type, name, has_length, line)
+write_gc_root (f, v, type, name, has_length, line, if_marked)
      FILE *f;
      pair_p v;
      type_p type;
      const char *name;
      int has_length;
      struct fileloc *line;
+     const char *if_marked;
 {
   switch (type->kind)
     {
@@ -1488,7 +1497,8 @@ write_gc_root (f, v, type, name, has_length, line)
 				       + strlen (validf->name));
 		    sprintf (newname, "%s.%s.%s", 
 			     name, fld->name, validf->name);
-		    write_gc_root (f, v, validf->type, newname, 0, line);
+		    write_gc_root (f, v, validf->type, newname, 0, line,
+				   if_marked);
 		    free (newname);
 		  }
 	      }
@@ -1501,7 +1511,7 @@ write_gc_root (f, v, type, name, has_length, line)
 		char *newname;
 		newname = xmalloc (strlen (name) + 2 + strlen (fld->name));
 		sprintf (newname, "%s.%s", name, fld->name);
-		write_gc_root (f, v, fld->type, newname, 0, line);
+		write_gc_root (f, v, fld->type, newname, 0, line, if_marked);
 		free (newname);
 	      }
 	  }
@@ -1513,7 +1523,7 @@ write_gc_root (f, v, type, name, has_length, line)
 	char *newname;
 	newname = xmalloc (strlen (name) + 4);
 	sprintf (newname, "%s[0]", name);
-	write_gc_root (f, v, type->u.a.p, newname, has_length, line);
+	write_gc_root (f, v, type->u.a.p, newname, has_length, line, if_marked);
 	free (newname);
       }
       break;
@@ -1543,11 +1553,11 @@ write_gc_root (f, v, type, name, has_length, line)
 	if (! has_length
 	    && (tp->kind == TYPE_UNION || tp->kind == TYPE_STRUCT))
 	  {
-	    fprintf (f, "    &gt_ggc_m_%s\n", tp->u.s.tag);
+	    fprintf (f, "    &gt_ggc_m_%s", tp->u.s.tag);
 	  }
 	else if (! has_length && tp->kind == TYPE_PARAM_STRUCT)
 	  {
-	    fprintf (f, "    &gt_ggc_mm_%d%s_%s\n",
+	    fprintf (f, "    &gt_ggc_mm_%d%s_%s",
 		     strlen (tp->u.param_struct.param->u.s.tag),
 		     tp->u.param_struct.param->u.s.tag,
 		     tp->u.param_struct.stru->u.s.tag);
@@ -1555,7 +1565,7 @@ write_gc_root (f, v, type, name, has_length, line)
 	else if (has_length
 		 && tp->kind == TYPE_POINTER)
 	  {
-	    fprintf (f, "    &gt_ggc_ma_%s\n", name);
+	    fprintf (f, "    &gt_ggc_ma_%s", name);
 	  }
 	else
 	  {
@@ -1563,7 +1573,9 @@ write_gc_root (f, v, type, name, has_length, line)
 			   "global `%s' is pointer to unimplemented type",
 			   name);
 	  }
-	fputs ("  },\n", f);
+	if (if_marked)
+	  fprintf (f, ",\n    &%s", if_marked);
+	fputs ("\n  },\n", f);
       }
       break;
 
@@ -1599,6 +1611,8 @@ write_gc_roots (variables)
 	else if (strcmp (o->name, "deletable") == 0)
 	  deletable_p = 1;
 	else if (strcmp (o->name, "param_is") == 0)
+	  ;
+	else if (strcmp (o->name, "if_marked") == 0)
 	  ;
 	else
 	  error_at_line (&v->line, 
@@ -1677,16 +1691,17 @@ write_gc_roots (variables)
       FILE *f = get_output_file_with_visibility (v->line.file);
       struct flist *fli;
       const char *length = NULL;
-      int deletable_p = 0;
+      int skip_p = 0;
       options_p o;
       
       for (o = v->opt; o; o = o->next)
 	if (strcmp (o->name, "length") == 0)
 	  length = (const char *)o->info;
-	else if (strcmp (o->name, "deletable") == 0)
-	  deletable_p = 1;
+	else if (strcmp (o->name, "deletable") == 0
+		 || strcmp (o->name, "if_marked") == 0)
+	  skip_p = 1;
 
-      if (deletable_p)
+      if (skip_p)
 	continue;
 
       for (fli = flp; fli; fli = fli->next)
@@ -1701,23 +1716,26 @@ write_gc_roots (variables)
 	  fputs ("[] = {\n", f);
 	}
 
-      write_gc_root (f, v, v->type, v->name, length != NULL, &v->line);
+      write_gc_root (f, v, v->type, v->name, length != NULL, &v->line, NULL);
     }
 
-  finish_root_table (flp, "r", "gt_ggc_rtab");
+  finish_root_table (flp, "r", "LAST_GGC_ROOT_TAB", "ggc_root_tab", 
+		     "gt_ggc_rtab");
 
   for (v = variables; v; v = v->next)
     {
       FILE *f = get_output_file_with_visibility (v->line.file);
       struct flist *fli;
-      int deletable_p = 0;
+      int skip_p = 1;
       options_p o;
 
       for (o = v->opt; o; o = o->next)
 	if (strcmp (o->name, "deletable") == 0)
-	  deletable_p = 1;
+	  skip_p = 0;
+	else if (strcmp (o->name, "if_marked") == 0)
+	  skip_p = 1;
 
-      if (! deletable_p)
+      if (skip_p)
 	continue;
 
       for (fli = flp; fli; fli = fli->next)
@@ -1736,7 +1754,52 @@ write_gc_roots (variables)
 	       v->name, v->name);
     }
   
-  finish_root_table (flp, "rd", "gt_ggc_deletable_rtab");
+  finish_root_table (flp, "rd", "LAST_GGC_ROOT_TAB", "ggc_root_tab",
+		     "gt_ggc_deletable_rtab");
+
+  for (v = variables; v; v = v->next)
+    {
+      FILE *f = get_output_file_with_visibility (v->line.file);
+      struct flist *fli;
+      const char *if_marked = NULL;
+      const char *length = NULL;
+      options_p o;
+      
+      for (o = v->opt; o; o = o->next)
+	if (strcmp (o->name, "length") == 0)
+	  length = (const char *)o->info;
+	else if (strcmp (o->name, "if_marked") == 0)
+	  if_marked = (const char *) o->info;
+
+      if (if_marked == NULL)
+	continue;
+
+      if (v->type->kind != TYPE_POINTER
+	  || v->type->u.p->kind != TYPE_PARAM_STRUCT
+	  || v->type->u.p->u.param_struct.stru != find_structure ("htab", 0))
+	{
+	  error_at_line (&v->line, "if_marked option used but not hash table");
+	  continue;
+	}
+
+      for (fli = flp; fli; fli = fli->next)
+	if (fli->f == f)
+	  break;
+      if (! fli->started_p)
+	{
+	  fli->started_p = 1;
+
+	  fputs ("const struct ggc_cache_tab gt_ggc_rc_", f);
+	  put_mangled_filename (f, v->line.file);
+	  fputs ("[] = {\n", f);
+	}
+      
+      write_gc_root (f, v, create_pointer (v->type->u.p->u.param_struct.param),
+		     v->name, length != NULL, &v->line, if_marked);
+    }
+  
+  finish_root_table (flp, "rc", "LAST_GGC_CACHE_TAB", "ggc_cache_tab",
+		     "gt_ggc_cache_rtab");
 }
 
 
@@ -1768,8 +1831,6 @@ main(argc, argv)
     exit (1);
 
   set_gc_used (variables);
-  set_gc_used_type (find_structure ("mem_attrs", 0), GC_POINTED_TO);
-  set_gc_used_type (find_structure ("type_hash", 0), GC_POINTED_TO);
 
   open_base_files ();
   write_gc_types (structures, param_structs);
