@@ -491,6 +491,10 @@ enum update_life_extent
 				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
 				 | PROP_ALLOW_CFG_CHANGES \
 				 | PROP_SCAN_DEAD_STORES)
+#define PROP_POSTRELOAD		(PROP_DEATH_NOTES  \
+				 | PROP_KILL_DEAD_CODE  \
+				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
+				 | PROP_SCAN_DEAD_STORES)
 
 #define CLEANUP_EXPENSIVE	1	/* Do relativly expensive optimizations
 					   except for edge forwarding */
@@ -505,6 +509,7 @@ enum update_life_extent
 #define CLEANUP_THREADING	64	/* Do jump threading.  */
 #define CLEANUP_NO_INSN_DEL	128	/* Do not try to delete trivially dead
 					   insns.  */
+#define CLEANUP_LOG_LINKS	512	/* Update log links.  */
 extern void life_analysis	PARAMS ((rtx, FILE *, int));
 extern int update_life_info	PARAMS ((sbitmap, enum update_life_extent,
 					 int));
