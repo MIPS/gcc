@@ -435,10 +435,12 @@ gfc_trans_allocate_array_storage (gfc_loopinfo * loop, gfc_ss_info * info,
   tree args;
   tree desc;
   tree data;
+  bool onstack;
 
   desc = info->descriptor;
   data = gfc_conv_descriptor_data (desc);
-  if (gfc_can_put_var_on_stack (size))
+  onstack = gfc_can_put_var_on_stack (size);
+  if (onstack)
     {
       /* Make a temporary variable to hold the data.  */
       tmp = fold (build (MINUS_EXPR, TREE_TYPE (nelem), nelem,
@@ -452,17 +454,11 @@ gfc_trans_allocate_array_storage (gfc_loopinfo * loop, gfc_ss_info * info,
       info->data = gfc_evaluate_now (tmp, &loop->pre);
 
       gfc_add_modify_expr (&loop->pre, data, info->data);
-      info->pdata = NULL_TREE;
     }
   else
     {
       /* Allocate memory to hold the data.  */
-      tmp = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (data)), data);
-      info->pdata = convert (ppvoid_type_node, tmp);
-
-      /* Build a call to allocate storage.  */
-      args = gfc_chainon_list (NULL_TREE, info->pdata);
-      args = gfc_chainon_list (args, size);
+      args = gfc_chainon_list (NULL_TREE, size);
 
       if (gfc_index_integer_kind == 4)
 	tmp = gfor_fndecl_internal_malloc;
@@ -471,7 +467,8 @@ gfc_trans_allocate_array_storage (gfc_loopinfo * loop, gfc_ss_info * info,
       else
 	abort ();
       tmp = gfc_build_function_call (tmp, args);
-      gfc_add_expr_to_block (&loop->pre, tmp);
+      tmp = convert (TREE_TYPE (data), tmp);
+      gfc_add_modify_expr (&loop->pre, data, tmp);
 
       info->data = gfc_evaluate_now (data, &loop->pre);
     }
@@ -481,10 +478,11 @@ gfc_trans_allocate_array_storage (gfc_loopinfo * loop, gfc_ss_info * info,
   tmp = gfc_conv_descriptor_base (desc);
   gfc_add_modify_expr (&loop->pre, tmp, info->data);
 
-  if (info->pdata != NULL_TREE)
+  if (!onstack)
     {
       /* Free the temporary.  */
-      tmp = gfc_chainon_list (NULL_TREE, info->pdata);
+      tmp = convert (pvoid_type_node, info->data);
+      tmp = gfc_chainon_list (NULL_TREE, tmp);
       tmp = gfc_build_function_call (gfor_fndecl_internal_free, tmp);
       gfc_add_expr_to_block (&loop->post, tmp);
     }
@@ -2863,16 +2861,16 @@ gfc_trans_array_bounds (tree type, gfc_symbol * sym, tree * poffset,
 }
 
 
-/* Generate code to initialize the descriptor for an array variable.  */
+/* Generate code to initialize/allocate an array variable.  */
 
 tree
-gfc_trans_auto_array_allocation (tree descriptor, gfc_symbol * sym)
+gfc_trans_auto_array_allocation (tree decl, gfc_symbol * sym, tree fnbody)
 {
   stmtblock_t block;
   tree type;
   tree tmp;
+  tree fndecl;
   tree size;
-  tree pointer;
   tree offset;
 
   assert (!(sym->attr.pointer || sym->attr.allocatable));
@@ -2880,24 +2878,28 @@ gfc_trans_auto_array_allocation (tree descriptor, gfc_symbol * sym)
   if (sym->ts.type == BT_CHARACTER)
     gfc_todo_error ("arrays of strings");
 
-  type = TREE_TYPE (descriptor);
+  type = TREE_TYPE (decl);
   assert (GFC_ARRAY_TYPE_P (type));
   if (TREE_CODE (type) != POINTER_TYPE)
     {
       /* TODO: Put large arrays on the heap.  */
       if (sym->value && !sym->attr.use_assoc)
 	{
-	  DECL_INITIAL (descriptor) =
-	    gfc_conv_array_initializer (TREE_TYPE (descriptor), sym->value);
+	  DECL_INITIAL (decl) =
+	    gfc_conv_array_initializer (TREE_TYPE (decl), sym->value);
 	}
 
-      return NULL_TREE;
+      return fnbody;
     }
 
+  /* Module variables are always static because there's nowhere to put the
+     initialization code.  */
+  assert (fnbody != NULL_TREE);
+  
   type = TREE_TYPE (type);
 
   assert (!sym->attr.use_assoc);
-  assert (!TREE_STATIC (descriptor));
+  assert (!TREE_STATIC (decl));
   assert (!sym->module[0]);
 
   gfc_start_block (&block);
@@ -2910,38 +2912,39 @@ gfc_trans_auto_array_allocation (tree descriptor, gfc_symbol * sym)
   size = fold (build (MULT_EXPR, gfc_array_index_type, size, tmp));
 
   /* Allocate memory to hold the data.  */
-  /* Get the address of the data component.  */
-  TREE_ADDRESSABLE (descriptor) = 1;
-  tmp = descriptor;
-  tmp = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (tmp)), tmp);
-  pointer = gfc_create_var (TREE_TYPE (tmp), "ptr");
-  gfc_add_modify_expr (&block, pointer, tmp);
-
-  /* Now allocate the memory.  */
-  tmp = gfc_chainon_list (NULL_TREE, pointer);
-  tmp = gfc_chainon_list (tmp, size);
+  tmp = gfc_chainon_list (NULL_TREE, size);
 
   if (gfc_index_integer_kind == 4)
-    pointer = gfor_fndecl_internal_malloc;
+    fndecl = gfor_fndecl_internal_malloc;
   else if (gfc_index_integer_kind == 8)
-    pointer = gfor_fndecl_internal_malloc64;
+    fndecl = gfor_fndecl_internal_malloc64;
   else
     abort ();
-  tmp = gfc_build_function_call (pointer, tmp);
-  gfc_add_expr_to_block (&block, tmp);
+  tmp = gfc_build_function_call (fndecl, tmp);
+  tmp = fold (convert (TREE_TYPE (decl), tmp));
+  gfc_add_modify_expr (&block, decl, tmp);
 
-  tmp = descriptor;
+  tmp = decl;
   /* Set the base of the array.  */
   if (!integer_zerop (offset))
     {
       tmp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp);
       tmp = build (ARRAY_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp, offset);
-      tmp = build1 (ADDR_EXPR, TREE_TYPE (descriptor), tmp);
+      tmp = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (tmp)), tmp);
+      tmp = convert (TREE_TYPE (decl), tmp);
     }
   gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), tmp);
 
   /* Automatic arrays should not have initializers.  */
   assert (!sym->value);
+
+  gfc_add_expr_to_block (&block, fnbody);
+
+  /* Free the temporary.  */
+  tmp = convert (pvoid_type_node, decl);
+  tmp = gfc_chainon_list (NULL_TREE, tmp);
+  tmp = gfc_build_function_call (gfor_fndecl_internal_free, tmp);
+  gfc_add_expr_to_block (&block, tmp);
 
   return gfc_finish_block (&block);
 }
@@ -3756,8 +3759,7 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, gfc_ss * ss, int g77)
       gfc_add_expr_to_block (&block, tmp);
 
       /* Free the temporary.  */
-      TREE_ADDRESSABLE (ptr) = 1;
-      tmp = build1 (ADDR_EXPR, ppvoid_type_node, ptr);
+      tmp = convert (void_type_node, ptr);
       tmp = gfc_chainon_list (NULL_TREE, tmp);
       tmp = gfc_build_function_call (gfor_fndecl_internal_free, tmp);
       gfc_add_expr_to_block (&block, tmp);

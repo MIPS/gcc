@@ -74,7 +74,7 @@ internal_pack_8 (gfc_array_i8 * source)
     return source->data;
 
   /* Allocate storage for the destination.  */
-  internal_malloc_size ((void **)&destptr, ssize * 8);
+  destptr = (GFC_INTEGER_8 *)internal_malloc_size (ssize * 8);
   dest = destptr;
   src = source->data;
   stride0 = stride[0];

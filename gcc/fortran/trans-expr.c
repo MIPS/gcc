@@ -648,7 +648,6 @@ gfc_conv_string_tmp (gfc_se * se, tree type, tree len)
   tree var;
   tree tmp;
   tree args;
-  tree addr;
 
   if (gfc_can_put_var_on_stack (len))
     {
@@ -664,22 +663,16 @@ gfc_conv_string_tmp (gfc_se * se, tree type, tree len)
     }
   else
     {
-      var = gfc_create_var (type, "pstr");
-
-      TREE_ADDRESSABLE (var) = 1;
-
       /* Allocate a temporary to hold the result.  */
-      addr = build1 (ADDR_EXPR, build_pointer_type (type), var);
-      addr = convert (ppvoid_type_node, var);
-
-      args = NULL_TREE;
-      args = gfc_chainon_list (args, addr);
-      args = gfc_chainon_list (args, len);
+      var = gfc_create_var (type, "pstr");
+      args = gfc_chainon_list (NULL_TREE, len);
       tmp = gfc_build_function_call (gfor_fndecl_internal_malloc, args);
-      gfc_add_expr_to_block (&se->pre, tmp);
+      tmp = convert (type, tmp);
+      gfc_add_modify_expr (&se->pre, var, tmp);
 
       /* Free the temporary afterwards.  */
-      args = gfc_chainon_list (NULL_TREE, addr);
+      tmp = convert (pvoid_type_node, var);
+      args = gfc_chainon_list (NULL_TREE, tmp);
       tmp = gfc_build_function_call (gfor_fndecl_internal_free, args);
       gfc_add_expr_to_block (&se->post, tmp);
     }
@@ -1032,42 +1025,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	  len = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
 	  type = build_pointer_type (type);
 
-	  if (gfc_can_put_var_on_stack (len))
-	    {
-	      /* Create a temporary variable to hold the result.  */
-	      tmp = fold (build (MINUS_EXPR, TREE_TYPE (len), len,
-				 integer_one_node));
-	      tmp = build_range_type (gfc_array_index_type, integer_zero_node,
-				      tmp);
-	      type = build_array_type (gfc_character1_type_node, tmp);
-	      tmp = gfc_create_var (type, "str");
-	      TREE_ADDRESSABLE (tmp) = 1;
-	      var = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (tmp)),
-			    tmp);
-	    }
-	  else
-	    {
-	      tree addr;
-	      tree args;
-
-	      var = gfc_create_var (type, "pstr");
-	      TREE_ADDRESSABLE (var) = 1;
-
-	      /* Allocate a temporary to hold the result.  */
-	      addr = build1 (ADDR_EXPR, ppvoid_type_node, var);
-
-	      args = NULL_TREE;
-	      args = gfc_chainon_list (args, addr);
-	      args = gfc_chainon_list (args, len);
-	      tmp =
-		gfc_build_function_call (gfor_fndecl_internal_malloc, args);
-	      gfc_add_expr_to_block (&se->pre, tmp);
-
-	      /* Free the temporary afterwards.  */
-	      args = gfc_chainon_list (NULL_TREE, addr);
-	      tmp = gfc_build_function_call (gfor_fndecl_internal_free, args);
-	      gfc_add_expr_to_block (&se->post, tmp);
-	    }
+	  var = gfc_conv_string_tmp (se, type, len);
 	  arglist = gfc_chainon_list (arglist, var);
 	}
       else      /* TODO: derived type function return values.  */

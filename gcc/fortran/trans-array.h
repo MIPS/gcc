@@ -32,7 +32,7 @@ tree gfc_trans_allocate_temp_array (gfc_loopinfo *, gfc_ss_info *, tree,
 
 /* Generate function entry code for allocation of compiler allocated array
    variables.  */
-tree gfc_trans_auto_array_allocation (tree, gfc_symbol *);
+tree gfc_trans_auto_array_allocation (tree, gfc_symbol *, tree);
 /* Generate entry and exit code for dummy array parameters.  */
 tree gfc_trans_dummy_array_bias (gfc_symbol *, tree, tree);
 /* Generate entry and exit code for assumed size arrays.  */

@@ -1224,7 +1224,6 @@ gfc_do_allocate (tree bytesize, tree size, tree * pdata, stmtblock_t * pblock,
                  tree elem_type)
 {
   tree tmpvar;
-  tree pointer;
   tree type;
   tree tmp;
   tree args;
@@ -1243,19 +1242,14 @@ gfc_do_allocate (tree bytesize, tree size, tree * pdata, stmtblock_t * pblock,
     {
       assert (INTEGER_CST_P (size));
       tmpvar = gfc_create_var (type, "temp");
-      pointer = NULL_TREE;
+      *pdata = NULL_TREE;
     }
   else
     {
       tmpvar = gfc_create_var (build_pointer_type (type), "temp");
-      TREE_ADDRESSABLE (tmpvar) = 1;
-      pointer = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (tmpvar)),
-			tmpvar);
-      pointer = convert (ppvoid_type_node, pointer);
+      *pdata = convert (pvoid_type_node, tmpvar);
 
-      args = gfc_chainon_list (NULL_TREE, pointer);
-      args = gfc_chainon_list (args, bytesize);
-
+      args = gfc_chainon_list (NULL_TREE, bytesize);
       if (gfc_index_integer_kind == 4)
 	tmp = gfor_fndecl_internal_malloc;
       else if (gfc_index_integer_kind == 8)
@@ -1263,9 +1257,9 @@ gfc_do_allocate (tree bytesize, tree size, tree * pdata, stmtblock_t * pblock,
       else
 	abort ();
       tmp = gfc_build_function_call (tmp, args);
-      gfc_add_expr_to_block (pblock, tmp);
+      tmp = convert (TREE_TYPE (tmpvar), tmp);
+      gfc_add_modify_expr (pblock, tmpvar, tmp);
     }
-  *pdata = pointer;
   return tmpvar;
 }
 

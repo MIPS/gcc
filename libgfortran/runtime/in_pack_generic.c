@@ -82,7 +82,7 @@ internal_pack (gfc_array_char * source)
     return source->data;
 
    /* Allocate storage for the destination.  */
-  internal_malloc_size (&destptr, ssize * size);
+  destptr = internal_malloc_size (ssize * size);
   dest = (char *)destptr;
   src = source->data;
   stride0 = stride[0] * size;

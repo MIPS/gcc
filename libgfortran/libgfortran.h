@@ -303,16 +303,16 @@ void *get_mem (size_t) __attribute__ ((malloc));
 void free_mem (void *);
 
 #define internal_malloc_size	prefix(internal_malloc_size)
-void internal_malloc_size (void **, size_t);
+void *internal_malloc_size (size_t);
 
 #define internal_malloc	prefix(internal_malloc)
-void internal_malloc (void **, GFC_INTEGER_4);
+void *internal_malloc (GFC_INTEGER_4);
 
 #define internal_malloc64 prefix(internal_malloc64)
-void internal_malloc64 (void **, GFC_INTEGER_8);
+void *internal_malloc64 (GFC_INTEGER_8);
 
 #define internal_free	prefix(internal_free)
-void internal_free (void **);
+void internal_free (void *);
 
 #define push_context	prefix(push_context)
 void push_context (void);

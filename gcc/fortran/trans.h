@@ -92,7 +92,6 @@ typedef struct gfc_ss_info
   tree descriptor;
   /* holds the pointer to the data array.  */
   tree data;
-  tree pdata;
   /* To move some of the array index calculation out of the innermost loop.  */
   tree offset;
   tree saved_offset;

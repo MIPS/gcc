@@ -2506,7 +2506,7 @@ gfc_conv_intrinsic_trim (gfc_se * se, gfc_expr * expr)
 
   /* Free the temporary afterwards, if necessary.  */
   cond = build (GT_EXPR, boolean_type_node, len, integer_zero_node);
-  arglist = gfc_chainon_list (NULL_TREE, addr);
+  arglist = gfc_chainon_list (NULL_TREE, var);
   tmp = gfc_build_function_call (gfor_fndecl_internal_free, arglist);
   tmp = build_v (COND_EXPR, cond, tmp, build_empty_stmt ());
   gfc_add_expr_to_block (&se->post, tmp);

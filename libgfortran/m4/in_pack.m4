@@ -81,7 +81,7 @@ rtype_name *
     return source->data;
 
   /* Allocate storage for the destination.  */
-  internal_malloc_size ((void **)&destptr, ssize * rtype_kind);
+  destptr = (rtype_name *)internal_malloc_size (ssize * rtype_kind);
   dest = destptr;
   src = source->data;
   stride0 = stride[0];

@@ -112,7 +112,7 @@ gfc_create_var_np (tree type, const char *prefix)
       remove_suffix (preftmp, strlen (preftmp));
       prefix = preftmp;
     }
-  ASM_FORMAT_PRIVATE_NAME (tmp_name, (prefix ? prefix : "T"), id_num++);
+  ASM_FORMAT_PRIVATE_NAME (tmp_name, (prefix ? prefix : "V"), id_num++);
 
   /* Make the type of the variable writable.  */
   type = build_type_variant (type, 0, 0);

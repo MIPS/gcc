@@ -140,15 +140,10 @@ malloc_with_header (size_t n)
 
 /* Allocate memory for internal (compiler generated) use.  */
 
-void
-internal_malloc_size (void **mem, size_t size)
+void *
+internal_malloc_size (size_t size)
 {
   malloc_t *newmem;
-
-#ifdef GFC_CHECK_MEMORY
-  if (!mem)
-    runtime_error ("Internal error: NULL mem pointer");
-#endif
 
   newmem = malloc_with_header (size);
 
@@ -161,12 +156,12 @@ internal_malloc_size (void **mem, size_t size)
   mem_root.prev->next = newmem;
   mem_root.prev = newmem;
 
-  (*mem) = DATA_POINTER (newmem);
+  return DATA_POINTER (newmem);
 }
 
 
-void
-internal_malloc (void **mem, GFC_INTEGER_4 size)
+void *
+internal_malloc (GFC_INTEGER_4 size)
 {
 #ifdef GFC_CHECK_MEMORY
   /* Under normal circumstances, this is _never_ going to happen!  */
@@ -174,19 +169,19 @@ internal_malloc (void **mem, GFC_INTEGER_4 size)
     runtime_error ("Attempt to allocate a non-positive amount of memory.");
 
 #endif
-  internal_malloc_size (mem, (size_t) size);
+  return internal_malloc_size ((size_t) size);
 }
 
 
-void
-internal_malloc64 (void **mem, GFC_INTEGER_8 size)
+void *
+internal_malloc64 (GFC_INTEGER_8 size)
 {
 #ifdef GFC_CHECK_MEMORY
   /* Under normal circumstances, this is _never_ going to happen!  */
   if (size <= 0)
     runtime_error ("Attempt to allocate a non-positive amount of memory.");
 #endif
-  internal_malloc_size (mem, (size_t) size);
+  return internal_malloc_size ((size_t) size);
 }
 
 
@@ -196,17 +191,14 @@ internal_malloc64 (void **mem, GFC_INTEGER_8 size)
    allocation until pop_context.  */
 
 void
-internal_free (void **mem)
+internal_free (void *mem)
 {
   malloc_t *m;
 
   if (!mem)
-    runtime_error ("Internal: NULL mem pointer.");
-
-  if (!*mem)
     runtime_error ("Internal: Possible double free of temporary.");
 
-  m = DATA_HEADER (*mem);
+  m = DATA_HEADER (mem);
 
   if (m->magic != GFC_MALLOC_MAGIC)
     runtime_error ("Internal: No magic memblock marker.  "
@@ -219,8 +211,6 @@ internal_free (void **mem)
   m->next->prev = m->prev;
 
   free (m);
-
-  (*mem) = NULL;
 }
 
 
@@ -349,7 +339,7 @@ deallocate (void **mem, GFC_INTEGER_4 * stat)
     }
 
   /* Just use the internal routine.  */
-  internal_free (mem);
+  internal_free (*mem);
 
   if (stat)
     *stat = 0;

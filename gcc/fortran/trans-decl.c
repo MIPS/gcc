@@ -1412,18 +1412,16 @@ gfc_build_builtin_function_decls (void)
 {
   gfor_fndecl_internal_malloc =
     gfc_build_library_function_decl (get_identifier (PREFIX("internal_malloc")),
-				     void_type_node, 2, ppvoid_type_node,
-				     gfc_int4_type_node);
+				     pvoid_type_node, 1, gfc_int4_type_node);
 
   gfor_fndecl_internal_malloc64 =
     gfc_build_library_function_decl (get_identifier
 				     (PREFIX("internal_malloc64")),
-				     void_type_node, 2, ppvoid_type_node,
-				     gfc_int8_type_node);
+				     pvoid_type_node, 1, gfc_int8_type_node);
 
   gfor_fndecl_internal_free =
     gfc_build_library_function_decl (get_identifier (PREFIX("internal_free")),
-				     void_type_node, 1, ppvoid_type_node);
+				     void_type_node, 1, pvoid_type_node);
 
   gfor_fndecl_push_context =
     gfc_build_library_function_decl (get_identifier (PREFIX("push_context")),
@@ -1503,7 +1501,6 @@ gfc_build_builtin_function_decls (void)
 static tree
 gfc_trans_auto_character_variable (gfc_symbol * sym, tree fnbody)
 {
-  tree ptr_to_decl;
   tree tmp;
   tree args;
   tree len;
@@ -1517,16 +1514,10 @@ gfc_trans_auto_character_variable (gfc_symbol * sym, tree fnbody)
   gfc_start_block (&block);
 
   len = gfc_conv_init_string_length (sym, &block);
-
-  TREE_ADDRESSABLE (sym->backend_decl) = 1;
-  tmp = build_pointer_type (TREE_TYPE (sym->backend_decl));
-  tmp = build1 (ADDR_EXPR, tmp, sym->backend_decl);
-  ptr_to_decl = convert (ppvoid_type_node, tmp);
-
-  args = gfc_chainon_list (NULL_TREE, ptr_to_decl);
-  args = gfc_chainon_list (args, len);
+  args = gfc_chainon_list (NULL_TREE, len);
   tmp = gfc_build_function_call (gfor_fndecl_internal_malloc, args);
-  gfc_add_expr_to_block (&block, tmp);
+  tmp = convert (TREE_TYPE (sym->backend_decl), tmp);
+  gfc_add_modify_expr (&block, sym->backend_decl, tmp);
 
   tmp = gfc_finish_block (&block);
   gfc_add_expr_to_block (&body, tmp);
@@ -1535,7 +1526,8 @@ gfc_trans_auto_character_variable (gfc_symbol * sym, tree fnbody)
 
   gfc_start_block (&block);
 
-  args = gfc_chainon_list (NULL_TREE, ptr_to_decl);
+  tmp = convert (pvoid_type_node, sym->backend_decl);
+  args = gfc_chainon_list (NULL_TREE, tmp);
   tmp = gfc_build_function_call (gfor_fndecl_internal_free, args);
   gfc_add_expr_to_block (&block, tmp);
 
@@ -1604,11 +1596,8 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 		  gfc_get_backend_locus (&loc);
 		  gfc_set_backend_locus (&sym->declared_at);
 		  gfc_init_block (&block);
-		  tmp = gfc_trans_auto_array_allocation (sym->backend_decl,
-							 sym);
-		  gfc_add_expr_to_block (&block, tmp);
-		  gfc_add_expr_to_block (&block, fnbody);
-		  fnbody = gfc_finish_block (&block);
+		  fnbody = gfc_trans_auto_array_allocation (sym->backend_decl,
+		      sym, fnbody);
 		  gfc_set_backend_locus (&loc);
 		}
 	      break;
@@ -1700,7 +1689,7 @@ gfc_create_module_variable (gfc_symbol * sym)
       if (sym->attr.pointer || sym->attr.allocatable)
 	gfc_trans_static_array_pointer (sym);
       else
-	gfc_trans_auto_array_allocation (sym->backend_decl, sym);
+	gfc_trans_auto_array_allocation (sym->backend_decl, sym, NULL_TREE);
     }
   else if (sym->ts.type == BT_DERIVED)
     {
