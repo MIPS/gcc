@@ -2845,6 +2845,7 @@ i686-*-* | i786-*-*)
 			;;
 		prescott-*)
 			target_cpu_default2=TARGET_CPU_DEFAULT_prescott
+			;;
 		nocona-*)
 			target_cpu_default2=TARGET_CPU_DEFAULT_nocona
 			;;
