@@ -1605,12 +1605,6 @@ do_elif (cpp_reader *pfile)
 
       /* Invalidate any controlling macro.  */
       ifs->mi_cmacro = 0;
-
-      /* APPLE LOCAL begin -Wextra-tokens */
-      /* Only check EOL if we are not skipping an entry.  */
-      if (!ifs->was_skipping && CPP_OPTION (pfile, warn_extra_tokens))
-	check_eol (pfile);
-      /* APPLE LOCAL end -Wextra-tokens */
     }
 }
 

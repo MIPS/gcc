@@ -1,5 +1,9 @@
 2004-12-10  Devang Patel  <dpatel@apple.com>
 
+        Undo Radar 3909961
+        * libcpp/directivec.c (do_elif): Do not check EOL when -Wextra-tokens is used.
+
+2004-12-10  Devang Patel  <dpatel@apple.com>
         Radar 3909961
         * libcpp/directivec.c (do_elif): Check EOL when -Wextra-tokens is used.
 
