@@ -221,6 +221,10 @@ struct diagnostic_context;
   (flag_abi_version == 0 || flag_abi_version >= (N))
 
 
+/* Datatype used to temporarily save C++ bindings (for implicit
+   instantiations purposes and like).  Implemented in decl.c.  */
+typedef struct cxx_saved_binding cxx_saved_binding;
+
 /* Language-dependent contents of an identifier.  */
 
 struct lang_identifier GTY(())
@@ -612,7 +616,7 @@ enum cp_tree_index
     CPTI_DSO_HANDLE,
     CPTI_DCAST,
 
-    CPTI_DYNAMIC_CLASSES,
+    CPTI_KEYED_CLASSES,
 
     CPTI_MAX
 };
@@ -744,15 +748,16 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
    destructors.  */
 #define vtt_parm_type                   cp_global_trees[CPTI_VTT_PARM_TYPE]
 
-/* A TREE_LIST of all of the dynamic classes in the program.  */
+/* A TREE_LIST of the dynamic classes whose vtables may have to be
+   emitted in this translation unit.  */
 
-#define dynamic_classes                 cp_global_trees[CPTI_DYNAMIC_CLASSES]
+#define keyed_classes                   cp_global_trees[CPTI_KEYED_CLASSES]
 
 /* Global state.  */
 
 struct saved_scope GTY(())
 {
-  tree old_bindings;
+  cxx_saved_binding *old_bindings;
   tree old_namespace;
   tree decl_ns_list;
   tree class_name;
@@ -1170,6 +1175,7 @@ struct lang_type_class GTY(())
   tree pure_virtuals;
   tree friend_classes;
   tree methods;
+  tree key_method;
   tree decl_list;
   tree template_info;
   tree befriending_classes;
@@ -1289,6 +1295,11 @@ struct lang_type GTY(())
    virtual base classes.  If this is 0 for the root of a type
    hierarchy, then we can use more efficient search techniques.  */
 #define TYPE_USES_VIRTUAL_BASECLASSES(NODE) (TREE_LANG_FLAG_3 (NODE))
+
+/* The member function with which the vtable will be emitted:
+   the first noninline non-pure-virtual member function.  NULL_TREE
+   if there is no key function or if this is a class template */
+#define CLASSTYPE_KEY_METHOD(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->key_method)
 
 /* Vector member functions defined in this class.  Each element is
    either a FUNCTION_DECL, a TEMPLATE_DECL, or an OVERLOAD.  All
@@ -3554,7 +3565,7 @@ extern tree convert_for_arg_passing             PARAMS ((tree, tree));
 extern tree cp_convert_parm_for_inlining        PARAMS ((tree, tree, tree));
 extern int is_properly_derived_from             PARAMS ((tree, tree));
 extern tree initialize_reference                PARAMS ((tree, tree, tree));
-extern tree make_temporary_var_for_ref_to_temp  (tree);
+extern tree make_temporary_var_for_ref_to_temp  (tree, tree);
 extern tree strip_top_quals                     PARAMS ((tree));
 extern tree perform_implicit_conversion         PARAMS ((tree, tree));
 
@@ -4224,6 +4235,7 @@ extern tree canonical_type_variant              PARAMS ((tree));
 extern void unshare_base_binfos			PARAMS ((tree));
 extern int member_p				PARAMS ((tree));
 extern cp_lvalue_kind real_lvalue_p		PARAMS ((tree));
+extern cp_lvalue_kind real_non_cast_lvalue_p    (tree);
 extern int non_cast_lvalue_p			PARAMS ((tree));
 extern int non_cast_lvalue_or_else		PARAMS ((tree, const char *));
 extern tree build_min				PARAMS ((enum tree_code, tree,

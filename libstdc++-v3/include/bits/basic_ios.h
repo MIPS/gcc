@@ -1,6 +1,7 @@
 // Iostreams base classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2001, 2002, 2003 
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -431,7 +432,18 @@ namespace std
       }
 
       void
+      _M_cache_locale(const locale& __loc);
+
+#if 1
+      // XXX GLIBCXX_ABI Deprecated, compatibility only.
+      void
       _M_cache_facets(const locale& __loc);
+#endif
+ 
+       // Internal state setter that won't throw, only set the state bits.
+       // Used to guarantee we don't throw when setting badbit.
+       void
+       _M_setstate(iostate __state) { _M_streambuf_state |= __state; }
     };
 } // namespace std
 

@@ -2539,11 +2539,19 @@ get_basefndecls (name, t)
   int n_baseclasses = CLASSTYPE_N_BASECLASSES (t);
   int i;
 
-  for (methods = TYPE_METHODS (t); methods; methods = TREE_CHAIN (methods))
-    if (TREE_CODE (methods) == FUNCTION_DECL
-	&& DECL_VINDEX (methods) != NULL_TREE
-	&& DECL_NAME (methods) == name)
-      base_fndecls = tree_cons (NULL_TREE, methods, base_fndecls);
+  /* Find virtual functions in T with the indicated NAME.  */
+  i = lookup_fnfields_1 (t, name);
+  if (i != -1)
+    for (methods = TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (t), i);
+	 methods;
+	 methods = OVL_NEXT (methods))
+      {
+	tree method = OVL_CURRENT (methods);
+
+	if (TREE_CODE (method) == FUNCTION_DECL
+	    && DECL_VINDEX (method))
+	  base_fndecls = tree_cons (NULL_TREE, method, base_fndecls);
+      }
 
   if (base_fndecls)
     return base_fndecls;
@@ -4763,7 +4771,7 @@ end_of_class (t, include_virtuals_p)
 
       if (!include_virtuals_p
 	  && TREE_VIA_VIRTUAL (binfo) 
-	  && !BINFO_PRIMARY_P (binfo))
+	  && BINFO_PRIMARY_BASE_OF (binfo) != TYPE_BINFO (t))
 	continue;
 
       offset = end_of_base (binfo);
@@ -5168,6 +5176,30 @@ layout_class_type (tree t, tree *virtuals_p)
   splay_tree_delete (empty_base_offsets);
 }
 
+/* Returns the virtual function with which the vtable for TYPE is
+   emitted, or NULL_TREE if that heuristic is not applicable to TYPE.  */
+
+static tree
+key_method (tree type)
+{
+  tree method;
+
+  if (TYPE_FOR_JAVA (type)
+      || processing_template_decl
+      || CLASSTYPE_TEMPLATE_INSTANTIATION (type)
+      || CLASSTYPE_INTERFACE_KNOWN (type))
+    return NULL_TREE;
+
+  for (method = TYPE_METHODS (type); method != NULL_TREE;
+       method = TREE_CHAIN (method))
+    if (DECL_VINDEX (method) != NULL_TREE
+	&& ! DECL_DECLARED_INLINE_P (method)
+	&& ! DECL_PURE_VIRTUAL_P (method))
+      return method;
+
+  return NULL_TREE;
+}
+
 /* Perform processing required when the definition of T (a class type)
    is complete.  */
 
@@ -5208,6 +5240,17 @@ finish_struct_1 (t)
   /* Do end-of-class semantic processing: checking the validity of the
      bases and members and add implicitly generated methods.  */
   check_bases_and_members (t);
+
+  /* Find the key method */
+    if (TYPE_CONTAINS_VPTR_P (t))
+    {
+      CLASSTYPE_KEY_METHOD (t) = key_method (t);
+
+      /* If a polymorphic class has no key method, we may emit the vtable
+	 in every translation unit where the class definition appears. */
+      if (CLASSTYPE_KEY_METHOD (t) == NULL_TREE)
+	keyed_classes = tree_cons (NULL_TREE, t, keyed_classes);
+    }
 
   /* Layout the class itself.  */
   layout_class_type (t, &virtuals);
@@ -5277,9 +5320,6 @@ finish_struct_1 (t)
 			? TARGET_VTABLE_USES_DESCRIPTORS : 1))
 	if (TREE_CODE (DECL_VINDEX (BV_FN (fn))) != INTEGER_CST)
 	  DECL_VINDEX (BV_FN (fn)) = build_shared_int_cst (vindex);
-
-      /* Add this class to the list of dynamic classes.  */
-      dynamic_classes = tree_cons (NULL_TREE, t, dynamic_classes);
     }
 
   finish_struct_bits (t);

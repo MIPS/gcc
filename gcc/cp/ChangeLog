@@ -1,3 +1,97 @@
+2003-03-09  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9970
+	* decl.c (duplicate_decls): Only copy DECL_THUNKS for virtual
+	functions.
+
+2003-03-07  Matt Austern  <austern@apple.com>
+
+ 	* cp-tree.h (struct lang_type_class): add field for key method
+ 	(cp_global_trees): rename dynamic_classes to keyed_classes
+ 	(key_method): add definition
+ 	* class.c (finish_struct_1): compute class's key method, and add
+ 	the class to keyed_classes list if there is no key method.
+ 	* decl.c (finish_function): add class to keyed_classes list if we
+ 	see a definition of the class's key method.
+ 	* pt.c (instantiate_class_template): add template specialization
+ 	of a dynamic class to keyed_classes list.
+ 	* decl2.c (key_method): remove
+ 	(finish_file): iterate only through keyed_classes list when
+ 	deciding whether to emit vtables, remove class from its list after
+ 	we do the emission.
+	
+2003-03-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9809
+	* call.c (add_function_candidate): Skip builtin fuctions that have
+	not yet been declared.
+
+2003-03-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* call.c (reference_binding): Remove REF_IS_VAR parameter.
+	(implicit_conversion): Adjust call to reference_binding.
+	(make_temporary_var_for_ref_to_type): Add TYPE parameter.
+	(initialize_reference): Adjust handling for references bound to
+	rvalues.
+	* cp-tree.h (make_temporary_var_for_ref_to_temp): Change
+	prototype.
+	(real_non_cast_lvalue_p): New method.
+	* cvt.c (build_up_reference): Adjust use of
+	make_temporary_var_for_ref_to_temp.
+	* tree.c (real_non_cast_lvalue_p): New method.
+	 
+2003-03-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* call.c (merge_conversion_sequences): New function.
+	(build_conv): Set ICS_USER_FLAG for USER_CONVs.
+	(convert_class_to_reference): Correct handling of second
+	standard conversion sequence in a user-defined conversion
+	sequence.
+	(build_user_type_conversion_1): Use merge_conversion_sequences.
+	* cp-tree.def: Add comments for CONV nodes.
+
+2003-03-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9965
+	* call.c (reference_binding): Add ref_is_var parameter.
+	(implicit_conversion): Adjust call to reference_binding.
+	(initialize_reference): Likewise.
+
+	PR c++/9400
+	* decl.c (pushdecl): Don't check for shadowing of DECL_ARTIFICIAL
+	PARM_DECLs.
+
+2003-03-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9791
+	* class.c (get_basefndecls): Use lookup_fnfields_1.
+
+2003-03-02  Matt Austern  <austern@apple.com>
+
+	* decl.c (cp_binding_level): Add static_decls varray member.
+	(add_decl_to_level): Add static/inline namespace scope
+	declarations to static_decls array.
+	(wrapup_global_for_namespace): Pass static_decls only, instead of
+	all decls, to wrapup_global_declarations/check_global_declarations.
+	(push_namespace): Initialize static_decls for ordinary namespaces.
+	(cxx_init_decl_processing): Initialize static_decls for global
+	namespace.
+	
+2003-03-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (end_of_class): Correct thinko.
+
+2003-03-04  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	* cp-tree.h (cxx_saved_binding): Declare.
+	(struct saved_scope): Adjust type of field 'old_binding'.
+	* decl.c (cxx_saved_binding_make): New macro.
+	(struct cxx_saved_binding): Define.
+	(store_bindings): Adjust prototype.  Use cxx_saved_binding to save
+	C++ bindings. 
+	(maybe_push_to_top_level): Adjust local variable type.
+	(pop_from_top_level): Likewise.
+
 2003-03-03  Jason Merrill  <jason@redhat.com>
 
 	* decl.c (finish_enum): Do set the type in a template. Simplify.

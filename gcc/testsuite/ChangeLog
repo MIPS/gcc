@@ -1,3 +1,61 @@
+2003-03-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-loop-1.c: New test.
+
+2003-03-09  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9970
+	* g++.dg/lookup/friend1.C: New test.
+
+2003-03-08  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.c-torture/execute/20020720-1.x: Add xfail for cris-*-*.
+
+	* gcc.dg/old-style-asm-1.c: Tweak to match mmix-knuth-mmixware.
+
+2003-03-08  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/Wunused.c: Update test.
+
+2003-03-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9809
+	* g++.dg/parse/builtin1.C: New test.
+
+2003-03-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/ref4.C: New test.
+
+2003-03-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20030307-1.c: New test.
+
+2003-03-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/ref3.C: New test.
+
+2003-03-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9965
+	* g++.dg/init/ref2.C: New test.
+
+	PR c++/9400
+	* g++.dg/warn/Wshadow-2.C: New test.
+
+2003-03-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9791
+	* g++.dg/warn/Woverloaded-1.C: New test.
+
+2003-03-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20030305-1.c: New test.
+
+2003-03-04  Roger Sayle  <roger@eyesopen.com>
+
+	* g++.old-deja/g++.other/builtins10.C: New test for PR 9367.
+	* gcc.dg/format/attr-5.c: Handle new conflicting types warning.
+
 2003-03-03  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/9878

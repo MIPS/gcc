@@ -1,3 +1,130 @@
+Thu Mar  6 16:35:27 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* toplev.c (rest_of_compilation):  Defer RTL compilation only when
+	RTL inlining is done.
+
+	* i386.c (ix86_expand_vector_move): Do not crash when offloading
+	to memory in PIC mode.
+
+2003-03-08  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cppinit.c (cpp_finish_options): Set first_unused_line to -1.
+
+2003-03-08  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR middle-end/7796
+	* unroll.c (calculate_giv_inc): Handle constants being
+	loaded with LSHIFTRT.
+
+2003-03-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/8726
+	Backport patch from mainline:
+
+	2003-01-08  Dale Johannesen  <dalej@apple.com>
+
+	* function.c (assign_parms):  Don't set pretend_args_size if
+	REG_PARM_STACK_SPACE.
+
+2003-03-06  Kurt Garloff  <garloff@suse.de>
+            Geoffrey Keating  <geoffk@apple.com>
+            Dale Johannesen  <dalej@apple.com>
+	* params.def: Introduce parameter max-inline-insns-rtl for
+	a separate limit for the RTL inliner.
+	* params.h: Likewise.
+	* integrate.c (function_cannot_inline_p): Use it.
+	* toplev.c (decode_f_option): Set multiple parameters 
+	controlling inlining with -finline-limit.
+	* params.def: Fix orthographic and typographic errors.
+	* doc/invoke.texi: Document parameters controlling inlining
+	and the way -finline-limit sets multiple of them.
+	* tree.h (struct tree_decl): Introduce inlined_function_flag,
+	recording whether the function became eligible for inlining
+	by a compiler flag rather than the declaration.
+	Provide DID_INLINE_FUNC macro to access it.
+	* c-decl.c (grokdeclarator): Set DID_INLINE_FUNC.
+	* cp/decl.c (grokfndecl): Likewise.
+	* toplev.c (rest_of_compilation): Likewise.
+	* cp/optimize (maybe_clone_body): Copy DID_INLINE_FUNC.
+	* print-tree.c (print_node): Report it.
+	* params.def: Introduce new max-inline-insns-auto limit.
+        * params.h: Likewise.
+	* tree-inline.c (inlinable_function_p): Apply it to functions
+	with DID_INLINE_FUNC set.
+	* toplev.c (decode_f_option): Initialize it from -finline-limit
+	value.
+	* doc/invoke.texi: Document new parameter.
+
+2003-03-06  Michael Matz  <matz@suse.de>
+
+	* i386/i386.c (ix86_save_reg): Also test
+	current_function_uses_const_pool.
+
+2003-03-05  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.md (return_external_pic): Add !TARGET_PA_20 to constraint.
+	(epilogue): Don't generate return_external_pic when emitting PA 2.0
+	code.
+
+2003-03-05  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.h (PAD_VARARGS_DOWN): Define and return
+	according to va_arg type.
+	(EXPAND_BUILTIN_VA_ARG): Remove.
+	* config/m68hc11/m68hc11.c (m68hc11_va_arg): Remove.
+	* config/m68hc11/m68hc11-protos.h (m68hc11_va_arg): Remove.
+
+Wed Mar  5 15:45:40 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* toplev.c (rest_of_compilation):  Do duplicate loop headers when
+	optimizing for size.
+
+2003-03-05  Michael Matz  <matz@suse.de>
+
+	* unwind.h: Add the GPL exception.
+	* Makefile.in (USER_H): Add unwind.h.
+
+2003-03-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/9799
+	* c-typeck.c (push_init_level): Add sanity check.
+
+2003-03-04  Steve Ellcey  <sje@cup.hp.com>
+
+	* expr.c (convert_modes): Check for legal hard register.
+
+2003-03-04  Andreas Schwab  <schwab@suse.de>
+
+	* config/m68k/m68k.c (m68k_output_function_prologue): Fix CFA
+	offset without frame pointer.
+
+2003-03-04  Steve Ellcey  <sje@cup.hp.com>
+
+	* expr.c (expand_expr): Call promote_mode to set unsignedp.
+
+2003-03-04  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/9367
+	* builtin-types.def (DEF_FUNCTION_TYPE_VAR_3): New macro.
+	(BT_FN_INT_CONST_STRING_VALIST_ARG,
+	BT_FN_INT_STRING_CONST_STRING_VALIST_ARG,
+	BT_FN_INT_CONST_STRING_CONST_STRING_VALIST_ARG,
+	BT_FN_INT_STRING_SIZE_CONST_STRING_VALIST_ARG,
+	BT_FN_INT_STRING_CONST_STRING_VAR,
+	BT_FN_INT_CONST_STRING_CONST_STRING_VAR,
+	BT_FN_INT_STRING_SIZE_CONST_STRING_VAR): New built-in types.
+	* builtin-attrs.def (ATTR_NONNULL_1, ATTR_NONNULL_2,
+	ATTR_NONNULL_3): Also include the nothrow attribute.
+	(sprintf, scanf, sscanf, vprintf, vsprintf, snprintf,
+	vsnprintf, vscanf, vsscanf): Don't define attributes here.
+	* builtins.def (putchar, puts): Make full C89 built-ins.
+	(snprintf, sprintf, scanf, sscanf, vprintf, vscanf,
+	vsscanf, vsnprintf, vsprintf): New built-ins.
+	* c-common.c (c_common_nodes_and_builtins): Handle new macro
+	DEF_FUNCTION_TYPE_VAR_3.
+
+	* doc/extend.texi: Document these new built-in functions.
+
 Tue Mar  4 11:25:22 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* calls.c (rtx_for_function_call): Take the address as an argument
@@ -13937,3 +14064,4 @@ Mon Jul  1 19:55:17 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	* mips.h (FUNCTION_ARG_REGNO_P): Fix parentheses.
 
 See ChangeLog.7 for earlier changes.
+

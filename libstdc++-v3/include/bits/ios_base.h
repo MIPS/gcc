@@ -146,6 +146,8 @@ namespace std
 
   enum _Ios_Seekdir { _M_ios_seekdir_end = 1L << 16 };
 
+  class __locale_cache_base;
+
   // 27.4.2  Class ios_base
   /**
    *  @brief  The very top of the I/O class hierarchy.
@@ -452,6 +454,12 @@ namespace std
       static void
       _S_ios_destroy();
 
+      // NB: Allows debugger applications use of the standard streams
+      // from operator new. _S_ios_base_init must be incremented in
+      // _S_ios_create _after_ initialization is completed.
+      static bool
+      _S_initialized() { return _S_ios_base_init; }
+
     private:
       static int 	_S_ios_base_init;
       static bool	_S_synced_with_stdio;
@@ -635,6 +643,11 @@ namespace std
 			? _M_word[__ix] : _M_grow_words(__ix);
       return __word._M_pword;
     }
+
+    // Access to the cache.  Not safe to call until basic_ios::_M_init() has
+    // happened.
+    __locale_cache_base&
+    _M_cache() { return *static_cast<__locale_cache_base*>(pword(0)); }
 
     // Destructor
     /**

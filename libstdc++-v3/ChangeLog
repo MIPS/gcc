@@ -1,3 +1,133 @@
+2003-03-09  Paolo Carlini <pcarlini@unitus.it>
+	    Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/9424
+	* include/bits/streambuf.tcc (__copy_streambufs): Use
+	sgetn-sputn only when sputn cannot fail, otherwise fall back
+	to safe snextc-sputc.
+	* testsuite/27_io/streambuf_members.cc (test11, test12): Add.
+
+2003-03-08  Jerry Quinn  <jlquinn@optonline.net>
+
+	PR libstdc++/9561
+	* include/bits/basic_ios.h (_M_setstate): New.
+	* include/bits/ostream.tcc (operator<<): Use it.
+	* include/bits/istream.tcc (operator>>): Use it.
+	* include/std/std_ostream.h (operator<<): Make friends.
+	* include/std/std_istream.h (operator>>): Make friends.
+	* testsuite/27_io/ostream_exception.cc,
+	testsuite/27_io/istream_exception.cc: New tests.
+
+2003-03-08  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9182
+	* include/bits/fstream.tcc (_M_really_overflow): Check
+	for _M_convert_to_external possible failures.
+	* include/std/std_fstream.h (sync): Check _M_really_overflow
+	return value and return -1 in case of failure.
+	* testsuite/27_io/filebuf_virtuals.cc (test12, test13): Add.
+
+	* include/bits/fstream.tcc (_M_convert_to_external):
+	Set __elen to zero if codecvt::out eventually fails.
+
+2003-03-08  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9826
+	* include/bits/istream.tcc (operator>>(_CharT*),
+	operator>>(basic_string&), ws): Pass a char_type to __ctype.is.
+	* testsuite/27_io/stringstream.cc (test02): Add.
+
+	* include/bits/istream.tcc (operator>>(_CharT*)):
+	Assign a char_type to *__s.
+
+2003-03-08  Jerry Quinn  <jlquinn@optonline.net>
+
+	* src/ios.cc (ios_base::ios_base): Correct order of _M_word and
+	_M_word_size initialization.
+
+2003-03-07  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/linker-map.gnu: Tweak.
+
+2003-03-07  Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/9817
+	* include/bits/locale_facets.tcc
+	(collate::do_compare, collate::do_transform):
+	Handle nul characters in input.
+
+2003-03-07  Jerry Quinn  <jlquinn@tiamat>
+
+	* include/bits/streambuf_iterator.h (_M_put): Set _M_failed if
+	sputn fails.
+	* testsuite/27_io/ostream_fail.cc: New test.
+
+2003-03-07  Matthias Klose  <doko@debian.org> 
+
+	* Makefile.am (AM_MAKEFLAGS): Also pass gxx_include_dir. 
+	FLAGS_TO_PASS: Set to AM_MAKEFLAGS 
+	* Makefile.in: Regenerate. 
+	* libsupc++/Makefile.am: Express glibcppinstalldir in terms 
+	of gxx_include_dir. 
+	AM_MAKEFLAGS: Pass gxx_include_dir. 
+	* libsupc++/Makefile.in: Regenerate. 
+
+2003-03-06  Jerry Quinn  <jlquinn@optonline.net>
+
+	* src/ios.cc (ios_base::_M_init): Remove _M_word_size.
+	(ios_base::ios_base): Set _M_word, _M_word_size.
+	(ios_base::~ios_base): Remove redundant test.
+	* testsuite/27_io/ios_base_storage.cc (test03): New.
+
+2003-03-05  Jerry Quinn  <jlquinn@optonline.net>
+
+	* testsuite/27_io/ios_base_storage.cc (test02): Set exception
+	mask.  Test setting small-numbered pword and iword slots.  Test
+	behavior at limit of numeric_limits::max.  Check that values are
+	still good after failures.
+
+2003-03-05  Carlo Wood  <carlo@alinoe.com>
+
+        * include/bits/ios_base.h(ios_base::Init::_S_initialized()): Added
+	_S_initialized() in order to allow debugging libraries to detect
+	when the std streams are initialized from an overloaded operator
+	new.
+
+2003-03-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/linker-map.gnu: Version.
+
+2003-03-04  Jerry Quinn  <jlquinn@optonline.net>
+
+	* include/bits/basic_ios.h:  Update copyright.
+	(_M_cache_locale): New.
+	(_M_cache_facets): Deprecate.
+	* include/bits/basic_ios.tcc (basic_ios::copyfmt): Set up locale
+        caching.
+	(basic_ios::imbue,basic_ios::init): Use _M_cache_locale.
+	(basic_ios::_M_cache_locale): New.
+	(basic_ios::_M_cache_facets): Deprecate.
+	* include/bits/ios_base.h (__locale_cache_base): Declare.
+	(ios_base::_M_cache): Define.
+	* include/bits/locale_facets.h
+	(__locale_cache_base,__locale_cache<_CharT>): New classes.
+	* include/bits/locale_facets.tcc
+	(num_put::_M_convert_int): Use locale cache literal string,
+	grouping flag, thousands separator.
+	(num_out::_M_convert_float): Use locale cache grouping flag, decimal
+        point, thousands separator.
+	(__locale_cache<_CharT>::_M_init,__locale_cache<_CharT>::_S_callback):
+        New.
+	* src/locale-inst.cc
+	(__locale_cache<_CharT>::_S_callback, __locale_cache<char>,
+	__locale_cache<wchar_t>): New.
+	
+2003-03-04  Jerry Quinn  <jlquinn@optonline.net>
+
+	* src/ios.cc (ios_base::_M_grow_words): Don't delete _M_word on
+	new failure.  Throw exception if badbit and exception mask when ix
+	>= numeric_limits<int>::max().
+
 2003-03-03  Benjamin Kosnik  <benjamin@redhat.com>
 
 	* config/linker-map.gnu (GLIBCPP_3.2.3): New.
