@@ -1,3 +1,7 @@
+2004-04-23  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gfortranspec.c: Include the target headers.
+
 2004-04-18  Feng Wang  <fengwang@nudt.edu.cn>
 
 	PR fortran/14921
