@@ -392,12 +392,12 @@ c_objc_common_finish_file ()
 
   {
     int flags;
-    FILE *stream = dump_begin (TDI_all, &flags);
+    FILE *stream = dump_begin (TDI_tu, &flags);
 
     if (stream)
       {
 	dump_node (getdecls (), flags & ~TDF_SLIM, stream);
-	dump_end (TDI_all, stream);
+	dump_end (TDI_tu, stream);
       }
   }
 }

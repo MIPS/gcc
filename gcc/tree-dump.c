@@ -34,6 +34,7 @@ static void dequeue_and_dump PARAMS ((dump_info_p));
 static void dump_new_line PARAMS ((dump_info_p));
 static void dump_maybe_newline PARAMS ((dump_info_p));
 static void dump_string_field PARAMS ((dump_info_p, const char *, const char *));
+static void dump_enable_all PARAMS ((int));
 
 /* Add T to the end of the queue of nodes to dump.  Returns the index
    assigned to T.  */
@@ -669,6 +670,7 @@ static struct dump_file_info dump_files[TDI_end] =
   {".dce", "dump-tree-dce", 0, 0},
   {".optimized", "dump-tree-optimized", 0, 0},
   {".xml", "dump-call-graph", 0, 0},
+  {NULL, "dump-tree-all", 0, 0},
 };
 
 /* Define a name->number mapping for a dump flag value.  */
@@ -686,9 +688,8 @@ static const struct dump_option_value_info dump_options[] =
   {"slim", TDF_SLIM},
   {"raw", TDF_RAW},
   {"details", TDF_DETAILS},
-  {"refs", TDF_REFS},
-  {"rdefs", TDF_RDEFS},
   {"stats", TDF_STATS},
+  {"block", TDF_BLOCK},
   {"all", ~0},
   {NULL, 0}
 };
@@ -755,20 +756,23 @@ dump_end (phase, stream)
   fclose (stream);
 }
 
-/* Enable all SSA-related tree dumps.  */
+/* Enable all tree dumps.  */
 
-void
-dump_enable_all_ssa ()
+static void
+dump_enable_all (flags)
+     int flags;
 {
-  dump_files[TDI_original].state = -1;
-  dump_files[TDI_optimized].state = -1;
-  dump_files[TDI_cfg].state = -1;
-  dump_files[TDI_dot].state = -1;
-  dump_files[TDI_pre].state = -1;
-  dump_files[TDI_ccp].state = -1;
-  dump_files[TDI_dce].state = -1;
-  dump_files[TDI_ssa].state = -1;
-  dump_files[TDI_simple].state = -1;
+  enum tree_dump_index i;
+
+  for (i = TDI_tu; i < TDI_end; i++)
+    {
+      dump_files[i].state = -1;
+      dump_files[i].flags = flags;
+    }
+
+  /* FIXME  -fdump-call-graph is broken.  */
+  dump_files[TDI_xml].state = 0;
+  dump_files[TDI_xml].flags = 0;
 }
 
 /* Parse ARG as a dump switch. Return nonzero if it is, and store the
@@ -793,6 +797,7 @@ dump_switch_p (arg)
 	  best = ix;
 	  bestlen = strlen (option_value);
 	}
+
   if (best >= 0)
     {
       if ((option_value = skip_leading_substring (arg, dump_files[best].swtch)))
@@ -829,9 +834,14 @@ dump_switch_p (arg)
 	  
 	  dump_files[best].state = -1;
 	  dump_files[best].flags = flags;
+
+	  /* Process -fdump-tree-all by enabling all the known dumps.  */
+	  if (dump_files[best].suffix == NULL)
+	    dump_enable_all (dump_files[best].flags);
 	  
 	  return 1;
 	}
     }
+
   return 0;
 }

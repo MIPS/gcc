@@ -898,9 +898,6 @@ int flag_tree_ccp = 0;
 /* Enable SSA-DCE on trees.  */
 int flag_tree_dce = 0;
 
-/* Enable all SSA-related dumps.  */
-int flag_dump_tree_all_ssa = 0;
-
 /* Nonzero if we perform superblock formation.  */
 int flag_tracer = 0;
 
@@ -1219,8 +1216,6 @@ static const lang_independent_options f_options[] =
    N_("Enable SSA-CCP optimization on trees") },
   { "tree-dce", &flag_tree_dce, 1,
    N_("Enable SSA dead code elimination optimization on trees") },
-  { "dump-tree-all-ssa", &flag_dump_tree_all_ssa, 1,
-   N_("Enable all SSA-related tree dumps") },
 };
 
 /* Table of language-specific options.  */
@@ -5202,9 +5197,6 @@ process_options ()
 
   if (flag_disable_simple && flag_mudflap)
     warning ("-fdisable-simple also disables mudflap instrumentation");
-
-  if (flag_dump_tree_all_ssa)
-    dump_enable_all_ssa ();
 }
 
 /* Initialize the compiler back end.  */

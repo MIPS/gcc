@@ -167,7 +167,7 @@ tree_ssa_ccp (fndecl)
       if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
       else
-	print_generic_tree (dump_file, fnbody, PPF_BLOCK);
+	print_generic_stmt (dump_file, fnbody, dump_flags);
 
       fprintf (dump_file, "\n");
       dump_end (TDI_ccp, dump_file);
@@ -309,7 +309,7 @@ substitute_and_fold ()
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Line %d: replaced ", get_lineno (expr));
-	      print_generic_node (dump_file, expr, 0);
+	      print_generic_stmt (dump_file, expr, TDF_SLIM);
 	    }
 
 	  replace_uses_in (expr);
@@ -320,7 +320,7 @@ substitute_and_fold ()
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, " with ");
-	      print_generic_node (dump_file, new_expr, 0);
+	      print_generic_stmt (dump_file, new_expr, TDF_SLIM);
 	      fprintf (dump_file, "\n");
 	    }
 	}
@@ -480,7 +480,7 @@ visit_expression_for (ref)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\nVisiting expression: ");
-      print_generic_node (dump_file, expr, 0);
+      print_generic_expr (dump_file, expr, 0);
       dump_ref (dump_file, "\nfor reference: ", ref, 0, 0);
     }
   
@@ -669,12 +669,12 @@ evaluate_expr (expr)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Expression evaluates to ");
-      print_generic_node (dump_file, expr, 0);
+      print_generic_expr (dump_file, expr, 0);
       fprintf (dump_file, " which is ");
       if (val.lattice_val == CONSTANT)
 	{
 	  fprintf (dump_file, "constant ");
-	  print_generic_node (dump_file, simplified, 0);
+	  print_generic_expr (dump_file, simplified, 0);
 	}
       else if (val.lattice_val == VARYING)
 	fprintf (dump_file, "not a constant");
@@ -705,7 +705,7 @@ dump_lattice_value (outf, prefix, val)
   else
     {
       fprintf (outf, "%sCONSTANT ", prefix);
-      print_generic_node (outf, val.const_value, 0);
+      print_generic_expr (outf, val.const_value, 0);
     }
 }
 
@@ -917,7 +917,7 @@ set_lattice_value (def, val)
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Lattice value changed to ");
-	      print_generic_node (dump_file, val.const_value, 0);
+	      print_generic_expr (dump_file, val.const_value, 0);
 	      fprintf (dump_file, ".  Adding definition to SSA edges.\n");
 	    }
 

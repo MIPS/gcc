@@ -3201,8 +3201,8 @@ typedef tree (*walk_tree_fn)		PARAMS ((tree *, int *, void *));
    extend the DUMP_FILES array in tree-dump.c */
 enum tree_dump_index
 {
-  TDI_all,			/* dump the whole translation unit */
-  TDI_class,			/* dump class hierarchy */
+  TDI_tu,			/* dump the whole translation unit.  */
+  TDI_class,			/* dump class hierarchy.  */
   TDI_inlined,			/* dump each function after inlining
 				   within it.  */
   TDI_original,			/* dump each function before optimizing it */
@@ -3218,8 +3218,9 @@ enum tree_dump_index
 				   function.  */
   TDI_dce,                      /* dump SSA DCE information for each
 				   function.  */
-  TDI_optimized,		/* dump each function after optimizing it */
-  TDI_xml,                      /* dump function call graph.  */
+  TDI_optimized,		/* dump each function after optimizing it.  */
+  TDI_xml,                      /* dump function call graph.   */
+  TDI_all,			/* enable all the dumps above.  */
   TDI_end
 };
 
@@ -3229,12 +3230,12 @@ enum tree_dump_index
 #define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
 #define TDF_SLIM	(1 << 1)	/* don't go wild following links */
 #define TDF_RAW  	(1 << 2)	/* unparse the function */
-#define TDF_DETAILS	(1 << 3)	/* show how each statement is
-					   simplified */
+#define TDF_DETAILS	(1 << 3)	/* show more detailed info about
+					   each pass */
 #define TDF_STATS	(1 << 4)	/* dump various statistics about
 					   each pass */
-#define TDF_REFS	(1 << 0)	/* dump ssa variable refs */
-#define TDF_RDEFS	(1 << 1)	/* dump reaching definitions */
+#define TDF_BLOCK	(1 << 5)	/* display basic block boundaries */
+
 
 typedef struct dump_info *dump_info_p;
 
@@ -3244,11 +3245,10 @@ extern FILE *dump_begin			PARAMS ((enum tree_dump_index, int *));
 extern void dump_end			PARAMS ((enum tree_dump_index, FILE *));
 extern void dump_node			PARAMS ((tree, int, FILE *));
 extern int dump_switch_p                PARAMS ((const char *));
-extern void dump_enable_all_ssa         PARAMS ((void));
-const char *dump_flag_name	PARAMS ((enum tree_dump_index));
+const char *dump_flag_name		PARAMS ((enum tree_dump_index));
 
-extern int simplify_function_tree      PARAMS ((tree));
-extern const char *get_name            PARAMS ((tree));
+extern int simplify_function_tree	PARAMS ((tree));
+extern const char *get_name		PARAMS ((tree));
 
 /* Redefine abort to report an internal error w/o coredump, and
    reporting the location of the error in the source file.  This logic

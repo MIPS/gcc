@@ -668,9 +668,6 @@ extern int flag_tree_ccp;
 /* Enable SSA-DCE on trees.  */
 extern int flag_tree_dce;
 
-/* Enable all SSA-related tree dumps.  */
-extern int flag_dump_tree_all_ssa;
-
 /* Nonzero means put zero initialized data in the bss section.  */
 extern int flag_zero_initialized_in_bss;
 

@@ -43,6 +43,10 @@ static const int initial_cfg_capacity = 20;
 static FILE *dump_file;
 static int dump_flags;
 
+/* Array with control flow parents.  */
+varray_type parent_array;
+
+
 /* Basic blocks and flowgraphs.  */
 static void make_blocks			PARAMS ((tree *, basic_block));
 static void make_bind_expr_blocks	PARAMS ((tree *, basic_block));
@@ -68,6 +72,7 @@ static basic_block first_exec_block	PARAMS ((tree *));
 static tree *first_exec_stmt		PARAMS ((tree *));
 static bool block_invalidates_loop	PARAMS ((basic_block, struct loop *));
 static basic_block switch_parent	PARAMS ((basic_block));
+static void create_block_annotations	PARAMS ((void));
 
 /* Flowgraph optimization and cleanup.  */
 static void remove_tree_bb		PARAMS ((basic_block, int));
@@ -112,10 +117,7 @@ build_tree_cfg (fnbody)
   n_basic_blocks = 0;
   last_basic_block = 0;
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
-
-  /* Create annotations for ENTRY_BLOCK_PTR and EXIT_BLOCK_PTR.  */
-  create_bb_ann (ENTRY_BLOCK_PTR);
-  create_bb_ann (EXIT_BLOCK_PTR);
+  VARRAY_BB_INIT (parent_array, initial_cfg_capacity, "parent_array");
 
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
@@ -138,6 +140,9 @@ build_tree_cfg (fnbody)
 	  /* Adjust the size of the array.  */
 	  VARRAY_GROW (basic_block_info, n_basic_blocks);
 
+	  /* Create block annotations.  */
+	  create_block_annotations ();
+
 	  /* Create the edges of the flowgraph.  */
 	  make_edges ();
 
@@ -153,7 +158,7 @@ build_tree_cfg (fnbody)
 	  dump_file = dump_begin (TDI_cfg, &dump_flags);
 	  if (dump_file)
 	    {
-	      dump_tree_cfg (dump_file, dump_flags & TDF_DETAILS);
+	      dump_tree_cfg (dump_file, dump_flags);
 	      dump_end (TDI_cfg, dump_file);
 	    }
 	}
@@ -339,16 +344,12 @@ create_bb (head_p, parent_block)
   basic_block bb;
 
   /* Create and initialize a new basic block.  */
-  bb = (basic_block) ggc_alloc (sizeof (*bb));
+  bb = alloc_block ();
   memset (bb, 0, sizeof (*bb));
 
   bb->head_tree_p = bb->end_tree_p = head_p;
   bb->index = last_basic_block;
   bb->flags = BB_NEW;
-
-  /* Create annotations for the block.  */
-  create_bb_ann (bb);
-  set_parent_block (bb, parent_block);
 
   /* Add the new block to the linked list of blocks.  */
   if (n_basic_blocks > 0)
@@ -358,10 +359,14 @@ create_bb (head_p, parent_block)
 
   /* Grow the basic block array if needed.  */
   if ((size_t) n_basic_blocks == VARRAY_SIZE (basic_block_info))
-    VARRAY_GROW (basic_block_info, n_basic_blocks + (n_basic_blocks + 3) / 4);
+    {
+      VARRAY_GROW (basic_block_info, n_basic_blocks + (n_basic_blocks + 3) / 4);
+      VARRAY_GROW (parent_array, n_basic_blocks + (n_basic_blocks + 3) / 4);
+    }
 
   /* Add the newly created block to the array.  */
   BASIC_BLOCK (n_basic_blocks) = bb;
+  VARRAY_BB (parent_array, n_basic_blocks) = parent_block;
   n_basic_blocks++;
   last_basic_block++;
 
@@ -400,18 +405,25 @@ set_bb_for_stmt (t, bb)
 }
 
 
-/* Create a new annotation for basic block BB.  */
+/* Create annotations for all the blocks in the flowgraph.  */
 
-bb_ann
-create_bb_ann (bb)
-     basic_block bb;
+static void
+create_block_annotations ()
 {
-  bb_ann ann = (bb_ann) ggc_alloc (sizeof (*ann));
-  memset ((void *) ann, 0, sizeof (*ann));
-  ann->refs = create_ref_list ();
-  bb->aux = (void *) ann;
+  basic_block bb;
+  int i;
 
-  return ann;
+  alloc_aux_for_blocks (sizeof (struct bb_ann_d));
+
+  /* Set parent block information for each block.  */
+  i = 0;
+  FOR_EACH_BB (bb)
+    {
+      bb_ann ann = (bb_ann)bb->aux;
+      ann->refs = create_ref_list ();
+      ann->parent_block = VARRAY_BB (parent_array, i);
+      i++;
+    }
 }
 
 
@@ -767,19 +779,16 @@ remove_tree_bb (bb, remove_stmts)
   for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step_bb (&i))
     {
       tree stmt = gsi_stmt (i);
-      STRIP_WFL (stmt);
-      STRIP_NOPS (stmt);
-
-      if (remove_stmts)
-	gsi_remove (i);
-      else
-	set_bb_for_stmt (stmt, NULL);
 
       if (dump_file && is_exec_stmt (gsi_stmt (i)))
 	{
 	  fprintf (dump_file, "WARNING: Removing executable statement: ");
-	  print_generic_node (dump_file, gsi_stmt (i), PPF_BRIEF);
+	  print_generic_stmt (dump_file, gsi_stmt (i), dump_flags|TDF_SLIM);
 	}
+
+      set_bb_for_stmt (stmt, NULL);
+      if (remove_stmts)
+	gsi_remove (i);
     }
 
   /* Remove the edges into and out of this block.  */
@@ -1305,7 +1314,7 @@ dump_tree_bb (outf, prefix, bb, indent)
   if (head)
     {
       lineno = get_lineno (head);
-      print_generic_node (outf, head, PPF_BRIEF|PPF_IS_STMT);
+      print_generic_stmt (outf, head, TDF_SLIM);
       fprintf (outf, " (line: %d)\n", lineno);
     }
   else
@@ -1315,7 +1324,7 @@ dump_tree_bb (outf, prefix, bb, indent)
   if (end)
     {
       lineno = get_lineno (end);
-      print_generic_node (outf, end, PPF_BRIEF|PPF_IS_STMT);
+      print_generic_stmt (outf, end, TDF_SLIM);
       fprintf (outf, " (line: %d)\n", lineno);
     }
   else
@@ -1353,29 +1362,29 @@ debug_tree_bb (bb)
 }
 
 
-/* Dump the CFG on stderr.  If DETAILS is nonzero, a textual representation
-   of each basic block is also produced.  */
+/* Dump the CFG on stderr.  FLAGS are the same used by the tree dumping
+   functions  (see TDF_* in tree.h).  */
 
 void
-debug_tree_cfg (details)
-     int details;
+debug_tree_cfg (flags)
+     int flags;
 {
-  dump_tree_cfg (stderr, details);
+  dump_tree_cfg (stderr, flags);
 }
 
 
-/* Dump the program showing basic block boundaries on the given FILE.  If
-   DETAILS is set, a textual representation of every basic block will also
-   be dumped.  */
+/* Dump the program showing basic block boundaries on the given FILE.
+   FLAGS are the same used by the tree dumping functions (see TDF_* in
+   tree.h).  */
 
 void
-dump_tree_cfg (file, details)
+dump_tree_cfg (file, flags)
      FILE *file;
-     int details;
+     int flags;
 {
   basic_block bb;
 
-  if (details)
+  if (flags & TDF_DETAILS)
     {
       fputc ('\n', file);
       fprintf (file, "Function %s\n\n", get_name (current_function_decl));
@@ -1390,7 +1399,8 @@ dump_tree_cfg (file, details)
     }
 
   fprintf (file, "%s()\n", get_name (current_function_decl));
-  print_generic_tree (file, DECL_SAVED_TREE (current_function_decl), PPF_BLOCK);
+  print_generic_stmt (file, DECL_SAVED_TREE (current_function_decl),
+                      flags|TDF_BLOCK);
   fprintf (file, "\n");
 }
 
@@ -1614,18 +1624,17 @@ stmt_starts_bb_p (t)
 void
 delete_tree_cfg ()
 {
-  basic_block bb;
-
   if (basic_block_info == NULL)
     return;
 
-  FOR_EACH_BB (bb)
-    bb->aux = NULL;
+  if (n_basic_blocks > 0)
+    {
+      free_aux_for_blocks ();
+      clear_edges ();
+    }
 
-  ENTRY_BLOCK_PTR->aux = NULL;
-  EXIT_BLOCK_PTR->aux = NULL;
-  clear_edges ();
   VARRAY_FREE (basic_block_info);
+  VARRAY_FREE (parent_array);
 }
 
 

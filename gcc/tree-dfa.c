@@ -1135,14 +1135,14 @@ dump_ref (outf, prefix, ref, indent, details)
   fprintf (outf, "%s%s%s(", s_indent, prefix, type);
 
   if (ref_var (ref))
-    print_generic_node (outf, ref_var (ref), 0);
+    print_generic_expr (outf, ref_var (ref), 0);
   else
     fprintf (outf, "nil");
 
   fprintf (outf, "): line %d, bb %d, id %lu, ", lineno, bbix, ref_id (ref));
 
   if (ref_expr (ref))
-    print_generic_node (outf, ref_expr (ref), 0);
+    print_generic_expr (outf, ref_expr (ref), 0);
   else
     fprintf (outf, "<nil>");
 
@@ -1319,7 +1319,7 @@ dump_variable (file, var)
   size_t num;
 
   fprintf (file, "Variable: ");
-  print_generic_node (file, var, 0);
+  print_generic_expr (file, var, 0);
   
   num = num_may_alias (var);
   if (num > 0)
@@ -1330,7 +1330,7 @@ dump_variable (file, var)
 
       for (i = 0; i < num; i++)
 	{
-	  print_generic_node (file, may_alias (var, i), 0);
+	  print_generic_expr (file, may_alias (var, i), 0);
 	  if (i < num - 1)
 	    fprintf (file, ", ");
 	}

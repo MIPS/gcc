@@ -99,10 +99,6 @@ optimize_function_tree (fndecl)
   double_chain_free (fnbody);
 #endif
 
-  /* Flush out flow graph and SSA data.  */
-  delete_tree_ssa (fnbody);
-  delete_tree_cfg ();
-
   /* Debugging dump after optimization.  */
   dump_file = dump_begin (TDI_optimized, &dump_flags);
   if (dump_file)
@@ -114,9 +110,13 @@ optimize_function_tree (fndecl)
       if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
       else
-	print_generic_tree (dump_file, fnbody, 0);
+	print_generic_stmt (dump_file, fnbody, dump_flags);
       fprintf (dump_file, "\n");
 
       dump_end (TDI_optimized, dump_file);
     }
+
+  /* Flush out flow graph and SSA data.  */
+  delete_tree_ssa (fnbody);
+  delete_tree_cfg ();
 }

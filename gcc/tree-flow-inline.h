@@ -284,6 +284,22 @@ get_lineno (expr)
     return -1;
 }
 
+static inline const char *
+get_filename (expr)
+     tree expr;
+{
+  if (expr == NULL_TREE)
+    return "???";
+
+  if (TREE_CODE (expr) == COMPOUND_EXPR)
+    expr = TREE_OPERAND (expr, 0);
+
+  if (TREE_CODE (expr) == EXPR_WITH_FILE_LOCATION)
+    return EXPR_WFL_FILENAME (expr);
+  else
+    return "???";
+}
+
 static inline tree_ref
 output_ref (t)
      tree t;
@@ -649,7 +665,7 @@ static inline bool
 is_exec_stmt (t)
      tree t;
 {
-  return (t && t != empty_stmt_node);
+  return (t && t != empty_stmt_node && t != error_mark_node);
 }
 
 static inline bool

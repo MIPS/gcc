@@ -3232,19 +3232,19 @@ changes according to the environment and source file. Its primary use
 is for tying up a dump file with a debug environment.
 @item slim
 Inhibit dumping of members of a scope or body of a function merely
-because that scope has been reached. Only dump such items when they
-are directly reachable by some other path.
-@item refs
-Print the list of references made to each variable in the program.
-@item rdefs
-Print the list of reaching definitions for each variable used in the program.
+because that scope has been reached.  Only dump such items when they
+are directly reachable by some other path.  When dumping pretty-printed
+trees, this option inhibits dumping the bodies of control structures.
 @item raw
-Print a raw representation of the tree.
+Print a raw representation of the tree.  By default, trees are
+pretty-printed into a C-like representation.
 @item details
 Enable more detailed dumps (not honored by every dump option).
 @item stats
 Enable dumping various statistics about the pass (not honored by every dump
 option).
+@item block
+Enable showing basic block boundaries (disabled in raw dumps).
 @item all
 Turn on all options.
 @end table
@@ -3295,11 +3295,11 @@ by appending @file{.pre} to the source file name.
 @opindex fdump-tree-dce
 Dump each function before and after DCE.  The file name is made by appending
 @file{.dce} to the source file name.
-@end table
 
-@item -fdump-tree-all-ssa @r{(C and C++ only)}
-@opindex fdump-tree-all-ssa @r{(C and C++ only)}
-Enable all SSA-related dumps described above.
+@item all
+@opindex fdump-tree-all
+Enable all the available tree dumps with the flags provided in this option.
+@end table
 
 @item -fsched-verbose=@var{n}
 @opindex fsched-verbose

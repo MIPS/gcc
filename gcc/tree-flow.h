@@ -192,7 +192,7 @@ struct var_ref_d GTY(())
      reference.  This array is setup so that the Ith entry corresponds to
      the Ith alias of the variable associated to this reference (i.e., this
      is the Ith entry of the array MAY_ALIASES in struct tree_ann_d).  */
-  union tree_ref_d ** GTY((skip (""))) alias_imm_rdefs;
+  union tree_ref_d ** GTY((length ("VARRAY_SIZE (%h.common.var->common.ann->may_aliases)"))) alias_imm_rdefs;
 };
 
 /* Variable definitions.  */
@@ -534,23 +534,24 @@ static inline void set_indirect_var	PARAMS ((tree, tree));
 static inline tree may_alias		PARAMS ((tree, size_t));
 static inline size_t num_may_alias	PARAMS ((tree));
 static inline int get_lineno		PARAMS ((tree));
+static inline const char *get_filename	PARAMS ((tree));
 static inline bool is_exec_stmt		PARAMS ((tree));
 
 
 /*---------------------------------------------------------------------------
 		  Block annotations stored in basic_block.aux
 ---------------------------------------------------------------------------*/
-struct bb_ann_def GTY(())
+struct bb_ann_d
 {
   /* Control flow parent.  This is the entry block to the control structure
      to which this block belongs to.  */
-  basic_block GTY((skip (""))) parent_block;
+  basic_block parent_block;
 
   /* List of references made in this block.  */
   ref_list refs;
 };
 
-typedef struct bb_ann_def *bb_ann;
+typedef struct bb_ann_d *bb_ann;
 
 /* Accessors for basic block annotations.  */
 static inline bb_ann bb_annotation	PARAMS ((basic_block));
@@ -615,13 +616,13 @@ extern void rli_delete			PARAMS ((ref_list_iterator));
 extern int tree_warn_uninitialized;
 
 /* Array of all variables referenced in the function.  */
-extern varray_type referenced_vars;
+extern GTY(()) varray_type referenced_vars;
 
 /* Next unique reference ID to be assigned by create_ref().  */
 extern unsigned long next_tree_ref_id;
 
 /* Artificial variable used to model the effects of function calls.  */
-extern tree global_var;
+extern GTY(()) tree global_var;
 
 /* Accessors for the referenced_vars array.  */
 extern unsigned long num_referenced_vars;
@@ -645,7 +646,6 @@ extern bool is_computed_goto		PARAMS ((tree));
 extern tree loop_body			PARAMS ((tree));
 extern void set_loop_body		PARAMS ((tree, tree));
 extern bool stmt_starts_bb_p		PARAMS ((tree));
-extern bb_ann create_bb_ann 		PARAMS ((basic_block));
 extern void dump_tree_bb		PARAMS ((FILE *, const char *,
 	                			 basic_block, int));
 extern void debug_tree_bb		PARAMS ((basic_block));

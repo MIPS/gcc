@@ -28,14 +28,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "tree-flow.h"
 
-/* Modifier flags for print_generic_* functions.  See diagnostic.h for
-   documentation.  */
-const int PPF_BRIEF	= 1 << 0;
-const int PPF_BLOCK	= 1 << 1;
-const int PPF_LINENO	= 1 << 2;
-const int PPF_IS_STMT	= 1 << 3;
-
-
 /* Local functions, macros and variables.  */
 static int op_prio				PARAMS ((tree));
 static const char *op_symbol			PARAMS ((tree));
@@ -67,44 +59,46 @@ static void dump_block_info			PARAMS ((output_buffer *,
 
 static output_buffer buffer;
 static int initialized = 0;
-static int last_bb = -1;
+static int last_bb;
+static bool dumping_stmts;
 
 
-/* Print the tree T, and its successors, on file FILE.  FLAGS specifies details
-   to show in the dump.  See PPF_* in diagnostic.h.  */
+/* Print tree T, and its successors, on file FILE.  FLAGS specifies details
+   to show in the dump.  See TDF_* in tree.h.  */
 
 void 
-print_generic_tree (file, t, flags)
+print_generic_stmt (file, t, flags)
      FILE *file;
      tree t;
      int flags;
 {
   maybe_init_pretty_print ();
-  last_bb = -1;
-  dump_generic_node (&buffer, t, 0, flags | PPF_IS_STMT);
-  fprintf (file, "%s", output_finalize_message (&buffer));
-  output_clear_message_text (&buffer);
-}
-
-
-/* Print a single node T on file FILE.  FLAGS specifies details to show in the
-   dump.  See PPF_* in diagnostic.h.  */
-
-void 
-print_generic_node (file, t, flags)
-     FILE *file;
-     tree t;
-     int flags;
-{
-  maybe_init_pretty_print ();
-  last_bb = -1;
+  dumping_stmts = true;
   dump_generic_node (&buffer, t, 0, flags);
   fprintf (file, "%s", output_finalize_message (&buffer));
   output_clear_message_text (&buffer);
 }
 
 
-/* Dump the node NODE on the output_buffer BUFFER, SPC spaces of indent.  */
+/* Print a single expression T on file FILE.  FLAGS specifies details to show
+   in the dump.  See TDF_* in tree.h.  */
+
+void 
+print_generic_expr (file, t, flags)
+     FILE *file;
+     tree t;
+     int flags;
+{
+  maybe_init_pretty_print ();
+  dumping_stmts = false;
+  dump_generic_node (&buffer, t, 0, flags);
+  fprintf (file, "%s", output_finalize_message (&buffer));
+  output_clear_message_text (&buffer);
+}
+
+
+/* Dump the node NODE on the output_buffer BUFFER, SPC spaces of indent.
+   FLAGS specifies details to show in the dump (see TDF_* in tree.h).  */
 
 int
 dump_generic_node (buffer, node, spc, flags)
@@ -120,7 +114,7 @@ dump_generic_node (buffer, node, spc, flags)
   if (node == NULL_TREE)
     return spc;
 
-  if ((flags & PPF_BLOCK)
+  if ((flags & TDF_BLOCK)
       && node != empty_stmt_node
       && node != error_mark_node)
     dump_block_info (buffer, bb_for_stmt (node), spc);
@@ -575,10 +569,10 @@ dump_generic_node (buffer, node, spc, flags)
       break;
 
     case COMPOUND_EXPR:
-      if (flags & PPF_IS_STMT)
+      if (dumping_stmts)
 	{
 	  dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
-	  if (!(flags & PPF_BRIEF))
+	  if (!(flags & TDF_SLIM))
 	    {
 	      output_add_character (buffer, ';');
 	      newline_and_indent (buffer, spc);
@@ -616,7 +610,7 @@ dump_generic_node (buffer, node, spc, flags)
 	  output_add_string (buffer, "if (");
 	  dump_generic_node (buffer, COND_EXPR_COND (node), spc, flags);
 	  output_add_character (buffer, ')');
-	  if (!(flags & PPF_BRIEF))
+	  if (!(flags & TDF_SLIM))
 	    {
 	      if (COND_EXPR_THEN (node) == empty_stmt_node)
 		{
@@ -662,7 +656,7 @@ dump_generic_node (buffer, node, spc, flags)
 
     case BIND_EXPR:
       output_add_character (buffer, '{');
-      if (!(flags & PPF_BRIEF))
+      if (!(flags & TDF_SLIM))
 	{
 	  if (BIND_EXPR_VARS (node))
 	    {
@@ -1009,7 +1003,7 @@ dump_generic_node (buffer, node, spc, flags)
 	}
       dump_generic_node (buffer, LABELED_BLOCK_LABEL (node), spc, flags);
       output_add_string (buffer, ": {");
-      if (!(flags & PPF_BRIEF))
+      if (!(flags & TDF_SLIM))
 	newline_and_indent (buffer, spc+2);
       dump_generic_node (buffer, LABELED_BLOCK_BODY (node), spc+2, flags);
       if (!flags)
@@ -1045,7 +1039,7 @@ dump_generic_node (buffer, node, spc, flags)
 
     case LOOP_EXPR:
       output_add_string (buffer, "while (1)");
-      if (!(flags & PPF_BRIEF))
+      if (!(flags & TDF_SLIM))
 	{
 	  newline_and_indent (buffer, spc+2);
 	  output_add_character (buffer, '{');
@@ -1059,7 +1053,7 @@ dump_generic_node (buffer, node, spc, flags)
 	     flowgraph information, we should show them to avoid confusing
 	     the user.  This perhaps should be fixed by actually inserting
 	     an empty statement at the end of LOOP_EXPRs.  */
-	  if ((flags & PPF_BLOCK) && bb_for_stmt (node))
+	  if ((flags & TDF_BLOCK) && bb_for_stmt (node))
 	    {
 	      newline_and_indent (buffer, spc);
 	      dump_block_info (buffer, latch_block (bb_for_stmt (node)), spc);
@@ -1091,7 +1085,7 @@ dump_generic_node (buffer, node, spc, flags)
       output_add_string (buffer, "switch (");
       dump_generic_node (buffer, SWITCH_COND (node), spc, flags);
       output_add_character (buffer, ')');
-      if (!(flags & PPF_BRIEF))
+      if (!(flags & TDF_SLIM))
 	{
 	  newline_and_indent (buffer, spc+2);
 	  output_add_character (buffer, '{');
@@ -1136,7 +1130,7 @@ dump_generic_node (buffer, node, spc, flags)
 	  dump_generic_node (buffer, ASM_CLOBBERS (node), spc, flags);
 	}
       output_add_string (buffer, ");");
-      if (!(flags & PPF_BRIEF))
+      if (!(flags & TDF_SLIM))
 	output_add_newline (buffer);      
       break;
       
@@ -1246,7 +1240,7 @@ print_declaration (buffer, t, spc, flags)
     }
   
   output_add_character (buffer, ';');
-  if (!(flags & PPF_BRIEF))
+  if (!(flags & TDF_SLIM))
     output_add_newline (buffer);
 }
 
@@ -1733,6 +1727,8 @@ pretty_print_string (buffer, str)
 static void
 maybe_init_pretty_print ()
 {
+  last_bb = -1;
+
   if (!initialized)
     {
       init_output_buffer (&buffer, /* prefix */NULL, /* line-width */0);
@@ -1759,8 +1755,20 @@ dump_block_info (buffer, bb, spc)
   if (bb && bb->index != last_bb)
     {
       edge e;
+      tree *stmt_p = bb->head_tree_p;
+      int lineno;
 
       output_formatted_scalar (buffer, "# BLOCK %d", bb->index);
+
+      if (stmt_p
+	  && is_exec_stmt (*stmt_p)
+	  && (lineno = get_lineno (*stmt_p)) > 0)
+	{
+	  output_add_string (buffer, " (");
+	  output_add_string (buffer, get_filename (*stmt_p));
+	  output_formatted_scalar (buffer, ":%d", lineno);
+	  output_add_string (buffer, ")");
+	}
 
       output_add_string (buffer, ".  PRED:");
       for (e = bb->pred; e; e = e->pred_next)

@@ -2393,7 +2393,7 @@ expand_body (fn)
 
   /* If possible, obliterate the body of the function so that it can
      be garbage collected.  */
-  if (dump_enabled_p (TDI_all))
+  if (dump_enabled_p (TDI_tu))
     /* Keep the body; we're going to dump it.  */
     ;
   else if (DECL_INLINE (fn) && flag_inline_trees)

@@ -1,3 +1,74 @@
+2002-11-05  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (create_block_annotations): New local function.
+	(create_bb_ann): Remove.  Update all users.
+	(parent_array): New local variable.
+	(build_tree_cfg): Initialize it.
+	Call create_block_annotations.
+	(create_bb): Call alloc_block instead of ggc_alloc to allocate
+	memory for basic blocks.
+	Don't call set_parent_block.
+	Grow array parent_array.
+	(dump_tree_cfg): Change meaning of second argument.  Make it accept
+	any of the TDF_* flags defined in tree.h.
+	(delete_tree_cfg): Call free_aux_for_blocks.
+	Free array parent_array.
+	* tree-flow-inline.h (get_filename): New function.
+	(is_exec_stmt): return false if T is error_mark_node.
+	* tree-flow.h (struct var_ref_d): Mark alias_imm_rdefs field for
+	garbage collection.
+	(get_filename): Declare.
+	(struct bb_ann_d): Rename from bb_ann_def.
+	Remove garbage collection markers.
+	(referenced_vars): Mark for garbage collection.
+	(global_var): Likewise.
+	(create_bb_ann): Remove.
+	* tree-optimize.c (optimize_function_tree): Remove CFG and SSA
+	after debugging dumps.
+
+	* diagnostic.h (print_generic_stmt): Rename from print_generic_tree.
+	Update all users.
+	(print_generic_expr): Rename from print_generic_node.  Update all
+	users.
+	(PPF_BRIEF): Remove.  Update all users.
+	(PPF_BLOCK): Remove.  Update all users.
+	(PPF_LINENO): Remove.  Update all users.
+	(PPF_IS_STMT): Remove.  Update all users.
+	* flags.h (flag_dump_tree_all_ssa): Remove.  Update all users.
+	* toplev.c (f_options): Remove entry for -fdump-tree-all-ssa.
+	Update all users.
+	* tree-dump.c (dump_enable_all): Rename from dump_enable_all_ssa.
+	Update all users.
+	(dump_files): Add entry for -fdump-tree-all.
+	(dump_option_value_info): Remove entries for TDF_REFS and
+	TDF_RDEFS.
+	Add entry for TDF_BLOCK.
+	(dump_switch_p): If -fdump-tree-all was given, call dump_enable_all.
+	* tree-pretty-print.c (PPF_BRIEF): Remove.  Update all users.
+	(PPF_BLOCK): Remove.  Update all users.
+	(PPF_LINENO): Remove.  Update all users.
+	(PPF_IS_STMT): Remove.  Update all users.
+	(dumping_stmts): New local variable.
+	(print_generic_stmt): Rename from print_generic_tree.  Update all
+	users.
+	Set dumping_stmts to true.
+	(print_generic_expr): Rename from print_generic_node.  Update all
+	users.
+	Set dumping_stmts to false.
+	(maybe_init_pretty_print): Set last_bb to -1.
+	(dump_block_info): If available, dump file and line number
+	information for the first statement in the basic block.
+	* tree-ssa.c (build_tree_ssa): Dump referenced variables and
+	reaching definition information if -details is given.
+	* tree.h (enum tree_dump_index): Rename TDI_all to TDI_tu.  Update
+	all users.
+	Add new index TDI_all.
+	(TDF_DETAILS): Change value.
+	(TDF_REFS): Remove.  Update all users.
+	(TDF_RDEFS): Remove.  Update all users.
+	(TDF_BLOCK): Define.
+	* doc/invoke.texi: Update documentation for -fdump-tree-... flags.
+
 2002-11-05  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-mudflap.c (mudflap_enqueue_decl, _constant): Use

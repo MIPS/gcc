@@ -118,7 +118,7 @@ construct_call_graph (buffer, t, spc)
 
 	  /* Statements based statistics.  */
 	  INDENT (spc+1);
-	  output_printf (buffer, "<stats calls=\"%d\" decisions=\"%d\" stmts=\"%d\" Gilb=\"%f\"", 
+	  output_printf (buffer, "<stats calls=\"%d\" decisions=\"%d\" stmts=\"%d\" Gilb=\"%d\"", 
 			 nb_calls, decision_points, nb_statements, 
 			 ((nb_statements == 0) ? 0 : 
 			  ((float)decision_points / (float)nb_statements)));

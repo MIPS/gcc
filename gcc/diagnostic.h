@@ -333,13 +333,7 @@ extern void debug_output_buffer		PARAMS ((output_buffer *));
 /* In tree-pretty-print.c  */
 extern int dump_generic_node		PARAMS ((output_buffer *, tree, int,
       						 int));
-extern void print_generic_tree		PARAMS ((FILE*, tree, int));
-extern void print_generic_node		PARAMS ((FILE*, tree, int));
-
-/* Modifier flags for print_generic_* functions.  */
-extern const int PPF_BRIEF;		/* Don't print control stmt bodies.  */
-extern const int PPF_BLOCK;		/* Show basic block delimiters.  */
-extern const int PPF_LINENO;		/* Show line number information.  */
-extern const int PPF_IS_STMT;		/* The tree is a statement.  */
+extern void print_generic_stmt		PARAMS ((FILE *, tree, int));
+extern void print_generic_expr		PARAMS ((FILE *, tree, int));
 
 #endif /* ! GCC_DIAGNOSTIC_H */

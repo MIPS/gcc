@@ -221,16 +221,14 @@ build_tree_ssa (fndecl)
       /* FIXME  Default dump should be the pretty-printed function with SSA
 	 indices.  */
       if (tree_ssa_dump_flags & (TDF_DETAILS))
-	dump_tree_ssa (tree_ssa_dump_file);
+	{
+	  dump_referenced_vars (tree_ssa_dump_file);
+	  dump_tree_ssa (tree_ssa_dump_file);
+	  dump_reaching_defs (tree_ssa_dump_file);
+	}
 
       if (tree_ssa_dump_flags & TDF_STATS)
 	dump_dfa_stats (tree_ssa_dump_file);
-
-      if (tree_ssa_dump_flags & TDF_REFS)
-	dump_referenced_vars (tree_ssa_dump_file);
-
-      if (tree_ssa_dump_flags & TDF_RDEFS)
-	dump_reaching_defs (tree_ssa_dump_file);
 
       dump_end (TDI_ssa, tree_ssa_dump_file);
     }

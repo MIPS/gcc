@@ -502,7 +502,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
   else
     {
       fprintf (stderr, "simplification failed:\n");
-      print_generic_tree (stderr, *expr_p, PPF_BRIEF);
+      print_generic_expr (stderr, *expr_p, 0);
       debug_tree (*expr_p);
       abort ();
     }

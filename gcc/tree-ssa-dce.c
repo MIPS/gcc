@@ -152,7 +152,7 @@ tree_ssa_eliminate_dead_code (fndecl)
       if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
       else
-	print_generic_tree (dump_file, fnbody, 0);
+	print_generic_stmt (dump_file, fnbody, dump_flags);
 
       fprintf (dump_file, "Finding obviously useful instructions:\n");
     }
@@ -282,7 +282,7 @@ tree_ssa_eliminate_dead_code (fndecl)
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
 		  fprintf (dump_file, "Warning: removing ");
-		  print_generic_node (dump_file, t, PPF_IS_STMT);
+		  print_generic_stmt (dump_file, t, TDF_SLIM);
 		}
 	      stats.removed++;
 
@@ -312,7 +312,7 @@ tree_ssa_eliminate_dead_code (fndecl)
       if (dump_flags & TDF_RAW)
         dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
       else
-        print_generic_tree (dump_file, fnbody, 0);
+        print_generic_stmt (dump_file, fnbody, dump_flags);
 
       print_stats ();
 
