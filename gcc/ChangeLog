@@ -1,3 +1,8 @@
+2004-02-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* config/darwin.h (machopic_finish): Output stub even if the
+	symbol is already defined.
+
 2004-02-27  Dale Johannesen  <dalej@apple.com>
 
         * config/darwin.c (machopic_output_possible_stub_label):  Remove.
