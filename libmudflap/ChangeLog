@@ -1,3 +1,16 @@
+2002-10-01  Frank Ch. Eigler  <fche@redhat.com>
+
+	* test/pass23-frag.c: New test for bit_field_ref expressions.
+	* Makefile.am, Makefile.in: Add new test.
+	* mf-hooks.c (mmap, munmap): Rewrite to track individual pages.
+	(MF_VALIDATE_EXTENT): Accept zero-size mem/str operations.
+	* mf-runtime.c (__mf_init): Register errno global.
+	(__mf_find_object): Removed function.
+	(__mf_check): Rewrite logic to support accesses across some
+	contiguous but distinctly registered objects.
+	(__mf_remove_old_object): Tolerate cache entries that span
+	contiguous objects.
+
 2002-09-30  Frank Ch. Eigler  <fche@redhat.com>
 
 	* test/pass21-frag.c, pass22-frag.c: New tests: alloca, bitfields.

@@ -19,6 +19,7 @@ XXX: libgcc license?
 #include <limits.h>
 #include <sys/types.h>
 #include <signal.h>
+#include <errno.h>
 
 #include "mf-runtime.h"
 #include "mf-impl.h"
@@ -447,6 +448,11 @@ void __mf_init ()
 		     (uintptr_t) 0xC0000000 - (uintptr_t) (& foo),
 		     __MF_TYPE_GUESS,
 		     "argv/environ area");
+      /* XXX: separate heuristic? */
+      __mf_register ((uintptr_t) & errno,
+		     (uintptr_t) sizeof (errno),
+		     __MF_TYPE_GUESS,
+		     "errno area");
     }
 }
 
@@ -507,7 +513,6 @@ __mf_object_tree_t *__mf_object_root;
 unsigned __mf_object_dead_head[__MF_TYPE_MAX_CEM]; /* next empty spot */
 __mf_object_tree_t *__mf_object_cemetary[__MF_TYPE_MAX_CEM][__MF_PERSIST_MAX];
 
-static __mf_object_tree_t *__mf_find_object (uintptr_t low, uintptr_t high);
 static unsigned __mf_find_objects (uintptr_t ptr_low, uintptr_t ptr_high, 
 				   __mf_object_tree_t **objs, unsigned max_objs);
 static unsigned __mf_find_dead_objects (uintptr_t ptr_low, uintptr_t ptr_high, 
@@ -525,7 +530,7 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 {
   unsigned entry_idx = __MF_CACHE_INDEX (ptr);
   struct __mf_cache *entry = & __mf_lookup_cache [entry_idx];
-  int violation_p = 0;
+  int judgement = 0; /* 0=undecided; <0=violation; >0=okay */
   uintptr_t ptr_high = CLAMPSZ (ptr, sz);
   struct __mf_cache old_entry = *entry;
 
@@ -536,95 +541,156 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
   switch (__mf_opts.mudflap_mode)
     {
     case mode_nop:
+      judgement = 1;
       break;
 
     case mode_populate:
       entry->low = ptr;
       entry->high = ptr_high;
+      judgement = 1;
       break;
 
     case mode_check:
       {
 	unsigned heuristics = 0;
-	/* Looping only occurs if heuristics were triggered.  */
-	while (1) 
+
+	/* Advance aging/adaptation counters.  */
+	if (__mf_object_root)
 	  {
-	    /* XXX: This search embodied by __mf_find_object prevents
-	       an access that spans contiguous objects.  Spanning two
-	       GUESS regions should be accepted, but can that happen?
-	       Maybe a heuristic that glues them together is
-	       needed.  */
-	    __mf_object_tree_t *node = __mf_find_object (ptr, ptr_high);
-	    __mf_object_t *obj = (node != NULL ? (& node->data) : NULL);
-	    
-	    if (LIKELY (obj && ptr >= obj->low && ptr_high <= obj->high))
+	    static unsigned aging_count;
+	    static unsigned adapt_count;
+	    aging_count ++;
+	    adapt_count ++;
+	    if (UNLIKELY (__mf_opts.tree_aging > 0 &&
+			  aging_count > __mf_opts.tree_aging))
 	      {
-		obj->check_count ++;  /* XXX: what about overflow?  */
-
-		/* Handle tree liveness aging and cache adaptation.  */
-		{
-		  static unsigned aging_count;
-		  static unsigned adapt_count;
-		  aging_count ++;
-		  adapt_count ++;
-		  if (UNLIKELY (__mf_opts.tree_aging > 0 &&
-				aging_count > __mf_opts.tree_aging))
-		    {
-		      aging_count = 0;
-		      __mf_age_tree (__mf_object_root);
-		    }
-		  obj->liveness ++;
-		  if (UNLIKELY (__mf_opts.adapt_cache > 0 &&
-				adapt_count > __mf_opts.adapt_cache))
-		    {
-		      adapt_count = 0;
-		      __mf_adapt_cache ();
-		    }
-		}
-
-		if (UNLIKELY (obj->type == __MF_TYPE_NOACCESS))
-		  {
-		    violation_p = 1;
-		  }
-		else
-		  {
-		    entry->low = obj->low;
-		    entry->high = obj->high;
-		  }
-		break;
+		aging_count = 0;
+		__mf_age_tree (__mf_object_root);
 	      }
-	    else if (heuristics++ < 2) /* XXX parametrize this number? */
+	    if (UNLIKELY (__mf_opts.adapt_cache > 0 &&
+			  adapt_count > __mf_opts.adapt_cache))
 	      {
-		int judgement = __mf_heuristic_check (ptr, ptr_high);
-		if (judgement < 0)
-		  {
-		    violation_p = 1;
-		    break;
-		  }
-		else if (judgement > 0)
-		  {
-		    violation_p = 0;
-		    break;
-		  }
-		else if (judgement == 0)
-		  {
-		    /* Undecided: try again.  Most likely, the heuristics function
-		       has deposited an object in the database and is expecting us
-		       to find it the next time around.  */
-		    continue;
-		  }
-	      }
-	    else /* no more heuristics iterations allowed */
-	      {
-		violation_p = 1;
-		break;
+		adapt_count = 0;
+		__mf_adapt_cache ();
 	      }
 	  }
+
+	/* Looping only occurs if heuristics were triggered.  */
+	while (judgement == 0)
+	  {
+	    __mf_object_tree_t* ovr_obj[1];
+	    unsigned obj_count;
+
+	    obj_count = __mf_find_objects (ptr, ptr_high, ovr_obj, 1);
+
+	    if (LIKELY (obj_count == 1)) /* A single hit! */
+	      {
+		__mf_object_t *obj = & ovr_obj[0]->data;
+		assert (obj != NULL);
+		if (LIKELY (ptr >= obj->low && ptr_high <= obj->high))
+		  {
+		    obj->check_count ++;  /* XXX: what about overflow?  */
+		    obj->liveness ++;
+		    
+		    if (UNLIKELY (obj->type == __MF_TYPE_NOACCESS))
+		      judgement = -1;
+		    else
+		      {
+			/* Valid access.  */
+			entry->low = obj->low;
+			entry->high = obj->high;
+			judgement = 1;
+		      }
+		  }
+		/* The object did not cover the entire accessed region.  */
+	      }
+	    else if (LIKELY (obj_count > 1))
+	      {
+		__mf_object_tree_t **all_ovr_objs;
+		unsigned n;
+		DECLARE (void *, malloc, size_t c);
+		DECLARE (void, free, void *p);
+
+		all_ovr_objs = CALL_REAL (malloc, (sizeof (__mf_object_tree_t *) *
+						   obj_count));
+		if (all_ovr_objs == NULL) abort ();
+		n = __mf_find_objects (ptr, ptr_high, all_ovr_objs, obj_count);
+		assert (n == obj_count);
+
+		/* Confirm that accessed range is covered by first/last object. */
+		if (LIKELY ((ptr >= all_ovr_objs[0]->data.low) &&
+			    (ptr_high <= all_ovr_objs[obj_count-1]->data.high)))
+		  {
+		    /* Presume valid access.  */
+		    judgement = 1;
+
+		    /* Confirm that intermediate objects are
+		       contiguous and share a single name.  Thus they
+		       are likely split up GUESS regions, or mmap
+		       pages.  The idea of the name check is to
+		       prevent an oversize access to a
+		       stack-registered object (followed by some GUESS
+		       type) from being accepted as a hit.  */
+		    for (n=0; n<obj_count-1; n++)
+		      {
+			__mf_object_t *obj = & (all_ovr_objs[n]->data);
+			__mf_object_t *nextobj = & (all_ovr_objs[n+1]->data);
+			
+			if (UNLIKELY (obj->type == __MF_TYPE_NOACCESS))
+			  judgement = -1; /* Force error. */
+			
+			if (UNLIKELY (judgement == 1 &&
+				      (obj->high + 1 != nextobj->low)))
+			  judgement = 0; /* Cancel presumption. */
+			
+			if (UNLIKELY (judgement == 1 &&
+				      (obj->name != nextobj->name)))
+			  judgement = 0; /* Cancel presumption. */
+			/* NB: strcmp above is not necessary since the
+			   same literal string pointer is normally
+			   used when creating regions.  */
+
+			obj->check_count ++;  /* XXX: what about overflow?  */
+			obj->liveness ++;
+		      }
+
+		    /* Fill out the cache with the bounds of the first
+		       object and the last object that covers this
+		       cache line (== includes the same __MF_CACHE_INDEX).
+		       This could let this cache line span *two* distinct
+		       registered objects: a peculiar but reasonable
+		       situation.  The cache line may not include the
+		       entire object though.  */
+		    if (judgement > 0)
+		      {
+			unsigned i;
+			entry->low = all_ovr_objs[0]->data.low;
+			for (i=0; i<obj_count; i++)
+			  {
+			    uintptr_t high = all_ovr_objs[i]->data.high;
+			    if (__MF_CACHE_INDEX (high) == entry_idx)
+			      entry->high = high;
+			  }
+		      }
+		  }
+
+		CALL_REAL (free, all_ovr_objs);
+	      }
+
+	    if (judgement == 0)
+	      {
+		if (heuristics++ < 2) /* XXX parametrize this number? */
+		  judgement = __mf_heuristic_check (ptr, ptr_high);
+		else
+		  judgement = -1;
+	      }
+	  }
+
       }
       break;
 
     case mode_violate:
-      violation_p = 1;
+      judgement = -1;
       break;
     }
 
@@ -639,7 +705,7 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
   
   END_RECURSION_PROTECT;
   
-  if (UNLIKELY (violation_p))
+  if (UNLIKELY (judgement < 0))
     __mf_violation (ptr, sz,
 		    (uintptr_t) __builtin_return_address (0), location,
 		    __MF_VIOL_CHECK);
@@ -687,7 +753,11 @@ __mf_remove_old_object (__mf_object_tree_t *old_obj)
       for (i = idx_low; i <= idx_high; i++)
 	{
 	  struct __mf_cache *entry = & __mf_lookup_cache [i];
-	  if (entry->low == low && entry->high == high)
+	  /* NB: the "||" in the following test permits this code to
+	     tolerate the situation introduced by __mf_check over
+	     contiguous objects, where a cache entry spans several 
+	     objects.  */
+	  if (entry->low == low || entry->high == high)
 	    {
 	      entry->low = entry->high = (uintptr_t) 0;
 	    }
@@ -798,7 +868,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 		if (all_ovr_objs == NULL) abort ();
 		num_ovr_objs = __mf_find_objects (low, high, all_ovr_objs,
 						  num_overlapping_objs);
-		/* assert (num_ovr_objs == num_overlapping_objs); */
+		assert (num_ovr_objs == num_overlapping_objs);
 
 		VERBOSE_TRACE ("mf: splitting guess %08lx-%08lx, # overlaps: %u\n",
 			       low, high, num_ovr_objs);
@@ -1262,23 +1332,6 @@ __mf_find_objects_rec (uintptr_t low, uintptr_t high, __mf_object_tree_t **nodep
     }
 
   return count;
-}
-
-
-__mf_object_tree_t *
-__mf_find_object (uintptr_t low, uintptr_t high)
-{
-  __mf_object_tree_t* objects[1]; /* Find at most one.  */
-  unsigned count;
-
-  if (UNLIKELY(__mf_opts.internal_checking))
-    __mf_validate_objects ();
-
-  count = __mf_find_objects_rec (low, high, & __mf_object_root, objects, 1);
-  if (count == 1)
-    return objects[0];
-  else
-    return NULL;
 }
 
 

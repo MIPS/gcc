@@ -25,7 +25,7 @@ XXX: libgcc license?
 
 #define MF_VALIDATE_EXTENT(value,size,context)                \
  {                                                            \
-  if (UNLIKELY (__MF_CACHE_MISS_P (value, size)))             \
+  if (UNLIKELY (size > 0 && __MF_CACHE_MISS_P (value, size))) \
     {                                                         \
     enum __mf_state resume_state = old_state;                 \
     __mf_state = old_state;                                   \
@@ -250,17 +250,32 @@ WRAPPER(void *, mmap,
   result = CALL_REAL(mmap, start, length, prot, 
 			flags, fd, offset);
 
+  /*
+  VERBOSE_TRACE ("mf: mmap (%08lx, %08lx, ...) => %08lx\n", 
+		 (uintptr_t) start, (uintptr_t) length,
+		 (uintptr_t) result);
+  */
+
   __mf_state = old_state;
 
-  if ((uintptr_t)result != -1)
+  if (result != (void *)-1)
     {
-      __mf_register ((uintptr_t) result, 
-		     (uintptr_t) CLAMPADD(((uintptr_t)result),
-					  ((uintptr_t)
-					   CLAMPSUB(((uintptr_t)length),
-						    ((uintptr_t)1)))),
-		     __MF_TYPE_GUESS, 
-		     "(heuristic) mmap region");
+      /* Register each page as a heap object.  Why not register it all
+	 as a single segment?  That's so that a later munmap() call
+	 can unmap individual pages.  XXX: would __MF_TYPE_GUESS make
+	 this more automatic?  */
+      size_t ps = getpagesize ();
+      uintptr_t base = (uintptr_t) result;
+      uintptr_t offset;
+
+      for (offset=0; offset<length; offset+=ps)
+	{
+	  /* XXX: We could map PROT_NONE to __MF_TYPE_NOACCESS. */
+	  /* XXX: Unaccassed HEAP pages are reported as leaks.  Is this
+	     appropriate for unaccessed mmap pages? */
+	  __mf_register (CLAMPADD (base, offset), ps,
+			 __MF_TYPE_HEAP, "mmap page");
+	}
     }
 
   return result;
@@ -276,8 +291,24 @@ WRAPPER(int , munmap, void *start, size_t length)
   
   result = CALL_REAL(munmap, start, length);
 
+  /*
+  VERBOSE_TRACE ("mf: munmap (%08lx, %08lx, ...) => %08lx\n", 
+		 (uintptr_t) start, (uintptr_t) length,
+		 (uintptr_t) result);
+  */
+
   __mf_state = old_state;
-  __mf_unregister ((uintptr_t)start, length);
+
+  if (result == 0)
+    {
+      /* Unregister each page as a heap object.  */
+      size_t ps = getpagesize ();
+      uintptr_t base = (uintptr_t) start & (~ (ps - 1)); /* page align */
+      uintptr_t offset;
+
+      for (offset=0; offset<length; offset+=ps)
+	__mf_unregister (CLAMPADD (base, offset), ps);
+    }
   return result;
 }
 #endif
