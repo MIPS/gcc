@@ -1,3 +1,9 @@
+2004-07-26  Matt Austern  <austern@apple.com>
+
+        Radar 3739315 and 3739328
+	* Forward-port dead-code-stripping changes in config/darwin.[ch]
+	from 3.3.
+
 2004-07-13  Matt Austern  <austern@apple.com>
 
 	Radar 3278745, 3419910, 3432773
