@@ -95,8 +95,8 @@ static int uncond_jump_length;
 static int array_size;
 
 /* To avoid frequent reallocation the size of arrays is greater than needed,
-   the number of elements is (not less than) 1.2 * size_wanted.  */
-#define GET_ARRAY_SIZE(X) ((((X) / 5) + 1) * 6)
+   the number of elements is (not less than) 1.25 * size_wanted.  */
+#define GET_ARRAY_SIZE(X) ((((X) / 4) + 1) * 5)
 
 /* Which trace is the bb start of (-1 means it is not a start of a trace).  */
 static int *start_of_trace;
