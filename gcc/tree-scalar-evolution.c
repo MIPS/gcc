@@ -879,8 +879,8 @@ add_to_evolution (unsigned loop_nb,
   
   /* TO_ADD is either a scalar, or a parameter.  TO_ADD is not
      instantiated at this point.  */
-  if (TREE_CODE (to_add) == POLYNOMIAL_CHREC)
-    /* This should not happen.  */
+  if (TREE_CODE (to_add) == POLYNOMIAL_CHREC
+      || TREE_CODE (to_add) == REAL_CST)
     return chrec_dont_know;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2336,13 +2336,20 @@ number_of_iterations_for_all_loops (varray_type exit_conditions)
   unsigned int i;
   unsigned nb_chrec_dont_know_loops = 0;
   unsigned nb_static_loops = 0;
+  unsigned nb_estimated_loops = 0;
   
   for (i = 0; i < VARRAY_ACTIVE_SIZE (exit_conditions); i++)
     {
-      tree res = number_of_iterations_in_loop 
-	(loop_containing_stmt (VARRAY_TREE (exit_conditions, i)));
+      struct loop *loop = loop_containing_stmt (VARRAY_TREE (exit_conditions, 
+							     i));
+      tree res = number_of_iterations_in_loop (loop);
       if (chrec_contains_undetermined (res))
-	nb_chrec_dont_know_loops++;
+	{
+	  if (loop->estimated_nb_iterations)
+	    nb_estimated_loops++;
+	  else
+	    nb_chrec_dont_know_loops++;
+	}
       else
 	nb_static_loops++;
     }
@@ -2353,6 +2360,7 @@ number_of_iterations_for_all_loops (varray_type exit_conditions)
       fprintf (dump_file, "-----------------------------------------\n");
       fprintf (dump_file, "%d\tnb_chrec_dont_know_loops\n", nb_chrec_dont_know_loops);
       fprintf (dump_file, "%d\tnb_static_loops\n", nb_static_loops);
+      fprintf (dump_file, "%d\tnb_estimated_loops\n", nb_estimated_loops);
       fprintf (dump_file, "%d\tnb_total_loops\n", current_loops->num);
       fprintf (dump_file, "-----------------------------------------\n");
       fprintf (dump_file, ")\n\n");
@@ -2373,6 +2381,7 @@ struct chrec_stats
   unsigned nb_higher_poly;
   unsigned nb_chrec_dont_know;
   unsigned nb_undetermined;
+  unsigned nb_other;
 };
 
 /* Reset the counters.  */
@@ -2386,6 +2395,7 @@ reset_chrecs_counters (struct chrec_stats *stats)
   stats->nb_higher_poly = 0;
   stats->nb_chrec_dont_know = 0;
   stats->nb_undetermined = 0;
+  stats->nb_other = 0;
 }
 
 /* Dump the contents of a CHREC_STATS structure.  */
@@ -2404,6 +2414,8 @@ dump_chrecs_stats (FILE *file, struct chrec_stats *stats)
   fprintf (file, "%d\ttotal chrecs\n", stats->nb_chrecs);
   fprintf (file, "%d\twith undetermined coefficients\n", 
 	   stats->nb_undetermined);
+  fprintf (file, "%d\tother compound expressions\n", 
+	   stats->nb_other);
   fprintf (file, "-----------------------------------------\n");
   fprintf (file, "%d\tchrecs in the scev database\n", 
 	   (int) htab_elements (scalar_evolution_info));
@@ -2427,8 +2439,10 @@ gather_chrec_stats (tree chrec, struct chrec_stats *stats)
   
   stats->nb_chrecs++;
   
-  if (chrec == NULL_TREE)
+  if (chrec_contains_undetermined (chrec))
     {
+      if (dump_file && (dump_flags & TDF_STATS))
+	fprintf (dump_file, "  undetermined\n");
       stats->nb_undetermined++;
       return;
     }
@@ -2458,16 +2472,12 @@ gather_chrec_stats (tree chrec, struct chrec_stats *stats)
       break;
 
     default:
+      if (dump_file && (dump_flags & TDF_STATS))
+	fprintf (dump_file, "  other expression\n");
+      stats->nb_other++;
       break;
     }
-  
-  if (chrec_contains_undetermined (chrec))
-    {
-      if (dump_file && (dump_flags & TDF_STATS))
-	fprintf (dump_file, "  undetermined\n");
-      stats->nb_undetermined++;
-    }
-  
+    
   if (dump_file && (dump_flags & TDF_STATS))
     fprintf (dump_file, ")\n");
 }
@@ -2495,20 +2505,34 @@ analyze_scalar_evolution_for_all_loop_phi_nodes (varray_type exit_conditions)
       struct loop *loop;
       basic_block bb;
       tree phi, chrec;
+      VEC (tree) *loop_phis;
+      int j;
       
       loop = loop_containing_stmt (VARRAY_TREE (exit_conditions, i));
       bb = loop->header;
-      
+
+      loop_phis = VEC_alloc (tree, 2);
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	if (is_gimple_reg (PHI_RESULT (phi)))
-	  {
-	    chrec = instantiate_parameters 
-	      (loop, 
-	       analyze_scalar_evolution (loop, PHI_RESULT (phi)));
+	{
+	  if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)))
+	    continue;
+	  
+	  VEC_safe_push (tree, loop_phis, phi);
+	}
+      
+      for (j = 0; VEC_iterate (tree, loop_phis, j, phi); j++)
+	{
+	  if (is_gimple_reg (PHI_RESULT (phi)))
+	    {
+	      chrec = instantiate_parameters 
+		(loop, 
+		 analyze_scalar_evolution (loop, PHI_RESULT (phi)));
 	    
-	    if (dump_file && (dump_flags & TDF_STATS))
-	      gather_chrec_stats (chrec, &stats);
-	  }
+	      if (dump_file && (dump_flags & TDF_STATS))
+		gather_chrec_stats (chrec, &stats);
+	    }
+	}
+      VEC_free (tree, loop_phis);
     }
   
   if (dump_file && (dump_flags & TDF_STATS))

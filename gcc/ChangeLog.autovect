@@ -1,3 +1,23 @@
+2005-02-14  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-data-ref.c (subscript_dependence_tester): Count only once 
+	dependent relations instead of incrementing num_dependence_dependent 
+	for each subscript.
+	* tree-scalar-evolution.c (add_to_evolution): Don't handle REAL_CST.
+	(number_of_iterations_for_all_loops): Count the number of loops for 
+	which there is an estimation of the number of iterations.
+	(number_of_iterations_for_all_loops): Print nb_estimated_loops.
+	(chrec_stats): Add nb_other.
+	(reset_chrecs_counters): Initialize to zero nb_other.
+	(dump_chrecs_stats): Dump nb_other, the number of compound
+	expressions.
+	(gather_chrec_stats): Count the number of undetermined chrecs before 
+	the classification.  On the default case, increment nb_other.
+	(analyze_scalar_evolution_for_all_loop_phi_nodes): Avoid iterating 
+	over the loop phis, because some of them could be removed
+	during the analysis.  Record the phi nodes that have to be analyzed 
+	in a vector of trees.
+
 2005-02-12  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* tree-vectorizer.h (vect_def_type): New enum definition.

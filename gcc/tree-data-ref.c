@@ -2016,7 +2016,7 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
  	{
  	  finalize_ddr_dependent (ddr, chrec_dont_know);
 	  dependence_stats.num_dependence_undetermined++;
-	  break;
+	  goto subs_test_end;
  	}
       
       else if (overlaps_a == chrec_known
@@ -2024,7 +2024,7 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
  	{
  	  finalize_ddr_dependent (ddr, chrec_known);
 	  dependence_stats.num_dependence_independent++;
- 	  break;
+	  goto subs_test_end;
  	}
       
       else
@@ -2032,10 +2032,12 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
  	  SUB_CONFLICTS_IN_A (subscript) = overlaps_a;
  	  SUB_CONFLICTS_IN_B (subscript) = overlaps_b;
 	  SUB_LAST_CONFLICT (subscript) = last_conflicts;
-	  dependence_stats.num_dependence_dependent++;
  	}
     }
-  
+
+  dependence_stats.num_dependence_dependent++;
+
+ subs_test_end:;
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");
 }
