@@ -1,3 +1,8 @@
+
+2003-11-02  Canqun Yang  <canqun@nudt.edu.cn>
+
+	* match.c (gfc_match_stopcode): Assign '0' to stop_code.
+
 2003-10-27  Anthony Green  <green@redhat.com>
 
 	* Make-lang.in (f95.stageprofile): Use tabs, not spaces.
