@@ -61,7 +61,7 @@ Boston, MA 02111-1307, USA.  */
 #undef	RS6000_ABI_NAME
 #define	RS6000_ABI_NAME (TARGET_64BIT ? "aixdesc" : "sysv")
 
-#define	MASK_PROFILE_KERNEL	0x00080000
+#define	MASK_PROFILE_KERNEL	0x00100000
 
 /* Non-standard profiling for kernels, which just saves LR then calls
    _mcount without worrying about arg saves.  The idea is to change
@@ -108,16 +108,21 @@ Boston, MA 02111-1307, USA.  */
 	      target_flags &= ~MASK_PROTOTYPE;			\
 	      error (INVALID_64BIT, "prototype");		\
 	    }							\
+          if ((target_flags & MASK_POWERPC64) == 0)		\
+	    {							\
+	      target_flags |= MASK_POWERPC64;			\
+	      error ("-m64 requires a PowerPC64 cpu");		\
+	    }							\
 	}							\
       else							\
 	{							\
 	  if (!RS6000_BI_ARCH_P)				\
 	    error (INVALID_32BIT, "32");			\
-	  if (TARGET_PROFILE_KERNEL)					\
-	    {								\
-	      target_flags &= ~MASK_PROFILE_KERNEL;			\
-	      error (INVALID_32BIT, "profile-kernel");			\
-	    }								\
+	  if (TARGET_PROFILE_KERNEL)				\
+	    {							\
+	      target_flags &= ~MASK_PROFILE_KERNEL;		\
+	      error (INVALID_32BIT, "profile-kernel");		\
+	    }							\
 	}							\
     }								\
   while (0)
@@ -196,6 +201,10 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #ifndef RS6000_BI_ARCH
+
+/* 64-bit PowerPC Linux is always big-endian.  */
+#undef	TARGET_LITTLE_ENDIAN
+#define TARGET_LITTLE_ENDIAN	0
 
 /* 64-bit PowerPC Linux always has a TOC.  */
 #undef  TARGET_TOC

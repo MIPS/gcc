@@ -1,3 +1,22 @@
+2004-01-29  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Ensure
+	target_flags has MASK_POWERPC64 when -m64.
+	(MASK_PROFILE_KERNEL): Bump in anticipation of MASK_MFCRF.
+	* config/rs6000/rs6000.h: Correct target_flags free bits comment.
+
+	Missed from 2004-01-14 commit.
+	* config/rs6000/linux64.h (TARGET_LITTLE_ENDIAN): Redefine as 0.
+
+	Backport from mainline, MASK_AIX_STRUCT_RET_SET too.
+	2002-12-25  David Edelsohn  <edelsohn@gnu.org>
+	* config/rs6000/rs6000.c (rs6000_override_options): Convert to
+	tartet_flags_explicit.
+	* config/rs6000/rs6000.h (MASK_MULTIPLE_SET, MASK_STRING_SET): Delete.
+	Compact target_flags bits.
+	(TARGET_MULTIPLE_SET, TARGET_STRING_SET): Delete.
+	(TARGET_SWITCHES): Delete references to *_SET flags.
+
 2004-01-28  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* config/s390/s390.md ("cmpmem_long_64", "cmpmem_long_31"):
