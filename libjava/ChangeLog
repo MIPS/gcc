@@ -1,3 +1,12 @@
+2004-06-24  Graydon Hoare  <graydon@redhat.com>
+
+	* Makefile.am
+	(jv_convert_LDADD):
+	(gij_LDADD):
+	(rmic_LDADD):
+	(rmiregistry_LDADD): Add lib-java-util-logging.la
+	* Makefile.in: Regenerate.
+
 2004-06-23  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/text/AbstractDocument.java

@@ -804,7 +804,7 @@ jv_convert_LINK = $(GCJLINK)
 ## searched before the build-tree ones, and we'd get errors because of
 ## different libraries with the same SONAME from picky linkers such as
 ## Solaris'.  FIXME: should be _libs on some systems.
-jv_convert_LDADD = -L$(here)/.libs libgcj.la
+jv_convert_LDADD = -L$(here)/.libs libgcj.la lib-java-util-logging.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
 jv_convert_DEPENDENCIES = $(convert_source_files:.java=.lo) \
@@ -817,7 +817,7 @@ gij_SOURCES = gij.cc
 gij_LDFLAGS = -rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 gij_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
-gij_LDADD = -L$(here)/.libs libgcj.la
+gij_LDADD = -L$(here)/.libs libgcj.la lib-java-util-logging.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
 gij_DEPENDENCIES = libgcj.la libgcj.spec
@@ -829,7 +829,7 @@ rmic_LDFLAGS = --main=gnu.java.rmi.rmic.RMIC \
 	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 rmic_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
-rmic_LDADD = -L$(here)/.libs libgcj.la
+rmic_LDADD = -L$(here)/.libs libgcj.la lib-java-util-logging.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
 rmic_DEPENDENCIES = libgcj.la libgcj.spec
@@ -841,7 +841,7 @@ rmiregistry_LDFLAGS = --main=gnu.java.rmi.registry.RegistryImpl \
 	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 rmiregistry_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
-rmiregistry_LDADD = -L$(here)/.libs libgcj.la
+rmiregistry_LDADD = -L$(here)/.libs libgcj.la lib-java-util-logging.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
 rmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
