@@ -3642,7 +3642,7 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, gfc_ss * ss, int g77)
       sym = expr->symtree->n.sym;
       tmp = gfc_get_symbol_decl (sym);
       if (!sym->attr.pointer && sym->as->type != AS_ASSUMED_SHAPE 
-          && !sym->attr.allocatable && !sym->attr.in_common)
+          && !sym->attr.allocatable)
         {
           if (!sym->attr.dummy)
 	    se->expr = gfc_build_addr_expr (NULL, tmp);
@@ -3653,11 +3653,6 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, gfc_ss * ss, int g77)
       if (sym->attr.allocatable)
         {
           se->expr = gfc_conv_array_data (tmp);
-          return;
-        }
-      if (sym->attr.in_common)
-        {
-          se->expr = TREE_OPERAND (tmp, 0);
           return;
         }
     }

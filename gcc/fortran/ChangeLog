@@ -1,3 +1,17 @@
+2003-12-05  Canqun Yang  <canqun@nudt.edu.cn>
+
+	* trans-common.c: Re-implement COMMON blocks and EQUIVALENCE lists.
+	* trans-equivalence.c: Remove.
+	* trans-decl.c (gfc_get_symbol_decl): Update to match.
+	(gfc_generate_function_code): Ditto.
+	* trans-array.c (gfc_conv_array_parameter): Ditto.
+	* Make-lang.in (F95_OBJS): Remove fortran/trans-equivalence.o
+	(F95_ADDITIONAL_OBJS): Add stor-layout.o
+	* trans.h (gfc_trans_equivalence): Remove.
+	* gfortran.h (struct gfc_equiv): Add used field.
+	(struct gfc_symbol): Remove addr_base, addr_offset, equiv_ring,
+	equiv_offset fields.
+
 2003-12-05  Richard Henderson  <rth@redhat.com>
 
 	* trans.c (gfc_build_addr_expr): New.

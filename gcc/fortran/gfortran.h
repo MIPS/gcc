@@ -651,15 +651,6 @@ typedef struct gfc_symbol
   int refs;
   struct gfc_namespace *ns;	/* namespace containing this symbol */
 
-  /* To hold the storage layout for a COMMON variable or an EQUIVALENCE
-     object.  */
-  tree addr_base;
-  tree addr_offset;
-
-  /* Information for an EQUIVALENCE object */
-  struct gfc_symbol *equiv_ring;
-  HOST_WIDE_INT equiv_offset;
-
   tree backend_decl;
 
 }
@@ -994,6 +985,7 @@ typedef struct gfc_equiv
 {
   struct gfc_equiv *next, *eq;
   gfc_expr *expr;
+  int used;
 }
 gfc_equiv;
 

@@ -694,41 +694,6 @@ gfc_get_symbol_decl (gfc_symbol * sym)
   if (sym->attr.intrinsic)
     internal_error ("intrinsic variable which isn't a procedure");
 
-  if (sym->addr_base)
-    {
-      /* For COMMON variables or local EQUIVALENCE objects we
-         access then through the composite object.
-         *(type_t *)&block[offset] */
-
-      decl = gfc_build_array_ref (sym->addr_base, sym->addr_offset);
-      decl = gfc_build_addr_expr (build_pointer_type (gfc_sym_type (sym)),
-				  decl);
-      decl = gfc_build_indirect_ref (decl);
-
-#if 0
-      /* TODO: output symbols in COMMON for debugging information.  */
-      rtx base = DECL_RTL (sym->addr_base);
-      HOST_WIDE_INT offset = TREE_INT_CST_LOW (sym->addr_offset);
-
-      SET_DECL_RTL (decl,
-                    gen_rtx_MEM (DECL_MODE (decl),
-                                 plus_constant (XEXP (base, 0), offset)));
-#endif
-      if (sym->ts.type == BT_CHARACTER)
-        {
-          assert (sym->ts.cl->length->expr_type == EXPR_CONSTANT);
-
-	  length =
-	    gfc_conv_mpz_to_tree (sym->ts.cl->length->value.integer, 4);
-          /* TODO: string variables.  */
-          /* We usually store the string length in the DECL node.
-             Problem is we don't have a decl nodes for variables which
-             are part of a common block.  */
-          gfc_todo_error ("CHARACTER inside COMMON or EQUIVALENCE");
-	}
-      return decl;
-    }
-
   decl = build_decl (VAR_DECL, gfc_sym_identifier (sym), gfc_sym_type (sym));
 
   /* Symbols from modules have its assembler name should be mangled.
@@ -1863,9 +1828,6 @@ gfc_generate_function_code (gfc_namespace * ns)
   gfc_start_block (&block);
 
   gfc_generate_contained_functions (ns);
-
-  /* Translate EQUIVALENCE lists.  */
-  gfc_trans_equivalence (ns);
 
   /* Translate COMMON blocks.  */
   gfc_trans_common (ns);
