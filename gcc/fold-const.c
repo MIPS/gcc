@@ -9025,6 +9025,15 @@ nondestructive_fold_binary_to_constant (enum tree_code code, tree type,
   switch (code)
     {
     case PLUS_EXPR:
+      /* (plus (address) (const_int)) is a constant.  */
+      if (TREE_CODE (op0) == PLUS_EXPR
+	  && TREE_CODE (op1) == INTEGER_CST
+	  && TREE_CODE (TREE_OPERAND (op0, 0)) == ADDR_EXPR
+	  && TREE_CODE (TREE_OPERAND (op0, 1)) == INTEGER_CST)
+	{
+          return build (PLUS_EXPR, type, TREE_OPERAND (op0, 0),
+			const_binop (PLUS_EXPR, op1, TREE_OPERAND (op0, 1), 0));
+	}
     case BIT_XOR_EXPR:
 
     binary:

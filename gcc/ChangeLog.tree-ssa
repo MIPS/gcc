@@ -1,5 +1,10 @@
 2003-10-25  Jan Hubicka  <jh@suse.cz>
 
+	* fold-const.c (nondestructive_fold_binary_to_constant): Realize that
+	(plus (address) (const_int)) is a constant.
+
+2003-10-25  Jan Hubicka  <jh@suse.cz>
+
 	* opts.c (decode_options): Uncomment unit-at-a-time setting
 	* params.def: Syncrhonize with manline.
 	* tree-inline.c (initialize_inlined_parameters):  Set variable as
