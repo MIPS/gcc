@@ -4197,6 +4197,60 @@ const struct real_format i370_double_format =
     false, /* ??? The encoding does allow for "unnormals".  */
     false
   };
+
+const struct real_format decimal_single_format =
+  {
+    encode_i370_single,
+    decode_i370_single,
+    16,
+    4,
+    6,
+    6,
+    -64,
+    63,
+    31,
+    false,
+    false,
+    false, /* ??? The encoding does allow for "unnormals".  */
+    false, /* ??? The encoding does allow for "unnormals".  */
+    false
+  };
+
+const struct real_format decimal_double_format =
+  {
+    encode_i370_double,
+    decode_i370_double,
+    16,
+    4,
+    14,
+    14,
+    -64,
+    63,
+    63,
+    false,
+    false,
+    false, /* ??? The encoding does allow for "unnormals".  */
+    false, /* ??? The encoding does allow for "unnormals".  */
+    false
+  };
+
+const struct real_format decimal_quad_format =
+  {
+    encode_i370_double,
+    decode_i370_double,
+    16,
+    4,
+    14,
+    14,
+    -64,
+    63,
+    63,
+    false,
+    false,
+    false, /* ??? The encoding does allow for "unnormals".  */
+    false, /* ??? The encoding does allow for "unnormals".  */
+    false
+  };
 
 /* The "twos-complement" c4x format is officially defined as
 

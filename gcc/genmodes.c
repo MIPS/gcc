@@ -71,6 +71,7 @@ struct mode_data
 
   const char *file;		/* file and line of definition, */
   unsigned int line;		/* for error reporting */
+  unsigned int counter;		/* Rank ordering of modes */
 };
 
 static struct mode_data *modes[MAX_MODE_CLASS];
@@ -81,7 +82,7 @@ static const struct mode_data blank_mode = {
   0, "<unknown>", MAX_MODE_CLASS,
   -1U, -1U, -1U, -1U,
   0, 0, 0, 0, 0,
-  "<unknown>", 0
+  "<unknown>", 0, 0
 };
 
 static htab_t modes_by_name;
@@ -145,6 +146,7 @@ new_mode (enum mode_class cl, const char *name,
 	  const char *file, unsigned int line)
 {
   struct mode_data *m;
+  static unsigned int count = 0;
 
   m = find_mode (name);
   if (m)
@@ -162,6 +164,7 @@ new_mode (enum mode_class cl, const char *name,
   if (file)
     m->file = trim_filename (file);
   m->line = line;
+  m->counter = count++;
 
   m->next = modes[cl];
   modes[cl] = m;
@@ -428,17 +431,22 @@ make_complex_modes (enum mode_class cl,
          This inconsistency should be eliminated.  */
       if (cl == MODE_FLOAT)
 	{
-	  char *p;
+	  char *p, *q;
 	  strncpy (buf, m->name, sizeof buf);
 	  p = strchr (buf, 'F');
 	  if (p == 0)
+	    q = strchr (buf, 'D');
+	  if (p == 0 && q == 0)
 	    {
-	      error ("%s:%d: float mode \"%s\" has no 'F'",
+	      error ("%s:%d: float mode \"%s\" has no 'F' or 'D'",
 		     m->file, m->line, m->name);
 	      continue;
 	    }
 
-	  *p = 'C';
+	  if (p != 0)
+	    *p = 'C';
+	  else
+	    snprintf (buf, sizeof buf, "C%s", m->name);
 	}
       else
 	snprintf (buf, sizeof buf, "C%s", m->name);
@@ -674,7 +682,12 @@ cmp_modes (const void *a, const void *b)
     return -1;
 
   if (!m->component && !n->component)
-    return 0;
+    {
+      if (m->counter < n->counter)
+	return -1;
+      else
+	return 1;
+    }
 
   if (m->component->bytesize > n->component->bytesize)
     return 1;
@@ -686,7 +699,10 @@ cmp_modes (const void *a, const void *b)
   else if (m->component->precision < n->component->precision)
     return -1;
 
-  return 0;
+  if (m->counter < n->counter)
+    return -1;
+  else
+    return 1;
 }
 
 static void

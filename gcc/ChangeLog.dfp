@@ -1,3 +1,20 @@
+2005-02-14  David Edelsohn  <dje@watson.ibm.com>
+
+	* config/rs6000/rs6000-modes.def: Add decimal floating point SDmode,
+	DDmode, and TDmode.
+	* real.h (decimal_single_format): Declare.
+	(decimal_double_format): Likewise.
+	(decimal_quad_format): Likewise.
+	* real.c (decimal_single_format): Define placeholder.
+	(decimal_double_format): Likewise.
+	(decimal_quad_format): Likewise.
+	* genmodes.c (struct mode_data): Add counter field.
+	(blank_mode): Clear counter field.
+	(new_mode): Increment counter field for each mode defined.
+	(make_complex_modes): Prepend D for user-specified complex
+	float modes.
+	(cmp_modes): Compare counter field if other characteristics similar.
+
 2005-02-14  Ben Elliston  <bje@au.ibm.com>
 
 	* Start this ChangeLog.
