@@ -201,6 +201,10 @@ dump_c_node (buffer, node, spc)
 	  output_add_string (buffer, "const ");
 	else if (quals & TYPE_QUAL_VOLATILE)
 	  output_add_string (buffer, "volatile ");
+	else if (quals & TYPE_QUAL_RESTRICT)
+	  output_add_string (buffer, "restrict ");
+	else if (quals & TYPE_QUAL_BOUNDED)
+	  output_add_string (buffer, "bounded ");
 
 	class = TREE_CODE_CLASS (TREE_CODE (node));
 
@@ -265,8 +269,20 @@ dump_c_node (buffer, node, spc)
 	}
       else
         {
+	  unsigned int quals = TYPE_QUALS (node);
+	  char class;
+
           dump_c_node (buffer, TREE_TYPE (node), spc);
 	  output_add_string (buffer, " *");
+	  
+	  if (quals & TYPE_QUAL_CONST)
+	    output_add_string (buffer, " const");
+	  else if (quals & TYPE_QUAL_VOLATILE)
+	    output_add_string (buffer,  "volatile");
+	  else if (quals & TYPE_QUAL_RESTRICT)
+	    output_add_string (buffer, " restrict");
+	  else if (quals & TYPE_QUAL_BOUNDED)
+	    output_add_string (buffer, " bounded");
 	}
       break;
 
