@@ -1,3 +1,19 @@
+2003-10-14  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-alias-ander.c (throwaway_global): Delete.
+	(andersen_same_ponts_to_set): We handle all globals individually 
+	now.
+	* tree-alias-common.c:  Remove doxygen markers.
+	(get_alias_var_decl): Always create an alias var for globals now.
+	Assign the global alias vars to GLOBAL_VAR, too.
+	(intra_function_call): Fix logic, do a bit of pre-filtering to
+	avoid useless global aliasing.
+	(get_values_from_constructor): It's the same for field based and
+	not field based.
+	(create_alias_vars): Remove special global var handling.
+	(same_points_to_set): Ditto.
+	(ptr_may_alias_var): Ditto.
+
 2003-10-14  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (cleanup_control_flow): Pass last statement down to

@@ -832,32 +832,6 @@ simple_cmp (const aterm a, const aterm b)
   return (int *)a - (int *)b;
 }
 
-/* All this global var hackiness is because global_var is overloaded
-   in meaning. It's used for both call clobbering, and determining if
-   the global variable is aliased.  In order not to break call
-   clobbering, we delete global var when we are done, if we created
-   it.  
-   We also ignore global_var aliasing in that case, but we still
-   have to go through the motions because something like this can
-   happen (IE global var still participates in aliasing relationships):
-   global_var = &a;
-   b = global_var;  */
-extern bool we_created_global_var;
-extern tree old_global_var;
-
-/* Simple function that returns false if the aterm is the global
-   variable's aterm, and true otherwise.  */
-
-static bool 
-throwaway_global (const aterm a)
-{
-  if (DECL_PTA_TYPEVAR (old_global_var))
-    {
-      if (a == ALIAS_TVAR_ATERM (DECL_PTA_TYPEVAR (old_global_var)))
-	return false;
-    }
-  return true;
-}
 
 /* Determine if two aterm's have the same points-to set.
    When we didn't create global_var, we can just get the two points-to
@@ -888,22 +862,15 @@ andersen_same_points_to_set (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
       ALIAS_TVAR_PTSET (vartv) = ptset2;
     }
   
-  if (!we_created_global_var)
-    {
-      if (aterm_list_length (ptset1) != aterm_list_length (ptset2))
-	return false;
-    }
+  if (aterm_list_length (ptset1) != aterm_list_length (ptset2))
+    return false;
+
   if (ptset1 == ptset2)
     return true;
 
   ptset1 = aterm_list_copy (scratch_rgn, ptset1);
   ptset2 = aterm_list_copy (scratch_rgn, ptset2);
   
-  if (we_created_global_var)
-    {
-      ptset1 = aterm_list_filter (scratch_rgn, ptset1, throwaway_global);
-      ptset2 = aterm_list_filter (scratch_rgn, ptset2, throwaway_global);
-    }
   if (aterm_list_length (ptset1) != aterm_list_length (ptset2))
     return false;
 

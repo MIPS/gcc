@@ -49,42 +49,33 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "hashtab.h"
 #include "splay-tree.h"
 
-/**
-   @file tree-alias-common.c
-   This file contains the implementation of the common parts of the
-   tree points-to analysis infrastructure.
-
-   Overview:
-
-   This file contains the points-to analysis driver.  It does two main things:
-   1. Keeps track of the PTA data for each variable (IE the data each
-      specific PTA implementation wants to keep associated with a
-      variable).
-   2. Walks the function trees, calling the approriate functions that
-      each PTA implementation has implemented.
-
-   In order to speed up PTA queries, the PTA specific data is stored
-   in the tree for *_DECL's, in DECL_PTA_TYPEVAR.  This way, we only
-   need to use the hash table for non-DECL's.
-   
-*/
+/*  This file contains the implementation of the common parts of the
+    tree points-to analysis infrastructure.
+    
+    Overview:
+    
+    This file contains the points-to analysis driver.  It does two main things:
+    1. Keeps track of the PTA data for each variable (IE the data each
+    specific PTA implementation wants to keep associated with a
+    variable).
+    2. Walks the function trees, calling the approriate functions that
+    each PTA implementation has implemented.
+    
+    In order to speed up PTA queries, the PTA specific data is stored
+    in the tree for *_DECL's, in DECL_PTA_TYPEVAR.  This way, we only
+    need to use the hash table for non-DECL's.  */
 #define FIELD_BASED 0
 
-/**
-   @brief Array of all created alias_typevars.
-
-   @note Should contain all the alias_typevars we wanted marked
-   during GC.
-*/
+/*  Array of all created alias_typevars.
+    Note that this should contain all the alias_typevars we wanted
+    marked during GC.  */
 static GTY((param_is (union alias_typevar_def))) varray_type alias_vars = NULL;
 struct tree_alias_ops *current_alias_ops;
-/**
-   @brief  Array of local alias_typevars.
 
-   @note Should contain all the alias_typevars that are local to
-   this function.  We delete these from alias_vars before
-   collection.
-*/
+/*  Array of local (to a function) alias_typevars.
+    Note that this should contain all the alias_typevars that are
+    local to this function.  We delete these from alias_vars before
+    collection.  */
 static varray_type local_alias_vars;
 static varray_type local_alias_varnums;
 
@@ -103,9 +94,9 @@ static hashval_t annot_hash (const PTR);
 static int annot_eq (const PTR, const PTR);
 static void get_values_from_constructor (tree, varray_type *);
 static bool call_may_clobber (tree);
-bool we_created_global_var = false;
 
 /* Return true if a EXPR, which is a CALL_EXPR, may clobber variables.  */
+
 static bool
 call_may_clobber (tree expr)
 {
@@ -121,24 +112,20 @@ call_may_clobber (tree expr)
 }
 
 
-/**
-   @brief Alias annotation hash table entry.
+/*  Alias annotation hash table entry.
+    Used in the annotation hash table to map trees to their
+    alias_typevar's.  */
 
-   Used in the annotation hash table to map trees to their
-   alias_typevar's.
-*/
 struct alias_annot_entry GTY(())
 {
   tree key;
   alias_typevar value;
 };
 
-/**
-   @brief Alias annotation equality.
-   @param pentry Entry in the hash table.
-   @param pdata  Entry we gave the function calling this.
-   @return 1 if \a pentry is equal to \a pdata, 0 if not.
-*/
+/*  Alias annotation equality function. PENTRY is the hash table
+    entry, PDATA is the entry we gave the function calling this.
+    Return 1 if PENTRY is equal to PDATA.  */
+
 static int
 annot_eq (const PTR pentry, const PTR pdata)
 {
@@ -148,11 +135,8 @@ annot_eq (const PTR pentry, const PTR pdata)
   return entry->key == data->key;
 }
 
-/**
-   @brief Alias annotation hash function.
-   @param pentry Entry to hash.
-   @return Hash value of \a pentry.
-*/
+/*  Alias annotation hash function.  Hash PENTRY and return a value.  */
+
 static hashval_t
 annot_hash (const PTR pentry)
 {
@@ -160,21 +144,14 @@ annot_hash (const PTR pentry)
   return htab_hash_pointer (entry->key);
 }
 
-/**
-   @brief Alias annotation hash table.
+/*  Alias annotation hash table.  Maps vars to alias_typevars.  */
 
-   Maps vars to alias_typevars.
-*/
 static GTY ((param_is (struct alias_annot_entry))) htab_t alias_annot;
 
-/**
-   @brief Get the alias_type for a *_DECL.
-   @param decl *_DECL to get the alias_typevar for.
-   @return The alias_typevar for \a decl.
+/*  Get the alias_typevar for DECL.  
+    Creates the alias_typevar if it does not exist already. Also
+    handles FUNCTION_DECL properly.  */
 
-   @note Creates the alias_typevar if it does not exist already. Also
-   handles FUNCTION_DECL properly.
-*/
 static alias_typevar
 get_alias_var_decl (tree decl)
 {
@@ -191,11 +168,13 @@ get_alias_var_decl (tree decl)
     newvar = create_fun_alias_var  (decl, 0);
   else
     {
+      newvar = create_alias_var (decl);
+      /* Assign globals to global var for purposes of intraprocedural
+	 analyses. */
       if ((DECL_CONTEXT (decl) == NULL || TREE_PUBLIC (decl)
 	   || decl_function_context (decl) == NULL) && decl != global_var)
-	return get_alias_var (global_var);
-      else
-	newvar = create_alias_var (decl);
+	current_alias_ops->addr_assign (current_alias_ops, 
+					get_alias_var (global_var), newvar);
     }
 
   if (!current_alias_ops->ip)
@@ -212,13 +191,10 @@ get_alias_var_decl (tree decl)
   return newvar;
 }
 
-/**
-   @brief Get the alias_typevar for an expression.
-   @param expr Expression we want the alias_typevar of.
-   @return The alias_typevar for \a expr.
+/* Get the alias_typevar for an expression EXPR.
+   Note that this function expects to only be handed a RHS or LHS, not
+   a MODIFY_EXPR.  */
 
-   @note Expects to only be handed a RHS or LHS, not a MODIFY_EXPR.
-*/
 static alias_typevar
 get_alias_var (tree expr)
 {
@@ -307,13 +283,10 @@ get_alias_var (tree expr)
     }
 }
 
-/**
-   @param args Arguments that were passed to the function call.
+/*  Perform conservative aliasing for an intraprocedural mode function
+    call.  ARGS are the arguments that were passed to that function
+    call.  */
 
-   Handles function calls in intra-procedural mode, by making
-   conservative assumptions about what happens to arguments to the
-   call.
-*/
 static void
 intra_function_call (varray_type args)
 {
@@ -332,14 +305,10 @@ intra_function_call (varray_type args)
       if (!TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (argav)))
 	  || !TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (av))))
 	{
-	  alias_typevar tempvar;
-	  tree temp = create_tmp_alias_var (void_type_node, "aliastmp");
-	  tempvar = current_alias_ops->add_var (current_alias_ops, temp);
 	  /* Arguments can alias globals, and whatever they point to
 	     can point to a global as well. */
-	  current_alias_ops->addr_assign (current_alias_ops, argav, av);
-	  current_alias_ops->addr_assign (current_alias_ops, tempvar, av);
-	  current_alias_ops->assign_ptr (current_alias_ops, argav, tempvar);
+	  if (!TREE_READONLY (ALIAS_TVAR_DECL (argav)))
+	    current_alias_ops->simple_assign (current_alias_ops, argav, av);
 	}
     }
   /* We assume assignments among the actual parameters. */
@@ -347,6 +316,8 @@ intra_function_call (varray_type args)
     {
       alias_typevar argi = VARRAY_GENERIC_PTR (args, i);
       size_t j;
+      if (!POINTER_TYPE_P (TREE_TYPE (ALIAS_TVAR_DECL (argi))))
+	continue;
       for (j = 0; j < l; j++)
 	{
 	  alias_typevar argj;
@@ -354,22 +325,26 @@ intra_function_call (varray_type args)
 	    continue;
 	  argj = VARRAY_GENERIC_PTR (args, j);
 
+	  /* Non pointers can't point to pointers.  */
+	  if (!POINTER_TYPE_P (TREE_TYPE (ALIAS_TVAR_DECL (argj))))
+	    continue;
 	  /* Restricted pointers can't be aliased with other
 	     restricted pointers. */
 	  if (!TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (argi)))
 	      || !TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (argj))))
-	    current_alias_ops->simple_assign (current_alias_ops, argi, argj);
+	    /* Do a bit of TBAA to avoid pointless assignments. */
+	    if (alias_sets_conflict_p (get_alias_set (ALIAS_TVAR_DECL (argi)),
+				       get_alias_set (ALIAS_TVAR_DECL (argj))))	      
+	      current_alias_ops->simple_assign (current_alias_ops, argi, argj);
 	}
     }
 }
 
-/** @brief Put all pointers in a constructor in an array.  */
+/* Put all pointers in a constructor in an array.  */
+
 static void
 get_values_from_constructor (tree constructor, varray_type *vals)
 {
-#if FIELD_BASED
- #error "Don't know how to do this at the moment"
-#else
   tree elt_list;
   switch (TREE_CODE (constructor))
     {
@@ -406,21 +381,18 @@ get_values_from_constructor (tree constructor, varray_type *vals)
     default:
       abort();
     }
-#endif
 }
-/**
-   @brief Tree walker that is the heart of the aliasing
-   infrastructure.
-   @param tp Pointer to the current tree.
-   @param walk_subtrees Whether to continue traversing subtrees or
-   not.
-   @param data Not used.
-   @return NULL_TREE to keep going, anything else to stop.
 
-   This function is the main part of the aliasing infrastructure. It
-   walks the trees, calling the approriate alias analyzer functions to process
-   various statements.
-*/
+/*  Tree walker that is the heart of the aliasing infrastructure.
+    TP is a pointer to the current tree.
+    WALK_SUBTREES specifies whether to continue traversing subtrees or
+    not.
+    Returns NULL_TREE when we should stop.
+    
+    This function is the main part of the aliasing infrastructure. It
+    walks the trees, calling the approriate alias analyzer functions to process
+    various statements.  */
+
 static tree
 find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
@@ -715,21 +687,15 @@ find_func_decls (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 }
 #endif
 
-/**
-   @brief Create the alias_typevar for a function definition.
+/*  Create the alias_typevar for a function definition DECL, it's
+    arguments, and it's return value. If FORCE is true, we force 
+    creation of the alias_typevar, regardless of whether one exists already.
+    
+    This includes creation of alias_typevar's for
+    - The function itself.
+    - The arguments.
+    - The return value.  */
 
-   Create the alias_typevar for a function definition, it's
-   arguments, and it's return value.
-   @param decl FUNCTION_DECL for the function.
-   @param force If true, we force creation of the alias_typevar,
-   regardless of whether one exists already.
-
-   @note This includes creation of alias_typevar's for
-   -# The function itself.
-   -# The arguments.
-   -# The locals.
-   -# The return value.
-*/
 static alias_typevar
 create_fun_alias_var (tree decl, int force)
 {
@@ -826,20 +792,15 @@ create_fun_alias_var (tree decl, int force)
   return avar;
 }
 
-/**
-   @brief Create the alias_typevar for a ptf.
+/*  Create a typevar for a pointer-to-member function DECL of type TYPE, it's arguments,
+    and it's return value.
+    Returns the alias_typevar for the PTF.
+    
+    This includes creating alias_typevar's for
+    - The function itself.
+    - The arguments.
+    - The return value.  */
 
-   Create a typevar for a pointer-to-member function, it's arguments,
-   and it's return value.
-   @param decl The PTF FUNCTION_DECL.
-   @param type the PTF type
-   @return The alias_typevar for the PTF.
-
-   @note This includes creating alias_typevar's for
-   -# The function itself.
-   -# The arguments.
-   -# The return value.
-*/
 static alias_typevar
 create_fun_alias_var_ptf (tree decl, tree type)
 {
@@ -891,15 +852,12 @@ create_fun_alias_var_ptf (tree decl, tree type)
   return avar;
 }
 
-/**
-   @brief Create the alias_typevar for a *_DECL node.
-   @param decl Declaration to create alias_typevar for.
-   @return The alias_typevar for \a decl.
+/*  Create the alias_typevar for a *_DECL node DECL.
+    Returns the alias_typevar for DECL.
+    
+    This function also handles creation of alias_typevar's for PTF 
+    variables.  */
 
-   Create the alias_typevar for all types of declaration node.
-
-   @note Handles creation of alias_typevar's for PTF variables.
-*/
 static alias_typevar
 create_alias_var (tree decl)
 {
@@ -943,14 +901,12 @@ create_alias_var (tree decl)
 
   return avar;
 }
-tree old_global_var = NULL_TREE;
-/**
-   @brief Create points-to sets for a function.
-   @param fndecl Function we are creating alias variables for.
 
-   @note fndecl might not be current_function_decl, if we are in ip
-   mode or ip'ing all statics.
-*/
+/* Create points-to sets for function FNDECL.
+
+   Note that fndecl might not be current_function_decl, if we are in
+   ip mode or ip'ing all statics.  */
+
 void
 create_alias_vars (tree fndecl)
 {
@@ -959,14 +915,9 @@ create_alias_vars (tree fndecl)
   tree fnbody;
 #endif
   size_t i;
-  we_created_global_var = false;
   currptadecl = fndecl;
-  if (!global_var)
-    {
-      old_global_var = NULL_TREE;
-      create_global_var ();
-      we_created_global_var = true;
-    }
+  create_global_var ();
+
   /* If the #if block printing out the points-to sets is #if 0'd out, the
      compiler will complain i is unused. So use it. */
   i = 0;
@@ -1002,17 +953,11 @@ create_alias_vars (tree fndecl)
       find_func_decls, NULL);*/
   walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
 				find_func_aliases, NULL);
-  if (we_created_global_var)
-    {  
-      old_global_var = global_var;
-      global_var = NULL_TREE;
-    }
-
+  global_var = NULL_TREE;
 }
 
-/**
-   @brief Delete created points-to sets.
-*/
+/* Delete created points-to sets.  */
+
 void
 delete_alias_vars (void)
 {
@@ -1044,9 +989,8 @@ delete_alias_vars (void)
   current_alias_ops->cleanup (current_alias_ops);
 }
 
-/**
-   @brief Initialize points-to analysis machinery.
-*/
+/*  Initialize points-to analysis machinery.  */
+
 void
 init_alias_vars (void)
 {
@@ -1061,14 +1005,15 @@ init_alias_vars (void)
     alias_annot = htab_create_ggc (7, annot_hash, annot_eq, NULL);
 
 }
+
+/* Return true if PTR and VAR have the same points-to set.  */
+
 bool
 same_points_to_set (tree ptr, tree var)
 {
   struct alias_annot_entry entry, *result;
   alias_typevar ptrtv, vartv;
-  tree ptrcontext;
-  tree varcontext;
-
+  
 #if !FIELD_BASED
 #else
   if (TREE_CODE (ptr) == COMPONENT_REF)
@@ -1077,85 +1022,50 @@ same_points_to_set (tree ptr, tree var)
     var = TREE_OPERAND (var, 1);
 #endif
 
-  ptrcontext = DECL_CONTEXT (ptr);
-  varcontext = DECL_CONTEXT (var);
-  if (TREE_PUBLIC (ptr))
-    ptr = global_var;
-  else
-    {
-      if (ptrcontext != NULL && TREE_CODE (ptrcontext) != FUNCTION_DECL)
-	ptrcontext = decl_function_context (ptr);
-      if (ptrcontext == NULL)
-	ptr = global_var;
-    }
-  if (TREE_PUBLIC (var))
-    var = global_var;
-  else
-    {
-      if (varcontext != NULL && TREE_CODE (varcontext) != FUNCTION_DECL)
-	varcontext = decl_function_context (var);
-      if (varcontext == NULL)
-	var = global_var;
-    }
-  if (ptr == var || (ptrcontext == NULL && varcontext == NULL)
-      || (ptr == global_var))
+  if (ptr == var)
     return true;
 
   if (DECL_P (ptr))
     {
       ptrtv = DECL_PTA_TYPEVAR (ptr);
-      if (!ptrtv && !current_alias_ops->ip && ptr != global_var)
-	abort ();
-      else if (!ptrtv)
+      if (!ptrtv)
 	return false;
     }
   else
     {
       entry.key = ptr;
       result = htab_find (alias_annot, &entry);
-      if (!result && !current_alias_ops->ip && ptr != global_var)
-	abort ();
-      else if (!result)
+      if (!result)
 	return false;
       ptrtv = result->value;
     }
-  if (var == global_var && global_var == NULL)
-    return false;
+
   if (DECL_P (var))
     {
       vartv = DECL_PTA_TYPEVAR (var);
-      if (!vartv && !current_alias_ops->ip && var != global_var)
-	abort ();
-      else if (!vartv)
+      if (!vartv)
 	return false;
     }
   else
     {
       entry.key = var;
       result = htab_find (alias_annot, &entry);
-      if (!result && !current_alias_ops->ip && var != global_var)
-	abort ();
-      else if (!result)
+      if (!result)
 	return false;
 
       vartv = result->value;
     }
   return current_alias_ops->same_points_to_set (current_alias_ops, vartv, ptrtv);
 }
-/**
-   @brief Determine whether two variables may-alias.
 
-   @param ptr Pointer.
-   @param var Variable.
-   @return true if \a ptr may-alias \a var, false otherwise.
-*/
+/*  Determine whether two variables (PTR and VAR) may-alias.
+    Returns TRUE if PTR may-alias VAR.  */
+
 bool
 ptr_may_alias_var (tree ptr, tree var)
 {
   struct alias_annot_entry entry, *result;
   alias_typevar ptrtv, vartv;
-  tree ptrcontext;
-  tree varcontext;
 
 #if !FIELD_BASED
 #else
@@ -1165,65 +1075,35 @@ ptr_may_alias_var (tree ptr, tree var)
     var = TREE_OPERAND (var, 1);
 #endif
 
-  ptrcontext = DECL_CONTEXT (ptr);
-  varcontext = DECL_CONTEXT (var);
-  if (TREE_PUBLIC (ptr))
-    ptr = global_var;
-  else
-    {
-      if (ptrcontext != NULL && TREE_CODE (ptrcontext) != FUNCTION_DECL)
-	ptrcontext = decl_function_context (ptr);
-      if (ptrcontext == NULL)
-	ptr = global_var;
-    }
-  if (TREE_PUBLIC (var))
-    var = global_var;
-  else
-    {
-      if (varcontext != NULL && TREE_CODE (varcontext) != FUNCTION_DECL)
-	varcontext = decl_function_context (var);
-      if (varcontext == NULL)
-	var = global_var;
-    }
-  if (ptr == var || (ptrcontext == NULL && varcontext == NULL)
-      || (ptr == global_var))
+  if (ptr == var)
     return true;
 
   if (DECL_P (ptr))
     {
       ptrtv = DECL_PTA_TYPEVAR (ptr);
-      if (!ptrtv && !current_alias_ops->ip && ptr != global_var)
-	abort ();
-      else if (!ptrtv)
+      if (!ptrtv)
 	return false;
     }
   else
     {
       entry.key = ptr;
       result = htab_find (alias_annot, &entry);
-      if (!result && !current_alias_ops->ip && ptr != global_var)
-	abort ();
-      else if (!result)
+      if (!result)
 	return false;
       ptrtv = result->value;
     }
-  if (var == global_var && global_var == NULL)
-    return false;
+
   if (DECL_P (var))
     {
       vartv = DECL_PTA_TYPEVAR (var);
-      if (!vartv && !current_alias_ops->ip && var != global_var)
-	abort ();
-      else if (!vartv)
+      if (!vartv)
 	return false;
     }
   else
     {
       entry.key = var;
       result = htab_find (alias_annot, &entry);
-      if (!result && !current_alias_ops->ip && var != global_var)
-	abort ();
-      else if (!result)
+      if (!result)
 	return false;
 
       vartv = result->value;
