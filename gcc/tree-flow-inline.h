@@ -200,6 +200,31 @@ bb_for_stmt (t)
   return tree_annotation (t) ? tree_annotation (t)->bb : NULL;
 }
 
+
+static inline void
+set_bb_for_stmt (t, bb)
+     tree t;
+     basic_block bb;
+{
+  tree_ann ann;
+
+  if (t == empty_stmt_node)
+    return;
+
+  do
+    {
+      ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
+      ann->bb = bb;
+      if (TREE_CODE (t) == COMPOUND_EXPR)
+	t = TREE_OPERAND (t, 0);
+      else if (TREE_CODE (t) == EXPR_WITH_FILE_LOCATION)
+	t = EXPR_WFL_NODE (t);
+      else
+	t = NULL;
+    }
+  while (t);
+}
+
 static inline tree_ref
 currdef_for (decl)
      tree decl;
@@ -488,11 +513,65 @@ exprref_reload (ref)
   return ref->ecommon.reload;
 }
 
+static inline void 
+set_exprref_processed (ref, flag)
+     tree_ref ref;
+     unsigned int flag;
+{
+  ref->ecommon.processed = flag;
+}
+
+static inline bool
+exprref_processed (ref)
+     tree_ref ref;
+{
+  return ref->ecommon.processed;
+}
+
+static inline void 
+set_exprref_processed2 (ref, flag)
+     tree_ref ref;
+     unsigned int flag;
+{
+  ref->ecommon.processed2  = flag;
+}
+
+static inline bool
+exprref_processed2 (ref)
+     tree_ref ref;
+{
+  return ref->ecommon.processed2;
+}
+
+static inline ref_list
+exprref_uses (ref)
+     tree_ref ref;
+{
+  return ref->ecommon.uses;
+}
+static inline void
+set_exprref_uses (ref, list)
+     tree_ref ref;
+     ref_list list;
+{
+  ref->ecommon.uses = list;
+}
+
 static inline void
 set_expruse_def (ref, def)
      tree_ref ref;
      tree_ref def;
 {
+  if (def)
+    {
+      if (!exprref_uses (def))
+	set_exprref_uses (def, create_ref_list ());
+      
+      if (expruse_def (ref))
+	remove_ref_from_list (exprref_uses (expruse_def (ref)), ref);
+            
+      add_ref_to_list_end (exprref_uses (def), ref);
+    }
   ref->euse.def = def;
 }
 
@@ -516,6 +595,21 @@ expruse_phiop (ref)
      tree_ref ref;
 {
   return ref->euse.op_occurrence;
+}
+
+static inline void
+set_expruse_phi (ref, phi)
+     tree_ref ref;
+     tree_ref phi;
+{
+  ref->euse.phi = phi;
+}
+
+static inline tree_ref
+expruse_phi (ref)
+     tree_ref ref;
+{
+  return ref->euse.phi;
 }
 
 static inline void 
@@ -546,6 +640,30 @@ exprphi_phi_args (ref)
      tree_ref ref;
 {
   return ref->ephi.phi_args;
+}
+
+static inline unsigned int
+num_ephi_args (phi)
+     tree_ref phi;
+{
+  return VARRAY_ACTIVE_SIZE (phi->ephi.phi_args);
+}
+
+static inline phi_node_arg
+ephi_arg (phi, i)
+     tree_ref phi;
+     unsigned int i;
+{
+  return (phi_node_arg)(VARRAY_GENERIC_PTR (phi->ephi.phi_args, i));
+}
+
+static inline void
+set_ephi_arg (phi, i, arg)
+     tree_ref phi;
+     unsigned int i;
+     phi_node_arg arg;
+{
+  VARRAY_GENERIC_PTR (phi->ephi.phi_args, i) = (PTR)arg;
 }
 
 static inline void
@@ -606,21 +724,6 @@ exprphi_extraneous (ref)
      tree_ref ref;
 {
   return ref->ephi.extraneous;
-}
-
-static inline void
-set_exprphi_processed (ref, map)
-     tree_ref ref;
-     bitmap map;
-{
-  ref->ephi.processed = map;
-}
-
-static inline bitmap
-exprphi_processed (ref)
-     tree_ref ref;
-{
-  return ref->ephi.processed;
 }
 
 static inline bool

@@ -54,7 +54,6 @@ static void make_cond_expr_blocks	PARAMS ((tree *, basic_block));
 static void make_loop_expr_blocks	PARAMS ((tree *, basic_block));
 static void make_switch_expr_blocks	PARAMS ((tree *, basic_block));
 static basic_block create_bb		PARAMS ((tree *, basic_block));
-static void set_bb_for_stmt		PARAMS ((tree, basic_block));
 static void remove_unreachable_blocks	PARAMS ((void));
 
 /* Edges.  */
@@ -376,33 +375,6 @@ create_bb (head_p, parent_block)
   return bb;
 }
 
-
-/* Add statement T to basic block BB.  If T is a COMPOUND_EXPR or WFL
-   container, also process the nodes inside it.  */
-
-static void
-set_bb_for_stmt (t, bb)
-     tree t;
-     basic_block bb;
-{
-  tree_ann ann;
-
-  if (t == empty_stmt_node)
-    return;
-
-  do
-    {
-      ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
-      ann->bb = bb;
-      if (TREE_CODE (t) == COMPOUND_EXPR)
-	t = TREE_OPERAND (t, 0);
-      else if (TREE_CODE (t) == EXPR_WITH_FILE_LOCATION)
-	t = EXPR_WFL_NODE (t);
-      else
-	t = NULL;
-    }
-  while (t);
-}
 
 
 /* Create annotations for all the blocks in the flowgraph.  */
@@ -1781,4 +1753,16 @@ last_stmt (bb)
   STRIP_WFL (t);
   STRIP_NOPS (t);
   return t;
+}
+tree *
+last_stmt_ptr (bb)
+     basic_block bb;
+{
+  gimple_stmt_iterator i;
+  
+  if (bb == NULL || bb->index == INVALID_BLOCK)
+    return NULL;
+
+  i = gsi_start (bb->end_tree_p);
+  return gsi_stmt_ptr (i);
 }

@@ -1,3 +1,35 @@
+2002-11-06  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-flow.h: Prototype set_bb_for_stmt, last_stmt_ptr,
+	add_ephi_arg, num_ephi_args, set_ephi_arg, ephi_arg.
+	(enum tree_ref_type): Add E_LEFT, E_KILL, E_EXIT.
+
+	* tree-cfg.c (set_bb_for_stmt): Move to tree-flow-inline.h.
+	(last_stmt_ptr): New function, gives pointer to last statement in
+	bb.
+
+	* tree-flow-inline.h: Add exprref_processed, exprref_processed2,
+	expruse_phi, num_ephi_args, set_ephi_arg, ephi_arg, add_ephi_arg.
+	
+	* tree-dfa.c (tree_ref_structure): Handle E_{LEFT,KILL,EXIT}.
+	(ref_type_name): Ditto.
+	(tree_ref_size): Ditto.
+	(dump_ref): E_PHI's phi_args is now a varray of phi_arg structs.
+	(add_ephi_arg): New function.
+	(remove_ref_list): Fix crash when node not found.
+	(compute_may_aliases): Add timing for points-to analysis.
+
+	* timevar.def: Add TV_TREE_PTA.
+
+	* tree-ssa-pre.c: Start of massive cleanup and rewriting (in
+	preparation for load/store PRE). No more uses of ref_expr, proper
+	call handling. Started removing unnecessary structures and lists,
+	started removing redundant and inefficient operations (IE O(n^2)
+	loops to process all phi operands, etc).  Basic load PRE implemented.
+	Code may look ugly due to large pieces commented out waiting for DFA
+	updating of refs to redo.
+	
+
 2002-11-05  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (create_block_annotations): New local function.

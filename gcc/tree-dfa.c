@@ -29,6 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "basic-block.h"
 #include "output.h"
 #include "errors.h"
+#include "timevar.h"
 #include "expr.h"
 #include "ggc.h"
 #include "flags.h"
@@ -93,7 +94,7 @@ static tree clobber_vars_r		PARAMS ((tree *, int *, void *));
 static void compute_may_aliases		PARAMS ((void));
 static void find_may_aliases_for	PARAMS ((tree));
 static void add_may_alias		PARAMS ((tree, tree));
-static bool may_alias_p			PARAMS ((tree, tree));
+static inline bool may_alias_p			PARAMS ((tree, tree));
 static bool is_visible_to		PARAMS ((tree, tree));
 static size_t tree_ref_size		PARAMS ((enum tree_ref_type));
 static inline tree create_indirect_ref	PARAMS ((tree));
@@ -532,6 +533,8 @@ remove_ref_from_list (list, ref)
     return;
 
   tmp = find_list_node (list, ref);
+  if (!tmp)
+    return;
 
   if (tmp == list->first)
     list->first = tmp->next;
@@ -775,6 +778,10 @@ tree_ref_size (ref_type)
       return sizeof (struct expr_use_d);
     case E_KILL:
       return sizeof (struct expr_ref_common);
+    case E_EXIT:
+      return sizeof (struct expr_ref_common);
+    case E_LEFT:
+      return sizeof (struct expr_ref_common);
     }
 
   abort ();
@@ -900,13 +907,12 @@ create_ref (var, ref_type, ref_mod, bb, parent_stmt_p, parent_expr_p, operand_p,
     {
       varray_type temp;
       VARRAY_GENERIC_PTR_INIT (temp, 
-			       last_basic_block, "ephi_chain");
+			       1, "ephi_chain");
       set_exprphi_phi_args (ref, temp);
-      set_exprphi_processed (ref, BITMAP_GGC_ALLOC ());
-      set_exprphi_downsafe (ref, 1);
-      set_exprphi_canbeavail (ref, 1);
-      set_exprphi_later (ref, 1);
-      set_exprphi_extraneous (ref, 1);
+      set_exprphi_downsafe (ref, true);
+      set_exprphi_canbeavail (ref, true);
+      set_exprphi_later (ref, true);
+      set_exprphi_extraneous (ref, true);
     }
 
   if (var)
@@ -974,6 +980,25 @@ add_phi_arg (phi, def, e)
   VARRAY_PUSH_GENERIC_PTR (phi->vphi.phi_args, (PTR)arg);
 }
 
+
+/* Add a new argument to EPHI for definition DEF reaching in via edge E.  */
+
+void
+add_ephi_arg (phi, def, e)
+     tree_ref phi;
+     tree_ref def;
+     edge e;
+{
+  phi_node_arg arg;
+
+  arg = (phi_node_arg) ggc_alloc (sizeof (*arg));
+  memset ((void *) arg, 0, sizeof (*arg));
+
+  arg->def = def;
+  arg->e = e;
+
+  VARRAY_PUSH_GENERIC_PTR (phi->ephi.phi_args, (PTR)arg);
+}
 
 /* Add a unique copy of variable VAR to the list of referenced variables.  */
 
@@ -1171,7 +1196,7 @@ dump_ref (outf, prefix, ref, indent, details)
 		     exprref_class (ref), exprphi_downsafe (ref), 
 		     exprphi_canbeavail (ref), exprphi_later (ref));
 	  fputs (" expr-phi-args:\n", outf);
-	  dump_ref_array (outf, prefix, exprphi_phi_args (ref), indent + 4, 1);
+	  dump_phi_args (outf, prefix, exprphi_phi_args (ref), indent + 4, 1);
 	}	
 
       if (ref_type (ref) == V_DEF && imm_uses (ref))
@@ -1693,11 +1718,15 @@ ref_type_name (ref)
 	        : type == E_PHI ? "E_PHI"
 	        : type == E_USE ? "E_USE"
 	        : type == E_KILL ? "E_KILL"
+	        : type == E_EXIT ? "E_EXIT"
+	        : type == E_LEFT ? "E_LEFT"
 	        : "???",
 	   max);
   
   if (ref_type (ref) == E_USE 
       || ref_type (ref) == E_KILL
+      || ref_type (ref) == E_EXIT
+      || ref_type (ref) == E_LEFT
       || ref_type (ref) == E_PHI)
     return str;
   
@@ -1746,12 +1775,11 @@ clobber_vars_r (tp, walk_subtrees, data)
       create_ref (*tp, V_USE, TRM_MAY, clobber->bb, clobber->parent_stmt_p,
 		  clobber->parent_expr_p, NULL, 1);
       create_ref (*tp, V_DEF, TRM_CLOBBER, clobber->bb, clobber->parent_stmt_p,
-		  clobber->parent_expr_p, NULL, 1);
+		  clobber->parent_expr_p, NULL, 1); 
     }
 
   return NULL;
 }
-
 
 /* Compute may-alias information for every variable referenced in the
    program.  FIXME this computes a bigger set than necessary.
@@ -1766,9 +1794,13 @@ static void
 compute_may_aliases ()
 {
   unsigned long i;
-
-  if (flag_tree_points_to)
-    create_alias_vars ();
+  
+  if (flag_tree_points_to != PTA_NONE  && num_referenced_vars)
+    {
+      timevar_push (TV_TREE_PTA);
+      create_alias_vars ();
+      timevar_pop (TV_TREE_PTA);
+    }
 
   for (i = 0; i < num_referenced_vars; i++)
     {
@@ -1780,11 +1812,59 @@ compute_may_aliases ()
 	find_may_aliases_for (var);
     }
 
-  if (flag_tree_points_to)
-    delete_alias_vars ();
+  if (flag_tree_points_to != PTA_NONE && num_referenced_vars)
+    {
+      timevar_push (TV_TREE_PTA);
+      delete_alias_vars ();
+      timevar_pop (TV_TREE_PTA);
+    }
 }
 
 
+/* Return true if PTR (an INDIRECT_REF tree) may alias VAR_SYM (a _DECL tree).
+   FIXME  This returns true more often than it should.  */
+
+static inline bool
+may_alias_p (ptr, var_sym)
+     tree ptr;
+     tree var_sym;
+{
+  HOST_WIDE_INT ptr_alias_set, var_alias_set;
+  tree ptr_sym = get_base_symbol (ptr);
+  
+  /* GLOBAL_VAR aliases every global variable and locals that have had
+     their address taken, unless points-to analysis is done. This is because
+     points-to is supposed to handle this case, and thus, can give a more
+     accurate answer.   */
+
+  if (!flag_tree_points_to && 
+      ptr == global_var
+      && var_sym != global_var
+      && (TREE_ADDRESSABLE (var_sym)
+	  || decl_function_context (var_sym) == NULL))
+    return true;
+  
+  /* Obvious reasons why PTR_SYM and VAR_SYM can't possibly alias
+     each other.  */
+  if (var_sym == ptr_sym
+      || !POINTER_TYPE_P (TREE_TYPE (ptr_sym))
+      || !TREE_ADDRESSABLE (var_sym)
+      || DECL_ARTIFICIAL (var_sym)
+      || !is_visible_to (var_sym, ptr_sym))
+    return false;
+
+  ptr_alias_set = get_alias_set (TREE_TYPE (ptr));
+  var_alias_set = get_alias_set (TREE_TYPE (var_sym));
+  
+  if (!alias_sets_conflict_p (ptr_alias_set, var_alias_set))
+    return false;
+
+  if (flag_tree_points_to)
+    if (!ptr_may_alias_var (ptr_sym, var_sym))
+       return false;
+  
+  return true;
+}
 /* Find variables that PTR may be aliasing.  */
 
 static void
@@ -1809,49 +1889,6 @@ find_may_aliases_for (ptr)
 }
 
 
-/* Return true if PTR (an INDIRECT_REF tree) may alias VAR_SYM (a _DECL tree).
-   FIXME  This returns true more often than it should.  */
-
-static bool
-may_alias_p (ptr, var_sym)
-     tree ptr;
-     tree var_sym;
-{
-  HOST_WIDE_INT ptr_alias_set, var_alias_set;
-  tree ptr_sym = get_base_symbol (ptr);
-
-  /* GLOBAL_VAR aliases every global variable and locals that have had
-     their address taken, unless points-to analysis is done. This is because
-     points-to is supposed to handle this case, and thus, can give a more
-     accurate answer.   */
-
-  if (!flag_tree_points_to && 
-      ptr == global_var
-      && var_sym != global_var
-      && (TREE_ADDRESSABLE (var_sym)
-	  || decl_function_context (var_sym) == NULL))
-    return true;
-
-  /* Obvious reasons why PTR_SYM and VAR_SYM can't possibly alias
-     each other.  */
-  if (var_sym == ptr_sym
-      || !POINTER_TYPE_P (TREE_TYPE (ptr_sym))
-      || !TREE_ADDRESSABLE (var_sym)
-      || DECL_ARTIFICIAL (var_sym)
-      || !is_visible_to (var_sym, ptr_sym))
-    return false;
-
-  ptr_alias_set = get_alias_set (TREE_TYPE (ptr));
-  var_alias_set = get_alias_set (TREE_TYPE (var_sym));
-
-  if (!alias_sets_conflict_p (ptr_alias_set, var_alias_set))
-    return false;
-
-  if (!flag_tree_points_to)
-    return true;
-
-  return ptr_may_alias_var (ptr_sym, var_sym);
-}
 
 
 /* Return true if SYM1 and SYM2 are visible to each other.  Visibility is
@@ -2011,6 +2048,10 @@ tree_ref_structure (ref)
   else if (type == E_USE)
     return TR_EXPR_USE;
   else if (type == E_KILL)
+    return TR_EXPR_REF_COMMON;
+  else if (type == E_EXIT)
+    return TR_EXPR_REF_COMMON;
+  else if (type == E_LEFT)
     return TR_EXPR_REF_COMMON;
 
   abort ();
