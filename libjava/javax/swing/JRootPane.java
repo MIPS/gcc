@@ -67,13 +67,28 @@ public class JRootPane extends JComponent
   //  The class used to obtain the accessible role for this object.
   protected static class AccessibleJRootPane
   {
+    private static final long serialVersionUID = 1082432482784468088L;
+
+    protected AccessibleJRootPane()
+    {
+    }
+
+    public AccessibleRole getAccessibleRole()
+    {
+      return AccessibleRole.ROOT_PANE;
+    }
   }
 
   // Custom Layout Manager for JRootPane. It positions contentPane and 
   // menuBar withing its layeredPane.
-  protected class RootLayout extends Object
-    implements LayoutManager2
+  protected class RootLayout implements LayoutManager2, Serializable
   {
+    private static final long serialVersionUID = -4100116998559815027L;
+
+    protected RootLayout()
+    {
+    }
+    
     public void addLayoutComponent(Component comp, Object constraints)
     {
     }
@@ -213,13 +228,13 @@ public class JRootPane extends JComponent
   protected JMenuBar menuBar;
   protected Container contentPane;
 
-  void setJMenuBar(JMenuBar m)
+  public void setJMenuBar(JMenuBar m)
   {
     menuBar = m;
     getLayeredPane().add(menuBar, JLayeredPane.FRAME_CONTENT_LAYER);
   }
 
-  JMenuBar getJMenuBar()
+  public JMenuBar getJMenuBar()
   {
     return menuBar;
   }
@@ -281,7 +296,7 @@ public class JRootPane extends JComponent
     add(f, -1);
   }
 
-  JRootPane()
+  public JRootPane()
   {
     setLayout(createRootLayout());
     getGlassPane();
@@ -296,7 +311,7 @@ public class JRootPane extends JComponent
     return new RootLayout();
   }
 
-  JComponent createContentPane()
+  protected JComponent createContentPane()
   {
     JPanel p = new JPanel();
     p.setName(this.getName() + ".contentPane");
@@ -304,7 +319,7 @@ public class JRootPane extends JComponent
     return p;
   }
 
-  Component createGlassPane()
+  protected Component createGlassPane()
   {
     JPanel p = new JPanel();
     p.setName(this.getName() + ".glassPane");
@@ -313,7 +328,7 @@ public class JRootPane extends JComponent
     return p;
   }
 
-  JLayeredPane createLayeredPane()
+  protected JLayeredPane createLayeredPane()
   {
     JLayeredPane l = new JLayeredPane();
     l.setLayout(null);
