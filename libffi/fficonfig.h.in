@@ -71,3 +71,6 @@
 
 /* Define if your assembler and linker support unaligned PC relative relocs.  */
 #undef HAVE_AS_SPARC_UA_PCREL
+
+/* Define if .eh_frame sections should be read-only. */
+#undef HAVE_RO_EH_FRAME
