@@ -840,10 +840,10 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	    else
 	      *op_p = val;
 
-	    /* If we only update virtual operands, then we should not
-	       consider this statement as modified.  */
-	    if (*table != vuses && *table != vdefs)
-	      ann->modified = 1;
+	    /* And note that we modified this statement.  This is now
+	       safe, even if we changed virtual operands since we will
+	       rescan the statement and rewrite its operands again.  */
+	    ann->modified = 1;
 	}
     }
 
@@ -851,13 +851,17 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
      fold its RHS before checking for redundant computations.  */
   if (ann->modified)
     {
+      /* Try to fold the statement making sure that STMT is kept
+	 up to date.  */
       if (fold_stmt (bsi_stmt_ptr (si)))
-	{
-	  stmt = bsi_stmt (si);
-	  /* Folding may have removed the need for some vops/vdefs,
-	     particularly if we folded away a call to a builtin.  */
-	  may_have_exposed_new_symbols = true;
-	}
+	stmt = bsi_stmt (si);
+
+      /* Constant/copy propagation above may change the set of 
+	 virtual operands associated with this statement.  Folding
+	 may remove the need for some virtual operands.
+
+	 Indicate we will need to rescan and rewrite the statement.  */
+      may_have_exposed_new_symbols = true;
     }
 
   /* Check for redundant computations.  Do this optimization only

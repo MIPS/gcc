@@ -1,3 +1,10 @@
+2003-09-17  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (optimize_stmt): Note that the statement is
+	modified, even if we just change the virtual operands.  If
+	the statement was modified by const/copy propagation, then
+	set may_have_exposed_new_symbols.
+
 2003-09-17  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (find_vars_r): Do not consider 'void *' pointers as
