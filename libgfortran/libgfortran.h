@@ -314,12 +314,6 @@ void *internal_malloc64 (GFC_INTEGER_8);
 #define internal_free	prefix(internal_free)
 void internal_free (void *);
 
-#define push_context	prefix(push_context)
-void push_context (void);
-
-#define pop_context	prefix(pop_context)
-void pop_context (void);
-
 #define allocate	prefix(allocate)
 void allocate (void **, GFC_INTEGER_4, GFC_INTEGER_4 *);
 

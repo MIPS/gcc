@@ -1,3 +1,16 @@
+2003-11-30  Paul Brook  <paul@nowt.org>
+
+	* trans-array.c (gfc_trans_g77_array): Make non-static.
+	(gfc_trans_assumed_size): Remove.
+	(gfc_trans_dummy_array_bias): Explicitly free temporary.
+	* trans-array.h (gfc_trans_g77_array): Add prototype.
+	(gfc_trans_assumed_size): Remove.
+	* trans-decls.c (gfor_fndecl_push_context): Remove.
+	(gfor_fndecl_pop_context): Remove.
+	(gfc_build_function)decls): Don't create them.
+	(gfc_trans_deferred_vars): Update to match. Remove dead	code.
+	* trans-stmt.c (gfc_trans_pointer_assign_need_temp): Free temp.
+
 2003-11-30  Kejia Zhao  <kejia_zh@nudt.edu.cn>
 
 	* trans-array.c (gfc_conv_array_parameter): Simplify

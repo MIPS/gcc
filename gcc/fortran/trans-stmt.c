@@ -1982,6 +1982,13 @@ gfc_trans_pointer_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2,
       tmp = gfc_trans_nested_forall_loop (nested_forall_info, tmp, 1, 1);
       gfc_add_expr_to_block (block, tmp);
     }
+  /* Free the temporary.  */
+  if (ptemp1)
+    {
+      tmp = gfc_chainon_list (NULL_TREE, ptemp1);
+      tmp = gfc_build_function_call (gfor_fndecl_internal_free, tmp);
+      gfc_add_expr_to_block (block, tmp);
+    }
 }
 
 

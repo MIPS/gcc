@@ -407,8 +407,6 @@ tree getdecls (void);
 tree gfc_truthvalue_conversion (tree);
 
 /* Runtime library function decls.  */
-extern GTY(()) tree gfor_fndecl_push_context;
-extern GTY(()) tree gfor_fndecl_pop_context;
 extern GTY(()) tree gfor_fndecl_internal_malloc;
 extern GTY(()) tree gfor_fndecl_internal_malloc64;
 extern GTY(()) tree gfor_fndecl_internal_free;

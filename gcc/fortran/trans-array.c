@@ -2952,7 +2952,7 @@ gfc_trans_auto_array_allocation (tree decl, gfc_symbol * sym, tree fnbody)
 
 /* Generate entry and exit code for g77 calling convention arrays.  */
 
-static tree
+tree
 gfc_trans_g77_array (gfc_symbol * sym, tree body)
 {
   tree parm;
@@ -2999,86 +2999,6 @@ gfc_trans_g77_array (gfc_symbol * sym, tree body)
 }
 
 
-/* Generate entry and exit code for assumed size arrays.  */
-
-tree
-gfc_trans_assumed_size (gfc_symbol * sym, tree body)
-{
-  tree parm;
-  tree tmpdesc;
-  tree type;
-  tree size;
-  locus loc;
-  tree offset;
-  tree args;
-  tree tmp;
-  tree stmt;
-  stmtblock_t block;
-
-  tmpdesc = sym->backend_decl;
-  if (TREE_CODE (tmpdesc) == PARM_DECL)
-    return gfc_trans_g77_array (sym, body);
-
-  gfc_get_backend_locus (&loc);
-  gfc_set_backend_locus (&sym->declared_at);
-
-  /* Descriptor type.  */
-  type = TREE_TYPE (tmpdesc);
-  assert (GFC_ARRAY_TYPE_P (type));
-  parm = GFC_DECL_SAVED_DESCRIPTOR (tmpdesc);
-
-  gfc_start_block (&block);
-
-  /* Evaluate the bounds of the array.  */
-  size = gfc_trans_array_bounds (type, sym, &offset, &block);
-
-  /* The actual argument descriptor.  */
-  args = gfc_chainon_list (NULL_TREE, parm);
-
-  /* Library call to pack the array.  */
-  tmp = gfor_fndecl_in_pack;
-  tmp = gfc_build_function_call (tmp, args);
-  gfc_add_modify_expr (&block, tmpdesc, tmp);
-
-  /* Set the base pointer.  */
-  tmp = tmpdesc;
-  if (!integer_zerop (offset))
-    {
-      tmp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp);
-      tmp = build (ARRAY_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp, offset);
-      tmp = build1 (ADDR_EXPR, TREE_TYPE (tmpdesc), tmp);
-    }
-  gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), tmp);
-
-  tmp = gfc_finish_block (&block);
-
-  gfc_set_backend_locus (&loc);
-
-  gfc_start_block (&block);
-  /* Add the initialization code to the start of the function.  */
-  gfc_add_expr_to_block (&block, tmp);
-  gfc_add_expr_to_block (&block, body);
-
-  if (sym->attr.intent != INTENT_IN)
-    {
-      /* Copy the data back if it was repacked.  */
-      args = gfc_chainon_list (NULL_TREE, parm);
-      args = gfc_chainon_list (args, tmpdesc);
-      tmp = gfor_fndecl_in_unpack;
-      stmt = gfc_build_function_call (tmp, args);
-
-      tmp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (parm)), parm);
-      tmp = gfc_conv_descriptor_data (tmp);
-      tmp = build (NE_EXPR, boolean_type_node, tmp, tmpdesc);
-      tmp = build_v (COND_EXPR, tmp, stmt, build_empty_stmt ());
-      gfc_add_expr_to_block (&block, tmp);
-    }
-  /* We don't need to free any memory allocated by internal_pack as it will
-     be freed at the end of the function by pop_context.  */
-  return gfc_finish_block (&block);
-}
-
-
 /* Modify the descriptor of an array parameter so that it has the
    correct lower bound.  Also move the upper bound accordingly.
    If the array is not packed, it will be copied into a temporary.
@@ -3098,6 +3018,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
   tree offset;
   locus loc;
   stmtblock_t block;
+  stmtblock_t cleanup;
   tree lbound;
   tree ubound;
   tree dubound;
@@ -3329,13 +3250,27 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
   gfc_add_expr_to_block (&block, body);
 
   /* Cleanup code.  */
-  if (!(no_repack || sym->attr.intent == INTENT_IN))
+  if (!no_repack)
     {
-      /* Copy the data back if it was repacked.  */
-      tmp = gfc_chainon_list (NULL_TREE, dumdesc);
-      tmp = gfc_chainon_list (tmp, tmpdesc);
-      stmt = gfc_build_function_call (gfor_fndecl_in_unpack, tmp);
+      gfc_start_block (&cleanup);
+      
+      if (sym->attr.intent != INTENT_IN)
+	{
+	  /* Copy the data back.  */
+	  tmp = gfc_chainon_list (NULL_TREE, dumdesc);
+	  tmp = gfc_chainon_list (tmp, tmpdesc);
+	  tmp = gfc_build_function_call (gfor_fndecl_in_unpack, tmp);
+	  gfc_add_expr_to_block (&cleanup, tmp);
+	}
 
+      /* Free the temporary.  */
+      tmp = gfc_chainon_list (NULL_TREE, tmpdesc);
+      tmp = gfc_build_function_call (gfor_fndecl_internal_free, tmp);
+      gfc_add_expr_to_block (&cleanup, tmp);
+
+      stmt = gfc_finish_block (&cleanup);
+	
+      /* Only do the cleanup if the array was repacked.  */
       tmp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (dumdesc)), dumdesc);
       tmp = gfc_conv_descriptor_data (tmp);
       tmp = build (NE_EXPR, boolean_type_node, tmp, tmpdesc);

@@ -187,8 +187,7 @@ internal_malloc64 (GFC_INTEGER_8 size)
 
 /* Free internally allocated memory.  Pointer is NULLified.  Also used to
    free user allocated memory.  */
-/* TODO: keep a list of previously allocated blocks and reuse them.  Defer
-   allocation until pop_context.  */
+/* TODO: keep a list of previously allocated blocks and reuse them.  */
 
 void
 internal_free (void *mem)
@@ -211,41 +210,6 @@ internal_free (void *mem)
   m->next->prev = m->prev;
 
   free (m);
-}
-
-
-/* Set a marker on the current tail of the list of internally
-   allocated memory blocks.  */
-
-void
-push_context (void)
-{
-  /* Make this a counter rather than a flag otherwise bad things
-     happen if we call push_context twice.  */
-  mem_root.prev->marker++;
-}
-
-
-/* Free everything since the last marker.  */
-void
-pop_context (void)
-{
-  malloc_t *m;
-
-  while (mem_root.prev->marker == 0)
-    {
-      m = mem_root.prev;
-      /* Unlink from the chain.  */
-      mem_root.prev = m->prev;
-      m->prev->next = m->next;
-
-      if (m == &mem_root)
-	runtime_error ("Internal: Unbalanced memory contexts");
-
-      free (m);
-    }
-
-  mem_root.prev->marker--;
 }
 
 

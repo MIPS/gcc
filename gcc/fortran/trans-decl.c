@@ -73,8 +73,6 @@ tree gfc_static_ctors;
 
 /* Function declarations for builtin library functions.  */
 
-tree gfor_fndecl_push_context;
-tree gfor_fndecl_pop_context;
 tree gfor_fndecl_internal_malloc;
 tree gfor_fndecl_internal_malloc64;
 tree gfor_fndecl_internal_free;
@@ -1428,14 +1426,6 @@ gfc_build_builtin_function_decls (void)
     gfc_build_library_function_decl (get_identifier (PREFIX("internal_free")),
 				     void_type_node, 1, pvoid_type_node);
 
-  gfor_fndecl_push_context =
-    gfc_build_library_function_decl (get_identifier (PREFIX("push_context")),
-				     void_type_node, 0);
-
-  gfor_fndecl_pop_context =
-    gfc_build_library_function_decl (get_identifier (PREFIX("pop_context")),
-				     void_type_node, 0);
-
   gfor_fndecl_allocate =
     gfc_build_library_function_decl (get_identifier (PREFIX("allocate")),
 				     void_type_node, 2, ppvoid_type_node,
@@ -1553,7 +1543,6 @@ static tree
 gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 {
   tree tmp;
-  stmtblock_t block;
   locus loc;
   gfc_symbol *sym;
 
@@ -1600,7 +1589,6 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 		{
 		  gfc_get_backend_locus (&loc);
 		  gfc_set_backend_locus (&sym->declared_at);
-		  gfc_init_block (&block);
 		  fnbody = gfc_trans_auto_array_allocation (sym->backend_decl,
 		      sym, fnbody);
 		  gfc_set_backend_locus (&loc);
@@ -1611,7 +1599,9 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	      /* Must be a dummy parameter.  */
 	      assert (sym->attr.dummy);
 
-              fnbody = gfc_trans_assumed_size (sym, fnbody);
+	      /* We should always pass assumed size arrays the g77 way.  */
+	      assert (TREE_CODE (sym->backend_decl) == PARM_DECL);
+	      fnbody = gfc_trans_g77_array (sym, fnbody);
               break;
 
 	    case AS_ASSUMED_SHAPE:
@@ -1641,17 +1631,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	abort ();
     }
 
-  gfc_init_block (&block);
-  /* Build a call to library function PREFIX(push_context) ().  */
-  tmp = gfc_build_function_call (gfor_fndecl_push_context, NULL_TREE);
-  gfc_add_expr_to_block (&block, tmp);
-
-  gfc_add_expr_to_block (&block, fnbody);
-  /* Build a call to PREFIX(pop_context ()).  */
-  tmp = gfc_build_function_call (gfor_fndecl_pop_context, NULL_TREE);
-  gfc_add_expr_to_block (&block, tmp);
-
-  return gfc_finish_block (&block);
+  return fnbody;
 }
 
 static void

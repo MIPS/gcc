@@ -35,8 +35,8 @@ tree gfc_trans_allocate_temp_array (gfc_loopinfo *, gfc_ss_info *, tree,
 tree gfc_trans_auto_array_allocation (tree, gfc_symbol *, tree);
 /* Generate entry and exit code for dummy array parameters.  */
 tree gfc_trans_dummy_array_bias (gfc_symbol *, tree, tree);
-/* Generate entry and exit code for assumed size arrays.  */
-tree gfc_trans_assumed_size (gfc_symbol *, tree);
+/* Generate entry and exit code for g77 calling convention arrays.  */
+tree gfc_trans_g77_array (gfc_symbol *, tree);
 /* Add initialisation for deferred arrays.  */
 tree gfc_trans_deferred_array (gfc_symbol *, tree);
 /* Generate an initializer for a static pointer or allocatable array.  */

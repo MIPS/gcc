@@ -1,3 +1,9 @@
+2003-11-30  Paul Brook  <paul@nowt.org>
+
+	* runtime/memory.c (push_context): Remove.
+	(pop_context): Remove.
+	* libgfortran.h: Remove prototypes.
+
 2003-11-27  Paul Brook  <paul@nowt.org>
 
 	* runtime/memory.c (deallocate): Nullify pointer after freeing.
