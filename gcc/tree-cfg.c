@@ -177,8 +177,8 @@ build_tree_cfg (tree *tp)
 
   /* Write the flowgraph to a dot file.  */
   {
-    int dump_flags;
-    FILE *dump_file = dump_begin (TDI_dot, &dump_flags);
+    int local_dump_flags;
+    FILE *dump_file = dump_begin (TDI_dot, &local_dump_flags);
     if (dump_file)
       {
 	tree_cfg2dot (dump_file);
@@ -188,7 +188,7 @@ build_tree_cfg (tree *tp)
 
   /* Dump a textual representation of the flowgraph.  */
   if (dump_file)
-    dump_tree_cfg (dump_file, tree_dump_flags);
+    dump_tree_cfg (dump_file, dump_flags);
 }
 
 static void
@@ -1643,7 +1643,7 @@ remove_bb (basic_block bb)
   if (dump_file)
     {
       fprintf (dump_file, "Removing basic block %d\n", bb->index);
-      if (tree_dump_flags & TDF_DETAILS)
+      if (dump_flags & TDF_DETAILS)
 	{
 	  dump_bb (bb, dump_file, 0);
 	  fprintf (dump_file, "\n");

@@ -185,7 +185,7 @@ tree_ssa_ccp (void)
   finalize ();
 
   /* Debugging dumps.  */
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       dump_referenced_vars (dump_file);
       fprintf (dump_file, "\n\n");
@@ -248,7 +248,7 @@ simulate_block (basic_block block)
   if (block == EXIT_BLOCK_PTR)
     return;
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nSimulating block %d\n", block->index);
 
   /* Always simulate PHI nodes, even if we have simulated this block
@@ -306,7 +306,7 @@ simulate_stmt (tree use_stmt)
 {
   basic_block use_bb = bb_for_stmt (use_stmt);
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\nSimulating statement (from ssa_edges): ");
       print_generic_stmt (dump_file, use_stmt, 0);
@@ -335,7 +335,7 @@ substitute_and_fold (void)
 {
   basic_block bb;
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file,
 	     "\nSubstituing constants and folding statements\n\n");
 
@@ -376,7 +376,7 @@ substitute_and_fold (void)
 
 	  /* Replace the statement with its folded version and mark it
 	     folded.  */
-	  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Line %d: replaced ", get_lineno (stmt));
 	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
@@ -393,7 +393,7 @@ substitute_and_fold (void)
 		mark_new_vars_to_rename (stmt, vars_to_rename);
 	    }
 
-	  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, " with ");
 	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
@@ -421,7 +421,7 @@ visit_phi_node (tree phi)
   if (DONT_SIMULATE_AGAIN (phi))
     return;
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\nVisiting PHI node: ");
       print_generic_expr (dump_file, phi, 0);
@@ -431,7 +431,7 @@ visit_phi_node (tree phi)
   switch (curr_val->lattice_val)
     {
     case VARYING:
-      if (dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "\n   Shortcircuit. Default of VARYING.");
       short_circuit = 1;
       break;
@@ -463,7 +463,7 @@ visit_phi_node (tree phi)
 	/* Compute the meet operator over all the PHI arguments. */
 	edge e = PHI_ARG_EDGE (phi, i);
 
-	if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	if (dump_file && (dump_flags & TDF_DETAILS))
 	  {
 	    fprintf (dump_file,
 		     "\n    Argument #%d (%d -> %d %sexecutable)\n",
@@ -489,7 +489,7 @@ visit_phi_node (tree phi)
 
 	    phi_val = cp_lattice_meet (phi_val, *rdef_val);
 
-	    if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	    if (dump_file && (dump_flags & TDF_DETAILS))
 	      {
 		fprintf (dump_file, "\t");
 		print_generic_expr (dump_file, rdef, 0);
@@ -502,7 +502,7 @@ visit_phi_node (tree phi)
 	  }
       }
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       dump_lattice_value (dump_file, "\n    PHI node value: ", phi_val);
       fprintf (dump_file, "\n\n");
@@ -581,7 +581,7 @@ visit_stmt (tree stmt)
   if (DONT_SIMULATE_AGAIN (stmt))
     return;
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\nVisiting statement: ");
       print_generic_stmt (dump_file, stmt, TDF_SLIM);
@@ -758,7 +758,7 @@ add_control_edge (edge e)
 
   cfg_blocks_add (bb);
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Adding Destination of edge (%d -> %d) to worklist\n\n",
 	     e->src->index, e->dest->index);
 }
@@ -1152,7 +1152,7 @@ initialize (void)
   /* Compute immediate uses for variables we care about.  */
   compute_immediate_uses (TDFA_USE_OPS, need_imm_uses_for);
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     dump_immediate_uses (dump_file);
 
   VARRAY_BB_INIT (cfg_blocks, 20, "cfg_blocks");
@@ -1323,7 +1323,7 @@ set_lattice_value (tree var, value val)
 
   if (old->lattice_val != val.lattice_val)
     {
-      if (dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  dump_lattice_value (dump_file,
 			      "Lattice value changed to ", val);
@@ -2254,7 +2254,7 @@ execute_fold_all_builtins (void)
 		continue;
 	      }
 
-	  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Simplified\n  ");
 	      print_generic_stmt (dump_file, *stmtp, 0);
@@ -2263,7 +2263,7 @@ execute_fold_all_builtins (void)
 	  set_rhs (stmtp, result);
 	  modify_stmt (*stmtp);
 
-	  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "to\n  ");
 	      print_generic_stmt (dump_file, *stmtp, 0);

@@ -465,7 +465,7 @@ andersen_cleanup (struct tree_alias_ops *ops ATTRIBUTE_UNUSED)
 {
   if (dump_file)
     {
-      if (tree_dump_flags & TDF_STATS)
+      if (dump_flags & TDF_STATS)
 	{
 	  fprintf (dump_file, "\nPoints-to stats:\n");
 	  andersen_terms_stats (dump_file);
@@ -493,7 +493,7 @@ static alias_var
 andersen_add_var (struct tree_alias_ops *ops ATTRIBUTE_UNUSED, tree decl)
 {
   alias_var ret;
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Adding variable %s\n",
 	     alias_get_name (decl));
 
@@ -525,7 +525,7 @@ andersen_add_var_same (struct tree_alias_ops *ops ATTRIBUTE_UNUSED, tree decl,
 {
   alias_var ret;
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Adding variable %s same as %s\n",
 	     alias_get_name (decl), alias_get_name (ALIAS_VAR_DECL (tv)));
 
@@ -554,7 +554,7 @@ static void
 andersen_simple_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 			alias_var lhs, alias_var rhs)
 {
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Simple assignment %s = %s\n",
 	     alias_get_name (ALIAS_VAR_DECL (lhs)),
 	     alias_get_name (ALIAS_VAR_DECL (rhs)));
@@ -575,7 +575,7 @@ andersen_addr_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 {
   if (addr == NULL)
     return;
- if (dump_file && (tree_dump_flags & TDF_DETAILS))
+ if (dump_file && (dump_flags & TDF_DETAILS))
    fprintf (dump_file, "Address assignment %s = &%s\n",
 	    alias_get_name (ALIAS_VAR_DECL (lhs)),
 	    alias_get_name (ALIAS_VAR_DECL (addr)));
@@ -596,7 +596,7 @@ andersen_ptr_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 
   if (ptr == NULL)
     return;
- if (dump_file && (tree_dump_flags & TDF_DETAILS))
+ if (dump_file && (dump_flags & TDF_DETAILS))
    fprintf (dump_file, "Pointer assignment %s = *%s\n",
 	    alias_get_name (ALIAS_VAR_DECL (lhs)),
 	    alias_get_name (ALIAS_VAR_DECL (ptr)));
@@ -648,7 +648,7 @@ andersen_op_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
   if (VARRAY_ACTIVE_SIZE (operands) == 0)
     return;
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Op assignment %s = ",
 	       alias_get_name (ALIAS_VAR_DECL (lhs)));
@@ -738,7 +738,7 @@ andersen_assign_ptr (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 
   if (rhs == NULL)
     return;
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Assignment to pointer  *%s = %s\n",
 	     alias_get_name (ALIAS_VAR_DECL (ptr)),
 	     alias_get_name (ALIAS_VAR_DECL (rhs)));

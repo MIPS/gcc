@@ -50,7 +50,7 @@ Boston, MA 02111-1307, USA.  */
 
 
 /* Global variables used to communicate with passes.  */
-int tree_dump_flags;
+int dump_flags;
 bitmap vars_to_rename;
 
 /* The root of the compilation pass tree, once constructed.  */
@@ -344,7 +344,7 @@ execute_todo (unsigned int flags)
 
   if ((flags & TODO_dump_func) && dump_file)
     dump_function_to_file (current_function_decl,
-			   dump_file, tree_dump_flags);
+			   dump_file, dump_flags);
 
   if (flags & TODO_ggc_collect)
     ggc_collect ();
@@ -380,7 +380,7 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* If a dump file name is present, open it if enabled.  */
   if (pass->static_pass_number)
     {
-      dump_file = dump_begin (pass->static_pass_number, &tree_dump_flags);
+      dump_file = dump_begin (pass->static_pass_number, &dump_flags);
       if (dump_file)
 	{
 	  const char *dname, *aname;

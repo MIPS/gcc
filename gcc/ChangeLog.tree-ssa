@@ -1,5 +1,15 @@
 2004-02-24  Richard Henderson  <rth@redhat.com>
 
+	* c-simplify.c (c_genericize): s/dump_flags/local_dump_flags/.
+	* predict.c, tree-alias-ander.c, tree-cfg.c, tree-nrv.c,
+	tree-optimize.c, tree-pass.h, tree-sra.c, tree-ssa-alias.c,
+	tree-ssa-ccp.c, tree-ssa-copy.c, tree-ssa-dce.c, tree-ssa-dom.c,
+	tree-ssa-dse.c, tree-ssa-forwprop.c, tree-ssa-loop.c,
+	tree-ssa-phiopt.c, tree-ssa-pre.c, tree-ssa.c, tree-tailcall.c:
+	s/tree_dump_flags/dump_flags/.
+
+2004-02-24  Richard Henderson  <rth@redhat.com>
+
 	* predict.c, tree-alias-ander.c, tree-cfg.c, tree-mudflap.c,
 	tree-nrv.c, tree-optimize.c, tree-pass.h, tree-profile.c, tree-sra.c,
 	tree-ssa-alias.c, tree-ssa-ccp.c, tree-ssa-copy.c, tree-ssa-dce.c,

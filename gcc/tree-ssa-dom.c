@@ -493,7 +493,7 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
       tgt = VARRAY_EDGE (redirection_edges, i + 1)->dest;
 
 
-      if (dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "  Threaded jump %d --> %d to %d\n",
 		 e->src->index, e->dest->index, tgt->index);
 
@@ -505,7 +505,7 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
       /* Updating the dominance information would be nontrivial.  */
       free_dominance_info (CDI_DOMINATORS);
       
-      if ((dump_file && (tree_dump_flags & TDF_DETAILS))
+      if ((dump_file && (dump_flags & TDF_DETAILS))
 	  && e->src != src)
 	fprintf (dump_file, "    basic block %d created\n",
 		 e->src->index);
@@ -644,7 +644,7 @@ tree_ssa_dominator_optimize (void)
   cleanup_tree_cfg ();
 
   /* Debugging dumps.  */
-  if (dump_file && (tree_dump_flags & TDF_STATS))
+  if (dump_file && (dump_flags & TDF_STATS))
     dump_dominator_optimization_stats (dump_file);
 
   htab_delete (avail_exprs);
@@ -1010,7 +1010,7 @@ dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data,
 static void
 dom_opt_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
 {
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
 
   record_equivalences_from_incoming_edge (walk_data, bb);
@@ -2232,7 +2232,7 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
       && (TREE_CODE (cached_lhs) != SSA_NAME
 	  || may_propagate_copy (cached_lhs, *expr_p)))
     {
-      if (dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "  Replaced redundant expr '");
 	  print_generic_expr (dump_file, *expr_p, 0);
@@ -2441,7 +2441,7 @@ optimize_stmt (struct dom_walk_data *walk_data,
   opt_stats.num_stmts++;
   may_have_exposed_new_symbols = false;
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Optimizing statement ");
       print_generic_stmt (dump_file, stmt, TDF_SLIM);
@@ -2461,7 +2461,7 @@ optimize_stmt (struct dom_walk_data *walk_data,
 	  stmt = bsi_stmt (si);
 	  ann = stmt_ann (stmt);
 
-	  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "  Folded to: ");
 	      print_generic_stmt (dump_file, stmt, TDF_SLIM);

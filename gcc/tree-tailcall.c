@@ -264,7 +264,7 @@ eliminate_tail_call (struct tailcall *t)
   ann = stmt_ann (stmt);
   bb = t->call_block;
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Eliminated tail recursion in bb %d : ",
 	       bb->index);
@@ -396,7 +396,7 @@ optimize_tail_call (struct tailcall *t, bool *phis_constructed,
       if (TREE_CODE (stmt) != CALL_EXPR)
 	abort ();
       CALL_EXPR_TAILCALL (stmt) = 1;
-      if (dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
         {
 	  fprintf (dump_file, "Found tail call ");
 	  print_generic_expr (dump_file, stmt, 0);

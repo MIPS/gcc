@@ -223,7 +223,7 @@ mark_stmt_necessary (tree stmt, bool add_to_worklist)
   if (NECESSARY (stmt))
     return;
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Marking useful stmt: ");
       print_generic_stmt (dump_file, stmt, TDF_SLIM);
@@ -483,7 +483,7 @@ propagate_necessity (struct edge_list *el)
   tree i;
   bool aggressive = (el ? true : false); 
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nProcessing worklist:\n");
 
   while (VARRAY_ACTIVE_SIZE (worklist) > 0)
@@ -492,7 +492,7 @@ propagate_necessity (struct edge_list *el)
       i = VARRAY_TOP_TREE (worklist);
       VARRAY_POP (worklist);
 
-      if (dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "processing: ");
 	  print_generic_stmt (dump_file, i, TDF_SLIM);
@@ -582,7 +582,7 @@ eliminate_unnecessary_stmts (void)
   basic_block bb;
   block_stmt_iterator i;
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nEliminating unnecessary statements:\n");
 
   clear_special_calls ();
@@ -631,7 +631,7 @@ remove_dead_phis (basic_block bb)
 	{
 	  tree next = TREE_CHAIN (phi);
 
-	  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Deleting : ");
 	      print_generic_stmt (dump_file, phi, TDF_SLIM);
@@ -658,7 +658,7 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 {
   tree t = bsi_stmt (*i);
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Deleting : ");
       print_generic_stmt (dump_file, t, TDF_SLIM);
@@ -712,7 +712,7 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 static void
 print_stats (void)
 {
-  if (dump_file && (tree_dump_flags & (TDF_STATS|TDF_DETAILS)))
+  if (dump_file && (dump_flags & (TDF_STATS|TDF_DETAILS)))
     {
       float percg;
 
@@ -820,8 +820,7 @@ perform_tree_ssa_dce (bool aggressive)
   /* Debugging dumps.  */
   if (dump_file)
     {
-      dump_function_to_file (current_function_decl,
-			     dump_file, tree_dump_flags);
+      dump_function_to_file (current_function_decl, dump_file, dump_flags);
       print_stats ();
     }
 

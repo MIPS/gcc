@@ -25,7 +25,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Global variables used to communicate with passes.  */
 extern FILE *dump_file;
-extern int tree_dump_flags;
+extern int dump_flags;
 
 extern struct bitmap_head_def *vars_to_rename;
 

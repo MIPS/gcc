@@ -287,7 +287,7 @@ can_be_scalarized_p (tree var)
 
   if (!is_gimple_non_addressable (var))
     {
-      if (dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "Cannot scalarize variable ");
 	  print_generic_expr (dump_file, var, 0);	 
@@ -298,7 +298,7 @@ can_be_scalarized_p (tree var)
 
   if (TREE_THIS_VOLATILE (var))
     {
-      if (dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "Cannot scalarize variable ");
 	  print_generic_expr (dump_file, var, 0);	 
@@ -322,7 +322,7 @@ can_be_scalarized_p (tree var)
 	 scalarize the fields at the leaves.  */
       if (AGGREGATE_TYPE_P (TREE_TYPE (field)))
 	{
-	  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Cannot scalarize variable ");
 	      print_generic_expr (dump_file, var, 0);	 
@@ -340,7 +340,7 @@ can_be_scalarized_p (tree var)
 	 testsuite: 26_numerics/complex_inserters_extractors.cc.  */
       if (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE)
 	{
-	  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Cannot scalarize variable ");
 	      print_generic_expr (dump_file, var, 0);
@@ -358,7 +358,7 @@ can_be_scalarized_p (tree var)
 	 to mask them properly.  */
       if (DECL_BIT_FIELD (field))
 	{
-	  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Cannot scalarize variable ");
 	      print_generic_expr (dump_file, var, 0);	 
@@ -373,7 +373,7 @@ can_be_scalarized_p (tree var)
       nfields++;
       if (nfields > MAX_NFIELDS_FOR_SRA)
 	{
-	  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Cannot scalarize variable ");
 	      print_generic_expr (dump_file, var, 0);	 

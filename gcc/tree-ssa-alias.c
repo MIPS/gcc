@@ -319,7 +319,7 @@ compute_may_aliases (void)
   /* Debugging dumps.  */
   if (dump_file)
     {
-      if (tree_dump_flags & TDF_STATS)
+      if (dump_flags & TDF_STATS)
 	dump_alias_stats (dump_file);
       dump_points_to_info (dump_file);
       dump_alias_info (dump_file);
@@ -1417,7 +1417,7 @@ collect_points_to_info_r (tree var, tree stmt, void *data)
 {
   struct alias_info *ai = (struct alias_info *) data;
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Visiting use-def links for ");
       print_generic_expr (dump_file, var, 0);

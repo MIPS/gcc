@@ -243,7 +243,7 @@ cprop_into_stmt (tree stmt, varray_type const_and_copies)
 		continue;
 
 	      /* Dump details.  */
-	      if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
 		  fprintf (dump_file, "  Replaced '");
 		  print_generic_expr (dump_file, *op_p, 0);

@@ -226,7 +226,7 @@ tree_ssa_phiopt (void)
       bsi = bsi_last (cond_block);
       bsi_remove (&bsi);
 
-      if (dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file,
 		 "COND_EXPR in block %d and PHI in block %d converted "
 		 "to straightline code.\n",

@@ -1735,7 +1735,7 @@ rename_1 (struct expr_info *ei)
 	    }
 	}
     }
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       size_t i;
       fprintf (dump_file, "Occurrences for expression ");
@@ -2106,7 +2106,7 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
       fprintf (dump_file, " to ");
       print_generic_expr (dump_file, newtemp, 0);
       fprintf (dump_file, " after ");
-      print_generic_stmt (dump_file, last_stmt (bb), tree_dump_flags);
+      print_generic_stmt (dump_file, last_stmt (bb), dump_flags);
       fprintf (dump_file, " (on edge), because of EPHI");
       fprintf (dump_file, " in BB %d\n", bb_for_stmt (ephi)->index);
     }
@@ -2735,7 +2735,7 @@ code_motion (struct expr_info *ei)
 	}
       else if (EPHI_IDENTITY (use))
 	{
-	  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Pointless EPHI in block %d\n",
 		       bb_for_stmt (use)->index);
@@ -3100,7 +3100,7 @@ pre_expression (struct expr_info *slot, void *data, bitmap vars_to_rename)
   if (!expr_phi_insertion ((bitmap *)data, ei))
     goto cleanup;  
   rename_1 (ei);
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       size_t i;
       fprintf (dump_file, "Occurrences for expression ");
@@ -3117,7 +3117,7 @@ pre_expression (struct expr_info *slot, void *data, bitmap vars_to_rename)
   compute_du_info (ei);
   compute_will_be_avail (ei);
 
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "EPHI's for expression ");
       print_generic_expr (dump_file, ei->expr, 0);
@@ -3144,7 +3144,7 @@ pre_expression (struct expr_info *slot, void *data, bitmap vars_to_rename)
 
   clear_all_eref_arrays ();
   if (dump_file)
-    if (tree_dump_flags & TDF_STATS)
+    if (dump_flags & TDF_STATS)
       {
 	fprintf (dump_file, "PRE stats:\n");
 	fprintf (dump_file, "Reloads:%d\n", pre_stats.reloads);

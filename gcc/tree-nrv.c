@@ -166,7 +166,7 @@ tree_nrv (void)
     return;
 
   /* If dumping details, then note once and only the NRV replacement.  */
-  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "NRV Replaced: ");
       print_generic_expr (dump_file, found, 0);

@@ -256,7 +256,7 @@ substitute_single_use_vars (varray_type forwprop_data)
 	    }
 
 	  /* Dump details.  */
-	  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "  Replaced '");
 	      print_generic_expr (dump_file, cond, 0);

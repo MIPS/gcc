@@ -53,7 +53,7 @@ tree_ssa_loop_opt (void)
 
   loops = loop_optimizer_init (dump_file);
   loop_optimizer_finalize (loops,
-			   (tree_dump_flags & TDF_DETAILS
+			   (dump_flags & TDF_DETAILS
 			    ? dump_file : NULL));
 }
 
@@ -337,7 +337,7 @@ copy_loop_headers (void)
 	  VARRAY_PUSH_GENERIC_PTR_NOGC (bbs_to_duplicate, preheader_edge);
 	  header->aux = &header->aux;
 
-	  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file,
 		     "Scheduled basic block %d for duplication.\n",
 		     header->index);
