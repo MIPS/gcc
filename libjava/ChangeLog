@@ -1,5 +1,7 @@
 2004-10-25  Tom Tromey  <tromey@redhat.com>
 
+	* boehm.cc (_Jv_MarkObj): Test aux_info before dereferencing it.
+
 	* java/util/ResourceBundle.java (tryBundle): Use
 	Class.isAssignableFrom rather than catching ClassCastException.
 

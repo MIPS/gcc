@@ -241,7 +241,7 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void *env)
       MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 
 #ifdef INTERPRETER
-      if (_Jv_IsInterpretedClass (c))
+      if (_Jv_IsInterpretedClass (c) && c->aux_info)
 	{
 	  _Jv_InterpClass* ic = (_Jv_InterpClass*) c->aux_info;
 
