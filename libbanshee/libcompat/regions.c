@@ -37,7 +37,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-
+#include "radix-tree.h"
 #define RPAGESIZE (1 << RPAGELOG)
 #define PAGE_GROUP_SIZE 32
 #define K 4
@@ -296,13 +296,13 @@ void deleteregion_array(int n, region *regions)
 
 region regionof(void *ptr)
 {
-  return __rcregionmap[(unsigned long)ptr >> RPAGELOG];
+  return radix_tree_lookup (&__rcregionmap, (unsigned long)ptr >> RPAGELOG);
 }
 
 void region_init(void)
 {
   static int initialized = 0;
-
+  radix_tree_init ();
   if ( initialized )
     return;
   else
@@ -340,9 +340,9 @@ static FILE *out;
 
 static void printref(void *x)
 {
-  if (x >= (void *)__rcregionmap && x < (void *)&__rcregionmap[MAXPAGE])
+/*  if (x >= (void *)__rcregionmap && x < (void *)&__rcregionmap[MAXPAGE])
     return;
-
+*/
 #ifdef RCPAIRS
   if (x >= (void *)__rcregions && x < (void *)&__rcregions[MAXREGIONS])
     return;

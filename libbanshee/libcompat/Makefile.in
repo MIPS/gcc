@@ -65,7 +65,7 @@ VERSION = @VERSION@
 
 AM_CFLAGS = -I$(srcdir)/../engine -I$(srcdir)/../include -I. -Ddeletes= -Dtraditional= -Dsameregion= -Dparentptr= -fno-strict-aliasing
 noinst_LIBRARIES = libbansheecompat.a
-libbansheecompat_a_SOURCES = regions.c
+libbansheecompat_a_SOURCES = regions.c radix-tree.c
 mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
 CONFIG_HEADER = ../config.h
 CONFIG_CLEAN_FILES = 
@@ -77,7 +77,7 @@ CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 libbansheecompat_a_LIBADD = 
-libbansheecompat_a_OBJECTS =  regions.o
+libbansheecompat_a_OBJECTS =  regions.o radix-tree.o
 AR = ar
 CFLAGS = @CFLAGS@
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -90,7 +90,7 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = gnutar
 GZIP_ENV = --best
-DEP_FILES =  .deps/regions.P
+DEP_FILES =  .deps/radix-tree.P .deps/regions.P
 SOURCES = $(libbansheecompat_a_SOURCES)
 OBJECTS = $(libbansheecompat_a_OBJECTS)
 

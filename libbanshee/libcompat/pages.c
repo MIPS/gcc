@@ -160,14 +160,15 @@ void *region_get_mem(size_t s)
 /* Page to region map management */
 /* ----------------------------- */
 
-region __rcregionmap[MAXPAGE];
+RADIX_TREE(__rcregionmap);
 
 static void set_page_region(pageid pagenb, region r)
 {
-  __rcregionmap[pagenb] = r;
+  radix_tree_delete (&__rcregionmap, pagenb);
+  radix_tree_insert (&__rcregionmap, pagenb, r);
 }
 
-#define page_region(pagenb) (__rcregionmap[(pagenb)])
+#define page_region(pagenb) (radix_tree_lookup (&__rcregionmap, (pagenb)))
 
 void set_region(struct page *p, int npages, region r)
 {
