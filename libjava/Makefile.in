@@ -1658,6 +1658,49 @@ gnu/java/rmi/server/UnicastServerRef.java
 
 
 javax_source_files = \
+javax/imageio/IIOImage.java \
+javax/imageio/ImageReader.java \
+javax/imageio/ImageTranscoder.java \
+javax/imageio/ImageWriter.java \
+javax/imageio/spi/IIORegistry.java \
+javax/imageio/spi/IIOServiceProvider.java \
+javax/imageio/spi/ImageInputStreamSpi.java \
+javax/imageio/spi/ImageOutputStreamSpi.java \
+javax/imageio/spi/ImageReaderWriterSpi.java \
+javax/imageio/spi/ImageTranscoderSpi.java \
+javax/imageio/spi/RegisterableService.java \
+javax/imageio/spi/ServiceRegistry.java \
+javax/imageio/spi/ImageReaderSpi.java \
+javax/imageio/spi/ImageWriterSpi.java \
+javax/imageio/stream/IIOByteBuffer.java \
+javax/imageio/stream/ImageInputStream.java \
+javax/imageio/stream/ImageOutputStream.java \
+javax/imageio/stream/FileCacheImageInputStream.java \
+javax/imageio/stream/FileCacheImageOutputStream.java \
+javax/imageio/stream/FileImageInputStream.java \
+javax/imageio/stream/FileImageOutputStream.java \
+javax/imageio/stream/ImageInputStreamImpl.java \
+javax/imageio/stream/ImageOutputStreamImpl.java \
+javax/imageio/stream/MemoryCacheImageInputStream.java \
+javax/imageio/stream/MemoryCacheImageOutputStream.java \
+javax/imageio/IIOException.java \
+javax/imageio/IIOParam.java \
+javax/imageio/IIOParamController.java \
+javax/imageio/ImageIO.java \
+javax/imageio/ImageReadParam.java \
+javax/imageio/ImageTypeSpecifier.java \
+javax/imageio/ImageWriteParam.java \
+javax/imageio/event/IIOReadProgressListener.java \
+javax/imageio/event/IIOReadUpdateListener.java \
+javax/imageio/event/IIOReadWarningListener.java \
+javax/imageio/event/IIOWriteProgressListener.java \
+javax/imageio/event/IIOWriteWarningListener.java \
+javax/imageio/metadata/IIOMetadata.java \
+javax/imageio/metadata/IIOMetadataController.java \
+javax/imageio/metadata/IIOMetadataFormat.java \
+javax/imageio/metadata/IIOInvalidTreeException.java \
+javax/imageio/metadata/IIOMetadataFormatImpl.java \
+javax/imageio/metadata/IIOMetadataNode.java \
 javax/print/AttributeException.java \
 javax/print/CancelablePrintJob.java \
 javax/print/Doc.java \
@@ -3790,7 +3833,7 @@ libgcj-test.spec.in libgcj.pc.in libgcj.spec.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gtar
+TAR = tar
 GZIP_ENV = --best
 DIST_SUBDIRS =  @DIRLTDL@ testsuite gcj include @DIRLTDL@ gcj include
 DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
@@ -5049,6 +5092,44 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/accessibility/AccessibleTableModelChange.P \
 .deps/javax/accessibility/AccessibleText.P \
 .deps/javax/accessibility/AccessibleValue.P \
+.deps/javax/imageio/IIOException.P .deps/javax/imageio/IIOImage.P \
+.deps/javax/imageio/IIOParam.P .deps/javax/imageio/IIOParamController.P \
+.deps/javax/imageio/ImageIO.P .deps/javax/imageio/ImageReadParam.P \
+.deps/javax/imageio/ImageReader.P .deps/javax/imageio/ImageTranscoder.P \
+.deps/javax/imageio/ImageTypeSpecifier.P \
+.deps/javax/imageio/ImageWriteParam.P .deps/javax/imageio/ImageWriter.P \
+.deps/javax/imageio/event/IIOReadProgressListener.P \
+.deps/javax/imageio/event/IIOReadUpdateListener.P \
+.deps/javax/imageio/event/IIOReadWarningListener.P \
+.deps/javax/imageio/event/IIOWriteProgressListener.P \
+.deps/javax/imageio/event/IIOWriteWarningListener.P \
+.deps/javax/imageio/metadata/IIOInvalidTreeException.P \
+.deps/javax/imageio/metadata/IIOMetadata.P \
+.deps/javax/imageio/metadata/IIOMetadataController.P \
+.deps/javax/imageio/metadata/IIOMetadataFormat.P \
+.deps/javax/imageio/metadata/IIOMetadataFormatImpl.P \
+.deps/javax/imageio/metadata/IIOMetadataNode.P \
+.deps/javax/imageio/spi/IIORegistry.P \
+.deps/javax/imageio/spi/IIOServiceProvider.P \
+.deps/javax/imageio/spi/ImageInputStreamSpi.P \
+.deps/javax/imageio/spi/ImageOutputStreamSpi.P \
+.deps/javax/imageio/spi/ImageReaderSpi.P \
+.deps/javax/imageio/spi/ImageReaderWriterSpi.P \
+.deps/javax/imageio/spi/ImageTranscoderSpi.P \
+.deps/javax/imageio/spi/ImageWriterSpi.P \
+.deps/javax/imageio/spi/RegisterableService.P \
+.deps/javax/imageio/spi/ServiceRegistry.P \
+.deps/javax/imageio/stream/FileCacheImageInputStream.P \
+.deps/javax/imageio/stream/FileCacheImageOutputStream.P \
+.deps/javax/imageio/stream/FileImageInputStream.P \
+.deps/javax/imageio/stream/FileImageOutputStream.P \
+.deps/javax/imageio/stream/IIOByteBuffer.P \
+.deps/javax/imageio/stream/ImageInputStream.P \
+.deps/javax/imageio/stream/ImageInputStreamImpl.P \
+.deps/javax/imageio/stream/ImageOutputStream.P \
+.deps/javax/imageio/stream/ImageOutputStreamImpl.P \
+.deps/javax/imageio/stream/MemoryCacheImageInputStream.P \
+.deps/javax/imageio/stream/MemoryCacheImageOutputStream.P \
 .deps/javax/naming/AuthenticationException.P \
 .deps/javax/naming/AuthenticationNotSupportedException.P \
 .deps/javax/naming/BinaryRefAddr.P .deps/javax/naming/Binding.P \
