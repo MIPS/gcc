@@ -3296,6 +3296,23 @@ tree_split_edge (edge edge_in)
   return new_bb;
 }
 
+/* Return true when BB has label LABEL in it.  */
+static bool
+has_label_p (basic_block bb, tree label)
+{
+  block_stmt_iterator bsi;
+
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    {
+      tree stmt = bsi_stmt (bsi);
+
+      if (TREE_CODE (stmt) != LABEL_EXPR)
+	return false;
+      if (LABEL_EXPR_LABEL (stmt) == label)
+	return true;
+    }
+  return false;
+}
 
 /* Verifies that the flow information is OK.  */
 
@@ -3310,22 +3327,244 @@ tree_verify_flow_info (void)
 
   FOR_EACH_BB (bb)
     {
+      edge e;
+      bool found_ctrl_stmt = false;
+      tree phi;
+      int i;
+
+      for (e = bb->pred; e; e = e->pred_next)
+	if (e->aux)
+	  {
+	    error ("Aux pointer initialized for edge %d->%d\n", e->src->index, e->dest->index);
+	    err = 1;
+	  }
+      phi = phi_nodes (bb);
+      for ( ; phi; phi = TREE_CHAIN (phi))
+	{
+	  int phi_num_args = PHI_NUM_ARGS (phi);
+
+	  for (e = bb->pred; e; e = e->pred_next)
+	    e->aux = (void *)1;
+	  for (i = 0; i < phi_num_args; i++)
+	    {
+	      e = PHI_ARG_EDGE (phi, i);
+	      if (e->dest != bb)
+		{
+		  error ("Phi node for edge %d->%d in %d\n", e->src->index, e->dest->index, bb->index);
+		  err = 1;
+		}
+	      if (e->aux == (void *)0)
+		{
+		  error ("Phi node for dead edge %d->%d\n", e->src->index, e->dest->index);
+		  err = 1;
+		}
+	      if (e->aux == (void *)2)
+		{
+		  error ("Phi node duplicated for edge %d->%d\n", e->src->index, e->dest->index);
+		  err = 1;
+		}
+	      e->aux = (void *)2;
+	    }
+	  for (e = bb->pred; e; e = e->pred_next)
+	    {
+	      if (e->aux != (void *)2)
+		{
+		  error ("Edge %d->%d miss phi node entry\n", e->src->index, e->dest->index);
+		  err = 1;
+		}
+	      e->aux = (void *)0;
+	    }
+	}
+
+      /* Skip labels on the start of basic block.  */
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  if (TREE_CODE (bsi_stmt (bsi)) != LABEL_EXPR)
+	    break;
+	  if (label_to_block (LABEL_EXPR_LABEL (bsi_stmt (bsi))) != bb)
+	    {
+	      error ("Label to block does not match in bb %d\n", bb->index);
+	      err = 1;
+	    }
+	}
+      /* Verify that body of basic block is free of control flow.  */
+      for (; !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  tree stmt = bsi_stmt (bsi);
+
+	  if (found_ctrl_stmt)
+	    {
+	      error ("Control flow in the middle of basic block %d\n", bb->index);
+	      err = 1;
+	    }
+	  if (stmt_ends_bb_p (stmt))
+	    found_ctrl_stmt = true;
+	  if (TREE_CODE (stmt) == LABEL_EXPR)
+	    {
+	      error ("Label %s in the middle of basic block %d\n",
+		     IDENTIFIER_POINTER (DECL_NAME (stmt)),
+		     bb->index);
+	      err = 1;
+	    }
+	}
       bsi = bsi_last (bb);
       if (bsi_end_p (bsi))
 	continue;
+
+      for (e = bb->succ; e; e = e->succ_next)
+	if (e->flags & EDGE_FALLTHRU && e->dest != bb->next_bb)
+	  {
+	    error ("Fallthru edge of bb %d does not point to following block\n", bb->index);
+	    err = 1;
+	  }
+
 
       stmt = bsi_stmt (bsi);
       switch (TREE_CODE (stmt))
 	{
 	case COND_EXPR:
-	  if (TREE_CODE (COND_EXPR_THEN (stmt)) != GOTO_EXPR
-	      || TREE_CODE (COND_EXPR_ELSE (stmt)) != GOTO_EXPR)
-	    {
-	      fprintf (stderr, "Structured COND_EXPR at end of bb %d\n",
+	  {
+	    edge true_edge;
+	    edge false_edge;
+	    if (TREE_CODE (COND_EXPR_THEN (stmt)) != GOTO_EXPR
+		|| TREE_CODE (COND_EXPR_ELSE (stmt)) != GOTO_EXPR)
+	      {
+		error ("Structured COND_EXPR at end of bb %d\n", bb->index);
+		err = 1;
+	      }
+	    if (bb->succ->flags & EDGE_TRUE_VALUE)
+	      true_edge = bb->succ, false_edge = bb->succ->succ_next;
+	    else
+	      false_edge = bb->succ, true_edge = bb->succ->succ_next;
+	    if (!true_edge || !false_edge
+		|| !(true_edge->flags & EDGE_TRUE_VALUE)
+		|| !(false_edge->flags & EDGE_FALSE_VALUE)
+		|| (true_edge->flags & (EDGE_FALLTHRU | EDGE_ABNORMAL))
+		|| (false_edge->flags & (EDGE_FALLTHRU | EDGE_ABNORMAL))
+		|| bb->succ->succ_next->succ_next)
+	      {
+		error ("Wrong outgoing edge flags at end of bb %d\n", bb->index);
+		err = 1;
+	      }
+	    if (!has_label_p (true_edge->dest,
+			      GOTO_DESTINATION (COND_EXPR_THEN (stmt)))
+		|| !has_label_p (false_edge->dest,
+				 GOTO_DESTINATION (COND_EXPR_ELSE (stmt))))
+	      {
+		error ("Label %s does not match edge at end of bb %d\n",
+		       IDENTIFIER_POINTER (DECL_NAME (stmt)),
 		       bb->index);
+		err = 1;
+	      }
+	  }
+	  break;
+	case GOTO_EXPR:
+	  if (simple_goto_p (stmt))
+	    {
+	      if (!bb->succ || bb->succ->succ_next
+		  || (bb->succ->flags & (EDGE_FALLTHRU | EDGE_ABNORMAL
+					 | EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
+		{
+		  error ("Wrong outgoing edge flags at end of bb %d\n", bb->index);
+		  err = 1;
+		}
+	      if (!has_label_p (bb->succ->dest, GOTO_DESTINATION (stmt)))
+		{
+		  error ("Label %s does not match edge at end of bb %d\n",
+			 IDENTIFIER_POINTER (DECL_NAME (stmt)),
+			 bb->index);
+		  err = 1;
+		}
+	    }
+	  else
+	    {
+	      /* We shall double check that the labels in destination blocks have
+	         address taken.  */
+
+	      for (e = bb->succ; e; e = e->succ_next)
+		if ((e->flags & (EDGE_FALLTHRU | EDGE_TRUE_VALUE | EDGE_FALSE_VALUE))
+		    || !(e->flags & EDGE_ABNORMAL))
+		  {
+		    error ("Wrong outgoing edge flags at end of bb %d\n", bb->index);
+		    err = 1;
+		  }
+	      if (nonlocal_goto_p (stmt))
+		{
+	          for (e = bb->succ; e; e = e->succ_next)
+		    if (e->dest == EXIT_BLOCK_PTR)
+		      break;
+		  if (!e)
+		    {
+		      error ("Missing edge to exit past nonlocal goto bb %d\n", bb->index);
+		      err = 1;
+		    }
+		}
+	    }
+	  break;
+	case RETURN_EXPR:
+	  if (!bb->succ || bb->succ->succ_next
+	      || (bb->succ->flags & (EDGE_FALLTHRU | EDGE_ABNORMAL
+		  		     | EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
+	    {
+	      error ("Wrong outgoing edge flags at end of bb %d\n", bb->index);
+	      err = 1;
+	    }
+	  if (bb->succ->dest != EXIT_BLOCK_PTR)
+	    {
+	      error ("Return edge does not point to exit in bb %d\n", bb->index);
 	      err = 1;
 	    }
 	  break;
+	case SWITCH_EXPR:
+	  {
+	    edge e;
+	    size_t i, n;
+	    tree vec;
+
+	    vec = SWITCH_LABELS (stmt);
+	    n = TREE_VEC_LENGTH (vec);
+
+	    /* Mark all destination basic block.  */
+	    for (i = 0; i < n; ++i)
+	      {
+		tree lab = CASE_LABEL (TREE_VEC_ELT (vec, i));
+		basic_block label_bb = label_to_block (lab);
+
+		if (label_bb->aux && label_bb->aux != (void *)1)
+		  abort ();
+		label_bb->aux = (void *)1;
+	      }
+
+	    for (e = bb->succ; e; e = e->succ_next)
+	      {
+		if (!e->dest->aux)
+		  {
+		    error ("Extra outgoing edge %d->%d\n", bb->index, e->dest->index);
+		    err = 1;
+		  }
+		e->dest->aux = (void *)2;
+		if ((e->flags & (EDGE_FALLTHRU | EDGE_ABNORMAL
+					   | EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
+		  {
+		    error ("Wrong outgoing edge flags at end of bb %d\n", bb->index);
+		    err = 1;
+		  }
+	      }
+	    /* Check we do have all of them.  */
+	    for (i = 0; i < n; ++i)
+	      {
+		tree lab = CASE_LABEL (TREE_VEC_ELT (vec, i));
+		basic_block label_bb = label_to_block (lab);
+
+		if (label_bb->aux != (void *)2)
+		  {
+		    error ("Missing edge %i->%i\n", bb->index, label_bb->index);
+		    err = 1;
+		  }
+	      }
+	    for (e = bb->succ; e; e = e->succ_next)
+	      e->dest->aux = (void *)0;
+	  }
 	default: ;
 	}
     }

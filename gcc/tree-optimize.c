@@ -166,6 +166,9 @@ optimize_function_tree (tree fndecl, tree *chain)
       if (flag_tree_dce)
 	tree_ssa_dce (fndecl, TDI_dce_2);
 
+#ifdef ENABLE_CHECKING
+      verify_flow_info ();
+#endif
       /* Rewrite the function out of SSA form.  */
       rewrite_out_of_ssa (fndecl, TDI_optimized);
 
