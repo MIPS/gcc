@@ -151,7 +151,7 @@ number_of_iterations_cond (tree type, tree base0, tree step0,
 	return;
     }
 
-  if (TREE_CODE (type) == POINTER_TYPE)
+  if (POINTER_TYPE_P (type))
     {
       /* We assume pointer arithmetics never overflows.  */
       mmin = mmax = NULL_TREE;
@@ -619,7 +619,7 @@ number_of_iterations_exit (struct loop *loop, edge exit,
   type = TREE_TYPE (op0);
 
   if (TREE_CODE (type) != INTEGER_TYPE
-    && TREE_CODE (type) != POINTER_TYPE)
+    && POINTER_TYPE_P (type))
     return false;
      
   if (!simple_iv (loop, stmt, op0, &base0, &step0))
