@@ -168,6 +168,8 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
   block_stmt_iterator si;
   tree prev_value = NULL_TREE;
   tree eq_expr_value = NULL_TREE;
+  edge e;
+  tree phi;
 
   /* Initialize the local stacks.
      
@@ -207,6 +209,34 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
   for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
     optimize_stmt (si, &block_avail_exprs);
 
+  /* Propagate known constants/copies into PHI node alternatives for
+     successors of this block.  */
+  for (e = bb->succ; e; e = e->succ_next)
+    {
+      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+	{
+	  int i;
+
+	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	    {
+	      tree new;
+	      if (PHI_ARG_EDGE (phi, i) == e)
+		{
+		  tree *orig_p = &PHI_ARG_DEF (phi, i);
+
+		  /* FIXME.  We should be able to propagate constants into
+		     PHI nodes in the not too distant future.  */
+		  new = get_value_for (*orig_p, const_and_copies);
+		  if (new
+		      && TREE_CODE (new) == SSA_NAME
+		      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new)
+		      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (*orig_p))
+		    *orig_p = new;
+		}
+	    }
+	}
+    }
+
   /* Recursively optimize the dominator children of BB.  */
   children = dom_children (bb);
   if (children)
@@ -215,13 +245,26 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
 	{
 	  tree last = last_stmt (bb);
 	  EXECUTE_IF_SET_IN_BITMAP (children, 0, i,
-	    optimize_block (BASIC_BLOCK (i), last,
-			    BASIC_BLOCK (i)->pred->flags));
+	    {
+	      basic_block dest = BASIC_BLOCK (i);
+
+	      /* The destination block may have become unreachable, in
+		 which case there's no point in optimizing it.  */
+	      if (dest->pred)
+		optimize_block (dest, last, dest->pred->flags);
+	    });
 	}
       else
 	{
 	  EXECUTE_IF_SET_IN_BITMAP (children, 0, i,
-	    optimize_block (BASIC_BLOCK (i), NULL_TREE, 0));
+	    {
+	      basic_block dest = BASIC_BLOCK (i);
+
+	      /* The destination block may have become unreachable, in
+		 which case there's no point in optimizing it. */
+	      if (dest->pred)
+		optimize_block (dest, NULL_TREE, 0);
+	    });
 	}
     }
 
@@ -470,6 +513,30 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	    set_value_for (*def_p, rhs, const_and_copies);
 	}
     }
+
+  /* If STMT is a COND_EXPR and it was modified, then we may know
+     where it goes.  In which case we can remove some edges, simplify
+     some PHI nodes, maybe even avoid optimizing some blocks completely,
+     etc.  */
+  if (TREE_CODE (stmt) == COND_EXPR && ann->modified)
+    {
+      basic_block bb = bb_for_stmt (stmt);
+      edge taken_edge = find_taken_edge (bb, TREE_OPERAND (stmt, 0));
+
+      if (taken_edge)
+	{
+	  edge e, next;
+	  /* The other edges leaving this block are not executable
+	     and can be removed.  */
+	  for (e = bb_for_stmt (stmt)->succ; e; e = next)
+	    {
+	      next = e->succ_next;
+	      if (e != taken_edge)
+		ssa_remove_edge (e);
+	   }
+	}
+    }
+
 }
 
 /* Hashing and equality functions for VAR_VALUE_D.  */
