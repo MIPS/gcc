@@ -414,6 +414,24 @@ type_assertion_hash (const void *p)
   return iterative_hash (&k_p->source_type, sizeof k_p->source_type, hash);
 }
 
+/* Given a type, return the signature used by
+   _Jv_FindClassFromSignature() in libgcj.  This isn't exactly the
+   same as build_java_signature() because we want the canonical array
+   type.  */
+
+static tree
+build_signature_for_libgcj (tree type)
+{
+  tree sig, ref;
+
+  if (TYPE_ARRAY_P (type))
+    type = build_java_array_type (TYPE_ARRAY_ELEMENT (type), -1);
+  sig = build_java_signature (type);
+  ref = build_utf8_ref (unmangle_classname (IDENTIFIER_POINTER (sig),
+					    IDENTIFIER_LENGTH (sig)));
+  return ref;
+}
+
 /* Add an assertion of the form "source_type is a subclass/
    subinterface of target_type" to the "__verify" function of the
    current class.  */
@@ -431,7 +449,7 @@ add_type_assertion (tree source_type, tree target_type)
       DECL_CONTEXT (arg) = verify_method;
       DECL_ARG_TYPE (arg) = ptr_type_node;
       verify_method 
-	= build_decl (FUNCTION_DECL, get_identifier ("__verify"), 
+	= build_decl (FUNCTION_DECL, verify_identifier_node,
 		      build_function_type (ptr_type_node, end_params_node));
       DECL_ARGUMENTS (verify_method) = arg;
       DECL_ARTIFICIAL (verify_method) = 1;
@@ -461,21 +479,14 @@ add_type_assertion (tree source_type, tree target_type)
   }
 
   {
-    tree source_ref, target_ref;
-    tree source_sig = build_java_signature(source_type);
-    tree target_sig = build_java_signature(target_type);
+    tree source_ref = build_signature_for_libgcj (source_type);
+    tree target_ref = build_signature_for_libgcj (target_type);
+    tree args, expr;
 
-    source_ref 
-      = build_utf8_ref (unmangle_classname (IDENTIFIER_POINTER (source_sig),
-					    IDENTIFIER_LENGTH (source_sig)));
-    target_ref 
-      = build_utf8_ref (unmangle_classname (IDENTIFIER_POINTER (target_sig),
-					    IDENTIFIER_LENGTH (target_sig)));
-
-    tree args = tree_cons (NULL_TREE, source_ref, 
-			   build_tree_list (NULL_TREE, target_ref));
+    args = tree_cons (NULL_TREE, source_ref, 
+		      build_tree_list (NULL_TREE, target_ref));
     args = chainon (build_tree_list (NULL_TREE, DECL_ARGUMENTS (verify_method)), args);
-    tree expr = build (CALL_EXPR, itype,
+    expr = build (CALL_EXPR, itype,
 		       build_address_of (soft_check_assignment_node),
 		       args, NULL_TREE);
     DECL_SAVED_TREE (verify_method) 

@@ -534,7 +534,7 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
 #define instinit_identifier_node \
   java_global_trees[JTI_INSTINIT_IDENTIFIER_NODE]  /* "instinit$" */
 #define verify_identifier_node \
-  java_global_trees[JTI_VERIFY_IDENTIFIER_NODE]  /* "<verify><" */
+  java_global_trees[JTI_VERIFY_IDENTIFIER_NODE]  /* "__verify" */
 #define void_signature_node \
   java_global_trees[JTI_VOID_SIGNATURE_NODE]       /* "()V" */
 #define length_identifier_node \

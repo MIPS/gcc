@@ -1,3 +1,14 @@
+2004-09-01  Andrew Haley  <aph@redhat.com>
+
+	* decl.c (java_init_decl_processing): Change
+	verify_identifier_node to "__verify".
+	* expr.c (add_type_assertion): Use verify_identifier_node for name.
+	* java-tree.h (verify_identifier_node): Change to "__verify".
+
+	* expr.c (build_signature_for_libgcj): New function.
+	(add_type_assertion): Use it to construct signatures for
+	source_type and target_type.
+
 2004-08-27  Andrew Haley  <aph@redhat.com>
 
 	* java-tree.h (enum java_tree_index): Add JTI_VERIFY_IDENTIFIER_NODE.

@@ -753,7 +753,7 @@ java_init_decl_processing (void)
   clinit_identifier_node = get_identifier ("<clinit>");
   finit_identifier_node = get_identifier ("finit$");
   instinit_identifier_node = get_identifier ("instinit$");
-  verify_identifier_node = get_identifier ("<verify>");
+  verify_identifier_node = get_identifier ("__verify");
   void_signature_node = get_identifier ("()V");
   length_identifier_node = get_identifier ("length");
   finalize_identifier_node = get_identifier ("finalize");
