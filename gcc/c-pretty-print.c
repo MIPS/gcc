@@ -43,7 +43,9 @@ static void print_call_name     PARAMS ((output_buffer *, tree));
 #define INDENT(SPACE) do { \
   int i; for (i = 0; i<SPACE; i++) output_add_space (buffer); } while (0)
 #define NIY do { \
-  debug_output_buffer (buffer); debug_tree (node); abort (); } while (0)
+    output_add_string (buffer, "<<< Unknown tree: "); \
+    output_add_string (buffer, tree_code_name[(int) TREE_CODE (node)]); \
+    output_add_string (buffer, " >>>\n"); } while (0)
 
 #define PRINT_FUNCTION_NAME(NODE)  output_printf             \
   (buffer, "%s", TREE_CODE (NODE) == NOP_EXPR ?              \
@@ -1219,6 +1221,7 @@ op_prio (op)
   switch (TREE_CODE (op))
     {
     case TREE_LIST:
+    case COMPOUND_EXPR:
       return 1;
 
     case MODIFY_EXPR:
@@ -1239,6 +1242,7 @@ op_prio (op)
       return 6;
 
     case BIT_XOR_EXPR:
+    case TRUTH_XOR_EXPR:
       return 7;
 
     case BIT_AND_EXPR:
@@ -1300,9 +1304,16 @@ op_prio (op)
 
       /* Special expressions.  */
     case STMT_EXPR:
-    case SAVE_EXPR:
-    case EXPR_WITH_FILE_LOCATION:
+    case MIN_EXPR:
+    case MAX_EXPR:
       return 16;
+
+    case SAVE_EXPR:
+    case NON_LVALUE_EXPR:
+      return op_prio (TREE_OPERAND (op, 0));
+
+    case EXPR_WITH_FILE_LOCATION:
+      return op_prio (EXPR_WFL_NODE (op));
 
     default:
       /* If OP is any type of expression operator, abort because we
@@ -1350,6 +1361,7 @@ op_symbol (op)
     case BIT_IOR_EXPR:
       return "|";
       
+    case TRUTH_XOR_EXPR:
     case BIT_XOR_EXPR:
       return "^";
       

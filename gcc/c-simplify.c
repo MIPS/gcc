@@ -133,7 +133,7 @@ static void
 simplify_stmt (stmt)
      tree stmt;
 {
-  tree next, prev, pre, post;
+  tree prev;
 
   /* PRE and POST are tree chains that contain the side-effects of the
      simplified tree.  For instance, given the expression tree:
@@ -150,8 +150,12 @@ simplify_stmt (stmt)
   prev = stmt;
   while (stmt && stmt != error_mark_node)
     {
+      tree next, pre, post;
+      int stmt_was_null;
+
       pre = NULL;
       post = NULL;
+      stmt_was_null = 0;
       next = TREE_CHAIN (stmt);
       
       switch (TREE_CODE (stmt))
@@ -188,8 +192,22 @@ simplify_stmt (stmt)
 	  break;
 
 	case EXPR_STMT:
-	  EXPR_STMT_EXPR (stmt) = simplify_expr (EXPR_STMT_EXPR (stmt), &pre,
-	                                         &post, is_simple_expr, 0);
+	  {
+	    tree e = EXPR_STMT_EXPR (stmt);
+
+	    /* Simplification of a statement expression will nullify the
+	       statement if all its side effects are moved to PRE and POST.
+	       In this case we will not want to emit the simplified
+	       statement.  However, if the statement was already null
+	       before simplification, we should leave it to avoid changing
+	       the semantics of the program.  */
+	    if (!expr_has_effect (e))
+	      stmt_was_null = 1;
+
+	    EXPR_STMT_EXPR (stmt) = simplify_expr (e, &pre, &post,
+		                                   is_simple_expr, 0);
+	  }
+	    
 	  break;
 
 	case DECL_STMT:
@@ -247,9 +265,7 @@ simplify_stmt (stmt)
 	default:
 	  prep_stmt (stmt);
 	  fprintf (stderr, "unhandled statement node in simplify_stmt ():\n");
-	  print_node_brief (stderr, "", stmt, 0);
-	  debug_c_node (stmt);
-	  fprintf (stderr, "\n");
+	  debug_tree (stmt);
 	  abort ();
 	  break;
 	}
@@ -273,7 +289,11 @@ simplify_stmt (stmt)
       TREE_CHAIN (stmt) = NULL_TREE;
 
       chainon (prev, pre);
-      if (stmt_has_effect (stmt))
+      /* If the statement had no effect before simplification, we emit it
+	 anyway to avoid changing the semantics of the original program.
+	 This is mainly used for the return value of statement-expressions.  */
+      if (stmt_was_null
+	  || stmt_has_effect (stmt))
 	{
 	  chainon (prev, stmt);
 	  chainon (stmt, post);
@@ -437,13 +457,15 @@ simplify_for_stmt (stmt, pre_p, post_p)
      doesn't resemble the original.  To minimize shape changes, we try to
      insert expressions in FOR_INIT_STMT and FOR_EXPR.  */
 
-  /* Link PRE_INIT_S, INIT_S, POST_INIT_S and PRE_COND_S to make up
-     a new FOR_INIT_STMT.  If the last tree in the list is an
-     expression tree, it is emmitted inside FOR_INIT_STMT.  */
+  /* Link PRE_INIT_S, INIT_S, POST_INIT_S and a copy of PRE_COND_S to make
+     up a new FOR_INIT_STMT.  If the last tree in the list is an expression
+     tree, it is emmitted inside FOR_INIT_STMT.  We emit a copy of
+     PRE_COND_S because we also need to emit it at every wrap-around point
+     in the loop body.  */
   add_tree (pre_init_s, pre_p);
   add_tree (init_s, pre_p);
   add_tree (post_init_s, pre_p);
-  add_tree (pre_cond_s, pre_p);
+  add_tree (deep_copy_list (pre_cond_s), pre_p);
 
   if (*pre_p)
     {
@@ -967,7 +989,7 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
       if (simple_test_f != is_simple_expr)
 	{
 	  add_tree (expr_s, pre_p);
-	  expr_s = TREE_OPERAND (expr_s, 1);
+	  expr_s = TREE_OPERAND (expr_s, 0);
 	}
       break;
 
@@ -980,6 +1002,10 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
 	end up taking the address of a temporary, instead of the address
 	of the original object.  */
     case ADDR_EXPR:
+      expr_s = expr;
+      break;
+
+    case VA_ARG_EXPR:
       expr_s = expr;
       break;
 
@@ -1036,6 +1062,27 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
 	                          needs_lvalue);
       break;
 
+    case BIT_FIELD_REF:
+      expr_s = expr;
+      TREE_OPERAND (expr_s, 0) = simplify_expr (TREE_OPERAND (expr_s, 0),
+	                                        pre_p, post_p, is_simple_id,
+						needs_lvalue);
+
+      TREE_OPERAND (expr_s, 1) = simplify_expr (TREE_OPERAND (expr_s, 1),
+	                                        pre_p, post_p, is_simple_val,
+						0);
+
+      TREE_OPERAND (expr_s, 2) = simplify_expr (TREE_OPERAND (expr_s, 2),
+	                                        pre_p, post_p, is_simple_val,
+						0);
+      break;
+
+    case NON_LVALUE_EXPR:
+      expr_s = expr;
+      TREE_OPERAND (expr_s, 0) = simplify_expr (TREE_OPERAND (expr_s, 0),
+	                                        pre_p, post_p, simple_test_f,
+						0);
+      break;
 
     /* If EXPR does not need to be special-cased, handle it according to
        its class.  */
@@ -1052,7 +1099,10 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
 	    TREE_OPERAND (expr_s, 0) = t;
 	  }
 	else if (TREE_CODE_CLASS (TREE_CODE (expr_s)) == '2'
-	         || TREE_CODE_CLASS (TREE_CODE (expr_s)) == '<')
+	         || TREE_CODE_CLASS (TREE_CODE (expr_s)) == '<'
+		 || TREE_CODE (expr_s) == TRUTH_AND_EXPR
+		 || TREE_CODE (expr_s) == TRUTH_OR_EXPR
+		 || TREE_CODE (expr_s) == TRUTH_XOR_EXPR)
 	  {
 	    tree lhs, rhs;
 
@@ -1068,10 +1118,7 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
 	else
 	  {
 	    fprintf (stderr, "unhandled expression in simplify_expr ():\n");
-	    print_node_brief (stderr, "", expr_s, 0);
-	    fputs ("\n", stderr);
-	    debug_c_node (expr_s);
-	    fputs ("\n", stderr);
+	    debug_tree (expr_s);
 	    abort ();
 	  }
       }
@@ -1088,10 +1135,8 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
   if (!is_simple_rhs (expr_s))
     {
       fprintf (stderr, "Could not convert expression into a SIMPLE RHS:\n");
-      print_node_brief (stderr, "", expr_s, 0);
-      fputs ("\n", stderr);
-      debug_c_node (expr_s);
-      fputs ("\n", stderr);
+      debug_tree (expr_s);
+      fprintf (stderr, "\n");
       abort ();
     }
 
@@ -1152,7 +1197,7 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
     SIMPLE grammar:
 
      arrayref
-	    : varname reflist
+	    : arraybase reflist
 
      reflist
 	    : '[' val ']'
@@ -1178,10 +1223,8 @@ simplify_array_ref (expr, pre_p, post_p)
 
   VARRAY_GENERIC_PTR_INIT (dim_stack, 10, "dim_stack");
 
-  /* First find and simplify the base of the array.  While looking
-     for the base of the array, push all the dimensions along the
-     way, so that they can be simplified from left to right after the
-     base.  */
+  /* Create a stack with all the dimensions of the array so that they can
+     be simplified from left to right.  */
   base = expr;
   VARRAY_PUSH_GENERIC_PTR (dim_stack, (PTR)&(TREE_OPERAND (expr, 1)));
   while (TREE_CODE (TREE_OPERAND (base, 0)) == ARRAY_REF)
@@ -1192,12 +1235,11 @@ simplify_array_ref (expr, pre_p, post_p)
 
   /* After the loop above, 'base' contains the leftmost ARRAY_REF,
      and 'dim_stack' is a stack of pointers to all the dimensions in left
-     to right order (the leftmost dimension is at the top of the
-     stack).  */
-  TREE_OPERAND (base, 0) = simplify_expr (TREE_OPERAND (base, 0), pre_p,
-                                          post_p, is_simple_varname, 1);
+     to right order (the leftmost dimension is at the top of the stack).
 
-  /* Now simplify each of the dimensions from left to right.  */
+     Simplify each of the dimensions from left to right.  Note that the
+     base of the array is never simplified because that would break the
+     semantics of C arrays.  */
   while (VARRAY_ACTIVE_SIZE (dim_stack) > 0)
     {
       tree *dim_p = (tree *)VARRAY_TOP_GENERIC_PTR (dim_stack);
@@ -1345,7 +1387,15 @@ simplify_call_expr (expr, pre_p, post_p)
   if (TREE_CODE (expr) != CALL_EXPR)
     abort ();
 
+  /* Do not simplify calls to builtin functions as they may require
+     specific tree nodes (e.g., __builtin_stdarg_start).
+     FIXME: We should identify which builtins can be simplified safely.  */
+  id = get_callee_fndecl (expr);
+  if (id && DECL_BUILT_IN (id))
+    return expr;
+
   id = simplify_expr (TREE_OPERAND (expr, 0), pre_p, post_p, is_simple_id, 0);
+
   if (TREE_OPERAND (expr, 1))
     arglist = simplify_expr (TREE_OPERAND (expr, 1), pre_p, post_p,
   			     is_simple_arglist, 0);
@@ -1401,11 +1451,13 @@ simplify_tree_list (expr, pre_p, post_p)
 
     Convert the conditional expression EXPR '(p) ? a : b;' into
 
-    if (p)
-      t1 = a;
-    else
-      t1 = b;
-    t1;
+    if (p)			if (p)
+      t1 = a;			  a;
+    else		or	else
+      t1 = b;			  b;
+    t1;				(void)0;
+
+    The second form is used when EXPR is of type void.
 
     PRE_P points to the list where side effects that must happen before
 	EXPR should be stored.
@@ -1419,9 +1471,14 @@ simplify_cond_expr (expr, pre_p, post_p)
      tree *pre_p;
      tree *post_p;
 {
-  tree t_then, t_else, tmp, pred, tval, fval, new_if;
+  tree t_then, t_else, tmp, pred, tval, fval, new_if, expr_type;
 
-  tmp = create_tmp_var (TREE_TYPE (expr));
+  expr_type = TREE_TYPE (expr);
+
+  if (!VOID_TYPE_P (expr_type))
+    tmp = create_tmp_var (TREE_TYPE (expr));
+  else
+    tmp = void_zero_node;
 
   pred = simplify_expr (TREE_OPERAND (expr, 0), pre_p, post_p, is_simple_expr,
                         0);
@@ -1432,11 +1489,17 @@ simplify_cond_expr (expr, pre_p, post_p)
   fval = simplify_expr (TREE_OPERAND (expr, 2), pre_p, post_p, is_simple_expr,
                         0);
 
-  /* Build the THEN_CLAUSE 't1 = a;'.  */
-  t_then = build_stmt (EXPR_STMT, build_modify_expr (tmp, NOP_EXPR, tval));
+  /* Build the THEN_CLAUSE 't1 = a;' or 'a;'.  */
+  if (!VOID_TYPE_P (expr_type))
+    t_then = build_stmt (EXPR_STMT, build_modify_expr (tmp, NOP_EXPR, tval));
+  else
+    t_then = build_stmt (EXPR_STMT, tval);
 
-  /* Build the ELSE_CLAUSE 't1 = b;'.  */
-  t_else = build_stmt (EXPR_STMT, build_modify_expr (tmp, NOP_EXPR, fval));
+  /* Build the ELSE_CLAUSE 't1 = b;' or 'b;'.  */
+  if (!VOID_TYPE_P (expr_type))
+    t_else = build_stmt (EXPR_STMT, build_modify_expr (tmp, NOP_EXPR, fval));
+  else
+    t_else = build_stmt (EXPR_STMT, fval);
 
   /* Build a new IF_STMT, and insert it in the PRE_P chain.  */
   new_if = build_stmt (IF_STMT, pred, t_then, t_else);
@@ -1520,7 +1583,7 @@ simplify_modify_expr (expr, pre_p, post_p)
 	if (!T)
 	  T = b;
 
-    In both cases, the expression 'T' is returned.
+    In both cases, the expression 'T != 0' is returned.
 
 
     PRE_P points to the list where side effects that must happen before
@@ -1566,7 +1629,7 @@ simplify_boolean_expr (expr, pre_p, post_p)
 
   add_tree (build_stmt (IF_STMT, if_cond, if_body, NULL_TREE), pre_p);
 
-  return t;
+  return build (NE_EXPR, TREE_TYPE (expr), t, integer_zero_node);
 }
 
 /* }}} */
@@ -1709,11 +1772,15 @@ simplify_save_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
                           needs_lvalue);
 
   for (op = *pre_p; op; op = TREE_CHAIN (op))
-    TREE_VALUE (op) = save_expr (TREE_VALUE (op));
+    if (!statement_code_p (TREE_CODE (TREE_VALUE (op))))
+      TREE_VALUE (op) = save_expr (TREE_VALUE (op));
 
   for (op = *post_p; op; op = TREE_CHAIN (op))
-    TREE_VALUE (op) = save_expr (TREE_VALUE (op));
+    if (!statement_code_p (TREE_CODE (TREE_VALUE (op))))
+      TREE_VALUE (op) = save_expr (TREE_VALUE (op));
 
+  /* simplify_expr() will never return a statement tree, so we can assume
+     that we can wrap EXPR_S inside a SAVE_EXPR node.  */
   return save_expr (expr_s);
 }
 
@@ -2165,7 +2232,10 @@ tree_last_decl (scope)
 {
   tree last;
 
-  /* Be sure that we get a scope.  */
+  /* Be sure that we get a scope.  Ignore FILE_STMT nodes.  */
+  while (TREE_CODE (scope) == FILE_STMT)
+    scope = TREE_CHAIN (scope);
+
   if (!SCOPE_BEGIN_P (scope))
     abort ();
 

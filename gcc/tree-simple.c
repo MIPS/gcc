@@ -174,9 +174,11 @@ Boston, MA 02111-1307, USA.  */
 	      | ID
 
       arrayref
-	      : varname reflist		=> Original grammar only allowed
-	                                   'ID reflist'.  This causes
-					   splits like k.d[2][3] into
+	      : arraybase reflist	=> 'arraybase' is any valid C array
+					   name.  Original grammar only
+					   allowed 'ID reflist'.  This
+					   causes splits like k.d[2][3]
+					   into
 					   
 					   	t1 = &(k.d[2])
   						t2 = *(&t1[3])
@@ -329,9 +331,16 @@ is_simple_compstmt (t)
       || !SCOPE_BEGIN_P (t))
     return 0;
 
-  /* Test all the declarations.  */
+  /* Test all the declarations.
+
+     ??? This allows initializers for read-only variables.  This is not
+         allowed in the original grammar, but I really see no other way
+	 around this.  If we simplify these declarations, we get warnings
+	 and if we change the read-only bit, we'll change the semantics of
+	 the variable.  */
   for (t = TREE_CHAIN (t); t && TREE_CODE (t) == DECL_STMT; t = TREE_CHAIN (t))
-    if (DECL_INITIAL (DECL_STMT_DECL (t)))
+    if (DECL_INITIAL (DECL_STMT_DECL (t))
+	&& !TREE_READONLY (DECL_STMT_DECL (t)))
       return 0;
 
   /* Test all the statements in the body.  */
@@ -367,9 +376,6 @@ int
 is_simple_expr (t)
      tree t;
 {
-  if (t == NULL_TREE)
-    abort ();
-
   return (is_simple_rhs (t) || is_simple_modify_expr (t));
 }
 
@@ -411,6 +417,13 @@ int
 is_simple_modify_expr (t)
      tree t;
 {
+  /* Additions to the original grammar.  Allow SAVE_EXPR, NON_LVALUE_EXPR
+     and EXPR_WITH_FILE_LOCATION wrappers.  */
+  if (TREE_CODE (t) == SAVE_EXPR
+      || TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
+      || TREE_CODE (t) == NON_LVALUE_EXPR)
+    return is_simple_modify_expr (TREE_OPERAND (t, 0));
+
   return (TREE_CODE (t) == MODIFY_EXPR
 	  && is_simple_modify_expr_lhs (TREE_OPERAND (t, 0))
 	  && is_simple_rhs (TREE_OPERAND (t, 1)));
@@ -444,6 +457,13 @@ int
 is_simple_binary_expr (t)
      tree t;
 {
+  /* Additions to the original grammar.  Allow SAVE_EXPR, NON_LVALUE_EXPR
+     and EXPR_WITH_FILE_LOCATION wrappers.  */
+  if (TREE_CODE (t) == SAVE_EXPR
+      || TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
+      || TREE_CODE (t) == NON_LVALUE_EXPR)
+    return is_simple_binary_expr (TREE_OPERAND (t, 0));
+
   return (TREE_CODE_CLASS (TREE_CODE (t)) == '2'
 	  && is_simple_val (TREE_OPERAND (t, 0))
 	  && is_simple_val (TREE_OPERAND (t, 1)));
@@ -463,8 +483,18 @@ int
 is_simple_condexpr (t)
      tree t;
 {
+  /* Additions to the original grammar.  Allow SAVE_EXPR, NON_LVALUE_EXPR
+     and EXPR_WITH_FILE_LOCATION wrappers.  */
+  if (TREE_CODE (t) == SAVE_EXPR
+      || TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
+      || TREE_CODE (t) == NON_LVALUE_EXPR)
+    return is_simple_condexpr (TREE_OPERAND (t, 0));
+
   return (is_simple_val (t)
-	  || (TREE_CODE_CLASS (TREE_CODE (t)) == '<'
+	  || ((TREE_CODE_CLASS (TREE_CODE (t)) == '<'
+	       || TREE_CODE (t) == TRUTH_AND_EXPR
+	       || TREE_CODE (t) == TRUTH_OR_EXPR
+	       || TREE_CODE (t) == TRUTH_XOR_EXPR)
 	      && is_simple_val (TREE_OPERAND (t, 0))
 	      && is_simple_val (TREE_OPERAND (t, 1))));
 }
@@ -498,8 +528,12 @@ int
 is_simple_unary_expr (t)
      tree t;
 {
-  if (t == NULL_TREE)
-    abort ();
+  /* Additions to the original grammar.  Allow STMT_EXPR, SAVE_EXPR and
+     EXPR_WITH_FILE_LOCATION wrappers.  */
+  if (TREE_CODE (t) == SAVE_EXPR
+      || TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
+      || TREE_CODE (t) == NON_LVALUE_EXPR)
+    return is_simple_unary_expr (TREE_OPERAND (t, 0));
 
   if (is_simple_varname (t) || is_simple_const (t))
     return 1;
@@ -523,16 +557,23 @@ is_simple_unary_expr (t)
   if (is_simple_cast (t))
     return 1;
 
-  /* Additions to the original grammar.  Allow STMT_EXPR, SAVE_EXPR and
-     EXPR_WITH_FILE_LOCATION.  */
+  /* Additions to the original grammar.  FIXME:  Statement-expressions should
+     really be expanded.  */
   if (TREE_CODE (t) == STMT_EXPR
       && is_simple_stmt (STMT_EXPR_STMT (t)))
     return 1;
 
-  if (TREE_CODE (t) == SAVE_EXPR
-      || TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
-      || TREE_CODE (t) == NON_LVALUE_EXPR)
-    return is_simple_unary_expr (TREE_OPERAND (t, 0));
+  /* Addition to the original grammar.  Allow BIT_FIELD_REF nodes where
+     operand 0 is a SIMPLE identifier and operands 1 and 2 are SIMPLE
+     values.  */
+  if (TREE_CODE (t) == BIT_FIELD_REF)
+    return (is_simple_id (TREE_OPERAND (t, 0))
+	    && is_simple_val (TREE_OPERAND (t, 1))
+	    && is_simple_val (TREE_OPERAND (t, 2)));
+
+  /* Addition to the original grammar.  Allow VA_ARG_EXPR nodes.  */
+  if (TREE_CODE (t) == VA_ARG_EXPR)
+    return 1;
 
   return 0;
 }
@@ -554,8 +595,19 @@ int
 is_simple_call_expr (t)
      tree t;
 {
+  tree decl;
+
   if (TREE_CODE (t) != CALL_EXPR)
     return 0;
+
+  /* Consider that calls to builtin functions are in SIMPLE form already.
+
+     FIXME: The simplifier will not simplify these calls because some
+	    builtins need specific arguments (e.g., __builtin_stdarg_start
+	    wants one of the function arguments as its last parameters).  */
+  decl = get_callee_fndecl (t);
+  if (decl && DECL_BUILT_IN (decl))
+    return 1;
 
   return (is_simple_id (TREE_OPERAND (t, 0))
           && is_simple_arglist (TREE_OPERAND (t, 1)));
@@ -666,7 +718,12 @@ is_simple_val (t)
     Return nonzero if T is an array reference of the form:
 
       arrayref
-	      : varname reflist
+	      : arraybase reflist	=> 'arraybase' is any valid C array
+					    name.  The original grammar
+					    allowed only ID here, but we
+					    cannot simplify array bases
+					    because we may get invalid
+					    code.
 
       reflist
 	      : '[' val ']'
@@ -677,7 +734,6 @@ is_simple_arrayref (t)
      tree t;
 {
   return (TREE_CODE (t) == ARRAY_REF
-	  && is_simple_varname (TREE_OPERAND (t, 0))
           && is_simple_val (TREE_OPERAND (t, 1)));
 }
 
