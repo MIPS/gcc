@@ -1,3 +1,8 @@
+2004-10-29  Stuart Hastings  <stuart@apple.com>
+
+	* gcc.apple/special/liblongcall.c: Add #include <stdio.h>.
+	* gcc.apple/special/longcall-prog.c: Add #include <stdlib.h>.
+
 2004-10-29  Devang Patel  <dpatel@apple.com>
 
         FSF merge cleanup.
