@@ -1,3 +1,7 @@
+2004-07-30  Devang Patel  <dpatel@apple.com>
+
+	* tree-ssa-loop-manip.c (tree_ssa_loop_version): Do not split latch edge.
+
 2004-07-30  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* lambda-mat.c (lambda_matrix_right_hermite, 

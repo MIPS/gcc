@@ -661,10 +661,6 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop,
   loop_split_edge_with (loop_preheader_edge (loop), NULL);
   loop_split_edge_with (loop_preheader_edge (nloop), NULL);
 
-  /* Ensure that the latch has just a single successor.  */
-  loop_split_edge_with (loop_latch_edge (loop), NULL);
-  loop_split_edge_with (loop_latch_edge (nloop), NULL);
-
   return nloop;
 }
 
