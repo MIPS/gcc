@@ -1145,6 +1145,15 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       return false;
     }
 
+  /* Enumerators have no linkage, so may only be declared once in a
+     given scope.  */
+  if (TREE_CODE (olddecl) == CONST_DECL)
+    {
+      error ("%Jredeclaration of enumerator %qD", newdecl, newdecl);
+      locate_old_decl (olddecl, error);
+      return false;
+    }
+
   if (!comptypes (oldtype, newtype))
     {
       if (TREE_CODE (olddecl) == FUNCTION_DECL
@@ -2159,6 +2168,8 @@ implicitly_declare (tree functionid)
 {
   struct c_binding *b;
   tree decl = 0;
+  tree asmspec_tree;
+
   for (b = I_SYMBOL_BINDING (functionid); b; b = b->shadowed)
     {
       if (B_IN_SCOPE (b, external_scope))
@@ -2230,6 +2241,9 @@ implicitly_declare (tree functionid)
   TREE_PUBLIC (decl) = 1;
   C_DECL_IMPLICIT (decl) = 1;
   implicit_decl_warning (functionid, 0);
+  asmspec_tree = maybe_apply_renaming_pragma (decl, /*asmname=*/NULL);
+  if (asmspec_tree)
+    set_user_assembler_name (decl, TREE_STRING_POINTER (asmspec_tree));
 
   /* C89 says implicit declarations are in the innermost block.
      So we record the decl in the standard fashion.  */
@@ -3064,7 +3078,8 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
   const char *asmspec = 0;
 
   /* If a name was specified, get the string.  */
-  if (current_scope == file_scope)
+  if ((TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
+      && DECL_FILE_SCOPE_P (decl))
     asmspec_tree = maybe_apply_renaming_pragma (decl, asmspec_tree);
   if (asmspec_tree)
     asmspec = TREE_STRING_POINTER (asmspec_tree);
@@ -4904,12 +4919,21 @@ start_struct (enum tree_code code, tree name)
     ref = lookup_tag (code, name, 1);
   if (ref && TREE_CODE (ref) == code)
     {
-      if (TYPE_FIELDS (ref))
+      if (TYPE_SIZE (ref))
         {
 	  if (code == UNION_TYPE)
 	    error ("redefinition of %<union %s%>", IDENTIFIER_POINTER (name));
           else
 	    error ("redefinition of %<struct %s%>", IDENTIFIER_POINTER (name));
+	}
+      else if (C_TYPE_BEING_DEFINED (ref))
+	{
+	  if (code == UNION_TYPE)
+	    error ("nested redefinition of %<union %s%>",
+		   IDENTIFIER_POINTER (name));
+          else
+	    error ("nested redefinition of %<struct %s%>",
+		   IDENTIFIER_POINTER (name));
 	}
     }
   else
@@ -5117,11 +5141,6 @@ finish_struct (tree t, tree fieldlist, tree attributes)
       if (C_DECL_VARIABLE_SIZE (x))
 	C_TYPE_VARIABLE_SIZE (t) = 1;
 
-      /* Detect invalid nested redefinition.  */
-      if (TREE_TYPE (x) == t)
-	error ("nested redefinition of %qs",
-	       IDENTIFIER_POINTER (TYPE_NAME (t)));
-
       if (DECL_INITIAL (x))
 	{
 	  unsigned HOST_WIDE_INT width = tree_low_cst (DECL_INITIAL (x), 1);
@@ -5323,6 +5342,9 @@ start_enum (tree name)
       enumtype = make_node (ENUMERAL_TYPE);
       pushtag (name, enumtype);
     }
+
+  if (C_TYPE_BEING_DEFINED (enumtype))
+    error ("nested redefinition of %<enum %s%>", IDENTIFIER_POINTER (name));
 
   C_TYPE_BEING_DEFINED (enumtype) = 1;
 
@@ -6128,30 +6150,21 @@ store_parm_decls (void)
   cfun->x_dont_save_pending_sizes_p = 1;
 }
 
-/* Give FNDECL and all its nested functions to cgraph for compilation.  */
+/* Handle attribute((warn_unused_result)) on FNDECL and all its nested
+   functions.  */
 
 static void
-c_finalize (tree fndecl)
+c_warn_unused_result_recursively (tree fndecl)
 {
   struct cgraph_node *cgn;
 
   /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
   c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
 
-  /* ??? Objc emits functions after finalizing the compilation unit.
-     This should be cleaned up later and this conditional removed.  */
-  if (cgraph_global_info_ready)
-    {
-      c_expand_body (fndecl);
-      return;
-    }
-
   /* Finalize all nested functions now.  */
   cgn = cgraph_node (fndecl);
   for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
-    c_finalize (cgn->decl);
-
-  cgraph_finalize_function (fndecl, false);
+    c_warn_unused_result_recursively (cgn->decl);
 }
 
 /* Finish up a function declaration and compile that function
@@ -6255,8 +6268,17 @@ finish_function (void)
       if (!decl_function_context (fndecl))
         {
           c_genericize (fndecl);
-	  lower_nested_functions (fndecl);
-          c_finalize (fndecl);
+          c_warn_unused_result_recursively (fndecl);
+
+	  /* ??? Objc emits functions after finalizing the compilation unit.
+	     This should be cleaned up later and this conditional removed.  */
+	  if (cgraph_global_info_ready)
+	    {
+	      c_expand_body (fndecl);
+	      return;
+	    }
+
+	  cgraph_finalize_function (fndecl, false);
         }
       else
         {

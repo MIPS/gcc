@@ -84,19 +84,43 @@ do {									\
 /* Loop over all registers in REGSET, starting with MIN, setting REGNUM to the
    register number and executing CODE for all registers that are set.  */
 #define EXECUTE_IF_SET_IN_REG_SET(REGSET, MIN, REGNUM, CODE)		\
-  EXECUTE_IF_SET_IN_BITMAP (REGSET, MIN, REGNUM, CODE)
+  do									\
+    {									\
+      bitmap_iterator bi;						\
+									\
+      EXECUTE_IF_SET_IN_BITMAP (REGSET, MIN, REGNUM, bi)		\
+	{								\
+	  CODE;								\
+        }								\
+    } while (0)
 
 /* Loop over all registers in REGSET1 and REGSET2, starting with MIN, setting
    REGNUM to the register number and executing CODE for all registers that are
    set in the first regset and not set in the second.  */
 #define EXECUTE_IF_AND_COMPL_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, CODE) \
-  EXECUTE_IF_AND_COMPL_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, CODE)
+  do									\
+    {									\
+      bitmap_iterator bi;						\
+									\
+      EXECUTE_IF_AND_COMPL_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, bi) \
+	{								\
+	  CODE;								\
+        }								\
+    } while (0)
 
 /* Loop over all registers in REGSET1 and REGSET2, starting with MIN, setting
    REGNUM to the register number and executing CODE for all registers that are
    set in both regsets.  */
 #define EXECUTE_IF_AND_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, CODE) \
-  EXECUTE_IF_AND_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, CODE)
+  do									\
+    {									\
+      bitmap_iterator bi;						\
+									\
+      EXECUTE_IF_AND_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, bi)	\
+	{								\
+	  CODE;								\
+        }								\
+    } while (0)
 
 /* Allocate a register set with oballoc.  */
 #define OBSTACK_ALLOC_REG_SET(OBSTACK) BITMAP_OBSTACK_ALLOC (OBSTACK)
@@ -746,6 +770,7 @@ extern basic_block next_dom_son (enum cdi_direction, basic_block);
 extern edge try_redirect_by_replacing_jump (edge, basic_block, bool);
 extern void break_superblocks (void);
 extern void check_bb_profile (basic_block, FILE *);
+extern void update_bb_profile_for_threading (basic_block, int, gcov_type, edge);
 
 #include "cfghooks.h"
 

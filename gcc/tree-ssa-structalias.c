@@ -946,12 +946,13 @@ print_solution_for_var (FILE *file, unsigned int var)
 {
   varinfo_t vi = get_varinfo (var);
   unsigned int i;
-  fprintf (file, "%s = {", vi->name);
+  bitmap_iterator bi; 
   
-  EXECUTE_IF_SET_IN_BITMAP (get_varinfo (vi->node)->solution, 0, i,
-  {
-    fprintf (file, "%s,", get_varinfo (i)->name);
-  });
+  fprintf (file, "%s = {", vi->name);
+  EXECUTE_IF_SET_IN_BITMAP (get_varinfo (vi->node)->solution, 0, i, bi)
+    {
+      fprintf (file, "%s,", get_varinfo (i)->name);
+    }
   fprintf (file, "}\n");
 }
 
@@ -1157,21 +1158,23 @@ solution_set_add (bitmap set, unsigned int offset)
 {
   bitmap result = BITMAP_XMALLOC ();
   unsigned int i;
-  EXECUTE_IF_SET_IN_BITMAP (set, 0, i,
-  {
-    /* If this is a properly sized variable, only add offset if it's less than
-       end.  Otherwise, it is globbed to a single variable.  */
+  bitmap_iterator bi;
+
+  EXECUTE_IF_SET_IN_BITMAP (set, 0, i, bi)
+    {
+      /* If this is a properly sized variable, only add offset if it's less than
+	 end.  Otherwise, it is globbed to a single variable.  */
       
-    if ((i + offset) < get_varinfo (i)->end)
-      {
-	bitmap_set_bit (result, i + offset);
+      if ((i + offset) < get_varinfo (i)->end)
+	{
+	  bitmap_set_bit (result, i + offset);
       }
-    else if (get_varinfo (i)->is_artificial_var 
-	     || get_varinfo (i)->is_unknown_size_var)
-      {
-	bitmap_set_bit (result, i);
-      }
-  });
+      else if (get_varinfo (i)->is_artificial_var 
+	       || get_varinfo (i)->is_unknown_size_var)
+	{
+	  bitmap_set_bit (result, i);
+	}
+    }
   
   bitmap_copy (set, result);  
   BITMAP_XFREE (result);
@@ -1255,13 +1258,14 @@ condense_varmap_nodes (unsigned int to, unsigned int src)
   varinfo_t srcvi = get_varinfo (src);
   int i;
   constraint_t c;
+  bitmap_iterator bi;
   
   /* the src node, and all it's variables, are now the to node.  */
   srcvi->node = to;
-  EXECUTE_IF_SET_IN_BITMAP (srcvi->variables, 0, i,
-  {
-    get_varinfo (i)->node = to;
-  });
+  EXECUTE_IF_SET_IN_BITMAP (srcvi->variables, 0, i, bi)
+    {
+      get_varinfo (i)->node = to;
+    }
   
   /* Merge the src node variables and the to node variables.  */
   bitmap_set_bit (tovi->variables, src);
@@ -1755,29 +1759,31 @@ do_da_constraint (constraint_graph_t graph ATTRIBUTE_UNUSED,
   unsigned int rhs = c->rhs.var;
   unsigned int offset = c->lhs.offset;
   unsigned int j;
-  EXECUTE_IF_SET_IN_BITMAP (delta, 0, j,
-  {
-    if (type_safe (j, &offset))
-      {
-	/* *x != NULL && *x != UNKNOWN */
-	unsigned int t = get_varinfo (j + offset)->node;
-	bitmap tmp = get_varinfo (t)->solution;
-	if (!bitmap_bit_p (tmp, rhs))
-	  {
-	    bitmap sol = get_varinfo (t)->solution;
-	    bitmap_set_bit (tmp, rhs);
-	    bitmap_a_or_b (sol, sol, tmp);
-	    if (!TEST_BIT (changed, t))
-	      {
-		SET_BIT (changed, t);
-		changed_count++;
-	      }
-	  }
-      }
-    else if (dump_file)
-      fprintf (dump_file, "Untypesafe usage in do_da_constraint.\n");
+  bitmap_iterator bi;
 
-  });
+  EXECUTE_IF_SET_IN_BITMAP (delta, 0, j, bi)
+    {
+      if (type_safe (j, &offset))
+	{
+	  /* *x != NULL && *x != UNKNOWN */
+	  unsigned int t = get_varinfo (j + offset)->node;
+	  bitmap tmp = get_varinfo (t)->solution;
+	  if (!bitmap_bit_p (tmp, rhs))
+	    {
+	      bitmap sol = get_varinfo (t)->solution;
+	      bitmap_set_bit (tmp, rhs);
+	      bitmap_a_or_b (sol, sol, tmp);
+	      if (!TEST_BIT (changed, t))
+		{
+		  SET_BIT (changed, t);
+		  changed_count++;
+		}
+	    }
+	}
+      else if (dump_file)
+	fprintf (dump_file, "Untypesafe usage in do_da_constraint.\n");
+      
+    }
 }
 
 /* Process a constraint C that represents x = *y, using DELTA as the
@@ -1792,22 +1798,23 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
   bool flag = false;
   bitmap sol = get_varinfo (lhs)->solution;
   unsigned int j;
+  bitmap_iterator bi;
   
   /* For each variable j in delta (the starting solution point), we add
      an edge in the graph from the LHS to j + RHS offset, and update
      the current LHS solution.  */
-  EXECUTE_IF_SET_IN_BITMAP (delta, 0, j,
-  {
-    if (type_safe (j, &roffset))
-      {
-	unsigned int t = get_varinfo (j + roffset)->node;
-	if (int_add_graph_edge (graph, lhs, t, 0))
+  EXECUTE_IF_SET_IN_BITMAP (delta, 0, j, bi)
+    {
+      if (type_safe (j, &roffset))
+	{
+	  unsigned int t = get_varinfo (j + roffset)->node;
+	  if (int_add_graph_edge (graph, lhs, t, 0))
 	  flag |= bitmap_a_or_b (sol, sol, get_varinfo (t)->solution);
-      }
-    else if (dump_file)
-      fprintf (dump_file, "Untypesafe usage in do_sd_constraint\n");
-
-  });
+	}
+      else if (dump_file)
+	fprintf (dump_file, "Untypesafe usage in do_sd_constraint\n");
+      
+    }
 
   /* If the LHS solution changed, update it.  */
   if (flag)
@@ -1831,33 +1838,34 @@ do_ds_constraint (constraint_graph_t graph, constraint_t c, bitmap delta)
   unsigned int roff = c->rhs.offset;
   bitmap sol = get_varinfo (rhs)->solution;
   unsigned int j;
+  bitmap_iterator bi;
   
-  EXECUTE_IF_SET_IN_BITMAP (delta, 0, j,
-  {
-    if (type_safe (j, &loff))
-      {
-	unsigned int t = get_varinfo (j + loff)->node;
-	if (int_add_graph_edge (graph, t, rhs, roff))
-	  {
-	    bitmap tmp = get_varinfo (t)->solution;
-	    if (set_union_with_increment (tmp, sol, roff))
-	      {
-		get_varinfo (t)->solution = tmp;
-		if (t == rhs)
-		  {
-		    sol = get_varinfo (rhs)->solution;
-		  }
-		if (!TEST_BIT (changed, t))
-		  {
-		    SET_BIT (changed, t);
-		    changed_count++;
-		  }
-	      }
-	  }
-      }    
-    else if (dump_file)
-      fprintf (dump_file, "Untypesafe usage in do_ds_constraint\n");
-  });
+  EXECUTE_IF_SET_IN_BITMAP (delta, 0, j, bi)
+    {
+      if (type_safe (j, &loff))
+	{
+	  unsigned int t = get_varinfo (j + loff)->node;
+	  if (int_add_graph_edge (graph, t, rhs, roff))
+	    {
+	      bitmap tmp = get_varinfo (t)->solution;
+	      if (set_union_with_increment (tmp, sol, roff))
+		{
+		  get_varinfo (t)->solution = tmp;
+		  if (t == rhs)
+		    {
+		      sol = get_varinfo (rhs)->solution;
+		    }
+		  if (!TEST_BIT (changed, t))
+		    {
+		      SET_BIT (changed, t);
+		      changed_count++;
+		    }
+		}
+	    }
+	}    
+      else if (dump_file)
+	fprintf (dump_file, "Untypesafe usage in do_ds_constraint\n");
+    }
 }
 
 			      
@@ -2085,11 +2093,13 @@ solve_graph (constraint_graph_t graph)
 		  unsigned int k;
 		  /* Process weighted edges */
 		  bitmap weights = e->weights;
+		  bitmap_iterator bi;
+
 		  gcc_assert (bitmap_first_set_bit (weights) != -1);
-		  EXECUTE_IF_SET_IN_BITMAP (weights, 0, k,
-                  {
-		    flag |= set_union_with_increment (tmp, solution, k);
-		  });
+		  EXECUTE_IF_SET_IN_BITMAP (weights, 0, k, bi)
+		    {
+		      flag |= set_union_with_increment (tmp, solution, k);
+		    }
 		  if (flag)
 		    {
 		      get_varinfo (e->dest)->solution = tmp;		    

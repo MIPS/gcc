@@ -1,3 +1,69 @@
+2004-09-25  Tom Tromey  <tromey@redhat.com>
+
+	PR java/17500:
+	* parse.y (create_artificial_method): Use add_method_1.
+
+2004-09-25  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* expr.c, jcf-dump.c, parse-scan.y, parse.y: Fix
+	comment typos.
+	* gcj.texi: Fix typos.
+
+2004-09-24  Tom Tromey  <tromey@redhat.com>
+
+	PR java/15656:
+	* parse.y (class_instance_creation_expression): Set `$$' to NULL
+	in error parts of rule.
+	(unary_expression): Don't call error_if_numeric_overflow when $1
+	is NULL.
+
+2004-09-24  Tom Tromey  <tromey@redhat.com>
+
+	PR java/16789:
+	* parse.y (resolve_qualified_expression_name): Set
+	CAN_COMPLETE_NORMALLY on first call when chaining static calls.
+	* expr.c (force_evaluation_order): Check for empty argument list
+	after stripping COMPOUND_EXPR.
+
+2004-09-23  Andrew Haley  <aph@redhat.com>
+
+	PR java/16927:
+	* parse.y (java_complete_lhs): Call patch_string() on Operand 1 of
+	COND_EXPRs.
+
+2004-09-23  Tom Tromey  <tromey@redhat.com>
+
+	PR java/17329:
+	* java-gimplify.c (java_gimplify_expr) <SAVE_EXPR>: Ignore case
+	where operand is null.
+
+2004-09-23  Tom Tromey  <tromey@redhat.com>
+
+	PR java/17380:
+	* parse.y (not_accessible_p): Allow access to protected members
+	even when class is not static.
+
+2004-09-22  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in: Revert the gcc-none.o change.
+
+2004-09-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* parse.y (patch_anonymous_class): VEC_space returns true if there
+	is space.
+
+2004-09-21  Matt Austern  <austern@apple.com>
+
+	Fix bootstrap.
+	* gjavah.c (free_method_name_list): Fix function definition so
+	it's a proper C prototype.
+	
+2004-09-21  Tom Tromey  <tromey@redhat.com>
+
+	PR java/17575:
+	* gjavah.c (free_method_name_list): New method.
+	(main): Call it.
+
 2004-09-17  Jeffrey D. Oldham  <oldham@codesourcery.com>
 	    Zack Weinberg  <zack@codesourcery.com>
 

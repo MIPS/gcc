@@ -557,12 +557,24 @@ compute_branch_probabilities (void)
 	      num_branches++;
 	    }
 	}
-      /* Otherwise distribute the probabilities evenly so we get sane
-	 sum.  Use simple heuristics that if there are normal edges,
+      /* Otherwise try to preserve the existing REG_BR_PROB probabilities
+         tree based profile guessing put into code.  */
+      else if (profile_status == PROFILE_ABSENT
+	       && !ir_type ()
+	       && bb->succ && bb->succ->succ_next
+	       && (note = find_reg_note (BB_END (bb), REG_BR_PROB, 0)))
+	{
+	  int prob = INTVAL (XEXP (note, 0));
+
+	  BRANCH_EDGE (bb)->probability = prob;
+	  FALLTHRU_EDGE (bb)->probability = REG_BR_PROB_BASE - prob;
+	}
+      /* As a last resort, distribute the probabilities evenly.
+	 Use simple heuristics that if there are normal edges,
 	 give all abnormals frequency of 0, otherwise distribute the
 	 frequency over abnormals (this is the case of noreturn
 	 calls).  */
-      else
+      else if (profile_status == PROFILE_ABSENT)
 	{
 	  int total = 0;
 
@@ -590,6 +602,7 @@ compute_branch_probabilities (void)
 	    num_branches++, num_never_executed;
 	}
     }
+  counts_to_freqs ();
 
   if (dump_file)
     {
@@ -837,10 +850,6 @@ branch_prob (void)
 	  ignored_edges++;
 	}
     }
-
-#ifdef ENABLE_CHECKING
-  verify_flow_info ();
-#endif
 
   /* Create spanning tree from basic block graph, mark each edge that is
      on the spanning tree.  We insert as many abnormal and critical edges
@@ -1104,7 +1113,8 @@ branch_prob (void)
     }
 
   free_edge_list (el);
-  profile_status = PROFILE_READ;
+  if (flag_branch_probabilities)
+    profile_status = PROFILE_READ;
 }
 
 /* Union find algorithm implementation for the basic blocks using

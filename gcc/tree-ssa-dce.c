@@ -95,7 +95,14 @@ bitmap *control_dependence_map;
 /* Execute CODE for each edge (given number EDGE_NUMBER within the CODE)
    for which the block with index N is control dependent.  */
 #define EXECUTE_IF_CONTROL_DEPENDENT(N, EDGE_NUMBER, CODE)		      \
-  EXECUTE_IF_SET_IN_BITMAP (control_dependence_map[N], 0, EDGE_NUMBER, CODE)
+  {									      \
+    bitmap_iterator bi;							      \
+									      \
+    EXECUTE_IF_SET_IN_BITMAP (control_dependence_map[N], 0, EDGE_NUMBER, bi)  \
+      {									      \
+	CODE;								      \
+      }									      \
+  }
 
 /* Local function prototypes.  */
 static inline void set_control_dependence_map_bit (basic_block, int);
@@ -418,7 +425,9 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
 	  if (is_global_var (lhs))
 	    mark_stmt_necessary (stmt, true);
 	}
-      else if (TREE_CODE (lhs) == INDIRECT_REF)
+      else if (TREE_CODE (lhs) == INDIRECT_REF
+	       || TREE_CODE (lhs) == ALIGN_INDIRECT_REF
+	       || TREE_CODE (lhs) == MISALIGNED_INDIRECT_REF)
 	{
 	  tree ptr = TREE_OPERAND (lhs, 0);
 	  struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);

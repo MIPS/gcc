@@ -125,10 +125,11 @@ void (*_Jv_JVMPI_Notify_THREAD_END) (JVMPI_Event *event);
 #endif
 
 
+#if defined (HANDLE_SEGV) || defined(HANDLE_FPE)
 /* Unblock a signal.  Unless we do this, the signal may only be sent
    once.  */
 static void 
-unblock_signal (int signum)
+unblock_signal (int signum __attribute__ ((__unused__)))
 {
 #ifdef _POSIX_VERSION
   sigset_t sigs;
@@ -138,6 +139,7 @@ unblock_signal (int signum)
   sigprocmask (SIG_UNBLOCK, &sigs, NULL);
 #endif
 }
+#endif
 
 #ifdef HANDLE_SEGV
 SIGNAL_HANDLER (catch_segv)
@@ -881,18 +883,15 @@ process_gcj_properties ()
     }
   memset ((void *) &_Jv_Environment_Properties[property_count], 
 	  0, sizeof (property_pair));
-  {
-    size_t i = 0;
 
-    // Null terminate the strings.
-    while (_Jv_Environment_Properties[i].key)
-      {
-        property_pair *prop = &_Jv_Environment_Properties[i];
-	prop->key[prop->key_length] = 0;
-	prop->value[prop->value_length] = 0;
-	i++;
-      }
-  }
+  // Null terminate the strings.
+  for (property_pair *prop = &_Jv_Environment_Properties[0];
+       prop->key != NULL;
+       prop++)
+    {
+      prop->key[prop->key_length] = 0;
+      prop->value[prop->value_length] = 0;
+    }
 }
 #endif // DISABLE_GETENV_PROPERTIES
 

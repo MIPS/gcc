@@ -1,3 +1,35 @@
+2004-09-26  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* trans-intrinsic.c: Comment fixes.
+
+2004-09-25  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* decl.c (add_init_expr_to_sym, variable_decl): Comment fixes.
+
+2004-09-24  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* trans-types.c (gfc_return_by_reference): Remove superfluous
+	assertion.
+
+	* intrinsic.h (gfc_resolve_getcwd): Update prototype.
+	* iresolve.c (gfc_resolve_getcwd): Add second argument to function.
+
+	PR fortran/17615
+	* trans-expr.c (gfc_trans_arrayfunc_assign): Look at resolved
+	function to determine return type.
+	
+2004-09-20  Jan Hubicka  <jh@suse.cz>
+
+	* trans-decl.c (build_entry_thunks): Finalize the function; do not lower
+	tree.
+	(gfc_generate_function_code): Likewise.
+
+2004-09-20  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15957
+	* simplify.c (gfc_simplify_reshape): Set shape of return value
+	correctly.
+
 2004-09-17  Jeffrey D. Oldham  <oldham@codesourcery.com>
 	    Zack Weinberg  <zack@codesourcery.com>
 

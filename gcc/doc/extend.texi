@@ -1764,10 +1764,11 @@ start with the third argument, so the correct parameters for the format
 attribute are 2 and 3.
 
 @opindex ffreestanding
+@opindex fno-builtin
 The @code{format} attribute allows you to identify your own functions
 which take format strings as arguments, so that GCC can check the
 calls to these functions for errors.  The compiler always (unless
-@option{-ffreestanding} is used) checks formats
+@option{-ffreestanding} or @option{-fno-builtin} is used) checks formats
 for the standard library functions @code{printf}, @code{fprintf},
 @code{sprintf}, @code{scanf}, @code{fscanf}, @code{sscanf}, @code{strftime},
 @code{vprintf}, @code{vfprintf} and @code{vsprintf} whenever such
@@ -1824,7 +1825,8 @@ type function whose operands are a call to one of your own function.
 The compiler always treats @code{gettext}, @code{dgettext}, and
 @code{dcgettext} in this manner except when strict ISO C support is
 requested by @option{-ansi} or an appropriate @option{-std} option, or
-@option{-ffreestanding} is used.  @xref{C Dialect Options,,Options
+@option{-ffreestanding} or @option{-fno-builtin}
+is used.  @xref{C Dialect Options,,Options
 Controlling C Dialect}.
 
 @item function_vector
@@ -2013,7 +2015,7 @@ uninitialized variables.
 
 The @code{noreturn} keyword does not affect the exceptional path when that
 applies: a @code{noreturn}-marked function may still return to the caller
-by throwing an exception.
+by throwing an exception or calling @code{longjmp}.
 
 Do not assume that registers saved by the calling function are
 restored before calling the @code{noreturn} function.
@@ -8306,7 +8308,7 @@ multiple @code{#pragma pack(@var{n})} instances and finalized by a single
 @end enumerate
 
 @node Unnamed Fields
-@section Unnamed struct/union fields within structs/unions.
+@section Unnamed struct/union fields within structs/unions
 @cindex struct
 @cindex union
 
@@ -8345,6 +8347,15 @@ struct @{
 It is ambiguous which @code{a} is being referred to with @samp{foo.a}.
 Such constructs are not supported and must be avoided.  In the future,
 such constructs may be detected and treated as compilation errors.
+
+@opindex fms-extensions
+Unless @option{-fms-extensions} is used, the unnamed field must be a
+structure or union definition without a tag (for example, @samp{struct
+@{ int a; @};}).  If @option{-fms-extensions} is used, the field may
+also be a definition with a tag such as @samp{struct foo @{ int a;
+@};}, a reference to a previously defined structure or union such as
+@samp{struct foo;}, or a reference to a @code{typedef} name for a
+previously defined structure or union type.
 
 @node Thread-Local
 @section Thread-Local Storage

@@ -79,6 +79,8 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
   tree intype = TREE_TYPE (expr);
   enum tree_code form;
   tree rval;
+  if (intype == error_mark_node)
+    return error_mark_node;
 
   if (IS_AGGR_TYPE (intype))
     {
@@ -699,7 +701,20 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
   if (POINTER_TYPE_P (type) || TYPE_PTR_TO_MEMBER_P (type))
     return fold (cp_convert_to_pointer (type, e, false));
   if (code == VECTOR_TYPE)
-    return fold (convert_to_vector (type, e));
+    {
+      tree in_vtype = TREE_TYPE (e);
+      if (IS_AGGR_TYPE (in_vtype))
+	{
+	  tree ret_val;
+	  ret_val = build_type_conversion (type, e);
+          if (ret_val)
+            return ret_val;
+          if (flags & LOOKUP_COMPLAIN)
+            error ("`%#T' used where a `%T' was expected", in_vtype, type);
+          return error_mark_node;
+	}
+      return fold (convert_to_vector (type, e));
+    }
   if (code == REAL_TYPE || code == COMPLEX_TYPE)
     {
       if (IS_AGGR_TYPE (TREE_TYPE (e)))

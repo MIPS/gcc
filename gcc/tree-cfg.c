@@ -2001,22 +2001,9 @@ find_taken_edge (basic_block bb, tree val)
   gcc_assert (is_ctrl_stmt (stmt));
 
   /* If VAL is a predicate of the form N RELOP N, where N is an
-     SSA_NAME, we can always determine its truth value (except when
-     doing floating point comparisons that may involve NaNs).  */
-  if (val
-      && COMPARISON_CLASS_P (val)
-      && TREE_OPERAND (val, 0) == TREE_OPERAND (val, 1)
-      && TREE_CODE (TREE_OPERAND (val, 0)) == SSA_NAME
-      && (TREE_CODE (TREE_TYPE (TREE_OPERAND (val, 0))) != REAL_TYPE
-	  || !HONOR_NANS (TYPE_MODE (TREE_TYPE (TREE_OPERAND (val, 0))))))
-    {
-      enum tree_code code = TREE_CODE (val);
-
-      if (code == EQ_EXPR || code == LE_EXPR || code == GE_EXPR)
-	val = boolean_true_node;
-      else if (code == LT_EXPR || code == GT_EXPR || code == NE_EXPR)
-	val = boolean_false_node;
-    }
+     SSA_NAME, we can usually determine its truth value.  */
+  if (val && COMPARISON_CLASS_P (val))
+    val = fold (val);
 
   /* If VAL is not a constant, we can't determine which edge might
      be taken.  */
@@ -4399,11 +4386,12 @@ allocate_ssa_names (bitmap definitions, htab_t *map)
   struct ssa_name_map_entry *entry;
   PTR *slot;
   unsigned ver;
+  bitmap_iterator bi;
 
   if (!*map)
     *map = htab_create (10, ssa_name_map_entry_hash,
 			ssa_name_map_entry_eq, free);
-  EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver,
+  EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver, bi)
     {
       name = ssa_name (ver);
       slot = htab_find_slot_with_hash (*map, name, SSA_NAME_VERSION (name),
@@ -4417,7 +4405,7 @@ allocate_ssa_names (bitmap definitions, htab_t *map)
 	  *slot = entry;
 	}
       entry->to_name = duplicate_ssa_name (name, SSA_NAME_DEF_STMT (name));
-    });
+    }
 }
 
 /* Rewrite the definition DEF in statement STMT to new ssa name as specified
@@ -4568,6 +4556,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
   basic_block *doms;
   htab_t ssa_name_map = NULL;
   edge redirected;
+  bitmap_iterator bi;
 
   if (!can_copy_bbs_p (region, n_region))
     return false;
@@ -4652,7 +4641,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
   /* Add phi nodes for definitions at exit.  TODO -- once we have immediate
      uses, it should be possible to emit phi nodes just for definitions that
      are used outside region.  */
-  EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver,
+  EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver, bi)
     {
       tree name = ssa_name (ver);
 
@@ -4661,7 +4650,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
       add_phi_arg (&phi, name, exit_copy);
 
       SSA_NAME_DEF_STMT (name) = phi;
-    });
+    }
 
   /* And create new definitions inside region and its copy.  TODO -- once we
      have immediate uses, it might be better to leave definitions in region
@@ -5083,9 +5072,12 @@ tree_purge_all_dead_eh_edges (bitmap blocks)
 {
   bool changed = false;
   size_t i;
+  bitmap_iterator bi;
 
-  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
-    { changed |= tree_purge_dead_eh_edges (BASIC_BLOCK (i)); });
+  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i, bi)
+    {
+      changed |= tree_purge_dead_eh_edges (BASIC_BLOCK (i));
+    }
 
   return changed;
 }

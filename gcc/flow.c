@@ -377,7 +377,7 @@ life_analysis (FILE *file, int flags)
 
 #ifdef CANNOT_CHANGE_MODE_CLASS
   if (flags & PROP_REG_INFO)
-    bitmap_initialize (&subregs_of_mode, 1);
+    init_subregs_of_mode ();
 #endif
 
   if (! optimize)
@@ -3773,12 +3773,8 @@ mark_used_regs (struct propagate_block_info *pbi, rtx x, rtx cond, rtx insn)
 
     case SUBREG:
 #ifdef CANNOT_CHANGE_MODE_CLASS
-      if ((flags & PROP_REG_INFO)
-	  && REG_P (SUBREG_REG (x))
-	  && REGNO (SUBREG_REG (x)) >= FIRST_PSEUDO_REGISTER)
-	bitmap_set_bit (&subregs_of_mode, REGNO (SUBREG_REG (x))
-					  * MAX_MACHINE_MODE
-					  + GET_MODE (x));
+      if (flags & PROP_REG_INFO)
+	record_subregs_of_mode (x);
 #endif
 
       /* While we're here, optimize this case.  */
@@ -3823,13 +3819,8 @@ mark_used_regs (struct propagate_block_info *pbi, rtx x, rtx cond, rtx insn)
 	       || GET_CODE (testreg) == SUBREG)
 	  {
 #ifdef CANNOT_CHANGE_MODE_CLASS
-	    if ((flags & PROP_REG_INFO)
-		&& GET_CODE (testreg) == SUBREG
-		&& REG_P (SUBREG_REG (testreg))
-		&& REGNO (SUBREG_REG (testreg)) >= FIRST_PSEUDO_REGISTER)
-	      bitmap_set_bit (&subregs_of_mode, REGNO (SUBREG_REG (testreg))
-						* MAX_MACHINE_MODE
-						+ GET_MODE (testreg));
+	    if ((flags & PROP_REG_INFO) && GET_CODE (testreg) == SUBREG)
+	      record_subregs_of_mode (testreg);
 #endif
 
 	    /* Modifying a single register in an alternate mode
@@ -4329,12 +4320,12 @@ void
 reg_set_to_hard_reg_set (HARD_REG_SET *to, bitmap from)
 {
   int i;
+  bitmap_iterator bi;
 
-  EXECUTE_IF_SET_IN_BITMAP
-    (from, 0, i,
-     {
-       if (i >= FIRST_PSEUDO_REGISTER)
-	 return;
-       SET_HARD_REG_BIT (*to, i);
-     });
+  EXECUTE_IF_SET_IN_BITMAP (from, 0, i, bi)
+    {
+      if (i >= FIRST_PSEUDO_REGISTER)
+	return;
+      SET_HARD_REG_BIT (*to, i);
+    }
 }

@@ -172,10 +172,10 @@ simplify_using_entry_checks (struct loop *loop, tree cond)
 		? boolean_true_node
 		: boolean_false_node);
 
-      if (EDGE_COUNT (e->src->preds) > 1)
+      if (e->src->pred->pred_next)
 	return cond;
 
-      e = EDGE_PRED (e->src, 0);
+      e = e->src->pred;
       if (e->src == ENTRY_BLOCK_PTR)
 	return cond;
     }
@@ -283,7 +283,9 @@ tree_unswitch_loop (struct loops *loops, struct loop *loop,
 
   /* Some sanity checking.  */
   gcc_assert (flow_bb_inside_loop_p (loop, unswitch_on));
-  gcc_assert (EDGE_COUNT (unswitch_on->succs) == 2);
+  gcc_assert (unswitch_on->succ != NULL);
+  gcc_assert (unswitch_on->succ->succ_next != NULL);
+  gcc_assert (unswitch_on->succ->succ_next->succ_next == NULL);
   gcc_assert (loop->inner == NULL);
 
   return tree_ssa_loop_version (loops, loop, unshare_expr (cond), 

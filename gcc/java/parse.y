@@ -1961,7 +1961,7 @@ primary_no_new_array:
 |	array_access
 |	type_literals
         /* Added, JDK1.1 inner classes. Documentation is wrong
-           refering to a 'ClassName' (class_name) rule that doesn't
+           referring to a 'ClassName' (class_name) rule that doesn't
            exist. Used name: instead.  */
 |	name DOT_TK THIS_TK
 		{
@@ -2016,17 +2016,22 @@ class_instance_creation_expression:
 		}
 |	something_dot_new identifier OP_TK argument_list CP_TK class_body
 |	NEW_TK error SC_TK
-		{yyerror ("'(' expected"); DRECOVER(new_1);}
+		{$$ = NULL_TREE; yyerror ("'(' expected"); DRECOVER(new_1);}
 |	NEW_TK class_type error
-		{yyerror ("'(' expected"); RECOVER;}
+		{$$ = NULL_TREE; yyerror ("'(' expected"); RECOVER;}
 |	NEW_TK class_type OP_TK error
-		{yyerror ("')' or term expected"); RECOVER;}
+		{$$ = NULL_TREE; yyerror ("')' or term expected"); RECOVER;}
 |	NEW_TK class_type OP_TK argument_list error
-		{yyerror ("')' expected"); RECOVER;}
+		{$$ = NULL_TREE; yyerror ("')' expected"); RECOVER;}
 |	something_dot_new error
-		{YYERROR_NOW; yyerror ("Identifier expected"); RECOVER;}
+		{
+		  $$ = NULL_TREE;
+		  YYERROR_NOW;
+		  yyerror ("Identifier expected");
+		  RECOVER;
+		}
 |	something_dot_new identifier error
-		{yyerror ("'(' expected"); RECOVER;}
+		{$$ = NULL_TREE; yyerror ("'(' expected"); RECOVER;}
 ;
 
 /* Created after JDK1.1 rules originally added to
@@ -2063,7 +2068,7 @@ anonymous_class_creation:
 		     later on in verify_constructor_super.
 
 		     It's during the expansion of a `new' statement
-		     refering to an anonymous class that a ctor will
+		     referring to an anonymous class that a ctor will
 		     be generated for the anonymous class, with the
 		     right arguments. */
 
@@ -2343,7 +2348,8 @@ trap_overflow_corner_case:
 unary_expression:
 	trap_overflow_corner_case
 		{
-		  error_if_numeric_overflow ($1);
+		  if ($1)
+		    error_if_numeric_overflow ($1);
 		  $$ = $1;
 		}
 |	MINUS_TK trap_overflow_corner_case
@@ -3904,7 +3910,7 @@ patch_anonymous_class (tree type_decl, tree class_decl, tree wfl)
       if (parser_check_super_interface (type_decl, class_decl, wfl))
 	return;
 
-      if (VEC_space (tree, BINFO_BASE_BINFOS (binfo), 1))
+      if (!VEC_space (tree, BINFO_BASE_BINFOS (binfo), 1))
 	{
 	   /* Extend the binfo - by reallocating and copying it. */
 	  tree new_binfo;
@@ -7462,7 +7468,11 @@ create_artificial_method (tree class, int flags, tree type,
   mdecl = make_node (FUNCTION_TYPE);
   TREE_TYPE (mdecl) = type;
   TYPE_ARG_TYPES (mdecl) = args;
-  mdecl = add_method (class, flags, name, build_java_signature (mdecl));
+  /* We used to compute the signature of MDECL here and then use
+     add_method(), but that failed because our caller might modify
+     the type of the returned method, which trashes the cache in
+     get_type_from_signature().  */
+  mdecl = add_method_1 (class, flags, name, mdecl);
   java_parser_context_restore_global ();
   DECL_ARTIFICIAL (mdecl) = 1;
   return mdecl;
@@ -9607,6 +9617,9 @@ resolve_qualified_expression_name (tree wfl, tree *found_decl,
 	     forcoming function's argument. */
 	  if (previous_call_static && is_static)
 	    {
+	      /* We must set CAN_COMPLETE_NORMALLY for the first call
+		 since it is done nowhere else.  */
+	      CAN_COMPLETE_NORMALLY (decl) = 1;
 	      decl = build2 (COMPOUND_EXPR, TREE_TYPE (*where_found),
 			     decl, *where_found);
 	      TREE_SIDE_EFFECTS (decl) = 1;
@@ -10065,7 +10078,7 @@ not_accessible_p (tree reference, tree member, tree where, int from_super)
             {
 	      if (inherits_from_p (where, reference))
 	        return 0;
-	      if (PURE_INNER_CLASS_TYPE_P (reference))
+	      if (INNER_CLASS_TYPE_P (reference))
 		reference = TREE_TYPE (DECL_CONTEXT (TYPE_NAME (reference)));
 	      else
 	        break;
@@ -10079,7 +10092,7 @@ not_accessible_p (tree reference, tree member, tree where, int from_super)
         {
           if (inherits_from_p (reference, DECL_CONTEXT (member)))
             return 0;
-	  if (PURE_INNER_CLASS_TYPE_P (reference))
+	  if (INNER_CLASS_TYPE_P (reference))
             reference = TREE_TYPE (DECL_CONTEXT (TYPE_NAME (reference)));
 	  else
 	    break;
@@ -11647,7 +11660,16 @@ java_complete_lhs (tree node)
       TREE_OPERAND (node, 1) = java_complete_tree (TREE_OPERAND (node, 1));
       if (TREE_OPERAND (node, 1) == error_mark_node)
 	return error_mark_node;
-      TREE_OPERAND (node, 2) = java_complete_tree (TREE_OPERAND (node, 2));
+      {
+	/* This is a special case due to build_assertion().  When
+	   assertions are disabled we build a COND_EXPR in which
+	   Operand 1 is the body of the assertion.  If that happens to
+	   be a string concatenation we'll need to patch it here.  */
+	tree patched = patch_string (TREE_OPERAND (node, 1));
+	if (patched)
+	  TREE_OPERAND (node, 1) = patched;
+      }
+     TREE_OPERAND (node, 2) = java_complete_tree (TREE_OPERAND (node, 2));
       if (TREE_OPERAND (node, 2) == error_mark_node)
 	return error_mark_node;
       return patch_if_else_statement (node);
@@ -15346,7 +15368,7 @@ patch_try_statement (tree node)
   /* Check catch clauses, if any. Every time we find an error, we try
      to process the next catch clause. We process the catch clause before
      the try block so that when processing the try block we can check thrown
-     exceptions againts the caught type list. */
+     exceptions against the caught type list. */
   for (current = catch; current; current = TREE_CHAIN (current))
     {
       tree carg_decl, carg_type;

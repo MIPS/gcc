@@ -1990,6 +1990,8 @@ non_lvalue (tree x)
 
   case COMPONENT_REF:
   case INDIRECT_REF:
+  case ALIGN_INDIRECT_REF:
+  case MISALIGNED_INDIRECT_REF:
   case ARRAY_REF:
   case ARRAY_RANGE_REF:
   case BIT_FIELD_REF:
@@ -2466,6 +2468,8 @@ operand_equal_p (tree arg0, tree arg1, unsigned int flags)
       switch (TREE_CODE (arg0))
 	{
 	case INDIRECT_REF:
+	case ALIGN_INDIRECT_REF:
+	case MISALIGNED_INDIRECT_REF:
 	case REALPART_EXPR:
 	case IMAGPART_EXPR:
 	  return operand_equal_p (TREE_OPERAND (arg0, 0),
@@ -6682,7 +6686,7 @@ fold (tree expr)
 				   TREE_OPERAND (arg0, 0),
 				   build_real (type, c1)));
 	    }
-          /* Convert a + (b*c + d*e) into (a + b*c) + d*e */
+          /* Convert a + (b*c + d*e) into (a + b*c) + d*e.  */
           if (flag_unsafe_math_optimizations
               && TREE_CODE (arg1) == PLUS_EXPR
               && TREE_CODE (arg0) != MULT_EXPR)
@@ -6697,7 +6701,7 @@ fold (tree expr)
                   return fold (build2 (PLUS_EXPR, type, tree0, tree11));
                 }
             }
-          /* Convert (b*c + d*e) + a into b*c + (d*e +a) */
+          /* Convert (b*c + d*e) + a into b*c + (d*e +a).  */
           if (flag_unsafe_math_optimizations
               && TREE_CODE (arg0) == PLUS_EXPR
               && TREE_CODE (arg1) != MULT_EXPR)
@@ -8290,6 +8294,7 @@ fold (tree expr)
 	       && (t1 = get_unwidened (arg1, TREE_TYPE (tem))) != 0
 	       && (TREE_TYPE (t1) == TREE_TYPE (tem)
 		   || (TREE_CODE (t1) == INTEGER_CST
+		       && TREE_CODE (TREE_TYPE (tem)) == INTEGER_TYPE
 		       && int_fits_type_p (t1, TREE_TYPE (tem)))))
 	return fold (build2 (code, type, tem,
 			     fold_convert (TREE_TYPE (tem), t1)));
@@ -9564,7 +9569,7 @@ tree_expr_nonnegative_p (tree t)
 
 /* Return true when T is an address and is known to be nonzero.
    For floating point we further ensure that T is not denormal.
-   Similar logic is present in nonzero_address in rtlanal.h  */
+   Similar logic is present in nonzero_address in rtlanal.h.  */
 
 static bool
 tree_expr_nonzero_p (tree t)
@@ -10477,7 +10482,9 @@ build_fold_addr_expr_with_type (tree t, tree ptrtype)
   if (TREE_CODE (t) == WITH_SIZE_EXPR)
     t = TREE_OPERAND (t, 0);
 
-  if (TREE_CODE (t) == INDIRECT_REF)
+  /* Note: doesn't apply to ALIGN_INDIRECT_REF */
+  if (TREE_CODE (t) == INDIRECT_REF
+      || TREE_CODE (t) == MISALIGNED_INDIRECT_REF)
     {
       t = TREE_OPERAND (t, 0);
       if (TREE_TYPE (t) != ptrtype)

@@ -73,8 +73,8 @@ Boston, MA 02111-1307, USA.  */
 /* The IDENTIFIER_NODE naming the real class.  */
 #define TINFO_REAL_NAME(NODE) TREE_PURPOSE (NODE)
 
-/* A varray of all tinfo decls that haven't yet been emitted.  */
-varray_type unemitted_tinfo_decls;
+/* A vector of all tinfo decls that haven't yet been emitted.  */
+VEC (tree) *unemitted_tinfo_decls;
 
 static tree build_headof (tree);
 static tree ifnonnull (tree, tree);
@@ -89,9 +89,6 @@ static int qualifier_flags (tree);
 static bool target_incomplete_p (tree);
 static tree tinfo_base_init (tree, tree);
 static tree generic_initializer (tree, tree);
-static tree dfs_class_hint_mark (tree, void *);
-static tree dfs_class_hint_unmark (tree, void *);
-static int class_hint_flags (tree);
 static tree class_initializer (tree, tree, tree);
 static tree create_pseudo_type_info (const char *, int, ...);
 static tree get_pseudo_ti_init (tree, tree);
@@ -123,8 +120,8 @@ init_rtti_processing (void)
   type_info_ptr_type = build_pointer_type (const_type_info_type);
   type_info_ref_type = build_reference_type (const_type_info_type);
 
-  VARRAY_TREE_INIT (unemitted_tinfo_decls, 10, "RTTI decls");
-
+  unemitted_tinfo_decls = VEC_alloc (tree, 124);
+  
   create_tinfo_types ();
 }
 
@@ -364,8 +361,7 @@ get_tinfo_decl (tree type)
       pushdecl_top_level_and_finish (d, NULL_TREE);
 
       /* Add decl to the global array of tinfo decls.  */
-      gcc_assert (unemitted_tinfo_decls != 0);
-      VARRAY_PUSH_TREE (unemitted_tinfo_decls, d);
+      VEC_safe_push (tree, unemitted_tinfo_decls, d);
     }
 
   return d;
@@ -924,59 +920,6 @@ ptm_initializer (tree desc, tree target)
   return init;  
 }
 
-/* Check base BINFO to set hint flags in *DATA, which is really an int.
-   We use CLASSTYPE_MARKED to tag types we've found as non-virtual bases and
-   CLASSTYPE_MARKED2 to tag those which are virtual bases. Remember it is
-   possible for a type to be both a virtual and non-virtual base.  */
-
-static tree
-dfs_class_hint_mark (tree binfo, void *data)
-{
-  tree basetype = BINFO_TYPE (binfo);
-  int *hint = (int *) data;
-  
-  if (BINFO_VIRTUAL_P (binfo))
-    {
-      if (CLASSTYPE_MARKED (basetype))
-        *hint |= 1;
-      if (CLASSTYPE_MARKED2 (basetype))
-        *hint |= 2;
-      SET_CLASSTYPE_MARKED2 (basetype);
-    }
-  else
-    {
-      if (CLASSTYPE_MARKED (basetype) || CLASSTYPE_MARKED2 (basetype))
-        *hint |= 1;
-      SET_CLASSTYPE_MARKED (basetype);
-    }
-  return NULL_TREE;
-}
-
-/* Clear the base's dfs marks, after searching for duplicate bases.  */
-
-static tree
-dfs_class_hint_unmark (tree binfo, void *data ATTRIBUTE_UNUSED)
-{
-  tree basetype = BINFO_TYPE (binfo);
-  
-  CLEAR_CLASSTYPE_MARKED (basetype);
-  CLEAR_CLASSTYPE_MARKED2 (basetype);
-  return NULL_TREE;
-}
-
-/* Determine the hint flags describing the features of a class's hierarchy.  */
-
-static int
-class_hint_flags (tree type)
-{
-  int hint_flags = 0;
-  
-  dfs_walk (TYPE_BINFO (type), dfs_class_hint_mark, NULL, &hint_flags);
-  dfs_walk (TYPE_BINFO (type), dfs_class_hint_unmark, NULL, NULL);
-  
-  return hint_flags;
-}
-        
 /* Return the CONSTRUCTOR expr for a type_info of class TYPE.
    DESC provides information about the particular __class_type_info derivation,
    which adds hint flags and TRAIL initializers to the type_info base.  */
@@ -1058,7 +1001,8 @@ get_pseudo_ti_init (tree type, tree var_desc)
 	}
       else
         {
-	  int hint = class_hint_flags (type);
+	  int hint = ((CLASSTYPE_REPEATED_BASE_P (type) << 0)
+		      | (CLASSTYPE_DIAMOND_SHAPED_P (type) << 1));
 	  tree binfo = TYPE_BINFO (type);
           int nbases = BINFO_N_BASE_BINFOS (binfo);
 	  VEC (tree) *base_accesses = BINFO_BASE_ACCESSES (binfo);
