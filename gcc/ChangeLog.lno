@@ -1,3 +1,11 @@
+2004-04-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-ivopts.c (idx_contains_abnormal_ssa_name_p,
+	contains_abnormal_ssa_name_p): New functions.
+	(find_bivs, find_bivs, find_givs_in_stmt_scev):
+	Handle ssa names occuring in abnormal phis.
+	* tree-ssa-loop-im.c (movement_possibility): Ditto.
+
 2004-04-18  Dorit Naishlos <dorit@il.ibm.com>
 
         * tree-vectorizer.c (create_index_for_array_ref): Remove code under
