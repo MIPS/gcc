@@ -172,12 +172,24 @@ case "${host_os}" in
   cygwin*)
     os_include_dir="os/newlib"
     ;;
-  darwin*)
+# APPLE LOCAL begin IN FSF 2005-01-13 */
+  darwin | darwin[1-7] | darwin[1-7].*)
     # On Darwin, performance is improved if libstdc++ is single-module.
-    # Up to at least 10.3.5, -flat_namespace is required for proper
+    # Up to at least 10.3.7, -flat_namespace is required for proper
     # treatment of coalesced symbols.
     OPT_LDFLAGS="${OPT_LDFLAGS} -Wl,-single_module -Wl,-flat_namespace"
     os_include_dir="os/bsd/darwin"
+# APPLE LOCAL end IN FSF 2005-01-13 */
+  # APPLE LOCAL darwin native radar 3729768
+    enable_cxx_flags="-DAPPLE_KEYMGR $enable_cxx_flags"
+# APPLE LOCAL begin IN FSF 2005-01-13 */
+    ;;
+  darwin[89] | darwin[89].* | darwin[1-9][0-9]* )
+    # On Darwin, performance is improved if libstdc++ is single-module,
+    # and on 8+ compatibility is better if not -flat_namespace.
+    OPT_LDFLAGS="${OPT_LDFLAGS} -Wl,-single_module"
+    os_include_dir="os/bsd/darwin"
+# APPLE LOCAL end IN FSF 2005-01-13 */
   # APPLE LOCAL darwin native radar 3729768
     enable_cxx_flags="-DAPPLE_KEYMGR $enable_cxx_flags"
     ;;
