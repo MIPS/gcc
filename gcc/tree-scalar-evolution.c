@@ -264,6 +264,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-vectorizer.h"
 #include "flags.h"
 
+static tree analyze_scalar_evolution_1 (struct loop *, tree, tree);
+
 /* The cached information about a ssa name VAR, claiming that inside LOOP,
    the value of VAR can be expressed as CHREC.  */
 
@@ -389,7 +391,7 @@ chrec_contains_symbols_defined_in_loop (tree chrec, unsigned loop_nb)
       if (def_loop == NULL)
 	return false;
 
-      if (flow_loop_nested_p (loop, def_loop))
+      if (loop == def_loop || flow_loop_nested_p (loop, def_loop))
 	return true;
 
       return false;
@@ -469,7 +471,7 @@ loop_phi_node_p (tree phi)
 */
  
 static tree 
-compute_scalar_evolution_after_loop (struct loop *loop, tree evolution_fn)
+compute_overall_effect_of_inner_loop (struct loop *loop, tree evolution_fn)
 {
   bool val = false;
 
@@ -502,7 +504,7 @@ compute_scalar_evolution_after_loop (struct loop *loop, tree evolution_fn)
 	      res = chrec_apply (inner_loop->num, evolution_fn, nb_iter);
 	      
 	      /* Continue the computation until ending on a parent of LOOP. */
-	      return compute_scalar_evolution_after_loop (loop, res);
+	      return compute_overall_effect_of_inner_loop (loop, res);
 	    }
 	}
       else
@@ -657,7 +659,7 @@ get_scalar_evolution (tree scalar)
       break;
 
     default:
-      res = chrec_top;
+      res = chrec_not_analyzed_yet;
       break;
     }
   
@@ -2327,7 +2329,7 @@ follow_ssa_edge_inner_loop_phi (struct loop *outer_loop,
     }
 
   /* Otherwise, compute the overall effect of the inner loop.  */
-  ev = compute_scalar_evolution_after_loop (loop, ev);
+  ev = compute_overall_effect_of_inner_loop (loop, ev);
   return follow_ssa_edge_in_rhs (outer_loop, ev, halting_phi,
 				 evolution_of_loop);
 }
@@ -2550,7 +2552,7 @@ interpret_loop_phi (struct loop *loop, tree loop_phi_node)
       subloop = superloop_at_depth (phi_loop, loop->depth + 1);
 
       /* Interpret the subloop.  */
-      res = compute_scalar_evolution_after_loop (subloop, evolution_fn);
+      res = compute_overall_effect_of_inner_loop (subloop, evolution_fn);
       return res;
     }
 
@@ -2681,43 +2683,37 @@ compute_scalar_evolution_in_loop (struct loop *wrto_loop,
 				  struct loop *def_loop, 
 				  tree ev)
 {
+  tree res;
   if (def_loop == wrto_loop)
     return ev;
 
   def_loop = superloop_at_depth (def_loop, wrto_loop->depth + 1);
-  return compute_scalar_evolution_after_loop (def_loop, ev);
+  res = compute_overall_effect_of_inner_loop (def_loop, ev);
+
+  return analyze_scalar_evolution_1 (wrto_loop, res, chrec_not_analyzed_yet);
 }
 
 /* Helper recursive function.  */
 
-static tree 
+static tree
 analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res)
 {
   tree def, type = TREE_TYPE (var);
   basic_block bb;
+  struct loop *def_loop;
 
   if (loop == NULL)
-    {
-      res = chrec_top;
-      set_scalar_evolution (var, res);
-      return res;
-    }
+    return chrec_top;
 
   if (TREE_CODE (var) != SSA_NAME)
-    {
-      if (res != chrec_top)
-	/* Keep the symbolic form.  */
-	return res;
-
-      res = interpret_rhs_modify_expr (loop, var, type);
-      set_scalar_evolution (var, res);
-      return res;
-    }
+    return interpret_rhs_modify_expr (loop, var, type);
 
   def = SSA_NAME_DEF_STMT (var);
   bb = bb_for_stmt (def);
+  def_loop = bb ? bb->loop_father : NULL;
 
-  if (bb == NULL)
+  if (bb == NULL
+      || !flow_bb_inside_loop_p (loop, bb))
     {
       /* Keep the symbolic form.  */
       res = var;
@@ -2726,74 +2722,46 @@ analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res)
 
   if (res != chrec_not_analyzed_yet)
     {
-      if (res == chrec_top)
-	{
-	  /* Keep the symbolic form.  */
-	  res = var;
-	  goto set_and_end;
-	}
-
-      else if (res == var)
-	return var;
-
-      else if (loop != bb->loop_father)
+      if (loop != bb->loop_father)
 	res = compute_scalar_evolution_in_loop 
-	  (find_common_loop (loop, bb->loop_father), bb->loop_father, res);
+	    (find_common_loop (loop, bb->loop_father), bb->loop_father, res);
 
-      return res;
+      goto set_and_end;
     }
 
-  if (!flow_bb_inside_loop_p (loop, bb))
+  if (loop != def_loop)
     {
-      struct loop *def_loop = loop_of_stmt (def);
-      
-      if (def_loop == NULL)
-	{
-	  /* A parameter that has to be kept in symbolic form.  */
-	  res = var;
-	  goto set_and_end;
-	}
-      else
-	/* Analyze the variable in the loop of its definition, then
-	   compute the evolution in the demanded loop.  */
-	{
-	  res = analyze_scalar_evolution_1 (def_loop, var, res);
-	  return compute_scalar_evolution_in_loop 
-	    (find_common_loop (loop, bb->loop_father), bb->loop_father, res);
-	}
+      res = analyze_scalar_evolution_1 (def_loop, var, chrec_not_analyzed_yet);
+      res = compute_scalar_evolution_in_loop (loop, def_loop, res);
+
+      goto set_and_end;
     }
 
   switch (TREE_CODE (def))
     {
     case MODIFY_EXPR:
-      {
-	struct loop *def_loop = loop_of_stmt (def);
-	if (loop != def_loop)
-	  analyze_scalar_evolution_1 (def_loop, var, res);
-	res = interpret_rhs_modify_expr (loop, TREE_OPERAND (def, 1), type);
-	break;
-      }
+      res = interpret_rhs_modify_expr (loop, TREE_OPERAND (def, 1), type);
+      break;
 
     case PHI_NODE:
-      {
-	struct loop *def_loop = loop_of_stmt (def);
-	if (loop != def_loop)
-	  analyze_scalar_evolution_1 (def_loop, var, res);
-
-	if (loop_phi_node_p (def))
-	  res = interpret_loop_phi (loop, def);
-	else
-	  res = interpret_condition_phi (loop, def);
-	break;
-      }
+      if (loop_phi_node_p (def))
+	res = interpret_loop_phi (loop, def);
+      else
+	res = interpret_condition_phi (loop, def);
+      break;
 
     default:
       res = chrec_top;
       break;
     }
 
- set_and_end:;
-  if (loop == loop_of_stmt (def))
+ set_and_end:
+
+  /* Keep the symbolic form.  */
+  if (res == chrec_top)
+    res = var;
+
+  if (loop == def_loop)
     set_scalar_evolution (var, res);
 
   return res;

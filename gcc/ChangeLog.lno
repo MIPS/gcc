@@ -1,3 +1,19 @@
+2004-04-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-scalar-evolution.c (analyze_scalar_evolution_1): Keep
+	loop invariants in symbolic form.  Use
+	compute_scalar_evolution_in_loop for expressions defined in subloops.
+	(chrec_contains_symbols_defined_in_loop): Check for non-strict
+	nestedness.
+	(compute_scalar_evolution_after_loop): Renamed back to
+	compute_overall_effect_of_inner_loop.
+	(follow_ssa_edge_inner_loop_phi, interpret_loop_phi):
+	Changed due to the renaming.
+	(get_scalar_evolution): Return chrec_not_analyzed_yet for complicated
+	expressions.
+	(compute_scalar_evolution_in_loop): Compute the evolution of the
+	expression returned by compute_overall_effect_of_inner_loop.
+
 2004-04-22  Sebastian Pop  <sebastian.pop@ensmp.fr>
 
 	* tree-elim-check.c (prove_truth_value_gt, prove_truth_value_lt, 
