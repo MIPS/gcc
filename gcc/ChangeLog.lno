@@ -6,6 +6,15 @@
 
 2004-04-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* loop-iv.c (iv_number_of_iterations): Sign extend the constant value
+	appropriately for the target mode.
+	* tree-fold-const.c (tree_fold_gcd): Make more efficient.
+	* tree-ssa-loop-manip.c (add_exit_phis_use): Do not add unnecessary
+	phis.
+	(rewrite_into_loop_closed_ssa): Fix comment.
+
+2004-04-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* cfgrtl.c (purge_dead_edges): Clean the EDGE_ABNORMAL_CALL flags.
 	* loop-iv.c (iv_number_of_iterations): Handle the case when we prove
 	that the loop does not roll.

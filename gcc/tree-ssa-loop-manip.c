@@ -729,7 +729,7 @@ add_exit_phis_use (basic_block bb, tree use, bitmap names_to_rename,
 		   unsigned n_exits, basic_block *exits)
 {
   tree def;
-  basic_block def_bb, ign_bb;
+  basic_block def_bb;
   unsigned i;
   edge e;
   struct loop *src_loop;
@@ -747,17 +747,17 @@ add_exit_phis_use (basic_block bb, tree use, bitmap names_to_rename,
     return;
   bitmap_set_bit (names_to_rename, SSA_NAME_VERSION (use));
 
-  /* Do not insert a new phi if there already is one defining the use.  */
-  ign_bb = (TREE_CODE (def) == PHI_NODE) ? def_bb : NULL;
-
   for (i = 0; i < n_exits; i++)
     {
-      if (exits[i] == ign_bb)
+      /* The definition of the ssa name must dominate all exits through that it
+	 reaches some use outside of the loop.  So do not add the phi unless
+	 the destination is dominated by the definition.  */
+      if (exits[i] == def_bb
+	  || !dominated_by_p (CDI_DOMINATORS, exits[i], def_bb))
 	continue;
 
       /* We must add phi nodes for all loop exits of the superloops of
 	 def_bb->loop_father.  */
-
       for (e = exits[i]->pred; e; e = e->pred_next)
 	{
 	  src_loop = find_common_loop (e->src->loop_father,
@@ -898,7 +898,7 @@ get_loops_exits (unsigned *n_exits, basic_block **exits)
 
       Looking from the outer loop with the normal SSA form, the first use of k
       is not well-behaved, while the second one is an induction variable with
-      base 100 and step 1.  */
+      base 99 and step 1.  */
 
 void
 rewrite_into_loop_closed_ssa (void)

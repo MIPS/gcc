@@ -1874,7 +1874,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
   enum rtx_code cond;
   enum machine_mode mode, comp_mode;
   rtx mmin, mmax;
-  unsigned HOST_WIDEST_INT s, size, d;
+  unsigned HOST_WIDEST_INT s, size, d, inv;
   HOST_WIDEST_INT up, down, inc;
   int was_sharp = false;
 
@@ -2186,8 +2186,9 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
       desc->infinite = alloc_EXPR_LIST (0, assumption, desc->infinite);
 
       tmp = simplify_gen_binary (UDIV, mode, tmp1, GEN_INT (d));
-      tmp = simplify_gen_binary (MULT, mode,
-				 tmp, GEN_INT (inverse (s, size)));
+      inv = inverse (s, size);
+      inv = trunc_int_for_mode (inv, mode);
+      tmp = simplify_gen_binary (MULT, mode, tmp, GEN_INT (inv));
       desc->niter_expr = simplify_gen_binary (AND, mode, tmp, bound);
     }
   else

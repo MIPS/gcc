@@ -71,7 +71,8 @@ tree
 tree_fold_gcd (tree a, 
 	       tree b)
 {
-  tree a_minus_b;
+  tree a_mod_b;
+  tree type = TREE_TYPE (a);
   
 #if defined ENABLE_CHECKING
   if (TREE_CODE (a) != INTEGER_CST
@@ -86,20 +87,24 @@ tree_fold_gcd (tree a,
     return a;
   
   if (tree_int_cst_sgn (a) == -1)
-    a = tree_fold_multiply (integer_type_node, a, integer_minus_one_node);
+    a = tree_fold_multiply (type, a,
+			    convert (type, integer_minus_one_node));
   
   if (tree_int_cst_sgn (b) == -1)
-    b = tree_fold_multiply (integer_type_node, b, integer_minus_one_node);
-  
-  a_minus_b = tree_fold_minus (integer_type_node, a, b);
-  
-  if (integer_zerop (a_minus_b))
-    return a;
-  
-  if (tree_int_cst_sgn (a_minus_b) == 1)
-    return tree_fold_gcd (a_minus_b, b);
-  
-  return tree_fold_gcd (tree_fold_minus (integer_type_node, b, a), a);
+    b = tree_fold_multiply (type, b,
+			    convert (type, integer_minus_one_node));
+ 
+  while (1)
+    {
+      a_mod_b = fold (build (CEIL_MOD_EXPR, type, a, b));
+ 
+      if (!TREE_INT_CST_LOW (a_mod_b)
+	  && !TREE_INT_CST_HIGH (a_mod_b))
+	return b;
+
+      a = b;
+      b = a_mod_b;
+    }
 }
 
 /* Bezout: Let a1 and a2 be two integers; there exist two integers u11
