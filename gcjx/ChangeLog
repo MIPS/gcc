@@ -1,5 +1,11 @@
 2005-01-15  Tom Tromey  <tromey@redhat.com>
 
+	* source/lex.cc (get): Rewrote.
+	(get_raw): Don't handle newlines for purposes of location
+	updating.
+
+2005-01-15  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/generate.cc (generate): Write local variable table.
 	(bytecode_generator): Updated.
 	* bytecode/locals.cc (request): Updated.

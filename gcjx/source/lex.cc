@@ -227,16 +227,7 @@ lexer::get_raw ()
 	  throw exc;
 	}
 
-      // FIXME: this is bogus, since it does the wrong thing when we
-      // see \r\n.  Note that we must do this processing before we do
-      // escape handling, however, since otherwise a \u escape can
-      // resemble a line feed.
-      if (c == UNICODE_LINE_FEED || c == UNICODE_CARRIAGE_RETURN)
-	{
-	  column = 0;
-	  ++line;
-	}
-      else if (c == UNICODE_TAB)
+      if (c == UNICODE_TAB)
 	{
 	  // Advance to next multiple of tab width.  Note we don't
 	  // subtract one from tab_width since we start columns at
@@ -307,34 +298,44 @@ lexer::read_handling_escapes ()
 unicode_w_t
 lexer::get ()
 {
+  unicode_w_t c;
   if (cooked_unget_value != UNICODE_W_NONE)
     {
-      unicode_w_t c = cooked_unget_value;
+      c = cooked_unget_value;
       cooked_unget_value = UNICODE_W_NONE;
-      // This should never happen, because the cooking includes \r\n
-      // rewriting.
-      assert (c != UNICODE_CARRIAGE_RETURN);
-      return c;
     }
+  else
+    c = read_handling_escapes ();
 
-  bool was_return = false;
-  while (true)
+  if (c == UNICODE_CARRIAGE_RETURN)
     {
-      unicode_w_t c = read_handling_escapes ();
-      if (was_return && c == UNICODE_LINE_FEED)
+      c = read_handling_escapes ();
+      if (c != UNICODE_LINE_FEED)
 	{
-	  // Saw \r\n and already returned the \n.  Loop.
-	  was_return = false;
-	  continue;
-	}
-      was_return = false;
-      if (c == UNICODE_CARRIAGE_RETURN)
-	{
-	  was_return = true;
+	  // Saw \r followed by something else, so unget and return the
+	  // line terminator that the rest of the lexer understands.
+	  unget (c);
 	  c = UNICODE_LINE_FEED;
 	}
-      return c;
     }
+
+  if (c == UNICODE_LINE_FEED)
+    {
+      // Note that it is somewhat bogus for this to be here, since it
+      // means an escape like \u00a0 will increment the line number.
+      // (Jacks tests for this, but I think the Jacks test is wrong
+      // because most editors do not work this way, and the line
+      // numbers are mostly useful for interacting with editors.)  We
+      // do it this way because it is more work to do anything else.
+      // One approach might be to have read_handling_escapes tell us
+      // whether a character came from an escape sequence.  It isn't
+      // extremely important, I suspect, since newlines-as-escapes are
+      // probably quite rare.
+      column = 0;
+      ++line;
+    }
+
+  return c;
 }
 
 unicode_w_t
