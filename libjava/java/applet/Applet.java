@@ -481,7 +481,7 @@ public class Applet extends Panel
    *
    * @return the applet's preferred size
    */
-  public Dimension getPreferredSize()
+  public Dimension preferredSize()
   {
     return getDimensions ();
   }
@@ -492,7 +492,7 @@ public class Applet extends Panel
    *
    * @return the applet's minimum size
    */
-  public Dimension getMinimumSize()
+  public Dimension minimumSize()
   {
     return getDimensions ();
   }
