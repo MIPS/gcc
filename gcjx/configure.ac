@@ -25,5 +25,8 @@ AC_CHECK_LIB([z], [inflate])
 
 AC_C_BIGENDIAN
 
+AC_DEFINE(_GLIBCXX_DEBUG, 1, [enable libstdc++ checking])
+AC_DEFINE(_GLIBCPP_USE_C99, 1, [enable c99 features])
+
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

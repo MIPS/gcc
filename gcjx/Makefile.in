@@ -273,7 +273,7 @@ BUILT_SOURCES = source/keyword.h source/chartables.h typedefs.hh.gch
 EXTRA_DIST = source/keyword.gperf source/gen-table.pl
 WARNINGS = -Wall -Winvalid-pch -Wreturn-type
 AM_CXXFLAGS = $(WARNINGS)
-AM_CPPFLAGS = -I$(srcdir)/fdlibm -D_GLIBCXX_DEBUG -D_GLIBCPP_USE_C99
+AM_CPPFLAGS = -I$(srcdir)/fdlibm
 
 ################################################################
 headers = access.hh buffer.hh directory.hh bytecode/block.hh \

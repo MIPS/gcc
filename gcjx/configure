@@ -5234,6 +5234,17 @@ presetting ac_cv_c_bigendian=no (or yes) will help" >&2;}
 esac
 
 
+
+cat >>confdefs.h <<\_ACEOF
+#define _GLIBCXX_DEBUG 1
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define _GLIBCPP_USE_C99 1
+_ACEOF
+
+
           ac_config_files="$ac_config_files Makefile"
 
 cat >confcache <<\_ACEOF

@@ -21,7 +21,7 @@ EXTRA_DIST = source/keyword.gperf source/gen-table.pl
 ## FIXME: gcc specific
 WARNINGS = -Wall -Winvalid-pch -Wreturn-type
 AM_CXXFLAGS = $(WARNINGS)
-AM_CPPFLAGS = -I$(srcdir)/fdlibm -D_GLIBCXX_DEBUG -D_GLIBCPP_USE_C99
+AM_CPPFLAGS = -I$(srcdir)/fdlibm
 
 source/keyword.h: source/keyword.gperf
 	cd $(srcdir) && gperf -L ANSI-C -C -F ', TOKEN_INVALID' -t -o -N find_keyword -k1,2,\$$ source/keyword.gperf > tmp.kwd && mv tmp.kwd source/keyword.h

@@ -1,3 +1,9 @@
+2005-01-23  Tom Tromey  <tromey@redhat.com>
+
+	* aclocal.m4, configure, Makefile.in, gcjx-config.h.in: Rebuilt.
+	* Makefile.am (AM_CPPFLAGS): Removed -D options.
+	* configure.ac (_GLIBCXX_DEBUG, _GLIBCPP_USE_C99): Define.
+
 2005-01-22  Tom Tromey  <tromey@redhat.com>
 
 	* model/class.cc (add_class_members): Handle 1.3 target.  Mark
