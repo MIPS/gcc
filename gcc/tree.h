@@ -2173,6 +2173,12 @@ struct tree_type GTY(())
 /* APPLE LOCAL handling duplicate decls across files */
 #define DECL_DUPLICATE_DECL(NODE) (DECL_CHECK (NODE)->decl.duplicate_decl)
 
+/* APPLE LOCAL begin CW asm blocks */
+#define DECL_CW_ASM_FUNCTION(NODE) (DECL_CHECK (NODE)->decl.cw_asm_function_flag)
+#define DECL_CW_ASM_NORETURN(NODE) (DECL_CHECK (NODE)->decl.cw_asm_noreturn_flag)
+#define DECL_CW_ASM_FRAME_SIZE(NODE) (DECL_CHECK (NODE)->decl.cw_asm_frame_size)
+/* APPLE LOCAL end CW asm blocks */
+
 /* Used in TREE_PUBLIC decls to indicate that copies of this DECL in
    multiple translation units should be merged.  */
 #define DECL_ONE_ONLY(NODE) (DECL_CHECK (NODE)->decl.transparent_union)
@@ -2334,10 +2340,14 @@ struct tree_decl GTY(())
   unsigned weak_import_flag : 1;
   /* APPLE LOCAL duplicate decls in multiple files. */
   unsigned duplicate_decl : 1;
-  /* APPLE LOCAL unused bits */
-  /* 12 unused bits.  */
   unsigned possibly_inlined : 1;
-  /* 14 unused bits.  */
+  /* APPLE LOCAL begin CW asm blocks */
+  unsigned cw_asm_function_flag : 1;
+  unsigned cw_asm_noreturn_flag : 1;
+  unsigned int cw_asm_frame_size;
+  /* APPLE LOCAL end CW asm blocks */
+  /* APPLE LOCAL unused bits */
+  /* 10 unused bits.  */
 
   union tree_decl_u1 {
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is

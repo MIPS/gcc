@@ -604,6 +604,16 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
       switch (token->type)
 	{
 	case CPP_ATSIGN:
+	  /* APPLE LOCAL begin CW asm blocks */
+	  /* We like the @-tokens, if they're inside an asm block.  */
+	  if (cw_asm_block)
+	    {
+	      done = true;
+	      break;
+	    }
+	  /* else fall thru */
+	  /* APPLE LOCAL end CW asm blocks */
+
 	case CPP_HASH:
 	case CPP_PASTE:
 	  error ("invalid token");
@@ -1748,6 +1758,27 @@ static bool cp_parser_is_keyword
 static tree cp_parser_make_typename_type
   (cp_parser *, tree, tree);
 
+/* APPLE LOCAL begin CW asm blocks */
+static tree cp_parser_cw_asm_compound_statement
+  (cp_parser *);
+static void cp_parser_cw_asm_declaration_seq_opt
+  (cp_parser *);
+static void cp_parser_cw_asm_line_seq_opt
+  (cp_parser *);
+static void cp_parser_cw_asm_line
+  (cp_parser *);
+static void cp_parser_cw_asm_statement_seq_opt
+  (cp_parser *);
+static void cp_parser_cw_asm_statement
+  (cp_parser *);
+static tree cp_parser_cw_asm_operands
+  (cp_parser *);
+static tree cp_parser_cw_asm_operand
+  (cp_parser *);
+static tree cp_parser_cw_asm_postfix_expression
+  (cp_parser *, bool);
+/* APPLE LOCAL end CW asm blocks */
+
 /* Returns nonzero if we are parsing tentatively.  */
 
 static inline bool
@@ -2445,6 +2476,8 @@ cp_parser_primary_expression (cp_parser *parser,
 			      tree *qualifying_class)
 {
   cp_token *token;
+  /* APPLE LOCAL CW asm blocks */
+  int atsignhack = 0;
 
   /* Assume the primary expression is not an id-expression.  */
   *idk = CP_ID_KIND_NONE;
@@ -2630,6 +2663,14 @@ cp_parser_primary_expression (cp_parser *parser,
 	  return error_mark_node;
 	}
 
+      /* APPLE LOCAL begin CW asm blocks */
+    case CPP_ATSIGN:
+      /* Recognize @-labels and handle them specially later.  */
+      cp_lexer_consume_token (parser->lexer);
+      atsignhack = 1;
+      token = cp_lexer_peek_token (parser->lexer);
+      /* APPLE LOCAL end CW asm blocks */
+
       /* An id-expression can start with either an identifier, a
 	 `::' as the beginning of a qualified-id, or the "operator"
 	 keyword.  */
@@ -2650,6 +2691,11 @@ cp_parser_primary_expression (cp_parser *parser,
 				     /*check_dependency_p=*/true,
 				     /*template_p=*/NULL,
 				     /*declarator_p=*/false);
+	/* APPLE LOCAL begin CW asm blocks */
+	/* Replace the id with an id prefixed with @.  */
+	if (atsignhack)
+	  id_expression = get_atsign_identifier (id_expression);
+	/* APPLE LOCAL end CW asm blocks */
 	if (id_expression == error_mark_node)
 	  return error_mark_node;
 	/* If we have a template-id, then no further lookup is
@@ -4450,6 +4496,14 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p)
       return expression;
     }
 
+  /* APPLE LOCAL begin CW asm blocks */
+  /* Postfix expressions in CW asm are more restricted and handled
+     quite differently, so diverge from the usual expression
+     precedence sequence here.  */
+  if (cw_asm_block)
+    return cp_parser_cw_asm_postfix_expression (parser, address_p);
+  /* APPLE LOCAL end CW asm blocks */
+
   return cp_parser_postfix_expression (parser, address_p);
 }
 
@@ -5708,6 +5762,23 @@ cp_parser_compound_statement (cp_parser *parser, bool in_statement_expr_p)
     return error_mark_node;
   /* Begin the compound-statement.  */
   compound_stmt = begin_compound_stmt (/*has_no_scope=*/false);
+  /* APPLE LOCAL begin CW asm blocks */
+  /* Maybe this is the body of an asm function, which has asm lines
+     following the decls.  */
+  if (cw_asm_state >= cw_asm_decls)
+    {
+      cw_asm_in_decl = 1;
+      cp_parser_cw_asm_declaration_seq_opt (parser);
+      cw_asm_in_decl = 0;
+      cw_asm_state = cw_asm_asm;
+      cw_asm_block = 1;
+      clear_cw_asm_labels ();
+      cp_parser_cw_asm_line_seq_opt (parser);
+      cw_asm_state = cw_asm_none;
+      cw_asm_block = 0;
+    }
+  else
+  /* APPLE LOCAL end CW asm blocks */
   /* Parse an (optional) statement-seq.  */
   cp_parser_statement_seq_opt (parser, in_statement_expr_p);
   /* Finish the compound-statement.  */
@@ -5737,6 +5808,14 @@ cp_parser_statement_seq_opt (cp_parser* parser, bool in_statement_expr_p)
 
       /* Parse the statement.  */
       cp_parser_statement (parser, in_statement_expr_p);
+
+      /* APPLE LOCAL begin CW asm blocks */
+      if (flag_cw_asm_blocks
+	  && cw_asm_state >= cw_asm_decls
+	  && (cp_lexer_next_token_is (parser->lexer, CPP_BOL)
+	      || cp_lexer_next_token_is (parser->lexer, CPP_NAME)))
+	break;
+      /* APPLE LOCAL end CW asm blocks */
     }
 }
 
@@ -6539,6 +6618,13 @@ cp_parser_simple_declaration (cp_parser* parser,
      resolve the declaration/expression ambiguity more quickly.  */
   if (!function_definition_allowed_p && !decl_specifiers)
     {
+      /* APPLE LOCAL begin CW asm blocks */
+      /* We might have seen an asm opcode, and it's time to switch to
+	 asm instruction handling.  */
+      if (flag_cw_asm_blocks && cw_asm_state >= cw_asm_decls)
+	return;
+      /* APPLE LOCAL end CW asm blocks */
+
       cp_parser_error (parser, "expected declaration");
       goto done;
     }
@@ -6640,6 +6726,10 @@ cp_parser_simple_declaration (cp_parser* parser,
 
   /* Consume the `;'.  */
   cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+
+  /* APPLE LOCAL CW asm blocks */
+  if (flag_cw_asm_blocks)
+    cw_asm_in_decl = 0;
 
  done:
   pop_deferring_access_checks ();
@@ -6779,6 +6869,9 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	case RID_EXTERN:
 	case RID_MUTABLE:
 	case RID_THREAD:
+	  /* APPLE LOCAL CW asm blocks */
+	  /* If we ever get here, we must be in CW asm mode.  */
+	case RID_ASM:
 	  decl_spec = cp_parser_storage_class_specifier_opt (parser);
 	  break;
 
@@ -6912,6 +7005,9 @@ cp_parser_storage_class_specifier_opt (cp_parser* parser)
     case RID_EXTERN:
     case RID_MUTABLE:
     case RID_THREAD:
+      /* APPLE LOCAL CW asm blocks */
+      /* If we ever get here, we must be in CW asm mode.  */
+    case RID_ASM:
       /* Consume the token.  */
       return cp_lexer_consume_token (parser->lexer)->value;
 
@@ -9750,6 +9846,8 @@ cp_parser_using_directive (cp_parser* parser)
 
    asm-definition:
      asm ( string-literal ) ;
+     APPLE LOCAL CW asm blocks
+     asm { asm-line [opt] }
 
    GNU Extension:
 
@@ -9774,6 +9872,27 @@ cp_parser_asm_definition (cp_parser* parser)
   bool volatile_p = false;
   bool extended_p = false;
 
+  /* APPLE LOCAL begin CW asm blocks */
+  cp_token *nextup;
+  /* Detect when a leading `asm' is actually a spec of an asm function
+     rather than an asm statement or block.  */
+  if (flag_cw_asm_blocks)
+    {
+      nextup = cp_lexer_peek_nth_token (parser->lexer, 2);
+      if (!((nextup->type == CPP_OPEN_PAREN)
+	    || (nextup->keyword == RID_VOLATILE
+		&& cp_lexer_peek_nth_token (parser->lexer, 3)->type == CPP_OPEN_PAREN)
+	    || (nextup->type == CPP_OPEN_BRACE)))
+	{
+	  /* An asm function - we'll treat the `asm' as if it were a
+	     storage class spec, which will eventually affect function
+	     body parsing.  */
+	  cp_parser_simple_declaration (parser, true);
+	  return;
+	}
+    }
+  /* APPLE LOCAL end CW asm blocks */
+
   /* Look for the `asm' keyword.  */
   cp_parser_require_keyword (parser, RID_ASM, "`asm'");
   /* See if the next token is `volatile'.  */
@@ -9785,6 +9904,21 @@ cp_parser_asm_definition (cp_parser* parser)
       /* Consume the token.  */
       cp_lexer_consume_token (parser->lexer);
     }
+  /* APPLE LOCAL begin CW asm blocks */
+  /* A CW-style asm block is introduced by an open brace.  */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
+    {
+      if (flag_cw_asm_blocks)
+	{
+	  cp_parser_cw_asm_compound_statement (parser);
+	}
+      else
+	{
+	  error ("asm blocks not enabled, use `-fasm-blocks'");
+	}
+      return;
+    }
+  /* APPLE LOCAL end CW asm blocks */
   /* Look for the opening `('.  */
   cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
   /* Look for the string.  */
@@ -15356,6 +15490,581 @@ cp_parser_allow_gnu_extensions_p (cp_parser* parser)
   return parser->allow_gnu_extensions_p;
 }
 
+/* APPLE LOCAL begin CW asm blocks */
+
+/* This is the section of CW-asm-specific parsing functions.  */
+
+static tree
+cp_parser_cw_asm_compound_statement (cp_parser *parser)
+{
+  tree compound_stmt;
+
+  cw_asm_state = cw_asm_asm;
+  cw_asm_block = 1;
+  cw_asm_at_bol = 1;
+  clear_cw_asm_labels ();
+  if (!cp_parser_require (parser, CPP_OPEN_BRACE, "`{'"))
+    return error_mark_node;
+  /* Begin the compound-statement.  */
+  compound_stmt = begin_compound_stmt (/*has_no_scope=*/false);
+  /* Parse an (optional) statement-seq.  */
+  cp_parser_cw_asm_line_seq_opt (parser);
+  /* Finish the compound-statement.  */
+  finish_compound_stmt (compound_stmt);
+  /* Consume the `}'.  */
+  cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
+  /* We're done with the block of asm.  */
+  cw_asm_block = 0;
+  cw_asm_state = cw_asm_none;
+  return compound_stmt;
+}
+
+static void
+cp_parser_cw_asm_declaration_seq_opt (cp_parser* parser)
+{
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+
+  if (token->type == CPP_NAME
+      && !cw_asm_typename_or_reserved (token->value))
+    return;
+
+  /* Scan declarations until there aren't any more.  */
+  while (true)
+    {
+      /* If we're looking at a `}', then we've run out of statements.  */
+      if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_EOF))
+	break;
+
+      /* Parse a declaration.  */
+      cp_parser_simple_declaration (parser, false);
+
+      if (cw_asm_state >= cw_asm_decls
+	  && (cp_lexer_next_token_is (parser->lexer, CPP_BOL)
+	      || cp_lexer_next_token_is (parser->lexer, CPP_NAME)))
+	break;
+    }
+}
+
+/* Parse an (optional) line-seq.
+
+   line-seq:
+     line
+     line-seq [opt] line  */
+
+static void
+cp_parser_cw_asm_line_seq_opt (cp_parser* parser)
+{
+  /* Scan lines of asm until there aren't any more.  */
+  while (true)
+    {
+      /* If we're looking at a `}', then we've run out of lines.  */
+      if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_EOF))
+	break;
+
+      /* Parse the line.  */
+      cp_parser_cw_asm_line (parser);
+    }
+}
+
+static void
+cp_parser_cw_asm_line (cp_parser* parser)
+{
+  if (cp_lexer_next_token_is (parser->lexer, CPP_BOL))
+    cp_lexer_consume_token (parser->lexer);
+  cp_parser_cw_asm_statement_seq_opt (parser);
+  if (cp_lexer_next_token_is (parser->lexer, CPP_EOL))
+    cp_lexer_consume_token (parser->lexer);
+}
+
+static void
+cp_parser_cw_asm_statement_seq_opt (cp_parser* parser)
+{
+  /* Scan statements until there aren't any more.  */
+  while (true)
+    {
+      /* If we're looking at an EOL, then we've run out of statements.  */
+      if (cp_lexer_next_token_is (parser->lexer, CPP_EOL)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_EOF))
+	break;
+
+      /* Semicolons divide up individual statements.  */
+      if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
+	{
+	  cp_lexer_consume_token (parser->lexer);
+	  continue;
+	}
+
+      /* Parse a single statement.  */
+      cp_parser_cw_asm_statement (parser);
+
+      if (!(cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON)
+	    || cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE)
+	    || cp_lexer_next_token_is (parser->lexer, CPP_EOL)))
+	{
+	  error ("bogus!");
+	}
+    }
+}
+
+static void
+cp_parser_cw_asm_statement (cp_parser* parser)
+{
+  tree aname, scspec, anothername, operands;
+
+  /* Keep sucking labels from the front of the statement until a
+     non-label is seen.  */
+  while (true)
+    {
+      if (cp_lexer_next_token_is (parser->lexer, CPP_EOL)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_EOF))
+	break;
+
+      if (cp_lexer_next_token_is (parser->lexer, CPP_ATSIGN))
+	{
+	  cp_lexer_consume_token (parser->lexer);
+	  aname = cp_parser_identifier (parser);
+	  /* Optional ':' after a label.  */
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_COLON))
+	    cp_lexer_consume_token (parser->lexer);
+	  cw_asm_label (aname, 1);
+	}
+      else
+	{
+	  aname = cp_parser_identifier (parser);
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_COLON))
+	    {
+	      cp_lexer_consume_token (parser->lexer);
+	      cw_asm_label (aname, 0);
+	    }
+	  else
+	    {
+	      scspec = cp_parser_storage_class_specifier_opt (parser);
+	      if (scspec)
+		{
+		  anothername = cp_parser_cw_asm_operand (parser);
+		  cw_asm_entry (aname, scspec, anothername);
+		}
+	      else
+		{
+		  cw_asm_in_operands = 1;
+		  operands = cp_parser_cw_asm_operands (parser);
+		  cw_asm_stmt (aname, operands);
+		}
+	      break;
+	    }
+	}
+    }
+}
+
+tree
+cp_parser_cw_asm_operands (cp_parser *parser)
+{
+  tree operands = NULL_TREE, operand;
+
+  while (true)
+    {
+      /* If we're looking at an EOL, then we've run out of statement.  */
+      if (cp_lexer_next_token_is (parser->lexer, CPP_EOL)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_EOF))
+	break;
+
+      operand = cp_parser_cw_asm_operand (parser);
+
+      if (operand)
+	{
+	  operands = chainon (operands, build_tree_list (NULL_TREE, operand));
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
+	    cp_lexer_consume_token (parser->lexer);
+	}
+      else
+	{
+	  return error_mark_node;
+	}
+    }
+
+  return operands;
+}
+
+tree
+cp_parser_cw_asm_operand (cp_parser *parser)
+{
+  tree operand;
+
+  /* Jump into the usual operand precedence stack.  */
+  operand = cp_parser_logical_or_expression (parser);
+
+  return operand;
+}
+
+/* Parse a CW asm-style postfix-expression.
+
+   postfix-expression:
+     primary-expression
+     postfix-expression [ expression ]
+     postfix-expression ( expression-list [opt] )
+     simple-type-specifier ( expression-list [opt] )
+     postfix-expression . template [opt] id-expression
+     postfix-expression -> template [opt] id-expression
+     postfix-expression . pseudo-destructor-name
+     postfix-expression -> pseudo-destructor-name
+     typeid ( expression )
+     typeid ( type-id )
+
+   GNU Extension:
+
+   postfix-expression:
+     ( type-id ) { initializer-list , [opt] }
+
+   This extension is a GNU version of the C99 compound-literal
+   construct.  (The C99 grammar uses `type-name' instead of `type-id',
+   but they are essentially the same concept.)
+
+   If ADDRESS_P is true, the postfix expression is the operand of the
+   `&' operator.
+
+   Returns a representation of the expression.  */
+
+static tree
+cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
+{
+  cp_token *token;
+  enum rid keyword;
+  cp_id_kind idk = CP_ID_KIND_NONE;
+  tree postfix_expression = NULL_TREE;
+  /* Non-NULL only if the current postfix-expression can be used to
+     form a pointer-to-member.  In that case, QUALIFYING_CLASS is the
+     class used to qualify the member.  */
+  tree qualifying_class = NULL_TREE;
+
+  /* Peek at the next token.  */
+  token = cp_lexer_peek_token (parser->lexer);
+  /* Some of the productions are determined by keywords.  */
+  keyword = token->keyword;
+  switch (keyword)
+    {
+
+    default:
+      {
+	tree type;
+
+	/* If the next thing is a simple-type-specifier, we may be
+	   looking at a functional cast.  We could also be looking at
+	   an id-expression.  So, we try the functional cast, and if
+	   that doesn't work we fall back to the primary-expression.  */
+	cp_parser_parse_tentatively (parser);
+	/* Look for the simple-type-specifier.  */
+	type = cp_parser_simple_type_specifier (parser,
+						CP_PARSER_FLAGS_NONE,
+						/*identifier_p=*/false);
+	/* Parse the cast itself.  */
+	if (!cp_parser_error_occurred (parser))
+	  postfix_expression
+	    = cp_parser_functional_cast (parser, type);
+	/* If that worked, we're done.  */
+	if (cp_parser_parse_definitely (parser))
+	  break;
+
+	/* If the functional-cast didn't work out, try a
+	   compound-literal.  */
+	if (cp_parser_allow_gnu_extensions_p (parser)
+	    && cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
+	  {
+	    tree initializer_list = NULL_TREE;
+	    bool saved_in_type_id_in_expr_p;
+
+	    cp_parser_parse_tentatively (parser);
+	    /* Consume the `('.  */
+	    cp_lexer_consume_token (parser->lexer);
+	    /* Parse the type.  */
+	    saved_in_type_id_in_expr_p = parser->in_type_id_in_expr_p;
+	    parser->in_type_id_in_expr_p = true;
+	    type = cp_parser_type_id (parser);
+	    parser->in_type_id_in_expr_p = saved_in_type_id_in_expr_p;
+	    /* Look for the `)'.  */
+	    cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+	    /* Look for the `{'.  */
+	    cp_parser_require (parser, CPP_OPEN_BRACE, "`{'");
+	    /* If things aren't going well, there's no need to
+	       keep going.  */
+	    if (!cp_parser_error_occurred (parser))
+	      {
+		bool non_constant_p;
+		/* Parse the initializer-list.  */
+		initializer_list
+		  = cp_parser_initializer_list (parser, &non_constant_p);
+		/* Allow a trailing `,'.  */
+		if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
+		  cp_lexer_consume_token (parser->lexer);
+		/* Look for the final `}'.  */
+		cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
+	      }
+	    /* If that worked, we're definitely looking at a
+	       compound-literal expression.  */
+	    if (cp_parser_parse_definitely (parser))
+	      {
+		/* Warn the user that a compound literal is not
+		   allowed in standard C++.  */
+		if (pedantic)
+		  pedwarn ("ISO C++ forbids compound-literals");
+		/* Form the representation of the compound-literal.  */
+		postfix_expression
+		  = finish_compound_literal (type, initializer_list);
+		break;
+	      }
+	  }
+
+	/* It must be a primary-expression.  */
+	postfix_expression = cp_parser_primary_expression (parser,
+							   &idk,
+							   &qualifying_class);
+      }
+      break;
+    }
+
+  /* If we were avoiding committing to the processing of a
+     qualified-id until we knew whether or not we had a
+     pointer-to-member, we now know.  */
+  if (qualifying_class)
+    {
+      bool done;
+
+      /* Peek at the next token.  */
+      token = cp_lexer_peek_token (parser->lexer);
+      done = (token->type != CPP_OPEN_SQUARE
+	      && token->type != CPP_OPEN_PAREN
+	      && token->type != CPP_DOT
+	      && token->type != CPP_DEREF
+	      && token->type != CPP_PLUS_PLUS
+	      && token->type != CPP_MINUS_MINUS);
+
+      postfix_expression = finish_qualified_id_expr (qualifying_class,
+						     postfix_expression,
+						     done,
+						     address_p);
+      if (done)
+	return postfix_expression;
+    }
+
+  /* Keep looping until the postfix-expression is complete.  */
+  while (true)
+    {
+      if (idk == CP_ID_KIND_UNQUALIFIED
+	  && TREE_CODE (postfix_expression) == IDENTIFIER_NODE
+	  && cp_lexer_next_token_is_not (parser->lexer, CPP_OPEN_PAREN))
+	/* It is not a Koenig lookup function call.  */
+	postfix_expression
+	  = unqualified_name_lookup_error (postfix_expression);
+
+      /* Peek at the next token.  */
+      token = cp_lexer_peek_token (parser->lexer);
+
+      switch (token->type)
+	{
+	case CPP_OPEN_SQUARE:
+	  /* postfix-expression [ expression ] */
+	  {
+	    tree index;
+
+	    /* Consume the `[' token.  */
+	    cp_lexer_consume_token (parser->lexer);
+	    /* Parse the index expression.  */
+	    index = cp_parser_expression (parser);
+	    /* Look for the closing `]'.  */
+	    cp_parser_require (parser, CPP_CLOSE_SQUARE, "`]'");
+
+	    /* Build the ARRAY_REF.  */
+	    postfix_expression
+	      = grok_array_decl (postfix_expression, index);
+	    idk = CP_ID_KIND_NONE;
+	    /* Array references are not permitted in
+	       constant-expressions.  */
+	    if (cp_parser_non_integral_constant_expression 
+		(parser, "an array reference"))
+	      postfix_expression = error_mark_node;
+	  }
+	  break;
+
+	case CPP_OPEN_PAREN:
+	  /* postfix-expression ( expression ) */
+	  {
+	    tree expr;
+
+	    cp_lexer_consume_token (parser->lexer);
+	    expr = cp_parser_logical_or_expression (parser);
+
+	    if (expr == error_mark_node)
+	      {
+		postfix_expression = error_mark_node;
+		break;
+	      }
+
+	    postfix_expression =
+	      cw_asm_build_register_offset (postfix_expression, expr);
+
+	    cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+
+	    /* The POSTFIX_EXPRESSION is certainly no longer an id.  */
+	    idk = CP_ID_KIND_NONE;
+	  }
+	  break;
+
+	case CPP_DOT:
+	case CPP_DEREF:
+	  /* postfix-expression . template [opt] id-expression
+	     postfix-expression . pseudo-destructor-name
+	     postfix-expression -> template [opt] id-expression
+	     postfix-expression -> pseudo-destructor-name */
+	  {
+	    tree name;
+	    bool dependent_p;
+	    bool template_p;
+	    tree scope = NULL_TREE;
+	    enum cpp_ttype token_type = token->type;
+
+	    /* If this is a `->' operator, dereference the pointer.  */
+	    if (token->type == CPP_DEREF)
+	      postfix_expression = build_x_arrow (postfix_expression);
+	    /* Check to see whether or not the expression is
+	       type-dependent.  */
+	    dependent_p = type_dependent_expression_p (postfix_expression);
+	    /* The identifier following the `->' or `.' is not
+	       qualified.  */
+	    parser->scope = NULL_TREE;
+	    parser->qualifying_scope = NULL_TREE;
+	    parser->object_scope = NULL_TREE;
+	    idk = CP_ID_KIND_NONE;
+	    /* Enter the scope corresponding to the type of the object
+	       given by the POSTFIX_EXPRESSION.  */
+	    if (!dependent_p
+		&& TREE_TYPE (postfix_expression) != NULL_TREE)
+	      {
+		scope = TREE_TYPE (postfix_expression);
+		/* According to the standard, no expression should
+		   ever have reference type.  Unfortunately, we do not
+		   currently match the standard in this respect in
+		   that our internal representation of an expression
+		   may have reference type even when the standard says
+		   it does not.  Therefore, we have to manually obtain
+		   the underlying type here.  */
+		scope = non_reference (scope);
+		/* The type of the POSTFIX_EXPRESSION must be
+		   complete.  */
+		scope = complete_type_or_else (scope, NULL_TREE);
+		/* Let the name lookup machinery know that we are
+		   processing a class member access expression.  */
+		parser->context->object_type = scope;
+		/* If something went wrong, we want to be able to
+		   discern that case, as opposed to the case where
+		   there was no SCOPE due to the type of expression
+		   being dependent.  */
+		if (!scope)
+		  scope = error_mark_node;
+		/* If the SCOPE was erroneous, make the various
+		   semantic analysis functions exit quickly -- and
+		   without issuing additional error messages.  */
+		if (scope == error_mark_node)
+		  postfix_expression = error_mark_node;
+	      }
+
+	    /* Consume the `.' or `->' operator.  */
+	    cp_lexer_consume_token (parser->lexer);
+	    /* If the SCOPE is not a scalar type, we are looking at an
+	       ordinary class member access expression, rather than a
+	       pseudo-destructor-name.  */
+	    if (!scope || !SCALAR_TYPE_P (scope))
+	      {
+		template_p = cp_parser_optional_template_keyword (parser);
+		/* Parse the id-expression.  */
+		name = cp_parser_id_expression (parser,
+						template_p,
+						/*check_dependency_p=*/true,
+						/*template_p=*/NULL,
+						/*declarator_p=*/false);
+		/* In general, build a SCOPE_REF if the member name is
+		   qualified.  However, if the name was not dependent
+		   and has already been resolved; there is no need to
+		   build the SCOPE_REF.  For example;
+
+                     struct X { void f(); };
+                     template <typename T> void f(T* t) { t->X::f(); }
+
+                   Even though "t" is dependent, "X::f" is not and has
+		   been resolved to a BASELINK; there is no need to
+		   include scope information.  */
+
+		/* But we do need to remember that there was an explicit
+		   scope for virtual function calls.  */
+		if (parser->scope)
+		  idk = CP_ID_KIND_QUALIFIED;
+
+		if (name != error_mark_node
+		    && !BASELINK_P (name)
+		    && parser->scope)
+		  {
+		    name = build_nt (SCOPE_REF, parser->scope, name);
+		    parser->scope = NULL_TREE;
+		    parser->qualifying_scope = NULL_TREE;
+		    parser->object_scope = NULL_TREE;
+		  }
+		if (scope && name && BASELINK_P (name))
+		  adjust_result_of_qualified_name_lookup 
+		    (name, BINFO_TYPE (BASELINK_BINFO (name)), scope);
+		postfix_expression
+		  = cw_asm_cp_build_component_ref (postfix_expression, name);
+	      }
+	    /* Otherwise, try the pseudo-destructor-name production.  */
+	    else
+	      {
+		tree s = NULL_TREE;
+		tree type;
+
+		/* Parse the pseudo-destructor-name.  */
+		cp_parser_pseudo_destructor_name (parser, &s, &type);
+		/* Form the call.  */
+		postfix_expression
+		  = finish_pseudo_destructor_expr (postfix_expression,
+						   s, TREE_TYPE (type));
+	      }
+
+	    /* We no longer need to look up names in the scope of the
+	       object on the left-hand side of the `.' or `->'
+	       operator.  */
+	    parser->context->object_type = NULL_TREE;
+	    /* These operators may not appear in constant-expressions.  */
+	    if (/* The "->" operator is allowed in the implementation
+		   of "offsetof".  The "." operator may appear in the
+		   name of the member.  */
+		!parser->in_offsetof_p
+		&& (cp_parser_non_integral_constant_expression 
+		    (parser,
+		     token_type == CPP_DEREF ? "'->'" : "`.'")))
+	      postfix_expression = error_mark_node;
+	  }
+	  break;
+
+	default:
+	  return postfix_expression;
+	}
+    }
+
+  /* We should never get here.  */
+  abort ();
+  return error_mark_node;
+}
+
+int
+cw_asm_typename_or_reserved (tree value)
+{
+  return (C_IS_RESERVED_WORD (value));
+}
+/* APPLE LOCAL end CW asm blocks */
 
 /* The parser.  */
 

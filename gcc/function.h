@@ -291,6 +291,15 @@ struct function GTY(())
      needed by inner routines.  */
   rtx x_arg_pointer_save_area;
 
+  /* APPLE LOCAL begin CW asm blocks */
+  /* Nonzero if this is an all-assembly function.  */
+  unsigned int cw_asm_function : 1;
+  /* Nonzero if we don't want to emit any return instructions. */
+  unsigned int cw_asm_noreturn : 1;
+  /* If nonzero, use this as the explicitly-defined frame size.  */
+  int cw_asm_frame_size;
+  /* APPLE LOCAL end CW asm blocks */
+
   /* Offset to end of allocated area of stack frame.
      If stack grows down, this is the address of the last stack slot allocated.
      If stack grows up, this is the address for the next slot.  */

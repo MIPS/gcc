@@ -2291,6 +2291,27 @@ finish_id_expression (tree id_expression,
       if (decl == error_mark_node)
 	{
 	  /* Name lookup failed.  */
+	  /* APPLE LOCAL begin CW asm blocks */
+	  /* CW assembly has automagical handling of register names.
+	     It's also handy to assume undeclared names as labels,
+	     although it would be better to have a second pass and
+	     complain about names in the block that are not
+	     labels.  */
+	  if (cw_asm_block)
+	    {
+	      tree new_id;
+	      if ((new_id = cw_asm_reg_name (id_expression)))
+		return new_id;
+#ifdef CW_ASM_SPECIAL_LABEL
+	      if ((new_id = CW_ASM_SPECIAL_LABEL (id_expression)))
+		return new_id;
+#endif
+	      /* Assume undeclared symbols are labels. */
+	      new_id = get_cw_asm_label (id_expression);
+	      return new_id;
+	    }
+	  /* APPLE LOCAL end CW asm blocks */
+
 	  if (scope 
 	      && (!TYPE_P (scope) 
 		  || (!dependent_type_p (scope)
@@ -2335,6 +2356,15 @@ finish_id_expression (tree id_expression,
       *error_msg = "missing template arguments";
       return error_mark_node;
     }
+  /* APPLE LOCAL begin CW asm blocks */
+  /* Accept raw type decls, which will be used in offset-getting
+     expressions like "type.field(r3)".  */
+  else if (TREE_CODE (decl) == TYPE_DECL && cw_asm_block)
+    {
+      *idk = CP_ID_KIND_NONE;
+      return decl;
+    }
+  /* APPLE LOCAL end CW asm blocks */
   else if (TREE_CODE (decl) == TYPE_DECL
 	   || TREE_CODE (decl) == NAMESPACE_DECL)
     {

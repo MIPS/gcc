@@ -272,6 +272,11 @@ extern tree build_asm_stmt (tree, tree);
 extern tree c_convert_parm_for_inlining (tree, tree, tree, int);
 extern int c_types_compatible_p (tree, tree);
 
+/* APPLE LOCAL begin CW asm blocks */
+extern tree get_structure_offset (tree, tree);
+extern tree lookup_struct_or_union_tag (tree);
+/* APPLE LOCAL end CW asm blocks */
+
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */
 

@@ -1,3 +1,35 @@
+2004-08-03  Stan Shebs  <shebs@apple.com>
+
+	Support for CodeWarrior-style assembly language blocks and
+	functions.  Radar 3368707.
+	* cp-tree.h (cw_asm_cp_build_component_ref): Declare.
+	* decl.c (grokdeclarator): Recognize asm keyword, set flag
+        on function decl if seen.
+	* parser.c (cp_lexer_get_preprocessor_token): Allow @-tokens
+	if doing asm.
+	(cp_parser_primary_expression): Recognize @-tokens in asm,
+	replace with @-identifier (which will become a label) later.
+	(cp_parser_unary_expression): Call asm-specific postfix
+	expression handler.
+	(cp_parser_compound_statement): Handle asm compound statements
+	specially.
+	(cp_parser_statement_seq_opt): Handle statement sequences in
+	asm blocks specially.
+	(cp_parser_simple_declaration): Leave instead of erroring out
+	if apparent asm opcode is seen.
+	(cp_parser_decl_specifier_seq,
+	cp_parser_storage_class_specifier_opt): Accept RID_ASM as a specifier.
+	(cp_parser_asm_definition): Detect asm blocks and handle.
+	(cp_parser_cw_asm_compound_statement,
+	cp_parser_cw_asm_declaration_seq_opt, cp_parser_cw_asm_line_seq_opt,
+	cp_parser_cw_asm_line, cp_parser_cw_asm_statement_seq_opt,
+	cp_parser_cw_asm_statement, cp_parser_cw_asm_operands,
+	cp_parser_cw_asm_operand, cp_parser_cw_asm_postfix_expression,
+	cw_asm_typename_or_reserved): New functions.
+	semantics.c (finish_id_expression): Handle register names
+	and labels in asm blocks specially.
+	* typeck.c (cw_asm_cp_build_component_ref): New function.
+
 2004-08-01  Devang Patel  <dpatel@apple.com>
 
          Re-implement -fwritable-strings support. 

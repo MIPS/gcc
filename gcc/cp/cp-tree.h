@@ -4336,6 +4336,9 @@ extern int  cxx_dmp_tree3			PARAMS ((FILE *, tree, int));
 extern int cp_gimplify_expr		        (tree *, tree *, tree *);
 extern int cp_gimplify_stmt		        (tree *, tree *);
 
+/* APPLE LOCAL CW asm blocks */
+extern tree cw_asm_cp_build_component_ref	(tree, tree);
+
 /* -- end of C++ */
 
 /* In order for the format checking to accept the C++ frontend

@@ -40,7 +40,10 @@ struct macro_arg
 
 /* Macro expansion.  */
 
-static int enter_macro_context (cpp_reader *, cpp_hashnode *);
+/* APPLE LOCAL begin CW asm blocks */
+extern int flag_cw_asm_blocks;
+static int enter_macro_context (cpp_reader *, cpp_hashnode *, int bol_p);
+/* APPLE LOCAL end CW asm blocks */
 static int builtin_macro (cpp_reader *, cpp_hashnode *);
 static void push_token_context (cpp_reader *, cpp_hashnode *,
 				const cpp_token *, unsigned int);
@@ -709,7 +712,8 @@ funlike_invocation_p (cpp_reader *pfile, cpp_hashnode *node)
    containing its yet-to-be-rescanned replacement list and return one.
    Otherwise, we don't push a context and return zero.  */
 static int
-enter_macro_context (cpp_reader *pfile, cpp_hashnode *node)
+/* APPLE LOCAL CW asm blocks */
+enter_macro_context (cpp_reader *pfile, cpp_hashnode *node, int bol_p)
 {
   /* The presence of a macro invalidates a file's controlling macro.  */
   pfile->mi_valid = false;
@@ -755,6 +759,12 @@ enter_macro_context (cpp_reader *pfile, cpp_hashnode *node)
 
       if (macro->paramc == 0)
 	push_token_context (pfile, node, macro->exp.tokens, macro->count);
+
+      /* APPLE LOCAL begin CW asm blocks */
+      /* Mark this context as being at the beginning of a line.  */
+      if (bol_p && pfile->context)
+	pfile->context->bol_p = true;
+      /* APPLE LOCAL end CW asm blocks */
 
       return 1;
     }
@@ -939,6 +949,8 @@ push_ptoken_context (cpp_reader *pfile, cpp_hashnode *macro, _cpp_buff *buff,
   context->direct_p = false;
   context->macro = macro;
   context->buff = buff;
+  /* APPLE LOCAL CW asm blocks */
+  context->bol_p = false;
   FIRST (context).ptoken = first;
   LAST (context).ptoken = first + count;
 }
@@ -953,6 +965,8 @@ push_token_context (cpp_reader *pfile, cpp_hashnode *macro,
   context->direct_p = true;
   context->macro = macro;
   context->buff = NULL;
+  /* APPLE LOCAL CW asm blocks */
+  context->bol_p = false;
   FIRST (context).token = first;
   LAST (context).token = first + count;
 }
@@ -1051,7 +1065,9 @@ _cpp_pop_context (cpp_reader *pfile)
 const cpp_token *
 cpp_get_token (cpp_reader *pfile)
 {
-  const cpp_token *result;
+  /* APPLE LOCAL CW asm blocks */
+  /* rm the "const" */
+  cpp_token *result;
 
   for (;;)
     {
@@ -1067,6 +1083,16 @@ cpp_get_token (cpp_reader *pfile)
 	    result = FIRST (context).token++;
 	  else
 	    result = *FIRST (context).ptoken++;
+
+	  /* APPLE LOCAL begin CW asm blocks */
+	  /* Make the context's bol flag stick to the first token, and
+	     only the first.  */
+	  if (context->bol_p)
+	    {
+	      result->flags |= BOL;
+	      context->bol_p = false;
+	    }
+	  /* APPLE LOCAL end CW asm blocks */
 
 	  if (result->flags & PASTE_LEFT)
 	    {
@@ -1105,7 +1131,8 @@ cpp_get_token (cpp_reader *pfile)
                   || (pfile->cb.macro_to_expand
                       && (node = pfile->cb.macro_to_expand (pfile, result))))
               /* APPLE LOCAL end AltiVec */
-	      && enter_macro_context (pfile, node))
+	      /* APPLE LOCAL CW asm blocks */
+	      && enter_macro_context (pfile, node, (flag_cw_asm_blocks && result->flags & BOL)))
 	    {
 	      if (pfile->state.in_directive)
 		continue;

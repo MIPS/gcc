@@ -26,6 +26,27 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cpplib.h"
 #include "ggc.h"
 
+/* APPLE LOCAL begin CW asm blocks */
+/* We use a small state machine to inform the lexer when to start
+   returning tokens marking the beginning of each asm line.  */
+enum cw_asm_states {
+  /* Normal code.  */
+  cw_asm_none,
+  /* '{' of asm block seen, decls may appear.  */
+  cw_asm_decls,
+  /* No more decls, in asm block proper, '}' not seen yet.  */
+  cw_asm_asm
+};
+
+extern enum cw_asm_states cw_asm_state;
+extern int cw_asm_in_decl;
+extern int cw_asm_block;
+extern int cw_asm_at_bol;
+extern int cw_asm_in_operands;
+extern int cw_asm_labelno;
+extern int cw_asm_lineno;
+/* APPLE LOCAL end CW asm blocks */
+
 /* Usage of TREE_LANG_FLAG_?:
    0: COMPOUND_STMT_NO_SCOPE (in COMPOUND_STMT).
       TREE_NEGATED_INT (in INTEGER_CST).
@@ -432,6 +453,9 @@ extern int flag_ms_extensions;
 /* Nonzero means don't recognize the keyword `asm'.  */
 
 extern int flag_no_asm;
+
+/* APPLE LOCAL CW asm blocks */
+extern int flag_cw_asm_blocks;
 
 /* Nonzero means give string constants the type `const char *', as mandated
    by the standard.  */
@@ -1365,5 +1389,18 @@ extern void init_pp_output (FILE *);
 extern void preprocess_file (cpp_reader *);
 extern void pp_file_change (const struct line_map *);
 extern void pp_dir_change (cpp_reader *, const char *);
+
+/* APPLE LOCAL begin CW asm blocks */
+extern tree cw_asm_stmt (tree, tree);
+extern tree cw_asm_build_register_offset (tree, tree);
+extern tree cw_asm_label (tree, int);
+extern tree get_atsign_identifier (tree);
+extern void clear_cw_asm_labels (void);
+extern tree cw_asm_reg_name (tree);
+extern tree get_cw_asm_label (tree);
+extern tree cw_asm_entry (tree, tree, tree);
+extern int cw_asm_typename_or_reserved (tree);
+extern tree cw_asm_c_build_component_ref (tree, tree);
+/* APPLE LOCAL end CW asm blocks */
 
 #endif /* ! GCC_C_COMMON_H */

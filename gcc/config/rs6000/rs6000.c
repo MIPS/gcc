@@ -18146,4 +18146,42 @@ rs6000_vector_select_stmt (tree type, tree dest,
 }
 /* APPLE LOCAL end AV if-conversion --dpatel  */
 
+
+/* APPLE LOCAL begin CW asm blocks */
+/* Translate some register names seen in CW asm into GCC standard
+   forms.  */
+
+char *
+rs6000_cw_asm_register_name (char *regname, char *buf)
+{
+  /* SP is a valid reg name, but asm doesn't like it yet, so translate.  */
+  if (strcmp (regname, "sp") == 0)
+    return "r1";
+  if (decode_reg_name (regname) >= 0)
+    return regname;
+  /* Change "gpr0" to "r0".  */
+  if (regname[0] == 'g'
+      && regname[1] == 'p'
+      && decode_reg_name (regname + 2) >= 0)
+    return regname + 2;
+  /* Change "fp0" to "f0".  */
+  if (regname[0] == 'f' && regname[1] == 'p')
+    {
+      buf[0] = 'f';
+      strcpy (buf + 1, regname + 2);
+      if (decode_reg_name (buf) >= 0)
+	return buf;
+    }
+  if (regname[0] == 's'
+      && regname[1] == 'p'
+      && regname[2] == 'r'
+      )
+    /* Temp hack, return it as a number.  */
+    return regname + 3;
+  if (strcmp (regname, "RTOC") == 0)
+    return "r2";
+  return NULL;
+}
+/* APPLE LOCAL end CW asm blocks */
+
 #include "gt-rs6000.h"

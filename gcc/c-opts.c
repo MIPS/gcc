@@ -798,6 +798,12 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_no_asm = !value;
       break;
 
+      /* APPLE LOCAL begin CW asm blocks */
+    case OPT_fasm_blocks:
+      flag_cw_asm_blocks = value;
+      break;
+      /* APPLE LOCAL end CW asm blocks */
+
     case OPT_fbuiltin:
       flag_no_builtin = !value;
       break;

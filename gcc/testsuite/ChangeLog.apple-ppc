@@ -1,3 +1,12 @@
+2004-08-03  Stan Shebs  <shebs@apple.com>
+
+	Support for CodeWarrior-style assembly language blocks and
+	functions.  Radar 3368707.
+	* testsuite/gcc.apple/asm-block-[12].c: New tests.
+	* testsuite/gcc.apple/asm-function-[1-6].c: New tests.
+	* testsuite/g++.dg/asm-block-[12].C: New tests.
+	* testsuite/g+.dg/asm-function-[1-6].C: New tests.
+
 2004-07-30  Devang Patel  <dpatel@apple.com>
 
          Re-implement -fwritable-strings support. 

@@ -467,6 +467,8 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Constraints::         Constraints for asm operands
 * Asm Labels::          Specifying the assembler name to use for a C symbol.
 * Explicit Reg Vars::   Defining variables residing in specified registers.
+@c APPLE LOCAL CW asm blocks
+* Asm Blocks and Functions:: Block and functions of assembly code.
 * Alternate Keywords::  @code{__const__}, @code{__asm__}, etc., for header files.
 * Incomplete Enums::    @code{enum foo;}, with details to follow.
 * Function Names::	Printable strings which are the name of the current
@@ -4489,6 +4491,64 @@ and assume it will always refer to this variable.
 Stores into local register variables may be deleted when they appear to be dead
 according to dataflow analysis.  References to local register variables may
 be deleted or moved or simplified.
+
+@c APPLE LOCAL begin CW asm blocks
+@node Asm Blocks and Functions
+@section Blocks and Functions of Assembly Language
+
+(This feature is APPLE ONLY.)
+
+In addition to writing single statements in assembly, you can also
+define blocks and entire functions to use a mixed assembly and C
+syntax.  The syntax follows that used in Metrowerks' CodeWarrior.
+This extension must be explicitly enabled with the
+@option{-fasm-blocks} option.
+
+The block syntax consists of @code{asm} followed by braces, with the
+assembly instructions on separate lines.  (However, ';' may be used to
+put several instructions on one line.)  You write labels with either a
+preceding '@' or a trailing ':' (or both, if you prefer); labels are
+always local to the asm block, and there is no way for a label in one
+block to refer to a label in another block.  Comments and lexical
+rules are as for standard C/C++.
+
+@verbatim
+int foo (int arg) {
+  register int bar;
+  asm {
+    li bar, 42
+    add bar, arg, bar ; nop ; ; nop
+  }
+  return bar;
+}
+@end verbatim
+
+The function syntax uses @code{asm} as a keyword in the function
+definition.  In this form, C declarations may appear at the beginning
+of the function body, in order to declare variables that you want to
+use in the body, but may not be used after the first assembly opcode
+or label (even in C99 or C++).
+
+@verbatim
+asm int baz (int arg1) {
+    register int loc1, loc2;
+    @123
+    li loc1,4 * 89
+    nand. r5,arg1,loc1
+    ble- cr0, @123
+    otherlab: nop
+    mr r3,r5
+}
+@end verbatim
+
+Note that the compiler just passes the instructions through to the
+assembler with only necessary changes, such as a substitution of
+globally unique labels.  Assembly syntax errors will therefore be
+reported by the assembler.
+
+Also note that the use of literal registers (such as r3) in functions
+may not work properly with functions that are being inlined.
+@c APPLE LOCAL end CW asm blocks
 
 @node Alternate Keywords
 @section Alternate Keywords

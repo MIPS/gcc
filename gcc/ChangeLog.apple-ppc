@@ -1,3 +1,61 @@
+2004-08-03  Stan Shebs  <shebs@apple.com>
+
+	Support for CodeWarrior-style assembly language blocks and
+	functions. Radar 3368707.
+
+	* c.opt (-fasm-blocks): New option.
+	* c-common.h (enum cw_asm_states): New enum, state values.
+	* c-tree.h: Declare some functions.
+	* c-common.c (flag_cw_asm_blocks): New flag.
+	(cw_asm_states, cw_asm_in_decl, cw_asm_block, cw_asm_at_bol,
+	cw_asm_in_operands, cw_asm_labelno, cw_asm_buffer,
+	cw_asm_operands, cw_asm_labels, cw_asm_labels_uniq): New globals.
+	(cw_asm_default_function_conversion, cw_asm_stmt,
+	cw_asm_field_offset, cw_asm_field_offset, print_cw_asm_operand,
+	cw_asm_get_register_var, cw_asm_reg_name, cw_asm_label,
+	get_atsign_identifier, clear_cw_asm_labels, get_cw_asm_label,
+	cw_asm_build_register_offset, cw_asm_entry): New functions.
+	c-decl.c: (grokdeclarator): Recognize asm keyword, set flag
+	on function decl if seen.
+	(start_function): Change asm state to expect local decls.
+	(lookup_struct_or_union_tag): New function.
+	c-lex.c (cw_asm_saved_token, c_lex_depth): New globals.
+	(c_lex_with_flags): Add state machine to return BOL and EOL
+	tokens at appropriate moments, return CPP_ATSIGN as its own
+	token if in asm block.
+	c-opts.c (c_common_handle_option): Recognize -fasm-blocks.
+	c-parse.in: Add rules for parsing CW asm blocks.
+	(CW_ASM_KEYWORD, CW_ASM_BOL, CW_ASM_EOL): New tokens.
+	(cw_asm_expr_no_commas, cw_asm_unary_expr, cw_asm_primary,
+	cw_asm_operands, cw_nonnull_asm_operands, cw_asm_operand, cw_asm_stmt,
+	single_cw_asm_stmt, cw_asm_compstmt, cw_asm_compstmt_start,
+	cw_asm_compstmt_nostart): New nonterminals.
+	(lineno_decl): Flag no longer in decls part.
+	(scspec): Add CW_ASM_KEYWORD.
+	(stmt): Add cw_asm_compstmt and cw_asm_stmt alternatives.
+	(yylexname): Detect asm functions and return CW_ASM_KEYWORD.
+	(_yylex): Return '@' as token if CW asm, return BOL/EOL.
+	c-typeck.c (build_external_ref): Handle asm register names
+	and labels specially.
+	(cw_asm_typename_or_reserved, cw_asm_c_build_component_ref):
+	New functions.
+
+	* function.h (struct function): New fields cw_asm_function,
+	cw_asm_noreturn, cw_asm_frame_size.
+	* tree.h (DECL_CW_ASM_FUNCTION, DECL_CW_ASM_NORETURN,
+	DECL_CW_ASM_FRAME_SIZE): New macros.
+	(struct tree_decl): New fields cw_asm_function_flag,
+	cw_asm_noreturn_flag, cw_asm_frame_size.
+	* config/darwin.h (CW_ASM_SPECIAL_LABEL): Define.
+	* config/darwin-protos.h (darwin_cw_asm_special_label): Declare.
+	* config/darwin.c (darwin_cw_asm_special_label): New function.
+	* rs6000/rs6000-protos.h (rs6000_cw_asm_register_name): Declare.
+	* rs6000/rs6000.c (rs6000_cw_asm_register_name): New function.
+	* rs6000/rs6000.h (CW_ASM_REGISTER_NAME): Define.
+	* scan-decls.c (flag_cw_asm_blocks, etc): Dummy definitions.
+
+	* doc/extend.texi, doc/invoke.texi: Document.
+
 2004-08-01  Devang Patel  <dpatel@apple.com>
 
          Re-implement -fwritable-strings support. 

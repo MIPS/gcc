@@ -483,6 +483,11 @@ fasm
 C ObjC C++ ObjC++
 Recognize the \"asm\" keyword
 
+; APPLE LOCAL CW asm blocks
+fasm-blocks
+C ObjC C++ ObjC++
+Handle CW-style assembly blocks
+
 ; APPLE LOCAL -fast or -fastf or -fastcp
 fast
 C

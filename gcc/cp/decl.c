@@ -6442,6 +6442,8 @@ grokdeclarator (tree declarator,
                 tree* attrlist)
 {
   RID_BIT_TYPE specbits;
+  /* APPLE LOCAL CW asm blocks */
+  int cw_asm_specbit = 0;
   int nclasses = 0;
   tree spec;
   tree type = NULL_TREE;
@@ -6866,6 +6868,17 @@ grokdeclarator (tree declarator,
 
       if (TREE_CODE (id) == IDENTIFIER_NODE)
 	{
+	  /* APPLE LOCAL begin CW asm blocks */
+	  /* Maybe remember that we saw an "asm".  Don't test
+	     -fasm-blocks here because we want to be able to report an
+	     error later.  */
+	  if (id == ridpointers[(int) RID_ASM])
+	    {
+	      ++cw_asm_specbit;
+	      goto found;
+	    }
+	  /* APPLE LOCAL end CW asm blocks */
+
 	  if (id == ridpointers[(int) RID_INT]
 	      || id == ridpointers[(int) RID_CHAR]
 	      || id == ridpointers[(int) RID_BOOL]
@@ -8573,6 +8586,21 @@ grokdeclarator (tree declarator,
 
     if (RIDBIT_SETP (RID_STATIC, specbits))
       DECL_THIS_STATIC (decl) = 1;
+
+    /* APPLE LOCAL begin CW asm blocks */
+    if (cw_asm_specbit)
+      {
+	/* Record that this is a decl of a CW-style asm function.  */
+	if (flag_cw_asm_blocks)
+	  {
+	    DECL_CW_ASM_FUNCTION (decl) = 1;
+	    DECL_CW_ASM_NORETURN (decl) = 0;
+	    DECL_CW_ASM_FRAME_SIZE (decl) = -2;
+	  }
+	else
+	  error ("asm functions not enabled, use `-fasm-blocks'");
+      }
+    /* APPLE LOCAL end CW asm blocks */
 
     /* Record constancy and volatility.  There's no need to do this
        when processing a template; we'll do this for the instantiated
@@ -10508,6 +10536,17 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
       dtor_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
       DECL_CONTEXT (dtor_label) = current_function_decl;
     }
+
+  /* APPLE LOCAL begin CW asm blocks */
+  /* If this was a function declared as an assembly function, change
+     the state to expect to see C++ decls, possibly followed by assembly
+     code.  */
+  if (DECL_CW_ASM_FUNCTION (current_function_decl))
+    {
+      cw_asm_state = cw_asm_decls;
+      cw_asm_in_decl = 0;
+    }
+  /* APPLE LOCAL end CW asm blocks */
 
   start_fname_decls ();
   

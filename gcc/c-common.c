@@ -263,6 +263,11 @@ int flag_ms_extensions;
 
 int flag_no_asm;
 
+/* APPLE LOCAL begin CW asm blocks */
+/* Nonzero means accept CW-style asm blocks.  */
+int flag_cw_asm_blocks;
+/* APPLE LOCAL end CW asm blocks */
+
 /* Nonzero means give string constants the type `const char *', as mandated
    by the standard.  */
 
@@ -796,6 +801,47 @@ static int if_stack_space = 0;
 
 /* Stack pointer.  */
 static int if_stack_pointer = 0;
+
+/* APPLE LOCAL begin CW asm blocks */
+/* State variable telling the lexer what to do.  */
+enum cw_asm_states cw_asm_state = cw_asm_none;
+
+/* True in an asm block while parsing a decl.  */
+int cw_asm_in_decl;
+
+/* This is true exactly within the interior of an asm block.  It is
+   not quite the same as any of the states of cw_asm_state.  */
+int cw_asm_block;
+
+/* An additional state variable, true when the next token returned
+   should be a BOL, false otherwise.  */
+int cw_asm_at_bol;
+
+/* True when the lexer/parser is handling operands.  */
+int cw_asm_in_operands;
+
+/* Count used for synthetic labels derived from asm block labels.  */
+int cw_asm_labelno;
+
+/* Used to record actual line at a convenient moment, rather than
+   trying to pass it via function args as save_lineno normally does -
+   would break down if asms could be nested.  */
+int cw_asm_lineno;
+
+/* Working buffer for building the assembly string.  */
+static char *cw_asm_buffer;
+
+/* An array tracking which variables to list as inputs and outputs.  */
+static GTY(()) varray_type cw_asm_operands;
+
+/* Two arrays used as a map from user-supplied labels, local to an asm
+   block, to unique global labels that the assembler will like.  */
+static GTY(()) varray_type cw_asm_labels;
+static GTY(()) varray_type cw_asm_labels_uniq;
+
+static void print_cw_asm_operand (char *, tree);
+static int cw_asm_get_register_var (tree);
+/* APPLE LOCAL end CW asm blocks */
 
 static tree handle_packed_attribute (tree *, tree, tree, int, bool *);
 static tree handle_nocommon_attribute (tree *, tree, tree, int, bool *);
@@ -6270,5 +6316,458 @@ vector_constructor_from_expr (tree expr, tree vector_type)
   return list;
 }
 /* APPLE LOCAL end AltiVec */
+
+/* APPLE LOCAL begin CW asm blocks */
+/* Perform the default conversion of functions to pointers; simplified
+   version for use with functions mentioned in CW-style asm.
+   Return the result of converting EXP.  For any other expression, just
+   return EXP.  */
+
+static tree
+cw_asm_default_function_conversion (tree exp)
+{
+  tree type = TREE_TYPE (exp);
+  enum tree_code code = TREE_CODE (type);
+
+  /* Strip NON_LVALUE_EXPRs and no-op conversions, since we aren't using as
+     an lvalue. 
+
+     Do not use STRIP_NOPS here!  It will remove conversions from pointer
+     to integer and cause infinite recursion.  */
+  while (TREE_CODE (exp) == NON_LVALUE_EXPR
+	 || (TREE_CODE (exp) == NOP_EXPR
+	     && TREE_TYPE (TREE_OPERAND (exp, 0)) == TREE_TYPE (exp)))
+    exp = TREE_OPERAND (exp, 0);
+
+  if (code == FUNCTION_TYPE)
+    return build_unary_op (ADDR_EXPR, exp, 0);
+
+  return exp;
+}
+
+/* Build an asm statement from CW-syntax bits.  */
+tree
+cw_asm_stmt (tree expr, tree args)
+{
+  tree sexpr;
+  tree arg, tail;
+  tree inputs, outputs, clobbers;
+  tree stmt;
+  tree str, one;
+  unsigned int n;
+  const char *opcodename;
+
+  cw_asm_in_operands = 0;
+  VARRAY_TREE_INIT (cw_asm_operands, 20, "cw_asm_operands");
+  outputs = NULL_TREE;
+  inputs = NULL_TREE;
+  clobbers = NULL_TREE;
+
+  STRIP_NOPS (expr);
+
+  if (TREE_CODE (expr) == ADDR_EXPR)
+    expr = TREE_OPERAND (expr, 0);
+
+  opcodename = IDENTIFIER_POINTER (expr);
+
+  /* Handle special directives specially.  */
+  if (strcmp (opcodename, "entry") == 0)
+    return cw_asm_entry (expr, NULL_TREE, TREE_VALUE (args));
+  else if (strcmp (opcodename, "fralloc") == 0)
+    {
+      /* The correct default size is target-specific, so leave this as
+	 a cookie for the backend.  */
+      DECL_CW_ASM_FRAME_SIZE (current_function_decl) = -1;
+      if (args)
+	{
+	  arg = TREE_VALUE (args);
+	  STRIP_NOPS (arg);
+	  if (TREE_CODE (arg) == INTEGER_CST)
+	    {
+	      int intval = tree_low_cst (arg, 0);
+	      if (intval >= 0)
+		DECL_CW_ASM_FRAME_SIZE (current_function_decl) = intval;
+	      else
+		error ("fralloc argument must be nonnegative");
+	    }
+	  else
+	    error ("fralloc argument is not an integer");
+	}
+      return NULL_TREE;
+    }
+  else if (strcmp (opcodename, "frfree") == 0)
+    {
+      DECL_CW_ASM_NORETURN (current_function_decl) = 1;
+      /* Create a default-size frame retroactively.  */
+      if (DECL_CW_ASM_FRAME_SIZE (current_function_decl) == -2)
+	DECL_CW_ASM_FRAME_SIZE (current_function_decl) = -1;
+      return NULL_TREE;
+    }
+  else if (strcmp (opcodename, "nofralloc") == 0)
+    {
+      DECL_CW_ASM_NORETURN (current_function_decl) = 1;
+      DECL_CW_ASM_FRAME_SIZE (current_function_decl) = -2;
+      return NULL_TREE;
+    }
+  else if (strcmp (opcodename, "machine") == 0)
+    {
+      return NULL_TREE;
+    }
+  else if (strcmp (opcodename, "opword") == 0)
+    {
+      opcodename = ".long";
+    }
+
+  if (cw_asm_buffer == NULL)
+    cw_asm_buffer = xmalloc (4000);
+  cw_asm_buffer[0] = '\0';
+
+  strncat (cw_asm_buffer, opcodename, IDENTIFIER_LENGTH (expr));
+  strcat (cw_asm_buffer, " ");
+  /* Iterate through operands, "printing" each into the asm string.  */
+  for (tail = args; tail; tail = TREE_CHAIN (tail))
+    {
+      arg = TREE_VALUE (tail);
+      if (tail != args)
+	strcat (cw_asm_buffer, ",");
+      print_cw_asm_operand (cw_asm_buffer, arg);
+    }
+
+  sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
+
+  /* Treat each C function seen as a input, and all parms/locals as
+     both inputs and outputs.  */
+  for (n = 0; n < VARRAY_ACTIVE_SIZE (cw_asm_operands); ++n)
+    {
+      tree var = VARRAY_TREE (cw_asm_operands, n);
+
+      if (TREE_CODE (var) == FUNCTION_DECL)
+	{
+	  str = build_string (1, "s");
+	  one = build_tree_list (build_tree_list (NULL_TREE, str), var);
+	  inputs = chainon (inputs, one);
+	}
+      else
+	{
+	  /* This is PowerPC-specific.  */
+	  if (TREE_CODE (TREE_TYPE (var)) == REAL_TYPE)
+	    str = build_string (2, "+f");
+	  else
+	    str = build_string (2, "+b");
+	  one = build_tree_list (build_tree_list (NULL_TREE, str), var);
+	  outputs = chainon (outputs, one);
+	}
+    }
+  
+  /* Perform default conversions on function inputs. 
+     Don't do this for other types as it would screw up operands
+     expected to be in memory.  */
+  for (tail = inputs; tail; tail = TREE_CHAIN (tail))
+    TREE_VALUE (tail) = cw_asm_default_function_conversion (TREE_VALUE (tail));
+
+  /* Treat as volatile always.  */
+  stmt = build_stmt (ASM_STMT, sexpr, outputs, inputs, clobbers);
+  ASM_VOLATILE_P (stmt) = 1;
+  stmt = add_stmt (stmt);
+  return stmt;
+}
+
+/* Compute the offset of a field, in bytes.  Round down for bit
+   offsets, but that's OK for use in asm code.  */
+
+static int
+cw_asm_field_offset (tree arg)
+{
+  return (tree_low_cst (DECL_FIELD_OFFSET (arg), 0)
+	  + tree_low_cst (DECL_FIELD_BIT_OFFSET (arg), 0)  / BITS_PER_UNIT);
+}
+
+/* Print an operand according to its tree type.  */
+
+static void
+print_cw_asm_operand (char *buf, tree arg)
+{
+  int idnum;
+  HOST_WIDE_INT bitsize, bitpos;
+  tree offset;
+  enum machine_mode mode;
+  int unsignedp, volatilep;
+  tree op0, op1;
+  int off0, off1;
+
+  STRIP_NOPS (arg);
+
+  switch (TREE_CODE (arg))
+    {
+    case INTEGER_CST:
+      sprintf (buf + strlen (buf), "%lld", tree_low_cst (arg, 0));
+      break;
+
+    case IDENTIFIER_NODE:
+      strncat (buf, IDENTIFIER_POINTER (arg), IDENTIFIER_LENGTH (arg));
+      break;
+
+    case VAR_DECL:
+    case PARM_DECL:
+      if ((idnum = cw_asm_get_register_var (arg)) >= 0)
+	{
+	  strcat (buf, "%");
+	  sprintf (buf + strlen (buf), "%d", idnum);
+	}
+      break;
+
+    case FUNCTION_DECL:
+      if ((idnum = cw_asm_get_register_var (arg)) >= 0)
+	{
+	  strcat (buf, "%z");
+	  sprintf (buf + strlen (buf), "%d", idnum);
+	}
+      break;
+
+    case COMPOUND_EXPR:
+      /* "Compound exprs" are really offset+register constructs.  */
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0));
+      strcat (buf, "(");
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 1));
+      strcat (buf, ")");
+      break;
+
+    case PLUS_EXPR:
+      op0 = TREE_OPERAND (arg, 0);
+      if (TREE_CODE (op0) == FIELD_DECL)
+	off0 = cw_asm_field_offset (op0);
+      else if (TREE_CODE (op0) == INTEGER_CST)
+	off0 = tree_low_cst (op0, 0);
+      else
+	error ("invalid operand for arithmetic in assembly block");
+      op1 = TREE_OPERAND (arg, 1);
+      if (TREE_CODE (op1) == FIELD_DECL)
+	off1 = cw_asm_field_offset (op1);
+      else if (TREE_CODE (op1) == INTEGER_CST)
+	off1 = tree_low_cst (op1, 0);
+      else
+	error ("invalid operand for arithmetic in assembly block");
+      sprintf (buf + strlen (buf), "%d", off0 + off1);
+      break;
+
+    case FIELD_DECL:
+      sprintf (buf + strlen (buf), "%d", cw_asm_field_offset (arg));
+      break;
+
+    case COMPONENT_REF:
+      get_inner_reference (arg, &bitsize, &bitpos, &offset, &mode, &unsignedp, &volatilep);
+      /* Convert bit pos to byte pos, rounding down (this is asm,
+	 after all). */
+      sprintf (buf + strlen (buf), "%lld", bitpos / BITS_PER_UNIT);
+      strcat (buf, "(");
+      op0 = TREE_OPERAND (arg, 0);
+      /* Catch a couple different flavors of component refs.  */
+      if (TREE_CODE (op0) == VAR_DECL)
+	print_cw_asm_operand (buf, op0);
+      else
+	print_cw_asm_operand (buf, TREE_OPERAND (op0, 0));
+      strcat (buf, ")");
+      break;
+
+    case ARRAY_REF:
+      error ("array references not supported");
+      break;
+
+    default:
+      /* Something is wrong, most likely a user error.  */
+      error ("block assembly operand not recognized");
+      break;
+    }
+}
+
+/* Given an identifier name, come up with the index to use for the %0,
+   %1, etc in the asm string.  */
+
+static int
+cw_asm_get_register_var (tree var)
+{
+  unsigned int n;
+
+  for (n = 0; n < VARRAY_ACTIVE_SIZE (cw_asm_operands); ++n)
+    {
+      if (var == VARRAY_TREE (cw_asm_operands, n))
+	return n;
+    }
+  VARRAY_PUSH_TREE (cw_asm_operands, var);
+  return VARRAY_ACTIVE_SIZE (cw_asm_operands) - 1;
+}
+
+tree
+cw_asm_reg_name (tree id)
+{
+#ifdef CW_ASM_REGISTER_NAME
+  char buf[100];
+  char *newname = CW_ASM_REGISTER_NAME (IDENTIFIER_POINTER (id), buf);
+  if (newname)
+    return get_identifier (newname);
+#else
+  if (decode_reg_name (IDENTIFIER_POINTER (id)) >= 0)
+    return id;
+#endif
+  return NULL_TREE;
+}
+
+/* Build an asm label from CW-syntax bits.  */
+tree
+cw_asm_label (tree labid, int atsign)
+{
+  tree sexpr;
+  tree inputs = NULL_TREE, outputs = NULL_TREE, clobbers = NULL_TREE;
+  tree stmt;
+
+  STRIP_NOPS (labid);
+
+  if (atsign)
+    labid = get_atsign_identifier (labid);
+
+  if (cw_asm_buffer == NULL)
+    cw_asm_buffer = xmalloc (4000);
+
+  cw_asm_buffer[0] = '\0';
+  strcat (cw_asm_buffer, IDENTIFIER_POINTER (get_cw_asm_label (labid)));
+  strcat (cw_asm_buffer, ":");
+
+  sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
+
+  /* Simple asm statements are treated as volatile.  */
+  stmt = build_stmt (ASM_STMT, sexpr, outputs, inputs, clobbers);
+  ASM_VOLATILE_P (stmt) = 1;
+  stmt = add_stmt (stmt);
+  return stmt;
+}
+
+/* Create a new identifier with an '@' stuck on the front.  */
+
+tree
+get_atsign_identifier (tree ident)
+{
+  char *buf = (char *) alloca (IDENTIFIER_LENGTH (ident) + 20);
+  buf[0] = '@';
+  strcpy (buf + 1, IDENTIFIER_POINTER (ident));
+  return get_identifier (buf);
+}
+
+void
+clear_cw_asm_labels ()
+{
+  if (!cw_asm_labels)
+    VARRAY_TREE_INIT (cw_asm_labels, 40, "cw_asm_labels");
+  if (!cw_asm_labels_uniq)
+    VARRAY_TREE_INIT (cw_asm_labels_uniq, 40, "cw_asm_labels_uniq");
+  VARRAY_POP_ALL (cw_asm_labels);
+  VARRAY_POP_ALL (cw_asm_labels_uniq);
+}
+
+/* Given a label identifier and a flag indicating whether it had an @
+   preceding it, return a synthetic and unique label that the
+   assembler will like.  */
+
+tree
+get_cw_asm_label (tree labid)
+{
+  unsigned int n;
+  const char *labname;
+  char *buf;
+  tree newid;
+
+  for (n = 0; n < VARRAY_ACTIVE_SIZE (cw_asm_labels); ++n)
+    {
+      if (labid == VARRAY_TREE (cw_asm_labels, n))
+	return VARRAY_TREE (cw_asm_labels_uniq, n);
+    }
+  /* Not already seen, make up a label.  */
+  VARRAY_PUSH_TREE (cw_asm_labels, labid);
+  buf = (char *) alloca (IDENTIFIER_LENGTH (labid) + 20);
+  sprintf (buf, "LASM%d$", cw_asm_labelno++);
+  /* Assembler won't like a leading @-sign, so make it into a $ if
+     seen.  */
+  labname = IDENTIFIER_POINTER (labid);
+  if (*labname == '@')
+    {
+      strcat (buf, "$");
+      ++labname;
+    }
+  strcat (buf, labname);
+  newid = get_identifier (buf);
+  VARRAY_PUSH_TREE (cw_asm_labels_uniq, newid);
+  return newid;
+}
+
+/* The "offset(reg)" in assembly doesn't have an appropriate tree
+   node, so borrow COMPOUND_EXPR and just detect it when emitting the
+   assembly statement.  */
+
+tree
+cw_asm_build_register_offset (tree offset, tree regname)
+{
+  tree t;
+
+  t = make_node (COMPOUND_EXPR);
+  /* No type is associated with this construct.  */
+  TREE_TYPE (t) = NULL_TREE;
+  TREE_OPERAND (t, 0) = offset;
+  TREE_OPERAND (t, 1) = regname;
+  return t;
+}
+
+/* Given some bits of info from the parser, determine if this is a
+   valid entry statement, and then generate traditional asm statements
+   to create the label. The entry may be either static or extern.  */
+tree
+cw_asm_entry (tree keyword, tree scspec, tree fn)
+{
+  int externify = 0;
+  tree stmt, inputs, str, one, strlab;
+
+  /* Validate all the arguments.  The keyword arg should be "entry",
+     but we don't make it a reserved word and parse as a plain old
+     identifier, so need to check it here.  */
+  if (strcmp (IDENTIFIER_POINTER (keyword), "entry") != 0)
+    {
+      error ("invalid asm entry statement syntax");
+      return error_mark_node;
+    }
+  if (scspec == NULL || strcmp (IDENTIFIER_POINTER (scspec), "extern") == 0)
+    externify = 1;
+  else if (strcmp (IDENTIFIER_POINTER (scspec), "static") == 0)
+    /* accept, but do nothing special */ ;
+  else
+    {
+      error ("entry point storage class much be `static' or `extern'");
+      return error_mark_node;
+    }
+  if (fn == NULL_TREE || TREE_CODE (fn) != FUNCTION_DECL)
+    {
+      error ("entry point not recognized as a function");
+      return error_mark_node;
+    }
+
+  fn = cw_asm_default_function_conversion (fn);
+  str = build_string (1, "s");
+  one = build_tree_list (build_tree_list (NULL_TREE, str), fn);
+  inputs = chainon (NULL_TREE, one);
+
+  if (externify)
+    {
+      strlab = build_string (9, ".globl %0");
+      /* Treat as volatile always.  */
+      stmt = build_stmt (ASM_STMT, strlab, NULL_TREE, inputs, NULL_TREE);
+      ASM_VOLATILE_P (stmt) = 1;
+      stmt = add_stmt (stmt);
+    }
+
+  strlab = build_string (3, "%0:");
+  /* Treat as volatile always.  */
+  stmt = build_stmt (ASM_STMT, strlab, NULL_TREE, inputs, NULL_TREE);
+  ASM_VOLATILE_P (stmt) = 1;
+  stmt = add_stmt (stmt);
+  return stmt;
+}
+/* APPLE LOCAL end CW asm blocks */
 
 #include "gt-c-common.h"

@@ -183,6 +183,8 @@ in the following sections.
 @gccoptlist{-ansi  -std=@var{standard}  -aux-info @var{filename} @gol
 @c APPLE LOCAL AltiVec
 -faltivec (APPLE ONLY) @gol
+@c APPLE LOCAL CW asm blocks
+-fasm-blocks (APPLE ONLY) @gol
 -fno-asm  -fno-builtin  -fno-builtin-@var{function} @gol
 -fhosted  -ffreestanding  -fms-extensions @gol
 -trigraphs  -no-integrated-cpp  -traditional  -traditional-cpp @gol
@@ -1229,6 +1231,13 @@ as @code{vec_add}, and other extensions.  Note that unlike the option
 @samp{-maltivec}, the extensions do not require the inclusion of any
 special header files. (APPLE ONLY)
 @c APPLE LOCAL end AltiVec
+
+@c APPLE LOCAL begin CW asm blocks
+@item -fasm-blocks
+Enable the use of blocks and entire functions of assembly code within
+a C or C++ file.  The syntax follows that used in CodeWarrior. (APPLE
+ONLY)
+@c APPLE LOCAL end CW asm blocks
 
 @item -fno-asm
 @opindex fno-asm

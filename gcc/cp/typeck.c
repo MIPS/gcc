@@ -6532,3 +6532,16 @@ non_reference (tree t)
     t = TREE_TYPE (t);
   return t;
 }
+
+/* APPLE LOCAL begin CW asm blocks */
+tree
+cw_asm_cp_build_component_ref (tree datum, tree component)
+{
+  tree expr = finish_class_member_access_expr (datum, component);
+  /* If this is not a real component reference, extract the field
+     decl, which includes the numeric offset we'll use later.  */
+  if (TREE_CODE (datum) == TYPE_DECL)
+    expr = TREE_OPERAND (expr, 1);
+  return expr;
+}
+/* APPLE LOCAL end CW asm blocks */

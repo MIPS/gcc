@@ -210,6 +210,11 @@ struct cpp_context
 
   /* True if utoken element is token, else ptoken.  */
   bool direct_p;
+
+  /* APPLE LOCAL begin CW asm blocks */
+  /* True if this expansion is at the beginning of a line.  */
+  bool bol_p;
+  /* APPLE LOCAL end CW asm blocks */
 };
 
 struct lexer_state

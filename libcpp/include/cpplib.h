@@ -138,6 +138,10 @@ struct _cpp_file;
   TK(CPP_PASCAL_STRING,	SPELL_LITERAL)	/* Pascal ("\p...") string */	\
   TK(CPP_HEADER_NAME,	SPELL_LITERAL)	/* <stdio.h> in #include */	\
 \
+  /* APPLE LOCAL begin CW asm blocks */					\
+  TK(CPP_BOL,		SPELL_LITERAL)	/* asm bol */			\
+  TK(CPP_EOL,		SPELL_LITERAL)	/* asm eol */			\
+  /* APPLE LOCAL end CW asm blocks */					\
   TK(CPP_COMMENT,	SPELL_LITERAL)	/* Only if output comments.  */ \
                                         /* SPELL_LITERAL happens to DTRT.  */ \
   TK(CPP_MACRO_ARG,	SPELL_NONE)	/* Macro argument.  */		\

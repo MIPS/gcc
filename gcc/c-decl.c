@@ -3428,6 +3428,8 @@ grokdeclarator (tree declarator, tree declspecs,
 		enum decl_context decl_context, int initialized, tree *width)
 {
   int specbits = 0;
+  /* APPLE LOCAL CW asm blocks */
+  int cw_asm_specbit = 0;
   tree spec;
   tree type = NULL_TREE;
   int longlong = 0;
@@ -3548,6 +3550,16 @@ grokdeclarator (tree declarator, tree declspecs,
       if (TREE_CODE (id) == IDENTIFIER_NODE && C_IS_RESERVED_WORD (id))
 	{
 	  enum rid i = C_RID_CODE (id);
+	  /* APPLE LOCAL begin CW asm blocks */
+	  /* Maybe remember that we saw an "asm".  Don't test
+	     -fasm-blocks here because we want to be able to report an
+	     error later.  */
+	  if (i == RID_ASM)
+	    {
+	      ++cw_asm_specbit;
+	      goto found;
+	    }
+	  /* APPLE LOCAL end CW asm blocks */
 	  if ((int) i <= (int) RID_LAST_MODIFIER)
 	    {
 	      if (i == RID_LONG && (specbits & (1 << (int) RID_LONG)))
@@ -4695,6 +4707,21 @@ grokdeclarator (tree declarator, tree declspecs,
 	C_DECL_REGISTER (decl) = 1;
 	DECL_REGISTER (decl) = 1;
       }
+
+    /* APPLE LOCAL begin CW asm blocks */
+    if (cw_asm_specbit)
+      {
+	/* Record that this is a decl of a CW-style asm function.  */
+	if (flag_cw_asm_blocks)
+	  {
+	    DECL_CW_ASM_FUNCTION (decl) = 1;
+	    DECL_CW_ASM_NORETURN (decl) = 0;
+	    DECL_CW_ASM_FRAME_SIZE (decl) = -2;
+	  }
+	else
+	  error ("asm functions not enabled, use `-fasm-blocks'");
+      }
+    /* APPLE LOCAL end CW asm blocks */
 
     /* Record constancy and volatility.  */
     c_apply_type_quals_to_decl (type_quals, decl);
@@ -5919,6 +5946,17 @@ start_function (tree declspecs, tree declarator, tree attributes)
      (or an implicit decl), propagate certain information about the usage.  */
   if (TREE_ADDRESSABLE (DECL_ASSEMBLER_NAME (current_function_decl)))
     TREE_ADDRESSABLE (current_function_decl) = 1;
+
+  /* APPLE LOCAL begin CW asm blocks */
+  /* If this was a function declared as an assembly function, change
+     the state to expect to see C decls, possibly followed by assembly
+     code.  */
+  if (DECL_CW_ASM_FUNCTION (current_function_decl))
+    {
+      cw_asm_state = cw_asm_decls;
+      cw_asm_in_decl = 0;
+    }
+  /* APPLE LOCAL end CW asm blocks */
 
   immediate_size_expand = old_immediate_size_expand;
 
@@ -7485,5 +7523,22 @@ loop_transpose (tree fn)
   /*timevar_pop (TV_LOOP_TRANSPOSE);*/
 }
 /* APPLE LOCAL end loop transposition (currently unsafe) */
+
+/* APPLE LOCAL begin CW asm blocks */
+/* Look for a struct or union tag, but quietly; don't complain if neither
+   is found, and don't autocreate. Used to identify struct/union tags
+   mentioned in CW asm operands.  */
+tree
+lookup_struct_or_union_tag (tree typename)
+{
+  tree rslt = lookup_tag (RECORD_TYPE, typename, 0);
+
+  pending_invalid_xref = 0;
+  if (!rslt)
+    rslt = lookup_tag (UNION_TYPE, typename, 0);
+  pending_invalid_xref = 0;
+  return rslt;
+}
+/* APPLE LOCAL end CW asm blocks */
 
 #include "gt-c-decl.h"

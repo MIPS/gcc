@@ -24,6 +24,12 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "cpplib.h"
 #include "internal.h"
 
+/* APPLE LOCAL begin CW asm blocks */
+/* A hack that would be better done with a callback or some such.  */
+extern enum cw_asm_states { cw_asm_none, cw_asm_decls, cw_asm_asm } cw_asm_state;
+extern int cw_asm_in_operands;
+/* APPLE LOCAL end CW asm blocks */
+
 enum spell_type
 {
   SPELL_OPERATOR = 0,
@@ -472,6 +478,8 @@ lex_identifier (cpp_reader *pfile, const uchar *base)
   cpp_hashnode *result;
   const uchar *cur;
 
+  /* APPLE LOCAL CW asm blocks */
+  while (1) {
   do
     {
       cur = pfile->buffer->cur;
@@ -483,6 +491,21 @@ lex_identifier (cpp_reader *pfile, const uchar *base)
       pfile->buffer->cur = cur;
     }
   while (forms_identifier_p (pfile, false));
+
+  /* APPLE LOCAL begin CW asm blocks */
+  /* Allow [.+-] in CW asm opcodes (PowerPC specific).  Do this here
+     so we don't have to figure out "bl- 45" vs "bl -45".  */
+  if (cw_asm_state < cw_asm_decls
+      || cw_asm_in_operands
+      || !(*pfile->buffer->cur == '.'
+	   || *pfile->buffer->cur == '+'
+	   || *pfile->buffer->cur == '-'))
+    break;
+  /* Pick up the non-alpha char and go around again.  */
+  pfile->buffer->cur++;
+  }
+  /* APPLE LOCAL CW asm blocks */
+
 
   result = (cpp_hashnode *)
     ht_lookup (pfile->hash_table, base, cur - base, HT_ALLOC);
@@ -870,6 +893,9 @@ _cpp_get_fresh_line (cpp_reader *pfile)
     }							\
   while (0)
 
+/* APPLE LOCAL CW asm blocks */
+static int cw_asm_label_follows;
+
 /* Lex a token into pfile->cur_token, which is also incremented, to
    get diagnostics pointing to the correct location.
 
@@ -946,6 +972,12 @@ _cpp_lex_direct (cpp_reader *pfile)
 
     case '0': case '1': case '2': case '3': case '4':
     case '5': case '6': case '7': case '8': case '9':
+      /* APPLE LOCAL begin CW asm blocks */
+      /* An '@' in assembly code makes a following digit string into
+	 an identifier.  */
+      if (cw_asm_label_follows)
+	goto start_ident;
+      /* APPLE LOCAL end CW asm blocks */
       result->type = CPP_NUMBER;
       lex_number (pfile, &result->val.str);
       break;
@@ -959,6 +991,8 @@ _cpp_lex_direct (cpp_reader *pfile)
 	}
       /* Fall through.  */
 
+      /* APPLE LOCAL CW asm blocks */
+    start_ident:
     case '_':
     case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
     case 'g': case 'h': case 'i': case 'j': case 'k': case 'l':
@@ -979,6 +1013,10 @@ _cpp_lex_direct (cpp_reader *pfile)
 	  result->flags |= NAMED_OP;
 	  result->type = result->val.node->directive_index;
 	}
+      /* APPLE LOCAL begin CW asm blocks */
+      /* Got an identifier, reset the CW asm label hack flag.  */
+      cw_asm_label_follows = 0;
+      /* APPLE LOCAL end CW asm blocks */
       break;
 
     case '\'':
@@ -1191,10 +1229,24 @@ _cpp_lex_direct (cpp_reader *pfile)
     case ']': result->type = CPP_CLOSE_SQUARE; break;
     case '{': result->type = CPP_OPEN_BRACE; break;
     case '}': result->type = CPP_CLOSE_BRACE; break;
-    case ';': result->type = CPP_SEMICOLON; break;
-
-      /* @ is a punctuator in Objective-C.  */
-    case '@': result->type = CPP_ATSIGN; break;
+      /* APPLE LOCAL begin CW asm blocks */
+    case ';':
+      /* ';' separates instructions in CW asm, so flag that we're no
+	 longer seeing operands.  */
+      if (cw_asm_state >= cw_asm_decls)
+	cw_asm_in_operands = 0;
+      result->type = CPP_SEMICOLON;
+      break;
+    case '@':
+      /* In CW asm, @ can indicate a label, which may consist of
+	 either letters or digits, so set a hack flag for this.  (We
+	 still want to return the @ as a separate token so that the
+	 parser can distinguish labels from opcodes.)  */
+      if (cw_asm_state >= cw_asm_decls)
+	cw_asm_label_follows = 1;
+      result->type = CPP_ATSIGN;
+      break;
+      /* APPLE LOCAL end CW asm blocks */
 
     case '$':
     case '\\':
