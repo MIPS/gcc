@@ -1,5 +1,15 @@
 2004-06-16  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/text/PlainDocument.java
+	(serialVersionUID): New constant.
+	(lineLimitAttribute): Likewise.
+	(tabSizeAttribute): Likewise.
+	(tabSize): New field.
+	(PlainDocument): Made public.
+	(PlainDocument): New constructor.
+
+2004-06-16  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/text/AbstractDocument.java
 	(insertString): Throws BadLocationException.
 	* javax/swing/text/Document.java

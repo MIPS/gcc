@@ -1,5 +1,5 @@
 /* PlainDocument.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,9 +39,22 @@ package javax.swing.text;
 
 public class PlainDocument extends AbstractDocument
 {
-  PlainDocument()
+  private static final long serialVersionUID = 4758290289196893664L;
+    
+  public static final String lineLimitAttribute = "lineLimit";
+  public static final String tabSizeAttribute = "tabSize";
+
+  private int tabSize;
+  
+  public PlainDocument()
   {
-    super(new GapContent());
+    this(new GapContent());
+  }
+
+  public PlainDocument(AbstractDocument.Content content)
+  {
+    super(content);
+    tabSize = 8;
   }
 
   public Element getDefaultRootElement()
