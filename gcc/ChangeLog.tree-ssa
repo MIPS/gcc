@@ -1,3 +1,7 @@
+2004-02-24  Richard Henderson  <rth@redhat.com>
+
+	* doc/passes.texi: Rewrite.
+
 2004-02-23  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (TEXI_GCCINT_FILES): Add cfg.texi and tree-ssa.texi
