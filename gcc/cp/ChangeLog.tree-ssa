@@ -1,3 +1,9 @@
+2002-08-11  Jason Merrill  <jason@redhat.com>
+
+	* cp-simplify.c (maybe_fixup_loop_cond): Move here.
+	(cp_simplify_expr): Call it.
+	(simplify_target_expr): Remove pre_p parm.
+
 2002-08-09  Jason Merrill  <jason@redhat.com>
 
 	* cp-simplify.c (cp_simplify_expr): New fn.

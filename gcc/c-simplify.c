@@ -54,14 +54,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
     Computer Science, New Haven, Connecticut, pp. 406-420,
     Springer-Verlag, August 3-5, 1992.
 
-    http://www-acaps.cs.mcgill.ca/info/McCAT/McCAT.html   */
+    http://www-acaps.cs.mcgill.ca/info/McCAT/McCAT.html
+
+    Basically, we walk down simplifying the nodes that we encounter.  As we
+    walk back up, we check that they fit our constraints, and copy them
+    into temporaries if not.  */
 
 /* Local declarations.  */
 
 static void simplify_stmt            PARAMS ((tree *));
 static void simplify_expr_stmt       PARAMS ((tree, tree *, tree *));
 static void simplify_decl_stmt       PARAMS ((tree, tree *, tree *, tree *));
-static void maybe_fixup_loop_cond    PARAMS ((tree *, tree *, tree *));
 static void simplify_for_stmt        PARAMS ((tree, tree *));
 static void simplify_while_stmt      PARAMS ((tree, tree *));
 static void simplify_do_stmt         PARAMS ((tree));
@@ -362,79 +365,6 @@ simplify_expr_stmt (stmt, pre_p, post_p)
                  fb_rvalue);
 }
 
-/* Given pointers to the condition and body of a for or while loop,
-   reorganize things so that the condition is just an expression.
-
-   COND_P and BODY_P are pointers to the condition and body of the loop.
-   PRE_P is a list to which we can add effects that need to happen before
-   the loop begins (i.e. as part of the for-init-stmt).  */
-
-static void
-maybe_fixup_loop_cond (cond_p, body_p, pre_p)
-     tree *cond_p;
-     tree *body_p;
-     tree *pre_p;
-{
-  if (TREE_CODE (*cond_p) == TREE_LIST)
-    {
-      /* In C++ a condition can be a declaration; to express this,
-	 the FOR_COND is a TREE_LIST.  The TREE_PURPOSE contains the
-	 SCOPE_STMT and DECL_STMT, if any, and the TREE_VALUE contains
-	 the actual value to test.  We want to transform
-
-	   for (; T u = init; ) { ... }
-
-	 into
-
-	   for (tmp = 1; tmp; )
-	     { T u = init; tmp = u; if (tmp) { ... } }
-
-	 The wackiest part of this is handling the SCOPE_STMTs; at first,
-	 one is in the FOR_COND and the other is after the COMPOUND_STMT in
-	 the body.  We will use the same SCOPE_STMTs to wrap our new
-	 block.  */
-
-      tree scope = TREE_PURPOSE (*cond_p);
-      tree val = TREE_VALUE (*cond_p);
-
-      if (TREE_CODE (scope) != SCOPE_STMT)
-	abort ();
-      if (TREE_CHAIN (scope) == NULL_TREE)
-	{
-	  /* There isn't actually a decl.  Just move the SCOPE_STMT
-	     down into the FOR_BODY.  */
-	  *cond_p = val;
-	  TREE_CHAIN (scope) = *body_p;
-	}
-      else
-	{
-	  /* There is a decl.  Do the transformation described
-	     above.  */
-
-	  tree if_s, mod, close_scope;
-	  /* tmp = 1;  */
-	  *cond_p = get_initialized_tmp_var (boolean_true_node,
-					     pre_p);
-	  /* tmp = u; */
-	  mod = build_modify_expr (*cond_p, NOP_EXPR, val);
-	  mod = build_stmt (EXPR_STMT, mod);
-
-	  /* Separate the actual body block from the SCOPE_STMT.  */
-	  close_scope = TREE_CHAIN (*body_p);
-	  TREE_CHAIN (*body_p) = NULL_TREE;
-
-	  /* if (tmp) { ... } */
-	  if_s = build_stmt (IF_STMT, *cond_p, *body_p, NULL_TREE);
-
-	  /* Finally, tack it all together.  */
-	  chainon (scope, mod);
-	  TREE_CHAIN (mod) = if_s;
-	  TREE_CHAIN (if_s) = close_scope;
-	}
-      *body_p = build_stmt (COMPOUND_STMT, scope);
-    }
-}
-
 /*  Simplify a FOR_STMT node.  This will convert:
 
     	for (init; cond; expr)
@@ -544,7 +474,6 @@ simplify_for_stmt (stmt, pre_p)
   /* Simplify FOR_COND.  */
   if (!cond_is_simple)
     {
-      maybe_fixup_loop_cond (&cond_s, &FOR_BODY (stmt), &post_init_s);
       walk_tree (&cond_s, mostly_copy_tree_r, NULL, NULL);
       simplify_expr (&cond_s, &pre_cond_s, NULL, is_simple_condexpr,
 		     fb_rvalue);
@@ -658,7 +587,6 @@ simplify_while_stmt (stmt, pre_p)
   tree pre_cond_s = NULL_TREE;
 
   cond_s = WHILE_COND (stmt);
-  maybe_fixup_loop_cond (&cond_s, &WHILE_BODY (stmt), pre_p);
   
   /* Make sure that the loop body has a scope.  */
   tree_build_scope (&WHILE_BODY (stmt));
@@ -1282,13 +1210,14 @@ c_simplify_expr (expr_p, pre_p, post_p)
      tree *pre_p;
      tree *post_p;
 {
-  if (pre_p == NULL)
+  enum tree_code code = TREE_CODE (*expr_p);
+  
+  if (statement_code_p (code))
     {
       simplify_stmt (expr_p);
       return 1;
     }
-
-  switch (TREE_CODE (*expr_p))
+  else switch (code)
     {
     case COMPOUND_LITERAL_EXPR:
       simplify_compound_literal_expr (expr_p, pre_p, post_p);
@@ -1400,7 +1329,7 @@ simplify_compound_lval (expr_p, pre_p, post_p)
     abort ();
 
   /* Unshare the reference.  */
-  walk_tree (expr_p, copy_tree_r, NULL, NULL);
+  walk_tree (expr_p, mostly_copy_tree_r, NULL, NULL);
 
   /* Create a stack with all the array dimensions so that they can be
      simplified from left to right (to match user expectations).  */
