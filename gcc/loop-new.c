@@ -47,7 +47,7 @@ static void duplicate_subloops PARAMS ((struct loops *, struct loop *, struct lo
 static void copy_loops_to PARAMS ((struct loops *, struct loop **, int, struct loop *));
 static void loop_redirect_edge PARAMS ((edge, basic_block));
 static bool loop_delete_branch_edge PARAMS ((edge));
-static void copy_bbs PARAMS ((basic_block *, int, edge, edge, basic_block **, struct loops *, edge *, edge *));
+static void copy_bbs PARAMS ((basic_block *, int, edge, edge, basic_block **, struct loops *, edge *, edge *, int));
 static struct loop *unswitch_loop PARAMS ((struct loops *, struct loop *, basic_block));
 static void remove_bbs PARAMS ((dominance_info, basic_block *, int));
 static bool rpe_enum_p PARAMS ((basic_block, void *));
@@ -99,6 +99,9 @@ loop_optimizer_init (dumpfile)
 
   /* Force all latches to have only single successor.  */
   force_single_succ_latches (loops);
+
+  /* Mark irreducible loops.  */
+  mark_irreducible_loops (loops);
 
   /* Dump loops.  */
   flow_loops_dump (loops, dumpfile, NULL, 1);
@@ -229,9 +232,9 @@ may_unswitch_on_p (loops, bb, loop, body)
       || !flow_bb_inside_loop_p (loop, bb->succ->succ_next->dest))
     return false;
 
-  /* Latch must be dominated by it (ugly technical restriction,
-     we should remove this later).  */
-  if (!dominated_by_p (loops->cfg.dom, loop->latch, bb))
+  /* It must be executed just once each iteration (because otherwise we
+     are unable to update dominator/irreducible loop information correctly).  */
+  if (!just_once_each_iteration_p (loops, loop, bb))
     return false;
 
   /* Condition must be invariant.  */
@@ -804,9 +807,10 @@ unswitch_loop (loops, loop, unswitch_on)
      basic_block unswitch_on;
 {
   edge entry, e, latch_edge;
-  basic_block switch_bb, unswitch_on_alt;
+  basic_block switch_bb, unswitch_on_alt, src;
   struct loop *nloop;
   sbitmap zero_bitmap;
+  int irred_flag;
 
   /* Some sanity checking.  */
   if (!flow_bb_inside_loop_p (loop, unswitch_on))
@@ -814,7 +818,7 @@ unswitch_loop (loops, loop, unswitch_on)
   if (!unswitch_on->succ || !unswitch_on->succ->succ_next ||
       unswitch_on->succ->succ_next->succ_next)
     abort ();
-  if (!dominated_by_p (loops->cfg.dom, loop->latch, unswitch_on))
+  if (!just_once_each_iteration_p (loops, loop, unswitch_on))
     abort ();
   if (loop->inner)
     abort ();
@@ -828,24 +832,28 @@ unswitch_loop (loops, loop, unswitch_on)
     return NULL;
   if (!cfg_layout_can_duplicate_bb_p (unswitch_on))
     return NULL;
-  
-  for (entry = loop->header->pred;
-       entry->src == loop->latch;
-       entry = entry->pred_next);
+
+  entry = loop_preheader_edge (loop);
   
   /* Make a copy.  */
+  src = entry->src;
+  irred_flag = src->flags & BB_IRREDUCIBLE_LOOP;
+  src->flags &= ~BB_IRREDUCIBLE_LOOP;
   zero_bitmap = sbitmap_alloc (2);
   sbitmap_zero (zero_bitmap);
   if (!duplicate_loop_to_header_edge (loop, entry, loops, 1,
 	zero_bitmap, NULL, NULL, NULL, 0))
     return NULL;
   free (zero_bitmap);
+  src->flags |= irred_flag;
 
   /* Record switch block.  */
   unswitch_on_alt = RBI (unswitch_on)->copy;
 
   /* Make a copy of unswitched block.  */
   switch_bb = cfg_layout_duplicate_bb (unswitch_on, NULL);
+  switch_bb->flags &= ~BB_IRREDUCIBLE_LOOP;
+  switch_bb->flags |= irred_flag;
   add_to_dominance_info (loops->cfg.dom, switch_bb);
   RBI (unswitch_on)->copy = unswitch_on_alt;
 
@@ -990,9 +998,10 @@ loop_delete_branch_edge (e)
 /* Duplicates BBS. Newly created bbs are placed into NEW_BBS, edges to
    header (target of ENTRY) and copy of header are returned, edge ENTRY
    is redirected to header copy.  Assigns bbs into loops, updates
-   dominators.  */
+   dominators.  If ADD_IRREDUCIBLE_FLAG, basic blocks that are not
+   member of any inner loop are marked irreducible.  */
 static void
-copy_bbs (bbs, n, entry, latch_edge, new_bbs, loops, header_edge, copy_header_edge)
+copy_bbs (bbs, n, entry, latch_edge, new_bbs, loops, header_edge, copy_header_edge, add_irreducible_flag)
      basic_block *bbs;
      int n;
      edge entry;
@@ -1001,6 +1010,7 @@ copy_bbs (bbs, n, entry, latch_edge, new_bbs, loops, header_edge, copy_header_ed
      struct loops *loops;
      edge *header_edge;
      edge *copy_header_edge;
+     int add_irreducible_flag;
 {
   int i;
   basic_block bb, new_bb, header = entry->dest, dom_bb;
@@ -1024,6 +1034,10 @@ copy_bbs (bbs, n, entry, latch_edge, new_bbs, loops, header_edge, copy_header_ed
       if (bb->loop_father->latch == bb &&
 	  bb->loop_father != header->loop_father)
 	new_bb->loop_father->latch = new_bb;
+      /* Take care of irreducible loops.  */
+      if (add_irreducible_flag
+	  && bb->loop_father == header->loop_father)
+	new_bb->flags |= BB_IRREDUCIBLE_LOOP;
     }
 
   /* Set dominators.  */
@@ -1033,7 +1047,7 @@ copy_bbs (bbs, n, entry, latch_edge, new_bbs, loops, header_edge, copy_header_ed
       new_bb = (*new_bbs)[i];
       if (bb != header)
 	{
-	  /* For anything than loop header, just copy it.  */
+	  /* For anything else than loop header, just copy it.  */
 	  dom_bb = get_immediate_dominator (loops->cfg.dom, bb);
 	  dom_bb = RBI (dom_bb)->copy;
 	}
@@ -1197,6 +1211,7 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl,
   int i, j, n;
   int is_latch = (latch == e->src);
   int k0, k, kk, freq_in, freq_e, freq_le;
+  int add_irreducible_flag;
 
   if (e->dest != loop->header)
     abort ();
@@ -1224,6 +1239,8 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl,
 	  return false;
 	}
     }
+
+  add_irreducible_flag = !is_latch && (e->src->flags & BB_IRREDUCIBLE_LOOP);
 
   /* Find edge from latch.  */
   latch_edge = loop_latch_edge (loop);
@@ -1319,7 +1336,7 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl,
       copy_loops_to (loops, orig_loops, n_orig_loops, target);
 
       /* Copy bbs.  */
-      copy_bbs (bbs, n, e, latch_edge, &new_bbs, loops, &e, &he);
+      copy_bbs (bbs, n, e, latch_edge, &new_bbs, loops, &e, &he, add_irreducible_flag);
       if (is_latch)
 	loop->latch = RBI (latch)->copy;
 

@@ -139,7 +139,8 @@ flow_loop_dump (loop, file, loop_dump_aux, verbose)
   fprintf (file, ";;  nodes:");
   bbs = get_loop_body (loop);
   for (i = 0; i < loop->num_nodes; i++)
-    fprintf (file, " %d", bbs[i]->index);
+    fprintf (file, " %d%s", bbs[i]->index,
+			    (bbs[i]->flags & BB_IRREDUCIBLE_LOOP) ? "i" : "");
   free (bbs);
   fprintf (file, "\n");
   flow_edge_list_print (";;  exit edges", loop->exit_edges,
@@ -1118,6 +1119,7 @@ find_common_loop (loop_s, loop_d)
      -- results of get_loop_body really belong to the loop
      -- loop header have just single entry edge and single latch edge
      -- loop latches have only single successor that is header of their loop
+     -- irreducible loops are correctly marked
   */
 void
 verify_loop_structure (loops, flags)
@@ -1125,6 +1127,7 @@ verify_loop_structure (loops, flags)
      int flags;
 {
   int *sizes, i, j;
+  sbitmap irreds;
   basic_block *bbs, bb;
   struct loop *loop;
   int err = 0;
@@ -1208,6 +1211,39 @@ verify_loop_structure (loops, flags)
 	  error ("Loop %d's header does not belong directly to it.", i);
 	  err = 1;
 	}
+    }
+
+  /* Check irreducible loops.  */
+  if (flags & VLS_EXPECT_MARKED_IRREDUCIBLE_LOOPS)
+    {
+      /* Record old info.  */
+      irreds = sbitmap_alloc (last_basic_block);
+      FOR_EACH_BB (bb)
+	if (bb->flags & BB_IRREDUCIBLE_LOOP)
+	  SET_BIT (irreds, bb->index);
+	else
+	  RESET_BIT (irreds, bb->index);
+
+      /* Recount it.  */
+      mark_irreducible_loops (loops);
+
+      /* Compare.  */
+      FOR_EACH_BB (bb)
+	{
+	  if ((bb->flags & BB_IRREDUCIBLE_LOOP)
+	      && !TEST_BIT (irreds, bb->index))
+	    {
+	      error ("Basic block %d should be marked irreducible.", bb->index);
+	      err = 1;
+	    }
+	  else if (!(bb->flags & BB_IRREDUCIBLE_LOOP)
+	      && TEST_BIT (irreds, bb->index))
+	    {
+	      error ("Basic block %d should not be marked irreducible.", bb->index);
+	      err = 1;
+	    }
+	}
+      free (irreds);
     }
 
   /* Check frequencies.  */

@@ -18,7 +18,6 @@ static void note_mem_store	 PARAMS ((rtx, rtx, void *));
 static int discover_invariant	 PARAMS ((rtx insn, void *data));
 static int not_invariant_rtx	 PARAMS ((rtx *rtxp, void *data));
 static bool mark_maybe_invariant_set PARAMS ((rtx, rtx, rtx, struct loop_invariants *));
-static bool cbp_enum_p PARAMS ((basic_block, void *));
 static bool invariant_in_blocks_p PARAMS ((rtx, basic_block *, int));
 static rtx test_for_iteration PARAMS ((struct loop_desc *desc,
 				       unsigned HOST_WIDE_INT));
@@ -446,7 +445,7 @@ create_preheader (loop, dom, flags)
   edge e, fallthru;
   basic_block dummy;
   basic_block jump, src;
-  struct loop *cloop = NULL;
+  struct loop *cloop, *ploop;
   int nentry = 0;
   rtx insn;
 
@@ -475,9 +474,13 @@ create_preheader (loop, dom, flags)
     insn = get_last_insn ();
   fallthru = split_block (loop->header, insn);
   dummy = fallthru->src;
-  if (loop->latch == loop->header)
-    loop->latch = fallthru->dest;
   loop->header = fallthru->dest;
+
+  /* The header could be a latch of some superloop(s); due to design of
+     split_block, it would now move to fallthru->dest.  */
+  for (ploop = loop; ploop; ploop = ploop->outer)
+    if (ploop->latch == dummy)
+      ploop->latch = fallthru->dest;
 
   if (flags & CP_INSIDE_CFGLAYOUT)
     alloc_aux_for_block (fallthru->dest, sizeof (struct reorder_block_def));
@@ -532,17 +535,6 @@ create_preheaders (loops, flags)
     create_preheader (loops->parray[i], loops->cfg.dom, flags);
 }
 
-/* Enumeration predicate for just_once_each_iteration_p.  */
-static bool
-cbp_enum_p (bb, data)
-     basic_block bb;
-     void *data;
-{
-  struct loop *loop = data;
-  return bb != loop->header
-	 && flow_bb_inside_loop_p (loop, bb);
-}
-
 /* Checks whether BB is executed exactly once in each LOOP iteration.  */
 bool
 just_once_each_iteration_p (loops, loop, bb)
@@ -550,10 +542,6 @@ just_once_each_iteration_p (loops, loop, bb)
      struct loop *loop;
      basic_block bb;
 {
-  basic_block *bbs;
-  int i, n;
-  edge e;
-
   /* It must be executed at least once each iteration.  */
   if (!dominated_by_p (loops->cfg.dom, loop->latch, bb))
     return false;
@@ -563,21 +551,9 @@ just_once_each_iteration_p (loops, loop, bb)
     return false;
 
   /* But this was not enough.  We might have some irreducible loop here.  */
-  if (bb == loop->header)
-    return true;
+  if (bb->flags & BB_IRREDUCIBLE_LOOP)
+    return false;
 
-  bbs = xcalloc (loop->num_nodes, sizeof (basic_block));
-  n = dfs_enumerate_from (bb, 0, cbp_enum_p, bbs, loop->num_nodes,
-			  (void *) loop);
-  for (i = 0; i < n; i++)
-    for (e = bbs[i]->succ; e; e = e->succ_next)
-      if (e->dest == bb)
-	{
-	  free (bbs);
-	  return false;
-	}
-
-  free (bbs);
   return true;
 }
 
@@ -858,17 +834,30 @@ constant_iterations (desc, niter, may_be_zero)
 
   *may_be_zero = (test != const_true_rtx);
 
+  /* It would make a little sense to check every with every when we
+     know that all but the first alternative are simply registers.  */
   for (ainit = desc->var_alts; ainit; ainit = XEXP (ainit, 1))
-    for (alim = desc->lim_alts; alim; alim = XEXP (alim, 1))
-      {
-	if (!(expr = count_loop_iterations (desc, XEXP (ainit, 0), XEXP (alim, 0))))
-	  abort ();
-	if (GET_CODE (expr) == CONST_INT)
-	  {
-	    *niter = INTVAL (expr);
-	    return true;
-	  }
-      }
+    {
+      alim = XEXP (desc->lim_alts, 0);
+      if (!(expr = count_loop_iterations (desc, XEXP (ainit, 0), alim)))
+	abort ();
+      if (GET_CODE (expr) == CONST_INT)
+	{
+	  *niter = INTVAL (expr);
+	  return true;
+	}
+    }
+  for (alim = XEXP (desc->lim_alts, 1); alim; alim = XEXP (alim, 1))
+    {
+      ainit = XEXP (desc->var_alts, 0);
+      if (!(expr = count_loop_iterations (desc, ainit, XEXP (alim, 0))))
+	abort ();
+      if (GET_CODE (expr) == CONST_INT)
+	{
+	  *niter = INTVAL (expr);
+	  return true;
+	}
+    }
 
   return false;
 }
@@ -1069,8 +1058,8 @@ simple_loop_exit_p (loops, loop, exit_edge, body, desc)
   if (!exit_bb)
     return false;
 
-  /* It must be tested once during any iteration.  */
-  if (!just_once_each_iteration_p (loops, loop, exit_bb))
+  /* It must be tested (at least) once during any iteration.  */
+  if (!dominated_by_p (loops->cfg.dom, loop->latch, exit_bb))
     return false;
 
   /* It must end in a simple conditional jump.  */
@@ -1209,7 +1198,14 @@ loop_split_edge_with (e, insns, loops)
   new_bb = create_basic_block (NULL_RTX, NULL_RTX, EXIT_BLOCK_PTR->prev_bb);
   add_to_dominance_info (loops->cfg.dom, new_bb);
   add_bb_to_loop (new_bb, loop_c);
-  new_bb->flags = BB_SUPERBLOCK;
+  new_bb->flags = insns ? BB_SUPERBLOCK : 0;
+  if (src->flags & BB_IRREDUCIBLE_LOOP)
+    {
+      /* We expect simple preheaders here.  */
+      if ((dest->flags & BB_IRREDUCIBLE_LOOP)
+          || dest->loop_father->header == dest)
+        new_bb->flags |= BB_IRREDUCIBLE_LOOP;
+    }
 
   new_e = make_edge (new_bb, dest, EDGE_FALLTHRU);
   new_e->probability = REG_BR_PROB_BASE;
@@ -1258,4 +1254,158 @@ force_single_succ_latches (loops)
       for (e = loop->header->pred; e->src != loop->latch; e = e->pred_next);
       loop_split_edge_with (e, NULL_RTX, loops);
     }
+}
+
+/* Marks blocks that are part of non-reckognized loops; i.e. we throw away
+   all latch edges and mark blocks inside any remaining cycle.  Everything
+   is a bit complicated due to fact we do not want to do this for parts of
+   cycles that only "pass" through some loop -- i.e. for each cycle, we want
+   to mark blocks that belong directly to innermost loop containing the whole
+   cycle.  */
+void
+mark_irreducible_loops (loops)
+     struct loops *loops;
+{
+  int *dfs_in, *closed, *mr, *n_edges, *stack, i;
+  edge **edges, e;
+  basic_block act;
+  int stack_top, tick, depth;
+  struct loop *cloop;
+
+  /* The first last_basic_block + 1 entries are for real blocks (including
+     entry); then we have loops->num - 1 fake blocks for loops to that we
+     assign edges leading from loops (fake loop 0 is not interesting).  */
+  dfs_in = xmalloc ((last_basic_block + loops->num) * sizeof (int));
+  closed = xmalloc ((last_basic_block + loops->num) * sizeof (int));
+  mr = xmalloc ((last_basic_block + loops->num) * sizeof (int));
+  n_edges = xmalloc ((last_basic_block + loops->num) * sizeof (int));
+  edges = xmalloc ((last_basic_block + loops->num) * sizeof (edge *));
+  stack = xmalloc ((n_basic_blocks + loops->num) * sizeof (int));
+
+  /* Create the edge lists.  */
+  for (i = 0; i < last_basic_block + loops->num; i++)
+    n_edges[i] = 0;
+  FOR_BB_BETWEEN (act, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
+    for (e = act->succ; e; e = e->succ_next)
+      {
+        /* Ignore edges to exit.  */
+        if (e->dest == EXIT_BLOCK_PTR)
+	  continue;
+	/* And latch edges.  */
+	if (e->dest->loop_father->header == e->dest
+	    && e->dest->loop_father->latch == act)
+	  continue;
+	/* Edges inside a single loop should be left where they are.  Edges
+	   to subloop headers should lead to representative of the subloop,
+	   but from the same place.  */
+	if (act->loop_father == e->dest->loop_father
+	    || act->loop_father == e->dest->loop_father->outer)
+	  {
+	    n_edges[act->index + 1]++;
+	    continue;
+	  }
+	/* Edges exiting loops remain.  They should lead from representative
+	   of the son of nearest common ancestor of the loops in that
+	   act lays.  */
+	depth = find_common_loop (act->loop_father, e->dest->loop_father)->depth + 1;
+	if (depth == act->loop_father->depth)
+	  cloop = act->loop_father;
+	else
+	  cloop = act->loop_father->pred[depth];
+	n_edges[cloop->num + last_basic_block]++;
+      }
+
+  for (i = 0; i < last_basic_block + loops->num; i++)
+    {
+      edges[i] = xmalloc (n_edges[i] * sizeof (edge));
+      n_edges[i] = 0;
+    }
+
+  FOR_BB_BETWEEN (act, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
+    for (e = act->succ; e; e = e->succ_next)
+      {
+        if (e->dest == EXIT_BLOCK_PTR)
+	  continue;
+	if (e->dest->loop_father->header == e->dest
+	    && e->dest->loop_father->latch == act)
+	  continue;
+	if (act->loop_father == e->dest->loop_father
+	    || act->loop_father == e->dest->loop_father->outer)
+	  {
+	    edges[act->index + 1][n_edges[act->index + 1]++] = e;
+	    continue;
+	  }
+	depth = find_common_loop (act->loop_father, e->dest->loop_father)->depth + 1;
+	if (depth == act->loop_father->depth)
+	  cloop = act->loop_father;
+	else
+	  cloop = act->loop_father->pred[depth];
+	i = cloop->num + last_basic_block;
+	edges[i][n_edges[i]++] = e;
+      }
+
+  /* Compute dfs numbering, starting from loop headers, and mark found
+     loops.*/
+  tick = 0;
+  for (i = 0; i < last_basic_block + loops->num; i++)
+    {
+      dfs_in[i] = -1;
+      closed[i] = 0;
+      mr[i] = last_basic_block + loops->num;
+    }
+
+  stack_top = 0;
+  for (i = 0; i < loops->num; i++)
+    if (loops->parray[i])
+      stack[stack_top++] = loops->parray[i]->header->index + 1;
+
+  while (stack_top)
+    {
+      int idx, sidx;
+
+      idx = stack[stack_top - 1];
+      if (dfs_in[idx] < 0)
+	dfs_in[idx] = tick++;
+
+      while (n_edges[idx])
+	{
+	  e = edges[idx][--n_edges[idx]];
+	  sidx = e->dest->loop_father->header == e->dest
+	           ? e->dest->loop_father->num + last_basic_block
+	           : e->dest->index + 1;
+          if (closed[sidx])
+	    continue;
+	  if (dfs_in[sidx] < 0)
+	    {
+	      stack[stack_top++] = sidx;
+	      goto next;
+	    }
+	  if (dfs_in[sidx] < mr[idx])
+	    mr[idx] = dfs_in[sidx];
+	}
+
+      /* Return back.  */
+      closed[idx] = 1;
+      stack_top--;
+      if (stack_top && dfs_in[stack[stack_top - 1]] >= 0)
+        {
+	  /* Propagate information back.  */
+	  sidx = stack[stack_top - 1];
+	  if (mr[sidx] > mr[idx])
+	    mr[sidx] = mr[idx];
+	}
+      /* Mark the block if relevant.  */
+      if (idx && idx <= last_basic_block && mr[idx] <= dfs_in[idx])
+        BASIC_BLOCK (idx - 1)->flags |= BB_IRREDUCIBLE_LOOP;
+next:;
+    }
+
+  free (stack);
+  free (dfs_in);
+  free (closed);
+  free (mr);
+  for (i = 0; i < last_basic_block + loops->num; i++)
+    free (edges[i]);
+  free (edges);
+  free (n_edges);
 }

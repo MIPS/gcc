@@ -234,6 +234,7 @@ typedef struct basic_block_def {
 /* Used by dfs_enumerate_from; keep this one zero!  */
 #define BB_VISITED		8
 #define BB_SUPERBLOCK		16
+#define BB_IRREDUCIBLE_LOOP	32
 
 /* Number of basic blocks in the current function.  */
 
@@ -738,9 +739,14 @@ extern void cancel_loop PARAMS ((struct loops *, struct loop *));
 extern void cancel_loop_tree PARAMS ((struct loops *, struct loop *));
 
 extern void verify_loop_structure PARAMS ((struct loops *, int));
-#define VLS_EXPECT_PREHEADERS 1
-#define VLS_EXPECT_SIMPLE_LATCHES 2
-#define VLS_FOR_LOOP_NEW (VLS_EXPECT_PREHEADERS | VLS_EXPECT_SIMPLE_LATCHES)
+enum
+{
+  VLS_EXPECT_PREHEADERS=1,
+  VLS_EXPECT_SIMPLE_LATCHES=2,
+  VLS_EXPECT_MARKED_IRREDUCIBLE_LOOPS=4,
+  VLS_FOR_LOOP_NEW = VLS_EXPECT_PREHEADERS | VLS_EXPECT_SIMPLE_LATCHES
+		     | VLS_EXPECT_MARKED_IRREDUCIBLE_LOOPS
+};
 extern int expected_loop_iterations PARAMS ((const struct loop *));
 
 typedef struct conflict_graph_def *conflict_graph;
@@ -813,6 +819,7 @@ void test_invariants		 PARAMS ((struct loops *));
 bool loop_invariant_rtx_p	 PARAMS ((struct loop_invariants *, rtx, rtx));
 basic_block loop_split_edge_with PARAMS ((edge, rtx, struct loops *));
 void force_single_succ_latches   PARAMS ((struct loops *));
+void mark_irreducible_loops	 PARAMS ((struct loops *));
 bool just_once_each_iteration_p  PARAMS ((struct loops *,struct loop *, basic_block));
 int num_loop_insns PARAMS ((struct loop *));
 bool inside_basic_block_p	PARAMS ((rtx));
