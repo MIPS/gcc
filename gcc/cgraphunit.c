@@ -692,12 +692,13 @@ cgraph_postorder (struct cgraph_node **order)
   return order_pos;
 }
 
-/* Perform reachability analysis and reclaim all unreachable nodes.  */
+/* Perform reachability analysis and reclaim all unreachable nodes.
+   This function also remove unneeded bodies of extern inline functions
+   and thus needs to be done only after inlining decisions has been made.  */
 static bool
 cgraph_remove_unreachable_nodes (void)
 {
-  static struct cgraph_node footer;
-  struct cgraph_node *first = &footer;
+  struct cgraph_node *first = (void *)1;
   struct cgraph_node *node;
   bool changed = false;
   int insns = 0;
@@ -717,7 +718,7 @@ cgraph_remove_unreachable_nodes (void)
   /* Perform reachability analysis.  As a special case do not consider
      extern inline functions not inlined as live because we won't output
      them at all.  */
-  while (first != &footer)
+  while (first != (void *)1)
     {
       struct cgraph_edge *e;
       node = first;
@@ -734,8 +735,13 @@ cgraph_remove_unreachable_nodes (void)
     }
 
   /* Remove unreachable nodes.  Extern inline functions need special care;
-     when they are still called from some existing edge, we only can make
-     them extern and release their body.  */
+     Unreachable extern inline functions shall be removed.
+     Reachable extern inline functions we never inlined shall get their bodies
+     elliminated
+     Reachable extern inline functions we sometimes inlined will be turned into
+     unanalyzed nodes so they look like for true extern functions to the rest
+     of code.  Body of such functions is relased via remove_node once the
+     inline clones are elliminated.  */
   for (node = cgraph_nodes; node; node = node->next)
     {
       if (!node->aux)
@@ -760,9 +766,10 @@ cgraph_remove_unreachable_nodes (void)
 		if (clone->aux)
 		  break;
 	      if (!clone)
-	        DECL_SAVED_TREE (node->decl) == NULL_TREE;
+	        DECL_SAVED_TREE (node->decl) = NULL_TREE;
 	      while (node->callees)
 	        cgraph_remove_edge (node->callees);
+	      node->analyzed = false;
 	    }
 	  else
 	    cgraph_remove_node (node);
@@ -1537,7 +1544,6 @@ cgraph_optimize (void)
 	       right.  It probably does not worth the effort as these functions
 	       should go away soon.  */
 	    && !node->origin
-	    && !DECL_EXTERNAL (node->decl)
 	    && (node->global.inlined_to
 	        || DECL_SAVED_TREE (node->decl)))
 	  {
