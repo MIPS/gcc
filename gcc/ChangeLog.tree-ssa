@@ -1,3 +1,25 @@
+2003-10-14  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (cleanup_control_flow): Pass last statement down to
+	cleanup_cond_expr_graph and cleanup_switch_expr_graph.
+	(cleanup_cond_expr_graph): Accept statement from caller and
+	use it.  Return nonzero if the predicate was constant.  No longer
+	static.
+	(cleanup_switch_expr_graph): Similarly.
+	(disconnect_unreachable_case_labels): Similarly, except that it
+	is still static.
+	* tree-flow.h (cleanup_cond_expr_graph): Prototype.
+	(cleanup_switch_expr_graph): Similarly.
+	* tree-ssa-dom.c (optimize_stmt): Also optimize the condition
+	in a SWITCH_EXPR.  Use COND_EXPR_COND and SWITCH_COND to get
+	conditions instead of relying upon known operand positions.
+	Use cleanup_cond_expr_graph and cleanup_switch_expr_graph rather
+	than open coding equivalents.
+	(lookup_avail_expr): Handle SWITCH_EXPRs.  Use COND_EXPR_COND and
+	SWITCH_COND to get conditions instead of relying upon known
+	operand positions.
+	(avail_expr_hash, avail_expr_eq): Similarly.
+
 2003-10-14  Richard Henderson  <rth@redhat.com>
 
 	* gimplify.c (gimplify_body): Save and restore input_location;

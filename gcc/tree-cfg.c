@@ -124,9 +124,7 @@ static void remove_stmt (tree *, bool);
 static bool blocks_unreachable_p (bitmap);
 static void remove_blocks (bitmap);
 static void cleanup_control_flow (void);
-static void cleanup_cond_expr_graph (basic_block);
-static void cleanup_switch_expr_graph (basic_block);
-static void disconnect_unreachable_case_labels (basic_block);
+static bool disconnect_unreachable_case_labels (basic_block, tree);
 static edge find_taken_edge_cond_expr (basic_block, tree);
 static edge find_taken_edge_switch_expr (basic_block, tree);
 static bool value_matches_some_label (edge, tree, edge *);
@@ -2016,9 +2014,9 @@ cleanup_control_flow (void)
 	  {
 	    enum tree_code code = TREE_CODE (last);
 	    if (code == COND_EXPR)
-	      cleanup_cond_expr_graph (bb);
+	      cleanup_cond_expr_graph (bb, last);
 	    else if (code == SWITCH_EXPR)
-	      cleanup_switch_expr_graph (bb);
+	      cleanup_switch_expr_graph (bb, last);
 	  }
       }
 }
@@ -2030,12 +2028,12 @@ cleanup_control_flow (void)
    If the predicate of the COND_EXPR node in block BB is constant,
    disconnect the subgraph that contains the clause that is never executed.  */
 
-static void
-cleanup_cond_expr_graph (basic_block bb)
+bool
+cleanup_cond_expr_graph (basic_block bb, tree cond_expr)
 {
-  tree cond_expr = last_stmt (bb);
   tree val;
   edge taken_edge;
+  bool retval = false;
 
 #if defined ENABLE_CHECKING
   if (cond_expr == NULL_TREE || TREE_CODE (cond_expr) != COND_EXPR)
@@ -2053,9 +2051,13 @@ cleanup_cond_expr_graph (basic_block bb)
 	{
 	  next = e->succ_next;
 	  if (e != taken_edge)
-	    ssa_remove_edge (e);
+	    {
+	      ssa_remove_edge (e);
+	      retval = true;
+	    }
 	}
     }
+  return retval;
 }
 
 
@@ -2066,21 +2068,19 @@ cleanup_cond_expr_graph (basic_block bb)
    constant, disconnect all the subgraphs for all the case labels that will
    never be taken.  */
 
-static void
-cleanup_switch_expr_graph (basic_block switch_bb)
+bool
+cleanup_switch_expr_graph (basic_block switch_bb, tree switch_expr)
 {
   int found = 0;
-#if defined ENABLE_CHECKING
-  tree switch_expr = last_stmt (switch_bb);
-#endif
   edge e;
+  bool retval;
 
 #if defined ENABLE_CHECKING
   if (switch_expr == NULL_TREE || TREE_CODE (switch_expr) != SWITCH_EXPR)
     abort ();
 #endif
 
-  disconnect_unreachable_case_labels (switch_bb);
+  retval = disconnect_unreachable_case_labels (switch_bb, switch_expr);
 
   /* If the switch() has a default label, remove the fallthru edge that was
      created when we processed the entry block for the switch() statement.  */
@@ -2097,12 +2097,16 @@ cleanup_switch_expr_graph (basic_block switch_bb)
 	      basic_block chain_bb = successor_block (switch_bb);
 	      edge e = find_edge (switch_bb, chain_bb);
 	      if (e)
-		ssa_remove_edge (e);
+		{
+		  ssa_remove_edge (e);
+		  retval = true;
+		}
 	      found = 1;
 	      break;
 	    }
 	}
     }
+  return retval;
 }
 
 
@@ -2111,15 +2115,15 @@ cleanup_switch_expr_graph (basic_block switch_bb)
    If the switch() statement starting at basic block BB has a constant
    condition, disconnect all the unreachable case labels.  */
 
-static void
-disconnect_unreachable_case_labels (basic_block bb)
+static bool
+disconnect_unreachable_case_labels (basic_block bb, tree t)
 {
   edge taken_edge;
   tree switch_val;
-  tree t = last_stmt (bb);
+  bool retval = false;
 
   if (t == NULL_TREE)
-    return;
+    return retval;
 
   switch_val = SWITCH_COND (t);
   taken_edge = find_taken_edge (bb, switch_val);
@@ -2133,9 +2137,13 @@ disconnect_unreachable_case_labels (basic_block bb)
 	{
 	  next = e->succ_next;
 	  if (e != taken_edge)
-	    ssa_remove_edge (e);
+	    {
+	      ssa_remove_edge (e);
+	      retval = true;
+	    }
 	}
     }
+  return retval;
 }
 
 

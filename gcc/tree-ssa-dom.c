@@ -155,7 +155,7 @@ static tree simplify_cond_and_lookup_avail_expr (tree, varray_type *,
 static tree find_equivalent_equality_comparison (tree);
 static void record_range (tree, basic_block, varray_type);
 static bool extract_range_from_cond (tree, tree *, tree *, int *);
-static bool cprop_into_stmt (tree );
+static bool cprop_into_stmt (tree);
 
 /* Optimize function FNDECL based on the dominator tree.  This does
    simple const/copy propagation and redundant expression elimination using
@@ -1527,7 +1527,8 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 			       (TREE_OPERAND (TREE_OPERAND (stmt, 0), 1))))
 			|| (TREE_CODE (stmt) == MODIFY_EXPR
 			    && ! TREE_SIDE_EFFECTS (TREE_OPERAND (stmt, 1)))
-			|| TREE_CODE (stmt) == COND_EXPR));
+			|| TREE_CODE (stmt) == COND_EXPR
+			|| TREE_CODE (stmt) == SWITCH_EXPR));
 
   if (may_optimize_p)
     {
@@ -1573,7 +1574,9 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
       opt_stats.num_exprs_considered++;
 
       if (TREE_CODE (stmt) == COND_EXPR)
-	expr_p = &TREE_OPERAND (stmt, 0);
+	expr_p = &COND_EXPR_COND (stmt);
+      else if (TREE_CODE (stmt) == SWITCH_EXPR)
+	expr_p = &SWITCH_COND (stmt);
       else if (TREE_CODE (stmt) == RETURN_EXPR && TREE_OPERAND (stmt, 0))
 	expr_p = &TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
       else
@@ -1766,28 +1769,15 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
      where it goes.  In which case we can remove some edges, simplify
      some PHI nodes, maybe even avoid optimizing some blocks completely,
      etc.  */
-  if (TREE_CODE (stmt) == COND_EXPR && ann->modified)
+  if (ann->modified)
     {
-      basic_block bb = bb_for_stmt (stmt);
-      edge taken_edge = find_taken_edge (bb, TREE_OPERAND (stmt, 0));
+      if (TREE_CODE (stmt) == COND_EXPR)
+	*cfg_altered |= cleanup_cond_expr_graph (bb_for_stmt (stmt), stmt);
 
-      if (taken_edge)
-	{
-	  edge e, next;
-	  /* The other edges leaving this block are not executable
-	     and can be removed.  */
-	  for (e = bb_for_stmt (stmt)->succ; e; e = next)
-	    {
-	      next = e->succ_next;
-	      if (e != taken_edge)
-		{
-		  ssa_remove_edge (e);
-		  *cfg_altered = true;
-		}
-	   }
-	}
+      if (TREE_CODE (stmt) == SWITCH_EXPR)
+	*cfg_altered |= cleanup_switch_expr_graph (bb_for_stmt (stmt), stmt);
     }
-
+                                                                                
   return may_have_exposed_new_symbols;
 }
 
@@ -1901,14 +1891,13 @@ lookup_avail_expr (tree stmt,
   tree lhs;
   tree temp;
 
-  /* For a COND_EXPR, the expression we care about is in operand 0, not
-     operand 1.  Also note that for a COND_EXPR, we merely want to see if
-     we have the expression in the hash table, we do not want to create
-     a new entry in the hash table.  */
+  /* Find the location of the expression we care about.  Unfortunately,
+     its location differs depending on the type of statement we are
+     examining.  */
   if (TREE_CODE (stmt) == COND_EXPR)
-    rhs = TREE_OPERAND (stmt, 0);
-  /* For RETURN_EXPR, we want the RHS of the MODIFY_EXPR in operand 0
-     of the RETURN_EXPR.  */
+    rhs = COND_EXPR_COND (stmt);
+  else if (TREE_CODE (stmt) == SWITCH_EXPR)
+    rhs = SWITCH_COND (stmt);
   else if (TREE_CODE (stmt) == RETURN_EXPR
 	   && TREE_OPERAND (stmt, 0))
     rhs = TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
@@ -2075,7 +2064,6 @@ get_eq_expr_value (tree if_stmt, int true_arm, varray_type *block_avail_exprs_p,
   cond = COND_EXPR_COND (if_stmt);
   value = NULL;
 
-
   /* If the conditional is a single variable 'X', return 'X = 1' for
      the true arm and 'X = 0' on the false arm.   */
   if (TREE_CODE (cond) == SSA_NAME)
@@ -2153,12 +2141,13 @@ avail_expr_hash (const void *p)
   varray_type ops;
   tree stmt = (tree) p;
 
-  /* If we're hashing a COND_EXPR, the expression we care about is
-     in operand position 0, not position 1.  */
+  /* Find the location of the expression we care about.  Unfortunately,
+     its location differs depending on the type of statement we are
+     examining.  */
   if (TREE_CODE (stmt) == COND_EXPR)
-    rhs = TREE_OPERAND (stmt, 0);
-  /* If we're hasing a RETURN_EXPR, the expression we care about
-     is position 1 of the MODIFY_EXPR at position 0 in the RETURN_EXPR.  */
+    rhs = COND_EXPR_COND (stmt);
+  else if (TREE_CODE (stmt) == SWITCH_EXPR)
+    rhs = SWITCH_COND (stmt);
   else if (TREE_CODE (stmt) == RETURN_EXPR && TREE_OPERAND (stmt, 0))
     rhs = TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
   else
@@ -2188,7 +2177,9 @@ avail_expr_eq (const void *p1, const void *p2)
 
   s1 = (tree) p1;
   if (TREE_CODE (s1) == COND_EXPR)
-    rhs1 = TREE_OPERAND (s1, 0);
+    rhs1 = COND_EXPR_COND (s1);
+  else if (TREE_CODE (s1) == SWITCH_EXPR)
+    rhs1 = SWITCH_COND (s1);
   else if (TREE_CODE (s1) == RETURN_EXPR && TREE_OPERAND (s1, 0))
     rhs1 = TREE_OPERAND (TREE_OPERAND (s1, 0), 1);
   else
@@ -2196,7 +2187,9 @@ avail_expr_eq (const void *p1, const void *p2)
 
   s2 = (tree) p2;
   if (TREE_CODE (s2) == COND_EXPR)
-    rhs2 = TREE_OPERAND (s2, 0);
+    rhs2 = COND_EXPR_COND (s2);
+  else if (TREE_CODE (s2) == SWITCH_EXPR)
+    rhs2 = SWITCH_COND (s2);
   else if (TREE_CODE (s2) == RETURN_EXPR && TREE_OPERAND (s2, 0))
     rhs2 = TREE_OPERAND (TREE_OPERAND (s2, 0), 1);
   else

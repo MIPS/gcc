@@ -434,6 +434,8 @@ extern void bsi_move_before (block_stmt_iterator, block_stmt_iterator);
 extern void bsi_move_after (block_stmt_iterator, block_stmt_iterator);
 extern void bsi_move_to_bb_end (block_stmt_iterator, basic_block);
 extern basic_block label_to_block (tree);
+extern bool cleanup_cond_expr_graph (basic_block, tree);
+extern bool cleanup_switch_expr_graph (basic_block, tree);
 
 /* In tree-dfa.c  */
 void find_referenced_vars (tree);
