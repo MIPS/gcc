@@ -28,6 +28,7 @@ extern tree number_of_iterations_in_loop (struct loop *);
 extern tree get_loop_exit_condition (struct loop *);
 
 extern void scev_initialize (struct loops *loops);
+extern void scev_reset (void);
 extern void scev_finalize (void);
 extern tree analyze_scalar_evolution (struct loop *, tree);
 extern tree analyze_scalar_evolution_in_loop (struct loop *, struct loop *,
@@ -36,5 +37,6 @@ extern tree instantiate_parameters (struct loop *, tree);
 extern void eliminate_redundant_checks (void);
 extern void gather_stats_on_scev_database (void);
 
+bool simple_iv (struct loop *, tree, tree, tree *, tree *);
 
 #endif  /* GCC_TREE_SCALAR_EVOLUTION_H  */

@@ -2915,6 +2915,7 @@ force_const_mem (enum machine_mode mode, rtx x)
   desc->mem = def = gen_rtx_MEM (mode, symbol);
   set_mem_attributes (def, (*lang_hooks.types.type_for_mode) (mode, 0), 1);
   RTX_UNCHANGING_P (def) = 1;
+  MEM_NOTRAP_P (def) = 1;
 
   /* If we're dropping a label to the constant pool, make sure we
      don't delete it.  */

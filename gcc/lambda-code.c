@@ -1341,34 +1341,6 @@ gcc_loopnest_to_lambda_loopnest (struct loop *loop_nest,
   
 }
 
-static tree build_int_cst (tree type, unsigned HOST_WIDE_INT val);
-
-/* Builds integer constant of type TYPE and value VAL.
-   Borrowed from tree-ssa-loop-ivopts.c
-   XXX: Move this into tree.c and remove from both files.  */
-
-static tree
-build_int_cst (tree type, unsigned HOST_WIDE_INT val)
-{
-  unsigned bits = TYPE_PRECISION (type);
-  bool signed_p = !TREE_UNSIGNED (type);
-  bool negative = ((val >> (bits - 1)) & 1) != 0;
-  tree ival;
-
-  if (signed_p && negative)
-    {
-      val = val | (~(unsigned HOST_WIDE_INT) 0 << (bits - 1) << 1);
-      ival = build_int_2 (val, -1);
-    }
-  else
-    {
-      val = val & ~(~(unsigned HOST_WIDE_INT) 0 << (bits - 1) << 1);
-      ival = build_int_2 (val, 0);
-    }
-
-  return convert (type, ival);
-}
-
 /* Convert a lambda body vector to a gcc tree.  */
 
 static tree

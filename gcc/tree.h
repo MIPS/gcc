@@ -714,6 +714,9 @@ extern void tree_operand_check_failed (int, enum tree_code,
    In FIELD_DECL nodes, means an unsigned bit field.  */
 #define TREE_UNSIGNED(NODE) ((NODE)->common.unsigned_flag)
 
+/* In integral and pointer types, means an unsigned type.  */
+#define TYPE_UNSIGNED(NODE) (TYPE_CHECK (NODE)->common.unsigned_flag)
+
 #define TYPE_TRAP_SIGNED(NODE) \
   (flag_trapv && ! TREE_UNSIGNED (TYPE_CHECK (NODE)))
 
@@ -949,6 +952,9 @@ struct tree_vec GTY(())
 /* In ordinary expression nodes.  */
 #define TREE_OPERAND(NODE, I) TREE_OPERAND_CHECK (NODE, I)
 #define TREE_COMPLEXITY(NODE) (EXPR_CHECK (NODE)->exp.complexity)
+
+/* In INDIRECT_REF.  */
+#define REF_ORIGINAL(NODE) TREE_CHAIN (TREE_CHECK (NODE, INDIRECT_REF))
 
 /* In a LABELED_BLOCK_EXPR node.  */
 #define LABELED_BLOCK_LABEL(NODE) \
@@ -3425,7 +3431,9 @@ extern void init_ttree (void);
 extern void build_common_tree_nodes (int);
 extern void build_common_tree_nodes_2 (int);
 extern tree build_range_type (tree, tree, tree);
-
+extern HOST_WIDE_INT int_cst_value (tree);
+extern tree build_int_cst (tree, unsigned HOST_WIDE_INT);
+  
 /* In function.c */
 extern void setjmp_protect_args (void);
 extern void setjmp_protect (tree);

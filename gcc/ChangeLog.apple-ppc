@@ -1,3 +1,41 @@
+2004-05-25  Dale Johannesen  <dalej@apple.com>
+
+	Merge from LNO branch as of 05-18.  
+	--The following files are identical to lno branch:
+	df.c:  Merge.
+	lambda-code.c:  Merge.
+	loop-iv.c:  Merge.
+	tree-chrec.c:  Merge.
+	tree-chrec.h:  Merge.
+	tree-data-ref.c:  Merge.
+	tree-data-ref.h:  Merge.
+	tree-elim-check.c:  Merge.
+	tree-fold-const.h:  Merge.
+	tree-scalar-evolution.c:  Merge.
+	tree-scalar-evolution.h:  Merge.
+	tree-ssa-loop-ivcanon.c:  Merge.
+	tree-ssa-loop-ivopts.c:  Merge.
+	tree-vectorizer.c:  Merge.
+	--These files were merged selectively, see lno branch ChangeLog.lno.
+	Makefile.in:  Add tree-ssa-loop-niter.
+	cfgloop.c: Merge changes from Devang's 05-13 patch.
+	cfgloop.h: Ditto, also Zdenek's 04-30 patch.
+	expr.c:  Merge changes from Zdenek's 05-13 patch.
+	tree-cfg.c:  Ditto.
+	tree-flow.h:  Ditto.  Also from Zdenek's 04-30 patch.
+	loop-invariant.c:  Merge.  Add DF_EQUIV_NOTES.
+	rtl.h:  Merge change from Zdenek's 05-09 patch.
+	stor-layout.c:  Ditto.
+	tree.c:  Merge change from Sebastian's 04-27 patch.
+	tree.h:  Ditto.  Also Zdenek's 05-13 patch.  Add TYPE_UNSIGNED.
+	varasm.c:  Merge change from Zdenek's 04-30 patch.
+	config/rs6000/rs6000.c:  Ditto.
+	-- Other stuff:
+	fold-const.c:  Remove unused variable.
+	config/rs6000/rs6000-c.c:  Make #define of bool work.
+	config/rs6000/t-rs6000:  Make #define of bool work.  Remove 
+	-Wno-error requirements.
+
 2004-05-25  Mike Stump  <mrs@apple.com>
 
 	Radar 3667005

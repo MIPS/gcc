@@ -145,19 +145,17 @@ check_maybe_invariant (rtx x)
       return false;
 
     case REG:
-      if (HARD_REGISTER_P (x))
-	{
-	  /* TODO -- handling of hard regs.  It should not be hard due to usage
-	     of df.c, but don't forget to include patches from the rtlopt branch
-	     to speed up handling of call clobbered registers.  */
-	  return false;
-	}
-
       return true;
 
     case MEM:
       /* Load/store motion is done elsewhere.  ??? Perhaps also add it here?
 	 It should not be hard, and might be faster than "elsewhere".  */
+
+      /* Just handle the most trivial case where we load from an unchanging
+	 location (most importantly, pic tables).  */
+      if (RTX_UNCHANGING_P (x))
+	break;
+
       return false;
 
     case ASM_OPERANDS:
@@ -305,7 +303,7 @@ find_defs (struct loop *loop, basic_block *body, struct df *df)
   for (i = 0; i < loop->num_nodes; i++)
     bitmap_set_bit (blocks, body[i]->index);
 
-  df_analyze_subcfg (df, blocks, DF_UD_CHAIN);
+  df_analyze_subcfg (df, blocks, DF_UD_CHAIN | DF_HARD_REGS | DF_EQUIV_NOTES);
   BITMAP_XFREE (blocks);
 }
 
@@ -440,9 +438,16 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed,
       || !may_assign_reg_p (SET_DEST (set)))
     return;
 
-  if (!always_reached
-      && may_trap_p (insn))
-    return;
+  if (may_trap_p (PATTERN (insn)))
+    {
+      if (!always_reached)
+	return;
+
+      /* Unless the exceptions are handled, the behavior is undefined
+ 	 if the trap occurs.  */
+      if (flag_non_call_exceptions)
+	return;
+    }
 
   depends_on = BITMAP_XMALLOC ();
   if (!check_dependencies (insn, df, depends_on))

@@ -365,6 +365,33 @@ find_var_scev_info (tree var)
   return &res->chrec;
 }
 
+/* Tries to express CHREC in wider type TYPE.  */
+
+tree
+count_ev_in_wider_type (tree type, tree chrec)
+{
+  tree base, step;
+  struct loop *loop;
+
+  if (!evolution_function_is_affine_p (chrec))
+    return convert (type, chrec);
+
+  base = CHREC_LEFT (chrec);
+  step = CHREC_RIGHT (chrec);
+  loop = loop_from_num (current_loops, CHREC_VARIABLE (chrec));
+
+  /* TODO -- if we knew the statement at that the conversion occurs,
+     we could pass it to can_count_iv_in_wider_type and get a better
+     result.  */
+  step = can_count_iv_in_wider_type (loop, type, base, step, NULL_TREE);
+  if (!step)
+    return convert (type, chrec);
+  base = chrec_convert (type, base);
+
+  return build_polynomial_chrec (CHREC_VARIABLE (chrec),
+				 base, step);
+}
+
 /* Determines whether the chrec contains symbolic names defined in
    LOOP_NB.  */
 
@@ -372,6 +399,9 @@ bool
 chrec_contains_symbols_defined_in_loop (tree chrec, unsigned loop_nb)
 {
   if (chrec == NULL_TREE)
+    return false;
+
+  if (TREE_INVARIANT (chrec))
     return false;
 
   if (TREE_CODE (chrec) == VAR_DECL
@@ -1029,40 +1059,6 @@ multiply_evolution (unsigned loop_nb,
 /* This section deals with the approximation of the number of
    iterations a loop will run.  */
 
-/* Helper function that determines whether the considered types are
-   compatible for finding a solution.  */
-#if 0
-static bool
-types_forbid_solutions_p (enum tree_code code, 
-			  tree type0, 
-			  tree type1)
-{
-  switch (code)
-    {
-    case LE_EXPR:
-      return tree_is_le (TYPE_MAX_VALUE (type0), 
-			 TYPE_MIN_VALUE (type1));
-      
-    case LT_EXPR:
-      return tree_is_lt (TYPE_MAX_VALUE (type0), 
-			 TYPE_MIN_VALUE (type1));
-      
-    case EQ_EXPR:
-      return false;
-      
-    case NE_EXPR:
-      return (tree_is_lt (TYPE_MAX_VALUE (type0), 
-			  TYPE_MIN_VALUE (type1))
-	      || tree_is_lt (TYPE_MAX_VALUE (type1), 
-			     TYPE_MIN_VALUE (type0)));
-      
-    default:
-      abort ();
-      return false;
-    }
-}
-#endif
-
 /* Helper function for the case when both evolution functions don't
    have an evolution in the considered loop.  */
 
@@ -1072,6 +1068,7 @@ first_iteration_non_satisfying_noev_noev (enum tree_code code,
 					  tree chrec0, 
 					  tree chrec1)
 {
+  bool val = false;
   tree init0 = initial_condition (chrec0);
   tree init1 = initial_condition (chrec1);
   
@@ -1079,39 +1076,39 @@ first_iteration_non_satisfying_noev_noev (enum tree_code code,
       || TREE_CODE (init1) != INTEGER_CST)
     return chrec_top;
 
-  if (!evolution_function_is_constant_p (chrec0)
-      || !evolution_function_is_constant_p (chrec1))
-    return chrec_top;
-  
   switch (code)
     {
     case LE_EXPR:
-      if (tree_is_gt (init0, init1))
-	return integer_zero_node;
-      else
-	return chrec_bot;
-      
+      if (!tree_is_gt (init0, init1, &val))
+	return chrec_top;
+      break;
+
     case LT_EXPR:
-      if (tree_is_ge (init0, init1))
-	return integer_zero_node;
-      else
-	return chrec_bot;
-      
+      if (!tree_is_ge (init0, init1, &val))
+	return chrec_top;
+      break;
+
     case EQ_EXPR:
-      if (tree_is_eq (init0, init1))
-	return integer_zero_node;
-      else
-	return chrec_bot;
-      
+      if (!tree_is_eq (init0, init1, &val))
+	return chrec_top;
+      break;
+
     case NE_EXPR:
-      if (tree_is_ne (init0, init1))
-	return integer_zero_node;
-      else
-	return chrec_bot;
-      
+      if (!tree_is_ne (init0, init1, &val))
+	return chrec_top;
+      break;
+
     default:
       return chrec_top;
     }
+
+  if (val)
+    return integer_zero_node;
+  else if (evolution_function_is_constant_p (chrec0)
+	   && evolution_function_is_constant_p (chrec1))
+    return chrec_bot;
+  else
+    return chrec_top;
 }
 
 /* Helper function for the case when CHREC0 has no evolution and
@@ -1123,11 +1120,12 @@ first_iteration_non_satisfying_noev_ev (enum tree_code code,
 					tree chrec0, 
 					tree chrec1)
 {
+  bool val = false;
   tree type1 = chrec_type (chrec1);
   /*  tree tmax = TYPE_MAX_VALUE (type1); */
   tree ev_in_this_loop;
   tree init0, init1, step1;
-  tree nb_iters;
+  struct tree_niter_desc niter_desc;
   
   ev_in_this_loop = hide_evolution_in_other_loops_than_loop (chrec1, loop_nb);
   if (!evolution_function_is_affine_p (ev_in_this_loop))
@@ -1137,237 +1135,19 @@ first_iteration_non_satisfying_noev_ev (enum tree_code code,
   init1 = CHREC_LEFT (ev_in_this_loop);
   step1 = CHREC_RIGHT (ev_in_this_loop);
   init0 = initial_condition (chrec0);
-  if (TREE_CODE (init0) != INTEGER_CST
-      || TREE_CODE (init1) != INTEGER_CST
+  if (!no_evolution_in_loop_p (init0, loop_nb, &val) 
+      || val == false
+      || !no_evolution_in_loop_p (init1, loop_nb, &val) 
+      || val == false
       || TREE_CODE (step1) != INTEGER_CST)
     /* For the moment we deal only with INTEGER_CSTs.  */
     return chrec_top;
-  
-  switch (code)
-    {
-    case LE_EXPR:
-      {
-	if (tree_is_gt (init0, init1))
-	  {
-	    if (evolution_function_is_constant_p (chrec0))
-	      /* Example: "while (2 <= {0, +, 1}_2)".  */
-	      return integer_zero_node;
-	    else
-	      /* Example: "while ({2, +, -1}_1 <= {0, +, 1}_2)".  The
-		 number of iterations in loop_2 during the first two
-		 iterations of loop_1 is equal to 0.  */
-	      return chrec_top;
-	  }
-	
-	if (tree_int_cst_sgn (step1) > 0)
-	  {
-	    if (evolution_function_is_constant_p (chrec0))
-	      /* Example: "while (2 <= {3, +, 1}_2)".  */
-	      return chrec_top;
-	    /* nb_iters = tree_fold_plus 
-	       (integer_type_node, 
-	       tree_fold_floor_div (integer_type_node, 
-	       tree_fold_minus (integer_type_node, 
-	       tmax, init1), 
-	       step1), 
-	       integer_one_node);
-	    */
-	    else
-	      /* Example: "while ({2, +, 1}_1 <= {3, +, 1}_2)".  */
-	      return chrec_top;
-	  }
-	
-	else
-	  {
-	    if (evolution_function_is_constant_p (chrec0))
-	      /* Example: "while (2 <= {3, +, -1}_2)".  */
-	      nb_iters = tree_fold_plus 
-		(integer_type_node, 
-		 tree_fold_floor_div (integer_type_node, 
-				      tree_fold_minus (integer_type_node, 
-						       init1, init0), 
-				      tree_fold_abs (integer_type_node, 
-						     step1)), 
-		 integer_one_node);
-	    else
-	      /* Example: "while ({2, +, 1}_1 <= {3, +, -1}_2)".  */
-	      return chrec_top;
-	  }
-	
-	/* Verify the result.  */
-	if (evolution_function_is_constant_p (chrec0)
-	    && tree_is_gt (init0, 
-			   tree_fold_plus (type1, init1, 
-					   tree_fold_multiply 
-					   (integer_type_node, 
-					    nb_iters, step1))))
-	  return nb_iters;
-	
-	else 
-	  /* Difficult cases fall down there.  Example: When the
-	     evolution step is big enough the wrapped value can be
-	     bigger than init0.  In these cases the loop may end after
-	     several wraps, or never end.  */
-	  return chrec_top;
-      }
-      
-    case LT_EXPR:
-      {
-	if (tree_is_ge (init0, init1))
-	  {
-	    if (evolution_function_is_constant_p (chrec0))
-	      /* Example: "while (2 < {0, +, 1}_2)".  */
-	      return integer_zero_node;
-	    else
-	      /* Example: "while ({2, +, 1}_1 < {0, +, 1}_2)".  */
-	      return chrec_top;
-	  }
-	
-	if (tree_int_cst_sgn (step1) > 0)
-	  {
-	    if (evolution_function_is_constant_p (chrec0))
-	      /* Example: "while (2 < {3, +, 1}_2)".  */
-	      return chrec_top;
-	    /* nb_iters = tree_fold_ceil_div
-	       (integer_type_node, 
-	       tree_fold_minus (integer_type_node, tmax, init1), 
-	       step1);
-	    */
-	    else
-	      /* Example: "while ({2, +, 1}_1 < {3, +, 1}_2)".  */
-	      return chrec_top;
-	  }
-	else 
-	  {
-	    if (evolution_function_is_constant_p (chrec0))
-	      /* Example: "while (2 < {3, +, -1}_2)".  */
-	      nb_iters = tree_fold_ceil_div
-		(integer_type_node, 
-		 tree_fold_minus (type1, init1, init0), 
-		 tree_fold_abs (type1, step1));
-	    else
-	      /* Example: "while ({2, +, 1}_1 < {3, +, -1}_2)".  */
-	      return chrec_top;
-	  }
-	
-	/* Verify the result.  */
-	if (evolution_function_is_constant_p (chrec0)
-	    && tree_is_ge (init0, 
-			   tree_fold_plus (type1, init1, 
-					   tree_fold_multiply 
-					   (integer_type_node, 
-					    nb_iters, step1))))
-	  return nb_iters;
-	
-	else 
-	  /* Difficult cases fall down there.  */
-	  return chrec_top;
-      }
-      
-    case EQ_EXPR:
-      {
-	if (tree_is_ne (init0, init1))
-	  {
-	    if (evolution_function_is_constant_p (chrec0))
-	      /* Example: "while (2 == {0, +, 1}_2)".  */
-	      return integer_zero_node;
-	    else
-	      /* Example: "while ({2, +, -1}_1 == {0, +, 1}_2)".  */
-	      return chrec_top;
-	  }
-	
-	if (evolution_function_is_constant_p (chrec0))
-	  {
-	    if (integer_zerop (step1))
-	      /* Example: "while (2 == {2, +, 0}_2)".  */
-	      return chrec_bot;
-	    else
-	      return integer_one_node;
-	  }
-	else
-	  return chrec_top;
-      }
-      
-    case NE_EXPR:
-      {
-	if (tree_is_eq (init0, init1))
-	  {
-	    if (evolution_function_is_constant_p (chrec0))
-	      /* Example: "while (0 != {0, +, 1}_2)".  */
-	      return integer_zero_node;
-	    else
-	      /* Example: "while ({0, +, -1}_1 != {0, +, 1}_2)".  */
-	      return chrec_top;
-	  }
-	
-	if (tree_int_cst_sgn (step1) > 0)
-	  {
-	    if (evolution_function_is_constant_p (chrec0))
-	      {
-		if (tree_is_gt (init0, init1))
-		  {
-		    tree diff = tree_fold_minus (integer_type_node, 
-						 init0, init1);
-		    if (tree_fold_divides_p (integer_type_node, step1, diff))
-		      /* Example: "while (3 != {2, +, 1}_2)".  */
-		      nb_iters = tree_fold_exact_div 
-			(integer_type_node, diff, step1);
-		    else
-		      /* Example: "while (3 != {2, +, 2}_2)".  */
-		      return chrec_top;
-		  }
-		else
-		  /* Example: "while (2 != {3, +, 1}_2)".  */
-		  return chrec_top;
-	      }
-	    else
-	      /* Example: "while ({2, +, 1}_1 != {3, +, 1}_2)".  */
-	      return chrec_top;
-	  }
-	
-	else
-	  {
-	    if (evolution_function_is_constant_p (chrec0))
-	      {
-		if (tree_is_lt (init0, init1))
-		  {
-		    tree diff = tree_fold_minus (integer_type_node, 
-						 init1, init0);
-		    if (tree_fold_divides_p (integer_type_node, step1, diff))
-		      /* Example: "while (2 != {3, +, -1}_2)".  */
-		      nb_iters = tree_fold_exact_div 
-			(integer_type_node, diff, 
-			 tree_fold_abs (integer_type_node, step1));
-		    else
-		      /* Example: "while (2 != {3, +, -2}_2)".  */
-		      return chrec_top;
-		  }
-		else
-		  /* Example: "while (3 != {2, +, -1}_2)".  */
-		  return chrec_top;
-	      }
-	    else
-	      /* Example: "while ({2, +, 1}_1 != {3, +, -1}_2)".  */
-	      return chrec_top;
-	  }
 
-	/* Verify the result.  */
-	if (evolution_function_is_constant_p (chrec0)
-	    && tree_is_eq (init0, 
-			   tree_fold_plus (type1, init1, 
-					   tree_fold_multiply 
-					   (integer_type_node, 
-					    nb_iters, step1))))
-	  return nb_iters;
-	
-	else 
-	  /* Difficult cases fall down there.  */
-	  return chrec_top;
-      }
-
-    default:
-      return chrec_top;
-    }
+  niter_desc.niter = NULL_TREE;
+  number_of_iterations_cond (type1, init0, NULL_TREE, code, init1, step1, 
+			     &niter_desc);
+  if (niter_desc.niter != NULL_TREE)
+    return niter_desc.niter;
   return chrec_top;
 }
 
@@ -1380,12 +1160,13 @@ first_iteration_non_satisfying_ev_noev (enum tree_code code,
 					tree chrec0, 
 					tree chrec1)
 {
+  bool val = false;
   tree type0 = chrec_type (chrec0);
   /*  tree tmin = TYPE_MIN_VALUE (type0); */
   tree ev_in_this_loop;
   tree init0, init1, step0;
-  tree nb_iters;
-  
+  struct tree_niter_desc niter_desc;
+
   ev_in_this_loop = hide_evolution_in_other_loops_than_loop (chrec0, loop_nb);
   if (!evolution_function_is_affine_p (ev_in_this_loop))
     /* For the moment handle only polynomials of degree 1.  */
@@ -1394,233 +1175,19 @@ first_iteration_non_satisfying_ev_noev (enum tree_code code,
   init0 = CHREC_LEFT (ev_in_this_loop);
   step0 = CHREC_RIGHT (ev_in_this_loop);
   init1 = initial_condition (chrec1);
-  if (TREE_CODE (init1) != INTEGER_CST
-      || TREE_CODE (init0) != INTEGER_CST
+  if (!no_evolution_in_loop_p (init0, loop_nb, &val) 
+      || val == false
+      || !no_evolution_in_loop_p (init1, loop_nb, &val) 
+      || val == false
       || TREE_CODE (step0) != INTEGER_CST)
     /* For the moment we deal only with INTEGER_CSTs.  */
     return chrec_top;
-  
-  switch (code)
-    {
-    case LE_EXPR:
-      {
-	if (tree_is_gt (init0, init1))
-	  {
-	    if (evolution_function_is_constant_p (chrec1))
-	      /* Example: "while ({2, +, 1}_2 <= 0)".  */
-	      return integer_zero_node;
-	    
-	    else
-	      /* Example: "while ({2, +, 1}_2 <= {0, +, 1}_1)".  */
-	      return chrec_top;
-	  }
-	
-	if (tree_int_cst_sgn (step0) < 0)
-	  {
-	    if (evolution_function_is_constant_p (chrec1))
-	      /* Example: "while ({2, +, -1}_2 <= 3)".  */
-	      return chrec_top;
-	    /* nb_iters = tree_fold_plus 
-	       (integer_type_node, 
-	       tree_fold_floor_div (integer_type_node, 
-	       tree_fold_minus (integer_type_node, 
-	       init0, tmin), 
-	       tree_fold_abs (integer_type_node, 
-	       step0)), 
-	       integer_one_node);
-	    */
-	    else
-	      /* Example: "while ({2, +, -1}_2 <= {3, +, 1}_1)".  */
-	      return chrec_top;
-	  }
-	else 
-	  {
-	    if (evolution_function_is_constant_p (chrec1))
-	      /* Example: "while ({2, +, 1}_2 <= 3)".  */
-	      nb_iters = tree_fold_plus 
-		(integer_type_node, 
-		 tree_fold_floor_div (integer_type_node, 
-				      tree_fold_minus (integer_type_node, 
-						       init1, init0), 
-				      step0), 
-		 integer_one_node);
-	    else
-	      /* Example: "while ({2, +, 1}_2 <= {3, +, 1}_1)".  */
-	      return chrec_top;
-	  }
-	
-	/* Verify the result.  */
-	if (evolution_function_is_constant_p (chrec1)
-	    && tree_is_gt (tree_fold_plus (type0, init0, 
-					   tree_fold_multiply 
-					   (integer_type_node, 
-					    nb_iters, step0)), 
-			   init1))
-	  return nb_iters;
-	
-	else 
-	  /* Difficult cases fall down there.  */
-	  return chrec_top;
-      }
-      
-    case LT_EXPR:
-      {
-	if (tree_is_ge (init0, init1))
-	  {
-	    if (evolution_function_is_constant_p (chrec1))
-	      /* Example: "while ({2, +, 1}_2 < 0)".  */
-	      return integer_zero_node;
-	    
-	    else
-	      /* Example: "while ({2, +, 1}_2 < {0, +, 1}_1)".  */
-	      return chrec_top;
-	  }
-	
-	if (tree_int_cst_sgn (step0) < 0)
-	  {
-	    if (evolution_function_is_constant_p (chrec1))
-	      /* Example: "while ({2, +, -1}_2 < 3)".  */
-	      return chrec_top;
-	    /* nb_iters = tree_fold_ceil_div 
-	       (integer_type_node, 
-	       tree_fold_minus (integer_type_node, init0, tmin), 
-	       tree_fold_abs (integer_type_node, step0));
-	    */
-	    else
-	      /* Example: "while ({2, +, -1}_2 < {3, +, 1}_1)".  */
-	      return chrec_top;
-	  }
-	else 
-	  {
-	    if (evolution_function_is_constant_p (chrec1))
-	      /* Example: "while ({2, +, 1}_2 < 3)".  */
-	      nb_iters = tree_fold_ceil_div
-		(integer_type_node, 
-		 tree_fold_minus (integer_type_node, init1, init0), 
-		 step0);
-	    else
-	      /* Example: "while ({2, +, 1}_2 < {3, +, 1}_1)".  */
-	      return chrec_top;
-	  }
-	
-	/* Verify the result.  */
-	if (evolution_function_is_constant_p (chrec1)
-	    && tree_is_ge (tree_fold_plus (type0, init0, 
-					   tree_fold_multiply 
-					   (integer_type_node, 
-					    nb_iters, step0)),
-			   init1))
-	  return nb_iters;
-	
-	else 
-	  /* Difficult cases fall down there.  */
-	  return chrec_top;
-      }
-      
-    case EQ_EXPR:
-      {
-	if (tree_is_ne (init0, init1))
-	  {
-	    if (evolution_function_is_constant_p (chrec1))
-	      /* Example: "while ({2, +, 1}_2 == 0)".  */
-	      return integer_zero_node;
-	    else
-	      /* Example: "while ({2, +, -1}_2 == {0, +, 1}_1)".  */
-	      return chrec_top;
-	  }
-	
-	if (evolution_function_is_constant_p (chrec1))
-	  {
-	    if (integer_zerop (step0))
-	      /* Example: "while ({2, +, 0}_2 == 2)".  */
-	      return chrec_bot;
-	    else
-	      return integer_one_node;
-	  }
-	else
-	  return chrec_top;
-      }	
-      
-    case NE_EXPR:
-      {
-	if (tree_is_eq (init0, init1))
-	  {
-	    if (evolution_function_is_constant_p (chrec1))
-	      /* Example: "while ({0, +, 1}_2 != 0)".  */
-	      return integer_zero_node;
-	    else
-	      /* Example: "while ({0, +, -1}_2 != {0, +, 1}_1)".  */
-	      return chrec_top;
-	  }
-	
-	if (tree_int_cst_sgn (step0) > 0)
-	  {
-	    if (evolution_function_is_constant_p (chrec1))
-	      {
-		if (tree_is_lt (init0, init1))
-		  {
-		    tree diff = tree_fold_minus (integer_type_node, 
-						 init1, init0);
-		    if (tree_fold_divides_p (integer_type_node, step0, diff))
-		      /* Example: "while ({2, +, 1}_2 != 3)".  */
-		      nb_iters = tree_fold_exact_div 
-			(integer_type_node, diff, step0);
-		    else
-		      /* Example: "while ({2, +, 2}_2 != 3)".  */
-		      return chrec_top;
-		  }
-		else
-		  /* Example: "while ({3, +, 1}_2 != 2)".  */
-		  return chrec_top;
-	      }
-	    else
-	      /* Example: "while ({2, +, 1}_2 != {3, +, 1}_1)".  */
-	      return chrec_top;
-	  }
-	
-	else
-	  {
-	    if (evolution_function_is_constant_p (chrec1))
-	      {
-		if (tree_is_gt (init0, init1))
-		  {
-		    tree diff = tree_fold_minus (integer_type_node, 
-						 init0, init1);
-		    if (tree_fold_divides_p (integer_type_node, step0, diff))
-		      /* Example: "while ({3, +, -1}_2 != 2)".  */
-		      nb_iters = tree_fold_exact_div 
-			(integer_type_node, diff, 
-			 tree_fold_abs (integer_type_node, step0));
-		    else
-		      /* Example: "while ({3, +, -2}_2 != 2)".  */
-		      return chrec_top;
-		  }
-		else
-		  /* Example: "while ({2, +, -1}_2 != 3)".  */
-		  return chrec_top;
-	      }
-	    else
-	      /* Example: "while ({2, +, -1}_2 != {3, +, -1}_1)".  */
-	      return chrec_top;
-	  }
 
-	/* Verify the result.  */
-	if (evolution_function_is_constant_p (chrec1)
-	    && tree_is_eq (tree_fold_plus (type0, init0, 
-					   tree_fold_multiply 
-					   (integer_type_node, 
-					    nb_iters, step0)),
-			   init1))
-	  return nb_iters;
-	else 
-	  /* Difficult cases fall down there.  */
-	  return chrec_top;
-      }
-      
-    default:
-      return chrec_top;
-    }
-  
+  niter_desc.niter = NULL_TREE;
+  number_of_iterations_cond (type0, init0, step0, code, init1, NULL_TREE, 
+			     &niter_desc);
+  if (niter_desc.niter != NULL_TREE)
+    return niter_desc.niter;
   return chrec_top;
 }
 
@@ -1629,24 +1196,43 @@ first_iteration_non_satisfying_ev_noev (enum tree_code code,
 
 static tree 
 first_iteration_non_satisfying_ev_ev (enum tree_code code, 
-				      unsigned loop_nb ATTRIBUTE_UNUSED, 
-				      tree chrec0 ATTRIBUTE_UNUSED, 
-				      tree chrec1 ATTRIBUTE_UNUSED)
+				      unsigned loop_nb, 
+				      tree chrec0, 
+				      tree chrec1)
 {
-  switch (code)
-    {
-    case LE_EXPR:
-      
-    case LT_EXPR:
-      
-    case EQ_EXPR:
-      
-    case NE_EXPR:
-      
-    default:
-      return chrec_top;
-    }
-  
+  bool val = false;
+  tree init0, init1, step0, step1;
+  tree type0, type1;
+  struct tree_niter_desc niter_desc;
+
+  if (evolution_function_is_multivariate (chrec0)
+      || evolution_function_is_multivariate (chrec1))
+    /* For the moment, don't handle these quite difficult cases.  */
+    return chrec_top;
+
+  init0 = CHREC_LEFT (chrec0);
+  step0 = CHREC_RIGHT (chrec0);
+  init1 = CHREC_LEFT (chrec1);
+  step1 = CHREC_RIGHT (chrec1);
+  if (!no_evolution_in_loop_p (init0, loop_nb, &val) 
+      || val == false
+      || !no_evolution_in_loop_p (init1, loop_nb, &val) 
+      || val == false
+      || TREE_CODE (step0) != INTEGER_CST
+      || TREE_CODE (step1) != INTEGER_CST)
+    /* For the moment, we deal only with INTEGER_CSTs.  */
+    return chrec_top;
+
+  type0 = chrec_type (chrec0);
+  type1 = chrec_type (chrec1);
+  if (type0 != type1)
+    return chrec_top;
+
+  niter_desc.niter = NULL_TREE;
+  number_of_iterations_cond (type0, init0, step0, code, init1, step1, 
+			     &niter_desc);
+  if (niter_desc.niter != NULL_TREE)
+    return niter_desc.niter;
   return chrec_top;
 }
 
@@ -1737,30 +1323,18 @@ first_iteration_non_satisfying (enum tree_code code,
 {
   switch (code)
     {
+    case EQ_EXPR:
+    case NE_EXPR:
     case LT_EXPR:
-      return first_iteration_non_satisfying_1 (LT_EXPR, loop_nb, 
-					       chrec0, chrec1);
-      
     case LE_EXPR:
-      return first_iteration_non_satisfying_1 (LE_EXPR, loop_nb, 
-					       chrec0, chrec1);
-      
+      return first_iteration_non_satisfying_1 (code, loop_nb, chrec0, chrec1);
+
     case GT_EXPR:
       return first_iteration_non_satisfying_1 (LT_EXPR, loop_nb, 
 					       chrec1, chrec0);
-      
     case GE_EXPR:
       return first_iteration_non_satisfying_1 (LE_EXPR, loop_nb, 
 					       chrec1, chrec0);
-      
-    case EQ_EXPR:
-      return first_iteration_non_satisfying_1 (EQ_EXPR, loop_nb, 
-					       chrec0, chrec1);
-      
-    case NE_EXPR:
-      return first_iteration_non_satisfying_1 (NE_EXPR, loop_nb, 
-					       chrec0, chrec1);
-      
     default:
       return chrec_top;
     }
@@ -1779,8 +1353,8 @@ set_nb_iterations_in_loop (struct loop *loop,
      count of the loop in order to be compatible with the other
      nb_iter computations in loop-iv.  This also allows the
      representation of nb_iters that are equal to MAX_INT.  */
-  if (TREE_CODE (res) == INTEGER_CST
-      && TREE_INT_CST_LOW (res) == 0)
+  if ((TREE_CODE (res) == INTEGER_CST && TREE_INT_CST_LOW (res) == 0)
+      || TREE_OVERFLOW (res))
     res = chrec_top;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1975,6 +1549,13 @@ follow_ssa_edge_in_rhs (struct loop *loop,
   */
   switch (TREE_CODE (rhs))
     {
+    case NOP_EXPR:
+      /* This assignment is under the form "a_1 = (cast) rhs.  */
+      res = follow_ssa_edge_in_rhs (loop, TREE_OPERAND (rhs, 0), halting_phi, 
+				    evolution_of_loop);
+      *evolution_of_loop = chrec_convert (TREE_TYPE (rhs), *evolution_of_loop);
+      break;
+
     case INTEGER_CST:
       /* This assignment is under the form "a_1 = 7".  */
       res = false;
@@ -3046,6 +2627,9 @@ number_of_iterations_in_loop (struct loop *loop)
   
   test = TREE_OPERAND (cond, 0);
   exit = loop_exit_edge (loop, 0);
+  if (!dominated_by_p (CDI_DOMINATORS, loop->latch, exit->src))
+    return set_nb_iterations_in_loop (loop, chrec_top);
+
   if (exit->flags & EDGE_TRUE_VALUE)
     test = invert_truthvalue (test);
 
@@ -3425,6 +3009,23 @@ scev_initialize (struct loops *loops)
       flow_loop_scan (loops->parray[i], LOOP_EXIT_EDGES);
 }
 
+/* Cleans up the information cached by the scalar evolutions analysis.  */
+
+void
+scev_reset (void)
+{
+  unsigned i;
+  struct loop *loop;
+
+  htab_empty (scalar_evolution_info);
+  for (i = 1; i < current_loops->num; i++)
+    {
+      loop = current_loops->parray[i];
+      if (loop)
+	loop->nb_iterations = NULL_TREE;
+    }
+}
+
 /* Initialize the analysis of scalar evolutions.  */
 
 static void
@@ -3434,6 +3035,46 @@ scev_init (void)
   if (!current_loops)
     return;
   scev_initialize (current_loops);
+}
+
+/* Checks whether OP behaves as a simple affine iv of LOOP in STMT and returns
+   its BASE and STEP if possible.  */
+
+bool
+simple_iv (struct loop *loop, tree stmt, tree op, tree *base, tree *step)
+{
+  basic_block bb = bb_for_stmt (stmt);
+  tree type, ev;
+
+  *base = NULL_TREE;
+  *step = NULL_TREE;
+
+  type = TREE_TYPE (op);
+  if (TREE_CODE (type) != INTEGER_TYPE
+      && TREE_CODE (type) != POINTER_TYPE)
+    return false;
+
+  ev = analyze_scalar_evolution_in_loop (loop, bb->loop_father, op);
+  if (tree_does_not_contain_chrecs (ev)
+      && !chrec_contains_symbols_defined_in_loop (ev, loop->num))
+    {
+      *base = ev;
+      return true;
+    }
+
+  if (TREE_CODE (ev) != POLYNOMIAL_CHREC
+      || CHREC_VARIABLE (ev) != (unsigned) loop->num)
+    return false;
+
+  *step = CHREC_RIGHT (ev);
+  if (TREE_CODE (*step) != INTEGER_CST)
+    return false;
+  *base = CHREC_LEFT (ev);
+  if (tree_contains_chrecs (*base)
+      || chrec_contains_symbols_defined_in_loop (*base, loop->num))
+    return false;
+
+  return true;
 }
 
 /* Runs the analysis of scalar evolutions.  */

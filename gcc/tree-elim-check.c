@@ -69,7 +69,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "flags.h"
 
-
 /* Determines whether "CHREC0 (x) > CHREC1 (x)" for all the integers x
    such that "0 <= x < nb_iter".  When this property is statically
    computable, set VALUE and return true.  */
@@ -130,7 +129,7 @@ prove_truth_value_ge (tree type, tree chrec0, tree chrec1, bool *value)
 static inline bool
 prove_truth_value_eq (tree type, tree chrec0, tree chrec1, bool *value)
 {
-  tree diff = chrec_fold_minus (integer_type_node, chrec0, chrec1);
+  tree diff = chrec_fold_minus (type, chrec0, chrec1);
   
   if (TREE_CODE (diff) == INTEGER_CST)
     {
@@ -242,6 +241,7 @@ prove_truth_value (enum tree_code code,
 		   tree nb_iters_in_loop, 
 		   bool *value)
 {
+  bool val = false;
   tree nb_iters_in_then, nb_iters_in_else;
 
   if (automatically_generated_chrec_p (nb_iters_in_loop))
@@ -287,14 +287,16 @@ prove_truth_value (enum tree_code code,
       && TREE_CODE (nb_iters_in_else) == INTEGER_CST)
     {
       if (integer_zerop (nb_iters_in_then)
-	  && tree_is_ge (nb_iters_in_else, nb_iters_in_loop))
+	  && tree_is_ge (nb_iters_in_else, nb_iters_in_loop, &val)
+	  && val)
 	{
 	  *value = false;
 	  return true;
 	}
       
       if (integer_zerop (nb_iters_in_else)
-	  && tree_is_ge (nb_iters_in_then, nb_iters_in_loop))
+	  && tree_is_ge (nb_iters_in_then, nb_iters_in_loop, &val)
+	  && val)
 	{
 	  *value = true;
 	  return true;

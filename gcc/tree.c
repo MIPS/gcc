@@ -5402,4 +5402,45 @@ needs_to_live_in_memory (tree t)
 	  || decl_function_context (t) != current_function_decl);
 }
 
+/* Return value of a constant X.  */
+
+HOST_WIDE_INT
+int_cst_value (tree x)
+{
+  unsigned bits = TYPE_PRECISION (TREE_TYPE (x));
+  unsigned HOST_WIDE_INT val = TREE_INT_CST_LOW (x);
+  bool negative = ((val >> (bits - 1)) & 1) != 0;
+
+  if (negative)
+    val |= (~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1;
+  else
+    val &= ~((~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1);
+
+  return val;
+}
+
+/* Builds integer constant of type TYPE and value VAL.  */
+
+tree
+build_int_cst (tree type, unsigned HOST_WIDE_INT val)
+{
+  unsigned bits = TYPE_PRECISION (type);
+  bool signed_p = !TYPE_UNSIGNED (type);
+  bool negative = ((val >> (bits - 1)) & 1) != 0;
+  tree ival;
+
+  if (signed_p && negative)
+    {
+      val = val | (~(unsigned HOST_WIDE_INT) 0 << (bits - 1) << 1);
+      ival = build_int_2 (val, -1);
+    }
+  else
+    {
+      val = val & ~(~(unsigned HOST_WIDE_INT) 0 << (bits - 1) << 1);
+      ival = build_int_2 (val, 0);
+    }
+
+  return convert (type, ival);
+}
+
 #include "gt-tree.h"

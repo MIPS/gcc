@@ -7044,6 +7044,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case INDIRECT_REF:
       {
 	tree exp1 = TREE_OPERAND (exp, 0);
+	tree orig;
 
 	if (modifier != EXPAND_WRITE)
 	  {
@@ -7057,7 +7058,11 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	op0 = expand_expr (exp1, NULL_RTX, VOIDmode, EXPAND_SUM);
 	op0 = memory_address (mode, op0);
 	temp = gen_rtx_MEM (mode, op0);
-	set_mem_attributes (temp, exp, 0);
+
+	orig = REF_ORIGINAL (exp);
+	if (!orig)
+	  orig = exp;
+	set_mem_attributes (temp, orig, 0);
 
 	/* If we are writing to this object and its type is a record with
 	   readonly fields, we must mark it as readonly so it will

@@ -191,55 +191,79 @@ tree_fold_divides_p (tree type,
 /* Given two integer constants A and B, determine whether "A >= B".  */
 
 static inline bool
-tree_is_ge (tree a, tree b)
+tree_is_ge (tree a, tree b, bool *res)
 {
   tree cmp = fold (build (GE_EXPR, boolean_type_node, a, b));
-  return (tree_int_cst_sgn (cmp) != 0);
+  if (TREE_CODE (cmp) != INTEGER_CST)
+    return false;
+
+  *res = (tree_int_cst_sgn (cmp) != 0);
+  return true;
 }
 
 /* Given two integer constants A and B, determine whether "A > B".  */
 
 static inline bool
-tree_is_gt (tree a, tree b)
+tree_is_gt (tree a, tree b, bool *res)
 {
   tree cmp = fold (build (GT_EXPR, boolean_type_node, a, b));
-  return (tree_int_cst_sgn (cmp) != 0);
+  if (TREE_CODE (cmp) != INTEGER_CST)
+    return false;
+
+  *res = (tree_int_cst_sgn (cmp) != 0);
+  return true;
 }
 
 /* Given two integer constants A and B, determine whether "A <= B".  */
 
 static inline bool
-tree_is_le (tree a, tree b)
+tree_is_le (tree a, tree b, bool *res)
 {
   tree cmp = fold (build (LE_EXPR, boolean_type_node, a, b));
-  return (tree_int_cst_sgn (cmp) != 0);
+  if (TREE_CODE (cmp) != INTEGER_CST)
+    return false;
+
+  *res = (tree_int_cst_sgn (cmp) != 0);
+  return true;
 }
 
 /* Given two integer constants A and B, determine whether "A < B".  */
 
 static inline bool
-tree_is_lt (tree a, tree b)
+tree_is_lt (tree a, tree b, bool *res)
 {
   tree cmp = fold (build (LT_EXPR, boolean_type_node, a, b));
-  return (tree_int_cst_sgn (cmp) != 0);
+  if (TREE_CODE (cmp) != INTEGER_CST)
+    return false;
+
+  *res = (tree_int_cst_sgn (cmp) != 0);
+  return true;
 }
 
 /* Given two integer constants A and B, determine whether "A == B".  */
 
 static inline bool
-tree_is_eq (tree a, tree b)
+tree_is_eq (tree a, tree b, bool *res)
 {
   tree cmp = fold (build (EQ_EXPR, boolean_type_node, a, b));
-  return (tree_int_cst_sgn (cmp) != 0);
+  if (TREE_CODE (cmp) != INTEGER_CST)
+    return false;
+
+  *res = (tree_int_cst_sgn (cmp) != 0);
+  return true;
 }
 
 /* Given two integer constants A and B, determine whether "A != B".  */
 
 static inline bool
-tree_is_ne (tree a, tree b)
+tree_is_ne (tree a, tree b, bool *res)
 {
   tree cmp = fold (build (NE_EXPR, boolean_type_node, a, b));
-  return (tree_int_cst_sgn (cmp) != 0);
+  if (TREE_CODE (cmp) != INTEGER_CST)
+    return false;
+
+  *res = (tree_int_cst_sgn (cmp) != 0);
+  return true;
 }
 
 #endif  /* GCC_TREE_FOLD_H  */

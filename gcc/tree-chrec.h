@@ -40,8 +40,6 @@ extern tree chrec_not_analyzed_yet;
 extern tree chrec_top;
 extern tree chrec_bot;
 
-static inline bool automatically_generated_chrec_p (tree);
-
 /* After having added an automatically generated element, please
    include it in the following function.  */
 
@@ -69,17 +67,12 @@ tree_is_chrec (tree expr)
 
 
 
-/* Constructors.  */
-static inline tree build_interval_chrec (tree, tree);
-static inline tree build_polynomial_chrec (unsigned, tree, tree);
-static inline tree build_exponential_chrec (unsigned, tree, tree);
-static inline tree build_peeled_chrec (unsigned, tree, tree);
-
 /* Chrec folding functions.  */
 extern tree chrec_fold_plus (tree, tree, tree);
 extern tree chrec_fold_minus (tree, tree, tree);
 extern tree chrec_fold_multiply (tree, tree, tree);
 extern tree chrec_convert (tree, tree);
+extern tree count_ev_in_wider_type (tree, tree);
 extern tree chrec_type (tree);
 
 /* Operations.  */
@@ -92,7 +85,6 @@ extern tree evolution_part_in_loop_num (tree, unsigned);
 extern tree hide_evolution_in_other_loops_than_loop (tree, unsigned);
 extern tree hide_evolution_in_loop (tree, unsigned);
 extern tree reset_evolution_in_loop (unsigned, tree, tree);
-extern tree chrec_eval_next_init_cond (unsigned, tree);
 extern tree chrec_merge (tree, tree);
 extern tree chrec_fold_automatically_generated_operands (tree, tree);
 
@@ -107,12 +99,6 @@ extern bool chrec_contains_intervals (tree);
 extern bool tree_contains_chrecs (tree);
 extern bool evolution_function_is_affine_multivariate_p (tree);
 extern bool evolution_function_is_univariate_p (tree);
-static inline bool is_chrec (tree);
-static inline bool chrec_zerop (tree);
-static inline bool symbolic_parameter_expr_p (tree);
-static inline bool evolution_function_is_constant_p (tree);
-static inline bool evolution_function_is_affine_p (tree);
-static inline bool chrec_should_remain_symbolic (tree);
 
 
 
@@ -167,29 +153,36 @@ build_peeled_chrec (unsigned loop_num,
 		build_int_2 (loop_num, 0), left, right);
 }
 
+/* Build a chrec top interval for type.  */
+
+static inline tree 
+build_chrec_top_type (tree type)
+{
+  /* Disabled for now: it is not used, and libjava fails to build on
+     amd64.  */
+  return chrec_top;
+
+  if (type != NULL_TREE)
+    {
+      enum tree_code code = TREE_CODE (type);
+ 
+      if ((code == INTEGER_TYPE
+	   || code == ENUMERAL_TYPE
+	   || code == BOOLEAN_TYPE
+	   || code == CHAR_TYPE
+	   || code == REAL_TYPE)
+	  && TYPE_MIN_VALUE (type) != NULL_TREE 
+	  && TYPE_MAX_VALUE (type) != NULL_TREE)
+	return build_interval_chrec (TYPE_MIN_VALUE (type), 
+				     TYPE_MAX_VALUE (type));
+    }
+
+  return chrec_top;
+}
+
 
 
 /* Observers.  */
-
-/* Determine whether the given tree is a chain of recurrence or not.  */
-
-static inline bool 
-is_chrec (tree chrec)
-{
-  if (chrec == NULL_TREE)
-    return false;
-  
-  switch (TREE_CODE (chrec))
-    {
-    case POLYNOMIAL_CHREC:
-    case EXPONENTIAL_CHREC:
-    case INTERVAL_CHREC:
-      return true;
-      
-    default:
-      return false;
-    }
-}
 
 /* Determines whether CHREC is equal to zero.  */
 
@@ -205,30 +198,6 @@ chrec_zerop (tree chrec)
   if (TREE_CODE (chrec) == INTERVAL_CHREC)
     return (integer_zerop (CHREC_LOW (chrec))
 	    && integer_zerop (CHREC_UP (chrec)));
-  
-  return false;
-}
-
-/* Determines whether the expression CHREC is a symbolic parameter.
-   Be aware of the fact that the expression is supposed to be part of
-   an evolution function, and not an expression from the AST of the
-   program.
-   
-   A symbolic parameter is matches the following pattern: "a variable
-   that does not have a loop-phi node", this variable is either a loop
-   invariant, or a secondary induction variable.
-*/
-
-static inline bool 
-symbolic_parameter_expr_p (tree chrec)
-{
-  if (chrec == NULL_TREE)
-    return false;
-  
-  if (TREE_CODE (chrec) == VAR_DECL
-      || TREE_CODE (chrec) == PARM_DECL
-      || TREE_CODE (chrec) == SSA_NAME)
-    return true;
   
   return false;
 }

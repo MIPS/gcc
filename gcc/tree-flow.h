@@ -628,6 +628,27 @@ unsigned estimate_loop_size (struct loop *loop);
 void rewrite_into_loop_closed_ssa (void);
 void verify_loop_closed_ssa (void);
 void compute_phi_arg_on_exit (edge, tree, tree);
+tree force_gimple_operand (tree, tree *, bool, tree);
+void rewrite_address_base (block_stmt_iterator *, tree *, tree);
+
+/* Description of number of iterations of a loop.  */
+struct tree_niter_desc
+{
+  tree assumptions;	/* Assumptions for the number of iterations be valid.  */
+  tree may_be_zero;	/* Condition under that the loop exits in the first
+			   iteration.  */
+  tree niter;		/* Number of iterations.  */
+};
+
+void number_of_iterations_cond (tree, tree, tree, enum tree_code, tree, tree,
+                              struct tree_niter_desc *);
+bool number_of_iterations_exit (struct loop *, edge,
+                              struct tree_niter_desc *niter);
+tree loop_niter_by_eval (struct loop *, edge);
+tree find_loop_niter_by_eval (struct loop *, edge *);
+void estimate_numbers_of_iterations (struct loops *);
+tree can_count_iv_in_wider_type (struct loop *, tree, tree, tree, tree);
+void free_numbers_of_iterations_estimates (struct loops *);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);

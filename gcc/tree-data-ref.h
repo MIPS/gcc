@@ -41,6 +41,10 @@ struct data_reference GTY(())
 
   /* Auxiliary info specific to a pass.  */
   int aux;
+
+  /* True when the data reference is in RHS of a stmt.  */
+  bool is_read;
+
 };
 
 #define DR_ID(DR) DR->id
@@ -50,6 +54,7 @@ struct data_reference GTY(())
 #define DR_ACCESS_FNS(DR) DR->access_fns
 #define DR_ACCESS_FN(DR, I) VARRAY_TREE (DR_ACCESS_FNS (DR), I)
 #define DR_NUM_DIMENSIONS(DR) VARRAY_ACTIVE_SIZE (DR_ACCESS_FNS (DR))
+#define DR_IS_READ(DR) DR->is_read
 
 enum data_dependence_direction {
   dir_positive, 
@@ -134,7 +139,6 @@ struct data_dependence_relation GTY(())
 #define DDR_SUBSCRIPTS(DDR) DDR->subscripts
 #define DDR_SUBSCRIPTS_VECTOR_INIT(DDR, N) \
   VARRAY_GENERIC_PTR_INIT (DDR_SUBSCRIPTS (DDR), N, "subscripts_vector");
-#define DDR_SUBSCRIPTS_VECTOR_FINALIZE(DDR) varray_clear (DDR_SUBSCRIPTS (DDR))
 #define DDR_SUBSCRIPT(DDR, I) VARRAY_GENERIC_PTR (DDR_SUBSCRIPTS (DDR), I)
 #define DDR_NUM_SUBSCRIPTS(DDR) VARRAY_ACTIVE_SIZE (DDR_SUBSCRIPTS (DDR))
 
@@ -144,7 +148,7 @@ extern void analyze_all_data_dependences (struct loops *);
 extern void compute_data_dependences_for_loop (unsigned, struct loop *, 
 					       varray_type *, varray_type *, 
 					       varray_type *, varray_type *);
-extern struct data_reference *analyze_array (tree, tree);
+extern struct data_reference *analyze_array (tree, tree, bool);
 
 
 extern void dump_data_reference (FILE *, struct data_reference *);
@@ -158,9 +162,6 @@ extern void dump_data_dependence_direction (FILE *,
 
 
 /* Inline functions.  */
-
-static inline bool array_base_name_differ_p (struct data_reference *, struct data_reference *);
-
 
 /* This is the simplest data dependence test: determines whether the
    data references A and B access the same array.  */

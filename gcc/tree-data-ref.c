@@ -165,8 +165,8 @@ dump_data_dependence_relation (FILE *outf,
   dra = DDR_A (ddr);
   drb = DDR_B (ddr);
   
-  fprintf (outf, "\n(Data Dep (A = %d, B = %d):", DR_ID (dra), DR_ID (drb));
-  
+  fprintf (outf, "(Data Dep (A = %d, B = %d):", DR_ID (dra), DR_ID (drb));  
+
   if (DDR_ARE_DEPENDENT (ddr) == chrec_top)
     fprintf (outf, "    (don't know)\n");
   
@@ -227,20 +227,9 @@ dump_data_dependence_relation (FILE *outf,
 	  fprintf (outf, ")\n");
 	}
       fprintf (outf, " )\n");
-  
-      fprintf (outf, " (Direction Vector: \n");
-      for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
-	{
-	  struct subscript *subscript = DDR_SUBSCRIPT (ddr, i);
-	  
-	  fprintf (outf, "(");
-	  dump_data_dependence_direction (outf, SUB_DIRECTION (subscript));
-	  fprintf (outf, ")\n");
-	}
-      fprintf (outf, " )\n");
     }
-  
-  fprintf (outf, "\n)");
+
+  fprintf (outf, ")\n");
 }
 
 
@@ -323,11 +312,11 @@ analyze_array_indexes (struct loop *loop,
 }
 
 /* For a data reference REF contained in the statemet STMT, initialize
-   a DATA_REFERENCE structure, and return it.  */
+   a DATA_REFERENCE structure, and return it.  Set the IS_READ flag to
+   true when REF is in the right hand side of an assignment.  */
 
 struct data_reference *
-analyze_array (tree stmt, 
-	       tree ref)
+analyze_array (tree stmt, tree ref, bool is_read)
 {
   struct data_reference *res;
 
@@ -344,13 +333,42 @@ analyze_array (tree stmt,
   DR_ID (res) = data_ref_id++;
   DR_STMT (res) = stmt;
   DR_REF (res) = ref;
-  VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 5, "access_fns");
+  VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 3, "access_fns");
   DR_BASE_NAME (res) = analyze_array_indexes 
     (loop_of_stmt (stmt), DR_ACCESS_FNS (res), ref);
+  DR_IS_READ (res) = is_read;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");
   
+  return res;
+}
+
+/* For a data reference REF contained in the statemet STMT, initialize
+   a DATA_REFERENCE structure, and return it.  Set the IS_READ flag to
+   true when REF is in the right hand side of an assignment.  */
+
+static struct data_reference *
+analyze_array_top (tree stmt)
+{
+  struct data_reference *res;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "(analyze_array_top \n");
+
+  res = ggc_alloc (sizeof (struct data_reference));
+
+  DR_ID (res) = data_ref_id++;
+  DR_STMT (res) = stmt;
+  DR_REF (res) = NULL_TREE;
+  DR_BASE_NAME (res) = NULL_TREE;
+
+  VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 1, "access_fns");
+  VARRAY_PUSH_TREE (DR_ACCESS_FNS (res), chrec_top);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, ")\n");
+
   return res;
 }
 
@@ -386,43 +404,6 @@ compute_distance_vector (struct data_dependence_relation *ddr)
     }
 }
 
-/* When there exists a dependence relation, determine its direction
-   vector.  */
-
-static void
-compute_direction_vector (struct data_dependence_relation *ddr)
-{
-  if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
-    {
-      unsigned int i;
-      
-      for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
- 	{
- 	  tree distance;
- 	  struct subscript *subscript;
-	  bool value;
- 	  
- 	  subscript = DDR_SUBSCRIPT (ddr, i);
- 	  distance = SUB_DISTANCE (subscript);
- 	  
-	  if (distance == chrec_top)
-	    SUB_DIRECTION (subscript) = dir_star;
-	  
- 	  else if (chrec_zerop (distance))
- 	    SUB_DIRECTION (subscript) = dir_equal;
- 	  
- 	  else if (!chrec_is_positive (distance, &value))
- 	    SUB_DIRECTION (subscript) = dir_star;
-	  
-	  else if (value == true)
- 	    SUB_DIRECTION (subscript) = dir_positive;
-	  
-	  else
-	    SUB_DIRECTION (subscript) = dir_negative;
-	}
-    }
-}
-
 /* Initialize a ddr.  */
 
 static struct data_dependence_relation *
@@ -434,11 +415,15 @@ initialize_data_dependence_relation (struct data_reference *a,
   res = ggc_alloc (sizeof (struct data_dependence_relation));
   DDR_A (res) = a;
   DDR_B (res) = b;
-  
+
+  if (DR_BASE_NAME (a) == NULL_TREE
+      || DR_BASE_NAME (b) == NULL_TREE)
+    DDR_ARE_DEPENDENT (res) = chrec_top;    
+
   /* When the dimensions of A and B differ, we directly initialize
      the relation to "there is no dependence": chrec_bot.  */
-  if (DR_NUM_DIMENSIONS (a) != DR_NUM_DIMENSIONS (b)
-      || array_base_name_differ_p (a, b))
+  else if (DR_NUM_DIMENSIONS (a) != DR_NUM_DIMENSIONS (b)
+	   || array_base_name_differ_p (a, b))
     DDR_ARE_DEPENDENT (res) = chrec_bot;
   
   else
@@ -463,6 +448,17 @@ initialize_data_dependence_relation (struct data_reference *a,
     }
   
   return res;
+}
+
+/* Set DDR_ARE_DEPENDENT to CHREC and finalize the subscript overlap
+   description.  */
+
+static inline void
+finalize_ddr_dependent (struct data_dependence_relation *ddr, 
+			tree chrec)
+{
+  DDR_ARE_DEPENDENT (ddr) = chrec;  
+  varray_clear (DDR_SUBSCRIPTS (ddr));
 }
 
 
@@ -1176,16 +1172,14 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
       if (overlaps_a == chrec_top
  	  || overlaps_b == chrec_top)
  	{
- 	  DDR_ARE_DEPENDENT (ddr) = chrec_top;
- 	  DDR_SUBSCRIPTS_VECTOR_FINALIZE (ddr);
- 	  break;
+ 	  finalize_ddr_dependent (ddr, chrec_top);
+	  break;
  	}
       
       else if (overlaps_a == chrec_bot
  	       || overlaps_b == chrec_bot)
  	{
- 	  DDR_ARE_DEPENDENT (ddr) = chrec_bot;
- 	  DDR_SUBSCRIPTS_VECTOR_FINALIZE (ddr);
+ 	  finalize_ddr_dependent (ddr, chrec_bot);
  	  break;
  	}
       
@@ -1198,25 +1192,6 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");
-}
-
-/* Return value of a constant X.  
-   Borrowed from tree-ssa-loop-ivopts.c
-   XXX: Move this into tree.c and remove from both files.  */
-
-static HOST_WIDE_INT
-int_cst_value (tree x)
-{
-  unsigned bits = TYPE_PRECISION (TREE_TYPE (x));
-  unsigned HOST_WIDE_INT val = TREE_INT_CST_LOW (x);
-  bool negative = ((val >> (bits - 1)) & 1) != 0;
-
-  if (negative)
-    val |= (~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1;
-  else
-    val &= ~((~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1);
-
-  return val;
 }
 
 /* Compute the classic per loop distance vector.  */
@@ -1260,7 +1235,7 @@ build_classic_dist_vector (struct data_dependence_relation *res,
 	  if (init_v[loop_nb] != 0
 	      && dist_v[loop_nb] != dist)
 	    {
-	      DDR_ARE_DEPENDENT (res) = chrec_bot;
+	      finalize_ddr_dependent (res, chrec_bot);
 	      return;
 	    }
 
@@ -1358,9 +1333,11 @@ build_classic_dir_vector (struct data_dependence_relation *res,
 	     | endloop
 	     There is no dependence.  */
 	  if (init_v[loop_nb] != 0
-	      && (enum data_dependence_direction) dir_v[loop_nb] != dir)
+	      && dir != dir_star
+	      && (enum data_dependence_direction) dir_v[loop_nb] != dir
+	      && (enum data_dependence_direction) dir_v[loop_nb] != dir_star)
 	    {
-	      DDR_ARE_DEPENDENT (res) = chrec_bot;
+	      finalize_ddr_dependent (res, chrec_bot);
 	      return;
 	    }
 	  
@@ -1405,29 +1382,6 @@ build_classic_dir_vector (struct data_dependence_relation *res,
   }
   
   VARRAY_PUSH_GENERIC_PTR (*classic_dir, dir_v);
-}
-
-/* For all the subscripts, set the same value: CHREC.  */
-
-static void
-set_all_subscripts_to (struct data_dependence_relation *ddr, 
-		       tree chrec)
-{
-  unsigned int i;
-  
-  if (chrec == chrec_top
-      || chrec == chrec_bot)
-    {
-      DDR_ARE_DEPENDENT (ddr) = chrec;
-      DDR_SUBSCRIPTS_VECTOR_FINALIZE (ddr);
-    }
-  
-  for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
-    {
-      struct subscript *subscript = DDR_SUBSCRIPT (ddr, i);
-      SUB_CONFLICTS_IN_A (subscript) = chrec;
-      SUB_CONFLICTS_IN_B (subscript) = chrec;
-    }
 }
 
 /* Determine whether the access functions are affine functions, in
@@ -1484,41 +1438,44 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
 	 the dependence is considered too difficult to determine, answer
 	 "don't know".  */
       else
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "I'm not smart enough for this dependence test," 
-		     "please teach me what I should answer.  \n");
-	  
-	  set_all_subscripts_to (ddr, chrec_top);
-	}
+	finalize_ddr_dependent (ddr, chrec_top);
     }
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");
 }
 
-/* Compute all the data dependence relations.  */
+/* Compute a subset of the data dependence relation graph.  Don't
+   compute read-read relations, and avoid the computation of the
+   opposite relation, ie. when AB has been computed, don't compute
+   BA.  */
 
 static void 
-compute_all_dependences (varray_type datarefs, 
-			 varray_type *dependence_relations)
+compute_rw_wr_ww_dependences (varray_type datarefs, 
+			      varray_type *dependence_relations)
 {
-  unsigned int i, j;
-  
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
-    for (j = 0; j < VARRAY_ACTIVE_SIZE (datarefs); j++)
+  unsigned int i, j, N;
+
+  N = VARRAY_ACTIVE_SIZE (datarefs);
+
+  for (i = 0; i < N; i++)
+    for (j = i; j < N; j++)
       {
 	struct data_reference *a, *b;
 	struct data_dependence_relation *ddr;
 
 	a = VARRAY_GENERIC_PTR (datarefs, i);
 	b = VARRAY_GENERIC_PTR (datarefs, j);
+
+	/* Don't compute the "read-read" relations.  */
+	if (DR_IS_READ (a) && DR_IS_READ (b))
+	  continue;
+
 	ddr = initialize_data_dependence_relation (a, b);
-	
+
 	VARRAY_PUSH_GENERIC_PTR (*dependence_relations, ddr);
 	compute_affine_dependence (ddr);
 	compute_distance_vector (ddr);
-	compute_direction_vector (ddr);
       }
 }
 
@@ -1543,25 +1500,30 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
       
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
         {
-          tree expr = bsi_stmt (bsi);
-	  vdef_optype vdefs = VDEF_OPS (stmt_ann (expr));
-	  vuse_optype vuses = VUSE_OPS (stmt_ann (expr));
+	  tree stmt = bsi_stmt (bsi);
+	  vdef_optype vdefs = VDEF_OPS (stmt_ann (stmt));
+	  vuse_optype vuses = VUSE_OPS (stmt_ann (stmt));
 	  
 	  if (vuses || vdefs)
-	    switch (TREE_CODE (expr))
+	    switch (TREE_CODE (stmt))
 	      {
 	      case MODIFY_EXPR:
-		/* In the GIMPLE representation, the left-hand side of
-		   a modify expression is either an ARRAY_REF or
-		   otherwise it does not contain other ARRAY_REFs.  */
-		if (TREE_CODE (TREE_OPERAND (expr, 0)) == ARRAY_REF)
+		/* In the GIMPLE representation, a modify expression
+		   contains a single load or store to memory.  */
+		if (TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_REF)
 		  VARRAY_PUSH_GENERIC_PTR 
-		    (*datarefs, analyze_array (expr, TREE_OPERAND (expr, 0)));
+		    (*datarefs, analyze_array (stmt, TREE_OPERAND (stmt, 0), 
+					       false));
 		
-		if (TREE_CODE (TREE_OPERAND (expr, 1)) == ARRAY_REF)
+		else if (TREE_CODE (TREE_OPERAND (stmt, 1)) == ARRAY_REF)
 		  VARRAY_PUSH_GENERIC_PTR 
-		    (*datarefs, analyze_array (expr, TREE_OPERAND (expr, 1)));
-		
+		    (*datarefs, analyze_array (stmt, TREE_OPERAND (stmt, 1), 
+					       true));
+
+		else
+		  VARRAY_PUSH_GENERIC_PTR (*datarefs, 
+					   analyze_array_top (stmt));
+		  
 		break;
 		
 	      case COND_EXPR:
@@ -1574,9 +1536,6 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 		break;
 		
 	      default:
-		debug_tree (expr);
-		/* abort (); */
-		fprintf (dump_file, "Find ARRAY_REFs: abort.\n");
 		break;
 	      }
 	}
@@ -1587,8 +1546,8 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 
 /* This section contains all the entry points.  */
 
-/* Yet another entry point.  "Give me a loop nest, I will return you a
-   set of distance/direction vectors."  */
+/* Entry point.  "Give me a loop nest, I will return you a set of
+   distance/direction vectors."  */
 
 void
 compute_data_dependences_for_loop (unsigned nb_loops, 
@@ -1601,7 +1560,7 @@ compute_data_dependences_for_loop (unsigned nb_loops,
   unsigned int i;
 
   find_data_references_in_loop (loop, datarefs);
-  compute_all_dependences (*datarefs, dependence_relations);
+  compute_rw_wr_ww_dependences (*datarefs, dependence_relations);
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (*dependence_relations); i++)
     {
@@ -1612,8 +1571,8 @@ compute_data_dependences_for_loop (unsigned nb_loops,
     }
 }
 
-/* Entry point.  Analyze all the data references and the dependence
-   relations.
+/* Entry point (for testing only).  Analyze all the data references
+   and the dependence relations.
 
    The data references are computed first.  
    

@@ -5367,7 +5367,7 @@ fold (tree expr)
   tree arg0 = NULL_TREE, arg1 = NULL_TREE;
   /* APPLE LOCAL begin AltiVec */
   enum tree_code code;
-  int kind, invert;
+  int kind;
   /* APPLE LOCAL end AltiVec */
   /* WINS will be nonzero when the switch is done
      if all operands are constant.  */
