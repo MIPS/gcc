@@ -1,3 +1,12 @@
+2002-06-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-simplify.c (strip_off_ending): Rename to remove_suffix.
+	Update callers.
+	(is_last_stmt_of_scope): New function.
+	(simplify_expr_stmt): Call it.
+	(stmt_has_effect): Ditto.
+	(c_simplify_function_tree): Update comment.
+
 2002-06-18  Jason Merrill  <jason@redhat.com>
 
 	* c-simplify.c (maybe_fixup_loop_cond): New fn for C++ conditions.

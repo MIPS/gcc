@@ -96,9 +96,10 @@ static tree convert_to_stmt_chain    PARAMS ((tree, tree));
 static int  stmt_has_effect          PARAMS ((tree));
 static int  expr_has_effect          PARAMS ((tree));
 static tree mostly_copy_tree_r       PARAMS ((tree *, int *, void *));
-static inline void strip_off_ending  PARAMS ((char *, int));
+static inline void remove_suffix     PARAMS ((char *, int));
 static const char *get_name          PARAMS ((tree));
 static tree build_addr_expr	     PARAMS ((tree));
+static int is_last_stmt_of_scope     PARAMS ((tree));
 
 /* Local variables.  */
 static FILE *dump_file;
@@ -110,27 +111,6 @@ static int dump_flags;
    might represent the return value of the statement expression.  */
 static int stmt_expr_level;
 
-
-/* Strip off a legitimate source ending from the input string NAME of
-   length LEN.  Rather than having to know the names used by all of
-   our front ends, we strip off an ending of a period followed by
-   up to five characters.  (Java uses ".class".)  */
-
-static inline void 
-strip_off_ending (name, len)
-     char *name;
-     int len;
-{
-  int i;
-  for (i = 2;  i < 8 && len > i;  i++)
-    {
-      if (name[len - i] == '.')
-	{
-	  name[len - i] = '\0';
-	  break;
-	}
-    }
-}
 
 /* Simplification of statement trees.  */
 
@@ -197,7 +177,7 @@ c_simplify_function_tree (fndecl)
 
 
 /** Entry point for the tree lowering pass.  Recursively scan
-    STMT and convert it to a SIMPLE tree.  */
+    *STMT_P and convert it to a SIMPLE tree.  */
 
 static void 
 simplify_stmt (stmt_p)
@@ -381,8 +361,12 @@ simplify_expr_stmt (stmt, pre_p, post_p)
 
       if (!stmt_has_effect (stmt))
 	warning_with_file_and_line (fname, lineno, "statement with no effect");
-      else if (warn_unused_value)
+      else if (warn_unused_value
+	       && stmt_expr_level == 0
+	       && !is_last_stmt_of_scope (stmt))
 	{
+	  /* Only check for unused computations if the statement is not the
+	     last statement of an expression statement.  */
 	  set_file_and_line_for_stmt (fname, lineno);
 	  warn_if_unused_value (EXPR_STMT_EXPR (stmt));
 	}
@@ -2141,7 +2125,7 @@ create_tmp_var (type, prefix)
   if (prefix)
     {
       preftmp = ASTRDUP (prefix);
-      strip_off_ending (preftmp, strlen (preftmp));
+      remove_suffix (preftmp, strlen (preftmp));
       prefix = preftmp;
     }
   
@@ -2521,10 +2505,7 @@ stmt_has_effect (stmt)
 	 statement expression '({ ... })' and this statement may be the
 	 last statement in the statement expression body, then it may
 	 represent the return value of the statement expression.  */
-      if (stmt_expr_level > 0
-	  && TREE_CHAIN (stmt)
-	  && TREE_CODE (TREE_CHAIN (stmt)) == SCOPE_STMT
-	  && SCOPE_END_P (TREE_CHAIN (stmt)))
+      if (stmt_expr_level > 0 && is_last_stmt_of_scope (stmt))
 	return 1;
     }
 
@@ -2560,4 +2541,37 @@ mostly_copy_tree_r (tp, walk_subtrees, data)
     copy_tree_r (tp, walk_subtrees, data);
 
   return NULL_TREE;
+}
+
+/* Strip off a legitimate source ending from the input string NAME of
+   length LEN.  Rather than having to know the names used by all of
+   our front ends, we strip off an ending of a period followed by
+   up to five characters.  (Java uses ".class".)  */
+
+static inline void 
+remove_suffix (name, len)
+     char *name;
+     int len;
+{
+  int i;
+
+  for (i = 2;  i < 8 && len > i;  i++)
+    {
+      if (name[len - i] == '.')
+	{
+	  name[len - i] = '\0';
+	  break;
+	}
+    }
+}
+
+/** Return nonzero if STMT is the last statement of its scope.  */
+
+static int
+is_last_stmt_of_scope (stmt)
+     tree stmt;
+{
+  return (TREE_CHAIN (stmt)
+	  && TREE_CODE (TREE_CHAIN (stmt)) == SCOPE_STMT
+	  && SCOPE_END_P (TREE_CHAIN (stmt)));
 }
