@@ -1,3 +1,10 @@
+2005-02-21  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3809189
+	* g++.dg/pascal-strings-3.C: New.
+	* g++.dg/pascal-strings-4.C: New.
+	* gcc.apple/pascal-strings-3.c: New.
+
 2005-02-21  Devang Patel  <dpatel@apple.com>
 
 	Radar 4007432
