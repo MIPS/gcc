@@ -1,3 +1,10 @@
+2005-02-23  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3809189 (additional test cases)
+	* obj-c++.dg/pascal-strings-1.mm: New.
+	* obj-c++.dg/pascal-strings-2.mm: New.
+	* objc.dg/pascal-strings-1.m: New.
+
 2005-02-22  Devang Patel  <dpatel@apple.com>
 
 	Radar 3844827
