@@ -1,3 +1,13 @@
+2002-10-09  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.md (one_cmpldi2): Use only if TARGET_64BIT.
+	Remove DImode define_split for !TARGET_64BIT.
+	(anddi3): Remove !TARGET_64BIT support from here as well.
+	Change operand 2's predicate to se_uns_arith_operand.
+	Add constant alternatives to define_insn.
+	(iordi3, xordi3, *nordi3): Likewise.
+	(anddi3_internal1, xordi3_immed): Remove.
+
 2002-10-01  Richard Sandiford  <rsandifo@redhat.com>
 
 	* config/mips/mips.h (PROCESSOR_R4121): Rename to PROCESSOR_R4120.

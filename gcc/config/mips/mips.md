@@ -3487,39 +3487,15 @@ move\\t%0,%z4\\n\\
 (define_insn "one_cmpldi2"
   [(set (match_operand:DI 0 "register_operand" "=d")
 	(not:DI (match_operand:DI 1 "se_register_operand" "d")))]
-  ""
+  "TARGET_64BIT"
   "*
 {
   if (TARGET_MIPS16)
-    {
-      if (TARGET_64BIT)
-	return \"not\\t%0,%1\";
-      return \"not\\t%M0,%M1\;not\\t%L0,%L1\";
-    }
-  operands[2] = const0_rtx;
-  if (TARGET_64BIT)
-    return \"nor\\t%0,%z2,%1\";
-  return \"nor\\t%M0,%z2,%M1\;nor\\t%L0,%z2,%L1\";
+    return \"not\\t%0,%1\";
+  return \"nor\\t%0,%.,%1\";
 }"
   [(set_attr "type"	"darith")
-   (set_attr "mode"	"DI")
-   (set (attr "length")
-	(if_then_else (ge (symbol_ref "mips_isa") (const_int 3))
-		       (const_int 4)
-		       (const_int 8)))])
-
-(define_split
-  [(set (match_operand:DI 0 "register_operand" "")
-	(not:DI (match_operand:DI 1 "register_operand" "")))]
-  "reload_completed && !TARGET_64BIT
-   && !TARGET_DEBUG_D_MODE && !TARGET_DEBUG_G_MODE
-   && GET_CODE (operands[0]) == REG && GP_REG_P (REGNO (operands[0]))
-   && GET_CODE (operands[1]) == REG && GP_REG_P (REGNO (operands[1]))"
-
-  [(set (subreg:SI (match_dup 0) 0) (not:SI (subreg:SI (match_dup 1) 0)))
-   (set (subreg:SI (match_dup 0) 4) (not:SI (subreg:SI (match_dup 1) 4)))]
-  "")
-
+   (set_attr "mode"	"DI")])
 
 ;;
 ;;  ....................
@@ -3567,10 +3543,10 @@ move\\t%0,%z4\\n\\
    (set_attr "mode"	"SI")])
 
 (define_expand "anddi3"
-  [(set (match_operand:DI 0 "register_operand" "=d")
-	(and:DI (match_operand:DI 1 "se_register_operand" "d")
-		(match_operand:DI 2 "se_register_operand" "d")))]
-  "TARGET_64BIT || !TARGET_DEBUG_G_MODE"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(and:DI (match_operand:DI 1 "se_register_operand" "")
+		(match_operand:DI 2 "se_uns_arith_operand" "")))]
+  "TARGET_64BIT"
   "
 {
   if (TARGET_MIPS16)
@@ -3581,64 +3557,23 @@ move\\t%0,%z4\\n\\
 }")
 
 (define_insn ""
-  [(set (match_operand:DI 0 "register_operand" "=d")
-	(and:DI (match_operand:DI 1 "se_register_operand" "d")
-		(match_operand:DI 2 "se_register_operand" "d")))]
-  "(TARGET_64BIT || !TARGET_DEBUG_G_MODE) && !TARGET_MIPS16"
-  "*
-{
-  if (TARGET_64BIT)
-    return \"and\\t%0,%1,%2\";
-  return \"and\\t%M0,%M1,%M2\;and\\t%L0,%L1,%L2\";
-}"
-  [(set_attr "type"	"darith")
-   (set_attr "mode"	"DI")
-   (set (attr "length")
-	(if_then_else (ne (symbol_ref "TARGET_64BIT") (const_int 0))
-		       (const_int 4)
-		       (const_int 8)))])
-
-(define_insn ""
-  [(set (match_operand:DI 0 "register_operand" "=d")
-	(and:DI (match_operand:DI 1 "se_register_operand" "0")
-		(match_operand:DI 2 "se_register_operand" "d")))]
-  "(TARGET_64BIT || !TARGET_DEBUG_G_MODE) && TARGET_MIPS16"
-  "*
-{
-  if (TARGET_64BIT)
-    return \"and\\t%0,%2\";
-  return \"and\\t%M0,%M2\;and\\t%L0,%L2\";
-}"
-  [(set_attr "type"	"darith")
-   (set_attr "mode"	"DI")
-   (set (attr "length")
-	(if_then_else (ge (symbol_ref "mips_isa") (const_int 3))
-		       (const_int 4)
-		       (const_int 8)))])
-
-(define_split
-  [(set (match_operand:DI 0 "register_operand" "")
-	(and:DI (match_operand:DI 1 "register_operand" "")
-		(match_operand:DI 2 "register_operand" "")))]
-  "reload_completed && !TARGET_64BIT
-   && !TARGET_DEBUG_D_MODE && !TARGET_DEBUG_G_MODE
-   && GET_CODE (operands[0]) == REG && GP_REG_P (REGNO (operands[0]))
-   && GET_CODE (operands[1]) == REG && GP_REG_P (REGNO (operands[1]))
-   && GET_CODE (operands[2]) == REG && GP_REG_P (REGNO (operands[2]))"
-
-  [(set (subreg:SI (match_dup 0) 0) (and:SI (subreg:SI (match_dup 1) 0) (subreg:SI (match_dup 2) 0)))
-   (set (subreg:SI (match_dup 0) 4) (and:SI (subreg:SI (match_dup 1) 4) (subreg:SI (match_dup 2) 4)))]
-  "")
-
-(define_insn "anddi3_internal1"
   [(set (match_operand:DI 0 "register_operand" "=d,d")
-	(and:DI (match_operand:DI 1 "se_register_operand" "%d,d")
+	(and:DI (match_operand:DI 1 "se_register_operand" "d,d")
 		(match_operand:DI 2 "se_uns_arith_operand" "d,K")))]
   "TARGET_64BIT && !TARGET_MIPS16"
   "@
    and\\t%0,%1,%2
    andi\\t%0,%1,%x2"
-  [(set_attr "type"	"arith")
+  [(set_attr "type"	"darith")
+   (set_attr "mode"	"DI")])
+
+(define_insn ""
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(and:DI (match_operand:DI 1 "se_register_operand" "0")
+		(match_operand:DI 2 "se_register_operand" "d")))]
+  "TARGET_64BIT && TARGET_MIPS16"
+  "and\\t%0,%2"
+  [(set_attr "type"	"darith")
    (set_attr "mode"	"DI")])
 
 (define_expand "iorsi3"
@@ -3675,65 +3610,39 @@ move\\t%0,%z4\\n\\
   [(set_attr "type"	"arith")
    (set_attr "mode"	"SI")])
 
-;;; ??? There is no iordi3 pattern which accepts 'K' constants when
-;;; TARGET_64BIT
-
 (define_expand "iordi3"
-  [(set (match_operand:DI 0 "register_operand" "=d")
-	(ior:DI (match_operand:DI 1 "se_register_operand" "d")
-		(match_operand:DI 2 "se_register_operand" "d")))]
-  "TARGET_64BIT || !TARGET_DEBUG_G_MODE"
-  "")
+  [(set (match_operand:DI 0 "register_operand" "")
+	(ior:DI (match_operand:DI 1 "se_register_operand" "")
+		(match_operand:DI 2 "se_uns_arith_operand" "")))]
+  "TARGET_64BIT"
+  "
+{
+  if (TARGET_MIPS16)
+    {
+      operands[1] = force_reg (DImode, operands[1]);
+      operands[2] = force_reg (DImode, operands[2]);
+    }
+}")
 
 (define_insn ""
-  [(set (match_operand:DI 0 "register_operand" "=d")
-	(ior:DI (match_operand:DI 1 "se_register_operand" "d")
-		(match_operand:DI 2 "se_register_operand" "d")))]
-  "(TARGET_64BIT || !TARGET_DEBUG_G_MODE) && !TARGET_MIPS16"
-  "*
-{
-  if (TARGET_64BIT)
-    return \"or\\t%0,%1,%2\";
-  return \"or\\t%M0,%M1,%M2\;or\\t%L0,%L1,%L2\";
-}"
+  [(set (match_operand:DI 0 "register_operand" "=d,d")
+	(ior:DI (match_operand:DI 1 "se_register_operand" "d,d")
+		(match_operand:DI 2 "se_uns_arith_operand" "d,K")))]
+  "TARGET_64BIT && !TARGET_MIPS16"
+  "@
+   or\t%0,%1,%2
+   ori\t%0,%1,%x2"
   [(set_attr "type"	"darith")
-   (set_attr "mode"	"DI")
-   (set (attr "length")
-	(if_then_else (ne (symbol_ref "TARGET_64BIT") (const_int 0))
-		       (const_int 4)
-		       (const_int 8)))])
+   (set_attr "mode"	"DI")])
 
 (define_insn ""
   [(set (match_operand:DI 0 "register_operand" "=d")
 	(ior:DI (match_operand:DI 1 "se_register_operand" "0")
 		(match_operand:DI 2 "se_register_operand" "d")))]
-  "(TARGET_64BIT || !TARGET_DEBUG_G_MODE) && TARGET_MIPS16"
-  "*
-{
-  if (TARGET_64BIT)
-    return \"or\\t%0,%2\";
-  return \"or\\t%M0,%M2\;or\\t%L0,%L2\";
-}"
+  "TARGET_64BIT && TARGET_MIPS16"
+  "or\t%0,%2"
   [(set_attr "type"	"darith")
-   (set_attr "mode"	"DI")
-   (set (attr "length")
-	(if_then_else (ge (symbol_ref "mips_isa") (const_int 3))
-		       (const_int 4)
-		       (const_int 8)))])
-
-(define_split
-  [(set (match_operand:DI 0 "register_operand" "")
-	(ior:DI (match_operand:DI 1 "register_operand" "")
-		(match_operand:DI 2 "register_operand" "")))]
-  "reload_completed && !TARGET_64BIT
-   && !TARGET_DEBUG_D_MODE && !TARGET_DEBUG_G_MODE
-   && GET_CODE (operands[0]) == REG && GP_REG_P (REGNO (operands[0]))
-   && GET_CODE (operands[1]) == REG && GP_REG_P (REGNO (operands[1]))
-   && GET_CODE (operands[2]) == REG && GP_REG_P (REGNO (operands[2]))"
-
-  [(set (subreg:SI (match_dup 0) 0) (ior:SI (subreg:SI (match_dup 1) 0) (subreg:SI (match_dup 2) 0)))
-   (set (subreg:SI (match_dup 0) 4) (ior:SI (subreg:SI (match_dup 1) 4) (subreg:SI (match_dup 2) 4)))]
-  "")
+   (set_attr "mode"	"DI")])
 
 (define_expand "xorsi3"
   [(set (match_operand:SI 0 "register_operand" "=d,d")
@@ -3771,42 +3680,30 @@ move\\t%0,%z4\\n\\
 			       (const_int 8))
 		 (const_int 4)])])
 
-;; ??? If delete the 32-bit long long patterns, then could merge this with
-;; the following xordi3_internal pattern.
 (define_expand "xordi3"
-  [(set (match_operand:DI 0 "register_operand" "=d")
-	(xor:DI (match_operand:DI 1 "se_register_operand" "d")
-		(match_operand:DI 2 "se_register_operand" "d")))]
-  "TARGET_64BIT || !TARGET_DEBUG_G_MODE"
-  "")
-
-(define_insn ""
-  [(set (match_operand:DI 0 "register_operand" "=d")
-	(xor:DI (match_operand:DI 1 "se_register_operand" "d")
-		(match_operand:DI 2 "se_register_operand" "d")))]
-  "(TARGET_64BIT || !TARGET_DEBUG_G_MODE) && !TARGET_MIPS16"
-  "*
+  [(set (match_operand:DI 0 "register_operand" "")
+	(xor:DI (match_operand:DI 1 "se_register_operand" "")
+		(match_operand:DI 2 "se_uns_arith_operand" "")))]
+  "TARGET_64BIT"
+  "
 {
-  if (TARGET_64BIT)
-    return \"xor\\t%0,%1,%2\";
-  return \"xor\\t%M0,%M1,%M2\;xor\\t%L0,%L1,%L2\";
-}"
-  [(set_attr "type"	"darith")
-   (set_attr "mode"	"DI")
-   (set (attr "length")
-	(if_then_else (ne (symbol_ref "TARGET_64BIT") (const_int 0))
-		       (const_int 4)
-		       (const_int 8)))])
+  if (TARGET_MIPS16)
+    {
+      operands[1] = force_reg (DImode, operands[1]);
+      operands[2] = force_reg (DImode, operands[2]);
+    }
+}")
 
 (define_insn ""
-  [(set (match_operand:DI 0 "register_operand" "=d")
-	(xor:DI (match_operand:DI 1 "se_register_operand" "0")
-		(match_operand:DI 2 "se_register_operand" "d")))]
-  "!TARGET_64BIT && TARGET_MIPS16"
-  "xor\\t%M0,%M2\;xor\\t%L0,%L2"
+  [(set (match_operand:DI 0 "register_operand" "=d,d")
+	(xor:DI (match_operand:DI 1 "se_register_operand" "d,d")
+		(match_operand:DI 2 "se_uns_arith_operand" "d,K")))]
+  "TARGET_64BIT && !TARGET_MIPS16"
+  "@
+   xor\t%0,%1,%2
+   xori\t%0,%1,%x2"
   [(set_attr "type"	"darith")
-   (set_attr "mode"	"DI")
-   (set_attr "length"	"8")])
+   (set_attr "mode"	"DI")])
 
 (define_insn ""
   [(set (match_operand:DI 0 "register_operand" "=d,t,t")
@@ -3826,29 +3723,6 @@ move\\t%0,%z4\\n\\
 			       (const_int 8))
 		 (const_int 4)])])
 
-(define_split
-  [(set (match_operand:DI 0 "register_operand" "")
-	(xor:DI (match_operand:DI 1 "register_operand" "")
-		(match_operand:DI 2 "register_operand" "")))]
-  "reload_completed && !TARGET_64BIT
-   && !TARGET_DEBUG_D_MODE && !TARGET_DEBUG_G_MODE
-   && GET_CODE (operands[0]) == REG && GP_REG_P (REGNO (operands[0]))
-   && GET_CODE (operands[1]) == REG && GP_REG_P (REGNO (operands[1]))
-   && GET_CODE (operands[2]) == REG && GP_REG_P (REGNO (operands[2]))"
-
-  [(set (subreg:SI (match_dup 0) 0) (xor:SI (subreg:SI (match_dup 1) 0) (subreg:SI (match_dup 2) 0)))
-   (set (subreg:SI (match_dup 0) 4) (xor:SI (subreg:SI (match_dup 1) 4) (subreg:SI (match_dup 2) 4)))]
-  "")
-
-(define_insn "xordi3_immed"
-  [(set (match_operand:DI 0 "register_operand" "=d")
-	(xor:DI (match_operand:DI 1 "se_register_operand" "d")
-		(match_operand:DI 2 "se_uns_arith_operand" "K")))]
-  "TARGET_64BIT && !TARGET_MIPS16"
-  "xori\\t%0,%1,%x2"
-  [(set_attr "type"	"arith")
-   (set_attr "mode"	"DI")])
-
 (define_insn "*norsi3"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(and:SI (not:SI (match_operand:SI 1 "register_operand" "d"))
@@ -3862,33 +3736,10 @@ move\\t%0,%z4\\n\\
   [(set (match_operand:DI 0 "register_operand" "=d")
 	(and:DI (not:DI (match_operand:DI 1 "se_register_operand" "d"))
 		(not:DI (match_operand:DI 2 "se_register_operand" "d"))))]
-  "!TARGET_MIPS16"
-  "*
-{
-  if (TARGET_64BIT)
-    return \"nor\\t%0,%z1,%z2\";
-  return \"nor\\t%M0,%M1,%M2\;nor\\t%L0,%L1,%L2\";
-}"
+  "TARGET_64BIT && !TARGET_MIPS16"
+  "nor\\t%0,%z1,%z2"
   [(set_attr "type"	"darith")
-   (set_attr "mode"	"DI")
-   (set (attr "length")
-	(if_then_else (ne (symbol_ref "TARGET_64BIT") (const_int 0))
-		       (const_int 4)
-		       (const_int 8)))])
-
-(define_split
-  [(set (match_operand:DI 0 "register_operand" "")
-	(and:DI (not:DI (match_operand:DI 1 "register_operand" ""))
-		(not:DI (match_operand:DI 2 "register_operand" ""))))]
-  "reload_completed && !TARGET_MIPS16 && !TARGET_64BIT
-   && !TARGET_DEBUG_D_MODE && !TARGET_DEBUG_G_MODE
-   && GET_CODE (operands[0]) == REG && GP_REG_P (REGNO (operands[0]))
-   && GET_CODE (operands[1]) == REG && GP_REG_P (REGNO (operands[1]))
-   && GET_CODE (operands[2]) == REG && GP_REG_P (REGNO (operands[2]))"
-
-  [(set (subreg:SI (match_dup 0) 0) (and:SI (not:SI (subreg:SI (match_dup 1) 0)) (not:SI (subreg:SI (match_dup 2) 0))))
-   (set (subreg:SI (match_dup 0) 4) (and:SI (not:SI (subreg:SI (match_dup 1) 4)) (not:SI (subreg:SI (match_dup 2) 4))))]
-  "")
+   (set_attr "mode"	"DI")])
 
 ;;
 ;;  ....................
