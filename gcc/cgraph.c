@@ -24,7 +24,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "tree-inline.h"
 #include "langhooks.h"
 #include "hashtab.h"
 #include "toplev.h"
@@ -34,13 +33,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "cgraph.h"
 #include "varray.h"
+#include "output.h"
 
 /* The known declarations must not get garbage collected.  Callgraph
    datastructures should not get saved via PCH code since this would
    make it difficult to extend into intra-module optimizer later.  So
    we store only the references into the array to prevent gabrage
    collector from deleting live data.  */
-static GTY(()) varray_type known_fns;
+static GTY(()) varray_type known_decls;
 
 /* Hash table used to convert declarations into nodes.  */
 static htab_t cgraph_hash = 0;
@@ -48,23 +48,35 @@ static htab_t cgraph_hash = 0;
 /* The linked list of cgraph nodes.  */
 struct cgraph_node *cgraph_nodes;
 
+/* Queue of cgraph nodes scheduled to be lowered.  */
+struct cgraph_node *cgraph_nodes_queue;
+
 /* Number of nodes in existence.  */
 int cgraph_n_nodes;
 
 /* Set when whole unit has been analyzed so we can access global info.  */
 bool cgraph_global_info_ready = false;
 
+/* Hash table used to convert declarations into nodes.  */
+static htab_t cgraph_varpool_hash = 0;
+
+/* Queue of cgraph nodes scheduled to be lowered and output.  */
+struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
+
+/* Number of nodes in existence.  */
+int cgraph_varpool_n_nodes;
+
 static struct cgraph_edge *create_edge PARAMS ((struct cgraph_node *,
 						struct cgraph_node *));
 static void cgraph_remove_edge PARAMS ((struct cgraph_node *, struct cgraph_node *));
-static hashval_t hash_node PARAMS ((const PTR));
-static int eq_node PARAMS ((const PTR, const PTR));
+static hashval_t hash_node PARAMS ((const void *));
+static int eq_node PARAMS ((const void *, const void *));
 
 /* Returns a hash code for P.  */
 
 static hashval_t
 hash_node (p)
-     const PTR p;
+     const void *p;
 {
   return (hashval_t)
     htab_hash_pointer (DECL_ASSEMBLER_NAME
@@ -75,11 +87,11 @@ hash_node (p)
 
 static int
 eq_node (p1, p2)
-     const PTR p1;
-     const PTR p2;
+     const void *p1;
+     const void *p2;
 {
   return ((DECL_ASSEMBLER_NAME (((struct cgraph_node *) p1)->decl)) ==
-	  DECL_ASSEMBLER_NAME ((tree) p2));
+	  (tree) p2);
 }
 
 /* Return cgraph node assigned to DECL.  Create new one when needed.  */
@@ -96,11 +108,13 @@ cgraph_node (decl)
   if (!cgraph_hash)
     {
       cgraph_hash = htab_create (10, hash_node, eq_node, NULL);
-      VARRAY_TREE_INIT (known_fns, 32, "known_fns");
+      if (!known_decls)
+        VARRAY_TREE_INIT (known_decls, 32, "known_decls");
     }
 
   slot =
-    (struct cgraph_node **) htab_find_slot_with_hash (cgraph_hash, decl,
+    (struct cgraph_node **) htab_find_slot_with_hash (cgraph_hash,
+						      DECL_ASSEMBLER_NAME (decl),
 						      htab_hash_pointer
 						      (DECL_ASSEMBLER_NAME
 						       (decl)), 1);
@@ -121,8 +135,29 @@ cgraph_node (decl)
       node->next_nested = node->origin->nested;
       node->origin->nested = node;
     }
-  VARRAY_PUSH_TREE (known_fns, decl);
+  VARRAY_PUSH_TREE (known_decls, decl);
   return node;
+}
+
+/* Try to find existing function for identifier ID.  */
+struct cgraph_node *
+cgraph_node_for_identifier (id)
+     tree id;
+{
+  struct cgraph_node **slot;
+
+  if (TREE_CODE (id) != IDENTIFIER_NODE)
+    abort ();
+
+  if (!cgraph_hash)
+    return NULL;
+
+  slot =
+    (struct cgraph_node **) htab_find_slot_with_hash (cgraph_hash, id,
+						      htab_hash_pointer (id), 0);
+  if (!slot)
+    return NULL;
+  return *slot;
 }
 
 /* Create edge from CALLER to CALLEE in the cgraph.  */
@@ -192,6 +227,28 @@ cgraph_remove_node (node)
     node->next->previous = node->previous;
   DECL_SAVED_TREE (node->decl) = NULL;
   /* Do not free the structure itself so the walk over chain can continue.  */
+}
+
+/* Notify finalize_compilation_unit that given node is reachable
+   or needed.  */
+void
+cgraph_mark_needed_node (node, needed)
+     struct cgraph_node *node;
+     int needed;
+{
+  if (needed)
+    {
+      node->needed = 1;
+    }
+  if (!node->reachable)
+    {
+      node->reachable = 1;
+      if (DECL_SAVED_TREE (node->decl))
+	{
+	  node->aux = cgraph_nodes_queue;
+	  cgraph_nodes_queue = node;
+        }
+    }
 }
 
 
@@ -305,5 +362,137 @@ dump_cgraph (f)
       fprintf (f, "\n");
     }
 }
+
+/* Returns a hash code for P.  */
+
+static hashval_t
+cgraph_varpool_hash_node (const PTR p)
+{
+  return (hashval_t)
+    htab_hash_pointer (DECL_ASSEMBLER_NAME
+		       (((struct cgraph_varpool_node *) p)->decl));
+}
+
+/* Returns non-zero if P1 and P2 are equal.  */
+
+static int
+eq_cgraph_varpool_node (const PTR p1, const PTR p2)
+{
+  return ((DECL_ASSEMBLER_NAME (((struct cgraph_varpool_node *) p1)->decl)) ==
+	  (tree) p2);
+}
+
+/* Return cgraph_varpool node assigned to DECL.  Create new one when needed.  */
+struct cgraph_varpool_node *
+cgraph_varpool_node (tree decl)
+{
+  struct cgraph_varpool_node *node;
+  struct cgraph_varpool_node **slot;
+
+  if (!DECL_P (decl) || TREE_CODE (decl) == FUNCTION_DECL)
+    abort ();
+
+  if (!cgraph_varpool_hash)
+    {
+      cgraph_varpool_hash = htab_create (10, cgraph_varpool_hash_node, eq_cgraph_varpool_node, NULL);
+      if (!known_decls)
+        VARRAY_TREE_INIT (known_decls, 32, "known_decls");
+    }
+
+  slot =
+    (struct cgraph_varpool_node **) htab_find_slot_with_hash (cgraph_varpool_hash,
+						      DECL_ASSEMBLER_NAME (decl),
+						      htab_hash_pointer
+						      (DECL_ASSEMBLER_NAME
+						       (decl)), 1);
+  if (*slot)
+    return *slot;
+  node = xcalloc (sizeof (*node), 1);
+  node->decl = decl;
+  cgraph_varpool_n_nodes++;
+  *slot = node;
+  VARRAY_PUSH_TREE (known_decls, decl);
+  return node;
+}
+
+/* Try to find existing function for identifier ID.  */
+struct cgraph_varpool_node *
+cgraph_varpool_node_for_identifier (tree id)
+{
+  struct cgraph_varpool_node **slot;
+
+  if (TREE_CODE (id) != IDENTIFIER_NODE)
+    abort ();
+
+  if (!cgraph_varpool_hash)
+    return NULL;
+
+  slot =
+    (struct cgraph_varpool_node **) htab_find_slot_with_hash (cgraph_varpool_hash, id,
+						      htab_hash_pointer (id), 0);
+  if (!slot)
+    return NULL;
+  return *slot;
+}
+
+/* Notify finalize_compilation_unit that given node is reachable
+   or needed.  */
+void
+cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *node)
+{
+  if (!node->needed && node->finalized)
+    {
+      node->aux = cgraph_varpool_nodes_queue;
+      cgraph_varpool_nodes_queue = node;
+    }
+  node->needed = 1;
+}
+
+void
+cgraph_varpool_finalize_decl (tree decl)
+{
+  struct cgraph_varpool_node *node = cgraph_varpool_node (decl);
+
+  if (node->needed && !node->finalized)
+    {
+      node->aux = cgraph_varpool_nodes_queue;
+      cgraph_varpool_nodes_queue = node;
+    }
+  node->finalized = true;
+
+  if (/* Externally visible variables must be output.  The exception are
+	 COMDAT functions that must be output only when they are needed.  */
+      (TREE_PUBLIC (decl) && !DECL_COMDAT (decl))
+      /* Function whose name is output to the assembler file must be produced.
+	 It is possible to assemble the name later after finalizing the function
+	 and the fact is noticed in assemble_name then.  */
+      || (DECL_ASSEMBLER_NAME_SET_P (decl)
+	  && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
+    {
+      cgraph_varpool_mark_needed_node (node);
+    }
+}
+
+bool
+cgraph_varpool_assemble_pending_decls ()
+{
+  bool changed = false;
+
+  while (cgraph_varpool_nodes_queue)
+    {
+      tree decl = cgraph_varpool_nodes_queue->decl;
+      struct cgraph_varpool_node *node = cgraph_varpool_nodes_queue;
+
+      cgraph_varpool_nodes_queue = cgraph_varpool_nodes_queue->aux;
+      if (!TREE_ASM_WRITTEN (decl))
+	{
+	  assemble_variable (decl, 0, 1, 0);
+	  changed = true;
+	}
+      node->aux = NULL;
+    }
+  return changed;
+}
+
 
 #include "gt-cgraph.h"

@@ -265,27 +265,11 @@ const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 static int
 java_handle_option (size_t scode, const char *arg, int value)
 {
-  const struct cl_option *option = &cl_options[scode];
   enum opt_code code = (enum opt_code) scode;
 
   /* Ignore file names.  */
   if (code == N_OPTS)
       return 1;
-
-  if (arg == NULL && (option->flags & (CL_JOINED | CL_SEPARATE)))
-    {
-      /* These can take an empty argument.  */
-      if (code == OPT_fassume_compiled_
-	  || code == OPT_fclasspath_
-	  || code == OPT_fCLASSPATH_
-	  || code == OPT_fbootclasspath_)
-	arg = "";
-      else
-	{
-	  error ("missing argument to \"-%s\"", option->opt_text);
-	  return 1;
-	}
-    }
 
   switch (code)
     {
@@ -385,7 +369,7 @@ java_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_fdump_:
-      if (!dump_switch_p (option->opt_text + strlen ("f")))
+      if (!dump_switch_p (arg))
 	return 0;
       break;
 

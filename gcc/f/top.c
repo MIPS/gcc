@@ -175,18 +175,11 @@ ffe_init_options ()
 int
 ffe_handle_option (size_t scode, const char *arg, int value)
 {
-  const struct cl_option *option = &cl_options[scode];
   enum opt_code code = (enum opt_code) scode;
 
   /* Ignore file names.  */
   if (code == N_OPTS)
     return 1;
-
-  if (arg == NULL && (option->flags & (CL_JOINED | CL_SEPARATE)))
-    {
-      error ("missing argument to \"-%s\"", option->opt_text);
-      return 1;
-    }
 
   switch (code)
     {
@@ -239,8 +232,6 @@ ffe_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_ffixed_form:
       ffe_set_is_free_form (!value);
-      if (value)
-	return -1;
       break;
 
     case OPT_fpedantic:
@@ -442,6 +433,7 @@ ffe_handle_option (size_t scode, const char *arg, int value)
       ffe_set_case_match (FFE_caseNONE);
       ffe_set_case_source (FFE_caseLOWER);
       ffe_set_case_symbol (FFE_caseNONE);
+      break;
 
     case OPT_fcase_preserve:
       ffe_set_case_intrin (FFE_caseNONE);
@@ -564,21 +556,18 @@ ffe_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_ffixed_line_length_:
       if (strcmp (arg, "none") == 0)
-	{
-	  ffe_set_fixed_line_length (0);
-	  return -1;
-	}
+	ffe_set_fixed_line_length (0);
       else if (ffe_is_digit_string_ (arg))
-	{
-	  ffe_set_fixed_line_length (atol (arg));
-	  return -1;
-	}
-      return 0;
+	ffe_set_fixed_line_length (atol (arg));
+      else
+	return 0;
+      break;
 
     case OPT_Wcomment:
     case OPT_Wcomments:
     case OPT_Wimport:
     case OPT_Wtrigraphs:
+    case OPT_fpreprocessed:
       /* These are for cpp.  */
       break;
 

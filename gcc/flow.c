@@ -1,6 +1,6 @@
 /* Data flow analysis for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -333,7 +333,6 @@ static void mark_used_reg		PARAMS ((struct propagate_block_info *,
 						 rtx, rtx, rtx));
 static void mark_used_regs		PARAMS ((struct propagate_block_info *,
 						 rtx, rtx, rtx));
-void dump_flow_info			PARAMS ((FILE *));
 void debug_flow_info			PARAMS ((void));
 static void add_to_mem_set_list		PARAMS ((struct propagate_block_info *,
 						 rtx));
@@ -986,7 +985,7 @@ mark_regs_live_at_end (set)
 
   /* If exiting needs the right stack value, consider the stack pointer
      live at the end of the function.  */
-  if ((HAVE_epilogue && reload_completed)
+  if ((HAVE_epilogue && epilogue_completed)
       || ! EXIT_IGNORE_STACK
       || (! FRAME_POINTER_REQUIRED
 	  && ! current_function_calls_alloca
@@ -1026,7 +1025,7 @@ mark_regs_live_at_end (set)
     if (global_regs[i] || EPILOGUE_USES (i))
       SET_REGNO_REG_SET (set, i);
 
-  if (HAVE_epilogue && reload_completed)
+  if (HAVE_epilogue && epilogue_completed)
     {
       /* Mark all call-saved registers that we actually used.  */
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -1047,7 +1046,7 @@ mark_regs_live_at_end (set)
       }
 #endif
 #ifdef EH_RETURN_STACKADJ_RTX
-  if ((! HAVE_epilogue || ! reload_completed)
+  if ((! HAVE_epilogue || ! epilogue_completed)
       && current_function_calls_eh_return)
     {
       rtx tmp = EH_RETURN_STACKADJ_RTX;
@@ -1056,7 +1055,7 @@ mark_regs_live_at_end (set)
     }
 #endif
 #ifdef EH_RETURN_HANDLER_RTX
-  if ((! HAVE_epilogue || ! reload_completed)
+  if ((! HAVE_epilogue || ! epilogue_completed)
       && current_function_calls_eh_return)
     {
       rtx tmp = EH_RETURN_HANDLER_RTX;
@@ -1771,8 +1770,10 @@ propagate_one_insn (pbi, insn)
 
       if (GET_CODE (insn) == CALL_INSN)
 	{
-	  int i;
+	  regset live_at_end;
+	  bool sibcall_p;
 	  rtx note, cond;
+	  int i;
 
 	  cond = NULL_RTX;
 	  if (GET_CODE (PATTERN (insn)) == COND_EXEC)
@@ -1797,9 +1798,17 @@ propagate_one_insn (pbi, insn)
 	      mark_set_1 (pbi, CLOBBER, XEXP (XEXP (note, 0), 0),
 			  cond, insn, pbi->flags);
 
-	  /* Calls change all call-used and global registers.  */
+	  /* Calls change all call-used and global registers; sibcalls do not
+	     clobber anything that must be preserved at end-of-function,
+	     except for return values.  */
+
+	  sibcall_p = SIBLING_CALL_P (insn);
+	  live_at_end = EXIT_BLOCK_PTR->global_live_at_start;
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	    if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
+	    if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i)
+		&& ! (sibcall_p
+		      && REGNO_REG_SET_P (live_at_end, i)
+		      && !FUNCTION_VALUE_REGNO_P (i)))
 	      {
 		/* We do not want REG_UNUSED notes for these registers.  */
 		mark_set_1 (pbi, CLOBBER, regno_reg_rtx[i], cond, insn,
@@ -3843,7 +3852,8 @@ mark_used_regs (pbi, x, cond, insn)
 
     case SUBREG:
 #ifdef CANNOT_CHANGE_MODE_CLASS
-      if (GET_CODE (SUBREG_REG (x)) == REG
+      if ((flags & PROP_REG_INFO)
+	  && GET_CODE (SUBREG_REG (x)) == REG
 	  && REGNO (SUBREG_REG (x)) >= FIRST_PSEUDO_REGISTER)
 	bitmap_set_bit (&subregs_of_mode, REGNO (SUBREG_REG (x))
 					  * MAX_MACHINE_MODE
@@ -3892,7 +3902,8 @@ mark_used_regs (pbi, x, cond, insn)
 	       || GET_CODE (testreg) == SUBREG)
 	  {
 #ifdef CANNOT_CHANGE_MODE_CLASS
-	    if (GET_CODE (testreg) == SUBREG
+	    if ((flags & PROP_REG_INFO)
+		&& GET_CODE (testreg) == SUBREG
 		&& GET_CODE (SUBREG_REG (testreg)) == REG
 		&& REGNO (SUBREG_REG (testreg)) >= FIRST_PSEUDO_REGISTER)
 	      bitmap_set_bit (&subregs_of_mode, REGNO (SUBREG_REG (testreg))

@@ -1,5 +1,11 @@
 2003-06-27  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* configure.in: Handle stage1_languages properly.
+	* configure: Regenerate.
+	Auto-detects ada for stage 1 now, and bootstraps!
+
+	Merge from mainline.
+
 	* Makefile.tpl: Create a Makefile variable for STAGE1_LANGUAGES.
 	* Makefile.in: Regenerate.
 

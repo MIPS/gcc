@@ -30,7 +30,6 @@ extern int toplev_main			(int, char **);
 extern int read_integral_parameter	(const char *, const char *,
 					 const int);
 extern void strip_off_ending		(char *, int);
-extern void print_time			(const char *, long);
 extern const char *trim_filename	(const char *);
 extern void internal_error		(const char *, ...)
      ATTRIBUTE_NORETURN;
@@ -105,9 +104,31 @@ extern bool version_flag;
 
 extern int target_flags_explicit;
 
+/* See toplev.c.  */
+extern int flag_loop_optimize;
+extern int flag_crossjumping;
+extern int flag_if_conversion;
+extern int flag_if_conversion2;
+extern int flag_delete_null_pointer_checks;
+extern int flag_keep_static_consts;
+extern int flag_peel_loops;
+extern int flag_rerun_cse_after_loop;
+extern int flag_thread_jumps;
+extern int flag_tracer;
+extern int flag_unroll_loops;
+extern int flag_unroll_all_loops;
+extern int flag_unswitch_loops;
+extern int flag_cprop_registers;
+extern int flag_ssa;
+extern int flag_ssa_ccp;
+extern int flag_ssa_dce;
+extern int time_report;
+extern int flag_new_regalloc;
+
 extern void display_help (void);
 extern void display_target_options (void);
 extern void print_version (FILE *, const char *);
+extern void set_target_switch (const char *);
 
 /* The hashtable, so that the C front ends can pass it to cpplib.  */
 extern struct ht *ident_hash;
@@ -119,6 +140,9 @@ extern void set_fast_math_flags         (int);
 
 /* Handle -d switch.  */
 extern void decode_d_option		(const char *);
+
+/* Handle -g switch.  */
+extern void decode_g_option		(const char *);
 
 /* Return true iff flags are set as if -ffast-math.  */
 extern bool fast_math_flags_set_p	(void);

@@ -143,7 +143,12 @@ struct gcc_target
 				          HOST_WIDE_INT vcall_offset,
 				          tree function_decl));
 
-    /* Output any boilerplate text needed at the end of a translation unit.  */
+    /* Output any boilerplate text needed at the beginning of a
+       translation unit.  */
+    void (*file_start) PARAMS ((void));
+
+    /* Output any boilerplate text needed at the end of a
+       translation unit.  */
     void (*file_end) PARAMS ((void));
   } asm_out;
 
@@ -291,6 +296,16 @@ struct gcc_target
      not, at the current point in the compilation.  */
   bool (* cannot_modify_jumps_p) PARAMS ((void));
 
+  /* Return a register class for which branch target register
+     optimizations should be applied.  */
+  int (* branch_target_register_class) PARAMS ((void));
+
+  /* Return true if branch target register optimizations should include
+     callee-saved registers that are not already live during the current
+     function.  AFTER_PE_GEN is true if prologues and epilogues have
+     already been generated.  */
+  bool (* branch_target_register_callee_saved) PARAMS ((bool after_pe_gen));
+
   /* True if the constant X cannot be placed in the constant pool.  */
   bool (* cannot_force_const_mem) PARAMS ((rtx));
 
@@ -365,6 +380,14 @@ struct gcc_target
 
   /* True if EH frame info sections should be zero-terminated.  */
   bool terminate_dw2_eh_frame_info;
+
+  /* True if #NO_APP should be emitted at the beginning of
+     assembly output.  */
+  bool file_start_app_off;
+
+  /* True if output_file_directive should be called for main_input_filename
+     at the beginning of assembly output.  */
+  bool file_start_file_directive;
 };
 
 extern struct gcc_target targetm;

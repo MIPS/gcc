@@ -234,6 +234,7 @@ extern const struct real_format ieee_double_format;
 extern const struct real_format mips_double_format;
 extern const struct real_format ieee_extended_motorola_format;
 extern const struct real_format ieee_extended_intel_96_format;
+extern const struct real_format ieee_extended_intel_96_round_53_format;
 extern const struct real_format ieee_extended_intel_128_format;
 extern const struct real_format ibm_extended_format;
 extern const struct real_format mips_extended_format;
@@ -368,7 +369,7 @@ extern bool real_sqrt			PARAMS ((REAL_VALUE_TYPE *,
 						 enum machine_mode,
 						 const REAL_VALUE_TYPE *));
 
-/* Calculate R as X raised to the integer exponent N in mode MODE. */
+/* Calculate R as X raised to the integer exponent N in mode MODE.  */
 extern bool real_powi			PARAMS ((REAL_VALUE_TYPE *,
 						 enum machine_mode,
 						 const REAL_VALUE_TYPE *,

@@ -30,7 +30,6 @@ Boston, MA 02111-1307, USA.  */
 #undef PTRDIFF_TYPE
 #undef WCHAR_TYPE
 #undef WCHAR_TYPE_SIZE
-#undef ASM_FILE_START
 #undef ASM_OUTPUT_EXTERNAL_LIBCALL
 #undef TARGET_VERSION
 #undef CPP_SPEC
@@ -1517,9 +1516,6 @@ do {									\
 
 /* Control the assembler format that we output.  */
 
-/* Output at beginning of assembler file.  */
-#define ASM_FILE_START(FILE) m32r_asm_file_start (FILE)
-
 /* A C string constant describing how to begin a comment in the target
    assembler language.  The compiler assumes that the comment will
    end at the end of the line.  */
@@ -1545,19 +1541,17 @@ do {									\
    of a word.  */
 
 #undef	ASM_OUTPUT_SOURCE_LINE
-#define ASM_OUTPUT_SOURCE_LINE(file, line)				\
+#define ASM_OUTPUT_SOURCE_LINE(file, line, counter)			\
   do									\
     {									\
-      static int sym_lineno = 1;					\
       fprintf (file, ".stabn 68,0,%d,.LM%d-",				\
-	       line, sym_lineno);					\
+	       line, counter);						\
       assemble_name							\
 	(file, XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));	\
       fprintf (file, (optimize_size || TARGET_M32R)			\
 	       ? "\n\t.debugsym .LM%d\n"				\
 	       : "\n.LM%d:\n",						\
-	       sym_lineno);						\
-      sym_lineno += 1;							\
+	       counter);						\
     }									\
   while (0)
 
@@ -1687,8 +1681,6 @@ extern char m32r_punct_chars[256];
 #define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGN)		\
   do									\
     {									\
-      extern unsigned HOST_WIDE_INT g_switch_value;			\
-									\
       if (! TARGET_SDATA_NONE						\
 	  && (SIZE) > 0 && (SIZE) <= g_switch_value)			\
 	fprintf ((FILE), "%s", SCOMMON_ASM_OP);				\

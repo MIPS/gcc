@@ -244,7 +244,7 @@ in the following sections.
 -fdump-tree-optimized@r{[}-@var{n}@r{]} @gol
 -fdump-tree-inlined@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
--fmem-report -fprofile-arcs @gol
+-feliminate-unused-debug-symbols -fmem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
 -ftest-coverage  -ftime-report @gol
 -g  -g@var{level}  -gcoff  -gdwarf  -gdwarf-1  -gdwarf-1+  -gdwarf-2 @gol
@@ -258,7 +258,8 @@ in the following sections.
 @xref{Optimize Options,,Options that Control Optimization}.
 @gccoptlist{-falign-functions=@var{n}  -falign-jumps=@var{n} @gol
 -falign-labels=@var{n}  -falign-loops=@var{n}  @gol
--fbranch-probabilities  -fcaller-saves  -fcprop-registers @gol
+-fbranch-probabilities -fprofile-values -fbranch-target-load-optimize @gol
+-fbranch-target-load-optimize2 -fcaller-saves  -fcprop-registers @gol
 -fcse-follow-jumps  -fcse-skip-blocks  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
@@ -486,7 +487,7 @@ in the following sections.
 -mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} @gol
--mmmx  -msse  -msse2  -m3dnow @gol
+-mmmx  -msse  -msse2 -mpni -m3dnow @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -momit-leaf-frame-pointer @gol
@@ -2810,6 +2811,15 @@ code is to provide behavior which is selectable at compile-time.
 @item -Winline
 @opindex Winline
 Warn if a function can not be inlined and it was declared as inline.
+Even with this option, the compiler will not warn about failures to
+inline functions declared in system headers.  
+
+The compiler uses a variety of heuristics to determine whether or not
+to inline a function.  For example, the compiler takes into account
+the size of the function being inlined and the the amount of inlining
+that has already been done in the current function.  Therefore,
+seemingly insignificant changes in the source program can cause the
+warnings produced by @option{-Winline} to appear or disappear.
 
 @item -Wno-invalid-offsetof @r{(C++ only)}
 @opindex Wno-invalid-offsetof
@@ -2905,6 +2915,11 @@ without GDB extensions.  This is the format used by DBX on most BSD
 systems.  On MIPS, Alpha and System V Release 4 systems this option
 produces stabs debugging output which is not understood by DBX or SDB@.
 On System V Release 4 systems this option requires the GNU assembler.
+
+@item -feliminate-unused-debug-symbols
+@opindex feliminate-unused-debug-symbols
+Produce debugging information in stabs format (if that is supported),
+for only symbols that are actualy used.
 
 @item -gstabs+
 @opindex gstabs+
@@ -3114,9 +3129,11 @@ Dump after instruction combination, to the file @file{@var{file}.21.combine}.
 @item C
 @opindex dC
 Dump after the first if conversion, to the file @file{@var{file}.16.ce1}.
+Also dump after the second if conversion, to the file @file{@var{file}.22.ce2}.
 @item d
 @opindex dd
-Dump after delayed branch scheduling, to @file{@var{file}.36.dbr}.
+Dump after branch target load optimization, to to @file{@var{file}.33.btl}.
+Also dump after delayed branch scheduling, to @file{@var{file}.36.dbr}.
 @item D
 @opindex dD
 Dump all macro definitions, at the end of preprocessing, in addition to
@@ -3130,25 +3147,22 @@ Dump after SSA optimizations, to @file{@var{file}.04.ssa} and
 Dump after the second if conversion, to @file{@var{file}.32.ce3}.
 @item f
 @opindex df
-Dump after life analysis, to @file{@var{file}.20.life}.
+Dump after control and data flow analysis, to @file{@var{file}.14.cfg}.
+Also dump after life analysis, to @file{@var{file}.20.life}.
 @item F
 @opindex dF
 Dump after purging @code{ADDRESSOF} codes, to @file{@var{file}.10.addressof}.
 @item g
 @opindex dg
 Dump after global register allocation, to @file{@var{file}.26.greg}.
-@item h
-@opindex dh
-Dump after finalization of EH handling code, to @file{@var{file}.02.eh}.
-@item k
-@opindex dk
-Dump after reg-to-stack conversion, to @file{@var{file}.34.stack}.
-@item o
-@opindex do
-Dump after post-reload optimizations, to @file{@var{file}.27.postreload}.
 @item G
 @opindex dG
 Dump after GCSE, to @file{@var{file}.11.gcse}.
+Also dump after jump bypassing and control flow optimizations, to
+@file{@var{file}.13.bypass}.
+@item h
+@opindex dh
+Dump after finalization of EH handling code, to @file{@var{file}.02.eh}.
 @item i
 @opindex di
 Dump after sibling call optimizations, to @file{@var{file}.01.sibling}.
@@ -3157,7 +3171,7 @@ Dump after sibling call optimizations, to @file{@var{file}.01.sibling}.
 Dump after the first jump optimization, to @file{@var{file}.03.jump}.
 @item k
 @opindex dk
-Dump after conversion from registers to stack, to @file{@var{file}.34.stack}.
+Dump after conversion from registers to stack, to @file{@var{file}.35.stack}.
 @item l
 @opindex dl
 Dump after local register allocation, to @file{@var{file}.25.lreg}.
@@ -3168,19 +3182,22 @@ Dump after loop optimization passes, to @file{@var{file}.12.loop} and
 @item M
 @opindex dM
 Dump after performing the machine dependent reorganization pass, to
-@file{@var{file}.35.mach}.
+@file{@var{file}.36.mach}.
 @item n
 @opindex dn
 Dump after register renumbering, to @file{@var{file}.30.rnreg}.
 @item N
 @opindex dN
 Dump after the register move pass, to @file{@var{file}.23.regmove}.
+@item o
+@opindex do
+Dump after post-reload optimizations, to @file{@var{file}.27.postreload}.
 @item r
 @opindex dr
 Dump after RTL generation, to @file{@var{file}.00.rtl}.
 @item R
 @opindex dR
-Dump after the second scheduling pass, to @file{@var{file}.33.sched2}.
+Dump after the second scheduling pass, to @file{@var{file}.34.sched2}.
 @item s
 @opindex ds
 Dump after CSE (including the jump optimization that sometimes follows
@@ -3192,12 +3209,19 @@ Dump after the first scheduling pass, to @file{@var{file}.24.sched}.
 @opindex dt
 Dump after the second CSE pass (including the jump optimization that
 sometimes follows CSE), to @file{@var{file}.19.cse2}.
+@item T
+@opindex dT
+Dump after running tracer, to @file{@var{file}.17.tracer}.
 @item u
 @opindex du
 Dump after null pointer elimination pass to @file{@var{file}.08.null}.
 @item w
 @opindex dw
 Dump after the second flow pass, to @file{@var{file}.28.flow2}.
+@item W
+@opindex dW
+Dump after SSA conditional constant propagation, to
+@file{@var{file}.05.ssaccp}.
 @item X
 @opindex dX
 Dump after SSA dead code elimination, to @file{@var{file}.06.ssadce}.
@@ -4027,7 +4051,7 @@ The default is @option{-fguess-branch-probability} at levels
 Reorder basic blocks in the compiled function in order to reduce number of
 taken branches and improve code locality.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+Enabled at levels @option{-O2}, @option{-O3}.
 
 @item -freorder-functions
 @opindex freorder-functions
@@ -4305,6 +4329,11 @@ used in one place: in @file{reorg.c}, instead of guessing which path a
 branch is mostly to take, the @samp{REG_BR_PROB} values are used to
 exactly determine which path is taken more often.
 
+@item -fprofile-values
+@opindex fprofile-values
+If combined with @option{-fprofile-arcs}, it adds code so that some
+data about values of expressions in the program is gathered.
+
 @item -fnew-ra
 @opindex fnew-ra
 Use a graph coloring register allocator.  Currently this option is meant
@@ -4419,6 +4448,19 @@ Perform Sparse Conditional Constant Propagation in SSA form.  Requires
 @opindex fssa-dce
 Perform aggressive dead-code elimination in SSA form.  Requires @option{-fssa}.
 Like @option{-fssa}, this is an experimental feature.
+
+@item -fbranch-target-load-optimize
+@opindex fbranch-target-load-optimize
+Perform branch target register load optimization before prologue / epilogue
+threading.
+The use of target registers can typically be exposed only during reload,
+thus hoisting loads out of loops and doing inter-block scheduling needs
+a separate optimization pass.
+
+@item -fbranch-target-load-optimize2
+@opindex fbranch-target-load-optimize2
+Perform branch target register load optimization after prologue / epilogue
+threading.
 
 
 
@@ -6338,7 +6380,7 @@ assembly code.  Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{strongarm}, @samp{strongarm110}, @samp{strongarm1100},
 @samp{arm8}, @samp{arm810}, @samp{arm9}, @samp{arm9e}, @samp{arm920},
 @samp{arm920t}, @samp{arm940t}, @samp{arm9tdmi}, @samp{arm10tdmi},
-@samp{arm1020t}, @samp{xscale}, @samp{ep9312}.
+@samp{arm1020t}, @samp{xscale}, @samp{iwmmxt}, @samp{ep9312}.
 
 @itemx -mtune=@var{name}
 @opindex mtune
@@ -6358,7 +6400,7 @@ name to determine what kind of instructions it can emit when generating
 assembly code.  This option can be used in conjunction with or instead
 of the @option{-mcpu=} option.  Permissible names are: @samp{armv2},
 @samp{armv2a}, @samp{armv3}, @samp{armv3m}, @samp{armv4}, @samp{armv4t},
-@samp{armv5}, @samp{armv5t}, @samp{armv5te}, @samp{ep9312}.
+@samp{armv5}, @samp{armv5t}, @samp{armv5te}, @samp{iwmmxt}, @samp{ep9312}.
 
 @item -mfpe=@var{number}
 @itemx -mfp=@var{number}
@@ -6431,8 +6473,8 @@ Specify the register to be used for PIC addressing.  The default is R10
 unless stack-checking is enabled, when R9 is used.
 
 @item -mcirrus-fix-invalid-insns
-@opindex -mcirrus-fix-invalid-insns
-@opindex -mno-cirrus-fix-invalid-insns
+@opindex mcirrus-fix-invalid-insns
+@opindex mno-cirrus-fix-invalid-insns
 Insert NOPs into the instruction stream to in order to work around
 problems with invalid Maverick instruction combinations.  This option
 is only valid if the @option{-mcpu=ep9312} option has been used to
@@ -8185,6 +8227,13 @@ code that expects temporaries to be 80bit.
 
 This is the default choice for x86-64 compiler.
 
+@item pni
+Use all SSE extensions enabled by @option{-msse2} as well as the new
+SSE extensions in Prescott New Intrunctions. @option{-mpni} also
+enables 2 builtin functions, @code{__builtin_ia32_monitor} and
+@code{__builtin_ia32_mwait}, for new intrunctions @code{monitor} and
+@code{mwait}. 
+
 @item sse,387
 Attempt to utilize both instruction sets at once.  This effectively double the
 amount of available registers and on chips with separate execution units for
@@ -8366,6 +8415,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -mno-sse
 @item -msse2
 @itemx -mno-sse2
+@item -mpni
+@itemx -mno-pni
 @item -m3dnow
 @itemx -mno-3dnow
 @opindex mmmx
@@ -9239,7 +9290,7 @@ Enable the use of the instruction @code{fmovd}.
 
 @item -mhitachi
 @opindex mhitachi
-Comply with the calling conventions defined by Hitachi.
+Comply with the calling conventions defined by Renesas.
 
 @item -mnomacsave
 @opindex mnomacsave
@@ -9530,16 +9581,16 @@ the assembler/linker complain about out of range branches within a switch
 table.
 
 @item -mapp-regs
-@opindex -mapp-regs
+@opindex mapp-regs
 This option will cause r2 and r5 to be used in the code generated by
 the compiler.  This setting is the default.
 
 @item -mno-app-regs
-@opindex -mno-app-regs
+@opindex mno-app-regs
 This option will cause r2 and r5 to be treated as fixed registers.
   
 @item -mv850e
-@opindex -mv850e
+@opindex mv850e
 Specify that the target processor is the V850E.  The preprocessor
 constant @samp{__v850e__} will be defined if this option is used.
 
@@ -9551,7 +9602,7 @@ The preprocessor constants @samp{__v850} and @samp{__v851__} are always
 defined, regardless of which processor variant is the target.
 
 @item -mdisable-callt
-@opindex -mdisable-callt
+@opindex mdisable-callt
 This option will suppress generation of the CALLT instruction for the
 v850e flavors of the v850 architecture.  The default is
 @option{-mno-disable-callt} which allows the CALLT instruction to be used.

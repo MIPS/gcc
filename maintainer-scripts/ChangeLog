@@ -1,3 +1,36 @@
+2003-06-25  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* gcc_release: Factor the updating of links and READMEs on the
+	FTP server and sending mail for snapshots into a...
+	(announce_snapshot): ...new function.
+	Add informative output for both.
+
+2003-06-18  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* gcc_release: Do not update gcc_latest_snapshot tag any longer.
+
+2003-06-18  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* snapshot-index.html: Use F77 instead of G77 front end.
+	Remove link to CodeSourcery snapshots which was not up-to-date.
+	Do not refer to gcc-bugs@gcc.gnu.org any longer.
+
+	* snapshot-README: Use F77 front end instead of G77 language.
+
+2003-06-17  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* gcc_release (build_tarfile): Build .bz2 files instead of .gz files.
+	(build_bz2): Rename to build_gzip and create .gz files from .bz2
+	files instead of the other way around.
+	(build_gzip): New function.
+	(build_diffs): Build .bz2 files instead of .gz files.
+	(build_diff): Use .bz2 files instead of .gz files.
+	Make an error message independent of the compression format.
+	(MODE_BZIP2): Rename to MODE_GZIP.  Related changes to the
+	invocation of this script.
+	(MODE_GZIP): New variable.
+	(OLD_TARS): Use .bz2 archive of the previous snapshot.
+
 2003-06-14  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* snapshot-README: Use GCC instead of gcc, C++ front end instead of 

@@ -530,6 +530,7 @@ build_vtable (tree class_type, tree name, tree vtable_type)
   TREE_READONLY (decl) = 1;
   DECL_VIRTUAL_P (decl) = 1;
   DECL_ALIGN (decl) = TARGET_VTABLE_ENTRY_ALIGN;
+  DECL_VTABLE_OR_VTT_P (decl) = 1;
 
   /* At one time the vtable info was grabbed 2 words at a time.  This
      fails on sparc unless you have 8-byte alignment.  (tiemann) */
@@ -1063,8 +1064,7 @@ alter_access (tree t, tree fdecl, tree access)
   if (!DECL_LANG_SPECIFIC (fdecl))
     retrofit_lang_decl (fdecl);
 
-  if (DECL_DISCRIMINATOR_P (fdecl))
-    abort ();
+  my_friendly_assert (!DECL_DISCRIMINATOR_P (fdecl), 20030624);
 
   elem = purpose_member (t, DECL_ACCESS (fdecl));
   if (elem)
@@ -1086,7 +1086,7 @@ alter_access (tree t, tree fdecl, tree access)
     }
   else
     {
-      perform_or_defer_access_check (t, fdecl);
+      perform_or_defer_access_check (TYPE_BINFO (t), fdecl);
       DECL_ACCESS (fdecl) = tree_cons (t, access, DECL_ACCESS (fdecl));
       return 1;
     }
@@ -1107,6 +1107,9 @@ handle_using_decl (tree using_decl, tree t)
   tree fdecl, binfo;
   tree flist = NULL_TREE;
   tree old_value;
+
+  if (ctype == error_mark_node)
+    return;
 
   binfo = lookup_base (t, ctype, ba_any, NULL);
   if (! binfo)

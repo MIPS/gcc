@@ -1,6 +1,6 @@
 /* Protoize program - Original version by Ron Guilmette (rfg@segfault.us.com).
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -84,8 +84,8 @@ static void notice PARAMS ((const char *, ...)) ATTRIBUTE_PRINTF_1;
 static char *savestring PARAMS ((const char *, unsigned int));
 static char *dupnstr PARAMS ((const char *, size_t));
 static const char *substr PARAMS ((const char *, const char * const));
-static int safe_read PARAMS ((int, PTR, int));
-static void safe_write PARAMS ((int, PTR, int, const char *));
+static int safe_read PARAMS ((int, void *, int));
+static void safe_write PARAMS ((int, void *, int, const char *));
 static void save_pointers PARAMS ((void));
 static void restore_pointers PARAMS ((void));
 static int is_id_char PARAMS ((int));
@@ -227,9 +227,7 @@ struct string_list *exclude_list;
 static const char * const other_var_style = "stdarg";
 #else /* !defined (UNPROTOIZE) */
 static const char * const other_var_style = "varargs";
-/* Note that this is a string containing the expansion of va_alist.
-   But in `main' we discard all but the first token.  */
-static const char *varargs_style_indicator = STRINGX (va_alist);
+static const char *varargs_style_indicator = "va_alist";
 #endif /* !defined (UNPROTOIZE) */
 
 /* The following two types are used to create hash tables.  In this program,
@@ -590,7 +588,7 @@ outer:
 static int
 safe_read (desc, ptr, len)
      int desc;
-     PTR ptr;
+     void *ptr;
      int len;
 {
   int left = len;
@@ -619,7 +617,7 @@ safe_read (desc, ptr, len)
 static void
 safe_write (desc, ptr, len, out_fname)
      int desc;
-     PTR ptr;
+     void *ptr;
      int len;
      const char *out_fname;
 {
@@ -1020,7 +1018,7 @@ static void
 free_def_dec (p)
      def_dec_info *p;
 {
-  free ((NONCONST PTR) p->ansi_decl);
+  free ((NONCONST void *) p->ansi_decl);
 
 #ifndef UNPROTOIZE
   {
@@ -1030,7 +1028,7 @@ free_def_dec (p)
     for (curr = p->f_list_chain; curr; curr = next)
       {
 	next = curr->chain_next;
-	free ((NONCONST PTR) curr);
+	free ((NONCONST void *) curr);
       }
   }
 #endif /* !defined (UNPROTOIZE) */

@@ -1,4 +1,4 @@
-/* Expands front end tree to back end RTL for GNU C-Compiler
+/* Expands front end tree to back end RTL for GCC.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
    1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
@@ -300,7 +300,7 @@ static void do_clobber_return_reg PARAMS ((rtx, void *));
 static void do_use_return_reg PARAMS ((rtx, void *));
 static void instantiate_virtual_regs_lossage PARAMS ((rtx));
 static tree split_complex_args (tree);
-static void set_insn_locators (rtx, int);
+static void set_insn_locators (rtx, int) ATTRIBUTE_UNUSED;
 
 /* Pointer to chain of `struct function' for containing functions.  */
 static GTY(()) struct function *outer_function_chain;
@@ -3384,7 +3384,7 @@ insns_for_mem_walk (r, data)
   if (ifmwi->pass == 0 && *r && GET_CODE (*r) == ADDRESSOF
       && GET_CODE (XEXP (*r, 0)) == REG)
     {
-      PTR *e;
+      void **e;
       tmp.key = XEXP (*r, 0);
       e = htab_find_slot (ifmwi->ht, &tmp, INSERT);
       if (*e == NULL)
@@ -6549,7 +6549,7 @@ init_function_start (subr)
   /* Make sure first insn is a note even if we don't want linenums.
      This makes sure the first insn will never be deleted.
      Also, final expects a note to appear there.  */
-  emit_note (NULL, NOTE_INSN_DELETED);
+  emit_note (NOTE_INSN_DELETED);
 
   /* Set flags used by final.c.  */
   if (aggregate_value_p (DECL_RESULT (subr)))
@@ -6791,10 +6791,10 @@ expand_function_start (subr, parms_have_cleanups)
      The move is supposed to make sdb output more accurate.  */
   /* Indicate the beginning of the function body,
      as opposed to parm setup.  */
-  emit_note (NULL, NOTE_INSN_FUNCTION_BEG);
+  emit_note (NOTE_INSN_FUNCTION_BEG);
 
   if (GET_CODE (get_last_insn ()) != NOTE)
-    emit_note (NULL, NOTE_INSN_DELETED);
+    emit_note (NOTE_INSN_DELETED);
   parm_birth_insn = get_last_insn ();
 
   context_display = 0;
@@ -6868,7 +6868,7 @@ expand_function_start (subr, parms_have_cleanups)
   /* After the display initializations is where the tail-recursion label
      should go, if we end up needing one.   Ensure we have a NOTE here
      since some things (like trampolines) get placed before this.  */
-  tail_recursion_reentry = emit_note (NULL, NOTE_INSN_DELETED);
+  tail_recursion_reentry = emit_note (NOTE_INSN_DELETED);
 
   /* Evaluate now the sizes of any types declared among the arguments.  */
   expand_pending_sizes (nreverse (get_pending_sizes ()));
@@ -6963,17 +6963,10 @@ use_return_register ()
 
 static GTY(()) rtx initial_trampoline;
 
-/* Generate RTL for the end of the current function.
-   FILENAME and LINE are the current position in the source file.
-
-   It is up to language-specific callers to do cleanups for parameters--
-   or else, supply 1 for END_BINDINGS and we will call expand_end_bindings.  */
+/* Generate RTL for the end of the current function.  */
 
 void
-expand_function_end (filename, line, end_bindings)
-     const char *filename;
-     int line;
-     int end_bindings;
+expand_function_end ()
 {
   tree link;
   rtx clobber_after;
@@ -7087,7 +7080,7 @@ expand_function_end (filename, line, end_bindings)
   /* Mark the end of the function body.
      If control reaches this insn, the function can drop through
      without returning a value.  */
-  emit_note (NULL, NOTE_INSN_FUNCTION_END);
+  emit_note (NOTE_INSN_FUNCTION_END);
 
   /* Must mark the last line number note in the function, so that the test
      coverage code can avoid counting the last line twice.  This just tells
@@ -7095,11 +7088,12 @@ expand_function_end (filename, line, end_bindings)
      already exists a copy of this note somewhere above.  This line number
      note is still needed for debugging though, so we can't delete it.  */
   if (flag_test_coverage)
-    emit_note (NULL, NOTE_INSN_REPEATED_LINE_NUMBER);
+    emit_note (NOTE_INSN_REPEATED_LINE_NUMBER);
 
   /* Output a linenumber for the end of the function.
      SDB depends on this.  */
-  emit_line_note_force (filename, line);
+  
+  emit_line_note_force (input_filename, input_line);
 
   /* Before the return label (if any), clobber the return
      registers so that they are not propagated live to the rest of
@@ -7118,10 +7112,6 @@ expand_function_end (filename, line, end_bindings)
      structure returning.  */
   if (return_label)
     emit_label (return_label);
-
-  /* C++ uses this.  */
-  if (end_bindings)
-    expand_end_bindings (0, 0, 0);
 
   if (current_function_instrument_entry_exit)
     {
@@ -7764,7 +7754,7 @@ thread_prologue_and_epilogue_insns (f)
 
       /* Retain a map of the prologue insns.  */
       record_insns (seq, &prologue);
-      prologue_end = emit_note (NULL, NOTE_INSN_PROLOGUE_END);
+      prologue_end = emit_note (NOTE_INSN_PROLOGUE_END);
 
       seq = get_insns ();
       end_sequence ();
@@ -7900,7 +7890,7 @@ thread_prologue_and_epilogue_insns (f)
 	goto epilogue_done;
 
       start_sequence ();
-      epilogue_end = emit_note (NULL, NOTE_INSN_EPILOGUE_BEG);
+      epilogue_end = emit_note (NOTE_INSN_EPILOGUE_BEG);
 
       seq = gen_epilogue ();
 

@@ -81,6 +81,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "dwarf2out.h"
 #endif
 
+#ifdef DBX_DEBUGGING_INFO
+#include "dbxout.h"
+#endif
+
 /* If we aren't using cc0, CC_STATUS_INIT shouldn't exist.  So define a
    null default for it to save conditionalization later.  */
 #ifndef CC_STATUS_INIT
@@ -3419,17 +3423,8 @@ asm_fprintf (FILE *file, const char *p, ...)
 	       'o' cases, but we do not check for those cases.  It
 	       means that the value is a HOST_WIDE_INT, which may be
 	       either `long' or `long long'.  */
-
-#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_INT
-#else
-#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
-	    *q++ = 'l';
-#else
-	    *q++ = 'l';
-	    *q++ = 'l';
-#endif
-#endif
-
+	    memcpy (q, HOST_WIDE_INT_PRINT, strlen (HOST_WIDE_INT_PRINT));
+	    q += strlen (HOST_WIDE_INT_PRINT);
 	    *q++ = *p++;
 	    *q = 0;
 	    fprintf (file, buf, va_arg (argptr, HOST_WIDE_INT));
@@ -3856,3 +3851,85 @@ leaf_renumber_regs_insn (in_rtx)
       }
 }
 #endif
+
+
+/* When -gused is used, emit debug info for only used symbols. But in
+   addition to the standard intercepted debug_hooks there are some direct
+   calls into this file, i.e., dbxout_symbol, dbxout_parms, and dbxout_reg_params.
+   Those routines may also be called from a higher level intercepted routine. So
+   to prevent recording data for an inner call to one of these for an intercept,
+   we maintain a intercept nesting counter (debug_nesting). We only save the
+   intercepted arguments if the nesting is 1.  */
+int debug_nesting = 0;
+
+static tree *symbol_queue;
+int symbol_queue_index = 0;
+static int symbol_queue_size = 0;
+
+/* Generate the symbols for any queued up type symbols we encountered
+   while generating the type info for some originally used symbol.
+   This might generate additional entries in the queue.  Only when
+   the nesting depth goes to 0 is this routine called.  */
+
+void
+debug_flush_symbol_queue ()
+{
+  int i;
+ 
+  /* Make sure that additionally queued items are not flushed
+     prematurely.  */
+    
+  ++debug_nesting;
+ 
+  for (i = 0; i < symbol_queue_index; ++i)
+    {
+      /* If we pushed queued symbols then such symbols are must be
+         output no matter what anyone else says.  Specifically,
+         we need to make sure dbxout_symbol() thinks the symbol was
+         used and also we need to override TYPE_DECL_SUPPRESS_DEBUG
+         which may be set for outside reasons.  */
+      int saved_tree_used = TREE_USED (symbol_queue[i]);
+      int saved_suppress_debug = TYPE_DECL_SUPPRESS_DEBUG (symbol_queue[i]);
+      TREE_USED (symbol_queue[i]) = 1;
+      TYPE_DECL_SUPPRESS_DEBUG (symbol_queue[i]) = 0;
+
+#ifdef DBX_DEBUGGING_INFO
+      dbxout_symbol (symbol_queue[i], 0);
+#endif
+
+      TREE_USED (symbol_queue[i]) = saved_tree_used;
+      TYPE_DECL_SUPPRESS_DEBUG (symbol_queue[i]) = saved_suppress_debug;
+    }
+
+  symbol_queue_index = 0;
+  --debug_nesting;       
+}
+
+/* Queue a type symbol needed as part of the definition of a decl
+   symbol.  These symbols are generated when debug_flush_symbol_queue()
+   is called.  */
+
+void     
+debug_queue_symbol (tree decl)
+{
+  if (symbol_queue_index >= symbol_queue_size)    
+    {
+      symbol_queue_size += 10;
+      symbol_queue = (tree *) xrealloc (symbol_queue,
+                                        symbol_queue_size * sizeof (tree));
+    }
+
+  symbol_queue[symbol_queue_index++] = decl;
+}     
+
+/* Free symbol queue */
+void
+debug_free_queue ()
+{
+  if (symbol_queue)
+    {
+      free (symbol_queue);
+      symbol_queue = NULL;
+      symbol_queue_size = 0;
+    }
+}

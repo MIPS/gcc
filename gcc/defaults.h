@@ -613,10 +613,16 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
   CONST_DOUBLE_OK_FOR_LETTER_P (OP, C)
 #endif
 
+#ifndef REG_CLASS_FROM_CONSTRAINT
 #define REG_CLASS_FROM_CONSTRAINT(C,STR) REG_CLASS_FROM_LETTER (C)
+#endif
 
 #if defined (EXTRA_CONSTRAINT) && ! defined (EXTRA_CONSTRAINT_STR)
 #define EXTRA_CONSTRAINT_STR(OP, C,STR) EXTRA_CONSTRAINT (OP, C)
+#endif
+
+#ifndef REGISTER_MOVE_COST
+#define REGISTER_MOVE_COST(m, x, y) 2
 #endif
 
 /* Determine whether the the entire c99 runtime

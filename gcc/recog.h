@@ -112,7 +112,6 @@ extern int push_operand			PARAMS ((rtx, enum machine_mode));
 extern int pop_operand			PARAMS ((rtx, enum machine_mode));
 extern int memory_operand		PARAMS ((rtx, enum machine_mode));
 extern int indirect_operand		PARAMS ((rtx, enum machine_mode));
-extern int mode_independent_operand	PARAMS ((rtx, enum machine_mode));
 extern int comparison_operator		PARAMS ((rtx, enum machine_mode));
 
 extern int offsettable_memref_p		PARAMS ((rtx));
@@ -241,7 +240,7 @@ struct insn_operand_data
 struct insn_data
 {
   const char *const name;
-  const PTR output;
+  const void *output;
   const insn_gen_fn genfun;
   const struct insn_operand_data *const operand;
 

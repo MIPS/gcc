@@ -1444,7 +1444,7 @@ size_int_type_wide (number, type)
      HOST_WIDE_INT number;
      tree type;
 {
-  PTR *slot;
+  void **slot;
 
   if (size_htab == 0)
     {
@@ -1466,7 +1466,7 @@ size_int_type_wide (number, type)
     {
       tree t = new_const;
 
-      *slot = (PTR) new_const;
+      *slot = new_const;
       new_const = make_node (INTEGER_CST);
       return t;
     }
@@ -1968,8 +1968,8 @@ operand_equal_p (arg0, arg1, only_const)
 				  TREE_OPERAND (arg1, 0), 0));
 
     case 'r':
-      /* If either of the pointer (or reference) expressions we are dereferencing
-	 contain a side effect, these cannot be equal.  */
+      /* If either of the pointer (or reference) expressions we are
+	 dereferencing contain a side effect, these cannot be equal.  */
       if (TREE_SIDE_EFFECTS (arg0)
 	  || TREE_SIDE_EFFECTS (arg1))
 	return 0;
@@ -2010,9 +2010,51 @@ operand_equal_p (arg0, arg1, only_const)
 	case RTL_EXPR:
 	  return rtx_equal_p (RTL_EXPR_RTL (arg0), RTL_EXPR_RTL (arg1));
 
+	case CALL_EXPR:
+	  /* If the CALL_EXPRs call different functions, then they
+	     clearly can not be equal.  */
+	  if (! operand_equal_p (TREE_OPERAND (arg0, 0),
+				 TREE_OPERAND (arg1, 0), 0))
+	    return 0;
+
+	  /* Only consider const functions equivalent.  */
+	  if (TREE_CODE (TREE_OPERAND (arg0, 0)) == ADDR_EXPR)
+	    {
+	      tree fndecl = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
+	      if (! (flags_from_decl_or_type (fndecl) & ECF_CONST))
+		return 0;
+	    }
+	  else
+	    return 0;
+
+	  /* Now see if all the arguments are the same.  operand_equal_p
+	     does not handle TREE_LIST, so we walk the operands here
+	     feeding them to operand_equal_p.  */
+	  arg0 = TREE_OPERAND (arg0, 1);
+	  arg1 = TREE_OPERAND (arg1, 1);
+	  while (arg0 && arg1)
+	    {
+	      if (! operand_equal_p (TREE_VALUE (arg0), TREE_VALUE (arg1), 0))
+		return 0;
+
+	      arg0 = TREE_CHAIN (arg0);
+	      arg1 = TREE_CHAIN (arg1);
+	    }
+
+	  /* If we get here and both argument lists are exhausted
+	     then the CALL_EXPRs are equal.  */
+	  return ! (arg0 || arg1);
+
 	default:
 	  return 0;
 	}
+
+    case 'd':
+	/* Consider __builtin_sqrt equal to sqrt.  */
+	return TREE_CODE (arg0) == FUNCTION_DECL
+	       && DECL_BUILT_IN (arg0) && DECL_BUILT_IN (arg1)
+	       && DECL_BUILT_IN_CLASS (arg0) == DECL_BUILT_IN_CLASS (arg1)
+	       && DECL_FUNCTION_CODE (arg0) == DECL_FUNCTION_CODE (arg1);
 
     default:
       return 0;
@@ -2700,7 +2742,8 @@ decode_field_reference (exp, pbitsize, pbitpos, pmode, punsignedp,
   if (! INTEGRAL_TYPE_P (TREE_TYPE (exp)))
     return 0;
 
-  STRIP_NOPS (exp);
+  /* Signedness matters here.  */
+  STRIP_SIGN_NOPS (exp);
 
   if (TREE_CODE (exp) == BIT_AND_EXPR)
     {
@@ -8180,7 +8223,7 @@ tree_expr_nonnegative_p (t)
 	      }
 	}
 
-      /* ... fall through ... */
+      /* ... fall through ...  */
 
     default:
       if (truth_value_p (TREE_CODE (t)))

@@ -2657,6 +2657,10 @@ simplify_subreg (outermode, op, innermode, byte)
 	  unsigned i = BYTES_BIG_ENDIAN ? offset : offset + n_elts - 1;
 	  unsigned step = BYTES_BIG_ENDIAN ? 1 : -1;
 	  int shift = BITS_PER_UNIT * elt_size;
+	  unsigned HOST_WIDE_INT unit_mask;
+
+	  unit_mask = (unsigned HOST_WIDE_INT) -1
+	    >> (sizeof (HOST_WIDE_INT) * BITS_PER_UNIT - shift);
 
 	  for (; n_elts--; i += step)
 	    {
@@ -2675,7 +2679,7 @@ simplify_subreg (outermode, op, innermode, byte)
 	      if (high >> (HOST_BITS_PER_WIDE_INT - shift))
 		return NULL_RTX;
 	      high = high << shift | sum >> (HOST_BITS_PER_WIDE_INT - shift);
-	      sum = (sum << shift) + INTVAL (elt);
+	      sum = (sum << shift) + (INTVAL (elt) & unit_mask);
 	    }
 	  if (GET_MODE_BITSIZE (outermode) <= HOST_BITS_PER_WIDE_INT)
 	    return GEN_INT (trunc_int_for_mode (sum, outermode));
@@ -2721,7 +2725,7 @@ simplify_subreg (outermode, op, innermode, byte)
 	      /* This might fail, e.g. if taking a subreg from a SYMBOL_REF.  */
 	      /* ??? It would be nice if we could actually make such subregs
 		 on targets that allow such relocations.  */
-	      if (byte >= GET_MODE_UNIT_SIZE (innermode))
+	      if (byte >= GET_MODE_SIZE (innermode))
 		elt = CONST0_RTX (submode);
 	      else
 	        elt = simplify_subreg (submode, op, innermode, byte);

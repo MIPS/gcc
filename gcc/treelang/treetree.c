@@ -452,7 +452,7 @@ tree_code_create_function_wrapup (location_t loc)
 
   /* Emit rtl for end of function.  */
 
-  expand_function_end (loc.file, loc.line, 0);
+  expand_function_end ();
 
   /* Pop the level.  */
 
@@ -869,7 +869,7 @@ c_lex (tree *value ATTRIBUTE_UNUSED)
 /* Should not be called for treelang.   */
 
 tree
-build_stmt VPARAMS ((enum tree_code code  ATTRIBUTE_UNUSED, ...))
+build_stmt (enum tree_code code  ATTRIBUTE_UNUSED, ...)
 {
   abort ();
 }
@@ -893,7 +893,7 @@ build_return_stmt (tree expr ATTRIBUTE_UNUSED)
 /* C warning, ignore.  */
 
 void
-pedwarn_c99 VPARAMS ((const char *msgid ATTRIBUTE_UNUSED, ...))
+pedwarn_c99 (const char *msgid ATTRIBUTE_UNUSED, ...)
 {
   return;
 }

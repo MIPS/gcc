@@ -46,6 +46,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
+import java.nio.MappedByteBufferImpl;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -65,7 +66,7 @@ import gnu.gcj.RawData;
 
 public class FileChannelImpl extends FileChannel
 {
-  RawData map_address;
+  public RawData map_address;
   
   int length;
   FileDescriptor fd;
@@ -85,7 +86,7 @@ public class FileChannelImpl extends FileChannel
 
   public FileChannelImpl ()
   {
-    this (new FileDescriptor (-1), true, null);
+    this (new FileDescriptor (), true, null);
   }
 
   private native long implPosition ();
@@ -260,7 +261,7 @@ public class FileChannelImpl extends FileChannel
     int cmode = mode.m;
     map_address = nio_mmap_file (position, size, cmode);
     length = (int) size;
-    buf = new MappedByteFileBuffer (this);
+    buf = new MappedByteBufferImpl (this);
     return buf;
   }
 
@@ -271,16 +272,10 @@ public class FileChannelImpl extends FileChannel
     FileChannelImpl ch = new FileChannelImpl ();
     ch.map_address = map_address;
     ch.length = (int) length;
-    ch.buf = new MappedByteFileBuffer (ch);
+    ch.buf = new MappedByteBufferImpl (ch);
     return ch.buf;			 
   }
 
-  public long write (ByteBuffer[] srcs)
-    throws IOException
-  {
-    return write (srcs, 0, srcs.length);
-  }
-				   
   /**
    * msync with the disk
    */

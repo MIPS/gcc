@@ -141,7 +141,7 @@ extern size_t mvs_function_name_length;
 /* but only define it if really needed, since otherwise it will break builds */
 
 #ifdef TARGET_EBCDIC
-#ifdef HOST_EBCDIC
+#if HOST_CHARSET == HOST_CHARSET_EBCDIC
 #define MAP_CHARACTER(c) ((char)(c))
 #else
 #define MAP_CHARACTER(c) ((char)mvs_map_char (c))
@@ -1028,10 +1028,6 @@ enum reg_class
   "8",  "9", "10", "11", "12", "13", "14", "15",			\
   "0",  "2",  "4",  "6"							\
 }
-
-#define ASM_FILE_START(FILE)						\
-{ fputs ("\tRMODE\tANY\n", FILE);					\
-  fputs ("\tCSECT\n", FILE); }
 
 #define ASM_COMMENT_START "*"
 #define ASM_APP_OFF ""

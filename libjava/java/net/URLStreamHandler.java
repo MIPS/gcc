@@ -269,10 +269,10 @@ public abstract class URLStreamHandler
       return false;
     int p1 = url1.getPort ();
     if (p1 == -1)
-      p1 = url1.handler.getDefaultPort ();
+      p1 = url1.ph.getDefaultPort ();
     int p2 = url2.getPort ();
     if (p2 == -1)
-      p2 = url2.handler.getDefaultPort ();
+      p2 = url2.ph.getDefaultPort ();
     if (p1 != p2)
       return false;
     String s1, s2;
@@ -380,12 +380,20 @@ public abstract class URLStreamHandler
    * @exception UnknownHostException If an unknown host is found
    */
   protected boolean hostsEqual (URL url1, URL url2)
-    throws UnknownHostException
   {
-    InetAddress addr1 = InetAddress.getByName (url1.getHost ());
-    InetAddress addr2 = InetAddress.getByName (url2.getHost ());
+    InetAddress addr1 = getHostAddress (url1);
+    InetAddress addr2 = getHostAddress (url2);
 
-    return addr1.equals (addr2);
+    if (addr1 != null || addr2 != null)
+      return addr1.equals (addr2);
+
+    String host1 = url1.getHost();
+    String host2 = url2.getHost();
+    
+    if (host1 != null && host2 != null)
+      return host1.equalsIgnoreCase (host2);
+
+    return host1 == null && host2 == null;
   }
 
   /**

@@ -102,8 +102,6 @@ Boston, MA 02111-1307, USA.  */
    other its replacement, at the start of a routine. This is somewhat
    complicated on the T3E which is why we use a function.  */
 
-extern int unicosmk_initial_elimination_offset PARAMS ((int, int));
-
 #undef INITIAL_ELIMINATION_OFFSET
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)			\
   do {									\
@@ -319,7 +317,7 @@ do { fprintf (FILE, "\tbr $1,0\n");			\
 COMMON_SECTION			\
 SSIB_SECTION	
 
-extern void common_section PARAMS ((void));
+extern void common_section (void);
 #define COMMON_SECTION		\
 void				\
 common_section ()		\
@@ -327,7 +325,7 @@ common_section ()		\
   in_section = in_common;	\
 }
 
-extern void ssib_section PARAMS ((void));
+extern void ssib_section (void);
 #define SSIB_SECTION		\
 void				\
 ssib_section ()			\
@@ -335,16 +333,7 @@ ssib_section ()			\
   in_section = in_ssib;		\
 }
 
-/* This outputs text to go at the start of an assembler file.  */
-
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE)	unicosmk_asm_file_start (FILE)
-
-/* This outputs text to go at the end of an assembler file.  */
-
-#define TARGET_ASM_FILE_END	unicosmk_file_end
-
-/* We take care of that in ASM_FILE_START.  */
+/* We take care of this in unicosmk_file_start.  */
 
 #undef ASM_OUTPUT_SOURCE_FILENAME
 

@@ -331,20 +331,19 @@ public abstract class URLConnection
    */
   public int getHeaderFieldInt(String name, int defaultValue)
   {
-    String str = getHeaderField(name);
-    int result = defaultValue;
+    String value = getHeaderField (name);
     
+    if (value == null)
+      return defaultValue;
+
     try
       {
-	if (str != null)
-	  result = Integer.parseInt (str);
+        return Integer.parseInt (value);
       }
     catch (NumberFormatException e) 
       { 
-	; // Do nothing; defaultValue is the default.
+        return defaultValue;
       }
-    
-    return result;
   }
 
   /**
@@ -353,27 +352,32 @@ public abstract class URLConnection
    * value if the field is not present or cannot be converted to a date.
    *
    * @param name The name of the header field
-   * @param val The dafault date
+   * @param defaultValue The default date if the header field is not found
+   * or can't be converted.
    *
    * @return Returns the date value of the header filed or the default value
    * if the field is missing or malformed
    */
-  public long getHeaderFieldDate(String name, long val)
+  public long getHeaderFieldDate (String name, long defaultValue)
   {
     if (! dateformats_initialized)
-      initializeDateFormats();
-    String str = getHeaderField(name);
+      initializeDateFormats ();
+    
+    long result = defaultValue;
+    String str = getHeaderField (name);
+    
     if (str != null)
       {
-        Date date;
-	if ((date = dateFormat1.parse(str, new ParsePosition(0))) != null)
-	  val = date.getTime();
-	else if ((date = dateFormat2.parse(str, new ParsePosition(0))) != null)
-	  val = date.getTime();
-	else if ((date = dateFormat3.parse(str, new ParsePosition(0))) != null)
-	  val = date.getTime();
+	Date date;
+	if ((date = dateFormat1.parse (str, new ParsePosition (0))) != null)
+	  result = date.getTime ();
+	else if ((date = dateFormat2.parse (str, new ParsePosition (0))) != null)
+	  result = date.getTime ();
+	else if ((date = dateFormat3.parse (str, new ParsePosition (0))) != null)
+	  result = date.getTime ();
       }
-    return val;
+    
+    return result;
   }
 
   /**
@@ -387,7 +391,7 @@ public abstract class URLConnection
    * @return The header field key or null if index is past the end
    * of the headers.
    */
-  public String getHeaderFieldKey(int index)
+  public String getHeaderFieldKey (int index)
   {
     // Subclasses for specific protocols override this.
     return null;
@@ -509,7 +513,8 @@ public abstract class URLConnection
    * to be done for this connection.  This default to true unless the
    * doOutput flag is set to false, in which case this defaults to false.
    * 
-   * @param doinput The new value of the doInput field
+   * @param input <code>true</code> if input is to be done,
+   * <code>false</code> otherwise
    *
    * @exception IllegalStateException If already connected
    */
@@ -671,7 +676,10 @@ public abstract class URLConnection
   }
 
   /**
-   * Returns the default value of the useCaches field
+   * Returns the default value used to determine whether or not caching
+   * of documents will be done when possible.
+   *
+   * @return true if caches will be used, false otherwise
    */
   public boolean getDefaultUseCaches()
   {
@@ -701,6 +709,8 @@ public abstract class URLConnection
    *
    * @see URLConnection#getRequestProperty(String key)
    * @see URLConnection#addRequestProperty(String key, String value)
+   * 
+   * @since 1.4
    */
   public void setRequestProperty(String key, String value)
   {

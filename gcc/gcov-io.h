@@ -223,7 +223,7 @@ typedef HOST_WIDEST_INT gcov_type;
 #define gcov_read_counter __gcov_read_counter
 #define gcov_read_summary __gcov_read_summary
 
-/* Poison these, so they don't accidentally slip in. */
+/* Poison these, so they don't accidentally slip in.  */
 #pragma GCC poison gcov_write_string gcov_write_tag gcov_write_length
 #pragma GCC poison gcov_read_string gcov_sync gcov_time
 
@@ -268,16 +268,26 @@ typedef HOST_WIDEST_INT gcov_type;
 /* Counters that are collected.  */
 #define GCOV_COUNTER_ARCS 	0  /* Arc transitions.  */
 #define GCOV_COUNTERS_SUMMABLE	1  /* Counters which can be
-				      summaried. */
-#define GCOV_COUNTERS		1
-
-/* A list of human readable names of the counters */
-#define GCOV_COUNTER_NAMES	{"arcs"}
-
-/* Names of merge functions for counters.  */
-#define GCOV_MERGE_FUNCTIONS	{"__gcov_merge_add"}
-
-/* Convert a counter index to a tag. */
+				      summaried.  */
+#define GCOV_COUNTER_V_INTERVAL	1  /* Histogram of value inside an interval.  */
+#define GCOV_COUNTER_V_POW2	2  /* Histogram of exact power2 logarithm
+				      of a value.  */
+#define GCOV_COUNTER_V_SINGLE	3  /* The most common value of expression.  */
+#define GCOV_COUNTER_V_DELTA	4  /* The most common difference between
+				      consecutive values of expression.  */
+#define GCOV_COUNTERS		5
+  
+  /* A list of human readable names of the counters */
+#define GCOV_COUNTER_NAMES	{"arcs", "interval", "pow2", "single", "delta"}
+  
+  /* Names of merge functions for counters.  */
+#define GCOV_MERGE_FUNCTIONS	{"__gcov_merge_add",	\
+				 "__gcov_merge_add",	\
+				 "__gcov_merge_add",	\
+				 "__gcov_merge_single",	\
+				 "__gcov_merge_delta"}
+  
+/* Convert a counter index to a tag.  */
 #define GCOV_TAG_FOR_COUNTER(COUNT)				\
 	(GCOV_TAG_COUNTER_BASE + ((gcov_unsigned_t)(COUNT) << 17))
 /* Convert a tag to a counter.  */
@@ -316,9 +326,9 @@ struct gcov_ctr_summary
 {
   gcov_unsigned_t num;		/* number of counters.  */
   gcov_unsigned_t runs;		/* number of program runs */
-  gcov_type sum_all;		/* sum of all counters accumulated. */
+  gcov_type sum_all;		/* sum of all counters accumulated.  */
   gcov_type run_max;		/* maximum value on a single run.  */
-  gcov_type sum_max;    	/* sum of individual run max values. */
+  gcov_type sum_max;    	/* sum of individual run max values.  */
 };
 
 /* Object & program summary record.  */
@@ -380,6 +390,13 @@ extern void __gcov_flush (void);
 
 /* The merge function that just sums the counters.  */
 extern void __gcov_merge_add (gcov_type *, unsigned);
+
+/* The merge function to choose the most often value.  */
+extern void __gcov_merge_single (gcov_type *, unsigned);
+
+/* The merge function to choose the most often difference between consecutive
+   values.  */
+extern void __gcov_merge_delta (gcov_type *, unsigned);
 #endif /* IN_LIBGCOV */
 
 #if IN_LIBGCOV >= 0
@@ -391,8 +408,8 @@ GCOV_LINKAGE struct gcov_var
 {
   FILE *file;
   gcov_position_t start;	/* Position of first byte of block */
-  unsigned offset;		/* Read/write position within the block. */
-  unsigned length;		/* Read limit in the block. */
+  unsigned offset;		/* Read/write position within the block.  */
+  unsigned length;		/* Read limit in the block.  */
   unsigned overread;		/* Number of bytes overread.  */
   int error;			/* < 0 overflow, > 0 disk error.  */
   int mode;	                /* < 0 writing, > 0 reading */
@@ -417,7 +434,7 @@ GCOV_LINKAGE struct gcov_var
    may use the gcov_write functions, gcov_seek & gcov_error. When a
    file is to be rewritten you use the functions for reading, then
    gcov_rewrite then the functions for writing.  Your file may become
-   corrupted if you break these invariants. */
+   corrupted if you break these invariants.  */
 GCOV_LINKAGE int gcov_open (const char */*name*/, int /*truncate*/);
 GCOV_LINKAGE int gcov_close (void);
 

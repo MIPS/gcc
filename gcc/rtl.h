@@ -1,4 +1,4 @@
-/* Register Transfer Language (RTL) definitions for GNU C-Compiler
+/* Register Transfer Language (RTL) definitions for GCC
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 struct function;
 
 #include "machmode.h"
+#include "input.h"
 
 #undef FFS  /* Some systems predefine this symbol; don't let it interfere.  */
 #undef FLOAT /* Likewise.  */
@@ -782,6 +783,8 @@ extern const char * const reg_note_name[];
    between ints and pointers if we use a different macro for the block number.)
    */
 
+/* Opaque data.  */
+#define NOTE_DATA(INSN)	        XCINT (INSN, 4, NOTE)
 #define NOTE_SOURCE_FILE(INSN)	XCSTR (INSN, 4, NOTE)
 #define NOTE_BLOCK(INSN)	XCTREE (INSN, 4, NOTE)
 #define NOTE_EH_HANDLER(INSN)	XCINT (INSN, 4, NOTE)
@@ -1511,6 +1514,7 @@ extern rtx assign_stack_temp		PARAMS ((enum machine_mode,
 extern rtx assign_stack_temp_for_type	PARAMS ((enum machine_mode,
 						 HOST_WIDE_INT, int, tree));
 extern rtx assign_temp			PARAMS ((tree, int, int, int));
+
 /* In emit-rtl.c */
 extern rtx emit_insn_before		PARAMS ((rtx, rtx));
 extern rtx emit_insn_before_setloc	PARAMS ((rtx, rtx, int));
@@ -1537,7 +1541,7 @@ extern rtx emit_call_insn		PARAMS ((rtx));
 extern rtx emit_label			PARAMS ((rtx));
 extern rtx emit_barrier			PARAMS ((void));
 extern rtx emit_line_note		PARAMS ((const char *, int));
-extern rtx emit_note			PARAMS ((const char *, int));
+extern rtx emit_note			PARAMS ((int));
 extern rtx emit_line_note_force		PARAMS ((const char *, int));
 extern rtx make_insn_raw		PARAMS ((rtx));
 extern void add_function_usage_to       PARAMS ((rtx, rtx));
@@ -1563,7 +1567,6 @@ extern const char * insn_file		PARAMS ((rtx));
 extern int prologue_locator, epilogue_locator;
 
 /* In jump.c */
-extern rtx next_nondeleted_insn		PARAMS ((rtx));
 extern enum rtx_code reverse_condition	PARAMS ((enum rtx_code));
 extern enum rtx_code reverse_condition_maybe_unordered PARAMS ((enum rtx_code));
 extern enum rtx_code swap_condition	PARAMS ((enum rtx_code));
@@ -1961,6 +1964,9 @@ extern int flow2_completed;
 
 extern int reload_completed;
 
+/* Nonzero after thread_prologue_and_epilogue_insns has run.  */
+extern int epilogue_completed;
+
 /* Set to 1 while reload_as_needed is operating.
    Required by some machines to handle any generated moves differently.  */
 
@@ -2119,6 +2125,7 @@ extern rtx libcall_other_reg		PARAMS ((rtx, rtx));
 #ifdef BUFSIZ
 extern void loop_optimize		PARAMS ((rtx, FILE *, int));
 #endif
+extern void branch_target_load_optimize (rtx, bool);
 extern void record_excess_regs		PARAMS ((rtx, rtx, rtx *));
 
 /* In function.c */
@@ -2222,11 +2229,6 @@ extern void dump_local_alloc		PARAMS ((FILE *));
 extern int local_alloc			PARAMS ((void));
 extern int function_invariant_p		PARAMS ((rtx));
 
-/* In coverage.c */
-extern void coverage_init (const char *);
-extern void coverage_finish (void);
-extern void coverage_end_function (void);
-
 /* In profile.c */
 extern void init_branch_prob		PARAMS ((void));
 extern void branch_prob			PARAMS ((void));
@@ -2236,36 +2238,6 @@ extern void end_branch_prob		PARAMS ((void));
 #ifdef BUFSIZ
 extern bool reg_to_stack		PARAMS ((rtx, FILE *));
 #endif
-
-/* In fold-const.c */
-extern int add_double		PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-					 unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-					 unsigned HOST_WIDE_INT *,
-					 HOST_WIDE_INT *));
-extern int neg_double		PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-					 unsigned HOST_WIDE_INT *,
-					 HOST_WIDE_INT *));
-extern int mul_double		PARAMS ((unsigned HOST_WIDE_INT,
-					 HOST_WIDE_INT,
-					 unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-					 unsigned HOST_WIDE_INT *,
-					 HOST_WIDE_INT *));
-extern void lshift_double	PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-					 HOST_WIDE_INT, unsigned int,
-					 unsigned HOST_WIDE_INT *,
-					 HOST_WIDE_INT *, int));
-extern void rshift_double	PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-					 HOST_WIDE_INT, unsigned int,
-					 unsigned HOST_WIDE_INT *,
-					 HOST_WIDE_INT *, int));
-extern void lrotate_double	PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-					 HOST_WIDE_INT, unsigned int,
-					 unsigned HOST_WIDE_INT *,
-					 HOST_WIDE_INT *));
-extern void rrotate_double	PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-					 HOST_WIDE_INT, unsigned int,
-					 unsigned HOST_WIDE_INT *,
-					 HOST_WIDE_INT *));
 
 /* In calls.c */
 enum libcall_type

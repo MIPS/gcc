@@ -48,6 +48,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "debug.h"
 #include "target.h"
+#include "cgraph.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -166,8 +167,8 @@ static void output_constructor		PARAMS ((tree, unsigned HOST_WIDE_INT,
 						 unsigned int));
 static void globalize_decl		PARAMS ((tree));
 static void maybe_assemble_visibility	PARAMS ((tree));
-static int in_named_entry_eq		PARAMS ((const PTR, const PTR));
-static hashval_t in_named_entry_hash	PARAMS ((const PTR));
+static int in_named_entry_eq		PARAMS ((const void *, const void *));
+static hashval_t in_named_entry_hash	PARAMS ((const void *));
 #ifdef ASM_OUTPUT_BSS
 static void asm_output_bss		PARAMS ((FILE *, tree, const char *,
 						unsigned HOST_WIDE_INT,
@@ -183,7 +184,6 @@ static void asm_output_aligned_bss
 static bool asm_emit_uninitialised	PARAMS ((tree, const char*,
 						 unsigned HOST_WIDE_INT,
 						 unsigned HOST_WIDE_INT));
-static void resolve_unique_section	PARAMS ((tree, int, int));
 static void mark_weak                   PARAMS ((tree));
 
 enum in_section { no_section, in_text, in_data, in_named
@@ -310,8 +310,8 @@ in_data_section ()
 
 static int
 in_named_entry_eq (p1, p2)
-     const PTR p1;
-     const PTR p2;
+     const void *p1;
+     const void *p2;
 {
   const struct in_named_entry *old = p1;
   const char *new = p2;
@@ -321,7 +321,7 @@ in_named_entry_eq (p1, p2)
 
 static hashval_t
 in_named_entry_hash (p)
-     const PTR p;
+     const void *p;
 {
   const struct in_named_entry *old = p;
   return htab_hash_string (old->name);
@@ -460,7 +460,7 @@ named_section (decl, name, reloc)
 
 /* If required, set DECL_SECTION_NAME to a unique name.  */
 
-static void
+void
 resolve_unique_section (decl, reloc, flag_function_or_data_sections)
      tree decl;
      int reloc ATTRIBUTE_UNUSED;
@@ -1409,6 +1409,9 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
   int reloc = 0;
   rtx decl_rtl;
 
+  if (lang_hooks.decls.prepare_assemble_variable)
+    (*lang_hooks.decls.prepare_assemble_variable) (decl);
+
   last_assemble_variable_decl = 0;
 
   /* Normally no need to say anything here for external references,
@@ -1725,6 +1728,30 @@ assemble_label (name)
   ASM_OUTPUT_LABEL (asm_out_file, name);
 }
 
+/* Set the symbol_referenced flag for ID and notify callgraph code.  */
+void
+mark_referenced (id)
+     tree id;
+{
+  if (!TREE_SYMBOL_REFERENCED (id))
+    {
+      struct cgraph_node *node;
+      struct cgraph_varpool_node *vnode;
+
+      if (!cgraph_global_info_ready)
+	{
+	  node = cgraph_node_for_identifier (id);
+	  if (node)
+	    cgraph_mark_needed_node (node, 1);
+	}
+
+      vnode = cgraph_varpool_node_for_identifier (id);
+      if (vnode)
+	cgraph_varpool_mark_needed_node (vnode);
+    }
+  TREE_SYMBOL_REFERENCED (id) = 1;
+}
+
 /* Output to FILE a reference to the assembler name of a C-level name NAME.
    If NAME starts with a *, the rest of NAME is output verbatim.
    Otherwise NAME is transformed in an implementation-defined way
@@ -1743,7 +1770,7 @@ assemble_name (file, name)
 
   id = maybe_get_identifier (real_name);
   if (id)
-    TREE_SYMBOL_REFERENCED (id) = 1;
+    mark_referenced (id);
 
   if (name[0] == '*')
     fputs (&name[1], file);
@@ -5361,6 +5388,18 @@ default_internal_label (stream, prefix, labelno)
   char *const buf = alloca (40 + strlen (prefix));
   ASM_GENERATE_INTERNAL_LABEL (buf, prefix, labelno);
   ASM_OUTPUT_LABEL (stream, buf);
+}
+
+/* This is the default behavior at the beginning of a file.  It's
+   controlled by two other target-hook toggles.  */
+void
+default_file_start ()
+{
+  if (targetm.file_start_app_off && !flag_verbose_asm)
+    fputs (ASM_APP_OFF, asm_out_file);
+
+  if (targetm.file_start_file_directive)
+    output_file_directive (asm_out_file, main_input_filename);
 }
 
 /* This is a generic routine suitable for use as TARGET_ASM_FILE_END

@@ -281,12 +281,14 @@ strongarm*-*-*)
 	;;
 arm*-*-*)
 	cpu_type=arm
+	extra_headers="mmintrin.h"
 	;;
 ep9312*-*-*)
 	cpu_type=arm
 	;;
 xscale-*-*)
 	cpu_type=arm
+	extra_headers="mmintrin.h"
 	;;
 i[34567]86-*-*)
 	cpu_type=i386
@@ -415,7 +417,7 @@ case $machine in
 	fi
 	;;
 *-*-netbsd*)
-	tmake_file="t-slibgcc-elf-ver t-libc-ok t-netbsd"
+	tmake_file="t-slibgcc-elf-ver t-libc-ok t-netbsd t-libgcc-pic"
 	gas=yes
 	gnu_ld=yes
 
@@ -1273,6 +1275,7 @@ ia64*-*-hpux*)
 	cxx_target_objs="ia64-c.o"
 	;;
 ip2k-*-elf)
+	tm_file="elfos.h ${tm_file}"
 	;;
 m32r-*-elf*)
 	tm_file="dbxelf.h elfos.h svr4.h ${tm_file}"
@@ -1805,7 +1808,7 @@ sh-*-rtemself*)
 	;;
 sh-*-rtems*)
 	tmake_file="sh/t-sh t-rtems"
-	tm_file="${tm_file} sh/coff.h sh/rtems.h rtems.h"
+	tm_file="${tm_file} dbxcoff.h sh/coff.h sh/rtems.h rtems.h"
 	if test x$enable_threads = xyes; then
 	  thread_file='rtems'
 	fi
@@ -1873,7 +1876,7 @@ sh-*-netbsdelf* | shl*-*-netbsdelf* | sh5-*-netbsd* | sh5l*-*-netbsd* | \
 	esac
 	;;
 sh-*-*)
-	tm_file="${tm_file} sh/coff.h"
+	tm_file="${tm_file} dbxcoff.h sh/coff.h"
 	;;
 sparc-tti-*)
 	tm_file="${tm_file} sparc/pbd.h"
@@ -2302,7 +2305,7 @@ then
 			| xarm920t | xarm940t | xarm9e | xarm10tdmi \
 			| xarm7100 | xarm7500 | xarm7500fe | xarm810 \
 			| xarm1020t \
-			| xxscale \
+			| xxscale | xiwmmxt \
 			| xep9312 \
 			| xstrongarm | xstrongarm110 | xstrongarm11[01]0)
 				# OK

@@ -26,7 +26,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* Standard GCC variables that we reference.  */
 
-extern char    *asm_file_name;
 extern char	call_used_regs[];
 extern int	may_call_alloca;
 extern char   **save_argv;
@@ -95,15 +94,6 @@ enum mips_abicalls_type {
 /* Recast the abicalls class to be the abicalls attribute.  */
 #define mips_abicalls_attr ((enum attr_abicalls)mips_abicalls)
 
-/* Which type of block move to do (whether or not the last store is
-   split out so it can fill a branch delay slot).  */
-
-enum block_move_type {
-  BLOCK_MOVE_NORMAL,			/* generate complete block move */
-  BLOCK_MOVE_NOT_LAST,			/* generate all but last store */
-  BLOCK_MOVE_LAST			/* generate just the last store */
-};
-
 /* Information about one recognized processor.  Defined here for the
    benefit of TARGET_CPU_CPP_BUILTINS.  */
 struct mips_cpu_info {
@@ -131,8 +121,6 @@ extern int file_in_function_warning;	/* warning given about .file in func */
 extern int sdb_label_count;		/* block start/end next label # */
 extern int sdb_begin_function_line;     /* Starting Line of current function */
 extern int mips_section_threshold;	/* # bytes of data/sdata cutoff */
-/* extern unsigned HOST_WIDE_INT  g_switch_value; */ /* value of the -G xx switch */
-extern int g_switch_set;		/* whether -G xx was passed.  */
 extern int sym_lineno;			/* sgi next label # for each stmt */
 extern int set_noreorder;		/* # of nested .set noreorder's  */
 extern int set_nomacro;			/* # of nested .set nomacro's  */
@@ -1400,7 +1388,7 @@ do {							\
 
 #define PUT_SDB_FUNCTION_END(LINE)			\
 do {							\
-  ASM_OUTPUT_SOURCE_LINE (asm_out_file, LINE + sdb_begin_function_line); \
+  ASM_OUTPUT_SOURCE_LINE (asm_out_file, LINE + sdb_begin_function_line, 0); \
 } while (0)
 
 #define PUT_SDB_EPILOGUE_END(NAME)
@@ -3288,17 +3276,6 @@ typedef struct mips_args {
 
 /* Control the assembler format that we output.  */
 
-/* Output at beginning of assembler file.
-   If we are optimizing to use the global pointer, create a temporary
-   file to hold all of the text stuff, and write it out to the end.
-   This is needed because the MIPS assembler is evidently one pass,
-   and if it hasn't seen the relevant .comm/.lcomm/.extern/.sdata
-   declaration when the code is processed, it generates a two
-   instruction sequence.  */
-
-#undef ASM_FILE_START
-#define ASM_FILE_START(STREAM) mips_asm_file_start (STREAM)
-
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
 
@@ -3716,7 +3693,7 @@ while (0)
 #endif
 
 #ifndef ASM_OUTPUT_SOURCE_LINE
-#define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE)				\
+#define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE, COUNTER)		\
   mips_output_lineno (STREAM, LINE)
 #endif
 

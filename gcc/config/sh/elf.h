@@ -1,4 +1,4 @@
-/* Definitions of target machine for gcc for Hitachi / SuperH SH using ELF.
+/* Definitions of target machine for gcc for Renesas / SuperH SH using ELF.
    Copyright (C) 1996, 1997, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Ian Lance Taylor <ian@cygnus.com>.
 
@@ -18,6 +18,10 @@ You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
+
+/* Let sh.c know this is ELF.  */
+#undef TARGET_ELF
+#define TARGET_ELF 1
 
 /* Generate DWARF2 debugging information and make it the default */
 #define DWARF2_DEBUGGING_INFO 1
@@ -42,21 +46,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX "."
-
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE) do {				\
-  output_file_directive ((FILE), main_input_filename);		\
-/* We also need to show the text section with the proper	\
-   attributes as in TEXT_SECTION_ASM_OP, before dwarf2out	\
-   emits it without attributes in TEXT_SECTION, else GAS	\
-   will complain.  We can teach GAS specifically about the	\
-   default attributes for our choice of text section, but	\
-   then we would have to change GAS again if/when we change	\
-   the text section name.  */					\
-   fprintf ((FILE), "%s\n", TEXT_SECTION_ASM_OP);		\
-  if (TARGET_LITTLE_ENDIAN)					\
-    fprintf ((FILE), "\t.little\n");				\
-} while (0)
 
 #undef SIZE_TYPE
 #define SIZE_TYPE (TARGET_SH5 ? "long unsigned int" : "unsigned int")
@@ -91,16 +80,14 @@ Boston, MA 02111-1307, USA.  */
   sprintf ((STRING), "*%s%s%ld", LOCAL_LABEL_PREFIX, (PREFIX), (long)(NUM))
 
 #undef  ASM_OUTPUT_SOURCE_LINE
-#define ASM_OUTPUT_SOURCE_LINE(file, line)				\
+#define ASM_OUTPUT_SOURCE_LINE(file, line, counter)			\
 do									\
   {									\
-    static int sym_lineno = 1;						\
     asm_fprintf ((file), ".stabn 68,0,%d,%LLM%d-",			\
-	     (line), sym_lineno);					\
+	     (line), (counter));					\
     assemble_name ((file),						\
 		   XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));\
-    asm_fprintf ((file), "\n%LLM%d:\n", sym_lineno);			\
-    sym_lineno += 1;							\
+    asm_fprintf ((file), "\n%LLM%d:\n", (counter));			\
   }									\
 while (0)
 

@@ -1,3 +1,30 @@
+Thu Jun 26 07:06:29 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* top.c (ffe_handle_option): Don't check for missing arguments.
+
+Wed Jun 25 06:52:12 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* top.c (ffe_handle_option): Add missing break;.
+
+2003-06-24  Scott Snyder  <snyder@fnal.gov>
+
+	PR fortran/11299
+	* com.c (ffe_init): Call push_srcloc() to ensure that
+	input_file_stack is initialized.
+
+Sat Jun 21 21:29:38 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang.opt: Add -fpreprocessed.
+	* top.c (ffe_handle_option): Handle it.
+
+Fri Jun 20 10:00:31 2003  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* com.c (finish_function): Adjust expand_function_end call.
+
+2003-06-17  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Make-lang.in: Replace BUILD_CC references with CC_FOR_BUILD.
+
 Sun Jun 15 15:56:51 2003  Neil Booth  <neil@daikokuya.co.uk>
 
 	* lang.opt: Declare F77.

@@ -1,4 +1,4 @@
-/* Output routines for GCC for Hitachi / SuperH SH.
+/* Output routines for GCC for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1997, 1997, 1998, 1999, 2000, 2001, 2002,
    2003 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
@@ -47,6 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 #include "basic-block.h"
 #include "ra.h"
+#include "cfglayout.h"
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 
@@ -55,7 +56,7 @@ int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 
 /* These are some macros to abstract register modes.  */
 #define CONST_OK_FOR_ADD(size) \
-  (TARGET_SHMEDIA ? CONST_OK_FOR_P (size) : CONST_OK_FOR_I (size))
+  (TARGET_SHMEDIA ? CONST_OK_FOR_I10 (size) : CONST_OK_FOR_I08 (size))
 #define GEN_MOV (*(TARGET_SHMEDIA64 ? gen_movdi : gen_movsi))
 #define GEN_ADD3 (*(TARGET_SHMEDIA64 ? gen_adddi3 : gen_addsi3))
 #define GEN_SUB3 (*(TARGET_SHMEDIA64 ? gen_subdi3 : gen_subsi3))
@@ -174,6 +175,8 @@ enum reg_class reg_class_from_letter[] =
 
 int assembler_dialect;
 
+static bool shmedia_space_reserved_for_target_registers;
+
 static void split_branches PARAMS ((rtx));
 static int branch_dest PARAMS ((rtx));
 static void force_into PARAMS ((rtx, rtx));
@@ -208,6 +211,8 @@ static int sh_issue_rate PARAMS ((void));
 static bool sh_function_ok_for_sibcall PARAMS ((tree, tree));
 
 static bool sh_cannot_modify_jumps_p PARAMS ((void));
+static int sh_target_reg_class (void);
+static bool sh_optimize_target_register_callee_saved (bool);
 static bool sh_ms_bitfield_layout_p PARAMS ((tree));
 
 static void sh_init_builtins PARAMS ((void));
@@ -215,6 +220,7 @@ static void sh_media_init_builtins PARAMS ((void));
 static rtx sh_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int));
 static void sh_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 					HOST_WIDE_INT, tree));
+static void sh_file_start PARAMS ((void));
 static int flow_dependent_p PARAMS ((rtx, rtx));
 static void flow_dependent_p_1 PARAMS ((rtx, rtx, void *));
 static int shiftcosts PARAMS ((rtx));
@@ -225,6 +231,9 @@ static bool unspec_caller_rtx_p PARAMS ((rtx));
 static bool sh_cannot_copy_insn_p PARAMS ((rtx));
 static bool sh_rtx_costs PARAMS ((rtx, int, int, int *));
 static int sh_address_cost PARAMS ((rtx));
+static int shmedia_target_regs_stack_space (HARD_REG_SET *);
+static int shmedia_reserve_space_for_target_registers_p (int, HARD_REG_SET *);
+static int shmedia_target_regs_stack_adjust (HARD_REG_SET *);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -251,6 +260,11 @@ static int sh_address_cost PARAMS ((rtx));
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
 
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START sh_file_start
+#undef TARGET_ASM_FILE_START_FILE_DIRECTIVE
+#define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
+
 #undef TARGET_INSERT_ATTRIBUTES
 #define TARGET_INSERT_ATTRIBUTES sh_insert_attributes
 
@@ -265,6 +279,11 @@ static int sh_address_cost PARAMS ((rtx));
 
 #undef TARGET_CANNOT_MODIFY_JUMPS_P
 #define TARGET_CANNOT_MODIFY_JUMPS_P sh_cannot_modify_jumps_p
+#undef TARGET_BRANCH_TARGET_REGISTER_CLASS
+#define TARGET_BRANCH_TARGET_REGISTER_CLASS sh_target_reg_class
+#undef TARGET_BRANCH_TARGET_REGISTER_CALLEE_SAVED
+#define TARGET_BRANCH_TARGET_REGISTER_CALLEE_SAVED \
+ sh_optimize_target_register_callee_saved
 
 #undef TARGET_MS_BITFIELD_LAYOUT_P
 #define TARGET_MS_BITFIELD_LAYOUT_P sh_ms_bitfield_layout_p
@@ -762,11 +781,20 @@ prepare_move_operands (operands, mode)
 	  && ! sh_register_operand (operands[1], mode))
 	operands[1] = copy_to_mode_reg (mode, operands[1]);
 
+      if (GET_CODE (operands[0]) == MEM && ! memory_operand (operands[0], mode))
+	{
+	  /* This is like change_address_1 (operands[0], mode, 0, 1) ,
+	     except that we can't use that function because it is static.  */
+	  rtx new = change_address (operands[0], mode, 0);
+	  MEM_COPY_ATTRIBUTES (new, operands[0]);
+	  operands[0] = new;
+	}
+
       /* This case can happen while generating code to move the result
 	 of a library call to the target.  Reject `st r0,@(rX,rY)' because
 	 reload will fail to find a spill register for rX, since r0 is already
 	 being used for the source.  */
-      else if (GET_CODE (operands[1]) == REG && REGNO (operands[1]) == 0
+      else if (refers_to_regno_p (R0_REG, R0_REG + 1, operands[1], (rtx *)0)
 	       && GET_CODE (operands[0]) == MEM
 	       && GET_CODE (XEXP (operands[0], 0)) == PLUS
 	       && GET_CODE (XEXP (XEXP (operands[0], 0), 1)) == REG)
@@ -1280,26 +1308,38 @@ output_ieee_ccmpeq (insn, operands)
   return output_branchy_insn (NE, "bt\t%l9\\;fcmp/eq\t%1,%0", insn, operands);
 }
 
-/* Output to FILE the start of the assembler file.  */
+/* Output the start of the assembler file.  */
 
-void
-output_file_start (file)
-     FILE *file;
+static void
+sh_file_start ()
 {
-  output_file_directive (file, main_input_filename);
+  default_file_start ();
 
-  /* Switch to the data section so that the coffsem symbol
-     isn't in the text section.  */
-  data_section ();
+  if (TARGET_ELF)
+    /* We need to show the text section with the proper
+       attributes as in TEXT_SECTION_ASM_OP, before dwarf2out
+       emits it without attributes in TEXT_SECTION, else GAS
+       will complain.  We can teach GAS specifically about the
+       default attributes for our choice of text section, but
+       then we would have to change GAS again if/when we change
+       the text section name.  */
+    fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
+  else
+    /* Switch to the data section so that the coffsem symbol
+       isn't in the text section.  */
+    data_section ();
 
   if (TARGET_LITTLE_ENDIAN)
-    fprintf (file, "\t.little\n");
+    fputs ("\t.little\n", asm_out_file);
 
-  if (TARGET_SHCOMPACT)
-    fprintf (file, "\t.mode\tSHcompact\n");
-  else if (TARGET_SHMEDIA)
-    fprintf (file, "\t.mode\tSHmedia\n\t.abi\t%i\n",
-	     TARGET_SHMEDIA64 ? 64 : 32);
+  if (!TARGET_ELF)
+    {
+      if (TARGET_SHCOMPACT)
+	fputs ("\t.mode\tSHcompact\n", asm_out_file);
+      else if (TARGET_SHMEDIA)
+	fprintf (asm_out_file, "\t.mode\tSHmedia\n\t.abi\t%i\n",
+		 TARGET_SHMEDIA64 ? 64 : 32);
+    }
 }
 
 /* Check if PAT includes UNSPEC_CALLER unspec pattern.  */
@@ -1479,8 +1519,8 @@ andcosts (x)
   if (TARGET_SHMEDIA)
     {
       if ((GET_CODE (XEXP (x, 1)) == CONST_INT
-	   && CONST_OK_FOR_J (INTVAL (XEXP (x, 1))))
-	  || EXTRA_CONSTRAINT_S (XEXP (x, 1)))
+	   && CONST_OK_FOR_I16 (INTVAL (XEXP (x, 1))))
+	  || EXTRA_CONSTRAINT_C16 (XEXP (x, 1)))
 	return 1;
       else
 	return 2;
@@ -1489,13 +1529,13 @@ andcosts (x)
   /* These constants are single cycle extu.[bw] instructions.  */
   if (i == 0xff || i == 0xffff)
     return 1;
-  /* Constants that can be used in an and immediate instruction is a single
+  /* Constants that can be used in an and immediate instruction in a single
      cycle, but this requires r0, so make it a little more expensive.  */
-  if (CONST_OK_FOR_L (i))
+  if (CONST_OK_FOR_K08 (i))
     return 2;
   /* Constants that can be loaded with a mov immediate and an and.
      This case is probably unnecessary.  */
-  if (CONST_OK_FOR_I (i))
+  if (CONST_OK_FOR_I08 (i))
     return 2;
   /* Any other constants requires a 2 cycle pc-relative load plus an and.
      This case is probably unnecessary.  */
@@ -1527,11 +1567,11 @@ addsubcosts (x)
 	return TARGET_SHMEDIA64 ? 5 : 3;
 
       case CONST_INT:
-	if (CONST_OK_FOR_J (INTVAL (XEXP (x, 1))))
+	if (CONST_OK_FOR_I16 (INTVAL (XEXP (x, 1))))
           return 2;
-	else if (CONST_OK_FOR_J (INTVAL (XEXP (x, 1)) >> 16))
+	else if (CONST_OK_FOR_I16 (INTVAL (XEXP (x, 1)) >> 16))
 	  return 3;
-	else if (CONST_OK_FOR_J ((INTVAL (XEXP (x, 1)) >> 16) >> 16))
+	else if (CONST_OK_FOR_I16 ((INTVAL (XEXP (x, 1)) >> 16) >> 16))
 	  return 4;
 
 	/* Fall through.  */
@@ -1591,22 +1631,22 @@ sh_rtx_costs (x, code, outer_code, total)
 	    *total = 0;
 	  else if ((outer_code == IOR || outer_code == XOR
 	            || outer_code == PLUS)
-		   && CONST_OK_FOR_P (INTVAL (x)))
+		   && CONST_OK_FOR_I10 (INTVAL (x)))
 	    *total = 0;
-	  else if (CONST_OK_FOR_J (INTVAL (x)))
+	  else if (CONST_OK_FOR_I16 (INTVAL (x)))
             *total = COSTS_N_INSNS (outer_code != SET);
-	  else if (CONST_OK_FOR_J (INTVAL (x) >> 16))
+	  else if (CONST_OK_FOR_I16 (INTVAL (x) >> 16))
 	    *total = COSTS_N_INSNS (2);
-	  else if (CONST_OK_FOR_J ((INTVAL (x) >> 16) >> 16))
+	  else if (CONST_OK_FOR_I16 ((INTVAL (x) >> 16) >> 16))
 	    *total = COSTS_N_INSNS (3);
           else
 	    *total = COSTS_N_INSNS (4);
 	  return true;
         }
-      if (CONST_OK_FOR_I (INTVAL (x)))
+      if (CONST_OK_FOR_I08 (INTVAL (x)))
         *total = 0;
       else if ((outer_code == AND || outer_code == IOR || outer_code == XOR)
-	       && CONST_OK_FOR_L (INTVAL (x)))
+	       && CONST_OK_FOR_K08 (INTVAL (x)))
         *total = 1;
       else
         *total = 8;
@@ -2024,7 +2064,7 @@ shl_and_kind (left_rtx, mask_rtx, attrp)
     {
       if (i > right)
 	break;
-      if (! CONST_OK_FOR_L (mask >> i))
+      if (! CONST_OK_FOR_K08 (mask >> i))
 	continue;
       cost = (i != 0) + 2 + ext_shift_insns[left + i];
       if (cost < best_cost)
@@ -2041,14 +2081,14 @@ shl_and_kind (left_rtx, mask_rtx, attrp)
     {
       if (i > right)
 	break;
-      cost = (i != 0) + (CONST_OK_FOR_I (mask >> i) ? 2 : 3)
+      cost = (i != 0) + (CONST_OK_FOR_I08 (mask >> i) ? 2 : 3)
 	+ (can_ext ? ext_shift_insns : shift_insns)[left + i];
       if (cost < best_cost)
 	{
 	  best = 4 - can_ext;
 	  best_cost = cost;
 	  best_right = i;
-	  best_len = cost - 1 - ! CONST_OK_FOR_I (mask >> i);
+	  best_len = cost - 1 - ! CONST_OK_FOR_I08 (mask >> i);
 	}
     }
 
@@ -2826,8 +2866,8 @@ hi_const (src)
 /* Nonzero if the insn is a move instruction which needs to be fixed.  */
 
 /* ??? For a DImode/DFmode moves, we don't need to fix it if each half of the
-   CONST_DOUBLE input value is CONST_OK_FOR_I.  For a SFmode move, we don't
-   need to fix it if the input value is CONST_OK_FOR_I.  */
+   CONST_DOUBLE input value is CONST_OK_FOR_I08.  For a SFmode move, we don't
+   need to fix it if the input value is CONST_OK_FOR_I08.  */
 
 static int
 broken_move (insn)
@@ -2864,7 +2904,7 @@ broken_move (insn)
 		&& GET_CODE (SET_DEST (pat)) == REG
 		&& FP_REGISTER_P (REGNO (SET_DEST (pat))))
 	  && (GET_CODE (SET_SRC (pat)) != CONST_INT
-	      || ! CONST_OK_FOR_I (INTVAL (SET_SRC (pat)))))
+	      || ! CONST_OK_FOR_I08 (INTVAL (SET_SRC (pat)))))
 	return 1;
     }
 
@@ -4688,6 +4728,53 @@ push_regs (mask, interrupt_handler)
     push (PR_REG);
 }
 
+/* Calculate how much extra space is needed to save all callee-saved
+   target registers.
+   LIVE_REGS_MASK is the register mask calculated by calc_live_regs.  */
+
+static int
+shmedia_target_regs_stack_space (HARD_REG_SET *live_regs_mask)
+{
+  int reg;
+  int stack_space = 0;
+  int interrupt_handler = sh_cfun_interrupt_handler_p ();
+
+  for (reg = LAST_TARGET_REG; reg >= FIRST_TARGET_REG; reg--)
+    if ((! call_used_regs[reg] || interrupt_handler)
+        && ! TEST_HARD_REG_BIT (*live_regs_mask, reg))
+      /* Leave space to save this target register on the stack,
+	 in case target register allocation wants to use it. */
+      stack_space += GET_MODE_SIZE (REGISTER_NATURAL_MODE (reg));
+  return stack_space;
+}
+   
+/* Decide whether we should reserve space for callee-save target registers,
+   in case target register allocation wants to use them.  REGS_SAVED is
+   the space, in bytes, that is already required for register saves.
+   LIVE_REGS_MASK is the register mask calculated by calc_live_regs.  */
+
+static int
+shmedia_reserve_space_for_target_registers_p (int regs_saved,
+					      HARD_REG_SET *live_regs_mask)
+{
+  if (optimize_size)
+    return 0;
+  return shmedia_target_regs_stack_space (live_regs_mask) <= regs_saved;
+}
+
+/* Decide how much space to reserve for callee-save target registers
+   in case target register allocation wants to use them.
+   LIVE_REGS_MASK is the register mask calculated by calc_live_regs.  */
+
+static int
+shmedia_target_regs_stack_adjust (HARD_REG_SET *live_regs_mask)
+{
+  if (shmedia_space_reserved_for_target_registers)
+    return shmedia_target_regs_stack_space (live_regs_mask);
+  else
+    return 0;
+}
+
 /* Work out the registers which need to be saved, both as a mask and a
    count of saved words.  Return the count.
 
@@ -4791,6 +4878,19 @@ calc_live_regs (live_regs_mask)
 	    }
 	}
     }
+  /* If we have a target register optimization pass after prologue / epilogue
+     threading, we need to assume all target registers will be live even if
+     they aren't now.  */
+  if (flag_branch_target_load_optimize2
+      && TARGET_SAVE_ALL_TARGET_REGS
+      && shmedia_space_reserved_for_target_registers)
+    for (reg = LAST_TARGET_REG; reg >= FIRST_TARGET_REG; reg--)
+      if ((! call_used_regs[reg] || interrupt_handler)
+	  && ! TEST_HARD_REG_BIT (*live_regs_mask, reg))
+	{
+	  SET_HARD_REG_BIT (*live_regs_mask, reg);
+	  count += GET_MODE_SIZE (REGISTER_NATURAL_MODE (reg));
+	}
 
   return count;
 }
@@ -4940,13 +5040,37 @@ sh_expand_prologue ()
       rtx r0 = gen_rtx_REG (Pmode, R0_REG);
       int offset_in_r0 = -1;
       int sp_in_r0 = 0;
+      int tregs_space = shmedia_target_regs_stack_adjust (&live_regs_mask);
+      int total_size, save_size;
 
-      if (d % (STACK_BOUNDARY / BITS_PER_UNIT))
+      /* D is the actual number of bytes that we need for saving registers,
+	 however, in initial_elimination_offset we have committed to using
+	 an additional TREGS_SPACE amount of bytes - in order to keep both
+	 addresses to arguments supplied by the caller and local variables
+	 valid, we must keep this gap.  Place it between the incoming
+	 arguments and the actually saved registers in a bid to optimize
+	 locality of reference.  */
+      total_size = d + tregs_space;
+      total_size += rounded_frame_size (total_size);
+      save_size = total_size - rounded_frame_size (d);
+      if (save_size % (STACK_BOUNDARY / BITS_PER_UNIT))
 	d_rounding = ((STACK_BOUNDARY / BITS_PER_UNIT)
-		      - d % (STACK_BOUNDARY / BITS_PER_UNIT));
+			- save_size % (STACK_BOUNDARY / BITS_PER_UNIT));
+
+      /* If adjusting the stack in a single step costs nothing extra, do so.
+	 I.e. either if a single addi is enough, or we need a movi anyway,
+	 and we don't exceed the maximum offset range (the test for the
+	 latter is conservative for simplicity).  */
+      if (TARGET_SHMEDIA
+	  && (CONST_OK_FOR_I10 (-total_size)
+	      || (! CONST_OK_FOR_I10 (-(save_size + d_rounding))
+		  && total_size <= 2044)))
+	d_rounding = total_size - save_size;
 
       offset = d + d_rounding;
-      output_stack_adjust (-offset, stack_pointer_rtx, 1, frame_insn);
+
+      output_stack_adjust (-(save_size + d_rounding), stack_pointer_rtx,
+			   1, frame_insn);
 
       /* We loop twice: first, we save 8-byte aligned registers in the
 	 higher addresses, that are known to be aligned.  Then, we
@@ -5158,16 +5282,39 @@ sh_expand_epilogue ()
   int d_rounding = 0;
 
   int save_flags = target_flags;
-  int frame_size;
+  int frame_size, save_size;
   int fpscr_deferred = 0;
 
   d = calc_live_regs (&live_regs_mask);
 
-  if (TARGET_SH5 && d % (STACK_BOUNDARY / BITS_PER_UNIT))
-    d_rounding = ((STACK_BOUNDARY / BITS_PER_UNIT)
-		  - d % (STACK_BOUNDARY / BITS_PER_UNIT));
+  save_size = d;
+  frame_size = rounded_frame_size (d);
 
-  frame_size = rounded_frame_size (d) - d_rounding;
+  if (TARGET_SH5)
+    {
+      int tregs_space = shmedia_target_regs_stack_adjust (&live_regs_mask);
+      int total_size;
+      if (d % (STACK_BOUNDARY / BITS_PER_UNIT))
+      d_rounding = ((STACK_BOUNDARY / BITS_PER_UNIT)
+		    - d % (STACK_BOUNDARY / BITS_PER_UNIT));
+
+      total_size = d + tregs_space;
+      total_size += rounded_frame_size (total_size);
+      save_size = total_size - frame_size;
+
+      /* If adjusting the stack in a single step costs nothing extra, do so.
+	 I.e. either if a single addi is enough, or we need a movi anyway,
+	 and we don't exceed the maximum offset range (the test for the
+	 latter is conservative for simplicity).  */
+      if (TARGET_SHMEDIA
+	  && ! frame_pointer_needed
+	  && (CONST_OK_FOR_I10 (total_size)
+	      || (! CONST_OK_FOR_I10 (save_size + d_rounding)
+		  && total_size <= 2044)))
+	d_rounding = frame_size;
+
+      frame_size -= d_rounding;
+    }
 
   if (frame_pointer_needed)
     {
@@ -5346,33 +5493,33 @@ sh_expand_epilogue ()
 
       if (offset != d + d_rounding)
 	abort ();
-
-      goto finish;
     }
-  else
-    d = 0;
-  if (TEST_HARD_REG_BIT (live_regs_mask, PR_REG))
-    pop (PR_REG);
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+  else /* ! TARGET_SH5 */
     {
-      int j = (FIRST_PSEUDO_REGISTER - 1) - i;
+      save_size = 0;
+      if (TEST_HARD_REG_BIT (live_regs_mask, PR_REG))
+	pop (PR_REG);
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	{
+	  int j = (FIRST_PSEUDO_REGISTER - 1) - i;
+  
+	  if (j == FPSCR_REG && current_function_interrupt && TARGET_FMOVD
+	      && hard_regs_intersect_p (&live_regs_mask,
+					&reg_class_contents[DF_REGS]))
+	    fpscr_deferred = 1;
+	  else if (j != PR_REG && TEST_HARD_REG_BIT (live_regs_mask, j))
+	    pop (j);
+	  if (j == FIRST_FP_REG && fpscr_deferred)
+	    pop (FPSCR_REG);
 
-      if (j == FPSCR_REG && current_function_interrupt && TARGET_FMOVD
-	  && hard_regs_intersect_p (&live_regs_mask,
-				    &reg_class_contents[DF_REGS]))
-	fpscr_deferred = 1;
-      else if (j != PR_REG && TEST_HARD_REG_BIT (live_regs_mask, j))
-	pop (j);
-      if (j == FIRST_FP_REG && fpscr_deferred)
-	pop (FPSCR_REG);
+	}
     }
- finish:
   if (target_flags != save_flags && ! current_function_interrupt)
     emit_insn (gen_toggle_sz ());
   target_flags = save_flags;
 
   output_stack_adjust (extra_push + current_function_pretend_args_size
-		       + d + d_rounding
+		       + save_size + d_rounding
 		       + current_function_args_info.stack_regs * 8,
 		       stack_pointer_rtx, 7, emit_insn);
 
@@ -5793,8 +5940,9 @@ sh_va_arg (valist, type)
   HOST_WIDE_INT size, rsize;
   tree tmp, pptr_type_node;
   rtx addr_rtx, r;
-  rtx result;
+  rtx result_ptr, result = NULL_RTX;
   int pass_by_ref = MUST_PASS_IN_STACK (TYPE_MODE (type), type);
+  rtx lab_over;
 
   size = int_size_in_bytes (type);
   rsize = (size + UNITS_PER_WORD - 1) & -UNITS_PER_WORD;
@@ -5808,7 +5956,7 @@ sh_va_arg (valist, type)
       tree f_next_o, f_next_o_limit, f_next_fp, f_next_fp_limit, f_next_stack;
       tree next_o, next_o_limit, next_fp, next_fp_limit, next_stack;
       int pass_as_float;
-      rtx lab_false, lab_over;
+      rtx lab_false;
 
       f_next_o = TYPE_FIELDS (va_list_type_node);
       f_next_o_limit = TREE_CHAIN (f_next_o);
@@ -5826,6 +5974,16 @@ sh_va_arg (valist, type)
       next_stack = build (COMPONENT_REF, TREE_TYPE (f_next_stack),
 			  valist, f_next_stack);
 
+      /* Structures with a single member with a distinct mode are passed
+	 like their member.  This is relevant if the latter has a REAL_TYPE
+	 or COMPLEX_TYPE type.  */
+      if (TREE_CODE (type) == RECORD_TYPE
+	  && TYPE_FIELDS (type)
+	  && TREE_CODE (TYPE_FIELDS (type)) == FIELD_DECL
+	  && (TREE_CODE (TREE_TYPE (TYPE_FIELDS (type))) == REAL_TYPE
+	      || TREE_CODE (TREE_TYPE (TYPE_FIELDS (type))) == COMPLEX_TYPE)
+          && TREE_CHAIN (TYPE_FIELDS (type)) == NULL_TREE)
+	type = TREE_TYPE (TYPE_FIELDS (type));
       if (TARGET_SH4)
 	{
 	  pass_as_float = ((TREE_CODE (type) == REAL_TYPE && size <= 8)
@@ -5841,6 +5999,9 @@ sh_va_arg (valist, type)
       addr_rtx = gen_reg_rtx (Pmode);
       lab_false = gen_label_rtx ();
       lab_over = gen_label_rtx ();
+
+      tmp = make_tree (pptr_type_node, addr_rtx);
+      valist = build1 (INDIRECT_REF, ptr_type_node, tmp);
 
       if (pass_as_float)
 	{
@@ -5870,6 +6031,37 @@ sh_va_arg (valist, type)
 	  r = expand_expr (tmp, addr_rtx, Pmode, EXPAND_NORMAL);
 	  if (r != addr_rtx)
 	    emit_move_insn (addr_rtx, r);
+
+#ifdef FUNCTION_ARG_SCmode_WART
+	  if (TYPE_MODE (type) == SCmode && TARGET_SH4 && TARGET_LITTLE_ENDIAN)
+	    {
+	      rtx addr, real, imag, result_value, slot;
+	      tree subtype = TREE_TYPE (type);
+
+	      addr = std_expand_builtin_va_arg (valist, subtype);
+#ifdef POINTERS_EXTEND_UNSIGNED
+	      if (GET_MODE (addr) != Pmode)
+		addr = convert_memory_address (Pmode, addr);
+#endif
+	      imag = gen_rtx_MEM (TYPE_MODE (type), addr);
+	      set_mem_alias_set (imag, get_varargs_alias_set ());
+
+	      addr = std_expand_builtin_va_arg (valist, subtype);
+#ifdef POINTERS_EXTEND_UNSIGNED
+	      if (GET_MODE (addr) != Pmode)
+		addr = convert_memory_address (Pmode, addr);
+#endif
+	      real = gen_rtx_MEM (TYPE_MODE (type), addr);
+	      set_mem_alias_set (real, get_varargs_alias_set ());
+
+	      result_value = gen_rtx_CONCAT (SCmode, real, imag);
+	      /* ??? this interface is stupid - why require a pointer?  */
+	      result = gen_reg_rtx (Pmode);
+	      slot = assign_stack_temp (SCmode, 8, 0);
+	      emit_move_insn (slot, result_value);
+	      emit_move_insn (result, XEXP (slot, 0));
+	    }
+#endif /* FUNCTION_ARG_SCmode_WART */
 
 	  emit_jump_insn (gen_jump (lab_over));
 	  emit_barrier ();
@@ -5913,16 +6105,22 @@ sh_va_arg (valist, type)
 	    emit_move_insn (addr_rtx, r);
 	}
 
-      emit_label (lab_over);
-
-      tmp = make_tree (pptr_type_node, addr_rtx);
-      valist = build1 (INDIRECT_REF, ptr_type_node, tmp);
+      if (! result)
+        emit_label (lab_over);
     }
 
   /* ??? In va-sh.h, there had been code to make values larger than
      size 8 indirect.  This does not match the FUNCTION_ARG macros.  */
 
-  result = std_expand_builtin_va_arg (valist, type);
+  result_ptr = std_expand_builtin_va_arg (valist, type);
+  if (result)
+    {
+      emit_move_insn (result, result_ptr);
+      emit_label (lab_over);
+    }
+  else
+    result = result_ptr;
+
   if (pass_by_ref)
     {
 #ifdef POINTERS_EXTEND_UNSIGNED
@@ -5951,10 +6149,18 @@ initial_elimination_offset (from, to)
   int total_auto_space;
   int save_flags = target_flags;
   int copy_flags;
-
   HARD_REG_SET live_regs_mask;
+
+  shmedia_space_reserved_for_target_registers = false;
   regs_saved = calc_live_regs (&live_regs_mask);
   regs_saved += SHMEDIA_REGS_STACK_ADJUST ();
+
+  if (shmedia_reserve_space_for_target_registers_p (regs_saved, &live_regs_mask))
+    {
+      shmedia_space_reserved_for_target_registers = true;
+      regs_saved += shmedia_target_regs_stack_adjust (&live_regs_mask);
+    }
+
   if (TARGET_SH5 && regs_saved % (STACK_BOUNDARY / BITS_PER_UNIT))
     regs_saved_rounding = ((STACK_BOUNDARY / BITS_PER_UNIT)
 			   - regs_saved % (STACK_BOUNDARY / BITS_PER_UNIT));
@@ -6037,7 +6243,7 @@ initial_elimination_offset (from, to)
   abort ();
 }
 
-/* Handle machine specific pragmas to be semi-compatible with Hitachi
+/* Handle machine specific pragmas to be semi-compatible with Renesas
    compiler.  */
 
 void
@@ -6373,17 +6579,17 @@ arith_operand (op, mode)
   if (TARGET_SHMEDIA)
     {
       /* FIXME: We should be checking whether the CONST_INT fits in a
-	 CONST_OK_FOR_J here, but this causes reload_cse to crash when
+	 CONST_OK_FOR_I16 here, but this causes reload_cse to crash when
 	 attempting to transform a sequence of two 64-bit sets of the
 	 same register from literal constants into a set and an add,
 	 when the difference is too wide for an add.  */
       if (GET_CODE (op) == CONST_INT
-	  || EXTRA_CONSTRAINT_S (op))
+	  || EXTRA_CONSTRAINT_C16 (op))
 	return 1;
       else
 	return 0;
     }
-  else if (GET_CODE (op) == CONST_INT && CONST_OK_FOR_I (INTVAL (op)))
+  else if (GET_CODE (op) == CONST_INT && CONST_OK_FOR_I08 (INTVAL (op)))
     return 1;
 
   return 0;
@@ -6399,7 +6605,7 @@ arith_reg_or_0_operand (op, mode)
   if (arith_reg_operand (op, mode))
     return 1;
 
-  if (EXTRA_CONSTRAINT_U (op))
+  if (EXTRA_CONSTRAINT_Z (op))
     return 1;
 
   return 0;
@@ -6414,7 +6620,7 @@ shmedia_6bit_operand (op, mode)
      enum machine_mode mode;
 {
   return (arith_reg_operand (op, mode)
-	  || (GET_CODE (op) == CONST_INT && CONST_OK_FOR_O (INTVAL (op))));
+	  || (GET_CODE (op) == CONST_INT && CONST_OK_FOR_I06 (INTVAL (op))));
 }
 
 /* Returns 1 if OP is a valid source operand for a logical operation.  */
@@ -6429,12 +6635,12 @@ logical_operand (op, mode)
 
   if (TARGET_SHMEDIA)
     {
-      if (GET_CODE (op) == CONST_INT && CONST_OK_FOR_P (INTVAL (op)))
+      if (GET_CODE (op) == CONST_INT && CONST_OK_FOR_I10 (INTVAL (op)))
 	return 1;
       else
 	return 0;
     }
-  else if (GET_CODE (op) == CONST_INT && CONST_OK_FOR_L (INTVAL (op)))
+  else if (GET_CODE (op) == CONST_INT && CONST_OK_FOR_K08 (INTVAL (op)))
     return 1;
 
   return 0;
@@ -6452,8 +6658,7 @@ and_operand (op, mode)
   if (TARGET_SHMEDIA
       && mode == DImode
       && GET_CODE (op) == CONST_INT
-      && (INTVAL (op) == (unsigned) 0xffffffff
-	  || INTVAL (op) == (HOST_WIDE_INT) -1 << 32))
+      && CONST_OK_FOR_J16 (INTVAL (op)))
 	return 1;
 
   return 0;
@@ -6728,7 +6933,7 @@ target_operand (op, mode)
     return 0;
 
   if ((GET_MODE (op) == DImode || GET_MODE (op) == VOIDmode)
-      && EXTRA_CONSTRAINT_T (op))
+      && EXTRA_CONSTRAINT_Csy (op))
     return ! reload_completed;
 
   return target_reg_operand (op, mode);
@@ -7650,6 +7855,19 @@ sh_cannot_modify_jumps_p ()
   return (TARGET_SHMEDIA && (reload_in_progress || reload_completed));
 }
 
+static int
+sh_target_reg_class (void)
+{
+  return TARGET_SHMEDIA ? TARGET_REGS : NO_REGS;
+}
+
+static bool
+sh_optimize_target_register_callee_saved (bool after_prologue_epilogue_gen)
+{
+  return (shmedia_space_reserved_for_target_registers
+	  && (! after_prologue_epilogue_gen || TARGET_SAVE_ALL_TARGET_REGS));
+}
+
 static bool
 sh_ms_bitfield_layout_p (record_type)
      tree record_type ATTRIBUTE_UNUSED;
@@ -8235,6 +8453,9 @@ sh_register_move_cost (mode, srcclass, dstclass)
   if (dstclass == T_REGS || dstclass == PR_REGS)
     return 10;
 
+  if (dstclass == MAC_REGS && srcclass == MAC_REGS)
+    return 4;
+
   if (mode == SImode && ! TARGET_SHMEDIA && TARGET_FMOVD
       && REGCLASS_HAS_FP_REG (srcclass)
       && REGCLASS_HAS_FP_REG (dstclass))
@@ -8317,16 +8538,16 @@ sh_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
   int structure_value_byref = 0;
   rtx this, this_value, sibcall, insns, funexp;
   tree funtype = TREE_TYPE (function);
-  int simple_add
-    = (TARGET_SHMEDIA ? CONST_OK_FOR_J (delta) : CONST_OK_FOR_I (delta));
+  int simple_add = CONST_OK_FOR_ADD (delta);
   int did_load = 0;
   rtx scratch0, scratch1, scratch2;
 
   reload_completed = 1;
+  epilogue_completed = 1;
   no_new_pseudos = 1;
   current_function_uses_only_leaf_regs = 1;
 
-  emit_note (NULL, NOTE_INSN_PROLOGUE_END);
+  emit_note (NOTE_INSN_PROLOGUE_END);
 
   /* Find the "this" pointer.  We have such a wide range of ABIs for the
      SH that it's best to do this completely machine independently.
@@ -8401,9 +8622,7 @@ sh_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
 	  emit_move_insn (scratch1, GEN_INT (vcall_offset));
 	  offset_addr = gen_rtx_PLUS (Pmode, scratch0, scratch1);
 	}
-      else if (TARGET_SHMEDIA
-	       ? CONST_OK_FOR_J (vcall_offset)
-	       : CONST_OK_FOR_I (vcall_offset))
+      else if (CONST_OK_FOR_ADD (vcall_offset))
 	{
 	  emit_insn (gen_add2_insn (scratch0, GEN_INT (vcall_offset)));
 	  offset_addr = scratch0;
@@ -8474,6 +8693,7 @@ sh_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
     }
 
   reload_completed = 0;
+  epilogue_completed = 0;
   no_new_pseudos = 0;
 }
 

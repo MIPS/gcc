@@ -3449,6 +3449,11 @@ emit_libcall_block (insns, target, result, equiv)
 
 	  add_insn (insn);
 	}
+
+      /* Some ports use a loop to copy large arguments onto the stack.
+	 Don't move anything outside such a loop.  */
+      if (GET_CODE (insn) == CODE_LABEL)
+	break;
     }
 
   prev = get_last_insn ();
@@ -5552,6 +5557,8 @@ init_optabs ()
   cos_optab = init_optab (UNKNOWN);
   exp_optab = init_optab (UNKNOWN);
   log_optab = init_optab (UNKNOWN);
+  tan_optab = init_optab (UNKNOWN);
+  atan_optab = init_optab (UNKNOWN);
   strlen_optab = init_optab (UNKNOWN);
   cbranch_optab = init_optab (UNKNOWN);
   cmov_optab = init_optab (UNKNOWN);

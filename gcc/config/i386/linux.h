@@ -25,13 +25,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Output at beginning of assembler file.  */
 /* The .file command should always begin the output.  */
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE)						\
-  do {									\
-	output_file_directive (FILE, main_input_filename);		\
-	if (ix86_asm_dialect == ASM_INTEL)				\
-	  fputs ("\t.intel_syntax\n", FILE);				\
-  } while (0)
+#define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
 
 #define TARGET_VERSION fprintf (stderr, " (i386 Linux/ELF)");
 
@@ -234,7 +228,7 @@ Boston, MA 02111-1307, USA.  */
    signal-turned-exceptions for them.  There's also no configure-run for
    the target, so we can't check on (e.g.) HAVE_SYS_UCONTEXT_H.  Using the
    target libc1 macro should be enough.  */
-#ifndef USE_GNULIBC_1
+#if !(defined (USE_GNULIBC_1) || (__GLIBC__ == 2 && __GLIBC_MINOR__ == 0))
 #include <signal.h>
 #include <sys/ucontext.h>
 

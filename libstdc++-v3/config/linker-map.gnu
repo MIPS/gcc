@@ -55,7 +55,8 @@ GLIBCPP_3.4 {
       std::__num_base::_S_format_float*;
       std::__num_base::_S_format_int*;
       std::__num_base::_S_atoms_in;
-      std::__num_base::_S_atoms_out
+      std::__num_base::_S_atoms_out;
+      std::__numpunct_cache*
     };
 
     # Names not in an 'extern' block are mangled names.
@@ -115,7 +116,9 @@ GLIBCPP_3.4 {
 
     # virtual function thunks
     _ZThn8_NS*;
+    _ZThn16_NS*;
     _ZTv0_n12_NS*;
+    _ZTv0_n24_NS*;
 
     # std::__convert_to_v
     _ZSt14__convert_to_v*;

@@ -157,7 +157,7 @@ typedef struct edge_def {
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 
 /* Counter summary from the last set of coverage counts read by
-   profile.c. */
+   profile.c.  */
 extern const struct gcov_ctr_summary *profile_info;
 
 /* Declared in cfgloop.h.  */
@@ -340,6 +340,7 @@ extern void update_bb_for_insn		PARAMS ((basic_block));
 extern void free_basic_block_vars	PARAMS ((int));
 
 extern void insert_insn_on_edge		PARAMS ((rtx, edge));
+bool safe_insert_insn_on_edge (rtx, edge);
 
 extern void commit_edge_insertions	PARAMS ((void));
 extern void commit_edge_insertions_watch_calls	PARAMS ((void));
@@ -535,7 +536,6 @@ extern rtx emit_block_insn_before	PARAMS ((rtx, rtx, basic_block));
 extern void estimate_probability        PARAMS ((struct loops *));
 extern void note_prediction_to_br_prob	PARAMS ((void));
 extern void expected_value_to_br_prob	PARAMS ((void));
-extern void note_prediction_to_br_prob	PARAMS ((void));
 extern bool maybe_hot_bb_p		PARAMS ((basic_block));
 extern bool probably_cold_bb_p		PARAMS ((basic_block));
 extern bool probably_never_executed_bb_p PARAMS ((basic_block));

@@ -88,15 +88,14 @@ static void set_block_origin_self	PARAMS ((tree));
 static void set_block_abstract_flags	PARAMS ((tree, int));
 static void process_reg_param		PARAMS ((struct inline_remap *, rtx,
 						 rtx));
-void set_decl_abstract_flags		PARAMS ((tree, int));
 static void mark_stores                 PARAMS ((rtx, rtx, void *));
 static void save_parm_insns		PARAMS ((rtx, rtx));
 static void copy_insn_list              PARAMS ((rtx, struct inline_remap *,
 						 rtx));
 static void copy_insn_notes		PARAMS ((rtx, struct inline_remap *,
 						 int));
-static int compare_blocks               PARAMS ((const PTR, const PTR));
-static int find_block                   PARAMS ((const PTR, const PTR));
+static int compare_blocks               PARAMS ((const void *, const void *));
+static int find_block                   PARAMS ((const void *, const void *));
 
 /* Used by copy_rtx_and_substitute; this indicates whether the function is
    called for the purpose of inlining or some other purpose (i.e. loop
@@ -614,8 +613,8 @@ process_reg_param (map, loc, copy)
 
 static int
 compare_blocks (v1, v2)
-     const PTR v1;
-     const PTR v2;
+     const void *v1;
+     const void *v2;
 {
   tree b1 = *((const tree *) v1);
   tree b2 = *((const tree *) v2);
@@ -632,8 +631,8 @@ compare_blocks (v1, v2)
 
 static int
 find_block (v1, v2)
-     const PTR v1;
-     const PTR v2;
+     const void *v1;
+     const void *v2;
 {
   const union tree_node *b1 = (const union tree_node *) v1;
   tree b2 = *((const tree *) v2);
@@ -898,7 +897,7 @@ expand_inline_function (fndecl, parms, target, ignore, type,
      insn that can be used as an insertion point.  */
   map->insns_at_start = get_last_insn ();
   if (map->insns_at_start == 0)
-    map->insns_at_start = emit_note (NULL, NOTE_INSN_DELETED);
+    map->insns_at_start = emit_note (NOTE_INSN_DELETED);
 
   map->regno_pointer_align = inl_f->emit->regno_pointer_align;
   map->x_regno_reg_rtx = inl_f->emit->x_regno_reg_rtx;
@@ -925,8 +924,8 @@ expand_inline_function (fndecl, parms, target, ignore, type,
   if (GET_CODE (parm_insns) == NOTE
       && NOTE_LINE_NUMBER (parm_insns) > 0)
     {
-      rtx note = emit_note (NOTE_SOURCE_FILE (parm_insns),
-			    NOTE_LINE_NUMBER (parm_insns));
+      rtx note = emit_line_note (NOTE_SOURCE_FILE (parm_insns),
+				 NOTE_LINE_NUMBER (parm_insns));
       if (note)
 	RTX_INTEGRATED_P (note) = 1;
     }
@@ -1017,8 +1016,8 @@ expand_inline_function (fndecl, parms, target, ignore, type,
 	  && ! (GET_CODE (XEXP (loc, 0)) == REG
 		&& REGNO (XEXP (loc, 0)) > LAST_VIRTUAL_REGISTER))
 	{
-	  rtx note = emit_note (DECL_SOURCE_FILE (formal),
-				DECL_SOURCE_LINE (formal));
+	  rtx note = emit_line_note (DECL_SOURCE_FILE (formal),
+				     DECL_SOURCE_LINE (formal));
 	  if (note)
 	    RTX_INTEGRATED_P (note) = 1;
 
@@ -1305,7 +1304,7 @@ expand_inline_function (fndecl, parms, target, ignore, type,
      This line number note is still needed for debugging though, so we can't
      delete it.  */
   if (flag_test_coverage)
-    emit_note (0, NOTE_INSN_REPEATED_LINE_NUMBER);
+    emit_note (NOTE_INSN_REPEATED_LINE_NUMBER);
 
   emit_line_note (input_filename, input_line);
 
@@ -1683,15 +1682,17 @@ copy_insn_list (insns, map, static_chain_value)
 
 	     NOTE_INSN_DELETED notes aren't useful.  */
 
-	  if (NOTE_LINE_NUMBER (insn) != NOTE_INSN_FUNCTION_END
+	  if (NOTE_LINE_NUMBER (insn) > 0)
+	    copy = emit_line_note (NOTE_SOURCE_FILE (insn),
+				   NOTE_LINE_NUMBER (insn));
+	  else if (NOTE_LINE_NUMBER (insn) != NOTE_INSN_FUNCTION_END
 	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_FUNCTION_BEG
 	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_DELETED)
 	    {
-	      copy = emit_note (NOTE_SOURCE_FILE (insn),
-				NOTE_LINE_NUMBER (insn));
-	      if (copy
-		  && (NOTE_LINE_NUMBER (copy) == NOTE_INSN_BLOCK_BEG
-		      || NOTE_LINE_NUMBER (copy) == NOTE_INSN_BLOCK_END)
+	      copy = emit_note (NOTE_LINE_NUMBER (insn));
+	      NOTE_DATA (copy) = NOTE_DATA (insn);
+	      if ((NOTE_LINE_NUMBER (copy) == NOTE_INSN_BLOCK_BEG
+		   || NOTE_LINE_NUMBER (copy) == NOTE_INSN_BLOCK_END)
 		  && NOTE_BLOCK (insn))
 		{
 		  tree *mapped_block_p;
@@ -1708,8 +1709,7 @@ copy_insn_list (insns, map, static_chain_value)
 		  else
 		    NOTE_BLOCK (copy) = *mapped_block_p;
 		}
-	      else if (copy
-		       && NOTE_LINE_NUMBER (copy) == NOTE_INSN_EXPECTED_VALUE)
+	      else if (NOTE_LINE_NUMBER (copy) == NOTE_INSN_EXPECTED_VALUE)
 		NOTE_EXPECTED_VALUE (copy)
 		  = copy_rtx_and_substitute (NOTE_EXPECTED_VALUE (insn),
 					     map, 0);

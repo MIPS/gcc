@@ -170,9 +170,6 @@ extern const char *rs6000_tls_size_string; /* For -mtls-size= */
 
 #define SUBTARGET_OVERRIDE_OPTIONS					\
 do {									\
-  extern unsigned HOST_WIDE_INT g_switch_value;				\
-  extern int g_switch_set;						\
-									\
   if (!g_switch_set)							\
     g_switch_value = SDATA_DEFAULT_SIZE;				\
 									\
@@ -259,7 +256,8 @@ do {									\
 	     rs6000_sdata_name);					\
     }									\
 									\
-  if (rs6000_sdata != SDATA_NONE && DEFAULT_ABI != ABI_V4)		\
+  if ((rs6000_sdata != SDATA_NONE && DEFAULT_ABI != ABI_V4)		\
+      || (rs6000_sdata == SDATA_EABI && !TARGET_EABI))			\
     {									\
       rs6000_sdata = SDATA_NONE;					\
       error ("-msdata=%s and -mcall-%s are incompatible",		\
@@ -633,8 +631,6 @@ extern int rs6000_pic_labelno;
 #undef	ASM_OUTPUT_ALIGNED_LOCAL
 #define	ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)		\
 do {									\
-  extern unsigned HOST_WIDE_INT g_switch_value;				\
-									\
   if (rs6000_sdata != SDATA_NONE && (SIZE) > 0				\
       && (SIZE) <= g_switch_value)					\
     {									\
@@ -713,16 +709,6 @@ do {									\
    || (CHAR) == 'I' || (CHAR) == 'm' || (CHAR) == 'x'			\
    || (CHAR) == 'L' || (CHAR) == 'A' || (CHAR) == 'V'			\
    || (CHAR) == 'B' || (CHAR) == 'b' || (CHAR) == 'G')
-
-/* Output .file.  */
-/* Override elfos.h definition.  */
-#undef	ASM_FILE_START
-#define	ASM_FILE_START(FILE)						\
-do {									\
-  output_file_directive ((FILE), main_input_filename);			\
-  rs6000_file_start (FILE, TARGET_CPU_DEFAULT);				\
-} while (0)
-
 
 extern int fixuplabelno;
 
@@ -1078,21 +1064,11 @@ extern int fixuplabelno;
     %{symbolic:-Bsymbolic}"
 
 /* GNU/Linux support.  */
-#ifdef USE_GNULIBC_1
-#define LIB_LINUX_SPEC "%{mnewlib: --start-group -llinux -lc --end-group } \
-%{!mnewlib: -lc }"
-#else
 #define LIB_LINUX_SPEC "%{mnewlib: --start-group -llinux -lc --end-group } \
 %{!mnewlib: %{shared:-lc} %{!shared: %{pthread:-lpthread } \
 %{profile:-lc_p} %{!profile:-lc}}}"
-#endif
 
-#ifdef USE_GNULIBC_1
-#define	STARTFILE_LINUX_SPEC "\
-%{!shared: %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}} \
-%{mnewlib: ecrti.o%s} %{!mnewlib: crti.o%s} \
-%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
-#elif defined HAVE_LD_PIE
+#ifdef HAVE_LD_PIE
 #define	STARTFILE_LINUX_SPEC "\
 %{!shared: %{pg|p:gcrt1.o%s;pie:Scrt1.o%s;:crt1.o%s}} \
 %{mnewlib:ecrti.o%s;:crti.o%s} \
@@ -1113,25 +1089,16 @@ extern int fixuplabelno;
   %{rdynamic:-export-dynamic} \
   %{!dynamic-linker:-dynamic-linker /lib/ld.so.1}}}"
 
-#if !defined(USE_GNULIBC_1) && defined(HAVE_LD_EH_FRAME_HDR)
+#if defined(HAVE_LD_EH_FRAME_HDR)
 # define LINK_EH_SPEC "%{!static:--eh-frame-hdr} "
 #endif
 
-#ifdef USE_GNULIBC_1
-#define CPP_OS_LINUX_SPEC "-D__unix__ -D__gnu_linux__ -D__linux__ \
-%{!undef:							  \
-  %{!ansi:							  \
-    %{!std=*:-Dunix -D__unix -Dlinux -D__linux}	                  \
-    %{std=gnu*:-Dunix -D__unix -Dlinux -D__linux}}}		  \
--Asystem=unix -Asystem=posix"
-#else
 #define CPP_OS_LINUX_SPEC "-D__unix__ -D__gnu_linux__ -D__linux__ \
 %{!undef:							  \
   %{!ansi:							  \
     %{!std=*:-Dunix -D__unix -Dlinux -D__linux}			  \
     %{std=gnu*:-Dunix -D__unix -Dlinux -D__linux}}}		  \
 -Asystem=unix -Asystem=posix %{pthread:-D_REENTRANT}"
-#endif
 
 /* GNU/Hurd support.  */
 #define LIB_GNU_SPEC "%{mnewlib: --start-group -lgnu -lc --end-group } \

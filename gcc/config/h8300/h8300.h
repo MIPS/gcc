@@ -1002,9 +1002,6 @@ struct cum_arg
    so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE QImode
 
-#define ADJUST_INSN_LENGTH(INSN, LENGTH) \
-  LENGTH += h8300_adjust_insn_length (INSN, LENGTH);
-
 #define BRANCH_COST 0
 
 /* Tell final.c how to eliminate redundant test instructions.  */
@@ -1029,10 +1026,6 @@ struct cum_arg
 #define CC_NO_CARRY CC_NO_OVERFLOW
 
 /* Control the assembler format that we output.  */
-
-/* Output at beginning/end of assembler file.  */
-
-#define ASM_FILE_START(FILE) asm_file_start (FILE)
 
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
@@ -1128,7 +1121,7 @@ struct cum_arg
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
-   This is suitable for output with `assemble_name'.  
+   This is suitable for output with `assemble_name'.
 
    N.B.: The h8300.md branch_true and branch_false patterns also know
    how to generate internal labels.  */

@@ -37,10 +37,9 @@ void test05()
   typedef filebuf::int_type 	int_type;
   typedef filebuf::traits_type 	traits_type;
 
-  bool 					test = true;
+  bool 				test = true;
 
   streamsize 			strmsz_1, strmsz_2, strmsz_3;
-  int 					i = 0, j = 0, k = 0;
   char carray1[13] = "";
   char carray2[8192] = "";
   int_type 			c1, c2, c3, c4;
@@ -52,9 +51,9 @@ void test05()
 
   // out
   {
-    constraint_filebuf fb_02; 
+    constraint_filebuf fb_02;
     fb_02.open(name_02, ios_base::out | ios_base::trunc);
-    VERIFY( fb_02.write_position() );
+    VERIFY( !fb_02.write_position() );
     VERIFY( !fb_02.read_position() );
     strmsz_2 = fb_02.in_avail();
     strmsz_2 = fb_02.sgetn(carray2, 10);
@@ -67,7 +66,7 @@ void test05()
     VERIFY( strmsz_2 == 0 );
     c4 = fb_02.sgetc(); 
     VERIFY( c4 == traits_type::eof() );
-    VERIFY( fb_02.write_position() );
+    VERIFY( !fb_02.write_position() );
     VERIFY( !fb_02.read_position() );
   }
 }

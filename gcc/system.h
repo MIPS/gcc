@@ -23,12 +23,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_SYSTEM_H
 #define GCC_SYSTEM_H
 
-/* We must include stdarg.h/varargs.h before stdio.h.  */
-#ifdef ANSI_PROTOTYPES
+/* We must include stdarg.h before stdio.h.  */
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 
 #ifndef va_copy
 # ifdef __va_copy
@@ -77,14 +73,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #  undef fputs
 #  define fputs(String, Stream) fputs_unlocked (String, Stream)
 #  if defined (HAVE_DECL_FPUTS_UNLOCKED) && !HAVE_DECL_FPUTS_UNLOCKED
-extern int fputs_unlocked PARAMS ((const char *, FILE *));
+extern int fputs_unlocked (const char *, FILE *);
 #  endif
 # endif
 # ifdef HAVE_FWRITE_UNLOCKED
 #  undef fwrite
 #  define fwrite(Ptr, Size, N, Stream) fwrite_unlocked (Ptr, Size, N, Stream)
 #  if defined (HAVE_DECL_FWRITE_UNLOCKED) && !HAVE_DECL_FWRITE_UNLOCKED
-extern int fwrite_unlocked PARAMS ((const PTR, size_t, size_t, FILE *));
+extern int fwrite_unlocked (const void *, size_t, size_t, FILE *);
 #  endif
 # endif
 # ifdef HAVE_FPRINTF_UNLOCKED
@@ -93,7 +89,7 @@ extern int fwrite_unlocked PARAMS ((const PTR, size_t, size_t, FILE *));
    we have varargs macros.  */
 #  define fprintf fprintf_unlocked
 #  if defined (HAVE_DECL_FPRINTF_UNLOCKED) && !HAVE_DECL_FPRINTF_UNLOCKED
-extern int fprintf_unlocked PARAMS ((FILE *, const char *, ...));
+extern int fprintf_unlocked (FILE *, const char *, ...);
 #  endif
 # endif
 
@@ -283,39 +279,39 @@ extern int errno;
    is running so be careful to test "defined (HAVE_DECL_*)".  */
 
 #if defined (HAVE_DECL_ATOF) && !HAVE_DECL_ATOF
-extern double atof PARAMS ((const char *));
+extern double atof (const char *);
 #endif
 
 #if defined (HAVE_DECL_ATOL) && !HAVE_DECL_ATOL
-extern long atol PARAMS ((const char *));
+extern long atol (const char *);
 #endif
 
 #if defined (HAVE_DECL_FREE) && !HAVE_DECL_FREE
-extern void free PARAMS ((PTR));
+extern void free (void *);
 #endif
 
 #if defined (HAVE_DECL_GETCWD) && !HAVE_DECL_GETCWD
-extern char *getcwd PARAMS ((char *, size_t));
+extern char *getcwd (char *, size_t);
 #endif
 
 #if defined (HAVE_DECL_GETENV) && !HAVE_DECL_GETENV
-extern char *getenv PARAMS ((const char *));
+extern char *getenv (const char *);
 #endif
 
 #if defined (HAVE_DECL_GETOPT) && !HAVE_DECL_GETOPT
-extern int getopt PARAMS ((int, char * const *, const char *));
+extern int getopt (int, char * const *, const char *);
 #endif
 
 #if defined (HAVE_DECL_GETWD) && !HAVE_DECL_GETWD
-extern char *getwd PARAMS ((char *));
+extern char *getwd (char *);
 #endif
 
 #if defined (HAVE_DECL_SBRK) && !HAVE_DECL_SBRK
-extern PTR sbrk PARAMS ((int));
+extern void *sbrk (int);
 #endif
 
 #if defined (HAVE_DECL_STRSTR) && !HAVE_DECL_STRSTR
-extern char *strstr PARAMS ((const char *, const char *));
+extern char *strstr (const char *, const char *);
 #endif
 
 #ifdef HAVE_MALLOC_H
@@ -323,15 +319,15 @@ extern char *strstr PARAMS ((const char *, const char *));
 #endif
 
 #if defined (HAVE_DECL_MALLOC) && !HAVE_DECL_MALLOC
-extern PTR malloc PARAMS ((size_t));
+extern void *malloc (size_t);
 #endif
 
 #if defined (HAVE_DECL_CALLOC) && !HAVE_DECL_CALLOC
-extern PTR calloc PARAMS ((size_t, size_t));
+extern void *calloc (size_t, size_t);
 #endif
 
 #if defined (HAVE_DECL_REALLOC) && !HAVE_DECL_REALLOC
-extern PTR realloc PARAMS ((PTR, size_t));
+extern void *realloc (void *, size_t);
 #endif
 
 /* If the system doesn't provide strsignal, we get it defined in
@@ -339,17 +335,15 @@ extern PTR realloc PARAMS ((PTR, size_t));
 #if !defined (HAVE_STRSIGNAL) \
     || (defined (HAVE_DECL_STRSIGNAL) && !HAVE_DECL_STRSIGNAL)
 # ifndef strsignal
-extern const char *strsignal PARAMS ((int));
+extern const char *strsignal (int);
 # endif
 #endif
 
 #ifdef HAVE_GETRLIMIT
 # if defined (HAVE_DECL_GETRLIMIT) && !HAVE_DECL_GETRLIMIT
 #  ifndef getrlimit
-#   ifdef ANSI_PROTOTYPES
 struct rlimit;
-#   endif
-extern int getrlimit PARAMS ((int, struct rlimit *));
+extern int getrlimit (int, struct rlimit *);
 #  endif
 # endif
 #endif
@@ -357,22 +351,14 @@ extern int getrlimit PARAMS ((int, struct rlimit *));
 #ifdef HAVE_SETRLIMIT
 # if defined (HAVE_DECL_SETRLIMIT) && !HAVE_DECL_SETRLIMIT
 #  ifndef setrlimit
-#   ifdef ANSI_PROTOTYPES
 struct rlimit;
-#   endif
-extern int setrlimit PARAMS ((int, const struct rlimit *));
+extern int setrlimit (int, const struct rlimit *);
 #  endif
 # endif
 #endif
 
-/* HAVE_VOLATILE only refers to the stage1 compiler.  We also check
-   __STDC__ and assume gcc sets it and has volatile in stage >=2.  */
-#if !defined(HAVE_VOLATILE) && !defined(__STDC__) && !defined(volatile)
-#define volatile
-#endif
-
 #if defined (HAVE_DECL_ABORT) && !HAVE_DECL_ABORT
-extern void abort PARAMS ((void));
+extern void abort (void);
 #endif
 
 /* 1 if we have C99 designated initializers.  */
@@ -499,7 +485,6 @@ extern void abort PARAMS ((void));
 
 /* Get libiberty declarations.  */
 #include "libiberty.h"
-#include "symcat.h"
 
 /* Provide a default for the HOST_BIT_BUCKET.
    This suffices for POSIX-like hosts.  */
@@ -522,16 +507,6 @@ extern void abort PARAMS ((void));
 
 #ifndef offsetof
 #define offsetof(TYPE, MEMBER)	((size_t) &((TYPE *) 0)->MEMBER)
-#endif
-
-/* Traditional C cannot initialize union members of structs.  Provide
-   a macro which expands appropriately to handle it.  This only works
-   if you intend to initialize the union member to zero since it relies
-   on default initialization to zero in the traditional C case.  */
-#ifdef __STDC__
-#define UNION_INIT_ZERO , {0}
-#else
-#define UNION_INIT_ZERO
 #endif
 
 /* Various error reporting routines want to use __FUNCTION__.  */
@@ -623,7 +598,7 @@ typedef char _Bool;
 	WCHAR_UNSIGNED UNIQUE_SECTION SELECT_SECTION SELECT_RTX_SECTION	\
 	ENCODE_SECTION_INFO STRIP_NAME_ENCODING ASM_GLOBALIZE_LABEL	\
 	ASM_OUTPUT_MI_THUNK CONST_COSTS RTX_COSTS DEFAULT_RTX_COSTS	\
-	ADDRESS_COST MACHINE_DEPENDENT_REORG ASM_FILE_END
+	ADDRESS_COST MACHINE_DEPENDENT_REORG ASM_FILE_START ASM_FILE_END
 
 /* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have
@@ -652,6 +627,17 @@ typedef char _Bool;
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\
 	LANG_HOOKS_MARK_TREE
 
+/* Libiberty macros that are no longer used in GCC.  */
+#undef ANSI_PROTOTYPES
+#undef PTR_CONST
+#undef LONG_DOUBLE
+#undef VPARAMS
+#undef VA_OPEN
+#undef VA_FIXEDARG
+#undef VA_CLOSE
+#undef VA_START
+ #pragma GCC poison ANSI_PROTOTYPES PTR_CONST LONG_DOUBLE VPARAMS VA_OPEN \
+  VA_FIXEDARG VA_CLOSE VA_START
 #endif /* IN_GCC */
 
 /* Note: not all uses of the `index' token (e.g. variable names and

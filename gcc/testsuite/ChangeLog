@@ -1,3 +1,215 @@
+2003-06-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11332
+	* g++.dg/expr/static_cast2.C: New test.
+
+2003-06-26  Roger Sayle  <roger@eyesopen.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/string-opt-16.c: Remove test for disabled
+	sprintf(dst,"%s",src) optimization.
+	* gcc.c-torture/execute/20030626-1.c: New test case.
+	* gcc.c-torture/execute/20030626-2.c: New test case.
+
+2003-06-26  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.c-torture/execute/multi-ix.c: New test.
+
+	* gcc.c-torture/execute/simd-4.c (main):
+	Added missing semicolon at end of union.
+
+2003-06-26  Giovanni Bajo  <giovannibajo@libero.it>
+
+        PR c++/8266
+        * g++.dg/template/explicit-instantiation3.C: New test.
+
+2003-06-26  Eric Botcazou <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/20030626-1.c: Use signed char.
+
+2003-06-26  Eric Botcazou <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/20030626-1.c: New test.
+
+2003-06-26  Neil Booth  <neil@daikokuya.co.uk>
+
+	* const-str-2.m: Update.
+
+2003-06-25  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10990
+	* g++.dg/rtti/dyncast1.C: New test.
+	* g++.dg/abi/mangle4.C: Correct base-specifier access.
+	* g++.dg/lookup/scoped1.C: Remove XFAIL.
+	* g++.old-deja/g++.martin/pmf1.C: Correct base-specifier access.
+
+	PR c++/10931
+	* g++.dg/expr/static_cast1.C: New test.
+	
+2003-06-25  Josef Zlomek  <zlomekj@suse.cz>
+
+	* gcc.dg/20030625-1.c: New test.
+
+2003-06-24  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/compile/20030624-1.c: New test case.
+
+2003-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/string-opt-17.c: New test.
+
+2003-06-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5754
+	* g++.dg/parse/crash6.C: New test.
+
+2003-06-23  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-24.c: New test case.
+
+2003-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/opt/operator1.C: New test.
+
+2003-06-22  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/string-opt-16.c: New test case.
+
+2003-06-21  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+        * g++.old-deja/g++.benjamin/16077.C: Add -Wconversion  option.
+        * g++.old-deja/g++.other/conv7.C: Likewise
+        * g++.old-deja/g++.other/overcnv2.C: Likewise.
+        * g++.old-deja/g++.other/overload14.C: Likewise.
+
+2003-06-21  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	* g++.old-deja/g++.jason/conversion5.C: Adjust option.
+	* g++.old-deja/g++.bugs/900215_01.C: Likewise.
+
+2003-06-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10888
+	* g++.dg/warn/Winline-3.C: New test. 
+
+2003-06-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/target-supports.exp (check_alias_available): Make the test
+	program acceptable to the Solaris assembler.
+
+	PR c++/10749
+	* g++.dg/template/memclass2.C: New test.
+
+2003-06-20  Mark Mitchell  <mark@codesourcery.com>
+            Eric Botcazou  <ebotcazou@libertysurf.fr>
+	
+	* lib/gcc-dg.exp (dg-xfail-if): Do not process conditional xfail
+	data for non-matching targets.
+	* gcc.c-torture/compile/simd-5.c: Fix typo in conditional xfail.
+
+2003-06-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10845
+	* g++.dg/template/member3.C: New test.
+
+2003-06-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10939
+	* g++.dg/template/func1.C: New test.
+
+	PR c++/9649
+	* g++.dg/template/static4.C: New test.
+	* g++.old-deja/g++.other/anon7.C: Remove spurious error messages.
+
+	PR c++/11041
+	* g++.dg/init/ref7.C: New test.
+
+2003-06-19  Matt Austern  <austern@apple.com>
+
+	PR c++/11228
+	* g++.dg/anew1.C: New test.
+	* g++.dg/anew2.C: New test.
+	* g++.dg/anew3.C: New test.
+	* g++.dg/anew4.C: New test.
+	
+2003-06-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/compile/simd-5.c: Don't XFAIL on H8.
+
+2003-06-19  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.c-torture/execute/simd-4.c (main): Make expected value
+	endian-dependent.
+
+2003-06-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* lib/g++.exp (g++_include_flags): Tweak path to testsuite_flags.
+	Remove cruft.
+	
+2003-06-17  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/compile/20020604-1.c: Use dg-xfail-if for h8300.
+	* gcc.c-torture/compile/961203-1.c: Likewise.
+	* gcc.c-torture/compile/980506-1.c: Likewise.
+
+2003-06-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10712
+	* g++.dg/lookup/using7.C: New test.
+	
+2003-06-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11105
+	* g++.dg/abi/conv1.C: Remove it.
+	* g++.dg/template/conv7.C: New test.
+	* g++.dg/template/conv8.C: Likewise.
+	* g++.old-deja/g++.ext/pretty2.C: Do not test __FUNCTION__ for a
+	conversion operator.
+
+2003-06-17  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/compat/compat-common.h (DEBUG_INIT): New.
+	* gcc.dg/compat/scalar-by-value-1_x.c: Use it.
+	* gcc.dg/compat/scalar-by-value-2_x.c: Ditto.
+	* gcc.dg/compat/scalar-by-value-3_x.c: Ditto.
+	* gcc.dg/compat/scalar-by-value-4_x.c: Ditto.
+	* gcc.dg/compat/scalar-return-1_x.c: Ditto.
+	* gcc.dg/compat/scalar-return-2_x.c: Ditto.
+	* gcc.dg/compat/scalar-return-3_x.c: Ditto.
+	* gcc.dg/compat/scalar-return-4_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-10_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-11_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-12_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-13_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-14_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-15_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-16_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-17_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-18_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-2_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-3_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-4_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-5_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-6_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-7_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-8_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-9_x.c: Ditto.
+	* gcc.dg/compat/struct-return-10_x.c: Ditto.
+	* gcc.dg/compat/struct-return-2_x.c: Ditto.
+	* gcc.dg/compat/struct-return-3_x.c: Ditto.
+
+2003-06-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/gcc-dg.exp (dg-xfail-if): Fix thinko.
+	* gcc.c-torture/compile/simd-5.c: Remove spurious PowerPC-64 XFAIL
+	indications.
+
+2003-06-16  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/i386-387-5.c: New test case.
+	* gcc.dg/i386-387-6.c: New test case.
+	* gcc.dg/builtins-23.c: New test case.
+
 2003-06-15  Roger Sayle  <roger@eyesopen.com>
 
 	* gcc.dg/builtins-22.c: New test case.

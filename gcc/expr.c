@@ -125,8 +125,8 @@ struct store_by_pieces
   int explicit_inc_to;
   unsigned HOST_WIDE_INT len;
   HOST_WIDE_INT offset;
-  rtx (*constfun) PARAMS ((PTR, HOST_WIDE_INT, enum machine_mode));
-  PTR constfundata;
+  rtx (*constfun) PARAMS ((void *, HOST_WIDE_INT, enum machine_mode));
+  void *constfundata;
   int reverse;
 };
 
@@ -141,7 +141,7 @@ static bool emit_block_move_via_movstr PARAMS ((rtx, rtx, rtx, unsigned));
 static rtx emit_block_move_via_libcall PARAMS ((rtx, rtx, rtx));
 static tree emit_block_move_libcall_fn PARAMS ((int));
 static void emit_block_move_via_loop PARAMS ((rtx, rtx, rtx, unsigned));
-static rtx clear_by_pieces_1	PARAMS ((PTR, HOST_WIDE_INT,
+static rtx clear_by_pieces_1	PARAMS ((void *, HOST_WIDE_INT,
 					 enum machine_mode));
 static void clear_by_pieces	PARAMS ((rtx, unsigned HOST_WIDE_INT,
 					 unsigned int));
@@ -2146,7 +2146,7 @@ emit_block_move_via_loop (x, y, size, align)
   y_addr = force_operand (XEXP (y, 0), NULL_RTX);
   do_pending_stack_adjust ();
 
-  emit_note (NULL, NOTE_INSN_LOOP_BEG);
+  emit_note (NOTE_INSN_LOOP_BEG);
 
   emit_jump (cmp_label);
   emit_label (top_label);
@@ -2164,13 +2164,13 @@ emit_block_move_via_loop (x, y, size, align)
   if (tmp != iter)
     emit_move_insn (iter, tmp);
 
-  emit_note (NULL, NOTE_INSN_LOOP_CONT);
+  emit_note (NOTE_INSN_LOOP_CONT);
   emit_label (cmp_label);
 
   emit_cmp_and_jump_insns (iter, size, LT, NULL_RTX, iter_mode,
 			   true, top_label);
 
-  emit_note (NULL, NOTE_INSN_LOOP_END);
+  emit_note (NOTE_INSN_LOOP_END);
 }
 
 /* Copy all or part of a value X into registers starting at REGNO.
@@ -2718,8 +2718,8 @@ use_group_regs (call_fusage, regs)
 int
 can_store_by_pieces (len, constfun, constfundata, align)
      unsigned HOST_WIDE_INT len;
-     rtx (*constfun) PARAMS ((PTR, HOST_WIDE_INT, enum machine_mode));
-     PTR constfundata;
+     rtx (*constfun) PARAMS ((void *, HOST_WIDE_INT, enum machine_mode));
+     void *constfundata;
      unsigned int align;
 {
   unsigned HOST_WIDE_INT max_size, l;
@@ -2801,8 +2801,8 @@ rtx
 store_by_pieces (to, len, constfun, constfundata, align, endp)
      rtx to;
      unsigned HOST_WIDE_INT len;
-     rtx (*constfun) PARAMS ((PTR, HOST_WIDE_INT, enum machine_mode));
-     PTR constfundata;
+     rtx (*constfun) PARAMS ((void *, HOST_WIDE_INT, enum machine_mode));
+     void *constfundata;
      unsigned int align;
      int endp;
 {
@@ -2871,7 +2871,7 @@ clear_by_pieces (to, len, align)
 
 static rtx
 clear_by_pieces_1 (data, offset, mode)
-     PTR data ATTRIBUTE_UNUSED;
+     void *data ATTRIBUTE_UNUSED;
      HOST_WIDE_INT offset ATTRIBUTE_UNUSED;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
@@ -3343,8 +3343,8 @@ emit_move_insn_1 (x, y)
       int stack = push_operand (x, GET_MODE (x));
 
 #ifdef PUSH_ROUNDING
-      /* In case we output to the stack, but the size is smaller machine can
-	 push exactly, we need to use move instructions.  */
+      /* In case we output to the stack, but the size is smaller than the
+	 machine can push exactly, we need to use move instructions.  */
       if (stack
 	  && (PUSH_ROUNDING (GET_MODE_SIZE (submode))
 	      != GET_MODE_SIZE (submode)))
@@ -4465,7 +4465,7 @@ store_expr (exp, target, want_value)
     {
       /* C++ can generate ?: expressions with a throw expression in one
 	 branch and an rvalue in the other. Here, we resolve attempts to
-	 store the throw expression's nonexistant result. */
+	 store the throw expression's nonexistant result.  */
       if (want_value)
 	abort ();
       expand_expr (exp, const0_rtx, VOIDmode, 0);
@@ -7001,7 +7001,7 @@ expand_expr (exp, target, tmode, modifier)
 	  return original_target;
 	}
 
-      /* ... fall through ... */
+      /* ... fall through ...  */
 
     case STRING_CST:
       temp = output_constant_def (exp, 1);
@@ -8226,7 +8226,11 @@ expand_expr (exp, target, tmode, modifier)
 	  || mode != ptr_mode)
 	{
 	  op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-	  op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
+	  if (! operand_equal_p (TREE_OPERAND (exp, 0),
+				 TREE_OPERAND (exp, 1), 0))
+	    op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
+	  else
+	    op1 = op0;
 	  if (op0 == const0_rtx)
 	    return op1;
 	  if (op1 == const0_rtx)
@@ -8235,7 +8239,12 @@ expand_expr (exp, target, tmode, modifier)
 	}
 
       op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, modifier);
-      op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, modifier);
+      if (! operand_equal_p (TREE_OPERAND (exp, 0),
+			     TREE_OPERAND (exp, 1), 0))
+	op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX,
+			   VOIDmode, modifier);
+      else
+	op1 = op0;
 
       /* We come here from MINUS_EXPR when the second operand is a
          constant.  */
@@ -8457,7 +8466,11 @@ expand_expr (exp, target, tmode, modifier)
 	    }
 	}
       op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-      op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
+      if (! operand_equal_p (TREE_OPERAND (exp, 0),
+			     TREE_OPERAND (exp, 1), 0))
+	op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
+      else
+	op1 = op0;
       return expand_mult (mode, op0, op1, target, unsignedp);
 
     case TRUNC_DIV_EXPR:
@@ -10509,6 +10522,10 @@ const_vector_from_tree (exp)
 					       TREE_INT_CST_HIGH (elt),
 					       inner);
     }
+
+  /* Initialize remaining elements to 0.  */
+  for (; i < units; ++i)
+    RTVEC_ELT (v, i) = CONST0_RTX (inner);
 
   return gen_rtx_raw_CONST_VECTOR (mode, v);
 }

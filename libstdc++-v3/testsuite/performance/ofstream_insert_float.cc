@@ -26,15 +26,27 @@
 // the GNU General Public License.
 
 #include <fstream>
+#include <testsuite_performance.h>
 
 // based on libstdc++/8761 poor fstream performance (converted to float)
 int main() 
 {
-  std::ofstream out("tmp_perf_float.txt");
-  for (int i = 0; i < 10000000; ++i)
+  using namespace std;
+  using namespace __gnu_cxx_test;
+
+  time_counter time;
+  resource_counter resource;
+  const int iterations = 10000000;
+
+  ofstream out("tmp_perf_float.txt");
+  start_counters(time, resource);
+  for (int i = 0; i < iterations; ++i)
     {
       float f = static_cast<float>(i);
       out << f << "\n";
     }
+  stop_counters(time, resource);
+  report_performance(__FILE__, "", time, resource);
+
   return 0;
 };

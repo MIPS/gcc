@@ -121,12 +121,13 @@ extern int target_flags;
 #define MASK_MMX		0x00002000	/* Support MMX regs/builtins */
 #define MASK_SSE		0x00004000	/* Support SSE regs/builtins */
 #define MASK_SSE2		0x00008000	/* Support SSE2 regs/builtins */
-#define MASK_3DNOW		0x00010000	/* Support 3Dnow builtins */
-#define MASK_3DNOW_A		0x00020000	/* Support Athlon 3Dnow builtins */
-#define MASK_128BIT_LONG_DOUBLE 0x00040000	/* long double size is 128bit */
-#define MASK_64BIT		0x00080000	/* Produce 64bit code */
-#define MASK_MS_BITFIELD_LAYOUT 0x00100000	/* Use native (MS) bitfield layout */
-#define MASK_TLS_DIRECT_SEG_REFS 0x00200000	/* Avoid adding %gs:0  */
+#define MASK_PNI		0x00010000	/* Support PNI regs/builtins */
+#define MASK_3DNOW		0x00020000	/* Support 3Dnow builtins */
+#define MASK_3DNOW_A		0x00040000	/* Support Athlon 3Dnow builtins */
+#define MASK_128BIT_LONG_DOUBLE 0x00080000	/* long double size is 128bit */
+#define MASK_64BIT		0x00100000	/* Produce 64bit code */
+#define MASK_MS_BITFIELD_LAYOUT 0x00200000	/* Use native (MS) bitfield layout */
+#define MASK_TLS_DIRECT_SEG_REFS 0x00400000	/* Avoid adding %gs:0  */
 
 /* Unused:			0x03e0000	*/
 
@@ -300,8 +301,9 @@ extern int x86_prefetch_sse;
 
 #define ASSEMBLER_DIALECT (ix86_asm_dialect)
 
-#define TARGET_SSE ((target_flags & (MASK_SSE | MASK_SSE2)) != 0)
+#define TARGET_SSE ((target_flags & MASK_SSE) != 0)
 #define TARGET_SSE2 ((target_flags & MASK_SSE2) != 0)
+#define TARGET_PNI ((target_flags & MASK_PNI) != 0)
 #define TARGET_SSE_MATH ((ix86_fpmath & FPMATH_SSE) != 0)
 #define TARGET_MIX_SSE_I387 ((ix86_fpmath & FPMATH_SSE) \
 			     && (ix86_fpmath & FPMATH_387))
@@ -397,6 +399,10 @@ extern int x86_prefetch_sse;
     N_("Support MMX, SSE and SSE2 built-in functions and code generation") }, \
   { "no-sse2",			 -MASK_SSE2,				      \
     N_("Do not support MMX, SSE and SSE2 built-in functions and code generation") },    \
+  { "pni",			 MASK_PNI,				      \
+    N_("Support MMX, SSE, SSE2 and PNI built-in functions and code generation") },\
+  { "no-pni",			 -MASK_PNI,				      \
+    N_("Do not support MMX, SSE, SSE2 and PNI built-in functions and code generation") },\
   { "128bit-long-double",	 MASK_128BIT_LONG_DOUBLE,		      \
     N_("sizeof(long double) is 16") },					      \
   { "96bit-long-double",	-MASK_128BIT_LONG_DOUBLE,		      \
@@ -611,6 +617,8 @@ extern int x86_prefetch_sse;
 	builtin_define ("__SSE__");				\
       if (TARGET_SSE2)						\
 	builtin_define ("__SSE2__");				\
+      if (TARGET_PNI)						\
+	builtin_define ("__PNI__");				\
       if (TARGET_SSE_MATH && TARGET_SSE)			\
 	builtin_define ("__SSE_MATH__");			\
       if (TARGET_SSE_MATH && TARGET_SSE2)			\
@@ -1115,6 +1123,9 @@ do {									\
 	       && (TARGET_64BIT || !TARGET_PARTIAL_REG_STALL))	\
 	   || ((MODE2) == DImode && TARGET_64BIT))))
 
+/* It is possible to write patterns to move flags; but until someone
+   does it,  */
+#define AVOID_CCMODE_COPIES
 
 /* Specify the modes required to caller save a given hard regno.
    We do this on i386 to prevent flags from being saved at all.
@@ -2516,6 +2527,22 @@ enum ix86_builtins
   IX86_BUILTIN_MFENCE,
   IX86_BUILTIN_LFENCE,
 
+  /* Prescott New Instructions.  */
+  IX86_BUILTIN_ADDSUBPS,
+  IX86_BUILTIN_HADDPS,
+  IX86_BUILTIN_HSUBPS,
+  IX86_BUILTIN_MOVSHDUP,
+  IX86_BUILTIN_MOVSLDUP,
+  IX86_BUILTIN_ADDSUBPD,
+  IX86_BUILTIN_HADDPD,
+  IX86_BUILTIN_HSUBPD,
+  IX86_BUILTIN_LOADDDUP,
+  IX86_BUILTIN_MOVDDUP,
+  IX86_BUILTIN_LDDQU,
+
+  IX86_BUILTIN_MONITOR,
+  IX86_BUILTIN_MWAIT,
+
   IX86_BUILTIN_MAX
 };
 
@@ -3228,6 +3255,10 @@ struct machine_function GTY(())
 #define ix86_stack_locals (cfun->machine->stack_locals)
 #define ix86_save_varrargs_registers (cfun->machine->save_varrargs_registers)
 #define ix86_optimize_mode_switching (cfun->machine->optimize_mode_switching)
+
+/* Control behavior of x86_file_start.  */
+#define X86_FILE_START_VERSION_DIRECTIVE false
+#define X86_FILE_START_FLTUSED false
 
 /*
 Local variables:

@@ -50,6 +50,10 @@
 #include "target-def.h"
 #include "langhooks.h"
 #include "reload.h"
+#include "cfglayout.h"
+#if TARGET_XCOFF
+#include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
+#endif
 
 #ifndef TARGET_NO_PROTOTYPE
 #define TARGET_NO_PROTOTYPE 0
@@ -234,6 +238,7 @@ static void rs6000_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 					    HOST_WIDE_INT, tree));
 static rtx rs6000_emit_set_long_const PARAMS ((rtx,
   HOST_WIDE_INT, HOST_WIDE_INT));
+static void rs6000_file_start PARAMS ((void));
 #if TARGET_ELF
 static unsigned int rs6000_elf_section_type_flags PARAMS ((tree, const char *,
 							   int));
@@ -258,6 +263,7 @@ static void rs6000_xcoff_select_rtx_section PARAMS ((enum machine_mode, rtx,
 						     unsigned HOST_WIDE_INT));
 static const char * rs6000_xcoff_strip_name_encoding PARAMS ((const char *));
 static unsigned int rs6000_xcoff_section_type_flags PARAMS ((tree, const char *, int));
+static void rs6000_xcoff_file_start PARAMS ((void));
 static void rs6000_xcoff_file_end PARAMS ((void));
 #endif
 #if TARGET_MACHO
@@ -940,15 +946,22 @@ optimization_options (level, size)
 
 /* Do anything needed at the start of the asm file.  */
 
-void
-rs6000_file_start (file, default_cpu)
-     FILE *file;
-     const char *default_cpu;
+static void
+rs6000_file_start ()
 {
   size_t i;
   char buffer[80];
   const char *start = buffer;
   struct rs6000_cpu_select *ptr;
+  const char *default_cpu = TARGET_CPU_DEFAULT;
+  FILE *file = asm_out_file;
+
+  default_file_start ();
+
+#ifdef TARGET_BI_ARCH
+  if ((TARGET_DEFAULT ^ target_flags) & MASK_64BIT)
+    default_cpu = 0;
+#endif
 
   if (flag_verbose_asm)
     {
@@ -3638,11 +3651,12 @@ rs6000_emit_move (dest, source, mode)
    so we never return a PARALLEL.  */
 
 void
-init_cumulative_args (cum, fntype, libname, incoming)
+init_cumulative_args (cum, fntype, libname, incoming, libcall)
      CUMULATIVE_ARGS *cum;
      tree fntype;
      rtx libname ATTRIBUTE_UNUSED;
      int incoming;
+     int libcall;
 {
   static CUMULATIVE_ARGS zero_cumulative;
 
@@ -3651,7 +3665,8 @@ init_cumulative_args (cum, fntype, libname, incoming)
   cum->fregno = FP_ARG_MIN_REG;
   cum->vregno = ALTIVEC_ARG_MIN_REG;
   cum->prototype = (fntype && TYPE_ARG_TYPES (fntype));
-  cum->call_cookie = CALL_NORMAL;
+  cum->call_cookie = ((DEFAULT_ABI == ABI_V4 && libcall)
+		      ? CALL_LIBCALL : CALL_NORMAL);
   cum->sysv_gregno = GP_ARG_MIN_REG;
   cum->stdarg = fntype
     && (TYPE_ARG_TYPES (fntype) != 0
@@ -3900,7 +3915,7 @@ rs6000_spe_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type
 
    If this is floating-point and no prototype is specified, we use
    both an FP and integer register (or possibly FP reg and stack).  Library
-   functions (when TYPE is zero) always have the proper types for args,
+   functions (when CALL_LIBCALL is set) always have the proper types for args,
    so we can pass the FP value just in one register.  emit_library_function
    doesn't support PARALLEL anyway.  */
 
@@ -3921,7 +3936,8 @@ function_arg (cum, mode, type, named)
     {
       if (abi == ABI_V4
 	  && cum->nargs_prototype < 0
-	  && type && (cum->prototype || TARGET_NO_PROTOTYPE))
+	  && (cum->call_cookie & CALL_LIBCALL) == 0
+	  && (cum->prototype || TARGET_NO_PROTOTYPE))
 	{
 	  /* For the SPE, we need to crxor CR6 always.  */
 	  if (TARGET_SPE_ABI)
@@ -10690,7 +10706,7 @@ rs6000_emit_eh_toc_restore (stacksize)
     abort ();
   emit_move_insn (opcode, insn_after_throw);
   
-  emit_note (NULL, NOTE_INSN_LOOP_BEG);
+  emit_note (NOTE_INSN_LOOP_BEG);
   emit_label (loop_start);
   
   do_compare_rtx_and_jump (opcode, tocompare, NE, 1,
@@ -10717,9 +10733,9 @@ rs6000_emit_eh_toc_restore (stacksize)
   emit_move_insn (opcode_addr, mem);
   emit_move_insn (opcode, gen_rtx_MEM (SImode, opcode_addr));
 
-  emit_note (NULL, NOTE_INSN_LOOP_CONT);
+  emit_note (NOTE_INSN_LOOP_CONT);
   emit_jump (loop_start);
-  emit_note (NULL, NOTE_INSN_LOOP_END);
+  emit_note (NOTE_INSN_LOOP_END);
   emit_label (loop_exit);
 }
 
@@ -10793,7 +10809,7 @@ rs6000_emit_allocate_stack (size, copy_r12)
 	{
 	  /* Need a note here so that try_split doesn't get confused.  */
 	  if (get_last_insn() == NULL_RTX)
-	    emit_note (0, NOTE_INSN_DELETED);
+	    emit_note (NOTE_INSN_DELETED);
 	  insn = emit_move_insn (tmp_reg, todec);
 	  try_split (PATTERN (insn), insn, 0);
 	  todec = tmp_reg;
@@ -11520,9 +11536,9 @@ rs6000_output_function_prologue (file, size)
 
       /* A NOTE_INSN_DELETED is supposed to be at the start and end of
 	 the "toplevel" insn chain.  */
-      emit_note (0, NOTE_INSN_DELETED);
+      emit_note (NOTE_INSN_DELETED);
       rs6000_emit_prologue ();
-      emit_note (0, NOTE_INSN_DELETED);
+      emit_note (NOTE_INSN_DELETED);
 
       /* Expand INSN_ADDRESSES so final() doesn't crash. */
       {
@@ -11941,9 +11957,9 @@ rs6000_output_function_epilogue (file, size)
 
 	  /* A NOTE_INSN_DELETED is supposed to be at the start
 	     and end of the "toplevel" insn chain.  */
-	  emit_note (0, NOTE_INSN_DELETED);
+	  emit_note (NOTE_INSN_DELETED);
 	  rs6000_emit_epilogue (FALSE);
-	  emit_note (0, NOTE_INSN_DELETED);
+	  emit_note (NOTE_INSN_DELETED);
 
 	  /* Expand INSN_ADDRESSES so final() doesn't crash. */
 	  {
@@ -12234,10 +12250,11 @@ rs6000_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
   rtx this, insn, funexp;
 
   reload_completed = 1;
+  epilogue_completed = 1;
   no_new_pseudos = 1;
 
   /* Mark the end of the (empty) prologue.  */
-  emit_note (NULL, NOTE_INSN_PROLOGUE_END);
+  emit_note (NOTE_INSN_PROLOGUE_END);
 
   /* Find the "this" pointer.  If the function returns a structure,
      the structure return pointer is in r3.  */
@@ -12313,6 +12330,7 @@ rs6000_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
   final_end_function ();
 
   reload_completed = 0;
+  epilogue_completed = 0;
   no_new_pseudos = 0;
 }
 
@@ -14171,6 +14189,40 @@ rs6000_xcoff_section_type_flags (decl, name, reloc)
 		 ? UNITS_PER_FP_WORD : MIN_UNITS_PER_WORD);
 
   return flags | (exact_log2 (align) & SECTION_ENTSIZE);
+}
+
+/* Output at beginning of assembler file.
+
+   Initialize the section names for the RS/6000 at this point.
+
+   Specify filename, including full path, to assembler.
+
+   We want to go into the TOC section so at least one .toc will be emitted.
+   Also, in order to output proper .bs/.es pairs, we need at least one static
+   [RW] section emitted.
+
+   Finally, declare mcount when profiling to make the assembler happy.  */
+
+static void
+rs6000_xcoff_file_start ()
+{
+  rs6000_gen_section_name (&xcoff_bss_section_name,
+			   main_input_filename, ".bss_");
+  rs6000_gen_section_name (&xcoff_private_data_section_name,
+			   main_input_filename, ".rw_");
+  rs6000_gen_section_name (&xcoff_read_only_section_name,
+			   main_input_filename, ".ro_");
+
+  fputs ("\t.file\t", asm_out_file);
+  output_quoted_string (asm_out_file, main_input_filename);
+  fputc ('\n', asm_out_file);
+  toc_section ();
+  if (write_symbols != NO_DEBUG)
+    private_data_section ();
+  text_section ();
+  if (profile_flag)
+    fprintf (asm_out_file, "\t.extern %s\n", RS6000_MCOUNT);
+  rs6000_file_start ();
 }
 
 /* Output at end of assembler file.

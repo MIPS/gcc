@@ -964,11 +964,18 @@ add_binding (tree id, tree decl)
 	 type to which it already refers.  */
     ok = 0;
   /* There can be two block-scope declarations of the same variable,
-     so long as they are `extern' declarations.  */
+     so long as they are `extern' declarations.  However, there cannot
+     be two declarations of the same static data member:
+
+       [class.mem]
+
+       A member shall not be declared twice in the
+       member-specification.  */
   else if (TREE_CODE (decl) == VAR_DECL
 	   && TREE_CODE (BINDING_VALUE (binding)) == VAR_DECL
 	   && DECL_EXTERNAL (decl)
-	   && DECL_EXTERNAL (BINDING_VALUE (binding)))
+	   && DECL_EXTERNAL (BINDING_VALUE (binding))
+	   && !DECL_CLASS_SCOPE_P (decl))
     {
       duplicate_decls (decl, BINDING_VALUE (binding));
       ok = 0;
@@ -4143,24 +4150,47 @@ pushdecl_namespace_level (tree x)
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
 }
 
+/* Like pushdecl, only it places X in the global scope if appropriate.
+   Calls cp_finish_decl to register the variable, initializing it with
+   *INIT, if INIT is non-NULL.  */
+
+static tree
+pushdecl_top_level_1 (tree x, tree *init)
+{
+  timevar_push (TV_NAME_LOOKUP);
+  push_to_top_level ();
+  x = pushdecl_namespace_level (x);
+  if (init)
+    cp_finish_decl (x, *init, NULL_TREE, 0);
+  pop_from_top_level ();
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, x);
+}
+
 /* Like pushdecl, only it places X in the global scope if appropriate.  */
 
 tree
 pushdecl_top_level (tree x)
 {
-  timevar_push (TV_NAME_LOOKUP);
-  push_to_top_level ();
-  x = pushdecl_namespace_level (x);
-  pop_from_top_level ();
-  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, x);
+  return pushdecl_top_level_1 (x, NULL);
+}
+
+/* Like pushdecl, only it places X in the global scope if
+   appropriate.  Calls cp_finish_decl to register the variable,
+   initializing it with INIT.  */
+
+tree
+pushdecl_top_level_and_finish (tree x, tree init)
+{
+  return pushdecl_top_level_1 (x, &init);
 }
 
 /* Make the declaration of X appear in CLASS scope.  */
 
-void
+bool
 pushdecl_class_level (tree x)
 {
   tree name;
+  bool is_valid = true;
 
   timevar_push (TV_NAME_LOOKUP);
   /* Get the name of X.  */
@@ -4171,7 +4201,7 @@ pushdecl_class_level (tree x)
 
   if (name)
     {
-      push_class_level_binding (name, x);
+      is_valid = push_class_level_binding (name, x);
       if (TREE_CODE (x) == TYPE_DECL)
 	set_identifier_type_value (name, TREE_TYPE (x));
     }
@@ -4183,9 +4213,16 @@ pushdecl_class_level (tree x)
       tree f;
 
       for (f = TYPE_FIELDS (TREE_TYPE (x)); f; f = TREE_CHAIN (f))
-	pushdecl_class_level (f);
+	{
+	  push_srcloc (DECL_SOURCE_FILE (f), DECL_SOURCE_LINE (f));
+	  if (!pushdecl_class_level (f))
+	    is_valid = false;
+	  pop_srcloc ();
+	}
     }
   timevar_pop (TV_NAME_LOOKUP);
+
+  return is_valid;
 }
 
 /* Enter DECL into the symbol table, if that's appropriate.  Returns
@@ -4217,21 +4254,19 @@ maybe_push_decl (tree decl)
     return pushdecl (decl);
 }
 
-/* Make the declaration(s) of X appear in CLASS scope
-   under the name NAME.  */
+/* Make the declaration(s) of X appear in CLASS scope under the name
+   NAME.  Returns true if the binding is valid.  */
 
-void
+bool
 push_class_level_binding (tree name, tree x)
 {
   cxx_binding *binding;
+
   timevar_push (TV_NAME_LOOKUP);
   /* The class_binding_level will be NULL if x is a template
      parameter name in a member template.  */
   if (!class_binding_level)
-    {
-      timevar_pop (TV_NAME_LOOKUP);
-      return;
-    }
+    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, true);
 
   /* Make sure that this new member does not have the same name
      as a template parameter.  */
@@ -4281,8 +4316,7 @@ push_class_level_binding (tree name, tree x)
 	    INHERITED_VALUE_BINDING_P (binding) = 0;
 	    TREE_TYPE (shadow) = x;
 	    IDENTIFIER_CLASS_VALUE (name) = x;
-	    timevar_pop (TV_NAME_LOOKUP);
-	    return;
+	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, true);
 	  }
     }
 
@@ -4296,8 +4330,10 @@ push_class_level_binding (tree name, tree x)
       /* Record the value we are binding NAME to so that we can know
 	 what to pop later.  */
       TREE_TYPE (class_binding_level->class_shadowed) = x;
+      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, true);
     }
-  timevar_pop (TV_NAME_LOOKUP);
+
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, false);
 }
 
 /* Insert another USING_DECL into the current binding level, returning
@@ -5384,7 +5420,7 @@ build_typename_type (tree context, tree name, tree fullname)
 {
   tree t;
   tree d;
-  PTR *e;
+  void **e;
 
   if (typename_htab == NULL)
     {
@@ -5489,7 +5525,7 @@ make_typename_type (tree context, tree name, tsubst_flags_t complain)
 	    }
 
 	  if (complain & tf_error)
-	    perform_or_defer_access_check (context, tmpl);
+	    perform_or_defer_access_check (TYPE_BINFO (context), tmpl);
 
 	  return lookup_template_class (tmpl,
 					TREE_OPERAND (fullname, 1),
@@ -5519,7 +5555,7 @@ make_typename_type (tree context, tree name, tsubst_flags_t complain)
 		}
 
 	      if (complain & tf_error)
-		perform_or_defer_access_check (context, t);
+		perform_or_defer_access_check (TYPE_BINFO (context), t);
 
 	      if (DECL_ARTIFICIAL (t) || !(complain & tf_keep_type_decl))
 		t = TREE_TYPE (t);
@@ -5576,7 +5612,7 @@ make_unbound_class_template (tree context, tree name, tsubst_flags_t complain)
 	}
       
       if (complain & tf_error)
-	perform_or_defer_access_check (context, tmpl);
+	perform_or_defer_access_check (TYPE_BINFO (context), tmpl);
 
       return tmpl;
     }
@@ -7903,6 +7939,7 @@ static void
 initialize_local_var (tree decl, tree init)
 {
   tree type = TREE_TYPE (decl);
+  tree cleanup;
 
   my_friendly_assert (TREE_CODE (decl) == VAR_DECL
 		      || TREE_CODE (decl) == RESULT_DECL, 
@@ -7952,17 +7989,9 @@ initialize_local_var (tree decl, tree init)
     }
 
   /* Generate a cleanup, if necessary.  */
-  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
-    {
-      tree cleanup;
-
-      /* Compute the cleanup.  */
-      cleanup = cxx_maybe_build_cleanup (decl);
-      
-      /* Record the cleanup required for this declaration.  */
-      if (DECL_SIZE (decl) && cleanup)
-	finish_decl_cleanup (decl, cleanup);
-    }
+  cleanup = cxx_maybe_build_cleanup (decl);
+  if (DECL_SIZE (decl) && cleanup)
+    finish_decl_cleanup (decl, cleanup);
 }
 
 /* Finish processing of a declaration;
@@ -7990,6 +8019,8 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	error ("assignment (not initialization) in declaration");
       return;
     }
+
+  my_friendly_assert (TREE_CODE (decl) != RESULT_DECL, 20030619);
 
   /* If a name was specified, get the string.  */
   if (global_scope_p (current_binding_level))
@@ -8031,8 +8062,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
   if (processing_template_decl)
     {
       /* Add this declaration to the statement-tree.  */
-      if (at_function_scope_p ()
-	  && TREE_CODE (decl) != RESULT_DECL)
+      if (at_function_scope_p ())
 	add_decl_stmt (decl);
 
       if (init && DECL_INITIAL (decl))
@@ -8089,8 +8119,6 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
       SET_DECL_ASSEMBLER_NAME (decl, get_identifier (asmspec));
       make_decl_rtl (decl, asmspec);
     }
-  else if (TREE_CODE (decl) == RESULT_DECL)
-    init = check_initializer (decl, init, flags);
   else if (TREE_CODE (decl) == VAR_DECL)
     {
       /* Only PODs can have thread-local storage.  Other types may require
@@ -8146,9 +8174,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
   /* Add this declaration to the statement-tree.  This needs to happen
      after the call to check_initializer so that the DECL_STMT for a
      reference temp is added before the DECL_STMT for the reference itself.  */
-  if (building_stmt_tree ()
-      && at_function_scope_p ()
-      && TREE_CODE (decl) != RESULT_DECL)
+  if (at_function_scope_p ())
     add_decl_stmt (decl);
 
   if (TREE_CODE (decl) == VAR_DECL)
@@ -8157,8 +8183,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
   /* Output the assembler code and/or RTL code for variables and functions,
      unless the type is an undefined structure or union.
      If not, it will get done when the type is completed.  */
-  if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL
-      || TREE_CODE (decl) == RESULT_DECL)
+  if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
     {
       if (TREE_CODE (decl) == VAR_DECL)
 	maybe_commonize_var (decl);
@@ -8461,6 +8486,7 @@ register_dtor_fn (tree decl)
 
   /* Call atexit with the cleanup function.  */
   cxx_mark_addressable (cleanup);
+  mark_used (cleanup);
   cleanup = build_unary_op (ADDR_EXPR, cleanup, 0);
   if (flag_use_cxa_atexit)
     {
@@ -8883,7 +8909,7 @@ grokfndecl (tree ctype,
      the user explicitly asks us to, all functions.  */
   if (DECL_DECLARED_INLINE_P (decl))
     DECL_INLINE (decl) = 1;
-  if (flag_inline_trees == 2 && !DECL_INLINE (decl))
+  if (flag_inline_trees == 2 && !DECL_INLINE (decl) && funcdef_flag)
     {
       DID_INLINE_FUNC (decl) = 1;
       DECL_INLINE (decl) = 1;
@@ -12346,7 +12372,7 @@ grok_op_properties (tree decl, int friendp)
 		       && DERIVED_FROM_P (t, current_class_type))
 		what = "a base class";
 
-	      if (what)
+	      if (what && warn_conversion)
 		warning ("conversion to %s%s will never use a type conversion operator",
 			 ref ? "a reference to " : "", what);
 	    }

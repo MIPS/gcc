@@ -1,3 +1,20 @@
+2003-06-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* misc.c (record_code_position): Adjust emit_note call.
+
+2003-06-26  Neil Booth  <neil@daikokuya.co.uk>
+
+	* misc.c (gnat_handle_option): Don't check for missing arguments.
+
+2003-06-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* utils.c (end_subprog_body): Adjust expand_function_end call.
+
+2003-06-16  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* bindgen.adb (Gen_Main_Ada, Gen_Main_C): Do not test
+	Bind_Main_Program.
+
 2003-06-15  Neil Booth  <neil@daikokuya.co.uk>
 
 	* lang.opt: Declare Ada.

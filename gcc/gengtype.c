@@ -83,8 +83,7 @@ xasprintf (const char *format, ...)
 /* The one and only TYPE_STRING.  */
 
 struct type string_type = {
-  TYPE_STRING, NULL, NULL, GC_USED
-  UNION_INIT_ZERO
+  TYPE_STRING, NULL, NULL, GC_USED, {0}
 };
 
 /* Lists of various things.  */
@@ -1271,8 +1270,6 @@ get_output_file_name (const char *input_file)
 
 /* Copy the output to its final destination,
    but don't unnecessarily change modification times.  */
-
-static void close_output_files (void);
 
 static void
 close_output_files (void)

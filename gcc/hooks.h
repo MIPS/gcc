@@ -23,6 +23,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define GCC_HOOKS_H
 
 bool hook_bool_void_false PARAMS ((void));
+bool hook_bool_bool_false (bool);
 bool hook_bool_tree_false PARAMS ((tree));
 bool hook_bool_tree_hwi_hwi_tree_false
   PARAMS ((tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
@@ -41,6 +42,7 @@ int hook_int_tree_tree_1 PARAMS ((tree, tree));
 int hook_int_rtx_0 PARAMS ((rtx));
 int hook_int_void_0 (void);
 int hook_int_size_t_constcharptr_int_0 (size_t, const char *, int);
+int hook_int_void_no_regs (void);
 
 bool default_can_output_mi_thunk_no_vcall
   PARAMS ((tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));

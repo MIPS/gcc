@@ -103,17 +103,6 @@
   rs6000_override_options (((TARGET_DEFAULT ^ target_flags) & MASK_64BIT) \
 			   ? (char *) 0 : TARGET_CPU_DEFAULT)
 
-#undef	ASM_FILE_START
-#define	ASM_FILE_START(FILE)						    \
-  do									    \
-    {                                                                       \
-      output_file_directive ((FILE), main_input_filename);		    \
-      rs6000_file_start (FILE, (((TARGET_DEFAULT ^ target_flags)	    \
-				 & MASK_64BIT)				    \
-				? (char *) 0 : TARGET_CPU_DEFAULT));	    \
-    }									    \
-  while (0)
-
 #endif
 
 #undef	ASM_DEFAULT_SPEC
@@ -443,12 +432,11 @@
 /* This is the same as the dbxelf.h version, except that we need to
    use the function code label, not the function descriptor.  */
 #undef	ASM_OUTPUT_SOURCE_LINE
-#define	ASM_OUTPUT_SOURCE_LINE(FILE, LINE)				\
+#define	ASM_OUTPUT_SOURCE_LINE(FILE, LINE, COUNTER)			\
 do									\
   {									\
-    static int sym_lineno = 1;						\
     char temp[256];							\
-    ASM_GENERATE_INTERNAL_LABEL (temp, "LM", sym_lineno);		\
+    ASM_GENERATE_INTERNAL_LABEL (temp, "LM", COUNTER);			\
     fprintf (FILE, "\t.stabn 68,0,%d,", LINE);				\
     assemble_name (FILE, temp);						\
     putc ('-', FILE);							\
@@ -457,8 +445,7 @@ do									\
     assemble_name (FILE,						\
 		   XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));\
     putc ('\n', FILE);							\
-    (*targetm.asm_out.internal_label) (FILE, "LM", sym_lineno);		\
-    sym_lineno += 1;							\
+    (*targetm.asm_out.internal_label) (FILE, "LM", COUNTER);		\
   }									\
 while (0)
 

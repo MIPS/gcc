@@ -1,4 +1,4 @@
-/* config.in.  Generated automatically from configure.in by autoheader 2.13.  */
+/* config.in.  Generated automatically from configure.in by autoheader.  */
 
 /* Define if using alloca.c.  */
 #undef C_ALLOCA
@@ -22,9 +22,6 @@
 
 /* Define if you have <alloca.h> and it should be used (not on Ultrix).  */
 #undef HAVE_ALLOCA_H
-
-/* Define if you have the ANSI # stringizing operator in cpp. */
-#undef HAVE_STRINGIZE
 
 /* Define if you have <sys/wait.h> that is POSIX.1 compatible.  */
 #undef HAVE_SYS_WAIT_H
@@ -300,12 +297,6 @@
 /* Define to enable the use of a default assembler. */
 #undef DEFAULT_ASSEMBLER
 
-/* Define if your compiler understands volatile. */
-#undef HAVE_VOLATILE
-
-/* Define if your compiler supports the `long double' type. */
-#undef HAVE_LONG_DOUBLE
-
 /* Define if your compiler supports the `long long' type. */
 #undef HAVE_LONG_LONG
 
@@ -329,9 +320,6 @@
 
 /* The number of bytes in type __int64 */
 #undef SIZEOF___INT64
-
-/* Define if the host execution character set is EBCDIC. */
-#undef HOST_EBCDIC
 
 /* Define if you want more run-time sanity checks.  This one gets a grab
    bag of miscellaneous but relatively cheap checks. */

@@ -244,9 +244,7 @@ CFLAGS="$save_CFLAGS"])
 
 AC_PROG_CPP
 AC_C_INLINE
-gcc_AC_C_VOLATILE
 
-gcc_AC_C_LONG_DOUBLE
 gcc_AC_C_LONG_LONG
 gcc_AC_C__BOOL
 
@@ -260,8 +258,6 @@ fi
 if test $ac_cv_c___int64 = yes; then
   AC_COMPILE_CHECK_SIZEOF(__int64)
 fi
-
-gcc_AC_C_CHARSET
 
 # -----------------
 # Find Ada compiler
@@ -764,10 +760,6 @@ AC_SEARCH_LIBS(ldexp, m)
 LDEXP_LIB="$LIBS"
 LIBS="$save_LIBS"
 AC_SUBST(LDEXP_LIB)
-
-# See if the stage1 system preprocessor understands the ANSI C
-# preprocessor stringification operator.  (Used by symcat.h.)
-AC_C_STRINGIZE
 
 # Use <inttypes.h> only if it exists,
 # doesn't clash with <sys/types.h>, and declares intmax_t.
@@ -1423,7 +1415,7 @@ AC_SUBST(inhibit_libc)
 # These are the normal (build=host) settings:
 BUILD_PREFIX=			AC_SUBST(BUILD_PREFIX)
 BUILD_PREFIX_1=ignore-		AC_SUBST(BUILD_PREFIX_1)
-BUILD_CC='$(CC)'		AC_SUBST(BUILD_CC)
+CC_FOR_BUILD='$(CC)'		AC_SUBST(CC_FOR_BUILD)
 BUILD_CFLAGS='$(ALL_CFLAGS)'	AC_SUBST(BUILD_CFLAGS)
 
 STMP_FIXINC=stmp-fixinc		AC_SUBST(STMP_FIXINC)
@@ -1434,7 +1426,6 @@ if test x$build != x$host
 then
     BUILD_PREFIX=build-
     BUILD_PREFIX_1=build-
-    BUILD_CC='$(CC_FOR_BUILD)'
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD) $(XCFLAGS)'
 
     if test "x$TARGET_SYSTEM_ROOT" = x; then
@@ -1493,6 +1484,13 @@ elif test -f $gcc_cv_as_gas_srcdir/configure.in \
   _gcc_COMPUTE_GAS_VERSION
   rm -f as$host_exeext
   $symbolic_link ../gas/as-new$host_exeext as$host_exeext 2>/dev/null
+  in_tree_gas_is_elf=no
+  if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
+     || (grep 'obj_format = multi' ../gas/Makefile \
+         && grep 'extra_objects =.* obj-elf' ../gas/Makefile) > /dev/null
+  then
+    in_tree_gas_is_elf=yes
+  fi
 fi
 
 if test "x$gcc_cv_as" = x; then
@@ -1588,6 +1586,11 @@ elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
      && test -f ../ld/Makefile; then
 	# Single tree build which includes ld.
 	in_tree_ld=yes
+	in_tree_ld_is_elf=no
+	if (grep 'EMUL = .*elf' ../ld/Makefile \
+	    || grep 'EMUL = .*linux' ../ld/Makefile) > /dev/null; then
+	  in_tree_ld_is_elf=yes
+	fi
 	for f in $gcc_cv_ld_bfd_srcdir/configure $gcc_cv_ld_gld_srcdir/configure $gcc_cv_ld_gld_srcdir/configure.in $gcc_cv_ld_gld_srcdir/Makefile.in
 	do
 changequote(,)dnl
@@ -1760,9 +1763,8 @@ AC_MSG_CHECKING(assembler subsection support)
 gcc_cv_as_subsections=no
 if test $in_tree_gas = yes ; then
   gcc_GAS_VERSION_GTE_IFELSE(2,9,0,[
-    if grep 'obj_format = elf' ../gas/Makefile > /dev/null; then
-      gcc_cv_as_subsections="working .subsection -1"
-    fi
+    test $in_tree_gas_is_elf = yes \
+	&& gcc_cv_as_subsections="working .subsection -1"
   ])
 elif test x$gcc_cv_as != x; then
 	# Check if we have .subsection
@@ -1819,9 +1821,7 @@ AC_MSG_CHECKING(assembler hidden support)
 gcc_cv_as_hidden=no
 if test $in_tree_gas = yes ; then
   gcc_GAS_VERSION_GTE_IFELSE(2,12,1,[
-    if grep 'obj_format = elf' ../gas/Makefile > /dev/null; then
-      gcc_cv_as_hidden="yes"
-    fi
+    test $in_tree_gas_is_elf = yes && gcc_cv_as_hidden="yes"
   ])
 elif test x$gcc_cv_as != x; then
 	# Check if we have .hidden
@@ -1838,7 +1838,13 @@ elif test x$gcc_cv_as != x; then
 	ld_ver=`$gcc_cv_ld --version 2>/dev/null | head -1`
 	if echo "$ld_ver" | grep GNU > /dev/null; then
 changequote(,)dnl
-               ld_vers=`echo $ld_ver | sed -n 's,^.*[  ]\([0-9][0-9]*\.[0-9][0-9]*\(\|\.[0-9][0-9]*\(\|\.[0-9][0-9]*\)\)\)\([  ].*\|\)$,\1,p'`
+               ld_vers=`echo $ld_ver | sed -n \
+	       -e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	       -e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	       -e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	       -e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
+	       -e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
+	       -e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p'`
                ld_date=`echo $ld_ver | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,p'`
 		if test 0"$ld_date" -lt 20020404; then
 			if test -n "$ld_date"; then
@@ -1890,9 +1896,7 @@ AC_MSG_CHECKING(assembler leb128 support)
 gcc_cv_as_leb128=no
 if test $in_tree_gas = yes ; then
   gcc_GAS_VERSION_GTE_IFELSE(2,11,0,[
-    if grep 'obj_format = elf' ../gas/Makefile > /dev/null; then
-      gcc_cv_as_leb128="yes"
-    fi
+    test $in_tree_gas_is_elf = yes && gcc_cv_as_leb128="yes"
   ])
 elif test x$gcc_cv_as != x; then
 	# Check if we have .[us]leb128, and support symbol arithmetic with it.
@@ -1936,9 +1940,7 @@ AC_MSG_CHECKING(assembler eh_frame optimization)
 gcc_cv_as_eh_frame=no
 if test $in_tree_gas = yes ; then
   gcc_GAS_VERSION_GTE_IFELSE(2,12,0,[
-    if grep 'obj_format = elf' ../gas/Makefile > /dev/null; then
-      gcc_cv_as_eh_frame="yes"
-    fi
+    test $in_tree_gas_is_elf = yes && gcc_cv_as_eh_frame="yes"
   ])
 elif test x$gcc_cv_as != x; then
 	# Check if this is GAS.
@@ -2016,9 +2018,7 @@ AC_MSG_CHECKING(assembler section merging support)
 gcc_cv_as_shf_merge=no
 if test $in_tree_gas = yes ; then
   gcc_GAS_VERSION_GTE_IFELSE(2,12,0,[
-    if grep 'obj_format = elf' ../gas/Makefile > /dev/null; then
-      gcc_cv_as_shf_merge=yes
-    fi
+    test $in_tree_gas_is_elf = yes && gcc_cv_as_shf_merge="yes"
   ])
 elif test x$gcc_cv_as != x; then
 	# Check if we support SHF_MERGE sections
@@ -2494,10 +2494,8 @@ case "$target" in
   esac
 if test $in_tree_gas = yes ; then
   gcc_GAS_VERSION_GTE_IFELSE(2,11,0,[
-    if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
-        && test x"$insn" != x ; then
-      gcc_cv_as_dwarf2_debug_line="yes"
-    fi
+    test $in_tree_gas_is_elf = yes && test x"$insn" != x \
+	&& gcc_cv_as_dwarf2_debug_line="yes"
   ])
 elif test x$gcc_cv_as != x -a x"$insn" != x ; then
 	echo '	.file 1 "conftest.s"' > conftest.s
@@ -2532,10 +2530,8 @@ AC_MSG_CHECKING(assembler --gdwarf2 support)
 gcc_cv_as_gdwarf2_flag=no
 if test $in_tree_gas = yes ; then
   gcc_GAS_VERSION_GTE_IFELSE(2,11,0,[
-    if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
-        && test x"$insn" != x ; then
-      gcc_cv_as_gdwarf2_flag="yes"
-    fi
+    test $in_tree_gas_is_elf = yes && test x"$insn" != x \
+	&& gcc_cv_as_gdwarf2_flag="yes"
   ])
 elif test x$gcc_cv_as != x -a x"$insn" != x ; then
 	echo '' > conftest.s
@@ -2556,16 +2552,21 @@ AC_MSG_CHECKING(assembler --gstabs support)
 gcc_cv_as_gstabs_flag=no
 if test $in_tree_gas = yes ; then
   gcc_GAS_VERSION_GTE_IFELSE(2,11,0,[
-    if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
-        && test x"$insn" != x ; then
-      gcc_cv_as_gstabs_flag="yes"
-    fi
+    test $in_tree_gas_is_elf = yes && test x"$insn" != x \
+	&& gcc_cv_as_gstabs_flag="yes"
   ])
 elif test x$gcc_cv_as != x -a x"$insn" != x ; then
 	echo '' > conftest.s
 	# ??? This fails with non-gnu grep.
 	if $gcc_cv_as --gstabs -o conftest.o conftest.s > /dev/null 2>&1 ; then
 	  gcc_cv_as_gstabs_flag="yes"
+	  # The native Solaris 9/Intel assembler doesn't understand --gstabs
+	  # and warns about it, but still exits successfully.  So check for
+	  # this.
+	  if $gcc_cv_as --gstabs -o conftest.o conftest.s 2>&1 | \
+		grep -i warning > /dev/null ; then
+	    gcc_cv_as_gstabs_flag="no"
+	  fi
 	fi
 	rm -f conftest.s conftest.o
 fi
@@ -2578,7 +2579,8 @@ AC_MSG_RESULT($gcc_cv_as_gstabs_flag)
 AC_MSG_CHECKING(linker read-only and read-write section mixing)
 gcc_cv_ld_ro_rw_mix=unknown
 if test $in_tree_ld = yes ; then
-  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 10 -o "$gcc_cv_gld_major_version" -gt 2 && grep 'EMUL = elf' ../ld/Makefile > /dev/null; then
+  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 10 -o "$gcc_cv_gld_major_version" -gt 2 \
+     && test $in_tree_ld_is_elf = yes; then
     gcc_cv_ld_ro_rw_mix=read-write
   fi
 elif test x$gcc_cv_as != x -a x$gcc_cv_ld != x -a x$gcc_cv_objdump != x ; then
@@ -2616,7 +2618,8 @@ AC_MSG_RESULT($gcc_cv_ld_ro_rw_mix)
 AC_MSG_CHECKING(linker PT_GNU_EH_FRAME support)
 gcc_cv_ld_eh_frame_hdr=no
 if test $in_tree_ld = yes ; then
-  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 12 -o "$gcc_cv_gld_major_version" -gt 2 && grep 'EMUL = elf' ../ld/Makefile > /dev/null; then
+  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 12 -o "$gcc_cv_gld_major_version" -gt 2 \
+     && test $in_tree_ld_is_elf = yes; then
     gcc_cv_ld_eh_frame_hdr=yes
   fi
 elif test x$gcc_cv_ld != x; then
@@ -2634,7 +2637,8 @@ AC_MSG_RESULT($gcc_cv_ld_eh_frame_hdr)
 AC_MSG_CHECKING(linker position independent executable support)
 gcc_cv_ld_pie=no
 if test $in_tree_ld = yes ; then
-  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 15 -o "$gcc_cv_gld_major_version" -gt 2 && grep 'EMUL = elf' ../ld/Makefile > /dev/null; then
+  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 15 -o "$gcc_cv_gld_major_version" -gt 2 \
+     && test $in_tree_ld_is_elf = yes; then
     gcc_cv_ld_pie=yes
   fi
 elif test x$gcc_cv_ld != x; then

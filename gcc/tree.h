@@ -274,31 +274,31 @@ struct tree_common GTY(())
    is accessed incorrectly. The macros abort with a fatal error.  */
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 
-#define TREE_CHECK(t, code) __extension__				\
-({  const tree __t = (t);						\
-    if (TREE_CODE(__t) != (code))					\
-      tree_check_failed (__t, code, __FILE__, __LINE__, __FUNCTION__);	\
+#define TREE_CHECK(T, CODE) __extension__				\
+({  const tree __t = (T);						\
+    if (TREE_CODE (__t) != (CODE))					\
+      tree_check_failed (__t, (CODE), __FILE__, __LINE__, __FUNCTION__); \
     __t; })
-#define TREE_CLASS_CHECK(t, class) __extension__			\
-({  const tree __t = (t);						\
-    if (TREE_CODE_CLASS(TREE_CODE(__t)) != (class))			\
-      tree_class_check_failed (__t, class, __FILE__, __LINE__,		\
+
+#define TREE_CLASS_CHECK(T, CLASS) __extension__			\
+({  const tree __t = (T);						\
+    if (TREE_CODE_CLASS (TREE_CODE(__t)) != (CLASS))			\
+      tree_class_check_failed (__t, (CLASS), __FILE__, __LINE__,	\
 			       __FUNCTION__);				\
     __t; })
 
 /* These checks have to be special cased.  */
-#define EXPR_CHECK(t) __extension__					\
-({  const tree __t = (t);						\
-    char const __c = TREE_CODE_CLASS(TREE_CODE(__t));			\
-    if (__c != 'r' && __c != 's' && __c != '<'				\
-	&& __c != '1' && __c != '2' && __c != 'e')			\
+#define EXPR_CHECK(T) __extension__					\
+({  const tree __t = (T);						\
+    char const __c = TREE_CODE_CLASS (TREE_CODE (__t));			\
+    if (!IS_EXPR_CODE_CLASS (__c) && __c != 'r' && __c != 's')		\
       tree_class_check_failed (__t, 'e', __FILE__, __LINE__,		\
 			       __FUNCTION__);				\
     __t; })
 
-#define TREE_VEC_ELT_CHECK(t, i) __extension__				\
-(*({const tree __t = t;							\
-    const int __i = (i);						\
+#define TREE_VEC_ELT_CHECK(T, I) __extension__				\
+(*({const tree __t = (T);						\
+    const int __i = (I);						\
     if (TREE_CODE (__t) != TREE_VEC)					\
       tree_check_failed (__t, TREE_VEC,					\
 			 __FILE__, __LINE__, __FUNCTION__);		\
@@ -308,36 +308,32 @@ struct tree_common GTY(())
     &__t->vec.a[__i]; }))
 
 /* Special checks for TREE_OPERANDs.  */
-#define TREE_OPERAND_CHECK(t, i) __extension__				\
-(*({const tree __t = EXPR_CHECK(t);					\
-    const int __i = (i);						\
+#define TREE_OPERAND_CHECK(T, I) __extension__				\
+(*({const tree __t = EXPR_CHECK (T);					\
+    const int __i = (I);						\
     if (__i < 0 || __i >= TREE_CODE_LENGTH (TREE_CODE (__t)))		\
       tree_operand_check_failed (__i, TREE_CODE (__t),			\
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->exp.operands[__i]; }))
 
-#define TREE_OPERAND_CHECK_CODE(t, code, i) __extension__		\
-(*({const tree __t = t;							\
-    const int __i = (i);						\
-    const enum tree_code __code = code;					\
-    if (TREE_CODE (__t) != __code)					\
-      tree_check_failed (__t, __code,					\
-			 __FILE__, __LINE__, __FUNCTION__);		\
-    if (__i < 0 || __i >= TREE_CODE_LENGTH (__code))			\
-      tree_operand_check_failed (__i, __code,				\
+#define TREE_OPERAND_CHECK_CODE(T, CODE, I) __extension__		\
+(*({const tree __t = (T);						\
+    const int __i = (I);						\
+    if (TREE_CODE (__t) != CODE)					\
+      tree_check_failed (__t, CODE, __FILE__, __LINE__, __FUNCTION__);	\
+    if (__i < 0 || __i >= TREE_CODE_LENGTH (CODE))			\
+      tree_operand_check_failed (__i, (CODE),				\
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->exp.operands[__i]; }))
 
-#define TREE_RTL_OPERAND_CHECK(t, code, i) __extension__		\
+#define TREE_RTL_OPERAND_CHECK(T, CODE, I) __extension__		\
 (*(rtx *)								\
- ({const tree __t = t;							\
-    const int __i = (i);						\
-    const enum tree_code __code = code;					\
-    if (TREE_CODE (__t) != __code)					\
-      tree_check_failed (__t, __code,					\
-			 __FILE__, __LINE__, __FUNCTION__);		\
-    if (__i < 0 || __i >= TREE_CODE_LENGTH (__code))			\
-      tree_operand_check_failed (__i, __code,				\
+ ({const tree __t = (T);						\
+    const int __i = (I);						\
+    if (TREE_CODE (__t) != (CODE))					\
+      tree_check_failed (__t, (CODE), __FILE__, __LINE__, __FUNCTION__); \
+    if (__i < 0 || __i >= TREE_CODE_LENGTH ((CODE)))			\
+      tree_operand_check_failed (__i, (CODE),				\
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->exp.operands[__i]; }))
 
@@ -357,21 +353,22 @@ extern void tree_operand_check_failed PARAMS ((int, enum tree_code,
     
 #else /* not ENABLE_TREE_CHECKING, or not gcc */
 
-#define TREE_CHECK(t, code)		(t)
-#define TREE_CLASS_CHECK(t, code)	(t)
-#define EXPR_CHECK(t)			(t)
-#define TREE_VEC_ELT_CHECK(t, i)	((t)->vec.a[i])
-#define TREE_OPERAND_CHECK(t, i)	((t)->exp.operands[i])
-#define TREE_OPERAND_CHECK_CODE(t, code, i) ((t)->exp.operands[i])
-#define TREE_RTL_OPERAND_CHECK(t, code, i)  (*(rtx *) &((t)->exp.operands[i]))
+#define TREE_CHECK(T, CODE)		(T)
+#define TREE_CLASS_CHECK(T, CODE)	(T)
+#define EXPR_CHECK(T)			(T)
+#define TREE_VEC_ELT_CHECK(T, I)	((T)->vec.a[I])
+#define TREE_OPERAND_CHECK(T, I)	((T)->exp.operands[I])
+#define TREE_OPERAND_CHECK_CODE(T, CODE, I) ((T)->exp.operands[I])
+#define TREE_RTL_OPERAND_CHECK(T, CODE, I)  (*(rtx *) &((T)->exp.operands[I]))
 
 #endif
 
 #include "tree-check.h"
 
-#define TYPE_CHECK(tree)	TREE_CLASS_CHECK  (tree, 't')
-#define DECL_CHECK(tree)	TREE_CLASS_CHECK  (tree, 'd')
-#define CST_CHECK(tree)		TREE_CLASS_CHECK  (tree, 'c')
+#define TYPE_CHECK(T)		TREE_CLASS_CHECK (T, 't')
+#define DECL_CHECK(T)		TREE_CLASS_CHECK (T, 'd')
+#define CST_CHECK(T)		TREE_CLASS_CHECK (T, 'c')
+#define STMT_CHECK(T)		TREE_CLASS_CHECK (T, 's')
 
 /* In all nodes that are expressions, this is the data type of the expression.
    In POINTER_TYPE nodes, this is the type that the pointer points to.
@@ -2002,10 +1999,6 @@ enum ptrmemfunc_vbit_where_t
 
 #define NULL_TREE (tree) NULL
 
-/* Approximate positive square root of a host double.  This is for
-   statistical reports, not code generation.  */
-extern double approx_sqrt		PARAMS ((double));
-
 extern tree decl_assembler_name		PARAMS ((tree));
 
 /* Compute the number of bytes occupied by 'node'.  This routine only
@@ -2644,6 +2637,10 @@ extern GTY(()) tree current_function_func_begin_label;
 
 extern int all_types_permanent;
 
+/* Exit a binding level.  This function is provided by each language
+   frontend.  */
+extern tree poplevel (int, int, int);
+
 /* Declare a predefined function.  Return the declaration.  This function is
    provided by each language frontend.  */
 extern tree builtin_function		PARAMS ((const char *, tree, int,
@@ -2780,7 +2777,6 @@ extern tree fold_builtin				PARAMS ((tree));
 extern enum built_in_function builtin_mathfn_code	PARAMS ((tree));
 extern tree build_function_call_expr			PARAMS ((tree, tree));
 extern tree mathfn_built_in				PARAMS ((tree, enum built_in_function fn));
-extern tree strip_float_extensions			PARAMS ((tree));
 
 /* In convert.c */
 extern tree strip_float_extensions			PARAMS ((tree));
@@ -2810,7 +2806,7 @@ extern void type_hash_add		PARAMS ((unsigned int, tree));
 extern unsigned int type_hash_list	PARAMS ((tree));
 extern int simple_cst_list_equal	PARAMS ((tree, tree));
 extern void dump_tree_statistics	PARAMS ((void));
-extern void expand_function_end		PARAMS ((const char *, int, int));
+extern void expand_function_end		PARAMS ((void));
 extern void expand_function_start	PARAMS ((tree, int));
 extern void expand_pending_sizes        PARAMS ((tree));
 
@@ -2911,6 +2907,8 @@ extern int supports_one_only		PARAMS ((void));
 extern void variable_section		PARAMS ((tree, int));
 enum tls_model decl_tls_model		PARAMS ((tree));
 enum symbol_visibility decl_visibility	PARAMS ((tree));
+extern void resolve_unique_section	PARAMS ((tree, int, int));
+extern void mark_referenced	PARAMS ((tree));
 
 /* In stmt.c */
 extern void emit_nop			PARAMS ((void));

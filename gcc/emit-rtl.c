@@ -1,4 +1,4 @@
-/* Emit RTL for the GNU C-Compiler expander.
+/* Emit RTL for the GCC expander.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
@@ -170,8 +170,7 @@ static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
 #define first_insn (cfun->emit->x_first_insn)
 #define last_insn (cfun->emit->x_last_insn)
 #define cur_insn_uid (cfun->emit->x_cur_insn_uid)
-#define last_linenum (cfun->emit->x_last_linenum)
-#define last_filename (cfun->emit->x_last_filename)
+#define last_location (cfun->emit->x_last_location)
 #define first_label_num (cfun->emit->x_first_label_num)
 
 static rtx make_jump_insn_raw		PARAMS ((rtx));
@@ -3511,8 +3510,10 @@ try_split (pat, trial, last)
       for (insn = insn_last; insn ; insn = PREV_INSN (insn))
 	if (GET_CODE (insn) == CALL_INSN)
 	  {
-	    CALL_INSN_FUNCTION_USAGE (insn)
-	      = CALL_INSN_FUNCTION_USAGE (trial);
+	    rtx *p = &CALL_INSN_FUNCTION_USAGE (insn);
+	    while (*p)
+	      p = &XEXP (*p, 1);
+	    *p = CALL_INSN_FUNCTION_USAGE (trial);
 	    SIBLING_CALL_P (insn) = SIBLING_CALL_P (trial);
 	  }
     }
@@ -4636,7 +4637,9 @@ emit_line_note_after (file, line, after)
 {
   rtx note;
 
-  if (no_line_numbers && line > 0)
+  if (line < 0)
+    abort ();
+  if (no_line_numbers)
     {
       cur_insn_uid++;
       return 0;
@@ -4896,47 +4899,44 @@ emit_line_note (file, line)
      const char *file;
      int line;
 {
+  rtx note;
+  
+  if (line < 0)
+    abort ();
+  
   set_file_and_line_for_stmt (file, line);
 
-#if 0
-  if (no_line_numbers)
-    return 0;
-#endif
+  if (file && last_location.file && !strcmp (file, last_location.file)
+      && line == last_location.line)
+    return NULL_RTX;
+  last_location.file = file;
+  last_location.line = line;
 
-  return emit_note (file, line);
+  if (no_line_numbers)
+    {
+      cur_insn_uid++;
+      return NULL_RTX;
+    }
+
+  note = emit_note (line);
+  NOTE_SOURCE_FILE (note) = file;
+  
+  return note;
 }
 
-/* Make an insn of code NOTE
-   with data-fields specified by FILE and LINE
-   and add it to the end of the doubly-linked list.
-   If it is a line-number NOTE, omit it if it matches the previous one.  */
+/* Make an insn of code NOTE or type NOTE_NO
+   and add it to the end of the doubly-linked list.  */
 
 rtx
-emit_note (file, line)
-     const char *file;
-     int line;
+emit_note (note_no)
+     int note_no;
 {
   rtx note;
 
-  if (line > 0)
-    {
-      if (file && last_filename && !strcmp (file, last_filename)
-	  && line == last_linenum)
-	return 0;
-      last_filename = file;
-      last_linenum = line;
-    }
-
-  if (no_line_numbers && line > 0)
-    {
-      cur_insn_uid++;
-      return 0;
-    }
-
   note = rtx_alloc (NOTE);
   INSN_UID (note) = cur_insn_uid++;
-  NOTE_SOURCE_FILE (note) = file;
-  NOTE_LINE_NUMBER (note) = line;
+  NOTE_LINE_NUMBER (note) = note_no;
+  NOTE_DATA (note) = 0;
   BLOCK_FOR_INSN (note) = NULL;
   add_insn (note);
   return note;
@@ -4949,7 +4949,7 @@ emit_line_note_force (file, line)
      const char *file;
      int line;
 {
-  last_linenum = -1;
+  last_location.line = -1;
   return emit_line_note (file, line);
 }
 
@@ -4959,7 +4959,7 @@ emit_line_note_force (file, line)
 void
 force_next_line_note ()
 {
-  last_linenum = -1;
+  last_location.line = -1;
 }
 
 /* Place a note of KIND on insn INSN with DATUM as the datum. If a
@@ -5438,8 +5438,8 @@ init_emit ()
   seq_rtl_expr = NULL;
   cur_insn_uid = 1;
   reg_rtx_no = LAST_VIRTUAL_REGISTER + 1;
-  last_linenum = 0;
-  last_filename = 0;
+  last_location.line = 0;
+  last_location.file = 0;
   first_label_num = label_num;
   last_label_num = 0;
   seq_stack = NULL;

@@ -1161,10 +1161,6 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 
 /* Control the assembler format that we output.  */
 
-/* Output at beginning of assembler file.  */
-
-#define ASM_FILE_START(file)
-
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
 
@@ -1206,7 +1202,7 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 /* This is how to output a note to DBX telling it the line number
    to which the following sequence of instructions corresponds.  */
 
-#define ASM_OUTPUT_SOURCE_LINE(FILE, LINE)			\
+#define ASM_OUTPUT_SOURCE_LINE(FILE, LINE, COUNTER)		\
 { if (write_symbols == SDB_DEBUG) {				\
     fprintf ((FILE), "\t.ln	%d\n",				\
 	     (sdb_begin_function_line				\

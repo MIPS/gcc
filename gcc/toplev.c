@@ -1,4 +1,4 @@
-/* Top level of GNU C compiler
+/* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
@@ -77,6 +77,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hosthooks.h"
 #include "cgraph.h"
 #include "opts.h"
+#include "coverage.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -112,18 +113,9 @@ static int lang_dependent_init (const char *);
 static void init_asm_output (const char *);
 static void finalize (void);
 
-static void set_target_switch (const char *);
-
 static void crash_signal (int) ATTRIBUTE_NORETURN;
 static void setup_core_dumping (void);
 static void compile_file (void);
-
-void decode_d_option (const char *);
-static int decode_f_option (const char *);
-static int decode_W_option (const char *);
-static int decode_g_option (const char *);
-static unsigned int independent_decode_option (int, char **);
-static void set_Wextra (int);
 
 static int print_single_switch (FILE *, int, int, const char *,
 				const char *, const char *,
@@ -151,8 +143,8 @@ static void rest_of_handle_if_after_combine (tree, rtx);
 static void rest_of_handle_tracer (tree, rtx);
 static void rest_of_handle_combine (tree, rtx);
 static void rest_of_handle_regmove (tree, rtx);
-static void rest_of_handle_sched (tree, rtx);
 #ifdef INSN_SCHEDULING
+static void rest_of_handle_sched (tree, rtx);
 static void rest_of_handle_sched2 (tree, rtx);
 #endif
 static bool rest_of_handle_new_regalloc (tree, rtx, int *);
@@ -290,6 +282,7 @@ enum dump_file_index
   DFI_rnreg,
   DFI_bbro,
   DFI_ce3,
+  DFI_branch_target_load,
   DFI_sched2,
   DFI_stack,
   DFI_mach,
@@ -302,8 +295,8 @@ enum dump_file_index
 
    Remaining -d letters:
 
-	"              o q         "
-	"       H JK   OPQ  TUV  YZ"
+	"            m   q         "
+	"         JK   O Q   UV  YZ"
 */
 
 static struct dump_file_info dump_file[DFI_MAX] =
@@ -341,6 +334,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "rnreg",	'n', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
   { "ce3",	'E', 1, 0, 0 },
+  { "btl",	'd', 1, 0, 0 }, /* Yes, duplicate enable switch.  */
   { "sched2",	'R', 1, 0, 0 },
   { "stack",	'k', 1, 0, 0 },
   { "mach",	'M', 1, 0, 0 },
@@ -408,6 +402,9 @@ int flag_eliminate_dwarf2_dups = 0;
 
 int flag_eliminate_unused_debug_types = 1;
 
+/* Nonzero means emit debugging information only for symbols which are used.  */
+int flag_debug_only_used_symbols = 0;
+
 /* Nonzero if generating code to do profiling.  */
 
 int profile_flag = 0;
@@ -415,6 +412,10 @@ int profile_flag = 0;
 /* Nonzero if generating code to profile program flow graph arcs.  */
 
 int profile_arc_flag = 0;
+
+/* Nonzero if value histograms should be measured.  */
+
+int flag_profile_values = 0;
 
 /* Nonzero if generating info for gcov to calculate line test coverage.  */
 
@@ -453,7 +454,7 @@ int quiet_flag = 0;
 
 /* Print times taken by the various passes.  -ftime-report.  */
 
-static int time_report = 0;
+int time_report = 0;
 
 /* Print memory still in use at end of compilation (which may have little
    to do with peak memory consumption).  -fmem-report.  */
@@ -640,7 +641,7 @@ int flag_finite_math_only = 0;
 int flag_trapping_math = 1;
 
 /* Nonzero means disable transformations observable by signaling NaNs.
-   This option implies that any operation on a IEEE signaling NaN can
+   This option implies that any operation on an IEEE signaling NaN can
    generate a (user-visible) trap.  */
 
 int flag_signaling_nans = 0;
@@ -657,24 +658,24 @@ int flag_syntax_only = 0;
 
 /* Nonzero means perform loop optimizer.  */
 
-static int flag_loop_optimize;
+int flag_loop_optimize;
 
 /* Nonzero means perform crossjumping.  */
 
-static int flag_crossjumping;
+int flag_crossjumping;
 
 /* Nonzero means perform if conversion.  */
 
-static int flag_if_conversion;
+int flag_if_conversion;
 
 /* Nonzero means perform if conversion after reload.  */
 
-static int flag_if_conversion2;
+int flag_if_conversion2;
 
 /* Nonzero means to use global dataflow analysis to eliminate
    useless null pointer tests.  */
 
-static int flag_delete_null_pointer_checks;
+int flag_delete_null_pointer_checks;
 
 /* Nonzero means perform global CSE.  */
 
@@ -692,10 +693,20 @@ int flag_gcse_lm = 1;
 
 int flag_gcse_sm = 1;
 
+/* Perform target register optimization before prologue / epilogue
+   threading.  */
+
+int flag_branch_target_load_optimize = 0;
+
+/* Perform target register optimization after prologue / epilogue
+   threading and jump2.  */
+
+int flag_branch_target_load_optimize2 = 0;
+
 /* Nonzero means to rerun cse after loop optimization.  This increases
    compilation time about 20% and picks up a few more common expressions.  */
 
-static int flag_rerun_cse_after_loop;
+int flag_rerun_cse_after_loop;
 
 /* Nonzero means to run loop optimizations twice.  */
 
@@ -1033,6 +1044,9 @@ static const param_info lang_independent_params[] = {
   { NULL, 0, NULL }
 };
 
+/* Used for the f_options array temporarily.  */
+static int flag_dummy;
+
 /* Table of language-independent -f options.
    STRING is the option name.  VARIABLE is the address of the variable.
    ON_VALUE is the value to store in VARIABLE
@@ -1041,231 +1055,239 @@ static const param_info lang_independent_params[] = {
 
 static const lang_independent_options f_options[] =
 {
-  {"eliminate-dwarf2-dups", &flag_eliminate_dwarf2_dups, 1,
+  {"eliminate-dwarf2-dups", &flag_dummy, 1,
    N_("Perform DWARF2 duplicate elimination") },
-  {"eliminate-unused-debug-types", &flag_eliminate_unused_debug_types, 1,
+  {"eliminate-unused-debug-types", &flag_dummy, 1,
    N_("Perform unused type elimination in debug info") },
-  {"float-store", &flag_float_store, 1,
+  {"eliminate-unused-debug-symbols", &flag_dummy, 1,
+   N_("Perform unused type elimination in debug info") },
+  {"float-store", &flag_dummy, 1,
    N_("Do not store floats in registers") },
-  {"defer-pop", &flag_defer_pop, 1,
+  {"defer-pop", &flag_dummy, 1,
    N_("Defer popping functions args from stack until later") },
-  {"omit-frame-pointer", &flag_omit_frame_pointer, 1,
+  {"omit-frame-pointer", &flag_dummy, 1,
    N_("When possible do not generate stack frames") },
-  {"optimize-sibling-calls", &flag_optimize_sibling_calls, 1,
+  {"optimize-sibling-calls", &flag_dummy, 1,
    N_("Optimize sibling and tail recursive calls") },
-  {"tracer", &flag_tracer, 1,
+  {"tracer", &flag_dummy, 1,
    N_("Perform superblock formation via tail duplication") },
-  {"unit-at-a-time", &flag_unit_at_a_time, 1,
+  {"unit-at-a-time", &flag_dummy, 1,
    N_("Compile whole compilation unit at a time") },
-  {"cse-follow-jumps", &flag_cse_follow_jumps, 1,
+  {"cse-follow-jumps", &flag_dummy, 1,
    N_("When running CSE, follow jumps to their targets") },
-  {"cse-skip-blocks", &flag_cse_skip_blocks, 1,
+  {"cse-skip-blocks", &flag_dummy, 1,
    N_("When running CSE, follow conditional jumps") },
-  {"expensive-optimizations", &flag_expensive_optimizations, 1,
+  {"expensive-optimizations", &flag_dummy, 1,
    N_("Perform a number of minor, expensive optimizations") },
-  {"thread-jumps", &flag_thread_jumps, 1,
+  {"thread-jumps", &flag_dummy, 1,
    N_("Perform jump threading optimizations") },
-  {"strength-reduce", &flag_strength_reduce, 1,
+  {"strength-reduce", &flag_dummy, 1,
    N_("Perform strength reduction optimizations") },
-  {"unroll-loops", &flag_unroll_loops, 1,
+  {"unroll-loops", &flag_dummy, 1,
    N_("Perform loop unrolling when iteration count is known") },
-  {"unroll-all-loops", &flag_unroll_all_loops, 1,
+  {"unroll-all-loops", &flag_dummy, 1,
    N_("Perform loop unrolling for all loops") },
-  {"old-unroll-loops", &flag_old_unroll_loops, 1,
+  {"old-unroll-loops", &flag_dummy, 1,
    N_("Perform loop unrolling when iteration count is known") },
-  {"old-unroll-all-loops", &flag_old_unroll_all_loops, 1,
+  {"old-unroll-all-loops", &flag_dummy, 1,
    N_("Perform loop unrolling for all loops") },
-  {"peel-loops", &flag_peel_loops, 1,
+  {"peel-loops", &flag_dummy, 1,
    N_("Perform loop peeling") },
-  {"unswitch-loops", &flag_unswitch_loops, 1,
+  {"unswitch-loops", &flag_dummy, 1,
    N_("Perform loop unswitching") },
-  {"prefetch-loop-arrays", &flag_prefetch_loop_arrays, 1,
+  {"prefetch-loop-arrays", &flag_dummy, 1,
    N_("Generate prefetch instructions, if available, for arrays in loops") },
-  {"move-all-movables", &flag_move_all_movables, 1,
+  {"move-all-movables", &flag_dummy, 1,
    N_("Force all loop invariant computations out of loops") },
-  {"reduce-all-givs", &flag_reduce_all_givs, 1,
+  {"reduce-all-givs", &flag_dummy, 1,
    N_("Strength reduce all loop general induction variables") },
-  {"writable-strings", &flag_writable_strings, 1,
+  {"writable-strings", &flag_dummy, 1,
    N_("Store strings in writable data section") },
-  {"peephole", &flag_no_peephole, 0,
+  {"peephole", &flag_dummy, 0,
    N_("Enable machine specific peephole optimizations") },
-  {"force-mem", &flag_force_mem, 1,
+  {"force-mem", &flag_dummy, 1,
    N_("Copy memory operands into registers before using") },
-  {"force-addr", &flag_force_addr, 1,
+  {"force-addr", &flag_dummy, 1,
    N_("Copy memory address constants into regs before using") },
-  {"function-cse", &flag_no_function_cse, 0,
+  {"function-cse", &flag_dummy, 0,
    N_("Allow function addresses to be held in registers") },
-  {"inline-functions", &flag_inline_functions, 1,
+  {"inline-functions", &flag_dummy, 1,
    N_("Integrate simple functions into their callers") },
-  {"keep-inline-functions", &flag_keep_inline_functions, 1,
+  {"keep-inline-functions", &flag_dummy, 1,
    N_("Generate code for funcs even if they are fully inlined") },
-  {"inline", &flag_no_inline, 0,
+  {"inline", &flag_dummy, 0,
    N_("Pay attention to the 'inline' keyword") },
-  {"keep-static-consts", &flag_keep_static_consts, 1,
+  {"keep-static-consts", &flag_dummy, 1,
    N_("Emit static const variables even if they are not used") },
-  {"syntax-only", &flag_syntax_only, 1,
+  {"syntax-only", &flag_dummy, 1,
    N_("Check for syntax errors, then stop") },
-  {"shared-data", &flag_shared_data, 1,
+  {"shared-data", &flag_dummy, 1,
    N_("Mark data as shared rather than private") },
-  {"caller-saves", &flag_caller_saves, 1,
+  {"caller-saves", &flag_dummy, 1,
    N_("Enable saving registers around function calls") },
-  {"pcc-struct-return", &flag_pcc_struct_return, 1,
+  {"pcc-struct-return", &flag_dummy, 1,
    N_("Return 'short' aggregates in memory, not registers") },
-  {"reg-struct-return", &flag_pcc_struct_return, 0,
+  {"reg-struct-return", &flag_dummy, 0,
    N_("Return 'short' aggregates in registers") },
-  {"delayed-branch", &flag_delayed_branch, 1,
+  {"delayed-branch", &flag_dummy, 1,
    N_("Attempt to fill delay slots of branch instructions") },
-  {"gcse", &flag_gcse, 1,
+  {"gcse", &flag_dummy, 1,
    N_("Perform the global common subexpression elimination") },
-  {"gcse-lm", &flag_gcse_lm, 1,
+  {"gcse-lm", &flag_dummy, 1,
    N_("Perform enhanced load motion during global subexpression elimination") },
-  {"gcse-sm", &flag_gcse_sm, 1,
+  {"gcse-sm", &flag_dummy, 1,
    N_("Perform store motion after global subexpression elimination") },
-  {"loop-optimize", &flag_loop_optimize, 1,
+  {"branch-target-load-optimize", &flag_dummy, 1,
+   N_("Perform branch target load optimization before prologue / epilogue threading") },
+  {"branch-target-load-optimize2", &flag_dummy, 1,
+   N_("Perform branch target load optimization after prologue / epilogue threading") },
+  {"loop-optimize", &flag_dummy, 1,
    N_("Perform the loop optimizations") },
-  {"crossjumping", &flag_crossjumping, 1,
+  {"crossjumping", &flag_dummy, 1,
    N_("Perform cross-jumping optimization") },
-  {"if-conversion", &flag_if_conversion, 1,
+  {"if-conversion", &flag_dummy, 1,
    N_("Perform conversion of conditional jumps to branchless equivalents") },
-  {"if-conversion2", &flag_if_conversion2, 1,
+  {"if-conversion2", &flag_dummy, 1,
    N_("Perform conversion of conditional jumps to conditional execution") },
-  {"rerun-cse-after-loop", &flag_rerun_cse_after_loop, 1,
+  {"rerun-cse-after-loop", &flag_dummy, 1,
    N_("Run CSE pass after loop optimizations") },
-  {"rerun-loop-opt", &flag_rerun_loop_opt, 1,
+  {"rerun-loop-opt", &flag_dummy, 1,
    N_("Run the loop optimizer twice") },
-  {"delete-null-pointer-checks", &flag_delete_null_pointer_checks, 1,
+  {"delete-null-pointer-checks", &flag_dummy, 1,
    N_("Delete useless null pointer checks") },
-  {"schedule-insns", &flag_schedule_insns, 1,
+  {"schedule-insns", &flag_dummy, 1,
    N_("Reschedule instructions before register allocation") },
-  {"schedule-insns2", &flag_schedule_insns_after_reload, 1,
+  {"schedule-insns2", &flag_dummy, 1,
    N_("Reschedule instructions after register allocation") },
-  {"sched-interblock",&flag_schedule_interblock, 1,
+  {"sched-interblock",&flag_dummy, 1,
    N_("Enable scheduling across basic blocks") },
-  {"sched-spec",&flag_schedule_speculative, 1,
+  {"sched-spec",&flag_dummy, 1,
    N_("Allow speculative motion of non-loads") },
-  {"sched-spec-load",&flag_schedule_speculative_load, 1,
+  {"sched-spec-load",&flag_dummy, 1,
    N_("Allow speculative motion of some loads") },
-  {"sched-spec-load-dangerous",&flag_schedule_speculative_load_dangerous, 1,
+  {"sched-spec-load-dangerous",&flag_dummy, 1,
    N_("Allow speculative motion of more loads") },
-  {"sched2-use-superblocks", &flag_sched2_use_superblocks, 1,
+  {"sched2-use-superblocks", &flag_dummy, 1,
    N_("If scheduling post reload, do superblock scheduling") },
-  {"sched2-use-traces", &flag_sched2_use_traces, 1,
+  {"sched2-use-traces", &flag_dummy, 1,
    N_("If scheduling post reload, do trace scheduling") },
-  {"branch-count-reg",&flag_branch_on_count_reg, 1,
+  {"branch-count-reg",&flag_dummy, 1,
    N_("Replace add,compare,branch with branch on count reg") },
-  {"pic", &flag_pic, 1,
+  {"pic", &flag_dummy, 1,
    N_("Generate position independent code, if possible") },
-  {"PIC", &flag_pic, 2, ""},
-  {"pie", &flag_pie, 1,
+  {"PIC", &flag_dummy, 2, ""},
+  {"pie", &flag_dummy, 1,
    N_("Generate position independent code for executables, if possible") },
-  {"PIE", &flag_pie, 2, ""},
-  {"exceptions", &flag_exceptions, 1,
+  {"PIE", &flag_dummy, 2, ""},
+  {"exceptions", &flag_dummy, 1,
    N_("Enable exception handling") },
-  {"unwind-tables", &flag_unwind_tables, 1,
+  {"unwind-tables", &flag_dummy, 1,
    N_("Just generate unwind tables for exception handling") },
-  {"asynchronous-unwind-tables", &flag_asynchronous_unwind_tables, 1,
+  {"asynchronous-unwind-tables", &flag_dummy, 1,
    N_("Generate unwind tables exact at each instruction boundary") },
-  {"non-call-exceptions", &flag_non_call_exceptions, 1,
+  {"non-call-exceptions", &flag_dummy, 1,
    N_("Support synchronous non-call exceptions") },
-  {"profile-arcs", &profile_arc_flag, 1,
+  {"profile-arcs", &flag_dummy, 1,
    N_("Insert arc based program profiling code") },
-  {"test-coverage", &flag_test_coverage, 1,
+  {"test-coverage", &flag_dummy, 1,
    N_("Create data files needed by gcov") },
-  {"branch-probabilities", &flag_branch_probabilities, 1,
+  {"branch-probabilities", &flag_dummy, 1,
    N_("Use profiling information for branch probabilities") },
-  {"profile", &profile_flag, 1,
+  {"profile-values", &flag_profile_values, 1,
+   N_("Insert code to profile values of expressions") },
+  {"profile", &flag_dummy, 1,
    N_("Enable basic program profiling code") },
-  {"reorder-blocks", &flag_reorder_blocks, 1,
+  {"reorder-blocks", &flag_dummy, 1,
    N_("Reorder basic blocks to improve code placement") },
-  {"reorder-functions", &flag_reorder_functions, 1,
+  {"reorder-functions", &flag_dummy, 1,
    N_("Reorder functions to improve code placement") },
-  {"rename-registers", &flag_rename_registers, 1,
+  {"rename-registers", &flag_dummy, 1,
    N_("Do the register renaming optimization pass") },
-  {"cprop-registers", &flag_cprop_registers, 1,
+  {"cprop-registers", &flag_dummy, 1,
    N_("Do the register copy-propagation optimization pass") },
-  {"common", &flag_no_common, 0,
+  {"common", &flag_dummy, 0,
    N_("Do not put uninitialized globals in the common section") },
-  {"inhibit-size-directive", &flag_inhibit_size_directive, 1,
+  {"inhibit-size-directive", &flag_dummy, 1,
    N_("Do not generate .size directives") },
-  {"function-sections", &flag_function_sections, 1,
+  {"function-sections", &flag_dummy, 1,
    N_("place each function into its own section") },
-  {"data-sections", &flag_data_sections, 1,
+  {"data-sections", &flag_dummy, 1,
    N_("place data items into their own section") },
-  {"verbose-asm", &flag_verbose_asm, 1,
+  {"verbose-asm", &flag_dummy, 1,
    N_("Add extra commentary to assembler output") },
-  {"gnu-linker", &flag_gnu_linker, 1,
+  {"gnu-linker", &flag_dummy, 1,
    N_("Output GNU ld formatted global initializers") },
-  {"regmove", &flag_regmove, 1,
+  {"regmove", &flag_dummy, 1,
    N_("Enables a register move optimization") },
-  {"optimize-register-move", &flag_regmove, 1,
+  {"optimize-register-move", &flag_dummy, 1,
    N_("Do the full regmove optimization pass") },
-  {"pack-struct", &flag_pack_struct, 1,
+  {"pack-struct", &flag_dummy, 1,
    N_("Pack structure members together without holes") },
-  {"stack-check", &flag_stack_check, 1,
+  {"stack-check", &flag_dummy, 1,
    N_("Insert stack checking code into the program") },
-  {"argument-alias", &flag_argument_noalias, 0,
+  {"argument-alias", &flag_dummy, 0,
    N_("Specify that arguments may alias each other & globals") },
-  {"argument-noalias", &flag_argument_noalias, 1,
+  {"argument-noalias", &flag_dummy, 1,
    N_("Assume arguments may alias globals but not each other") },
-  {"argument-noalias-global", &flag_argument_noalias, 2,
+  {"argument-noalias-global", &flag_dummy, 2,
    N_("Assume arguments do not alias each other or globals") },
-  {"strict-aliasing", &flag_strict_aliasing, 1,
+  {"strict-aliasing", &flag_dummy, 1,
    N_("Assume strict aliasing rules apply") },
-  {"align-loops", &align_loops, 0,
+  {"align-loops", &flag_dummy, 0,
    N_("Align the start of loops") },
-  {"align-jumps", &align_jumps, 0,
+  {"align-jumps", &flag_dummy, 0,
    N_("Align labels which are only reached by jumping") },
-  {"align-labels", &align_labels, 0,
+  {"align-labels", &flag_dummy, 0,
    N_("Align all labels") },
-  {"align-functions", &align_functions, 0,
+  {"align-functions", &flag_dummy, 0,
    N_("Align the start of functions") },
-  {"merge-constants", &flag_merge_constants, 1,
+  {"merge-constants", &flag_dummy, 1,
    N_("Attempt to merge identical constants across compilation units") },
-  {"merge-all-constants", &flag_merge_constants, 2,
+  {"merge-all-constants", &flag_dummy, 2,
    N_("Attempt to merge identical constants and constant variables") },
-  {"dump-unnumbered", &flag_dump_unnumbered, 1,
+  {"dump-unnumbered", &flag_dummy, 1,
    N_("Suppress output of instruction numbers and line number notes in debugging dumps") },
-  {"instrument-functions", &flag_instrument_function_entry_exit, 1,
+  {"instrument-functions", &flag_dummy, 1,
    N_("Instrument function entry/exit with profiling calls") },
-  {"zero-initialized-in-bss", &flag_zero_initialized_in_bss, 1,
+  {"zero-initialized-in-bss", &flag_dummy, 1,
    N_("Put zero initialized data in the bss section") },
-  {"ssa", &flag_ssa, 1,
+  {"ssa", &flag_dummy, 1,
    N_("Enable SSA optimizations") },
-  {"ssa-ccp", &flag_ssa_ccp, 1,
+  {"ssa-ccp", &flag_dummy, 1,
    N_("Enable SSA conditional constant propagation") },
-  {"ssa-dce", &flag_ssa_dce, 1,
+  {"ssa-dce", &flag_dummy, 1,
    N_("Enable aggressive SSA dead code elimination") },
-  {"leading-underscore", &flag_leading_underscore, 1,
+  {"leading-underscore", &flag_dummy, 1,
    N_("External symbols have a leading underscore") },
-  {"ident", &flag_no_ident, 0,
+  {"ident", &flag_dummy, 0,
    N_("Process #ident directives") },
-  { "peephole2", &flag_peephole2, 1,
+  { "peephole2", &flag_dummy, 1,
    N_("Enables an rtl peephole pass run before sched2") },
-  {"finite-math-only", &flag_finite_math_only, 1,
+  {"finite-math-only", &flag_dummy, 1,
    N_("Assume no NaNs or +-Infs are generated") },
-  { "guess-branch-probability", &flag_guess_branch_prob, 1,
+  { "guess-branch-probability", &flag_dummy, 1,
    N_("Enables guessing of branch probabilities") },
-  {"math-errno", &flag_errno_math, 1,
+  {"math-errno", &flag_dummy, 1,
    N_("Set errno after built-in math functions") },
-  {"trapping-math", &flag_trapping_math, 1,
+  {"trapping-math", &flag_dummy, 1,
    N_("Floating-point operations can trap") },
-  {"unsafe-math-optimizations", &flag_unsafe_math_optimizations, 1,
+  {"unsafe-math-optimizations", &flag_dummy, 1,
    N_("Allow math optimizations that may violate IEEE or ANSI standards") },
-  {"signaling-nans", &flag_signaling_nans, 1,
+  {"signaling-nans", &flag_dummy, 1,
    N_("Disable optimizations observable by IEEE signaling NaNs") },
-  {"bounds-check", &flag_bounds_check, 1,
+  {"bounds-check", &flag_dummy, 1,
    N_("Generate code to check bounds before indexing arrays") },
-  {"single-precision-constant", &flag_single_precision_constant, 1,
+  {"single-precision-constant", &flag_dummy, 1,
    N_("Convert floating point constant to single precision constant") },
-  {"time-report", &time_report, 1,
+  {"time-report", &flag_dummy, 1,
    N_("Report time taken by each compiler pass at end of run") },
-  {"mem-report", &mem_report, 1,
+  {"mem-report", &flag_dummy, 1,
    N_("Report on permanent memory allocation at end of run") },
-  { "trapv", &flag_trapv, 1,
+  { "trapv", &flag_dummy, 1,
    N_("Trap for signed overflow in addition / subtraction / multiplication") },
-  { "wrapv", &flag_wrapv, 1,
+  { "wrapv", &flag_dummy, 1,
    N_("Assume signed arithmetic overflow wraps around") },
-  { "new-ra", &flag_new_regalloc, 1,
+  { "new-ra", &flag_dummy, 1,
    N_("Use graph coloring register allocation.") },
 };
 
@@ -1479,219 +1501,63 @@ target_options[] = TARGET_OPTIONS;
 
 /* Options controlling warnings.  */
 
-/* Don't print warning messages.  -w.  */
-
-int inhibit_warnings = 0;
-
-/* Don't suppress warnings from system headers.  -Wsystem-headers.  */
-
-int warn_system_headers = 0;
-
-/* Print various extra warnings.  -W/-Wextra.  */
-
-int extra_warnings = 0;
-
-/* Treat warnings as errors.  -Werror.  */
-
-int warnings_are_errors = 0;
-
-/* Nonzero to warn about unused variables, functions et.al.  */
-
-int warn_unused_function;
-int warn_unused_label;
-int warn_unused_parameter;
-int warn_unused_variable;
-int warn_unused_value;
-
-/* Used for cooperation between set_Wunused and set_Wextra.  */
-static int maybe_warn_unused_parameter;
-
-/* Nonzero to warn about code which is never reached.  */
-
-int warn_notreached;
-
-/* Nonzero to warn about variables used before they are initialized.  */
-
-int warn_uninitialized;
-
-/* Nonzero means warn about all declarations which shadow others.  */
-
-int warn_shadow;
-
-/* Warn if a switch on an enum, that does not have a default case,
-   fails to have a case for every enum value.  */
-
-int warn_switch;
-
-/* Warn if a switch does not have a default case.  */
-
-int warn_switch_default;
-
-/* Warn if a switch on an enum fails to have a case for every enum
-   value (regardless of the presence or otherwise of a default case).  */
-
-int warn_switch_enum;
-
 /* Nonzero means warn about function definitions that default the return type
    or that use a null return and have a return-type other than void.  */
 
 int warn_return_type;
 
-/* Nonzero means warn about pointer casts that increase the required
-   alignment of the target type (and might therefore lead to a crash
-   due to a misaligned access).  */
-
-int warn_cast_align;
-
-/* Nonzero means warn about any objects definitions whose size is larger
-   than N bytes.  Also want about function definitions whose returned
-   values are larger than N bytes. The value N is in `larger_than_size'.  */
-
-int warn_larger_than;
-HOST_WIDE_INT larger_than_size;
-
-/* Nonzero means warn if inline function is too large.  */
-
-int warn_inline;
-
-/* Warn if a function returns an aggregate,
-   since there are often incompatible calling conventions for doing this.  */
-
-int warn_aggregate_return;
-
-/* Warn if packed attribute on struct is unnecessary and inefficient.  */
-
-int warn_packed;
-
-/* Warn when gcc pads a structure to an alignment boundary.  */
-
-int warn_padded;
-
-/* Warn when an optimization pass is disabled.  */
-
-int warn_disabled_optimization;
-
-/* Warn about functions which might be candidates for attribute noreturn.  */
-
-int warn_missing_noreturn;
-
-/* Nonzero means warn about uses of __attribute__((deprecated))
-   declarations.  */
-
-int warn_deprecated_decl = 1;
-
-/* Nonzero means warn about constructs which might not be
-   strict-aliasing safe.  */
-
-int warn_strict_aliasing;
+/* Used for the -W options array temporarily.  */
+static int warn_dummy;
 
 /* Like f_options, but for -W.  */
 
 static const lang_independent_options W_options[] =
 {
-  {"unused-function", &warn_unused_function, 1,
+  {"unused-function", &warn_dummy, 1,
    N_("Warn when a function is unused") },
-  {"unused-label", &warn_unused_label, 1,
+  {"unused-label", &warn_dummy, 1,
    N_("Warn when a label is unused") },
-  {"unused-parameter", &warn_unused_parameter, 1,
+  {"unused-parameter", &warn_dummy, 1,
    N_("Warn when a function parameter is unused") },
-  {"unused-variable", &warn_unused_variable, 1,
+  {"unused-variable", &warn_dummy, 1,
    N_("Warn when a variable is unused") },
-  {"unused-value", &warn_unused_value, 1,
+  {"unused-value", &warn_dummy, 1,
    N_("Warn when an expression value is unused") },
-  {"system-headers", &warn_system_headers, 1,
+  {"system-headers", &warn_dummy, 1,
    N_("Do not suppress warnings from system headers") },
-  {"error", &warnings_are_errors, 1,
+  {"error", &warn_dummy, 1,
    N_("Treat all warnings as errors") },
-  {"shadow", &warn_shadow, 1,
+  {"shadow", &warn_dummy, 1,
    N_("Warn when one local variable shadows another") },
-  {"switch", &warn_switch, 1,
+  {"switch", &warn_dummy, 1,
    N_("Warn about enumerated switches, with no default, missing a case") },
-  {"switch-default", &warn_switch_default, 1,
+  {"switch-default", &warn_dummy, 1,
    N_("Warn about enumerated switches missing a default case") },
-  {"switch-enum", &warn_switch_enum, 1,
+  {"switch-enum", &warn_dummy, 1,
    N_("Warn about all enumerated switches missing a specific case") },
-  {"aggregate-return", &warn_aggregate_return, 1,
+  {"aggregate-return", &warn_dummy, 1,
    N_("Warn about returning structures, unions or arrays") },
-  {"cast-align", &warn_cast_align, 1,
+  {"cast-align", &warn_dummy, 1,
    N_("Warn about pointer casts which increase alignment") },
-  {"unreachable-code", &warn_notreached, 1,
+  {"unreachable-code", &warn_dummy, 1,
    N_("Warn about code that will never be executed") },
-  {"uninitialized", &warn_uninitialized, 1,
+  {"uninitialized", &warn_dummy, 1,
    N_("Warn about uninitialized automatic variables") },
-  {"inline", &warn_inline, 1,
+  {"inline", &warn_dummy, 1,
    N_("Warn when an inlined function cannot be inlined") },
-  {"packed", &warn_packed, 1,
+  {"packed", &warn_dummy, 1,
    N_("Warn when the packed attribute has no effect on struct layout") },
-  {"padded", &warn_padded, 1,
+  {"padded", &warn_dummy, 1,
    N_("Warn when padding is required to align struct members") },
-  {"disabled-optimization", &warn_disabled_optimization, 1,
+  {"disabled-optimization", &warn_dummy, 1,
    N_("Warn when an optimization pass is disabled") },
-  {"deprecated-declarations", &warn_deprecated_decl, 1,
+  {"deprecated-declarations", &warn_dummy, 1,
    N_("Warn about uses of __attribute__((deprecated)) declarations") },
-  {"missing-noreturn", &warn_missing_noreturn, 1,
+  {"missing-noreturn", &warn_dummy, 1,
    N_("Warn about functions which might be candidates for attribute noreturn") },
-  {"strict-aliasing", &warn_strict_aliasing, 1,
+  {"strict-aliasing", &warn_dummy, 1,
    N_ ("Warn about code which might break the strict aliasing rules") }
 };
-
-/* Initialize unused warning flags.  */
-void
-set_Wunused (int setting)
-{
-  warn_unused_function = setting;
-  warn_unused_label = setting;
-  /* Unused function parameter warnings are reported when either
-     ``-Wextra -Wunused'' or ``-Wunused-parameter'' is specified.
-     Thus, if -Wextra has already been seen, set warn_unused_parameter;
-     otherwise set maybe_warn_extra_parameter, which will be picked up
-     by set_Wextra.  */
-  maybe_warn_unused_parameter = setting;
-  warn_unused_parameter = (setting && extra_warnings);
-  warn_unused_variable = setting;
-  warn_unused_value = setting;
-}
-
-/* Initialize more unused warning flags.  */
-static void
-set_Wextra (int setting)
-{
-  extra_warnings = setting;
-  warn_unused_value = setting;
-  warn_unused_parameter = (setting && maybe_warn_unused_parameter);
-
-  /* We save the value of warn_uninitialized, since if they put
-     -Wuninitialized on the command line, we need to generate a
-     warning about not using it without also specifying -O.  */
-  if (setting == 0)
-    warn_uninitialized = 0;
-  else if (warn_uninitialized != 1)
-    warn_uninitialized = 2;
-}
-
-/* The following routines are useful in setting all the flags that
-   -ffast-math and -fno-fast-math imply.  */
-
-void
-set_fast_math_flags (int set)
-{
-  flag_trapping_math = !set;
-  flag_unsafe_math_optimizations = set;
-  flag_finite_math_only = set;
-  flag_errno_math = !set;
-  if (set)
-    flag_signaling_nans = 0;
-}
-
-/* Return true iff flags are set as if -ffast-math.  */
-bool
-fast_math_flags_set_p (void)
-{
-  return (!flag_trapping_math
-	  && flag_unsafe_math_optimizations
-	  && flag_finite_math_only
-	  && !flag_errno_math);
-}
 
 /* Output files for assembler code (real compiler output)
    and debugging dumps.  */
@@ -2042,7 +1908,14 @@ wrapup_global_declarations (tree *vec, int len)
 	    {
 	      bool needed = 1;
 
-	      if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+	      if (flag_unit_at_a_time
+		  && cgraph_varpool_node (decl)->finalized)
+		needed = 0;
+	      else if (flag_unit_at_a_time
+		       && (TREE_USED (decl)
+			   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
+		/* needed */;
+	      else if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
 		/* needed */;
 	      else if (DECL_COMDAT (decl))
 		needed = 0;
@@ -2214,6 +2087,8 @@ compile_file (void)
 
   (*lang_hooks.decls.final_write_globals)();
 
+  cgraph_varpool_assemble_pending_decls ();
+
   /* This must occur after the loop to output deferred functions.
      Else the coverage initializer would not be emitted if all the
      functions in this compilation unit were deferred.  */
@@ -2314,7 +2189,13 @@ rest_of_decl_compilation (tree decl,
       /* Don't output anything when a tentative file-scope definition
 	 is seen.  But at end of compilation, do output code for them.  */
       if (at_end || !DECL_DEFER_OUTPUT (decl))
-	assemble_variable (decl, top_level, at_end, 0);
+	{
+	  if (flag_unit_at_a_time && !cgraph_global_info_ready
+	      && TREE_CODE (decl) != FUNCTION_DECL && top_level)
+	    cgraph_varpool_finalize_decl (decl);
+	  else
+	    assemble_variable (decl, top_level, at_end, 0);
+	}
 
 #ifdef ASM_FINISH_DECLARE_OBJECT
       if (decl == last_assemble_variable_decl)
@@ -2671,12 +2552,12 @@ rest_of_handle_reorder_blocks (tree decl, rtx insns)
   timevar_pop (TV_REORDER_BLOCKS);
 }
 
+#ifdef INSN_SCHEDULING
 /* Run instruction scheduler.  */
 static void
 rest_of_handle_sched (tree decl, rtx insns)
 {
   timevar_push (TV_SCHED);
-#ifdef INSN_SCHEDULING
 
   /* Print function header into sched dump now
      because doing the sched analysis makes some of the dump.  */
@@ -2691,13 +2572,11 @@ rest_of_handle_sched (tree decl, rtx insns)
 
       close_dump_file (DFI_sched, print_rtl_with_bb, insns);
     }
-#endif
   timevar_pop (TV_SCHED);
 
   ggc_collect ();
 }
 
-#ifdef INSN_SCHEDULING
 /* Run second scheduling pass after reload.  */
 static void
 rest_of_handle_sched2 (tree decl, rtx insns)
@@ -3737,7 +3616,9 @@ rest_of_compilation (tree decl)
      (see handling of reg_known_equiv in init_alias_analysis).  */
   recompute_reg_usage (insns, !optimize_size);
 
+#ifdef INSN_SCHEDULING
   rest_of_handle_sched (decl, insns);
+#endif
 
   /* Determine if the current function is a leaf before running reload
      since this can impact optimizations done by the prologue and
@@ -3801,6 +3682,17 @@ rest_of_compilation (tree decl)
 #endif
     split_all_insns (0);
 
+    if (flag_branch_target_load_optimize)
+      {
+	open_dump_file (DFI_branch_target_load, decl);
+
+	branch_target_load_optimize (insns, false);
+
+	close_dump_file (DFI_branch_target_load, print_rtl_with_bb, insns);
+
+	ggc_collect ();
+      }
+
   if (optimize)
     cleanup_cfg (CLEANUP_EXPENSIVE);
 
@@ -3809,6 +3701,7 @@ rest_of_compilation (tree decl)
      it and the rest of the code and also allows delayed branch
      scheduling to operate in the epilogue.  */
   thread_prologue_and_epilogue_insns (insns);
+  epilogue_completed = 1;
 
   if (optimize)
     {
@@ -3864,6 +3757,24 @@ rest_of_compilation (tree decl)
       close_dump_file (DFI_ce3, print_rtl_with_bb, insns);
       timevar_pop (TV_IFCVT2);
     }
+
+    if (flag_branch_target_load_optimize2)
+      {
+	/* Leave this a warning for now so that it is possible to experiment
+	   with running this pass twice.  In 3.6, we should either make this
+	   an error, or use separate dump files.  */
+	if (flag_branch_target_load_optimize)
+	  warning ("branch target register load optimization is not intended "
+		   "to be run twice");
+
+	open_dump_file (DFI_branch_target_load, decl);
+
+	branch_target_load_optimize (insns, true);
+
+	close_dump_file (DFI_branch_target_load, print_rtl_with_bb, insns);
+
+	ggc_collect ();
+      }
 
 #ifdef INSN_SCHEDULING
   if (optimize > 0 && flag_schedule_insns_after_reload)
@@ -3944,6 +3855,7 @@ rest_of_compilation (tree decl)
 #endif
 
   reload_completed = 0;
+  epilogue_completed = 0;
   flow2_completed = 0;
   no_new_pseudos = 0;
 
@@ -4260,194 +4172,6 @@ decode_d_option (const char *arg)
       }
 }
 
-/* Parse a -f... command line switch.  ARG is the value after the -f.
-   It is safe to access 'ARG - 2' to generate the full switch name.
-   Return the number of strings consumed.  */
-
-static int
-decode_f_option (const char *arg)
-{
-  int j;
-  const char *option_value = NULL;
-
-  /* Search for the option in the table of binary f options.  */
-  for (j = ARRAY_SIZE (f_options); j--;)
-    {
-      if (!strcmp (arg, f_options[j].string))
-	{
-	  *f_options[j].variable = f_options[j].on_value;
-	  return 1;
-	}
-
-      if (arg[0] == 'n' && arg[1] == 'o' && arg[2] == '-'
-	  && ! strcmp (arg + 3, f_options[j].string))
-	{
-	  *f_options[j].variable = ! f_options[j].on_value;
-	  return 1;
-	}
-    }
-
-  if (!strcmp (arg, "fast-math"))
-    set_fast_math_flags (1);
-  else if (!strcmp (arg, "no-fast-math"))
-    set_fast_math_flags (0);
-  else if ((option_value = skip_leading_substring (arg, "inline-limit-"))
-	   || (option_value = skip_leading_substring (arg, "inline-limit=")))
-    {
-      int val =
-	read_integral_parameter (option_value, arg - 2,
-				 MAX_INLINE_INSNS);
-      set_param_value ("max-inline-insns", val);
-      set_param_value ("max-inline-insns-single", val/2);
-      set_param_value ("max-inline-insns-auto", val/2);
-      set_param_value ("max-inline-insns-rtl", val);
-      if (val/4 < MIN_INLINE_INSNS)
-	{
-	  if (val/4 > 10)
-	    set_param_value ("min-inline-insns", val/4);
-	  else
-	    set_param_value ("min-inline-insns", 10);
-	}
-    }
-  else if ((option_value = skip_leading_substring (arg, "tls-model=")))
-    {
-      if (strcmp (option_value, "global-dynamic") == 0)
-	flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
-      else if (strcmp (option_value, "local-dynamic") == 0)
-	flag_tls_default = TLS_MODEL_LOCAL_DYNAMIC;
-      else if (strcmp (option_value, "initial-exec") == 0)
-	flag_tls_default = TLS_MODEL_INITIAL_EXEC;
-      else if (strcmp (option_value, "local-exec") == 0)
-	flag_tls_default = TLS_MODEL_LOCAL_EXEC;
-      else
-	warning ("`%s': unknown tls-model option", arg - 2);
-    }
-#ifdef INSN_SCHEDULING
-  else if ((option_value = skip_leading_substring (arg, "sched-verbose=")))
-    fix_sched_param ("verbose", option_value);
-#endif
-  else if ((option_value = skip_leading_substring (arg, "fixed-")))
-    fix_register (option_value, 1, 1);
-  else if ((option_value = skip_leading_substring (arg, "call-used-")))
-    fix_register (option_value, 0, 1);
-  else if ((option_value = skip_leading_substring (arg, "call-saved-")))
-    fix_register (option_value, 0, 0);
-  else if ((option_value = skip_leading_substring (arg, "align-loops=")))
-    align_loops = read_integral_parameter (option_value, arg - 2, align_loops);
-  else if ((option_value = skip_leading_substring (arg, "align-functions=")))
-    align_functions
-      = read_integral_parameter (option_value, arg - 2, align_functions);
-  else if ((option_value = skip_leading_substring (arg, "align-jumps=")))
-    align_jumps = read_integral_parameter (option_value, arg - 2, align_jumps);
-  else if ((option_value = skip_leading_substring (arg, "align-labels=")))
-    align_labels
-      = read_integral_parameter (option_value, arg - 2, align_labels);
-  else if ((option_value
-	    = skip_leading_substring (arg, "stack-limit-register=")))
-    {
-      int reg = decode_reg_name (option_value);
-      if (reg < 0)
-	error ("unrecognized register name `%s'", option_value);
-      else
-	stack_limit_rtx = gen_rtx_REG (Pmode, reg);
-    }
-  else if ((option_value
-	    = skip_leading_substring (arg, "stack-limit-symbol=")))
-    {
-      const char *nm;
-      nm = ggc_strdup (option_value);
-      stack_limit_rtx = gen_rtx_SYMBOL_REF (Pmode, nm);
-    }
-  else if ((option_value
-	    = skip_leading_substring (arg, "message-length=")))
-    output_set_maximum_length
-      (&global_dc->buffer, read_integral_parameter
-       (option_value, arg - 2, diagnostic_line_cutoff (global_dc)));
-  else if ((option_value
-	    = skip_leading_substring (arg, "diagnostics-show-location=")))
-    {
-      if (!strcmp (option_value, "once"))
-	diagnostic_prefixing_rule (global_dc) = DIAGNOSTICS_SHOW_PREFIX_ONCE;
-      else if (!strcmp (option_value, "every-line"))
-	diagnostic_prefixing_rule (global_dc)
-	  = DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE;
-      else
-	error ("unrecognized option `%s'", arg - 2);
-    }
-  else if (!strcmp (arg, "no-stack-limit"))
-    stack_limit_rtx = NULL_RTX;
-  else if ((option_value = skip_leading_substring (arg, "random-seed=")))
-    flag_random_seed = option_value;
-  else if (!strcmp (arg, "no-random-seed"))
-    flag_random_seed = NULL;
-  else if (!strcmp (arg, "preprocessed"))
-    /* Recognize this switch but do nothing.  This prevents warnings
-       about an unrecognized switch if cpplib has not been linked in.  */
-    ;
-  else
-    return 0;
-
-  return 1;
-}
-
-/* Parse a -W... command line switch.  ARG is the value after the -W.
-   It is safe to access 'ARG - 2' to generate the full switch name.
-   Return the number of strings consumed.  */
-
-static int
-decode_W_option (const char *arg)
-{
-  const char *option_value = NULL;
-  int j;
-
-  /* Search for the option in the table of binary W options.  */
-
-  for (j = ARRAY_SIZE (W_options); j--;)
-    {
-      if (!strcmp (arg, W_options[j].string))
-	{
-	  *W_options[j].variable = W_options[j].on_value;
-	  return 1;
-	}
-
-      if (arg[0] == 'n' && arg[1] == 'o' && arg[2] == '-'
-	  && ! strcmp (arg + 3, W_options[j].string))
-	{
-	  *W_options[j].variable = ! W_options[j].on_value;
-	  return 1;
-	}
-    }
-
-  if ((option_value = skip_leading_substring (arg, "id-clash-")))
-    warning ("-Wid-clash-LEN is no longer supported");
-  else if ((option_value = skip_leading_substring (arg, "larger-than-")))
-    {
-      larger_than_size = read_integral_parameter (option_value, arg - 2, -1);
-
-      warn_larger_than = larger_than_size != -1;
-    }
-  else if (!strcmp (arg, "unused"))
-    {
-      set_Wunused (1);
-    }
-  else if (!strcmp (arg, "no-unused"))
-    {
-      set_Wunused (0);
-    }
-  else if (!strcmp (arg, "extra"))
-    {
-      set_Wextra (1);
-    }
-  else if (!strcmp (arg, "no-extra"))
-    {
-      set_Wextra (0);
-    }
-  else
-    return 0;
-
-  return 1;
-}
-
 /* Indexed by enum debug_info_type.  */
 const char *const debug_type_names[] =
 {
@@ -4458,7 +4182,7 @@ const char *const debug_type_names[] =
    It is safe to access 'ARG - 2' to generate the full switch name.
    Return the number of strings consumed.  */
 
-static int
+void
 decode_g_option (const char *arg)
 {
   static unsigned level = 0;
@@ -4569,93 +4293,13 @@ ignoring option `%s' due to invalid debug level specification",
     }
 
   if (! da->arg)
-    return 0;
-
-  return 1;
-}
-
-/* Decode the first argument in the argv as a language-independent option.
-   Return the number of strings consumed.  */
-
-static unsigned int
-independent_decode_option (int argc, char **argv)
-{
-  char *arg = argv[0];
-
-  if (arg[0] != '-' || arg[1] == 0)
-    return 1;
-
-  arg++;
-
-  /* Handle '--param <name>=<value>'.  */
-  if (strcmp (arg, "-param") == 0)
-    {
-      char *equal;
-
-      if (argc == 1)
-	{
-	  error ("-param option missing argument");
-	  return 1;
-	}
-
-      /* Get the '<name>=<value>' parameter.  */
-      arg = argv[1];
-      /* Look for the `='.  */
-      equal = strchr (arg, '=');
-      if (!equal)
-	error ("invalid --param option: %s", arg);
-      else
-	{
-	  int val;
-
-	  /* Zero out the `=' sign so that we get two separate strings.  */
-	  *equal = '\0';
-	  /* Figure out what value is specified.  */
-	  val = read_integral_parameter (equal + 1, NULL, INVALID_PARAM_VAL);
-	  if (val != INVALID_PARAM_VAL)
-	    set_param_value (arg, val);
-	  else
-	    error ("invalid parameter value `%s'", equal + 1);
-	}
-
-      return 2;
-    }
-
-  switch (*arg)
-    {
-    default:
-      return 0;
-
-    case 'O':
-      /* Already been treated in main (). Do nothing.  */
-      break;
-
-    case 'm':
-      set_target_switch (arg + 1);
-      break;
-
-    case 'f':
-      return decode_f_option (arg + 1);
-
-    case 'g':
-      return decode_g_option (arg + 1);
-
-    case 'W':
-      /* For backward compatibility, -W is the same as -Wextra.  */
-      if (arg[1] == 0)
-	set_Wextra (1);
-      else
-	return decode_W_option (arg + 1);
-      break;
-    }
-
-  return 1;
+    warning ("`-g%s': unknown or unsupported -g option", arg);
 }
 
 /* Decode -m switches.  */
 /* Decode the switch -mNAME.  */
 
-static void
+void
 set_target_switch (const char *name)
 {
   size_t j;
@@ -4877,9 +4521,7 @@ init_asm_output (const char *name)
 
   if (!flag_syntax_only)
     {
-#ifdef ASM_FILE_START
-      ASM_FILE_START (asm_out_file);
-#endif
+      targetm.asm_out.file_start ();
 
 #ifdef ASM_COMMENT_START
       if (flag_verbose_asm)
@@ -4947,6 +4589,7 @@ general_init (char *argv0)
   init_ggc ();
   init_stringpool ();
   init_ttree ();
+
 }
 
 /* Parse command line options and set default flag values, called
@@ -5104,70 +4747,7 @@ parse_options_and_default_flags (int argc, char **argv)
   OPTIMIZATION_OPTIONS (optimize, optimize_size);
 #endif
 
-  /* Perform normal command line switch decoding.  */
-  for (i = 1; i < argc;)
-    {
-      int lang_processed;
-      int indep_processed;
-
-      /* Give the language a chance to decode the option for itself.  */
-      lang_processed = handle_option (argc - i, argv + i, lang_mask);
-
-      if (lang_processed >= 0)
-	/* Now see if the option also has a language independent meaning.
-	   Some options are both language specific and language independent,
-	   eg --help.  */
-	indep_processed = independent_decode_option (argc - i, argv + i);
-      else
-	{
-	  lang_processed = -lang_processed;
-	  indep_processed = 0;
-	}
-
-      if (lang_processed || indep_processed)
-	i += MAX (lang_processed, indep_processed);
-      else
-	{
-	  const char *option = NULL;
-	  const char *lang = NULL;
-	  unsigned int j;
-
-	  /* It is possible that the command line switch is not valid for the
-	     current language, but it is valid for another language.  In order
-	     to be compatible with previous versions of the compiler (which
-	     did not issue an error message in this case) we check for this
-	     possibility here.  If we do find a match, then if extra_warnings
-	     is set we generate a warning message, otherwise we will just
-	     ignore the option.  */
-	  for (j = 0; j < ARRAY_SIZE (documented_lang_options); j++)
-	    {
-	      option = documented_lang_options[j].option;
-
-	      if (option == NULL)
-		lang = documented_lang_options[j].description;
-	      else if (! strncmp (argv[i], option, strlen (option)))
-		break;
-	    }
-
-	  if (j != ARRAY_SIZE (documented_lang_options))
-	    {
-	      if (extra_warnings)
-		{
-		  warning ("ignoring command line option '%s'", argv[i]);
-		  if (lang)
-		    warning
-		      ("(it is valid for %s but not the selected language)",
-		       lang);
-		}
-	    }
-	  else if (argv[i][0] == '-' && argv[i][1] == 'g')
-	    warning ("`%s': unknown or unsupported -g option", &argv[i][2]);
-	  else
-	    error ("unrecognized option `%s'", argv[i]);
-
-	  i++;
-	}
-    }
+  handle_options (argc, argv, lang_mask);
 
   if (flag_pie)
     flag_pic = flag_pie;

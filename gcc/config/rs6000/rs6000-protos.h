@@ -27,7 +27,7 @@
 #ifdef RTX_CODE
 
 #ifdef TREE_CODE
-extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, rtx, int));
+extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, rtx, int, int));
 extern void rs6000_va_start PARAMS ((tree, rtx));
 #endif /* TREE_CODE */
 
@@ -167,7 +167,6 @@ extern enum direction function_arg_padding PARAMS ((enum machine_mode, tree));
 
 extern void optimization_options PARAMS ((int, int));
 extern void rs6000_override_options PARAMS ((const char *));
-extern void rs6000_file_start PARAMS ((FILE *, const char *));
 extern int direct_return PARAMS ((void));
 extern union tree_node *rs6000_build_va_list PARAMS ((void));
 extern int first_reg_to_save PARAMS ((void));

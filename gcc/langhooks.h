@@ -181,6 +181,9 @@ struct lang_hooks_for_decls
      of compilation */
   void (*final_write_globals) PARAMS ((void));
 
+  /* Do necessary preparations before assemble_variable can proceed.  */
+  void (*prepare_assemble_variable) PARAMS ((tree));
+
   /* True if this decl may be called via a sibcall.  */
   bool (*ok_for_sibcall) PARAMS ((tree));
 };
@@ -324,6 +327,11 @@ struct lang_hooks
 
   /* Nonzero if TYPE_READONLY and TREE_READONLY should always be honored.  */
   bool honor_readonly;
+
+  /* Nonzero if this front end does not generate a dummy BLOCK between
+     the outermost scope of the function and the FUNCTION_DECL.  See
+     is_body_block in stmt.c, and its callers.  */
+  bool no_body_blocks;
 
   /* The front end can add its own statistics to -fmem-report with
      this hook.  It should output to stderr.  */

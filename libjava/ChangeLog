@@ -1,3 +1,706 @@
+2003-06-27  Michael Koch  <konqueror@gmx.de>
+
+	* java/security/Certificate.java
+	(getGuarantor): Removed wrong @deprecated tag.
+	(getPrincipal): Likewise.
+	(getPublicKey): Likewise.
+	(encode): Likewise.
+	(decode): Likewise.
+	(getFormat): Likewise.
+	(toString): Likewise.
+	* java/security/cert/PolicyQualifierInfo.java
+	(PolicyQualifierInfo): Made final.
+	* javax/security/auth/x500/X500Principal.java
+	(serialVersionUID): New member variable.
+
+2003-06-27  Michael Koch  <konqueror@gmx.de>
+
+	* java/text/Format.java
+	(serialVersionUID): Fixed value.
+
+2003-06-27  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/Inet4Address.java
+	(Inet4Address): Made package-private.
+	* java/net/Inet6Address.java
+	(Inet4Address): Made package-private.
+
+2003-06-27  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/RandomAccessFile.java
+	(readLine): Removed wrong @deprecated tag.
+	(getChannel): Made final.
+
+2003-06-27  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/FileChannelImpl.java
+	(write): Removed.
+
+2003-06-27  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteBufferImpl.java
+	(ByteBufferImpl): Made it a package-private class
+	* java/nio/CharBufferImpl.java
+	(CharBufferImpl): Made it a package-private class
+	* java/nio/DirectByteBufferImpl.java
+	(DirectByteBufferImpl): Made it a package-private class
+	* java/nio/DoubleBufferImpl.java
+	(DoubleBufferImpl): Made it a package-private class
+	* java/nio/FloatBufferImpl.java
+	(FloatBufferImpl): Made it a package-private class
+	* java/nio/IntBufferImpl.java
+	(IntBufferImpl): Made it a package-private class
+	* java/nio/LongBufferImpl.java
+	(LongBufferImpl): Made it a package-private class
+	* java/nio/ShortBufferImpl.java
+	(ShortBufferImpl): Made it a package-private class
+	* java/nio/channels/FileChannel.java
+	(write): Made final.
+	* java/nio/channels/ServerSocketChannel.java
+	(ServerSocketChanne): Made protected.
+
+2003-06-27  Michael Koch  <konqueror@gmx.de>
+
+	* javax/naming/CompositeName.java
+	(serialVersionUID): New member variable.
+	* javax/naming/CompoundName.java
+	(serialVersionUID): New member variable.
+	* javax/naming/InitialContext.java
+	(InitialContext): Throws NamingException.
+	(init): Likewise.
+	* javax/naming/LinkRef.java
+	(serialVersionUID): New member variable.
+	(gteLinkName): Throws NamingException.
+	* javax/naming/NamingException.java
+	(serialVersionUID): New member variable.
+	* javax/naming/NamingSecurityException.java
+	(NamingSecurityException): Made abstract.
+	(serialVersionUID): New member variable.
+	* javax/naming/ReferralException.java
+	(serialVersionUID): New member variable.
+	* javax/naming/StringRefAddr.java
+	(serialVersionUID): New member variable.
+	* javax/naming/directory/BasicAttribute.java:
+	Reworked imports.
+	(serialVersionUID): New member variable.
+	(get): Throws NamingException.
+	(getAll): Throws NamingException.
+	* javax/naming/directory/BasicAttributes.java:
+	Reworked imports.
+	(serialVersionUID): New member variable.
+	* javax/naming/ldap/UnsolicitedNotificationEvent.java
+	(serialVersionUID): New member variable.
+
+2003-06-27  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am
+	(awt_java_source_files): Added new files:
+	javax/swing/Popup.java,
+	javax/swing/PopupFactory.java
+	* Makefile.in: Regenerated.
+
+2003-06-27  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/JWindow.java,
+	javax/swing/event/AncestorEvent.java,
+	javax/swing/event/HyperlinkEvent.java,
+	javax/swing/event/InternalFrameEvent.java,
+	javax/swing/event/ListDataEvent.java,
+	javax/swing/event/TableModelEvent.java,
+	javax/swing/plaf/PopupMenuUI.java,
+	javax/swing/plaf/SplitPaneUI.java,
+	javax/swing/plaf/TabbedPaneUI.java,
+	javax/swing/plaf/TextUI.java,
+	javax/swing/plaf/TreeUI.java,
+	javax/swing/plaf/basic/BasicTextUI.java,
+	javax/swing/plaf/basic/BasicTreeUI.java:
+	New versions from classpath.
+	* javax/swing/Popup.java,
+	javax/swing/PopupFactory.jav:
+	New source files from classpath.
+	* javax/swing/plaf/doc-files/TreeUI-1.png:
+	New binary files from classpath.
+
+2003-06-25  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am
+	(awt_java_source_files): Added javax/swing/plaf/SpinnerUI.java.
+	* Makefile.in: Regenerated.
+
+2003-06-25  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/plaf/ActionMapUIResource.java,
+	javax/swing/plaf/BorderUIResource.java,
+	javax/swing/plaf/ButtonUI.java,
+	javax/swing/plaf/ColorChooserUI.java,
+	javax/swing/plaf/ColorUIResource.java,
+	javax/swing/plaf/ComboBoxUI.java,
+	javax/swing/plaf/ComponentInputMapUIResource.java,
+	javax/swing/plaf/ComponentUI.java,
+	javax/swing/plaf/DesktopIconUI.java,
+	javax/swing/plaf/DesktopPaneUI.java,
+	javax/swing/plaf/DimensionUIResource.java,
+	javax/swing/plaf/FileChooserUI.java,
+	javax/swing/plaf/FontUIResource.java,
+	javax/swing/plaf/IconUIResource.java,
+	javax/swing/plaf/InputMapUIResource.java,
+	javax/swing/plaf/InsetsUIResource.java,
+	javax/swing/plaf/InternalFrameUI.java,
+	javax/swing/plaf/LabelUI.java,
+	javax/swing/plaf/ListUI.java,
+	javax/swing/plaf/MenuBarUI.java,
+	javax/swing/plaf/MenuItemUI.java,
+	javax/swing/plaf/OptionPaneUI.java,
+	javax/swing/plaf/PanelUI.java,
+	javax/swing/plaf/ProgressBarUI.java,
+	javax/swing/plaf/RootPaneUI.java,
+	javax/swing/plaf/ScrollBarUI.java,
+	javax/swing/plaf/ScrollPaneUI.java,
+	javax/swing/plaf/SeparatorUI.java,
+	javax/swing/plaf/SliderUI.java,
+	javax/swing/plaf/TableHeaderUI.java,
+	javax/swing/plaf/TableUI.java,
+	javax/swing/plaf/ToolBarUI.java,
+	javax/swing/plaf/ToolTipUI.java,
+	javax/swing/plaf/ViewportUI.java:
+	New versions from classpath.
+	* javax/swing/plaf/SpinnerUI.java: 
+	New file from classpath
+
+2003-06-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/image/ColorModel.java:
+	New version from classpath.
+
+2003-06-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/PlainDatagramSocketImpl.java:
+	Partly merged with classpath, this mainly adds documentation.
+
+2003-06-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/ObjectInputStream.java
+	(readClassDescriptor): New method.
+	(readObject): Moved functionality to readClassDescriptor().
+	* java/io/ObjectOutputStream.java
+	(writeClassDescriptor): New method.
+	(writeObject): Moved functionality to writeClassDescriptor().
+
+2003-06-25  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/plaf/basic/BasicListUI.java,
+	javax/swing/plaf/basic/BasicOptionPaneUI.java:
+	Added missing methods.
+
+2003-06-25  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/event/AncestorEvent.java
+	javax/swing/event/HyperlinkEvent.java
+	javax/swing/event/InternalFrameEvent.java
+	javax/swing/event/ListDataEvent.java
+	javax/swing/event/TableModelEvent.java:
+	Compile fixes.
+
+2003-06-24  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URL.java:
+	Renamed "handler" to "ph" in the whole file to match classpaths
+	version.
+	* java/net/URLStreamHandler.java:
+	(equals): Renamed "handler" to "ph".
+
+2003-06-24  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/event/AncestorEvent.java,
+	javax/swing/event/HyperlinkEvent.java,
+	javax/swing/event/InternalFrameEvent.java,
+	javax/swing/event/ListDataEvent.java,
+	javax/swing/event/TableModelEvent.java,
+	javax/swing/event/TreeWillExpandListener.java,
+	javax/swing/plaf/ComponentUI.java,
+	javax/swing/plaf/DesktopIconUI.java,
+	javax/swing/plaf/DesktopPaneUI.java,
+	javax/swing/plaf/DimensionUIResource.java,
+	javax/swing/plaf/FileChooserUI.java,
+	javax/swing/plaf/FontUIResource.java,
+	javax/swing/plaf/IconUIResource.java,
+	javax/swing/plaf/InputMapUIResource.java,
+	javax/swing/plaf/InsetsUIResource.java,
+	javax/swing/plaf/InternalFrameUI.java,
+	javax/swing/plaf/LabelUI.java,
+	javax/swing/plaf/ListUI.java,
+	javax/swing/plaf/MenuBarUI.java,
+	javax/swing/plaf/MenuItemUI.java,
+	javax/swing/plaf/OptionPaneUI.java,
+	javax/swing/plaf/PanelUI.java,
+	javax/swing/plaf/ProgressBarUI.java,
+	javax/swing/plaf/doc-files/ComponentUI-1.dia,
+	javax/swing/plaf/doc-files/ComponentUI-1.png:
+	New versions from classpath.
+
+2003-06-24  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/Buffer.java
+	(cap): Made package-private.
+	(pos): Likewise.
+	(limit): Likewise.
+	(mark): Likewise.
+
+2003-06-24  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/SocketImpl.java
+	(shutdownInput): Made it non-abstract method throwing an exception
+	like in SUNs JRE.
+	(shutdownOutput): Likewise.
+	* java/net/SocketInputStream.java,
+	java/net/SocketOutputStream.java:
+	New files from classpath.
+
+2003-06-24  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/Font.java,
+	java/awt/Window.java,
+	java/awt/color/ColorSpace.java,
+	java/awt/datatransfer/StringSelection.java,
+	java/awt/image/ColorModel.java:
+	New versions from classpath.
+
+2003-06-24  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am
+	(awt_java_source_files): Added new files:
+	javax/swing/plaf/basic/BasicSplitPaneDivider.java,
+	javax/swing/plaf/basic/BasicSplitPaneUI.java
+	* Makefile.in: Regenerated.
+
+2003-06-24  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/text/JTextComponent.java:
+	New version from classpath.
+
+2003-06-24  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/Timer.java,
+	javax/swing/plaf/ActionMapUIResource.java,
+	javax/swing/plaf/ButtonUI.java,
+	javax/swing/plaf/ColorChooserUI.java,
+	javax/swing/plaf/ColorUIResource.java,
+	javax/swing/plaf/ComboBoxUI.java,
+	javax/swing/plaf/ComponentInputMapUIResource.java,
+	javax/swing/plaf/basic/BasicBorders.java:
+	New versions from classpath.
+	* javax/swing/plaf/basic/BasicSplitPaneDivider.java.
+	javax/swing/plaf/basic/BasicSplitPaneUI.java:
+	New file from classpath.
+	* javax/swing/plaf/basic/doc-files/BasicBorders-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders-2.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.FieldBorder-1.png,
+	javax/swing/plaf/doc-files/ComponentUI-1.dia,
+	javax/swing/plaf/doc-files/ComponentUI-1.png:
+	New binary files from classpath.
+
+2003-06-24  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/LineNumberReader.java
+	(skip): Dont do line number accounting here as this is already done in
+	read(), simplified.
+
+2003-06-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/File.java
+	(static): Load javaio lib if existing (only in classpath).
+	(File): Revised documentation to show the correct argument name.
+	(createTempFile): Partly merged with classpath.
+	(compareTo): Simplified.
+	(lastModified): Throw exception if time < 0.
+	(deleteOnExit): Revised documentation.
+
+2003-06-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/PlainSocketImpl.java:
+	Reformatted.
+	(PlainSocketImpl): Merged class documentaion with classpath.
+	(in): Moved.
+	(out): Moved.
+	(PlainSocketImpl): New empty constructor.
+	(finalize): Moved.
+	(setOption): Merged documentation from classpath.
+	(getOption): Likewise.
+	(create): Likewise.
+	(connect): Likewise.
+	(bind): Likewise.
+	(listen): Likewise.
+	(accept): Likewise.
+	(available): Likewise.
+	(close): Likewise.
+	(read): Likewise.
+	(write): Likewise.
+	(getInputStream): Made synchronozed to get sure that only one stream
+	object can be created for this socket, merged documentation from
+	classpath.
+	(getOutputStream): Likewise.
+
+2003-06-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/PlainSocketImpl.java:
+	Reformatting.
+	(static): New implicit method.
+	(read): Made package private.
+	(write): Likewise.
+
+2003-06-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/SimpleTimeZone.java:
+	Removed unneeded import, reformatting.
+
+2003-06-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/text/DateFormat.java,
+	java/text/SimpleDateFormat.java,
+	java/util/Locale.java:
+	New versions from classpath.
+
+2003-06-21  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/SpinnerModel.java:
+	New file from classpath.
+	* javax/swing/border/LineBorder.java,
+	javax/swing/border/SoftBevelBorder.java,
+	javax/swing/plaf/BorderUIResource.java,
+	javax/swing/plaf/basic/BasicBorders.java:
+	New versions from classpath.
+	* javax/swing/plaf/basic/doc-files/BasicBorders.MenuBarBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.RadioButtonBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.SplitPaneBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.SplitPaneBorder-2.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.SplitPaneDividerBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.ToggleButtonBorder-1.png:
+	New binary files from classpath.
+
+2003-06-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/logging/LogRecord.java,
+	java/util/logging/Logger.java,
+	java/util/logging/SocketHandler.java,
+	java/util/logging/SimpleFormatter.java,
+	java/util/logging/Formatter.java,
+	java/util/logging/ErrorManager.java,
+	java/util/logging/Handler.java,
+	java/util/logging/FileHandler.java,
+	java/util/logging/LogManager.java,
+	java/util/logging/Level.java,
+	java/util/logging/ConsoleHandler.java,
+	java/util/logging/StreamHandler.java,
+	java/util/logging/LoggingPermission.java,
+	java/util/logging/Filter.java,
+	java/util/logging/MemoryHandler.java,
+	java/util/logging/XMLFormatter.java:
+	New files from classpath.
+
+2003-06-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/ObjectStreamField.java
+	(unshared): new member variable.
+	(ObjectStreamField): New constructor.
+	(isUnshared): New method.
+
+2003-06-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URLStreamHandler.java
+	(hostsEqual): Rewritten.
+
+2003-06-20  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/MappedByteFileBuffer.java,
+	gnu/java/nio/natMappedByteFileBuffer.cc:
+	Removed
+	* java/nio/MappedByteBufferImpl.java:
+	New file.
+	* gnu/java/nio/FileChannelImpl.java:
+	Use MappedByteBufferImpl instead of MappedByteFileBuffer.
+	* Makefile.am
+	(ordinary_java_source_files): Removed
+	gnu/java/nio/MappedByteFileBuffer.java and added
+	java/nio/MappedByteBufferImpl.java.
+	(nat_source_files): Removed gnu/java/nio/natMappedByteFileBuffer.cc
+	* Makefile.in: Regenerated.
+
+2003-06-19  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/DatagramChannelImpl.java
+	(fd): Removed.
+	(blocking): New member variable.
+	(socket): Likewise.
+	(DatagramChannelImpl): Throws IOException, initialize socket.
+	(socket):Implemented.
+	(implCloseSelectableChannel): Throws IOException, implemented.
+	(implConfigureBlocking): Likewise.
+	(connect): Likewise.
+	(disconnect): Likewise.
+	(isConnected): Likewise.
+	(write): Likewise.
+	(read): Likewise.
+	(receive): Throws IOException.
+	(send): Likewise.
+	* gnu/java/nio/SocketChannelImpl.java
+	(read): Implemented.
+	(write): Implemented.
+
+2003-06-19  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/JComponent.java,
+	javax/swing/JInternalFrame.java,
+	javax/swing/MenuSelectionManager.java,
+	javax/swing/SwingUtilities.java,
+	javax/swing/ToggleButtonModel.java:
+	New versions from classpath.
+
+2003-06-19  Michael Koch  <konqueror@gmx.de>
+
+	* java/text/CollationElementIterator.java
+	(NULLORDER): Initialize with -1 as JDK documentation says.
+
+2003-06-19  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/HttpURLConnection.java,
+	java/net/Inet4Address.java,
+	java/net/Inet6Address.java,
+	java/net/SocketImpl.java,
+	java/net/URLClassLoader.java:
+	Reworked import statements.
+	* java/net/InetAddress.java
+	(getByAddress): Simplified.
+	* java/net/ServerSocket.java
+	(ServerSocket): Moved special handling during bind operation to
+	bind().
+	(bind): Handle different cases when trying to bind a socket.
+	* java/net/URLConnection.java
+	(getHeaderFieldDate): Merged with classpath.
+	(getHeaderFieldInt): Likewise.
+
+2003-06-19  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/zip/InflaterInputStream.java
+	(InflaterInputStream): Throw NullPointerException if in is null (as
+	JDK does).
+
+2003-06-19  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/Font.java
+	javax/swing/UIManager.java
+	javax/swing/border/AbstractBorder.java
+	javax/swing/border/BevelBorder.java
+	javax/swing/border/Border.java
+	javax/swing/border/CompoundBorder.java
+	javax/swing/border/EmptyBorder.java
+	javax/swing/border/EtchedBorder.java
+	javax/swing/border/LineBorder.java
+	javax/swing/border/MatteBorder.java
+	javax/swing/border/TitledBorder.java
+	javax/swing/plaf/BorderUIResource.java
+	javax/swing/plaf/basic/BasicBorders.java
+	javax/swing/plaf/basic/BasicButtonUI.java
+	javax/swing/plaf/basic/BasicCheckBoxUI.java
+	javax/swing/plaf/basic/BasicGraphicsUtils.java
+	javax/swing/plaf/basic/BasicLabelUI.java
+	javax/swing/plaf/basic/BasicRadioButtonUI.java
+	javax/swing/plaf/basic/BasicToggleButtonUI.java:
+	New versions from classpath.
+	* javax/swing/border/SoftBevelBorder.java:
+	New file from classpath.
+	* javax/swing/border/doc-files/LineBorder-1.png,
+	javax/swing/border/doc-files/BevelBorder-1.png,
+	javax/swing/border/doc-files/BevelBorder-2.png,
+	javax/swing/border/doc-files/BevelBorder-3.png,
+	javax/swing/border/doc-files/EmptyBorder-1.png,
+	javax/swing/border/doc-files/EtchedBorder-1.png,
+	javax/swing/border/doc-files/EtchedBorder-2.png,
+	javax/swing/border/doc-files/MatteBorder-1.png,
+	javax/swing/border/doc-files/MatteBorder-2.png,
+	javax/swing/border/doc-files/MatteBorder-3.png,
+	javax/swing/border/doc-files/MatteBorder-4.png,
+	javax/swing/border/doc-files/MatteBorder-5.png,
+	javax/swing/border/doc-files/MatteBorder-6.png,
+	javax/swing/border/doc-files/SoftBevelBorder-1.png,
+	javax/swing/border/doc-files/SoftBevelBorder-2.png,
+	javax/swing/border/doc-files/SoftBevelBorder-3.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.MarginBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.ButtonBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-1.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-2.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-3.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-4.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-5.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-6.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-7.png:
+	New binary files from classpath.
+	* Makefile.am
+	(awt_java_source_files): Added
+	javax/swing/border/SoftBevelBorder.java.
+	* Makefile.in: Regenerated.
+
+2003-06-19  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/security/x509/X509Certificate.java
+	(writeReplace): Merged from classpath.
+
+2003-06-19  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/FileChannelImpl.java
+	(map_address): Made public.
+	(FileChannelImpl): Merged with classpath.
+	* gnu/java/nio/natFileChannelImpl.cc
+	(nio_mmap_file): Commented out unused arguments.
+	(nio_unmmap_file): Likewise.
+	(niu_msync): Likewise.
+
+2003-06-19  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/image/IndexColorModel.java:
+	New version from classpath.
+
+2003-06-18  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/Inet6Address.java (isAnyLocalAddress): Don't use "=="
+	on arrays.
+	(isLoopbackAddress): Likewise.
+	* java/net/Inet4Address.java (isAnyLocalAddress): Don't use "=="
+	on arrays.
+
+2003-06-18  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* java/lang/natVMSecurityManager.cc (getClassContext):
+	Use maxlen instead of len for loop bound.
+
+2003-06-18  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/SelectorImpl.java
+	(register): Use fd with value 0 for now, will be fixed later.
+	* gnu/java/nio/ServerSocketChannelImpl.java
+	(fd): Removed.
+	(local_port): Removed.
+	(InetSocketAddress): Removed.
+	(ServerSocketChannelImpl): Just initialize internal socket object.
+	(implCloseSelectableChannel): Close internal socket object.
+	(implConfigureBlocking): Added comment.
+	(accept): Use jaba.net stuff to accept socket.
+	* gnu/java/nio/SocketChannelImpl.java
+	(fd): Removed.
+	(local_port): Removed.
+	(InetSocketAddress): Removed.
+	(SocketCreate): Removed.
+	(SocketConnect): Removed.
+	(SocketBind): Removed.
+	(SocketListen): Removed.
+	(SocketAvailable): Removed.
+	(SocketClose): Removed.
+	(SocketRead): Removed.
+	(SocketWrite): Removed.
+	(SocketChannelImpl): Just initialize internal socket object.
+	(implCloseSelectableChannel): Close internal socket object.
+	(implConfigureBlocking): Fixed implementation, added comment.
+	(connect): Use internal socket object to connect.
+	(socket): No need for sanity checks.
+	(read): Comment out some stuff, this will be reimplemented in the next
+	commit.
+	(write): Likewise.
+	* gnu/java/nio/natFileChannelImpl.cc
+	(nio_mmap_file): Line wrapped.
+	* gnu/java/nio/natSocketChannelImpl.cc: Removed.
+	* Makefile.am
+	(nat_source_files): Removeded gnu/java/nio/natSocketChannelImpl.cc.
+	* Makefile.in: Regenerated.
+
+2003-06-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/Locale.java
+	(equals): Merged from classpath.
+
+2003-06-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java:
+	Reformatted to better match classpath's version.
+	* java/net/URL.java
+	(equals): Simplified.
+	* java/net/URLConnection.java
+	(setDoInput): Revised documentation.
+	(getDefaultUseCaches): Likewise.
+	(setRequestProperty): Added @since tag.
+
+2003-06-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetSocketAddress.java
+	(InetSocketAddress): Use wildcard address if addr is null.
+	(InetSocketAddress): Dont duplicate implementation.
+	(InetSocketAddress): Throw exception when hostname is null.
+	* java/net/Socket.java:
+	Reworked imports.
+	(Socket): Throw exception when raddr is null, handle case when laddr
+	is null.
+
+2003-06-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/DirectByteBufferImpl.java
+	(address): Made package private.
+	(DirectByteBufferImpl): New constructor.
+	* java/nio/natDirectByteBufferImpl.cc
+	(allocateImpl): Moved to java.nio namespace, implemented.
+	(freeImpl): Likewise.
+	(getImpl): Likewise.
+	(putImpl): Likewise.
+	* jni.cc
+	(_Jv_JNI_NewDirectByteBuffer): Implemented.
+	(_Jv_JNI_GetDirectBufferAddress): Implemented.
+	(_Jv_JNI_GetDirectBufferCapacity): Implemented.
+
+2003-06-17  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* include/powerpc-signal.h: New File.
+	* configure.in: Use it.
+	* configure: Regenerated.
+
+2003-06-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/Locale.java
+	(getDisplayLanguage): Made it final.
+	(getDisplayCountry): Likewise.
+	(getDisplayVariant): Likewise.
+	(getDisplayName): Likewise.
+
+2003-06-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/PropertyResourceBundle.java:
+	Removed unneeded import.
+
+2003-06-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/prefs/AbstractPreferences.java,
+	java/util/prefs/PreferencesFactory.java:
+	Reworked imports, removed unused imports.
+	* java/util/prefs/Preferences.java
+	(systemNodeForPackage): Method takes a Class not an Object.
+	(userNodeForPackage): Likewise.
+	(nodeForPackage): Likewise.
+
+2003-06-17  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/security/x509/X509Certificate.java:
+	Explicitely import used classes.
+
+2003-06-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/zip/ZipEntry.java,
+	java/util/zip/ZipFile.java,
+	java/util/zip/ZipInputStream.java,
+	java/util/zip/ZipOutputStream.java:
+	Reworked imports, only import used classes.
+
+2003-06-17  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/lang/ArrayHelper.java,
+	gnu/java/lang/ClassHelper.java:
+	Reformatted to match classpath's versions.
+
 2003-06-14  Michael Koch  <konqueror@gmx.de>
 
 	* gnu/java/nio/FileChannelImpl.java

@@ -212,9 +212,7 @@ static const struct pred_table
   {"indirect_operand", {SUBREG, MEM}},
   {"comparison_operator", {EQ, NE, LE, LT, GE, GT, LEU, LTU, GEU, GTU,
 			   UNORDERED, ORDERED, UNEQ, UNGE, UNGT, UNLE,
-			   UNLT, LTGT}},
-  {"mode_independent_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
-				LABEL_REF, SUBREG, REG, MEM, ADDRESSOF}}
+			   UNLT, LTGT}}
 };
 
 #define NUM_KNOWN_PREDS ARRAY_SIZE (preds)
@@ -2479,7 +2477,7 @@ make_insn_sequence (rtx insn, enum routine_type type)
   switch (type)
     {
     case RECOG:
-      /* If this is an DEFINE_INSN and X is a PARALLEL, see if it ends
+      /* If this is a DEFINE_INSN and X is a PARALLEL, see if it ends
 	 with a group of CLOBBERs of (hard) registers or MATCH_SCRATCHes.
 	 If so, set up to recognize the pattern without these CLOBBERs.  */
 

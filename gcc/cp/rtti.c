@@ -364,9 +364,8 @@ get_tinfo_decl (tree type)
       DECL_EXTERNAL (d) = 1;
       SET_DECL_ASSEMBLER_NAME (d, name);
       DECL_COMDAT (d) = 1;
-      cp_finish_decl (d, NULL_TREE, NULL_TREE, 0);
 
-      pushdecl_top_level (d);
+      pushdecl_top_level_and_finish (d, NULL_TREE);
 
       if (CLASS_TYPE_P (type))
 	CLASSTYPE_TYPEINFO_VAR (TYPE_MAIN_VARIANT (type)) = d;
@@ -388,8 +387,11 @@ get_tinfo_decl (tree type)
 static tree
 get_tinfo_ptr (tree type)
 {
+  tree decl = get_tinfo_decl (type);
+
+  mark_used (decl);
   return build_nop (type_info_ptr_type, 
-		    build_address (get_tinfo_decl (type)));
+		    build_address (decl));
 }
 
 /* Return the type_info object for TYPE.  */
@@ -613,8 +615,12 @@ build_dynamic_cast_1 (tree type, tree expr)
 
 	  target_type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
 	  static_type = TYPE_MAIN_VARIANT (TREE_TYPE (exprtype));
-	  td2 = build_unary_op (ADDR_EXPR, get_tinfo_decl (target_type), 0);
-	  td3 = build_unary_op (ADDR_EXPR, get_tinfo_decl (static_type), 0);
+	  td2 = get_tinfo_decl (target_type);
+	  mark_used (td2);
+	  td2 = build_unary_op (ADDR_EXPR, td2, 0);
+	  td3 = get_tinfo_decl (static_type);
+	  mark_used (td3);
+	  td3 = build_unary_op (ADDR_EXPR, td3, 0);
 
           /* Determine how T and V are related.  */
           boff = get_dynamic_cast_base_type (static_type, target_type);
@@ -770,8 +776,8 @@ tinfo_base_init (tree desc, tree target)
     SET_DECL_ASSEMBLER_NAME (name_decl,
 			     mangle_typeinfo_string_for_type (target));
     DECL_INITIAL (name_decl) = name_string;
-    cp_finish_decl (name_decl, name_string, NULL_TREE, 0);
-    pushdecl_top_level (name_decl);
+    mark_used (name_decl);
+    pushdecl_top_level_and_finish (name_decl, name_string);
   }
 
   vtable_ptr = TINFO_VTABLE_DECL (desc);
@@ -1463,6 +1469,7 @@ emit_tinfo_decl (tree decl)
     DECL_COMDAT (decl) = 0;
 
   DECL_INITIAL (decl) = var_init;
+  mark_used (decl);
   cp_finish_decl (decl, var_init, NULL_TREE, 0);
   /* cp_finish_decl will have dealt with linkage.  */
   
