@@ -1,3 +1,17 @@
+2003-12-31  Sebastian Pop  <s.pop@laposte.net>
+            Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-phinodes.c (create_phi_node): Initialise PHI_MARKED to 0.
+	* tree-scalar-evolution.c (already_visited,
+	node_already_visited_by_ssa_path): Removed.
+	(analyze_evolution): Remove initialisation of already_visited.
+	(construct_schedule): idem.
+	(monev_follow_ssa_edge): use PHI_MARKED for deciding whether
+	to analyze the phi-node.
+	(follow_ssa_edge_and_record_dependences_rec): idem.
+	* tree.h (PHI_MARKED): New macro.
+	(tree_phi_node): Add a field marked.
+
 2003-12-27  Sebastian Pop  <s.pop@laposte.net>
 
 	* Makefile.in (OBJS-common): Added tree-chrec.o

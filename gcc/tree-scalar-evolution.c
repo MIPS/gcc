@@ -386,30 +386,6 @@ insert_ssa_name_in_imperative_list (tree ssa_name,
 
 
 
-/* A quick hack for avoiding infinite recursion.  For example, in
-   gcc/gcc/calls.c:expand_call, we have the following phi nodes:
-   
-   "normal_call_insns_8 = PHI <0B(380), normal_call_insns_9(782)>;
-   normal_call_insns_9 = PHI <normal_call_insns_8(773), T.1529_2087(777), T.1529_2087(778)>;"
-   
-   This results in a loop in the PHI walking.  By the way, is this
-   normally allowed in the SSA representation?  */
-
-static varray_type already_visited;
-static bool node_already_visited_by_ssa_path (tree node);
-
-static bool
-node_already_visited_by_ssa_path (tree node)
-{
-  if (tree_is_in_varray_tree_p (node, already_visited))
-    return true;
-  else
-    {
-      VARRAY_PUSH_TREE (already_visited, node);
-      return false;
-    }
-}
-
 /* Analyze the evolution of a SSA_NAME in the LOOP_NEST.  */
 
 static void 
@@ -435,8 +411,6 @@ analyze_evolution (tree ssa_name_to_analyze,
 	 fprintf (stderr, "  ssa_name_to_analyze = ");
 	 debug_generic_expr (ssa_name_to_analyze));
   
-  VARRAY_TREE_INIT (already_visited, 5, "already_visited");
-  
   /* The variable has a phi node in this loop: the variable is thus
      "updated" at every iteration of this loop.  */
   if (loop_phi_node)
@@ -455,7 +429,6 @@ analyze_evolution (tree ssa_name_to_analyze,
     determine_whether_ssa_name_is_symbolic_parameter 
       (ssa_name_to_analyze, loop_nest);
   
-  varray_clear (already_visited);
   DBG_S (fprintf (stderr, ")\n"));
 }
 
@@ -926,9 +899,7 @@ monev_follow_ssa_edge (tree rdef,
   if (rdef == NULL_TREE 
       || TREE_CODE (rdef) == NOP_EXPR
       /* End the recursion when the halting_phi node is reached.  */
-      || rdef == halting_phi
-      /* Avoid infinite recursion on bizarre cases.  */
-      || node_already_visited_by_ssa_path (rdef))
+      || rdef == halting_phi)
     return;
   
   /* DBG_S (debug_generic_expr (rdef)); */
@@ -946,6 +917,21 @@ monev_follow_ssa_edge (tree rdef,
   switch (TREE_CODE (rdef))
     {
     case PHI_NODE:
+
+      /* Avoid recursion when the phi-nodes contain SCCs.  For
+	 example, in gcc/gcc/calls.c:expand_call, we have the
+	 following phi nodes:
+    
+	 "normal_call_insns_8 = PHI <0B(380), normal_call_insns_9(782)>;
+	 normal_call_insns_9 = PHI <normal_call_insns_8(773), T.1529_2087(777), 
+	 T.1529_2087(778)>;"
+      */
+      if (PHI_MARKED (rdef) == 1)
+	return;
+      
+      else
+	PHI_MARKED (rdef) = 1;
+
       /* Determine whether the PHI_NODE is a loop phi or a conditional
 	 phi.  */
       if (rdef_depth > halting_depth)
@@ -1003,8 +989,8 @@ monev_follow_ssa_edge (tree rdef,
 	    }
 	  
 	  analyze_evolution_in_loop (rdef, halting_num);
-	  break;
 	}
+      
       else
 	/* RDEF is a CONDITION-phi-node.
 	   
@@ -1018,6 +1004,9 @@ monev_follow_ssa_edge (tree rdef,
 	   of paths that differ, ie. do not analyze n times outside
 	   the if-body.  */
 	merge_branches_of_condition_phi_node_in_loop (rdef, halting_phi);
+      
+      /* Reset the marker after the analysis.  */
+      PHI_MARKED (rdef) = 0;
       break;
       
     case MODIFY_EXPR:
@@ -2503,12 +2492,10 @@ construct_schedule (varray_type imperative_vars,
 	VARRAY_GENERIC_PTR (imperative_vars, i);
       DBG_SCHEDULE_S (dump_schedule_elt (stderr, sched_elt));
       
-      VARRAY_TREE_INIT (already_visited, 37, "already_visited");
       record_dependences_for_ssa_name (SCHED_LOOP_NEST (sched_elt),
 				       VARRAY_TREE (SCHED_SCC (sched_elt), 0),
 				       sdd_graph, 
 				       complete_imperative_list);
-      varray_clear (already_visited);
     }
   
   DBG_SCHEDULE_S (debug_schedule (complete_imperative_list));
@@ -2949,9 +2936,7 @@ follow_ssa_edge_and_record_dependences_rec (struct loop *loop_nest,
       || halting_phi == NULL_TREE
       || TREE_CODE (rdef) == NOP_EXPR
       /* End the recursion when the halting_phi node is reached.  */
-      || rdef == halting_phi
-      /* Avoid infinite recursion on bizarre cases.  */
-      || node_already_visited_by_ssa_path (rdef))
+      || rdef == halting_phi)
     return;
   
   DBG_SDD_S (debug_generic_expr (rdef));
@@ -2962,6 +2947,14 @@ follow_ssa_edge_and_record_dependences_rec (struct loop *loop_nest,
   switch (TREE_CODE (rdef))
     {
     case PHI_NODE:
+      
+      /* Avoid recursion when the phi-nodes contain SCCs.  */
+      if (PHI_MARKED (rdef) == 1)
+	return;
+      
+      else
+	PHI_MARKED (rdef) = 1;
+      
       if (rdef_depth > halting_depth)
 	{
 	  /* This is an inner loop phi.  */
@@ -3017,6 +3010,9 @@ follow_ssa_edge_and_record_dependences_rec (struct loop *loop_nest,
 		}
 	    }
 	}
+      
+      /* Reset the marker after the analysis.  */
+      PHI_MARKED (rdef) = 0;
       break;
       
     case MODIFY_EXPR:

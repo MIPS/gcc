@@ -295,6 +295,7 @@ create_phi_node (tree var, basic_block bb)
   /* This is a new phi node, so note that is has not yet been
      rewritten. */
   PHI_REWRITTEN (phi) = 0;
+  PHI_MARKED (phi) = 0;
 
   /* Add the new PHI node to the list of PHI nodes for block BB.  */
   TREE_CHAIN (phi) = phi_nodes (bb);
