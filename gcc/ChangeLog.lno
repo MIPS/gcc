@@ -1,3 +1,8 @@
+2004-03-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* tree-ssa-return.c (tree_ssa_return):
+	Add new comments and fix some old ones.
+
 2004-03-12  Falk Hueffner  <falk@debian.org>
 
 	* tree-pass.h: Declare pass_return.

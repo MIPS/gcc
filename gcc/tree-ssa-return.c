@@ -68,7 +68,8 @@ tree_ssa_return (void)
       tree ret_decl;
       tree type;
       
-      /* If we have not predecessor, we can not be the only basic block.   */
+      /* If we have no predecessor, we can not do this for
+         the only basic block.   */
       if (!pred)
        continue;
 
@@ -100,10 +101,11 @@ tree_ssa_return (void)
       if (TREE_OPERAND (returnstmt, 0) == NULL)
         continue;
       
-      
+      /* Make sure that the predecessor's successor is not an abnormal.   */
       if (pred->src->succ->flags & EDGE_ABNORMAL)
         continue;
       
+      /* Find the other basic block which is connected to the predecessor.   */
       if (pred->src->succ->dest == bb)
         bb_other = pred->src->succ->succ_next->dest;
       else
@@ -123,8 +125,8 @@ tree_ssa_return (void)
       
       returnstmt_other = last_stmt (bb_other);
       
-      /*  Cannot do the optimization if the other basic block does not
-          end with a return. */
+      /* Cannot do the optimization if the other basic block does not
+         end with a return. */
       if (!returnstmt_other || TREE_CODE (returnstmt_other) != RETURN_EXPR)
         continue;
 
@@ -132,13 +134,13 @@ tree_ssa_return (void)
       if (TREE_OPERAND (returnstmt_other, 0) == NULL)
         continue;
       
+      /* Create the new basic block.   */
       new_bb = create_empty_bb (bb_other);
       
-      
+      /* Redirect the two basic blocks (the ones with the returns)
+         to the new basic block.   */
       redirect_edge_and_branch (bb->succ, new_bb);
       redirect_edge_and_branch (bb_other->succ, new_bb);
-      
-      
       
       bsi = bsi_last (bb);
       bsi_other = bsi_last (bb_other);
@@ -147,11 +149,14 @@ tree_ssa_return (void)
       
       type = TREE_TYPE (ret_decl);
       
+      /* Add the new variable to hold the return values.   */
       new_var = make_temp (type);
       
       if (TREE_CODE (ret_decl) == SSA_NAME)
         ret_decl = SSA_NAME_VAR (ret_decl);
       
+      /* Assign the new temp variable to hold the return value of
+         the first side of the branch.   */
       bsi_insert_after (&bsi, build (MODIFY_EXPR, type, new_var,
                                 TREE_OPERAND (TREE_OPERAND (returnstmt, 0), 1)),
                          BSI_NEW_STMT);
@@ -165,7 +170,7 @@ tree_ssa_return (void)
                          BSI_NEW_STMT);
                    
       
-      /* build the new basic block. */
+      /* Build the new basic block which continues the return. */
       new_bsi = bsi_last (new_bb);
       bsi_insert_after (&new_bsi, build1 (RETURN_EXPR, void_type_node,
                                           build (MODIFY_EXPR, type, ret_decl,
@@ -176,9 +181,10 @@ tree_ssa_return (void)
       /* Make sure that the return value gets renamed if needed */
       bitmap_set_bit (vars_to_rename, var_ann (ret_decl)->uid);
       
+      /* The new basic block exits.   */
       make_edge (new_bb, EXIT_BLOCK_PTR, 0);
       
-  
+      /* update the DOM info if we have to.   */
       if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
         set_immediate_dominator (CDI_DOMINATORS, new_bb, pred->src);
     }
