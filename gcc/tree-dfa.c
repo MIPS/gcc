@@ -1397,25 +1397,28 @@ dump_ref (outf, prefix, ref, indent, details)
   const char *type;
   char *s_indent;
 
-  if (ref == NULL)
-    return;
-
   s_indent = (char *) alloca ((size_t) indent + 1);
   memset ((void *) s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
+  fprintf (outf, "%s%s", s_indent, prefix);
+
+  if (ref == NULL)
+    {
+      fprintf (outf, "<nil>\n");
+      return;
+    }
+
   lineno = get_lineno (ref_stmt (ref));
-
   bbix = (ref_bb (ref)) ? ref_bb (ref)->index : -1;
-
   type = ref_type_name (ref);
 
-  fprintf (outf, "%s%s%s(", s_indent, prefix, type);
+  fprintf (outf, "%s(", type);
 
   if (ref_var (ref))
     print_generic_expr (outf, ref_var (ref), 0);
   else
-    fprintf (outf, "nil");
+    fprintf (outf, "<nil>");
 
   fprintf (outf, "): line %d, bb %d, id %lu, ", lineno, bbix, ref_id (ref));
 
@@ -1654,10 +1657,8 @@ dump_phi_args (outf, prefix, args, indent, details)
   for (i = 0; i < VARRAY_SIZE (args); i++)
     {
       phi_node_arg arg = VARRAY_GENERIC_PTR (args, i);
-      if (arg)
-	dump_ref (outf, prefix, phi_arg_def (arg), indent, details);
-      else
-	fprintf (outf, "<nil>\n");
+      dump_ref (outf, prefix, (arg) ? phi_arg_def (arg) : NULL, indent,
+	        details);
     }
 }
 
@@ -2032,14 +2033,12 @@ may_alias_p (v1, v2)
 
   /* One of the two variables needs to be an INDIRECT_REF or GLOBAL_VAR,
      otherwise they can't possibly alias each other.  */
-  if (TREE_CODE (v1) == INDIRECT_REF
-      || v1 == global_var)
+  if (TREE_CODE (v1) == INDIRECT_REF || v1 == global_var)
     {
       ptr = v1;
       var = v2;
     }
-  else if (TREE_CODE (v2) == INDIRECT_REF
-           || v2 == global_var)
+  else if (TREE_CODE (v2) == INDIRECT_REF || v2 == global_var)
     {
       ptr = v2;
       var = v1;
@@ -2064,7 +2063,6 @@ may_alias_p (v1, v2)
   /* Obvious reasons why PTR_SYM and VAR_SYM can't possibly alias
      each other.  */
   if (var_sym == ptr_sym
-      || DECL_ARTIFICIAL (var_sym)
       /* Only check for addressability on non-pointers.  Even if VAR is 
 	 a non-addressable pointer, it may still alias with ptr.  */
       || (DECL_P (var) && !TREE_ADDRESSABLE (var)))

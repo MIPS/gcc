@@ -1,3 +1,9 @@
+2002-12-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (dump_ref): Display '<nil>' for NULL references.
+	(dump_phi_args): Handle NULL arguments.
+	(may_alias_p): Artificial variables can also be aliased.
+
 2002-12-02  Daniel Berlin <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (okay_injuring_def): inj could be null.
