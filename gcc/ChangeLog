@@ -46,6 +46,12 @@
 	* config/rs6000/darwin-fpsave.asm: Use 32/64-bit macros.
 	* config/rs6000/t-darwin: Add dependencies.
 
+2004-12-09  Matt Rice  <ratmice@yahoo.com>
+
+	PR preprocessor/18102
+	* c-incpath.c (remove_duplicates): Check for construct
+	equality.
+	
 2004-12-01  Stan Shebs  <shebs@apple.com>
 
 	* config/rs6000/rs6000.c (rs6000_override_options): Make 64-bit
