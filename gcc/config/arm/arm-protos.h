@@ -1,5 +1,5 @@
 /* Prototypes for exported functions defined in arm.c and pe.c
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rearnsha@arm.com)
    Minor hacks by Nick Clifton (nickc@cygnus.com)
@@ -39,6 +39,7 @@ extern HOST_WIDE_INT arm_compute_initial_elimination_offset (unsigned int,
 extern HOST_WIDE_INT thumb_compute_initial_elimination_offset (unsigned int,
 							       unsigned int);
 extern void arm_output_fn_unwind (FILE *, bool);
+extern unsigned int arm_dbx_register_number (unsigned int);
 
 #ifdef TREE_CODE
 extern int arm_return_in_memory (tree);
@@ -52,13 +53,17 @@ extern int arm_split_constant (RTX_CODE, enum machine_mode, rtx,
 extern RTX_CODE arm_canonicalize_comparison (RTX_CODE, rtx *);
 extern int legitimate_pic_operand_p (rtx);
 extern rtx legitimize_pic_address (rtx, enum machine_mode, rtx);
+extern rtx legitimize_tls_address (rtx, unsigned int, rtx);
 extern int arm_legitimate_address_p  (enum machine_mode, rtx, RTX_CODE, int);
 extern int thumb_legitimate_address_p (enum machine_mode, rtx, int);
 extern int thumb_legitimate_offset_p (enum machine_mode, HOST_WIDE_INT);
 extern rtx arm_legitimize_address (rtx, rtx, enum machine_mode);
+extern rtx thumb_legitimize_address (rtx, rtx, enum machine_mode);
 extern int arm_const_double_rtx (rtx);
 extern int neg_const_double_rtx_ok_for_fpa (rtx);
 extern enum reg_class vfp_secondary_reload_class (enum machine_mode, rtx);
+extern int tls_symbolic_operand (rtx, enum machine_mode);
+extern bool arm_tls_operand_p (rtx x);
 
 /* Predicates.  */
 extern int s_register_operand (rtx, enum machine_mode);
@@ -108,6 +113,7 @@ extern int arm_no_early_alu_shift_dep (rtx, rtx);
 extern int arm_no_early_alu_shift_value_dep (rtx, rtx);
 extern int arm_no_early_mul_dep (rtx, rtx);
 
+extern int tls_mentioned_p (rtx);
 extern int symbol_mentioned_p (rtx);
 extern int label_mentioned_p (rtx);
 extern RTX_CODE minmax_code (rtx);
@@ -153,12 +159,17 @@ extern const char * arm_output_load_gr (rtx *);
 extern const char *vfp_output_fstmx (rtx *);
 extern void arm_set_return_address (rtx, rtx);
 
+extern bool arm_output_addr_const_extra (FILE *, rtx);
+
 #if defined TREE_CODE
 extern rtx arm_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void arm_init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
 extern rtx arm_va_arg (tree, tree);
 extern int arm_function_arg_pass_by_reference (CUMULATIVE_ARGS *,
 					       enum machine_mode, tree, int);
+extern bool arm_must_pass_in_stack (enum machine_mode, tree);
+extern bool arm_pad_arg_upward (enum machine_mode, tree);
+extern bool arm_pad_reg_upward (enum machine_mode, tree, int);
 extern bool arm_needs_doubleword_align (enum machine_mode, tree);
 extern rtx arm_function_value(tree, tree);
 #endif
@@ -190,10 +201,10 @@ extern int thumb_shiftable_const (unsigned HOST_WIDE_INT);
 extern void thumb_final_prescan_insn (rtx);
 extern const char *thumb_load_double_from_address (rtx *);
 extern const char *thumb_output_move_mem_multiple (int, rtx *);
+extern const char *thumb_call_via_reg (rtx);
 extern void thumb_expand_movstrqi (rtx *);
 extern int thumb_cmp_operand (rtx, enum machine_mode);
 extern int thumb_cbrch_target_operand (rtx, enum machine_mode);
-extern rtx *thumb_legitimize_pic_address (rtx, enum machine_mode, rtx);
 extern int thumb_go_if_legitimate_address (enum machine_mode, rtx);
 extern rtx arm_return_addr (int, rtx);
 extern void thumb_reload_out_hi (rtx *);

@@ -130,6 +130,16 @@ proc profopt-execute { src } {
     global tool profile_option feedback_option prof_ext perf_ext perf_delta
     global verbose
 
+    # If the host and target systems are not the same, then these
+    # tests will not work, in general, as the compiler writes
+    # absolute paths into the generated binaries when using 
+    # profiling.
+    global host_triplet
+    global target_triplet
+    if { $host_triplet != $target_triplet } {
+	return
+    }
+
     regsub "^$srcdir/?" $src "" testcase
     # If we couldn't rip $srcdir out of `src' then just do the best we can.
     # The point is to reduce the unnecessary noise in the logs.  Don't strip
@@ -180,6 +190,7 @@ proc profopt-execute { src } {
 	if { $status == "pass" } {
 	    set basename [file tail $testcase]
 	    set base [file rootname $basename]
+	    remote_upload "build" "$base.$prof_ext" "$base.$prof_ext"
 	    set files [glob -nocomplain $base.$prof_ext]
 	    if { $files == "" } {
 		set status "fail"

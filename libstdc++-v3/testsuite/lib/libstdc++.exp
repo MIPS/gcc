@@ -210,6 +210,16 @@ proc libstdc++_init { testfile } {
         }
     }
 
+    # Tell locale tests where to find the generated .po files.
+    #
+    # ??? At present, testsuite_flags sets LOCALEDIR to a directory in the
+    # build directory.  So long as the check_compile and
+    # check_performance scripts it's not safe to modify
+    # testsuite_flags so as not to set LOCALEDIR.  So, we must
+    # undefine LOCALEDIR first, so as to avoid a warning from the
+    # compiler.
+    set cxxflags "$cxxflags -ULOCALEDIR -DLOCALEDIR=\".\""
+
     if { [target_info needs_status_wrapper]!=""} {
       file delete ${objdir}/testglue.o;
       set gluefile ${objdir}/testglue.o;
@@ -338,6 +348,16 @@ proc libstdc++_build_support {} {
 	} elseif { [string first "_GLIBCXX_HAVE_GTHR_DEFAULT" $l] != -1 } {
 	    verbose -log "thread support detected"
 	    set libstdc++_threads 1
+	}
+    }
+
+    # Try to build the PO files that are used by some of the locale
+    # tests.  If we can't build them, that's OK; it just means that those
+    # tests will fail.
+    foreach lang [list "fr" "de"] {
+	catch {
+	    remote_exec "build" "msgfmt" "-o $lang.mo $srcdir/../po/$lang.po"
+	    remote_download "host" "$lang.mo" "$lang.mo"
 	}
     }
 

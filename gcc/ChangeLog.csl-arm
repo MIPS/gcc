@@ -1,3 +1,285 @@
+2005-03-30  Paul Brook  <pau@codesourcery.com>
+
+	* dwarf2out.c (multiple_reg_loc_descriptor): Handle single REG.
+	* config/arm/arm.c (arm_dwarf_register_span): New function.
+	(TARGET_DWARF_REGISTER_SPAN): Define.
+	* doc/tm.dexi: Update documentation for TARGET_DWARF_REGISTER_SPAN.
+
+2005-03-30  Paul Brook  <paul@codesourcery.com>
+
+	* optabs.c (expand_twoval_binop_libfunc): Call protect_from_queue.
+	* testsuite/gcc.dg/divmod-1.c: New test.
+
+2005-03-29  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm-protos.h (arm_dbx_register_number): Add prototype.
+	* config/arm/arm.c (arm_dbx_register_number): New function.
+	* config/arm/arm.h (IS_FPA_REGNUM, DBX_REGISTER_NUMBER): Define.
+
+2005-03-28  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/arm.c (arm_handle_notshared_attribute): Protect
+	prototype and implementation with preprocessor conditional.
+	(arm_pad_reg_upwards): Add ATTRIBUTE_UNUSED.
+
+2005-03-28  Daniel Jacobowitz  <dan@codesourcery.com>
+	    Phil Blundell  <philb@gnu.org>
+
+	* configure.ac: Add test for ARM TLS support.
+	* configure: Regenerated.
+	* haifa-sched.c (schedule_block): Only count INSNs.
+	* jump.c (duplicate_loop_exit_test): Check targetm.cannot_copy_insn_p.
+	* postreload.c (reload_cse_simplify_operands): Handle deleted labels.
+	* config/arm/arm-protos.h (legitimize_tls_address)
+	(thumb_legitimize_address, tls_symbolic_operand, arm_tls_operand_p)
+	(tls_mentioned_p, arm_output_addr_const_extra): New prototypes.
+	(thumb_legitimize_pic_address): Delete.
+	* config/arm/arm.c: Include "gt-arm.h".
+	(arm_cannot_copy_insn_p, load_tls_operand)
+	(pcrel_constant_p, get_tls_get_addr, arm_load_tp)
+	(legitimize_tls_address, thumb_legitimize_address)
+	(arm_tls_operand_p, tls_symbolic_operand, move_input_operand)
+	(tls_mentioned_p, arm_init_tls_builtins)
+	(arm_emit_tls_decoration, arm_output_addr_const_extra): New functions.
+	(TARGET_CANNOT_COPY_INSN_P, TARGET_CANNOT_FORCE_CONST_MEM): Define.
+	(target_thread_switch, target_thread_pointer): New.
+	(arm_pic_register): Change to unsigned.
+	(arm_override_options): Handle -mtp=.
+	(legitimize_pic_address): Ignore UNSPECs.
+	(arm_legitimate_address_p): Handle TLS and pcrel symbols.
+	(thumb_legitimate_address_p): Handle TLS and pcrel symbols.
+	(arm_legitimize_address): Handle TLS.
+	(arm_regno_class): Handle RETURN_REG.
+	(arm_init_builtins): Call arm_init_tls_builtins.
+	(arm_expand_builtin): Handle ARM_BUILTIN_THREAD_POINTER.
+	(arm_encode_section_info): Call default_encode_section_info.
+	* config/arm/arm.h (target_thread_switch): Add declaration.
+	(TARGET_HARD_TP, TARGET_SOFT_TP, TARGET_LINUX_TP): Define.
+	(TARGET_OPTIONS): Add -mtp=.
+	(enum arm_tp_type): New.
+	(target_thread_pointer): Add declaration.
+	(enum reg_class, REG_CLASS_NAMES, REG_CLASS_CONTENTS)
+	(REG_CLASS_FROM_LETTER): Add RETURN_REG.
+	(LEGITIMATE_CONSTANT_P): Handle TLS.
+	(THUMB_LEGITIMIZE_ADDRESS): Call thumb_legitimize_address.
+	(arm_pic_register): Change type to unsigned.
+	(LEGITIMATE_PIC_OPERAND_P): Handle TLS.
+	(OUTPUT_ADDR_CONST_EXTRA): Call arm_output_addr_const_extra.
+	(PREDICATE_CODES): Add move_input_operand.
+	(enum arm_builtins): Add ARM_BUILTIN_THREAD_POINTER.
+	* config/arm/arm.md: Add UNSPEC_TLS.
+	(movsi): Handle TLS.
+	(arm_movsi_insn, thumb_movsi_insn): Use move_input_operand.
+	(pic_add_dot_plus_four, pic_add_dot_plus_eight): Allow for
+	non-PIC.
+	(tls_load_dot_plus_four, tls_load_dot_plus_eight): New insns
+	and new peepholes to create them.
+	(load_tp_hard, load_tp_soft): New insns.
+
+2005-03-22  Mark Mitchell  <mark@codesourcery.com>
+
+	Merge from mainline.
+	2005-01-14  Richard Earnshaw  <rearnsha@arm.com>
+	PR target/7525
+	* arm.h (struct machine_function): Add call_via field.
+	(thumb_call_via_label): Declare.
+	* arm.c (thumb_call_via_label): New variable.
+	(thumb_call_reg_needed): New variable.
+	(arm_output_function_epilogue): For Thumb code, output any per-function
+	call-indirect trampolines.
+	(thumb_call_via_reg): New function.
+	(arm_file_end): New function.
+	(TARGET_ASM_FILE_END): Call arm_file_end.
+	(aof_file_end): Likewise.
+	* arm-protos.h (thumb_call_via_reg): Declare.
+	* arm.md (call_reg_thumb, call_value_reg_thumb): Call
+	thumb_call_via_reg in normal case.
+	
+2005-03-22  Mark Mitchell  <mark@codesourcery.com>
+
+	Merge from csl-3_4_3-linux-branch.
+	2005-01-31  Mark Mitchell <mark@codesourcery.com>
+	* gcc.c (main): Use set_spec.
+	2005-01-25  Mark Mitchell  <mark@codesourcery.com>
+	* gcc.c (SYSROOT_SPEC): New macro.
+	(sysroot_spec): New variable.
+	(static_specs): Add sysroot_spec.
+	(main): Pass --sysroot to the linker. 
+
+2005-03-15  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/arm.h (CONDITIONAL_REGISTER_USAGE): Don't clear
+	call_used_regs for wCG registers.
+
+2005-03-14  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/lib1funcs.asm (ashldi3): Don't define on SymbianOS.
+	(aeabi_llsl): Likewise.
+	(ashrdi3): Likewise.
+	(aeabi_lasr): Likewise.
+	(lshrdi3): Likewise.
+	(aeabi_llsr): Likewise. 
+
+2005-03-10  Julian Brown  <julian@codesourcery.com>
+
+	* config.gcc: Disable shared libgcc for SymbianOS.
+	* config/arm/t-symbian (LIB2ADDEH): Include config/arm/pr-support.c.
+
+2005-03-07  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/arm.c (arm_all_abis): Add aapcs-linux.
+	(arm_override_options): Use TARGET_AAPCS_BASED.
+	* config/arm/arm.h (enum arm_abi_type): Add ARM_ABI_AAPCS_LINUX.
+	(PTRDIFF_TYPE): Use int for AAPCS.
+	(DEFAULT_SHORT_ENUMS): Use false for aapcs-linux.
+	* config/arm/linux-eabi.h (ARM_DEFAULT_ABI, WCHAR_TYPE): Define.
+	(DEFAULT_SHORT_ENUMS): Delete.
+	* doc/invoke.texi (ARM Options): Document -mabi=aapcs-linux.
+
+2005-03-02  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/linux-elf.h (ARM_FUNCTION_PROFILER): Do not use (PLT)
+	for Thumb.
+	* config/arm/netbsd-elf.h (ARM_FUNCTION_PROFILER): Likewise.
+
+2005-02-25  Julian Brown  <julian@codesourcery.com>
+
+	* config/elfos.h (MAKE_DECL_ONE_ONLY): Redefined to stop DECL_WEAK
+	from being used for symbols with vague linkage when
+	HAVE_GAS_COMDAT_GROUP is true.
+
+2004-02-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* configure.ac: Never set STMP_FIXINC or STMP_FIXPROTO when
+	building a Canadian cross.
+	* configure: Regenerated.
+
+	* unwind-arm.h (abort): Use a prototype, not a K&R declaration.
+	(__gnu_unwind_execute): Declare.
+	* config/arm/lib1funcs.asm: Do not include libunwind.S.
+	* config/arm/libunwind.S: Include lib1funcs.asm.
+	* config/arm/t-bpabi (LIB1ASMFUNCS): Remove _unwind.
+	(LIB2ADDEH): Add $(srcdir)/config/arm/libunwind.S.
+
+2005-02-16  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/unwind-arm.c (__gnu_Unwind_Find_exidx): Add prototype.
+	(search_EIT_table): New function.
+	(get_eit_entry): Use them.
+	(EIT_comparator): Remove.
+
+2005-02-14  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/t-bpabi (LIB2ADDEH): Add pr-support.c
+	* unwind-arm.c (next_unwind_byte): Moved to file pr-support.c.
+	(__gnu_unwind_execute): Likewise.
+	(__gnu_unwind_frame): Likewise.
+	(_Unwind_GetLanguageSpecificData): Likewise.
+	(_Unwind_GetRegionStart): Likewise.
+	* pr-support.c: New file.
+	(selfrel_offset31, EHT16, EHT32): Duplicated from unwind-arm.c.
+
+2005-01-28  Paul Brook  <paul@codesourcery.com>
+
+	* Makefile.in (opts.o): Depend on $(TARGET_H).
+	* opts.c: Include target.h.
+	(decode_options): Use targetm.unwind_tables_default.
+	* target-def.h (TARGET_UNWIND_TABLES_DEFAULT): Define.
+	(TARGET_INITIALIZER): Use it
+	* target.h (struct gcc_target): Add unwind_tables_default.
+	* config/ia64/ia64.h (TARGET_UNWIND_TABLES_DEFAULT): Define.
+
+2005-01-27  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_init_libfuncs): Clear mod optabs.
+
+2005-01-27  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.h (ARM_EABI_UNWIND_TABLES): Fix logic.
+
+2005-01-27  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_compute_func_type): Fix noreturn logic.
+
+2004-01-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/arm/arm.h (ARM_EABI_CTORS_SECTION_OP): Do not define
+	if a definition has already been provided.
+	(ARM_EABI_DTORS_SECTION_OP): Likewise.
+	* config/arm/symbian.h (ARM_EABI_CTORS_SECTION_OP): Define.
+	(ARM_EABI_DTORS_SECTION_OP): Likewise.
+
+2005-01-26  Julian Brown  <julian@codesourcery.com>
+
+	Backport:
+	2004-11-24  Richard Sandiford  <rsandifo@redhat.com>
+
+	* optabs.h (force_expand_binop): Declare.
+	* optabs.c (force_expand_binop): Export.
+	* stmt.c (shift_return_value): Delete.
+	(expand_return): Don't call it.
+	* expr.h (shift_return_value): Declare.
+	* calls.c (shift_returned_value): Delete in favor of...
+	(shift_return_value): ...this new function.  Leave the caller to check
+	for non-BLKmode values passed in the msb of a register.  Take said
+	mode and a shift direction as argument.  Operate on the hard function
+	value, not a pseudo.
+	(expand_call): Adjust accordingly.
+	* function.c (expand_function_start): If a non-BLKmode return value
+	is padded at the last significant end of the return register, use the
+	return value's natural mode for the DECL_RESULT, not the mode of the
+	padded register.
+	(expand_function_end): Shift the same sort of return values left by
+	the appropriate amount.
+
+	Backport:
+	2004-09-04  Richard Sandiford  <rsandifo@redhat.com>
+
+	* optabs.c (simplify_expand_binop, force_expand_binop): New functions.
+	(only these parts of the patch are applied)
+
+	* config/arm/arm-protos.h (arm_must_pass_in_stack): Declare.
+	(arm_pad_arg_upward): Declare:
+	(arm_pad_reg_upward): Declare.
+	* config/arm/arm.c (TARGET_RETURN_IN_MSB): Define target hook as...
+	(arm_return_in_msb): New function, specifying when values returned in 
+	registers should be aligned to the most-significant end.
+	(arm_function_value): If necessary (aggregates and complex values of 
+	word size or less), promote the return type of a function to SImode to
+	enable padding to word size.
+	(arm_must_pass_in_stack): New function, returns false for small 
+	aggregates so they can be passed in registers (the default 
+	implementation passes them in the stack).
+	(arm_pad_arg_upward): New function, fixes argument padding on the
+	stack in big-endian AAPCS mode.
+	(arm_pad_reg_upward): New function, fixes argument padding in
+	registers in big-endian AAPCS mode.
+	* config/arm/arm.h (PROMOTE_FUNCTION_MODE): modes of mode class
+	MODE_COMPLEX_INT are also promoted to SImode.
+	(MUST_PASS_IN_STACK): Define.
+	(FUNCTION_ARG_PADDING): Define.
+	(BLOCK_REG_PADDING): Define.
+	(PAD_VARARGS_DOWN): For AAPCS, varargs are always padded upwards
+	regardless of endianness.
+
+2005-01-25  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_compute_func_type): Don't use
+	current_function_nothrow.
+
+2005-01-22  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.md: Use "Uy" constraint for wcgr load/stores.
+
+2005-01-21  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.h (ARM_DTORS_SECTION_ASM_OP): Define. 
+	(DTORS_SECTION_ASM_OP): Conditionalize on TARGET_AAPCS_BASED.
+
+2005-01-20  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.md (insv): Use gen_int_mode.
+
 2004-01-05  Julian Brown  <julian@codesourcery.com>
 
 	* config/arm/arm.c (arm_return_in_memory): Treat complex types

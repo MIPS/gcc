@@ -585,6 +585,8 @@ extern rtx hard_function_value (tree, tree, int);
 
 extern rtx prepare_call_address (rtx, tree, rtx *, int, int);
 
+extern bool shift_return_value (enum machine_mode mode, bool, rtx);
+
 extern rtx expand_call (tree, rtx, int);
 
 #ifdef TREE_CODE

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for ARM.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com)
@@ -127,6 +127,8 @@ extern const char *target_fpe_name;
 extern const char *target_float_abi_name;
 /* For -m{soft,hard}-float.  */
 extern const char *target_float_switch;
+/* For -mtp={soft,cp15,linux}.  */
+extern const char *target_thread_switch;
 /* Which ABI to use.  */
 extern const char *target_abi_name;
 /* Define the information needed to generate branch insns.  This is
@@ -297,6 +299,10 @@ extern GTY(()) rtx aof_pic_label;
 #define TARGET_AAPCS_BASED \
     (arm_abi != ARM_ABI_APCS && arm_abi != ARM_ABI_ATPCS)
 
+#define TARGET_HARD_TP			(target_thread_pointer == TP_CP15)
+#define TARGET_SOFT_TP			(target_thread_pointer == TP_SOFT)
+#define TARGET_LINUX_TP			(target_thread_pointer == TP_LINUX)
+
 /* True iff the full BPABI is being used.  If TARGET_BPABI is true,
    then TARGET_AAPCS_BASED must be true -- but the converse does not
    hold.  TARGET_BPABI implies the use of the BPABI runtime library,
@@ -396,7 +402,9 @@ extern GTY(()) rtx aof_pic_label;
   {"soft-float", &target_float_switch,					\
    N_("Alias for -mfloat-abi=soft"), "s"},				\
   {"hard-float", &target_float_switch,					\
-   N_("Alias for -mfloat-abi=hard"), "h"}				\
+   N_("Alias for -mfloat-abi=hard"), "h"},				\
+  {"tp=", &target_thread_switch,					\
+   N_("Specify how to access the thread pointer"), 0}			\
 }
 
 /* Support for a compile-time default CPU, et cetera.  The rules are:
@@ -490,7 +498,8 @@ enum arm_abi_type
   ARM_ABI_APCS,
   ARM_ABI_ATPCS,
   ARM_ABI_AAPCS,
-  ARM_ABI_IWMMXT
+  ARM_ABI_IWMMXT,
+  ARM_ABI_AAPCS_LINUX
 };
 
 extern enum arm_abi_type arm_abi;
@@ -498,6 +507,15 @@ extern enum arm_abi_type arm_abi;
 #ifndef ARM_DEFAULT_ABI
 #define ARM_DEFAULT_ABI ARM_ABI_APCS
 #endif
+
+/* Which thread pointer access sequence to use.  */
+enum arm_tp_type {
+  TP_SOFT,
+  TP_CP15,
+  TP_LINUX
+};
+
+extern enum arm_tp_type target_thread_pointer;
 
 /* Nonzero if this chip supports the ARM Architecture 3M extensions.  */
 extern int arm_arch3m;
@@ -607,9 +625,10 @@ extern int arm_is_6_or_7;
 #define PROMOTE_FUNCTION_ARGS
 
 #define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE)	\
-  if (GET_MODE_CLASS (MODE) == MODE_INT		\
-      && GET_MODE_SIZE (MODE) < 4)      	\
-    (MODE) = SImode;				\
+  if ((GET_MODE_CLASS (MODE) == MODE_INT		\
+       || GET_MODE_CLASS (MODE) == MODE_COMPLEX_INT)    \
+      && GET_MODE_SIZE (MODE) < 4)                      \
+    (MODE) = SImode;				        \
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
@@ -715,8 +734,12 @@ extern const char * structure_size_string;
 #define SIZE_TYPE (TARGET_AAPCS_BASED ? "unsigned int" : "long unsigned int")
 #endif
 
+#ifndef PTRDIFF_TYPE
+#define PTRDIFF_TYPE (TARGET_AAPCS_BASED ? "int" : "long int")
+#endif
+
 #ifndef DEFAULT_SHORT_ENUMS
-#define DEFAULT_SHORT_ENUMS TARGET_AAPCS_BASED
+#define DEFAULT_SHORT_ENUMS (TARGET_AAPCS_BASED && arm_abi != ARM_ABI_AAPCS_LINUX)
 #endif
 
 /* AAPCS requires that structure alignment is affected by bitfields.  */
@@ -904,7 +927,7 @@ extern const char * structure_size_string;
          scratch registers.  */					\
       for (regno = FIRST_IWMMXT_GR_REGNUM;			\
 	   regno <= LAST_IWMMXT_GR_REGNUM; ++ regno)		\
-	fixed_regs[regno] = call_used_regs[regno] = 0;		\
+	fixed_regs[regno] = 0;					\
       /* The XScale ABI has wR0 - wR9 as scratch registers,     \
 	 the rest as call-preserved registers.  */		\
       for (regno = FIRST_IWMMXT_REGNUM;				\
@@ -1047,6 +1070,8 @@ extern const char * structure_size_string;
 /* ARM floating pointer registers.  */
 #define FIRST_FPA_REGNUM 	16
 #define LAST_FPA_REGNUM  	23
+#define IS_FPA_REGNUM(REGNUM) \
+  (((REGNUM) >= FIRST_FPA_REGNUM) && ((REGNUM) <= LAST_FPA_REGNUM))
 
 #define FIRST_IWMMXT_GR_REGNUM	43
 #define LAST_IWMMXT_GR_REGNUM	46
@@ -1078,6 +1103,8 @@ extern const char * structure_size_string;
 /* Intel Wireless MMX Technology registers add 16 + 4 more.  */
 /* VFP adds 32 + 1 more.  */
 #define FIRST_PSEUDO_REGISTER   96
+
+#define DBX_REGISTER_NUMBER(REGNO) arm_dbx_register_number (REGNO)
 
 /* Value should be nonzero if functions must have frame pointers.
    Zero means the frame pointer need not be set up (and parms may be accessed
@@ -1165,6 +1192,7 @@ enum reg_class
   VFP_REGS,
   IWMMXT_GR_REGS,
   IWMMXT_REGS,
+  RETURN_REG,
   LO_REGS,
   STACK_REG,
   BASE_REGS,
@@ -1187,6 +1215,7 @@ enum reg_class
   "VFP_REGS",		\
   "IWMMXT_GR_REGS",	\
   "IWMMXT_REGS",	\
+  "RETURN_REG",		\
   "LO_REGS",		\
   "STACK_REG",		\
   "BASE_REGS",		\
@@ -1208,6 +1237,7 @@ enum reg_class
   { 0x00000000, 0x80000000, 0x7FFFFFFF }, /* VFP_REGS  */	\
   { 0x00000000, 0x00007800, 0x00000000 }, /* IWMMXT_GR_REGS */	\
   { 0x00000000, 0x7FFF8000, 0x00000000 }, /* IWMMXT_REGS */	\
+  { 0x00000001, 0x00000000, 0x00000000 }, /* RETURN_REG */	\
   { 0x000000FF, 0x00000000, 0x00000000 }, /* LO_REGS */		\
   { 0x00002000, 0x00000000, 0x00000000 }, /* STACK_REG */	\
   { 0x000020FF, 0x00000000, 0x00000000 }, /* BASE_REGS */	\
@@ -1269,6 +1299,7 @@ enum reg_class
    : (C) == 'y' ? IWMMXT_REGS		\
    : (C) == 'z' ? IWMMXT_GR_REGS	\
    : (C) == 'l' ? (TARGET_ARM ? GENERAL_REGS : LO_REGS)	\
+   : (C) == 'Z' ? RETURN_REG		\
    : TARGET_ARM ? NO_REGS		\
    : (C) == 'h' ? HI_REGS		\
    : (C) == 'b' ? BASE_REGS		\
@@ -1693,8 +1724,15 @@ typedef struct machine_function GTY(())
   /* Records if sibcalls are blocked because an argument
      register is needed to preserve stack alignment.  */
   int sibcall_blocked;
+  /* Labels for per-function Thumb call-via stubs.  One per potential calling
+     register.  We can never call via SP, LR or PC.  */
+  rtx call_via[13];
 }
 machine_function;
+
+/* As in the machine_function, a global set of call-via labels, for code 
+   that is in text_section().  */
+extern GTY(()) rtx thumb_call_via_label[13];
 
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  For some target machines, the
@@ -1750,6 +1788,20 @@ typedef struct
    appropriate for passing a pointer to that type.  */
 #define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
   arm_function_arg_pass_by_reference (&CUM, MODE, TYPE, NAMED)
+
+#define MUST_PASS_IN_STACK(MODE, TYPE) \
+  arm_must_pass_in_stack (MODE, TYPE)
+
+#define FUNCTION_ARG_PADDING(MODE, TYPE) \
+  (arm_pad_arg_upward (MODE, TYPE) ? upward : downward)
+
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
+  (arm_pad_reg_upward (MODE, TYPE, FIRST) ? upward : downward)
+
+/* For AAPCS, padding should never be below the argument. For other ABIs,
+ * mimic the default.  */
+#define PAD_VARARGS_DOWN \
+  ((TARGET_AAPCS_BASED) ? 0 : BYTES_BIG_ENDIAN)
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
@@ -2083,8 +2135,10 @@ typedef struct
   || CONSTANT_ADDRESS_P (X)		\
   || flag_pic)
 
-#define LEGITIMATE_CONSTANT_P(X)	\
-  (TARGET_ARM ? ARM_LEGITIMATE_CONSTANT_P (X) : THUMB_LEGITIMATE_CONSTANT_P (X))
+#define LEGITIMATE_CONSTANT_P(X)			\
+  (!arm_tls_operand_p (X)				\
+   && (TARGET_ARM ? ARM_LEGITIMATE_CONSTANT_P (X)	\
+		  : THUMB_LEGITIMATE_CONSTANT_P (X)))
 
 /* Special characters prefixed to function names
    in order to encode attribute like information.
@@ -2120,10 +2174,14 @@ typedef struct
 
 /* The EABI specifies that constructors should go in .init_array.
    Other targets use .ctors for compatibility.  */
+#ifndef ARM_EABI_CTORS_SECTION_OP
 #define ARM_EABI_CTORS_SECTION_OP \
   "\t.section\t.init_array,\"aw\",%init_array"
+#endif
+#ifndef ARM_EABI_DTORS_SECTION_OP
 #define ARM_EABI_DTORS_SECTION_OP \
   "\t.section\t.fini_array,\"aw\",%fini_array"
+#endif
 #define ARM_CTORS_SECTION_OP \
   "\t.section\t.ctors,\"aw\",%progbits"
 #define ARM_DTORS_SECTION_OP \
@@ -2167,7 +2225,7 @@ typedef struct
 
 #ifdef TARGET_UNWIND_INFO
 #define ARM_EABI_UNWIND_TABLES \
-  (!USING_SJLJ_EXCEPTIONS && flag_exceptions && flag_unwind_tables)
+  ((!USING_SJLJ_EXCEPTIONS && flag_exceptions) || flag_unwind_tables)
 #else
 #define ARM_EABI_UNWIND_TABLES 0
 #endif
@@ -2270,10 +2328,12 @@ do {							\
     goto WIN;						\
 } while (0)
 
-#define THUMB_LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)		\
-do {								\
-  if (flag_pic)							\
-    (X) = legitimize_pic_address (OLDX, MODE, NULL_RTX);	\
+#define THUMB_LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)	\
+do {							\
+  X = thumb_legitimize_address (X, OLDX, MODE);		\
+							\
+  if (memory_address_p (MODE, X))			\
+    goto WIN;						\
 } while (0)
 
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)		\
@@ -2383,7 +2443,7 @@ do {							\
 /* We decide which register to use based on the compilation options and
    the assembler in use; this is more general than the APCS restriction of
    using sb (r9) all the time.  */
-extern int arm_pic_register;
+extern unsigned int arm_pic_register;
 
 /* Used when parsing command line option -mpic-register=.  */
 extern const char * arm_pic_register_string;
@@ -2395,12 +2455,13 @@ extern const char * arm_pic_register_string;
 /* We can't directly access anything that contains a symbol,
    nor can we indirect via the constant pool.  */
 #define LEGITIMATE_PIC_OPERAND_P(X)					\
-	(!(symbol_mentioned_p (X)					\
+        (tls_mentioned_p (X)						\
+	 || (!(symbol_mentioned_p (X)					\
 	   || label_mentioned_p (X)					\
 	   || (GET_CODE (X) == SYMBOL_REF				\
 	       && CONSTANT_POOL_ADDRESS_P (X)				\
 	       && (symbol_mentioned_p (get_pool_constant (X))		\
-		   || label_mentioned_p (get_pool_constant (X))))))
+		   || label_mentioned_p (get_pool_constant (X)))))))
 
 /* We need to know when we are making a constant pool; this determines
    whether data needs to be in the GOT or can be referenced via a GOT
@@ -2677,10 +2738,9 @@ extern int making_const_table;
   else						\
     THUMB_PRINT_OPERAND_ADDRESS (STREAM, X)
 
-#define OUTPUT_ADDR_CONST_EXTRA(FILE, X, FAIL)	\
-  if (GET_CODE (X) != CONST_VECTOR		\
-      || ! arm_emit_vector_const (FILE, X))	\
-    goto FAIL;
+#define OUTPUT_ADDR_CONST_EXTRA(file, x, fail)		\
+  if (arm_output_addr_const_extra (file, x) == FALSE)	\
+    goto fail
 
 /* A C expression whose value is RTL representing the value of the return
    address for the frame COUNT steps up from the current frame.  */
@@ -2750,6 +2810,8 @@ extern int making_const_table;
   {"cirrus_register_operand", {REG}},					\
   {"cirrus_fp_register", {REG}},					\
   {"cirrus_shift_const", {CONST_INT}},					\
+  {"move_input_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
+			  LABEL_REF, SUBREG, REG, MEM, ADDRESSOF}},	\
   {"dominant_cc_register", {REG}},					\
   {"arm_float_compare_operand", {REG, CONST_DOUBLE}},			\
   {"vfp_compare_operand", {REG, CONST_DOUBLE}},
@@ -2922,6 +2984,8 @@ enum arm_builtins
   ARM_BUILTIN_WUNPCKELUB,
   ARM_BUILTIN_WUNPCKELUH,
   ARM_BUILTIN_WUNPCKELUW,
+
+  ARM_BUILTIN_THREAD_POINTER,
 
   ARM_BUILTIN_MAX
 };

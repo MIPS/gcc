@@ -37,6 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "tm_p.h"		/* For OPTIMIZATION_OPTIONS.  */
 #include "insn-attr.h"		/* For INSN_SCHEDULING.  */
+#include "target.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -609,11 +610,8 @@ decode_options (unsigned int argc, const char **argv)
   target_flags = 0;
   set_target_switch ("");
 
-  /* Unwind tables are always present when a target has ABI-specified unwind
-     tables, so the default should be ON.  */
-#ifdef TARGET_UNWIND_INFO
-  flag_unwind_tables = TARGET_UNWIND_INFO;
-#endif
+  /* Some tagets have ABI-specified unwind tables.  */
+  flag_unwind_tables = targetm.unwind_tables_default;
 
 #ifdef OPTIMIZATION_OPTIONS
   /* Allow default optimizations to be specified on a per-machine basis.  */

@@ -28,7 +28,8 @@ Boston, MA 02111-1307, USA.  */
 #undef CC1_SPEC
 #define CC1_SPEC "				\
  %{tarm926ej-s:	-mcpu=arm926ej-s ;		\
-   tiwmmxt:     -mcpu=iwmmxt -mbig-endian } 	\
+   tiwmmxt:     -mcpu=iwmmxt -mbig-endian ;	\
+   txscale:     -mcpu=xscale -mbig-endian }	\
  %{profile:-p}"
 
 /* Since the ARM926EJ-S is the default processor, we do not need to
@@ -40,16 +41,19 @@ Boston, MA 02111-1307, USA.  */
 /* Translate -tiwmmxt appropriately for the assembler.  The -meabi=4
    option is SUBTARGET_EXTRA_ASM_SPEC in bpabi.h.  */
 #undef SUBTARGET_EXTRA_ASM_SPEC
-#define SUBTARGET_EXTRA_ASM_SPEC "%{tiwmmxt:-mcpu=iwmmxt -EB} -meabi=4" 
+#define SUBTARGET_EXTRA_ASM_SPEC \
+  "%{tiwmmxt:-mcpu=iwmmxt -EB} %{txscale:-mcpu=xscale -EB} -meabi=4" 
 
 /* Translate -tiwmmxt for the linker.  */
 #undef SUBTARGET_EXTRA_LINK_SPEC
-#define SUBTARGET_EXTRA_LINK_SPEC \
-  "%{tiwmmxt:-m armelfb_linux_eabi ; : -m armelf_linux_eabi}"
+#define SUBTARGET_EXTRA_LINK_SPEC		\
+  "%{tiwmmxt:-m armelfb_linux_eabi ; 		\
+     txscale:-m armelfb_linux_eabi ; 		\
+     : -m armelf_linux_eabi}"
 
 /* When using -tiwmmxt, search the "tiwmmxt" subdirectory.  */
 #undef SYSROOT_SUFFIX_SPEC
 #define SYSROOT_SUFFIX_SPEC \
-  "/%{tiwmmxt:/tiwmmxt}"
+  "/%{tiwmmxt:/tiwmmxt}%{txscale:/txscale}"
 
 

@@ -128,20 +128,22 @@ proc g++_link_flags { paths } {
       if [file exists "${gccpath}/librx/librx.a"] {
           append flags "-L${gccpath}/librx "
       }
-      append ld_library_path ":${rootme}"
-      set compiler [lindex $GXX_UNDER_TEST 0]
-      if { [is_remote host] == 0 && [which $compiler] != 0 } {
-	foreach i "[exec $compiler --print-multi-lib]" {
-	  set mldir ""
-	  regexp -- "\[a-z0-9=/\.-\]*;" $i mldir
-	  set mldir [string trimright $mldir "\;@"]
-	  if { "$mldir" == "." } {
-	    continue
+      if {[info exists rootme]} {
+	  append ld_library_path ":${rootme}"
+	  set compiler [lindex $GXX_UNDER_TEST 0]
+	  if { [is_remote host] == 0 && [which $compiler] != 0 } {
+	      foreach i "[exec $compiler --print-multi-lib]" {
+		  set mldir ""
+		  regexp -- "\[a-z0-9=/\.-\]*;" $i mldir
+		  set mldir [string trimright $mldir "\;@"]
+		  if { "$mldir" == "." } {
+		      continue
+		  }
+		  if { [llength [glob -nocomplain ${rootme}/${mldir}/libgcc_s*.so.*]] >= 1 } {
+		      append ld_library_path ":${rootme}/${mldir}"
+		  }
+	      }
 	  }
-	  if { [llength [glob -nocomplain ${rootme}/${mldir}/libgcc_s*.so.*]] >= 1 } {
-	    append ld_library_path ":${rootme}/${mldir}"
-	  }
-	}
       }
     } else {
       global tool_root_dir;
@@ -197,6 +199,7 @@ proc g++_init { args } {
     global gluefile wrap_flags;
     global objdir srcdir
     global ALWAYS_CXXFLAGS
+    global CXXFLAGS
     global TOOL_EXECUTABLE TOOL_OPTIONS
     global GXX_UNDER_TEST
     global TESTING_IN_BUILD_TREE
@@ -242,6 +245,10 @@ proc g++_init { args } {
 	} else {
 	    unset gluefile
 	}
+    }
+
+    if {![info exists CXXFLAGS]} {
+	set CXXFLAGS ""
     }
 
     set ALWAYS_CXXFLAGS ""

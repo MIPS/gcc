@@ -368,6 +368,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SPLIT_COMPLEX_ARG,					\
    }
 
+#ifndef TARGET_UNWIND_TABLES_DEFAULT
+#define TARGET_UNWIND_TABLES_DEFAULT false
+#endif
 
 /* C++ specific.  */
 #ifndef TARGET_CXX_GUARD_TYPE
@@ -470,6 +473,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_TERMINATE_DW2_EH_FRAME_INFO,		\
   TARGET_ASM_FILE_START_APP_OFF,		\
   TARGET_ASM_FILE_START_FILE_DIRECTIVE,		\
+  TARGET_UNWIND_TABLES_DEFAULT,			\
 }
 
 #include "hooks.h"

@@ -670,7 +670,7 @@ arm*-*-linux*)			# ARM GNU/Linux with ELF
 	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 	gnu_ld=yes
 	case ${target} in
-	arm*-*-linux-gnueabi|arm-wrs-linux-gnu)
+	arm*-*-linux-gnueabi)
 	    tm_file="$tm_file arm/bpabi.h arm/linux-eabi.h"
 	    tmake_file="$tmake_file arm/t-arm-elf arm/t-bpabi arm/t-linux-eabi"
   	    # The BPABI long long divmod functions return a 128-bit value in 
@@ -680,7 +680,7 @@ arm*-*-linux*)			# ARM GNU/Linux with ELF
 	    # The EABI requires the use of __cxa_atexit.
 	    default_use_cxa_atexit=yes
 	    case  ${target} in
-	    arm-wrs-linux-gnu) 
+	    arm-wrs-linux-gnueabi) 
 		tm_file="$tm_file arm/wrs-linux.h"
 		tmake_file="$tmake_file arm/t-wrs-linux"
 		;;
@@ -717,7 +717,7 @@ arm*-*-eabi* | arm*-*-symbianelf* )
 	  tm_file="${tm_file} arm/symbian.h"
 	  # We do not include t-bpabi for Symbian OS because the system
 	  # provides its own implementation of the BPABI functions.
-	  tmake_file="${tmake_file} t-slibgcc-elf-ver arm/t-symbian"
+	  tmake_file="${tmake_file} arm/t-symbian"
 	  ;;
 	esac
 	tm_file="${tm_file} arm/aout.h arm/arm.h"
