@@ -215,10 +215,8 @@ unique_type_id_for (int uid, bool allow_missing ATTRIBUTE_UNUSED)
   else 
     {
       /* ICE when compiling libstdc++.  */
-#if 0
       if (!allow_missing)
 	abort();
-#endif
       return uid;
     }
 }
