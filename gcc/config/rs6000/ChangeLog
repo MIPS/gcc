@@ -1,5 +1,34 @@
 2000-02-05  Geoff Keating  <geoffk@cygnus.com>
 
+	* rs6000.md (stack_tie): Fix warning.
+
+	* eabi-ctors.c: Use 'asm' names for the start/end variables,
+	to handle -fleading-underscore.
+	* sysv4.h (ASM_DECLARE_FUNCTION_NAME): Use asm_fprintf and %U.
+	(USER_LABEL_PREFIX): New macro.
+	(ASM_OUTPUT_INTERNAL_LABEL_PREFIX): Use asm_fprintf and %L.
+	(ASM_OUTPUT_LABELREF): Use asm_fprintf and %U.
+	* t-ppccomm (MULTILIB_MATCHES_SYSV): Note that call-sysv and
+	call-linux can use the same multilibs.
+	* t-ppcgas (MULTILIB_OPTIONS): Don't need to have separate call-sysv
+	and call-linux multilibs.  Do multilib with -fleading-underscore.
+	(MULTILIB_DIRNAMES): Follow MULTILIB_OPTIONS change.
+	(MULTILIB_EXCEPTIONS): Remove call-linux exceptions.  Add restrictions
+	to call-aix.
+
+	* sysv4.h (CPP_SYSV_SPEC): Define _SOFT_FLOAT for all those CPUs that
+	have MASK_SOFT_FLOAT set.
+	(CPP_FLOAT_DEFAULT_SPEC): New macro.
+	(SUBTARGET_EXTRA_SPECS): Set `cpp_float_default' to the value of
+	CPP_FLOAT_DEFAULT_SPEC.
+
+	* rs6000.c (ccr_bit): Add some consistency checks and a variable 'reg'.
+	* rs6000.md: Whitespace change.
+	* sysv4.h (LINK_TARGET_SPEC): Whitespace change.
+	* sysv4le.h (LINK_TARGET_SPEC): Whitespace change.
+
+2000-02-05  Geoff Keating  <geoffk@cygnus.com>
+
 	* rs6000.md (eh_epilogue): New expander.
 	(eh_reg_restore): New expand/split/insn combination.
 	(return_eh_si): New insn.

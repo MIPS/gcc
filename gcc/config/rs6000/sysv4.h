@@ -592,7 +592,7 @@ extern int rs6000_pic_labelno;
 	fprintf (FILE, "%s\n", buf_ptr);				\
       }									\
 									\
-    fprintf (FILE, "\t%s\t %s,", TYPE_ASM_OP, orig_name);		\
+    asm_fprintf (FILE, "\t%s\t %U%s,", TYPE_ASM_OP, orig_name);		\
     fprintf (FILE, TYPE_OPERAND_FMT, "function");			\
     putc ('\n', FILE);							\
     ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));			\
@@ -615,7 +615,7 @@ extern int rs6000_pic_labelno;
 	  fprintf (FILE, "\t%s 0\n", init_ptr);				\
 	fprintf (FILE, "\t.previous\n");				\
       }									\
-    fprintf (FILE, "%s:\n", orig_name);					\
+    asm_fprintf (FILE, "%U%s:\n", orig_name);				\
   } while (0)
 
 /* A C compound statement that outputs the assembler code for a thunk function,
@@ -659,14 +659,17 @@ extern int rs6000_pic_labelno;
 
 #define DBX_REGISTER_NUMBER(REGNO) (REGNO)
 
-/* dbxelf.h uses this, so we need to have it defined.  */
+/* The USER_LABEL_PREFIX stuff is affected by the -fleading-underscore
+   flag.  The LOCAL_LABEL_PREFIX variable is used by dbxelf.h.  */
+
 #define LOCAL_LABEL_PREFIX "."
+#define USER_LABEL_PREFIX ""
 
 /* svr4.h overrides ASM_OUTPUT_INTERNAL_LABEL.  */
 
 #undef ASM_OUTPUT_INTERNAL_LABEL_PREFIX
 #define ASM_OUTPUT_INTERNAL_LABEL_PREFIX(FILE,PREFIX)	\
-  fprintf (FILE, ".%s", PREFIX)
+  asm_fprintf (FILE, "%L%s", PREFIX)
 
 /* This is how to allocate empty space in some section.  Use .space
    instead of .zero because the Solaris PowerPC assembler doesn't
@@ -865,7 +868,7 @@ do {									\
   const char *_name = NAME;						\
   while (*_name == '*' || *_name == '@')				\
     _name++;								\
-  fputs (_name, FILE);							\
+  asm_fprintf (FILE, "%U%s", _name);					\
 } while (0)
 
 /*
@@ -1091,7 +1094,9 @@ do {									\
 /* Override the default target of the linker.  */
 #define	LINK_TARGET_SPEC "\
 %{mlittle: -oformat elf32-powerpcle } %{mlittle-endian: -oformat elf32-powerpcle } \
-%{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: %{mcall-solaris: -oformat elf32-powerpcle}}}}}"
+%{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: \
+    %{mcall-solaris: -oformat elf32-powerpcle} \
+  }}}}"
 
 /* Any specific OS flags */
 #define LINK_OS_SPEC "\
@@ -1112,7 +1117,19 @@ do {									\
 %{mcall-sysv: -D_CALL_SYSV} \
 %{mcall-aix: -D_CALL_AIX} %{mcall-aixdesc: -D_CALL_AIX -D_CALL_AIXDESC} \
 %{!mcall-sysv: %{!mcall-aix: %{!mcall-aixdesc: %(cpp_sysv_default) }}} \
-%{msoft-float: -D_SOFT_FLOAT} %{mcpu=403: -D_SOFT_FLOAT}"
+%{msoft-float: -D_SOFT_FLOAT} \
+%{!msoft-float: %{!mhard-float: \
+    %{mcpu=401: -D_SOFT_FLOAT} \
+    %{mcpu=403: -D_SOFT_FLOAT} \
+    %{mcpu=ec603e: -D_SOFT_FLOAT} \
+    %{mcpu=801: -D_SOFT_FLOAT} \
+    %{mcpu=821: -D_SOFT_FLOAT} \
+    %{mcpu=823: -D_SOFT_FLOAT} \
+    %{mcpu=860: -D_SOFT_FLOAT} \
+    %{!mcpu*: %(cpp_float_default) }}}"
+
+/* Whether floating point is disabled by default */
+#define	CPP_FLOAT_DEFAULT_SPEC ""
 
 #define	CPP_SYSV_DEFAULT_SPEC "-D_CALL_SYSV"
 
@@ -1420,6 +1437,7 @@ do {									\
   { "cpp_endian_big",		CPP_ENDIAN_BIG_SPEC },			\
   { "cpp_endian_little",	CPP_ENDIAN_LITTLE_SPEC },		\
   { "cpp_endian_solaris",	CPP_ENDIAN_SOLARIS_SPEC },		\
+  { "cpp_float_default",	CPP_FLOAT_DEFAULT_SPEC },		\
   { "cpp_os_ads",		CPP_OS_ADS_SPEC },			\
   { "cpp_os_yellowknife",	CPP_OS_YELLOWKNIFE_SPEC },		\
   { "cpp_os_mvme",		CPP_OS_MVME_SPEC },			\

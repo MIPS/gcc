@@ -2932,12 +2932,19 @@ ccr_bit (op, scc_p)
   enum machine_mode cc_mode;
   int cc_regnum;
   int base_bit;
+  rtx reg;
 
   if (GET_RTX_CLASS (code) != '<')
     return -1;
 
-  cc_mode = GET_MODE (XEXP (op, 0));
-  cc_regnum = REGNO (XEXP (op, 0));
+  reg = XEXP (op, 0);
+
+  if (GET_CODE (reg) != REG
+      || ! CR_REGNO_P (REGNO (reg)))
+    abort ();
+
+  cc_mode = GET_MODE (reg);
+  cc_regnum = REGNO (reg);
   base_bit = 4 * (cc_regnum - 68);
 
   /* In CCEQmode cases we have made sure that the result is always in the

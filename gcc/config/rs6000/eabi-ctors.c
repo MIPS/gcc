@@ -40,11 +40,11 @@ Boston, MA 02111-1307, USA.  */
 /* Declare the set of symbols use as begin and end markers for the lists
    of global object constructors and global object destructors.  */
 
-extern func_ptr __CTOR_LIST__[];
-extern func_ptr __CTOR_END__ [];
-extern func_ptr __DTOR_LIST__[];
-extern func_ptr __DTOR_END__ [];
-extern unsigned char __EH_FRAME_BEGIN__[];
+extern func_ptr __CTOR_LIST__[] asm ("__CTOR_LIST__");
+extern func_ptr __CTOR_END__ [] asm ("__CTOR_END__");
+extern func_ptr __DTOR_LIST__[] asm ("__DTOR_LIST__");
+extern func_ptr __DTOR_END__ [] asm ("__DTOR_END__");
+extern unsigned char __EH_FRAME_BEGIN__[] asm ("__EH_FRAME_BEGIN__");
 
 extern void __do_global_ctors (void);
 
