@@ -904,8 +904,11 @@ execute_strength_reductions (struct loops *loops, struct ivopt_actions *actions)
   struct repl *repl, *rnext;
   struct fval_repl *frepl, *fnext;
 
+  /* Ensure that the position to that we want to be placed is not removed.  */
   for (reds = actions->ivs; reds; reds = reds->next)
-    create_biv (loops, reds);
+    if (reds->increment_after)
+      reds->increment_after =
+	      emit_note_after (NOTE_INSN_DELETED, reds->increment_after);
 
   for (repl = actions->replacements; repl; repl = rnext)
     {
@@ -917,6 +920,7 @@ execute_strength_reductions (struct loops *loops, struct ivopt_actions *actions)
 
   for (reds = actions->ivs; reds; reds = next)
     {
+      create_biv (loops, reds);
       next = reds->next;
       free (reds);
     }
@@ -2226,6 +2230,14 @@ create_biv (struct loops *loops, struct str_red *red)
   if (!after)
     abort ();
   emit_insn_after (seq, after);
+
+  if (red->increment_after)
+    {
+      if (GET_CODE (red->increment_after) != NOTE
+	  || NOTE_LINE_NUMBER (red->increment_after) != NOTE_INSN_DELETED)
+	abort ();
+      delete_insn (red->increment_after);
+    }
 
   /* Prepare the initial value.  */
   start_sequence ();

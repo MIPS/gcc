@@ -766,7 +766,8 @@ simplify_alg_expr_one_level (EXPR expr, EXPR_TYPE inner_mode)
 	{
 	  if (CONST_INT_VALUE (ARG (expr, 0)) == 0)
 	    return CONST_INT_EXPR (0);
-	  else if (CONST_INT_VALUE (ARG (expr, 0)) == ALL_ONES_VALUE (mode))
+	  if (!(ALL_ONES_VALUE (mode)
+		& ~(unsigned HOST_WIDE_INT) CONST_INT_VALUE (ARG (expr, 0))))
 	    return ARG (expr, 1);
 	}
       break;
