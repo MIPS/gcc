@@ -38,6 +38,11 @@
 
 2003-10-22  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (thread_unconditional_jumps): New function.
+	(tree_block_forwards_to): Likewise.
+	(cleanup_tree_cfg): Call thread_unconditional_jumps.
+	* tree-flow.h (bb_ann_t): Add forwardable status bit.
+
 	* tree-dump.c (dump_files): Add entry for TDI_none.
 	(dump_begin): Do nothing for TDI_none.
 	(dump_enable_all, dump_switch_p): Start our scan at TDI_none + 1.

@@ -312,6 +312,10 @@ struct bb_ann_d
 
   /* Set of blocks immediately dominated by this node.  */
   bitmap dom_children;
+
+  /* Nonzero if this block is forwardable during cfg cleanups.  This is also
+     used to detect loops during cfg cleanups.  */
+  unsigned forwardable: 1;
 };
 
 typedef struct bb_ann_d *bb_ann_t;

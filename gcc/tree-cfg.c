@@ -137,6 +137,8 @@ static void remove_stmt (tree *, bool);
 static bool blocks_unreachable_p (bitmap);
 static void remove_blocks (bitmap);
 static void cleanup_control_flow (void);
+static void thread_unconditional_jumps (void);
+static basic_block tree_block_forwards_to (basic_block bb);
 static bool disconnect_unreachable_case_labels (basic_block, tree);
 static edge find_taken_edge_cond_expr (basic_block, tree);
 static edge find_taken_edge_switch_expr (basic_block, tree);
@@ -1228,6 +1230,7 @@ cleanup_tree_cfg (void)
   timevar_push (TV_TREE_CLEANUP_CFG);
   pdom_info = NULL;
 
+  thread_unconditional_jumps ();
   cleanup_control_flow ();
   remove_unreachable_blocks ();
   linearize_control_structures ();
@@ -2137,6 +2140,156 @@ remove_stmt (tree *stmt_p, bool remove_annotations)
     bb->end_tree_p = stmt_p;
 }
 
+/* Examine BB to determine if it is a forwarding block (a block which only
+   transfers control to a new destination).  If BB is a forwarding block,
+   then return the ultimate destination.  */
+
+static basic_block
+tree_block_forwards_to (basic_block bb)
+{
+  block_stmt_iterator bsi;
+  bb_ann_t ann = bb_ann (bb);
+
+  /* If this block is not forwardable, then avoid useless work.  */
+  if (! ann->forwardable)
+    return NULL;
+
+  /* Set this block to not be forwardable.  This prevents infinite loops since
+     any block currently under examination is considered non-forwardable.  */
+  ann->forwardable = 0;
+
+  /* No forwarding is possible if this block is a special block (ENTRY/EXIT),
+     this block has more than one successor, this block's single successor is
+     reached via an abnormal edge, this block has phi nodes, or this block's
+     single successor has phi nodes.  */
+  if (bb == EXIT_BLOCK_PTR
+      || bb == ENTRY_BLOCK_PTR
+      || !bb->succ
+      || bb->succ->succ_next
+      || bb->succ->dest == EXIT_BLOCK_PTR
+      || (bb->succ->flags & EDGE_ABNORMAL) != 0
+      || phi_nodes (bb)
+      || phi_nodes (bb->succ->dest))
+    return NULL;
+
+  /* Walk past any labels or empty statements at the start of this block.  */
+  bsi = bsi_start (bb);
+  while (! bsi_end_p (bsi)
+	 && (IS_EMPTY_STMT (bsi_stmt (bsi))
+	     || TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR))
+    bsi_next (&bsi);
+
+  /* If we reached the end of this block, or hit a GOTO_EXPR to an known
+     location, then we may be able to optimize this case.  */
+  if (bsi_end_p (bsi)
+      || (bsi_stmt (bsi)
+	  && TREE_CODE (bsi_stmt (bsi)) == GOTO_EXPR
+	  && TREE_CODE (GOTO_DESTINATION (bsi_stmt (bsi))) == LABEL_DECL))
+    {
+      basic_block dest;
+
+      /* Recursive call to pick up chains of forwarding blocks.  */
+      dest = tree_block_forwards_to (bb->succ->dest);
+      if (dest)
+	{
+	  ann->forwardable = 1;
+	  return dest;
+	}
+
+      /* If we hit the end of the block, then we may need to insert a label
+	 at this block's destination.  */
+      if (bsi_end_p (bsi))
+	{
+	  tree stmt;
+
+	  bsi = bsi_start (bb->succ->dest);
+
+	  /* It's not clear if we can safely insert the label in this case.  */
+          if (bsi_end_p (bsi))
+	    return NULL;
+
+	  /* This really should not be necessary, but inserting a goto label
+	     before a case label can cause bogus error messages.  */
+	  stmt = bsi_stmt (bsi);
+	  if (TREE_CODE (stmt) == CASE_LABEL_EXPR)
+	    return NULL;
+
+	  /* If our new destination does not start with a label,
+	     then add one.  */
+	  if (TREE_CODE (stmt) != LABEL_EXPR)
+	    {
+	      /* DEST does not start with a label, add one.  */
+	      stmt = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+	      DECL_CONTEXT (stmt) = current_function_decl;
+	      stmt = build1 (LABEL_EXPR, void_type_node, stmt);
+	      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+	    }
+	}
+
+      /* This block forwards to bb->succ->dest.  */
+      ann->forwardable = 1;
+      return bb->succ->dest;
+    }
+
+  /* No forwarding possible.  */
+  return NULL;
+}
+
+/* Try to thread any unconditional jumps through any forwarder blocks
+   (blocks which do nothing except jump somewhere else) to an ultimate
+   destination.  */
+
+static void
+thread_unconditional_jumps (void)
+{
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    bb_ann (bb)->forwardable = 1;
+
+  FOR_EACH_BB (bb)
+    {
+      /* Find blocks with a single successor which is not reached via an
+	 abnormal edge.  */
+      if (bb->succ
+	  && bb->succ->succ_next == NULL
+	  && (bb->succ->flags & EDGE_ABNORMAL) == 0)
+	{
+	  tree last = last_stmt (bb);
+
+	  /* See if our block ends with an unconditional jump.  */
+	  if (last
+	      && TREE_CODE (last) == GOTO_EXPR
+	      && TREE_CODE (GOTO_DESTINATION (last)) == LABEL_DECL)
+	    {
+	      basic_block dest;
+
+	      /* See if the target of our jump is a forwarding block.  */
+	      dest = tree_block_forwards_to (bb->succ->dest);
+	      if (dest)
+		{
+		  block_stmt_iterator bsi;
+		  tree label_stmt = NULL;
+
+		  /* Find the label at the start of the final destination.  */
+		  for (bsi = bsi_start (dest);
+		       ! bsi_end_p (bsi);
+		       bsi_next (&bsi))
+		    {
+		      label_stmt = bsi_stmt (bsi);
+
+		      if (TREE_CODE (label_stmt) == LABEL_EXPR)
+			break;
+		    }
+		  
+		  /* Update our GOTO_EXPR and the CFG.  */
+		  GOTO_DESTINATION (last) = LABEL_EXPR_LABEL (label_stmt);
+		  redirect_edge_succ (bb->succ, dest);
+		}
+	    }
+	}
+    }
+}
 
 /* Try to remove superfluous control structures.  */
 
