@@ -107,6 +107,21 @@ static edge find_taken_edge_switch_expr (basic_block, tree);
 static tree find_case_label_for_value (tree, tree);
 static bool phi_alternatives_equal (basic_block, edge, edge);
 
+/* Value from that the numbering of statements inside block starts
+   for purposes of recording local dominance information.  */
+
+#define LDN_BITS (CHAR_BIT * SIZEOF_INT)
+#define LDN_STARTING_VALUE (1u << (LDN_BITS - 2))
+
+/* Amount by that local dominance number is increased at the end of
+   block.  */
+
+#define LDN_FINAL_EXPAND (1u << 10)
+
+/* Amount by that local dominance number is spaced if it needs to be
+   renumbered in the middle of a basic block.  */
+
+#define LDN_MIDDLE_EXPAND (1u << 8)
 
 /*---------------------------------------------------------------------------
 			      Create basic blocks
@@ -319,6 +334,21 @@ clear_blocks_annotations (void)
     bb->tree_annotations = NULL;
 }
 
+/* Set local dominance number for statement STMT to NUM.  */
+
+static void
+set_ldn (tree stmt, unsigned num)
+{
+  stmt_ann (stmt)->local_dom_number = num;
+}
+
+/* Returns local dominance number for statement STMT.  */
+
+static unsigned
+get_ldn (tree stmt)
+{
+  return stmt_ann (stmt)->local_dom_number;
+}
 
 /* Build a flowgraph for the statement_list STMT_LIST.  */
 
@@ -363,6 +393,18 @@ make_blocks (tree stmt_list)
 
       tsi_next (&i);
       first_stmt_of_list = false;
+    }
+
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator bsi;
+      unsigned act = LDN_STARTING_VALUE;
+
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  set_ldn (bsi_stmt (bsi), act);
+	  act += LDN_FINAL_EXPAND;
+	}
     }
 }
 
@@ -1065,7 +1107,6 @@ tree_can_merge_blocks_p (basic_block a, basic_block b)
   return true;
 }
 
-
 /* Merge block B into block A.  */
 
 static void
@@ -1073,6 +1114,8 @@ tree_merge_blocks (basic_block a, basic_block b)
 {
   block_stmt_iterator bsi;
   tree_stmt_iterator last;
+  unsigned ldn = LDN_STARTING_VALUE;
+  tree stmt;
 
   if (dump_file)
     fprintf (dump_file, "Merging blocks %d and %d\n", a->index, b->index);
@@ -1083,7 +1126,13 @@ tree_merge_blocks (basic_block a, basic_block b)
   gcc_assert (EDGE_SUCC (a, 0)->flags & EDGE_FALLTHRU);
   gcc_assert (!last_stmt (a) || !stmt_ends_bb_p (last_stmt (a)));
 
-  /* Remove labels from B and set bb_for_stmt to A for other statements.  */
+  /* Find the maximum local dominance number of A.  */
+  stmt = last_stmt (a);
+  if (stmt)
+    ldn = get_ldn (stmt) + LDN_FINAL_EXPAND;
+
+  /* Remove labels from B, set bb_for_stmt to A and local_dom_number
+     for other statements.  */
   for (bsi = bsi_start (b); !bsi_end_p (bsi);)
     {
       if (TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR)
@@ -1091,6 +1140,8 @@ tree_merge_blocks (basic_block a, basic_block b)
       else
 	{
 	  set_bb_for_stmt (bsi_stmt (bsi), a);
+	  set_ldn (bsi_stmt (bsi), ldn);
+	  ldn += LDN_FINAL_EXPAND;
 	  bsi_next (&bsi);
 	}
     }
@@ -2600,39 +2651,38 @@ last_and_only_stmt (basic_block bb)
 void
 set_bb_for_stmt (tree t, basic_block bb)
 {
+  stmt_ann_t ann;
+
+  gcc_assert (TREE_CODE (t) != STATEMENT_LIST);
+
   if (TREE_CODE (t) == PHI_NODE)
-    PHI_BB (t) = bb;
-  else if (TREE_CODE (t) == STATEMENT_LIST)
     {
-      tree_stmt_iterator i;
-      for (i = tsi_start (t); !tsi_end_p (i); tsi_next (&i))
-	set_bb_for_stmt (tsi_stmt (i), bb);
+      PHI_BB (t) = bb;
+      return;
     }
-  else
+      
+  ann = get_stmt_ann (t);
+  ann->bb = bb;
+
+  /* If the statement is a label, add the label to block-to-labels map
+     so that we can speed up edge creation for GOTO_EXPRs.  */
+  if (TREE_CODE (t) == LABEL_EXPR)
     {
-      stmt_ann_t ann = get_stmt_ann (t);
-      ann->bb = bb;
+      int uid;
 
-      /* If the statement is a label, add the label to block-to-labels map
-	 so that we can speed up edge creation for GOTO_EXPRs.  */
-      if (TREE_CODE (t) == LABEL_EXPR)
+      t = LABEL_EXPR_LABEL (t);
+      uid = LABEL_DECL_UID (t);
+      if (uid == -1)
 	{
-	  int uid;
-
-	  t = LABEL_EXPR_LABEL (t);
-	  uid = LABEL_DECL_UID (t);
-	  if (uid == -1)
-	    {
-	      LABEL_DECL_UID (t) = uid = cfun->last_label_uid++;
-	      if (VARRAY_SIZE (label_to_block_map) <= (unsigned) uid)
-		VARRAY_GROW (label_to_block_map, 3 * uid / 2);
-	    }
-	  else
-	    /* We're moving an existing label.  Make sure that we've
-		removed it from the old block.  */
-	    gcc_assert (!bb || !VARRAY_BB (label_to_block_map, uid));
-	  VARRAY_BB (label_to_block_map, uid) = bb;
+	  LABEL_DECL_UID (t) = uid = cfun->last_label_uid++;
+	  if (VARRAY_SIZE (label_to_block_map) <= (unsigned) uid)
+	    VARRAY_GROW (label_to_block_map, 3 * uid / 2);
 	}
+      else
+	/* We're moving an existing label.  Make sure that we've
+	   removed it from the old block.  */
+	gcc_assert (!bb || !VARRAY_BB (label_to_block_map, uid));
+      VARRAY_BB (label_to_block_map, uid) = bb;
     }
 }
 
@@ -2654,47 +2704,284 @@ stmt_for_bsi (tree stmt)
 static inline void
 update_new_stmt (tree t)
 {
-  if (TREE_CODE (t) == STATEMENT_LIST)
-    {
-      tree_stmt_iterator i;
-      tree stmt;
-      for (i = tsi_start (t); !tsi_end_p (i); tsi_next (&i))
-        {
-	  stmt = tsi_stmt (i);
-	  if (stmt_modified_p (stmt))
-	    get_stmt_operands (stmt);
-	}
-    }
-  else
-    if (stmt_modified_p (t))
-      get_stmt_operands (t);
+  gcc_assert (TREE_CODE (t) != STATEMENT_LIST);
+  if (stmt_modified_p (t))
+    get_stmt_operands (t);
 }
 
-/* Insert statement (or statement list) T before the statement
-   pointed-to by iterator I.  M specifies how to update iterator I
-   after insertion (see enum bsi_iterator_update).  */
+/* Returns direction in that local dominance numbering should be expanded
+   from BSI.  DIST is the distance to that it needs to be expanded.
+   MIN and MAX are the minimal and the maximal number of the statement
+   in the area.  */
+
+static int
+find_ldn_expand (block_stmt_iterator bsi, unsigned *dist,
+		 unsigned *min, unsigned *max)
+{
+  block_stmt_iterator bsip = bsi, bsin = bsi;
+  unsigned valp = LDN_STARTING_VALUE, valn = LDN_STARTING_VALUE;
+  unsigned reqdiff = 2 * LDN_MIDDLE_EXPAND;
+
+  *dist = 0;
+  *min = LDN_STARTING_VALUE;
+  *max = LDN_STARTING_VALUE;
+
+  while (1)
+    {
+      bsi_prev (&bsip);
+      bsi_next (&bsin);
+
+      if (*dist == 0)
+	{
+	  if (!bsi_end_p (bsip))
+	    valp = get_ldn (bsi_stmt (bsip)) + LDN_FINAL_EXPAND;
+
+	  if (!bsi_end_p (bsin))
+	    valn = get_ldn (bsi_stmt (bsin)) - LDN_FINAL_EXPAND;
+	}
+
+      if (bsi_end_p (bsin))
+	{
+	  *min = valp;
+	  return 1;
+	}
+
+      if (bsi_end_p (bsip))
+	{
+	  *max = valn;
+	  return -1;
+	}
+
+      *min = get_ldn (bsi_stmt (bsip));
+      *max = get_ldn (bsi_stmt (bsin));
+
+      if (*dist == 0 && *max > *min + 1)
+	return 0;
+
+      (*dist)++;
+
+      if (*max > *min + reqdiff)
+	return 0;
+
+      reqdiff += 2 * LDN_MIDDLE_EXPAND;
+    }
+}
+
+/* Dumps local dominance numbers in basic block BB to file F.  */
+
+static void
+dump_ldn (FILE *f, basic_block bb)
+{
+  block_stmt_iterator bsi;
+
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    fprintf (f, "%d\n", get_ldn (bsi_stmt (bsi)));
+}
+
+/* Checks that local dominance numbers grow monotonically in basic block BB.
+   Return false if it is the case, true otherwise.  */
+
+static bool
+verify_local_dominance (basic_block bb)
+{
+  unsigned least_local_dom_number = 0;
+  block_stmt_iterator bsi;
+  tree stmt;
+
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    {
+      stmt = bsi_stmt (bsi);
+      if (get_ldn (stmt) < least_local_dom_number)
+	{
+	  error ("Local dominance information corrupted in block %d\n",
+		 bb->index);
+	  dump_ldn (stderr, bb);
+
+	  return true;
+	}
+      least_local_dom_number = get_ldn (stmt) + 1;
+    }
+
+  return false;
+}
+
+/* Set local dominance number for statement pointed to by BSI, and
+   renumber surrounding statements if necessary.  */
+
+static void
+setup_local_dom_number (block_stmt_iterator bsi)
+{
+  unsigned dist, min, max, i, step, act, mid;
+  int dir;
+  block_stmt_iterator absi;
+
+  dir = find_ldn_expand (bsi, &dist, &min, &max);
+
+  if (dir < 0)
+    {
+      /* Expand numbering towards start of the basic block.  */
+      act = max;
+      for (; !bsi_end_p (bsi); bsi_prev (&bsi), act -= LDN_FINAL_EXPAND)
+	set_ldn (bsi_stmt (bsi), act);
+      return;
+    }
+  
+  if (dir > 0)
+    {
+      /* Expand numbering towards end of the basic block.  */
+      act = min;
+      for (; !bsi_end_p (bsi); bsi_next (&bsi), act += LDN_FINAL_EXPAND)
+	set_ldn (bsi_stmt (bsi), act);
+      return;
+    }
+
+  mid = (min + max) / 2;
+  set_ldn (bsi_stmt (bsi), mid);
+
+  if (dist == 0)
+    return;
+
+  /* We need to renumber area around bsi.  */
+  step = (mid - min) / dist;
+  absi = bsi;
+  act = mid;
+  for (i = 0; i < dist; i++)
+    {
+      bsi_prev (&absi);
+      act -= step;
+      set_ldn (bsi_stmt (absi), act);
+    }
+
+  step = (max - mid) / dist;
+  absi = bsi;
+  act = mid;
+  for (i = 0; i < dist; i++)
+    {
+      bsi_next (&absi);
+      act += step;
+      set_ldn (bsi_stmt (absi), act);
+    }
+}
+
+/* Insert single statement T before the statement pointed-to by iterator I.
+   Iterator is always moved to the new statement.  */
+
+static void
+bsi_insert_before_1 (block_stmt_iterator *i, tree t)
+{
+  set_bb_for_stmt (t, i->bb);
+  update_new_stmt (t);
+  tsi_link_before (&i->tsi, t, TSI_NEW_STMT);
+  setup_local_dom_number (*i);
+}
+
+/* Insert statement (or list of statements) T before the statement pointed-to
+   by iterator I.  M specifies how to update iterator I after insertion (see
+   enum bsi_iterator_update).  */
 
 void
 bsi_insert_before (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
-  set_bb_for_stmt (t, i->bb);
-  update_new_stmt (t);
-  tsi_link_before (&i->tsi, t, m);
+  tree_stmt_iterator tsi;
+  unsigned n;
+
+  if (TREE_CODE (t) != STATEMENT_LIST)
+    {
+      bsi_insert_before_1 (i, t);
+
+      if (m == BSI_SAME_STMT)
+	bsi_next (i);
+
+      return;
+    }
+
+  for (tsi = tsi_last (t), n = 0; !tsi_end_p (tsi); tsi_prev (&tsi), n++)
+    bsi_insert_before_1 (i, tsi_stmt (tsi));
+
+  gcc_assert (n != 0);
+
+  switch (m)
+    {
+    case BSI_SAME_STMT:
+      break;
+
+    case BSI_CHAIN_END:
+      n--;
+      break;
+
+    case BSI_CHAIN_START:
+    case BSI_CONTINUE_LINKING:
+      n = 0;
+      break;
+
+    case BSI_NEW_STMT:
+    default:
+      gcc_unreachable ();
+    }
+
+  while (n--)
+    bsi_next (i);
 }
 
+/* Insert single statement T after the statement pointed-to by iterator I.
+   Iterator is always moved to the new statement.  */
 
-/* Insert statement (or statement list) T after the statement
-   pointed-to by iterator I.  M specifies how to update iterator I
-   after insertion (see enum bsi_iterator_update).  */
+static void
+bsi_insert_after_1 (block_stmt_iterator *i, tree t)
+{
+  set_bb_for_stmt (t, i->bb);
+  update_new_stmt (t);
+  tsi_link_after (&i->tsi, t, TSI_NEW_STMT);
+  setup_local_dom_number (*i);
+}
+
+/* Insert statement (or list of statements) T after the statement pointed-to
+   by iterator I.  M specifies how to update iterator I after insertion (see
+   enum bsi_iterator_update).  */
 
 void
 bsi_insert_after (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
-  set_bb_for_stmt (t, i->bb);
-  update_new_stmt (t);
-  tsi_link_after (&i->tsi, t, m);
-}
+  tree_stmt_iterator tsi;
+  unsigned n;
 
+  if (TREE_CODE (t) != STATEMENT_LIST)
+    {
+      bsi_insert_after_1 (i, t);
+
+      if (m == BSI_SAME_STMT)
+	bsi_prev (i);
+
+      return;
+    }
+
+  for (tsi = tsi_start (t), n = 0; !tsi_end_p (tsi); tsi_next (&tsi), n++)
+    bsi_insert_after_1 (i, tsi_stmt (tsi));
+
+  gcc_assert (n != 0);
+
+  switch (m)
+    {
+    case BSI_SAME_STMT:
+      break;
+
+    case BSI_CHAIN_START:
+      n--;
+      break;
+
+    case BSI_CHAIN_END:
+    case BSI_CONTINUE_LINKING:
+      n = 0;
+      break;
+
+    case BSI_NEW_STMT:
+    default:
+      gcc_unreachable ();
+    }
+
+  while (n--)
+    bsi_prev (i);
+}
 
 /* Remove the statement pointed to by iterator I.  The iterator is updated
    to the next statement.  */
@@ -2771,6 +3058,7 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool preserve_eh_info)
 
   *bsi_stmt_ptr (*bsi) = stmt;
   update_new_stmt (stmt);
+  set_ldn (stmt, get_ldn (orig_stmt));
 }
 
 
@@ -2909,9 +3197,9 @@ bsi_commit_edge_inserts_1 (edge e)
       PENDING_STMT (e) = NULL_TREE;
 
       if (tree_find_edge_insert_loc (e, &bsi, NULL))
-	bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
+	bsi_insert_after (&bsi, stmt, BSI_CONTINUE_LINKING);
       else
-	bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+	bsi_insert_before (&bsi, stmt, BSI_CONTINUE_LINKING);
     }
 }
 
@@ -2937,9 +3225,9 @@ bsi_insert_on_edge_immediate (edge e, tree stmt)
   gcc_assert (!PENDING_STMT (e));
 
   if (tree_find_edge_insert_loc (e, &bsi, &new_bb))
-    bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
+    bsi_insert_after (&bsi, stmt, BSI_CONTINUE_LINKING);
   else
-    bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+    bsi_insert_before (&bsi, stmt, BSI_CONTINUE_LINKING);
 
   return new_bb;
 }
@@ -3418,6 +3706,10 @@ tree_verify_flow_info (void)
     {
       bool found_ctrl_stmt = false;
 
+      /* Verify that local dominance info numbers grow monotonically.  */
+      if (verify_local_dominance (bb))
+	err = 1;
+      
       /* Skip labels on the start of basic block.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
@@ -5295,6 +5587,33 @@ extract_true_false_edges_from_block (basic_block b,
       *false_edge = e;
       *true_edge = EDGE_SUCC (b, 1);
     }
+}
+
+/* Returns true if STMT2 dominates STMT1.  */
+
+bool
+stmt_dominated_by_p (tree stmt1, tree stmt2)
+{
+  basic_block bb1 = bb_for_stmt (stmt1);
+  basic_block bb2 = bb_for_stmt (stmt2);
+
+  if (!dominated_by_p (CDI_DOMINATORS, bb1, bb2))
+    return false;
+
+  if (bb1 != bb2)
+    return true;
+
+  /* This is a bit doubtful, since it is not quite clear what exactly should
+     this mean -- does the caller ask for the definition in phi node or one of
+     the uses?  We assume the former (which is a bit weird), since we do not
+     have information for the later.  */
+  if (TREE_CODE (stmt1) == PHI_NODE)
+    return false;
+
+  if (TREE_CODE (stmt2) == PHI_NODE)
+    return true;
+
+  return get_ldn (stmt2) <= get_ldn (stmt1);
 }
 
 struct tree_opt_pass pass_warn_function_return =

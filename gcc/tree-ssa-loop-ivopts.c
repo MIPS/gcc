@@ -531,25 +531,8 @@ stmt_after_ip_normal_pos (struct loop *loop, tree stmt)
 static bool
 stmt_after_ip_original_pos (struct iv_cand *cand, tree stmt)
 {
-  basic_block cand_bb = bb_for_stmt (cand->incremented_at);
-  basic_block stmt_bb = bb_for_stmt (stmt);
-  block_stmt_iterator bsi;
-
-  if (!dominated_by_p (CDI_DOMINATORS, stmt_bb, cand_bb))
-    return false;
-
-  if (stmt_bb != cand_bb)
-    return true;
-
-  /* Scan the block from the end, since the original ivs are usually
-     incremented at the end of the loop body.  */
-  for (bsi = bsi_last (stmt_bb); ; bsi_prev (&bsi))
-    {
-      if (bsi_stmt (bsi) == cand->incremented_at)
-	return false;
-      if (bsi_stmt (bsi) == stmt)
-	return true;
-    }
+  return (stmt != cand->incremented_at
+	  && stmt_dominated_by_p (stmt, cand->incremented_at));
 }
 
 /* Returns true if STMT if after the place where the induction variable

@@ -267,6 +267,10 @@ struct stmt_ann_d GTY(())
   /* Set of variables that have had their address taken in the statement.  */
   bitmap addresses_taken;
 
+  /* Used to decide whether a statement dominates another one locally inside
+     a basic block.  */
+  unsigned local_dom_number;
+  
   /* Unique identifier for this statement.  These ID's are to be created
      by each pass on an as-needed basis in any order convenient for the
      pass which needs statement UIDs.  */
@@ -491,6 +495,7 @@ extern tree gimplify_build2 (block_stmt_iterator *, enum tree_code,
 			     tree, tree, tree);
 extern tree gimplify_build3 (block_stmt_iterator *, enum tree_code,
 			     tree, tree, tree, tree);
+bool stmt_dominated_by_p (tree, tree);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);

@@ -1,3 +1,24 @@
+2004-10-19  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* tree-cfg.c (LDN_BITS, LDN_STARTING_VALUE, LDN_FINAL_EXPAND,
+	LDN_MIDDLE_EXPAND): New constants.
+	(set_ldn, get_ldn):
+	(make_blocks): Set local dominance number for statements.
+	(tree_merge_blocks, bsi_replace): Update local dominance numbers.
+	(set_bb_for_stmt, update_new_stmt): Work only for single statements.
+	(bsi_insert_before_1, bsi_insert_after_1): New functions.
+	(bsi_insert_before, bsi_insert_after): Add statements one by one.
+	(find_ldn_expand, dump_ldn, verify_local_dominance,
+	setup_local_dom_number): New functions.
+	(bsi_commit_edge_inserts_1, bsi_insert_on_edge_immediate):
+	Pass BSI_CONTINUE_LINKING to bsi_insert_*.
+	(tree_verify_flow_info): Call verify_local_dominance.
+	(stmt_dominated_by_p): New function.
+	* tree-flow.h (struct stmt_ann_d): Add local_dom_number field.
+	(stmt_dominated_by_p): Declare.
+	* tree-ssa-loop-ivopts.c (stmt_after_ip_original_pos): Use
+	stmt_dominated_by_p.
+
 2004-10-16  Zdenek Dvorak  <dvorakz@suse.cz>
 	    Andrew MacLeod  <amacleod@redhat.com>
 
