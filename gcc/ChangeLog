@@ -134,6 +134,22 @@
 	traverse all the uses of each variable and warn if the use is
 	reached by the ghost definition.
 
+2001-10-10  Graham Stott  <grahams@redhat.com>
+
+	* tree-cfg.c (create_bb): Add new binding_scope parameter which allows
+	the binding scope either to be explicitly specified if non-zero.
+	(make_blocks): Update call to create_bb.
+	(make_for_stmt_blocks): Ditto.
+	(make_while_stmt_blocks): Ditto.
+	(make_do_stmt_blocks): Ditto.
+	(make_if_stmt_blocks): Ditto.
+	(make_switch_stmt_blocks): Ditto.
+	(create_maximal_bb): Ditto.
+	(make_edges): If a statement expression is in the last basic
+        block create an edge to EXIT_BLOCK_PTR and not the next block.
+	(insert_before_normal_stmt): Pass the appropriate binding scope to
+	create_bb.
+
 2001-10-01  Graham Stott  <grahams@redhat.com>
             Diego Novillo  <dnovillo@redhat.com>
 

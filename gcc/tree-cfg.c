@@ -56,7 +56,8 @@ static void make_if_stmt_blocks PARAMS ((tree, basic_block, tree, tree *));
 static void make_while_stmt_blocks PARAMS ((tree, basic_block, tree, tree *));
 static void make_switch_stmt_blocks PARAMS ((tree, basic_block, tree, tree *));
 static void make_do_stmt_blocks PARAMS ((tree, basic_block, tree, tree *));
-static basic_block create_bb PARAMS ((tree, tree, basic_block, tree *));
+static basic_block create_bb PARAMS ((tree, tree, basic_block, tree *,
+                                      basic_block));
 static basic_block create_maximal_bb PARAMS ((tree, basic_block, tree, tree *));
 static void map_stmt_to_bb PARAMS ((tree, basic_block));
 static void delete_unreachable_blocks PARAMS ((void));
@@ -206,7 +207,8 @@ make_blocks (t, control_parent, compound_stmt, prev_chain_p)
 	  if (is_statement_expression (t))
 	    {
 	      tree expr = TREE_OPERAND (t, 0);
-	      basic_block bb = create_bb (t, t, control_parent, prev_chain_p);
+	      basic_block bb = create_bb (t, t, control_parent, prev_chain_p,
+		                          NULL);
 	      make_blocks (STMT_EXPR_STMT (expr), bb, t,
 			   &(STMT_EXPR_STMT (expr)));
 	    }
@@ -262,7 +264,7 @@ make_for_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
   cond = (FOR_COND (t)) ? FOR_COND (t) : build_int_2 (1, 0);
   expr = (FOR_EXPR (t)) ? FOR_EXPR (t) : build_int_2 (1, 0);
 
-  entry = create_bb (t, t, control_parent, prev_chain_p);
+  entry = create_bb (t, t, control_parent, prev_chain_p, NULL);
   entry->flags |= BB_CONTROL_ENTRY;
 
   bb = create_maximal_bb (FOR_INIT_STMT (t), entry, compound_stmt,
@@ -296,7 +298,7 @@ make_while_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
 {
   basic_block bb, entry;
   
-  entry = create_bb (t, t, control_parent, prev_chain_p);
+  entry = create_bb (t, t, control_parent, prev_chain_p, NULL);
   entry->flags |= BB_CONTROL_ENTRY | BB_CONTROL_EXPR;
   
   make_blocks (WHILE_BODY (t), entry, compound_stmt, &(WHILE_BODY (t)));
@@ -323,7 +325,7 @@ make_do_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
 {
   basic_block bb, entry;
   
-  entry = create_bb (t, t, control_parent, prev_chain_p);
+  entry = create_bb (t, t, control_parent, prev_chain_p, NULL);
   entry->flags |= BB_CONTROL_ENTRY;
 
   make_blocks (DO_BODY (t), entry, compound_stmt, &(DO_BODY (t)));
@@ -346,7 +348,7 @@ make_if_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
      tree compound_stmt;
      tree *prev_chain_p;
 {
-  basic_block bb = create_bb (t, t, control_parent, prev_chain_p);
+  basic_block bb = create_bb (t, t, control_parent, prev_chain_p, NULL);
   bb->flags |= BB_CONTROL_ENTRY | BB_CONTROL_EXPR;
 
   make_blocks (THEN_CLAUSE (t), bb, compound_stmt, &(THEN_CLAUSE (t)));
@@ -366,7 +368,7 @@ make_switch_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
      tree compound_stmt;
      tree *prev_chain_p;
 {
-  basic_block bb = create_bb (t, t, control_parent, prev_chain_p);
+  basic_block bb = create_bb (t, t, control_parent, prev_chain_p, NULL);
   bb->flags |= BB_CONTROL_ENTRY | BB_CONTROL_EXPR;
 
   make_blocks (SWITCH_BODY (t), bb, compound_stmt, &(SWITCH_BODY (t)));
@@ -410,7 +412,7 @@ create_maximal_bb (t, control_parent, compound_stmt, prev_chain_p)
     return NULL;
 
   first = last = t;
-  bb = create_bb (first, last, control_parent, prev_chain_p);
+  bb = create_bb (first, last, control_parent, prev_chain_p, NULL);
 
   while (last && last != error_mark_node)
     {
@@ -443,14 +445,18 @@ create_maximal_bb (t, control_parent, compound_stmt, prev_chain_p)
 
    PREV_CHAIN_P is the address into the tree preceeding T that contains a
       pointer to T.  This is used when we need to insert statements before
-      the first tree of the block.  */
+      the first tree of the block.
+
+   BINDING_SCOPE is the binding scope enclosing the block.  If NULL, the
+      binding scope is the top element of the array binding_stack.  */
 
 static basic_block
-create_bb (head, end, control_parent, prev_chain_p)
+create_bb (head, end, control_parent, prev_chain_p, binding_scope)
      tree head;
      tree end;
      basic_block control_parent;
      tree *prev_chain_p;
+     basic_block binding_scope;
 {
   basic_block bb;
 
@@ -459,7 +465,8 @@ create_bb (head, end, control_parent, prev_chain_p)
   memset (bb, 0, sizeof (*bb));
 
   /* If this block starts a new scope, push it into the stack of bindings.  */
-  if (TREE_CODE (head) == SCOPE_STMT && SCOPE_BEGIN_P (head))
+  if (binding_scope == NULL
+      && TREE_CODE (head) == SCOPE_STMT && SCOPE_BEGIN_P (head))
     VARRAY_PUSH_BB (binding_stack, bb);
 
   bb->head_tree = head;
@@ -470,7 +477,9 @@ create_bb (head, end, control_parent, prev_chain_p)
   create_bb_ann (bb);
   BB_PARENT (bb) = control_parent;
   BB_PREV_CHAIN_P (bb) = prev_chain_p;
-  BB_BINDING_SCOPE (bb) = VARRAY_TOP_BB (binding_stack);
+  BB_BINDING_SCOPE (bb) = (binding_scope)
+                          ? binding_scope
+			  : VARRAY_TOP_BB (binding_stack);
 
   if (is_loop_stmt (head))
     {
@@ -630,7 +639,13 @@ make_edges ()
 
       /* Edges for statement expressions.  */
       if (is_statement_expression (bb->head_tree))
-	make_edge (bb, BASIC_BLOCK (i + 1), 0);
+	{
+	  basic_block dest = (i + 1 == n_basic_blocks)
+	                     ? EXIT_BLOCK_PTR
+			     : BASIC_BLOCK (i + 1);
+
+	  make_edge (bb, dest, 0);
+	}
 
       /* Edges for control flow altering statements (goto, break,
          continue, return) need an edge to the corresponding target
@@ -1957,7 +1972,8 @@ insert_before_normal_stmt (stmt, where, bb)
       TREE_CHAIN (stmt) = where;
       if (is_ctrl_stmt (where))
 	{
-	  new_bb = create_bb (stmt, stmt, BB_PARENT (bb), prev_chain_p);
+	  new_bb = create_bb (stmt, stmt, BB_PARENT (bb), prev_chain_p,
+	                      BB_BINDING_SCOPE (bb));
 	  insert_bb_before (new_bb, bb);
 	}
       else
