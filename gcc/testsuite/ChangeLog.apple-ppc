@@ -1,3 +1,8 @@
+2005-03-08  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/vect/vect-none.c: One test that uses condition
+	is now vectorized.
+
 2005-03-03  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3897244
