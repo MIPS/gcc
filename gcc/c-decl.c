@@ -3096,7 +3096,7 @@ finish_decl (decl, init, asmspec_tree)
       if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
 	{
 	  tree builtin = built_in_decls [DECL_FUNCTION_CODE (decl)];
-	  tree *libfunc = NULL;
+	  rtx *libfunc = NULL;
 	  SET_DECL_RTL (builtin, NULL_RTX);
 	  SET_DECL_ASSEMBLER_NAME (builtin, get_identifier (asmspec));
 #ifdef TARGET_MEM_FUNCTIONS
