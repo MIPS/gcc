@@ -1696,20 +1696,25 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
    which may be able to propagate further.  */
 
 static tree
-maybe_fold_stmt_plus (tree expr)
+maybe_fold_stmt_addition (tree expr)
 {
   tree op0 = TREE_OPERAND (expr, 0);
   tree op1 = TREE_OPERAND (expr, 1);
   tree ptr_type = TREE_TYPE (expr);
   tree ptd_type;
   tree t;
+  bool subtract = (TREE_CODE (expr) == MINUS_EXPR);
 
   /* We're only interested in pointer arithmetic.  */
   if (!POINTER_TYPE_P (ptr_type))
     return NULL_TREE;
   /* Canonicalize the integral operand to op1.  */
   if (INTEGRAL_TYPE_P (TREE_TYPE (op0)))
-    t = op0, op0 = op1, op1 = t;
+    {
+      if (subtract)
+	return NULL_TREE;
+      t = op0, op0 = op1, op1 = t;
+    }
   /* It had better be a constant.  */
   if (TREE_CODE (op1) != INTEGER_CST)
     return NULL_TREE;
@@ -1742,7 +1747,8 @@ maybe_fold_stmt_plus (tree expr)
 	    {
 	      array_idx = convert (TREE_TYPE (min_idx), array_idx);
 	      if (!integer_zerop (min_idx))
-		array_idx = int_const_binop (MINUS_EXPR, array_idx, min_idx, 0);
+		array_idx = int_const_binop (MINUS_EXPR, array_idx,
+					     min_idx, 0);
 	    }
 	}
 
@@ -1751,8 +1757,30 @@ maybe_fold_stmt_plus (tree expr)
       array_idx = int_const_binop (MULT_EXPR, array_idx, elt_size, 0);
 
       /* Update the operands for the next round, or for folding.  */
-      op1 = int_const_binop (PLUS_EXPR, array_idx, op1, 0);
+      /* If we're manipulating unsigned types, then folding into negative
+	 values can produce incorrect results.  Particularly if the type
+	 is smaller than the width of the pointer.  */
+      if (subtract
+	  && TREE_UNSIGNED (TREE_TYPE (op1))
+	  && tree_int_cst_lt (array_idx, op1))
+	return NULL;
+      op1 = int_const_binop (subtract ? MINUS_EXPR : PLUS_EXPR,
+			     array_idx, op1, 0);
+      subtract = false;
       op0 = array_obj;
+    }
+
+  /* If we weren't able to fold the subtraction into another array reference,
+     canonicalize the integer for passing to the array and component ref
+     simplification functions.  */
+  if (subtract)
+    {
+      if (TREE_UNSIGNED (TREE_TYPE (op1)))
+	return NULL;
+      op1 = fold (build1 (NEGATE_EXPR, TREE_TYPE (op1), op1));
+      /* ??? In theory fold should always produce another integer.  */
+      if (TREE_CODE (op1) != INTEGER_CST)
+	return NULL;
     }
 
   ptd_type = TREE_TYPE (ptr_type);
@@ -1790,10 +1818,10 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 				    integer_zero_node);
       break;
 
-    /* ??? Could handle ARRAY_REF here, as a variant of INDIRECT_REF.
-       We'd only want to bother decomposing an existing ARRAY_REF if
-       the base array is found to have another offset contained within.
-       Otherwise we'd be wasting time.  */
+      /* ??? Could handle ARRAY_REF here, as a variant of INDIRECT_REF.
+	 We'd only want to bother decomposing an existing ARRAY_REF if
+	 the base array is found to have another offset contained within.
+	 Otherwise we'd be wasting time.  */
 
     case ADDR_EXPR:
       t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
@@ -1808,6 +1836,7 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
       return NULL_TREE;
 
     case PLUS_EXPR:
+    case MINUS_EXPR:
       t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
       if (t)
 	return t;
@@ -1816,7 +1845,7 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 	return t;
       *walk_subtrees = 0;
 
-      t = maybe_fold_stmt_plus (expr);
+      t = maybe_fold_stmt_addition (expr);
       break;
 
     case COMPONENT_REF:

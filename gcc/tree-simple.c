@@ -288,9 +288,7 @@ is_gimple_addr_expr_arg (tree t)
 }
 
 /* Return nonzero if T is function invariant.  Or rather a restricted
-   form of function invariant.  This is one of the few predicates that
-   looks deeper than the TREE_CODE; this is necessary because, e.g.,
-   some GIMPLE PLUS_EXPRs are considered invariant and some are not.  */
+   form of function invariant.  */
 
 bool
 is_gimple_min_invariant (tree t)
@@ -299,33 +297,6 @@ is_gimple_min_invariant (tree t)
     {
     case ADDR_EXPR:
       return TREE_INVARIANT (t);
-
-    case PLUS_EXPR:
-    case MINUS_EXPR:
-      {
-	tree op0, op1;
-
-	if (!TREE_INVARIANT (t))
-	  return false;
-	op0 = TREE_OPERAND (t, 0);
-	op1 = TREE_OPERAND (t, 1);
-
-	/* Only accept &var + offset.  */
-	if (TREE_CODE (op0) != ADDR_EXPR)
-	  return false;
-	if (TREE_CODE (op1) != INTEGER_CST)
-	  return false;
-
-	/* The variable we're addressing had better not be scalar.
-	   Allowing a non-zero offset for a scalar means the user
-	   is doing something tricky or stupid, and the later case
-	   can result in constructs that we can't reassemble after
-	   we've already committed to the constant propagation.  */
-	if (is_gimple_reg_type (TREE_TYPE (TREE_OPERAND (op0, 0))))
-	  return false;
-
-	return true;
-      }
 
     case INTEGER_CST:
     case REAL_CST:

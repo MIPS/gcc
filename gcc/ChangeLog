@@ -1,3 +1,10 @@
+2004-04-05  Richard Henderson  <rth@redhat.com>
+
+	* tree-simple.c (is_gimple_min_invariant): Disallow &a+i.
+	* tree-ssa-ccp.c (maybe_fold_stmt_addition): Rename from
+	maybe_fold_stmt_plus.  Handle MINUS_EXPR.
+	(fold_stmt_r): Pass MINUS_EXPR to it.
+
 2004-04-05  Ben Elliston  <bje@au.ibm.com>
 
 	* Makefile.in (OBJS-common): Remove tree-browser.o.
