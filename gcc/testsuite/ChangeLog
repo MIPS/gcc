@@ -1,3 +1,8 @@
+2003-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/string-opt-8.c (main): Remove i370 and s390,
+	it does not have cmpstrsi patterns (just cmpmemsi).
+
 2003-07-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/20030711-1.c: New test.
