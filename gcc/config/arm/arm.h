@@ -274,8 +274,8 @@ extern GTY(()) rtx aof_pic_label;
 %{march=armv5t:-D__ARM_ARCH_5T__} \
 %{march=armv5e:-D__ARM_ARCH_5E__} \
 %{march=armv5te:-D__ARM_ARCH_5TE__} \
-%{march=arm6:-D__ARM_ARCH6__} \
-%{march=arm6j:-D__ARM_ARCH6J__} \
+%{march=armv6:-D__ARM_ARCH6__} \
+%{march=armv6j:-D__ARM_ARCH6J__} \
 %{!march=*: \
  %{mcpu=arm2:-D__ARM_ARCH_2__} \
  %{mcpu=arm250:-D__ARM_ARCH_2__} \
