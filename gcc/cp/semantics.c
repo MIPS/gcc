@@ -1492,9 +1492,10 @@ finish_qualified_object_call_expr (fn, object, args)
 				   TREE_OPERAND (fn, 1), args);
 }
 
-/* Finish a pseudo-destructor call expression of OBJECT, with SCOPE
-   being the scope, if any, of DESTRUCTOR.  Returns an expression for
-   the call.  */
+/* Finish a pseudo-destructor expression.  If SCOPE is NULL, the
+   expression was of the form `OBJECT.~DESTRUCTOR' where DESTRUCTOR is
+   the TYPE for the type given.  If SCOPE is non-NULL, the expression
+   was of the form `OBJECT.SCOPE::~DESTRUCTOR'.  */
 
 tree 
 finish_pseudo_destructor_expr (object, scope, destructor)
@@ -1502,6 +1503,11 @@ finish_pseudo_destructor_expr (object, scope, destructor)
      tree scope;
      tree destructor;
 {
+  if (destructor == error_mark_node)
+    return error_mark_node;
+
+  my_friendly_assert (TYPE_P (destructor), 20010905);
+
   if (!processing_template_decl)
     {
       if (scope == error_mark_node)
@@ -1510,25 +1516,14 @@ finish_pseudo_destructor_expr (object, scope, destructor)
 	  return error_mark_node;
 	}
       
-      if (scope && TYPE_NAME (scope) != destructor)
-	{
-	  cp_error ("destructor specifier `%T::~%T()' must have matching names", 
-		    scope, destructor);
-	  return error_mark_node;
-	}
-      
-      if (!same_type_p (TREE_TYPE (object),
-			TREE_TYPE (destructor)))
+      if (!same_type_p (TREE_TYPE (object), destructor))
 	{
 	  cp_error ("`%E' is not of type `%T'", object, destructor);
 	  return error_mark_node;
 	}
     }
 
-  return build_nt (PSEUDO_DTOR_EXPR, 
-		   object,
-		   scope, 
-		   destructor);
+  return build_nt (PSEUDO_DTOR_EXPR, object, scope, destructor);
 }
 
 /* Finish a call to a globally qualified member function FN using

@@ -1,7 +1,7 @@
 // Build don't link:
 
-struct A {
-  static int i;
+struct A { // ERROR - inaccessible
+  static int i; // ERROR - inaccessible
 };
 
 struct B : private A { };

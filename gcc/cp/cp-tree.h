@@ -481,6 +481,11 @@ struct tree_srcloc
 #define IDENTIFIER_CTOR_OR_DTOR_P(NODE) \
   TREE_LANG_FLAG_3 (NODE)
 
+/* For a destructor name (presented as a BIT_NOT_EXPR), return the
+   type destroyed.  */
+#define DESTRUCTOR_NAME_TYPE(NODE) \
+  TREE_OPERAND (NODE, 0)
+
 /* In a RECORD_TYPE or UNION_TYPE, nonzero if any component is read-only.  */
 #define C_TYPE_FIELDS_READONLY(type) TYPE_LANG_FLAG_0 (type)
 
@@ -3756,6 +3761,7 @@ extern void cplus_decl_attributes		PARAMS ((tree *, tree, tree, int));
 extern tree constructor_name_full		PARAMS ((tree));
 extern tree constructor_name			PARAMS ((tree));
 extern bool constructor_name_p                  PARAMS ((tree, tree));
+extern tree destructor_name                     PARAMS ((tree));
 extern void defer_fn            		PARAMS ((tree));
 extern void finish_anon_union			PARAMS ((tree));
 extern tree finish_table			PARAMS ((tree, tree, tree, int));
@@ -4145,10 +4151,6 @@ extern tree begin_global_stmt_expr              PARAMS ((void));
 extern tree finish_global_stmt_expr             PARAMS ((tree));
 extern tree finish_fname                        PARAMS ((tree));
 
-/* in spew.c */
-extern void add_defarg_fn			PARAMS ((tree));
-extern void unprocessed_defarg_fn               PARAMS ((tree));
-
 /* in tree.c */
 extern void init_tree			        PARAMS ((void));
 extern int pod_type_p				PARAMS ((tree));
@@ -4213,6 +4215,8 @@ extern tree walk_tree_without_duplicates        PARAMS ((tree *,
 extern tree copy_tree_r                         PARAMS ((tree *, int *, void *));
 extern int cp_valid_lang_attribute		PARAMS ((tree, tree, tree, tree));
 extern tree make_ptrmem_cst                     PARAMS ((tree, tree));
+extern tree build_ptrdatamem_cst                PARAMS ((tree));
+extern tree build_ptrfuncmem_cst                PARAMS ((tree));
 extern tree make_baselink                       PARAMS ((tree, tree, tree, tree));
 extern tree cp_build_qualified_type_real        PARAMS ((tree, int, int));
 extern void remap_save_expr                     PARAMS ((tree *, splay_tree, tree, int *));

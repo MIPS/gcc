@@ -215,6 +215,7 @@ static int splay_tree_compare_integer_csts PARAMS ((splay_tree_key k1,
 						    splay_tree_key k2));
 static void warn_about_ambiguous_direct_bases PARAMS ((tree));
 static bool type_requires_array_cookie PARAMS ((tree));
+static void check_destructor_triviality PARAMS ((tree));
 
 /* Macros for dfs walking during vtt construction. See
    dfs_ctor_vtable_bases_queue_p, dfs_build_secondary_vptr_vtt_inits
@@ -1974,16 +1975,12 @@ maybe_warn_about_overly_private_class (t)
   /* Even if some of the member functions are non-private, the class
      won't be useful for much if all the constructors or destructors
      are private: such an object can never be created or destroyed.  */
-  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t))
+  if (TYPE_HAS_DESTRUCTOR (t)
+      && TREE_PRIVATE (CLASSTYPE_DESTRUCTOR (t)))
     {
-      tree dtor = CLASSTYPE_DESTRUCTOR (t);
-
-      if (TREE_PRIVATE (dtor))
-	{
-	  cp_warning ("`%#T' only defines a private destructor and has no friends",
-		      t);
-	  return;
-	}
+      cp_warning ("`%#T' only defines a private destructor and has no friends",
+		  t);
+      return;
     }
 
   if (TYPE_HAS_CONSTRUCTOR (t))
@@ -2931,6 +2928,46 @@ finish_struct_anon (t)
     }
 }
 
+/* T is a class type that has an implicitly defined destructor.  If it
+   is trivial, set TYPE_HAS_NONTRIVIAL_DESTRUCTOR.  */
+
+static void
+check_destructor_triviality (t)
+     tree t;
+{
+  int i;
+  tree f;
+
+  /* [class.dtor]
+	  
+     A destructor is trivial if it is an implicitly declared
+     destructor and if:
+
+     -- all of the direct base classes of its class have trivial
+     destructors and
+
+     -- for all of the non-static data members of its class that
+     are of class type (or array thereof), each such class has a
+     trivial destructor.  */
+
+  if (TYPE_BINFO_BASETYPES (t))
+    for (i = 0; i < TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (t)); ++i)
+      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TYPE_BINFO_BASETYPE (t, i)))
+	{
+	  TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = 1;
+	  return;
+	}
+
+  for (f = TYPE_FIELDS (t); f; f = TREE_CHAIN (f))
+    if (TREE_CODE (f) == FIELD_DECL
+	&& TYPE_HAS_NONTRIVIAL_DESTRUCTOR (strip_array_types
+					   (TREE_TYPE (f))))
+      {
+	TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = 1;
+	return;
+      }
+}
+
 /* Create default constructors, assignment operators, and so forth for
    the type indicated by T, if they are needed.
    CANT_HAVE_DEFAULT_CTOR, CANT_HAVE_CONST_CTOR, and
@@ -2960,6 +2997,9 @@ add_implicitly_declared_members (t, cant_have_default_ctor,
   /* Otherwise, declare one now.  */
   else
     {
+      /* Figure out whether the destructor will be trivial.  */
+      check_destructor_triviality (t);
+
       default_fn = implicitly_declare_fn (sfk_destructor, t, /*const_p=*/0);
       check_for_override (default_fn, t);
 
@@ -6033,8 +6073,10 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
     }
   mark_used (fn);
 
-  if (TYPE_PTRFN_P (target_type) || TYPE_PTRMEMFUNC_P (target_type))
+  if (TYPE_PTRFN_P (target_type))
     return build_unary_op (ADDR_EXPR, fn, 0);
+  else if (TYPE_PTRMEMFUNC_P (target_type))
+    return build_ptrfuncmem_cst (fn);
   else
     {
       /* The target must be a REFERENCE_TYPE.  Above, build_unary_op

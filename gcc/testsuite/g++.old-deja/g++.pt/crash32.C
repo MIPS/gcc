@@ -8,6 +8,6 @@ template <class T> struct A
 
 template<class T> struct C
 {
-  friend typename A<T>::B;
+  friend struct A<T>::B;
 };
 

@@ -685,7 +685,7 @@ maybe_process_partial_specialization (type)
      tree type;
 {
   if ((processing_template_decl || processing_specialization)
-      && IS_AGGR_TYPE (type) 
+      && CLASS_TYPE_P (type)
       && CLASSTYPE_USE_TEMPLATE (type))
     {
       if (CLASSTYPE_IMPLICIT_INSTANTIATION (type)
@@ -6917,9 +6917,9 @@ tsubst_copy (t, args, complain, in_decl)
 	tree name = TREE_OPERAND (t, 0);
 	if (TREE_CODE (name) == BIT_NOT_EXPR)
 	  {
-	    name = tsubst_copy (TREE_OPERAND (name, 0), args,
-				complain, in_decl);
-	    name = build1 (BIT_NOT_EXPR, NULL_TREE, name);
+	    name = tsubst (TREE_OPERAND (name, 0), args,
+			   complain, in_decl);
+	    name = destructor_name (name);
 	  }
 	else if (TREE_CODE (name) == SCOPE_REF
 		 && TREE_CODE (TREE_OPERAND (name, 1)) == BIT_NOT_EXPR)
@@ -6927,9 +6927,9 @@ tsubst_copy (t, args, complain, in_decl)
 	    tree base = tsubst_copy (TREE_OPERAND (name, 0), args,
 				     complain, in_decl);
 	    name = TREE_OPERAND (name, 1);
-	    name = tsubst_copy (TREE_OPERAND (name, 0), args,
-				complain, in_decl);
-	    name = build1 (BIT_NOT_EXPR, NULL_TREE, name);
+	    name = tsubst (TREE_OPERAND (name, 0), args,
+			   complain, in_decl);
+	    name = destructor_name (name);
 	    name = build_nt (SCOPE_REF, base, name);
 	  }
 	else

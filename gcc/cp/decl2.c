@@ -1848,6 +1848,31 @@ constructor_name_p (name, type)
 	  || constructor_name_full (type) == name);
 }
 
+/* Returns a representation for the name of a destructor for an object
+   of the indicated TYPE.  The returns is a BIT_NOT_EXPR whose
+   argument is the TYPE.  (The argument is a TYPE, and not a
+   TYPE_DECL, because there are sometime destructors for types that do
+   not have corresponding TYPE_DECLs.  For example, consider:
+
+     template <typename T> void f(T t) { t.~T(); }
+
+   If `T' is instantiated with `int *', then we need a destructor name
+   for `~int *' but there is no corresponding type declaration.)
+
+   Rather than using a BIT_NOT_EXPR, it would be better to use an
+   IDENTIFIER_NODE with a bit set indicating that it is a destructor,
+   ala IDENTIFIER_TYPENAME_P.  That would make the invariant that all
+   names are IDENTIFIER_NODEs hold.  */
+
+tree
+destructor_name (type)
+     tree type;
+{
+  my_friendly_assert (TYPE_P (type), 20010905);
+
+  return build1 (BIT_NOT_EXPR, NULL_TREE, type);
+}
+
 
 /* Defer the compilation of the FN until the end of compilation.  */
 
@@ -3975,6 +4000,10 @@ build_expr_from_tree (t)
 	tree object = build_expr_from_tree (TREE_OPERAND (t, 0));
 	tree field = TREE_OPERAND (t, 1);
 	
+	if (object == error_mark_node
+	    || field == error_mark_node)
+	  return error_mark_node;
+
 	/* We use a COMPONENT_REF to indicate things of the form `x.b'
 	   and `x.A::b'.  We must distinguish between those cases
 	   here.  */
@@ -3996,14 +4025,20 @@ build_expr_from_tree (t)
 
 	if (TREE_CODE (field) == IDENTIFIER_NODE)
 	  {
-	    /* FIXME: Share code with parser.c here to look up name in
-	       both the context of the object and in the enclosing
-	       context.  */
-	    field = lookup_member (TREE_TYPE (object), field, 
-				   /*protect=*/1, /*want_type=*/0);
+	    tree decl;
+
+	    decl = lookup_member (TREE_TYPE (object), field, 
+				  /*protect=*/1, /*want_type=*/0);
+	    if (!decl)
+	      {
+		cp_error ("`%D' has not been declared", field);
+		return error_mark_node;
+	      }
+
 	    /* Check the accessibility of the member.  If it is an
 	       overloaded function, accessibility will be checked
 	       after overload resolution.  */
+	    field = decl;
 	    if (DECL_P (field))
 	      enforce_access (TREE_TYPE (object), field);
 	  }

@@ -1,15 +1,12 @@
 // Build don't link:
 
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 7 Jan 2001 <nathan@codesourcery.com>
-
-// Bug 1038. Default args on class members can produce circular dependencies.
-// Make sure we spot them, and don't depend on a particular ordering.
 
 struct A
 {
-  static int Foo (int = Baz ());    // WARNING - circular
-  static int Baz (int = Foo ());    // WARNING - circular
+  static int Foo (int = Baz ());
+  static int Baz (int = Foo ());
 };
 
 struct Test

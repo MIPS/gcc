@@ -178,34 +178,11 @@ check_dtor_name (basetype, name)
 {
   tree type;
 
-  type = TREE_OPERAND (name, 0);
+  type = DESTRUCTOR_NAME_TYPE (name);
 
   /* Just accept something we've already complained about.  */
   if (type == error_mark_node)
     return;
-  
-  if (TREE_CODE (type) == TYPE_DECL)
-    type = TREE_TYPE (type);
-  else if (TYPE_P (type))
-    /* OK */;
-  else if (TREE_CODE (type) == IDENTIFIER_NODE)
-    {
-      if ((IS_AGGR_TYPE (basetype) && type == constructor_name (basetype))
-	  || (TREE_CODE (basetype) == ENUMERAL_TYPE
-	      && type == TYPE_IDENTIFIER (basetype)))
-	type = basetype;
-      else
-	type = get_type_value (type);
-    }
-  /* In the case of:
-	      
-       template <class T> struct S { ~S(); };
-       int i;
-       i.~S();
-
-     NAME will be a class template.  */
-  else if (!DECL_CLASS_TEMPLATE_P (type))
-    my_friendly_abort (980605);
 
   if (type && TYPE_MAIN_VARIANT (basetype) == TYPE_MAIN_VARIANT (type))
     return;
@@ -233,19 +210,6 @@ build_scoped_method_call (exp, basetype, name, parms)
   if (type == error_mark_node
       || basetype == error_mark_node)
     return error_mark_node;
-
-  if (processing_template_decl)
-    {
-      if (TREE_CODE (name) == BIT_NOT_EXPR
-	  && TREE_CODE (TREE_OPERAND (name, 0)) == IDENTIFIER_NODE)
-	{
-	  tree type = get_aggr_from_typedef (TREE_OPERAND (name, 0), 0);
-	  if (type)
-	    name = build_min_nt (BIT_NOT_EXPR, type);
-	}
-      name = build_min_nt (SCOPE_REF, basetype, name);
-      return build_min_nt (METHOD_CALL_EXPR, name, exp, parms, NULL_TREE);
-    }
 
   if (TREE_CODE (type) == REFERENCE_TYPE)
     type = TREE_TYPE (type);
@@ -498,24 +462,7 @@ build_method_call (instance, name, parms, basetype_path, flags)
     return error_mark_node;
 
   if (processing_template_decl)
-    {
-      /* We need to process template parm names here so that tsubst catches
-	 them properly.  Other type names can wait.  */
-      if (TREE_CODE (name) == BIT_NOT_EXPR)
-	{
-	  tree type = NULL_TREE;
-
-	  if (TREE_CODE (TREE_OPERAND (name, 0)) == IDENTIFIER_NODE)
-	    type = get_aggr_from_typedef (TREE_OPERAND (name, 0), 0);
-	  else if (TREE_CODE (TREE_OPERAND (name, 0)) == TYPE_DECL)
-	    type = TREE_TYPE (TREE_OPERAND (name, 0));
-
-	  if (type && TREE_CODE (type) == TEMPLATE_TYPE_PARM)
-	    name = build_min_nt (BIT_NOT_EXPR, type);
-	}
-
-      return build_min_nt (METHOD_CALL_EXPR, name, instance, parms, NULL_TREE);
-    }
+    return build_min_nt (METHOD_CALL_EXPR, name, instance, parms, NULL_TREE);
 
   if (is_overloaded_fn (name) 
       && DECL_DESTRUCTOR_P (get_first_fn (name)))
@@ -4026,22 +3973,9 @@ convert_default_arg (type, arg, fn, parmnum)
 {
   if (TREE_CODE (arg) == DEFAULT_ARG)
     {
-      /* When processing the default args for a class, we can find that
-         there is an ordering constraint, and we call a function who's
-         default args have not yet been converted. For instance,
-          class A {
-              A (int = 0);
-              void Foo (A const & = A ());
-          };
-         We must process A::A before A::Foo's default arg can be converted.
-         Remember the dependent function, so do_pending_defargs can retry,
-         and check loops.  */
-      unprocessed_defarg_fn (fn);
-      
-      /* Don't return error_mark node, as we won't be able to distinguish
-         genuine errors from this case, and that would lead to repeated
-         diagnostics.  Just make something of the right type.  */
-      return build1 (NOP_EXPR, type, integer_zero_node);
+      cp_error ("circularity detected in use of default argument for `%D'",
+		fn);
+      return error_mark_node;
     }
 
   if (fn && DECL_TEMPLATE_INFO (fn))

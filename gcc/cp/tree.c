@@ -2336,6 +2336,42 @@ make_ptrmem_cst (type, member)
   return ptrmem_cst;
 }
 
+/* Return a new PTRMEM_CST for a pointer-to-member to the non-static
+   data member given by MEMBER.  */
+
+tree
+build_ptrdatamem_cst (member)
+     tree member;
+{
+  tree type;
+
+  my_friendly_assert (TREE_CODE (member) == FIELD_DECL, 20010905);
+
+  type = build_offset_type (DECL_FIELD_CONTEXT (member), 
+			    TREE_TYPE (member));
+  type = build_pointer_type (type);
+
+  return make_ptrmem_cst (type, member);
+}
+
+/* Return a new PTRMEM_CST for a pointer-to-member to the non-static
+   function member given by MEMBER.  */
+
+tree
+build_ptrfuncmem_cst (member)
+     tree member;
+{
+  tree type;
+
+  my_friendly_assert (DECL_NONSTATIC_MEMBER_FUNCTION_P (member),
+		      20010905);
+
+  type = build_ptrmemfunc_type (build_pointer_type 
+				(TREE_TYPE (member)));
+
+  return make_ptrmem_cst (type, member);
+}
+
 /* Make a BASELINK for the indicated FUNCTIONS, located in SUBOBJECT.
    The NAMING_SUBOBJECT indicates the subobject in which they were
    named.  If the FUNCTIONS indicated type-conversion operators, TYPE

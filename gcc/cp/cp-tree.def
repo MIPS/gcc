@@ -26,7 +26,7 @@ Boston, MA 02111-1307, USA.  */
    was named by a qualified-id.  The first operand is either `*this'
    or a "dummy object".  The type of this operand gives the class that
    was used to qualify the name of the non-static member.  The second
-   operand is declaration (FIELD_DECL or BASELINK) for the member.  */
+   operand is the declaration (FIELD_DECL or BASELINK) for the member.  */
 DEFTREECODE (OFFSET_REF, "offset_ref", 'r', 2)
 
 /* A pointer-to-member constant.  For a pointer-to-member constant

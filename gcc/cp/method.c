@@ -931,7 +931,7 @@ implicitly_declare_fn (kind, type, const_p)
     {
     case sfk_destructor:
       /* Destructor.  */
-      name = build_nt (BIT_NOT_EXPR, constructor_name (type));
+      name = destructor_name (type);
       args = void_list_node;
       raises = synthesize_exception_spec (type, &locate_dtor, 0);
       break;

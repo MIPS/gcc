@@ -2161,6 +2161,15 @@ build_component_ref (datum, component, basetype_path)
 	      mark_used (component);
 	      return component;
 	    }
+	  /* It's invalid to write `a.~B' if `B' is not the type of
+	     `a'.  */
+	  else if (DECL_DESTRUCTOR_P (component)
+	      && (!same_type_ignoring_top_level_qualifiers_p 
+		  (DECL_CONTEXT (component), TREE_TYPE (datum))))
+	    {
+	      cp_error ("destructor name does not match type of object to be destroyed");
+	      return error_mark_node;
+	    }
 	  else
 	    /* A unique non-static member function.  Other parts of
 	       the compiler expect something with unknown_type_node
@@ -4239,18 +4248,18 @@ build_component_addr (arg, argtype)
 		      cp_convert (argtype, byte_position (field))));
 }
    
-/* Construct and perhaps optimize a tree representation
-   for a unary operation.  CODE, a tree_code, specifies the operation
-   and XARG is the operand.  */
+/* Construct and perhaps optimize a tree representation for a unary
+   operation.  CODE, a tree_code, specifies the operation and XARG is
+   the operand.  This function is called directly from the parser; the
+   unary operator specified appeared in the user's source code.  In
+   contrast, build_unary_op is used within the compiler to perform
+   equivalent operations that do not explicitly appear in the source.  */
 
 tree
 build_x_unary_op (code, xarg)
      enum tree_code code;
      tree xarg;
 {
-  tree exp;
-  int ptrmem = 0;
-  
   if (processing_template_decl)
     return build_min_nt (code, xarg, NULL_TREE);
 
@@ -4275,23 +4284,63 @@ build_x_unary_op (code, xarg)
     {
       if (TREE_CODE (xarg) == OFFSET_REF)
         {
-          ptrmem = PTRMEM_OK_P (xarg);
+	  /* A pointer-to-member expression must be written as
+	     `&X::Y'.  There are two points where a pointer to member
+	     can be created: here, or, if `Y' is an overloaded
+	     function, when overload resolution is performed.  */
+          bool ptrmem_ok_p = PTRMEM_OK_P (xarg);
           
-          if (!ptrmem && !flag_ms_extensions
-	      && TREE_TYPE (TREE_OPERAND (xarg, 1))
-              && TREE_CODE (TREE_TYPE (TREE_OPERAND (xarg, 1))) == METHOD_TYPE)
-            /* A single non-static member, make sure we don't allow a
-               pointer-to-member.  */
-            xarg = ovl_cons (TREE_OPERAND (xarg, 1), NULL_TREE);
+	  /* If the expression refers to a non-static data member,
+	     create a pointer to member.  */
+	  if (TREE_CODE (TREE_OPERAND (xarg, 1)) == FIELD_DECL)
+	    {
+	      if (!ptrmem_ok_p)
+		cp_pedwarn ("invalid form for pointer-to-member expression");
+	      return build_ptrdatamem_cst (TREE_OPERAND (xarg, 1));
+	    }
+	  /* If the expression refers to a single function, then we
+	     can resolve the expression here.  */
+	  else if (TREE_CODE (TREE_OPERAND (xarg, 1)) == BASELINK
+		   && !really_overloaded_fn (TREE_OPERAND (xarg, 1)))
+	    {
+	      tree fn = get_first_fn (TREE_OPERAND (xarg, 1));
+
+	      /* If the single function is a non-static member
+		 function, create a pointer-to-member.  */
+	      if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
+		{
+		  if (!ptrmem_ok_p)
+		    cp_pedwarn ("invalid form for pointer-to-member expression");
+		  return (build_ptrfuncmem_cst 
+			  (get_first_fn (TREE_OPERAND (xarg, 1))));
+		}
+	      /* Otherwise, just handle it like a non-member function.  */
+	      else
+		return build_unary_op (ADDR_EXPR, fn, 0);
+	    }
+	  /* Otherwise, the expression must refer to a set of
+	     overloaded functions.  Until the expression is used,
+	     there is no way to know to which function the expression
+	     refers.  */
+	  else if (type_unknown_p (xarg)) 
+	    {
+	      tree rval;
+
+	      rval = build1 (ADDR_EXPR, unknown_type_node, xarg);
+	      /* RVAL can be a pointer to member if and only if XARG
+		 could.  For example, if XARG was `(A::f)', then RVAL
+		 cannot be a pointer to member when overload
+		 resolution takes place.  But, if XARG was `A::f', it
+		 can.  */
+	      PTRMEM_OK_P (rval) = ptrmem_ok_p;
+	      return rval;
+	    }
         }
       else if (TREE_CODE (xarg) == TARGET_EXPR)
 	warning ("taking address of temporary");
     }
-  exp = build_unary_op (code, xarg, 0);
-  if (TREE_CODE (exp) == ADDR_EXPR)
-    PTRMEM_OK_P (exp) = ptrmem;
-
-  return exp;
+  
+  return build_unary_op (code, xarg, 0);
 }
 
 /* Like truthvalue_conversion, but handle pointer-to-member constants, where
@@ -4569,13 +4618,7 @@ build_unary_op (code, xarg, noconvert)
 		cp_error ("invalid use of `--' on bool variable `%D'", arg);
 		return error_mark_node;
 	      }
-#if 0
-	    /* This will only work if someone can convince Kenner to accept
-	       my patch to expand_increment. (jason)  */
-	    val = build (code, TREE_TYPE (arg), arg, inc);
-#else
 	    val = boolean_increment (code, arg);
-#endif
 	  }
 	else
 	  val = build (code, TREE_TYPE (arg), arg, inc);
@@ -4632,49 +4675,8 @@ build_unary_op (code, xarg, noconvert)
 				     TREE_OPERAND (arg, 1));
 	}
 
-      /* Uninstantiated types are all functions.  Taking the
-	 address of a function is a no-op, so just return the
-	 argument.  */
-
-      if (TREE_CODE (arg) == IDENTIFIER_NODE
-	  && IDENTIFIER_OPNAME_P (arg))
-	{
-	  my_friendly_abort (117);
-	  /* We don't know the type yet, so just work around the problem.
-	     We know that this will resolve to an lvalue.  */
-	  return build1 (ADDR_EXPR, unknown_type_node, arg);
-	}
-
-      if (TREE_CODE (arg) == COMPONENT_REF 
-	  && type_unknown_p (arg)
-          && (OVL_NEXT (get_overloaded_fn (TREE_OPERAND (arg, 1)))
-	      == NULL_TREE))
-        {
-	  /* They're trying to take the address of a unique non-static
-	     member function.  This is ill-formed (except in MS-land),
-	     but let's try to DTRT.
-	     Note: We only handle unique functions here because we don't
-	     want to complain if there's a static overload; non-unique
-	     cases will be handled by instantiate_type.  But we need to
-	     handle this case here to allow casts on the resulting PMF.
-	     We could defer this in non-MS mode, but it's easier to give
-	     a useful error here.  */
-
-	  tree base = TREE_TYPE (TREE_OPERAND (arg, 0));
-	  tree name = get_first_fn (TREE_OPERAND (arg, 1));
-
-	  if (! flag_ms_extensions)
-	    {
-	      if (current_class_type
-		  && TREE_OPERAND (arg, 0) == current_class_ref)
-		/* An expression like &memfn.  */
-		cp_pedwarn ("ISO C++ forbids taking the address of an unqualified non-static member function to form a pointer to member function.  Say `&%T::%D'", base, name);
-	      else
-		cp_pedwarn ("ISO C++ forbids taking the address of a bound member function to form a pointer to member function.  Say `&%T::%D'", base, name);
-	    }
-	  arg = build_offset_ref (base, name);
-        }
-        
+      /* When the address of an overloaded function is requested,
+	 overload resolution is delayed until the expression is used.  */
       if (type_unknown_p (arg))
 	return build1 (ADDR_EXPR, unknown_type_node, arg);
 	
@@ -4731,13 +4733,6 @@ build_unary_op (code, xarg, noconvert)
 	   function counts as a constant */
 	if (staticp (arg))
 	  TREE_CONSTANT (addr) = 1;
-
-	if (TREE_CODE (argtype) == POINTER_TYPE
-	    && TREE_CODE (TREE_TYPE (argtype)) == METHOD_TYPE)
-	  {
-	    build_ptrmemfunc_type (argtype);
-	    addr = build_ptrmemfunc (argtype, addr, 0);
-	  }
 
 	return addr;
       }
@@ -4839,8 +4834,6 @@ unary_complex_lvalue (code, arg)
 	return build_unary_op (ADDR_EXPR, t, 0);
       else
 	{
-	  tree type;
-
 	  if (TREE_OPERAND (arg, 0)
 	      && ! is_dummy_object (TREE_OPERAND (arg, 0))
 	      && TREE_CODE (t) != FIELD_DECL)
@@ -4849,11 +4842,7 @@ unary_complex_lvalue (code, arg)
 	      return error_mark_node;
 	    }
 
-	  type = build_offset_type (DECL_FIELD_CONTEXT (t), TREE_TYPE (t));
-	  type = build_pointer_type (type);
-
-	  t = make_ptrmem_cst (type, TREE_OPERAND (arg, 1));
-	  return t;
+	  return build_ptrdatamem_cst (t);
 	}
     }
 

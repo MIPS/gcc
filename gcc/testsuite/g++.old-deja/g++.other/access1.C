@@ -9,6 +9,7 @@ class X{
 void X::f()
 {
   union {
-    int foo[sizeof (i)];
+    int j;
+    int foo[sizeof (i)]; // ERROR - reference to nonstatic member
   };
 }

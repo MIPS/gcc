@@ -143,7 +143,7 @@ static tree check_special_function_return_type
   PARAMS ((special_function_kind, tree, tree));
 static tree push_cp_library_fn PARAMS ((enum tree_code, tree));
 static tree build_cp_library_fn PARAMS ((tree, enum tree_code, tree));
-static void store_parm_decls PARAMS ((tree, tree));
+static void store_parm_decls PARAMS ((tree));
 static int cp_missing_noreturn_ok_p PARAMS ((tree));
 
 #if defined (DEBUG_CP_BINDING_LEVELS)
@@ -5505,7 +5505,7 @@ build_typename_type (context, name, fullname, base_type)
 
 /* Resolve `typename CONTEXT::NAME'.  Returns an appropriate type,
    unless an error occurs, in which case error_mark_node is returned.
-   If COMPLAIN zero, don't complain about any errors that occur.  */
+   If COMPLAIN is zero, don't complain about any errors that occur.  */
 
 tree
 make_typename_type (context, name, complain)
@@ -6837,34 +6837,12 @@ check_tag_decl (declspecs, friend_p)
   register tree t = NULL_TREE;
   bool error_p = false;
 
+  /* First, scan for specifiers.  */
   for (link = declspecs; link; link = TREE_CHAIN (link))
     {
       register tree value = TREE_VALUE (link);
 
-      if (TYPE_P (value)
-	  || TREE_CODE (value) == TYPE_DECL
-	  || (TREE_CODE (value) == IDENTIFIER_NODE
-	      && IDENTIFIER_GLOBAL_VALUE (value)
-	      && TREE_CODE (IDENTIFIER_GLOBAL_VALUE (value)) == TYPE_DECL))
-	{
-	  ++found_type;
-
-	  if (found_type == 2 && TREE_CODE (value) == IDENTIFIER_NODE)
-	    {
-	      if (! in_system_header)
-		cp_pedwarn ("redeclaration of C++ built-in type `%T'", value);
-	      return NULL_TREE;
-	    }
-
-	  if (TYPE_P (value)
-	      && ((TREE_CODE (value) != TYPENAME_TYPE && IS_AGGR_TYPE (value))
-		  || TREE_CODE (value) == ENUMERAL_TYPE))
-	    {
-	      my_friendly_assert (TYPE_MAIN_DECL (value) != NULL_TREE, 261);
-	      t = value;
-	    }
-	}
-      else if (value == ridpointers[(int) RID_TYPEDEF])
+      if (value == ridpointers[(int) RID_TYPEDEF])
         saw_typedef = 1;
       else if (value == ridpointers[(int) RID_FRIEND])
 	{
@@ -6886,6 +6864,41 @@ check_tag_decl (declspecs, friend_p)
 	ob_modifier = value;
       else if (value == error_mark_node)
 	error_p = true;
+    }
+
+  /* Rescan for type-declarations.  */
+  for (link = declspecs; link; link = TREE_CHAIN (link))
+    {
+      tree value = TREE_VALUE (link);
+
+      if (TYPE_P (value)
+	  || TREE_CODE (value) == TYPE_DECL
+	  || (TREE_CODE (value) == IDENTIFIER_NODE
+	      && IDENTIFIER_GLOBAL_VALUE (value)
+	      && TREE_CODE (IDENTIFIER_GLOBAL_VALUE (value)) == TYPE_DECL))
+	{
+	  ++found_type;
+
+	  if (found_type == 2 && TREE_CODE (value) == IDENTIFIER_NODE)
+	    {
+	      if (! in_system_header)
+		cp_pedwarn ("redeclaration of C++ built-in type `%T'", value);
+	      return NULL_TREE;
+	    }
+
+	  /* If this type is a class, struct, or enum remember it.  */
+	  if (TYPE_P (value)
+	      && ((IS_AGGR_TYPE (value) 
+		   /* Ignore `typename' types -- except in friend
+		      declarations, where they are accepted since the
+		      friend may be a member of a dependent type.  */
+		   && (TREE_CODE (value) != TYPENAME_TYPE || friend_p))
+		  || TREE_CODE (value) == ENUMERAL_TYPE))
+	    {
+	      my_friendly_assert (TYPE_MAIN_DECL (value) != NULL_TREE, 261);
+	      t = value;
+	    }
+	}
     }
 
   if (found_type > 1)
@@ -8813,9 +8826,6 @@ grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
 	}
     }
 
-  if (has_default_arg)
-    add_defarg_fn (decl);
-
   if (funcdef_flag)
     /* Make the init_value nonzero so pushdecl knows this is not
        tentative.  error_mark_node is replaced later with the BLOCK.  */
@@ -9455,7 +9465,7 @@ grokdeclarator (declarator, declspecs, decl_context,
   int explicit_char = 0;
   int defaulted_int = 0;
   tree typedef_decl = NULL_TREE;
-  const char *name;
+  const char *name = NULL;
   tree typedef_type = NULL_TREE;
   int funcdef_flag = 0;
   enum tree_code innermost_code = ERROR_MARK;
@@ -9494,37 +9504,26 @@ grokdeclarator (declarator, declspecs, decl_context,
   {
     tree *next = &declarator;
     register tree decl;
-    name = NULL;
 
     while (next && *next)
       {
 	decl = *next;
 	switch (TREE_CODE (decl))
 	  {
-	    /* FIXME: This can go.  */
 	  case TREE_LIST:
 	    /* For attributes.  */
 	    next = &TREE_VALUE (decl);
 	    break;
 
-	    /* FIXME: This can go, too.  */
-	  case COND_EXPR:
-	    ctype = NULL_TREE;
-	    next = &TREE_OPERAND (decl, 0);
-	    break;
-
 	  case BIT_NOT_EXPR:	/* For C++ destructors!  */
 	    {
-	      tree name = TREE_OPERAND (decl, 0);
+	      tree type = DESTRUCTOR_NAME_TYPE (decl);
 	      tree rename = NULL_TREE;
 
 	      my_friendly_assert (flags == NO_SPECIAL, 152);
 	      flags = DTOR_FLAG;
 	      sfk = sfk_destructor;
-	      if (TREE_CODE (name) == TYPE_DECL)
-		TREE_OPERAND (decl, 0) = name 
-		  = constructor_name (TREE_TYPE (name));
-	      my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE, 153);
+	      dname = TYPE_IDENTIFIER (type);
 	      if (ctype == NULL_TREE)
 		{
 		  if (current_class_type == NULL_TREE)
@@ -9532,27 +9531,24 @@ grokdeclarator (declarator, declspecs, decl_context,
 		      error ("destructors must be member functions");
 		      flags = NO_SPECIAL;
 		    }
-		  else
-		    {
-		      tree t = constructor_name (current_class_type);
-		      if (t != name)
-			rename = t;
-		    }
+		  else if (!constructor_name_p (dname,
+						current_class_type))
+		    rename = current_class_type;
 		}
-	      else
-		{
-		  tree t = constructor_name (ctype);
-		  if (t != name)
-		    rename = t;
-		}
+	      else if (!constructor_name_p (dname, ctype))
+		rename = ctype;
 
 	      if (rename)
 		{
 		  cp_error ("destructor `%T' must match class name `%T'",
-			    name, rename);
+			    dname, constructor_name (rename));
 		  TREE_OPERAND (decl, 0) = rename;
+		  type = rename;
 		}
-	      next = &name;
+
+	      dname = constructor_name (type);
+	      name = IDENTIFIER_POINTER (dname);
+	      next = NULL;
 	    }
 	    break;
 
@@ -9693,17 +9689,6 @@ grokdeclarator (declarator, declspecs, decl_context,
 		    {
 		      sfk = sfk_constructor;
 		      ctor_return_type = ctype;
-		    }
-		  else if (TREE_CODE (decl) == BIT_NOT_EXPR
-			   && TREE_CODE (TREE_OPERAND (decl, 0)) == IDENTIFIER_NODE
-			   && constructor_name_p (TREE_OPERAND (decl, 0),
-						  ctype))
-		    {
-		      sfk = sfk_destructor;
-		      ctor_return_type = ctype;
-		      flags = DTOR_FLAG;
-		      TREE_OPERAND (decl, 0) = constructor_name (ctype);
-		      next = &TREE_OPERAND (decl, 0);
 		    }
 		}
 	    }
@@ -10534,7 +10519,8 @@ grokdeclarator (declarator, declspecs, decl_context,
 		   be represented as a BIT_NOT_EXPR.  But, we just
 		   want the underlying IDENTIFIER.  */
 		if (TREE_CODE (declarator) == BIT_NOT_EXPR)
-		  declarator = TREE_OPERAND (declarator, 0);
+		  declarator 
+		    = TYPE_IDENTIFIER (DESTRUCTOR_NAME_TYPE (declarator));
 
                 if (arg_types != void_list_node)
 		  {
@@ -10553,10 +10539,7 @@ grokdeclarator (declarator, declspecs, decl_context,
 	      for (t = arg_types; t; t = TREE_CHAIN (t))
 		if (TREE_PURPOSE (t)
 		    && TREE_CODE (TREE_PURPOSE (t)) == DEFAULT_ARG)
-		  {
-		    add_defarg_fn (type);
-		    break;
-		  }
+		  break;
 	    }
 	  }
 	  break;
@@ -10668,7 +10651,7 @@ grokdeclarator (declarator, declspecs, decl_context,
 
 	    /* Destructors can have their visibilities changed as well.  */
 	    if (TREE_CODE (sname) == BIT_NOT_EXPR)
-	      sname = TREE_OPERAND (sname, 0);
+	      sname = TYPE_IDENTIFIER (DESTRUCTOR_NAME_TYPE (sname));
 
 	    if (TREE_OPERAND (declarator, 0) == NULL_TREE)
 	      {
@@ -11870,7 +11853,8 @@ unary_op_p (code)
 void
 grok_op_properties (decl, virtualp, friendp)
      tree decl;
-     int virtualp, friendp;
+     int virtualp;
+     int friendp;
 {
   tree argtypes = TYPE_ARG_TYPES (TREE_TYPE (decl));
   tree argtype;
@@ -11878,6 +11862,10 @@ grok_op_properties (decl, virtualp, friendp)
   tree name = DECL_NAME (decl);
   enum tree_code operator_code;
   int arity;
+  /* TRUE iff this operator is a member function that is being
+     declared within the class-specifier for the class of which it is
+     a member.  */
+  bool member_p;
 
   /* Count the number of arguments.  */
   for (argtype = argtypes, arity = 0;
@@ -11885,8 +11873,13 @@ grok_op_properties (decl, virtualp, friendp)
        argtype = TREE_CHAIN (argtype))
     ++arity;
 
-  if (current_class_type == NULL_TREE)
-    friendp = 1;
+  /* If we're not in a class, then this this operator is not being
+     defined in a class-specifier.  */
+  if (!current_class_type 
+      || !TYPE_BEING_DEFINED (current_class_type))
+    member_p = false;
+  else
+    member_p = !friendp;
 
   if (DECL_CONV_FN_P (decl))
     operator_code = TYPE_EXPR;
@@ -11915,7 +11908,7 @@ grok_op_properties (decl, virtualp, friendp)
   my_friendly_assert (operator_code != LAST_CPLUS_TREE_CODE, 20000526);
   SET_OVERLOADED_OPERATOR_CODE (decl, operator_code);
 
-  if (! friendp)
+  if (member_p)
     {
       switch (operator_code)
 	{
@@ -12017,7 +12010,7 @@ grok_op_properties (decl, virtualp, friendp)
       if (IDENTIFIER_TYPENAME_P (name) && ! DECL_TEMPLATE_INFO (decl))
 	{
 	  tree t = TREE_TYPE (name);
-	  if (! friendp)
+	  if (member_p)
 	    {
 	      int ref = (TREE_CODE (t) == REFERENCE_TYPE);
 	      const char *what = 0;
@@ -12062,7 +12055,7 @@ grok_op_properties (decl, virtualp, friendp)
 	  if (copy_assignment_arg_p (parmtype, virtualp)
 	      && !(DECL_TEMPLATE_INSTANTIATION (decl)
 		   && is_member_template (DECL_TI_TEMPLATE (decl)))
-	      && ! friendp)
+	      && member_p)
 	    {
 	      TYPE_HAS_ASSIGN_REF (current_class_type) = 1;
 	      if (TREE_CODE (parmtype) != REFERENCE_TYPE
@@ -13393,8 +13386,7 @@ start_function (declspecs, declarator, attrs, flags)
 
   start_fname_decls ();
   
-  store_parm_decls (current_function_parms,
-		    current_function_parm_tags);
+  store_parm_decls (current_function_parms);
 
   return 1;
 }
@@ -13417,9 +13409,8 @@ push_scope_and_start_function (decl)
    Also install to binding contour return value identifier, if any.  */
 
 static void
-store_parm_decls (current_function_parms, parmtags)
+store_parm_decls (current_function_parms)
      tree current_function_parms;
-     tree parmtags;
 {
   register tree fndecl = current_function_decl;
   register tree parm;

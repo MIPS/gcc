@@ -1650,6 +1650,8 @@ static void cp_parser_skip_to_end_of_statement
   PARAMS ((cp_parser *));
 static void cp_parser_skip_to_end_of_block_or_statement
   PARAMS ((cp_parser *));
+static void cp_parser_skip_until_found
+  PARAMS ((cp_parser *, enum cpp_ttype, const char *));
 static bool cp_parser_error_occurred
   PARAMS ((cp_parser *));
 static bool cp_parser_allow_gnu_extensions_p
@@ -1822,7 +1824,7 @@ cp_parser_check_type_definition (parser)
     cp_error ("%s", parser->type_definition_forbidden_message);
 }
 
-/* Pretend that any errors that occurred up until now in the tenative
+/* Pretend that any errors that occurred up until now in the tentative
    parse did not actually occur.  */
 
 static void
@@ -2555,9 +2557,6 @@ cp_parser_id_expression (parser,
     = (cp_parser_global_scope_opt (parser, /*current_scope_valid_p=*/false) 
        != NULL_TREE);
   /* Look for the optional nested-name-specifier.  */
-  /* FIXME: Probably we need to push check_dependency_p down into
-     cp_parser_nested_name_specifier rather than just playing the
-     typename game?  */
   nested_name_specifier_p 
     = (cp_parser_nested_name_specifier_opt (parser,
 					    !check_dependency_p,
@@ -2593,14 +2592,25 @@ cp_parser_id_expression (parser,
   else if (global_scope_p)
     {
       cp_token *token;
+      tree id;
 
       /* Peek at the next token.  */
       token = cp_lexer_peek_token (parser->lexer);
 
+      /* We don't know yet whether or not this will be a 
+	 template-id.  */
+      cp_parser_parse_tentatively (parser);
+      /* Try a template-id.  */
+      id = cp_parser_template_id (parser, 
+				  /*template_keyword_p=*/false,
+				  /*check_dependency_p=*/true);
+      /* If that worked, we're done.  */
+      if (cp_parser_parse_definitely (parser))
+	return id;
+
       switch (token->type)
 	{
 	case CPP_NAME:
-	  /* FIXME: Handle template-ids.  */
 	  return cp_parser_identifier (parser);
 
 	case CPP_KEYWORD:
@@ -2633,10 +2643,10 @@ cp_parser_id_expression (parser,
    Returns a representation of unqualified-id.  For the `identifier'
    production, an IDENTIFIER_NODE is returned.  For the `~ class-name'
    production a BIT_NOT_EXPR is returned; the argument to the
-   BIT_NOT_EXPR is a TYPE_DECL indicating the class-name.  For the
-   other productions, see the documentation accompanying the
-   corresponding parsing functions.  If CHECK_DEPENDENCY_P is false,
-   names are looked up in uninstantiated templates.  */
+   BIT_NOT_EXPR is a TYPE indicating the class.  For the other
+   productions, see the documentation accompanying the corresponding
+   parsing functions.  If CHECK_DEPENDENCY_P is false, names are
+   looked up in uninstantiated templates.  */
 
 static tree
 cp_parser_unqualified_id (parser, template_keyword_p,
@@ -2716,9 +2726,7 @@ cp_parser_unqualified_id (parser, template_keyword_p,
 	if (type_decl == error_mark_node)
 	  return error_mark_node;
 
-	return build1 (BIT_NOT_EXPR, 
-		       NULL_TREE, 
-		       type_decl);
+	return destructor_name (TREE_TYPE (type_decl));
       }
 
     case CPP_KEYWORD:
@@ -3418,7 +3426,7 @@ cp_parser_postfix_expression (parser)
 		/* Form the call.  */
 		postfix_expression 
 		  = finish_pseudo_destructor_expr (postfix_expression,
-						   s, type);
+						   s, TREE_TYPE (type));
 	      }
 
 	    /* We no longer need to look up names in the scope of the
@@ -3917,10 +3925,6 @@ cp_parser_new_declarator_opt (parser)
     {
       tree declarator;
 
-      /* FIXME: Handle pointers-to-members.  */
-      if (type)
-	cp_parser_unimplemented ();
-
       /* Parse another optional declarator.  */
       declarator = cp_parser_new_declarator_opt (parser);
 
@@ -3931,6 +3935,10 @@ cp_parser_new_declarator_opt (parser)
       else
 	declarator = make_reference_declarator (cv_qualifier_seq,
 						declarator);
+
+     /* Handle the pointer-to-member case.  */
+     if (type)
+       declarator = build_nt (SCOPE_REF, type, declarator);
 
       return declarator;
     }
@@ -3965,7 +3973,27 @@ cp_parser_direct_new_declarator (parser)
       cp_parser_require (parser, CPP_OPEN_SQUARE, "`['");
       /* The first expression is not required to be constant.  */
       if (!declarator)
-	expression = cp_parser_expression (parser);
+	{
+	  expression = cp_parser_expression (parser);
+	  /* The standard requires that the expression have integral
+	     type.  DR 74 adds enumeration types.  We believe that the
+	     real intent is that these expressions be handled like the
+	     expression in a `switch' condition, which also allows
+	     classes with a single conversion to integral or
+	     enumeration type.  */
+	  if (!processing_template_decl)
+	    {
+	      expression 
+		= build_expr_type_conversion (WANT_INT | WANT_ENUM,
+					      expression,
+					      /*complain=*/1);
+	      if (!expression)
+		{
+		  cp_error ("expression in new-declarator must have integral or enumeration type");
+		  expression = error_mark_node;
+		}
+	    }
+	}
       /* But all the other expressions must be.  */
       else
 	expression = cp_parser_constant_expression (parser);
@@ -7271,12 +7299,9 @@ cp_parser_explicit_instantiation (parser)
 				    &attributes,
 				    &declares_class_or_enum,
 				    /*friend_is_not_class_p=*/NULL);
-  /* FIXME: Issue an error message if attributes are present here?  */
   /* If there was exactly one decl-specifier, and it declared a class,
      and there's no declarator, then we have an explicit type
      instantiation.  */
-  /* FIXME: I bet we're accepting a `friend' keyword here when we
-     shouldn't.  */
   if (declares_class_or_enum)
     type_decl 
       = cp_parser_declares_only_class_p (parser,
@@ -11145,6 +11170,7 @@ cp_parser_base_specifier (parser)
   bool virtual_p = false;
   bool duplicate_virtual_error_issued_p = false;
   bool duplicate_access_error_issued_p = false;
+  bool class_scope_p;
   access_kind access = ak_none;
   tree access_node;
   tree type;
@@ -11256,10 +11282,13 @@ cp_parser_base_specifier (parser)
   cp_parser_nested_name_specifier_opt (parser,
 				       /*typename_keyword_p=*/true,
 				       /*type_p=*/true);
+  /* If the base class is given by a qualified name, assume that names
+     we see are type names or templates, as appropriate.  */
+  class_scope_p = (parser->scope && TYPE_P (parser->scope));
   /* Finally, look for the class-name.  */
   type = cp_parser_class_name (parser, 
-			       /*typename_keyword_p=*/true,
-			       /*template_keyword_p=*/false,
+			       class_scope_p,
+			       class_scope_p,
 			       /*type_p=*/true,
 			       /*check_access=*/true,
 			       /*check_dependency_p=*/true);
@@ -11945,9 +11974,6 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
   if (name == error_mark_node)
     return error_mark_node;
 
-  /* FIXME: What if PARSER->SCOPE is set?  Do we need to represent the
-     qualified version of the TEMPLATE_ID_EXPR?  Think about the case
-     where PARSER->SCOPE is a dependent type.  */
   /* A template-id has already been resolved; there is no lookup to
      do.  */
   if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
@@ -11961,7 +11987,7 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
       tree type;
 
       /* Figure out to which type this destructor applies.  */
-      type = TREE_TYPE (TREE_OPERAND (name, 0));
+      type = DESTRUCTOR_NAME_TYPE (name);
       /* If that's not a class type, there is no destructor.  */
       if (!CLASS_TYPE_P (type))
 	return error_mark_node;
@@ -11985,7 +12011,17 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
 	 might, for example, be a template type parameter.  */
       if ((check_dependency || !CLASS_TYPE_P (parser->scope))
 	  && cp_parser_dependent_type_p (parser->scope))
-	decl = build_nt (SCOPE_REF, parser->scope, name);
+	{
+	  if (!is_type)
+	    decl = build_nt (SCOPE_REF, parser->scope, name);
+	  /* The resolution to Core Issue 180 says that `struct A::B'
+	     should be considered a type-name, even if `A' is
+	     dependent.  */
+	  else
+	    decl = TYPE_NAME (make_typename_type (parser->scope,
+						  name,
+						  /*complain=*/1));
+	}
       else
 	{
 	  bool complete_p;
@@ -12404,6 +12440,7 @@ cp_parser_constructor_declarator_p (parser)
      cp_parser *parser;
 {
   bool constructor_p;
+  tree type_decl;
 
   /* Parse tentatively; we are going to roll back all of the tokens
      consumed here.  */
@@ -12440,12 +12477,12 @@ cp_parser_constructor_declarator_p (parser)
 	   template <typename T> S<T>::S<T> ();
 
 	 we must recognize that the nested `S' names a template.  */
-      cp_parser_class_name (parser,
-			    /*typename_keyword_p=*/false,
-			    /*template_keyword_p=*/false,
-			    /*type_p=*/false,
-			    /*check_access_p=*/false,
-			    /*check_dependency_p=*/false);
+      type_decl = cp_parser_class_name (parser,
+					/*typename_keyword_p=*/false,
+					/*template_keyword_p=*/false,
+					/*type_p=*/false,
+					/*check_access_p=*/false,
+					/*check_dependency_p=*/false);
       /* If there was no class-name, then this is not a constructor.  */
       constructor_p = !cp_parser_error_occurred (parser);
     }
@@ -12464,12 +12501,24 @@ cp_parser_constructor_declarator_p (parser)
 	  && cp_lexer_next_token_is_not (parser->lexer, CPP_ELLIPSIS)
 	  && !cp_parser_storage_class_specifier_opt (parser))
 	{
+	  /* Names appearing in the type-specifier should be looked up
+	     in the scope of the class.  */
+	  if (current_class_type 
+	      && same_type_p (current_class_type, TREE_TYPE (type_decl)))
+	    type_decl = NULL_TREE;
+	  else
+	    push_scope (TREE_TYPE (type_decl));
+	  /* Look for the type-specifier.  */
 	  cp_parser_type_specifier (parser,
 				    CP_PARSER_FLAGS_NONE,
 				    /*is_friend=*/false,
 				    /*is_declarator=*/true,
 				    /*declares_class_or_enum=*/NULL,
 				    /*is_cv_qualifier=*/NULL);
+	  /* Leave the scope of the class.  */
+	  if (type_decl)
+	    pop_scope (TREE_TYPE (type_decl));
+	  
 	  constructor_p = !cp_parser_error_occurred (parser);
 	}
     }
@@ -12630,38 +12679,36 @@ cp_parser_template_declaration_after_export (parser, member_p)
   parameter_list = end_template_parm_list (parameter_list);
       
   /* Look for the `>'.  */
-  if (cp_parser_require (parser, CPP_GREATER, "`>'"))
+  cp_parser_skip_until_found (parser, CPP_GREATER, "`>'");
+  /* We just processed one more parameter list.  */
+  ++parser->num_template_parameter_lists;
+  /* If the next token is `template', there are more template
+     parameters.  */
+  if (cp_lexer_next_token_is_keyword (parser->lexer, 
+				      RID_TEMPLATE))
+    cp_parser_template_declaration_after_export (parser, member_p);
+  else
     {
-      /* We just processed one more parameter list.  */
-      ++parser->num_template_parameter_lists;
-      /* If the next token is `template', there are more template
-	 parameters.  */
-      if (cp_lexer_next_token_is_keyword (parser->lexer, 
-					  RID_TEMPLATE))
-	cp_parser_template_declaration_after_export (parser, member_p);
-      else
-	{
-	  decl = cp_parser_single_declaration (parser,
-					       member_p,
-					       &friend_p);
+      decl = cp_parser_single_declaration (parser,
+					   member_p,
+					   &friend_p);
 
-	  /* If this is a member template declaration, let the front
-	     end know.  */
-	  if (member_p && decl)
+      /* If this is a member template declaration, let the front
+	 end know.  */
+      if (member_p && decl)
+	{
+	  if (TYPE_P (decl))
 	    {
-	      if (TYPE_P (decl))
-		{
-		  finish_member_class_template (decl);
-		  if (friend_p)
-		    make_friend_class (current_class_type, decl);
-		}
-	      else if (!friend_p)
-		decl = finish_member_template_decl (decl);
+	      finish_member_class_template (decl);
+	      if (friend_p)
+		make_friend_class (current_class_type, decl);
 	    }
+	  else if (!friend_p)
+	    decl = finish_member_template_decl (decl);
 	}
-      /* We are done with the current parameter list.  */
-      --parser->num_template_parameter_lists;
     }
+  /* We are done with the current parameter list.  */
+  --parser->num_template_parameter_lists;
 
   /* Finish up.  */
   finish_template_decl (parameter_list);
@@ -13064,14 +13111,8 @@ cp_parser_require (parser, type, token_desc)
      enum cpp_ttype type;
      const char *token_desc;
 {
-  cp_token *token;
-
-  token = cp_lexer_peek_token (parser->lexer);
-  if (token->type == type)
-    {
-      cp_lexer_consume_token (parser->lexer);
-      return token;
-    }
+  if (cp_lexer_next_token_is (parser->lexer, type))
+    return cp_lexer_consume_token (parser->lexer);
   else
     {
       dyn_string_t error_msg;
@@ -13083,6 +13124,53 @@ cp_parser_require (parser, type, token_desc)
       cp_parser_error (parser, error_msg->s);
       dyn_string_delete (error_msg);
       return NULL;
+    }
+}
+
+/* Like cp_parser_require, except that tokens will be skipped until
+   the desired token is found.  An error message is still produced if
+   the next token is not as expected.  */
+
+static void
+cp_parser_skip_until_found (parser, type, token_desc)
+     cp_parser *parser;
+     enum cpp_ttype type;
+     const char *token_desc;
+{
+  cp_token *token;
+  unsigned nesting_depth;
+
+  if (cp_parser_require (parser, type, token_desc))
+    return;
+
+  /* Skip tokens until the desired token is found.  */
+  while (true)
+    {
+      /* Peek at the next token.  */
+      token = cp_lexer_peek_token (parser->lexer);
+      /* If we've reached the token we want, consume it and 
+	 stop.  */
+      if (token->type == type && !nesting_depth)
+	{
+	  cp_lexer_consume_token (parser->lexer);
+	  return;
+	}
+      /* If we've run out of tokens, stop.  */
+      if (token->type == CPP_EOF)
+	return;
+      if (token->type == CPP_OPEN_BRACE 
+	  || token->type == CPP_OPEN_PAREN
+	  || token->type == CPP_OPEN_SQUARE)
+	++nesting_depth;
+      else if (token->type == CPP_CLOSE_BRACE 
+	       || token->type == CPP_CLOSE_PAREN
+	       || token->type == CPP_CLOSE_SQUARE)
+	{
+	  if (nesting_depth-- == 0)
+	    return;
+	}
+      /* Consume this token.  */
+      cp_lexer_consume_token (parser->lexer);
     }
 }
 
@@ -13385,17 +13473,3 @@ set_yydebug (debug_p)
   cp_warning ("no parser debugging available in C++");
 }
 
-/* FIXME: Implement these.  */
-
-void 
-add_defarg_fn (decl)
-     tree decl ATTRIBUTE_UNUSED;
-{
-}
-
-
-void
-unprocessed_defarg_fn (fn)
-     tree fn ATTRIBUTE_UNUSED;
-{
-}

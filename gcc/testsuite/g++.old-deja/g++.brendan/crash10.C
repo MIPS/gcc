@@ -21,6 +21,11 @@ int mumble(word w)
 
   bar = w;
   
+  // The standard says that the expression giving the array bounds
+  // must have integral type; it does not say that the expression must
+  // be convertible to an integral type.  However, we believe that
+  // this is an error, and that the same rules should be used as are
+  // used for the value in a `switch' condition.
   jap = new just_another [w];
   
   return 0;

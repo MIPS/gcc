@@ -3,7 +3,7 @@
 
 enum Boolean {
   Ok = 0,
-  NotOk = 1,
+  NotOk = 1
 };
 
 enum OpResult {

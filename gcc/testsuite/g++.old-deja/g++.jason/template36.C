@@ -18,6 +18,7 @@ struct base_trait {
     typedef base1 base;
 };
 
+template <>
 struct base_trait<float> {
     typedef base2 base;
 };
@@ -40,9 +41,13 @@ typename weird<T>::base weird<T>::f ()
     return base();
 }
 
+// The standard does not allow this case; the `typename' keyword may
+// not appear in a ptr-operator.
+#if 0
 template <class T>
 int typename weird<T>::base::* weird<T>::g ()
 { return 0; }
+#endif
 
 int main()
 {
