@@ -1,3 +1,27 @@
+2004-07-26  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkChoicePeer.java
+	(GtkChoicePeer): Do not automatically select first item.
+	(getHistory): Remove.
+	(nativeGetSelected): New method.
+	(nativeRemoveAll): New method.
+	(add): Use nativeGetSelected() instead of getHistory().
+	(remove): Likewise.
+	(removeAll): Call nativeRemoveAll().
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.c
+	(create): Migrate to GtkComboBox.
+	(append): Likewise.
+	(nativeAdd): Likewise.
+	(nativeRemove): Likewise.
+	(select): Likewise.
+	(nativeRemoveAll): New method.
+	(nativeGetSelected): New method.
+	(selection_changed): New method.
+	(getHistory): Remove.
+	(item_activate): Remove.
+	(item_removed): Remove.
+	(connect_choice_item_selectable_hook): Remove.
+
 2004-07-26  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkTextFieldPeer.java (create): Use tf
