@@ -7717,9 +7717,11 @@ base_type_die (type)
       /* Carefully distinguish the C character types, without messing
          up if the language is not C. Note that we check only for the names
          that contain spaces; other names might occur by coincidence in other
-         languages.  */
+         languages, so we only check if main variant is char_type_node.  */
       if (! (TYPE_PRECISION (type) == CHAR_TYPE_SIZE
 	     && (type == char_type_node
+		 || (TYPE_MAIN_VARIANT (type) == char_type_node
+		     && ! strcmp (type_name, "char"))
 		 || ! strcmp (type_name, "signed char")
 		 || ! strcmp (type_name, "unsigned char"))))
 	{
