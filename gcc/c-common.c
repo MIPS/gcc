@@ -3532,7 +3532,7 @@ c_common_nodes_and_builtins ()
     c_init_attributes ();
 
 #define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE,			\
-		    BOTH_P, FALLBACK_P, NONANSI_P, ATTRS)		\
+		    BOTH_P, FALLBACK_P, NONANSI_P, ATTRS, IMPLICIT)	\
   if (NAME)								\
     {									\
       tree decl;							\
@@ -3559,6 +3559,8 @@ c_common_nodes_and_builtins ()
 				   built_in_attributes[(int) ATTRS]);	\
 									\
       built_in_decls[(int) ENUM] = decl;				\
+      if (IMPLICIT)							\
+        implicit_built_in_decls[(int) ENUM] = decl;			\
     }									
 #include "builtins.def"
 #undef DEF_BUILTIN
@@ -4490,9 +4492,9 @@ c_expand_builtin_printf (arglist, target, tmode, modifier, ignore, unlocked)
      int unlocked;
 {
   tree fn_putchar = unlocked ?
-    built_in_decls[BUILT_IN_PUTCHAR_UNLOCKED] : built_in_decls[BUILT_IN_PUTCHAR];
+    implicit_built_in_decls[BUILT_IN_PUTCHAR_UNLOCKED] : implicit_built_in_decls[BUILT_IN_PUTCHAR];
   tree fn_puts = unlocked ?
-    built_in_decls[BUILT_IN_PUTS_UNLOCKED] : built_in_decls[BUILT_IN_PUTS];
+    implicit_built_in_decls[BUILT_IN_PUTS_UNLOCKED] : implicit_built_in_decls[BUILT_IN_PUTS];
   tree fn, format_arg, stripped_string;
 
   /* If the return value is used, or the replacement _DECL isn't
@@ -4594,9 +4596,9 @@ c_expand_builtin_fprintf (arglist, target, tmode, modifier, ignore, unlocked)
      int unlocked;
 {
   tree fn_fputc = unlocked ?
-    built_in_decls[BUILT_IN_FPUTC_UNLOCKED] : built_in_decls[BUILT_IN_FPUTC];
+    implicit_built_in_decls[BUILT_IN_FPUTC_UNLOCKED] : implicit_built_in_decls[BUILT_IN_FPUTC];
   tree fn_fputs = unlocked ?
-    built_in_decls[BUILT_IN_FPUTS_UNLOCKED] : built_in_decls[BUILT_IN_FPUTS];
+    implicit_built_in_decls[BUILT_IN_FPUTS_UNLOCKED] : implicit_built_in_decls[BUILT_IN_FPUTS];
   tree fn, format_arg, stripped_string;
 
   /* If the return value is used, or the replacement _DECL isn't

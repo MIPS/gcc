@@ -607,4 +607,10 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define EXTRA_ADDRESS_CONSTRAINT(C) 0
 #endif
 
+/* Determine whether math functions specified by C99 standard, like
+   sinf/sinl are present in the runtime library.  */
+#ifndef TARGET_C99_FUNCTIONS
+#define TARGET_C99_FUNCTIONS 1
+#endif
+
 #endif  /* ! GCC_DEFAULTS_H */

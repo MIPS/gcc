@@ -70,7 +70,7 @@ static tree build_function_call_expr PARAMS ((tree, tree));
 static void define_builtin PARAMS ((enum built_in_function,
 				    const char *,
 				    enum built_in_class,
-				    tree, int));
+				    tree, int, int));
 static tree define_builtin_type PARAMS ((int, int, int, int, int));
 
 
@@ -191,12 +191,13 @@ sqrt_builtin (method_return_type, method_arguments)
 
 /* Define a single builtin.  */
 static void
-define_builtin (val, name, class, type, fallback_p)
+define_builtin (val, name, class, type, fallback_p, implicit)
      enum built_in_function val;
      const char *name;
      enum built_in_class class;
      tree type;
      int fallback_p;
+     int implicit;
 {
   tree decl;
 
@@ -216,6 +217,8 @@ define_builtin (val, name, class, type, fallback_p)
   DECL_BUILT_IN_CLASS (decl) = class;
   DECL_FUNCTION_CODE (decl) = val;
   built_in_decls[val] = decl;
+  if (implicit)
+    implicit_built_in_decls[val] = decl;
 }
 
 /* Compute the type for a builtin.  */
@@ -314,8 +317,8 @@ initialize_builtins ()
 #include "builtin-types.def"
 
 #define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, \
-                    FALLBACK_P, NONANSI_P, ATTRS) \
-  define_builtin (ENUM, NAME, CLASS, builtin_types[TYPE], FALLBACK_P);
+                    FALLBACK_P, NONANSI_P, ATTRS, IMPLICIT) \
+  define_builtin (ENUM, NAME, CLASS, builtin_types[TYPE], FALLBACK_P, IMPLICIT);
 #include "builtins.def"
 }
 
