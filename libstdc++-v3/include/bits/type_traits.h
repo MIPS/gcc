@@ -1,3 +1,32 @@
+// Type traits implementation -*- C++ -*-
+
+// Copyright (C) 2001 Free Software Foundation, Inc.
+//
+// This file is part of the GNU ISO C++ Library.  This library is free
+// software; you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the
+// Free Software Foundation; either version 2, or (at your option)
+// any later version.
+
+// This library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License along
+// with this library; see the file COPYING.  If not, write to the Free
+// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// USA.
+
+// As a special exception, you may use this file as part of a free software
+// library without restriction.  Specifically, if other files instantiate
+// templates or use macros or inline functions from this file, or you compile
+// this file and link it with other files to produce an executable, this
+// file does not by itself cause the resulting executable to be covered by
+// the GNU General Public License.  This exception does not however
+// invalidate any other reasons why the executable file might be covered by
+// the GNU General Public License.
+
 /*
  *
  * Copyright (c) 1997
@@ -15,9 +44,9 @@
 #ifndef _CPP_BITS_TYPE_TRAITS_H
 #define _CPP_BITS_TYPE_TRAITS_H 1
 
-#ifndef _CPP_BITS_STL_CONFIG_H
-#include <bits/stl_config.h>
-#endif
+#pragma GCC system_header
+
+#include <bits/c++config.h>
 
 /*
 This header file provides a framework for allowing compile time dispatch
@@ -86,14 +115,9 @@ struct __type_traits {
 };
 
 
+// Provide some specializations.
 
-// Provide some specializations.  This is harmless for compilers that
-//  have built-in __types_traits support, and essential for compilers
-//  that don't.
-
-#ifndef __STL_NO_BOOL
-
-__STL_TEMPLATE_NULL struct __type_traits<bool> {
+template<> struct __type_traits<bool> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
    typedef __true_type    has_trivial_assignment_operator;
@@ -101,9 +125,7 @@ __STL_TEMPLATE_NULL struct __type_traits<bool> {
    typedef __true_type    is_POD_type;
 };
 
-#endif /* __STL_NO_BOOL */
-
-__STL_TEMPLATE_NULL struct __type_traits<char> {
+template<> struct __type_traits<char> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
    typedef __true_type    has_trivial_assignment_operator;
@@ -111,7 +133,7 @@ __STL_TEMPLATE_NULL struct __type_traits<char> {
    typedef __true_type    is_POD_type;
 };
 
-__STL_TEMPLATE_NULL struct __type_traits<signed char> {
+template<> struct __type_traits<signed char> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
    typedef __true_type    has_trivial_assignment_operator;
@@ -119,7 +141,7 @@ __STL_TEMPLATE_NULL struct __type_traits<signed char> {
    typedef __true_type    is_POD_type;
 };
 
-__STL_TEMPLATE_NULL struct __type_traits<unsigned char> {
+template<> struct __type_traits<unsigned char> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
    typedef __true_type    has_trivial_assignment_operator;
@@ -127,9 +149,7 @@ __STL_TEMPLATE_NULL struct __type_traits<unsigned char> {
    typedef __true_type    is_POD_type;
 };
 
-#ifdef __STL_HAS_WCHAR_T
-
-__STL_TEMPLATE_NULL struct __type_traits<wchar_t> {
+template<> struct __type_traits<wchar_t> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
    typedef __true_type    has_trivial_assignment_operator;
@@ -137,9 +157,7 @@ __STL_TEMPLATE_NULL struct __type_traits<wchar_t> {
    typedef __true_type    is_POD_type;
 };
 
-#endif /* __STL_HAS_WCHAR_T */
-
-__STL_TEMPLATE_NULL struct __type_traits<short> {
+template<> struct __type_traits<short> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
    typedef __true_type    has_trivial_assignment_operator;
@@ -147,7 +165,7 @@ __STL_TEMPLATE_NULL struct __type_traits<short> {
    typedef __true_type    is_POD_type;
 };
 
-__STL_TEMPLATE_NULL struct __type_traits<unsigned short> {
+template<> struct __type_traits<unsigned short> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
    typedef __true_type    has_trivial_assignment_operator;
@@ -155,7 +173,7 @@ __STL_TEMPLATE_NULL struct __type_traits<unsigned short> {
    typedef __true_type    is_POD_type;
 };
 
-__STL_TEMPLATE_NULL struct __type_traits<int> {
+template<> struct __type_traits<int> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
    typedef __true_type    has_trivial_assignment_operator;
@@ -163,7 +181,7 @@ __STL_TEMPLATE_NULL struct __type_traits<int> {
    typedef __true_type    is_POD_type;
 };
 
-__STL_TEMPLATE_NULL struct __type_traits<unsigned int> {
+template<> struct __type_traits<unsigned int> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
    typedef __true_type    has_trivial_assignment_operator;
@@ -171,7 +189,7 @@ __STL_TEMPLATE_NULL struct __type_traits<unsigned int> {
    typedef __true_type    is_POD_type;
 };
 
-__STL_TEMPLATE_NULL struct __type_traits<long> {
+template<> struct __type_traits<long> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
    typedef __true_type    has_trivial_assignment_operator;
@@ -179,7 +197,7 @@ __STL_TEMPLATE_NULL struct __type_traits<long> {
    typedef __true_type    is_POD_type;
 };
 
-__STL_TEMPLATE_NULL struct __type_traits<unsigned long> {
+template<> struct __type_traits<unsigned long> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
    typedef __true_type    has_trivial_assignment_operator;
@@ -187,9 +205,9 @@ __STL_TEMPLATE_NULL struct __type_traits<unsigned long> {
    typedef __true_type    is_POD_type;
 };
 
-#ifdef __STL_LONG_LONG
+#ifdef _GLIBCPP_USE_LONG_LONG
 
-__STL_TEMPLATE_NULL struct __type_traits<long long> {
+template<> struct __type_traits<long long> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
    typedef __true_type    has_trivial_assignment_operator;
@@ -197,7 +215,7 @@ __STL_TEMPLATE_NULL struct __type_traits<long long> {
    typedef __true_type    is_POD_type;
 };
 
-__STL_TEMPLATE_NULL struct __type_traits<unsigned long long> {
+template<> struct __type_traits<unsigned long long> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
    typedef __true_type    has_trivial_assignment_operator;
@@ -205,9 +223,9 @@ __STL_TEMPLATE_NULL struct __type_traits<unsigned long long> {
    typedef __true_type    is_POD_type;
 };
 
-#endif /* __STL_LONG_LONG */
+#endif /* _GLIBCPP_USE_LONG_LONG */
 
-__STL_TEMPLATE_NULL struct __type_traits<float> {
+template<> struct __type_traits<float> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
    typedef __true_type    has_trivial_assignment_operator;
@@ -215,7 +233,7 @@ __STL_TEMPLATE_NULL struct __type_traits<float> {
    typedef __true_type    is_POD_type;
 };
 
-__STL_TEMPLATE_NULL struct __type_traits<double> {
+template<> struct __type_traits<double> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
    typedef __true_type    has_trivial_assignment_operator;
@@ -223,15 +241,13 @@ __STL_TEMPLATE_NULL struct __type_traits<double> {
    typedef __true_type    is_POD_type;
 };
 
-__STL_TEMPLATE_NULL struct __type_traits<long double> {
+template<> struct __type_traits<long double> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
    typedef __true_type    has_trivial_assignment_operator;
    typedef __true_type    has_trivial_destructor;
    typedef __true_type    is_POD_type;
 };
-
-#ifdef __STL_CLASS_PARTIAL_SPECIALIZATION
 
 template <class _Tp>
 struct __type_traits<_Tp*> {
@@ -242,58 +258,6 @@ struct __type_traits<_Tp*> {
    typedef __true_type    is_POD_type;
 };
 
-#else /* __STL_CLASS_PARTIAL_SPECIALIZATION */
-
-__STL_TEMPLATE_NULL struct __type_traits<char*> {
-   typedef __true_type    has_trivial_default_constructor;
-   typedef __true_type    has_trivial_copy_constructor;
-   typedef __true_type    has_trivial_assignment_operator;
-   typedef __true_type    has_trivial_destructor;
-   typedef __true_type    is_POD_type;
-};
-
-__STL_TEMPLATE_NULL struct __type_traits<signed char*> {
-   typedef __true_type    has_trivial_default_constructor;
-   typedef __true_type    has_trivial_copy_constructor;
-   typedef __true_type    has_trivial_assignment_operator;
-   typedef __true_type    has_trivial_destructor;
-   typedef __true_type    is_POD_type;
-};
-
-__STL_TEMPLATE_NULL struct __type_traits<unsigned char*> {
-   typedef __true_type    has_trivial_default_constructor;
-   typedef __true_type    has_trivial_copy_constructor;
-   typedef __true_type    has_trivial_assignment_operator;
-   typedef __true_type    has_trivial_destructor;
-   typedef __true_type    is_POD_type;
-};
-
-__STL_TEMPLATE_NULL struct __type_traits<const char*> {
-   typedef __true_type    has_trivial_default_constructor;
-   typedef __true_type    has_trivial_copy_constructor;
-   typedef __true_type    has_trivial_assignment_operator;
-   typedef __true_type    has_trivial_destructor;
-   typedef __true_type    is_POD_type;
-};
-
-__STL_TEMPLATE_NULL struct __type_traits<const signed char*> {
-   typedef __true_type    has_trivial_default_constructor;
-   typedef __true_type    has_trivial_copy_constructor;
-   typedef __true_type    has_trivial_assignment_operator;
-   typedef __true_type    has_trivial_destructor;
-   typedef __true_type    is_POD_type;
-};
-
-__STL_TEMPLATE_NULL struct __type_traits<const unsigned char*> {
-   typedef __true_type    has_trivial_default_constructor;
-   typedef __true_type    has_trivial_copy_constructor;
-   typedef __true_type    has_trivial_assignment_operator;
-   typedef __true_type    has_trivial_destructor;
-   typedef __true_type    is_POD_type;
-};
-
-#endif /* __STL_CLASS_PARTIAL_SPECIALIZATION */
-
 
 // The following could be written in terms of numeric_limits.  
 // We're doing it separately to reduce the number of dependencies.
@@ -302,69 +266,61 @@ template <class _Tp> struct _Is_integer {
   typedef __false_type _Integral;
 };
 
-#ifndef __STL_NO_BOOL
-
-__STL_TEMPLATE_NULL struct _Is_integer<bool> {
+template<> struct _Is_integer<bool> {
   typedef __true_type _Integral;
 };
 
-#endif /* __STL_NO_BOOL */
-
-__STL_TEMPLATE_NULL struct _Is_integer<char> {
+template<> struct _Is_integer<char> {
   typedef __true_type _Integral;
 };
 
-__STL_TEMPLATE_NULL struct _Is_integer<signed char> {
+template<> struct _Is_integer<signed char> {
   typedef __true_type _Integral;
 };
 
-__STL_TEMPLATE_NULL struct _Is_integer<unsigned char> {
+template<> struct _Is_integer<unsigned char> {
   typedef __true_type _Integral;
 };
 
-#ifdef __STL_HAS_WCHAR_T
-
-__STL_TEMPLATE_NULL struct _Is_integer<wchar_t> {
+template<> struct _Is_integer<wchar_t> {
   typedef __true_type _Integral;
 };
 
-#endif /* __STL_HAS_WCHAR_T */
-
-__STL_TEMPLATE_NULL struct _Is_integer<short> {
+template<> struct _Is_integer<short> {
   typedef __true_type _Integral;
 };
 
-__STL_TEMPLATE_NULL struct _Is_integer<unsigned short> {
+template<> struct _Is_integer<unsigned short> {
   typedef __true_type _Integral;
 };
 
-__STL_TEMPLATE_NULL struct _Is_integer<int> {
+template<> struct _Is_integer<int> {
   typedef __true_type _Integral;
 };
 
-__STL_TEMPLATE_NULL struct _Is_integer<unsigned int> {
+template<> struct _Is_integer<unsigned int> {
   typedef __true_type _Integral;
 };
 
-__STL_TEMPLATE_NULL struct _Is_integer<long> {
+template<> struct _Is_integer<long> {
   typedef __true_type _Integral;
 };
 
-__STL_TEMPLATE_NULL struct _Is_integer<unsigned long> {
+template<> struct _Is_integer<unsigned long> {
   typedef __true_type _Integral;
 };
 
-#ifdef __STL_LONG_LONG
+#ifdef _GLIBCPP_USE_LONG_LONG
 
-__STL_TEMPLATE_NULL struct _Is_integer<long long> {
+template<> struct _Is_integer<long long> {
   typedef __true_type _Integral;
 };
 
-__STL_TEMPLATE_NULL struct _Is_integer<unsigned long long> {
+template<> struct _Is_integer<unsigned long long> {
   typedef __true_type _Integral;
 };
 
-#endif /* __STL_LONG_LONG */
+#endif /* _GLIBCPP_USE_LONG_LONG */
 
 template<typename _Tp> struct _Is_normal_iterator {
    typedef __false_type _Normal;

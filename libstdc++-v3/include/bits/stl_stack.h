@@ -1,3 +1,32 @@
+// Stack implementation -*- C++ -*-
+
+// Copyright (C) 2001 Free Software Foundation, Inc.
+//
+// This file is part of the GNU ISO C++ Library.  This library is free
+// software; you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the
+// Free Software Foundation; either version 2, or (at your option)
+// any later version.
+
+// This library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License along
+// with this library; see the file COPYING.  If not, write to the Free
+// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// USA.
+
+// As a special exception, you may use this file as part of a free software
+// library without restriction.  Specifically, if other files instantiate
+// templates or use macros or inline functions from this file, or you compile
+// this file and link it with other files to produce an executable, this
+// file does not by itself cause the resulting executable to be covered by
+// the GNU General Public License.  This exception does not however
+// invalidate any other reasons why the executable file might be covered by
+// the GNU General Public License.
+
 /*
  *
  * Copyright (c) 1994
@@ -31,9 +60,10 @@
 #ifndef __SGI_STL_INTERNAL_STACK_H
 #define __SGI_STL_INTERNAL_STACK_H
 
-#include <bits/sequence_concepts.h>
+#include <bits/concept_check.h>
 
-__STL_BEGIN_NAMESPACE
+namespace std
+{
 
 // Forward declarations of operators == and <, needed for friend declaration.
 
@@ -49,30 +79,20 @@ bool operator<(const stack<_Tp,_Seq>& __x, const stack<_Tp,_Seq>& __y);
 
 
 template <class _Tp, class _Sequence>
-class stack {
-
-  // requirements:
-
-  __STL_CLASS_REQUIRES(_Tp, _Assignable);
-  __STL_CLASS_REQUIRES(_Sequence, _BackInsertionSequence);
+class stack
+{
+  // concept requirements
+  __glibcpp_class_requires(_Tp, _SGIAssignableConcept);
+  __glibcpp_class_requires(_Sequence, _BackInsertionSequenceConcept);
   typedef typename _Sequence::value_type _Sequence_value_type;
-  __STL_CLASS_REQUIRES_SAME_TYPE(_Tp, _Sequence_value_type);
+  __glibcpp_class_requires2(_Tp, _Sequence_value_type, _SameTypeConcept);
 
-
-#ifdef __STL_MEMBER_TEMPLATES
   template <class _Tp1, class _Seq1>
   friend bool operator== (const stack<_Tp1, _Seq1>&,
                           const stack<_Tp1, _Seq1>&);
   template <class _Tp1, class _Seq1>
   friend bool operator< (const stack<_Tp1, _Seq1>&,
                          const stack<_Tp1, _Seq1>&);
-#else /* __STL_MEMBER_TEMPLATES */
-  friend bool __STD_QUALIFIER
-  operator== __STL_NULL_TMPL_ARGS (const stack&, const stack&);
-  friend bool __STD_QUALIFIER
-  operator< __STL_NULL_TMPL_ARGS (const stack&, const stack&);
-#endif /* __STL_MEMBER_TEMPLATES */
-
 public:
   typedef typename _Sequence::value_type      value_type;
   typedef typename _Sequence::size_type       size_type;
@@ -106,8 +126,6 @@ bool operator<(const stack<_Tp,_Seq>& __x, const stack<_Tp,_Seq>& __y)
   return __x.c < __y.c;
 }
 
-#ifdef __STL_FUNCTION_TMPL_PARTIAL_ORDER
-
 template <class _Tp, class _Seq>
 bool operator!=(const stack<_Tp,_Seq>& __x, const stack<_Tp,_Seq>& __y)
 {
@@ -132,9 +150,7 @@ bool operator>=(const stack<_Tp,_Seq>& __x, const stack<_Tp,_Seq>& __y)
   return !(__x < __y);
 }
 
-#endif /* __STL_FUNCTION_TMPL_PARTIAL_ORDER */
-
-__STL_END_NAMESPACE
+} // namespace std
 
 #endif /* __SGI_STL_INTERNAL_STACK_H */
 

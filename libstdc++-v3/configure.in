@@ -3,10 +3,43 @@
 
 AC_PREREQ(2.13)
 AC_INIT(src/ios.cc)
-AC_CONFIG_AUX_DIR(..)
+
+# When building with srcdir == objdir, links to the source files will
+# be created in directories within the target_subdir.  We have to
+# adjust toplevel_srcdir accordingly, so that configure finds
+# install-sh and other auxiliary files that live in the top-level
+# source directory.
+if test "${srcdir}" = "."; then
+  if test -z "${with_target_subdir}"; then
+    toprel=".."
+  else
+    if test "${with_target_subdir}" != "."; then
+      toprel="${with_multisrctop}../.."
+    else
+      toprel="${with_multisrctop}.."
+    fi
+  fi
+else
+  toprel=".."
+fi
+AC_CONFIG_AUX_DIR(${srcdir}/$toprel)
+toplevel_srcdir=\${top_srcdir}/$toprel
+AC_SUBST(toplevel_srcdir)
+
+dnl This is here just to satisfy automake.
+ifelse(not,equal,[AC_CONFIG_AUX_DIR(..)])
 
 # Gets and sets build, host, target, *_vendor, *_cpu, *_os, etc.
+# AC 2.50 sets target_alias iff the user specified --target, but we use it
+# everywhere, so we set it here just to be sure.
 AC_CANONICAL_SYSTEM
+target_alias=${target_alias-$target}
+AC_SUBST(target_alias)
+
+# Will set LN_S to either 'ln -s' or 'ln'.  With autoconf 2.50+, can also
+# be 'cp -p' if linking isn't available.
+#ac_cv_prog_LN_S='cp -p'
+AC_PROG_LN_S
 
 # We use these options to decide which functions to include.
 AC_ARG_WITH(target-subdir,
@@ -24,9 +57,7 @@ AM_PROG_LIBTOOL
 AC_SUBST(enable_shared)
 AC_SUBST(enable_static)
 GLIBCPP_CHECK_GNU_MAKE
-  if test "x$_cv_gnu_make_command" = "x"; then
-    AC_MSG_ERROR([GNU make not found. Please install it or correct your path.])
-  fi
+
 AM_CONFIG_HEADER(config.h)
 
 # Check for c++ or library specific bits that don't require linking.
@@ -35,28 +66,30 @@ GLIBCPP_CHECK_COMPILER_VERSION
 # Enable all the crazy c++ stuff.  C_MBCHAR must come early.
 GLIBCPP_ENABLE_DEBUG($USE_MAINTAINER_MODE)
 GLIBCPP_ENABLE_CSTDIO
+GLIBCPP_ENABLE_CLOCALE
 GLIBCPP_ENABLE_C_MBCHAR([yes])
-GLIBCPP_ENABLE_LONG_LONG([no])
+GLIBCPP_ENABLE_C99([yes])
+GLIBCPP_ENABLE_LONG_LONG([yes])
 GLIBCPP_ENABLE_CHEADERS([c_std])
 GLIBCPP_ENABLE_THREADS
 GLIBCPP_ENABLE_CXX_FLAGS([none])
+GLIBCPP_ENABLE_SJLJ_EXCEPTIONS
 
-if test -n "$with_cross_host"; then
+if test -n "$with_cross_host" || test x"$build" != x"$host"; then
 
-  # We are being configured with a cross compiler.  AC_REPLACE_FUNCS
-  # may not work correctly, because the compiler may not be able to
-  # link executables.
-  xcompiling=1
-  NATIVE=no
+  # We are being configured with some form of cross compiler.
+  # mknumeric_limits may not work correctly, either because the
+  # compiler may not run on this machine, may not be able to link
+  # executables, or may produce executables we can't run on this
+  # machine.
+  GLIBCPP_IS_CROSS_COMPILING=1
 
   # If Canadian cross, then don't pick up tools from the build
   # directory.
-  if test x"$build" != x"$with_cross_host" && x"$build" != x"$target"; then
+  if test -n "$with_cross_host" && test x"$build" != x"$with_cross_host"; then
     CANADIAN=yes
-    NULL_TARGET=yes
   else
     CANADIAN=no
-    NULL_TARGET=no
   fi
 
   case "$target_alias" in
@@ -68,9 +101,7 @@ if test -n "$with_cross_host"; then
 	float.h inttypes.h])
 
 	# GLIBCPP_CHECK_COMPILER_FEATURES
-	WFMT_FLAGS='-fdiagnostics-show-location=once'
 	SECTION_FLAGS='-ffunction-sections -fdata-sections'
-	AC_SUBST(WFMT_FLAGS)
 	AC_SUBST(SECTION_FLAGS)
 	GLIBCPP_CHECK_LINKER_FEATURES
 	# GLIBCPP_CHECK_BUILTIN_MATH_SUPPORT
@@ -141,7 +172,6 @@ if test -n "$with_cross_host"; then
 	  AC_DEFINE(HAVE_TANHL)
 	fi
 	GLIBCPP_CHECK_COMPLEX_MATH_SUPPORT
-	GLIBCPP_CHECK_COMPLEX_MATH_COMPILER_SUPPORT
 	GLIBCPP_CHECK_WCHAR_T_SUPPORT
 	os_include_dir="config/os/gnu-linux"
 	# GLIBCPP_CHECK_STDLIB_SUPPORT
@@ -161,8 +191,6 @@ if test -n "$with_cross_host"; then
 
 	os_include_dir="config/os/newlib"
 
-	AC_DEFINE(_GLIBCPP_BUGGY_FLOAT_COMPLEX)
-	AC_DEFINE(_GLIBCPP_BUGGY_COMPLEX)
 	# need to check for faster f versions of math functions, ie sinf?
 	;;
   esac
@@ -171,10 +199,8 @@ else
   # We are being configured natively. We can do more elaborate tests
   # that include AC_TRY_COMPILE now, as the linker is assumed to be
   # working.
-  xcompiling=0
-  NATIVE=yes
+  GLIBCPP_IS_CROSS_COMPILING=0
   CANADIAN=no
-  NULL_TARGET=no
 
   # Check for available headers.
   AC_CHECK_HEADERS([nan.h ieeefp.h endian.h sys/isa_defs.h machine/endian.h \
@@ -185,25 +211,25 @@ else
   GLIBCPP_CHECK_BUILTIN_MATH_SUPPORT
   GLIBCPP_CHECK_MATH_SUPPORT
   GLIBCPP_CHECK_COMPLEX_MATH_SUPPORT
-  GLIBCPP_CHECK_COMPLEX_MATH_COMPILER_SUPPORT
   GLIBCPP_CHECK_WCHAR_T_SUPPORT
   GLIBCPP_CHECK_STDLIB_SUPPORT
+
+  AC_TRY_COMPILE([
+#include <setjmp.h>
+], [sigjmp_buf env; while (! sigsetjmp (env, 1)) siglongjmp (env, 1);],
+[AC_DEFINE(HAVE_SIGSETJMP, 1, [Define if sigsetjmp is available.  ])])
 
   AC_FUNC_MMAP
 fi
 
-# Now that ctype is determined for all possible targets, we can do this...
-AC_LINK_FILES($os_include_dir/bits/ctype_base.h, \
-include/bits/ctype_base.h)
-AC_LINK_FILES($os_include_dir/bits/ctype_inline.h, \
-include/bits/ctype_inline.h)
-AC_LINK_FILES($os_include_dir/bits/ctype_noninline.h, \
-include/bits/ctype_noninline.h)
-AC_LINK_FILES($ATOMICITYH/bits/atomicity.h, include/bits/atomicity.h)
+# Propagate the target-specific source directories through the build chain.
+OS_INC_SRCDIR=$os_include_dir/bits
+ATOMICITY_INC_SRCDIR=$ATOMICITYH/bits
+AC_SUBST(OS_INC_SRCDIR)
+AC_SUBST(ATOMICITY_INC_SRCDIR)
 
-AM_CONDITIONAL(NULL_TARGET, test "$NULL_TARGET" = yes)
-AM_CONDITIONAL(NATIVE, test "$NATIVE" = yes || test "$NULL_TARGET" = yes)
-AM_CONDITIONAL(USE_LIBDIR, test -z "$with_cross_host")
+# Set up cross-compile flags
+AC_SUBST(GLIBCPP_IS_CROSS_COMPILING)
 AM_CONDITIONAL(CANADIAN, test "$CANADIAN" = yes)
  
 AC_CACHE_SAVE
@@ -215,97 +241,41 @@ else
   multilib_arg=
 fi
 
-
-# Generate the various Makefiles, include files, and scripts.
-
-# This helps subvert libstdcxx_interface, as calculated by devo/config.if
 # Needed so that g++ can find the correct include subdir automatically.
 INTERFACE=v3
 
-# Check for the interface version number for specifying where header
-# files are installed, if a version number is provided.
-AC_MSG_CHECKING([for interface version number])
-libstdcxx_interface=$INTERFACE
-AC_MSG_RESULT($libstdcxx_interface)
-AC_SUBST(libstdcxx_interface)
-
-# Process the option --with-gxx-include-dir=<path to include-files directory>
-AC_MSG_CHECKING([for --with-gxx-include-dir])
-AC_ARG_WITH(gxx-include-dir,
-[ --with-gxx-include-dir  the installation directory for include files],
-[case "${withval}" in
-  yes)
-    AC_MSG_ERROR(Missing directory for --with-gxx-include-dir)
-    gxx_include_dir=no
-    ;;
-  no)
-    gxx_include_dir=no
-    ;;
-  *)
-    gxx_include_dir=${withval}
-    ;;
-esac], [gxx_include_dir=no])
-AC_MSG_RESULT($gxx_include_dir)
-AC_SUBST(gxx_include_dir)
-AM_CONDITIONAL(GXX_INCLUDE_DIR, test x${gxx_include_dir} != xno)
-
-# Process the option "--enable-version-specific-runtime-libs"
-AC_MSG_CHECKING([for --enable-version-specific-runtime-libs])
-AC_ARG_ENABLE(version-specific-runtime-libs,
-[  --enable-version-specific-runtime-libs    Specify that runtime libraries should be installed in a compiler-specific directory ],
-[  version_specific_libs=yes
-# Need the gcc compiler version to know where to install libraries
-# and header files if --enable-version-specific-runtime-libs option
-# is selected.
-changequote(,)dnl
-gcc_tmp=`grep version_string ${srcdir}/../gcc/version.c | awk '{print $6}'`
-gcc_num=`echo ${gcc_tmp} | sed 's/\"//g'`
-#gcc_date=`grep version_string ${srcdir}/../gcc/version.c | awk '{print $7}'`
-#gcc_version=$gcc_num-$gcc_date
-gcc_version=$gcc_num
-changequote([,])dnl
-AC_SUBST(gcc_version)
-],version_specific_libs=no)
-AC_MSG_RESULT($version_specific_libs)
-if test x${version_specific_libs} = xyes; then
-  AM_CONDITIONAL(VERSION_SPECIFIC_LIBS, test x${version_specific_libs} = xyes)
-  AC_MSG_WARN(version specific directory is: $gcc_version)
-fi
-
-# We have to install all the generated or linked includes files
-# specified as build_headers in src/Makefile.am in a target-dependent
-# place, or else multiple installs for different compilers will
-# overwrite these files.
-# NB: Keep this and gcc/Makefile.in's -DGPLUSPLUS_TOOL_INCLUDE_DIR in sync.
-gxx_target_include_dir='$(exec_prefix)/$(target_alias)/include/g++-$(libstdcxx_interface)'
-AC_SUBST(gxx_target_include_dir)
-
+# Export all the install information
+GLIBCPP_EXPORT_INSTALL_INFO
 
 # Export all the include and flag information to makefiles.
 GLIBCPP_EXPORT_INCLUDES
 GLIBCPP_EXPORT_FLAGS
 
-# This should be done by mkincludedir, but hack around it now.
-blddir=`pwd`
-echo "checking for $blddir/include"
-
-if test ! -d "$blddir/include"; then
-  mkdir "$blddir/include"
+if ${CONFIG_SHELL-/bin/sh} ./libtool --tag CXX --features |
+   grep "enable shared" > /dev/null; then
+  LIBSUPCXX_PICFLAGS=-prefer-pic
+else
+  LIBSUPCXX_PICFLAGS=
 fi
+AC_SUBST(LIBSUPCXX_PICFLAGS)
 
+# Generate the various Makefiles, include files, and scripts.
 # NB: Multilibs need MULTISUBDIR defined correctly in src/Makefile.am
 # and libsupc++/Makefile.am so that multilib installs will end up
 # installed in the correct place. To work around this not being passed
 # down from config-ml.in -> top_srcdir/Makefile.am ->
 # top_srcdir/{src,libsupc++}/Makefile.am, manually append it here.
-AC_OUTPUT(tests_flags mkcheck Makefile src/Makefile libmath/Makefile libio/Makefile libsupc++/Makefile,
+AC_OUTPUT(Makefile \
+    include/Makefile src/Makefile \
+    libmath/Makefile libio/Makefile libsupc++/Makefile \
+    testsuite/Makefile mkcheck testsuite_flags,
 [if test -n "$CONFIG_FILES"; then
   ac_file=Makefile . ${glibcpp_basedir}/../config-ml.in
   grep '^MULTISUBDIR =' Makefile >> src/Makefile
   grep '^MULTISUBDIR =' Makefile >> libsupc++/Makefile
 fi
-chmod +x tests_flags
 chmod +x mkcheck
+chmod +x testsuite_flags
 ],
 srcdir=${srcdir}
 host=${host}
@@ -317,22 +287,6 @@ glibcpp_basedir=${glibcpp_basedir}
 CC="${CC}"
 CXX="${CXX}"
 )
-
-
-# Generate bits/c++config.h
-# NB: This must be the first generated file as others include it. . .
-$srcdir/mkc++config $blddir $srcdir
-
-# Generate bits/std_limits.h and src/limitsMEMBERS.cc
-if test ! -f stamp-limits; then
-  $srcdir/mknumeric_limits $blddir $srcdir $xcompiling
-  if test ! -f include/bits/std_limits.h; then
-    echo "mknumeric_limits failed to execute properly: exiting"
-    exit 1
-  else
-    touch stamp-limits 
-  fi
-fi
 
 
 # Sanity checking & User-visible messages.

@@ -3,21 +3,52 @@
  <META NAME="KEYWORDS" CONTENT="libstdc++, homepage, home, g++, libg++, STL">
  <TITLE>Standard C++ Library v3</TITLE>
 <LINK REL=StyleSheet HREF="lib3styles.css">
-<!-- $Id: documentation.html,v 1.7 2000/12/03 23:47:47 jsm28 Exp $ -->
+<!-- $Id: documentation.html,v 1.5 2001/06/15 22:57:30 pme Exp $ -->
 </HEAD>
 <BODY>
 
 
 <P><B>All of these documents</B> (in fact, this entire homepage set) are
    bundled with the library source, under the <TT>docs</TT> subdirectory,
-   for releases and snapshots.
+   for releases and snapshots.  The sole exception is the
+   automatically-generated source documentation, available separately.
 </P>
 
+<HR>
+<H2><A NAME="4">Source Documentation</A></H2>
+<P>In addition to the distribution documentation (these pages), we also
+   have a set of HTML documents generated from the sources themselves,
+   using the Doxygen tool.  These are useful for examining the signatures
+   of public member functions for the library classes, etc.
+</P>
+<P>
+   The latest collection is for the GCC 3.0 release,
+   <TT>libstdc++-doxygen-3.0.tar.gz</TT> (3.8MB),
+   <A HREF="libstdc++-doxygen-3.0/index.html">viewable online</A>.
+   The collection is also available in the libstdc++ snapshots directory at
+   <TT>&lt;URL:ftp://gcc.gnu.org/pub/gcc/libstdc++/&gt;</TT>.  You will
+   almost certainly need to use one of the
+   <A HREF="http://gcc.gnu.org/mirrors.html">mirror sites</A> to download
+   the tarball.  After unpacking, simply load
+   libstdc++-doxygen-3.0/index.html <!-- also update this date -->
+   in a browser.  Feedback (and additional documentation!) is welcome.
+</P>
+<!-- another paragraph here for post-release collections -->
+
+<HR>
+<H2><A NAME="2">Configuring, Building, Installing</A></H2>
+  <UL>
+   <LI><A HREF="configopts.html">Configure options</A>
+   <LI><A HREF="install.html">Getting started: configure, build, install</A><BR>
+  </UL>
+
+<HR>
 <H2><A NAME="1">Introductory notes for libstdc++</A></H2>
    <P>This is a short list of text files pertaining to this
    implementation of ISO 14882. A brief description follows the name
    of the file.
    </P>
+   <P>
       <UL>
          <LI><A HREF="17_intro/BADNAMES">BADNAMES</A>
          - names to avoid because of potential collisions
@@ -33,8 +64,8 @@
          <LI><A HREF="17_intro/HEADER_POLICY">HEADER_POLICY</A>
          - header naming and sub-include structure
          <LI><A HREF="17_intro/PROBLEMS">PROBLEMS</A>
-	 <!-- Linking to "../README" doesn't work; we are at the top level
-	      of the web pages.  Punt.  -->
+         <!-- Linking to "../README" doesn't work; we are at the top level
+              of the web pages.  Punt.  -->
          <LI>README - directory structure
          <LI><A HREF="17_intro/RELEASE-NOTES">RELEASE-NOTES</A>
          - instructions for building, using
@@ -44,13 +75,7 @@
          <LI><A HREF="17_intro/contribute.html">Contributor checklist</A>
          <LI><A HREF="17_intro/libstdc++-assign.txt">Copyright assignment form for libstdc++-v3</A>
       </UL>
-
-<HR>
-<H2><A NAME="2">Configuring, Building, Installing</A></H2>
-      <UL>
-        <LI><A HREF="configopts.html">Configure options</A>
-        <LI><A HREF="install.html">Getting started: configure, build, install</A><BR>
-      </UL>
+   </P>
 
 <HR>
 <H2><A NAME="3">Chapter-Specific Information, Extensions, Notes and Advice</A></H2>
@@ -68,7 +93,6 @@
          <LI><A HREF="27_io/howto.html">Chapter 27 (I/O)</A>
          <LI><A HREF="ext/howto.html">Extensions to the Standard Library</A>
       </OL>
-
 
 </BODY>
 </HTML>

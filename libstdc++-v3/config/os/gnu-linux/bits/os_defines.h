@@ -1,6 +1,6 @@
 // Specific definitions for GNU/Linux  -*- C++ -*-
 
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -29,13 +29,7 @@
 
 
 #ifndef _GLIBCPP_OS_DEFINES
-#  define _GLIBCPP_OS_DEFINES
-
-// By defining this, all GNU extensions are enabled.
-#define _GNU_SOURCE 1
-
-// By defining this, all ISO C99 functionality is enabled.
-#define _ISOC99_SOURCE 1
+#define _GLIBCPP_OS_DEFINES 1
 
 // This keeps isanum, et al from being propagated as macros.
 #define __NO_CTYPE 1
@@ -56,6 +50,11 @@ typedef __loff_t __off64_t;
 // not define it.
 #undef __THROW
 #define __THROW
+
+// Tell Glibc not to try to provide its own inline versions of
+// some math functions.  Those cause assembly-time clashes with
+// our definitions.
+#define __NO_MATH_INLINES
 
 #endif /* not glibc 2.1 or higher.  */
 

@@ -14526,6 +14526,7 @@ lang_mark_tree (t)
 	      ggc_mark_tree (ld->befriending_classes);
 	      ggc_mark_tree (ld->context);
 	      ggc_mark_tree (ld->cloned_function);
+	      ggc_mark_tree (ld->inlined_fns);
 	      if (TREE_CODE (t) == TYPE_DECL)
 		ggc_mark_tree (ld->u.sorted_fields);
 	      else if (TREE_CODE (t) == FUNCTION_DECL

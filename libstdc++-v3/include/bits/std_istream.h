@@ -1,6 +1,6 @@
 // Input streams -*- C++ -*-
 
-// Copyright (C) 1997-1999 Free Software Foundation, Inc.
+// Copyright (C) 1997-1999, 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,17 +34,18 @@
 #ifndef _CPP_ISTREAM
 #define _CPP_ISTREAM	1
 
+#pragma GCC system_header
+
 #include <bits/std_ios.h>
 #include <bits/std_limits.h> // For numeric_limits
 
-namespace std {
-
+namespace std
+{
   // 27.6.1.1 Template class basic_istream
   template<typename _CharT, typename _Traits>
     class basic_istream : virtual public basic_ios<_CharT, _Traits>
     {
     public:
-
       // Types (inherited from basic_ios (27.4.4)):
       typedef _CharT                     		char_type;
       typedef typename _Traits::int_type 		int_type;
@@ -56,7 +57,7 @@ namespace std {
       typedef basic_streambuf<_CharT, _Traits> 		__streambuf_type;
       typedef basic_ios<_CharT, _Traits>		__ios_type;
       typedef basic_istream<_CharT, _Traits>		__istream_type;
-      typedef istreambuf_iterator<_CharT>		__istreambuf_iter;
+      typedef istreambuf_iterator<_CharT, _Traits>	__istreambuf_iter;
       typedef num_get<_CharT, __istreambuf_iter>        __numget_type;
       typedef ctype<_CharT>           			__ctype_type;
 
@@ -75,10 +76,7 @@ namespace std {
 
       virtual 
       ~basic_istream() 
-      {
-	_M_gcount = streamsize(0);
-	_M_fnumget = NULL; 
-      }
+      { _M_gcount = streamsize(0); }
 
       // 27.6.1.1.2 Prefix/suffix:
       class sentry;
@@ -216,7 +214,6 @@ namespace std {
     class basic_istream<_CharT, _Traits>::sentry
     {
     public:
-
       typedef _Traits 					traits_type;
       typedef basic_streambuf<_CharT, _Traits> 		__streambuf_type;
       typedef basic_istream<_CharT, _Traits> 		__istream_type;
@@ -240,12 +237,12 @@ namespace std {
   template<class _Traits>
     basic_istream<char, _Traits>&
     operator>>(basic_istream<char, _Traits>& __in, unsigned char& __c)
-    { return (__in >> static_cast<char>(__c)); }
+    { return (__in >> reinterpret_cast<char&>(__c)); }
 
   template<class _Traits>
     basic_istream<char, _Traits>&
     operator>>(basic_istream<char, _Traits>& __in, signed char& __c)
-    { return (__in >> static_cast<char>(__c)); }
+    { return (__in >> reinterpret_cast<char&>(__c)); }
 
   template<typename _CharT, typename _Traits>
     basic_istream<_CharT, _Traits>&
@@ -268,7 +265,6 @@ namespace std {
       public basic_ostream<_CharT, _Traits>
     {
     public:
-
       // Non-standard Types:
       typedef basic_istream<_CharT, _Traits>		__istream_type;
       typedef basic_ostream<_CharT, _Traits>		__ostream_type;
@@ -286,7 +282,6 @@ namespace std {
   template<typename _CharT, typename _Traits>
     basic_istream<_CharT, _Traits>& 
     ws(basic_istream<_CharT, _Traits>& __is);
-
 } // namespace std
 
 #ifdef _GLIBCPP_NO_TEMPLATE_EXPORT
@@ -297,11 +292,4 @@ namespace std {
 #endif
 
 #endif	/* _CPP_ISTREAM */
-
-
-
-
-
-
-
 

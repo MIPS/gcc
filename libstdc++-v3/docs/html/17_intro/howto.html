@@ -8,7 +8,7 @@
    <META NAME="GENERATOR" CONTENT="vi and eight fingers">
    <TITLE>libstdc++-v3 HOWTO:  Chapter 17</TITLE>
 <LINK REL=StyleSheet HREF="../lib3styles.css">
-<!-- $Id: howto.html,v 1.6 2000/12/03 23:47:47 jsm28 Exp $ -->
+<!-- $Id: howto.html,v 1.6 2001/06/08 03:53:35 ljrittle Exp $ -->
 </HEAD>
 <BODY>
 
@@ -56,8 +56,9 @@
       and gcc mailing lists on a regular basis (probably by a cron job).
       This entry will mention a very little bit about the general MT
       issues with libstdc++.  The latest status and quick notes will be
-      in FAQ 5.6.  Some discussion about threadsafe containers will be
-      in section 6.8 (the HOWTOs on containers).
+      in FAQ 5.6.  Some discussion about thread-safe containers will be
+      in section 6.8 (the HOWTOs on containers).  This section only applies
+      when gcc and libstdc++-v3 were configured with --enable-threads.
    </P>
    <P>The libstdc++ code (all of it, not just the containers) has been
       designed so that thread-safety will be easily possible.  The first
@@ -65,8 +66,38 @@
       portable to all platforms.  A minor problem that pops up every so
       often is different interpretations of what &quot;thread-safe&quot;
       means for a library (not a general program).  We currently use the
-      <A HREF="http://www.sgi.com/Technology/STL/thread_safety.html">same
+      <A HREF="http://www.sgi.com/tech/stl/thread_safety.html">same
       definition that SGI</A> uses for their STL subset.
+      <EM>Please see the many cautions given in HOWTOs on containers.</EM>
+   </P>
+   <P>
+      Here is another attempt at explaining the dangers of using the
+      STL with threading support without understanding some important
+      details.  The STL implementation is currently configured to use
+      the high-speed caching memory allocator.  If you absolutely
+      think you must change this on a global basis for your platform
+      to support multi-threading, then please consult all commentary
+      in include/bits/c++config and the HOWTOs on containers.  Be
+      fully aware that you may change the external or internal ABI of
+      libstdc++-v3 when you provide -D__USE_MALLOC on the command line
+      or make a change to that configuration file.
+   </P>
+   <P>
+      If you don't like caches of objects being retained inside the
+      STL, then you might be tempted to define __USE_MALLOC either on
+      the command line or by rebuilding c++config.h.  Please note,
+      once you define __USE_MALLOC, only the malloc allocator is
+      visible to application code (i.e. the typically higher-speed
+      allocator is not even available in this configuration).  There
+      is a better way: It is possible to force the malloc-based
+      allocator on a per-case-basis for some application code even
+      when the above macro symbol is not defined.  The author of this
+      comment believes that is a better way to tune an application for
+      high-speed using this implementation of the STL.  Here is one
+      possible example displaying the forcing of the malloc-based
+      allocator over the typically higher-speed default allocator:
+
+      std::list <void*, std::malloc_alloc> my_malloc_based_list;
    </P>
    <P>A recent journal article has described &quot;atomic integer
       operations,&quot; which would allow us to, well, perform updates
@@ -82,7 +113,13 @@
       &quot;Thread Next&quot; to move down the thread.  This farm is in
       latest-to-oldest order.
       <UL>
-        <LI>
+        <LI><A HREF="http://gcc.gnu.org/ml/libstdc++/2001-05/msg00384.html">
+	inspired this most recent updating of issues with threading
+	and the SGI STL library.  It also contains some example
+	POSIX-multithreaded STL code.</A>
+	<LI> <A HREF="http://gcc.gnu.org/ml/libstdc++/2001-05/msg00136.html">
+	an early analysis of why __USE_MALLOC should be disable for
+	the 3.0 release of libstdc++.</A>
       </UL>
       <BR>
       Here are discussions that took place before the current snapshot;
@@ -125,8 +162,7 @@
 <HR>
 <H2><A NAME="4"><TT>&lt;foo&gt;</TT> vs <TT>&lt;foo.h&gt;</TT></A></H2>
    <P>The new-style headers are fully supported in libstdc++-v3.  The compiler
-      itself fully supports namespaces.  However, at the moment, the compiler
-      treats std:: as the global namespace by default.
+      itself fully supports namespaces, including <TT>std::</TT>.
    </P>
    <P>For those of you new to ISO C++98, no, that isn't a typo, the headers
       really have new names.  Marshall Cline's C++ FAQ Lite has a good
@@ -144,9 +180,8 @@
 <HR>
 <P CLASS="fineprint"><EM>
 Comments and suggestions are welcome, and may be sent to
-<A HREF="mailto:pme@sources.redhat.com">Phil Edwards</A> or
-<A HREF="mailto:gdr@gcc.gnu.org">Gabriel Dos Reis</A>.
-<BR> $Id: howto.html,v 1.6 2000/12/03 23:47:47 jsm28 Exp $
+<A HREF="mailto:libstdc++@gcc.gnu.org">the mailing list</A>.
+<BR> $Id: howto.html,v 1.6 2001/06/08 03:53:35 ljrittle Exp $
 </EM></P>
 
 

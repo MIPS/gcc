@@ -1,6 +1,6 @@
 // -*- C++ -*- forwarding header.
 
-// Copyright (C) 1997-1999, 2000 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,13 +31,16 @@
 // ISO C++ 14882: 20.4.6  C library
 //
 
-// Note: This is not a conforming implementation.
-
 #ifndef _CPP_CSTDARG
 #define _CPP_CSTDARG 1
 
 #pragma GCC system_header
-#include <stdarg.h>
+#include_next <stdarg.h>
+
+// Adhere to section 17.4.1.2 clause 5 of ISO 14882:1998
+#ifndef va_end
+#define va_end(ap) va_end (ap)
+#endif
 
 namespace std
 {

@@ -34,13 +34,15 @@
 #ifndef _CPP_BITS_IOSBASE_H
 #define _CPP_BITS_IOSBASE_H 1
 
-namespace std {
+#pragma GCC system_header
 
+namespace std
+{
   // The following definitions of bitmask types are enums, not ints,
   // as permitted (but not required) in the standard, in order to provide
   // better type safety in iostream calls.  A side effect is that
   // expressions involving them are no longer compile-time constants.
-  enum _Ios_Fmtflags { _M_ios_fmtflags_end = 1 << 16 };
+  enum _Ios_Fmtflags { _M_ios_fmtflags_end = 1L << 16 };
 
   inline _Ios_Fmtflags 
   operator&(_Ios_Fmtflags __a, _Ios_Fmtflags __b)
@@ -71,7 +73,7 @@ namespace std {
   { return _Ios_Fmtflags(~static_cast<int>(__a)); }
 
 
-  enum _Ios_Openmode { _M_ios_openmode_end = 1 << 16 };
+  enum _Ios_Openmode { _M_ios_openmode_end = 1L << 16 };
 
   inline _Ios_Openmode 
   operator&(_Ios_Openmode __a, _Ios_Openmode __b)
@@ -102,7 +104,7 @@ namespace std {
   { return _Ios_Openmode(~static_cast<int>(__a)); }
 
 
-  enum _Ios_Iostate { _M_ios_iostate_end = 1 << 16 };
+  enum _Ios_Iostate { _M_ios_iostate_end = 1L << 16 };
 
   inline _Ios_Iostate 
   operator&(_Ios_Iostate __a, _Ios_Iostate __b)
@@ -132,7 +134,7 @@ namespace std {
   operator~(_Ios_Iostate __a)
   { return _Ios_Iostate(~static_cast<int>(__a)); }
 
-  enum _Ios_Seekdir { _M_ios_seekdir_end = 1 << 16 };
+  enum _Ios_Seekdir { _M_ios_seekdir_end = 1L << 16 };
 
   // 27.4.2  Class ios_base
   class ios_base
@@ -292,17 +294,16 @@ namespace std {
     public:
       Init();
       ~Init();
+      
+      static void
+      _S_ios_create(bool __sync);
+      
+      static void
+      _S_ios_destroy();
+
     private:
       static int 	_S_ios_base_init;
       static bool	_S_synced_with_stdio;
-      filebuf* 		_M_cout;
-      filebuf* 		_M_cin;
-      filebuf* 		_M_cerr;
-#ifdef _GLIBCPP_USE_WCHAR_T
-      wfilebuf* 	_M_wcout;
-      wfilebuf*        	_M_wcin;
-      wfilebuf* 	_M_wcerr;
-#endif
     };
 
     // Fmtflags state:
@@ -565,12 +566,4 @@ namespace std {
 } // namespace std
 
 #endif /* _CPP_BITS_IOSBASE_H */
-
-
-
-
-
-
-
-
 

@@ -1,6 +1,6 @@
 // Explicit instantiation file.
 
-// Copyright (C) 1997-1999, 2000 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -43,6 +43,7 @@
 #include <bits/basic_ios.tcc>
 #include <bits/std_istream.h>
 #include <bits/std_ostream.h>
+#include <bits/std_string.h>
 
 // NB: unnecessary if the .h headers include these
 #ifndef  _GLIBCPP_FULLY_COMPLIANT_HEADERS
@@ -53,7 +54,8 @@
 #include <bits/ostream.tcc>
 #endif
 
-namespace std {
+namespace std
+{
 
   //
   // streambuf
@@ -239,14 +241,47 @@ namespace std {
     (vector<string>::const_iterator, vector<string>::const_iterator, 
      string*, _Bool<false>);
 
+  template
+    void 
+    __pad_char(basic_ios<char>&, char*, const char*,
+		const streamsize, const streamsize);
+#ifdef _GLIBCPP_USE_WCHAR_T
+  template
+    void 
+    __pad_char(basic_ios<wchar_t>&, wchar_t*, const wchar_t*,
+		const streamsize, const streamsize);
+#endif
+
+  template
+    ostreambuf_iterator<char>
+    __pad_numeric(ostreambuf_iterator<char>, _Ios_Fmtflags, char, int,
+		  const char*, const char*, const char*);
+#ifdef _GLIBCPP_USE_WCHAR_T
+  template
+    ostreambuf_iterator<wchar_t>
+    __pad_numeric(ostreambuf_iterator<wchar_t>, _Ios_Fmtflags, wchar_t, int,
+		  const wchar_t*, const wchar_t*, const wchar_t*);
+#endif
+
+  template
+    ostreambuf_iterator<char>
+    __output_float(ostreambuf_iterator<char>, ios_base&, char, 
+		   const char*, size_t);
+#ifdef _GLIBCPP_USE_WCHAR_T
+  template
+    ostreambuf_iterator<wchar_t>
+    __output_float(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, 
+		   const char*, size_t);
+#endif
+
+  template
+    streamsize
+    __copy_streambufs(basic_ios<char>&, basic_streambuf<char>*,
+		      basic_streambuf<char>*); 
+#ifdef _GLIBCPP_USE_WCHAR_T
+  template
+    streamsize
+    __copy_streambufs(basic_ios<wchar_t>&, basic_streambuf<wchar_t>*,
+		      basic_streambuf<wchar_t>*); 
+#endif
 } //std
-
-
-
-
-
-
-
-
-
-

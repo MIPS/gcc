@@ -28,7 +28,6 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-
 #include <vector>
 #include <string>
 #include <sstream>
@@ -49,8 +48,8 @@ test01()
   VERIFY( len == 0 );
 
   // Full string sanity check.
-  std::string str02("these golden days, i spend waiting for you:\n 
-              Betty Carter on Verve with I'm Yours and You're Mine.");
+  std::string str02("these golden days, i spend waiting for you:\n"
+		    "Betty Carter on Verve with I'm Yours and You're Mine.");
   __i_start = str02.begin();
   __i_end = str02.end();
   len = str02.size();
@@ -159,14 +158,3 @@ main()
   
   return 0;
 }
-
-
-
-
-
-
-
-
-
-
-

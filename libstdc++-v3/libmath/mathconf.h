@@ -1,6 +1,6 @@
 /* Configuration data for libmath subpart of libstdc++. */
 
-/* Copyright (C) 1997-1999, 2000 Free Software Foundation, Inc.
+/* Copyright (C) 1997-1999, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of the GNU ISO C++ Library.  This library is free
    software; you can redistribute it and/or modify it under the
@@ -28,23 +28,23 @@
    the GNU General Public License.  */
 
 
-#include <bits/c++config.h>
+#include <config.h>
 
-#ifdef _GLIBCPP_HAVE_ENDIAN_H
+#ifdef HAVE_ENDIAN_H
 # include <endian.h>
 #else
-# ifdef _GLIBCPP_HAVE_MACHINE_ENDIAN_H
+# ifdef HAVE_MACHINE_ENDIAN_H
 #  include <machine/endian.h>
 # else
-#  ifdef _GLIBCPP_HAVE_SYS_MACHINE_H
+#  ifdef HAVE_SYS_MACHINE_H
 #   include <sys/machine.h>
 #  else
-#   if defined _GLIBCPP_HAVE_SYS_ISA_DEFS_H || defined _GLIBCPP_HAVE_MACHINE_PARAM_H
+#   if defined HAVE_SYS_ISA_DEFS_H || defined HAVE_MACHINE_PARAM_H
 /* This is on Solaris.  */
-#    ifdef _GLIBCPP_HAVE_SYS_ISA_DEFS_H
+#    ifdef HAVE_SYS_ISA_DEFS_H
 #     include <sys/isa_defs.h>
 #    endif
-#    ifdef _GLIBCPP_HAVE_MACHINE_PARAM_H
+#    ifdef HAVE_MACHINE_PARAM_H
 #     include <machine/param.h>
 #    endif
 #    ifdef _LITTLE_ENDIAN
@@ -70,9 +70,9 @@
 typedef unsigned int U_int32_t __attribute ((mode (SI)));
 typedef int Int32_t __attribute ((mode (SI)));
 typedef unsigned int U_int64_t __attribute ((mode (DI)));
-typedef int Uint64_t __attribute ((mode (DI)));
+typedef int Int64_t __attribute ((mode (DI)));
 
-#ifdef _GLIBCPP_HAVE_NAN_H
+#ifdef HAVE_NAN_H
 # include <nan.h>
 #endif
 
@@ -81,15 +81,15 @@ typedef int Uint64_t __attribute ((mode (DI)));
 double nan (void);
 #endif
 
-#ifdef _GLIBCPP_HAVE_IEEEFP_H
+#ifdef HAVE_IEEEFP_H
 # include <ieeefp.h>
 #endif
 
-#ifdef _GLIBCPP_HAVE_FP_H
+#ifdef HAVE_FP_H
 # include <fp.h>
 #endif
 
-#ifdef _GLIBCPP_HAVE_FLOAT_H
+#ifdef HAVE_FLOAT_H
 # include <float.h>
 #endif
 
@@ -128,100 +128,6 @@ double nan (void);
 # define M_PI 3.14159265358979323846
 #endif
 
-/* Test whether number is finite.  */
-#ifdef isfinite
-/* This is an ISO C99 function.  */
-# define FINITE_P(X) isfinite (X)
-# define FINITEF_P(X) isfinite (X)
-# define FINITEL_P(X) isfinite (X)
-#else
-# ifdef IsNANorINF
-/* This is for Solaris, which does not have special macros for other
-   types.  */
-#  define FINITE_P(X) (!IsNANorINF (X))
-#  define FINITEF_P(X) (!IsNANorINF (X))
-#  define FINITEL_P(X) (!IsNANorINF (X))
-# else
-#  if defined _GLIBCPP_HAVE_ISINF && defined _GLIBCPP_HAVE_ISNAN
-#   define FINITE_P(X) ({ double __x = (X); !isinf (__x) && !isnan (__x); })
-#  else
-#   ifdef _GLIBCPP_HAVE_FINITE
-#    define FINITE_P(X) finite (X)
-#   else
-#    error "We need FINITE_P"
-#   endif
-#  endif
-#  if defined _GLIBCPP_HAVE_ISINFF && defined _GLIBCPP_HAVE_ISNANF
-#   define FINITEF_P(X) ({ float __x = (X); !isinff (__x) && !isnanf (__x); })
-#  else
-#   ifdef _GLIBCPP_HAVE_FINITE
-#    define FINITEF_P(X) finite (X)
-#   else
-#    define FINITEF_P(X) FINITE_P (X)
-#   endif
-#  endif
-#  if defined _GLIBCPP_HAVE_ISINFL && defined _GLIBCPP_HAVE_ISNANL
-#   define FINITEL_P(X) ({ long double __x = (X); \
-			   !isinfl (__x) && !isnanl (__x); })
-#  else
-#   ifdef _GLIBCPP_HAVE_QFINITE
-#    define FINITEL_P(X) qfinite (X)
-#   else
-#    define FINITEL_P(X) FINITE_P (X)
-#   endif
-#  endif
-# endif
-#endif
-
-/* Test whether number is infinite.  */
-#ifdef isinf
-/* This is an ISO C99 macro.  */
-# define INFINITE_P(X) isinf (X)
-# define INFINITEF_P(X) isinf (X)
-# define INFINITEL_P(X) isinf (X)
-#else
-# ifdef IsINF
-/* This is for Solaris, which does not have special macros for other
-   types.  */
-#  define INFINITE_P(X) IsINF (X)
-#  define INFINITEF_P(X) IsINF (X)
-#  define INFINITEL_P(X) IsINF (X)
-# else
-#  if defined _GLIBCPP_HAVE_ISINF
-#   define INFINITE_P(X) isinf (X)
-#  else
-#   ifdef _GLIBCPP_HAVE_FPCLASS
-#    ifdef _FPCLASS_PINF
-/* Mingw defines _FPCLASS_PINF.  */
-#     define FP_PINF _FPCLASS_PINF
-#    endif
-/* This is for Irix and Mingw.  */
-#    define INFINITE_P(X) (fpclass (fabs (X)) == FP_PINF)
-#   else
-#    ifdef IS_INF
-/* This is for AIX.  */
-#     define INFINITE_P(X) ({ double __d = (X); IS_INF (__d); })
-#    else
-#     error "We need INFINITE_P"
-#    endif
-#   endif
-#  endif
-#  if defined _GLIBCPP_HAVE_ISINFF
-#   define INFINITEF_P(X) isinff (X)
-#  else
-#   define INFINITEF_P(X) INFINITE_P (X)
-#  endif
-#  if defined _GLIBCPP_HAVE_ISINFL
-#   define INFINITEL_P(X) isinfl (X)
-#  else
-#   ifdef _GLIBCPP_HAVE_QFPCLASS
-#    define INFINITEL_P(X) (qfpclass (fabsl (X)) == FP_PINF)
-#   else
-#    define INFINITEL_P(X) INFINITE_P (X)
-#   endif
-#  endif
-# endif
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -354,51 +260,52 @@ typedef union
 do {								\
   ieee_quad_double_shape_type qw_u;				\
   qw_u.value = (d);						\
-  (ix0) = qw_u.parts64.msw;					\
+  (msw) = qw_u.parts64.msw;					\
 } while (0)
-        
+
 
 /* Replacement for non-existing float functions.  */
-#if !defined(_GLIBCPP_HAVE_FABSF) && !defined(_GLIBCPP_HAVE___BUILTIN_FABSF)
+#if !defined(HAVE_FABSF) && !defined(HAVE___BUILTIN_FABSF)
 # define fabsf(x) fabs (x)
 #endif
-#if !defined(_GLIBCPP_HAVE_COSF) && !defined(_GLIBCPP_HAVE___BUILTIN_COSF)
+#if !defined(HAVE_COSF) && !defined(HAVE___BUILTIN_COSF)
 # define cosf(x) cos (x)
 #endif
-#ifndef _GLIBCPP_HAVE_COSHF
+#ifndef HAVE_COSHF
 # define coshf(x) cosh (x)
 #endif
-#ifndef _GLIBCPP_HAVE_EXPF
+#ifndef HAVE_EXPF
 # define expf(x) expf (x)
 #endif
-#ifndef _GLIBCPP_HAVE_LOGF
+#ifndef HAVE_LOGF
 # define logf(x) log(x)
 #endif
-#ifndef _GLIBCPP_HAVE_LOG10F
+#ifndef HAVE_LOG10F
 # define log10f(x) log10 (x)
 #endif
-#ifndef _GLIBCPP_HAVE_POWF
+#ifndef HAVE_POWF
 # define powf(x, y) pow (x, y)
 #endif
-#if !defined(_GLIBCPP_HAVE_SINF) && !defined(_GLIBCPP_HAVE___BUILTIN_SINF)
+#if !defined(HAVE_SINF) && !defined(HAVE___BUILTIN_SINF)
 # define sinf(x) sin (x)
 #endif
-#ifndef _GLIBCPP_HAVE_SINHF
+#ifndef HAVE_SINHF
 # define sinhf(x) sinh (x)
 #endif
-#if !defined(_GLIBCPP_HAVE_SQRTF) && !defined(_GLIBCPP_HAVE___BUILTIN_SQRTF)
+#if !defined(HAVE_SQRTF) && !defined(HAVE___BUILTIN_SQRTF)
 # define sqrtf(x) sqrt (x)
 #endif
-#ifndef _GLIBCPP_HAVE_TANF
+#ifndef HAVE_TANF
 # define tanf(x) tan (x)
 #endif
-#ifndef _GLIBCPP_HAVE_TANHF
+#ifndef HAVE_TANHF
 # define tanhf(x) tanh (x)
 #endif
-#ifndef _GLIBCPP_HAVE_STRTOF
+#ifndef HAVE_STRTOF
 # define strtof(s, e) strtod (s, e)
 #endif
 
 #ifdef __cplusplus
 }
 #endif
+

@@ -1,6 +1,6 @@
 // 1999-06-28 bkoz
 
-// Copyright (C) 1999 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -24,7 +24,33 @@
 #include <iterator>
 #include <debug_assert.h>
 
-bool test01(void)
+void test01()
+{
+  using namespace std;
+
+  // Check for required base class.
+  typedef istreambuf_iterator<char> test_iterator;
+  typedef char_traits<char>::off_type off_type;
+  typedef iterator<input_iterator_tag, char, off_type, char*, char&> base_iterator;
+
+  istringstream isstream("this tag");
+  test_iterator  r_it(isstream);
+  base_iterator* base = &r_it;
+
+  // Check for required typedefs
+  typedef test_iterator::value_type value_type;
+  typedef test_iterator::difference_type difference_type;
+  typedef test_iterator::pointer pointer;
+  typedef test_iterator::reference reference;
+  typedef test_iterator::iterator_category iteratory_category;
+
+  typedef test_iterator::char_type char_type;
+  typedef test_iterator::traits_type traits_type;
+  typedef test_iterator::istream_type istream_type;
+  typedef test_iterator::streambuf_type streambuf_type;
+}
+
+bool test02(void)
 {
 
   typedef std::istreambuf_iterator<char> cistreambuf_iter;
@@ -102,7 +128,7 @@ bool test01(void)
 
   std::istringstream istrs02(str01);
   cistreambuf_iter istrb_it28(istrs02);
-  for (int i = 0; i < sizeof(slit01) - 3;)
+  for (int i = 0; i < sizeof(slit01) - 2;)
     {
       c = *++istrb_it28;
       VERIFY( c == slit01[++i] );
@@ -115,11 +141,46 @@ bool test01(void)
   return test;
 }
 
+// libstdc++/2627
+void test03()
+{
+  bool test = true;
+  const std::string s("free the vieques");
+
+  // 1
+  std::string res_postfix;
+  std::istringstream iss01(s);
+  std::istreambuf_iterator<char> isbufit01(iss01);
+  for (int j = 0; j < s.size(); ++j, isbufit01++)
+    res_postfix += *isbufit01;
+
+  // 2
+  std::string res_prefix;
+  std::istringstream iss02(s);
+  std::istreambuf_iterator<char> isbufit02(iss02);
+  for (int j = 0; j < s.size(); ++j, ++isbufit02)
+    res_prefix += *isbufit02;
+
+  // 3 mixed
+  std::string res_mixed;
+  std::istringstream iss03(s);
+  std::istreambuf_iterator<char> isbufit03(iss03);
+  for (int j = 0; j < int(s.size() / 2); ++j)
+    {
+      res_mixed += *isbufit03;
+      ++isbufit03;
+      res_mixed += *isbufit03;
+      isbufit03++;
+    }
+
+  VERIFY ( res_postfix == res_prefix );
+  VERIFY ( res_mixed == res_prefix );
+}
+
 int main()
 {
   test01();
-
+  test02();
+  test03();
   return 0;
 }
-
-

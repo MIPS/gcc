@@ -4988,7 +4988,6 @@ instantiate_class_template (type)
   TYPE_HAS_NEW_OPERATOR (type) = TYPE_HAS_NEW_OPERATOR (pattern);
   TYPE_HAS_ARRAY_NEW_OPERATOR (type) = TYPE_HAS_ARRAY_NEW_OPERATOR (pattern);
   TYPE_GETS_DELETE (type) = TYPE_GETS_DELETE (pattern);
-  TYPE_VEC_DELETE_TAKES_SIZE (type) = TYPE_VEC_DELETE_TAKES_SIZE (pattern);
   TYPE_HAS_ASSIGN_REF (type) = TYPE_HAS_ASSIGN_REF (pattern);
   TYPE_HAS_CONST_ASSIGN_REF (type) = TYPE_HAS_CONST_ASSIGN_REF (pattern);
   TYPE_HAS_ABSTRACT_ASSIGN_REF (type) = TYPE_HAS_ABSTRACT_ASSIGN_REF (pattern);
@@ -9733,7 +9732,6 @@ instantiate_decl (d, defer_ok)
   tree code_pattern;
   tree spec;
   tree gen_tmpl;
-  tree clone_name = NULL_TREE;
   int pattern_defined;
   int line = lineno;
   int need_push;
@@ -9747,11 +9745,7 @@ instantiate_decl (d, defer_ok)
   /* Don't instantiate cloned functions.  Instead, instantiate the
      functions they cloned.  */
   if (TREE_CODE (d) == FUNCTION_DECL && DECL_CLONED_FUNCTION_P (d))
-    {
-      /* Remember the clone so we can locate the instantiated clone. */
-      clone_name = DECL_NAME (d);
-      d = DECL_CLONED_FUNCTION (d);
-    }
+    d = DECL_CLONED_FUNCTION (d);
 
   if (DECL_TEMPLATE_INSTANTIATED (d))
     /* D has already been instantiated.  It might seem reasonable to
@@ -9759,7 +9753,7 @@ instantiate_decl (d, defer_ok)
        stop here.  But when an explicit instantiation is deferred
        until the end of the compilation, DECL_EXPLICIT_INSTANTIATION
        is set, even though we still need to do the instantiation.  */
-    goto find_clone;
+    return d;
 
   /* If we already have a specialization of this declaration, then
      there's no reason to instantiate it.  Note that
@@ -9769,14 +9763,11 @@ instantiate_decl (d, defer_ok)
   gen_tmpl = most_general_template (tmpl);
   spec = retrieve_specialization (gen_tmpl, args);
   if (spec != NULL_TREE && DECL_TEMPLATE_SPECIALIZATION (spec))
-    {
-      d = spec;
-      goto find_clone;
-    }
+    return spec;
 
   /* This needs to happen before any tsubsting.  */
   if (! push_tinst_level (d))
-    goto find_clone;
+    return d;
 
   timevar_push (TV_PARSE);
 
@@ -9987,22 +9978,6 @@ out:
 
   timevar_pop (TV_PARSE);
 
-find_clone:
-  if (clone_name)
-    {
-      tree d_clone;
-
-      for (d_clone = TREE_CHAIN (d);
-	   d_clone && DECL_CLONED_FUNCTION_P (d_clone);
-	   d_clone = TREE_CHAIN (d_clone))
-	if (DECL_NAME (d_clone) == clone_name)
-	  {
-	    d = d_clone;
-	    break;
-	  }
-      my_friendly_assert (DECL_CLONED_FUNCTION_P (d), 20010702);
-    }
-  
   return d;
 }
 

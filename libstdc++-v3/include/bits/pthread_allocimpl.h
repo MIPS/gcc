@@ -1,3 +1,32 @@
+// POSIX thread-related memory allocation -*- C++ -*-
+
+// Copyright (C) 2001 Free Software Foundation, Inc.
+//
+// This file is part of the GNU ISO C++ Library.  This library is free
+// software; you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the
+// Free Software Foundation; either version 2, or (at your option)
+// any later version.
+
+// This library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License along
+// with this library; see the file COPYING.  If not, write to the Free
+// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// USA.
+
+// As a special exception, you may use this file as part of a free software
+// library without restriction.  Specifically, if other files instantiate
+// templates or use macros or inline functions from this file, or you compile
+// this file and link it with other files to produce an executable, this
+// file does not by itself cause the resulting executable to be covered by
+// the GNU General Public License.  This exception does not however
+// invalidate any other reasons why the executable file might be covered by
+// the GNU General Public License.
+
 /*
  * Copyright (c) 1996
  * Silicon Graphics Computer Systems, Inc.
@@ -27,18 +56,17 @@
 // cache lines among processors, with potentially serious performance
 // consequences.
 
+#include <bits/c++config.h>
 #include <bits/std_cerrno.h>
-#include <bits/stl_config.h>
 #include <bits/stl_alloc.h>
 #ifndef __RESTRICT
 #  define __RESTRICT
 #endif
 
-#ifndef __STL_NO_BAD_ALLOC
-#  include <new>
-#endif
+#include <new>
 
-__STL_BEGIN_NAMESPACE
+namespace std
+{
 
 #define __STL_DATA_ALIGNMENT 8
 
@@ -213,7 +241,7 @@ _Pthread_alloc_template<_Max_size>::_S_get_per_thread_state()
     _Pthread_alloc_per_thread_state<_Max_size> * __result;
     if (!_S_key_initialized) {
         if (pthread_key_create(&_S_key, _S_destructor)) {
-	    __THROW_BAD_ALLOC;  // defined in stl_alloc.h
+	    std::__throw_bad_alloc();  // defined in funcexcept.h
         }
         _S_key_initialized = true;
     }
@@ -221,7 +249,7 @@ _Pthread_alloc_template<_Max_size>::_S_get_per_thread_state()
     __ret_code = pthread_setspecific(_S_key, __result);
     if (__ret_code) {
       if (__ret_code == ENOMEM) {
-	__THROW_BAD_ALLOC;
+	std::__throw_bad_alloc();
       } else {
 	// EINVAL
 	abort();
@@ -377,7 +405,6 @@ template <size_t _Max_size>
 size_t _Pthread_alloc_template<_Max_size>
 ::_S_heap_size = 0;
 
-#ifdef __STL_USE_STD_ALLOCATORS
 
 template <class _Tp>
 class pthread_allocator {
@@ -484,9 +511,7 @@ struct _Alloc_traits<_Tp, pthread_allocator<_Atype> >
 };
 
 
-#endif /* __STL_USE_STD_ALLOCATORS */
-
-__STL_END_NAMESPACE
+} // namespace std
 
 #endif /* _CPP_BITS_PTHREAD_ALLOCIMPL_H */
 

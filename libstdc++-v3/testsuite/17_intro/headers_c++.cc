@@ -67,4 +67,18 @@
   #include <wctype.h>
 #endif
 
-int main() { }                  // { dg-do compile }
+// libstdc++/2992
+namespace bar
+{
+  int foo(const char *x)
+  { return strlen(x); }
+};
+
+
+int main() { return 0; }
+
+
+
+
+
+

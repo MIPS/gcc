@@ -1,9 +1,35 @@
-2001-07-10  Daniel Berlin  <dan@cgsoftware.com>
+2001-07-19  Mark Mitchell  <mark@codesourcery.com>
 
-	* optimize.c (inlinable_function_p): Add heuristics to control
-	code growth.  
-	Add heuristic to inline anything where the cost to call is more
-	than the cost to inline.
+	* class.c (finish_struct_anon): Forbid nested classes.
+
+2001-07-19  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* decl2.c: Don't include dwarfout.h and dwarf2out.h.
+	* optimize.c: Include debug.h.
+	(maybe_clone_body): Use debug hook.
+	* semantics.c: Include debug.h.
+	(expand_body): Use debug hook.
+
+2001-07-19  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* spew.c (read_token, yyerror): Remove CPP_INT, CPP_FLOAT cases.
+
+2001-07-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (type_requires_array_cookie): New function.
+	(check_methods): Don't try to figure out whether the type needs a
+	cookie here.
+	(check_bases_and_members): Set TYPE_VEC_NEW_USES_COOKIE here.
+	* cp-tree.h (TYPE_VEC_DELETE_TAKES_SIZE): Remove.
+	(TYPE_VEC_NEW_USES_COOKIE): Reimplement.
+	* pt.c (instantiate_class_template): Don't set
+	TYPE_VEC_DELETE_TAKES_SIZE.
+	* NEWS: Document ABI changes from GCC 3.0.
+	
+2001-07-18  Xavier Delacour <xavier@fmaudio.net>,
+            Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* NEWS (Changes in GCC 3.0): Fix typo.
 
 2001-07-13  Joseph S. Myers  <jsm28@cam.ac.uk>
 

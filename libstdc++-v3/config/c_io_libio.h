@@ -1,6 +1,6 @@
 // underlying io library  -*- C++ -*-
 
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,8 +34,8 @@
 
 #include <libio.h>
 
-namespace std {
-
+namespace std 
+{
 // from fpos.h
   typedef _IO_ssize_t 	streamsize; // Signed integral type
   typedef _IO_ssize_t 	wstreamsize;
@@ -43,11 +43,9 @@ namespace std {
 #if defined(_G_IO_IO_FILE_VERSION) && _G_IO_IO_FILE_VERSION == 0x20001
   typedef _IO_off64_t 	streamoff;
   typedef _IO_fpos64_t 	__c_streampos;
-  typedef _IO_off64_t  	wstreamoff;
 #else
   typedef _IO_off_t 	streamoff;
   typedef _IO_fpos_t 	__c_streampos;
-  typedef _IO_off_t  	wstreamoff;
 #endif
 
 #ifdef _GLIBCPP_USE_THREADS
@@ -103,7 +101,6 @@ namespace std {
     static const __int_type _S_out =		_IOS_OUTPUT;
     static const __int_type _S_trunc =		_IOS_TRUNC;
   };
-
 }
 
 #endif // _CPP_IO_LIBIO_H

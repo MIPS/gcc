@@ -1,6 +1,6 @@
 // 2000-06-29 bkoz
 
-// Copyright (C) 2000 Free Software Foundation
+// Copyright (C) 2000, 2001 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -20,12 +20,13 @@
 
 // 27.6.1.3 unformatted input functions
 // NB: ostream has a particular "seeks" category. Adopt this for istreams too.
+// @require@ %-*.tst %-*.txt
+// @diff@ %-*.tst %-*.txt
 
 #include <istream>
 #include <sstream>
 #include <fstream>
 #include <debug_assert.h>
-
 
 bool test01()
 {
@@ -33,7 +34,7 @@ bool test01()
   typedef ios::pos_type pos_type;
 
   bool test = true;
-  const char str_lit01[] = "istream_unformatted-1.tst";
+  const char str_lit01[] = "istream_seeks-1.tst";
 
   // in
   // test default ctors leave things in the same positions...
@@ -62,14 +63,81 @@ bool test01()
   return test;
 }
 
+const char* s = " lootpack, peanut butter wolf, rob swift, madlib, quasimoto";
+const int times = 10;
+
+void write_rewind(std::iostream& stream)
+{
+  for (int j = 0; j < times; j++) 
+    {
+      bool test = true;
+      std::streampos begin = stream.tellg();
+      
+      for (int i = 0; i < times; ++i)
+	stream << j << '-' << i << s << '\n';
+      
+      stream.seekg(begin);
+      std::streampos end = stream.tellg(); 
+      std::streampos badpos = std::streampos(std::streambuf::off_type(-1));
+    }
+}
+
+void check_contents(std::iostream& stream)
+{
+  bool test = true;
+
+  stream.clear();
+  stream.seekg(0, std::ios::beg);
+  int i = 0;
+  int loop = times * times + 2;
+  while (i < loop)
+    {
+      stream.ignore(80, '\n');
+      if (stream.good())
+	++i;
+      else
+	break;
+    }
+  VERIFY( i == times );
+}
+
+// fstream
+// libstdc++/2346
+void test02()
+{	 
+  std::fstream ofstrm;
+  ofstrm.open("istream_seeks-3.txt", std::ios::out);
+  if (!ofstrm)
+    abort();
+  write_rewind(ofstrm);
+  ofstrm.close();
+
+  std::fstream ifstrm;
+  ifstrm.open("istream_seeks-3.txt", std::ios::in);
+  check_contents(ifstrm);
+  ifstrm.close();
+}
+
+// stringstream
+// libstdc++/2346
+void test03()
+{	 
+  std::stringstream sstrm;
+
+  write_rewind(sstrm);
+  check_contents(sstrm);
+}
+
 // fstreams
 void test04(void)
 {
+  typedef std::istream::off_type off_type;
+
   bool test = true;
   std::istream::pos_type pos01, pos02, pos03, pos04, pos05, pos06;
   std::ios_base::iostate state01, state02;
-  const char str_lit01[] = "istream_unformatted-1.txt";
-  const char str_lit02[] = "istream_unformatted-2.txt";
+  const char str_lit01[] = "istream_seeks-1.txt";
+  const char str_lit02[] = "istream_seeks-2.txt";
   std::ifstream if01(str_lit01, std::ios_base::in | std::ios_base::out);
   std::ifstream if02(str_lit01, std::ios_base::in);
   std::ifstream if03(str_lit02, std::ios_base::out | std::ios_base::trunc); 
@@ -112,7 +180,7 @@ void test04(void)
   is01.seekg(10, std::ios_base::cur);
   state02 = is01.rdstate();
   pos01 = is01.tellg(); 
-  VERIFY( pos01 == pos02 + 10 ); 
+  VERIFY( pos01 == pos02 + off_type(10) ); 
   VERIFY( state01 == state02 );
   pos02 = is01.tellg(); 
   VERIFY( pos02 == pos01 ); 
@@ -121,7 +189,7 @@ void test04(void)
   is02.seekg(10, std::ios_base::cur);
   state02 = is02.rdstate();
   pos03 = is02.tellg(); 
-  VERIFY( pos03 == pos04 + 10 ); 
+  VERIFY( pos03 == pos04 + off_type(10) ); 
   VERIFY( state01 == state02 );
   pos04 = is02.tellg(); 
   VERIFY( pos03 == pos04 ); 
@@ -130,7 +198,7 @@ void test04(void)
   is03.seekg(10, std::ios_base::cur);
   state02 = is03.rdstate();
   pos05 = is03.tellg(); 
-  VERIFY( pos05 == pos06 + 10 ); 
+  VERIFY( pos05 == pos06 + off_type(10) ); 
   VERIFY( state01 == state02 );
   pos06 = is03.tellg(); 
   VERIFY( pos05 == pos06 ); 
@@ -140,7 +208,7 @@ void test04(void)
   is01.seekg(20, std::ios_base::beg);
   state02 = is01.rdstate();
   pos01 = is01.tellg(); 
-  VERIFY( pos01 == pos02 + 10 ); 
+  VERIFY( pos01 == pos02 + off_type(10) ); 
   VERIFY( state01 == state02 );
   pos02 = is01.tellg(); 
   VERIFY( pos02 == pos01 ); 
@@ -149,7 +217,7 @@ void test04(void)
   is02.seekg(20, std::ios_base::beg);
   state02 = is02.rdstate();
   pos03 = is02.tellg(); 
-  VERIFY( pos03 == pos04 + 10 ); 
+  VERIFY( pos03 == pos04 + off_type(10) ); 
   VERIFY( state01 == state02 );
   pos04 = is02.tellg(); 
   VERIFY( pos03 == pos04 ); 
@@ -158,7 +226,7 @@ void test04(void)
   is03.seekg(20, std::ios_base::beg);
   state02 = is03.rdstate();
   pos05 = is03.tellg(); 
-  VERIFY( pos05 == pos06 + 10 );
+  VERIFY( pos05 == pos06 + off_type(10) );
   VERIFY( state01 == state02 );
   pos06 = is03.tellg(); 
   VERIFY( pos05 == pos06 ); 
@@ -171,10 +239,12 @@ void test04(void)
 // stringstreams
 void test05(void)
 {
+  typedef std::istream::off_type off_type;
+
   bool test = true;
   std::istream::pos_type pos01, pos02, pos03, pos04, pos05, pos06;
   std::ios_base::iostate state01, state02;
-  const char str_lit01[] = "istream_unformatted-1.tst";
+  const char str_lit01[] = "istream_seeks-1.tst";
   std::ifstream if01(str_lit01);
   std::ifstream if02(str_lit01);
   std::ifstream if03(str_lit01);
@@ -224,7 +294,7 @@ void test05(void)
   is01.seekg(10, std::ios_base::cur);
   state02 = is01.rdstate();
   pos01 = is01.tellg(); 
-  VERIFY( pos01 == pos02 + 10 ); 
+  VERIFY( pos01 == pos02 + off_type(10) ); 
   VERIFY( state01 == state02 );
   pos02 = is01.tellg(); 
   VERIFY( pos02 == pos01 ); 
@@ -233,7 +303,7 @@ void test05(void)
   is02.seekg(10, std::ios_base::cur);
   state02 = is02.rdstate();
   pos03 = is02.tellg(); 
-  VERIFY( pos03 == pos04 + 10 ); 
+  VERIFY( pos03 == pos04 + off_type(10) ); 
   VERIFY( state01 == state02 );
   pos04 = is02.tellg(); 
   VERIFY( pos03 == pos04 ); 
@@ -243,7 +313,7 @@ void test05(void)
   state02 = is03.rdstate();
   pos05 = is03.tellg(); 
   VERIFY( pos05 == pos06 ); // as only out buffer 
-  VERIFY( state01 == state02 );
+  VERIFY( state01 != state02 );
   pos06 = is03.tellg(); 
   VERIFY( pos05 == pos06 ); 
 
@@ -252,7 +322,7 @@ void test05(void)
   is01.seekg(20, std::ios_base::beg);
   state02 = is01.rdstate();
   pos01 = is01.tellg(); 
-  VERIFY( pos01 == pos02 + 10 ); 
+  VERIFY( pos01 == pos02 + off_type(10) ); 
   VERIFY( state01 == state02 );
   pos02 = is01.tellg(); 
   VERIFY( pos02 == pos01 ); 
@@ -261,7 +331,7 @@ void test05(void)
   is02.seekg(20, std::ios_base::beg);
   state02 = is02.rdstate();
   pos03 = is02.tellg(); 
-  VERIFY( pos03 == pos04 + 10 ); 
+  VERIFY( pos03 == pos04 + off_type(10) ); 
   VERIFY( state01 == state02 );
   pos04 = is02.tellg(); 
   VERIFY( pos03 == pos04 ); 
@@ -283,15 +353,13 @@ void test05(void)
 int main()
 {
   test01();
+
+  test02();
+  test03();
+
   test04();
   test05();
   return 0;
 }
-
-
-
-
-
-
 
 

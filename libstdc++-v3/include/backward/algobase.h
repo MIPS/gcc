@@ -1,3 +1,32 @@
+// Backward-compat support -*- C++ -*-
+
+// Copyright (C) 2001 Free Software Foundation, Inc.
+//
+// This file is part of the GNU ISO C++ Library.  This library is free
+// software; you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the
+// Free Software Foundation; either version 2, or (at your option)
+// any later version.
+
+// This library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License along
+// with this library; see the file COPYING.  If not, write to the Free
+// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// USA.
+
+// As a special exception, you may use this file as part of a free software
+// library without restriction.  Specifically, if other files instantiate
+// templates or use macros or inline functions from this file, or you compile
+// this file and link it with other files to produce an executable, this
+// file does not by itself cause the resulting executable to be covered by
+// the GNU General Public License.  This exception does not however
+// invalidate any other reasons why the executable file might be covered by
+// the GNU General Public License.
+
 /*
  *
  * Copyright (c) 1994
@@ -26,43 +55,32 @@
 #ifndef _CPP_BACKWARD_ALGOBASE_H
 #define _CPP_BACKWARD_ALGOBASE_H 1
 
-#ifndef _CPP_BACKWARD_PAIR_H
+#include "backward_warning.h"
 #include "pair.h"
-#endif
-#ifndef _CPP_BACKWARD_ITERATOR_H
 #include "iterator.h"
-#endif
-#ifndef _CPP_BITS_STL__ALGOBASE_H
 #include <bits/stl_algobase.h>
-#endif
-#ifndef _CPP_BITS_STL_UNINITIALIZED_H
 #include <bits/stl_uninitialized.h>
-#endif
-
-#ifdef __STL_USE_NAMESPACES
 
 // Names from stl_algobase.h
-using __STD::iter_swap; 
-using __STD::swap; 
-using __STD::min; 
-using __STD::max; 
-using __STD::copy; 
-using __STD::copy_backward; 
-using __STD::copy_n; 
-using __STD::fill; 
-using __STD::fill_n; 
-using __STD::mismatch; 
-using __STD::equal; 
-using __STD::lexicographical_compare; 
-using __STD::lexicographical_compare_3way; 
+using std::iter_swap; 
+using std::swap; 
+using std::min; 
+using std::max; 
+using std::copy; 
+using std::copy_backward; 
+using std::copy_n; 
+using std::fill; 
+using std::fill_n; 
+using std::mismatch; 
+using std::equal; 
+using std::lexicographical_compare; 
+using std::lexicographical_compare_3way; 
 
 // Names from stl_uninitialized.h
-using __STD::uninitialized_copy;
-using __STD::uninitialized_copy_n;
-using __STD::uninitialized_fill;
-using __STD::uninitialized_fill_n;
-
-#endif /* __STL_USE_NAMESPACES */
+using std::uninitialized_copy;
+using std::uninitialized_copy_n;
+using std::uninitialized_fill;
+using std::uninitialized_fill_n;
 
 #endif /* _CPP_BACKWARD_ALGOBASE_H */
 

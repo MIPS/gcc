@@ -34,12 +34,15 @@
 #ifndef _CPP_STRING
 #define _CPP_STRING	1
 
+#pragma GCC system_header
+
 #include <bits/c++config.h>
-#include <bits/stl_string_fwd.h>
-#include <bits/std_iterator.h>
+#include <bits/stringfwd.h>
 #include <bits/char_traits.h>
+#include <bits/std_memory.h> 	// For allocator.
 #include <bits/type_traits.h>
-#include <bits/std_iosfwd.h> // for operators >>, <<, and getline decls
+#include <bits/std_iosfwd.h> 	// For operators >>, <<, and getline decls.
+#include <bits/stl_iterator.h>
 #include <bits/basic_string.h>
 
 #ifdef _GLIBCPP_NO_TEMPLATE_EXPORT
@@ -48,16 +51,4 @@
 #endif
 
 #endif /* _CPP_STRING */
-
-
-
-
-
-
-
-
-
-
-
-
 

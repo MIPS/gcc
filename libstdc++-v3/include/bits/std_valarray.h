@@ -1,6 +1,6 @@
 // The template and inlines for the -*- C++ -*- valarray class.
 
-// Copyright (C) 1997-1999, 2000 Free Software Foundation, Inc.
+// Copyright (C) 1997-1999, 2000, 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,6 +32,8 @@
 #ifndef _CPP_VALARRAY
 #define _CPP_VALARRAY 1
 
+#pragma GCC system_header
+
 #include <bits/c++config.h>
 #include <bits/std_cstddef.h>
 #include <bits/std_cmath.h>
@@ -40,8 +42,8 @@
 #include <bits/std_functional.h>
 #include <bits/std_algorithm.h>
 
-namespace std {
-
+namespace std
+{
     template<class _Clos, typename _Tp> class _Expr;
 
     template<typename _Tp1, typename _Tp2> class _ValArray;    
@@ -80,13 +82,13 @@ namespace std {
     template<class _Tp> class mask_array;     // masked array
     template<class _Tp> class indirect_array; // indirected array
 
-}
+} // namespace std
 
 #include <bits/valarray_array.h>
 #include <bits/valarray_meta.h>
   
-namespace std {
-
+namespace std
+{
   template<class _Tp> class valarray
   {
   public:
@@ -118,7 +120,8 @@ namespace std {
       	operator= (const _Expr<_Dom,_Tp>&);
 
       // _lib.valarray.access_ element access:
-      _Tp                 operator[](size_t) const;
+      // XXX: LWG to be resolved.
+      const _Tp&                 operator[](size_t) const;
       _Tp&                operator[](size_t);		
       // _lib.valarray.sub_ subset operations:
       _Expr<_SClos<_ValArray,_Tp>, _Tp> operator[](slice) const;
@@ -234,12 +237,12 @@ namespace std {
 
   
   template<typename _Tp>
-  inline _Tp
+  inline const _Tp&
   valarray<_Tp>::operator[] (size_t __i) const
   { return _M_data[__i]; }
 
   template<typename _Tp>
-  _Tp&
+  inline _Tp&
   valarray<_Tp>::operator[] (size_t __i)
   { return _M_data[__i]; }
 
@@ -252,8 +255,8 @@ namespace std {
 #include <bits/mask_array.h>
 #include <bits/indirect_array.h>
 
-namespace std {
-
+namespace std
+{
   template<typename _Tp>
   inline valarray<_Tp>::valarray () : _M_size (0), _M_data (0) {}
 
@@ -472,48 +475,53 @@ namespace std {
 //   }
 
   template <class _Tp>
-  inline valarray<_Tp>
-  valarray<_Tp>::shift (int __n) const
-  {
-      _Tp* const __a = static_cast<_Tp*>
-          (__builtin_alloca (sizeof(_Tp) * _M_size));
-      if (! __n)                          // __n == 0: no shift
-        __valarray_copy_construct(_M_data, _M_data + _M_size, __a);
-      else if (__n > 0) {                  // __n > 0: shift left
-          if (__n > _M_size)
-              __valarray_default_construct(__a, __a + __n);
-          else {
-              __valarray_copy_construct(_M_data+__n, _M_data + _M_size, __a);
-              __valarray_default_construct(__a+_M_size-__n, __a + _M_size);
-          }
-      }
-      else {                             // __n < 0: shift right
-          __valarray_copy_construct (_M_data, _M_data+_M_size+__n, __a-__n);
-          __valarray_default_construct(__a, __a - __n);
-      }
-      return valarray<_Tp> (__a, _M_size);
-  }
+     inline valarray<_Tp>
+     valarray<_Tp>::shift(int __n) const
+     {
+       _Tp* const __a = static_cast<_Tp*>
+         (__builtin_alloca(sizeof(_Tp) * _M_size));
+       if (__n == 0)                          // no shift
+         __valarray_copy_construct(_M_data, _M_data + _M_size, __a);
+       else if (__n > 0)         // __n > 0: shift left
+         {                 
+           if (size_t(__n) > _M_size)
+             __valarray_default_construct(__a, __a + __n);
+           else
+             {
+               __valarray_copy_construct(_M_data+__n, _M_data + _M_size, __a);
+               __valarray_default_construct(__a+_M_size-__n, __a + _M_size);
+             }
+         }
+       else                        // __n < 0: shift right
+         {                          
+           __valarray_copy_construct (_M_data, _M_data+_M_size+__n, __a-__n);
+           __valarray_default_construct(__a, __a - __n);
+         }
+       return valarray<_Tp> (__a, _M_size);
+     }
 
   template <class _Tp>
-  inline valarray<_Tp>
-  valarray<_Tp>::cshift (int __n) const
-  {
-      _Tp* const __a = static_cast<_Tp*>
-          (__builtin_alloca (sizeof(_Tp) * _M_size));
-      if (! __n)                          // __n == 0: no cshift
-        __valarray_copy_construct(_M_data, _M_data + _M_size, __a);
-      else if (__n > 0) {                 // __n > 0: cshift left
-          __valarray_copy_construct(_M_data, _M_data+__n, __a+_M_size-__n);
-          __valarray_copy_construct(_M_data+__n, _M_data + _M_size, __a);
-      }
-      else {                            // __n < 0: cshift right
-          __valarray_copy_construct
-              (_M_data + _M_size+__n, _M_data + _M_size, __a);
-          __valarray_copy_construct
-              (_M_data, _M_data + _M_size+__n, __a - __n);
-        }
-      return valarray<_Tp> (__a, _M_size);
-  }
+     inline valarray<_Tp>
+     valarray<_Tp>::cshift (int __n) const
+     {
+       _Tp* const __a = static_cast<_Tp*>
+         (__builtin_alloca (sizeof(_Tp) * _M_size));
+       if (__n == 0)               // no cshift
+         __valarray_copy_construct(_M_data, _M_data + _M_size, __a);
+       else if (__n > 0)           // cshift left
+         {               
+           __valarray_copy_construct(_M_data, _M_data+__n, __a+_M_size-__n);
+           __valarray_copy_construct(_M_data+__n, _M_data + _M_size, __a);
+         }
+       else                        // cshift right
+         {                       
+           __valarray_copy_construct
+             (_M_data + _M_size+__n, _M_data + _M_size, __a);
+           __valarray_copy_construct
+             (_M_data, _M_data + _M_size+__n, __a - __n);
+         }
+       return valarray<_Tp>(__a, _M_size);
+     }
 
   template <class _Tp>
   inline void
@@ -620,7 +628,8 @@ _DEFINE_VALARRAY_AUGMENTED_ASSIGNMENT(>>, shift_right)
 } // std::
   
 
-namespace std {
+namespace std
+{
 
 #define _DEFINE_VALARRAY_EXPR_AUGMENTED_ASSIGNMENT(_Op, _Name)          \
   template<class _Tp> template<class _Dom>				\
@@ -717,7 +726,7 @@ _DEFINE_LOGICAL_OPERATOR(>, greater)
 _DEFINE_LOGICAL_OPERATOR(<=, less_equal)
 _DEFINE_LOGICAL_OPERATOR(>=, greater_equal)
 
-#undef _DEFINE_VALARRAY_OPERATOR
+#undef _DEFINE_LOGICAL_OPERATOR
 
 } // namespace std
 

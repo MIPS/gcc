@@ -1,6 +1,6 @@
 // Output streams -*- C++ -*-
 
-// Copyright (C) 1997-1999, 2000 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,10 +34,12 @@
 #ifndef _CPP_OSTREAM
 #define _CPP_OSTREAM	1
 
+#pragma GCC system_header
+
 #include <bits/std_ios.h>
 
-namespace std {
-  
+namespace std
+{
   // 27.6.2.1 Template class basic_ostream
   template<typename _CharT, typename _Traits>
     class basic_ostream : virtual public basic_ios<_CharT, _Traits>
@@ -55,7 +57,7 @@ namespace std {
       typedef basic_streambuf<_CharT, _Traits> 		__streambuf_type;
       typedef basic_ios<_CharT, _Traits>		__ios_type;
       typedef basic_ostream<_CharT, _Traits>		__ostream_type;
-      typedef ostreambuf_iterator<_CharT>		__ostreambuf_iter;
+      typedef ostreambuf_iterator<_CharT, _Traits>	__ostreambuf_iter;
       typedef num_put<_CharT, __ostreambuf_iter>        __numput_type;
       typedef ctype<_CharT>           			__ctype_type;
 
@@ -65,8 +67,7 @@ namespace std {
       { this->init(__sb); }
 
       virtual 
-      ~basic_ostream() 
-      { _M_fnumput = NULL; }
+      ~basic_ostream() { }
 
       // 27.6.2.3 Prefix/suffix:
       class sentry;
@@ -262,7 +263,7 @@ namespace std {
   template<typename _CharT, typename _Traits>
     basic_ostream<_CharT, _Traits>& 
     ends(basic_ostream<_CharT, _Traits>& __os)
-    { return __os.put(_Traits::_S_eos()); }
+    { return __os.put(_CharT()); }
   
   template<typename _CharT, typename _Traits>
     basic_ostream<_CharT, _Traits>& 
@@ -279,10 +280,4 @@ namespace std {
 #endif
 
 #endif	/* _CPP_OSTREAM */
-
-
-
-
-
-
 

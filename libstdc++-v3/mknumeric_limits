@@ -8,21 +8,6 @@
 
 echo "running mknumeric_limits"
 
-case `uname` in
-    CYGWIN*) 
-	LDFLAGS='-nodefaultlibs -lcygwin -lc -lkernel32 -lgcc' ;;
-    AIX*) 
-	case $CXX in
-	    *pthread*)
-		LDFLAGS='-nodefaultlibs -lgcc -L/usr/lib/threads -lpthreads -lc_r /usr/lib/libc.a' ;;
-	    *)
-		LDFLAGS='-nodefaultlibs -lgcc -lc' ;;
-	esac
-	;;
-    *)
-	LDFLAGS='-nodefaultlibs -lgcc -lc' ;;
-esac
-
 BUILD_DIR=$1
 if [ ! -d "$BUILD_DIR" ]; then
   echo "build directory $BUILD_DIR not found, exiting."
@@ -62,14 +47,14 @@ if [ $XCOMPILE -eq 1 ]; then
   exit 0;
 fi   
 
-: ${CXX:="$BUILD_DIR/../../gcc/g++ -B$BUILD_DIR/../../gcc/"}
+CC=${CC="$BUILD_DIR/../../gcc/xgcc -B$BUILD_DIR/../../gcc/"}
 
 # We output to a temporary file, so that we don't appear to have
 # succeeded unless we actually do.
 cat <<EOF > $OUT_H-t
 // The template and inlines for the -*- C++ -*- numeric_limits classes.
 
-// Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+// Copyright (C) 1999-2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -114,84 +99,178 @@ cat <<EOF > $OUT_H-t
 #include <bits/c++config.h>
 #include <bits/std_cfloat.h>
 
-namespace std {
+namespace std
+{
+  enum float_round_style 
+  {
+    round_indeterminate       = -1,
+    round_toward_zero         = 0,
+    round_to_nearest          = 1,
+    round_toward_infinity     = 2,
+    round_toward_neg_infinity = 3
+  };
 
-    enum float_round_style {
-        round_indeterminate       = -1,
-        round_toward_zero         = 0,
-        round_to_nearest          = 1,
-        round_toward_infinity     = 2,
-        round_toward_neg_infinity = 3
+  enum float_denorm_style 
+  {
+    denorm_indeterminate = -1,
+    denorm_absent        = 0,
+    denorm_present       = 1
+  };
+
+  template<typename _Tp> 
+    struct numeric_limits 
+    {
+      static const bool is_specialized = false;
+
+      static _Tp min() throw() { return static_cast<_Tp>(0); }
+      static _Tp max() throw() { return static_cast<_Tp>(0); }
+
+      static const int digits = 0;
+      static const int digits10 = 0;
+      static const bool is_signed = false;
+      static const bool is_integer = false;
+      static const bool is_exact = false;
+      static const int radix = 0;
+
+      static _Tp epsilon() throw() { return static_cast<_Tp>(0); }
+      static _Tp round_error() throw() { return static_cast<_Tp>(0); }
+
+      static const int min_exponent = 0;
+      static const int min_exponent10 = 0;
+      static const int max_exponent = 0;
+      static const int max_exponent10 = 0;
+
+      static const bool has_infinity = false;
+      static const bool has_quiet_NaN = false;
+      static const bool has_signaling_NaN = false;
+      static const float_denorm_style has_denorm = denorm_absent;
+      static const bool has_denorm_loss = false;
+
+      static _Tp infinity() throw()  { return static_cast<_Tp>(0); }
+      static _Tp quiet_NaN() throw() { return static_cast<_Tp>(0); }
+      static _Tp signaling_NaN() throw() { return static_cast<_Tp>(0); }
+      static _Tp denorm_min() throw() { return static_cast<_Tp>(0); }
+
+      static const bool is_iec559 = false;
+      static const bool is_bounded = false;
+      static const bool is_modulo = false;
+
+      static const bool traps = false;
+      static const bool tinyness_before = false;
+      static const float_round_style round_style = round_toward_zero;
     };
 
-    enum float_denorm_style {
-        denorm_indeterminate = -1,
-        denorm_absent        = 0,
-        denorm_present       = 1
-    };
+  template<typename _Tp> 
+    const bool
+    numeric_limits<_Tp>::is_specialized;
 
-    template<typename _Tp> struct numeric_limits {
-        static const bool is_specialized = false;
+  template<typename _Tp> 
+    const int
+    numeric_limits<_Tp>::digits;
 
-        static _Tp min() throw() { return static_cast<_Tp>(0); }
-        static _Tp max() throw() { return static_cast<_Tp>(0); }
+  template<typename _Tp> 
+    const int
+    numeric_limits<_Tp>::digits10;
 
-        static const int digits = 0;
-        static const int digits10 = 0;
-        static const bool is_signed = false;
-        static const bool is_integer = false;
-        static const bool is_exact = false;
-        static const int radix = 0;
+  template<typename _Tp> 
+    const bool
+    numeric_limits<_Tp>::is_signed;
 
-        static _Tp epsilon() throw() { return static_cast<_Tp>(0); }
-        static _Tp round_error() throw() { return static_cast<_Tp>(0); }
+  template<typename _Tp> 
+    const bool
+    numeric_limits<_Tp>::is_integer;
 
-        static const int min_exponent = 0;
-        static const int min_exponent10 = 0;
-        static const int max_exponent = 0;
-        static const int max_exponent10 = 0;
+  template<typename _Tp> 
+    const bool
+    numeric_limits<_Tp>::is_exact;
 
-        static const bool has_infinity = false;
-        static const bool has_quiet_NaN = false;
-        static const bool has_signaling_NaN = false;
-        static const float_denorm_style has_denorm = denorm_absent;
-        static const bool has_denorm_loss = false;
+  template<typename _Tp> 
+    const int
+    numeric_limits<_Tp>::radix;
 
-        static _Tp infinity() throw()  { return static_cast<_Tp>(0); }
-        static _Tp quiet_NaN() throw() { return static_cast<_Tp>(0); }
-        static _Tp signaling_NaN() throw() { return static_cast<_Tp>(0); }
-        static _Tp denorm_min() throw() { return static_cast<_Tp>(0); }
+  template<typename _Tp> 
+    const int
+    numeric_limits<_Tp>::min_exponent;
 
-        static const bool is_iec559 = false;
-        static const bool is_bounded = false;
-        static const bool is_modulo = false;
+  template<typename _Tp> 
+    const int
+    numeric_limits<_Tp>::min_exponent10;
 
-        static const bool traps = false;
-        static const bool tinyness_before = false;
-        static const float_round_style round_style = round_toward_zero;
-    };
+  template<typename _Tp> 
+    const int
+    numeric_limits<_Tp>::max_exponent;
 
-    template<typename _Tp> _Tp __limits_infinity();
-    template<typename _Tp> _Tp __limits_quiet_NaN();
-    template<typename _Tp> _Tp __limits_signaling_NaN();
-    template<typename _Tp> _Tp __limits_denorm_min();
+  template<typename _Tp> 
+    const int
+    numeric_limits<_Tp>::max_exponent10;
+
+  template<typename _Tp> 
+    const bool
+    numeric_limits<_Tp>::has_infinity;
+
+  template<typename _Tp> 
+    const bool
+    numeric_limits<_Tp>::has_quiet_NaN;
+
+  template<typename _Tp> 
+    const bool
+    numeric_limits<_Tp>::has_signaling_NaN;
+
+  template<typename _Tp> 
+    const float_denorm_style
+    numeric_limits<_Tp>::has_denorm;
+
+  template<typename _Tp> 
+    const bool
+    numeric_limits<_Tp>::has_denorm_loss;
+
+  template<typename _Tp> 
+    const bool
+    numeric_limits<_Tp>::is_iec559;
+
+  template<typename _Tp> 
+    const bool
+    numeric_limits<_Tp>::is_bounded;
+
+  template<typename _Tp> 
+    const bool
+    numeric_limits<_Tp>::is_modulo;
+
+  template<typename _Tp> 
+    const bool
+    numeric_limits<_Tp>::traps;
+
+  template<typename _Tp> 
+    const bool
+    numeric_limits<_Tp>::tinyness_before;
+
+  template<typename _Tp> 
+    const float_round_style
+    numeric_limits<_Tp>::round_style;
+
+  template<typename _Tp> _Tp __limits_infinity();
+  template<typename _Tp> _Tp __limits_quiet_NaN();
+  template<typename _Tp> _Tp __limits_signaling_NaN();
+  template<typename _Tp> _Tp __limits_denorm_min();
 
 EOF
 
-echo "$CXX $CPPFLAGS -I$BUILD_DIR/include \
-    -o "$BUILD_DIR/src/gen-num-limits" "$SRC_DIR/src/gen-num-limits.cc" \
-     $LDFLAGS"
+# Must turn off exceptions, because the C++ exception handling support
+# routines have not been built yet.
+echo "$CC -I$BUILD_DIR -fno-exceptions \
+    -o $BUILD_DIR/src/gen-num-limits $SRC_DIR/src/gen-num-limits.cc"
 
-$CXX $CPPFLAGS -I$BUILD_DIR/include \
-    -o "$BUILD_DIR/src/gen-num-limits" "$SRC_DIR/src/gen-num-limits.cc" \
-     $LDFLAGS
-
-if [ ! -f "$BUILD_DIR/src/gen-num-limits" ]; then
+{ $CC -I$BUILD_DIR -fno-exceptions \
+    -o "$BUILD_DIR/src/gen-num-limits" "$SRC_DIR/src/gen-num-limits.cc"
+} || {
   echo "gen-num-limits failed to build, exiting."
   exit 1
-fi
+}
 
-"$BUILD_DIR/src/gen-num-limits" >> $OUT_H-t
+"$BUILD_DIR/src/gen-num-limits" >> $OUT_H-t || {
+  echo "gen-num-limits failed to execute, exiting."
+  exit 1
+}
 
 cat <<EOF >> $OUT_H-t
 } // namespace std
@@ -284,3 +363,5 @@ EOF
 
 mv $OUT_C-t $OUT_C
 mv $OUT_H-t $OUT_H
+
+

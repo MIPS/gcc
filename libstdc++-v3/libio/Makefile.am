@@ -1,6 +1,6 @@
 ## Makefile for the libio subdirectory of the GNU C++ Standard library.
 ##
-## Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+## Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ## Process this file with automake to produce Makefile.in.
@@ -23,6 +23,8 @@
 
 AUTOMAKE_OPTIONS = 1.3 cygnus
 
+mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
+
 if GLIBCPP_BUILD_LIBIO
 noinst_LTLIBRARIES = libio.la
 else
@@ -30,26 +32,21 @@ noinst_LTLIBRARIES =
 endif
 
 # Use common includes from acinclude.m4/GLIBCPP_EXPORT_INCLUDES
-GLIBCPP_INCLUDE_DIR = @GLIBCPP_INCLUDE_DIR@
-C_INCLUDE_DIR = @C_INCLUDE_DIR@
+GLIBCPP_INCLUDES = @GLIBCPP_INCLUDES@
 TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
-LIBMATH_INCLUDES = @LIBMATH_INCLUDES@
-LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
 LIBIO_INCLUDES = @LIBIO_INCLUDES@
-CSHADOW_INCLUDES = @CSHADOW_INCLUDES@
 
 INCLUDES = \
 	-nostdinc++ \
-	-I$(top_builddir)/include -I$(GLIBCPP_INCLUDE_DIR) \
-	$(LIBIO_INCLUDES) $(TOPLEVEL_INCLUDES)	
+	$(GLIBCPP_INCLUDES) $(LIBIO_INCLUDES) $(TOPLEVEL_INCLUDES)	
 
 libio_headers = \
         libio.h libioP.h iolibio.h
 
 if GLIBCPP_NEED_LIBIO
 LIBIO_SRCS = \
-	filedoalloc.c genops.c fileops.c stdfiles.c c_codecvt.c iofclose.c \
-    iofopen.c stdio.c
+	filedoalloc.c genops.c fileops.c stdfiles.c c_codecvt.c \
+	iofclose.c iofopen.c 
 else
 LIBIO_SRCS =
 endif

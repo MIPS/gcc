@@ -24,20 +24,12 @@
 AUTOMAKE_OPTIONS = 1.3 cygnus
 MAINT_CHARSET = latin1
 
+mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
+
 # Cross compiler and multilib support.
-# Install a library built with a cross compiler in tooldir, not libdir.
-if USE_LIBDIR
-if VERSION_SPECIFIC_LIBS
-gcc_version = @gcc_version@
-toolexecdir = $(libdir)/gcc-lib/$(target_alias)
-toolexeclibdir = $(toolexecdir)/$(gcc_version)
-else
-toolexeclibdir = $(libdir)$(MULTISUBDIR)
-endif
-else
-toolexecdir = $(exec_prefix)/$(target_alias)
-toolexeclibdir = $(toolexecdir)/lib$(MULTISUBDIR)
-endif
+CXX = @glibcpp_CXX@
+toolexecdir = @glibcpp_toolexecdir@
+toolexeclibdir = @glibcpp_toolexeclibdir@
 
 
 # Need this library to both be part of libstdc++.a, and installed
@@ -60,31 +52,32 @@ CONFIG_CXXFLAGS = \
 
 # Warning flags to use.
 WARN_CXXFLAGS = \
-	@WARN_FLAGS@ $(WERROR) @WFMT_FLAGS@
+	@WARN_FLAGS@ $(WERROR) -fdiagnostics-show-location=once
 
 # Use common includes from acinclude.m4/GLIBCPP_EXPORT_INCLUDES
-GLIBCPP_INCLUDE_DIR = @GLIBCPP_INCLUDE_DIR@
-C_INCLUDE_DIR = @C_INCLUDE_DIR@
-CSTD_INCLUDES = @CSTD_INCLUDES@
-LIBMATH_INCLUDES = @LIBMATH_INCLUDES@
+GLIBCPP_INCLUDES = @GLIBCPP_INCLUDES@
 LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
-LIBIO_INCLUDES = @LIBIO_INCLUDES@
-TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
 
 INCLUDES = \
-	-I$(top_srcdir)/../gcc -I$(top_srcdir)/../include \
-	-I$(GLIBCPP_INCLUDE_DIR) $(CSTD_INCLUDES) -I$(top_builddir)/include \
-	 $(LIBSUPCXX_INCLUDES)
+	-I$(toplevel_srcdir)/gcc -I$(toplevel_srcdir)/include \
+	$(GLIBCPP_INCLUDES) $(LIBSUPCXX_INCLUDES)
 
 headers = \
-	cxxabi.h exception new typeinfo
+	exception new typeinfo cxxabi.h exception_defines.h 
 
 sources = \
 	del_op.cc \
 	del_opnt.cc \
 	del_opv.cc \
 	del_opvnt.cc \
-	exception_support.cc \
+	eh_alloc.cc \
+	eh_aux_runtime.cc \
+	eh_catch.cc \
+	eh_exception.cc \
+	eh_globals.cc \
+	eh_personality.cc \
+	eh_terminate.cc \
+	eh_throw.cc \
 	new_handler.cc \
 	new_op.cc \
 	new_opnt.cc \
@@ -98,22 +91,10 @@ sources = \
 libsupc___la_SOURCES = $(sources)
 libsupc__convenience_la_SOURCES = $(sources)
 
-# Check for various configure bits that change where the headers get installed.
-if GXX_INCLUDE_DIR
 glibcppinstalldir = @gxx_include_dir@
-else
-if VERSION_SPECIFIC_LIBS
-glibcppinstalldir = $(libdir)/gcc-lib/$(target_alias)/@gcc_version@/include/g++
-else
-glibcppinstalldir = $(prefix)/include/g++-@libstdcxx_interface@
-endif
-endif
-
 glibcppinstall_HEADERS = $(headers)
 
-# Flags to force separate libtool library to be static only.
-LIBTOOL = @LIBTOOL@ --tag disable-shared
-LIBSUPCXX_CXXFLAGS = -prefer-pic
+LIBSUPCXX_CXXFLAGS = $(LIBSUPCXX_PICFLAGS)
 
 # AM_CXXFLAGS needs to be in each subdirectory so that it can be
 # modified in a per-library or per-sub-library way.  Need to manually
@@ -152,15 +133,31 @@ LTCXXCOMPILE = $(LIBTOOL) --tag CXX --tag disable-shared \
                --mode=compile $(CXX) $(INCLUDES) \
 	       $(AM_CPPFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(AM_CXXFLAGS) 
 
-# 3) We have a problem when building the shared libstdc++ object if
-# the rules automake generates would be used.  We cannot allow CXX to
-# be used in libtool since this would add -lstdc++ to the link line
-# which of course is problematic at this point.
-CXXLINK = $(LIBTOOL) --mode=link "$(CC)" \
-	  @OPT_LDFLAGS@ @SECTION_LDFLAGS@ $(AM_CXXFLAGS) $(LDFLAGS) -o $@
+# 3) We'd have a problem when building the shared libstdc++ object if
+# the rules automake generates would be used.  We cannot allow g++ to
+# be used since this would add -lstdc++ to the link line which of
+# course is problematic at this point.  So, we get the top-level
+# directory to configure libstdc++-v3 to use gcc as the C++
+# compilation driver.
+CXXLINK = $(LIBTOOL) --tag CXX --tag disable-shared \
+          --mode=link $(CXX) \
+          @OPT_LDFLAGS@ @SECTION_LDFLAGS@ $(AM_CXXFLAGS) $(LDFLAGS) -o $@
 
+# We have to have rules modified from the default to counteract SUN make
+# prepending each of $(glibcppinstall_HEADERS) with VPATH below.
+install-glibcppinstallHEADERS: $(glibcppinstall_HEADERS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(glibcppinstalldir)
+	@list='$(glibcppinstall_HEADERS)'; for p in $$list; do \
+	  q=`echo $$p | sed -e 's,.*/,,'`; \
+	  if test -f "$$p"; then d= ; else d="$(srcdir)/"; fi; \
+	  echo " $(INSTALL_DATA) $$d$$p $(DESTDIR)$(glibcppinstalldir)/$$q"; \
+	  $(INSTALL_DATA) $$d$$p $(DESTDIR)$(glibcppinstalldir)/$$q; \
+	done
 
-
-
-
-
+uninstall-glibcppinstallHEADERS:
+	@$(NORMAL_UNINSTALL)
+	list='$(glibcppinstall_HEADERS)'; for p in $$list; do \
+	  q=`echo $$p | sed -e 's,.*/,,'`; \
+	  rm -f $(DESTDIR)$(glibcppinstalldir)/$$q; \
+	done

@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997-2000 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,46 +34,27 @@
 #ifndef _CPP_BITS_LOCCORE_H
 #define _CPP_BITS_LOCCORE_H	1
 
+#pragma GCC system_header
+
 #include <bits/c++config.h>
+#include <bits/c++locale.h>     // Defines __c_locale.
 #include <bits/std_climits.h>	// For CHAR_BIT
 #include <bits/std_string.h> 	// For string
 #include <bits/std_cctype.h>	// For isspace, etc.
+#include <bits/functexcept.h>
 
 namespace std
 {
-
-  // _Count_ones: compile-time computation of number of 1-bits in a value N
-  // This takes only 5 (or 6) instantiations, doing recursive descent
-  // in parallel -- ncm
-  template<unsigned int _Num, int _Shift = (sizeof(unsigned) * CHAR_BIT)/2,
-           unsigned int _Mask = (~0u >> _Shift) >
-    struct _Count_ones;
-
-  // It is preferable to use enumerators instead of integral static data
-  // members to avoid emission of superflous variables -- gdr.
-  template<unsigned int _Num, unsigned int _Mask>
-    struct _Count_ones<_Num, 0, _Mask> 
-    {
-      enum
-      {
-        _M_count = _Num
-      };
-    };
-
-  template<unsigned int _Num, int _Shift, unsigned int _Mask>
-    struct _Count_ones 
-    {
-      enum
-      {
-        _M_halfcount = _Count_ones<_Num, _Shift/2,
-                                   (_Mask^((~_Mask)>>(_Shift/2))) >::_M_count,
-        _M_count = (_M_halfcount&_Mask) + ((_M_halfcount>>_Shift)&_Mask)
-      };
-    };
+  // NB: Don't instantiate required wchar_t facets if no wchar_t support.
+#ifdef _GLIBCPP_USE_WCHAR_T
+# define  _GLIBCPP_NUM_FACETS 26
+#else
+# define  _GLIBCPP_NUM_FACETS 13
+#endif
 
   // 22.1.1 Locale
-  template<typename _Tp> class allocator;
-  template<typename _Tp, typename _Alloc> class vector;
+  template<typename _Tp, typename _Alloc> 
+    class vector;
   class locale;
 
   // 22.1.3 Convenience interfaces
@@ -163,10 +144,6 @@ namespace std
   // 22.2.4 collation
   template<typename _CharT> 
     class collate;
-  template<> class collate<char>;
-#ifdef _GLIBCPP_USE_WCHAR_T
-  template<> class collate<wchar_t>;
-#endif
   template<typename _CharT> class 
     collate_byname;
 
@@ -199,19 +176,19 @@ namespace std
   template<typename _CharT> 
     class messages_byname;
 
-
   // 22.1.1 Class locale
   class locale
   {
   public:
     // Types:
-    typedef unsigned int category;
+    typedef unsigned int 	category;
 
     // Forward decls and friends:
     class facet;
     class id;
     class _Impl;
 
+    friend class facet;
     friend class _Impl;
 
     template<typename _Facet>
@@ -223,35 +200,32 @@ namespace std
       has_facet(const locale&) throw();
  
     // Category values:
-    // NB much depends on the order in which these appear:
+    // NB: Order must match _S_facet_categories definition in locale.cc
     static const category none		= 0;
-    static const category ctype 	= 1 << 0;
-    static const category numeric 	= 1 << 1;
-    static const category collate  	= 1 << 2;
-    static const category time 		= 1 << 3;
-    static const category monetary 	= 1 << 4;
-    static const category messages 	= 1 << 5;
+    static const category ctype 	= 1L << 0;
+    static const category numeric 	= 1L << 1;
+    static const category collate  	= 1L << 2;
+    static const category time 		= 1L << 3;
+    static const category monetary 	= 1L << 4;
+    static const category messages 	= 1L << 5;
     static const category all 		= (collate | ctype | monetary |
 				 	   numeric | time  | messages);
 
     // Construct/copy/destroy:
-    inline  
     locale() throw();
 
-    inline  
     locale(const locale& __other) throw();
 
     explicit  
     locale(const char* __std_name);
 
-    locale(const locale& __other, const char* __std_name, category __cat);
+    locale(const locale& __base, const char* __s, category __cat);
 
-    locale(const locale& __other, const locale& __one, category __cat);
+    locale(const locale& __base, const locale& __add, category __cat);
 
     template<typename _Facet>
       locale(const locale& __other, _Facet* __f);
 
-    inline  
     ~locale() throw();
 
     const locale&  
@@ -294,8 +268,8 @@ namespace std
     // Current global reference locale
     static _Impl* 	_S_global;  
 
-    static const int 	_S_categories_num = _Count_ones<all>::_M_count;
-    static const int 	_S_facets_num = 26;
+    static const size_t	_S_num_categories = 6;
+    static const size_t _S_num_facets = _GLIBCPP_NUM_FACETS;
 
     explicit 
     locale(_Impl*) throw();
@@ -304,8 +278,11 @@ namespace std
     _S_initialize()
     { if (!_S_classic) classic();  }
 
-    static int  
-    _S_normalize_category(int);
+    static category  
+    _S_normalize_category(category);
+
+    void
+    _M_coalesce(const locale& __base, const locale& __add, category __cat);
   };
 
 
@@ -314,8 +291,7 @@ namespace std
   {
   public:
     // Types.
-    typedef vector<facet*, allocator<facet*> > __vec_facet;
-    typedef vector<string, allocator<string> > __vec_string;
+    typedef vector<facet*, allocator<facet*> > 	__vec_facet;
 
     // Friends.
     friend class locale;
@@ -333,9 +309,8 @@ namespace std
     // Data Members.
     size_t 				_M_references;
     __vec_facet* 			_M_facets;
-    __vec_string* 			_M_category_names;
-    bool 				_M_has_name;
-    string 				_M_name;
+    string 				_M_names[_S_num_categories];
+    __c_locale				_M_c_locale;
     static const locale::id* const 	_S_id_ctype[];
     static const locale::id* const 	_S_id_numeric[];
     static const locale::id* const 	_S_id_collate[];
@@ -351,21 +326,27 @@ namespace std
     inline void 
     _M_remove_reference() throw()
     {
-      if (_M_references-- == 0)  // XXX MT
+      if (--_M_references == 0)  // XXX MT
 	{
-	  try { 
-	    delete this; 
-	  } 
-	  catch(...) { 
-	  }
+	  try 
+	    { delete this; } 
+	  catch(...) 
+	    { }
 	}
     }
 
     _Impl(const _Impl&, size_t);
-    _Impl(const _Impl&, const string&, category, size_t);
-    _Impl(size_t, size_t, bool __has_name = false, string __name = "*");
+    _Impl(string __name, size_t);
    ~_Impl() throw();
 
+    bool
+    _M_check_same_name()
+    {
+      bool __ret = true;
+      for (size_t i = 0; i < _S_num_categories - 1; ++i)
+	__ret &= _M_names[i] == _M_names[i + 1];
+      return __ret;
+    }
     void 
     _M_replace_categories(const _Impl*, category);
 
@@ -380,52 +361,18 @@ namespace std
 
     template<typename _Facet>
       inline void 
-      _M_facet_init(_Facet* __facet)
+      _M_init_facet(_Facet* __facet)
       { _M_install_facet(&_Facet::id, __facet);  }
-
-    void 
-    _M_construct_collate(const char*);
-
-    void 
-    _M_construct_ctype(const char*);
-
-    void 
-    _M_construct_monetary(const char*);
-
-    void 
-    _M_construct_numeric(const char*);
-
-    void 
-    _M_construct_time(const char*);
-
-    void 
-    _M_construct_messages(const char*);
-
-    category 
-    _M_normalize_category_names(const string&, category __cat);
   };
-
-  // class locale inlines, that need declaration of locale::_Imp
-  locale::locale() throw()
-  { 
-    _S_initialize(); 
-    (_M_impl = _S_global)->_M_add_reference(); 
-  } // XXX MT
-
-  locale::locale(const locale& __other) throw()
-  { (_M_impl = __other._M_impl)->_M_add_reference(); }
 
   template<typename _Facet>
     locale::locale(const locale& __other, _Facet* __f)
     {
       _M_impl = new _Impl(*__other._M_impl, 1);
       _M_impl->_M_install_facet(&_Facet::id, __f);
-      _M_impl->_M_has_name = false;
-      _M_impl->_M_name = "*";
+      for (size_t __i = 0; __i < _S_num_categories; ++__i)
+	_M_impl->_M_names[__i] = "*";
     }
-
-  locale::~locale() throw()
-  { _M_impl->_M_remove_reference(); }
 
   // 22.1.1.1.2  Class locale::facet
   class locale::facet
@@ -439,6 +386,12 @@ namespace std
 
     virtual 
     ~facet() { };
+
+    static void
+    _S_create_c_locale(__c_locale& __cloc, const char* __s);
+
+    static void
+    _S_destroy_c_locale(__c_locale& __cloc);
 
   private:
     size_t _M_references;
@@ -459,6 +412,7 @@ namespace std
   // 22.1.1.1.3 Class locale::id
   class locale::id
   {
+  private:
     friend class locale;
     friend class locale::_Impl;
     template<typename _Facet>
@@ -467,9 +421,7 @@ namespace std
     template<typename _Facet>
       friend bool           
       has_facet(const locale&) throw ();
-  public:
-    id() { };
-  private:
+
     // NB: There is no accessor for _M_index because it may be used
     // before the constructor is run; the effect of calling a member
     // function (even an inline) would be undefined.
@@ -482,6 +434,12 @@ namespace std
     operator=(const id&);  // not defined
 
     id(const id&);  // not defined
+
+  public:
+    // NB: This class is always a static data member, and thus can be
+    // counted on to be zero-initialized.
+    // XXX id() : _M_index(0) { }
+    id() { }
   };
 
   template<typename _Facet>
@@ -491,12 +449,6 @@ namespace std
   template<typename _Facet>
     bool
     has_facet(const locale& __loc) throw();
-
 } // namespace std
 
-#endif	/* _CPP_BITS_LOCCORE_H */
-
-// Local Variables:
-// mode:c++
-// End:
-
+#endif

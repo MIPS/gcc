@@ -1610,6 +1610,7 @@ cp_make_lang_type (code)
        TYPE_ALIAS_SET is initialized to -1 by default, so we must
        clear it here.  */
     TYPE_ALIAS_SET (t) = 0;
+
   /* We need to allocate a TYPE_BINFO even for TEMPLATE_TYPE_PARMs
      since they can be virtual base types, and we then need a
      canonical binfo for them.  Ideally, this would be done lazily for

@@ -28,26 +28,24 @@
 // the GNU General Public License.
 
 #include <bits/c++config.h>
-#include <cstdio>
+#include "unwind-cxx.h"
 
-extern "C" {
-
-extern void __terminate(void) __attribute__ ((__noreturn__));
-
-// The name of the function to be placed in vtables in place of a pure
-// virtual function is different in the two ABIs.
-#if !defined(__GXX_ABI_VERSION) || __GXX_ABI_VERSION < 100
-#define PURE_VIRTUAL_NAME __pure_virtual
+#ifdef _GLIBCPP_HAVE_UNISTD_H
+# include <unistd.h>
+# define writestr(str)	write(2, str, sizeof(str) - 1)
+# ifdef __GNU_LIBRARY__
+  /* Avoid forcing the library's meaning of `write' on the user program
+     by using the "internal" name (for use within the library).  */
+/*#  define write(fd, buf, n)	__write((fd), (buf), (n))*/
+# endif
 #else
-#define PURE_VIRTUAL_NAME __cxa_pure_virtual
+# include <stdio.h>
+# define writestr(str)	fputs(str, stderr)
 #endif
 
-void
-PURE_VIRTUAL_NAME (void)
+extern "C" void
+__cxa_pure_virtual (void)
 {
-  std::fputs ("pure virtual method called\n", stderr);
-  __terminate ();
+  writestr ("pure virtual method called\n");
+  std::terminate ();
 }
-
-}
-

@@ -1,3 +1,32 @@
+// Heap implementation -*- C++ -*-
+
+// Copyright (C) 2001 Free Software Foundation, Inc.
+//
+// This file is part of the GNU ISO C++ Library.  This library is free
+// software; you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the
+// Free Software Foundation; either version 2, or (at your option)
+// any later version.
+
+// This library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License along
+// with this library; see the file COPYING.  If not, write to the Free
+// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// USA.
+
+// As a special exception, you may use this file as part of a free software
+// library without restriction.  Specifically, if other files instantiate
+// templates or use macros or inline functions from this file, or you compile
+// this file and link it with other files to produce an executable, this
+// file does not by itself cause the resulting executable to be covered by
+// the GNU General Public License.  This exception does not however
+// invalidate any other reasons why the executable file might be covered by
+// the GNU General Public License.
+
 /*
  *
  * Copyright (c) 1994
@@ -30,11 +59,8 @@
 #ifndef _CPP_BITS_STL_HEAP_H
 #define _CPP_BITS_STL_HEAP_H 1
 
-__STL_BEGIN_NAMESPACE
-
-#if defined(__sgi) && !defined(__GNUC__) && (_MIPS_SIM != _MIPS_SIM_ABI32)
-#pragma set woff 1209
-#endif
+namespace std
+{
 
 // Heap-manipulation functions: push_heap, pop_heap, make_heap, sort_heap.
 
@@ -65,11 +91,14 @@ template <class _RandomAccessIterator>
 inline void 
 push_heap(_RandomAccessIterator __first, _RandomAccessIterator __last)
 {
-  __STL_REQUIRES(_RandomAccessIterator, _Mutable_RandomAccessIterator);
-  __STL_REQUIRES(typename iterator_traits<_RandomAccessIterator>::value_type,
-                 _LessThanComparable);
+  // concept requirements
+  __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
+        _RandomAccessIterator>);
+  __glibcpp_function_requires(_LessThanComparableConcept<
+        typename iterator_traits<_RandomAccessIterator>::value_type>);
+
   __push_heap_aux(__first, __last,
-                  __DISTANCE_TYPE(__first), __VALUE_TYPE(__first));
+                  __distance_type(__first), __value_type(__first));
 }
 
 template <class _RandomAccessIterator, class _Distance, class _Tp, 
@@ -103,9 +132,12 @@ inline void
 push_heap(_RandomAccessIterator __first, _RandomAccessIterator __last,
           _Compare __comp)
 {
-  __STL_REQUIRES(_RandomAccessIterator, _Mutable_RandomAccessIterator);
+  // concept requirements
+  __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
+        _RandomAccessIterator>);
+
   __push_heap_aux(__first, __last, __comp,
-                  __DISTANCE_TYPE(__first), __VALUE_TYPE(__first));
+                  __distance_type(__first), __value_type(__first));
 }
 
 template <class _RandomAccessIterator, class _Distance, class _Tp>
@@ -144,17 +176,20 @@ __pop_heap_aux(_RandomAccessIterator __first, _RandomAccessIterator __last,
                _Tp*)
 {
   __pop_heap(__first, __last - 1, __last - 1, 
-             _Tp(*(__last - 1)), __DISTANCE_TYPE(__first));
+             _Tp(*(__last - 1)), __distance_type(__first));
 }
 
 template <class _RandomAccessIterator>
 inline void pop_heap(_RandomAccessIterator __first, 
                      _RandomAccessIterator __last)
 {
-  __STL_REQUIRES(_RandomAccessIterator, _Mutable_RandomAccessIterator);
-  __STL_REQUIRES(typename iterator_traits<_RandomAccessIterator>::value_type,
-                 _LessThanComparable);
-  __pop_heap_aux(__first, __last, __VALUE_TYPE(__first));
+  // concept requirements
+  __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
+        _RandomAccessIterator>);
+  __glibcpp_function_requires(_LessThanComparableConcept<
+        typename iterator_traits<_RandomAccessIterator>::value_type>);
+
+  __pop_heap_aux(__first, __last, __value_type(__first));
 }
 
 template <class _RandomAccessIterator, class _Distance,
@@ -197,7 +232,7 @@ __pop_heap_aux(_RandomAccessIterator __first,
                _RandomAccessIterator __last, _Tp*, _Compare __comp)
 {
   __pop_heap(__first, __last - 1, __last - 1, _Tp(*(__last - 1)), __comp,
-             __DISTANCE_TYPE(__first));
+             __distance_type(__first));
 }
 
 template <class _RandomAccessIterator, class _Compare>
@@ -205,8 +240,11 @@ inline void
 pop_heap(_RandomAccessIterator __first,
          _RandomAccessIterator __last, _Compare __comp)
 {
-  __STL_REQUIRES(_RandomAccessIterator, _Mutable_RandomAccessIterator);
-  __pop_heap_aux(__first, __last, __VALUE_TYPE(__first), __comp);
+  // concept requirements
+  __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
+        _RandomAccessIterator>);
+
+  __pop_heap_aux(__first, __last, __value_type(__first), __comp);
 }
 
 template <class _RandomAccessIterator, class _Tp, class _Distance>
@@ -229,11 +267,14 @@ template <class _RandomAccessIterator>
 inline void 
 make_heap(_RandomAccessIterator __first, _RandomAccessIterator __last)
 {
-  __STL_REQUIRES(_RandomAccessIterator, _Mutable_RandomAccessIterator);
-  __STL_REQUIRES(typename iterator_traits<_RandomAccessIterator>::value_type,
-                 _LessThanComparable);
+  // concept requirements
+  __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
+        _RandomAccessIterator>);
+  __glibcpp_function_requires(_LessThanComparableConcept<
+        typename iterator_traits<_RandomAccessIterator>::value_type>);
+
   __make_heap(__first, __last,
-              __VALUE_TYPE(__first), __DISTANCE_TYPE(__first));
+              __value_type(__first), __distance_type(__first));
 }
 
 template <class _RandomAccessIterator, class _Compare,
@@ -259,17 +300,23 @@ inline void
 make_heap(_RandomAccessIterator __first, 
           _RandomAccessIterator __last, _Compare __comp)
 {
-  __STL_REQUIRES(_RandomAccessIterator, _Mutable_RandomAccessIterator);
+  // concept requirements
+  __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
+        _RandomAccessIterator>);
+
   __make_heap(__first, __last, __comp,
-              __VALUE_TYPE(__first), __DISTANCE_TYPE(__first));
+              __value_type(__first), __distance_type(__first));
 }
 
 template <class _RandomAccessIterator>
 void sort_heap(_RandomAccessIterator __first, _RandomAccessIterator __last)
 {
-  __STL_REQUIRES(_RandomAccessIterator, _Mutable_RandomAccessIterator);
-  __STL_REQUIRES(typename iterator_traits<_RandomAccessIterator>::value_type,
-                 _LessThanComparable);
+  // concept requirements
+  __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
+        _RandomAccessIterator>);
+  __glibcpp_function_requires(_LessThanComparableConcept<
+        typename iterator_traits<_RandomAccessIterator>::value_type>);
+
   while (__last - __first > 1)
     pop_heap(__first, __last--);
 }
@@ -279,16 +326,15 @@ void
 sort_heap(_RandomAccessIterator __first,
           _RandomAccessIterator __last, _Compare __comp)
 {
-  __STL_REQUIRES(_RandomAccessIterator, _Mutable_RandomAccessIterator);
+  // concept requirements
+  __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
+        _RandomAccessIterator>);
+
   while (__last - __first > 1)
     pop_heap(__first, __last--, __comp);
 }
 
-#if defined(__sgi) && !defined(__GNUC__) && (_MIPS_SIM != _MIPS_SIM_ABI32)
-#pragma reset woff 1209
-#endif
-
-__STL_END_NAMESPACE
+} // namespace std
 
 #endif /* _CPP_BITS_STL_HEAP_H */
 

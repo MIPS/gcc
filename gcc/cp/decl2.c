@@ -40,8 +40,6 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "except.h"
 #include "toplev.h"
-#include "dwarf2out.h"
-#include "dwarfout.h"
 #include "ggc.h"
 #include "timevar.h"
 #include "cpplib.h"
@@ -3588,7 +3586,6 @@ finish_file ()
 	  import_export_decl (decl);
 	  if (DECL_ARTIFICIAL (decl) && ! DECL_INITIAL (decl)
 	      && TREE_USED (decl)
-	      && !DECL_SAVED_INSNS (decl)
 	      && (! DECL_REALLY_EXTERN (decl) || DECL_INLINE (decl)))
 	    {
 	      /* Even though we're already at the top-level, we push
@@ -3639,8 +3636,11 @@ finish_file ()
 	      /* Undo the damage done by finish_function.  */
 	      DECL_EXTERNAL (decl) = 0;
 	      DECL_NOT_REALLY_EXTERN (decl) = saved_not_really_extern;
+	      /* If we're compiling -fsyntax-only pretend that this
+		 function has been written out so that we don't try to
+		 expand it again.  */
 	      if (flag_syntax_only)
-  	         TREE_ASM_WRITTEN (decl) = 1;
+		TREE_ASM_WRITTEN (decl) = 1;
 	      reconsider = 1;
 	    }
 	}

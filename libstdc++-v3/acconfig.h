@@ -1,16 +1,16 @@
 // acconfig.h symbols and macros for libstdc++ v3 -*- C++ -*-
 
-// Define if GCC support for __complex__ float is buggy.
-#undef _GLIBCPP_BUGGY_FLOAT_COMPLEX
+// Define if GCC supports weak symbols
+#undef _GLIBCPP_SUPPORTS_WEAK
 
-// Define if GCC support for __complex__ is buggy.
-#undef _GLIBCPP_BUGGY_COMPLEX
-
-// Include support for multiple threads, e.g., in the I/O package.
-#undef _GLIBCPP_USE_THREADS
+// Define if gthr-default.h exists (meaning that threading support is enabled)
+#undef HAVE_GTHR_DEFAULT
 
 // Include support for 'long long' and 'unsigned long long'.
 #undef _GLIBCPP_USE_LONG_LONG
+
+// Define if code specialized for wchar_t should be used.
+#undef _GLIBCPP_USE_C99
 
 // Include support for 'long double'.
 #undef _GLIBCPP_USE_LONG_DOUBLE
@@ -30,16 +30,13 @@
 // Define if you have the copysignf function.
 #undef _GLIBCPP_HAVE_COPYSIGNF
 
-// Define if lldiv_t exists in stdlib.h.
-#undef HAVE_LLDIV_T
-
-// Define if mbstate_t exists in wchar.h.  */
+// Define if mbstate_t exists in wchar.h.
 #undef HAVE_MBSTATE_T
 
-// Define if you have the modff function.  */
+// Define if you have the modff function.
 #undef HAVE_MODFF
 
-// Define if you have the modfl function.  */
+// Define if you have the modfl function.
 #undef HAVE_MODFL
 
 // Define if the compiler/host combination has __builtin_abs
@@ -98,7 +95,6 @@
 // Systems that have certain non-standard functions prefixed with an
 // underscore, we'll handle those here. Must come after config.h.in.
 //
-
 #if defined (HAVE__ISNAN) && ! defined (HAVE_ISNAN)
 # define HAVE_ISNAN 1
 # define isnan _isnan

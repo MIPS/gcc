@@ -28,6 +28,7 @@
 #ifndef _CPP_BACKWARD_IOSTREAM_H
 #define _CPP_BACKWARD_IOSTREAM_H 1
 
+#include "backward_warning.h"
 #include <bits/std_iostream.h>
 
 using std::iostream;
@@ -47,8 +48,10 @@ using std::wcerr;
 using std::wclog;
 #endif
 
+using std::ws;
 using std::endl;
 using std::ends;
+using std::flush;
 
 #endif
 

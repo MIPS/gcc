@@ -1,3 +1,33 @@
+// Bitset definitions -*- C++ -*-
+
+// Copyright (C) 2001 Free Software Foundation
+//
+// This file is part of GNU CC.
+//
+// GNU CC is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2, or (at your option)
+// any later version.
+// 
+// GNU CC is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with GNU CC; see the file COPYING.  If not, write to
+// the Free Software Foundation, 59 Temple Place - Suite 330,
+// Boston, MA 02111-1307, USA.
+
+// As a special exception, you may use this file as part of a free software
+// library without restriction.  Specifically, if other files instantiate
+// templates or use macros or inline functions from this file, or you compile
+// this file and link it with other files to produce an executable, this
+// file does not by itself cause the resulting executable to be covered by
+// the GNU General Public License.  This exception does not however
+// invalidate any other reasons why the executable file might be covered by
+// the GNU General Public License.
+
 /*
  * Copyright (c) 1998
  * Silicon Graphics Computer Systems, Inc.
@@ -18,14 +48,14 @@
 //  _Base_bitset.
 //
 
-size_t
-std::_Base_bitset<1>::_M_do_find_first(size_t __not_found) const
+std::size_t
+std::_Base_bitset<1>::_M_do_find_first(std::size_t __not_found) const
 {
   _WordT __thisword = _M_w;
 
   if ( __thisword != static_cast<_WordT>(0) ) {
     // find byte within word
-    for ( size_t __j = 0; __j < sizeof(_WordT); __j++ ) {
+    for (std::size_t __j = 0; __j < sizeof(_WordT); __j++ ) {
       unsigned char __this_byte
         = static_cast<unsigned char>(__thisword & (~(unsigned char)0));
       if ( __this_byte )
@@ -38,8 +68,9 @@ std::_Base_bitset<1>::_M_do_find_first(size_t __not_found) const
   return __not_found;
 }
 
-size_t
-std::_Base_bitset<1>::_M_do_find_next(size_t __prev, size_t __not_found) const
+std::size_t
+std::_Base_bitset<1>::_M_do_find_next(std::size_t __prev, 
+				      std::size_t __not_found) const
 {
   // make bound inclusive
   ++__prev;
@@ -58,7 +89,7 @@ std::_Base_bitset<1>::_M_do_find_next(size_t __prev, size_t __not_found) const
     // find byte within word
     // get first byte into place
     __thisword >>= _S_whichbyte(__prev) * CHAR_BIT;
-    for ( size_t __j = _S_whichbyte(__prev); __j < sizeof(_WordT); __j++ ) {
+    for ( std::size_t __j = _S_whichbyte(__prev); __j < sizeof(_WordT); __j++ ) {
       unsigned char __this_byte
         = static_cast<unsigned char>(__thisword & (~(unsigned char)0));
       if ( __this_byte )
@@ -194,4 +225,3 @@ template unsigned char std::_Bit_count<true>::_S_bit_count[];
 
 template unsigned char std::_First_one<false>::_S_first_one[];
 template unsigned char std::_First_one<true>::_S_first_one[];
-

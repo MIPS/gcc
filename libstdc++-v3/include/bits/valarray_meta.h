@@ -1,6 +1,6 @@
 // The template and inlines for the -*- C++ -*- internal _Meta class.
 
-// Copyright (C) 1997-1999, 2000 Free Software Foundation, Inc.
+// Copyright (C) 1997-1999, 2000, 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,7 +32,10 @@
 #ifndef _CPP_VALARRAY_META_H
 #define _CPP_VALARRAY_META_H 1
 
-namespace std {
+#pragma GCC system_header
+
+namespace std
+{
 
     //
     // Implementing a loosened valarray return value is tricky.
@@ -297,7 +300,7 @@ namespace std {
         typedef _Tp value_type;
         
         _RefFunClos (const valarray<_Tp>& __v, _Tp __f(const _Tp&))
-                : _Base (__e, __f) {}
+                : _Base (__v, __f) {}
     };
     
     //
@@ -652,16 +655,16 @@ namespace std {
         valarray<value_type> operator[] (const valarray<bool>&) const;
         valarray<value_type> operator[] (const valarray<size_t>&) const;
     
-        _Expr<_UnClos<_Unary_plus,_Expr,_Clos>, value_type>
+        _Expr<_UnClos<_Unary_plus,std::_Expr,_Clos>, value_type>
         operator+ () const;
 
-        _Expr<_UnClos<negate,_Expr,_Clos>, value_type>
+        _Expr<_UnClos<negate,std::_Expr,_Clos>, value_type>
         operator- () const;
 
-        _Expr<_UnClos<_Bitwise_not,_Expr,_Clos>, value_type>
+        _Expr<_UnClos<_Bitwise_not,std::_Expr,_Clos>, value_type>
         operator~ () const;
 
-        _Expr<_UnClos<logical_not,_Expr,_Clos>, bool>
+        _Expr<_UnClos<logical_not,std::_Expr,_Clos>, bool>
         operator! () const;
 
         size_t size () const;
@@ -766,16 +769,16 @@ namespace std {
     inline _Expr<_UnClos<logical_not,_Expr,_Dom>, bool>
     _Expr<_Dom,_Tp>::operator! () const
     {
-        typedef _UnClos<logical_not,_Expr,_Dom> _Closure;
+        typedef _UnClos<logical_not,std::_Expr,_Dom> _Closure;
         return _Expr<_Closure,_Tp> (_Closure(this->_M_closure));
     }
 
 #define _DEFINE_EXPR_UNARY_OPERATOR(_Op, _Name)                         \
 template<class _Dom, typename _Tp>                                      \
-inline _Expr<_UnClos<_Name,_Expr,_Dom>,_Tp>                             \
+inline _Expr<_UnClos<_Name,std::_Expr,_Dom>,_Tp>                        \
 _Expr<_Dom,_Tp>::operator _Op () const                                 \
 {                                                                       \
-    typedef _UnClos<_Name,_Expr,_Dom> _Closure;                         \
+    typedef _UnClos<_Name,std::_Expr,_Dom> _Closure;                    \
     return _Expr<_Closure,_Tp> (_Closure (this->_M_closure));           \
 }
 

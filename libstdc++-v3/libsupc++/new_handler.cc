@@ -1,4 +1,5 @@
 // Implementation file for the -*- C++ -*- dynamic memory management header.
+
 // Copyright (C) 1996, 1997, 1998, 2000 Free Software Foundation
 //
 // This file is part of GNU CC.
@@ -27,7 +28,6 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#pragma implementation "new"
 #include "new"
 
 const std::nothrow_t std::nothrow = { };
@@ -42,3 +42,5 @@ std::set_new_handler (new_handler handler)
   __new_handler = handler;
   return prev_handler;
 }
+
+std::bad_alloc::~bad_alloc() throw() { }

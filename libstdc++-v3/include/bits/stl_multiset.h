@@ -1,3 +1,32 @@
+// Multiset implementation -*- C++ -*-
+
+// Copyright (C) 2001 Free Software Foundation, Inc.
+//
+// This file is part of the GNU ISO C++ Library.  This library is free
+// software; you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the
+// Free Software Foundation; either version 2, or (at your option)
+// any later version.
+
+// This library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License along
+// with this library; see the file COPYING.  If not, write to the Free
+// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// USA.
+
+// As a special exception, you may use this file as part of a free software
+// library without restriction.  Specifically, if other files instantiate
+// templates or use macros or inline functions from this file, or you compile
+// this file and link it with other files to produce an executable, this
+// file does not by itself cause the resulting executable to be covered by
+// the GNU General Public License.  This exception does not however
+// invalidate any other reasons why the executable file might be covered by
+// the GNU General Public License.
+
 /*
  *
  * Copyright (c) 1994
@@ -31,14 +60,10 @@
 #ifndef __SGI_STL_INTERNAL_MULTISET_H
 #define __SGI_STL_INTERNAL_MULTISET_H
 
-#include <bits/concept_checks.h>
+#include <bits/concept_check.h>
 
-__STL_BEGIN_NAMESPACE
-
-#if defined(__sgi) && !defined(__GNUC__) && (_MIPS_SIM != _MIPS_SIM_ABI32)
-#pragma set woff 1174
-#pragma set woff 1375
-#endif
+namespace std
+{
 
 // Forward declaration of operators < and ==, needed for friend declaration.
 
@@ -55,11 +80,11 @@ inline bool operator<(const multiset<_Key,_Compare,_Alloc>& __x,
                       const multiset<_Key,_Compare,_Alloc>& __y);
 
 template <class _Key, class _Compare, class _Alloc>
-class multiset {
-  // requirements:
-  
-  __STL_CLASS_REQUIRES(_Key, _Assignable);
-  __STL_CLASS_BINARY_FUNCTION_CHECK(_Compare, bool, _Key, _Key);
+class multiset
+{
+  // concept requirements
+  __glibcpp_class_requires(_Key, _SGIAssignableConcept);
+  __glibcpp_class_requires4(_Compare, bool, _Key, _Key, _BinaryFunctionConcept);
 
 public:
 
@@ -93,8 +118,6 @@ public:
                     const allocator_type& __a = allocator_type())
     : _M_t(__comp, __a) {}
 
-#ifdef __STL_MEMBER_TEMPLATES
-
   template <class _InputIterator>
   multiset(_InputIterator __first, _InputIterator __last)
     : _M_t(_Compare(), allocator_type())
@@ -106,29 +129,8 @@ public:
            const allocator_type& __a = allocator_type())
     : _M_t(__comp, __a) { _M_t.insert_equal(__first, __last); }
 
-#else
-
-  multiset(const value_type* __first, const value_type* __last)
-    : _M_t(_Compare(), allocator_type())
-    { _M_t.insert_equal(__first, __last); }
-
-  multiset(const value_type* __first, const value_type* __last,
-           const _Compare& __comp,
-           const allocator_type& __a = allocator_type())
-    : _M_t(__comp, __a) { _M_t.insert_equal(__first, __last); }
-
-  multiset(const_iterator __first, const_iterator __last)
-    : _M_t(_Compare(), allocator_type())
-    { _M_t.insert_equal(__first, __last); }
-
-  multiset(const_iterator __first, const_iterator __last,
-           const _Compare& __comp,
-           const allocator_type& __a = allocator_type())
-    : _M_t(__comp, __a) { _M_t.insert_equal(__first, __last); }
-   
-#endif /* __STL_MEMBER_TEMPLATES */
-
   multiset(const multiset<_Key,_Compare,_Alloc>& __x) : _M_t(__x._M_t) {}
+
   multiset<_Key,_Compare,_Alloc>&
   operator=(const multiset<_Key,_Compare,_Alloc>& __x) {
     _M_t = __x._M_t; 
@@ -159,19 +161,10 @@ public:
     return _M_t.insert_equal((_Rep_iterator&)__position, __x);
   }
 
-#ifdef __STL_MEMBER_TEMPLATES  
   template <class _InputIterator>
   void insert(_InputIterator __first, _InputIterator __last) {
     _M_t.insert_equal(__first, __last);
   }
-#else
-  void insert(const value_type* __first, const value_type* __last) {
-    _M_t.insert_equal(__first, __last);
-  }
-  void insert(const_iterator __first, const_iterator __last) {
-    _M_t.insert_equal(__first, __last);
-  }
-#endif /* __STL_MEMBER_TEMPLATES */
   void erase(iterator __position) { 
     typedef typename _Rep_type::iterator _Rep_iterator;
     _M_t.erase((_Rep_iterator&)__position); 
@@ -187,8 +180,32 @@ public:
 
   // multiset operations:
 
-  iterator find(const key_type& __x) const { return _M_t.find(__x); }
   size_type count(const key_type& __x) const { return _M_t.count(__x); }
+
+#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+//214.  set::find() missing const overload
+  iterator find(const key_type& __x) { return _M_t.find(__x); }
+  const_iterator find(const key_type& __x) const { return _M_t.find(__x); }
+  iterator lower_bound(const key_type& __x) {
+    return _M_t.lower_bound(__x);
+  }
+  const_iterator lower_bound(const key_type& __x) const {
+    return _M_t.lower_bound(__x);
+  }
+  iterator upper_bound(const key_type& __x) {
+    return _M_t.upper_bound(__x);
+  }
+  const_iterator upper_bound(const key_type& __x) const {
+    return _M_t.upper_bound(__x);
+  }
+  pair<iterator,iterator> equal_range(const key_type& __x) {
+    return _M_t.equal_range(__x);
+  }
+  pair<const_iterator,const_iterator> equal_range(const key_type& __x) const {
+    return _M_t.equal_range(__x);
+  }
+#else
+  iterator find(const key_type& __x) const { return _M_t.find(__x); }
   iterator lower_bound(const key_type& __x) const {
     return _M_t.lower_bound(__x);
   }
@@ -198,20 +215,14 @@ public:
   pair<iterator,iterator> equal_range(const key_type& __x) const {
     return _M_t.equal_range(__x);
   }
+#endif
 
-#ifdef __STL_TEMPLATE_FRIENDS
   template <class _K1, class _C1, class _A1>
   friend bool operator== (const multiset<_K1,_C1,_A1>&,
                           const multiset<_K1,_C1,_A1>&);
   template <class _K1, class _C1, class _A1>
   friend bool operator< (const multiset<_K1,_C1,_A1>&,
                          const multiset<_K1,_C1,_A1>&);
-#else /* __STL_TEMPLATE_FRIENDS */
-  friend bool __STD_QUALIFIER
-  operator== __STL_NULL_TMPL_ARGS (const multiset&, const multiset&);
-  friend bool __STD_QUALIFIER
-  operator< __STL_NULL_TMPL_ARGS (const multiset&, const multiset&);
-#endif /* __STL_TEMPLATE_FRIENDS */
 };
 
 template <class _Key, class _Compare, class _Alloc>
@@ -225,8 +236,6 @@ inline bool operator<(const multiset<_Key,_Compare,_Alloc>& __x,
                       const multiset<_Key,_Compare,_Alloc>& __y) {
   return __x._M_t < __y._M_t;
 }
-
-#ifdef __STL_FUNCTION_TMPL_PARTIAL_ORDER
 
 template <class _Key, class _Compare, class _Alloc>
 inline bool operator!=(const multiset<_Key,_Compare,_Alloc>& __x, 
@@ -258,14 +267,7 @@ inline void swap(multiset<_Key,_Compare,_Alloc>& __x,
   __x.swap(__y);
 }
 
-#endif /* __STL_FUNCTION_TMPL_PARTIAL_ORDER */
-
-#if defined(__sgi) && !defined(__GNUC__) && (_MIPS_SIM != _MIPS_SIM_ABI32)
-#pragma reset woff 1174
-#pragma reset woff 1375
-#endif
-
-__STL_END_NAMESPACE
+} // namespace std
 
 #endif /* __SGI_STL_INTERNAL_MULTISET_H */
 

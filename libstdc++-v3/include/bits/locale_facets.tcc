@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -37,8 +37,9 @@
 #include <bits/std_cstdlib.h>   // For strof, strtold
 #include <bits/std_limits.h>    // For numeric_limits
 #include <bits/std_memory.h>    // For auto_ptr
-#include <bits/sbuf_iter.h>     // For streambuf_iterators
+#include <bits/streambuf_iterator.h>     // For streambuf_iterators
 #include <bits/std_cctype.h>    // For isspace
+#include <typeinfo> 		// For bad_cast
 #include <bits/std_vector.h>	
 
 namespace std
@@ -47,10 +48,9 @@ namespace std
     locale
     locale::combine(const locale& __other)
     {
-      locale __copy(*this);
-      __copy._M_impl->_M_replace_facet(__other._M_impl, &_Facet::id);
-      __copy._M_impl->_M_has_name = false;
-      return __copy;
+      _Impl* __tmp = new _Impl(*_M_impl, 1);
+      __tmp->_M_replace_facet(__other._M_impl, &_Facet::id);
+      return locale(__tmp);
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -58,8 +58,6 @@ namespace std
     locale::operator()(const basic_string<_CharT, _Traits, _Alloc>& __s1,
                        const basic_string<_CharT, _Traits, _Alloc>& __s2) const
     {
-      // XXX should not need to qualify here.
-      // typedef collate<_CharT> __collate_type;
       typedef std::collate<_CharT> __collate_type;
       const __collate_type* __fcoll = &use_facet<__collate_type>(*this);
       return (__fcoll->compare(__s1.data(), __s1.data() + __s1.length(),
@@ -71,12 +69,11 @@ namespace std
     use_facet(const locale& __loc)
     {
       typedef locale::_Impl::__vec_facet        __vec_facet;
-      locale::id& __id = _Facet::id;         // check member id
-      size_t __i = __id._M_index;
+      size_t __i = _Facet::id._M_index;
       __vec_facet* __facet = __loc._M_impl->_M_facets;
-      const locale::facet* __fp = (*__facet)[__i]; // check derivation
-      if (__i >= __facet->size() || __fp == 0)
-        return _Use_facet_failure_handler<_Facet>(__loc);
+      const locale::facet* __fp = (*__facet)[__i]; 
+      if (__fp == 0 || __i >= __facet->size())
+        __throw_bad_cast();
       return static_cast<const _Facet&>(*__fp);
     }
 
@@ -85,8 +82,7 @@ namespace std
     has_facet(const locale& __loc) throw()
     {
       typedef locale::_Impl::__vec_facet        __vec_facet;
-      locale::id& __id = _Facet::id;         // check member id
-      size_t __i = __id._M_index;
+      size_t __i = _Facet::id._M_index;
       __vec_facet* __facet = __loc._M_impl->_M_facets;
       return (__i < __facet->size() && (*__facet)[__i] != 0);
     }
@@ -111,47 +107,44 @@ namespace std
       size_t __pos = 0;
       do
         {
-          {
-            int __ti = 0;
-            for (;__ti < __remain &&
-                   __pos == __targets[__matches[__ti]].size(); ++__ti)
-              { }
-            if (__ti == __remain)
-              {
-                if (__pos == 0) __remain = 0;
-                return __s;
-              }
-          }
+	  int __ti = 0;
+	  while (__ti < __remain && __pos == __targets[__matches[__ti]].size())
+	    ++__ti;
+	  if (__ti == __remain)
+	    {
+	      if (__pos == 0) __remain = 0;
+	      return __s;
+	    }
           if (__s == __end)
             __eof = true;
           bool __matched = false;
-          for (int __ti = 0; __ti < __remain; )
+          for (int __ti2 = 0; __ti2 < __remain; )
             {
-              const __string_type& __target = __targets[__matches[__ti]];
+              const __string_type& __target = __targets[__matches[__ti2]];
               if (__pos < __target.size())
                 {
                   if (__eof || __target[__pos] != *__s)
                     {
-                      __matches[__ti] = __matches[--__remain];
+                      __matches[__ti2] = __matches[--__remain];
                       continue;
                     }
                   __matched = true;
                 }
-              ++__ti;
+              ++__ti2;
             }
           if (__matched)
             {
               ++__s;
               ++__pos;
             }
-          for (int __ti = 0; __ti < __remain;)
+          for (int __ti3 = 0; __ti3 < __remain;)
             {
-              if (__pos > __targets[__matches[__ti]].size())
+              if (__pos > __targets[__matches[__ti3]].size())
                 {
-                  __matches[__ti] = __matches[--__remain];
+                  __matches[__ti3] = __matches[--__remain];
                   continue;
                 }
-              ++__ti;
+              ++__ti3;
             }
         }
       while (__remain);
@@ -195,15 +188,15 @@ namespace std
       switch (__ev)
         {
         case ios_base::erase_event:
-          delete static_cast<_Format_cache<_CharT>*> (__p); __p = 0;
+          delete static_cast<_Format_cache<_CharT>*>(__p);
+	  __p = 0;
           break;
         case ios_base::copyfmt_event:
           // If just stored zero, the callback would get registered again.
-          try {
-            __p = new _Format_cache<_CharT>;
-          }
-          catch(...) {
-          }
+          try 
+	    { __p = new _Format_cache<_CharT>; }
+          catch(...) 
+	    { }
           break;
         case ios_base::imbue_event:
           static_cast<_Format_cache<_CharT>*>(__p)->_M_valid = false;
@@ -577,7 +570,7 @@ namespace std
       // Stage 2: convert and store results.
       char* __sanity;
       errno = 0;
-#ifdef _GLIBCPP_HAVE_STRTOF
+#ifdef _GLIBCPP_USE_C99
       float __f = strtof(__xtrc, &__sanity);
 #else
       float __f = static_cast<float>(strtod(__xtrc, &__sanity));
@@ -617,7 +610,7 @@ namespace std
       return __beg;
     }
 
-#if defined(_GLIBCPP_HAVE_STRTOLD) && !defined(__hpux)
+#if defined(_GLIBCPP_USE_C99) && !defined(__hpux)
   template<typename _CharT, typename _InIter>
     _InIter
     num_get<_CharT, _InIter>::
@@ -716,15 +709,15 @@ namespace std
       return __beg;
     }
 
-  // _S_fill is specialized for ostreambuf_iterator, random access iterator.
+  // __pad is specialized for ostreambuf_iterator, random access iterator.
   template <typename _CharT, typename _OutIter>
     inline _OutIter
-    _S_fill(_OutIter __s, _CharT __fill, int __padding);
+    __pad(_OutIter __s, _CharT __fill, int __padding);
 
   template <typename _CharT, typename _RaIter>
     _RaIter
-    _S_fill(_RaIter __s, _CharT __fill, int __padding,
-            random_access_iterator_tag)
+    __pad(_RaIter __s, _CharT __fill, int __padding, 
+	  random_access_iterator_tag)
     {
       fill_n(__s, __fill);
       return __s + __padding;
@@ -732,7 +725,7 @@ namespace std
 
   template <typename _CharT, typename _OutIter, typename _Tag>
     _OutIter
-    _S_fill(_OutIter __s, _CharT __fill, int __padding, _Tag)
+    __pad(_OutIter __s, _CharT __fill, int __padding, _Tag)
     {
       while (--__padding >= 0) { *__s = __fill; ++__s; }
       return __s;
@@ -740,19 +733,19 @@ namespace std
 
   template <typename _CharT, typename _OutIter>
     inline _OutIter
-    _S_fill(_OutIter __s, _CharT __fill, int __padding)
+    __pad(_OutIter __s, _CharT __fill, int __padding)
     {
-      return _S_fill(__s, __fill, __padding,
-                     iterator_traits<_OutIter>::iterator_category());
+      return __pad(__s, __fill, __padding, 
+		   typename iterator_traits<_OutIter>::iterator_category());
     }
 
   template <typename _CharT, typename _OutIter>
     _OutIter
-    _S_pad_numeric(_OutIter __s, ios_base::fmtflags /*__flags*/,
-                   _CharT /*__fill*/, int /*__width*/, 
-		   _CharT const* /*__first*/, _CharT const* /*__middle*/, 
-		   _CharT const* /*__last*/)
-    {
+    __pad_numeric(_OutIter __s, ios_base::fmtflags /*__flags*/,
+		  _CharT /*__fill*/, int /*__width*/, 
+		  _CharT const* /*__first*/, _CharT const* /*__middle*/, 
+		  _CharT const* /*__last*/)
+  {
       // XXX Not currently done: non streambuf_iterator
       return __s;
     }
@@ -760,9 +753,9 @@ namespace std
   // Partial specialization for ostreambuf_iterator.
   template <typename _CharT>   
     ostreambuf_iterator<_CharT>
-    _S_pad_numeric(ostreambuf_iterator<_CharT> __s, ios_base::fmtflags __flags,
-                   _CharT __fill, int __width, _CharT const* __first,
-                   _CharT const* __middle, _CharT const* __last)
+    __pad_numeric(ostreambuf_iterator<_CharT> __s, ios_base::fmtflags __flags,
+		  _CharT __fill, int __width, _CharT const* __first,
+		  _CharT const* __middle, _CharT const* __last)
     {
       typedef ostreambuf_iterator<_CharT> 	__out_iter;
       int __padding = __width - (__last - __first);
@@ -777,7 +770,7 @@ namespace std
         {
           if (!__testfield)
             {
-              _S_fill(__s, __fill, __padding);
+              __pad(__s, __fill, __padding);
               __padding = 0;
             }
           copy(__first, __middle, __s);
@@ -786,12 +779,12 @@ namespace std
 
       if (__padding && __aflags != ios_base::left)
         {
-          _S_fill(__s2, __fill, __padding);
+          __pad(__s2, __fill, __padding);
           __padding = 0;
         }
       __out_iter __s3 = copy(__middle, __last, __s2);
       if (__padding)
-        _S_fill(__s3, __fill, __padding);
+        __pad(__s3, __fill, __padding);
       return __s3;
     }
 
@@ -806,7 +799,7 @@ namespace std
       if ((__flags & ios_base::boolalpha) == 0)
         {
           unsigned long __uv = __v;
-          return _S_format(__s, __io, __fill, false, __uv);
+          return __output_integer(__s, __io, __fill, false, __uv);
         }
       else
         {
@@ -827,19 +820,19 @@ namespace std
       return __s;
     }
 
-  // _S_group_digits inserts "group separator" characters into an array
+  // __group_digits inserts "group separator" characters into an array
   // of characters.  It's recursive, one iteration per group.  It moves
   // the characters in the buffer this way: "xxxx12345" -> "12,345xxx".
   // Call this only with __grouping != __grend.
   template <typename _CharT>
     _CharT*
-    _S_group_digits(_CharT* __s, _CharT __grsep,  char const* __grouping,
+    __group_digits(_CharT* __s, _CharT __grsep,  char const* __grouping,
                     char const* __grend, _CharT const* __first,
                     _CharT const* __last)
     {
       if (__last - __first > *__grouping)
         {
-          __s = _S_group_digits(__s,  __grsep,
+          __s = __group_digits(__s,  __grsep,
               (__grouping + 1 == __grend ? __grouping : __grouping + 1),
               __grend, __first, __last - *__grouping);
           __first = __last - *__grouping;
@@ -855,7 +848,7 @@ namespace std
 
   template <typename _CharT, typename _OutIter, typename _ValueT>
     _OutIter
-    _S_format(_OutIter __s, ios_base& __io, _CharT __fill, bool __neg,
+    __output_integer(_OutIter __s, ios_base& __io, _CharT __fill, bool __neg,
               _ValueT __v)
     {
       // Leave room for "+/-," "0x," and commas.
@@ -910,17 +903,17 @@ namespace std
         return copy(__front, __digits + _M_room, __s);
 
       if (!__fmt->_M_use_grouping)
-        return _S_pad_numeric(__s, __flags, __fill, __io.width(0),
-                              __front, __sign_end, __digits + _M_room);
+        return __pad_numeric(__s, __flags, __fill, __io.width(0),
+			     __front, __sign_end, __digits + _M_room);
 
       _CharT* __p = __digits;
       while (__front < __sign_end)
         *__p++ = *__front++;
       const char* __gr = __fmt->_M_grouping.data();
-      __front = _S_group_digits(__p, __fmt->_M_thousands_sep, __gr,
+      __front = __group_digits(__p, __fmt->_M_thousands_sep, __gr,
         __gr + __fmt->_M_grouping.size(), __sign_end, __digits + _M_room);
-      return _S_pad_numeric(__s, __flags, __fill, __io.width(0),
-                            __digits, __p, __front);
+      return __pad_numeric(__s, __flags, __fill, __io.width(0),
+			   __digits, __p, __front);
     }
 
   template <typename _CharT, typename _OutIter>
@@ -935,7 +928,7 @@ namespace std
           __neg = true;
           __uv = -__uv;
         }
-      return _S_format(__s, __io, __fill, __neg, __uv);
+      return __output_integer(__s, __io, __fill, __neg, __uv);
     }
 
   template <typename _CharT, typename _OutIter>
@@ -943,7 +936,7 @@ namespace std
     num_put<_CharT, _OutIter>::
     do_put(iter_type __s, ios_base& __io, char_type __fill,
            unsigned long __v) const
-    { return _S_format(__s, __io, __fill, false, __v); }
+    { return __output_integer(__s, __io, __fill, false, __v); }
 
 #ifdef _GLIBCPP_USE_LONG_LONG
   template <typename _CharT, typename _OutIter>
@@ -958,7 +951,7 @@ namespace std
           __neg = true;
           __uv = -__uv;
         }
-      return _S_format(__s, __b, __fill, __neg, __uv);
+      return __output_integer(__s, __b, __fill, __neg, __uv);
     }
 
   template <typename _CharT, typename _OutIter>
@@ -966,13 +959,13 @@ namespace std
     num_put<_CharT, _OutIter>::
     do_put(iter_type __s, ios_base& __io, char_type __fill,
            unsigned long long __v) const
-    { return _S_format(__s, __io, __fill, false, __v); }
+    { return __output_integer(__s, __io, __fill, false, __v); }
 #endif
 
   // Generic helper function
-  template<typename _CharT, typename _OutIter>
-    static _OutIter
-    _S_output_float(_OutIter __s, ios_base& __io, _CharT __fill,
+  template<typename _CharT, typename _Traits, typename _OutIter>
+    _OutIter
+    __output_float(_OutIter __s, ios_base& __io, _CharT __fill,
                     const char* __sptr, size_t __slen)
     {
       // XXX Not currently done: non streambuf_iterator
@@ -980,10 +973,10 @@ namespace std
     }
 
   // Partial specialization for ostreambuf_iterator.
-  template<typename _CharT>
-    static ostreambuf_iterator<_CharT>
-    _S_output_float(ostreambuf_iterator<_CharT> __s, ios_base& __io, 
-		    _CharT __fill, const char* __sptr, size_t __slen)
+  template<typename _CharT, typename _Traits>
+    ostreambuf_iterator<_CharT, _Traits>
+    __output_float(ostreambuf_iterator<_CharT, _Traits> __s, ios_base& __io, 
+		   _CharT __fill, const char* __sptr, size_t __slen)
     {
       size_t __padding = __io.width() > streamsize(__slen) ?
                          __io.width() -__slen : 0;
@@ -1001,12 +994,12 @@ namespace std
              ++__s;
              ++__sptr;
            }
-         __s = _S_fill(__s, __fill, __padding);
+         __s = __pad(__s, __fill, __padding);
          __padding = 0;
        }
       else if (__adjfield != ios_base::left)
         {
-          __s = _S_fill(__s, __fill, __padding);
+          __s = __pad(__s, __fill, __padding);
           __padding = 0;
         }
       // the "C" locale decimal character
@@ -1023,14 +1016,14 @@ namespace std
        }
       // [22.2.2.2.2.19] Table 61
       if (__padding)
-        _S_fill(__s, __fill, __padding);
+        __pad(__s, __fill, __padding);
       __io.width(0);
       return __s;
     }
 
   bool
-  _S_build_float_format(ios_base& __io, char* __fptr, char __modifier,
-                        streamsize __prec);
+  __build_float_format(ios_base& __io, char* __fptr, char __modifier,
+		       streamsize __prec);
 
   template <typename _CharT, typename _OutIter>
     _OutIter
@@ -1043,16 +1036,16 @@ namespace std
       if (__prec > __max_prec)
         __prec = __max_prec;
       // The *2 provides for signs, exp, 'E', and pad.
-      char __sbuf[__max_prec*2];
+      char __sbuf[__max_prec * 2];
       size_t __slen;
       // Long enough for the max format spec.
       char __fbuf[16];
-      if (_S_build_float_format(__io, __fbuf, 0, __prec))
+      if (__build_float_format(__io, __fbuf, 0, __prec))
         __slen = sprintf(__sbuf, __fbuf, __prec, __v);
       else
         __slen = sprintf(__sbuf, __fbuf, __v);
       // [22.2.2.2.2] Stages 2-4.
-      return _S_output_float(__s, __io, __fill, __sbuf, __slen);
+      return __output_float(__s, __io, __fill, __sbuf, __slen);
     }
 
   template <typename _CharT, typename _OutIter>
@@ -1067,17 +1060,17 @@ namespace std
       if (__prec > __max_prec)
         __prec = __max_prec;
       // The *2 provides for signs, exp, 'E', and pad.
-      char __sbuf[__max_prec*2];
+      char __sbuf[__max_prec * 2];
       size_t __slen;
       // Long enough for the max format spec.
       char __fbuf[16];
       // 'L' as per [22.2.2.2.2] Table 59
-      if ( _S_build_float_format(__io, __fbuf, 'L', __prec))
+      if (__build_float_format(__io, __fbuf, 'L', __prec))
         __slen = sprintf(__sbuf, __fbuf, __prec, __v);
       else
         __slen = sprintf(__sbuf, __fbuf, __v);
       // [22.2.2.2.2] Stages 2-4
-      return _S_output_float(__s, __io, __fill, __sbuf, __slen);
+      return __output_float(__s, __io, __fill, __sbuf, __slen);
     }
 
   template <typename _CharT, typename _OutIter>
@@ -1092,14 +1085,14 @@ namespace std
                              | ios_base::uppercase | ios_base::internal);
       __io.flags(__fmt & __fmtmask | (ios_base::hex | ios_base::showbase));
       try {
-        _OutIter __s2 = _S_format(__s, __io, __fill, false,
+        _OutIter __s2 = __output_integer(__s, __io, __fill, false,
                                   reinterpret_cast<unsigned long>(__v));
         __io.flags(__fmt);
         return __s2;
       }
       catch (...) {
         __io.flags(__fmt);
-        throw;
+        __throw_exception_again;
       }
     }
 

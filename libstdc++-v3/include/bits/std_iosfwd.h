@@ -1,6 +1,6 @@
 // Forwarding declarations -*- C++ -*-
 
-// Copyright (C) 1997-1999 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,85 +34,67 @@
 #ifndef _CPP_IOSFWD
 #define _CPP_IOSFWD 1
 
+#pragma GCC system_header
+
 #include <bits/c++config.h>
-#include <bits/std_cwchar.h> // For mbstate_t
+#include <bits/stringfwd.h> // For string forward declarations.
+#include <bits/fpos.h>
+#include <bits/functexcept.h>
 
-namespace std {
-
-  // Generic declarations.
-  template<typename _CharT> struct char_traits;
-  template<typename _Alloc> class allocator;
-
-  // Forward declarations
-  template<> class char_traits<char>;
-#ifdef _GLIBCPP_USE_WCHAR_T
-  template<> class char_traits<wchar_t>;
-#endif
+namespace std 
+{
+  template<typename _CharT, typename _Traits = char_traits<_CharT> >
+    class basic_ios;
 
   template<typename _CharT, typename _Traits = char_traits<_CharT> >
-  class basic_ios;
+    class basic_streambuf;
 
   template<typename _CharT, typename _Traits = char_traits<_CharT> >
-  class basic_streambuf;
+    class basic_istream;
 
   template<typename _CharT, typename _Traits = char_traits<_CharT> >
-  class basic_istream;
+    class basic_ostream;
 
   template<typename _CharT, typename _Traits = char_traits<_CharT> >
-  class basic_ostream;
-
-  template<typename _CharT, typename _Traits = char_traits<_CharT> >
-  class basic_iostream;
+    class basic_iostream;
 
   template<typename _CharT, typename _Traits = char_traits<_CharT>,
 	    typename _Alloc = allocator<_CharT> >
-  class basic_stringbuf;
+    class basic_stringbuf;
 
   template<typename _CharT, typename _Traits = char_traits<_CharT>,
 	   typename _Alloc = allocator<_CharT> >
-  class basic_istringstream;
+    class basic_istringstream;
 
   template<typename _CharT, typename _Traits = char_traits<_CharT>,
 	   typename _Alloc = allocator<_CharT> >
-  class basic_ostringstream;
+    class basic_ostringstream;
 
   template<typename _CharT, typename _Traits = char_traits<_CharT>,
 	   typename _Alloc = allocator<_CharT> >
-  class basic_stringstream;
+    class basic_stringstream;
 
   template<typename _CharT, typename _Traits = char_traits<_CharT> >
-  class basic_filebuf;
+    class basic_filebuf;
 
   template<typename _CharT, typename _Traits = char_traits<_CharT> >
-  class basic_ifstream;
+    class basic_ifstream;
 
   template<typename _CharT, typename _Traits = char_traits<_CharT> >
-  class basic_ofstream;
+    class basic_ofstream;
 
   template<typename _CharT, typename _Traits = char_traits<_CharT> >
-  class basic_fstream;
+    class basic_fstream;
 
   template<typename _CharT, typename _Traits = char_traits<_CharT> >
-  class istreambuf_iterator;
+    class istreambuf_iterator;
 
   template<typename _CharT, typename _Traits = char_traits<_CharT> >
-  class ostreambuf_iterator;
+    class ostreambuf_iterator;
 
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
   // Not included.
   class ios_base; 
-#endif
-
-  template<class _State> struct fpos;
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
-  // Can't have self-recursive types for streampos. 
-  // 21.1.3.1 char_traits sets size_type to streampos
-  // 27.4.1 
-  // And here, where streampos is typedefed to fpos<traits::state_type>
-  typedef fpos<mbstate_t> 		streampos;
-#  ifdef _GLIBCPP_USE_WCHAR_T
-  typedef fpos<mbstate_t> 		wstreampos;
-#  endif
 #endif
 
   typedef basic_ios<char> 		ios;
@@ -144,12 +126,9 @@ namespace std {
   typedef basic_ofstream<wchar_t> 	wofstream;
   typedef basic_fstream<wchar_t> 	wfstream;
 #endif
-
 } // namespace std
 
 #endif	// _CPP_IOSFWD
-
-
 
 
 

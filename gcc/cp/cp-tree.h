@@ -1291,7 +1291,7 @@ struct lang_type
   unsigned needs_virtual_reinit : 1;
 
   unsigned marks: 6;
-  unsigned vec_delete_takes_size : 1;
+  unsigned vec_new_uses_cookie : 1;
   unsigned declared_class : 1;
 
   unsigned being_defined : 1;
@@ -1353,19 +1353,11 @@ struct lang_type
 #define TYPE_GETS_DELETE(NODE) (TYPE_LANG_SPECIFIC(NODE)->gets_delete)
 #define TYPE_GETS_REG_DELETE(NODE) (TYPE_GETS_DELETE (NODE) & 1)
 
-/* Nonzero for _CLASSTYPE means that operator vec delete is defined and
-   takes the optional size_t argument.  */
-#define TYPE_VEC_DELETE_TAKES_SIZE(NODE) \
-  (TYPE_LANG_SPECIFIC(NODE)->vec_delete_takes_size)
-
 /* Nonzero if `new NODE[x]' should cause the allocation of extra
-   storage to indicate how many array elements are in use.  The old
-   ABI had a bug in that we always allocate the extra storage if NODE
-   has a two-argument array operator delete.  */
-#define TYPE_VEC_NEW_USES_COOKIE(NODE)		\
-  (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (NODE)	\
-   || (TYPE_LANG_SPECIFIC (NODE)		\
-       && TYPE_VEC_DELETE_TAKES_SIZE (NODE)))
+   storage to indicate how many array elements are in use.  */
+#define TYPE_VEC_NEW_USES_COOKIE(NODE)			\
+  (CLASS_TYPE_P (NODE)					\
+   && TYPE_LANG_SPECIFIC (NODE)->vec_new_uses_cookie)
 
 /* Nonzero means that this _CLASSTYPE node defines ways of converting
    itself to other types.  */
@@ -1799,9 +1791,7 @@ struct lang_decl_flags
   unsigned global_dtor_p : 1;
   unsigned assignment_operator_p : 1;
   unsigned anticipated_p : 1;
-  unsigned optimized_p : 1;
-  unsigned optimized_partial_p : 1;
-  /* One unused bit.  */
+  /* Three unused bits.  */
 
   union {
     /* In a FUNCTION_DECL, VAR_DECL, TYPE_DECL, or TEMPLATE_DECL, this
@@ -1843,6 +1833,10 @@ struct lang_decl
 
   /* In a FUNCTION_DECL, this is DECL_CLONED_FUNCTION.  */
   tree cloned_function;
+
+  /* In a FUNCTION_DECL, these are function data which is to be kept
+     as long as FUNCTION_DECL is kept.  */
+  tree inlined_fns;
 
   union
   {
@@ -1969,6 +1963,10 @@ struct lang_decl
    cloned.  */
 #define DECL_CLONED_FUNCTION(NODE) \
   (DECL_LANG_SPECIFIC (NODE)->cloned_function)
+
+/* List of FUNCION_DECLs inlined into this function's body.  */
+#define DECL_INLINED_FNS(NODE) \
+  (DECL_LANG_SPECIFIC (NODE)->inlined_fns)
 
 /* Nonzero if NODE has DECL_DISCRIMINATOR and not DECL_ACCESS.  */
 #define DECL_DISCRIMINATOR_P(NODE)	\
@@ -2455,16 +2453,6 @@ extern int flag_new_for_scope;
    not yet seen a prototype for that function.  */
 #define DECL_ANTICIPATED(NODE) \
   (DECL_LANG_SPECIFIC (DECL_CHECK (NODE))->decl_flags.anticipated_p)
-
-/* Nonzero if NODE is a FUNCTION_DECL whose DECL_SAVED_TREE has been
-   optimized. */
-#define DECL_OPTIMIZED_P(NODE) \
-  (DECL_LANG_SPECIFIC (DECL_CHECK (NODE))->decl_flags.optimized_p)
-
-/* Nonzero if NODE is a FUNCTION_DECL whose DECL_SAVED_TREE has been
-   partially optimized (upto the inlining point). */
-#define DECL_OPTIMIZED_PARTIAL_P(NODE) \
-  (DECL_LANG_SPECIFIC (DECL_CHECK (NODE))->decl_flags.optimized_partial_p)
 
 /* Record whether a typedef for type `int' was actually `signed int'.  */
 #define C_TYPEDEF_EXPLICITLY_SIGNED(exp) DECL_LANG_FLAG_1 ((exp))

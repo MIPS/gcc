@@ -1,4 +1,4 @@
-// Specific definitions for Solaris 2.6  -*- C++ -*-
+// Specific definitions for Solaris 2.5  -*- C++ -*-
 
 // Copyright (C) 2000 Free Software Foundation, Inc.
 //
@@ -31,13 +31,11 @@
 #ifndef _GLIBCPP_OS_DEFINES
 #  define _GLIBCPP_OS_DEFINES
 
-// Need these to get sane definitions, esp. of 64-bit types and typedefs.
-#define _XOPEN_SOURCE        500
-#define _LARGEFILE64_SOURCE  1
-#define __EXTENSIONS__
-
 /* System-specific #define, typedefs, corrections, etc, go here.  This
    file will come before all others. */
+
+#define _GLIBCPP_AVOID_FSEEK 1
+
 // These are typedefs which libio assumes are already in place (because
 // they really are, under Linux).
 #define __off_t     off_t
@@ -48,5 +46,3 @@
 #define _G_USING_THUNKS 0
 
 #endif
-
-

@@ -1,6 +1,6 @@
 // basic_ios locale and locale-related member functions -*- C++ -*-
 
-// Copyright (C) 1999 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,8 +30,8 @@
 #ifndef _CPP_BITS_BASICIOS_TCC
 #define _CPP_BITS_BASICIOS_TCC 1
 
-namespace std {
-
+namespace std
+{
   template<typename _CharT, typename _Traits>
     basic_streambuf<_CharT, _Traits>* 
     basic_ios<_CharT, _Traits>::rdbuf(basic_streambuf<_CharT, _Traits>* __sb)
@@ -105,9 +105,7 @@ namespace std {
     {
       locale __old(this->getloc());
       ios_base::imbue(__loc);
-      _M_ios_fctype = &use_facet<__ctype_type>(__loc);
-      _M_fnumput = &use_facet<__numput_type>(__loc); 
-      _M_fnumget = &use_facet<__numget_type>(__loc); 
+      _M_cache_facets(__loc);
       if (this->rdbuf() != 0)
 	this->rdbuf()->pubimbue(__loc);
       return __old;
@@ -119,10 +117,7 @@ namespace std {
     {
       // NB: This may be called more than once on the same object.
       ios_base::_M_init();
-      _M_ios_fctype = &use_facet<__ctype_type>(_M_ios_locale);
-      // Should be filled in by ostream and istream, respectively.
-      _M_fnumput = &use_facet<__numput_type>(_M_ios_locale); 
-      _M_fnumget = &use_facet<__numget_type>(_M_ios_locale); 
+      _M_cache_facets(_M_ios_locale);
       _M_tie = 0;
       _M_fill = this->widen(' ');
       _M_exception = goodbit;
@@ -130,11 +125,21 @@ namespace std {
       _M_streambuf_state = __sb ? goodbit : badbit;
     }
 
+  template<typename _CharT, typename _Traits>
+    void
+    basic_ios<_CharT, _Traits>::_M_cache_facets(const locale& __loc)
+    {
+      if (has_facet<__ctype_type>(__loc))
+	_M_ios_fctype = &use_facet<__ctype_type>(__loc);
+      // Should be filled in by ostream and istream, respectively.
+      if (has_facet<__numput_type>(__loc))
+	_M_fnumput = &use_facet<__numput_type>(__loc); 
+      if (has_facet<__numget_type>(__loc))
+	_M_fnumget = &use_facet<__numget_type>(__loc); 
+    }
 } // namespace std
 
-#endif /* _CPP_BITS_BASICIOS_TCC */
-
-
+#endif // _CPP_BITS_BASICIOS_TCC
 
 
 

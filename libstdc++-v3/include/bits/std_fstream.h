@@ -1,6 +1,6 @@
 // File based streams -*- C++ -*-
 
-// Copyright (C) 1997-1999, 2000 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,14 +34,16 @@
 #ifndef _CPP_FSTREAM
 #define _CPP_FSTREAM	1
 
+#pragma GCC system_header
+
 #include <bits/std_istream.h>
 #include <bits/std_ostream.h>
 #include <bits/basic_file.h>
 #include <bits/std_locale.h>	// For codecvt
-#include <bits/c++threads.h>	// For __mutext_type
+#include <bits/gthr.h>
 
-namespace std {
-
+namespace std 
+{
   template<typename _CharT, typename _Traits>
     class basic_filebuf : public basic_streambuf<_CharT, _Traits>
     {
@@ -60,7 +62,8 @@ namespace std {
       typedef typename traits_type::state_type          __state_type;
       typedef codecvt<char_type, char, __state_type>    __codecvt_type;
       typedef typename __codecvt_type::result 	        __res_type;
-      
+      typedef ctype<char_type>                          __ctype_type;
+
       friend class ios_base; // For sync_with_stdio.
 
     private:
@@ -72,11 +75,11 @@ namespace std {
       __state_type		_M_state_cur;
       __state_type 		_M_state_beg; 	
 
-      // Cached value from use_facet.
-      const __codecvt_type*	_M_fcvt;       
-      
       // MT lock inherited from libio or other low-level io library.
       __c_lock          	_M_lock;
+
+      // Set iff _M_buf is allocated memory from _M_allocate_internal_buffer..
+      bool			_M_buf_allocated;
 
       // XXX Needed? 
       bool			_M_last_overflowed;  
@@ -86,13 +89,13 @@ namespace std {
       basic_filebuf();
 
       // Non-standard ctor:
-      basic_filebuf(int __fd, const char* __name, ios_base::openmode __mode);
-
+      basic_filebuf(__c_file_type* __f, ios_base::openmode __mode, 
+		    int_type __s = static_cast<int_type>(BUFSIZ));
+ 
       virtual 
       ~basic_filebuf() 
       { 
 	this->close();
-	_M_fcvt = NULL;
 	_M_last_overflowed = false;
       }
 
@@ -107,13 +110,18 @@ namespace std {
       close(void);
 
     protected:
-      // Allocate up pback and internal buffers.
       void 
-      _M_allocate_buffers();
+      _M_allocate_internal_buffer();
+
+      void 
+      _M_destroy_internal_buffer();
+
+      void 
+      _M_allocate_pback_buffer();
 
       // Create __file_type object and initialize it properly.
       void
-      _M_filebuf_init();
+      _M_allocate_file();
 
       // Overridden virtual functions:
       virtual streamsize 
@@ -151,16 +159,7 @@ namespace std {
       _M_really_overflow(int_type __c = _Traits::eof());
     
       virtual __streambuf_type* 
-      setbuf(char_type* __s, streamsize __n)
-      {
-	if (!this->is_open() && __s == 0 && __n == 0)
-	  {
-	    _M_buf_size = 0;
-	    _M_buf_size_opt = 0;
-	  }
-	_M_last_overflowed = false;	
-	return this; 
-      }
+      setbuf(char_type* __s, streamsize __n);
     
       virtual pos_type 
       seekoff(off_type __off, ios_base::seekdir __way,
@@ -245,41 +244,45 @@ namespace std {
       typedef basic_filebuf<char_type, traits_type> 	__filebuf_type;
       typedef basic_istream<char_type, traits_type>	__istream_type;
     
-      // Constructors/Destructors:
+    private:
+      __filebuf_type	_M_filebuf;
+
+    public:
+     // Constructors/Destructors:
       basic_ifstream()
-      : __istream_type(new __filebuf_type())
-      { }
+      : __istream_type(NULL), _M_filebuf()
+      { this->init(&_M_filebuf); }
 
       explicit 
       basic_ifstream(const char* __s, ios_base::openmode __mode = ios_base::in)
-      : __istream_type(new __filebuf_type())
-      { this->open(__s, __mode); }
+      : __istream_type(NULL), _M_filebuf()
+      { 
+	this->init(&_M_filebuf); 
+	this->open(__s, __mode); 
+      }
     
       ~basic_ifstream()
-      { 
-	delete _M_streambuf; 
-	_M_streambuf = NULL;
-      }
+      { }
 
       // Members:
       __filebuf_type* 
       rdbuf() const 
-      { return static_cast<__filebuf_type*>(_M_streambuf); }
+      { return const_cast<__filebuf_type*>(&_M_filebuf); }
 
       bool 
-      is_open(void) { return rdbuf()->is_open(); }
+      is_open(void) { return _M_filebuf.is_open(); }
 
       void 
       open(const char* __s, ios_base::openmode __mode = ios_base::in)
       { 
-	if (rdbuf()->open(__s, __mode | ios_base::in) == NULL)
+	if (_M_filebuf.open(__s, __mode | ios_base::in) == NULL)
 	  this->setstate(ios_base::failbit); 
       }
 
       void 
       close(void)
       { 
-	if (!rdbuf()->close())
+	if (!_M_filebuf.close())
 	  this->setstate(ios_base::failbit);	
       }
     };
@@ -301,43 +304,47 @@ namespace std {
       typedef basic_filebuf<char_type, traits_type> 	__filebuf_type;
       typedef basic_ostream<char_type, traits_type>	__ostream_type;
       
+    private:
+      __filebuf_type	_M_filebuf;
+
+    public:
       // Constructors:
       basic_ofstream()
-      : __ostream_type(new __filebuf_type())
-      { }
+      : __ostream_type(NULL), _M_filebuf()
+      { this->init(&_M_filebuf); }
       
       explicit 
       basic_ofstream(const char* __s, 
 		     ios_base::openmode __mode = ios_base::out|ios_base::trunc)
-      : __ostream_type(new __filebuf_type())
-      { this->open(__s, __mode); }
+      : __ostream_type(NULL), _M_filebuf()
+      { 
+	this->init(&_M_filebuf); 
+	this->open(__s, __mode); 
+      }
 
       ~basic_ofstream()
-      { 
-	delete _M_streambuf; 
-	_M_streambuf = NULL;
-      }
+      { }
 
       // Members:
       __filebuf_type* 
       rdbuf(void) const
-      { return static_cast<__filebuf_type*>(_M_streambuf); }
+      { return const_cast<__filebuf_type*>(&_M_filebuf); }
  
       bool 
-      is_open(void) { return rdbuf()->is_open(); }
+      is_open(void) { return _M_filebuf.is_open(); }
 
       void 
       open(const char* __s, 
 	   ios_base::openmode __mode = ios_base::out | ios_base::trunc)
       { 
-	if (!rdbuf()->open(__s, __mode | ios_base::out))
+	if (!_M_filebuf.open(__s, __mode | ios_base::out))
 	  this->setstate(ios_base::failbit); 
       }
 
       void 
       close(void)
       { 
-	if (!rdbuf()->close())
+	if (!_M_filebuf.close())
 	  setstate(ios_base::failbit); 
       }
     };
@@ -360,47 +367,50 @@ namespace std {
       typedef basic_ios<char_type, traits_type>		__ios_type;
       typedef basic_iostream<char_type, traits_type>	__iostream_type;
 
+    private:
+      __filebuf_type	_M_filebuf;
+      
+    public:
       // Constructors/destructor:
       basic_fstream()
-      : __iostream_type(new __filebuf_type())
-      { }
+      : __iostream_type(NULL), _M_filebuf()
+      { this->init(&_M_filebuf); }
 
       explicit 
       basic_fstream(const char* __s,
 		    ios_base::openmode __mode = ios_base::in | ios_base::out)
-      : __iostream_type(new __filebuf_type())
-      { this->open(__s, __mode); }
-
-      ~basic_fstream()
+      : __iostream_type(NULL), _M_filebuf()
       { 
-	delete _M_streambuf; 
-	_M_streambuf = NULL;
+	this->init(&_M_filebuf); 
+	this->open(__s, __mode); 
       }
+ 
+      ~basic_fstream()
+      { }
     
       // Members:
       __filebuf_type* 
       rdbuf(void) const 
-      { return static_cast<__filebuf_type*>(_M_streambuf); }
+      { return const_cast<__filebuf_type*>(&_M_filebuf); }
 
       bool 
-      is_open(void) { return rdbuf()->is_open(); }
+      is_open(void) { return _M_filebuf.is_open(); }
 
       void 
       open(const char* __s, 
 	   ios_base::openmode __mode = ios_base::in | ios_base::out)
       { 
-	if (!rdbuf()->open(__s, __mode))
-	  setstate (ios_base::failbit); 
+	if (!_M_filebuf.open(__s, __mode))
+	  setstate(ios_base::failbit); 
       }
 
       void 
       close(void)
       { 
-	if (!rdbuf()->close())
-	  setstate (ios_base::failbit); 
+	if (!_M_filebuf.close())
+	  setstate(ios_base::failbit); 
       }
     };
-
 } // namespace std
 
 
@@ -411,10 +421,5 @@ namespace std {
 #endif
 #endif
 
-#endif	/* _CPP_FSTREAM */
-
-
-
-
-
+#endif	
 

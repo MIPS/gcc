@@ -34,10 +34,12 @@
 #ifndef _CPP_BITS_STRING_H
 #define _CPP_BITS_STRING_H	1
 
-#include <bits/exception_support.h>
+#pragma GCC system_header
+
 #include <bits/atomicity.h>
 
-namespace std {
+namespace std
+{
 
   // Documentation?  What's that? 
   // Nathan Myers <ncm@cantrip.org>.
@@ -261,7 +263,8 @@ namespace std {
       iterator 
       _M_check(size_type __pos) const
       { 
-	__OUTOFRANGE(__pos > this->size()); 
+	if (__pos > this->size())
+	  __throw_out_of_range("basic_string::_M_check"); 
 	return _M_ibegin() + __pos; 
       }
 
@@ -432,14 +435,16 @@ namespace std {
       const_reference 
       at(size_type __n) const
       {
-	__OUTOFRANGE(__n >= this->size());
+	if (__n >= this->size())
+	  __throw_out_of_range("basic_string::at");
 	return _M_data()[__n]; 
       }
 
       reference 
       at(size_type __n)
       {
-	__OUTOFRANGE(__n >= size());
+	if (__n >= size())
+	  __throw_out_of_range("basic_string::at");
 	_M_leak(); 
 	return _M_data()[__n]; 
       }
@@ -809,7 +814,8 @@ namespace std {
       basic_string 
       substr(size_type __pos = 0, size_type __n = npos) const
       { 
-	__OUTOFRANGE(__pos > this->size());
+	if (__pos > this->size())
+	  __throw_out_of_range("basic_string::substr");
 	return basic_string(*this, __pos, __n); 
       }
 
@@ -836,9 +842,15 @@ namespace std {
       int 
       compare(const _CharT* __s) const;
 
+#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+// 5. String::compare specification questionable
+      int 
+      compare(size_type __pos, size_type __n1, const _CharT* __s) const;
+
       int 
       compare(size_type __pos, size_type __n1, const _CharT* __s, 
-	      size_type __n2 = npos) const;
+	      size_type __n2) const;
+#endif
   };
 
 
@@ -1028,7 +1040,6 @@ namespace std {
     inline basic_istream<_CharT,_Traits>&
     getline(basic_istream<_CharT, _Traits>& __is,
 	    basic_string<_CharT, _Traits, _Alloc>& __str);
-
 } // namespace std
 
 #endif /* _CPP_BITS_STRING_H */

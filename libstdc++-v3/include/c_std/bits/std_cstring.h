@@ -31,44 +31,87 @@
 // ISO C++ 14882: 20.4.6  C library
 //
 
-// Note: This is not a conforming implementation.
-
 #ifndef _CPP_CSTRING
 #define _CPP_CSTRING 1
 
-#include <bits/c++config.h>
 #include <bits/std_cstddef.h>
 
 #pragma GCC system_header
-#include <string.h>
+#include_next <string.h>
+
+// Get rid of those macros defined in <string.h> in lieu of real functions.
+#undef memcpy
+#undef memmove
+#undef strcpy
+#undef strncpy
+#undef strcat
+#undef strncat
+#undef memcmp
+#undef strcmp
+#undef strcoll
+#undef strncmp
+#undef strxfrm
+#undef memchr
+#undef strchr
+#undef strcspn
+#undef strpbrk
+#undef strrchr
+#undef strspn
+#undef strstr
+#undef strtok
+#undef memset
+#undef strerror
+#undef strlen
 
 namespace std 
 {
-  extern "C" void* memcpy(void*, const void*, size_t); 
-  extern "C" void* memmove(void*, const void*, size_t); 
-  extern "C" char* strcpy(char*, const char*); 
-  extern "C" char* strncpy(char*, const char*, size_t); 
-  extern "C" char* strcat(char*, const char*); 
-  extern "C" char* strncat(char*, const char*, size_t); 
-  extern "C" int memcmp(const void*, const void*, size_t); 
-  extern "C" int strcmp(const char*, const char*); 
-  extern "C" int strcoll(const char*, const char*); 
-  extern "C" int strncmp(const char*, const char*, size_t); 
-  extern "C" size_t strxfrm(char*, const char*, size_t); 
-  extern "C" void* memchr(const void*, int, size_t); 
-  extern "C" char* strchr(const char*, int); 
-  extern "C" size_t strcspn(const char*, const char*); 
-  extern "C" char* strpbrk(const char*, const char*); 
-  extern "C" char* strrchr(const char*, int); 
-  extern "C" size_t strspn(const char*, const char*); 
-  extern "C" char* strstr(const char*, const char*); 
-  extern "C" char* strtok(char*, const char*); 
-  extern "C" void* memset(void*, int, size_t); 
-  extern "C" char* strerror(int); 
-  extern "C" size_t strlen(const char*);
+  using ::memcpy;
+  using ::memmove;
+  using ::strcpy;
+  using ::strncpy;
+  using ::strcat;
+  using ::strncat;
+  using ::memcmp;
+  using ::strcmp;
+  using ::strcoll;
+  using ::strncmp;
+  using ::strxfrm;
+  using ::strcspn;
+  using ::strspn;
+  using ::strtok;
+  using ::memset;
+  using ::strerror;
+  using ::strlen;
+
+  using ::memchr;
+
+  inline void*
+  memchr(void* __p, int __c, size_t __n)
+  { return memchr(const_cast<const void*>(__p), __c, __n); }
+
+  using ::strchr;
+
+  inline char*
+  strchr(char* __s1, int __n)
+  { return __builtin_strchr(const_cast<const char*>(__s1), __n); }
+
+  using ::strpbrk;
+
+  inline char*
+  strpbrk(char* __s1, const char* __s2)
+  { return __builtin_strpbrk(const_cast<const char*>(__s1), __s2); }
+
+  using ::strrchr;
+
+  inline char*
+  strrchr(char* __s1, int __n)
+  { return __builtin_strrchr(const_cast<const char*>(__s1), __n); }
+
+  using ::strstr;
+
+  inline char*
+  strstr(char* __s1, const char* __s2)
+  { return __builtin_strstr(const_cast<const char*>(__s1), __s2); }
 }
 
 #endif
-
-
-

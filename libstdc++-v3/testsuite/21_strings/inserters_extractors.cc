@@ -41,9 +41,8 @@ bool test01(void)
   csize_type npos = std::string::npos;
   csize_type csz01, csz02;
 
-  const char str_lit01[] = "sailing grand traverse bay
-			    from Elk Rapids to the point reminds me of miles";
-  const std::string str01(str_lit01);
+  const std::string str01("sailing grand traverse bay\n"
+	       "\t\t\t    from Elk Rapids to the point reminds me of miles");
   const std::string str02("sailing");
   const std::string str03("grand");
   const std::string str04("traverse");
@@ -124,7 +123,7 @@ bool test01(void)
     getline(istrs02, str10);
     VERIFY( istrs02.fail() );
     VERIFY( istrs02.eof() );
-    VERIFY( str10 == "\t    from Elk Rapids to the point reminds me of miles" );
+    VERIFY( str10 =="\t    from Elk Rapids to the point reminds me of miles" );
   }
   catch(std::exception& fail) {
     VERIFY( false ); // shouldn't throw
@@ -305,6 +304,26 @@ void test08()
   VERIFY( year == 2001 );
 }
 
+// libstdc++/2830
+void test09()
+{
+  bool test = true;
+  std::string blanks( 3, '\0');
+  std::string foo = "peace";
+  foo += blanks;
+  foo += "& love";
+  
+  std::ostringstream oss1;
+  oss1 << foo;
+  VERIFY( oss1.str() == foo );
+  
+  std::ostringstream oss2;
+  oss2.width(20);
+  oss2 << foo;
+  VERIFY( oss2.str() != foo );
+  VERIFY( oss2.str().size() == 20 );
+}
+
 int main()
 { 
   test01();
@@ -321,12 +340,7 @@ int main()
   test07();
 
   test08();
+  
+  test09();
   return 0;
 }
-
-
-
-
-
-
-

@@ -1,6 +1,6 @@
 // The template and inlines for the -*- C++ -*- slice class.
 
-// Copyright (C) 1997-1999 Free Software Foundation, Inc.
+// Copyright (C) 1997-1999, 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,9 +30,12 @@
 // Written by Gabriel Dos Reis <Gabriel.Dos-Reis@DPTMaths.ENS-Cachan.Fr>
 
 #ifndef _CPP_BITS_SLICE_H
-#define _CPP_BITS_SLICE_H
+#define _CPP_BITS_SLICE_H 1
 
-namespace std {
+#pragma GCC system_header
+
+namespace std
+{
 
 class slice
 {

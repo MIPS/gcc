@@ -46,6 +46,7 @@ namespace std
   typedef basic_string<C> S;
 
   template class basic_string<C>;
+  template S::size_type S::_Rep::_S_max_size;
 
   template S operator+(const C*, const S&);
   template S operator+(C, const S&);
@@ -71,10 +72,32 @@ namespace std
     S::_S_construct<S::iterator>
     (S::iterator, S::iterator, const allocator<C>&, forward_iterator_tag);
 
+  template
+    S::basic_string(C*, C*, const allocator<C>&);
+
   template 
     S::basic_string(S::iterator, S::iterator, const allocator<C>&);
+
+  template
+    S&
+    S::_M_replace(S::iterator, S::iterator, C*, C*, forward_iterator_tag);  
+
+  template
+    S&
+    S::_M_replace(S::iterator, S::iterator, const C*, const C*, 
+		  forward_iterator_tag);  
+
+  template
+    C*
+    S::_S_construct(const C*, const C*, const allocator<C>&, 
+		    forward_iterator_tag);
+
+  template
+    C*
+    S::_S_construct (C*, C*, const allocator<C>&, 
+		     forward_iterator_tag);
+
+  template
+    void
+    __destroy_aux<S*>(S*, S*, _Bool<false>);
 } // namespace std
-
-
-
-

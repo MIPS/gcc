@@ -38,6 +38,25 @@
 
 namespace std 
 {
+  // Extern declarations for global objects in src/globals.cc.
+  extern istream cin;
+  extern ostream cout;
+  extern ostream cerr;
+  extern ostream clog;
+  extern filebuf buf_cout;
+  extern filebuf buf_cin;
+  extern filebuf buf_cerr;
+
+#ifdef _GLIBCPP_USE_WCHAR_T
+  extern wistream wcin;
+  extern wostream wcout;
+  extern wostream wcerr;
+  extern wostream wclog;
+  extern wfilebuf buf_wcout;
+  extern wfilebuf buf_wcin;
+  extern wfilebuf buf_wcerr;
+#endif
+
   // Definitions for static const data members of __ios_flags.
   const __ios_flags::__int_type __ios_flags::_S_boolalpha;
   const __ios_flags::__int_type __ios_flags::_S_dec;
@@ -109,17 +128,6 @@ namespace std
   int ios_base::Init::_S_ios_base_init = 0;
   bool ios_base::Init::_S_synced_with_stdio = true;
 
-  extern istream cin;
-  extern ostream cout;
-  extern ostream cerr;
-  extern ostream clog;
-#ifdef _GLIBCPP_USE_WCHAR_T
-  extern wistream wcin;
-  extern wostream wcout;
-  extern wostream wcerr;
-  extern wostream wclog;
-#endif
-
   ios_base::failure::failure(const string& __str) throw()
   {
     strncpy(_M_name, __str.c_str(), _M_bufsize);
@@ -133,63 +141,83 @@ namespace std
   ios_base::failure::what() const throw()
   { return _M_name; }
 
+  void
+  ios_base::Init::_S_ios_create(bool __sync)
+  {
+    int __out_bufsize = __sync ? 0 : static_cast<int>(BUFSIZ);
+    int __in_bufsize = __sync ? 1 : static_cast<int>(BUFSIZ);
+
+#if _GLIBCPP_AVOID_FSEEK
+    // Platforms that prefer to avoid fseek() calls on streams only
+    // get their desire when the C++-layer input buffer size is 1.
+    // This hack hurts performance but keeps correctness across
+    // all types of streams that might be attached to (e.g.) cin.
+    __in_bufsize = 1;
+#endif
+
+    // NB: The file globals.cc creates the four standard files
+    // with NULL buffers. At this point, we swap out the dummy NULL
+    // [io]stream objects and buffers with the real deal.
+    new (&buf_cout) filebuf(stdout, ios_base::out, __out_bufsize);
+    new (&buf_cin) filebuf(stdin, ios_base::in, __in_bufsize);
+    new (&buf_cerr) filebuf(stderr, ios_base::out, __out_bufsize);
+    new (&cout) ostream(&buf_cout);
+    new (&cin) istream(&buf_cin);
+    new (&cerr) ostream(&buf_cerr);
+    new (&clog) ostream(&buf_cerr);
+    cin.tie(&cout);
+    cerr.flags(ios_base::unitbuf);
+    
+#ifdef _GLIBCPP_USE_WCHAR_T
+    new (&buf_wcout) wfilebuf(stdout, ios_base::out, __out_bufsize);
+    new (&buf_wcin) wfilebuf(stdin, ios_base::in, __in_bufsize);
+    new (&buf_wcerr) wfilebuf(stderr, ios_base::out, __out_bufsize);
+    new (&wcout) wostream(&buf_wcout);
+    new (&wcin) wistream(&buf_wcin);
+    new (&wcerr) wostream(&buf_wcerr);
+    new (&wclog) wostream(&buf_wcerr);
+    wcin.tie(&wcout);
+    wcerr.flags(ios_base::unitbuf);
+#endif
+  }
+
+  void
+  ios_base::Init::_S_ios_destroy()
+  {
+    // Explicitly call dtors to free any memory that is dynamically
+    // allocated by filebuf ctor or member functions, but don't
+    // deallocate all memory by calling operator delete.
+    cout.flush();
+    cerr.flush();
+    clog.flush();
+    buf_cout.~filebuf();
+    buf_cin.~filebuf();
+    buf_cerr.~filebuf();
+#ifdef _GLIBCPP_USE_WCHAR_T
+    wcout.flush();
+    wcerr.flush();
+    wclog.flush();
+    buf_wcout.~wfilebuf();
+    buf_wcin.~wfilebuf();
+    buf_wcerr.~wfilebuf();
+#endif
+  }
+
   ios_base::Init::Init()
   {
-    if (++_S_ios_base_init == 1)
+    if (_S_ios_base_init == 0)
       {
-	// NB: std_iostream.h creates the four standard files with
-	// NULL buffers. At this point, we swap out these placeholder
-	// objects for the properly-constructed ones
-       	_M_cout = new filebuf(1, "stdout", ios_base::out);
-	_M_cin = new filebuf(0, "stdin", ios_base::in);
-	_M_cerr = new filebuf(2, "stderr", ios_base::out);
-	new (&cout) ostream(_M_cout);
-	new (&cin) istream(_M_cin);
-	new (&cerr) ostream(_M_cerr);
-	new (&clog) ostream(_M_cerr);
-	cin.tie(&cout);
-	cerr.flags(ios_base::unitbuf);
-
-#ifdef _GLIBCPP_USE_WCHAR_T
-	_M_wcout = new wfilebuf(1, "stdout", ios_base::out);
-	_M_wcin = new wfilebuf(0, "stdin", ios_base::in);
-	_M_wcerr = new wfilebuf(2, "stderr", ios_base::out);
-	new (&wcout) wostream(_M_wcout);
-	new (&wcin) wistream(_M_wcin);
-	new (&wcerr) wostream(_M_wcerr);
-	new (&wclog) wostream(_M_wcerr);
-	wcin.tie(&wcout);
-	wcerr.flags(ios_base::unitbuf);
-#endif
+	// Standard streams default to synced with "C" operations.
 	ios_base::Init::_S_synced_with_stdio = true;
+	_S_ios_create(ios_base::Init::_S_synced_with_stdio);
       }
+    ++_S_ios_base_init;
   }
 
   ios_base::Init::~Init()
   {
     if (--_S_ios_base_init == 0)
-      {
-	cout.flush();
-	cerr.flush();
-	clog.flush();
-	delete _M_cout;
-	delete _M_cin;
-	delete _M_cerr;
-	_M_cout = NULL;
-	_M_cin = NULL;
-	_M_cerr = NULL;
-#ifdef _GLIBCPP_USE_WCHAR_T
-	wcout.flush();
-	wcerr.flush();
-	wclog.flush();
-	delete _M_wcout;
-	delete _M_wcin;
-	delete _M_wcerr;
-	_M_wcout = NULL;
-	_M_wcin = NULL;
-	_M_wcerr = NULL;
-#endif
-      }
+      _S_ios_destroy();
   } 
 
   // 27.4.2.5  ios_base storage functions
@@ -323,42 +351,11 @@ namespace std
     // currently synchronized.
     if (!__sync && __ret)
       {
-#if 0
-	// no longer need to do this
-	// Need to dispose of the buffers created at initialization.
-	__ioinit._M_cout->~filebuf();
-	__ioinit._M_cin->~filebuf();
-	__ioinit._M_cerr->~filebuf();
-	__ioinit._M_cout = new filebuf();
-	__ioinit._M_cin = new filebuf();
-	__ioinit._M_cerr = new filebuf();
-	__ioinit._M_cout->open("stdout", ios_base::out);
-	__ioinit._M_cin->open("stdin", ios_base::in);
-	__ioinit._M_cerr->open("stderr", ios_base::out);
-	cout.rdbuf(__ioinit._M_cout);
-	cin.rdbuf(__ioinit._M_cin);
-	cerr.rdbuf(__ioinit._M_cerr);
-	cerr.flags(ios_base::unitbuf);
-	clog.rdbuf(__ioinit._M_cerr);
-#endif
-#ifdef _GLIBCPP_USE_WCHAR_T
-#endif
 	ios_base::Init::_S_synced_with_stdio = false;
+	ios_base::Init::_S_ios_destroy();
+	ios_base::Init::_S_ios_create(ios_base::Init::_S_synced_with_stdio);
       }
-    
     return __ret; 
   }
-
 }  // namespace std
-
-
-
-
-
-
-
-
-
-
-
 

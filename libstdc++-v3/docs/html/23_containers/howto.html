@@ -8,7 +8,7 @@
    <META NAME="GENERATOR" CONTENT="vi and eight fingers">
    <TITLE>libstdc++-v3 HOWTO:  Chapter 23</TITLE>
 <LINK REL=StyleSheet HREF="../lib3styles.css">
-<!-- $Id: howto.html,v 1.4 2000/12/03 23:47:48 jsm28 Exp $ -->
+<!-- $Id: howto.html,v 1.6 2001/06/08 03:53:35 ljrittle Exp $ -->
 </HEAD>
 <BODY>
 
@@ -45,10 +45,8 @@
       algorithms are only given endpoints to work with.  For the container
       classes, these are iterators (usually <TT>begin()</TT> and
       <TT>end()</TT>, but not always).  For builtin arrays, these are
-      the address of the first element and the past-the-end element.
-      <!-- a good explanation of the past-the-end rules is in order,
-           probably a link somewhere
-      -->
+      the address of the first element and the
+      <A HREF="../24_iterators/howto.html#2">past-the-end</A> element.
    </P>
    <P>Some very simple wrapper functions can hide all of that from the
       rest of the code.  For example, a pair of functions called
@@ -86,7 +84,7 @@
    </P>
    <P>Second, the line
       <PRE>
-    inline unsigned int lengthof (T (&)[sz]) { return sz; } </PRE>
+    inline unsigned int lengthof (T (&amp;)[sz]) { return sz; } </PRE>
       looks just weird!  Hint:  unused parameters can be left nameless.
    </P>
    <P>Return <A HREF="#top">to top of page</A> or
@@ -134,7 +132,7 @@
       some extra space, of course.  (If you plan to write code like the 
       incorrect example above, where the bitset is a local variable, then you
       may have to talk your compiler into allowing that much stack space;
-      there may be zero spae overhead, but it's all allocated inside the
+      there may be zero space overhead, but it's all allocated inside the
       object.)
    </P>
    <P><B>A container&lt;bool&gt;.&nbsp;&nbsp;</B>  The Committee made provision
@@ -187,17 +185,42 @@
    <P>This section will mention some of the problems in designing MT
       programs that use Standard containers.  For information on other
       aspects of multithreading (e.g., the library as a whole), see
-      the Received Wisdom on Chapter 17.
+      the Received Wisdom on Chapter 17.  This section only applies
+      when gcc and libstdc++-v3 were configured with --enable-threads.
    </P>
-   <P>An excellent page to read when working with templatized containers
-      and threads is
-      <A HREF="http://www.sgi.com/Technology/STL/thread_safety.html">SGI's
-      http://www.sgi.com/Technology/STL/thread_safety.html</A>.  The
+   <P>Two excellent pages to read when working with templatized containers
+      and threads are
+      <A HREF="http://www.sgi.com/tech/stl/thread_safety.html">SGI's
+      http://www.sgi.com/tech/stl/thread_safety.html</A> and
+      <A HREF="http://www.sgi.com/tech/stl/Allocators.html">SGI's
+      http://www.sgi.com/tech/stl/Allocators.html</A>.  The
       libstdc++-v3 uses the same definition of thread safety
       when discussing design.  A key point that beginners may miss is the
-      fourth major paragraph (&quot;For most clients,&quot;...), pointing
+      fourth major paragraph of the first page mentioned above
+      (&quot;For most clients,&quot;...), pointing
       out that locking must nearly always be done outside the container,
       by client code (that'd be you, not us *grin*).
+      <EM>However, please take caution when considering the discussion
+      about the user-level configuration of the mutex lock
+      implementation inside the STL container-memory allocator on that
+      page.  For the sake of this discussion, libstdc++-v3 configures
+      the SGI STL implementation, not you.  We attempt to configure
+      the mutex lock as is best for your platform.  In particular,
+      past advice was for people using g++ to explicitly define
+      _PTHREADS on the command line to get a thread-safe STL.  This
+      is no longer required for your port.  It may or may not be
+      a good idea for your port.  Extremely big caution: if you
+      compile some of your application code against the STL with one
+      set of threading flags and macros and another portion of the
+      code with different flags and macros that influence the
+      selection of the mutex lock, you may well end up with multiple
+      locking mechanisms in use which don't impact each other in the
+      manner that they should.  Everything might link and all code
+      might have been built with a perfectly reasonable thread model
+      but you may have two internal ABIs in play within the
+      application.  This might produce races, memory leaks and fatal
+      crashes.  In any multithreaded application using STL, this
+      is the first thing to study well before blaming the allocator.</EM>
    </P>
    <P>You didn't read it, did you?  *sigh*  I'm serious, go read the
       SGI page.  It's really good and doesn't take long, and makes most
@@ -235,9 +258,8 @@
 <HR>
 <P CLASS="fineprint"><EM>
 Comments and suggestions are welcome, and may be sent to
-<A HREF="mailto:pme@sources.redhat.com">Phil Edwards</A> or
-<A HREF="mailto:gdr@gcc.gnu.org">Gabriel Dos Reis</A>.
-<BR> $Id: howto.html,v 1.4 2000/12/03 23:47:48 jsm28 Exp $
+<A HREF="mailto:libstdc++@gcc.gnu.org">the mailing list</A>.
+<BR> $Id: howto.html,v 1.6 2001/06/08 03:53:35 ljrittle Exp $
 </EM></P>
 
 

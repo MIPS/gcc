@@ -1,3 +1,32 @@
+// Temporary buffer implementation -*- C++ -*-
+
+// Copyright (C) 2001 Free Software Foundation, Inc.
+//
+// This file is part of the GNU ISO C++ Library.  This library is free
+// software; you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the
+// Free Software Foundation; either version 2, or (at your option)
+// any later version.
+
+// This library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License along
+// with this library; see the file COPYING.  If not, write to the Free
+// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// USA.
+
+// As a special exception, you may use this file as part of a free software
+// library without restriction.  Specifically, if other files instantiate
+// templates or use macros or inline functions from this file, or you compile
+// this file and link it with other files to produce an executable, this
+// file does not by itself cause the resulting executable to be covered by
+// the GNU General Public License.  This exception does not however
+// invalidate any other reasons why the executable file might be covered by
+// the GNU General Public License.
+
 /*
  *
  * Copyright (c) 1994
@@ -31,7 +60,8 @@
 #ifndef __SGI_STL_INTERNAL_TEMPBUF_H
 #define __SGI_STL_INTERNAL_TEMPBUF_H
 
-__STL_BEGIN_NAMESPACE
+namespace std
+{
 
 template <class _Tp>
 pair<_Tp*, ptrdiff_t> 
@@ -50,14 +80,10 @@ __get_temporary_buffer(ptrdiff_t __len, _Tp*)
   return pair<_Tp*, ptrdiff_t>((_Tp*)0, 0);
 }
 
-#ifdef __STL_EXPLICIT_FUNCTION_TMPL_ARGS
-
 template <class _Tp>
 inline pair<_Tp*, ptrdiff_t> get_temporary_buffer(ptrdiff_t __len) {
   return __get_temporary_buffer(__len, (_Tp*) 0);
 }
-
-#endif /* __STL_EXPLICIT_FUNCTION_TMPL_ARGS */
 
 // This overload is not required by the standard; it is an extension.
 // It is supported for backward compatibility with the HP STL, and
@@ -109,12 +135,8 @@ public:
 
   _Temporary_buffer(_ForwardIterator __first, _ForwardIterator __last) {
     // Workaround for a __type_traits bug in the pre-7.3 compiler.
-#   if defined(__sgi) && !defined(__GNUC__) && _COMPILER_VERSION < 730
-    typedef typename __type_traits<_Tp>::is_POD_type _Trivial;
-#   else
     typedef typename __type_traits<_Tp>::has_trivial_default_constructor
             _Trivial;
-#   endif
 
     __STL_TRY {
       _M_len = 0;
@@ -127,7 +149,7 @@ public:
   }
  
   ~_Temporary_buffer() {  
-    destroy(_M_buffer, _M_buffer + _M_len);
+    _Destroy(_M_buffer, _M_buffer + _M_len);
     free(_M_buffer);
   }
 
@@ -141,9 +163,7 @@ private:
 
 template <class _ForwardIterator, 
           class _Tp 
-#ifdef __STL_CLASS_PARTIAL_SPECIALIZATION
                     = typename iterator_traits<_ForwardIterator>::value_type
-#endif /* __STL_CLASS_PARTIAL_SPECIALIZATION */
          >
 struct temporary_buffer : public _Temporary_buffer<_ForwardIterator, _Tp>
 {
@@ -152,7 +172,7 @@ struct temporary_buffer : public _Temporary_buffer<_ForwardIterator, _Tp>
   ~temporary_buffer() {}
 };
     
-__STL_END_NAMESPACE
+} // namespace std
 
 #endif /* __SGI_STL_INTERNAL_TEMPBUF_H */
 

@@ -64,22 +64,26 @@ target_alias = @target_alias@
 target_triplet = @target@
 AR = @AR@
 AS = @AS@
+ATOMICITY_INC_SRCDIR = @ATOMICITY_INC_SRCDIR@
+BASIC_FILE_H = @BASIC_FILE_H@
 CC = @CC@
+CCODECVT_C = @CCODECVT_C@
+CLOCALE_H = @CLOCALE_H@
 CPP = @CPP@
 CSHADOW_FLAGS = @CSHADOW_FLAGS@
-CXX = @CXX@
+CSTDIO_H = @CSTDIO_H@
 CXXCPP = @CXXCPP@
-CXX_libstdcxx = @CXX_libstdcxx@
+C_INCLUDE_DIR = @C_INCLUDE_DIR@
 DEBUG_FLAGS = @DEBUG_FLAGS@
 DLLTOOL = @DLLTOOL@
 EXEEXT = @EXEEXT@
 EXTRA_CXX_FLAGS = @EXTRA_CXX_FLAGS@
 GCJ = @GCJ@
 GCJFLAGS = @GCJFLAGS@
-GLIBCPP_CFLAGS = @GLIBCPP_CFLAGS@
-GLIBCPP_CXXFLAGS = @GLIBCPP_CXXFLAGS@
+GLIBCPP_IS_CROSS_COMPILING = @GLIBCPP_IS_CROSS_COMPILING@
 LIBMATHOBJS = @LIBMATHOBJS@
 LIBSTRINGOBJS = @LIBSTRINGOBJS@
+LIBSUPCXX_PICFLAGS = @LIBSUPCXX_PICFLAGS@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
 MAINT = @MAINT@
@@ -87,6 +91,7 @@ MAKEINFO = @MAKEINFO@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OPT_LDFLAGS = @OPT_LDFLAGS@
+OS_INC_SRCDIR = @OS_INC_SRCDIR@
 PACKAGE = @PACKAGE@
 RANLIB = @RANLIB@
 SECTION_FLAGS = @SECTION_FLAGS@
@@ -96,31 +101,31 @@ USE_COMPLEX_LONG_DOUBLE = @USE_COMPLEX_LONG_DOUBLE@
 VERSION = @VERSION@
 WARN_FLAGS = @WARN_FLAGS@
 WERROR = @WERROR@
-WFMT_FLAGS = @WFMT_FLAGS@
 enable_shared = @enable_shared@
 enable_static = @enable_static@
+glibcpp_CXX = @glibcpp_CXX@
 glibcpp_basedir = @glibcpp_basedir@
+glibcpp_builddir = @glibcpp_builddir@
+glibcpp_prefixdir = @glibcpp_prefixdir@
+glibcpp_srcdir = @glibcpp_srcdir@
+glibcpp_thread_h = @glibcpp_thread_h@
+glibcpp_toolexecdir = @glibcpp_toolexecdir@
+glibcpp_toolexeclibdir = @glibcpp_toolexeclibdir@
 gxx_include_dir = @gxx_include_dir@
-gxx_target_include_dir = @gxx_target_include_dir@
 ifGNUmake = @ifGNUmake@
-libinst_wstring_la = @libinst_wstring_la@
 libio_la = @libio_la@
-libstdcxx_interface = @libstdcxx_interface@
+toplevel_srcdir = @toplevel_srcdir@
 
 AUTOMAKE_OPTIONS = 1.3 gnits
 MAINT_CHARSET = latin1
 
-# Cross compiler and multilib support.
-# Install a library built with a cross compiler in tooldir, not libdir.
-@USE_LIBDIR_TRUE@@VERSION_SPECIFIC_LIBS_TRUE@gcc_version = @gcc_version@
-@USE_LIBDIR_TRUE@@VERSION_SPECIFIC_LIBS_TRUE@toolexecdir = $(libdir)/gcc-lib/$(target_alias)
-@USE_LIBDIR_FALSE@toolexecdir = $(exec_prefix)/$(target_alias)
-@USE_LIBDIR_TRUE@@VERSION_SPECIFIC_LIBS_TRUE@toolexeclibdir = $(toolexecdir)/$(gcc_version)
-@USE_LIBDIR_TRUE@@VERSION_SPECIFIC_LIBS_FALSE@toolexeclibdir = $(libdir)$(MULTISUBDIR)
-@USE_LIBDIR_FALSE@toolexeclibdir = $(toolexecdir)/lib$(MULTISUBDIR)
+mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
 
+# Cross compiler and multilib support.
+CXX = @glibcpp_CXX@
+toolexecdir = @glibcpp_toolexecdir@
+toolexeclibdir = @glibcpp_toolexeclibdir@
 toolexeclib_LTLIBRARIES = libstdc++.la
-EXTRA_LTLIBRARIES = libinst-string.la libinst-wstring.la
 
 # Compile flags that should be constant throughout the build, both for
 # SUBDIRS and for libstdc++-v3 in general.
@@ -129,89 +134,69 @@ OPTIMIZE_CXXFLAGS = @OPTIMIZE_CXXFLAGS@
 # These bits are all figured out from configure. Look in acinclude.m4
 # or configure.in to see how they are set. See GLIBCPP_EXPORT_FLAGS
 # NB: DEBUGFLAGS have to be at the end so that -O2 can be overridden.
-CONFIG_CXXFLAGS =  	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@ @CSHADOW_FLAGS@ @DEBUG_FLAGS@ 
+CONFIG_CXXFLAGS = \
+	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@ @CSHADOW_FLAGS@ @DEBUG_FLAGS@ 
 
 
 # Warning flags to use.
-WARN_CXXFLAGS =  	@WARN_FLAGS@ $(WERROR) @WFMT_FLAGS@
+WARN_CXXFLAGS = \
+	@WARN_FLAGS@ $(WERROR) -fdiagnostics-show-location=once
 
 
 # Use common includes from acinclude.m4/GLIBCPP_EXPORT_INCLUDES
-GLIBCPP_INCLUDE_DIR = @GLIBCPP_INCLUDE_DIR@
-C_INCLUDE_DIR = @C_INCLUDE_DIR@
-CSTD_INCLUDES = @CSTD_INCLUDES@
+GLIBCPP_INCLUDES = @GLIBCPP_INCLUDES@
 LIBMATH_INCLUDES = @LIBMATH_INCLUDES@
 LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
 LIBIO_INCLUDES = @LIBIO_INCLUDES@
 TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
 
-INCLUDES =  	-nostdinc++ 	-I$(GLIBCPP_INCLUDE_DIR) $(CSTD_INCLUDES) -I$(top_builddir)/include 	$(LIBSUPCXX_INCLUDES) $(LIBIO_INCLUDES) $(LIBMATH_INCLUDES) 	$(TOPLEVEL_INCLUDES)	
+INCLUDES = \
+	-nostdinc++ \
+	$(GLIBCPP_INCLUDES) \
+	$(LIBSUPCXX_INCLUDES) $(LIBIO_INCLUDES) $(LIBMATH_INCLUDES) \
+	$(TOPLEVEL_INCLUDES)
 
 
-base_headers =  	bits/cpp_type_traits.h bits/char_traits.h bits/codecvt.h 	bits/std_string.h bits/basic_string.h bits/basic_string.tcc 	bits/generic_shadow.h bits/std_utility.h 	bits/std_complex.h 	bits/valarray_array.h bits/valarray_array.tcc bits/valarray_meta.h 	bits/std_valarray.h bits/mask_array.h bits/slice.h bits/slice_array.h 	bits/gslice.h bits/gslice_array.h bits/indirect_array.h 	bits/exception_support.h 	bits/std_fstream.h bits/std_iomanip.h 	bits/ios_base.h bits/fpos.h bits/basic_ios.h bits/basic_ios.tcc 	bits/std_ios.h bits/std_iosfwd.h bits/std_iostream.h 	bits/std_istream.h bits/istream.tcc bits/std_locale.h 	bits/fstream.tcc bits/ostream.tcc bits/sbuf_iter.h bits/sstream.tcc 	bits/std_ostream.h bits/std_sstream.h bits/std_streambuf.h 	bits/streambuf.tcc bits/basic_file.h 	bits/locale_facets.h bits/locale_facets.tcc bits/localefwd.h 	bits/stl_pthread_alloc.h bits/pthread_allocimpl.h 	bits/stl_threads.h bits/stl_iterator_base.h 	bits/std_bitset.h bits/std_deque.h bits/std_functional.h 	bits/std_iterator.h bits/std_list.h 	bits/std_map.h bits/std_memory.h bits/std_numeric.h 	bits/std_queue.h bits/std_set.h bits/std_stack.h 	bits/std_stdexcept.h bits/std_vector.h 	bits/stl_algo.h bits/stl_algobase.h bits/stl_alloc.h 	bits/stl_deque.h bits/stl_function.h 	bits/stl_heap.h bits/stl_iterator.h bits/stl_list.h bits/stl_map.h 	bits/stl_multimap.h bits/stl_multiset.h bits/stl_numeric.h 	bits/stl_pair.h bits/stl_queue.h bits/stl_raw_storage_iter.h 	bits/stl_relops.h bits/stl_set.h 	bits/stl_stack.h bits/stl_string_fwd.h bits/stl_tempbuf.h 	bits/stl_tree.h bits/stl_uninitialized.h bits/stl_vector.h 	bits/type_traits.h bits/stl_range_errors.h bits/std_algorithm.h 	bits/concept_checks.h bits/container_concepts.h 	bits/sequence_concepts.h bits/stl_config.h bits/stl_construct.h
+sources = \
+	basic_file.cc bitset.cc c++locale.cc cmath.cc codecvt.cc \
+	complex_io.cc functexcept.cc globals.cc ios.cc limitsMEMBERS.cc \
+	locale.cc locale-inst.cc localename.cc misc-inst.cc stdexcept.cc \
+	stl-inst.cc string-inst.cc strstream.cc valarray-inst.cc \
+	wstring-inst.cc
 
 
-backward_headers =  	backward/complex.h backward/iomanip.h backward/istream.h 	backward/ostream.h backward/stream.h backward/streambuf.h 	backward/algo.h backward/algobase.h backward/alloc.h 	backward/bvector.h backward/defalloc.h backward/deque.h 	backward/function.h backward/hash_map.h backward/hash_set.h 	backward/hashtable.h backward/heap.h backward/iterator.h 	backward/list.h backward/map.h backward/multimap.h backward/new.h 	backward/multiset.h backward/pair.h backward/iostream.h 	backward/rope.h backward/set.h backward/slist.h backward/stack.h 	backward/tempbuf.h backward/tree.h backward/vector.h 	backward/fstream.h backward/strstream.h backward/strstream
-
-
-ext_headers =  	ext/ropeimpl.h ext/stl_rope.h 	ext/stl_bvector.h ext/stl_hashtable.h ext/stl_hash_fun.h 	ext/hash_map ext/hash_set ext/rope ext/slist 	ext/tree ext/bvector 
-
-
-c_base_headers =  	bits/std_cassert.h bits/std_cctype.h bits/std_cerrno.h 	bits/std_cfloat.h bits/std_climits.h bits/std_clocale.h 	bits/std_cmath.h bits/std_csetjmp.h bits/std_csignal.h 	bits/std_cstdarg.h bits/std_cstddef.h bits/std_cstdio.h 	bits/std_cstdlib.h bits/std_cstring.h bits/std_ctime.h 	bits/std_cwchar.h bits/std_cwctype.h bits/cmath.tcc
-
-@GLIBCPP_USE_CSHADOW_TRUE@c_shadow_headers = 	assert.h ctype.h errno.h float.h limits.h locale.h math.h setjmp.h 	signal.h stdarg.h stddef.h stdio.h stdlib.h string.h time.h wchar.h 	wctype.h fcntl.h libio.h iolibio.h libioP.h pthread.h iconv.h 	features.h langinfo.h 	bits/wrap_libio.h bits/wrap_iolibio.h bits/wrap_libioP.h 	bits/wrap_iconv.h bits/wrap_fcntl.h bits/wrap_pthread.h 	bits/wrap_features.h bits/wrap_langinfo.h 	sys/cdefs.h 
-@GLIBCPP_USE_CSHADOW_FALSE@c_shadow_headers = 
-
-std_headers =  	algorithm bitset complex deque fstream functional 	iomanip ios iosfwd iostream istream iterator limits list locale 	map memory numeric ostream queue set sstream stack stdexcept 	streambuf string utility valarray vector 	cassert cctype cerrno cfloat climits clocale ciso646 	cmath csetjmp csignal cstdarg cstddef cstdio cstdlib 	cstring ctime cwchar cwctype
-
-@GLIBCPP_NEED_LIBIO_TRUE@libio_headers = 	$(top_srcdir)/libio/_G_config.h $(top_srcdir)/libio/libio.h
-@GLIBCPP_NEED_LIBIO_FALSE@libio_headers = 
-
-build_headers =  	bits/std_limits.h bits/c++config.h bits/c++io.h bits/c++threads.h 	bits/atomicity.h bits/os_defines.h 	bits/ctype_base.h bits/ctype_noninline.h bits/ctype_inline.h 
-
-
-sources =  	limitsMEMBERS.cc 	complex_io.cc 	stdexcept.cc bitset.cc         globals.cc 	c++io.cc ios.cc strstream.cc 	locale.cc localename.cc codecvt.cc 	locale-inst.cc stl-inst.cc misc-inst.cc valarray-inst.cc string-inst.cc
-
-
-wstring_sources =  	wstring-inst.cc
-
-VPATH =  $(top_srcdir) $(top_srcdir)/src $(GLIBCPP_INCLUDE_DIR)  $(GLIBCPP_INCLUDE_DIR)/std $(C_INCLUDE_DIR)
-
-# Actual sources for the distro, but don't build these.
-#EXTRA_sources = string-inst.cc 
+VPATH = $(top_srcdir):$(top_srcdir)/src
 
 libstdc___la_SOURCES = $(sources)
 
-libinst_wstring_la_SOURCES = $(wstring_sources)
-
-libstdc___la_LIBADD =  	../libmath/libmath.la @libio_la@ 	../libsupc++/libsupc++convenience.la 	@libinst_wstring_la@
+libstdc___la_LIBADD = \
+	../libmath/libmath.la @libio_la@ \
+	../libsupc++/libsupc++convenience.la
 
 
 libstdc___la_LDFLAGS = -version-info 3:0:0 -lm
 
 libstdc___la_DEPENDENCIES = $(libstdc___la_LIBADD)
-@GLIBCPP_USE_CSHADOW_TRUE@CSHADOW_H = $(top_builddir)/stamp-cshadow
-@GLIBCPP_USE_CSHADOW_FALSE@CSHADOW_H = 
-@GXX_INCLUDE_DIR_TRUE@myincludep = @gxx_include_dir@
-@GXX_INCLUDE_DIR_FALSE@@VERSION_SPECIFIC_LIBS_TRUE@myincludep = $(libdir)/gcc-lib/$(target_alias)/@gcc_version@/include/g++
-@GXX_INCLUDE_DIR_FALSE@@VERSION_SPECIFIC_LIBS_FALSE@myincludep = $(prefix)/include/g++-@libstdcxx_interface@
-@GXX_INCLUDE_DIR_TRUE@targetincludep = @gxx_include_dir@
-@GXX_INCLUDE_DIR_FALSE@@VERSION_SPECIFIC_LIBS_TRUE@targetincludep = $(libdir)/gcc-lib/$(target_alias)/@gcc_version@/include/g++
-@GXX_INCLUDE_DIR_FALSE@@VERSION_SPECIFIC_LIBS_FALSE@targetincludep = @gxx_target_include_dir@
 
-# NB: As libio_headers may be empty, need this to make sure bash doesn't
-# choke on an empty for... loop by using libio_headers_install
-# NB: installation of shadow headers is not attempted.
-src_incdir = @GLIBCPP_INCLUDE_DIR@
-bld_incdir = $(top_builddir)/include
-c_incdir = @C_INCLUDE_DIR@
+# Use special rules for the deprecated source files so that they find
+# deprecated include files.
+GLIBCPP_INCLUDE_DIR = @glibcpp_builddir@/include
 
 # AM_CXXFLAGS needs to be in each subdirectory so that it can be
 # modified in a per-library or per-sub-library way.  Need to manually
 # set this option because CONFIG_CXXFLAGS has to be after
 # OPTIMIZE_CXXFLAGS on the compile line so that -O2 can be overridden
 # as the occasion call for it. (ie, --enable-debug)
-AM_CXXFLAGS =  	-fno-implicit-templates 	$(LIBSUPCXX_CXXFLAGS) 	$(WARN_CXXFLAGS) 	$(OPTIMIZE_CXXFLAGS) 	$(CONFIG_CXXFLAGS) 
+#
+# The no-implicit-templates flag will generate unresolved references to
+# the concept-checking symbols.  So we must disable the checks while
+# actually building the library.
+AM_CXXFLAGS = \
+	-fno-implicit-templates \
+	$(LIBSUPCXX_CXXFLAGS) \
+	$(WARN_CXXFLAGS) \
+	$(OPTIMIZE_CXXFLAGS) \
+	$(CONFIG_CXXFLAGS) 
 
 
 # libstdc++ libtool notes
@@ -232,16 +217,19 @@ AM_CXXFLAGS =  	-fno-implicit-templates 	$(LIBSUPCXX_CXXFLAGS) 	$(WARN_CXXFLAGS)
 # correct solution is to add `--tag CXX' to LTCXXCOMPILE and maybe
 # CXXLINK, just after $(LIBTOOL), so that libtool doesn't have to
 # attempt to infer which configuration to use
-LTCXXCOMPILE = $(LIBTOOL) --tag CXX --mode=compile $(CXX) $(INCLUDES) 	       $(AM_CPPFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(AM_CXXFLAGS) 
+LTCXXCOMPILE = $(LIBTOOL) --tag CXX --mode=compile $(CXX) $(INCLUDES) \
+	       $(AM_CPPFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(AM_CXXFLAGS) 
 
 
-# 3) We have a problem when building the shared libstdc++ object if
-# the rules automake generates would be used.  We cannot allow CXX to
-# be used in libtool since this would add -lstdc++ to the link line
-# which of course is problematic at this point.
-CXXLINK = $(LIBTOOL) --mode=link "$(CC)" 	  @OPT_LDFLAGS@ @SECTION_LDFLAGS@ $(AM_CXXFLAGS) $(LDFLAGS) -o $@
+# 3) We'd have a problem when building the shared libstdc++ object if
+# the rules automake generates would be used.  We cannot allow g++ to
+# be used since this would add -lstdc++ to the link line which of
+# course is problematic at this point.  So, we get the top-level
+# directory to configure libstdc++-v3 to use gcc as the C++
+# compilation driver.
+CXXLINK = $(LIBTOOL) --tag CXX --mode=link $(CXX) \
+	  @OPT_LDFLAGS@ @SECTION_LDFLAGS@ $(AM_CXXFLAGS) $(LDFLAGS) -o $@
 
-mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
 CONFIG_HEADER = ../config.h
 CONFIG_CLEAN_FILES = 
 LTLIBRARIES =  $(toolexeclib_LTLIBRARIES)
@@ -251,25 +239,14 @@ DEFS = @DEFS@ -I. -I$(srcdir) -I..
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
-libinst_string_la_LDFLAGS = 
-libinst_string_la_LIBADD = 
-libinst_string_la_SOURCES = libinst-string.la.c
-libinst_string_la_OBJECTS =  libinst-string.la.lo
-libinst_wstring_la_LDFLAGS = 
-libinst_wstring_la_LIBADD = 
-libinst_wstring_la_OBJECTS =  wstring-inst.lo
-libstdc___la_OBJECTS =  limitsMEMBERS.lo complex_io.lo stdexcept.lo \
-bitset.lo globals.lo c++io.lo ios.lo strstream.lo locale.lo \
-localename.lo codecvt.lo locale-inst.lo stl-inst.lo misc-inst.lo \
-valarray-inst.lo string-inst.lo
+libstdc___la_OBJECTS =  basic_file.lo bitset.lo c++locale.lo cmath.lo \
+codecvt.lo complex_io.lo functexcept.lo globals.lo ios.lo \
+limitsMEMBERS.lo locale.lo locale-inst.lo localename.lo misc-inst.lo \
+stdexcept.lo stl-inst.lo string-inst.lo strstream.lo valarray-inst.lo \
+wstring-inst.lo
 CXXFLAGS = @CXXFLAGS@
 CXXCOMPILE = $(CXX) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 CXXLD = $(CXX)
-CFLAGS = @CFLAGS@
-COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
-LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
-CCLD = $(CC)
-LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
 DIST_COMMON =  Makefile.am Makefile.in
 
 
@@ -277,8 +254,8 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = gtar
 GZIP_ENV = --best
-SOURCES = libinst-string.la.c $(libinst_wstring_la_SOURCES) $(libstdc___la_SOURCES)
-OBJECTS = libinst-string.la.lo $(libinst_wstring_la_OBJECTS) $(libstdc___la_OBJECTS)
+SOURCES = $(libstdc___la_SOURCES)
+OBJECTS = $(libstdc___la_OBJECTS)
 
 all: all-redirect
 .SUFFIXES:
@@ -360,12 +337,6 @@ distclean-libtool:
 
 maintainer-clean-libtool:
 
-libinst-string.la: $(libinst_string_la_OBJECTS) $(libinst_string_la_DEPENDENCIES)
-	$(LINK)  $(libinst_string_la_LDFLAGS) $(libinst_string_la_OBJECTS) $(libinst_string_la_LIBADD) $(LIBS)
-
-libinst-wstring.la: $(libinst_wstring_la_OBJECTS) $(libinst_wstring_la_DEPENDENCIES)
-	$(CXXLINK)  $(libinst_wstring_la_LDFLAGS) $(libinst_wstring_la_OBJECTS) $(libinst_wstring_la_LIBADD) $(LIBS)
-
 libstdc++.la: $(libstdc___la_OBJECTS) $(libstdc___la_DEPENDENCIES)
 	$(CXXLINK) -rpath $(toolexeclibdir) $(libstdc___la_LDFLAGS) $(libstdc___la_OBJECTS) $(libstdc___la_LIBADD) $(LIBS)
 .cc.o:
@@ -432,7 +403,7 @@ install-info: install-info-am
 install-exec-am: install-toolexeclibLTLIBRARIES
 install-exec: install-exec-am
 
-install-data-am: install-data-local
+install-data-am:
 install-data: install-data-am
 
 install-am: all-am
@@ -493,116 +464,15 @@ maintainer-clean-compile mostlyclean-libtool distclean-libtool \
 clean-libtool maintainer-clean-libtool tags mostlyclean-tags \
 distclean-tags clean-tags maintainer-clean-tags distdir info-am info \
 dvi-am dvi check check-am installcheck-am installcheck install-info-am \
-install-info install-exec-am install-exec install-data-local \
-install-data-am install-data install-am install uninstall-am uninstall \
-all-redirect all-am all installdirs mostlyclean-generic \
-distclean-generic clean-generic maintainer-clean-generic clean \
-mostlyclean distclean maintainer-clean
+install-info install-exec-am install-exec install-data-am install-data \
+install-am install uninstall-am uninstall all-redirect all-am all \
+installdirs mostlyclean-generic distclean-generic clean-generic \
+maintainer-clean-generic clean mostlyclean distclean maintainer-clean
 
-
-# Specify that all *.o's depend on this.
-$(libstdc___la_OBJECTS): $(CSHADOW_H)
-
-$(top_builddir)/stamp-cshadow: $(top_srcdir)/mkinclosure \
-                               $(top_srcdir)/mkcshadow
-	$(top_srcdir)/mkinclosure \
-	"-I $(top_builddir)/../../gcc/include -I /usr/include -G fcntl.h unistd.h" | $(top_srcdir)/mkcshadow;
-	rm -f  $(top_builddir)/stamp-cshadow 
-	echo "done" > $(top_builddir)/stamp-cshadow 
-
-# We have our own special, ridiculously complicated installation routine
-# here, as automake/autoconf is currently brain-damaged when it comes
-# to installing sub-directories of headers. In particular, we want to
-# 1) install build headers from (blddir)/include/bits -> (install)/bits
-# 2) install source headers from
-#      (srcdir)/include/bits -> (install)/bits
-#      (srcdir)/include/ext -> (install)/ext
-#      (srcdir)/include/backward -> (install)/backward
-#      ... and the always entertaining "C" compatibility bits
-#      where * represents configure-time directory switching
-#      (srcdir)/include/c* -> (install)/
-#      (srcdir)/include/c*/bits -> (install)/bits
-#      (srcdir)/include/c*/sys -> (install)/sys
-install-data-local: myinstalldirs myinstallheaders
-
-# NB: installation of shadow header directories is not attempted.
-myinstalldirs:
-	if test -z "$(MULTISUBDIR)"; then \
-	$(mkinstalldirs) $(DESTDIR)$(myincludep)/bits; \
-	$(mkinstalldirs) $(DESTDIR)$(myincludep)/ext; \
-	$(mkinstalldirs) $(DESTDIR)$(targetincludep)/bits; \
-	fi
-myinstallheaders: 
-	if test -z "$(MULTISUBDIR)"; then \
-	for i in $(base_headers); do \
-        echo "$(INSTALL_DATA) $(src_incdir)/$$i $(myincludep)/bits/"; \
-	  $(INSTALL_DATA) $(src_incdir)/$$i $(myincludep)/bits/; \
-	done; \
-	for i in $(ext_headers); do \
-        echo "$(INSTALL_DATA) $(src_incdir)/$$i $(myincludep)/ext/"; \
-	  $(INSTALL_DATA) $(src_incdir)/$$i $(myincludep)/ext/; \
-	done; \
-	for i in $(backward_headers); do \
-        echo "$(INSTALL_DATA) $(src_incdir)/$$i $(myincludep)"; \
-	  $(INSTALL_DATA) $(src_incdir)/$$i $(myincludep); \
-	done; \
-	for i in $(c_base_headers); do \
-        echo "$(INSTALL_DATA) $(c_incdir)/$$i $(myincludep)/bits/"; \
-	  $(INSTALL_DATA) $(c_incdir)/$$i $(myincludep)/bits/; \
-	done; \
-	for i in $(std_headers); do \
-	echo "$(INSTALL_DATA) $(src_incdir)/std/$$i $(myincludep)";\
-	  $(INSTALL_DATA) $(src_incdir)/std/$$i $(myincludep); \
-	done; \
-	for i in $(build_headers); do \
-        echo "$(INSTALL_DATA) $(bld_incdir)/$$i $(targetincludep)/bits/"; \
-	  $(INSTALL_DATA) $(bld_incdir)/$$i $(targetincludep)/bits/; \
-	done; \
-	libio_headers_install='$(libio_headers)'; \
-	for i in $$libio_headers_install; do \
-        echo "$(INSTALL_DATA) $$i $(myincludep)"; \
-          $(INSTALL_DATA) $$i $(myincludep); \
-	done; \
-	fi;
-
-# We have to handle misc-inst.cc and locale-inst.cc in a special way
-# since we cannot instantiate all classes due to missing definitions
-# for things like vptrs, type_info bits, etc. when using
-# -fno-implicit-templates.
-misc-inst.o: misc-inst.cc
-	$(CXXCOMPILE) -fimplicit-templates -c $<
-misc-inst.lo: misc-inst.cc
-	$(LTCXXCOMPILE) -fimplicit-templates -c $<
-locale-inst.o: locale-inst.cc
-	$(CXXCOMPILE) -fimplicit-templates -c $<
-locale-inst.lo: locale-inst.cc
-	$(LTCXXCOMPILE) -fimplicit-templates -c $<
-
-# Use special rules for the deprecated source files so that they find
-# deprecated include files.
 strstream.lo: strstream.cc
 	$(LTCXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -c $<
 strstream.o: strstream.cc
 	$(CXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -c $<
-
-# Make wstring-inst.cc from string-inst.cc
-wstring-inst.o: string-inst.cc
-	$(CXXCOMPILE) -fimplicit-templates -c -DC=wchar_t $< -o $@
-wstring-inst.lo: string-inst.cc
-	$(LTCXXCOMPILE) -fimplicit-templates -c -DC=wchar_t $< -o $@
-
-# Alexandre put this in here for some libtool-related reason.
-all: libstdc++.INC
-libstdc++.INC: Makefile
-	$(MAKE) \
-	top_builddir=`CDPATH=:. && cd $(top_builddir) && pwd` \
-	top_srcdir=`CDPATH=:. && cd $(top_srcdir) && pwd` \
-	tmp-$@
-	-rm -f $@
-	mv tmp-$@ $@
-
-tmp-libstdc++.INC: Makefile
-	echo $(INCLUDES) > $@
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

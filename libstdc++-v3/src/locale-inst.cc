@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -42,8 +42,8 @@
 #include <bits/std_istream.h>
 #include <bits/std_ostream.h>
 
-namespace std {
-
+namespace std
+{
   typedef ostreambuf_iterator<char, char_traits<char> > obuf_iterator;
   typedef istreambuf_iterator<char, char_traits<char> > ibuf_iterator;
   typedef ostreambuf_iterator<wchar_t, char_traits<wchar_t> > wobuf_iterator;
@@ -54,7 +54,6 @@ namespace std {
   template class moneypunct<char, true>;
   template class moneypunct_byname<char, false>;
   template class moneypunct_byname<char, true>;
-  template class _Moneypunct<char>;
   template class money_get<char, obuf_iterator>;
   template class money_put<char, obuf_iterator>;
   template class money_get<char, ibuf_iterator>;
@@ -66,7 +65,6 @@ namespace std {
   template class moneypunct<wchar_t, true>;
   template class moneypunct_byname<wchar_t, false>;
   template class moneypunct_byname<wchar_t, true>;
-  template class _Moneypunct<wchar_t>;
   template class money_get<wchar_t, wobuf_iterator>;
   template class money_put<wchar_t, wobuf_iterator>;
   template class money_get<wchar_t, wibuf_iterator>;
@@ -77,23 +75,15 @@ namespace std {
   // numpunct, numpunct_byname, num_get, and num_put
   template class numpunct<char>;
   template class numpunct_byname<char>;
-  template class _Numpunct<char>;
   template class num_get<char, ibuf_iterator>;
   template class num_put<char, obuf_iterator>;
 #ifdef _GLIBCPP_USE_WCHAR_T
   template class numpunct<wchar_t>;
   template class numpunct_byname<wchar_t>;
-  template class _Numpunct<wchar_t>;
   template class num_get<wchar_t, wibuf_iterator>;
   template class num_put<wchar_t, wobuf_iterator>;
 #endif
 
-  // _Punct
-  template class _Punct<char>;
-#ifdef _GLIBCPP_USE_WCHAR_T
-  template class _Punct<wchar_t>;
-#endif
-  
   // time_get and time_put
   template class time_put<char, obuf_iterator>;
   template class time_put_byname<char, obuf_iterator>;
@@ -108,11 +98,9 @@ namespace std {
 #endif
 
   // messages
-  template class _Messages<char>;
   template class messages<char>;
   template class messages_byname<char>;
 #ifdef _GLIBCPP_USE_WCHAR_T
-  template class _Messages<wchar_t>;
   template class messages<wchar_t>;
   template class messages_byname<wchar_t>;
 #endif
@@ -134,12 +122,12 @@ namespace std {
 #endif
 
   // collate
-  template class _Collate<char>;
+  template class collate<char>;
   template class collate_byname<char>;
   template class _Weekdaynames<char, int>;
   template class _Monthnames<char, int>;
 #ifdef _GLIBCPP_USE_WCHAR_T
-  template class _Collate<wchar_t>;
+  template class collate<wchar_t>;
   template class collate_byname<wchar_t>;
   template class _Weekdaynames<wchar_t, int>;
   template class _Monthnames<wchar_t, int>;
@@ -148,41 +136,64 @@ namespace std {
   // use_facet
   template 
     const num_put<char, obuf_iterator >& 
-    use_facet<num_put<char, obuf_iterator> >(const locale &);
+    use_facet<num_put<char, obuf_iterator> >(const locale&);
   template 
     const num_get<char, ibuf_iterator >& 
-    use_facet<num_get<char, ibuf_iterator> >(const locale &);
+    use_facet<num_get<char, ibuf_iterator> >(const locale&);
   template
     const codecvt<char, char, mbstate_t>& 
     use_facet<codecvt<char, char, mbstate_t> >(const locale&);
-   template 
-    const num_put<char, obuf_iterator>& 
-    _Use_facet_failure_handler<num_put<char, obuf_iterator> >
-    (const locale &);
+  template
+    const numpunct<char>& 
+    use_facet<numpunct<char> >(const locale&);
+  template
+    const collate<char>& 
+    use_facet<collate<char> >(const locale&);
 #ifdef _GLIBCPP_USE_WCHAR_T
   template 
     const num_put<wchar_t, wobuf_iterator>& 
-    use_facet<num_put<wchar_t, wobuf_iterator> >(const locale &);
+    use_facet<num_put<wchar_t, wobuf_iterator> >(const locale&);
   template 
     const num_get<wchar_t, wibuf_iterator>& 
-    use_facet<num_get<wchar_t, wibuf_iterator> >(const locale &);
+    use_facet<num_get<wchar_t, wibuf_iterator> >(const locale&);
   template
     const codecvt<wchar_t, char, mbstate_t>& 
-    use_facet<codecvt<wchar_t, char, mbstate_t> >(locale const &);
-  template 
-    const num_put<wchar_t, wobuf_iterator>& 
-    _Use_facet_failure_handler<num_put<wchar_t, wobuf_iterator> >
-    (const locale &);
+    use_facet<codecvt<wchar_t, char, mbstate_t> >(locale const&);
+  template
+    const numpunct<wchar_t>& 
+    use_facet<numpunct<wchar_t> >(const locale&);
+  template
+    const collate<wchar_t>& 
+    use_facet<collate<wchar_t> >(const locale&);
 #endif
 
   // has_facet
   template 
     bool
-    has_facet<numpunct<char> >(const locale &);
+    has_facet<numpunct<char> >(const locale&);
+  template 
+    bool
+    has_facet<num_put<char> >(const locale&);
+  template 
+    bool
+    has_facet<num_get<char> >(const locale&);
+  template 
+    bool
+    has_facet<ctype<char> >(const locale&);
+
 #ifdef _GLIBCPP_USE_WCHAR_T
   template 
     bool
-    has_facet<numpunct<wchar_t> >(const locale &);
+    has_facet<numpunct<wchar_t> >(const locale&);
+  template 
+    bool
+    has_facet<num_put<wchar_t> >(const locale&);
+  template 
+    bool
+    has_facet<num_get<wchar_t> >(const locale&);
+  template 
+    bool
+    has_facet<ctype<wchar_t> >(const locale&);
 #endif
 
   //
@@ -231,29 +242,29 @@ namespace std {
 
   template
     ostreambuf_iter
-    _S_fill<char, ostreambuf_iter, output_iterator_tag>
+    __pad<char, ostreambuf_iter, output_iterator_tag>
     (ostreambuf_iter, char, int, output_iterator_tag);
 
   template 
     ostreambuf_iter
-    _S_pad_numeric<char, ostreambuf_iter>
+    __pad_numeric<char, ostreambuf_iter>
     (ostreambuf_iter, ios_base::fmtflags, char, int, char const*, char const*, 
      char const*);
 
   template
     char*
-    _S_group_digits<char>(char*, char, char const*, char const*, 
-			  char const*, char const*);
+    __group_digits<char>(char*, char, char const*, char const*, 
+			 char const*, char const*);
 
   template 
     ostreambuf_iter
-    _S_format<char, ostreambuf_iter, unsigned long>
+    __output_integer<char, ostreambuf_iter, unsigned long>
     (ostreambuf_iter, ios_base &, char, bool, unsigned long);
 
 #ifdef _GLIBCPP_USE_LONG_LONG
   template
     ostreambuf_iter
-    _S_format<char, ostreambuf_iter, unsigned long long>
+    __output_integer<char, ostreambuf_iter, unsigned long long>
     (ostreambuf_iter, ios_base &, char, bool, unsigned long long);
 #endif
 
@@ -266,42 +277,47 @@ namespace std {
 
   template
     wostreambuf_iter
-    _S_fill<wchar_t, wostreambuf_iter, output_iterator_tag>
+    __pad<wchar_t, wostreambuf_iter, output_iterator_tag>
     (wostreambuf_iter, wchar_t, int, output_iterator_tag);
 
   template 
     wostreambuf_iter
-    _S_pad_numeric<wchar_t, wostreambuf_iter>
-    (wostreambuf_iter, ios_base::fmtflags, wchar_t __fill, int, wchar_t const*, 
+    __pad_numeric<wchar_t, wostreambuf_iter>
+    (wostreambuf_iter, ios_base::fmtflags, wchar_t __fill, int, wchar_t const*,
      wchar_t const*, wchar_t const*);
 
   template
     wchar_t*
-    _S_group_digits<wchar_t>(wchar_t*, wchar_t, char const*, char const*, 
-			     wchar_t const*, wchar_t const*);
+    __group_digits<wchar_t>(wchar_t*, wchar_t, char const*, char const*, 
+			    wchar_t const*, wchar_t const*);
 
   template 
     wostreambuf_iter
-    _S_format<wchar_t, wostreambuf_iter, unsigned long>
+    __output_integer<wchar_t, wostreambuf_iter, unsigned long>
     (wostreambuf_iter, ios_base &, wchar_t, bool, unsigned long);
 
 #ifdef _GLIBCPP_USE_LONG_LONG
   template
     wostreambuf_iter
-    _S_format<wchar_t, wostreambuf_iter, unsigned long long>
+    __output_integer<wchar_t, wostreambuf_iter, unsigned long long>
     (wostreambuf_iter, ios_base &, wchar_t, bool, unsigned long long);
 #endif
 #endif // _GLIBCPP_USE_WCHAR_T
 
   template 
     locale::facet** 
-    fill_n<locale::facet**, unsigned int, locale::facet*>
-    (locale::facet**, unsigned int, locale::facet* const &);
+    fill_n<locale::facet**, size_t, locale::facet*>
+    (locale::facet**, size_t, locale::facet* const&);
 
-  template 
-    locale::facet** 
-    fill_n<locale::facet**, unsigned long, locale::facet*>
-    (locale::facet**, unsigned long, locale::facet* const &);
+  template
+    __normal_iterator<locale::facet**, vector<locale::facet*> >
+    fill_n(__normal_iterator<locale::facet**, vector<locale::facet*> >,
+	   size_t, locale::facet* const&);
 
-} //std
+  template
+    void
+    fill(__normal_iterator<locale::facet**, vector<locale::facet*> >,
+         __normal_iterator<locale::facet**, vector<locale::facet*> >,
+         locale::facet* const&);
+} // namespace std
 

@@ -131,10 +131,13 @@ namespace std {
 	  if (__ret < __n)
 	    {
 	      int_type __c = this->uflow();  
-	      if (traits_type::eq_int_type(__c, traits_type::eof()))
+	      if (__c != traits_type::eof())
+		{
+		  traits_type::assign(*__s++, traits_type::to_char_type(__c));
+		  ++__ret;
+		}
+	      else
 		break;
-	      traits_type::assign(*__s++, traits_type::to_char_type(__c));
-	      ++__ret;
 	    }
 	}
       return __ret;
@@ -166,12 +169,14 @@ namespace std {
 
 	  if (__ret < __n)
 	    {
-	      int_type __c = traits_type::to_int_type(*__s);
-	      int_type __overfc = this->overflow(__c);
-	      if (traits_type::eq_int_type(__overfc, traits_type::eof()))
+	      int_type __c = this->overflow(traits_type::to_int_type(*__s));
+	      if (__c != traits_type::eof())
+		{
+		  ++__ret;
+		  ++__s;
+		}
+	      else
 		break;
-	      ++__ret;
-	      ++__s;
 	    }
 	}
       return __ret;
@@ -183,10 +188,10 @@ namespace std {
   // necessary.
   template<typename _CharT, typename _Traits>
     streamsize
-    _S_copy_streambufs(basic_ios<_CharT, _Traits>& __ios,
-		       basic_streambuf<_CharT, _Traits>* __sbin,
-		       basic_streambuf<_CharT, _Traits>* __sbout) 
-    {
+    __copy_streambufs(basic_ios<_CharT, _Traits>& __ios,
+		      basic_streambuf<_CharT, _Traits>* __sbin,
+		      basic_streambuf<_CharT, _Traits>* __sbout) 
+  {
       typedef typename _Traits::int_type	int_type;
 
       streamsize __ret = 0;
@@ -201,12 +206,8 @@ namespace std {
 	    __sbin->_M_in_cur_move(__xtrct);
 	    if (__xtrct == __bufsize)
 	      {
-		int_type __c = __sbin->sgetc();
-		if (__c == _Traits::eof())
-		  {
-		    __ios.setstate(ios_base::eofbit);
-		    break;
-		  }
+		if (__sbin->sgetc() == _Traits::eof())
+		  break;
 		__bufsize = __sbin->in_avail();
 	      }
 	    else
@@ -215,15 +216,11 @@ namespace std {
       }
       catch(exception& __fail) {
 	if ((__ios.exceptions() & ios_base::failbit) != 0)
-	  throw;
+	  __throw_exception_again;
       }
       return __ret;
     }
 } // namespace std
 
 #endif // _CPP_BITS_STREAMBUF_TCC
-
-
-
-
 

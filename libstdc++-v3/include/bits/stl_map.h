@@ -1,3 +1,32 @@
+// Map implementation -*- C++ -*-
+
+// Copyright (C) 2001 Free Software Foundation, Inc.
+//
+// This file is part of the GNU ISO C++ Library.  This library is free
+// software; you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the
+// Free Software Foundation; either version 2, or (at your option)
+// any later version.
+
+// This library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License along
+// with this library; see the file COPYING.  If not, write to the Free
+// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// USA.
+
+// As a special exception, you may use this file as part of a free software
+// library without restriction.  Specifically, if other files instantiate
+// templates or use macros or inline functions from this file, or you compile
+// this file and link it with other files to produce an executable, this
+// file does not by itself cause the resulting executable to be covered by
+// the GNU General Public License.  This exception does not however
+// invalidate any other reasons why the executable file might be covered by
+// the GNU General Public License.
+
 /*
  *
  * Copyright (c) 1994
@@ -31,27 +60,21 @@
 #ifndef _CPP_BITS_STL_MAP_H
 #define _CPP_BITS_STL_MAP_H 1
 
-#include <bits/concept_checks.h>
+#include <bits/concept_check.h>
 
-__STL_BEGIN_NAMESPACE
-
-#if defined(__sgi) && !defined(__GNUC__) && (_MIPS_SIM != _MIPS_SIM_ABI32)
-#pragma set woff 1174
-#pragma set woff 1375
-#endif
+namespace std
+{
 
 template <class _Key, class _Tp, class _Compare = less<_Key>,
           class _Alloc = allocator<pair<const _Key, _Tp> > >
-class map {
+class map
+{
+  // concept requirements
+  __glibcpp_class_requires(_Tp, _SGIAssignableConcept);
+  __glibcpp_class_requires4(_Compare, bool, _Key, _Key, _BinaryFunctionConcept);
+
 public:
-
-// requirements:
-
-  __STL_CLASS_REQUIRES(_Tp, _Assignable);
-  __STL_CLASS_BINARY_FUNCTION_CHECK(_Compare, bool, _Key, _Key);
-
-// typedefs:
-
+  // typedefs:
   typedef _Key                 key_type;
   typedef _Tp                   data_type;
   typedef _Tp                   mapped_type;
@@ -94,7 +117,6 @@ public:
                const allocator_type& __a = allocator_type())
     : _M_t(__comp, __a) {}
 
-#ifdef __STL_MEMBER_TEMPLATES
   template <class _InputIterator>
   map(_InputIterator __first, _InputIterator __last)
     : _M_t(_Compare(), allocator_type())
@@ -104,27 +126,8 @@ public:
   map(_InputIterator __first, _InputIterator __last, const _Compare& __comp,
       const allocator_type& __a = allocator_type())
     : _M_t(__comp, __a) { _M_t.insert_unique(__first, __last); }
-#else
-  map(const value_type* __first, const value_type* __last)
-    : _M_t(_Compare(), allocator_type())
-    { _M_t.insert_unique(__first, __last); }
-
-  map(const value_type* __first,
-      const value_type* __last, const _Compare& __comp,
-      const allocator_type& __a = allocator_type())
-    : _M_t(__comp, __a) { _M_t.insert_unique(__first, __last); }
-
-  map(const_iterator __first, const_iterator __last)
-    : _M_t(_Compare(), allocator_type()) 
-    { _M_t.insert_unique(__first, __last); }
-
-  map(const_iterator __first, const_iterator __last, const _Compare& __comp,
-      const allocator_type& __a = allocator_type())
-    : _M_t(__comp, __a) { _M_t.insert_unique(__first, __last); }
-
-#endif /* __STL_MEMBER_TEMPLATES */
-
   map(const map<_Key,_Tp,_Compare,_Alloc>& __x) : _M_t(__x._M_t) {}
+
   map<_Key,_Tp,_Compare,_Alloc>&
   operator=(const map<_Key, _Tp, _Compare, _Alloc>& __x)
   {
@@ -164,19 +167,10 @@ public:
     { return _M_t.insert_unique(__x); }
   iterator insert(iterator position, const value_type& __x)
     { return _M_t.insert_unique(position, __x); }
-#ifdef __STL_MEMBER_TEMPLATES
   template <class _InputIterator>
   void insert(_InputIterator __first, _InputIterator __last) {
     _M_t.insert_unique(__first, __last);
   }
-#else
-  void insert(const value_type* __first, const value_type* __last) {
-    _M_t.insert_unique(__first, __last);
-  }
-  void insert(const_iterator __first, const_iterator __last) {
-    _M_t.insert_unique(__first, __last);
-  }
-#endif /* __STL_MEMBER_TEMPLATES */
 
   void erase(iterator __position) { _M_t.erase(__position); }
   size_type erase(const key_type& __x) { return _M_t.erase(__x); }
@@ -207,19 +201,12 @@ public:
     return _M_t.equal_range(__x);
   }
 
-#ifdef __STL_TEMPLATE_FRIENDS 
   template <class _K1, class _T1, class _C1, class _A1>
   friend bool operator== (const map<_K1, _T1, _C1, _A1>&,
                           const map<_K1, _T1, _C1, _A1>&);
   template <class _K1, class _T1, class _C1, class _A1>
   friend bool operator< (const map<_K1, _T1, _C1, _A1>&,
                          const map<_K1, _T1, _C1, _A1>&);
-#else /* __STL_TEMPLATE_FRIENDS */
-  friend bool __STD_QUALIFIER
-  operator== __STL_NULL_TMPL_ARGS (const map&, const map&);
-  friend bool __STD_QUALIFIER
-  operator< __STL_NULL_TMPL_ARGS (const map&, const map&);
-#endif /* __STL_TEMPLATE_FRIENDS */
 };
 
 template <class _Key, class _Tp, class _Compare, class _Alloc>
@@ -233,8 +220,6 @@ inline bool operator<(const map<_Key,_Tp,_Compare,_Alloc>& __x,
                       const map<_Key,_Tp,_Compare,_Alloc>& __y) {
   return __x._M_t < __y._M_t;
 }
-
-#ifdef __STL_FUNCTION_TMPL_PARTIAL_ORDER
 
 template <class _Key, class _Tp, class _Compare, class _Alloc>
 inline bool operator!=(const map<_Key,_Tp,_Compare,_Alloc>& __x, 
@@ -266,14 +251,7 @@ inline void swap(map<_Key,_Tp,_Compare,_Alloc>& __x,
   __x.swap(__y);
 }
 
-#endif /* __STL_FUNCTION_TMPL_PARTIAL_ORDER */
-
-#if defined(__sgi) && !defined(__GNUC__) && (_MIPS_SIM != _MIPS_SIM_ABI32)
-#pragma reset woff 1174
-#pragma reset woff 1375
-#endif
-
-__STL_END_NAMESPACE
+} // namespace std
 
 #endif /* _CPP_BITS_STL_MAP_H */
 
