@@ -98,24 +98,6 @@ static struct tree_opt_pass pass_inline =
   TODO_dump_func			/* todo_flags_finish */
 };
 
-/* Pass: dump the gimplified, inlined, functions.  */
-
-static struct tree_opt_pass pass_gimple = 
-{
-  "gimple",				/* name */
-  NULL,					/* gate */
-  NULL,					/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  0,					/* tv_id */
-  0,					/* properties_required */
-  PROP_gimple_any,			/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
-};
-
 /* Pass: cleanup the CFG.  */
 static struct tree_opt_pass pass_cleanup_cfg = 
 {
@@ -361,15 +343,16 @@ init_tree_optimization_passes (void)
 #define NEXT_PASS(PASS)  (p = next_pass_1 (p, &PASS))
 
   p = &all_passes;
-  NEXT_PASS (pass_gimple);
+  /* NEXT_PASS (pass_gimple); */
   NEXT_PASS (pass_inline);
-  NEXT_PASS (pass_remove_useless_stmts);
+  /* Kludge: until this optimization learns to update the CFG, omit it.  */
+  /* NEXT_PASS (pass_remove_useless_stmts); */
   NEXT_PASS (pass_mudflap_1);
-  NEXT_PASS (pass_lower_cf);
-  NEXT_PASS (pass_lower_eh);
-  NEXT_PASS (pass_build_cfg);
+  /* NEXT_PASS (pass_lower_cf);  */
+  /* NEXT_PASS (pass_lower_eh);  */
+  /* NEXT_PASS (pass_build_cfg); */
   NEXT_PASS (pass_pre_expand);
-  NEXT_PASS (pass_tree_profile);
+  /* NEXT_PASS (pass_tree_profile); */
   NEXT_PASS (pass_cleanup_cfg);
   NEXT_PASS (pass_init_datastructures);
   NEXT_PASS (pass_all_optimizations);
@@ -396,7 +379,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_tail_recursion);
   NEXT_PASS (pass_ch);
-  NEXT_PASS (pass_profile);
+  /* NEXT_PASS (pass_profile); */  /* FIXME: allow RTL profiling  */
   NEXT_PASS (pass_sra);
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_dominator);
@@ -436,7 +419,7 @@ init_tree_optimization_passes (void)
 #undef NEXT_PASS
 
   /* Register the passes with the tree dump code.  */
-  register_dump_files (all_passes, 0);
+  register_dump_files (all_passes, PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh | PROP_cfg);
 }
 
 static void execute_pass_list (struct tree_opt_pass *);
@@ -538,6 +521,8 @@ execute_pass_list (struct tree_opt_pass *pass)
 {
   do
     {
+      pass->properties_provided |= PROP_gimple_any | PROP_gimple_lcf 
+	| PROP_gimple_leh | PROP_cfg;
       if (execute_one_pass (pass) && pass->sub)
 	execute_pass_list (pass->sub);
       pass = pass->next;
@@ -556,6 +541,8 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   struct cgraph_node *saved_node = NULL, *node;
 
   timevar_push (TV_EXPAND);
+
+  tree_register_cfg_hooks ();
 
   if (flag_unit_at_a_time && !cgraph_global_info_ready)
     abort ();
@@ -608,6 +595,11 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
     {
       DECL_SAVED_TREE (fndecl) = cfun->saved_tree;
       DECL_ARGUMENTS (fndecl) = cfun->saved_args;
+      cfun->cfg = DECL_STRUCT_FUNCTION (cfun->saved_tree)->cfg;
+      cfun->eh = DECL_STRUCT_FUNCTION (cfun->saved_tree)->eh;
+      cfun->saved_cfg = (struct control_flow_graph *) 0;
+      cfun->saved_tree = NULL_TREE;
+      cfun->saved_args = NULL_TREE;
       cfun->static_chain_decl = cfun->saved_static_chain_decl;
 
       /* When not in unit-at-a-time mode, we must preserve out of line copy

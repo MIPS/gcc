@@ -984,8 +984,12 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 		}
 	      else
 		for (c = e->dest->succ; c; c = c->succ_next)
+		  {
 		  c->probability = ((c->probability * REG_BR_PROB_BASE)
 				    / (double) prob);
+		    if (c->probability > REG_BR_PROB_BASE)
+		      c->probability = REG_BR_PROB_BASE;
+		  }
 	      e->dest->frequency -= edge_frequency;
 	      if (e->dest->frequency < 0)
 		e->dest->frequency = 0;

@@ -24,13 +24,16 @@ Boston, MA 02111-1307, USA.  */
 
 /* Function prototypes.  */
 
+tree remap_decl_v (tree, void *);
 void optimize_inline_calls (tree);
 bool tree_inlinable_function_p (tree);
 tree copy_tree_r (tree *, int *, void *);
 void clone_body (tree, tree, void *);
 tree save_body (tree, tree *, tree *);
-void remap_save_expr (tree *, void *, int *);
+void remap_save_expr (tree *, void *, tree, int *);
 int estimate_num_insns (tree expr);
+void push_cfun (struct function *new_cfun);
+void pop_cfun (void);
 
 /* 0 if we should not perform inlining.
    1 if we should expand functions calls inline at the tree level.

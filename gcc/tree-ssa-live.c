@@ -461,7 +461,7 @@ new_tree_live_info (var_map map)
 
   live = (tree_live_info_p) xmalloc (sizeof (struct tree_live_info_d));
   live->map = map;
-  live->num_blocks = last_basic_block;
+  live->num_blocks = n_basic_blocks;
 
   live->global = BITMAP_XMALLOC ();
 

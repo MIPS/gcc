@@ -30,7 +30,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Iterator object for GENERIC or GIMPLE TREE statements.  */
 
-typedef struct {
+typedef struct tree_stmt_iterator_struct GTY(()) {
   struct tree_statement_list_node *ptr;
   tree container;
 } tree_stmt_iterator;

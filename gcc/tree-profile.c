@@ -146,7 +146,8 @@ tree_gen_const_delta_profiler (struct histogram_value *value ATTRIBUTE_UNUSED,
    If it is, set up hooks for tree-based profiling.
    Gate for pass_tree_profile.  */
 
-static bool do_tree_profiling (void)
+bool 
+do_tree_profiling (void)
 {
   if (flag_tree_based_profiling
       && (profile_arc_flag || flag_test_coverage || flag_branch_probabilities))

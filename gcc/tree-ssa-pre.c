@@ -28,7 +28,6 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "tree.h"
 #include "basic-block.h"
-#include "function.h"
 #include "diagnostic.h"
 #include "tree-inline.h"
 #include "tree-flow.h"
@@ -630,6 +629,10 @@ set_contains_value (value_set_t set, tree val)
 static bool
 bitmap_set_contains (bitmap_set_t set, tree expr)
 {
+  /* All constants are in every set.  */
+  if (is_gimple_min_invariant (get_value_handle (expr)))
+    return true;
+
   /* XXX: Bitmapped sets only contain SSA_NAME's for now.  */
   if (TREE_CODE (expr) != SSA_NAME)
     return false;
@@ -735,6 +738,7 @@ static void
 bitmap_value_insert_into_set (bitmap_set_t set, tree expr)
 {
   tree val = get_value_handle (expr);
+
   if (is_gimple_min_invariant (val))
     return;
   
@@ -1702,6 +1706,7 @@ create_value_expr_from (tree expr, basic_block block, vuse_optype vuses)
 	  tree val = vn_lookup_or_add (op, vuses);
 	  if (!is_undefined_value (op))
 	    value_insert_into_set (EXP_GEN (block), op);
+	  if (TREE_CODE (val) == VALUE_HANDLE)
 	  TREE_TYPE (val) = TREE_TYPE (TREE_OPERAND (vexpr, i));
 	  TREE_OPERAND (vexpr, i) = val;
 	}
