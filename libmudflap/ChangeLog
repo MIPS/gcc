@@ -1,3 +1,9 @@
+2003-06-03  Frank Ch. Eigler  <fche@redhat.com>
+
+	* acinclude.m4: Force "pass_all" deplibs_check_method for libtool
+	for x86_64 target.  Disable caching for this value.
+	* aclocal.m4, configure: Regenerated.
+
 2003-06-02  Frank Ch. Eigler  <fche@redhat.com>
 
 	* testsuite/libmudflap.c/pass38-frag.c: Deleted.  -fwritable-strings
