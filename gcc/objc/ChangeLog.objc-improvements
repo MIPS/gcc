@@ -1,3 +1,8 @@
+2004-08-21  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.act.c (objc_generate_static_init_call): Differentiate
+	behaviors wrt ObjC and ObjC++.
+
 2004-08-10  Ziemowit Laski  <zlaski@apple.com>
 
 	* Make-lang.in (objc/objc-act.o): Depend on $(HASHTAB_H).

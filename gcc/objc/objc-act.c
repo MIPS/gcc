@@ -2077,7 +2077,7 @@ objc_static_init_needed_p (void)
 }
 
 /* Generate a call to the __objc_gnu_init initializer function.  The routine
-   below gets called from within the bowels of C or C++, with a list of
+   below gets called from within the bowels of C and C++, with a list of
    initializer functions, from which we must remove __objc_gnu_init.  */
 
 tree
@@ -2085,13 +2085,21 @@ objc_generate_static_init_call (tree ctors)
 {
   tree *ctor_ptr = &ctors;
 
+#ifdef OBJCPLUS
   add_stmt (build_stmt (EXPR_STMT,
 			build_function_call (GNU_INIT_decl, NULL_TREE)));
+#endif
 
   while (*ctor_ptr)
     {
       if (TREE_VALUE (*ctor_ptr) == GNU_INIT_decl)
-	*ctor_ptr = TREE_CHAIN (*ctor_ptr);
+	{
+	  *ctor_ptr = TREE_CHAIN (*ctor_ptr);
+#ifndef OBJCPLUS
+	  ctors = chainon (build_tree_list (NULL_TREE, GNU_INIT_decl),
+			   ctors);
+#endif
+	}
       else
 	ctor_ptr = &TREE_CHAIN (*ctor_ptr);
     }
