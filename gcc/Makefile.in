@@ -1393,7 +1393,7 @@ tree-optimize.o : tree-optimize.c tree-optimize.h tree-flow.h $(CONFIG_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h flags.h tree-alias-steen.h
 c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-simple.h varray.h flags.h \
-   langhooks.h toplev.h rtl.h
+   langhooks.h toplev.h rtl.h tree-flow.h $(BASIC_BLOCK_H)
 simple-break-elim.o : simple-break-elim.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-dchain.h
 simple-goto-elim.o : simple-goto-elim.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
@@ -1404,6 +1404,12 @@ c-call-graph.o : c-call-graph.c $(CONFIG_H) $(SYSTEM_H) $(C_TREE_H) \
    $(C_COMMON_H) diagnostic.h hard-reg-set.h $(BASIC_BLOCK_H) tree-flow.h
 tree-simple.o : tree-simple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(EXPR_H) \
 	$(RTL_H) tree-simple.h
+tree-mudflap.o : $(CONFIG_H) errors.h $(SYSTEM_H) $(TREE_H) tree-inline.h \
+   $(C_TREE_H) $(C_COMMON_H) tree-simple.h diagnostic.h $(HASHTAB_H) \
+   output.h varray.h langhooks.h tree-mudflap.h
+tree-nomudflap.o : $(CONFIG_H) errors.h $(SYSTEM_H) $(TREE_H) tree-inline.h \
+   $(C_TREE_H) $(C_COMMON_H) tree-simple.h diagnostic.h $(HASHTAB_H) \
+   output.h varray.h langhooks.h tree-mudflap.h
 c-pretty-print.o : c-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(EXPR_H) $(C_COMMON_H) errors.h diagnostic.h
 stor-layout.o : stor-layout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h \

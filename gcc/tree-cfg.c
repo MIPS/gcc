@@ -743,8 +743,10 @@ make_for_stmt_edges (bb)
   basic_block init_bb, cond_bb, expr_bb, body_bb;
   int infinite_loop, zero_iter_loop;
 
+#if defined CHECKING
   if (TREE_CODE (entry) != FOR_STMT)
     abort ();
+#endif
 
   /* Create the following edges.
 
@@ -819,8 +821,10 @@ make_while_stmt_edges (bb)
   basic_block end_bb, body_bb;
   int infinite_loop, zero_iter_loop;
 
+#if defined CHECKING
   if (TREE_CODE (entry) != WHILE_STMT)
     abort ();
+#endif
 
   /* Create the following edges.  The other edges will be naturally created
      by the main loop in create_edges().
@@ -875,8 +879,10 @@ make_do_stmt_edges (bb)
   basic_block cond_bb, body_bb;
   int infinite_loop, one_iter_loop;
 
+#if defined CHECKING
   if (TREE_CODE (entry) != DO_STMT)
     abort ();
+#endif
 
   /* Create the following edges.  The remaining edges will be added
      by the main loop in make_edges().
@@ -931,8 +937,10 @@ make_if_stmt_edges (bb)
   tree then_t, else_t;
   int always_true, always_false;
 
+#if defined CHECKING
   if (TREE_CODE (entry) != IF_STMT)
     abort ();
+#endif
 
   /* Entry basic blocks for each component.  */
   then_t = first_exec_stmt (THEN_CLAUSE (entry));
@@ -986,8 +994,11 @@ make_goto_stmt_edges (bb)
   basic_block target_bb;
 
   goto_t = bb->end_tree;
+
+#if defined CHECKING
   if (goto_t == NULL || TREE_CODE (goto_t) != GOTO_STMT)
     abort ();
+#endif
 
   dest = GOTO_DESTINATION (goto_t);
 
@@ -1027,8 +1038,11 @@ make_break_stmt_edges (bb)
   basic_block control_parent;
 
   break_t = bb->end_tree;
+
+#if defined CHECKING
   if (break_t == NULL || TREE_CODE (break_t) != BREAK_STMT)
     abort ();
+#endif
 
   /* Look for the innermost containing SWITCH, WHILE, FOR or DO.  */
   control_parent = switch_parent (bb);
@@ -1057,8 +1071,11 @@ make_continue_stmt_edges (bb)
   basic_block loop_bb;
 
   continue_t = bb->end_tree;
+
+#if defined CHECKING
   if (continue_t == NULL || TREE_CODE (continue_t) != CONTINUE_STMT)
     abort ();
+#endif
 
   /* A continue statement *must* have an enclosing control structure.  */
   loop_bb = loop_parent (bb);
@@ -1226,8 +1243,10 @@ successor_block (bb)
   basic_block parent_bb;
   tree succ_stmt;
 
+#if defined CHECKING
   if (bb == NULL)
     abort ();
+#endif
 
   /* Common case.  For control flow header blocks, return the successor of
      the block's first statement.  For regular blocks, return the successor
@@ -1271,8 +1290,10 @@ int
 is_ctrl_stmt (t)
      tree t;
 {
+#if defined CHECKING
   if (t == NULL)
     abort ();
+#endif
 
   return (TREE_CODE (t) == FOR_STMT
 	  || TREE_CODE (t) == IF_STMT
@@ -1289,8 +1310,10 @@ int
 is_ctrl_altering_stmt (t)
      tree t;
 {
+#if defined CHECKING
   if (t == NULL)
     abort ();
+#endif
 
   if (TREE_CODE (t) == GOTO_STMT || TREE_CODE (t) == CONTINUE_STMT
       || TREE_CODE (t) == BREAK_STMT || TREE_CODE (t) == RETURN_STMT)
@@ -1320,8 +1343,10 @@ int
 is_loop_stmt (t)
      tree t;
 {
+#if defined CHECKING
   if (t == NULL)
     abort ();
+#endif
 
   return (TREE_CODE (t) == FOR_STMT
 	  || TREE_CODE (t) == WHILE_STMT || TREE_CODE (t) == DO_STMT);
@@ -1386,8 +1411,10 @@ int
 stmt_starts_bb_p (t)
      tree t;
 {
+#if defined CHECKING
   if (t == NULL)
     abort ();
+#endif
 
   return (TREE_CODE (t) == CASE_LABEL
 	  || TREE_CODE (t) == LABEL_STMT
@@ -1405,9 +1432,10 @@ int
 stmt_ends_bb_p (t)
      tree t;
 {
-  /* Sanity check.  */
+#if defined CHECKING
   if (t == NULL)
     abort ();
+#endif
 
   if (is_ctrl_altering_stmt (t)
       || TREE_CHAIN (t) == NULL || stmt_starts_bb_p (TREE_CHAIN (t)))
@@ -1647,9 +1675,11 @@ insert_stmt_tree_before (stmt, where, bb)
      tree where;
      basic_block bb;
 {
+#if defined CHECKING
   /* Make sure STMT is a statement with no existing chain.  */
   if (! statement_code_p (TREE_CODE (stmt)) || TREE_CHAIN (stmt))
     abort ();
+#endif
 
   dump_file = dump_begin (TDI_cfg, &dump_flags);
 
@@ -1809,8 +1839,10 @@ insert_before_normal_stmt (stmt, where, bb)
 	  last = TREE_CHAIN (last);
 	}
 
+#if defined CHECKING
       if (prev == NULL)
 	abort ();
+#endif
 
       TREE_CHAIN (prev) = stmt;
       TREE_CHAIN (stmt) = where;
@@ -1884,9 +1916,11 @@ insert_stmt_tree_after (stmt, where, bb)
      tree where;
      basic_block bb;
 {
+#if defined CHECKING
   /* Only accept statement trees.  */
   if (! statement_code_p (TREE_CODE (stmt)))
     abort ();
+#endif
 
   dump_file = dump_begin (TDI_cfg, &dump_flags);
 
@@ -2219,6 +2253,7 @@ find_expr_in_tree (t, expr)
       case REAL_CST:
       case RESULT_DECL:
       case STRING_CST:
+      case IDENTIFIER_NODE:
 	return NULL;
 
       case TREE_LIST:

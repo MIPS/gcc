@@ -35,9 +35,6 @@ union varref_def;
 /* Common features of every variable reference.  */
 struct treeref_common
 {
-  /* Reference ID.  Unique within a single function.  */
-  unsigned int id;
-
   /* Base symbol.  */
   tree sym;
 
@@ -52,6 +49,9 @@ struct treeref_common
 
   /* Reference type.  */
   enum treeref_type type;
+
+  /* Reference ID.  Unique within a single function.  */
+  unsigned int id;
 };
 
 
@@ -230,9 +230,18 @@ typedef union varref_def *varref;
 #define EXPRREF_SAVE(r) (r)->ecommon.save
 #define EXPRREF_RELOAD(r) (r)->ecommon.reload
 
-/* Return nonzero if R is a ghost definition.  */
-#define IS_GHOST_DEF(R)		\
-    (R && VARREF_TYPE (R) == VARDEF && VARREF_BB (R) == ENTRY_BLOCK_PTR)
+/* Return nonzero if R is a ghost definition.  Ghost definitions are
+   artificially created in the first basic block of the program.  They
+   provide a convenient way of checking if a variable is used without being
+   assigned a value first.  Their presence is not required, but they save
+   the code from having to consider special cases like nil PHI node
+   arguments.  */
+#define IS_GHOST_DEF(R)			\
+    (R					\
+     && VARREF_TYPE (R) == VARDEF	\
+     && VARREF_EXPR (R) == NULL_TREE	\
+     && VARREF_STMT (R) == NULL_TREE	\
+     && VARREF_BB (R)->index == 0)
 
 /* Return nonzero if R is an artificial definition (currently, a PHI term
    or a ghost definition).  */
@@ -262,9 +271,6 @@ struct tree_ann_def
   int flags;
 };
 
-#define TF_FOLD		1	/* Expression tree should be folded.  */
-
-
 typedef struct tree_ann_def *tree_ann;
 
 #define TREE_ANN(NODE)		((tree_ann)((NODE)->common.aux))
@@ -273,6 +279,10 @@ typedef struct tree_ann_def *tree_ann;
 #define TREE_REFS(NODE)		TREE_ANN (NODE)->refs
 #define TREE_COMPOUND_STMT(NODE) TREE_ANN (NODE)->compound_stmt
 #define TREE_FLAGS(NODE)	TREE_ANN (NODE)->flags
+
+/* Tree flags.  */
+#define TF_FOLD		1	/* Expression tree should be folded.  */
+#define TF_NOT_SIMPLE	2	/* The expression is not in SIMPLE form.  */
 
 
 /* Block annotations stored in basic_block.aux.  */

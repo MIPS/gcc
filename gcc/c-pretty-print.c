@@ -331,19 +331,15 @@ dump_c_node (buffer, node, spc)
     case RECORD_TYPE:
     case UNION_TYPE:
       /* Print the name of the structure.  */
-      if (TYPE_NAME (node))
-	{
-	  if (TREE_CODE (node) == RECORD_TYPE)
-	    output_add_string (buffer, "struct ");
-	  else if (TREE_CODE (node) == UNION_TYPE)
-	    output_add_string (buffer, "union ");
+      if (TREE_CODE (node) == RECORD_TYPE)
+	output_add_string (buffer, "struct ");
+      else if (TREE_CODE (node) == UNION_TYPE)
+	output_add_string (buffer, "union ");
 
-	  dump_c_node (buffer, TYPE_NAME (node), spc);
-	}
+      if (TYPE_NAME (node))
+	dump_c_node (buffer, TYPE_NAME (node), spc);
       else
-        output_add_string (buffer, "<unnamed type>");
-      /* Don't print the contents of the structure since the user don't asked 
-	 for explicitly.  */
+	print_struct_decl (buffer, node, spc);
       break;
 
     case QUAL_UNION_TYPE:
@@ -558,13 +554,13 @@ dump_c_node (buffer, node, spc)
       break;
 
     case BIT_FIELD_REF:
-      output_add_string (buffer, "__builtin_bit_field_ref (");
+      output_add_string (buffer, "BIT_FIELD_REF <");
       dump_c_node (buffer, TREE_OPERAND (node, 0), spc);
       output_add_string (buffer, ", ");
       dump_c_node (buffer, TREE_OPERAND (node, 1), spc);
       output_add_string (buffer, ", ");
       dump_c_node (buffer, TREE_OPERAND (node, 2), spc);
-      output_add_string (buffer, ")");
+      output_add_string (buffer, ">");
       break;
 
     case BUFFER_REF:
@@ -884,13 +880,15 @@ dump_c_node (buffer, node, spc)
       break;
 
     case SAVE_EXPR:
-      output_add_string (buffer, "SAVE_EXPR (");
+      output_add_string (buffer, "SAVE_EXPR <");
       dump_c_node (buffer, TREE_OPERAND (node, 0), spc);
-      output_add_character (buffer, ')');
+      output_add_character (buffer, '>');
       break;
 
     case UNSAVE_EXPR:
+      output_add_string (buffer, "UNSAVE_EXPR <");
       dump_c_node (buffer, TREE_OPERAND (node, 0), spc);
+      output_add_character (buffer, '>');
       break;
 
     case RTL_EXPR:

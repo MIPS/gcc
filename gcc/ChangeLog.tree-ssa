@@ -1,3 +1,57 @@
+2002-08-11  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (find_refs_in_expr): Use the given ref_type for some unary
+	expressions.
+	(create_ref): Insert ghost definitions at the beginning of the
+	basic block.
+	(find_expr_in_tree): Ignore IDENTIFIER_NODE.
+	* tree-flow.h (treeref_common): Move the id field to the end of the
+	structure.
+	(IS_GHOST_DEF): Redefine to return non zero for definitions
+	without an associated expression in basic block 0.
+	* tree-ssa-ccp.c (tree_ssa_ccp): Use last_basic_block to allocate
+	executable_blocks.
+	(visit_expression): Set the lattice value for ghost definitions to
+	VARYING.
+	(examine_flow_edges): Update comments.
+	* tree-ssa.c (tree_build_ssa): Create ghost definitions in basic
+	block 0.
+	(insert_phi_terms): Don't ignore ghost definitions.
+
+	* c-simplify.c (simplify_function_tree): Return 0 if the function's
+	body is not a COMPOUND_STMT.
+	Return 0 if simplification failed.
+	(simplify_expr): Change to return int.  Return non zero if
+	simplification was successful.
+	(c_simplify_expr): Add default case to avoid compile time warnings.
+	(create_tmp_alias_var): Reformat comment.
+	* tree-simple.h (simplify_expr): Change return type to int.
+
+	* c-simplify.c: Guard consistency checks with #if defined CHECKING
+	everywhere.
+	* tree-cfg.c: Ditto.
+	* tree-dfa.c: Ditto.
+	* tree-ssa-ccp.c: Ditto.
+	* tree-ssa.c: Ditto.
+
+	* c-simplify.c: Include hard-reg-set.h, basic-block.h and
+	tree-flow.h.
+	(mark_not_simple_r): New function.
+	(simplify_expr): Temporarily mark VA_ARG_EXPR and BIT_FIELD_REF
+	trees as not simplifiable.
+	(simplify_call_expr): If the builtin cannot be simplified, flag it.
+	* Makefile.in (c-simplify.o): Update dependencies.
+	* tree-dfa.c (create_ref): Variable references inside
+	non-simplifiable expressions are always considered definitions.
+	* tree-flow.h (TF_NOT_SIMPLE): New flag.
+	* tree-simple.c (is_simplifiable_builtin): Update comments.
+
+	* c-pretty-print.c (dump_c_node): Unparse anonymous structures and
+	unions.
+	Change rendering for SAVE_EXPR and BIT_FIELD_REF.
+
+	* Makefile.in (tree-mudflap.o, tree-nomudflap.o): Add.
+
 2002-08-11  Frank Ch. Eigler  <fche@redhat.com>
 
 	Prototype -fmudflap support.

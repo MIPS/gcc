@@ -89,7 +89,8 @@ tree_build_ssa ()
      with no statement or expression (to distinguish them from actual
      definitions).  */
   for (i = 0; i < NREF_SYMBOLS; i++)
-    create_ref (REF_SYMBOL (i), VARDEF, ENTRY_BLOCK_PTR, NULL, NULL);
+    create_ref (REF_SYMBOL (i), VARDEF, ENTRY_BLOCK_PTR->succ->dest, NULL,
+	        NULL);
 
   /* Insert the PHI terms and build FUD chains.  */
   insert_phi_terms (dfs);
@@ -160,16 +161,17 @@ insert_phi_terms (dfs)
       struct ref_list_node *tmp;
       varref ref;
 
+#if defined CHECKING
       /* Symbols in referenced_symbols must have at least 1 reference.  */
       if (TREE_REFS (sym)->first == NULL)
 	abort ();
+#endif
 
       FOR_EACH_REF (ref, tmp, TREE_REFS (sym))
 	{
 	  basic_block bb = VARREF_BB (ref);
 
-	  /* Ignore ghost definitions in ENTRY_BLOCK_PTR.  */
-	  if (VARREF_TYPE (ref) != VARDEF || IS_GHOST_DEF (ref))
+	  if (VARREF_TYPE (ref) != VARDEF)
 	    continue;
 
 	  VARRAY_PUSH_BB (work_stack, bb);
@@ -201,9 +203,6 @@ insert_phi_terms (dfs)
 		  while (stmt_bb
 		         && !statement_code_p (TREE_CODE (stmt_bb->head_tree)))
 		    stmt_bb = BB_PARENT (stmt_bb);
-
-		  if (stmt_bb == NULL)
-		    abort ();
 
 		  phi = create_ref (sym, VARPHI, bb, stmt_bb->head_tree,
 		                       NULL);
@@ -358,8 +357,11 @@ search_fud_chains (bb, idom)
 
 	  /* Restore the current definition for the variable.  */
 	  ann = TREE_ANN (sym);
+
+#if defined CHECKING
 	  if (ann == NULL)
 	    abort ();
+#endif
 
 	  ann->currdef = VARDEF_SAVE_CHAIN (ref);
 	}
@@ -420,7 +422,6 @@ tree_compute_rdefs ()
 	    follow_chain (VARUSE_CHAIN (u), u);
 	}
     }
-
 
   analyze_rdefs ();
 
@@ -539,9 +540,11 @@ follow_chain (d, u)
   if (d == NULL)
     return;
 
+#if defined CHECKING
   /* Consistency check.  D should be a definition or a PHI term.  */
   if (VARREF_TYPE (d) != VARDEF && VARREF_TYPE (d) != VARPHI)
     abort ();
+#endif
 
   /* Do nothing if we've already visited this definition.  */
   if (VARDEF_MARKED (d) == u)

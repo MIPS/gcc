@@ -32,6 +32,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-tree.h"
 #include "c-common.h"
 #include "tree-simple.h"
+#include "hard-reg-set.h"
+#include "basic-block.h"
+#include "tree-flow.h"
 #include "tree-inline.h"
 #include "diagnostic.h"
 #include "langhooks.h"
@@ -83,6 +86,7 @@ static inline void remove_suffix     PARAMS ((char *, int));
 static const char *get_name          PARAMS ((tree));
 static int is_last_stmt_of_scope     PARAMS ((tree));
 static tree tail_expression          PARAMS ((tree *, int));
+static tree mark_not_simple_r        PARAMS ((tree *, int *, void *));
 
 /* Should move to tree-simple.c when the target language loses the C-isms.  */
 static void simplify_constructor     PARAMS ((tree, tree *, tree *));
@@ -116,27 +120,32 @@ int
 simplify_function_tree (fndecl)
      tree fndecl;
 {
-  tree fnbody;
+  tree fnbody, fntree;
+  int done;
 
   /* Don't bother doing anything if the program has errors.  */
   if (errorcount || sorrycount)
     return 0;
   
-  fnbody = COMPOUND_BODY (DECL_SAVED_TREE (fndecl));
-  if (fnbody == NULL)
-    return 1;
+  fntree = DECL_SAVED_TREE (fndecl);
+  if (fntree == NULL_TREE || TREE_CODE (fntree) != COMPOUND_STMT)
+    return 0;
+
+  fnbody = COMPOUND_BODY (fntree);
+  if (fnbody == NULL_TREE)
+    return 0;
 
   /* Debugging dumps.  */
   dump_file = dump_begin (TDI_original, &dump_flags);
   if (dump_file)
     {
-      fprintf (dump_file, "%s()\n",
-	       IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+      fprintf (dump_file, "%s()\n", IDENTIFIER_POINTER (DECL_NAME (fndecl)));
 
       if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
       else
 	print_c_tree (dump_file, fnbody);
+      fprintf (dump_file, "\n");
 
       dump_end (TDI_original, dump_file);
     }
@@ -146,7 +155,14 @@ simplify_function_tree (fndecl)
   pushlevel (0);
 
   /* Simplify the function's body.  */
-  simplify_expr (&fnbody, NULL, NULL, NULL, fb_rvalue);
+  done = simplify_expr (&fnbody, NULL, NULL, NULL, fb_rvalue);
+
+  /* Return if simplification failed.  */
+  if (!done)
+    {
+      poplevel (1, 1, 0);
+      return 0;
+    }
 
   /* Declare the new temporary variables.  */
   declare_tmp_vars (getdecls(), fnbody);
@@ -158,8 +174,7 @@ simplify_function_tree (fndecl)
   dump_file = dump_begin (TDI_simple, &dump_flags);
   if (dump_file)
     {
-      fprintf (dump_file, "%s()\n",
-	       IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+      fprintf (dump_file, "%s()\n", IDENTIFIER_POINTER (DECL_NAME (fndecl)));
 
       if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
@@ -819,11 +834,13 @@ simplify_return_stmt (stmt, pre_p)
 	}
       else
 	{
+#if defined CHECKING
 	  /* A return expression is represented by a MODIFY_EXPR node that
 	     assigns the return value into a RESULT_DECL.  */
 	  if (TREE_CODE (ret_expr) != MODIFY_EXPR
 	      && TREE_CODE (ret_expr) != INIT_EXPR)
 	    abort ();
+#endif
 
 	  /* The grammar calls for a simple VAL here, but the RETURN_STMT
 	     already uses a MODIFY_EXPR, and using a full RHS allows us to
@@ -864,8 +881,10 @@ simplify_decl_stmt (t, pre_p, mid_p, post_p)
 {
   tree decl, init, mid, post;
 
+#if defined CHECKING
   if (TREE_CODE (t) != DECL_STMT)
     abort ();
+#endif
 
   if (is_simple_decl_stmt (t))
     return;
@@ -943,7 +962,8 @@ simplify_compound_literal_expr (expr_p, pre_p, post_p)
 
 /* Simplification of expression trees.  */
 
-/*  Simplifies the expression tree pointed by EXPR_P.
+/*  Simplifies the expression tree pointed by EXPR_P.  Return 0 if
+    simplification failed.
 
     PRE_P points to the list where side effects that must happen before
 	EXPR should be stored.
@@ -968,7 +988,7 @@ simplify_compound_literal_expr (expr_p, pre_p, post_p)
         bit is set, an rvalue is OK.  If the 2 bit is set, an lvalue is OK.
         If both are set, either is OK, but an lvalue is preferable.  */
 
-void
+int
 simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
      tree *expr_p;
      tree *pre_p;
@@ -985,15 +1005,16 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
       /* Temporary kludge: If pre_p is null, this is a statement.  Hand off
 	 to the C-specific code.  Soon we will have a l-i notion of
 	 statements.  */
-      (*lang_hooks.simplify_expr) (expr_p, pre_p, post_p);
-      return;
+      return (*lang_hooks.simplify_expr) (expr_p, pre_p, post_p);
     }
 
+#if defined CHECKING
   if (simple_test_f == NULL)
     abort ();
+#endif
 
   if ((*simple_test_f) (*expr_p))
-    return;
+    return 1;
 
   /* Set up our internal postqueue if needed.  */
   if (post_p == NULL)
@@ -1041,9 +1062,8 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 
     case REALPART_EXPR:
     case IMAGPART_EXPR:
-      simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-		     simple_test_f, fallback);
-      return;
+      return simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+		            simple_test_f, fallback);
 
     case MODIFY_EXPR:
     case INIT_EXPR:
@@ -1068,6 +1088,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
     /* va_arg expressions should also be left alone to avoid confusing the
        vararg code.  FIXME: Is this really necessary?  */
     case VA_ARG_EXPR:
+      walk_tree (expr_p, mark_not_simple_r, NULL, NULL);
       break;
 
     case NOP_EXPR:
@@ -1122,6 +1143,8 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
       simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, is_simple_id);
       simplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p, is_simple_val);
       simplify_expr (&TREE_OPERAND (*expr_p, 2), pre_p, post_p, is_simple_val);
+#else
+      walk_tree (expr_p, mark_not_simple_r, NULL, NULL);
 #endif
       break;
 
@@ -1164,7 +1187,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
      handling some post-effects internally; if that's the case, we need to
      copy into a temp before adding the post-effects to the tree.  */
   if (!internal_post && (*simple_test_f) (*expr_p))
-    return;
+    return 1;
 
   /* Otherwise, we need to create a new temporary for the simplified
      expression.  */
@@ -1184,8 +1207,10 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
     }
   else if ((fallback & fb_rvalue) && is_simple_rhs (*expr_p))
     {
+#if defined CHECKING
       if (VOID_TYPE_P (TREE_TYPE (*expr_p)))
 	abort ();
+#endif
 
       /* An rvalue will do.  Assign the simplified expression into a new
 	 temporary TMP and replace the original expression with TMP.  */
@@ -1199,12 +1224,16 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
       abort ();
     }
 
+#if defined CHECKING
   /* Make sure the temporary matches our predicate.  */
   if (!(*simple_test_f) (*expr_p))
     abort ();
+#endif
 
   if (internal_post)
     add_tree (internal_post, pre_p);
+
+  return 1;
 }
 
 /* Do C-specific simplification.  Args are as for simplify_expr.  */
@@ -1227,15 +1256,14 @@ c_simplify_expr (expr_p, pre_p, post_p)
     case COMPOUND_LITERAL_EXPR:
       simplify_compound_literal_expr (expr_p, pre_p, post_p);
       return 1;
-      break;
 
     case STMT_EXPR:
       simplify_stmt_expr (expr_p, pre_p);
       return 1;
-      break;
-    }
 
-  return 0;
+    default:
+      return 0;
+    }
 }
 
 /*  Build an expression for the address of T.  Folds away INDIRECT_REF to
@@ -1285,8 +1313,10 @@ simplify_array_ref (expr_p, pre_p, post_p)
   tree *p;
   varray_type dim_stack;
 
+#if defined CHECKING
   if (TREE_CODE (*expr_p) != ARRAY_REF)
     abort ();
+#endif
 
   VARRAY_GENERIC_PTR_INIT (dim_stack, 10, "dim_stack");
 
@@ -1330,8 +1360,10 @@ simplify_compound_lval (expr_p, pre_p, post_p)
   enum tree_code code;
   varray_type dim_stack;
 
+#if defined CHECKING
   if (TREE_CODE (*expr_p) != ARRAY_REF && TREE_CODE (*expr_p) != COMPONENT_REF)
     abort ();
+#endif
 
   /* Create a stack with all the array dimensions so that they can be
      simplified from left to right (to match user expectations).  */
@@ -1382,11 +1414,13 @@ simplify_self_mod_expr (expr_p, pre_p, post_p)
 
   code = TREE_CODE (*expr_p);
 
+#if defined CHECKING
   if (code != POSTINCREMENT_EXPR
       && code != POSTDECREMENT_EXPR
       && code != PREINCREMENT_EXPR
       && code != PREDECREMENT_EXPR)
     abort ();
+#endif
 
   /* Simplify the LHS into a SIMPLE lvalue.  */
   lvalue = TREE_OPERAND (*expr_p, 0);
@@ -1409,8 +1443,10 @@ simplify_self_mod_expr (expr_p, pre_p, post_p)
   else
     t1 = build (MINUS_EXPR, TREE_TYPE (*expr_p), lhs, rhs);
 
+#if defined CHECKING
   if (!is_simple_binary_expr (t1))
     abort ();
+#endif
 
   /* Determine whether the new assignment should go before or after
      the simplified expression.  */
@@ -1445,8 +1481,10 @@ simplify_component_ref (expr_p, pre_p, post_p)
 #else
   tree *p;
 
+#if defined CHECKING
   if (TREE_CODE (*expr_p) != COMPONENT_REF)
     abort ();
+#endif
 
   for (p = expr_p; TREE_CODE (*p) == COMPONENT_REF; p = &TREE_OPERAND (*p, 0))
     if (! is_simple_id (TREE_OPERAND (*p, 1)))
@@ -1473,13 +1511,22 @@ simplify_call_expr (expr_p, pre_p, post_p)
      tree *pre_p;
      tree *post_p;
 {
+#if defined CHECKING
   if (TREE_CODE (*expr_p) != CALL_EXPR)
     abort ();
+#endif
 
   /* Some builtins cannot be simplified because they require specific
-     arguments (e.g., __builtin_stdarg_start).  */
+     arguments (e.g., __builtin_stdarg_start).
+
+     FIXME: We should not need to do this!  Fix builtins so that they can
+	    be simplified.  The question mark are MD builtins.  */
   if (!is_simplifiable_builtin (*expr_p))
-    return;
+    {
+      /* Mark the whole expression not simplifiable.  */
+      walk_tree (expr_p, mark_not_simple_r, NULL, NULL);
+      return;
+    }
 
   simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, is_simple_id,
                  fb_rvalue);
@@ -1503,8 +1550,10 @@ simplify_tree_list (expr_p, pre_p, post_p)
 {
   tree op;
 
+#if defined CHECKING
   if (TREE_CODE (*expr_p) != TREE_LIST)
     abort ();
+#endif
 
   for (op = *expr_p; op; op = TREE_CHAIN (op))
     simplify_expr (&TREE_VALUE (op), pre_p, post_p, is_simple_val,
@@ -1536,8 +1585,10 @@ simplify_cond_expr (expr_p, pre_p)
 {
   tree t_then, t_else, tmp, pred, tval, fval, new_if, expr_type;
 
+#if defined CHECKING
   if (TREE_CODE (*expr_p) != COND_EXPR)
     abort ();
+#endif
 
   expr_type = TREE_TYPE (*expr_p);
 
@@ -1588,9 +1639,11 @@ simplify_modify_expr (expr_p, pre_p, post_p)
      tree *pre_p;
      tree *post_p;
 {
+#if defined CHECKING
   if (TREE_CODE (*expr_p) != MODIFY_EXPR
       && TREE_CODE (*expr_p) != INIT_EXPR)
     abort ();
+#endif
 
   simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
 		 is_simple_modify_expr_lhs, fb_lvalue);
@@ -1634,8 +1687,11 @@ simplify_boolean_expr (expr_p, pre_p)
   tree t, lhs, rhs, if_body, if_cond, if_stmt;
 
   code = TREE_CODE (*expr_p);
+
+#if defined CHECKING
   if (code != TRUTH_ANDIF_EXPR && code != TRUTH_ORIF_EXPR)
     abort ();
+#endif
 
   /* First, make sure that our operands are truthvalues.  This should
      already be the case, but they may have the wrong type.  */
@@ -1702,8 +1758,10 @@ simplify_compound_expr (expr_p, pre_p, post_p)
   tree t, ret;
   int i, num;
 
+#if defined CHECKING
   if (TREE_CODE (*expr_p) != COMPOUND_EXPR)
     abort ();
+#endif
 
   /* Count all the expressions in the sequence.  */
   num = 2;
@@ -1802,8 +1860,10 @@ simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f)
   tree post = NULL_TREE;
   int saw_other;
   
+#if defined CHECKING
   if (TREE_CODE (*expr_p) != EXPR_WITH_FILE_LOCATION)
     abort ();
+#endif
 
   file = input_filename;
   input_filename = EXPR_WFL_FILENAME (*expr_p);
@@ -1865,8 +1925,10 @@ simplify_save_expr (expr_p, pre_p)
      tree *expr_p;
      tree *pre_p;
 {
+#if defined CHECKING
   if (TREE_CODE (*expr_p) != SAVE_EXPR)
     abort ();
+#endif
 
   /* If the operand is already a SIMPLE temporary, just re-write the
      SAVE_EXPR node.  */
@@ -1909,8 +1971,10 @@ simplify_stmt_expr (expr_p, pre_p)
 	    last_expr_stmt = substmt;
 	}
 
+#if defined CHECKING
       if (!last_expr_stmt)
 	abort ();
+#endif
 
       last_expr = EXPR_STMT_EXPR (last_expr_stmt);
 
@@ -1922,8 +1986,10 @@ simplify_stmt_expr (expr_p, pre_p)
 	}
       else
 	{
+#if defined CHECKING
 	  if (!is_last_stmt_of_scope (last_expr_stmt))
 	    abort ();
+#endif
 
 	  temp = create_tmp_var (TREE_TYPE (last_expr), "retval");
 	  mod = build (INIT_EXPR, TREE_TYPE (temp), temp, last_expr);
@@ -2183,9 +2249,11 @@ create_tmp_var (type, prefix)
   
   ASM_FORMAT_PRIVATE_NAME (tmp_name, (prefix ? prefix : "T"), id_num++);
 
+#if defined CHECKING
   /* If the type is an array, something is wrong.  */
   if (TREE_CODE (type) == ARRAY_TYPE)
     abort ();
+#endif
 
   tmp_var = build_decl (VAR_DECL, get_identifier (tmp_name), type);
 
@@ -2207,8 +2275,8 @@ create_tmp_var (type, prefix)
   return tmp_var;
 }
 
-/*  Create a new temporary alias variable declaration of type TYPE.  Returns the
-    newly created decl. Does NOT push it into the current binding.  */
+/* Create a new temporary alias variable declaration of type TYPE.  Returns
+   the newly created decl.  Does NOT push it into the current binding.  */
 
 tree
 create_tmp_alias_var (type, prefix)
@@ -2229,9 +2297,11 @@ create_tmp_alias_var (type, prefix)
   
   ASM_FORMAT_PRIVATE_NAME (tmp_name, (prefix ? prefix : "T"), id_num++);
 
+#if defined CHECKING
   /* If the type is an array, something is wrong.  */
   if (TREE_CODE (type) == ARRAY_TYPE)
     abort ();
+#endif
 
   tmp_var = build_decl (VAR_DECL, get_identifier (tmp_name), type);
 
@@ -2315,8 +2385,10 @@ static void
 make_type_writable (t)
      tree t;
 {
+#if defined CHECKING
   if (t == NULL_TREE)
     abort ();
+#endif
 
   if (TYPE_READONLY (TREE_TYPE (t))
       || ((TREE_CODE (TREE_TYPE (t)) == RECORD_TYPE
@@ -2397,11 +2469,13 @@ tree_last_decl (scope)
   while (TREE_CODE (scope) == FILE_STMT)
     scope = TREE_CHAIN (scope);
 
+#if defined CHECKING
   /* In C99 mode, we can find DECL_STMT nodes before the body of the
      function.  In that case, we declare all the temporaries there.  */
   if (TREE_CODE (scope) != DECL_STMT
       && !SCOPE_BEGIN_P (scope))
     abort ();
+#endif
 
   /* Find the last declaration statement in the scope.  */
   last = scope;
@@ -2657,6 +2731,7 @@ tail_expression (chain, decl_is_bad)
   return NULL_TREE;
 }
 
+
 /* Returns nonzero if STMT is a SIMPLE declaration, i.e. one with no
    initializer.
 
@@ -2681,4 +2756,30 @@ is_simple_decl_stmt (stmt)
     return 1;
 
   return 0;
+}
+
+
+/* Callback for walk_tree.  Mark *TP and its sub-trees as not simplified.  */
+
+static tree
+mark_not_simple_r (tp, walk_subtrees, data)
+     tree *tp;
+     int *walk_subtrees;
+     void *data ATTRIBUTE_UNUSED;
+{
+  switch (TREE_CODE_CLASS (TREE_CODE (*tp)))
+    {
+      case 'c':
+      case 'd':
+      case 't':
+	/* Don't mark constants, declarations nor types.  */
+	*walk_subtrees = 0;
+	break;
+
+      default:
+	get_tree_ann (*tp)->flags |= TF_NOT_SIMPLE;
+	break;
+    }
+
+  return NULL_TREE;
 }

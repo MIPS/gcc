@@ -70,7 +70,7 @@ typedef enum fallback_t {
   fb_lvalue=2,
   fb_either=1|2
 } fallback_t;
-void simplify_expr		       PARAMS ((tree *, tree *, tree *,
+int simplify_expr		       PARAMS ((tree *, tree *, tree *,
 						int (*) PARAMS ((tree)),
 						fallback_t));
 

@@ -149,8 +149,11 @@ tree_ssa_ccp (fndecl)
   tree fnbody;
 
   fnbody = COMPOUND_BODY (DECL_SAVED_TREE (fndecl));
+
+#if defined CHECKING
   if (fnbody == NULL_TREE)
     abort ();
+#endif
 
   /* Initialize debugging dumps.  */
   dump_file = dump_begin (TDI_ccp, &dump_flags);
@@ -170,7 +173,7 @@ tree_ssa_ccp (fndecl)
      fraction of entries.  See if we can get away with less than half.  */
   VARRAY_GENERIC_PTR_INIT (ssa_edges, next_varref_id / 2, "ssa_edges");
 
-  executable_blocks = sbitmap_alloc (n_basic_blocks);
+  executable_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (executable_blocks);
 
   executable_edges = sbitmap_alloc (NUM_EDGES (edges));
@@ -380,9 +383,19 @@ visit_expression (ref)
 {
   tree expr;
 
+#if defined CHECKING
   /* PHI references should be dealt with by visit_phi_node.  */
   if (VARREF_TYPE (ref) == VARPHI)
     abort ();
+#endif
+
+  /* Special case for ghost definitions.  Set their lattice value to
+     VARYING. */
+  if (IS_GHOST_DEF (ref))
+    {
+      values[SSA_NAME (ref)].lattice_val = VARYING;
+      return;
+    }
 
   expr = VARREF_EXPR (ref);
 
@@ -543,6 +556,11 @@ examine_flow_edges (void)
 	    visit_phi_node (ref);
 	}
 
+#if defined ENABLE_CHECKING
+      if (succ_block->index < 0 || succ_block->index > last_basic_block)
+	abort ();
+#endif
+
       /* If this is the first time we've simulated this block, then we
 	 must simulate each of its insns.  */
       if (!TEST_BIT (executable_blocks, succ_block->index))
@@ -554,7 +572,7 @@ examine_flow_edges (void)
 
 	  FOR_EACH_REF (ref, tmp, blockrefs)
 	    {
-	      /* Simulate each insn within the block.  */
+	      /* Simulate each reference within the block.  */
 	      if (VARREF_TYPE (ref) != VARPHI)
 		visit_expression (ref);
 	    } 
@@ -668,8 +686,10 @@ ssa_ccp_substitute_constants ()
 
 	  if (values[id].lattice_val == CONSTANT)
 	    {
+#if defined CHECKING
 	      if (values[id].const_value == NULL_TREE)
 		abort ();
+#endif
 
 	      /* Replace the constant inside the expression and mark the
 		 expression for folding.  */
@@ -790,8 +810,10 @@ evaluate_expr_for (ref)
 	}
       else if (values[id].lattice_val == CONSTANT)
 	{
+#if defined CHECKING
 	  if (values[id].const_value == NULL_TREE)
 	    abort ();
+#endif
 
 	  /* The reference is a constant, substitute it into the
 	     expression.  */

@@ -304,7 +304,7 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
     case NOP_EXPR:
     case REALPART_EXPR:
     case REFERENCE_EXPR:
-      find_refs_in_expr (TREE_OPERAND (expr, 0), VARUSE, bb, parent_stmt,
+      find_refs_in_expr (TREE_OPERAND (expr, 0), ref_type, bb, parent_stmt,
 			 expr);
       break;
 
@@ -588,11 +588,22 @@ create_ref (sym, ref_type, bb, parent_stmt, parent_expr)
 {
   varref ref;
 
+#if defined CHECKING
   if (bb == NULL)
     abort ();
+#endif
 
   ref = (varref) ggc_alloc (sizeof (*ref));
   memset ((void *) ref, 0, sizeof (*ref));
+
+  /* If this reference is associated with a non SIMPLE expression, then we
+     change the reference type to VARDEF (regardless of the original
+     reference type) to indicate to the optimizers that this tree clobbers
+     the referenced variable.  */
+  if (parent_expr
+      && TREE_ANN (parent_expr)
+      && (TREE_FLAGS (parent_expr) & TF_NOT_SIMPLE))
+    ref_type = VARDEF;
 
   VARREF_ID (ref) = next_varref_id++;
   VARREF_SYM (ref) = sym;
@@ -649,11 +660,10 @@ create_ref (sym, ref_type, bb, parent_stmt, parent_expr)
      Make sure that PHI terms are added at the beginning of the list,
      otherwise FUD chaining will fail to link local uses to the PHI term in
      this basic block.  */
-  if (ref_type == VARPHI || ref_type == EXPRPHI)
+  if (ref_type == VARPHI || ref_type == EXPRPHI || IS_GHOST_DEF (ref))
     add_ref_to_list_begin (get_bb_ann (bb)->refs, ref);
   else
     add_ref_to_list_end (get_bb_ann (bb)->refs, ref);
-
 
   return ref;
 }
@@ -757,8 +767,10 @@ get_fcalls (fcalls_p, which)
 {
   basic_block bb;
 
+#if defined CHECKING
   if (fcalls_p == NULL || *fcalls_p == NULL)
     abort ();
+#endif
 
   FOR_EACH_BB (bb)
     {

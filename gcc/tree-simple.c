@@ -827,8 +827,11 @@ is_simple_exprseq (t)
 }
 
 /* Return nonzero if FNDECL can be simplified.  This is needed for
-   builtins like __builtin_stdarg_start expects its last parameter to be
-   one of the current function's arguments.  */
+   builtins like __builtin_stdarg_start that expects its last parameter to
+   be one of the current function's arguments.
+
+   FIXME: This should disappear.  This is just papering over problems with
+	  builtins and it's making the SIMPLE optimizers do extra work.  */
 
 int
 is_simplifiable_builtin (expr)
@@ -863,7 +866,6 @@ is_simplifiable_builtin (expr)
     case BUILT_IN_STRCSPN:
       t1 = TREE_VALUE (TREE_OPERAND (expr, 1));
       t2 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (expr, 1)));
-
       return !(string_constant (t1, &t3) || string_constant (t2, &t3));
 
       /* foo (const char *, ...).  */
@@ -873,7 +875,6 @@ is_simplifiable_builtin (expr)
     case BUILT_IN_INDEX:
     case BUILT_IN_FPUTS:
       t1 = TREE_VALUE (TREE_OPERAND (expr, 1));
-
       return !string_constant (t1, &t3);
 
       /* foo (..., const char *, ...).  */
@@ -882,7 +883,6 @@ is_simplifiable_builtin (expr)
     case BUILT_IN_STRCAT:
     case BUILT_IN_STRNCAT:
       t2 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (expr, 1)));
-
       return !string_constant (t2, &t3);
 
     case BUILT_IN_STDARG_START:
