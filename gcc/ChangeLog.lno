@@ -1,3 +1,24 @@
+2004-03-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (SCEV_H): New.
+	(tree-ssa-loop-ivcanon.o, tree-ssa-loop-ivopts.o,
+	tree-scalar-evolution.o, tree-data-ref.o, tree-dg.o,
+	tree-elim-check.o, tree-vectorizer.o, tree-loop-linear.o,
+	lambda-code.o): Use it.
+	* tree-chrec.h (build_interval_chrec, build_polynomial_chrec,
+	build_exponential_chrec, build_peeled_chrec): Give a type to the
+	chrec node.
+	* tree-scalar-evolution.c (follow_ssa_edge_in_rhs): Preserve correct
+	type.
+	(analyze_evolution_in_loop): Fix test for edges from inside the loop.
+	(scev_initialize): New.
+	(scev_init): Use it.
+	(scev_finalize): New.
+	(scev_done): Use it.
+	* tree-flow-inline.h (loop_of_stmt): Handle initialization statements
+	without crash.
+	* tree-scalar-evolution.h (scev_initialize, scev_finalize): Declare.
+
 2004-03-23  Dorit Naishlos  <dorit@il.ibm.com>
 
         * tree-vectorizer.c: (vect_align_data_ref): Check for DECL_ALIGN

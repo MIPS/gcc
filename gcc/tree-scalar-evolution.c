@@ -1625,7 +1625,7 @@ follow_ssa_edge_in_rhs (unsigned loop_nb,
 			tree *evolution_of_loop)
 {
   bool res = false;
-  tree rhs0, rhs1;
+  tree rhs0, rhs1, type = TREE_TYPE (rhs);
 
   /* The RHS is one of the following cases:
      - an SSA_NAME, 
@@ -1728,7 +1728,9 @@ follow_ssa_edge_in_rhs (unsigned loop_nb,
 	      if (res)
 		*evolution_of_loop = add_to_evolution 
 		  (loop_nb, *evolution_of_loop, 
-		   chrec_fold_multiply (rhs1, integer_minus_one_node));
+		   chrec_fold_multiply (rhs1,
+					convert (type,
+						 integer_minus_one_node)));
 	      
 	      else
 		{
@@ -1739,7 +1741,9 @@ follow_ssa_edge_in_rhs (unsigned loop_nb,
 		  if (res)
 		    *evolution_of_loop = add_to_evolution 
 		      (loop_nb, *evolution_of_loop, 
-		       chrec_fold_multiply (rhs0, integer_minus_one_node));
+		       chrec_fold_multiply (rhs0,
+					    convert (type,
+						     integer_minus_one_node)));
 		}
 	    }
 	  
@@ -1753,7 +1757,9 @@ follow_ssa_edge_in_rhs (unsigned loop_nb,
 	      if (res)
 		*evolution_of_loop = add_to_evolution 
 		  (loop_nb, *evolution_of_loop, 
-		   chrec_fold_multiply (rhs1, integer_minus_one_node));
+		   chrec_fold_multiply (rhs1,
+					convert (type,
+						 integer_minus_one_node)));
 	    }
 	}
       
@@ -1767,7 +1773,8 @@ follow_ssa_edge_in_rhs (unsigned loop_nb,
 	  if (res)
 	    *evolution_of_loop = add_to_evolution 
 	      (loop_nb, *evolution_of_loop, 
-	       chrec_fold_multiply (rhs0, integer_minus_one_node));
+	       chrec_fold_multiply (rhs0, convert (type,
+						   integer_minus_one_node)));
 	}
       
       else
@@ -2037,7 +2044,9 @@ analyze_evolution_in_loop (tree loop_phi_node,
 {
   int i;
   tree evolution_function = chrec_not_analyzed_yet;
-  unsigned loop_nb = loop_num (loop_of_stmt (loop_phi_node));
+  struct loop *loop = loop_of_stmt (loop_phi_node);
+  unsigned loop_nb = loop_num (loop);
+  basic_block def_bb;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -2050,51 +2059,50 @@ analyze_evolution_in_loop (tree loop_phi_node,
   for (i = 0; i < PHI_NUM_ARGS (loop_phi_node); i++)
     {
       tree arg = PHI_ARG_DEF (loop_phi_node, i);
+      tree ssa_chain, ev_fn;
+      bool res;
       
       /* The arguments that are not SSA_NAMEs don't come from the
 	 loop's body.  */
-      if (TREE_CODE (arg) == SSA_NAME)
-	{
-	  tree ssa_chain = SSA_NAME_DEF_STMT (arg);
+      if (TREE_CODE (arg) != SSA_NAME)
+	continue;
+
+      ssa_chain = SSA_NAME_DEF_STMT (arg);
+      if (!ssa_chain)
+	continue;
+      def_bb = bb_for_stmt (ssa_chain);
 	  
-	  /* Select the edges that enter the loop body.  */
-	  if (ssa_chain != NULL_TREE 
-	      && TREE_CODE (ssa_chain) != NOP_EXPR
-	      && (loop_depth (loop_of_stmt (ssa_chain)) 
-		  >= loop_depth (loop_of_stmt (loop_phi_node))))
-	    {
-	      bool res;
-	      /* Pass in the initial condition to the follow edge
-		 function.  */
-	      tree ev_fn = init_cond;
-	      res = follow_ssa_edge 
-		(loop_nb, ssa_chain, loop_phi_node, &ev_fn);
+      /* Select the edges that enter the loop body.  */
+      if (!def_bb
+	  || !flow_bb_inside_loop_p (loop, def_bb))
+	continue;
+
+      /* Pass in the initial condition to the follow edge function.  */
+      ev_fn = init_cond;
+      res = follow_ssa_edge (loop_nb, ssa_chain, loop_phi_node, &ev_fn);
 	      
-	      /* When it is impossible to go back on the same
-		 loop_phi_node by following the ssa edges, the
-		 evolution is represented by a peeled chrec, ie. the
-		 first iteration, EV_FN has the value INIT_COND, then
-		 all the other iterations it has the value of ARG.  */
-	      if (res == false)
-		{
-		  /* FIXME: when dealing with periodic scalars, the
-		     analysis of the scalar evolution of ARG would
-		     create an infinite recurrence.  Solution: don't
-		     try to simplify the peeled chrec at this time,
-		     but wait until having more information.   */
-		  tree arg_chrec = arg;
-		  ev_fn = build_peeled_chrec 
-		    (loop_nb, init_cond, arg_chrec);
+      /* When it is impossible to go back on the same
+	 loop_phi_node by following the ssa edges, the
+	 evolution is represented by a peeled chrec, ie. the
+	 first iteration, EV_FN has the value INIT_COND, then
+	 all the other iterations it has the value of ARG.  */
+      if (!res)
+	{
+	  /* FIXME: when dealing with periodic scalars, the
+	     analysis of the scalar evolution of ARG would
+	     create an infinite recurrence.  Solution: don't
+	     try to simplify the peeled chrec at this time,
+	     but wait until having more information.   */
+	  tree arg_chrec = arg;
+	  ev_fn = build_peeled_chrec (loop_nb, init_cond, arg_chrec);
 		  
-		  /* Try to simplify the peeled chrec.  */
-		  ev_fn = simplify_peeled_chrec (ev_fn);
-		}
-	      
-	      /* When there are multiple edges that enter the loop,
-		 merge their evolutions. */
-	      evolution_function = chrec_merge (evolution_function, ev_fn);
-	    }
+	  /* Try to simplify the peeled chrec.  */
+	  ev_fn = simplify_peeled_chrec (ev_fn);
 	}
+	      
+      /* When there are multiple edges that enter the loop,
+	 merge their evolutions. */
+      evolution_function = chrec_merge (evolution_function, ev_fn);
     }
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2724,15 +2732,13 @@ initialize_scalar_evolutions_analyzer (void)
     (build_int_2 (3333, 0), build_int_2 (4333, 0));
 }
 
-/* Initialize the analysis of scalar evolutions.  */
+/* Initialize the analysis of scalar evolutions for LOOPS.  */
 
-static void
-scev_init (void)
+void
+scev_initialize (struct loops *loops)
 {
-  current_loops = tree_loop_optimizer_init (NULL);
-  if (!current_loops)
-    return;
-  
+  current_loops = loops;
+
   scalar_evolution_info_st = NULL;
   already_instantiated_st = NULL;
   VARRAY_GENERIC_PTR_INIT (scalar_evolution_info_st, 100, 
@@ -2743,6 +2749,17 @@ scev_init (void)
   already_instantiated = &already_instantiated_st;
   
   initialize_scalar_evolutions_analyzer ();
+}
+
+/* Initialize the analysis of scalar evolutions.  */
+
+static void
+scev_init (void)
+{
+  current_loops = tree_loop_optimizer_init (NULL);
+  if (!current_loops)
+    return;
+  scev_initialize (current_loops);
 }
 
 /* Runs the analysis of scalar evolutions.  */
@@ -2799,6 +2816,16 @@ scev_vectorize (void)
   vectorize_loops (current_loops, *scalar_evolution_info);
 }
 
+/* Finalize the scalar evolution analysis.  */
+
+void
+scev_finalize (void)
+{
+  VARRAY_CLEAR (*scalar_evolution_info);
+  VARRAY_CLEAR (*already_instantiated);
+  current_loops = NULL;
+}
+
 /* Finalize the scalar evolution passes.  */
 
 static void
@@ -2806,11 +2833,9 @@ scev_done (void)
 {
   if (current_loops)
     {
-      VARRAY_CLEAR (*scalar_evolution_info);
-      VARRAY_CLEAR (*already_instantiated);
       loop_optimizer_finalize (current_loops, NULL);
+      scev_finalize ();
       cleanup_tree_cfg ();
-      current_loops = NULL;
     }
 
   dd_info_available = false;

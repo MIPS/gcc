@@ -583,7 +583,11 @@ bsi_stmt_ptr (block_stmt_iterator i)
 static inline struct loop *
 loop_of_stmt (tree stmt)
 {
-  return bb_for_stmt (stmt)->loop_father;
+  basic_block bb = bb_for_stmt (stmt);
+  if (!bb)
+    return NULL;
+
+  return bb->loop_father;
 }
 
 static inline bool

@@ -144,7 +144,7 @@ build_interval_chrec (tree low,
   if (integer_zerop (tree_fold_int_minus (up, low)))
     return low;
   else
-    return build (INTERVAL_CHREC, NULL_TREE, low, up);
+    return build (INTERVAL_CHREC, TREE_TYPE (low), low, up);
 }
 
 /* Build a polynomial chain of recurrence.  */
@@ -154,7 +154,7 @@ build_polynomial_chrec (unsigned loop_num,
 			tree left, 
 			tree right)
 {
-  return build (POLYNOMIAL_CHREC, NULL_TREE, 
+  return build (POLYNOMIAL_CHREC, TREE_TYPE (left), 
 		build_int_2 (loop_num, 0), left, right);
 }
 
@@ -165,7 +165,7 @@ build_exponential_chrec (unsigned loop_num,
 			 tree left, 
 			 tree right)
 {
-  return build (EXPONENTIAL_CHREC, NULL_TREE, 
+  return build (EXPONENTIAL_CHREC, TREE_TYPE (left), 
 		build_int_2 (loop_num, 0), left, right);
 }
 
@@ -176,7 +176,7 @@ build_peeled_chrec (unsigned loop_num,
 		    tree left, 
 		    tree right)
 {
-  return build (PEELED_CHREC, NULL_TREE,
+  return build (PEELED_CHREC, TREE_TYPE (left),
 		build_int_2 (loop_num, 0), left, right);
 }
 

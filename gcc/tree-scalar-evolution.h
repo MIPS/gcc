@@ -26,6 +26,8 @@ extern tree number_of_iterations_in_loop (struct loop *);
 extern void number_of_iterations_for_all_loops (varray_type *);
 extern tree get_loop_exit_condition (struct loop *);
 
+extern void scev_initialize (struct loops *loops);
+extern void scev_finalize (void);
 extern tree analyze_scalar_evolution (unsigned, tree);
 extern tree instantiate_parameters (unsigned, tree);
 
