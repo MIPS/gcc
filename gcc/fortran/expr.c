@@ -932,7 +932,7 @@ simplify_const_ref (gfc_expr * p)
 	      if (p->ref->next != NULL)
 		{
 		  /* TODO: Simplify array subobject references.  */
-		  return FAILURE;
+		  return SUCCESS;
 		}
 		gfc_free_ref_list (p->ref);
 		p->ref = NULL;
@@ -940,7 +940,7 @@ simplify_const_ref (gfc_expr * p)
 
 	    default:
 	      /* TODO: Simplify array subsections.  */
-	      return FAILURE;
+	      return SUCCESS;
 	    }
 
 	  break;
@@ -952,7 +952,7 @@ simplify_const_ref (gfc_expr * p)
 
 	case REF_SUBSTRING:
 	  /* TODO: Constant substrings.  */
-	  return FAILURE;
+	  return SUCCESS;
 	}
     }
 
@@ -1039,7 +1039,8 @@ simplify_parameter_variable (gfc_expr * p, int type)
      0   Basic expression parsing
      1   Simplifying array constructors -- will substitute
          iterator values.
-   Returns FAILURE on error, SUCCESS otherwise.  */
+   Returns FAILURE on error, SUCCESS otherwise.
+   NOTE: Will return SUCCESS even if the expression can not be simplified.  */
 
 try
 gfc_simplify_expr (gfc_expr * p, int type)

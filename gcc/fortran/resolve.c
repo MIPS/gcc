@@ -2017,12 +2017,13 @@ gfc_resolve_expr (gfc_expr * e)
       if (resolve_ref (e) == FAILURE)
 	break;
 
-      expression_rank (e);
-
       t = gfc_resolve_array_constructor (e);
       /* Also try to expand a constructor.  */
       if (t == SUCCESS)
-	gfc_expand_constructor (e);
+	{
+	  expression_rank (e);
+	  gfc_expand_constructor (e);
+	}
 
       break;
 

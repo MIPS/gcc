@@ -1,5 +1,11 @@
 2003-11-24  Paul Brook  <paul@nowt.org>
 
+	* expr.c (simplify_const_ref): Return SUCCESS for things we don't
+	handle.
+	* resolve.c (gfc_resolve_expr): Resolve contents before rank/shape.
+
+2003-11-24  Paul Brook  <paul@nowt.org>
+
 	PR fortran/13105
 	* array.c (gfc_array_ref_shape): Handle elemental dimensions.
 	* trans-array.c (gfc_trans_preloop_setup): Use correct dim lookup.
