@@ -1,3 +1,8 @@
+2003-03-05  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* haifa-sched.c (schedule_block): Don't call reorder when sorting
+	is prohibited.
+
 2003-03-03  Vladimir Makarov  <vmakarov@redhat.com>
 
         Backport of the dfa scheduler and itanium insn bundling:
