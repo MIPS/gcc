@@ -1256,7 +1256,9 @@ find_fg_color_widget (GtkWidget *widget)
 {
   GtkWidget *fg_color_widget;
 
-  if (GTK_IS_EVENT_BOX (widget) || GTK_IS_BUTTON (widget))
+  if (GTK_IS_EVENT_BOX (widget)
+      || (GTK_IS_BUTTON (widget)
+          && !GTK_IS_OPTION_MENU (widget)))
     fg_color_widget = gtk_bin_get_child (GTK_BIN(widget));
   else
     fg_color_widget = widget;

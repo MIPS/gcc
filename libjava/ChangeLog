@@ -1,5 +1,8 @@
 2004-05-26  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
+	(find_fg_color_widget): Handle GtkOptionMenu specially.
+
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c
 	(pre_event_handler): Only post configure events to visible
 	top-level windows.
