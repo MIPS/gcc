@@ -18,7 +18,40 @@
    Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    02111-1307, USA.  */
 
-/* References:
+/* This (greedy) algorithm constructs traces in several rounds.  
+   The construction starts from "seeds".  The seed for the first round
+   is the entry point of function.  When there are more than one seed
+   that one is selected first that has the lowest key in the heap
+   (see function bb_to_key).  Then the algorithm selects the most probable
+   successor.  Finally it connects the traces.
+
+   
+   There are two parameters: Branch Threshold and Exec Threshold.
+   If the edge to a successor of the actual basic block is lower than
+   Branch Threshold or the frequency of the successor is lower than
+   Exec Threshold the successor will be the seed in one of the next rounds.
+   Each round has these parameters lower than the previous one.
+   The last round has to have these parameters set to zero 
+   so that the remaining blocks are picked up.
+
+   
+   The algorithm selects the most probable successor from all unvisited
+   successors and visited successors that can be copied (function copy_bb_p).
+   The other successors (that has not been "sent" to the next round) will be
+   other seeds for this round and the secondary traces will start in them.
+
+   There are several cases of the selected successor's state:
+   1.  The duplicate of the successor is in this trace: The algorithm
+   terminates the construction of the trace.
+   2.  The successor has been visited in this trace: The algorithm rotates
+   the loop if it is profitable, and terminates the construction of the trace.
+   3.  The successor has been visited (NOT in this trace): It is duplicated
+   and the duplicate is added to the trace.
+   4.  Otherwise: It is added to the trace (however, there is some heuristic for
+   simple branches).
+
+
+   References:
 
    "Software Trace Cache"
    Ramirez, Larriba-Pey, Navarro, Torrellas and Valero; 1999
@@ -336,7 +369,7 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 	      else if (RBI (best_edge->dest)->visited == *n_traces)
 		/* BEST_EDGE->DEST is in current trace.  */
 		{
-		  if (bb != best_edge->dest)
+		  if (best_edge->dest != bb && best_edge->dest->index != 0)
 		    {
 		      edge e;
 
