@@ -4374,6 +4374,9 @@ extern int  cxx_dump_lineno_p 			PARAMS ((FILE *, tree));
 extern int  cxx_dmp_tree3			PARAMS ((FILE *, tree, int));
 /* APPLE LOCAL end new tree dump */
 
+/* APPLE LOCAL kext identify vtables */
+extern int cp_vtable_p (tree);
+
 /* in cp-simplify.c */
 extern int cp_gimplify_expr		        (tree *, tree *, tree *);
 extern void cp_genericize			(tree);

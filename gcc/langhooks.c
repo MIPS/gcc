@@ -399,6 +399,14 @@ lhd_dmp_tree3_do_nothing (FILE *file ATTRIBUTE_UNUSED,
 }
 /* APPLE LOCAL end new tree dump */
 
+/* APPLE LOCAL begin kext identify vtables */
+int
+lhd_vtable_p (tree t ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+/* APPLE LOCAL end kext identify vtables */
+
 /* lang_hooks.tree_inlining.start_inlining and end_inlining perform any
    language-specific bookkeeping necessary for processing
    FN. start_inlining returns nonzero if inlining should proceed, zero if

@@ -58,6 +58,8 @@ extern int  lhd_dump_tree_blank_line_do_nothing (tree, tree);
 extern int  lhd_dump_tree_lineno_do_nothing (FILE *, tree);
 extern int lhd_dmp_tree3_do_nothing (FILE *, tree, int);
 /* APPLE LOCAL end new tree dump */
+/* APPLE LOCAL kext identify vtables */
+extern int lhd_vtable_p (tree);
 extern const char *lhd_decl_printable_name (tree, int);
 extern int lhd_types_compatible_p (tree, tree);
 extern rtx lhd_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
@@ -133,6 +135,8 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_DUMP_LINENO_P	lhd_dump_tree_lineno_do_nothing
 #define LANG_HOOKS_DMP_TREE3		lhd_dmp_tree3_do_nothing
 /* APPLE LOCAL end new tree dump */
+/* APPLE LOCAL kext identify vtables */
+#define LANG_HOOKS_VTABLE_P		lhd_vtable_p
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION lhd_print_error_function
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	lhd_decl_printable_name
 #define LANG_HOOKS_GET_CALLEE_FNDECL	lhd_return_null_tree
@@ -316,6 +320,8 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_DUMP_LINENO_P, \
   LANG_HOOKS_DMP_TREE3, \
 /* APPLE LOCAL end new tree dump */ \
+/* APPLE LOCAL kext identify vtables */ \
+  LANG_HOOKS_VTABLE_P, \
   LANG_HOOKS_FUNCTION_INITIALIZER, \
   LANG_HOOKS_TREE_INLINING_INITIALIZER, \
   LANG_HOOKS_CALLGRAPH_INITIALIZER, \

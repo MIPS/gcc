@@ -20645,7 +20645,9 @@ rs6000_xcoff_file_end (void)
 static bool
 rs6000_binds_local_p (tree decl)
 {
-  return default_binds_local_p_1 (decl, 0);
+  /* APPLE LOCAL kext treat vtables as overridable  */
+  return default_binds_local_p_1 (decl, 
+	flag_apple_kext && lang_hooks.vtable_p (decl));
 }
 #endif
 

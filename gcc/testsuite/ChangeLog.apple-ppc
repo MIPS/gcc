@@ -1,3 +1,7 @@
+2005-02-06  Dale Johannesen  <dalej@apple.com>
+
+	* g++.dg/kext10.C: new.
+
 2005-02-02  Stan Shebs  <shebs@apple.com>
 
 	* gcc.apple/align-test-5b.c: Xfail for 64-bit.

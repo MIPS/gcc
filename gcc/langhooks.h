@@ -400,6 +400,9 @@ struct lang_hooks
   int  (*dmp_tree3)         PARAMS ((FILE *, tree, int));
   /* APPLE LOCAL end new tree dump */
 
+  /* APPLE LOCAL kext identify vtables */
+  int (*vtable_p)	    (tree);
+
   /* Function-related language hooks.  */
   struct lang_hooks_for_functions function;
 

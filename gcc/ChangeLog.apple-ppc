@@ -1,3 +1,15 @@
+2005-02-06  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3988061
+	* langhooks-def.h:  add lhd_vtable_p, LANG_HOOKS_VTABLE_P
+	langhooks.c (lhd_vtable_p):  New.
+	langhooks.h (struct lang_hooks):  Add vtable_p.
+	config/rs6000/rs6000.c (rs6000_binds_local_p):  Treat kext
+	vtables as non-local-binding.
+	cp/objcp-common.c (cp_vtable_p):  New.
+	cp/objcp-common.h:  Use it for LANG_HOOKS_VTABLE_P.
+	cp/cp-tree.h:  Declare it.
+
 2005-02-06  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 3984134 (again)
