@@ -1,4 +1,4 @@
-# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p6 from Makefile.am
 
 # Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
@@ -67,14 +67,25 @@ AR = @AR@
 AS = @AS@
 ATOMICITY_INC_SRCDIR = @ATOMICITY_INC_SRCDIR@
 AWK = @AWK@
+BASIC_FILE_CC = @BASIC_FILE_CC@
 BASIC_FILE_H = @BASIC_FILE_H@
 CC = @CC@
 CCODECVT_C = @CCODECVT_C@
+CCODECVT_CC = @CCODECVT_CC@
 CCODECVT_H = @CCODECVT_H@
+CCOLLATE_CC = @CCOLLATE_CC@
+CCTYPE_CC = @CCTYPE_CC@
+CLOCALE_CC = @CLOCALE_CC@
 CLOCALE_H = @CLOCALE_H@
+CLOCALE_INTERNAL_H = @CLOCALE_INTERNAL_H@
+CMESSAGES_CC = @CMESSAGES_CC@
 CMESSAGES_H = @CMESSAGES_H@
+CMONEY_CC = @CMONEY_CC@
+CNUMERIC_CC = @CNUMERIC_CC@
 CPP = @CPP@
 CSTDIO_H = @CSTDIO_H@
+CTIME_CC = @CTIME_CC@
+CTIME_H = @CTIME_H@
 CXXCPP = @CXXCPP@
 C_INCLUDE_DIR = @C_INCLUDE_DIR@
 DEBUG_FLAGS = @DEBUG_FLAGS@
@@ -105,6 +116,7 @@ RANLIB = @RANLIB@
 SECTION_FLAGS = @SECTION_FLAGS@
 SECTION_LDFLAGS = @SECTION_LDFLAGS@
 STRIP = @STRIP@
+SYMVER_MAP = @SYMVER_MAP@
 TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
 USE_NLS = @USE_NLS@
 VERSION = @VERSION@
@@ -166,6 +178,11 @@ libv3test_a_SOURCES = testsuite_hooks.cc testsuite_allocator.cc
 @GLIBCPP_BUILD_ABI_CHECK_TRUE@noinst_PROGRAMS = @GLIBCPP_BUILD_ABI_CHECK_TRUE@abi_check
 @GLIBCPP_BUILD_ABI_CHECK_FALSE@noinst_PROGRAMS = 
 abi_check_SOURCES = abi_check.cc
+
+# By adding these files here, automake will remove them for 'make clean'
+CLEANFILES = *.txt *.tst *.exe core* filebuf_* tmp* ostream_* *.log *.sum \
+	     testsuite_files testsuite_wchar_t site.exp abi_check 
+
 mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
 CONFIG_HEADER = ../config.h
 CONFIG_CLEAN_FILES = 
@@ -388,7 +405,7 @@ install-am: all-am
 install: install-am
 uninstall-am:
 uninstall: uninstall-am
-all-am: Makefile $(LIBRARIES) $(PROGRAMS)
+all-am: Makefile $(LIBRARIES) $(PROGRAMS) all-local
 all-redirect: all-am
 install-strip:
 	$(MAKE) $(AM_MAKEFLAGS) AM_INSTALL_PROGRAM_FLAGS=-s install
@@ -398,6 +415,7 @@ installdirs:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-rm -f Makefile $(CONFIG_CLEAN_FILES)
@@ -442,10 +460,17 @@ maintainer-clean-noinstPROGRAMS tags mostlyclean-tags distclean-tags \
 clean-tags maintainer-clean-tags distdir check-DEJAGNU info-am info \
 dvi-am dvi check check-am installcheck-am installcheck install-info-am \
 install-info install-exec-am install-exec install-data-am install-data \
-install-am install uninstall-am uninstall all-redirect all-am all \
-installdirs mostlyclean-generic distclean-generic clean-generic \
+install-am install uninstall-am uninstall all-local all-redirect all-am \
+all installdirs mostlyclean-generic distclean-generic clean-generic \
 maintainer-clean-generic clean mostlyclean distclean maintainer-clean
 
+
+# Enable wchar_t tests if capable.
+@GLIBCPP_TEST_WCHAR_T_TRUE@all-local: stamp_wchar
+@GLIBCPP_TEST_WCHAR_T_FALSE@all-local:
+
+stamp_wchar:
+	touch testsuite_wchar_t
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

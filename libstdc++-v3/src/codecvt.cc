@@ -1,4 +1,4 @@
-// Copyright (C) 2000, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -46,26 +46,22 @@ namespace std
   codecvt<char, char, mbstate_t>::
   codecvt(size_t __refs)
   : __codecvt_abstract_base<char, char, mbstate_t>(__refs)
-  { _M_c_locale_codecvt = _S_c_locale; }
-
-  codecvt<char, char, mbstate_t>::
-  codecvt(__c_locale __cloc, size_t __refs)
-  : __codecvt_abstract_base<char, char, mbstate_t>(__refs)
-  { _M_c_locale_codecvt = _S_clone_c_locale(__cloc); }
+  { }
 
   codecvt<char, char, mbstate_t>::
   ~codecvt()
-  { _S_destroy_c_locale(_M_c_locale_codecvt); }
+  { }
   
   codecvt_base::result
   codecvt<char, char, mbstate_t>::
   do_out(state_type&, const intern_type* __from, 
-	 const intern_type* __from_end, const intern_type*& __from_next,
-	 extern_type* __to, extern_type* __to_end, 
+	 const intern_type*, const intern_type*& __from_next,
+	 extern_type* __to, extern_type*, 
 	 extern_type*& __to_next) const
   { 
-    size_t __len = min(__from_end - __from, __to_end - __to);
-    memcpy(__to, __from, __len);
+    // _GLIBCPP_RESOLVE_LIB_DEFECTS
+    // According to the resolution of DR19, "If returns noconv [...]
+    // there are no changes to the values in [to, to_limit)."
     __from_next = __from; 
     __to_next = __to;
     return noconv;  
@@ -83,12 +79,13 @@ namespace std
   codecvt_base::result
   codecvt<char, char, mbstate_t>::
   do_in(state_type&, const extern_type* __from, 
-	const extern_type* __from_end, const extern_type*& __from_next,
-	intern_type* __to, intern_type* __to_end, 
+	const extern_type*, const extern_type*& __from_next,
+	intern_type* __to, intern_type*, 
 	intern_type*& __to_next) const
-  { 
-    size_t __len = min(__from_end - __from, __to_end - __to);
-    memcpy(__to, __from, __len);
+  {
+    // _GLIBCPP_RESOLVE_LIB_DEFECTS
+    // According to the resolution of DR19, "If returns noconv [...]
+    // there are no changes to the values in [to, to_limit)."
     __from_next = __from; 
     __to_next = __to;
     return noconv;  
@@ -120,16 +117,11 @@ namespace std
   codecvt<wchar_t, char, mbstate_t>::
   codecvt(size_t __refs)
   : __codecvt_abstract_base<wchar_t, char, mbstate_t>(__refs)
-  { _M_c_locale_codecvt = _S_c_locale; }
-
-  codecvt<wchar_t, char, mbstate_t>::
-  codecvt(__c_locale __cloc, size_t __refs)
-  : __codecvt_abstract_base<wchar_t, char, mbstate_t>(__refs)
-  { _M_c_locale_codecvt = _S_clone_c_locale(__cloc); }
+  { }
 
   codecvt<wchar_t, char, mbstate_t>::
   ~codecvt()
-  { _S_destroy_c_locale(_M_c_locale_codecvt); }
+  { }
   
   codecvt_base::result
   codecvt<wchar_t, char, mbstate_t>::

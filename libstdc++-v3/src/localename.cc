@@ -1,4 +1,4 @@
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002m 2003
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -170,7 +170,7 @@ namespace std
 
     // Construct all standard facets and add them to _M_facets.  
     _M_init_facet(new std::ctype<char>(__cloc, 0, false));
-    _M_init_facet(new codecvt<char, char, mbstate_t>(__cloc));
+    _M_init_facet(new codecvt<char, char, mbstate_t>);
     _M_init_facet(new numpunct<char>(__cloc));
     _M_init_facet(new num_get<char>);
     _M_init_facet(new num_put<char>);
@@ -186,7 +186,7 @@ namespace std
 	
 #ifdef  _GLIBCPP_USE_WCHAR_T
     _M_init_facet(new std::ctype<wchar_t>(__cloc));
-    _M_init_facet(new codecvt<wchar_t, char, mbstate_t>(__cloc));
+    _M_init_facet(new codecvt<wchar_t, char, mbstate_t>);
     _M_init_facet(new numpunct<wchar_t>(__cloc));
     _M_init_facet(new num_get<wchar_t>);
     _M_init_facet(new num_put<wchar_t>);
@@ -209,7 +209,10 @@ namespace std
   : _M_references(__refs), _M_facets_size(_GLIBCPP_NUM_FACETS)
   {
     // Initialize the underlying locale model.
-    locale::facet::_S_create_c_locale(locale::facet::_S_c_locale, "C");
+    locale::facet::_S_c_name[0] = 'C';
+    locale::facet::_S_c_name[1] = '\0';
+    locale::facet::_S_create_c_locale(locale::facet::_S_c_locale, 
+				      locale::facet::_S_c_name);
 
     _M_facets = new(&facet_vec) facet*[_M_facets_size];
     for (size_t __i = 0; __i < _M_facets_size; ++__i)
@@ -220,7 +223,7 @@ namespace std
 	 __i < _S_categories_size + _S_extra_categories_size; ++__i)
       {
 	_M_names[__i]  = new (&facet_name[__i]) char[2];
-	strcpy(_M_names[__i], "C");
+	strcpy(_M_names[__i], locale::facet::_S_c_name);
       }
 
     // This is needed as presently the C++ version of "C" locales

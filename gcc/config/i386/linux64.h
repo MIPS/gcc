@@ -1,5 +1,5 @@
 /* Definitions for AMD x86-64 running Linux-based GNU systems with ELF format.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Jan Hubicka <jh@suse.cz>, based on linux.h.
 
 This file is part of GNU CC.
@@ -35,6 +35,11 @@ Boston, MA 02111-1307, USA.  */
 	  {							\
 	    builtin_define ("__PIC__");				\
 	    builtin_define ("__pic__");				\
+	  }							\
+	if (TARGET_64BIT)					\
+	  {							\
+	    builtin_define ("__LP64__");			\
+	    builtin_define ("_LP64");				\
 	  }							\
     }								\
   while (0)
@@ -116,17 +121,17 @@ Boston, MA 02111-1307, USA.  */
     (FS)->regs.reg[0].how = REG_SAVED_OFFSET;				\
     (FS)->regs.reg[0].loc.offset = (long)&sc_->rax - new_cfa_;		\
     (FS)->regs.reg[1].how = REG_SAVED_OFFSET;				\
-    (FS)->regs.reg[1].loc.offset = (long)&sc_->rbx - new_cfa_;		\
+    (FS)->regs.reg[1].loc.offset = (long)&sc_->rdx - new_cfa_;		\
     (FS)->regs.reg[2].how = REG_SAVED_OFFSET;				\
     (FS)->regs.reg[2].loc.offset = (long)&sc_->rcx - new_cfa_;		\
     (FS)->regs.reg[3].how = REG_SAVED_OFFSET;				\
-    (FS)->regs.reg[3].loc.offset = (long)&sc_->rdx - new_cfa_;		\
+    (FS)->regs.reg[3].loc.offset = (long)&sc_->rbx - new_cfa_;		\
     (FS)->regs.reg[4].how = REG_SAVED_OFFSET;				\
-    (FS)->regs.reg[4].loc.offset = (long)&sc_->rbp - new_cfa_;		\
+    (FS)->regs.reg[4].loc.offset = (long)&sc_->rsi - new_cfa_;		\
     (FS)->regs.reg[5].how = REG_SAVED_OFFSET;				\
-    (FS)->regs.reg[5].loc.offset = (long)&sc_->rsi - new_cfa_;		\
+    (FS)->regs.reg[5].loc.offset = (long)&sc_->rdi - new_cfa_;		\
     (FS)->regs.reg[6].how = REG_SAVED_OFFSET;				\
-    (FS)->regs.reg[6].loc.offset = (long)&sc_->rdi - new_cfa_;		\
+    (FS)->regs.reg[6].loc.offset = (long)&sc_->rbp - new_cfa_;		\
     (FS)->regs.reg[8].how = REG_SAVED_OFFSET;				\
     (FS)->regs.reg[8].loc.offset = (long)&sc_->r8 - new_cfa_;		\
     (FS)->regs.reg[9].how = REG_SAVED_OFFSET;				\
@@ -143,6 +148,8 @@ Boston, MA 02111-1307, USA.  */
     (FS)->regs.reg[14].loc.offset = (long)&sc_->r14 - new_cfa_;		\
     (FS)->regs.reg[15].how = REG_SAVED_OFFSET;				\
     (FS)->regs.reg[15].loc.offset = (long)&sc_->r15 - new_cfa_;		\
+    (FS)->regs.reg[16].how = REG_SAVED_OFFSET;				\
+    (FS)->regs.reg[16].loc.offset = (long)&sc_->rip - new_cfa_;		\
     (FS)->retaddr_column = 16;						\
     goto SUCCESS;							\
   } while (0)

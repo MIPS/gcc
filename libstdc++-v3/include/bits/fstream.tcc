@@ -1,6 +1,6 @@
 // File based streams -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -103,7 +103,11 @@ namespace std
 	      
 	      if ((__mode & ios_base::ate)
 		  && this->seekoff(0, ios_base::end, __mode) < 0)
-		this->close();
+		{
+		  // 27.8.1.3,4
+		  this->close();
+		  return __ret;
+		}
 
 	      __ret = this;
 	    }
@@ -116,20 +120,16 @@ namespace std
     basic_filebuf<_CharT, _Traits>::
     close()
     {
-      __filebuf_type *__ret = NULL;
+      __filebuf_type* __ret = NULL;
       if (this->is_open())
 	{
+	  bool __testfail = false;
 	  const int_type __eof = traits_type::eof();
 	  bool __testput = _M_out_cur && _M_out_beg < _M_out_end;
 	  if (__testput 
 	      && traits_type::eq_int_type(_M_really_overflow(__eof), __eof))
-	    return __ret;
+	    __testfail = true;
 
-	  // NB: Do this here so that re-opened filebufs will be cool...
-	  _M_mode = ios_base::openmode(0);
-	  _M_destroy_internal_buffer();
-	  _M_pback_destroy();
-	  
 #if 0
 	  // XXX not done
 	  if (_M_last_overflowed)
@@ -139,10 +139,17 @@ namespace std
 	    }
 #endif
 
-	  if (_M_file.close())
+	  // NB: Do this here so that re-opened filebufs will be cool...
+	  this->_M_mode = ios_base::openmode(0);
+	  _M_destroy_internal_buffer();
+	  _M_pback_destroy();
+
+	  if (!_M_file.close())
+	    __testfail = true;
+
+	  if (!__testfail)
 	    __ret = this;
 	}
-
       _M_last_overflowed = false;	
       return __ret;
     }
@@ -208,21 +215,26 @@ namespace std
 	    }
 	  else
 	    {	 
- 	      // At the beginning of the buffer, need to make a
-	      // putback position available.
-	      this->seekoff(-1, ios_base::cur);
-	      this->underflow();
- 	      if (!__testeof)
+   	      // At the beginning of the buffer, need to make a
+  	      // putback position available.
+ 	      // But the seek may fail (f.i., at the beginning of
+ 	      // a file, see libstdc++/9439) and in that case
+ 	      // we return traits_type::eof()
+ 	      if (this->seekoff(-1, ios_base::cur) >= 0)
  		{
-		  if (!traits_type::eq(__c, *_M_in_cur))
-		    {
-		      _M_pback_create();
-		      *_M_in_cur = __c;
-		    }
- 		  __ret = __i;
+ 		  this->underflow();
+ 		  if (!__testeof)
+  		    {
+ 		      if (!traits_type::eq(__c, *_M_in_cur))
+ 			{
+ 			  _M_pback_create();
+ 			  *_M_in_cur = __c;
+ 			}
+ 		      __ret = __i;
+  		    }
+ 		  else
+ 		    __ret = traits_type::not_eof(__i);
  		}
- 	      else
- 		__ret = traits_type::not_eof(__i);
  	    }
 	}
       _M_last_overflowed = false;	
@@ -240,7 +252,9 @@ namespace std
       
       if (__testout)
 	{
-	  if (__testput)
+	  if (traits_type::eq_int_type(__c, traits_type::eof()))
+	    __ret = traits_type::not_eof(__c);
+	  else if (__testput)
 	    {
 	      *_M_out_cur = traits_type::to_char_type(__c);
 	      _M_out_cur_move(1);
@@ -280,9 +294,15 @@ namespace std
 	  const char_type* __iend;
 	  __res_type __r = __cvt.out(_M_state_cur, __ibuf, __ibuf + __ilen, 
 		 		     __iend, __buf, __buf + __blen, __bend);
-	  // Result == ok, partial, noconv
-	  if (__r != codecvt_base::error)
+
+	  if (__r == codecvt_base::ok || __r == codecvt_base::partial)
 	    __blen = __bend - __buf;
+	  // Similarly to the always_noconv case above.
+	  else if (__r == codecvt_base::noconv)
+	    {
+	      __buf = reinterpret_cast<char*>(__ibuf);
+	      __blen = __ilen;
+	    }
 	  // Result == error
 	  else 
 	    __blen = 0;
@@ -302,8 +322,13 @@ namespace std
 			      __iend, __buf, __buf + __blen, __bend);
 	      if (__r != codecvt_base::error)
 		__rlen = __bend - __buf;
-	      else 
-		__rlen = 0;
+	      else
+		{
+		  __rlen = 0;
+		  // Signal to the caller (_M_really_overflow) that
+ 		  // codecvt::out eventually failed.
+ 		  __elen = 0;
+		}
 	      if (__rlen)
 		{
 		  __elen += _M_file.xsputn(__buf, __rlen);
@@ -320,7 +345,7 @@ namespace std
     {
       int_type __ret = traits_type::eof();
       bool __testput = _M_out_cur && _M_out_beg < _M_out_end;
-      bool __testunbuffered = _M_file.is_open() && !_M_buf_size_opt;
+      bool __testunbuffered = _M_file.is_open() && !_M_buf_size;
 
       if (__testput || __testunbuffered)
 	{
@@ -343,26 +368,31 @@ namespace std
 	    _M_convert_to_external(_M_out_beg,  _M_out_end - _M_out_beg, 
 				   __elen, __plen);
 
-	  // Convert pending sequence to external representation, output.
-	  // If eof, then just attempt sync.
-	  if (!traits_type::eq_int_type(__c, traits_type::eof()))
-	    {
-	      char_type __pending = traits_type::to_char_type(__c);
-	      _M_convert_to_external(&__pending, 1, __elen, __plen);
-
-	      // User code must flush when switching modes (thus don't sync).
-	      if (__elen == __plen)
+	  // Checks for codecvt.out failures and _M_file.xsputn failures,
+	  // respectively, inside _M_convert_to_external.
+	  if (__testunbuffered || (__elen && __elen == __plen))
+  	    {
+	      // Convert pending sequence to external representation, output.
+	      // If eof, then just attempt sync.
+	      if (!traits_type::eq_int_type(__c, traits_type::eof()))
 		{
-		  _M_set_indeterminate();
-		  __ret = traits_type::not_eof(__c);
+		  char_type __pending = traits_type::to_char_type(__c);
+		  _M_convert_to_external(&__pending, 1, __elen, __plen);
+  
+		  // User code must flush when switching modes (thus don't sync).
+		  if (__elen == __plen && __elen)
+		    {
+		      _M_set_indeterminate();
+		      __ret = traits_type::not_eof(__c);
+		    }
 		}
-	    }
-	  else if (!_M_file.sync())
-	    {
-	      _M_set_indeterminate();
-	      __ret = traits_type::not_eof(__c);
-	    }
-	}	      
+	      else if (!_M_file.sync())
+		{
+  		  _M_set_indeterminate();
+  		  __ret = traits_type::not_eof(__c);
+  		}
+  	    }
+	}
       _M_last_overflowed = true;	
       return __ret;
     }
@@ -430,7 +460,8 @@ namespace std
 	      //in
 	      else if (__testget && __way == ios_base::cur)
 		__computed_off += _M_in_cur - _M_filepos;
-	  
+
+	      // Return pos_type(off_type(-1)) in case of failure.	  
 	      __ret = _M_file.seekoff(__computed_off, __way, __mode);
 	      _M_set_indeterminate();
 	    }
@@ -438,8 +469,14 @@ namespace std
 	  // state, ie _M_file._offset == -1
 	  else
 	    {
-	      __ret = _M_file.seekoff(__off, ios_base::cur, __mode);
-	      __ret += max(_M_out_cur, _M_in_cur) - _M_filepos;
+ 	      pos_type __tmp =
+ 		_M_file.seekoff(__off, ios_base::cur, __mode);
+ 	      if (__tmp >= 0)
+		{
+		  // Seek successful.
+		  __ret = __tmp;
+		  __ret += max(_M_out_cur, _M_in_cur) - _M_filepos;
+		}
 	    }
 	}
       _M_last_overflowed = false;	
@@ -471,10 +508,7 @@ namespace std
       bool __testbeg = gptr() == eback() && pptr() == pbase();
 
       if (__testbeg && _M_buf_locale != __loc)
-	{
-	  _M_buf_locale = __loc;
-	  _M_buf_locale_init = true;
-	}
+	_M_buf_locale = __loc;
 
       // NB this may require the reconversion of previously
       // converted chars. This in turn may cause the reconstruction
@@ -486,6 +520,7 @@ namespace std
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.  
   // NB:  This syntax is a GNU extension.
+#if _GLIBCPP_EXTERN_TEMPLATE
   extern template class basic_filebuf<char>;
   extern template class basic_ifstream<char>;
   extern template class basic_ofstream<char>;
@@ -496,6 +531,7 @@ namespace std
   extern template class basic_ifstream<wchar_t>;
   extern template class basic_ofstream<wchar_t>;
   extern template class basic_fstream<wchar_t>;
+#endif
 #endif
 } // namespace std
 

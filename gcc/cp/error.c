@@ -685,6 +685,7 @@ dump_type_prefix (t, flags)
     case TYPENAME_TYPE:
     case COMPLEX_TYPE:
     case VECTOR_TYPE:
+    case TYPEOF_TYPE:
       dump_type (t, flags);
       padding = before;
       break;
@@ -781,6 +782,7 @@ dump_type_suffix (t, flags)
     case TYPENAME_TYPE:
     case COMPLEX_TYPE:
     case VECTOR_TYPE:
+    case TYPEOF_TYPE:
       break;
 
     default:
@@ -928,6 +930,25 @@ dump_decl (t, flags)
       break;
 
     case OVERLOAD:
+      if (OVL_CHAIN (t))
+	{
+	  t = OVL_CURRENT (t);
+	  if (DECL_CLASS_SCOPE_P (t))
+	    {
+	      dump_type (DECL_CONTEXT (t), flags);
+	      output_add_string (scratch_buffer, "::");
+	    }
+	  else if (DECL_CONTEXT (t))
+	    {
+	      dump_decl (DECL_CONTEXT (t), flags);
+	      output_add_string (scratch_buffer, "::");
+	    }
+	  dump_decl (DECL_NAME (t), flags);
+	  break;
+	}
+      
+      /* If there's only one function, just treat it like an ordinary
+	 FUNCTION_DECL.  */
       t = OVL_CURRENT (t);
       /* Fall through.  */
 
@@ -2027,6 +2048,10 @@ dump_expr (t, flags)
       output_add_string (scratch_buffer, "if (");
       dump_expr (TREE_OPERAND (t, 0), flags & ~TFF_EXPR_IN_PARENS);
       output_add_string (scratch_buffer, ") break; ");
+      break;
+
+    case BASELINK:
+      print_tree_identifier (scratch_buffer, DECL_NAME (get_first_fn (t)));
       break;
 
     case TREE_LIST:

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
 This file is part of GNU CC.
@@ -24,7 +24,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Override the __fixdfdi etc. routines when building libgcc2.
    ??? This should be done in a cleaner way ...  */
-#ifdef IN_LIBGCC2
+#if defined (IN_LIBGCC2) && !defined (__s390x__)
 #include <s390/fixdfdi.h>
 #endif
 
@@ -94,6 +94,17 @@ extern int target_flags;
 #define CAN_DEBUG_WITHOUT_FP
 
 
+/* In libgcc2, determine target settings as compile-time constants.  */
+#ifdef IN_LIBGCC2
+#undef TARGET_64BIT
+#ifdef __s390x__
+#define TARGET_64BIT 1
+#else
+#define TARGET_64BIT 0
+#endif
+#endif
+
+
 /* Target machine storage layout.  */
 
 /* Everything is big-endian.  */
@@ -103,7 +114,9 @@ extern int target_flags;
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD (TARGET_64BIT ? 8 : 4)
+#ifndef IN_LIBGCC2
 #define MIN_UNITS_PER_WORD 4
+#endif
 #define MAX_BITS_PER_WORD 64
 
 /* Function arguments and return values are promoted to word size.  */
@@ -195,11 +208,13 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
 #define ADDR_REGNO_P(N)		((N) >= 1 && (N) < 16)
 #define FP_REGNO_P(N)		((N) >= 16 && (N) < (TARGET_IEEE_FLOAT? 32 : 20))
 #define CC_REGNO_P(N)		((N) == 33)
+#define FRAME_REGNO_P(N)	((N) == 32 || (N) == 34)
 
 #define GENERAL_REG_P(X)	(REG_P (X) && GENERAL_REGNO_P (REGNO (X)))
 #define ADDR_REG_P(X)		(REG_P (X) && ADDR_REGNO_P (REGNO (X)))
 #define FP_REG_P(X)		(REG_P (X) && FP_REGNO_P (REGNO (X)))
 #define CC_REG_P(X)		(REG_P (X) && CC_REGNO_P (REGNO (X)))
+#define FRAME_REG_P(X)		(REG_P (X) && FRAME_REGNO_P (REGNO (X)))
 
 #define BASE_REGISTER 13
 #define RETURN_REGNUM 14
@@ -314,6 +329,8 @@ do								\
     (HARD_REGNO_NREGS(REGNO, MODE) == 1 || !((REGNO) & 1)) :        \
    CC_REGNO_P(REGNO)?                                               \
      GET_MODE_CLASS (MODE) == MODE_CC :                             \
+   FRAME_REGNO_P(REGNO)?                                            \
+     (enum machine_mode) (MODE) == Pmode :                          \
    0)
 
 #define MODES_TIEABLE_P(MODE1, MODE2)		\
@@ -330,8 +347,9 @@ do								\
 /* If a 4-byte value is loaded into a FPR, it is placed into the
    *upper* half of the register, not the lower.  Therefore, we
    cannot use SUBREGs to switch between modes in FP registers.  */
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO)		\
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO) ? FP_REGS : NO_REGS)
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)		\
+  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)			\
+   ? reg_classes_intersect_p (FP_REGS, CLASS) : 0)
 
 /* Register classes.  */
  
@@ -749,6 +767,10 @@ CUMULATIVE_ARGS;
  || GET_CODE (X) == LABEL_REF                                           \
  || (GET_CODE (X) == CONST && symbolic_reference_mentioned_p (X)))
 
+#define TLS_SYMBOLIC_CONST(X)	\
+((GET_CODE (X) == SYMBOL_REF && tls_symbolic_operand (X))	\
+ || (GET_CODE (X) == CONST && tls_symbolic_reference_mentioned_p (X)))
+
 
 /* Condition codes.  */
 
@@ -926,6 +948,10 @@ extern int flag_pic;
 #define ASM_OUTPUT_SKIP(FILE, SIZE) \
   fprintf ((FILE), "\t.set\t.,.+%u\n", (SIZE))
 
+/* Output a reference to a user-level label named NAME.  */
+#define ASM_OUTPUT_LABELREF(FILE, NAME) \
+  asm_fprintf ((FILE), "%U%s", (*targetm.strip_name_encoding) (NAME))
+
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.
    LABELNO is an integer which is different for each call.  */
@@ -1014,10 +1040,9 @@ extern int s390_nr_constants;
 									    \
     case MODE_INT:							    \
     case MODE_PARTIAL_INT:						    \
-      if (flag_pic							    \
-	  && (GET_CODE (EXP) == CONST					    \
-	      || GET_CODE (EXP) == SYMBOL_REF				    \
-	      || GET_CODE (EXP) == LABEL_REF ))				    \
+      if (GET_CODE (EXP) == CONST					    \
+	  || GET_CODE (EXP) == SYMBOL_REF				    \
+	  || GET_CODE (EXP) == LABEL_REF)				    \
         {								    \
 	  fputs (integer_asm_op (UNITS_PER_WORD, TRUE), FILE);		    \
           s390_output_symbolic_const (FILE, EXP);			    \

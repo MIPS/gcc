@@ -370,6 +370,7 @@ BASE_FLAGS_TO_PASS = \
 	"CXXFLAGS=$(CXXFLAGS)" \
 	"CXXFLAGS_FOR_TARGET=$(CXXFLAGS_FOR_TARGET)" \
 	"CXX_FOR_TARGET=$(CXX_FOR_TARGET)" \
+	"DESTDIR=$(DESTDIR)" \
 	"DLLTOOL_FOR_TARGET=$(DLLTOOL_FOR_TARGET)" \
 	"INSTALL=$(INSTALL)" \
 	"INSTALL_DATA=$(INSTALL_DATA)" \
@@ -738,7 +739,7 @@ do-info: all-texinfo
 install-info: do-install-info dir.info
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	if [ -f dir.info ] ; then \
-	  $(INSTALL_DATA) dir.info $(infodir)/dir.info ; \
+	  $(INSTALL_DATA) dir.info $(DESTDIR)$(infodir)/dir.info ; \
 	else true ; fi
 
 local-clean:
@@ -1327,17 +1328,20 @@ check-gcc:
 	  true; \
 	fi
 
-.PHONY: check-c++
-check-c++:
+.PHONY: check-gcc-c++
+check-gcc-c++:
 	@if [ -f ./gcc/Makefile ] ; then \
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
 	  (cd gcc; $(MAKE) $(GCC_FLAGS_TO_PASS) check-c++); \
-	  $(MAKE) check-target-libstdc++-v3; \
 	else \
 	  true; \
-	fi 
+	fi
+
+.PHONY: check-c++
+check-c++:
+	$(MAKE) check-target-libstdc++-v3 check-gcc-c++ NOTPARALLEL=parallel-ok
 
 .PHONY: install-gcc
 install-gcc:
@@ -1466,6 +1470,7 @@ all-textutils:
 all-time:
 all-tix: all-tcl all-tk
 all-wdiff:
+configure-target-rda: $(ALL_GCC_C)
 configure-target-winsup: $(ALL_GCC_C)
 all-target-winsup: all-target-libiberty all-target-libtermcap
 all-uudecode: all-libiberty
@@ -1507,7 +1512,7 @@ installdirs: mkinstalldirs
 
 dir.info: do-install-info
 	if [ -f $(srcdir)/texinfo/gen-info-dir ] ; then \
-	  $(srcdir)/texinfo/gen-info-dir $(infodir) $(srcdir)/texinfo/dir.info-template > dir.info.new ; \
+	  $(srcdir)/texinfo/gen-info-dir $(DESTDIR)$(infodir) $(srcdir)/texinfo/dir.info-template > dir.info.new ; \
 	  mv -f dir.info.new dir.info ; \
 	else true ; \
 	fi

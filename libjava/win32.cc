@@ -1,6 +1,6 @@
 // win32.cc - Helper functions for Microsoft-flavored OSs.
 
-/* Copyright (C) 2002  Free Software Foundation
+/* Copyright (C) 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -9,11 +9,11 @@ Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
 details.  */
 
 #include <config.h>
+#include <platform.h>
 #include <jvm.h>
 #include <sys/timeb.h>
 #include <stdlib.h>
 
-#include "platform.h"
 #include <java/lang/ArithmeticException.h>
 #include <java/util/Properties.h>
 
@@ -28,6 +28,15 @@ win32_exception_handler (LPEXCEPTION_POINTERS e)
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
+// Platform-specific executable name
+static char exec_name[MAX_PATH];
+  // initialized in _Jv_platform_initialize()
+
+const char *_Jv_ThisExecutable (void)
+{
+  return exec_name;
+}
+
 // Platform-specific VM initialization.
 void
 _Jv_platform_initialize (void)
@@ -37,8 +46,12 @@ _Jv_platform_initialize (void)
   if (WSAStartup (MAKEWORD (1, 1), &data))
     MessageBox (NULL, "Error initialising winsock library.", "Error",
 		MB_OK | MB_ICONEXCLAMATION);
+  
   // Install exception handler
   SetUnhandledExceptionFilter (win32_exception_handler);
+  
+  // Initialize our executable name
+  GetModuleFileName(NULL, exec_name, sizeof(exec_name));
 }
 
 // gettimeofday implementation.

@@ -120,6 +120,7 @@ extern "Java"
       class SyncFailedException;
       class UTFDataFormatException;
       class UnsupportedEncodingException;
+      class VMObjectStreamClass;
       class ValidatorAndPriority;
       class WriteAbortedException;
       class Writer;
@@ -230,16 +231,18 @@ extern "Java"
         class Array;
         class Constructor;
         class Field;
-	class InvocationHandler;
+        class InvocationHandler;
         class InvocationTargetException;
         class Member;
         class Method;
         class Modifier;
-	class Proxy;
-	class Proxy$ProxyData;
-	class Proxy$ProxyType;
+        class Proxy;
+        class Proxy$ClassFactory;
+        class Proxy$ProxyData;
+        class Proxy$ProxySignature;
+        class Proxy$ProxyType;
         class ReflectPermission;
-	class UndeclaredThrowableException;
+        class UndeclaredThrowableException;
       };
     };
 
@@ -334,7 +337,6 @@ extern "Java"
       class RandomAccess;
       class RandomAccessSubList;
       class ResourceBundle;
-      class ResourceBundle$Security;
       class Set;
       class SimpleTimeZone;
       class SortedMap;
@@ -369,6 +371,13 @@ extern "Java"
         class JarInputStream;
         class JarOutputStream;
         class Manifest;
+      };
+
+      namespace regex
+      {
+        class Matcher;
+        class Pattern;
+        class PatternSyntaxException;
       };
 
       namespace zip

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
    		  David Mosberger <davidm@hpl.hp.com>.
 
@@ -45,6 +45,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 #include "tm_p.h"
+#include "langhooks.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
    ASM_OUTPUT_LABELREF.  */
@@ -166,13 +167,16 @@ static void ia64_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 
 static void ia64_select_rtx_section PARAMS ((enum machine_mode, rtx,
 					     unsigned HOST_WIDE_INT));
-static void ia64_aix_select_section PARAMS ((tree, int,
-					     unsigned HOST_WIDE_INT))
-     ATTRIBUTE_UNUSED;
-static void ia64_aix_unique_section PARAMS ((tree, int))
-     ATTRIBUTE_UNUSED;
-static void ia64_aix_select_rtx_section PARAMS ((enum machine_mode, rtx,
+static void ia64_rwreloc_select_section PARAMS ((tree, int,
 					         unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+static void ia64_rwreloc_unique_section PARAMS ((tree, int))
+     ATTRIBUTE_UNUSED;
+static void ia64_rwreloc_select_rtx_section PARAMS ((enum machine_mode, rtx,
+					             unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+static unsigned int ia64_rwreloc_section_type_flags
+     PARAMS ((tree, const char *, int))
      ATTRIBUTE_UNUSED;
 
 static void ia64_hpux_add_extern_decl PARAMS ((const char *name))
@@ -974,6 +978,21 @@ ia64_move_ok (dst, src)
     return GET_CODE (src) == CONST_DOUBLE && CONST_DOUBLE_OK_FOR_G (src);
 }
 
+/* Return 0 if we are doing C++ code.  This optimization fails with
+   C++ because of GNAT c++/6685.  */
+
+int
+addp4_optimize_ok (op1, op2)
+     rtx op1, op2;
+{
+
+  if (!strcmp (lang_hooks.name, "GNU C++"))
+    return 0;
+
+  return (basereg_operand (op1, GET_MODE(op1)) !=
+	  basereg_operand (op2, GET_MODE(op2)));
+}
+
 /* Check if OP is a mask suitible for use with SHIFT in a dep.z instruction.
    Return the length of the field, or <= 0 on failure.  */
 
@@ -1371,12 +1390,12 @@ spill_tfmode_operand (in, force)
       && GET_MODE (SUBREG_REG (in)) == TImode
       && GET_CODE (SUBREG_REG (in)) == REG)
     {
-      rtx mem = gen_mem_addressof (SUBREG_REG (in), NULL_TREE);
+      rtx mem = gen_mem_addressof (SUBREG_REG (in), NULL_TREE, true);
       return gen_rtx_MEM (TFmode, copy_to_reg (XEXP (mem, 0)));
     }
   else if (force && GET_CODE (in) == REG)
     {
-      rtx mem = gen_mem_addressof (in, NULL_TREE);
+      rtx mem = gen_mem_addressof (in, NULL_TREE, true);
       return gen_rtx_MEM (TFmode, copy_to_reg (XEXP (mem, 0)));
     }
   else if (GET_CODE (in) == MEM
@@ -5621,7 +5640,9 @@ ia64_adjust_cost (insn, link, dep_insn, cost)
 	    addr = XVECEXP (addr, 0, 0);
 	  while (GET_CODE (addr) == SUBREG || GET_CODE (addr) == ZERO_EXTEND)
 	    addr = XEXP (addr, 0);
-	  if (GET_CODE (addr) == MEM)
+
+	  /* Note that LO_SUM is used for GOT loads.  */
+	  if (GET_CODE (addr) == MEM || GET_CODE (addr) == LO_SUM)
 	    addr = XEXP (addr, 0);
 	  else
 	    addr = 0;
@@ -7764,7 +7785,7 @@ ia64_expand_fetch_and_op (binoptab, mode, arglist, target)
      do {
        old = tmp;
        ar.ccv = tmp;
-       ret = tmp + value;
+       ret = tmp <op> value;
        cmpxchgsz.acq tmp = [ptr], ret
      } while (tmp != old)
 */
@@ -7867,8 +7888,15 @@ ia64_expand_compare_and_swap (mode, boolp, arglist, target)
   else
     tmp = gen_reg_rtx (mode);
 
-  ccv = gen_rtx_REG (mode, AR_CCV_REGNUM);
-  emit_move_insn (ccv, old);
+  ccv = gen_rtx_REG (DImode, AR_CCV_REGNUM);
+  if (mode == DImode)
+    emit_move_insn (ccv, old);
+  else
+    {
+      rtx ccvtmp = gen_reg_rtx (DImode);
+      emit_insn (gen_zero_extendsidi2 (ccvtmp, old));
+      emit_move_insn (ccv, ccvtmp);
+    }
   emit_insn (gen_mf ());
   if (mode == SImode)
     insn = gen_cmpxchg_acq_si (tmp, mem, new, ccv);
@@ -8180,34 +8208,28 @@ ia64_select_rtx_section (mode, x, align)
     default_elf_select_rtx_section (mode, x, align);
 }
 
-/* It is illegal to have relocations in shared segments on AIX.
+/* It is illegal to have relocations in shared segments on AIX and HPUX.
    Pretend flag_pic is always set.  */
 
 static void
-ia64_aix_select_section (exp, reloc, align)
+ia64_rwreloc_select_section (exp, reloc, align)
      tree exp;
      int reloc;
      unsigned HOST_WIDE_INT align;
 {
-  int save_pic = flag_pic;
-  flag_pic = 1;
-  default_elf_select_section (exp, reloc, align);
-  flag_pic = save_pic;
+  default_elf_select_section_1 (exp, reloc, align, true);
 }
 
 static void
-ia64_aix_unique_section (decl, reloc)
+ia64_rwreloc_unique_section (decl, reloc)
      tree decl;
      int reloc;
 {
-  int save_pic = flag_pic;
-  flag_pic = 1;
-  default_unique_section (decl, reloc);
-  flag_pic = save_pic;
+  default_unique_section_1 (decl, reloc, true);
 }
 
 static void
-ia64_aix_select_rtx_section (mode, x, align)
+ia64_rwreloc_select_rtx_section (mode, x, align)
      enum machine_mode mode;
      rtx x;
      unsigned HOST_WIDE_INT align;
@@ -8217,6 +8239,16 @@ ia64_aix_select_rtx_section (mode, x, align)
   ia64_select_rtx_section (mode, x, align);
   flag_pic = save_pic;
 }
+
+static unsigned int
+ia64_rwreloc_section_type_flags (decl, name, reloc)
+     tree decl;
+     const char *name;
+     int reloc;
+{
+  return default_section_type_flags_1 (decl, name, reloc, true);
+}
+
 
 /* Output the assembler code for a thunk function.  THUNK_DECL is the
    declaration for the thunk function itself, FUNCTION is the decl for

@@ -1,5 +1,5 @@
 /* System.java -- useful methods to interface with the system
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -73,22 +73,41 @@ public final class System
       loadLibrary("javalang");
 
     Properties defaultProperties = Runtime.defaultProperties;
-    defaultProperties.put("gnu.cpu.endian",
-                          isWordsBigEndian() ? "big" : "little");
 
+    // Set base URL if not already set.
+    if (defaultProperties.get("gnu.classpath.home.url") == null)
+      defaultProperties.put("gnu.classpath.home.url",
+			    "file://"
+			    + defaultProperties.get("gnu.classpath.home")
+			    + "/lib");
+
+    // Set short name if not already set.
+    if (defaultProperties.get("gnu.classpath.vm.shortname") == null)
+      {
+	String value = defaultProperties.getProperty("java.vm.name");
+	int index = value.lastIndexOf(' ');
+	if (index != -1)
+	  value = value.substring(index + 1);
+	defaultProperties.put("gnu.classpath.vm.shortname", value);
+      }
+
+    defaultProperties.put("gnu.cpu.endian",
+			  isWordsBigEndian() ? "big" : "little");
     // XXX FIXME - Temp hack for old systems that set the wrong property
     if (defaultProperties.get("java.io.tmpdir") == null)
       defaultProperties.put("java.io.tmpdir",
                             defaultProperties.get("java.tmpdir"));
   }
-    
+
   /**
    * Stores the current system properties. This can be modified by
    * {@link #setProperties(Properties)}, but will never be null, because
    * setProperties(null) sucks in the default properties.
    */
+  // Note that we use clone here and not new.  Some programs assume
+  // that the system properties do not have a parent.
   private static Properties properties
-    = new Properties(Runtime.defaultProperties);
+    = (Properties) Runtime.defaultProperties.clone();
 
   /**
    * The standard InputStream. This is assigned at startup and starts its
@@ -101,7 +120,7 @@ public final class System
    * however.
    */
   public static final InputStream in
-    = new BufferedInputStream (new FileInputStream(FileDescriptor.in));
+    = new BufferedInputStream(new FileInputStream(FileDescriptor.in));
   /**
    * The standard output PrintStream.  This is assigned at startup and
    * starts its life perfectly valid. Although it is marked final, you can
@@ -113,7 +132,7 @@ public final class System
    * you, however.
    */
   public static final PrintStream out
-    = new PrintStream(new BufferedOutputStream (new FileOutputStream(FileDescriptor.out)), true);
+    = new PrintStream(new BufferedOutputStream(new FileOutputStream(FileDescriptor.out)), true);
   /**
    * The standard output PrintStream.  This is assigned at startup and
    * starts its life perfectly valid. Although it is marked final, you can
@@ -125,7 +144,7 @@ public final class System
    * you, however.
    */
   public static final PrintStream err
-    = new PrintStream(new BufferedOutputStream (new FileOutputStream(FileDescriptor.err)), true);
+    = new PrintStream(new BufferedOutputStream(new FileOutputStream(FileDescriptor.err)), true);
 
   /**
    * This class is uninstantiable.
@@ -312,6 +331,10 @@ public final class System
    * In addition, gnu defines several other properties, where ? stands for
    * each character in '0' through '9':
    * <dl>
+   * <dl> gnu.classpath.vm.shortname <dd> Succinct version of the VM name;
+   *      used for finding property files in file system
+   * <dl> gnu.classpath.home.url <dd> Base URL; used for finding
+   *      property files in file system
    * <dt> gnu.cpu.endian      <dd>big or little
    * <dt> gnu.java.io.encoding_scheme_alias.ISO-8859-?   <dd>8859_?
    * <dt> gnu.java.io.encoding_scheme_alias.iso-8859-?   <dd>8859_?
@@ -348,7 +371,11 @@ public final class System
     if (sm != null)
       sm.checkPropertiesAccess();
     if (properties == null)
-      properties = new Properties(Runtime.defaultProperties);
+      {
+	// Note that we use clone here and not new.  Some programs
+	// assume that the system properties do not have a parent.
+	properties = (Properties) Runtime.defaultProperties.clone();
+      }
     System.properties = properties;
   }
 

@@ -1,7 +1,7 @@
 /* Breadth-first and depth-first routines for
    searching multiple-inheritance lattice for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -80,7 +80,7 @@ struct vbase_info
   tree inits;
 };
 
-static tree lookup_field_1 PARAMS ((tree, tree));
+static tree lookup_field_1 PARAMS ((tree, tree, bool));
 static int is_subobject_of_p PARAMS ((tree, tree, tree));
 static int is_subobject_of_p_1 PARAMS ((tree, tree, tree));
 static tree dfs_check_overlap PARAMS ((tree, void *));
@@ -454,8 +454,7 @@ get_dynamic_cast_base_type (subtype, target)
    level, this is reasonable.)  */
 
 static tree
-lookup_field_1 (type, name)
-     tree type, name;
+lookup_field_1 (tree type, tree name, bool want_type)
 {
   register tree field;
 
@@ -492,14 +491,24 @@ lookup_field_1 (type, name)
 	    lo = i + 1;
 	  else
 	    {
+	      field = NULL_TREE;
+
 	      /* We might have a nested class and a field with the
 		 same name; we sorted them appropriately via
 		 field_decl_cmp, so just look for the last field with
 		 this name.  */
-	      while (i + 1 < hi
-		     && DECL_NAME (fields[i+1]) == name)
-		++i;
-	      return fields[i];
+	      while (true)
+		{
+		  if (!want_type 
+		      || TREE_CODE (fields[i]) == TYPE_DECL
+		      || DECL_CLASS_TEMPLATE_P (fields[i]))
+		    field = fields[i];
+		  if (i + 1 == hi || DECL_NAME (fields[i+1]) != name)
+		    break;
+		  i++;
+		}
+
+	      return field;
 	    }
 	}
       return NULL_TREE;
@@ -510,7 +519,7 @@ lookup_field_1 (type, name)
 #ifdef GATHER_STATISTICS
   n_calls_lookup_field_1++;
 #endif /* GATHER_STATISTICS */
-  while (field)
+  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
     {
 #ifdef GATHER_STATISTICS
       n_fields_searched++;
@@ -519,7 +528,7 @@ lookup_field_1 (type, name)
       if (DECL_NAME (field) == NULL_TREE
 	  && ANON_AGGR_TYPE_P (TREE_TYPE (field)))
 	{
-	  tree temp = lookup_field_1 (TREE_TYPE (field), name);
+	  tree temp = lookup_field_1 (TREE_TYPE (field), name, want_type);
 	  if (temp)
 	    return temp;
 	}
@@ -529,10 +538,13 @@ lookup_field_1 (type, name)
 	   to return a USING_DECL, and the rest of the compiler can't
 	   handle it.  Once the class is defined, these are purged
 	   from TYPE_FIELDS anyhow; see handle_using_decl.  */
-	;
-      else if (DECL_NAME (field) == name)
+	continue;
+
+      if (DECL_NAME (field) == name
+	  && (!want_type 
+	      || TREE_CODE (field) == TYPE_DECL
+	      || DECL_CLASS_TEMPLATE_P (field)))
 	return field;
-      field = TREE_CHAIN (field);
     }
   /* Not found.  */
   if (name == vptr_identifier)
@@ -1288,7 +1300,7 @@ lookup_field_r (binfo, data)
 
   if (!nval)
     /* Look for a data member or type.  */
-    nval = lookup_field_1 (type, lfi->name);
+    nval = lookup_field_1 (type, lfi->name, lfi->want_type);
 
   /* If there is no declaration with the indicated name in this type,
      then there's nothing to do.  */
@@ -1464,7 +1476,7 @@ lookup_member (xbasetype, name, protect, want_type)
       && IDENTIFIER_CLASS_VALUE (name))
     {
       tree field = IDENTIFIER_CLASS_VALUE (name);
-      if (TREE_CODE (field) != FUNCTION_DECL
+      if (! is_overloaded_fn (field)
 	  && ! (want_type && TREE_CODE (field) != TYPE_DECL))
 	/* We're in the scope of this class, and the value has already
 	   been looked up.  Just return the cached value.  */
@@ -1578,6 +1590,70 @@ lookup_fnfields (xbasetype, name, protect)
     return NULL_TREE;
 
   return rval;
+}
+
+/* Try to find NAME inside a nested class.  */
+
+tree
+lookup_nested_field (name, complain)
+     tree name;
+     int complain;
+{
+  register tree t;
+
+  tree id = NULL_TREE;
+  if (TYPE_MAIN_DECL (current_class_type))
+    {
+      /* Climb our way up the nested ladder, seeing if we're trying to
+	 modify a field in an enclosing class.  If so, we should only
+	 be able to modify if it's static.  */
+      for (t = TYPE_MAIN_DECL (current_class_type);
+	   t && DECL_CONTEXT (t);
+	   t = TYPE_MAIN_DECL (DECL_CONTEXT (t)))
+	{
+	  if (TREE_CODE (DECL_CONTEXT (t)) != RECORD_TYPE)
+	    break;
+
+	  /* N.B.: lookup_field will do the access checking for us */
+	  id = lookup_field (DECL_CONTEXT (t), name, complain, 0);
+	  if (id == error_mark_node)
+	    {
+	      id = NULL_TREE;
+	      continue;
+	    }
+
+	  if (id != NULL_TREE)
+	    {
+	      if (TREE_CODE (id) == FIELD_DECL
+		  && ! TREE_STATIC (id)
+		  && TREE_TYPE (id) != error_mark_node)
+		{
+		  if (complain)
+		    {
+		      /* At parse time, we don't want to give this error, since
+			 we won't have enough state to make this kind of
+			 decision properly.  But there are times (e.g., with
+			 enums in nested classes) when we do need to call
+			 this fn at parse time.  So, in those cases, we pass
+			 complain as a 0 and just return a NULL_TREE.  */
+		      error ("assignment to non-static member `%D' of enclosing class `%T'",
+				id, DECL_CONTEXT (t));
+		      /* Mark this for do_identifier().  It would otherwise
+			 claim that the variable was undeclared.  */
+		      TREE_TYPE (id) = error_mark_node;
+		    }
+		  else
+		    {
+		      id = NULL_TREE;
+		      continue;
+		    }
+		}
+	      break;
+	    }
+	}
+    }
+
+  return id;
 }
 
 /* TYPE is a class type. Return the index of the fields within
@@ -2736,8 +2812,8 @@ lookup_conversions (type)
   tree t;
   tree conversions = NULL_TREE;
 
-  if (COMPLETE_TYPE_P (type))
-    bfs_walk (TYPE_BINFO (type), add_conversions, 0, &conversions);
+  complete_type (type);
+  bfs_walk (TYPE_BINFO (type), add_conversions, 0, &conversions);
 
   for (t = conversions; t; t = TREE_CHAIN (t))
     IDENTIFIER_MARKED (DECL_NAME (OVL_CURRENT (TREE_VALUE (t)))) = 0;

@@ -1,4 +1,5 @@
-@c Copyright (C) 1988,1989,1992,1993,1994,1996,1998,1999,2000,2001,2002 Free Software Foundation, Inc.
+@c Copyright (C) 1988,1989,1992,1993,1994,1996,1998,1999,2000,2001,2002,
+@c 2003 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -435,6 +436,7 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Hex Floats::          Hexadecimal floating-point constants.
 * Zero Length::         Zero-length arrays.
 * Variable Length::     Arrays whose length is computed at run time.
+* Empty Structures::    Structures with no members.
 * Variadic Macros::	Macros with a variable number of arguments.
 * Escaped Newlines::    Slightly looser rules for escaped newlines.
 * Multi-line Strings::  String literals with embedded newlines.
@@ -485,7 +487,6 @@ extensions, accepted by GCC in C89 mode and in C++.
 
 @c the above section title wrapped and causes an underfull hbox.. i
 @c changed it from "within" to "in". --mew 4feb93
-
 A compound statement enclosed in parentheses may appear as an expression
 in GNU C@.  This allows you to use loops, switches, and local variables
 within an expression.
@@ -886,19 +887,6 @@ the containing function.  You should specify, for @var{result}, a value
 returned by @code{__builtin_apply}.
 @end deftypefn
 
-@cindex underscores in variables in macros
-@cindex @samp{_} in variables in macros
-@cindex local variables in macros
-@cindex variables, local, in macros
-@cindex macros, local variables in
-
-The reason for using names that start with underscores for the local
-variables is to avoid conflicts with variable names that occur within the
-expressions that are substituted for @code{a} and @code{b}.  Eventually we
-hope to design a new form of declaration syntax that allows you to declare
-variables whose scopes start only after their initializers; this will be a
-more reliable way to prevent such conflicts.
-
 @node Typeof
 @section Referring to a Type with @code{typeof}
 @findex typeof
@@ -948,6 +936,19 @@ arithmetic type and evaluates each of its arguments exactly once:
       typeof (b) _b = (b); \
     _a > _b ? _a : _b; @})
 @end example
+
+@cindex underscores in variables in macros
+@cindex @samp{_} in variables in macros
+@cindex local variables in macros
+@cindex variables, local, in macros
+@cindex macros, local variables in
+
+The reason for using names that start with underscores for the local
+variables is to avoid conflicts with variable names that occur within the
+expressions that are substituted for @code{a} and @code{b}.  Eventually we
+hope to design a new form of declaration syntax that allows you to declare
+variables whose scopes start only after their initializers; this will be a
+more reliable way to prevent such conflicts.
 
 @noindent
 Some more examples of the use of @code{typeof}:
@@ -1032,6 +1033,7 @@ This will work with all versions of GCC@.
 @cindex lvalues, generalized
 @cindex extensions, @code{?:}
 @cindex @code{?:} extensions
+
 Compound expressions, conditional expressions and casts are allowed as
 lvalues provided their operands are lvalues.  This means that you can take
 their addresses or store values into them.
@@ -1356,6 +1358,21 @@ struct bar b = @{ @{ 1, @{ 2, 3, 4 @} @} @};    // @r{Invalid.}
 struct bar c = @{ @{ 1, @{ @} @} @};            // @r{Valid.}
 struct foo d[1] = @{ @{ 1 @{ 2, 3, 4 @} @} @};  // @r{Invalid.}
 @end example
+
+@node Empty Structures
+@section Structures With No Members
+@cindex empty structures
+@cindex zero-size structures
+
+GCC permits a C structure to have no members:
+
+@example
+struct empty @{
+@};
+@end example
+
+The structure will have size zero.  In C++, empty structures are part
+of the language, and the language standard says they have size 1.
 
 @node Variable Length
 @section Arrays of Variable Length
@@ -2317,7 +2334,7 @@ See the ELF gABI for complete details, but the short story is
 @table @dfn
 @item default
 Default visibility is the normal case for ELF.  This value is 
-available for the visibiliy attribute to override other options
+available for the visibility attribute to override other options
 that may change the assumed visibility of symbols.
 
 @item hidden
@@ -4482,7 +4499,7 @@ provided they are of the same size (in fact, you can also cast vectors
 to and from other datatypes of the same size).
 
 You cannot operate between vectors of different lengths or different
-signness without a cast.
+signedness without a cast.
 
 A port that supports hardware vector operations, usually provides a set
 of built-in functions that can be used to operate on vectors.  For
@@ -4550,13 +4567,19 @@ v4si f (v4si a, v4si b, v4si c)
 @findex memset
 @findex printf
 @findex printf_unlocked
+@findex putchar
+@findex puts
 @findex rindex
+@findex scanf
 @findex sin
 @findex sinf
 @findex sinl
+@findex snprintf
+@findex sprintf
 @findex sqrt
 @findex sqrtf
 @findex sqrtl
+@findex sscanf
 @findex strcat
 @findex strchr
 @findex strcmp
@@ -4570,6 +4593,11 @@ v4si f (v4si a, v4si b, v4si c)
 @findex strrchr
 @findex strspn
 @findex strstr
+@findex vprintf
+@findex vscanf
+@findex vsnprintf
+@findex vsprintf
+@findex vsscanf
 
 GCC provides a large number of built-in functions other than the ones
 mentioned above.  Some of these are for internal use in the processing
@@ -4607,7 +4635,8 @@ mode.
 
 The ISO C99 functions @code{conj}, @code{conjf}, @code{conjl},
 @code{creal}, @code{crealf}, @code{creall}, @code{cimag}, @code{cimagf},
-@code{cimagl}, @code{llabs} and @code{imaxabs} are handled as built-in
+@code{cimagl}, @code{imaxabs}, @code{llabs}, @code{snprintf},
+@code{vscanf}, @code{vsnprintf} and @code{vsscanf} are handled as built-in
 functions except in strict ISO C90 mode.  There are also built-in
 versions of the ISO C99 functions @code{cosf}, @code{cosl},
 @code{expf}, @code{expl}, @code{fabsf}, @code{fabsl},
@@ -4619,10 +4648,13 @@ functions have corresponding versions prefixed with @code{__builtin_}.
 The ISO C90 functions @code{abs}, @code{cos}, @code{exp}, @code{fabs},
 @code{fprintf}, @code{fputs}, @code{labs}, @code{log},
 @code{memcmp}, @code{memcpy},
-@code{memset}, @code{printf}, @code{sin}, @code{sqrt}, @code{strcat},
+@code{memset}, @code{printf}, @code{putchar}, @code{puts}, @code{scanf},
+@code{sin}, @code{snprintf}, @code{sprintf}, @code{sqrt}, @code{sscanf},
+@code{strcat},
 @code{strchr}, @code{strcmp}, @code{strcpy}, @code{strcspn},
 @code{strlen}, @code{strncat}, @code{strncmp}, @code{strncpy},
-@code{strpbrk}, @code{strrchr}, @code{strspn}, and @code{strstr} are all
+@code{strpbrk}, @code{strrchr}, @code{strspn}, @code{strstr},
+@code{vprintf} and @code{vsprintf} are all
 recognized as built-in functions unless @option{-fno-builtin} is
 specified (or @option{-fno-builtin-@var{function}} is specified for an
 individual function).  All of these functions have corresponding
@@ -4888,7 +4920,7 @@ type is @code{long double}.
 This is an implementation of the ISO C99 function @code{nan}.
 
 Since ISO C99 defines this function in terms of @code{strtod}, which we
-do not implement, a desription of the parsing is in order.  The string
+do not implement, a description of the parsing is in order.  The string
 is parsed as by @code{strtol}; that is, the base is recognized by
 leading @samp{0} or @samp{0x} prefixes.  The number parsed is placed
 in the significand such that the least significant bit of the number
@@ -5620,7 +5652,9 @@ vector unsigned int vec_mulo (vector unsigned short,
 vector signed int vec_mulo (vector signed short, vector signed short);
 
 vector float vec_nmsub (vector float, vector float, vector float);
+@end smallexample
 
+@smallexample
 vector float vec_nor (vector float, vector float);
 vector signed int vec_nor (vector signed int, vector signed int);
 vector unsigned int vec_nor (vector unsigned int, vector unsigned int);
@@ -6186,7 +6220,9 @@ vector signed int vec_any_eq (vector signed char, vector unsigned char);
 
 vector signed int vec_any_eq (vector signed char, vector signed char);
 vector signed int vec_any_eq (vector unsigned char, vector signed char);
+@end smallexample
 
+@smallexample
 vector signed int vec_any_eq (vector unsigned char,
                               vector unsigned char);
 vector signed int vec_any_eq (vector signed short,
@@ -6403,7 +6439,7 @@ declarations.
 
 The following pragmas are available for all architectures running the
 Darwin operating system.  These are useful for compatibility with other
-MacOS compilers.
+Mac OS compilers.
 
 @table @code
 @item mark @var{tokens}@dots{}
@@ -6465,7 +6501,8 @@ empty string.
 This pragma is similar in intent to to the asm labels extension
 (@pxref{Asm Labels}) in that the system programmer wants to change
 the assembly-level ABI without changing the source-level API.  The
-preprocessor defines @code{__EXTERN_PREFIX} if the pragma is available.
+preprocessor defines @code{__PRAGMA_EXTERN_PREFIX} if the pragma is
+available.
 @end table
 
 @node Unnamed Fields
@@ -6682,7 +6719,7 @@ Add after paragraph 4
 
 @quotation
 The storage for an object of thread storage duration shall be
-staticly initialized before the first statement of the thread startup
+statically initialized before the first statement of the thread startup
 function.  An object of thread storage duration shall not require
 dynamic initialization.
 @end quotation
@@ -7167,7 +7204,6 @@ If any calls were not inlined, you will get linker errors.
 
 @node Template Instantiation
 @section Where's the Template?
-
 @cindex template instantiation
 
 C++ templates are the first language feature to require more
@@ -7286,8 +7322,8 @@ compile it without @option{-fno-implicit-templates} so you get all of the
 instances required by your explicit instantiations (but not by any
 other files) without having to specify them as well.
 
-g++ has extended the template instantiation syntax outlined in the
-Working Paper to allow forward declaration of explicit instantiations
+g++ has extended the template instantiation syntax given in the ISO
+standard to allow forward declaration of explicit instantiations
 (with @code{extern}), instantiation of the compiler support data for a
 template class (i.e.@: the vtable) without instantiating any of its
 members (with @code{inline}), and instantiation of only the static data
@@ -7313,7 +7349,6 @@ more discussion of these pragmas.
 
 @node Bound member functions
 @section Extracting the function pointer from a bound pointer to member function
-
 @cindex pmf
 @cindex pointer to member function
 @cindex bound pointer to member function

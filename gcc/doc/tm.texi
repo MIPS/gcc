@@ -1,4 +1,4 @@
-@c Copyright (C) 1988,1989,1992,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
+@c Copyright (C) 1988,1989,1992,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002,2003
 @c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -390,7 +390,7 @@ the target makefile fragment or if none of the options listed in
 
 @findex RELATIVE_PREFIX_NOT_LINKDIR
 @item RELATIVE_PREFIX_NOT_LINKDIR
-Define this macro to tell @code{gcc} that it should only translate
+Define this macro to tell @command{gcc} that it should only translate
 a @option{-B} prefix into a @option{-L} linker option if the prefix
 indicates an absolute file name.
 
@@ -2304,7 +2304,7 @@ which is the register value plus a displacement.
 @findex MODE_BASE_REG_CLASS
 @item MODE_BASE_REG_CLASS (@var{mode})
 This is a variation of the @code{BASE_REG_CLASS} macro which allows
-the selection of a base register in a mode depenedent manner.  If
+the selection of a base register in a mode dependent manner.  If
 @var{mode} is VOIDmode then it should return the same value as
 @code{BASE_REG_CLASS}.
 
@@ -2561,10 +2561,9 @@ should be the maximum value of @code{HARD_REGNO_NREGS (@var{regno},
 This macro helps control the handling of multiple-word values
 in the reload pass.
 
-@item CANNOT_CHANGE_MODE_CLASS(@var{from}, @var{to})
-If defined, a C expression that returns a register class for which
-a change from mode @var{from} to mode @var{to} is invalid, otherwise the
-macro returns @code{NO_REGS}.
+@item CANNOT_CHANGE_MODE_CLASS(@var{from}, @var{to}, @var{class})
+If defined, a C expression that returns nonzero for a @var{class} for which
+a change from mode @var{from} to mode @var{to} is invalid.
 
 For the example, loading 32-bit integer or floating-point objects into
 floating-point registers on the Alpha extends them to 64 bits.
@@ -2574,8 +2573,9 @@ register.  Therefore, @file{alpha.h} defines @code{CANNOT_CHANGE_MODE_CLASS}
 as below:
 
 @example
-#define CANNOT_CHANGE_MODE_CLASS \
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO) ? FLOAT_REGS : NO_REGS)
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
+  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO) \
+   ? reg_classes_intersect_p (FLOAT_REGS, (CLASS)) : 0)
 @end example
 @end table
 
@@ -4179,7 +4179,7 @@ not support varargs.
 @findex TARGET_ASM_OUTPUT_MI_VCALL_THUNK
 @deftypefn {Target Hook} void TARGET_ASM_OUTPUT_MI_VCALL_THUNK (FILE *@var{file}, tree @var{thunk_fndecl}, HOST_WIDE_INT @var{delta}, int @var{vcall_offset}, tree @var{function})
 A function like @code{TARGET_ASM_OUTPUT_MI_THUNK}, except that if
-@var{vcall_offset} is non-zero, an additional adjustment should be made
+@var{vcall_offset} is nonzero, an additional adjustment should be made
 after adding @code{delta}.  In particular, if @var{p} is the
 adjusted pointer, the following adjustment should be made:
 
@@ -6931,7 +6931,7 @@ When arbitrary sections are available, there are two variants, depending
 upon how the code in @file{crtstuff.c} is called.  On systems that
 support a @dfn{.init} section which is executed at program startup,
 parts of @file{crtstuff.c} are compiled into that section.  The
-program is linked by the @code{gcc} driver like this:
+program is linked by the @command{gcc} driver like this:
 
 @example
 ld -o @var{output_file} crti.o crtbegin.o @dots{} -lgcc crtend.o crtn.o
@@ -9044,7 +9044,7 @@ structure, which are defined by the @code{IFCVT_EXTRA_FIELDS} macro.
 @findex IFCVT_EXTRA_FIELDS
 @item IFCVT_EXTRA_FIELDS
 If defined, it should expand to a set of field declarations that will be
-added to the @code{struct ce_if_block} structure.  These should be intialized
+added to the @code{struct ce_if_block} structure.  These should be initialized
 by the @code{IFCVT_INIT_EXTRA_FIELDS} macro.
 
 @end table
@@ -9130,6 +9130,22 @@ specified on its command line and create an export list for the linker.
 Define this macro for systems like AIX, where the linker discards
 object files that are not referenced from @code{main} and uses export
 lists.
+
+@findex MODIFY_JNI_METHOD_CALL
+@item MODIFY_JNI_METHOD_CALL (@var{mdecl})
+Define this macro to a C expression representing a variant of the
+method call @var{mdecl}, if Java Native Interface (JNI) methods
+must be invoked differently from other methods on your target.
+For example, on 32-bit Windows, JNI methods must be invoked using
+the @code{stdcall} calling convention and this macro is then
+defined as this expression:
+
+@smallexample
+build_type_attribute_variant (@var{mdecl},
+                              build_tree_list
+                              (get_identifier ("stdcall"),
+                               NULL))
+@end smallexample
 
 @end table
 

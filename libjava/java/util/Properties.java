@@ -1,5 +1,5 @@
 /* Properties.java -- a set of persistent properties
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -188,13 +188,17 @@ label   = Name:\\u0020</pre>
       {
         char c = 0;
         int pos = 0;
+        // If empty line or begins with a comment character, skip this line.
+        if (line.length() == 0
+	    || line.charAt(0) == '#' || line.charAt(0) == '!')
+          continue;
+
         while (pos < line.length()
                && Character.isWhitespace(c = line.charAt(pos)))
           pos++;
 
-        // If line is empty or begins with a comment character,
-        // skip this line.
-        if (pos == line.length() || c == '#' || c == '!')
+        // If line is empty skip this line.
+        if (pos == line.length())
           continue;
 
         // The characters up to the next Whitespace, ':', or '='
@@ -271,6 +275,13 @@ label   = Name:\\u0020</pre>
                   {
                     // The line continues on the next line.
                     line = reader.readLine();
+
+		    // We might have seen a backslash at the end of
+		    // the file.  The JDK ignores the backslash in
+		    // this case, so we follow for compatibility.
+		    if (line == null)
+		      break;
+
                     pos = 0;
                     while (pos < line.length()
                            && Character.isWhitespace(c = line.charAt(pos)))
@@ -370,9 +381,21 @@ label   = Name:\\u0020</pre>
       = new PrintWriter(new OutputStreamWriter(out, "ISO-8859-1"));
     if (header != null)
       writer.println("#" + header);
-    writer.println("#" + new Date());
-    list(writer);
-    writer.flush();
+    writer.println ("#" + Calendar.getInstance ().getTime ());
+    
+    Iterator iter = entrySet ().iterator ();
+    int i = size ();
+    StringBuffer s = new StringBuffer (); // Reuse the same buffer.
+    while (--i >= 0)
+      {
+        Map.Entry entry = (Map.Entry) iter.next ();
+        formatForOutput ((String) entry.getKey (), s, true);
+        s.append ('=');
+        formatForOutput ((String) entry.getValue (), s, false);
+        writer.println (s);
+      }
+
+    writer.flush ();
   }
 
   /**
@@ -446,54 +469,50 @@ label   = Name:\\u0020</pre>
   }
 
   /**
-   * Writes the key/value pairs to the given print stream.  They are
-   * written in the way described in the method store. This does not visit
-   * the keys in the default properties.
+   * Prints the key/value pairs to the given print stream.  This is 
+   * mainly useful for debugging purposes.
    *
-   * @param out the stream, where the key/value pairs are written to
-   * @throws ClassCastException if this property contains any key or
+   * @param out the print stream, where the key/value pairs are written to
+   * @throws ClassCastException if this property contains a key or a
    *         value that isn't a string
-   * @see #store(OutputStream, String)
+   * @see #list(PrintWriter)
    */
   public void list(PrintStream out)
   {
-    Iterator iter = entrySet().iterator();
-    int i = size();
-    StringBuffer s = new StringBuffer(); // Reuse the same buffer.
-    while (--i >= 0)
-      {
-        Map.Entry entry = (Map.Entry) iter.next();
-        formatForOutput((String) entry.getKey(), s, true);
-        s.append('=');
-        formatForOutput((String) entry.getValue(), s, false);
-        out.println(s);
-      }
+    PrintWriter writer = new PrintWriter (out);
+    list (writer);
   }
 
   /**
-   * Writes the key/value pairs to the given print writer.  They are
-   * written in the way, described in the method store.
+   * Prints the key/value pairs to the given print writer.  This is
+   * mainly useful for debugging purposes.
    *
-   * @param out the writer, where the key/value pairs are written to
-   * @throws ClassCastException if this property contains any key or
+   * @param out the print writer where the key/value pairs are written to
+   * @throws ClassCastException if this property contains a key or a
    *         value that isn't a string
-   * @see #store(OutputStream, String)
    * @see #list(PrintStream)
    * @since 1.1
    */
   public void list(PrintWriter out)
   {
-    Iterator iter = entrySet().iterator();
-    int i = size();
-    StringBuffer s = new StringBuffer(); // Reuse the same buffer.
+    out.println ("-- listing properties --");
+
+    Iterator iter = entrySet ().iterator ();
+    int i = size ();
     while (--i >= 0)
       {
-        Map.Entry entry = (Map.Entry) iter.next();
-        formatForOutput((String) entry.getKey(), s, true);
-        s.append('=');
-        formatForOutput((String) entry.getValue(), s, false);
-        out.println(s);
+        Map.Entry entry = (Map.Entry) iter.next ();
+        out.print ((String) entry.getKey () + "=");
+
+        // JDK 1.3/1.4 restrict the printed value, but not the key,
+        // to 40 characters, including the truncating ellipsis.
+        String s = (String ) entry.getValue ();
+        if (s != null && s.length () > 40)
+          out.println (s.substring (0, 37) + "...");
+        else
+          out.println (s);
       }
+    out.flush ();
   }
 
   /**
@@ -540,6 +559,7 @@ label   = Name:\\u0020</pre>
           case '=':
           case ':':
             buffer.append('\\').append(c);
+            break;
           default:
             if (c < ' ' || c > '~')
               {

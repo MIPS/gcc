@@ -1,6 +1,6 @@
 // defineclass.cc - defining a class from .class format.
 
-/* Copyright (C) 2001, 2002  Free Software Foundation
+/* Copyright (C) 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -126,6 +126,34 @@ private:
     utf8_list = lu;
 
     return r;
+  }
+
+  __attribute__ ((__noreturn__)) void verify_fail (char *s, jint pc = -1)
+  {
+    using namespace java::lang;
+    StringBuffer *buf = new StringBuffer ();
+
+    buf->append (JvNewStringLatin1 ("verification failed"));
+    if (pc == -1)
+      pc = start_PC;
+    if (pc != -1)
+      {
+	buf->append (JvNewStringLatin1 (" at PC "));
+	buf->append (pc);
+      }
+
+    _Jv_InterpMethod *method = current_method;
+    buf->append (JvNewStringLatin1 (" in "));
+    buf->append (current_class->getName());
+    buf->append ((jchar) ':');
+    buf->append (JvNewStringUTF (method->get_method()->name->data));
+    buf->append ((jchar) '(');
+    buf->append (JvNewStringUTF (method->get_method()->signature->data));
+    buf->append ((jchar) ')');
+
+    buf->append (JvNewStringLatin1 (": "));
+    buf->append (JvNewStringLatin1 (s));
+    throw new java::lang::VerifyError (buf->toString ());
   }
 
   // This enum holds a list of tags for all the different types we
@@ -793,6 +821,12 @@ private:
     // assigns to locals[0] (overwriting `this') and then returns
     // without really initializing.
     type this_type;
+    // This is a list of all subroutines that have been seen at this
+    // point.  Ordinarily this is NULL; it is only allocated and used
+    // in relatively weird situations involving non-ret exit from a
+    // subroutine.  We have to keep track of this in this way to avoid
+    // endless recursion in these cases.
+    subr_info *seen_subrs;
 
     // INVALID marks a state which is not on the linked list of states
     // requiring reverification.
@@ -811,6 +845,7 @@ private:
       stack = NULL;
       locals = NULL;
       local_changed = NULL;
+      seen_subrs = NULL;
     }
 
     state (int max_stack, int max_locals)
@@ -823,6 +858,7 @@ private:
 	stack[i] = unsuitable_type;
       locals = new type[max_locals];
       local_changed = (bool *) _Jv_Malloc (sizeof (bool) * max_locals);
+      seen_subrs = NULL;
       for (int i = 0; i < max_locals; ++i)
 	{
 	  locals[i] = unsuitable_type;
@@ -838,6 +874,7 @@ private:
       stack = new type[max_stack];
       locals = new type[max_locals];
       local_changed = (bool *) _Jv_Malloc (sizeof (bool) * max_locals);
+      seen_subrs = NULL;
       copy (orig, max_stack, max_locals, ret_semantics);
       next = INVALID;
     }
@@ -850,6 +887,7 @@ private:
 	delete[] locals;
       if (local_changed)
 	_Jv_Free (local_changed);
+      clean_subrs ();
     }
 
     void *operator new[] (size_t bytes)
@@ -872,6 +910,17 @@ private:
       _Jv_Free (mem);
     }
 
+    void clean_subrs ()
+    {
+      subr_info *info = seen_subrs;
+      while (info != NULL)
+	{
+	  subr_info *next = info->next;
+	  _Jv_Free (info);
+	  info = next;
+	}
+    }
+
     void copy (const state *copy, int max_stack, int max_locals,
 	       bool ret_semantics = false)
     {
@@ -891,6 +940,16 @@ private:
 	    locals[i] = copy->locals[i];
 	  local_changed[i] = copy->local_changed[i];
 	}
+
+      clean_subrs ();
+      if (copy->seen_subrs)
+	{
+	  for (subr_info *info = seen_subrs; info != NULL; info = info->next)
+	    add_subr (info->pc);
+	}
+      else
+	seen_subrs = NULL;
+
       this_type = copy->this_type;
       // Don't modify `next'.
     }
@@ -915,6 +974,15 @@ private:
       // parent by the `ret'.
       for (int i = 0; i < max_locals; ++i)
 	local_changed[i] = false;
+    }
+
+    // Indicate that we've been in this this subroutine.
+    void add_subr (int pc)
+    {
+      subr_info *n = (subr_info *) _Jv_Malloc (sizeof (subr_info));
+      n->pc = pc;
+      n->next = seen_subrs;
+      seen_subrs = n;
     }
 
     // Merge STATE_OLD into this state.  Destructively modifies this
@@ -944,10 +1012,23 @@ private:
 	}
       else
 	{
-	  // If the subroutines differ, indicate that the state
-	  // changed.  This is needed to detect when subroutines have
-	  // merged.
-	  changed = true;
+	  // If the subroutines differ, and we haven't seen this
+	  // subroutine before, indicate that the state changed.  This
+	  // is needed to detect when subroutines have merged.
+	  bool found = false;
+	  for (subr_info *info = seen_subrs; info != NULL; info = info->next)
+	    {
+	      if (info->pc == state_old->subroutine)
+		{
+		  found = true;
+		  break;
+		}
+	    }
+	  if (! found)
+	    {
+	      add_subr (state_old->subroutine);
+	      changed = true;
+	    }
 	}
 
       // Merge stacks.  Special handling for NO_STACK case.
@@ -1118,14 +1199,6 @@ private:
     type r = pop_raw ();
     if (r.iswide ())
       verify_fail ("narrow pop of wide type");
-    return r;
-  }
-
-  type pop64 ()
-  {
-    type r = pop_raw ();
-    if (! r.iswide ())
-      verify_fail ("wide pop of narrow type");
     return r;
   }
 
@@ -1351,7 +1424,6 @@ private:
   {
     int *prev_loc = &next_verify_pc;
     int npc = next_verify_pc;
-    bool skipped = false;
 
     while (npc != state::NO_NEXT)
       {
@@ -1368,7 +1440,6 @@ private:
 	    return npc;
 	  }
 
-	skipped = true;
 	prev_loc = &states[npc]->next;
 	npc = states[npc]->next;
       }
@@ -1447,6 +1518,12 @@ private:
 
     for (subr_info *subr = jsr_ptrs[csub]; subr != NULL; subr = subr->next)
       {
+	// We might be returning to a `jsr' that is at the end of the
+	// bytecode.  This is ok if we never return from the called
+	// subroutine, but if we see this here it is an error.
+	if (subr->pc >= current_method->code_length)
+	  verify_fail ("fell off end");
+
 	// Temporarily modify the current state so it looks like we're
 	// in the enclosing context.
 	current_state->subroutine = get_subroutine (subr->pc);
@@ -1496,16 +1573,15 @@ private:
     // the local variable state across the jsr, but the subroutine
     // might change the stack depth, so we can't make any assumptions
     // about it.  So we have yet another special case.  We know that
-    // at this point PC points to the instruction after the jsr.
-
-    // FIXME: what if we have a jsr at the end of the code, but that
-    // jsr has no corresponding ret?  Is this verifiable, or is it
-    // not?  If it is then we need a special case here.
-    if (PC >= current_method->code_length)
-      verify_fail ("fell off end");
-
-    current_state->stacktop = state::NO_STACK;
-    push_jump_merge (PC, current_state);
+    // at this point PC points to the instruction after the jsr.  Note
+    // that it is ok to have a `jsr' at the end of the bytecode,
+    // provided that the called subroutine never returns.  So, we have
+    // a special case here and another one when we handle the ret.
+    if (PC < current_method->code_length)
+      {
+	current_state->stacktop = state::NO_STACK;
+	push_jump_merge (PC, current_state);
+      }
     invalidate_pc ();
   }
 
@@ -2076,20 +2152,30 @@ private:
   bool initialize_stack ()
   {
     int var = 0;
-    bool is_init = false;
+    bool is_init = _Jv_equalUtf8Consts (current_method->self->name,
+					gcj::init_name);
+    bool is_clinit = _Jv_equalUtf8Consts (current_method->self->name,
+					  gcj::clinit_name);
 
     using namespace java::lang::reflect;
     if (! Modifier::isStatic (current_method->self->accflags))
       {
 	type kurr (current_class);
-	if (_Jv_equalUtf8Consts (current_method->self->name, gcj::init_name))
+	if (is_init)
 	  {
 	    kurr.set_uninitialized (type::SELF, this);
 	    is_init = true;
 	  }
+	else if (is_clinit)
+	  verify_fail ("<clinit> method must be static");
 	set_variable (0, kurr);
 	current_state->set_this_type (kurr);
 	++var;
+      }
+    else
+      {
+	if (is_init)
+	  verify_fail ("<init> method must be non-static");
       }
 
     // We have to handle wide arguments specially here.
@@ -2441,7 +2527,11 @@ private:
 	    pop32 ();
 	    break;
 	  case op_pop2:
-	    pop64 ();
+	    {
+	      type t = pop_raw ();
+	      if (! t.iswide ())
+		pop32 ();
+	    }
 	    break;
 	  case op_dup:
 	    {
@@ -3062,34 +3152,6 @@ private:
 			 start_PC);
 	  }
       }
-  }
-
-  __attribute__ ((__noreturn__)) void verify_fail (char *s, jint pc = -1)
-  {
-    using namespace java::lang;
-    StringBuffer *buf = new StringBuffer ();
-
-    buf->append (JvNewStringLatin1 ("verification failed"));
-    if (pc == -1)
-      pc = start_PC;
-    if (pc != -1)
-      {
-	buf->append (JvNewStringLatin1 (" at PC "));
-	buf->append (pc);
-      }
-
-    _Jv_InterpMethod *method = current_method;
-    buf->append (JvNewStringLatin1 (" in "));
-    buf->append (current_class->getName());
-    buf->append ((jchar) ':');
-    buf->append (JvNewStringUTF (method->get_method()->name->data));
-    buf->append ((jchar) '(');
-    buf->append (JvNewStringUTF (method->get_method()->signature->data));
-    buf->append ((jchar) ')');
-
-    buf->append (JvNewStringLatin1 (": "));
-    buf->append (JvNewStringLatin1 (s));
-    throw new java::lang::VerifyError (buf->toString ());
   }
 
 public:

@@ -699,6 +699,7 @@ static void free_insn_expr_list_list	PARAMS ((rtx *));
 static void clear_modify_mem_tables	PARAMS ((void));
 static void free_modify_mem_tables	PARAMS ((void));
 static rtx gcse_emit_move_after		PARAMS ((rtx, rtx, rtx));
+static void local_cprop_find_used_regs	PARAMS ((rtx *, void *));
 static bool do_local_cprop		PARAMS ((rtx, rtx, int, rtx*));
 static bool adjust_libcall_notes	PARAMS ((rtx, rtx, rtx, rtx*));
 static void local_cprop_pass		PARAMS ((int));
@@ -4128,6 +4129,7 @@ constprop_register (insn, from, to, alter_jumps)
      conditional branch instructions first.  */
   if (alter_jumps
       && (sset = single_set (insn)) != NULL
+      && NEXT_INSN (insn)
       && any_condjump_p (NEXT_INSN (insn)) && onlyjump_p (NEXT_INSN (insn)))
     {
       rtx dest = SET_DEST (sset);
@@ -4249,6 +4251,53 @@ cprop_insn (insn, alter_jumps)
   return changed;
 }
 
+/* Like find_used_regs, but avoid recording uses that appear in
+   input-output contexts such as zero_extract or pre_dec.  This
+   restricts the cases we consider to those for which local cprop
+   can legitimately make replacements.  */
+
+static void
+local_cprop_find_used_regs (xptr, data)
+     rtx *xptr;
+     void *data;
+{
+  rtx x = *xptr;
+
+  if (x == 0)
+    return;
+
+  switch (GET_CODE (x))
+    {
+    case ZERO_EXTRACT:
+    case SIGN_EXTRACT:
+    case STRICT_LOW_PART:
+      return;
+
+    case PRE_DEC:
+    case PRE_INC:
+    case POST_DEC:
+    case POST_INC:
+    case PRE_MODIFY:
+    case POST_MODIFY:
+      /* Can only legitimately appear this early in the context of
+	 stack pushes for function arguments, but handle all of the
+	 codes nonetheless.  */
+      return;
+
+    case SUBREG:
+      /* Setting a subreg of a register larger than word_mode leaves
+	 the non-written words unchanged.  */
+      if (GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (x))) > BITS_PER_WORD)
+	return;
+      break;
+
+    default:
+      break;
+    }
+
+  find_used_regs (xptr, data);
+}
+  
 /* LIBCALL_SP is a zero-terminated array of insns at the end of a libcall;
    their REG_EQUAL notes need updating.  */
 
@@ -4277,6 +4326,9 @@ do_local_cprop (x, insn, alter_jumps, libcall_sp)
 	{
 	  rtx this_rtx = l->loc;
 	  rtx note;
+
+	  if (l->in_libcall)
+	    continue;
 
 	  if (CONSTANT_P (this_rtx))
 	    newcnst = this_rtx;
@@ -4376,6 +4428,7 @@ local_cprop_pass (alter_jumps)
   rtx insn;
   struct reg_use *reg_used;
   rtx libcall_stack[MAX_NESTED_LIBCALLS + 1], *libcall_sp;
+  bool changed = false;
 
   cselib_init ();
   libcall_sp = &libcall_stack[MAX_NESTED_LIBCALLS];
@@ -4399,21 +4452,32 @@ local_cprop_pass (alter_jumps)
 	  do
 	    {
 	      reg_use_count = 0;
-	      note_uses (&PATTERN (insn), find_used_regs, NULL);
+	      note_uses (&PATTERN (insn), local_cprop_find_used_regs, NULL);
 	      if (note)
-		find_used_regs (&XEXP (note, 0), NULL);
+		local_cprop_find_used_regs (&XEXP (note, 0), NULL);
 
 	      for (reg_used = &reg_use_table[0]; reg_use_count > 0;
 		   reg_used++, reg_use_count--)
 		if (do_local_cprop (reg_used->reg_rtx, insn, alter_jumps,
 		    libcall_sp))
-		  break;
+		  {
+		    changed = true;
+		    break;
+		  }
 	    }
 	  while (reg_use_count);
 	}
       cselib_process_insn (insn);
     }
   cselib_finish ();
+  /* Global analysis may get into infinite loops for unreachable blocks.  */
+  if (changed && alter_jumps)
+    {
+      delete_unreachable_blocks ();
+      free_reg_set_mem ();
+      alloc_reg_set_mem (max_reg_num ());
+      compute_sets (get_insns ());
+    }
 }
 
 /* Forward propagate copies.  This includes copies and constants.  Return
@@ -4502,6 +4566,9 @@ one_cprop_pass (pass, alter_jumps)
       fprintf (gcse_file, "%d const props, %d copy props\n\n",
 	       const_prop_count, copy_prop_count);
     }
+  /* Global analysis may get into infinite loops for unreachable blocks.  */
+  if (changed && alter_jumps)
+    delete_unreachable_blocks ();
 
   return changed;
 }

@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on IBM RS/6000.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 
-   2000, 2001, 2002 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -284,7 +284,9 @@ char rs6000_reg_names[][8] =
       "8",  "9",  "10", "11", "12", "13", "14", "15",
       "16", "17", "18", "19", "20", "21", "22", "23",
       "24", "25", "26", "27", "28", "29", "30", "31",
-      "vrsave"
+      "vrsave", "vscr",
+      /* SPE registers.  */
+      "spe_acc", "spefscr"
 };
 
 #ifdef TARGET_REGNAMES
@@ -301,12 +303,14 @@ static const char alt_reg_names[][8] =
     "mq",    "lr",  "ctr",   "ap",
   "%cr0",  "%cr1", "%cr2", "%cr3", "%cr4", "%cr5", "%cr6", "%cr7",
    "xer",
-   /* AltiVec registers.  */
+  /* AltiVec registers.  */
    "%v0",  "%v1",  "%v2",  "%v3",  "%v4",  "%v5",  "%v6", "%v7",
-   "%v8",  "%v9",  "%v10", "%v11", "%v12", "%v13", "%v14", "%v15",
-   "%v16", "%v17", "%v18", "%v19", "%v20", "%v21", "%v22", "%v23",
-   "%v24", "%v25", "%v26", "%v27", "%v28", "%v29", "%v30", "%v31",
-   "vrsave"
+   "%v8",  "%v9", "%v10", "%v11", "%v12", "%v13", "%v14", "%v15",
+  "%v16", "%v17", "%v18", "%v19", "%v20", "%v21", "%v22", "%v23",
+  "%v24", "%v25", "%v26", "%v27", "%v28", "%v29", "%v30", "%v31",
+  "vrsave", "vscr",
+  /* SPE registers.  */
+  "spe_acc", "spefscr"
 };
 #endif
 
@@ -2841,6 +2845,16 @@ rs6000_emit_move (dest, source, mode)
 	operands[1]
 	  = replace_equiv_address (operands[1],
 				   copy_addr_to_reg (XEXP (operands[1], 0)));
+      if (TARGET_POWER)
+        {
+	  emit_insn (gen_rtx_PARALLEL (VOIDmode,
+		       gen_rtvec (2,
+				  gen_rtx_SET (VOIDmode,
+					       operands[0], operands[1]),
+				  gen_rtx_CLOBBER (VOIDmode,
+						   gen_rtx_SCRATCH (SImode)))));
+	  return;
+	}
       break;
 
     default:
@@ -3275,7 +3289,10 @@ function_arg_partial_nregs (cum, mode, type, named)
    the argument itself.  The pointer is passed in whatever way is
    appropriate for passing a pointer to that type.
 
-   Under V.4, structures and unions are passed by reference.  */
+   Under V.4, structures and unions are passed by reference.
+
+   As an extension to all ABIs, variable sized types are passed by
+   reference.  */
 
 int
 function_arg_pass_by_reference (cum, mode, type, named)
@@ -3293,8 +3310,7 @@ function_arg_pass_by_reference (cum, mode, type, named)
 
       return 1;
     }
-
-  return 0;
+  return type && int_size_in_bytes (type) <= 0;
 }
 
 /* Perform any needed actions needed for a function that is receiving a
@@ -3533,7 +3549,28 @@ rs6000_va_arg (valist, type)
   rtx lab_false, lab_over, addr_rtx, r;
 
   if (DEFAULT_ABI != ABI_V4)
-    return std_expand_builtin_va_arg (valist, type);
+    {
+      /* Variable sized types are passed by reference.  */
+      if (int_size_in_bytes (type) <= 0)
+	{
+	  u = build_pointer_type (type);
+
+	  /* Args grow upward.  */
+	  t = build (POSTINCREMENT_EXPR, TREE_TYPE (valist), valist,
+		     build_int_2 (POINTER_SIZE / BITS_PER_UNIT, 0));
+	  TREE_SIDE_EFFECTS (t) = 1;
+
+	  t = build1 (NOP_EXPR, build_pointer_type (u), t);
+	  TREE_SIDE_EFFECTS (t) = 1;
+
+	  t = build1 (INDIRECT_REF, u, t);
+	  TREE_SIDE_EFFECTS (t) = 1;
+
+	  return expand_expr (t, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+	}
+      else
+	return std_expand_builtin_va_arg (valist, type);
+    }
 
   f_gpr = TYPE_FIELDS (TREE_TYPE (va_list_type_node));
   f_fpr = TREE_CHAIN (f_gpr);
@@ -8837,7 +8874,7 @@ first_reg_to_save ()
     if (regs_ever_live[first_reg] 
 	&& (! call_used_regs[first_reg]
 	    || (first_reg == RS6000_PIC_OFFSET_TABLE_REGNUM
-		&& ((DEFAULT_ABI == ABI_V4 && flag_pic == 1)
+		&& ((DEFAULT_ABI == ABI_V4 && flag_pic != 0)
 		    || (DEFAULT_ABI == ABI_DARWIN && flag_pic)))))
       break;
 
@@ -9609,7 +9646,7 @@ void
 rs6000_emit_load_toc_table (fromprolog)
      int fromprolog;
 {
-  rtx dest;
+  rtx dest, insn;
   dest = gen_rtx_REG (Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM);
 
   if (TARGET_ELF && DEFAULT_ABI == ABI_V4 && flag_pic == 1)
@@ -9617,8 +9654,12 @@ rs6000_emit_load_toc_table (fromprolog)
       rtx temp = (fromprolog
 		  ? gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM)
 		  : gen_reg_rtx (Pmode));
-      rs6000_maybe_dead (emit_insn (gen_load_toc_v4_pic_si (temp)));
-      rs6000_maybe_dead (emit_move_insn (dest, temp));
+      insn = emit_insn (gen_load_toc_v4_pic_si (temp));
+      if (fromprolog)
+	rs6000_maybe_dead (insn);
+      insn = emit_move_insn (dest, temp);
+      if (fromprolog)
+	rs6000_maybe_dead (insn);
     }
   else if (TARGET_ELF && DEFAULT_ABI != ABI_AIX && flag_pic == 2)
     {
@@ -9665,14 +9706,13 @@ rs6000_emit_load_toc_table (fromprolog)
 	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCG", reload_toc_labelno++);
 	  symF = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
 
-	  rs6000_maybe_dead (emit_insn (gen_load_toc_v4_PIC_1b (tempLR,
-								symF,
-								tocsym)));
-	  rs6000_maybe_dead (emit_move_insn (dest, tempLR));
-	  rs6000_maybe_dead (emit_move_insn (temp0,
-					     gen_rtx_MEM (Pmode, dest)));
+	  emit_insn (gen_load_toc_v4_PIC_1b (tempLR, symF, tocsym));
+	  emit_move_insn (dest, tempLR);
+	  emit_move_insn (temp0, gen_rtx_MEM (Pmode, dest));
 	}
-      rs6000_maybe_dead (emit_insn (gen_addsi3 (dest, temp0, dest)));
+      insn = emit_insn (gen_addsi3 (dest, temp0, dest));
+      if (fromprolog)
+	rs6000_maybe_dead (insn);
     }
   else if (TARGET_ELF && !TARGET_AIX && flag_pic == 0 && TARGET_MINIMAL_TOC)
     {
@@ -9682,15 +9722,21 @@ rs6000_emit_load_toc_table (fromprolog)
       ASM_GENERATE_INTERNAL_LABEL (buf, "LCTOC", 1);
       realsym = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
 
-      rs6000_maybe_dead (emit_insn (gen_elf_high (dest, realsym)));
-      rs6000_maybe_dead (emit_insn (gen_elf_low (dest, dest, realsym)));
+      insn = emit_insn (gen_elf_high (dest, realsym));
+      if (fromprolog)
+	rs6000_maybe_dead (insn);
+      insn = emit_insn (gen_elf_low (dest, dest, realsym));
+      if (fromprolog)
+	rs6000_maybe_dead (insn);
     }
   else if (DEFAULT_ABI == ABI_AIX)
     {
       if (TARGET_32BIT)
-	rs6000_maybe_dead (emit_insn (gen_load_toc_aix_si (dest)));
+	insn = emit_insn (gen_load_toc_aix_si (dest));
       else
-	rs6000_maybe_dead (emit_insn (gen_load_toc_aix_di (dest)));
+	insn = emit_insn (gen_load_toc_aix_di (dest));
+      if (fromprolog)
+	rs6000_maybe_dead (insn);
     }
   else
     abort ();
@@ -10423,7 +10469,7 @@ rs6000_emit_prologue ()
 	if ((regs_ever_live[info->first_gp_reg_save+i] 
 	     && ! call_used_regs[info->first_gp_reg_save+i])
 	    || (i+info->first_gp_reg_save == RS6000_PIC_OFFSET_TABLE_REGNUM
-		&& ((DEFAULT_ABI == ABI_V4 && flag_pic == 1)
+		&& ((DEFAULT_ABI == ABI_V4 && flag_pic != 0)
 		    || (DEFAULT_ABI == ABI_DARWIN && flag_pic))))
 	  {
 	    rtx addr, reg, mem;
@@ -10839,7 +10885,7 @@ rs6000_emit_epilogue (sibcall)
       if ((regs_ever_live[info->first_gp_reg_save+i] 
 	   && ! call_used_regs[info->first_gp_reg_save+i])
 	  || (i+info->first_gp_reg_save == RS6000_PIC_OFFSET_TABLE_REGNUM
-	      && ((DEFAULT_ABI == ABI_V4 && flag_pic == 1)
+	      && ((DEFAULT_ABI == ABI_V4 && flag_pic != 0)
 		  || (DEFAULT_ABI == ABI_DARWIN && flag_pic))))
 	{
 	  rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, 
@@ -12617,10 +12663,14 @@ rs6000_elf_encode_section_info (decl, first)
 	   && DEFAULT_ABI == ABI_V4
 	   && TREE_CODE (decl) == VAR_DECL)
     {
+      rtx sym_ref = XEXP (DECL_RTL (decl), 0);
       int size = int_size_in_bytes (TREE_TYPE (decl));
       tree section_name = DECL_SECTION_NAME (decl);
       const char *name = (char *)0;
       int len = 0;
+
+      if ((*targetm.binds_local_p) (decl))
+	SYMBOL_REF_FLAG (sym_ref) = 1;
 
       if (section_name)
 	{
@@ -12648,7 +12698,6 @@ rs6000_elf_encode_section_info (decl, first)
 		  || (len == sizeof (".PPC.EMB.sbss0") - 1
 		      && strcmp (name, ".PPC.EMB.sbss0") == 0))))
 	{
-	  rtx sym_ref = XEXP (DECL_RTL (decl), 0);
 	  size_t len = strlen (XSTR (sym_ref, 0));
 	  char *str = alloca (len + 2);
 

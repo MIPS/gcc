@@ -1,6 +1,6 @@
 /* Top level of GNU C compiler
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -727,6 +727,10 @@ int flag_unwind_tables = 0;
 
 int flag_asynchronous_unwind_tables = 0;
 
+/* Nonzero means allow for forced unwinding.  */
+
+int flag_forced_unwind_exceptions;
+
 /* Nonzero means don't place uninitialized global data in common storage
    by default.  */
 
@@ -1090,6 +1094,8 @@ static const lang_independent_options f_options[] =
    N_("Generate unwind tables exact at each instruction boundary") },
   {"non-call-exceptions", &flag_non_call_exceptions, 1,
    N_("Support synchronous non-call exceptions") },
+  {"forced-unwind-exceptions", &flag_forced_unwind_exceptions, 1,
+   N_("Support forced unwinding, e.g. for thread cancellation") },
   {"profile-arcs", &profile_arc_flag, 1,
    N_("Insert arc based program profiling code") },
   {"test-coverage", &flag_test_coverage, 1,
@@ -1904,8 +1910,10 @@ wrapup_global_declarations (vec, len)
     {
       decl = vec[i];
 
-      /* We're not deferring this any longer.  */
-      DECL_DEFER_OUTPUT (decl) = 0;
+      /* We're not deferring this any longer.  Assignment is
+	 conditional to avoid needlessly dirtying PCH pages. */
+      if (DECL_DEFER_OUTPUT (decl) != 0)
+	DECL_DEFER_OUTPUT (decl) = 0;
 
       if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0)
 	(*lang_hooks.finish_incomplete_decl) (decl);
@@ -2112,8 +2120,6 @@ pop_srcloc ()
 static void
 compile_file ()
 {
-  tree globals;
-
   /* Initialize yet another pass.  */
 
   init_final (main_input_filename);
@@ -2136,25 +2142,7 @@ compile_file ()
   if (flag_syntax_only)
     return;
 
-  globals = (*lang_hooks.decls.getdecls) ();
-
-  /* Really define vars that have had only a tentative definition.
-     Really output inline functions that must actually be callable
-     and have not been output so far.  */
-
-  {
-    int len = list_length (globals);
-    tree *vec = (tree *) xmalloc (sizeof (tree) * len);
-    int i;
-    tree decl;
-
-    /* Process the decls in reverse order--earliest first.
-       Put them into VEC from back to front, then take out from front.  */
-
-    for (i = 0, decl = globals; i < len; i++, decl = TREE_CHAIN (decl))
-      vec[len - i - 1] = decl;
-
-    wrapup_global_declarations (vec, len);
+  (*lang_hooks.decls.final_write_globals)();
 
     /* This must occur after the loop to output deferred functions.  Else
        the profiler initializer would not be emitted if all the functions
@@ -2164,12 +2152,6 @@ compile_file ()
        data to need to be output, so it need not be in the deferred function
        loop above.  */
     output_func_start_profiler ();
-
-    check_global_declarations (vec, len);
-
-    /* Clean up.  */
-    free (vec);
-  }
 
   /* Write out any pending weak symbol declarations.  */
 
@@ -2454,12 +2436,17 @@ rest_of_compilation (decl)
 		  goto exit_rest_of_compilation;
 		}
 	    }
-	  else
-	    /* ??? Note that this has the effect of making it look
-		 like "inline" was specified for a function if we choose
-		 to inline it.  This isn't quite right, but it's
-		 probably not worth the trouble to fix.  */
-	    inlinable = DECL_INLINE (decl) = 1;
+          else 
+            {
+	      /* ??? Note that we used to just make it look like if
+		 the "inline" keyword was specified when we decide
+		 to inline it (because of -finline-functions).
+		 garloff at suse dot de, 2002-04-24: Add another flag to
+		 actually record this piece of information.  */
+	      if (!DECL_INLINE (decl))
+		DID_INLINE_FUNC (decl) = 1;
+	      inlinable = DECL_INLINE (decl) = 1;
+	    }
 	}
 
       insns = get_insns ();
@@ -2598,10 +2585,17 @@ rest_of_compilation (decl)
 
   delete_unreachable_blocks ();
 
+  /* We have to issue these warnings now already, because CFG cleanups
+     further down may destroy the required information.  */
+  check_function_return_warnings ();
+
   /* Turn NOTE_INSN_PREDICTIONs into branch predictions.  */
-  timevar_push (TV_BRANCH_PROB);
-  note_prediction_to_br_prob ();
-  timevar_pop (TV_BRANCH_PROB);
+  if (flag_guess_branch_prob)
+    {
+      timevar_push (TV_BRANCH_PROB);
+      note_prediction_to_br_prob ();
+      timevar_pop (TV_BRANCH_PROB);
+    }
 
   /* We may have potential sibling or tail recursion sites.  Select one
      (of possibly multiple) methods of performing the call.  */
@@ -2682,21 +2676,26 @@ rest_of_compilation (decl)
   timevar_push (TV_JUMP);
   /* Turn NOTE_INSN_EXPECTED_VALUE into REG_BR_PROB.  Do this
      before jump optimization switches branch directions.  */
-  expected_value_to_br_prob ();
+  if (flag_guess_branch_prob)
+    expected_value_to_br_prob ();
 
   reg_scan (insns, max_reg_num (), 0);
   rebuild_jump_labels (insns);
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+  delete_trivially_dead_insns (insns, max_reg_num ());
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP
 	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
   /* CFG is no longer maintained up-to-date.  */
-  free_bb_for_insn ();
-  copy_loop_headers (insns);
+  if (optimize)
+    {
+      free_bb_for_insn ();
+      copy_loop_headers (insns);
+      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+    }
   purge_line_number_notes (insns);
-  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 
   timevar_pop (TV_JUMP);
   close_dump_file (DFI_jump, print_rtl, insns);
@@ -2774,7 +2773,8 @@ rest_of_compilation (decl)
     }
 
   timevar_push (TV_JUMP);
-  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP: 0);
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
   /* Try to identify useless null pointer tests and delete them.  */
   if (flag_delete_null_pointer_checks)
@@ -2972,8 +2972,9 @@ rest_of_compilation (decl)
   open_dump_file (DFI_cfg, decl);
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
-  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
-	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE
+		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
   /* It may make more sense to mark constant functions after dead code is
      eliminated by life_analyzis, but we need to do it early, as -fprofile-arcs
@@ -3012,7 +3013,7 @@ rest_of_compilation (decl)
       close_dump_file (DFI_bp, print_rtl_with_bb, insns);
       timevar_pop (TV_BRANCH_PROB);
     }
-  if (optimize >= 0)
+  if (optimize > 0)
     {
       open_dump_file (DFI_ce1, decl);
       if (flag_if_conversion)
@@ -3072,8 +3073,6 @@ rest_of_compilation (decl)
 
   open_dump_file (DFI_life, decl);
   regclass_init ();
-
-  check_function_return_warnings ();
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
@@ -3363,10 +3362,13 @@ rest_of_compilation (decl)
 #endif
 
   /* If optimizing, then go ahead and split insns now.  */
+#ifndef STACK_REGS
   if (optimize > 0)
+#endif
     split_all_insns (0);
 
-  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0);
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE);
 
   /* On some machines, the prologue and epilogue code, or parts thereof,
      can be represented as RTL.  Doing so lets us schedule insns between
@@ -3434,10 +3436,6 @@ rest_of_compilation (decl)
       close_dump_file (DFI_ce3, print_rtl_with_bb, insns);
       timevar_pop (TV_IFCVT2);
     }
-#ifdef STACK_REGS
-  if (optimize)
-    split_all_insns (1);
-#endif
 
 #ifdef INSN_SCHEDULING
   if (optimize > 0 && flag_schedule_insns_after_reload)
@@ -3964,6 +3962,16 @@ decode_f_option (arg)
 	read_integral_parameter (option_value, arg - 2,
 				 MAX_INLINE_INSNS);
       set_param_value ("max-inline-insns", val);
+      set_param_value ("max-inline-insns-single", val/2);
+      set_param_value ("max-inline-insns-auto", val/2);
+      set_param_value ("max-inline-insns-rtl", val);
+      if (val/4 < MIN_INLINE_INSNS)
+	{
+	  if (val/4 > 10)
+	    set_param_value ("min-inline-insns", val/4);
+	  else
+	    set_param_value ("min-inline-insns", 10);
+	}
     }
   else if ((option_value = skip_leading_substring (arg, "tls-model=")))
     {
@@ -4245,18 +4253,21 @@ independent_decode_option (argc, argv)
     {
       display_help ();
       exit_after_options = 1;
+      return 1;
     }
 
   if (!strcmp (arg, "-target-help"))
     {
       display_target_options ();
       exit_after_options = 1;
+      return 1;
     }
 
   if (!strcmp (arg, "-version"))
     {
       print_version (stderr, "");
       exit_after_options = 1;
+      return 1;
     }
 
   /* Handle '--param <name>=<value>'.  */
@@ -4534,6 +4545,9 @@ print_version (file, indent)
 	   , indent, *indent != 0 ? " " : "",
 	   lang_hooks.name, version_string, TARGET_NAME,
 	   indent, __VERSION__);
+  fnotice (file, "%s%sGGC heuristics: --param ggc-min-expand=%d --param ggc-min-heapsize=%d\n",
+	   indent, *indent != 0 ? " " : "",
+	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
 }
 
 /* Print an option value and return the adjusted position in the line.
@@ -4773,6 +4787,9 @@ parse_options_and_default_flags (argc, argv)
 
   /* Register the language-independent parameters.  */
   add_params (lang_independent_params, LAST_PARAM);
+
+  /* This must be done after add_params but before argument processing.  */
+  init_ggc_heuristics();
 
   /* Perform language-specific options initialization.  */
   (*lang_hooks.init_options) ();
@@ -5075,7 +5092,7 @@ process_options ()
 	print_switch_values (stderr, 0, MAX_LINE, "", " ", "\n");
     }
 
-  if (! quiet_flag)
+  if (! quiet_flag || flag_detailed_statistics)
     time_report = 1;
 
   if (flag_syntax_only)

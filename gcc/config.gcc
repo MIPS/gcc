@@ -1,5 +1,5 @@
 # GCC build-, host- and target-specific configuration file.
-# Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+# Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -367,7 +367,18 @@ case $machine in
 	xm_defines=POSIX
 	gas=yes
 	gnu_ld=yes
+
+	# NetBSD 2.0 and later get POSIX threads enabled by default.
+	# Allow them to be explicitly enabled on any other version.
 	case x${enable_threads} in
+	x)
+		case $machine in
+		*-*-netbsd[2-9]* | *-*-netbsdelf[2-9]*)
+			thread_file='posix'
+			tm_defines="${tm_defines} NETBSD_ENABLE_PTHREADS"
+			;;
+		esac
+		;;
 	xyes | xposix)
 		thread_file='posix'
 		tm_defines="${tm_defines} NETBSD_ENABLE_PTHREADS"
@@ -753,7 +764,7 @@ hppa*64*-*-linux* | parisc*64*-*-linux*)
 	gas=yes gnu_ld=yes
 	;;
 hppa*-*-linux* | parisc*-*-linux*)
-	target_cpu_default="MASK_PA_11"
+	target_cpu_default="MASK_PA_11 | MASK_NO_SPACE_REGS"
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h linux.h pa/pa-linux.h \
 		 pa/pa32-regs.h pa/pa32-linux.h"
 	tmake_file="t-slibgcc-elf-ver t-linux pa/t-linux"
@@ -779,8 +790,11 @@ hppa1.1-*-rtems*)
 	xm_defines=POSIX
 	target_cpu_default="(MASK_JUMP_IN_DELAY | MASK_PORTABLE_RUNTIME | MASK_GAS | MASK_NO_SPACE_REGS | MASK_SOFT_FLOAT)"
 	tm_file="${tm_file} pa/pa32-regs.h dbxelf.h elfos.h pa/elf.h pa/pa-pro-end.h libgloss.h pa/rtems.h rtems.h"
-	tmake_file="pa/t-bsd pa/t-pro"
+	tmake_file="pa/t-bsd pa/t-pro t-rtems"
 	xmake_file="pa/x-ada"
+	if test x$enable_threads = xyes; then
+	  thread_file='rtems'
+	fi
 	;;
 hppa1.0-*-osf*)
 	tm_file="${tm_file} pa/pa32-regs.h pa/som.h pa/pa-osf.h"
@@ -894,7 +908,7 @@ hppa*64*-*-hpux11*)
 	tmake_file="pa/t-pa64 pa/t-pa-hpux"
 	xmake_file="pa/x-ada"
 	target_cpu_default="(MASK_PA_11|MASK_PA_20|MASK_GAS)"
-
+	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
 	if test x$gnu_ld = xyes
 	then
 		target_cpu_default="${target_cpu_default}|MASK_GNU_LD"
@@ -907,7 +921,6 @@ hppa*64*-*-hpux11*)
 #		tmake_file="${tmake_file} pa/t-dce-thr"
 #	fi
 	install_headers_dir=install-headers-cpio
-	use_collect2=yes
 	;;
 hppa1.1-*-hpux11* | hppa2*-*-hpux11*)
 	target_cpu_default="MASK_PA_11"
@@ -2055,7 +2068,7 @@ powerpc-*-eabi*)
 powerpc-*-rtems*)
 	xm_defines=POSIX
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/eabi.h rs6000/rtems.h rtems.h"
-	tmake_file="rs6000/t-ppcgas t-rtems rs6000/t-ppccomm"
+	tmake_file="rs6000/t-rtems t-rtems rs6000/t-ppccomm"
 	if test x$enable_threads = xyes; then
 	  thread_file='rtems'
 	fi
@@ -2703,7 +2716,7 @@ xtensa-*-elf*)
 	;;
 xtensa-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h linux.h xtensa/linux.h"
-	tmake_file="t-linux xtensa/t-xtensa"
+	tmake_file="t-slibgcc-elf-ver t-linux xtensa/t-xtensa"
 	;;
 *)
 	echo "*** Configuration $machine not supported" 1>&2

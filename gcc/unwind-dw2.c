@@ -1,5 +1,5 @@
 /* DWARF2 exception handling and frame unwind runtime interface routines.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -164,6 +164,14 @@ _Unwind_GetGR (struct _Unwind_Context *context, int index)
 {
   /* This will segfault if the register hasn't been saved.  */
   return * (_Unwind_Word *) context->reg[index];
+}
+
+/* Get the value of the CFA as saved in CONTEXT.  */
+
+_Unwind_Word
+_Unwind_GetCFA (struct _Unwind_Context *context)
+{
+  return context->cfa;
 }
 
 /* Overwrite the saved value for register REG in CONTEXT with VAL.  */
@@ -782,6 +790,9 @@ execute_cfa_program (const unsigned char *insn_ptr,
 
 	case DW_CFA_undefined:
 	case DW_CFA_same_value:
+	  insn_ptr = read_uleb128 (insn_ptr, &reg);
+	  break;
+
 	case DW_CFA_nop:
 	  break;
 

@@ -1,6 +1,6 @@
 // 1999-10-11 bkoz
 
-// Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,7 +31,7 @@
 
 #include <cstring> // for memset, memcmp
 #include <streambuf>
-#include <string>
+#include <sstream>
 #include <ostream>
 #include <testsuite_hooks.h>
 
@@ -364,6 +364,158 @@ test07()
   VERIFY(out.good());
 }
 
+// libstdc++/9322
+void test08()
+{
+  using std::locale;
+  bool test = true;
+
+  locale loc;
+  testbuf2 ob;
+  VERIFY( ob.getloc() == loc );
+
+  locale::global(locale("en_US"));
+  VERIFY( ob.getloc() == loc );
+
+  locale loc_de ("de_DE");
+  locale ret = ob.pubimbue(loc_de);
+  VERIFY( ob.getloc() == loc_de );
+  VERIFY( ret == loc );
+
+  locale::global(loc);
+  VERIFY( ob.getloc() == loc_de );
+}
+
+// libstdc++/9318
+class Outbuf : public std::streambuf
+{
+public:
+  typedef std::streambuf::traits_type traits_type;
+
+  std::string result() const { return str; }
+
+protected:
+  virtual int_type overflow(int_type c = traits_type::eof())
+  {
+    if (!traits_type::eq_int_type(c, traits_type::eof()))
+      str.push_back(traits_type::to_char_type(c));
+    return traits_type::not_eof(c);
+  }
+
+private:
+  std::string str;
+};
+
+// <1>
+void test09()
+{
+  bool test = true;
+  
+  std::istringstream stream("Bad Moon Rising");
+  Outbuf buf;
+  stream >> &buf;
+
+  VERIFY( buf.result() == "Bad Moon Rising" );
+}
+
+// <2>
+void test10()
+{
+  bool test = true;
+
+  std::stringbuf sbuf("Bad Moon Rising", std::ios::in);
+  Outbuf buf;
+  std::ostream stream(&buf);
+  stream << &sbuf;
+
+  VERIFY( buf.result() == "Bad Moon Rising" );
+}
+
+// libstdc++/9424
+class Outbuf_2 : public std::streambuf
+{
+  char buf[1];
+
+public:
+  Outbuf_2()
+  {
+    setp(buf, buf + 1);
+  }
+
+  int_type overflow(int_type c)
+  {
+    int_type eof = traits_type::eof();
+    
+    if (pptr() < epptr())
+      {
+	if (traits_type::eq_int_type(c, eof))
+	  return traits_type::not_eof(c);
+	
+	*pptr() = traits_type::to_char_type(c);
+	pbump(1);
+	return c;
+      }
+
+    return eof;
+  }
+};
+
+class Inbuf_2 : public std::streambuf
+{
+  static const char buf[];
+  const char* current;
+  int size;
+
+public:
+  Inbuf_2()
+  {
+    current = buf;
+    size = std::strlen(buf);
+  }
+  
+  int_type underflow()
+  {
+    if (current < buf + size)
+      return traits_type::to_int_type(*current);
+    return traits_type::eof();
+  }
+  
+  int_type uflow()
+  {
+    if (current < buf + size)
+      return traits_type::to_int_type(*current++);
+    return traits_type::eof();
+  }
+};
+
+const char Inbuf_2::buf[] = "Atteivlis";
+
+// <1>
+void test11()
+{
+  bool test = true;
+
+  Inbuf_2 inbuf1;
+  std::istream is(&inbuf1);
+  Outbuf_2 outbuf1;
+  is >> &outbuf1;
+  VERIFY( inbuf1.sgetc() == 't' );
+  VERIFY( is.good() );
+}
+
+// <2>
+void test12()
+{ 
+  bool test = true;
+ 
+  Outbuf_2 outbuf2;
+  std::ostream os (&outbuf2);
+  Inbuf_2 inbuf2;
+  os << &inbuf2;
+  VERIFY( inbuf2.sgetc() == 't' );
+  VERIFY( os.good() );
+}
+
 int main() 
 {
   test01();
@@ -374,5 +526,11 @@ int main()
   test05();
 
   test07();
+  test08();
+
+  test09();
+  test10();
+  test11();
+  test12();
   return 0;
 }

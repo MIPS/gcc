@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for HPPA.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002 Free Software Foundation, Inc.
+   2002, 2003 Free Software Foundation, Inc.
    Contributed by Tim Moore (moore@cs.utah.edu), based on sparc.c
 
 This file is part of GNU CC.
@@ -121,6 +121,11 @@ static void pa_globalize_label PARAMS ((FILE *, const char *))
      ATTRIBUTE_UNUSED;
 static void pa_asm_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 					    HOST_WIDE_INT, tree));
+#if !defined(USE_COLLECT2)
+static void pa_asm_out_constructor PARAMS ((rtx, int));
+static void pa_asm_out_destructor PARAMS ((rtx, int));
+#endif
+static void pa_init_builtins PARAMS ((void));
 static void copy_fp_args PARAMS ((rtx)) ATTRIBUTE_UNUSED;
 static int length_fp_args PARAMS ((rtx)) ATTRIBUTE_UNUSED;
 static struct deferred_plabel *get_plabel PARAMS ((const char *))
@@ -202,6 +207,16 @@ static size_t n_deferred_plabels = 0;
 #define TARGET_ASM_OUTPUT_MI_THUNK pa_asm_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
+
+#if !defined(USE_COLLECT2)
+#undef TARGET_ASM_CONSTRUCTOR
+#define TARGET_ASM_CONSTRUCTOR pa_asm_out_constructor
+#undef TARGET_ASM_DESTRUCTOR
+#define TARGET_ASM_DESTRUCTOR pa_asm_out_destructor
+#endif
+
+#undef TARGET_INIT_BUILTINS
+#define TARGET_INIT_BUILTINS pa_init_builtins
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -312,6 +327,14 @@ override_options ()
       targetm.asm_out.unaligned_op.si = NULL;
       targetm.asm_out.unaligned_op.di = NULL;
     }
+}
+
+static void
+pa_init_builtins ()
+{
+#ifdef DONT_HAVE_FPUTC_UNLOCKED
+  built_in_decls[(int) BUILT_IN_FPUTC_UNLOCKED] = NULL_TREE;
+#endif
 }
 
 /* Return nonzero only if OP is a register of mode MODE,
@@ -3132,12 +3155,13 @@ compute_frame_size (size, fregs_live)
   fsize += current_function_outgoing_args_size;
 
   /* Allocate space for the fixed frame marker.  This space must be
-     allocated for any function that makes calls or otherwise allocates
+     allocated for any function that makes calls or allocates
      stack space.  */
   if (!current_function_is_leaf || fsize)
-    fsize += TARGET_64BIT ? 16 : 32;
+    fsize += TARGET_64BIT ? 48 : 32;
 
-  return (fsize + STACK_BOUNDARY - 1) & ~(STACK_BOUNDARY - 1);
+  return ((fsize + PREFERRED_STACK_BOUNDARY / 8 - 1)
+	  & ~(PREFERRED_STACK_BOUNDARY / 8 - 1));
 }
 
 /* Generate the assembly code for function entry.  FILE is a stdio
@@ -3177,6 +3201,15 @@ pa_output_function_prologue (file, size)
   else
     fputs (",NO_CALLS", file);
 
+  /* The SAVE_SP flag is used to indicate that register %r3 is stored
+     at the beginning of the frame and that it is used as the frame
+     pointer for the frame.  We do this because our current frame
+     layout doesn't conform to that specified in the the HP runtime
+     documentation and we need a way to indicate to programs such as
+     GDB where %r3 is saved.  The SAVE_SP flag was chosen because it
+     isn't used by HP compilers but is supported by the assembler.
+     However, SAVE_SP is supposed to indicate that the previous stack
+     pointer has been saved in the frame marker.  */
   if (frame_pointer_needed)
     fputs (",SAVE_SP", file);
 
@@ -3195,26 +3228,6 @@ pa_output_function_prologue (file, size)
     fprintf (file, ",ENTRY_FR=%d", fr_saved + 11);
 
   fputs ("\n\t.ENTRY\n", file);
-
-  /* If we're using GAS and SOM, and not using the portable runtime model,
-     or function sections, then we don't need to accumulate the total number
-     of code bytes.  */
-  if ((TARGET_GAS && TARGET_SOM && ! TARGET_PORTABLE_RUNTIME)
-      || flag_function_sections)
-    total_code_bytes = 0;
-  else if (INSN_ADDRESSES_SET_P ())
-    {
-      unsigned long old_total = total_code_bytes;
-
-      total_code_bytes += INSN_ADDRESSES (INSN_UID (get_last_nonnote_insn ()));
-      total_code_bytes += FUNCTION_BOUNDARY / BITS_PER_UNIT;
-
-      /* Be prepared to handle overflows.  */
-      if (old_total > total_code_bytes)
-	total_code_bytes = -1;
-    }
-  else
-    total_code_bytes = -1;
 
   remove_useless_addtr_insns (get_insns (), 0);
 }
@@ -3297,11 +3310,32 @@ hppa_expand_prologue ()
 			      adjust2, 1);
 	    }
 
-	  /* Prevent register spills from being scheduled before the
-	     stack pointer is raised.  Necessary as we will be storing
-	     registers using the frame pointer as a base register, and
-	     we happen to set fp before raising sp.  */
-	  emit_insn (gen_blockage ());
+	  /* We set SAVE_SP in frames that need a frame pointer.  Thus,
+	     we need to store the previous stack pointer (frame pointer)
+	     into the frame marker on targets that use the HP unwind
+	     library.  This allows the HP unwind library to be used to
+	     unwind GCC frames.  However, we are not fully compatible
+	     with the HP library because our frame layout differs from
+	     that specified in the HP runtime specification.
+
+	     We don't want a frame note on this instruction as the frame
+	     marker moves during dynamic stack allocation.
+
+	     This instruction also serves as a blockage to prevent
+	     register spills from being scheduled before the stack
+	     pointer is raised.  This is necessary as we store
+	     registers using the frame pointer as a base register,
+	     and the frame pointer is set before sp is raised.  */
+	  if (TARGET_HPUX_UNWIND_LIBRARY)
+	    {
+	      rtx addr = gen_rtx_PLUS (word_mode, stack_pointer_rtx,
+				       GEN_INT (TARGET_64BIT ? -8 : -4));
+
+	      emit_move_insn (gen_rtx_MEM (word_mode, addr),
+			      frame_pointer_rtx);
+	    }
+	  else
+	    emit_insn (gen_blockage ());
 	}
       /* no frame pointer needed.  */
       else
@@ -3537,6 +3571,7 @@ pa_output_function_epilogue (file, size)
      FILE *file;
      HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
+  int last_address = 0;
   rtx insn = get_last_insn ();
 
   /* hppa_expand_epilogue does the dirty work now.  We just need
@@ -3559,9 +3594,36 @@ pa_output_function_epilogue (file, size)
   /* If insn is a CALL_INSN, then it must be a call to a volatile
      function (otherwise there would be epilogue insns).  */
   if (insn && GET_CODE (insn) == CALL_INSN)
-    fputs ("\tnop\n", file);
+    {
+      fputs ("\tnop\n", file);
+      last_address += 4;
+    }
 
   fputs ("\t.EXIT\n\t.PROCEND\n", file);
+
+  /* Finally, update the total number of code bytes output so far.  */
+  if ((TARGET_PORTABLE_RUNTIME || !TARGET_GAS || !TARGET_SOM)
+      && !flag_function_sections)
+    {
+      if (INSN_ADDRESSES_SET_P ())
+	{
+	  unsigned long old_total = total_code_bytes;
+
+	  insn = get_last_nonnote_insn ();
+	  last_address += INSN_ADDRESSES (INSN_UID (insn));
+	  if (INSN_P (insn))
+	    last_address += insn_default_length (insn);
+
+	  total_code_bytes += last_address;
+	  total_code_bytes += FUNCTION_BOUNDARY / BITS_PER_UNIT;
+
+	  /* Be prepared to handle overflows.  */
+	  if (old_total > total_code_bytes)
+	    total_code_bytes = -1;
+	}
+      else
+	total_code_bytes = -1;
+    }
 }
 
 void
@@ -4784,7 +4846,9 @@ output_deferred_plabels (file)
   /* Now output the deferred plabels.  */
   for (i = 0; i < n_deferred_plabels; i++)
     {
-      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (deferred_plabels[i].internal_label));
+      rtx label = deferred_plabels[i].internal_label;
+
+      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (label));
       assemble_integer (gen_rtx_SYMBOL_REF (Pmode, deferred_plabels[i].name),
 			TARGET_64BIT ? 8 : 4, TARGET_64BIT ? 64 : 32, 1);
     }
@@ -5370,14 +5434,19 @@ output_cbranch (operands, nullify, length, negated, insn)
 {
   static char buf[100];
   int useskip = 0;
+  rtx xoperands[5];
 
-  /* A conditional branch to the following instruction (eg the delay slot) is
-     asking for a disaster.  This can happen when not optimizing.
+  /* A conditional branch to the following instruction (eg the delay slot)
+     is asking for a disaster.  This can happen when not optimizing and
+     when jump optimization fails.
 
-     In such cases it is safe to emit nothing.  */
-
-  if (next_active_insn (JUMP_LABEL (insn)) == next_active_insn (insn))
-    return "";
+     While it is usually safe to emit nothing, this can fail if the
+     preceding instruction is a nullified branch with an empty delay
+     slot and the same branch target as this branch.  We could check
+     for this but jump optimization should eliminate nop jumps.  It
+     is always safe to emit a nop.  */
+  if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
+    return "nop";
 
   /* If this is a long branch with its delay slot unfilled, set `nullify'
      as it can nullify the delay slot and save a nop.  */
@@ -5475,98 +5544,182 @@ output_cbranch (operands, nullify, length, negated, insn)
 	break;
 
       case 20:
-	/* Very long branch.  Right now we only handle these when not
-	   optimizing.  See "jump" pattern in pa.md for details.  */
-	if (optimize)
-	  abort ();
-
-	/* Create a reversed conditional branch which branches around
-	   the following insns.  */
-	if (negated)
-	  strcpy (buf, "{com%I2b,%S3,n %2,%r1,.+20|cmp%I2b,%S3,n %2,%r1,.+20}");
-	else
-	  strcpy (buf, "{com%I2b,%B3,n %2,%r1,.+20|cmp%I2b,%B3,n %2,%r1,.+20}");
-	if (GET_MODE (operands[1]) == DImode)
-	  {
-	    if (negated)
-	      strcpy (buf,
-		      "{com%I2b,*%S3,n %2,%r1,.+20|cmp%I2b,*%S3,n %2,%r1,.+20}");
-	    else
-	      strcpy (buf,
-		      "{com%I2b,*%B3,n %2,%r1,.+20|cmp%I2b,*%B3,n %2,%r1,.+20}");
-	  }
-	output_asm_insn (buf, operands);
-
-	/* Output an insn to save %r1.  */
-	output_asm_insn ("stw %%r1,-16(%%r30)", operands);
-
-	/* Now output a very long branch to the original target.  */
-	output_asm_insn ("ldil L'%l0,%%r1\n\tbe R'%l0(%%sr4,%%r1)", operands);
-
-	/* Now restore the value of %r1 in the delay slot.  We're not
-	   optimizing so we know nothing else can be in the delay slot.  */
-	return "ldw -16(%%r30),%%r1";
-
       case 28:
-	/* Very long branch when generating PIC code.  Right now we only
-	   handle these when not optimizing.  See "jump" pattern in pa.md
-	   for details.  */
-	if (optimize)
-	  abort ();
+	xoperands[0] = operands[0];
+	xoperands[1] = operands[1];
+	xoperands[2] = operands[2];
+	xoperands[3] = operands[3];
+
+	/* The reversed conditional branch must branch over one additional
+	   instruction if the delay slot is filled.  If the delay slot
+	   is empty, the instruction after the reversed condition branch
+	   must be nullified.  */
+	nullify = dbr_sequence_length () == 0;
+	xoperands[4] = nullify ? GEN_INT (length) : GEN_INT (length + 4);
 
 	/* Create a reversed conditional branch which branches around
 	   the following insns.  */
-	if (negated)
-	  strcpy (buf, "{com%I2b,%S3,n %2,%r1,.+28|cmp%I2b,%S3,n %2,%r1,.+28}");
-	else
-	  strcpy (buf, "{com%I2b,%B3,n %2,%r1,.+28|cmp%I2b,%B3,n %2,%r1,.+28}");
-	if (GET_MODE (operands[1]) == DImode)
+	if (GET_MODE (operands[1]) != DImode)
 	  {
-	    if (negated)
-	      strcpy (buf, "{com%I2b,*%S3,n %2,%r1,.+28|cmp%I2b,*%S3,n %2,%r1,.+28}");
+	    if (nullify)
+	      {
+		if (negated)
+		  strcpy (buf,
+		    "{com%I2b,%S3,n %2,%r1,.+%4|cmp%I2b,%S3,n %2,%r1,.+%4}");
+		else
+		  strcpy (buf,
+		    "{com%I2b,%B3,n %2,%r1,.+%4|cmp%I2b,%B3,n %2,%r1,.+%4}");
+	      }
 	    else
-	      strcpy (buf, "{com%I2b,*%B3,n %2,%r1,.+28|cmp%I2b,*%B3,n %2,%r1,.+28}");
+	      {
+		if (negated)
+		  strcpy (buf,
+		    "{com%I2b,%S3 %2,%r1,.+%4|cmp%I2b,%S3 %2,%r1,.+%4}");
+		else
+		  strcpy (buf,
+		    "{com%I2b,%B3 %2,%r1,.+%4|cmp%I2b,%B3 %2,%r1,.+%4}");
+	      }
 	  }
-	output_asm_insn (buf, operands);
+	else
+	  {
+	    if (nullify)
+	      {
+		if (negated)
+		  strcpy (buf,
+		    "{com%I2b,*%S3,n %2,%r1,.+%4|cmp%I2b,*%S3,n %2,%r1,.+%4}");
+		else
+		  strcpy (buf,
+		    "{com%I2b,*%B3,n %2,%r1,.+%4|cmp%I2b,*%B3,n %2,%r1,.+%4}");
+	      }
+	    else
+	      {
+		if (negated)
+		  strcpy (buf,
+		    "{com%I2b,*%S3 %2,%r1,.+%4|cmp%I2b,*%S3 %2,%r1,.+%4}");
+		else
+		  strcpy (buf,
+		    "{com%I2b,*%B3 %2,%r1,.+%4|cmp%I2b,*%B3 %2,%r1,.+%4}");
+	      }
+	  }
 
-	/* Output an insn to save %r1.  */
-	output_asm_insn ("stw %%r1,-16(%%r30)", operands);
-
-	/* Now output a very long PIC branch to the original target.  */
-	{
-	  rtx xoperands[5];
-
-	  xoperands[0] = operands[0];
-	  xoperands[1] = operands[1];
-	  xoperands[2] = operands[2];
-	  xoperands[3] = operands[3];
-
-	  output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
-	  if (TARGET_SOM || !TARGET_GAS)
-	    {
-	      xoperands[4] = gen_label_rtx ();
-	      output_asm_insn ("addil L'%l0-%l4,%%r1", xoperands);
-	      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
-					 CODE_LABEL_NUMBER (xoperands[4]));
-	      output_asm_insn ("ldo R'%l0-%l4(%%r1),%%r1", xoperands);
-	    }
-	  else
-	    {
-	      output_asm_insn ("addil L'%l0-$PIC_pcrel$0+4,%%r1", xoperands);
-	      output_asm_insn ("ldo R'%l0-$PIC_pcrel$0+8(%%r1),%%r1",
-			       xoperands);
-	    }
-	  output_asm_insn ("bv %%r0(%%r1)", xoperands);
-	}
-
-	/* Now restore the value of %r1 in the delay slot.  We're not
-	   optimizing so we know nothing else can be in the delay slot.  */
-	return "ldw -16(%%r30),%%r1";
+	output_asm_insn (buf, xoperands);
+	return output_lbranch (operands[0], insn);
 
       default:
 	abort ();
     }
   return buf;
+}
+
+/* This routine handles long unconditional branches that exceed the
+   maximum range of a simple branch instruction.  */
+
+const char *
+output_lbranch (dest, insn)
+     rtx dest, insn;
+{
+  rtx xoperands[2];
+ 
+  xoperands[0] = dest;
+
+  /* First, free up the delay slot.  */
+  if (dbr_sequence_length () != 0)
+    {
+      /* We can't handle a jump in the delay slot.  */
+      if (GET_CODE (NEXT_INSN (insn)) == JUMP_INSN)
+	abort ();
+
+      final_scan_insn (NEXT_INSN (insn), asm_out_file,
+		       optimize, 0, 0);
+
+      /* Now delete the delay insn.  */
+      PUT_CODE (NEXT_INSN (insn), NOTE);
+      NOTE_LINE_NUMBER (NEXT_INSN (insn)) = NOTE_INSN_DELETED;
+      NOTE_SOURCE_FILE (NEXT_INSN (insn)) = 0;
+    }
+
+  /* Output an insn to save %r1.  The runtime documentation doesn't
+     specify whether the "Clean Up" slot in the callers frame can
+     be clobbered by the callee.  It isn't copied by HP's builtin
+     alloca, so this suggests that it can be clobbered if necessary.
+     The "Static Link" location is copied by HP builtin alloca, so
+     we avoid using it.  Using the cleanup slot might be a problem
+     if we have to interoperate with languages that pass cleanup
+     information.  However, it should be possible to handle these
+     situations with GCC's asm feature.
+
+     The "Current RP" slot is reserved for the called procedure, so
+     we try to use it when we don't have a frame of our own.  It's
+     rather unlikely that we won't have a frame when we need to emit
+     a very long branch.
+
+     Really the way to go long term is a register scavenger; goto
+     the target of the jump and find a register which we can use
+     as a scratch to hold the value in %r1.  Then, we wouldn't have
+     to free up the delay slot or clobber a slot that may be needed
+     for other purposes.  */
+  if (TARGET_64BIT)
+    {
+      if (actual_fsize == 0 && !regs_ever_live[2])
+	/* Use the return pointer slot in the frame marker.  */
+	output_asm_insn ("std %%r1,-16(%%r30)", xoperands);
+      else
+	/* Use the slot at -40 in the frame marker since HP builtin
+	   alloca doesn't copy it.  */
+	output_asm_insn ("std %%r1,-40(%%r30)", xoperands);
+    }
+  else
+    {
+      if (actual_fsize == 0 && !regs_ever_live[2])
+	/* Use the return pointer slot in the frame marker.  */
+	output_asm_insn ("stw %%r1,-20(%%r30)", xoperands);
+      else
+	/* Use the "Clean Up" slot in the frame marker.  In GCC,
+	   the only other use of this location is for copying a
+	   floating point double argument from a floating-point
+	   register to two general registers.  The copy is done
+	   as an "atomic" operation when outputing a call, so it
+	   won't interfere with our using the location here.  */
+	output_asm_insn ("stw %%r1,-12(%%r30)", xoperands);
+    }
+
+  if (flag_pic)
+    {
+      output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
+      if (TARGET_SOM || !TARGET_GAS)
+	{
+	  xoperands[1] = gen_label_rtx ();
+	  output_asm_insn ("addil L'%l0-%l1,%%r1", xoperands);
+	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+				     CODE_LABEL_NUMBER (xoperands[1]));
+	  output_asm_insn ("ldo R'%l0-%l1(%%r1),%%r1", xoperands);
+	}
+      else
+	{
+	  output_asm_insn ("addil L'%l0-$PIC_pcrel$0+4,%%r1", xoperands);
+	  output_asm_insn ("ldo R'%l0-$PIC_pcrel$0+8(%%r1),%%r1", xoperands);
+	}
+      output_asm_insn ("bv %%r0(%%r1)", xoperands);
+    }
+  else
+    /* Now output a very long branch to the original target.  */
+    output_asm_insn ("ldil L'%l0,%%r1\n\tbe R'%l0(%%sr4,%%r1)", xoperands);
+
+  /* Now restore the value of %r1 in the delay slot.  */
+  if (TARGET_64BIT)
+    {
+      if (actual_fsize == 0 && !regs_ever_live[2])
+	return "ldd -16(%%r30),%%r1";
+      else
+	return "ldd -40(%%r30),%%r1";
+    }
+  else
+    {
+      if (actual_fsize == 0 && !regs_ever_live[2])
+	return "ldw -20(%%r30),%%r1";
+      else
+	return "ldw -12(%%r30),%%r1";
+    }
 }
 
 /* This routine handles all the branch-on-bit conditional branch sequences we
@@ -5589,8 +5742,8 @@ output_bb (operands, nullify, length, negated, insn, which)
      is only used when optimizing; jump optimization should eliminate the
      jump.  But be prepared just in case.  */
 
-  if (next_active_insn (JUMP_LABEL (insn)) == next_active_insn (insn))
-    return "";
+  if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
+    return "nop";
 
   /* If this is a long branch with its delay slot unfilled, set `nullify'
      as it can nullify the delay slot and save a nop.  */
@@ -5737,8 +5890,8 @@ output_bvb (operands, nullify, length, negated, insn, which)
      is only used when optimizing; jump optimization should eliminate the
      jump.  But be prepared just in case.  */
 
-  if (next_active_insn (JUMP_LABEL (insn)) == next_active_insn (insn))
-    return "";
+  if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
+    return "nop";
 
   /* If this is a long branch with its delay slot unfilled, set `nullify'
      as it can nullify the delay slot and save a nop.  */
@@ -5878,7 +6031,7 @@ output_dbra (operands, insn, which_alternative)
   /* A conditional branch to the following instruction (eg the delay slot) is
      asking for a disaster.  Be prepared!  */
 
-  if (next_active_insn (JUMP_LABEL (insn)) == next_active_insn (insn))
+  if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
     {
       if (which_alternative == 0)
 	return "ldo %1(%0),%0";
@@ -5985,7 +6138,7 @@ output_movb (operands, insn, which_alternative, reverse_comparison)
   /* A conditional branch to the following instruction (eg the delay slot) is
      asking for a disaster.  Be prepared!  */
 
-  if (next_active_insn (JUMP_LABEL (insn)) == next_active_insn (insn))
+  if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
     {
       if (which_alternative == 0)
 	return "copy %1,%0";
@@ -6161,37 +6314,42 @@ length_fp_args (insn)
   return length;
 }
 
-/* We include the delay slot in the returned length as it is better to
+/* Return the attribute length for the millicode call instruction INSN.
+   The length must match the code generated by output_millicode_call.
+   We include the delay slot in the returned length as it is better to
    over estimate the length than to under estimate it.  */
 
 int
-attr_length_millicode_call (insn, length)
+attr_length_millicode_call (insn)
      rtx insn;
-     int length;
 {
-  unsigned long distance = total_code_bytes + INSN_ADDRESSES (INSN_UID (insn));
+  unsigned long distance = -1;
 
-  if (distance < total_code_bytes)
-    distance = -1;
+  if (INSN_ADDRESSES_SET_P ())
+    {
+      distance = (total_code_bytes + insn_current_reference_address (insn));
+      if (distance < total_code_bytes)
+	distance = -1;
+    }
 
   if (TARGET_64BIT)
     {
       if (!TARGET_LONG_CALLS && distance < 7600000)
-	return length + 8;
+	return 8;
 
-      return length + 20;
+      return 20;
     }
   else if (TARGET_PORTABLE_RUNTIME)
-    return length + 24;
+    return 24;
   else
     {
       if (!TARGET_LONG_CALLS && distance < 240000)
-	return length + 8;
+	return 8;
 
       if (TARGET_LONG_ABS_CALL && !flag_pic)
-	return length + 12;
+	return 12;
 
-      return length + 24;
+      return 24;
     }
 }
 
@@ -6321,16 +6479,22 @@ output_millicode_call (insn, call_dest)
 
   /* See if the return address can be adjusted.  Use the containing
      sequence insn's address.  */
-  seq_insn = NEXT_INSN (PREV_INSN (XVECEXP (final_sequence, 0, 0)));
-  distance = (INSN_ADDRESSES (INSN_UID (JUMP_LABEL (NEXT_INSN (insn))))
-	      - INSN_ADDRESSES (INSN_UID (seq_insn)) - 8);
-
-  if (VAL_14_BITS_P (distance))
+  if (INSN_ADDRESSES_SET_P ())
     {
-      xoperands[1] = gen_label_rtx ();
-      output_asm_insn ("ldo %0-%1(%2),%2", xoperands);
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
-				 CODE_LABEL_NUMBER (xoperands[3]));
+      seq_insn = NEXT_INSN (PREV_INSN (XVECEXP (final_sequence, 0, 0)));
+      distance = (INSN_ADDRESSES (INSN_UID (JUMP_LABEL (NEXT_INSN (insn))))
+		  - INSN_ADDRESSES (INSN_UID (seq_insn)) - 8);
+
+      if (VAL_14_BITS_P (distance))
+	{
+	  xoperands[1] = gen_label_rtx ();
+	  output_asm_insn ("ldo %0-%1(%2),%2", xoperands);
+	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+				     CODE_LABEL_NUMBER (xoperands[1]));
+	}
+      else
+	/* ??? This branch may not reach its target.  */
+	output_asm_insn ("nop\n\tb,n %0", xoperands);
     }
   else
     /* ??? This branch may not reach its target.  */
@@ -6344,18 +6508,25 @@ output_millicode_call (insn, call_dest)
   return "";
 }
 
-/* We include the delay slot in the returned length as it is better to
-   over estimate the length than to under estimate it.  */
+/* Return the attribute length of the call instruction INSN.  The SIBCALL
+   flag indicates whether INSN is a regular call or a sibling call.  The
+   length must match the code generated by output_call.  We include the delay
+   slot in the returned length as it is better to over estimate the length
+   than to under estimate it.  */
 
 int
 attr_length_call (insn, sibcall)
      rtx insn;
      int sibcall;
 {
-  unsigned long distance = total_code_bytes + INSN_ADDRESSES (INSN_UID (insn));
+  unsigned long distance = -1;
 
-  if (distance < total_code_bytes)
-    distance = -1;
+  if (INSN_ADDRESSES_SET_P ())
+    {
+      distance = (total_code_bytes + insn_current_reference_address (insn));
+      if (distance < total_code_bytes)
+	distance = -1;
+    }
 
   if (TARGET_64BIT)
     {
@@ -6396,10 +6567,13 @@ attr_length_call (insn, sibcall)
 	  if (TARGET_PA_20)
 	    return (length + 32);
 
+	  if (!TARGET_NO_SPACE_REGS)
+	    length += 8;
+
 	  if (!sibcall)
 	    length += 8;
 
-	  return (length + 40);
+	  return (length + 32);
 	}
     }
 }
@@ -6417,7 +6591,6 @@ output_call (insn, call_dest, sibcall)
 {
   int delay_insn_deleted = 0;
   int delay_slot_filled = 0;
-  int attr_length = get_attr_length (insn);
   int seq_length = dbr_sequence_length ();
   rtx xoperands[2];
 
@@ -6425,9 +6598,7 @@ output_call (insn, call_dest, sibcall)
 
   /* Handle the common case where we're sure that the branch will reach
      the beginning of the $CODE$ subspace.  */
-  if (!TARGET_LONG_CALLS
-      && ((seq_length == 0 && attr_length == 12)
-	  || (seq_length != 0 && attr_length == 8)))
+  if (!TARGET_LONG_CALLS && attr_length_call (insn, sibcall) == 8)
     {
       xoperands[1] = gen_rtx_REG (word_mode, sibcall ? 0 : 2);
       output_asm_insn ("{bl|b,l} %0,%1", xoperands);
@@ -6597,7 +6768,10 @@ output_call (insn, call_dest, sibcall)
 		  if (!sibcall && !TARGET_PA_20)
 		    {
 		      output_asm_insn ("{bl|b,l} .+8,%%r2", xoperands);
-		      output_asm_insn ("addi 16,%%r2,%%r2", xoperands);
+		      if (TARGET_NO_SPACE_REGS)
+			output_asm_insn ("addi 8,%%r2,%%r2", xoperands);
+		      else
+			output_asm_insn ("addi 16,%%r2,%%r2", xoperands);
 		    }
 		}
 
@@ -6619,14 +6793,23 @@ output_call (insn, call_dest, sibcall)
 		}
 	      else
 		{
-	          output_asm_insn ("ldsid (%%r1),%%r31\n\tmtsp %%r31,%%sr0",
-				   xoperands);
+		  if (!TARGET_NO_SPACE_REGS)
+		    output_asm_insn ("ldsid (%%r1),%%r31\n\tmtsp %%r31,%%sr0",
+				     xoperands);
 
 		  if (sibcall)
-		    output_asm_insn ("be 0(%%sr0,%%r1)", xoperands);
+		    {
+		      if (TARGET_NO_SPACE_REGS)
+			output_asm_insn ("be 0(%%sr4,%%r1)", xoperands);
+		      else
+			output_asm_insn ("be 0(%%sr0,%%r1)", xoperands);
+		    }
 		  else
 		    {
-		      output_asm_insn ("ble 0(%%sr0,%%r1)", xoperands);
+		      if (TARGET_NO_SPACE_REGS)
+			output_asm_insn ("ble 0(%%sr4,%%r1)", xoperands);
+		      else
+			output_asm_insn ("ble 0(%%sr0,%%r1)", xoperands);
 
 		      if (indirect_call)
 			output_asm_insn ("stw %%r31,-24(%%sp)", xoperands);
@@ -6655,7 +6838,7 @@ output_call (insn, call_dest, sibcall)
   /* This call has an unconditional jump in its delay slot.  */
   xoperands[0] = XEXP (PATTERN (NEXT_INSN (insn)), 1);
 
-  if (!delay_slot_filled)
+  if (!delay_slot_filled && INSN_ADDRESSES_SET_P ())
     {
       /* See if the return address can be adjusted.  Use the containing
          sequence insn's address.  */
@@ -6668,7 +6851,7 @@ output_call (insn, call_dest, sibcall)
 	  xoperands[1] = gen_label_rtx ();
 	  output_asm_insn ("ldo %0-%1(%%r2),%%r2", xoperands);
 	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
-				     CODE_LABEL_NUMBER (xoperands[3]));
+				     CODE_LABEL_NUMBER (xoperands[1]));
 	}
       else
 	/* ??? This branch may not reach its target.  */
@@ -6684,6 +6867,114 @@ output_call (insn, call_dest, sibcall)
   NOTE_SOURCE_FILE (NEXT_INSN (insn)) = 0;
 
   return "";
+}
+
+/* Return the attribute length of the indirect call instruction INSN.
+   The length must match the code generated by output_indirect call.
+   The returned length includes the delay slot.  Currently, the delay
+   slot of an indirect call sequence is not exposed and it is used by
+   the sequence itself.  */
+
+int
+attr_length_indirect_call (insn)
+     rtx insn;
+{
+  unsigned long distance = -1;
+
+  if (INSN_ADDRESSES_SET_P ())
+    {
+      distance = (total_code_bytes + insn_current_reference_address (insn));
+      if (distance < total_code_bytes)
+	distance = -1;
+    }
+
+  if (TARGET_64BIT)
+    return 12;
+
+  if (TARGET_FAST_INDIRECT_CALLS
+      || (!TARGET_PORTABLE_RUNTIME
+	  && ((TARGET_PA_20 && distance < 7600000) || distance < 240000)))
+    return 8;
+
+  if (flag_pic)
+    return 24;
+
+  if (TARGET_PORTABLE_RUNTIME)
+    return 20;
+
+  /* Out of reach, can use ble.  */
+  return 12;
+}
+
+const char *
+output_indirect_call (insn, call_dest)
+     rtx insn;
+     rtx call_dest;
+{
+  rtx xoperands[1];
+
+  if (TARGET_64BIT)
+    {
+      xoperands[0] = call_dest;
+      output_asm_insn ("ldd 16(%0),%%r2", xoperands);
+      output_asm_insn ("bve,l (%%r2),%%r2\n\tldd 24(%0),%%r27", xoperands);
+      return "";
+    }
+
+  /* First the special case for kernels, level 0 systems, etc.  */
+  if (TARGET_FAST_INDIRECT_CALLS)
+    return "ble 0(%%sr4,%%r22)\n\tcopy %%r31,%%r2"; 
+
+  /* Now the normal case -- we can reach $$dyncall directly or
+     we're sure that we can get there via a long-branch stub. 
+
+     No need to check target flags as the length uniquely identifies
+     the remaining cases.  */
+  if (attr_length_indirect_call (insn) == 8)
+    return ".CALL\tARGW0=GR\n\t{bl|b,l} $$dyncall,%%r31\n\tcopy %%r31,%%r2";
+
+  /* Long millicode call, but we are not generating PIC or portable runtime
+     code.  */
+  if (attr_length_indirect_call (insn) == 12)
+    return ".CALL\tARGW0=GR\n\tldil L'$$dyncall,%%r2\n\tble R'$$dyncall(%%sr4,%%r2)\n\tcopy %%r31,%%r2";
+
+  /* Long millicode call for portable runtime.  */
+  if (attr_length_indirect_call (insn) == 20)
+    return "ldil L'$$dyncall,%%r31\n\tldo R'$$dyncall(%%r31),%%r31\n\tblr %%r0,%%r2\n\tbv,n %%r0(%%r31)\n\tnop";
+
+  /* We need a long PIC call to $$dyncall.  */
+  xoperands[0] = NULL_RTX;
+  output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
+  if (TARGET_SOM || !TARGET_GAS)
+    {
+      xoperands[0] = gen_label_rtx ();
+      output_asm_insn ("addil L'$$dyncall-%0,%%r1", xoperands);
+      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+				 CODE_LABEL_NUMBER (xoperands[0]));
+      output_asm_insn ("ldo R'$$dyncall-%0(%%r1),%%r1", xoperands);
+    }
+  else
+    {
+      output_asm_insn ("addil L'$$dyncall-$PIC_pcrel$0+4,%%r1", xoperands);
+      output_asm_insn ("ldo R'$$dyncall-$PIC_pcrel$0+8(%%r1),%%r1",
+		       xoperands);
+    }
+  output_asm_insn ("blr %%r0,%%r2", xoperands);
+  output_asm_insn ("bv,n %%r0(%%r1)\n\tnop", xoperands);
+  return "";
+}
+
+/* Return the total length of the save and restore instructions needed for
+   the data linkage table pointer (i.e., the PIC register) across the call         instruction INSN.  No-return calls do not require a save and restore.           In addition, we may be able to avoid the save and restore for calls             within the same translation unit.  */
+
+int
+attr_length_save_restore_dltp (insn)
+     rtx insn;
+{
+  if (find_reg_note (insn, REG_NORETURN, NULL_RTX))
+    return 0;
+
+  return 8;
 }
 
 /* In HPUX 8.0's shared library scheme, special relocations are needed
@@ -6782,7 +7073,7 @@ pa_asm_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
   pa_output_function_prologue (file, 0);
   if (VAL_14_BITS_P (delta))
     {
-      if (! TARGET_64BIT && ! TARGET_PORTABLE_RUNTIME && flag_pic)
+      if (!TARGET_64BIT && !TARGET_PORTABLE_RUNTIME && flag_pic)
 	{
 	  fprintf (file, "\taddil LT'%s,%%r19\n", lab);
 	  fprintf (file, "\tldw RT'%s(%%r1),%%r22\n", lab);
@@ -6791,8 +7082,14 @@ pa_asm_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
 	  fprintf (file, "\tdepi 0,31,2,%%r22\n");
 	  fprintf (file, "\tldw 4(%%sr0,%%r22),%%r19\n");
 	  fprintf (file, "\tldw 0(%%sr0,%%r22),%%r22\n");
-	  fprintf (file, "\tldsid (%%sr0,%%r22),%%r1\n\tmtsp %%r1,%%sr0\n");
-	  fprintf (file, "\tbe 0(%%sr0,%%r22)\n\tldo ");
+	  if (TARGET_NO_SPACE_REGS)
+	    fprintf (file, "\tbe 0(%%sr4,%%r22)\n\tldo ");
+	  else
+	    {
+	      fprintf (file, "\tldsid (%%sr0,%%r22),%%r1\n");
+	      fprintf (file, "\tmtsp %%r1,%%sr0\n");
+	      fprintf (file, "\tbe 0(%%sr0,%%r22)\n\tldo ");
+	    }
 	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
 	  fprintf (file, "(%%r26),%%r26\n");
 	}
@@ -6805,7 +7102,7 @@ pa_asm_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
     }
   else
     {
-      if (! TARGET_64BIT && ! TARGET_PORTABLE_RUNTIME && flag_pic)
+      if (!TARGET_64BIT && !TARGET_PORTABLE_RUNTIME && flag_pic)
 	{
 	  fprintf (file, "\taddil L'");
 	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
@@ -6819,8 +7116,14 @@ pa_asm_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
 	  fprintf (file, "\tdepi 0,31,2,%%r22\n");
 	  fprintf (file, "\tldw 4(%%sr0,%%r22),%%r19\n");
 	  fprintf (file, "\tldw 0(%%sr0,%%r22),%%r22\n");
-	  fprintf (file, "\tldsid (%%sr0,%%r22),%%r1\n\tmtsp %%r1,%%sr0\n");
-	  fprintf (file, "\tbe,n 0(%%sr0,%%r22)\n");
+	  if (TARGET_NO_SPACE_REGS)
+	    fprintf (file, "\tbe 0(%%sr4,%%r22)");
+	  else
+	    {
+	      fprintf (file, "\tldsid (%%sr0,%%r22),%%r1\n");
+	      fprintf (file, "\tmtsp %%r1,%%sr0\n");
+	      fprintf (file, "\tbe,n 0(%%sr0,%%r22)\n");
+	    }
 	}
       else
 	{
@@ -6902,6 +7205,46 @@ fmpyaddoperands (operands)
   /* Passed.  Operands are suitable for fmpyadd.  */
   return 1;
 }
+
+#if !defined(USE_COLLECT2)
+static void
+pa_asm_out_constructor (symbol, priority)
+     rtx symbol;
+     int priority;
+{
+  if (!function_label_operand (symbol, VOIDmode))
+    hppa_encode_label (symbol);
+
+#ifdef CTORS_SECTION_ASM_OP
+  default_ctor_section_asm_out_constructor (symbol, priority);
+#else
+# ifdef TARGET_ASM_NAMED_SECTION
+  default_named_section_asm_out_constructor (symbol, priority);
+# else
+  default_stabs_asm_out_constructor (symbol, priority);
+# endif
+#endif
+}
+
+static void
+pa_asm_out_destructor (symbol, priority)
+     rtx symbol;
+     int priority;
+{
+  if (!function_label_operand (symbol, VOIDmode))
+    hppa_encode_label (symbol);
+
+#ifdef DTORS_SECTION_ASM_OP
+  default_dtor_section_asm_out_destructor (symbol, priority);
+#else
+# ifdef TARGET_ASM_NAMED_SECTION
+  default_named_section_asm_out_destructor (symbol, priority);
+# else
+  default_stabs_asm_out_destructor (symbol, priority);
+# endif
+#endif
+}
+#endif
 
 /* Returns 1 if the 6 operands specified in OPERANDS are suitable for
    use in fmpysub instructions.  */
@@ -7080,9 +7423,9 @@ jump_in_call_delay (insn)
 
   if (PREV_INSN (insn)
       && PREV_INSN (PREV_INSN (insn))
-      && GET_CODE (next_active_insn (PREV_INSN (PREV_INSN (insn)))) == INSN)
+      && GET_CODE (next_real_insn (PREV_INSN (PREV_INSN (insn)))) == INSN)
     {
-      rtx test_insn = next_active_insn (PREV_INSN (PREV_INSN (insn)));
+      rtx test_insn = next_real_insn (PREV_INSN (PREV_INSN (insn)));
 
       return (GET_CODE (PATTERN (test_insn)) == SEQUENCE
 	      && XVECEXP (PATTERN (test_insn), 0, 1) == insn);

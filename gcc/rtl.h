@@ -683,11 +683,6 @@ enum reg_note
      return.  */
   REG_BR_PROB,
 
-  /* REG_EXEC_COUNT is attached to the first insn of each basic block, and
-     the first insn after each CALL_INSN.  It indicates how many times this
-     block was executed.  */
-  REG_EXEC_COUNT,
-
   /* Attached to a call insn; indicates that the call is malloc-like and
      that the pointer returned cannot alias anything else.  */
   REG_NOALIAS,
@@ -1559,7 +1554,7 @@ extern rtx simplify_rtx			PARAMS ((rtx));
 extern rtx avoid_constant_pool_reference PARAMS ((rtx));
 
 /* In function.c  */
-extern rtx gen_mem_addressof		PARAMS ((rtx, tree));
+extern rtx gen_mem_addressof		PARAMS ((rtx, tree, int));
 
 /* In regclass.c  */
 extern enum machine_mode choose_hard_reg_mode PARAMS ((unsigned int,
@@ -1937,6 +1932,7 @@ extern int safe_to_remove_jump_p	PARAMS ((rtx));
 extern rtx pc_set			PARAMS ((rtx));
 extern rtx condjump_label		PARAMS ((rtx));
 extern int simplejump_p			PARAMS ((rtx));
+extern int tablejump_p			PARAMS ((rtx));
 extern int returnjump_p			PARAMS ((rtx));
 extern int onlyjump_p			PARAMS ((rtx));
 extern int only_sets_cc0_p		PARAMS ((rtx));

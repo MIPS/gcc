@@ -1,6 +1,8 @@
-@\input texinfo @c -*-texinfo-*-
+\input texinfo @c -*-texinfo-*-
 @setfilename gcj.info
 @settitle Guide to GNU gcj
+
+@include gcc-common.texi
 
 @c Note: When reading this manual you'll find lots of strange
 @c circumlocutions like ``compiler for the Java language''.
@@ -11,12 +13,40 @@
 @set copyrights-gcj 2001, 2002
 
 @c Versions
-@set version-gcc 3.3
-@set which-gcj GCC-@value{version-gcc}
+@set which-gcj GCC-@value{version-GCC}
 
-@macro gcctabopt{body}
-@code{\body\}
-@end macro
+@copying
+@c man begin COPYRIGHT
+Copyright @copyright{} @value{copyrights-gcj} Free Software Foundation, Inc.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being ``GNU General Public License'', the Front-Cover
+texts being (a) (see below), and with the Back-Cover Texts being (b)
+(see below).  A copy of the license is included in the
+@c man end
+section entitled
+``GNU Free Documentation License''.
+@ignore
+@c man begin COPYRIGHT
+man page gfdl(7).
+@c man end
+@end ignore
+
+@c man begin COPYRIGHT
+
+(a) The FSF's Front-Cover Text is:
+
+     A GNU Manual
+
+(b) The FSF's Back-Cover Text is:
+
+     You have freedom to copy and modify this GNU Manual, like GNU
+     software.  Copies published by the Free Software Foundation raise
+     funds for GNU development.
+@c man end
+@end copying
 
 @ifinfo
 @format
@@ -43,33 +73,7 @@
 @end direntry
 @end format
 
-@c man begin COPYRIGHT
-Copyright (C) @value{copyrights-gcj} Free Software Foundation, Inc.
-
-Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
-any later version published by the Free Software Foundation; with the
-Invariant Sections being ``GNU General Public License'', the Front-Cover
-texts being (a) (see below), and with the Back-Cover Texts being (b)
-(see below).  A copy of the license is included in the
-@c man end
-section entitled
-``GNU Free Documentation License''.
-@ignore
-@c man begin COPYRIGHT
-man page gfdl(7).
-@c man end
-@end ignore
-
-(a) The FSF's Front-Cover Text is:
-
-     A GNU Manual
-
-(b) The FSF's Back-Cover Text is:
-
-     You have freedom to copy and modify this GNU Manual, like GNU
-     software.  Copies published by the Free Software Foundation raise
-     funds for GNU development.
+@insertcopying
 @end ifinfo
 
 @titlepage
@@ -78,31 +82,13 @@ man page gfdl(7).
 
 @page
 @vskip 0pt plus 1filll
-Copyright @copyright{} @value{copyrights-gcj} Free Software Foundation, Inc.
-@sp 2
 For the @value{which-gcj} Version*
 @sp 1
 Published by the Free Software Foundation @*
 59 Temple Place - Suite 330@*
 Boston, MA 02111-1307, USA@*
 @sp 1
-Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
-any later version published by the Free Software Foundation; with the
-Invariant Sections being ``GNU General Public License'', the Front-Cover
-texts being (a) (see below), and with the Back-Cover Texts being (b)
-(see below).  A copy of the license is included in the section entitled
-``GNU Free Documentation License''.
-
-(a) The FSF's Front-Cover Text is:
-
-     A GNU Manual
-
-(b) The FSF's Back-Cover Text is:
-
-     You have freedom to copy and modify this GNU Manual, like GNU
-     software.  Copies published by the Free Software Foundation raise
-     funds for GNU development.
+@insertcopying
 @end titlepage
 @contents
 @page
@@ -515,14 +501,25 @@ Sometimes the @code{libgcj} implementation of a method or class differs
 from the JDK implementation.  This is not always a bug.  Still, if it
 affects you, it probably makes sense to report it so that we can discuss
 the appropriate response.
+
+@item
+@command{gcj} does not currently allow for piecemeal replacement of
+components within @code{libgcj}. Unfortunately, programmers often want
+to use newer versions of certain packages, such as those provided by
+the Apache Software Foundation's Jakarta project.  This has forced us
+to place the @code{org.w3c.dom} and @code{org.xml.sax} packages into
+their own libraries, separate from @code{libgcj}.  If you intend to
+use these classes, you must link them explicitly with
+@code{-l-org-w3c-dom} and @code{-l-org-xml-sax}.  Future versions of
+@command{gcj} may not have this restriction.
 @end itemize
 
 @node Extensions
 @section Extra features unique to gcj
 
-The main feature of @command{gcj} is that it can compile programs written in
-the Java programming language to native code.  Most extensions that have been
-added are to facilitate this functionality.
+The main feature of @command{gcj} is that it can compile programs
+written in the Java programming language to native code.  Most
+extensions that have been added are to facilitate this functionality.
 
 @itemize @bullet
 @item
@@ -2154,6 +2151,12 @@ Returned by @code{java.awt.Window.getWarningString()} when the window is
 The class name used for initializing the default @code{java.awt.Toolkit}. 
 Defaults to @code{gnu.awt.gtk.GtkToolkit}.
 
+@item http.proxyHost
+Name of proxy host for http connections.
+
+@item http.proxyPort
+Port number to use when a proxy host is in use.
+
 @end table
 
 @node GNU Classpath Properties
@@ -2170,6 +2173,15 @@ libraries based on GNU Classpath.
 Enables printing serialization debugging by the @code{java.io.ObjectInput} and
 @code{java.io.ObjectOutput} classes when set to something else then the empty
 string.  Only used when running a debug build of the library.
+
+@item gnu.classpath.vm.shortname
+This is a succint name of the virtual machine.  For @code{libgcj},
+this will always be @samp{libgcj}.
+
+@item gnu.classpath.home.url
+A base URL used for finding system property files (e.g.,
+@file{classpath.security}).  By default this is a @samp{file:} URL
+pointing to the @file{lib} directory under @samp{java.home}.
 
 @end table
 

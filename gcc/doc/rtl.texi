@@ -1,4 +1,4 @@
-@c Copyright (C) 1988, 1989, 1992, 1994, 1997, 1998, 1999, 2000, 2001, 2002
+@c Copyright (C) 1988, 1989, 1992, 1994, 1997, 1998, 1999, 2000, 2001, 2002, 2003
 @c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -244,7 +244,7 @@ from an @samp{md} file, the vector value of this operand may be omitted.
 An omitted vector is effectively the same as a vector of no elements.
 
 @item B
-@samp{B} indicates a pointer to basic block strucure.
+@samp{B} indicates a pointer to basic block structure.
 
 @item 0
 @samp{0} means a slot whose contents do not fit any normal category.
@@ -1854,14 +1854,14 @@ valid.
 Comparison operators test a relation on two operands and are considered
 to represent a machine-dependent nonzero value described by, but not
 necessarily equal to, @code{STORE_FLAG_VALUE} (@pxref{Misc})
-if the relation holds, or zero if it does not.  The mode of the
-comparison operation is independent of the mode of the data being
-compared.  If the comparison operation is being tested (e.g., the first
-operand of an @code{if_then_else}), the mode must be @code{VOIDmode}.
-If the comparison operation is producing data to be stored in some
-variable, the mode must be in class @code{MODE_INT}.  All comparison
-operations producing data must use the same mode, which is
-machine-specific.
+if the relation holds, or zero if it does not, for comparison operators
+whose results have a `MODE_INT' mode, and
+@code{FLOAT_STORE_FLAG_VALUE} (@pxref{Misc}) if the relation holds, or
+zero if it does not, for comparison operators that return floating-point
+values.  The mode of the comparison operation is independent of the mode
+of the data being compared.  If the comparison operation is being tested
+(e.g., the first operand of an @code{if_then_else}), the mode must be
+@code{VOIDmode}.
 
 @cindex condition codes
 There are two ways that comparison operations may be used.  The
@@ -2841,7 +2841,7 @@ labels: @code{LABEL_NORMAL}, @code{LABEL_STATIC_ENTRY},
 that do not have type @code{LABEL_NORMAL} are @dfn{alternate entry
 points} to the current function.  These may be static (visible only in
 the containing translation unit), global (exposed to all translation
-units), or weak (global, but can be overriden by another symbol with the
+units), or weak (global, but can be overridden by another symbol with the
 same name).
 
 Much of the compiler treats all four kinds of label identically.  Some
@@ -3254,12 +3254,6 @@ are stored in the @code{REG_NOTES} field of an insn as an
 @code{expr_list}.
 
 @table @code
-@findex REG_EXEC_COUNT
-@item REG_EXEC_COUNT
-This is used to indicate the number of times a basic block was executed
-according to the profile data.  The note is attached to the first insn in
-the basic block.
-
 @findex REG_BR_PROB
 @item REG_BR_PROB
 This is used to specify the ratio of branches to non-branches of a

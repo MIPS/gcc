@@ -1,6 +1,6 @@
 // Allocators -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -85,7 +85,6 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
-#include <cassert>
 #include <bits/functexcept.h>   // For __throw_bad_alloc
 #include <bits/stl_threads.h>
 
@@ -129,9 +128,7 @@ namespace std
     {
     private:
       static void* _S_oom_malloc(size_t);
-#ifdef _GLIBCPP_DEPRECATED
       static void* _S_oom_realloc(void*, size_t);
-#endif
       static void (* __malloc_alloc_oom_handler)();
 
     public:
@@ -148,7 +145,6 @@ namespace std
       deallocate(void* __p, size_t /* __n */)
       { free(__p); }
 
-#ifdef _GLIBCPP_DEPRECATED
       static void*
       reallocate(void* __p, size_t /* old_sz */, size_t __new_sz)
       {
@@ -157,7 +153,6 @@ namespace std
           __result = _S_oom_realloc(__p, __new_sz);
         return __result;
       }
-#endif
 
       static void (* __set_malloc_handler(void (*__f)()))()
       {
@@ -191,7 +186,6 @@ namespace std
         }
     }
 
-#ifdef _GLIBCPP_DEPRECATED
   template<int __inst>
     void*
     __malloc_alloc_template<__inst>::
@@ -211,7 +205,6 @@ namespace std
             return __result;
         }
     }
-#endif
 
   // Should not be referenced within the library anymore.
   typedef __new_alloc                 __mem_interface;
@@ -257,10 +250,7 @@ namespace std
   /**
    *  @if maint
    *  An adaptor for an underlying allocator (_Alloc) to check the size
-   *  arguments for debugging.  Errors are reported using assert; these
-   *  checks can be disabled via NDEBUG, but the space penalty is still
-   *  paid, therefore it is far better to just use the underlying allocator
-   *  by itelf when no checking is desired.
+   *  arguments for debugging.
    *
    *  "There is some evidence that this can confuse Purify." - SGI comment
    *
@@ -289,23 +279,23 @@ namespace std
       deallocate(void* __p, size_t __n)
       {
         char* __real_p = (char*)__p - (int) _S_extra;
-        assert(*(size_t*)__real_p == __n);
+        if (*(size_t*)__real_p != __n)
+	  abort();
         _Alloc::deallocate(__real_p, __n + (int) _S_extra);
       }
 
-#ifdef _GLIBCPP_DEPRECATED
       static void*
       reallocate(void* __p, size_t __old_sz, size_t __new_sz)
       {
         char* __real_p = (char*)__p - (int) _S_extra;
-        assert(*(size_t*)__real_p == __old_sz);
+        if (*(size_t*)__real_p != __old_sz)
+	  abort();
         char* __result = (char*) _Alloc::reallocate(__real_p, 
 						    __old_sz + (int) _S_extra,
 						    __new_sz + (int) _S_extra);
         *(size_t*)__result = __new_sz;
         return __result + (int) _S_extra;
       }
-#endif
     };
 
 
@@ -407,8 +397,6 @@ namespace std
 	      __atomic_add(&_S_force_new, 1);
 	    else
 	      __atomic_add(&_S_force_new, -1);
-	    // Trust but verify...
-	    assert(_S_force_new != 0);
 	  }
 
 	if ((__n > (size_t) _MAX_BYTES) || (_S_force_new > 0))
@@ -456,10 +444,8 @@ namespace std
 	  }
       }
 
-#ifdef _GLIBCPP_DEPRECATED
       static void*
       reallocate(void* __p, size_t __old_sz, size_t __new_sz);
-#endif
     };
 
   template<bool __threads, int __inst> _Atomic_word
@@ -591,7 +577,6 @@ namespace std
     }
 
 
-#ifdef _GLIBCPP_DEPRECATED
   template<bool threads, int inst>
     void*
     __default_alloc_template<threads, inst>::
@@ -610,7 +595,6 @@ namespace std
       deallocate(__p, __old_sz);
       return __result;
     }
-#endif
 
   template<bool __threads, int __inst>
     _STL_mutex_lock
@@ -980,9 +964,11 @@ namespace std
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.
   // NB: This syntax is a GNU extension.
+#if _GLIBCPP_EXTERN_TEMPLATE
   extern template class allocator<char>;
   extern template class allocator<wchar_t>;
   extern template class __default_alloc_template<true,0>;
+#endif
 } // namespace std
 
 #endif
