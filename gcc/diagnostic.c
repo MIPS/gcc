@@ -103,10 +103,7 @@ static void default_diagnostic_finalizer PARAMS ((output_buffer *,
 static void error_recursion PARAMS ((void)) ATTRIBUTE_NORETURN;
 
 extern int rtl_dump_and_exit;
-extern int inhibit_warnings;
 extern int warnings_are_errors;
-extern int warningcount;
-extern int errorcount;
 
 /* Front-end specific tree formatter, if non-NULL.  */
 printer_fn lang_printer = NULL;
@@ -342,6 +339,8 @@ init_output_buffer (buffer, prefix, maximum_length)
   output_set_prefix (buffer, prefix);
   output_text_length (buffer) = 0;
   clear_diagnostic_info (buffer);  
+  buffer->ds = ((diagnostic_state *) 
+		xcalloc (1, sizeof (diagnostic_state)));
 }
 
 /* Initialize BUFFER with a NULL prefix and current diagnostic message
@@ -391,7 +390,6 @@ void
 flush_diagnostic_buffer ()
 {
   output_buffer_to_stream (diagnostic_buffer);
-  fflush (output_buffer_attached_stream (diagnostic_buffer));
 }
 
 /* Return the amount of characters BUFFER can accept to
@@ -651,16 +649,22 @@ output_add_string (buffer, str)
   maybe_wrap_text (buffer, str, str + (str ? strlen (str) : 0));
 }
 
-/* Flush the content of BUFFER onto the attached stream,
-   and reinitialize.  */
+/* Ouput the current pending diagnostic message to the BUFFER.  */
 
 static void
 output_buffer_to_stream (buffer)
      output_buffer *buffer;
 {
-  const char *text = output_finalize_message (buffer);
-  fputs (text, output_buffer_attached_stream (buffer));
-  output_clear_message_text (buffer);
+  output_add_newline (buffer);
+
+  /* If we're issuing messages tenatively, we don't need to take any
+     action here.  */
+  if (!buffer->ds->tenative_diagnostic)
+    {
+      const char *text = output_finalize_message (buffer);
+      fputs (text, output_buffer_attached_stream (buffer));
+      output_clear_message_text (buffer);
+    }
 }
 
 /* Format a message pointed to by output_buffer_text_cursor (BUFFER) using
@@ -1043,15 +1047,86 @@ diagnostic_for_decl (decl, msgid, args_ptr, warn)
 }
 
 
+/* Begin issuing diagnostics tenatively.  When a diagnostic is issued,
+   no message will be printed.  Instead, the message will be stored.
+   Later, if diagnostic_commit is called, the message will be
+   printed.  Otherwise, if diagnostic_rollback is called, it will be
+   as if the diagnostic was never issued.  */
+
+void 
+diagnostic_issue_tenatively (buffer)
+     output_buffer *buffer;
+{
+  diagnostic_state *ds;
+
+  /* Create a new entry to put on the stack.  */
+  ds = (diagnostic_state *) xmalloc (sizeof (diagnostic_state));
+  /* Copy the data from the previous entry.  */
+  *ds = *buffer->ds;
+  /* Save the location of the next diagnostic.  */
+  ds->tenative_diagnostic = obstack_alloc (&buffer->obstack, 0);
+  /* Link this entry onto the stack.  */
+  ds->next = buffer->ds;
+  buffer->ds = ds;
+}
+
+/* Commit to those diagnostic messages that were issued tenatively.  */
+
+void
+diagnostic_commit (buffer)
+     output_buffer *buffer;
+{
+  diagnostic_state *ds;
+
+  /* Get the active state.  */
+  ds = buffer->ds;
+  /* Unlink it from the list.  */
+  buffer->ds = ds->next;
+  /* Copy the diagnostic counts back to the previous entry on the
+     stack.  */
+  memcpy (buffer->ds->diagnostic_count, 
+	  ds->diagnostic_count,
+	  sizeof (buffer->ds->diagnostic_count));
+  /* If we're popping all the way back to a non-tenative level, and
+     there's a new diagnostic, issue the message now.  */
+  if (!buffer->ds->tenative_diagnostic
+      && (output_message_text (buffer)
+	  != obstack_base (&buffer->obstack)))
+    {
+      /* FIXME: This should be shared with output_buffer_to_stream.  */
+      fputs (output_finalize_message (buffer),
+	     output_buffer_attached_stream (buffer));
+      output_clear_message_text (buffer);
+    }
+  /* Free the now-unused state.  */
+  free (ds);
+}
+
+/* Rollback the tenatively issued diagnostic messages.  */
+
+void
+diagnostic_rollback (buffer)
+     output_buffer *buffer;
+{
+  diagnostic_state *ds;
+
+  /* Get the active state.  */
+  ds = buffer->ds;
+  /* Unlink it from the list.  */
+  buffer->ds = ds->next;
+  /* Delete any diagnostics that we've issued.  */
+  obstack_free (&buffer->obstack, ds->tenative_diagnostic);
+  /* Free the now-unused state.  */
+  free (ds);
+}
+
 /* Count an error or warning.  Return 1 if the message should be printed.  */
 
 int
 count_error (warningp)
      int warningp;
 {
-  if (warningp
-      && (inhibit_warnings
-          || (in_system_header && !warn_system_headers)))
+  if (warningp && !diagnostic_report_warnings_p ())
     return 0;
 
   if (warningp && !warnings_are_errors)
@@ -1583,14 +1658,13 @@ warning VPARAMS ((const char *msgid, ...))
   va_end (ap);
 }
 
-/* Flush diagnostic_buffer content on stderr.  */
+/* Flush the diagnostic_buffer to the associated stream.  */
 
 static void
 finish_diagnostic ()
 {
   output_buffer_to_stream (diagnostic_buffer);
   clear_diagnostic_info (diagnostic_buffer);
-  fputc ('\n', output_buffer_attached_stream (diagnostic_buffer));
   fflush (output_buffer_attached_stream (diagnostic_buffer));
 }
 

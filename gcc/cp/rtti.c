@@ -76,7 +76,7 @@ init_rtti_processing ()
   if (flag_honor_std)
     push_namespace (std_identifier);
   type_info_type_node = xref_tag
-    (class_type_node, get_identifier ("type_info"), 1);
+    (ctk_class, get_identifier ("type_info"), 1);
   if (flag_honor_std)
     pop_namespace ();
   /* FIXME: These identifier prefixes are not set in stone yet.  */
@@ -180,9 +180,10 @@ throw_bad_typeid ()
   return build_call (fn, NULL_TREE);
 }
 
-/* Return a pointer to type_info function associated with the expression EXP.
-   If EXP is a reference to a polymorphic class, return the dynamic type;
-   otherwise return the static type of the expression.  */
+/* Return an expression for the address of the typeinfo node
+   associated with EXP.  If EXP is a reference to a polymorphic class,
+   return the dynamic type; otherwise return the static type of the
+   expression.  */
 
 static tree
 get_tinfo_decl_dynamic (exp)
@@ -705,7 +706,7 @@ build_dynamic_cast_1 (type, expr)
 	      const char *name;
 	      
 	      push_nested_namespace (ns);
-	      tinfo_ptr = xref_tag (class_type_node,
+	      tinfo_ptr = xref_tag (ctk_class,
 				    get_identifier ("__class_type_info"),
 				    1);
 	      
@@ -1291,7 +1292,7 @@ create_pseudo_type_info VPARAMS((const char *real_name, int ident, ...))
     sprintf (pseudo_name + strlen (pseudo_name), "%d", ident);
   
   /* Get the vtable decl. */
-  real_type = xref_tag (class_type_node, get_identifier (real_name), 1);
+  real_type = xref_tag (ctk_class, get_identifier (real_name), 1);
   vtable_decl = get_vtable_decl (real_type, /*complete=*/1);
   vtable_decl = build_unary_op (ADDR_EXPR, vtable_decl, 0);
 
@@ -1488,7 +1489,7 @@ emit_support_tinfos ()
   tree bltn_type, dtor;
   
   push_nested_namespace (abi_node);
-  bltn_type = xref_tag (class_type_node,
+  bltn_type = xref_tag (ctk_class,
                         get_identifier ("__fundamental_type_info"), 1);
   pop_nested_namespace (abi_node);
   if (!COMPLETE_TYPE_P (bltn_type))

@@ -151,7 +151,7 @@ yyparse()
   if (! cpp_start_read (parse_in, cpp_filename))
     return 1;			/* cpplib has emitted an error.  */
 
-  return yyparse_1();
+  return (*lang_parse) ();
 }
 
 struct c_fileinfo *

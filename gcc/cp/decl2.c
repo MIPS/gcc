@@ -1534,35 +1534,6 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
   const char *asmspec = 0;
   int flags = LOOKUP_ONLYCONVERTING;
 
-  /* Convert () initializers to = initializers.  */
-  if (init == NULL_TREE && declarator != NULL_TREE
-      && TREE_CODE (declarator) == CALL_EXPR
-      && TREE_OPERAND (declarator, 0)
-      && (TREE_CODE (TREE_OPERAND (declarator, 0)) == IDENTIFIER_NODE
-	  || TREE_CODE (TREE_OPERAND (declarator, 0)) == SCOPE_REF)
-      && parmlist_is_exprlist (CALL_DECLARATOR_PARMS (declarator)))
-    {
-      /* It's invalid to try to initialize a data member using a
-	 functional notation, e.g.:
-	 
-            struct S {
-	      static int i (3);
-	    };
-	    
-	 Explain that to the user.  */
-      static int explained;
-
-      cp_error ("invalid data member initialization");
-      if (!explained)
-	{
-	  cp_error ("(use `=' to initialize static data members)");
-	  explained = 1;
-	}
-
-      declarator = TREE_OPERAND (declarator, 0);
-      flags = 0;
-    }
-
   if (declspecs == NULL_TREE
       && TREE_CODE (declarator) == SCOPE_REF
       && TREE_CODE (TREE_OPERAND (declarator, 1)) == IDENTIFIER_NODE)
@@ -2840,8 +2811,10 @@ start_objects (method_type, initp)
   fnname = get_file_function_name_long (type);
 
   start_function (void_list_node,
-		  make_call_declarator (fnname, void_list_node, NULL_TREE,
-					NULL_TREE),
+		  make_function_declarator (fnname, 
+					    void_list_node, 
+					    NULL_TREE,
+					    NULL_TREE),
 		  NULL_TREE, SF_DEFAULT);
 
 #if defined(ASM_OUTPUT_CONSTRUCTOR) && defined(ASM_OUTPUT_DESTRUCTOR)
@@ -4072,8 +4045,7 @@ build_expr_from_tree (t)
 				   TREE_OPERAND (field, 0),
 				   TREE_OPERAND (field, 1));
 	else
-	  return build_x_component_ref (object, field,
-					NULL_TREE, 1);
+	  return build_x_component_ref (object, field, NULL_TREE);
       }
 
     case THROW_EXPR:
@@ -4975,9 +4947,7 @@ validate_nonmember_using_decl (decl, scope, name)
 	  return NULL_TREE;
 	}
     }
-  else if (TREE_CODE (decl) == IDENTIFIER_NODE
-           || TREE_CODE (decl) == TYPE_DECL
-	   || TREE_CODE (decl) == TEMPLATE_DECL)
+  else if (TREE_CODE (decl) == IDENTIFIER_NODE)
     {
       *scope = global_namespace;
       *name = decl;
@@ -5083,7 +5053,8 @@ do_nonmember_using_decl (scope, name, oldval, oldtype, newval, newtype)
     }
 }
 
-/* Process a using-declaration not appearing in class or local scope. */
+/* Process a using-declaration not appearing in class or local scope.
+   DECL is either an IDENTIFIER_NODE or a SCOPE_REF.  */
 
 void
 do_toplevel_using_decl (decl)
@@ -5111,7 +5082,8 @@ do_toplevel_using_decl (decl)
   return;
 }
 
-/* Process a using-declaration at function scope.  */
+/* Process a using-declaration at function scope.  DECL is either an
+   IDENTIFIER_NODE or a SCOPE_REF.  */
 
 void
 do_local_using_decl (decl)
@@ -5279,9 +5251,12 @@ mark_used (decl)
    have just seen something of the form `AGGR SCOPE::ID'.  Return a
    TYPE_DECL for the type declared by ID in SCOPE.  */
 
+/* FIXME: ID is now always a TYPE_DECL.  */
+
 tree
 handle_class_head (aggr, scope, id)
-     tree aggr, scope, id;
+     cp_tag_kind aggr;
+     tree scope, id;
 {
   tree decl = NULL_TREE;
 

@@ -6572,9 +6572,10 @@ print_class_statistics ()
 
 /* Build a dummy reference to ourselves so Derived::Base (and A::A) works,
    according to [class]:
-                                          The class-name is also inserted
-   into  the scope of the class itself.  For purposes of access checking,
-   the inserted class name is treated as if it were a public member name.  */
+                                          
+     The class-name is also inserted into the scope of the class
+     itself.  For purposes of access checking, the inserted class name
+     is treated as if it were a public member name.  */
 
 void
 build_self_reference ()

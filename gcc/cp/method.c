@@ -1012,11 +1012,9 @@ implicitly_declare_fn (kind, type, const_p)
       my_friendly_abort (59);
     }
 
-  TREE_PARMLIST (args) = 1;
-
   {
-    tree declarator = make_call_declarator (name, args, NULL_TREE, raises);
-    
+    tree declarator = make_function_declarator (name, args, NULL_TREE, raises);
+
     if (retref)
       declarator = build_nt (ADDR_EXPR, declarator);
 

@@ -27,6 +27,8 @@ Boston, MA 02111-1307, USA.  */
 /*  Forward declarations.  */
 typedef struct output_buffer output_buffer;
 typedef struct diagnostic_context diagnostic_context;
+typedef struct diagnostic_state diagnostic_state;
+
 typedef void (*diagnostic_starter_fn) PARAMS ((output_buffer *,
                                                diagnostic_context *));
 typedef diagnostic_starter_fn diagnostic_finalizer_fn;
@@ -84,6 +86,22 @@ typedef struct
   va_list *format_args;
 } output_state;
 
+/* State that is saved every time we begin issuing diagnostics
+   tenatively.  */
+
+struct diagnostic_state
+{
+  /* The number of times we have issued diagnostics.  */
+  int diagnostic_count[DK_LAST_DIAGNOSTIC_KIND];
+  /* If we are issuing diagnostics tenatively, the location to which
+     we should call obstack_free to undo the tenatively issued
+     diagnostics.  Otherwise, if we are issuing diagnostics
+     definitely, this value is NULL.  */
+  void *tenative_diagnostic;
+  /* The next diagnostic_state in the stack.  */
+  diagnostic_state *next;
+};
+
 /* The output buffer datatype.  This is best seen as an abstract datatype.  */
 struct output_buffer
 {
@@ -98,6 +116,10 @@ struct output_buffer
   int line_length;
   /* The current state of the buffer.  */
   output_state state;
+  /* A stack of diagnostic_states.  Each time
+     diagnostic_issue_tenatively is called, a new entry is pushed on
+     the stack.  */
+  diagnostic_state *ds;
 };
 
 #define output_buffer_attached_stream(BUFFER) (BUFFER)->stream
@@ -178,6 +200,22 @@ extern int diagnostic_message_length_per_line;
    has been removed.  */
 extern output_buffer *diagnostic_buffer;
 
+/* The number of errors that have been issued so far.  Ideally, these
+   would take an output_buffer as an argument.  */
+#define errorcount \
+  diagnostic_buffer->ds->diagnostic_count[(int) DK_ERROR]
+/* Similarly, but for warnings.  */
+#define warningcount \
+  diagnostic_buffer->ds->diagnostic_count[(int) DK_WARNING]
+/* Similarly, but for sorrys.  */
+#define sorrycount \
+  diagnostic_buffer->ds->diagnostic_count[(int) DK_SORRY]
+
+/* Returns non-zero if warnings should be emitted.  */
+#define diagnostic_report_warnings_p()			\
+  (!inhibit_warnings					\
+   && !(in_system_header && !warn_system_headers))
+
 /* Prototypes */
 extern void set_diagnostic_context	PARAMS ((diagnostic_context *,
 						 const char *, va_list *,
@@ -226,5 +264,8 @@ extern void record_last_error_module	PARAMS ((void));
 extern int error_function_changed	PARAMS ((void));
 extern void record_last_error_function	PARAMS ((void));
 extern void report_problematic_module	PARAMS ((output_buffer *));     
+extern void diagnostic_issue_tenatively PARAMS ((output_buffer *));
+extern void diagnostic_commit           PARAMS ((output_buffer *));
+extern void diagnostic_rollback         PARAMS ((output_buffer *));
 
 #endif /* ! GCC_DIAGNOSTIC_H */

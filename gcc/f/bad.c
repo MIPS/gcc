@@ -1,5 +1,5 @@
 /* bad.c -- Implementation File (module.c template V1.0)
-   Copyright (C) 1995 Free Software Foundation, Inc.
+   Copyright (C) 1995, 2001 Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
@@ -200,7 +200,7 @@ ffebad_start_ (bool lex_override, ffebad errnum, ffebadSeverity sev,
 	if ((ffebad_severity_ != FFEBAD_severityPEDANTIC)
 	    || !flag_pedantic_errors)
 	  {
-	    if (count_error (1) == 0)
+	    if (!diagnostic_report_warnings_p ())
 	      {			/* User wants no warnings. */
 		ffebad_is_temp_inhibited_ = TRUE;
 		return FALSE;

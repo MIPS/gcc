@@ -707,11 +707,20 @@ current_scope ()
    that this function returns zero if we are within a local class, but
    not within a member function body of the local class.  */
 
-int
+bool
 at_function_scope_p ()
 {
   tree cs = current_scope ();
   return cs && TREE_CODE (cs) == FUNCTION_DECL;
+}
+
+/* Returns true if we are currently in a class-scope.  */
+
+bool
+at_class_scope_p ()
+{
+  tree cs = current_scope ();
+  return cs && TYPE_P (cs);
 }
 
 /* Return the scope of DECL, as appropriate when doing name-lookup.  */

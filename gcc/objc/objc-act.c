@@ -3618,8 +3618,6 @@ error_with_ivar (message, decl, rawdecl)
      tree decl;
      tree rawdecl;
 {
-  count_error (0);
-
   report_error_function (DECL_SOURCE_FILE (decl));
 
   error_with_file_and_line (DECL_SOURCE_FILE (decl),
@@ -7038,7 +7036,7 @@ warn_with_method (message, mtype, method)
      int mtype;
      tree method;
 {
-  if (count_error (1) == 0)
+  if (!diagnostic_report_warnings_p ())
     return;
 
   report_error_function (DECL_SOURCE_FILE (method));

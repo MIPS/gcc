@@ -61,7 +61,6 @@ Boston, MA 02111-1307, USA.  */
       ICS_THIS_FLAG (in _CONV)
       BINDING_HAS_LEVEL_P (in CPLUS_BINDING)
       BINFO_LOST_PRIMARY_P (in BINFO)
-      TREE_PARMLIST (in TREE_LIST)
    3: TYPE_USES_VIRTUAL_BASECLASSES (in a class TYPE).
       BINFO_VTABLE_PATH_MARKED.
       BINFO_PUSHDECLS_MARKED.
@@ -575,7 +574,6 @@ enum cp_tree_index
     CPTI_TINFO_VAR_ID,
     CPTI_ABORT_FNDECL,
     CPTI_GLOBAL_DELETE_FNDECL,
-    CPTI_AGGR_TAG,
 
     CPTI_ACCESS_DEFAULT,
     CPTI_ACCESS_PUBLIC,
@@ -675,7 +673,6 @@ extern tree cp_global_trees[CPTI_MAX];
 #define tinfo_var_id                    cp_global_trees[CPTI_TINFO_VAR_ID]
 #define abort_fndecl			cp_global_trees[CPTI_ABORT_FNDECL]
 #define global_delete_fndecl		cp_global_trees[CPTI_GLOBAL_DELETE_FNDECL]
-#define current_aggr			cp_global_trees[CPTI_AGGR_TAG]
 
 /* Define the sets of attributes that member functions and baseclasses
    can have.  These are sensible combinations of {public,private,protected}
@@ -817,6 +814,8 @@ struct saved_scope
    given by the user, or, if no access specifier was given, the
    default value appropriate for the kind of class (i.e., struct,
    class, or union).  */
+
+/* FIXME: Remove this.  */
 
 #define current_access_specifier scope_chain->access_specifier
 
@@ -1166,7 +1165,7 @@ enum languages { lang_c, lang_cplusplus, lang_java };
    || TREE_CODE (t) == TYPENAME_TYPE		\
    || TREE_CODE (t) == TYPEOF_TYPE		\
    || TREE_CODE (t) == BOUND_TEMPLATE_TEMPLATE_PARM	\
-   || TYPE_LANG_FLAG_5 (t))
+   || (TYPE_P (t) && TYPE_LANG_FLAG_5 (t)))
 
 /* Set IS_AGGR_TYPE for T to VAL.  T must be a class, struct, or
    union type.  */
@@ -1745,10 +1744,6 @@ struct lang_type
 /* The most derived class.  */
 
 
-/* Nonzero for TREE_LIST node means that this list of things
-   is a list of parameters, as opposed to a list of expressions.  */
-#define TREE_PARMLIST(NODE) (TREE_LANG_FLAG_2 (NODE))
-
 /* Nonzero for a parmlist means that this parmlist ended in ...  */
 #define PARMLIST_ELLIPSIS_P(NODE) TREE_LANG_FLAG_0 (NODE)
 
@@ -2515,7 +2510,8 @@ extern int flag_new_for_scope;
    is a call to a constructor.
 
    When appearing in a CONSTRUCTOR, it means that it was
-   a GNU C constructor expression.
+   a GNU C constructor expression, or that it was a brace-enclosed
+   initializer.
 
    When appearing in a FIELD_DECL, it means that this field
    has been duly initialized in its constructor.  */
@@ -3078,8 +3074,17 @@ enum ptrmemfunc_vbit_where_t
 #define CALL_DECLARATOR_EXCEPTION_SPEC(NODE) \
   (TREE_TYPE ((NODE)))
 
-/* An enumeration of the kind of tags that C++ accepts.  */
-enum tag_types { record_type, class_type, union_type, enum_type };
+/* An enumeration of the kind of tags that C++ accepts.  These
+   correspond to the keywords that can be used to begin an
+   elaborated-type-specifier.  */
+typedef enum cp_tag_kind { 
+  ctk_none,
+  ctk_struct,
+  ctk_class,
+  ctk_union,
+  ctk_enum,
+  ctk_typename
+} cp_tag_kind;
 
 /* The various kinds of lvalues we distinguish.  */
 typedef enum cp_lvalue_kind {
@@ -3461,6 +3466,8 @@ extern tree static_dtors;
 
 enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 
+extern cp_tag_kind current_aggr;
+
 /* Some macros for char-based bitfields.  */
 #define B_SET(a,x) (a[x>>3] |= (1 << (x&7)))
 #define B_CLR(a,x) (a[x>>3] &= ~(1 << (x&7)))
@@ -3497,6 +3504,7 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
    LOOKUP_TEMPLATES_EXPECTED means that class templates also count
      as types.  */
 
+#define LOOKUP_NONE (0)
 #define LOOKUP_PROTECT (1)
 #define LOOKUP_COMPLAIN (2)
 #define LOOKUP_NORMAL (3)
@@ -3850,13 +3858,13 @@ extern tree start_handler_parms                 PARAMS ((tree, tree));
 extern int complete_array_type			PARAMS ((tree, tree, int));
 extern tree build_ptrmemfunc_type		PARAMS ((tree));
 /* the grokdeclarator prototype is in decl.h */
-extern int parmlist_is_exprlist			PARAMS ((tree));
 extern int copy_args_p				PARAMS ((tree));
 extern int grok_ctor_properties			PARAMS ((tree, tree));
 extern void grok_op_properties			PARAMS ((tree, int, int));
-extern tree xref_tag				PARAMS ((tree, tree, int));
+extern tree xref_tag				PARAMS ((cp_tag_kind, tree, 
+							 int));
 extern tree xref_tag_from_type			PARAMS ((tree, tree, int));
-extern void xref_basetypes			PARAMS ((tree, tree, tree, tree));
+extern void xref_basetypes			PARAMS ((tree, tree));
 extern tree start_enum				PARAMS ((tree));
 extern void finish_enum				PARAMS ((tree));
 extern void build_enumerator			PARAMS ((tree, tree, tree));
@@ -3954,7 +3962,9 @@ extern tree do_class_using_decl			PARAMS ((tree));
 extern void do_using_directive			PARAMS ((tree));
 extern void check_default_args			PARAMS ((tree));
 extern void mark_used				PARAMS ((tree));
-extern tree handle_class_head			PARAMS ((tree, tree, tree));
+extern tree handle_class_head			PARAMS ((cp_tag_kind,
+							 tree, 
+							 tree));
 extern tree lookup_arg_dependent                PARAMS ((tree, tree, tree));
 extern void finish_static_data_member_decl      PARAMS ((tree, tree, tree, int));
 extern tree build_artificial_parm               PARAMS ((tree, tree));
@@ -4049,7 +4059,7 @@ extern tree build_java_class_ref                PARAMS ((tree));
 /* in lex.c */
 extern tree make_pointer_declarator		PARAMS ((tree, tree));
 extern tree make_reference_declarator		PARAMS ((tree, tree));
-extern tree make_call_declarator		PARAMS ((tree, tree, tree, tree));
+extern tree make_function_declarator		PARAMS ((tree, tree, tree, tree));
 extern void set_quals_and_spec			PARAMS ((tree, tree, tree));
 extern void print_parse_statistics		PARAMS ((void));
 extern void do_pending_inlines			PARAMS ((void));
@@ -4151,6 +4161,7 @@ extern tree get_mostly_instantiated_function_type PARAMS ((tree, tree *, tree *)
 extern int problematic_instantiation_changed    PARAMS ((void));
 extern void record_last_problematic_instantiation PARAMS ((void));
 extern tree current_instantiation               PARAMS ((void));
+extern tree maybe_get_template_decl_from_type_decl PARAMS ((tree));
 extern int processing_template_parmlist;
 
 /* in repo.c */
@@ -4197,7 +4208,8 @@ extern void print_search_statistics		PARAMS ((void));
 extern void init_search_processing		PARAMS ((void));
 extern void reinit_search_statistics		PARAMS ((void));
 extern tree current_scope			PARAMS ((void));
-extern int at_function_scope_p                  PARAMS ((void));
+extern bool at_function_scope_p                  PARAMS ((void));
+extern bool at_class_scope_p                    PARAMS ((void));
 extern tree context_for_name_lookup		PARAMS ((tree));
 extern tree lookup_conversions			PARAMS ((tree));
 extern tree binfo_for_vtable			PARAMS ((tree));
@@ -4293,8 +4305,8 @@ extern int begin_function_definition            PARAMS ((tree, tree));
 extern tree begin_constructor_declarator        PARAMS ((tree, tree));
 extern tree finish_declarator                   PARAMS ((tree, tree, tree, tree, int));
 extern void finish_translation_unit             PARAMS ((void));
-extern tree finish_template_type_parm           PARAMS ((tree, tree));
-extern tree finish_template_template_parm       PARAMS ((tree, tree));
+extern tree finish_template_type_parm           PARAMS ((cp_tag_kind, tree));
+extern tree finish_template_template_parm       PARAMS ((cp_tag_kind, tree));
 extern tree finish_parmlist                     PARAMS ((tree, int));
 extern tree begin_class_definition              PARAMS ((tree));
 extern tree finish_class_definition             PARAMS ((tree, tree, int, int));
@@ -4314,6 +4326,7 @@ extern void finish_named_return_value           PARAMS ((tree, tree));
 extern void expand_body                         PARAMS ((tree));
 extern void do_pushlevel                        PARAMS ((void));
 extern tree do_poplevel                         PARAMS ((void));
+extern void begin_mem_initializer_list          PARAMS ((void));
 extern void finish_mem_initializers             PARAMS ((tree));
 extern void setup_vtbl_ptr			PARAMS ((tree, tree));
 extern void clear_out_block                     PARAMS ((void));
@@ -4435,7 +4448,7 @@ extern tree decay_conversion			PARAMS ((tree));
 extern tree build_object_ref			PARAMS ((tree, tree, tree));
 extern tree build_component_ref_1		PARAMS ((tree, tree, int));
 extern tree build_component_ref			PARAMS ((tree, tree, tree, int));
-extern tree build_x_component_ref		PARAMS ((tree, tree, tree, int));
+extern tree build_x_component_ref		PARAMS ((tree, tree, tree));
 extern tree build_x_indirect_ref		PARAMS ((tree, const char *));
 extern tree build_indirect_ref			PARAMS ((tree, const char *));
 extern tree build_array_ref			PARAMS ((tree, tree));
@@ -4530,6 +4543,9 @@ extern tree mangle_guard_variable               PARAMS ((tree));
 
 /* in dump.c */
 extern int cp_dump_tree                         PARAMS ((dump_info_p, tree));
+
+/* in parser.c */
+extern int cp_parse_translation_unit            PARAMS ((void));
 
 /* -- end of C++ */
 

@@ -100,7 +100,7 @@ static tree select_decl PARAMS ((tree, int));
 static int lookup_flags PARAMS ((int, int));
 static tree qualify_lookup PARAMS ((tree, int));
 static tree record_builtin_java_type PARAMS ((const char *, int));
-static const char *tag_name PARAMS ((enum tag_types code));
+static const char *tag_name PARAMS ((cp_tag_kind code));
 static void find_class_binding_level PARAMS ((void));
 static struct binding_level *innermost_nonclass_level PARAMS ((void));
 static void warn_about_implicit_typename_lookup PARAMS ((tree, tree));
@@ -5860,6 +5860,34 @@ warn_about_implicit_typename_lookup (typename, binding)
     }
 }
 
+tree
+lookup_qualified_name (scope, name)
+     tree scope;
+     tree name;
+{
+  tree val;
+
+  if (TREE_CODE (scope) == NAMESPACE_DECL)
+    {
+      int flags;
+
+      val = make_node (CPLUS_BINDING);
+      flags = LOOKUP_COMPLAIN;
+      if (!qualified_lookup_using_namespace (name, scope, val, flags))
+	return NULL_TREE;
+      return select_decl (val, flags);
+    }
+  else if (scope == current_class_type)
+    val = IDENTIFIER_CLASS_VALUE (name);
+  else
+    {
+      val = lookup_member (scope, name, 0, /*prefer_type=*/0);
+      type_access_control (scope, val);
+    }
+
+  return val;
+}
+
 /* Look up NAME in the current binding level and its superiors in the
    namespace of variables, functions and typedefs.  Return a ..._DECL
    node of some kind representing its definition if there is only one
@@ -6540,7 +6568,7 @@ init_decl_processing ()
     if (flag_honor_std)
       push_namespace (std_identifier);
     bad_alloc_type_node = xref_tag
-      (class_type_node, get_identifier ("bad_alloc"), 1);
+      (ctk_class, get_identifier ("bad_alloc"), 1);
     if (flag_honor_std)
       pop_namespace ();
     ptr_ftype_sizetype 
@@ -9579,9 +9607,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
   /* See the code below that used this.  */
   tree decl_machine_attr = NULL_TREE;
 #endif
-  /* Set this to error_mark_node for FIELD_DECLs we could not handle properly.
-     All FIELD_DECLs we build here have `init' put into their DECL_INITIAL.  */
-  tree init = NULL_TREE;
 
   /* Keep track of what sort of function is being processed
      so that we can warn about default return values, or explicit
@@ -9681,43 +9706,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    break;
 
 	  case CALL_EXPR:
-	    if (parmlist_is_exprlist (CALL_DECLARATOR_PARMS (decl)))
-	      {
-		/* This is actually a variable declaration using
-		   constructor syntax.  We need to call start_decl and
-		   cp_finish_decl so we can get the variable
-		   initialized...  */
-
-		tree attributes, prefix_attributes;
-
-		*next = TREE_OPERAND (decl, 0);
-		init = CALL_DECLARATOR_PARMS (decl);
-
-		if (attrlist)
-		  {
-		    attributes = TREE_PURPOSE (attrlist);
-		    prefix_attributes = TREE_VALUE (attrlist);
-		  }
-		else
-		  {
-		    attributes = NULL_TREE;
-		    prefix_attributes = NULL_TREE;
-		  }
-
-		decl = start_decl (declarator, declspecs, 1,
-				   attributes, prefix_attributes);
-		decl_type_access_control (decl);
-		if (decl)
-		  {
-		    /* Look for __unused__ attribute */
-		    if (TREE_USED (TREE_TYPE (decl)))
-		      TREE_USED (decl) = 1;
-		    finish_decl (decl, init, NULL_TREE);
-		  }
-		else
-		  cp_error ("invalid declarator");
-		return 0;
-	      }
 	    innermost_code = TREE_CODE (decl);
 	    if (decl_context == FIELD && ctype == NULL_TREE)
 	      ctype = current_class_type;
@@ -10807,42 +10795,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    if (TREE_CODE (sname) == BIT_NOT_EXPR)
 	      sname = TREE_OPERAND (sname, 0);
 
-	    if (TREE_COMPLEXITY (declarator) == 0)
-	      /* This needs to be here, in case we are called
-		 multiple times.  */ ;
-	    else if (TREE_COMPLEXITY (declarator) == -1)
-	      /* Namespace member. */
-	      pop_decl_namespace ();
-	    else if (friendp && (TREE_COMPLEXITY (declarator) < 2))
-	      /* Don't fall out into global scope. Hides real bug? --eichin */ ;
-	    else if (! IS_AGGR_TYPE_CODE
-		     (TREE_CODE (TREE_OPERAND (declarator, 0))))
-	      ;
-	    else if (TREE_COMPLEXITY (declarator) == current_class_depth)
-	      {
-		/* Resolve any TYPENAME_TYPEs from the decl-specifier-seq
-		   that refer to ctype.  They couldn't be resolved earlier
-		   because we hadn't pushed into the class yet.
-		   Example: resolve 'B<T>::type' in
-		   'B<typename B<T>::type> B<T>::f () { }'.  */
-		if (current_template_parms
-		    && uses_template_parms (type)
-		    && uses_template_parms (current_class_type))
-		  {
-		    tree args = current_template_args ();
-		    type = tsubst (type, args, /*complain=*/1, NULL_TREE);
-		  }
-
-		/* This pop_nested_class corresponds to the
-                   push_nested_class used to push into class scope for
-                   parsing the argument list of a function decl, in
-                   qualified_id.  */
-		pop_nested_class ();
-		TREE_COMPLEXITY (declarator) = current_class_depth;
-	      }
-	    else
-	      my_friendly_abort (16);
-
 	    if (TREE_OPERAND (declarator, 0) == NULL_TREE)
 	      {
 		/* We had a reference to a global decl, or
@@ -11693,33 +11645,6 @@ friend declaration requires class-key, i.e. `friend %#T'",
   }
 }
 
-/* Tell if a parmlist/exprlist looks like an exprlist or a parmlist.
-   An empty exprlist is a parmlist.  An exprlist which
-   contains only identifiers at the global level
-   is a parmlist.  Otherwise, it is an exprlist.  */
-
-int
-parmlist_is_exprlist (exprs)
-     tree exprs;
-{
-  if (exprs == NULL_TREE || TREE_PARMLIST (exprs))
-    return 0;
-
-  if (toplevel_bindings_p ())
-    {
-      /* At the global level, if these are all identifiers,
-	 then it is a parmlist.  */
-      while (exprs)
-	{
-	  if (TREE_CODE (TREE_VALUE (exprs)) != IDENTIFIER_NODE)
-	    return 1;
-	  exprs = TREE_CHAIN (exprs);
-	}
-      return 0;
-    }
-  return 1;
-}
-
 /* Subroutine of start_function.  Ensure that each of the parameter
    types (as listed in PARMS) is complete, as is required for a
    function definition.  */
@@ -11882,8 +11807,6 @@ grokparms (first_parm)
   int ellipsis = !first_parm || PARMLIST_ELLIPSIS_P (first_parm);
   tree parm, chain;
   int any_error = 0;
-
-  my_friendly_assert (!first_parm || TREE_PARMLIST (first_parm), 20001115);
 
   for (parm = first_parm; parm != NULL_TREE; parm = chain)
     {
@@ -12469,24 +12392,24 @@ grok_op_properties (decl, virtualp, friendp)
 
 static const char *
 tag_name (code)
-     enum tag_types code;
+     cp_tag_kind code;
 {
   switch (code)
     {
-    case record_type:
+    case ctk_struct:
       return "struct";
-    case class_type:
+    case ctk_class:
       return "class";
-    case union_type:
+    case ctk_union:
       return "union ";
-    case enum_type:
+    case ctk_enum:
       return "enum";
     default:
       my_friendly_abort (981122);
     }
 }
 
-/* Get the struct, enum or union (CODE says which) with tag NAME.
+/* Get the struct, enum or union (TAG_CODE says which) with tag NAME.
    Define the tag as a forward-reference if it is not defined.
 
    C++: If a class derivation is given, process it here, and report
@@ -12497,40 +12420,31 @@ tag_name (code)
    scope.)  */
 
 tree
-xref_tag (code_type_node, name, globalize)
-     tree code_type_node;
+xref_tag (tag_code, name, globalize)
+     enum cp_tag_kind tag_code;
      tree name;
      int globalize;
 {
-  enum tag_types tag_code;
   enum tree_code code;
   register tree ref, t;
   struct binding_level *b = current_binding_level;
   int got_type = 0;
   tree attributes = NULL_TREE;
   tree context = NULL_TREE;
+  
+  /* FIXME : Handle attributes here?  They use to be passed in as a
+     mutant version of code_type_node.  */
 
-  /* If we are called from the parser, code_type_node will sometimes be a
-     TREE_LIST.  This indicates that the user wrote
-     "class __attribute__ ((foo)) bar".  Extract the attributes so we can
-     use them later.  */
-  if (TREE_CODE (code_type_node) == TREE_LIST)
-    {
-      attributes = TREE_PURPOSE (code_type_node);
-      code_type_node = TREE_VALUE (code_type_node);
-    }
-
-  tag_code = (enum tag_types) tree_low_cst (code_type_node, 1);
   switch (tag_code)
     {
-    case record_type:
-    case class_type:
+    case ctk_struct:
+    case ctk_class:
       code = RECORD_TYPE;
       break;
-    case union_type:
+    case ctk_union:
       code = UNION_TYPE;
       break;
-    case enum_type:
+    case ctk_enum:
       code = ENUMERAL_TYPE;
       break;
     default:
@@ -12727,9 +12641,9 @@ xref_tag (code_type_node, name, globalize)
       /* Have to check this, in case we have contradictory tag info.  */
       && IS_AGGR_TYPE_CODE (TREE_CODE (ref)))
     {
-      if (tag_code == class_type)
+      if (tag_code == ctk_class)
 	CLASSTYPE_DECLARED_CLASS (ref) = 1;
-      else if (tag_code == record_type)
+      else if (tag_code == ctk_struct)
 	CLASSTYPE_DECLARED_CLASS (ref) = 0;
     }
 
@@ -12743,30 +12657,27 @@ xref_tag_from_type (old, id, globalize)
      tree old, id;
      int globalize;
 {
-  tree code_type_node;
+  cp_tag_kind ctk;
 
   if (TREE_CODE (old) == RECORD_TYPE)
-    code_type_node = (CLASSTYPE_DECLARED_CLASS (old)
-		      ? class_type_node : record_type_node);
+    ctk = (CLASSTYPE_DECLARED_CLASS (old) ? ctk_class : ctk_struct);
   else
-    code_type_node = union_type_node;
+    ctk = ctk_union;
 
   if (id == NULL_TREE)
     id = TYPE_IDENTIFIER (old);
 
-  return xref_tag (code_type_node, id, globalize);
+  return xref_tag (ctk, id, globalize);
 }
 
 /* REF is a type (named NAME), for which we have just seen some
    baseclasses.  BINFO is a list of those baseclasses; the
    TREE_PURPOSE is an access_* node, and the TREE_VALUE is the type of
-   the base-class.  CODE_TYPE_NODE indicates whether REF is a class,
-   struct, or union.  */
+   the base-class.  */
 
 void
-xref_basetypes (code_type_node, name, ref, binfo)
-     tree code_type_node;
-     tree name, ref;
+xref_basetypes (ref, binfo)
+     tree ref;
      tree binfo;
 {
   /* In the declaration `A : X, Y, ... Z' we mark all the types
@@ -12775,13 +12686,15 @@ xref_basetypes (code_type_node, name, ref, binfo)
   tree base;
 
   int i, len;
-  enum tag_types tag_code = (enum tag_types) tree_low_cst (code_type_node, 1);
+  enum cp_tag_kind tag_code;
 
-  if (tag_code == union_type)
+  if (TREE_CODE (ref) == UNION_TYPE)
     {
       cp_error ("derived union `%T' invalid", ref);
       return;
     }
+
+  tag_code = (CLASSTYPE_DECLARED_CLASS (ref) ? ctk_class : ctk_struct);
 
   len = list_length (binfo);
 
@@ -12801,7 +12714,7 @@ xref_basetypes (code_type_node, name, ref, binfo)
       int via_public
 	= (TREE_PURPOSE (binfo) == access_public_node
 	   || TREE_PURPOSE (binfo) == access_public_virtual_node
-	   || (tag_code != class_type
+	   || (tag_code != ctk_class
 	       && (TREE_PURPOSE (binfo) == access_default_node
 		   || TREE_PURPOSE (binfo) == access_default_virtual_node)));
       int via_protected
@@ -12828,7 +12741,8 @@ xref_basetypes (code_type_node, name, ref, binfo)
 	  continue;
 	}
 
-      GNU_xref_hier (name, basetype, via_public, via_virtual, 0);
+      GNU_xref_hier (TYPE_IDENTIFIER (ref), 
+		     basetype, via_public, via_virtual, 0);
 
       /* This code replaces similar code in layout_basetypes.
          We put the complete_type first for implicit `typename'.  */
@@ -14024,6 +13938,11 @@ finish_function (flags)
 
   /* If we're saving up tree structure, tie off the function now.  */
   finish_stmt_tree (&DECL_SAVED_TREE (fndecl));
+  /* If we didn't end up with a statement-tree (due to a parse error),
+     then we make up a dummy empty body.  */
+  if (!DECL_SAVED_TREE (fndecl))
+    DECL_SAVED_TREE (fndecl) 
+      = build_stmt (COMPOUND_STMT, NULL_TREE);
 
   /* This must come after expand_function_end because cleanups might
      have declarations (from inline functions) that need to go into
@@ -14525,6 +14444,9 @@ lang_mark_tree (t)
 	      else if (TREE_CODE (t) == FUNCTION_DECL
 		       && !DECL_PENDING_INLINE_P (t))
 		mark_lang_function (DECL_SAVED_FUNCTION_DATA (t));
+	      else if (TREE_CODE (t) == FUNCTION_DECL
+		       && DECL_PENDING_INLINE_P (t))
+		ggc_mark (DECL_PENDING_INLINE_INFO (t));
 	    }
 	}
     }
@@ -14570,7 +14492,6 @@ tree
 build_void_list_node ()
 {
   tree t = build_tree_list (NULL_TREE, void_type_node);
-  TREE_PARMLIST (t) = 1;
   return t;
 }
 

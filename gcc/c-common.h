@@ -302,6 +302,9 @@ extern void (*lang_expand_function_end)         PARAMS ((void));
    noreturn attribute.  */
 extern int (*lang_missing_noreturn_ok_p)	PARAMS ((tree));
 
+/* The function that parses the entire translation unit.  Returns a
+   non-zero value if an error occurs.  */
+extern int (*lang_parse)                        PARAMS ((void));
 
 /* The type of a function that walks over tree structure.  */
 

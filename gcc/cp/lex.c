@@ -183,17 +183,23 @@ make_reference_declarator (cv_qualifiers, target)
   return target;
 }
 
+/* Make a new function-declarator, which is represented as a
+   CALL_EXPR.  The DECLARATOR (if non-NULL) is the direct-declarator
+   or direct-abstract-declarator giving the name of the function.  */
+
 tree
-make_call_declarator (target, parms, cv_qualifiers, exception_specification)
-     tree target, parms, cv_qualifiers, exception_specification;
+make_function_declarator (declarator, parms, cv_qualifiers, 
+			  exception_specification)
+     tree declarator, parms, cv_qualifiers, exception_specification;
 {
-  target = build_nt (CALL_EXPR, target,
-		     tree_cons (parms, cv_qualifiers, NULL_TREE),
-		     /* The third operand is really RTL.  We
-			shouldn't put anything there.  */
-		     NULL_TREE);
-  CALL_DECLARATOR_EXCEPTION_SPEC (target) = exception_specification;
-  return target;
+  declarator 
+    = build_nt (CALL_EXPR, declarator,
+		tree_cons (parms, cv_qualifiers, NULL_TREE),
+		/* The third operand is really RTL.  We
+		   shouldn't put anything there.  */
+		NULL_TREE);
+  CALL_DECLARATOR_EXCEPTION_SPEC (declarator) = exception_specification;
+  return declarator;
 }
 
 void
@@ -729,19 +735,19 @@ init_parse (filename)
 
   current_function_decl = NULL;
 
-  class_type_node = build_int_2 (class_type, 0);
+  class_type_node = build_int_2 (ctk_class, 0);
   TREE_TYPE (class_type_node) = class_type_node;
   ridpointers[(int) RID_CLASS] = class_type_node;
 
-  record_type_node = build_int_2 (record_type, 0);
+  record_type_node = build_int_2 (ctk_struct, 0);
   TREE_TYPE (record_type_node) = record_type_node;
   ridpointers[(int) RID_STRUCT] = record_type_node;
 
-  union_type_node = build_int_2 (union_type, 0);
+  union_type_node = build_int_2 (ctk_union, 0);
   TREE_TYPE (union_type_node) = union_type_node;
   ridpointers[(int) RID_UNION] = union_type_node;
 
-  enum_type_node = build_int_2 (enum_type, 0);
+  enum_type_node = build_int_2 (ctk_enum, 0);
   TREE_TYPE (enum_type_node) = enum_type_node;
   ridpointers[(int) RID_ENUM] = enum_type_node;
 
@@ -797,13 +803,13 @@ yyprint (file, yychar, yylval)
       break;
 
     case AGGR:
-      if (yylval.ttype == class_type_node)
+      if (yylval.ctk == ctk_class)
 	fprintf (file, " `class'");
-      else if (yylval.ttype == record_type_node)
+      else if (yylval.ctk == ctk_struct)
 	fprintf (file, " `struct'");
-      else if (yylval.ttype == union_type_node)
+      else if (yylval.ctk == ctk_union)
 	fprintf (file, " `union'");
-      else if (yylval.ttype == enum_type_node)
+      else if (yylval.ctk == ctk_enum)
 	fprintf (file, " `enum'");
       else
 	my_friendly_abort (80);

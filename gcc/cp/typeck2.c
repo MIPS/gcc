@@ -38,6 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "toplev.h"
 #include "output.h"
+#include "diagnostic.h"
 
 static tree process_init_constructor PARAMS ((tree, tree, tree *));
 
@@ -1303,11 +1304,7 @@ add_exception_specifier (list, spec, complain)
         if (same_type_p (TREE_VALUE (probe), spec))
           break;
       if (!probe)
-        {
-          spec = build_tree_list (NULL_TREE, spec);
-          TREE_CHAIN (spec) = list;
-          list = spec;
-        }
+	list = tree_cons (NULL_TREE, spec, list);
     }
   else if (complain)
     incomplete_type_error (NULL_TREE, core);

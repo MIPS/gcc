@@ -1052,6 +1052,21 @@ finish_named_return_value (return_id, init)
   DECL_UNINLINABLE (current_function_decl) = 1;
 }
 
+/* This function should be called when the compiler begins to process
+   a mem-initializer-list.  */
+
+void
+begin_mem_initializer_list ()
+{
+  /* Make a contour for the initializer list.  */
+  do_pushlevel ();
+
+  if (current_class_type == NULL_TREE)
+    error ("base initializers not allowed for non-member functions");
+  else if (! DECL_CONSTRUCTOR_P (current_function_decl))
+    error ("only constructors take base initializers");
+}
+
 /* The INIT_LIST is a list of mem-initializers, in the order they were
    written by the user.  The TREE_VALUE of each node is a list of
    initializers for a particular subobject.  The TREE_PURPOSE is a
@@ -1068,6 +1083,8 @@ finish_mem_initializers (init_list)
   tree next; 
   tree init;
 
+  /* The code below processes the initializers in reverse order.  */
+  init_list = nreverse (init_list);
   member_init_list = NULL_TREE;
   base_init_list = NULL_TREE;
   last_base_warned_about = NULL_TREE;
@@ -1316,6 +1333,7 @@ finish_call_expr (fn, args, koenig)
       else if (TREE_CODE (fn) != TEMPLATE_ID_EXPR)
 	fn = do_identifier (fn, 2, args);
     }
+  
   result = build_x_function_call (fn, args, current_class_ref);
 
   if (TREE_CODE (result) == CALL_EXPR
@@ -1497,8 +1515,11 @@ tree
 finish_id_expr (expr)
      tree expr;
 {
+  if (expr == error_mark_node)
+    return error_mark_node;
+
   if (TREE_CODE (expr) == IDENTIFIER_NODE)
-    expr = do_identifier (expr, 1, NULL_TREE);
+    expr = do_identifier (expr, /*parsing=*/2, NULL_TREE);
 
   if (TREE_TYPE (expr) == error_mark_node)
     expr = error_mark_node;
@@ -1657,16 +1678,13 @@ finish_translation_unit ()
 
 tree 
 finish_template_type_parm (aggr, identifier)
-     tree aggr;
+     cp_tag_kind aggr;
      tree identifier;
 {
-  if (aggr != class_type_node)
-    {
-      pedwarn ("template type parameters must use the keyword `class' or `typename'");
-      aggr = class_type_node;
-    }
+  if (aggr != ctk_class)
+    pedwarn ("template type parameters must use the keyword `class' or `typename'");
 
-  return build_tree_list (aggr, identifier);
+  return build_tree_list (class_type_node, identifier);
 }
 
 /* Finish a template template parameter, specified as AGGR IDENTIFIER.
@@ -1674,7 +1692,7 @@ finish_template_type_parm (aggr, identifier)
 
 tree 
 finish_template_template_parm (aggr, identifier)
-     tree aggr;
+     cp_tag_kind aggr;
      tree identifier;
 {
   tree decl = build_decl (TYPE_DECL, identifier, NULL_TREE);
@@ -1699,9 +1717,6 @@ finish_parmlist (parms, ellipsis)
 {
   if (parms)
     {
-      /* We mark the PARMS as a parmlist so that declarator processing can
-         disambiguate certain constructs.  */
-      TREE_PARMLIST (parms) = 1;
       /* We do not append void_list_node here, but leave it to grokparms
          to do that.  */
       PARMLIST_ELLIPSIS_P (parms) = ellipsis;
@@ -1943,8 +1958,6 @@ finish_class_definition (t, attributes, semi, pop_scope_p)
 	note_got_semicolon (t);
     }
 
-  if (! semi)
-    check_for_missing_semicolon (t); 
   if (pop_scope_p)
     pop_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (t)));
   if (current_function_decl)
@@ -2052,10 +2065,7 @@ enter_scope_of (sr)
   tree scope = TREE_OPERAND (sr, 0);
 
   if (TREE_CODE (scope) == NAMESPACE_DECL)
-    {
-      push_decl_namespace (scope);
-      TREE_COMPLEXITY (sr) = -1;
-    }
+    push_decl_namespace (scope);
   else if (scope != current_class_type)
     {
       if (TREE_CODE (scope) == TYPENAME_TYPE)
@@ -2066,9 +2076,10 @@ enter_scope_of (sr)
 	  TREE_OPERAND (sr, 0) = scope;
 	}
       push_nested_class (scope, 3);
-      TREE_COMPLEXITY (sr) = current_class_depth;
     }
 }
+
+/* FIXME: Now unused.  */
 
 /* Finish processing a BASE_CLASS with the indicated ACCESS_SPECIFIER.
    Return a TREE_LIST containing the ACCESS_SPECIFIER and the

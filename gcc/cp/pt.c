@@ -71,7 +71,7 @@ static tree current_tinst_level;
 /* A map from local variable declarations in the body of the template
    presently being instantiated to the corresponding instantiated
    local variables.  */
-static htab_t local_specializations;
+static splay_tree local_specializations;
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
@@ -134,7 +134,6 @@ static tree tsubst_friend_function PARAMS ((tree, tree));
 static tree tsubst_friend_class PARAMS ((tree, tree));
 static tree get_bindings_real PARAMS ((tree, tree, tree, int, int, int));
 static int template_decl_level PARAMS ((tree));
-static tree maybe_get_template_decl_from_type_decl PARAMS ((tree));
 static int check_cv_quals_for_unify PARAMS ((int, tree, tree));
 static tree tsubst_template_arg_vector PARAMS ((tree, tree, int));
 static tree tsubst_template_parms PARAMS ((tree, tree, int));
@@ -752,7 +751,10 @@ static tree
 retrieve_local_specialization (tmpl)
      tree tmpl;
 {
-  return (tree) htab_find (local_specializations, tmpl);
+  splay_tree_node n;
+
+  n = splay_tree_lookup (local_specializations, (splay_tree_key) tmpl);
+  return n ? (tree) n->value : NULL_TREE;
 }
 
 /* Returns non-zero iff DECL is a specialization of TMPL.  */
@@ -926,10 +928,9 @@ register_local_specialization (spec, tmpl)
      tree spec;
      tree tmpl;
 {
-  void **slot;
-
-  slot = htab_find_slot (local_specializations, tmpl, INSERT);
-  *slot = spec;
+  splay_tree_insert (local_specializations, 
+		     (splay_tree_key) tmpl, 
+		     (splay_tree_value) spec);
 }
 
 /* Print the list of candidate FNS in an error message.  */
@@ -3780,7 +3781,7 @@ lookup_template_function (fns, arglist)
    return the associated TEMPLATE_DECL.  Otherwise, the original
    DECL is returned.  */
 
-static tree
+tree
 maybe_get_template_decl_from_type_decl (decl)
      tree decl;
 {
@@ -5060,13 +5061,7 @@ instantiate_class_template (type)
 
       /* Now call xref_basetypes to set up all the base-class
 	 information.  */
-      xref_basetypes (TREE_CODE (pattern) == RECORD_TYPE
-		      ? (CLASSTYPE_DECLARED_CLASS (pattern)
-			 ? class_type_node : record_type_node)
-		      : union_type_node,
-		      DECL_NAME (TYPE_NAME (pattern)),
-		      type,
-		      base_list);
+      xref_basetypes (type, base_list);
     }
 
   /* Now that our base classes are set up, enter the scope of the
@@ -6178,13 +6173,9 @@ tsubst_call_declarator_parms (parms, args, complain, in_decl)
   defarg = tsubst_expr (TREE_PURPOSE (parms), args, complain, in_decl);
 
   /* Chain this parameter on to the front of those we have already
-     processed.  We don't use hash_tree_cons because that function
-     doesn't check TREE_PARMLIST.  */
+     processed.  */
   new_parms = tree_cons (defarg, type, new_parms);
 
-  /* And note that these are parameters.  */
-  TREE_PARMLIST (new_parms) = 1;
-  
   return new_parms;
 }
 
@@ -6487,13 +6478,7 @@ tsubst (t, args, complain, in_decl)
 	    && value == TREE_VALUE (t)
 	    && chain == TREE_CHAIN (t))
 	  return t;
-	if (TREE_PARMLIST (t))
-	  {
-	    result = tree_cons (purpose, value, chain);
-	    TREE_PARMLIST (result) = 1;
-	  }
-	else
-	  result = hash_tree_cons (purpose, value, chain);
+	result = hash_tree_cons (purpose, value, chain);
 	return result;
       }
     case TREE_VEC:
@@ -6772,7 +6757,9 @@ tsubst (t, args, complain, in_decl)
 	    || e3 == error_mark_node)
 	  return error_mark_node;
 
-	return make_call_declarator (e1, e2, CALL_DECLARATOR_QUALS (t), e3);
+	return make_function_declarator (e1, e2, 
+					 CALL_DECLARATOR_QUALS (t), 
+					 e3);
       }
 
     case SCOPE_REF:
@@ -6876,7 +6863,9 @@ tsubst_copy (t, args, complain, in_decl)
 
     case VAR_DECL:
     case FUNCTION_DECL:
-      if (DECL_LANG_SPECIFIC (t) && DECL_TEMPLATE_INFO (t))
+      if ((DECL_LANG_SPECIFIC (t) && DECL_TEMPLATE_INFO (t))
+	  /* Substitute for local variables, too.  */
+	  || local_variable_p (t))
 	t = tsubst (t, args, complain, in_decl);
       mark_used (t);
       return t;
@@ -9926,17 +9915,16 @@ instantiate_decl (d, defer_ok)
     }
   else if (TREE_CODE (d) == FUNCTION_DECL)
     {
-      htab_t saved_local_specializations;
+      splay_tree saved_local_specializations;
 
       /* Save away the current list, in case we are instantiating one
 	 template from within the body of another.  */
       saved_local_specializations = local_specializations;
 
       /* Set up the list of local specializations.  */
-      local_specializations = htab_create (37, 
-					   htab_hash_pointer,
-					   htab_eq_pointer,
-					   NULL);
+      local_specializations 
+	= splay_tree_new (splay_tree_compare_pointers,
+			  NULL, NULL);
 
       /* Set up context.  */
       start_function (NULL_TREE, d, NULL_TREE, SF_PRE_PARSED);
@@ -9946,7 +9934,7 @@ instantiate_decl (d, defer_ok)
 		   /*complain=*/1, tmpl);
 
       /* We don't need the local specializations any more.  */
-      htab_delete (local_specializations);
+      splay_tree_delete (local_specializations);
       local_specializations = saved_local_specializations;
 
       /* Finish the function.  */

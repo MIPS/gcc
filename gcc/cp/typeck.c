@@ -40,6 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "output.h"
 #include "toplev.h"
+#include "diagnostic.h"
 
 static tree convert_for_assignment PARAMS ((tree, tree, const char *, tree,
 					  int));
@@ -1922,7 +1923,7 @@ build_object_ref (datum, basetype, field)
       tree binfo = binfo_or_else (basetype, dtype);
       if (binfo)
 	return build_x_component_ref (build_scoped_ref (datum, basetype),
-				      field, binfo, 1);
+				      field, binfo);
     }
   return error_mark_node;
 }
@@ -2036,8 +2037,11 @@ build_component_ref (datum, component, basetype_path, protect)
   /* BASETYPE holds the type of the class containing the COMPONENT.  */
   basetype = TYPE_MAIN_VARIANT (TREE_TYPE (datum));
     
-  /* If DATUM is a COMPOUND_EXPR or COND_EXPR, move our reference
-     inside it.  */
+  /* If DATUM is a COMPOUND_EXPR move our reference inside it.  We
+     cannot safely move the field access inside a COND_EXPR because of
+     code like `((b ? *s1 : *s2).f) (3)'.  If the field access is
+     moved inside the conditional we will be unable to do overload
+     resolution on `f'.  */
   switch (TREE_CODE (datum))
     {
     case COMPOUND_EXPR:
@@ -2047,13 +2051,6 @@ build_component_ref (datum, component, basetype_path, protect)
 	return build (COMPOUND_EXPR, TREE_TYPE (value),
 		      TREE_OPERAND (datum, 0), value);
       }
-    case COND_EXPR:
-      return build_conditional_expr
-	(TREE_OPERAND (datum, 0),
-	 build_component_ref (TREE_OPERAND (datum, 1), component,
-			      basetype_path, protect),
-	 build_component_ref (TREE_OPERAND (datum, 2), component,
-			      basetype_path, protect));
 
     case TEMPLATE_DECL:
       cp_error ("invalid use of %D", datum);
@@ -2077,18 +2074,6 @@ build_component_ref (datum, component, basetype_path, protect)
       datum = resolve_offset_ref (datum);
       basetype = TYPE_MAIN_VARIANT (TREE_TYPE (datum));
       code = TREE_CODE (basetype);
-    }
-
-  /* First, see if there is a field or component with name COMPONENT.  */
-  if (TREE_CODE (component) == TREE_LIST)
-    {
-      /* I could not trigger this code. MvL */
-      my_friendly_abort (980326);
-#ifdef DEAD
-      my_friendly_assert (!(TREE_CHAIN (component) == NULL_TREE
-		&& DECL_CHAIN (TREE_VALUE (component)) == NULL_TREE), 309);
-#endif
-      return build (COMPONENT_REF, TREE_TYPE (component), datum, component);
     }
 
   if (! IS_AGGR_TYPE_CODE (code))
@@ -2140,11 +2125,10 @@ build_component_ref (datum, component, basetype_path, protect)
   else
     {
       tree name = component;
-      if (TREE_CODE (component) == VAR_DECL)
+      if (DECL_P (component))
 	name = DECL_NAME (component);
-      if (TREE_CODE (component) == NAMESPACE_DECL)
-        /* Source is in error, but produce a sensible diagnostic.  */
-        name = DECL_NAME (component);
+      else if (TREE_CODE (component) == OVERLOAD)
+	name = DECL_NAME (OVL_FUNCTION (component));
       if (basetype_path == NULL_TREE)
 	basetype_path = TYPE_BINFO (basetype);
       field = lookup_field (basetype_path, name,
@@ -2299,11 +2283,11 @@ build_component_ref (datum, component, basetype_path, protect)
    never have REFERENCE_TYPE.  */
 
 tree
-build_x_component_ref (datum, component, basetype_path, protect)
+build_x_component_ref (datum, component, basetype_path)
      tree datum, component, basetype_path;
-     int protect;
 {
-  tree t = build_component_ref (datum, component, basetype_path, protect);
+  tree t = build_component_ref (datum, component, basetype_path, 
+				/*protect=*/1);
 
   if (! processing_template_decl)
     t = convert_from_reference (t);
@@ -6432,7 +6416,6 @@ convert_for_initialization (exp, type, rhs, flags, errtype, fndecl, parmnum)
   if (codel == REFERENCE_TYPE)
     {
       /* This should eventually happen in convert_arguments.  */
-      extern int warningcount, errorcount;
       int savew = 0, savee = 0;
 
       if (fndecl)

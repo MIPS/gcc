@@ -91,6 +91,7 @@ c_init ()
   lang_printer = &c_tree_printer;
   lang_expand_decl_stmt = &c_expand_decl_stmt;
   lang_missing_noreturn_ok_p = &c_missing_noreturn_ok_p;
+  lang_parse = &yyparse_1;
 
   c_parse_init ();
 }
