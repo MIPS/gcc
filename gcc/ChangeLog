@@ -1,5 +1,15 @@
 2004-07-14  Daniel Jacobowitz  <dan@debian.org>
 
+	* c-format.c (enum format_type): Add cmn_err_format_type.
+	(format_char_info): Document "b" flag.
+	(cmn_err_length_specs, cmn_err_flag_specs, cmn_err_flag_pairs)
+	(cmn_err_char_table): New.
+	(format_types_orig): Add cmn_err item.
+	(check_format_info_main): Handle 'b' in flags2.
+	* doc/extend.texi: Document cmn_err format type.
+
+2004-07-14  Daniel Jacobowitz  <dan@debian.org>
+
 	* config/i386/i386.c (override_options): Move
 	SUBTARGET_OVERRIDE_OPTIONS before defaulting flag_omit_frame_pointer.
 	* config/i386/sol2-10.h (SUBTARGET_OVERRIDE_OPTIONS): Define.

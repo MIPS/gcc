@@ -1,3 +1,7 @@
+2004-07-14  Daniel Jacobowitz  <dan@debian.org>
+
+	* gcc.dg/format/cmn-err-1.c: New test.
+
 2004-07-13  Daniel Jacobowitz  <dan@debian.org>
 
 	* gcc.dg/pragma-align-2.c: New testcase.

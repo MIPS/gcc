@@ -59,7 +59,8 @@ enum format_type { printf_format_type, asm_fprintf_format_type,
 		   gcc_diag_format_type, gcc_cdiag_format_type,
 		   gcc_cxxdiag_format_type,
 		   scanf_format_type, strftime_format_type,
-		   strfmon_format_type, format_type_error };
+		   strfmon_format_type, cmn_err_format_type,
+		   format_type_error };
 
 typedef struct function_format_info
 {
@@ -373,7 +374,8 @@ typedef struct
      "W" if the argument is a pointer which is dereferenced and written into,
      "R" if the argument is a pointer which is dereferenced and read from,
      "i" for printf integer formats where the '0' flag is ignored with
-     precision, and "[" for the starting character of a scanf scanset.  */
+     precision, "[" for the starting character of a scanf scanset, and
+     "b" for the cmn_err "b" conversion.  */
   const char *flags2;
 } format_char_info;
 
@@ -558,6 +560,13 @@ static const format_length_info strfmon_length_specs[] =
   { NULL, 0, 0, NULL, 0, 0 }
 };
 
+/* cmn_err only accepts "l" and "ll".  */
+static const format_length_info cmn_err_length_specs[] =
+{
+  { "l", FMT_LEN_l, STD_C89, "ll", FMT_LEN_ll, STD_C89 },
+  { NULL, 0, 0, NULL, 0, 0 }
+};
+
 static const format_flag_spec printf_flag_specs[] =
 {
   { ' ',  0, 0, N_("` ' flag"),        N_("the ` ' printf flag"),              STD_C89 },
@@ -697,6 +706,19 @@ static const format_flag_pair strfmon_flag_pairs[] =
   { 0, 0, 0, 0 }
 };
 
+
+static const format_flag_spec cmn_err_flag_specs[] =
+{
+  { 'w',  0, 0, N_("field width"),     N_("field width in printf format"),     STD_C89 },
+  { 'L',  0, 0, N_("length modifier"), N_("length modifier in printf format"), STD_C89 },
+  { 0, 0, 0, NULL, NULL, 0 }
+};
+
+
+static const format_flag_pair cmn_err_flag_pairs[] =
+{
+  { 0, 0, 0, 0 }
+};
 
 #define T_I	&integer_type_node
 #define T89_I	{ STD_C89, NULL, T_I }
@@ -920,6 +942,18 @@ static const format_char_info monetary_char_table[] =
   { NULL, 0, 0, NOLENGTHS, NULL, NULL }
 };
 
+static const format_char_info cmn_err_char_table[] =
+{
+  /* C89 conversion specifiers.  */
+  { "dD",  0, STD_C89, { T89_I,   BADLEN,  BADLEN,  T89_L,   T9L_LL,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w",  "" },
+  { "oOxX",0, STD_C89, { T89_UI,  BADLEN,  BADLEN,  T89_UL,  T9L_ULL, BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w",  "" },
+  { "u",   0, STD_C89, { T89_UI,  BADLEN,  BADLEN,  T89_UL,  T9L_ULL, BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w",  "" },
+  { "c",   0, STD_C89, { T89_C,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w",  "" },
+  { "s",   1, STD_C89, { T89_C,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w",  "cR" },
+  { "b",   1, STD_C89, { T89_C,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w",  "cRb" },
+  { NULL,  0, 0, NOLENGTHS, NULL, NULL }
+};
+
 
 /* This must be in the same order as enum format_type.  */
 static const format_kind_info format_types_orig[] =
@@ -969,7 +1003,13 @@ static const format_kind_info format_types_orig[] =
     strfmon_flag_specs, strfmon_flag_pairs,
     FMT_FLAG_ARG_CONVERT, 'w', '#', 'p', 0, 'L',
     NULL, NULL
-  }
+  },
+  { "cmn_err",  cmn_err_length_specs,  cmn_err_char_table, "", NULL,
+    cmn_err_flag_specs, cmn_err_flag_pairs,
+    FMT_FLAG_ARG_CONVERT|FMT_FLAG_EMPTY_PREC_OK,
+    'w', 0, 0, 0, 'L',
+    &integer_type_node, &integer_type_node
+  },
 };
 
 /* This layer of indirection allows GCC to reassign format_types with
@@ -1660,6 +1700,7 @@ check_format_info_main (format_check_results *res,
       const char *wanted_type_name;
       format_wanted_type width_wanted_type;
       format_wanted_type precision_wanted_type;
+      format_wanted_type bitfield_wanted_type;
       format_wanted_type main_wanted_type;
       format_wanted_type *first_wanted_type = NULL;
       format_wanted_type *last_wanted_type = NULL;
@@ -2186,6 +2227,36 @@ check_format_info_main (format_check_results *res,
 			 C_STD_NAME (wanted_type_std), length_chars,
 			 format_char, fki->name);
 	    }
+	}
+
+      /* Handle cmn_err %b, which takes two arguments.  */
+      if (strchr (fci->flags2, 'b') != NULL)
+	{
+	  ++arg_num;
+
+	  if (params == 0)
+	    {
+	      warning ("too few arguments for format");
+	      return;
+	    }
+
+	  bitfield_wanted_type.wanted_type = integer_type_node;
+	  bitfield_wanted_type.wanted_type_name = NULL;
+	  bitfield_wanted_type.pointer_count = 0;
+	  bitfield_wanted_type.char_lenient_flag = 0;
+	  bitfield_wanted_type.writing_in_flag = 0;
+	  bitfield_wanted_type.reading_from_flag = 0;
+	  bitfield_wanted_type.name = NULL;
+	  bitfield_wanted_type.param = TREE_VALUE (params);
+	  bitfield_wanted_type.arg_num = arg_num;
+	  bitfield_wanted_type.next = NULL;
+	  if (last_wanted_type != 0)
+	    last_wanted_type->next = &bitfield_wanted_type;
+	  if (first_wanted_type == 0)
+	    first_wanted_type = &bitfield_wanted_type;
+	  last_wanted_type = &bitfield_wanted_type;
+
+	  params = TREE_CHAIN (params);
 	}
 
       /* Finally. . .check type of argument against desired type!  */

@@ -2124,9 +2124,10 @@ for consistency with the @code{printf} style format string argument
 @code{my_format}.
 
 The parameter @var{archetype} determines how the format string is
-interpreted, and should be @code{printf}, @code{scanf}, @code{strftime}
-or @code{strfmon}.  (You can also use @code{__printf__},
-@code{__scanf__}, @code{__strftime__} or @code{__strfmon__}.)  The
+interpreted, and should be @code{printf}, @code{scanf}, @code{strftime},
+@code{strfmon} or @code{cmn_err}.  (You can also use @code{__printf__},
+@code{__scanf__}, @code{__strftime__}, @code{__strfmon__} or
+@code{__cmn_err__}.)  The 
 parameter @var{string-index} specifies which argument is the format
 string argument (starting from 1), while @var{first-to-check} is the
 number of the first argument to check against the format string.  For
