@@ -1243,8 +1243,8 @@ all-expect: all-tcl all-tk
 all-fileutils: all-libiberty
 all-flex: all-libiberty all-bison all-byacc
 all-gas: all-libiberty all-opcodes all-bfd all-intl
-all-gcc: all-libiberty all-bison all-byacc all-binutils all-gas all-ld all-zlib
-all-bootstrap: all-libiberty all-texinfo all-bison all-byacc all-binutils all-gas all-ld all-zlib
+all-gcc: all-libiberty all-libbanshee all-bison all-byacc all-binutils all-gas all-ld all-zlib
+all-bootstrap: all-libiberty all-libbanshee all-texinfo all-bison all-byacc all-binutils all-gas all-ld all-zlib
 GDB_TK = @GDB_TK@
 all-gdb: all-libiberty all-opcodes all-bfd all-mmalloc all-readline all-bison all-byacc all-sim $(gdbnlmrequirements) $(GDB_TK)
 configure-target-gperf: $(ALL_GCC_CXX)
