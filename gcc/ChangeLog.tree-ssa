@@ -1,3 +1,8 @@
+2002-09-19  Jeff Law <law@redhat.com>
+
+	* tree-dfa.c (find_refs_in_stmt): Search for references in the call
+	address of a CALL_EXPR.
+
 2002-09-19  Daniel Berlin <dberlin@dberlin.org>
        
         * toplev.c: tree-ssa-* -> tree-*.
