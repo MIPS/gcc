@@ -1,3 +1,7 @@
+2004-07-10  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* libgcj.pc.in: Remove library flags.
+
 2004-07-10  Graydon Hoare  <graydon@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkToolkit.java (bufferedImageOrError): 
