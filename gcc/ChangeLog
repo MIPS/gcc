@@ -1,3 +1,8 @@
+2004-02-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (override_options): Error if -m64 and selected
+	processor doesn't support x86-64 instruction set.
+
 2004-02-16  Jakub Jelinek  <jakub@redhat.com>
 
 	PR optimization/13424
