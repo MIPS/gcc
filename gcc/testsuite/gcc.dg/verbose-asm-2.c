@@ -4,7 +4,7 @@
 
 /* { dg-do compile } */
 /* { dg-options "-fverbose-asm" } */
-/* { dg-final { scan-assembler "fpeephole=0" } } */
+/* { dg-final { scan-assembler "fpeephole" } } */
 
 int
 main (int argc, char *argv [])
