@@ -125,7 +125,7 @@ construct_traces ()
 	      if (find_best_predecessor (bb2) != e
 		  || bb2 == EXIT_BLOCK_PTR
 		  || seen (bb2)
-		  || (e->flags & EDGE_DFS_BACK))
+		  || (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX)))
 		break;
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file, "   %i", bb2->index);
@@ -153,7 +153,7 @@ construct_traces ()
 	      if (find_best_successor (bb2) != e
 		  || bb2 == ENTRY_BLOCK_PTR
 		  || seen (bb2)
-		  || (e->flags & EDGE_DFS_BACK))
+		  || (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX)))
 		break;
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file, "  %i", bb2->index);
