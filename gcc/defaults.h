@@ -719,6 +719,10 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define UNITS_PER_SIMD_WORD 0
 #endif
 
+#ifndef TARGET_VECT_NUM_PATTERNS
+#define TARGET_VECT_NUM_PATTERNS 0 
+#endif
+
 /* Determine whether __cxa_atexit, rather than atexit, is used to
    register C++ destructors for local statics and global objects.  */
 #ifndef DEFAULT_USE_CXA_ATEXIT

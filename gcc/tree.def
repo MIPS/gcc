@@ -936,20 +936,12 @@ DEFTREECODE (REALIGN_LOAD_EXPR, "realign_load", tcc_expression, 3)
  */
 DEFTREECODE (SAT_MINUS_EXPR, "sat_minus_expr", tcc_binary, 2)
 
-
 /* Reduction operations.
    Operations that takes a vector of elements and "reduce" it to a scalar
    result (e.g. summing the elements of the vector, finding the minimum over
    the vector elements, etc).
    Operand 0 is a vector; the first element in the vector has the result.
    Operand 1 is a vector.  */
-
-#if 0 /* TODO */
-DEFTREECODE (REDUC_BIT_AND_EXPR, "reduc_and_expr", tcc_unary, 1)
-DEFTREECODE (REDUC_BIT_IOR_EXPR, "reduc_ior_expr", tcc_unary, 1)
-DEFTREECODE (REDUC_BIT_XOR_EXPR, "reduc_xor_expr", tcc_unary, 1)
-DEFTREECODE (REDUC_MULT_EXPR, "reduc_mult_expr", tcc_unary, 1)
-#endif
 DEFTREECODE (REDUC_MAX_EXPR, "reduc_max_expr", tcc_unary, 1)
 DEFTREECODE (REDUC_MIN_EXPR, "reduc_min_expr", tcc_unary, 1)
 DEFTREECODE (REDUC_PLUS_EXPR, "reduc_plus_expr", tcc_unary, 1)

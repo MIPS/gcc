@@ -167,7 +167,8 @@ enum stmt_vec_info_type {
   op_vec_info_type,
   assignment_vec_info_type,
   select_vec_info_type,
-  reduc_vec_info_type
+  reduc_vec_info_type,
+  target_reduc_pattern_vec_info_type
 };
 
 typedef struct _stmt_vec_info {
@@ -340,13 +341,17 @@ extern void vectorize_loops (struct loops *);
 /** In tree-vect-analyze.c  **/
 /* Driver for analysis stage.  */
 extern loop_vec_info vect_analyze_loop (struct loop *);
-/* Pattern recognition functions.  */
-tree vect_recog_unsigned_subsat_pattern (tree, varray_type *);
-typedef tree (* _recog_func_ptr) (tree, varray_type *);
-/* Additional pattern recognition functions can (and will) be added
+
+extern void vect_pattern_recog_1 
+  (tree (* ) (tree, tree *, varray_type *), block_stmt_iterator);
+
+/* Pattern recognition functions.
+   Additional pattern recognition functions can (and will) be added
    in the future.  */
+tree vect_recog_unsigned_subsat_pattern (tree, tree *, varray_type *);
+typedef tree (* _recog_func_ptr) (tree, tree *, varray_type *);
 #define NUM_PATTERNS 1
-extern _recog_func_ptr vect_pattern_recog_func[NUM_PATTERNS];
+extern _recog_func_ptr vect_pattern_recog_funcs[];
 
 /** In tree-vect-transform.c  **/
 extern bool vectorizable_load (tree, block_stmt_iterator *, tree *);
@@ -354,6 +359,8 @@ extern bool vectorizable_store (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_assignment (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_reduction (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_target_reduction_pattern 
+  (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_select (tree, block_stmt_iterator *, tree *);
 /* Driver for transformation stage.  */
 extern void vect_transform_loop (loop_vec_info, struct loops *);

@@ -289,6 +289,8 @@ struct gcc_target
        by the vectorizer, and return the decl of the target builtin
        function.  */
     tree (* builtin_mask_for_load) (void);
+
+    void (* builtin_vect_pattern_recog) (tree);
   } vectorize;
 
   /* Return machine mode for filter value.  */

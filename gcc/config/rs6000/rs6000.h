@@ -2630,6 +2630,9 @@ extern int optimize;
 extern int flag_expensive_optimizations;
 extern int frame_pointer_needed;
 
+/* Target secific patterns that can be vectorized.  */
+#define TARGET_VECT_NUM_PATTERNS 1
+
 enum rs6000_builtins
 {
   /* AltiVec builtins.  */
@@ -2837,6 +2840,7 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_COMPILETIME_ERROR,
   ALTIVEC_BUILTIN_MASK_FOR_LOAD,
   ALTIVEC_BUILTIN_MASK_FOR_STORE,
+  ALTIVEC_BUILTIN_WIDENING_SUMMATION,
 
   /* SPE builtins.  */
   SPE_BUILTIN_EVADDW,

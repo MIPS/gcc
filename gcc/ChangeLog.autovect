@@ -1,3 +1,75 @@
+2005-04-03  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* defaults.h (TARGET_VECT_NUM_PATTERNS): New.
+	* target-def.h (TARGET_VECTORIZE_BUILTIN_VECT_PATTERN_RECOG): New.
+	* target.h (builtin_vect_pattern_recog): New.
+	* tree-vect-analyze.c (target.h): Include.
+	(vect_pattern_recog_1): Removed static qualifier. Declaration moved to
+	tree-vectorizer.h.
+	(vect_recog_unsigned_subsat_pattern): Takes additional argument.
+	Removed dump print. Handle target-reduction-pattern case.
+	(vect_pattern_recog): Call targetm.vectorize.builtin_vect_pattern_recog.
+	(vect_analyze_loop): Move call to vect_pattern_recog to after the call 
+	to vect_analyze_scalar_cycles.
+	(vect_determine_vectorization_factor): Change skip test from checking 
+	for reduction, to checking for STMT_VINFO_LIVE_P. Handle the case of 
+	vectype being already initialized.
+	(vect_analyze_operations): Call vectorizable_target_reduction_pattern.
+	(vect_mark_relevant): When dealing with the last stmt in a sequence
+	that was recognized as a certain idiom - use the pattern-stmt that
+	replaces the sequence.
+	(vect_mark_stmts_to_be_vectorized): Remove special handling of
+	STMT_VINFO_IN_PATTERN_P.
+	* tree-vect-transform.c (vect_create_epilog_for_reduction): New
+	function. Contains functionality that was factored out of
+	vectorizable_reduction.
+	(vectorizable_target_reduction_pattern): New function.
+	(vectorizable_reduction): Epilog creation code was factored out into
+	a new function vect_create_epilog_for_reduction.
+	(vect_transform_stmt): Call vectorizable_target_reduction_pattern.
+	* tree-vectorizer.h (target_reduc_pattern_vec_info_type): New enum
+	value.
+	(vect_recog_unsigned_subsat_pattern): Takes additional argument.
+	(_recog_func_ptr): Takes additional argument.
+	(vectorizable_target_reduction_pattern): New function declaration.
+	(vect_pattern_recog_func): Rename to vect_pattern_recog_funcs.
+
+	* tree-inline.c (estimate_num_insns_1): Add missing cases -
+	REDUC_MAX_EXPR, REDUC_MIN_EXPR, REDUC_PLUS_EXPR.
+	* tree-ssa-operands.c (get_expr_operands): Remove redundant cases -
+	REDUC_MAX_EXPR, REDUC_MIN_EXPR, REDUC_PLUS_EXPR.
+	* tree-vect-transform.c (get_initial_def_for_reduction): Remove case
+	that is not supported yet.
+	* tree.def (REDUC_BIT_AND_EXPR, REDUC_BIT_IOR_EXPR, REDUC_BIT_XOR_EXPR)
+	(REDUC_MULT_EXPR): Remove tree-codes that are not yet supported.
+	* tree-vectorizer.c (reduction_code_for_scalar_code): Remove cases that
+	are not yet unsupported.
+	(vect_is_simple_reduction): Fix comment.
+	* tree-vect-analyze.c (vect_analyze_operations): Minor changes to print
+	messages.
+	(vect_mark_stmts_to_be_vectorized): Likewise.
+	(vect_determine_vectorization_factor): Likewise.
+
+	* config/rs6000/rs6000.c (tree-flow.h, tree-data-ref.h)
+	(tree-vectorizer.h): Include.
+	(altivec_builtin_widening_summation): New global variable to hold the
+	decl of the builtin widening_summation.
+	(target_vect_recog_widening_summation_pattern): New pattern recognition
+	function.
+	(target_vect_pattern_recog_funcs): New global array to hold pointers
+	to pattern-recognition functions.
+	(rs6000_builtin_vect_pattern_recog): New function. Implements the target
+	builtin vect_pattern_recog.
+	(rs6000_expand_builtin): Support ALTIVEC_BUILTIN_WIDENING_SUMMATION
+	case.
+	(altivec_init_builtins): Add new function type v4si_ftype_v8hi_v4si.
+	Initialize a new target builtin __builtin_altivec_widening_summation.
+	Set altivec_builtin_widening_summation.
+	* config/rs6000/rs6000.c (TARGET_VECT_NUM_PATTERNS): New define.
+	(ALTIVEC_BUILTIN_WIDENING_SUMMATION): New builtin.
+	* config/rs6000/t-rs6000 (tree-flow.h, tree-data-ref.h)
+	(tree-vectorizer.h): Add dependency.
+
 2005-03-22  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-data-ref.c (address_analysis): Perform alignment

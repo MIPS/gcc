@@ -1329,6 +1329,9 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case ASM_EXPR:
 
     case REALIGN_LOAD_EXPR:
+    case REDUC_MAX_EXPR:
+    case REDUC_MIN_EXPR:
+    case REDUC_PLUS_EXPR:
 
     case RESX_EXPR:
       *count += 1;

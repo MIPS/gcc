@@ -1847,24 +1847,6 @@ reduction_code_for_scalar_code (enum tree_code code,
 {
   switch (code)
   {
-#if 0 /* TODO */
-  case BIT_AND_EXPR:
-    *reduc_code = REDUC_BIT_AND_EXPR;
-    return true;
-
-  case BIT_IOR_EXPR:
-    *reduc_code = REDUC_BIT_IOR_EXPR;
-    return true;
-
-  case BIT_XOR_EXPR:
-    *reduc_code = REDUC_BIT_XOR_EXPR;
-    return true;
-
-  case MULT_EXPR:
-    *reduc_code = REDUC_MULT_EXPR;
-    return true;
-#endif
-
   case MAX_EXPR:
     *reduc_code = REDUC_MAX_EXPR;
     return true;
@@ -2010,11 +1992,9 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
     }
 
   /* reduction is safe. we're dealing with one of the following:
-     1) wrapping integer arithmetic
+     1) integer arithmetic and no trapv
      2) floating point arithmetic, and special flags permit this optimization.
-     3) TODO: non-wrapping integer arithmetic, but there's a flag that permits
-	this optimization.  */ 
-
+   */
   def1 = SSA_NAME_DEF_STMT (op1);
   def2 = SSA_NAME_DEF_STMT (op2);
   if (!def1 || !def2)
