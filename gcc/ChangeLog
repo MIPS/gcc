@@ -1,3 +1,10 @@
+2005-01-19  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 3932082
+	* config.gcc (*-*-darwin*): Use darwin8.h on darwin8+.
+	* config/darwin7.h: Update comment.
+	* config/darwin8.h: New.
+
 2005-01-11  Stan Shebs  <shebs@apple.com>
 
 	* config/rs6000/rs6000.c (machopic_output_stub): Issue

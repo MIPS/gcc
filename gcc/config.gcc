@@ -333,9 +333,10 @@ case ${target} in
 *-*-darwin*)
   # APPLE LOCAL begin mainline
   case ${target} in
-    *-darwin1[0-9]*) tm_file="${tm_file} darwin7.h" ;;
+    *-darwin1[0-9]*) tm_file="${tm_file} darwin8.h" ;;
     *-darwin[0-6]*) ;;
-    *-darwin[7-9]*) tm_file="${tm_file} darwin7.h" ;;
+    *-darwin7*) tm_file="${tm_file} darwin7.h" ;;
+    *) tm_file="${tm_file} darwin8.h" ;;
   esac
   # APPLE LOCAL end mainline
   tm_file="${tm_file} darwin.h"
