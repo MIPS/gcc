@@ -286,7 +286,8 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 
       /* Dereference scalar dummy variables.  */
       if (sym->attr.dummy
-	  && !(GFC_DECL_STRING (se->expr) || sym->attr.dimension))
+	  && sym->ts.type != BT_CHARACTER
+	  && !sym->attr.dimension)
 	se->expr = gfc_build_indirect_ref (se->expr);
 
       /* Dereference pointer variables.  */
@@ -304,7 +305,6 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
   /* For character variables, also get the length.  */
   if (sym->ts.type == BT_CHARACTER)
     {
-      assert (sym->attr.in_common || GFC_DECL_STRING (se->expr));
       se->string_length = sym->ts.cl->backend_decl;
       assert (se->string_length);
     }

@@ -498,10 +498,9 @@ struct lang_decl		GTY(())
 #define GFC_DECL_STRING_LEN(node) DECL_LANG_SPECIFIC(node)->stringlen
 #define GFC_DECL_SAVED_DESCRIPTOR(node) \
   (DECL_LANG_SPECIFIC(node)->saved_descriptor)
-#define GFC_DECL_STRING(node) DECL_LANG_FLAG_0(node)
-#define GFC_DECL_PACKED_ARRAY(node) DECL_LANG_FLAG_1(node)
-#define GFC_DECL_PARTIAL_PACKED_ARRAY(node) DECL_LANG_FLAG_2(node)
-#define GFC_DECL_ASSIGN(node) DECL_LANG_FLAG_3(node)
+#define GFC_DECL_PACKED_ARRAY(node) DECL_LANG_FLAG_0(node)
+#define GFC_DECL_PARTIAL_PACKED_ARRAY(node) DECL_LANG_FLAG_1(node)
+#define GFC_DECL_ASSIGN(node) DECL_LANG_FLAG_2(node)
 
 /* An array descriptor.  */
 #define GFC_DESCRIPTOR_TYPE_P(node) TYPE_LANG_FLAG_1(node)

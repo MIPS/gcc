@@ -645,7 +645,6 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
     gfc_allocate_lang_decl (decl);
 
   GFC_DECL_SAVED_DESCRIPTOR (decl) = dummy;
-  GFC_DECL_STRING (decl) = GFC_DECL_STRING (dummy);
 
   if (sym->ns->proc_name->backend_decl == current_function_decl
       || sym->attr.contained)
@@ -808,9 +807,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
     {
     case BT_CHARACTER:
       /* Character variables need special handling.  */
-
       gfc_allocate_lang_decl (decl);
-      GFC_DECL_STRING (decl) = 1;
 
       if (TREE_CODE (length) == INTEGER_CST)
 	{
@@ -1096,7 +1093,6 @@ gfc_build_function_decl (gfc_symbol * sym)
 	  if (sym->ts.type == BT_CHARACTER)
 	    {
 	      gfc_allocate_lang_decl (parm);
-	      GFC_DECL_STRING (parm) = 1;
 
 	      /* Length of character result */
 	      type = TREE_VALUE (typelist);
@@ -1174,7 +1170,6 @@ gfc_build_function_decl (gfc_symbol * sym)
           TREE_READONLY (length) = 1;
           gfc_finish_decl (length, NULL_TREE);
 
-          GFC_DECL_STRING (parm) = 1;
 	  /* TODO: Check string lengths when -fbounds-check.  */
 
 	  /* Use the passed value for assumed length variables.  */
@@ -1779,7 +1774,7 @@ gfc_create_module_variable (gfc_symbol * sym)
   rest_of_decl_compilation (decl, NULL, 1, 0);
 
   /* Also add length of strings.  */
-  if (GFC_DECL_STRING (decl))
+  if (sym->ts.type == BT_CHARACTER)
     {
       tree length;
 

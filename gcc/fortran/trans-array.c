@@ -529,8 +529,6 @@ gfc_trans_allocate_temp_array (gfc_loopinfo * loop, gfc_ss_info * info,
     gfc_get_array_type_bounds (eltype, info->dimen, loop->from, loop->to, 1);
   desc = gfc_create_var (type, "atmp");
   GFC_DECL_PACKED_ARRAY (desc) = 1;
-  if (string_length)
-    GFC_DECL_STRING (desc) = 1;
 
   info->descriptor = desc;
   size = integer_one_node;
@@ -1439,9 +1437,7 @@ gfc_conv_tmp_array_ref (gfc_se * se)
   tree desc;
 
   desc = se->ss->data.info.descriptor;
-  /* TODO: We need the string length.  */
-  if (GFC_DECL_STRING (desc))
-    gfc_todo_error ("temporary arrays of strings");
+  /* TODO: We need the string length for string variables.  */
 
   gfc_conv_scalarized_array_ref (se, NULL);
 }

@@ -1,3 +1,16 @@
+2004-04-10  Paul Brook  <paul@codesourcery.com>
+
+	* trans-array.c (gfc_trans_allocate_temp_array,
+	gfc_conv_tmp_array_ref): Don't use GFC_DECL_STRING.
+	* trans-decl.c (gfc_build_dummy_array_decl,
+	gfc_get_symbol_decl, gfc_build_function_decl,
+	gfc_create_module_variable): Ditto.
+	* trans-expr.c (gfc_conv_variable): Ditto.
+	* trans-intrinsic.c (gfc_conv_intrinsic_len): Ditto.
+	* trans.h (GFC_DECL_STRING): Remove.
+	(GFC_DECL_PACKED_ARRAY, GFC_DECL_PARTIAL_PACKED_ARRAY,
+	GFC_DECL_ASSIGN): Renumber flags.
+
 2003-04-05  Paul Brook  <paul@codesourcery.com>
 
 	PR 13252
