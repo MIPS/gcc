@@ -1,3 +1,8 @@
+2003-09-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgrtl.c (force_nonfallthru_and_redirect): Handle tablejumps
+	correctly.
+
 2003-09-04  Josef Zlomek  <zlomekj@suse.cz>
 
 	* toplev.c (rest_of_compilation): Enable var tracking.
