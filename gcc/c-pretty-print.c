@@ -375,7 +375,12 @@ dump_c_node (buffer, node, spc)
       }
 
     case COMPLEX_CST:
-      NIY;
+      output_add_string (buffer, "__complex__ (");
+      dump_c_node (buffer, TREE_REALPART (node), spc);
+      output_add_string (buffer, ", ");
+      dump_c_node (buffer, TREE_IMAGPART (node), spc);
+      output_add_string (buffer, ")");
+      break;
 
     case STRING_CST:
       output_add_string (buffer, "\"");
@@ -385,6 +390,7 @@ dump_c_node (buffer, node, spc)
 
     case FUNCTION_TYPE:
       break;
+
     case FUNCTION_DECL:
       /* Print the prototype of the function.  */
       INDENT (spc);
@@ -499,7 +505,14 @@ dump_c_node (buffer, node, spc)
       break;
 
     case BIT_FIELD_REF:
-      NIY;
+      output_add_string (buffer, "__builtin_bit_field_ref (");
+      dump_c_node (buffer, TREE_OPERAND (node, 0), spc);
+      output_add_string (buffer, ", ");
+      dump_c_node (buffer, TREE_OPERAND (node, 1), spc);
+      output_add_string (buffer, ", ");
+      dump_c_node (buffer, TREE_OPERAND (node, 2), spc);
+      output_add_string (buffer, ")");
+      break;
 
     case BUFFER_REF:
       NIY;
@@ -796,13 +809,11 @@ dump_c_node (buffer, node, spc)
     case CONVERT_EXPR:
     case NOP_EXPR:
       type = TREE_TYPE (node);
-      if (type == ptr_type_node)
+      if (type != TREE_TYPE (TREE_OPERAND (node, 0)))
 	{
-	  /* Get the pointed-to type.  */
-	  type = TREE_TYPE (type);
 	  output_add_character (buffer, '(');
 	  dump_c_node (buffer, type, spc);
-	  output_add_string (buffer, " *)");
+	  output_add_string (buffer, ")");
 	}
       dump_c_node (buffer, TREE_OPERAND (node, 0), spc);
       break;
@@ -828,19 +839,33 @@ dump_c_node (buffer, node, spc)
       NIY;
 
     case COMPLEX_EXPR:
-      NIY;
+      output_add_string (buffer, "__complex__ (");
+      dump_c_node (buffer, TREE_OPERAND (node, 0), spc);
+      output_add_string (buffer, ", ");
+      dump_c_node (buffer, TREE_OPERAND (node, 1), spc);
+      output_add_string (buffer, ")");
+      break;
 
     case CONJ_EXPR:
-      NIY;
+      output_add_string (buffer, "__builtin_conjf (");
+      dump_c_node (buffer, TREE_OPERAND (node, 0), spc);
+      break;
 
     case REALPART_EXPR:
-      NIY;
+      output_add_string (buffer, "__real__ ");
+      dump_c_node (buffer, TREE_OPERAND (node, 0), spc);
+      break;
 
     case IMAGPART_EXPR:
-      NIY;
+      output_add_string (buffer, "__imag__ ");
+      dump_c_node (buffer, TREE_OPERAND (node, 0), spc);
+      break;
 
     case VA_ARG_EXPR:
-      NIY;
+      output_add_string (buffer, "__builtin_va_arg (");
+      dump_c_node (buffer, TREE_OPERAND (node, 0), spc);
+      output_add_string (buffer, ")");
+      break;
 
     case TRY_CATCH_EXPR:
       NIY;
@@ -1343,6 +1368,8 @@ op_prio (op)
 
     case LSHIFT_EXPR:
     case RSHIFT_EXPR:
+    case LROTATE_EXPR:
+    case RROTATE_EXPR:
       return 11;
 
     case PLUS_EXPR:
@@ -1390,6 +1417,8 @@ op_prio (op)
     case MIN_EXPR:
     case MAX_EXPR:
     case ABS_EXPR:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
       return 16;
 
     case SAVE_EXPR:

@@ -67,6 +67,10 @@ Boston, MA 02111-1307, USA.  */
       SIMPLE the declarations are not allowed to have initializations in
       them.
 
+      NOTE: This is not possible for things like static variables,
+	    read-only variables and dynamic arrays.  So, we allow
+	    initializers in declarations.
+
       Expressions
 
       exprseq
@@ -123,10 +127,18 @@ Boston, MA 02111-1307, USA.  */
       unary_expr
 	      : simp_expr
 	      | '*' ID
-	      | '&' varname
-	      | '&' CONST		=> Needed for constant strings.
-					   Not present in the original
-					   grammar.
+	      | '&' original_expr	=> Original grammar only allows
+					   taking the address of varnames.
+					   But we can't simplify
+					   address expressions because we
+					   may end up taking the address of
+					   a temporary variable.
+					   FIXME: It should be possible to
+					   simplify this somewhat (i.e.,
+					   simplify parts of
+					   'original_expr' that do not
+					   imply converting 'original_expr'
+					   into a temporary).
 	      | call_expr
 	      | unop val
 	      | '(' cast ')' varname
@@ -300,10 +312,16 @@ is_simple_stmt (t)
 	tree type = TREE_TYPE (TREE_TYPE (current_function_decl));
 	if (TREE_CODE (type) != VOID_TYPE
 	    && RETURN_EXPR (t))
-	  return is_simple_expr (TREE_OPERAND (RETURN_EXPR (t), 1));
+	  return is_simple_val (TREE_OPERAND (RETURN_EXPR (t), 1));
 	else
 	  return 1;
       }
+
+    /* The original SIMPLE grammar converts declaration initializers into
+       regular assignments.  This is not possible for things like static
+       variables, read-only variables and dynamic arrays.  */
+    case DECL_STMT:
+      return 1;
 
     default:
       return 0;
@@ -326,24 +344,13 @@ int
 is_simple_compstmt (t)
      tree t;
 {
+  if (t == NULL_TREE)
+    return 1;
+
   /* Look for '{'.  */
   if (TREE_CODE (t) != SCOPE_STMT
       || !SCOPE_BEGIN_P (t))
     return 0;
-
-  /* Test all the declarations.
-
-     ??? This allows initializers for read-only variables.  This is not
-         allowed in the original grammar, but I really see no other way
-	 around this.  If we simplify these declarations, we get warnings
-	 and if we change the read-only bit, we'll change the semantics of
-	 the variable.  */
-  for (t = TREE_CHAIN (t); t && TREE_CODE (t) == DECL_STMT; t = TREE_CHAIN (t))
-    if (DECL_INITIAL (DECL_STMT_DECL (t))
-	&& !TREE_READONLY (DECL_STMT_DECL (t))
-	&& !TREE_STATIC (DECL_STMT_DECL (t))
-	&& !AGGREGATE_TYPE_P (TREE_TYPE (DECL_STMT_DECL (t))))
-      return 0;
 
   /* Test all the statements in the body.  */
   for (t = TREE_CHAIN (t);
@@ -353,8 +360,9 @@ is_simple_compstmt (t)
       return 0;
 
   /* Look for '}'.  */
-  if (TREE_CODE (t) != SCOPE_STMT
-      || !SCOPE_END_P (t))
+  if (t
+      && (TREE_CODE (t) != SCOPE_STMT
+	  || !SCOPE_END_P (t)))
     return 0;
 
   return 1;
@@ -378,6 +386,9 @@ int
 is_simple_expr (t)
      tree t;
 {
+  if (t == NULL_TREE)
+    return 1;
+
   return (is_simple_rhs (t) || is_simple_modify_expr (t));
 }
 
@@ -400,6 +411,9 @@ int
 is_simple_rhs (t)
      tree t;
 {
+  if (t == NULL_TREE)
+    return 1;
+
   return (is_simple_binary_expr (t)
           || is_simple_unary_expr (t)
 	  || is_simple_condexpr (t));
@@ -419,10 +433,12 @@ int
 is_simple_modify_expr (t)
      tree t;
 {
-  /* Additions to the original grammar.  Allow SAVE_EXPR, NON_LVALUE_EXPR
+  if (t == NULL_TREE)
+    return 1;
+
+  /* Additions to the original grammar.  Allow NON_LVALUE_EXPR
      and EXPR_WITH_FILE_LOCATION wrappers.  */
-  if (TREE_CODE (t) == SAVE_EXPR
-      || TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
+  if (TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
       || TREE_CODE (t) == NON_LVALUE_EXPR)
     return is_simple_modify_expr (TREE_OPERAND (t, 0));
 
@@ -441,6 +457,9 @@ int
 is_simple_modify_expr_lhs (t)
      tree t;
 {
+  if (t == NULL_TREE)
+    return 1;
+
   return (is_simple_varname (t)
 	  || (TREE_CODE (t) == INDIRECT_REF
 	      && is_simple_id (TREE_OPERAND (t, 0))));
@@ -459,10 +478,12 @@ int
 is_simple_binary_expr (t)
      tree t;
 {
-  /* Additions to the original grammar.  Allow SAVE_EXPR, NON_LVALUE_EXPR
+  if (t == NULL_TREE)
+    return 1;
+
+  /* Additions to the original grammar.  Allow NON_LVALUE_EXPR
      and EXPR_WITH_FILE_LOCATION wrappers.  */
-  if (TREE_CODE (t) == SAVE_EXPR
-      || TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
+  if (TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
       || TREE_CODE (t) == NON_LVALUE_EXPR)
     return is_simple_binary_expr (TREE_OPERAND (t, 0));
 
@@ -485,10 +506,12 @@ int
 is_simple_condexpr (t)
      tree t;
 {
-  /* Additions to the original grammar.  Allow SAVE_EXPR, NON_LVALUE_EXPR
+  if (t == NULL_TREE)
+    return 1;
+
+  /* Additions to the original grammar.  Allow NON_LVALUE_EXPR
      and EXPR_WITH_FILE_LOCATION wrappers.  */
-  if (TREE_CODE (t) == SAVE_EXPR
-      || TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
+  if (TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
       || TREE_CODE (t) == NON_LVALUE_EXPR)
     return is_simple_condexpr (TREE_OPERAND (t, 0));
 
@@ -527,10 +550,14 @@ int
 is_simple_unary_expr (t)
      tree t;
 {
-  /* Additions to the original grammar.  Allow STMT_EXPR, SAVE_EXPR and
+  if (t == NULL_TREE)
+    return 1;
+
+  STRIP_NOPS (t);
+
+  /* Additions to the original grammar.  Allow NON_LVALUE_EXPR and
      EXPR_WITH_FILE_LOCATION wrappers.  */
-  if (TREE_CODE (t) == SAVE_EXPR
-      || TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
+  if (TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
       || TREE_CODE (t) == NON_LVALUE_EXPR)
     return is_simple_unary_expr (TREE_OPERAND (t, 0));
 
@@ -541,8 +568,10 @@ is_simple_unary_expr (t)
       && is_simple_id (TREE_OPERAND (t, 0)))
     return 1;
 
-  if (TREE_CODE (t) == ADDR_EXPR
-      && is_simple_varname (TREE_OPERAND (t, 0)))
+  /* Original grammar only allows taking the address of a varname.
+     However, we cannot simplify the operand of an address expression
+     (we might end up taking the address of a temporary).  */
+  if (TREE_CODE (t) == ADDR_EXPR)
     return 1;
 
   if (is_simple_call_expr (t))
@@ -565,9 +594,12 @@ is_simple_unary_expr (t)
      operand 0 is a SIMPLE identifier and operands 1 and 2 are SIMPLE
      values.  */
   if (TREE_CODE (t) == BIT_FIELD_REF)
+    return 1;
+#if 0
     return (is_simple_id (TREE_OPERAND (t, 0))
 	    && is_simple_val (TREE_OPERAND (t, 1))
 	    && is_simple_val (TREE_OPERAND (t, 2)));
+#endif
 
   /* Addition to the original grammar.  Allow VA_ARG_EXPR nodes.  */
   if (TREE_CODE (t) == VA_ARG_EXPR)
@@ -604,6 +636,9 @@ is_simple_call_expr (t)
      tree t;
 {
   tree decl;
+
+  if (t == NULL_TREE)
+    return 1;
 
   if (TREE_CODE (t) != CALL_EXPR)
     return 0;
@@ -660,6 +695,9 @@ int
 is_simple_varname (t)
      tree t;
 {
+  if (t == NULL_TREE)
+    return 1;
+
   return (is_simple_id (t) || is_simple_arrayref (t) || is_simple_compref (t));
 }
 
@@ -673,6 +711,9 @@ int
 is_simple_const (t)
      tree t;
 {
+  if (t == NULL_TREE)
+    return 1;
+
   STRIP_NOPS (t);
 
   if (TREE_CODE (t) == ADDR_EXPR
@@ -697,19 +738,30 @@ int
 is_simple_id (t)
      tree t;
 {
+  if (t == NULL_TREE)
+    return 1;
+
+  /* Additions to the original grammar.  Allow identifiers wrapped in
+     NON_LVALUE_EXPR and EXPR_WITH_FILE_LOCATION.  */
+  if (TREE_CODE (t) == NON_LVALUE_EXPR
+      || TREE_CODE (t) == EXPR_WITH_FILE_LOCATION)
+    return is_simple_id (TREE_OPERAND (t, 0));
+
+  /* Allow real and imaginary parts of a complex variable.  */
+  if (TREE_CODE (t) == REALPART_EXPR
+      || TREE_CODE (t) == IMAGPART_EXPR)
+    return is_simple_id (TREE_OPERAND (t, 0));
+
   return (TREE_CODE (t) == VAR_DECL
 	  || TREE_CODE (t) == FUNCTION_DECL
 	  || TREE_CODE (t) == PARM_DECL
 	  || TREE_CODE (t) == FIELD_DECL
-	  /* Additions to original grammar.  Allow identifiers wrapped
-	     in NON_LVALUE_EXPR, EXPR_WITH_FILE_LOCATION and SAVE_EXPR.
-	     Allow the address of a function decl.  */
-	  || ((TREE_CODE (t) == NON_LVALUE_EXPR
-	       || TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
-	       || TREE_CODE (t) == SAVE_EXPR)
-	      && is_simple_id (TREE_OPERAND (t, 0)))
+	  || TREE_CODE (t) == LABEL_DECL
+	  /* Allow the address of a function decl.  */
 	  || (TREE_CODE (t) == ADDR_EXPR
-	      && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL));
+	      && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL)
+	  /* Allow C99 compound literals.  */
+	  || TREE_CODE (t) == COMPOUND_LITERAL_EXPR);
 }
 
 /* }}} */
@@ -722,6 +774,9 @@ int
 is_simple_val (t)
      tree t;
 {
+  if (t == NULL_TREE)
+    return 1;
+
   return (is_simple_id (t) || is_simple_const (t));
 }
 
@@ -747,6 +802,14 @@ int
 is_simple_arrayref (t)
      tree t;
 {
+  if (t == NULL_TREE)
+    return 1;
+
+  /* Allow arrays of complex types.  */
+  if (TREE_CODE (t) == REALPART_EXPR
+      || TREE_CODE (t) == IMAGPART_EXPR)
+    return is_simple_arrayref (TREE_OPERAND (t, 0));
+
   return (TREE_CODE (t) == ARRAY_REF
           && is_simple_val (TREE_OPERAND (t, 1)));
 }
@@ -770,6 +833,9 @@ int
 is_simple_compref (t)
      tree t;
 {
+  if (t == NULL_TREE)
+    return 1;
+
   return (TREE_CODE (t) == COMPONENT_REF
 	  && is_simple_compref_lhs (TREE_OPERAND (t, 0))
 	  && is_simple_id (TREE_OPERAND (t, 1)));
@@ -786,7 +852,10 @@ int
 is_simple_compref_lhs (t)
      tree t;
 {
-  /* Allow ID, *ID or an idlist on the left side.  */
+  if (t == NULL_TREE)
+    return 1;
+
+  /* Allow ID, *ID or a SIMPLE component reference on the LHS.  */
   return (is_simple_id (t)
 	  || (TREE_CODE (t) == INDIRECT_REF
 	      && is_simple_id (TREE_OPERAND (t, 0)))
@@ -806,6 +875,9 @@ int
 is_simple_cast (t)
      tree t;
 {
+  if (t == NULL_TREE)
+    return 1;
+
   return (is_simple_cast_op (t) && is_simple_varname (TREE_OPERAND (t, 0)));
 }
 
@@ -819,6 +891,9 @@ int
 is_simple_cast_op (t)
      tree t;
 {
+  if (t == NULL_TREE)
+    return 1;
+
   return (TREE_CODE (t) == NOP_EXPR
 	  || TREE_CODE (t) == CONVERT_EXPR
           || TREE_CODE (t) == FIX_TRUNC_EXPR
@@ -841,6 +916,7 @@ int
 is_simple_exprseq (t)
      tree t;
 {
+  /* Empty expression sequences are allowed.  */
   if (t == NULL_TREE)
     return 1;
 

@@ -1,3 +1,139 @@
+2002-05-27  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-decl.c (c_expand_body): Close dump file before simplifying the
+	function.
+	* c-pretty-print.c (dump_c_node): Handle COMPLEX_CST,
+	BIT_FIELD_REF, COMPLEX_EXPR, CONJ_EXPR, REALPART_EXPR,
+	IMAGPART_EXPR and VA_ARG_EXPR nodes.
+	Display all type casts, not just pointer casts.
+	(op_prio): Handle LROTATE_EXPR, RROTATE_EXPR, REALPART_EXPR and
+	IMAGPART_EXPR.
+	* c-simplify.c: Include "tree-inline.h"
+	(dump_file): New local variable.
+	(dump_flags): New local variable.
+	(stmt_expr_level): New local variable.
+	(simplify_tree): Open and close dump file if
+	-fdump-tree-simple-details is given.
+	Initialize stmt_expr_level.
+	(simplify_stmt): Dump statement before and after simplification if
+	-fdump-tree-simple-detail is given.
+	Unshare the expression of an EXPR_STMT before simplifying it.
+	Call simplify_return_stmt to handle RETURN_STMT nodes.
+	Do not simplify DECL_STMT nodes.
+	Call stmt_has_effect before re-chaining side effects.
+	(simplify_for_stmt): Do not return the simplified statement.
+	Update all callers.
+	Simplify FOR_BODY after the headers.
+	Unshare loop header expressions before simplification.
+	(simplify_while_stmt): Do not return the simplified statement.
+	Update all callers.
+	Simplify WHILE_BODY after the headers.
+	Unshare the loop header expression before simplification.
+	(simplify_do_stmt): Do not return the simplified statement.  Update
+	all callers.
+	Unshare the loop header expression before simplification.
+	(simplify_if_stmt): Do not return the simplified statement.  Update
+	all callers.
+	Simplify the condition expression before the clauses.
+	Unshare the condition expression before simplification.
+	(simplify_switch_stmt): Do not return the simplified statement.
+	Update all callers.
+	Simplify the switch expression before the body.
+	Unshare the switch expression before simplification.
+	(simplify_decl_stmt): Remove.
+	(simplify_expr): Remove argument 'needs_lvalue'.
+	Add argument 'stmt'.
+	Replace first argument 'expr' with a pointer to the
+	expression 'expr_p'.
+	Do not return the simplified expression.
+	Update all callers and uses.
+	Handle TRUTH_NOT_EXPR nodes.  Simplify SAVE_EXPR nodes into a
+	SIMPLE id and remove the SAVE_EXPR node.
+	Do not simplify BIT_FIELD_REF nodes.
+	Remove code that tried to create new lvalues.
+	(simplify_array_ref): Replace first argument 'expr' with a pointer
+	to the expression 'expr_p'.
+	Do not return the simplified expression.
+	Add argument 'stmt'.
+	Update all callers and uses.
+	(simplify_self_mod_expr): Replace first argument 'expr' with a
+	pointer to the expression 'expr_p'.
+	Do not return the simplified expression.
+	Add argument 'stmt'.
+	Update all callers and uses.
+	Call simplify_lvalue_expr to simplify a copy of the LHS into an
+	lvalue for the new assignment.
+	Simplify the new binary expression.
+	(simplify_component_ref): Replace first argument 'expr' with a
+	pointer to the expression 'expr_p'.
+	Do not return the simplified expression.
+	Add argument 'stmt'.
+	Update all callers and uses.
+	(simplify_call_expr): Ditto.
+	(simplify_tree_list): Ditto.
+	(simplify_cond_expr): Ditto.
+	Build a replacement IF_STMT and call simplify_if_stmt() to process
+	it.  Set the line number of the new statement from the statement
+	containing the original expression.
+	(simplify_modify_expr): Replace first argument 'expr' with a
+	pointer to the expression 'expr_p'.
+	Do not return the simplified expression.
+	Add argument 'stmt'.
+	Update all callers.
+	Call simplify_lvalue_expr to simplify the LHS of the assignment.
+	(simplify_boolean_expr): Replace first argument 'expr' with a
+	pointer to the expression 'expr_p'.
+	Do not return the simplified expression.
+	Add argument 'stmt'. 
+	Update all callers.
+	Build a new IF_STMT and simplify it all at once by calling
+	simplify_if_stmt.
+	(simplify_compound_expr): Replace first argument 'expr' with a
+	pointer to the expression 'expr_p'.
+	Do not return the simplified expression.
+	Add argument 'stmt'. 
+	Update all callers.
+	(simplify_expr_wfl): Ditto.
+	(simplify_lvalue_expr): New function.
+	(add_tree): Create a copy of each expression before adding it to
+	the list.
+	(deep_copy_node): Call copy_tree_r to copy expression nodes.
+	(stmt_has_effect): Return nonzero if the statement may be the last
+	statement of a statement expression body.
+	(mostly_copy_tree_r): New function.
+	* tree-dump.c (dump_options): Add 'details'.
+	* tree-simple.c: Update documentation about ADDRESSOF expressions.
+	(is_simple_stmt): Test for SIMPLE values when checking return
+	statements.
+	Accept all DECL_STMT nodes.
+	(is_simple_compstmt): Return nonzero if T is NULL.  Do not test
+	DECL_STMT nodes
+	(is_simple_expr): Return nonzero if T is NULL.
+	(is_simple_rhs): Ditto.
+	(is_simple_modify_expr): Ditto.
+	(is_simple_modify_expr_lhs): Ditto.
+	(is_simple_binary_expr): Ditto.
+	(is_simple_cond_expr): Ditto.
+	(is_simple_unary_expr): Call STRIP_NOPS before testing T.
+	Always accept ADDR_EXPR nodes.
+	Always accept BIT_FIELD_REF nodes.
+	(is_simple_call_expr): Return nonzero if T is NULL.
+	(is_simple_const): Ditto.
+	(is_simple_val): Ditto.
+	(is_simple_compref): Ditto.
+	(is_simple_compref_lhs): Ditto.
+	(is_simple_cast): Ditto.
+	(is_simple_cast_op): Ditto.
+	(is_simple_id): Return nonzero if T is NULL.  Allow identifiers
+	wrapped inside NON_LVALUE_EXPR and EXPR_WITH_FILE_LOCATION nodes.
+	Allow real and imaginary parts of a complex variable. 
+	Allow compound literals.
+	(is_simple_arrayref): Allow arrays of complex types.
+	* tree.h (TDF_DETAILS): Define.
+	* cp/pt.c (tsubst_template_parms): Check that 'parms' is non-NULL
+	before calling TMPL_PARMS_DEPTH.
+	* doc/invoke.texi: Document -fdump-tree-simple-details.
+
 2002-05-19  Andreas Jaeger  <aj@suse.de>
 
 	* gengenrtl.c: Add prototype for excluded_rtx.

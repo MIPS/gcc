@@ -3065,6 +3065,10 @@ Print the list of reaching definitions for each variable used in the program.
 Print a C representation of the tree.  Note that this output may not be
 compilable.  It's meant to be an approximation for debugging tree
 transformation passes.
+@item details
+Dump detailed information about the simplification process.  Each statement
+is printed before and after simplification (only used with
+-fdump-tree-simple).
 @item all
 Turn on all options.
 @end table

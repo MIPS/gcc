@@ -3051,6 +3051,7 @@ enum tree_dump_index
 #define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
 #define TDF_SLIM	(1 << 1)	/* don't go wild following links */
 #define TDF_UNPARSE	(1 << 2)	/* unparse the function */
+#define TDF_DETAILS	(1 << 3)	/* show how each statement is simplified */
 #define TDF_REFS	(1 << 0)	/* dump ssa variable refs */
 #define TDF_RDEFS	(1 << 1)	/* dump reaching definitions */
 

@@ -1,3 +1,7 @@
+2002-05-27  Diego Novillo  <dnovillo@redhat.com>
+
+	* lib/c-torture.exp: Add -ftree-ssa to compiler flags.
+
 2002-05-19  David Billinghurst <David.Billinghurst@riotinto.com>
 
 	* gcc.dg/weak-2.c:  xfail warnings for platforms that don't

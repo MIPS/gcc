@@ -6834,6 +6834,8 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 	    print_c_tree (dump_file, fn);
 	  else
 	    dump_node (fn, TDF_SLIM | dump_flags, dump_file);
+
+	  dump_end (TDI_simple, dump_file);
         }
 
       /* Simplify the function.  */
@@ -6848,6 +6850,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 #endif
 
       /* Debugging dump after simplification.  */
+      dump_file = dump_begin (TDI_simple, &dump_flags);
       if (dump_file)
         {
           fprintf (dump_file, "\n%s()    (SIMPLIFIED)\n",

@@ -5461,7 +5461,8 @@ tsubst_template_parms (parms, args, complain)
   tree* new_parms;
 
   for (new_parms = &r;
-       TMPL_PARMS_DEPTH (parms) > TMPL_ARGS_DEPTH (args);
+       parms
+       && TMPL_PARMS_DEPTH (parms) > TMPL_ARGS_DEPTH (args);
        new_parms = &(TREE_CHAIN (*new_parms)),
 	 parms = TREE_CHAIN (parms))
     {
