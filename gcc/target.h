@@ -466,6 +466,19 @@ struct gcc_target
       abi_cxx_dicp_always	  /* On every destructor.  */
     } cxx_dtor_in_charge_parm;
     
+    /* Override or augment builtin type mangling scheme. This is a
+       pointer to a NULL terminated array of struct.  */
+    const struct cxx_builtin_type_mangling 
+    {
+      /* Pointer to canonical type.  This must be the node one gets
+	 when building c_common_type_for_node.  We need a pointer to a
+	 type node to allow static initialization and PCH support.  */
+      tree *type_ptr;
+      
+      /* How to mangle it.  */
+      char mangling;
+    } *cxx_builtin_type_mangling;
+    
   } abi;
 };
 

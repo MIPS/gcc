@@ -127,23 +127,59 @@ substitution_identifier_index_t;
    once only.  */
 static GTY(()) tree subst_identifiers[SUBID_MAX];
 
-/* Single-letter codes for builtin integer types, defined in
-   <builtin-type>.  These are indexed by integer_type_kind values.  */
-static const char
-integer_type_codes[itk_none] =
+static const struct cxx_builtin_type_mangling
+builtin_type_mangling_table[] =
 {
-  'c',  /* itk_char */
-  'a',  /* itk_signed_char */
-  'h',  /* itk_unsigned_char */
-  's',  /* itk_short */
-  't',  /* itk_unsigned_short */
-  'i',  /* itk_int */
-  'j',  /* itk_unsigned_int */
-  'l',  /* itk_long */
-  'm',  /* itk_unsigned_long */
-  'x',  /* itk_long_long */
-  'y'   /* itk_unsigned_long_long */
+  {&void_type_node, 		'v'},
+  {&boolean_type_node,		'b'},
+  
+  /* Integral types.  */
+  {&char_type_node, 		'c'},
+  {&wchar_type_node, 		'w'},
+  {&signed_char_type_node, 	'a'},
+  {&unsigned_char_type_node,	'h'},
+  {&short_integer_type_node,	's'},
+  {&short_unsigned_type_node,	't'},
+  {&integer_type_node,		'i'},
+  {&unsigned_type_node,		'j'},
+  {&long_integer_type_node, 	'l'},
+  {&long_unsigned_type_node, 	'm'},
+  {&long_long_integer_type_node,  'x'},
+  {&long_long_unsigned_type_node, 'y'},
+#if HOST_BITS_PER_WIDE_INT >= 64
+  {&widest_integer_literal_type_node, 'n'},
+  {&widest_unsigned_literal_type_node, 'o'},
+#endif
+  
+  /* Float types.  */
+  {&float_type_node, 		'f'},
+  {&double_type_node, 		'd'},
+  {&long_double_type_node, 	'e'},
+  
+  /* Java integral types.  */
+  {&java_boolean_type_node,	'b'},
+  {&java_byte_type_node,	'c'},
+  {&java_char_type_node,	'w'},
+  {&java_short_type_node,	's'},
+  {&java_int_type_node,		'i'},
+  {&java_long_type_node,	'x'},
+  
+  /* Java float types.  */
+  {&java_float_type_node, 	'f'},
+  {&java_double_type_node,	'd'},
+  
+  {NULL, 0}
 };
+
+struct builtin_type_mangling_entry GTY(())
+{
+  tree type;
+  char mangling;
+};
+
+/* Hash table of scalar types.  */
+static GTY ((param_is (struct builtin_type_mangling_entry)))
+     htab_t builtin_type_manglings = NULL;
 
 static int decl_is_template_id (const tree, tree* const);
 
@@ -182,6 +218,9 @@ static void write_special_name_constructor (const tree);
 static void write_special_name_destructor (const tree);
 static void write_type (tree);
 static int write_CV_qualifiers_for_type (const tree);
+static hashval_t htab_builtin_type_hash (const void *);
+static int htab_builtin_type_eq (const void *, const void *);
+static void builtin_type_mangling_init (void);
 static void write_builtin_type (tree);
 static void write_function_type (const tree);
 static void write_bare_function_type (const tree, const int, const tree);
@@ -209,10 +248,6 @@ static const char *mangle_decl_string (const tree);
 static inline void start_mangling (const tree);
 static inline const char *finish_mangling (const bool);
 static tree mangle_special_for_type (const tree, const char *);
-
-/* Foreign language functions.  */
-
-static void write_java_integer_type_codes (const tree);
 
 /* Append a single character to the end of the mangled
    representation.  */
@@ -1564,6 +1599,83 @@ write_CV_qualifiers_for_type (const tree type)
   return num_qualifiers;
 }
 
+static hashval_t
+htab_builtin_type_hash (const void *t_)
+{
+  const struct builtin_type_mangling_entry *key = t_;
+
+  return (hashval_t)TYPE_UID (key->type);
+}
+
+static int
+htab_builtin_type_eq (const void *t1_, const void *t2_)
+{
+  const struct builtin_type_mangling_entry *key1 = t1_;
+  tree key2 = (tree)t2_;
+
+  return key1->type == key2;
+}
+
+/* Initialize the builtin type mangling table.  This must be done
+   lazily as it relies on the global type nodes to already have been
+   initialized.  */
+
+static void
+builtin_type_mangling_init ()
+{
+  struct builtin_type_mangling_entry *mangling;
+  const struct cxx_builtin_type_mangling *def;
+
+  my_friendly_assert (!builtin_type_manglings, 20031212);
+  builtin_type_manglings = htab_create_ggc (20,
+					    htab_builtin_type_hash,
+					    htab_builtin_type_eq, NULL);
+
+  /* Install the default manglings.  */
+  for (def = builtin_type_mangling_table; def->type_ptr; def++)
+    {
+      struct builtin_type_mangling_entry **slot;
+      
+      slot = (struct builtin_type_mangling_entry **)
+	htab_find_slot_with_hash (builtin_type_manglings, *def->type_ptr,
+				  (hashval_t)TYPE_UID (*def->type_ptr),
+				  INSERT);
+      /* We shouldn't be overriding when inserting the default
+	 manglings.  */
+      my_friendly_assert (!*slot, 20031208);
+      mangling = ggc_alloc (sizeof (struct builtin_type_mangling_entry));
+      mangling->type = *def->type_ptr;
+      mangling->mangling = def->mangling;
+      *slot = mangling;
+    }
+  
+  /* Apply any target specific overriders.  */
+  if (targetm.abi.cxx_builtin_type_mangling)
+    for (def = targetm.abi.cxx_builtin_type_mangling; def->type_ptr; def++)
+      {
+	if (def->mangling)
+	  {
+	    struct builtin_type_mangling_entry **slot;
+	    
+	    slot = (struct builtin_type_mangling_entry **)
+	      htab_find_slot_with_hash (builtin_type_manglings, *def->type_ptr,
+					(hashval_t)TYPE_UID (*def->type_ptr),
+					INSERT);
+	    mangling = *slot;
+	    if (!mangling)
+	      {
+		mangling = 
+		  ggc_alloc (sizeof (struct builtin_type_mangling_entry));
+		mangling->type = *def->type_ptr;
+		*slot = mangling;
+	      }
+	    mangling->mangling = def->mangling;
+	  }
+	else
+	  htab_remove_elt (builtin_type_manglings, *def->type_ptr);
+      }
+}
+
 /* Non-terminal <builtin-type>. 
 
      <builtin-type> ::= v   # void 
@@ -1591,79 +1703,41 @@ write_CV_qualifiers_for_type (const tree type)
 static void 
 write_builtin_type (tree type)
 {
-  switch (TREE_CODE (type))
+  struct builtin_type_mangling_entry *mangling;
+
+  if (!builtin_type_manglings)
+    builtin_type_mangling_init ();
+  
+  /* If this is size_t, get the underlying int type.  */
+  if (TREE_CODE (type) == INTEGER_TYPE && TYPE_IS_SIZETYPE (type))
+    type = TYPE_DOMAIN (type);
+  
+ again:;
+  mangling = htab_find_with_hash (builtin_type_manglings,
+				  type, (hashval_t)TYPE_UID (type));
+  if (mangling)
+    write_char (mangling->mangling);
+  else if (TREE_CODE (type) == INTEGER_TYPE)
     {
-    case VOID_TYPE:
-      write_char ('v');
-      break;
-
-    case BOOLEAN_TYPE:
-      write_char ('b');
-      break;
-
-    case INTEGER_TYPE:
-      /* If this is size_t, get the underlying int type.  */
-      if (TYPE_IS_SIZETYPE (type))
-	type = TYPE_DOMAIN (type);
-
-      /* TYPE may still be wchar_t, since that isn't in
-	 integer_type_nodes.  */
-      if (type == wchar_type_node)
-	write_char ('w');
-      else if (TYPE_FOR_JAVA (type))
-	write_java_integer_type_codes (type);
+      tree t = c_common_type_for_mode (TYPE_MODE (type),
+				       TREE_UNSIGNED (type));
+      if (type != t)
+	{
+	  type = t;
+	  goto again;
+	}
       else
 	{
-	  size_t itk;
-	  /* Assume TYPE is one of the shared integer type nodes.  Find
-	     it in the array of these nodes.  */
-	iagain:
-	  for (itk = 0; itk < itk_none; ++itk)
-	    if (type == integer_types[itk])
-	      {
-		/* Print the corresponding single-letter code.  */
-		write_char (integer_type_codes[itk]);
-		break;
-	      }
-
-	  if (itk == itk_none)
-	    {
-	      tree t = c_common_type_for_mode (TYPE_MODE (type),
-					       TREE_UNSIGNED (type));
-	      if (type == t)
-		{
-		  if (TYPE_PRECISION (type) == 128)
-		    write_char (TREE_UNSIGNED (type) ? 'o' : 'n');
-		  else
-		    /* Couldn't find this type.  */
-		    abort ();
-		}
-	      else
-		{
-		  type = t;
-		  goto iagain;
-		}
-	    }
+	  sorry ("cannot mangle %T", type);
+	  abort ();
 	}
-      break;
-
-    case REAL_TYPE:
-      if (type == float_type_node
-	  || type == java_float_type_node)
-	write_char ('f');
-      else if (type == double_type_node
-	       || type == java_double_type_node)
-	write_char ('d');
-      else if (type == long_double_type_node)
-	/* HPUX uses 'g' for long double.  */
-	write_char ('g');
-      else
-	abort ();
-      break;
-
-    default:
+    }
+  else
+    {
+      sorry ("cannot mangle %T", type);
       abort ();
     }
+  
 }
 
 /* Non-terminal <function-type>.  NODE is a FUNCTION_TYPE or
@@ -2730,28 +2804,5 @@ mangle_ref_init_variable (const tree variable)
   return get_identifier (finish_mangling (/*warn=*/false));
 }
 
-
-/* Foreign language type mangling section.  */
-
-/* How to write the type codes for the integer Java type.  */
-
-static void
-write_java_integer_type_codes (const tree type)
-{
-  if (type == java_int_type_node)
-    write_char ('i');
-  else if (type == java_short_type_node)
-    write_char ('s');
-  else if (type == java_byte_type_node)
-    write_char ('c');
-  else if (type == java_char_type_node)
-    write_char ('w');
-  else if (type == java_long_type_node)
-    write_char ('x');
-  else if (type == java_boolean_type_node)
-    write_char ('b');
-  else
-    abort ();
-}
 
 #include "gt-cp-mangle.h"

@@ -1,3 +1,12 @@
+2003-12-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* target.h (gcc_target.abi): Add cxx_builtin_type_mangling.
+	* target-def.h (TARGET_ABI_CXX_BUILTIN_TYPE_MANGLING): New.
+	(TARGET_ABI): Add new initializer.
+	* doc/tm.texi (TARGET_ABI_CXX_BUILTIN_TYPE_MANGLING): Document.
+	* config/ia64/ia64.c (hpux_ia64_builtin_type_mangling): Override
+	long_double_node mangling.
+
 2003-12-10  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* target.h (gcc_target.abi): Add cxx_dtor_in_charge_parm.

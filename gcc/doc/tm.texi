@@ -4542,6 +4542,14 @@ parameter is passed immediately after the this parameter, and the value
 zero is passed.
 @end deftypevr
 
+@deftypevr {Target Hook} {struct cxx_builtin_type_mangling} TARGET_ABI_CXX_BUILTIN_TYPE_MANGLING
+Set this hook to augment or override the default mangling of the builtin
+void, boolean, integral and floating point types.  When set the value
+should be the name of an array of tuples.  The first is the address of
+the cannonical type node and the second value is how to mangle it.  The
+end of the array is denoted by a NULL type node address.
+@end deftypevr
+
 @node Trampolines
 @section Trampolines for Nested Functions
 @cindex trampolines for nested functions

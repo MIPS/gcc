@@ -386,6 +386,17 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_ABI_CXX_DTOR_IN_CHARGE_PARM
 #define TARGET_ABI_CXX_DTOR_IN_CHARGE_PARM abi_cxx_dicp_always
 
+/* On HPUX long double is mangled as 'g'.  */
+static const struct cxx_builtin_type_mangling
+hpux_ia64_builtin_type_manglings[] =
+{
+  {&long_double_type_node, 'g'},
+  {NULL, 0}
+};
+
+#undef TARGET_ABI_CXX_BUILTIN_TYPE_MANGLING
+#define TARGET_ABI_CXX_BUILTIN_TYPE_MANGLING hpux_ia64_builtin_type_manglings
+
 #endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
