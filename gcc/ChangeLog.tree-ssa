@@ -1,5 +1,6 @@
 2003-11-11  Daniel Berlin  <dberlin@dberlin.org>
 
+	PR optimization/12936
 	* tree-ssa-pre.c (expr_phi_insertion): Remove unused code that was
 	causing ICE's for VA_ARG_EXPR.
 	
