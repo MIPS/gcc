@@ -1159,32 +1159,15 @@ loop_delete_branch_edge (e)
 
   if (src->succ->succ_next)
     {
-      int tot_pr, tot_rem;
-      edge ae;
-
       /* Cannot handle more than two exit edges.  */
       if (src->succ->succ_next->succ_next)
 	return;
       /* Neither this.  */
       if (!any_condjump_p (src->end))
 	return;
-
-      /* Try to fix probabilities.  This is probably as wrong as to leave
-	 them as they are.  */
-      tot_pr = 0;
-      for (ae = src->succ; ae; ae = ae->succ_next)
-	tot_pr += ae->probability;
-      tot_rem = tot_pr - e->probability;
-      if (tot_rem > 0)
-	{
-	  for (ae = src->succ; ae; ae = ae->succ_next)
-	    ae->probability = (ae->probability * tot_pr) / tot_rem;
-	}
-
-      delete_insn (src->end);
-      
-      remove_edge (e);
-      src->succ->flags |= EDGE_FALLTHRU;
+      cfg_layout_redirect_edge (e,
+				e == src->succ ? src->succ->succ_next->dest
+				: src->succ->dest);
     }
   else
     {
