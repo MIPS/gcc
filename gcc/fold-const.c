@@ -6571,6 +6571,20 @@ fold (tree expr)
 	  TREE_SET_CODE (t, code);
 	}
 
+      /* If this is an equality comparison of the address of a non-weak
+	 object against zero, then we know the result.  */
+      if ((code == EQ_EXPR || code == NE_EXPR)
+	  && TREE_CODE (arg0) == ADDR_EXPR
+	  && DECL_P (TREE_OPERAND (arg0, 0))
+	  && ! DECL_WEAK (TREE_OPERAND (arg0, 0))
+	  && integer_zerop (arg1))
+	{
+	  if (code == EQ_EXPR)
+	    return integer_zero_node;
+	  else
+	    return integer_one_node;
+	}
+
       if (FLOAT_TYPE_P (TREE_TYPE (arg0)))
 	{
 	  tree targ0 = strip_float_extensions (arg0);

@@ -1,5 +1,8 @@
 2003-08-11  Jeff Law  <law@redhat.com>
 
+	* fold-const.c (fold, cases NE_EXPR and EQ_EXPR): Fold equality
+	comparisons of non-weak symbol addresses against zero.
+ 
 	* tree-ssa-ccp.c (fold_stmt): Strip unnecessary NOP_EXPRs from
 	the folded result.
  
