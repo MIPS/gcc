@@ -1,5 +1,5 @@
 /* Output routines for GCC for ARM.
-   Copyright (C) 1991, 93-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1991, 93, 94, 95, 96, 97, 98, 99, 2000 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com).
@@ -7889,7 +7889,10 @@ thumb_exit (f, reg_containing_return_addr)
       frame_pointer = number_of_first_bit_set (regs_available_for_popping);
 
       /* Move it into the correct place.  */
-      asm_fprintf (f, "\tmov\t%r, %r\n", FP_REGNUM, frame_pointer);
+      if (TARGET_BACKTRACE)
+	asm_fprintf (f, "\tmov\t%r, %r\n", ARM_HARD_FRAME_POINTER_REGNUM, frame_pointer);
+      else
+	asm_fprintf (f, "\tmov\t%r, %r\n", FP_REGNUM, frame_pointer);
 
       /* (Temporarily) remove it from the mask of popped registers.  */
       regs_available_for_popping &= ~ (1 << frame_pointer);

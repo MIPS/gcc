@@ -2,6 +2,8 @@
 
 	* config/arm/arm.c (output_thumb_prologue): Fix bug generating
 	thumb stack frame.
+	(thumb_exit): Move frame pointer back into hard frame pointer
+	register if backtracing is being used.
 
 2000-01-13  Richard Earnshaw (rearnsha@arm.com)
 
