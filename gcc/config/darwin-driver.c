@@ -963,8 +963,12 @@ main (int argc, const char **argv)
 	  /* Linker wants to know name of output file using one extra arg.  */
 	  if (!compile_only_request)
 	    {
-	      new_argv[new_argc++] = "-final_output";
-	      new_argv[new_argc++] = out_file;
+	      char *oname = (char *)(output_filename ? output_filename : final_output);
+	      char *n =  malloc (sizeof (char) * (strlen (oname) + 5));
+	      strcpy (n, "-Wl,");
+	      strcat (n, oname);
+	      new_argv[new_argc++] = "-Wl,-final_output";
+	      new_argv[new_argc++] = n;
 	    }
 
 	  /* Compile file(s) for each arch and lipo 'em together.  */
