@@ -1197,7 +1197,6 @@ fold_stmt (stmt)
 {
   tree rhs, result;
 
-  STRIP_NOPS (stmt);
   rhs = get_rhs (stmt);
   if (rhs)
     {

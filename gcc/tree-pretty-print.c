@@ -155,7 +155,7 @@ dump_generic_node (buffer, node, spc, flags)
   if (node == NULL_TREE)
     return spc;
 
-  if (!IS_EMPTY_STMT (node) && node != error_mark_node)
+  if (node != error_mark_node)
     {
       basic_block curr_bb = bb_for_stmt (node);
 

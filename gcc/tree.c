@@ -4941,8 +4941,7 @@ make_ssa_name (var, stmt)
       || (!IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (stmt)))
 	  && TREE_CODE (stmt) != ASM_EXPR
 	  && TREE_CODE (stmt) != RETURN_EXPR
-	  && TREE_CODE (stmt) != PHI_NODE
-	  && !IS_EMPTY_STMT (stmt)))
+	  && TREE_CODE (stmt) != PHI_NODE))
     abort ();
 #endif
 
@@ -5109,7 +5108,7 @@ tsi_stmt_list_head (anchor)
   return i;
 }
 
-/* Return true if the chain of statements starting with T.  */
+/* Return true if the chain of statements starting with T is empty.  */
 
 bool
 body_is_empty (t)

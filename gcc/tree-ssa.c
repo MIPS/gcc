@@ -518,8 +518,6 @@ mark_def_sites (idom, globals)
 	  tree *dest;
 
 	  stmt = bsi_stmt (si);
-	  STRIP_NOPS (stmt);
-
 	  get_stmt_operands (stmt);
 
 	  /* If a variable is used before being set, then the variable
@@ -1462,7 +1460,6 @@ rewrite_out_of_ssa (fndecl)
 	  tree *use_p = NULL;
 	  int remove = 0, is_copy = 0;
 
-	  STRIP_NOPS (stmt);
 	  get_stmt_operands (stmt);
 
 	  if (TREE_CODE (stmt) == MODIFY_EXPR 
@@ -1886,7 +1883,9 @@ rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
   bool may_optimize_p;
 
   stmt = bsi_stmt (si);
-  STRIP_NOPS (stmt);
+  if (IS_EMPTY_STMT (stmt))
+    return;
+
   ann = stmt_ann (stmt);
   ssa_stats.num_stmts++;
 

@@ -436,7 +436,6 @@ extern void compute_may_aliases		PARAMS ((tree));
 extern void compute_reached_uses	PARAMS ((int));
 extern void compute_immediate_uses	PARAMS ((int));
 extern void compute_reaching_defs	PARAMS ((int));
-extern tree copy_stmt			PARAMS ((tree));
 extern void dump_alias_info		PARAMS ((FILE *));
 extern void debug_alias_info		PARAMS ((void));
 extern tree get_virtual_var		PARAMS ((tree));

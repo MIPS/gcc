@@ -74,7 +74,6 @@ tsi_next (i)
      tree_stmt_iterator *i;
 {
   tree t = *(i->tp);
-  STRIP_NOPS (t);
   if (TREE_CODE (t) == COMPOUND_EXPR)
     i->tp = &(TREE_OPERAND (t, 1));
   else
@@ -101,7 +100,6 @@ tsi_stmt_ptr (i)
 #endif
 
   t = *(i.tp);
-  STRIP_NOPS (t);
 
   if (TREE_CODE (t) == COMPOUND_EXPR)
     return &TREE_OPERAND (t, 0);
@@ -114,8 +112,7 @@ tsi_stmt (i)
      tree_stmt_iterator i;
 {
   tree t = *(tsi_stmt_ptr (i));
-  STRIP_NOPS (t);
-  if (IS_EMPTY_STMT (t) || t == error_mark_node)
+  if (t == error_mark_node)
     t = NULL_TREE;
   return t;
 }

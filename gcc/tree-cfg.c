@@ -106,6 +106,7 @@ static inline bool stmt_starts_bb_p	PARAMS ((tree, tree));
 static inline bool stmt_ends_bb_p	PARAMS ((tree));
 static void find_contained_blocks_and_edge_targets
   PARAMS ((tree *, bitmap, bitmap, tree **));
+static void compute_reachable_eh	(tree stmt);
 
 /* Flowgraph optimization and cleanup.  */
 static void remove_unreachable_blocks	PARAMS ((void));
@@ -205,10 +206,7 @@ build_tree_cfg (fnbody)
 
   VARRAY_TREE_INIT (eh_stack, 10, "Exception Handlers");
 
-  /* Find the basic blocks for the flowgraph.  First skip any
-     non-executable statements at the start of the function.  Otherwise
-     we'll end up with an empty basic block 0, which is useless.  */
-
+  /* Find the basic blocks for the flowgraph.  Ignore empty functions.  */
   if (IS_EMPTY_STMT (fnbody) || TREE_CODE (fnbody) != BIND_EXPR)
     {
       timevar_pop (TV_TREE_CFG);
@@ -294,10 +292,6 @@ make_blocks (first_p, next_block_link, parent_stmt, bb)
       tree prev_stmt;
       tree *stmt_p = tsi_container (i);
 
-      /* Ignore empty containers.  */
-      if (IS_EMPTY_STMT (*stmt_p) || *stmt_p == error_mark_node)
-	continue;
-
       prev_stmt = stmt;
       stmt = tsi_stmt (i);
 
@@ -310,16 +304,6 @@ make_blocks (first_p, next_block_link, parent_stmt, bb)
 	  start_new_block = false;
 	}
 
-      /* Set the block for the container of non-executable statements.  */
-      if (stmt == NULL_TREE)
-	{
-	  if (bb)
-	    append_stmt_to_bb (stmt_p, bb, parent_stmt);
-	  last = *stmt_p;
-	  continue;
-	}
-
-      STRIP_NOPS (stmt);
       NEXT_BLOCK_LINK (stmt) = NULL_TREE;
       code = TREE_CODE (stmt);
 
@@ -402,110 +386,11 @@ make_blocks (first_p, next_block_link, parent_stmt, bb)
 	  start_new_block = true;
 
 	  /* Right now we only model exceptions which occur via calls.
-	     This will need to be generalized in the future.  */
+	    This will need to be generalized in the future.  */
 	  if (TREE_CODE (stmt) == CALL_EXPR
 	      || (TREE_CODE (stmt) == MODIFY_EXPR
 		  && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR))
-	    {
-	      int i;
-	      tree reachable_handlers = NULL_TREE;
-	      tree types_caught = NULL_TREE;
-	      int skip_cleanups = 0;
-
-	      /* EH_STACK contains all the exception handlers which enclose
-	         this statement.
-		 
-		 We want to examine the handlers innermost to outermost
-		 and determine which ones are actually reachable from this
-		 statement.  Those which are reachable are chained together
-		 on a list and added to the statement's annotation.  */
-	      for (i = VARRAY_ACTIVE_SIZE (eh_stack) - 1; i >= 0; i--)
-	        {
-		  tree handler = VARRAY_TREE (eh_stack, i);
-		  tree tp_node;
-
-		  if (TREE_CODE (handler) == CATCH_EXPR)
-		    {
-		      tree types = CATCH_TYPES (handler);
-
-		      /* This is a try/catch construct.  If it has no
-		         CATCH_TYPES, then it catches all types and we
-			 can stop our search early.  */
-		      if (types == NULL_TREE)
-			{
-			  reachable_handlers = tree_cons (void_type_node,
-						VARRAY_TREE (eh_stack, i),
-						reachable_handlers);
-			  break;
-			}
-
-		      /* If TYPES is not a list, make it a list to
-		         simplify handling below.  */
-		      if (TREE_CODE (types) != TREE_LIST)
-			types = tree_cons (NULL_TREE, types, NULL_TREE);
-
-		      /* See if the CATCH_TYPES specifies any types that have
-		         not already been handled.  If so, add those types to
-			 the types we handle and add this handler to the list
-			 of reachable handlers.  */
-		      for (tp_node = types;
-			   tp_node;
-			   tp_node = TREE_CHAIN (tp_node))
-		        {
-			  tree type = TREE_VALUE (tp_node);
-
-			  if (! check_handled (types_caught, type))
-			    {
-			      types_caught = tree_cons (NULL,
-					      		type,
-							types_caught);
-			      reachable_handlers
-				= tree_cons (void_type_node,
-					     VARRAY_TREE (eh_stack, i),
-					     reachable_handlers);
-			    }
-		        }
-
-		      skip_cleanups = 0;
-		    }
-		  else if (TREE_CODE (handler) == EH_FILTER_EXPR)
-		    {
-		      /* This is an exception specification.  If it has
-		         no types, then it ends our search.  */
-		      if (EH_FILTER_TYPES (handler) == NULL_TREE)
-			{
-			  reachable_handlers = tree_cons (void_type_node,
-						VARRAY_TREE (eh_stack, i),
-						reachable_handlers);
-			  break;
-			}
-
-		      /* This can throw a new exception, so it does not
-		         stop our search.  We should probably track the
-			 types it can throw.  */
-		      reachable_handlers = tree_cons (void_type_node,
-					    VARRAY_TREE (eh_stack, i),
-					    reachable_handlers);
-
-		      skip_cleanups = 0;
-		    }
-		  else if (!skip_cleanups)
-		    {
-		      /* This is a cleanup and is reachable.  It does not
-		         stop our search; however, we can skip other
-			 cleanups until we run into something else.  */
-		      reachable_handlers = tree_cons (void_type_node,
-					    VARRAY_TREE (eh_stack, i),
-					    reachable_handlers);
-		      skip_cleanups = 1;
-		    }
-	        }
-
-	      /* REACHABLE_HANDLERS now contains a list of all the reachable
-	         handlers.  */
-	      stmt_ann (stmt)->reachable_exception_handlers
-		= reachable_handlers;
-	    }
+	    compute_reachable_eh (stmt);
 	}
 
       last = stmt;
@@ -807,7 +692,7 @@ set_parent_stmt (stmt_p, parent_stmt)
       ann->parent_stmt = parent_stmt;
       t = (TREE_CODE (t) == COMPOUND_EXPR) ? TREE_OPERAND (t, 0) : NULL_TREE;
     }
-  while (t && ! IS_EMPTY_STMT (t));
+  while (t);
 }
 
 
@@ -825,7 +710,7 @@ add_stmt_to_bb (stmt_p, bb, parent)
   set_bb_for_stmt (*stmt_p, bb);
 
   /* Try to determine the parent if there isn't one.  */
-  if (parent == NULL && bb->head_tree_p != NULL)
+  if (parent == NULL_TREE && bb->head_tree_p != NULL)
     parent = parent_stmt (*bb->head_tree_p);
 
   set_parent_stmt (stmt_p, parent);
@@ -1746,21 +1631,19 @@ bsi_remove (i)
 {
   tree t = *(i->tp);
 
-  STRIP_NOPS (t);
-
-  if (!is_exec_stmt (t))
-    return;
-
-  if (TREE_CODE (t) == COMPOUND_EXPR)
+  if (is_exec_stmt (t))
     {
-      remove_stmt (&TREE_OPERAND (t, 0));
+      if (TREE_CODE (t) == COMPOUND_EXPR)
+	{
+	  remove_stmt (&TREE_OPERAND (t, 0));
 
-      /* If both operands are empty, delete the whole COMPOUND_EXPR.  */
-      if (IS_EMPTY_STMT (TREE_OPERAND (t, 1)))
+	  /* If both operands are empty, delete the whole COMPOUND_EXPR.  */
+	  if (IS_EMPTY_STMT (TREE_OPERAND (t, 1)))
+	    remove_stmt (i->tp);
+	}
+      else
 	remove_stmt (i->tp);
     }
-  else
-    remove_stmt (i->tp);
 
   bsi_next (i);
 }
@@ -1781,20 +1664,16 @@ remove_stmt (stmt_p)
   size_t i;
   tree *def_p;
   tree stmt = *stmt_p;
-
-  STRIP_NOPS (stmt);
+  basic_block bb = bb_for_stmt (stmt);
+  tree parent = parent_stmt (stmt);
 
   /* If the statement is a control structure, clear the appropriate BB_*
      flags from the basic block.  */
-  if (is_ctrl_stmt (stmt))
+  if (bb && is_ctrl_stmt (stmt))
     {
-      basic_block bb = bb_for_stmt (stmt);
-      if (bb)
-	{
-	  bb->flags &= ~BB_CONTROL_EXPR;
-	  if (TREE_CODE (stmt) == LOOP_EXPR)
-	    bb->flags &= ~BB_LOOP_CONTROL_EXPR;
-	}
+      bb->flags &= ~BB_CONTROL_EXPR;
+      if (TREE_CODE (stmt) == LOOP_EXPR)
+	bb->flags &= ~BB_LOOP_CONTROL_EXPR;
     }
 
   /* If the statement is a LABEL_EXPR, remove the LABEL_DECL from
@@ -1838,6 +1717,8 @@ remove_stmt (stmt_p)
 
   /* Replace STMT with an empty statement.  */
   *stmt_p = build_empty_stmt ();
+  if (bb)
+    add_stmt_to_bb (stmt_p, bb, parent);
 }
 
 
@@ -2547,10 +2428,7 @@ successor_block (bb)
   /* Special case.  If the block ends in a BIND_EXPR node, the successor
      block will be inside the BIND_EXPR's body.  */
   if (last_stmt && TREE_CODE (last_stmt) == BIND_EXPR)
-    {
-      STRIP_NOPS (last_stmt);
-      i = tsi_start (&BIND_EXPR_BODY (last_stmt));
-    }
+    i = tsi_start (&BIND_EXPR_BODY (last_stmt));
   else
     tsi_next (&i);
 
@@ -2795,8 +2673,6 @@ first_exec_stmt (entry_p)
       if (!stmt)
         continue;
 
-      STRIP_NOPS (stmt);
-
       /* Note that we actually return the container for the executable
 	 statement, not the statement itself.  This is to allow the caller to
 	 start iterating from this point.  */
@@ -2817,7 +2693,7 @@ first_exec_block (entry_p)
 {
   tree *exec_p;
 
-  if (entry_p == NULL || IS_EMPTY_STMT (*entry_p))
+  if (entry_p == NULL)
     return NULL;
 
   exec_p = first_exec_stmt (entry_p);
@@ -2849,19 +2725,9 @@ first_stmt (bb)
      basic_block bb;
 {
   block_stmt_iterator i;
-  tree t;
-
-  if (bb == NULL || bb->index < 0)
-    return NULL_TREE;
 
   i = bsi_start (bb);
-
-  /* Check for blocks with no remaining statements.  */
-  if (bsi_end_p (i))
-    t = NULL_TREE;
-  else
-    t = bsi_stmt (i);
-  return t;
+  return (!bsi_end_p (i)) ? bsi_stmt (i) : NULL_TREE;
 }
 
 
@@ -2971,18 +2837,25 @@ bsi_next_in_bb (i, bb)
   tree t, stmt = NULL_TREE;
   block_stmt_iterator bind;
 
+  /* Go to the next statement skipping over empty statements we may find.  */
   do
     {
       t = *(i->tp);
-      STRIP_NOPS (t);
       if (TREE_CODE (t) == COMPOUND_EXPR)
 	i->tp = &(TREE_OPERAND (t, 1));
       else
-	i->tp = NULL;
-    }
-  while (i->tp && (stmt = bsi_stmt (*i)) == NULL_TREE);
+	{
+	  /* We ran out of statements.  Clear the iterator and stop
+	     searching.  */
+	  i->tp = NULL;
+	  break;
+	}
 
-  if (i->tp && bb_for_stmt (*(i->tp)) != bb) 
+      stmt = bsi_stmt (*i);
+    }
+  while (IS_EMPTY_STMT (stmt));
+
+  if (i->tp && bb_for_stmt (stmt) != bb) 
     i->tp = NULL;
 
   if (i->tp && TREE_CODE (stmt) == BIND_EXPR)
@@ -3173,6 +3046,7 @@ bsi_update_from_tsi (bsi, tsi)
   bsi->tp = tsi.tp;
 }
 
+
 /* Insert statement T into basic block BB.  */
 
 void
@@ -3181,9 +3055,6 @@ set_bb_for_stmt (t, bb)
      basic_block bb;
 {
   stmt_ann_t ann;
-
-  if (IS_EMPTY_STMT (t))
-    return;
 
   do
     {
@@ -3200,7 +3071,7 @@ set_bb_for_stmt (t, bb)
       ann->bb = bb;
       t = (TREE_CODE (t) == COMPOUND_EXPR) ? TREE_OPERAND (t, 0) : NULL_TREE;
     }
-  while (t && !IS_EMPTY_STMT (t));
+  while (t);
 }
 
 
@@ -3904,7 +3775,112 @@ remap_stmts (basic_block bb1, basic_block bb2, tree *first_p)
   return false;
 }
 
-/* Tree specific functions for the cfg loop optimizer.  */
+
+/* Compute reachable exception handlers for STMT, which is assumed to be
+   a function call and the last statement of its basic block.  */
+
+static void
+compute_reachable_eh (tree stmt)
+{
+  int i;
+  tree reachable_handlers = NULL_TREE;
+  tree types_caught = NULL_TREE;
+  int skip_cleanups = 0;
+
+  /* EH_STACK contains all the exception handlers which enclose
+     this statement.
+
+     We want to examine the handlers innermost to outermost
+     and determine which ones are actually reachable from this
+     statement.  Those which are reachable are chained together
+     on a list and added to the statement's annotation.  */
+  for (i = VARRAY_ACTIVE_SIZE (eh_stack) - 1; i >= 0; i--)
+    {
+      tree handler = VARRAY_TREE (eh_stack, i);
+      tree tp_node;
+
+      if (TREE_CODE (handler) == CATCH_EXPR)
+	{
+	  tree types = CATCH_TYPES (handler);
+
+	  /* This is a try/catch construct.  If it has no
+	     CATCH_TYPES, then it catches all types and we
+	     can stop our search early.  */
+	  if (types == NULL_TREE)
+	    {
+	      reachable_handlers = tree_cons (void_type_node,
+					      VARRAY_TREE (eh_stack, i),
+					      reachable_handlers);
+	      break;
+	    }
+
+	  /* If TYPES is not a list, make it a list to
+	     simplify handling below.  */
+	  if (TREE_CODE (types) != TREE_LIST)
+	    types = tree_cons (NULL_TREE, types, NULL_TREE);
+
+	  /* See if the CATCH_TYPES specifies any types that have
+	     not already been handled.  If so, add those types to
+	     the types we handle and add this handler to the list
+	     of reachable handlers.  */
+	  for (tp_node = types; tp_node; tp_node = TREE_CHAIN (tp_node))
+	    {
+	      tree type = TREE_VALUE (tp_node);
+
+	      if (!check_handled (types_caught, type))
+		{
+		  types_caught = tree_cons (NULL, type, types_caught);
+		  reachable_handlers
+		    = tree_cons (void_type_node,
+				 VARRAY_TREE (eh_stack, i),
+				 reachable_handlers);
+		}
+	    }
+
+	  skip_cleanups = 0;
+	}
+      else if (TREE_CODE (handler) == EH_FILTER_EXPR)
+	{
+	  /* This is an exception specification.  If it has
+	     no types, then it ends our search.  */
+	  if (EH_FILTER_TYPES (handler) == NULL_TREE)
+	    {
+	      reachable_handlers = tree_cons (void_type_node,
+					      VARRAY_TREE (eh_stack, i),
+					      reachable_handlers);
+	      break;
+	    }
+
+	  /* This can throw a new exception, so it does not
+	     stop our search.  We should probably track the
+	     types it can throw.  */
+	  reachable_handlers = tree_cons (void_type_node,
+					  VARRAY_TREE (eh_stack, i),
+					  reachable_handlers);
+
+	  skip_cleanups = 0;
+	}
+      else if (!skip_cleanups)
+	{
+	  /* This is a cleanup and is reachable.  It does not
+	     stop our search; however, we can skip other
+	     cleanups until we run into something else.  */
+	  reachable_handlers = tree_cons (void_type_node,
+					  VARRAY_TREE (eh_stack, i),
+					  reachable_handlers);
+	  skip_cleanups = 1;
+	}
+    }
+
+  /* REACHABLE_HANDLERS now contains a list of all the reachable
+     handlers.  */
+  stmt_ann (stmt)->reachable_exception_handlers = reachable_handlers;
+}
+
+
+/*---------------------------------------------------------------------------
+	    Tree specific functions for the cfg loop optimizer
+---------------------------------------------------------------------------*/
 
 /* Split a (typically critical) edge.  Return the new block.
    Abort on abnormal edges.  */
@@ -3927,11 +3903,10 @@ tree_split_edge (edge_in)
   return new_bb;
 }
 
+
 /* Verifies that the flow information is ok.  */
 
 void 
 tree_verify_flow_info ()
 {
-  
 }
-

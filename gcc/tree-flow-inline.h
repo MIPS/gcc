@@ -396,18 +396,13 @@ static inline tree *
 bsi_stmt_ptr (i)
      block_stmt_iterator i;
 {
-  tree t;
-
 #if defined ENABLE_CHECKING
   if (i.tp == NULL || *i.tp == NULL_TREE)
     abort ();
 #endif
 
-  t = *(i.tp);
-  STRIP_NOPS (t);
-
-  if (TREE_CODE (t) == COMPOUND_EXPR)
-    return &TREE_OPERAND (t, 0);
+  if (TREE_CODE ((*i.tp)) == COMPOUND_EXPR)
+    return &TREE_OPERAND ((*i.tp), 0);
   else
     return i.tp;
 }
@@ -416,11 +411,7 @@ static inline tree
 bsi_stmt (i)
      block_stmt_iterator i;
 {
-  tree t = *(bsi_stmt_ptr (i));
-  STRIP_NOPS (t);
-  if (IS_EMPTY_STMT (t) || t == error_mark_node)
-    t = NULL_TREE;
-  return t;
+  return *(bsi_stmt_ptr (i));
 }
 
 static inline tree *

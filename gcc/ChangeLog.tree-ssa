@@ -1,3 +1,54 @@
+2003-05-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (build_tree_cfg): Update comment.
+	(make_blocks): Don't skip over empty statements.
+	Move exception handling code ...
+	(compute_reachable_eh): ... here.
+	(set_parent_stmt): Don't skip over empty statements.
+	(bsi_remove): Don't return early on empty statements.
+	Don't call STRIP_NOPS.
+	(remove_stmt): Don't call STRIP_NOPS.
+	Always compute the block holding the statement.
+	After replacing the statement with an empty statement, add the
+	empty statement to the block.
+	(successor_block): Don't call STRIP_NOPS.
+	(first_exec_stmt): Likewise.
+	(first_exec_block): Don't return early for empty statements.
+	(first_stmt): Don't test for NULL blocks.
+	Reformat to improve legibility.
+	(bsi_next_in_bb): Don't call STRIP_NOPS.
+	Reformat to improve legibility.
+	(set_bb_for_stmt): Don't ignore empty statements.
+
+	* tree-dfa.c (get_stmt_operands): Don't call STRIP_NOPS.
+	(create_stmt_ann): Don't abort on emtpy statements.
+	Don't call STRIP_NOPS.
+	(copy_stmt): Remove unused function.
+	* tree-flow.h (copy_stmt): Remove prototype.
+
+	* tree-flow-inline.h: Don't call STRIP_NOPS.
+	Remove local variable 't'.
+	(bsi_stmt): Don't return NULL_TREE for empty statements.
+	Ignore error_mark_node.
+
+	* tree-iterator.h (tsi_next): Don't call STRIP_NOPS.
+	(tsi_stmt_ptr): Likewise.
+	(tsi_stmt): Likewise.
+	Don't return NULL_TREE for empty statements.
+
+	* tree-pretty-print.c (dump_generic_node): Don't ignore empty
+	statements.
+
+	* tree-ssa-ccp.c (fold_stmt): Don't call STRIP_NOPS.
+	* tree-ssa-dce.c (find_useful_stmts): Likewise.
+	(remove_dead_stmt): Likewise.
+	* tree-ssa.c (mark_def_sites): Likewise.
+	(rewrite_out_of_ssa): Likewise.
+	(rewrite_stmt): Likewise.
+
+	* tree.c (make_ssa_name): Don't ignore empty statements.
+	(body_is_empty): Fix comment.
+
 2003-05-01  Jeff Law  <law@redhat.com>
 
 	* tree-dfa.c (find_hidden_use_vars): Renamed from find_vla_decls.  

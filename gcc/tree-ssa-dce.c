@@ -252,7 +252,6 @@ find_useful_stmts ()
       for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
 	{
 	  tree stmt = bsi_stmt (i);
-	  STRIP_NOPS (stmt);
 
 	  if (stmt_useful_p (stmt))
 	    mark_necessary (stmt);
@@ -481,7 +480,6 @@ remove_dead_stmt (i, bb)
   tree t;
 
   t = bsi_stmt (*i);
-  STRIP_NOPS (t);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {

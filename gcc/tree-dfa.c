@@ -197,10 +197,8 @@ get_stmt_operands (stmt)
   stmt_ann_t ann;
   voperands_t prev_vops = NULL;
 
-  if (stmt == error_mark_node || IS_EMPTY_STMT (stmt))
+  if (IS_EMPTY_STMT (stmt) || stmt == error_mark_node)
     return;
-
-  STRIP_NOPS (stmt);
 
   /* If the statement has not been modified, the operands are still valid.  */
   if (!stmt_modified_p (stmt))
@@ -1026,27 +1024,6 @@ remove_phi_node (phi, prev, bb)
 
 
 /*---------------------------------------------------------------------------
-			     Code replacement
----------------------------------------------------------------------------*/
-/* Return a copy of statement ORIG.  Note that the original statement
-   annotations are not copied.  */
-
-tree
-copy_stmt (orig)
-     tree orig;
-{
-  tree copy;
-
-  STRIP_NOPS (orig);
-  copy = orig;
-  walk_tree (&copy, copy_tree_r, NULL, NULL);
-  copy->common.ann = NULL;
-
-  return copy;
-}
-
-
-/*---------------------------------------------------------------------------
 			Dataflow analysis (DFA) routines
 ---------------------------------------------------------------------------*/
 /* Compute immediate uses.  */
@@ -1209,7 +1186,6 @@ create_stmt_ann (t)
 
 #if defined ENABLE_CHECKING
   if (t == NULL_TREE
-      || IS_EMPTY_STMT (t)
       || TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
       || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
     abort ();
@@ -1223,7 +1199,6 @@ create_stmt_ann (t)
   /* Since we just created the annotation, mark the statement modified.  */
   ann->modified = true;
 
-  STRIP_NOPS (t);
   t->common.ann = (tree_ann) ann;
   ann->common.stmt = t; 
 
