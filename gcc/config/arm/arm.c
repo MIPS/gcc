@@ -187,9 +187,6 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 static struct obstack minipool_obstack;
 static char *         minipool_startobj;
 
-#define obstack_chunk_alloc   xmalloc
-#define obstack_chunk_free    free
-
 /* The maximum number of insns skipped which
    will be conditionalised if possible.  */
 static int max_insns_skipped = 5;
@@ -366,7 +363,7 @@ static const struct processors all_cores[] =
   {"arm10tdmi",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED             | FL_ARCH5 },
   {"arm1020t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED             | FL_ARCH5 },
   {"xscale",                             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_ARCH5 | FL_ARCH5E | FL_XSCALE },
-  
+
   {NULL, 0}
 };
 
@@ -581,7 +578,7 @@ arm_override_options ()
      architecture has been selected.  */
   if (tune_flags == 0)
     tune_flags = insn_flags;
-  
+
   /* Make sure that the processor choice does not conflict with any of the
      other command line choices.  */
   if (TARGET_APCS_32 && !(insn_flags & FL_MODE32))
@@ -725,7 +722,7 @@ arm_override_options ()
   if (arm_pic_register_string != NULL)
     {
       int pic_register = decode_reg_name (arm_pic_register_string);
-      
+
       if (!flag_pic)
 	warning ("-mpic-register= is useless without -fpic");
 
@@ -7190,7 +7187,7 @@ output_return_instruction (operand, really_return, reverse)
   int reg;
   unsigned long live_regs_mask;
   unsigned long func_type;
-  
+
   func_type = arm_current_func_type ();
 
   if (IS_NAKED (func_type))
@@ -7331,7 +7328,7 @@ output_return_instruction (operand, really_return, reverse)
 	  really_return = 0;
 	}
     }
-  
+
   if (really_return)
     {
       switch ((int) ARM_FUNC_TYPE (func_type))
@@ -8635,7 +8632,7 @@ arm_assemble_integer (x, size, aligned_p)
       if (NEED_GOT_RELOC && flag_pic && making_const_table &&
 	  (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF))
 	{
-	  if (GET_CODE (x) == SYMBOL_REF 
+	  if (GET_CODE (x) == SYMBOL_REF
 	      && (CONSTANT_POOL_ADDRESS_P (x)
 		  || ENCODED_SHORT_CALL_ATTR_P (XSTR (x, 0))))
 	    fputs ("(GOTOFF)", asm_out_file);
@@ -9365,7 +9362,7 @@ arm_expand_builtin (exp, target, subtarget, mode, ignore)
       emit_insn (pat);
       return target;
     }
-  
+
   /* @@@ Should really do something sensible here.  */
   return NULL_RTX;
 }
@@ -9915,16 +9912,12 @@ thumb_unexpanded_epilogue ()
     return "";
 
   for (regno = 0; regno <= LAST_LO_REGNUM; regno++)
-    if (regs_ever_live[regno] && !call_used_regs[regno]
-	&& !(TARGET_SINGLE_PIC_BASE && (regno == arm_pic_register)))
+    if (THUMB_REG_PUSHED_P (regno))
       live_regs_mask |= 1 << regno;
 
   for (regno = 8; regno < 13; regno++)
-    {
-      if (regs_ever_live[regno] && !call_used_regs[regno]
-	  && !(TARGET_SINGLE_PIC_BASE && (regno == arm_pic_register)))
-	high_regs_pushed++;
-    }
+    if (THUMB_REG_PUSHED_P (regno))
+      high_regs_pushed++;
 
   /* The prolog may have pushed some high registers to use as
      work registers.  eg the testuite file:
@@ -9969,8 +9962,7 @@ thumb_unexpanded_epilogue ()
 	  ("no low registers available for popping high registers");
       
       for (next_hi_reg = 8; next_hi_reg < 13; next_hi_reg++)
-	if (regs_ever_live[next_hi_reg] && !call_used_regs[next_hi_reg]
-	    && !(TARGET_SINGLE_PIC_BASE && (next_hi_reg == arm_pic_register)))
+	if (THUMB_REG_PUSHED_P (next_hi_reg))
 	  break;
 
       while (high_regs_pushed)
@@ -9999,10 +9991,7 @@ thumb_unexpanded_epilogue ()
 			       regno);
 		  
 		  for (next_hi_reg++; next_hi_reg < 13; next_hi_reg++)
-		    if (regs_ever_live[next_hi_reg]
-			&& !call_used_regs[next_hi_reg]
-			&& !(TARGET_SINGLE_PIC_BASE 
-			     && (next_hi_reg == arm_pic_register)))
+		    if (THUMB_REG_PUSHED_P (next_hi_reg))
 		      break;
 		}
 	    }
@@ -10169,14 +10158,12 @@ thumb_expand_prologue ()
 	     been pushed at the start of the prologue and so we can corrupt
 	     it now.  */
 	  for (regno = LAST_ARG_REGNUM + 1; regno <= LAST_LO_REGNUM; regno++)
-	    if (regs_ever_live[regno]
-		&& !call_used_regs[regno] /* Paranoia */
-		&& !(TARGET_SINGLE_PIC_BASE && (regno == arm_pic_register))
+	    if (THUMB_REG_PUSHED_P (regno)
 		&& !(frame_pointer_needed
 		     && (regno == THUMB_HARD_FRAME_POINTER_REGNUM)))
 	      break;
 
-	  if (regno > LAST_LO_REGNUM) /* Very unlikely */
+	  if (regno > LAST_LO_REGNUM) /* Very unlikely.  */
 	    {
 	      rtx spare = gen_rtx (REG, SImode, IP_REGNUM);
 
@@ -10326,8 +10313,7 @@ thumb_output_function_prologue (f, size)
     }
 
   for (regno = 0; regno <= LAST_LO_REGNUM; regno++)
-    if (regs_ever_live[regno] && !call_used_regs[regno]
-	&& !(TARGET_SINGLE_PIC_BASE && (regno == arm_pic_register)))
+    if (THUMB_REG_PUSHED_P (regno))
       live_regs_mask |= 1 << regno;
 
   if (live_regs_mask || !leaf_function_p () || thumb_far_jump_used_p (1))
@@ -10428,11 +10414,8 @@ thumb_output_function_prologue (f, size)
     thumb_pushpop (f, live_regs_mask, 1);
 
   for (regno = 8; regno < 13; regno++)
-    {
-      if (regs_ever_live[regno] && !call_used_regs[regno]
-	  && !(TARGET_SINGLE_PIC_BASE && (regno == arm_pic_register)))
-	high_regs_pushed++;
-    }
+    if (THUMB_REG_PUSHED_P (regno))
+      high_regs_pushed++;
 
   if (high_regs_pushed)
     {
@@ -10441,20 +10424,15 @@ thumb_output_function_prologue (f, size)
       int next_hi_reg;
 
       for (next_hi_reg = 12; next_hi_reg > LAST_LO_REGNUM; next_hi_reg--)
-	{
-	  if (regs_ever_live[next_hi_reg] && !call_used_regs[next_hi_reg]
-	      && !(TARGET_SINGLE_PIC_BASE
-		   && (next_hi_reg == arm_pic_register)))
-	    break;
-	}
+	if (THUMB_REG_PUSHED_P (next_hi_reg))
+	  break;
 
       pushable_regs = mask;
 
       if (pushable_regs == 0)
 	{
 	  /* Desperation time -- this probably will never happen.  */
-	  if (regs_ever_live[LAST_ARG_REGNUM]
-	      || !call_used_regs[LAST_ARG_REGNUM])
+	  if (THUMB_REG_PUSHED_P (LAST_ARG_REGNUM))
 	    asm_fprintf (f, "\tmov\t%r, %r\n", IP_REGNUM, LAST_ARG_REGNUM);
 	  mask = 1 << LAST_ARG_REGNUM;
 	}
@@ -10470,15 +10448,12 @@ thumb_output_function_prologue (f, size)
 		  high_regs_pushed--;
 		  
 		  if (high_regs_pushed)
-		    for (next_hi_reg--; next_hi_reg > LAST_LO_REGNUM;
-			 next_hi_reg--)
-		      {
-			if (regs_ever_live[next_hi_reg]
-			    && !call_used_regs[next_hi_reg]
-			    && !(TARGET_SINGLE_PIC_BASE 
-				 && (next_hi_reg == arm_pic_register)))
+		    {
+		      for (next_hi_reg--; next_hi_reg > LAST_LO_REGNUM;
+			   next_hi_reg--)
+			if (THUMB_REG_PUSHED_P (next_hi_reg))
 			  break;
-		      }
+		    }
 		  else
 		    {
 		      mask &= ~((1 << regno) - 1);
@@ -10491,8 +10466,7 @@ thumb_output_function_prologue (f, size)
 	}
 
       if (pushable_regs == 0
-	  && (regs_ever_live[LAST_ARG_REGNUM]
-	      || !call_used_regs[LAST_ARG_REGNUM]))
+	  && (THUMB_REG_PUSHED_P (LAST_ARG_REGNUM)))
 	asm_fprintf (f, "\tmov\t%r, %r\n", LAST_ARG_REGNUM, IP_REGNUM);
     }
 }

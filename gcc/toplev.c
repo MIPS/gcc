@@ -168,6 +168,10 @@ int input_file_stack_tick;
 
 const char *dump_base_name;
 
+/* Name to use as a base for auxiliary output files.  */
+
+const char *aux_base_name;
+
 /* Format to use to print dumpfile index value */
 #ifndef DUMPFILE_FORMAT
 #define DUMPFILE_FORMAT ".%02d."
@@ -178,6 +182,11 @@ const char *dump_base_name;
    and set by `-m...' switches.  Must be defined in rtlanal.c.  */
 
 extern int target_flags;
+
+/* A mask of target_flags that includes bit X if X was set or cleared
+   on the command line.  */
+
+int target_flags_explicit;
 
 /* Debug hooks - dependent upon command line options.  */
 
@@ -570,11 +579,23 @@ int flag_errno_math = 1;
 
 int flag_unsafe_math_optimizations = 0;
 
+/* Nonzero means that no NaNs or +-Infs are expected.  */
+
+int flag_finite_math_only = 0;
+
 /* Zero means that floating-point math operations cannot generate a
    (user-visible) trap.  This is the case, for example, in nonstop
-   IEEE 754 arithmetic.  */
+   IEEE 754 arithmetic.  Trapping conditions include division by zero,
+   overflow, underflow, invalid and inexact, but does not include 
+   operations on signaling NaNs (see below).  */
 
 int flag_trapping_math = 1;
+
+/* Nonzero means disable transformations observable by signaling NaNs.
+   This option implies that any operation on a IEEE signaling NaN can
+   generate a (user-visible) trap.  */
+
+int flag_signaling_nans = 0;
 
 /* 0 means straightforward implementation of complex divide acceptable.
    1 means wide ranges of inputs must work for complex divide.
@@ -1157,6 +1178,8 @@ static const lang_independent_options f_options[] =
    N_("Process #ident directives") },
   { "peephole2", &flag_peephole2, 1,
    N_("Enables an rtl peephole pass run before sched2") },
+  {"finite-math-only", &flag_finite_math_only, 1,
+   N_("Assume no NaNs or +-Infs are generated") },
   { "guess-branch-probability", &flag_guess_branch_prob, 1,
    N_("Enables guessing of branch probabilities") },
   {"math-errno", &flag_errno_math, 1,
@@ -1165,6 +1188,8 @@ static const lang_independent_options f_options[] =
    N_("Floating-point operations can trap") },
   {"unsafe-math-optimizations", &flag_unsafe_math_optimizations, 1,
    N_("Allow math optimizations that may violate IEEE or ANSI standards") },
+  {"signaling-nans", &flag_signaling_nans, 1,
+   N_("Disable optimizations observable by IEEE signaling NaNs") },
   {"bounded-pointers", &flag_bounded_pointers, 1,
    N_("Compile pointers as triples: value, base & end") },
   {"bounds-check", &flag_bounds_check, 1,
@@ -1560,7 +1585,10 @@ set_fast_math_flags (set)
 {
   flag_trapping_math = !set;
   flag_unsafe_math_optimizations = set;
+  flag_finite_math_only = set;
   flag_errno_math = !set;
+  if (set)
+    flag_signaling_nans = 0;
 }
 
 /* Return true iff flags are set as if -ffast-math.  */
@@ -1569,6 +1597,7 @@ fast_math_flags_set_p ()
 {
   return (!flag_trapping_math
 	  && flag_unsafe_math_optimizations
+	  && flag_finite_math_only
 	  && !flag_errno_math);
 }
 
@@ -2092,7 +2121,7 @@ compile_file ()
   /* Initialize yet another pass.  */
 
   init_final (main_input_filename);
-  init_branch_prob (dump_base_name);
+  init_branch_prob (aux_base_name);
 
   timevar_push (TV_PARSE);
 
@@ -2165,7 +2194,7 @@ compile_file ()
 
   dw2_output_indirect_constants ();
 
-  end_final (dump_base_name);
+  end_final (aux_base_name);
 
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
@@ -2954,12 +2983,12 @@ rest_of_compilation (decl)
 	 block.  The loop infrastructure does the real job for us.  */
       flow_loops_find (&loops, LOOP_TREE);
 
+      if (rtl_dump_file)
+	flow_loops_dump (&loops, rtl_dump_file, NULL, 0);
+
       /* Estimate using heuristics if no profiling info is available.  */
       if (flag_guess_branch_prob)
 	estimate_probability (&loops);
-
-      if (rtl_dump_file)
-	flow_loops_dump (&loops, rtl_dump_file, NULL, 0);
 
       flow_loops_free (&loops);
       close_dump_file (DFI_bp, print_rtl_with_bb, insns);
@@ -4272,7 +4301,9 @@ independent_decode_option (argc, argv)
 	  if (argc == 1)
 	    return 0;
 
-	  dump_base_name = argv[1];
+	  if (argv[1][0])
+	    dump_base_name = argv[1];
+	  
 	  return 2;
 	}
       else
@@ -4345,6 +4376,30 @@ independent_decode_option (argc, argv)
 	  else
 	    return 0;
 	}
+      else if (!strcmp (arg, "auxbase"))
+	{
+	  if (argc == 1)
+	    return 0;
+
+	  if (argv[1][0])
+	    aux_base_name = argv[1];
+	  
+	  return 2;
+	}
+      else if (!strcmp (arg, "auxbase-strip"))
+	{
+	  if (argc == 1)
+	    return 0;
+
+	  if (argv[1][0])
+	    {
+	      strip_off_ending (argv[1], strlen (argv[1]));
+	      if (argv[1][0])
+		aux_base_name = argv[1];
+	    }
+	  
+	  return 2;
+	}
       else
 	return 0;
       break;
@@ -4411,6 +4466,13 @@ set_target_switch (name)
 	  target_flags &= ~-target_switches[j].value;
 	else
 	  target_flags |= target_switches[j].value;
+	if (name[0] != 0)
+	  {
+	    if (target_switches[j].value < 0)
+	      target_flags_explicit |= -target_switches[j].value;
+	    else
+	      target_flags_explicit |= target_switches[j].value;
+	  }
 	valid_target_option = 1;
       }
 
@@ -4781,6 +4843,15 @@ parse_options_and_default_flags (argc, argv)
       align_jumps = 1;
       align_labels = 1;
       align_functions = 1;
+
+      /* Don't reorder blocks when optimizing for size because extra
+	 jump insns may be created; also barrier may create extra padding.
+
+	 More correctly we should have a block reordering mode that tried
+	 to minimize the combined size of all the jumps.  This would more
+	 or less automatically remove extra jumps, but would also try to
+	 use more short jumps instead of long jumps.  */
+      flag_reorder_blocks = 0;
     }
 
   /* Initialize whether `char' is signed.  */
@@ -5074,6 +5145,10 @@ process_options ()
   if (flag_function_sections && write_symbols != NO_DEBUG)
     warning ("-ffunction-sections may affect debugging on some targets");
 #endif
+
+    /* The presence of IEEE signaling NaNs, implies all math can trap.  */
+    if (flag_signaling_nans)
+      flag_trapping_math = 1;
 }
 
 /* Language-independent initialization, before language-dependent
@@ -5086,7 +5161,7 @@ lang_independent_init (no_backend)
   init_ggc ();
 
   init_stringpool ();
-  init_obstacks ();
+  init_ttree ();
 
   if (no_backend)
     return;
@@ -5125,7 +5200,7 @@ lang_dependent_init (name)
 {
   if (dump_base_name == 0)
     dump_base_name = name ? name : "gccdump";
-
+  
   /* Front-end initialization.  This hook can assume that GC,
      identifier hashes etc. are set up, but debug initialization is
      not done yet.  This routine must return the original filename
@@ -5235,6 +5310,19 @@ do_compile (no_backend)
 {
   /* The bulk of command line switch processing.  */
   process_options ();
+
+  if (aux_base_name)
+    /*NOP*/;
+  else if (filename)
+    {
+      char *name = xstrdup (lbasename (filename));
+      
+      aux_base_name = name;
+      strip_off_ending (name, strlen (name));
+    }
+  
+  else
+    aux_base_name = "gccaux";
 
   /* We cannot start timing until after options are processed since that
      says if we run timers or not.  */

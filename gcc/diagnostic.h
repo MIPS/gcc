@@ -160,6 +160,14 @@ struct output_buffer
 /* True if BUFFER is in line-wrapping mode.  */
 #define output_is_line_wrapping(BUFFER) (output_line_cutoff (BUFFER) > 0)
 
+#define output_formatted_integer(BUFFER, FORMAT, INTEGER)	\
+  do								\
+    {								\
+      sprintf ((BUFFER)->digit_buffer, FORMAT, INTEGER);	\
+      output_add_string (BUFFER, (BUFFER)->digit_buffer);	\
+    }								\
+  while (0)
+
 /*  Forward declarations.  */
 typedef struct diagnostic_context diagnostic_context;
 typedef void (*diagnostic_starter_fn) PARAMS ((diagnostic_context *,
@@ -317,5 +325,6 @@ extern void output_verbatim		PARAMS ((output_buffer *, const char *,
 extern void verbatim			PARAMS ((const char *, ...))
      ATTRIBUTE_PRINTF_1;
 extern char *file_name_as_prefix	PARAMS ((const char *));
+extern void inform     PARAMS ((const char *, ...)) ATTRIBUTE_PRINTF_1;
 
 #endif /* ! GCC_DIAGNOSTIC_H */

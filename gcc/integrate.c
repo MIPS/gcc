@@ -45,12 +45,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 
-#include "obstack.h"
-#define	obstack_chunk_alloc	xmalloc
-#define	obstack_chunk_free	free
-
-extern struct obstack *function_maybepermanent_obstack;
-
 /* Similar, but round to the next highest integer that meets the
    alignment.  */
 #define CEIL_ROUND(VALUE,ALIGN)	(((VALUE) + (ALIGN) - 1) & ~((ALIGN)- 1))
@@ -2322,6 +2316,13 @@ copy_rtx_and_substitute (orig, map, for_lhs)
 	 actual may not be readonly.  */
       if (inlining && !for_lhs)
 	RTX_UNCHANGING_P (copy) = 0;
+
+      /* If inlining, squish aliasing data that references the subroutine's
+	 parameter list, since that's no longer applicable.  */
+      if (inlining && MEM_EXPR (copy)
+	  && TREE_CODE (MEM_EXPR (copy)) == INDIRECT_REF
+	  && TREE_CODE (TREE_OPERAND (MEM_EXPR (copy), 0)) == PARM_DECL)
+	set_mem_expr (copy, NULL_TREE);
 
       return copy;
 

@@ -69,6 +69,13 @@ CFLAGS = -g
 STAGE1_CFLAGS = -g @stage1_cflags@
 BOOT_CFLAGS = -g -O2
 
+# Flags to determine code coverage. When coverage is disabled, this will
+# contain the optimization flags, as you normally want code coverage
+# without optimization. The -dumpbase $@ makes sure that the auxilary
+# files end up near the object files.
+COVERAGE_FLAGS = @coverage_flags@
+coverageexts = .{da,bb,bbg}
+
 # The warning flags are separate from BOOT_CFLAGS because people tend to
 # override optimization flags and we'd like them to still have warnings
 # turned on.  These flags are also used to pass other stage dependent
@@ -587,13 +594,13 @@ all.indirect: $(ALL)
 # IN_GCC distinguishes between code compiled into GCC itself and other
 # programs built during a bootstrap.
 # autoconf inserts -DCROSS_COMPILE if we are building a cross compiler.
-INTERNAL_CFLAGS = -DIN_GCC @CROSS@
+INTERNAL_CFLAGS = -DIN_GCC @CROSS@ $(COVERAGE_FLAGS)
 
 # This is the variable actually used when we compile.
 # If you change this line, you probably also need to change the definition
 # of HOST_CFLAGS in build-make to match.
-ALL_CFLAGS = $(INTERNAL_CFLAGS) $(X_CFLAGS) $(T_CFLAGS) \
-  $(CFLAGS) $(WARN_CFLAGS) $(XCFLAGS) @DEFS@
+ALL_CFLAGS = $(X_CFLAGS) $(T_CFLAGS) \
+  $(CFLAGS) $(INTERNAL_CFLAGS) $(WARN_CFLAGS) $(XCFLAGS) @DEFS@
 
 # Likewise.
 ALL_CPPFLAGS = $(CPPFLAGS) $(X_CPPFLAGS) $(T_CPPFLAGS)
@@ -622,7 +629,9 @@ SYSLIBS = @GNAT_LIBEXC@
 HOST_LIBS = $(BUILD_LIBIBERTY)
 
 HOST_RTL = $(BUILD_PREFIX)rtl.o read-rtl.o $(BUILD_PREFIX)bitmap.o \
-		$(BUILD_PREFIX)ggc-none.o gensupport.o
+		$(BUILD_PREFIX)ggc-none.o
+HOST_SUPPORT = gensupport.o insn-conditions.o
+HOST_EARLY_SUPPORT = gensupport.o dummy-conditions.o
 
 HOST_PRINT = $(BUILD_PREFIX)print-rtl.o
 HOST_ERRORS = $(BUILD_PREFIX)errors.o
@@ -712,11 +721,11 @@ CXX_TARGET_OBJS=@cxx_target_objs@
 
 # Language-specific object files for C and Objective C.
 C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
-  c-convert.o c-aux-info.o c-common.o c-format.o c-semantics.o \
-  c-objc-common.o libcpp.a $(C_TARGET_OBJS)
+  c-convert.o c-aux-info.o c-common.o c-opts.o c-format.o c-semantics.o \
+  c-objc-common.o c-dump.o libcpp.a $(C_TARGET_OBJS)
 
 # Language-specific object files for C.
-C_OBJS = c-parse.o c-lang.o $(C_AND_OBJC_OBJS)
+C_OBJS = c-parse.o c-lang.o c-pretty-print.o $(C_AND_OBJC_OBJS)
 
 # Language-independent object files.
 
@@ -742,29 +751,20 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
 
 BACKEND = main.o libbackend.a
 
-# GEN files are listed separately, so they can be built before doing parallel
-#  makes for cc1 or cc1plus.  Otherwise sequent parallel make attempts to load
-#  them before rtl.o is compiled.
-GEN= genemit$(build_exeext) genoutput$(build_exeext) genrecog$(build_exeext) \
- genextract$(build_exeext) genflags$(build_exeext) gencodes$(build_exeext)   \
- genconfig$(build_exeext) genpeep$(build_exeext) gengenrtl$(build_exeext)    \
- gencheck$(build_exeext) genpreds$(build_exeext) genconstants$(build_exeext) \
- gengtype$(build_exeext)
-
 # Files to be copied away after each stage in building.
 STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  insn-output.c insn-recog.c insn-emit.c insn-extract.c insn-peep.c \
  insn-attr.h insn-attrtab.c insn-opinit.c insn-constants.h tm-preds.h \
- tree-check.h \
+ tree-check.h insn-conditions.c \
  s-flags s-config s-codes s-mlib s-under s-genrtl s-gtype gtyp-gen.h \
- s-output s-recog s-emit s-extract s-peep s-check \
+ s-output s-recog s-emit s-extract s-peep s-check s-conditions \
  s-attr s-attrtab s-opinit s-preds s-constants s-crt0 \
  genemit$(build_exeext) genoutput$(build_exeext) genrecog$(build_exeext) \
  genextract$(build_exeext) genflags$(build_exeext) gencodes$(build_exeext) \
  genconfig$(build_exeext) genpeep$(build_exeext) genattrtab$(build_exeext) \
  genattr$(build_exeext) genopinit$(build_exeext) gengenrtl$(build_exeext) \
  gencheck$(build_exeext) genpreds$(build_exeext) genconstants$(build_exeext) \
- gengtype$(build_exeext) \
+ gengtype$(build_exeext) genconditions$(build_exeext) \
  genrtl.c genrtl.h gt-*.h gtype-*.h gtype-desc.c \
  xgcc$(exeext) cpp$(exeext) cc1$(exeext) $(EXTRA_PASSES) \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) cc1obj$(exeext) \
@@ -1236,8 +1236,14 @@ s-under: $(GCC_PASSES)
 c-common.o : c-common.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(OBSTACK_H) \
 	$(C_COMMON_H) flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
 	$(EXPR_H) $(TM_P_H) builtin-types.def builtin-attrs.def $(TARGET_H) \
-	diagnostic.h tree-inline.h except.h gt-c-common.h real.h langhooks.h \
-	varray.h
+	diagnostic.h except.h gt-c-common.h real.h langhooks.h varray.h
+
+c-pretty-print.o : c-pretty-print.c c-pretty-print.h pretty-print.h \
+	$(C_COMMON_H) $(CONFIG_H) $(SYSTEM_H) real.h
+
+c-opts.o : c-opts.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_COMMON_H) \
+        c-pragma.h flags.h toplev.h langhooks.h tree-inline.h diagnostic.h \
+	intl.h
 
 # A file used by all variants of C and some other languages.
 
@@ -1251,6 +1257,8 @@ c-format.o : c-format.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) langhooks.h \
 c-semantics.o : c-semantics.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
 	flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
 	$(EXPR_H) $(PREDICT_H)
+
+c-dump.o : c-dump.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) tree-dump.h
 
 # Language-independent files.
 
@@ -1401,7 +1409,7 @@ print-rtl.o : print-rtl.c $(GCONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
 rtlanal.o : rtlanal.c $(CONFIG_H) $(SYSTEM_H) toplev.h $(RTL_H) \
-   hard-reg-set.h $(TM_P_H) insn-config.h $(RECOG_H) flags.h
+   hard-reg-set.h $(TM_P_H) insn-config.h $(RECOG_H) real.h flags.h
 
 errors.o : errors.c $(GCONFIG_H) $(SYSTEM_H) errors.h
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
@@ -1430,7 +1438,7 @@ expr.o : expr.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h function.h \
 builtins.o : builtins.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    $(TARGET_H) function.h $(REGS_H) $(EXPR_H) $(OPTABS_H) insn-config.h \
    $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \
-   except.h $(TM_P_H) $(PREDICT_H) libfuncs.h real.h
+   except.h $(TM_P_H) $(PREDICT_H) libfuncs.h real.h langhooks.h
 calls.o : calls.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    $(EXPR_H) langhooks.h \
    libfuncs.h $(REGS_H) toplev.h output.h function.h $(TIMEVAR_H) $(TM_P_H)
@@ -1449,7 +1457,7 @@ dbxout.o : dbxout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
 debug.o : debug.c debug.h $(CONFIG_H) $(SYSTEM_H)
 sdbout.o : sdbout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
    function.h $(EXPR_H) output.h hard-reg-set.h $(REGS_H) real.h \
-   insn-config.h $(OBSTACK_H) xcoffout.h c-pragma.h ggc.h \
+   insn-config.h xcoffout.h c-pragma.h ggc.h \
    sdbout.h toplev.h $(TM_P_H) except.h debug.h langhooks.h gt-sdbout.h
 dwarfout.o : dwarfout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf.h \
    flags.h insn-config.h reload.h output.h toplev.h $(TM_P_H) \
@@ -1462,7 +1470,7 @@ dwarf2out.o : dwarf2out.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf2.h \
 dwarf2asm.o : dwarf2asm.c $(CONFIG_H) $(SYSTEM_H) flags.h $(RTL_H) $(TREE_H) \
    output.h dwarf2asm.h $(TM_P_H) $(GGC_H) gt-dwarf2asm.h
 vmsdbgout.o : vmsdbgout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
-   output.h vmsdbg.h debug.h langhooks.h
+   output.h vmsdbg.h debug.h langhooks.h function.h
 xcoffout.o : xcoffout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) xcoffout.h \
    flags.h toplev.h output.h dbxout.h $(GGC_H) $(TARGET_H)
 emit-rtl.o : emit-rtl.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
@@ -1571,7 +1579,8 @@ ra-build.o : ra-build.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_P_H) \
 ra-colorize.o : ra-colorize.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_P_H) \
     function.h $(REGS_H) hard-reg-set.h $(BASIC_BLOCK_H) df.h output.h ra.h
 ra-debug.o : ra-debug.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H)  insn-config.h \
-   $(RECOG_H) function.h hard-reg-set.h $(BASIC_BLOCK_H) df.h output.h ra.h
+   $(RECOG_H) function.h hard-reg-set.h $(BASIC_BLOCK_H) df.h output.h ra.h \
+   $(TM_P_H)
 ra-rewrite.o : ra-rewrite.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_P_H) \
    function.h $(REGS_H) hard-reg-set.h $(BASIC_BLOCK_H) df.h expr.h \
    output.h except.h ra.h reload.h insn-config.h
@@ -1696,6 +1705,21 @@ s-config : $(md_file) genconfig$(build_exeext) $(srcdir)/move-if-change
 	./genconfig$(build_exeext) $(md_file) > tmp-config.h
 	$(SHELL) $(srcdir)/move-if-change tmp-config.h insn-config.h
 	$(STAMP) s-config
+
+insn-conditions.c: s-conditions ; @true
+s-conditions : $(md_file) genconditions$(build_exeext) $(srcdir)/move-if-change
+	./genconditions$(build_exeext) $(md_file) > tmp-conditions.c
+	$(SHELL) $(srcdir)/move-if-change tmp-conditions.c insn-conditions.c
+	$(STAMP) s-conditions
+
+insn-conditions.o : insn-conditions.c $(GCONFIG_H) $(SYSTEM_H) $(RTL_H) \
+  $(TM_P_H) $(REGS_H) function.h $(RECOG_H) real.h output.h flags.h \
+  hard-reg-set.h resource.h toplev.h reload.h gensupport.h insn-constants.h
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) insn-conditions.c
+
+dummy-conditions.o : dummy-conditions.c $(HCONFIG_H) $(SYSTEM_H) gensupport.h
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) \
+	    $(srcdir)/dummy-conditions.c $(OUTPUT_OPTION)
 
 insn-flags.h: s-flags ; @true
 s-flags : $(md_file) genflags$(build_exeext) $(srcdir)/move-if-change
@@ -1904,88 +1928,109 @@ read-rtl.o: read-rtl.c $(HCONFIG_H) $(SYSTEM_H) $(RTL_H) \
 gensupport.o: gensupport.c $(RTL_H) $(OBSTACK_H) $(SYSTEM_H) errors.h gensupport.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/gensupport.c $(OUTPUT_OPTION)
 
-genconfig$(build_exeext) : genconfig.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
+genconfig$(build_exeext) : genconfig.o $(HOST_RTL) $(HOST_SUPPORT) \
+  $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
-	  genconfig.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBS)
+	  genconfig.o $(HOST_RTL) $(HOST_SUPPORT) $(HOST_PRINT) \
+	    $(HOST_ERRORS) $(HOST_LIBS)
 
 genconfig.o : genconfig.c $(RTL_H) $(HCONFIG_H) \
   $(SYSTEM_H) errors.h gensupport.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genconfig.c $(OUTPUT_OPTION)
 
-genflags$(build_exeext) : genflags.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
+genflags$(build_exeext) : genflags.o $(HOST_RTL) $(HOST_SUPPORT) \
+  $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
-	 genflags.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBS)
+	 genflags.o $(HOST_RTL) $(HOST_SUPPORT) $(HOST_PRINT) \
+	    $(HOST_ERRORS) $(HOST_LIBS)
 
 genflags.o : genflags.c $(RTL_H) $(OBSTACK_H) $(HCONFIG_H) \
   $(SYSTEM_H) errors.h gensupport.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genflags.c $(OUTPUT_OPTION)
 
-gencodes$(build_exeext) : gencodes.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
+gencodes$(build_exeext) : gencodes.o $(HOST_RTL) $(HOST_SUPPORT) \
+  $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
-	 gencodes.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBS)
+	 gencodes.o $(HOST_RTL) $(HOST_SUPPORT) $(HOST_PRINT) \
+	    $(HOST_ERRORS) $(HOST_LIBS)
 
 gencodes.o : gencodes.c $(RTL_H) $(HCONFIG_H) \
   $(SYSTEM_H) errors.h gensupport.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/gencodes.c $(OUTPUT_OPTION)
 
-genconstants$(build_exeext) : genconstants.o $(HOST_RTL) $(HOST_ERRORS) $(HOST_LIBDEPS)
+genconstants$(build_exeext) : genconstants.o $(HOST_RTL) $(HOST_EARLY_SUPPORT) \
+  $(HOST_ERRORS) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
-	 genconstants.o $(HOST_RTL) $(HOST_ERRORS) $(HOST_LIBS)
+	 genconstants.o $(HOST_EARLY_SUPPORT) $(HOST_RTL) \
+	    $(HOST_ERRORS) $(HOST_LIBS)
 
 genconstants.o : genconstants.c $(RTL_H) $(HCONFIG_H) $(SYSTEM_H) errors.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genconstants.c $(OUTPUT_OPTION)
 
-genemit$(build_exeext) : genemit.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
+genemit$(build_exeext) : genemit.o $(HOST_RTL) $(HOST_SUPPORT) \
+  $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
-	 genemit.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBS)
+	 genemit.o $(HOST_RTL) $(HOST_SUPPORT) $(HOST_PRINT) \
+	    $(HOST_ERRORS) $(HOST_LIBS)
 
 genemit.o : genemit.c $(RTL_H) $(HCONFIG_H) $(SYSTEM_H) errors.h gensupport.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genemit.c $(OUTPUT_OPTION)
 
-genopinit$(build_exeext) : genopinit.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
+genopinit$(build_exeext) : genopinit.o $(HOST_RTL) $(HOST_SUPPORT) \
+  $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
-	 genopinit.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBS)
+	 genopinit.o $(HOST_RTL) $(HOST_SUPPORT) $(HOST_PRINT) \
+	    $(HOST_ERRORS) $(HOST_LIBS)
 
 genopinit.o : genopinit.c $(RTL_H) $(HCONFIG_H) \
   $(SYSTEM_H) errors.h gensupport.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genopinit.c $(OUTPUT_OPTION)
 
-genrecog$(build_exeext) : genrecog.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
+genrecog$(build_exeext) : genrecog.o $(HOST_RTL) $(HOST_SUPPORT) \
+    $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
-	 genrecog.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBS)
+	 genrecog.o $(HOST_RTL) $(HOST_SUPPORT) $(HOST_PRINT) \
+	    $(HOST_ERRORS) $(HOST_LIBS)
 
 genrecog.o : genrecog.c $(RTL_H) $(HCONFIG_H) \
   $(SYSTEM_H) errors.h gensupport.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genrecog.c $(OUTPUT_OPTION)
 
-genextract$(build_exeext) : genextract.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
+genextract$(build_exeext) : genextract.o $(HOST_RTL) $(HOST_SUPPORT) \
+  $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
-	 genextract.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBS)
+	 genextract.o $(HOST_RTL) $(HOST_SUPPORT) $(HOST_PRINT) \
+	    $(HOST_ERRORS) $(HOST_LIBS)
 
 genextract.o : genextract.c $(RTL_H) $(HCONFIG_H) \
   $(SYSTEM_H) insn-config.h errors.h gensupport.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genextract.c $(OUTPUT_OPTION)
 
-genpeep$(build_exeext) : genpeep.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
+genpeep$(build_exeext) : genpeep.o $(HOST_RTL) $(HOST_SUPPORT) \
+  $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
-	 genpeep.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBS)
+	 genpeep.o $(HOST_RTL) $(HOST_SUPPORT) $(HOST_PRINT) \
+	    $(HOST_ERRORS) $(HOST_LIBS)
 
 genpeep.o : genpeep.c $(RTL_H) $(HCONFIG_H) $(SYSTEM_H) errors.h gensupport.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genpeep.c $(OUTPUT_OPTION)
 
-genattr$(build_exeext) : genattr.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
+genattr$(build_exeext) : genattr.o $(HOST_RTL) $(HOST_SUPPORT) \
+  $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
-	 genattr.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBS)
+	 genattr.o $(HOST_RTL) $(HOST_SUPPORT) $(HOST_PRINT) \
+	    $(HOST_ERRORS) $(HOST_LIBS)
 
 genattr.o : genattr.c $(RTL_H) $(HCONFIG_H) $(SYSTEM_H) errors.h gensupport.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genattr.c $(OUTPUT_OPTION)
 
 genattrtab$(build_exeext) : genattrtab.o genautomata.o \
-  $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_VARRAY) $(HOST_LIBDEPS)
+  $(HOST_RTL) $(HOST_SUPPORT) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_VARRAY) \
+  $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
 	 genattrtab.o genautomata.o \
-	 $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_VARRAY) \
-	 $(HOST_LIBS) -lm
+	 $(HOST_RTL) $(HOST_SUPPORT) $(HOST_PRINT) $(HOST_ERRORS) \
+	 $(HOST_VARRAY) $(HOST_LIBS) -lm
 
 genattrtab.o : genattrtab.c $(RTL_H) $(OBSTACK_H) $(HCONFIG_H) \
   $(SYSTEM_H) errors.h $(GGC_H) gensupport.h genattrtab.h
@@ -1995,9 +2040,11 @@ genautomata.o : genautomata.c $(RTL_H) $(OBSTACK_H) $(HCONFIG_H) \
   $(SYSTEM_H) errors.h varray.h genattrtab.h $(HASHTAB_H)
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genautomata.c $(OUTPUT_OPTION)
 
-genoutput$(build_exeext) : genoutput.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
+genoutput$(build_exeext) : genoutput.o $(HOST_RTL) $(HOST_SUPPORT) \
+  $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
-	 genoutput.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBS)
+	 genoutput.o $(HOST_RTL) $(HOST_SUPPORT) $(HOST_PRINT) \
+	    $(HOST_ERRORS) $(HOST_LIBS)
 
 genoutput.o : genoutput.c $(RTL_H) $(HCONFIG_H) \
   $(SYSTEM_H) errors.h gensupport.h
@@ -2027,23 +2074,41 @@ gengtype.o : gengtype.c gengtype.h $(HCONFIG_H) $(SYSTEM_H) real.h rtl.def \
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) \
 	  $(srcdir)/gengtype.c $(OUTPUT_OPTION)
 
-gengtype-lex.o : gengtype-lex.c gengtype.h gengtype-yacc.c \
+gengtype-lex.o : $(srcdir)/gengtype-lex.c gengtype.h $(srcdir)/gengtype-yacc.c \
   $(HCONFIG_H) $(SYSTEM_H)
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) \
 	  $(srcdir)/gengtype-lex.c $(OUTPUT_OPTION)
 
-gengtype-yacc.o : gengtype-yacc.c gengtype.h $(HCONFIG_H) $(SYSTEM_H)
+gengtype-yacc.o : $(srcdir)/gengtype-yacc.c gengtype.h $(HCONFIG_H) $(SYSTEM_H)
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) \
 	  $(srcdir)/gengtype-yacc.c $(OUTPUT_OPTION)
 
+# The sed command works around a bug in flex-2.5.4.
 $(srcdir)/gengtype-lex.c : $(srcdir)/gengtype-lex.l
-	$(FLEX) $(FLEXFLAGS) -o$@ $(srcdir)/gengtype-lex.l \
-	 || ( rm -f $@ && false )
+	cd $(srcdir) && \
+	$(FLEX) $(FLEXFLAGS) -t -o$@ gengtype-lex.l | \
+	  sed 's/^\(char msg\[\];\)/yyconst \1/' > g-$$$$ ; \
+	if test $$? -eq 0 ; then \
+	  mv -f g-$$$$ gengtype-lex.c ; \
+	else \
+	  rm -f g-$$$$.* ; \
+	  false ; \
+	fi
 
 $(srcdir)/gengtype-yacc.c: $(srcdir)/gengtype-yacc.y
 	(cd $(srcdir) && \
 	 $(BISON) $(BISONFLAGS) -d -o gengtype-yacc.c gengtype-yacc.y || \
 	 ( rm -f $@ && false ) )
+
+genconditions$(build_exeext) : genconditions.o $(HOST_EARLY_SUPPORT) \
+  $(HOST_RTL) $(HOST_ERRORS) $(HOST_LIBDEPS)
+	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
+	 genconditions.o $(HOST_EARLY_SUPPORT) $(HOST_RTL) \
+	    $(HOST_ERRORS) $(HOST_LIBS)
+
+genconditions.o : genconditions.c $(RTL_H) $(HCONFIG_H) $(SYSTEM_H) errors.h
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) \
+		$(srcdir)/genconditions.c $(OUTPUT_OPTION)
 
 #
 # Compile the libraries to be used by gen*.
@@ -2081,7 +2146,7 @@ $(BUILD_PREFIX_1)varray.o: varray.c $(HCONFIG_H) $(SYSTEM_H) varray.h $(RTL_H) \
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) \
 		$(BUILD_PREFIX)varray.c $(OUTPUT_OPTION)
 
-$(BUILD_PREFIX_1)ggc-none.o: ggc-none.c $(HCONFIG_H) $(SYSTEM_H) $(GCC_H)
+$(BUILD_PREFIX_1)ggc-none.o: ggc-none.c $(HCONFIG_H) $(SYSTEM_H) $(GGC_H)
 	rm -f $(BUILD_PREFIX)ggc-none.c
 	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/ggc-none.c > $(BUILD_PREFIX)ggc-none.c
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(BUILD_PREFIX)ggc-none.c $(OUTPUT_OPTION)
@@ -2548,6 +2613,7 @@ $(docdir)/fsf-funding.7: $(docdir)/include/funding.texi
 INTL_MOSTLYCLEAN = intl.mostlyclean
 mostlyclean: $(INTL_MOSTLYCLEAN) lang.mostlyclean
 	-rm -f $(STAGESTUFF)
+	-rm -f *$(coverageexts)
 	-rm -rf libgcc
 # Delete the temporary source copies for cross compilation.
 	-rm -f $(BUILD_PREFIX_1)rtl.c $(BUILD_PREFIX_1)print-rtl.c
@@ -3257,7 +3323,7 @@ STAGE2_FLAGS_TO_PASS = \
 stage1_build:
 	$(MAKE) CC="$(CC)" libdir=$(libdir) LANGUAGES="$(BOOT_LANGUAGES)" \
 		CFLAGS="$(STAGE1_CFLAGS)" MAKEINFO="$(MAKEINFO)" \
-		MAKEINFOFLAGS="$(MAKEINFOFLAGS)"
+		MAKEINFOFLAGS="$(MAKEINFOFLAGS)" COVERAGE_FLAGS=
 	$(STAMP) stage1_build
 	echo stage1_build > stage_last
 

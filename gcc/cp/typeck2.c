@@ -1196,8 +1196,8 @@ build_m_component_ref (datum, component)
 			| cp_type_quals (TREE_TYPE (datum)));
 
 	  /* There's no such thing as a mutable pointer-to-member, so
-	     we don't need to deal with that here like we do in
-	     build_component_ref.  */
+	     things are not as complex as they are for references to
+	     non-static data members.  */
 	  field_type = cp_build_qualified_type (field_type, type_quals);
 	}
     }
@@ -1309,8 +1309,8 @@ build_functional_cast (exp, parms)
       return get_target_expr (exp);
     }
 
-  exp = build_method_call (NULL_TREE, complete_ctor_identifier, parms,
-			   TYPE_BINFO (type), LOOKUP_NORMAL);
+  exp = build_special_member_call (NULL_TREE, complete_ctor_identifier, parms,
+				   TYPE_BINFO (type), LOOKUP_NORMAL);
 
   if (exp == error_mark_node)
     return error_mark_node;

@@ -27,7 +27,6 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "tree.h"
 #include "cp-tree.h"
-#include "obstack.h"
 #include "rtl.h"
 #include "expr.h"
 #include "output.h"
@@ -53,9 +52,6 @@ enum mangling_flags
 };
 
 typedef enum mangling_flags mangling_flags;
-
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
 
 static void do_build_assign_ref PARAMS ((tree));
 static void do_build_copy_constructor PARAMS ((tree));
@@ -165,12 +161,26 @@ hack_identifier (value, name)
 	  return error_mark_node;
 	}
       TREE_USED (current_class_ptr) = 1;
+      if (processing_template_decl)
+	value = build_min_nt (COMPONENT_REF, current_class_ref, name);
+      else
+	{
+	  tree access_type = current_class_type;
+	  
+	  while (!DERIVED_FROM_P (context_for_name_lookup (value), 
+				  access_type))
+	    {
+	      access_type = TYPE_CONTEXT (access_type);
+	      while (DECL_P (access_type))
+		access_type = DECL_CONTEXT (access_type);
+	    }
 
-      /* Mark so that if we are in a constructor, and then find that
-	 this field was initialized by a base initializer,
-	 we can emit an error message.  */
-      TREE_USED (value) = 1;
-      value = build_component_ref (current_class_ref, name, NULL_TREE, 1);
+	  enforce_access (access_type, value);
+	  value 
+	    = build_class_member_access_expr (current_class_ref, value,
+					      /*access_path=*/NULL_TREE,
+					      /*preserve_reference=*/false);
+	}
     }
   else if ((TREE_CODE (value) == FUNCTION_DECL
 	    && DECL_FUNCTION_MEMBER_P (value))
@@ -183,7 +193,7 @@ hack_identifier (value, name)
 	value = OVL_CURRENT (value);
 
       decl = maybe_dummy_object (DECL_CONTEXT (value), 0);
-      value = build_component_ref (decl, name, NULL_TREE, 1);
+      value = finish_class_member_access_expr (decl, name);
     }
   else if (really_overloaded_fn (value))
     ;
@@ -626,28 +636,34 @@ do_build_assign_ref (fndecl)
     }
   else
     {
-      tree fields = TYPE_FIELDS (current_class_type);
-      int n_bases = CLASSTYPE_N_BASECLASSES (current_class_type);
-      tree binfos = TYPE_BINFO_BASETYPES (current_class_type);
+      tree fields;
       int cvquals = cp_type_quals (TREE_TYPE (parm));
       int i;
 
-      for (i = 0; i < n_bases; ++i)
+      /* Assign to each of thedirect base classes.  */
+      for (i = 0; i < CLASSTYPE_N_BASECLASSES (current_class_type); ++i)
 	{
-	  /* We must deal with the binfo's directly as a direct base
-	     might be inaccessible due to ambiguity.  */
-	  tree binfo = TREE_VEC_ELT (binfos, i);
-	  tree src = build_base_path (PLUS_EXPR, parm, binfo, 1);
-	  tree dst = build_base_path (PLUS_EXPR, current_class_ref, binfo, 1);
+	  tree binfo;
+	  tree converted_parm;
 
-	  tree expr = build_method_call (dst,
-					 ansi_assopname (NOP_EXPR),
-					 build_tree_list (NULL_TREE, src),
-					 binfo,
-					 LOOKUP_NORMAL | LOOKUP_NONVIRTUAL);
-	  finish_expr_stmt (expr);
+	  binfo = BINFO_BASETYPE (TYPE_BINFO (current_class_type), i);
+	  /* We must convert PARM directly to the base class
+	     explicitly since the base class may be ambiguous.  */
+	  converted_parm = build_base_path (PLUS_EXPR, parm, binfo, 1);
+	  /* Call the base class assignment operator.  */
+	  finish_expr_stmt 
+	    (build_special_member_call (current_class_ref, 
+					ansi_assopname (NOP_EXPR),
+					build_tree_list (NULL_TREE, 
+							 converted_parm),
+					binfo,
+					LOOKUP_NORMAL | LOOKUP_NONVIRTUAL));
 	}
-      for (; fields; fields = TREE_CHAIN (fields))
+
+      /* Assign to each of the non-static data members.  */
+      for (fields = TYPE_FIELDS (current_class_type); 
+	   fields; 
+	   fields = TREE_CHAIN (fields))
 	{
 	  tree comp, init, t;
 	  tree field = fields;

@@ -53,7 +53,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "recog.h"
 #include "output.h"
 #include "basic-block.h"
-#include "obstack.h"
 #include "toplev.h"
 #include "hashtab.h"
 #include "ggc.h"
@@ -4425,6 +4424,15 @@ assign_parms (fndecl)
 	  passed_pointer = 1;
 	  passed_mode = nominal_mode = Pmode;
 	}
+      /* See if the frontend wants to pass this by invisible reference.  */
+      else if (passed_type != nominal_type
+	       && POINTER_TYPE_P (passed_type)
+	       && TREE_TYPE (passed_type) == nominal_type)
+	{
+	  nominal_type = passed_type;
+	  passed_pointer = 1;
+	  passed_mode = nominal_mode = Pmode;
+	}
 
       promoted_mode = passed_mode;
 
@@ -5689,12 +5697,8 @@ trampoline_address (function)
 #else
   /* If rounding needed, allocate extra space
      to ensure we have TRAMPOLINE_SIZE bytes left after rounding up.  */
-#ifdef TRAMPOLINE_ALIGNMENT
 #define TRAMPOLINE_REAL_SIZE \
   (TRAMPOLINE_SIZE + (TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT) - 1)
-#else
-#define TRAMPOLINE_REAL_SIZE (TRAMPOLINE_SIZE)
-#endif
   tramp = assign_stack_local_1 (BLKmode, TRAMPOLINE_REAL_SIZE, 0,
 				fp ? fp : cfun);
 #endif
@@ -5729,7 +5733,6 @@ static rtx
 round_trampoline_addr (tramp)
      rtx tramp;
 {
-#ifdef TRAMPOLINE_ALIGNMENT
   /* Round address up to desired boundary.  */
   rtx temp = gen_reg_rtx (Pmode);
   rtx addend = GEN_INT (TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT - 1);
@@ -5739,7 +5742,7 @@ round_trampoline_addr (tramp)
 			       temp, 0, OPTAB_LIB_WIDEN);
   tramp = expand_simple_binop (Pmode, AND, temp, mask,
 			       temp, 0, OPTAB_LIB_WIDEN);
-#endif
+
   return tramp;
 }
 
@@ -6412,8 +6415,6 @@ expand_main_function ()
 #endif
 }
 
-extern struct obstack permanent_obstack;
-
 /* The PENDING_SIZES represent the sizes of variable-sized types.
    Create RTL for the various sizes now (using temporary variables),
    so that we can refer to the sizes from the RTL we are generating

@@ -256,6 +256,12 @@ cp_convert_to_pointer (type, expr, force)
       force_fit_type (expr, 0);
       return expr;
     }
+  else if ((TYPE_PTRMEM_P (type) || TYPE_PTRMEMFUNC_P (type))
+	   && INTEGRAL_CODE_P (form))
+    {
+      error ("invalid conversion from '%T' to '%T'", intype, type);
+      return error_mark_node;
+    }
 
   if (INTEGRAL_CODE_P (form))
     {
@@ -771,21 +777,13 @@ ocp_convert (type, expr, convtype, flags)
 	   the target with the temp (see [dcl.init]).  */
 	ctor = build_user_type_conversion (type, ctor, flags);
       else
-	ctor = build_method_call (NULL_TREE, 
-				  complete_ctor_identifier,
-				  build_tree_list (NULL_TREE, ctor),
-				  TYPE_BINFO (type), flags);
+	ctor = build_special_member_call (NULL_TREE, 
+					  complete_ctor_identifier,
+					  build_tree_list (NULL_TREE, ctor),
+					  TYPE_BINFO (type), flags);
       if (ctor)
 	return build_cplus_new (type, ctor);
     }
-
-  /* If TYPE or TREE_TYPE (E) is not on the permanent_obstack,
-     then it won't be hashed and hence compare as not equal,
-     even when it is.  */
-  if (code == ARRAY_TYPE
-      && TREE_TYPE (TREE_TYPE (e)) == TREE_TYPE (type)
-      && index_type_equal (TYPE_DOMAIN (TREE_TYPE (e)), TYPE_DOMAIN (type)))
-    return e;
 
   if (flags & LOOKUP_COMPLAIN)
     error ("conversion from `%T' to non-scalar type `%T' requested",

@@ -426,17 +426,6 @@ cond_exec_process_if_block (ce_info, do_multiple_p)
 #ifdef IFCVT_MODIFY_TESTS
   /* If the machine description needs to modify the tests, such as setting a
      conditional execution register from a comparison, it can do so here.  */
-  IFCVT_MODIFY_TESTS (true_expr, false_expr, test_bb, then_bb, else_bb,
-		      join_bb);
-
-  /* See if the conversion failed */
-  if (!true_expr || !false_expr)
-    goto fail;
-#endif
-
-#ifdef IFCVT_MODIFY_TESTS
-  /* If the machine description needs to modify the tests, such as setting a
-     conditional execution register from a comparison, it can do so here.  */
   IFCVT_MODIFY_TESTS (ce_info, true_expr, false_expr);
 
   /* See if the conversion failed */
@@ -459,6 +448,9 @@ cond_exec_process_if_block (ce_info, do_multiple_p)
     {
       basic_block bb = test_bb;
       basic_block last_test_bb = ce_info->last_test_bb;
+
+      if (! false_expr)
+	goto fail;
 
       do
 	{
@@ -1376,7 +1368,7 @@ noce_get_alt_condition (if_info, target, earliest)
 
   /* X may not be mentioned in the range (cond_earliest, jump].  */
   for (insn = if_info->jump; insn != *earliest; insn = PREV_INSN (insn))
-    if (INSN_P (insn) && reg_mentioned_p (if_info->x, insn))
+    if (INSN_P (insn) && reg_overlap_mentioned_p (if_info->x, PATTERN (insn)))
       return NULL;
 
   /* A and B may not be modified in the range [cond_earliest, jump).  */
@@ -1782,16 +1774,18 @@ noce_process_if_block (ce_info)
 	  || GET_CODE (insn_b) != INSN
 	  || (set_b = single_set (insn_b)) == NULL_RTX
 	  || ! rtx_equal_p (x, SET_DEST (set_b))
-	  || reg_mentioned_p (x, cond)
-	  || reg_mentioned_p (x, a)
-	  || reg_mentioned_p (x, SET_SRC (set_b)))
+	  || reg_overlap_mentioned_p (x, cond)
+	  || reg_overlap_mentioned_p (x, a)
+	  || reg_overlap_mentioned_p (x, SET_SRC (set_b)))
 	insn_b = set_b = NULL_RTX;
     }
   b = (set_b ? SET_SRC (set_b) : x);
 
-  /* X may not be mentioned in the range (cond_earliest, jump].  */
+  /* X may not be mentioned in the range (cond_earliest, jump]. 
+     Note the use of reg_overlap_mentioned_p, which handles memories
+     properly, as opposed to reg_mentioned_p, which doesn't.  */
   for (insn = jump; insn != if_info.cond_earliest; insn = PREV_INSN (insn))
-    if (INSN_P (insn) && reg_mentioned_p (x, insn))
+    if (INSN_P (insn) && reg_overlap_mentioned_p (x, PATTERN (insn)))
       return FALSE;
 
   /* A and B may not be modified in the range [cond_earliest, jump).  */
@@ -2775,7 +2769,7 @@ find_if_case_2 (test_bb, then_edge, else_edge)
 	     test_bb->index, else_bb->index);
 
   /* ELSE is small.  */
-  if (count_bb_insns (then_bb) > BRANCH_COST)
+  if (count_bb_insns (else_bb) > BRANCH_COST)
     return FALSE;
 
   /* Registers set are dead, or are predicable.  */

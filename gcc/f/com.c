@@ -14177,6 +14177,7 @@ ffe_init_options ()
   flag_reduce_all_givs = 1;
   flag_argument_noalias = 2;
   flag_merge_constants = 2;
+  flag_finite_math_only = 1;
   flag_errno_math = 0;
   flag_complex_divide_method = 1;
 }
@@ -15313,10 +15314,10 @@ read_name_map (dirname)
 
   dirlen = strlen (dirname);
   separator_needed = dirlen != 0 && dirname[dirlen - 1] != '/';
-  name = (char *) xmalloc (dirlen + strlen (FILE_NAME_MAP_FILE) + 2);
-  strcpy (name, dirname);
-  name[dirlen] = '/';
-  strcpy (name + dirlen + separator_needed, FILE_NAME_MAP_FILE);
+  if (separator_needed)
+    name = concat (dirname, "/", FILE_NAME_MAP_FILE, NULL);
+  else
+    name = concat (dirname, FILE_NAME_MAP_FILE, NULL);
   f = fopen (name, "r");
   free (name);
   if (!f)
@@ -15346,10 +15347,10 @@ read_name_map (dirname)
 	    ptr->map_to = to;
 	  else
 	    {
-	      ptr->map_to = xmalloc (dirlen + strlen (to) + 2);
-	      strcpy (ptr->map_to, dirname);
-	      ptr->map_to[dirlen] = '/';
-	      strcpy (ptr->map_to + dirlen + separator_needed, to);
+	      if (separator_needed)
+		ptr->map_to = concat (dirname, "/", to, NULL);
+	      else
+		ptr->map_to = concat (dirname, to, NULL);
 	      free (to);
 	    }
 

@@ -18,9 +18,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include "mips/mips.h"
-#include "mips/abi64.h"
-
 #undef WCHAR_TYPE
 #define WCHAR_TYPE "int"
 
@@ -67,25 +64,18 @@ do {								\
 /* Write the extra assembler code needed to declare an object properly.  */
 
 #undef ASM_DECLARE_OBJECT_NAME
-#define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)		\
-  do {								\
-    fprintf (FILE, "%s", TYPE_ASM_OP);				\
-    assemble_name (FILE, NAME);					\
-    putc (',', FILE);						\
-    fprintf (FILE, TYPE_OPERAND_FMT, "object");			\
-    putc ('\n', FILE);						\
-    size_directive_output = 0;					\
-    if (!flag_inhibit_size_directive && DECL_SIZE (DECL))	\
-      {								\
-	size_directive_output = 1;				\
-	fprintf (FILE, "%s", SIZE_ASM_OP);			\
-	assemble_name (FILE, NAME);				\
-	fprintf (FILE, ",");					\
-	fprintf (FILE, HOST_WIDE_INT_PRINT_DEC,			\
-		 int_size_in_bytes (TREE_TYPE (DECL)));		\
-	fprintf (FILE, "\n");					\
-      }								\
-    mips_declare_object (FILE, NAME, "", ":\n", 0);		\
+#define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)			\
+  do {									\
+    HOST_WIDE_INT size;							\
+    ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");			\
+    size_directive_output = 0;						\
+    if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		\
+      {									\
+	size_directive_output = 1;					\
+	size = int_size_in_bytes (TREE_TYPE (DECL));			\
+	ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, size);			\
+      }									\
+    mips_declare_object (FILE, NAME, "", ":\n", 0);			\
   } while (0)
 
 #define TARGET_ASM_UNIQUE_SECTION  mips_unique_section
@@ -195,14 +185,13 @@ void FN ()							\
         %{!dynamic-linker:-dynamic-linker /lib/ld.so.1}} \
         %{static:-static}}}"
 
-
 #undef SUBTARGET_ASM_SPEC
 #define SUBTARGET_ASM_SPEC "\
 %{mabi=64: -64} \
 %{!fno-PIC:%{!fno-pic:-KPIC}} \
 %{fno-PIC:-non_shared} %{fno-pic:-non_shared}"
 
-#undef SUBTARGET_ASM_DEBUGGING_SPEC
+#undef  SUBTARGET_ASM_DEBUGGING_SPEC
 #define SUBTARGET_ASM_DEBUGGING_SPEC "-g0"
 
 /* The MIPS assembler has different syntax for .set. We set it to
@@ -220,17 +209,6 @@ void FN ()							\
 	fputc ( '\n', FILE);						\
  } while (0)
 
-#undef ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL
-#define ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL(FILE, SY, HI, LO)    	\
-  do {									\
-	fputc ('\t', FILE);						\
-	assemble_name (FILE, SY);					\
-	fputc ('=', FILE);						\
-	assemble_name (FILE, HI);					\
-	fputc ('-', FILE);						\
-	assemble_name (FILE, LO);					\
-  } while (0)
-
 #undef ASM_DECLARE_FUNCTION_NAME
 #define ASM_DECLARE_FUNCTION_NAME(STREAM, NAME, DECL)			\
   do {									\
@@ -240,11 +218,7 @@ void FN ()							\
 	assemble_name (STREAM, NAME);					\
 	putc ('\n', STREAM);						\
       }									\
-    fprintf (STREAM, "\t%s\t ", TYPE_ASM_OP);				\
-    assemble_name (STREAM, NAME);					\
-    putc (',', STREAM);							\
-    fprintf (STREAM, TYPE_OPERAND_FMT, "function");			\
-    putc ('\n', STREAM);						\
+    ASM_OUTPUT_TYPE_DIRECTIVE (STREAM, NAME, "function");		\
     assemble_name (STREAM, NAME);					\
     fputs (":\n", STREAM);						\
   } while (0)

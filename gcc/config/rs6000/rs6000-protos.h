@@ -64,8 +64,12 @@ extern int non_add_cint_operand PARAMS ((rtx, enum machine_mode));
 extern int non_logical_cint_operand PARAMS ((rtx, enum machine_mode));
 extern int logical_operand PARAMS ((rtx, enum machine_mode));
 extern int mask_operand PARAMS ((rtx, enum machine_mode));
+extern int mask_operand_wrap PARAMS ((rtx, enum machine_mode));
 extern int mask64_operand PARAMS ((rtx, enum machine_mode));
+extern int mask64_2_operand PARAMS ((rtx, enum machine_mode));
+extern void build_mask64_2_operands PARAMS ((rtx, rtx *));
 extern int and64_operand PARAMS ((rtx, enum machine_mode));
+extern int and64_2_operand PARAMS ((rtx, enum machine_mode));
 extern int and_operand PARAMS ((rtx, enum machine_mode));
 extern int count_register_operand PARAMS ((rtx, enum machine_mode));
 extern int xer_operand PARAMS ((rtx, enum machine_mode));
@@ -98,6 +102,8 @@ extern int addrs_ok_for_quad_peep PARAMS ((rtx, rtx));
 extern enum reg_class secondary_reload_class PARAMS ((enum reg_class,
 						      enum machine_mode, rtx));
 extern int ccr_bit PARAMS ((rtx, int));
+extern int extract_MB PARAMS ((rtx));
+extern int extract_ME PARAMS ((rtx));
 extern void print_operand PARAMS ((FILE *, rtx, int));
 extern void print_operand_address PARAMS ((FILE *, rtx));
 extern enum rtx_code rs6000_reverse_condition PARAMS ((enum machine_mode,
@@ -145,6 +151,7 @@ extern void setup_incoming_varargs PARAMS ((CUMULATIVE_ARGS *,
 					    int *, int));
 extern struct rtx_def *rs6000_va_arg PARAMS ((tree, tree));
 extern void output_mi_thunk PARAMS ((FILE *, tree, int, tree));
+extern int function_ok_for_sibcall PARAMS ((tree));
 #ifdef ARGS_SIZE_RTX
 /* expr.h defines ARGS_SIZE_RTX and `enum direction' */
 extern enum direction function_arg_padding PARAMS ((enum machine_mode, tree));
@@ -180,6 +187,8 @@ extern void rs6000_emit_load_toc_table PARAMS ((int));
 extern void rs6000_aix_emit_builtin_unwind_init PARAMS ((void));
 extern void rs6000_emit_epilogue PARAMS ((int));
 extern void debug_stack_info PARAMS ((rs6000_stack_t *));
+extern const char *output_isel PARAMS ((rtx *));
+extern int vrsave_operation PARAMS ((rtx, enum machine_mode));
 
 extern void machopic_output_stub PARAMS ((FILE *, const char *, const char *));
 

@@ -207,23 +207,8 @@ read_process_identifier (pyylval)
 
   if (C_IS_RESERVED_WORD (id))
     {
-      /* Possibly replace the IDENTIFIER_NODE with a magic cookie.
-	 Can't put yylval.code numbers in ridpointers[].  Bleah.  */
-
-      switch (C_RID_CODE (id))
-	{
-	case RID_BITAND: pyylval->code = BIT_AND_EXPR;	return '&';
-	case RID_AND_EQ: pyylval->code = BIT_AND_EXPR;	return ASSIGN;
-	case RID_BITOR:	 pyylval->code = BIT_IOR_EXPR;	return '|';
-	case RID_OR_EQ:	 pyylval->code = BIT_IOR_EXPR;	return ASSIGN;
-	case RID_XOR:	 pyylval->code = BIT_XOR_EXPR;	return '^';
-	case RID_XOR_EQ: pyylval->code = BIT_XOR_EXPR;	return ASSIGN;
-	case RID_NOT_EQ: pyylval->code = NE_EXPR;	return EQCOMPARE;
-
-	default:
-	  pyylval->ttype = ridpointers[C_RID_CODE (id)];
-	  return C_RID_YYCODE (id);
-	}
+      pyylval->ttype = ridpointers[C_RID_CODE (id)];
+      return C_RID_YYCODE (id);
     }
 
   /* Make sure that user does not collide with our internal naming
@@ -610,8 +595,8 @@ identifier_type (decl)
   if (looking_for_template && really_overloaded_fn (decl))
     {
       /* See through a baselink.  */
-      if (TREE_CODE (decl) == TREE_LIST)
-	decl = TREE_VALUE (decl);
+      if (TREE_CODE (decl) == BASELINK)
+	decl = BASELINK_FUNCTIONS (decl);
 
       for (t = decl; t != NULL_TREE; t = OVL_CHAIN (t))
 	if (DECL_FUNCTION_TEMPLATE_P (OVL_FUNCTION (t)))
@@ -1038,7 +1023,7 @@ space_for_token (t)
   if (t->last_pos != TOKEN_CHUNK_SIZE)
     return t->last_chunk->toks + (t->last_pos++);
 
-  t->last_chunk->next = ggc_alloc (sizeof (*t->last_chunk->next));
+  t->last_chunk->next = ggc_alloc_cleared (sizeof (*t->last_chunk->next));
   t->last_chunk = t->last_chunk->next;
   t->last_chunk->next = NULL;
 

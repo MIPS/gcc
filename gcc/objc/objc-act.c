@@ -91,9 +91,6 @@ Boston, MA 02111-1307, USA.  */
 
 #include "obstack.h"
 
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
 /* This obstack is used to accumulate the encoding of a data type.  */
 static struct obstack util_obstack;
 /* This points to the beginning of obstack contents,
@@ -296,6 +293,7 @@ static void generate_classref_translation_entry	PARAMS ((tree));
 static void handle_class_ref			PARAMS ((tree));
 static void generate_struct_by_value_array	PARAMS ((void))
      ATTRIBUTE_NORETURN;
+static void encode_complete_bitfield		PARAMS ((int, tree, int));
 
 /*** Private Interface (data) ***/
 
@@ -314,13 +312,11 @@ static void generate_struct_by_value_array	PARAMS ((void))
 #define UTAG_METHOD_LIST	"_objc_method_list"
 #define UTAG_CATEGORY		"_objc_category"
 #define UTAG_MODULE		"_objc_module"
-#define UTAG_STATICS		"_objc_statics"
 #define UTAG_SYMTAB		"_objc_symtab"
 #define UTAG_SUPER		"_objc_super"
 #define UTAG_SELECTOR		"_objc_selector"
 
 #define UTAG_PROTOCOL		"_objc_protocol"
-#define UTAG_PROTOCOL_LIST	"_objc_protocol_list"
 #define UTAG_METHOD_PROTOTYPE	"_objc_method_prototype"
 #define UTAG_METHOD_PROTOTYPE_LIST "_objc__method_prototype_list"
 
@@ -329,8 +325,6 @@ static void generate_struct_by_value_array	PARAMS ((void))
 #define STRING_OBJECT_GLOBAL_NAME "_NSConstantStringClassReference"
 
 #define PROTOCOL_OBJECT_CLASS_NAME "Protocol"
-
-static const char *constant_string_class_name = NULL;
 
 static const char *TAG_GETCLASS;
 static const char *TAG_GETMETACLASS;
@@ -362,32 +356,9 @@ extern enum debug_info_type write_symbols;
 
 extern const char *dump_base_name;
 
-/* Generate code for GNU or NeXT runtime environment.  */
-
-#ifdef NEXT_OBJC_RUNTIME
-int flag_next_runtime = 1;
-#else
-int flag_next_runtime = 0;
-#endif
-
-int flag_typed_selectors;
-
-/* Open and close the file for outputting class declarations, if requested.  */
-
-int flag_gen_declaration = 0;
+static int flag_typed_selectors;
 
 FILE *gen_declaration_file;
-
-/* Warn if multiple methods are seen for the same selector, but with
-   different argument types.  */
-
-int warn_selector = 0;
-
-/* Warn if methods required by a protocol are not implemented in the 
-   class adopting it.  When turned off, methods inherited to that
-   class are also considered implemented */
-
-int flag_warn_protocol = 1;
 
 /* Tells "encode_pointer/encode_aggregate" whether we are generating
    type descriptors for instance variables (as opposed to methods).
@@ -395,12 +366,6 @@ int flag_warn_protocol = 1;
    than methods (for static typing and embedded structures).  */
 
 static int generating_instance_variables = 0;
-
-/* Tells the compiler that this is a special run.  Do not perform any
-   compiling, instead we are to test some platform dependent features
-   and output a C header file with appropriate definitions.  */
-
-static int print_struct_values = 0;
 
 /* Some platforms pass small structures through registers versus
    through an invisible pointer.  Determine at what size structure is
@@ -470,6 +435,8 @@ objc_init (filename)
      const char *filename;
 {
   filename = c_objc_common_init (filename);
+  if (filename == NULL)
+    return filename;
 
   /* Force the line number back to 0; check_newline will have
      raised it to 1, which will make the builtin functions appear
@@ -529,47 +496,6 @@ finish_file ()
   if (gen_declaration_file)
     fclose (gen_declaration_file);
 }
-
-int
-objc_decode_option (argc, argv)
-     int argc;
-     char **argv;
-{
-  const char *p = argv[0];
-
-  if (!strcmp (p, "-gen-decls"))
-    flag_gen_declaration = 1;
-  else if (!strcmp (p, "-Wselector"))
-    warn_selector = 1;
-  else if (!strcmp (p, "-Wno-selector"))
-    warn_selector = 0;
-  else if (!strcmp (p, "-Wprotocol"))
-    flag_warn_protocol = 1;
-  else if (!strcmp (p, "-Wno-protocol"))
-    flag_warn_protocol = 0;
-  else if (!strcmp (p, "-fgnu-runtime"))
-    flag_next_runtime = 0;
-  else if (!strcmp (p, "-fno-next-runtime"))
-    flag_next_runtime = 0;
-  else if (!strcmp (p, "-fno-gnu-runtime"))
-    flag_next_runtime = 1;
-  else if (!strcmp (p, "-fnext-runtime"))
-    flag_next_runtime = 1;
-  else if (!strcmp (p, "-print-objc-runtime-info"))
-    print_struct_values = 1;
-#define CSTSTRCLASS "-fconstant-string-class="
-  else if (!strncmp (p, CSTSTRCLASS, sizeof(CSTSTRCLASS) - 2)) {
-    if (strlen (argv[0]) <= strlen (CSTSTRCLASS))
-      error ("no class name specified as argument to -fconstant-string-class");
-    constant_string_class_name = xstrdup(argv[0] + sizeof(CSTSTRCLASS) - 1);
-  }
-#undef CSTSTRCLASS
-  else
-    return c_decode_option (argc, argv);
-
-  return 1;
-}
-
 
 static tree
 define_decl (declarator, declspecs)
@@ -1960,6 +1886,32 @@ build_selector_translation_table ()
   for (chain = sel_ref_chain; chain; chain = TREE_CHAIN (chain))
     {
       tree expr;
+
+      if (warn_selector && objc_implementation_context)
+      {
+        tree method_chain;
+        bool found = false;
+        for (method_chain = meth_var_names_chain;
+             method_chain;
+             method_chain = TREE_CHAIN (method_chain))
+          {
+            if (TREE_VALUE (method_chain) == TREE_VALUE (chain))
+              {
+                found = true;
+                break;
+              }
+          }
+        if (!found)
+          {
+            /* Adjust line number for warning message.  */
+            int save_lineno = lineno;
+            if (flag_next_runtime && TREE_PURPOSE (chain))
+              lineno = DECL_SOURCE_LINE (TREE_PURPOSE (chain));
+            warning ("creating selector for non existant method %s",
+                     IDENTIFIER_POINTER (TREE_VALUE (chain)));
+            lineno = save_lineno;
+          }
+      }
 
       expr = build_selector (TREE_VALUE (chain));
 
@@ -3432,10 +3384,6 @@ error_with_ivar (message, decl, rawdecl)
 			    message, gen_declaration (rawdecl, errbuf));
 
 }
-
-#define USERTYPE(t) \
- (TREE_CODE (t) == RECORD_TYPE || TREE_CODE (t) == UNION_TYPE \
-  ||  TREE_CODE (t) == ENUMERAL_TYPE)
 
 static void
 check_ivars (inter, imp)
@@ -5886,7 +5834,7 @@ check_protocol (p, type, name)
       int f1, f2;
 
       /* Ensure that all protocols have bodies!  */
-      if (flag_warn_protocol)
+      if (warn_protocol)
 	{
 	  f1 = check_methods (PROTOCOL_CLS_METHODS (p),
 			      CLASS_CLS_METHODS (objc_implementation_context),
@@ -6712,7 +6660,10 @@ encode_type (type, curtype, format)
 }
 
 static void
-encode_complete_bitfield (int position, tree type, int size)
+encode_complete_bitfield (position, type, size)
+     int position;
+     tree type;
+     int size;
 {
   enum tree_code code = TREE_CODE (type);
   char buffer[40];

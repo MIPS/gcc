@@ -1,3 +1,151 @@
+2002-08-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/template/crash1.C: New test.
+
+2002-08-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tls/opt-2.c: New test.
+
+2002-08-08  Devang Patel  <dpatel@apple.com>
+
+	* objc.dg/selector-1.m : New test
+	
+2002-08-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/abi/bitfield4.c: New test.
+	* gcc.dg/bitfld-4.c: New test.
+
+2002-08-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/other/packed1.C: New test.
+
+2002-08-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/offsetof.C: Tweak error messages.
+	* g++.old-deja/g++.mike/p10769a.C: Likewise.
+	
+2002-08-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/bitfld-3.c: New test.
+
+2002-08-07  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/i386-bitfield1.c: New test.
+	* g++.dg/abi/bitfield3.C: Update.
+
+2002-08-07  Neil Booth  <neil@daikokuya.co.uk>
+
+	* objc.dg/const-str-2.m: Update.
+	* gcc.dg/cpp/c++98.c: Change to C extension.
+	* gcc.dg/cpp/c++98-pedantic.c: Similarly.
+	* gcc.dg/cpp/cpp.exp: Process .C extensions too.
+
+2002-08-06  Aldy Hernandez  <aldyh@redhat.com>
+
+        * testsuite/gcc.dg/tls/diag-3.c: New.
+
+2002-08-07  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* g++.dg/README (Subdirectories): Document new subdir expr.
+	* g++.dg/expr/pmf-1.C: New test.
+
+2002-08-06  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/vararg3.c, gcc.dg/cpp/vararg4.c: New tests.
+
+2002-08-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/abi/bitfield3.C: New test.
+
+2002-08-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* lib/gcov.exp: Tweak expected line formats.
+	* gcc.misc-tests/gcov8.c: New test.
+	* gcc.misc-tests/gcov8.x: New flags.
+
+2002-08-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* consistency.vlad/layout/endian.c: Include string.h.
+
+	* gcc.c-torture/execute/20020805-1.c: New test.
+
+2002-08-04  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* g++.dg/other/conversion1.C: New test.
+
+2002-08-03  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-1.c: New testcase.
+
+2002-08-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/inherit/access3.C: New test.
+
+2002-08-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/ia64-visibility-2.c: New test.
+
+2002-08-01  Benjamin Kosnik   <bkoz@redhat.com>
+
+        * g++.old-deja/g++.abi/ptrflags.C (expect): Change
+	__qualifier_flags to __flags.
+
+2002-07-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/inherit/operator1.C: New test.
+	* g++.dg/lookup/disamb1.C: Fix typo in comment.
+	* g++.dg/other/error1.C: Change expected error message.
+	* g++.dg/template/conv4.C: Likewise.
+	
+2002-07-26  Neil Booth  <neil@daikokuya.cop.uk>
+
+	* gcc.dg/cpp/trad/Wunused.c, gcc.dg/cpp/Wunused.c: Add test
+	for documented behaviour.
+
+2002-07-25  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20020720-1.x: Skip this test on
+	several targets known to fail.
+
+2002-07-25  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/mips-args-[123].c: New tests.
+
+2002-07-24  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/ppc-spe.c: New.
+
+2002-07-24  Geoffrey Keating  <geoffk@redhat.com>
+
+	* g++.dg/other/ptrmem4.C: New testcase.
+
+2002-07-24  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/loop-2e.c: Rewrite for 64 bit and no mmap.
+	
+2002-07-24  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* g++.dg/ext/alignof1.C (main): Return 0 for success.
+
+2002-07-24  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/memset-3.c: New testcase.
+
+2002-07-24  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/trad/Wunused.c, gcc.dg/cpp/trad/Wunused.h,
+	gcc.dg/cpp/Wunused.c, gcc.dg/cpp/Wunused.h: New tests.
+
+2002-07-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/va-arg-15.x, va-arg-16.x, va-arg-17.x:
+	Delete.
+
+Tue Jul 23 21:02:43 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.c-torture/compile/simd-4.c: New test.
+
 2002-07-22  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	PR c++/7347, c++/7348

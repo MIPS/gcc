@@ -2623,9 +2623,12 @@ while (0)
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
    done, NIL if none.  */
+/* For SHmedia, we can truncate to QImode easier using zero extension.  */
 /* FP registers can load SImode values, but don't implicitly sign-extend
    them to DImode.  */
-#define LOAD_EXTEND_OP(MODE) ((MODE) != SImode ? SIGN_EXTEND : NIL)
+#define LOAD_EXTEND_OP(MODE) \
+ (((MODE) == QImode  && TARGET_SHMEDIA) ? ZERO_EXTEND \
+  : (MODE) != SImode ? SIGN_EXTEND : NIL)
 
 /* Define if loading short immediate values into registers sign extends.  */
 #define SHORT_IMMEDIATES_SIGN_EXTEND
@@ -2992,10 +2995,6 @@ while (0)
     }							\
   while (0)
 
-/* Output a label definition.  */
-#define ASM_OUTPUT_LABEL(FILE,NAME) \
-  do { assemble_name ((FILE), (NAME)); fputs (":\n", (FILE)); } while (0)
-
 /* This is how to output an assembler line
    that says to advance the location counter
    to a multiple of 2**LOG bytes.  */
@@ -3004,11 +3003,8 @@ while (0)
   if ((LOG) != 0)			\
     fprintf ((FILE), "\t.align %d\n", (LOG))
 
-/* Output a globalising directive for a label.  */
-#define ASM_GLOBALIZE_LABEL(STREAM,NAME)	\
-  (fprintf ((STREAM), "\t.global\t"),		\
-   assemble_name ((STREAM), (NAME)),		\
-   fputc ('\n', (STREAM)))
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global\t"
 
 /* #define ASM_OUTPUT_CASE_END(STREAM,NUM,TABLE)	    */
 

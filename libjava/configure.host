@@ -101,6 +101,16 @@ case "${host}" in
 	libgcj_interpreter=yes
 	enable_hash_synchronization_default=yes
 	;;
+  powerpc64*-*)
+	# libffi not ported.
+	with_libffi_default=no
+	libgcj_interpreter=no
+	libgcj_flags="${libgcj_flags} -mminimal-toc"
+	# this may not be correct
+	sysdeps_dir=powerpc
+	enable_hash_synchronization_default=yes
+	slow_pthread_self=yes
+	;;
   powerpc*-*)
 	sysdeps_dir=powerpc
 	libgcj_interpreter=yes
@@ -124,6 +134,14 @@ case "${host}" in
 	enable_java_net_default=no
 	enable_getenv_properties_default=no
 	enable_main_args_default=no
+	;;
+  sh-* | sh[34]*-*)
+	sysdeps_dir=sh
+	libgcj_flags="${libgcj_flags} -mieee"
+	libgcj_interpreter=yes
+	CHECKREFSPEC=-fcheck-references
+	EXCEPTIONSPEC=
+	enable_hash_synchronization_default=yes
 	;;
 esac
 

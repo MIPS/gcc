@@ -1118,33 +1118,13 @@ struct cum_arg
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION h8300_asm_named_section
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#define ASM_OUTPUT_LABEL(FILE, NAME)		\
-  do						\
-    {						\
-      assemble_name (FILE, NAME);		\
-      fputs (":\n", FILE);			\
-    }						\
-  while (0)
-
 #define ASM_OUTPUT_LABELREF(FILE, NAME)  \
   asm_fprintf ((FILE), "%U%s", (NAME) + (TINY_DATA_NAME_P (NAME) ? 1 : 0))
 
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)
 
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define ASM_GLOBALIZE_LABEL(FILE, NAME)		\
-  do						\
-    {						\
-      fputs ("\t.global ", FILE);		\
-      assemble_name (FILE, NAME);		\
-      fputs ("\n", FILE);			\
-    }						\
-  while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global "
 
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL) \
    ASM_OUTPUT_LABEL (FILE, NAME)

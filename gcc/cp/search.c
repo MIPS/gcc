@@ -33,10 +33,6 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "ggc.h"
 #include "toplev.h"
-
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
 #include "stack.h"
 
 /* Obstack used for remembering decision points of breadth-first.  */
@@ -304,8 +300,10 @@ lookup_base_r (binfo, base, access, within_current_scope,
    canonical).  If KIND_PTR is non-NULL, fill with information about
    what kind of base we discovered.
 
-   If ba_quiet bit is set in ACCESS, then do not issue an error, and
-   return NULL_TREE for failure.  */
+   If the base is inaccessible, or ambiguous, and the ba_quiet bit is
+   not set in ACCESS, then an error is issued and error_mark_node is
+   returned.  If the ba_quiet bit is set, then no error is issued and
+   NULL_TREE is returned.  */
 
 tree
 lookup_base (t, base, access, kind_ptr)
@@ -314,6 +312,7 @@ lookup_base (t, base, access, kind_ptr)
      base_kind *kind_ptr;
 {
   tree binfo = NULL;		/* The binfo we've found so far. */
+  tree t_binfo = NULL;
   base_kind bk;
   
   if (t == error_mark_node || base == error_mark_node)
@@ -322,13 +321,21 @@ lookup_base (t, base, access, kind_ptr)
 	*kind_ptr = bk_not_base;
       return error_mark_node;
     }
-  my_friendly_assert (TYPE_P (t) && TYPE_P (base), 20011127);
+  my_friendly_assert (TYPE_P (base), 20011127);
   
+  if (!TYPE_P (t))
+    {
+      t_binfo = t;
+      t = BINFO_TYPE (t);
+    }
+  else 
+    t_binfo = TYPE_BINFO (t);
+
   /* Ensure that the types are instantiated.  */
   t = complete_type (TYPE_MAIN_VARIANT (t));
   base = complete_type (TYPE_MAIN_VARIANT (base));
   
-  bk = lookup_base_r (TYPE_BINFO (t), base, access & ~ba_quiet,
+  bk = lookup_base_r (t_binfo, base, access & ~ba_quiet,
 		      0, 0, 0, &binfo);
 
   switch (bk)
@@ -1365,6 +1372,33 @@ lookup_field_r (binfo, data)
   return NULL_TREE;
 }
 
+/* Return a "baselink" which BASELINK_BINFO, BASELINK_ACCESS_BINFO,
+   BASELINK_FUNCTIONS, and BASELINK_OPTYPE set to BINFO, ACCESS_BINFO,
+   FUNCTIONS, and OPTYPE respectively.  */
+
+tree
+build_baselink (tree binfo, tree access_binfo, tree functions, tree optype)
+{
+  tree baselink;
+
+  my_friendly_assert (TREE_CODE (functions) == FUNCTION_DECL
+		      || TREE_CODE (functions) == TEMPLATE_DECL
+		      || TREE_CODE (functions) == TEMPLATE_ID_EXPR
+		      || TREE_CODE (functions) == OVERLOAD,
+		      20020730);
+  my_friendly_assert (!optype || TYPE_P (optype), 20020730);
+  my_friendly_assert (TREE_TYPE (functions), 20020805);
+
+  baselink = build (BASELINK, TREE_TYPE (functions), NULL_TREE,
+		    NULL_TREE, NULL_TREE);
+  BASELINK_BINFO (baselink) = binfo;
+  BASELINK_ACCESS_BINFO (baselink) = access_binfo;
+  BASELINK_FUNCTIONS (baselink) = functions;
+  BASELINK_OPTYPE (baselink) = optype;
+
+  return baselink;
+}
+
 /* Look for a member named NAME in an inheritance lattice dominated by
    XBASETYPE.  If PROTECT is 0 or two, we do not check access.  If it is
    1, we enforce accessibility.  If PROTECT is zero, then, for an
@@ -1474,19 +1508,9 @@ lookup_member (xbasetype, name, protect, want_type)
 						TREE_TYPE (rval)));
 
   if (rval && is_overloaded_fn (rval)) 
-    {
-      /* Note that the binfo we put in the baselink is the binfo where
-	 we found the functions, which we need for overload
-	 resolution, but which should not be passed to enforce_access;
-	 rather, enforce_access wants a binfo which refers to the
-	 scope in which we started looking for the function.  This
-	 will generally be the binfo passed into this function as
-	 xbasetype.  */
-
-      rval = tree_cons (rval_binfo, rval, NULL_TREE);
-      SET_BASELINK_P (rval);
-    }
-
+    rval = build_baselink (rval_binfo, basetype_path, rval,
+			   (IDENTIFIER_TYPENAME_P (name)
+			   ? TREE_TYPE (name): NULL_TREE));
   return rval;
 }
 
@@ -1501,7 +1525,7 @@ lookup_field (xbasetype, name, protect, want_type)
   tree rval = lookup_member (xbasetype, name, protect, want_type);
   
   /* Ignore functions.  */
-  if (rval && TREE_CODE (rval) == TREE_LIST)
+  if (rval && BASELINK_P (rval))
     return NULL_TREE;
 
   return rval;
@@ -1518,7 +1542,7 @@ lookup_fnfields (xbasetype, name, protect)
   tree rval = lookup_member (xbasetype, name, protect, /*want_type=*/0);
 
   /* Ignore non-functions.  */
-  if (rval && TREE_CODE (rval) != TREE_LIST)
+  if (rval && !BASELINK_P (rval))
     return NULL_TREE;
 
   return rval;
@@ -1616,6 +1640,50 @@ lookup_fnfields_1 (type, name)
 
   return -1;
 }
+
+/* DECL is the result of a qualified name lookup.  QUALIFYING_CLASS
+   was the class used to qualify the name.  CONTEXT_CLASS is the class
+   corresponding to the object in which DECL will be used.  Return a
+   possibly modified version of DECL that takes into account the
+   CONTEXT_CLASS.
+
+   In particular, consider an expression like `B::m' in the context of
+   a derived class `D'.  If `B::m' has been resolved to a BASELINK,
+   then the most derived class indicated by the BASELINK_BINFO will be
+   `B', not `D'.  This function makes that adjustment.  */
+
+tree
+adjust_result_of_qualified_name_lookup (tree decl, 
+					tree qualifying_class,
+					tree context_class)
+{
+  my_friendly_assert (CLASS_TYPE_P (qualifying_class), 20020808);
+  my_friendly_assert (CLASS_TYPE_P (context_class), 20020808);
+
+  if (BASELINK_P (decl) 
+      && DERIVED_FROM_P (qualifying_class, context_class))
+    {
+      tree base;
+
+      /* Look for the QUALIFYING_CLASS as a base of the
+	 CONTEXT_CLASS.  If QUALIFYING_CLASS is ambiguous, we cannot
+	 be sure yet than an error has occurred; perhaps the function
+	 chosen by overload resolution will be static.  */
+      base = lookup_base (context_class, qualifying_class,
+			  ba_ignore | ba_quiet, NULL);
+      if (base)
+	{
+	  BASELINK_ACCESS_BINFO (decl) = base;
+	  BASELINK_BINFO (decl) 
+	    = lookup_base (base, BINFO_TYPE (BASELINK_BINFO (decl)),
+			   ba_ignore | ba_quiet,
+			   NULL);
+	}
+    }
+
+  return decl;
+}
+
 
 /* Walk the class hierarchy dominated by TYPE.  FN is called for each
    type in the hierarchy, in a breadth-first preorder traversal.
@@ -2415,7 +2483,7 @@ setup_class_bindings (name, type_binding_p)
 	{
 	  if (BASELINK_P (value_binding))
 	    /* NAME is some overloaded functions.  */
-	    value_binding = TREE_VALUE (value_binding);
+	    value_binding = BASELINK_FUNCTIONS (value_binding);
 	  pushdecl_class_level (value_binding);
 	}
     }

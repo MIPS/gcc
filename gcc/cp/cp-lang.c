@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 static HOST_WIDE_INT cxx_get_alias_set PARAMS ((tree));
 static bool ok_to_generate_alias_set_for_type PARAMS ((tree));
 static bool cxx_warn_unused_global_decl PARAMS ((tree));
+static tree cp_expr_size PARAMS ((tree));
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C++"
@@ -43,7 +44,7 @@ static bool cxx_warn_unused_global_decl PARAMS ((tree));
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS cxx_init_options
 #undef LANG_HOOKS_DECODE_OPTION
-#define LANG_HOOKS_DECODE_OPTION cxx_decode_option
+#define LANG_HOOKS_DECODE_OPTION c_common_decode_option
 #undef LANG_HOOKS_POST_OPTIONS
 #define LANG_HOOKS_POST_OPTIONS c_common_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
@@ -120,6 +121,9 @@ static bool cxx_warn_unused_global_decl PARAMS ((tree));
 #undef LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING
 #define LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING \
   cp_copy_res_decl_for_inlining
+#undef LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING
+#define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
+  cp_convert_parm_for_inlining
 #undef LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P anon_aggr_type_p
 #undef LANG_HOOKS_TREE_INLINING_START_INLINING
@@ -130,6 +134,8 @@ static bool cxx_warn_unused_global_decl PARAMS ((tree));
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN cp_dump_tree
 #undef LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN
 #define LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN cp_type_quals
+#undef LANG_HOOKS_EXPR_SIZE
+#define LANG_HOOKS_EXPR_SIZE cp_expr_size
 
 #undef LANG_HOOKS_MAKE_TYPE
 #define LANG_HOOKS_MAKE_TYPE cxx_make_type
@@ -276,4 +282,29 @@ cxx_warn_unused_global_decl (decl)
     return false;
 
   return true;
+}
+
+/* Langhook for expr_size: Tell the backend that the value of an expression
+   of non-POD class type does not include any tail padding; a derived class
+   might have allocated something there.  */
+
+static tree
+cp_expr_size (exp)
+     tree exp;
+{
+  if (CLASS_TYPE_P (TREE_TYPE (exp)))
+    {
+      /* The backend should not be interested in the size of an expression
+	 of a type with both of these set; all copies of such types must go
+	 through a constructor or assignment op.  */
+      if (TYPE_HAS_COMPLEX_INIT_REF (TREE_TYPE (exp))
+	  && TYPE_HAS_COMPLEX_ASSIGN_REF (TREE_TYPE (exp)))
+	abort ();
+      /* This would be wrong for a type with virtual bases, but they are
+	 caught by the abort above.  */
+      return CLASSTYPE_SIZE_UNIT (TREE_TYPE (exp));
+    }
+  else
+    /* Use the default code.  */
+    return lhd_expr_size (exp);
 }

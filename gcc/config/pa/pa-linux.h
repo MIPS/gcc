@@ -161,25 +161,17 @@ Boston, MA 02111-1307, USA.  */
   else								\
     fprintf (FILE, "\tb .L%d\n\tnop\n", VALUE)
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
+/* Use the default.  */
 #undef ASM_OUTPUT_LABEL
-#define ASM_OUTPUT_LABEL(FILE, NAME) \
-  do								\
-    {								\
-      assemble_name (FILE, NAME);				\
-      fputs (":\n", FILE);					\
-    }								\
-  while (0)
 
 /* NOTE: ASM_OUTPUT_INTERNAL_LABEL() is defined for us by elfos.h, and
    does what we want (i.e. uses colons).  It must be compatible with
    ASM_GENERATE_INTERNAL_LABEL(), so do not define it here.  */
 
+/* Use the default.  */
 #undef ASM_GLOBALIZE_LABEL
-#define ASM_GLOBALIZE_LABEL(FILE, NAME) \
-  (fputs (".globl ", FILE), assemble_name (FILE, NAME), fputs ("\n", FILE))
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP ".globl "
 
 /* FIXME: Hacked from the <elfos.h> one so that we avoid multiple
    labels in a function declaration (since pa.c seems determined to do
@@ -189,11 +181,7 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)		\
   do								\
     {								\
-      fprintf (FILE, "\t%s\t ", TYPE_ASM_OP);			\
-      assemble_name (FILE, NAME);				\
-      putc (',', FILE);						\
-      fprintf (FILE, TYPE_OPERAND_FMT, "function");		\
-      putc ('\n', FILE);					\
+      ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "function");	\
       ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));		\
     }								\
   while (0)

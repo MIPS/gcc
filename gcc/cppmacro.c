@@ -74,6 +74,29 @@ static void check_trad_stringification PARAMS ((cpp_reader *,
 						const cpp_macro *,
 						const cpp_string *));
 
+/* Emits a warning if NODE is a macro defined in the main file that
+   has not been used.  */
+int
+_cpp_warn_if_unused_macro (pfile, node, v)
+     cpp_reader *pfile;
+     cpp_hashnode *node;
+     void *v ATTRIBUTE_UNUSED;
+{
+  if (node->type == NT_MACRO && !(node->flags & NODE_BUILTIN))
+    {
+      cpp_macro *macro = node->value.macro;
+
+      if (!macro->used
+	  /* Skip front-end built-ins and command line macros.  */
+	  && macro->line >= pfile->first_unused_line
+	  && MAIN_FILE_P (lookup_line (&pfile->line_maps, macro->line)))
+	cpp_error_with_line (pfile, DL_WARNING, macro->line, 0,
+			     "macro \"%s\" is not used", NODE_NAME (node));
+    }
+
+  return 1;
+}
+
 /* Allocates and returns a CPP_STRING token, containing TEXT of length
    LEN, after null-terminating it.  TEXT must be in permanent storage.  */
 static const cpp_token *
@@ -165,11 +188,9 @@ _cpp_builtin_macro_text (pfile, node)
 	 value 0.  */
     case BT_STDC:
       {
-	enum c_lang lang = CPP_OPTION (pfile, lang);
 	if (CPP_IN_SYSTEM_HEADER (pfile)
 	    && CPP_OPTION (pfile, stdc_0_in_system_headers)
-	    && !(lang == CLK_STDC89 || lang == CLK_STDC94
-		 || lang == CLK_STDC99))  /* || lang == CLK_CXX98 ? */
+	    && !CPP_OPTION (pfile,std))
 	  number = 0;
 	else
 	  number = 1;
@@ -184,17 +205,37 @@ _cpp_builtin_macro_text (pfile, node)
 	     storage.  We only do this once, and don't generate them
 	     at init time, because time() and localtime() are very
 	     slow on some systems.  */
-	  time_t tt = time (NULL);
-	  struct tm *tb = localtime (&tt);
+	  time_t tt;
+	  struct tm *tb = NULL;
 
-	  pfile->date = _cpp_unaligned_alloc (pfile,
-					      sizeof ("\"Oct 11 1347\""));
-	  sprintf ((char *) pfile->date, "\"%s %2d %4d\"",
-		   monthnames[tb->tm_mon], tb->tm_mday, tb->tm_year + 1900);
+	  /* (time_t) -1 is a legitimate value for "number of seconds
+	     since the Epoch", so we have to do a little dance to
+	     distinguish that from a genuine error.  */
+	  errno = 0;
+	  tt = time(NULL);
+	  if (tt != (time_t)-1 || errno == 0)
+	    tb = localtime (&tt);
 
-	  pfile->time = _cpp_unaligned_alloc (pfile, sizeof ("\"12:34:56\""));
-	  sprintf ((char *) pfile->time, "\"%02d:%02d:%02d\"",
-		   tb->tm_hour, tb->tm_min, tb->tm_sec);
+	  if (tb)
+	    {
+	      pfile->date = _cpp_unaligned_alloc (pfile,
+						  sizeof ("\"Oct 11 1347\""));
+	      sprintf ((char *) pfile->date, "\"%s %2d %4d\"",
+		       monthnames[tb->tm_mon], tb->tm_mday, tb->tm_year + 1900);
+
+	      pfile->time = _cpp_unaligned_alloc (pfile,
+						  sizeof ("\"12:34:56\""));
+	      sprintf ((char *) pfile->time, "\"%02d:%02d:%02d\"",
+		       tb->tm_hour, tb->tm_min, tb->tm_sec);
+	    }
+	  else
+	    {
+	      cpp_errno (pfile, DL_WARNING,
+			 "could not determine date and time");
+		
+	      pfile->date = U"\"??? ?? ????\"";
+	      pfile->time = U"\"??:??:??\"";
+	    }
 	}
 
       if (node->value.builtin == BT_DATE)
@@ -629,7 +670,20 @@ collect_args (pfile, node)
       if (argc == 1 && macro->paramc == 0 && args[0].count == 0)
 	argc = 0;
       if (_cpp_arguments_ok (pfile, macro, node, argc))
-	return base_buff;
+	{
+	  /* GCC has special semantics for , ## b where b is a varargs
+	     parameter: we remove the comma if b was omitted entirely.
+	     If b was merely an empty argument, the comma is retained.
+	     If the macro takes just one (varargs) parameter, then we
+	     retain the comma only if we are standards conforming.
+
+	     If FIRST is NULL replace_args () swallows the comma.  */
+	  if (macro->variadic && (argc < macro->paramc
+				  || (argc == 1 && args[0].count == 0
+				      && !CPP_OPTION (pfile, std))))
+	    args[macro->paramc - 1].first = NULL;
+	  return base_buff;
+	}
     }
 
   /* An error occurred.  */
@@ -728,6 +782,8 @@ enter_macro_context (pfile, node)
       /* Disable the macro within its expansion.  */
       node->flags |= NODE_DISABLED;
 
+      macro->used = 1;
+
       if (macro->paramc == 0)
 	push_token_context (pfile, node, macro->exp.tokens, macro->count);
 
@@ -816,15 +872,13 @@ replace_args (pfile, node, macro, args)
 	  count = arg->count, from = arg->first;
 	  if (dest != first)
 	    {
-	      /* GCC has special semantics for , ## b where b is a
-		 varargs parameter: the comma disappears if b was
-		 given no actual arguments (not merely if b is an
-		 empty argument); otherwise the paste flag is removed.  */
 	      if (dest[-1]->type == CPP_COMMA
 		  && macro->variadic
 		  && src->val.arg_no == macro->paramc)
 		{
-		  if (count == 0)
+		  /* Swallow a pasted comma if from == NULL, otherwise
+		     drop the paste flag.  */
+		  if (from == NULL)
 		    dest--;
 		  else
 		    paste_flag = dest - 1;
@@ -1488,6 +1542,7 @@ _cpp_create_definition (pfile, node)
   macro->params = 0;
   macro->paramc = 0;
   macro->variadic = 0;
+  macro->used = 0;
   macro->count = 0;
   macro->fun_like = 0;
   /* To suppress some diagnostics.  */
@@ -1521,8 +1576,11 @@ _cpp_create_definition (pfile, node)
   if (!ok)
     return ok;
 
-  if (node->type != NT_VOID)
+  if (node->type == NT_MACRO)
     {
+      if (CPP_OPTION (pfile, warn_unused_macros))
+	_cpp_warn_if_unused_macro (pfile, node, NULL);
+
       if (warn_of_redefinition (pfile, node, macro))
 	{
 	  cpp_error_with_line (pfile, DL_PEDWARN, pfile->directive_line, 0,
@@ -1533,8 +1591,10 @@ _cpp_create_definition (pfile, node)
 				 node->value.macro->line, 0,
 			 "this is the location of the previous definition");
 	}
-      _cpp_free_definition (node);
     }
+
+  if (node->type != NT_VOID)
+    _cpp_free_definition (node);
 
   /* Enter definition in hash table.  */
   node->type = NT_MACRO;

@@ -2341,7 +2341,6 @@ mcore_expand_prolog ()
     {
       /* Emit a symbol for this routine's frame size.  */
       rtx x;
-      int len;
 
       x = DECL_RTL (current_function_decl);
       
@@ -2356,10 +2355,7 @@ mcore_expand_prolog ()
       if (mcore_current_function_name)
 	free (mcore_current_function_name);
       
-      len = strlen (XSTR (x, 0)) + 1;
-      mcore_current_function_name = (char *) xmalloc (len);
-      
-      memcpy (mcore_current_function_name, XSTR (x, 0), len);
+      mcore_current_function_name = xstrdup (XSTR (x, 0));
       
       ASM_OUTPUT_CG_NODE (asm_out_file, mcore_current_function_name, space_allocated);
 
@@ -3544,7 +3540,7 @@ mcore_unique_section (decl, reloc)
     prefix = ".text$";
   /* For compatibility with EPOC, we ignore the fact that the
      section might have relocs against it.  */
-  else if (DECL_READONLY_SECTION (decl, 0))
+  else if (decl_readonly_section (decl, 0))
     prefix = ".rdata$";
   else
     prefix = ".data$";

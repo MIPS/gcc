@@ -110,6 +110,27 @@ Warn whenever an identifier which is not a macro is encountered in an
 @samp{#if} directive, outside of @samp{defined}.  Such identifiers are
 replaced with zero.
 
+@item -Wunused-macros
+@opindex Wunused-macros
+Warn about macros defined in the main file that are unused.  A macro
+is @dfn{used} if it is expanded or tested for existence at least once.
+The preprocessor will also warn if the macro has not been used at the
+time it is redefined or undefined.
+
+Built-in macros, macros defined on the command line, and macros
+defined in include files are not warned about.
+
+@strong{Note:} If a macro is actually used, but only used in skipped
+conditional blocks, then CPP will report it as unused.  To avoid the
+warning in such a case, you might improve the scope of the macro's
+definition by, for example, moving it into the first skipped block.
+Alternatively, you could provide a dummy use with something like:
+
+@smallexample
+#if defined the_macro_causing_the_warning
+#endif
+@end smallexample
+
 @item -Wendif-labels
 @opindex Wendif-labels
 Warn whenever an @samp{#else} or an @samp{#endif} are followed by text.
@@ -586,16 +607,8 @@ Replacement:      [    ]    @{    @}    #    \    ^    |    ~
 Enable special code to work around file systems which only permit very
 short file names, such as MS-DOS@.
 
-@item -$
-@opindex $
-Forbid the use of @samp{$} in identifiers.  The C standard allows
-implementations to define extra characters that can appear in
-identifiers.  By default GNU CPP permits @samp{$}, a common extension.
-
-@item -h
 @itemx --help
 @itemx --target-help
-@opindex h
 @opindex help
 @opindex target-help
 Print text describing all the command line options instead of

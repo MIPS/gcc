@@ -8823,7 +8823,7 @@ move\\t%0,%z4\\n\\
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(gtu:SI (match_operand:SI 1 "register_operand" "d")
 		(match_operand:SI 2 "reg_or_0_operand" "dJ")))]
-  ""
+  "!TARGET_MIPS16"
   "sltu\\t%0,%z2,%1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"SI")])
@@ -8832,7 +8832,7 @@ move\\t%0,%z4\\n\\
   [(set (match_operand:SI 0 "register_operand" "=t")
 	(gtu:SI (match_operand:SI 1 "register_operand" "d")
 		(match_operand:SI 2 "register_operand" "d")))]
-  ""
+  "TARGET_MIPS16"
   "sltu\\t%2,%1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"SI")])
@@ -8841,7 +8841,7 @@ move\\t%0,%z4\\n\\
   [(set (match_operand:DI 0 "register_operand" "=d")
 	(gtu:DI (match_operand:DI 1 "se_register_operand" "d")
 		(match_operand:DI 2 "se_reg_or_0_operand" "dJ")))]
-  "TARGET_64BIT"
+  "TARGET_64BIT && !TARGET_MIPS16"
   "sltu\\t%0,%z2,%1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"DI")])
@@ -8850,7 +8850,7 @@ move\\t%0,%z4\\n\\
   [(set (match_operand:DI 0 "register_operand" "=t")
 	(gtu:DI (match_operand:DI 1 "se_register_operand" "d")
 		(match_operand:DI 2 "se_register_operand" "d")))]
-  "TARGET_64BIT"
+  "TARGET_64BIT && TARGET_MIPS16"
   "sltu\\t%2,%1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"DI")])
@@ -9281,7 +9281,7 @@ move\\t%0,%z4\\n\\
   [(set (match_operand:CC 0 "register_operand" "=z")
 	(unlt:CC (match_operand:SF 1 "register_operand" "f")
 		 (match_operand:SF 2 "register_operand" "f")))]
-  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "TARGET_HARD_FLOAT"
   "*
 {
  return mips_fill_delay_slot (\"c.ult.s\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
@@ -9293,7 +9293,7 @@ move\\t%0,%z4\\n\\
   [(set (match_operand:CC 0 "register_operand" "=z")
 	(uneq:CC (match_operand:SF 1 "register_operand" "f")
 		 (match_operand:SF 2 "register_operand" "f")))]
-  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "TARGET_HARD_FLOAT"
   "*
 {
  return mips_fill_delay_slot (\"c.ueq.s\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
@@ -9305,7 +9305,7 @@ move\\t%0,%z4\\n\\
   [(set (match_operand:CC 0 "register_operand" "=z")
 	(unle:CC (match_operand:SF 1 "register_operand" "f")
 		 (match_operand:SF 2 "register_operand" "f")))]
-  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "TARGET_HARD_FLOAT"
   "*
 {
  return mips_fill_delay_slot (\"c.ule.s\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
@@ -9533,7 +9533,7 @@ move\\t%0,%z4\\n\\
       t2 = gen_reg_rtx (SImode);
       t3 = gen_reg_rtx (SImode);
       emit_insn (gen_extendhisi2 (t1, operands[0]));
-      emit_move_insn (t2, gen_rtx (LABEL_REF, SImode, operands[1]));
+      emit_move_insn (t2, gen_rtx_LABEL_REF (SImode, operands[1]));
       emit_insn (gen_addsi3 (t3, t1, t2));
       emit_jump_insn (gen_tablejump_internal1 (t3, operands[1]));
       DONE;
@@ -9555,7 +9555,7 @@ move\\t%0,%z4\\n\\
       t2 = gen_reg_rtx (DImode);
       t3 = gen_reg_rtx (DImode);
       emit_insn (gen_extendhidi2 (t1, operands[0]));
-      emit_move_insn (t2, gen_rtx (LABEL_REF, DImode, operands[1]));
+      emit_move_insn (t2, gen_rtx_LABEL_REF (DImode, operands[1]));
       emit_insn (gen_adddi3 (t3, t1, t2));
       emit_jump_insn (gen_tablejump_internal2 (t3, operands[1]));
       DONE;
@@ -9866,14 +9866,14 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
 ;; until we know where it will be put in the stack frame.
 
 (define_insn "eh_set_lr_si"
-  [(unspec [(match_operand:SI 0 "register_operand" "r")] UNSPEC_EH_RETURN)
-   (clobber (match_scratch:SI 1 "=&r"))]
+  [(unspec [(match_operand:SI 0 "register_operand" "d")] UNSPEC_EH_RETURN)
+   (clobber (match_scratch:SI 1 "=&d"))]
   "! TARGET_64BIT"
   "#")
 
 (define_insn "eh_set_lr_di"
-  [(unspec [(match_operand:DI 0 "register_operand" "r")] UNSPEC_EH_RETURN)
-   (clobber (match_scratch:DI 1 "=&r"))]
+  [(unspec [(match_operand:DI 0 "register_operand" "d")] UNSPEC_EH_RETURN)
+   (clobber (match_scratch:DI 1 "=&d"))]
   "TARGET_64BIT"
   "#")
 

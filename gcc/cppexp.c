@@ -270,13 +270,18 @@ cpp_classify_number (pfile, token)
 	  return CPP_N_INVALID;
 	}
 
-      /* Traditional C only accepted the 'L' suffix.  */
-      if (result != CPP_N_SMALL && result != CPP_N_MEDIUM
-	  && CPP_WTRADITIONAL (pfile)
-	  && ! cpp_sys_macro_p (pfile))
-	cpp_error (pfile, DL_WARNING,
-		   "traditional C rejects the \"%.*s\" suffix",
-		   (int) (limit - str), str);
+      /* Traditional C only accepted the 'L' suffix.
+         Suppress warning about 'LL' with -Wno-long-long.  */
+      if (CPP_WTRADITIONAL (pfile) && ! cpp_sys_macro_p (pfile))
+	{
+	  int u_or_i = (result & (CPP_N_UNSIGNED|CPP_N_IMAGINARY));
+	  int large = (result & CPP_N_WIDTH) == CPP_N_LARGE;
+
+	  if (u_or_i || (large && CPP_OPTION (pfile, warn_long_long)))
+	    cpp_error (pfile, DL_WARNING,
+		       "traditional C rejects the \"%.*s\" suffix",
+		       (int) (limit - str), str);
+	}
 
       if ((result & CPP_N_WIDTH) == CPP_N_LARGE
 	  && ! CPP_OPTION (pfile, c99)
@@ -500,6 +505,8 @@ parse_defined (pfile)
       if (pfile->context != initial_context)
 	cpp_error (pfile, DL_WARNING,
 		   "this use of \"defined\" may not be portable");
+
+      _cpp_mark_macro_used (node);
 
       /* A possible controlling macro of the form #if !defined ().
 	 _cpp_parse_expr checks there was no other junk on the line.  */

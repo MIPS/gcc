@@ -93,9 +93,6 @@ extern int getrusage PARAMS ((int, struct rusage *));
 /* FIXME: when autoconf is fixed, remove the host check - dj */
 #if defined(TARGET_EXECUTABLE_SUFFIX) && defined(HOST_EXECUTABLE_SUFFIX)
 #define HAVE_TARGET_EXECUTABLE_SUFFIX
-#else
-#undef TARGET_EXECUTABLE_SUFFIX
-#define TARGET_EXECUTABLE_SUFFIX ""
 #endif
 
 /* By default there is no special suffix for host executables.  */
@@ -121,9 +118,6 @@ extern int getrusage PARAMS ((int, struct rusage *));
 #endif /* VMS */
 
 static const char dir_separator_str[] = { DIR_SEPARATOR, 0 };
-
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
 
 /* Most every one is fine with LIBRARY_PATH.  For some, it conflicts.  */
 #ifndef LIBRARY_PATH_ENV
@@ -676,7 +670,7 @@ static const char *trad_capable_cpp =
 static const char *cpp_unique_options =
 "%{C:%{!E:%eGNU C does not support -C without using -E}}\
  %{CC:%{!E:%eGNU C does not support -CC without using -E}}\
- %{!Q:-quiet} %{nostdinc*} %{C} %{CC} %{v} %{I*} %{P} %{$} %I\
+ %{!Q:-quiet} %{nostdinc*} %{C} %{CC} %{v} %{I*} %{P} %I\
  %{MD:-MD %W{!o: %b.d}%W{o*:%.d%*}}\
  %{MMD:-MMD %W{!o: %b.d}%W{o*:%.d%*}}\
  %{M} %{MM} %W{MF*} %{MG} %{MP} %{MQ*} %{MT*}\
@@ -703,6 +697,7 @@ static const char *cpp_debug_options = "%{d*}";
 static const char *cc1_options =
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
+ -auxbase%{c|S:%{o*:-strip%*}%{!o*: %b}}%{!c:%{!S: %b}}\
  %{g*} %{O*} %{W*&pedantic*} %{w} %{std*} %{ansi}\
  %{v:-version} %{pg:-p} %{p} %{f*} %{undef}\
  %{Qn:-fno-ident} %{--help:--help}\

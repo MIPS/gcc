@@ -696,6 +696,10 @@
 	 (eq_attr "length" "2") (const_string "yes")
 	 ] (const_string "no")))
 
+(define_attr "cond_delay_slot" "yes,no"
+  (cond [(eq_attr "in_delay_slot" "yes") (const_string "yes")
+	 ] (const_string "no")))
+
 (define_attr "is_sfunc" ""
   (if_then_else (eq_attr "type" "sfunc") (const_int 1) (const_int 0)))
 
@@ -738,7 +742,7 @@
 (define_delay
   (and (eq_attr "type" "cbranch")
        (ne (symbol_ref "TARGET_SH2") (const_int 0)))
-  [(eq_attr "in_delay_slot" "yes") (eq_attr "in_delay_slot" "yes") (nil)])
+  [(eq_attr "in_delay_slot" "yes") (eq_attr "cond_delay_slot" "yes") (nil)])
 
 ;; -------------------------------------------------------------------------
 ;; SImode signed integer comparisons
@@ -3382,17 +3386,15 @@
   [(set_attr "type"   "arith_media,store_media")
    (set_attr "length" "8,4")])
 
-; N.B. we want sign-extension here because
-; - we need to be consistent with LOAD_EXTEND_OP and movqi
-; - only sign extension allows us to do signed compares transparently.
-;  unsigned compares don't care about the kind of extension as long as
-;   it's consistent.
+; N.B. This should agree with LOAD_EXTEND_OP and movqi.
+; Because we use zero extension, we can't provide signed QImode compares
+; using a simple compare or conditional banch insn.
 (define_insn "truncdiqi2"
   [(set (match_operand:QI 0 "general_movdst_operand" "=r,m")
 	(truncate:QI (match_operand:DI 1 "register_operand" "r,r")))]
   "TARGET_SHMEDIA"
   "@
-	ori	%1, -256, %0
+	and	%1, 255, %0
 	st%M0.b	%m0, %1"
   [(set_attr "type"   "arith_media,store")])
 
@@ -3741,7 +3743,7 @@
   "@
 	add.l	%1, r63, %0
 	movi	%1, %0
-	ld%M1.b	%m1, %0
+	ld%M1.ub	%m1, %0
 	st%M0.b	%m0, %1"
   [(set_attr "type" "arith_media,arith_media,load_media,store_media")])
 
@@ -5143,6 +5145,18 @@
   "TARGET_SH1"
   ""
   [(set_attr "length" "0")])
+
+;; This one is used to preemt an insn from beyond the bra / braf / jmp
+;; being pulled into the delay slot of a condbranch that has been made to
+;; jump around the unconditional jump because it was out of range.
+(define_insn "stuff_delay_slot"
+  [(set (pc)
+	(unspec [(match_operand 0 "const_int_operand" "") (pc)] UNSPEC_BBR))
+   (set (reg:SI T_REG) (match_operand 1 "const_int_operand" ""))]
+  "TARGET_SH1"
+  ""
+  [(set_attr "length" "0")
+   (set_attr "cond_delay_slot" "yes")])
 
 ;; Conditional branch insns
 

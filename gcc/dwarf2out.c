@@ -331,11 +331,6 @@ static void def_cfa_1		 	PARAMS ((const char *,
 #define DW_FORM_data (DWARF_OFFSET_SIZE == 8 ? DW_FORM_data8 : DW_FORM_data4)
 #define DW_FORM_ref (DWARF_OFFSET_SIZE == 8 ? DW_FORM_ref8 : DW_FORM_ref4)
 
-/* Pseudo-op for defining a new section.  */
-#ifndef SECTION_ASM_OP
-#define SECTION_ASM_OP	"\t.section\t"
-#endif
-
 #ifndef DEBUG_FRAME_SECTION
 #define DEBUG_FRAME_SECTION	".debug_frame"
 #endif
@@ -351,36 +346,14 @@ static void def_cfa_1		 	PARAMS ((const char *,
 #define FRAME_BEGIN_LABEL	"Lframe"
 #define CIE_AFTER_SIZE_LABEL	"LSCIE"
 #define CIE_END_LABEL		"LECIE"
-#define CIE_LENGTH_LABEL	"LLCIE"
 #define FDE_LABEL		"LSFDE"
 #define FDE_AFTER_SIZE_LABEL	"LASFDE"
 #define FDE_END_LABEL		"LEFDE"
-#define FDE_LENGTH_LABEL	"LLFDE"
 #define LINE_NUMBER_BEGIN_LABEL	"LSLT"
 #define LINE_NUMBER_END_LABEL	"LELT"
 #define LN_PROLOG_AS_LABEL	"LASLTP"
 #define LN_PROLOG_END_LABEL	"LELTP"
 #define DIE_LABEL_PREFIX	"DW"
-
-/* Definitions of defaults for various types of primitive assembly language
-   output operations.  These may be overridden from within the tm.h file,
-   but typically, that is unnecessary.  */
-
-#ifdef SET_ASM_OP
-#ifndef ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL
-#define ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL(FILE, SY, HI, LO)	\
-  do									\
-    {									\
-      fprintf (FILE, "%s", SET_ASM_OP);					\
-      assemble_name (FILE, SY);						\
-      fputc (',', FILE);						\
-      assemble_name (FILE, HI);						\
-      fputc ('-', FILE);						\
-      assemble_name (FILE, LO);						\
-    }									\
-  while (0)
-#endif
-#endif
 
 /* The DWARF 2 CFA column which tracks the return address.  Normally this
    is the column for PC, or the first column after all of the hard
@@ -3363,9 +3336,6 @@ limbo_die_node;
 /* Fixed size portion of the DWARF compilation unit header.  */
 #define DWARF_COMPILE_UNIT_HEADER_SIZE (2 * DWARF_OFFSET_SIZE + 3)
 
-/* Fixed size portion of debugging line information prolog.  */
-#define DWARF_LINE_PROLOG_HEADER_SIZE 5
-
 /* Fixed size portion of public names info.  */
 #define DWARF_PUBNAMES_HEADER_SIZE (2 * DWARF_OFFSET_SIZE + 2)
 
@@ -3873,23 +3843,11 @@ static char ranges_section_label[2 * MAX_ARTIFICIAL_LABEL_BYTES];
 #ifndef TEXT_END_LABEL
 #define TEXT_END_LABEL		"Letext"
 #endif
-#ifndef DATA_END_LABEL
-#define DATA_END_LABEL		"Ledata"
-#endif
-#ifndef BSS_END_LABEL
-#define BSS_END_LABEL           "Lebss"
-#endif
 #ifndef BLOCK_BEGIN_LABEL
 #define BLOCK_BEGIN_LABEL	"LBB"
 #endif
 #ifndef BLOCK_END_LABEL
 #define BLOCK_END_LABEL		"LBE"
-#endif
-#ifndef BODY_BEGIN_LABEL
-#define BODY_BEGIN_LABEL	"Lbb"
-#endif
-#ifndef BODY_END_LABEL
-#define BODY_END_LABEL		"Lbe"
 #endif
 #ifndef LINE_CODE_LABEL
 #define LINE_CODE_LABEL		"LM"

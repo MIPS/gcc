@@ -1068,9 +1068,11 @@ by the @code{__attribute__ ((aligned (@var{n})))} construct.
 @findex ADJUST_FIELD_ALIGN
 @item ADJUST_FIELD_ALIGN (@var{field}, @var{computed})
 An expression for the alignment of a structure field @var{field} if the
-alignment computed in the usual way is @var{computed}.  GCC uses
-this value instead of the value in @code{BIGGEST_ALIGNMENT} or
-@code{BIGGEST_FIELD_ALIGNMENT}, if defined.
+alignment computed in the usual way (including applying of
+@code{BIGGEST_ALIGNMENT} and @code{BIGGEST_FIELD_ALIGNMENT} to the
+alignment) is @var{computed}.  It overrides alignment only if the
+field alignment has not been set by the
+@code{__attribute__ ((aligned (@var{n})))} construct.
 
 @findex MAX_OFILE_ALIGNMENT
 @item MAX_OFILE_ALIGNMENT
@@ -4598,6 +4600,13 @@ remainder in division of one unsigned full-word by another.  If you do
 not define this macro, the default name is used, which is
 @code{__umoddi3}, a function defined in @file{libgcc.a}.
 
+@findex DECLARE_LIBRARY_RENAMES
+@item DECLARE_LIBRARY_RENAMES
+This macro, if defined, should expand to a piece of C code that will get
+expanded when compiling functions for libgcc.a.  It can be used to
+provide alternate names for gcc's internal library functions if there
+are ABI-mandated names that the compiler should provide.
+
 @findex INIT_TARGET_OPTABS
 @item INIT_TARGET_OPTABS
 Define this macro as a C statement that declares additional library
@@ -6397,7 +6406,78 @@ A C statement (sans semicolon) to output to the stdio stream
 @var{stream} the assembler definition of a label named @var{name}.
 Use the expression @code{assemble_name (@var{stream}, @var{name})} to
 output the name itself; before and after that, output the additional
-assembler syntax for defining the name, and a newline.
+assembler syntax for defining the name, and a newline.  A default
+definition of this macro is provided which is correct for most systems.
+
+@findex SIZE_ASM_OP
+@item SIZE_ASM_OP
+A C string containing the appropriate assembler directive to specify the
+size of a symbol, without any arguments.  On systems that use ELF, the
+default (in @file{config/elfos.h}) is @samp{"\t.size\t"}; on other
+systems, the default is not to define this macro.
+
+Define this macro only if it is correct to use the default definitions
+of @code{ASM_OUTPUT_SIZE_DIRECTIVE} and @code{ASM_OUTPUT_MEASURED_SIZE}
+for your system.  If you need your own custom definitions of those
+macros, or if you do not need explicit symbol sizes at all, do not
+define this macro.
+
+@findex ASM_OUTPUT_SIZE_DIRECTIVE
+@item ASM_OUTPUT_SIZE_DIRECTIVE (@var{stream}, @var{name}, @var{size})
+A C statement (sans semicolon) to output to the stdio stream
+@var{stream} a directive telling the assembler that the size of the
+symbol @var{name} is @var{size}.  @var{size} is a @code{HOST_WIDE_INT}.
+If you define @code{SIZE_ASM_OP}, a default definition of this macro is
+provided.
+
+@findex ASM_OUTPUT_MEASURED_SIZE
+@item ASM_OUTPUT_MEASURED_SIZE (@var{stream}, @var{name})
+A C statement (sans semicolon) to output to the stdio stream
+@var{stream} a directive telling the assembler to calculate the size of
+the symbol @var{name} by subtracting its address from the current
+address.  
+
+If you define @code{SIZE_ASM_OP}, a default definition of this macro is
+provided.  The default assumes that the assembler recognizes a special
+@samp{.} symbol as referring to the current address, and can calculate
+the difference between this and another symbol.  If your assembler does
+not recognize @samp{.} or cannot do calculations with it, you will need
+to redefine @code{ASM_OUTPUT_MEASURED_SIZE} to use some other technique.
+
+@findex TYPE_ASM_OP
+@item TYPE_ASM_OP
+A C string containing the appropriate assembler directive to specify the
+type of a symbol, without any arguments.  On systems that use ELF, the
+default (in @file{config/elfos.h}) is @samp{"\t.type\t"}; on other
+systems, the default is not to define this macro.
+
+Define this macro only if it is correct to use the default definition of
+@code{ASM_OUTPUT_TYPE_DIRECTIVE} for your system.  If you need your own
+custom definition of this macro, or if you do not need explicit symbol
+types at all, do not define this macro.
+
+@findex TYPE_OPERAND_FMT
+@item TYPE_OPERAND_FMT
+A C string which specifies (using @code{printf} syntax) the format of
+the second operand to @code{TYPE_ASM_OP}.  On systems that use ELF, the
+default (in @file{config/elfos.h}) is @samp{"@@%s"}; on other systems,
+the default is not to define this macro.
+
+Define this macro only if it is correct to use the default definition of
+@code{ASM_OUTPUT_TYPE_DIRECTIVE} for your system.  If you need your own
+custom definition of this macro, or if you do not need explicit symbol
+types at all, do not define this macro.
+
+@findex ASM_OUTPUT_TYPE_DIRECTIVE
+@item ASM_OUTPUT_TYPE_DIRECTIVE (@var{stream}, @var{type})
+A C statement (sans semicolon) to output to the stdio stream
+@var{stream} a directive telling the assembler that the type of the
+symbol @var{name} is @var{type}.  @var{type} is a C string; currently,
+that string is always either @samp{"function"} or @samp{"object"}, but
+you should not count on this.
+
+If you define @code{TYPE_ASM_OP} and @code{TYPE_OPERAND_FMT}, a default
+definition of this macro is provided.
 
 @findex ASM_DECLARE_FUNCTION_NAME
 @item ASM_DECLARE_FUNCTION_NAME (@var{stream}, @var{name}, @var{decl})
@@ -6411,6 +6491,9 @@ outputting the label definition (perhaps using
 If this macro is not defined, then the function name is defined in the
 usual manner as a label (by means of @code{ASM_OUTPUT_LABEL}).
 
+You may wish to use @code{ASM_OUTPUT_TYPE_DIRECTIVE} in the definition
+of this macro.
+
 @findex ASM_DECLARE_FUNCTION_SIZE
 @item ASM_DECLARE_FUNCTION_SIZE (@var{stream}, @var{name}, @var{decl})
 A C statement (sans semicolon) to output to the stdio stream
@@ -6420,6 +6503,9 @@ function.  The argument @var{decl} is the @code{FUNCTION_DECL} tree node
 representing the function.
 
 If this macro is not defined, then the function size is not defined.
+
+You may wish to use @code{ASM_OUTPUT_MEASURED_SIZE} in the definition
+of this macro.
 
 @findex ASM_DECLARE_OBJECT_NAME
 @item ASM_DECLARE_OBJECT_NAME (@var{stream}, @var{name}, @var{decl})
@@ -6431,6 +6517,9 @@ label definition (perhaps using @code{ASM_OUTPUT_LABEL}).  The argument
 
 If this macro is not defined, then the variable name is defined in the
 usual manner as a label (by means of @code{ASM_OUTPUT_LABEL}).
+
+You may wish to use @code{ASM_OUTPUT_TYPE_DIRECTIVE} and/or
+@code{ASM_OUTPUT_SIZE_DIRECTIVE} in the definition of this macro.
 
 @findex ASM_DECLARE_REGISTER_GLOBAL
 @item ASM_DECLARE_REGISTER_GLOBAL (@var{stream}, @var{decl}, @var{regno}, @var{name})
@@ -6452,6 +6541,9 @@ something about the size of the object.
 If you don't define this macro, that is equivalent to defining it to do
 nothing.
 
+You may wish to use @code{ASM_OUTPUT_SIZE_DIRECTIVE} and/or
+@code{ASM_OUTPUT_MEASURED_SIZE} in the definition of this macro.
+
 @findex ASM_GLOBALIZE_LABEL
 @item ASM_GLOBALIZE_LABEL (@var{stream}, @var{name})
 A C statement (sans semicolon) to output to the stdio stream
@@ -6460,6 +6552,9 @@ that is, available for reference from other files.  Use the expression
 @code{assemble_name (@var{stream}, @var{name})} to output the name
 itself; before and after that, output the additional assembler syntax
 for making that name global, and a newline.
+
+If you define @code{GLOBAL_ASM_OP}, a default definition is provided
+which is correct for most systems.
 
 @findex ASM_WEAKEN_LABEL
 @item ASM_WEAKEN_LABEL (@var{stream}, @var{name})
@@ -6649,15 +6744,6 @@ which defines (equates) the symbol whose tree node is @var{decl_of_name}
 to have the value of the tree node @var{decl_of_value}.  This macro will
 be used in preference to @samp{ASM_OUTPUT_DEF} if it is defined and if
 the tree nodes are available.
-
-@findex ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL
-@item ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL (@var{stream}, @var{symbol}, @var{high}, @var{low})
-A C statement to output to the stdio stream @var{stream} assembler code
-which defines (equates) the symbol @var{symbol} to have a value equal to
-the difference of the two symbols @var{high} and @var{low},
-i.e.@: @var{high} minus @var{low}.  GCC guarantees that the symbols @var{high}
-and @var{low} are already known by the assembler so that the difference
-resolves into a constant.
 
 @findex SET_ASM_OP
 If @code{SET_ASM_OP} is defined, a default definition is provided which is

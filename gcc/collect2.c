@@ -57,10 +57,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "obstack.h"
 #include "intl.h"
 #include "version.h"
-
-/* Obstack allocation and deallocation routines.  */
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
 
 /* On certain systems, we have code that works by scanning the object file
    directly.  But this code uses system-specific header files and library
@@ -144,11 +140,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Some systems use __main in a way incompatible with its use in gcc, in these
    cases use the macros NAME__MAIN to give a quoted symbol and SYMBOL__MAIN to
-   give the same symbol without quotes for an alternative entry point.  You
-   must define both, or neither.  */
+   give the same symbol without quotes for an alternative entry point.  */
 #ifndef NAME__MAIN
 #define NAME__MAIN "__main"
-#define SYMBOL__MAIN __main
 #endif
 
 /* This must match tree.h.  */
@@ -237,7 +231,6 @@ static struct head exports;		/* list of exported symbols */
 static struct head frame_tables;	/* list of frame unwind info tables */
 
 struct obstack temporary_obstack;
-struct obstack permanent_obstack;
 char * temporary_firstobj;
 
 /* Holds the return value of pexecute.  */
@@ -573,6 +566,15 @@ is_ctor_dtor (s)
   const char *orig_s = s;
 
   static const struct names special[] = {
+#ifndef NO_DOLLAR_IN_LABEL
+    { "GLOBAL__I$", sizeof ("GLOBAL__I$")-1, 1, 0 },
+    { "GLOBAL__D$", sizeof ("GLOBAL__D$")-1, 2, 0 },
+#else
+#ifndef NO_DOT_IN_LABEL
+    { "GLOBAL__I.", sizeof ("GLOBAL__I.")-1, 1, 0 },
+    { "GLOBAL__D.", sizeof ("GLOBAL__D.")-1, 2, 0 },
+#endif /* NO_DOT_IN_LABEL */
+#endif /* NO_DOLLAR_IN_LABEL */
     { "GLOBAL__I_", sizeof ("GLOBAL__I_")-1, 1, 0 },
     { "GLOBAL__D_", sizeof ("GLOBAL__D_")-1, 2, 0 },
     { "GLOBAL__F_", sizeof ("GLOBAL__F_")-1, 5, 0 },
@@ -913,7 +915,6 @@ main (argc, argv)
 #endif
 
   obstack_begin (&temporary_obstack, 0);
-  obstack_begin (&permanent_obstack, 0);
   temporary_firstobj = (char *) obstack_alloc (&temporary_obstack, 0);
 
   current_demangling_style = auto_demangling;
@@ -1073,18 +1074,18 @@ main (argc, argv)
     {
       const char *q = extract_string (&p);
       if (*q == '-' && (q[1] == 'm' || q[1] == 'f'))
-	*c_ptr++ = obstack_copy0 (&permanent_obstack, q, strlen (q));
+	*c_ptr++ = xstrdup (q);
       if (strcmp (q, "-EL") == 0 || strcmp (q, "-EB") == 0)
-	*c_ptr++ = obstack_copy0 (&permanent_obstack, q, strlen (q));
+	*c_ptr++ = xstrdup (q);
       if (strcmp (q, "-shared") == 0)
 	shared_obj = 1;
       if (*q == '-' && q[1] == 'B')
 	{
-	  *c_ptr++ = obstack_copy0 (&permanent_obstack, q, strlen (q));
+	  *c_ptr++ = xstrdup (q);
 	  if (q[2] == 0)
 	    {
 	      q = extract_string (&p);
-	      *c_ptr++ = obstack_copy0 (&permanent_obstack, q, strlen (q));
+	      *c_ptr++ = xstrdup (q);
 	    }
 	}
     }

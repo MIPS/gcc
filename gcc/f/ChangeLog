@@ -2,6 +2,39 @@
 
 	* com.c (union lang_tree_node): Add chain_next option.
 
+Thu Aug  8 10:06:14 2002  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* f/Make-lang.in (f.mostlyclean): Remove coverage files.
+
+2002-08-06  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* g77.texi (Top): Rename Index to Keyword Index.
+
+2002-08-05  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* invoke.texi: Improve description of
+	-fno-finite-math-only flag.
+
+Sun Aug  4 16:45:49 2002  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* root.texi (version-gcc): Increase to 3.3.
+
+2002-07-30  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* com.c (ffe_init_options): Set
+	flag_finite_math_only.
+	* invoke.texi: Document -fno-finite-math-only.
+
+Mon Jul 29 22:05:35 2002  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* com.c (read_name_map): Use concat in lieu of xmalloc/strcpy.
+
+2002-07-25  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* news.texi: Document better handling of (no-)alias
+	information of dummy arguments and induction variables
+	on loop unrolling.
+
 2002-07-01  Roger Sayle  <roger@eyesopen.com>
 
 	* f/com.c (builtin_function): Accept additional parameter.

@@ -24,7 +24,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "cp-tree.h"
 #include "real.h"
-#include "obstack.h"
 #include "toplev.h"
 #include "flags.h"
 #include "diagnostic.h"
@@ -45,11 +44,6 @@ enum pad { none, before, after };
    print_non_consecutive_character ((BUFFER), '<')
 #define print_template_argument_list_end(BUFFER)  \
    print_non_consecutive_character ((BUFFER), '>')
-#define print_whitespace(BUFFER, TFI)        \
-   do {                                      \
-     output_add_space (BUFFER);              \
-     put_whitespace (TFI) = none;            \
-   } while (0)
 #define print_tree_identifier(BUFFER, TID) \
    output_add_string ((BUFFER), IDENTIFIER_POINTER (TID))
 #define print_identifier(BUFFER, ID) output_add_string ((BUFFER), (ID))
@@ -321,8 +315,8 @@ dump_template_bindings (parms, args)
     }
 }
 
-/* Dump into the obstack a human-readable equivalent of TYPE.  FLAGS
-   controls the format.  */
+/* Dump a human-readable equivalent of TYPE.  FLAGS controls the
+   format.  */
 
 static void
 dump_type (t, flags)
@@ -996,6 +990,10 @@ dump_decl (t, flags)
       print_tree_identifier (scratch_buffer, DECL_NAME (t));
       break;
 
+    case BASELINK:
+      dump_decl (BASELINK_FUNCTIONS (t), flags);
+      break;
+
     default:
       sorry_for_unsupported_tree (t);
       /* Fallthrough to error.  */
@@ -1065,7 +1063,7 @@ dump_template_decl (t, flags)
         dump_function_decl (t, flags | TFF_TEMPLATE_NAME);
         break;
       default:
-        /* This case can occur with some illegal code.  */
+        /* This case can occur with some invalid code.  */
         dump_type (TREE_TYPE (t),
                    (flags & ~TFF_CLASS_KEY_OR_ENUM) | TFF_TEMPLATE_NAME
                    | (flags & TFF_DECL_SPECIFIERS ? TFF_CLASS_KEY_OR_ENUM : 0));
@@ -1832,7 +1830,7 @@ dump_expr (t, flags)
     case CONSTRUCTOR:
       if (TREE_TYPE (t) && TYPE_PTRMEMFUNC_P (TREE_TYPE (t)))
 	{
-	  tree idx = build_component_ref (t, pfn_identifier, NULL_TREE, 0);
+	  tree idx = build_ptrmemfunc_access_expr (t, pfn_identifier);
 
 	  if (integer_zerop (idx))
 	    {

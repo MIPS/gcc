@@ -383,6 +383,11 @@ extern int x86_prefetch_sse;
    the frame pointer in leaf functions.  */
 #define TARGET_DEFAULT 0
 
+/* This is not really a target flag, but is done this way so that
+   it's analogous to similar code for Mach-O on PowerPC.  darwin.h
+   redefines this to 1.  */
+#define TARGET_MACHO 0
+
 /* This macro is similar to `TARGET_SWITCHES' but defines names of
    command options that have values.  Its definition is an
    initializer with a subgrouping for each command option.
@@ -2959,12 +2964,6 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
   (flag_pic								\
     ? ((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4\
    : DW_EH_PE_absptr)
-
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#define ASM_OUTPUT_LABEL(FILE, NAME)	\
-  (assemble_name ((FILE), (NAME)), fputs (":\n", (FILE)))
 
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.

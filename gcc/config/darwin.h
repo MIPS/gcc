@@ -161,10 +161,6 @@ do { text_section ();							\
       }								\
   } while (0)
 
-#undef ASM_OUTPUT_LABEL
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
   fprintf (FILE, "\t.space %d\n", SIZE)
 
@@ -552,7 +548,9 @@ enum machopic_addr_class {
 #define MACHOPIC_JUST_INDIRECT (flag_pic == 1)
 #define MACHOPIC_PURE          (flag_pic == 2)
 
+#undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO  darwin_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
 #define TARGET_STRIP_NAME_ENCODING  darwin_strip_name_encoding
 
 #define GEN_BINDER_NAME_FOR_STUB(BUF,STUB,STUB_LENGTH)		\
@@ -615,6 +613,7 @@ enum machopic_addr_class {
 
 #define TARGET_ASM_EH_FRAME_SECTION darwin_eh_frame_section
   
+#undef ASM_PREFERRED_EH_DATA_FORMAT
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)  \
   (((CODE) == 1 || (GLOBAL) == 0) ? DW_EH_PE_pcrel : DW_EH_PE_absptr)
 

@@ -311,7 +311,6 @@ end_final (filename)
 	strcpy (da_filename, cwd);
 	strcat (da_filename, "/");
 	strcat (da_filename, filename);
-	strip_off_ending (da_filename, da_filename_len - 3);
 	strcat (da_filename, ".da");
 	da_filename_len = strlen (da_filename);
 	string_cst = build_string (da_filename_len + 1, da_filename);
@@ -1974,7 +1973,9 @@ output_alternate_entry_point (file, insn)
     case LABEL_GLOBAL_ENTRY:
       ASM_GLOBALIZE_LABEL (file, name);
     case LABEL_STATIC_ENTRY:
-      /* FIXME output a .type directive here if appropriate.  */
+#ifdef ASM_OUTPUT_TYPE_DIRECTIVE
+      ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
+#endif
       ASM_OUTPUT_LABEL (file, name);
       break;
 

@@ -153,8 +153,6 @@ when optimising a loop, only certain registers are of interest.
 Perhaps there should be a bitmap argument to df_analyse to specify
  which registers should be analysed?   */
 
-#define HANDLE_SUBREG
-
 #include "config.h"
 #include "system.h"
 #include "rtl.h"
@@ -177,21 +175,6 @@ do {								\
   EXECUTE_IF_SET_IN_BITMAP (BITMAP, MIN, node_, 		\
     {(BB) = BASIC_BLOCK (node_); CODE;});} while (0)
 
-#define FOR_EACH_BB_IN_BITMAP_REV(BITMAP, MIN, BB, CODE)	\
-do {								\
-  unsigned int node_;						\
-  EXECUTE_IF_SET_IN_BITMAP_REV (BITMAP, node_, 		\
-    {(BB) = BASIC_BLOCK (node_); CODE;});} while (0)
-
-#define FOR_EACH_BB_IN_SBITMAP(BITMAP, MIN, BB, CODE)           \
-do {                                                            \
-  unsigned int node_;                                           \
-  EXECUTE_IF_SET_IN_SBITMAP (BITMAP, MIN, node_,                \
-    {(BB) = BASIC_BLOCK (node_); CODE;});} while (0)
-
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
 static struct obstack df_ref_obstack;
 static struct df *ddf;
 
@@ -199,7 +182,7 @@ static void df_reg_table_realloc PARAMS((struct df *, int));
 #if 0
 static void df_def_table_realloc PARAMS((struct df *, int));
 #endif
-static void df_insn_table_realloc PARAMS((struct df *, int));
+static void df_insn_table_realloc PARAMS((struct df *, unsigned int));
 static void df_bitmaps_alloc PARAMS((struct df *, int));
 static void df_bitmaps_free PARAMS((struct df *, int));
 static void df_free PARAMS((struct df *));
@@ -316,7 +299,7 @@ static inline bool read_modify_subreg_p PARAMS ((rtx));
 static void
 df_insn_table_realloc (df, size)
      struct df *df;
-     int size;
+     unsigned int size;
 {
   size++;
   if (size <= df->insn_size)

@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-config.h"
 #include "ggc.h"
 #include "recog.h"
+#include "langhooks.h"
 
 static rtx break_out_memory_refs	PARAMS ((rtx));
 static void emit_stack_probe		PARAMS ((rtx));
@@ -285,20 +286,33 @@ rtx
 expr_size (exp)
      tree exp;
 {
-  tree size;
-
-  if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'd'
-      && DECL_SIZE_UNIT (exp) != 0)
-    size = DECL_SIZE_UNIT (exp);
-  else
-    size = size_in_bytes (TREE_TYPE (exp));
+  tree size = (*lang_hooks.expr_size) (exp);
 
   if (TREE_CODE (size) != INTEGER_CST
       && contains_placeholder_p (size))
     size = build (WITH_RECORD_EXPR, sizetype, size, exp);
 
   return expand_expr (size, NULL_RTX, TYPE_MODE (sizetype), 0);
+}
 
+/* Return a wide integer for the size in bytes of the value of EXP, or -1
+   if the size can vary or is larger than an integer.  */
+
+HOST_WIDE_INT
+int_expr_size (exp)
+     tree exp;
+{
+  tree t = (*lang_hooks.expr_size) (exp);
+
+  if (t == 0
+      || TREE_CODE (t) != INTEGER_CST
+      || TREE_OVERFLOW (t)
+      || TREE_INT_CST_HIGH (t) != 0
+      /* If the result would appear negative, it's too big to represent.  */
+      || (HOST_WIDE_INT) TREE_INT_CST_LOW (t) < 0)
+    return -1;
+
+  return TREE_INT_CST_LOW (t);
 }
 
 /* Return a copy of X in which all memory references
@@ -353,6 +367,7 @@ convert_memory_address (to_mode, x)
 {
   enum machine_mode from_mode = to_mode == ptr_mode ? Pmode : ptr_mode;
   rtx temp;
+  enum rtx_code code;
 
   /* Here we handle some special cases.  If none of them apply, fall through
      to the default case.  */
@@ -360,7 +375,18 @@ convert_memory_address (to_mode, x)
     {
     case CONST_INT:
     case CONST_DOUBLE:
-      return x;
+      if (GET_MODE_SIZE (to_mode) < GET_MODE_SIZE (from_mode))
+	code = TRUNCATE;
+      else if (POINTERS_EXTEND_UNSIGNED < 0)
+	break;
+      else if (POINTERS_EXTEND_UNSIGNED > 0)
+	code = ZERO_EXTEND;
+      else
+	code = SIGN_EXTEND;
+      temp = simplify_unary_operation (code, to_mode, x, from_mode);
+      if (temp)
+	return temp;
+      break;
 
     case SUBREG:
       if ((SUBREG_PROMOTED_VAR_P (x) || REG_POINTER (SUBREG_REG (x)))
@@ -389,17 +415,17 @@ convert_memory_address (to_mode, x)
 
     case PLUS:
     case MULT:
-      /* For addition the second operand is a small constant, we can safely
-	 permute the conversion and addition operation.  We can always safely
-	 permute them if we are making the address narrower.  In addition,
-	 always permute the operations if this is a constant.  */
-      if ((GET_MODE_SIZE (to_mode) < GET_MODE_SIZE (from_mode)
-	      || (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 1)) == CONST_INT
-		  && (INTVAL (XEXP (x, 1)) + 20000 < 40000
-		      || CONSTANT_P (XEXP (x, 0))))))
+      /* For addition we can safely permute the conversion and addition
+	 operation if one operand is a constant and converting the constant
+	 does not change it.  We can always safely permute them if we are
+	 making the address narrower.  */
+      if (GET_MODE_SIZE (to_mode) < GET_MODE_SIZE (from_mode)
+	  || (GET_CODE (x) == PLUS
+	      && GET_CODE (XEXP (x, 1)) == CONST_INT
+	      && XEXP (x, 1) == convert_memory_address (to_mode, XEXP (x, 1))))
 	return gen_rtx_fmt_ee (GET_CODE (x), to_mode,
 			       convert_memory_address (to_mode, XEXP (x, 0)),
-			       convert_memory_address (to_mode, XEXP (x, 1)));
+			       XEXP (x, 1));
       break;
 
     default:

@@ -396,7 +396,6 @@ do {									\
          : MAX (COMPUTED, SPECIFIED))
 
 #undef  BIGGEST_FIELD_ALIGNMENT
-#undef  ADJUST_FIELD_ALIGN
 
 /* Use ELF style section commands.  */
 
@@ -610,11 +609,7 @@ extern int rs6000_pic_labelno;
 	putc ('\n', FILE);						\
       }									\
 									\
-    fprintf (FILE, "%s", TYPE_ASM_OP);					\
-    assemble_name (FILE, NAME);						\
-    putc (',', FILE);							\
-    fprintf (FILE, TYPE_OPERAND_FMT, "function");			\
-    putc ('\n', FILE);							\
+    ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "function");			\
     ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));			\
 									\
     if (DEFAULT_ABI == ABI_AIX)						\
@@ -684,15 +679,8 @@ extern int rs6000_pic_labelno;
 #define	ASM_OUTPUT_INTERNAL_LABEL_PREFIX(FILE,PREFIX)	\
   asm_fprintf (FILE, "%L%s", PREFIX)
 
-#define	ASM_OUTPUT_LABEL(FILE,NAME)	\
-  (assemble_name (FILE, NAME), fputs (":\n", FILE))
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define	ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  do { fputs ("\t.globl ", FILE);	\
-       assemble_name (FILE, NAME); putc ('\n', FILE);} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.globl "
 
 /* This says how to output assembler code to declare an
    uninitialized internal linkage data object.  Under SVR4,
@@ -715,11 +703,7 @@ do {									\
       ASM_OUTPUT_LABEL (FILE, NAME);					\
       ASM_OUTPUT_SKIP (FILE, SIZE);					\
       if (!flag_inhibit_size_directive && (SIZE) > 0)			\
-	{								\
-	  fprintf (FILE, "%s", SIZE_ASM_OP);				\
-	  assemble_name (FILE, NAME);					\
-	  fprintf (FILE, ",%d\n",  SIZE);				\
-	}								\
+	ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, SIZE);			\
     }									\
   else									\
     {									\

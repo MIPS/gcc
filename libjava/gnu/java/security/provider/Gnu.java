@@ -1,5 +1,5 @@
 /* Gnu.java --- Gnu provider main class
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -45,8 +45,13 @@ public final class Gnu extends Provider
   {
     super( "GNU", 1.0, "GNU provider v1.0 implementing SHA-1, MD5, DSA");
 
+    // Note that all implementation class names are referenced by using
+    // Class.getName(). That way when we staticly link the Gnu provider
+    // we automatically get all the implementation classes.
+
     // Signature
-    put("Signature.SHA1withDSA", "gnu.java.security.provider.DSASignature");
+    put("Signature.SHA1withDSA",
+	"gnu.java.security.provider.DSASignature");
 
     put("Alg.Alias.Signature.DSS", "SHA1withDSA");
     put("Alg.Alias.Signature.DSA", "SHA1withDSA");
@@ -62,7 +67,8 @@ public final class Gnu extends Provider
     put("Alg.Alias.Signature.1.3.14.3.2.27", "SHA1withDSA");
 
     // Key Pair Generator
-    put("KeyPairGenerator.DSA", "gnu.java.security.provider.DSAKeyPairGenerator");
+    put("KeyPairGenerator.DSA",
+	"gnu.java.security.provider.DSAKeyPairGenerator");
 
     put("Alg.Alias.KeyPairGenerator.OID.1.2.840.10040.4.1", "DSA");
     put("Alg.Alias.KeyPairGenerator.1.2.840.10040.4.1", "DSA");
@@ -77,14 +83,16 @@ public final class Gnu extends Provider
     put("Alg.Alias.MessageDigest.SHA-1", "SHA");
 
     // Algorithm Parameters
-    put("AlgorithmParameters.DSA", "gnu.java.security.provider.DSAAlgorithmParameters");
+    put("AlgorithmParameters.DSA",
+	"gnu.java.security.provider.DSAParameters");
 
     // Algorithm Parameter Generator
-    put("AlgorithmParameterGenerator.DSA", "gnu.java.security.provider.DSAAlgorithmParameterGenerator");
+    put("AlgorithmParameterGenerator.DSA",
+     "gnu.java.security.provider.DSAParameterGenerator");
 
     // SecureRandom
-    put("SecureRandom.SHA1PRNG", "gnu.java.security.provider.SHA1PRNG");
-
+    put("SecureRandom.SHA1PRNG",
+	"gnu.java.security.provider.SHA1PRNG");
 
   }
 }

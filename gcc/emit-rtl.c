@@ -50,7 +50,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-config.h"
 #include "recog.h"
 #include "real.h"
-#include "obstack.h"
 #include "bitmap.h"
 #include "basic-block.h"
 #include "ggc.h"
@@ -515,10 +514,12 @@ gen_rtx_REG (mode, regno)
 
   if (mode == Pmode && !reload_in_progress)
     {
-      if (regno == FRAME_POINTER_REGNUM)
+      if (regno == FRAME_POINTER_REGNUM
+	  && (!reload_completed || frame_pointer_needed))
 	return frame_pointer_rtx;
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-      if (regno == HARD_FRAME_POINTER_REGNUM)
+      if (regno == HARD_FRAME_POINTER_REGNUM
+	  && (!reload_completed || frame_pointer_needed))
 	return hard_frame_pointer_rtx;
 #endif
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM && HARD_FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
@@ -543,7 +544,11 @@ gen_rtx_REG (mode, regno)
      This code is disabled for now until we can fix the various backends
      which depend on having non-shared hard registers in some cases.   Long
      term we want to re-enable this code as it can significantly cut down
-     on the amount of useless RTL that gets generated.  */
+     on the amount of useless RTL that gets generated.
+
+     We'll also need to fix some code that runs after reload that wants to
+     set ORIGINAL_REGNO.  */
+
   if (cfun
       && cfun->emit
       && regno_reg_rtx
@@ -1679,19 +1684,22 @@ component_ref_for_mem_expr (ref)
 
 /* Given REF, a MEM, and T, either the type of X or the expression
    corresponding to REF, set the memory attributes.  OBJECTP is nonzero
-   if we are making a new object of this type.  */
+   if we are making a new object of this type.  BITPOS is nonzero if
+   there is an offset outstanding on T that will be applied later.  */
 
 void
-set_mem_attributes (ref, t, objectp)
+set_mem_attributes_minus_bitpos (ref, t, objectp, bitpos)
      rtx ref;
      tree t;
      int objectp;
+     HOST_WIDE_INT bitpos;
 {
   HOST_WIDE_INT alias = MEM_ALIAS_SET (ref);
   tree expr = MEM_EXPR (ref);
   rtx offset = MEM_OFFSET (ref);
   rtx size = MEM_SIZE (ref);
   unsigned int align = MEM_ALIGN (ref);
+  HOST_WIDE_INT apply_bitpos = 0;
   tree type;
 
   /* It can happen that type_for_mode was given a mode for which there
@@ -1760,6 +1768,7 @@ set_mem_attributes (ref, t, objectp)
 	{
 	  expr = t;
 	  offset = const0_rtx;
+	  apply_bitpos = bitpos;
 	  size = (DECL_SIZE_UNIT (t)
 		  && host_integerp (DECL_SIZE_UNIT (t), 1)
 		  ? GEN_INT (tree_low_cst (DECL_SIZE_UNIT (t), 1)) : 0);
@@ -1784,6 +1793,7 @@ set_mem_attributes (ref, t, objectp)
 	{
 	  expr = component_ref_for_mem_expr (t);
 	  offset = const0_rtx;
+	  apply_bitpos = bitpos;
 	  /* ??? Any reason the field size would be different than
 	     the size we got from the type?  */
 	}
@@ -1808,18 +1818,26 @@ set_mem_attributes (ref, t, objectp)
 	  if (DECL_P (t))
 	    {
 	      expr = t;
+	      offset = NULL;
 	      if (host_integerp (off_tree, 1))
-		offset = GEN_INT (tree_low_cst (off_tree, 1));
-	      size = (DECL_SIZE_UNIT (t)
-		      && host_integerp (DECL_SIZE_UNIT (t), 1)
-		      ? GEN_INT (tree_low_cst (DECL_SIZE_UNIT (t), 1)) : 0);
-	      align = DECL_ALIGN (t);
+		{
+		  HOST_WIDE_INT ioff = tree_low_cst (off_tree, 1);
+		  HOST_WIDE_INT aoff = (ioff & -ioff) * BITS_PER_UNIT;
+		  align = DECL_ALIGN (t);
+		  if (aoff && aoff < align)
+	            align = aoff;
+		  offset = GEN_INT (ioff);
+		  apply_bitpos = bitpos;
+		}
 	    }
 	  else if (TREE_CODE (t) == COMPONENT_REF)
 	    {
 	      expr = component_ref_for_mem_expr (t);
 	      if (host_integerp (off_tree, 1))
-		offset = GEN_INT (tree_low_cst (off_tree, 1));
+		{
+		  offset = GEN_INT (tree_low_cst (off_tree, 1));
+		  apply_bitpos = bitpos;
+		}
 	      /* ??? Any reason the field size would be different than
 		 the size we got from the type?  */
 	    }
@@ -1843,6 +1861,11 @@ set_mem_attributes (ref, t, objectp)
 	}
     }
 
+  /* If we modified OFFSET based on T, then subtract the outstanding 
+     bit position offset.  */
+  if (apply_bitpos)
+    offset = plus_constant (offset, -(apply_bitpos / BITS_PER_UNIT));
+
   /* Now set the attributes we computed above.  */
   MEM_ATTRS (ref)
     = get_mem_attrs (alias, expr, offset, size, align, GET_MODE (ref));
@@ -1857,6 +1880,15 @@ set_mem_attributes (ref, t, objectp)
 	   || TREE_CODE (t) == ARRAY_RANGE_REF
 	   || TREE_CODE (t) == BIT_FIELD_REF)
     MEM_IN_STRUCT_P (ref) = 1;
+}
+
+void
+set_mem_attributes (ref, t, objectp)
+     rtx ref;
+     tree t;
+     int objectp;
+{
+  set_mem_attributes_minus_bitpos (ref, t, objectp, 0);
 }
 
 /* Set the alias set of MEM to SET.  */

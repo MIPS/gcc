@@ -361,8 +361,14 @@ struct cpp_options
   /* Nonzero means warn if undefined identifiers are evaluated in an #if.  */
   unsigned char warn_undef;
 
+  /* Nonzero means warn of unused macros from the main file.  */
+  unsigned char warn_unused_macros;
+
   /* Nonzero for the 1999 C Standard, including corrigenda and amendments.  */
   unsigned char c99;
+
+  /* Nonzero if we are conforming to a specific C or C++ standard.  */
+  unsigned char std;
 
   /* Nonzero means give all the error messages the ANSI standard requires.  */
   unsigned char pedantic;
@@ -388,11 +394,6 @@ struct cpp_options
 
   /* Nonzero means handle C++ alternate operator names.  */
   unsigned char operator_names;
-
-  /* True if --help, --version or --target-help appeared in the
-     options.  Stand-alone CPP should then bail out after option
-     parsing; drivers might want to continue printing help.  */
-  unsigned char help_only;
 
   /* True for traditional preprocessing.  */
   unsigned char traditional;
