@@ -419,6 +419,11 @@ int profile_flag = 0;
 
 int profile_arc_flag = 0;
 
+/* Nonzero if we should not attempt to generate thread-safe
+   code to profile program flow graph arcs.  */
+
+int flag_unsafe_profile_arcs = 0;
+
 /* Nonzero if generating info for gcov to calculate line test coverage.  */
 
 int flag_test_coverage = 0;
@@ -1100,6 +1105,8 @@ static const lang_independent_options f_options[] =
    N_("Support synchronous non-call exceptions") },
   {"profile-arcs", &profile_arc_flag, 1,
    N_("Insert arc based program profiling code") },
+  {"unsafe-profile-arcs", &flag_unsafe_profile_arcs, 1,
+   N_("Do not attempt to generate thread-safe profiling code") },
   {"test-coverage", &flag_test_coverage, 1,
    N_("Create data files needed by gcov") },
   {"branch-probabilities", &flag_branch_probabilities, 1,
@@ -3072,7 +3079,7 @@ rest_of_compilation (decl)
 
   regclass_init ();
 
-  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0
+  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
 	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
   check_function_return_warnings ();
