@@ -584,10 +584,9 @@ struct cpp_macro_note
   cpp_hashnode *node;
   struct cpp_macro *macro; /* null for an #undef */
 };
-extern void _cpp_note_macro PARAMS ((cpp_reader *,
-				     cpp_hashnode *, cpp_macro *));
-extern void _cpp_restore_macros PARAMS ((cpp_reader *,
-					 struct cpp_macro_note *, int));
+extern void _cpp_note_macro (cpp_reader *, cpp_hashnode *, cpp_macro *);
+extern void cpp_restore_macros (cpp_reader *, cpp_fragment *);
+extern void cpp_do_macro_callbacks (cpp_reader *, cpp_fragment *);
 
 /* Evaluate a CPP_CHAR or CPP_WCHAR token.  */
 extern cppchar_t cpp_interpret_charconst (cpp_reader *, const cpp_token *,

@@ -4409,15 +4409,16 @@ reset_cpp_hashnodes ()
   cpp_undef_all (parse_in);
 #endif
   cpp_forall_identifiers (parse_in, lang_clear_identifier, NULL);
-  restore_fragment (builtins_fragment);
+  cpp_restore_macros (parse_in, builtins_fragment);
+  restore_fragment_bindings (builtins_c_fragment->bindings);
   /*  parse_in->buffer = NULL;*/
 }
 
 void
 restore_fragment (cpp_fragment *fragment)
 {
-  _cpp_restore_macros (parse_in,
-		       fragment->macro_notes, fragment->macro_notes_count);
+  cpp_do_macro_callbacks (parse_in, fragment);
+  cpp_restore_macros (parse_in, fragment);
   restore_fragment_bindings (C_FRAGMENT (fragment)->bindings);
 }
 

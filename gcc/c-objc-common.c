@@ -241,7 +241,13 @@ c_warn_unused_global_decl (tree decl)
 void
 init_c_objc_common_once ()
 {
-  if (server_mode >= 0 && server_mode != 1)
+  if ((server_mode >= 0 && server_mode != 1)
+      /* In this case we must write #define and #undef debug information
+	 into the assembler file.  But that hasn't been opened yet.  When
+	 using the compile server, we have to write out the debug information
+	 each time a fragment is re-used, so for simplicity we use the same
+	 logic if -g3 is specified even when not in compile server mode. */
+      || debug_info_level >= DINFO_LEVEL_VERBOSE)
     create_builtins_fragment ();
 
   init_c_decl_processing_once ();
@@ -261,6 +267,8 @@ init_c_objc_common_eachsrc (void)
   static const enum tree_code stmt_codes[] = {
     c_common_stmt_codes
   };
+
+  cpp_do_macro_callbacks (parse_in, builtins_fragment);
 
   INIT_STATEMENT_CODES (stmt_codes);
 

@@ -1,3 +1,24 @@
+2003-08-28  Per Bothner  <pbothner@apple.com>
+
+	* cpplib.c (_cpp_restore_macro):  Rename to cpp_restore_macros,
+	and change parameter list to take a cpp_fragment*.
+	Don't define and undef callbacks here.
+	(cpp_do_macro_callbacks):  New function to do above callbacks.
+	* cpplib.h:  Update accordingly.
+	* c-common.c (restore_fragment):  Update to call cpp_restore_macros
+	and also call cpp_do_macro_callbacks.
+	(reset_cpp_hashnodes):  Don't use restore_macros, so we don't do
+	cpp_do_macro_callbacks here.
+	* c-objc-common.c (init_c_objc_common_once):  If -g3 was specified
+	call create_builtins_fragment even not in server mode.
+	(init_c_objc_common_eachsrc):  Call cpp_do_macro_callbacks here.
+	* c-opts.c (finish_options):  Set the file_change callback here
+	rather than in c_common_post_options, but not if flag_preprocess_only,
+	so that the map field in c-lex.c can get set in time.
+	(c_common_post_options):  Even if flag_preprocess_only don't call
+	finish_options since init_c_common_once now calls it unconditionally.
+	(cb_file_change):  Don't segfault if new_map is NULL.
+
 2003-08-27  Per Bothner  <pbothner@apple.com>
 
 	* cpperror.c (print_location):  Don't check for !pfile->buffer.  That

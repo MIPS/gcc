@@ -1057,6 +1057,7 @@ c_common_post_options (const char **pfilename)
 	}
 
       init_pp_output (out_stream);
+      cpp_get_callbacks (parse_in)->file_change = cb_file_change;
     }
   else
     {
@@ -1066,7 +1067,6 @@ c_common_post_options (const char **pfilename)
       input_line = 0;
     }
 
-  cpp_get_callbacks (parse_in)->file_change = cb_file_change;
   /* kludge - should be moved */
   cpp_post_options (parse_in);
 
@@ -1074,7 +1074,6 @@ c_common_post_options (const char **pfilename)
 
   if (flag_preprocess_only)
     {
-      finish_options ();
       preprocess_file (parse_in);
       return true;
     }
@@ -1362,6 +1361,9 @@ finish_options ()
     {
       size_t i;
 
+      if (! flag_preprocess_only)
+	cpp_get_callbacks (parse_in)->file_change = cb_file_change;
+
       cpp_change_file (parse_in, LC_ENTER, _("<built-in>"));
       cpp_init_builtins (parse_in, flag_hosted);
       c_cpp_builtins (parse_in);
@@ -1447,7 +1449,7 @@ cb_file_change (cpp_reader *pfile ATTRIBUTE_UNUSED,
   else
     fe_file_change (new_map);
 
-  if (new_map->reason == LC_LEAVE && MAIN_FILE_P (new_map))
+  if (new_map != NULL && new_map->reason == LC_LEAVE && MAIN_FILE_P (new_map))
     push_command_line_include ();
 }
 

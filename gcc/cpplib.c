@@ -554,11 +554,29 @@ lex_macro_node (cpp_reader *pfile)
 }
 
 void
-_cpp_restore_macros (pfile, notes, count)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
-     struct cpp_macro_note *notes;
-     int count;
+cpp_do_macro_callbacks (cpp_reader *pfile, cpp_fragment *fragment)
 {
+  if (pfile->cb.define != NULL && pfile->cb.undef != NULL)
+    {
+      struct cpp_macro_note *notes = fragment->macro_notes;
+      int count = fragment->macro_notes_count;
+      for (;  --count >= 0;  notes++)
+	{
+	  cpp_hashnode *node = notes->node;
+	  struct cpp_macro *macro = notes->macro;
+	  if (macro != NULL)
+	    pfile->cb.define (pfile, pfile->directive_line, node);
+	  else
+	    pfile->cb.undef (pfile, pfile->directive_line, node);
+	}
+    }
+}
+
+void
+cpp_restore_macros (cpp_reader *pfile ATTRIBUTE_UNUSED, cpp_fragment *fragment)
+{
+  struct cpp_macro_note *notes = fragment->macro_notes;
+  int count = fragment->macro_notes_count;
   for (;  --count >= 0;  notes++)
     {
       cpp_hashnode *node = notes->node;
@@ -623,11 +641,7 @@ do_define (cpp_reader *pfile)
 	! CPP_OPTION (pfile, discard_comments_in_macro_exp);
 
       if (_cpp_create_definition (pfile, node))
-	{
-	  _cpp_note_macro (pfile, node, node->value.macro);
-	  if (pfile->cb.define)
-	    pfile->cb.define (pfile, pfile->directive_line, node);
-	}
+	_cpp_note_macro (pfile, node, node->value.macro);
     }
 }
 
@@ -641,9 +655,6 @@ do_undef (cpp_reader *pfile)
      is not currently defined as a macro name.  */
   if (node && node->type == NT_MACRO)
     {
-      if (pfile->cb.undef)
-	pfile->cb.undef (pfile, pfile->directive_line, node);
-
       _cpp_note_macro (pfile, node, NULL);
 
       if (node->flags & NODE_WARN)
