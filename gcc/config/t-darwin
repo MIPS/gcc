@@ -14,6 +14,7 @@ darwin-c.o: $(srcdir)/config/darwin-c.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 gt-darwin.h : s-gtype ; @true
 
 # Explain how to build crt2.o
+# APPLE LOCAL use -mlongcall for large text support
 $(T)crt2$(objext): $(srcdir)/config/darwin-crt2.c $(GCC_PASSES) \
 	$(TCONFIG_H) stmp-int-hdrs tsystem.h
 	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -mlongcall \

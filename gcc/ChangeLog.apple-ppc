@@ -1,3 +1,10 @@
+2004-06-25  Stuart Hastings <stuart@apple.com
+
+	Radar 3690727
+	* gcc/config/rs6000/rs6000.md:  Add missing APPLE LOCAL markers.
+	* gcc/config/t-darwin.h: Ditto.
+	* gcc/ChangeLog.apple-ppc: Minor formatting cleanup.
+
 2004-06-24  Dale Johannesen  <dalej@apple.com>
 
 	Radar #: 3696823, 3673318, 3672998
@@ -150,6 +157,7 @@
         (vect_analyze_loop_form): Likewise.
 
 2004-06-14  Caroline Tice <ctice@apple.com>
+
       Radar 3690727 (partial)
       * defaults.h (NORMAL_TEXT_SECTION_NAME): Remove.
       * passes.c (rest_of_compilation):  Add missing APPLE LOCAL.
@@ -161,15 +169,18 @@
       (SECTION_FORMAT_STRING): Likewise.
 
 2004-06-14  Dale Johannesen  <dalej@apple.com>
+
 	Radar 3661661
 	* tree-ssa.c (tree_ssa_useless_type_conversion_1): fix from FSF.
 
 2004-06-14  Dale Johannesen  <dalej@apple.com>
+
 	Radar 3690727 (partial)
 	* gimplify.c (copy_if_shared_r): Add missing APPLE LOCAL.
 	* config/rs6000/t-darwin: Ditto.
 
 2004-06-14  Fariborz Jahanian <fjahanian@apple.com> 
+
         * version.c: Remove word tree-ssa from version string.
 
 2004-06-12  Devang Patel  <dpatel@apple.com>
@@ -263,6 +274,7 @@
 	vect_gen_if_guard function twice.
 
 2004-06-11  Dale Johannesen  <dalej.@apple.com>
+
 	* tree-ssa-loop-niter.c (number-of_iterations_cond): Apply Zdenek's
 	patch from 5/28 lno-branch.
 
@@ -270,21 +282,26 @@
 	* tree-scalar-evolution.c (scev_finalize): Remove wild load.
 
 2004-06-10  Fariborz Jahanian <fjahanian@apple.com>
+
 	* version.c: Change version date to 20040529 (date of
 	last merge).
 
 2004-06-09  Dale Johannesen  <dalej@apple.com>
+
 	* df.c (df_def_record_1): Handle DImode parallel.
 
 2004-06-09  Fariborz Jahanian <fjahanian@apple.com>
+
 	* gengtype.c (get_output_file_with_visibility): Removed dead code.
 	* gimplify.c (copy_if_shared_r): brought in patch to PR15884 done
 	by RTH to fix perlbmk crash.
 
 2004-06-08  Dale Johannesen  <dalej@apple.com>
+
 	* config/rs6000/t-darwin:  Remove duplicate fpsave.
 
 2004-06-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
 	approved Dale Johannesen <dalej@apple.com>
 	Radar 3683113, PR 15881.
 	* fold.const.c (fold_convert):  Handle ptr-to-member.
@@ -300,11 +317,13 @@
 	(number_of_iterations_in_loop): Ditto.
 
 2004-06-08 Robert Bowdidge <bowdidge@apple.com>
+
 	* config/darwin.c (machopic_indirect_call_target): Added patch from
         PR/15720 (function marked inline which is called directly isn't
 	emitted).
 
 2004-06-08  Fariborz Jahanian <fjahanian@apple.com>
+
 	* varasm.c (assemble_variable): Resotored zerofill size optimization.
 	* config/rs6000/rs6000.c (rs6000_override_options): Place 
 	rs6000_init_hard_regno_mode_ok after setting of -fast flags.
@@ -325,9 +344,11 @@
 	should not be used.
 
 2004-06-07  Fariborz Jahanian <fjahanian@apple.com>
+
 	* gcc.c: Removed setting of -combine option with -fast.
 
 2004-06-07  Fariborz Jahanian <fjahanian@apple.com>
+
 	* decl.c (maybe_commonize_var): Removed APPLE LOCAL coalescing stuff.
 	* method.c (use_thunk): ditto.
 	* rtti.c (tinfo_base_init): ditto.
