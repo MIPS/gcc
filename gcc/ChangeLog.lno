@@ -1,3 +1,11 @@
+2004-04-16  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	Merge from tree-ssa branch:
+
+	2004-03-25  Diego Novillo  <dnovillo@redhat.com>
+		* tree-ssa-alias.c (struct alias_info): Change type of field
+		'num_references' to varray_type.  Update all users.
+
 2004-04-15  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-into-ssa.c (struct mark_def_sites_global_data): Change type of
