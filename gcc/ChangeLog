@@ -1,3 +1,18 @@
+2003-06-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.c (c_strlen): Add only_value argument.
+	Handle COND_EXPR and COMPOUND_EXPR.
+	(expand_builtin_strlen): Optimize also strlen (i++ ? "foo" : "bar").
+	Adjust c_strlen callers.
+	(expand_builtin_strcpy, expand_builtin_strncpy,
+	expand_builtin_strcmp, expand_builtin_strncmp,
+	expand_builtin_fputs, fold_builtin): Adjust c_strlen callers.
+
+2003-04-14  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c (expand_builtin_strlen):  Evaluate the lengths of
+	string literals at compile-time.
+
 2003-07-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/11420
