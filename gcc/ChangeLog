@@ -1,3 +1,17 @@
+2002-07-08  Geoffrey Keating  <geoffk@redhat.com>
+
+	* tree.h (union tree_type_symtab): Mark `die' field.
+	* Makefile.in (dwarf2out.o): Update dependencies.
+	* dwarf2out.c: Use GGC to allocate all structures.  Convert to htab_t
+	hash tables.
+	(dw_cfi_oprnd1_desc): New function.
+	(dw_cfi_oprnd2_desc): New function.
+	(indirect_string_alloc): Delete.
+	(debug_str_do_hash): New function.
+	(debug_str_eq): New function.
+	(mark_limbo_die_list): Delete.
+	(dwarf2out_init): Don't call ggc_add_root.
+
 2002-07-06  Geoffrey Keating  <geoffk@redhat.com>
 
 	* gengtype.c (adjust_field_tree_exp): Don't name a variable 'rindex'.

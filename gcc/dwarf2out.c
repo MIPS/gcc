@@ -61,7 +61,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "debug.h"
 #include "target.h"
 #include "langhooks.h"
-#include "hashtable.h"
+#include "hashtab.h"
 
 #ifdef DWARF2_DEBUGGING_INFO
 static void dwarf2out_source_line	PARAMS ((unsigned int, const char *));
@@ -143,8 +143,6 @@ static GTY(()) varray_type incomplete_types;
    define type declaration DIE's.  */
 static GTY(()) varray_type decl_scope_table;
 
-#if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
-
 /* How to start an assembler comment.  */
 #ifndef ASM_COMMENT_START
 #define ASM_COMMENT_START ";#"
@@ -159,21 +157,31 @@ typedef union  dw_cfi_oprnd_struct *dw_cfi_oprnd_ref;
    and address fields are provided as possible operands;
    their use is selected by the opcode field.  */
 
-typedef union dw_cfi_oprnd_struct
+enum dw_cfi_oprnd_type {
+  dw_cfi_oprnd_unused,
+  dw_cfi_oprnd_reg_num,
+  dw_cfi_oprnd_offset,
+  dw_cfi_oprnd_addr,
+  dw_cfi_oprnd_loc
+};
+
+typedef union dw_cfi_oprnd_struct GTY(())
 {
-  unsigned long dw_cfi_reg_num;
-  long int dw_cfi_offset;
-  const char *dw_cfi_addr;
-  struct dw_loc_descr_struct *dw_cfi_loc;
+  unsigned long GTY ((tag ("dw_cfi_oprnd_reg_num"))) dw_cfi_reg_num;
+  long int GTY ((tag ("dw_cfi_oprnd_offset"))) dw_cfi_offset;
+  const char * GTY ((tag ("dw_cfi_oprnd_addr"))) dw_cfi_addr;
+  struct dw_loc_descr_struct * GTY ((tag ("dw_cfi_oprnd_loc"))) dw_cfi_loc;
 }
 dw_cfi_oprnd;
 
-typedef struct dw_cfi_struct
+typedef struct dw_cfi_struct GTY(())
 {
   dw_cfi_ref dw_cfi_next;
   enum dwarf_call_frame_info dw_cfi_opc;
-  dw_cfi_oprnd dw_cfi_oprnd1;
-  dw_cfi_oprnd dw_cfi_oprnd2;
+  dw_cfi_oprnd GTY ((desc ("dw_cfi_oprnd1_desc (%1.dw_cfi_opc)"))) 
+    dw_cfi_oprnd1;
+  dw_cfi_oprnd GTY ((desc ("dw_cfi_oprnd2_desc (%1.dw_cfi_opc)"))) 
+    dw_cfi_oprnd2;
 }
 dw_cfi_node;
 
@@ -182,7 +190,7 @@ dw_cfi_node;
    It can now be either REG + CFA_OFFSET or *(REG + BASE_OFFSET) + CFA_OFFSET.
    Instead of passing around REG and OFFSET, we pass a copy
    of this structure.  */
-typedef struct cfa_loc
+typedef struct cfa_loc GTY(())
 {
   unsigned long reg;
   long offset;
@@ -196,7 +204,7 @@ typedef struct cfa_loc
    CIE obviates the need to keep track of multiple CIE's
    in the DWARF generation routines below.  */
 
-typedef struct dw_fde_struct
+typedef struct dw_fde_struct GTY(())
 {
   const char *dw_fde_begin;
   const char *dw_fde_current_label;
@@ -246,7 +254,7 @@ dw_fde_node;
 
 /* A pointer to the base of a table that contains frame description
    information for each routine.  */
-static dw_fde_ref fde_table;
+static GTY((length ("fde_table_allocated"))) dw_fde_ref fde_table;
 
 /* Number of elements currently allocated for fde_table.  */
 static unsigned fde_table_allocated;
@@ -259,7 +267,7 @@ static unsigned fde_table_in_use;
 #define FDE_TABLE_INCREMENT 256
 
 /* A list of call frame insns for the CIE.  */
-static dw_cfi_ref cie_cfi_head;
+static GTY(()) dw_cfi_ref cie_cfi_head;
 
 /* Some DWARF extensions (e.g., MIPS/SGI) implement a subprogram
    attribute that accelerates the lookup of the FDE associated
@@ -267,15 +275,17 @@ static dw_cfi_ref cie_cfi_head;
    associated with the current function (body) definition.  */
 static unsigned current_funcdef_fde;
 
-struct ht *debug_str_hash;
-
-struct indirect_string_node
+struct indirect_string_node GTY(())
 {
-  struct ht_identifier id;
+  const char *str;
   unsigned int refcount;
   unsigned int form;
   char *label;
 };
+
+static GTY ((param_is (struct indirect_string_node))) htab_t debug_str_hash;
+
+#if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
 
 /* Forward declarations for functions defined in this file.  */
 
@@ -292,6 +302,10 @@ static void reg_save			PARAMS ((const char *, unsigned,
 static void initial_return_save		PARAMS ((rtx));
 static long stack_adjust_offset		PARAMS ((rtx));
 static void output_cfi			PARAMS ((dw_cfi_ref, dw_fde_ref, int));
+static enum dw_cfi_oprnd_type dw_cfi_oprnd1_desc 
+   PARAMS ((enum dwarf_call_frame_info cfi));
+static enum dw_cfi_oprnd_type dw_cfi_oprnd2_desc 
+   PARAMS ((enum dwarf_call_frame_info cfi));
 static void output_call_frame_info	PARAMS ((int));
 static void dwarf2out_stack_adjust	PARAMS ((rtx));
 static void queue_reg_save		PARAMS ((const char *, rtx, long));
@@ -521,7 +535,7 @@ dwarf_cfi_name (cfi_opc)
 static inline dw_cfi_ref
 new_cfi ()
 {
-  dw_cfi_ref cfi = (dw_cfi_ref) xmalloc (sizeof (dw_cfi_node));
+  dw_cfi_ref cfi = (dw_cfi_ref) ggc_alloc (sizeof (dw_cfi_node));
 
   cfi->dw_cfi_next = NULL;
   cfi->dw_cfi_oprnd1.dw_cfi_reg_num = 0;
@@ -1092,18 +1106,22 @@ dwarf2out_stack_adjust (insn)
   dwarf2out_args_size (label, args_size);
 }
 
+#endif
+
 /* We delay emitting a register save until either (a) we reach the end
    of the prologue or (b) the register is clobbered.  This clusters
    register saves so that there are fewer pc advances.  */
 
-struct queued_reg_save
+struct queued_reg_save GTY(())
 {
   struct queued_reg_save *next;
   rtx reg;
   long cfa_offset;
 };
 
-static struct queued_reg_save *queued_reg_saves;
+static GTY(()) struct queued_reg_save *queued_reg_saves;
+
+#if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
 static const char *last_reg_save_label;
 
 static void
@@ -1112,7 +1130,7 @@ queue_reg_save (label, reg, offset)
      rtx reg;
      long offset;
 {
-  struct queued_reg_save *q = (struct queued_reg_save *) xmalloc (sizeof (*q));
+  struct queued_reg_save *q = ggc_alloc (sizeof (*q));
 
   q->next = queued_reg_saves;
   q->reg = reg;
@@ -1131,7 +1149,6 @@ flush_queued_reg_saves ()
     {
       dwarf2out_reg_save (last_reg_save_label, REGNO (q->reg), q->cfa_offset);
       next = q->next;
-      free (q);
     }
 
   queued_reg_saves = NULL;
@@ -1684,6 +1701,76 @@ dwarf2out_frame_debug (insn)
   dwarf2out_frame_debug_expr (insn, label);
 }
 
+#endif
+
+/* Describe for the GTY machinery what parts of dw_cfi_oprnd1 are used.  */
+
+static enum dw_cfi_oprnd_type
+dw_cfi_oprnd1_desc PARAMS ((enum dwarf_call_frame_info cfi))
+{
+  switch (cfi)
+    {
+    case DW_CFA_nop:
+    case DW_CFA_GNU_window_save:
+      return dw_cfi_oprnd_unused;
+
+    case DW_CFA_set_loc:
+    case DW_CFA_advance_loc1:
+    case DW_CFA_advance_loc2:
+    case DW_CFA_advance_loc4:
+    case DW_CFA_MIPS_advance_loc8:
+      return dw_cfi_oprnd_addr;
+
+    case DW_CFA_offset:
+    case DW_CFA_offset_extended:
+    case DW_CFA_def_cfa:
+    case DW_CFA_offset_extended_sf:
+    case DW_CFA_def_cfa_sf:
+    case DW_CFA_restore_extended:
+    case DW_CFA_undefined:
+    case DW_CFA_same_value:
+    case DW_CFA_def_cfa_register:
+    case DW_CFA_register:
+      return dw_cfi_oprnd_reg_num;
+
+    case DW_CFA_def_cfa_offset:
+    case DW_CFA_GNU_args_size:
+    case DW_CFA_def_cfa_offset_sf:
+      return dw_cfi_oprnd_offset;
+      
+    case DW_CFA_def_cfa_expression:
+    case DW_CFA_expression:
+      return dw_cfi_oprnd_loc;
+
+    default:
+      abort ();
+    }
+}
+
+/* Describe for the GTY machinery what parts of dw_cfi_oprnd2 are used.  */
+
+static enum dw_cfi_oprnd_type
+dw_cfi_oprnd2_desc PARAMS ((enum dwarf_call_frame_info cfi))
+{
+  switch (cfi)
+    {
+    case DW_CFA_def_cfa:
+    case DW_CFA_def_cfa_sf:
+    case DW_CFA_offset:
+    case DW_CFA_offset_extended_sf:
+    case DW_CFA_offset_extended:
+      return dw_cfi_oprnd_offset;
+
+    case DW_CFA_register:
+      return dw_cfi_oprnd_reg_num;
+
+    default:
+      return dw_cfi_oprnd_unused;
+    }
+}
+
+#if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
+
 /* Output a Call Frame Information opcode and its operand(s).  */
 
 static void
@@ -2125,9 +2212,10 @@ dwarf2out_begin_prologue (line, file)
   if (fde_table_in_use == fde_table_allocated)
     {
       fde_table_allocated += FDE_TABLE_INCREMENT;
-      fde_table
-	= (dw_fde_ref) xrealloc (fde_table,
-				 fde_table_allocated * sizeof (dw_fde_node));
+      fde_table = ggc_realloc (fde_table,
+			       fde_table_allocated * sizeof (dw_fde_node));
+      memset (fde_table + fde_table_in_use, 0,
+	      FDE_TABLE_INCREMENT * sizeof (dw_fde_node));
     }
 
   /* Record the FDE associated with this function.  */
@@ -2176,7 +2264,8 @@ void
 dwarf2out_frame_init ()
 {
   /* Allocate the initial hunk of the fde_table.  */
-  fde_table = (dw_fde_ref) xcalloc (FDE_TABLE_INCREMENT, sizeof (dw_fde_node));
+  fde_table = (dw_fde_ref) ggc_alloc_cleared (FDE_TABLE_INCREMENT
+					      * sizeof (dw_fde_node));
   fde_table_allocated = FDE_TABLE_INCREMENT;
   fde_table_in_use = 0;
 
@@ -2200,6 +2289,7 @@ dwarf2out_frame_finish ()
   if (! USING_SJLJ_EXCEPTIONS && (flag_unwind_tables || flag_exceptions))
     output_call_frame_info (1);
 }
+#endif
 
 /* And now, the subset of the debugging information support code necessary
    for emitting location expressions.  */
@@ -2213,7 +2303,7 @@ typedef struct dw_loc_list_struct *dw_loc_list_ref;
    can take on several forms.  The forms that are used in this
    implementation are listed below.  */
 
-typedef enum
+enum dw_val_class
 {
   dw_val_class_addr,
   dw_val_class_offset,
@@ -2230,13 +2320,12 @@ typedef enum
   dw_val_class_lbl_id,
   dw_val_class_lbl_offset,
   dw_val_class_str
-}
-dw_val_class;
+};
 
 /* Describe a double word constant value.  */
 /* ??? Every instance of long_long in the code really means CONST_DOUBLE.  */
 
-typedef struct dw_long_long_struct
+typedef struct dw_long_long_struct GTY(())
 {
   unsigned long hi;
   unsigned long low;
@@ -2245,9 +2334,9 @@ dw_long_long_const;
 
 /* Describe a floating point constant value.  */
 
-typedef struct dw_fp_struct
+typedef struct dw_fp_struct GTY(())
 {
-  long *array;
+  long * GTY((length ("%h.length"))) array;
   unsigned length;
 }
 dw_float_const;
@@ -2255,37 +2344,37 @@ dw_float_const;
 /* The dw_val_node describes an attribute's value, as it is
    represented internally.  */
 
-typedef struct dw_val_struct
+typedef struct dw_val_struct GTY(())
 {
-  dw_val_class val_class;
-  union
+  enum dw_val_class val_class;
+  union dw_val_struct_union
     {
-      rtx val_addr;
-      long unsigned val_offset;
-      dw_loc_list_ref  val_loc_list;
-      dw_loc_descr_ref val_loc;
-      long int val_int;
-      long unsigned val_unsigned;
-      dw_long_long_const val_long_long;
-      dw_float_const val_float;
-      struct
+      rtx GTY ((tag ("dw_val_class_addr"))) val_addr;
+      long unsigned GTY ((tag ("dw_val_class_offset"))) val_offset;
+      dw_loc_list_ref GTY ((tag ("dw_val_class_loc_list"))) val_loc_list;
+      dw_loc_descr_ref GTY ((tag ("dw_val_class_loc"))) val_loc;
+      long int GTY ((default (""))) val_int;
+      long unsigned GTY ((tag ("dw_val_class_unsigned_const"))) val_unsigned;
+      dw_long_long_const GTY ((tag ("dw_val_class_long_long"))) val_long_long;
+      dw_float_const GTY ((tag ("dw_val_class_float"))) val_float;
+      struct dw_val_die_union
 	{
 	  dw_die_ref die;
 	  int external;
-	} val_die_ref;
-      unsigned val_fde_index;
-      struct indirect_string_node *val_str;
-      char *val_lbl_id;
-      unsigned char val_flag;
+	} GTY ((tag ("dw_val_class_die_ref"))) val_die_ref;
+      unsigned GTY ((tag ("dw_val_class_fde_ref"))) val_fde_index;
+      struct indirect_string_node * GTY ((tag ("dw_val_class_str"))) val_str;
+      char * GTY ((tag ("dw_val_class_lbl_id"))) val_lbl_id;
+      unsigned char GTY ((tag ("dw_val_class_flag"))) val_flag;
     }
-  v;
+  GTY ((desc ("%1.val_class"))) v;
 }
 dw_val_node;
 
 /* Locations in memory are described using a sequence of stack machine
    operations.  */
 
-typedef struct dw_loc_descr_struct
+typedef struct dw_loc_descr_struct GTY(())
 {
   dw_loc_descr_ref dw_loc_next;
   enum dwarf_location_atom dw_loc_opc;
@@ -2298,7 +2387,7 @@ dw_loc_descr_node;
 /* Location lists are ranges + location descriptions for that range,
    so you can track variables that are in different places over
    their entire life.  */
-typedef struct dw_loc_list_struct
+typedef struct dw_loc_list_struct GTY(())
 {
   dw_loc_list_ref dw_loc_next;
   const char *begin; /* Label for begin address of range */
@@ -2308,6 +2397,8 @@ typedef struct dw_loc_list_struct
   const char *section; /* Section this loclist is relative to */
   dw_loc_descr_ref expr;
 } dw_loc_list_node;
+
+#if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
 
 static const char *dwarf_stack_op_name	PARAMS ((unsigned));
 static dw_loc_descr_ref new_loc_descr	PARAMS ((enum dwarf_location_atom,
@@ -2633,10 +2724,8 @@ new_loc_descr (op, oprnd1, oprnd2)
      unsigned long oprnd1;
      unsigned long oprnd2;
 {
-  /* Use xcalloc here so we clear out all of the long_long constant in
-     the union.  */
   dw_loc_descr_ref descr
-    = (dw_loc_descr_ref) xcalloc (1, sizeof (dw_loc_descr_node));
+    = (dw_loc_descr_ref) ggc_alloc_cleared (sizeof (dw_loc_descr_node));
 
   descr->dw_loc_opc = op;
   descr->dw_loc_oprnd1.val_class = dw_val_class_unsigned_const;
@@ -3101,10 +3190,7 @@ get_cfa_from_loc_descr (cfa, loc)
 #ifdef DWARF2_DEBUGGING_INFO
 
 /* .debug_str support.  */
-static hashnode indirect_string_alloc	PARAMS ((hash_table *));
-static int output_indirect_string	PARAMS ((struct cpp_reader *,
-                                                 hashnode, const PTR));
-
+static int output_indirect_string	PARAMS ((void **, void *));
 
 static void dwarf2out_init 		PARAMS ((const char *));
 static void dwarf2out_finish		PARAMS ((const char *));
@@ -3146,6 +3232,7 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   dwarf2out_abstract_function,	/* outlining_inline_function */
   debug_nothing_rtx		/* label */
 };
+#endif
 
 /* NOTE: In the comments in this file, many references are made to
    "Debugging Information Entries".  This term is abbreviated as `DIE'
@@ -3174,7 +3261,7 @@ typedef struct dw_ranges_struct *dw_ranges_ref;
    entry.  The label gives the PC value associated with
    the line number entry.  */
 
-typedef struct dw_line_info_struct
+typedef struct dw_line_info_struct GTY(())
 {
   unsigned long dw_file_num;
   unsigned long dw_line_num;
@@ -3183,7 +3270,7 @@ dw_line_info_entry;
 
 /* Line information for functions in separate sections; each one gets its
    own sequence.  */
-typedef struct dw_separate_line_info_struct
+typedef struct dw_separate_line_info_struct GTY(())
 {
   unsigned long dw_file_num;
   unsigned long dw_line_num;
@@ -3195,7 +3282,7 @@ dw_separate_line_info_entry;
    a link to the next attribute in the chain, and an attribute value.
    Attributes are typically linked below the DIE they modify.  */
 
-typedef struct dw_attr_struct
+typedef struct dw_attr_struct GTY(())
 {
   enum dwarf_attribute dw_attr;
   dw_attr_ref dw_attr_next;
@@ -3205,7 +3292,7 @@ dw_attr_node;
 
 /* The Debugging Information Entry (DIE) structure */
 
-typedef struct die_struct
+typedef struct die_struct GTY(())
 {
   enum dwarf_tag die_tag;
   char *die_symbol;
@@ -3221,20 +3308,20 @@ die_node;
 
 /* The pubname structure */
 
-typedef struct pubname_struct
+typedef struct pubname_struct GTY(())
 {
   dw_die_ref die;
   char *name;
 }
 pubname_entry;
 
-struct dw_ranges_struct
+struct dw_ranges_struct GTY(())
 {
   int block_num;
 };
 
 /* The limbo die list structure.  */
-typedef struct limbo_die_struct
+typedef struct limbo_die_struct GTY(())
 {
   dw_die_ref die;
   tree created_for;
@@ -3321,10 +3408,10 @@ limbo_die_node;
 static unsigned long next_die_offset;
 
 /* Record the root of the DIE's built for the current compilation unit.  */
-static dw_die_ref comp_unit_die;
+static GTY(()) dw_die_ref comp_unit_die;
 
 /* A list of DIEs with a NULL parent waiting to be relocated.  */
-static limbo_die_node *limbo_die_list = 0;
+static GTY(()) limbo_die_node *limbo_die_list;
 
 /* Structure used by lookup_filename to manage sets of filenames.  */
 struct file_table
@@ -3349,7 +3436,7 @@ static const char *primary_filename;
 /* A pointer to the base of a table of references to DIE's that describe
    declarations.  The table is indexed by DECL_UID() which is a unique
    number identifying each decl.  */
-static dw_die_ref *decl_die_table;
+static GTY((length ("decl_die_table_allocated"))) dw_die_ref *decl_die_table;
 
 /* Number of elements currently allocated for the decl_die_table.  */
 static unsigned decl_die_table_allocated;
@@ -3364,7 +3451,8 @@ static unsigned decl_die_table_in_use;
 /* A pointer to the base of a list of references to DIE's that
    are uniquely identified by their tag, presence/absence of
    children DIE's, and list of attribute/value pairs.  */
-static dw_die_ref *abbrev_die_table;
+static GTY((length ("abbrev_die_table_allocated"))) 
+  dw_die_ref *abbrev_die_table;
 
 /* Number of elements currently allocated for abbrev_die_table.  */
 static unsigned abbrev_die_table_allocated;
@@ -3378,23 +3466,25 @@ static unsigned abbrev_die_table_in_use;
 
 /* A pointer to the base of a table that contains line information
    for each source code line in .text in the compilation unit.  */
-static dw_line_info_ref line_info_table;
+static GTY((length ("line_info_table_allocated"))) 
+     dw_line_info_ref line_info_table;
 
 /* Number of elements currently allocated for line_info_table.  */
 static unsigned line_info_table_allocated;
 
-/* Number of elements in separate_line_info_table currently in use.  */
-static unsigned separate_line_info_table_in_use;
+/* Number of elements in line_info_table currently in use.  */
+static unsigned line_info_table_in_use;
 
 /* A pointer to the base of a table that contains line information
    for each source code line outside of .text in the compilation unit.  */
-static dw_separate_line_info_ref separate_line_info_table;
+static GTY ((length ("separate_line_info_table_allocated")))
+     dw_separate_line_info_ref separate_line_info_table;
 
 /* Number of elements currently allocated for separate_line_info_table.  */
 static unsigned separate_line_info_table_allocated;
 
-/* Number of elements in line_info_table currently in use.  */
-static unsigned line_info_table_in_use;
+/* Number of elements in separate_line_info_table currently in use.  */
+static unsigned separate_line_info_table_in_use;
 
 /* Size (in elements) of increments by which we may expand the
    line_info_table.  */
@@ -3402,7 +3492,7 @@ static unsigned line_info_table_in_use;
 
 /* A pointer to the base of a table that contains a list of publicly
    accessible names.  */
-static pubname_ref pubname_table;
+static GTY ((length ("pubname_table_allocated"))) pubname_ref pubname_table;
 
 /* Number of elements currently allocated for pubname_table.  */
 static unsigned pubname_table_allocated;
@@ -3415,7 +3505,7 @@ static unsigned pubname_table_in_use;
 #define PUBNAME_TABLE_INCREMENT 64
 
 /* Array of dies for which we should generate .debug_arange info.  */
-static dw_die_ref *arange_table;
+static GTY((length ("arange_table_allocated"))) dw_die_ref *arange_table;
 
 /* Number of elements currently allocated for arange_table.  */
 static unsigned arange_table_allocated;
@@ -3428,7 +3518,7 @@ static unsigned arange_table_in_use;
 #define ARANGE_TABLE_INCREMENT 64
 
 /* Array of dies for which we should generate .debug_ranges info.  */
-static dw_ranges_ref ranges_table;
+static GTY ((length ("ranges_table_allocated"))) dw_ranges_ref ranges_table;
 
 /* Number of elements currently allocated for ranges_table.  */
 static unsigned ranges_table_allocated;
@@ -3449,6 +3539,8 @@ static int current_function_has_inlines;
 static int comp_unit_has_inlines;
 #endif
 
+#ifdef DWARF2_DEBUGGING_INFO
+
 /* Forward declarations for functions defined in this file.  */
 
 static int is_pseudo_reg		PARAMS ((rtx));
@@ -3464,7 +3556,7 @@ static tree decl_ultimate_origin	PARAMS ((tree));
 static tree block_ultimate_origin	PARAMS ((tree));
 static tree decl_class_context		PARAMS ((tree));
 static void add_dwarf_attr		PARAMS ((dw_die_ref, dw_attr_ref));
-static inline dw_val_class AT_class	PARAMS ((dw_attr_ref));
+static inline enum dw_val_class AT_class	PARAMS ((dw_attr_ref));
 static void add_AT_flag			PARAMS ((dw_die_ref,
 						 enum dwarf_attribute,
 						 unsigned));
@@ -3483,6 +3575,8 @@ static void add_AT_long_long		PARAMS ((dw_die_ref,
 static void add_AT_float		PARAMS ((dw_die_ref,
 						 enum dwarf_attribute,
 						 unsigned, long *));
+static hashval_t debug_str_do_hash	PARAMS ((const void *));
+static int debug_str_eq			PARAMS ((const void *, const void *));
 static void add_AT_string		PARAMS ((dw_die_ref,
 						 enum dwarf_attribute,
 						 const char *));
@@ -3691,7 +3785,6 @@ static void add_loc_descr_to_loc_list   PARAMS ((dw_loc_list_ref *,
 						 const char *, const char *, const char *));
 static void output_loc_list		PARAMS ((dw_loc_list_ref));
 static char *gen_internal_sym 		PARAMS ((const char *));
-static void mark_limbo_die_list		PARAMS ((void *));
 
 /* Section names used to hold DWARF debugging information.  */
 #ifndef DEBUG_INFO_SECTION
@@ -4370,7 +4463,7 @@ add_dwarf_attr (die, attr)
     }
 }
 
-static inline dw_val_class
+static inline enum dw_val_class
 AT_class (a)
      dw_attr_ref a;
 {
@@ -4385,7 +4478,7 @@ add_AT_flag (die, attr_kind, flag)
      enum dwarf_attribute attr_kind;
      unsigned flag;
 {
-  dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4412,7 +4505,7 @@ add_AT_int (die, attr_kind, int_val)
      enum dwarf_attribute attr_kind;
      long int int_val;
 {
-  dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4439,7 +4532,7 @@ add_AT_unsigned (die, attr_kind, unsigned_val)
      enum dwarf_attribute attr_kind;
      unsigned long unsigned_val;
 {
-  dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4467,7 +4560,7 @@ add_AT_long_long (die, attr_kind, val_hi, val_low)
      unsigned long val_hi;
      unsigned long val_low;
 {
-  dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4486,7 +4579,7 @@ add_AT_float (die, attr_kind, length, array)
      unsigned length;
      long *array;
 {
-  dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4494,6 +4587,24 @@ add_AT_float (die, attr_kind, length, array)
   attr->dw_attr_val.v.val_float.length = length;
   attr->dw_attr_val.v.val_float.array = array;
   add_dwarf_attr (die, attr);
+}
+
+/* Hash and equality functions for debug_str_hash.  */
+
+static hashval_t
+debug_str_do_hash (x)
+     const void * x;
+{
+  return htab_hash_string (((const struct indirect_string_node *)x)->str);
+}
+
+static int
+debug_str_eq (x1, x2)
+     const void * x1;
+     const void * x2;
+{
+  return strcmp ((((const struct indirect_string_node *)x1)->str),
+		 (const char *)x2) == 0;
 }
 
 /* Add a string attribute value to a DIE.  */
@@ -4504,18 +4615,20 @@ add_AT_string (die, attr_kind, str)
      enum dwarf_attribute attr_kind;
      const char *str;
 {
-  dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
   struct indirect_string_node *node;
+  PTR *slot;
 
   if (! debug_str_hash)
-    {
-      debug_str_hash = ht_create (10);
-      debug_str_hash->alloc_node = indirect_string_alloc;
-    }
+    debug_str_hash = htab_create_ggc (10, debug_str_do_hash, 
+				      debug_str_eq, NULL);
 
-  node = (struct indirect_string_node *)
-	 ht_lookup (debug_str_hash, (const unsigned char *) str,
-		    strlen (str), HT_ALLOC);
+  slot = htab_find_slot_with_hash (debug_str_hash, str,
+				   htab_hash_string (str), INSERT);
+  if (*slot == NULL)
+    *slot = ggc_alloc_cleared (sizeof (struct indirect_string_node));
+  node = (struct indirect_string_node *) *slot;
+  node->str = ggc_alloc_string (str, -1);
   node->refcount++;
 
   attr->dw_attr_next = NULL;
@@ -4530,7 +4643,7 @@ AT_string (a)
      dw_attr_ref a;
 {
   if (a && AT_class (a) == dw_val_class_str)
-    return (const char *) HT_STR (&a->dw_attr_val.v.val_str->id);
+    return a->dw_attr_val.v.val_str->str;
 
   abort ();
 }
@@ -4553,7 +4666,7 @@ AT_string_form (a)
       if (node->form)
 	return node->form;
 
-      len = HT_LEN (&node->id) + 1;
+      len = strlen (node->str) + 1;
 
       /* If the string is shorter or equal to the size of the reference, it is
 	 always better to put it inline.  */
@@ -4585,7 +4698,7 @@ add_AT_die_ref (die, attr_kind, targ_die)
      enum dwarf_attribute attr_kind;
      dw_die_ref targ_die;
 {
-  dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4634,7 +4747,7 @@ add_AT_fde_ref (die, attr_kind, targ_fde)
      enum dwarf_attribute attr_kind;
      unsigned targ_fde;
 {
-  dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4651,7 +4764,7 @@ add_AT_loc (die, attr_kind, loc)
      enum dwarf_attribute attr_kind;
      dw_loc_descr_ref loc;
 {
-  dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4676,7 +4789,7 @@ add_AT_loc_list (die, attr_kind, loc_list)
      enum dwarf_attribute attr_kind;
      dw_loc_list_ref loc_list;
 {
-  dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4704,7 +4817,7 @@ add_AT_addr (die, attr_kind, addr)
      enum dwarf_attribute attr_kind;
      rtx addr;
 {
-  dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4731,7 +4844,7 @@ add_AT_lbl_id (die, attr_kind, lbl_id)
      enum dwarf_attribute attr_kind;
      const char *lbl_id;
 {
-  dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4748,7 +4861,7 @@ add_AT_lbl_offset (die, attr_kind, label)
      enum dwarf_attribute attr_kind;
      const char *label;
 {
-  dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4765,7 +4878,7 @@ add_AT_offset (die, attr_kind, offset)
      enum dwarf_attribute attr_kind;
      unsigned long offset;
 {
-  dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4782,7 +4895,7 @@ add_AT_range_list (die, attr_kind, offset)
      enum dwarf_attribute attr_kind;
      unsigned long offset;
 {
-  dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4942,27 +5055,9 @@ static inline void
 free_AT (a)
      dw_attr_ref a;
 {
-  switch (AT_class (a))
-    {
-    case dw_val_class_str:
-      if (a->dw_attr_val.v.val_str->refcount)
-	a->dw_attr_val.v.val_str->refcount--;
-      break;
-
-    case dw_val_class_lbl_id:
-    case dw_val_class_lbl_offset:
-      free (a->dw_attr_val.v.val_lbl_id);
-      break;
-
-    case dw_val_class_float:
-      free (a->dw_attr_val.v.val_float.array);
-      break;
-
-    default:
-      break;
-    }
-
-  free (a);
+  if (AT_class (a) == dw_val_class_str)
+    if (a->dw_attr_val.v.val_str->refcount)
+      a->dw_attr_val.v.val_str->refcount--;
 }
 
 /* Remove the specified attribute if present.  */
@@ -4997,7 +5092,6 @@ free_die (die)
      dw_die_ref die;
 {
   remove_children (die);
-  free (die);
 }
 
 /* Discard the children of this DIE.  */
@@ -5090,7 +5184,7 @@ new_die (tag_value, parent_die, t)
      dw_die_ref parent_die;
      tree t;
 {
-  dw_die_ref die = (dw_die_ref) xcalloc (1, sizeof (die_node));
+  dw_die_ref die = (dw_die_ref) ggc_alloc_cleared (sizeof (die_node));
 
   die->die_tag = tag_value;
 
@@ -5100,7 +5194,7 @@ new_die (tag_value, parent_die, t)
     {
       limbo_die_node *limbo_node;
 
-      limbo_node = (limbo_die_node *) xmalloc (sizeof (limbo_die_node));
+      limbo_node = ggc_alloc_cleared (sizeof (limbo_die_node));
       limbo_node->die = die;
       limbo_node->created_for = t;
       limbo_node->next = limbo_die_list;
@@ -5157,9 +5251,8 @@ equate_decl_number_to_die (decl, decl_die)
 	   / DECL_DIE_TABLE_INCREMENT)
 	  * DECL_DIE_TABLE_INCREMENT;
 
-      decl_die_table
-	= (dw_die_ref *) xrealloc (decl_die_table,
-				   sizeof (dw_die_ref) * num_allocated);
+      decl_die_table = ggc_realloc (decl_die_table,
+				    sizeof (dw_die_ref) * num_allocated);
 
       memset ((char *) &decl_die_table[decl_die_table_allocated], 0,
 	     (num_allocated - decl_die_table_allocated) * sizeof (dw_die_ref));
@@ -5822,9 +5915,8 @@ build_abbrev_table (die)
       if (abbrev_die_table_in_use >= abbrev_die_table_allocated)
 	{
 	  n_alloc = abbrev_die_table_allocated + ABBREV_DIE_TABLE_INCREMENT;
-	  abbrev_die_table
-	    = (dw_die_ref *) xrealloc (abbrev_die_table,
-				       sizeof (dw_die_ref) * n_alloc);
+	  abbrev_die_table = ggc_realloc (abbrev_die_table,
+					  sizeof (dw_die_ref) * n_alloc);
 
 	  memset ((char *) &abbrev_die_table[abbrev_die_table_allocated], 0,
 		 (n_alloc - abbrev_die_table_allocated) * sizeof (dw_die_ref));
@@ -5926,7 +6018,7 @@ size_of_die (die)
 	  if (AT_string_form (a) == DW_FORM_strp)
 	    size += DWARF_OFFSET_SIZE;
 	  else
-	    size += HT_LEN (&a->dw_attr_val.v.val_str->id) + 1;
+	    size += strlen (a->dw_attr_val.v.val_str->str) + 1;
 	  break;
 	default:
 	  abort ();
@@ -6179,8 +6271,7 @@ new_loc_list (expr, begin, end, section, gensym)
      const char *section;
      unsigned gensym;
 {
-  dw_loc_list_ref retlist
-    = (dw_loc_list_ref) xcalloc (1, sizeof (dw_loc_list_node));
+  dw_loc_list_ref retlist = ggc_alloc_cleared (sizeof (dw_loc_list_node));
 
   retlist->begin = begin;
   retlist->end = end;
@@ -6524,9 +6615,11 @@ add_pubname (decl, die)
     {
       pubname_table_allocated += PUBNAME_TABLE_INCREMENT;
       pubname_table
-	= (pubname_ref) xrealloc (pubname_table,
-				  (pubname_table_allocated
-				   * sizeof (pubname_entry)));
+	= (pubname_ref) ggc_realloc (pubname_table,
+				     (pubname_table_allocated
+				      * sizeof (pubname_entry)));
+      memset (pubname_table + pubname_table_in_use, 0,
+	      PUBNAME_TABLE_INCREMENT * sizeof (pubname_entry));
     }
 
   p = &pubname_table[pubname_table_in_use++];
@@ -6582,8 +6675,11 @@ add_arange (decl, die)
   if (arange_table_in_use == arange_table_allocated)
     {
       arange_table_allocated += ARANGE_TABLE_INCREMENT;
-      arange_table = (dw_die_ref *)
-	xrealloc (arange_table, arange_table_allocated * sizeof (dw_die_ref));
+      arange_table = ggc_realloc (arange_table, 
+				  (arange_table_allocated 
+				   * sizeof (dw_die_ref)));
+      memset (arange_table + arange_table_in_use, 0,
+	      ARANGE_TABLE_INCREMENT * sizeof (dw_die_ref));
     }
 
   arange_table[arange_table_in_use++] = die;
@@ -6678,8 +6774,10 @@ add_ranges (block)
     {
       ranges_table_allocated += RANGES_TABLE_INCREMENT;
       ranges_table = (dw_ranges_ref)
-	xrealloc (ranges_table, (ranges_table_allocated
-				 * sizeof (struct dw_ranges_struct)));
+	ggc_realloc (ranges_table, (ranges_table_allocated
+				    * sizeof (struct dw_ranges_struct)));
+      memset (ranges_table + ranges_table_in_use, 0,
+	      RANGES_TABLE_INCREMENT * sizeof (dw_die_ref));
     }
 
   ranges_table[in_use].block_num = (block ? BLOCK_NUMBER (block) : 0);
@@ -8694,7 +8792,7 @@ add_const_value_attribute (die, rtl)
 	if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 	  {
 	    unsigned length = GET_MODE_SIZE (mode) / 4;
-	    long *array = (long *) xmalloc (sizeof (long) * length);
+	    long *array = (long *) ggc_alloc (sizeof (long) * length);
 	    REAL_VALUE_TYPE rv;
 
 	    REAL_VALUE_FROM_CONST_DOUBLE (rv, rtl);
@@ -11562,15 +11660,6 @@ gen_decl_die (decl, context_die)
       abort ();
     }
 }
-
-static void
-mark_limbo_die_list (ptr)
-     void *ptr ATTRIBUTE_UNUSED;
-{
-  limbo_die_node *node;
-  for (node = limbo_die_list; node; node = node->next)
-    ggc_mark_tree (node->created_for);
-}
 
 /* Add Ada "use" clause information for SGI Workshop debugger.  */
 
@@ -11813,6 +11902,8 @@ lookup_filename (file_name)
       file_table.allocated = i + FILE_TABLE_INCREMENT;
       file_table.table = (char **)
 	xrealloc (file_table.table, file_table.allocated * sizeof (char *));
+      memset (file_table.table + i, 0,
+	      FILE_TABLE_INCREMENT * sizeof (char *));
     }
 
   /* Add the new entry to the end of the filename table.  */
@@ -11887,9 +11978,14 @@ dwarf2out_source_line (line, filename)
 	      separate_line_info_table_allocated += LINE_INFO_TABLE_INCREMENT;
 	      separate_line_info_table
 		= (dw_separate_line_info_ref)
-		  xrealloc (separate_line_info_table,
-			    separate_line_info_table_allocated
-			    * sizeof (dw_separate_line_info_entry));
+		  ggc_realloc (separate_line_info_table,
+			       separate_line_info_table_allocated
+			       * sizeof (dw_separate_line_info_entry));
+	      memset ((separate_line_info_table 
+		       + separate_line_info_table_in_use), 
+		      0,
+		      (LINE_INFO_TABLE_INCREMENT 
+		       * sizeof (dw_separate_line_info_entry)));
 	    }
 
 	  /* Add the new entry at the end of the line_info_table.  */
@@ -11911,10 +12007,11 @@ dwarf2out_source_line (line, filename)
 	    {
 	      line_info_table_allocated += LINE_INFO_TABLE_INCREMENT;
 	      line_info_table
-		= (dw_line_info_ref)
-		  xrealloc (line_info_table,
-			    (line_info_table_allocated
-			     * sizeof (dw_line_info_entry)));
+		= ggc_realloc (line_info_table,
+			       (line_info_table_allocated
+				* sizeof (dw_line_info_entry)));
+	      memset (line_info_table + line_info_table_in_use, 0,
+		      LINE_INFO_TABLE_INCREMENT * sizeof (dw_line_info_entry));
 	    }
 
 	  /* Add the new entry at the end of the line_info_table.  */
@@ -12020,8 +12117,8 @@ dwarf2out_init (main_input_filename)
   lookup_filename (main_input_filename);
 
   /* Allocate the initial hunk of the decl_die_table.  */
-  decl_die_table
-    = (dw_die_ref *) xcalloc (DECL_DIE_TABLE_INCREMENT, sizeof (dw_die_ref));
+  decl_die_table = ggc_alloc_cleared (DECL_DIE_TABLE_INCREMENT 
+				      * sizeof (dw_die_ref));
   decl_die_table_allocated = DECL_DIE_TABLE_INCREMENT;
   decl_die_table_in_use = 0;
 
@@ -12029,17 +12126,15 @@ dwarf2out_init (main_input_filename)
   VARRAY_TREE_INIT (decl_scope_table, 256, "decl_scope_table");
 
   /* Allocate the initial hunk of the abbrev_die_table.  */
-  abbrev_die_table
-    = (dw_die_ref *) xcalloc (ABBREV_DIE_TABLE_INCREMENT,
-			      sizeof (dw_die_ref));
+  abbrev_die_table = ggc_alloc_cleared (ABBREV_DIE_TABLE_INCREMENT
+					* sizeof (dw_die_ref));
   abbrev_die_table_allocated = ABBREV_DIE_TABLE_INCREMENT;
   /* Zero-th entry is allocated, but unused */
   abbrev_die_table_in_use = 1;
 
   /* Allocate the initial hunk of the line_info_table.  */
-  line_info_table
-    = (dw_line_info_ref) xcalloc (LINE_INFO_TABLE_INCREMENT,
-				  sizeof (dw_line_info_entry));
+  line_info_table = ggc_alloc_cleared (LINE_INFO_TABLE_INCREMENT
+				       * sizeof (dw_line_info_entry));
   line_info_table_allocated = LINE_INFO_TABLE_INCREMENT;
 
   /* Zero-th entry is allocated, but unused */
@@ -12055,8 +12150,6 @@ dwarf2out_init (main_input_filename)
   VARRAY_TREE_INIT (incomplete_types, 64, "incomplete_types");
 
   VARRAY_RTX_INIT (used_rtx_varray, 32, "used_rtx_varray");
-
-  ggc_add_root (&limbo_die_list, 1, 1, mark_limbo_die_list);
 
   ASM_GENERATE_INTERNAL_LABEL (text_end_label, TEXT_END_LABEL, 0);
   ASM_GENERATE_INTERNAL_LABEL (abbrev_section_label,
@@ -12094,39 +12187,21 @@ dwarf2out_init (main_input_filename)
     }
 }
 
-/* Allocate a string in .debug_str hash table.  */
-
-static hashnode
-indirect_string_alloc (tab)
-     hash_table *tab ATTRIBUTE_UNUSED;
-{
-  struct indirect_string_node *node;
-
-  node = xmalloc (sizeof (struct indirect_string_node));
-  node->refcount = 0;
-  node->form = 0;
-  node->label = NULL;
-
-  return (hashnode) node;
-}
-
 /* A helper function for dwarf2out_finish called through
    ht_forall.  Emit one queued .debug_str string.  */
 
 static int
-output_indirect_string (pfile, h, v)
-     struct cpp_reader *pfile ATTRIBUTE_UNUSED;
-     hashnode h;
-     const PTR v ATTRIBUTE_UNUSED;
+output_indirect_string (h, v)
+     void **h;
+     void *v ATTRIBUTE_UNUSED;
 {
-  struct indirect_string_node *node = (struct indirect_string_node *) h;
+  struct indirect_string_node *node = (struct indirect_string_node *) *h;
 
   if (node->form == DW_FORM_strp)
     {
       named_section_flags (DEBUG_STR_SECTION, DEBUG_STR_SECTION_FLAGS);
       ASM_OUTPUT_LABEL (asm_out_file, node->label);
-      assemble_string ((const char *) HT_STR (&node->id),
-		       HT_LEN (&node->id) + 1);
+      assemble_string (node->str, strlen (node->str) + 1);
     }
 
   return 1;
@@ -12193,8 +12268,6 @@ dwarf2out_finish (input_filename)
 	  else
 	    abort ();
 	}
-
-      free (node);
     }
 
   limbo_die_list = NULL;
@@ -12310,7 +12383,7 @@ dwarf2out_finish (input_filename)
   /* If we emitted any DW_FORM_strp form attribute, output the string
      table too.  */
   if (debug_str_hash)
-    ht_forall (debug_str_hash, output_indirect_string, NULL);
+    htab_traverse (debug_str_hash, output_indirect_string, NULL);
 }
 #else
 

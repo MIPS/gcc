@@ -1249,7 +1249,7 @@ struct tree_type GTY(())
   union tree_type_symtab {
     int address; 
     char * GTY ((tag ("1"))) pointer; 
-    struct die_struct * GTY ((tag ("2"), skip (""))) die;
+    struct die_struct * GTY ((tag ("2"))) die;
   } GTY ((desc ("debug_hooks == &sdb_debug_hooks ? 1 : debug_hooks == &dwarf2_debug_hooks ? 2 : 0"), 
 	  descbits ("2"))) symtab;
   tree name;
