@@ -278,7 +278,7 @@ unswitch_single_loop (loops, loop, cond_checked, num)
 }
 
 /* Unswitch a LOOP w.r. to given basic block.  We only support unswitching
-   of innermost loops (this is not a principial restriction, I'm just lazy
+   of innermost loops (this is not a principal restriction, I'm just lazy
    to handle subloops).  UNSWITCH_ON must be executed in every iteration,
    i.e. it must dominate LOOP latch.  Returns NULL if impossible, new
    loop otherwise.  */

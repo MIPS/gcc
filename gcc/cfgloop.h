@@ -68,7 +68,7 @@ struct loop
   /* Basic block of loop latch.  */
   basic_block latch;
 
-  /* Basic block of loop pre-header or NULL if it does not exist.  */
+  /* Basic block of loop preheader or NULL if it does not exist.  */
   basic_block pre_header;
 
   /* Histogram for a loop.  */
@@ -88,8 +88,8 @@ struct loop
   /* Average number of executed insns per iteration.  */
   unsigned av_ninsns;
 
-  /* Array of edges along the pre-header extended basic block trace.
-     The source of the first edge is the root node of pre-header
+  /* Array of edges along the preheader extended basic block trace.
+     The source of the first edge is the root node of preheader
      extended basic block, if it exists.  */
   edge *pre_header_edges;
 
@@ -188,7 +188,7 @@ struct loop
 
      This does not include loop exits due to return instructions.
      This is because all bivs and givs are pseudos, and hence must be
-     dead after a return, so the presense of a return does not affect
+     dead after a return, so the presence of a return does not affect
      any of the optimizations that use this info.  It is simpler to
      just not include return instructions on this list.  */
   rtx exit_labels;
@@ -233,7 +233,7 @@ struct loops
      loops here.  */
   struct loop **parray;
 
-  /* Pointer to root of loop heirachy tree.  */
+  /* Pointer to root of loop hierarchy tree.  */
   struct loop *tree_root;
 
   /* Information derived from the CFG.  */
@@ -260,7 +260,7 @@ struct loops
 /* Flags for loop discovery.  */
 
 #define LOOP_TREE		1	/* Build loop hierarchy tree.  */
-#define LOOP_PRE_HEADER		2	/* Analyse loop pre-header.  */
+#define LOOP_PRE_HEADER		2	/* Analyze loop preheader.  */
 #define LOOP_ENTRY_EDGES	4	/* Find entry edges.  */
 #define LOOP_EXIT_EDGES		8	/* Find exit edges.  */
 #define LOOP_EDGES		(LOOP_ENTRY_EDGES | LOOP_EXIT_EDGES)

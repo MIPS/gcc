@@ -491,7 +491,7 @@ constant_iterations (desc, niter, may_be_zero)
    paradoxical loop (lets define paradoxical loops as loops whose test is
    failing at -1th iteration, for instance "for (i=5;i<1;i++);").
    
-   These cases needs to be eighter cared by copying the loop test in the front
+   These cases needs to be either cared by copying the loop test in the front
    of loop or keeping the test in first iteration of loop.
    
    When INIT/LIM are set, they are used instead of var/lim of DESC. */
@@ -520,7 +520,7 @@ count_loop_iterations (desc, init, lim)
   /* Compute absolute value of the difference of initial and final value.  */
   if (INTVAL (stride) > 0)
     {
-      /* Bypass nonsential tests.  */
+      /* Bypass nonsensical tests.  */
       if (cond == EQ || cond == GE || cond == GT || cond == GEU
 	  || cond == GTU)
 	return NULL;
@@ -529,7 +529,7 @@ count_loop_iterations (desc, init, lim)
     }
   else
     {
-      /* Bypass nonsential tests.  */
+      /* Bypass nonsensical tests.  */
       if (cond == EQ || cond == LE || cond == LT || cond == LEU
 	  || cond == LTU)
 	return NULL;
@@ -553,7 +553,7 @@ count_loop_iterations (desc, init, lim)
       /* For NE tests, make sure that the iteration variable won't miss
 	 the final value.  If EXP mod STRIDE is not zero, then the
 	 iteration variable will overflow before the loop exits, and we
-	 can not calculate the number of iterations easilly.  */
+	 can not calculate the number of iterations easily.  */
       if (stride != const1_rtx
 	  && (simplify_gen_binary (UMOD, GET_MODE (desc->var), exp, stride)
               != const0_rtx))
@@ -642,14 +642,15 @@ test_for_iteration (desc, iter)
 					      ? iter : iter + 1,
 					      GET_MODE (desc->var)));
   exp = simplify_gen_binary (PLUS, GET_MODE (desc->var), exp, addval);
-  /* Test at given condtion.  */
+  /* Test at given condition.  */
   exp = simplify_gen_relational (cond, SImode,
 				 GET_MODE (desc->var), exp, desc->lim);
 
   if (rtl_dump_file)
     {
-      fprintf (rtl_dump_file,
-	       ";  Conditional to continue loop at %i th iteration: ", iter);
+      fprintf (rtl_dump_file, ";  Conditional to continue loop at ");
+      fprintf (rtl_dump_file, HOST_WIDE_INT_PRINT_UNSIGNED, iter);
+      fprintf (rtl_dump_file, "th iteration: ");
       print_simple_rtl (rtl_dump_file, exp);
       fprintf (rtl_dump_file, "\n");
     }
@@ -818,7 +819,7 @@ simple_loop_p (loops, loop, desc)
   return any;
 }
 
-/* Marks blocks that are part of non-reckognized loops; i.e. we throw away
+/* Marks blocks that are part of non-recognized loops; i.e. we throw away
    all latch edges and mark blocks inside any remaining cycle.  Everything
    is a bit complicated due to fact we do not want to do this for parts of
    cycles that only "pass" through some loop -- i.e. for each cycle, we want
@@ -1046,7 +1047,7 @@ average_num_loop_insns (loop)
 }
 
 /* Returns expected number of LOOP iterations.
-   Comput upper bound on number of iterations in case they do not fit integer
+   Compute upper bound on number of iterations in case they do not fit integer
    to help loop peeling heuristics.  Use exact counts if at all possible.  */
 unsigned
 expected_loop_iterations (loop)

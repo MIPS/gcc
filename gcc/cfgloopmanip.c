@@ -206,8 +206,8 @@ fix_bb_placements (loops, from)
   struct loop *base_loop;
   edge e;
 
-  /* We pass through blocks backreachable from FROM, testing whether some
-     of their successors moved to outer loop.  It may be neccessary to
+  /* We pass through blocks back-reachable from FROM, testing whether some
+     of their successors moved to outer loop.  It may be necessary to
      iterate several times, but it is finite, as we stop unless we move
      the basic block up the loop structure.  The whole story is a bit
      more complicated due to presence of subloops, those are moved using
@@ -240,7 +240,7 @@ fix_bb_placements (loops, from)
 
       if (from->loop_father->header == from)
 	{
-	  /* Subloop header, maybe move the loop upwards.  */
+	  /* Subloop header, maybe move the loop upward.  */
 	  if (!fix_loop_placement (from->loop_father))
 	    continue;
 	}
@@ -451,7 +451,7 @@ scale_loop_frequencies (loop, num, den)
 
 /* Make area between HEADER_EDGE and LATCH_EDGE a loop by connecting
    latch to header.  Everything between them plus LATCH_EDGE destination
-   must be dominated by HEADER_EDGE destination, and backreachable from
+   must be dominated by HEADER_EDGE destination, and back-reachable from
    LATCH_EDGE source.  Add SWITCH_BB to original entry edge.  Returns newly
    created loop.  */
 struct loop *

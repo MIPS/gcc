@@ -40,7 +40,7 @@ loop_optimizer_init (dumpfile)
   struct loops *loops = xcalloc (1, sizeof (struct loops));
   edge e;
 
-  /* Avoid anoying special cases of edges going to exit
+  /* Avoid annoying special cases of edges going to exit
      block.  */
   for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
     if ((e->flags & EDGE_FALLTHRU) && e->src->succ->succ_next)

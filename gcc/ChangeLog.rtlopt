@@ -1,3 +1,11 @@
+2002-12-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloop.h: Spellcheck.
+	* cfgloopanal.c: Spellcheck.
+	* cfgloopmanip.c: Spellcheck.
+	* loop-init.c: Spellcheck.
+	* loop-unswitch.c: Spellcheck.
+
 Tue Dec 17 23:37:38 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (rtlopt-merge-20021712)
