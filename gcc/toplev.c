@@ -740,8 +740,8 @@ int flag_pedantic_errors = 0;
    global_alloc.  */
 
 int flag_schedule_insns = 0;
-static int flag_superblock_scheduling = 0;
-static int flag_trace_scheduling = 0;
+int flag_superblock_scheduling = 0;
+int flag_trace_scheduling = 0;
 int flag_schedule_insns_after_reload = 0;
 
 /* The following flags have effect only for scheduling before register
@@ -4895,6 +4895,7 @@ parse_options_and_default_flags (argc, argv)
       flag_schedule_insns = 1;
       flag_schedule_insns_after_reload = 1;
       flag_trace_scheduling = 1;
+      flag_superblock_scheduling = 1;
 #endif
       flag_regmove = 1;
       flag_strict_aliasing = 1;

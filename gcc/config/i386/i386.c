@@ -1212,10 +1212,11 @@ optimization_options (level, size)
 {
   /* For -O2 and beyond, turn off -fschedule-insns by default.  It tends to
      make the problem with not enough registers even worse.  */
-#ifdef INSN_SCHEDULING
   if (level > 1)
-    flag_schedule_insns = 0;
-#endif
+    {
+      flag_schedule_insns = 0;
+      flag_trace_scheduling = 0;
+    }
   if (TARGET_64BIT && optimize >= 1)
     flag_omit_frame_pointer = 1;
   if (TARGET_64BIT)

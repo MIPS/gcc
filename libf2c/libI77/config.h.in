@@ -1,73 +1,34 @@
-/* config.h.in.  Generated automatically from configure.in by autoheader.  */
+/* config.h.in.  Generated automatically from configure.in by autoheader 2.13.  */
 
-/* Define if you have the `fseeko' function. */
-#undef HAVE_FSEEKO
+/* Define to empty if the keyword does not work.  */
+#undef const
 
-/* Define if you have the `ftello' function. */
-#undef HAVE_FTELLO
+/* Define to `long' if <sys/types.h> doesn't define.  */
+#undef off_t
 
-/* Define if you have the `ftruncate' function. */
-#undef HAVE_FTRUNCATE
+/* Define to `unsigned' if <sys/types.h> doesn't define.  */
+#undef size_t
 
-/* Define if you have the <inttypes.h> header file. */
-#undef HAVE_INTTYPES_H
-
-/* Define if you have the <memory.h> header file. */
-#undef HAVE_MEMORY_H
-
-/* Define if you have the `mkstemp' function. */
-#undef HAVE_MKSTEMP
-
-/* Define if you have the <stdint.h> header file. */
-#undef HAVE_STDINT_H
-
-/* Define if you have the <stdlib.h> header file. */
-#undef HAVE_STDLIB_H
-
-/* Define if you have the <strings.h> header file. */
-#undef HAVE_STRINGS_H
-
-/* Define if you have the <string.h> header file. */
-#undef HAVE_STRING_H
-
-/* Define if you have the <sys/stat.h> header file. */
-#undef HAVE_SYS_STAT_H
-
-/* Define if you have the <sys/types.h> header file. */
-#undef HAVE_SYS_TYPES_H
-
-/* Define if you have the `tempnam' function. */
-#undef HAVE_TEMPNAM
-
-/* Define if you have the `tmpnam' function. */
-#undef HAVE_TMPNAM
-
-/* Define if you have the <unistd.h> header file. */
-#undef HAVE_UNISTD_H
-
-/* Define if we have non ANSI RW modes. */
-#undef NON_ANSI_RW_MODES
-
-/* Define if we do not have Unix Stdio. */
-#undef NON_UNIX_STDIO
-
-/* Always defined. */
-#undef NO_EOF_CHAR_CHECK
-
-/* Define if you have the ANSI C header files. */
+/* Define if you have the ANSI C header files.  */
 #undef STDC_HEADERS
 
-/* Define to skip f2c undefs. */
-#undef Skip_f2c_Undefs
+/* Define if you have the fseeko function.  */
+#undef HAVE_FSEEKO
 
-/* Define if we use strlen. */
-#undef USE_STRLEN
+/* Define if you have the ftello function.  */
+#undef HAVE_FTELLO
 
-/* Get 64-bit file size support */
-#undef _FILE_OFFSET_BITS
+/* Define if you have the ftruncate function.  */
+#undef HAVE_FTRUNCATE
 
-/* Define for HP-UX ftello and fseeko extension. */
-#undef _LARGEFILE_SOURCE
+/* Define if you have the mkstemp function.  */
+#undef HAVE_MKSTEMP
+
+/* Define if you have the tempnam function.  */
+#undef HAVE_TEMPNAM
+
+/* Define if you have the tmpnam function.  */
+#undef HAVE_TMPNAM
 
 /* Get Single Unix Specification semantics */
 #undef _XOPEN_SOURCE
@@ -78,11 +39,24 @@
 /* Solaris extensions */
 #undef __EXTENSIONS__
 
-/* Define to empty if `const' does not conform to ANSI C. */
-#undef const
+/* Get 64-bit file size support */
+#undef _FILE_OFFSET_BITS
 
-/* Define to `long' if <sys/types.h> does not define. */
-#undef off_t
+/* Define for HP-UX ftello and fseeko extension. */
+#undef _LARGEFILE_SOURCE
 
-/* Define to `unsigned' if <sys/types.h> does not define. */
-#undef size_t
+/* Define if we do not have Unix Stdio. */
+#undef NON_UNIX_STDIO
+
+/* Define if we use strlen. */
+#undef USE_STRLEN
+
+/* Define if we have non ANSI RW modes. */
+#undef NON_ANSI_RW_MODES
+
+/* Always defined. */
+#undef NO_EOF_CHAR_CHECK
+
+/* Define to skip f2c undefs. */
+#undef Skip_f2c_Undefs
+

@@ -1,3 +1,233 @@
+2002-04-23  Loren J. Rittle <ljrittle@acm.org>
+
+	* include/std/std_fstream.h (basic_filebuf::sync): Hoist
+	unconditional flush on lower-layer handle to here...
+	* include/bits/fstream.tcc (basic_filebuf::_M_really_overflow):
+	...from here.  Optimize remaining _M_file.sync() call pattern.
+	* testsuite/27_io/narrow_stream_objects.cc (test04): New test.
+	(test05): Likewise.
+
+2002-04-23  Jason Merrill  <jason@redhat.com>
+
+	* include/bits/fstream.tcc (basic_filebuf::seekoff): Fix for
+	output-only filebufs.
+	* include/std/std_fstream.h (basic_filebuf::_M_set_indeterminate):
+	Likewise.
+	(basic_filebuf::_M_set_determinate): Likewise.
+
+	PR libstdc++/6414
+	* include/bits/fstream.tcc (basic_filebuf::seekoff): Adjust return
+	value properly in the trivial case.
+	* testsuite/27_io/istream_seeks.cc (test04): Make sure that
+	tellg() returns the right value after a read.
+
+2002-04-23  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* config/cpu/mmix/bits/cpu_limits.h: New file.
+	* configure.target (CPULIMITSH): Use it.
+
+2002-04-22  Loren J. Rittle <ljrittle@acm.org>
+
+	* docs/html/17_intro/porting.texi (_GLIBCPP_AVOID_FSEEK): Remove.
+	* docs/html/17_intro/porting.html: Rebuilt.
+
+2002-04-20  Jason Merrill  <jason@redhat.com>
+
+	PR libstdc++/4150
+	* include/std/std_streambuf.h (basic_streambuf::_M_set_indeterminate): 
+	Move to filebuf.
+	(basic_streambuf::_M_set_determinate): Likewise.
+	(basic_streambuf::_M_is_indeterminate): Likewise.
+	* include/bits/std_fstream.h (basic_filebuf::_M_filepos): New 
+	non-static data member.
+	(basic_filebuf::_M_underflow_common): New non-static member function.
+	(basic_filebuf::_M_underflow, _M_uflow): Call it.
+	(basic_filebuf::sync): Avoid useless seeking.
+	(basic_filebuf::_M_set_indeterminate): Move here from streambuf.
+	Set _M_filepos.
+	(basic_filebuf::_M_set_determinate): Likewise.
+	(basic_filebuf::_M_is_indeterminate): Likewise.
+	* include/bits/fstream.tcc (basic_filebuf::_M_really_overflow): Seek
+	back to _M_out_beg if necessary.
+	(basic_filebuf::seekoff): Likewise.
+	(basic_filebuf::_M_underflow_common): Generalization of old 
+	underflow().  Don't seek back to _M_in_beg.
+	* src/ios.cc: Lose _GLIBCPP_AVOID_FSEEK stuff.
+	* config/os/solaris/solaris2.?/bits/os_defines.h: Likewise.
+	* config/os/bsd/freebsd/bits/os_defines.h: Likewise.
+	* config/os/mingw32/bits/os_defines.h: Likewise.
+	* testsuite/27_io/filebuf_virtuals.cc (test05): Don't overspecify 
+	ungetc test.
+
+2002-04-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/istream.tcc (istream::read): Fix.
+	* testsuite/27_io/istream_unformatted.cc (main): Add.
+
+2002-04-20  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/6360
+	* include/bits/istream.tcc (istream::ignore): Streamline, use
+	delimiter as is.
+	* include/bits/streambuf.tcc: Use this->gptr.
+	* testsuite/27_io/istream_unformatted.cc (test08): Add test.
+	
+2002-04-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/localefwd.h (locale::id::_M_id): Do this correctly,
+	as type safety is important, especially on solaris.
+	* include/bits/istream.tcc (istream::read): Clean.
+	(istream::readsome): Same.
+	* locale.cc: Wrap lines.
+
+	* testsuite/21_strings/inserters_extractors.cc: Tweaks.
+	* testsuite/27_io/instantiations.cc (test): Add bool variable...
+	* testsuite/21_strings/capacity.cc: Clean.
+		
+2002-04-17  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/doxygroups.cc:  New group on binary searching.
+	* include/bits/stl_algo.h:  Document binary searches and merges.
+	* include/bits/stl_deque.h:  The 'map' member is not the 'map' class.
+
+2002-04-17  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/mainpage.html:  Doxygen logo is now a PNG file.
+	* docs/doxygen/run_doxygen:  Bump required version.
+	* docs/doxygen/user.cfg.in:  Revert accidental change.
+	* docs/html/faq/index.html:  Reindent a block of links.
+	(4.4):  New note on using dlsym.
+	* docs/html/faq/index.txt:  Regenerated.
+
+2002-04-17  Phil Edwards  <pme@gcc.gnu.org>
+
+	* testsuite_flags.in (cxxflags):  Also pass @EXTRA_CXX_FLAGS@.
+
+2002-04-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/linker-map.gnu (__malloc_alloc_template): Add.
+	(__default_alloc_template): Same.	
+	* include/bits/stl_alloc.h (__malloc_alloc_template): Add extern
+	template.
+	(__default_alloc_template): Same.
+	
+2002-04-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/27_io/filebuf_virtuals.cc: Add _S_pback_size instantiation.
+
+2002-04-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/concept-inst.cc (vector<locale::facet*>): Remove instantiations.
+	* src/stl-inst.cc (vector::_M_insert_aux): Remove instantiation.
+	(__malloc_alloc_template): Conditionalize.
+
+	* include/bits/istream.tcc: Remove sputbackc calls.
+
+	* testsuite/19_diagnostics/stdexceptions.cc: Fix comment.
+	
+2002-04-16  Paolo Carlini <pcarlini@unitus.it>
+
+ 	* testsuite/24_iterators/rel_ops.cc: New test.
+	
+2002-04-16  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* include/bits/type_traits.h (__normal_iterator): Declare in
+	__gnu_cxx.  Adjust use at global namespace.
+	* include/bits/stl_iterator.h (__normal_iterator): Move definition
+	into __gnu_cxx::. Add more operator overloads.  Tidy existing ones.
+	* include/bits/basic_string.h (basic_string): Adjust use of
+	__normal_iterator.
+	* include/bits/stl_vector.h (_Alloc>): Likewise.
+	* src/concept-inst.cc (__gnu_cxx): __normal_iterator<> is now here.
+	* src/string-inst.cc (operator==): Instantiate in __gnu_cxx.
+
+2002-04-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/4164
+	Valgrind fixes.
+	* config/io/basic_file_stdio.cc (__basic_file::~__basic_file):
+	Call close.
+	(__basic_file::close): Call fflush. Correct return if fclose ok. 
+	(__basic_file::is_open): Make const.
+	Change __c_file_type to __c_file.
+	* config/io/basic_file_stdio.h: Change __c_file_type to __c_file.
+	(__basic_file::is_open): Make const.	
+	* config/io/c_io_stdio.h: Change __c_file_type to __c_file.
+	* include/std/std_fstream.h (filebuf::_M_allocate_file): Remove.
+	(filebuf::_M_unbuf): Add.
+	(filebuf::_M_file): Change to non-pointer.
+	(filebuf::_M_allocate_pback_buffer): Remove.
+	* include/bits/fstream.tcc (filebuf::_M_allocate_file): Remove.
+	(filebuf::_M_allocate_internal_buffer): Use _M_unbuf.
+	Change initialization list for _M_file change.
+	(filebuf::_M_allocate_pback_buffer): Remove.
+	Change _M_file usage to reflect non-pointer data member.
+	
+	* config/locale/generic/c_locale.cc
+	(locale::facet::_S_create_c_locale): Add parameter.
+	* config/locale/generic/collate_members.cc: Change
+	_M_compare_helper to _M_compare.
+	Change _M_transform_helper to _M_transform.
+	* config/locale/generic/monetary_members.cc: Changeup data types.
+	Add dtors.
+	* config/locale/generic/numeric_members.cc: Add dtors.
+	* config/locale/generic/time_members.cc: Add dtors.
+	* config/locale/gnu/c_locale.cc: Add parameter.
+	* config/locale/gnu/collate_members.cc:Change
+	_M_compare_helper to _M_compare.
+	Change _M_transform_helper to _M_transform.
+	* config/locale/gnu/ctype_members.cc: Better error checking.
+	* config/os/gnu-linux/bits/ctype_noninline.h: Better error checking.
+	* config/locale/gnu/messages_members.cc: Tweak comment.
+	* config/locale/gnu/monetary_members.cc: Change data types.
+	Add dtors.
+	* config/locale/gnu/numeric_members.cc: Add dtors, better error
+	checking.
+	* config/locale/gnu/time_members.cc: Same.
+	* config/locale/ieee_1003.1-2001/c_locale.cc
+	(locale::facet::_S_create_c_locale): Add parameter.
+	* config/locale/ieee_1003.1-2001/c_locale.h: Correct typedef.
+	* config/locale/ieee_1003.1-2001/codecvt_specializations.h: Remove
+	bogus ctor.
+	
+	* include/bits/locale_facets.h (moneypunct): Use string literals.
+	Don't define dtor.
+	(numpunct): Same.
+	(__timepunct): Same.
+	(locale::_Impl::_M_facets): Change from vector to array.
+	(locale::_Impl::_M_names): Change from array of strings to array
+	of string literals.
+	(locale::facet::_S_create_c_locale): Add parameter.
+	(locale::locale::_S_num_facets): Move to...
+	(locale::_Impl::_M_facets_size): Here.
+	* include/bits/locale_facets.tcc: Fixups for _M_facets, _M_name
+	changes.
+	* include/bits/localefwd.h: (locale::id::_M_id): Add member function.
+	(locale::_Impl::_Impl(facet**, size_t, bool)): Add.
+	(locale::_Impl::_Impl(string, size_t)): Change to
+	(locale::_Impl::_Impl(const char*, size_t)): This.
+	
+	* include/bits/streambuf.tcc (streambuf::_S_pback_size): Define.
+	* include/std/std_streambuf.h (streambuf::_M_pback_size): Change to
+	(streambuf::_S_pback_size): This.
+
+	* src/globals.cc: Add pre-allocations for "C" facets.
+	* src/locale-inst.cc: Remove vector instantiations.
+	* src/locale.cc: Remove vector include. Fixups for _M_names,
+	_M_facets changes.
+	* src/localename.cc: Same.
+
+	* include/bits/stl_vector.h: Fix odd formatting.
+	
+	* include/bits/basic_string.tcc: Tweak comment.
+
+	* libsupc++/new: Make sure parameters are uglified.
+	* libsupc++/typeinfo: Same.
+		
+	* testsuite/22_locale/num_get_members_char.cc: Fixup.
+	* testsuite/22_locale/num_get_members_wchar_t.cc: Same.
+	* testsuite/27_io/filebuf_members.cc: Same.
+
 2002-04-12  Steve Ellcey  <sje@cup.hp.com>
 
 	* gcc/libstdc++-v3/config/os/hpux/bits/os_defines.h

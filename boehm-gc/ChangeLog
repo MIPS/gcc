@@ -1,3 +1,25 @@
+2002-04-22  Jeff Sturm  <jsturm@one-point.com>
+
+	* Makefile.am (toolexeclib_LTLIBRARIES): Remove.
+	(noinst_LTLIBRARIES): Add libgcjgc.la.
+
+	* Makefile.in: Rebuild.
+
+2002-04-22  David S. Miller  <davem@redhat.com>
+
+	* include/private/gcconfig.h: Hard-code STACKBOTTOM on
+	64-bit SPARC Linux, the __libc_stack_end technique does
+	not work in this case.
+
+2002-04-22  Jeff Sturm  <jsturm@one-point.com>
+
+	* gcconfig.h: Enable DYNAMIC_LOADING for all sparc-solaris ABIs.
+
+2002-04-17  Hans Boehm  <Hans_Boehm@hp.com>
+
+	* include/private/gcconfig.h: Use LINUX_STACKBOTTOM for
+	SPARC Linux.
+
 2002-04-09  Loren J. Rittle  <ljrittle@acm.org>
 
 	* include/private/gcconfig.h (DATAEND): Update comment example

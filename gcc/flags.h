@@ -419,10 +419,17 @@ extern int flag_shared_data;
 /* flag_schedule_insns means schedule insns within basic blocks (before
    local_alloc).
    flag_schedule_insns_after_reload means schedule insns after
-   global_alloc.  */
+   global_alloc.
+   flag_superblock_scheduling enables scheduling of superblocks instead of
+   local scheduling after reload.
+   flag_trace_scheduling enables tracer and disables post reload crossjumping
+   so the traces gets scheduled properly.
+   */
 
 extern int flag_schedule_insns;
 extern int flag_schedule_insns_after_reload;
+extern int flag_superblock_scheduling;
+extern int flag_trace_scheduling;
 
 /* The following flags have effect only for scheduling before register
    allocation:

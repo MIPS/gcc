@@ -1,3 +1,67 @@
+2002-04-23  Adam Megacz <adam@xwt.org>
+
+	* win32.cc, include/win32.cc (backtrace): Added this function
+	because Win32 does not supply it.
+
+2002-04-21  David S. Miller  <davem@redhat.com>
+
+	* include/dwarf2-signal.h (MAKE_THROW_FRAME, sparc32): Document
+	magic instruction reading sequence.
+
+2002-04-21  Mark Wielaard  <mark@klomp.org>
+
+	* mauve-libgcj: Don't run java.lang.ref tests since they are buggy.
+
+2002-04-19  David S. Miller  <davem@redhat.com>
+
+	* include/dwarf2-signal.h (SIGNAL_HANDLER): Name siginfo_t pointer
+	arg.
+	(MAKE_THROW_FRAME): Define for 32-bit and 64-bit sparc.
+	(INIT_SEGV, INIT_FPE): Use direct __libc_sigaction installation
+	on Sparc too.
+	* include/sparc-signal.h (FLUSH_REGISTER_WINDOWS): Define properly
+	for 64-bit sparc.
+	(MAKE_THROW_FRAME): Use long for sp/retaddr so 64-bit works.
+	* sysdeps/sparc/locks.h: New file.
+	* configure.in (SIGNAL_HANDLER): Set to include/sparc-signal.h
+	on all sparc Solaris configurations.  Set to
+	include/dwarf2-signal.h on sparc Linux.
+	* configure: Regenerate
+	* configure.host (can_unwind_signal): sparc*-linux* can do it now.
+
+2002-04-19  Hans Boehm <Hans_Boehm@hp.com>
+
+	* configure: Rebuilt.
+	* configure.in (backtrace): Function doesn't work on IA-64.
+
+2002-04-17  Adam King <aking@dreammechanics.com>
+
+	* java/io/File.java (normalizePath): Add Win32 support for auto 
+	conversion of a '/' path separator to Win32's '\' separator.
+
+2002-04-16  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR libgcj/6081:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (install-data-local): Use GNU make trick to avoid
+	shell limit.
+
+2002-04-16  Adam King <aking@dreammechanics.com>
+	    Tom Tromey  <tromey@redhat.com>
+
+	* java/io/natFileWin32.cc (performList): Return the correct array
+	type.  Don't duplicate the creation of a File since it's already
+	done earlier in the method and the existing code would cause a
+	ArrayStoreException.  Don't use fixed-size array.
+	(_access, _stat, attr, getCanonicalPath, performMkdir,
+	performRenameTo): Don't use fixed-size array.
+	(getCanonicalPath): Use throw, not _Jv_Throw.
+	
+2002-04-15  DJ Delorie  <dj@redhat.com>
+
+	* configure.in: Allow building in $srcdir.
+	* configure: Regenerated.
+
 2002-04-14  Mark Wielaard <mark@klomp.org>
 
 	* java/net/natPlainDatagramSocketImpl.cc (close): Set timeout to 0.
