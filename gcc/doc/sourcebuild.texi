@@ -600,6 +600,10 @@ Move to the stage directory files not included in @code{stagestuff} in
 @file{config-lang.in} or otherwise moved by the main @file{Makefile}.
 @end table
 
+@item lang.opt
+This file registers the set of switches that the front end accepts on
+the command line.  The file format is documented in the file
+@file{c.opt}.  These files are processed by the script @file{opts.sh}.
 @item lang-options.h
 This file provides entries for @code{documented_lang_options} in
 @file{toplev.c} describing command-line options the front end accepts

@@ -73,7 +73,6 @@ static int arm_legitimate_index_p (enum machine_mode, rtx, int);
 static int thumb_base_register_rtx_p (rtx, enum machine_mode, int);
 inline static int thumb_index_register_rtx_p (rtx, int);
 static int const_ok_for_op (HOST_WIDE_INT, enum rtx_code);
-static int eliminate_lr2ip (rtx *);
 static rtx emit_multi_reg_push (int);
 static rtx emit_sfm (int, int);
 #ifndef AOF_ASSEMBLER
@@ -2351,7 +2350,7 @@ arm_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 
 /* Addressing mode support functions.  */
 
-/* Return non-zero if X is a legitimate immediate operand when compiling
+/* Return nonzero if X is a legitimate immediate operand when compiling
    for PIC.  */
 int
 legitimate_pic_operand_p (rtx x)
@@ -5643,7 +5642,7 @@ arm_reload_in_hi (rtx *operands)
 							 0))));
 }
 
-/* Handle storing a half-word to memory during reload by synthesising as two
+/* Handle storing a half-word to memory during reload by synthesizing as two
    byte stores.  Take care not to clobber the input values until after we
    have moved them somewhere safe.  This code assumes that if the DImode
    scratch in operands[2] overlaps either the input value or output address
@@ -6965,53 +6964,24 @@ output_call (rtx *operands)
   return "";
 }
 
-static int
-eliminate_lr2ip (rtx *x)
-{
-  int something_changed = 0;
-  rtx x0 = * x;
-  int code = GET_CODE (x0);
-  int i, j;
-  const char * fmt;
-  
-  switch (code)
-    {
-    case REG:
-      if (REGNO (x0) == LR_REGNUM)
-        {
-	  *x = gen_rtx_REG (SImode, IP_REGNUM);
-	  return 1;
-        }
-      return 0;
-    default:
-      /* Scan through the sub-elements and change any references there.  */
-      fmt = GET_RTX_FORMAT (code);
-      
-      for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-	if (fmt[i] == 'e')
-	  something_changed |= eliminate_lr2ip (&XEXP (x0, i));
-	else if (fmt[i] == 'E')
-	  for (j = 0; j < XVECLEN (x0, i); j++)
-	    something_changed |= eliminate_lr2ip (&XVECEXP (x0, i, j));
-      
-      return something_changed;
-    }
-}
-  
 /* Output a 'call' insn that is a reference in memory.  */
 const char *
 output_call_mem (rtx *operands)
 {
-  operands[0] = copy_rtx (operands[0]); /* Be ultra careful.  */
-  /* Handle calls using lr by using ip (which may be clobbered in subr anyway).  */
-  if (eliminate_lr2ip (&operands[0]))
-    output_asm_insn ("mov%?\t%|ip, %|lr", operands);
-
   if (TARGET_INTERWORK)
     {
       output_asm_insn ("ldr%?\t%|ip, %0", operands);
       output_asm_insn ("mov%?\t%|lr, %|pc", operands);
       output_asm_insn ("bx%?\t%|ip", operands);
+    }
+  else if (regno_use_in (LR_REGNUM, operands[0]))
+    {
+      /* LR is used in the memory address.  We load the address in the
+	 first instruction.  It's safe to use IP as the target of the
+	 load since the call will kill it anyway.  */
+      output_asm_insn ("ldr%?\t%|ip, %0", operands);
+      output_asm_insn ("mov%?\t%|lr, %|pc", operands);
+      output_asm_insn ("mov%?\t%|pc, %|ip", operands);
     }
   else
     {
@@ -7294,7 +7264,7 @@ output_move_double (rtx *operands)
                 }
               else
                 {
-		  otherops[1] = adjust_address (operands[1], VOIDmode, 4);
+		  otherops[1] = adjust_address (operands[1], SImode, 4);
 		  /* Take care of overlapping base/data reg.  */
 		  if (reg_mentioned_p (operands[0], operands[1]))
 		    {
@@ -7360,7 +7330,7 @@ output_move_double (rtx *operands)
 	  /* Fall through */
 
         default:
-	  otherops[0] = adjust_address (operands[0], VOIDmode, 4);
+	  otherops[0] = adjust_address (operands[0], SImode, 4);
 	  otherops[1] = gen_rtx_REG (SImode, 1 + REGNO (operands[1]));
 	  output_asm_insn ("str%?\t%1, %0", operands);
 	  output_asm_insn ("str%?\t%1, %0", otherops);
@@ -7770,7 +7740,7 @@ arm_compute_save_reg_mask (void)
      it.  If we are pushing other registers onto the stack however, we
      can save an instruction in the epilogue by pushing the link register
      now and then popping it back into the PC.  This incurs extra memory
-     accesses though, so we only do it when optimising for size, and only
+     accesses though, so we only do it when optimizing for size, and only
      if we know that we will not need a fancy return sequence.  */
   if (regs_ever_live [LR_REGNUM]
 	  || (save_reg_mask

@@ -1,3 +1,22 @@
+2003-06-15  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang.opt: Declare Treelang.  Update.
+	* tree1.c (treelang_init_options): Update.
+
+2003-06-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* treetree.c (tree_code_create_function_initial): Adjust
+	init_function_start call.
+
+2003-06-14  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Update to use options.c and options.h.
+	* tree1.c: Include options.h not t-options.h.
+	(treelang_init_options): New.
+	(treelang_handle_option): Abort on unrecognized switch.
+	* treetree.c (LANG_HOOKS_INIT_OPTIONS): Override.
+	* treetree.h (treelang_init_options): New.
+
 2003-06-12  Andreas Jaeger  <aj@suse.de>
 
 	* treetree.c: Remove cl_options-count and cl_options.

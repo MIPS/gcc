@@ -47,11 +47,11 @@ typedef void (*func_ptr) (void);
    symbol in crtinit.o, where they are defined.  */
 
 static func_ptr __CTOR_LIST__[1]
-  __attribute__ ((section (".ctors")))
+  __attribute__ ((used, section (".ctors")))
      = { (func_ptr) (-1) };
 
 static func_ptr __DTOR_LIST__[1]
-  __attribute__ ((section (".dtors")))
+  __attribute__ ((used, section (".dtors")))
      = { (func_ptr) (-1) };
 
 /* Run all the global destructors on exit from the program.  */
@@ -68,8 +68,8 @@ static func_ptr __DTOR_LIST__[1]
    refers to one particular associated `__DTOR_LIST__' which belongs to the
    same particular root executable or shared library file.  */
 
-static void __do_global_dtors ()
-asm ("__do_global_dtors") __attribute__ ((section (".text")));
+static void __do_global_dtors (void)
+asm ("__do_global_dtors") __attribute__ ((used, section (".text")));
 
 static void
 __do_global_dtors ()
@@ -123,18 +123,18 @@ __fini:\n\
    contained in these two sections.  */
 
 static func_ptr __CTOR_END__[1]
-  __attribute__ ((section (".ctors")))
+  __attribute__ ((used, section (".ctors")))
      = { (func_ptr) 0 };
 
 static func_ptr __DTOR_END__[1]
-  __attribute__ ((section (".dtors")))
+  __attribute__ ((used, section (".dtors")))
      = { (func_ptr) 0 };
 
 /* Run all global constructors for the program.
    Note that they are run in reverse order.  */
 
-static void __do_global_ctors ()
-asm ("__do_global_ctors") __attribute__ ((section (".text")));
+static void __do_global_ctors (void)
+asm ("__do_global_ctors") __attribute__ ((used, section (".text")));
 
 static void
 __do_global_ctors ()

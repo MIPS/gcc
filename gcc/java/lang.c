@@ -46,7 +46,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "splay-tree.h"
 #include "tree-dump.h"
 #include "opts.h"
-#include "j-options.h"
+#include "options.h"
 
 static bool java_init (void);
 static void java_finish (void);
@@ -181,7 +181,7 @@ int flag_indirect_dispatch = 0;
 int flag_store_check = 1;
 
 /* When nonzero, print extra version information.  */
-static int version_flag = 0;
+static int v_flag = 0;
 
 /* Set nonzero if the user specified -finline-functions on the command
    line.  */
@@ -290,7 +290,7 @@ java_handle_option (size_t scode, const char *arg, int value)
   switch (code)
     {
     default:
-      return 0;
+      abort();
 
     case OPT_I:
       jcf_path_include_arg (arg);
@@ -301,7 +301,7 @@ java_handle_option (size_t scode, const char *arg, int value)
       dependency_tracking |= DEPEND_ENABLE;
       break;
 
-    case OPT_MD:
+    case OPT_MD_:
       jcf_dependency_init (1);
       dependency_tracking |= DEPEND_SET_FILE | DEPEND_ENABLE;
       break;
@@ -316,7 +316,7 @@ java_handle_option (size_t scode, const char *arg, int value)
       dependency_tracking |= DEPEND_ENABLE;
       break;
 
-    case OPT_MMD:
+    case OPT_MMD_:
       jcf_dependency_init (0);
       dependency_tracking |= DEPEND_SET_FILE | DEPEND_ENABLE;
       break;
@@ -448,7 +448,7 @@ java_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_version:
-      version_flag = 1;
+      v_flag = 1;
       break;
     }
 
@@ -476,7 +476,7 @@ java_init (void)
       && force_align_functions_log < 1)
     force_align_functions_log = 1;
 
-  jcf_path_seal (version_flag);
+  jcf_path_seal (v_flag);
 
   java_init_decl_processing ();
 
@@ -695,7 +695,7 @@ java_init_options (void)
 
   jcf_path_init ();
 
-  return 0;
+  return CL_Java;
 }
 
 static bool

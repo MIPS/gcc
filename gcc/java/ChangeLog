@@ -1,3 +1,32 @@
+2003-06-15  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang.opt: Declare Java.
+	* lang.c (java_init_options): Update.
+
+2003-06-15  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang.c (version_flag): Rename to v_flag to avoid clash w/ toplev.h.
+
+2003-06-14  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang-specs.h: Rewrite -MD and -MMD to append an underscore.
+	* lang.c (java_handle_option): -MD and -MMD have an underscore.
+	* lang.opt: -MD and -MMD have an underscore.
+
+2003-06-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (emit_register_classes): Adjust init_function_start
+	call.
+	* decl.c (complete_start_java_method): Likewise.
+	* resource.c (write_resource_constructor): Likewise.
+
+2003-06-14  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Update to use options.c and options.h.
+	* lang.c: Include options.h not j-options.h.
+	(java_handle_option): Abort on unrecognized option.
+	(java_init_options): Request Java switches.
+
 2003-06-11  Neil Booth  <neil@daikokuya.co.uk>
 
 	* Make-lang.in: Handle mostlyclean.

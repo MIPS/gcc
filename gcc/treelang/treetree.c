@@ -112,6 +112,8 @@ extern char **file_names;
 #define LANG_HOOKS_NAME	"GNU treelang"
 #undef LANG_HOOKS_FINISH
 #define LANG_HOOKS_FINISH		treelang_finish
+#undef LANG_HOOKS_INIT_OPTIONS
+#define LANG_HOOKS_INIT_OPTIONS  treelang_init_options
 #undef LANG_HOOKS_HANDLE_OPTION
 #define LANG_HOOKS_HANDLE_OPTION treelang_handle_option
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -380,8 +382,7 @@ tree_code_create_function_initial (tree prev_saved,
      execute this?  */
   make_decl_rtl (fn_decl, NULL);
 
-  /* Use filename/lineno from above.  */
-  init_function_start (fn_decl, loc.file, loc.line);
+  init_function_start (fn_decl);
 
   /* Create rtl for startup code of function, such as saving registers.  */
 

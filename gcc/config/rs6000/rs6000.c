@@ -1534,7 +1534,7 @@ easy_fp_constant (op, mode)
     abort ();
 }
 
-/* Return non zero if all elements of a vector have the same value.  */
+/* Return nonzero if all elements of a vector have the same value.  */
 
 static int
 easy_vector_same (op, mode)
@@ -3959,14 +3959,6 @@ function_arg (cum, mode, type, named)
 	{
 	  int n_words;
 	  int gregno = cum->sysv_gregno;
-
-	  if (TARGET_SPE_ABI && TARGET_SPE && SPE_VECTOR_MODE (mode)
-	      && !cum->stdarg
-	      && cum->sysv_gregno <= GP_ARG_MAX_REG)
-	    {
-	      cum->sysv_gregno++;
-	      return;
-	    }
 
 	  /* Aggregates and IEEE quad get passed by reference.  */
 	  if ((type && AGGREGATE_TYPE_P (type))
@@ -12314,6 +12306,7 @@ rs6000_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
      instruction scheduling worth while.  Note that use_thunk calls
      assemble_start_function and assemble_end_function.  */
   insn = get_insns ();
+  insn_locators_initialize ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
   final (insn, file, 1, 0);

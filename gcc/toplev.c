@@ -117,17 +117,14 @@ static void set_target_switch (const char *);
 static void crash_signal (int) ATTRIBUTE_NORETURN;
 static void setup_core_dumping (void);
 static void compile_file (void);
-static void display_help (void);
-static void display_target_options (void);
 
-static void decode_d_option (const char *);
+void decode_d_option (const char *);
 static int decode_f_option (const char *);
 static int decode_W_option (const char *);
 static int decode_g_option (const char *);
 static unsigned int independent_decode_option (int, char **);
 static void set_Wextra (int);
 
-static void print_version (FILE *, const char *);
 static int print_single_switch (FILE *, int, int, const char *,
 				const char *, const char *,
 				const char *, const char *);
@@ -214,7 +211,7 @@ const char *dump_base_name;
 
 /* Name to use as a base for auxiliary output files.  */
 
-static const char *aux_base_name;
+const char *aux_base_name;
 
 /* Format to use to print dumpfile index value */
 #ifndef DUMPFILE_FORMAT
@@ -358,17 +355,11 @@ static void close_dump_file (enum dump_file_index,
 
 int rtl_dump_and_exit;
 int flag_print_asm_name;
-static int version_flag;
-static const char *filename;
 enum graph_dump_types graph_dump_format;
 
 /* Name for output file of assembly code, specified with -o.  */
 
-char *asm_file_name;
-
-/* Value of the -G xx switch, and whether it was passed or not.  */
-unsigned HOST_WIDE_INT g_switch_value;
-int g_switch_set;
+const char *asm_file_name;
 
 /* Type(s) of debugging information we are producing (if any).
    See flags.h for the definitions of the different possible
@@ -400,9 +391,6 @@ int optimize = 0;
    bloating optimizations are disabled.  */
 
 int optimize_size = 0;
-
-/* Nonzero if we should exit after parsing options.  */
-static int exit_after_options = 0;
 
 /* The FUNCTION_DECL for the function currently being compiled,
    or 0 if between functions.  */
@@ -744,7 +732,7 @@ int flag_gen_aux_info = 0;
 
 /* Specified name of aux-info file.  */
 
-static char *aux_info_file_name;
+const char *aux_info_file_name;
 
 /* Nonzero means make the text shared if supported.  */
 
@@ -4012,7 +4000,7 @@ rest_of_compilation (tree decl)
 }
 
 /* Display help for generic options.  */
-static void
+void
 display_help (void)
 {
   int undoc;
@@ -4146,7 +4134,7 @@ display_help (void)
 }
 
 /* Display help for target options.  */
-static void
+void 
 display_target_options (void)
 {
   int undoc, i;
@@ -4155,6 +4143,7 @@ display_target_options (void)
   /* Avoid double printing for --help --target-help.  */
   if (displayed)
     return;
+
   displayed = true;
 
   if (ARRAY_SIZE (target_switches) > 1
@@ -4218,7 +4207,7 @@ display_target_options (void)
 
 /* Parse a -d... command line switch.  */
 
-static void
+void
 decode_d_option (const char *arg)
 {
   int i, c, matched;
@@ -4594,37 +4583,9 @@ independent_decode_option (int argc, char **argv)
   char *arg = argv[0];
 
   if (arg[0] != '-' || arg[1] == 0)
-    {
-      if (arg[0] == '+')
-	return 0;
-
-      filename = arg;
-
-      return 1;
-    }
+    return 1;
 
   arg++;
-
-  if (!strcmp (arg, "-help"))
-    {
-      display_help ();
-      exit_after_options = 1;
-      return 1;
-    }
-
-  if (!strcmp (arg, "-target-help"))
-    {
-      display_target_options ();
-      exit_after_options = 1;
-      return 1;
-    }
-
-  if (!strcmp (arg, "-version"))
-    {
-      print_version (stderr, "");
-      exit_after_options = 1;
-      return 1;
-    }
 
   /* Handle '--param <name>=<value>'.  */
   if (strcmp (arg, "-param") == 0)
@@ -4679,53 +4640,6 @@ independent_decode_option (int argc, char **argv)
     case 'g':
       return decode_g_option (arg + 1);
 
-    case 'd':
-      if (!strcmp (arg, "dumpbase"))
-	{
-	  if (argc == 1)
-	    return 0;
-
-	  if (argv[1][0])
-	    dump_base_name = argv[1];
-
-	  return 2;
-	}
-      else
-	decode_d_option (arg + 1);
-      break;
-
-    case 'p':
-      if (!strcmp (arg, "pedantic"))
-	pedantic = 1;
-      else if (!strcmp (arg, "pedantic-errors"))
-	flag_pedantic_errors = pedantic = 1;
-      else if (arg[1] == 0)
-	profile_flag = 1;
-      else
-	return 0;
-      break;
-
-    case 'q':
-      if (!strcmp (arg, "quiet"))
-	quiet_flag = 1;
-      else
-	return 0;
-      break;
-
-    case 'v':
-      if (!strcmp (arg, "version"))
-	version_flag = 1;
-      else
-	return 0;
-      break;
-
-    case 'w':
-      if (arg[1] == 0)
-	inhibit_warnings = 1;
-      else
-	return 0;
-      break;
-
     case 'W':
       /* For backward compatibility, -W is the same as -Wextra.  */
       if (arg[1] == 0)
@@ -4733,95 +4647,6 @@ independent_decode_option (int argc, char **argv)
       else
 	return decode_W_option (arg + 1);
       break;
-
-    case 'a':
-      if (!strncmp (arg, "aux-info", 8))
-	{
-	  if (arg[8] == '\0')
-	    {
-	      if (argc == 1)
-		return 0;
-
-	      aux_info_file_name = argv[1];
-	      flag_gen_aux_info = 1;
-	      return 2;
-	    }
-	  else if (arg[8] == '=')
-	    {
-	      aux_info_file_name = arg + 9;
-	      flag_gen_aux_info = 1;
-	    }
-	  else
-	    return 0;
-	}
-      else if (!strcmp (arg, "auxbase"))
-	{
-	  if (argc == 1)
-	    return 0;
-
-	  if (argv[1][0])
-	    aux_base_name = argv[1];
-
-	  return 2;
-	}
-      else if (!strcmp (arg, "auxbase-strip"))
-	{
-	  if (argc == 1)
-	    return 0;
-
-	  if (argv[1][0])
-	    {
-	      strip_off_ending (argv[1], strlen (argv[1]));
-	      if (argv[1][0])
-		aux_base_name = argv[1];
-	    }
-
-	  return 2;
-	}
-      else
-	return 0;
-      break;
-
-    case 'o':
-      if (arg[1] == 0)
-	{
-	  if (argc == 1)
-	    return 0;
-
-	  asm_file_name = argv[1];
-	  return 2;
-	}
-      return 0;
-
-    case 'G':
-      {
-	int g_switch_val;
-	int return_val;
-
-	if (arg[1] == 0)
-	  {
-	    if (argc == 1)
-	      return 0;
-
-	    g_switch_val = read_integral_parameter (argv[1], 0, -1);
-	    return_val = 2;
-	  }
-	else
-	  {
-	    g_switch_val = read_integral_parameter (arg + 1, 0, -1);
-	    return_val = 1;
-	  }
-
-	if (g_switch_val == -1)
-	  return_val = 0;
-	else
-	  {
-	    g_switch_set = TRUE;
-	    g_switch_value = g_switch_val;
-	  }
-
-	return return_val;
-      }
     }
 
   return 1;
@@ -4885,7 +4710,7 @@ set_target_switch (const char *name)
    Each line begins with INDENT (for the case where FILE is the
    assembler output file).  */
 
-static void
+void
 print_version (FILE *file, const char *indent)
 {
 #ifndef __VERSION__
@@ -5385,8 +5210,8 @@ process_options (void)
      initialization based on the command line options.  This hook also
      sets the original filename if appropriate (e.g. foo.i -> foo.c)
      so we can correctly initialize debug output.  */
-  no_backend = (*lang_hooks.post_options) (&filename);
-  main_input_filename = input_filename = filename;
+  no_backend = (*lang_hooks.post_options) (&main_input_filename);
+  input_filename = main_input_filename;
 
 #ifdef OVERRIDE_OPTIONS
   /* Some machines may reject certain combinations of options.  */
@@ -5396,9 +5221,9 @@ process_options (void)
   /* Set aux_base_name if not already set.  */
   if (aux_base_name)
     ;
-  else if (filename)
+  else if (main_input_filename)
     {
-      char *name = xstrdup (lbasename (filename));
+      char *name = xstrdup (lbasename (main_input_filename));
 
       strip_off_ending (name, strlen (name));
       aux_base_name = name;
@@ -5738,7 +5563,7 @@ do_compile (void)
 	backend_init ();
 
       /* Language-dependent initialization.  Returns true on success.  */
-      if (lang_dependent_init (filename))
+      if (lang_dependent_init (main_input_filename))
 	compile_file ();
 
       finalize ();

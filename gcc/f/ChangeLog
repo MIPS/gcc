@@ -1,3 +1,26 @@
+Sun Jun 15 15:56:51 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang.opt: Declare F77.
+
+Sat Jun 14 18:13:00 2003  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* com.c (stor_parm_decls): Adjust init_function_start call.
+
+Sat Jun 14 13:25:00 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Update to use options.c and options.h.
+	* top.c: Include options.h not f-options.h.
+	(ffe_init_options): From com.c.  Request F77 options.
+	(ffe_handle_options): Abort on unrecognized switch.
+	* com.c (ffe_init_options): Move to top.c.
+	* top.h (fee_init_options): New.
+
+2003-06-13  Richard Henderson  <rth@redhat.com>
+
+	PR debug/9864
+        * com.c (ffecom_sym_transform_): Install FFEINFO_whereGLOBAL
+        symbols in the global binding level.
+
 Sun Jun  8 15:42:09 2003  Neil Booth  <neil@daikokuya.co.uk>
 
 	* Make-lang.in (F77_OBJS, f77.mostlyclean, f/com.o): Update.

@@ -1,3 +1,25 @@
+2003-06-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (start_function): Adjust init_function_start call.
+	* method.c (use_thunk): Likewise.
+	* semantics.c (genrtl_start_function): Likewise.
+
+2003-06-14  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Remove c-options.o.
+
+2003-06-13  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* lex.c: Convert to ISO C.
+
+	2003-05-19  Jens-Michael Hoffmann  <jensmh@gmx.de>
+	* init.c: removes use of PARAMS macro.  Use ISO style function
+	declarations.  (Not copyright-significant change.)
+
+	* rtti.c: Remove PARAMS.
+
+	* typeck2.c: Convert to ISO C.
+
 2003-06-12  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/10635

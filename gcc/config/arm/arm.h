@@ -1146,6 +1146,12 @@ enum reg_class
    or could index an array.  */
 #define REGNO_REG_CLASS(REGNO)  arm_regno_class (REGNO)
 
+/* FPA registers can't do dubreg as all values are reformatted to internal
+   precision.  */
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)	\
+  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)		\
+   ? reg_classes_intersect_p (FPA_REGS, (CLASS)) : 0)
+
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS  (TARGET_THUMB ? LO_REGS : GENERAL_REGS)
 #define BASE_REG_CLASS   (TARGET_THUMB ? LO_REGS : GENERAL_REGS)
@@ -2254,8 +2260,6 @@ extern int making_const_table;
     }									\
   while (0)
 
-#define STORE_FLAG_VALUE 1
-
 /* The arm5 clz instruction returns 32.  */
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE)  ((VALUE) = 32, 1)
 
@@ -2341,7 +2345,7 @@ extern int making_const_table;
 #endif
 
 /* Only perform branch elimination (by making instructions conditional) if
-   we're optimising.  Otherwise it's of no use anyway.  */
+   we're optimizing.  Otherwise it's of no use anyway.  */
 #define FINAL_PRESCAN_INSN(INSN, OPVEC, NOPERANDS)	\
   if (TARGET_ARM && optimize)				\
     arm_final_prescan_insn (INSN);			\

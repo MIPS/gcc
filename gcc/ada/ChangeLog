@@ -1,3 +1,24 @@
+2003-06-15  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang.opt: Declare Ada.
+	* misc.c (gnat_init_options): Update.
+
+2003-06-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* utils.c (begin_subprog_body): Adjust init_function_start call.
+
+2003-06-14  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Update to use options.c and options.h.
+	* misc.c: Include options.h not aoptions.h.
+	(gnat_handle_option): Abort on unrecognized switch.
+	(gnat_init_options): Request Ada switches.
+
+2003-06-14  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang.opt: Add -Wall.
+	* misc.c (gnat_handle_option): Handle it.
+
 2003-06-12  Neil Booth  <neil@daikokuya.co.uk>
 
 	* misc.c (gnat_handle_option): Fix warnings.
