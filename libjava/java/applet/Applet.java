@@ -78,6 +78,11 @@ public class Applet extends Panel
   private transient AppletStub stub;
 
   /**
+   * The dimensions passed to this applet through its HTML tag.
+   */
+  private transient Dimension dimensions;
+
+  /**
    * The accessibility context for this applet.
    *
    * @serial the accessibleContext for this
@@ -457,6 +462,19 @@ public class Applet extends Panel
     s.defaultReadObject();
   }
 
+  private Dimension getDimensions ()
+  {
+    if (dimensions == null)
+      {
+	int width = Integer.parseInt(stub.getParameter("width"));
+	int height = Integer.parseInt(stub.getParameter("height"));
+
+	dimensions = new Dimension(width, height);
+      }
+
+    return dimensions;
+  }
+
   /**
    * Returns an instance of {@link Dimension} representing the
    * applet's width and height parameters.
@@ -465,10 +483,7 @@ public class Applet extends Panel
    */
   public Dimension getPreferredSize()
   {
-    int width = Integer.parseInt(stub.getParameter("width"));
-    int height = Integer.parseInt(stub.getParameter("height"));
-
-    return new Dimension(width, height);
+    return getDimensions ();
   }
 
   /**
@@ -479,10 +494,7 @@ public class Applet extends Panel
    */
   public Dimension getMinimumSize()
   {
-    int width = Integer.parseInt(stub.getParameter("width"));
-    int height = Integer.parseInt(stub.getParameter("height"));
-
-    return new Dimension(width, height);
+    return getDimensions ();
   }
 
   /**
