@@ -26,8 +26,6 @@ Boston, MA 02111-1307, USA.  */
 
 void optimize_inline_calls (tree);
 bool tree_inlinable_function_p (tree);
-tree walk_tree (tree*, walk_tree_fn, void*, void*);
-tree walk_tree_without_duplicates (tree*, walk_tree_fn, void*);
 tree copy_tree_r (tree*, int*, void*);
 void clone_body (tree, tree, void*);
 tree save_body (tree, tree *);

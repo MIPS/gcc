@@ -3555,6 +3555,8 @@ extern void dwarf2out_return_reg (const char *, unsigned);
 /* The type of a callback function for walking over tree structure.  */
 
 typedef tree (*walk_tree_fn) (tree *, int *, void *);
+tree walk_tree (tree*, walk_tree_fn, void*, void*);
+tree walk_tree_without_duplicates (tree*, walk_tree_fn, void*);
 
 /* In tree-dump.c */
 

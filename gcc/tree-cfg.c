@@ -2806,6 +2806,175 @@ has_label_p (basic_block bb, tree label)
   return false;
 }
 
+/* Callback for walk_tree, check that all elements with address taken are
+   properly noticed as such.  */
+
+static tree
+verify_addr_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+		  void *data ATTRIBUTE_UNUSED)
+{
+  if (TREE_CODE (*tp) == ADDR_EXPR)
+    {
+      tree x = TREE_OPERAND (*tp, 0);
+      while (TREE_CODE (x) == ARRAY_REF
+	     || TREE_CODE (x) == COMPONENT_REF
+	     || TREE_CODE (x) == REALPART_EXPR
+	     || TREE_CODE (x) == IMAGPART_EXPR)
+	x = TREE_OPERAND (x, 0);
+      if (TREE_CODE (x) != VAR_DECL && TREE_CODE (x) != PARM_DECL)
+	return NULL;
+      if (!TREE_ADDRESSABLE (x))
+        return x;
+    }
+  return NULL;
+}
+
+
+/* Verify the STMT, return true if STMT is missformed.
+   Always keep global so it can be called via GDB. 
+
+   TODO: Implement type checking.  */
+
+bool
+verify_stmt (tree stmt)
+{
+  tree addr;
+
+  if (!is_gimple_stmt (stmt))
+    {
+      error ("Is not valid gimple statement.");
+      debug_generic_stmt (stmt);
+      return true;
+    }
+  addr = walk_tree (&stmt, verify_addr_expr, NULL, NULL);
+  if (addr)
+    {
+      error ("Address taken, but ADDRESABLE bit not set");
+      debug_generic_stmt (addr);
+      return true;
+    }
+  return false;
+}
+
+/* Return true when the T can be shared.  */
+static bool
+tree_node_shared_p (tree t)
+{
+  if (TYPE_P (t) || DECL_P (t)
+      || is_gimple_min_invariant (t)
+      || TREE_CODE (t) == SSA_NAME)
+    return true;
+  while ((TREE_CODE (t) == ARRAY_REF
+          && is_gimple_min_invariant (TREE_OPERAND (t, 1)))
+	 || (TREE_CODE (t) == COMPONENT_REF
+	     || TREE_CODE (t) == REALPART_EXPR
+	     || TREE_CODE (t) == IMAGPART_EXPR))
+    t = TREE_OPERAND (t, 0);
+  if (DECL_P (t))
+    return true;
+  return false;
+}
+
+/* Called via walk_trees.  Verify tree sharing.  */
+static tree
+verify_node_sharing (tree * tp, int *walk_subtrees, void *data)
+{
+  htab_t htab = (htab_t) data;
+  void **slot;
+
+  if (tree_node_shared_p (*tp))
+    {
+      *walk_subtrees = false;
+      return NULL;
+    }
+  slot = htab_find_slot (htab, *tp, INSERT);
+  if (*slot)
+    return *slot;
+  *slot = *tp;
+  return NULL;
+}
+
+
+/* Verify the GIMPLE statement chain.  */
+
+void
+verify_stmts (void)
+{
+  basic_block bb;
+  block_stmt_iterator bsi;
+  bool err = false;
+  htab_t htab;
+  tree addr;
+
+  htab = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
+
+  FOR_EACH_BB (bb)
+    {
+      tree phi;
+      int i;
+
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	{
+	  int phi_num_args = PHI_NUM_ARGS (phi);
+
+	  for (i = 0; i < phi_num_args; i++)
+	    {
+	      tree t = PHI_ARG_DEF (phi, i);
+	      tree addr;
+
+	      /* Addressable variables do have SSA_NAMEs but they
+	         are not considered gimple values.  */
+	      if (TREE_CODE (t) != SSA_NAME
+		  && TREE_CODE (t) != FUNCTION_DECL
+		  && !is_gimple_val (t))
+		{
+		  error ("PHI def is not GIMPLE value");
+		  debug_generic_stmt (phi);
+		  debug_generic_stmt (t);
+		  err |= true;
+		}
+
+	      addr = walk_tree (&t, verify_addr_expr, NULL, NULL);
+	      if (addr)
+		{
+		  error ("Address taken, but ADDRESABLE bit not set");
+		  debug_generic_stmt (addr);
+		  err |= true;
+		}
+
+	      addr = walk_tree (&t, verify_node_sharing, htab, NULL);
+	      if (addr)
+		{
+		  error ("Wrong sharing of tree nodes");
+		  debug_generic_stmt (phi);
+		  debug_generic_stmt (addr);
+		  err |= true;
+		}
+	    }
+	}
+
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  tree stmt = bsi_stmt (bsi);
+	  err |= verify_stmt (stmt);
+	  addr = walk_tree (&stmt, verify_node_sharing, htab, NULL);
+	  if (addr)
+	    {
+	      error ("Wrong sharing of tree nodes");
+	      debug_generic_stmt (stmt);
+	      debug_generic_stmt (addr);
+	      err |= true;
+	    }
+	}
+    }
+
+  if (err)
+    internal_error ("verify_stmts failed.");
+
+  htab_delete (htab);
+}
+
+
 /* Verifies that the flow information is OK.  */
 
 static int
@@ -2838,52 +3007,6 @@ tree_verify_flow_info (void)
   FOR_EACH_BB (bb)
     {
       bool found_ctrl_stmt = false;
-      tree phi;
-      int i;
-
-      for (e = bb->pred; e; e = e->pred_next)
-	if (e->aux)
-	  {
-	    error ("Aux pointer initialized for edge %d->%d\n", e->src->index, e->dest->index);
-	    err = 1;
-	  }
-      phi = phi_nodes (bb);
-      for ( ; phi; phi = TREE_CHAIN (phi))
-	{
-	  int phi_num_args = PHI_NUM_ARGS (phi);
-
-	  for (e = bb->pred; e; e = e->pred_next)
-	    e->aux = (void *)1;
-	  for (i = 0; i < phi_num_args; i++)
-	    {
-	      e = PHI_ARG_EDGE (phi, i);
-	      if (e->dest != bb)
-		{
-		  error ("Phi node for edge %d->%d in %d\n", e->src->index, e->dest->index, bb->index);
-		  err = 1;
-		}
-	      if (e->aux == (void *)0)
-		{
-		  error ("Phi node for dead edge %d->%d\n", e->src->index, e->dest->index);
-		  err = 1;
-		}
-	      if (e->aux == (void *)2)
-		{
-		  error ("Phi node duplicated for edge %d->%d\n", e->src->index, e->dest->index);
-		  err = 1;
-		}
-	      e->aux = (void *)2;
-	    }
-	  for (e = bb->pred; e; e = e->pred_next)
-	    {
-	      if (e->aux != (void *)2)
-		{
-		  error ("Edge %d->%d miss phi node entry\n", e->src->index, e->dest->index);
-		  err = 1;
-		}
-	      e->aux = (void *)0;
-	    }
-	}
 
       /* Skip labels on the start of basic block.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -3086,7 +3209,6 @@ tree_verify_flow_info (void)
 
   return err;
 }
-
 
 /* Split BB into entry part and rest; if REDIRECT_LATCH, redirect edges
    marked as latch into entry part, analogically for REDIRECT_NONLATCH.

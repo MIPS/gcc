@@ -1989,6 +1989,30 @@ set_rhs (tree *stmt_p, tree expr)
       stmt_ann_t ann = stmt_ann (stmt);
       *stmt_p = TREE_SIDE_EFFECTS (expr) ? expr : build_empty_stmt ();
       (*stmt_p)->common.ann = (tree_ann) ann;
+
+      if (TREE_SIDE_EFFECTS (expr))
+	{
+	  varray_type ops;
+	  size_t i;
+
+	  /* Fix all the SSA_NAMEs created by *STMT_P to point to its new
+	    replacement.  */
+	  ops = def_ops (ann);
+	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+	    {
+	      tree var = *(VARRAY_TREE_PTR (ops, i));
+	      if (TREE_CODE (var) == SSA_NAME)
+		SSA_NAME_DEF_STMT (var) = *stmt_p;
+	    }
+
+	  ops = vdef_ops (ann);
+	  for (i = 0; ops && i < NUM_VDEFS (ops); i++)
+	    {
+	      tree var = VDEF_RESULT (ops, i);
+	      if (TREE_CODE (var) == SSA_NAME)
+		SSA_NAME_DEF_STMT (var) = *stmt_p;
+	    }
+	}
     }
 }
 

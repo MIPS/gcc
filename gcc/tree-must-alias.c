@@ -90,15 +90,17 @@ tree_compute_must_alias (tree fndecl, sbitmap vars_to_rename,
   for (i = 0; i < VARRAY_ACTIVE_SIZE (call_clobbered_vars); i++)
     {
       tree var = VARRAY_TREE (call_clobbered_vars, i);
+      var_ann_t ann = var_ann (var);
       
       /* We are only interested in disambiguating addressable locals.  */
       if (TREE_ADDRESSABLE (var)
+	  && !ann->has_hidden_use
 	  /* FIXME Why exactly do we need to ignore pointers and arrays?  */
 	  && !POINTER_TYPE_P (TREE_TYPE (var))
 	  && TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE
 	  && decl_function_context (var) == current_function_decl
 	  && !DECL_NONLOCAL (var)
-	  && !TEST_BIT (addresses_needed, var_ann (var)->uid))
+	  && !TEST_BIT (addresses_needed, ann->uid))
 	promote_var (var, vars_to_rename);
     }
 

@@ -224,8 +224,12 @@ static void eliminate_virtual_phis (void);
 static void coalesce_abnormal_edges (var_map, conflict_graph, root_var_p);
 static void print_exprs (FILE *, const char *, tree, const char *, tree,
 			 const char *);
-static void print_exprs_edge (FILE *, edge, const char *, tree, const char *, 
+static void print_exprs_edge (FILE *, edge, const char *, tree, const char *,
 			      tree);
+static bool verify_def (basic_block, basic_block *, tree, tree);
+static bool verify_use (basic_block, basic_block, tree, tree, dominance_info,
+			bool);
+static bool verify_phi_args (tree, basic_block, dominance_info, basic_block *);
 
 /* Return the value associated with variable VAR in TABLE.  */
 
@@ -2730,6 +2734,332 @@ htab_statistics (FILE *file, htab_t htab)
 	   (long) htab_size (htab),
 	   (long) htab_elements (htab),
 	   htab_collisions (htab));
+}
+
+
+
+/* Return true if the definition of SSA_NAME at block BB is malformed.
+
+   STMT is the statement where SSA_NAME is created.
+
+   DEFINITION_BLOCK is an array of basic blocks indexed by SSA_NAME version
+      numbers.  If DEFINTION_BLOCK[SSA_NAME_VERSION] is set, it means that the
+      block in that array slot contains the definition of SSA_NAME.  */
+
+static bool
+verify_def (basic_block bb, basic_block *definition_block, tree ssa_name,
+	    tree stmt)
+{
+  bool err = false;
+
+  if (TREE_CODE (ssa_name) != SSA_NAME)
+    {
+      error ("Expected an SSA_NAME object");
+      debug_generic_stmt (ssa_name);
+      debug_generic_stmt (stmt);
+    }
+
+  if (definition_block[SSA_NAME_VERSION (ssa_name)])
+    {
+      error ("SSA_NAME created in two different blocks %i and %i",
+	     definition_block[SSA_NAME_VERSION (ssa_name)]->index, bb->index);
+      fprintf (stderr, "SSA_NAME: ");
+      debug_generic_stmt (ssa_name);
+      debug_generic_stmt (stmt);
+      err = true;
+    }
+
+  definition_block[SSA_NAME_VERSION (ssa_name)] = bb;
+
+  if (SSA_NAME_DEF_STMT (ssa_name) != stmt)
+    {
+      error ("SSA_NAME_DEF_STMT is wrong");
+      fprintf (stderr, "SSA_NAME: ");
+      debug_generic_stmt (ssa_name);
+      fprintf (stderr, "Expected definition statement:\n");
+      debug_generic_stmt (SSA_NAME_DEF_STMT (ssa_name));
+      fprintf (stderr, "\nActual definition statement:\n");
+      debug_generic_stmt (stmt);
+      err = true;
+    }
+
+  return err;
+}
+
+
+/* Return true if the use of SSA_NAME at statement STMT in block BB is
+   malformed.
+
+   DEF_BB is the block where SSA_NAME was found to be created.
+
+   IDOM contains immediate dominator information for the flowgraph.
+
+   CHECK_ABNORMAL is true if the caller wants to check whether this use
+      is flowing through an abnormal edge (only used when checking PHI
+      arguments).  */
+
+static bool
+verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
+	    tree stmt, dominance_info idom, bool check_abnormal)
+{
+  bool err = false;
+
+  if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name)))
+    ; /* Nothing to do.  */
+  else if (!def_bb)
+    {
+      error ("Missing definition");
+      err = true;
+    }
+  else if (bb != def_bb
+	   && !dominated_by_p (idom, bb, def_bb))
+    {
+      error ("Definition in block %i does not dominate use in block %i",
+	     def_bb->index, bb->index);
+      err = true;
+    }
+
+  if (check_abnormal
+      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ssa_name))
+    {
+      error ("SSA_NAME_OCCURS_IN_ABNORMAL_PHI should be set");
+      err = true;
+    }
+
+  if (err)
+    {
+      fprintf (stderr, "for SSA_NAME: ");
+      debug_generic_stmt (ssa_name);
+      fprintf (stderr, "in statement:\n");
+      debug_generic_stmt (stmt);
+    }
+
+  return err;
+}
+
+
+/* Return true if any of the arguments for PHI node PHI at block BB is
+   malformed.
+
+   IDOM contains immediate dominator information for the flowgraph.
+
+   DEFINITION_BLOCK is an array of basic blocks indexed by SSA_NAME version
+      numbers.  If DEFINTION_BLOCK[SSA_NAME_VERSION] is set, it means that the
+      block in that array slot contains the definition of SSA_NAME.  */
+
+static bool
+verify_phi_args (tree phi, basic_block bb, dominance_info idom,
+		 basic_block *definition_block)
+{
+  edge e;
+  bool err = false;
+  int i, phi_num_args = PHI_NUM_ARGS (phi);
+
+  /* Mark all the incoming edges.  */
+  for (e = bb->pred; e; e = e->pred_next)
+    e->aux = (void *) 1;
+
+  for (i = 0; i < phi_num_args; i++)
+    {
+      tree op = PHI_ARG_DEF (phi, i);
+
+      e = PHI_ARG_EDGE (phi, i);
+
+      if (TREE_CODE (op) == SSA_NAME)
+	err |= verify_use (e->src, definition_block[SSA_NAME_VERSION (op)], op,
+			   phi, idom, e->flags & EDGE_ABNORMAL);
+
+      if (e->dest != bb)
+	{
+	  error ("Wrong edge %d->%d for PHI argument\n",
+	         e->src->index, e->dest->index, bb->index);
+	  err = true;
+	}
+
+      if (e->aux == (void *) 0)
+	{
+	  error ("PHI argument flowing through dead edge %d->%d\n",
+	         e->src->index, e->dest->index);
+	  err = true;
+	}
+
+      if (e->aux == (void *) 2)
+	{
+	  error ("PHI argument duplicated for edge %d->%d\n", e->src->index,
+	         e->dest->index);
+	  err = true;
+	}
+
+      if (err)
+	{
+	  fprintf (stderr, "PHI argument\n");
+	  debug_generic_stmt (op);
+	}
+
+      e->aux = (void *) 2;
+    }
+
+  for (e = bb->pred; e; e = e->pred_next)
+    {
+      if (e->aux != (void *) 2)
+	{
+	  error ("No argument flowing through edge %d->%d\n", e->src->index,
+		 e->dest->index);
+	  err = true;
+	}
+      e->aux = (void *) 0;
+    }
+
+  if (err)
+    {
+      fprintf (stderr, "for PHI node\n");
+      debug_generic_stmt (phi);
+    }
+
+
+  return err;
+}
+
+
+/* Verify common invariants in the SSA web.
+   TODO: verify the variable annotations.  */
+
+void
+verify_ssa (void)
+{
+  bool err = false;
+  basic_block bb;
+  dominance_info idom;
+  basic_block *definition_block = xcalloc (highest_ssa_version,
+		  			   sizeof (basic_block));
+
+  timevar_push (TV_TREE_SSA_VERIFY);
+
+  idom = calculate_dominance_info (CDI_DOMINATORS);
+
+  /* Verify and register all the SSA_NAME definitions found in the
+     function.  */
+  FOR_EACH_BB (bb)
+    {
+      tree phi;
+      block_stmt_iterator bsi;
+
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	err |= verify_def (bb, definition_block, PHI_RESULT (phi), phi);
+
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  tree stmt;
+	  unsigned int j;
+	  varray_type vdefs;
+	  varray_type defs;
+
+	  stmt = bsi_stmt (bsi);
+	  get_stmt_operands (stmt);
+
+	  vdefs = vdef_ops (stmt_ann (stmt));
+	  for (j = 0; vdefs && j < NUM_VDEFS (vdefs); j++)
+	    {
+	      tree op = VDEF_RESULT (vdefs, j);
+	      if (is_gimple_reg (op))
+		{
+		  error ("Found a virtual definition for a GIMPLE register");
+		  debug_generic_stmt (op);
+		  debug_generic_stmt (stmt);
+		  err = true;
+		}
+	      err |= verify_def (bb, definition_block, op, stmt);
+	    }
+
+	  defs = def_ops (stmt_ann (stmt));
+	  for (j = 0; defs && j < VARRAY_ACTIVE_SIZE (defs); j++)
+	    {
+	      tree op = *VARRAY_TREE_PTR (defs, j);
+	      if (TREE_CODE (op) == SSA_NAME && !is_gimple_reg (op))
+		{
+		  error ("Found a real definition for a non-GIMPLE register");
+		  debug_generic_stmt (op);
+		  debug_generic_stmt (stmt);
+		  err = true;
+		}
+	      err |= verify_def (bb, definition_block, op, stmt);
+	    }
+	}
+    }
+
+
+  /* Now verify all the uses and make sure they agree with the definitions
+     found in the previous pass.  */
+  FOR_EACH_BB (bb)
+    {
+      edge e;
+      tree phi;
+      block_stmt_iterator bsi;
+
+      /* Make sure that all edges have a clear 'aux' field.  */
+      for (e = bb->pred; e; e = e->pred_next)
+	{
+	  if (e->aux)
+	    {
+	      error ("AUX pointer initialized for edge %d->%d\n", e->src->index,
+		      e->dest->index);
+	      err = true;
+	    }
+	}
+
+      /* Verify the arguments for every PHI node in the block.  */
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	err |= verify_phi_args (phi, bb, idom, definition_block);
+
+      /* Now verify all the uses and vuses in every statement of the block.  */
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  tree stmt = bsi_stmt (bsi);
+	  unsigned int j;
+	  varray_type vuses;
+	  varray_type uses;
+
+	  vuses = vuse_ops (stmt_ann (stmt));
+	  for (j = 0; vuses && j < VARRAY_ACTIVE_SIZE (vuses); j++)
+	    {
+	      tree op = VARRAY_TREE (vuses, j);
+
+	      if (is_gimple_reg (op))
+		{
+		  error ("Found a virtual use for a GIMPLE register");
+		  debug_generic_stmt (op);
+		  debug_generic_stmt (stmt);
+		  err = true;
+		}
+	      err |= verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
+				 op, stmt, idom, false);
+	    }
+
+	  uses = use_ops (stmt_ann (stmt));
+	  for (j = 0; uses && j < VARRAY_ACTIVE_SIZE (uses); j++)
+	    {
+	      tree op = *VARRAY_TREE_PTR (uses, j);
+
+	      if (TREE_CODE (op) == SSA_NAME && !is_gimple_reg (op))
+		{
+		  error ("Found a real use of a non-GIMPLE register");
+		  debug_generic_stmt (op);
+		  debug_generic_stmt (stmt);
+		  err = true;
+		}
+	      err |= verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
+				 op, stmt, idom, false);
+	    }
+	}
+    }
+
+  free_dominance_info (idom);
+  free (definition_block);
+
+  timevar_pop (TV_TREE_SSA_VERIFY);
+
+  if (err)
+    internal_error ("verify_ssa failed.");
 }
 
 

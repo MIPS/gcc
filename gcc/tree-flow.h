@@ -443,6 +443,8 @@ extern void bsi_insert_on_edge_immediate (edge, tree);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
 extern void compute_dominance_frontiers (bitmap *, dominance_info);
+extern bool verify_stmt (tree);
+extern void verify_stmts (void);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
@@ -510,6 +512,7 @@ extern edge ssa_redirect_edge (edge, basic_block);
 extern void set_is_used (tree);
 extern bool tree_ssa_useless_type_conversion (tree);
 extern void build_dominator_tree (dominance_info);
+extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
 extern unsigned int highest_ssa_version;
 

@@ -1,3 +1,36 @@
+2003-12-03  Jan Hubicka  <jh@suse.cz>
+
+	* tree-cfg.c (verify_addr_expr, verify_stmt, tree_node_shared_p,
+	verify_stmts):  New functions.
+	(verify_flow_info): Remove PHI checking code.
+	* tree-flow.h (verify_stmt, verify_stmts): Declare.
+	* tree-inline.h (walk_tree, walk_tree_without_duplicates): Move
+	prototypes ...
+	* tree.h (walk_tree, walk_tree_without_duplicates): ... here.
+
+2003-12-03  Jan Hubicka  <jh@suse.cz>
+            Diego Novillo <dnovillo@redhat.com>
+
+	* tree-ssa.c (verify_def, verify_use, verify_phi_args): New static
+	functions.
+	(verify_ssa): New global function.
+	* tree-flow.h (verify_ssa): Declare.
+	* tree-optimize.c (optimize_function_tree): Call it.
+
+2003-12-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* timevar.def (TV_TREE_SSA_VERIFY): New timer.
+	* tree-sra.c (create_scalar_copies): Always mark the previous
+	variables on the LHS for renaming.
+	Do not emit unnecessary assignments from VA_ARG_EXPRs.
+	(scalarize_modify_expr): Similarly, when scalarizing the LHS of a
+	COMPONENT_REF assignment.
+	* tree-must-alias.c (tree_compute_must_alias): Do not promote
+	variables with hidden uses.
+	* tree-ssa-ccp.c (set_rhs): When replacing the whole statement, reset
+	SSA_NAME_DEF_STMT for all the SSA_NAMEs in vdef and def
+	operands.
+
 2003-12-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
             Diego Novillo  <dnovillo@redhat.com>
 

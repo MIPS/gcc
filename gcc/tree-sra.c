@@ -420,16 +420,26 @@ create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode)
      VA_ARG_EXPRs are properly lowered.  */
   if (TREE_CODE (rhs) == VA_ARG_EXPR)
     {
+      size_t i;
+      varray_type vdefs;
+      tree stmt, tmp;
+
       /* Add TMP = VA_ARG_EXPR <>  */
-      tree stmt, tmp = create_tmp_var (TREE_TYPE (rhs), "T");
+      tmp = create_tmp_var (TREE_TYPE (rhs), "T");
       add_referenced_tmp_var (tmp);
       stmt = build (MODIFY_EXPR, TREE_TYPE (rhs), tmp, rhs);
       modify_stmt (stmt);
       append_to_statement_list (stmt, &list);
 
-      /* Add LHS = TMP  */
-      stmt = build (MODIFY_EXPR, TREE_TYPE (lhs), lhs, tmp);
-      append_to_statement_list (stmt, &list);
+      /* Mark all the variables in VDEF operands for renaming, because the
+	 VA_ARG_EXPR will now be in a different statement.  */
+      get_stmt_operands (stmt);
+      vdefs = vdef_ops (stmt_ann (stmt));
+      for (i = 0; vdefs && i < NUM_VDEFS (vdefs); i++)
+	{
+	  tree sym = VDEF_RESULT (vdefs, i);
+	  SET_BIT (vars_to_rename, var_ann (sym)->uid);
+	}
 
       /* Set RHS to be the new temporary TMP.  */
       rhs = tmp;
@@ -523,23 +533,35 @@ create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode)
       f_ix++;
     }
 
-  /* For FIELD_SCALAR copies, we will need to rename the structure on the
-     LHS, as these copies are introducing new versions of the structure.
-     Since all the assignments are to the same structure, we just need
-     to look at the last statement inserted.  */
-  if (last_stmt && mode == FIELD_SCALAR)
+  /* All the scalar copies just created will either create new definitions
+     or remove existing definitions of LHS, so we need to mark it for
+     renaming.  */
+  if (last_stmt)
     {
-      size_t i;
-      varray_type vdefs;
-
-      get_stmt_operands (last_stmt);
-
-      vdefs = vdef_ops (stmt_ann (last_stmt));
-      for (i = 0; vdefs && i < NUM_VDEFS (vdefs); i++)
+      if (mode == SCALAR_FIELD || mode == SCALAR_SCALAR)
 	{
-	  tree sym = VDEF_RESULT (vdefs, i);
-	  SET_BIT (vars_to_rename, var_ann (sym)->uid);
+	  /* If the LHS has been scalarized, mark it for renaming.  */
+	  SET_BIT (vars_to_rename, var_ann (lhs)->uid);
 	}
+      else if (mode == FIELD_SCALAR)
+	{
+	  /* Otherwise, mark all the symbols in the VDEFs for the last
+	     scalarized statement just created.  Since all the statements
+	     introduce the same VDEFs, we only need to check the last one.  */
+	  size_t i;
+	  varray_type vdefs;
+
+	  get_stmt_operands (last_stmt);
+
+	  vdefs = vdef_ops (stmt_ann (last_stmt));
+	  for (i = 0; vdefs && i < NUM_VDEFS (vdefs); i++)
+	    {
+	      tree sym = VDEF_RESULT (vdefs, i);
+	      SET_BIT (vars_to_rename, var_ann (sym)->uid);
+	    }
+	}
+      else
+	abort ();
     }
 
   return list;
@@ -641,7 +663,21 @@ scalarize_modify_expr (block_stmt_iterator *si_p)
   if (TREE_CODE (lhs) == COMPONENT_REF
       && DECL_P (var = TREE_OPERAND (lhs, 0))
       && TEST_BIT (sra_candidates, var_ann (var)->uid))
-    scalarize_component_ref (stmt, &TREE_OPERAND (stmt, 0));
+    {
+      tree sym;
+      varray_type vdefs;
+
+      scalarize_component_ref (stmt, &TREE_OPERAND (stmt, 0));
+
+      /* Mark the LHS to be renamed, as we have just removed the previous
+	 VDEF for AGGREGATE.  The statement should have exactly one VDEF
+	 for variable AGGREGATE.  */
+      vdefs = vdef_ops (stmt_ann (stmt));
+      if (NUM_VDEFS (vdefs) != 1)
+	abort ();
+      sym = SSA_NAME_VAR (VDEF_RESULT (vdefs, 0));
+      SET_BIT (vars_to_rename, var_ann (sym)->uid);
+    }
 
   /* Found ... = AGGREGATE.FIELD  */
   else if (TREE_CODE (rhs) == COMPONENT_REF

@@ -75,6 +75,10 @@ optimize_function_tree (tree fndecl, tree *chain)
     {
       sbitmap vars_to_rename;
 
+#ifdef ENABLE_CHECKING
+      verify_stmts ();
+#endif
+
       /* Initialize common SSA structures.  */
       init_tree_ssa ();
 
@@ -97,6 +101,10 @@ optimize_function_tree (tree fndecl, tree *chain)
 	 variables to be renamed.  */
       rewrite_into_ssa (fndecl, NULL, TDI_ssa_1);
 
+#ifdef ENABLE_CHECKING
+      verify_ssa ();
+#endif
+
       /* Set up VARS_TO_RENAME to allow passes to inform which variables
 	 need to be renamed.  */
       vars_to_rename = sbitmap_alloc (num_referenced_vars);
@@ -115,6 +123,10 @@ optimize_function_tree (tree fndecl, tree *chain)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_2);
 	}
 
+#ifdef ENABLE_CHECKING
+      verify_ssa ();
+#endif
+
       /* Do a first DCE pass prior to must-alias.  This pass will remove
 	 dead pointer assignments taking the address of local variables.  */
       if (flag_tree_dce)
@@ -125,6 +137,9 @@ optimize_function_tree (tree fndecl, tree *chain)
 #if 0
       /* Eliminate tail recursion calls.  */
       tree_optimize_tail_calls (false, TDI_tail1);
+#endif
+#ifdef ENABLE_CHECKING
+      verify_ssa ();
 #endif
 
       /* The must-alias pass removes the aliasing and addressability bits
@@ -140,6 +155,10 @@ optimize_function_tree (tree fndecl, tree *chain)
           ggc_collect ();
 	}
 
+#ifdef ENABLE_CHECKING
+      verify_ssa ();
+#endif
+
       /* Scalarize some structure references.  */
       if (flag_tree_sra)
 	{
@@ -151,6 +170,10 @@ optimize_function_tree (tree fndecl, tree *chain)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_4);
           ggc_collect ();
 	}
+
+#ifdef ENABLE_CHECKING
+      verify_ssa ();
+#endif
 
       /* Run SCCP (Sparse Conditional Constant Propagation).  */
       if (flag_tree_ccp)
@@ -164,12 +187,20 @@ optimize_function_tree (tree fndecl, tree *chain)
           ggc_collect ();
 	}
 
+#ifdef ENABLE_CHECKING
+      verify_ssa ();
+#endif
+
       /* Run SSA-PRE (Partial Redundancy Elimination).  */
       if (flag_tree_pre)
 	{
 	  tree_perform_ssapre (fndecl, TDI_pre);
 	  ggc_collect ();
 	}
+
+#ifdef ENABLE_CHECKING
+      verify_ssa ();
+#endif
 
       /* Perform a second pass of dominator optimizations.  */
       if (flag_tree_dom)
@@ -182,12 +213,20 @@ optimize_function_tree (tree fndecl, tree *chain)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_6);
 	}
 
+#ifdef ENABLE_CHECKING
+      verify_ssa ();
+#endif
+
       /* Do a second DCE pass.  */
       if (flag_tree_dce)
 	{
 	  tree_ssa_dce (fndecl, TDI_dce_2);
 	  ggc_collect ();
 	}
+
+#ifdef ENABLE_CHECKING
+      verify_ssa ();
+#endif
 
 #if 0
       /* Eliminate tail recursion calls and discover sibling calls.  */
@@ -196,7 +235,10 @@ optimize_function_tree (tree fndecl, tree *chain)
 
 #ifdef ENABLE_CHECKING
       verify_flow_info ();
+      verify_stmts ();
+      verify_ssa ();
 #endif
+
       /* Rewrite the function out of SSA form.  */
       rewrite_out_of_ssa (fndecl, TDI_optimized);
       ggc_collect ();
