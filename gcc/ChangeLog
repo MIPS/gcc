@@ -1,3 +1,9 @@
+2004-06-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* config/rs6000/rs6000.c (print_operand, <case 'z'>):
+	Make sure that we are in INDIRECT mode when getting the
+	stub name.
+
 2004-05-11  Ziemowit Laski  <zlaski@apple.com>
 
 	* gcc.c (process_command): Do not define __CONSTANT_CFSTRINGS__,
