@@ -4897,7 +4897,6 @@ parse_options_and_default_flags (argc, argv)
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
       flag_tracer = 1;
-      flag_unswitch_loops = 1;
     }
 
   if (optimize >= 3)
@@ -4905,6 +4904,8 @@ parse_options_and_default_flags (argc, argv)
       flag_inline_functions = 1;
       flag_rename_registers = 1;
       flag_new_unroll_loops = 1;
+      flag_unswitch_loops = 1;
+      flag_peel_loops = 1;
     }
 
   if (optimize < 2 || optimize_size)
