@@ -1,3 +1,24 @@
+2003-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.def (BUILT_IN_SPRINTF): New.
+	* builtin-types.def (BT_FN_INT_STRING_CONST_STRING_VAR): New.
+
+2003-06-26  Roger Sayle  <roger@eyesopen.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.c (expand_builtin_sprintf): Use c_getstr and strlen to
+	obtain the format string instead of using TREE_STRING_POINTER and
+	TREE_STRING_LENGTH.  Only optimize sprintf(dst,"%s",src) when the
+	return value is unused or the length of src is a known constant.
+
+2003-06-22  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c (expand_builtin_sprintf): New function.
+	Optimize calls to sprintf when the format is "%s" or doesn't contain
+	a '%'.
+	(expand_builtin): Expand BUILT_IN_SPRINTF using the new function
+	expand_builtin_sprintf.
+
 2003-06-25  Roger Sayle  <roger@eyesopen.com>
 
 	* builtins.c (expand_builtin_strcpy): Construct new argument list

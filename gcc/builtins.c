@@ -152,6 +152,7 @@ static rtx expand_builtin_alloca	PARAMS ((tree, rtx));
 static rtx expand_builtin_ffs		PARAMS ((tree, rtx, rtx));
 static rtx expand_builtin_frame_address	PARAMS ((tree));
 static rtx expand_builtin_fputs		PARAMS ((tree, int, int));
+static rtx expand_builtin_sprintf	PARAMS ((tree, rtx, enum machine_mode));
 static tree stabilize_va_list		PARAMS ((tree, int));
 static rtx expand_builtin_expect	PARAMS ((tree, rtx));
 static tree fold_builtin_constant_p	PARAMS ((tree));
@@ -3999,6 +4000,94 @@ expand_builtin_trap ()
     emit_library_call (abort_libfunc, LCT_NORETURN, VOIDmode, 0);
   emit_barrier ();
 }
+  
+/* Expand a call to sprintf with argument list ARGLIST.  Return 0 if
+   a normal call should be emitted rather than expanding the function
+   inline.  If convenient, the result should be placed in TARGET with
+   mode MODE.  */
+
+static rtx
+expand_builtin_sprintf (arglist, target, mode)
+     tree arglist;
+     rtx target;
+     enum machine_mode mode;
+{
+  tree orig_arglist, dest, fmt;
+  const char *fmt_str;
+
+  orig_arglist = arglist;
+
+  /* Verify the required arguments in the original call.  */
+  if (! arglist)
+    return 0;
+  dest = TREE_VALUE (arglist);
+  if (TREE_CODE (TREE_TYPE (dest)) != POINTER_TYPE)
+    return 0;
+  arglist = TREE_CHAIN (arglist);
+  if (! arglist)
+    return 0;
+  fmt = TREE_VALUE (arglist);
+  if (TREE_CODE (TREE_TYPE (dest)) != POINTER_TYPE)
+    return 0;
+  arglist = TREE_CHAIN (arglist);
+
+  /* Check whether the format is a literal string constant.  */
+  fmt_str = c_getstr (fmt);
+  if (fmt_str == NULL)
+    return 0;
+
+  /* If the format doesn't contain % args or %%, use strcpy.  */
+  if (strchr (fmt_str, '%') == 0)
+    {
+      tree fn = built_in_decls[BUILT_IN_STRCPY];
+      tree exp;
+
+      if (arglist || ! fn)
+	return 0;
+      expand_expr (build_function_call_expr (fn, orig_arglist),
+		   const0_rtx, VOIDmode, EXPAND_NORMAL);
+      if (target == const0_rtx)
+	return const0_rtx;
+      exp = build_int_2 (strlen (fmt_str), 0);
+      exp = fold (build1 (NOP_EXPR, integer_type_node, exp));
+      return expand_expr (exp, target, mode, EXPAND_NORMAL);
+    }
+  /* If the format is "%s", use strcpy if the result isn't used.  */
+  else if (strcmp (fmt_str, "%s") == 0)
+    {
+      tree fn, arg, len;
+      fn = built_in_decls[BUILT_IN_STRCPY];
+
+      if (! fn)
+	return 0;
+
+      if (! arglist || TREE_CHAIN (arglist))
+	return 0;
+      arg = TREE_VALUE (arglist);
+      if (TREE_CODE (TREE_TYPE (arg)) != POINTER_TYPE)
+	return 0;
+
+      if (target != const0_rtx)
+	{
+	  len = c_strlen (arg, 1);
+	  if (! len || TREE_CODE (len) != INTEGER_CST)
+	    return 0;
+	}
+      else
+	len = NULL_TREE;
+
+      arglist = build_tree_list (NULL_TREE, arg);
+      arglist = tree_cons (NULL_TREE, dest, arglist);
+      expand_expr (build_function_call_expr (fn, arglist),
+		   const0_rtx, VOIDmode, EXPAND_NORMAL);
+
+      if (target == const0_rtx)
+	return const0_rtx;
+      return expand_expr (len, target, mode, EXPAND_NORMAL);
+    }
+
+  return 0;
+}
 
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
@@ -4044,6 +4133,7 @@ expand_builtin (exp, target, subtarget, mode, ignore)
       case BUILT_IN_BZERO:
       case BUILT_IN_INDEX:
       case BUILT_IN_RINDEX:
+      case BUILT_IN_SPRINTF:
       case BUILT_IN_STPCPY:
       case BUILT_IN_STRCHR:
       case BUILT_IN_STRRCHR:
@@ -4413,6 +4503,12 @@ expand_builtin (exp, target, subtarget, mode, ignore)
       break;
     case BUILT_IN_FPUTS_UNLOCKED:
       target = expand_builtin_fputs (arglist, ignore,/*unlocked=*/ 1);
+      if (target)
+	return target;
+      break;
+
+    case BUILT_IN_SPRINTF:
+      target = expand_builtin_sprintf (arglist, target, mode);
       if (target)
 	return target;
       break;
