@@ -452,7 +452,7 @@ use_thunk (thunk_fndecl, emit_p)
 	 generate a thunk function that just makes a call to the real
 	 function.  Unfortunately, this doesn't work for varargs.  */
 
-      tree a, t;
+      tree a, t, fn;
 
       if (varargs_function_p (function))
 	error ("generic thunk code fails for method `%#D' which uses `...'",
@@ -522,7 +522,9 @@ use_thunk (thunk_fndecl, emit_p)
       /* But we don't want debugging information about it.  */
       DECL_IGNORED_P (thunk_fndecl) = 1;
 
-      expand_body (finish_function (0));
+      fn = finish_function (0);
+      simplify_aggr_init_exprs (fn);
+      expand_body (fn);
     }
 
   pop_from_top_level ();

@@ -4280,6 +4280,7 @@ extern void clear_out_block                     PARAMS ((void));
 extern tree begin_global_stmt_expr              PARAMS ((void));
 extern tree finish_global_stmt_expr             PARAMS ((tree));
 extern tree check_template_template_default_arg (tree);
+extern void simplify_aggr_init_exprs (tree);
 
 /* in spew.c */
 extern void init_spew				PARAMS ((void));

@@ -2292,6 +2292,16 @@ simplify_aggr_init_exprs_r (tp, walk_subtrees, data)
   return NULL_TREE;
 }
 
+/* Replace AGGR_INIT_EXPRs with appropriate CALL_EXPRs.  */
+
+void
+simplify_aggr_init_exprs (tree fn)
+{
+  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
+				simplify_aggr_init_exprs_r,
+				NULL);
+}
+
 /* Emit all thunks to FN that should be emitted when FN is emitted.  */
 
 static void
@@ -2421,10 +2431,7 @@ expand_or_defer_fn (fn)
       return;
     }
 
-  /* Replace AGGR_INIT_EXPRs with appropriate CALL_EXPRs.  */
-  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
-				simplify_aggr_init_exprs_r,
-				NULL);
+  simplify_aggr_init_exprs (fn);
 
   /* If this is a constructor or destructor body, we have to clone
      it.  */
