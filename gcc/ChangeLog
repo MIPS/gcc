@@ -1,3 +1,8 @@
+2004-10-31  Stan Shebs  <shebs@apple.com>
+
+	* config/rs6000/rs6000.c (machopic_output_stub): Output
+	ldu instead of lwzu for 64-bit stubs.
+
 2004-10-29  Geoffrey Keating  <geoffk@apple.com>
 
 	* config/i386/darwin.h (ASM_SPEC): Simplify.
