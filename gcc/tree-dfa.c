@@ -682,9 +682,9 @@ add_def (tree *def_p, tree stmt)
     }
 
   if (ann->ops->def_ops == NULL)
-    VARRAY_GENERIC_PTR_INIT (ann->ops->def_ops, 1, "def_ops");
+    VARRAY_TREE_PTR_INIT (ann->ops->def_ops, 1, "def_ops");
 
-  VARRAY_PUSH_GENERIC_PTR (ann->ops->def_ops, def_p);
+  VARRAY_PUSH_TREE_PTR (ann->ops->def_ops, def_p);
 }
 
 
@@ -710,9 +710,9 @@ add_use (tree *use_p, tree stmt)
     }
 
   if (ann->ops->use_ops == NULL)
-    VARRAY_GENERIC_PTR_INIT (ann->ops->use_ops, 3, "use_ops");
+    VARRAY_TREE_PTR_INIT (ann->ops->use_ops, 3, "use_ops");
 
-  VARRAY_PUSH_GENERIC_PTR (ann->ops->use_ops, use_p);
+  VARRAY_PUSH_TREE_PTR (ann->ops->use_ops, use_p);
 }
 
 
@@ -1174,7 +1174,7 @@ compute_immediate_uses_for (tree stmt, int flags)
       ops = use_ops (stmt);
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ops); i++)
 	{
-	  tree *use_p = VARRAY_GENERIC_PTR (ops, i);
+	  tree *use_p = VARRAY_TREE_PTR (ops, i);
 	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (*use_p);
 	  if (!IS_EMPTY_STMT (imm_rdef_stmt))
 	    add_immediate_use (imm_rdef_stmt, stmt);

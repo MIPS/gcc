@@ -2110,7 +2110,7 @@ remove_stmt (tree *stmt_p, bool remove_annotations)
       defs = def_ops (stmt);
       for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
 	{
-	  tree *def_p = VARRAY_GENERIC_PTR (defs, i);
+	  tree *def_p = VARRAY_TREE_PTR (defs, i);
 	  if (TREE_CODE (*def_p) == SSA_NAME)
 	    SSA_NAME_DEF_STMT (*def_p) = build_empty_stmt ();
 	}

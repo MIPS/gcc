@@ -734,7 +734,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	/* Get a pointer to the operand we want to const/copy propagate
 	   into.  Each table has a slightly different structure.  */
 	if (*table == uses)
-	  op_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
+	  op_p = VARRAY_TREE_PTR (uses, i);
 	else if (*table == vuses)
 	  op_p = (tree *) &VARRAY_TREE (vuses, i);
 	else
@@ -1498,7 +1498,7 @@ avail_expr_eq (const void *p1, const void *p2)
 	{
 	  size_t i;
 	  for (i = 0; i < VARRAY_ACTIVE_SIZE (ops1); i++)
-	    if (VARRAY_GENERIC_PTR (ops1, i) != VARRAY_GENERIC_PTR (ops2, i))
+	    if (VARRAY_TREE_PTR (ops1, i) != VARRAY_TREE_PTR (ops2, i))
 	      return false;
 
 #ifdef ENABLE_CHECKING
@@ -1554,7 +1554,7 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
   ops = def_ops (stmt);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     {
-      tree *var_p = VARRAY_GENERIC_PTR (ops, i);
+      tree *var_p = VARRAY_TREE_PTR (ops, i);
       if (DECL_P (*var_p))
 	SET_BIT (vars_to_rename, var_ann (*var_p)->uid);
     }
@@ -1562,7 +1562,7 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
   ops = use_ops (stmt);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     {
-      tree *var_p = VARRAY_GENERIC_PTR (ops, i);
+      tree *var_p = VARRAY_TREE_PTR (ops, i);
       if (DECL_P (*var_p))
 	SET_BIT (vars_to_rename, var_ann (*var_p)->uid);
     }

@@ -109,7 +109,7 @@ copyprop_stmt (tree stmt)
   uses = use_ops (stmt);
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
-      tree *use_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
+      tree *use_p = VARRAY_TREE_PTR (uses, i);
       tree orig = get_original (*use_p);
 
       if (orig && may_propagate_copy (*use_p, orig))

@@ -1,3 +1,26 @@
+2003-09-06  Diego Novillo  <dnovillo@redhat.com>
+
+	* varray.c (element): Add entry for 'tree *'.
+	* varray.h (enum varray_data_enum): Add VARRAY_DATA_TREE_PTR.
+	(union varray_data_tag): Add entry for 'tree *'.
+	(VARRAY_TREE_PTR_INIT): Define.
+	(VARRAY_TREE_PTR): Define.
+	(VARRAY_PUSH_TREE_PTR): Define.
+	(VARRAY_TOP_TREE_PTR): Define.
+	* tree-cfg.c: Replace uses of VARRAY_GENERIC_PTR with
+	VARRAY_TREE_PTR when accessing operand arrays.
+	* tree-ssa-ccp.c: Likewise.
+	* tree-ssa-copyprop.c: Likewise.
+	* tree-ssa-dce.c: Likewise.
+	* tree-ssa-dom.c: Likewise.
+	* tree-ssa-live.c: Likewise.
+	* tree-ssa-pre.c: Likewise.
+	* tree-dfa.c: Likewise.
+	* tree-ssa.c: Likewise.
+	* tree-flow.h (struct operands_d): Remove 'skip' GC markers from
+	all fields.
+	(struct dataflow_d): Likewise.
+
 2003-09-05  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (find_referenced_vars): Re-enable .GLOBAL_VAR

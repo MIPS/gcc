@@ -338,14 +338,14 @@ create_ssa_var_map (void)
 	  ops = use_ops (stmt);
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
 	    {
-	      use = VARRAY_GENERIC_PTR (ops, x);
+	      use = VARRAY_TREE_PTR (ops, x);
 	      register_ssa_partition (map, *use);
 	    }
 
 	  ops = def_ops (stmt);
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
 	    {
-	      dest = VARRAY_GENERIC_PTR (ops, x);
+	      dest = VARRAY_TREE_PTR (ops, x);
 	      register_ssa_partition (map, *dest);
 	    }
 
@@ -537,7 +537,7 @@ calculate_live_on_entry (var_map map)
 	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
 	  for (i = 0; i < num; i++)
 	    {
-	      vec = VARRAY_GENERIC_PTR (ops, i);
+	      vec = VARRAY_TREE_PTR (ops, i);
 	      add_livein_if_notdef (live, saw_def, *vec, bb);
 	    }
 
@@ -561,7 +561,7 @@ calculate_live_on_entry (var_map map)
 	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
 	  for (i = 0; i < num; i++)
 	    {
-	      vec = VARRAY_GENERIC_PTR (ops, i);
+	      vec = VARRAY_TREE_PTR (ops, i);
 	      set_if_valid (map, saw_def, *vec);
 	    }
 
@@ -1248,7 +1248,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 	      num = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
 	      for (x = 0; x < num; x++)
 		{
-		  var_p = VARRAY_GENERIC_PTR (ops, x);
+		  var_p = VARRAY_TREE_PTR (ops, x);
 		  add_conflicts_if_valid (tpa, graph, map, live, *var_p);
 		}
 
@@ -1256,7 +1256,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 	      num = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
 	      for (x = 0; x < num; x++)
 		{
-		  var_p = VARRAY_GENERIC_PTR (ops, x);
+		  var_p = VARRAY_TREE_PTR (ops, x);
 		  set_if_valid (map, live, *var_p);
 		}
 	    }

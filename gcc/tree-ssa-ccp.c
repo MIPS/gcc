@@ -554,7 +554,7 @@ visit_stmt (tree stmt)
       ops = def_ops (stmt);
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ops); i++)
 	{
-	  tree *def_p = VARRAY_GENERIC_PTR (ops, i);
+	  tree *def_p = VARRAY_TREE_PTR (ops, i);
 	  def_to_varying (*def_p);
 	}
     }
@@ -827,7 +827,7 @@ ccp_fold (tree stmt)
 	  /* Preserve the original values of every operand.  */
 	  orig = xmalloc (sizeof (tree) * VARRAY_ACTIVE_SIZE (uses));
 	  for (i = 0; i < VARRAY_ACTIVE_SIZE (uses); i++)
-	    orig[i] = *((tree *) VARRAY_GENERIC_PTR (uses, i));
+	    orig[i] = *(VARRAY_TREE_PTR (uses, i));
 
 	  /* Substitute operands with their values and try to fold.  */
 	  replace_uses_in (stmt);
@@ -835,7 +835,7 @@ ccp_fold (tree stmt)
 
 	  /* Restore operands to their original form.  */
 	  for (i = 0; i < VARRAY_ACTIVE_SIZE (uses); i++)
-	    *((tree *) VARRAY_GENERIC_PTR (uses, i)) = orig[i];
+	    *(VARRAY_TREE_PTR (uses, i)) = orig[i];
 	  free (orig);
 	}
     }
@@ -1190,7 +1190,7 @@ replace_uses_in (tree stmt)
   uses = use_ops (stmt);
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
-      tree *use = VARRAY_GENERIC_PTR (uses, i);
+      tree *use = VARRAY_TREE_PTR (uses, i);
       value *val = get_value (*use);
 
       if (val->lattice_val == CONSTANT)
@@ -1258,7 +1258,7 @@ likely_value (tree stmt)
   uses = use_ops (stmt);
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
-      tree *use = VARRAY_GENERIC_PTR (uses, i);
+      tree *use = VARRAY_TREE_PTR (uses, i);
       value *val = get_value (*use);
 
       if (val->lattice_val == UNDEFINED)

@@ -559,7 +559,7 @@ mark_def_sites (sbitmap globals)
 	  ops = use_ops (stmt);
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
-	      tree *use_p = VARRAY_GENERIC_PTR (ops, i);
+	      tree *use_p = VARRAY_TREE_PTR (ops, i);
 
 	      if (prepare_operand_for_rename (use_p, &uid)
 		  && !TEST_BIT (kills, uid))
@@ -610,7 +610,7 @@ mark_def_sites (sbitmap globals)
 	  ops = def_ops (stmt);
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
-	      tree *def_p = VARRAY_GENERIC_PTR (ops, i);
+	      tree *def_p = VARRAY_TREE_PTR (ops, i);
 
 	      if (prepare_operand_for_rename (def_p, &uid))
 		{
@@ -1706,7 +1706,7 @@ rewrite_out_of_ssa (tree fndecl)
 
 	  for (i = 0; i < num_uses; i++)
 	    {
-	      use_p = VARRAY_GENERIC_PTR (ops, i);
+	      use_p = VARRAY_TREE_PTR (ops, i);
 	      replace_variable (map, use_p);
 	    }
 
@@ -1715,7 +1715,7 @@ rewrite_out_of_ssa (tree fndecl)
 
 	  for (i = 0; i < num_defs; i++)
 	    {
-	      tree *def_p = VARRAY_GENERIC_PTR (ops, i);
+	      tree *def_p = VARRAY_TREE_PTR (ops, i);
 	      *def_p = var_to_partition_to_var (map, *def_p);
 	      replace_variable (map, def_p);
 
@@ -2049,7 +2049,7 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
 
   /* Step 1.  Rewrite USES and VUSES in the statement.  */
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
-    rewrite_operand ((tree *) VARRAY_GENERIC_PTR (uses, i));
+    rewrite_operand (VARRAY_TREE_PTR (uses, i));
 
   /* Rewrite virtual uses in the statement.  */
   for (i = 0; vuses && i < VARRAY_ACTIVE_SIZE (vuses); i++)
@@ -2058,7 +2058,7 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
   /* Step 2.  Register the statement's DEF and VDEF operands.  */
   for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
     {
-      tree *def_p = VARRAY_GENERIC_PTR (defs, i);
+      tree *def_p = VARRAY_TREE_PTR (defs, i);
 
       if (TREE_CODE (*def_p) != SSA_NAME)
 	*def_p = make_ssa_name (*def_p, stmt);

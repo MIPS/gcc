@@ -286,7 +286,7 @@ stmt_useful_p (tree stmt)
 
   ops = def_ops (stmt);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    if (need_to_preserve_store (*((tree *) VARRAY_GENERIC_PTR (ops, i))))
+    if (need_to_preserve_store (*(VARRAY_TREE_PTR (ops, i))))
       return true;
 
   ops = vdef_ops (stmt);
@@ -401,7 +401,7 @@ process_worklist (void)
 	  ops = use_ops (i);
 	  for (k = 0; ops && k < VARRAY_ACTIVE_SIZE (ops); k++)
 	    {
-	      tree *use_p = VARRAY_GENERIC_PTR (ops, k);
+	      tree *use_p = VARRAY_TREE_PTR (ops, k);
 	      mark_necessary (SSA_NAME_DEF_STMT (*use_p));
 	    }
 

@@ -386,7 +386,7 @@ maybe_find_rhs_use_for_var (tree def, tree var, unsigned int startpos)
     return NULL_TREE;
   for (i = startpos; i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
-      tree *usep = VARRAY_GENERIC_PTR (uses, i);
+      tree *usep = VARRAY_TREE_PTR (uses, i);
       tree use = *usep;
       if (names_match_p (use, var))
 	return use;
@@ -660,7 +660,7 @@ expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
 	  uses = use_ops (occurp);
 	  for (j = 0; j < VARRAY_ACTIVE_SIZE (uses); j ++)
 	    {
-	      tree *usep = VARRAY_GENERIC_PTR (uses, j);
+	      tree *usep = VARRAY_TREE_PTR (uses, j);
 	      tree use = *usep;
 	      if (ei->strred_cand)
 		use = factor_through_injuries (ei, use, SSA_NAME_VAR (use),
@@ -1083,7 +1083,7 @@ bool same_e_version_phi_result (struct expr_info *ei, tree def, tree cr,
     return false;
   for (i = 0; i < VARRAY_ACTIVE_SIZE (cruses); i++)
     {
-      tree *use1p = VARRAY_GENERIC_PTR (cruses, i);
+      tree *use1p = VARRAY_TREE_PTR (cruses, i);
       tree use1;  
       if (!use1p)
 	continue;
@@ -1522,7 +1522,7 @@ get_default_def (tree var, htab_t seen)
   defs = def_ops (defstmt);
   for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
     {
-      tree *def_p = VARRAY_GENERIC_PTR (defs, i);
+      tree *def_p = VARRAY_TREE_PTR (defs, i);
       if (SSA_NAME_VAR (*def_p) == SSA_NAME_VAR (var))
 	{
 	  if (htab_find (seen, *def_p) != NULL)
@@ -1572,7 +1572,7 @@ reaching_def (tree var, tree currstmt, basic_block bb, tree ignore)
       defs = def_ops (bsi_stmt (bsi));
       for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
 	{
-	  def = VARRAY_GENERIC_PTR (defs, i);
+	  def = VARRAY_TREE_PTR (defs, i);
 	  if (def && *def != ignore && names_match_p (var, *def))
 	    {
 	      curruse = *def;
