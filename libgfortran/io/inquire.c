@@ -260,7 +260,7 @@ inquire_via_unit (unit_t * u)
 static void
 inquire_via_filename (void)
 {
-  char *p;
+  const char *p;
 
   if (ioparm.exist != NULL)
     *ioparm.exist = file_exists ();

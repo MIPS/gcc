@@ -96,7 +96,7 @@ __spread (const g95_array_char * ret, const g95_array_char * source,
              the next dimension.  */
           count[n] = 0;
           /* We could precalculate these products, but this is a less
-             frequently used path so proabably not worth it.  */
+             frequently used path so probably not worth it.  */
           sptr -= sstride[n] * extent[n];
           rptr -= rstride[n] * extent[n];
           n++;

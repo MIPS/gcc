@@ -42,7 +42,7 @@ stop_numeric (G95_INTEGER_4 code)
 
 
 void
-stop_string (char *string, G95_INTEGER_4 len)
+stop_string (const char *string, G95_INTEGER_4 len)
 {
   show_locus ();
 

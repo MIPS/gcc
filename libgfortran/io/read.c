@@ -88,7 +88,7 @@ max_value (int length, int signed_flag)
  * rounding. */
 
 int
-convert_real (void *dest, char *buffer, int length)
+convert_real (void *dest, const char *buffer, int length)
 {
 
   errno = 0;

@@ -273,7 +273,7 @@ unformatted_write (bt type, void *source, int length)
 const char *
 type_name (bt type)
 {
-  char *p;
+  const char *p;
 
   switch (type)
     {

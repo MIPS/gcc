@@ -52,9 +52,12 @@ typedef off_t offset_t;
 #define NULL (void *) 0
 #endif
 
+#ifndef __GNUC__
+#define __attribute__(x)
+#endif
 
 /* For a library, a standard prefix is a requirement in order to
-   paritition the namespace.  It's ugly to look at and a pain to type,
+   partition the namespace.  It's ugly to look at and a pain to type,
    so we hide it behind macros.  */
 #define prefix(x) _gfortran_ ## x
 
@@ -252,16 +255,16 @@ char *itoa (int);
 char *xtoa (unsigned);
 
 #define os_error prefix(os_error)
-void os_error (const char *);
+void os_error (const char *) __attribute__ ((noreturn));
 
 #define show_locus prefix(show_locus)
 void show_locus (void);
 
 #define runtime_error prefix(runtime_error)
-void runtime_error (const char *);
+void runtime_error (const char *) __attribute__ ((noreturn));
 
 #define internal_error prefix(internal_error)
-void internal_error (const char *);
+void internal_error (const char *) __attribute__ ((noreturn));
 
 #define get_oserror prefix(get_oserror)
 const char *get_oserror (void);
@@ -270,21 +273,13 @@ const char *get_oserror (void);
 void write_error (const char *);
 
 #define sys_exit prefix(sys_exit)
-void sys_exit (int);
+void sys_exit (int) __attribute__ ((noreturn));
 
 #define st_printf prefix(st_printf)
-int st_printf (const char *, ...)
-#ifdef __GNUC__
-__attribute__ ((format (printf, 1, 2)))
-#endif
-;
+int st_printf (const char *, ...) __attribute__ ((format (printf, 1, 2)));
 
 #define st_sprintf prefix(st_sprintf)
-void st_sprintf (char *, const char *, ...)
-#ifdef __GNUC__
-__attribute__ ((format (printf, 2, 3)))
-#endif
-;
+void st_sprintf (char *, const char *, ...) __attribute__ ((format (printf, 2, 3)));
 
 #define translate_error prefix(translate_error)
 const char *translate_error (int);
@@ -302,7 +297,7 @@ void memory_init (void);
 void runtime_cleanup (void);
 
 #define get_mem		prefix(get_mem)
-void *get_mem (size_t);
+void *get_mem (size_t) __attribute__ ((malloc));
 
 #define free_mem	prefix(free_mem)
 void free_mem (void *);

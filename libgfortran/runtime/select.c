@@ -38,7 +38,7 @@ select_struct;
  * select_struct structures, return the address to jump to. */
 
 void *select_string (select_struct *table, int table_len, void *default_jump,
-                    char *selector, int selector_len)
+                    const char *selector, int selector_len)
 {
   select_struct *t;
   int i, low, high, mid;

@@ -1,3 +1,30 @@
+2003-08-15  Arnaud Desitter  <arnaud.desitter@geography.oxford.ac.uk>
+
+	* libgfortran.h (os_error, runtime_error,internal_error, sys_exit,
+	get_mem ): Add attribute.
+	* intrinsics/spread_generic.c (__spread): Fix spelling.
+	* io/inquire.c (inquire_via_filename): Add const.
+	* io/io.h (sys_exit): Add attribute.
+	* io/io.h (move_pos_offset): Add move_pos_offset.
+	* io/io.h (compare_file_filename, inquire_sequential, inquire_direct,
+	inquire_formatted, inquire_unformatted, inquire_read, inquire_write,
+	inquire_readwrite, convert_real, write_a, write_b, write_d, write_e,
+	write_en, write_es, write_f, write_i, write_l, write_o, write_x,
+	write_z): Add const.
+	* io/read.c (convert_real): Add const.
+	* io/transfer.c (type_name): Add const.
+	* io/unix.c (unpack_filename, compare_file_filename,inquire_sequential,
+	inquire_direct, inquire_formatted, inquire_unformatted, inquire_access,
+	inquire_read, inquire_write, inquire_readwrite): Add const.
+	* io/write.c (output_float): Remove unused variable.
+	* io/write.c (write_a, extract_int, extract_real, output_float,
+	write_float, write_int, write_i, write_b, write_o, write_z, write_d,
+	write_e, write_f, write_en, write_es, write_logical, write_integer,
+	write_character, write_real, write_complex): Add const.
+	* runtime/error.c (rtoa): Remove unused variable.
+	* runtime/select.c (select_string): Add const.
+	* runtime/stop.c (stop_string): Add const.
+
 2003-08-10  Paul Brook  <paul@nowt.org>
 
 	* Makefile.am (gfor_helper_src): Add intrinsics/abort.c.

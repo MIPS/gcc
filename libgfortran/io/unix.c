@@ -862,7 +862,7 @@ fd_to_stream (int fd, int prot)
  * C string in the buffer.  Returns nonzero if this is not possible.  */
 
 static int
-unpack_filename (char *cstring, char *fstring, int len)
+unpack_filename (char *cstring, const char *fstring, int len)
 {
 
   len = fstrlen (fstring, len);
@@ -1074,7 +1074,7 @@ init_error_stream (void)
  * filename. */
 
 int
-compare_file_filename (stream * s, char *name, int len)
+compare_file_filename (stream * s, const char *name, int len)
 {
   char path[PATH_MAX + 1];
   struct stat st1, st2;
@@ -1212,14 +1212,14 @@ file_exists (void)
 
 
 
-static char yes[] = "YES", no[] = "NO", unknown[] = "UNKNOWN";
+static const char *yes = "YES", *no = "NO", *unknown = "UNKNOWN";
 
 /* inquire_sequential()-- Given a fortran string, determine if the
  * file is suitable for sequential access.  Returns a C-style
  * string. */
 
-char *
-inquire_sequential (char *string, int len)
+const char *
+inquire_sequential (const char *string, int len)
 {
   char path[PATH_MAX + 1];
   struct stat statbuf;
@@ -1242,8 +1242,8 @@ inquire_sequential (char *string, int len)
 /* inquire_direct()-- Given a fortran string, determine if the file is
  * suitable for direct access.  Returns a C-style string. */
 
-char *
-inquire_direct (char *string, int len)
+const char *
+inquire_direct (const char *string, int len)
 {
   char path[PATH_MAX + 1];
   struct stat statbuf;
@@ -1266,8 +1266,8 @@ inquire_direct (char *string, int len)
 /* inquire_formatted()-- Given a fortran string, determine if the file
  * is suitable for formatted form.  Returns a C-style string. */
 
-char *
-inquire_formatted (char *string, int len)
+const char *
+inquire_formatted (const char *string, int len)
 {
   char path[PATH_MAX + 1];
   struct stat statbuf;
@@ -1291,8 +1291,8 @@ inquire_formatted (char *string, int len)
 /* inquire_unformatted()-- Given a fortran string, determine if the file
  * is suitable for unformatted form.  Returns a C-style string. */
 
-char *
-inquire_unformatted (char *string, int len)
+const char *
+inquire_unformatted (const char *string, int len)
 {
 
   return inquire_formatted (string, len);
@@ -1302,8 +1302,8 @@ inquire_unformatted (char *string, int len)
 /* inquire_access()-- Given a fortran string, determine if the file is
  * suitable for access. */
 
-static char *
-inquire_access (char *string, int len, int mode)
+static const char *
+inquire_access (const char *string, int len, int mode)
 {
   char path[PATH_MAX + 1];
 
@@ -1318,8 +1318,8 @@ inquire_access (char *string, int len, int mode)
 /* inquire_read()-- Given a fortran string, determine if the file is
  * suitable for READ access. */
 
-char *
-inquire_read (char *string, int len)
+const char *
+inquire_read (const char *string, int len)
 {
 
   return inquire_access (string, len, R_OK);
@@ -1329,8 +1329,8 @@ inquire_read (char *string, int len)
 /* inquire_write()-- Given a fortran string, determine if the file is
  * suitable for READ access. */
 
-char *
-inquire_write (char *string, int len)
+const char *
+inquire_write (const char *string, int len)
 {
 
   return inquire_access (string, len, W_OK);
@@ -1340,8 +1340,8 @@ inquire_write (char *string, int len)
 /* inquire_readwrite()-- Given a fortran string, determine if the file is
  * suitable for read and write access. */
 
-char *
-inquire_readwrite (char *string, int len)
+const char *
+inquire_readwrite (const char *string, int len)
 {
 
   return inquire_access (string, len, R_OK | W_OK);

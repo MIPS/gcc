@@ -343,7 +343,10 @@ fnode;
 /* unix.c */
 
 #define sys_exit prefix(sys_exit)
-void sys_exit (int);
+void sys_exit (int) __attribute__ ((noreturn));
+
+#define move_pos_offset prefix(move_pos_offset)
+int move_pos_offset (stream *, int);
 
 #define get_oserror prefix(get_oserror)
 const char *get_oserror (void);
@@ -367,7 +370,7 @@ stream *input_stream (void);
 stream *output_stream (void);
 
 #define compare_file_filename prefix(compare_file_filename)
-int compare_file_filename (stream *, char *, int);
+int compare_file_filename (stream *, const char *, int);
 
 #define find_file prefix(find_file)
 unit_t *find_file (void);
@@ -385,25 +388,25 @@ int delete_file (unit_t *);
 int file_exists (void);
 
 #define inquire_sequential prefix(inquire_sequential)
-char *inquire_sequential (char *, int);
+const char *inquire_sequential (const char *, int);
 
 #define inquire_direct prefix(inquire_direct)
-char *inquire_direct (char *, int);
+const char *inquire_direct (const char *, int);
 
 #define inquire_formatted prefix(inquire_formatted)
-char *inquire_formatted (char *, int);
+const char *inquire_formatted (const char *, int);
 
 #define inquire_unformatted prefix(inquire_unformatted)
-char *inquire_unformatted (char *, int);
+const char *inquire_unformatted (const char *, int);
 
 #define inquire_read prefix(inquire_read)
-char *inquire_read (char *, int);
+const char *inquire_read (const char *, int);
 
 #define inquire_write prefix(inquire_write)
-char *inquire_write (char *, int);
+const char *inquire_write (const char *, int);
 
 #define inquire_readwrite prefix(inquire_readwrite)
-char *inquire_readwrite (char *, int);
+const char *inquire_readwrite (const char *, int);
 
 #define file_length prefix(file_length)
 offset_t file_length (stream *);
@@ -496,7 +499,7 @@ void set_integer (void *, int, int);
 unsigned max_value (int, int);
 
 #define convert_real prefix(convert_real)
-int convert_real (void *, char *, int);
+int convert_real (void *, const char *, int);
 
 #define read_a prefix(read_a)
 void read_a (fnode *, char *, int);
@@ -527,40 +530,40 @@ void finish_list_read (void);
 /* write.c */
 
 #define write_a prefix(write_a)
-void write_a (fnode *, char *, int);
+void write_a (fnode *, const char *, int);
 
 #define write_b prefix(write_b)
-void write_b (fnode *, char *, int);
+void write_b (fnode *, const char *, int);
 
 #define write_d prefix(write_d)
-void write_d (fnode *, char *, int);
+void write_d (fnode *, const char *, int);
 
 #define write_e prefix(write_e)
-void write_e (fnode *, char *, int);
+void write_e (fnode *, const char *, int);
 
 #define write_en prefix(write_en)
-void write_en (fnode *, char *, int);
+void write_en (fnode *, const char *, int);
 
 #define write_es prefix(write_es)
-void write_es (fnode *, char *, int);
+void write_es (fnode *, const char *, int);
 
 #define write_f prefix(write_f)
-void write_f (fnode *, char *, int);
+void write_f (fnode *, const char *, int);
 
 #define write_i prefix(write_i)
-void write_i (fnode *, char *, int);
+void write_i (fnode *, const char *, int);
 
 #define write_l prefix(write_l)
 void write_l (fnode *, char *, int);
 
 #define write_o prefix(write_o)
-void write_o (fnode *, char *, int);
+void write_o (fnode *, const char *, int);
 
 #define write_x prefix(write_x)
 void write_x (fnode *);
 
 #define write_z prefix(write_z)
-void write_z (fnode *, char *, int);
+void write_z (fnode *, const char *, int);
 
 #define list_formatted_write prefix(list_formatted_write)
 void list_formatted_write (bt, void *, int);

@@ -34,7 +34,7 @@ sign_t;
 
 
 void
-write_a (fnode * f, char *source, int len)
+write_a (fnode * f, const char *source, int len)
 {
   int wlen;
   char *p;
@@ -67,23 +67,23 @@ write_l (fnode * f, char *p, int len)
 }
 
 static int
-extract_int (void *p, int len)
+extract_int (const void *p, int len)
 {
   int i = 0;
 
   switch (len)
     {
     case 1:
-      i = *((int8_t *) p);
+      i = *((const int8_t *) p);
       break;
     case 2:
-      i = *((int16_t *) p);
+      i = *((const int16_t *) p);
       break;
     case 4:
-      i = *((int32_t *) p);
+      i = *((const int32_t *) p);
       break;
     case 8:
-      i = *((int64_t *) p);
+      i = *((const int64_t *) p);
       break;
     default:
       internal_error ("bad integer kind");
@@ -93,16 +93,16 @@ extract_int (void *p, int len)
 }
 
 double
-extract_real (void *p, int len)
+extract_real (const void *p, int len)
 {
   double i = 0.0;
   switch (len)
     {
     case 4:
-      i = *((float *) p);
+      i = *((const float *) p);
       break;
     case 8:
-      i = *((double *) p);
+      i = *((const double *) p);
       break;
     default:
       internal_error ("bad real kind");
@@ -269,8 +269,8 @@ output_float (fnode *f, double value, int len)
   int digits;
   int nsign, nblank, nesign;
   int sca, neval, itmp;
-  char *p, *q;
-  char *spos, *intstr;
+  char *p;
+  const char *q, *intstr;
   sign_t sign, esign;
   double n, minv, maxv;
   format_token ft;
@@ -399,7 +399,6 @@ output_float (fnode *f, double value, int len)
   p = write_block (w);
   if (p == NULL)
     return;
-  spos = p;
 
   nblank = w - (nsign + intlen + d + nesign + (ft == FMT_F ? 0 : 1) );
   if (nblank < 0)
@@ -455,7 +454,7 @@ done:
 /* write_float() -- output a real number according to its format */
 
 static void
-write_float (fnode *f, char *source, int len)
+write_float (fnode *f, const char *source, int len)
 {
   double n;
   int nb =0 ;
@@ -484,10 +483,11 @@ write_float (fnode *f, char *source, int len)
 
 
 static void
-write_int (fnode *f, char *source, int len, char *(*conv) (unsigned))
+write_int (fnode *f, const char *source, int len, char *(*conv) (unsigned))
 {
   int n, w, m, digits, nsign, nzero, nblank;
-  char *p, *q;
+  char *p;
+  const char *q;
   sign_t sign;
 
   w = f->u.integer.w;
@@ -623,7 +623,7 @@ btoa (unsigned n)
 
 
 void
-write_i (fnode * f, char *p, int len)
+write_i (fnode * f, const char *p, int len)
 {
 
   write_int (f, p, len, (void *) itoa);
@@ -631,7 +631,7 @@ write_i (fnode * f, char *p, int len)
 
 
 void
-write_b (fnode * f, char *p, int len)
+write_b (fnode * f, const char *p, int len)
 {
 
   write_int (f, p, len, btoa);
@@ -639,14 +639,14 @@ write_b (fnode * f, char *p, int len)
 
 
 void
-write_o (fnode * f, char *p, int len)
+write_o (fnode * f, const char *p, int len)
 {
 
   write_int (f, p, len, otoa);
 }
 
 void
-write_z (fnode * f, char *p, int len)
+write_z (fnode * f, const char *p, int len)
 {
 
   write_int (f, p, len, xtoa);
@@ -654,35 +654,35 @@ write_z (fnode * f, char *p, int len)
 
 
 void
-write_d (fnode *f, char *p, int len)
+write_d (fnode *f, const char *p, int len)
 {
   write_float (f, p, len);
 }
 
 
 void
-write_e (fnode *f, char *p, int len)
+write_e (fnode *f, const char *p, int len)
 {
   write_float (f, p, len);
 }
 
 
 void
-write_f (fnode *f, char *p, int len)
+write_f (fnode *f, const char *p, int len)
 {
   write_float (f, p, len);
 }
 
 
 void
-write_en (fnode *f, char *p, int len)
+write_en (fnode *f, const char *p, int len)
 {
   write_float (f, p, len);
 }
 
 
 void
-write_es (fnode *f, char *p, int len)
+write_es (fnode *f, const char *p, int len)
 {
   write_float (f, p, len);
 }
@@ -728,7 +728,7 @@ write_char (char c)
 /* Default logical output should be L2
   according to DEC fortran Manual. */
 static void
-write_logical (char *source, int length)
+write_logical (const char *source, int length)
 {
   write_char (' ');
   write_char (extract_int (source, length) ? 'T' : 'F');
@@ -738,9 +738,10 @@ write_logical (char *source, int length)
 /* write_integer()-- Write a list-directed integer value. */
 
 static void
-write_integer (char *source, int length)
+write_integer (const char *source, int length)
 {
-  char *p, *q;
+  char *p;
+  const char *q;
   int digits;
   int width = 12;
 
@@ -762,7 +763,7 @@ write_integer (char *source, int length)
  * mode. */
 
 static void
-write_character (char *source, int length)
+write_character (const char *source, int length)
 {
   int i, extra;
   char *p, d;
@@ -818,7 +819,7 @@ write_character (char *source, int length)
    REAL(4) is 1PG15.7E2, and for REAL(8) is 1PG25.15E3  */
 
 static void
-write_real (char *source, int length)
+write_real (const char *source, int length)
 {
   fnode f ;
   int org_scale = g.scale_factor;
@@ -842,7 +843,7 @@ write_real (char *source, int length)
 
 
 static void
-write_complex (char *source, int len)
+write_complex (const char *source, int len)
 {
 
   if (write_char ('('))
