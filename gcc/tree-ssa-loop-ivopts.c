@@ -1323,7 +1323,9 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
 	default: ;
 	}
 
-      if (TREE_CODE_CLASS (TREE_CODE (lhs)) == 'r')
+      /* APPLE LOCAL functionally equivalent to mainline, replace in next merge.  */
+      if (TREE_CODE_CLASS (TREE_CODE (lhs)) == 'r'
+	  && is_gimple_val (rhs))
 	{
 	  find_interesting_uses_address (data, stmt, &TREE_OPERAND (stmt, 0));
 	  find_interesting_uses_op (data, rhs);
