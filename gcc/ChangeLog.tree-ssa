@@ -1,5 +1,9 @@
 2002-08-23  Jeffrey A Law  (law@redhat.com)
 
+	* tree-ssa-ccp.c (tree_ssa_ccp): Remove #if 0 that accidentally
+	got checked in.  Cleanup the cfg to remove unreachable blocks
+	discovered by CCP.
+
 	* basic-block.h (EDGE_EXECUTABLE): New edge flag.
 
 	* cfganal.c (find_edge): New function.

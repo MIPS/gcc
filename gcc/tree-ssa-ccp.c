@@ -180,11 +180,12 @@ tree_ssa_ccp (fndecl)
   /* Now perform substitutions based on the known constant values.  */
   ssa_ccp_substitute_constants ();
 
-#if 0
   /* Remove unexecutable edges from the CFG and make appropriate
      adjustments to PHI nodes.  */
   optimize_unexecutable_edges (edges);
-#endif
+
+  /* Now cleanup any unreachable code.  */
+  tree_cleanup_cfg ();
 
   /* Now remove all unreachable insns and update the DF information.
      as appropriate.  */
