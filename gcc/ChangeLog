@@ -1,3 +1,7 @@
+2003-09-17  Richard Henderson  <rth@redhat.com>
+
+	* cfg.c (dump_flow_info): Skip register dump if reg_n_info null.
+
 2003-09-15  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
             Jeff Law  <law@redhat.com>
  
