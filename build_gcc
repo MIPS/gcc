@@ -119,9 +119,9 @@ MAKEFLAGS=${LOCAL_MAKEFLAGS-"-j $SYSCTL"}
 mkdir -p $DIR/obj-$BUILD-$BUILD $DIR/dst-$BUILD-$BUILD || exit 1
 cd $DIR/obj-$BUILD-$BUILD || exit 1
 if [ \! -f $DIR/$BUILD-configured ] ; then
-  $SRC_DIR/configure $CONFIGFLAGS \
-    --host=$BUILD-apple-darwin --target=$BUILD-apple-darwin || exit 1
-  touch $DIR/$BUILD-configured || exit 1
+ $SRC_DIR/configure $CONFIGFLAGS \
+   --host=$BUILD-apple-darwin --target=$BUILD-apple-darwin || exit 1
+ touch $DIR/$BUILD-configured || exit 1
 fi
 make $MAKEFLAGS $BOOTSTRAP CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
 make $MAKEFLAGS DESTDIR=$DIR/dst-$BUILD-$BUILD install-gcc install-target \
@@ -151,19 +151,19 @@ PATH=$DIR/bin:$PATH
 
 # Build the cross-compilers, using the compiler we just built.
 for t in $TARGETS ; do
-  if [ $t != $BUILD ] ; then
-   mkdir -p $DIR/obj-$BUILD-$t $DIR/dst-$BUILD-$t || exit 1
-    cd $DIR/obj-$BUILD-$t || exit 1
-    $SRC_DIR/configure $CONFIGFLAGS  \
-      --program-prefix=$t-apple-darwin- \
-      --host=$BUILD-apple-darwin --target=$t-apple-darwin || exit 1
-    make $MAKEFLAGS all CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
-    make $MAKEFLAGS DESTDIR=$DIR/dst-$BUILD-$t install-gcc install-target \
-      CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
+ if [ $t != $BUILD ] ; then
+  mkdir -p $DIR/obj-$BUILD-$t $DIR/dst-$BUILD-$t || exit 1
+   cd $DIR/obj-$BUILD-$t || exit 1
+   $SRC_DIR/configure $CONFIGFLAGS  \
+     --program-prefix=$t-apple-darwin- \
+     --host=$BUILD-apple-darwin --target=$t-apple-darwin || exit 1
+   make $MAKEFLAGS all CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
+   make $MAKEFLAGS DESTDIR=$DIR/dst-$BUILD-$t install-gcc install-target \
+     CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
 
     # Add the compiler we just built to the path.
-    PATH=$DIR/dst-$BUILD-$t/usr/bin:$PATH
-  fi
+   PATH=$DIR/dst-$BUILD-$t/usr/bin:$PATH
+ fi
 done
 
 # Rearrange various libraries, for no really good reason.
@@ -273,6 +273,7 @@ for t in $TARGETS ; do
   cp -Rp $DIR/dst-$BUILD-$t$DEST_ROOT/lib/gcc/$t-apple-darwin \
     .$DEST_ROOT/lib/gcc || exit 1
 done
+
 SHARED_LIBS=`ls $DIR/dst-$BUILD-$BUILD$DEST_ROOT/lib | grep '\.dylib$'`
 for l in $SHARED_LIBS ; do
   F=$DIR/dst-$BUILD-$BUILD$DEST_ROOT/lib/$l
@@ -291,7 +292,14 @@ for l in $SHARED_LIBS ; do
       ln -s ../../../$F1 .$DEST_ROOT/lib/gcc/$t-apple-darwin/$VERS/$F0 \
         || exit 1
     done
+  fi
+done
 
+for l in $SHARED_LIBS ; do
+  F=$DEST_ROOT/lib/$l
+  F1=`echo $l \
+        | sed 's/\(\.[0-9]\{1,\}\)\(\.[0-9]\{1,\}\)\{1,\}\.dylib/\1.dylib/'`
+  if [ -f .$F ] ; then
 
     # Now that we've lipo'ed things together, change the install name
     # to match the official path.  The destination should always be
@@ -302,12 +310,31 @@ for l in $SHARED_LIBS ; do
     # Also change dependent library names so that libstdc++.6.0.2.dylib
     # (for example) links against libgcc.1.dylib to avoid link errors.
 
-    install_name_tool -id $DEST_ROOT/lib/$F1 .$DEST_ROOT/lib/$l
+    install_name_tool -id $DEST_ROOT/lib/$F1 .$F
 
+    # At this point, l is the name of the library we're rewriting.
+    # .$DEST_ROOT/lib/$F1 is the major version of the library.
+
+    # For every other shared library: change the name from short name to major
     for subl in $SHARED_LIBS ; do
-      SUBF=$DIR/dst-$BUILD-$BUILD$DEST_ROOT/lib/$subl
-      if [ \! -L $SUBF ] ; then
+      SUBF=.$DEST_ROOT/lib/$subl
+      if [ -f $SUBF ] ; then
         install_name_tool -change $DEST_ROOT/lib/$l $DEST_ROOT/lib/$F1 $SUBF
+      fi
+    done
+
+    # For every other library and architecture, check to see if any of the
+    # dependent library names happens to be the bogus name given during a cross
+    # compile.
+    for usinglib in $SHARED_LIBS ; do
+      USINGPATH=.$DEST_ROOT/lib/$usinglib
+      if [ -f $USINGPATH ] ; then
+        for t1 in $TARGETS ; do
+          BADPATH=$DEST_ROOT/$t-apple-darwin/lib/$l 
+          GOODPATH=$DEST_ROOT/lib/$F1
+          # Deal with the weird names generated for cross compiler portions.
+          install_name_tool -change $BADPATH $GOODPATH $USINGPATH
+        done
       fi
     done
   fi
