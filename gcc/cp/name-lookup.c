@@ -677,9 +677,15 @@ pushdecl (tree x)
 	      if (decls_match (x, t))
 		/* The standard only says that the local extern
 		   inherits linkage from the previous decl; in
-		   particular, default args are not shared.  It would
-		   be nice to propagate inlining info, though.  FIXME.  */
-		TREE_PUBLIC (x) = TREE_PUBLIC (t);
+		   particular, default args are not shared.  We must
+		   also tell cgraph to treat these decls as the same,
+		   or we may neglect to emit an "unused" static - we
+		   do this by making the DECL_UIDs equal, which should
+		   be viewed as a kludge.  FIXME.  */
+		{
+		  TREE_PUBLIC (x) = TREE_PUBLIC (t);
+		  DECL_UID (x) = DECL_UID (t);
+		}
 	    }
 	  else if (TREE_CODE (t) == PARM_DECL)
 	    {
@@ -1433,8 +1439,8 @@ maybe_push_cleanup_level (tree type)
       && current_binding_level->more_cleanups_ok == 0)
     {
       begin_scope (sk_cleanup, NULL);
+      current_binding_level->statement_list = push_stmt_list ();
       clear_last_expr ();
-      add_scope_stmt (/*begin_p=*/1, /*partial_p=*/1);
     }
 }
 
@@ -4635,7 +4641,16 @@ pushtag (tree name, tree type, int globalize)
 
   timevar_push (TV_NAME_LOOKUP);
   b = current_binding_level;
-  while (b->kind == sk_cleanup
+  while (/* Cleanup scopes are not scopes from the point of view of
+	    the language.  */
+	 b->kind == sk_cleanup
+	 /* Neither are the scopes used to hold template parameters
+	    for an explicit specialization.  For an ordinary template
+	    declaration, these scopes are not scopes from the point of
+	    view of the language -- but we need a place to stash
+	    things that will go in the containing namespace when the
+	    template is instantiated.  */
+	 || (b->kind == sk_template_parms && b->explicit_spec_p)
 	 || (b->kind == sk_class
 	     && (globalize
 		 /* We may be defining a new type in the initializer

@@ -50,6 +50,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "debug.h"
 #include "langhooks.h"
 #include "optabs.h"
+#include "tree-gimple.h"
 
 /* Machine-specific symbol_ref flags.  */
 #define SYMBOL_FLAG_ALIGN1	(SYMBOL_FLAG_MACH_DEP << 0)
@@ -71,13 +72,13 @@ static enum attr_type s390_safe_attr_type (rtx);
 static int s390_adjust_cost (rtx, rtx, rtx, int);
 static int s390_adjust_priority (rtx, int);
 static int s390_issue_rate (void);
-static int s390_use_dfa_pipeline_interface (void);
 static int s390_first_cycle_multipass_dfa_lookahead (void);
 static bool s390_rtx_costs (rtx, int, int, int *);
 static int s390_address_cost (rtx);
 static void s390_reorg (void);
 static bool s390_valid_pointer_mode (enum machine_mode);
 static tree s390_build_builtin_va_list (void);
+static tree s390_gimplify_va_arg (tree, tree, tree *, tree *);
 static bool s390_function_ok_for_sibcall (tree, tree);
 static bool s390_call_saved_register_used (tree);
 
@@ -130,7 +131,7 @@ static bool s390_call_saved_register_used (tree);
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE s390_issue_rate
 #undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE s390_use_dfa_pipeline_interface
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD s390_first_cycle_multipass_dfa_lookahead
 
@@ -147,6 +148,8 @@ static bool s390_call_saved_register_used (tree);
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST s390_build_builtin_va_list
+#undef TARGET_GIMPLIFY_VA_ARG_EXPR
+#define TARGET_GIMPLIFY_VA_ARG_EXPR s390_gimplify_va_arg
 
 #undef TARGET_PROMOTE_FUNCTION_ARGS
 #define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
@@ -209,6 +212,7 @@ struct machine_function GTY(())
   int first_save_gpr;
   int first_restore_gpr;
   int last_save_gpr;
+  int last_restore_gpr;
 
   /* Size of stack frame.  */
   HOST_WIDE_INT frame_size;
@@ -238,7 +242,7 @@ static rtx find_ltrel_base (rtx);
 static void replace_ltrel_base (rtx *, rtx);
 static void s390_optimize_prolog (bool);
 static int find_unused_clobbered_reg (void);
-static void s390_frame_info (void);
+static void s390_frame_info (int, int);
 static rtx save_fpr (rtx, int, int);
 static rtx restore_fpr (rtx, int, int);
 static rtx save_gprs (rtx, int, int, int);
@@ -277,6 +281,7 @@ s390_match_ccmode_set (rtx set, enum machine_mode req_mode)
     case CCLmode:
     case CCL1mode:
     case CCL2mode:
+    case CCL3mode:
     case CCT1mode:
     case CCT2mode:
     case CCT3mode:
@@ -472,6 +477,9 @@ s390_alc_comparison (rtx op, enum machine_mode mode)
   if (mode != VOIDmode && mode != GET_MODE (op))
     return 0;
 
+  while (GET_CODE (op) == ZERO_EXTEND || GET_CODE (op) == SIGN_EXTEND)
+    op = XEXP (op, 0);
+
   if (!COMPARISON_P (op))
     return 0;
 
@@ -487,6 +495,9 @@ s390_alc_comparison (rtx op, enum machine_mode mode)
 
     case CCL2mode:
       return GET_CODE (op) == LEU;
+
+    case CCL3mode:
+      return GET_CODE (op) == GEU;
 
     case CCUmode:
       return GET_CODE (op) == GTU;
@@ -514,6 +525,9 @@ s390_slb_comparison (rtx op, enum machine_mode mode)
   if (mode != VOIDmode && mode != GET_MODE (op))
     return 0;
 
+  while (GET_CODE (op) == ZERO_EXTEND || GET_CODE (op) == SIGN_EXTEND)
+    op = XEXP (op, 0);
+
   if (!COMPARISON_P (op))
     return 0;
 
@@ -529,6 +543,9 @@ s390_slb_comparison (rtx op, enum machine_mode mode)
 
     case CCL2mode:
       return GET_CODE (op) == GTU;
+
+    case CCL3mode:
+      return GET_CODE (op) == LTU;
 
     case CCUmode:
       return GET_CODE (op) == LEU;
@@ -634,6 +651,19 @@ s390_branch_condition_mask (rtx code)
 	  abort ();
         }
       break;
+
+    case CCL3mode:
+      switch (GET_CODE (code))
+	{
+	case EQ:	return CC0 | CC2;
+	case NE:	return CC1 | CC3;
+	case LTU:	return CC1;
+	case GTU:	return CC3;
+	case LEU:	return CC1 | CC2;
+	case GEU:	return CC2 | CC3;
+	default:
+	  abort ();
+	}
 
     case CCUmode:
       switch (GET_CODE (code))
@@ -3189,6 +3219,174 @@ s390_expand_cmpmem (rtx target, rtx op0, rtx op1, rtx len)
 #endif
 }
 
+
+/* Expand conditional increment or decrement using alc/slb instructions.
+   Should generate code setting DST to either SRC or SRC + INCREMENT,
+   depending on the result of the comparison CMP_OP0 CMP_CODE CMP_OP1.
+   Returns true if successful, false otherwise.  */
+
+bool
+s390_expand_addcc (enum rtx_code cmp_code, rtx cmp_op0, rtx cmp_op1,
+		   rtx dst, rtx src, rtx increment)
+{
+  enum machine_mode cmp_mode;
+  enum machine_mode cc_mode;
+  rtx op_res;
+  rtx insn;
+  rtvec p;
+
+  if ((GET_MODE (cmp_op0) == SImode || GET_MODE (cmp_op0) == VOIDmode)
+      && (GET_MODE (cmp_op1) == SImode || GET_MODE (cmp_op1) == VOIDmode))
+    cmp_mode = SImode;
+  else if ((GET_MODE (cmp_op0) == DImode || GET_MODE (cmp_op0) == VOIDmode)
+	   && (GET_MODE (cmp_op1) == DImode || GET_MODE (cmp_op1) == VOIDmode))
+    cmp_mode = DImode;
+  else
+    return false;
+
+  /* Try ADD LOGICAL WITH CARRY.  */
+  if (increment == const1_rtx)
+    {
+      /* Determine CC mode to use.  */
+      if (cmp_code == EQ || cmp_code == NE)
+	{
+	  if (cmp_op1 != const0_rtx)
+	    {
+	      cmp_op0 = expand_simple_binop (cmp_mode, XOR, cmp_op0, cmp_op1,
+					     NULL_RTX, 0, OPTAB_WIDEN);
+	      cmp_op1 = const0_rtx;
+	    }
+
+	  cmp_code = cmp_code == EQ ? LEU : GTU;
+	}
+
+      if (cmp_code == LTU || cmp_code == LEU)
+	{
+	  rtx tem = cmp_op0;
+	  cmp_op0 = cmp_op1;
+	  cmp_op1 = tem;
+	  cmp_code = swap_condition (cmp_code);
+	}
+
+      switch (cmp_code)
+	{
+	  case GTU:
+	    cc_mode = CCUmode;
+	    break;
+
+	  case GEU:
+	    cc_mode = CCL3mode;
+	    break;
+
+	  default:
+	    return false;
+	}
+
+      /* Emit comparison instruction pattern. */
+      if (!register_operand (cmp_op0, cmp_mode))
+	cmp_op0 = force_reg (cmp_mode, cmp_op0);
+
+      insn = gen_rtx_SET (VOIDmode, gen_rtx_REG (cc_mode, CC_REGNUM),
+			  gen_rtx_COMPARE (cc_mode, cmp_op0, cmp_op1));
+      /* We use insn_invalid_p here to add clobbers if required.  */
+      if (insn_invalid_p (emit_insn (insn)))
+	abort ();
+
+      /* Emit ALC instruction pattern.  */
+      op_res = gen_rtx_fmt_ee (cmp_code, GET_MODE (dst),
+			       gen_rtx_REG (cc_mode, CC_REGNUM),
+			       const0_rtx);
+
+      if (src != const0_rtx)
+	{
+	  if (!register_operand (src, GET_MODE (dst)))
+	    src = force_reg (GET_MODE (dst), src);
+
+	  src = gen_rtx_PLUS (GET_MODE (dst), src, const0_rtx);
+	  op_res = gen_rtx_PLUS (GET_MODE (dst), src, op_res);
+	}
+
+      p = rtvec_alloc (2);
+      RTVEC_ELT (p, 0) = 
+        gen_rtx_SET (VOIDmode, dst, op_res);
+      RTVEC_ELT (p, 1) = 
+	gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (CCmode, CC_REGNUM));
+      emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
+
+      return true;
+    }
+
+  /* Try SUBTRACT LOGICAL WITH BORROW.  */
+  if (increment == constm1_rtx)
+    {
+      /* Determine CC mode to use.  */
+      if (cmp_code == EQ || cmp_code == NE)
+	{
+	  if (cmp_op1 != const0_rtx)
+	    {
+	      cmp_op0 = expand_simple_binop (cmp_mode, XOR, cmp_op0, cmp_op1,
+					     NULL_RTX, 0, OPTAB_WIDEN);
+	      cmp_op1 = const0_rtx;
+	    }
+
+	  cmp_code = cmp_code == EQ ? LEU : GTU;
+	}
+
+      if (cmp_code == GTU || cmp_code == GEU)
+	{
+	  rtx tem = cmp_op0;
+	  cmp_op0 = cmp_op1;
+	  cmp_op1 = tem;
+	  cmp_code = swap_condition (cmp_code);
+	}
+
+      switch (cmp_code)
+	{
+	  case LEU:
+	    cc_mode = CCUmode;
+	    break;
+
+	  case LTU:
+	    cc_mode = CCL3mode;
+	    break;
+
+	  default:
+	    return false;
+	}
+
+      /* Emit comparison instruction pattern. */
+      if (!register_operand (cmp_op0, cmp_mode))
+	cmp_op0 = force_reg (cmp_mode, cmp_op0);
+
+      insn = gen_rtx_SET (VOIDmode, gen_rtx_REG (cc_mode, CC_REGNUM),
+			  gen_rtx_COMPARE (cc_mode, cmp_op0, cmp_op1));
+      /* We use insn_invalid_p here to add clobbers if required.  */
+      if (insn_invalid_p (emit_insn (insn)))
+	abort ();
+
+      /* Emit SLB instruction pattern.  */
+      if (!register_operand (src, GET_MODE (dst)))
+	src = force_reg (GET_MODE (dst), src);
+
+      op_res = gen_rtx_MINUS (GET_MODE (dst), 
+			      gen_rtx_MINUS (GET_MODE (dst), src, const0_rtx), 
+			      gen_rtx_fmt_ee (cmp_code, GET_MODE (dst), 
+					      gen_rtx_REG (cc_mode, CC_REGNUM), 
+					      const0_rtx));
+      p = rtvec_alloc (2);
+      RTVEC_ELT (p, 0) = 
+        gen_rtx_SET (VOIDmode, dst, op_res);
+      RTVEC_ELT (p, 1) = 
+	gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (CCmode, CC_REGNUM));
+      emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
+
+      return true;
+    }
+
+  return false;
+}
+
+
 /* This is called from dwarf2out.c via ASM_OUTPUT_DWARF_DTPREL.
    We need to emit DTP-relative relocations.  */
 
@@ -3703,9 +3901,6 @@ s390_agen_dep_p (rtx dep_insn, rtx insn)
 static int
 s390_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 {
-  rtx dep_rtx;
-  int i;
-
   /* If the dependence is an anti-dependence, there is no cost.  For an
      output dependence, there is sometimes a cost, but it doesn't seem
      worth handling those few cases.  */
@@ -3717,35 +3912,16 @@ s390_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
   if (recog_memoized (insn) < 0 || recog_memoized (dep_insn) < 0)
     return cost;
 
-  /* DFA based scheduling checks address dependency in md file.  */
-  if (s390_use_dfa_pipeline_interface ())
-  {
-    /* Operand forward in case of lr, load and la.  */
-    if (s390_tune == PROCESSOR_2084_Z990
-        && cost == 1
-	&& (s390_safe_attr_type (dep_insn) == TYPE_LA
-	    || s390_safe_attr_type (dep_insn) == TYPE_LR
-	    || s390_safe_attr_type (dep_insn) == TYPE_LOAD))
-      return 0;
-    return cost;
-  }
-
-  dep_rtx = PATTERN (dep_insn);
-
-  if (GET_CODE (dep_rtx) == SET
-      && addr_generation_dependency_p (dep_rtx, insn))
-    cost += (s390_safe_attr_type (dep_insn) == TYPE_LA) ? 1 : 4;
-  else if (GET_CODE (dep_rtx) == PARALLEL)
-    {
-      for (i = 0; i < XVECLEN (dep_rtx, 0); i++)
-	{
-	  if (addr_generation_dependency_p (XVECEXP (dep_rtx, 0, i), insn))
-	    cost += (s390_safe_attr_type (dep_insn) == TYPE_LA) ? 1 : 4;
-	}
-    }
-
+  /* Operand forward in case of lr, load and la.  */
+  if (s390_tune == PROCESSOR_2084_Z990
+      && cost == 1
+      && (s390_safe_attr_type (dep_insn) == TYPE_LA
+	  || s390_safe_attr_type (dep_insn) == TYPE_LR
+	  || s390_safe_attr_type (dep_insn) == TYPE_LOAD))
+    return 0;
   return cost;
 }
+
 /* A C statement (sans semicolon) to update the integer scheduling priority
    INSN_PRIORITY (INSN).  Increase the priority to execute the INSN earlier,
    reduce the priority to execute INSN later.  Do not define this macro if
@@ -3788,23 +3964,10 @@ s390_issue_rate (void)
   return 1;
 }
 
-/* If the following function returns TRUE, we will use the the DFA
-   insn scheduler.  */
-
-static int
-s390_use_dfa_pipeline_interface (void)
-{
-  if (s390_tune == PROCESSOR_2064_Z900
-      || s390_tune == PROCESSOR_2084_Z990)
-    return 1;
-
-  return 0;
-}
-
 static int
 s390_first_cycle_multipass_dfa_lookahead (void)
 {
-  return s390_use_dfa_pipeline_interface () ? 4 : 0;
+  return 4;
 }
 
 
@@ -4938,64 +5101,24 @@ s390_output_pool_entry (rtx exp, enum machine_mode mode, unsigned int align)
 static void
 s390_optimize_prolog (bool base_used)
 {
-  int save_first, save_last, restore_first, restore_last;
-  int i, j;
   rtx insn, new_insn, next_insn;
 
-  /* Recompute regs_ever_live data for special registers.  */
+  /* Do a final recompute of the frame-related data.  */
+
+  s390_frame_info (base_used, cfun->machine->save_return_addr_p);
   regs_ever_live[BASE_REGISTER] = base_used;
   regs_ever_live[RETURN_REGNUM] = cfun->machine->save_return_addr_p;
   regs_ever_live[STACK_POINTER_REGNUM] = cfun->machine->frame_size > 0;
 
-
-  /* Find first and last gpr to be saved.  */
-
-  for (i = 6; i < 16; i++)
-    if (regs_ever_live[i])
-      if (!global_regs[i]
-	  || i == STACK_POINTER_REGNUM
-          || i == RETURN_REGNUM
-          || i == BASE_REGISTER
-          || (flag_pic && i == (int)PIC_OFFSET_TABLE_REGNUM))
-	break;
-
-  for (j = 15; j > i; j--)
-    if (regs_ever_live[j])
-      if (!global_regs[j]
-	  || j == STACK_POINTER_REGNUM
-          || j == RETURN_REGNUM
-          || j == BASE_REGISTER
-          || (flag_pic && j == (int)PIC_OFFSET_TABLE_REGNUM))
-	break;
-
-  if (i == 16)
-    {
-      /* Nothing to save/restore.  */
-      save_first = restore_first = -1;
-      save_last = restore_last = -1;
-    }
-  else
-    {
-      /* Save/restore from i to j.  */
-      save_first = restore_first = i;
-      save_last = restore_last = j;
-    }
-
-  /* Varargs functions need to save gprs 2 to 6.  */
-  if (current_function_stdarg)
-    {
-      save_first = 2;
-      if (save_last < 6)
-        save_last = 6;
-    }
-
-
   /* If all special registers are in fact used, there's nothing we
      can do, so no point in walking the insn list.  */
-  if (i <= BASE_REGISTER && j >= BASE_REGISTER
-      && (TARGET_CPU_ZARCH || (i <= RETURN_REGNUM && j >= RETURN_REGNUM)))
-    return;
 
+  if (cfun->machine->first_save_gpr <= BASE_REGISTER 
+      && cfun->machine->last_save_gpr >= BASE_REGISTER
+      && (TARGET_CPU_ZARCH 
+          || (cfun->machine->first_save_gpr <= RETURN_REGNUM 
+              && cfun->machine->last_save_gpr >= RETURN_REGNUM)))
+    return;
 
   /* Search for prolog/epilog insns and replace them.  */
 
@@ -5024,9 +5147,10 @@ s390_optimize_prolog (bool base_used)
 	  if (first > BASE_REGISTER || last < BASE_REGISTER)
 	    continue;
 
-	  if (save_first != -1)
+	  if (cfun->machine->first_save_gpr != -1)
 	    {
-	      new_insn = save_gprs (base, off, save_first, save_last);
+	      new_insn = save_gprs (base, off, cfun->machine->first_save_gpr,
+				    cfun->machine->last_save_gpr);
 	      new_insn = emit_insn_before (new_insn, insn);
 	      INSN_ADDRESSES_NEW (new_insn, -1);
 	    }
@@ -5048,9 +5172,10 @@ s390_optimize_prolog (bool base_used)
 	  if (GET_CODE (base) != REG || off < 0)
 	    continue;
 
-	  if (save_first != -1)
+	  if (cfun->machine->first_save_gpr != -1)
 	    {
-	      new_insn = save_gprs (base, off, save_first, save_last);
+	      new_insn = save_gprs (base, off, cfun->machine->first_save_gpr,
+				    cfun->machine->last_save_gpr);
 	      new_insn = emit_insn_before (new_insn, insn);
 	      INSN_ADDRESSES_NEW (new_insn, -1);
 	    }
@@ -5074,9 +5199,10 @@ s390_optimize_prolog (bool base_used)
 	  if (first > BASE_REGISTER || last < BASE_REGISTER)
 	    continue;
 
-	  if (restore_first != -1)
+	  if (cfun->machine->first_restore_gpr != -1)
 	    {
-	      new_insn = restore_gprs (base, off, restore_first, restore_last);
+	      new_insn = restore_gprs (base, off, cfun->machine->first_restore_gpr,
+				       cfun->machine->last_restore_gpr);
 	      new_insn = emit_insn_before (new_insn, insn);
 	      INSN_ADDRESSES_NEW (new_insn, -1);
 	    }
@@ -5098,9 +5224,10 @@ s390_optimize_prolog (bool base_used)
 	  if (GET_CODE (base) != REG || off < 0)
 	    continue;
 
-	  if (restore_first != -1)
+	  if (cfun->machine->first_restore_gpr != -1)
 	    {
-	      new_insn = restore_gprs (base, off, restore_first, restore_last);
+	      new_insn = restore_gprs (base, off, cfun->machine->first_restore_gpr,
+				       cfun->machine->last_restore_gpr);
 	      new_insn = emit_insn_before (new_insn, insn);
 	      INSN_ADDRESSES_NEW (new_insn, -1);
 	    }
@@ -5254,11 +5381,14 @@ find_unused_clobbered_reg (void)
   return 0;
 }
 
-/* Fill FRAME with info about frame of current function.  */
+/* Fill cfun->machine with info about frame of current function.  
+   BASE_USED and RETURN_ADDR_USED specify whether we assume the
+   base and return address register will need to be saved.  */
 
 static void
-s390_frame_info (void)
+s390_frame_info (int base_used, int return_addr_used)
 {
+  int live_regs[16];
   int i, j;
   HOST_WIDE_INT fsize = get_frame_size ();
 
@@ -5279,59 +5409,65 @@ s390_frame_info (void)
 
   /* Does function need to setup frame and save area.  */
 
-  if (! current_function_is_leaf
+  if (!current_function_is_leaf
       || TARGET_TPF_PROFILING
       || cfun->machine->frame_size > 0
       || current_function_calls_alloca
       || current_function_stdarg)
     cfun->machine->frame_size += STARTING_FRAME_OFFSET;
 
-  /* If we use the return register, we'll need to make sure
-     it is going to be saved/restored.  */
+  /* Find first and last gpr to be saved.  We trust regs_ever_live
+     data, except that we don't save and restore global registers.
 
-  if (!current_function_is_leaf
-      || TARGET_TPF_PROFILING
-      || regs_ever_live[RETURN_REGNUM])
-    cfun->machine->save_return_addr_p = 1;
+     Also, all registers with special meaning to the compiler need
+     to be handled extra.  */
 
-  /* Find first and last gpr to be saved.  Note that at this point,
-     we assume the base register and -on S/390- the return register
-     always need to be saved.  This is done because the usage of these
-     register might change even after the prolog was emitted.
-     If it turns out later that we really don't need them, the
-     prolog/epilog code is modified again.  */
+  for (i = 0; i < 16; i++)
+    live_regs[i] = regs_ever_live[i] && !global_regs[i];
 
-  regs_ever_live[BASE_REGISTER] = 1;
-  if (!TARGET_CPU_ZARCH || cfun->machine->save_return_addr_p)
-    regs_ever_live[RETURN_REGNUM] = 1;
-  regs_ever_live[STACK_POINTER_REGNUM] = cfun->machine->frame_size > 0;
+  if (flag_pic)
+    live_regs[PIC_OFFSET_TABLE_REGNUM] = 
+    regs_ever_live[PIC_OFFSET_TABLE_REGNUM];
+
+  live_regs[BASE_REGISTER] = base_used;
+  live_regs[RETURN_REGNUM] = return_addr_used;
+  live_regs[STACK_POINTER_REGNUM] = cfun->machine->frame_size > 0;
 
   for (i = 6; i < 16; i++)
-    if (regs_ever_live[i])
-      if (!global_regs[i]
-	  || i == STACK_POINTER_REGNUM
-          || i == RETURN_REGNUM
-          || i == BASE_REGISTER
-          || (flag_pic && i == (int)PIC_OFFSET_TABLE_REGNUM))
-	break;
-
+    if (live_regs[i])
+      break;
   for (j = 15; j > i; j--)
-    if (regs_ever_live[j])
-      if (!global_regs[j]
-	  || j == STACK_POINTER_REGNUM
-          || j == RETURN_REGNUM
-          || j == BASE_REGISTER
-          || (flag_pic && j == (int)PIC_OFFSET_TABLE_REGNUM))
-	break;
+    if (live_regs[j])
+      break;
 
-  /* Save / Restore from gpr i to j.  */
-  cfun->machine->first_save_gpr = i;
-  cfun->machine->first_restore_gpr = i;
-  cfun->machine->last_save_gpr  = j;
+  if (i == 16)
+    {
+      /* Nothing to save/restore.  */
+      cfun->machine->first_save_gpr = -1;
+      cfun->machine->first_restore_gpr = -1;
+      cfun->machine->last_save_gpr = -1;
+      cfun->machine->last_restore_gpr = -1;
+    }
+  else
+    {
+      /* Save / Restore from gpr i to j.  */
+      cfun->machine->first_save_gpr = i;
+      cfun->machine->first_restore_gpr = i;
+      cfun->machine->last_save_gpr = j;
+      cfun->machine->last_restore_gpr = j;
+    }
 
   /* Varargs functions need to save gprs 2 to 6.  */
   if (current_function_stdarg)
-    cfun->machine->first_save_gpr = 2;
+    {
+      if (cfun->machine->first_save_gpr == -1
+          || cfun->machine->first_save_gpr > 2)
+        cfun->machine->first_save_gpr = 2;
+
+      if (cfun->machine->last_save_gpr == -1
+          || cfun->machine->last_save_gpr < 6)
+        cfun->machine->last_save_gpr = 6;
+    }
 }
 
 /* Return offset between argument pointer and frame pointer
@@ -5340,30 +5476,15 @@ s390_frame_info (void)
 HOST_WIDE_INT
 s390_arg_frame_offset (void)
 {
-  HOST_WIDE_INT fsize = get_frame_size ();
-  int save_fprs_p, i;
+  /* See the comment in s390_emit_prologue about the assumptions we make
+     whether or not the base and return address register need to be saved.  */
+  int return_addr_used = !current_function_is_leaf
+			 || TARGET_TPF_PROFILING
+			 || regs_ever_live[RETURN_REGNUM]
+			 || cfun->machine->save_return_addr_p;
 
-  /* fprs 8 - 15 are caller saved for 64 Bit ABI.  */
-  save_fprs_p = 0;
-  if (TARGET_64BIT)
-    for (i = 24; i < 32; i++)
-      if (regs_ever_live[i] && !global_regs[i])
-	{
-          save_fprs_p = 1;
-	  break;
-	}
-
-  fsize = fsize + save_fprs_p * 64;
-
-  /* Does function need to setup frame and save area.  */
-
-  if (! current_function_is_leaf
-      || TARGET_TPF_PROFILING
-      || fsize > 0
-      || current_function_calls_alloca
-      || current_function_stdarg)
-    fsize += STARTING_FRAME_OFFSET;
-  return fsize + STACK_POINTER_OFFSET;
+  s390_frame_info (1, !TARGET_CPU_ZARCH || return_addr_used);
+  return cfun->machine->frame_size + STACK_POINTER_OFFSET;
 }
 
 /* Emit insn to save fpr REGNUM at offset OFFSET relative
@@ -5552,9 +5673,29 @@ s390_emit_prologue (void)
   rtx temp_reg;
   int i;
 
-  /* Compute frame_info.  */
+  /* At this point, we decide whether we'll need to save/restore the
+     return address register.  This decision is final on zSeries machines;
+     on S/390 it can still be overridden in s390_split_branches.  */
 
-  s390_frame_info ();
+  if (!current_function_is_leaf
+      || TARGET_TPF_PROFILING
+      || regs_ever_live[RETURN_REGNUM])
+    cfun->machine->save_return_addr_p = 1;
+
+  /* Compute frame info.  Note that at this point, we assume the base 
+     register and -on S/390- the return register always need to be saved.
+     This is done because the usage of these registers might change even 
+     after the prolog was emitted.  If it turns out later that we really 
+     don't need them, the prolog/epilog code is modified again.  */
+
+  s390_frame_info (1, !TARGET_CPU_ZARCH || cfun->machine->save_return_addr_p);
+
+  /* We need to update regs_ever_live to avoid data-flow problems.  */
+
+  regs_ever_live[BASE_REGISTER] = 1;
+  regs_ever_live[RETURN_REGNUM] = !TARGET_CPU_ZARCH 
+				  || cfun->machine->save_return_addr_p;
+  regs_ever_live[STACK_POINTER_REGNUM] = cfun->machine->frame_size > 0;
 
   /* Choose best register to use for temp use within prologue.
      See below for why TPF must use the register 1.  */
@@ -5732,7 +5873,7 @@ s390_emit_epilogue (bool sibcall)
   if (cfun->machine->first_restore_gpr != -1)
     {
       area_bottom = cfun->machine->first_restore_gpr * UNITS_PER_WORD;
-      area_top = (cfun->machine->last_save_gpr + 1) * UNITS_PER_WORD;
+      area_top = (cfun->machine->last_restore_gpr + 1) * UNITS_PER_WORD;
     }
   else
     {
@@ -5830,7 +5971,7 @@ s390_emit_epilogue (bool sibcall)
 	 to stack location from where they get restored.  */
 
       for (i = cfun->machine->first_restore_gpr;
-	   i <= cfun->machine->last_save_gpr;
+	   i <= cfun->machine->last_restore_gpr;
 	   i++)
 	{
 	  /* These registers are special and need to be
@@ -5858,7 +5999,7 @@ s390_emit_epilogue (bool sibcall)
 
 	  if (cfun->machine->save_return_addr_p
 	      || (cfun->machine->first_restore_gpr < BASE_REGISTER
-		  && cfun->machine->last_save_gpr > RETURN_REGNUM))
+		  && cfun->machine->last_restore_gpr > RETURN_REGNUM))
 	    {
 	      int return_regnum = find_unused_clobbered_reg();
 	      if (!return_regnum)
@@ -5881,7 +6022,7 @@ s390_emit_epilogue (bool sibcall)
 
       insn = restore_gprs (frame_pointer, offset,
 			   cfun->machine->first_restore_gpr,
-			   cfun->machine->last_save_gpr);
+			   cfun->machine->last_restore_gpr);
       emit_insn (insn);
     }
 
@@ -6306,13 +6447,14 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
        ret = **args.overflow_arg_area++;
    } */
 
-rtx
-s390_va_arg (tree valist, tree type)
+tree
+s390_gimplify_va_arg (tree valist, tree type, tree *pre_p, 
+		      tree *post_p ATTRIBUTE_UNUSED)
 {
   tree f_gpr, f_fpr, f_ovf, f_sav;
   tree gpr, fpr, ovf, sav, reg, t, u;
   int indirect_p, size, n_reg, sav_ofs, sav_scale, max_reg;
-  rtx lab_false, lab_over, addr_rtx, r;
+  tree lab_false, lab_over, addr;
 
   f_gpr = TYPE_FIELDS (TREE_TYPE (va_list_type_node));
   f_fpr = TREE_CHAIN (f_gpr);
@@ -6387,79 +6529,75 @@ s390_va_arg (tree valist, tree type)
 
   /* Pull the value out of the saved registers ...  */
 
-  lab_false = gen_label_rtx ();
-  lab_over = gen_label_rtx ();
-  addr_rtx = gen_reg_rtx (Pmode);
+  lab_false = create_artificial_label ();
+  lab_over = create_artificial_label ();
+  addr = create_tmp_var (ptr_type_node, "addr");
 
-  emit_cmp_and_jump_insns (expand_expr (reg, NULL_RTX, Pmode, EXPAND_NORMAL),
-			   GEN_INT (max_reg),
-			   GT, const1_rtx, Pmode, 0, lab_false);
+  t = build_int_2 (max_reg, 0);
+  TREE_TYPE (t) = TREE_TYPE (reg);
+  t = build2 (GT_EXPR, boolean_type_node, reg, t);
+  u = build1 (GOTO_EXPR, void_type_node, lab_false);
+  t = build3 (COND_EXPR, void_type_node, t, u, NULL_TREE);
+  gimplify_and_add (t, pre_p);
 
   if (sav_ofs)
-    t = build (PLUS_EXPR, ptr_type_node, sav, build_int_2 (sav_ofs, 0));
+    t = build2 (PLUS_EXPR, ptr_type_node, sav, build_int_2 (sav_ofs, 0));
   else
     t = sav;
 
-  u = build (MULT_EXPR, long_integer_type_node,
-	     reg, build_int_2 (sav_scale, 0));
-  TREE_SIDE_EFFECTS (u) = 1;
+  u = build2 (MULT_EXPR, long_integer_type_node,
+	      reg, build_int_2 (sav_scale, 0));
+  t = build2 (PLUS_EXPR, ptr_type_node, t, u);
 
-  t = build (PLUS_EXPR, ptr_type_node, t, u);
-  TREE_SIDE_EFFECTS (t) = 1;
+  t = build2 (MODIFY_EXPR, void_type_node, addr, t);
+  gimplify_and_add (t, pre_p);
 
-  r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
-  if (r != addr_rtx)
-    emit_move_insn (addr_rtx, r);
+  t = build1 (GOTO_EXPR, void_type_node, lab_over);
+  gimplify_and_add (t, pre_p);
 
+  t = build1 (LABEL_EXPR, void_type_node, lab_false);
+  append_to_statement_list (t, pre_p);
 
-  emit_jump_insn (gen_jump (lab_over));
-  emit_barrier ();
-  emit_label (lab_false);
 
   /* ... Otherwise out of the overflow area.  */
 
-  t = save_expr (ovf);
-
-
-  /* In 64 BIT for each argument on stack, a full 64 bit slot is allocated.  */
+  t = ovf;
   if (size < UNITS_PER_WORD)
-    {
-      t = build (PLUS_EXPR, TREE_TYPE (t), t, build_int_2 (UNITS_PER_WORD-size, 0));
-      t = build (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
-      TREE_SIDE_EFFECTS (t) = 1;
-      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+    t = build2 (PLUS_EXPR, TREE_TYPE (t), t, 
+		build_int_2 (UNITS_PER_WORD - size, 0));
 
-      t = save_expr (ovf);
-    }
+  gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
-  r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
-  if (r != addr_rtx)
-    emit_move_insn (addr_rtx, r);
+  u = build2 (MODIFY_EXPR, void_type_node, addr, t);
+  gimplify_and_add (u, pre_p);
 
-  t = build (PLUS_EXPR, TREE_TYPE (t), t, build_int_2 (size, 0));
-  t = build (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
-  TREE_SIDE_EFFECTS (t) = 1;
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+  t = build2 (PLUS_EXPR, TREE_TYPE (t), t, build_int_2 (size, 0));
+  t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+  gimplify_and_add (t, pre_p);
 
-  emit_label (lab_over);
+  t = build1 (LABEL_EXPR, void_type_node, lab_over);
+  append_to_statement_list (t, pre_p);
 
-  /* If less than max_regs a registers are retrieved out
-     of register save area, increment.  */
 
-  u = build (PREINCREMENT_EXPR, TREE_TYPE (reg), reg,
-	     build_int_2 (n_reg, 0));
-  TREE_SIDE_EFFECTS (u) = 1;
-  expand_expr (u, const0_rtx, VOIDmode, EXPAND_NORMAL);
+  /* Increment register save count.  */
+
+  u = build2 (PREINCREMENT_EXPR, TREE_TYPE (reg), reg,
+	      build_int_2 (n_reg, 0));
+  gimplify_and_add (u, pre_p);
 
   if (indirect_p)
     {
-      r = gen_rtx_MEM (Pmode, addr_rtx);
-      set_mem_alias_set (r, get_varargs_alias_set ());
-      emit_move_insn (addr_rtx, r);
+      t = build_pointer_type (build_pointer_type (type));
+      addr = fold_convert (t, addr);
+      addr = build_fold_indirect_ref (addr);
+    }
+  else
+    {
+      t = build_pointer_type (type);
+      addr = fold_convert (t, addr);
     }
 
-
-  return addr_rtx;
+  return build_fold_indirect_ref (addr);
 }
 
 

@@ -1,4 +1,4 @@
-/* Control and data flow functions for trees.
+/* Tree inlining.
    Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
@@ -467,8 +467,8 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       abort ();
 #endif
 
-  /* If this is a RETURN_STMT, change it into an EXPR_STMT and a
-     GOTO_STMT with the RET_LABEL as its target.  */
+  /* If this is a RETURN_EXPR, change it into a MODIFY_EXPR and a
+     GOTO_EXPR with the RET_LABEL as its target.  */
   if (TREE_CODE (*tp) == RETURN_EXPR && id->ret_label)
     {
       tree return_stmt = *tp;
@@ -489,8 +489,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	    if (TREE_CODE (assignment) == RESULT_DECL)
 	      gimplify_stmt (&assignment);
 
-	  *tp = build (BIND_EXPR, void_type_node, NULL_TREE, NULL_TREE,
-		       make_node (BLOCK));
+	  *tp = build (BIND_EXPR, void_type_node, NULL, NULL, NULL);
 	  append_to_statement_list (assignment, &BIND_EXPR_BODY (*tp));
 	  append_to_statement_list (goto_stmt, &BIND_EXPR_BODY (*tp));
         }
@@ -1238,10 +1237,6 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case RETURN_EXPR:
     case EXIT_EXPR:
     case LOOP_EXPR:
-    case EUSE_NODE:
-    case EKILL_NODE:
-    case EPHI_NODE:
-    case EEXIT_NODE:
     case PHI_NODE:
       break;
     /* We don't account constants for now.  Assume that the cost is amortized
@@ -1661,7 +1656,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 	 restoring of current_function_decl.  */
       save_decl = current_function_decl;
       current_function_decl = id->node->decl;
-      inline_result = voidify_wrapper_expr (expr);
+      inline_result = voidify_wrapper_expr (expr, NULL);
       current_function_decl = save_decl;
 
       /* If the inlined function returns a result that we care about,
@@ -1910,7 +1905,7 @@ clone_body (tree clone, tree fn, void *arg_map)
   id.cloning_p = true;
 
   /* Actually copy the body.  */
-  TREE_CHAIN (DECL_SAVED_TREE (clone)) = copy_body (&id);
+  append_to_statement_list_force (copy_body (&id), &DECL_SAVED_TREE (clone));
 }
 
 /* Save duplicate of body in FN.  MAP is used to pass around splay tree
@@ -2010,8 +2005,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
      interesting below this point in the tree.  */
   if (!walk_subtrees)
     {
-      if (code == TREE_LIST
-	  || lang_hooks.tree_inlining.tree_chain_matters_p (*tp))
+      if (code == TREE_LIST)
 	/* But we still need to check our siblings.  */
 	WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
       else
@@ -2056,10 +2050,6 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 	    WALK_SUBTREE (TREE_OPERAND (*tp, len - 1));
 	}
 #endif
-
-      if (lang_hooks.tree_inlining.tree_chain_matters_p (*tp))
-	/* Check our siblings.  */
-	WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
     }
   else if (TREE_CODE_CLASS (code) == 'd')
     {
@@ -2230,8 +2220,7 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       || TREE_CODE_CLASS (code) == 'c'
       || code == TREE_LIST
       || code == TREE_VEC
-      || code == TYPE_DECL
-      || lang_hooks.tree_inlining.tree_chain_matters_p (*tp))
+      || code == TYPE_DECL)
     {
       /* Because the chain gets clobbered when we make a copy, we save it
 	 here.  */
@@ -2249,8 +2238,7 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
       /* Now, restore the chain, if appropriate.  That will cause
 	 walk_tree to walk into the chain as well.  */
-      if (code == PARM_DECL || code == TREE_LIST
-	  || lang_hooks.tree_inlining.tree_chain_matters_p (*tp))
+      if (code == PARM_DECL || code == TREE_LIST)
 	TREE_CHAIN (*tp) = chain;
 
       /* For now, we don't update BLOCKs when we make copies.  So, we

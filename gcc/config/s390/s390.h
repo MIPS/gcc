@@ -135,8 +135,8 @@ extern int target_flags;
   { "esa",           -32, N_("ESA/390 architecture")},                   \
   { "mvcle",          64, N_("mvcle use")},                              \
   { "no-mvcle",      -64, N_("mvc&ex")},                                 \
-  { "tpf",           128, N_("enable tpf OS code")},                     \
-  { "no-tpf",       -128, N_("disable tpf OS code")},                    \
+  { "tpf-trace",     128, N_("enable tpf OS tracing code")},             \
+  { "no-tpf-trace", -128, N_("disable tpf OS tracing code")},            \
   { "no-fused-madd", 256, N_("disable fused multiply/add instructions")},\
   { "fused-madd",   -256, N_("enable fused multiply/add instructions")}, \
   { "", TARGET_DEFAULT, 0 } }
@@ -708,7 +708,7 @@ CUMULATIVE_ARGS;
   s390_va_start (valist, nextarg)
 
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  s390_va_arg (valist, type)
+  (abort (), NULL_RTX)
 
 
 /* Trampolines for nested functions.  */
@@ -990,8 +990,10 @@ do {									\
   {"consttable_operand", { SYMBOL_REF, LABEL_REF, CONST, 		\
 			   CONST_INT, CONST_DOUBLE }},			\
   {"s390_plus_operand", { PLUS }},					\
-  {"s390_alc_comparison", { LTU, GTU, LEU, GEU }},			\
-  {"s390_slb_comparison", { LTU, GTU, LEU, GEU }},
+  {"s390_alc_comparison", { ZERO_EXTEND, SIGN_EXTEND, 			\
+			    LTU, GTU, LEU, GEU }},			\
+  {"s390_slb_comparison", { ZERO_EXTEND, SIGN_EXTEND,			\
+			    LTU, GTU, LEU, GEU }},
 
 /* Specify the machine mode that this machine uses for the index in the
    tablejump instruction.  */

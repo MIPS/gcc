@@ -44,6 +44,7 @@
 #include "debug.h"
 #include "diagnostic.h"
 #include "cgraph.h"
+#include "tree-iterator.h"
 
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
@@ -59,23 +60,6 @@ static tree simplify_aggr_init_exprs_r (tree *, int *, void *);
 static void emit_associated_thunks (tree);
 static tree finalize_nrv_r (tree *, int *, void *);
 
-
-/* Finish processing the COND, the SUBSTMT condition for STMT.  */
-
-#define FINISH_COND(COND, STMT, SUBSTMT) 		\
-  do {							\
-    if (last_tree != (STMT))				\
-      {							\
-        RECHAIN_STMTS (STMT, SUBSTMT);			\
-        if (!processing_template_decl)			\
-          {						\
-	    (COND) = build_tree_list (SUBSTMT, COND);	\
-	    (SUBSTMT) = (COND);				\
-          }						\
-      }							\
-    else						\
-      (SUBSTMT) = (COND);				\
-  } while (0)
 
 /* Deferred Access Checking Overview
    ---------------------------------
@@ -320,6 +304,27 @@ current_stmt_tree (void)
 	  : &scope_chain->x_stmt_tree);
 }
 
+/* If statements are full expressions, wrap STMT in a CLEANUP_POINT_EXPR.  */
+
+static tree
+maybe_cleanup_point_expr (tree expr)
+{
+  if (!processing_template_decl && stmts_are_full_exprs_p ())
+    expr = fold (build1 (CLEANUP_POINT_EXPR, TREE_TYPE (expr), expr));
+  return expr;
+}
+
+/* Create a declaration statement for the declaration given by the DECL.  */
+
+void
+add_decl_stmt (tree decl)
+{
+  tree r = build_stmt (DECL_STMT, decl);
+  if (DECL_INITIAL (decl))
+    r = maybe_cleanup_point_expr (r);
+  add_stmt (r);
+}
+
 /* Nonzero if TYPE is an anonymous union or struct type.  We have to use a
    flag for this because "A union for which objects or pointers are
    declared is not an anonymous union" [class.union].  */
@@ -332,43 +337,102 @@ anon_aggr_type_p (tree node)
 
 /* Finish a scope.  */
 
-tree
-do_poplevel (void)
+static tree
+do_poplevel (tree stmt_list)
 {
-  tree block = NULL_TREE;
+  tree block = NULL;
 
   if (stmts_are_full_exprs_p ())
-    {
-      tree scope_stmts = NULL_TREE;
+    block = poplevel (kept_level_p (), 1, 0);
 
-      block = poplevel (kept_level_p (), 1, 0);
-      if (!processing_template_decl)
-	{
-	  /* This needs to come after the poplevel so that partial scopes
-	     are properly nested.  */
-	  scope_stmts = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
-	  if (block)
-	    {
-	      SCOPE_STMT_BLOCK (TREE_PURPOSE (scope_stmts)) = block;
-	      SCOPE_STMT_BLOCK (TREE_VALUE (scope_stmts)) = block;
-	    }
-	}
+  stmt_list = pop_stmt_list (stmt_list);
+  
+  if (!processing_template_decl)
+    {
+      stmt_list = c_build_bind_expr (block, stmt_list);
+      /* ??? See c_end_compound_stmt re statement expressions.  */
     }
 
-  return block;
+  return stmt_list;
 }
 
 /* Begin a new scope.  */ 
 
-void
+static tree
 do_pushlevel (scope_kind sk)
 {
+  tree ret = push_stmt_list ();
   if (stmts_are_full_exprs_p ())
+    begin_scope (sk, NULL);
+  return ret;
+}
+
+/* Queue a cleanup.  CLEANUP is an expression/statement to be executed
+   when the current scope is exited.  EH_ONLY is true when this is not
+   meant to apply to normal control flow transfer.  */
+
+void
+push_cleanup (tree decl, tree cleanup, bool eh_only)
+{
+  tree stmt = build_stmt (CLEANUP_STMT, NULL, cleanup, decl);
+  CLEANUP_EH_ONLY (stmt) = eh_only;
+  add_stmt (stmt);
+  CLEANUP_BODY (stmt) = push_stmt_list ();
+}
+
+/* Begin a conditional that might contain a declaration.  When generating
+   normal code, we want the declaration to appear before the statement
+   containing the conditional.  When generating template code, we want the
+   conditional to be rendered as the raw DECL_STMT.  */
+
+static void
+begin_cond (tree *cond_p)
+{
+  if (processing_template_decl)
+    *cond_p = push_stmt_list ();
+}
+
+/* Finish such a conditional.  */
+
+static void
+finish_cond (tree *cond_p, tree expr)
+{
+  if (processing_template_decl)
     {
-      if (!processing_template_decl)
-	add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
-      begin_scope (sk, NULL);
+      tree cond = pop_stmt_list (*cond_p);
+      if (TREE_CODE (cond) == DECL_STMT)
+	expr = cond;
     }
+  *cond_p = expr;
+}
+
+/* If *COND_P specifies a conditional with a declaration, transform the
+   loop such that
+            while (A x = 42) { }
+            for (; A x = 42;) { }
+   becomes
+            while (true) { A x = 42; if (!x) break; }
+            for (;;) { A x = 42; if (!x) break; }
+   The statement list for BODY will be empty if the conditional did
+   not declare anything.  */
+                                                                                
+static void
+simplify_loop_decl_cond (tree *cond_p, tree body)
+{
+  tree cond, if_stmt;
+
+  if (!TREE_SIDE_EFFECTS (body))
+    return;
+
+  cond = *cond_p;
+  *cond_p = boolean_true_node;
+   
+  if_stmt = begin_if_stmt ();
+  cond = build_unary_op (TRUTH_NOT_EXPR, cond, 0);
+  finish_if_stmt_cond (cond, if_stmt);
+  finish_break_stmt ();
+  finish_then_clause (if_stmt);
+  finish_if_stmt (if_stmt);
 }
 
 /* Finish a goto-statement.  */
@@ -397,7 +461,7 @@ finish_goto_stmt (tree destination)
   
   check_goto (destination);
 
-  return add_stmt (build_stmt (GOTO_STMT, destination));
+  return add_stmt (build_stmt (GOTO_EXPR, destination));
 }
 
 /* COND is the condition-expression for an if, while, etc.,
@@ -432,8 +496,17 @@ finish_expr_stmt (tree expr)
 	expr = convert_to_void (expr, "statement");
       else if (!type_dependent_expression_p (expr))
 	convert_to_void (build_non_dependent_expr (expr), "statement");
-      
-      r = add_stmt (build_stmt (EXPR_STMT, expr));
+
+      /* Simplification of inner statement expressions, compound exprs,
+	 etc can result in the us already having an EXPR_STMT.  */
+      if (TREE_CODE (expr) != CLEANUP_POINT_EXPR)
+	{
+	  if (TREE_CODE (expr) != EXPR_STMT)
+	    expr = build_stmt (EXPR_STMT, expr);
+	  expr = maybe_cleanup_point_expr (expr);
+	}
+
+      r = add_stmt (expr);
     }
 
   finish_stmt ();
@@ -448,10 +521,11 @@ finish_expr_stmt (tree expr)
 tree
 begin_if_stmt (void)
 {
-  tree r;
-  do_pushlevel (sk_block);
+  tree r, scope;
+  scope = do_pushlevel (sk_block);
   r = build_stmt (IF_STMT, NULL_TREE, NULL_TREE, NULL_TREE);
-  add_stmt (r);
+  TREE_CHAIN (r) = scope;
+  begin_cond (&IF_COND (r));
   return r;
 }
 
@@ -461,8 +535,9 @@ begin_if_stmt (void)
 void 
 finish_if_stmt_cond (tree cond, tree if_stmt)
 {
-  cond = maybe_convert_cond (cond);
-  FINISH_COND (cond, if_stmt, IF_COND (if_stmt));
+  finish_cond (&IF_COND (if_stmt), maybe_convert_cond (cond));
+  add_stmt (if_stmt);
+  THEN_CLAUSE (if_stmt) = push_stmt_list ();
 }
 
 /* Finish the then-clause of an if-statement, which may be given by
@@ -471,15 +546,16 @@ finish_if_stmt_cond (tree cond, tree if_stmt)
 tree
 finish_then_clause (tree if_stmt)
 {
-  RECHAIN_STMTS (if_stmt, THEN_CLAUSE (if_stmt));
+  THEN_CLAUSE (if_stmt) = pop_stmt_list (THEN_CLAUSE (if_stmt));
   return if_stmt;
 }
 
 /* Begin the else-clause of an if-statement.  */
 
-void 
-begin_else_clause (void)
+void
+begin_else_clause (tree if_stmt)
 {
+  ELSE_CLAUSE (if_stmt) = push_stmt_list ();
 }
 
 /* Finish the else-clause of an if-statement, which may be given by
@@ -488,16 +564,18 @@ begin_else_clause (void)
 void
 finish_else_clause (tree if_stmt)
 {
-  RECHAIN_STMTS (if_stmt, ELSE_CLAUSE (if_stmt));
+  ELSE_CLAUSE (if_stmt) = pop_stmt_list (ELSE_CLAUSE (if_stmt));
 }
 
 /* Finish an if-statement.  */
 
 void 
-finish_if_stmt (void)
+finish_if_stmt (tree if_stmt)
 {
+  tree scope = TREE_CHAIN (if_stmt);
+  TREE_CHAIN (if_stmt) = NULL;
+  add_stmt (do_poplevel (scope));
   finish_stmt ();
-  do_poplevel ();
 }
 
 /* Begin a while-statement.  Returns a newly created WHILE_STMT if
@@ -509,7 +587,8 @@ begin_while_stmt (void)
   tree r;
   r = build_stmt (WHILE_STMT, NULL_TREE, NULL_TREE);
   add_stmt (r);
-  do_pushlevel (sk_block);
+  WHILE_BODY (r) = do_pushlevel (sk_block);
+  begin_cond (&WHILE_COND (r));
   return r;
 }
 
@@ -519,30 +598,8 @@ begin_while_stmt (void)
 void 
 finish_while_stmt_cond (tree cond, tree while_stmt)
 {
-  cond = maybe_convert_cond (cond);
-  if (processing_template_decl)
-    /* Don't mess with condition decls in a template.  */
-    FINISH_COND (cond, while_stmt, WHILE_COND (while_stmt));
-  else if (getdecls () == NULL_TREE)
-    /* It was a simple condition; install it.  */
-    WHILE_COND (while_stmt) = cond;
-  else
-    {
-      /* If there was a declaration in the condition, we can't leave it
-	 there; transform
-	    while (A x = 42) { }
-	 to
-	    while (true) { A x = 42; if (!x) break; }  */
-      tree if_stmt;
-      WHILE_COND (while_stmt) = boolean_true_node;
-
-      if_stmt = begin_if_stmt ();
-      cond = build_unary_op (TRUTH_NOT_EXPR, cond, 0);
-      finish_if_stmt_cond (cond, if_stmt);
-      finish_break_stmt ();
-      finish_then_clause (if_stmt);
-      finish_if_stmt ();
-    }
+  finish_cond (&WHILE_COND (while_stmt), maybe_convert_cond (cond));
+  simplify_loop_decl_cond (&WHILE_COND (while_stmt), WHILE_BODY (while_stmt));
 }
 
 /* Finish a while-statement, which may be given by WHILE_STMT.  */
@@ -550,8 +607,7 @@ finish_while_stmt_cond (tree cond, tree while_stmt)
 void 
 finish_while_stmt (tree while_stmt)
 {
-  do_poplevel ();
-  RECHAIN_STMTS (while_stmt, WHILE_BODY (while_stmt));
+  WHILE_BODY (while_stmt) = do_poplevel (WHILE_BODY (while_stmt));
   finish_stmt ();
 }
 
@@ -563,6 +619,7 @@ begin_do_stmt (void)
 {
   tree r = build_stmt (DO_STMT, NULL_TREE, NULL_TREE);
   add_stmt (r);
+  DO_BODY (r) = push_stmt_list ();
   return r;
 }
 
@@ -571,7 +628,7 @@ begin_do_stmt (void)
 void
 finish_do_body (tree do_stmt)
 {
-  RECHAIN_STMTS (do_stmt, DO_BODY (do_stmt));
+  DO_BODY (do_stmt) = pop_stmt_list (DO_BODY (do_stmt));
 }
 
 /* Finish a do-statement, which may be given by DO_STMT, and whose
@@ -605,7 +662,10 @@ finish_return_stmt (tree expr)
 	  return finish_goto_stmt (dtor_label);
 	}
     }
-  r = add_stmt (build_stmt (RETURN_STMT, expr));
+
+  r = build_stmt (RETURN_STMT, expr);
+  r = maybe_cleanup_point_expr (r);
+  r = add_stmt (r);
   finish_stmt ();
 
   return r;
@@ -620,10 +680,12 @@ begin_for_stmt (void)
 
   r = build_stmt (FOR_STMT, NULL_TREE, NULL_TREE, 
 		  NULL_TREE, NULL_TREE);
-  NEW_FOR_SCOPE_P (r) = flag_new_for_scope > 0;
-  if (NEW_FOR_SCOPE_P (r))
-    do_pushlevel (sk_for);
-  add_stmt (r);
+
+  if (flag_new_for_scope > 0)
+    TREE_CHAIN (r) = do_pushlevel (sk_for);
+
+  if (processing_template_decl)
+    FOR_INIT_STMT (r) = push_stmt_list ();
 
   return r;
 }
@@ -634,9 +696,11 @@ begin_for_stmt (void)
 void
 finish_for_init_stmt (tree for_stmt)
 {
-  if (last_tree != for_stmt)
-    RECHAIN_STMTS (for_stmt, FOR_INIT_STMT (for_stmt));
-  do_pushlevel (sk_block);
+  if (processing_template_decl)
+    FOR_INIT_STMT (for_stmt) = pop_stmt_list (FOR_INIT_STMT (for_stmt));
+  add_stmt (for_stmt);
+  FOR_BODY (for_stmt) = do_pushlevel (sk_block);
+  begin_cond (&FOR_COND (for_stmt));
 }
 
 /* Finish the COND of a for-statement, which may be given by
@@ -645,30 +709,8 @@ finish_for_init_stmt (tree for_stmt)
 void
 finish_for_cond (tree cond, tree for_stmt)
 {
-  cond = maybe_convert_cond (cond);
-  if (processing_template_decl)
-    /* Don't mess with condition decls in a template.  */
-    FINISH_COND (cond, for_stmt, FOR_COND (for_stmt));
-  else if (getdecls () == NULL_TREE)
-    /* It was a simple condition; install it.  */
-    FOR_COND (for_stmt) = cond;
-  else
-    {
-      /* If there was a declaration in the condition, we can't leave it
-	 there; transform
-	    for (; A x = 42;) { }
-	 to
-	    for (;;) { A x = 42; if (!x) break; }  */
-      tree if_stmt;
-      FOR_COND (for_stmt) = NULL_TREE;
-
-      if_stmt = begin_if_stmt ();
-      cond = build_unary_op (TRUTH_NOT_EXPR, cond, 0);
-      finish_if_stmt_cond (cond, if_stmt);
-      finish_break_stmt ();
-      finish_then_clause (if_stmt);
-      finish_if_stmt ();
-    }
+  finish_cond (&FOR_COND (for_stmt), maybe_convert_cond (cond));
+  simplify_loop_decl_cond (&FOR_COND (for_stmt), FOR_BODY (for_stmt));
 }
 
 /* Finish the increment-EXPRESSION in a for-statement, which may be
@@ -677,13 +719,16 @@ finish_for_cond (tree cond, tree for_stmt)
 void
 finish_for_expr (tree expr, tree for_stmt)
 {
+  if (!expr)
+    return;
   /* If EXPR is an overloaded function, issue an error; there is no
      context available to use to perform overload resolution.  */
-  if (expr && type_unknown_p (expr))
+  if (type_unknown_p (expr))
     {
       cxx_incomplete_type_error (expr, TREE_TYPE (expr));
       expr = error_mark_node;
     }
+  expr = maybe_cleanup_point_expr (expr);
   FOR_EXPR (for_stmt) = expr;
 }
 
@@ -694,11 +739,16 @@ finish_for_expr (tree expr, tree for_stmt)
 void
 finish_for_stmt (tree for_stmt)
 {
+  FOR_BODY (for_stmt) = do_poplevel (FOR_BODY (for_stmt));
+
   /* Pop the scope for the body of the loop.  */
-  do_poplevel ();
-  RECHAIN_STMTS (for_stmt, FOR_BODY (for_stmt));
-  if (NEW_FOR_SCOPE_P (for_stmt))
-    do_poplevel ();
+  if (flag_new_for_scope > 0)
+    {
+      tree scope = TREE_CHAIN (for_stmt);
+      TREE_CHAIN (for_stmt) = NULL;
+      add_stmt (do_poplevel (scope));
+    }
+
   finish_stmt (); 
 }
 
@@ -724,10 +774,14 @@ finish_continue_stmt (void)
 tree
 begin_switch_stmt (void)
 {
-  tree r;
-  do_pushlevel (sk_block);
+  tree r, scope;
+
   r = build_stmt (SWITCH_STMT, NULL_TREE, NULL_TREE, NULL_TREE);
-  add_stmt (r);
+
+  scope = do_pushlevel (sk_block);
+  TREE_CHAIN (r) = scope;
+  begin_cond (&SWITCH_COND (r));
+
   return r;
 }
 
@@ -755,7 +809,7 @@ finish_switch_cond (tree cond, tree switch_stmt)
 
 	     Integral promotions are performed.  */
 	  cond = perform_integral_promotions (cond);
-	  cond = fold (build1 (CLEANUP_POINT_EXPR, TREE_TYPE (cond), cond));
+	  cond = maybe_cleanup_point_expr (cond);
 	}
 
       if (cond != error_mark_node)
@@ -770,9 +824,11 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	    cond = index;
 	}
     }
-  FINISH_COND (cond, switch_stmt, SWITCH_COND (switch_stmt));
+  finish_cond (&SWITCH_COND (switch_stmt), cond);
   SWITCH_TYPE (switch_stmt) = orig_type;
+  add_stmt (switch_stmt);
   push_switch (switch_stmt);
+  SWITCH_BODY (switch_stmt) = push_stmt_list ();
 }
 
 /* Finish the body of a switch-statement, which may be given by
@@ -781,10 +837,15 @@ finish_switch_cond (tree cond, tree switch_stmt)
 void
 finish_switch_stmt (tree switch_stmt)
 {
-  RECHAIN_STMTS (switch_stmt, SWITCH_BODY (switch_stmt));
+  tree scope;
+
+  SWITCH_BODY (switch_stmt) = pop_stmt_list (SWITCH_BODY (switch_stmt));
   pop_switch (); 
   finish_stmt ();
-  do_poplevel ();
+
+  scope = TREE_CHAIN (switch_stmt);
+  TREE_CHAIN (switch_stmt) = NULL;
+  add_stmt (do_poplevel (scope));
 }
 
 /* Begin a try-block.  Returns a newly-created TRY_BLOCK if
@@ -795,6 +856,7 @@ begin_try_block (void)
 {
   tree r = build_stmt (TRY_BLOCK, NULL_TREE, NULL_TREE);
   add_stmt (r);
+  TRY_STMTS (r) = push_stmt_list ();
   return r;
 }
 
@@ -803,9 +865,8 @@ begin_try_block (void)
 tree
 begin_function_try_block (void)
 {
-  tree r = build_stmt (TRY_BLOCK, NULL_TREE, NULL_TREE);
+  tree r = begin_try_block ();
   FN_TRY_BLOCK_P (r) = 1;
-  add_stmt (r);
   return r;
 }
 
@@ -814,7 +875,8 @@ begin_function_try_block (void)
 void
 finish_try_block (tree try_block)
 {
-  RECHAIN_STMTS (try_block, TRY_STMTS (try_block));
+  TRY_STMTS (try_block) = pop_stmt_list (TRY_STMTS (try_block));
+  TRY_HANDLERS (try_block) = push_stmt_list ();
 }
 
 /* Finish the body of a cleanup try-block, which may be given by
@@ -823,7 +885,7 @@ finish_try_block (tree try_block)
 void
 finish_cleanup_try_block (tree try_block)
 {
-  RECHAIN_STMTS (try_block, TRY_STMTS (try_block));
+  TRY_STMTS (try_block) = pop_stmt_list (TRY_STMTS (try_block));
 }
 
 /* Finish an implicitly generated try-block, with a cleanup is given
@@ -841,16 +903,9 @@ finish_cleanup (tree cleanup, tree try_block)
 void
 finish_function_try_block (tree try_block)
 {
-  if (TREE_CHAIN (try_block) 
-      && TREE_CODE (TREE_CHAIN (try_block)) == CTOR_INITIALIZER)
-    {
-      /* Chain the compound statement after the CTOR_INITIALIZER.  */
-      TREE_CHAIN (TREE_CHAIN (try_block)) = last_tree;
-      /* And make the CTOR_INITIALIZER the body of the try-block.  */
-      RECHAIN_STMTS (try_block, TRY_STMTS (try_block));
-    }
-  else
-    RECHAIN_STMTS (try_block, TRY_STMTS (try_block));
+  finish_try_block (try_block);
+  /* FIXME : something queer about CTOR_INITIALIZER somehow following
+     the try block, but moving it inside.  */
   in_function_try_handler = 1;
 }
 
@@ -860,7 +915,7 @@ finish_function_try_block (tree try_block)
 void
 finish_handler_sequence (tree try_block)
 {
-  RECHAIN_STMTS (try_block, TRY_HANDLERS (try_block));
+  TRY_HANDLERS (try_block) = pop_stmt_list (TRY_HANDLERS (try_block));
   check_handlers (TRY_HANDLERS (try_block));
 }
 
@@ -870,8 +925,7 @@ void
 finish_function_handler_sequence (tree try_block)
 {
   in_function_try_handler = 0;
-  RECHAIN_STMTS (try_block, TRY_HANDLERS (try_block));
-  check_handlers (TRY_HANDLERS (try_block));
+  finish_handler_sequence (try_block);
 }
 
 /* Begin a handler.  Returns a HANDLER if appropriate.  */
@@ -880,11 +934,14 @@ tree
 begin_handler (void)
 {
   tree r;
+
   r = build_stmt (HANDLER, NULL_TREE, NULL_TREE);
   add_stmt (r);
+
   /* Create a binding level for the eh_info and the exception object
      cleanup.  */
-  do_pushlevel (sk_catch);
+  HANDLER_BODY (r) = do_pushlevel (sk_catch);
+
   return r;
 }
 
@@ -902,8 +959,7 @@ finish_handler_parms (tree decl, tree handler)
 	{
 	  decl = pushdecl (decl);
 	  decl = push_template_decl (decl);
-	  add_decl_stmt (decl);
-	  RECHAIN_STMTS (handler, HANDLER_PARMS (handler));
+	  HANDLER_PARMS (handler) = decl;
 	  type = TREE_TYPE (decl);
 	}
     }
@@ -923,67 +979,67 @@ finish_handler (tree handler)
 {
   if (!processing_template_decl)
     expand_end_catch_block ();
-  do_poplevel ();
-  RECHAIN_STMTS (handler, HANDLER_BODY (handler));
+  HANDLER_BODY (handler) = do_poplevel (HANDLER_BODY (handler));
 }
 
-/* Begin a compound-statement.  If HAS_NO_SCOPE is true, the
-   compound-statement does not define a scope.  Returns a new
-   COMPOUND_STMT.  */
+/* Begin a compound statement.  FLAGS contains some bits that control the
+   behaviour and context.  If BCS_NO_SCOPE is set, the compound statement
+   does not define a scope.  If BCS_FN_BODY is set, this is the outermost
+   block of a function.  If BCS_TRY_BLOCK is set, this is the block 
+   created on behalf of a TRY statement.  Returns a token to be passed to
+   finish_compound_stmt.  */
 
 tree
-begin_compound_stmt (bool has_no_scope)
-{
-  tree r; 
-  int is_try = 0;
-
-  r = build_stmt (COMPOUND_STMT, NULL_TREE);
-
-  if (last_tree && TREE_CODE (last_tree) == TRY_BLOCK)
-    is_try = 1;
-
-  add_stmt (r);
-  if (has_no_scope)
-    COMPOUND_STMT_NO_SCOPE (r) = 1;
-
-  last_expr_type = NULL_TREE;
-
-  if (!has_no_scope)
-    do_pushlevel (is_try ? sk_try : sk_block);
-  else
-    /* Normally, we try hard to keep the BLOCK for a
-       statement-expression.  But, if it's a statement-expression with
-       a scopeless block, there's nothing to keep, and we don't want
-       to accidentally keep a block *inside* the scopeless block.  */ 
-    keep_next_level (false);
-
-  return r;
-}
-
-/* Finish a compound-statement, which is given by COMPOUND_STMT.  */
-
-tree
-finish_compound_stmt (tree compound_stmt)
+begin_compound_stmt (unsigned int flags)
 {
   tree r;
-  tree t;
 
-  if (COMPOUND_STMT_NO_SCOPE (compound_stmt))
-    r = NULL_TREE;
+  if (flags & BCS_NO_SCOPE)
+    {
+      r = push_stmt_list ();
+      STATEMENT_LIST_NO_SCOPE (r) = 1;
+
+      /* Normally, we try hard to keep the BLOCK for a statement-expression.
+	 But, if it's a statement-expression with a scopeless block, there's
+	 nothing to keep, and we don't want to accidentally keep a block
+	 *inside* the scopeless block.  */ 
+      keep_next_level (false);
+    }
   else
-    r = do_poplevel ();
+    r = do_pushlevel (flags & BCS_TRY_BLOCK ? sk_try : sk_block);
 
-  RECHAIN_STMTS (compound_stmt, COMPOUND_BODY (compound_stmt));
-
-  /* When we call finish_stmt we will lose LAST_EXPR_TYPE.  But, since
-     the precise purpose of that variable is store the type of the
-     last expression statement within the last compound statement, we
-     preserve the value.  */
-  t = last_expr_type;
-  finish_stmt ();
-  last_expr_type = t;
+  /* When processing a template, we need to remember where the braces were,
+     so that we can set up identical scopes when instantiating the template
+     later.  BIND_EXPR is a handy candidate for this.
+     Note that do_poplevel won't create a BIND_EXPR itself here (and thus
+     result in nested BIND_EXPRs), since we don't build BLOCK nodes when
+     processing templates.  */
+  if (processing_template_decl)
+    {
+      r = build (BIND_EXPR, NULL, NULL, r, NULL);
+      BIND_EXPR_TRY_BLOCK (r) = (flags & BCS_TRY_BLOCK) != 0;
+      BIND_EXPR_BODY_BLOCK (r) = (flags & BCS_FN_BODY) != 0;
+      TREE_SIDE_EFFECTS (r) = 1;
+    }
 
   return r;
+}
+
+/* Finish a compound-statement, which is given by STMT.  */
+
+void
+finish_compound_stmt (tree stmt)
+{
+  if (TREE_CODE (stmt) == BIND_EXPR)
+    BIND_EXPR_BODY (stmt) = do_poplevel (BIND_EXPR_BODY (stmt));
+  else if (STATEMENT_LIST_NO_SCOPE (stmt))
+    stmt = pop_stmt_list (stmt);
+  else
+    stmt = do_poplevel (stmt);
+
+  /* ??? See c_end_compound_stmt wrt statement expressions.  */
+  add_stmt (stmt);
+  finish_stmt ();
 }
 
 /* Finish an asm-statement, whose components are a STRING, some
@@ -1058,7 +1114,7 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 	}
     }
 
-  r = build_stmt (ASM_STMT, string,
+  r = build_stmt (ASM_EXPR, string,
 		  output_operands, input_operands,
 		  clobbers);
   ASM_VOLATILE_P (r) = volatile_p;
@@ -1071,7 +1127,7 @@ tree
 finish_label_stmt (tree name)
 {
   tree decl = define_label (input_location, name);
-  return add_stmt (build_stmt (LABEL_STMT, decl));
+  return add_stmt (build_stmt (LABEL_EXPR, decl));
 }
 
 /* Finish a series of declarations for local labels.  G++ allows users
@@ -1090,7 +1146,7 @@ finish_label_decl (tree name)
 void 
 finish_decl_cleanup (tree decl, tree cleanup)
 {
-  add_stmt (build_stmt (CLEANUP_STMT, decl, cleanup));
+  push_cleanup (decl, cleanup, false);
 }
 
 /* If the current scope exits with an exception, run CLEANUP.  */
@@ -1098,9 +1154,7 @@ finish_decl_cleanup (tree decl, tree cleanup)
 void
 finish_eh_cleanup (tree cleanup)
 {
-  tree r = build_stmt (CLEANUP_STMT, NULL_TREE, cleanup);
-  CLEANUP_EH_ONLY (r) = 1;
-  add_stmt (r);
+  push_cleanup (NULL, cleanup, true);
 }
 
 /* The MEM_INITS is a list of mem-initializers, in reverse of the
@@ -1118,14 +1172,6 @@ finish_mem_initializers (tree mem_inits)
     add_stmt (build_min_nt (CTOR_INITIALIZER, mem_inits));
   else
     emit_mem_initializers (mem_inits);
-}
-
-/* Returns the stack of SCOPE_STMTs for the current function.  */
-
-tree *
-current_scope_stmt_stack (void)
-{
-  return &cfun->language->base.x_scope_stmt_stack;
 }
 
 /* Finish a parenthesized expression EXPR.  */
@@ -1348,17 +1394,7 @@ finish_qualified_id_expr (tree qualifying_class, tree expr, bool done,
 tree 
 begin_stmt_expr (void)
 {
-  /* If we're outside a function, we won't have a statement-tree to
-     work with.  But, if we see a statement-expression we need to
-     create one.  */
-  if (! cfun && !last_tree)
-    begin_stmt_tree (&scope_chain->x_saved_tree);
-
-  last_expr_type = NULL_TREE;
-  
-  keep_next_level (true);
-
-  return last_tree; 
+  return push_stmt_list ();
 }
 
 /* Process the final expression of a statement expression. EXPR can be
@@ -1367,23 +1403,24 @@ begin_stmt_expr (void)
    expression.  */
 
 tree
-finish_stmt_expr_expr (tree expr)
+finish_stmt_expr_expr (tree expr, tree stmt_expr)
 {
   tree result = NULL_TREE;
-  tree type = void_type_node;
 
   if (expr)
     {
-      type = TREE_TYPE (expr);
-      
       if (!processing_template_decl && !VOID_TYPE_P (TREE_TYPE (expr)))
 	{
+	  tree type = TREE_TYPE (expr);
+
 	  if (TREE_CODE (type) == ARRAY_TYPE
 	      || TREE_CODE (type) == FUNCTION_TYPE)
 	    expr = decay_conversion (expr);
 
 	  expr = convert_from_reference (expr);
 	  expr = require_complete_type (expr);
+
+	  type = TREE_TYPE (expr);
 
 	  /* Build a TARGET_EXPR for this aggregate.  finish_stmt_expr
 	     will then pull it apart so the lifetime of the target is
@@ -1408,15 +1445,16 @@ finish_stmt_expr_expr (tree expr)
       if (expr != error_mark_node)
 	{
 	  result = build_stmt (EXPR_STMT, expr);
+	  EXPR_STMT_STMT_EXPR_RESULT (result) = 1;
 	  add_stmt (result);
 	}
     }
   
   finish_stmt ();
 
-  /* Remember the last expression so that finish_stmt_expr can pull it
-     apart.  */
-  last_expr_type = result ? result : void_type_node;
+  /* Remember the last expression so that finish_stmt_expr
+     can pull it apart.  */
+  TREE_TYPE (stmt_expr) = result;
   
   return result;
 }
@@ -1426,58 +1464,99 @@ finish_stmt_expr_expr (tree expr)
    representing the statement-expression.  */
 
 tree 
-finish_stmt_expr (tree rtl_expr, bool has_no_scope)
+finish_stmt_expr (tree stmt_expr, bool has_no_scope)
 {
-  tree result;
-  tree result_stmt = last_expr_type;
-  tree type;
-  
-  if (!last_expr_type)
+  tree result, result_stmt, type;
+  tree *result_stmt_p = NULL;
+
+  result_stmt = TREE_TYPE (stmt_expr);
+  TREE_TYPE (stmt_expr) = void_type_node;
+  result = pop_stmt_list (stmt_expr);
+
+  if (!result_stmt || VOID_TYPE_P (result_stmt))
     type = void_type_node;
   else
     {
-      if (result_stmt == void_type_node)
+      /* We need to search the statement expression for the result_stmt,
+	 since we'll need to replace it entirely.  */
+      tree t;
+      result_stmt_p = &result;
+      while (1)
 	{
-	  type = void_type_node;
-	  result_stmt = NULL_TREE;
-	}
-      else
-	type = TREE_TYPE (EXPR_STMT_EXPR (result_stmt));
-    }
-  
-  result = build_min (STMT_EXPR, type, last_tree);
-  TREE_SIDE_EFFECTS (result) = 1;
-  STMT_EXPR_NO_SCOPE (result) = has_no_scope;
-  
-  last_expr_type = NULL_TREE;
-  
-  /* Remove the compound statement from the tree structure; it is
-     now saved in the STMT_EXPR.  */
-  last_tree = rtl_expr;
-  TREE_CHAIN (last_tree) = NULL_TREE;
+	  t = *result_stmt_p;
+	  if (t == result_stmt)
+	    break;
 
-  /* If we created a statement-tree for this statement-expression,
-     remove it now.  */ 
-  if (! cfun
-      && TREE_CHAIN (scope_chain->x_saved_tree) == NULL_TREE)
-    finish_stmt_tree (&scope_chain->x_saved_tree);
+	  switch (TREE_CODE (t))
+	    {
+	    case STATEMENT_LIST:
+	      {
+		tree_stmt_iterator i = tsi_last (t);
+		result_stmt_p = tsi_stmt_ptr (i);
+		break;
+	      }
+	    case BIND_EXPR:
+	      result_stmt_p = &BIND_EXPR_BODY (t);
+	      break;
+	    case TRY_FINALLY_EXPR:
+	    case TRY_CATCH_EXPR:
+	    case CLEANUP_STMT:
+	      result_stmt_p = &TREE_OPERAND (t, 0);
+	      break;
+	    default:
+	      abort ();
+	    }
+	}
+      type = TREE_TYPE (EXPR_STMT_EXPR (result_stmt));
+    }
 
   if (processing_template_decl)
-    return result;
-
-  if (!VOID_TYPE_P (type))
+    {
+      result = build_min (STMT_EXPR, type, result);
+      TREE_SIDE_EFFECTS (result) = 1;
+      STMT_EXPR_NO_SCOPE (result) = has_no_scope;
+    }
+  else if (!VOID_TYPE_P (type))
     {
       /* Pull out the TARGET_EXPR that is the final expression. Put
 	 the target's init_expr as the final expression and then put
 	 the statement expression itself as the target's init
 	 expr. Finally, return the target expression.  */
-      tree last_expr = EXPR_STMT_EXPR (result_stmt);
-      
-      my_friendly_assert (TREE_CODE (last_expr) == TARGET_EXPR, 20030729);
-      EXPR_STMT_EXPR (result_stmt) = TREE_OPERAND (last_expr, 1);
-      TREE_OPERAND (last_expr, 1) = result;
-      result = last_expr;
+      tree init, target_expr = EXPR_STMT_EXPR (result_stmt);
+      my_friendly_assert (TREE_CODE (target_expr) == TARGET_EXPR, 20030729);
+
+      /* The initializer will be void if the initialization is done by
+	 AGGR_INIT_EXPR; propagate that out to the statement-expression as
+	 a whole.  */
+      init = TREE_OPERAND (target_expr, 1);
+      type = TREE_TYPE (init);
+
+      init = maybe_cleanup_point_expr (init);
+      *result_stmt_p = init;
+
+      if (VOID_TYPE_P (type))
+	/* No frobbing needed.  */;
+      else if (TREE_CODE (result) == BIND_EXPR)
+	{
+	  /* The BIND_EXPR created in finish_compound_stmt is void; if we're
+	     returning a value directly, give it the appropriate type.  */
+	  if (VOID_TYPE_P (TREE_TYPE (result)))
+	    TREE_TYPE (result) = type;
+	  else if (same_type_p (TREE_TYPE (result), type))
+	    ;
+	  else
+	    abort ();
+	}
+      else if (TREE_CODE (result) == STATEMENT_LIST)
+	/* We need to wrap a STATEMENT_LIST in a BIND_EXPR so it can have a
+	   type other than void.  FIXME why can't we just return a value
+	   from STATEMENT_LIST?  */
+	result = build3 (BIND_EXPR, type, NULL, result, NULL);
+
+      TREE_OPERAND (target_expr, 1) = result;
+      result = target_expr;
     }
+
   return result;
 }
 
@@ -2690,7 +2769,7 @@ simplify_aggr_init_expr (tree *tp)
   tree fn = TREE_OPERAND (aggr_init_expr, 0);
   tree args = TREE_OPERAND (aggr_init_expr, 1);
   tree slot = TREE_OPERAND (aggr_init_expr, 2);
-  tree type = TREE_TYPE (aggr_init_expr);
+  tree type = TREE_TYPE (slot);
 
   tree call_expr;
   enum style_t { ctor, arg, pcc } style;
@@ -2718,7 +2797,7 @@ simplify_aggr_init_expr (tree *tp)
 	args = TREE_CHAIN (args);
 
       cxx_mark_addressable (slot);
-      addr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (slot)), slot);
+      addr = build1 (ADDR_EXPR, build_pointer_type (type), slot);
       if (style == arg)
 	{
 	  /* The return type might have different cv-quals from the slot.  */
@@ -2753,13 +2832,6 @@ simplify_aggr_init_expr (tree *tp)
       pop_deferring_access_checks ();
     }
 
-  /* We want to use the value of the initialized location as the
-     result.  */
-  call_expr = build (COMPOUND_EXPR, type,
-		     call_expr, slot);
-
-  /* Replace the AGGR_INIT_EXPR with the CALL_EXPR.  */
-  TREE_CHAIN (call_expr) = TREE_CHAIN (aggr_init_expr);
   *tp = call_expr;
 }
 
@@ -2954,10 +3026,8 @@ finalize_nrv_r (tree* tp, int* walk_subtrees, void* data)
 	  DECL_INITIAL (dp->var) = error_mark_node;
 	}
       else
-	init = NULL_TREE;
-      init = build_stmt (EXPR_STMT, init);
+	init = build_empty_stmt ();
       SET_EXPR_LOCUS (init, EXPR_LOCUS (*tp));
-      TREE_CHAIN (init) = TREE_CHAIN (*tp);
       *tp = init;
     }
   /* And replace all uses of the NRV with the RESULT_DECL.  */

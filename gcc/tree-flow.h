@@ -40,7 +40,7 @@ typedef struct basic_block_def *basic_block;
 /*---------------------------------------------------------------------------
 		   Tree annotations stored in tree_common.ann
 ---------------------------------------------------------------------------*/
-enum tree_ann_type { TREE_ANN_COMMON, VAR_ANN, CST_ANN, EXPR_ANN, STMT_ANN };
+enum tree_ann_type { TREE_ANN_COMMON, VAR_ANN, STMT_ANN };
 
 struct tree_ann_common_d GTY(())
 {
@@ -263,44 +263,24 @@ struct stmt_ann_d GTY(())
   unsigned int uid;
 };
 
-
-struct cst_ann_d GTY (())
-{
-  struct tree_ann_common_d common;
-  
-};
-
-struct expr_ann_d GTY(())
-{
-  struct tree_ann_common_d common;
-  
-};
-
-
-union tree_ann_d GTY((desc ("ann_type ((tree_ann)&%h)")))
+union tree_ann_d GTY((desc ("ann_type ((tree_ann_t)&%h)")))
 {
   struct tree_ann_common_d GTY((tag ("TREE_ANN_COMMON"))) common;
   struct var_ann_d GTY((tag ("VAR_ANN"))) decl;
-  struct expr_ann_d GTY((tag ("EXPR_ANN"))) expr;
-  struct cst_ann_d GTY((tag ("CST_ANN"))) cst;
   struct stmt_ann_d GTY((tag ("STMT_ANN"))) stmt;
 };
 
-typedef union tree_ann_d *tree_ann;
+typedef union tree_ann_d *tree_ann_t;
 typedef struct var_ann_d *var_ann_t;
 typedef struct stmt_ann_d *stmt_ann_t;
-typedef struct expr_ann_d *expr_ann_t;
-typedef struct cst_ann_d *cst_ann_t;
 
-static inline cst_ann_t cst_ann (tree);
-static inline cst_ann_t get_cst_ann (tree);
-static inline expr_ann_t expr_ann (tree);
-static inline expr_ann_t get_expr_ann (tree);
+static inline tree_ann_t tree_ann (tree);
+static inline tree_ann_t get_tree_ann (tree);
 static inline var_ann_t var_ann (tree);
 static inline var_ann_t get_var_ann (tree);
 static inline stmt_ann_t stmt_ann (tree);
 static inline stmt_ann_t get_stmt_ann (tree);
-static inline enum tree_ann_type ann_type (tree_ann);
+static inline enum tree_ann_type ann_type (tree_ann_t);
 static inline basic_block bb_for_stmt (tree);
 extern void set_bb_for_stmt (tree, basic_block);
 static inline void modify_stmt (tree);
@@ -416,6 +396,7 @@ typedef struct {
 
 static inline block_stmt_iterator bsi_start (basic_block);
 static inline block_stmt_iterator bsi_last (basic_block);
+static inline block_stmt_iterator bsi_after_labels (basic_block);
 static inline bool bsi_end_p (block_stmt_iterator);
 static inline void bsi_next (block_stmt_iterator *);
 static inline void bsi_prev (block_stmt_iterator *);
@@ -453,7 +434,7 @@ extern void bsi_replace (const block_stmt_iterator *, tree, bool);
 /* Location to track pending stmt for edge insertion.  */
 #define PENDING_STMT(e)	((e)->insns.t)
 
-extern void delete_tree_cfg (void);
+extern void delete_tree_cfg_annotations (void);
 extern void disband_implicit_edges (void);
 extern bool stmt_ends_bb_p (tree);
 extern bool is_ctrl_stmt (tree);
@@ -486,6 +467,7 @@ extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
 extern void compute_dominance_frontiers (bitmap *);
 extern void verify_stmts (void);
+extern tree tree_block_label (basic_block bb);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 
 /* In tree-pretty-print.c.  */
@@ -493,9 +475,8 @@ extern void dump_generic_bb (FILE *, basic_block, int, int);
 
 /* In tree-dfa.c  */
 extern var_ann_t create_var_ann (tree);
-extern cst_ann_t create_cst_ann (tree);
-extern expr_ann_t create_expr_ann (tree);
 extern stmt_ann_t create_stmt_ann (tree);
+extern tree_ann_t create_tree_ann (tree);
 extern tree create_phi_node (tree, basic_block);
 extern void add_phi_arg (tree *, tree, edge);
 extern void remove_phi_arg (tree, basic_block);
@@ -566,9 +547,6 @@ extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *);
 /* In tree-into-ssa.c  */
 extern void rewrite_into_ssa (void);
 
-/* In tree-ssa-pre.c  */
-extern void tree_perform_ssapre (tree, enum tree_dump_index);
-
 /* In tree-ssa-ccp.c  */
 bool fold_stmt (tree *);
 tree widen_bitfield (tree, tree, tree);
@@ -578,14 +556,14 @@ extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
 
 /* In tree-ssa-copy.c  */
-extern void propagate_value (tree *, tree);
-extern void replace_exp (tree *, tree);
+extern void propagate_value (use_operand_p, tree);
+extern void propagate_tree_value (tree *, tree);
+extern void replace_exp (use_operand_p, tree);
 extern bool cprop_into_stmt (tree, varray_type);
 extern void cprop_into_successor_phis (basic_block, varray_type, bitmap);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);
-static inline struct phi_arg_d *phi_element_for_edge (tree, edge);
 static inline bool may_propagate_copy (tree, tree);
 static inline bool is_call_clobbered (tree);
 static inline void mark_call_clobbered (tree);
@@ -603,6 +581,9 @@ tree get_value_handle (tree);
 void set_value_handle (tree, tree);
 void debug_value_expressions (tree);
 void print_value_expressions (FILE *, tree);
+
+/* In tree-sra.c  */
+void insert_edge_copies (tree stmt, basic_block bb);
 
 #include "tree-flow-inline.h"
 

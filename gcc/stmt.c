@@ -502,23 +502,8 @@ expand_computed_goto (tree exp)
   x = convert_memory_address (Pmode, x);
 
   emit_queue ();
-
-  if (! cfun->computed_goto_common_label)
-    {
-      cfun->computed_goto_common_reg = copy_to_mode_reg (Pmode, x);
-      cfun->computed_goto_common_label = gen_label_rtx ();
-
-      do_pending_stack_adjust ();
-      emit_label (cfun->computed_goto_common_label);
-      emit_indirect_jump (cfun->computed_goto_common_reg);
-
-      current_function_has_computed_jump = 1;
-    }
-  else
-    {
-      emit_move_insn (cfun->computed_goto_common_reg, x);
-      emit_jump (cfun->computed_goto_common_label);
-    }
+  do_pending_stack_adjust ();
+  emit_indirect_jump (x);
 }
 
 /* Handle goto statements and the labels that they can go to.  */
@@ -1467,7 +1452,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	  && (allows_mem
 	      || is_inout
 	      || (DECL_P (val)
-		  && GET_CODE (DECL_RTL (val)) == REG
+		  && REG_P (DECL_RTL (val))
 		  && GET_MODE (DECL_RTL (val)) != TYPE_MODE (type))))
 	lang_hooks.mark_addressable (val);
 
@@ -1529,8 +1514,8 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
       if ((TREE_CODE (val) == INDIRECT_REF
 	   && allows_mem)
 	  || (DECL_P (val)
-	      && (allows_mem || GET_CODE (DECL_RTL (val)) == REG)
-	      && ! (GET_CODE (DECL_RTL (val)) == REG
+	      && (allows_mem || REG_P (DECL_RTL (val)))
+	      && ! (REG_P (DECL_RTL (val))
 		    && GET_MODE (DECL_RTL (val)) != TYPE_MODE (type)))
 	  || ! allows_reg
 	  || is_inout)
@@ -1639,7 +1624,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 		  else
 		    op = force_reg (TYPE_MODE (type), op);
 		}
-	      if (GET_CODE (op) == REG
+	      if (REG_P (op)
 		  || GET_CODE (op) == SUBREG
 		  || GET_CODE (op) == ADDRESSOF
 		  || GET_CODE (op) == CONCAT)
@@ -2112,7 +2097,7 @@ expand_expr_stmt_value (tree exp, int want_value, int maybe_last)
       && warn_unused_value)
     {
       if (TREE_SIDE_EFFECTS (exp))
-	warn_if_unused_value (exp);
+	warn_if_unused_value (exp, emit_locus);
       else if (!VOID_TYPE_P (TREE_TYPE (exp)) && !TREE_NO_WARNING (exp))
 	warning ("%Hstatement with no effect", &emit_locus);
     }
@@ -2170,11 +2155,13 @@ expand_expr_stmt_value (tree exp, int want_value, int maybe_last)
 }
 
 /* Warn if EXP contains any computations whose results are not used.
-   Return 1 if a warning is printed; 0 otherwise.  */
+   Return 1 if a warning is printed; 0 otherwise.  LOCUS is the 
+   (potential) location of the expression.  */
 
 int
-warn_if_unused_value (tree exp)
+warn_if_unused_value (tree exp, location_t locus)
 {
+ restart:
   if (TREE_USED (exp))
     return 0;
 
@@ -2183,6 +2170,9 @@ warn_if_unused_value (tree exp)
      to void.  */
   if (VOID_TYPE_P (TREE_TYPE (exp)))
     return 0;
+
+  if (EXPR_LOCUS (exp))
+    locus = *EXPR_LOCUS (exp);
 
   switch (TREE_CODE (exp))
     {
@@ -2202,25 +2192,29 @@ warn_if_unused_value (tree exp)
 
     case BIND_EXPR:
       /* For a binding, warn if no side effect within it.  */
-      return warn_if_unused_value (TREE_OPERAND (exp, 1));
+      exp = BIND_EXPR_BODY (exp);
+      goto restart;
 
     case SAVE_EXPR:
-      return warn_if_unused_value (TREE_OPERAND (exp, 0));
+      exp = TREE_OPERAND (exp, 0);
+      goto restart;
 
     case TRUTH_ORIF_EXPR:
     case TRUTH_ANDIF_EXPR:
       /* In && or ||, warn if 2nd operand has no side effect.  */
-      return warn_if_unused_value (TREE_OPERAND (exp, 1));
+      exp = TREE_OPERAND (exp, 1);
+      goto restart;
 
     case COMPOUND_EXPR:
       if (TREE_NO_WARNING (exp))
 	return 0;
-      if (warn_if_unused_value (TREE_OPERAND (exp, 0)))
+      if (warn_if_unused_value (TREE_OPERAND (exp, 0), locus))
 	return 1;
       /* Let people do `(foo (), 0)' without a warning.  */
       if (TREE_CONSTANT (TREE_OPERAND (exp, 1)))
 	return 0;
-      return warn_if_unused_value (TREE_OPERAND (exp, 1));
+      exp = TREE_OPERAND (exp, 1);
+      goto restart;
 
     case NOP_EXPR:
     case CONVERT_EXPR:
@@ -2248,7 +2242,10 @@ warn_if_unused_value (tree exp)
       /* Don't warn about automatic dereferencing of references, since
 	 the user cannot control it.  */
       if (TREE_CODE (TREE_TYPE (TREE_OPERAND (exp, 0))) == REFERENCE_TYPE)
-	return warn_if_unused_value (TREE_OPERAND (exp, 0));
+	{
+	  exp = TREE_OPERAND (exp, 0);
+	  goto restart;
+	}
       /* Fall through.  */
 
     default:
@@ -2270,7 +2267,7 @@ warn_if_unused_value (tree exp)
       if (TREE_SIDE_EFFECTS (exp))
 	return 0;
 
-      warning ("%Hvalue computed is not used", &emit_locus);
+      warning ("%Hvalue computed is not used", &locus);
       return 1;
     }
 }
@@ -2333,7 +2330,7 @@ expand_end_stmt_expr (tree t)
       last_expr_alt_rtl = NULL_RTX;
       last_expr_type = void_type_node;
     }
-  else if (GET_CODE (last_expr_value) != REG && ! CONSTANT_P (last_expr_value))
+  else if (!REG_P (last_expr_value) && ! CONSTANT_P (last_expr_value))
     /* Remove any possible QUEUED.  */
     last_expr_value = protect_from_queue (last_expr_value, 0);
 
@@ -2679,7 +2676,7 @@ expand_return (tree retval)
 
   if (retval_rhs != 0
       && TYPE_MODE (TREE_TYPE (retval_rhs)) == BLKmode
-      && GET_CODE (result_rtl) == REG)
+      && REG_P (result_rtl))
     {
       int i;
       unsigned HOST_WIDE_INT bitpos, xbitpos;
@@ -2791,7 +2788,7 @@ expand_return (tree retval)
     }
   else if (retval_rhs != 0
 	   && !VOID_TYPE_P (TREE_TYPE (retval_rhs))
-	   && (GET_CODE (result_rtl) == REG
+	   && (REG_P (result_rtl)
 	       || (GET_CODE (result_rtl) == PARALLEL)))
     {
       /* Calculate the return value into a temporary (usually a pseudo
@@ -3320,7 +3317,7 @@ expand_decl (tree decl)
       if (DECL_RTL_SET_P (decl))
 	{
 	  if (GET_CODE (DECL_RTL (decl)) != MEM
-	      || GET_CODE (XEXP (DECL_RTL (decl), 0)) != REG)
+	      || !REG_P (XEXP (DECL_RTL (decl), 0)))
 	    abort ();
 	  oldaddr = XEXP (DECL_RTL (decl), 0);
 	}
@@ -3656,7 +3653,7 @@ expand_anon_union_decl (tree decl, tree cleanup, tree decl_elts)
 	  else
 	    SET_DECL_RTL (decl_elt, adjust_address_nv (x, mode, 0));
 	}
-      else if (GET_CODE (x) == REG)
+      else if (REG_P (x))
 	{
 	  if (mode == GET_MODE (x))
 	    SET_DECL_RTL (decl_elt, x);

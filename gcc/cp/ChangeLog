@@ -1,3 +1,251 @@
+2004-06-20  Richard Henderson  <rth@redhat.com>
+
+	* cp-tree.h (add_decl_stmt): Declare.
+	* pt.c (tsubst_copy): Abort for CLEANUP_POINT_EXPR.
+	* semantics.c (maybe_cleanup_point_expr): New.
+	(add_decl_stmt, finish_expr_stmt, finish_return_stmt,
+	finish_for_expr, finish_switch_cond): Use it.
+	(finalize_nrv_r): Don't build an EXPR_STMT.  Don't frob TREE_CHAIN.
+
+2004-06-20  Richard Henderson  <rth@redhat.com>
+
+	* cp-tree.def (CLEANUP_STMT, IF_STMT): Move from c-common.def.
+	* cp-gimplify.c (gimplify_if_stmt): Move from c-gimplify.c.
+	(cp_gimplify_expr): Call it.
+	(gimplify_cleanup_stmt): Move from c-gimplify.c.
+	(cp_genericize): New.
+	* decl.c (finish_function): Call it.
+	* cp-tree.h (cp_stmt_codes): Add CLEANUP_STMT, IF_STMT.
+	(CLEANUP_BODY, CLEANUP_EXPR, CLEANUP_DECL): Move from c-common.h.
+	(IF_COND, THEN_CLAUSE, ELSE_CLAUSE): Likewise.
+	(cp_genericize): Declare.
+	* cxx-pretty-print.c (pp_cxx_statement): Add CLEANUP_STMT, IF_STMT.
+	* dump.c (cp_dump_tree): Likewise.
+	* semantics.c (push_cleanup): Move from c-semantics.c.
+
+2004-06-20  Zack Weinberg  <zack@codesourcery.com>
+
+	* cp-lang.c (has_c_linkage): Implement.
+
+	* cp-tree.h (set_mangled_name_for_decl): Don't prototype.
+	* decl.c (duplicate_decls): Use COPY_DECL_RTL.
+	(builtin_function_1): Don't call make_decl_rtl.
+	(build_cp_library_fn): Don't call set_mangled_name_for_decl.
+	(grokvardecl): Don't call mangle_decl.
+	* except.c (nothrow_libfn_p): Look at DECL_NAME, not
+	DECL_ASSEMBLER_NAME.
+	* method.c (set_mangled_name_for_decl): Delete.
+	* name-lookup.c (pushdecl): When a local extern shadows a
+	file-scope declaration of the same object, give both DECLs the
+	same DECL_UID.
+	* typeck.c (cxx_mark_addressable): Don't set TREE_ADDRESSABLE
+	on DECL_ASSEMBLER_NAME.
+
+2004-06-19  Richard Henderson  <rth@redhat.com>
+
+	* cp-gimplify.c: Remove unnecessary prototypes.
+	(cp_gimplify_stmt): Merge into ...
+	(cp_gimplify_expr): ... here.  Move to end of file.  Handle
+	stmts_are_full_exprs_p frobbing.
+	* cp-tree.h (cp_gimplify_stmt): Remove.
+	* pt.c (tsubst_expr): Merge prep_stmt and unify.
+	* tree.c (init_tree): Don't set lang_gimplify_stmt.
+
+2004-06-18  Richard Henderson  <rth@redhat.com>
+
+	PR c++/16034
+	* semantics.c (begin_cond): New.
+	(finish_cond): Rewrite to handle template DECL_STMTs specially.
+	Assume that non-template decls go land before the conditional.
+	(simplify_loop_decl_cond): Likewise.
+	(begin_if_stmt, finish_if_stmt_cond, begin_while_stmt,
+	finish_while_stmt_cond, finish_for_init_stmt, finish_for_cond,
+	begin_switch_stmt, finish_switch_cond): Update to match.
+
+2004-06-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/16015
+	* semantics.c (simplify_aggr_init_expr): Don't return the slot.
+	(finish_stmt_expr_expr): Update type after conversions.
+	(finish_stmt_expr): Wrap initializer in CLEANUP_POINT_EXPR.
+	Handle void initializer.
+	* tree.c (build_cplus_new): Make AGGR_INIT_EXPRs void.
+
+2004-06-17  Geoffrey Keating  <geoffk@apple.com>
+
+	* class.c (build_clone): Don't call defer_fn, let mark_used do it.
+	* cp-tree.h (defer_fn): Delete.
+	* decl2.c (defer_fn): Delete.
+	(finish_file): Simplify deferred_fns loops; check that
+	only used inline functions get into deferred_fns.
+	(mark_used): Inline previous contents of defer_fn.
+
+2004-06-16  Richard Henderson  <rth@redhat.com>
+
+	* cp-tree.h (COMPOUND_STMT_TRY_BLOCK, COMPOUND_STMT_BODY_BLOCK): Kill.
+	(BIND_EXPR_TRY_BLOCK, BIND_EXPR_BODY_BLOCK): New.
+	* cxx-pretty-print.c (pp_cxx_function_definition): Move handling
+	of CTOR_INITIALIZER ...
+	(pp_cxx_statement): ... here.
+	* decl.c (begin_function_body): Don't set COMPOUND_STMT_BODY_BLOCK.
+	(finish_function): Use alloc_stmt_list to zap entire function.
+	* parser.c (cp_parser_compound_statement): Update commentary.
+	* pt.c (tsubst_expr): Use BIND_EXPR instead of COMPOUND_STMT.
+	* semantics.c (begin_compound_stmt, finish_compound_stmt): Likewise.
+	(finish_stmt_expr): Don't look through COMPOUND_STMT.
+
+2004-06-16  Geoffrey Keating  <geoffk@apple.com>
+
+	* pt.c (mark_decl_instantiated): Don't call defer_fn.
+
+2004-06-16  Richard Henderson  <rth@redhat.com>
+
+	* parser.c (cp_parser_labeled_statement): Update commentary.
+	* pt.c (tsubst_expr): Use CASE_LABEL_EXPR.
+	* tree.c (mark_local_for_remap_r): Likewise.
+
+2004-06-16  Richard Henderson  <rth@redhat.com>
+
+	* parser.c (cp_parser_asm_definition): Update commentary.
+	* pt.c (tsubst_expr): Use ASM_EXPR.
+	* semantics.c (finish_asm_stmt): Likewise.
+
+2004-06-16  Richard Henderson  <rth@redhat.com>
+
+	* decl.c (finish_destructor_body): Use LABEL_EXPR.
+	* parser.c (cp_parser_statement): Update commentary.
+	* pt.c (tsubst_expr): Use LABEL_EXPR, GOTO_EXPR.
+	* semantics.c (finish_goto_stmt, finish_label_stmt): Likewise.
+	* tree.c (mark_local_for_remap_r): Likewise.
+
+2004-06-16  Richard Henderson  <rth@redhat.com>
+
+	PR c++/16012
+	* semantics.c (begin_for_stmt, begin_for_stmt): Do put the init
+	statement in FOR_INIT_STMT for templates.
+
+2004-06-15  Richard Henderson  <rth@redhat.com>
+
+	* call.c (initialize_reference): Don't build CLEANUP_STMT here.
+	* cp-gimplify.c (cp_gimplify_stmt): Remove next_p argument.
+	(genericize_try_block): Use gimplify_stmt.
+	(genericize_catch_block, genericize_eh_spec_block): Likewise.
+	(cp_gimplify_init_expr): Remove STMT_EXPR special case.
+	(gimplify_must_not_throw_expr): Update voidify_wrapper_expr call.
+	* cp-lang.c (LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P): Remove.
+	(cp_tree_chain_matters_p): Remove.
+	* cp-tree.h (COMPOUND_STMT_TRY_BLOCK): New.
+	(COMPOUND_STMT_BODY_BLOCK): New.
+	(STATEMENT_LIST_NO_SCOPE, STATEMENT_LIST_TRY_BLOCK): New.
+	(EXPR_STMT_STMT_EXPR_RESULT): New.
+	(building_stmt_tree): Check cur_stmt_list.
+	(tf_stmt_expr_cmpd, tf_stmt_expr_body): Remove.
+	(BCS_NO_SCOPE, BCS_TRY_BLOCK, BCS_FN_BODY): New.
+	* decl.c (poplevel): Use pop_stmt_list for minding cleanups.
+	(cp_finish_decl): Use push_cleanup.
+	(start_function, finish_function): Use statement lists.
+	(finish_stmt): Do nothing.
+	* except.c (begin_eh_spec_block): Use statement lists.
+	(check_handlers_1, check_handlers): Likewise.
+	* init.c (construct_virtual_base): Don't add extra compound stmts.
+	(build_vec_init): Likewise.
+	* name-lookup.c (maybe_push_cleanup_level): Use statement lists.
+	* name-lookup.h (struct cp_binding_level): Add statement_list.
+	* parser.c (cp_parser_statement): Take the STMT_EXPR node, not a bool.
+	(cp_parser_labeled_statement, cp_parser_expression_statement,
+	cp_parser_statement_seq_opt): Likewise.
+	(cp_parser_compound_statement): Likewise.  Take bool for try block.
+	(cp_parser_selection_statement): Tidy if processing.
+	(cp_parser_already_scoped_statement): Rewrite to do what it says.
+	* pt.c (tsubst_copy): Move STMT_EXPR to tsubst_expr.
+	(tsubst_expr): Rewrite STMT_EXPR processing.  Handle STATEMENT_LIST.
+	Mind COMPOUND_STMT_TRY_BLOCK, EXPR_STMT_STMT_EXPR_RESULT.
+	* semantics.c (do_poplevel, do_pushlevel): Use statement lists.
+	(finish_cond): New, rewritten from FINISH_COND.
+	(simplify_loop_decl_cond): New.
+	(finish_expr_stmt): Avoid nested EXPR_STMTs.
+	(begin_if_stmt, finish_if_stmt_cond, finish_then_clause,
+	begin_else_clause, finish_else_clause, finish_if_stmt,
+	begin_while_stmt, finish_while_stmt_cond, finish_while_stmt,
+	begin_do_stmt, finish_do_body, begin_for_stmt, finish_for_init_stmt,
+	finish_for_cond, finish_for_stmt, begin_switch_stmt,
+	finish_switch_cond, finish_switch_stmt, begin_try_block,
+	finish_try_block, finish_cleanup_try_block, finish_function_try_block,
+	finish_handler_sequence, finish_function_handler_sequence,
+	begin_handler, finish_handler_parms, finish_handler,
+	begin_stmt_expr, finish_stmt_expr_expr, finish_stmt_expr): Rewrite
+	using statement lists.
+	(begin_compound_stmt): Replace has_no_scope argument with flags.
+	Update all callers.  Use statement lists.
+	(finish_compound_stmt): Likewise.
+	(finish_decl_cleanup, finish_eh_cleanup): Use push_cleanup.
+	(current_scope_stmt_stack): Remove.
+	(simplify_aggr_init_expr): Don't muck with TREE_CHAIN.
+	* typeck2.c (split_nonconstant_init_1, split_nonconstant_init):
+	Rewrite with statement lists.
+
+2004-06-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* parser.c: Change all assignments of c_lex_string_translate
+	to true and false to 1 and 0.
+	(cp_lexer_read_token): Convert type of the translated string.
+	(cp_parser_skip_to_closing_parentheses): Preserve original
+	value of c_lex_string_translate, and set it to -1 while
+	running.
+	(cp_parser_cache_group): Likewise.
+	(cp_parser_cache_group_1): Renamed.
+	(cp_parser_asm_operand_list): Remove redundant setting of
+	c_lex_string_translate.
+	(cp_parser_primary_expression) [CPP_STRING, CPP_WSTRING]:
+	Handle chained strings.
+
+2004-06-12  Andrew Pinski  <apinski@apple.com>
+
+	PR c++/14639
+	Revert:
+	2004-06-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+		* cp-tree.h: Fix typo.
+
+		* cp-tree.h: Include cgraph.h
+		(DECL_NEEDED_P): Use cgraph_*node on the decl instead of
+		TREE_SYMBOL_REFERENCED on the DECL_ASSEMBLER_NAME of the decl.
+
+2004-06-12  Jason Merrill  <jason@redhat.com>
+
+	PR tree-optimization/14107
+	* decl.c (finish_function): Warn about no return in all functions.
+
+2004-06-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* cp-tree.h (struct language_function): Remove cannot_inline.
+	* decl.c (save_function_data): cannot_inline is no more.
+	(cxx_push_function_context): Likewise.
+	* decl2.c (start_objects, start_static_storage_duration_function):
+	Reset DECL_INLINE, set DECL_UNINLINABLE.
+
+2004-06-14  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/15967
+	* search.c (lookup_field): Propagate the ambiguity list.
+	(lookup_fnfields): Likewise.
+
+2004-06-14  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/15947
+	* parser.c (cp_parser_template_name): Ctors/dtors never need a
+	template keyword to disambiguate.
+
+2004-06-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15096
+	* decl.c (grokdeclarator): Ignore pointer-to-members when
+	computing template depth.
+
+	PR c++/14930
+	* name-lookup.c (pushtag): Do not try to put class declarations in
+	explicit specialization scopes.
+
 2004-06-11  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* decl.c (grokdeclarator): Do not depend on C99's _Bool's behavior.
@@ -83,8 +331,8 @@
 
 	PR c++/15554
 	* pt.c (tsubst_copy): Do not try to substitute for an enumeration
-	constant in a non-dependent context. 
-	
+	constant in a non-dependent context.
+
 	PR c++/15057
 	* except.c (build_throw): Ensure that temp_expr has been
 	initialized.
@@ -111,7 +359,7 @@
 	* decl2.c (maybe_emit_vtables): If TARGET_WEAK_NOT_IN_ARCHIVE_TOC
 	is nonzero, and if we see a noninline definition of a key method,
 	make the vtables nonweak.
-	
+
 2004-06-02  Matt Austern  <austern@apple.com>
 
 	* cp-tree.h (instantiate_decl): new boolean parameter,
@@ -130,7 +378,7 @@
 	change it to an implicit instantiation.
 	(instantiate_pending_templates): Add new argument to instantiate_decl.
 	* tree.c (cp_cannot_inline_tree_fn): Likewise.
-	
+
 2004-06-02  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* cp-tree.h: Fix typo.
@@ -371,7 +619,7 @@
 	* typeck.c (require_complete_type): Return error_mark_node if
 	value's type is an error_mark_node.
 
-2005-05-20  Andrew Pinski  <pinskia@physics.uc.edu>
+2004-05-20  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* optimize.c (calls_setjmp_r): Remove.
 	(calls_setjmp_p): Remove.
@@ -1294,13 +1542,13 @@
 
 	* rtti.c: Update copyright.
 
-2003-02-06  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+2004-02-06  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
 
 	PR c++/14033
 	* decl.c (require_complete_types_for_parms): Do not insert
 	error_mark_node in the parameter list.
 
-2003-02-06  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+2004-02-06  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
 
 	PR c++/14028
 	* parser.c (cp_parser_enclosed_template_argument_list): Emit straight
@@ -1334,7 +1582,7 @@
 	* tree.c (cp_cannot_inline_tree_fn):  Allow inlining of comdat
 	functions.
 
-2003-02-05  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+2004-02-05  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
 
 	PR c++/14008
 	* parser.c (cp_parser_diagnose_invalid_typename): Removed parsing
@@ -1392,7 +1640,7 @@
 	* method.c (use_thunk): Set CALL_FROM_THUNK on the call to the
 	actual function.
 
-2003-02-04  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+2004-02-04  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
 
 	PR c++/13997
 	* pt.c (more_specialized_class): Increase processing_template_decl
@@ -1777,7 +2025,7 @@
 	PR c++/13474
 	* pt.c (tsubst) <INTEGER_TYPE>: Remove obsolete array index tweaking.
 
-2003-01-12  Steven Bosscher  <stevenb@suse.de>
+2004-01-12  Steven Bosscher  <stevenb@suse.de>
 
 	PR c++/13558
 	* parser.c (cp_parser_member_declaration): Any non-type is also

@@ -741,10 +741,12 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case TARGET_EXPR:
-      dump_generic_node (buffer, TYPE_NAME (TREE_TYPE (node)), spc, flags, false);
-      pp_character (buffer, '(');
+      pp_string (buffer, "TARGET_EXPR <");
+      dump_generic_node (buffer, TARGET_EXPR_SLOT (node), spc, flags, false);
+      pp_character (buffer, ',');
+      pp_space (buffer);
       dump_generic_node (buffer, TARGET_EXPR_INITIAL (node), spc, flags, false);
-      pp_character (buffer, ')');
+      pp_character (buffer, '>');
       break;
 
     case COND_EXPR:
@@ -1358,86 +1360,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_character (buffer, '>');
       break;
 
-    case EPHI_NODE:
-      {
-	int i;
-
-	pp_string (buffer, " EPHI (");
-	dump_generic_node (buffer, EREF_NAME (node), spc, flags, false);
-	pp_string (buffer, ") ");
-	pp_character (buffer, '[');
-	pp_string (buffer, " class:");
-	pp_decimal_int (buffer, EREF_CLASS (node));
-	if (EPHI_DOWNSAFE (node))
-	  pp_string (buffer, " downsafe");
-	if (EPHI_CANT_BE_AVAIL (node))
-	  pp_string (buffer, " cant_be_avail");
-	if (EPHI_STOPS (node))
-	  pp_string (buffer, " stops");
-	pp_string (buffer, " bb:");
-	pp_decimal_int (buffer, bb_for_stmt (node)->index);
-	pp_character (buffer, ']');
-	if (! (flags & TDF_SLIM))
-	  {
-	    pp_string (buffer, " <");
-	    for (i = 0; i < EPHI_NUM_ARGS (node); i++)
-	      {	    
-		if (EPHI_ARG_DEF (node, i))
-		  {
-		    newline_and_indent (buffer, spc + 2);
-		    pp_string (buffer, " edge ");
-		    pp_decimal_int (buffer, EPHI_ARG_EDGE (node, i)->src->index);
-		    pp_string (buffer, "->");
-		    pp_decimal_int (buffer, EPHI_ARG_EDGE (node, i)->dest->index);
-		    pp_string (buffer, " [ ");
-		    if (EPHI_ARG_HAS_REAL_USE (node, i))
-		      pp_string (buffer, " real use");
-		    if (EPHI_ARG_INJURED (node, i))
-		      pp_string (buffer, " injured");
-		    if (EPHI_ARG_STOPS (node, i))
-		      pp_string (buffer, " stops");
-		    pp_string (buffer, " ] ");
-		    pp_string (buffer, " defined by:");
-		    dump_generic_node (buffer, EPHI_ARG_DEF (node, i),
-				       spc + 4, flags | TDF_SLIM, false);
-		  }
-	      }
-	  }
-	pp_string (buffer, " >");
-      }
-      break;
-    case EEXIT_NODE:
-    case EKILL_NODE:
-      if (TREE_CODE (node) == EEXIT_NODE)
-	pp_string (buffer, "EEXIT (");
-      else if (TREE_CODE (node) == EKILL_NODE)
-	pp_string (buffer, "EKILL (");
-      dump_generic_node (buffer, EREF_NAME (node), spc, flags, false);
-      pp_string (buffer, ") ");
-      pp_character (buffer, '[');
-      pp_string (buffer, "class:");
-      pp_decimal_int (buffer, EREF_CLASS (node));
-      pp_string (buffer, " bb:");
-      pp_decimal_int (buffer, bb_for_stmt (node)->index);
-      pp_character (buffer, ']');
-      break;
-    case EUSE_NODE:
-      pp_string (buffer, " EUSE (");
-      dump_generic_node (buffer, EREF_NAME (node), spc, flags, false);
-
-      pp_string (buffer, ") ");
-      pp_character (buffer, '[');
-      pp_string (buffer, "class:");
-      pp_decimal_int (buffer, EREF_CLASS (node));
-      pp_string (buffer, " phiop:");
-      pp_decimal_int (buffer, EUSE_PHIOP (node));
-      pp_string (buffer, " bb:");
-      pp_decimal_int (buffer, bb_for_stmt (node)->index);
-      if (EUSE_LVAL (node))
-	pp_string (buffer, " left-occurrence");
-      pp_string (buffer, " ]");
-	
-      break;
     case PHI_NODE:
       {
 	int i;
@@ -2201,7 +2123,7 @@ dump_phi_nodes (pretty_printer *buffer, basic_block bb, int indent, int flags)
   if (!phi)
     return;
 
-  for (; phi; phi = TREE_CHAIN (phi))
+  for (; phi; phi = PHI_CHAIN (phi))
     {
       if (is_gimple_reg (PHI_RESULT (phi)) || (flags & TDF_VOPS))
         {

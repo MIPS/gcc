@@ -209,8 +209,7 @@ struct tree_common GTY(())
        TREE_SYMBOL_REFERENCED in
            IDENTIFIER_NODE
        CLEANUP_EH_ONLY in
-           TARGET_EXPR, WITH_CLEANUP_EXPR, CLEANUP_STMT,
-	   TREE_LIST elements of a block's cleanup list.
+           TARGET_EXPR, WITH_CLEANUP_EXPR
        ASM_INPUT_P in
            ASM_EXPR
        EH_FILTER_MUST_NOT_THROW in EH_FILTER_EXPR
@@ -406,16 +405,6 @@ struct tree_common GTY(())
 			       __FUNCTION__);				\
     __t; })
 
-#define EREF_NODE_CHECK(t) __extension__				\
-({  const tree __t = t;							\
-    if (TREE_CODE (__t) != EPHI_NODE                                    \
-        && TREE_CODE (__t) != EKILL_NODE				\
-        && TREE_CODE (__t) != EUSE_NODE					\
-	&& TREE_CODE (__t) != EEXIT_NODE)				\
-      tree_check_failed (__t, TREE_CODE (t),				\
-			 __FILE__, __LINE__, __FUNCTION__);		\
-    __t; })
-
 #define TREE_VEC_ELT_CHECK(T, I) __extension__				\
 (*({const tree __t = (T);						\
     const int __i = (I);						\
@@ -426,17 +415,6 @@ struct tree_common GTY(())
       tree_vec_elt_check_failed (__i, __t->vec.length,			\
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->vec.a[__i]; }))
-
-#define EPHI_NODE_ELT_CHECK(t, i) __extension__				\
-(*({const tree __t = t;							\
-    const int __i = (i);						\
-    if (TREE_CODE (__t) != EPHI_NODE)					\
-      tree_check_failed (__t, EPHI_NODE,					\
-			 __FILE__, __LINE__, __FUNCTION__);		\
-    if (__i < 0 || __i >= __t->ephi.capacity)				\
-      ephi_node_elt_check_failed (__i, __t->ephi.num_args,		\
-				 __FILE__, __LINE__, __FUNCTION__);	\
-    &__t->ephi.a[__i]; }))
 
 #define PHI_NODE_ELT_CHECK(t, i) __extension__				\
 (*({const tree __t = t;							\
@@ -506,10 +484,6 @@ extern void tree_vec_elt_check_failed (int, int, const char *,
 extern void phi_node_elt_check_failed (int, int, const char *,
 				       int, const char *)
     ATTRIBUTE_NORETURN;
-extern void ephi_node_elt_check_failed (int, int, const char *,
-					int, const char *)
-    ATTRIBUTE_NORETURN;
-
 extern void tree_operand_check_failed (int, enum tree_code,
 				       const char *, int, const char *)
     ATTRIBUTE_NORETURN;
@@ -528,9 +502,7 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define TREE_OPERAND_CHECK(T, I)		((T)->exp.operands[I])
 #define TREE_OPERAND_CHECK_CODE(T, CODE, I)	((T)->exp.operands[I])
 #define TREE_RTL_OPERAND_CHECK(T, CODE, I)  (*(rtx *) &((T)->exp.operands[I]))
-#define EREF_NODE_CHECK(T)		(T)
 #define PHI_NODE_ELT_CHECK(T, i)	((T)->phi.a[i])
-#define EPHI_NODE_ELT_CHECK(T, i)	((T)->ephi.a[i])
 
 #endif
 
@@ -717,9 +689,9 @@ extern void tree_operand_check_failed (int, enum tree_code,
    should be cleaned up some day.  */
 #define TREE_STATIC(NODE) ((NODE)->common.static_flag)
 
-/* In a TARGET_EXPR, WITH_CLEANUP_EXPR, CLEANUP_STMT, or element of a
-   block's cleanup list, means that the pertinent cleanup should only be
-   executed if an exception is thrown, not on normal exit of its scope.  */
+/* In a TARGET_EXPR, WITH_CLEANUP_EXPR, means that the pertinent cleanup
+   should only be executed if an exception is thrown, not on normal exit
+   of its scope.  */
 #define CLEANUP_EH_ONLY(NODE) ((NODE)->common.static_flag)
 
 /* In an expr node (usually a conversion) this means the node was made
@@ -1093,7 +1065,7 @@ struct tree_vec GTY(())
 #define SWITCH_BODY(NODE)       TREE_OPERAND ((NODE), 1)
 #define SWITCH_LABELS(NODE)     TREE_OPERAND ((NODE), 2)
 
-/* CASE_LABEL accessors. These give access to the high and low values
+/* CASE_LABEL_EXPR accessors. These give access to the high and low values
    of a case label, respectively.  */
 #define CASE_LOW(NODE)          TREE_OPERAND ((NODE), 0)
 #define CASE_HIGH(NODE)         TREE_OPERAND ((NODE), 1)
@@ -1108,7 +1080,7 @@ struct tree_vec GTY(())
    a goto statement.  */
 #define GOTO_DESTINATION(NODE)  TREE_OPERAND ((NODE), 0)
 
-/* ASM_STMT accessors. ASM_STRING returns a STRING_CST for the
+/* ASM_EXPR accessors. ASM_STRING returns a STRING_CST for the
    instruction (e.g., "mov x, y"). ASM_OUTPUTS, ASM_INPUTS, and
    ASM_CLOBBERS represent the outputs, inputs, and clobbers for the
    statement.  */
@@ -1233,17 +1205,22 @@ struct tree_ssa_name GTY(())
 };
 
 /* In a PHI_NODE node.  */
-#define PHI_RESULT(NODE)	PHI_NODE_CHECK (NODE)->phi.result
+#define PHI_RESULT_TREE(NODE)		PHI_NODE_CHECK (NODE)->phi.result
+#define PHI_ARG_DEF_TREE(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).def
+
+/* PHI_NODEs for each basic block are chained together in a single linked
+   list.  The head of the list is linked from the block annotation, and
+   the link to the next PHI is in PHI_CHAIN.  */
+#define PHI_CHAIN(NODE)		TREE_CHAIN (PHI_NODE_CHECK (NODE))
 
 /* Nonzero if the PHI node was rewritten by a previous pass through the
    SSA renamer.  */
-#define PHI_REWRITTEN(NODE)	PHI_NODE_CHECK (NODE)->phi.rewritten
-#define PHI_NUM_ARGS(NODE)	PHI_NODE_CHECK (NODE)->phi.num_args
-#define PHI_ARG_CAPACITY(NODE)	PHI_NODE_CHECK (NODE)->phi.capacity
-#define PHI_ARG_ELT(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I)
-#define PHI_ARG_EDGE(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).e
-#define PHI_ARG_DEF(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).def
-#define PHI_ARG_NONZERO(NODE, I) PHI_NODE_ELT_CHECK (NODE, I).nonzero
+#define PHI_REWRITTEN(NODE)		PHI_NODE_CHECK (NODE)->phi.rewritten
+#define PHI_NUM_ARGS(NODE)		PHI_NODE_CHECK (NODE)->phi.num_args
+#define PHI_ARG_CAPACITY(NODE)		PHI_NODE_CHECK (NODE)->phi.capacity
+#define PHI_ARG_ELT(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I)
+#define PHI_ARG_EDGE(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I).e
+#define PHI_ARG_NONZERO(NODE, I) 	PHI_NODE_ELT_CHECK (NODE, I).nonzero
 
 struct edge_def;
 
@@ -1270,158 +1247,6 @@ struct tree_phi_node GTY(())
 
 
 struct varray_head_tag;
-
-struct tree_eref_common GTY(())
-{
-  struct tree_common common;
-  
-  /* SSAPRE: ID for the EREF. Used only for sorting erefs inside a
-     block.  */
-  int id;
-
-  /* SSAPRE: Name for the EREF.  Used only for printing.*/
-  tree name;
-  
-  /* SSAPRE: The statement associated with this expression reference.  */
-  tree stmt;
-  
-  /* SSAPRE: True if expression needs to be saved to a temporary.  */
-  unsigned int save:1;
-  
-  /* SSAPRE: True if expression needs to be reloaded from a temporary.  */
-  unsigned int reload:1;
-
-  /* SSAPRE: Redundancy class of expression.  */
-  unsigned int class;
-  
-  /* SSAPRE: Processed flag 1.  */
-  unsigned int processed:1;
-
-  /* SSAPRE: True if expression is injured.  */
-  unsigned int injured:1;
-
-  /* SSAPRE: Temporary assigned to this reference.  */
-  tree temp;
-
-};
-
-struct tree_euse_node GTY(())
-{
-  struct tree_eref_common common;
-  
-  /* SSAPRE: Definition for this use.  */
-  tree def;
-  
-  /* SSAPRE: True if this is an EPHI operand occurrence.  */
-  unsigned int op_occurrence:1;
-  
-  /* SSAPRE: True if expression was inserted as a PHI operand occurrence.  */
-  unsigned int inserted:1;
-
-  /* SSAPRE: True if expression occurs as a lvalue.  */
-  unsigned int lval:1;
-};
-struct ephi_arg_d GTY(())
-{
-
-  /* SSAPRE: True if this phi argument is injured.  */
-  unsigned int injured:1;
-
-  /* SSAPRE: True if there is a real occurrence for this phi argument.  */
-  unsigned int has_real_use:1;
-
-  /* SSAPRE: True if delayed renaming is required on this phi argument.  */
-  unsigned int delayed_rename:1;
-  
-  /* SSAPRE: Processed 2 flag for this phi argument.  */
-  unsigned int processed2:1;
-
-  /* SSAPRE: True if this operand stops forward movement.  */
-  unsigned int stops:1;
- 
-  /* SSAPRE: Definition of this phi operand.  */
-  tree def;
-  
-  /* SSAPRE: Phi predecessor for this phi operand.  */
-  tree pred;
-
-  struct edge_def * GTY((skip (""))) e;
-};
-struct tree_ephi_node GTY(())
-{
-  struct tree_eref_common common;
-
-  /* SSAPRE: True if PHI is downsafe.  */
-  unsigned int downsafe:1;
-  
-  /* SSAPRE: True if PHI is cant_be_avail.  */
-  unsigned int cant_be_avail:1;
-
-  /* SSAPRE: True if PHI is dead.  */
-  unsigned int dead:1;
-  
-  /* SSAPRE: True if PHI is pointless or identical to some value.  */
-  unsigned int identity:1;
-
-  /* SSAPRE: True if replacing occurrence known for ESSA minimization.  */
-  unsigned int rep_occur_known:1;
-  
-  /* SSAPRE: True if PHI is pointless, but is also injured.  */
-  unsigned int ident_injured:1;
-  
-  /* SSAPRE: True if this PHI stops forward movement.  */
-  unsigned int stops:1;
-
-  /* SSAPRE: If PHI's replacing occurrence is known, this is it.  */
-  tree identical_to;
-
-  /* SSAPRE: Uses of this ephi.  */
-  struct varray_head_tag *uses;
-
-  int num_args;
-  int capacity;
-  struct ephi_arg_d GTY ((length ("((tree)&%h)->ephi.capacity"))) a[1];
-
-};
-/* In both EPHI's and EUSES */
-#define EREF_PROCESSED(NODE)    EREF_NODE_CHECK (NODE)->eref.processed
-#define EREF_ID(NODE)           EREF_NODE_CHECK (NODE)->eref.id
-#define EREF_NAME(NODE)         EREF_NODE_CHECK (NODE)->eref.name
-#define EREF_STMT(NODE)         EREF_NODE_CHECK (NODE)->eref.stmt
-#define EREF_RELOAD(NODE)       EREF_NODE_CHECK (NODE)->eref.reload
-#define EREF_SAVE(NODE)         EREF_NODE_CHECK (NODE)->eref.save
-#define EREF_CLASS(NODE)        EREF_NODE_CHECK (NODE)->eref.class
-#define EREF_INJURED(NODE)      EREF_NODE_CHECK (NODE)->eref.injured
-#define EREF_TEMP(NODE)         EREF_NODE_CHECK (NODE)->eref.temp
-
-/* In a EUSE_NODE node.  */
-#define EUSE_DEF(NODE)          EUSE_NODE_CHECK (NODE)->euse.def
-#define EUSE_PHIOP(NODE)        EUSE_NODE_CHECK (NODE)->euse.op_occurrence
-#define EUSE_INSERTED(NODE)     EUSE_NODE_CHECK (NODE)->euse.inserted
-#define EUSE_LVAL(NODE)         EUSE_NODE_CHECK (NODE)->euse.lval
-
-/* In a EPHI_NODE node.  */
-#define EPHI_NUM_ARGS(NODE)	EPHI_NODE_CHECK (NODE)->ephi.num_args
-#define EPHI_ARG_CAPACITY(NODE)	EPHI_NODE_CHECK (NODE)->ephi.capacity
-#define EPHI_ARG_ELT(NODE, I)	EPHI_NODE_ELT_CHECK (NODE, I)
-#define EPHI_ARG_EDGE(NODE, I)	EPHI_NODE_ELT_CHECK (NODE, I).e
-#define EPHI_ARG_PRED(NODE, I)  EPHI_NODE_ELT_CHECK (NODE, I).pred
-#define EPHI_ARG_DEF(NODE, I)	EPHI_NODE_ELT_CHECK (NODE, I).def
-#define EPHI_ARG_INJURED(NODE, I) EPHI_NODE_ELT_CHECK (NODE, I).injured
-#define EPHI_ARG_DELAYED_RENAME(NODE, I) EPHI_NODE_ELT_CHECK (NODE, I).delayed_rename
-#define EPHI_ARG_HAS_REAL_USE(NODE, I) EPHI_NODE_ELT_CHECK (NODE, I).has_real_use
-#define EPHI_ARG_STOPS(NODE, I) EPHI_NODE_ELT_CHECK (NODE, I).stops
-#define EPHI_ARG_PROCESSED2(NODE, I) EPHI_NODE_ELT_CHECK (NODE, I).processed2
-#define EPHI_IDENTITY(NODE)     EPHI_NODE_CHECK (NODE)->ephi.identity
-#define EPHI_IDENT_INJURED(NODE) EPHI_NODE_CHECK (NODE)->ephi.ident_injured
-
-#define EPHI_REP_OCCUR_KNOWN(NODE) EPHI_NODE_CHECK (NODE)->ephi.rep_occur_known
-#define EPHI_IDENTICAL_TO(NODE) EPHI_NODE_CHECK (NODE)->ephi.identical_to
-#define EPHI_DOWNSAFE(NODE)     EPHI_NODE_CHECK (NODE)->ephi.downsafe
-#define EPHI_CANT_BE_AVAIL(NODE) EPHI_NODE_CHECK (NODE)->ephi.cant_be_avail
-#define EPHI_DEAD(NODE)         EPHI_NODE_CHECK (NODE)->ephi.dead
-#define EPHI_USES(NODE)         EPHI_NODE_CHECK (NODE)->ephi.uses
-#define EPHI_STOPS(NODE)         EPHI_NODE_CHECK (NODE)->ephi.stops
 
 /* In a BLOCK node.  */
 #define BLOCK_VARS(NODE) (BLOCK_CHECK (NODE)->block.vars)
@@ -2108,8 +1933,7 @@ struct tree_type GTY(())
 #define DECL_THREAD_LOCAL(NODE) (VAR_DECL_CHECK (NODE)->decl.thread_local_flag)
 
 /* In a FUNCTION_DECL, the saved representation of the body of the
-   entire function.  Usually a COMPOUND_STMT, but in C++ this may also
-   be a RETURN_INIT, CTOR_INITIALIZER, or TRY_BLOCK.  */
+   entire function.  */
 #define DECL_SAVED_TREE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.saved_tree)
 
 /* List of FUNCTION_DECLs inlined into this function's body.  */
@@ -2421,9 +2245,6 @@ enum tree_node_structure_enum {
   TS_EXP,
   TS_SSA_NAME,
   TS_PHI_NODE,
-  TS_EPHI_NODE,
-  TS_EUSE_NODE,
-  TS_EREF_NODE,
   TS_BLOCK,
   TS_STATEMENT_LIST,
   LAST_TS_ENUM
@@ -2450,9 +2271,6 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_exp GTY ((tag ("TS_EXP"))) exp;
   struct tree_ssa_name GTY ((tag ("TS_SSA_NAME"))) ssa_name;
   struct tree_phi_node GTY ((tag ("TS_PHI_NODE"))) phi;
-  struct tree_eref_common GTY ((tag ("TS_EREF_NODE"))) eref;
-  struct tree_ephi_node GTY ((tag ("TS_EPHI_NODE"))) ephi;
-  struct tree_euse_node GTY ((tag ("TS_EUSE_NODE"))) euse;
   struct tree_block GTY ((tag ("TS_BLOCK"))) block;
   struct tree_statement_list GTY ((tag ("TS_STATEMENT_LIST"))) stmt_list;
 };
@@ -2718,6 +2536,7 @@ extern void phinodes_print_statistics (void);
 extern void init_ssanames (void);
 extern void fini_ssanames (void);
 extern tree make_ssa_name (tree, tree);
+extern tree duplicate_ssa_name (tree, tree);
 extern void release_ssa_name (tree);
 #ifdef GATHER_STATISTICS
 extern void ssanames_print_statistics (void);
@@ -3410,7 +3229,6 @@ extern tree get_callee_fndecl (tree);
 extern void change_decl_assembler_name (tree, tree);
 extern int type_num_arguments (tree);
 extern tree lhd_unsave_expr_now (tree);
-extern bool is_essa_node (tree);
 extern bool associative_tree_code (enum tree_code);
 extern bool commutative_tree_code (enum tree_code);
 
@@ -3422,7 +3240,7 @@ extern tree expand_start_stmt_expr (int);
 extern tree expand_end_stmt_expr (tree);
 extern void expand_expr_stmt (tree);
 extern void expand_expr_stmt_value (tree, int, int);
-extern int warn_if_unused_value (tree);
+extern int warn_if_unused_value (tree, location_t);
 extern void expand_decl_init (tree);
 extern void clear_last_expr (void);
 extern void expand_label (tree);
@@ -3518,6 +3336,9 @@ extern tree build_fold_addr_expr (tree);
 extern tree build_fold_addr_expr_with_type (tree, tree);
 extern tree build_fold_indirect_ref (tree);
 
+extern bool tree_swap_operands_p (tree, tree, bool);
+extern enum tree_code swap_tree_comparison (enum tree_code);
+
 /* In builtins.c */
 extern tree fold_builtin (tree);
 extern enum built_in_function builtin_mathfn_code (tree);
@@ -3526,6 +3347,7 @@ extern tree mathfn_built_in (tree, enum built_in_function fn);
 extern tree strip_float_extensions (tree);
 extern tree simplify_builtin (tree, int);
 extern tree c_strlen (tree, int);
+extern tree std_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 
 /* In convert.c */
 extern tree strip_float_extensions (tree);
@@ -3592,8 +3414,6 @@ extern void preserve_temp_slots (rtx);
 extern void preserve_rtl_expr_temps (tree);
 extern int aggregate_value_p (tree, tree);
 extern void free_temps_for_rtl_expr (tree);
-extern void instantiate_virtual_regs (tree, rtx);
-extern void unshare_all_rtl (tree, rtx);
 extern void push_function_context (void);
 extern void pop_function_context (void);
 extern void push_function_context_to (tree);

@@ -26,6 +26,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 #include "c-pretty-print.h"
 #include "c-tree.h"
+#include "tree-iterator.h"
 #include "diagnostic.h"
 
 /* The pretty-printer code is primarily designed to closely follow
@@ -1888,114 +1889,22 @@ pp_c_statement (c_pretty_printer *pp, tree stmt)
 
   if (stmt == NULL)
     return;
+
+  if (pp_needs_newline (pp))
+    pp_newline_and_indent (pp, 0);
   
   code = TREE_CODE (stmt);
   switch (code)
     {
-       /* labeled-statement:
-             identifier : statement
-             case constant-expression : statement
-             default : statement   */
-    case LABEL_STMT:
-    case CASE_LABEL:
-      if (pp_needs_newline (pp))
-        pp_newline_and_indent (pp, -3);
-      else
-        pp_indentation (pp) -= 3;
-      if (code == LABEL_STMT)
-	pp_c_tree_decl_identifier (pp, LABEL_STMT_LABEL (stmt));
-      else if (code == CASE_LABEL)
-	{
-	  if (CASE_LOW (stmt) == NULL_TREE)
-	    pp_identifier (pp, "default");
-	  else
-	    {
-	      pp_c_identifier (pp, "case");
-	      pp_c_whitespace (pp);
-	      pp_conditional_expression (pp, CASE_LOW (stmt));
-	      if (CASE_HIGH (stmt))
-		{
-		  pp_identifier (pp, "...");
-		  pp_conditional_expression (pp, CASE_HIGH (stmt));
-		}
-	    }
-	}
-      pp_colon (pp);
-      pp_indentation (pp) += 3;
-      pp_needs_newline (pp) = true;
-      break;
-
-      /* compound-statement:
-            {  block-item-list(opt) }
-
-         block-item-list:
-            block-item
-            block-item-list block-item
-
-         block-item:
-            declaration
-            statement   */
-    case COMPOUND_STMT:
-      if (pp_needs_newline (pp))
-        pp_newline_and_indent (pp, 0);
-      pp_c_left_brace (pp);
-      pp_newline_and_indent (pp, 3);
-      for (stmt = COMPOUND_BODY (stmt); stmt; stmt = TREE_CHAIN (stmt))
-	pp_statement (pp, stmt);
-      pp_newline_and_indent (pp, -3);
-      pp_c_right_brace (pp);
-      pp_needs_newline (pp) = true;
-      break;
-
       /* expression-statement:
             expression(opt) ;  */
     case EXPR_STMT:
-    case CLEANUP_STMT:
-      if (pp_needs_newline (pp))
-        pp_newline_and_indent (pp, 0);
-      {
-        tree e = code == EXPR_STMT
-          ? EXPR_STMT_EXPR (stmt)
-          : CLEANUP_EXPR (stmt);
-        if (e)
-          pp_expression (pp, e);
-      }
+      pp_expression (pp, EXPR_STMT_EXPR (stmt));
       pp_c_semicolon (pp);
       pp_needs_newline (pp) = true;
       break;
 
-      /* selection-statement:
-            if ( expression ) statement
-            if ( expression ) statement else statement
-            switch ( expression ) statement   */
-    case IF_STMT:
-      if (pp_needs_newline (pp))
-        pp_newline_and_indent (pp, 0);
-      pp_c_identifier (pp, "if");
-      pp_c_whitespace (pp);
-      pp_c_left_paren (pp);
-      pp_expression (pp, IF_COND (stmt));
-      pp_c_right_paren (pp);
-      pp_newline_and_indent (pp, 3);
-      pp_statement (pp, THEN_CLAUSE (stmt));
-      pp_newline_and_indent (pp, -3);
-      if (ELSE_CLAUSE (stmt))
-	{
-	  tree else_clause = ELSE_CLAUSE (stmt);
-	  pp_c_identifier (pp, "else");
-	  if (TREE_CODE (else_clause) == IF_STMT)
-	    pp_c_whitespace (pp);
-	  else
-	    pp_newline_and_indent (pp, 3);
-	  pp_statement (pp, else_clause);
-	  if (TREE_CODE (else_clause) != IF_STMT)
-	    pp_newline_and_indent (pp, -3);
-	}
-      break;
-
     case SWITCH_STMT:
-      if (pp_needs_newline (pp))
-        pp_newline_and_indent (pp, 0);
       pp_c_identifier (pp, "switch");
       pp_space (pp);
       pp_c_left_paren (pp);
@@ -2013,8 +1922,6 @@ pp_c_statement (c_pretty_printer *pp, tree stmt)
             for ( expression(opt) ; expression(opt) ; expression(opt) ) statement
             for ( declaration expression(opt) ; expression(opt) ) statement  */
     case WHILE_STMT:
-      if (pp_needs_newline (pp))
-        pp_newline_and_indent (pp, 0);
       pp_c_identifier (pp, "while");
       pp_space (pp);
       pp_c_left_paren (pp);
@@ -2027,8 +1934,6 @@ pp_c_statement (c_pretty_printer *pp, tree stmt)
       break;
 
     case DO_STMT:
-      if (pp_needs_newline (pp))
-        pp_newline_and_indent (pp, 0);
       pp_c_identifier (pp, "do");
       pp_newline_and_indent (pp, 3);
       pp_statement (pp, DO_BODY (stmt));
@@ -2043,8 +1948,6 @@ pp_c_statement (c_pretty_printer *pp, tree stmt)
       break;
 
     case FOR_STMT:
-      if (pp_needs_newline (pp))
-        pp_newline_and_indent (pp, 0);
       pp_c_identifier (pp, "for");
       pp_space (pp);
       pp_c_left_paren (pp);
@@ -2074,22 +1977,15 @@ pp_c_statement (c_pretty_printer *pp, tree stmt)
             return expression(opt) ;  */
     case BREAK_STMT:
     case CONTINUE_STMT:
-      if (pp_needs_newline (pp))
-        pp_newline_and_indent (pp, 0);
       pp_identifier (pp, code == BREAK_STMT ? "break" : "continue");
       pp_c_semicolon (pp);
       pp_needs_newline (pp) = true;
       break;
 
     case RETURN_STMT:
-    case GOTO_STMT:
       {
-	tree e = code == RETURN_STMT
-	  ? RETURN_STMT_EXPR (stmt)
-	  : GOTO_DESTINATION (stmt);
-        if (pp_needs_newline (pp))
-          pp_newline_and_indent (pp, 0);
-	pp_c_identifier (pp, code == RETURN_STMT ? "return" : "goto");
+	tree e = RETURN_STMT_EXPR (stmt);
+	pp_c_identifier (pp, "return");
         pp_c_whitespace (pp);
 	if (e)
           {
@@ -2103,67 +1999,14 @@ pp_c_statement (c_pretty_printer *pp, tree stmt)
       }
       break;
 
-    case SCOPE_STMT:
-      if (!SCOPE_NULLIFIED_P (stmt) && SCOPE_NO_CLEANUPS_P (stmt))
-        {
-          int i = 0;
-          if (pp_needs_newline (pp))
-            pp_newline_and_indent (pp, 0);
-          if (SCOPE_BEGIN_P (stmt))
-            {
-              pp_left_brace (pp);
-              i = 3;
-            }
-          else if (SCOPE_END_P (stmt))
-            {
-              pp_right_brace (pp);
-              i = -3;
-            }
-          pp_indentation (pp) += i;
-          pp_needs_newline (pp) = true;
-        }
-      break;
-
     case DECL_STMT:
-      if (pp_needs_newline (pp))
-        pp_newline_and_indent (pp, 0);
       pp_declaration (pp, DECL_STMT_DECL (stmt));
       pp_needs_newline (pp) = true;
       break;
 
-    case ASM_STMT:
-      {
-	bool has_volatile_p = ASM_VOLATILE_P (stmt);
-	bool is_extended = has_volatile_p || ASM_INPUTS (stmt)
-	  || ASM_OUTPUTS (stmt) || ASM_CLOBBERS (stmt);
-	pp_c_identifier (pp, is_extended ? "__asm__" : "asm");
-	if (has_volatile_p)
-	  pp_c_identifier (pp, "__volatile__");
-	pp_space (pp);
-	pp_c_left_paren (pp);
-	pp_c_string_literal (pp, ASM_STRING (stmt));
-	if (is_extended)
-	  {
-	    pp_space (pp);
-	    pp_separate_with (pp, ':');
-	    if (ASM_OUTPUTS (stmt))
-	      pp_expression (pp, ASM_OUTPUTS (stmt));
-	    pp_space (pp);
-	    pp_separate_with (pp, ':');
-	    if (ASM_INPUTS (stmt))
-	      pp_expression (pp, ASM_INPUTS (stmt));
-	    pp_space (pp);
-	    pp_separate_with (pp, ':');
-	    if (ASM_CLOBBERS (stmt))
-	      pp_expression (pp, ASM_CLOBBERS (stmt));
-	  }
-	pp_c_right_paren (pp);
-	pp_newline (pp);
-      }
-      break;
-
     default:
-      pp_unsupported_tree (pp, stmt);
+      dump_generic_node (pp_base (pp), stmt, pp_indentation (pp), 0, true);
+      break;
     }
 }
 

@@ -1304,17 +1304,7 @@ pp_cxx_function_definition (cxx_pretty_printer *pp, tree t)
   pp_needs_newline (pp) = true;
   pp->enclosing_scope = DECL_CONTEXT (t);
   if (DECL_SAVED_TREE (t))
-    {
-      tree body = DECL_SAVED_TREE (t);
-      if (TREE_CODE (body) == COMPOUND_STMT
-          && TREE_CODE (COMPOUND_BODY (body)) == CTOR_INITIALIZER)
-        {
-          body = COMPOUND_BODY (body);
-          pp_cxx_ctor_initializer (pp, body);
-          body = TREE_CHAIN (body);
-        }
-      pp_cxx_statement (pp, body);
-    }
+    pp_cxx_statement (pp, DECL_SAVED_TREE (t));
   else
     {
       pp_cxx_semicolon (pp);
@@ -1471,6 +1461,10 @@ pp_cxx_statement (cxx_pretty_printer *pp, tree t)
 {
   switch (TREE_CODE (t))
     {
+    case CTOR_INITIALIZER:
+      pp_cxx_ctor_initializer (pp, t);
+      break;
+
     case USING_STMT:
       pp_cxx_identifier (pp, "using");
       pp_cxx_identifier (pp, "namespace");
@@ -1521,6 +1515,43 @@ pp_cxx_statement (cxx_pretty_printer *pp, tree t)
       pp_cxx_statement (pp, HANDLER_BODY (t));
       pp_indentation (pp) -= 3;
       pp_needs_newline (pp) = true;
+      break;
+
+      /* selection-statement:
+            if ( expression ) statement
+            if ( expression ) statement else statement  */
+    case IF_STMT:
+      pp_cxx_identifier (pp, "if");
+      pp_cxx_whitespace (pp);
+      pp_cxx_left_paren (pp);
+      pp_cxx_expression (pp, IF_COND (t));
+      pp_cxx_right_paren (pp);
+      pp_newline_and_indent (pp, 2);
+      pp_cxx_statement (pp, THEN_CLAUSE (t));
+      pp_newline_and_indent (pp, -2);
+      if (ELSE_CLAUSE (t))
+	{
+	  tree else_clause = ELSE_CLAUSE (t);
+	  pp_cxx_identifier (pp, "else");
+	  if (TREE_CODE (else_clause) == IF_STMT)
+	    pp_cxx_whitespace (pp);
+	  else
+	    pp_newline_and_indent (pp, 2);
+	  pp_cxx_statement (pp, else_clause);
+	  if (TREE_CODE (else_clause) != IF_STMT)
+	    pp_newline_and_indent (pp, -2);
+	}
+      break;
+
+    case CLEANUP_STMT:
+      pp_cxx_identifier (pp, "try");
+      pp_newline_and_indent (pp, 2);
+      pp_cxx_statement (pp, CLEANUP_BODY (t));
+      pp_newline_and_indent (pp, -2);
+      pp_cxx_identifier (pp, CLEANUP_EH_ONLY (t) ? "catch" : "finally");
+      pp_newline_and_indent (pp, 2);
+      pp_cxx_statement (pp, CLEANUP_EXPR (t));
+      pp_newline_and_indent (pp, -2);
       break;
 
     default:

@@ -429,12 +429,15 @@ poplevel (int keep, int reverse, int functionbody)
   int tmp = functionbody;
   int real_functionbody;
   tree subblocks;
-  tree block = NULL_TREE;
+  tree block;
   tree decl;
   int leaving_for_scope;
   scope_kind kind;
 
   timevar_push (TV_NAME_LOOKUP);
+ restart:
+
+  block = NULL_TREE;
 
   my_friendly_assert (current_binding_level->kind != sk_class, 19990916);
 
@@ -657,6 +660,17 @@ poplevel (int keep, int reverse, int functionbody)
     }
 
   kind = current_binding_level->kind;
+  if (kind == sk_cleanup)
+    {
+      tree stmt;
+
+      /* If this is a temporary binding created for a cleanup, then we'll
+	 have pushed a statement list level.  Pop that, create a new
+	 BIND_EXPR for the block, and insert it into the stream.  */
+      stmt = pop_stmt_list (current_binding_level->statement_list);
+      stmt = c_build_bind_expr (block, stmt);
+      add_stmt (stmt);
+    }
 
   leave_scope ();
   if (functionbody)
@@ -680,21 +694,9 @@ poplevel (int keep, int reverse, int functionbody)
   if (block)
     TREE_USED (block) = 1;
 
-  /* Take care of compiler's internal binding structures.  */
+  /* All temporary bindings created for cleanups are popped silently.  */
   if (kind == sk_cleanup)
-    {
-      tree scope_stmts;
-
-      scope_stmts
-	= add_scope_stmt (/*begin_p=*/0, /*partial_p=*/1);
-      if (block)
-	{
-	  SCOPE_STMT_BLOCK (TREE_PURPOSE (scope_stmts)) = block;
-	  SCOPE_STMT_BLOCK (TREE_VALUE (scope_stmts)) = block;
-	}
-
-      block = poplevel (keep, reverse, functionbody);
-    }
+    goto restart;
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, block);
 }
@@ -1257,7 +1259,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	    return NULL_TREE;
 
 	  /* Replace the old RTL to avoid problems with inlining.  */
-	  SET_DECL_RTL (olddecl, DECL_RTL (newdecl));
+	  COPY_DECL_RTL (newdecl, olddecl);
 	}
       /* Even if the types match, prefer the new declarations type
 	 for anticipated built-ins, for exception lists, etc...  */
@@ -1286,7 +1288,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	     that all remnants of the builtin-ness of this function
 	     will be banished.  */
 	  SET_DECL_LANGUAGE (olddecl, DECL_LANGUAGE (newdecl));
-	  SET_DECL_RTL (olddecl, DECL_RTL (newdecl));
+	  COPY_DECL_RTL (newdecl, olddecl);
 	}
     }
   else if (TREE_CODE (olddecl) != TREE_CODE (newdecl))
@@ -1825,7 +1827,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	{
 	  SET_DECL_LANGUAGE (olddecl, DECL_LANGUAGE (newdecl));
 	  COPY_DECL_ASSEMBLER_NAME (newdecl, olddecl);
-	  SET_DECL_RTL (olddecl, DECL_RTL (newdecl));
+	  COPY_DECL_RTL (newdecl, olddecl);
 	}
       if (! types_match || new_defines_function)
 	{
@@ -1849,7 +1851,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	      DECL_FUNCTION_CODE (newdecl) = DECL_FUNCTION_CODE (olddecl);
 	      /* If we're keeping the built-in definition, keep the rtl,
 		 regardless of declaration matches.  */
-	      SET_DECL_RTL (newdecl, DECL_RTL (olddecl));
+	      COPY_DECL_RTL (olddecl, newdecl);
 	    }
 
 	  DECL_RESULT (newdecl) = DECL_RESULT (olddecl);
@@ -3181,7 +3183,6 @@ builtin_function_1 (const char* name,
      function in the namespace.  */
   if (libname)
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (libname));
-  make_decl_rtl (decl, NULL);
 
   /* Warn if a function in the namespace for users
      is used without an occasion to consider it declared.  */
@@ -3269,7 +3270,6 @@ build_cp_library_fn (tree name, enum tree_code operator_code, tree type)
   TREE_NOTHROW (fn) = TYPE_NOTHROW_P (type);
   DECL_CONTEXT (fn) = FROB_CONTEXT (current_namespace);
   SET_DECL_LANGUAGE (fn, lang_cplusplus);
-  set_mangled_name_for_decl (fn);
   return fn;
 }
 
@@ -4938,7 +4938,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
   /* If a CLEANUP_STMT was created to destroy a temporary bound to a
      reference, insert it in the statement-tree now.  */
   if (cleanup)
-    add_stmt (cleanup);
+    push_cleanup (decl, cleanup, false);
 
  finish_end:
 
@@ -5174,7 +5174,7 @@ register_dtor_fn (tree decl)
   pop_deferring_access_checks ();
 
   /* Create the body of the anonymous function.  */
-  compound_stmt = begin_compound_stmt (/*has_no_scope=*/false);
+  compound_stmt = begin_compound_stmt (BCS_FN_BODY);
   finish_expr_stmt (fcall);
   finish_compound_stmt (compound_stmt);
   end_cleanup_fn ();
@@ -5252,7 +5252,7 @@ expand_static_init (tree decl, tree init)
       /* Begin the conditional initialization.  */
       if_stmt = begin_if_stmt ();
       finish_if_stmt_cond (get_guard_cond (guard), if_stmt);
-      then_clause = begin_compound_stmt (/*has_no_scope=*/false);
+      then_clause = begin_compound_stmt (0);
 
       /* Do the initialization itself.  */
       assignment = init ? init : NULL_TREE;
@@ -5278,7 +5278,7 @@ expand_static_init (tree decl, tree init)
 
       finish_compound_stmt (then_clause);
       finish_then_clause (if_stmt);
-      finish_if_stmt ();
+      finish_if_stmt (if_stmt);
     }
   else
     static_aggregates = tree_cons (init, decl, static_aggregates);
@@ -5826,12 +5826,6 @@ grokvardecl (tree type,
     set_decl_namespace (decl, scope, 0);
   else
     DECL_CONTEXT (decl) = scope;
-
-  if (name && scope && current_lang_name != lang_name_c)
-    /* We can't mangle lazily here because we don't have any
-       way to recover whether or not a variable was `extern
-       "C"' later.  */
-    mangle_decl (decl);
 
   if (RIDBIT_SETP (RID_EXTERN, specbits))
     {
@@ -7599,27 +7593,28 @@ grokdeclarator (tree declarator,
 	    ctype = TREE_OPERAND (declarator, 0);
 
 	    t = ctype;
-	    while (t != NULL_TREE && CLASS_TYPE_P (t))
-	      {
-		/* You're supposed to have one `template <...>'
-		   for every template class, but you don't need one
-		   for a full specialization.  For example:
-
+	    if (TREE_CODE (TREE_OPERAND (declarator, 1)) != INDIRECT_REF)
+	      while (t != NULL_TREE && CLASS_TYPE_P (t))
+		{
+		  /* You're supposed to have one `template <...>'
+		     for every template class, but you don't need one
+		     for a full specialization.  For example:
+		     
 		     template <class T> struct S{};
 		     template <> struct S<int> { void f(); };
 		     void S<int>::f () {}
-
-		   is correct; there shouldn't be a `template <>' for
-		   the definition of `S<int>::f'.  */
-		if (CLASSTYPE_TEMPLATE_INFO (t)
-		    && (CLASSTYPE_TEMPLATE_INSTANTIATION (t)
-			|| uses_template_parms (CLASSTYPE_TI_ARGS (t)))
-	            && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (t)))
-		  template_count += 1;
-
-		t = TYPE_MAIN_DECL (t);
-		t = DECL_CONTEXT (t);
-	      }
+		     
+		     is correct; there shouldn't be a `template <>' for
+		     the definition of `S<int>::f'.  */
+		  if (CLASSTYPE_TEMPLATE_INFO (t)
+		      && (CLASSTYPE_TEMPLATE_INSTANTIATION (t)
+			  || uses_template_parms (CLASSTYPE_TI_ARGS (t)))
+		      && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (t)))
+		    template_count += 1;
+		  
+		  t = TYPE_MAIN_DECL (t);
+		  t = DECL_CONTEXT (t);
+		}
 
 	    if (sname == NULL_TREE)
 	      goto done_scoping;
@@ -10224,7 +10219,7 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
   cfun->x_dont_save_pending_sizes_p = 1;
 
   /* Start the statement-tree, start the tree now.  */
-  begin_stmt_tree (&DECL_SAVED_TREE (decl1));
+  DECL_SAVED_TREE (decl1) = push_stmt_list ();
 
   /* Let the user know we're compiling this function.  */
   announce_function (decl1);
@@ -10485,20 +10480,10 @@ save_function_data (tree decl)
   DECL_SAVED_FUNCTION_DATA (decl) = f;
 
   /* Clear out the bits we don't need.  */
-  f->base.x_stmt_tree.x_last_stmt = NULL_TREE;
-  f->base.x_stmt_tree.x_last_expr_type = NULL_TREE;
+  f->base.x_stmt_tree.x_cur_stmt_list = NULL_TREE;
   f->x_named_label_uses = NULL;
   f->bindings = NULL;
   f->x_local_names = NULL;
-
-  /* If we've already decided that we cannot inline this function, we
-     must remember that fact when we actually go to expand the
-     function.  */
-  if (current_function_cannot_inline)
-    {
-      f->cannot_inline = current_function_cannot_inline;
-      DECL_INLINE (decl) = 0;
-    }
 }
 
 /* Add a note to mark the beginning of the main body of the constructor.
@@ -10550,7 +10535,7 @@ begin_destructor_body (void)
      initialize the vtables.)  */
   finish_if_stmt_cond (boolean_true_node, if_stmt);
 
-  compound_stmt = begin_compound_stmt (/*has_no_scope=*/false);
+  compound_stmt = begin_compound_stmt (0);
 
   /* Make all virtual function table pointers in non-virtual base
      classes point to CURRENT_CLASS_TYPE's virtual function
@@ -10559,7 +10544,7 @@ begin_destructor_body (void)
 
   finish_compound_stmt (compound_stmt);
   finish_then_clause (if_stmt);
-  finish_if_stmt ();
+  finish_if_stmt (if_stmt);
 
   /* And insert cleanups for our bases and members so that they
      will be properly destroyed if we throw.  */
@@ -10576,7 +10561,7 @@ finish_destructor_body (void)
 
   /* Any return from a destructor will end up here; that way all base
      and member cleanups will be run when the function returns.  */
-  add_stmt (build_stmt (LABEL_STMT, dtor_label));
+  add_stmt (build_stmt (LABEL_EXPR, dtor_label));
 
   /* In a virtual destructor, we must call delete.  */
   if (DECL_VIRTUAL_P (current_function_decl))
@@ -10601,7 +10586,7 @@ finish_destructor_body (void)
 			   if_stmt);
       finish_expr_stmt (exprstmt);
       finish_then_clause (if_stmt);
-      finish_if_stmt ();
+      finish_if_stmt (if_stmt);
     }
 }
 
@@ -10624,8 +10609,7 @@ begin_function_body (void)
        operation of dwarfout.c.  */
     keep_next_level (true);
 
-  stmt = begin_compound_stmt (/*has_no_scope=*/false);
-  COMPOUND_STMT_BODY_BLOCK (stmt) = 1;
+  stmt = begin_compound_stmt (BCS_FN_BODY);
 
   if (processing_template_decl)
     /* Do nothing now.  */;
@@ -10724,10 +10708,10 @@ finish_function (int flags)
 			      current_eh_spec_block);
     }
 
-  finish_fname_decls ();
-
   /* If we're saving up tree structure, tie off the function now.  */
-  finish_stmt_tree (&DECL_SAVED_TREE (fndecl));
+  DECL_SAVED_TREE (fndecl) = pop_stmt_list (DECL_SAVED_TREE (fndecl));
+
+  finish_fname_decls ();
 
   /* If this function can't throw any exceptions, remember that.  */
   if (!processing_template_decl
@@ -10750,7 +10734,7 @@ finish_function (int flags)
 
       /* Throw away the broken statement tree and extra binding
          levels.  */
-      DECL_SAVED_TREE (fndecl) = build_stmt (COMPOUND_STMT, NULL_TREE);
+      DECL_SAVED_TREE (fndecl) = alloc_stmt_list ();
 
       while (current_binding_level->kind != sk_function_parms)
 	{
@@ -10781,9 +10765,10 @@ finish_function (int flags)
 	     the function so we know that their lifetime always ends with a
 	     return; see g++.dg/opt/nrv6.C.  We could be more flexible if
 	     we were to do this optimization in tree-ssa.  */
+	  && (outer = BLOCK_SUBBLOCKS (DECL_INITIAL (fndecl)))
 	  /* Skip the artificial function body block.  */
-	  && (outer = BLOCK_SUBBLOCKS (BLOCK_SUBBLOCKS (DECL_INITIAL (fndecl))),
-	      chain_member (r, BLOCK_VARS (outer))))
+	  && (outer = BLOCK_SUBBLOCKS (outer))
+	  && chain_member (r, BLOCK_VARS (outer)))
 	finalize_nrv (&DECL_SAVED_TREE (fndecl), r, DECL_RESULT (fndecl));
 
       current_function_return_value = NULL_TREE;
@@ -10811,10 +10796,13 @@ finish_function (int flags)
       && !current_function_returns_value && !current_function_returns_null
       /* Don't complain if we abort or throw.  */
       && !current_function_returns_abnormally
-      && !DECL_NAME (DECL_RESULT (fndecl))
+      && !DECL_NAME (DECL_RESULT (fndecl)))
+#if 0
+    /* Enable this for all functions until bug 14107 is fixed properly.  */
       /* Normally, with -Wreturn-type, flow will complain.  Unless we're an
 	 inline function, as we might never be compiled separately.  */
       && (DECL_INLINE (fndecl) || processing_template_decl))
+#endif
     warning ("no return statement in function returning non-void");
 
   /* Store the end of the function, so that we get good line number
@@ -10824,7 +10812,7 @@ finish_function (int flags)
   /* Genericize before inlining.  */
   if (!processing_template_decl)
     {
-      c_genericize (fndecl);
+      cp_genericize (fndecl);
 
       /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
       c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
@@ -11099,10 +11087,6 @@ cxx_maybe_build_cleanup (tree decl)
 void
 finish_stmt (void)
 {
-  /* Always assume this statement was not an expression statement.  If
-     it actually was an expression statement, its our callers
-     responsibility to fix this up.  */
-  last_expr_type = NULL_TREE;
 }
 
 /* DECL was originally constructed as a non-static member function,
@@ -11154,11 +11138,6 @@ cxx_push_function_context (struct function * f)
 	  /* If we already parsed this function, and we're just expanding it
 	     now, restore saved state.  */
 	  *cp_function_chain = *DECL_SAVED_FUNCTION_DATA (fn);
-
-	  /* If we decided that we didn't want to inline this function,
-	     make sure the back-end knows that.  */
-	  if (!current_function_cannot_inline)
-	    current_function_cannot_inline = cp_function_chain->cannot_inline;
 
 	  /* We don't need the saved data anymore.  Unless this is an inline
 	     function; we need the named return value info for

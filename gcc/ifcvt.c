@@ -745,6 +745,15 @@ noce_try_move (struct noce_if_info *if_info)
 	  seq = get_insns ();
 	  unshare_ifcvt_sequence (if_info, seq);
 	  end_sequence ();
+
+	  /* Make sure that all of the instructions emitted are
+	     recognizable.  As an excersise for the reader, build
+	     a general mechanism that allows proper placement of
+	     required clobbers.  */
+	  for (y = seq; y ; y = NEXT_INSN (y))
+	    if (recog_memoized (y) == -1)
+	      return FALSE;
+
 	  emit_insn_before_setloc (seq, if_info->jump,
 				   INSN_LOCATOR (if_info->insn_a));
 	}
@@ -1969,7 +1978,7 @@ noce_process_if_block (struct ce_if_block * ce_info)
   /* Only operate on register destinations, and even then avoid extending
      the lifetime of hard registers on small register class machines.  */
   orig_x = x;
-  if (GET_CODE (x) != REG
+  if (!REG_P (x)
       || (SMALL_REGISTER_CLASSES
 	  && REGNO (x) < FIRST_PSEUDO_REGISTER))
     {

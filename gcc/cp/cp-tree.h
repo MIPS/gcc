@@ -28,7 +28,6 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "splay-tree.h"
 #include "varray.h"
-#include "cgraph.h"
 
 #include "c-common.h"
 #include "name-lookup.h"
@@ -49,6 +48,9 @@ struct diagnostic_context;
       PARMLIST_ELLIPSIS_P (in PARMLIST)
       DECL_PRETTY_FUNCTION_P (in VAR_DECL)
       KOENIG_LOOKUP_P (in CALL_EXPR)
+      STATEMENT_LIST_NO_SCOPE (in STATEMENT_LIST).
+      EXPR_STMT_STMT_EXPR_RESULT (in EXPR_STMT)
+      BIND_EXPR_TRY_BLOCK (in BIND_EXPR)
    1: IDENTIFIER_VIRTUAL_P.
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -64,6 +66,7 @@ struct diagnostic_context;
       BINFO_LOST_PRIMARY_P (in BINFO)
       TREE_PARMLIST (in TREE_LIST)
       DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (in VAR_DECL)
+      STATEMENT_LIST_TRY_BLOCK (in STATEMENT_LIST)
    3: TYPE_USES_VIRTUAL_BASECLASSES (in a class TYPE).
       BINFO_VTABLE_PATH_MARKED.
       BINFO_PUSHDECLS_MARKED.
@@ -71,6 +74,7 @@ struct diagnostic_context;
       ICS_BAD_FLAG (in _CONV)
       FN_TRY_BLOCK_P (in TRY_BLOCK)
       IDENTIFIER_CTOR_OR_DTOR_P (in IDENTIFIER_NODE)
+      BIND_EXPR_BODY_BLOCK (in BIND_EXPR)
    4: BINFO_NEW_VTABLE_MARKED.
       TREE_HAS_CONSTRUCTOR (in INDIRECT_REF, SAVE_EXPR, CONSTRUCTOR,
           or FIELD_DECL).
@@ -267,6 +271,22 @@ typedef struct ptrmem_cst * ptrmem_cst_t;
 
 #define CLEANUP_P(NODE)         TREE_LANG_FLAG_0 (TRY_BLOCK_CHECK (NODE))
 
+#define BIND_EXPR_TRY_BLOCK(NODE) \
+  TREE_LANG_FLAG_0 (BIND_EXPR_CHECK (NODE))
+
+/* Used to mark the block around the member initializers and cleanups.  */
+#define BIND_EXPR_BODY_BLOCK(NODE) \
+  TREE_LANG_FLAG_3 (BIND_EXPR_CHECK (NODE))
+
+#define STATEMENT_LIST_NO_SCOPE(NODE) \
+  TREE_LANG_FLAG_0 (STATEMENT_LIST_CHECK (NODE))
+#define STATEMENT_LIST_TRY_BLOCK(NODE) \
+  TREE_LANG_FLAG_2 (STATEMENT_LIST_CHECK (NODE))
+
+/* Marks the result of a statement expression.  */
+#define EXPR_STMT_STMT_EXPR_RESULT(NODE) \
+  TREE_LANG_FLAG_0 (EXPR_STMT_CHECK (NODE))
+
 /* Returns nonzero iff TYPE1 and TYPE2 are the same type, in the usual
    sense of `same'.  */
 #define same_type_p(TYPE1, TYPE2) \
@@ -279,7 +299,7 @@ typedef struct ptrmem_cst * ptrmem_cst_t;
 
 /* Nonzero if we are presently building a statement tree, rather
    than expanding each statement as we encounter it.  */
-#define building_stmt_tree() (last_tree != NULL_TREE)
+#define building_stmt_tree()  (cur_stmt_list != NULL_TREE)
 
 /* Returns nonzero iff NODE is a declaration for the global function
    `main'.  */
@@ -773,8 +793,6 @@ struct language_function GTY(())
   struct named_label_list *x_named_labels;
   struct cp_binding_level *bindings;
   varray_type x_local_names;
-
-  const char *cannot_inline;
 };
 
 /* The current C++-specific per-function global variables.  */
@@ -874,7 +892,8 @@ enum cplus_tree_code {
 
 #define cp_stmt_codes					\
    CTOR_INITIALIZER,	TRY_BLOCK,	HANDLER,	\
-   EH_SPEC_BLOCK,	USING_STMT,	TAG_DEFN
+   EH_SPEC_BLOCK,	USING_STMT,	TAG_DEFN,	\
+   IF_STMT,		CLEANUP_STMT
 
 enum languages { lang_c, lang_cplusplus, lang_java };
 
@@ -1711,10 +1730,8 @@ struct lang_decl GTY(())
    not something is comdat until end-of-file.  */
 #define DECL_NEEDED_P(DECL)					\
   ((at_eof && TREE_PUBLIC (DECL) && !DECL_COMDAT (DECL))	\
-   || (DECL_P (DECL)						\
-       && (TREE_CODE (DECL) == FUNCTION_DECL			\
-	   ? cgraph_node (DECL)->needed 			\
-	   : cgraph_varpool_node (DECL)->needed))		\
+   || (DECL_ASSEMBLER_NAME_SET_P (DECL)				\
+       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (DECL)))	\
    || (((flag_syntax_only || flag_unit_at_a_time) && TREE_USED (DECL))))
 
 /* For a FUNCTION_DECL or a VAR_DECL, the language linkage for the
@@ -2923,6 +2940,19 @@ struct lang_decl GTY(())
 #define HANDLER_BODY(NODE)      TREE_OPERAND (HANDLER_CHECK (NODE), 1)
 #define HANDLER_TYPE(NODE)	TREE_TYPE (HANDLER_CHECK (NODE))
 
+/* CLEANUP_STMT accessors.  The statement(s) covered, the cleanup to run
+   and the VAR_DECL for which this cleanup exists.  */
+#define CLEANUP_BODY(NODE)	TREE_OPERAND (CLEANUP_STMT_CHECK (NODE), 0)
+#define CLEANUP_EXPR(NODE)	TREE_OPERAND (CLEANUP_STMT_CHECK (NODE), 1)
+#define CLEANUP_DECL(NODE)	TREE_OPERAND (CLEANUP_STMT_CHECK (NODE), 2)
+
+/* IF_STMT accessors. These give access to the condition of the if
+   statement, the then block of the if statement, and the else block
+   of the if statement if it exists.  */
+#define IF_COND(NODE)           TREE_OPERAND (IF_STMT_CHECK (NODE), 0)
+#define THEN_CLAUSE(NODE)       TREE_OPERAND (IF_STMT_CHECK (NODE), 1)
+#define ELSE_CLAUSE(NODE)       TREE_OPERAND (IF_STMT_CHECK (NODE), 2)
+
 /* The parameters for a call-declarator.  */
 #define CALL_DECLARATOR_PARMS(NODE) \
   (TREE_PURPOSE (TREE_OPERAND (NODE, 1)))
@@ -3036,12 +3066,7 @@ typedef enum tsubst_flags_t {
 				   instantiate_type use) */
   tf_user = 1 << 5,		/* found template must be a user template
 				   (lookup_template_class use) */
-  tf_stmt_expr_cmpd = 1 << 6,   /* tsubsting the compound statement of
-				   a statement expr.  */
-  tf_stmt_expr_body = 1 << 7,   /* tsubsting the statements in the
-			       	   body of the compound statement of a
-			       	   statement expr.  */
-  tf_conv = 1 << 8              /* We are determining what kind of
+  tf_conv = 1 << 6              /* We are determining what kind of
 				   conversion might be permissible,
 				   not actually performing the
 				   conversion.  */
@@ -3728,7 +3753,6 @@ extern tree grokfield (tree, tree, tree, tree, tree);
 extern tree grokbitfield (tree, tree, tree);
 extern tree groktypefield			(tree, tree);
 extern void cplus_decl_attributes (tree *, tree, int);
-extern void defer_fn (tree);
 extern void finish_anon_union (tree);
 extern tree finish_table (tree, tree, tree, int);
 extern tree coerce_new_type (tree);
@@ -3845,7 +3869,6 @@ extern void cxx_finish (void);
 
 /* in method.c */
 extern void init_method	(void);
-extern void set_mangled_name_for_decl (tree);
 extern tree make_thunk (tree, bool, tree, tree);
 extern void finish_thunk (tree);
 extern void use_thunk (tree, bool);
@@ -4005,13 +4028,14 @@ extern void pop_to_parent_deferring_access_checks	(void);
 extern void perform_deferred_access_checks	(void);
 extern void perform_or_defer_access_check	(tree, tree);
 extern void init_cp_semantics                   (void);
+extern void add_decl_stmt			(tree);
 extern tree finish_expr_stmt                    (tree);
 extern tree begin_if_stmt                       (void);
 extern void finish_if_stmt_cond                 (tree, tree);
 extern tree finish_then_clause                  (tree);
-extern void begin_else_clause                   (void);
+extern void begin_else_clause			(tree);
 extern void finish_else_clause                  (tree);
-extern void finish_if_stmt                      (void);
+extern void finish_if_stmt                      (tree);
 extern tree begin_while_stmt                    (void);
 extern void finish_while_stmt_cond              (tree, tree);
 extern void finish_while_stmt                   (tree);
@@ -4045,8 +4069,15 @@ extern void finish_handler_parms                (tree, tree);
 extern void begin_catch_block                   (tree);
 extern void finish_handler                      (tree);
 extern void finish_cleanup                      (tree, tree);
-extern tree begin_compound_stmt                 (bool);
-extern tree finish_compound_stmt                (tree);
+
+enum {
+  BCS_NO_SCOPE = 1,
+  BCS_TRY_BLOCK = 2,
+  BCS_FN_BODY = 4
+};
+extern tree begin_compound_stmt                 (unsigned int);
+
+extern void finish_compound_stmt                (tree);
 extern tree finish_asm_stmt                     (int, tree, tree, tree, tree);
 extern tree finish_label_stmt                   (tree);
 extern void finish_label_decl                   (tree);
@@ -4054,7 +4085,7 @@ extern void finish_subobject                    (tree);
 extern tree finish_parenthesized_expr           (tree);
 extern tree finish_non_static_data_member       (tree, tree, tree);
 extern tree begin_stmt_expr                     (void);
-extern tree finish_stmt_expr_expr 		(tree);
+extern tree finish_stmt_expr_expr 		(tree, tree);
 extern tree finish_stmt_expr                    (tree, bool);
 extern tree perform_koenig_lookup               (tree, tree);
 extern tree finish_call_expr                    (tree, tree, bool, bool);
@@ -4087,8 +4118,6 @@ extern void finish_decl_cleanup                 (tree, tree);
 extern void finish_eh_cleanup                   (tree);
 extern void expand_body                         (tree);
 extern void cxx_expand_function_start		(void);
-extern void do_pushlevel                        (scope_kind);
-extern tree do_poplevel                         (void);
 extern void finish_mem_initializers             (tree);
 extern void setup_vtbl_ptr			(tree, tree);
 extern void clear_out_block                     (void);
@@ -4169,7 +4198,6 @@ extern tree find_tree                           (tree, tree);
 extern linkage_kind decl_linkage                (tree);
 extern tree cp_walk_subtrees (tree*, int*, walk_tree_fn,
 				      void*, void*);
-extern int cp_tree_chain_matters_p		(tree);
 extern int cp_cannot_inline_tree_fn (tree*);
 extern tree cp_add_pending_fn_decls (void*,tree);
 extern int cp_is_overload_p (tree);
@@ -4291,7 +4319,7 @@ extern bool cp_dump_tree                         (void *, tree);
 
 /* in cp-simplify.c */
 extern int cp_gimplify_expr		        (tree *, tree *, tree *);
-extern int cp_gimplify_stmt		        (tree *, tree *);
+extern void cp_genericize			(tree);
 
 /* -- end of C++ */
 

@@ -181,7 +181,7 @@ compute_immediate_uses (int flags, bool (*calc_for)(tree))
     {
       tree phi;
 
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	compute_immediate_uses_for_phi (phi, calc_for);
 
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
@@ -227,7 +227,7 @@ free_df (void)
     {
       tree phi;
 
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	free_df_for_stmt (phi);
 
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
@@ -429,7 +429,7 @@ create_var_ann (tree t)
 
   ann->common.type = VAR_ANN;
 
-  t->common.ann = (tree_ann) ann;
+  t->common.ann = (tree_ann_t) ann;
 
   return ann;
 }
@@ -443,7 +443,7 @@ create_stmt_ann (tree t)
   stmt_ann_t ann;
 
 #if defined ENABLE_CHECKING
-  if ((!is_gimple_stmt (t) && !is_essa_node (t))
+  if ((!is_gimple_stmt (t))
       || (t->common.ann
 	  && t->common.ann->common.type != STMT_ANN))
     abort ();
@@ -457,54 +457,31 @@ create_stmt_ann (tree t)
   /* Since we just created the annotation, mark the statement modified.  */
   ann->modified = true;
 
-  t->common.ann = (tree_ann) ann;
+  t->common.ann = (tree_ann_t) ann;
 
   return ann;
 }
 
 
-/* Create a new annotation for a constant T.  */
+/* Create a new annotation for a tree T.  */
 
-cst_ann_t
-create_cst_ann (tree t)
+tree_ann_t
+create_tree_ann (tree t)
 {
-  cst_ann_t ann;
+  tree_ann_t ann;
 
 #if defined ENABLE_CHECKING
   if (t == NULL_TREE
       || (t->common.ann
-	  && t->common.ann->common.type != CST_ANN))
+	  && t->common.ann->common.type != TREE_ANN_COMMON))
     abort ();
 #endif
 
   ann = ggc_alloc (sizeof (*ann));
   memset ((void *) ann, 0, sizeof (*ann));
 
-  ann->common.type = CST_ANN;
-  t->common.ann = (tree_ann) ann;
-
-  return ann;
-}
-
-/* Create a new annotation for an expression T.  */
-
-expr_ann_t
-create_expr_ann (tree t)
-{
-  expr_ann_t ann;
-
-#if defined ENABLE_CHECKING
-  if (t == NULL_TREE
-      || (t->common.ann
-	  && t->common.ann->common.type != EXPR_ANN))
-    abort ();
-#endif
-
-  ann = ggc_alloc (sizeof (*ann));
-  memset ((void *) ann, 0, sizeof (*ann));
-
-  ann->common.type = EXPR_ANN;
-  t->common.ann = (tree_ann) ann;
+  ann->common.type = TREE_ANN_COMMON;
+  t->common.ann = ann;
 
   return ann;
 }
@@ -636,7 +613,7 @@ dump_immediate_uses (FILE *file)
     {
       tree phi;
 
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	dump_immediate_uses_for (file, phi);
 
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
@@ -818,7 +795,7 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p)
   FOR_EACH_BB (bb)
     {
       tree phi;
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  dfa_stats_p->num_phis++;
 	  dfa_stats_p->num_phi_args += PHI_NUM_ARGS (phi);

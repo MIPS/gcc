@@ -71,20 +71,6 @@ init_method (void)
 {
   init_mangle ();
 }
-
-
-/* Set the mangled name (DECL_ASSEMBLER_NAME) for DECL.  */
-
-void
-set_mangled_name_for_decl (tree decl)
-{
-  if (processing_template_decl)
-    /* There's no need to mangle the name of a template function.  */
-    return;
-
-  mangle_decl (decl);
-}
-
 
 /* Return a this or result adjusting thunk to FUNCTION.  THIS_ADJUSTING
    indicates whether it is a this or result adjusting thunk.
@@ -621,7 +607,7 @@ do_build_assign_ref (tree fndecl)
   tree parm = TREE_CHAIN (DECL_ARGUMENTS (fndecl));
   tree compound_stmt;
 
-  compound_stmt = begin_compound_stmt (/*has_no_scope=*/false);
+  compound_stmt = begin_compound_stmt (0);
   parm = convert_from_reference (parm);
 
   if (TYPE_HAS_TRIVIAL_ASSIGN_REF (current_class_type)
@@ -778,7 +764,7 @@ synthesize_method (tree fndecl)
   if (need_body)
     {
       tree compound_stmt;
-      compound_stmt = begin_compound_stmt (/*has_no_scope=*/false);
+      compound_stmt = begin_compound_stmt (BCS_FN_BODY);
       finish_compound_stmt (compound_stmt);
     }
 

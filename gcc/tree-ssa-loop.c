@@ -109,7 +109,7 @@ mark_defs_for_rewrite (basic_block bb)
   v_must_def_optype v_must_defs;
   unsigned i;
 
-  for (stmt = phi_nodes (bb); stmt; stmt = TREE_CHAIN (stmt))
+  for (stmt = phi_nodes (bb); stmt; stmt = PHI_CHAIN (stmt))
     {
       var = SSA_NAME_VAR (PHI_RESULT (stmt));
       bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
@@ -223,9 +223,9 @@ duplicate_blocks (varray_type bbs_to_duplicate)
 	  for (e1 = new_header->succ; e1->dest != e->dest; e1 = e1->succ_next)
 	    continue;
 
-	  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+	  for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	    {
-	      tree def = phi_element_for_edge (phi, e)->def;
+	      tree def = PHI_ARG_DEF_FROM_EDGE (phi, e);
 	      add_phi_arg (&phi, def, e1);
 	    }
 	}

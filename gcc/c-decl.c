@@ -71,10 +71,13 @@ enum decl_context
 
 /* Nonzero if we have seen an invalid cross reference
    to a struct, union, or enum, but not yet printed the message.  */
-
 tree pending_invalid_xref;
+
 /* File and line to appear in the eventual error message.  */
 location_t pending_invalid_xref_location;
+
+/* True means we've initialized exception handling.  */
+bool c_eh_initialized_p;
 
 /* While defining an enum type, this is 1 plus the last enumerator
    constant value.  Note that will do not have to save this or `enum_overflow'
@@ -104,10 +107,6 @@ static location_t current_function_prototype_locus;
 /* The current statement tree.  */
 
 static GTY(()) struct stmt_tree_s c_stmt_tree;
-
-/* The current scope statement stack.  */
-
-static GTY(()) tree c_scope_stmt_stack;
 
 /* State saving variables.  */
 int c_in_iteration_stmt;
@@ -2383,7 +2382,6 @@ builtin_function (const char *name, tree type, int function_code,
   DECL_FUNCTION_CODE (decl) = function_code;
   if (library_name)
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
-  make_decl_rtl (decl, NULL);
 
   /* Should never be called on a symbol with a preexisting meaning.  */
   if (I_SYMBOL_BINDING (id))
@@ -2942,7 +2940,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	    }
 
 	  if (TREE_CODE (decl) != FUNCTION_DECL)
-	    add_decl_stmt (decl);
+	    add_stmt (build_stmt (DECL_STMT, decl));
 	}
 
       if (!DECL_FILE_SCOPE_P (decl))
@@ -2969,7 +2967,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
     {
       if (!DECL_FILE_SCOPE_P (decl)
 	  && variably_modified_type_p (TREE_TYPE (decl)))
-	add_decl_stmt (decl);
+	add_stmt (build_stmt (DECL_STMT, decl));
 
       rest_of_decl_compilation (decl, NULL, DECL_FILE_SCOPE_P (decl), 0);
     }
@@ -2986,8 +2984,6 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
       tree attr = lookup_attribute ("cleanup", DECL_ATTRIBUTES (decl));
       if (attr)
 	{
-	  static bool eh_initialized_p;
-
 	  tree cleanup_id = TREE_VALUE (TREE_VALUE (attr));
 	  tree cleanup_decl = lookup_name (cleanup_id);
 	  tree cleanup;
@@ -2999,11 +2995,12 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 
 	  /* Don't warn about decl unused; the cleanup uses it.  */
 	  TREE_USED (decl) = 1;
+	  TREE_USED (cleanup_decl) = 1;
 
 	  /* Initialize EH, if we've been told to do so.  */
-	  if (flag_exceptions && !eh_initialized_p)
+	  if (flag_exceptions && !c_eh_initialized_p)
 	    {
-	      eh_initialized_p = true;
+	      c_eh_initialized_p = true;
 	      eh_personality_libfunc
 		= init_one_libfunc (USING_SJLJ_EXCEPTIONS
 				    ? "__gcc_personality_sj0"
@@ -3011,7 +3008,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	      using_eh_for_cleanups ();
 	    }
 
-	  add_stmt (build_stmt (CLEANUP_STMT, decl, cleanup));
+	  push_cleanup (decl, cleanup, false);
 	}
     }
 }
@@ -6142,7 +6139,7 @@ store_parm_decls (void)
   allocate_struct_function (fndecl);
 
   /* Begin the statement tree for this function.  */
-  begin_stmt_tree (&DECL_SAVED_TREE (fndecl));
+  DECL_SAVED_TREE (fndecl) = push_stmt_list ();
 
   /* If this is a nested function, save away the sizes of any
      variable-size types so that we can expand them when generating
@@ -6214,22 +6211,6 @@ finish_function (void)
 {
   tree fndecl = current_function_decl;
 
-  /* When a function declaration is totally empty, e.g.
-        void foo(void) { }
-     (the argument list is irrelevant) the compstmt rule will not
-     bother calling push_scope/pop_scope, which means we get here with
-     the scope stack out of sync.  Detect this situation by noticing
-     that current_scope is still as store_parm_decls left it, and do
-     a dummy push/pop to get back to consistency.
-     Note that the call to push_scope does not actually push another
-     scope - see there for details.  */
-
-  if (current_scope->parm_flag && next_is_function_body)
-    {
-      push_scope ();
-      pop_scope ();
-    }
-
   if (TREE_CODE (fndecl) == FUNCTION_DECL
       && targetm.calls.promote_prototypes (TREE_TYPE (fndecl)))
     {
@@ -6273,10 +6254,10 @@ finish_function (void)
 	}
     }
 
-  finish_fname_decls ();
-
   /* Tie off the statement tree for this function.  */
-  finish_stmt_tree (&DECL_SAVED_TREE (fndecl));
+  DECL_SAVED_TREE (fndecl) = pop_stmt_list (DECL_SAVED_TREE (fndecl));
+
+  finish_fname_decls ();
 
   /* Complain if there's just no return statement.  */
   if (warn_return_type
@@ -6438,7 +6419,6 @@ c_push_function_context (struct function *f)
   f->language = p;
 
   p->base.x_stmt_tree = c_stmt_tree;
-  p->base.x_scope_stmt_stack = c_scope_stmt_stack;
   p->x_in_iteration_stmt = c_in_iteration_stmt;
   p->x_in_case_stmt = c_in_case_stmt;
   p->returns_value = current_function_returns_value;
@@ -6466,7 +6446,6 @@ c_pop_function_context (struct function *f)
     }
 
   c_stmt_tree = p->base.x_stmt_tree;
-  c_scope_stmt_stack = p->base.x_scope_stmt_stack;
   c_in_iteration_stmt = p->x_in_iteration_stmt;
   c_in_case_stmt = p->x_in_case_stmt;
   current_function_returns_value = p->returns_value;
@@ -6518,14 +6497,6 @@ current_stmt_tree (void)
   return &c_stmt_tree;
 }
 
-/* Returns the stack of SCOPE_STMTs for the current function.  */
-
-tree *
-current_scope_stmt_stack (void)
-{
-  return &c_scope_stmt_stack;
-}
-
 /* Nonzero if TYPE is an anonymous union or struct type.  Always 0 in
    C.  */
 
@@ -6540,20 +6511,6 @@ anon_aggr_type_p (tree node ATTRIBUTE_UNUSED)
 void
 extract_interface_info (void)
 {
-}
-
-/* Return a new COMPOUND_STMT, after adding it to the current
-   statement tree.  */
-
-tree
-c_begin_compound_stmt (void)
-{
-  tree stmt;
-
-  /* Create the COMPOUND_STMT.  */
-  stmt = add_stmt (build_stmt (COMPOUND_STMT, NULL_TREE));
-
-  return stmt;
 }
 
 /* Return the global value of T as a symbol.  */

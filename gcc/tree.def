@@ -435,10 +435,11 @@ DEFTREECODE (MODIFY_EXPR, "modify_expr", 'e', 2)
 DEFTREECODE (INIT_EXPR, "init_expr", 'e', 2)
 
 /* For TARGET_EXPR, operand 0 is the target of an initialization,
-   operand 1 is the initializer for the target,
-   and operand 2 is the cleanup for this node, if any.
-   and operand 3 is the saved initializer after this node has been
-   expanded once, this is so we can re-expand the tree later.  */
+   operand 1 is the initializer for the target, which may be void
+     if simply expanding it initializes the target.
+   operand 2 is the cleanup for this node, if any.
+   operand 3 is the saved initializer after this node has been
+   expanded once; this is so we can re-expand the tree later.  */
 DEFTREECODE (TARGET_EXPR, "target_expr", 'e', 4)
 
 /* Conditional expression ( ... ? ... : ...  in C).
@@ -865,19 +866,6 @@ DEFTREECODE (ASM_EXPR, "asm_expr", 's', 4)
    time a variable is assigned a new value.  The SSA builder uses SSA_NAME
    nodes to implement SSA versioning.  */
 DEFTREECODE (SSA_NAME, "ssa_name", 'x', 0)
-
-/* Expression SSA real and phi operand occurrence node.  */
-DEFTREECODE (EUSE_NODE, "euse_node", 'x', 0)
-
-/* Expression SSA kill occurrence node.  */
-DEFTREECODE (EKILL_NODE, "ekill_node", 'x', 0)
-
-/* Expression SSA expression PHI.  Like a regular SSA PHI operator,
-   but for expressions*/
-DEFTREECODE (EPHI_NODE, "ephi_node", 'x', 0)
-
-/* Expression SSA exit occurrence node.  */
-DEFTREECODE (EEXIT_NODE, "eexit_node", 'x', 0)
 
 /* SSA PHI operator.  PHI_RESULT is the new SSA_NAME node created by
    the PHI node.  PHI_ARG_LENGTH is the number of arguments.

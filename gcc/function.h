@@ -232,10 +232,6 @@ struct function GTY(())
   /* The arg pointer hard register, or the pseudo into which it was copied.  */
   rtx internal_arg_pointer;
 
-  /* Language-specific reason why the current function cannot be made
-     inline.  */
-  const char *cannot_inline;
-
   /* Opaque pointer used by get_hard_reg_initial_val and
      has_hard_reg_initial_val (see integrate.[hc]).  */
   struct initial_value_struct *hard_reg_initial_vals;
@@ -262,10 +258,6 @@ struct function GTY(())
      Jumping to this label serves as a "naked return" instruction
      on machines which require execution of the epilogue on all returns.  */
   rtx x_naked_return_label;
-
-  /* Label and register for unswitching computed gotos.  */
-  rtx computed_goto_common_label;
-  rtx computed_goto_common_reg;
 
   /* List (chain of EXPR_LISTs) of pseudo-regs of SAVE_EXPRs.
      So we can mark them all live at the end of the function, if nonopt.  */
@@ -542,7 +534,6 @@ extern int trampolines_created;
 #define current_function_limit_stack (cfun->limit_stack)
 #define current_function_uses_pic_offset_table (cfun->uses_pic_offset_table)
 #define current_function_uses_const_pool (cfun->uses_const_pool)
-#define current_function_cannot_inline (cfun->cannot_inline)
 #define current_function_epilogue_delay_list (cfun->epilogue_delay_list)
 #define current_function_has_nonlocal_label (cfun->has_nonlocal_label)
 #define current_function_has_nonlocal_goto (cfun->has_nonlocal_goto)
@@ -618,6 +609,7 @@ extern void use_return_register (void);
 extern rtx get_arg_pointer_save_area (struct function *);
 
 extern void init_virtual_regs (struct emit_status *);
+extern void instantiate_virtual_regs (void);
 
 /* Returns the name of the current function.  */
 extern const char *current_function_name (void);

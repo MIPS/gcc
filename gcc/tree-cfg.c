@@ -74,7 +74,6 @@ static void free_blocks_annotations (void);
 static void clear_blocks_annotations (void);
 static void make_blocks (tree);
 static void factor_computed_gotos (void);
-static tree tree_block_label (basic_block bb);
 
 /* Edges.  */
 static void make_edges (void);
@@ -419,7 +418,6 @@ static void
 make_edges (void)
 {
   basic_block bb;
-  edge e;
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
@@ -446,33 +444,6 @@ make_edges (void)
 	 basic block that only needs a fallthru edge.  */
       if (bb->succ == NULL)
 	make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
-    }
-
-  /* If there is a fallthru edge to exit out of the last block, transform it
-     to a return statement.  */
-  for (e = EXIT_BLOCK_PTR->prev_bb->succ; e; e = e->succ_next)
-    if (e->flags & EDGE_FALLTHRU)
-      break;
-
-  if (e && e->dest == EXIT_BLOCK_PTR)
-    {
-      block_stmt_iterator bsi;
-      basic_block ret_bb = EXIT_BLOCK_PTR->prev_bb;
-      tree x;
-
-      /* If E->SRC ends with a call that has an abnormal edge (for EH or
-	 nonlocal goto), then we will need to split the edge to insert
-	 an explicit return statement.  */
-      if (e != ret_bb->succ || e->succ_next)
-	{
-	  ret_bb = split_edge (e);
-	  e = ret_bb->succ;
-	}
-      e->flags &= ~EDGE_FALLTHRU;
-
-      x = build (RETURN_EXPR, void_type_node, NULL_TREE);
-      bsi = bsi_last (ret_bb);
-      bsi_insert_after (&bsi, x, BSI_NEW_STMT);
     }
 
   /* We do not care about fake edges, so remove any that the CFG
@@ -648,7 +619,21 @@ make_switch_expr_edges (basic_block bb)
 basic_block
 label_to_block (tree dest)
 {
-  return VARRAY_BB (label_to_block_map, LABEL_DECL_UID (dest));
+  int uid = LABEL_DECL_UID (dest);
+
+  /* We would die hard when faced by undefined label.  Emit label to
+     very first basic block.  This will hopefully make even the dataflow
+     and undefined variable warnings quite right.  */
+  if ((errorcount || sorrycount) && uid < 0)
+    {
+      block_stmt_iterator bsi = bsi_start (BASIC_BLOCK (0));
+      tree stmt;
+
+      stmt = build1 (LABEL_EXPR, void_type_node, dest);
+      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+      uid = LABEL_DECL_UID (dest);
+    }
+  return VARRAY_BB (label_to_block_map, uid);
 }
 
 
@@ -785,6 +770,18 @@ update_eh_label (struct eh_region *region)
     }
 }
 
+/* Given LABEL return the first label in the same basic block.  */
+static tree
+main_block_label (tree label)
+{
+  basic_block bb = label_to_block (label);
+
+  /* label_to_block possibly inserted undefined label into the chain.  */
+  if (!label_for_bb[bb->index])
+    label_for_bb[bb->index] = label;
+  return label_for_bb[bb->index];
+}
+
 /* Cleanup redundant labels.  This is a three-steo process:
      1) Find the leading label for each block.
      2) Redirect all references to labels to the leading labels.
@@ -844,15 +841,14 @@ cleanup_dead_labels (void)
 	case COND_EXPR:
 	  {
 	    tree true_branch, false_branch;
-	    basic_block true_bb, false_bb;
 
 	    true_branch = COND_EXPR_THEN (stmt);
 	    false_branch = COND_EXPR_ELSE (stmt);
-	    true_bb = label_to_block (GOTO_DESTINATION (true_branch));
-	    false_bb = label_to_block (GOTO_DESTINATION (false_branch));
 
-	    GOTO_DESTINATION (true_branch) = label_for_bb[true_bb->index];
-	    GOTO_DESTINATION (false_branch) = label_for_bb[false_bb->index];
+	    GOTO_DESTINATION (true_branch)
+	      = main_block_label (GOTO_DESTINATION (true_branch));
+	    GOTO_DESTINATION (false_branch)
+	      = main_block_label (GOTO_DESTINATION (false_branch));
 
 	    break;
 	  }
@@ -865,12 +861,8 @@ cleanup_dead_labels (void)
   
 	    /* Replace all destination labels.  */
 	    for (i = 0; i < n; ++i)
-	      {
-		tree label = CASE_LABEL (TREE_VEC_ELT (vec, i));
-
-		CASE_LABEL (TREE_VEC_ELT (vec, i)) =
-		  label_for_bb[label_to_block (label)->index];
-	      }
+	      CASE_LABEL (TREE_VEC_ELT (vec, i))
+		= main_block_label (CASE_LABEL (TREE_VEC_ELT (vec, i)));
   
 	    break;
 	  }
@@ -878,13 +870,12 @@ cleanup_dead_labels (void)
 	/* We have to handle GOTO_EXPRs until they're removed, and we don't
 	   remove them until after we've created the CFG edges.  */
 	case GOTO_EXPR:
-	  {
-	    tree label = GOTO_DESTINATION (stmt);
-	    if (! computed_goto_p (stmt))
-	      GOTO_DESTINATION (stmt) =
-		label_for_bb[label_to_block (label)->index];
-	    break;
-	  }
+          if (! computed_goto_p (stmt))
+	    {
+	      GOTO_DESTINATION (stmt)
+		= main_block_label (GOTO_DESTINATION (stmt));
+	      break;
+	    }
 
 	default:
 	  break;
@@ -1768,7 +1759,7 @@ remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb)
   phi = phi_nodes (bb);
   while (phi)
     {
-      tree next = TREE_CHAIN (phi);
+      tree next = PHI_CHAIN (phi);
       remove_phi_node (phi, NULL_TREE, bb);
       phi = next;
     }
@@ -2113,7 +2104,7 @@ phi_alternatives_equal (basic_block dest, edge e1, edge e2)
   tree phi, val1, val2;
   int n1, n2;
 
-  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
     {
       n1 = phi_arg_from_edge (phi, e1);
       n2 = phi_arg_from_edge (phi, e2);
@@ -2583,7 +2574,7 @@ disband_implicit_edges (void)
   basic_block bb;
   block_stmt_iterator last;
   edge e;
-  tree stmt, label, forward;
+  tree stmt, label;
 
   FOR_EACH_BB (bb)
     {
@@ -2649,15 +2640,6 @@ disband_implicit_edges (void)
 
       label = tree_block_label (e->dest);
 
-      /* If this is a goto to a goto, jump to the final destination.
-         Handles unfactoring of the computed jumps.
-         ??? Why bother putting this back together when rtl is just
-	 about to take it apart again?  */
-      forward = last_and_only_stmt (e->dest);
-      if (forward
-	  && TREE_CODE (forward) == GOTO_EXPR)
-	label = GOTO_DESTINATION (forward);
-
       stmt = build1 (GOTO_EXPR, void_type_node, label);
       SET_EXPR_LOCUS (stmt, e->goto_locus);
       bsi_insert_after (&last, stmt, BSI_NEW_STMT);
@@ -2665,19 +2647,19 @@ disband_implicit_edges (void)
     }
 }
 
-
-/* Remove all the blocks and edges that make up the flowgraph.  */
+/* Remove block annotations and other datastructures.  */
 
 void
-delete_tree_cfg (void)
+delete_tree_cfg_annotations (void)
 {
+  basic_block bb;
   if (n_basic_blocks > 0)
     free_blocks_annotations ();
 
-  free_basic_block_vars ();
-  basic_block_info = NULL;
   label_to_block_map = NULL;
   free_rbi_pool ();
+  FOR_EACH_BB (bb)
+    bb->rbi = NULL;
 }
 
 
@@ -3100,7 +3082,7 @@ tree_split_edge (edge edge_in)
   /* Find all the PHI arguments on the original edge, and change them to
      the new edge.  Do it before redirection, so that the argument does not
      get removed.  */
-  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
     {
       num_elem = PHI_NUM_ARGS (phi);
       for (i = 0; i < num_elem; i++)
@@ -3386,7 +3368,7 @@ verify_stmts (void)
       tree phi;
       int i;
 
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  int phi_num_args = PHI_NUM_ARGS (phi);
 
@@ -3733,7 +3715,7 @@ tree_make_forwarder_block (edge fallthru)
 {
   edge e;
   basic_block dummy, bb;
-  tree phi, new_phi, var;
+  tree phi, new_phi, var, prev, next;
 
   dummy = fallthru->src;
   bb = fallthru->dest;
@@ -3743,17 +3725,24 @@ tree_make_forwarder_block (edge fallthru)
 
   /* If we redirected a branch we must create new phi nodes at the
      start of BB.  */
-  for (phi = phi_nodes (dummy); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (dummy); phi; phi = PHI_CHAIN (phi))
     {
       var = PHI_RESULT (phi);
       new_phi = create_phi_node (var, bb);
       SSA_NAME_DEF_STMT (var) = new_phi;
-      PHI_RESULT (phi) = make_ssa_name (SSA_NAME_VAR (var), phi);
+      SET_PHI_RESULT (phi, make_ssa_name (SSA_NAME_VAR (var), phi));
       add_phi_arg (&new_phi, PHI_RESULT (phi), fallthru);
     }
 
-  /* Ensure that the PHI node chains are in the same order.  */
-  set_phi_nodes (bb, nreverse (phi_nodes (bb)));
+  /* Ensure that the PHI node chain is in the same order.  */
+  prev = NULL;
+  for (phi = phi_nodes (bb); phi; phi = next)
+    {
+      next = PHI_CHAIN (phi);
+      PHI_CHAIN (phi) = prev;
+      prev = phi;
+    }
+  set_phi_nodes (bb, prev);
 
   /* Add the arguments we have stored on edges.  */
   for (e = bb->pred; e; e = e->pred_next)
@@ -3763,7 +3752,7 @@ tree_make_forwarder_block (edge fallthru)
 
       for (phi = phi_nodes (bb), var = PENDING_STMT (e);
 	   phi;
-	   phi = TREE_CHAIN (phi), var = TREE_CHAIN (var))
+	   phi = PHI_CHAIN (phi), var = TREE_CHAIN (var))
 	add_phi_arg (&phi, TREE_VALUE (var), e);
 
       PENDING_STMT (e) = NULL;
@@ -3944,7 +3933,7 @@ thread_jumps (void)
 	      /* Update PHI nodes.   We know that the new argument should
 		 have the same value as the argument associated with LAST.
 		 Otherwise we would have changed our target block above.  */
-	      for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+	      for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
 		{
 		  arg = phi_arg_from_edge (phi, last);
 		  if (arg < 0)
@@ -3966,7 +3955,7 @@ thread_jumps (void)
 /* Return a non-special label in the head of basic block BLOCK.
    Create one if it doesn't exist.  */
 
-static tree
+tree
 tree_block_label (basic_block bb)
 {
   block_stmt_iterator i, s = bsi_start (bb);
@@ -4652,7 +4641,7 @@ split_critical_edges (void)
 
 struct tree_opt_pass pass_split_crit_edges = 
 {
-  NULL,                          /* name */
+  "crited",                          /* name */
   NULL,                          /* gate */
   split_critical_edges,          /* execute */
   NULL,                          /* sub */
@@ -4663,7 +4652,7 @@ struct tree_opt_pass pass_split_crit_edges =
   PROP_no_crit_edges,            /* properties_provided */
   0,                             /* properties_destroyed */
   0,                             /* todo_flags_start */
-  0,                             /* todo_flags_finish */
+  TODO_dump_func,                             /* todo_flags_finish */
 };
 
 /* Emit return warnings.  */

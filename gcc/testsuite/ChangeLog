@@ -1,3 +1,150 @@
+2004-06-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/compat/struct-complex-1_x.c: Add dummy symbol.
+	* gcc.dg/compat/struct-complex-1_y.c: Likewise.
+	* gcc.dg/compat/union-m128-1_x.c: Likewise.
+	* gcc.dg/compat/union-m128-1_y.c: Likewise.
+
+2004-06-20  Zack Weinberg  <zack@codesourcery.com>
+
+	* g++.dg/expr/enum1.C, g++.dg/opt/const3.C: Declare abort with
+	extern "C".
+	* g++.dg/other/pragma-re-1.C: Add comments.
+
+2004-06-19  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/16080
+	* gfortran.fortran-torture/execute/read_null_string.f90: New file.
+
+2004-06-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.dg/lookup/crash3.C: Use __SIZE_TYPE__
+	instead of setting the type of size_t by
+	hand.
+
+2004-06-18  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/unordered-2.c: New test case.
+	* gcc.dg/unordered-3.c: New test case.
+
+2004-06-19  David Billinghurst (David.Billinghurst@riotinto.com)
+
+	PR other/16043
+	* lib/g++.exp (g++_version): Tweak regexp for version
+	* lib/g77.exp (g77_version): Likewise
+	* lib/gfortran.exp (gfortran_version): Likewise
+	* lib/objc.exp (objc_version): Likewise
+	* lib/treelang.exp (treelang_version): Likewise
+
+2004-06-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/compat/struct-align-2_x.c: Include <limits.h>.
+	Use INT_MAX instead of __INT_MAX__.
+	* gcc.dg/compat/struct-align-2_y.c: Likewise.
+
+	* gcc.dg/compat/compat-common.h (CINT, CDBL): Define.
+	* gcc.dg/compat/scalar-return-3_x.c: Use it.
+	* gcc.dg/compat/scalar-return-3_y.c: Use it.
+	* gcc.dg/compat/scalar-return-4_x.c: Use it.
+	* gcc.dg/compat/scalar-return-4_y.c: Use it.
+	* gcc.dg/compat/scalar-by-value-3_x.c: Use it.
+	* gcc.dg/compat/scalar-by-value-3_y.c: Use it.
+	* gcc.dg/compat/scalar-by-value-4_x.c: Use it.
+	* gcc.dg/compat/scalar-by-value-4_y.c: Use it.
+
+	* gcc.dg/range-test-1.c: New test.
+	* g++.dg/opt/range-test-1.C: New test.
+
+2004-06-17  Richard Henderson  <rth@redhat.com>
+
+	* objc.dg/sync-1.m: New.
+	* objc.dg/try-catch-1.m: Don't force next runtime.
+	* objc.dg/try-catch-3.m, objc.dg/try-catch-4.m: Likewise.
+	* objc.dg/try-catch-2.m: Likewise.  Enable everywhere.  Remove
+	shadowed catch clause.
+	* objc.dg/try-catch-5.m: New.
+
+2004-06-17  Zack Weinberg  <zack@codesourcery.com>
+
+	Bug 14610
+	* gcc.dg/ia64-float80-1.c, gcc.dg/ia64-float80-2.c: New testcases.
+
+2004-06-15  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/20001116-1.c: Move expected warning line.
+
+2004-06-15  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/i386-ssetype-1.c: Remove XFAIL.
+	* gcc.dg/i386-ssetype-3.c: Remove XFAIL.
+
+2004-06-15  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040615-1.c: New test.
+	* gcc.dg/tree-ssa/20030824-1.c: Update expected output to
+	be less sensitive to operand ordering.
+	* gcc.dg/tree-ssa/20030824-2.c: Likewise.
+
+2004-06-16  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* g++.dg/abi/bitfield3.C: Add comment..
+
+2004-06-15  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/ext/stmtexpr1.C: XFAIL.
+	* gcc.dg/20030612-1.c: XFAIL.
+
+2004-06-15  Eric Christopher  <echristo@redhat.com>
+
+	* g++.dg/charset/asm5.c: New.
+	* gcc.dg/charset/asm6.c: New.
+
+2004-06-15  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15962
+	* gfortran.fortran-torture/execute/select_1.f90: New test.
+
+2004-06-15  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/arm-mmx-1.c: Use asm to clobber registers.
+
+2004-06-14  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/15967
+	* g++.dg/lookup/crash3.C: New test.
+
+2004-06-14  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/15947
+	* g++.dg/parse/dtor4.C: New test.
+
+2004-06-14  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/20040614-1.c: New test.
+
+2004-06-14  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15211
+	* gfortran.fortran-torture/execute/intrinsic_len.f90: Also test
+	LEN of a character array.
+
+2004-06-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15096
+	* g++.dg/template/ptrmem10.C: New test.
+
+	PR c++/14930
+	* g++.dg/template/friend30.C: New test.
+
+2004-06-14  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/14928
+	* gfortran.fortran-torture/compile/mloc.f90: New test.
+
+2004-06-13  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/execute/random_2.f90: New test.
+
 2004-06-13  Eric Christopher  <echristo@redhat.com>
 
 	* gcc.dg/noncompile/redecl-1.c: Fix error message.
@@ -15,7 +162,7 @@
 
 	PR fortran/14957
 	* gfortran.fortran-torture/execute/stack_varsize.f90: Correct
-        syntax errors in end statements of contained subroutines.
+	syntax errors in end statements of contained subroutines.
 
 2004-06-12  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
 
@@ -116,7 +263,7 @@
 
 2004-06-09  Bud Davis  <bdavis9659@comcast.net>
 
-        PR gfortran/15755
+	PR gfortran/15755
 	* gfortran.fortran-torture/execute/backspace.c : New test.
 
 2004-06-09  Paul Brook  <paul@codesourcery.com>

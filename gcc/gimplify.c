@@ -563,6 +563,15 @@ should_carry_locus_p (tree stmt)
   return true;
 }
 
+static void
+annotate_one_with_locus (tree t, location_t locus)
+{
+  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (t)))
+      && ! EXPR_HAS_LOCATION (t)
+      && should_carry_locus_p (t))
+    annotate_with_locus (t, locus);
+}
+
 void
 annotate_all_with_locus (tree *stmt_p, location_t locus)
 {
@@ -583,10 +592,7 @@ annotate_all_with_locus (tree *stmt_p, location_t locus)
 	    abort ();
 #endif
 
-      if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (t)))
-	  && ! EXPR_HAS_LOCATION (t)
-	  && should_carry_locus_p (t))
-	annotate_with_locus (t, locus);
+      annotate_one_with_locus (t, locus);
     }
 }
 
@@ -754,23 +760,23 @@ gimple_build_eh_filter (tree body, tree allowed, tree failure)
    WRAPPER was already void.  */
 
 tree
-voidify_wrapper_expr (tree wrapper)
+voidify_wrapper_expr (tree wrapper, tree temp)
 {
   if (!VOID_TYPE_P (TREE_TYPE (wrapper)))
     {
-      tree *p;
-      tree temp;
+      tree *p, sub = wrapper;
 
+    restart:
       /* Set p to point to the body of the wrapper.  */
-      switch (TREE_CODE (wrapper))
+      switch (TREE_CODE (sub))
 	{
 	case BIND_EXPR:
 	  /* For a BIND_EXPR, the body is operand 1.  */
-	  p = &BIND_EXPR_BODY (wrapper);
+	  p = &BIND_EXPR_BODY (sub);
 	  break;
 
 	default:
-	  p = &TREE_OPERAND (wrapper, 0);
+	  p = &TREE_OPERAND (sub, 0);
 	  break;
 	}
 
@@ -789,15 +795,22 @@ voidify_wrapper_expr (tree wrapper)
 	    }
 	}
 
-      if (p && TREE_CODE (*p) == INIT_EXPR)
+      if (p == NULL || IS_EMPTY_STMT (*p))
+	;
+      /* Look through exception handling.  */
+      else if (TREE_CODE (*p) == TRY_FINALLY_EXPR
+	       || TREE_CODE (*p) == TRY_CATCH_EXPR)
 	{
-	  /* The C++ frontend already did this for us.  */;
-	  temp = TREE_OPERAND (*p, 0);
+	  sub = *p;
+	  goto restart;
 	}
-      else if (p && TREE_CODE (*p) == INDIRECT_REF)
+      /* The C++ frontend already did this for us.  */
+      else if (TREE_CODE (*p) == INIT_EXPR)
+	temp = TREE_OPERAND (*p, 0);
+      /* If we're returning a dereference, move the dereference
+	 outside the wrapper.  */
+      else if (TREE_CODE (*p) == INDIRECT_REF)
 	{
-	  /* If we're returning a dereference, move the dereference outside
-	     the wrapper.  */
 	  tree ptr = TREE_OPERAND (*p, 0);
 	  temp = create_tmp_var (TREE_TYPE (ptr), "retval");
 	  *p = build (MODIFY_EXPR, TREE_TYPE (ptr), temp, ptr);
@@ -808,12 +821,10 @@ voidify_wrapper_expr (tree wrapper)
 	}
       else
 	{
-	  temp = create_tmp_var (TREE_TYPE (wrapper), "retval");
-	  if (p && !IS_EMPTY_STMT (*p))
-	    {
-	      *p = build (MODIFY_EXPR, TREE_TYPE (temp), temp, *p);
-	      TREE_SIDE_EFFECTS (wrapper) = 1;
-	    }
+	  if (!temp)
+	    temp = create_tmp_var (TREE_TYPE (wrapper), "retval");
+	  *p = build (MODIFY_EXPR, TREE_TYPE (temp), temp, *p);
+	  TREE_SIDE_EFFECTS (wrapper) = 1;
 	}
 
       TREE_TYPE (wrapper) = void_type_node;
@@ -845,12 +856,13 @@ build_stack_save_restore (tree *save, tree *restore)
 /* Gimplify a BIND_EXPR.  Just voidify and recurse.  */
 
 static enum gimplify_status
-gimplify_bind_expr (tree *expr_p, tree *pre_p)
+gimplify_bind_expr (tree *expr_p, tree temp, tree *pre_p)
 {
   tree bind_expr = *expr_p;
-  tree temp = voidify_wrapper_expr (bind_expr);
   bool old_save_stack = gimplify_ctxp->save_stack;
   tree t;
+
+  temp = voidify_wrapper_expr (bind_expr, temp);
 
   /* Mark variables seen in this bind expr.  */
   for (t = BIND_EXPR_VARS (bind_expr); t ; t = TREE_CHAIN (t))
@@ -940,6 +952,13 @@ gimplify_return_expr (tree stmt, tree *pre_p)
   else
     {
       result = create_tmp_var (TREE_TYPE (result_decl), NULL);
+
+      /* ??? With complex control flow (usually involving abnormal edges),
+	 we can wind up warning about an uninitialized value for this.  Due
+	 to how this variable is constructed and initialized, this is never
+	 true.  Give up and never warn.  */
+      TREE_NO_WARNING (result) = 1;
+
       gimplify_ctxp->return_temp = result;
     }
 
@@ -2872,7 +2891,7 @@ gimplify_cleanup_point_expr (tree *expr_p, tree *pre_p)
   tree_stmt_iterator iter;
   tree body;
 
-  tree temp = voidify_wrapper_expr (*expr_p);
+  tree temp = voidify_wrapper_expr (*expr_p, NULL);
 
   /* We only care about the number of conditions between the innermost
      CLEANUP_POINT_EXPR and the cleanup.  So save and reset the count.  */
@@ -3006,12 +3025,18 @@ gimplify_target_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	 temps list.  */
       gimple_add_tmp_var (temp);
 
-      /* Build up the initialization and add it to pre_p.  */
-      init = build (MODIFY_EXPR, void_type_node, temp, init);
-      ret = gimplify_expr (&init, pre_p, post_p, is_gimple_stmt, fb_none);
-      if (ret == GS_ERROR)
-	return GS_ERROR;
-
+      /* Build up the initialization and add it to pre_p.  Special handling
+	 for BIND_EXPR can result in fewer temporaries created.  */
+      if (TREE_CODE (init) == BIND_EXPR)
+	gimplify_bind_expr (&init, temp, pre_p);
+      if (init != temp)
+	{
+	  if (! VOID_TYPE_P (TREE_TYPE (init)))
+	    init = build (MODIFY_EXPR, void_type_node, temp, init);
+	  ret = gimplify_expr (&init, pre_p, post_p, is_gimple_stmt, fb_none);
+	  if (ret == GS_ERROR)
+	    return GS_ERROR;
+	}
       append_to_statement_list (init, pre_p);
 
       /* If needed, push the cleanup for the temp.  */
@@ -3286,7 +3311,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case BIND_EXPR:
-	  ret = gimplify_bind_expr (expr_p, pre_p);
+	  ret = gimplify_bind_expr (expr_p, NULL, pre_p);
 	  break;
 
 	case LOOP_EXPR:
@@ -3530,7 +3555,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
   /* If we are gimplifying at the statement level, we're done.  Tack
      everything together and replace the original statement with the
      gimplified form.  */
-  if (is_statement)
+  if (fallback == fb_none || is_statement)
     {
       if (internal_pre || internal_post)
 	{
@@ -3539,6 +3564,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  annotate_all_with_locus (&internal_pre, input_location);
 	  *expr_p = internal_pre;
 	}
+      else if (TREE_CODE (*expr_p) == STATEMENT_LIST)
+	annotate_all_with_locus (expr_p, input_location);
+      else
+	annotate_one_with_locus (*expr_p, input_location);
       goto out;
     }
 

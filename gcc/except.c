@@ -82,9 +82,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #endif
 
 
-/* Nonzero means enable synchronous exceptions for non-call instructions.  */
-int flag_non_call_exceptions;
-
 /* Protect cleanup actions with must-not-throw regions, with a call
    to the given failure handler.  */
 tree (*lang_protect_cleanup_actions) (void);
@@ -3117,6 +3114,11 @@ can_throw_internal (rtx insn)
   if (! INSN_P (insn))
     return false;
 
+  if (GET_CODE (insn) == JUMP_INSN
+      && GET_CODE (PATTERN (insn)) == RESX
+      && XINT (PATTERN (insn), 0) > 0)
+    return can_throw_internal_1 (XINT (PATTERN (insn), 0));
+
   if (GET_CODE (insn) == INSN
       && GET_CODE (PATTERN (insn)) == SEQUENCE)
     insn = XVECEXP (PATTERN (insn), 0, 0);
@@ -4083,9 +4085,12 @@ output_function_exception_table (void)
 	  if (TREE_CODE (type) == ADDR_EXPR)
 	    {
 	      type = TREE_OPERAND (type, 0);
-	      node = cgraph_varpool_node (type);
-	      if (node)
-		cgraph_varpool_mark_needed_node (node);
+	      if (TREE_CODE (type) == VAR_DECL)
+		{
+	          node = cgraph_varpool_node (type);
+	          if (node)
+		    cgraph_varpool_mark_needed_node (node);
+		}
 	    }
 	  else if (TREE_CODE (type) != INTEGER_CST)
 	    abort ();

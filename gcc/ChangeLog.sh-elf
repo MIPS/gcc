@@ -1,8 +1,3 @@
-2004-06-17  Kaz Kojima  <kkojima@gcc.gnu.org>
-
-	* config/sh/t-linux64: New file.
-	* config.gcc: Add it to tmake_file for sh64*-*-linux*.
-
 2004-06-17  J"orn Rennecke <joern.rennecke@superh.com>
 
 	* config.gcc: Properly set sh_multilibs for sh64*.  Merge
@@ -76,9 +71,6 @@
 
 2004-06-16  J"orn Rennecke <joern.rennecke@superh.com>
 
-	* cfglayout.c (fixup_reorder_chain): Handle case where the
-	destination of E_FALL is EXIT_BLOCK_PTR.
-
 	* simplify-rtx.c (simplify_plus_minus_op_data): Change type of neg
 	to short.  New member ix.
 	(simplify_plus_minus_op_data_cmp): Break ties using ix member.
@@ -90,9 +82,6 @@
 
 	* combine.c (distribute_notes): When checking if the register in
 	a REG_DEAD note is set, also check REG_INC.
-
-	* cfglayout.c (fixup_reorder_chain): Handle case where the
-	destination od E_TAKEN is EXIT_BLOCK_PTR.
 
 	* cse.c (note_dead_set): Make static.
 
@@ -119,59 +108,6 @@
 	In SET_SRC part of SET case, if dest is already set, pass it down
 	unchanged.
 
-	Reverse this patch:
-	2004-06-08  J"orn Rennecke <joern.rennecke@superh.com>
-	* basic-block.h (could_fall_through): Declare.
-	* cfganal.c (can_fallthru): Suceed if the target is EXIT_BLOCK_PTR.
-	Fail if the source already has a fallthrough edge to the exit
-	block pointer.
-	(could_fall_through): New function.
-	(make_edges): Check if we already have a fallthrough edge to the
-	exit block pointer.
-	cfglayout.c (fixup_fallthru_exit_predecessor): Delete.
-	(cfg_layout_finalize): Don't call it.
-	(fixup_reorder_chain): A fall through to the exit block does not
-	require the block to come last.  Add sanity checks.
-	* cfgrtl.c (rtl_split_edge): Add special handling of fall through
-	edges to the exit block.
-
-	Apply this one instead:
-	* basic-block.h (could_fall_through): Declare.
-	* cfganal.c (can_fallthru): Succeed if the target is EXIT_BLOCK_PTR.
-	Fail if the source already has a fallthrough edge to the exit
-	block pointer.
-	(could_fall_through): New function.
-	* cfgbuild.c (make_edges): Check if we already have a fallthrough
-	edge to the exit block pointer.
-	* cfglayout.c (fixup_fallthru_exit_predecessor): Check that it is
-	not called before reload has completed.
-	Handle special case of first block having a fall-through exit edge.
-	(cfg_layout_finalize): Don't call it before reload or if we have
-	rtl epilogues.
-	(fixup_reorder_chain): A fall through to the exit block does not
-	require the block to come last.  Add sanity checks.
-	* cfgrtl.c (rtl_split_edge): Add special handling of fall through
-	edges to the exit block.
-	* function.c (cfglayout.h): #include.
-	(thread_prologue_and_epilogue_insns): If we have neither return nor
-	epilogue, but a fall through to the exit block from mid-function,
-	force a non-fall-through exit.
-	* Makefile.in (function.o): Depend on CFGLAYOUT_H.
-
 2004-06-08  J"orn Rennecke <joern.rennecke@superh.com>
 
 	* version.c (version_string): Adjust.
-
-	* basic-block.h (could_fall_through): Declare.
-	* cfganal.c (can_fallthru): Suceed if the target is EXIT_BLOCK_PTR.
-	Fail if the source already has a fallthrough edge to the exit
-	block pointer.
-	(could_fall_through): New function.
-	(make_edges): Check if we already have a fallthrough edge to the
-	exit block pointer.
-	cfglayout.c (fixup_fallthru_exit_predecessor): Delete.
-	(cfg_layout_finalize): Don't call it.
-	(fixup_reorder_chain): A fall through to the exit block does not
-	require the block to come last.  Add sanity checks.
-	* cfgrtl.c (rtl_split_edge): Add special handling of fall through
-	edges to the exit block.

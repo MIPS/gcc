@@ -331,7 +331,7 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
 
       /* All variables referenced in PHI nodes we bypass must be
 	 renamed.  */
-      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	{
 	  tree result = SSA_NAME_VAR (PHI_RESULT (phi));
 
@@ -381,7 +381,7 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
 
       /* Finally, any variables in PHI nodes at our final destination
          must also be taken our of SSA form.  */
-      for (phi = phi_nodes (tgt); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (tgt); phi; phi = PHI_CHAIN (phi))
 	{
 	  tree result = SSA_NAME_VAR (PHI_RESULT (phi));
 
@@ -515,7 +515,7 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
 	{
 	  tree result = PHI_RESULT (phi);
 
-	  next = TREE_CHAIN (phi);
+	  next = PHI_CHAIN (phi);
 
 	  if (bitmap_bit_p (virtuals_to_rename,
 			    var_ann (SSA_NAME_VAR (result))->uid))
@@ -698,9 +698,9 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
   tree phi;
 
   /* Each PHI creates a temporary equivalence, record them.  */
-  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
     {
-      tree src = PHI_ARG_DEF (phi, phi_arg_from_edge (phi, e));
+      tree src = PHI_ARG_DEF_FROM_EDGE (phi, e);
       tree dst = PHI_RESULT (phi);
       record_const_or_copy (dst, src, &bd->const_and_copies);
       register_new_def (dst, &bd->block_defs);
@@ -761,7 +761,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	      if (TREE_CODE (USE_OP (uses, i)) == SSA_NAME)
 		tmp = get_value_for (USE_OP (uses, i), const_and_copies);
 	      if (tmp)
-		*USE_OP_PTR (uses, i) = tmp;
+		SET_USE_OP (uses, i, tmp);
 	    }
 
 	  /* Similarly for virtual uses.  */
@@ -773,7 +773,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	      if (TREE_CODE (VUSE_OP (vuses, i)) == SSA_NAME)
 		tmp = get_value_for (VUSE_OP (vuses, i), const_and_copies);
 	      if (tmp)
-		VUSE_OP (vuses, i) = tmp;
+		SET_VUSE_OP (vuses, i, tmp);
 	    }
 
 	  /* Try to lookup the new expression.  */
@@ -781,10 +781,10 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 
 	  /* Restore the statement's original uses/defs.  */
 	  for (i = 0; i < NUM_USES (uses); i++)
-	    *USE_OP_PTR (uses, i) = uses_copy[i];
+	    SET_USE_OP (uses, i, uses_copy[i]);
 
 	  for (i = 0; i < NUM_VUSES (vuses); i++)
-	    VUSE_OP (vuses, i) = vuses_copy[i];
+	    SET_VUSE_OP (vuses, i, vuses_copy[i]);
 
 	  free (uses_copy);
 	  free (vuses_copy);
@@ -924,7 +924,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	  edge taken_edge = find_taken_edge (e->dest, cached_lhs);
 	  basic_block dest = (taken_edge ? taken_edge->dest : NULL);
 
-	  if (dest == e->src)
+	  if (dest == e->dest)
 	    return;
 
 	  /* If we have a known destination for the conditional, then
@@ -1334,7 +1334,7 @@ record_equivalences_from_phis (struct dom_walk_data *walk_data, basic_block bb)
     = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
   tree phi;
 
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {
       tree lhs = PHI_RESULT (phi);
       tree rhs = NULL;
@@ -2386,7 +2386,7 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
 	      && is_gimple_min_invariant (cached_lhs)))
 	retval = true;
 
-      propagate_value (expr_p, cached_lhs);
+      propagate_tree_value (expr_p, cached_lhs);
       ann->modified = 1;
     }
   return retval;

@@ -302,7 +302,8 @@ build_cplus_new (tree type, tree init)
      type, don't mess with AGGR_INIT_EXPR.  */
   if (is_ctor || TREE_ADDRESSABLE (type))
     {
-      rval = build (AGGR_INIT_EXPR, type, fn, TREE_OPERAND (init, 1), slot);
+      rval = build (AGGR_INIT_EXPR, void_type_node, fn,
+		    TREE_OPERAND (init, 1), slot);
       TREE_SIDE_EFFECTS (rval) = 1;
       AGGR_INIT_VIA_CTOR_P (rval) = is_ctor;
     }
@@ -2195,7 +2196,6 @@ cp_update_decl_after_saving (tree fn,
 void
 init_tree (void)
 {
-  lang_gimplify_stmt = cp_gimplify_stmt;
   list_hash_table = htab_create_ggc (31, list_hash, list_hash_eq, NULL);
 }
 
@@ -2216,13 +2216,13 @@ mark_local_for_remap_r (tree* tp,
   if (TREE_CODE (t) == DECL_STMT
       && nonstatic_local_decl_p (DECL_STMT_DECL (t)))
     decl = DECL_STMT_DECL (t);
-  else if (TREE_CODE (t) == LABEL_STMT)
-    decl = LABEL_STMT_LABEL (t);
+  else if (TREE_CODE (t) == LABEL_EXPR)
+    decl = LABEL_EXPR_LABEL (t);
   else if (TREE_CODE (t) == TARGET_EXPR
 	   && nonstatic_local_decl_p (TREE_OPERAND (t, 0)))
     decl = TREE_OPERAND (t, 0);
-  else if (TREE_CODE (t) == CASE_LABEL)
-    decl = CASE_LABEL_DECL (t);
+  else if (TREE_CODE (t) == CASE_LABEL_EXPR)
+    decl = CASE_LABEL (t);
   else
     decl = NULL_TREE;
 

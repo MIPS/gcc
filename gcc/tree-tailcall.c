@@ -1,4 +1,4 @@
-/* Tail calls optimization on trees.
+/* Tail call optimization on trees.
    Copyright (C) 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -237,7 +237,7 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
       if (!e)
 	abort ();
 
-      expr = phi_element_for_edge (at, e)->def;
+      expr = PHI_ARG_DEF_FROM_EDGE (at, e);
     }
 
   /* Unmark the blocks.  */
@@ -339,8 +339,8 @@ propagate_through_phis (tree var, edge e)
   basic_block dest = e->dest;
   tree phi;
 
-  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
-    if (phi_element_for_edge (phi, e)->def == var)
+  for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
+    if (PHI_ARG_DEF_FROM_EDGE (phi, e) == var)
       return PHI_RESULT (phi);
 
   return var;
@@ -558,7 +558,7 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
 
   if (a_acc)
     {
-      for (phi = phi_nodes (back->dest); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (back->dest); phi; phi = PHI_CHAIN (phi))
 	if (PHI_RESULT (phi) == a_acc)
 	  break;
 
@@ -567,7 +567,7 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
 
   if (m_acc)
     {
-      for (phi = phi_nodes (back->dest); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (back->dest); phi; phi = PHI_CHAIN (phi))
 	if (PHI_RESULT (phi) == m_acc)
 	  break;
 
@@ -594,7 +594,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
 
   if (TREE_CODE (ret_var) == MODIFY_EXPR)
     {
-      ret_var->common.ann = (tree_ann) stmt_ann (ret_stmt);
+      ret_var->common.ann = (tree_ann_t) stmt_ann (ret_stmt);
       bsi_replace (&bsi, ret_var, true);
       SSA_NAME_DEF_STMT (TREE_OPERAND (ret_var, 0)) = ret_var;
       ret_var = TREE_OPERAND (ret_var, 0);
@@ -684,7 +684,7 @@ eliminate_tail_call (struct tailcall *t)
        args = TREE_CHAIN (args))
     {
       
-      for (phi = phi_nodes (first); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (first); phi; phi = PHI_CHAIN (phi))
 	if (param == SSA_NAME_VAR (PHI_RESULT (phi)))
 	  break;
 
@@ -701,7 +701,7 @@ eliminate_tail_call (struct tailcall *t)
   for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
     {
       param = SSA_NAME_VAR (V_MAY_DEF_RESULT (v_may_defs, i));
-      for (phi = phi_nodes (first); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (first); phi; phi = PHI_CHAIN (phi))
 	if (param == SSA_NAME_VAR (PHI_RESULT (phi)))
 	  break;
 

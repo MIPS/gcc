@@ -138,9 +138,6 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS
 #define LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS \
   cp_add_pending_fn_decls
-#undef LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P
-#define LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P \
-  cp_tree_chain_matters_p
 #undef LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P
 #define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
   cp_auto_var_in_fn_p
@@ -292,12 +289,6 @@ cp_expr_size (tree exp)
     return lhd_expr_size (exp);
 }
 
-int
-cp_tree_chain_matters_p (tree t)
-{
-  return cp_is_overload_p (t) || c_tree_chain_matters_p (t);
-}
-
 /* Langhook for tree_size: determine size of our 'x' and 'c' nodes.  */
 static size_t
 cp_tree_size (enum tree_code code)
@@ -361,4 +352,11 @@ push_file_scope (void)
 void
 pop_file_scope (void)
 {
+}
+
+/* c-pragma.c needs to query whether a decl has extern "C" linkage.  */
+bool
+has_c_linkage (tree decl)
+{
+  return DECL_EXTERN_C_P (decl);
 }

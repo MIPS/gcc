@@ -1,3 +1,115 @@
+2004-06-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_istream/ignore/char/3.cc: New.
+
+2004-06-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/mt_allocator (__mt_alloc<>::_Tune): Add _M_align,
+	the alignment requested.
+	(__mt_alloc<>::_Tune::_Tune): Tweak consistently.
+	(__mt_alloc<>::allocate): Use it instead of sizeof(_Block_record).
+	(__mt_alloc<>::deallocate): Likewise.
+
+2004-06-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/16020
+	* include/debug/safe_base.h
+	(_Safe_sequence_base::_Safe_sequence_base(const _Safe_sequence_base&),
+	_Safe_sequence_base::operator=): Provide definitions.
+	* testsuite/23_containers/bitset/cons/16020.cc: New.
+
+2004-06-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/pool_allocator.h: Qualify __throw_bad_alloc.
+	(__pool_base): Remove unused template parameter.  Add
+	protected. Move lock data into __pool_base::_Lock. Remove static
+	on member functions.
+	(__pool_base::_M_get_free_list): New.
+	(__pool_alloc): Move _S_force new here.
+	* src/allocator.cc: Move out of line __pool_base definitions here.
+	* config/linker-map.gnu: Export bits from __pool_base.
+	
+2004-06-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/gnu/numeric_members.cc
+	(numpunct<wchar_t>::_M_initialize_numpunct): Clean up
+	assignments of _M_decimal_point and _M_thousands_sep.
+	* config/locale/gnu/time_members.cc
+	(__timepunct<wchar_t>::_M_initialize_timepunct): Clean up
+	and reformat assignments of date and time fields.
+
+2004-06-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/rope (rope(_CharT, const allocator_type&)): Fix
+	to use _Data_allocate.
+	* include/ext/ropeimpl.h (rope<>::_S_leaf_concat_char_iter): Likewise.
+	(rope<>::_S_substring): Likewise.
+	(rope<>::rope(size_t, _CharT, const allocator_type&)): Likewise.
+	(rope<>::c_str()): Likewise.
+	(rope<>::replace_with_c_str()): Likewise.
+
+	* include/ext/ropeimpl.h (_Rope_iterator_base<>::_S_setbuf):
+	Correctly qualify _S_leaf, _S_function, etc., with _Rope_constants::,
+	not _RopeRep.
+	(_Rope_iterator_base<>::_S_setcache): Likewise.
+	(_Rope_iterator_base<>::_S_setcache_for_incr): Likewise.
+	(rope<>::_S_substring): Likewise.
+	(rope<>::_S_dump): Likewise.
+	(rope<>::_S_fetch_ptr): Likewise.
+	(rope<>::_S_compare): Likewise.
+	(rope<>::replace_with_c_str()): Likewise.		
+
+	* testsuite/ext/rope.cc: Rename to testsuite/ext/rope/1.cc.
+	* testsuite/ext/rope/2.cc: New.
+
+2004-06-16  Paolo Carlini  <pcarlini@suse.de>
+	    Matt Austern  <austern@apple.com>
+
+	* testsuite/ext/rope/3.cc: New.
+
+2004-06-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* acinclude.m4: Remove useless multilib configury.
+	* Makefile.am: Remove useless multilib rules.
+	* aclocal.m4: Regenerate.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+2004-06-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/hashtable.h: Trivial formatting fixes.
+	* include/ext/rb_tree: Likewise.
+
+2004-06-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/hash_map: Trivial formatting fixes.
+	* include/ext/hash_set: Likewise.
+	* include/ext/memory: Likewise.
+	* include/ext/numeric: Likewise.
+
+2004-06-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* Makefile.in: Regenerate with automake 1.8.5.
+	* aclocal.m4: Same.
+	* include/Makefile.in: Same.
+	* libmath/Makefile.in: Same.
+	* libsupc++/Makefile.in: Same.
+	* po/Makefile.in: Same.
+	* src/Makefile.in: Same.
+	* testsuite/Makefile.in: Same.
+
+2004-06-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/slist: Trivial formatting fixes.
+
+2004-06-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (time_get<>::_M_extract_name):
+	Don't use the 'magic number' 10 in the computation of __minlen;
+	never access __name past __minlen; in the loop over __i3, don't
+	decrease __nmatches and increase __i3 at once, only either of
+	the two; tidy.
+
 2004-06-13  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/locale_facets.tcc (time_get<>::do_get_time,
