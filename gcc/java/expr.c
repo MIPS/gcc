@@ -1220,7 +1220,10 @@ expand_java_arraystore (tree rhs_type_node)
       /* If we're processing an `aaload' we might as well just pick
 	 `Object'.  */
       if (TREE_CODE (rhs_type_node) == POINTER_TYPE)
-	array_type = build_java_array_type (object_ptr_type_node, -1);
+	{
+	  array_type = build_java_array_type (object_ptr_type_node, -1);
+	  rhs_type_node = object_ptr_type_node;
+	}
       else
 	array_type = build_java_array_type (rhs_type_node, -1);
     }
@@ -1267,7 +1270,10 @@ expand_java_arrayload (tree lhs_type_node)
       /* If we're processing an `aaload' we might as well just pick
 	 `Object'.  */
       if (TREE_CODE (lhs_type_node) == POINTER_TYPE)
-	array_type = build_java_array_type (object_ptr_type_node, -1);
+	{
+	  array_type = build_java_array_type (object_ptr_type_node, -1);
+	  lhs_type_node = object_ptr_type_node;
+	}
       else
 	array_type = build_java_array_type (lhs_type_node, -1);
     }
@@ -1282,7 +1288,7 @@ expand_java_arrayload (tree lhs_type_node)
 
   if (TREE_TYPE (array_node) == ptr_type_node)
     /* The only way we could get a node of type ptr_type_node at this
-      point is `aconst_null; arraylength' or something equivalent, so
+       point is `aconst_null; arraylength' or something equivalent, so
        unconditionally throw NullPointerException.  */
     load_node = build3 (CALL_EXPR, lhs_type_node, 
 			build_address_of (soft_nullpointer_node),

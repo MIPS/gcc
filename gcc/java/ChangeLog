@@ -1,3 +1,8 @@
+2004-11-03  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (expand_java_arrayload): Set lhs_type_node.
+	(expand_java_arraystore): Set rhs_type_node.
+
 2004-11-02  Tom Tromey  <tromey@redhat.com>
 
 	* jcf-parse.c (compute_class_name): Use filename length from zip
