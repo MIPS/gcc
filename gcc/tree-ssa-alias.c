@@ -1715,8 +1715,6 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
       return false;
     }
 
-#if 0
-  /* Kenny: Is this correct? */
   /* If var is a record or union type, ptr cannot point into var
      unless there is some operation explicit address operation in the
      program that can reference a field of the ptr's dereferenced
@@ -1782,7 +1780,6 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
  	  }
       }
   }
-#endif
 
   alias_stats.alias_mayalias++;
   return true;
