@@ -1,3 +1,91 @@
+2005-04-05  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR rtl-optimization/20527
+	* combine.c (can_combine_p) [AUTO_INC_DEC]: When INSN has an
+	REG_INC note, test that the register also isn't mentioned in PRED
+	or SUCC.
+
+2005-04-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sparc/sparc.c (TARGET_ASM_FILE_END): Undefine before
+	overriding.
+
+2005-04-05  Olivier Hainque  <hainque@adacore.com>
+	
+	* config/mips/iris6.h (DWARF_FRAME_RETURN_COLUMN): Redefine to
+	match what the system unwinder expects.
+	* config/mips/mips.c (mips_frame_set): If we're saving the return
+	address register and the dwarf return address column number differs
+	from the hard register number, adjust the note reg to refer to the
+	former.
+
+2005-04-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Sebastian Pop <sebastian.pop@cri.ensmp.fr>
+
+	PR tree-optimization/19903
+	* tree-chrec.c (chrec_convert): Return chrec_dont_know for constants
+	that don't fit in their type after conversion.
+
+2005-04-04  Roger Sayle  <roger@eyesopen.com>
+	    Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/19199
+	* fold-const.c (non_lvalue): Split tests into...
+	(maybe_lvalue_p): New function.
+	(fold_cond_expr_with_comparison): Preserve lvalue-ness for the
+	C++ front-end prior to lowering into gimple form.
+
+2004-04-04  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR target/19537
+	* Makefile.in (tree-ssa-loop-ivopts.o): Depend on langhooks.h.
+	* tree-ssa-loop-ivopts.c: Include langhooks.h.
+	(add_standard_iv_candidates_for_size): New function, extracting code
+	from add_standard_iv_candidates and parameterizing it by type size.
+	(add_standard_iv_candidates): Use add_standard_iv_candidates_for_size.
+
+2005-04-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/invoke.texi (SPARC options): Document that
+	-mlittle-endian is not supported on Linux either.
+
+2005-04-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/20446
+	* config/sparc/sparc.h (NEED_INDICATE_EXEC_STACK): Define to 0.
+	* config/sparc/linux.h (TARGET_ASM_FILE_END): Delete.
+	(NEED_INDICATE_EXEC_STACK): Define to 1.
+	* config/sparc/linux64.h (TARGET_ASM_FILE_END): Delete.
+	(NEED_INDICATE_EXEC_STACK): Define to 1.
+	* config/sparc/sparc.c (TARGET_ASM_FILE_END): Set to sparc_file_end.
+	(add_pc_to_pic_symbol): Rename into pic_helper_symbol.
+	(add_pc_to_pic_symbol_name): Rename into pic_helper_symbol_name.
+	(pic_helper_emitted_p): New global.
+	(emit_pic_helper): New function extracted from...
+	(load_pic_register): ...here.  Add 'delay_pic_helper' parameter.
+	Do not call emit_pic_helper if delay_pic_helper is true.
+	(sparc_expand_prologue): Pass 'false' to load_pic_register.
+	(sparc_output_mi_thunk): Pass 'true' to load_pic_register.
+	(sparc_file_end): New function.
+
+2005-04-04  Richard Henderson  <rth@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/16104
+	* fold-const.c (fold_unary): Fix folding of vector conversions.
+
+2005-04-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR debug/20505
+	* dwarf2out.c (tree_add_const_value_attribute): Only add if it's
+	an INTEGER_CST.
+
+2005-04-03  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+	 
+        PR c++/18644
+        * doc/invoke.texi (-Wsynth): Don't document, as it now is void of
+        semantics. 
+	
 2005-04-02  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR debug/19345

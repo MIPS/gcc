@@ -2004,16 +2004,12 @@ fold_convert (tree type, tree arg)
     }
 }
 
-/* Return an expr equal to X but certainly not valid as an lvalue.  */
+/* Return false if expr can be assumed not to be an value, true
+   otherwise.  */
 
-tree
-non_lvalue (tree x)
+static bool
+maybe_lvalue_p (tree x)
 {
-  /* While we are in GIMPLE, NON_LVALUE_EXPR doesn't mean anything to
-     us.  */
-  if (in_gimple_form)
-    return x;
-
   /* We only need to wrap lvalue tree codes.  */
   switch (TREE_CODE (x))
   {
@@ -2053,8 +2049,24 @@ non_lvalue (tree x)
     /* Assume the worst for front-end tree codes.  */
     if ((int)TREE_CODE (x) >= NUM_TREE_CODES)
       break;
-    return x;
+    return false;
   }
+
+  return true;
+}
+
+/* Return an expr equal to X but certainly not valid as an lvalue.  */
+
+tree
+non_lvalue (tree x)
+{
+  /* While we are in GIMPLE, NON_LVALUE_EXPR doesn't mean anything to
+     us.  */
+  if (in_gimple_form)
+    return x;
+
+  if (! maybe_lvalue_p (x))
+    return x;
   return build1 (NON_LVALUE_EXPR, TREE_TYPE (x), x);
 }
 
@@ -4266,7 +4278,13 @@ fold_cond_expr_with_comparison (tree type, tree arg0, tree arg1, tree arg2)
      a number and A is not.  The conditions in the original
      expressions will be false, so all four give B.  The min()
      and max() versions would give a NaN instead.  */
-  if (operand_equal_for_comparison_p (arg01, arg2, arg00))
+  if (operand_equal_for_comparison_p (arg01, arg2, arg00)
+      /* Avoid these transformations if the COND_EXPR may be used
+	 as an lvalue in the C++ front-end.  PR c++/19199.  */
+      && (in_gimple_form
+	  || strcmp (lang_hooks.name, "GNU C++") != 0
+	  || ! maybe_lvalue_p (arg1)
+	  || ! maybe_lvalue_p (arg2)))
     {
       tree comp_op0 = arg00;
       tree comp_op1 = arg01;
@@ -6893,16 +6911,19 @@ fold (tree expr)
 	  int inside_int = INTEGRAL_TYPE_P (inside_type);
 	  int inside_ptr = POINTER_TYPE_P (inside_type);
 	  int inside_float = FLOAT_TYPE_P (inside_type);
+	  int inside_vec = TREE_CODE (inside_type) == VECTOR_TYPE;
 	  unsigned int inside_prec = TYPE_PRECISION (inside_type);
 	  int inside_unsignedp = TYPE_UNSIGNED (inside_type);
 	  int inter_int = INTEGRAL_TYPE_P (inter_type);
 	  int inter_ptr = POINTER_TYPE_P (inter_type);
 	  int inter_float = FLOAT_TYPE_P (inter_type);
+	  int inter_vec = TREE_CODE (inter_type) == VECTOR_TYPE;
 	  unsigned int inter_prec = TYPE_PRECISION (inter_type);
 	  int inter_unsignedp = TYPE_UNSIGNED (inter_type);
 	  int final_int = INTEGRAL_TYPE_P (type);
 	  int final_ptr = POINTER_TYPE_P (type);
 	  int final_float = FLOAT_TYPE_P (type);
+	  int final_vec = TREE_CODE (type) == VECTOR_TYPE;
 	  unsigned int final_prec = TYPE_PRECISION (type);
 	  int final_unsignedp = TYPE_UNSIGNED (type);
 
@@ -6923,12 +6944,15 @@ fold (tree expr)
 	     since then we sometimes need the inner conversion.  Likewise if
 	     the outer has a precision not equal to the size of its mode.  */
 	  if ((((inter_int || inter_ptr) && (inside_int || inside_ptr))
-	       || (inter_float && inside_float))
+	       || (inter_float && inside_float)
+	       || (inter_vec && inside_vec))
 	      && inter_prec >= inside_prec
-	      && (inter_float || inter_unsignedp == inside_unsignedp)
+	      && (inter_float || inter_vec
+		  || inter_unsignedp == inside_unsignedp)
 	      && ! (final_prec != GET_MODE_BITSIZE (TYPE_MODE (type))
 		    && TYPE_MODE (type) == TYPE_MODE (inter_type))
-	      && ! final_ptr)
+	      && ! final_ptr
+	      && (! final_vec || inter_prec == inside_prec))
 	    return fold (build1 (code, type,
 				 TREE_OPERAND (TREE_OPERAND (t, 0), 0)));
 
@@ -6942,6 +6966,7 @@ fold (tree expr)
 
 	  /* Two conversions in a row are not needed unless:
 	     - some conversion is floating-point (overstrict for now), or
+	     - some conversion is a vector (overstrict for now), or
 	     - the intermediate type is narrower than both initial and
 	       final, or
 	     - the intermediate type and innermost type differ in signedness,
@@ -6951,6 +6976,7 @@ fold (tree expr)
 	     - the final type is a pointer type and the precisions of the
 	       initial and intermediate types differ.  */
 	  if (! inside_float && ! inter_float && ! final_float
+	      && ! inside_vec && ! inter_vec && ! final_vec
 	      && (inter_prec > inside_prec || inter_prec > final_prec)
 	      && ! (inside_int && inter_int
 		    && inter_unsignedp != inside_unsignedp

@@ -1,3 +1,29 @@
+2005-04-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20763
+	* decl.c (grokdeclarator): Correct attribute handling.
+
+	PR c++/19159
+	* decl2.c (import_export_decl): Use non-COMDAT external linkage
+	for virtual tables, typeinfo, etc. that will be emitted in only
+	one translation unit on systems without weak symbols.
+
+2005-04-05  Steven Bosscher  <stevenb@suse.de>
+
+	* typeck.c (comptypes): First determine if the types are compatible
+	from a target-independent point of view.  Check target attributes
+	last.
+
+2005-04-04  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20679
+	* parser.c (cp_parser_template_name): Fix thinko.
+
+2005-04-03  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+        PR c++/18644
+        * call.c (build_new_op): Remove check for -Wsynth.
+	
 2005-03-29  Richard Henderson  <rth@redhat.com>
 
 	PR c/20519
