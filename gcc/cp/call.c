@@ -188,6 +188,8 @@ static void add_candidates (tree, tree, tree, bool, tree, tree,
 			    int, struct z_candidate **);
 static conversion *merge_conversion_sequences (conversion *, conversion *);
 static bool magic_varargs_p (tree);
+static tree build_temp (tree, tree, int, void (**)(const char *, ...));
+static void check_constructor_callable (tree, tree);
 
 tree
 build_vfield_ref (tree datum, tree type)
@@ -1190,7 +1192,8 @@ reference_binding (tree rto, tree rfrom, tree expr, int flags)
     {
       conv = build_identity_conv (from, expr);
       conv = direct_reference_binding (rto, conv);
-      conv->u.next->check_copy_constructor_p = true;
+      if (!(flags & LOOKUP_CONSTRUCTOR_CALLABLE))
+	conv->u.next->check_copy_constructor_p = true;
       return conv;
     }
 
@@ -2497,9 +2500,7 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 		      || !DERIVED_FROM_P (totype, fromtype), 20011226);
 
   if (IS_AGGR_TYPE (totype))
-    ctors = lookup_fnfields (TYPE_BINFO (totype),
-			     complete_ctor_identifier,
-			     0);
+    ctors = lookup_fnfields (totype, complete_ctor_identifier, 0);
 
   if (IS_AGGR_TYPE (fromtype))
     conv_fns = lookup_conversions (fromtype);
@@ -2809,7 +2810,16 @@ build_operator_new_call (tree fnname, tree args, tree *size, tree *cookie_size)
   if (args == error_mark_node)
     return args;
 
-  fns = lookup_function_nonclass (fnname, args);
+  /* Based on:
+
+       [expr.new]
+
+       If this lookup fails to find the name, or if the allocated type
+       is not a class type, the allocation function's name is looked
+       up in the global scope.
+
+     we disregard block-scope declarations of "operator new".  */
+  fns = lookup_function_nonclass (fnname, args, /*block_p=*/false);
 
   /* Figure out what function is being called.  */
   cand = perform_overload_resolution (fns, args, &candidates, &any_viable_p);
@@ -3630,7 +3640,7 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
 
   /* Add namespace-scope operators to the list of functions to
      consider.  */
-  add_candidates (lookup_function_nonclass (fnname, arglist),
+  add_candidates (lookup_function_nonclass (fnname, arglist, /*block_p=*/true),
 		  arglist, NULL_TREE, false, NULL_TREE, NULL_TREE,
 		  flags, &candidates);
   /* Add class-member operators to the candidate set.  */
@@ -3638,7 +3648,7 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
     {
       tree fns;
 
-      fns = lookup_fnfields (TYPE_BINFO (TREE_TYPE (arg1)), fnname, 1);
+      fns = lookup_fnfields (TREE_TYPE (arg1), fnname, 1);
       if (fns == error_mark_node)
 	{
 	  result = error_mark_node;
@@ -3763,6 +3773,14 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
 	}
       else
 	{
+	  /* Give any warnings we noticed during overload resolution.  */
+	  if (cand->warnings)
+	    {
+	      struct candidate_warning *w;
+	      for (w = cand->warnings; w; w = w->next)
+		joust (cand, w->loser, 1);
+	    }
+
 	  /* Check for comparison of different enum types.  */
 	  switch (code)
 	    {
@@ -4046,7 +4064,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 bool
 enforce_access (tree basetype_path, tree decl)
 {
-  my_friendly_assert (TREE_CODE (basetype_path) == TREE_VEC, 20030624);
+  my_friendly_assert (TREE_CODE (basetype_path) == TREE_BINFO, 20030624);
   
   if (!accessible_p (basetype_path, decl))
     {
@@ -4063,6 +4081,20 @@ enforce_access (tree basetype_path, tree decl)
   return true;
 }
 
+/* Check that a callable constructor to initialize a temporary of
+   TYPE from an EXPR exists.  */
+
+static void
+check_constructor_callable (tree type, tree expr)
+{
+  build_special_member_call (NULL_TREE,
+			     complete_ctor_identifier,
+			     build_tree_list (NULL_TREE, expr), 
+			     type,
+			     LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING
+			     | LOOKUP_CONSTRUCTOR_CALLABLE);
+}
+
 /* Initialize a temporary of type TYPE with EXPR.  The FLAGS are a
    bitwise or of LOOKUP_* values.  If any errors are warnings are
    generated, set *DIAGNOSTIC_FN to "error" or "warning",
@@ -4074,13 +4106,12 @@ build_temp (tree expr, tree type, int flags,
 	    void (**diagnostic_fn)(const char *, ...))
 {
   int savew, savee;
-
+  
   savew = warningcount, savee = errorcount;
-  expr = build_special_member_call (NULL_TREE, 
+  expr = build_special_member_call (NULL_TREE,
 				    complete_ctor_identifier,
 				    build_tree_list (NULL_TREE, expr), 
-				    TYPE_BINFO (type),
-				    flags);
+				    type, flags);
   if (warningcount > savew)
     *diagnostic_fn = warning;
   else if (errorcount > savee)
@@ -4209,12 +4240,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  && TREE_CODE (TREE_TYPE (expr)) != ARRAY_TYPE)
 	expr = decl_constant_value (expr);
       if (convs->check_copy_constructor_p)
-	/* Generate a temporary copy purely to generate the required
-	   diagnostics.  */
-	build_temp
-	  (build_dummy_object
-	   (build_qualified_type (totype, TYPE_QUAL_CONST)),
-	   totype, LOOKUP_NORMAL|LOOKUP_ONLYCONVERTING, &diagnostic_fn);
+	check_constructor_callable (totype, expr);
 	return expr;
     case ck_ambig:
       /* Call build_user_type_conversion again for the error.  */
@@ -4243,12 +4269,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  /* We are going to bind a reference directly to a base-class
 	     subobject of EXPR.  */
 	  if (convs->check_copy_constructor_p)
-	    /* Generate a temporary copy purely to generate the required
-	       diagnostics.  */
-	    build_temp (build_dummy_object (TREE_TYPE (expr)),
-			TREE_TYPE (expr),
-			LOOKUP_NORMAL|LOOKUP_ONLYCONVERTING,
-			&diagnostic_fn);
+	    check_constructor_callable (TREE_TYPE (expr), expr);
 	  /* Build an expression for `*((base*) &expr)'.  */
 	  expr = build_unary_op (ADDR_EXPR, expr, 0);
 	  expr = perform_implicit_conversion (build_pointer_type (totype), 
@@ -4482,7 +4503,11 @@ type_passed_as (tree type)
 {
   /* Pass classes with copy ctors by invisible reference.  */
   if (TREE_ADDRESSABLE (type))
-    type = build_reference_type (type);
+    {
+      type = build_reference_type (type);
+      /* There are no other pointers to this temporary.  */
+      type = build_qualified_type (type, TYPE_QUAL_RESTRICT);
+    }
   else if (targetm.calls.promote_prototypes (type)
 	   && INTEGRAL_TYPE_P (type)
 	   && COMPLETE_TYPE_P (type)
@@ -4716,9 +4741,8 @@ build_over_call (struct z_candidate *cand, int flags)
 
   converted_args = nreverse (converted_args);
 
-  if (warn_format)
-    check_function_format (NULL, TYPE_ATTRIBUTES (TREE_TYPE (fn)),
-			   converted_args);
+  check_function_arguments (TYPE_ATTRIBUTES (TREE_TYPE (fn)),
+			    converted_args);
 
   /* Avoid actually calling copy constructors and copy assignment operators,
      if possible.  */
@@ -4788,31 +4812,28 @@ build_over_call (struct z_candidate *cand, int flags)
       tree type = TREE_TYPE (to);
       tree as_base = CLASSTYPE_AS_BASE (type);
 
-      arg = build_indirect_ref (TREE_VALUE (TREE_CHAIN (converted_args)), 0);
+      arg = TREE_VALUE (TREE_CHAIN (converted_args));
       if (tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (as_base)))
-	val = build (MODIFY_EXPR, TREE_TYPE (to), to, arg);
+	{
+	  arg = build_indirect_ref (arg, 0);
+	  val = build (MODIFY_EXPR, TREE_TYPE (to), to, arg);
+	}
       else
 	{
-	  /* We must only copy the non-tail padding parts. Use
-	     CLASSTYPE_AS_BASE for the bitwise copy.  */
-	  tree to_ptr, arg_ptr, to_as_base, arg_as_base, base_ptr_type;
-	  tree save_to;
+	  /* We must only copy the non-tail padding parts.
+	     Use __builtin_memcpy for the bitwise copy.  */
 
-	  to_ptr = save_expr (build_unary_op (ADDR_EXPR, to, 0));
-	  arg_ptr = build_unary_op (ADDR_EXPR, arg, 0);
+	  tree args, t;
 
-	  base_ptr_type = build_pointer_type (as_base);
-	  to_as_base = build_nop (base_ptr_type, to_ptr);
-	  to_as_base = build_indirect_ref (to_as_base, 0);
-	  arg_as_base = build_nop (base_ptr_type, arg_ptr);
-	  arg_as_base = build_indirect_ref (arg_as_base, 0);
+	  args = tree_cons (NULL, TYPE_SIZE_UNIT (as_base), NULL);
+	  args = tree_cons (NULL, arg, args);
+	  t = build_unary_op (ADDR_EXPR, to, 0);
+	  args = tree_cons (NULL, t, args);
+	  t = implicit_built_in_decls[BUILT_IN_MEMCPY];
+	  t = build_call (t, args);
 
-	  save_to = build_indirect_ref (to_ptr, 0);
-
-	  val = build (MODIFY_EXPR, as_base, to_as_base, arg_as_base);
-	  val = convert_to_void (val, NULL);
-	  val = build (COMPOUND_EXPR, type, val, save_to);
-	  TREE_NO_WARNING (val) = 1;
+	  t = convert (TREE_TYPE (TREE_VALUE (args)), t);
+	  val = build_indirect_ref (t, 0);
 	}
       
       return val;
@@ -4994,6 +5015,15 @@ build_special_member_call (tree instance, tree name, tree args,
 		      || name == deleting_dtor_identifier
 		      || name == ansi_assopname (NOP_EXPR),
 		      20020712);
+  if (TYPE_P (binfo))
+    {
+      /* Resolve the name.  */
+      if (!complete_type_or_else (binfo, NULL_TREE))
+	return error_mark_node;
+
+      binfo = TYPE_BINFO (binfo);
+    }
+  
   my_friendly_assert (binfo != NULL_TREE, 20020712);
 
   class_type = BINFO_TYPE (binfo);
@@ -5032,10 +5062,6 @@ build_special_member_call (tree instance, tree name, tree args,
     }
   
   my_friendly_assert (instance != NULL_TREE, 20020712);
-
-  /* Resolve the name.  */
-  if (!complete_type_or_else (BINFO_TYPE (binfo), NULL_TREE))
-    return error_mark_node;
 
   fns = lookup_fnfields (binfo, name, 1);
     
@@ -6282,8 +6308,7 @@ perform_direct_initialization_if_possible (tree type, tree expr)
     {
       expr = build_special_member_call (NULL_TREE, complete_ctor_identifier,
 					build_tree_list (NULL_TREE, expr),
-					TYPE_BINFO (type),
-					LOOKUP_NORMAL);
+					type, LOOKUP_NORMAL);
       return build_cplus_new (type, expr);
     }
 
@@ -6426,14 +6451,8 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
 	 remember that the conversion was required.  */
       if (conv->kind == ck_base && conv->need_temporary_p)
 	{
-	  void (*diagnostic_fn) (const char *, ...);
 	  if (conv->check_copy_constructor_p)
-	    /* Generate a temporary copy purely to generate the required
-	       diagnostics.  */
-	    build_temp (build_dummy_object (TREE_TYPE (expr)),
-			TREE_TYPE (expr),
-			LOOKUP_NORMAL|LOOKUP_ONLYCONVERTING,
-			&diagnostic_fn);
+ 	    check_constructor_callable (TREE_TYPE (expr), expr);
 	  base_conv_type = conv->type;
 	  conv = conv->u.next;
 	}

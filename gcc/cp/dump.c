@@ -264,15 +264,17 @@ cp_dump_tree (void* dump_info, tree t)
       if (CLASSTYPE_TEMPLATE_SPECIALIZATION(t))
         dump_string(di, "spec");
 
-      if (!dump_flag (di, TDF_SLIM, t))
+      if (!dump_flag (di, TDF_SLIM, t) && TYPE_BINFO (t))
 	{
 	  int i;
+	  tree binfo;
+	  tree base_binfo;
 	  
-	  for (i = 0; i < CLASSTYPE_N_BASECLASSES (t); ++i)
+	  for (binfo = TYPE_BINFO (t), i = 0;
+	       BINFO_BASE_ITERATE (binfo, i, base_binfo); ++i)
 	    {
-	      tree base_binfo = BINFO_BASETYPE (TYPE_BINFO (t), i);
 	      dump_child ("base", BINFO_TYPE (base_binfo));
-	      if (TREE_VIA_VIRTUAL (base_binfo)) 
+	      if (BINFO_VIRTUAL_P (base_binfo)) 
 		dump_string (di, "virtual");
 	      dump_access (di, base_binfo);
 	    }

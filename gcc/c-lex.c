@@ -122,7 +122,7 @@ get_fileinfo (const char *name)
   if (n)
     return (struct c_fileinfo *) n->value;
 
-  fi = xmalloc (sizeof (struct c_fileinfo));
+  fi = XNEW (struct c_fileinfo);
   fi->time = 0;
   fi->interface_only = 0;
   fi->interface_unknown = 1;
@@ -147,7 +147,7 @@ update_header_times (const char *name)
 }
 
 static int
-dump_one_header (splay_tree_node n, void *dummy ATTRIBUTE_UNUSED)
+dump_one_header (splay_tree_node n, void * ARG_UNUSED (dummy))
 {
   print_time ((const char *) n->key,
 	      ((struct c_fileinfo *) n->value)->time);
@@ -172,9 +172,9 @@ dump_time_statistics (void)
 }
 
 static void
-cb_ident (cpp_reader *pfile ATTRIBUTE_UNUSED,
-	  unsigned int line ATTRIBUTE_UNUSED,
-	  const cpp_string *str ATTRIBUTE_UNUSED)
+cb_ident (cpp_reader * ARG_UNUSED (pfile),
+	  unsigned int ARG_UNUSED (line),
+	  const cpp_string * ARG_UNUSED (str))
 {
 #ifdef ASM_OUTPUT_IDENT
   if (! flag_no_ident)
@@ -193,15 +193,19 @@ cb_ident (cpp_reader *pfile ATTRIBUTE_UNUSED,
 /* Called at the start of every non-empty line.  TOKEN is the first
    lexed token on the line.  Used for diagnostic line numbers.  */
 static void
-cb_line_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const cpp_token *token,
+cb_line_change (cpp_reader * ARG_UNUSED (pfile), const cpp_token *token,
 		int parsing_args)
 {
   if (token->type != CPP_EOF && !parsing_args)
+#ifdef USE_MAPPED_LOCATION
+    input_location = token->src_loc;
+#else
     {
       source_location loc = token->src_loc;
       const struct line_map *map = linemap_lookup (&line_table, loc);
       input_line = SOURCE_LINE (map, loc);
     }
+#endif
 }
 
 void
@@ -216,10 +220,17 @@ fe_file_change (const struct line_map *new_map)
 	 we already did in compile_file.  */
       if (! MAIN_FILE_P (new_map))
 	{
+#ifdef USE_MAPPED_LOCATION
+          int included_at = LAST_SOURCE_LINE_LOCATION (new_map - 1);
+
+	  input_location = included_at;
+	  push_srcloc (new_map->start_location);
+#else
           int included_at = LAST_SOURCE_LINE (new_map - 1);
 
 	  input_line = included_at;
 	  push_srcloc (new_map->to_file, 1);
+#endif
 	  (*debug_hooks->start_source_file) (included_at, new_map->to_file);
 #ifndef NO_IMPLICIT_EXTERN_C
 	  if (c_header_level)
@@ -249,8 +260,12 @@ fe_file_change (const struct line_map *new_map)
 
   update_header_times (new_map->to_file);
   in_system_header = new_map->sysp != 0;
+#ifdef USE_MAPPED_LOCATION
+  input_location = new_map->start_location;
+#else
   input_filename = new_map->to_file;
   input_line = new_map->to_line;
+#endif
 
   /* Hook for C++.  */
   extract_interface_info ();
@@ -264,7 +279,9 @@ cb_def_pragma (cpp_reader *pfile, source_location loc)
      -Wunknown-pragmas has been given.  */
   if (warn_unknown_pragmas > in_system_header)
     {
+#ifndef USE_MAPPED_LOCATION
       const struct line_map *map = linemap_lookup (&line_table, loc);
+#endif
       const unsigned char *space, *name;
       const cpp_token *s;
 
@@ -278,7 +295,11 @@ cb_def_pragma (cpp_reader *pfile, source_location loc)
 	    name = cpp_token_as_text (pfile, s);
 	}
 
+#ifdef USE_MAPPED_LOCATION
+      input_location = loc;
+#else
       input_line = SOURCE_LINE (map, loc);
+#endif
       warning ("ignoring #pragma %s %s", space, name);
     }
 }
@@ -294,7 +315,7 @@ cb_define (cpp_reader *pfile, source_location loc, cpp_hashnode *node)
 
 /* #undef callback for DWARF and DWARF2 debug info.  */
 static void
-cb_undef (cpp_reader *pfile ATTRIBUTE_UNUSED, source_location loc,
+cb_undef (cpp_reader * ARG_UNUSED (pfile), source_location loc,
 	  cpp_hashnode *node)
 {
   const struct line_map *map = linemap_lookup (&line_table, loc);
@@ -315,7 +336,7 @@ get_nonpadding_token (void)
   return tok;
 }
 
-int
+enum cpp_ttype
 c_lex_with_flags (tree *value, unsigned char *cpp_flags)
 {
   const cpp_token *tok;
@@ -432,7 +453,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
   return tok->type;
 }
 
-int
+enum cpp_ttype
 c_lex (tree *value)
 {
   return c_lex_with_flags (value, NULL);
@@ -499,7 +520,7 @@ interpret_integer (const cpp_token *token, unsigned int flags)
 
   integer = cpp_interpret_integer (parse_in, token, flags);
   integer = cpp_num_sign_extend (integer, options->precision);
-  value = build_int_2_wide (integer.low, integer.high);
+  value = build_int_2 (integer.low, integer.high);
 
   /* The type of a constant with a U suffix is straightforward.  */
   if (flags & CPP_N_UNSIGNED)
@@ -575,24 +596,24 @@ interpret_float (const cpp_token *token, unsigned int flags)
   REAL_VALUE_TYPE real;
   char *copy;
   size_t copylen;
-  const char *typename;
+  const char *type_name;
 
-  /* FIXME: make %T work in error/warning, then we don't need typename.  */
+  /* FIXME: make %T work in error/warning, then we don't need type_name.  */
   if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
     {
       type = long_double_type_node;
-      typename = "long double";
+      type_name = "long double";
     }
   else if ((flags & CPP_N_WIDTH) == CPP_N_SMALL
 	   || flag_single_precision_constant)
     {
       type = float_type_node;
-      typename = "float";
+      type_name = "float";
     }
   else
     {
       type = double_type_node;
-      typename = "double";
+      type_name = "double";
     }
 
   /* Copy the constant to a nul-terminated buffer.  If the constant
@@ -606,7 +627,7 @@ interpret_float (const cpp_token *token, unsigned int flags)
     /* I or J suffix.  */
     copylen--;
 
-  copy = alloca (copylen + 1);
+  copy = (char *) alloca (copylen + 1);
   memcpy (copy, token->val.str.text, copylen);
   copy[copylen] = '\0';
 
@@ -619,7 +640,7 @@ interpret_float (const cpp_token *token, unsigned int flags)
      ??? That's a dubious reason... is this a mandatory diagnostic or
      isn't it?   -- zw, 2001-08-21.  */
   if (REAL_VALUE_ISINF (real) && pedantic)
-    warning ("floating constant exceeds range of \"%s\"", typename);
+    warning ("floating constant exceeds range of \"%s\"", type_name);
 
   /* Create a node with determined type and value.  */
   value = build_real (type, real);
@@ -688,7 +709,7 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
 	    }
 	}
       while (tok->type == CPP_STRING || tok->type == CPP_WSTRING);
-      strs = obstack_finish (&str_ob);
+      strs = (cpp_string *) obstack_finish (&str_ob);
     }
 
   /* We have read one more token than we want.  */

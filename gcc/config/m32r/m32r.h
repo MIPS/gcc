@@ -1033,12 +1033,6 @@ extern enum reg_class m32r_regno_reg_class[FIRST_PSEUDO_REGISTER];
    SIZE is the number of bytes of arguments passed on the stack.  */
 #define RETURN_POPS_ARGS(DECL, FUNTYPE, SIZE) 0
 
-/* Nonzero if we do not know how to pass TYPE solely in registers.  */
-#define MUST_PASS_IN_STACK(MODE, TYPE)			\
-  ((TYPE) != 0						\
-   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST	\
-       || TREE_ADDRESSABLE (TYPE)))
-
 /* Define a data type for recording info about an argument list
    during the scan of that argument list.  This data type should
    hold all necessary information about the function itself
@@ -1116,15 +1110,6 @@ extern enum reg_class m32r_regno_reg_class[FIRST_PSEUDO_REGISTER];
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
   function_arg_partial_nregs (&CUM, (int)MODE, TYPE, NAMED)
 
-/* A C expression that indicates when an argument must be passed by
-   reference.  If nonzero for an argument, a copy of that argument is
-   made in memory and a pointer to the argument is passed instead of
-   the argument itself.  The pointer is passed in whatever way is
-   appropriate for passing a pointer to that type.  */
-/* All arguments greater than 8 bytes are passed this way.  */
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-  ((TYPE) && m32r_pass_by_reference (TYPE))
-
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
    (TYPE is null for libcalls where that information may not be available.)  */
@@ -1141,10 +1126,6 @@ extern enum reg_class m32r_regno_reg_class[FIRST_PSEUDO_REGISTER];
   (((TYPE) ? TYPE_ALIGN (TYPE) : GET_MODE_BITSIZE (MODE)) <= PARM_BOUNDARY \
    ? PARM_BOUNDARY : 2 * PARM_BOUNDARY)
 #endif
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  m32r_va_arg (valist, type)
 
 /* Function results.  */
 
@@ -1253,17 +1234,12 @@ L2:     .word STATIC
 	emit_insn (gen_flush_icache (validize_mem (gen_rtx_MEM (SImode, TRAMP)),\
 				     GEN_INT (m32r_cache_flush_trap) ));	\
       else if (m32r_cache_flush_func && m32r_cache_flush_func[0])		\
-	emit_library_call (gen_rtx_SYMBOL_REF (Pmode, m32r_cache_flush_func), 	\
+	emit_library_call (m32r_function_symbol (m32r_cache_flush_func), 	\
 			   0, VOIDmode, 3, TRAMP, Pmode,			\
 			   GEN_INT (TRAMPOLINE_SIZE), SImode,			\
 			   GEN_INT (3), SImode);				\
     }										\
   while (0)
-
-/* Library calls.  */
-
-/* Generate calls to memcpy, memcmp and memset.  */
-#define TARGET_MEM_FUNCTIONS
 
 #define RETURN_ADDR_RTX(COUNT, FRAME) m32r_return_addr (COUNT)
 

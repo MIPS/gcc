@@ -64,7 +64,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
     text = (JCF)->read_ptr; \
     save = text[LENGTH]; \
     text[LENGTH] = 0; \
-    (JCF)->cpool.data[INDEX].t = get_identifier (text); \
+    (JCF)->cpool.data[INDEX].t = get_identifier ((const char *) text); \
     text[LENGTH] = save; \
     JCF_SKIP (JCF, LENGTH); } while (0)
 
@@ -273,7 +273,8 @@ get_constant (JCF *jcf, int index)
     case CONSTANT_Long:
       {
 	unsigned HOST_WIDE_INT num = JPOOL_UINT (jcf, index);
-	HOST_WIDE_INT lo, hi;
+	unsigned HOST_WIDE_INT lo;
+	HOST_WIDE_INT hi;
 	lshift_double (num, 0, 32, 64, &lo, &hi, 0);
 	num = JPOOL_UINT (jcf, index+1);
 	add_double (lo, hi, num, 0, &lo, &hi);
@@ -411,7 +412,7 @@ give_name_to_class (JCF *jcf, int i)
       tree this_class;
       int j = JPOOL_USHORT1 (jcf, i);
       /* verify_constant_pool confirmed that j is a CONSTANT_Utf8. */
-      tree class_name = unmangle_classname (JPOOL_UTF_DATA (jcf, j),
+      tree class_name = unmangle_classname ((const char *) JPOOL_UTF_DATA (jcf, j),
 					    JPOOL_UTF_LENGTH (jcf, j));
       this_class = lookup_class (class_name);
       input_filename = DECL_SOURCE_FILE (TYPE_NAME (this_class));
@@ -439,11 +440,11 @@ get_class_constant (JCF *jcf, int i)
     {
       int name_index = JPOOL_USHORT1 (jcf, i);
       /* verify_constant_pool confirmed that name_index is a CONSTANT_Utf8. */
-      const char *name = JPOOL_UTF_DATA (jcf, name_index);
+      const char *name = (const char *) JPOOL_UTF_DATA (jcf, name_index);
       int nlength = JPOOL_UTF_LENGTH (jcf, name_index);
 
       if (name[0] == '[')  /* Handle array "classes". */
-	  type = TREE_TYPE (parse_signature_string (name, nlength));
+	  type = TREE_TYPE (parse_signature_string ((const unsigned char *) name, nlength));
       else
         { 
           tree cname = unmangle_classname (name, nlength);
@@ -501,7 +502,7 @@ read_class (tree name)
       java_parser_context_save_global ();
       java_push_parser_context ();
 
-      BUILD_FILENAME_IDENTIFIER_NODE (given_file, filename);
+      given_file = get_identifier (filename);
       real_file = get_identifier (lrealpath (filename));
 
       generate = IS_A_COMMAND_LINE_FILENAME_P (given_file);
@@ -875,6 +876,21 @@ predefined_filename_p (tree node)
   return 0;
 }
 
+/* Generate a function that does all static initialization for this 
+   translation unit.  */
+
+static void
+java_emit_static_constructor (void)
+{
+  tree body = NULL;
+
+  emit_register_classes (&body);
+  write_resource_constructor (&body);
+
+  if (body)
+    cgraph_build_static_cdtor ('I', body, DEFAULT_INIT_PRIORITY);
+}
+
 void
 java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 {
@@ -991,7 +1007,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	    }
 	  else
 	    {
-	      BUILD_FILENAME_IDENTIFIER_NODE (node, value);
+	      node = get_identifier (value);
 	      IS_A_COMMAND_LINE_FILENAME_P (node) = 1;
 	      current_file_list = tree_cons (NULL_TREE, node, 
 					     current_file_list);
@@ -1013,7 +1029,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
       resource_filename = IDENTIFIER_POINTER (TREE_VALUE (current_file_list));
       compile_resource_file (resource_name, resource_filename);
 
-      return;
+      goto finish;
     }
 
   current_jcf = main_jcf;
@@ -1120,22 +1136,22 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
   input_filename = main_input_filename;
 
   java_expand_classes ();
-  if (!java_report_errors () && !flag_syntax_only)
-    {
-      /* Expand all classes compiled from source.  */
-      java_finish_classes ();
+  if (java_report_errors () || flag_syntax_only)
+    return;
+    
+  /* Expand all classes compiled from source.  */
+  java_finish_classes ();
 
-      /* Emit the .jcf section.  */
-      emit_register_classes ();
+ finish:
+  /* Arrange for any necessary initialization to happen.  */
+  java_emit_static_constructor ();
 
-      /* Only finalize the compilation unit after we've told cgraph which
-	 functions have their addresses stored.  */
-      cgraph_finalize_compilation_unit ();
-      cgraph_optimize ();
-    }
-
-  write_resource_constructor ();
+  /* Only finalize the compilation unit after we've told cgraph which
+     functions have their addresses stored.  */
+  cgraph_finalize_compilation_unit ();
+  cgraph_optimize ();
 }
+
 
 /* Return the name of the class corresponding to the name of the file
    in this zip entry.  The result is newly allocated using ALLOC.  */

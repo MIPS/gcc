@@ -25,6 +25,9 @@ Boston, MA 02111-1307, USA.  */
 #define GCC_SH_PROTOS_H
 
 #ifdef RTX_CODE
+extern rtx sh_fsca_sf2int (void);
+extern rtx sh_fsca_df2int (void);
+extern rtx sh_fsca_int2sf (void);
 extern struct rtx_def *prepare_scc_operands (enum rtx_code);
 
 /* Declare functions defined in sh.c and used in templates.  */
@@ -100,7 +103,6 @@ extern void sh_expand_binop_v2sf (enum rtx_code, rtx, rtx, rtx);
 extern int sh_expand_t_scc (enum rtx_code code, rtx target);
 #ifdef TREE_CODE
 extern void sh_va_start (tree, rtx);
-extern rtx sh_va_arg (tree, tree);
 #endif /* TREE_CODE */
 #endif /* RTX_CODE */
 
@@ -144,3 +146,17 @@ extern const char *sh_pch_valid_p (const void *data_p, size_t sz);
 extern bool sh_promote_prototypes (tree);
 
 #endif /* ! GCC_SH_PROTOS_H */
+
+#ifdef SYMBIAN
+extern bool         sh_symbian_dllimport_name_p       (const char *);
+extern const char * sh_symbian_strip_name_encoding    (const char *);
+extern bool         sh_symbian_dllexport_name_p       (const char *);
+extern int          symbian_import_export_class       (tree, int);
+#ifdef TREE_CODE
+extern bool         sh_symbian_dllexport_p            (tree);
+extern tree         sh_symbian_handle_dll_attribute   (tree *, tree, tree, int, bool *);
+#ifdef RTX_CODE
+extern void         sh_symbian_encode_section_info    (tree, rtx, int);
+#endif
+#endif
+#endif /* SYMBIAN */

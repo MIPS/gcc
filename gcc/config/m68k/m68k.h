@@ -354,7 +354,7 @@ extern int target_flags;
 
 /* target machine storage layout */
 
-#define LONG_DOUBLE_TYPE_SIZE 96
+#define LONG_DOUBLE_TYPE_SIZE 80
 
 /* Set the value of FLT_EVAL_METHOD in float.h.  When using 68040 fp
    instructions, we get proper intermediate rounding, otherwise we
@@ -674,11 +674,6 @@ extern enum reg_class regno_reg_class[];
 /* On the 680x0, sp@- in a byte insn really pushes a word.
    On the ColdFire, sp@- in a byte insn pushes just a byte.  */
 #define PUSH_ROUNDING(BYTES) (TARGET_COLDFIRE ? BYTES : ((BYTES) + 1) & ~1)
-
-/* We want to avoid trying to push bytes.  */
-#define MOVE_BY_PIECES_P(SIZE, ALIGN) \
-  (move_by_pieces_ninsns (SIZE, ALIGN) < MOVE_RATIO \
-    && (((SIZE) >=16 && (ALIGN) >= 16) || (TARGET_COLDFIRE)))
 
 #define FIRST_PARM_OFFSET(FNDECL) 8
 
@@ -1275,4 +1270,5 @@ extern int m68k_last_compare_had_fp_operands;
   {"const_sint32_operand", {CONST_INT}},				\
   {"valid_dbcc_comparison_p", {EQ, NE, GTU, LTU, GEU, LEU,		\
 			       GT, LT, GE, LE}},			\
-  {"extend_operator", {SIGN_EXTEND, ZERO_EXTEND}},
+  {"extend_operator", {SIGN_EXTEND, ZERO_EXTEND}},			\
+  {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},

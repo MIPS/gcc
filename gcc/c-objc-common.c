@@ -27,6 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-config.h"
 #include "integrate.h"
 #include "c-tree.h"
+#include "c-pretty-print.h"
 #include "function.h"
 #include "flags.h"
 #include "toplev.h"
@@ -37,8 +38,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "tree-mudflap.h"
 #include "target.h"
-#include "cgraph.h"
-#include "c-pretty-print.h"
 #include "c-objc-common.h"
 
 static bool c_tree_printer (pretty_printer *, text_info *);
@@ -184,63 +183,6 @@ c_objc_common_init (void)
   return true;
 }
 
-/* Synthesize a function which calls all the global ctors or global dtors
-   in this file.  */
-static void
-build_cdtor (int method_type, tree cdtors)
-{
-  tree fnname = get_file_function_name (method_type);
-  tree cs;
-
-  start_function (void_list_node,
-		  build_nt (CALL_EXPR, fnname,
-			    tree_cons (NULL_TREE, NULL_TREE, void_list_node),
-			    NULL_TREE),
-		  NULL_TREE);
-  store_parm_decls ();
-
-  cs = c_begin_compound_stmt (true);
-
-  /* The Objective-C metadata initializer (if any) must be run
-     _before_ all other static constructors.  */
-  if (c_dialect_objc () && (method_type == 'I')
-      && objc_static_init_needed_p ())
-    cdtors = objc_generate_static_init_call (cdtors);
-
-  for (; cdtors; cdtors = TREE_CHAIN (cdtors))
-    add_stmt (build_function_call (TREE_VALUE (cdtors), 0));
-
-  add_stmt (c_end_compound_stmt (cs, true));
-
-  finish_function ();
-}
-
-/* Called at end of parsing, but before end-of-file processing.  */
-
-void
-c_objc_common_finish_file (void)
-{
-  if (pch_file)
-    c_common_write_pch ();
-
-  if (static_ctors)
-    {
-      build_cdtor ('I', static_ctors);
-      static_ctors = 0;
-    }
-  if (static_dtors)
-    {
-      build_cdtor ('D', static_dtors);
-      static_dtors = 0;
-    }
-
-  cgraph_finalize_compilation_unit ();
-  cgraph_optimize ();
-
-  if (flag_mudflap)
-    mudflap_finish_file ();
-}
-
 /* Called during diagnostic message formatting process to print a
    source-level entity onto BUFFER.  The meaning of the format specifiers
    is as follows:
@@ -257,7 +199,10 @@ static bool
 c_tree_printer (pretty_printer *pp, text_info *text)
 {
   tree t = va_arg (*text->args_ptr, tree);
+  tree name;
   const char *n = "({anonymous})";
+  c_pretty_printer *cpp = (c_pretty_printer *) pp;
+  pp->padding = pp_none;
 
   switch (*text->format_spec)
     {
@@ -269,14 +214,22 @@ c_tree_printer (pretty_printer *pp, text_info *text)
 
     case 'T':
       if (TYPE_P (t))
-	t = TYPE_NAME (t);
-      if (t && TREE_CODE (t) == TYPE_DECL)
+	name = TYPE_NAME (t);
+      else
+	abort ();
+      if (name && TREE_CODE (name) == TYPE_DECL)
 	{
-	  if (DECL_NAME (t))
-	    n = lang_hooks.decl_printable_name (t, 2);
+	  if (DECL_NAME (name))
+	    pp_string (cpp, lang_hooks.decl_printable_name (name, 2));
+	  else
+	    pp_type_id (cpp, t);
+	  return true;
 	}
-      else if (t)
-	n = IDENTIFIER_POINTER (t);
+      else
+	{
+	  pp_type_id (cpp, t);
+	  return true;
+	}
       break;
 
     case 'E':
@@ -290,7 +243,7 @@ c_tree_printer (pretty_printer *pp, text_info *text)
       return false;
     }
 
-  pp_base_string (pp, n);
+  pp_string (cpp, n);
   return true;
 }
 
@@ -333,11 +286,11 @@ void
 c_initialize_diagnostics (diagnostic_context *context)
 {
   pretty_printer *base = context->printer;
-  c_pretty_printer *pp = xmalloc (sizeof (c_pretty_printer));
+  c_pretty_printer *pp = XNEW (c_pretty_printer);
   memcpy (pp_base (pp), base, sizeof (pretty_printer));
   pp_c_pretty_printer_init (pp);
   context->printer = (pretty_printer *) pp;
 
-  /* It is safe to free this object because it was previously malloc()'d.  */
-  free (base);
+  /* It is safe to free this object because it was previously XNEW()'d.  */
+  XDELETE (base);
 }

@@ -65,6 +65,7 @@ package body Snames is
      "_abort_signal#" &
      "_alignment#" &
      "_assign#" &
+     "_atcb#" &
      "_chain#" &
      "_clean#" &
      "_controller#" &
@@ -145,6 +146,7 @@ package body Snames is
      "target#" &
      "req#" &
      "obj_typecode#" &
+     "stub#" &
      "Oabs#" &
      "Oand#" &
      "Omod#" &
@@ -425,6 +427,7 @@ package body Snames is
      "first_bit#" &
      "fixed_value#" &
      "fore#" &
+     "has_access_values#" &
      "has_discriminants#" &
      "identity#" &
      "img#" &

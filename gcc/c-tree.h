@@ -23,6 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define GCC_C_TREE_H
 
 #include "c-common.h"
+#include "diagnostic.h"
 
 /* struct lang_identifier is private to c-decl.c, but langhooks.c needs to
    know how big it is.  This is sanity-checked in c-decl.c.  */
@@ -79,10 +80,6 @@ struct lang_type GTY(())
 #define C_TYPE_VARIABLE_SIZE(TYPE) TYPE_LANG_FLAG_1 (TYPE)
 #define C_DECL_VARIABLE_SIZE(TYPE) DECL_LANG_FLAG_0 (TYPE)
 
-/* Store a value in that field.  */
-#define C_SET_EXP_ORIGINAL_CODE(EXP, CODE) \
-  (TREE_COMPLEXITY (EXP) = (int) (CODE))
-
 /* Record whether a typedef for type `int' was actually `signed int'.  */
 #define C_TYPEDEF_EXPLICITLY_SIGNED(EXP) DECL_LANG_FLAG_1 (EXP)
 
@@ -93,18 +90,14 @@ struct lang_type GTY(())
 /* For a FUNCTION_DECL, nonzero if it was an implicit declaration.  */
 #define C_DECL_IMPLICIT(EXP) DECL_LANG_FLAG_2 (EXP)
 
-/* For any decl, nonzero if it is bound in the externals scope and
-   pop_scope mustn't chain it into any higher block.  */
-#define C_DECL_IN_EXTERNAL_SCOPE(EXP) DECL_LANG_FLAG_3 (EXP)
-
 /* For FUNCTION_DECLs, evaluates true if the decl is built-in but has
    been declared.  */
-#define C_DECL_DECLARED_BUILTIN(EXP) DECL_LANG_FLAG_4 (EXP)
+#define C_DECL_DECLARED_BUILTIN(EXP) DECL_LANG_FLAG_3 (EXP)
 
 /* Record whether a decl was declared register.  This is strictly a
    front-end flag, whereas DECL_REGISTER is used for code generation;
    they may differ for structures with volatile fields.  */
-#define C_DECL_REGISTER(EXP) DECL_LANG_FLAG_5 (EXP)
+#define C_DECL_REGISTER(EXP) DECL_LANG_FLAG_4 (EXP)
 
 /* Nonzero for a decl which either doesn't exist or isn't a prototype.
    N.B. Could be simplified if all built-in decls had complete prototypes
@@ -117,7 +110,20 @@ struct lang_type GTY(())
 /* For FUNCTION_TYPE, a hidden list of types of arguments.  The same as
    TYPE_ARG_TYPES for functions with prototypes, but created for functions
    without prototypes.  */
-#define TYPE_ACTUAL_ARG_TYPES(NODE) TYPE_BINFO (NODE)
+#define TYPE_ACTUAL_ARG_TYPES(NODE) TYPE_LANG_SLOT_1 (NODE)
+
+/* Record parser information about an expression that is irrelevant
+   for code generation alongside a tree representing its value.  */
+struct c_expr
+{
+  /* The value of the expression.  */
+  tree value;
+  /* Record the original binary operator of an expression, which may
+     have been changed by fold, STRING_CST for unparenthesised string
+     constants, or ERROR_MARK for other expressions (including
+     parenthesized expressions).  */
+  enum tree_code original_code;
+};
 
 /* Save and restore the variables in this file and elsewhere
    that keep track of the progress of compilation of the current function.
@@ -183,6 +189,8 @@ extern void c_pop_function_context (struct function *);
 extern void push_parm_decl (tree);
 extern tree pushdecl_top_level (tree);
 extern tree set_array_declarator_type (tree, tree, int);
+extern tree builtin_function (const char *, tree, int, enum built_in_class,
+			      const char *, tree);
 extern void shadow_tag (tree);
 extern void shadow_tag_warned (tree, int);
 extern tree start_enum (tree);
@@ -192,7 +200,6 @@ extern tree start_struct (enum tree_code, tree);
 extern void store_parm_decls (void);
 extern tree xref_tag (enum tree_code, tree);
 extern int c_expand_decl (tree);
-extern void c_static_assembler_name (tree);
 extern tree make_pointer_declarator (tree, tree);
 
 /* in c-objc-common.c */
@@ -201,9 +208,9 @@ extern int c_cannot_inline_tree_fn (tree *);
 extern bool c_objc_common_init (void);
 extern bool c_missing_noreturn_ok_p (tree);
 extern tree c_objc_common_truthvalue_conversion (tree expr);
-extern void c_objc_common_finish_file (void);
 extern int defer_fn (tree);
 extern bool c_warn_unused_global_decl (tree);
+extern void c_initialize_diagnostics (diagnostic_context *);
 
 #define c_build_type_variant(TYPE, CONST_P, VOLATILE_P)		  \
   c_build_qualified_type ((TYPE),				  \
@@ -227,24 +234,26 @@ extern tree build_component_ref (tree, tree);
 extern tree build_indirect_ref (tree, const char *);
 extern tree build_array_ref (tree, tree);
 extern tree build_external_ref (tree, int);
-extern tree parser_build_binary_op (enum tree_code, tree, tree);
+extern struct c_expr parser_build_binary_op (enum tree_code, struct c_expr,
+					     struct c_expr);
 extern void readonly_error (tree, const char *);
 extern tree build_conditional_expr (tree, tree, tree);
-extern tree build_compound_expr (tree);
+extern tree build_compound_expr (tree, tree);
 extern tree c_cast_expr (tree, tree);
 extern tree build_c_cast (tree, tree);
 extern tree build_modify_expr (tree, enum tree_code, tree);
 extern void store_init_value (tree, tree);
 extern void error_init (const char *);
 extern void pedwarn_init (const char *);
+extern void maybe_warn_string_init (tree, struct c_expr);
 extern void start_init (tree, tree, int);
 extern void finish_init (void);
 extern void really_start_incremental_init (tree);
 extern void push_init_level (int);
-extern tree pop_init_level (int);
+extern struct c_expr pop_init_level (int);
 extern void set_init_index (tree, tree);
 extern void set_init_label (tree);
-extern void process_init_element (tree);
+extern void process_init_element (struct c_expr);
 extern tree build_compound_literal (tree, tree);
 extern void pedwarn_c90 (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern void pedwarn_c99 (const char *, ...) ATTRIBUTE_PRINTF_1;
@@ -298,9 +307,6 @@ extern bool c_eh_initialized_p;
 /* In c-decl.c */
 extern void c_finish_incomplete_decl (tree);
 extern void c_write_global_declarations (void);
-
-extern GTY(()) tree static_ctors;
-extern GTY(()) tree static_dtors;
 
 /* In order for the format checking to accept the C frontend
    diagnostic framework extensions, you must include this file before

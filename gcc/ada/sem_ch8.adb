@@ -549,18 +549,18 @@ package body Sem_Ch8 is
       end if;
    end Analyze_Expanded_Name;
 
-   ----------------------------------------
-   --  Analyze_Generic_Function_Renaming --
-   ----------------------------------------
+   ---------------------------------------
+   -- Analyze_Generic_Function_Renaming --
+   ---------------------------------------
 
    procedure Analyze_Generic_Function_Renaming  (N : Node_Id) is
    begin
       Analyze_Generic_Renaming (N, E_Generic_Function);
    end Analyze_Generic_Function_Renaming;
 
-   ---------------------------------------
-   --  Analyze_Generic_Package_Renaming --
-   ---------------------------------------
+   --------------------------------------
+   -- Analyze_Generic_Package_Renaming --
+   --------------------------------------
 
    procedure Analyze_Generic_Package_Renaming   (N : Node_Id) is
    begin
@@ -572,9 +572,9 @@ package body Sem_Ch8 is
       Analyze_Generic_Renaming (N, E_Generic_Package);
    end Analyze_Generic_Package_Renaming;
 
-   -----------------------------------------
-   --  Analyze_Generic_Procedure_Renaming --
-   -----------------------------------------
+   ----------------------------------------
+   -- Analyze_Generic_Procedure_Renaming --
+   ----------------------------------------
 
    procedure Analyze_Generic_Procedure_Renaming (N : Node_Id) is
    begin
@@ -1918,6 +1918,11 @@ package body Sem_Ch8 is
       Rewrite (N, Body_Node);
       Analyze (N);
 
+      if Is_Compilation_Unit (New_S) then
+         Error_Msg_N
+           ("a library unit can only rename another library unit", N);
+      end if;
+
       Set_Etype (New_S, Base_Type (Etype (New_S)));
 
       --  We suppress elaboration warnings for the resulting entity, since
@@ -1941,9 +1946,9 @@ package body Sem_Ch8 is
       Scope_Stack.Table (Scope_Stack.Last).First_Use_Clause := N;
    end Chain_Use_Clause;
 
-   ----------------------------
-   --  Check_Frozen_Renaming --
-   ----------------------------
+   ---------------------------
+   -- Check_Frozen_Renaming --
+   ---------------------------
 
    procedure Check_Frozen_Renaming (N : Node_Id; Subp : Entity_Id) is
       B_Node : Node_Id;
@@ -2048,6 +2053,14 @@ package body Sem_Ch8 is
 
       elsif Scope (Old_E) /= Standard_Standard
         and then not Is_Child_Unit (Old_E)
+      then
+         Error_Msg_N ("renamed unit must be a library unit", Name (N));
+
+      --  Entities defined in Standard (operators and boolean literals) cannot
+      --  be renamed as library units.
+
+      elsif Scope (Old_E) = Standard_Standard
+        and then Sloc (Old_E) = Standard_Location
       then
          Error_Msg_N ("renamed unit must be a library unit", Name (N));
 
@@ -3592,7 +3605,11 @@ package body Sem_Ch8 is
 
          begin
             while Present (H) loop
-               if Scope (H) = Scope (Id) then
+               if Scope (H) = Scope (Id)
+                 and then
+                   (not Is_Hidden (H)
+                      or else Is_Immediately_Visible (H))
+               then
                   Collect_Interps (N);
                   exit;
                end if;

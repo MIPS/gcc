@@ -175,6 +175,16 @@ struct loop
   /* The number of LABEL_REFs on exit_labels for this loop and all
      loops nested inside it.  */
   int exit_count;
+
+  /* The probable number of times the loop is executed at runtime.
+     This is an INTEGER_CST or an expression containing symbolic
+     names.  Don't access this field directly:
+     number_of_iterations_in_loop computes and caches the computed
+     information in this field.  */
+  tree nb_iterations;
+
+  /* Upper bound on number of iterations of a loop.  */
+  struct nb_iter_bound *bounds;
 };
 
 /* Flags for state of loop structure.  */
@@ -224,6 +234,10 @@ struct loops
   int state;
 };
 
+/* The loop tree currently optimized.  */
+
+extern struct loops *current_loops;
+
 /* Flags for loop discovery.  */
 
 #define LOOP_TREE		1	/* Build loop hierarchy tree.  */
@@ -253,6 +267,7 @@ extern bool flow_loop_outside_edge_p (const struct loop *, edge);
 extern bool flow_loop_nested_p	(const struct loop *, const struct loop *);
 extern bool flow_bb_inside_loop_p (const struct loop *, const basic_block);
 extern struct loop * find_common_loop (struct loop *, struct loop *);
+struct loop *superloop_at_depth (struct loop *, unsigned);
 extern int num_loop_insns (struct loop *);
 extern int average_num_loop_insns (struct loop *);
 extern unsigned get_loop_level (const struct loop *);

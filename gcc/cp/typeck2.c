@@ -114,6 +114,119 @@ readonly_error (tree arg, const char* string, int soft)
     (*fn) ("%s of read-only location", string);
 }
 
+
+/* Structure that holds information about declarations whose type was
+   incomplete and we could not check whether it was abstract or not.  */
+
+struct pending_abstract_type GTY((chain_next ("%h.next")))
+{
+  /* Declaration which we are checking for abstractness. It is either
+     a DECL node, or an IDENTIFIER_NODE if we do not have a full
+     declaration available.  */
+  tree decl;
+
+  /* Type which will be checked for abstractness.  */
+  tree type;
+
+  /* Position of the declaration. This is only needed for IDENTIFIER_NODEs,
+     because DECLs already carry locus information.  */
+  location_t locus;
+
+  /* Link to the next element in list.  */
+  struct pending_abstract_type* next;
+};
+
+
+/* Compute the hash value of the node VAL. This function is used by the
+   hash table abstract_pending_vars.  */
+
+static hashval_t
+pat_calc_hash (const void* val)
+{
+  const struct pending_abstract_type* pat = val;
+  return (hashval_t) TYPE_UID (pat->type);
+}
+
+
+/* Compare node VAL1 with the type VAL2. This function is used by the
+   hash table abstract_pending_vars.  */
+
+static int
+pat_compare (const void* val1, const void* val2)
+{
+  const struct pending_abstract_type* pat1 = val1;
+  tree type2 = (tree)val2;
+
+  return (pat1->type == type2);
+}
+
+/* Hash table that maintains pending_abstract_type nodes, for which we still
+   need to check for type abstractness.  The key of the table is the type
+   of the declaration.  */
+static GTY ((param_is (struct pending_abstract_type)))
+htab_t abstract_pending_vars = NULL;
+
+
+/* This function is called after TYPE is completed, and will check if there
+   are pending declarations for which we still need to verify the abstractness
+   of TYPE, and emit a diagnostic (through abstract_virtuals_error) if TYPE
+   turned out to be incomplete.  */
+
+void
+complete_type_check_abstract (tree type)
+{
+  void **slot;
+  struct pending_abstract_type *pat;
+  location_t cur_loc = input_location;
+
+  my_friendly_assert (COMPLETE_TYPE_P (type), 20040620_3);
+
+  if (!abstract_pending_vars)
+    return;
+
+  /* Retrieve the list of pending declarations for this type.  */
+  slot = htab_find_slot_with_hash (abstract_pending_vars, type,
+				   (hashval_t)TYPE_UID (type), NO_INSERT);
+  if (!slot)
+    return;
+  pat = (struct pending_abstract_type*)*slot;
+  my_friendly_assert (pat, 20040620_2);
+
+  /* If the type is not abstract, do not do anything.  */
+  if (CLASSTYPE_PURE_VIRTUALS (type))
+    {
+      struct pending_abstract_type *prev = 0, *next;
+
+      /* Reverse the list to emit the errors in top-down order.  */
+      for (; pat; pat = next)
+	{
+	  next = pat->next;
+	  pat->next = prev;
+	  prev = pat;
+	}
+      pat = prev;
+
+      /* Go through the list, and call abstract_virtuals_error for each
+	element: it will issue a diagostic if the type is abstract.  */
+      while (pat)
+	{
+	  my_friendly_assert (type == pat->type, 20040620_4);
+
+	  /* Tweak input_location so that the diagnostic appears at the correct
+	    location. Notice that this is only needed if the decl is an
+	    IDENTIFIER_NODE, otherwise cp_error_at. */
+	  input_location = pat->locus;
+	  abstract_virtuals_error (pat->decl, pat->type);
+	  pat = pat->next;
+	}
+    }
+
+  htab_clear_slot (abstract_pending_vars, slot);
+
+  input_location = cur_loc;
+}
+
+
 /* If TYPE has abstract virtual functions, issue an error about trying
    to create an object of that type.  DECL is the object declared, or
    NULL_TREE if the declaration is unavailable.  Returns 1 if an error
@@ -125,17 +238,50 @@ abstract_virtuals_error (tree decl, tree type)
   tree u;
   tree tu;
 
-  if (!CLASS_TYPE_P (type) || !CLASSTYPE_PURE_VIRTUALS (type))
+  /* This function applies only to classes. Any other entity can never
+     be abstract.  */
+  if (!CLASS_TYPE_P (type))
+    return 0;
+
+  /* If the type is incomplete, we register it within a hash table,
+     so that we can check again once it is completed. This makes sense
+     only for objects for which we have a declaration or at least a
+     name.  */
+  if (!COMPLETE_TYPE_P (type))
+    {
+      void **slot;
+      struct pending_abstract_type *pat;
+
+      my_friendly_assert (!decl || (DECL_P (decl) 
+				    || TREE_CODE (decl) == IDENTIFIER_NODE),
+			  20040620_1);
+
+      if (!abstract_pending_vars)
+	abstract_pending_vars = htab_create_ggc (31, &pat_calc_hash, 
+						&pat_compare, NULL);
+
+      slot = htab_find_slot_with_hash (abstract_pending_vars, type,
+				      (hashval_t)TYPE_UID (type), INSERT);
+
+      pat = GGC_NEW (struct pending_abstract_type);
+      pat->type = type;
+      pat->decl = decl;
+      pat->locus = ((decl && DECL_P (decl))
+		    ? DECL_SOURCE_LOCATION (decl)
+		    : input_location);
+
+      pat->next = *slot;
+      *slot = pat;
+
+      return 0;
+    }
+
+  if (!CLASSTYPE_PURE_VIRTUALS (type))
     return 0;
 
   if (!TYPE_SIZE (type))
     /* TYPE is being defined, and during that time
        CLASSTYPE_PURE_VIRTUALS holds the inline friends.  */
-    return 0;
-
-  if (dependent_type_p (type))
-    /* For a dependent type, we do not yet know which functions are pure
-       virtuals.  */
     return 0;
 
   u = CLASSTYPE_PURE_VIRTUALS (type);
@@ -160,6 +306,10 @@ abstract_virtuals_error (tree decl, tree type)
       else if (TREE_CODE (decl) == FUNCTION_DECL)
 	cp_error_at ("invalid abstract return type for function `%+#D'", 
 		     decl);
+      else if (TREE_CODE (decl) == IDENTIFIER_NODE)
+	/* Here we do not have location information, so use error instead
+	   of cp_error_at.  */
+	error ("invalid abstract type `%T' for `%E'", type, decl);
       else
 	cp_error_at ("invalid abstract type for `%+D'", decl);
     }
@@ -804,7 +954,7 @@ process_init_constructor (tree type, tree init, tree* elts)
 	      return error_mark_node;
 	    }
 
-	  if (TYPE_BINFO_BASETYPES (type))
+	  if (TYPE_BINFO (type) && BINFO_N_BASE_BINFOS (TYPE_BINFO (type)))
 	    {
 	      sorry ("initializer list for object of class with base classes");
 	      return error_mark_node;
@@ -1154,6 +1304,7 @@ build_m_component_ref (tree datum, tree component)
   tree objtype;
   tree type;
   tree binfo;
+  tree ctype;
 
   datum = decay_conversion (datum);
 
@@ -1177,16 +1328,28 @@ build_m_component_ref (tree datum, tree component)
     }
 
   type = TYPE_PTRMEM_POINTED_TO_TYPE (ptrmem_type);
-  binfo = lookup_base (objtype, TYPE_PTRMEM_CLASS_TYPE (ptrmem_type),
-		       ba_check, NULL);
-  if (!binfo)
+  ctype = complete_type (TYPE_PTRMEM_CLASS_TYPE (ptrmem_type));
+
+  if (!COMPLETE_TYPE_P (ctype))
     {
-      error ("member type `%T::' incompatible with object type `%T'",
-	     type, objtype);
-      return error_mark_node;
+      if (!same_type_p (ctype, objtype))
+	goto mismatch;
+      binfo = NULL;
     }
-  else if (binfo == error_mark_node)
-    return error_mark_node;
+  else
+    {
+      binfo = lookup_base (objtype, ctype, ba_check, NULL);
+      
+      if (!binfo)
+	{
+	mismatch:
+	  error ("pointer to member type `%T' incompatible with object type `%T'",
+		 type, objtype);
+	  return error_mark_node;
+	}
+      else if (binfo == error_mark_node)
+	return error_mark_node;
+    }
 
   if (TYPE_PTRMEM_P (ptrmem_type))
     {
@@ -1197,12 +1360,17 @@ build_m_component_ref (tree datum, tree component)
       type = cp_build_qualified_type (type,
 				      (cp_type_quals (type)  
 				       | cp_type_quals (TREE_TYPE (datum))));
+
+      datum = build_address (datum);
+      
+      /* Convert object to the correct base.  */
+      if (binfo)
+	datum = build_base_path (PLUS_EXPR, datum, binfo, 1);
+      
       /* Build an expression for "object + offset" where offset is the
 	 value stored in the pointer-to-data-member.  */
       datum = build (PLUS_EXPR, build_pointer_type (type),
-		     build_base_path (PLUS_EXPR, build_address (datum), 
-				      binfo, 1),
-		     build_nop (ptrdiff_type_node, component));
+		     datum, build_nop (ptrdiff_type_node, component));
       return build_indirect_ref (datum, 0);
     }
   else
@@ -1270,7 +1438,7 @@ build_functional_cast (tree exp, tree parms)
     }
 
   exp = build_special_member_call (NULL_TREE, complete_ctor_identifier, parms,
-				   TYPE_BINFO (type), LOOKUP_NORMAL);
+				   type, LOOKUP_NORMAL);
 
   if (exp == error_mark_node)
     return error_mark_node;
@@ -1405,3 +1573,6 @@ require_complete_eh_spec_types (tree fntype, tree decl)
 	}
     }
 }
+
+
+#include "gt-cp-typeck2.h"

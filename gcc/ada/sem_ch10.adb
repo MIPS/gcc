@@ -43,6 +43,7 @@ with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Output;   use Output;
 with Restrict; use Restrict;
+with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Ch6;  use Sem_Ch6;
 with Sem_Ch7;  use Sem_Ch7;
@@ -495,6 +496,16 @@ package body Sem_Ch10 is
       then
          Set_Acts_As_Spec (N);
       end if;
+
+      --  Register predefined units in Rtsfind
+
+      declare
+         Unum : constant Unit_Number_Type := Get_Source_Unit (Sloc (N));
+      begin
+         if Is_Predefined_File_Name (Unit_File_Name (Unum)) then
+            Set_RTU_Loaded (Unit_Node);
+         end if;
+      end;
 
       --  Treat compilation unit pragmas that appear after the library unit
 
@@ -1300,9 +1311,9 @@ package body Sem_Ch10 is
       --  Remove current scope from scope stack, and preserve the list
       --  of use clauses in it, to be reinstalled after context is analyzed.
 
-      ------------------------------
-      --  Analyze_Subunit_Context --
-      ------------------------------
+      -----------------------------
+      -- Analyze_Subunit_Context --
+      -----------------------------
 
       procedure Analyze_Subunit_Context is
          Item      :  Node_Id;
@@ -2482,8 +2493,16 @@ package body Sem_Ch10 is
 
    function Get_Parent_Entity (Unit : Node_Id) return Entity_Id is
    begin
-      if Nkind (Unit) = N_Package_Instantiation then
+      if Nkind (Unit) = N_Package_Body
+        and then Nkind (Original_Node (Unit)) = N_Package_Instantiation
+      then
+         return
+           Defining_Entity
+             (Specification (Instance_Spec (Original_Node (Unit))));
+
+      elsif Nkind (Unit) = N_Package_Instantiation then
          return Defining_Entity (Specification (Instance_Spec (Unit)));
+
       else
          return Defining_Entity (Unit);
       end if;
@@ -2499,7 +2518,9 @@ package body Sem_Ch10 is
    is
       Loc    : constant Source_Ptr := Sloc (N);
       P      : constant Node_Id    := Parent_Spec (Child_Unit);
-      P_Unit : constant Node_Id    := Unit (P);
+
+      P_Unit : Node_Id    := Unit (P);
+
       P_Name : constant Entity_Id  := Get_Parent_Entity (P_Unit);
       Withn  : Node_Id;
 
@@ -2551,6 +2572,16 @@ package body Sem_Ch10 is
    --  Start of processing for Implicit_With_On_Parent
 
    begin
+      --  The unit of the current compilation may be a package body
+      --  that replaces an instance node. In this case we need the
+      --  original instance node to construct the proper parent name.
+
+      if Nkind (P_Unit) = N_Package_Body
+        and then Nkind (Original_Node (P_Unit)) = N_Package_Instantiation
+      then
+         P_Unit := Original_Node (P_Unit);
+      end if;
+
       New_Nodes_OK := New_Nodes_OK + 1;
       Withn := Make_With_Clause (Loc, Name => Build_Unit_Name);
 
@@ -2857,9 +2888,9 @@ package body Sem_Ch10 is
       --  context_clause as a nonlimited with_clause that mentions
       --  the same library.
 
-      --------------------
-      --  Check_Parent  --
-      --------------------
+      ------------------
+      -- Check_Parent --
+      ------------------
 
       procedure Check_Parent (P : Node_Id; W : Node_Id) is
          Item   : Node_Id;
@@ -3216,13 +3247,6 @@ package body Sem_Ch10 is
               and then Is_Ancestor_Package (Scope (Id), U_Name)
             then
                Set_Is_Immediately_Visible (Id);
-
-               --  Ada 2005 (AI-262): Make visible the private entities of
-               --  private-withed siblings
-
-               if Private_Present (Item) then
-                  Install_Private_Declarations (Id);
-               end if;
 
                --  Check for the presence of another unit in the context,
                --  that may be inadvertently hidden by the child.
@@ -4307,16 +4331,26 @@ package body Sem_Ch10 is
    procedure Remove_Parents (Lib_Unit : Node_Id) is
       P      : Node_Id;
       P_Name : Entity_Id;
+      P_Spec : Node_Id := Empty;
       E      : Entity_Id;
       Vis    : constant Boolean :=
                  Scope_Stack.Table (Scope_Stack.Last).Previous_Visibility;
 
    begin
       if Is_Child_Spec (Lib_Unit) then
-         P := Unit (Parent_Spec (Lib_Unit));
-         P_Name := Get_Parent_Entity (P);
+         P_Spec := Parent_Spec (Lib_Unit);
 
-         Remove_Context_Clauses (Parent_Spec (Lib_Unit));
+      elsif Nkind (Lib_Unit) = N_Package_Body
+        and then Nkind (Original_Node (Lib_Unit)) = N_Package_Instantiation
+      then
+         P_Spec := Parent_Spec (Original_Node (Lib_Unit));
+      end if;
+
+      if Present (P_Spec) then
+
+         P := Unit (P_Spec);
+         P_Name := Get_Parent_Entity (P);
+         Remove_Context_Clauses (P_Spec);
          End_Package_Scope (P_Name);
          Set_Is_Immediately_Visible (P_Name, Vis);
 

@@ -45,12 +45,6 @@ enum processor_type
   PROCESSOR_8000
 };
 
-/* For -mschedule= option.  */
-extern const char *pa_cpu_string;
-extern enum processor_type pa_cpu;
-
-#define pa_cpu_attr ((enum attr_cpu)pa_cpu)
-
 /* Which architecture to generate code for.  */
 
 enum architecture_type
@@ -65,6 +59,15 @@ struct rtx_def;
 /* For -march= option.  */
 extern const char *pa_arch_string;
 extern enum architecture_type pa_arch;
+
+/* For -mfixed-range= option.  */
+extern const char *pa_fixed_range_string;
+
+/* For -mschedule= option.  */
+extern const char *pa_cpu_string;
+extern enum processor_type pa_cpu;
+
+#define pa_cpu_attr ((enum attr_cpu)pa_cpu)
 
 /* Print subsidiary information on the compiler version in use.  */
 
@@ -306,10 +309,13 @@ extern int target_flags;
 
 #define TARGET_OPTIONS							\
 {									\
-  { "schedule=",		&pa_cpu_string,				\
-    N_("Specify CPU for scheduling purposes"), 0},			\
   { "arch=",			&pa_arch_string,			\
-    N_("Specify architecture for code generation.  Values are 1.0, 1.1, and 2.0.  2.0 requires gas snapshot 19990413 or later."), 0}\
+    N_("Specify PA-RISC architecture for code generation.  "		\
+       "Values are 1.0, 1.1 and 2.0."), 0},				\
+  { "fixed-range=",		&pa_fixed_range_string,			\
+    N_("Specify range of registers to make fixed"), 0},			\
+  { "schedule=",		&pa_cpu_string,				\
+    N_("Specify CPU for scheduling purposes"), 0}			\
 }
 
 /* Support for a compile-time default CPU, et cetera.  The rules are:
@@ -424,6 +430,12 @@ do {								\
 #define CAN_DEBUG_WITHOUT_FP
 
 /* target machine storage layout */
+typedef struct machine_function GTY(())
+{
+  /* Flag indicating that a .NSUBSPA directive has been output for
+     this function.  */
+  int in_nsubspa;
+} machine_function;
 
 /* Define this macro if it is advisable to hold scalars in registers
    in a wider mode than that declared by the program.  In such cases, 
@@ -500,9 +512,6 @@ do {								\
    when given unaligned data.  */
 #define STRICT_ALIGNMENT 1
 
-/* Generate calls to memcpy, memcmp and memset.  */
-#define TARGET_MEM_FUNCTIONS
-
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
    If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
@@ -536,10 +545,10 @@ do {								\
   do {(VAR) = - compute_frame_size (get_frame_size (), 0);} while (0)
 
 /* Base register for access to arguments of the function.  */
-#define ARG_POINTER_REGNUM 3
+#define ARG_POINTER_REGNUM (TARGET_64BIT ? 29 : 3)
 
 /* Register in which static-chain is passed to a function.  */
-#define STATIC_CHAIN_REGNUM 29
+#define STATIC_CHAIN_REGNUM (TARGET_64BIT ? 31 : 29)
 
 /* Register used to address the offset table for position-independent
    data references.  */
@@ -872,19 +881,26 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
   the standard parameter passing conventions on the RS6000.  That's why
   you'll see lots of similar code in rs6000.h.  */
 
+/* If defined, a C expression which determines whether, and in which
+   direction, to pad out an argument with extra space.  */
 #define FUNCTION_ARG_PADDING(MODE, TYPE) function_arg_padding ((MODE), (TYPE))
+
+/* Specify padding for the last element of a block move between registers
+   and memory.
+
+   The 64-bit runtime specifies that objects need to be left justified
+   (i.e., the normal justification for a big endian target).  The 32-bit
+   runtime specifies right justification for objects smaller than 64 bits.
+   We use a DImode register in the parallel for 5 to 7 byte structures
+   so that there is only one element.  This allows the object to be
+   correctly padded.  */
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) (TARGET_64BIT ? upward : downward)
 
 /* Do not expect to understand this without reading it several times.  I'm
    tempted to try and simply it, but I worry about breaking something.  */
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg (&CUM, MODE, TYPE, NAMED)
-
-/* Nonzero if we do not know how to pass TYPE solely in registers.  */
-#define MUST_PASS_IN_STACK(MODE,TYPE) \
-  ((TYPE) != 0							\
-   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST		\
-       || TREE_ADDRESSABLE (TYPE)))
 
 /* For an arg passed partly in registers and partly in memory,
    this is the number of registers used.
@@ -909,27 +925,7 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
     : GET_MODE_SIZE(MODE) <= UNITS_PER_WORD)				\
    ? PARM_BOUNDARY : MAX_PARM_BOUNDARY)
 
-/* In the 32-bit runtime, arguments larger than eight bytes are passed
-   by invisible reference.  As a GCC extension, we also pass anything
-   with a zero or variable size by reference.
-
-   The 64-bit runtime does not describe passing any types by invisible
-   reference.  The internals of GCC can't currently handle passing
-   empty structures, and zero or variable length arrays when they are
-   not passed entirely on the stack or by reference.  Thus, as a GCC
-   extension, we pass these types by reference.  The HP compiler doesn't
-   support these types, so hopefully there shouldn't be any compatibility
-   issues.  This may have to be revisited when HP releases a C99 compiler
-   or updates the ABI.  */
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED)		\
-  (TARGET_64BIT								\
-   ? ((TYPE) && int_size_in_bytes (TYPE) <= 0)				\
-   : (((TYPE) && (int_size_in_bytes (TYPE) > 8				\
-		  || int_size_in_bytes (TYPE) <= 0))			\
-      || ((MODE) && GET_MODE_SIZE (MODE) > 8)))
- 
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) 		\
-  FUNCTION_ARG_PASS_BY_REFERENCE (CUM, MODE, TYPE, NAMED)
+#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) 1
 
 
 extern GTY(()) rtx hppa_compare_op0;
@@ -1143,11 +1139,6 @@ extern int may_call_alloca;
 
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   hppa_va_start (valist, nextarg)
-
-/* Implement `va_arg'.  */
-
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  hppa_va_arg (valist, type)
 
 /* Addressing modes, and classification of registers for them. 
 
@@ -2023,6 +2014,7 @@ do { 									\
 				       CONST_DOUBLE}},			\
   {"move_dest_operand", {SUBREG, REG, MEM}},				\
   {"move_src_operand", {SUBREG, REG, CONST_INT, MEM}},			\
+  {"prefetch_operand", {MEM}},						\
   {"reg_or_cint_move_operand", {SUBREG, REG, CONST_INT}},		\
   {"pic_label_operand", {LABEL_REF, CONST}},				\
   {"fp_reg_operand", {REG}},						\

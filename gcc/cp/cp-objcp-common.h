@@ -28,7 +28,7 @@ extern HOST_WIDE_INT cxx_get_alias_set (tree);
 extern bool cxx_warn_unused_global_decl (tree);
 extern tree cp_expr_size (tree);
 extern size_t cp_tree_size (enum tree_code);
-extern bool cp_var_mod_type_p (tree);
+extern bool cp_var_mod_type_p (tree, tree);
 extern void cxx_initialize_diagnostics (struct diagnostic_context *);
 
 /* In cp/cp-lang.c and objcp/objcp-lang.c.  */
@@ -70,12 +70,8 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL cxx_dup_lang_specific_decl
-#undef LANG_HOOKS_MAYBE_BUILD_CLEANUP
-#define LANG_HOOKS_MAYBE_BUILD_CLEANUP cxx_maybe_build_cleanup
 #undef LANG_HOOKS_TRUTHVALUE_CONVERSION
 #define LANG_HOOKS_TRUTHVALUE_CONVERSION c_common_truthvalue_conversion
-#undef LANG_HOOKS_UNSAFE_FOR_REEVAL
-#define LANG_HOOKS_UNSAFE_FOR_REEVAL c_common_unsafe_for_reeval
 #undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
 #define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME mangle_decl
 #undef LANG_HOOKS_MARK_ADDRESSABLE
@@ -92,17 +88,10 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #define LANG_HOOKS_PRINT_IDENTIFIER cxx_print_identifier
 #undef LANG_HOOKS_PRINT_ERROR_FUNCTION
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION	cxx_print_error_function
-#undef LANG_HOOKS_PUSHLEVEL
-#define LANG_HOOKS_PUSHLEVEL lhd_do_nothing_i
-#undef LANG_HOOKS_POPLEVEL
-#define LANG_HOOKS_POPLEVEL lhd_do_nothing_iii_return_null_tree
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL cxx_warn_unused_global_decl
 #undef LANG_HOOKS_WRITE_GLOBALS
 #define LANG_HOOKS_WRITE_GLOBALS lhd_do_nothing
-#undef LANG_HOOKS_UPDATE_DECL_AFTER_SAVING
-#define LANG_HOOKS_UPDATE_DECL_AFTER_SAVING cp_update_decl_after_saving
-
 
 #undef LANG_HOOKS_FUNCTION_INIT
 #define LANG_HOOKS_FUNCTION_INIT cxx_push_function_context
@@ -131,9 +120,6 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #undef LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P
 #define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
   cp_auto_var_in_fn_p
-#undef LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING
-#define LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING \
-  cp_copy_res_decl_for_inlining
 #undef LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P anon_aggr_type_p
 #undef LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P

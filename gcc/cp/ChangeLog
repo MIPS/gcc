@@ -1,15 +1,1197 @@
+2004-07-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (IDENTIFIER_REPO_CHOSEN): Define.
+	(lang_decl_flags): Narrow the width of "languages".  Add
+	repo_available_p.
+	(DECL_NEEDED_P): Remove.
+	(FOR_EACH_CLONE): New macro.
+	(DECL_REPO_AVAILABLE_P): Likewise.
+	(DECL_TINFO_P): Likewise.
+	(set_linkage_according_to_type): Declare.
+	(import_export_vtable): Remove.
+	(import_export_tinfo): Likewise.
+	(mark_needed): New function.
+	(decl_needed_p): Likewise.
+	(note_vauge_linkage_fn): Likewise.
+	(init_repo): Change prototype.
+	(repo_template_used): Remove.
+	(repo_template_instantiated): Likewise.
+	(repo_emit_p): New function.
+	(repo_export_class_p): Likewise.
+	(no_linkage_check): Change prototype.
+	* class.c (set_linkage_according_to_type): New function.
+	(build_vtable): Use it.  Do not call import_export_vtable.  Set
+	DECL_IGNORED_P if appropriate.
+	* decl.c (duplicate_decls): Preserve DECL_REPO_AVAILABLE_P.
+	(make_rtL_for_nonlocal_decls): Check for template instantiations
+	explicitly.
+	(grokfndecl): Adjust call to no_linkage_check.
+	(set_linkage_for_static_data_member): New function.
+	(grokvardecl): Use it.  Adjust call to no_linkage_check.
+	(grokdeclarator): Use set_linkage_for_static_data_member.
+	* decl2.c (note_vague_linkage_fn): New function.
+	(note_vague_linkage_var): Likewise.
+	(finish_static_data_member_decl): Use it.
+	(import_export_vtable): Remove.
+	(import_export_class): Use repo_export_class_p.
+	(var_finalized_p): Simplify.
+	(maybe_emit_vtables): Simplify.
+	(mark_needed): New function.
+	(decl_needed_p): Likewise.
+	(import_export_decl): Add documentation and consistency checks.
+	Use repo_emit_p.  Handle virtual tables and RTTI information
+	here.
+	(import_export_tinfo): Remove.
+	(write_out_vars): Call import_export_decl.
+	(cxx_callgraph_analyze_expr): Ensure that all vtables are emitted
+	whenever one is.
+	(finish_file): Use decl_needed_p.  Do not call import_export_decl
+	for undefined static data members.  Do not warn about undefined
+	inlines when using a repository.
+	(mark_used): Use note_vague_linkage_fn.  Always defer template
+	instantiations.
+	* lex.c (cxx_init): Adjust call to init_repo.  Always set
+	flag_unit_at_a-time.
+	* method.c (synthesize_method): Remove unncessary
+	import_export_decl call.
+	(implicitly_declare_fn): Use set_linkage_according_to_type.
+	* optimize.c (maybe_clone_body): Use FOR_EACH_CLONE.
+	* pt.c (instantiate_class_template): Don't redundantly add classes
+	to keyed_classes.  Don't call repo_template_used.
+	(tsubst_decl): Set DECL_INTERFACE_KNOWN for instantiations of
+	templates with internal linkage.
+	(check_instantiated_args): Adjust call to no_linkage_check.
+	(instantiate_template): Use FOR_EACH_CLONE.
+	(mark_definable): New function.
+	(mark_decl_instantiated): Use it.
+	(do_decl_instantiation): Adjust tests for explicit instantiation
+	after "extern template".
+	(instantiate_class_member): Do not use repo_template_instantiated.
+	(do_type_instantiation): Simplify.
+	(instantiate_decl): Use mark_definable.  Check repo_emit_p.
+	Simplify.
+	* repo.c (repo_get_id): Remove.
+	(original_repo): Remove.
+	(IDENTIFIER_REPO_USED): Remove.
+	(IDENTIFIER_REPO_CHOSEN): Remove.
+	Remove all #if 0'd code.
+	(repo_template_used): Remove.
+	(repo_template_instantiated): Remove.
+	(temporary_obstack_initialized_p): New variable.
+	(init_repo): Register with lang_post_pch_load.  Avoid creating
+	identifiers unnecessarily.  Don't use original_repo.  Close the
+	file here.
+	(reopen_repo_file_for_write): Not here.
+	(finish_repo): Always write out a new repository file.
+	(repo_emit_p): New function.
+	(repo_export_class_p): Likewise.
+	* rtti.c (get_tinfo_decl): Use set_linkage_according_to_type.
+	(involves_incomplete_p): New function.
+	(tinfo_base_init): Use it.
+	(ptr_initializer): Remove non_public_ptr parameter.
+	(ptm_initializer): Likewise.
+	(get_pseudo_ti_init): Likewise.
+	(unemitted_tinfo_decl_p): Remove.
+	(emit_tinfo_decl): Use import_export_decl.
+	* semantics.c (expand_body): Move updates of static_ctors and
+	static_dtors to ...
+	(expand_or_defer_fn): ... here.
+	* tree.c (no_linkage_check): Add relaxed_p parameter.
+	
+2004-07-28  Eric Christopher  <echristo@redhat.com>
+
+	* cp-lang.c (LANG_HOOKS_UNSAFE_FOR_REEVAL): Delete.
+
+2004-07-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (struct tree_pair_s): New.
+	(typedef tree_pair_p): New.
+	(DEF_VEC_O(tree_pair_s)): New.
+	(struct lang_type_class): Make vcall_indices a VEC(tree_pair_s).
+	(CLASSTYPE_VCALL_INDICES): Update documentation.
+	* class.c (get_vcall_index): Adjust.
+	(add_vcall_offset): Adjust.
+
+2004-07-27  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* pt.c, typeck.c: Remove spurious carriage returns.
+
+2004-07-27  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/14429
+	* pt.c (coerce_template_template_parms) <PARM_DECL case>: Only check
+	when the type of ARG is not dependent.
+
+2004-07-26  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++spec.c (LIBSTDCXX_PROFILE): Default to LIBSTDCXX.
+	(lang_specific_driver): If the C++ or math library options don't
+	start with '-l', don't count them as added libraries.
+
+2004-07-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (xref_basetypes): Adjust base access vector creation.
+	* rtti.c (get_pseudo_ti_init, get_pseudo_ti_desc): Adjust base
+	access accesses.
+	* search.c (dynamic_cast_base_recurse, dfs_access_in_type): Likewise.
+
+2004-07-26  Niall Douglas  <s_fsfeurope2@nedprod.com>
+	    Brian Ryner  <bryner@brianryner.com>
+
+	PR c++/15000
+	PR c++/9283
+	* class.c (check_field_decls): Apply hidden visibility if
+	-fvisibility-inlines-hidden and inlined unless otherwise specified
+	(build_vtable): Set vtable visibility to class visibility.
+	(check_field_decls): Default static member visibility to class
+	visibility.
+	(check_methods): Default method visibility to class visibility.
+	* cp-tree.h: Added CLASSTYPE_VISIBILITY and
+	CLASSTYPE_VISIBILITY_SPECIFIED macro.
+	* decl.c (duplicate_decls): New logic for merging definition decls
+	with declaration decls. Added ignore & warning when non default
+	applied to global operator new or delete.
+	* method.c, optimize.c, rtti.c: Added setting of VISIBILITY_SPECIFIED
+	wherever VISIBILITY was changed
+	* rtti.c (get_tinfo_decl): Set typeinfo visibility to class
+	visibility.
+	(tinfo_base_init): Set typeinfo name visibility to class visibility.
+
+2004-07-25  Bernardo Innocenti  <bernie@develer.com>
+
+	* decl.c: Rename all identifiers named `class' to `cl'.
+	* cp-tree.h: Likewise.
+
+2004-07-25  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* cp-tree.h (TYPE_SET_PTRMEMFUNC_TYPE): Use GGC_CNEW.
+	* typeck2.c (abstract_virtuals_error): Use GGC_NEW.
+	* name-lookup.c (binding_entry_make): Use GGC_NEW.
+	(binding_table_construct): Use GGC_CNEWVEC.
+	(binding_table_new): Use GGC_NEW.
+	(cxx_binding_make): Likewise.
+	(begin_scope): Likewise.
+	(push_to_top_level): Use GCC_CNEW.
+	* parser.c (cp_token_cache_new): Likewise.
+	(cp_token_cache_push_token): Likewise.
+	(cp_lexer_new_main): Likewise.
+	(cp_lexer_new_from_tokens): Likewise.
+	(cp_parser_context_new): Likewise.
+	(cp_parser_new): Likewise.
+	(cp_lexer_new_from_tokens): Use GGC_NEWVEC.
+	* lex.c (cxx_make_type): Use GGC_CNEW.
+	(retrofit_lang_decl): Use GGC_NEWVAR.
+	(cxx_dup_lang_specific_decl): Likewise.
+	(copy_lang_type): Likewise.
+	* decl.c (use_label): Use GGC_NEW instead of ggc_alloc.
+	(save_function_data): Likewise.
+	(lookup_label): Use GGC_CNEW instead of ggc_alloc_cleared.
+	(cxx_push_function_context): Likewise.
+
+2004-07-25  Richard Henderson  <rth@redhat.com>
+
+	* decl.c (start_preparsed_function): Set DECL_ARTIFICIAL and
+	DECL_IGNORED_P on RESULT_DECL.
+	* semantics.c (finalize_nrv): Copy them too.
+
+2004-07-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* search.c (lookup_conversion_operator): Avoid two loops.
+	(add_conversions): Remove.
+	(check_hidden_convs, split_conversions,
+	lookup_conversions_r):	New.
+	(lookup_conversions): Use lookup_conversions_r.
+
+2004-07-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* pt.c (get_template_base): Check type is completable.
+
+2004-07-21  Eric Christopher  <echristo@redhat.com>
+
+	* decl.c (poplevel): Inline unused variable checking.
+	Change formatting.
+
+2004-07-21  Paolo Bonzini  <bonzini@gnu.org>
+
+	* typeck.c (build_binary_op): Do not use RDIV_EXPR for
+	integer vectors.
+
+2004-07-21  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14497
+	* pt.c (check_explicit_specialization): Remove extension to accept
+	specializations without template headers. Fall-through to normal
+	processing.
+
+2004-07-21  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/509
+	* pt.c (determine_specialization): New parameter template_count.
+	Disambiguate between member templates and member functions counting
+	the template headers.
+	(check_explicit_specialization): Update caller.
+	(tsubst_friend_function): Likewise.
+
+2004-07-20  Steven Bosscher  <stevenb@suse.de>
+
+	* cp-tree.def (TINST_LEVEL): Make it an 'x' node.
+	* cp-tree.h (tinst_level_t): New tree type.
+	(union lang_tree_node): Handle it.
+	(TINST_LOCATION): New accessor macro.
+	(make_tinst_level): New prototype.
+	* cp-lang.c (cp_tree_size): Handle TINST_LEVEL.
+	* decl.c (cp_tree_node_structure): Likewise.
+	* error.c (print_instantiation_full_context): Use TINST_LOCATION.
+	(print_instantiation_partial_context): Likewise.
+	* pt.c (pop_tinst_level): Likewise.
+	 (push_tinst_level): Use make_tinst_level.
+	* tree.c (make_tinst_level): New function.
+	(cp_walk_subtrees): Walk TINST_DECL for a TINST_LEVEL node.
+
+2004-07-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* parser.c (cp_parser_simple_type_specifier): Fix typo.
+
+	PR c++/16637
+	* parser.c (cp_parser_simple_type_specifier): Do not record usage
+	of globally-qualified names.
+
+2004-07-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/16175
+	* error.c (dump_type) <BOUND_TEMPLATE_TEMPLATE_PARM case>: Output
+	cv qualifier.
+
+2004-07-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16623
+	* cp-tree.h (lang_type_class): Add lazy_assignment_op.
+	(CLASSTYPE_LAZY_ASSIGNMENT_OP): New macro.
+	* class.c (add_implicitly_declared_members): Use
+	CLASSTYPE_LAZY_ASSIGNMENT_OP.
+	* method.c (lazily_declare_fn): Clear
+	CLASSTYPE_LAZY_ASSIGNMENT_OP.
+	* search.c (lookup_fnfields_1): Check it.
+
+2004-07-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (vec_binfo_member): Remove.
+	* tree.c (vec_binfo_member): Remove.
+
+	* cp-tree.h (struct lang_type_class): Remove vfields field.
+	(CLASSTYPE_VFIELDS): Remove.
+	(SET_BINFO_NEW_VTABLE_MARKED): Adjust.
+	* class.c (determine_primary_base): Remove CLASSTYPE_VFIELDS
+	handling.
+	(dfs_modify_vtables): Use TYPE_CONTAINS_VPTR_P.
+	(finish_struct_1): Remove CLASSTYPE_VFIELDS handling.
+	* init.c (dfs_initialize_vtbl_ptrs): Use TYPE_CONTAINS_VPTR_P.
+
+2004-07-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (DEF_VEC_P(tree)): Remove here.
+	(BINFO_SUBVTT_INDEX, BINFO_VPTR_INDEX, BINFO_PRIMARY_BASE_OF):
+	Moved to common.
+	(BINFO_LANG_SLOTS): Remove.
+	* tree.c (copy_binfo): Adjust BINFO creation and accessors.
+	* decl.c (xref_basetypes): Adjust BINFO creation and accessors.
+	* class.c (check_bases): Adjust BINFO accessors.
+	(determine_primary_base, finish_struct_bits,
+	maybe_warn_about_overly_private_class, warn_hidden,
+	walk_subobject_offsets, propagate_binfo_offsets, end_of_class,
+	warn_about_ambiguous_bases, get_vfield_name,
+	dump_class_hierarchy_r, build_vtt_inits, accumulate_vtbl_inits,
+	add_vcall_offset_vtbl_entries_r): Likewise.
+	* dump.c (cp_dump_tree): Likewise.
+	* init.c (sort_mem_initializers, expand_member_init, build_delete,
+	push_base_cleanups): Likewise.
+	* method.c (do_build_copy_constructor, do_build_assign_ref,
+	synthesize_exception_spec): Likewise.
+	name-lookup.c (arg_assoc_class): Likewise.
+	* pt.c (instantiate_class_template,
+	get_template_base_recursive): Likewise.
+	* rtti.c (get_pseudo_ti_init, get_pseudo_ti_desc): Likewise.
+	* typeck2.c (process_init_constructor): Likewise.
+	* search.c (lookup_base_r, dynamic_cast_base_recurse,
+	dfs_access_in_type, dfs_walk_real, look_for_overrides,
+	types_overlap_p, copied_binfo, original_binfo): Likewise.
+	(binfo_for_vtable): Remove
+
+2004-07-20  Steven Bosscher  <stevenb@suse.de>
+
+	* cp-tree.h (struct lang_decl_flags): Unify the template_info and
+	thunk_alias, and the access and virtual_offset fields.
+	(THUNK_VIRTUAL_OFFSET, THUNK_ALIAS): Adjust.
+	* decl.c (finish_case_label): Update c_add_case_node call.
+
+2004-07-19  Mark Mitchell  <mark@codesourcery.com>
+
+	Revert patch for PR c++/16623.
+
+2004-07-19  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* except.c: Remove two spurious carriage returns.
+
+2004-07-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16623
+	* cp-tree.h (lang_type_class): Add lazy_assignment_op.
+	(CLASSTYPE_LAZY_ASSIGNMENT_OP): New macro.
+	* class.c (add_implicitly_declared_members): Use
+	CLASSTYPE_LAZY_ASSIGNMENT_OP.
+	* method.c (lazily_declare_fn): Clear
+	CLASSTYPE_LAZY_ASSIGNMENT_OP.
+	* search.c (lookup_fnfields_1): Check it.
+
+2004-07-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (add_method): Delay adding the slot until the end.
+	(determine_primary_base): Adjust VEC_iterate invokation.
+	(resort_type_method_vec, finish_struct_methods, warn_hidden,
+	walk_subobject_offsets, end_of_class, warn_about_ambiguous_bases,
+	build_vtbl_initializer): Likewise.
+	* init.c (sort_mem_initializers, build_delete, push_base_cleanups,
+	build_vbase_delete): Likewise.
+	* method.c (do_build_copy_constructor): Likewise.
+	* name-lookup.c (new_class_binding, print_binding_level,
+	poplevel_class, store_class_bindings, push_to_top_level,
+	pop_from_top_level): Likewise.
+	* pt.c (check_explicit_specialization): Likewise.
+	* search.c (lookup_conversion_operator, lookup_fnfields_1,
+	get_pure_virtuals, add_conversions, dfs_check_overlap,
+	binfo_for_vbase): Likewise.
+
+2004-07-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/12170
+	* pt.c (unify) <BOUND_TEMPLATE_TEMPLATE_PARM case>: Use only
+	innermost set of template arguments during deduction.  Simplify.
+
+2004-07-19  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* typeck.c (build_modify_expr, build_x_modify_expr): Set
+	TREE_NO_WARNING on assignments with an operator other than '='.
+
+2004-07-10  Steven Bosscher  <stevenb@suse.de>
+	    Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* cp-tree.h (C_SET_EXP_ORIGINAL_CODE): Remove.
+	* decl2.c (grokfield): Don't check current_class_depth via
+	unused TREE_COMPLEXITY.
+	* semantics.c (finish_parenthesized_expr): Set TREE_NO_WARNING
+	to avoid the missing parentheses warning.
+	Don't set C_SET_EXP_ORIGINAL_CODE.
+
+2004-07-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* tree.c (no_linkage_helper): Remove.
+	(no_linkage_check): Don't use walk_tree_without_duplicates.
+
+	* mangle.c (write_expression): Issue a sorry for zero-operand
+	functional casts.
+
+2004-07-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13092
+	* init.c (build_offset_ref): Build SCOPE_REF with non-null
+	TREE_TYPE for non-dependent names.
+	* typeck.c (build_x_unary_op): Handle non-dependent SCOPE_REF.
+	* pt.c (type_dependent_expression_p): Handle SCOPE_REF with
+	unknown_type_node as its TREE_TYPE.
+	* cxx-pretty_print.c (pp_cxx_unqualified_id): Handle BASELINK.
+	* error.c (dump_decl) <SCOPE_REF case>: Use pp_expression.
+	(dump_expr) <SCOPE_REF case>: Likewise.
+
+2004-07-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/16115
+	* call.c (type_passed_as): Make the invisible reference type
+	__restrict.
+	* cp-gimplify.c (gimplify_cleanup_stmt): Rename to
+	cp_genericize_r.  Handle invisible reference lowering.
+	(is_invisiref_parm): New fn.
+	(cp_genericize): Adjust the types of invisible reference parms.
+	Don't repeat the walk for clones.
+	* decl.c (store_parm_decls): Don't generate any code for clones.
+
+2004-07-17  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* cp-tree.h (builtin_function): Declare.
+
+2004-07-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (finish_struct_methods): Remove unncessary code.
+	(add_implicitly_declared_members): Create declarations for default
+	constructors and copy constructors lazily.
+	* cp-tree.h (lang_type_class): Remove lazy_default_ctor and
+	lazy_copy_ctor.
+	(CLASSTYPE_LAZY_DEFAULT_CTOR): New macro.
+	(CLASSTYPE_LAZY_COPY_CTOR): Likewise.
+	* decl2.c (check_classfn): Robustify.
+	(locate_dtor): Handle empty CLASSTYPE_METHOD_VEC.
+	(locate_ctor): Handle lazy default constructors.
+	(locate_copy): Handle lazy copy constructors.
+	(implicitly_declare_fn): Make sure we're looking at the
+	TYPE_MAIN_VARIANT for a class before creating functions.  Don't
+	set TYPE_HAS_CONSTRUCTOR.
+	(lazily_declare_fn): New function.
+	* name-lookup.c (constructor_name_full): Simplify.
+	* search.c (lookup_fnfields_1): Lazily create methods, as
+	necessary.
+	(lookup_for_overrides): Handle empty CLASSTYPE_METHOD_VEC.
+
+2004-07-16  Steven Bosscher  <stevenb@suse.de>
+
+	* cp-tree.h (struct lang_type): Don't have three GTY options on a
+	single bit GTY desc.
+
+2004-07-16  Richard Henderson  <rth@redhat.com>
+
+	* cp-lang.c (LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING): Die.
+	* cp-tree.h (cp_copy_res_decl_for_inlining): Remove.
+	* tree.c (cp_copy_res_decl_for_inlining): Remove.
+
+2004-07-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (finish_struct_bits): Use for loop.
+	(propagate_binfo_offsets): Do primary binfo outside of loop.
+
+	PR c++/16583
+	* dump.c (cp_dump_tree): Don't dump the bases if there's no
+	binfo.
+
+	* pt.c (tsubst) <TREE_BINFO case>: We should never get here.
+
+2004-07-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (lang_type_class): Remove has_real_assign_ref and
+	has_abstract_assign_ref.  Make methods a VEC(tree) *.
+	(TYPE_HAS_CONST_ASSIGN_REF): Add documentation.
+	(CLASSTYPE_CONSTRUCTORS): Adjust for changes to CLASSTYPE_METHOD_VEC.
+	(CLASSTYPE_DESTRUCTORS): Likewise.
+	(TYPE_HAS_REAL_ASSIGN_REF): Remove.
+	(TYPE_HAS_ABSTRACT_ASSIGN_REF): Likewise.
+	(add_method): Change prototoype.
+	* class.c (add_method): Remove error_p parameter.  Adjust for
+	changes to CLASSTYPE_METHOD_VEC.
+	(handle_using_decl): Adjust call to add_method.
+	(maybe_warn_about_overly_private_class): Adjust for
+	changes to CLASSTYPE_METHOD_VEC.
+	(resort_type_method_vec): Likewise.
+	(finish_struct_methods): Likewise.
+	(check_for_override): Likewise.
+	(warn_hidden): Likewise.
+	(add_implicitly_declared_members): Defer creation of assignment
+	operators.  Adjust call to add_method.
+	(clone_function_decl): Adjust call to add_method.
+	(check_bases_and_members): Don't set TYPE_HAS_REAL_ASSIGN_REF.
+	(finish_struct_1): Use CLASSTYPE_DESTRUCTORS.
+	* decl.c (grok_special_member_properties): Don't set
+	TYPE_HAS_ABSTRACT_ASSIGN_REF.
+	* decl2.c (check_classfn): Adjust for
+	changes to CLASSTYPE_METHOD_VEC.
+	* method.c (locate_dtor): Use CLASSTYPE_DESTRUCTORS.
+	(locate_ctor): Use CLASSTYPE_CONSTRUCTORS.
+	(locate_copy): Adjust for changes to CLASSTYPE_METHOD_VEC.
+	(implicitly_declare_fn): Set DECL_SOURCE_LOCATION.  Do not call
+	cp_finish_decl.
+	* pt.c (check_explicit_specialization): Adjust for
+	changes to CLASSTYPE_METHOD_VEC.
+	(instantiate_class_template): Do not set
+	TYPE_HAS_ABSTRACT_ASSIGN_REF.
+	* ptree.c (cxx_print_type): Don't try to print
+	CLASSTYPE_METHOD_VEC.
+	* rtti.c (emit_support_tinfos): Use CLASSTYPE_DESTRUCTORS.
+	* search.c (lookup_field_r): Adjust for
+	changes to CLASSTYPE_METHOD_VEC.
+	(lookup_fnfields): Likewise.
+	(lookup_conversion_operator): Likewise.
+	(lookup_fnfields_1): Likewise.  Create assignment operators
+	lazily.
+	(look_for_overrides_here): Adjust for
+	changes to CLASSTYPE_METHOD_VEC.
+	(add_conversions): Likewise.
+	* semantics.c (finish_member_declaration): Adjust call to add_method.
+
+2004-07-15  Jason Merrill  <jason@redhat.com>
+
+	* cp-lang.c (cxx_types_compatible_p): To the middle-end,
+	references and pointers are compatible.
+
+2004-07-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (xref_basetypes): Refactor.
+	* tree.c (copy_base_binfos): Replace with ...
+	(copy_binfo): ... this. Deep copy the given binfo, (not the just
+	bases of the given base).
+	* cp-tree.h (copy_base_binfo): Remove.
+	(copy_binfo): Declare.
+
+2004-07-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* name-lookup.c (set_inherited_value_binding_p): Add class_type
+	parameter.
+	(get_class_binding): Adjust.
+	(push_class_level_binding): Don't use set_inherited_value_binding_p.
+
+2004-07-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (finish_struct_bits): Don't set TYPE_HAS_CONVERSION here.
+	* decl.c (xref_basetypes): Set it here.
+
+	* class.c (check_bases): Don't set CLASSTYPE_NON_AGGREGATE here.
+	Don't check for incomplete base.
+	(get_vfield_name): Simplify while loop.
+	* decl.c (xref_basetypes): Set CLASSTYPE_NON_AGGREGATE here.
+
+2004-07-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* lex.c (cxx_make_type): Remove call to get_pointer_type.
+
+	* cp-tree.h (IDENTIFIER_VALUE): Remove.
+	(BINFO_PUSHDECLS_MARKED): Likewise.
+	(maybe_inject_for_scope_var): Likewise.
+	(push_class_decls): Likewise.
+	* name-lookup.h (push_class_binding): Remove.
+	(innermost_non_namespace_value): New function.
+	(outer_binding): Likewise.
+	* class.c (add_method): Push bindings before adding to
+	TYPE_METHODS.
+	(restore_class_cache): Do not restore class_shadowed.
+	(pushclass): Do not add USING_DECLs.  Do not call
+	push_class_decls.
+	* config-lang.in (gtfiles): Remove $(srcdir)/cp/search.c.
+	* decl.c (pushdecl): Use outer_binding.
+	(poplevel): Set the scope for an out-of-scope for-loop declaration
+	appropriately.
+	(cp_finish_decl): Don't call maybe_inject_for_scope_var.
+	* name-lookup.c (new_class_binding): New function.
+	(push_binding): Use it.
+	(pushdecl): Use innermost_non_namespace_value.
+	(maybe_inject_for_scope_var): Remove.
+	(push_class_binding): Remove.
+	(set_inherited_value_binding_p): New function.
+	(get_class_binding): New function.
+	(push_class_level_binding): Assert that the current_class_type is
+	being defined.
+	(outer_binding): New function.
+	(innermost_non_namespace_value): Likewise.
+	(lookup_name_real): Use outer_binding.
+	(lookup_name_current_level): Ignore out-of-scope variables.
+	* pt.c (check_template_shadow): Use innermost_non_namespace_value.
+	(lookup_template_class): Likewise.
+	* search.c (dfs_push_type_decls): Remove.
+	(dfs_push_decls): Likewise.
+	(setup_class_bindings): Likewise.
+	(lookup_field_1): Handle USING_DECLs from dependent scopes.
+	(marked_pushdecls_p): Remove.
+	(unmarked_pushdecls_p): Remove.
+	(marked_identifiers): Remove.
+	(setup_class_bindings): Remove.
+	(dfs_push_type_decls): Remove.
+	(dfs_push_decls): Remove.
+	(push_class_decls): Remove.
+
+2004-07-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16518
+	PR c++/16337
+	* decl.c (grokvardecl): Make declspecs parameter const.
+	(grokdeclarator): Likewise.  Adjust accordingly.
+	* decl.h (grokdeclarator): Adjust declaration.
+	* parser.c (cp_parser_init_declarator): Do not clear
+	decl_specifiers->attributes.
+
+	* cp-tree.h (lang_identifier): Remove class_value.
+	(IDENTIFIER_CLASS_VALUE): Remove.
+	(pop_class_decls): Likewise.
+	(init_search_processing): Likewise.
+	* class.c (handle_using_decl): Use lookup_member, not
+	IDENTIFIER_CLASS_VALUE.
+	(restore_class_cache): New function, split out from ...
+	(pushclass): ... here.  Do not call clear_identifier_class_values.
+	(invalidate_class_lookup_cache): Do not clear
+	IDENTIFIER_CLASS_VALUE.
+	(popclass): Do not call pop_class_decls.
+	(maybe_note_name_used_in_class): Do not save names looked up after
+	the class is complete.  Use lookup_member, not
+	IDENTIFIER_CLASS_VALUE.
+	* config-lang.in (gtfiles): Add $(srcdir)/cp/search.c.
+	* decl.c (cxx_init_decl_processing): Do not call
+	init_search_processing.
+	* method.c (do_build_copy_constructor): Remove unnecessary code.
+	(do_build_assign_ref): Likewise.
+	* name-lookup.c (pushdecl): Use lookup_member, not
+	IDENTIFIER_CLASS_VALUE.
+	(set_identifier_type_value_with_scope): Set TREE_TYPE on the
+	type_shadowed list.
+	(poplevel_class): Do not restore IDENTIFIER_CLASS_VALUE.
+	(push_class_binding): Do not set it.
+	(clear_identifier_class_values): Remove.
+	(push_class_level_binding): Do not set IDENTIFIER_CLASS_VALUE.
+	(store_binding): Do not save it.
+	(pop_from_top_level): Do not restore it.
+	* name-lookup.h (cxx_saved_binding): Remove class_value.
+	(clear_identifier_class_values): Remove.
+	* ptree.c (cxx_print_identifier): Do not print
+	IDENTIFIER_CLASS_VALUE.
+	* search.c (search_obstack): Remove.
+	(push_stack_level): Remove.
+	(pop_stack_level): Remove.
+	(search_level): Remove.
+	(search_stack): Remove.
+	(lookup_member): Don't check IDENTIFIER_CLASS_VALUE.
+	(setup_class_bindings): Use IDENTIFIER_MARKED, not
+	IDENTIFIER_CLASS_VALUE.
+	(marked_identifiers): New variable.
+	(push_class_decls): Clear IDENTIFIER_MARKED.
+	(pop_class_decls): Don't call pop_search_level.
+	(init_search_processing): Remove.
+
+2004-07-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (get_aggr_typedef): Remove.
+	* init.c (get_aggr_typedef): Likewise.
+
+	* name-lookup.c (push_class_level_binding): Simplify.
+
+2004-07-12  Andrew Pinski  <apinski@apple.com>
+
+	PR c++/16475
+	Revert:
+	2004-07-07  H.J. Lu  <hongjiu.lu@intel.com>
+		PR c++/16276
+		* rtti.c (emit_tinfo_decl): Turn off DECL_ONE_ONLY if typeinfo
+		is not public.
+
+2004-07-12  Eric Christopher  <echristo@redhat.com>
+
+	* parser.c (cp_parser_class_head): Remove unused variable.
+
+2004-07-12  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* decl.c (grok_op_properties): Reject [de-]allocation functions
+	declared in a namespace, or declared as static.
+
+2004-07-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (make_binfo): Remove.
+	* decl.c (xref_basetypes): Use make_tree_binfo directly.
+	* tree.h (copy_base_binfos): Likewise.
+	(make_binfo): Remove.
+
+	* call.c (build_user_type_conversion_1, build_new_op,
+	check_constructor_callable, build_temp,
+	perform_direct_initialization_of_possible): Pass type directly to
+	lookup_fnfields & build_special_member_call.
+	(build_special_member_call): Accept a type, and complete it.
+	* class.c (finish_stuct_bits): Copy the BINFOs here.
+	* cvt.c (ocp_convert): Pass type directly to
+	build_special_member_call.
+	* decl.c (build_ptrmemfunc_type): Call xref_bastypes here.
+	(xref_basetypes): Allocate the binfo here. Adjust.
+	* init.c (build_init, build_new_1): Pass type directly to
+	build_special_member_call.
+	* lex.c (cxx_make_type): Do not allocate binfo here.
+	* name-lookup.c (arg_assoc_class): Incomplete types have no binfo.
+	* parser.c (cp_parser_class_head): Always call xref_basetypes.
+	* pt.c (instantiate_class_template): Likewise. Inhibit access
+	checking for template friends.
+	* ptree.c (cxx_print_type): Adjust record printing.
+	* search.c (lookup_base): When taking a type, complete it before
+	looking for a binfo.
+	(lookup_member): Delay completing a type.
+	(push_class_decls): Don't walk an incomplete type.
+	(lookup_conversions): Likewise.
+	* semantics.c (finish_stmt_expr_expr): Pass type directly to
+	build_special_member_call.
+	* tree.c (copy_base_binfos): Adjust.
+	(make_binfo): Likewise.
+	* typeck.c (build_modify_expr): Pass type directly to
+	build_special_member_call.
+	* typeck2.c (process_init_constructor): Check a binfo exists.
+	(build_m_component_ref): Allow accessing an incomplete type.
+	(build_functional_cast): Pass type directly to
+	build_special_member_call.
+
+2004-07-12  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/2204
+	* config-lang.in (gtfiles): Add typeck2.c.
+	* Make-lang.in: Tweak typeck2.c dependencies, and add rule for
+	gt-cp-typeck2.h.
+	* cp-tree.h: Declare complete_type_check_abstract.
+	* typeck2.c (pat_calc_hash, pat_compare,
+	complete_type_check_abstract): New functions.
+	(abstract_virtuals_error): If the type is abstract, register the
+	declaration within abstract_pending_vars for further checks.
+	Inspect also dependent types. Handle IDENTIFIER_NODEs as decl.
+	* decl.c (cp_finish_decl): Do not strip array types.
+	(create_array_type_for_decl): Check for abstractness of the element
+	type.
+	(complete_vars): Call complete_type_check_abstract.
+	* class.c (finish_struct): Prepare a list of virtual functions for
+	template types, and call complete_vars on it to check for abstractness.
+
+2004-07-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR tree-optimization/14107
+	* decl.c (finish_function): Remove temporary band-aid.
+
+2004-07-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* call.c (build_operator_new_call): Avoid using push_to_top_level.
+	(build_new_op): Adjust call to lookup_function_nonclass.
+	* name-lookup.c (identifier_type_value): Adjust call to
+	lookup_name_real.
+	(lookup_name_real): Add block_p parameter.
+	(lookup_name_nonclass): Adjust call to lookup_name_real.
+	(lookup_function_nonclass): Likewise.
+	(lookup_name): Likewise.
+	* name-lookup.h (lookup_name_real): Change prototype.
+	(lookup_name_nonclass): Likewise.
+	* parser.c (cp_parser_lookup_name): Likewise.
+
+	* cp-tree.h (saved_scope): Make old_bindings a vector.
+	(unuse_fields): Remove.
+	* name-lookup.h (cxx_saved_binding): Define it.
+	* class.c (pushclass): Don't use unuse_fields.
+	* name-lookup.c (cxx_saved_binding_make): Remove.
+	(store_binding): Add new bindings to a vector, using an
+	accumulator style, rather than adding them to a list.
+	(store_bindings): Adjust accordingly.
+	(store_class_bindings): Likewise.
+	(push_to_top_level): Likewise.
+	(pop_from_top_level): Likewise.
+	* optimize.c (maybe_clone_body): Must push_to_top_level and
+	pop_from_top_level calls outside of loop.
+	* parser.c (cp_parser_class_specifier): Move push_scope/pop_scope
+	calls here from cp_parser_late_parsing_default_args.
+	(cp_parser_save_default_args): Record the class type in which the
+	function is declared.
+	(cp_parser_late_parsing_default_args): Do not call
+	push_nested_class/pop_nested_class.
+	* search.c (dfs_unuse_fields): Remove.
+	(unuse_fields): Remove.
+
+2004-07-11  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* cp-lang.c (LANG_HOOKS_MAYBE_BUILD_CLEANUP, LANG_HOOKS_PUSHLEVEL,
+	LANG_HOOKS_POPLEVEL, LANG_HOOKS_UPDATE_DECL_AFTER_SAVING): Remove.
+	* cp-tree.h (poplevel): Declare.
+	(set_block): Remove.
+	* decl.c (set_block): Remove.
+
+2004-07-10  Mike Stump  <mrs@apple.com>
+
+	* decl2.c (import_export_class): Never export/import vtables
+	with inline key functions.
+
+2004-07-09  Steven Bosscher  <stevenb@suse.de>
+
+	* typeck.c (c_expand_asm_operands): Remove.
+
+2004-07-09  Mike Stump  <mrs@apple.com>
+
+	* typeck.c (build_class_member_access_expr): Skip null deref
+	warning when we don't dereference it.
+
+2004-07-09  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/8211
+	PR c++/16165
+	* class.c (check_field_decls): Improve -Weffc++ warning: do not
+	warn for pointers to functions/members, or for classes without
+	destructors.
+
+2004-07-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* name-lookup.h (struct cp_binding_level): Update documentation
+	for class_shadowed.
+
+2004-07-08  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/16169
+	* typeck.c (check_return_expr): Improve -Weffc++ warning: handle
+	returning CALL_EXPR, and non-reference return type.
+
+2004-07-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* name-lookup.c (push_binding): Use VEC_reserve.
+
+2004-07-08  Richard Henderson  <rth@redhat.com>
+
+	* cp-tree.h (expand_eh_spec_block): Remove.
+
+2004-07-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (saved_scope): Remove x_previous_class_type and
+	x_previous_class_values; add x_previous_class_level.
+	(previous_class_type): Remove.
+	(previous_class_values): Remove.
+	(previous_class_level): New macro.
+	* class.c (pushclass): Restore the identifier cache more
+	expeditiously.
+	(invalidate_class_lookup_cache): Use vector for class_shadowed and
+	previous_class_values.
+	* decl.c (poplevel): Likewise.
+	* name-lookup.c (cxx_binding_init): New function.
+	(cxx_binding_make): Use it.
+	(push_binding): For a binding in a class level, use a vector of
+	cp_class_binding nodes.
+	(push_binding_level): New function.
+	(begin_scope): Use it.
+	(leave_scope): Do not put class binding levels on the free list.
+	(print_binding_level): Adjust for the fact that class_shadowed is
+	a vector.
+	(poplevel_class): Likewise.
+	(clear_identifier_class_values): Likewise.
+	(push_class_level_binding): Likewise.
+	(set_class_shadows): Remove.
+	(store_binding): New function.
+	(store_class_bindings): New function.
+	(push_to_top_level): Use store_class_bindings as appropriate.
+	(pop_from_top_level): Use previous_class_level, not
+	previous_class_type.
+	* name-lookup.h (cp_class_binding): New type.
+	(cp_binding_level): Use a vector object for class_shadowed.
+	(push_binding_level): Declare.
+	(set_class_shadows): Remove.
+
+2004-07-07  Andrew Pinski  <apinski@apple.com>
+
+	* class.c (instantiate_type): BUFFER_REF is dead.
+	* lex.c (init_operators): IN_EXPR is dead.
+
+2004-07-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/16334
+	* call.c (build_new_op): Give overload warnings for built-in
+	candidates.
+
+2004-07-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/16276
+	* rtti.c (emit_tinfo_decl): Turn off DECL_ONE_ONLY if typeinfo
+	is not public.
+
+2004-07-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (CLASSTYPE_N_BASECLASSES): Remove.
+	* class.c (build_primary_vtable, check_bases,
+	determine_primary_base, finish_struct_bits,
+	maybe_warn_about_overly_private_class, dfs_find_final_overrider_q,
+	get_basefndecls, warn_hidden, walk_subobject_offsets,
+	build_base_fields, create_vtable_ptr, propagate_binfo_offsets,
+	layout_virtual_bases, end_of_class, warn_about_ambiguous_bases,
+	finish_struct_1, get_vfield_name, contains_empty_class_p,
+	dump_class_hierarchy_r, finish_vtbls, build_vtt_inits,
+	dfs_ctor_vtable_bases_queue_p, accumulate_vtbl_inits,
+	add_vcall_offset_vtbl_entries_r, cp_fold_obj_type_ref): Adjust
+	BINFO macros.
+	* decl.c (xref_basetypes): Likewise.
+	* dump.c (cp_dump_tree): Likewise.
+	* error.c (dump_expr): Likewise.
+	* init.c (sort_mem_initializers, expand_member_init,
+	push_base_cleanups): Likewise.
+	* method.c (do_build_copy_constructor, do_build_assign_reg,
+	synthesize_exception_spec): Likewise.
+	* name-lookup.c (arg_assoc_class): Likewise.
+	* pt.c (instantiate_class_template, tsubst,
+	get_template_base_recursive): Likewise.
+	* ptree.c (cxx_print_type): Likewise.
+	* rtti.c (get_psuedo_ti_init, get_pseudo_ti_desc): Likewise.
+	* search.c (lookup_base_r, dynamic_cast_base_recurse,
+	dfs_access_in_type, access_in_type, lookup_field_queue_p,
+	bfs_walk, dfs_walk_real, look_for_overrides, markedp, unmarkedp,
+	marked_pushdecls_p, unmarked_pushdecls_p, dfs_debug_markedp,
+	dfs_debug_unmarkedp, dfs_check_overlap, dfs_no_overlap_yet,
+	binfo_for_vtable, copied_binfo, original_binfo): Likewise
+	* tree.c (copy_base_binfos, make_binfo): Likewise.
+	* typeck.c (commmon_base_type): Likewise
+	* typeck2.c (process_init_constructor): Likewise
+
+2004-07-06  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* decl.c (check_tag_decl): Name redeclared type in diagnostic.
+
+2004-07-06  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/3671
+	* pt.c (convert_nontype_argument): Disallow conversions between
+	different enumeration types.
+
+2004-07-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (BINFO_MARKED): Remove.
+	(BINFO_VTABLE_PATH_MARKED, BINFO_NEW_VTABLE_MARKED,
+	BINFO_DEPENDENT_BASE_P, BINFO_LOST_PRIMARY_P,
+	BINFO_INDIRECT_PRIMARY_P): Use appropriate BINFO_FLAG_n.
+	(SET_BINFO_NEW_VTABLE_MARKED): Use BINFO_VIRTUAL_P.
+	* class.c (build_base_path): Use BINFO_VIRTUAL_P.
+	(mark_primary_bases, determine_primary_base, base_derived_from,
+	dfs_find_final_overrider, dfs_find_final_overrider_q,
+	dfs_find_inal_overrider_post, update_vtable_entry_for_fn,
+	dfs_modify_vtables, walk_subobject_offsets,
+	layout_nonempty_base_or_field, build_base_field,
+	build_base_fields, propagate_binfo_offsets, layout_virtual_bases,
+	end_of_class, get_vfield_name, dump_class_hierarchy, dump_vtable,
+	finish_vtbls, build_vtt_inits, dfs_build_secondary_vptr_vtt_inits,
+	build_ctor_vtbl_group, accumulate_vtble_inits,
+	dfs_accumulate_vtbls_inits, build_vbase_offset_vtbl_entries,
+	build_vcall_offset_vtbl_entries, add_vcall_offset_vtbl_entries_r,
+	add_vcall_offset_vtbl_entries_1): Likewise.
+	* decl.c (xref_basetypes): Incomming virtual base indicated by
+	TREE_TYPE. Adjust.
+	* dump.c (cp_dump_tree): Use BINFO_VIRTUAL_P.
+	* init.c (finish_init_stmts, sort_mem_initializers,
+	emit_mem_initializers, build_vtble_address, expand_member_init,
+	push_base_cleanups): Likewise.
+	* method.c (do_build_copy_constructor): Likewise.
+	* pt.c (instantiate_class_template,
+	get_template_base_recursive): Likewise.
+	* rtti.c (dfs_class_hint_mark, get_pseudo_ti_init,
+	get_pseudo_ti_desc): Likewise.
+	* search.c (lookup_base_r, dynamic_cast_base_recurse,
+	binfo_from_vbase, binfo_via_virtual, copied_binfo,
+	original_binfo): Likewise.
+	* semantics.c (finish_base_specifier): Virtualness is indicated
+	by TREE_TYPE.
+	* tree.c (copy_base_binfos): Use BINFO_VIRTUAL_P.
+
+2004-07-06  Mark Mitchell  <mark@codesourcery.com>
+
+	Revert:
+	2004-06-24  Jason Merrill  <jason@redhat.com>
+	PR c++/16115
+	* decl.c (grokparms): Give the PARM_DECL reference type if the
+	parameter is passed by invisible reference.
+
+2004-07-05  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* cp-lang.c (cp_var_mod_type_p): Add extra arg.
+	* decl.c (grokdeclarator): Extra arg to variably_modified_type_p.
+	* pt.c (check_instantiated_args, unify): Likewise.
+
+2004-07-05  Phil Edwards  <phil@codesourcery.com>
+
+	* Make-lang.in (check-c++, lang_checks):  Add some comments.
+
+2004-07-05  Zack Weinberg  <zack@codesourcery.com>
+
+	* cp-mudflap.c: Delete file.
+	* Makefile.in: Remove all references to cp-mudflap.o.
+
+2004-07-05  Zack Weinberg  <zack@codesourcery.com>
+
+	* decl.c (cxx_init_decl_processing): Call
+	build_common_tree_nodes before creating the global NAMESPACE_DECL.
+
+2004-07-05  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/2518
+	* call.c (build_operator_new_call): Look only at global scope.
+
+2004-07-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* call.c (enforce_access): Expect TREE_BINFO.
+	* class.c (binfo_ctor_vtable): Check TREE_BINFO.
+	* cp-tree.h (RECORD_OR_UNION_TYPE_CHECK): Remove.
+	(BINFO_SUBVTT_INDEX, BINFO_VPTR_INDEX, BINFO_PRIMARY_BASE_OF):
+	Adjust.
+	(BINFO_LANG_ELTS): Remove.
+	(BINFO_LANG_SLOTS): New.
+	(TYPE_RAISES_EXCEPTIONS, ENUM_TEMPLATE_INFO): Use TYPE_LANG_SLOT_1.
+	(CLASSTYPE_TEMPLATE_INFO): Adjust.
+	* pt.c (tsubst): Split TREE_BINFO case from TREE_VEC case.
+	* search.c (lookup_member): Check TREE_BINFO.
+	* semantics.c (perform_or_defer_access_check): Likewise.
+	(check_accessibility_of_qualified_id): Check
+	deferred_access_no_check.
+	* tree.c (make_binfo): Use make_tree_binfo.
+
+2004-07-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* method.c (implicitly_declare_fn): Set linkage of generated
+	functions.
+
+2004-07-04  Richard Henderson  <rth@redhat.com>
+
+	* typeck.c (cxx_mark_addressable): Don't put_var_into_stack.
+
+2004-07-03  Scott Brumbaugh  <scottb.lists@verizon.net>
+
+	PR c++/3761
+	* name-lookup.c (push_class_level_binding): Don't pass a
+	TREE_LIST of ambiguous names to check_template_shadow as it
+	only handles declarations. Instead, pull the declaration
+	out and pass that.
+
+2004-07-03  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14971
+	* pt.c (check_explicit_specialization): Clarify error message.
+
+2004-07-02  Richard Henderson  <rth@redhat.com>
+
+	* tree.c (cp_unsave_r): Update remap_save_expr call.
+
+2004-07-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16240
+	* mangle.c (write_template_arg): Correct mangling.
+
+	PR c++/16297
+	* decl.c (grokdeclarator): Robustify.
+
+2004-07-01  Richard Henderson  <rth@redhat.com>
+
+	* class.c (fixed_type_or_null): Don't handle RTL_EXPR.
+	* method.c (synthesize_method): Don't clear_last_expr.
+	* name-lookup.c (maybe_push_cleanup_level): Likewise.
+
+2004-07-01  Nick Clifton  <nickc@redhat.com>
+
+	* decl2.c (import_export_class): Invoke the
+	import_export_class field in the gcc_target structure if it is not
+	empty.
+
+2004-06-30  Richard Henderson  (rth@redhat.com>
+
+	* decl.c (start_preparsed_function): Don't set immediate_size_expand.
+	* method.c (use_thunk): Likewise.
+
+2004-06-30  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* call.c (build_over_call), typeck.c (build_function_call): Call
+	check_function_arguments instead of check_function_format.
+
+2004-06-30  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* call.c (build_over_call), typeck.c (build_function_call): Update
+	calls to check_function_format.
+
+2004-06-30  Richard Henderson  <rth@redhat.com>
+
+	* call.c (build_over_call): Use __builtin_memcpy for copying
+	CLASS_AS_BASE rather than funny casting.
+
+2004-06-30  Richard Henderson  <rth@redhat.com>
+
+	* init.c (build_new_1): Fill in TYPE_DOMAIN, TYPE_SIZE and
+	TYPE_SIZE_UNIT of full_type.
+
+2004-06-30  Per Bothner  <per@bothner.com>
+
+	Conditionally compile support for --enable-mapped_location.
+	* decl.c (pop_label):  Handle (imperfectly) USE_MAPPED_LOCATION case.
+	* decl2.c:  If USE_MAPPED_LOCATION, don't do some line number
+	adjustments - which I don't understand.
+	* error.c (dump_decl):  Rename "<interrnal>" to "<built-in>".
+	* error.c:  Use LOCATION_FILE and EXPR_LOCATION macros.
+	(print_instantiation_partial_context):  Use expand_location.
+	* decl.c (duplicate_decl):  Use new DECL_IS_BUILTIN macro.
+	* name-lookup.c:  Likewise.
+	* lex.c (cxx_init):  Likewise.  Also use BUILTINS_LOCATION.
+	* name-lookup.c:  Use input_line macro.
+	* parser.c (cp_lexer_get_preprocessor_token):  Use UNKNOWN_LOCATION.
+	(cp_parser_statement):  Rename locaal variable statement_locus to
+	statement_location and use SET_EXPR_LOCATION macro.
+	* pt.c:  Handle USE_MAPPED_LOCATION case.  Use new macros.
+	* tree.c (cp_walk_subtrees):  Likewise.
+
+2004-06-29  Per Bothner  <per@bothner.com>
+
+	* tree.c (build_min_nt, build_min, build_min_non_dep):
+	Don't set TREE_COMPLEXITY from input_line.
+
+2004-06-29  Paul Brook  <paul@codesourcery.com>
+
+	* init.c: Include target.h.
+	(get_cookie_size): Remove and replace with target hook.
+	Update callers.
+	(build_new_1): Store the element size in the cookie.
+
+2004-06-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/16260
+	* parser.c (cp_parser_template_declaration_after_export): Disable
+	access checks here ...
+	(cp_parser_class_specifier): ... not here.
+
+2004-06-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (VAR_OR_FUNCTION_DECL_CHECK,
+	VAR_FUNCTION_OR_PARM_DECL_CHECK, RECORD_OR_UNION_TYPE_CHECK,
+	BOUND_TEMPLATE_TEMPLATE_PARM_TYPE_CHECK): Use appropriate
+	TREE_CHECK macro.
+
+2004-06-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (struct deferred_access): Move to ...
+	* semantics.c (struct deferred_access): ... here. Adjust.
+	(deferred_access_stack): Make a VEC(deferred_access),
+	(deferred_access_free_list): Remove.
+	(deferred_access_no_check): New.
+	(push_deferring_access_checks, resume_deferring_access_checks,
+	stop_deferring_access_checks, pop_deferring_access_checks,
+	get_deferred_access_checks, pop_to_parent_deferring_access_checks,
+	perform_deferred_access_checks, perform_or_defer_access_check): Adjust.
+
+2004-06-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/16174
+	* call.c (build_temp): Declare.
+	(check_constructor_callable): New.
+	(reference_binding): Only set CHECK_COPY_CONSTRUCTOR if not for
+	CONSTRUCTOR_CALLABLE.
+	(convert_like_real, initialize_reference): Use
+	check_constructor_callable.
+	* cp-tree.h (LOOKUP_CONSTRUCTOR_CALLABLE): New.
+	(LOOKUP_*): Renumber.
+
+2004-06-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* friend.c (add_friend): Only perform access checks when context
+	is a class.
+	* lex.c (cxx_make_type): Only create a binfo for aggregate types.
+	* parser.c (cp_parser_class_specifier): Disable access checks here
+	when parsing the body of a templated class.
+	* semantics.c (perform_or_defer_access_checks): Reorder to allow
+	NULL binfos when not checking access.
+
+2004-06-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Use vector API for vbase list.
+	* cp-tree.h: Include vec.h
+	(DEF_VEC_P (tree)): New type.
+	(struct lang_type_class): Change vbase's member type.
+	(binfo_for_vbase): Declare.
+	* class.c (determine_primary_base, base_derived_from,
+	update_vtable_entry_for_fn, walk_subobject_offsets, end_of_class,
+	warn_about_ambiguous_bases, dfs_accumulate_vtbl_inits,
+	build_vtbl_initializer): Adjust.
+	* decl.c (xref_basetypes): Adjust, accumulate upper bound of
+	vbases.
+	* init.c (sort_mem_initializers, expand_member_init,
+	push_base_cleanups): Adjust.
+	* method.c (do_build_copy_constructor): Adjust.
+	* search.c (get_pure_virtuals, copied_binfo, original_binfo): Adjust.
+	(binfo_for_vbase): New.
+	* tree.c (copy_base_binfos): Adjust.
+
 2004-06-28  Mark Mitchell  <mark@codesourcery.com>
 
 	* parser.c (cp_parser_set_decl_spec_type): Fix thinko.
 
 2004-06-27  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
-	PR c++/14123	
+	PR c++/14123
 	* cxx-pretty-print.c (pp_cxx_ptr_operator): Properly put
 	paranthesis in case of pointers to array members.
 	* error.c (dump_type_prefix): Likewise.
 	(dump_type_suffix): Maybe issue a whitespace when printing
-	ARRAY_TYPE. 
+	ARRAY_TYPE.
 
 2004-06-27  Mark Mitchell  <mark@codesourcery.com>
 
@@ -26,12 +1208,12 @@
 	(pp_non_consecutive_character): Likewise.
 	(dump_scope): Use pp_cxx_colon_colon.
 	(dump_template_parameter): Use pp_cxx_identifier,
-	pp_cxx_tree_identifier and pp_cxx_whitespace. 
+	pp_cxx_tree_identifier and pp_cxx_whitespace.
 	(dump_templat_bindings): Replace use of pp_string with sequence
 	of pp_cxx_whitespace and pp_equal.
 	(dump_type): Use pp_cxx_identifier, pp_cxx_tree_identifier,
 	pp_cxx_colon_colon, pp_cxx_whitespace throughout.  Don't set
-	padding here. 
+	padding here.
 	(dump_aggr_type): Use pp_cxx_identifier amd pp_cxx_tree_identifier.
 	(dump_type_prefix): Don't set padding.  Use pp_cxx_whitespace,
 	pp_cxx_left_parent, pp_cxx_colon_colon and pp_cxx_star troughout.
@@ -41,17 +1223,17 @@
 	(dump_template_decl): Likewise.
 	(dump_function_decl): Likewise.  Set padding as appropriate.
 	(dump_parameters): Use pp_cxx_left_paren, pp_cxx_identifier and
-	pp_cxx_right_paren. 
+	pp_cxx_right_paren.
 	(dump_exception_spec): Likewise.
 	(dump_function_name): Use pp_cxx_tree_identifier and
-	pp_cxx_identifier. 
+	pp_cxx_identifier.
 	(dump_template_parms): Use pp_cxx_begin_template_argument_list and
 	pp_cxx_end_template_argument_list.
 	(dump_expr): Use pp_cxx_left_paren, pp_cxx_right_paren,
 	pp_cxx_colon_colon, pp_cxx_identifier, pp_cxx_tree_identifier and
-	pp_cxx_whitespace throughout. 
+	pp_cxx_whitespace throughout.
 	(dump_binary_op): Use pp_cxx_whitespace, pp_cxx_left_paren and
-	pp_cxx_right_paren. 
+	pp_cxx_right_paren.
 	(dump_unary_op): Likewise.
 	(reinit_cxx_pp): New function.
 	(type_as_string); Use it.
@@ -206,8 +1388,8 @@
 	(cp_parser_set_decl_spec_type): Likewise.
 	* pt.c: Do not include lex.h.
 	* semantics.c: Likewise.
-	(finish_member_class_template): Remove.	
-	
+	(finish_member_class_template): Remove.
+
 2004-06-23  Roger Sayle  <roger@eyesopen.com>
 
 	* call.c (build_cxx_call): Don't call expand_tree_builtin.  No

@@ -1040,10 +1040,9 @@ extern int alpha_memory_latency;
    (TYPE is null for libcalls where that information may not be available.)  */
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)			\
-  if (MUST_PASS_IN_STACK (MODE, TYPE))					\
-    (CUM) = 6;								\
-  else									\
-    (CUM) += ALPHA_ARG_SIZE (MODE, TYPE, NAMED)
+  ((CUM) += 								\
+   (targetm.calls.must_pass_in_stack (MODE, TYPE))			\
+    ? 6 : ALPHA_ARG_SIZE (MODE, TYPE, NAMED))
 
 /* Determine where to put an argument to a function.
    Value is zero to push the argument on the stack,
@@ -1063,15 +1062,6 @@ extern int alpha_memory_latency;
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)	\
   function_arg((CUM), (MODE), (TYPE), (NAMED))
-
-/* A C expression that indicates when an argument must be passed by
-   reference.  If nonzero for an argument, a copy of that argument is
-   made in memory and a pointer to the argument is passed instead of
-   the argument itself.  The pointer is passed in whatever way is
-   appropriate for passing a pointer to that type.  */
-
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-  ((MODE) == TFmode || (MODE) == TCmode)
 
 /* For an arg passed partly in registers and partly in memory,
    this is the number of registers used.
@@ -1347,7 +1337,7 @@ do {									     \
 #define MOVE_MAX 8
 
 /* If a memory-to-memory move would take MOVE_RATIO or more simple
-   move-instruction pairs, we will do a movstr or libcall instead.
+   move-instruction pairs, we will do a movmem or libcall instead.
 
    Without byte/word accesses, we want no more than four instructions;
    with, several single byte accesses are better.  */
@@ -1685,9 +1675,6 @@ do {						\
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   alpha_va_start (valist, nextarg)
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) (abort (), NULL_RTX)
 
 /* Tell collect that the object format is ECOFF.  */
 #define OBJECT_FORMAT_COFF
@@ -1835,6 +1822,3 @@ do {							\
 
 /* The system headers under Alpha systems are generally C++-aware.  */
 #define NO_IMPLICIT_EXTERN_C
-
-/* Generate calls to memcpy, etc., not bcopy, etc.  */
-#define TARGET_MEM_FUNCTIONS 1

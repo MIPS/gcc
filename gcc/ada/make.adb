@@ -1728,8 +1728,9 @@ package body Make is
 
             if Arguments_Project = No_Project then
                if not External_Unit_Compilation_Allowed then
-                  Make_Failed ("external source, not part of any projects, " &
-                               "cannot be compiled (", Source_File_Name, ")");
+                  Make_Failed ("external source (", Source_File_Name,
+                               ") is not part of any project; cannot be " &
+                               "compiled without gnatmake switch -x");
                end if;
 
                --  If it is allowed, simply add the saved gcc switches
@@ -2231,7 +2232,9 @@ package body Make is
                      The_Data := Projects.Table (Prj);
                   end loop;
 
-                  if The_Data.Library and then not The_Data.Flag1 then
+                  if The_Data.Library
+                    and then not The_Data.Need_To_Build_Lib
+                  then
                      --  Add to the Q all sources of the project that
                      --  have not been marked
 
@@ -2242,7 +2245,7 @@ package body Make is
 
                      --  Now mark the project as processed
 
-                     Projects.Table (Prj).Flag1 := True;
+                     Projects.Table (Prj).Need_To_Build_Lib := True;
                   end if;
                end;
             end if;
@@ -4337,22 +4340,35 @@ package body Make is
          if MLib.Tgt.Support_For_Libraries /= MLib.Tgt.None then
             for Proj in Projects.First .. Projects.Last loop
                if Projects.Table (Proj).Library then
-                  Projects.Table (Proj).Flag1 :=
+                  Projects.Table (Proj).Need_To_Build_Lib :=
                     not MLib.Tgt.Library_Exists_For (Proj);
 
-                  if Projects.Table (Proj).Flag1 then
-                     if Verbose_Mode then
-                        Write_Str
-                          ("Library file does not exist for project """);
-                        Write_Str
-                          (Get_Name_String (Projects.Table (Proj).Name));
-                        Write_Line ("""");
-                     end if;
+                  if Projects.Table (Proj).Need_To_Build_Lib then
+                     --  If there is no object directory, then it will be
+                     --  impossible to build the library. So, we fail
+                     --  immediately.
 
-                     Insert_Project_Sources
-                       (The_Project  => Proj,
-                        All_Projects => False,
-                        Into_Q       => True);
+                     if Projects.Table (Proj).Object_Directory = No_Name then
+                        Make_Failed
+                          ("no object files to build library for project """,
+                           Get_Name_String (Projects.Table (Proj).Name),
+                           """");
+                        Projects.Table (Proj).Need_To_Build_Lib := False;
+
+                     else
+                        if Verbose_Mode then
+                           Write_Str
+                             ("Library file does not exist for project """);
+                           Write_Str
+                             (Get_Name_String (Projects.Table (Proj).Name));
+                           Write_Line ("""");
+                        end if;
+
+                        Insert_Project_Sources
+                          (The_Project  => Proj,
+                           All_Projects => False,
+                           Into_Q       => True);
+                     end if;
                   end if;
                end if;
             end loop;
@@ -4722,12 +4738,12 @@ package body Make is
                         end if;
 
                         if Projects.Table (Proj1).Library
-                          and then not Projects.Table (Proj1).Flag1
+                          and then not Projects.Table (Proj1).Need_To_Build_Lib
                         then
                            MLib.Prj.Check_Library (Proj1);
                         end if;
 
-                        if Projects.Table (Proj1).Flag1 then
+                        if Projects.Table (Proj1).Need_To_Build_Lib then
                            Library_Projs.Increment_Last;
                            Current := Library_Projs.Last;
                            Depth := Projects.Table (Proj1).Depth;
@@ -4744,7 +4760,7 @@ package body Make is
                            end loop;
 
                            Library_Projs.Table (Current) := Proj1;
-                           Projects.Table (Proj1).Flag1 := False;
+                           Projects.Table (Proj1).Need_To_Build_Lib := False;
                         end if;
                      end loop;
                   end;
@@ -5624,7 +5640,7 @@ package body Make is
 
       Mains.Delete;
 
-      --  Add the directory where gnatmake is invoked in the front of the
+      --  Add the directory where gnatmake is invoked in front of the
       --  path, if gnatmake is invoked with directory information.
       --  Only do this if the platform is not VMS, where the notion of path
       --  does not really exist.

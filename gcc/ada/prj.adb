@@ -78,8 +78,8 @@ package body Prj is
       First_Referred_By              => No_Project,
       Name                           => No_Name,
       Path_Name                      => No_Name,
-      Virtual                        => False,
       Display_Path_Name              => No_Name,
+      Virtual                        => False,
       Location                       => No_Location,
       Mains                          => Nil_String,
       Directory                      => No_Name,
@@ -127,8 +127,7 @@ package body Prj is
       Language_Independent_Checked   => False,
       Checked                        => False,
       Seen                           => False,
-      Flag1                          => False,
-      Flag2                          => False,
+      Need_To_Build_Lib              => False,
       Depth                          => 0,
       Unkept_Comments                => False);
 
@@ -162,7 +161,7 @@ package body Prj is
 
    function Empty_Project return Project_Data is
    begin
-      Initialize;
+      Prj.Initialize;
       return Project_Empty;
    end Empty_Project;
 
@@ -377,9 +376,9 @@ package body Prj is
       end if;
    end Register_Default_Naming_Scheme;
 
-   ------------
-   --  Reset --
-   ------------
+   -----------
+   -- Reset --
+   -----------
 
    procedure Reset is
    begin
@@ -416,7 +415,7 @@ package body Prj is
 
    function Standard_Naming_Data return Naming_Data is
    begin
-      Initialize;
+      Prj.Initialize;
       return Std_Naming_Data;
    end Standard_Naming_Data;
 

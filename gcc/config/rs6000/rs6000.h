@@ -1735,15 +1735,6 @@ typedef struct rs6000_args
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
   function_arg_partial_nregs (&CUM, MODE, TYPE, NAMED)
 
-/* A C expression that indicates when an argument must be passed by
-   reference.  If nonzero for an argument, a copy of that argument is
-   made in memory and a pointer to the argument is passed instead of
-   the argument itself.  The pointer is passed in whatever way is
-   appropriate for passing a pointer to that type.  */
-
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-  function_arg_pass_by_reference(&CUM, MODE, TYPE, NAMED)
-
 /* If defined, a C expression which determines whether, and in which
    direction, to pad out an argument with extra space.  The value
    should be of type `enum direction': either `upward' to pad above
@@ -1762,9 +1753,6 @@ typedef struct rs6000_args
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   rs6000_va_start (valist, nextarg)
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) (abort (), NULL_RTX)
 
 #define PAD_VARARGS_DOWN \
    (FUNCTION_ARG_PADDING (TYPE_MODE (type), type) == downward)
@@ -2216,10 +2204,6 @@ extern int rs6000_compare_fp_p;
    assembler language.  The compiler assumes that the comment will end at
    the end of the line.  */
 #define ASM_COMMENT_START " #"
-
-/* Implicit library calls should use memcpy, not bcopy, etc.  */
-
-#define TARGET_MEM_FUNCTIONS
 
 /* Flag to say the TOC is initialized */
 extern int toc_initialized;

@@ -831,13 +831,6 @@ package body Checks is
          if Size_Known_At_Compile_Time (Typ) then
             return;
          end if;
-
-         --  No problem on 64-bit machines, we just don't bother with
-         --  the case where the size in bytes overflows 64-bits.
-
-         if System_Address_Size = 64 then
-            return;
-         end if;
       end if;
 
       --  Following code is temporarily deleted, since GCC 3 is returning
@@ -916,7 +909,7 @@ package body Checks is
          if Static and then Siz >= Check_Siz then
             Insert_Action (N,
               Make_Raise_Storage_Error (Loc,
-                 Reason => SE_Object_Too_Large));
+                Reason => SE_Object_Too_Large));
             Error_Msg_N ("?Storage_Error will be raised at run-time", N);
             Uintp.Release (Umark);
             return;
@@ -4077,9 +4070,9 @@ package body Checks is
           Reason => CE_Discriminant_Check_Failed));
    end Generate_Discriminant_Check;
 
-   ----------------------------
-   --  Generate_Index_Checks --
-   ----------------------------
+   ---------------------------
+   -- Generate_Index_Checks --
+   ---------------------------
 
    procedure Generate_Index_Checks (N : Node_Id) is
       Loc : constant Source_Ptr := Sloc (N);

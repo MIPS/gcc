@@ -1,9 +1,6 @@
 /* { dg-do run } */
 /* { dg-options "-O0" } */
 
-extern void abort (void);
-extern void exit (int);
-
 /* Check that out-of-bounds case warnings work in the case that the
    testing expression is promoted.  */
 int

@@ -1150,10 +1150,11 @@ common_base_type (tree tt1, tree tt2)
 
   /* Otherwise, try to find a unique baseclass of TT1
      that is shared by TT2, and follow that down.  */
-  for (i = CLASSTYPE_N_BASECLASSES (tt1)-1; i >= 0; i--)
+  for (i = BINFO_N_BASE_BINFOS (TYPE_BINFO (tt1))-1; i >= 0; i--)
     {
-      tree basetype = TYPE_BINFO_BASETYPE (tt1, i);
+      tree basetype = BINFO_TYPE (BINFO_BASE_BINFO (TYPE_BINFO (tt1), i));
       tree trial = common_base_type (basetype, tt2);
+      
       if (trial)
 	{
 	  if (trial == error_mark_node)
@@ -1166,10 +1167,11 @@ common_base_type (tree tt1, tree tt2)
     }
 
   /* Same for TT2.  */
-  for (i = CLASSTYPE_N_BASECLASSES (tt2)-1; i >= 0; i--)
+  for (i = BINFO_N_BASE_BINFOS (TYPE_BINFO (tt2))-1; i >= 0; i--)
     {
-      tree basetype = TYPE_BINFO_BASETYPE (tt2, i);
+      tree basetype = BINFO_TYPE (BINFO_BASE_BINFO (TYPE_BINFO (tt2), i));
       tree trial = common_base_type (tt1, basetype);
+      
       if (trial)
 	{
 	  if (trial == error_mark_node)
@@ -1712,7 +1714,8 @@ build_class_member_access_expr (tree object, tree member,
 	 actually used the offsetof macro, since there's no way to know at this
 	 point.  So we just give a warning, instead of a pedwarn.  */
       if (null_object_p && warn_invalid_offsetof
-	  && CLASSTYPE_NON_POD_P (object_type))
+	  && CLASSTYPE_NON_POD_P (object_type)
+	  && ! skip_evaluation)
 	{
 	  warning ("invalid access to non-static data member `%D' of NULL object", 
 		   member);
@@ -2490,10 +2493,10 @@ build_function_call (tree function, tree params)
   if (coerced_params == error_mark_node)
     return error_mark_node;
 
-  /* Check for errors in format strings.  */
+  /* Check for errors in format strings and inappropriately
+     null parameters.  */
 
-  if (warn_format)
-    check_function_format (NULL, TYPE_ATTRIBUTES (fntype), coerced_params);
+  check_function_arguments (TYPE_ATTRIBUTES (fntype), coerced_params);
 
   return build_cxx_call (function, coerced_params);
 }
@@ -2873,15 +2876,20 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case ROUND_DIV_EXPR:
     case EXACT_DIV_EXPR:
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
-	   || code0 == COMPLEX_TYPE)
+	   || code0 == COMPLEX_TYPE || code0 == VECTOR_TYPE)
 	  && (code1 == INTEGER_TYPE || code1 == REAL_TYPE
-	      || code1 == COMPLEX_TYPE))
+	      || code1 == COMPLEX_TYPE || code1 == VECTOR_TYPE))
 	{
 	  if (TREE_CODE (op1) == INTEGER_CST && integer_zerop (op1))
 	    warning ("division by zero in `%E / 0'", op0);
 	  else if (TREE_CODE (op1) == REAL_CST && real_zerop (op1))
 	    warning ("division by zero in `%E / 0.'", op0);
 	      
+	  if (code0 == COMPLEX_TYPE || code0 == VECTOR_TYPE)
+	    code0 = TREE_CODE (TREE_TYPE (TREE_TYPE (op0)));
+	  if (code1 == COMPLEX_TYPE || code1 == VECTOR_TYPE)
+	    code1 = TREE_CODE (TREE_TYPE (TREE_TYPE (op1)));
+
 	  if (!(code0 == INTEGER_TYPE && code1 == INTEGER_TYPE))
 	    resultcode = RDIV_EXPR;
 	  else
@@ -3534,6 +3542,24 @@ build_x_unary_op (enum tree_code code, tree xarg)
     {
       if (type_dependent_expression_p (xarg))
 	return build_min_nt (code, xarg, NULL_TREE);
+
+      /* For non-dependent pointer-to-member, the SCOPE_REF will be
+	 processed during template substitution.  Just compute the
+	 right type here and build an ADDR_EXPR around it for
+	 diagnostics.  */
+      if (code == ADDR_EXPR && TREE_CODE (xarg) == SCOPE_REF)
+	{
+	  tree type;
+	  if (TREE_TYPE (xarg) == unknown_type_node)
+	    type = unknown_type_node;
+	  else if (TREE_CODE (TREE_TYPE (xarg)) == FUNCTION_TYPE)
+	    type = build_pointer_type (TREE_TYPE (xarg));
+	  else
+	    type = build_ptrmem_type (TREE_OPERAND (xarg, 0),
+				      TREE_TYPE (xarg));
+	  return build_min (code, type, xarg, NULL_TREE);
+	}
+
       xarg = build_non_dependent_expr (xarg);
     }
 
@@ -4302,7 +4328,6 @@ cxx_mark_addressable (tree exp)
 	  warning ("address requested for `%D', which is declared `register'",
 		      x);
 	TREE_ADDRESSABLE (x) = 1;
-	put_var_into_stack (x, /*rescan=*/true);
 	return true;
 
       case FUNCTION_DECL:
@@ -4982,6 +5007,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   tree lhstype = TREE_TYPE (lhs);
   tree olhstype = lhstype;
   tree olhs = NULL_TREE;
+  bool plain_assign = (modifycode == NOP_EXPR);
 
   /* Avoid duplicate error messages from operands that had errors.  */
   if (lhs == error_mark_node || rhs == error_mark_node)
@@ -5076,8 +5102,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 	{
 	  result = build_special_member_call (lhs, complete_ctor_identifier,
 					      build_tree_list (NULL_TREE, rhs),
-					      TYPE_BINFO (lhstype), 
-					      LOOKUP_NORMAL);
+					      lhstype, LOOKUP_NORMAL);
 	  if (result == NULL_TREE)
 	    return error_mark_node;
 	  return result;
@@ -5242,6 +5267,8 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 		  lhstype, lhs, newrhs);
 
   TREE_SIDE_EFFECTS (result) = 1;
+  if (!plain_assign)
+    TREE_NO_WARNING (result) = 1;
 
   /* If we got the LHS in a different type for storing in,
      convert the result back to the nominal type of LHS
@@ -5273,7 +5300,10 @@ build_x_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 				make_node (modifycode),
 				/*overloaded_p=*/NULL);
       if (rval)
-	return rval;
+	{
+	  TREE_NO_WARNING (rval) = 1;
+	  return rval;
+	}
     }
   return build_modify_expr (lhs, modifycode, rhs);
 }
@@ -5779,63 +5809,6 @@ convert_for_initialization (tree exp, tree type, tree rhs, int flags,
   return convert_for_assignment (type, rhs, errtype, fndecl, parmnum);
 }
 
-/* Expand an ASM statement with operands, handling output operands
-   that are not variables or INDIRECT_REFS by transforming such
-   cases into cases that expand_asm_operands can handle.
-
-   Arguments are same as for expand_asm_operands.
-
-   We don't do default conversions on all inputs, because it can screw
-   up operands that are expected to be in memory.  */
-
-void
-c_expand_asm_operands (tree string, tree outputs, tree inputs, tree clobbers,
-		       int vol, location_t locus)
-{
-  int noutputs = list_length (outputs);
-  int i;
-  /* o[I] is the place that output number I should be written.  */
-  tree *o = alloca (noutputs * sizeof (tree));
-  tree tail;
-
-  /* Record the contents of OUTPUTS before it is modified.  */
-  for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
-    o[i] = TREE_VALUE (tail);
-
-  /* Generate the ASM_OPERANDS insn;
-     store into the TREE_VALUEs of OUTPUTS some trees for
-     where the values were actually stored.  */
-  expand_asm_operands (string, outputs, inputs, clobbers, vol, locus);
-
-  /* Copy all the intermediate outputs into the specified outputs.  */
-  for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
-    {
-      if (o[i] != TREE_VALUE (tail))
-	{
-	  expand_expr (build_modify_expr (o[i], NOP_EXPR, TREE_VALUE (tail)),
-		       const0_rtx, VOIDmode, EXPAND_NORMAL);
-	  free_temp_slots ();
-
-	  /* Restore the original value so that it's correct the next
-	     time we expand this function.  */
-	  TREE_VALUE (tail) = o[i];
-	}
-      /* Detect modification of read-only values.
-	 (Otherwise done by build_modify_expr.)  */
-      else
-	{
-	  tree type = TREE_TYPE (o[i]);
-	  if (type != error_mark_node
-	      && (CP_TYPE_CONST_P (type)
-		  || (CLASS_TYPE_P (type) && C_TYPE_FIELDS_READONLY (type))))
-	    readonly_error (o[i], "modification by `asm'", 1);
-	}
-    }
-
-  /* Those MODIFY_EXPRs could do autoincrements.  */
-  emit_queue ();
-}
-
 /* If RETVAL is the address of, or a reference to, a local variable or
    temporary give an appropriate warning.  */
 
@@ -5995,9 +5968,29 @@ check_return_expr (tree retval)
 
   /* Effective C++ rule 15.  See also start_function.  */
   if (warn_ecpp
-      && DECL_NAME (current_function_decl) == ansi_assopname(NOP_EXPR)
-      && retval != current_class_ref)
-    warning ("`operator=' should return a reference to `*this'");
+      && DECL_NAME (current_function_decl) == ansi_assopname(NOP_EXPR))
+    {
+      bool warn = true;
+
+      /* The function return type must be a reference to the current
+	class.  */
+      if (TREE_CODE (valtype) == REFERENCE_TYPE
+	  && same_type_ignoring_top_level_qualifiers_p
+	      (TREE_TYPE (valtype), TREE_TYPE (current_class_ref)))
+	{
+	  /* Returning '*this' is obviously OK.  */
+	  if (retval == current_class_ref)
+	    warn = false;
+	  /* If we are calling a function whose return type is the same of
+	     the current class reference, it is ok.  */
+	  else if (TREE_CODE (retval) == INDIRECT_REF
+		   && TREE_CODE (TREE_OPERAND (retval, 0)) == CALL_EXPR)
+	    warn = false;
+	}
+
+      if (warn)
+	warning ("`operator=' should return a reference to `*this'");
+    }
 
   /* The fabled Named Return Value optimization, as per [class.copy]/15:
 

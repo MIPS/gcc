@@ -102,6 +102,7 @@ cp_tree_size (enum tree_code code)
 {
   switch (code)
     {
+    case TINST_LEVEL:		return sizeof (struct tinst_level_s);
     case PTRMEM_CST: 		return sizeof (struct ptrmem_cst);
     case BASELINK:		return sizeof (struct tree_baselink);
     case TEMPLATE_PARM_INDEX: 	return sizeof (template_parm_index);
@@ -114,17 +115,19 @@ cp_tree_size (enum tree_code code)
 }
 
 /* Returns true if T is a variably modified type, in the sense of C99.
+   FN is as passed to variably_modified_p.
    This routine needs only check cases that cannot be handled by the
-   language-independent logic in tree-inline.c.  */
+   language-independent logic in tree.c.  */
 
 bool
-cp_var_mod_type_p (tree type)
+cp_var_mod_type_p (tree type, tree fn)
 {
   /* If TYPE is a pointer-to-member, it is variably modified if either
      the class or the member are variably modified.  */
   if (TYPE_PTR_TO_MEMBER_P (type))
-    return (variably_modified_type_p (TYPE_PTRMEM_CLASS_TYPE (type))
-	    || variably_modified_type_p (TYPE_PTRMEM_POINTED_TO_TYPE (type)));
+    return (variably_modified_type_p (TYPE_PTRMEM_CLASS_TYPE (type), fn)
+	    || variably_modified_type_p (TYPE_PTRMEM_POINTED_TO_TYPE (type),
+					 fn));
 
   /* All other types are not variably modified.  */
   return false;

@@ -63,7 +63,7 @@ extern char arm_arch_name[];
 							\
 	/* Add a define for interworking.		\
 	   Needed when building libgcc.a.  */		\
-	if (TARGET_INTERWORK)				\
+	if (arm_cpp_interwork)				\
 	  builtin_define ("__THUMB_INTERWORK__");	\
 							\
 	builtin_assert ("cpu=arm");			\
@@ -528,6 +528,13 @@ extern int arm_tune_xscale;
 /* Nonzero if this chip is an ARM6 or an ARM7.  */
 extern int arm_is_6_or_7;
 
+/* Nonzero if we should define __THUMB_INTERWORK__ in the
+   preprocessor.  
+   XXX This is a bit of a hack, it's intended to help work around
+   problems in GLD which doesn't understand that armv5t code is
+   interworking clean.  */
+extern int arm_cpp_interwork;
+
 #ifndef TARGET_DEFAULT
 #define TARGET_DEFAULT  (ARM_FLAG_APCS_FRAME)
 #endif
@@ -535,9 +542,6 @@ extern int arm_is_6_or_7;
 /* The frame pointer register used in gcc has nothing to do with debugging;
    that is controlled by the APCS-FRAME option.  */
 #define CAN_DEBUG_WITHOUT_FP
-
-#undef  TARGET_MEM_FUNCTIONS
-#define TARGET_MEM_FUNCTIONS 1
 
 #define OVERRIDE_OPTIONS  arm_override_options ()
 
@@ -1696,14 +1700,6 @@ typedef struct
    && (CUM).can_split)						\
    ?   NUM_ARG_REGS - (CUM).nregs : 0)
 
-/* A C expression that indicates when an argument must be passed by
-   reference.  If nonzero for an argument, a copy of that argument is
-   made in memory and a pointer to the argument is passed instead of
-   the argument itself.  The pointer is passed in whatever way is
-   appropriate for passing a pointer to that type.  */
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-  arm_function_arg_pass_by_reference (&CUM, MODE, TYPE, NAMED)
-
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.
@@ -1736,10 +1732,6 @@ typedef struct
    (IN_RANGE ((REGNO), 0, 3)		\
     || (TARGET_IWMMXT_ABI		\
 	&& IN_RANGE ((REGNO), FIRST_IWMMXT_REGNUM, FIRST_IWMMXT_REGNUM + 9)))
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  arm_va_arg (valist, type)
 
 
 /* If your target environment doesn't prefix user functions with an

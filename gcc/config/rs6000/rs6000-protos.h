@@ -117,7 +117,7 @@ extern enum rtx_code rs6000_reverse_condition (enum machine_mode,
 extern void rs6000_emit_sCOND (enum rtx_code, rtx);
 extern void rs6000_emit_cbranch (enum rtx_code, rtx);
 extern char * output_cbranch (rtx, const char *, int, rtx);
-extern char * output_e500_flip_gt_bit (rtx, rtx);
+extern char * output_e500_flip_eq_bit (rtx, rtx);
 extern rtx rs6000_emit_set_const (rtx, enum machine_mode, rtx, int);
 extern int rs6000_emit_cmove (rtx, rtx, rtx, rtx);
 extern void rs6000_emit_minmax (rtx, enum rtx_code, rtx, rtx);
@@ -156,9 +156,6 @@ extern struct rtx_def *function_arg (CUMULATIVE_ARGS *,
 					     enum machine_mode, tree, int);
 extern int function_arg_partial_nregs (CUMULATIVE_ARGS *,
 					       enum machine_mode, tree, int);
-extern int function_arg_pass_by_reference (CUMULATIVE_ARGS *,
-						   enum machine_mode,
-						   tree, int);
 extern rtx rs6000_function_value (tree, tree);
 extern rtx rs6000_libcall_value (enum machine_mode);
 extern struct rtx_def *rs6000_va_arg (tree, tree);

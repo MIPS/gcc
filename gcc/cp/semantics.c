@@ -45,6 +45,7 @@
 #include "diagnostic.h"
 #include "cgraph.h"
 #include "tree-iterator.h"
+#include "vec.h"
 
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
@@ -112,9 +113,36 @@ static tree finalize_nrv_r (tree *, int *, void *);
       In case of parsing error, we simply call `pop_deferring_access_checks'
       without `perform_deferred_access_checks'.  */
 
+typedef struct deferred_access GTY(())
+{
+  /* A TREE_LIST representing name-lookups for which we have deferred
+     checking access controls.  We cannot check the accessibility of
+     names used in a decl-specifier-seq until we know what is being
+     declared because code like:
+
+       class A { 
+         class B {};
+         B* f();
+       }
+
+       A::B* A::f() { return 0; }
+
+     is valid, even though `A::B' is not generally accessible.  
+
+     The TREE_PURPOSE of each node is the scope used to qualify the
+     name being looked up; the TREE_VALUE is the DECL to which the
+     name was resolved.  */
+  tree deferred_access_checks;
+  
+  /* The current mode of access checks.  */
+  enum deferring_kind deferring_access_checks_kind;
+  
+} deferred_access;
+DEF_VEC_O (deferred_access);
+
 /* Data for deferred access checking.  */
-static GTY(()) deferred_access *deferred_access_stack;
-static GTY(()) deferred_access *deferred_access_free_list;
+static GTY(()) VEC (deferred_access) *deferred_access_stack;
+static GTY(()) unsigned deferred_access_no_check;
 
 /* Save the current deferred access states and start deferred
    access checking iff DEFER_P is true.  */
@@ -122,27 +150,18 @@ static GTY(()) deferred_access *deferred_access_free_list;
 void
 push_deferring_access_checks (deferring_kind deferring)
 {
-  deferred_access *d;
-
   /* For context like template instantiation, access checking
      disabling applies to all nested context.  */
-  if (deferred_access_stack
-      && deferred_access_stack->deferring_access_checks_kind == dk_no_check)
-    deferring = dk_no_check;
-
-  /* Recycle previously used free store if available.  */
-  if (deferred_access_free_list)
-    {
-      d = deferred_access_free_list;
-      deferred_access_free_list = d->next;
-    }
+  if (deferred_access_no_check || deferring == dk_no_check)
+    deferred_access_no_check++;
   else
-    d = ggc_alloc (sizeof (deferred_access));
+    {
+      deferred_access *ptr;
 
-  d->next = deferred_access_stack;
-  d->deferred_access_checks = NULL_TREE;
-  d->deferring_access_checks_kind = deferring;
-  deferred_access_stack = d;
+      ptr = VEC_safe_push (deferred_access, deferred_access_stack, NULL);
+      ptr->deferred_access_checks = NULL_TREE;
+      ptr->deferring_access_checks_kind = deferring;
+    }
 }
 
 /* Resume deferring access checks again after we stopped doing
@@ -151,8 +170,9 @@ push_deferring_access_checks (deferring_kind deferring)
 void
 resume_deferring_access_checks (void)
 {
-  if (deferred_access_stack->deferring_access_checks_kind == dk_no_deferred)
-    deferred_access_stack->deferring_access_checks_kind = dk_deferred;
+  if (!deferred_access_no_check)
+    VEC_last (deferred_access, deferred_access_stack)
+      ->deferring_access_checks_kind = dk_deferred;
 }
 
 /* Stop deferring access checks.  */
@@ -160,8 +180,9 @@ resume_deferring_access_checks (void)
 void
 stop_deferring_access_checks (void)
 {
-  if (deferred_access_stack->deferring_access_checks_kind == dk_deferred)
-    deferred_access_stack->deferring_access_checks_kind = dk_no_deferred;
+  if (!deferred_access_no_check)
+    VEC_last (deferred_access, deferred_access_stack)
+      ->deferring_access_checks_kind = dk_no_deferred;
 }
 
 /* Discard the current deferred access checks and restore the
@@ -170,15 +191,10 @@ stop_deferring_access_checks (void)
 void
 pop_deferring_access_checks (void)
 {
-  deferred_access *d = deferred_access_stack;
-  deferred_access_stack = d->next;
-
-  /* Remove references to access checks TREE_LIST.  */
-  d->deferred_access_checks = NULL_TREE;
-
-  /* Store in free list for later use.  */
-  d->next = deferred_access_free_list;
-  deferred_access_free_list = d;
+  if (deferred_access_no_check)
+    deferred_access_no_check--;
+  else
+    VEC_pop (deferred_access, deferred_access_stack);
 }
 
 /* Returns a TREE_LIST representing the deferred checks.  
@@ -189,7 +205,11 @@ pop_deferring_access_checks (void)
 tree
 get_deferred_access_checks (void)
 {
-  return deferred_access_stack->deferred_access_checks;
+  if (deferred_access_no_check)
+    return NULL;
+  else
+    return (VEC_last (deferred_access, deferred_access_stack)
+	    ->deferred_access_checks);
 }
 
 /* Take current deferred checks and combine with the
@@ -199,27 +219,48 @@ get_deferred_access_checks (void)
 void
 pop_to_parent_deferring_access_checks (void)
 {
-  tree deferred_check = get_deferred_access_checks ();
-  deferred_access *d1 = deferred_access_stack;
-  deferred_access *d2 = deferred_access_stack->next;
-  deferred_access *d3 = deferred_access_stack->next->next;
+  if (deferred_access_no_check)
+    deferred_access_no_check--;
+  else
+    {
+      tree checks;
+      deferred_access *ptr;
 
-  /* Temporary swap the order of the top two states, just to make
-     sure the garbage collector will not reclaim the memory during 
-     processing below.  */
-  deferred_access_stack = d2;
-  d2->next = d1;
-  d1->next = d3;
+      checks = (VEC_last (deferred_access, deferred_access_stack)
+		->deferred_access_checks);
 
-  for ( ; deferred_check; deferred_check = TREE_CHAIN (deferred_check))
-    /* Perform deferred check if required.  */
-    perform_or_defer_access_check (TREE_PURPOSE (deferred_check), 
-				   TREE_VALUE (deferred_check));
+      VEC_pop (deferred_access, deferred_access_stack);
+      ptr = VEC_last (deferred_access, deferred_access_stack);
+      if (ptr->deferring_access_checks_kind == dk_no_deferred)
+	{
+	  /* Check access.  */
+	  for (; checks; checks = TREE_CHAIN (checks)) 
+	    enforce_access (TREE_PURPOSE (checks), 
+			    TREE_VALUE (checks));
+	}
+      else
+	{
+	  /* Merge with parent.  */
+	  tree next;
+	  tree original = ptr->deferred_access_checks;
+	  
+	  for (; checks; checks = next)
+	    {
+	      tree probe;
+	      
+	      next = TREE_CHAIN (checks);
 
-  deferred_access_stack = d1;
-  d1->next = d2;
-  d2->next = d3;
-  pop_deferring_access_checks ();
+	      for (probe = original; probe; probe = TREE_CHAIN (probe))
+		if (TREE_VALUE (probe) == TREE_VALUE (checks)
+		    && TREE_PURPOSE (probe) == TREE_PURPOSE (checks))
+		  goto found;
+	      /* Insert into parent's checks.  */
+	      TREE_CHAIN (checks) = ptr->deferred_access_checks;
+	      ptr->deferred_access_checks = checks;
+	    found:;
+	    }
+	}
+    }
 }
 
 /* Perform the deferred access checks.
@@ -242,7 +283,9 @@ void
 perform_deferred_access_checks (void)
 {
   tree deferred_check;
-  for (deferred_check = deferred_access_stack->deferred_access_checks;
+
+  for (deferred_check = (VEC_last (deferred_access, deferred_access_stack)
+			 ->deferred_access_checks);
        deferred_check;
        deferred_check = TREE_CHAIN (deferred_check))
     /* Check access.  */
@@ -257,29 +300,33 @@ void
 perform_or_defer_access_check (tree binfo, tree decl)
 {
   tree check;
+  deferred_access *ptr;
 
-  my_friendly_assert (TREE_CODE (binfo) == TREE_VEC, 20030623);
+  /* Exit if we are in a context that no access checking is performed.
+     */
+  if (deferred_access_no_check)
+    return;
+  
+  my_friendly_assert (TREE_CODE (binfo) == TREE_BINFO, 20030623);
+
+  ptr = VEC_last (deferred_access, deferred_access_stack);
   
   /* If we are not supposed to defer access checks, just check now.  */
-  if (deferred_access_stack->deferring_access_checks_kind == dk_no_deferred)
+  if (ptr->deferring_access_checks_kind == dk_no_deferred)
     {
       enforce_access (binfo, decl);
       return;
     }
-  /* Exit if we are in a context that no access checking is performed.  */
-  else if (deferred_access_stack->deferring_access_checks_kind == dk_no_check)
-    return;
-
+  
   /* See if we are already going to perform this check.  */
-  for (check = deferred_access_stack->deferred_access_checks;
+  for (check = ptr->deferred_access_checks;
        check;
        check = TREE_CHAIN (check))
     if (TREE_VALUE (check) == decl && TREE_PURPOSE (check) == binfo)
       return;
   /* If not, record the check.  */
-  deferred_access_stack->deferred_access_checks
-    = tree_cons (binfo, decl,
-		 deferred_access_stack->deferred_access_checks);
+  ptr->deferred_access_checks
+    = tree_cons (binfo, decl, ptr->deferred_access_checks);
 }
 
 /* Returns nonzero if the current statement is a full expression,
@@ -1192,7 +1239,7 @@ finish_parenthesized_expr (tree expr)
 {
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (expr))))
     /* This inhibits warnings in c_common_truthvalue_conversion.  */
-    C_SET_EXP_ORIGINAL_CODE (expr, ERROR_MARK); 
+    TREE_NO_WARNING (expr) = 1;
 
   if (TREE_CODE (expr) == OFFSET_REF)
     /* [expr.unary.op]/3 The qualified id of a pointer-to-member must not be
@@ -1298,6 +1345,10 @@ check_accessibility_of_qualified_id (tree decl,
 {
   tree scope;
   tree qualifying_type = NULL_TREE;
+
+  /* If we're not checking, return imediately.  */
+  if (deferred_access_no_check)
+    return;
   
   /* Determine the SCOPE of DECL.  */
   scope = context_for_name_lookup (decl);
@@ -1447,7 +1498,7 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
 	      expr = build_special_member_call
 		(NULL_TREE, complete_ctor_identifier,
 		 build_tree_list (NULL_TREE, expr),
-		 TYPE_BINFO (type), LOOKUP_NORMAL);
+		 type, LOOKUP_NORMAL);
 	      expr = build_cplus_new (type, expr);
 	      my_friendly_assert (TREE_CODE (expr) == TARGET_EXPR, 20030729);
 	    }
@@ -2111,7 +2162,7 @@ finish_member_declaration (tree decl)
     {
       /* We also need to add this function to the
 	 CLASSTYPE_METHOD_VEC.  */
-      add_method (current_class_type, decl, /*error_p=*/0);
+      add_method (current_class_type, decl);
 
       TREE_CHAIN (decl) = TYPE_METHODS (current_class_type);
       TYPE_METHODS (current_class_type) = decl;
@@ -2189,7 +2240,8 @@ finish_template_type (tree name, tree args, int entering_scope)
    Return a TREE_LIST containing the ACCESS_SPECIFIER and the
    BASE_CLASS, or NULL_TREE if an error occurred.  The
    ACCESS_SPECIFIER is one of
-   access_{default,public,protected_private}[_virtual]_node.*/
+   access_{default,public,protected_private}_node.  For a virtual base
+   we set TREE_TYPE.  */
 
 tree 
 finish_base_specifier (tree base, tree access, bool virtual_p)
@@ -2211,7 +2263,8 @@ finish_base_specifier (tree base, tree access, bool virtual_p)
           base = TYPE_MAIN_VARIANT (base);
         }
       result = build_tree_list (access, base);
-      TREE_VIA_VIRTUAL (result) = virtual_p;
+      if (virtual_p)
+	TREE_TYPE (result) = integer_type_node;
     }
 
   return result;
@@ -2847,18 +2900,6 @@ expand_body (tree fn)
 
   extract_interface_info ();
 
-  /* If this function is marked with the constructor attribute, add it
-     to the list of functions to be called along with constructors
-     from static duration objects.  */
-  if (DECL_STATIC_CONSTRUCTOR (fn))
-    static_ctors = tree_cons (NULL_TREE, fn, static_ctors);
-
-  /* If this function is marked with the destructor attribute, add it
-     to the list of functions to be called along with destructors from
-     static duration objects.  */
-  if (DECL_STATIC_DESTRUCTOR (fn))
-    static_dtors = tree_cons (NULL_TREE, fn, static_dtors);
-
   if (DECL_CLONED_FUNCTION_P (fn))
     {
       /* If this is a clone, go through the other clones now and mark
@@ -2912,14 +2953,38 @@ expand_or_defer_fn (tree fn)
       return;
     }
 
+  /* If this function is marked with the constructor attribute, add it
+     to the list of functions to be called along with constructors
+     from static duration objects.  */
+  if (DECL_STATIC_CONSTRUCTOR (fn))
+    static_ctors = tree_cons (NULL_TREE, fn, static_ctors);
+
+  /* If this function is marked with the destructor attribute, add it
+     to the list of functions to be called along with destructors from
+     static duration objects.  */
+  if (DECL_STATIC_DESTRUCTOR (fn))
+    static_dtors = tree_cons (NULL_TREE, fn, static_dtors);
+
+  /* We make a decision about linkage for these functions at the end
+     of the compilation.  Until that point, we do not want the back
+     end to output them -- but we do want it to see the bodies of
+     these fucntions so that it can inline them as appropriate.  */
+  if (DECL_DECLARED_INLINE_P (fn) || DECL_IMPLICIT_INSTANTIATION (fn))
+    {
+      if (!at_eof)
+	{
+	  DECL_EXTERNAL (fn) = 1;
+	  DECL_NOT_REALLY_EXTERN (fn) = 1;
+	  note_vague_linkage_fn (fn);
+	}
+      else
+	import_export_decl (fn);
+    }
+
   /* There's no reason to do any of the work here if we're only doing
      semantic analysis; this code just generates RTL.  */
   if (flag_syntax_only)
     return;
-
-  /* Compute the appropriate object-file linkage for inline functions.  */
-  if (DECL_DECLARED_INLINE_P (fn))
-    import_export_decl (fn);
 
   function_depth++;
 
@@ -3005,6 +3070,8 @@ finalize_nrv (tree *tp, tree var, tree result)
 
   /* Copy debugging information from VAR to RESULT.  */
   DECL_NAME (result) = DECL_NAME (var);
+  DECL_ARTIFICIAL (result) = DECL_ARTIFICIAL (var);
+  DECL_IGNORED_P (result) = DECL_IGNORED_P (var);
   DECL_SOURCE_LOCATION (result) = DECL_SOURCE_LOCATION (var);
   DECL_ABSTRACT_ORIGIN (result) = DECL_ABSTRACT_ORIGIN (var);
   /* Don't forget that we take its address.  */

@@ -24,6 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 extern void optimization_options (int, int);
 extern void override_options (void);
 extern HOST_WIDE_INT s390_arg_frame_offset (void);
+extern HOST_WIDE_INT s390_return_address_offset (void);
 extern void s390_emit_prologue (void);
 extern void s390_emit_epilogue (bool);
 extern void s390_function_profiler (FILE *, int);
@@ -74,8 +75,8 @@ extern int s390_plus_operand (rtx, enum machine_mode);
 extern void s390_expand_plus_operand (rtx, rtx, rtx);
 extern void emit_symbolic_move (rtx *);
 extern void s390_load_address (rtx, rtx);
-extern void s390_expand_movstr (rtx, rtx, rtx);
-extern void s390_expand_clrstr (rtx, rtx);
+extern void s390_expand_movmem (rtx, rtx, rtx);
+extern void s390_expand_clrmem (rtx, rtx);
 extern void s390_expand_cmpmem (rtx, rtx, rtx, rtx);
 extern bool s390_expand_addcc (enum rtx_code, rtx, rtx, rtx, rtx, rtx);
 extern rtx s390_return_addr_rtx (int, rtx);
@@ -96,7 +97,6 @@ extern rtx s390_load_got (void);
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
-extern int s390_function_arg_pass_by_reference (enum machine_mode, tree);
 extern void s390_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				       tree, int);
 #ifdef RTX_CODE

@@ -560,6 +560,11 @@ package Opt is
    --  When True signals gnatmake to ignore compilation errors and keep
    --  processing sources until there is no more work.
 
+   Keep_Temporary_Files : Boolean := False;
+   --  GNATCMD
+   --  When True the temporary files created by the GNAT driver are not
+   --  deleted. Set by switch -dn or qualifier /KEEP_TEMPORARY_FILES.
+
    Link_Only : Boolean := False;
    --  GNATMAKE
    --  Set to True to skip compile and bind steps
@@ -831,6 +836,11 @@ package Opt is
    --  GNAT, GBATBIND
    --  Set True if generated code uses the System.Secondary_Stack package.
    --  For the binder, set if any unit uses the secondary stack package.
+
+   Setup_Projects : Boolean := False;
+   --  GNAT DRIVER
+   --  Set to True for GNAT SETUP: the Project Manager creates non existing
+   --  object, library and exec directories.
 
    Shared_Libgnat : Boolean;
    --  GNATBIND

@@ -85,19 +85,17 @@ const char *const tree_code_name[] = {
 };
 #undef DEFTREECODE
 
-/* Lang hook routines common to C and ObjC appear in c-objc-common.c;
-   there should be very few routines below.  */
+/* Final processing of file-scope data.  The Objective-C version of
+   this function still does something.  */
+void
+finish_file (void)
+{
+}
 
 int
 c_types_compatible_p (tree x, tree y)
 {
     return comptypes (TYPE_MAIN_VARIANT (x), TYPE_MAIN_VARIANT (y));
-}
-
-void
-finish_file (void)
-{
-  c_objc_common_finish_file ();
 }
 
 #include "gtype-c.h"

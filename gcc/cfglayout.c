@@ -119,7 +119,7 @@ skip_insns_after_block (basic_block bb)
 
 	case CODE_LABEL:
 	  if (NEXT_INSN (insn)
-	      && GET_CODE (NEXT_INSN (insn)) == JUMP_INSN
+	      && JUMP_P (NEXT_INSN (insn))
 	      && (GET_CODE (PATTERN (NEXT_INSN (insn))) == ADDR_VEC
 	          || GET_CODE (PATTERN (NEXT_INSN (insn))) == ADDR_DIFF_VEC))
 	    {
@@ -149,7 +149,7 @@ skip_insns_after_block (basic_block bb)
   for (insn = last_insn; insn != BB_END (bb); insn = prev)
     {
       prev = PREV_INSN (insn);
-      if (GET_CODE (insn) == NOTE)
+      if (NOTE_P (insn))
 	switch (NOTE_LINE_NUMBER (insn))
 	  {
 	  case NOTE_INSN_LOOP_END:
@@ -172,7 +172,7 @@ label_for_bb (basic_block bb)
 {
   rtx label = BB_HEAD (bb);
 
-  if (GET_CODE (label) != CODE_LABEL)
+  if (!LABEL_P (label))
     {
       if (dump_file)
 	fprintf (dump_file, "Emitting label for block %d\n", bb->index);
@@ -195,7 +195,7 @@ record_effective_endpoints (void)
 
   for (insn = get_insns ();
        insn
-       && GET_CODE (insn) == NOTE
+       && NOTE_P (insn)
        && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK;
        insn = NEXT_INSN (insn))
     continue;
@@ -254,7 +254,7 @@ insn_locators_initialize (void)
   rtx insn, next;
   int loc = 0;
   int line_number = 0, last_line_number = 0;
-  char *file_name = NULL, *last_file_name = NULL;
+  const char *file_name = NULL, *last_file_name = NULL;
 
   prologue_locator = epilogue_locator = 0;
 
@@ -293,7 +293,7 @@ insn_locators_initialize (void)
 	    {
 	      loc++;
 	      VARRAY_PUSH_INT (file_locators_locs, loc);
-	      VARRAY_PUSH_CHAR_PTR (file_locators_files, file_name);
+	      VARRAY_PUSH_CHAR_PTR (file_locators_files, (char *) file_name);
 	      last_file_name = file_name;
 	    }
 	}
@@ -303,44 +303,34 @@ insn_locators_initialize (void)
 	epilogue_locator = loc;
       if (active_insn_p (insn))
         INSN_LOCATOR (insn) = loc;
-      else if (GET_CODE (insn) == NOTE)
+      else if (NOTE_P (insn))
 	{
 	  switch (NOTE_LINE_NUMBER (insn))
 	    {
 	    case NOTE_INSN_BLOCK_BEG:
-	      if (cfun->dont_emit_block_notes)
-		abort ();
-	      block = NOTE_BLOCK (insn);
-	      delete_insn (insn);
-	      break;
 	    case NOTE_INSN_BLOCK_END:
-	      if (cfun->dont_emit_block_notes)
-		abort ();
-	      block = BLOCK_SUPERCONTEXT (block);
-	      if (block && TREE_CODE (block) == FUNCTION_DECL)
-		block = 0;
-	      delete_insn (insn);
-	      break;
+	      abort ();
+
 	    default:
 	      if (NOTE_LINE_NUMBER (insn) > 0)
 		{
-		  line_number = NOTE_LINE_NUMBER (insn);
-		  file_name = (char *)NOTE_SOURCE_FILE (insn);
+		  expanded_location xloc;
+		  NOTE_EXPANDED_LOCATION (xloc, insn);
+		  line_number = xloc.line;
+		  file_name = xloc.file;
 		}
 	      break;
 	    }
 	}
 
-      if (cfun->dont_emit_block_notes)
-	check_block_change (insn, &block);
+      check_block_change (insn, &block);
     }
 
   /* Tag the blocks with a depth number so that change_scope can find
      the common parent easily.  */
   set_block_levels (DECL_INITIAL (cfun->decl), 0);
 
-  if (cfun->dont_emit_block_notes)
-    free_block_changes ();
+  free_block_changes ();
 }
 
 /* For each lexical block, set BLOCK_NUMBER to the depth at which it is
@@ -659,14 +649,13 @@ fixup_reorder_chain (void)
 	  e_taken = e;
 
       bb_end_insn = BB_END (bb);
-      if (GET_CODE (bb_end_insn) == JUMP_INSN)
+      if (JUMP_P (bb_end_insn))
 	{
 	  if (any_condjump_p (bb_end_insn))
 	    {
 	      /* If the old fallthru is still next, nothing to do.  */
 	      if (bb->rbi->next == e_fall->dest
-	          || (!bb->rbi->next
-		      && e_fall->dest == EXIT_BLOCK_PTR))
+	          || e_fall->dest == EXIT_BLOCK_PTR)
 		continue;
 
 	      /* The degenerated case of conditional jump jumping to the next
@@ -817,7 +806,7 @@ fixup_reorder_chain (void)
 					   note);
 		  NOTE_BASIC_BLOCK (new_note) = bb;
 		}
-	      if (GET_CODE (BB_END (bb)) == JUMP_INSN
+	      if (JUMP_P (BB_END (bb))
 		  && !any_condjump_p (BB_END (bb))
 		  && bb->succ->crossing_edge )
 		REG_NOTES (BB_END (bb)) = gen_rtx_EXPR_LIST 
@@ -840,7 +829,7 @@ fixup_reorder_chain (void)
 	    fprintf (dump_file, "duplicate of %i ",
 		     bb->rbi->original->index);
 	  else if (forwarder_block_p (bb)
-		   && GET_CODE (BB_HEAD (bb)) != CODE_LABEL)
+		   && !LABEL_P (BB_HEAD (bb)))
 	    fprintf (dump_file, "compensation ");
 	  else
 	    fprintf (dump_file, "bb %i ", bb->index);
@@ -886,7 +875,7 @@ update_unlikely_executed_notes (basic_block bb)
 
   for (cur_insn = BB_HEAD (bb); cur_insn != BB_END (bb); 
        cur_insn = NEXT_INSN (cur_insn)) 
-    if (GET_CODE (cur_insn) == NOTE
+    if (NOTE_P (cur_insn)
 	&& NOTE_LINE_NUMBER (cur_insn) == NOTE_INSN_UNLIKELY_EXECUTED_CODE)
       NOTE_BASIC_BLOCK (cur_insn) = bb;
 }
@@ -1144,11 +1133,15 @@ cfg_layout_duplicate_bb (basic_block bb)
   return new_bb;
 }
 
-/* Main entry point to this module - initialize the data structures for
-   CFG layout changes.  It keeps LOOPS up-to-date if not null.  */
+/* Main entry point to this module - initialize the datastructures for
+   CFG layout changes.  It keeps LOOPS up-to-date if not null.
+
+   FLAGS is a set of additional flags to pass to cleanup_cfg().  It should
+   include CLEANUP_UPDATE_LIFE if liveness information must be kept up
+   to date.  */
 
 void
-cfg_layout_initialize (void)
+cfg_layout_initialize (unsigned int flags)
 {
   basic_block bb;
 
@@ -1163,7 +1156,7 @@ cfg_layout_initialize (void)
 
   record_effective_endpoints ();
 
-  cleanup_cfg (CLEANUP_CFGLAYOUT);
+  cleanup_cfg (CLEANUP_CFGLAYOUT | flags);
 }
 
 /* Splits superblocks.  */

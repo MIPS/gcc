@@ -30,7 +30,7 @@ with Csets;
 with MLib.Tgt; use MLib.Tgt;
 with MLib.Utl;
 with Namet;    use Namet;
-with Opt;
+with Opt;      use Opt;
 with Osint;    use Osint;
 with Output;
 with Prj;      use Prj;
@@ -470,29 +470,32 @@ procedure GNATCmd is
       Success : Boolean;
 
    begin
-      if Project /= No_Project then
-         for Prj in 1 .. Projects.Last loop
-            if Projects.Table (Prj).Config_File_Temp then
-               if Opt.Verbose_Mode then
-                  Output.Write_Str ("Deleting temp configuration file """);
-                  Output.Write_Str (Get_Name_String
-                                      (Projects.Table (Prj).Config_File_Name));
-                  Output.Write_Line ("""");
+      if not Keep_Temporary_Files then
+         if Project /= No_Project then
+            for Prj in 1 .. Projects.Last loop
+               if Projects.Table (Prj).Config_File_Temp then
+                  if Verbose_Mode then
+                     Output.Write_Str ("Deleting temp configuration file """);
+                     Output.Write_Str
+                       (Get_Name_String
+                          (Projects.Table (Prj).Config_File_Name));
+                     Output.Write_Line ("""");
+                  end if;
+
+                  Delete_File
+                    (Name    => Get_Name_String
+                       (Projects.Table (Prj).Config_File_Name),
+                     Success => Success);
                end if;
+            end loop;
+         end if;
 
-               Delete_File
-                 (Name    => Get_Name_String
-                  (Projects.Table (Prj).Config_File_Name),
-                  Success => Success);
-            end if;
-         end loop;
-      end if;
+         --  If a temporary text file that contains a list of files for a tool
+         --  has been created, delete this temporary file.
 
-      --  If a temporary text file that contains a list of files for a tool
-      --  has been created, delete this temporary file.
-
-      if Temp_File_Name /= null then
-         Delete_File (Temp_File_Name.all, Success);
+         if Temp_File_Name /= null then
+            Delete_File (Temp_File_Name.all, Success);
+         end if;
       end if;
    end Delete_Temp_Config_Files;
 
@@ -919,7 +922,7 @@ procedure GNATCmd is
 
       for C in Command_List'Range loop
          if not Command_List (C).VMS_Only then
-            Put ("GNAT " & Command_List (C).Cname.all);
+            Put ("gnat " & To_Lower (Command_List (C).Cname.all));
             Set_Col (25);
             Put (Command_List (C).Unixcmd.all);
 
@@ -939,7 +942,7 @@ procedure GNATCmd is
       end loop;
 
       New_Line;
-      Put_Line ("Commands FIND, LIST, PRETTY, STUB, NETRIC and XREF accept " &
+      Put_Line ("Commands find, list, metric, pretty, stub and xref accept " &
                 "project file switches -vPx, -Pprj and -Xnam=val");
       New_Line;
    end Non_VMS_Usage;
@@ -966,6 +969,38 @@ begin
 
    VMS_Conv.Initialize;
 
+   --  Add the directory where the GNAT driver is invoked in front of the
+   --  path, if the GNAT driver is invoked with directory information.
+   --  Only do this if the platform is not VMS, where the notion of path
+   --  does not really exist.
+
+   if not OpenVMS then
+      declare
+         Command : constant String := Command_Name;
+
+      begin
+         for Index in reverse Command'Range loop
+            if Command (Index) = Directory_Separator then
+               declare
+                  Absolute_Dir : constant String :=
+                                   Normalize_Pathname
+                                     (Command (Command'First .. Index));
+
+                  PATH         : constant String :=
+                                   Absolute_Dir &
+                  Path_Separator &
+                  Getenv ("PATH").all;
+
+               begin
+                  Setenv ("PATH", PATH);
+               end;
+
+               exit;
+            end if;
+         end loop;
+      end;
+   end if;
+
    --  If on VMS, or if VMS emulation is on, convert VMS style /qualifiers,
    --  filenames and pathnames to Unix style.
 
@@ -982,10 +1017,23 @@ begin
          return;
       else
          begin
-            if Argument_Count > 1 and then Argument (1) = "-v" then
-               Opt.Verbose_Mode := True;
-               Command_Arg := 2;
-            end if;
+            loop
+               if Argument_Count > Command_Arg
+                 and then Argument (Command_Arg) = "-v"
+               then
+                  Verbose_Mode := True;
+                  Command_Arg := Command_Arg + 1;
+
+               elsif Argument_Count > Command_Arg
+                 and then Argument (Command_Arg) = "-dn"
+               then
+                  Keep_Temporary_Files := True;
+                  Command_Arg := Command_Arg + 1;
+
+               else
+                  exit;
+               end if;
+            end loop;
 
             The_Command := Real_Command_Type'Value (Argument (Command_Arg));
 
@@ -1089,6 +1137,148 @@ begin
       Exec_Path : String_Access;
 
    begin
+      --  First deal with built-in command(s)
+
+      if The_Command = Setup then
+         Process_Setup :
+         declare
+            Arg_Num : Positive := 1;
+            Argv    : String_Access;
+
+         begin
+            while Arg_Num <= Last_Switches.Last loop
+               Argv := Last_Switches.Table (Arg_Num);
+
+               if Argv (Argv'First) /= '-' then
+                  Fail ("invalid parameter """, Argv.all, """");
+
+               else
+                  if Argv'Length = 1 then
+                     Fail
+                       ("switch character cannot be followed by a blank");
+                  end if;
+
+                  --  -vPx  Specify verbosity while parsing project files
+
+                  if Argv'Length = 4
+                    and then Argv (Argv'First + 1 .. Argv'First + 2) = "vP"
+                  then
+                     case Argv (Argv'Last) is
+                        when '0' =>
+                           Current_Verbosity := Prj.Default;
+                        when '1' =>
+                           Current_Verbosity := Prj.Medium;
+                        when '2' =>
+                           Current_Verbosity := Prj.High;
+                        when others =>
+                           Fail ("Invalid switch: ", Argv.all);
+                     end case;
+
+                  --  -Pproject_file  Specify project file to be used
+
+                  elsif Argv (Argv'First + 1) = 'P' then
+
+                     --  Only one -P switch can be used
+
+                     if Project_File /= null then
+                        Fail
+                          (Argv.all,
+                           ": second project file forbidden (first is """,
+                           Project_File.all & """)");
+
+                     elsif Argv'Length = 2 then
+
+                        --  There is space between -P and the project file
+                        --  name. -P cannot be the last option.
+
+                        if Arg_Num = Last_Switches.Last then
+                           Fail ("project file name missing after -P");
+
+                        else
+                           Arg_Num := Arg_Num + 1;
+                           Argv := Last_Switches.Table (Arg_Num);
+
+                           --  After -P, there must be a project file name,
+                           --  not another switch.
+
+                           if Argv (Argv'First) = '-' then
+                              Fail ("project file name missing after -P");
+
+                           else
+                              Project_File := new String'(Argv.all);
+                           end if;
+                        end if;
+
+                     else
+                        --  No space between -P and project file name
+
+                        Project_File :=
+                          new String'(Argv (Argv'First + 2 .. Argv'Last));
+                     end if;
+
+                  --  -Xexternal=value Specify an external reference to be
+                  --                   used in project files
+
+                  elsif Argv'Length >= 5
+                    and then Argv (Argv'First + 1) = 'X'
+                  then
+                     declare
+                        Equal_Pos : constant Natural :=
+                          Index ('=', Argv (Argv'First + 2 .. Argv'Last));
+                     begin
+                        if Equal_Pos >= Argv'First + 3 and then
+                          Equal_Pos /= Argv'Last then
+                           Add
+                             (External_Name =>
+                              Argv (Argv'First + 2 .. Equal_Pos - 1),
+                              Value     => Argv (Equal_Pos + 1 .. Argv'Last));
+                        else
+                           Fail
+                             (Argv.all,
+                              " is not a valid external assignment.");
+                        end if;
+                     end;
+
+                  elsif Argv.all = "-v" then
+                     Verbose_Mode := True;
+
+                  elsif Argv.all = "-q" then
+                     Quiet_Output := True;
+
+                  else
+                     Fail ("invalid parameter """, Argv.all, """");
+                  end if;
+               end if;
+
+               Arg_Num := Arg_Num + 1;
+            end loop;
+
+            if Project_File = null then
+               Fail ("no project file specified");
+            end if;
+
+            Setup_Projects := True;
+
+            Prj.Pars.Set_Verbosity (To => Current_Verbosity);
+
+            --  Missing directories are created during processing of the
+            --  project tree.
+
+            Prj.Pars.Parse
+              (Project           => Project,
+               Project_File_Name => Project_File.all,
+               Packages_To_Check => All_Packages);
+
+            if Project = Prj.No_Project then
+               Fail ("""", Project_File.all, """ processing failed");
+            end if;
+
+            --  Processing is done
+
+            return;
+         end Process_Setup;
+      end if;
+
       --  Locate the executable for the command
 
       Exec_Path := Locate_Exec_On_Path (Program);
@@ -1623,7 +1813,7 @@ begin
             raise Normal_Exit;
          end if;
 
-         if Opt.Verbose_Mode then
+         if Verbose_Mode then
             Output.Write_Str (Exec_Path.all);
 
             for Arg in The_Args'Range loop

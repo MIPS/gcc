@@ -2056,7 +2056,13 @@ write_expression (tree expr)
 
 	case CAST_EXPR:
 	  write_type (TREE_TYPE (expr));
-	  write_expression (TREE_VALUE (TREE_OPERAND (expr, 0)));
+	  /* There is no way to mangle a zero-operand cast like
+	     "T()".  */
+	  if (!TREE_OPERAND (expr, 0))
+	    sorry ("zero-operand casts cannot be mangled due to a defect "
+		   "in the C++ ABI");
+	  else
+	    write_expression (TREE_VALUE (TREE_OPERAND (expr, 0)));
 	  break;
 
 	case STATIC_CAST_EXPR:
@@ -2203,12 +2209,20 @@ write_template_arg (tree node)
     write_template_arg_literal (node);
   else if (DECL_P (node))
     {
-      /* G++ 3.2 incorrectly mangled non-type template arguments of
-	 enumeration type using their names.  */
-      if (code == CONST_DECL)
+      /* Until ABI version 2, non-type template arguments of
+	 enumeration type were mangled using their names.  */ 
+      if (code == CONST_DECL && !abi_version_at_least (2))
 	G.need_abi_warning = 1;
       write_char ('L');
-      write_char ('Z');
+      /* Until ABI version 3, the underscore before the mangled name
+	 was incorrectly omitted.  */
+      if (!abi_version_at_least (3))
+	{
+	  G.need_abi_warning = 1;
+	  write_char ('Z');
+	}
+      else
+	write_string ("_Z");
       write_encoding (node);
       write_char ('E');
     }
