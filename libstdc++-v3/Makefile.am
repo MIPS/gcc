@@ -1,6 +1,6 @@
 ## Makefile for the toplevel directory of the GNU C++ Standard library.
 ##
-## Copyright (C) 1997,1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+## Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ## Process this file with automake to produce Makefile.in.
@@ -24,7 +24,7 @@
 AUTOMAKE_OPTIONS = 1.3 cygnus
 MAINT_CHARSET = latin1
 
-SUBDIRS = libio libmath libsupc++ src testsuite
+SUBDIRS = include libio libmath libsupc++ src po testsuite 
 
 mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
 
@@ -58,7 +58,6 @@ doxygen-maint:
 	  ${srcdir}/docs/doxygen/run_doxygen --mode=maint $${srcdir} $${outdir})
 
 .PHONY: doxygen doxygen-maint
-
 
 # Multilib support.
 MAKEOVERRIDES=
@@ -140,5 +139,3 @@ AM_MAKEFLAGS = \
 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" \
 	"DESTDIR=$(DESTDIR)" \
 	"WERROR=$(WERROR)" 
-
-

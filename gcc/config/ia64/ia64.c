@@ -35,6 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "recog.h"
 #include "expr.h"
+#include "optabs.h"
 #include "obstack.h"
 #include "except.h"
 #include "function.h"
@@ -42,6 +43,8 @@ Boston, MA 02111-1307, USA.  */
 #include "basic-block.h"
 #include "toplev.h"
 #include "sched-int.h"
+#include "target.h"
+#include "target-def.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
    ASM_OUTPUT_LABELREF.  */
@@ -134,6 +137,29 @@ static rtx ia64_expand_compare_and_swap PARAMS ((enum machine_mode, int,
 static rtx ia64_expand_lock_test_and_set PARAMS ((enum machine_mode,
 						  tree, rtx));
 static rtx ia64_expand_lock_release PARAMS ((enum machine_mode, tree, rtx));
+static int ia64_valid_type_attribute PARAMS((tree, tree, tree, tree));
+static void ia64_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+static void ia64_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void ia64_output_function_end_prologue PARAMS ((FILE *));
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_VALID_TYPE_ATTRIBUTE
+#define TARGET_VALID_TYPE_ATTRIBUTE ia64_valid_type_attribute
+
+#undef TARGET_INIT_BUILTINS
+#define TARGET_INIT_BUILTINS ia64_init_builtins
+
+#undef TARGET_EXPAND_BUILTIN
+#define TARGET_EXPAND_BUILTIN ia64_expand_builtin
+
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE ia64_output_function_prologue
+#undef TARGET_ASM_FUNCTION_END_PROLOGUE
+#define TARGET_ASM_FUNCTION_END_PROLOGUE ia64_output_function_end_prologue
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE ia64_output_function_epilogue
+
+struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Return 1 if OP is a valid operand for the MEM of a CALL insn.  */
 
@@ -694,6 +720,19 @@ predicate_operator (op, mode)
 	  && (code == EQ || code == NE));
 }
 
+/* Return 1 if this operator can be used in a conditional operation.  */
+
+int
+condop_operator (op, mode)
+    register rtx op;
+    enum machine_mode mode;
+{
+  enum rtx_code code = GET_CODE (op);
+  return ((GET_MODE (op) == mode || mode == VOIDmode)
+	  && (code == PLUS || code == MINUS || code == AND
+	      || code == IOR || code == XOR));
+}
+
 /* Return 1 if this is the ar.lc register.  */
 
 int
@@ -919,11 +958,11 @@ ia64_split_timode (out, in, scratch)
 	switch (GET_CODE (base))
 	  {
 	  case REG:
-	    out[0] = change_address (in, DImode, NULL_RTX);
+	    out[0] = adjust_address (in, DImode, 0);
 	    break;
 	  case POST_MODIFY:
 	    base = XEXP (base, 0);
-	    out[0] = change_address (in, DImode, NULL_RTX);
+	    out[0] = adjust_address (in, DImode, 0);
 	    break;
 
 	  /* Since we're changing the mode, we need to change to POST_MODIFY
@@ -932,13 +971,17 @@ ia64_split_timode (out, in, scratch)
 	     register handy so let's use it.  */
 	  case POST_INC:
 	    base = XEXP (base, 0);
-	    out[0] = change_address (in, DImode,
-	      gen_rtx_POST_MODIFY (Pmode, base,plus_constant (base, 16)));
+	    out[0]
+	      = change_address (in, DImode,
+				gen_rtx_POST_MODIFY
+				(Pmode, base, plus_constant (base, 16)));
 	    break;
 	  case POST_DEC:
 	    base = XEXP (base, 0);
-	    out[0] = change_address (in, DImode,
-	      gen_rtx_POST_MODIFY (Pmode, base,plus_constant (base, -16)));
+	    out[0]
+	      = change_address (in, DImode,
+				gen_rtx_POST_MODIFY
+				(Pmode, base, plus_constant (base, -16)));
 	    break;
 	  default:
 	    abort ();
@@ -989,9 +1032,7 @@ spill_tfmode_operand (in, force)
     }
   else if (GET_CODE (in) == MEM
 	   && GET_CODE (XEXP (in, 0)) == ADDRESSOF)
-    {
-      return change_address (in, TFmode, copy_to_reg (XEXP (in, 0)));
-    }
+    return change_address (in, TFmode, copy_to_reg (XEXP (in, 0)));
   else
     return in;
 }
@@ -1594,6 +1635,7 @@ struct spill_fill_data
   rtx init_reg[2];		/* initial base register */
   rtx iter_reg[2];		/* the iterator registers */
   rtx *prev_addr[2];		/* address of last memory use */
+  rtx prev_insn[2];		/* the insn corresponding to prev_addr */
   HOST_WIDE_INT prev_off[2];	/* last offset */
   int n_iter;			/* number of iterators in use */
   int next_iter;		/* next iterator to use */
@@ -1615,6 +1657,8 @@ setup_spill_pointers (n_spills, init_reg, cfa_off)
   spill_fill_data.init_reg[1] = init_reg;
   spill_fill_data.prev_addr[0] = NULL;
   spill_fill_data.prev_addr[1] = NULL;
+  spill_fill_data.prev_insn[0] = NULL;
+  spill_fill_data.prev_insn[1] = NULL;
   spill_fill_data.prev_off[0] = cfa_off;
   spill_fill_data.prev_off[1] = cfa_off;
   spill_fill_data.next_iter = 0;
@@ -1648,11 +1692,16 @@ spill_restore_mem (reg, cfa_off)
   if (spill_fill_data.prev_addr[iter])
     {
       if (CONST_OK_FOR_N (disp))
-	*spill_fill_data.prev_addr[iter]
-	  = gen_rtx_POST_MODIFY (DImode, spill_fill_data.iter_reg[iter],
-				 gen_rtx_PLUS (DImode,
-					       spill_fill_data.iter_reg[iter],
-					       disp_rtx));
+	{
+	  *spill_fill_data.prev_addr[iter]
+	    = gen_rtx_POST_MODIFY (DImode, spill_fill_data.iter_reg[iter],
+				   gen_rtx_PLUS (DImode,
+						 spill_fill_data.iter_reg[iter],
+						 disp_rtx));
+	  REG_NOTES (spill_fill_data.prev_insn[iter])
+	    = gen_rtx_EXPR_LIST (REG_INC, spill_fill_data.iter_reg[iter],
+				 REG_NOTES (spill_fill_data.prev_insn[iter]));
+	}
       else
 	{
 	  /* ??? Could use register post_modify for loads.  */
@@ -1675,7 +1724,7 @@ spill_restore_mem (reg, cfa_off)
 	   && frame_pointer_needed)
     {
       mem = gen_rtx_MEM (GET_MODE (reg), hard_frame_pointer_rtx);
-      MEM_ALIAS_SET (mem) = get_varargs_alias_set ();
+      set_mem_alias_set (mem, get_varargs_alias_set ());
       return mem;
     }
   else
@@ -1724,7 +1773,7 @@ spill_restore_mem (reg, cfa_off)
   /* ??? Not all of the spills are for varargs, but some of them are.
      The rest of the spills belong in an alias set of their own.  But
      it doesn't actually hurt to include them here.  */
-  MEM_ALIAS_SET (mem) = get_varargs_alias_set ();
+  set_mem_alias_set (mem, get_varargs_alias_set ());
 
   spill_fill_data.prev_addr[iter] = &XEXP (mem, 0);
   spill_fill_data.prev_off[iter] = cfa_off;
@@ -1742,10 +1791,12 @@ do_spill (move_fn, reg, cfa_off, frame_reg)
      rtx reg, frame_reg;
      HOST_WIDE_INT cfa_off;
 {
+  int iter = spill_fill_data.next_iter;
   rtx mem, insn;
 
   mem = spill_restore_mem (reg, cfa_off);
   insn = emit_insn ((*move_fn) (mem, reg, GEN_INT (cfa_off)));
+  spill_fill_data.prev_insn[iter] = insn;
 
   if (frame_reg)
     {
@@ -1785,8 +1836,12 @@ do_restore (move_fn, reg, cfa_off)
      rtx reg;
      HOST_WIDE_INT cfa_off;
 {
-  emit_insn ((*move_fn) (reg, spill_restore_mem (reg, cfa_off),
-			 GEN_INT (cfa_off)));
+  int iter = spill_fill_data.next_iter;
+  rtx insn;
+
+  insn = emit_insn ((*move_fn) (reg, spill_restore_mem (reg, cfa_off),
+				GEN_INT (cfa_off)));
+  spill_fill_data.prev_insn[iter] = insn;
 }
 
 /* Wrapper functions that discards the CONST_INT spill offset.  These
@@ -1819,7 +1874,7 @@ gen_fr_restore_x (dest, src, offset)
 
 /* Called after register allocation to add any instructions needed for the
    prologue.  Using a prologue insn is favored compared to putting all of the
-   instructions in the FUNCTION_PROLOGUE macro, since it allows the scheduler
+   instructions in output_function_prologue(), since it allows the scheduler
    to intermix instructions with the saves of the caller saved registers.  In
    some cases, it might be necessary to emit a barrier instruction as the last
    insn to prevent such scheduling.
@@ -2177,7 +2232,7 @@ ia64_expand_prologue ()
 
 /* Called after register allocation to add any instructions needed for the
    epilogue.  Using a epilogue insn is favored compared to putting all of the
-   instructions in the FUNCTION_PROLOGUE macro, since it allows the scheduler
+   instructions in output_function_prologue(), since it allows the scheduler
    to intermix instructions with the saves of the caller saved registers.  In
    some cases, it might be necessary to emit a barrier instruction as the last
    insn to prevent such scheduling.  */
@@ -2485,10 +2540,10 @@ ia64_hard_regno_rename_ok (from, to)
 
 /* Emit the function prologue.  */
 
-void
-ia64_function_prologue (file, size)
+static void
+ia64_output_function_prologue (file, size)
      FILE *file;
-     int size ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   int mask, grsave, grsave_prev;
 
@@ -2554,8 +2609,8 @@ ia64_function_prologue (file, size)
 
 /* Emit the .body directive at the scheduled end of the prologue.  */
 
-void
-ia64_output_end_prologue (file)
+static void
+ia64_output_function_end_prologue (file)
      FILE *file;
 {
   if (!flag_unwind_tables && (!flag_exceptions || USING_SJLJ_EXCEPTIONS))
@@ -2566,10 +2621,10 @@ ia64_output_end_prologue (file)
 
 /* Emit the function epilogue.  */
 
-void
-ia64_function_epilogue (file, size)
+static void
+ia64_output_function_epilogue (file, size)
      FILE *file ATTRIBUTE_UNUSED;
-     int size ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   int i;
 
@@ -2714,6 +2769,7 @@ hfa_element_mode (type, nested)
 	return VOIDmode;
 
     case REAL_TYPE:
+      /* ??? Should exclude 128-bit long double here.  */
       /* We want to return VOIDmode for raw REAL_TYPEs, but the actual
 	 mode if this is contained within an aggregate.  */
       if (nested)
@@ -2865,13 +2921,17 @@ ia64_function_arg (cum, mode, type, named, incoming)
 	     adjusted/little endian.  */
 	  else if (byte_size - offset == 4)
 	    gr_mode = SImode;
+	  /* Complex floats need to have float mode.  */
+	  if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
+	    gr_mode = hfa_mode;
 
 	  loc[i] = gen_rtx_EXPR_LIST (VOIDmode,
 				      gen_rtx_REG (gr_mode, (basereg
 							     + int_regs)),
 				      GEN_INT (offset));
 	  offset += GET_MODE_SIZE (gr_mode);
-	  int_regs++;
+	  int_regs += GET_MODE_SIZE (gr_mode) <= UNITS_PER_WORD
+		      ? 1 : GET_MODE_SIZE (gr_mode) / UNITS_PER_WORD;
 	}
 
       /* If we ended up using just one location, just return that one loc.  */
@@ -2884,7 +2944,8 @@ ia64_function_arg (cum, mode, type, named, incoming)
   /* Integral and aggregates go in general registers.  If we have run out of
      FR registers, then FP values must also go in general registers.  This can
      happen when we have a SFmode HFA.  */
-  else if (! FLOAT_MODE_P (mode) || cum->fp_regs == MAX_ARGUMENT_SLOTS)
+  else if (((mode == TFmode) && ! INTEL_EXTENDED_IEEE_FORMAT)
+          || (! FLOAT_MODE_P (mode) || cum->fp_regs == MAX_ARGUMENT_SLOTS))
     return gen_rtx_REG (mode, basereg + cum->words + offset);
 
   /* If there is a prototype, then FP values go in a FR register when
@@ -3164,7 +3225,8 @@ ia64_function_value (valtype, func)
       else
 	return gen_rtx_PARALLEL (mode, gen_rtvec_v (i, loc));
     }
-  else if (FLOAT_TYPE_P (valtype))
+  else if (FLOAT_TYPE_P (valtype) &&
+           ((mode != TFmode) || INTEL_EXTENDED_IEEE_FORMAT))
     return gen_rtx_REG (mode, FR_ARG_FIRST);
   else
     return gen_rtx_REG (mode, GR_RET_FIRST);
@@ -4388,6 +4450,10 @@ rtx_needs_barrier (x, flags, pred)
 	case 22: /* bundle selector */
 	case 23: /* cycle display */
           break;
+
+        case 24: /* addp4 */
+	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
+	  break;
 
 	case 5: /* recip_approx */
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
@@ -5930,10 +5996,10 @@ ia64_sched_reorder (dump, sched_verbose, ready, pn_ready,
      int *pn_ready;
      int reorder_type, clock_var;
 {
+  int n_asms;
   int n_ready = *pn_ready;
   rtx *e_ready = ready + n_ready;
   rtx *insnp;
-  rtx highest;
 
   if (sched_verbose)
     {
@@ -5977,7 +6043,7 @@ ia64_sched_reorder (dump, sched_verbose, ready, pn_ready,
     maybe_rotate (sched_verbose ? dump : NULL);
 
   /* First, move all USEs, CLOBBERs and other crud out of the way.  */
-  highest = ready[n_ready - 1];
+  n_asms = 0;
   for (insnp = ready; insnp < e_ready; insnp++)
     if (insnp < e_ready)
       {
@@ -5985,24 +6051,42 @@ ia64_sched_reorder (dump, sched_verbose, ready, pn_ready,
 	enum attr_type t = ia64_safe_type (insn);
 	if (t == TYPE_UNKNOWN)
 	  {
-	    highest = ready[n_ready - 1];
-	    ready[n_ready - 1] = insn;
-	    *insnp = highest;
-	    if (ia64_final_schedule && group_barrier_needed_p (insn))
+	    if (GET_CODE (PATTERN (insn)) == ASM_INPUT
+		|| asm_noperands (PATTERN (insn)) >= 0)
 	      {
-		schedule_stop (sched_verbose ? dump : NULL);
-		sched_data.last_was_stop = 1;
-		maybe_rotate (sched_verbose ? dump : NULL);
+		rtx lowest = ready[0];
+		ready[0] = insn;
+		*insnp = lowest;
+		n_asms++;
 	      }
-	    else if (GET_CODE (PATTERN (insn)) == ASM_INPUT
-		     || asm_noperands (PATTERN (insn)) >= 0)
+	    else
 	      {
-		/* It must be an asm of some kind.  */
-		cycle_end_fill_slots (sched_verbose ? dump : NULL);
+		rtx highest = ready[n_ready - 1];
+		ready[n_ready - 1] = insn;
+		*insnp = highest;
+		if (ia64_final_schedule && group_barrier_needed_p (insn))
+		  {
+		    schedule_stop (sched_verbose ? dump : NULL);
+		    sched_data.last_was_stop = 1;
+		    maybe_rotate (sched_verbose ? dump : NULL);
+		  }
+
+		return 1;
 	      }
-	    return 1;
 	  }
       }
+  if (n_asms < n_ready)
+    {
+      /* Some normal insns to process.  Skip the asms.  */
+      ready += n_asms;
+      n_ready -= n_asms;
+    }
+  else if (n_ready > 0)
+    {
+      /* Only asm insns left.  */
+      cycle_end_fill_slots (sched_verbose ? dump : NULL);
+      return 1;
+    }
 
   if (ia64_final_schedule)
     {
@@ -6419,7 +6503,7 @@ ia64_reorg (insns)
 {
   /* If optimizing, we'll have split before scheduling.  */
   if (optimize == 0)
-    split_all_insns (0);
+    split_all_insns_noflow ();
 
   /* Make sure the CFG and global_live_at_start are correct
      for emit_predicate_relation_info.  */
@@ -6517,7 +6601,7 @@ ia64_epilogue_uses (regno)
 
 /* Return true if IDENTIFIER is a valid attribute for TYPE.  */
 
-int
+static int
 ia64_valid_type_attribute (type, attributes, identifier, args)
      tree type;
      tree attributes ATTRIBUTE_UNUSED;

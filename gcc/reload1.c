@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "function.h"
 #include "expr.h"
+#include "optabs.h"
 #include "regs.h"
 #include "basic-block.h"
 #include "reload.h"
@@ -39,10 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #include "cselib.h"
 #include "real.h"
 #include "toplev.h"
-
-#if !defined PREFERRED_STACK_BOUNDARY && defined STACK_BOUNDARY
-#define PREFERRED_STACK_BOUNDARY STACK_BOUNDARY
-#endif
+#include "except.h"
 
 /* This file contains the reload pass of the compiler, which is
    run after register allocation has been done.  It checks that
@@ -461,6 +459,7 @@ static void failed_reload		PARAMS ((rtx, int));
 static int set_reload_reg		PARAMS ((int, int));
 static void reload_cse_delete_noop_set	PARAMS ((rtx, rtx));
 static void reload_cse_simplify		PARAMS ((rtx));
+static void fixup_abnormal_edges	PARAMS ((void));
 extern void dump_needs			PARAMS ((struct insn_chain *));
 
 /* Initialize the reload pass once per compilation.  */
@@ -601,7 +600,7 @@ replace_pseudos_in_call_usage (loc, mem_mode, usage)
   code = GET_CODE (x);
   if (code == REG)
     {
-      int regno = REGNO (x);
+      unsigned int regno = REGNO (x);
 
       if (regno < FIRST_PSEUDO_REGISTER)
 	return;
@@ -752,7 +751,7 @@ reload (first, global)
      Also find all paradoxical subregs and find largest such for each pseudo.
      On machines with small register classes, record hard registers that
      are used for user variables.  These can never be used for spills.
-     Also look for a "constant" NOTE_INSN_SETJMP.  This means that all
+     Also look for a "constant" REG_SETJMP.  This means that all
      caller-saved registers must be marked live.  */
 
   num_eliminable_invariants = 0;
@@ -760,8 +759,8 @@ reload (first, global)
     {
       rtx set = single_set (insn);
 
-      if (GET_CODE (insn) == NOTE && CONST_CALL_P (insn)
-	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_SETJMP)
+      if (GET_CODE (insn) == CALL_INSN
+	  && find_reg_note (insn, REG_SETJMP, NULL))
 	for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	  if (! call_used_regs[i])
 	    regs_ever_live[i] = 1;
@@ -1157,7 +1156,7 @@ reload (first, global)
 	      MEM_SCALAR_P (reg) = is_scalar;
 	      /* We have no alias information about this newly created
 		 MEM.  */
-	      MEM_ALIAS_SET (reg) = 0;
+	      set_mem_alias_set (reg, 0);
 	    }
 	  else if (reg_equiv_mem[i])
 	    XEXP (reg_equiv_mem[i], 0) = addr;
@@ -1269,6 +1268,7 @@ reload (first, global)
   /* Free all the insn_chain structures at once.  */
   obstack_free (&reload_obstack, reload_startobj);
   unused_insn_chains = 0;
+  fixup_abnormal_edges ();
 
   return failure;
 }
@@ -1567,7 +1567,7 @@ static void
 count_pseudo (reg)
      int reg;
 {
-  int n_refs = REG_N_REFS (reg);
+  int freq = REG_FREQ (reg);
   int r = reg_renumber[reg];
   int nregs;
 
@@ -1580,11 +1580,11 @@ count_pseudo (reg)
   if (r < 0)
     abort ();
 
-  spill_add_cost[r] += n_refs;
+  spill_add_cost[r] += freq;
 
   nregs = HARD_REGNO_NREGS (r, PSEUDO_REGNO_MODE (reg));
   while (nregs-- > 0)
-    spill_cost[r + nregs] += n_refs;
+    spill_cost[r + nregs] += freq;
 }
 
 /* Calculate the SPILL_COST and SPILL_ADD_COST arrays and determine the
@@ -1654,9 +1654,9 @@ count_spilled_pseudo (spilled, spilled_nregs, reg)
 
   SET_REGNO_REG_SET (&spilled_pseudos, reg);
 
-  spill_add_cost[r] -= REG_N_REFS (reg);
+  spill_add_cost[r] -= REG_FREQ (reg);
   while (nregs-- > 0)
-    spill_cost[r + nregs] -= REG_N_REFS (reg);
+    spill_cost[r + nregs] -= REG_FREQ (reg);
 }
 
 /* Find reload register to use for reload number ORDER.  */
@@ -1988,7 +1988,7 @@ alter_reg (i, from_reg)
 	  RTX_UNCHANGING_P (x) = RTX_UNCHANGING_P (regno_reg_rtx[i]);
 
 	  /* Nothing can alias this slot except this pseudo.  */
-	  MEM_ALIAS_SET (x) = new_alias_set ();
+	  set_mem_alias_set (x, new_alias_set ());
 	}
 
       /* Reuse a stack slot if possible.  */
@@ -2022,9 +2022,9 @@ alter_reg (i, from_reg)
 
 	  /* All pseudos mapped to this slot can alias each other.  */
 	  if (spill_stack_slot[from_reg])
-	    MEM_ALIAS_SET (x) = MEM_ALIAS_SET (spill_stack_slot[from_reg]);
+	    set_mem_alias_set (x, MEM_ALIAS_SET (spill_stack_slot[from_reg]));
 	  else
-	    MEM_ALIAS_SET (x) = new_alias_set ();
+	    set_mem_alias_set (x, new_alias_set ());
 
 	  if (BYTES_BIG_ENDIAN)
 	    {
@@ -2052,13 +2052,7 @@ alter_reg (i, from_reg)
       /* If we have any adjustment to make, or if the stack slot is the
 	 wrong mode, make a new stack slot.  */
       if (adjust != 0 || GET_MODE (x) != GET_MODE (regno_reg_rtx[i]))
-	{
-	  rtx new = gen_rtx_MEM (GET_MODE (regno_reg_rtx[i]),
-				 plus_constant (XEXP (x, 0), adjust));
-
-	  MEM_COPY_ATTRIBUTES (new, x);
-	  x = new;
-	}
+	x = adjust_address_nv (x, GET_MODE (regno_reg_rtx[i]), adjust);
 
       /* Save the stack slot for later.   */
       reg_equiv_memory_loc[i] = x;
@@ -2572,15 +2566,10 @@ eliminate_regs (x, mem_mode, insn)
       /* Our only special processing is to pass the mode of the MEM to our
 	 recursive call and copy the flags.  While we are here, handle this
 	 case more efficiently.  */
-      new = eliminate_regs (XEXP (x, 0), GET_MODE (x), insn);
-      if (new != XEXP (x, 0))
-	{
-	  new = gen_rtx_MEM (GET_MODE (x), new);
-	  MEM_COPY_ATTRIBUTES (new, x);
-	  return new;
-	}
-      else
-	return x;
+      return
+	replace_equiv_address_nv (x,
+				  eliminate_regs (XEXP (x, 0),
+						  GET_MODE (x), insn));
 
     case USE:
       /* Handle insn_list USE that a call to a pure function may generate.  */
@@ -2973,22 +2962,29 @@ eliminate_regs_in_insn (insn, replace)
 
 		if (ok)
 		  {
-		    if (replace)
-		      {
-			rtx src
-			  = plus_constant (ep->to_rtx, offset - ep->offset);
+		    rtx src
+		      = plus_constant (ep->to_rtx, offset - ep->offset);
 
-			/* First see if this insn remains valid when we
-			   make the change.  If not, keep the INSN_CODE
-			   the same and let reload fit it up.  */
-			validate_change (insn, &SET_SRC (old_set), src, 1);
-			validate_change (insn, &SET_DEST (old_set),
-					 ep->to_rtx, 1);
-			if (! apply_change_group ())
-			  {
-			    SET_SRC (old_set) = src;
-			    SET_DEST (old_set) = ep->to_rtx;
-			  }
+		    new_body = old_body;
+		    if (! replace)
+		      {
+			new_body = copy_insn (old_body);
+			if (REG_NOTES (insn))
+			  REG_NOTES (insn) = copy_insn_1 (REG_NOTES (insn));
+		      }
+		    PATTERN (insn) = new_body;
+		    old_set = single_set (insn);
+
+		    /* First see if this insn remains valid when we
+		       make the change.  If not, keep the INSN_CODE
+		       the same and let reload fit it up.  */
+		    validate_change (insn, &SET_SRC (old_set), src, 1);
+		    validate_change (insn, &SET_DEST (old_set),
+				     ep->to_rtx, 1);
+		    if (! apply_change_group ())
+		      {
+			SET_SRC (old_set) = src;
+			SET_DEST (old_set) = ep->to_rtx;
 		      }
 
 		    val = 1;
@@ -5519,9 +5515,15 @@ choose_reload_regs (chain)
 		      if (k == nr)
 			{
 			  int i1;
+			  int bad_for_class;
 
 			  last_reg = (GET_MODE (last_reg) == mode
 				      ? last_reg : gen_rtx_REG (mode, i));
+
+			  bad_for_class = 0;
+			  for (k = 0; k < nr; k++)
+			    bad_for_class |= ! TEST_HARD_REG_BIT (reg_class_contents[(int) rld[r].class],
+								  i+k);
 
 			  /* We found a register that contains the
 			     value we need.  If this register is the
@@ -5552,8 +5554,7 @@ choose_reload_regs (chain)
 				 if we need it wider than we've got it.  */
 			      || (GET_MODE_SIZE (rld[r].mode)
 				  > GET_MODE_SIZE (mode))
-			      || ! TEST_HARD_REG_BIT (reg_class_contents[(int) rld[r].class],
-						      i)
+			      || bad_for_class
 
 			      /* If find_reloads chose reload_out as reload
 				 register, stay with it - that leaves the
@@ -6073,12 +6074,12 @@ merge_assigned_reloads (insn)
 	  if (rld[i].when_needed == RELOAD_OTHER)
 	    for (j = 0; j < n_reloads; j++)
 	      if (rld[j].in != 0
-		  && rld[i].when_needed != RELOAD_OTHER
+		  && rld[j].when_needed != RELOAD_OTHER
 		  && reg_overlap_mentioned_for_reload_p (rld[j].in,
 							 rld[i].in))
 		rld[j].when_needed
-		  = ((rld[i].when_needed == RELOAD_FOR_INPUT_ADDRESS
-		      || rld[i].when_needed == RELOAD_FOR_INPADDR_ADDRESS)
+		  = ((rld[j].when_needed == RELOAD_FOR_INPUT_ADDRESS
+		      || rld[j].when_needed == RELOAD_FOR_INPADDR_ADDRESS)
 		     ? RELOAD_FOR_OTHER_ADDRESS : RELOAD_OTHER);
 	}
     }
@@ -8596,7 +8597,8 @@ static void
 reload_combine ()
 {
   rtx insn, set;
-  int first_index_reg = -1, last_index_reg;
+  int first_index_reg = -1;
+  int last_index_reg = 0;
   int i;
   unsigned int r;
   int last_label_ruid;
@@ -8827,7 +8829,7 @@ reload_combine ()
 	      rtx usage_rtx = XEXP (XEXP (link, 0), 0);
 	      if (GET_CODE (usage_rtx) == REG)
 	        {
-		  int i;
+		  unsigned int i;
 		  unsigned int start_reg = REGNO (usage_rtx);
 		  unsigned int num_regs =
 			HARD_REGNO_NREGS (start_reg, GET_MODE (usage_rtx));
@@ -9066,7 +9068,7 @@ static int reg_set_luid[FIRST_PSEUDO_REGISTER];
    reg_offset[n] in mode reg_mode[n] .
    If reg_base_reg[n] is non-negative, register n has been set to the
    sum of reg_offset[n] and the value of register reg_base_reg[n]
-   before reg_set_luid[n], calculated in mode reg_mode[n] . */
+   before reg_set_luid[n], calculated in mode reg_mode[n] .  */
 static HOST_WIDE_INT reg_offset[FIRST_PSEUDO_REGISTER];
 static int reg_base_reg[FIRST_PSEUDO_REGISTER];
 static enum machine_mode reg_mode[FIRST_PSEUDO_REGISTER];
@@ -9172,7 +9174,7 @@ reload_cse_move2add (first)
 		  if (new_src == const0_rtx)
 		    success = validate_change (insn, &SET_SRC (pat), reg, 0);
 		  else if (rtx_cost (new_src, PLUS) < rtx_cost (src, SET)
-			   && have_add2_insn (GET_MODE (reg)))
+			   && have_add2_insn (reg, new_src))
 		    success = validate_change (insn, &PATTERN (insn),
 					       gen_add2_insn (reg, new_src), 0);
 		  reg_set_luid[regno] = move2add_luid;
@@ -9223,7 +9225,7 @@ reload_cse_move2add (first)
 			  = validate_change (next, &SET_SRC (set), reg, 0);
 		      else if ((rtx_cost (new_src, PLUS)
 				< COSTS_N_INSNS (1) + rtx_cost (src3, SET))
-			       && have_add2_insn (GET_MODE (reg)))
+			       && have_add2_insn (reg, new_src))
 			success
 			  = validate_change (next, &PATTERN (next),
 					     gen_add2_insn (reg, new_src), 0);
@@ -9468,3 +9470,60 @@ copy_eh_notes (insn, x)
     }
 }
 
+/* This is used by reload pass, that does emit some instructions after
+   abnormal calls moving basic block end, but in fact it wants to emit
+   them on the edge.  Looks for abnormal call edges, find backward the
+   proper call and fix the damage.
+ 
+   Similar handle instructions throwing exceptions internally.  */
+static void
+fixup_abnormal_edges ()
+{
+  int i;
+  bool inserted = false;
+
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      basic_block bb = BASIC_BLOCK (i);
+      edge e;
+
+      /* Look for cases we are interested in - an calls or instructions causing
+         exceptions.  */
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  if (e->flags & EDGE_ABNORMAL_CALL)
+	    break;
+	  if ((e->flags & (EDGE_ABNORMAL | EDGE_EH))
+	      == (EDGE_ABNORMAL | EDGE_EH))
+	    break;
+	}
+      if (e && GET_CODE (bb->end) != CALL_INSN && !can_throw_internal (bb->end))
+	{
+	  rtx insn = bb->end;
+	  rtx next;
+	  for (e = bb->succ; e; e = e->succ_next)
+	    if (e->flags & EDGE_FALLTHRU)
+	      break;
+	  /* Get past the new insns generated. Allow notes, as the insns may
+	     be already deleted.  */
+	  while ((GET_CODE (insn) == INSN || GET_CODE (insn) == NOTE)
+		 && !can_throw_internal (insn)
+		 && insn != bb->head)
+	    insn = PREV_INSN (insn);
+	  if (GET_CODE (insn) != CALL_INSN && !can_throw_internal (insn))
+	    abort ();
+	  bb->end = insn;
+	  inserted = true;
+	  insn = NEXT_INSN (insn);
+	  while (insn && GET_CODE (insn) == INSN)
+	    {
+	      next = NEXT_INSN (insn);
+	      insert_insn_on_edge (PATTERN (insn), e);
+	      flow_delete_insn (insn);
+	      insn = next;
+	    }
+	}
+    }
+  if (inserted)
+    commit_edge_insertions ();
+}

@@ -1,3 +1,309 @@
+2001-08-13  Zack Weinberg  <zackw@panix.com>
+
+	* Make-lang.in (java/decl.o): Update dependencies.
+	* decl.c: Include libfuncs.h, don't include toplev.h.
+
+2001-08-12  David Edelsohn  <edelsohn@gnu.org>
+
+	Revert:
+	2001-08-02  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+	* jvspec.c (jvgenmain_spec): Cannot use %umain, breaks
+	ASM_FINAL_SPEC.
+	(lang_specific_pre_link): Use set_input to set input_filename.
+	Append `main' here.
+	* jvgenmain.c (usage): Append literal `main' to CLASSNAME.
+	(main): Fix definition.
+	Strip `main' from classname.
+	Fixes PR java/227.
+
+2001-08-11  Zack Weinberg  <zackw@panix.com>
+
+	* lex.h: Don't include setjmp.h.  Don't define
+	SET_FLOAT_HANDLER or prototype set_float_handler.
+
+2001-08-09  Richard Henderson  <rth@redhat.com>
+
+	* Make-lang.in (class.o): Depend on TARGET_H.
+	* class.c (emit_register_classes): Use target hooks instead of
+	assemble_constructor and assemble_destructor.
+
+2001-08-08  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* check-init.c (flags.h): Include
+	(check_init): Don't report uninitialized static class
+	initialization flags, don't free bit index when doing static class
+	initialization optimization.
+	(check_for_initialization): Return type changed to `unsigned int.'
+	(attach_initialized_static_class): New function.
+	* class.c (add_method_1): Create the initialized static class
+	table if necessary.
+	(finish_class): Always emit deferred inline methods.
+	* decl.c (emit_init_test_initialization): Moved to expr.c
+	(complete_start_java_method): Don't traverse
+	DECL_FUNCTION_INIT_TEST_TABLE.
+	(lang_mark_tree): Mark hash tables in function decls.
+	* expr.c (emit_init_test_initialization): Moved from decl.c.
+	(build_class_init): Create LAG_DECL_SPECIFIC for the static class
+	initialization flag, set DECL_CONTEXT and
+	LOCAL_CLASS_INITIALIZATION_FLAG.
+	(java_lang_expand_expr): Emit initialization code for static class
+	initialized flags when entering block, if necessary.
+	* gcj.texi (-fno-optimize-static-class-initialization): Documented.
+	* java-tree.h (flag_optimize_sci): New global variable declaration.
+	(DECL_FUNCTION_INITIALIZED_CLASS_TABLE): New macro.
+	(DECL_FUNCTION_STATIC_METHOD_INVOCATION_COMPOUND): Likewise.
+	(LOCAL_FINAL_P): Fixed typo in comment.
+	(FINAL_VARIABLE_P): Likewise.
+	(LOCAL_CLASS_INITIALIZATIO_FLAG): New macro.
+	(LOCAL_CLASS_INITIALIZATIO_FLAG_P): Likewise.
+	(struct lang_decl): New fields `ict', `smic' and `cif.'
+	(check_for_initialization): New returned value for global.
+	(attach_initialized_static_class): New global function.
+	(STATIC_CLASS_INIT_OPT_P): New macro.
+	* lang-options.h (-fno-optimize-static-class-initialization): New flag.
+	* lang.c (java_decode_option): Handle
+	`-fno-optimize-static-class-initialization'
+	* parse.y (start_complete_expand_method): New function.
+	(java_expand_method_bodies): Likewise.
+	(attach_init_test_initialization_flags): Likewise.
+	(adjust_init_test_initialization): Likewise.
+	(emit_test_initialization): Likewise.
+	(java_complete_expand_methods): Nullify abstract and native method
+	bodies.
+	(java_complete_expand_method): New locals `fbody', `block_body'
+	and `exception_copy.' Reorganized: directly return on empty method
+	bodies, call `start_complete_expand_method', remember definitely
+	initialized static class in function, don't expand method bodies.
+	(java_expand_classes): Call `java_expand_method_bodies' before
+	`finish_class' when compiling to native.
+	(resolve_expression_name): Use `orig' after building outer class
+	field access.
+	(patch_invoke): Remember static method invokations.
+
+2001-08-06  Richard Henderson  <rth@redhat.com>
+
+        * class.c (emit_register_classes): Pass a symbol_ref and priority
+	to assemble_constructor.
+
+2001-08-02  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* java-tree.h (all_class_filename): New macro.
+	(enum java_tree_index): New enum `JTI_ALL_CLASS_FILENAME.'
+	(BUILD_FILENAME_IDENTIFIER_NODE): Fixed leading comment. Link
+	newly created IDENTIFIER_NODE to `all_class_filename.'
+
+2001-08-01  Jeff Sturm  <jsturm@one-point.com>
+
+        * java-tree.h (BUILD_FILENAME_IDENTIFIER_NODE):
+        Use ggc_add_tree_root to register roots.
+	
+2001-07-31  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* check-init.c (check_init): WITH_CLEANUP_EXPR node to use its
+	second operand calling check_init.
+	* decl.c (complete_start_java_method): Swaped second and third
+	arguments while creating WITH_CLEANUP_EXPR node.
+	* jcf-write.c (generate_bytecode_insns): Use second operand
+	instead of third when handling WITH_CLEANUP_EXPR.
+	* parse.y (java_complete_lhs): Expand second operand of
+	WITH_CLEANUP_EXPR nodes.
+	(patch_synchronized_statement): Swaped second and third arguments
+	while creating WITH_CLEANUP_EXPR node.
+
+2001-07-18  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* parse.y (create_interface): Avoid cyclic inheritance report when
+	syntax error encountered during class definition.
+	Fixes PR java/2956
+
+2001-08-02  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* jvspec.c (jvgenmain_spec): Cannot use %umain, breaks
+	ASM_FINAL_SPEC.
+	(lang_specific_pre_link): Use set_input to set input_filename.
+	Append `main' here.
+	* jvgenmain.c (usage): Append literal `main' to CLASSNAME.
+	(main): Fix definition.
+	Strip `main' from classname.
+	Fixes PR java/227.
+
+2001-07-18  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/2812:
+	* lex.h: Use HAVE_ICONV, not HAVE_ICONV_H.
+	* lex.c (java_new_lexer): Use ICONV_CONST.
+	(java_read_char): Likewise.
+	* Make-lang.in (jc1$(exeext)): Link against LIBICONV.
+	(jv-scan$(exeext)): Likewise.
+
+2001-07-17  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* parse.h (INTERFACE_INNER_MODIFIERS): Disallow `private.'
+	* parse.y (check_class_interface_creation): Allow `private' if the
+	enclosing is not an interface.
+	(create_interface): Interface tagged public if the enclosing
+	context	is an interface.
+	(create_class): Class tagged public if the enclosing context
+	is an interface.
+	Fixes PR java/2959
+
+2001-07-17  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* class.c (push_class): Set DECL_SIZE to `integer_zero_node.'
+	Fixes PR java/2665
+
+2001-07-14  Tim Josling  <tej@melbpc.org.au>
+
+	* check-init.c (check_init): Remove references to EXPON_EXPR.
+
+2001-07-13  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* parse.y (java_complete_lsh): Set CAN_COMPLETE_NORMALLY and unset
+	TREE_CONSTANT_OVERFLOW of CASE_EXPR value.
+	Fixes PR java/3602
+
+2001-07-13  Tom Tromey  <tromey@redhat.com>
+
+	* jvspec.c (jvgenmain_spec): Remove -ffilelist-file from cc1
+	invocation.
+
+2001-07-12  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* parse.y (patch_method_invocation): Don't override primary if one
+	is already provided, but let this$<n> be built. Fixed comment.
+
+2001-07-12  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* parse.y (empty_statement:): Report empty statement error only
+	when found at class declaration level.
+	Fixes PR java/3635
+
+2001-07-12  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (expand_load_internal): New function.
+	(LOAD_INTERNAL): Use it.
+
+2001-07-11  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* parse.y (verify_constructor_super): Compare anonymous class ctor
+	args with `valid_method_invocation_conversion_p.'
+	Fixes PR java/3285
+
+2001-07-10  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* lang-specs.h: Forbit the use if `-femit-class-file{s}' without
+	`-fsyntax-only.' Fixes PR java/3248
+
+2001-07-10  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* jcf-io.c (find_class): Clarified error message. Fixes PR java/2603
+
+2001-07-10  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* parse.h (INNER_ENCLOSING_SCOPE_CHECK): No `this' is fine if the
+	current function is static. Fixes PR java/1970
+
+2001-07-09  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* parse.y (patch_method_invocation): Add enclosing context to ctor
+	calls if necessary. Fixes PR java/2953
+
+2001-07-09  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* parse.y (resolve_package): Abort if qualified expression member
+	isn't right.
+	(qualify_ambiguous_name): Don't qualify as type if `this' in use.
+	Fixes PR java/1391
+
+2001-07-07  Zack Weinberg  <zackw@stanford.edu>
+
+	* verify.c: Don't use // comments.
+
+2001-07-05  Tom Tromey  <tromey@redhat.com>
+
+	* lang.c (flag_assume_compiled): Removed.
+	* java-tree.h (flag_assume_compiled): Removed.
+	* lang-options.h: Removed -ffile-list-file, -fuse-boehm-gc,
+	-fhash-synchronization, -fuse-divide-subroutine,
+	-fcheck-references, -femit-class-file, -femit-class-files,
+	-fassume-compiled.  Updated --encoding information.  Changed
+	-foutput-class-dir to `-d'.
+
+2001-07-04  Daniel Berlin  <dan@cgsoftware.com>
+
+	* jcf-parse.c (parse_class_file): Add lineno parameter to
+	debug_start_source_file call.
+
+2001-07-04  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcj.texi: Use gpl.texi.
+	* Make-lang.in ($(srcdir)/java/gcj.info, java/gcj.dvi): Update
+	dependencies and use doc/include in search path.
+
+2001-07-03  Jeff Sturm  <jsturm@one-point.com>
+
+	* parse.y (fix_constructors): Test if a CALL_EXPR invokes
+	`this'.  If so, don't build instance initializers.
+
+2001-07-03  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* parse.y (resolve_expression_name): Improved error message for
+	inner class cases. Fixes PR java/1958
+
+2001-06-28  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* lang.c: #include diagnostic.h
+	(lang_print_error): Add a `diagnostic_context *' parameter.
+	(java_dummy_print): Likewise.
+	* Make-lang.in (JAVA_LEX_C): Depend on diagnostic.h
+
+2001-06-27  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* jcf-parse.c (gcc_mark_jcf): Test for a finished JCF.
+	* jcf.h (typedef struct JCF): New bitfield `finished.'
+	(JCF_FINISH): Set `finished.'
+	(JCF_ZERO): Reset `finished.'
+	Fixes PR java/2633
+
+2001-06-27  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* parse.y (class_body_declaration:): Don't install empty instance
+	initializers.
+	Fixes PR java/1314
+
+2001-06-27  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* class.c (set_super_info): Call `set_class_decl_access_flags.'
+	(set_class_decl_access_flags): New function.
+	* java-tree.h (set_class_decl_access_flags): New prototype.
+	* jcf-parse.c (handle_innerclass_attribute): Read and set access flags.
+	(parse_class_file): New local `decl_max_locals.' Take wide types
+	into account to compute DECL_MAX_LOCALS.
+	* parse.y (type_import_on_demand_declaration:): Ignore duplicate
+	imports on demand.
+
+2001-06-22  Jan van Male  <jan.vanmale@fenk.wau.nl>
+
+	* zipfile.h: Use GCC_JCF_H instead of JCF_H.
+
+2001-06-20  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* class.c (java_hash_tree_node): Fixed indentation in leading comment.
+	* parse.y (do_resolve_class): Moved comments out to leading comment
+	section. Removed local `start', New local `_ht' and
+	`circularity_hash.'  Record `enclosing' in hash table and search
+	it to detect circularity.  Use `enclosing' as an argument to
+	`lookup_cl.' Free the hash table when done.
+
+2001-06-19  Tom Tromey  <tromey@redhat.com>
+
+	* lex.c (java_read_char): Disallow invalid and overlong
+	sequences.  Fixes PR java/2319.
+
+2001-06-05  Jeff Sturm  <jsturm@one-point.com>
+
+	* decl.c (create_primitive_vtable): Don't call make_decl_rtl.
+
 2001-06-04  Alexandre Petit-Bianco  <apbianco@redhat.com>
 
 	* expr.c (force_evaluation_order): Match wrapped ctor calls, locate
@@ -469,6 +775,13 @@
 	argument. Fixes PR java/2333.
 	(jdep_resolve_class): Reset TYPE_SIZE if `error_mark_node', it's
 	too early to lay innerclasses out.
+
+2001-03-20  Tom Tromey  <tromey@redhat.com>
+	    Alexandre Petit-Bianco <apbianco@redhat.com>
+
+	* parse.y (patch_assignment): Handle the case of a SAVE_EXPR
+	inside an array reference. Insertion of the array store check
+	rewritten. Fixes PR java/2299.
 
 2001-03-20  Tom Tromey  <tromey@redhat.com>
 

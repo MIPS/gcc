@@ -37,11 +37,10 @@
 #include <bits/std_cstdlib.h>   // For strof, strtold
 #include <bits/std_limits.h>    // For numeric_limits
 #include <bits/std_memory.h>    // For auto_ptr
-#include <bits/sbuf_iter.h>     // For streambuf_iterators
+#include <bits/streambuf_iterator.h>     // For streambuf_iterators
 #include <bits/std_cctype.h>    // For isspace
 #include <typeinfo> 		// For bad_cast
 #include <bits/std_vector.h>	
-
 
 namespace std
 {
@@ -49,9 +48,9 @@ namespace std
     locale
     locale::combine(const locale& __other)
     {
-      locale __copy(*this);
-      __copy._M_impl->_M_replace_facet(__other._M_impl, &_Facet::id);
-      return __copy;
+      _Impl* __tmp = new _Impl(*_M_impl, 1);
+      __tmp->_M_replace_facet(__other._M_impl, &_Facet::id);
+      return locale(__tmp);
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -571,7 +570,7 @@ namespace std
       // Stage 2: convert and store results.
       char* __sanity;
       errno = 0;
-#ifdef _GLIBCPP_HAVE_STRTOF
+#ifdef _GLIBCPP_USE_C99
       float __f = strtof(__xtrc, &__sanity);
 #else
       float __f = static_cast<float>(strtod(__xtrc, &__sanity));
@@ -611,7 +610,7 @@ namespace std
       return __beg;
     }
 
-#if defined(_GLIBCPP_HAVE_STRTOLD) && !defined(__hpux)
+#if defined(_GLIBCPP_USE_C99) && !defined(__hpux)
   template<typename _CharT, typename _InIter>
     _InIter
     num_get<_CharT, _InIter>::

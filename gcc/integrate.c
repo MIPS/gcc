@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "regs.h"
 #include "flags.h"
+#include "debug.h"
 #include "insn-config.h"
 #include "expr.h"
 #include "output.h"
@@ -40,6 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "intl.h"
 #include "loop.h"
 #include "params.h"
+#include "ggc.h"
 
 #include "obstack.h"
 #define	obstack_chunk_alloc	xmalloc
@@ -68,6 +70,20 @@ extern struct obstack *function_maybepermanent_obstack;
 #define FUNCTION_ATTRIBUTE_INLINABLE_P(FNDECL) 0
 #endif
 
+
+/* Private type used by {get/has}_func_hard_reg_initial_val.  */
+typedef struct initial_value_pair {
+  rtx hard_reg;
+  rtx pseudo;
+} initial_value_pair;
+typedef struct initial_value_struct {
+  int num_entries;
+  int max_entries;
+  initial_value_pair *entries;
+} initial_value_struct;
+
+static void setup_initial_hard_reg_value_integration PARAMS ((struct function *, struct inline_remap *));
+
 static rtvec initialize_for_inline	PARAMS ((tree));
 static void note_modified_parmregs	PARAMS ((rtx, rtx, void *));
 static void integrate_parm_decls	PARAMS ((tree, struct inline_remap *,
@@ -410,6 +426,13 @@ save_for_inline (fndecl)
     }
 
   argvec = initialize_for_inline (fndecl);
+
+  /* Delete basic block notes created by early run of find_basic_block.
+     The notes would be later used by find_basic_blocks to reuse the memory
+     for basic_block structures on already freed obstack.  */
+  for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
+    if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) == NOTE_INSN_BASIC_BLOCK)
+      delete_insn (insn);
 
   /* If there are insns that copy parms from the stack into pseudo registers,
      those insns are not copied.  `expand_inline_function' must
@@ -1111,6 +1134,11 @@ expand_inline_function (fndecl, parms, target, ignore, type,
   else
     abort ();
 
+  /* Remap the exception handler data pointer from one to the other.  */
+  temp = get_exception_pointer (inl_f);
+  if (temp)
+    map->reg_map[REGNO (temp)] = get_exception_pointer (cfun);
+
   /* Initialize label_map.  get_label_from_map will actually make
      the labels.  */
   memset ((char *) &map->label_map[min_labelno], 0,
@@ -1153,6 +1181,9 @@ expand_inline_function (fndecl, parms, target, ignore, type,
      pushes.  */
   if (inl_f->calls_alloca)
     emit_stack_save (SAVE_BLOCK, &stack_save, NULL_RTX);
+
+  /* Map pseudos used for initial hard reg values.  */
+  setup_initial_hard_reg_value_integration (inl_f, map);
 
   /* Now copy the insns one by one.  */
   copy_insn_list (insns, map, static_chain_value);
@@ -1491,7 +1522,7 @@ copy_insn_list (insns, map, static_chain_value)
 	  copy = emit_call_insn (pattern);
 
 	  SIBLING_CALL_P (copy) = SIBLING_CALL_P (insn);
-	  CONST_CALL_P (copy) = CONST_CALL_P (insn);
+	  CONST_OR_PURE_CALL_P (copy) = CONST_OR_PURE_CALL_P (insn);
 
 	  /* Because the USAGE information potentially contains objects other
 	     than hard registers, we need to copy it.  */
@@ -1524,21 +1555,23 @@ copy_insn_list (insns, map, static_chain_value)
 	  break;
 
 	case NOTE:
+	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED_LABEL)
+	    {
+	      copy = emit_label (get_label_from_map (map,
+						    CODE_LABEL_NUMBER (insn)));
+	      map->const_age++;
+	      break;
+	    }
+
 	  /* NOTE_INSN_FUNCTION_END and NOTE_INSN_FUNCTION_BEG are
 	     discarded because it is important to have only one of
 	     each in the current function.
 
-	     NOTE_INSN_DELETED notes aren't useful.
-
-	     NOTE_INSN_BASIC_BLOCK is discarded because the saved bb
-	     pointer (which will soon be dangling) confuses flow's
-	     attempts to preserve bb structures during the compilation
-	     of a function.  */
+	     NOTE_INSN_DELETED notes aren't useful.  */
 
 	  if (NOTE_LINE_NUMBER (insn) != NOTE_INSN_FUNCTION_END
 	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_FUNCTION_BEG
-	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_DELETED
-	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK)
+	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_DELETED)
 	    {
 	      copy = emit_note (NOTE_SOURCE_FILE (insn),
 				NOTE_LINE_NUMBER (insn));
@@ -1967,17 +2000,17 @@ copy_rtx_and_substitute (orig, map, for_lhs)
 	copy = SUBREG_REG (copy);
       return gen_rtx_fmt_e (code, VOIDmode, copy);
 
+    /* We need to handle "deleted" labels that appear in the DECL_RTL
+       of a LABEL_DECL.  */
+    case NOTE:
+      if (NOTE_LINE_NUMBER (orig) != NOTE_INSN_DELETED_LABEL)
+	break;
+
+      /* ... FALLTHRU ...  */
     case CODE_LABEL:
       LABEL_PRESERVE_P (get_label_from_map (map, CODE_LABEL_NUMBER (orig)))
 	= LABEL_PRESERVE_P (orig);
       return get_label_from_map (map, CODE_LABEL_NUMBER (orig));
-
-    /* We need to handle "deleted" labels that appear in the DECL_RTL
-       of a LABEL_DECL.  */
-    case NOTE:
-      if (NOTE_LINE_NUMBER (orig) == NOTE_INSN_DELETED_LABEL)
-	return map->insn_map[INSN_UID (orig)];
-      break;
 
     case LABEL_REF:
       copy
@@ -2843,6 +2876,7 @@ output_inline_function (fndecl)
 {
   struct function *old_cfun = cfun;
   enum debug_info_type old_write_symbols = write_symbols;
+  struct gcc_debug_hooks *old_debug_hooks = debug_hooks;
   struct function *f = DECL_SAVED_INSNS (fndecl);
 
   cfun = f;
@@ -2856,11 +2890,14 @@ output_inline_function (fndecl)
 
   /* If requested, suppress debugging information.  */
   if (f->no_debugging_symbols)
-    write_symbols = NO_DEBUG;
+    {
+      write_symbols = NO_DEBUG;
+      debug_hooks = &do_nothing_debug_hooks;
+    }
 
   /* Do any preparation, such as emitting abstract debug info for the inline
      before it gets mangled by optimization.  */
-  note_outlining_of_inline_function (fndecl);
+  (*debug_hooks->outlining_inline_function) (fndecl);
 
   /* Compile this function all the way down to assembly code.  */
   rest_of_compilation (fndecl);
@@ -2872,4 +2909,131 @@ output_inline_function (fndecl)
   cfun = old_cfun;
   current_function_decl = old_cfun ? old_cfun->decl : 0;
   write_symbols = old_write_symbols;
+  debug_hooks = old_debug_hooks;
+}
+
+
+/* Functions to keep track of the values hard regs had at the start of
+   the function.  */
+
+rtx
+has_func_hard_reg_initial_val (fun, reg)
+     struct function *fun;
+     rtx reg;
+{
+  struct initial_value_struct *ivs = fun->hard_reg_initial_vals;
+  int i;
+
+  if (ivs == 0)
+    return NULL_RTX;
+
+  for (i = 0; i < ivs->num_entries; i++)
+    if (rtx_equal_p (ivs->entries[i].hard_reg, reg))
+      return ivs->entries[i].pseudo;
+
+  return NULL_RTX;
+}
+
+rtx
+get_func_hard_reg_initial_val (fun, reg)
+     struct function *fun;
+     rtx reg;
+{
+  struct initial_value_struct *ivs = fun->hard_reg_initial_vals;
+  rtx rv = has_func_hard_reg_initial_val (fun, reg);
+
+  if (rv)
+    return rv;
+
+  if (ivs == 0)
+    {
+      fun->hard_reg_initial_vals = (void *) xmalloc (sizeof (initial_value_struct));
+      ivs = fun->hard_reg_initial_vals;
+      ivs->num_entries = 0;
+      ivs->max_entries = 5;
+      ivs->entries = (initial_value_pair *) xmalloc (5 * sizeof (initial_value_pair));
+    }
+
+  if (ivs->num_entries >= ivs->max_entries)
+    {
+      ivs->max_entries += 5;
+      ivs->entries = 
+	(initial_value_pair *) xrealloc (ivs->entries,
+					 ivs->max_entries
+					 * sizeof (initial_value_pair));
+    }
+
+  ivs->entries[ivs->num_entries].hard_reg = reg;
+  ivs->entries[ivs->num_entries].pseudo = gen_reg_rtx (GET_MODE (reg));
+
+  return ivs->entries[ivs->num_entries++].pseudo;
+}
+
+rtx
+get_hard_reg_initial_val (mode, regno)
+     enum machine_mode mode;
+     int regno;
+{
+  return get_func_hard_reg_initial_val (cfun, gen_rtx_REG (mode, regno));
+}
+
+rtx
+has_hard_reg_initial_val (mode, regno)
+     enum machine_mode mode;
+     int regno;
+{
+  return has_func_hard_reg_initial_val (cfun, gen_rtx_REG (mode, regno));
+}
+
+void
+mark_hard_reg_initial_vals (fun)
+     struct function *fun;
+{
+  struct initial_value_struct *ivs = fun->hard_reg_initial_vals;
+  int i;
+
+  if (ivs == 0)
+    return;
+
+  for (i = 0; i < ivs->num_entries; i ++)
+    {
+      ggc_mark_rtx (ivs->entries[i].hard_reg);
+      ggc_mark_rtx (ivs->entries[i].pseudo);
+    }
+}
+
+static void
+setup_initial_hard_reg_value_integration (inl_f, remap)
+     struct function *inl_f;
+     struct inline_remap *remap;
+{
+  struct initial_value_struct *ivs = inl_f->hard_reg_initial_vals;
+  int i;
+
+  if (ivs == 0)
+    return;
+
+  for (i = 0; i < ivs->num_entries; i ++)
+    remap->reg_map[REGNO (ivs->entries[i].pseudo)]
+      = get_func_hard_reg_initial_val (cfun, ivs->entries[i].hard_reg);
+}
+
+
+void
+emit_initial_value_sets ()
+{
+  struct initial_value_struct *ivs = cfun->hard_reg_initial_vals;
+  int i;
+  rtx seq;
+
+  if (ivs == 0)
+    return;
+
+  start_sequence ();
+  for (i = 0; i < ivs->num_entries; i++)
+    emit_move_insn (ivs->entries[i].pseudo, ivs->entries[i].hard_reg);
+  seq = get_insns ();
+  end_sequence ();
+
+  emit_insns_after (seq, get_insns ());
 }

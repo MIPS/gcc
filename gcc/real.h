@@ -39,6 +39,10 @@ Boston, MA 02111-1307, USA.  */
 #define	HOST_FLOAT_FORMAT	IEEE_FLOAT_FORMAT
 #endif
 
+#ifndef INTEL_EXTENDED_IEEE_FORMAT
+#define INTEL_EXTENDED_IEEE_FORMAT 0
+#endif
+
 #if TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT
 #define REAL_INFINITY
 #endif
@@ -204,7 +208,7 @@ extern REAL_VALUE_TYPE ereal_from_double PARAMS ((HOST_WIDE_INT *));
   ereal_from_uint (&d, lo, hi, mode)
 
 /* IN is a REAL_VALUE_TYPE.  OUT is an array of longs. */
-#if defined(INTEL_EXTENDED_IEEE_FORMAT) && MAX_LONG_DOUBLE_TYPE_SIZE == 128
+#if (INTEL_EXTENDED_IEEE_FORMAT != 0) && (MAX_LONG_DOUBLE_TYPE_SIZE == 128)
 #define REAL_VALUE_TO_TARGET_LONG_DOUBLE(IN, OUT) (etarldouble ((IN), (OUT)))
 #else
 #define REAL_VALUE_TO_TARGET_LONG_DOUBLE(IN, OUT) 		\
@@ -388,7 +392,8 @@ extern double (atof) ();
 /* Hexadecimal floating constant input for use with host computer's
    fp arithmetic.  */
 #ifndef REAL_VALUE_HTOF
-extern REAL_VALUE_TYPE real_hex_to_f PARAMS ((char *, enum machine_mode));
+extern REAL_VALUE_TYPE real_hex_to_f PARAMS ((const char *,
+					      enum machine_mode));
 #define REAL_VALUE_HTOF(s,m) real_hex_to_f(s,m)
 #endif
 

@@ -21,7 +21,6 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-#include <setjmp.h>
 
 #include "rtl.h"
 #include "tm_p.h"
@@ -60,7 +59,6 @@ static cselib_val *new_cselib_val	PARAMS ((unsigned int,
 static void add_mem_for_addr		PARAMS ((cselib_val *, cselib_val *,
 						 rtx));
 static cselib_val *cselib_lookup_mem	PARAMS ((rtx, int));
-static rtx cselib_subst_to_values	PARAMS ((rtx));
 static void cselib_invalidate_regno	PARAMS ((unsigned int,
 						 enum machine_mode));
 static int cselib_mem_conflict_p	PARAMS ((rtx, rtx));
@@ -706,7 +704,6 @@ add_mem_for_addr (addr_elt, mem_elt, x)
      cselib_val *addr_elt, *mem_elt;
      rtx x;
 {
-  rtx new;
   struct elt_loc_list *l;
 
   /* Avoid duplicates.  */
@@ -715,11 +712,10 @@ add_mem_for_addr (addr_elt, mem_elt, x)
 	&& CSELIB_VAL_PTR (XEXP (l->loc, 0)) == addr_elt)
       return;
 
-  new = gen_rtx_MEM (GET_MODE (x), addr_elt->u.val_rtx);
-  MEM_COPY_ATTRIBUTES (new, x);
-
   addr_elt->addr_list = new_elt_list (addr_elt->addr_list, mem_elt);
-  mem_elt->locs = new_elt_loc_list (mem_elt->locs, new);
+  mem_elt->locs
+    = new_elt_loc_list (mem_elt->locs,
+			replace_equiv_address_nv (x, addr_elt->u.val_rtx));
 }
 
 /* Subroutine of cselib_lookup.  Return a value for X, which is a MEM rtx.
@@ -767,7 +763,7 @@ cselib_lookup_mem (x, create)
    X isn't actually modified; if modifications are needed, new rtl is
    allocated.  However, the return value can share rtl with X.  */
 
-static rtx
+rtx
 cselib_subst_to_values (x)
      rtx x;
 {
@@ -790,7 +786,11 @@ cselib_subst_to_values (x)
     case MEM:
       e = cselib_lookup_mem (x, 0);
       if (! e)
-	abort ();
+	{
+	  /* This happens for autoincrements.  Assign a value that doesn't
+	     match any other.  */
+	  e = new_cselib_val (++next_unknown_value, GET_MODE (x));
+	}
       return e->u.val_rtx;
 
       /* CONST_DOUBLEs must be special-cased here so that we won't try to
@@ -799,6 +799,15 @@ cselib_subst_to_values (x)
     case CONST_INT:
       return x;
 
+    case POST_INC:
+    case PRE_INC:
+    case POST_DEC:
+    case PRE_DEC:
+    case POST_MODIFY:
+    case PRE_MODIFY:
+      e = new_cselib_val (++next_unknown_value, GET_MODE (x));
+      return e->u.val_rtx;
+      
     default:
       break;
     }
@@ -994,7 +1003,7 @@ cselib_mem_conflict_p (mem_base, val)
   code = GET_CODE (val);
   switch (code)
     {
-      /* Get rid of a few simple cases quickly. */
+      /* Get rid of a few simple cases quickly.  */
     case REG:
     case PC:
     case CC0:
@@ -1181,8 +1190,15 @@ cselib_record_sets (insn)
   int i;
   struct set sets[MAX_SETS];
   rtx body = PATTERN (insn);
+  rtx cond = 0;
 
   body = PATTERN (insn);
+  if (GET_CODE (body) == COND_EXEC)
+    {
+      cond = COND_EXEC_TEST (body);
+      body = COND_EXEC_CODE (body);
+    }
+
   /* Find all sets.  */
   if (GET_CODE (body) == SET)
     {
@@ -1221,6 +1237,9 @@ cselib_record_sets (insn)
       /* We don't know how to record anything but REG or MEM.  */
       if (GET_CODE (dest) == REG || GET_CODE (dest) == MEM)
         {
+	  rtx src = sets[i].src;
+	  if (cond)
+	    src = gen_rtx_IF_THEN_ELSE (GET_MODE (src), cond, src, dest);
 	  sets[i].src_elt = cselib_lookup (sets[i].src, GET_MODE (dest), 1);
 	  if (GET_CODE (dest) == MEM)
 	    sets[i].dest_addr_elt = cselib_lookup (XEXP (dest, 0), Pmode, 1);
@@ -1256,8 +1275,8 @@ cselib_process_insn (insn)
 
   /* Forget everything at a CODE_LABEL, a volatile asm, or a setjmp.  */
   if (GET_CODE (insn) == CODE_LABEL
-      || (GET_CODE (insn) == NOTE
-	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_SETJMP)
+      || (GET_CODE (insn) == CALL_INSN
+	  && find_reg_note (insn, REG_SETJMP, NULL))
       || (GET_CODE (insn) == INSN
 	  && GET_CODE (PATTERN (insn)) == ASM_OPERANDS
 	  && MEM_VOLATILE_P (PATTERN (insn))))
@@ -1281,7 +1300,7 @@ cselib_process_insn (insn)
 	if (call_used_regs[i])
 	  cselib_invalidate_regno (i, VOIDmode);
 
-      if (! CONST_CALL_P (insn))
+      if (! CONST_OR_PURE_CALL_P (insn))
 	cselib_invalidate_mem (callmem);
     }
 

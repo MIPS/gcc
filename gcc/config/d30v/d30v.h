@@ -869,7 +869,7 @@ do {									\
         there is no need to define this macro when the format is IEEE.
 
    VAX_FLOAT_FORMAT'
-        This code indicates the peculiar format used on the Vax.
+        This code indicates the peculiar format used on the VAX.
 
    UNKNOWN_FLOAT_FORMAT'
         This code indicates any other format.
@@ -883,19 +883,6 @@ do {									\
    memory is controlled by `FLOAT_WORDS_BIG_ENDIAN' for the target machine and
    `HOST_FLOAT_WORDS_BIG_ENDIAN' for the host.  */
 #define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
-/* GNU CC supports two ways of implementing C++ vtables: traditional or with
-   so-called "thunks".  The flag `-fvtable-thunk' chooses between them.  Define
-   this macro to be a C expression for the default value of that flag.  If
-   `DEFAULT_VTABLE_THUNKS' is 0, GNU CC uses the traditional implementation by
-   default.  The "thunk" implementation is more efficient (especially if you
-   have provided an implementation of `ASM_OUTPUT_MI_THUNK', see *Note Function
-   Entry::), but is not binary compatible with code compiled using the
-   traditional implementation.  If you are writing a new ports, define
-   `DEFAULT_VTABLE_THUNKS' to 1.
-
-   If you do not define this macro, the default for `-fvtable-thunk' is 0.  */
-#define DEFAULT_VTABLE_THUNKS 0
 
 
 /* Layout of Source Language Data Types */
@@ -1020,22 +1007,6 @@ do {									\
    On certain machines, it is important to have a separate label for each
    selector because this enables the linker to eliminate duplicate selectors.  */
 /* #define OBJC_SELECTORS_WITHOUT_LABELS */
-
-/* A C constant expression for the integer value for escape sequence
-   `\a'.  */
-#define TARGET_BELL 0x7
-
-/* C constant expressions for the integer values for escape sequences
-   `\b', `\t' and `\n'.  */
-#define TARGET_BS	0x8
-#define TARGET_TAB	0x9
-#define TARGET_NEWLINE	0xa
-
-/* C constant expressions for the integer values for escape sequences
-   `\v', `\f' and `\r'.  */
-#define TARGET_VT	0xb
-#define TARGET_FF	0xc
-#define TARGET_CR	0xd
 
 
 /* D30V register layout.  */
@@ -2319,7 +2290,7 @@ typedef struct d30v_stack {
    variable number of bytes is passed, it is zero, and argument popping will
    always be the responsibility of the calling function.
 
-   On the Vax, all functions always pop their arguments, so the definition of
+   On the VAX, all functions always pop their arguments, so the definition of
    this macro is STACK-SIZE.  On the 68000, using the standard calling
    convention, no functions pop their arguments, so the value of the macro is
    always 0 in this case.  But an alternative calling convention is available
@@ -2346,7 +2317,7 @@ typedef struct d30v_stack {
    register in which to pass the argument, or zero to pass the argument on the
    stack.
 
-   For machines like the Vax and 68000, where normally all arguments are
+   For machines like the VAX and 68000, where normally all arguments are
    pushed, zero suffices as a definition.
 
    The usual way to make the ANSI library `stdarg.h' work on a machine where
@@ -2672,93 +2643,6 @@ typedef int CUMULATIVE_ARGS;
 /* #define CALLER_SAVE_PROFITABLE(REFS, CALLS) */
 
 
-/* Function Entry and Exit */
-
-/* A C compound statement that outputs the assembler code for entry to a
-   function.  The prologue is responsible for setting up the stack frame,
-   initializing the frame pointer register, saving registers that must be
-   saved, and allocating SIZE additional bytes of storage for the local
-   variables.  SIZE is an integer.  FILE is a stdio stream to which the
-   assembler code should be output.
-
-   The label for the beginning of the function need not be output by this
-   macro.  That has already been done when the macro is run.
-
-   To determine which registers to save, the macro can refer to the array
-   `regs_ever_live': element R is nonzero if hard register R is used anywhere
-   within the function.  This implies the function prologue should save
-   register R, provided it is not one of the call-used registers.
-   (`FUNCTION_EPILOGUE' must likewise use `regs_ever_live'.)
-
-   On machines that have "register windows", the function entry code does not
-   save on the stack the registers that are in the windows, even if they are
-   supposed to be preserved by function calls; instead it takes appropriate
-   steps to "push" the register stack, if any non-call-used registers are used
-   in the function.
-
-   On machines where functions may or may not have frame-pointers, the function
-   entry code must vary accordingly; it must set up the frame pointer if one is
-   wanted, and not otherwise.  To determine whether a frame pointer is in
-   wanted, the macro can refer to the variable `frame_pointer_needed'.  The
-   variable's value will be 1 at run time in a function that needs a frame
-   pointer.  *Note Elimination::.
-
-   The function entry code is responsible for allocating any stack space
-   required for the function.  This stack space consists of the regions listed
-   below.  In most cases, these regions are allocated in the order listed, with
-   the last listed region closest to the top of the stack (the lowest address
-   if `STACK_GROWS_DOWNWARD' is defined, and the highest address if it is not
-   defined).  You can use a different order for a machine if doing so is more
-   convenient or required for compatibility reasons.  Except in cases where
-   required by standard or by a debugger, there is no reason why the stack
-   layout used by GCC need agree with that used by other compilers for a
-   machine.
-
-      * A region of `current_function_pretend_args_size' bytes of
-        uninitialized space just underneath the first argument
-        arriving on the stack.  (This may not be at the very start of
-        the allocated stack region if the calling sequence has pushed
-        anything else since pushing the stack arguments.  But
-        usually, on such machines, nothing else has been pushed yet,
-        because the function prologue itself does all the pushing.)
-        This region is used on machines where an argument may be
-        passed partly in registers and partly in memory, and, in some
-        cases to support the features in `varargs.h' and `stdargs.h'.
-
-      * An area of memory used to save certain registers used by the
-        function.  The size of this area, which may also include
-        space for such things as the return address and pointers to
-        previous stack frames, is machine-specific and usually
-        depends on which registers have been used in the function.
-        Machines with register windows often do not require a save
-        area.
-
-      * A region of at least SIZE bytes, possibly rounded up to an
-        allocation boundary, to contain the local variables of the
-        function.  On some machines, this region and the save area
-        may occur in the opposite order, with the save area closer to
-        the top of the stack.
-
-      * Optionally, when `ACCUMULATE_OUTGOING_ARGS' is defined, a
-        region of `current_function_outgoing_args_size' bytes to be
-        used for outgoing argument lists of the function.  *Note
-        Stack Arguments::.
-
-   Normally, it is necessary for the macros `FUNCTION_PROLOGUE' and
-   `FUNCTION_EPILOGUE' to treat leaf functions specially.  The C variable
-   `leaf_function' is nonzero for such a function.  */
-
-#define FUNCTION_PROLOGUE(FILE, SIZE) d30v_function_prologue (FILE, SIZE)
-
-/* Define this macro as a C expression that is nonzero if the return
-   instruction or the function epilogue ignores the value of the stack pointer;
-   in other words, if it is safe to delete an instruction to adjust the stack
-   pointer before a return from the function.
-
-   Note that this macro's value is relevant only for functions for which frame
-   pointers are maintained.  It is never safe to delete a final stack
-   adjustment in a function that has no frame pointer, and the compiler knows
-   this regardless of `EXIT_IGNORE_STACK'.  */
 /* #define EXIT_IGNORE_STACK */
 
 /* Define this macro as a C expression that is nonzero for registers
@@ -2766,44 +2650,6 @@ typedef int CUMULATIVE_ARGS;
    frame pointer registers are already be assumed to be used as
    needed.  */
 #define EPILOGUE_USES(REGNO)  ((REGNO) == GPR_LINK)
-
-/* A C compound statement that outputs the assembler code for exit from a
-   function.  The epilogue is responsible for restoring the saved registers and
-   stack pointer to their values when the function was called, and returning
-   control to the caller.  This macro takes the same arguments as the macro
-   `FUNCTION_PROLOGUE', and the registers to restore are determined from
-   `regs_ever_live' and `CALL_USED_REGISTERS' in the same way.
-
-   On some machines, there is a single instruction that does all the work of
-   returning from the function.  On these machines, give that instruction the
-   name `return' and do not define the macro `FUNCTION_EPILOGUE' at all.
-
-   Do not define a pattern named `return' if you want the `FUNCTION_EPILOGUE'
-   to be used.  If you want the target switches to control whether return
-   instructions or epilogues are used, define a `return' pattern with a
-   validity condition that tests the target switches appropriately.  If the
-   `return' pattern's validity condition is false, epilogues will be used.
-
-   On machines where functions may or may not have frame-pointers, the function
-   exit code must vary accordingly.  Sometimes the code for these two cases is
-   completely different.  To determine whether a frame pointer is wanted, the
-   macro can refer to the variable `frame_pointer_needed'.  The variable's
-   value will be 1 when compiling a function that needs a frame pointer.
-
-   Normally, `FUNCTION_PROLOGUE' and `FUNCTION_EPILOGUE' must treat leaf
-   functions specially.  The C variable `leaf_function' is nonzero for such a
-   function.  *Note Leaf Functions::.
-
-   On some machines, some functions pop their arguments on exit while others
-   leave that for the caller to do.  For example, the 68020 when given `-mrtd'
-   pops arguments in functions that take a fixed number of arguments.
-
-   Your definition of the macro `RETURN_POPS_ARGS' decides which functions pop
-   their own arguments.  `FUNCTION_EPILOGUE' needs to know what was decided.
-   The variable that is called `current_function_pops_args' is the number of
-   bytes of its arguments that a function should pop.  *Note Scalar Return::.  */
-
-#define FUNCTION_EPILOGUE(FILE, SIZE) d30v_function_epilogue (FILE, SIZE)
 
 /* Define this macro if the function epilogue contains delay slots to which
    instructions from the rest of the function can be "moved".  The definition
@@ -2825,8 +2671,8 @@ typedef int CUMULATIVE_ARGS;
    The insns accepted to fill the epilogue delay slots are put in an
    RTL list made with `insn_list' objects, stored in the variable
    `current_function_epilogue_delay_list'.  The insn for the first
-   delay slot comes first in the list.  Your definition of the macro
-   `FUNCTION_EPILOGUE' should fill the delay slots by outputting the
+   delay slot comes first in the list.  Your definition of the function
+   output_function_epilogue() should fill the delay slots by outputting the
    insns in this list, usually by calling `final_scan_insn'.
 
    You need not define this macro if you did not define
@@ -2849,10 +2695,10 @@ typedef int CUMULATIVE_ARGS;
    the return address.  Hence returning from FUNCTION will return to whoever
    called the current `thunk'.
 
-   The effect must be as if FUNCTION had been called directly with the adjusted
-   first argument.  This macro is responsible for emitting all of the code for
-   a thunk function; `FUNCTION_PROLOGUE' and `FUNCTION_EPILOGUE' are not
-   invoked.
+   The effect must be as if FUNCTION had been called directly with the
+   adjusted first argument.  This macro is responsible for emitting
+   all of the code for a thunk function; output_function_prologue()
+   and output_function_epilogue() are not invoked.
 
    The THUNK_FNDECL is redundant.  (DELTA and FUNCTION have already been
    extracted from it.)  It might possibly be useful on some targets, but
@@ -2870,8 +2716,6 @@ typedef struct machine_function
 {
   /* Additionsl stack adjustment in __builtin_eh_throw.  */
   struct rtx_def * eh_epilogue_sp_ofs;
-  /* Records __builtin_return address.  */
-  struct rtx_def * ra_rtx;
 } machine_function;
 
 
@@ -2993,8 +2837,8 @@ typedef struct machine_function
    code to call function `__bb_trace_ret'.  The assembler code should
    only be output if the global compile flag `profile_block_flag' ==
    2.  This macro has to be used at every place where code for
-   returning from a function is generated (e.g. `FUNCTION_EPILOGUE').
-   Although you have to write the definition of `FUNCTION_EPILOGUE'
+   returning from a function is generated (e.g. output_function_epilogue()).
+   Although you have to write the definition of output_function_epilogue()
    as well, you have to define this macro to tell the compiler, that
    the proper call to `__bb_trace_ret' is produced.  */
 /* #define FUNCTION_BLOCK_PROFILER_EXIT(FILE) */
@@ -3005,17 +2849,18 @@ typedef struct machine_function
    the assembler code can be concatenated with the string ID, to obtain a
    unique lable name.
 
-   Registers or condition codes clobbered by `FUNCTION_PROLOGUE' or
-   `FUNCTION_EPILOGUE' must be saved in the macros `FUNCTION_BLOCK_PROFILER',
-   `FUNCTION_BLOCK_PROFILER_EXIT' and `BLOCK_PROFILER' prior calling
-   `__bb_init_trace_func', `__bb_trace_ret' and `__bb_trace_func' respectively.  */
+   Registers or condition codes clobbered by output_function_prologue()
+   or output_function_epilogue() must be saved in the macros
+   `FUNCTION_BLOCK_PROFILER', FUNCTION_BLOCK_PROFILER_EXIT' and
+   `BLOCK_PROFILER' prior calling `__bb_init_trace_func', `__bb_trace_ret'
+   and `__bb_trace_func' respectively.  */
 /* #define MACHINE_STATE_SAVE(ID) */
 
 /* A C statement or compound statement to restore all registers, including
    condition codes, saved by `MACHINE_STATE_SAVE'.
 
-   Registers or condition codes clobbered by `FUNCTION_PROLOGUE' or
-   `FUNCTION_EPILOGUE' must be restored in the macros
+   Registers or condition codes clobbered by output_function_prologue()
+   or output_function_epilogue() must be restored in the macros
    `FUNCTION_BLOCK_PROFILER', `FUNCTION_BLOCK_PROFILER_EXIT' and
    `BLOCK_PROFILER' after calling `__bb_init_trace_func', `__bb_trace_ret' and
    `__bb_trace_func' respectively.  */
@@ -3149,7 +2994,8 @@ typedef struct machine_function
    stack slot.  This default is right for most machines.  The exceptions are
    machines where it is impossible to execute instructions in the stack area.
    On such machines, you may have to implement a separate stack, using this
-   macro in conjunction with `FUNCTION_PROLOGUE' and `FUNCTION_EPILOGUE'.
+   macro in conjunction with output_function_prologue () and
+   output_function_epilogue ().
 
    FP points to a data structure, a `struct function', which describes the
    compilation status of the immediate containing function of the function
@@ -3914,15 +3760,6 @@ extern const char *d30v_branch_cost_string;
    the symbol's name string.  */
 /* #define STRIP_NAME_ENCODING(VAR, SYM_NAME) */
 
-/* A C expression which evaluates to true if DECL should be placed
-   into a unique section for some target-specific reason.  If you do
-   not define this macro, the default is `0'.  Note that the flag
-   `-ffunction-sections' will also cause functions to be placed into
-   unique sections.
-
-   Defined in svr4.h.  */
-/* #define UNIQUE_SECTION_P(DECL) */
-
 /* A C statement to build up a unique section name, expressed as a
    STRING_CST node, and assign it to `DECL_SECTION_NAME (DECL)'.
    RELOC indicates whether the initial value of EXP requires
@@ -4041,17 +3878,6 @@ extern const char *d30v_branch_cost_string;
 
    Defined in svr4.h.  */
 /* #define ASM_OUTPUT_IDENT(STREAM, STRING) */
-
-/* A C statement to output something to the assembler file to switch to section
-   NAME for object DECL which is either a `FUNCTION_DECL', a `VAR_DECL' or
-   `NULL_TREE'.  Some target formats do not support arbitrary sections.  Do not
-   define this macro in such cases.
-
-   At present this macro is only used to support section attributes.  When this
-   macro is undefined, section attributes are disabled.
-
-   Defined in svr4.h.  */
-/* #define ASM_OUTPUT_SECTION_NAME(STREAM, DECL, NAME) */
 
 /* A C statement to output any assembler statements which are required to
    precede any Objective C object definitions or message sending.  The
@@ -4231,15 +4057,6 @@ do {									\
    If you do not define this macro, the default is that only the character `;'
    is treated as a logical line separator.  */
 /* #define IS_ASM_LOGICAL_LINE_SEPARATOR(C) */
-
-/* These macros are defined as C string constant, describing the syntax in the
-   assembler for grouping arithmetic expressions.  The following definitions
-   are correct for most assemblers:
-
-        #define ASM_OPEN_PAREN "("
-        #define ASM_CLOSE_PAREN ")"  */
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
 
 /* These macros are provided by `real.h' for writing the definitions of
    `ASM_OUTPUT_DOUBLE' and the like: */
@@ -4646,29 +4463,6 @@ do {									\
    collecting the lists of constructors and destructors.  */
 #define INVOKE__main
 
-/* Define this macro as a C statement to output on the stream STREAM the
-   assembler code to arrange to call the function named NAME at initialization
-   time.
-
-   Assume that NAME is the name of a C function generated automatically by the
-   compiler.  This function takes no arguments.  Use the function
-   `assemble_name' to output the name NAME; this performs any system-specific
-   syntactic transformations such as adding an underscore.
-
-   If you don't define this macro, nothing special is output to arrange to call
-   the function.  This is correct when the function will be called in some
-   other manner--for example, by means of the `collect2' program, which looks
-   through the symbol table to find these functions by their names.
-
-   Defined in svr4.h.  */
-/* #define ASM_OUTPUT_CONSTRUCTOR(STREAM, NAME) */
-
-/* This is like `ASM_OUTPUT_CONSTRUCTOR' but used for termination functions
-   rather than initialization functions.
-
-   Defined in svr4.h.  */
-/* #define ASM_OUTPUT_DESTRUCTOR(STREAM, NAME) */
-
 /* If your system uses `collect2' as the means of processing constructors, then
    that program normally uses `nm' to scan an object file for constructor
    functions to be called.  On certain kinds of systems, you can define these
@@ -5014,23 +4808,6 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 
    This macro need not be defined on most platforms.  */
 /* #define ASM_OUTPUT_EH_REGION_END() */
-
-/* A C expression to switch to the section in which the main exception table is
-   to be placed (*note Sections::.).  The default is a section named
-   `.gcc_except_table' on machines that support named sections via
-   `ASM_OUTPUT_SECTION_NAME', otherwise if `-fpic' or `-fPIC' is in effect, the
-   `data_section', otherwise the `readonly_data_section'.  */
-/* #define EXCEPTION_SECTION() */
-
-/* If defined, a C string constant for the assembler operation to switch to the
-   section for exception handling frame unwind information.  If not defined,
-   GNU CC will provide a default definition if the target supports named
-   sections.  `crtstuff.c' uses this macro to switch to the appropriate
-   section.
-
-   You should define this symbol if your target supports DWARF 2 frame unwind
-   information and the default definition does not work.  */
-/* #define EH_FRAME_SECTION_ASM_OP */
 
 /* A C expression that is nonzero if the normal exception table output should
    be omitted.
@@ -5417,8 +5194,8 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
    To support optional call frame debugging information, you must also define
    `INCOMING_RETURN_ADDR_RTX' and either set `RTX_FRAME_RELATED_P' on the
    prologue insns if you use RTL for the prologue, or call `dwarf2out_def_cfa'
-   and `dwarf2out_reg_save' as appropriate from `FUNCTION_PROLOGUE' if you
-   don't.
+   and `dwarf2out_reg_save' as appropriate from output_function_prologue() if
+   you don't.
 
    Defined in svr4.h.  */
 /* #define DWARF2_DEBUGGING_INFO */
@@ -5906,25 +5683,6 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 /* Define this macro if you want to handle #pragma weak (HANDLE_SYSV_PRAGMA
    must also be defined).  */
 /* #define HANDLE_WEAK_PRAGMA */
-
-/* If defined, a C expression whose value is nonzero if IDENTIFIER with
-   arguments ARGS is a valid machine specific attribute for DECL.  The
-   attributes in ATTRIBUTES have previously been assigned to DECL.  */
-/* #define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) */
-
-/* If defined, a C expression whose value is nonzero if IDENTIFIER with
-   arguments ARGS is a valid machine specific attribute for TYPE.  The
-   attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-/* #define VALID_MACHINE_TYPE_ATTRIBUTE(TYPE, ATTRIBUTES, IDENTIFIER, ARGS) */
-
-/* If defined, a C expression whose value is zero if the attributes on TYPE1
-   and TYPE2 are incompatible, one if they are compatible, and two if they are
-   nearly compatible (which causes a warning to be generated).  */
-/* #define COMP_TYPE_ATTRIBUTES(TYPE1, TYPE2) */
-
-/* If defined, a C statement that assigns default attributes to newly defined
-   TYPE.  */
-/* #define SET_DEFAULT_TYPE_ATTRIBUTES(TYPE) */
 
 /* Define this macro to control use of the character `$' in identifier names.
    The value should be 0, 1, or 2.  0 means `$' is not allowed by default; 1

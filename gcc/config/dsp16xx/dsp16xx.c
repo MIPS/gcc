@@ -38,6 +38,8 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "recog.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
 
 const char *text_seg_name;
 const char *rsect_text;
@@ -56,7 +58,7 @@ const char *save_chip_name;
 
 rtx dsp16xx_compare_op0;
 rtx dsp16xx_compare_op1;
-struct rtx_def *(*dsp16xx_compare_gen)();
+rtx (*dsp16xx_compare_gen) PARAMS (());
 
 static const char *fp;
 static const char *sp;
@@ -145,7 +147,17 @@ static const char *const lshift_right_asm_first[] =
 };
 
 static int reg_save_size PARAMS ((void));
+static void dsp16xx_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+static void dsp16xx_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE dsp16xx_output_function_prologue
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE dsp16xx_output_function_epilogue
 
+struct gcc_target targetm = TARGET_INITIALIZER;
+
 int 
 hard_regno_mode_ok (regno, mode)
      int regno;
@@ -1170,10 +1182,10 @@ ybase_regs_ever_used ()
   return live;
 }
 
-void 
-function_prologue (file, size)
+static void 
+dsp16xx_output_function_prologue (file, size)
      FILE *file;
-     int  size;
+     HOST_WIDE_INT size;
 {
   int regno;
   long total_size;
@@ -1288,10 +1300,11 @@ init_emulation_routines ()
  dsp16xx_lshrhi3_libcall = (rtx) 0;
 
 }
-void
-function_epilogue (file, size)
+
+static void
+dsp16xx_output_function_epilogue (file, size)
      FILE *file;
-     int size ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   int regno;
 #if OLD_REGISTER_SAVE  
@@ -1663,7 +1676,7 @@ print_operand(file, op, letter)
 	else if (letter == 'm')
 	  fprintf (file, "%s", himode_reg_name[REGNO (op)]);
         else
-	  output_operand_lossgae ("Bad register extension code");
+	  output_operand_lossage ("Bad register extension code");
     }
     else if (code == MEM)
       output_address (XEXP(op,0));
@@ -1676,7 +1689,7 @@ print_operand(file, op, letter)
 	else if (letter == 'h')
 	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, val);
         else if (letter == 'U')
-	  fprint(f file, HOST_WIDE_INT_PRINT_HEX, (val >> 16) & 0xffff);
+	  fprintf (file, HOST_WIDE_INT_PRINT_HEX, (val >> 16) & 0xffff);
         else
 	  output_addr_const (file, op);
       }

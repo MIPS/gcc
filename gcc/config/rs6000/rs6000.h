@@ -33,9 +33,13 @@ Boston, MA 02111-1307, USA.  */
 #define OBJECT_MACHO 4
 
 #define TARGET_ELF (TARGET_OBJECT_FORMAT == OBJECT_ELF)
-#define TARGET_AIX (TARGET_OBJECT_FORMAT == OBJECT_XCOFF)
+#define TARGET_XCOFF (TARGET_OBJECT_FORMAT == OBJECT_XCOFF)
 #define TARGET_MACOS (TARGET_OBJECT_FORMAT == OBJECT_PEF)
 #define TARGET_MACHO (TARGET_OBJECT_FORMAT == OBJECT_MACHO)
+
+#ifndef TARGET_AIX
+#define TARGET_AIX 0
+#endif
 
 /* Print subsidiary information on the compiler version in use.  */
 #define TARGET_VERSION ;
@@ -81,8 +85,6 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=823: -D_ARCH_PPC} \
 %{mcpu=860: -D_ARCH_PPC}"
 
-#define CPP_DEFAULT_SPEC "-D_ARCH_PWR"
-
 /* Common ASM definitions used by ASM_SPEC among the various targets
    for handling -mcpu=xxx switches.  */
 #define ASM_CPU_SPEC \
@@ -118,6 +120,8 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=821: -mppc} \
 %{mcpu=823: -mppc} \
 %{mcpu=860: -mppc}"
+
+#define CPP_DEFAULT_SPEC ""
 
 #define ASM_DEFAULT_SPEC ""
 
@@ -574,13 +578,6 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 /* Handle #pragma pack.  */
 #define HANDLE_PRAGMA_PACK 1
 
-/* AIX word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
-  (TYPE_MODE (TREE_CODE (TREE_TYPE (FIELD)) == ARRAY_TYPE \
-	      ? get_inner_array_type (FIELD) \
-	      : TREE_TYPE (FIELD)) == DFmode \
-   ? MIN ((COMPUTED), 32) : (COMPUTED))
-
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 32
 
@@ -589,17 +586,6 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 
 /* A bitfield declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
-
-/* AIX increases natural record alignment to doubleword if the first
-   field is an FP double while the FP fields remain word aligned.  */
-#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)	\
-  ((TREE_CODE (STRUCT) == RECORD_TYPE			\
-    || TREE_CODE (STRUCT) == UNION_TYPE			\
-    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
-   && TYPE_FIELDS (STRUCT) != 0				\
-   && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode	\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), BIGGEST_ALIGNMENT) \
-   : MAX ((COMPUTED), (SPECIFIED)))
 
 /* Make strings word-aligned so strcpy from constants will be faster.  */
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)  \
@@ -796,7 +782,7 @@ extern int rs6000_debug_arg;		/* debug argument handling */
    registers is expensive.  */
 
 #define REGISTER_MOVE_COST(MODE, CLASS1, CLASS2)		\
-  ((CLASS1) == FLOAT_REGS && (CLASS2) == FLOAT_REGS ? 2		\
+   ((CLASS1) == FLOAT_REGS && (CLASS2) == FLOAT_REGS ? 2		\
    : (CLASS1) == FLOAT_REGS && (CLASS2) != FLOAT_REGS ? 10	\
    : (CLASS1) != FLOAT_REGS && (CLASS2) == FLOAT_REGS ? 10	\
    : (((CLASS1) == SPECIAL_REGS || (CLASS1) == MQ_REGS		\
@@ -1050,7 +1036,7 @@ enum reg_class
    `K' is a constant with only the low-order 16 bits non-zero
    `L' is a signed 16-bit constant shifted left 16 bits
    `M' is a constant that is greater than 31
-   `N' is a constant that is an exact power of two
+   `N' is a positive constant that is an exact power of two
    `O' is the constant zero
    `P' is a constant whose negation is a signed 16-bit constant */
 
@@ -1061,7 +1047,7 @@ enum reg_class
    : (C) == 'L' ? (((VALUE) & 0xffff) == 0				\
 		   && ((VALUE) >> 31 == -1 || (VALUE) >> 31 == 0))	\
    : (C) == 'M' ? (VALUE) > 31						\
-   : (C) == 'N' ? exact_log2 (VALUE) >= 0				\
+   : (C) == 'N' ? (VALUE) > 0 && exact_log2 (VALUE) >= 0		\
    : (C) == 'O' ? (VALUE) == 0						\
    : (C) == 'P' ? (unsigned HOST_WIDE_INT) ((- (VALUE)) + 0x8000) < 0x10000 \
    : 0)
@@ -1384,7 +1370,7 @@ typedef struct rs6000_stack {
 /* 1 if N is a possible register number for function argument passing.
    On RS/6000, these are r3-r10 and fp1-fp13.  */
 #define FUNCTION_ARG_REGNO_P(N)						\
-  (((unsigned)((N) - GP_ARG_MIN_REG) < (unsigned)(GP_ARG_NUM_REG))	\
+  ((unsigned)(((N) - GP_ARG_MIN_REG) < (unsigned)(GP_ARG_NUM_REG))	\
    || ((unsigned)((N) - FP_ARG_MIN_REG) < (unsigned)(FP_ARG_NUM_REG)))
 
 
@@ -1394,8 +1380,6 @@ typedef struct machine_function
 {
   /* Whether a System V.4 varargs area was created.  */
   int sysv_varargs_p;
-  /* Set if a return address rtx for loading from LR was created.  */
-  struct rtx_def *ra_rtx;
   /* Flags if __builtin_return_address (n) with n >= 1 was used.  */
   int ra_needs_full_frame;
 } machine_function;
@@ -1553,16 +1537,6 @@ typedef struct rs6000_args
    argument is passed depends on whether or not it is a named argument.  */
 #define STRICT_ARGUMENT_NAMING 1
 
-/* This macro generates the assembly code for function entry.
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.
-   Refer to the array `regs_ever_live' to determine which registers
-   to save; `regs_ever_live[I]' is nonzero if register number I
-   is ever used in the function.  This macro is responsible for
-   knowing which registers should not be saved even if used.  */
-
-#define FUNCTION_PROLOGUE(FILE, SIZE) output_prolog (FILE, SIZE)
-
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
@@ -1588,17 +1562,6 @@ typedef struct rs6000_args
        && TARGET_AIX						\
        && (REGNO) == TOC_REGISTER))
 
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.
-
-   The function epilogue should not depend on the current stack pointer!
-   It should use the frame pointer only.  This is mandatory because
-   of alloca; we also take advantage of it to omit stack adjustments
-   before returning.  */
-
-#define FUNCTION_EPILOGUE(FILE, SIZE) output_epilog (FILE, SIZE)
 
 /* TRAMPOLINE_TEMPLATE deleted */
 
@@ -1612,35 +1575,6 @@ typedef struct rs6000_args
 
 #define INITIALIZE_TRAMPOLINE(ADDR, FNADDR, CXT)		\
   rs6000_initialize_trampoline (ADDR, FNADDR, CXT)
-
-/* If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, NAME, ARGS) \
-  (rs6000_valid_decl_attribute_p (DECL, ATTRIBUTES, NAME, ARGS))
-
-/* If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for TYPE.
-   The attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-
-#define VALID_MACHINE_TYPE_ATTRIBUTE(TYPE, ATTRIBUTES, NAME, ARGS) \
-  (rs6000_valid_type_attribute_p (TYPE, ATTRIBUTES, NAME, ARGS))
-
-/* If defined, a C expression whose value is zero if the attributes on
-   TYPE1 and TYPE2 are incompatible, one if they are compatible, and
-   two if they are nearly compatible (which causes a warning to be
-   generated).  */
-
-#define COMP_TYPE_ATTRIBUTES(TYPE1, TYPE2) \
-  (rs6000_comp_type_attributes (TYPE1, TYPE2))
-
-/* If defined, a C statement that assigns default attributes to newly
-   defined TYPE.  */
-
-#define SET_DEFAULT_TYPE_ATTRIBUTES(TYPE) \
-  (rs6000_set_default_type_attributes (TYPE))
-
 
 /* Definitions for __builtin_return_address and __builtin_frame_address.
    __builtin_return_address (0) should give link register (65), enable
@@ -2334,10 +2268,6 @@ extern int toc_initialized;
     }									  \
 }
 
-/* This is how we tell the assembler that two symbols have the same value.  */
-
-#define SET_ASM_OP "\t.set\t"
-
 /* This implementes the `alias' attribute.  */
 
 #define ASM_OUTPUT_DEF_FROM_DECLS(FILE,decl,target)	\
@@ -2551,7 +2481,7 @@ do {									\
     }									\
   else									\
     {									\
-      fputs ("\t.llong ", FILE);					\
+      fprintf (FILE, "%s", DOUBLE_INT_ASM_OP);				\
       output_addr_const (FILE, (VALUE));				\
       putc ('\n', FILE);						\
     }									\
@@ -2580,7 +2510,7 @@ do {									\
   fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
 
 /* This is used by the definition of ASM_OUTPUT_ADDR_ELT in defaults.h.  */
-#define ASM_LONG (TARGET_32BIT ? ".long" : ".quad")
+#define ASM_LONG (TARGET_32BIT ? ".long" : DOUBLE_INT_ASM_OP)
 
 /* This is how to output an element of a case-vector that is relative.  */
 
@@ -2603,19 +2533,6 @@ do {									\
   if ((LOG) != 0)			\
     fprintf (FILE, "\t.align %d\n", (LOG))
 
-/* This says how to output an assembler line
-   to define a local common symbol.
-   Alignment cannot be specified, but we can try to maintain
-   alignment after preceding TOC section if it was aligned
-   for 64-bit mode.  */
-
-#define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)	\
-  do { fputs (".lcomm ", (FILE));			\
-       RS6000_OUTPUT_BASENAME ((FILE), (NAME));		\
-       fprintf ((FILE), ",%d,%s\n", (TARGET_32BIT ? (SIZE) : (ROUNDED)), \
-		xcoff_bss_section_name);		\
-     } while (0)
-
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.
    LABELNO is an integer which is different for each call.  */
@@ -2623,12 +2540,6 @@ do {									\
 #define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
   sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
 
 /* Pick up the return address upon entry to a procedure. Used for
    dwarf2 unwind information.  This also enables the table driven
@@ -2640,15 +2551,6 @@ do {									\
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + 3 : INVALID_REGNUM)
 #define EH_RETURN_STACKADJ_RTX  gen_rtx_REG (Pmode, 10)
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
@@ -2671,6 +2573,7 @@ do {									\
   {"short_cint_operand", {CONST_INT}},					   \
   {"u_short_cint_operand", {CONST_INT}},				   \
   {"non_short_cint_operand", {CONST_INT}},				   \
+  {"exact_log2_cint_operand", {CONST_INT}},				   \
   {"gpc_reg_operand", {SUBREG, REG}},					   \
   {"cc_reg_operand", {SUBREG, REG}},					   \
   {"cc_reg_not_cr0_operand", {SUBREG, REG}},				   \
@@ -2679,6 +2582,8 @@ do {									\
   {"reg_or_u_short_operand", {SUBREG, REG, CONST_INT}},			   \
   {"reg_or_cint_operand", {SUBREG, REG, CONST_INT}},			   \
   {"reg_or_arith_cint_operand", {SUBREG, REG, CONST_INT}},		   \
+  {"reg_or_add_cint64_operand", {SUBREG, REG, CONST_INT}},		   \
+  {"reg_or_sub_cint64_operand", {SUBREG, REG, CONST_INT}},		   \
   {"reg_or_logical_cint_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}}, \
   {"got_operand", {SYMBOL_REF, CONST, LABEL_REF}},			   \
   {"got_no_const_operand", {SYMBOL_REF, LABEL_REF}},			   \

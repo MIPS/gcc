@@ -202,27 +202,6 @@ do {									\
 #undef  CONST_SECTION_ASM_OP
 #define CONST_SECTION_ASM_OP	"\t.section\t.rodata"
 
-/* Define the pseudo-ops used to switch to the .ctors and .dtors sections.
-
-   Note that we want to give these sections the SHF_WRITE attribute
-   because these sections will actually contain data (i.e. tables of
-   addresses of functions in the current root executable or shared library
-   file) and, in the case of a shared library, the relocatable addresses
-   will have to be properly resolved/relocated (and then written into) by
-   the dynamic linker when it actually attaches the given shared library
-   to the executing process.  (Note that on SVR4, you may wish to use the
-   `-z text' option to the ELF linker, when building a shared library, as
-   an additional check that you are doing everything right.  But if you do
-   use the `-z text' option when building a shared library, you will get
-   errors unless the .ctors and .dtors sections are marked as writable
-   via the SHF_WRITE attribute.)  */
-
-#undef  CTORS_SECTION_ASM_OP
-#define CTORS_SECTION_ASM_OP	"\t.section\t.ctors,\"aw\""
-#undef  DTORS_SECTION_ASM_OP
-#define DTORS_SECTION_ASM_OP	"\t.section\t.dtors,\"aw\""
-
-/* Handle the small data sections.  */
 #undef  BSS_SECTION_ASM_OP
 #define BSS_SECTION_ASM_OP	"\t.section\t.bss"
 #undef  SBSS_SECTION_ASM_OP
@@ -247,7 +226,7 @@ do {									\
    includes this file.  */
 
 #undef  EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_ctors, in_dtors, in_sbss, in_sdata
+#define EXTRA_SECTIONS in_const, in_sbss, in_sdata
 
 /* A default list of extra section function definitions.  For targets
    that use additional sections (e.g. .tdesc) you should override this
@@ -256,8 +235,6 @@ do {									\
 #undef  EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
   CONST_SECTION_FUNCTION						\
-  SECTION_FUNCTION_TEMPLATE(ctors_section, in_ctors, CTORS_SECTION_ASM_OP) \
-  SECTION_FUNCTION_TEMPLATE(dtors_section, in_dtors, DTORS_SECTION_ASM_OP) \
   SECTION_FUNCTION_TEMPLATE(sbss_section, in_sbss, SBSS_SECTION_ASM_OP)	\
   SECTION_FUNCTION_TEMPLATE(sdata_section, in_sdata, SDATA_SECTION_ASM_OP)
 
@@ -294,91 +271,8 @@ void FN ()					\
     }						\
 }
 
-
-/* Switch into a generic section.
-
-   We make the section read-only and executable for a function decl,
-   read-only for a const data decl, and writable for a non-const data decl.
-
-   If the section has already been defined, we must not emit the
-   attributes here. The SVR4 assembler does not recognize section
-   redefinitions.  If DECL is NULL, no attributes are emitted.  */
-
-#undef  ASM_OUTPUT_SECTION_NAME
-#define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC)		\
-  do									\
-    {									\
-      static htab_t htab;                                               \
-                                                                        \
-      struct section_info                                               \
-      {									\
-	enum sect_enum {SECT_RW, SECT_RO, SECT_EXEC} type;		\
-      };                                                                \
-                                                                        \
-      struct section_info *s;						\
-      const char *mode;							\
-      enum sect_enum type;                                              \
-      PTR* slot;                                                        \
-                                                                        \
-      /* The names we put in the hashtable will always be the unique    \
-	 versions gived to us by the stringtable, so we can just use    \
-	 their addresses as the keys.  */                               \
-      if (!htab)                                                        \
-	htab = htab_create (31,                                         \
-			    htab_hash_pointer,                          \
-			    htab_eq_pointer,                            \
-			    NULL);                                      \
-                                                                        \
-      if (DECL && TREE_CODE (DECL) == FUNCTION_DECL)			\
-	type = SECT_EXEC, mode = "ax";					\
-      else if (DECL && DECL_READONLY_SECTION (DECL, RELOC))		\
-	type = SECT_RO, mode = "a";					\
-      else								\
-	type = SECT_RW, mode = "aw";					\
-      									\
-      /* See if we already have an entry for this section.  */          \
-      slot = htab_find_slot (htab, NAME, INSERT);                       \
-      if (!*slot)                                                       \
-	{                                                               \
-	  s = (struct section_info *) xmalloc (sizeof (* s));		\
-	  s->type = type;						\
-	  *slot = s;							\
-	  fprintf (FILE, "\t.section\t%s,\"%s\",@progbits\n",		\
-		   NAME, mode);						\
-	}								\
-      else								\
-	{								\
-	  s = (struct section_info *) *slot;                            \
-	  if (DECL && s->type != type)					\
-	    error_with_decl (DECL,                                      \
-			     "%s causes a section type conflict");      \
-	  								\
-	  fprintf (FILE, "\t.section\t%s\n", NAME);			\
-	}								\
-    }									\
-  while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#undef  ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(FILE, NAME)				\
-  do {									\
-    ctors_section ();							\
-    fprintf (FILE, "%s", INT_ASM_OP);					\
-    assemble_name (FILE, NAME);						\
-    fprintf (FILE, "\n");						\
-  } while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-#undef  ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(FILE, NAME)      				\
-  do {									\
-    dtors_section ();                   				\
-    fprintf (FILE, "%s", INT_ASM_OP);					\
-    assemble_name (FILE, NAME);              				\
-    fprintf (FILE, "\n");						\
-  } while (0)
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION  default_elf_asm_named_section
 
 /* A C statement or statements to switch to the appropriate
    section for output of DECL.  DECL is either a `VAR_DECL' node
@@ -458,7 +352,7 @@ void FN ()					\
     }						\
   while (0)
 
-#define UNIQUE_SECTION_P(DECL)   (DECL_ONE_ONLY (DECL))
+#define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
 
 #undef  UNIQUE_SECTION
 #define UNIQUE_SECTION(DECL, RELOC)					\
@@ -675,7 +569,8 @@ void FN ()					\
 
 #undef	ENDFILE_SPEC
 #define ENDFILE_SPEC \
-  "%{shared:crtendS.o%s}%{!shared:crtend.o%s} crtn.o%s"
+  "%{ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
+   %{shared:crtendS.o%s}%{!shared:crtend.o%s} crtn.o%s"
 
 /* We support #pragma.  */
 #define HANDLE_SYSV_PRAGMA

@@ -268,7 +268,8 @@ java_new_lexer (finput, encoding)
 	      outp = (char *) &result;
 	      outc = 2;
 
-	      r = iconv (handle, (const char **) &inp, &inc, &outp, &outc);
+	      r = iconv (handle, (ICONV_CONST char **) &inp, &inc,
+			 &outp, &outc);
 	      iconv_close (handle);
 	      /* Conversion must be complete for us to use the result.  */
 	      if (r != (size_t) -1 && inc == 0 && outc == 0)
@@ -370,8 +371,8 @@ java_read_char (lex)
 	      out_save = out_count;
 	      inp = &lex->buffer[lex->first];
 	      outp = &lex->out_buffer[lex->out_last];
-	      ir = iconv (lex->handle, (const char **) &inp, &inbytesleft,
-			  &outp, &out_count);
+	      ir = iconv (lex->handle, (ICONV_CONST char **) &inp,
+			  &inbytesleft, &outp, &out_count);
 
 	      /* If we haven't read any bytes, then look to see if we
 		 have read a BOM.  */
@@ -454,15 +455,21 @@ java_read_char (lex)
       if (c == EOF)
 	return UEOF;
       if (c < 128)
-	return (unicode_t)c;
+	return (unicode_t) c;
       else
 	{
 	  if ((c & 0xe0) == 0xc0)
 	    {
 	      c1 = getc (lex->finput);
 	      if ((c1 & 0xc0) == 0x80)
-		return (unicode_t)(((c &0x1f) << 6) + (c1 & 0x3f));
-	      c = c1;
+		{
+		  unicode_t r = (unicode_t)(((c & 0x1f) << 6) + (c1 & 0x3f));
+		  /* Check for valid 2-byte characters.  We explicitly
+		     allow \0 because this encoding is common in the
+		     Java world.  */
+		  if (r == 0 || (r >= 0x80 && r <= 0x7ff))
+		    return r;
+		}
 	    }
 	  else if ((c & 0xf0) == 0xe0)
 	    {
@@ -471,16 +478,23 @@ java_read_char (lex)
 		{
 		  c2 = getc (lex->finput);
 		  if ((c2 & 0xc0) == 0x80)
-		    return (unicode_t)(((c & 0xf) << 12) + 
-				       (( c1 & 0x3f) << 6) + (c2 & 0x3f));
-		  else
-		    c = c2;
+		    {
+		      unicode_t r =  (unicode_t)(((c & 0xf) << 12) + 
+						 (( c1 & 0x3f) << 6)
+						 + (c2 & 0x3f));
+		      /* Check for valid 3-byte characters.
+			 Don't allow surrogate, \ufffe or \uffff.  */
+		      if (r >= 0x800 && r <= 0xffff
+			  && ! (r >= 0xd800 && r <= 0xdfff)
+			  && r != 0xfffe && r != 0xffff)
+			return r;
+		    }
 		}
-	      else
-		c = c1;
 	    }
 
-	  /* We simply don't support invalid characters.  */
+	  /* We simply don't support invalid characters.  We also
+	     don't support 4-, 5-, or 6-byte UTF-8 sequences, as these
+	     cannot be valid Java characters.  */
 	  java_lex_error ("malformed UTF-8 character", 0);
 	}
     }

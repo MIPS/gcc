@@ -95,9 +95,9 @@ netlib.att.com: netlib/cephes.   */
 
    The case LONG_DOUBLE_TYPE_SIZE = 128 activates TFmode support
    and may deactivate XFmode since `long double' is used to refer
-   to both modes.  Defining INTEL_EXTENDED_IEEE_FORMAT at the same 
-   time enables 80387-style 80-bit floats in a 128-bit padded
-   image, as seen on IA-64.
+   to both modes.  Defining INTEL_EXTENDED_IEEE_FORMAT to non-zero
+   at the same time enables 80387-style 80-bit floats in a 128-bit
+   padded image, as seen on IA-64.
 
    The macros FLOAT_WORDS_BIG_ENDIAN, HOST_FLOAT_WORDS_BIG_ENDIAN,
    contributed by Richard Earnshaw <Richard.Earnshaw@cl.cam.ac.uk>,
@@ -247,7 +247,7 @@ unknown arithmetic type
    in memory, with no holes.  */
 
 #if MAX_LONG_DOUBLE_TYPE_SIZE == 96 || \
-    (defined(INTEL_EXTENDED_IEEE_FORMAT) && MAX_LONG_DOUBLE_TYPE_SIZE == 128)
+    ((INTEL_EXTENDED_IEEE_FORMAT != 0) && MAX_LONG_DOUBLE_TYPE_SIZE == 128)
 /* Number of 16 bit words in external e type format */
 # define NE 6
 # define MAXDECEXP 4932
@@ -407,7 +407,7 @@ static void emul	PARAMS ((unsigned EMUSHORT *, unsigned EMUSHORT *,
 			       unsigned EMUSHORT *));
 static void e53toe	PARAMS ((unsigned EMUSHORT *, unsigned EMUSHORT *));
 static void e64toe	PARAMS ((unsigned EMUSHORT *, unsigned EMUSHORT *));
-#ifndef INTEL_EXTENDED_IEEE_FORMAT
+#if (INTEL_EXTENDED_IEEE_FORMAT == 0)
 static void e113toe	PARAMS ((unsigned EMUSHORT *, unsigned EMUSHORT *));
 #endif
 static void e24toe	PARAMS ((unsigned EMUSHORT *, unsigned EMUSHORT *));
@@ -441,7 +441,7 @@ static void etoasc	PARAMS ((unsigned EMUSHORT *, char *, int));
 static void asctoe24	PARAMS ((const char *, unsigned EMUSHORT *));
 static void asctoe53	PARAMS ((const char *, unsigned EMUSHORT *));
 static void asctoe64	PARAMS ((const char *, unsigned EMUSHORT *));
-#ifndef INTEL_EXTENDED_IEEE_FORMAT
+#if (INTEL_EXTENDED_IEEE_FORMAT == 0)
 static void asctoe113	PARAMS ((const char *, unsigned EMUSHORT *));
 #endif
 static void asctoe	PARAMS ((const char *, unsigned EMUSHORT *));
@@ -504,7 +504,7 @@ endian (e, x, mode)
       switch (mode)
 	{
 	case TFmode:
-#ifndef INTEL_EXTENDED_IEEE_FORMAT
+#if (INTEL_EXTENDED_IEEE_FORMAT == 0)
 	  /* Swap halfwords in the fourth long.  */
 	  th = (unsigned long) e[6] & 0xffff;
 	  t = (unsigned long) e[7] & 0xffff;
@@ -548,7 +548,7 @@ endian (e, x, mode)
       switch (mode)
 	{
 	case TFmode:
-#ifndef INTEL_EXTENDED_IEEE_FORMAT
+#if (INTEL_EXTENDED_IEEE_FORMAT == 0)
 	  /* Pack the fourth long.  */
 	  th = (unsigned long) e[7] & 0xffff;
 	  t = (unsigned long) e[6] & 0xffff;
@@ -749,7 +749,7 @@ ereal_atof (s, t)
       break;
 
     case TFmode:
-#ifndef INTEL_EXTENDED_IEEE_FORMAT
+#if (INTEL_EXTENDED_IEEE_FORMAT == 0)
       asctoe113 (s, tem);
       e113toe (tem, e);
       break;
@@ -886,7 +886,7 @@ ereal_from_int (d, i, j, mode)
       break;
 
     case 128:
-#ifndef INTEL_EXTENDED_IEEE_FORMAT
+#if (INTEL_EXTENDED_IEEE_FORMAT == 0)
       etoe113 (dg, df);
       e113toe (df, dg);
 #else
@@ -945,7 +945,7 @@ ereal_from_uint (d, i, j, mode)
       break;
 
     case 128:
-#ifndef INTEL_EXTENDED_IEEE_FORMAT
+#if (INTEL_EXTENDED_IEEE_FORMAT == 0)
       etoe113 (dg, df);
       e113toe (df, dg);
 #else
@@ -1094,7 +1094,7 @@ real_value_truncate (mode, arg)
   switch (mode)
     {
     case TFmode:
-#ifndef INTEL_EXTENDED_IEEE_FORMAT
+#if (INTEL_EXTENDED_IEEE_FORMAT == 0)
       etoe113 (e, t);
       e113toe (t, t);
       break;
@@ -1513,7 +1513,7 @@ ereal_isneg (x)
 
 /*  e type constants used by high precision check routines */
 
-#if MAX_LONG_DOUBLE_TYPE_SIZE == 128 && !defined(INTEL_EXTENDED_IEEE_FORMAT)
+#if MAX_LONG_DOUBLE_TYPE_SIZE == 128 && (INTEL_EXTENDED_IEEE_FORMAT == 0)
 /* 0.0 */
 unsigned EMUSHORT ezero[NE] =
  {0x0000, 0x0000, 0x0000, 0x0000,
@@ -3331,7 +3331,7 @@ bigend_nan:
     *q++ = *p++;
 }
 
-#ifndef INTEL_EXTENDED_IEEE_FORMAT
+#if (INTEL_EXTENDED_IEEE_FORMAT == 0)
 /* Convert 128-bit long double precision float PE to e type Y.  */
 
 static void
@@ -4404,7 +4404,7 @@ euifrac (x, i, frac)
     {
       /* Long integer overflow: output large integer
 	 and correct fraction.
-	 Note, the BSD microvax compiler says that ~(0UL)
+	 Note, the BSD MicroVAX compiler says that ~(0UL)
 	 is a syntax error.  */
       *i = ~(0L);
       eshift (xi, k);
@@ -4587,7 +4587,7 @@ enormlz (x)
 #define NTEN 12
 #define MAXP 4096
 
-#if MAX_LONG_DOUBLE_TYPE_SIZE == 128 && !defined(INTEL_EXTENDED_IEEE_FORMAT)
+#if MAX_LONG_DOUBLE_TYPE_SIZE == 128 && (INTEL_EXTENDED_IEEE_FORMAT == 0)
 static unsigned EMUSHORT etens[NTEN + 1][NE] =
 {
   {0x6576, 0x4a92, 0x804a, 0x153f,
@@ -5107,7 +5107,7 @@ asctoe64 (s, y)
   asctoeg (s, y, 64);
 }
 
-#ifndef INTEL_EXTENDED_IEEE_FORMAT
+#if (INTEL_EXTENDED_IEEE_FORMAT == 0)
 /* Convert ASCII string S to 128-bit long double Y.  */
 
 static void
@@ -5311,7 +5311,7 @@ asctoeg (ss, y, oprec)
 
   /* Exponent interpretation */
  expnt:
-  /* 0.0eXXX is zero, regardless of XXX.  Check for the 0.0. */
+  /* 0.0eXXX is zero, regardless of XXX.  Check for the 0.0.  */
   for (k = 0; k < NI; k++)
     {
       if (yy[k] != 0)
@@ -6016,7 +6016,7 @@ c4xtoe (d, e, mode)
   int i;
   int carry;
 
-  /* Short-circuit the zero case. */
+  /* Short-circuit the zero case.  */
   if ((d[0] == 0x8000)
       && (d[1] == 0x0000)
       && ((mode == QFmode) || ((d[2] == 0x0000) && (d[3] == 0x0000))))
@@ -6043,7 +6043,7 @@ c4xtoe (d, e, mode)
   }
 
   r >>= 8;			/* Shift exponent word down 8 bits.  */
-  if (r & 0x80)			/* Make the exponent negative if it is. */
+  if (r & 0x80)			/* Make the exponent negative if it is.  */
   {
      r = r | (~0 & ~0xff);
   }
@@ -6070,7 +6070,7 @@ c4xtoe (d, e, mode)
 
      /* Now do the two's complement on the data.  */
 
-     carry = 1;	/* Initially add 1 for the two's complement. */
+     carry = 1;	/* Initially add 1 for the two's complement.  */
      for (i=size + M; i > M; i--)
      {
 	if (carry && (y[i] == 0x0000))
@@ -6130,10 +6130,10 @@ etoc4x (x, d, mode)
 
   emovi (x, xi);
 
-  /* Adjust exponent for offsets. */
+  /* Adjust exponent for offsets.  */
   exp = (EMULONG) xi[E] - (EXONE - 0x7f);
 
-  /* Round off to nearest or even. */
+  /* Round off to nearest or even.  */
   rndsav = rndprc;
   rndprc = mode == QFmode ? 24 : 32;
   emdnorm (xi, 0, 0, exp, 64);
@@ -6158,7 +6158,7 @@ toc4x (x, y, mode)
       /* Only check for double if necessary */
       && ((mode == QFmode) || ((x[M+2] == 0) && (x[M+3] == 0))))
     {
-      /* We have a zero.  Put it into the output and return. */
+      /* We have a zero.  Put it into the output and return.  */
       *y++ = 0x8000;
       *y++ = 0x0000;
       if (mode != QFmode)
@@ -6172,14 +6172,14 @@ toc4x (x, y, mode)
   *y = 0;
 
   /* Negative number require a two's complement conversion of the
-     mantissa. */
+     mantissa.  */
   if (x[0])
     {
       *y = 0x0080;
 
       i = ((int) x[1]) - 0x7f;
 
-      /* Now add 1 to the inverted data to do the two's complement. */
+      /* Now add 1 to the inverted data to do the two's complement.  */
       if (mode != QFmode)
 	v = 4 + M;
       else
@@ -6202,11 +6202,11 @@ toc4x (x, y, mode)
       /* The following is a special case.  The C4X negative float requires
 	 a zero in the high bit (because the format is (2 - x) x 2^m), so
 	 if a one is in that bit, we have to shift left one to get rid
-	 of it.  This only occurs if the number is -1 x 2^m. */
+	 of it.  This only occurs if the number is -1 x 2^m.  */
       if (x[M+1] & 0x8000)
 	{
 	  /* This is the case of -1 x 2^m, we have to rid ourselves of the
-	     high sign bit and shift the exponent. */
+	     high sign bit and shift the exponent.  */
 	  eshift(x, 1);
 	  i--;
 	}
@@ -6305,7 +6305,7 @@ make_nan (nan, sign, mode)
    used like NaN's, but probably not in the same way as IEEE.  */
 #if !defined(DEC) && !defined(IBM) && !defined(C4X)
     case TFmode:
-#ifndef INTEL_EXTENDED_IEEE_FORMAT
+#if (INTEL_EXTENDED_IEEE_FORMAT == 0)
       n = 8;
       if (REAL_WORDS_BIG_ENDIAN)
 	p = TFbignan;
@@ -6376,9 +6376,9 @@ ereal_unto_float (f)
       s[0] = (unsigned EMUSHORT) f;
       s[1] = (unsigned EMUSHORT) (f >> 16);
     }
-  /* Convert and promote the target float to E-type. */
+  /* Convert and promote the target float to E-type.  */
   e24toe (s, e);
-  /* Output E-type to REAL_VALUE_TYPE. */
+  /* Output E-type to REAL_VALUE_TYPE.  */
   PUT_REAL (e, &r);
   return r;
 }
@@ -6411,9 +6411,9 @@ ereal_unto_double (d)
       s[2] = (unsigned EMUSHORT) d[1];
       s[3] = (unsigned EMUSHORT) (d[1] >> 16);
     }
-  /* Convert target double to E-type. */
+  /* Convert target double to E-type.  */
   e53toe (s, e);
-  /* Output E-type to REAL_VALUE_TYPE. */
+  /* Output E-type to REAL_VALUE_TYPE.  */
   PUT_REAL (e, &r);
   return r;
 }
@@ -6926,7 +6926,7 @@ switch (GET_MODE_BITSIZE (mode))
     return 64;
 
   case 128:
-#ifndef INTEL_EXTENDED_IEEE_FORMAT
+#if (INTEL_EXTENDED_IEEE_FORMAT == 0)
     return 113;
 #else
     return 64;

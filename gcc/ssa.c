@@ -1,5 +1,5 @@
 /* Static Single Assignment conversion routines for the GNU compiler.
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -92,9 +92,6 @@ int in_ssa_form = 0;
 /* Element I is the single instruction that sets register I.  */
 varray_type ssa_definition;
 
-/* Element I is an INSN_LIST of instructions that use register I.  */
-varray_type ssa_uses;
-
 /* Element I-PSEUDO is the normal register that originated the ssa
    register in question.  */
 varray_type ssa_rename_from;
@@ -165,14 +162,8 @@ struct rename_context;
 
 static inline rtx * phi_alternative
   PARAMS ((rtx, int));
-static rtx first_insn_after_basic_block_note
-  PARAMS ((basic_block));
-static int remove_phi_alternative
-  PARAMS ((rtx, int));
 static void compute_dominance_frontiers_1
   PARAMS ((sbitmap *frontiers, int *idom, int bb, sbitmap done));
-static void compute_dominance_frontiers
-  PARAMS ((sbitmap *frontiers, int *idom));
 static void find_evaluations_1
   PARAMS ((rtx dest, rtx set, void *data));
 static void find_evaluations
@@ -430,15 +421,16 @@ phi_alternative (set, c)
    block C.  Return non-zero on success, or zero if no alternative is
    found for C.  */
 
-static int
-remove_phi_alternative (set, c)
+int
+remove_phi_alternative (set, block)
      rtx set;
-     int c;
+     basic_block block;
 {
   rtvec phi_vec = XVEC (SET_SRC (set), 0);
   int num_elem = GET_NUM_ELEM (phi_vec);
-  int v;
+  int v, c;
 
+  c = block->index;
   for (v = num_elem - 2; v >= 0; v -= 2)
     if (INTVAL (RTVEC_ELT (phi_vec, v + 1)) == c)
       {
@@ -562,7 +554,7 @@ compute_dominance_frontiers_1 (frontiers, idom, bb, done)
       }
 }
 
-static void
+void
 compute_dominance_frontiers (frontiers, idom)
      sbitmap *frontiers;
      int *idom;
@@ -637,28 +629,6 @@ compute_iterated_dominance_frontiers (idfs, frontiers, evals, nregs)
 	      "Iterated dominance frontier: %d passes on %d regs.\n",
 	      passes, nregs);
     }
-}
-
-/* Return the INSN immediately following the NOTE_INSN_BASIC_BLOCK
-   note associated with the BLOCK.  */
-
-static rtx
-first_insn_after_basic_block_note (block)
-     basic_block block;
-{
-  rtx insn;
-
-  /* Get the first instruction in the block.  */
-  insn = block->head;
-
-  if (insn == NULL_RTX)
-    return NULL_RTX;
-  if (GET_CODE (insn) == CODE_LABEL)
-    insn = NEXT_INSN (insn);
-  if (!NOTE_INSN_BASIC_BLOCK_P (insn))
-    abort ();
-
-  return NEXT_INSN (insn);
 }
 
 /* Insert the phi nodes.  */
@@ -828,7 +798,6 @@ apply_delayed_renames (c)
 	{
 	  int new_limit = new_regno * 5 / 4;
 	  VARRAY_GROW (ssa_definition, new_limit);
-	  VARRAY_GROW (ssa_uses, new_limit);
 	}
 
       VARRAY_RTX (ssa_definition, new_regno) = r->set_insn;
@@ -864,6 +833,21 @@ rename_insn_1 (ptr, data)
 	rtx *destp = &SET_DEST (x);
 	rtx dest = SET_DEST (x);
 
+	/* An assignment to a paradoxical SUBREG does not read from
+	   the destination operand, and thus does not need to be
+	   wrapped into a SEQUENCE when translating into SSA form.
+	   We merely strip off the SUBREG and proceed normally for
+	   this case.  */
+	if (GET_CODE (dest) == SUBREG
+	    && (GET_MODE_SIZE (GET_MODE (dest))
+		> GET_MODE_SIZE (GET_MODE (SUBREG_REG (dest))))
+	    && GET_CODE (SUBREG_REG (dest)) == REG
+	    && CONVERT_REGISTER_TO_SSA_P (REGNO (SUBREG_REG (dest))))
+	  {
+	    destp = &XEXP (dest, 0);
+	    dest = XEXP (dest, 0);
+	  }
+
 	/* Some SETs also use the REG specified in their LHS.
 	   These can be detected by the presence of
 	   STRICT_LOW_PART, SUBREG, SIGN_EXTRACT, and ZERO_EXTRACT
@@ -873,11 +857,12 @@ rename_insn_1 (ptr, data)
 	   (sequence [(set (reg foo_1) (reg foo))
 	              (set (subreg (reg foo_1)) ...)])  
 
-	   FIXME: Much of the time this is too much.  For many libcalls,
-	   paradoxical SUBREGs, etc., the input register is dead.  We should
-	   recognise this in rename_block or here and not make a false
+	   FIXME: Much of the time this is too much.  For some constructs
+	   we know that the output register is strictly an output
+	   (paradoxical SUBREGs and some libcalls for example).
+
+	   For those cases we are better off not making the false
 	   dependency.  */
-	   
 	if (GET_CODE (dest) == STRICT_LOW_PART
 	    || GET_CODE (dest) == SUBREG
 	    || GET_CODE (dest) == SIGN_EXTRACT
@@ -908,8 +893,8 @@ rename_insn_1 (ptr, data)
 		context->new_renames = saved_new_renames;
 	      }
 	  }
-	else if (GET_CODE (dest) == REG &&
-		 CONVERT_REGISTER_TO_SSA_P (REGNO (dest)))
+	else if (GET_CODE (dest) == REG
+		 && CONVERT_REGISTER_TO_SSA_P (REGNO (dest)))
 	  {
 	    /* We found a genuine set of an interesting register.  Tag
 	       it so that we can create a new name for it after we finish
@@ -1070,7 +1055,7 @@ rename_block (bb, idom)
 	     consider those edges.  */
 	  if (reg == NULL || reg == RENAME_NO_RTX)
 	    {
-	      if (! remove_phi_alternative (phi, bb))
+	      if (! remove_phi_alternative (phi, b))
 		abort ();
 	    }
 	  else
@@ -1084,7 +1069,6 @@ rename_block (bb, idom)
 		abort();
 
 	      *phi_alternative (phi, bb) = reg;
-	      /* ??? Mark for a new ssa_uses entry.  */
 	    }
 
 	  insn = NEXT_INSN (insn);
@@ -1124,7 +1108,6 @@ rename_registers (nregs, idom)
      int *idom;
 {
   VARRAY_RTX_INIT (ssa_definition, nregs * 3, "ssa_definition");
-  VARRAY_RTX_INIT (ssa_uses, nregs * 3, "ssa_uses");
   ssa_rename_from_initialize ();
 
   ssa_rename_to_pseudo = (rtx *) alloca (nregs * sizeof(rtx));
@@ -1161,8 +1144,9 @@ convert_to_ssa ()
   if (in_ssa_form)
     abort ();
 
-  /* Need global_live_at_{start,end} up to date.  */
-  life_analysis (get_insns (), NULL, PROP_KILL_DEAD_CODE | PROP_SCAN_DEAD_CODE);
+  /* Need global_live_at_{start,end} up to date.  Do not remove any
+     dead code.  We'll let the SSA optimizers do that.  */
+  life_analysis (get_insns (), NULL, 0);
 
   idom = (int *) alloca (n_basic_blocks * sizeof (int));
   memset ((void *)idom, -1, (size_t)n_basic_blocks * sizeof (int));
@@ -1956,7 +1940,9 @@ mark_phi_and_copy_regs (phi_set)
 	rtx pattern;
 	rtx src;
 
-	if (insn == NULL)
+	if (insn == NULL
+	    || (GET_CODE (insn) == NOTE
+		&& NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED))
 	  continue;
 	pattern = PATTERN (insn);
 	/* Sometimes we get PARALLEL insns.  These aren't phi nodes or
@@ -2155,9 +2141,12 @@ convert_from_ssa()
   partition reg_partition;
   rtx insns = get_insns ();
 
-  /* Need global_live_at_{start,end} up to date.  */
-  life_analysis (insns, NULL, 
-		 PROP_KILL_DEAD_CODE | PROP_SCAN_DEAD_CODE | PROP_DEATH_NOTES);
+  /* Need global_live_at_{start,end} up to date.  There should not be
+     any significant dead code at this point, except perhaps dead
+     stores.  So do not take the time to perform dead code elimination. 
+
+     Register coalescing needs death notes, so generate them.  */
+  life_analysis (insns, NULL, PROP_DEATH_NOTES);
 
   /* Figure out which regs in copies and phi nodes don't conflict and
      therefore can be coalesced.  */
@@ -2222,7 +2211,6 @@ convert_from_ssa()
 
   /* Deallocate the data structures.  */
   VARRAY_FREE (ssa_definition);
-  VARRAY_FREE (ssa_uses);
   ssa_rename_from_free ();
 }
 

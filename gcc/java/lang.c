@@ -37,6 +37,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "flags.h"
 #include "xref.h"
 #include "ggc.h"
+#include "diagnostic.h"
 
 struct string_option
 {
@@ -50,8 +51,8 @@ static void java_init_options PARAMS ((void));
 static int java_decode_option PARAMS ((int, char **));
 static void put_decl_string PARAMS ((const char *, int));
 static void put_decl_node PARAMS ((tree));
-static void java_dummy_print PARAMS ((const char *));
-static void lang_print_error PARAMS ((const char *));
+static void java_dummy_print PARAMS ((diagnostic_context *, const char *));
+static void lang_print_error PARAMS ((diagnostic_context *, const char *));
 static int process_option_with_no PARAMS ((char *,
 					   struct string_option *,
 					   int));
@@ -97,11 +98,6 @@ const char *java_tree_code_name[] = {
 int compiling_from_source;
 
 const char * const language_string = "GNU Java";
-
-/* Nonzero if we should make is_compiled_class always return 1 for
-   appropriate classes that we're referencing.  */
-
-int flag_assume_compiled = 1;
 
 int flag_emit_class_files = 0;
 
@@ -149,6 +145,10 @@ int flag_extraneous_semicolon;
 
 /* When non zero, always check for a non gcj generated classes archive.  */
 int flag_force_classes_archive_check;
+
+/* When zero, don't optimize static class initialization. This flag shouldn't
+   be tested alone, use STATIC_CLASS_INITIALIZATION_OPTIMIZATION_P instead.  */
+int flag_optimize_sci = 1;
 
 /* Table of language-dependent -f options.
    STRING is the option name.  VARIABLE is the address of the variable.
@@ -295,6 +295,15 @@ java_decode_option (argc, argv)
   if (strncmp (p, ARG, sizeof (ARG) - 1) == 0)
     {
       current_encoding = p + sizeof (ARG) - 1;
+      return 1;
+    }
+#undef ARG
+
+#undef ARG
+#define ARG "-fno-optimize-static-class-initialization"
+  if (strncmp (p, ARG, sizeof (ARG) - 1) == 0)
+    {
+      flag_optimize_sci = 0;
       return 1;
     }
 #undef ARG
@@ -592,7 +601,8 @@ lang_printable_name_wls (decl, v)
    is the value of the hook print_error_function, called from toplev.c. */
 
 static void
-lang_print_error (file)
+lang_print_error (context, file)
+     diagnostic_context *context __attribute__((__unused__));
      const char *file;
 {
   static tree last_error_function_context = NULL_TREE;
@@ -673,7 +683,8 @@ java_init ()
    function prototypes.  */
 
 static void
-java_dummy_print (s)
+java_dummy_print (c, s)
+     diagnostic_context *c __attribute__ ((__unused__));
      const char *s __attribute__ ((__unused__));
 {
 }

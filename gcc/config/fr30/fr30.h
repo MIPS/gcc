@@ -297,7 +297,7 @@ extern int target_flags;
         there is no need to define this macro when the format is IEEE.
 
    VAX_FLOAT_FORMAT'
-        This code indicates the peculiar format used on the Vax.
+        This code indicates the peculiar format used on the VAX.
 
    UNKNOWN_FLOAT_FORMAT'
         This code indicates any other format.
@@ -311,18 +311,6 @@ extern int target_flags;
    memory is controlled by `FLOAT_WORDS_BIG_ENDIAN' for the target machine and
    `HOST_FLOAT_WORDS_BIG_ENDIAN' for the host.  */
 #define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
-/* GNU CC supports two ways of implementing C++ vtables: traditional or with
-   so-called "thunks".  The flag `-fvtable-thunk' chooses between them.  Define
-   this macro to be a C expression for the default value of that flag.  If
-   `DEFAULT_VTABLE_THUNKS' is 0, GNU CC uses the traditional implementation by
-   default.  The "thunk" implementation is more efficient (especially if you
-   have provided an implementation of `ASM_OUTPUT_MI_THUNK', but is not binary
-   compatible with code compiled using the traditional implementation.  If you
-   are writing a new ports, define `DEFAULT_VTABLE_THUNKS' to 1.
-
-   If you do not define this macro, the default for `-fvtable-thunk' is 0.  */
-#define DEFAULT_VTABLE_THUNKS 1
 
 /*}}}*/ 
 /*{{{  Layout of Source Language Data Types.  */ 
@@ -340,14 +328,6 @@ extern int target_flags;
    should be signed or unsigned by default.  The user can always override this
    default with the options `-fsigned-char' and `-funsigned-char'.  */
 #define DEFAULT_SIGNED_CHAR 1
-
-#define TARGET_BELL     0x7	/*  '\a'  */
-#define TARGET_BS	0x8	/*  '\b'  */
-#define TARGET_TAB	0x9	/*  '\t'  */
-#define TARGET_NEWLINE	0xa	/*  '\n'  */
-#define TARGET_VT	0xb	/*  '\v'  */
-#define TARGET_FF	0xc	/*  '\f'  */
-#define TARGET_CR	0xd	/*  '\r'  */
 
 /*}}}*/ 
 /*{{{  REGISTER BASICS.  */ 
@@ -862,7 +842,7 @@ enum reg_class
    variable number of bytes is passed, it is zero, and argument popping will
    always be the responsibility of the calling function.
 
-   On the Vax, all functions always pop their arguments, so the definition of
+   On the VAX, all functions always pop their arguments, so the definition of
    this macro is STACK-SIZE.  On the 68000, using the standard calling
    convention, no functions pop their arguments, so the value of the macro is
    always 0 in this case.  But an alternative calling convention is available
@@ -1511,15 +1491,6 @@ do										\
    to assemble a single byte containing the number VALUE.  */
 #define ASM_OUTPUT_BYTE(STREAM, VALUE) \
   fprintf (STREAM, "%s0x%x\n", ASM_BYTE_OP, (VALUE))
-
-/* These macros are defined as C string constant, describing the syntax in the
-   assembler for grouping arithmetic expressions.  The following definitions
-   are correct for most assemblers:
-
-        #define ASM_OPEN_PAREN "("
-        #define ASM_CLOSE_PAREN ")"  */
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
 
 /*}}}*/ 
 /*{{{  Output and Generation of Labels.  */ 

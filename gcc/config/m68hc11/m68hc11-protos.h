@@ -30,8 +30,6 @@ extern int m68hc11_initial_elimination_offset PARAMS((int, int));
 
 extern void expand_prologue PARAMS((void));
 extern void expand_epilogue PARAMS((void));
-extern void output_function_prologue PARAMS((FILE*, int));
-extern void output_function_epilogue PARAMS((FILE*, int));
 extern int m68hc11_function_block_profiler PARAMS((FILE*,int));
 
 extern int m68hc11_block_profiler PARAMS((FILE*,int));
@@ -39,18 +37,10 @@ extern int m68hc11_block_profiler PARAMS((FILE*,int));
 extern void m68hc11_asm_file_start PARAMS((FILE*, char*));
 
 #ifdef TREE_CODE
-extern void m68hc11_initialize_trampoline PARAMS((rtx, rtx, rtx));
-
 extern void m68hc11_function_arg_advance PARAMS((CUMULATIVE_ARGS*,
                                                  enum machine_mode,
                                                  tree,
                                                  int));
-extern int m68hc11_valid_decl_attribute_p PARAMS((tree, tree,
-					          tree, tree));
-extern int m68hc11_valid_type_attribute_p PARAMS((tree, tree,
-						  tree, tree));
-extern int m68hc11_comp_type_attributes PARAMS((tree, tree));
-extern void m68hc11_set_default_type_attributes PARAMS((tree));
 extern void m68hc11_encode_section_info PARAMS((tree));
 #endif
 
@@ -60,6 +50,8 @@ extern rtx m68hc11_compare_op1;
 extern rtx m68hc11_soft_tmp_reg;
 extern rtx iy_reg;
 extern rtx d_reg;
+
+extern void m68hc11_initialize_trampoline PARAMS((rtx, rtx, rtx));
 
 extern rtx m68hc11_expand_compare_and_branch PARAMS((enum rtx_code,
                                                      rtx, rtx, rtx));

@@ -25,6 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "flags.h"
 #include "expr.h"
+#include "libfuncs.h"
 #include "function.h"
 #include "regs.h"
 #include "toplev.h"
@@ -35,10 +36,6 @@ Boston, MA 02111-1307, USA.  */
 
 #if !defined FUNCTION_OK_FOR_SIBCALL
 #define FUNCTION_OK_FOR_SIBCALL(DECL) 1
-#endif
-
-#if !defined PREFERRED_STACK_BOUNDARY && defined STACK_BOUNDARY
-#define PREFERRED_STACK_BOUNDARY STACK_BOUNDARY
 #endif
 
 /* Decide whether a function's arguments should be processed
@@ -177,6 +174,8 @@ static int calls_function_1	PARAMS ((tree, int));
 /* Nonzero if this is a call to a function that returns with the stack
    pointer depressed.  */
 #define ECF_SP_DEPRESSED	1024
+/* Nonzero if this call is known to always return.  */
+#define ECF_ALWAYS_RETURN	2048
 
 static void emit_call_1		PARAMS ((rtx, tree, tree, HOST_WIDE_INT,
 					 HOST_WIDE_INT, HOST_WIDE_INT, rtx,
@@ -355,11 +354,12 @@ calls_function_1 (exp, which)
    CALL_INSN_FUNCTION_USAGE information.  */
 
 rtx
-prepare_call_address (funexp, fndecl, call_fusage, reg_parm_seen)
+prepare_call_address (funexp, fndecl, call_fusage, reg_parm_seen, sibcallp)
      rtx funexp;
      tree fndecl;
      rtx *call_fusage;
      int reg_parm_seen;
+     int sibcallp;
 {
   rtx static_chain_value = 0;
 
@@ -377,7 +377,7 @@ prepare_call_address (funexp, fndecl, call_fusage, reg_parm_seen)
     funexp = ((SMALL_REGISTER_CLASSES && reg_parm_seen)
 	      ? force_not_mem (memory_address (FUNCTION_MODE, funexp))
 	      : memory_address (FUNCTION_MODE, funexp));
-  else
+  else if (! sibcallp)
     {
 #ifndef NO_FUNCTION_CSE
       if (optimize && ! flag_no_function_cse)
@@ -597,7 +597,7 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
 
   /* If this is a const call, then set the insn's unchanging bit.  */
   if (ecf_flags & (ECF_CONST | ECF_PURE))
-    CONST_CALL_P (call_insn) = 1;
+    CONST_OR_PURE_CALL_P (call_insn) = 1;
 
   /* If this call can't throw, attach a REG_EH_REGION reg note to that
      effect.  */
@@ -607,6 +607,13 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
 
   if (ecf_flags & ECF_NORETURN)
     REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_NORETURN, const0_rtx,
+					       REG_NOTES (call_insn));
+  if (ecf_flags & ECF_ALWAYS_RETURN)
+    REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_ALWAYS_RETURN, const0_rtx,
+					       REG_NOTES (call_insn));
+
+  if (ecf_flags & ECF_RETURNS_TWICE)
+    REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_SETJMP, const0_rtx,
 					       REG_NOTES (call_insn));
 
   SIBLING_CALL_P (call_insn) = ((ecf_flags & ECF_SIBCALL) != 0);
@@ -978,7 +985,7 @@ restore_fixed_argument_area (save_area, argblock, high_to_save, low_to_save)
     move_by_pieces (stack_area, validize_mem (save_area),
 		    high_to_save - low_to_save + 1, PARM_BOUNDARY);
 }
-#endif
+#endif /* REG_PARM_STACK_SPACE */
 
 /* If any elements in ARGS refer to parameters that are to be passed in
    registers, but not in memory, and whose alignment does not permit a
@@ -1358,10 +1365,8 @@ compute_argument_block_size (reg_parm_stack_space, args_size,
   /* For accumulate outgoing args mode we don't need to align, since the frame
      will be already aligned.  Align to STACK_BOUNDARY in order to prevent
      backends from generating missaligned frame sizes.  */
-#ifdef STACK_BOUNDARY
   if (ACCUMULATE_OUTGOING_ARGS && preferred_stack_boundary > STACK_BOUNDARY)
     preferred_stack_boundary = STACK_BOUNDARY;
-#endif
 
   /* Compute the actual size of the argument block required.  The variable
      and constant sizes must be combined, the size may have to be rounded,
@@ -1372,7 +1377,6 @@ compute_argument_block_size (reg_parm_stack_space, args_size,
       args_size->var = ARGS_SIZE_TREE (*args_size);
       args_size->constant = 0;
 
-#ifdef PREFERRED_STACK_BOUNDARY
       preferred_stack_boundary /= BITS_PER_UNIT;
       if (preferred_stack_boundary > 1)
 	{
@@ -1383,7 +1387,6 @@ compute_argument_block_size (reg_parm_stack_space, args_size,
 	    abort ();
 	  args_size->var = round_up (args_size->var, preferred_stack_boundary);
 	}
-#endif
 
       if (reg_parm_stack_space > 0)
 	{
@@ -1402,7 +1405,6 @@ compute_argument_block_size (reg_parm_stack_space, args_size,
     }
   else
     {
-#ifdef PREFERRED_STACK_BOUNDARY
       preferred_stack_boundary /= BITS_PER_UNIT;
       if (preferred_stack_boundary < 1)
 	preferred_stack_boundary = 1;
@@ -1412,7 +1414,6 @@ compute_argument_block_size (reg_parm_stack_space, args_size,
 			      / preferred_stack_boundary
 			      * preferred_stack_boundary)
 			     - stack_pointer_delta);
-#endif
 
       args_size->constant = MAX (args_size->constant,
 				 reg_parm_stack_space);
@@ -1626,8 +1627,8 @@ compute_argument_addresses (args, argblock, num_actuals)
 	     outgoing arguments and we cannot allow reordering of reads
 	     from function arguments with stores to outgoing arguments
 	     of sibling calls.  */
-	  MEM_ALIAS_SET (args[i].stack) = 0;
-	  MEM_ALIAS_SET (args[i].stack_slot) = 0;
+	  set_mem_alias_set (args[i].stack, 0);
+	  set_mem_alias_set (args[i].stack_slot, 0);
 	}
     }
 }
@@ -2286,11 +2287,7 @@ expand_call (exp, target, ignore)
     }
 
   /* Figure out the amount to which the stack should be aligned.  */
-#ifdef PREFERRED_STACK_BOUNDARY
   preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
-#else
-  preferred_stack_boundary = STACK_BOUNDARY;
-#endif
 
   /* Operand 0 is a pointer-to-function; get the type of the function.  */
   funtype = TREE_TYPE (TREE_OPERAND (exp, 0));
@@ -2589,7 +2586,8 @@ expand_call (exp, target, ignore)
 	 is subject to race conditions, just as with multithreaded
 	 programs.  */
 
-      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__bb_fork_func"), 0,
+      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__bb_fork_func"),
+		      	 LCT_ALWAYS_RETURN,
 			 VOIDmode, 0);
     }
 
@@ -2894,7 +2892,6 @@ expand_call (exp, target, ignore)
 
       compute_argument_addresses (args, argblock, num_actuals);
 
-#ifdef PREFERRED_STACK_BOUNDARY
       /* If we push args individually in reverse order, perform stack alignment
 	 before the first push (the last arg).  */
       if (PUSH_ARGS_REVERSED && argblock == 0
@@ -2920,12 +2917,6 @@ expand_call (exp, target, ignore)
       /* Now that the stack is properly aligned, pops can't safely
 	 be deferred during the evaluation of the arguments.  */
       NO_DEFER_POP;
-#endif
-
-      /* Don't try to defer pops if preallocating, not even from the first arg,
-	 since ARGBLOCK probably refers to the SP.  */
-      if (argblock)
-	NO_DEFER_POP;
 
       funexp = rtx_for_function_call (fndecl, exp);
 
@@ -2997,13 +2988,11 @@ expand_call (exp, target, ignore)
 		sibcall_failure = 1;
 	    }
 
-#ifdef PREFERRED_STACK_BOUNDARY
       /* If we pushed args in forward order, perform stack alignment
 	 after pushing the last arg.  */
       if (!PUSH_ARGS_REVERSED && argblock == 0)
 	anti_adjust_stack (GEN_INT (adjusted_args_size.constant
 				    - unadjusted_args_size));
-#endif
 
       /* If register arguments require space on the stack and stack space
 	 was not preallocated, allocate stack space here for arguments
@@ -3038,7 +3027,7 @@ expand_call (exp, target, ignore)
 	}
 
       funexp = prepare_call_address (funexp, fndecl, &call_fusage,
-				     reg_parm_seen);
+				     reg_parm_seen, pass == 0);
 
       load_register_parameters (args, num_actuals, &call_fusage, flags);
 
@@ -3063,11 +3052,9 @@ expand_call (exp, target, ignore)
       /* All arguments and registers used for the call must be set up by
 	 now!  */
 
-#ifdef PREFERRED_STACK_BOUNDARY
       /* Stack must be properly aligned now.  */
       if (pass && stack_pointer_delta % preferred_unit_stack_boundary)
 	abort ();
-#endif
 
       /* Generate the actual call instruction.  */
       emit_call_1 (funexp, fndecl, funtype, unadjusted_args_size,
@@ -3151,9 +3138,9 @@ expand_call (exp, target, ignore)
 	 if nonvolatile values are live.  For functions that cannot return,
 	 inform flow that control does not fall through.  */
 
-      if ((flags & (ECF_RETURNS_TWICE | ECF_NORETURN | ECF_LONGJMP)) || pass == 0)
+      if ((flags & (ECF_NORETURN | ECF_LONGJMP)) || pass == 0)
 	{
-	  /* The barrier or NOTE_INSN_SETJMP note must be emitted
+	  /* The barrier must be emitted
 	     immediately after the CALL_INSN.  Some ports emit more
 	     than just a CALL_INSN above, so we must search for it here.  */
 
@@ -3166,13 +3153,7 @@ expand_call (exp, target, ignore)
 		abort ();
 	    }
 
-	  if (flags & ECF_RETURNS_TWICE)
-	    {
-	      emit_note_after (NOTE_INSN_SETJMP, last);
-	      current_function_calls_setjmp = 1;
-	    }
-	  else
-	    emit_barrier_after (last);
+	  emit_barrier_after (last);
 	}
 
       if (flags & ECF_LONGJMP)
@@ -3462,7 +3443,7 @@ expand_call (exp, target, ignore)
 
 /* Output a library call to function FUN (a SYMBOL_REF rtx).
    The RETVAL parameter specifies whether return value needs to be saved, other
-   parameters are documented in the emit_library_call function bellow.  */
+   parameters are documented in the emit_library_call function below.  */
 static rtx
 emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
      int retval;
@@ -3547,15 +3528,16 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
     case LCT_THROW:
       flags = ECF_NORETURN;
       break;
+    case LCT_ALWAYS_RETURN:
+      flags = ECF_ALWAYS_RETURN;
+      break;
     }
   fun = orgfun;
 
-#ifdef PREFERRED_STACK_BOUNDARY
   /* Ensure current function's preferred stack boundary is at least
      what we need.  */
   if (cfun->preferred_stack_boundary < PREFERRED_STACK_BOUNDARY)
     cfun->preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
-#endif
 
   /* If this kind of value comes back in memory,
      decide where in memory it should come back.  */
@@ -3764,14 +3746,12 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
   assemble_external_libcall (fun);
 
   original_args_size = args_size;
-#ifdef PREFERRED_STACK_BOUNDARY
   args_size.constant = (((args_size.constant
 			  + stack_pointer_delta
 			  + STACK_BYTES - 1)
 			  / STACK_BYTES
 			  * STACK_BYTES)
 			 - stack_pointer_delta);
-#endif
 
   args_size.constant = MAX (args_size.constant,
 			    reg_parm_stack_space);
@@ -3840,13 +3820,11 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	argblock = push_block (GEN_INT (args_size.constant), 0, 0);
     }
 
-#ifdef PREFERRED_STACK_BOUNDARY
   /* If we push args individually in reverse order, perform stack alignment
      before the first push (the last arg).  */
   if (argblock == 0 && PUSH_ARGS_REVERSED)
     anti_adjust_stack (GEN_INT (args_size.constant
 				- original_args_size.constant));
-#endif
 
   if (PUSH_ARGS_REVERSED)
     {
@@ -3992,20 +3970,18 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	}
     }
 
-#ifdef PREFERRED_STACK_BOUNDARY
   /* If we pushed args in forward order, perform stack alignment
      after pushing the last arg.  */
   if (argblock == 0 && !PUSH_ARGS_REVERSED)
     anti_adjust_stack (GEN_INT (args_size.constant
 				- original_args_size.constant));
-#endif
 
   if (PUSH_ARGS_REVERSED)
     argnum = nargs - 1;
   else
     argnum = 0;
 
-  fun = prepare_call_address (fun, NULL_TREE, &call_fusage, 0);
+  fun = prepare_call_address (fun, NULL_TREE, &call_fusage, 0, 0);
 
   /* Now load any reg parms into their regs.  */
 
@@ -4056,11 +4032,9 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
   valreg = (mem_value == 0 && outmode != VOIDmode
 	    ? hard_libcall_value (outmode) : NULL_RTX);
 
-#ifdef PREFERRED_STACK_BOUNDARY
   /* Stack must be properly aligned now.  */
   if (stack_pointer_delta & (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT - 1))
     abort ();
-#endif
 
   before_call = get_last_insn ();
 
@@ -4085,9 +4059,9 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
      if nonvolatile values are live.  For functions that cannot return,
      inform flow that control does not fall through.  */
 
-  if (flags & (ECF_RETURNS_TWICE | ECF_NORETURN | ECF_LONGJMP))
+  if (flags & (ECF_NORETURN | ECF_LONGJMP))
     {
-      /* The barrier or NOTE_INSN_SETJMP note must be emitted
+      /* The barrier note must be emitted
 	 immediately after the CALL_INSN.  Some ports emit more than
 	 just a CALL_INSN above, so we must search for it here.  */
 
@@ -4100,13 +4074,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	    abort ();
 	}
 
-      if (flags & ECF_RETURNS_TWICE)
-	{
-	  emit_note_after (NOTE_INSN_SETJMP, last);
-	  current_function_calls_setjmp = 1;
-	}
-      else
-	emit_barrier_after (last);
+      emit_barrier_after (last);
     }
 
   /* Now restore inhibit_defer_pop to its actual original value.  */
@@ -4618,7 +4586,7 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
 	}
 
       /*  If parm is passed both in stack and in register and offset is 
-	  greater than reg_parm_stack_space, split the offset. */
+	  greater than reg_parm_stack_space, split the offset.  */
       if (arg->reg && arg->pass_on_stack)
 	{
 	  if (arg->offset.constant < reg_parm_stack_space && arg->offset.var)

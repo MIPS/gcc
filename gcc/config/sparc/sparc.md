@@ -2957,9 +2957,8 @@
   [(clobber (const_int 0))]
   "
 {
-  rtx word0 = change_address (operands[1], SImode, NULL_RTX);
-  rtx word1 = change_address (operands[1], SImode,
-			      plus_constant_for_output (XEXP (word0, 0), 4));
+  rtx word0 = adjust_address (operands[1], SImode, 0);
+  rtx word1 = adjust_address (operands[1], SImode, 4);
   rtx high_part = gen_highpart (SImode, operands[0]);
   rtx low_part = gen_lowpart (SImode, operands[0]);
 
@@ -2985,14 +2984,10 @@
   [(clobber (const_int 0))]
   "
 {
-  rtx word0 = change_address (operands[0], SImode, NULL_RTX);
-  rtx word1 = change_address (operands[0], SImode,
-			      plus_constant_for_output (XEXP (word0, 0), 4));
-  rtx high_part = gen_highpart (SImode, operands[1]);
-  rtx low_part = gen_lowpart (SImode, operands[1]);
-
-  emit_insn (gen_movsi (word0, high_part));
-  emit_insn (gen_movsi (word1, low_part));
+  emit_insn (gen_movsi (adjust_address (operands[0], SImode, 0),
+			gen_highpart (SImode, operands[1])));
+  emit_insn (gen_movsi (adjust_address (operands[0], SImode, 4),
+			gen_lowpart (SImode, operands[1])));
   DONE;
 }")
 
@@ -3594,9 +3589,8 @@
   [(clobber (const_int 0))]
   "
 {
-  rtx word0 = change_address (operands[1], SFmode, NULL_RTX);
-  rtx word1 = change_address (operands[1], SFmode,
-			      plus_constant_for_output (XEXP (word0, 0), 4));
+  rtx word0 = adjust_address (operands[1], SFmode, 0);
+  rtx word1 = adjust_address (operands[1], SFmode, 4);
 
   if (GET_CODE (operands[0]) == SUBREG)
     operands[0] = alter_subreg (operands[0]);
@@ -3629,9 +3623,8 @@
   [(clobber (const_int 0))]
   "
 {
-  rtx word0 = change_address (operands[0], SFmode, NULL_RTX);
-  rtx word1 = change_address (operands[0], SFmode,
-			      plus_constant_for_output (XEXP (word0, 0), 4));
+  rtx word0 = adjust_address (operands[0], SFmode, 0);
+  rtx word1 = adjust_address (operands[0], SFmode, 4);
 
   if (GET_CODE (operands[1]) == SUBREG)
     operands[1] = alter_subreg (operands[1]);
@@ -3655,9 +3648,9 @@
 {
   rtx dest1, dest2;
 
-  dest1 = change_address (operands[0], SFmode, NULL_RTX);
-  dest2 = change_address (operands[0], SFmode,
-			  plus_constant_for_output (XEXP (dest1, 0), 4));
+  dest1 = adjust_address (operands[0], SFmode, 0);
+  dest2 = adjust_address (operands[0], SFmode, 4);
+
   emit_insn (gen_movsf (dest1, CONST0_RTX (SFmode)));
   emit_insn (gen_movsf (dest2, CONST0_RTX (SFmode)));
   DONE;
@@ -3929,9 +3922,8 @@
       dest2 = gen_df_reg (set_dest, 1);
       break;
     case MEM:
-      dest1 = change_address (set_dest, DFmode, NULL_RTX);
-      dest2 = change_address (set_dest, DFmode,
-			      plus_constant_for_output (XEXP (dest1, 0), 8));
+      dest1 = adjust_address (set_dest, DFmode, 0);
+      dest2 = adjust_address (set_dest, DFmode, 8);
       break;
     default:
       abort ();      
@@ -3950,9 +3942,8 @@
   [(clobber (const_int 0))]
   "
 {
-  rtx word0 = change_address (operands[1], DFmode, NULL_RTX);
-  rtx word1 = change_address (operands[1], DFmode,
-			      plus_constant_for_output (XEXP (word0, 0), 8));
+  rtx word0 = adjust_address (operands[1], DFmode, 0);
+  rtx word1 = adjust_address (operands[1], DFmode, 8);
   rtx set_dest, dest1, dest2;
 
   set_dest = operands[0];
@@ -3986,17 +3977,14 @@
   [(clobber (const_int 0))]
   "
 {
-  rtx word1 = change_address (operands[0], DFmode, NULL_RTX);
-  rtx word2 = change_address (operands[0], DFmode,
-			      plus_constant_for_output (XEXP (word1, 0), 8));
-  rtx set_src;
-
-  set_src = operands[1];
+  rtx set_src = operands[1];
   if (GET_CODE (set_src) == SUBREG)
     set_src = alter_subreg (set_src);
 
-  emit_insn (gen_movdf (word1, gen_df_reg (set_src, 0)));
-  emit_insn (gen_movdf (word2, gen_df_reg (set_src, 1)));
+  emit_insn (gen_movdf (adjust_address (operands[0], DFmode, 0),
+			gen_df_reg (set_src, 0)));
+  emit_insn (gen_movdf (adjust_address (operands[0], DFmode, 8),
+			gen_df_reg (set_src, 1)));
   DONE;
 }")
 
@@ -5645,7 +5633,7 @@
   operands[4] = gen_lowpart (SImode, operands[1]);
   operands[5] = gen_lowpart (SImode, operands[2]);
   operands[6] = gen_highpart (SImode, operands[0]);
-  operands[7] = gen_highpart (SImode, operands[1]);
+  operands[7] = gen_highpart_mode (SImode, DImode, operands[1]);
 #if HOST_BITS_PER_WIDE_INT == 32
   if (GET_CODE (operands[2]) == CONST_INT)
     {
@@ -5656,7 +5644,7 @@
     }
   else
 #endif
-    operands[8] = gen_highpart (SImode, operands[2]);
+    operands[8] = gen_highpart_mode (SImode, DImode, operands[2]);
 }")
 
 (define_split
@@ -5692,7 +5680,7 @@
     }
   else
 #endif
-    operands[8] = gen_highpart (SImode, operands[2]);
+    operands[8] = gen_highpart_mode (SImode, DImode, operands[2]);
 }")
 
 ;; LTU here means "carry set"
@@ -5726,7 +5714,7 @@
                                (ltu:SI (reg:CC_NOOV 100) (const_int 0))))
    (set (match_dup 4) (const_int 0))]
   "operands[3] = gen_lowpart (SImode, operands[0]);
-   operands[4] = gen_highpart (SImode, operands[1]);")
+   operands[4] = gen_highpart_mode (SImode, DImode, operands[1]);")
 
 (define_insn "*addx_extend_sp64"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -5941,7 +5929,7 @@
 {
   rtx highp, lowp;
 
-  highp = gen_highpart (SImode, operands[2]);
+  highp = gen_highpart_mode (SImode, DImode, operands[2]);
   lowp = gen_lowpart (SImode, operands[2]);
   if ((lowp == const0_rtx)
       && (operands[0] == operands[1]))
@@ -5949,7 +5937,8 @@
       emit_insn (gen_rtx_SET (VOIDmode,
                               gen_highpart (SImode, operands[0]),
                               gen_rtx_MINUS (SImode,
-                                             gen_highpart (SImode, operands[1]),
+                                             gen_highpart_mode (SImode, DImode,
+								operands[1]),
                                              highp)));
     }
   else
@@ -5958,7 +5947,7 @@
                                        gen_lowpart (SImode, operands[1]),
                                        lowp));
       emit_insn (gen_subx (gen_highpart (SImode, operands[0]),
-                           gen_highpart (SImode, operands[1]),
+                           gen_highpart_mode (SImode, DImode, operands[1]),
                            highp));
     }
   DONE;
@@ -6812,7 +6801,7 @@
     }
   else
 #endif
-    operands[8] = gen_highpart (SImode, operands[3]);
+    operands[8] = gen_highpart_mode (SImode, DImode, operands[3]);
   operands[9] = gen_lowpart (SImode, operands[3]);
 }")
 
@@ -8314,11 +8303,9 @@
    && ((GET_CODE (operands[3]) == CONST_DOUBLE
            && CONST_DOUBLE_HIGH (operands[3]) == 0
            && CONST_DOUBLE_LOW (operands[3]) == 0xffffffff)
-#if HOST_BITS_PER_WIDE_INT >= 64
-          || (GET_CODE (operands[3]) == CONST_INT
-              && (unsigned HOST_WIDE_INT) INTVAL (operands[3]) == 0xffffffff)
-#endif
-         )"
+       || (HOST_BITS_PER_WIDE_INT >= 64
+	   && GET_CODE (operands[3]) == CONST_INT
+           && (unsigned HOST_WIDE_INT) INTVAL (operands[3]) == 0xffffffff))"
   "srl\\t%1, %2, %0"
   [(set_attr "type" "shift")
    (set_attr "length" "1")])
@@ -8906,10 +8893,9 @@
     }
 
   /* Reload the function value registers.  */
-  emit_move_insn (valreg1, change_address (result, DImode, XEXP (result, 0)));
+  emit_move_insn (valreg1, adjust_address (result, DImode, 0));
   emit_move_insn (valreg2,
-		  change_address (result, TARGET_ARCH64 ? TFmode : DFmode,
-				  plus_constant (XEXP (result, 0), 8)));
+		  adjust_address (result, TARGET_ARCH64 ? TFmode : DFmode, 8));
 
   /* Put USE insns before the return.  */
   emit_insn (gen_rtx_USE (VOIDmode, valreg1));
@@ -8982,9 +8968,9 @@
 #if 0
   rtx chain = operands[0];
 #endif
-  rtx fp = operands[1];
+  rtx lab = operands[1];
   rtx stack = operands[2];
-  rtx lab = operands[3];
+  rtx fp = operands[3];
   rtx labreg;
 
   /* Trap instruction to flush all the register windows.  */

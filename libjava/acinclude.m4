@@ -12,18 +12,40 @@ AC_ARG_ENABLE(multilib,
 dnl We may get other options which we dont document:
 dnl --with-target-subdir, --with-multisrctop, --with-multisubdir
 
-if test "[$]{srcdir}" = "."; then
-  if test "[$]{with_target_subdir}" != "."; then
-    libgcj_basedir="[$]{srcdir}/[$]{with_multisrctop}../$1"
+# When building with srcdir == objdir, links to the source files will
+# be created in directories within the target_subdir.  We have to
+# adjust toplevel_srcdir accordingly, so that configure finds
+# install-sh and other auxiliary files that live in the top-level
+# source directory.
+if test "${srcdir}" = "."; then
+  if test -z "${with_target_subdir}"; then
+    toprel=".."
   else
-    libgcj_basedir="[$]{srcdir}/[$]{with_multisrctop}$1"
+    if test "${with_target_subdir}" != "."; then
+      toprel="${with_multisrctop}../.."
+    else
+      toprel="${with_multisrctop}.."
+    fi
   fi
 else
-  libgcj_basedir="[$]{srcdir}/$1"
+  toprel=".."
 fi
+
+libgcj_basedir=$srcdir/$toprel/$1/libjava
 AC_SUBST(libgcj_basedir)
 
-AC_CANONICAL_HOST
+AC_CONFIG_AUX_DIR(${srcdir}/$toprel)
+if :; then :; else
+  # This overrides the previous occurrence for automake, but not for
+  # autoconf, which is exactly what we want.
+  AC_CONFIG_AUX_DIR(..)
+fi
+
+# This works around an automake problem.
+mkinstalldirs="`cd $ac_aux_dir && pwd`/mkinstalldirs"
+AC_SUBST(mkinstalldirs)
+
+AC_CANONICAL_SYSTEM
 
 dnl This shouldn't be needed, as long as top-level dependencies are
 dnl defined correctly and shared-library paths are set up so that
@@ -61,6 +83,10 @@ AM_MAINTAINER_MODE
 # automake happy, but we dont execute it, since we dont care about
 # the result.
 if false; then
+  # autoconf 2.50 runs AC_EXEEXT by default, and the macro expands
+  # to nothing, so nothing would remain between `then' and `fi' if it
+  # were not for the `:' below.
+  :
   AC_EXEEXT
 fi
 
@@ -73,7 +99,7 @@ libgcj_cflags=
 libgcj_cxxflags=
 libgcj_javaflags=
 
-. [$]{libgcj_basedir}/configure.host
+. [$]{srcdir}/configure.host
 
 case [$]{libgcj_basedir} in
 /* | [A-Za-z]:[/\\]*) libgcj_flagbasedir=[$]{libgcj_basedir} ;;
@@ -99,4 +125,74 @@ AC_DEFUN([AC_LIBLTDL_CONVENIENCE],)
 AC_DEFUN([LT_AC_PROG_GCJ],)
 AC_SUBST(GCJ)
 AC_SUBST(LIBTOOL)
+])
+
+#serial AM2
+
+dnl From Bruno Haible.
+
+AC_DEFUN([AM_ICONV],
+[
+  dnl Some systems have iconv in libc, some have it in libiconv (OSF/1 and
+  dnl those with the standalone portable GNU libiconv installed).
+
+  AC_ARG_WITH([libiconv-prefix],
+[  --with-libiconv-prefix=DIR  search for libiconv in DIR/include and DIR/lib], [
+    for dir in `echo "$withval" | tr : ' '`; do
+      if test -d $dir/include; then CPPFLAGS="$CPPFLAGS -I$dir/include"; fi
+      if test -d $dir/lib; then LDFLAGS="$LDFLAGS -L$dir/lib"; fi
+    done
+   ])
+
+  AC_CACHE_CHECK(for iconv, am_cv_func_iconv, [
+    am_cv_func_iconv="no, consider installing GNU libiconv"
+    am_cv_lib_iconv=no
+    AC_TRY_LINK([#include <stdlib.h>
+#include <iconv.h>],
+      [iconv_t cd = iconv_open("","");
+       iconv(cd,NULL,NULL,NULL,NULL);
+       iconv_close(cd);],
+      am_cv_func_iconv=yes)
+    if test "$am_cv_func_iconv" != yes; then
+      am_save_LIBS="$LIBS"
+      LIBS="$LIBS -liconv"
+      AC_TRY_LINK([#include <stdlib.h>
+#include <iconv.h>],
+        [iconv_t cd = iconv_open("","");
+         iconv(cd,NULL,NULL,NULL,NULL);
+         iconv_close(cd);],
+        am_cv_lib_iconv=yes
+        am_cv_func_iconv=yes)
+      LIBS="$am_save_LIBS"
+    fi
+  ])
+  if test "$am_cv_func_iconv" = yes; then
+    AC_DEFINE(HAVE_ICONV, 1, [Define if you have the iconv() function.])
+    AC_MSG_CHECKING([for iconv declaration])
+    AC_CACHE_VAL(am_cv_proto_iconv, [
+      AC_TRY_COMPILE([
+#include <stdlib.h>
+#include <iconv.h>
+extern
+#ifdef __cplusplus
+"C"
+#endif
+#if defined(__STDC__) || defined(__cplusplus)
+size_t iconv (iconv_t cd, char * *inbuf, size_t *inbytesleft, char * *outbuf, size_t *outbytesleft);
+#else
+size_t iconv();
+#endif
+], [], am_cv_proto_iconv_arg1="", am_cv_proto_iconv_arg1="const")
+      am_cv_proto_iconv="extern size_t iconv (iconv_t cd, $am_cv_proto_iconv_arg1 char * *inbuf, size_t *inbytesleft, char * *outbuf, size_t *outbytesleft);"])
+    am_cv_proto_iconv=`echo "[$]am_cv_proto_iconv" | tr -s ' ' | sed -e 's/( /(/'`
+    AC_MSG_RESULT([$]{ac_t:-
+         }[$]am_cv_proto_iconv)
+    AC_DEFINE_UNQUOTED(ICONV_CONST, $am_cv_proto_iconv_arg1,
+      [Define as const if the declaration of iconv() needs const.])
+  fi
+  LIBICONV=
+  if test "$am_cv_lib_iconv" = yes; then
+    LIBICONV="-liconv"
+  fi
+  AC_SUBST(LIBICONV)
 ])

@@ -105,11 +105,12 @@ make_string_token (pool, token, text, len)
      const U_CHAR *text;
      unsigned int len;
 {
-  U_CHAR *buf = _cpp_pool_alloc (pool, len * 4);
+  U_CHAR *buf = _cpp_pool_alloc (pool, len * 4 + 1);
 
   token->type = CPP_STRING;
   token->val.str.text = buf;
   token->val.str.len = quote_string (buf, text, len) - buf;
+  buf[token->val.str.len] = '\0';
   token->flags = 0;
 }
 
@@ -174,7 +175,8 @@ builtin_macro (pfile, token)
       /* If __LINE__ is embedded in a macro, it must expand to the
 	 line of the macro's invocation, not its definition.
 	 Otherwise things like assert() will not work properly.  */
-      make_number_token (pfile, token, cpp_get_line (pfile)->line);
+      make_number_token (pfile, token,
+			 SOURCE_LINE (pfile->map, cpp_get_line (pfile)->line));
       break;
 
     case BT_STDC:
@@ -483,9 +485,9 @@ parse_arg (pfile, arg, variadic)
 	}
 
       /* Newlines in arguments are white space (6.10.3.10).  */
-      line = pfile->lexer_pos.output_line;
+      line = pfile->line;
       cpp_get_token (pfile, token);
-      if (line != pfile->lexer_pos.output_line)
+      if (line != pfile->line)
 	token->flags |= PREV_WHITE;
 
       result = token->type;
@@ -667,16 +669,12 @@ enter_macro_context (pfile, node)
       list.limit = macro->expansion + macro->count;
     }
 
-  /* Only push a macro context for non-empty replacement lists.  */
-  if (list.first != list.limit)
-    {
-      context = next_context (pfile);
-      context->list = list;
-      context->macro = macro;
+  context = next_context (pfile);
+  context->list = list;
+  context->macro = macro;
       
-      /* Disable the macro within its expansion.  */
-      macro->disabled = 1;
-    }
+  /* Disable the macro within its expansion.  */
+  macro->disabled = 1;
 
   return 1;
 }
@@ -760,7 +758,12 @@ replace_args (pfile, macro, args, list)
 
 	arg = &args[src->val.arg_no - 1];
 	if (src->flags & STRINGIFY_ARG)
-	  from = arg->stringified, count = 1;
+	  {
+	    from = arg->stringified, count = 1;
+	    /* Ugh.  Maintain position of original argument.  */
+	    arg->stringified->line = src->line;
+	    arg->stringified->col = src->col;
+	  }
 	else if (src->flags & PASTE_LEFT)
 	  count = arg->count, from = arg->first;
 	else if (src > macro->expansion && (src[-1].flags & PASTE_LEFT))
@@ -922,6 +925,7 @@ cpp_get_token (pfile, token)
 	  /* PASTE_LEFT tokens can only appear in macro expansions.  */
 	  if (token->flags & PASTE_LEFT)
 	    {
+	      /* Maintains position of original token.  */
 	      paste_all_tokens (pfile, token);
 	      pfile->buffer->saved_flags = AVOID_LPASTE;
 	    }
@@ -952,10 +956,11 @@ cpp_get_token (pfile, token)
 	  cpp_hashnode *node = token->val.node;
 
 	  /* Macros invalidate controlling macros.  */
-	  pfile->mi_state = MI_FAILED;
+	  pfile->mi_valid = false;
 
 	  if (node->flags & NODE_BUILTIN)
 	    {
+	      /* Maintains position of original token.  */
 	      builtin_macro (pfile, token);
 	      pfile->buffer->saved_flags = AVOID_LPASTE;
 	      break;
@@ -1002,18 +1007,14 @@ cpp_sys_macro_p (pfile)
 /* Read each token in, until EOF.  Directives are transparently
    processed.  */
 void
-cpp_scan_buffer_nooutput (pfile, all_buffers)
+cpp_scan_nooutput (pfile)
      cpp_reader *pfile;
-     int all_buffers;
 {
   cpp_token token;
-  cpp_buffer *buffer = all_buffers ? 0: pfile->buffer->prev;
 
   do
-    do
-      cpp_get_token (pfile, &token);
-    while (token.type != CPP_EOF);
-  while (cpp_pop_buffer (pfile) != buffer);
+    cpp_get_token (pfile, &token);
+  while (token.type != CPP_EOF);
 }
 
 /* Lookahead handling.  */
@@ -1023,22 +1024,19 @@ save_lookahead_token (pfile, token)
      cpp_reader *pfile;
      const cpp_token *token;
 {
-  if (token->type != CPP_EOF)
+  cpp_lookahead *la = pfile->la_write;
+  cpp_token_with_pos *twp;
+
+  if (la->count == la->cap)
     {
-      cpp_lookahead *la = pfile->la_write;
-      cpp_token_with_pos *twp;
-
-      if (la->count == la->cap)
-	{
-	  la->cap += la->cap + 8;
-	  la->tokens = (cpp_token_with_pos *)
-	    xrealloc (la->tokens, la->cap * sizeof (cpp_token_with_pos));
-	}
-
-      twp = &la->tokens[la->count++];
-      twp->token = *token;
-      twp->pos = *cpp_get_line (pfile);
+      la->cap += la->cap + 8;
+      la->tokens = (cpp_token_with_pos *)
+	xrealloc (la->tokens, la->cap * sizeof (cpp_token_with_pos));
     }
+
+  twp = &la->tokens[la->count++];
+  twp->token = *token;
+  twp->pos = *cpp_get_line (pfile);
 }
 
 static void
@@ -1187,7 +1185,7 @@ warn_of_redefinition (pfile, node, macro2)
     return 0;
 
   /* Redefinition of a macro is allowed if and only if the old and new
-     definitions are the same.  (6.10.3 paragraph 2). */
+     definitions are the same.  (6.10.3 paragraph 2).  */
   macro1 = node->value.macro;
 
   /* The quick failures.  */
@@ -1464,7 +1462,7 @@ _cpp_create_definition (pfile, node)
 		     && macro->expansion[0].val.node == node);
 
   /* To suppress some diagnostics.  */
-  macro->syshdr = pfile->buffer->sysp != 0;
+  macro->syshdr = pfile->map->sysp != 0;
 
   /* Commit the memory.  */
   POOL_COMMIT (&pfile->macro_pool, macro->count * sizeof (cpp_token));
@@ -1548,9 +1546,10 @@ check_trad_stringification (pfile, macro, string)
     }
 }
 
-/* Returns the expansion of a macro, in a format suitable to be read
-   back in again, and therefore also for DWARF 2 debugging info.
-   Caller is expected to generate the "#define NAME" bit.  The
+/* Returns the name, arguments and expansion of a macro, in a format
+   suitable to be read back in again, and therefore also for DWARF 2
+   debugging info.  e.g. "PASTE(X, Y) X ## Y", or "MACNAME EXPANSION".
+   Caller is expected to generate the "#define" bit if needed.  The
    returned text is temporary, and automatically freed later.  */
 
 const unsigned char *
@@ -1564,15 +1563,16 @@ cpp_macro_definition (pfile, node)
 
   if (node->type != NT_MACRO || (node->flags & NODE_BUILTIN))
     {
-      cpp_ice (pfile, "invalid hash type %d in dump_definition", node->type);
+      cpp_ice (pfile, "invalid hash type %d in cpp_macro_definition", node->type);
       return 0;
     }
 
   /* Calculate length.  */
-  len = 1;			/* ' ' */
+  len = NODE_LEN (node) + 1;			/* ' ' */
   if (macro->fun_like)
     {
-      len += 3;		/* "()" plus possible final "." of ellipsis.  */
+      len += 3;		/* "()" plus possible final "." of named
+			   varargs (we have + 2 below).  */
       for (i = 0; i < macro->paramc; i++)
 	len += NODE_LEN (macro->params[i]) + 2; /* ", " */
     }
@@ -1596,7 +1596,11 @@ cpp_macro_definition (pfile, node)
       pfile->macro_buffer = (U_CHAR *) xrealloc (pfile->macro_buffer, len);
       pfile->macro_buffer_len = len;
     }
+
+  /* Fill in the buffer.  Start with the macro name.  */
   buffer = pfile->macro_buffer;
+  memcpy (buffer, NODE_NAME (node), NODE_LEN (node));
+  buffer += NODE_LEN (node);
 
   /* Parameter names.  */
   if (macro->fun_like)

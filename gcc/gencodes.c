@@ -28,47 +28,18 @@ Boston, MA 02111-1307, USA.  */
 #include "errors.h"
 #include "gensupport.h"
 
-
-static int insn_code_number;
-
-static void gen_insn PARAMS ((rtx));
-static void output_predicate_decls PARAMS ((void));
-static int print_md_constant PARAMS ((void **, void *));
+static void gen_insn PARAMS ((const char *, int));
 
 static void
-gen_insn (insn)
-     rtx insn;
+gen_insn (name, code)
+     const char *name;
+     int code;
 {
   /* Don't mention instructions whose names are the null string
      or begin with '*'.  They are in the machine description just
      to be recognized.  */
-  if (XSTR (insn, 0)[0] != 0 && XSTR (insn, 0)[0] != '*')
-    printf ("  CODE_FOR_%s = %d,\n", XSTR (insn, 0),
-	    insn_code_number);
-}
-
-/* Print out declarations for all predicates mentioned in
-   PREDICATE_CODES.  */
-
-static void
-output_predicate_decls ()
-{
-#ifdef PREDICATE_CODES
-  static struct {
-    const char *name;
-    RTX_CODE codes[NUM_RTX_CODE];
-  } predicate[] = {
-    PREDICATE_CODES
-  };
-  size_t i;
-
-  putc ('\n', stdout);
-  puts ("struct rtx_def;\n#include \"machmode.h\"\n");
-  for (i = 0; i < sizeof predicate / sizeof *predicate; i++)
-    printf ("extern int %s PARAMS ((struct rtx_def *, enum machine_mode));\n",
-	    predicate[i].name);
-  putc ('\n', stdout);
-#endif
+  if (name[0] != 0 && name[0] != '*')
+    printf ("  CODE_FOR_%s = %d,\n", name, code);
 }
 
 extern int main PARAMS ((int, char **));
@@ -88,37 +59,34 @@ main (argc, argv)
   if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
 
-  puts ("/* Generated automatically by the program `gencodes'");
-  puts ("   from the machine description file `md'.  */\n");
-  puts ("#ifndef GCC_INSN_CODES_H");
-  puts ("#define GCC_INSN_CODES_H\n");
+  puts ("\
+/* Generated automatically by the program `gencodes'\n\
+   from the machine description file `md'.  */\n\
+\n\
+#ifndef GCC_INSN_CODES_H\n\
+#define GCC_INSN_CODES_H\n\
+\n\
+enum insn_code {");
 
   /* Read the machine description.  */
-
-  insn_code_number = 0;
-  printf ("enum insn_code {\n");
 
   while (1)
     {
       int line_no;
+      int insn_code_number;
 
       desc = read_md_rtx (&line_no, &insn_code_number);
       if (desc == NULL)
 	break;
 
       if (GET_CODE (desc) == DEFINE_INSN || GET_CODE (desc) == DEFINE_EXPAND)
-	gen_insn (desc);
+	gen_insn (XSTR (desc, 0), insn_code_number);
     }
 
-  printf ("  CODE_FOR_nothing = %d };\n", insn_code_number + 1);
-
-  printf ("\n#define MAX_INSN_CODE ((int) CODE_FOR_nothing)\n\n");
-
-  traverse_md_constants (print_md_constant, stdout);
-
-  output_predicate_decls ();
-
-  puts("\n#endif /* GCC_INSN_CODES_H */");
+  puts ("CODE_FOR_nothing\n\
+};\n\
+\n\
+#endif /* GCC_INSN_CODES_H */");
 
   if (ferror (stdout) || fflush (stdout) || fclose (stdout))
     return FATAL_EXIT_CODE;
@@ -133,19 +101,4 @@ get_insn_name (code)
      int code ATTRIBUTE_UNUSED;
 {
   return NULL;
-}
-
-/* Called via traverse_md_constants; emit a #define for
-   the current constant definition.  */
-
-static int
-print_md_constant (slot, info)
-     void **slot;
-     void *info;
-{
-  struct md_constant *def = *slot;
-  FILE *file = info;
-
-  fprintf (file, "#define %s %s\n", def->name, def->value);
-  return 1;
 }

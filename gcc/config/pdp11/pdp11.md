@@ -1,5 +1,5 @@
 ;;- Machine description for the pdp11 for GNU C compiler
-;; Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000
+;; Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001
 ;; Free Software Foundation, Inc.
 ;; Contributed by Michael K. Gschwind (mike@vlsivie.tuwien.ac.at).
 
@@ -696,11 +696,11 @@
   "
 {
   operands[0]
-    = change_address (operands[0], VOIDmode,
-		      copy_to_mode_reg (Pmode, XEXP (operands[0], 0)));
+    = replace_equiv_address (operands[0],
+			     copy_to_mode_reg (Pmode, XEXP (operands[0], 0)));
   operands[1]
-    = change_address (operands[1], VOIDmode,
-		      copy_to_mode_reg (Pmode, XEXP (operands[1], 0)));
+    = replace_equiv_address (operands[1],
+			     copy_to_mode_reg (Pmode, XEXP (operands[1], 0)));
 
   operands[5] = XEXP (operands[0], 0);
   operands[6] = XEXP (operands[1], 0);
@@ -834,12 +834,12 @@
 
   /* we don't want to mess with auto increment */
   
-  switch(which_alternative)
+  switch (which_alternative)
   {
     case 0:
 
       latehalf[0] = operands[0];
-      operands[0] = adj_offsettable_operand(operands[0], 2);
+      operands[0] = adjust_address(operands[0], HImode, 2);
   
       output_asm_insn(\"mov %1, %0\", operands);
       output_asm_insn(\"sxt %0\", latehalf);
@@ -1000,7 +1000,7 @@
   if (REG_P (operands[0]))
     operands[0] = gen_rtx_REG (HImode, REGNO (operands[0]) + 1);
   else
-    operands[0] = adj_offsettable_operand (operands[0], 2);
+    operands[0] = adjust_address (operands[0], HImode, 2);
   
   if (! CONSTANT_P(operands[2]))
   {
@@ -1009,7 +1009,7 @@
     if (REG_P (operands[2]))
       operands[2] = gen_rtx_REG (HImode, REGNO (operands[2]) + 1);
     else
-      operands[2] = adj_offsettable_operand(operands[2], 2);
+      operands[2] = adjust_address (operands[2], HImode, 2);
 
     output_asm_insn (\"add %2, %0\", operands);
     output_asm_insn (\"adc %0\", lateoperands);
@@ -1102,14 +1102,14 @@
   if (REG_P (operands[0]))
     operands[0] = gen_rtx_REG (HImode, REGNO (operands[0]) + 1);
   else
-    operands[0] = adj_offsettable_operand (operands[0], 2);
+    operands[0] = adjust_address (operands[0], HImode, 2);
   
   lateoperands[2] = operands[2];
 
   if (REG_P (operands[2]))
     operands[2] = gen_rtx_REG (HImode, REGNO (operands[2]) + 1);
   else
-    operands[2] = adj_offsettable_operand(operands[2], 2);
+    operands[2] = adjust_address (operands[2], HImode, 2);
 
   output_asm_insn (\"sub %2, %0\", operands);
   output_asm_insn (\"sbc %0\", lateoperands);
@@ -1148,7 +1148,7 @@
   [(set_attr "length" "1,2,2,3")])
 
 ;;;;- and instructions
-;; Bit-and on the pdp (like on the vax) is done with a clear-bits insn.
+;; Bit-and on the pdp (like on the VAX) is done with a clear-bits insn.
 (define_expand "andsi3"
   [(set (match_operand:SI 0 "general_operand" "=g")
 	(and:SI (match_operand:SI 1 "general_operand" "0")
@@ -1209,7 +1209,7 @@
   if (REG_P (operands[0]))
     operands[0] = gen_rtx_REG (HImode, REGNO (operands[0]) + 1);
   else
-    operands[0] = adj_offsettable_operand (operands[0], 2);
+    operands[0] = adjust_address (operands[0], HImode, 2);
   
   if (! CONSTANT_P(operands[2]))
   {
@@ -1218,7 +1218,7 @@
     if (REG_P (operands[2]))
       operands[2] = gen_rtx_REG (HImode, REGNO (operands[2]) + 1);
     else
-      operands[2] = adj_offsettable_operand(operands[2], 2);
+      operands[2] = adjust_address (operands[2], HImode, 2);
 
     output_asm_insn (\"bic %2, %0\", operands);
     output_asm_insn (\"bic %2, %0\", lateoperands);
@@ -1274,7 +1274,7 @@
   if (REG_P (operands[0]))
     operands[0] = gen_rtx_REG (HImode, REGNO (operands[0]) + 1);
   else
-    operands[0] = adj_offsettable_operand (operands[0], 2);
+    operands[0] = adjust_address (operands[0], HImode, 2);
   
   if (! CONSTANT_P(operands[2]))
     {
@@ -1283,7 +1283,7 @@
       if (REG_P (operands[2]))
 	operands[2] = gen_rtx_REG (HImode, REGNO (operands[2]) + 1);
       else
-	operands[2] = adj_offsettable_operand (operands[2], 2);
+	operands[2] = adjust_address (operands[2], HImode, 2);
 
       output_asm_insn (\"bis %2, %0\", operands);
       output_asm_insn (\"bis %2, %0\", lateoperands);

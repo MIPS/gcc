@@ -39,6 +39,7 @@ Boston, MA 02111-1307, USA.  */
 			%{mmc:-D__i960MC}\
 			%{mca:-D__i960CA}%{mcc:-D__i960CC}\
 			%{mcf:-D__i960CF}}\
+	%{msoft-float:-D_SOFT_FLOAT}\
 	%{mka:-D__i960KA__ -D__i960_KA__}\
 	%{mkb:-D__i960KB__ -D__i960_KB__}\
 	%{msa:-D__i960SA__ -D__i960_SA__}\
@@ -997,16 +998,6 @@ struct cum_args { int ca_nregparms; int ca_nstackparms; };
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)	\
   i960_function_name_declare (FILE, NAME, DECL)
 
-/* This macro generates the assembly code for function entry.
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.
-   Refer to the array `regs_ever_live' to determine which registers
-   to save; `regs_ever_live[I]' is nonzero if register number I
-   is ever used in the function.  This macro is responsible for
-   knowing which registers should not be saved even if used.  */
-
-#define FUNCTION_PROLOGUE(FILE, SIZE) i960_function_prologue ((FILE), (SIZE))
-
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
@@ -1019,18 +1010,6 @@ struct cum_args { int ca_nregparms; int ca_nstackparms; };
    No definition is equivalent to always zero.  */
 
 #define	EXIT_IGNORE_STACK 1
-
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.
-
-   The function epilogue should not depend on the current stack pointer!
-   It should use the frame pointer only.  This is mandatory because
-   of alloca; we also take advantage of it to omit stack adjustments
-   before returning.  */
-
-#define FUNCTION_EPILOGUE(FILE, SIZE) i960_function_epilogue (FILE, SIZE)
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -1530,21 +1509,6 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 #define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
 	( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
 	  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL	007
-#define TARGET_BS	010
-#define TARGET_TAB	011
-#define TARGET_NEWLINE	012
-#define TARGET_VT	013
-#define TARGET_FF	014
-#define TARGET_CR	015
 
 /* Output assembler code to FILE to initialize this source file's
    basic block profiling info, if that has not already been done.  */

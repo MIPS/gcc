@@ -37,11 +37,6 @@ extern int read_integral_parameter	PARAMS ((const char *, const char *,
 extern int count_error			PARAMS ((int));
 extern void strip_off_ending		PARAMS ((char *, int));
 extern void print_time			PARAMS ((const char *, long));
-extern void debug_start_source_file	PARAMS ((const char *));
-extern void debug_end_source_file	PARAMS ((unsigned));
-extern void debug_define		PARAMS ((unsigned, const char *));
-extern void debug_undef			PARAMS ((unsigned, const char *));
-extern int debug_ignore_block		PARAMS ((union tree_node *));
 extern const char *trim_filename	PARAMS ((const char *));
 extern void internal_error		PARAMS ((const char *, ...))
 					       ATTRIBUTE_PRINTF_1
@@ -84,7 +79,6 @@ extern void error_with_file_and_line	PARAMS ((const char *, int,
 					       ATTRIBUTE_PRINTF_3;
 extern void sorry			PARAMS ((const char *, ...))
 					       ATTRIBUTE_PRINTF_1;
-extern void default_print_error_function PARAMS ((const char *));
 extern void report_error_function	PARAMS ((const char *));
 
 extern void rest_of_decl_compilation	PARAMS ((union tree_node *,
@@ -108,9 +102,6 @@ extern void error_for_asm		PARAMS ((struct rtx_def *,
 extern void warning_for_asm		PARAMS ((struct rtx_def *,
 						 const char *, ...))
 					       ATTRIBUTE_PRINTF_2;
-#if defined (_JBLEN) || defined (setjmp)
-extern void set_float_handler PARAMS ((jmp_buf));
-#endif
 extern int do_float_handler PARAMS ((void (*) (PTR), PTR));
 
 #ifdef BUFSIZ
@@ -128,10 +119,7 @@ extern void fnotice			PARAMS ((FILE *, const char *, ...))
 
 extern int wrapup_global_declarations   PARAMS ((union tree_node **, int));
 extern void check_global_declarations   PARAMS ((union tree_node **, int));
-extern void note_deferral_of_defined_inline_function
-					PARAMS ((union tree_node *));
-extern void note_outlining_of_inline_function
-					PARAMS ((union tree_node *));
+
 extern const char *progname;
 extern const char *dump_base_name;
 

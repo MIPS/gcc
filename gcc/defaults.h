@@ -23,6 +23,18 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_DEFAULTS_H
 #define GCC_DEFAULTS_H
 
+/* Define default standard character escape sequences.  */
+#ifndef TARGET_BELL
+#  define TARGET_BELL 007
+#  define TARGET_BS 010
+#  define TARGET_TAB 011
+#  define TARGET_NEWLINE 012
+#  define TARGET_VT 013
+#  define TARGET_FF 014
+#  define TARGET_CR 015
+#  define TARGET_ESC 033
+#endif
+
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable or function named NAME.
    LABELNO is an integer which is different for each call.  */
@@ -89,7 +101,7 @@ do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
 	      fprintf (asm_out_file, "\\%o", c);			      \
 	      /* After an octal-escape, if a digit follows,		      \
 		 terminate one string constant and start another.	      \
-		 The Vax assembler fails to stop reading the escape	      \
+		 The VAX assembler fails to stop reading the escape	      \
 		 after three digits, so this is the only way we		      \
 		 can get it to parse the data properly.  */		      \
 	      if (i < thissize - 1 && ISDIGIT(p[i + 1]))		      \
@@ -128,6 +140,20 @@ do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
 #ifndef ASM_OUTPUT_DEBUG_LABEL
 #define ASM_OUTPUT_DEBUG_LABEL(FILE, PREFIX, NUM) \
   ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM)
+#endif
+
+/* This is how we tell the assembler that a symbol is weak.  */
+#ifndef ASM_OUTPUT_WEAK_ALIAS
+#if defined (ASM_WEAKEN_LABEL) && defined (ASM_OUTPUT_DEF)
+#define ASM_OUTPUT_WEAK_ALIAS(STREAM, NAME, VALUE)	\
+  do							\
+    {							\
+      ASM_WEAKEN_LABEL (STREAM, NAME);			\
+      if (VALUE)					\
+        ASM_OUTPUT_DEF (STREAM, NAME, VALUE);		\
+    }							\
+  while (0)
+#endif
 #endif
 
 /* This determines whether or not we support weak symbols.  */
@@ -183,23 +209,26 @@ do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
 #define DWARF2_UNWIND_INFO 1
 #endif
 
-#if defined (DWARF2_UNWIND_INFO) && !defined (EH_FRAME_SECTION)
-# if defined (EH_FRAME_SECTION_ASM_OP)
-#  define EH_FRAME_SECTION() eh_frame_section ()
-# else
-   /* If we aren't using crtstuff to run ctors, don't use it for EH.  */
-#  if defined (ASM_OUTPUT_SECTION_NAME) && defined (ASM_OUTPUT_CONSTRUCTOR)
-#   define EH_FRAME_SECTION_ASM_OP	"\t.section\t.eh_frame,\"aw\""
-#   define EH_FRAME_SECTION() \
-     do { named_section (NULL_TREE, ".eh_frame", 0); } while (0)
-#  endif
-# endif
+/* If we have named sections, and we're using crtstuff to run ctors,
+   use them for registering eh frame information.  */
+#if defined (TARGET_ASM_NAMED_SECTION) && !defined(EH_FRAME_IN_DATA_SECTION)
+#ifndef EH_FRAME_SECTION_NAME
+#define EH_FRAME_SECTION_NAME ".eh_frame"
+#endif
+#endif
+
+/* If we have named section and we support weak symbols, then use the
+   .jcr section for recording java classes which need to be registered
+   at program start-up time.  */
+#if defined (TARGET_ASM_NAMED_SECTION) && SUPPORTS_WEAK
+#ifndef JCR_SECTION_NAME
+#define JCR_SECTION_NAME ".jcr"
+#endif
 #endif
 
 /* If we have no definition for UNIQUE_SECTION, but do have the 
    ability to generate arbitrary sections, construct something
    reasonable.  */
-#ifdef ASM_OUTPUT_SECTION_NAME
 #ifndef UNIQUE_SECTION
 #define UNIQUE_SECTION(DECL,RELOC)				\
 do {								\
@@ -217,10 +246,6 @@ do {								\
 								\
   DECL_SECTION_NAME (DECL) = build_string (len, string);	\
 } while (0)
-#endif
-#ifndef UNIQUE_SECTION_P
-#define UNIQUE_SECTION_P(DECL) 0
-#endif
 #endif
 
 /* By default, we generate a label at the beginning and end of the
@@ -297,6 +322,15 @@ do {								\
 #define PIC_OFFSET_TABLE_REGNUM INVALID_REGNUM
 #endif
 
+/* Type used by GCOV counters.  Use 64bit data type if target supports
+   it.  */
+#if LONG_TYPE_SIZE >= 64
+#define GCOV_TYPE_SIZE LONG_TYPE_SIZE
+#else
+#define GCOV_TYPE_SIZE LONG_LONG_TYPE_SIZE
+#endif
+
+
 /* By default, the preprocessor should be invoked the same way in C++
    as in C.  */
 #ifndef CPLUSPLUS_CPP_SPEC
@@ -316,6 +350,12 @@ do {								\
 #else
 #define PUSH_ARGS	0
 #endif
+#endif
+
+/* If PREFERRED_STACK_BOUNDARY is not defined, set it to STACK_BOUNDARY.
+   STACK_BOUNDARY is required.  */
+#ifndef PREFERRED_STACK_BOUNDARY
+#define PREFERRED_STACK_BOUNDARY STACK_BOUNDARY
 #endif
 
 /* Select a format to encode pointers in exception handling data.  We
@@ -341,14 +381,6 @@ do {								\
 
 #ifndef TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER
 #define TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER true
-#endif
-
-/* Define this macro if you have any machine-specific builtin
-   functions that need to be defined.  It should be a C expression
-   that performs the necessary setup. */
-
-#ifndef MD_INIT_BUILTINS
-#define MD_INIT_BUILTINS
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

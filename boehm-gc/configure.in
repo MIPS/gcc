@@ -2,11 +2,6 @@ dnl Process this file with autoconf to produce configure.
 
 AC_INIT(gcj_mlc.c)
 
-dnl Can't be done in BOEHM_CONFIGURE because that confuses automake. 
-AC_CONFIG_AUX_DIR(..)
-
-AC_CANONICAL_SYSTEM
-
 BOEHM_CONFIGURE(.)
 
 AM_PROG_LIBTOOL
@@ -22,8 +17,12 @@ AM_MAINTAINER_MODE
 # automake wants to see AC_EXEEXT.  But we don't need it.  And having
 # it is actually a problem, because the compiler we're passed can't
 # necessarily do a full link.  So we fool automake here.
-if test "x" = "y"; then
-   AC_EXEEXT
+if false; then
+  # autoconf 2.50 runs AC_EXEEXT by default, and the macro expands
+  # to nothing, so nothing would remain between `then' and `fi' if it
+  # were not for the `:' below.
+  :
+  AC_EXEEXT
 fi
 
 AC_MSG_CHECKING([for thread model used by GCC])
@@ -56,6 +55,9 @@ case "$THREADS" in
 	;;
      *-*-irix*)
 	AC_DEFINE(IRIX_THREADS)
+	;;
+     *-*-cygwin*)
+	THREADLIBS=
 	;;
     esac
     ;;
@@ -111,11 +113,9 @@ AC_SUBST(CXXINCLUDES)
 
 machdep=
 case "$host" in
-# alpha_mach_dep.s assumes that pointers are not saved in fp registers.
-# Gcc on a 21264 can spill pointers to fp registers.  Oops.
-# alpha*-*-*)
-#    machdep="alpha_mach_dep.lo"
-#    ;;
+ alpha*-*-*)
+    machdep="alpha_mach_dep.lo"
+    ;;
  mipstx39-*-elf*)
     machdep="mips_ultrix_mach_dep.lo"
     AC_DEFINE(STACKBASE, __stackbase)

@@ -36,10 +36,15 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "function.h"
 #include "expr.h"
+#include "optabs.h"
+#include "libfuncs.h"
 #include "recog.h"
 #include "toplev.h"
 #include "ggc.h"
 #include "tm_p.h"
+#include "debug.h"
+#include "target.h"
+#include "target-def.h"
 
 /* 1 if the caller has placed an "unimp" insn immediately after the call.
    This is used in v8 code when calling a function that returns a structure.
@@ -154,6 +159,16 @@ static void ultra_flush_pipeline PARAMS ((void));
 static void ultra_rescan_pipeline_state PARAMS ((rtx *, int));
 static int set_extends PARAMS ((rtx));
 static void output_restore_regs PARAMS ((FILE *, int));
+static void sparc_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+static void sparc_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void sparc_flat_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void sparc_flat_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+static void sparc_nonflat_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT,
+						     int));
+static void sparc_nonflat_function_prologue PARAMS ((FILE *, HOST_WIDE_INT,
+						     int));
+static void sparc_elf_asm_named_section PARAMS ((const char *, unsigned int,
+						 unsigned int));
 
 /* Option handling.  */
 
@@ -175,7 +190,15 @@ struct sparc_cpu_select sparc_select[] =
 
 /* CPU type.  This is set from TARGET_CPU_DEFAULT and -m{cpu,tune}=xxx.  */
 enum processor_type sparc_cpu;
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE sparc_output_function_prologue
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE sparc_output_function_epilogue
 
+struct gcc_target targetm = TARGET_INITIALIZER;
+
 /* Validate and override various options, and do some machine dependent
    initialization.  */
 
@@ -2807,7 +2830,7 @@ legitimize_pic_address (orig, mode, reg)
       if (GET_CODE (offset) == CONST_INT)
 	{
 	  if (SMALL_INT (offset))
-	    return plus_constant_for_output (base, INTVAL (offset));
+	    return plus_constant (base, INTVAL (offset));
 	  else if (! reload_in_progress && ! reload_completed)
 	    offset = force_reg (Pmode, offset);
 	  else
@@ -3382,12 +3405,40 @@ sparc_output_scratch_registers (file)
 #endif
 }
 
+/* This function generates the assembly code for function entry.
+   FILE is a stdio stream to output the code to.
+   SIZE is an int: how many units of temporary storage to allocate.
+   Refer to the array `regs_ever_live' to determine which registers
+   to save; `regs_ever_live[I]' is nonzero if register number I
+   is ever used in the function.  This macro is responsible for
+   knowing which registers should not be saved even if used.  */
+
+/* On SPARC, move-double insns between fpu and cpu need an 8-byte block
+   of memory.  If any fpu reg is used in the function, we allocate
+   such a block here, at the bottom of the frame, just in case it's needed.
+
+   If this function is a leaf procedure, then we may choose not
+   to do a "save" insn.  The decision about whether or not
+   to do this is made in regclass.c.  */
+
+static void
+sparc_output_function_prologue (file, size)
+     FILE *file;
+     HOST_WIDE_INT size;
+{
+  if (TARGET_FLAT)
+    sparc_flat_function_prologue (file, size);
+  else
+    sparc_nonflat_function_prologue (file, size,
+				     current_function_uses_only_leaf_regs);
+}
+
 /* Output code for the function prologue.  */
 
-void
-output_function_prologue (file, size, leaf_function)
+static void
+sparc_nonflat_function_prologue (file, size, leaf_function)
      FILE *file;
-     int size;
+     HOST_WIDE_INT size;
      int leaf_function;
 {
   sparc_output_scratch_registers (file);
@@ -3549,12 +3600,32 @@ output_restore_regs (file, leaf_function)
     restore_regs (file, 32, TARGET_V9 ? 96 : 64, base, offset, n_regs);
 }
 
+/* This function generates the assembly code for function exit,
+   on machines that need it.
+
+   The function epilogue should not depend on the current stack pointer!
+   It should use the frame pointer only.  This is mandatory because
+   of alloca; we also take advantage of it to omit stack adjustments
+   before returning.  */
+
+static void
+sparc_output_function_epilogue (file, size)
+     FILE *file;
+     HOST_WIDE_INT size;
+{
+  if (TARGET_FLAT)
+    sparc_flat_function_epilogue (file, size);
+  else
+    sparc_nonflat_function_epilogue (file, size,
+				     current_function_uses_only_leaf_regs);
+}
+
 /* Output code for the function epilogue.  */
 
-void
-output_function_epilogue (file, size, leaf_function)
+static void
+sparc_nonflat_function_epilogue (file, size, leaf_function)
      FILE *file;
-     int size ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
      int leaf_function;
 {
   const char *ret;
@@ -4863,10 +4934,10 @@ sparc_va_arg (valist, type)
 
       addr_rtx = force_reg (Pmode, addr_rtx);
       addr_rtx = gen_rtx_MEM (BLKmode, addr_rtx);
-      MEM_ALIAS_SET (addr_rtx) = get_varargs_alias_set ();
+      set_mem_alias_set (addr_rtx, get_varargs_alias_set ());
       tmp = shallow_copy_rtx (tmp);
       PUT_MODE (tmp, BLKmode);
-      MEM_ALIAS_SET (tmp) = 0;
+      set_mem_alias_set (tmp, 0);
       
       dest_addr = emit_block_move (tmp, addr_rtx, GEN_INT (rsize), 
 				   BITS_PER_WORD);
@@ -4880,7 +4951,7 @@ sparc_va_arg (valist, type)
     {
       addr_rtx = force_reg (Pmode, addr_rtx);
       addr_rtx = gen_rtx_MEM (Pmode, addr_rtx);
-      MEM_ALIAS_SET (addr_rtx) = get_varargs_alias_set ();
+      set_mem_alias_set (addr_rtx, get_varargs_alias_set ());
     }
 
   return addr_rtx;
@@ -6565,10 +6636,10 @@ sparc_flat_save_restore (file, base_reg, offset, gmask, fmask, word_op,
 
 /* Set up the stack and frame (if desired) for the function.  */
 
-void
-sparc_flat_output_function_prologue (file, size)
+static void
+sparc_flat_function_prologue (file, size)
      FILE *file;
-     int size;
+     HOST_WIDE_INT size;
 {
   const char *sp_str = reg_names[STACK_POINTER_REGNUM];
   unsigned long gmask = current_frame_info.gmask;
@@ -6682,9 +6753,9 @@ sparc_flat_output_function_prologue (file, size)
 	  /* Subtract %sp in two steps, but make sure there is always a
 	     64 byte register save area, and %sp is properly aligned.  */
 	  /* Amount to decrement %sp by, the first time.  */
-	  unsigned int size1 = ((size - reg_offset + 64) + 15) & -16;
+	  unsigned HOST_WIDE_INT size1 = ((size - reg_offset + 64) + 15) & -16;
 	  /* Offset to register save area from %sp.  */
-	  unsigned int offset = size1 - (size - reg_offset);
+	  unsigned HOST_WIDE_INT offset = size1 - (size - reg_offset);
 	  
 	  if (size1 <= 4096)
 	    {
@@ -6750,10 +6821,10 @@ sparc_flat_output_function_prologue (file, size)
 /* Do any necessary cleanup after a function to restore stack, frame,
    and regs. */
 
-void
-sparc_flat_output_function_epilogue (file, size)
+static void
+sparc_flat_function_epilogue (file, size)
      FILE *file;
-     int size;
+     HOST_WIDE_INT size;
 {
   rtx epilogue_delay = current_function_epilogue_delay_list;
   int noepilogue = FALSE;
@@ -6785,8 +6856,8 @@ sparc_flat_output_function_epilogue (file, size)
 
   if (!noepilogue)
     {
-      unsigned int reg_offset = current_frame_info.reg_offset;
-      unsigned int size1;
+      unsigned HOST_WIDE_INT reg_offset = current_frame_info.reg_offset;
+      unsigned HOST_WIDE_INT size1;
       const char *sp_str = reg_names[STACK_POINTER_REGNUM];
       const char *fp_str = reg_names[FRAME_POINTER_REGNUM];
       const char *t1_str = "%g1";
@@ -8621,4 +8692,24 @@ sparc_add_gc_roots ()
   ggc_add_rtx_root (&sparc_addr_list, 1);
   ggc_add_root (ultra_pipe_hist, ARRAY_SIZE (ultra_pipe_hist),
 		sizeof (ultra_pipe_hist[0]), &mark_ultrasparc_pipeline_state);
+}
+
+static void
+sparc_elf_asm_named_section (name, flags, align)
+     const char *name;
+     unsigned int flags;
+     unsigned int align ATTRIBUTE_UNUSED;
+{
+  fprintf (asm_out_file, "\t.section\t\"%s\"", name);
+
+  if (!(flags & SECTION_DEBUG))
+    fputs (",#alloc", asm_out_file);
+  if (flags & SECTION_WRITE)
+    fputs (",#write", asm_out_file);
+  if (flags & SECTION_CODE)
+    fputs (",#execinstr", asm_out_file);
+
+  /* ??? Handle SECTION_BSS.  */
+
+  fputc ('\n', asm_out_file);
 }

@@ -1,3 +1,65 @@
+2001-07-20  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* com.c (ffecom_expr_intrinsic_):
+	case FFEINTRIN_impIBITS: Remove TREE_SHIFT_FULLWIDTH define.
+	case FFEINTRIN_impISHFT: Ditto. Change LT_EXPR to NE_EXPR.
+	case FFEINTRIN_impISHFTC: Ditto.
+	case FFEINTRIN_impMVBITS: Ditto.
+
+2001-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* top.c (ffe_decode_option): Disallow lang-independent processing
+	for -ffixed-form.
+
+2001-07-19  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* f/com.c (ffecom_expr_intrinsic_): Deal (correctly) with
+	{L|R}SHIFT_EXPR not working when shift > size of type.
+
+2001-07-17  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* com.c (lang_print_error_function): Argument context
+	is unused.
+
+2001-07-14  Tim Josling  <tej@melbpc.org.au>
+
+	* com.c (ffecom_overlap_): Remove references to EXPON_EXPR.
+	(ffecom_tree_canonize_ref_): Likewise.
+
+2001-07-10  James Smaby  <jsmaby@virgo.umeche.maine.edu>
+
+	* intdoc.in: Fix the definition of COMPLEX ABS.
+	Remove `the' where inappropriate.
+	* intdoc.texi: Rebuilt.
+
+2001-07-04  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* g77.texi: Use gpl.texi and funding.texi.  Remove Look and Feel
+	section.  Add Funding Free Software to invariant sections.
+	* Make-lang.in ($(srcdir)/f/g77.info, f/g77.dvi): Update
+	dependencies and use doc/include in search path.
+
+2001-06-28  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* Make-lang.in (f/com.o): Depend on diagnostic.h
+	* com.c: #include diagnostic.h
+	(lang_print_error_function): Take a 'diagnostic_context *'.
+
+Wed Jun 13 11:22:39 2001  Mark Mitchell  <mark@codesourcery.com>
+
+	* BUGS: Remove.
+	* NEWS: Likewise.
+
+2001-06-10  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* g77install.texi: Remove.
+	* Make-lang.in: Remove all mention of g77install.texi.
+	* g77.texi: Add documentation on how to get output always
+	flushed and how to increase the maximum unit number.
+	Remove all mention of g77install.texi.
+	* bugs.texi: Add documentation on how to change the threshold
+	for putting local arrays on the stack.
+
 2001-06-03  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	* root.texi: Fix typo in patches e-mail address.

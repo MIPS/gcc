@@ -93,6 +93,7 @@ LIBGCJTESTSPEC = @LIBGCJTESTSPEC@
 LIBGCJ_CFLAGS = @LIBGCJ_CFLAGS@
 LIBGCJ_CXXFLAGS = @LIBGCJ_CXXFLAGS@
 LIBGCJ_JAVAFLAGS = @LIBGCJ_JAVAFLAGS@
+LIBICONV = @LIBICONV@
 LIBLTDL = @LIBLTDL@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
@@ -119,34 +120,47 @@ ZLIBSPEC = @ZLIBSPEC@
 ZLIBTESTSPEC = @ZLIBTESTSPEC@
 here = @here@
 libgcj_basedir = @libgcj_basedir@
+mkinstalldirs = @mkinstalldirs@
 
 AUTOMAKE_OPTIONS = foreign
-@TESTSUBDIR_TRUE@SUBDIRS = @TESTSUBDIR_TRUE@$(DIRLTDL) testsuite gcj include
-@TESTSUBDIR_FALSE@SUBDIRS = @TESTSUBDIR_FALSE@$(DIRLTDL) gcj include
-@USE_LIBDIR_TRUE@toolexeclibdir = @USE_LIBDIR_TRUE@$(libdir)$(MULTISUBDIR)
-@USE_LIBDIR_FALSE@toolexeclibdir = @USE_LIBDIR_FALSE@$(toolexecdir)/lib$(MULTISUBDIR)
-@USE_LIBDIR_FALSE@toolexecdir = @USE_LIBDIR_FALSE@$(exec_prefix)/$(target_alias)
-@XLIB_AWT_TRUE@cond_x_ltlibrary = @XLIB_AWT_TRUE@libgcjx.la
-@XLIB_AWT_FALSE@cond_x_ltlibrary = 
+@TESTSUBDIR_TRUE@SUBDIRS = \
+@TESTSUBDIR_TRUE@$(DIRLTDL) testsuite gcj include
+@TESTSUBDIR_FALSE@SUBDIRS = \
+@TESTSUBDIR_FALSE@$(DIRLTDL) gcj include
+@USE_LIBDIR_TRUE@toolexeclibdir = \
+@USE_LIBDIR_TRUE@$(libdir)$(MULTISUBDIR)
+@USE_LIBDIR_FALSE@toolexeclibdir = \
+@USE_LIBDIR_FALSE@$(toolexecdir)/lib$(MULTISUBDIR)
+@USE_LIBDIR_FALSE@toolexecdir = \
+@USE_LIBDIR_FALSE@$(exec_prefix)/$(target_alias)
+@XLIB_AWT_TRUE@cond_x_ltlibrary = \
+@XLIB_AWT_TRUE@libgcjx.la
+@XLIB_AWT_FALSE@cond_x_ltlibrary = \
 
 toolexeclib_LTLIBRARIES = libgcj.la $(cond_x_ltlibrary)
 toolexeclib_DATA = libgcj.spec
 data_DATA = libgcj.jar
 
-@NATIVE_TRUE@bin_PROGRAMS = @NATIVE_TRUE@jv-convert gij
+@NATIVE_TRUE@bin_PROGRAMS = \
+@NATIVE_TRUE@jv-convert gij
 
 bin_SCRIPTS = addr2name.awk
-@CANADIAN_TRUE@@NULL_TARGET_TRUE@ZIP = @CANADIAN_TRUE@@NULL_TARGET_TRUE@$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/jar$(EXEEXT)
-@CANADIAN_TRUE@@NULL_TARGET_FALSE@ZIP = @CANADIAN_TRUE@@NULL_TARGET_FALSE@jar
-@CANADIAN_FALSE@ZIP = @CANADIAN_FALSE@$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/jar$(EXEEXT)
-@CANADIAN_TRUE@GCJH = @CANADIAN_TRUE@gcjh
-@CANADIAN_FALSE@GCJH = @CANADIAN_FALSE@$(MULTIBUILDTOP)../$(COMPPATH)/gcc/gcjh$(EXEEXT)
+@CANADIAN_TRUE@@NULL_TARGET_TRUE@ZIP = \
+@CANADIAN_TRUE@@NULL_TARGET_TRUE@$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/jar$(EXEEXT)
+@CANADIAN_TRUE@@NULL_TARGET_FALSE@ZIP = \
+@CANADIAN_TRUE@@NULL_TARGET_FALSE@jar
+@CANADIAN_FALSE@ZIP = \
+@CANADIAN_FALSE@$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/jar$(EXEEXT)
+@CANADIAN_TRUE@GCJH = \
+@CANADIAN_TRUE@gcjh
+@CANADIAN_FALSE@GCJH = \
+@CANADIAN_FALSE@$(MULTIBUILDTOP)../$(COMPPATH)/gcc/gcjh$(EXEEXT)
 
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8
 
 GCJCOMPILE = $(LIBTOOL) --tag=GCJ --mode=compile $(GCJ_WITH_FLAGS) -fassume-compiled -fclasspath=$(here) -L$(here) $(JC1FLAGS) -MD -MT $@ -MF $(@:.lo=.d) -c
-GCJLINK = $(LIBTOOL) --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
-LIBLINK = $(LIBTOOL) --mode=link $(CC) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
+GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
+LIBLINK = $(LIBTOOL) --tag=CC --mode=link $(CC) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
 
 LTCXXCOMPILE = $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 
@@ -157,10 +171,13 @@ GCC_UNWIND_INCLUDE = @GCC_UNWIND_INCLUDE@
 WARNINGS = -W -Wall
 AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions \
 	-fdollars-in-identifiers \
-	@LIBGCJ_CXXFLAGS@ @X_CFLAGS@ $(WARNINGS) -D_GNU_SOURCE
+	@LIBGCJ_CXXFLAGS@ @X_CFLAGS@ $(WARNINGS) -D_GNU_SOURCE \
+	-DPREFIX="\"$(prefix)\""
 
-@USING_GCC_TRUE@AM_CFLAGS = @USING_GCC_TRUE@@LIBGCJ_CFLAGS@ $(WARNINGS)
-@USING_GCC_FALSE@AM_CFLAGS = @USING_GCC_FALSE@@LIBGCJ_CFLAGS@
+@USING_GCC_TRUE@AM_CFLAGS = \
+@USING_GCC_TRUE@@LIBGCJ_CFLAGS@ $(WARNINGS)
+@USING_GCC_FALSE@AM_CFLAGS = \
+@USING_GCC_FALSE@@LIBGCJ_CFLAGS@
 
 JCFLAGS = -g
 JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
@@ -228,7 +245,8 @@ extra_headers = java/lang/Object.h java/lang/Class.h
 
 NM = nm
 
-@NATIVE_TRUE@@MAINTAINER_MODE_TRUE@noinst_PROGRAMS = @NATIVE_TRUE@@MAINTAINER_MODE_TRUE@gen-from-JIS
+@NATIVE_TRUE@@MAINTAINER_MODE_TRUE@noinst_PROGRAMS = \
+@NATIVE_TRUE@@MAINTAINER_MODE_TRUE@gen-from-JIS
 
 CONVERT_DIR = gnu/gcj/convert
 
@@ -592,12 +610,14 @@ java/lang/System.java \
 java/lang/Thread.java \
 java/lang/ThreadDeath.java \
 java/lang/ThreadGroup.java \
+java/lang/ThreadLocal.java \
 java/lang/Throwable.java \
 java/lang/UnknownError.java \
 java/lang/UnsatisfiedLinkError.java \
 java/lang/UnsupportedOperationException.java \
 java/lang/VerifyError.java \
 java/lang/VirtualMachineError.java \
+java/lang/VMClassLoader.java \
 java/lang/Void.java \
 java/io/BufferedInputStream.java \
 java/io/BufferedOutputStream.java \
@@ -997,6 +1017,60 @@ java/util/zip/ZipException.java	\
 java/util/zip/ZipFile.java \
 java/util/zip/ZipInputStream.java \
 java/util/zip/ZipOutputStream.java \
+org/w3c/dom/Attr.java \
+org/w3c/dom/CDATASection.java \
+org/w3c/dom/CharacterData.java \
+org/w3c/dom/Comment.java \
+org/w3c/dom/DOMException.java \
+org/w3c/dom/DOMImplementation.java \
+org/w3c/dom/Document.java \
+org/w3c/dom/DocumentFragment.java \
+org/w3c/dom/DocumentType.java \
+org/w3c/dom/Element.java \
+org/w3c/dom/Entity.java \
+org/w3c/dom/EntityReference.java \
+org/w3c/dom/NamedNodeMap.java \
+org/w3c/dom/Node.java \
+org/w3c/dom/NodeList.java \
+org/w3c/dom/Notation.java \
+org/w3c/dom/ProcessingInstruction.java \
+org/w3c/dom/Text.java \
+org/w3c/dom/ranges/DocumentRange.java \
+org/w3c/dom/ranges/Range.java \
+org/w3c/dom/ranges/RangeException.java \
+org/w3c/dom/traversal/DocumentTraversal.java \
+org/w3c/dom/traversal/NodeFilter.java \
+org/w3c/dom/traversal/NodeIterator.java \
+org/w3c/dom/traversal/TreeWalker.java \
+org/xml/sax/ext/DeclHandler.java \
+org/xml/sax/ext/LexicalHandler.java \
+org/xml/sax/helpers/AttributeListImpl.java \
+org/xml/sax/helpers/AttributesImpl.java \
+org/xml/sax/helpers/DefaultHandler.java \
+org/xml/sax/helpers/LocatorImpl.java \
+org/xml/sax/helpers/NamespaceSupport.java \
+org/xml/sax/helpers/ParserAdapter.java \
+org/xml/sax/helpers/ParserFactory.java \
+org/xml/sax/helpers/XMLFilterImpl.java \
+org/xml/sax/helpers/XMLReaderAdapter.java \
+org/xml/sax/helpers/XMLReaderFactory.java \
+org/xml/sax/AttributeList.java \
+org/xml/sax/Attributes.java \
+org/xml/sax/ContentHandler.java \
+org/xml/sax/DTDHandler.java \
+org/xml/sax/DocumentHandler.java \
+org/xml/sax/EntityResolver.java \
+org/xml/sax/ErrorHandler.java \
+org/xml/sax/HandlerBase.java \
+org/xml/sax/InputSource.java \
+org/xml/sax/Locator.java \
+org/xml/sax/Parser.java \
+org/xml/sax/SAXException.java \
+org/xml/sax/SAXNotRecognizedException.java \
+org/xml/sax/SAXNotSupportedException.java \
+org/xml/sax/SAXParseException.java \
+org/xml/sax/XMLFilter.java \
+org/xml/sax/XMLReader.java \
 $(awt_java_source_files) \
 $(convert_source_files)
 
@@ -1143,6 +1217,7 @@ AM_MAKEFLAGS = \
 	"PICFLAG=$(PICFLAG)" \
 	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" \
 	"SHELL=$(SHELL)" \
+	"RUNTESTFLAGS=$(RUNTESTFLAGS)" \
 	"exec_prefix=$(exec_prefix)" \
 	"infodir=$(infodir)" \
 	"libdir=$(libdir)" \
@@ -1159,7 +1234,7 @@ AM_MAKEFLAGS = \
 	"DESTDIR=$(DESTDIR)"
 
 
-CONFIG_STATUS_DEPENDENCIES = $(libgcj_basedir)/configure.host
+CONFIG_STATUS_DEPENDENCIES = $(srcdir)/configure.host
 
 MAKEOVERRIDES = 
 
@@ -1171,7 +1246,6 @@ MULTISUBDIR =
 MULTIDO = true
 MULTICLEAN = true
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
 CONFIG_HEADER = ./include/config.h ./gcj/libgcj-config.h
 CONFIG_CLEAN_FILES =  libgcj.spec libgcj-test.spec
 LTLIBRARIES =  $(toolexeclib_LTLIBRARIES)
@@ -1245,7 +1319,7 @@ libgcj-test.spec.in libgcj.spec.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gtar
+TAR = tar
 GZIP_ENV = --best
 DIST_SUBDIRS =  @DIRLTDL@ testsuite gcj include @DIRLTDL@ gcj include
 DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
@@ -1588,11 +1662,12 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/lang/StringIndexOutOfBoundsException.P \
 .deps/java/lang/System.P .deps/java/lang/Thread.P \
 .deps/java/lang/ThreadDeath.P .deps/java/lang/ThreadGroup.P \
-.deps/java/lang/Throwable.P .deps/java/lang/UnknownError.P \
-.deps/java/lang/UnsatisfiedLinkError.P \
+.deps/java/lang/ThreadLocal.P .deps/java/lang/Throwable.P \
+.deps/java/lang/UnknownError.P .deps/java/lang/UnsatisfiedLinkError.P \
 .deps/java/lang/UnsupportedOperationException.P \
-.deps/java/lang/VerifyError.P .deps/java/lang/VirtualMachineError.P \
-.deps/java/lang/Void.P .deps/java/lang/dtoa.P .deps/java/lang/e_acos.P \
+.deps/java/lang/VMClassLoader.P .deps/java/lang/VerifyError.P \
+.deps/java/lang/VirtualMachineError.P .deps/java/lang/Void.P \
+.deps/java/lang/dtoa.P .deps/java/lang/e_acos.P \
 .deps/java/lang/e_asin.P .deps/java/lang/e_atan2.P \
 .deps/java/lang/e_exp.P .deps/java/lang/e_fmod.P \
 .deps/java/lang/e_log.P .deps/java/lang/e_pow.P \
@@ -1818,8 +1893,44 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/util/zip/ZipInputStream.P \
 .deps/java/util/zip/ZipOutputStream.P .deps/java/util/zip/natDeflater.P \
 .deps/java/util/zip/natInflater.P .deps/jni.P .deps/name-finder.P \
-.deps/no-threads.P .deps/nogc.P .deps/posix-threads.P .deps/posix.P \
-.deps/prims.P .deps/resolve.P
+.deps/no-threads.P .deps/nogc.P .deps/org/w3c/dom/Attr.P \
+.deps/org/w3c/dom/CDATASection.P .deps/org/w3c/dom/CharacterData.P \
+.deps/org/w3c/dom/Comment.P .deps/org/w3c/dom/DOMException.P \
+.deps/org/w3c/dom/DOMImplementation.P .deps/org/w3c/dom/Document.P \
+.deps/org/w3c/dom/DocumentFragment.P .deps/org/w3c/dom/DocumentType.P \
+.deps/org/w3c/dom/Element.P .deps/org/w3c/dom/Entity.P \
+.deps/org/w3c/dom/EntityReference.P .deps/org/w3c/dom/NamedNodeMap.P \
+.deps/org/w3c/dom/Node.P .deps/org/w3c/dom/NodeList.P \
+.deps/org/w3c/dom/Notation.P .deps/org/w3c/dom/ProcessingInstruction.P \
+.deps/org/w3c/dom/Text.P .deps/org/w3c/dom/ranges/DocumentRange.P \
+.deps/org/w3c/dom/ranges/Range.P \
+.deps/org/w3c/dom/ranges/RangeException.P \
+.deps/org/w3c/dom/traversal/DocumentTraversal.P \
+.deps/org/w3c/dom/traversal/NodeFilter.P \
+.deps/org/w3c/dom/traversal/NodeIterator.P \
+.deps/org/w3c/dom/traversal/TreeWalker.P \
+.deps/org/xml/sax/AttributeList.P .deps/org/xml/sax/Attributes.P \
+.deps/org/xml/sax/ContentHandler.P .deps/org/xml/sax/DTDHandler.P \
+.deps/org/xml/sax/DocumentHandler.P .deps/org/xml/sax/EntityResolver.P \
+.deps/org/xml/sax/ErrorHandler.P .deps/org/xml/sax/HandlerBase.P \
+.deps/org/xml/sax/InputSource.P .deps/org/xml/sax/Locator.P \
+.deps/org/xml/sax/Parser.P .deps/org/xml/sax/SAXException.P \
+.deps/org/xml/sax/SAXNotRecognizedException.P \
+.deps/org/xml/sax/SAXNotSupportedException.P \
+.deps/org/xml/sax/SAXParseException.P .deps/org/xml/sax/XMLFilter.P \
+.deps/org/xml/sax/XMLReader.P .deps/org/xml/sax/ext/DeclHandler.P \
+.deps/org/xml/sax/ext/LexicalHandler.P \
+.deps/org/xml/sax/helpers/AttributeListImpl.P \
+.deps/org/xml/sax/helpers/AttributesImpl.P \
+.deps/org/xml/sax/helpers/DefaultHandler.P \
+.deps/org/xml/sax/helpers/LocatorImpl.P \
+.deps/org/xml/sax/helpers/NamespaceSupport.P \
+.deps/org/xml/sax/helpers/ParserAdapter.P \
+.deps/org/xml/sax/helpers/ParserFactory.P \
+.deps/org/xml/sax/helpers/XMLFilterImpl.P \
+.deps/org/xml/sax/helpers/XMLReaderAdapter.P \
+.deps/org/xml/sax/helpers/XMLReaderFactory.P .deps/posix-threads.P \
+.deps/posix.P .deps/prims.P .deps/resolve.P
 SOURCES = $(libgcj_la_SOURCES) $(EXTRA_libgcj_la_SOURCES) $(libgcjx_la_SOURCES) $(EXTRA_libgcjx_la_SOURCES) $(jv_convert_SOURCES) $(EXTRA_jv_convert_SOURCES) $(gij_SOURCES) $(gen_from_JIS_SOURCES) $(EXTRA_gen_from_JIS_SOURCES)
 OBJECTS = $(libgcj_la_OBJECTS) $(libgcjx_la_OBJECTS) $(jv_convert_OBJECTS) $(gij_OBJECTS) $(gen_from_JIS_OBJECTS)
 
@@ -2152,7 +2263,7 @@ distdir: $(DISTFILES)
 	@for file in $(DISTFILES); do \
 	  d=$(srcdir); \
 	  if test -d $$d/$$file; then \
-	    cp -pr $$d/$$file $(distdir)/$$file; \
+	    cp -pr $$/$$file $(distdir)/$$file; \
 	  else \
 	    test -f $(distdir)/$$file \
 	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
@@ -2335,31 +2446,23 @@ install-exec-hook:
 	  $(LN_S) libgcjx.la gnu-awt-xlib.la; \
 	fi
 
+$(built_java_source_files:.java=.class): libgcj.jar
 $(java_source_files:.java=.class): libgcj.jar
 
 $(x_java_source_files:.java=.class): libgcj.jar
 
-$(built_java_source_files:.java=.class): $(built_java_source_files)
-	@javac="$(JAVAC)"; \
-	for f in $?; do \
-	  echo $$javac -L$(here) $(JCFLAGS) -classpath $(here):`cd $(srcdir) && /bin/pwd` -d $(here) $$f; \
-	  $$javac -L$(here) $(JCFLAGS) -classpath $(here):`cd $(srcdir) && /bin/pwd` \
-	  -d $(here) $$f; \
-	done
-
-libgcj.jar: $(java_source_files) $(x_java_source_files)
-	@: $(shell echo Creating list of files to compile...) $(shell rm -f tmp-list || :) $(shell touch tmp-list) $(foreach source,$(subst $(srcdir)/,,$?),$(shell echo $(source) >> tmp-list))
-	$(MAKE) $(built_java_source_files:.java=.class)
+libgcj.jar: $(built_java_source_files) $(java_source_files) $(x_java_source_files)
+	@: $(shell echo Creating list of files to compile...) $(shell rm -f tmp-list || :) $(shell touch tmp-list) $(foreach source,$?,$(shell echo $(source) >> tmp-list))
 	@set fnord $(MAKEFLAGS); amf=$$2; fail=no; \
-	javac="$(JAVAC)"; dir=`/bin/pwd`; cd $(srcdir); \
-	for f in `cat $$dir/tmp-list`; do \
-	  echo $$javac $(JCFLAGS) -classpath $(here):`/bin/pwd` -d $(here) $$f; \
-	  $$javac $(JCFLAGS) -classpath $(here):`/bin/pwd` -d $(here) $$f \
+	javac="$(JAVAC)"; \
+	cat tmp-list | (while read f; do \
+	  echo $$javac $(JCFLAGS) -classpath $(here):$(srcdir) -d $(here) $$f; \
+	  $$javac $(JCFLAGS) -classpath $(here):$(srcdir) -d $(here) $$f \
 	    || case "$$amf" in *=*) exit 1;; *k*) fail=yes ;; *) exit 1;; esac; \
 	done; \
-	test "$$fail" = no
+	test "$$fail" = no)
 	-@rm -f tmp-list libgcj.jar
-	find java gnu -type d -o -type f -name '*.class' | \
+	find java gnu org -type d -o -type f -name '*.class' | \
 	  sed -e '/\/\./d' -e '/\/xlib/d' | \
 	  $(ZIP) cfM0E@ $@
 
@@ -2391,20 +2494,20 @@ $(javao_files) $(x_javao_files): %.lo: %.java
 	$(GCJCOMPILE) -o $@ $<
 
 libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES)
-	@echo $(libgcj_la_OBJECTS) > libgcj.objectlist;
-	@echo $(libgcj_la_LIBADD) >> libgcj.objectlist;
+	@: $(shell echo Creating list of files to link...) $(shell rm -f libgcj.objectlist || :) $(shell touch libgcj.objectlist) $(foreach object,$(libgcj_la_OBJECTS) $(libgcj_la_LIBADD),$(shell echo $(object) >> libgcj.objectlist))
 	$(libgcj_la_LINK) -objectlist libgcj.objectlist \
 	@LIBFFI@ \
 	-rpath $(toolexeclibdir) $(libgcj_la_LDFLAGS) $(LIBS)
 
 libgcjx.la: $(libgcjx_la_OBJECTS) $(libgcjx_la_DEPENDENCIES)
-	@echo $(libgcjx_la_OBJECTS) > libgcjx.objectlist;
-	@echo $(libgcjx_la_LIBADD) >> libgcjx.objectlist;
+	@: $(shell echo Creating list of files to link...) $(shell rm -f libgcjx.objectlist || :) $(shell touch libgcjx.objectlist) $(foreach object,$(libgcjx_la_OBJECTS) $(libgcjx_la_LIBADD),$(shell echo $(object) >> libgcjx.objectlist))
 	$(libgcjx_la_LINK) -objectlist libgcjx.objectlist \
 	-rpath $(toolexeclibdir) $(libgcjx_la_LDFLAGS) $(LIBS)
 
 .class.h:
 	$(GCJH) -classpath $(top_builddir) $(basename $<)
+
+$(nat_headers) $(x_nat_headers): libgcj.jar
 
 java/lang/ClassLoader.h: java/lang/ClassLoader.class libgcj.jar
 	$(GCJH) -classpath $(top_builddir) \
@@ -2472,6 +2575,9 @@ java/io/ObjectInputStream$$GetField.h: libgcj.jar
 java/io/ObjectOutputStream$$PutField.h: libgcj.jar
 	$(GCJH) -classpath $(top_builddir) \
 	'java/io/ObjectOutputStream$$PutField'
+
+$(extra_headers):
+	@:
 
 install-data-local:
 	$(PRE_INSTALL)

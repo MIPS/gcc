@@ -130,6 +130,7 @@ struct tree_common
 {
   union tree_node *chain;
   union tree_node *type;
+  void *aux;
   ENUM_BITFIELD(tree_code) code : 8;
   unsigned side_effects_flag : 1;
   unsigned constant_flag : 1;
@@ -791,6 +792,10 @@ struct tree_vec
 #define RTL_EXPR_SEQUENCE(NODE) (*(struct rtx_def **) &EXPR_CHECK (NODE)->exp.operands[0])
 #define RTL_EXPR_RTL(NODE) (*(struct rtx_def **) &EXPR_CHECK (NODE)->exp.operands[1])
 
+/* In a WITH_CLEANUP_EXPR node.  */
+#define WITH_CLEANUP_EXPR_RTL(NODE) \
+  (*(struct rtx_def **) &EXPR_CHECK (NODE)->exp.operands[2])
+
 /* In a CONSTRUCTOR node.  */
 #define CONSTRUCTOR_ELTS(NODE) TREE_OPERAND (NODE, 1)
 
@@ -847,6 +852,33 @@ struct tree_exp
    the debugging output format in use.  */
 #define BLOCK_NUMBER(NODE) (BLOCK_CHECK (NODE)->block.block_num)
 
+/* If block reordering splits a lexical block into discontiguous
+   address ranges, we'll make a copy of the original block.
+
+   Note that this is logically distinct from BLOCK_ABSTRACT_ORIGIN.
+   In that case, we have one source block that has been replicated
+   (through inlining or unrolling) into many logical blocks, and that
+   these logical blocks have different physical variables in them.
+
+   In this case, we have one logical block split into several
+   non-contiguous address ranges.  Most debug formats can't actually
+   represent this idea directly, so we fake it by creating multiple
+   logical blocks with the same variables in them.  However, for those
+   that do support non-contiguous regions, these allow the original
+   logical block to be reconstructed, along with the set of address
+   ranges.
+
+   One of the logical block fragments is arbitrarily chosen to be
+   the ORIGIN.  The other fragments will point to the origin via
+   BLOCK_FRAGMENT_ORIGIN; the origin itself will have this pointer
+   be null.  The list of fragments will be chained through 
+   BLOCK_FRAGMENT_CHAIN from the origin.  */
+
+#define BLOCK_FRAGMENT_ORIGIN(NODE) \
+  (BLOCK_CHECK (NODE)->block.fragment_origin)
+#define BLOCK_FRAGMENT_CHAIN(NODE) \
+  (BLOCK_CHECK (NODE)->block.fragment_chain)
+
 struct tree_block
 {
   struct tree_common common;
@@ -859,6 +891,8 @@ struct tree_block
   union tree_node *subblocks;
   union tree_node *supercontext;
   union tree_node *abstract_origin;
+  union tree_node *fragment_origin;
+  union tree_node *fragment_chain;
 };
 
 /* Define fields and accessors for nodes representing data types.  */
@@ -1347,7 +1381,10 @@ struct tree_type
 /* For a FIELD_DECL in a QUAL_UNION_TYPE, records the expression, which
    if nonzero, indicates that the field occupies the type.  */
 #define DECL_QUALIFIER(NODE) (FIELD_DECL_CHECK (NODE)->decl.initial)
-/* These two fields describe where in the source code the declaration was.  */
+/* These two fields describe where in the source code the declaration
+   was.  If the declaration appears in several places (as for a C
+   function that is declared first and then defined later), this
+   information should refer to the definition.  */
 #define DECL_SOURCE_FILE(NODE) (DECL_CHECK (NODE)->decl.filename)
 #define DECL_SOURCE_LINE(NODE) (DECL_CHECK (NODE)->decl.linenum)
 /* Holds the size of the datum, in bits, as a tree expression.
@@ -2036,8 +2073,14 @@ extern tree make_tree			PARAMS ((tree, struct rtx_def *));
 extern tree build_type_attribute_variant PARAMS ((tree, tree));
 extern tree build_decl_attribute_variant PARAMS ((tree, tree));
 
-extern tree merge_machine_decl_attributes PARAMS ((tree, tree));
-extern tree merge_machine_type_attributes PARAMS ((tree, tree));
+/* Default versions of target-overridable functions.  */
+
+extern tree merge_decl_attributes PARAMS ((tree, tree));
+extern tree merge_type_attributes PARAMS ((tree, tree));
+extern int default_valid_attribute_p PARAMS ((tree, tree, tree, tree));
+extern int default_comp_type_attributes PARAMS ((tree, tree));
+extern void default_set_default_type_attributes PARAMS ((tree));
+extern void default_insert_attributes PARAMS ((tree, tree *));
 
 /* Split a list of declspecs and attributes into two.  */
 
@@ -2064,6 +2107,12 @@ extern tree lookup_attribute		PARAMS ((const char *, tree));
 /* Given two attributes lists, return a list of their union.  */
 
 extern tree merge_attributes		PARAMS ((tree, tree));
+
+#ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
+/* Given two Windows decl attributes lists, possibly including
+   dllimport, return a list of their union .  */
+extern tree merge_dllimport_decl_attributes PARAMS ((tree, tree));
+#endif
 
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
@@ -2564,6 +2613,7 @@ extern void end_cleanup_deferral		PARAMS ((void));
 extern int is_body_block			PARAMS ((tree));
 
 extern int conditional_context			PARAMS ((void));
+extern struct nesting * current_nesting_level	PARAMS ((void));
 extern tree last_cleanup_this_contour		PARAMS ((void));
 extern void expand_start_case			PARAMS ((int, tree, tree,
 						       const char *));
@@ -2637,10 +2687,6 @@ extern void init_decl_processing		PARAMS ((void));
 
 /* Function to identify which front-end produced the output file. */
 extern const char *lang_identify			PARAMS ((void));
-
-/* Called by report_error_function to print out function name.
- * Default may be overridden by language front-ends.  */
-extern void (*print_error_function) PARAMS ((const char *));
 
 /* Function to replace the DECL_LANG_SPECIFIC field of a DECL with a copy.  */
 extern void copy_lang_decl			PARAMS ((tree));
@@ -2838,6 +2884,9 @@ extern int div_and_round_double		PARAMS ((enum tree_code, int,
 /* In stmt.c */
 extern void emit_nop			PARAMS ((void));
 extern void expand_computed_goto	PARAMS ((tree));
+extern bool parse_output_constraint     PARAMS ((const char **,
+						 int, int, int,
+						 bool *, bool *, bool *));
 extern void expand_asm_operands		PARAMS ((tree, tree, tree, tree, int,
 						 const char *, int));
 extern int any_pending_cleanups		PARAMS ((int));
@@ -2869,11 +2918,6 @@ extern tree get_file_function_name PARAMS ((int));
 
 /* Interface of the DWARF2 unwind info support.  */
 
-/* Decide whether we want to emit frame unwind information for the current
-   translation unit.  */
-
-extern int dwarf2out_do_frame		PARAMS ((void));
-
 /* Generate a new label for the CFI info to refer to.  */
 
 extern char *dwarf2out_cfi_label	PARAMS ((void));
@@ -2903,15 +2947,6 @@ extern void dwarf2out_return_save	PARAMS ((const char *, long));
 
 extern void dwarf2out_return_reg	PARAMS ((const char *, unsigned));
 
-/* Output a marker (i.e. a label) for the beginning of a function, before
-   the prologue.  */
-
-extern void dwarf2out_begin_prologue	PARAMS ((void));
-
-/* Output a marker (i.e. a label) for the absolute end of the generated
-   code for a function definition.  */
-
-extern void dwarf2out_end_epilogue	PARAMS ((void));
 
 /* Redefine abort to report an internal error w/o coredump, and
    reporting the location of the error in the source file.  This logic

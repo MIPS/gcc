@@ -29,16 +29,15 @@ Boston, MA 02111-1307, USA.  */
    written by AT&T, but I have never seen it.  */
 
 ifobjc
-%expect 31
+%expect 31 /* shift/reduce conflicts, and 1 reduce/reduce conflict.  */
 end ifobjc
 ifc
-%expect 10
+%expect 10 /* shift/reduce conflicts, and no reduce/reduce conflicts.  */
 end ifc
 
 %{
 #include "config.h"
 #include "system.h"
-#include <setjmp.h>
 #include "tree.h"
 #include "input.h"
 #include "cpplib.h"
@@ -51,7 +50,7 @@ end ifc
 #include "output.h"
 #include "toplev.h"
 #include "ggc.h"
-#include "diagnostic.h"
+#include "diagnostic.h"  
   
 #ifdef MULTIBYTE_CHARS
 #include <locale.h>
@@ -157,11 +156,6 @@ end ifc
 %token INTERFACE IMPLEMENTATION END SELECTOR DEFS ENCODE
 %token CLASSNAME PUBLIC PRIVATE PROTECTED PROTOCOL OBJECTNAME CLASS ALIAS
 
-/* Objective-C string constants in raw form.
-   yylval is an STRING_CST node.  */
-%token OBJC_STRING
-
-
 %type <code> unop
 %type <ttype> ENUM STRUCT UNION IF ELSE WHILE DO FOR SWITCH CASE DEFAULT
 %type <ttype> BREAK CONTINUE RETURN GOTO ASM_KEYWORD SIZEOF TYPEOF ALIGNOF
@@ -231,7 +225,7 @@ ifobjc
 %type <ttype> selectorarg keywordnamelist keywordname objcencodeexpr
 %type <ttype> objc_string non_empty_protocolrefs protocolrefs identifier_list objcprotocolexpr
 
-%type <ttype> CLASSNAME OBJC_STRING OBJECTNAME
+%type <ttype> CLASSNAME OBJECTNAME
 end ifobjc
 
 %{
@@ -249,8 +243,32 @@ static int if_stmt_line;
 static tree current_declspecs = NULL_TREE;
 static tree prefix_attributes = NULL_TREE;
 
-/* Stack of saved values of current_declspecs and prefix_attributes.  */
+/* List of all the attributes applying to the identifier currently being
+   declared; includes prefix_attributes and possibly some more attributes
+   just after a comma.  */
+static tree all_prefix_attributes = NULL_TREE;
+
+/* Stack of saved values of current_declspecs, prefix_attributes and
+   all_prefix_attributes.  */
 static tree declspec_stack;
+
+/* PUSH_DECLSPEC_STACK is called from setspecs; POP_DECLSPEC_STACK
+   should be called from the productions making use of setspecs.  */
+#define PUSH_DECLSPEC_STACK						 \
+  do {									 \
+    declspec_stack = tree_cons (build_tree_list (prefix_attributes,	 \
+						 all_prefix_attributes), \
+				current_declspecs,			 \
+				declspec_stack);			 \
+  } while (0)
+
+#define POP_DECLSPEC_STACK						\
+  do {									\
+    current_declspecs = TREE_VALUE (declspec_stack);			\
+    prefix_attributes = TREE_PURPOSE (TREE_PURPOSE (declspec_stack));	\
+    all_prefix_attributes = TREE_VALUE (TREE_PURPOSE (declspec_stack));	\
+    declspec_stack = TREE_CHAIN (declspec_stack);			\
+  } while (0)
 
 /* For __extension__, save/restore the warning flags which are
    controlled by __extension__.  */
@@ -276,7 +294,17 @@ int objc_receiver_context;
 int objc_public_flag;
 int objc_pq_context;
 
+/* The following flag is needed to contextualize ObjC lexical analysis.
+   In some cases (e.g., 'int NSObject;'), it is undesirable to bind 
+   an identifier to an ObjC class, even if a class with that name 
+   exists.  */
+int objc_need_raw_identifier;
+#define OBJC_NEED_RAW_IDENTIFIER(VAL)	objc_need_raw_identifier = VAL
 end ifobjc
+
+ifc
+#define OBJC_NEED_RAW_IDENTIFIER(VAL)	/* nothing */
+end ifc
 
 /* Tell yyparse how to print a token's value, if yydebug is set.  */
 
@@ -296,6 +324,7 @@ c_parse_init ()
   ggc_add_tree_root (&declspec_stack, 1);
   ggc_add_tree_root (&current_declspecs, 1);
   ggc_add_tree_root (&prefix_attributes, 1);
+  ggc_add_tree_root (&all_prefix_attributes, 1);
 ifobjc
   ggc_add_tree_root (&objc_interface_context, 1);
   ggc_add_tree_root (&objc_implementation_context, 1);
@@ -360,17 +389,11 @@ datadef:
 		  else if (!flag_traditional)
 		    warning ("data definition has no type or storage class"); 
 
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		  POP_DECLSPEC_STACK; }
         | declspecs_nots setspecs notype_initdecls ';'
-		{ current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		{ POP_DECLSPEC_STACK; }
 	| declspecs_ts setspecs initdecls ';'
-		{ current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		{ POP_DECLSPEC_STACK; }
 	| declspecs ';'
 	  { shadow_tag ($1); }
 	| error ';'
@@ -383,7 +406,7 @@ datadef:
 fndef:
 	  declspecs_ts setspecs declarator
 		{ if (! start_function (current_declspecs, $3,
-					prefix_attributes, NULL_TREE))
+					all_prefix_attributes))
 		    YYERROR1;
 		}
 	  old_style_parm_decls
@@ -392,16 +415,12 @@ fndef:
 		{ DECL_SOURCE_FILE (current_function_decl) = $7;
 		  DECL_SOURCE_LINE (current_function_decl) = $8;
 		  finish_function (0); 
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		  POP_DECLSPEC_STACK; }
 	| declspecs_ts setspecs declarator error
-		{ current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		{ POP_DECLSPEC_STACK; }
 	| declspecs_nots setspecs notype_declarator
 		{ if (! start_function (current_declspecs, $3,
-					prefix_attributes, NULL_TREE))
+					all_prefix_attributes))
 		    YYERROR1;
 		}
 	  old_style_parm_decls
@@ -410,16 +429,12 @@ fndef:
 		{ DECL_SOURCE_FILE (current_function_decl) = $7;
 		  DECL_SOURCE_LINE (current_function_decl) = $8;
 		  finish_function (0); 
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		  POP_DECLSPEC_STACK; }
 	| declspecs_nots setspecs notype_declarator error
-		{ current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		{ POP_DECLSPEC_STACK; }
 	| setspecs notype_declarator
 		{ if (! start_function (NULL_TREE, $2,
-					prefix_attributes, NULL_TREE))
+					all_prefix_attributes))
 		    YYERROR1;
 		}
 	  old_style_parm_decls
@@ -428,13 +443,9 @@ fndef:
 		{ DECL_SOURCE_FILE (current_function_decl) = $6;
 		  DECL_SOURCE_LINE (current_function_decl) = $7;
 		  finish_function (0); 
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		  POP_DECLSPEC_STACK; }
 	| setspecs notype_declarator error
-		{ current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		{ POP_DECLSPEC_STACK; }
 	;
 
 identifier:
@@ -442,7 +453,7 @@ identifier:
 	| TYPENAME
 ifobjc
 	| OBJECTNAME
-        | CLASSNAME
+	| CLASSNAME
 end ifobjc
 	;
 
@@ -767,9 +778,10 @@ ifobjc
 /* Produces an STRING_CST with perhaps more STRING_CSTs chained
    onto it, which is to be read as an ObjC string object.  */
 objc_string:
-	  OBJC_STRING
-	| objc_string OBJC_STRING
-		{ $$ = chainon ($1, $2); }
+	  '@' STRING
+		{ $$ = $2; }
+	| objc_string '@' STRING
+		{ $$ = chainon ($1, $3); }
 	;
 end ifobjc
 
@@ -804,13 +816,9 @@ datadecls:
    style parm.  */
 datadecl:
 	declspecs_ts_nosa setspecs initdecls ';'
-		{ current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		{ POP_DECLSPEC_STACK; }
 	| declspecs_nots_nosa setspecs notype_initdecls ';'
-		{ current_declspecs = TREE_VALUE (declspec_stack);	
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		{ POP_DECLSPEC_STACK; }
 	| declspecs_ts_nosa ';'
 		{ shadow_tag_warned ($1, 1);
 		  pedwarn ("empty declaration"); }
@@ -833,16 +841,15 @@ lineno_decl:
    for the sake of parm declarations nested in function declarators.  */
 setspecs: /* empty */
 		{ pending_xref_error ();
-		  declspec_stack = tree_cons (prefix_attributes,
-					      current_declspecs,
-					      declspec_stack);
+		  PUSH_DECLSPEC_STACK;
 		  split_specs_attrs ($<ttype>0,
-				     &current_declspecs, &prefix_attributes); }
+				     &current_declspecs, &prefix_attributes);
+		  all_prefix_attributes = prefix_attributes; }
 	;
 
 /* ??? Yuck.  See maybe_setattrs.  */
 setattrs: /* empty */
-		{ prefix_attributes = chainon (prefix_attributes, $<ttype>0); }
+		{ all_prefix_attributes = chainon ($<ttype>0, all_prefix_attributes); }
 	;
 
 maybe_setattrs:
@@ -858,23 +865,22 @@ maybe_setattrs:
 	  maybe_attribute setattrs
 	;
 
+/* Possibly attributes after a comma, which should reset all_prefix_attributes
+   to prefix_attributes with these ones chained on the front.  */
+maybe_resetattrs:
+		{ all_prefix_attributes = prefix_attributes; }
+	  maybe_setattrs
+	;
+
 decl:
 	declspecs_ts setspecs initdecls ';'
-		{ current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		{ POP_DECLSPEC_STACK; }
 	| declspecs_nots setspecs notype_initdecls ';'
-		{ current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		{ POP_DECLSPEC_STACK; }
 	| declspecs_ts setspecs nested_function
-		{ current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		{ POP_DECLSPEC_STACK; }
 	| declspecs_nots setspecs notype_nested_function
-		{ current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		{ POP_DECLSPEC_STACK; }
 	| declspecs ';'
 		{ shadow_tag ($1); }
 	| extension decl
@@ -1351,7 +1357,7 @@ maybe_type_quals_setattrs:
 		  split_specs_attrs ($1, &specs, &attrs);
 		  /* ??? Yuck.  See maybe_setattrs.  */
 		  if (attrs != NULL_TREE)
-		    prefix_attributes = chainon (prefix_attributes, attrs);
+		    all_prefix_attributes = chainon (attrs, all_prefix_attributes);
 		  $$ = specs; }
 	;
 
@@ -1387,6 +1393,7 @@ typespec_attr:
 
 typespec_reserved_nonattr:
 	  TYPESPEC
+		{ OBJC_NEED_RAW_IDENTIFIER (1);	}
 	| structsp_nonattr
 	;
 
@@ -1420,12 +1427,12 @@ end ifobjc
 
 initdecls:
 	initdcl
-	| initdecls ',' maybe_setattrs initdcl
+	| initdecls ',' maybe_resetattrs initdcl
 	;
 
 notype_initdecls:
 	notype_initdcl
-	| notype_initdecls ',' maybe_setattrs notype_initdcl
+	| notype_initdecls ',' maybe_resetattrs notype_initdcl
 	;
 
 maybeasm:
@@ -1440,7 +1447,7 @@ maybeasm:
 initdcl:
 	  declarator maybeasm maybe_attribute '='
 		{ $<ttype>$ = start_decl ($1, current_declspecs, 1,
-					  $3, prefix_attributes);
+					  chainon ($3, all_prefix_attributes));
 		  start_init ($<ttype>$, $2, global_bindings_p ()); }
 	  init
 /* Note how the declaration of the variable is in effect while its init is parsed! */
@@ -1448,7 +1455,7 @@ initdcl:
 		  finish_decl ($<ttype>5, $6, $2); }
 	| declarator maybeasm maybe_attribute
 		{ tree d = start_decl ($1, current_declspecs, 0,
-				       $3, prefix_attributes);
+				       chainon ($3, all_prefix_attributes));
 		  finish_decl (d, NULL_TREE, $2); 
                 }
 	;
@@ -1456,7 +1463,7 @@ initdcl:
 notype_initdcl:
 	  notype_declarator maybeasm maybe_attribute '='
 		{ $<ttype>$ = start_decl ($1, current_declspecs, 1,
-					  $3, prefix_attributes);
+					  chainon ($3, all_prefix_attributes));
 		  start_init ($<ttype>$, $2, global_bindings_p ()); }
 	  init
 /* Note how the declaration of the variable is in effect while its init is parsed! */
@@ -1464,7 +1471,7 @@ notype_initdcl:
 		  finish_decl ($<ttype>5, $6, $2); }
 	| notype_declarator maybeasm maybe_attribute
 		{ tree d = start_decl ($1, current_declspecs, 0,
-				       $3, prefix_attributes);
+				       chainon ($3, all_prefix_attributes));
 		  finish_decl (d, NULL_TREE, $2); }
 	;
 /* the * rules are dummies to accept the Apollo extended syntax
@@ -1598,7 +1605,7 @@ nested_function:
 
 		  push_function_context ();
 		  if (! start_function (current_declspecs, $1,
-					prefix_attributes, NULL_TREE))
+					all_prefix_attributes))
 		    {
 		      pop_function_context ();
 		      YYERROR1;
@@ -1628,7 +1635,7 @@ notype_nested_function:
 
 		  push_function_context ();
 		  if (! start_function (current_declspecs, $1,
-					prefix_attributes, NULL_TREE))
+					all_prefix_attributes))
 		    {
 		      pop_function_context ();
 		      YYERROR1;
@@ -1697,6 +1704,9 @@ parm_declarator_starttypename:
 	| parm_declarator_starttypename array_declarator  %prec '.'
 		{ $$ = set_array_declarator_type ($2, $1, 0); }
 	| TYPENAME
+ifobjc
+	| OBJECTNAME
+end ifobjc
 	;
 
 parm_declarator_nostarttypename:
@@ -1852,9 +1862,7 @@ end ifobjc
 component_decl:
 	  declspecs_nosc_ts setspecs components
 		{ $$ = $3;
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		  POP_DECLSPEC_STACK; }
 	| declspecs_nosc_ts setspecs save_filename save_lineno
 		{
 		  /* Support for unnamed structs or unions as members of 
@@ -1864,15 +1872,10 @@ component_decl:
 		    pedwarn ("ISO C doesn't support unnamed structs/unions");
 
 		  $$ = grokfield($3, $4, NULL, current_declspecs, NULL_TREE);
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack);
-		}
+		  POP_DECLSPEC_STACK; }
 	| declspecs_nosc_nots setspecs components_notype
 		{ $$ = $3;
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		  POP_DECLSPEC_STACK; }
 	| declspecs_nosc_nots
 		{ if (pedantic)
 		    pedwarn ("ISO C forbids member declarations with no members");
@@ -1887,40 +1890,40 @@ component_decl:
 
 components:
 	  component_declarator
-	| components ',' maybe_setattrs component_declarator
+	| components ',' maybe_resetattrs component_declarator
 		{ $$ = chainon ($1, $4); }
 	;
 
 components_notype:
 	  component_notype_declarator
-	| components_notype ',' maybe_setattrs component_notype_declarator
+	| components_notype ',' maybe_resetattrs component_notype_declarator
 		{ $$ = chainon ($1, $4); }
 	;
 
 component_declarator:
 	  save_filename save_lineno declarator maybe_attribute
 		{ $$ = grokfield ($1, $2, $3, current_declspecs, NULL_TREE);
-		  decl_attributes ($$, $4, prefix_attributes); }
+		  decl_attributes (&$$, chainon ($4, all_prefix_attributes), 0); }
 	| save_filename save_lineno
 	  declarator ':' expr_no_commas maybe_attribute
 		{ $$ = grokfield ($1, $2, $3, current_declspecs, $5);
-		  decl_attributes ($$, $6, prefix_attributes); }
+		  decl_attributes (&$$, chainon ($6, all_prefix_attributes), 0); }
 	| save_filename save_lineno ':' expr_no_commas maybe_attribute
 		{ $$ = grokfield ($1, $2, NULL_TREE, current_declspecs, $4);
-		  decl_attributes ($$, $5, prefix_attributes); }
+		  decl_attributes (&$$, chainon ($5, all_prefix_attributes), 0); }
 	;
 
 component_notype_declarator:
 	  save_filename save_lineno notype_declarator maybe_attribute
 		{ $$ = grokfield ($1, $2, $3, current_declspecs, NULL_TREE);
-		  decl_attributes ($$, $4, prefix_attributes); }
+		  decl_attributes (&$$, chainon ($4, all_prefix_attributes), 0); }
 	| save_filename save_lineno
 	  notype_declarator ':' expr_no_commas maybe_attribute
 		{ $$ = grokfield ($1, $2, $3, current_declspecs, $5);
-		  decl_attributes ($$, $6, prefix_attributes); }
+		  decl_attributes (&$$, chainon ($6, all_prefix_attributes), 0); }
 	| save_filename save_lineno ':' expr_no_commas maybe_attribute
 		{ $$ = grokfield ($1, $2, NULL_TREE, current_declspecs, $4);
-		  decl_attributes ($$, $5, prefix_attributes); }
+		  decl_attributes (&$$, chainon ($5, all_prefix_attributes), 0); }
 	;
 
 /* We chain the enumerators in reverse order.
@@ -1970,18 +1973,15 @@ absdcl_maybe_attribute:   /* absdcl maybe_attribute, but not just attributes */
 	/* empty */
 		{ $$ = build_tree_list (build_tree_list (current_declspecs,
 							 NULL_TREE),
-					build_tree_list (prefix_attributes,
-							 NULL_TREE)); }
+					all_prefix_attributes); }
 	| absdcl1
 		{ $$ = build_tree_list (build_tree_list (current_declspecs,
 							 $1),
-					build_tree_list (prefix_attributes,
-							 NULL_TREE)); }
+					all_prefix_attributes); }
 	| absdcl1_noea attributes
 		{ $$ = build_tree_list (build_tree_list (current_declspecs,
 							 $1),
-					build_tree_list (prefix_attributes,
-							 $2)); }
+					chainon ($2, all_prefix_attributes)); }
 	;
 
 absdcl1:  /* a nonempty absolute declarator */
@@ -2454,7 +2454,7 @@ label:	  CASE expr_no_commas ':'
 		  stmt_count++;
 		  if (label)
 		    {
-		      decl_attributes (label, $5, NULL_TREE);
+		      decl_attributes (&label, $5, 0);
 		      $$ = add_stmt (build_stmt (LABEL_STMT, label));
 		    }
 		  else
@@ -2571,38 +2571,25 @@ parm:
 	  declspecs_ts setspecs parm_declarator maybe_attribute
 		{ $$ = build_tree_list (build_tree_list (current_declspecs,
 							 $3),
-					build_tree_list (prefix_attributes,
-							 $4));
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+					chainon ($4, all_prefix_attributes));
+		  POP_DECLSPEC_STACK; }
 	| declspecs_ts setspecs notype_declarator maybe_attribute
 		{ $$ = build_tree_list (build_tree_list (current_declspecs,
 							 $3),
-					build_tree_list (prefix_attributes,
-							 $4)); 
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+					chainon ($4, all_prefix_attributes)); 
+		  POP_DECLSPEC_STACK; }
 	| declspecs_ts setspecs absdcl_maybe_attribute
 		{ $$ = $3;
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		  POP_DECLSPEC_STACK; }
 	| declspecs_nots setspecs notype_declarator maybe_attribute
 		{ $$ = build_tree_list (build_tree_list (current_declspecs,
 							 $3),
-					build_tree_list (prefix_attributes,
-							 $4));
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+					chainon ($4, all_prefix_attributes));
+		  POP_DECLSPEC_STACK; }
 
 	| declspecs_nots setspecs absdcl_maybe_attribute
 		{ $$ = $3;
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		  POP_DECLSPEC_STACK; }
 	;
 
 /* The first parm, which must suck attributes from off the top of the parser
@@ -2611,43 +2598,31 @@ firstparm:
 	  declspecs_ts_nosa setspecs_fp parm_declarator maybe_attribute
 		{ $$ = build_tree_list (build_tree_list (current_declspecs,
 							 $3),
-					build_tree_list (prefix_attributes,
-							 $4));
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+					chainon ($4, all_prefix_attributes));
+		  POP_DECLSPEC_STACK; }
 	| declspecs_ts_nosa setspecs_fp notype_declarator maybe_attribute
 		{ $$ = build_tree_list (build_tree_list (current_declspecs,
 							 $3),
-					build_tree_list (prefix_attributes,
-							 $4)); 
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+					chainon ($4, all_prefix_attributes)); 
+		  POP_DECLSPEC_STACK; }
 	| declspecs_ts_nosa setspecs_fp absdcl_maybe_attribute
 		{ $$ = $3;
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		  POP_DECLSPEC_STACK; }
 	| declspecs_nots_nosa setspecs_fp notype_declarator maybe_attribute
 		{ $$ = build_tree_list (build_tree_list (current_declspecs,
 							 $3),
-					build_tree_list (prefix_attributes,
-							 $4));
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+					chainon ($4, all_prefix_attributes));
+		  POP_DECLSPEC_STACK; }
 
 	| declspecs_nots_nosa setspecs_fp absdcl_maybe_attribute
 		{ $$ = $3;
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		  POP_DECLSPEC_STACK; }
 	;
 
 setspecs_fp:
 	  setspecs
-		{ prefix_attributes = chainon (prefix_attributes, $<ttype>-2); }
+		{ prefix_attributes = chainon (prefix_attributes, $<ttype>-2);
+		  all_prefix_attributes = prefix_attributes; }
 	;
 
 /* This is used in a function definition
@@ -2874,6 +2849,13 @@ protocoldef:
 		  finish_protocol(objc_interface_context);
 		  objc_interface_context = NULL_TREE;
 		}
+	/* The @protocol forward-declaration production introduces a
+	   reduce/reduce conflict on ';', which should be resolved in
+	   favor of the production 'identifier_list -> identifier'.  */
+	| PROTOCOL identifier_list ';'
+		{
+		  objc_declare_protocols ($2);
+		}
 	;
 
 protocolrefs:
@@ -2931,14 +2913,10 @@ ivar_decls:
 ivar_decl:
 	declspecs_nosc_ts setspecs ivars
 	        { $$ = $3;
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		  POP_DECLSPEC_STACK; }
 	| declspecs_nosc_nots setspecs ivars
 		{ $$ = $3;
-		  current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		  POP_DECLSPEC_STACK; }
 	| error
 		{ $$ = NULL_TREE; }
 	;
@@ -2947,7 +2925,7 @@ ivars:
 	  /* empty */
 		{ $$ = NULL_TREE; }
 	| ivar_declarator
-	| ivars ',' maybe_setattrs ivar_declarator
+	| ivars ',' maybe_resetattrs ivar_declarator
 	;
 
 ivar_declarator:
@@ -3094,9 +3072,7 @@ mydecls:
 
 mydecl:
 	declspecs_ts setspecs myparms ';'
-		{ current_declspecs = TREE_VALUE (declspec_stack);
-		  prefix_attributes = TREE_PURPOSE (declspec_stack);
-		  declspec_stack = TREE_CHAIN (declspec_stack); }
+		{ POP_DECLSPEC_STACK; }
 	| declspecs_ts ';'
 		{ shadow_tag ($1); }
 	| declspecs_nots ';'
@@ -3117,13 +3093,11 @@ myparm:
 	  parm_declarator maybe_attribute
 		{ $$ = build_tree_list (build_tree_list (current_declspecs,
 							 $1),
-					build_tree_list (prefix_attributes,
-							 $2)); }
+					chainon ($2, all_prefix_attributes)); }
 	| notype_declarator maybe_attribute
 		{ $$ = build_tree_list (build_tree_list (current_declspecs,
 							 $1),
-					build_tree_list (prefix_attributes,
-							 $2)); }
+					chainon ($2, all_prefix_attributes)); }
 	| absdcl_maybe_attribute
 		{ $$ = $1; }
 	;
@@ -3165,8 +3139,9 @@ keywordselector:
 
 selector:
 	  IDENTIFIER
-        | TYPENAME
-  	| OBJECTNAME
+	| TYPENAME
+	| CLASSNAME
+	| OBJECTNAME
 	| reservedwords
 	;
 
@@ -3407,19 +3382,25 @@ static const struct resword reswords[] =
   { "volatile",		RID_VOLATILE,	D_TRAD },
   { "while",		RID_WHILE,	0 },
 ifobjc
-  { "@class",		RID_AT_CLASS,		D_OBJC },
-  { "@compatibility_alias", RID_AT_ALIAS,	D_OBJC },
-  { "@defs",		RID_AT_DEFS,		D_OBJC },
-  { "@encode",		RID_AT_ENCODE,		D_OBJC },
-  { "@end",		RID_AT_END,		D_OBJC },
-  { "@implementation",	RID_AT_IMPLEMENTATION,	D_OBJC },
-  { "@interface",	RID_AT_INTERFACE,	D_OBJC },
-  { "@private",		RID_AT_PRIVATE,		D_OBJC },
-  { "@protected",	RID_AT_PROTECTED,	D_OBJC },
-  { "@protocol",	RID_AT_PROTOCOL,	D_OBJC },
-  { "@public",		RID_AT_PUBLIC,		D_OBJC },
-  { "@selector",	RID_AT_SELECTOR,	D_OBJC },
   { "id",		RID_ID,			D_OBJC },
+
+  /* These objc keywords are recognized only immediately after
+     an '@'.  */
+  { "class",		RID_AT_CLASS,		D_OBJC },
+  { "compatibility_alias", RID_AT_ALIAS,	D_OBJC },
+  { "defs",		RID_AT_DEFS,		D_OBJC },
+  { "encode",		RID_AT_ENCODE,		D_OBJC },
+  { "end",		RID_AT_END,		D_OBJC },
+  { "implementation",	RID_AT_IMPLEMENTATION,	D_OBJC },
+  { "interface",	RID_AT_INTERFACE,	D_OBJC },
+  { "private",		RID_AT_PRIVATE,		D_OBJC },
+  { "protected",	RID_AT_PROTECTED,	D_OBJC },
+  { "protocol",		RID_AT_PROTOCOL,	D_OBJC },
+  { "public",		RID_AT_PUBLIC,		D_OBJC },
+  { "selector",		RID_AT_SELECTOR,	D_OBJC },
+
+  /* These are recognized only in protocol-qualifier context
+     (see above) */
   { "bycopy",		RID_BYCOPY,		D_OBJC },
   { "byref",		RID_BYREF,		D_OBJC },
   { "in",		RID_IN,			D_OBJC },
@@ -3568,13 +3549,6 @@ static const short rid_to_yy[RID_MAX] =
   /* RID_AT_IMPLEMENTATION */	IMPLEMENTATION
 };
 
-ifobjc
-/* Lookup table for ObjC keywords beginning with '@'.  Crude but
-   hopefully effective.  */
-#define N_at_reswords ((int) RID_AT_IMPLEMENTATION - (int)RID_AT_ENCODE + 1)
-static tree objc_rid_sans_at[N_at_reswords];
-end ifobjc
-
 static void
 init_reswords ()
 {
@@ -3602,16 +3576,6 @@ init_reswords ()
       C_RID_CODE (id) = reswords[i].rid;
       C_IS_RESERVED_WORD (id) = 1;
       ridpointers [(int) reswords[i].rid] = id;
-
-ifobjc
-      /* Enter ObjC @-prefixed keywords into the "sans" table
-	 _without_ their leading at-sign.  Again, all these
-	 identifiers are reachable by the get_identifer table, so it's
-	 not necessary to make objc_rid_sans_at a GC root.  */
-      if (reswords[i].word[0] == '@')
-	objc_rid_sans_at[(int) reswords[i].rid - (int) RID_AT_ENCODE]
-	  = get_identifier (reswords[i].word + 1);
-end ifobjc
     }
 }
 
@@ -3660,9 +3624,7 @@ yyerror (msgid)
   else if (last_token == CPP_STRING
 	   || last_token == CPP_WSTRING)
     error ("%s before string constant", string);
-  else if (last_token == CPP_NUMBER
-	   || last_token == CPP_INT
-	   || last_token == CPP_FLOAT)
+  else if (last_token == CPP_NUMBER)
     error ("%s before numeric constant", string);
   else if (last_token == CPP_NAME)
     error ("%s before \"%s\"", string, IDENTIFIER_POINTER (yylval.ttype));
@@ -3674,14 +3636,28 @@ static int
 yylexname ()
 {
   tree decl;
-
+  
+ifobjc
+  int objc_force_identifier = objc_need_raw_identifier;
+  OBJC_NEED_RAW_IDENTIFIER (0);
+end ifobjc
+  
   if (C_IS_RESERVED_WORD (yylval.ttype))
     {
       enum rid rid_code = C_RID_CODE (yylval.ttype);
 
 ifobjc
-      if (!((unsigned int) rid_code - (unsigned int) RID_FIRST_PQ < 6)
-	  || objc_pq_context)
+      /* Turn non-typedefed refs to "id" into plain identifiers; this
+	 allows constructs like "void foo(id id);" to work.  */
+      if (rid_code == RID_ID)
+      {
+	decl = lookup_name (yylval.ttype);
+	if (decl == NULL_TREE || TREE_CODE (decl) != TYPE_DECL)
+	  return IDENTIFIER;
+      }
+
+      if (!OBJC_IS_AT_KEYWORD (rid_code)
+	  && (!OBJC_IS_PQ_KEYWORD (rid_code) || objc_pq_context))
 end ifobjc
       {
 	int yycode = rid_to_yy[(int) rid_code];
@@ -3712,8 +3688,11 @@ ifobjc
   else
     {
       tree objc_interface_decl = is_class_name (yylval.ttype);
-
-      if (objc_interface_decl)
+      /* ObjC class names are in the same namespace as variables and
+	 typedefs, and hence are shadowed by local declarations.  */
+      if (objc_interface_decl 
+	  && (global_bindings_p () 
+	      || (!objc_force_identifier && !decl)))
 	{
 	  yylval.ttype = objc_interface_decl;
 	  return CLASSNAME;
@@ -3730,9 +3709,6 @@ _yylex ()
 {
  get_next:
   last_token = c_lex (&yylval.ttype);
-ifobjc
- reconsider:
-end ifobjc
   switch (last_token)
     {
     case CPP_EQ:					return '=';
@@ -3754,10 +3730,7 @@ end ifobjc
     case CPP_AND_AND:					return ANDAND;
     case CPP_OR_OR:					return OROR;
     case CPP_QUERY:					return '?';
-    case CPP_COLON:					return ':';
-    case CPP_COMMA:					return ',';
     case CPP_OPEN_PAREN:				return '(';
-    case CPP_CLOSE_PAREN:				return ')';
     case CPP_EQ_EQ:	yylval.code = EQ_EXPR;		return EQCOMPARE;
     case CPP_NOT_EQ:	yylval.code = NE_EXPR;		return EQCOMPARE;
     case CPP_GREATER_EQ:yylval.code = GE_EXPR;		return ARITHCOMPARE;
@@ -3778,7 +3751,6 @@ end ifobjc
     case CPP_CLOSE_SQUARE:				return ']';
     case CPP_OPEN_BRACE:				return '{';
     case CPP_CLOSE_BRACE:				return '}';
-    case CPP_SEMICOLON:					return ';';
     case CPP_ELLIPSIS:					return ELLIPSIS;
 
     case CPP_PLUS_PLUS:					return PLUSPLUS;
@@ -3786,16 +3758,19 @@ end ifobjc
     case CPP_DEREF:					return POINTSAT;
     case CPP_DOT:					return '.';
 
+      /* The following tokens may affect the interpretation of any
+	 identifiers following, if doing Objective-C.  */
+    case CPP_COLON:		OBJC_NEED_RAW_IDENTIFIER (0);	return ':';
+    case CPP_COMMA:		OBJC_NEED_RAW_IDENTIFIER (0);	return ',';
+    case CPP_CLOSE_PAREN:	OBJC_NEED_RAW_IDENTIFIER (0);	return ')';
+    case CPP_SEMICOLON:		OBJC_NEED_RAW_IDENTIFIER (0);	return ';';
+
     case CPP_EOF:
-      if (cpp_pop_buffer (parse_in) == 0)
-	return 0;
-      goto get_next;
+      return 0;
 
     case CPP_NAME:
       return yylexname ();
 
-    case CPP_INT:
-    case CPP_FLOAT:
     case CPP_NUMBER:
     case CPP_CHAR:
     case CPP_WCHAR:
@@ -3805,27 +3780,31 @@ end ifobjc
     case CPP_WSTRING:
       return STRING;
       
-      /* This token is Objective-C specific.  It gives the next
-	 token special significance.  */
+      /* This token is Objective-C specific.  It gives the next token
+	 special significance.  */
     case CPP_ATSIGN:
 ifobjc
-      last_token = c_lex (&yylval.ttype);
-      if (last_token == CPP_STRING)
-	return OBJC_STRING;
-      else if (last_token == CPP_NAME)
-	{
-	  int i;
-	  for (i = 0; i < N_at_reswords; i++)
-	    if (objc_rid_sans_at[i] == yylval.ttype)
-	      {
-		int rid_code = i + (int) RID_AT_ENCODE;
-		yylval.ttype = ridpointers[rid_code];
-		return rid_to_yy[rid_code];
-	      }
-	}
-      error ("syntax error at '@' token");
-      goto reconsider;
+      {
+	tree after_at;
+	enum cpp_ttype after_at_type;
+
+	cpp_start_lookahead (parse_in);
+	after_at_type = c_lex (&after_at);
+
+	if (after_at_type == CPP_NAME
+	    && C_IS_RESERVED_WORD (after_at)
+	    && OBJC_IS_AT_KEYWORD (C_RID_CODE (after_at)))
+	  {
+	    cpp_stop_lookahead (parse_in, 1);  /* accept this token */
+	    yylval.ttype = after_at;
+	    last_token = after_at_type;
+	    return rid_to_yy [(int) C_RID_CODE (after_at)];
+	  }
+	cpp_stop_lookahead (parse_in, 0);  /* put back this token */
+	return '@';
+      }
 end ifobjc
+
       /* These tokens are C++ specific (and will not be generated
          in C mode, but let's be cautious).  */
     case CPP_SCOPE:

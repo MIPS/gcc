@@ -331,8 +331,6 @@ read_token (t)
 #undef YYCODE
 
     case CPP_EOF:
-      if (cpp_pop_buffer (parse_in) != 0)
-	goto retry;
       t->yychar = 0;
       break;
       
@@ -340,8 +338,6 @@ read_token (t)
       t->yychar = read_process_identifier (&t->yylval);
       break;
 
-    case CPP_INT:
-    case CPP_FLOAT:
     case CPP_NUMBER:
     case CPP_CHAR:
     case CPP_WCHAR:
@@ -835,8 +831,13 @@ yylex ()
     got_object = NULL_TREE;
 
   yychar = yychr;
-  yylval = nth_token (0)->yylval;
-  lineno = nth_token (0)->lineno;
+  {
+    struct token *tok = nth_token (0);
+    
+    yylval = tok->yylval;
+    if (tok->lineno)
+      lineno = tok->lineno;
+  }
 
 #ifdef SPEW_DEBUG    
   if (spew_debug)
@@ -1490,9 +1491,7 @@ yyerror (msgid)
   else if (last_token == CPP_STRING
 	   || last_token == CPP_WSTRING)
     error ("%s before string constant", string);
-  else if (last_token == CPP_NUMBER
-	   || last_token == CPP_INT
-	   || last_token == CPP_FLOAT)
+  else if (last_token == CPP_NUMBER)
     error ("%s before numeric constant", string);
   else if (last_token == CPP_NAME)
     {

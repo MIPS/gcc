@@ -57,6 +57,7 @@ AT&T C compiler.  From the example below I would conclude the following:
 #include "ggc.h"
 #include "tm_p.h"
 #include "gsyms.h"
+#include "debug.h"
 
 /* 1 if PARM is passed to this function in memory.  */
 
@@ -91,6 +92,23 @@ extern tree current_function_decl;
 
 #include "sdbout.h"
 
+static void sdbout_init			PARAMS ((const char *));
+static void sdbout_finish		PARAMS ((const char *));
+static void sdbout_start_source_file	PARAMS ((unsigned, const char *));
+static void sdbout_end_source_file	PARAMS ((unsigned));
+static void sdbout_begin_block		PARAMS ((unsigned, unsigned));
+static void sdbout_end_block		PARAMS ((unsigned, unsigned));
+static void sdbout_source_line		PARAMS ((unsigned int, const char *));
+static void sdbout_end_epilogue		PARAMS ((void));
+static void sdbout_global_decl		PARAMS ((tree));
+#ifndef MIPS_DEBUGGING_INFO
+static void sdbout_begin_prologue	PARAMS ((unsigned int, const char *));
+#endif
+static void sdbout_end_prologue		PARAMS ((unsigned int));
+static void sdbout_begin_function	PARAMS ((tree));
+static void sdbout_end_function		PARAMS ((unsigned int));
+static void sdbout_toplevel_data	PARAMS ((tree));
+static void sdbout_label		PARAMS ((rtx));
 static char *gen_fake_label		PARAMS ((void));
 static int plain_type			PARAMS ((tree));
 static int template_name_p		PARAMS ((tree));
@@ -107,6 +125,7 @@ static void sdbout_field_types		PARAMS ((tree));
 static void sdbout_one_type		PARAMS ((tree));
 static void sdbout_parms		PARAMS ((tree));
 static void sdbout_reg_parms		PARAMS ((tree));
+static void sdbout_global_decl		PARAMS ((tree));
 
 /* Random macros describing parts of SDB data.  */
 
@@ -219,15 +238,6 @@ do { fprintf (asm_out_file, "\t.tag\t");	\
 	   SDB_DELIM, SDB_DELIM, SDB_DELIM, (LINE), SDB_DELIM)
 #endif
 
-#ifndef PUT_SDB_EPILOGUE_END
-#define PUT_SDB_EPILOGUE_END(NAME)			\
-do { fprintf (asm_out_file, "\t.def\t");		\
-     assemble_name (asm_out_file, NAME);		\
-     fprintf (asm_out_file,				\
-	      "%s\t.val\t.%s\t.scl\t-1%s\t.endef\n",	\
-	      SDB_DELIM, SDB_DELIM, SDB_DELIM); } while (0)
-#endif
-
 #ifndef SDB_GENERATE_FAKE
 #define SDB_GENERATE_FAKE(BUFFER, NUMBER) \
   sprintf ((BUFFER), ".%dfake", (NUMBER));
@@ -287,7 +297,38 @@ static struct sdb_file *current_file;
 
 #endif /* MIPS_DEBUGGING_INFO */
 
-
+/* The debug hooks structure.  */
+struct gcc_debug_hooks sdb_debug_hooks =
+{
+  sdbout_init,			/* init */
+  sdbout_finish,		/* finish */
+  debug_nothing_int_charstar,	/* define */
+  debug_nothing_int_charstar,	/* undef */
+  sdbout_start_source_file,	/* start_source_file */
+  sdbout_end_source_file,	/* end_source_file */
+  sdbout_begin_block,		/* begin_block */
+  sdbout_end_block,		/* end_block */
+  debug_true_tree,		/* ignore_block */
+  sdbout_source_line,		/* source_line */
+#ifdef MIPS_DEBUGGING_INFO
+  /* Defer on MIPS systems so that parameter descriptions follow
+     function entry.  */
+  debug_nothing_int_charstar,	/* begin_prologue */
+  sdbout_end_prologue,		/* end_prologue */
+#else
+  sdbout_begin_prologue,	/* begin_prologue */
+  debug_nothing_int,		/* end_prologue */
+#endif
+  sdbout_end_epilogue,		/* end_epilogue */
+  sdbout_begin_function,	/* begin_function */
+  sdbout_end_function,		/* end_function */
+  debug_nothing_tree,		/* function_decl */
+  sdbout_global_decl,		/* global_decl */
+  debug_nothing_tree,		/* deferred_inline_function */
+  debug_nothing_tree,		/* outlining_inline_function */
+  sdbout_label
+};
+
 #if 0
 
 /* return the tag identifier for type
@@ -760,8 +801,6 @@ sdbout_symbol (decl, local)
 	}
       else if (GET_CODE (value) == SUBREG)
 	{
-	  int offset = 0;
-
 	  while (GET_CODE (value) == SUBREG)
 	    value = SUBREG_REG (value);
 	  if (GET_CODE (value) == REG)
@@ -915,7 +954,7 @@ sdbout_symbol (decl, local)
 /* Output SDB information for a top-level initialized variable
    that has been delayed.  */
 
-void
+static void
 sdbout_toplevel_data (decl)
      tree decl;
 {
@@ -1444,6 +1483,62 @@ sdbout_reg_parms (parms)
       }
 }
 
+/* Output debug information for a global DECL.  Called from toplev.c
+   after compilation proper has finished.  */
+
+static void
+sdbout_global_decl (decl)
+     tree decl;
+{
+  if (TREE_CODE (decl) == VAR_DECL
+      && !DECL_EXTERNAL (decl)
+      && DECL_RTL_SET_P (decl))
+    {
+      /* The COFF linker can move initialized global vars to the end.
+	 And that can screw up the symbol ordering.  Defer those for
+	 sdbout_finish ().  */
+      if (!DECL_INITIAL (decl) || !TREE_PUBLIC (decl))
+	sdbout_symbol (decl, 0);
+
+      /* Output COFF information for non-global file-scope initialized
+	 variables.  */
+      if (DECL_INITIAL (decl) && GET_CODE (DECL_RTL (decl)) == MEM)
+	sdbout_toplevel_data (decl);
+    }
+}
+
+/* Output initialized global vars at the end, in the order of
+   definition.  See comment in sdbout_global_decl.  */
+
+static void
+sdbout_finish (main_filename)
+     const char *main_filename ATTRIBUTE_UNUSED;
+{
+  tree decl = getdecls ();
+  unsigned int len = list_length (decl);
+  tree *vec = (tree *) xmalloc (sizeof (tree) * len);
+  unsigned int i;
+
+  /* Process the decls in reverse order--earliest first.  Put them
+     into VEC from back to front, then take out from front.  */
+
+  for (i = 0; i < len; i++, decl = TREE_CHAIN (decl))
+    vec[len - i - 1] = decl;
+
+  for (i = 0; i < len; i++)
+    {
+      decl = vec[i];
+      if (TREE_CODE (decl) == VAR_DECL
+	  && ! DECL_EXTERNAL (decl)
+	  && DECL_INITIAL (decl)
+	  && TREE_PUBLIC (decl)
+	  && DECL_RTL_SET_P (decl))
+	sdbout_symbol (decl, 0);
+    }
+
+  free (vec);
+}
+
 /* Describe the beginning of an internal block within a function.
    Also output descriptions of variables defined in this block.
 
@@ -1452,11 +1547,10 @@ sdbout_reg_parms (parms)
    The blocks match the BLOCKs in DECL_INITIAL (current_function_decl),
    if the count starts at 0 for the outermost one.  */
 
-void
-sdbout_begin_block (file, line, n)
-     FILE *file ATTRIBUTE_UNUSED;
-     int line;
-     int n;
+static void
+sdbout_begin_block (line, n)
+     unsigned int line;
+     unsigned int n;
 {
   tree decl = current_function_decl;
   MAKE_LINE_SAFE (line);
@@ -1490,11 +1584,10 @@ sdbout_begin_block (file, line, n)
 
 /* Describe the end line-number of an internal block within a function.  */
 
-void
-sdbout_end_block (file, line, n)
-     FILE *file ATTRIBUTE_UNUSED;
-     int line;
-     int n ATTRIBUTE_UNUSED;
+static void
+sdbout_end_block (line, n)
+     unsigned int line;
+     unsigned int n ATTRIBUTE_UNUSED;
 {
   MAKE_LINE_SAFE (line);
 
@@ -1507,24 +1600,53 @@ sdbout_end_block (file, line, n)
   PUT_SDB_BLOCK_END (line - sdb_begin_function_line);
 }
 
+static void
+sdbout_source_line (line, filename)
+     unsigned int line;
+     const char *filename ATTRIBUTE_UNUSED;
+{
+  /* COFF relative line numbers must be positive.  */
+  if (line > sdb_begin_function_line)
+    {
+#ifdef ASM_OUTPUT_SOURCE_LINE
+      ASM_OUTPUT_SOURCE_LINE (asm_out_file, line);
+#else
+      fprintf (asm_out_file, "\t.ln\t%d\n",
+	       ((sdb_begin_function_line > -1)
+		? line - sdb_begin_function_line : 1));
+#endif
+    }
+}
+
 /* Output sdb info for the current function name.
    Called from assemble_start_function.  */
 
-void
-sdbout_mark_begin_function ()
+static void
+sdbout_begin_function (decl)
+     tree decl ATTRIBUTE_UNUSED;
 {
   sdbout_symbol (current_function_decl, 0);
 }
 
-/* Called at beginning of function body (after prologue).
-   Record the function's starting line number, so we can output
-   relative line numbers for the other lines.
-   Describe beginning of outermost block.
-   Also describe the parameter list.  */
+/* Called at beginning of function body (before or after prologue,
+   depending on MIPS_DEBUGGING_INFO).  Record the function's starting
+   line number, so we can output relative line numbers for the other
+   lines.  Describe beginning of outermost block.  Also describe the
+   parameter list.  */
 
-void
-sdbout_begin_function (line)
-     int line;
+#ifndef MIPS_DEBUGGING_INFO
+static void
+sdbout_begin_prologue (line, file)
+     unsigned int line;
+     const char *file ATTRIBUTE_UNUSED;
+{
+  sdbout_end_prologue (line);
+}
+#endif
+
+static void
+sdbout_end_prologue (line)
+     unsigned int line;
 {
   sdb_begin_function_line = line - 1;
   PUT_SDB_FUNCTION_START (line);
@@ -1535,9 +1657,9 @@ sdbout_begin_function (line)
 /* Called at end of function (before epilogue).
    Describe end of outermost block.  */
 
-void
+static void
 sdbout_end_function (line)
-     int line;
+     unsigned int line;
 {
 #ifdef SDB_ALLOW_FORWARD_REFERENCES
   sdbout_dequeue_anonymous_types ();
@@ -1553,17 +1675,26 @@ sdbout_end_function (line)
 /* Output sdb info for the absolute end of a function.
    Called after the epilogue is output.  */
 
-void
+static void
 sdbout_end_epilogue ()
 {
-  PUT_SDB_EPILOGUE_END
-    (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)));
+  const char *name
+    = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl));
+
+#ifdef PUT_SDB_EPILOGUE_END
+  PUT_SDB_EPILOGUE_END (name);
+#else
+  fprintf (asm_out_file, "\t.def\t");
+  assemble_name (asm_out_file, name);
+  fprintf (asm_out_file, "%s\t.val\t.%s\t.scl\t-1%s\t.endef\n",
+	   SDB_DELIM, SDB_DELIM, SDB_DELIM);
+#endif
 }
 
 /* Output sdb info for the given label.  Called only if LABEL_NAME (insn)
    is present.  */
 
-void
+static void
 sdbout_label (insn)
      register rtx insn;
 {
@@ -1576,8 +1707,9 @@ sdbout_label (insn)
 
 /* Change to reading from a new source file.  */
 
-void
-sdbout_start_new_source_file (filename)
+static void
+sdbout_start_source_file (line, filename)
+     unsigned int line ATTRIBUTE_UNUSED;
      const char *filename ATTRIBUTE_UNUSED;
 {
 #ifdef MIPS_DEBUGGING_INFO
@@ -1592,8 +1724,9 @@ sdbout_start_new_source_file (filename)
 
 /* Revert to reading a previous source file.  */
 
-void
-sdbout_resume_previous_source_file ()
+static void
+sdbout_end_source_file (line)
+     unsigned int line ATTRIBUTE_UNUSED;
 {
 #ifdef MIPS_DEBUGGING_INFO
   struct sdb_file *next;
@@ -1607,11 +1740,9 @@ sdbout_resume_previous_source_file ()
 
 /* Set up for SDB output at the start of compilation.  */
 
-void
-sdbout_init (asm_file, input_file_name, syms)
-     FILE *asm_file ATTRIBUTE_UNUSED;
+static void
+sdbout_init (input_file_name)
      const char *input_file_name ATTRIBUTE_UNUSED;
-     tree syms ATTRIBUTE_UNUSED;
 {
 #ifdef MIPS_DEBUGGING_INFO
   current_file = (struct sdb_file *) xmalloc (sizeof *current_file);
@@ -1621,7 +1752,7 @@ sdbout_init (asm_file, input_file_name, syms)
 
 #ifdef RMS_QUICK_HACK_1
   tree t;
-  for (t = syms; t; t = TREE_CHAIN (t))
+  for (t = getdecls (); t; t = TREE_CHAIN (t))
     if (DECL_NAME (t) && IDENTIFIER_POINTER (DECL_NAME (t)) != 0
 	&& !strcmp (IDENTIFIER_POINTER (DECL_NAME (t)), "__vtbl_ptr_type"))
       sdbout_symbol (t, 0);

@@ -33,7 +33,12 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-attr.h"
 #include "recog.h"
 #include "toplev.h"
+#include "expr.h"
+#include "reload.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
+#include "debug.h"
 
 /* Needed for use_return_insn.  */
 #include "flags.h"
@@ -54,6 +59,13 @@ int switch_table_difference_label_flag;
 
 static rtx find_addr_reg PARAMS ((rtx));
 static const char *singlemove_string PARAMS ((rtx *));
+static void m68k_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+static void m68k_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void m68k_coff_asm_named_section PARAMS ((const char *, unsigned int,
+						 unsigned int));
+#ifdef CTOR_LIST_BEGIN
+static void m68k_svr3_asm_out_constructor PARAMS ((rtx, int));
+#endif
 
 
 /* Alignment to use for loops and jumps */
@@ -75,7 +87,15 @@ int m68k_align_funcs;
    sCC expanders peek at this to determine what to do for the
    68060, which has no fsCC instructions.  */
 int m68k_last_compare_had_fp_operands;
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE m68k_output_function_prologue
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE m68k_output_function_epilogue
 
+struct gcc_target targetm = TARGET_INITIALIZER;
+
 /* Sometimes certain combinations of command options do not make
    sense on a particular target machine.  You can define a macro
    `OVERRIDE_OPTIONS' to take account of this.  This macro, if
@@ -140,18 +160,236 @@ override_options ()
 /* Note that the order of the bit mask for fmovem is the opposite
    of the order for movem!  */
 
+#ifdef CRDS
 
-void
-output_function_prologue (stream, size)
+static void
+m68k_output_function_prologue (stream, size)
      FILE *stream;
-     int size;
+     HOST_WIDE_INT size;
+{
+  register int regno;
+  register int mask = 0;
+  extern char call_used_regs[];
+  HOST_WIDE_INT fsize = ((size) + 3) & -4;
+
+  /* unos stack probe */
+  if (fsize > 30000)
+    {
+      fprintf (stream, "\tmovel sp,a0\n");
+      fprintf (stream, "\taddl $-%d,a0\n", 2048 + fsize);
+      fprintf (stream, "\ttstb (a0)\n");
+    }
+  else
+    fprintf (stream, "\ttstb -%d(sp)\n", 2048 + fsize);
+
+  if (frame_pointer_needed)
+    {
+      if (TARGET_68020 || fsize < 0x8000)
+	fprintf (stream, "\tlink a6,$%d\n", -fsize);
+      else
+	fprintf (stream, "\tlink a6,$0\n\tsubl $%d,sp\n", fsize);
+    }
+  else if (fsize)
+    {
+      /* Adding negative number is faster on the 68040.  */
+      if (fsize + 4 < 0x8000)
+	  fprintf (stream, "\tadd.w #%d,sp\n", - (fsize + 4));
+      else
+	  fprintf (stream, "\tadd.l #%d,sp\n", - (fsize + 4));
+    }
+
+  for (regno = 16; regno < 24; regno++)
+    if (regs_ever_live[regno] && ! call_used_regs[regno])
+      mask |= 1 << (regno - 16);
+
+  if ((mask & 0xff) != 0)
+    fprintf (stream, "\tfmovem $0x%x,-(sp)\n", mask & 0xff);
+
+  mask = 0;
+  for (regno = 0; regno < 16; regno++)
+    if (regs_ever_live[regno] && ! call_used_regs[regno])
+      mask |= 1 << (15 - regno);
+  if (frame_pointer_needed)
+    mask &= ~ (1 << (15-FRAME_POINTER_REGNUM));
+
+  if (exact_log2 (mask) >= 0)
+    fprintf (stream, "\tmovel %s,-(sp)\n", reg_names[15 - exact_log2 (mask)]);
+  else if (mask)
+    fprintf (stream, "\tmovem $0x%x,-(sp)\n", mask);
+}
+
+#else
+#if defined (DPX2) && defined (MOTOROLA)
+
+static void
+m68k_output_function_prologue (stream, size)
+     FILE *stream;
+     HOST_WIDE_INT size;
+{
+  register int regno;
+  register int mask = 0;
+  int num_saved_regs = 0, first = 1;
+  extern char call_used_regs[];
+  HOST_WIDE_INT fsize = ((size) + 3) & -4;
+
+  if (frame_pointer_needed)
+    {
+      /* Adding negative number is faster on the 68040.  */
+      if (fsize < 0x8000 && !TARGET_68040)
+	fprintf (stream, "\tlink %s,#%d\n",
+		 reg_names[FRAME_POINTER_REGNUM], -fsize);
+      else if (TARGET_68020)
+	fprintf (stream, "\tlink %s,#%d\n",
+		 reg_names[FRAME_POINTER_REGNUM], -fsize);
+      else
+	fprintf (stream, "\tlink %s,#0\n\tadd.l #%d,sp\n",
+		 reg_names[FRAME_POINTER_REGNUM], -fsize);
+    }
+  else if (fsize)
+    {
+      /* Adding negative number is faster on the 68040.  */
+      if (fsize + 4 < 0x8000)
+	fprintf (stream, "\tadd.w #%d,sp\n", - (fsize + 4));
+      else
+	fprintf (stream, "\tadd.l #%d,sp\n", - (fsize + 4));
+    }
+
+  for (regno = 23; regno >= 16; regno--)
+    if (regs_ever_live[regno] && ! call_used_regs[regno])
+      {
+	if (first)
+	  {
+	    fprintf (stream, "\tfmovem.x %s", reg_names[regno]);
+	    first = 0;
+	  }
+	else
+	  fprintf (stream, "/%s", reg_names[regno]);
+      }
+  if (!first)
+    fprintf (stream, ",-(sp)\n");
+
+  mask = 0;
+  for (regno = 0; regno < 16; regno++)
+    if (regs_ever_live[regno] && ! call_used_regs[regno])
+      {
+        mask |= 1 << (15 - regno);
+        num_saved_regs++;
+      }
+
+  if (frame_pointer_needed)
+    {
+      mask &= ~ (1 << (15 - FRAME_POINTER_REGNUM));
+      num_saved_regs--;
+    }
+
+  if (num_saved_regs <= 2)
+    {
+      /* Store each separately in the same order moveml uses.
+         Using two movel instructions instead of a single moveml
+         is about 15% faster for the 68020 and 68030 at no expense
+         in code size */
+
+      int i;
+
+      /* Undo the work from above. */
+      for (i = 0; i< 16; i++)
+        if (mask & (1 << i))
+          fprintf (stream, "\tmove.l %s,-(sp)\n", reg_names[15 - i]);
+    }
+  else if (mask)
+    {
+      first = 1;
+      for (regno = 0; regno < 16; regno++)
+        if (mask & (1 << regno))
+	  {
+	    if (first)
+	      {
+		fprintf (stream, "\tmovem.l %s", reg_names[15 - regno]);
+		first = 0;
+	      }
+	    else
+	      fprintf (stream, "/%s", reg_names[15 - regno]);
+	  }
+      fprintf (stream, ",-(sp)\n");
+    }
+
+  if (flag_pic && current_function_uses_pic_offset_table)
+    {
+      fprintf (stream, "\tmove.l #__GLOBAL_OFFSET_TABLE_, %s\n",
+	       reg_names[PIC_OFFSET_TABLE_REGNUM]);
+      fprintf (stream, "\tlea.l (pc,%s.l),%s\n",
+	       reg_names[PIC_OFFSET_TABLE_REGNUM],
+	       reg_names[PIC_OFFSET_TABLE_REGNUM]);
+    }
+}
+
+#else
+#if defined (NEWS) && defined (MOTOROLA)
+
+static void
+m68k_output_function_prologue (stream, size)
+     FILE *stream;
+     HOST_WIDE_INT size;
+{
+  register int regno;
+  register int mask = 0;
+  extern char call_used_regs[];
+  HOST_WIDE_INT fsize = ((size) + 3) & -4;
+
+  if (frame_pointer_needed)
+    {
+      if (fsize < 0x8000)
+	fprintf (stream, "\tlink fp,#%d\n", -fsize);
+      else if (TARGET_68020)
+	fprintf (stream, "\tlink.l fp,#%d\n", -fsize);
+      else
+	fprintf (stream, "\tlink fp,#0\n\tsub.l #%d,sp\n", fsize);
+    }
+  else if (fsize)
+    {
+      int amt = fsize + 4;
+      /* Adding negative number is faster on the 68040.  */
+      if (fsize + 4 < 0x8000)
+	asm_fprintf (stream, "\tadd.w %0I%d,%Rsp\n", - amt);
+      else
+	asm_fprintf (stream, "\tadd.l %0I%d,%Rsp\n", - amt);
+    }
+
+  for (regno = 16; regno < FIRST_PSEUDO_REGISTER; regno++)
+    if (regs_ever_live[regno] && ! call_used_regs[regno])
+      mask |= 1 << (regno - 16);
+
+  if (mask != 0)
+    fprintf (stream, "\tfmovem.x #0x%x,-(sp)\n", mask & 0xff);
+
+  mask = 0;
+  for (regno = 0; regno < 16; regno++)
+    if (regs_ever_live[regno] && ! call_used_regs[regno])
+      mask |= 1 << (15 - regno);
+
+  if (frame_pointer_needed)
+    mask &= ~ (1 << (15-FRAME_POINTER_REGNUM));
+
+  if (exact_log2 (mask) >= 0)
+    fprintf (stream, "\tmove.l %s,-(sp)\n", reg_names[15 - exact_log2 (mask)]);
+  else
+    if (mask) fprintf (stream, "\tmovem.l #0x%x,-(sp)\n", mask);
+}
+
+#else  /* !CRDS && ! (NEWS && MOTOROLA) && ! (DPX2 && MOTOROLA) */
+
+static void
+m68k_output_function_prologue (stream, size)
+     FILE *stream;
+     HOST_WIDE_INT size;
 {
   register int regno;
   register int mask = 0;
   int num_saved_regs = 0;
   extern char call_used_regs[];
-  int fsize = (size + 3) & -4;
-  int cfa_offset = INCOMING_FRAME_SP_OFFSET, cfa_store_offset = cfa_offset;
+  HOST_WIDE_INT fsize = (size + 3) & -4;
+  HOST_WIDE_INT cfa_offset = INCOMING_FRAME_SP_OFFSET;
+  HOST_WIDE_INT cfa_store_offset = cfa_offset;
   
   /* If the stack limit is a symbol, we can check it here,
      before actually allocating the space.  */
@@ -379,11 +617,7 @@ output_function_prologue (stream, size)
 
 #if NEED_PROBE
 #ifdef MOTOROLA
-#ifdef CRDS
-  asm_fprintf (stream, "\ttstl %d(%Rsp)\n", NEED_PROBE - num_saved_regs * 4);
-#else
   asm_fprintf (stream, "\ttst.l %d(%Rsp)\n", NEED_PROBE - num_saved_regs * 4);
-#endif
 #else
   asm_fprintf (stream, "\ttstl %Rsp@(%d)\n", NEED_PROBE - num_saved_regs * 4);
 #endif
@@ -509,6 +743,9 @@ output_function_prologue (stream, size)
 #endif
     }
 }
+#endif   /* ! (DPX2 && MOTOROLA)  */
+#endif   /* ! (NEWS && MOTOROLA)  */
+#endif   /* !CRDS  */
 
 /* Return true if this function's epilogue can be output as RTL.  */
 
@@ -534,24 +771,406 @@ use_return_insn ()
 }
 
 /* This function generates the assembly code for function exit,
-   on machines that need it.  Args are same as for FUNCTION_PROLOGUE.
+   on machines that need it.
 
    The function epilogue should not depend on the current stack pointer!
    It should use the frame pointer only, if there is a frame pointer.
    This is mandatory because of alloca; we also take advantage of it to
    omit stack adjustments before returning.  */
 
-void
-output_function_epilogue (stream, size)
+#ifdef CRDS
+
+static void
+m68k_output_function_epilogue (stream, size)
      FILE *stream;
-     int size;
+     HOST_WIDE_INT size;
 {
   register int regno;
   register int mask, fmask;
   register int nregs;
-  int offset, foffset, fpoffset;
+  HOST_WIDE_INT offset, foffset, fpoffset;
   extern char call_used_regs[];
-  int fsize = (size + 3) & -4;
+  HOST_WIDE_INT fsize = ((size) + 3) & -4;
+  int big = 0;
+
+  nregs = 0;  fmask = 0; fpoffset = 0;
+  for (regno = 16; regno < 24; regno++)
+    if (regs_ever_live[regno] && ! call_used_regs[regno])
+      {
+	nregs++;
+	fmask |= 1 << (23 - regno);
+      }
+
+  foffset = fpoffset + nregs * 12;
+  nregs = 0;  mask = 0;
+  if (frame_pointer_needed)
+    regs_ever_live[FRAME_POINTER_REGNUM] = 0;
+
+  for (regno = 0; regno < 16; regno++)
+    if (regs_ever_live[regno] && ! call_used_regs[regno])
+      {
+	nregs++;
+	mask |= 1 << regno;
+      }
+
+  offset = foffset + nregs * 4;
+  if (offset + fsize >= 0x8000
+      && frame_pointer_needed
+      && (mask || fmask || fpoffset))
+    {
+      fprintf (stream, "\tmovel $%d,a0\n", -fsize);
+      fsize = 0, big = 1;
+    }
+
+  if (exact_log2 (mask) >= 0)
+    {
+      if (big)
+	fprintf (stream, "\tmovel -%d(a6,a0.l),%s\n",
+		 offset + fsize, reg_names[exact_log2 (mask)]);
+      else if (! frame_pointer_needed)
+	fprintf (stream, "\tmovel (sp)+,%s\n",
+		 reg_names[exact_log2 (mask)]);
+      else
+	fprintf (stream, "\tmovel -%d(a6),%s\n",
+		 offset + fsize, reg_names[exact_log2 (mask)]);
+    }
+  else if (mask)
+    {
+      if (big)
+	fprintf (stream, "\tmovem -%d(a6,a0.l),$0x%x\n",
+		 offset + fsize, mask);
+      else if (! frame_pointer_needed)
+	fprintf (stream, "\tmovem (sp)+,$0x%x\n", mask);
+      else
+	fprintf (stream, "\tmovem -%d(a6),$0x%x\n",
+		 offset + fsize, mask);
+    }
+
+  if (fmask)
+    {
+      if (big)
+	fprintf (stream, "\tfmovem -%d(a6,a0.l),$0x%x\n",
+		 foffset + fsize, fmask);
+      else if (! frame_pointer_needed)
+	fprintf (stream, "\tfmovem (sp)+,$0x%x\n", fmask);
+      else
+	fprintf (stream, "\tfmovem -%d(a6),$0x%x\n",
+		 foffset + fsize, fmask);
+    }
+
+  if (fpoffset != 0)
+    for (regno = 55; regno >= 24; regno--)
+      if (regs_ever_live[regno] && ! call_used_regs[regno])
+	{
+	  if (big)
+	    fprintf(stream, "\tfpmoved -%d(a6,a0.l), %s\n",
+		    fpoffset + fsize, reg_names[regno]);
+	  else if (! frame_pointer_needed)
+	    fprintf(stream, "\tfpmoved (sp)+, %s\n",
+		    reg_names[regno]);
+	  else
+	    fprintf(stream, "\tfpmoved -%d(a6), %s\n",
+		    fpoffset + fsize, reg_names[regno]);
+	  fpoffset -= 8;
+	}
+
+  if (frame_pointer_needed)
+    fprintf (stream, "\tunlk a6\n");
+  else if (fsize)
+    {
+      if (fsize + 4 < 0x8000)
+	fprintf (stream, "\tadd.w #%d,sp\n", fsize + 4);
+      else
+	fprintf (stream, "\tadd.l #%d,sp\n", fsize + 4);
+    }
+
+  if (current_function_pops_args)
+    fprintf (stream, "\trtd $%d\n", current_function_pops_args);
+  else
+    fprintf (stream, "\trts\n");
+}
+
+#else
+#if defined (DPX2) && defined (MOTOROLA)
+
+static void
+m68k_output_function_epilogue (stream, size)
+     FILE *stream;
+     HOST_WIDE_INT size;
+{
+  register int regno;
+  register int mask, fmask;
+  register int nregs;
+  HOST_WIDE_INT offset, foffset, fpoffset, first = 1;
+  extern char call_used_regs[];
+  HOST_WIDE_INT fsize = ((size) + 3) & -4;
+  int big = 0;
+  rtx insn = get_last_insn ();
+
+  /* If the last insn was a BARRIER, we don't have to write any code.  */
+  if (GET_CODE (insn) == NOTE)
+    insn = prev_nonnote_insn (insn);
+  if (insn && GET_CODE (insn) == BARRIER)
+    {
+      /* Output just a no-op so that debuggers don't get confused
+	 about which function the pc is in at this address.  */
+      fprintf (stream, "\tnop\n");
+      return;
+    }
+
+  nregs = 0;  fmask = 0; fpoffset = 0;
+  for (regno = 16; regno < 24; regno++)
+    if (regs_ever_live[regno] && ! call_used_regs[regno])
+      {
+        nregs++;
+	fmask |= 1 << (23 - regno);
+      }
+
+  foffset = fpoffset + nregs * 12;
+  nregs = 0;  mask = 0;
+  if (frame_pointer_needed)
+    regs_ever_live[FRAME_POINTER_REGNUM] = 0;
+
+  for (regno = 0; regno < 16; regno++)
+    if (regs_ever_live[regno] && ! call_used_regs[regno])
+      {
+        nregs++;
+	mask |= 1 << regno;
+      }
+
+  offset = foffset + nregs * 4;
+  if (offset + fsize >= 0x8000
+      && frame_pointer_needed
+      && (mask || fmask || fpoffset))
+    {
+      fprintf (stream, "\tmove.l #%d,a0\n", -fsize);
+      fsize = 0, big = 1;
+    }
+
+  if (nregs <= 2)
+    {
+      /* Restore each separately in the same order moveml does.
+         Using two movel instructions instead of a single moveml
+         is about 15% faster for the 68020 and 68030 at no expense
+         in code size. */
+
+      int i;
+
+      /* Undo the work from above. */
+      for (i = 0; i< 16; i++)
+        if (mask & (1 << i))
+          {
+            if (big)
+	      fprintf (stream, "\tmove.l -%d(%s,a0.l),%s\n",
+		       offset + fsize,
+		       reg_names[FRAME_POINTER_REGNUM],
+		       reg_names[i]);
+            else if (! frame_pointer_needed)
+	      fprintf (stream, "\tmove.l (sp)+,%s\n",
+		       reg_names[i]);
+            else
+	      fprintf (stream, "\tmove.l -%d(%s),%s\n",
+		       offset + fsize,
+		       reg_names[FRAME_POINTER_REGNUM],
+		       reg_names[i]);
+            offset = offset - 4;
+          }
+    }
+  else if (mask)
+    {
+      first = 1;
+      for (regno = 0; regno < 16; regno++)
+        if (mask & (1 << regno))
+	  {
+	    if (first && big)
+	      {
+		fprintf (stream, "\tmovem.l -%d(%s,a0.l),%s",
+			 offset + fsize,
+			 reg_names[FRAME_POINTER_REGNUM],
+			 reg_names[regno]);
+		first = 0;
+	      }
+	    else if (first && ! frame_pointer_needed)
+	      {
+		fprintf (stream, "\tmovem.l (sp)+,%s",
+			 reg_names[regno]);
+		first = 0;
+	      }
+	    else if (first)
+	      {
+		fprintf (stream, "\tmovem.l -%d(%s),%s",
+			 offset + fsize,
+			 reg_names[FRAME_POINTER_REGNUM],
+			 reg_names[regno]);
+		first = 0;
+	      }
+	    else
+	      fprintf (stream, "/%s", reg_names[regno]);
+	  }
+      fprintf (stream, "\n");
+    }
+
+  if (fmask)
+    {
+      first = 1;
+      for (regno = 16; regno < 24; regno++)
+        if (fmask & (1 << (23 - regno)))
+	  {
+	    if (first && big)
+	      {
+		fprintf (stream, "\tfmovem.x -%d(%s,a0.l),%s",
+			 foffset + fsize,
+			 reg_names[FRAME_POINTER_REGNUM],
+			 reg_names[regno]);
+		first = 0;
+	      }
+	    else if (first && ! frame_pointer_needed)
+	      {
+		fprintf (stream, "\tfmovem.x (sp)+,%s",
+			 reg_names[regno]);
+		first = 0;
+	      }
+	    else if (first)
+	      {
+		fprintf (stream, "\tfmovem.x -%d(%s),%s",
+			 foffset + fsize,
+			 reg_names[FRAME_POINTER_REGNUM],
+			 reg_names[regno]);
+		first = 0;
+	      }
+	    else
+	      fprintf (stream, "/%s", reg_names[regno]);
+	  }
+      fprintf (stream, "\n");
+    }
+
+  if (frame_pointer_needed)
+    fprintf (stream, "\tunlk %s\n",
+	     reg_names[FRAME_POINTER_REGNUM]);
+  else if (fsize)
+    {
+      if (fsize + 4 < 0x8000)
+	fprintf (stream, "\tadd.w #%d,sp\n", fsize + 4);
+      else
+	fprintf (stream, "\tadd.l #%d,sp\n", fsize + 4);
+    }
+
+  if (current_function_pops_args)
+    fprintf (stream, "\trtd #%d\n", current_function_pops_args);
+  else
+    fprintf (stream, "\trts\n");
+}
+
+#else
+#if defined (NEWS) && defined (MOTOROLA)
+
+static void
+m68k_output_function_epilogue (stream, size)
+     FILE *stream;
+     HOST_WIDE_INT size;
+{
+  register int regno;
+  register int mask, fmask;
+  register int nregs;
+  HOST_WIDE_INT offset, foffset;
+  extern char call_used_regs[];
+  HOST_WIDE_INT fsize = ((size) + 3) & -4;
+  int big = 0;
+
+  nregs = 0;  fmask = 0;
+  for (regno = 16; regno < FIRST_PSEUDO_REGISTER; regno++)
+    if (regs_ever_live[regno] && ! call_used_regs[regno])
+      {
+	nregs++;
+	fmask |= 1 << (23 - regno);
+      }
+
+  foffset = nregs * 12;
+  nregs = 0;  mask = 0;
+  if (frame_pointer_needed)
+    regs_ever_live[FRAME_POINTER_REGNUM] = 0;
+
+  for (regno = 0; regno < 16; regno++)
+    if (regs_ever_live[regno] && ! call_used_regs[regno])
+      {
+	nregs++;
+	mask |= 1 << regno;
+      }
+
+  offset = foffset + nregs * 4;
+  if (offset + fsize >= 0x8000
+      && frame_pointer_needed
+      && (mask || fmask))
+    {
+      fprintf (stream, "\tmove.l #%d,a0\n", -fsize);
+      fsize = 0, big = 1;
+    }
+
+  if (exact_log2 (mask) >= 0)
+    {
+      if (big)
+	fprintf (stream, "\tmove.l (-%d,fp,a0.l),%s\n",
+		 offset + fsize, reg_names[exact_log2 (mask)]);
+      else if (! frame_pointer_needed)
+	fprintf (stream, "\tmove.l (sp)+,%s\n",
+		 reg_names[exact_log2 (mask)]);
+      else
+	fprintf (stream, "\tmove.l (-%d,fp),%s\n",
+		 offset + fsize, reg_names[exact_log2 (mask)]);
+    }
+  else if (mask)
+    {
+      if (big)
+	fprintf (stream, "\tmovem.l (-%d,fp,a0.l),#0x%x\n",
+		 offset + fsize, mask);
+      else if (! frame_pointer_needed)
+	fprintf (stream, "\tmovem.l (sp)+,#0x%x\n", mask);
+      else
+	fprintf (stream, "\tmovem.l (-%d,fp),#0x%x\n",
+		 offset + fsize, mask);
+    }
+
+  if (fmask)
+    {
+      if (big)
+	fprintf (stream, "\tfmovem.x (-%d,fp,a0.l),#0x%x\n",
+		 foffset + fsize, fmask);
+      else if (! frame_pointer_needed)
+	fprintf (stream, "\tfmovem.x (sp)+,#0x%x\n", fmask);
+      else
+	fprintf (stream, "\tfmovem.x (-%d,fp),#0x%x\n",
+		 foffset + fsize, fmask);
+    }
+
+  if (frame_pointer_needed)
+    fprintf (stream, "\tunlk fp\n");
+  else if (fsize)
+    {
+      if (fsize + 4 < 0x8000)
+	fprintf (stream, "\tadd.w #%d,sp\n", fsize + 4);
+      else
+	fprintf (stream, "\tadd.l #%d,sp\n", fsize + 4);
+    }
+
+  if (current_function_pops_args)
+    fprintf (stream, "\trtd #%d\n", current_function_pops_args);
+  else
+    fprintf (stream, "\trts\n");
+}
+
+#else  /* !CRDS && ! (NEWS && MOTOROLA) && ! (DPX2 && MOTOROLA) */
+
+static void
+m68k_output_function_epilogue (stream, size)
+     FILE *stream;
+     HOST_WIDE_INT size;
+{
+  register int regno;
+  register int mask, fmask;
+  register int nregs;
+  HOST_WIDE_INT offset, foffset, fpoffset;
+  extern char call_used_regs[];
+  HOST_WIDE_INT fsize = (size + 3) & -4;
   int big = 0;
   rtx insn = get_last_insn ();
   int restore_from_sp = 0;
@@ -869,6 +1488,10 @@ output_function_epilogue (stream, size)
   else
     fprintf (stream, "\trts\n");
 }
+
+#endif   /* ! (DPX2 && MOTOROLA)  */
+#endif   /* ! (NEWS && MOTOROLA)  */
+#endif   /* !CRDS  */
 
 /* Similar to general_operand, but exclude stack_pointer_rtx.  */
 
@@ -877,7 +1500,7 @@ not_sp_operand (op, mode)
      register rtx op;
      enum machine_mode mode;
 {
-  return op != stack_pointer_rtx && general_operand (op, mode);
+  return op != stack_pointer_rtx && nonimmediate_operand (op, mode);
 }
 
 /* Return TRUE if X is a valid comparison operator for the dbcc 
@@ -1060,14 +1683,14 @@ output_scc_di(op, operand1, operand2, dest)
   if (GET_CODE (operand1) == REG)
     loperands[1] = gen_rtx_REG (SImode, REGNO (operand1) + 1);
   else
-    loperands[1] = adj_offsettable_operand (operand1, 4);
+    loperands[1] = adjust_address (operand1, SImode, 4);
   if (operand2 != const0_rtx)
     {
       loperands[2] = operand2;
       if (GET_CODE (operand2) == REG)
 	loperands[3] = gen_rtx_REG (SImode, REGNO (operand2) + 1);
       else
-	loperands[3] = adj_offsettable_operand (operand2, 4);
+	loperands[3] = adjust_address (operand2, SImode, 4);
     }
   loperands[4] = gen_label_rtx();
   if (operand2 != const0_rtx)
@@ -1238,7 +1861,7 @@ output_btst (operands, countop, dataop, insn, signpos)
 	{
 	  int offset = (count & ~signpos) / 8;
 	  count = count & signpos;
-	  operands[1] = dataop = adj_offsettable_operand (dataop, offset);
+	  operands[1] = dataop = adjust_address (dataop, QImode, offset);
 	}
       if (count == signpos)
 	cc_status.flags = CC_NOT_POSITIVE | CC_Z_IN_NOT_N;
@@ -1396,7 +2019,7 @@ legitimize_pic_address (orig, mode, reg)
       else abort ();
 
       if (GET_CODE (orig) == CONST_INT)
-	return plus_constant_for_output (base, INTVAL (orig));
+	return plus_constant (base, INTVAL (orig));
       pic_ref = gen_rtx_PLUS (Pmode, base, orig);
       /* Likewise, should we set special REG_NOTEs here?  */
     }
@@ -1873,8 +2496,8 @@ output_move_double (operands)
 	}
       else if (optype0 == OFFSOP)
 	{
-	  middlehalf[0] = adj_offsettable_operand (operands[0], 4);
-	  latehalf[0] = adj_offsettable_operand (operands[0], size - 4);
+	  middlehalf[0] = adjust_address (operands[0], SImode, 4);
+	  latehalf[0] = adjust_address (operands[0], SImode, size - 4);
 	}
       else
 	{
@@ -1889,8 +2512,8 @@ output_move_double (operands)
 	}
       else if (optype1 == OFFSOP)
 	{
-	  middlehalf[1] = adj_offsettable_operand (operands[1], 4);
-	  latehalf[1] = adj_offsettable_operand (operands[1], size - 4);
+	  middlehalf[1] = adjust_address (operands[1], SImode, 4);
+	  latehalf[1] = adjust_address (operands[1], SImode, size - 4);
 	}
       else if (optype1 == CNSTOP)
 	{
@@ -1928,14 +2551,14 @@ output_move_double (operands)
       if (optype0 == REGOP)
 	latehalf[0] = gen_rtx_REG (SImode, REGNO (operands[0]) + 1);
       else if (optype0 == OFFSOP)
-	latehalf[0] = adj_offsettable_operand (operands[0], size - 4);
+	latehalf[0] = adjust_address (operands[0], SImode, size - 4);
       else
 	latehalf[0] = operands[0];
 
       if (optype1 == REGOP)
 	latehalf[1] = gen_rtx_REG (SImode, REGNO (operands[1]) + 1);
       else if (optype1 == OFFSOP)
-	latehalf[1] = adj_offsettable_operand (operands[1], size - 4);
+	latehalf[1] = adjust_address (operands[1], SImode, size - 4);
       else if (optype1 == CNSTOP)
 	split_double (operands[1], &operands[1], &latehalf[1]);
       else
@@ -1970,16 +2593,16 @@ compadr:
 	  xops[0] = latehalf[0];
 	  xops[1] = XEXP (operands[1], 0);
 	  output_asm_insn ("lea %a1,%0", xops);
-	  if( GET_MODE (operands[1]) == XFmode )
+	  if (GET_MODE (operands[1]) == XFmode )
 	    {
 	      operands[1] = gen_rtx_MEM (XFmode, latehalf[0]);
-	      middlehalf[1] = adj_offsettable_operand (operands[1], size-8);
-	      latehalf[1] = adj_offsettable_operand (operands[1], size-4);
+	      middlehalf[1] = adjust_address (operands[1], DImode, size - 8);
+	      latehalf[1] = adjust_address (operands[1], DImode, size - 4);
 	    }
 	  else
 	    {
 	      operands[1] = gen_rtx_MEM (DImode, latehalf[0]);
-	      latehalf[1] = adj_offsettable_operand (operands[1], size-4);
+	      latehalf[1] = adjust_address (operands[1], DImode, size - 4);
 	    }
 	}
       else if (size == 12
@@ -3213,23 +3836,17 @@ print_operand_address (file, addr)
 #ifdef MOTOROLA
 #ifdef SGS
 	    /* Many SGS assemblers croak on size specifiers for constants. */
-	    fprintf (file, "%d", INTVAL (addr));
+	    fprintf (file, "%d", (int) INTVAL (addr));
 #else
-	    fprintf (file, "%d.w", INTVAL (addr));
+	    fprintf (file, "%d.w", (int) INTVAL (addr));
 #endif
 #else
-	    fprintf (file, "%d:w", INTVAL (addr));
+	    fprintf (file, "%d:w", (int) INTVAL (addr));
 #endif
 	  }
 	else if (GET_CODE (addr) == CONST_INT)
 	  {
-	    fprintf (file,
-#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_INT
-		     "%d",
-#else
-		     "%ld",
-#endif
-		     INTVAL (addr));
+	    fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (addr));
 	  }
 	else if (TARGET_PCREL)
 	  {
@@ -3326,8 +3943,13 @@ strict_low_part_peephole_ok (mode, first_insn, target)
 int
 const_uint32_operand (op, mode)
      rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+     enum machine_mode mode;
 {
+  /* It doesn't make sense to ask this question with a mode that is
+     not larger than 32 bits.  */
+  if (GET_MODE_BITSIZE (mode) <= 32)
+    abort ();
+
 #if HOST_BITS_PER_WIDE_INT > 32
   /* All allowed constants will fit a CONST_INT.  */
   return (GET_CODE (op) == CONST_INT
@@ -3345,8 +3967,13 @@ const_uint32_operand (op, mode)
 int
 const_sint32_operand (op, mode)
      rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+     enum machine_mode mode;
 {
+  /* It doesn't make sense to ask this question with a mode that is
+     not larger than 32 bits.  */
+  if (GET_MODE_BITSIZE (mode) <= 32)
+    abort ();
+
   /* All allowed constants will fit a CONST_INT.  */
   return (GET_CODE (op) == CONST_INT
 	  && (INTVAL (op) >= (-0x7fffffff - 1) && INTVAL (op) <= 0x7fffffff));
@@ -3486,7 +4113,7 @@ output_andsi3 (operands)
       && !TARGET_5200)
     {
       if (GET_CODE (operands[0]) != REG)
-        operands[0] = adj_offsettable_operand (operands[0], 2);
+        operands[0] = adjust_address (operands[0], HImode, 2);
       operands[2] = GEN_INT (INTVAL (operands[2]) & 0xffff);
       /* Do not delete a following tstl %0 insn; that would be incorrect.  */
       CC_STATUS_INIT;
@@ -3505,7 +4132,7 @@ output_andsi3 (operands)
         }
       else
         {
-	  operands[0] = adj_offsettable_operand (operands[0], 3 - (logval / 8));
+	  operands[0] = adjust_address (operands[0], SImode, 3 - (logval / 8));
 	  operands[1] = GEN_INT (logval % 8);
         }
       /* This does not set condition codes in a standard way.  */
@@ -3527,7 +4154,7 @@ output_iorsi3 (operands)
       && !TARGET_5200)
     {
       if (GET_CODE (operands[0]) != REG)
-        operands[0] = adj_offsettable_operand (operands[0], 2);
+        operands[0] = adjust_address (operands[0], HImode, 2);
       /* Do not delete a following tstl %0 insn; that would be incorrect.  */
       CC_STATUS_INIT;
       if (INTVAL (operands[2]) == 0xffff)
@@ -3540,12 +4167,10 @@ output_iorsi3 (operands)
 	  || offsettable_memref_p (operands[0])))
     {
       if (DATA_REG_P (operands[0]))
-	{
-	  operands[1] = GEN_INT (logval);
-	}
+	operands[1] = GEN_INT (logval);
       else
         {
-	  operands[0] = adj_offsettable_operand (operands[0], 3 - (logval / 8));
+	  operands[0] = adjust_address (operands[0], SImode, 3 - (logval / 8));
 	  operands[1] = GEN_INT (logval % 8);
 	}
       CC_STATUS_INIT;
@@ -3565,7 +4190,7 @@ output_xorsi3 (operands)
       && !TARGET_5200)
     {
       if (! DATA_REG_P (operands[0]))
-	operands[0] = adj_offsettable_operand (operands[0], 2);
+	operands[0] = adjust_address (operands[0], HImode, 2);
       /* Do not delete a following tstl %0 insn; that would be incorrect.  */
       CC_STATUS_INIT;
       if (INTVAL (operands[2]) == 0xffff)
@@ -3578,12 +4203,10 @@ output_xorsi3 (operands)
 	  || offsettable_memref_p (operands[0])))
     {
       if (DATA_REG_P (operands[0]))
-	{
-	  operands[1] = GEN_INT (logval);
-	}
+	operands[1] = GEN_INT (logval);
       else
         {
-	  operands[0] = adj_offsettable_operand (operands[0], 3 - (logval / 8));
+	  operands[0] = adjust_address (operands[0], SImode, 3 - (logval / 8));
 	  operands[1] = GEN_INT (logval % 8);
 	}
       CC_STATUS_INIT;
@@ -3591,3 +4214,37 @@ output_xorsi3 (operands)
     }
   return "eor%.l %2,%0";
 }
+
+/* Output assembly to switch to section NAME with attribute FLAGS.  */
+
+static void
+m68k_coff_asm_named_section (name, flags, align)
+     const char *name;
+     unsigned int flags;
+     unsigned int align ATTRIBUTE_UNUSED;
+{
+  char flagchar;
+
+  if (flags & SECTION_WRITE)
+    flagchar = 'd';
+  else
+    flagchar = 'x';
+
+  fprintf (asm_out_file, "\t.section\t%s,\"%c\"\n", name, flagchar);
+}
+
+#ifdef CTOR_LIST_BEGIN
+static void
+m68k_svr3_asm_out_constructor (symbol, priority)
+     rtx symbol;
+     int priority ATTRIBUTE_UNUSED;
+{
+  rtx xop[2];
+
+  xop[1] = symbol;
+  xop[0] = gen_rtx_MEM (SImode, gen_rtx_PRE_DEC (SImode, stack_pointer_rtx));
+
+  init_section ();
+  output_asm_insn (output_move_simode (xop), xop);
+}
+#endif

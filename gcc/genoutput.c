@@ -223,6 +223,7 @@ output_prologue ()
   printf ("#include \"ggc.h\"\n");
   printf ("#include \"rtl.h\"\n");
   printf ("#include \"expr.h\"\n");
+  printf ("#include \"insn-codes.h\"\n");
   printf ("#include \"tm_p.h\"\n");
   printf ("#include \"function.h\"\n");
   printf ("#include \"regs.h\"\n");
@@ -808,7 +809,7 @@ gen_insn (insn, lineno)
   validate_insn_operands (d);
   validate_insn_alternatives (d);
   place_operands (d);
-  process_template (d, XSTR (insn, 3));
+  process_template (d, XTMPL (insn, 3));
 }
 
 /* Look at a define_peephole just read.  Assign its code number.
@@ -849,7 +850,7 @@ gen_peephole (peep, lineno)
 
   validate_insn_alternatives (d);
   place_operands (d);
-  process_template (d, XSTR (peep, 2));
+  process_template (d, XTMPL (peep, 2));
 }
 
 /* Process a define_expand just read.  Assign its code number,

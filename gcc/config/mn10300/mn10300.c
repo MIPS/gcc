@@ -34,10 +34,13 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "recog.h"
 #include "expr.h"
+#include "optabs.h"
 #include "function.h"
 #include "obstack.h"
 #include "toplev.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
 
 /* The size of the callee register save area.  Right now we save everything
    on entry since it costs us nothing in code size.  It does cost us from a
@@ -48,7 +51,11 @@ Boston, MA 02111-1307, USA.  */
 			+ 4 * regs_ever_live[7] \
 			+ 16 * (regs_ever_live[14] || regs_ever_live[15] \
 				|| regs_ever_live[16] || regs_ever_live[17]))
+
+/* Initialize the GCC target structure.  */
 
+struct gcc_target targetm = TARGET_INITIALIZER;
+
 void
 asm_file_start (file)
      FILE *file;
@@ -194,7 +201,7 @@ print_operand (file, x, code)
 	  {
 	  case MEM:
 	    fputc ('(', file);
-	    x = adj_offsettable_operand (x, 4);
+	    x = adjust_address (x, SImode, 4);
 	    output_address (XEXP (x, 0));
 	    fputc (')', file);
 	    break;
@@ -863,12 +870,12 @@ mn10300_builtin_saveregs ()
     offset = current_function_arg_offset_rtx;
 
   mem = gen_rtx_MEM (SImode, current_function_internal_arg_pointer);
-  MEM_ALIAS_SET (mem) = set;
+  set_mem_alias_set (mem, set);
   emit_move_insn (mem, gen_rtx_REG (SImode, 0));
 
   mem = gen_rtx_MEM (SImode,
 		     plus_constant (current_function_internal_arg_pointer, 4));
-  MEM_ALIAS_SET (mem) = set;
+  set_mem_alias_set (mem, set);
   emit_move_insn (mem, gen_rtx_REG (SImode, 1));
 
   return copy_to_reg (expand_binop (Pmode, add_optab,

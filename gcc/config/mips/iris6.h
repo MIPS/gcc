@@ -39,6 +39,26 @@ Boston, MA 02111-1307, USA.  */
    we avoid creating such labels.  */
 #define DWARF2_GENERATE_TEXT_SECTION_LABEL 0
 
+/* wchar_t is defined differently with and without -mabi=64.  */
+
+#define NO_BUILTIN_WCHAR_TYPE
+
+#undef WCHAR_TYPE
+#define WCHAR_TYPE (Pmode == DImode ? "int" : "long int")
+
+#undef WCHAR_TYPE_SIZE
+#define WCHAR_TYPE_SIZE 32
+
+/* Same for wint_t.  */
+
+#define NO_BUILTIN_WINT_TYPE
+
+#undef WINT_TYPE
+#define WINT_TYPE (Pmode == DImode ? "int" : "long int")
+
+#undef WINT_TYPE_SIZE
+#define WINT_TYPE_SIZE 32
+
 /* For Irix 6, -mabi=64 implies TARGET_LONG64.  */
 /* This is handled in override_options.  */
 
@@ -57,10 +77,12 @@ Boston, MA 02111-1307, USA.  */
 
 #undef SUBTARGET_CPP_SIZE_SPEC
 #define SUBTARGET_CPP_SIZE_SPEC "\
-%{mabi=32: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-%{mabi=n32: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-%{mabi=64: -D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
-%{!mabi*: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}"
+%{mabi=32|mabi=n32: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int \
+-D__WCHAR_TYPE__=long\\ int -D__WINT_TYPE__=long\\ int} \
+%{mabi=64: -D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int \
+-D__WCHAR_TYPE__=int -D__WINT_TYPE__=int} \
+%{!mabi*: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int \
+-D__WCHAR_TYPE__=long\\ int -D__WINT_TYPE__=long\\ int}"
 
 /* We must make -mips3 do what -mlong64 used to do.  */
 /* ??? If no mipsX option given, but a mabi=X option is, then should set
@@ -133,6 +155,8 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_OUTPUT_UNDEF_FUNCTION
 #undef ASM_OUTPUT_EXTERNAL_LIBCALL
 #undef ASM_DECLARE_FUNCTION_SIZE
+#undef UNALIGNED_SHORT_ASM_OP
+#undef UNALIGNED_INT_ASM_OP
 
 /* Stuff we need for Irix 6 that isn't in Irix 5.  */
 
@@ -183,23 +207,6 @@ Boston, MA 02111-1307, USA.  */
 #define TYPE_ASM_OP	"\t.type\t"
 #define SIZE_ASM_OP	"\t.size\t"
 
-/* This is how we tell the assembler that a symbol is weak.  */
-
-#define ASM_OUTPUT_WEAK_ALIAS(FILE,NAME,VALUE)	\
- do {						\
-  ASM_GLOBALIZE_LABEL (FILE, NAME);		\
-  fputs ("\t.weakext\t", FILE);			\
-  assemble_name (FILE, NAME);			\
-  if (VALUE)					\
-    {						\
-      fputc (' ', FILE);			\
-      assemble_name (FILE, VALUE);		\
-    }						\
-  fputc ('\n', FILE);				\
- } while (0)
-
-#define ASM_WEAKEN_LABEL(FILE,NAME) ASM_OUTPUT_WEAK_ALIAS(FILE,NAME,0)
-
 /* Irix assembler does not support the init_priority C++ attribute.  */
 #undef SUPPORTS_INIT_PRIORITY
 #define SUPPORTS_INIT_PRIORITY 0
@@ -209,18 +216,6 @@ Boston, MA 02111-1307, USA.  */
 #define LINK_ELIMINATE_DUPLICATE_LDIRECTORIES 1
 
 #define POPSECTION_ASM_OP	"\t.popsection"
-
-#define DEBUG_INFO_SECTION	".debug_info,0x7000001e,0,0,1"
-#define DEBUG_LINE_SECTION	".debug_line,0x7000001e,0,0,1"
-#define DEBUG_SFNAMES_SECTION	".debug_sfnames,0x7000001e,0,0,1"
-#define DEBUG_SRCINFO_SECTION	".debug_srcinfo,0x7000001e,0,0,1"
-#define DEBUG_MACINFO_SECTION	".debug_macinfo,0x7000001e,0,0,1"
-#define DEBUG_PUBNAMES_SECTION	".debug_pubnames,0x7000001e,0,0,1"
-#define DEBUG_ARANGES_SECTION	".debug_aranges,0x7000001e,0,0,1"
-#define DEBUG_FRAME_SECTION	".debug_frame,0x7000001e,0x08000000,0,1"
-#define DEBUG_ABBREV_SECTION	".debug_abbrev,0x7000001e,0,0,1"
-#define DEBUG_LOC_SECTION	".debug_loc,0x7000001e,0,0,1"
-#define DEBUG_STR_SECTION	".debug_str,0x7000001e,0,0,1"
 
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend
    on the mipsX option.  */
@@ -247,8 +242,6 @@ Boston, MA 02111-1307, USA.  */
 #undef SUBTARGET_ASM_OPTIMIZING_SPEC
 #define SUBTARGET_ASM_OPTIMIZING_SPEC "-O0"
 
-/* Stuff for constructors.  Start here.  */
-
 /* The assembler now accepts .section pseudo-ops, but it does not allow
    one to change the section in the middle of a function, so we can't use
    the INIT_SECTION_ASM_OP code in crtstuff.  But we can build up the ctor
@@ -259,43 +252,13 @@ Boston, MA 02111-1307, USA.  */
 #define CONST_SECTION_ASM_OP_32	"\t.rdata"
 #define CONST_SECTION_ASM_OP_64	"\t.section\t.rodata"
 
-/* The IRIX 6 assembler .section directive takes four additional args:
-   section type, flags, entry size, and alignment.  The alignment of the
-   .ctors and .dtors sections needs to be the same as the size of a pointer
-   so that the linker doesn't add padding between elements.  */
-#if defined (CRT_BEGIN) || defined (CRT_END)
-
-/* If we are included from crtstuff.c, these need to be plain strings.
-   _MIPS_SZPTR is defined in SUBTARGET_CPP_SPEC above.  */
-#if _MIPS_SZPTR == 64
-#define CTORS_SECTION_ASM_OP "\t.section\t.ctors,1,2,0,8"
-#define DTORS_SECTION_ASM_OP "\t.section\t.dtors,1,2,0,8"
-#define EH_FRAME_SECTION_ASM_OP "\t.section\t.eh_frame,1,2,0,8"
-#else /* _MIPS_SZPTR != 64 */
-#define CTORS_SECTION_ASM_OP "\t.section\t.ctors,1,2,0,4"
-#define DTORS_SECTION_ASM_OP "\t.section\t.dtors,1,2,0,4"
-#define EH_FRAME_SECTION_ASM_OP "\t.section\t.eh_frame,1,2,0,4"
-
-#endif /* _MIPS_SZPTR == 64 */
-
-#else /* ! (defined (CRT_BEGIN) || defined (CRT_END)) */
-
-/* If we are included from varasm.c, these need to depend on -mabi.  */
-#define CTORS_SECTION_ASM_OP \
-  (Pmode == DImode ? "\t.section\t.ctors,1,2,0,8" : "\t.section\t.ctors,1,2,0,4")
-#define DTORS_SECTION_ASM_OP \
-  (Pmode == DImode ? "\t.section\t.dtors,1,2,0,8" : "\t.section\t.dtors,1,2,0,4")
-#define EH_FRAME_SECTION_ASM_OP \
-  (Pmode == DImode ? "\t.section\t.eh_frame,1,2,0,8" : "\t.section\t.eh_frame,1,2,0,4")
-#endif /* defined (CRT_BEGIN) || defined (CRT_END) */
-
 /* A default list of other sections which we might be "in" at any given
    time.  For targets that use additional sections (e.g. .tdesc) you
    should override this definition in the target-specific file which
    includes this file.  */
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_rdata, in_const, in_ctors, in_dtors
+#define EXTRA_SECTIONS in_sdata, in_rdata, in_const
 
 /* A default list of extra section function definitions.  For targets
    that use additional sections (e.g. .tdesc) you should override this
@@ -326,72 +289,11 @@ rdata_section ()							\
 	fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP_32);	\
       in_section = in_rdata;						\
     }									\
-}									\
-  CTORS_SECTION_FUNCTION						\
-  DTORS_SECTION_FUNCTION
-
-#define CTORS_SECTION_FUNCTION						\
-void									\
-ctors_section ()							\
-{									\
-  if (in_section != in_ctors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);		\
-      in_section = in_ctors;						\
-    }									\
 }
 
-#define DTORS_SECTION_FUNCTION						\
-void									\
-dtors_section ()							\
-{									\
-  if (in_section != in_dtors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);		\
-      in_section = in_dtors;						\
-    }									\
-}
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
-  do {									\
-    ctors_section ();							\
-    fprintf (FILE, "\t%s\t ",						\
-	     (Pmode == DImode) ? ".dword" : ".word");			\
-    assemble_name (FILE, NAME);						\
-    fprintf (FILE, "\n");						\
-  } while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       				\
-  do {									\
-    dtors_section ();                   				\
-    fprintf (FILE, "\t%s\t ",						\
-	     (Pmode == DImode) ? ".dword" : ".word");			\
-    assemble_name (FILE, NAME);              				\
-    fprintf (FILE, "\n");						\
-  } while (0)
-
-/* A C statement to output something to the assembler file to switch to section
-   NAME for object DECL which is either a FUNCTION_DECL, a VAR_DECL or
-   NULL_TREE.  */
-
-#define ASM_OUTPUT_SECTION_NAME(F, DECL, NAME, RELOC)			\
-do {									\
-  extern FILE *asm_out_text_file;					\
-  if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL)			\
-    fprintf (asm_out_text_file, "\t.section %s,1,6,4,4\n", (NAME));	\
-  else if ((DECL) && DECL_READONLY_SECTION (DECL, RELOC))		\
-    fprintf (F, "\t.section %s,1,2,0,8\n", (NAME));			\
-  else if (! strcmp (NAME, ".bss"))                         		\
-    fprintf (F, "\t.section %s,\"aw\",@nobits\n", (NAME));      	\
-  else									\
-    fprintf (F, "\t.section %s,1,3,0,8\n", (NAME));			\
-} while (0)
-
-/* Stuff for constructors.  End here.  */
+/* Switch into a generic section.  */
+#undef TARGET_ASM_NAMED_SECTION
+#define TARGET_ASM_NAMED_SECTION  iris6_asm_named_section
 
 /* ??? Perhaps just include svr4.h in this file?  */
 

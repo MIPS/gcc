@@ -304,18 +304,19 @@ xcoffout_source_file (file, filename, inline_p)
     }
 }
 
-/* Output a line number symbol entry into output stream FILE,
-   for source file FILENAME and line number NOTE.  */
+/* Output a line number symbol entry for location (FILENAME, LINE).  */
 
 void
-xcoffout_source_line (file, filename, note)
-     FILE *file;
+xcoffout_source_line (line, filename)
+     unsigned int line;
      const char *filename;
-     rtx note;
 {
-  xcoffout_source_file (file, filename, RTX_INTEGRATED_P (note));
+  bool inline_p = (strcmp (xcoff_current_function_file, filename) != 0
+		   || (int) line < xcoff_begin_function_line);
 
-  ASM_OUTPUT_SOURCE_LINE (file, NOTE_LINE_NUMBER (note));
+  xcoffout_source_file (asm_out_file, filename, inline_p);
+
+  ASM_OUTPUT_SOURCE_LINE (asm_out_file, line);
 }
 
 /* Output the symbols defined in block number DO_BLOCK.
@@ -368,17 +369,16 @@ xcoffout_block (block, depth, args)
    if the count starts at 0 for the outermost one.  */
 
 void
-xcoffout_begin_block (file, line, n)
-     FILE *file;
-     int line;
-     int n;
+xcoffout_begin_block (line, n)
+     unsigned int line;
+     unsigned int n;
 {
   tree decl = current_function_decl;
 
   /* The IBM AIX compiler does not emit a .bb for the function level scope,
      so we avoid it here also.  */
   if (n != 1)
-    ASM_OUTPUT_LBB (file, line, n);
+    ASM_OUTPUT_LBB (asm_out_file, line, n);
 
   do_block = n;
   xcoffout_block (DECL_INITIAL (decl), 0, DECL_ARGUMENTS (decl));
@@ -387,13 +387,12 @@ xcoffout_begin_block (file, line, n)
 /* Describe the end line-number of an internal block within a function.  */
 
 void
-xcoffout_end_block (file, line, n)
-     FILE *file;
-     int line;
-     int n;
+xcoffout_end_block (line, n)
+     unsigned int line;
+     unsigned int n;
 {
   if (n != 1)
-    ASM_OUTPUT_LBE (file, line, n);
+    ASM_OUTPUT_LBE (asm_out_file, line, n);
 }
 
 /* Called at beginning of function (before prologue).
@@ -434,17 +433,17 @@ xcoffout_declare_function (file, decl, name)
 	   name, name, name, name);
 }
 
-/* Called at beginning of function body (after prologue).
+/* Called at beginning of function body (at start of prologue).
    Record the function's starting line number, so we can output
    relative line numbers for the other lines.
    Record the file name that this function is contained in.  */
 
 void
-xcoffout_begin_function (file, last_linenum)
-     FILE *file;
-     int last_linenum;
+xcoffout_begin_prologue (line, file)
+     unsigned int line;
+     const char *file ATTRIBUTE_UNUSED;
 {
-  ASM_OUTPUT_LFB (file, last_linenum);
+  ASM_OUTPUT_LFB (asm_out_file, line);
   dbxout_parms (DECL_ARGUMENTS (current_function_decl));
 
   /* Emit the symbols for the outermost BLOCK's variables.  sdbout.c does this
@@ -455,26 +454,24 @@ xcoffout_begin_function (file, last_linenum)
   xcoffout_block (DECL_INITIAL (current_function_decl), 0,
 		  DECL_ARGUMENTS (current_function_decl));
 
-  ASM_OUTPUT_SOURCE_LINE (file, last_linenum);
+  ASM_OUTPUT_SOURCE_LINE (asm_out_file, line);
 }
 
 /* Called at end of function (before epilogue).
    Describe end of outermost block.  */
 
 void
-xcoffout_end_function (file, last_linenum)
-     FILE *file;
-     int last_linenum;
+xcoffout_end_function (last_linenum)
+     unsigned int last_linenum;
 {
-  ASM_OUTPUT_LFE (file, last_linenum);
+  ASM_OUTPUT_LFE (asm_out_file, last_linenum);
 }
 
 /* Output xcoff info for the absolute end of a function.
    Called after the epilogue is output.  */
 
 void
-xcoffout_end_epilogue (file)
-     FILE *file;
+xcoffout_end_epilogue ()
 {
   /* We need to pass the correct function size to .function, otherwise,
      the xas assembler can't figure out the correct size for the function
@@ -484,7 +481,7 @@ xcoffout_end_epilogue (file)
   const char *fname = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
   if (*fname == '*')
     ++fname;
-  fprintf (file, "FE..");
-  ASM_OUTPUT_LABEL (file, fname);
+  fprintf (asm_out_file, "FE..");
+  ASM_OUTPUT_LABEL (asm_out_file, fname);
 }
 #endif /* XCOFF_DEBUGGING_INFO */

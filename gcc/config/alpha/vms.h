@@ -18,8 +18,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#define OPEN_VMS 1
-
 #define TARGET_OBJECT_SUFFIX ".obj"
 #define TARGET_EXECUTABLE_SUFFIX ".exe"
 
@@ -69,8 +67,8 @@ Boston, MA 02111-1307, USA.  */
 
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_FP|MASK_FPREGS|MASK_GAS)
-#undef TARGET_OPEN_VMS
-#define TARGET_OPEN_VMS 1
+#undef TARGET_ABI_OPEN_VMS
+#define TARGET_ABI_OPEN_VMS 1
 
 #undef TARGET_NAME   
 #define TARGET_NAME "OpenVMS/Alpha"
@@ -112,6 +110,10 @@ Boston, MA 02111-1307, USA.  */
 
 #undef HARD_FRAME_POINTER_REGNUM
 #define HARD_FRAME_POINTER_REGNUM 29
+
+/* Define registers used by the epilogue and return instruction.  */
+#undef EPILOGUE_USES
+#define EPILOGUE_USES(REGNO)    ((REGNO) == 26 || (REGNO) == 29)
 
 #undef CAN_ELIMINATE
 #define CAN_ELIMINATE(FROM, TO)  \
@@ -251,7 +253,7 @@ typedef struct {int num_args; enum avms_arg_type atypes[6];} avms_arg_info;
 #define DTORS_SECTION_ASM_OP "\t.dtors"
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS	in_link, in_rdata, in_literals, in_ctors, in_dtors
+#define EXTRA_SECTIONS	in_link, in_rdata, in_literals
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS					\
@@ -281,31 +283,11 @@ literals_section ()						\
       fprintf (asm_out_file, "%s\n", LITERALS_SECTION_ASM_OP); 	\
       in_section = in_literals;					\
     }								\
-}								\
-void								\
-ctors_section ()						\
-{								\
-  if (in_section != in_ctors)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);	\
-      in_section = in_ctors;					\
-    }								\
-}								\
-void								\
-dtors_section ()						\
-{								\
-  if (in_section != in_dtors)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);	\
-      in_section = in_dtors;					\
-    }								\
 }
 
 extern void readonly_section	PARAMS ((void));
 extern void link_section	PARAMS ((void));
 extern void literals_section	PARAMS ((void));
-extern void ctors_section	PARAMS ((void));
-extern void dtors_section	PARAMS ((void));
 
 #undef ASM_OUTPUT_ADDR_DIFF_ELT
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) abort ()
@@ -371,28 +353,9 @@ do {									\
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT) \
   alpha_initialize_trampoline (TRAMP, FNADDR, CXT, 16, 24, -1)
 
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)		\
-  do {							\
-    ctors_section ();					\
-    fprintf (FILE, "\t.quad "); 			\
-    assemble_name (FILE, NAME); 			\
-    fprintf (FILE, "\n");				\
-  } while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.	*/
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)		\
-  do {							\
-    dtors_section ();					\
-    fprintf (FILE, "\t.quad "); 			\
-    assemble_name (FILE, NAME); 			\
-    fprintf (FILE, "\n");				\
-  } while (0)
-
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, NAME, ARGS) \
-  (vms_valid_decl_attribute_p (DECL, ATTRIBUTES, NAME, ARGS))
+/* Control how constructors and destructors are emitted.  */
+#define TARGET_ASM_CONSTRUCTOR  vms_asm_out_constructor
+#define TARGET_ASM_DESTRUCTOR   vms_asm_out_destructor
 
 #undef SDB_DEBUGGING_INFO
 #undef MIPS_DEBUGGING_INFO
@@ -408,30 +371,8 @@ do {									\
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
     fprintf (FILE, "\t.align %d\n", LOG);
 
-#define ASM_OUTPUT_SECTION(FILE,SECTION)			\
-   (strcmp (SECTION, ".text") == 0)				\
-     ? text_section ()						\
-     : named_section (NULL_TREE, SECTION, 0),			\
-       ASM_OUTPUT_ALIGN (FILE, 0)				\
-
-#define ASM_OUTPUT_SECTION_NAME(FILE,DECL,NAME,RELOC)		\
-  do								\
-    {								\
-      const char *flags;				 	\
-      int ovr = 0;						\
-      if (DECL && DECL_MACHINE_ATTRIBUTES (DECL)		\
-	  && lookup_attribute					\
-	      ("overlaid", DECL_MACHINE_ATTRIBUTES (DECL)))	\
-	flags = ",OVR", ovr = 1;				\
-      else if (strncmp (NAME,".debug", 6) == 0)			\
-	flags = ",NOWRT";					\
-      else							\
-	flags = "";						\
-      fputc ('\n', (FILE));					\
-      fprintf (FILE, ".section\t%s%s\n", NAME, flags);		\
-      if (ovr)							\
-        (NAME) = "";						\
-    } while (0)
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION vms_asm_named_section
 
 #define ASM_OUTPUT_DEF(FILE,LABEL1,LABEL2)				\
   do {	literals_section();                                             \

@@ -42,6 +42,8 @@ extern rtx machopic_indirect_data_reference PARAMS ((rtx, rtx));
 extern rtx machopic_indirect_call_target PARAMS ((rtx));
 extern rtx machopic_legitimize_pic_address PARAMS ((rtx, enum machine_mode, rtx));
 
+extern void machopic_asm_out_constructor PARAMS ((rtx, int));
+extern void machopic_asm_out_destructor PARAMS ((rtx, int));
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
@@ -51,7 +53,14 @@ extern void machopic_define_ident PARAMS ((tree));
 extern void machopic_define_name PARAMS ((const char*));
 extern int machopic_name_defined_p PARAMS ((const char*));
 extern int machopic_ident_defined_p PARAMS ((tree));
+extern void darwin_encode_section_info PARAMS ((tree));
 
 #endif /* TREE_CODE */
 
 extern void machopic_finish PARAMS ((FILE *));
+
+#ifdef GCC_C_PRAGMA_H
+extern void darwin_pragma_ignore PARAMS ((cpp_reader *));
+extern void darwin_pragma_options PARAMS ((cpp_reader *));
+extern void darwin_pragma_unused PARAMS ((cpp_reader *));
+#endif

@@ -534,23 +534,13 @@ cp_lexer_get_preprocessor_token (lexer, token)
   saved_lineno = lineno;
   saved_filename = input_filename;
 
-  /* Get a new token from the preprocessor.  */
-  while (true)
-    {
-      /* The call to c_lex should really require us to pass the
-	 INPUT_STREAM, but it is hardwired to use a global value.  */
-      token->type = c_lex (&token->value);
-      /* If we've reached end-of-file, we may simply need to pop
-	 buffers to return to the file that #include'd this one.  */
-      /* FIXME: This has been simplified on the mainline.  When we
-	 mrege, eliminate this code.  */
-      if (token->type == CPP_EOF && cpp_pop_buffer (parse_in) != 0)
-	continue;
-      /* Now we've got our token.  */
-      token->line_number = lineno;
-      token->file_name = input_filename;
-      break;
-    }
+  /* Get a new token from the preprocessor.  The call to c_lex should
+     really require us to pass the INPUT_STREAM, but it is hardwired
+     to use a global value.  */
+  token->type = c_lex (&token->value);
+  /* Now we've got our token.  */
+  token->line_number = lineno;
+  token->file_name = input_filename;
 
   /* Restore the saved source position.  */
   lineno = saved_lineno;
@@ -2089,12 +2079,10 @@ cp_parser_primary_expression (parser, idk)
 	   floating-literal
 	   string-literal
 	   boolean-literal  */
-    case CPP_INT:
     case CPP_CHAR:
     case CPP_WCHAR:
     case CPP_STRING:
     case CPP_WSTRING:
-    case CPP_FLOAT:
     case CPP_NUMBER:
       token = cp_lexer_consume_token (parser->lexer);
       return token->value;
@@ -9210,6 +9198,8 @@ cp_parser_type_id (parser)
   /* Parse the type-specifier-seq.  */
   type_specifier_seq 
     = cp_parser_type_specifier_seq (parser);
+  if (type_specifier_seq == error_mark_node)
+    return error_mark_node;
 
   /* There might or might not be an abstract declarator.  */
   cp_parser_parse_tentatively (parser);
@@ -9246,6 +9236,9 @@ cp_parser_type_specifier_seq (parser)
 					     /*is_declaration=*/false,
 					     NULL,
 					     NULL);
+  /* If something went wrong, stop.  */
+  if (type_specifier == error_mark_node)
+    return error_mark_node;
   /* Add the new type-specifier to the list.  */
   type_specifier_seq 
     = tree_cons (NULL_TREE, type_specifier, type_specifier_seq);

@@ -21,14 +21,20 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
+/* For C++ we need to ensure that __LANGUAGE_C_PLUS_PLUS is defined independent
+   of the source file extension.  */
+#define CPLUSPLUS_CPP_SPEC "\
+-D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus \
+%(cpp) \
+"
+
 /* Write out the correct language type definition for the header files.  
    Unless we have assembler language, write out the symbols for C.  */
 #define CPP_SPEC "\
 %{!undef:\
 %{.S:-D__LANGUAGE_ASSEMBLY__ -D__LANGUAGE_ASSEMBLY %{!ansi:-DLANGUAGE_ASSEMBLY }}\
-%{.cc|.cxx|.C:-D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus }\
 %{.m:-D__LANGUAGE_OBJECTIVE_C__ -D__LANGUAGE_OBJECTIVE_C }\
-%{!.S:%{!.cc:%{!.cxx:%{!.C:%{!.m:-D__LANGUAGE_C__ -D__LANGUAGE_C %{!ansi:-DLANGUAGE_C }}}}}}\
+%{!.S:%{!.cc:%{!.cxx:%{!.cpp:%{!.cp:%{!.c++:%{!.C:%{!.m:-D__LANGUAGE_C__ -D__LANGUAGE_C %{!ansi:-DLANGUAGE_C }}}}}}}}}\
 %{mieee:-D_IEEE_FP }\
 %{mieee-with-inexact:-D_IEEE_FP -D_IEEE_FP_INEXACT }}\
 %(cpp_cpu) %(cpp_subtarget)"
@@ -167,12 +173,9 @@ extern enum alpha_fp_trap_mode alpha_fptm;
 #define TARGET_SUPPORT_ARCH	(target_flags & MASK_SUPPORT_ARCH)
 
 /* These are for target os support and cannot be changed at runtime.  */
-#ifndef TARGET_WINDOWS_NT
-#define TARGET_WINDOWS_NT 0
-#endif
-#ifndef TARGET_OPEN_VMS
-#define TARGET_OPEN_VMS 0
-#endif
+#define TARGET_ABI_WINDOWS_NT 0
+#define TARGET_ABI_OPEN_VMS 0
+#define TARGET_ABI_OSF (!TARGET_ABI_WINDOWS_NT && !TARGET_ABI_OPEN_VMS)
 
 #ifndef TARGET_AS_CAN_SUBTRACT_LABELS
 #define TARGET_AS_CAN_SUBTRACT_LABELS TARGET_GAS
@@ -185,6 +188,9 @@ extern enum alpha_fp_trap_mode alpha_fptm;
 #endif
 #ifndef TARGET_PROFILING_NEEDS_GP
 #define TARGET_PROFILING_NEEDS_GP 0
+#endif
+#ifndef TARGET_LD_BUGGY_LDGP
+#define TARGET_LD_BUGGY_LDGP 0
 #endif
 
 /* Macro to define tables used to set the flags.
@@ -477,7 +483,7 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
 #define STACK_BOUNDARY 64
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
-#define FUNCTION_BOUNDARY 128
+#define FUNCTION_BOUNDARY 32
 
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 64
@@ -487,22 +493,6 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
 
 /* A bitfield declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
-
-/* Align loop starts for optimal branching.  
-
-   ??? Kludge this and the next macro for the moment by not doing anything if
-   we don't optimize and also if we are writing ECOFF symbols to work around
-   a bug in DEC's assembler. */
-
-#define LOOP_ALIGN(LABEL) \
-  (optimize > 0 && write_symbols != SDB_DEBUG ? 4 : 0)
-
-/* This is how to align an instruction for optimal branching.  On
-   Alpha we'll get better performance by aligning on an octaword
-   boundary.  */
-
-#define LABEL_ALIGN_AFTER_BARRIER(FILE)	\
-  (optimize > 0 && write_symbols != SDB_DEBUG ? 4 : 0)
 
 /* No data type wants to be aligned rounder than this.  */
 #define BIGGEST_ALIGNMENT 128
@@ -1192,14 +1182,6 @@ struct alpha_compare
 
 extern struct alpha_compare alpha_compare;
 
-/* Machine specific function data.  */
-
-struct machine_function
-{
-  /* If non-null, this rtx holds the return address for the function.  */
-  struct rtx_def *ra_rtx;
-};
-
 /* Make (or fake) .linkage entry for function call.
    IS_LOCAL is 0 if name is used in call, 1 if name is used in definition.  */
 
@@ -1217,10 +1199,6 @@ struct machine_function
 #define ASM_DECLARE_FUNCTION_SIZE(FILE,NAME,DECL) \
   alpha_end_function(FILE,NAME,DECL)
    
-/* This macro notes the end of the prologue.  */
-
-#define FUNCTION_END_PROLOGUE(FILE)  output_end_prologue (FILE)
-
 /* Output any profiling code before the prologue.  */
 
 #define PROFILE_BEFORE_PROLOGUE 1
@@ -2119,7 +2097,7 @@ literal_section ()						\
 	      fprintf (asm_out_file, "\\%o", c);			      \
 	      /* After an octal-escape, if a digit follows,		      \
 		 terminate one string constant and start another.	      \
-		 The Vax assembler fails to stop reading the escape	      \
+		 The VAX assembler fails to stop reading the escape	      \
 		 after three digits, so this is the only way we		      \
 		 can get it to parse the data properly.  */		      \
 	      if (i < thissize - 1					      \
@@ -2166,7 +2144,7 @@ literal_section ()						\
 /* This is how to output an element of a case-vector that is relative.  */
 
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
-  fprintf (FILE, "\t.%s $L%d\n", TARGET_WINDOWS_NT ? "long" : "gprel32", \
+  fprintf (FILE, "\t.%s $L%d\n", TARGET_ABI_WINDOWS_NT ? "long" : "gprel32", \
 	   (VALUE))
 
 /* This is how to output an assembler line
@@ -2206,12 +2184,6 @@ literal_section ()						\
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
   sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
 /* Output code to add DELTA to the first argument, and then jump to FUNCTION.
    Used for C++ multiple inheritance.  */
 /* ??? This is only used with the v2 ABI, and alpha.c makes assumptions
@@ -2222,7 +2194,7 @@ do {									\
   const char *fn_name = XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0);	\
   int reg;								\
 									\
-  if (! TARGET_OPEN_VMS && ! TARGET_WINDOWS_NT)				\
+  if (TARGET_ABI_OSF)							\
     fprintf (FILE, "\tldgp $29,0($27)\n");				\
 									\
   /* Mark end of prologue.  */						\
@@ -2251,15 +2223,6 @@ do {									\
 #endif
 
 
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
-
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
    For `%' followed by punctuation, CODE is the punctuation and X is null.  */
@@ -2271,26 +2234,8 @@ do {									\
 
    ~    Generates the name of the current function.
 
-   &	Generates fp-rounding mode suffix: nothing for normal, 'c' for
-   	chopped, 'm' for minus-infinity, and 'd' for dynamic rounding
-	mode.  alpha_fprm controls which suffix is generated.
-
-   '	Generates trap-mode suffix for instructions that accept the
-        su suffix only (cmpt et al).
-
-   `    Generates trap-mode suffix for instructions that accept the
-	v and sv suffix.  The only instruction that needs this is cvtql.
-
-   (	Generates trap-mode suffix for instructions that accept the
-	v, sv, and svi suffix.  The only instruction that needs this
-	is cvttq.
-
-   )    Generates trap-mode suffix for instructions that accept the
-	u, su, and sui suffix.  This is the bulk of the IEEE floating
-	point instructions (addt et al).
-
-   +    Generates trap-mode suffix for instructions that accept the
-	sui suffix (cvtqt and cvtqs).
+   /	Generates the instruction suffix.  The TRAP_SUFFIX and ROUND_SUFFIX
+	attributes are examined to determine what is appropriate.
 
    ,    Generates single precision suffix for floating point
 	instructions (s for IEEE, f for VAX)
@@ -2299,10 +2244,8 @@ do {									\
 	instructions (t for IEEE, g for VAX)
    */
 
-#define PRINT_OPERAND_PUNCT_VALID_P(CODE)				\
-  ((CODE) == '&' || (CODE) == '`' || (CODE) == '\'' || (CODE) == '('	\
-   || (CODE) == ')' || (CODE) == '+' || (CODE) == ',' || (CODE) == '-'	\
-   || (CODE) == '~')
+#define PRINT_OPERAND_PUNCT_VALID_P(CODE) \
+  ((CODE) == '/' || (CODE) == ',' || (CODE) == '-' || (CODE) == '~')
 
 /* Print a memory address as an operand to reference that memory location.  */
 

@@ -88,7 +88,7 @@ c_init ()
   mark_lang_status = &mark_c_function_context;
   lang_expand_expr = &c_expand_expr;
   lang_safe_from_p = &c_safe_from_p;
-  lang_printer = &c_tree_printer;
+  diagnostic_format_decoder (global_dc) = &c_tree_printer;
   lang_expand_decl_stmt = &c_expand_decl_stmt;
   lang_missing_noreturn_ok_p = &c_missing_noreturn_ok_p;
   lang_parse = &yyparse_1;
@@ -188,7 +188,7 @@ start_cdtor (method_type)
 		  build_nt (CALL_EXPR, fnname,
 			    tree_cons (NULL_TREE, NULL_TREE, void_list_node_1),
 			    NULL_TREE),
-		  NULL_TREE, NULL_TREE);
+		  NULL_TREE);
   store_parm_decls ();
 
   current_function_cannot_inline

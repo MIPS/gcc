@@ -1,5 +1,5 @@
 /* Language lexer definitions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
 This file is part of GNU CC.
@@ -26,8 +26,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #ifndef GCC_JAVA_LEX_H
 #define GCC_JAVA_LEX_H
 
-#include <setjmp.h>		/* set_float_handler argument uses it */
-
 /* Extern global variables declarations  */
 extern FILE *finput;
 extern int   lineno;
@@ -35,7 +33,7 @@ extern int   lineno;
 /* A Unicode character, as read from the input file  */
 typedef unsigned short unicode_t;
 
-#ifdef HAVE_ICONV_H
+#ifdef HAVE_ICONV
 #include <iconv.h>
 #endif /* HAVE_ICONV */
 
@@ -172,7 +170,6 @@ extern void java_destroy_lexer PARAMS ((java_lexer *));
 
 #define DCONST0 0
 #define REAL_VALUE_TYPE int
-#define SET_FLOAT_HANDLER(H)
 #define GET_IDENTIFIER(S) xstrdup ((S))
 #define REAL_VALUE_ATOF(LIT,MODE) 0
 #define REAL_VALUE_ISINF(VALUE)   0
@@ -192,8 +189,6 @@ extern void java_destroy_lexer PARAMS ((java_lexer *));
 
 #else
 
-extern void set_float_handler PARAMS ((jmp_buf));
-#define SET_FLOAT_HANDLER(H) set_float_handler ((H))
 #define DCONST0 dconst0
 #define GET_IDENTIFIER(S) get_identifier ((S))
 #define SET_REAL_VALUE_ATOF(TARGET,SOURCE) (TARGET) = (SOURCE)

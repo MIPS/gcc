@@ -1,5 +1,5 @@
 /* Definitions for Unix assembler syntax for the Intel 80386.
-   Copyright (C) 1988, 1994, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1994, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -106,7 +106,7 @@ do {									    \
     xops[1] = gen_rtx_MEM (SImode, plus_constant (stack_pointer_rtx, 4));   \
   output_asm_insn ("add{l} {%0, %1|%1, %0}", xops);			    \
 									    \
-  if (flag_pic)								    \
+  if (flag_pic && !TARGET_64BIT)					    \
     {									    \
       xops[0] = pic_offset_table_rtx;					    \
       xops[1] = gen_label_rtx ();					    \
@@ -123,6 +123,12 @@ do {									    \
 	               xops);						    \
       asm_fprintf (FILE, "\tpop{l\t%%ebx|\t%%ebx}\n");			    \
       asm_fprintf (FILE, "\tjmp\t{*%%ecx|%%ecx}\n");			    \
+    }									    \
+  else if (flag_pic && TARGET_64BIT)					    \
+    {									    \
+      fprintf (FILE, "\tjmp *");					    \
+      assemble_name (FILE, XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));	    \
+      fprintf (FILE, "@GOTPCREL(%%rip)\n");				    \
     }									    \
   else									    \
     {									    \

@@ -633,6 +633,11 @@ case "${target}" in
     # newlib is not 64 bit ready
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"
     ;;
+  sh-*-linux*)
+    noconfigdirs="$noconfigdirs ${libgcj} target-newlib target-libgloss"
+    # linux has rx in libc
+    skipdirs="$skipdirs target-librx"
+    ;;    
   sh*-*-pe|mips*-*-pe|*arm-wince-pe)
     noconfigdirs="$noconfigdirs ${libgcj}"
     noconfigdirs="$noconfigdirs target-examples"
@@ -819,6 +824,9 @@ case "${target}" in
   i[3456]86-*-beos*)
      noconfigdirs="$noconfigdirs gdb target-newlib target-libgloss ${libgcj}"
      ;;
+  m68hc11-*-*|m6811-*-*|m68hc12-*-*|m6812-*-*)
+    noconfigdirs="$noconfigdirs target-libiberty ${libstdcxx_version} ${libgcj}"
+    ;;
   m68k-*-elf*)
     noconfigdirs="$noconfigdirs ${libgcj}"
     if [ x${is_cross_compiler} != xno ] ; then

@@ -29,6 +29,8 @@ Boston, MA 02111-1307, USA.  */
 #include "hard-reg-set.h"
 #include "recog.h"
 #include "regs.h"
+#include "expr.h"
+#include "insn-codes.h"
 #include "function.h"
 #include "flags.h"
 #include "real.h"
@@ -55,8 +57,8 @@ Boston, MA 02111-1307, USA.  */
 
 static void validate_replace_rtx_1	PARAMS ((rtx *, rtx, rtx, rtx));
 static rtx *find_single_use_1		PARAMS ((rtx, rtx *));
-static rtx *find_constant_term_loc	PARAMS ((rtx *));
 static void validate_replace_src_1 	PARAMS ((rtx *, void *));
+static rtx split_insn			PARAMS ((rtx));
 
 /* Nonzero means allow operands to be volatile.
    This should be 0 if you are generating rtl, such as if you are calling
@@ -181,7 +183,7 @@ static int changes_allocated;
 
 static int num_changes = 0;
 
-/* Validate a proposed change to OBJECT.  LOC is the location in the rtl for
+/* Validate a proposed change to OBJECT.  LOC is the location in the rtl
    at which NEW will be placed.  If OBJECT is zero, no validation is done,
    the change is simply made.
 
@@ -509,9 +511,9 @@ validate_replace_rtx_1 (loc, from, to, object)
          plus_constant to try to simplify it.
          ??? We may want later to remove this, once simplification is
          separated from this function.  */
-      if (GET_CODE (XEXP (x, 1)) == CONST_INT && XEXP (x, 1) == to)
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT)
 	validate_change (object, loc,
-			 plus_constant (XEXP (x, 0), INTVAL (to)), 1);
+			 plus_constant (XEXP (x, 0), INTVAL (XEXP (x, 1))), 1);
       break;
     case MINUS:
       if (GET_CODE (XEXP (x, 1)) == CONST_INT
@@ -520,8 +522,8 @@ validate_replace_rtx_1 (loc, from, to, object)
 			 simplify_gen_binary
 			 (PLUS, GET_MODE (x), XEXP (x, 0),
 			  simplify_gen_unary (NEG,
-					      op0_mode, XEXP (x, 1),
-					      op0_mode)), 1);
+					      GET_MODE (x), XEXP (x, 1),
+					      GET_MODE (x))), 1);
       break;
     case ZERO_EXTEND:
     case SIGN_EXTEND:
@@ -597,10 +599,7 @@ validate_replace_rtx_1 (loc, from, to, object)
 
 	      pos %= GET_MODE_BITSIZE (wanted_mode);
 
-	      newmem = gen_rtx_MEM (wanted_mode,
-				    plus_constant (XEXP (XEXP (x, 0), 0),
-						   offset));
-	      MEM_COPY_ATTRIBUTES (newmem, XEXP (x, 0));
+	      newmem = adjust_address_nv (XEXP (x, 0), wanted_mode, offset);
 
 	      validate_change (object, &XEXP (x, 2), GEN_INT (pos), 1);
 	      validate_change (object, &XEXP (x, 0), newmem, 1);
@@ -1067,7 +1066,7 @@ register_operand (op, mode)
     }
 
   /* If we have an ADDRESSOF, consider it valid since it will be
-     converted into something that will not be a MEM. */
+     converted into something that will not be a MEM.  */
   if (GET_CODE (op) == ADDRESSOF)
     return 1;
 
@@ -1828,7 +1827,7 @@ asm_operand_ok (op, constraint)
    return the location (type rtx *) of the pointer to that constant term.
    Otherwise, return a null pointer.  */
 
-static rtx *
+rtx *
 find_constant_term_loc (p)
      rtx *p;
 {
@@ -1965,9 +1964,13 @@ offsettable_address_p (strictp, mode, y)
   /* The offset added here is chosen as the maximum offset that
      any instruction could need to add when operating on something
      of the specified mode.  We assume that if Y and Y+c are
-     valid addresses then so is Y+d for all 0<d<c.  */
-
-  z = plus_constant_for_output (y, mode_sz - 1);
+     valid addresses then so is Y+d for all 0<d<c.  adjust_address will
+     go inside a LO_SUM here, so we do so as well.  */
+  if (GET_CODE (y) == LO_SUM)
+    z = gen_rtx_LO_SUM (GET_MODE (y), XEXP (y, 0),
+			plus_constant (XEXP (y, 1), mode_sz - 1));
+  else
+    z = plus_constant (y, mode_sz - 1);
 
   /* Use QImode because an odd displacement may be automatically invalid
      for any wider mode.  But it should be valid for a single byte.  */
@@ -1982,11 +1985,11 @@ offsettable_address_p (strictp, mode, y)
 
 int
 mode_dependent_address_p (addr)
-  rtx addr ATTRIBUTE_UNUSED; /* Maybe used in GO_IF_MODE_DEPENDENT_ADDRESS. */
+  rtx addr ATTRIBUTE_UNUSED; /* Maybe used in GO_IF_MODE_DEPENDENT_ADDRESS.  */
 {
   GO_IF_MODE_DEPENDENT_ADDRESS (addr, win);
   return 0;
-  /* Label `win' might (not) be used via GO_IF_MODE_DEPENDENT_ADDRESS. */
+  /* Label `win' might (not) be used via GO_IF_MODE_DEPENDENT_ADDRESS.  */
  win: ATTRIBUTE_UNUSED_LABEL
   return 1;
 }
@@ -2010,56 +2013,9 @@ mode_independent_operand (op, mode)
   addr = XEXP (op, 0);
   GO_IF_MODE_DEPENDENT_ADDRESS (addr, lose);
   return 1;
-  /* Label `lose' might (not) be used via GO_IF_MODE_DEPENDENT_ADDRESS. */
+  /* Label `lose' might (not) be used via GO_IF_MODE_DEPENDENT_ADDRESS.  */
  lose: ATTRIBUTE_UNUSED_LABEL
   return 0;
-}
-
-/* Given an operand OP that is a valid memory reference which
-   satisfies offsettable_memref_p, return a new memory reference whose
-   address has been adjusted by OFFSET.  OFFSET should be positive and
-   less than the size of the object referenced.  */
-
-rtx
-adj_offsettable_operand (op, offset)
-     rtx op;
-     int offset;
-{
-  register enum rtx_code code = GET_CODE (op);
-
-  if (code == MEM) 
-    {
-      register rtx y = XEXP (op, 0);
-      register rtx new;
-
-      if (CONSTANT_ADDRESS_P (y))
-	{
-	  new = gen_rtx_MEM (GET_MODE (op),
-			     plus_constant_for_output (y, offset));
-	  MEM_COPY_ATTRIBUTES (new, op);
-	  return new;
-	}
-
-      if (GET_CODE (y) == PLUS)
-	{
-	  rtx z = y;
-	  register rtx *const_loc;
-
-	  op = copy_rtx (op);
-	  z = XEXP (op, 0);
-	  const_loc = find_constant_term_loc (&z);
-	  if (const_loc)
-	    {
-	      *const_loc = plus_constant_for_output (*const_loc, offset);
-	      return op;
-	    }
-	}
-
-      new = gen_rtx_MEM (GET_MODE (op), plus_constant_for_output (y, offset));
-      MEM_COPY_ATTRIBUTES (new, op);
-      return new;
-    }
-  abort ();
 }
 
 /* Like extract_insn, but save insn extracted and don't extract again, when
@@ -2700,6 +2656,66 @@ reg_fits_class_p (operand, class, offset, mode)
   return 0;
 }
 
+/* Split single instruction.  Helper function for split_all_insns.
+   Return last insn in the sequence if succesfull, or NULL if unsuccesfull.  */
+static rtx
+split_insn (insn)
+     rtx insn;
+{
+  rtx set;
+  if (!INSN_P (insn))
+    ;
+  /* Don't split no-op move insns.  These should silently
+     disappear later in final.  Splitting such insns would
+     break the code that handles REG_NO_CONFLICT blocks.  */
+
+  else if ((set = single_set (insn)) != NULL && set_noop_p (set))
+    {
+      /* Nops get in the way while scheduling, so delete them
+         now if register allocation has already been done.  It
+         is too risky to try to do this before register
+         allocation, and there are unlikely to be very many
+         nops then anyways.  */
+      if (reload_completed)
+	{
+	  PUT_CODE (insn, NOTE);
+	  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+	  NOTE_SOURCE_FILE (insn) = 0;
+	}
+    }
+  else
+    {
+      /* Split insns here to get max fine-grain parallelism.  */
+      rtx first = PREV_INSN (insn);
+      rtx last = try_split (PATTERN (insn), insn, 1);
+
+      if (last != insn)
+	{
+	  /* try_split returns the NOTE that INSN became.  */
+	  PUT_CODE (insn, NOTE);
+	  NOTE_SOURCE_FILE (insn) = 0;
+	  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+
+	  /* ??? Coddle to md files that generate subregs in post-
+	     reload splitters instead of computing the proper 
+	     hard register.  */
+	  if (reload_completed && first != last)
+	    {
+	      first = NEXT_INSN (first);
+	      while (1)
+		{
+		  if (INSN_P (first))
+		    cleanup_subreg_operands (first);
+		  if (first == last)
+		    break;
+		  first = NEXT_INSN (first);
+		}
+	    }
+	  return last;
+	}
+    }
+  return NULL_RTX;
+}
 /* Split all insns in the function.  If UPD_LIFE, update life info after.  */
 
 void
@@ -2721,93 +2737,62 @@ split_all_insns (upd_life)
 
       for (insn = bb->head; insn ; insn = next)
 	{
-	  rtx set;
+	  rtx last;
 
 	  /* Can't use `next_real_insn' because that might go across
 	     CODE_LABELS and short-out basic blocks.  */
 	  next = NEXT_INSN (insn);
-	  if (! INSN_P (insn))
-	    ;
-
-	  /* Don't split no-op move insns.  These should silently
-	     disappear later in final.  Splitting such insns would
-	     break the code that handles REG_NO_CONFLICT blocks.  */
-
-	  else if ((set = single_set (insn)) != NULL
-		   && set_noop_p (set))
+	  last = split_insn (insn);
+	  if (last)
 	    {
-	      /* Nops get in the way while scheduling, so delete them
-		 now if register allocation has already been done.  It
-		 is too risky to try to do this before register
-		 allocation, and there are unlikely to be very many
-		 nops then anyways.  */
-	      if (reload_completed)
-		{
-		  PUT_CODE (insn, NOTE);
-		  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-		  NOTE_SOURCE_FILE (insn) = 0;
-		}
-	    }
-	  else
-	    {
-	      /* Split insns here to get max fine-grain parallelism.  */
-	      rtx first = PREV_INSN (insn);
-	      rtx last = try_split (PATTERN (insn), insn, 1);
-
-	      if (last != insn)
-		{
-		  SET_BIT (blocks, i);
-		  changed = 1;
-
-		  /* try_split returns the NOTE that INSN became.  */
-		  PUT_CODE (insn, NOTE);
-		  NOTE_SOURCE_FILE (insn) = 0;
-		  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-
-		  /* ??? Coddle to md files that generate subregs in post-
-		     reload splitters instead of computing the proper 
-		     hard register.  */
-		  if (reload_completed && first != last)
-		    {
-		      first = NEXT_INSN (first);
-		      while (1)
-			{
-			  if (INSN_P (first))
-			    cleanup_subreg_operands (first);
-			  if (first == last)
-			    break;
-			  first = NEXT_INSN (first);
-			}
-		    }
-
-		  if (insn == bb->end)
-		    {
-		      bb->end = last;
-		      break;
-		    }
-		}
+	      SET_BIT (blocks, i);
+	      changed = 1;
+	      if (insn == bb->end)
+		bb->end = last;
+	      insn = last;
 	    }
 
 	  if (insn == bb->end)
 	    break;
 	}
 
-      /* ??? When we're called from just after reload, the CFG is in bad
-	 shape, and we may have fallen off the end.  This could be fixed
-	 by having reload not try to delete unreachable code.  Otherwise
-	 assert we found the end insn.  */
-      if (insn == NULL && upd_life)
+      if (insn == NULL)
 	abort ();
+    }
+
+  if (changed)
+    {
+      compute_bb_for_insn (get_max_uid ());
+      for (i = 0; i < n_basic_blocks; i++)
+	find_sub_basic_blocks (BASIC_BLOCK (i));
     }
 
   if (changed && upd_life)
     {
-      compute_bb_for_insn (get_max_uid ());
       count_or_remove_death_notes (blocks, 1);
       update_life_info (blocks, UPDATE_LIFE_LOCAL, PROP_DEATH_NOTES);
     }
+#ifdef ENABLE_CHECKING
+  verify_flow_info ();
+#endif
 
   sbitmap_free (blocks);
+}
+
+/* Same as split_all_insns, but do not expect CFG to be available. 
+   Used by machine depedent reorg passes.  */
+
+void
+split_all_insns_noflow ()
+{
+  rtx next, insn;
+
+  for (insn = get_insns (); insn; insn = next)
+    {
+      next = NEXT_INSN (insn);
+      split_insn (insn);
+    }
+  return;
 }
 
 #ifdef HAVE_peephole2
@@ -3004,7 +2989,7 @@ peep2_find_free_register (from, to, class_str, mode, reg_set)
   return NULL_RTX;
 }
 
-/* Perform the peephole2 optimization pass. */
+/* Perform the peephole2 optimization pass.  */
 
 void
 peephole2_optimize (dump_file)

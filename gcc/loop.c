@@ -41,6 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "obstack.h"
 #include "function.h"
 #include "expr.h"
+#include "optabs.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "insn-config.h"
@@ -52,6 +53,7 @@ Boston, MA 02111-1307, USA.  */
 #include "cselib.h"
 #include "except.h"
 #include "toplev.h"
+#include "predict.h"
 
 #define LOOP_REG_LIFETIME(LOOP, REGNO) \
 ((REGNO_LAST_LUID (REGNO) - REGNO_FIRST_LUID (REGNO)))
@@ -704,6 +706,18 @@ scan_loop (loop, flags)
 		}
 	    }
 
+	  /* For parallels, add any possible uses to the depencies, as we can't move
+	     the insn without resolving them first.  */
+	  if (GET_CODE (PATTERN (p)) == PARALLEL)
+	    {
+	      for (i = 0; i < XVECLEN (PATTERN (p), 0); i++)
+		{
+		  rtx x = XVECEXP (PATTERN (p), 0, i);
+		  if (GET_CODE (x) == USE)
+		    dependencies = gen_rtx_EXPR_LIST (VOIDmode, XEXP (x, 0), dependencies);
+		}
+	    }
+
 	  /* Don't try to optimize a register that was made
 	     by loop-optimization for an inner loop.
 	     We don't know its life-span, so we can't compute the benefit.  */
@@ -772,6 +786,7 @@ scan_loop (loop, flags)
 		  && (REGNO_LAST_UID (regno)
 		      == INSN_UID (regs->array[regno].single_usage))
 		  && regs->array[regno].set_in_loop == 1
+		  && GET_CODE (SET_SRC (set)) != ASM_OPERANDS
 		  && ! side_effects_p (SET_SRC (set))
 		  && ! find_reg_note (p, REG_RETVAL, NULL_RTX)
 		  && (! SMALL_REGISTER_CLASSES
@@ -936,7 +951,7 @@ scan_loop (loop, flags)
       /* Past a call insn, we get to insns which might not be executed
 	 because the call might exit.  This matters for insns that trap.
 	 Constant and pure call insns always return, so they don't count.  */
-      else if (GET_CODE (p) == CALL_INSN && ! CONST_CALL_P (p))
+      else if (GET_CODE (p) == CALL_INSN && ! CONST_OR_PURE_CALL_P (p))
 	call_passed = 1;
       /* Past a label or a jump, we get to insns for which we
 	 can't count on whether or how many times they will be
@@ -1590,7 +1605,7 @@ rtx_equal_for_loop_p (x, y, movables, regs)
 
 /* If X contains any LABEL_REF's, add REG_LABEL notes for them to all
    insns in INSNS which use the reference.  LABEL_NUSES for CODE_LABEL
-   references is incremented once for each added note. */
+   references is incremented once for each added note.  */
 
 static void
 add_label_notes (x, insns)
@@ -2350,7 +2365,7 @@ prescan_loop (loop)
 	}
       else if (GET_CODE (insn) == CALL_INSN)
 	{
-	  if (! CONST_CALL_P (insn))
+	  if (! CONST_OR_PURE_CALL_P (insn))
 	    {
 	      loop_info->unknown_address_altered = 1;
 	      loop_info->has_nonconst_call = 1;
@@ -2498,19 +2513,6 @@ find_and_verify_loops (f, loops)
 	    current_loop = next_loop;
 	    break;
 
-	  case NOTE_INSN_SETJMP:
-	    /* In this case, we must invalidate our current loop and any
-	       enclosing loop.  */
-	    for (loop = current_loop; loop; loop = loop->outer)
-	      {
-		loop->invalid = 1;
-		if (loop_dump_stream)
-		  fprintf (loop_dump_stream,
-			   "\nLoop at %d ignored due to setjmp.\n",
-			   INSN_UID (loop->start));
-	      }
-	    break;
-
 	  case NOTE_INSN_LOOP_CONT:
 	    current_loop->cont = insn;
 	    break;
@@ -2530,6 +2532,21 @@ find_and_verify_loops (f, loops)
 	  default:
 	    break;
 	  }
+
+      if (GET_CODE (insn) == CALL_INSN
+	  && find_reg_note (insn, REG_SETJMP, NULL))
+	{
+	  /* In this case, we must invalidate our current loop and any
+	     enclosing loop.  */
+	  for (loop = current_loop; loop; loop = loop->outer)
+	    {
+	      loop->invalid = 1;
+	      if (loop_dump_stream)
+		fprintf (loop_dump_stream,
+			 "\nLoop at %d ignored due to setjmp.\n",
+			 INSN_UID (loop->start));
+	    }
+	}
 
       /* Note that this will mark the NOTE_INSN_LOOP_END note as being in the
 	 enclosing loop, but this doesn't matter.  */
@@ -2662,6 +2679,14 @@ find_and_verify_loops (f, loops)
 		  = JUMP_LABEL (insn) ? JUMP_LABEL (insn) : get_last_insn ();
 		struct loop *target_loop = uid_loop[INSN_UID (target)];
 		rtx loc, loc2;
+		rtx tmp;
+
+		/* Search for possible garbage past the conditional jumps
+		   and look for the last barrier.  */
+		for (tmp = last_insn_to_move;
+		     tmp && GET_CODE (tmp) != CODE_LABEL; tmp = NEXT_INSN (tmp))
+		  if (GET_CODE (tmp) == BARRIER)
+		    last_insn_to_move = tmp;
 
 		for (loc = target; loc; loc = PREV_INSN (loc))
 		  if (GET_CODE (loc) == BARRIER
@@ -4304,17 +4329,17 @@ strength_reduce (loop, flags)
 	 provided all givs are reduced.  */
       bl->eliminable = loop_biv_eliminable_p (loop, bl, threshold, insn_count);
 
+      /* This will be true at the end, if all givs which depend on this
+	 biv have been strength reduced.
+	 We can't (currently) eliminate the biv unless this is so.  */
+      bl->all_reduced = 1;
+
       /* Check each extension dependent giv in this class to see if its
 	 root biv is safe from wrapping in the interior mode.  */
       check_ext_dependant_givs (bl, loop_info);
 
       /* Combine all giv's for this iv_class.  */
       combine_givs (regs, bl);
-
-      /* This will be true at the end, if all givs which depend on this
-	 biv have been strength reduced.
-	 We can't (currently) eliminate the biv unless this is so.  */
-      bl->all_reduced = 1;
 
       for (v = bl->giv; v; v = v->next_iv)
 	{
@@ -4496,6 +4521,18 @@ strength_reduce (loop, flags)
   if (HAVE_doloop_end && (flags & LOOP_BCT) && flag_branch_on_count_reg)
     doloop_optimize (loop);
 #endif  /* HAVE_doloop_end  */
+
+  /* In case number of iterations is known, drop branch prediction note
+     in the branch.  Do that only in second loop pass, as loop unrolling
+     may change the number of iterations performed.  */
+  if ((flags & LOOP_BCT)
+      && loop_info->n_iterations / loop_info->unroll_number > 1)
+    {
+      int n = loop_info->n_iterations / loop_info->unroll_number;
+      predict_insn (PREV_INSN (loop->end),
+		    PRED_LOOP_ITERATIONS,
+		    REG_BR_PROB_BASE - REG_BR_PROB_BASE / n);
+    }
 
   if (loop_dump_stream)
     fprintf (loop_dump_stream, "\n");
@@ -6646,6 +6683,7 @@ check_ext_dependant_givs (bl, loop_info)
 			 INSN_UID (v->insn), why);
 	      }
 	    v->ignore = 1;
+	    bl->all_reduced = 0;
 	  }
       }
 }
@@ -7524,9 +7562,7 @@ check_dbra_loop (loop, insn_count)
 
 	      /* Save some info needed to produce the new insns.  */
 	      reg = bl->biv->dest_reg;
-	      jump_label = XEXP (SET_SRC (PATTERN (PREV_INSN (loop_end))), 1);
-	      if (jump_label == pc_rtx)
-		jump_label = XEXP (SET_SRC (PATTERN (PREV_INSN (loop_end))), 2);
+	      jump_label = condjump_label (PREV_INSN (loop_end));
 	      new_add_val = GEN_INT (-INTVAL (bl->biv->add_val));
 
 	      /* Set start_value; if this is not a CONST_INT, we need
@@ -9252,7 +9288,16 @@ try_copy_prop (loop, replacement, regno)
 	  arg.set_seen = 0;
 	  note_stores (PATTERN (insn), note_reg_stored, &arg);
 	  if (arg.set_seen)
-	    break;
+	    {
+	      rtx note = find_reg_note (insn, REG_EQUAL, NULL);
+
+	      /* It is possible that we've turned previously valid REG_EQUAL to
+	         invalid, as we change the REGNO to REPLACEMENT and unlike REGNO,
+	         REPLACEMENT is modified, we get different meaning.  */
+	      if (note && reg_mentioned_p (replacement, XEXP (note, 0)))
+		remove_note (insn, note);
+	      break;
+	    }
 	}
     }
   if (! init_insn)

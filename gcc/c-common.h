@@ -62,7 +62,7 @@ enum rid
   RID_FRIEND, RID_VIRTUAL, RID_EXPLICIT, RID_EXPORT, RID_MUTABLE,
 
   /* ObjC */
-  RID_FIRST_PQ, RID_IN = RID_FIRST_PQ, RID_OUT, RID_INOUT, RID_BYCOPY, RID_BYREF, RID_ONEWAY,
+  RID_IN, RID_OUT, RID_INOUT, RID_BYCOPY, RID_BYREF, RID_ONEWAY,
 
   /* C */
   RID_INT,     RID_CHAR,   RID_FLOAT,    RID_DOUBLE, RID_VOID,
@@ -106,8 +106,21 @@ enum rid
   RID_MAX,
 
   RID_FIRST_MODIFIER = RID_STATIC,
-  RID_LAST_MODIFIER = RID_ONEWAY
+  RID_LAST_MODIFIER = RID_ONEWAY,
+
+  RID_FIRST_AT = RID_AT_ENCODE,
+  RID_LAST_AT = RID_AT_IMPLEMENTATION,
+  RID_FIRST_PQ = RID_IN,
+  RID_LAST_PQ = RID_ONEWAY
 };
+
+#define OBJC_IS_AT_KEYWORD(rid) \
+  ((unsigned int)(rid) >= (unsigned int)RID_FIRST_AT && \
+   (unsigned int)(rid) <= (unsigned int)RID_LAST_AT)
+
+#define OBJC_IS_PQ_KEYWORD(rid) \
+  ((unsigned int)(rid) >= (unsigned int)RID_FIRST_PQ && \
+   (unsigned int)(rid) <= (unsigned int)RID_LAST_PQ)
 
 /* The elements of `ridpointers' are identifier nodes for the reserved
    type names and storage classes.  It is indexed by a RID_... value.  */
@@ -487,7 +500,25 @@ extern void finish_fname_decls			PARAMS ((void));
 extern const char *fname_as_string		PARAMS ((int));
 extern tree fname_decl				PARAMS ((unsigned, tree));
 extern const char *fname_string			PARAMS ((unsigned));
-extern void decl_attributes			PARAMS ((tree, tree, tree));
+
+/* Flags that may be passed in the third argument of decl_attributes.  */
+enum attribute_flags
+{
+  /* The type passed in is the type of a DECL, and any attributes that
+     should be passed in again to be applied to the DECL rather than the
+     type should be returned.  */
+  ATTR_FLAG_DECL_NEXT = 1,
+  /* The type passed in is a function return type, and any attributes that
+     should be passed in again to be applied to the function type rather
+     than the return type should be returned.  */
+  ATTR_FLAG_FUNCTION_NEXT = 2,
+  /* The type passed in is an array element type, and any attributes that
+     should be passed in again to be applied to the array type rather
+     than the element type should be returned.  */
+  ATTR_FLAG_ARRAY_NEXT = 4
+};
+
+extern tree decl_attributes			PARAMS ((tree *, tree, int));
 extern void init_function_format_info		PARAMS ((void));
 extern void check_function_format		PARAMS ((int *, tree, tree, tree));
 extern void set_Wformat				PARAMS ((int));
@@ -564,8 +595,9 @@ extern tree strip_array_types                   PARAMS ((tree));
 #define DO_COND(NODE)           TREE_OPERAND (DO_STMT_CHECK (NODE), 0)
 #define DO_BODY(NODE)           TREE_OPERAND (DO_STMT_CHECK (NODE), 1)
 
-/* RETURN_STMT accessor. This gives the expression associated with a
-   return statement. */
+/* RETURN_STMT accessors. These give the expression associated with a
+   return statement, and whether it should be ignored when expanding
+   (as opposed to inlining).  */
 #define RETURN_EXPR(NODE)       TREE_OPERAND (RETURN_STMT_CHECK (NODE), 0)
 
 /* EXPR_STMT accessor. This gives the expression associated with an
@@ -813,9 +845,11 @@ extern int c_unsafe_for_reeval			PARAMS ((tree));
 enum tree_dump_index
 {
   TDI_all,			/* dump the whole translation unit */
-  TDI_original,			/* dump each function before optimizing it */
-  TDI_optimized,			/* dump each function after optimizing it */
   TDI_class,			/* dump class heirarchy */
+  TDI_original,			/* dump each function before optimizing it */
+  TDI_optimized,		/* dump each function after optimizing it */
+  TDI_inlined,			/* dump each function after inlining
+				   within it. */
   TDI_end
 };
 
@@ -839,6 +873,7 @@ extern FILE *dump_begin			PARAMS ((enum tree_dump_index, int *));
 extern void dump_end			PARAMS ((enum tree_dump_index, FILE *));
 extern void dump_node			PARAMS ((tree, int, FILE *));
 extern int dump_switch_p                PARAMS ((const char *));
+extern const char *dump_flag_name	PARAMS ((enum tree_dump_index));
 
 /* Information recorded about each file examined during compilation.  */
 

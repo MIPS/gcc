@@ -119,6 +119,7 @@ extern int ix86_expand_setcc PARAMS ((enum rtx_code, rtx));
 extern int ix86_expand_int_movcc PARAMS ((rtx[]));
 extern int ix86_expand_fp_movcc PARAMS ((rtx[]));
 extern void x86_initialize_trampoline PARAMS ((rtx, rtx, rtx));
+extern rtx ix86_zero_extend_to_Pmode PARAMS ((rtx));
 extern void ix86_split_long_move PARAMS ((rtx[]));
 extern void ix86_split_ashldi PARAMS ((rtx *, rtx));
 extern void ix86_split_ashrdi PARAMS ((rtx *, rtx));
@@ -142,7 +143,8 @@ extern int x86_64_zero_extended_value PARAMS ((rtx));
 
 extern rtx ix86_force_to_memory PARAMS ((enum machine_mode, rtx));
 extern void ix86_free_from_memory PARAMS ((enum machine_mode));
-extern void ix86_split_fp_branch PARAMS ((rtx, rtx, rtx, rtx, rtx, rtx));
+extern void ix86_split_fp_branch PARAMS ((enum rtx_code code, rtx,
+					  rtx, rtx, rtx, rtx));
 extern int ix86_hard_regno_mode_ok PARAMS ((int, enum machine_mode));
 extern int ix86_register_move_cost PARAMS ((enum machine_mode, enum reg_class,
 					    enum reg_class));
@@ -154,6 +156,8 @@ extern enum reg_class ix86_preferred_reload_class PARAMS ((rtx,
 extern int ix86_memory_move_cost PARAMS ((enum machine_mode, enum reg_class,
 					  int));
 extern void ix86_set_move_mem_attrs PARAMS ((rtx, rtx, rtx, rtx, rtx));
+extern void emit_i387_cw_initialization PARAMS ((rtx, rtx));
+extern bool ix86_fp_jump_nontrivial_p PARAMS ((enum rtx_code));
 
 
 #ifdef TREE_CODE
@@ -162,20 +166,23 @@ extern rtx function_arg PARAMS ((CUMULATIVE_ARGS *, enum machine_mode, tree, int
 extern void function_arg_advance PARAMS ((CUMULATIVE_ARGS *, enum machine_mode,
 					tree, int));
 extern void ix86_init_builtins PARAMS ((void));
+extern void ix86_init_mmx_sse_builtins PARAMS ((void));
 extern rtx ix86_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int));
 #endif
 
 #endif
 
 #ifdef TREE_CODE
-extern int ix86_valid_decl_attribute_p PARAMS ((tree, tree, tree, tree));
-extern int ix86_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
-extern int ix86_comp_type_attributes PARAMS ((tree, tree));
 extern int ix86_return_pops_args PARAMS ((tree, tree, int));
 
 extern int ix86_data_alignment PARAMS ((tree, int));
 extern int ix86_local_alignment PARAMS ((tree, int));
 extern int ix86_constant_alignment PARAMS ((tree, int));
+extern int ix86_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
+extern int i386_pe_valid_decl_attribute_p PARAMS ((tree, tree, tree, tree));
+extern int i386_pe_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
+extern unsigned int i386_pe_section_type_flags PARAMS ((tree, const char *,
+							int));
+extern void i386_pe_asm_named_section PARAMS ((const char *, unsigned int,
+					       unsigned int));
 #endif
-
-

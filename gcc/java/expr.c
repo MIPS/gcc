@@ -57,6 +57,7 @@ static void expand_java_array_length PARAMS ((void));
 static tree build_java_monitor PARAMS ((tree, tree));
 static void expand_java_pushc PARAMS ((int, tree));
 static void expand_java_return PARAMS ((tree));
+static void expand_load_internal PARAMS ((int, tree, int));
 static void expand_java_NEW PARAMS ((tree));
 static void expand_java_INSTANCEOF PARAMS ((tree));
 static void expand_java_CHECKCAST PARAMS ((tree));
@@ -81,6 +82,8 @@ static tree build_java_check_indexed_type PARAMS ((tree, tree));
 static tree java_array_data_offset PARAMS ((tree)); 
 static tree case_identity PARAMS ((tree, tree)); 
 static unsigned char peek_opcode_at_pc PARAMS ((struct JCF *, int, int));
+static bool emit_init_test_initialization PARAMS ((struct hash_entry *,
+						   PTR ptr));
 
 static tree operand_type[59];
 extern struct obstack permanent_obstack;
@@ -1086,6 +1089,32 @@ expand_java_return (type)
     }
 }
 
+static void
+expand_load_internal (index, type, pc)
+     int index;
+     tree type;
+     int pc;
+{
+  tree copy;
+  tree var = find_local_variable (index, type, pc);
+
+  /* Now VAR is the VAR_DECL (or PARM_DECL) that we are going to push
+     on the stack.  If there is an assignment to this VAR_DECL between
+     the stack push and the use, then the wrong code could be
+     generated.  To avoid this we create a new local and copy our
+     value into it.  Then we push this new local on the stack.
+     Hopefully this all gets optimized out.  */
+  copy = build_decl (VAR_DECL, NULL_TREE, type);
+  DECL_CONTEXT (copy) = current_function_decl;
+  layout_decl (copy, 0);
+  DECL_REGISTER (copy) = 1;
+  expand_decl (copy);
+  MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (copy);
+  DECL_INITIAL (copy) = var;
+  expand_decl_init (copy);
+  push_value (copy);
+}
+
 tree
 build_address_of (value)
      tree value;
@@ -1683,10 +1712,20 @@ build_class_init (clas, expr)
 		     TRUE, NULL);
       
       if (ite->init_test_decl == 0)
-	ite->init_test_decl = build_decl (VAR_DECL, NULL_TREE, 
-					  boolean_type_node);
-      /* Tell the check-init code to ignore this decl.  */
-      DECL_BIT_INDEX(ite->init_test_decl) = -1;
+	{
+	  /* Build a declaration and mark it as a flag used to track
+	     static class initializations. */
+	  ite->init_test_decl = build_decl (VAR_DECL, NULL_TREE,
+					    boolean_type_node);
+	  MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (ite->init_test_decl);
+	  LOCAL_CLASS_INITIALIZATION_FLAG (ite->init_test_decl) = 1;
+	  DECL_CONTEXT (ite->init_test_decl) = current_function_decl;
+
+	  /* Tell the check-init code to ignore this decl when not
+             optimizing class initialization. */
+	  if (!STATIC_CLASS_INIT_OPT_P ())
+	    DECL_BIT_INDEX(ite->init_test_decl) = -1;
+	}
 
       init = build (CALL_EXPR, void_type_node,
 		    build_address_of (soft_initclass_node),
@@ -2432,16 +2471,31 @@ java_lang_expand_expr (exp, target, tmode, modifier)
 	{
 	  tree local;
 	  tree body = BLOCK_EXPR_BODY (exp);
+	  /* Set to 1 or more when we found a static class
+             initialization flag. */
+	  int found_class_initialization_flag = 0;
+
 	  pushlevel (2);	/* 2 and above */
 	  expand_start_bindings (0);
 	  local = BLOCK_EXPR_DECLS (exp);
 	  while (local)
 	    {
 	      tree next = TREE_CHAIN (local);
+	      found_class_initialization_flag +=
+		LOCAL_CLASS_INITIALIZATION_FLAG_P (local);
 	      layout_decl (local, 0);
 	      expand_decl (pushdecl (local));
 	      local = next;
 	    }
+
+	  /* Emit initialization code for test flags if we saw one. */
+	  if (! always_initialize_class_p 
+	      && current_function_decl
+	      && found_class_initialization_flag)
+	    hash_traverse 
+	      (&DECL_FUNCTION_INIT_TEST_TABLE (current_function_decl),
+	       emit_init_test_initialization, NULL);
+
 	  /* Avoid deep recursion for long block.  */
 	  while (TREE_CODE (body) == COMPOUND_EXPR)
 	    {
@@ -2841,7 +2895,7 @@ process_jvm_instruction (PC, byte_ops, length)
 
 /* internal macro added for use by the WIDE case */
 #define LOAD_INTERNAL(OPTYPE, OPVALUE) \
-  push_value (find_local_variable (OPVALUE, type_map[OPVALUE], oldpc));
+  expand_load_internal (OPVALUE, type_map[OPVALUE], oldpc);
 
 /* Push local variable onto the opcode stack. */
 #define LOAD(OPERAND_TYPE, OPERAND_VALUE) \
@@ -3307,4 +3361,38 @@ force_evaluation_order (node)
 	}
     }
   return node;
+}
+
+/* Called for every element in DECL_FUNCTION_INIT_TEST_TABLE of a
+   method in order to emit initialization code for each test flag.  */
+
+static bool
+emit_init_test_initialization (entry, key)
+  struct hash_entry *entry;
+  hash_table_key key ATTRIBUTE_UNUSED;
+{
+  struct init_test_hash_entry *ite = (struct init_test_hash_entry *) entry;
+  tree klass = build_class_ref ((tree) entry->key);
+  tree rhs;
+
+  /* If the DECL_INITIAL of the test flag is set to true, it
+     means that the class is already initialized the time it
+     is in use. */
+  if (DECL_INITIAL (ite->init_test_decl) == boolean_true_node)
+    rhs = boolean_true_node;
+  /* Otherwise, we initialize the class init check variable by looking
+     at the `state' field of the class to see if it is already
+     initialized.  This makes things a bit faster if the class is
+     already initialized, which should be the common case.  */
+  else
+    rhs = build (GE_EXPR, boolean_type_node,
+		 build (COMPONENT_REF, byte_type_node,
+			build1 (INDIRECT_REF, class_type_node, klass),
+			lookup_field (&class_type_node,
+				      get_identifier ("state"))),
+		 build_int_2 (JV_STATE_DONE, 0));
+
+  expand_expr_stmt (build (MODIFY_EXPR, boolean_type_node, 
+			   ite->init_test_decl, rhs));
+  return true;
 }

@@ -40,6 +40,8 @@ Boston, MA 02111-1307, USA.  */
 #include "c-pragma.h"
 #include "tm_p.h"
 #include "ggc.h"
+#include "target.h"
+#include "target-def.h"
 
 /* Forward declarations.  */
 static int h8300_interrupt_function_p PARAMS ((tree));
@@ -51,6 +53,11 @@ static unsigned int compute_saved_regs PARAMS ((void));
 static void push PARAMS ((FILE *, int));
 static void pop PARAMS ((FILE *, int));
 static const char *cond_string PARAMS ((enum rtx_code));
+static int h8300_valid_decl_attribute PARAMS ((tree, tree, tree, tree));
+static void h8300_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+static void h8300_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void h8300_asm_named_section PARAMS ((const char *, unsigned int,
+					     unsigned int));
 
 /* CPU_TYPE, says what cpu we're compiling for.  */
 int cpu_type;
@@ -90,7 +97,18 @@ static const char *const h8_pop_ops[2] = { "pop", "pop.l" };
 static const char *const h8_mov_ops[2] = { "mov.w", "mov.l" };
 
 const char *h8_push_op, *h8_pop_op, *h8_mov_op;
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_VALID_DECL_ATTRIBUTE
+#define TARGET_VALID_DECL_ATTRIBUTE h8300_valid_decl_attribute
 
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE h8300_output_function_prologue
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE h8300_output_function_epilogue
+
+struct gcc_target targetm = TARGET_INITIALIZER;
+
 /* Initialize various cpu specific globals at start up.  */
 
 void
@@ -262,10 +280,10 @@ pop (file, rn)
 
 /* Output assembly language code for the function prologue.  */
 
-void
-function_prologue (file, size)
+static void
+h8300_output_function_prologue (file, size)
      FILE *file;
-     int size;
+     HOST_WIDE_INT size;
 {
   int fsize = round_frame_size (size);
   int idx;
@@ -373,10 +391,10 @@ function_prologue (file, size)
 
 /* Output assembly language code for the function epilogue.  */
 
-void
-function_epilogue (file, size)
+static void
+h8300_output_function_epilogue (file, size)
      FILE *file;
-     int size;
+     HOST_WIDE_INT size;
 {
   int fsize = round_frame_size (size);
   int idx;
@@ -465,7 +483,6 @@ asm_file_start (file)
 {
   fprintf (file, ";\tGCC For the Hitachi H8/300\n");
   fprintf (file, ";\tBy Hitachi America Ltd and Cygnus Support\n");
-  fprintf (file, ";\trelease F-1\n");
   if (optimize)
     fprintf (file, "; -O%d\n", optimize);
   if (TARGET_H8300H)
@@ -522,7 +539,7 @@ general_operand_src (op, mode)
 }
 
 /* Return true if OP is a valid destination operand for an integer move
-   instruction.  */
+   instruction, excluding those involving pre_modify.  */
 
 int
 general_operand_dst (op, mode)
@@ -532,6 +549,20 @@ general_operand_dst (op, mode)
   if (GET_CODE (op) == MEM && GET_CODE (XEXP (op, 0)) == PRE_DEC)
     return 1;
   return general_operand (op, mode);
+}
+
+/* Return true if OP is a valid destination operand for an integer move
+   instruction, including those involving pre_modify.  */
+
+int
+general_operand_dst_push (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (push_operand (op, mode))
+    return 1;
+
+  return general_operand_dst (op, mode);
 }
 
 /* Return true if OP is a const valid for a bit clear instruction.  */
@@ -1182,7 +1213,6 @@ print_operand (file, x, code)
 	    fprintf (file, "%s", names_upper_extended[REGNO (x)]);
 	  break;
 	case MEM:
-	  x = adj_offsettable_operand (x, 0);
 	  print_operand (file, x, 0);
 	  break;
 	case CONST_INT:
@@ -1212,7 +1242,7 @@ print_operand (file, x, code)
 	    fprintf (file, "%s", names_big[REGNO (x)]);
 	  break;
 	case MEM:
-	  x = adj_offsettable_operand (x, 2);
+	  x = adjust_address (x, HImode, 2);
 	  print_operand (file, x, 0);
 	  break;
 	case CONST_INT:
@@ -2238,7 +2268,7 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	{
 	  if (count == 15 && shift_type == SHIFT_ASHIFTRT)
 	    {
-	      info->special = "shll\t%t0,%t0\n\tsubx\t%t0,%t0\n\tmov.b\t%t0,%s0";
+	      info->special = "shll\t%t0\n\tsubx\t%t0,%t0\n\tmov.b\t%t0,%s0";
 	      info->cc_valid_p = 0;
 	      return SHIFT_SPECIAL;
 	    }
@@ -3023,8 +3053,8 @@ h8300_tiny_data_p (decl)
    tiny_data: This variable lives in the tiny data area and can be
    referenced with 16-bit absolute memory references.  */
 
-int
-h8300_valid_machine_decl_attribute (decl, attributes, attr, args)
+static int
+h8300_valid_decl_attribute (decl, attributes, attr, args)
      tree decl;
      tree attributes ATTRIBUTE_UNUSED;
      tree attr;
@@ -3296,4 +3326,14 @@ h8300_adjust_insn_length (insn, length)
     }
 
   return 0;
+}
+
+static void
+h8300_asm_named_section (name, flags, align)
+     const char *name;
+     unsigned int flags ATTRIBUTE_UNUSED;
+     unsigned int align ATTRIBUTE_UNUSED;
+{
+  /* ??? Perhaps we should be using default_coff_asm_named_section.  */
+  fprintf (asm_out_file, "\t.section %s\n", name);
 }

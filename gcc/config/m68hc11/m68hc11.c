@@ -52,6 +52,8 @@ Note:
 #include "basic-block.h"
 #include "function.h"
 #include "ggc.h"
+#include "target.h"
+#include "target-def.h"
 
 static void print_options PARAMS ((FILE *));
 static void emit_move_after_reload PARAMS ((rtx, rtx, rtx));
@@ -64,10 +66,16 @@ static rtx m68hc11_expand_compare PARAMS((enum rtx_code, rtx, rtx));
 static int must_parenthesize PARAMS ((rtx));
 static int m68hc11_shift_cost PARAMS ((enum machine_mode, rtx, int));
 static int m68hc11_auto_inc_p PARAMS ((rtx));
+static int m68hc11_valid_type_attribute_p PARAMS((tree, tree,
+						  tree, tree));
 
 void create_regs_rtx PARAMS ((void));
+static void m68hc11_add_gc_roots PARAMS ((void));
 
 static void asm_print_register PARAMS ((FILE *, int));
+static void m68hc11_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void m68hc11_asm_out_constructor PARAMS ((rtx, int));
+static void m68hc11_asm_out_destructor PARAMS ((rtx, int));
 
 rtx m68hc11_soft_tmp_reg;
 
@@ -198,10 +206,17 @@ const char *m68hc11_regparm_string;
 const char *m68hc11_reg_alloc_order;
 const char *m68hc11_soft_reg_count;
 
-static void m68hc11_add_gc_roots PARAMS ((void));
-
 static int nb_soft_regs;
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_VALID_TYPE_ATTRIBUTE
+#define TARGET_VALID_TYPE_ATTRIBUTE m68hc11_valid_type_attribute_p
 
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE m68hc11_output_function_epilogue
+
+struct gcc_target targetm = TARGET_INITIALIZER;
+
 int
 m68hc11_override_options ()
 {
@@ -1116,24 +1131,10 @@ m68hc11_initialize_trampoline (tramp, fnaddr, cxt)
 /* Declaration of types.  */
 
 /* If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-
-int
-m68hc11_valid_decl_attribute_p (decl, attributes, identifier, args)
-     tree decl ATTRIBUTE_UNUSED;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree identifier ATTRIBUTE_UNUSED;
-     tree args ATTRIBUTE_UNUSED;
-{
-  return 0;
-}
-
-/* If defined, a C expression whose value is nonzero if IDENTIFIER
    with arguments ARGS is a valid machine specific attribute for TYPE.
    The attributes in ATTRIBUTES have previously been assigned to TYPE.  */
 
-int
+static int
 m68hc11_valid_type_attribute_p (type, attributes, identifier, args)
      tree type;
      tree attributes ATTRIBUTE_UNUSED;
@@ -1153,28 +1154,6 @@ m68hc11_valid_type_attribute_p (type, attributes, identifier, args)
     }
 
   return 0;
-}
-
-/* If defined, a C expression whose value is zero if the attributes on
-   TYPE1 and TYPE2 are incompatible, one if they are compatible, and
-   two if they are nearly compatible (which causes a warning to be
-   generated).  */
-
-int
-m68hc11_comp_type_attributes (type1, type2)
-     tree type1 ATTRIBUTE_UNUSED;
-     tree type2 ATTRIBUTE_UNUSED;
-{
-  return 1;
-}
-
-/* If defined, a C statement that assigns default attributes to newly
-   defined TYPE.  */
-
-void
-m68hc11_set_default_type_attributes (type)
-     tree type ATTRIBUTE_UNUSED;
-{
 }
 
 /* Define this macro if references to a symbol must be treated
@@ -1254,7 +1233,7 @@ m68hc11_initial_elimination_offset (from, to)
 
   if (from == FRAME_POINTER_REGNUM && to == HARD_FRAME_POINTER_REGNUM)
     {
-      return 0;
+      return m68hc11_sp_correction;
     }
 
   /* Push any 2 byte pseudo hard registers that we need to save.  */
@@ -1273,7 +1252,7 @@ m68hc11_initial_elimination_offset (from, to)
 
   if (from == FRAME_POINTER_REGNUM && to == HARD_SP_REGNUM)
     {
-      return size - m68hc11_sp_correction;
+      return size;
     }
   return 0;
 }
@@ -1555,10 +1534,10 @@ m68hc11_total_frame_size ()
   return size;
 }
 
-void
-m68hc11_function_epilogue (out, size)
+static void
+m68hc11_output_function_epilogue (out, size)
      FILE *out ATTRIBUTE_UNUSED;
-     int size ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   /* We catch the function epilogue generation to have a chance
      to clear the z_replacement_completed flag.  */
@@ -1945,18 +1924,30 @@ m68hc11_gen_highpart (mode, x)
     }
 
   /* gen_highpart crashes when it is called with a SUBREG.  */
-  if (GET_CODE (x) == SUBREG && SUBREG_BYTE (x) != 0)
+  if (GET_CODE (x) == SUBREG)
     {
       return gen_rtx (SUBREG, mode, XEXP (x, 0), XEXP (x, 1));
     }
-  x = gen_highpart (mode, x);
+  if (GET_CODE (x) == REG)
+    {
+      if (REGNO (x) < FIRST_PSEUDO_REGISTER)
+        return gen_rtx (REG, mode, REGNO (x));
+      else
+        return gen_rtx_SUBREG (mode, x, 0);
+    }
 
-  /* Return a different rtx to avoid to share it in several insns
-     (when used by a split pattern).  Sharing addresses within
-     a MEM breaks the Z register replacement (and reloading).  */
   if (GET_CODE (x) == MEM)
-    x = copy_rtx (x);
-  return x;
+    {
+      x = change_address (x, mode, 0);
+
+      /* Return a different rtx to avoid to share it in several insns
+	 (when used by a split pattern).  Sharing addresses within
+	 a MEM breaks the Z register replacement (and reloading).  */
+      if (GET_CODE (x) == MEM)
+	x = copy_rtx (x);
+      return x;
+    }
+  abort ();
 }
 
 
@@ -2661,7 +2652,7 @@ m68hc11_split_move (to, from, scratch)
 
   if (offset)
     {
-      high_from = adj_offsettable_operand (high_from, offset);
+      high_from = adjust_address (high_from, mode, offset);
       low_from = high_from;
     }
   if (mode == SImode)
@@ -4814,7 +4805,7 @@ m68hc11_reorg (first)
 
   /* Force a split of all splitable insn.  This is necessary for the
      Z register replacement mechanism because we end up with basic insns.  */
-  split_all_insns (0);
+  split_all_insns_noflow ();
   split_done = 1;
 
   z_replacement_completed = 1;
@@ -4861,7 +4852,7 @@ m68hc11_reorg (first)
      split after Z register replacement.  This gives more opportunities
      for peephole (in particular for consecutives xgdx/xgdy).  */
   if (optimize > 0)
-    split_all_insns (0);
+    split_all_insns_noflow ();
 
   /* Once insns are split after the z_replacement_completed == 2,
      we must not re-run the life_analysis.  The xgdx/xgdy patterns
@@ -5264,4 +5255,22 @@ m68hc11_add_gc_roots ()
   ggc_add_rtx_root (&z_reg_qi, 1);
   ggc_add_rtx_root (&stack_push_word, 1);
   ggc_add_rtx_root (&stack_pop_word, 1);
+}
+
+static void
+m68hc11_asm_out_constructor (symbol, priority)
+     rtx symbol;
+     int priority;
+{
+  default_ctor_section_asm_out_constructor (symbol, priority);
+  fprintf (asm_out_file, "\t.globl\t__do_global_ctors\n");
+}
+
+static void
+m68hc11_asm_out_destructor (symbol, priority)
+     rtx symbol;
+     int priority;
+{
+  default_dtor_section_asm_out_destructor (symbol, priority);
+  fprintf (asm_out_file, "\t.globl\t__do_global_dtors\n");
 }

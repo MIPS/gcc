@@ -547,7 +547,7 @@
 	      (const_string "yes")))
 
 (define_attr "interrupt_function" "no,yes"
-  (const (symbol_ref "pragma_interrupt")))
+  (const (symbol_ref "current_function_interrupt")))
 
 (define_attr "in_delay_slot" "yes,no"
   (cond [(eq_attr "type" "cbranch") (const_string "no")
@@ -577,7 +577,9 @@
 	(ior (and (eq_attr "interrupt_function" "no")
 		  (eq_attr "type" "!pload,prset"))
 	     (and (eq_attr "interrupt_function" "yes")
-		  (eq_attr "hit_stack" "no")))) (nil) (nil)])
+		  (ior
+		   (ne (symbol_ref "TARGET_SH3") (const_int 0))
+		   (eq_attr "hit_stack" "no"))))) (nil) (nil)])
 
 ;; Since a call implicitly uses the PR register, we can't allow
 ;; a PR register store in a jsr delay slot.
@@ -1652,6 +1654,7 @@
    shll%O2	%0
    #"
   "TARGET_SH3
+   && reload_completed
    && GET_CODE (operands[2]) == CONST_INT
    && ! CONST_OK_FOR_K (INTVAL (operands[2]))"
   [(set (match_dup 3) (match_dup 2))
@@ -1694,7 +1697,7 @@
 	(ashift:SI (match_operand:SI 1 "arith_reg_operand" "")
 		   (match_operand:SI 2 "const_int_operand" "n")))
    (clobber (reg:SI T_REG))]
-  ""
+  "reload_completed"
   [(use (reg:SI R0_REG))]
   "
 {
@@ -1742,7 +1745,7 @@
 	(ashift:HI (match_operand:HI 1 "arith_reg_operand" "")
 		   (match_operand:HI 2 "const_int_operand" "n")))
    (clobber (reg:SI T_REG))]
-  ""
+  "reload_completed"
   [(use (reg:SI R0_REG))]
   "
 {
@@ -1902,7 +1905,7 @@
 	(lshiftrt:SI (match_operand:SI 1 "arith_reg_operand" "")
 		     (match_operand:SI 2 "const_int_operand" "n")))
    (clobber (reg:SI T_REG))]
-  ""
+  "reload_completed"
   [(use (reg:SI R0_REG))]
   "
 {
@@ -3745,7 +3748,7 @@
   [(set (reg:SI R0_REG)
 	(unspec [(const (unspec [(match_dup 1)] UNSPEC_PIC))]
 		UNSPEC_MOVA))
-   (set (match_dup 0) (const (unspec [(match_dup 1)] UNSPEC_PIC)))
+   (set (match_dup 0) (const:SI (unspec:SI [(match_dup 1)] UNSPEC_PIC)))
    (set (match_dup 0) (plus:SI (match_dup 0) (reg:SI R0_REG)))]
   "" "
 {
@@ -3776,7 +3779,7 @@
 (define_expand "sym_label2reg"
   [(set (match_operand:SI 0 "" "")
 	(const (minus:SI
-		(const (unspec [(match_operand:SI 1 "" "")] UNSPEC_PIC))
+		(const:SI (unspec:SI [(match_operand:SI 1 "" "")] UNSPEC_PIC))
 		(const (plus:SI
 			(match_operand:SI 2 "" "")
 			(const_int 2))))))]
@@ -3784,7 +3787,7 @@
 
 (define_expand "symGOT2reg"
   [(set (match_operand:SI 0 "" "")
-        (const (unspec [(match_operand:SI 1 "" "")] UNSPEC_GOT)))
+        (const:SI (unspec:SI [(match_operand:SI 1 "" "")] UNSPEC_GOT)))
   (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 2)))
   (set (match_dup 0) (mem:SI (match_dup 0)))]
   ""
@@ -3795,7 +3798,7 @@
 
 (define_expand "symGOTOFF2reg"
   [(set (match_operand:SI 0 "" "")
-	(const (unspec [(match_operand:SI 1 "" "")] UNSPEC_GOTOFF)))
+	(const:SI (unspec:SI [(match_operand:SI 1 "" "")] UNSPEC_GOTOFF)))
   (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 2)))]
   ""
   "
@@ -3884,7 +3887,7 @@
 
 (define_insn "casesi_worker_0"
   [(set (match_operand:SI 0 "register_operand" "=r,r")
-	(unspec [(match_operand 1 "register_operand" "0,r")
+	(unspec:SI [(match_operand 1 "register_operand" "0,r")
 		 (label_ref (match_operand 2 "" ""))] UNSPEC_CASESI))
    (clobber (match_scratch:SI 3 "=X,1"))
    (clobber (match_scratch:SI 4 "=&z,z"))]
@@ -3908,14 +3911,14 @@
 
 (define_split
   [(set (match_operand:SI 0 "register_operand" "")
-	(unspec [(match_operand 1 "register_operand" "")
+	(unspec:SI [(match_operand 1 "register_operand" "")
 		 (label_ref (match_operand 2 "" ""))] UNSPEC_CASESI))
    (clobber (match_scratch:SI 3 ""))
    (clobber (match_scratch:SI 4 ""))]
   "TARGET_SH2 && reload_completed"
   [(set (reg:SI R0_REG) (unspec [(label_ref (match_dup 2))] UNSPEC_MOVA))
    (parallel [(set (match_dup 0)
-	      (unspec [(reg:SI R0_REG) (match_dup 1)
+	      (unspec:SI [(reg:SI R0_REG) (match_dup 1)
 		       (label_ref (match_dup 2))] UNSPEC_CASESI))
 	      (clobber (match_dup 3))])]
   "LABEL_NUSES (operands[2])++;")
@@ -5026,7 +5029,7 @@
   emit_insn (gen_movsi (shift_reg, operands[3]));
   addr_target = copy_addr_to_reg (plus_constant (orig_address, size - 1));
 
-  operands[0] = change_address (operands[0], QImode, addr_target);
+  operands[0] = replace_equiv_address (operands[0], addr_target);
   emit_insn (gen_movqi (operands[0], gen_rtx_SUBREG (QImode, shift_reg, 0)));
 
   while (size -= 1)

@@ -33,7 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #  define SIGCHLD SIGCLD
 #endif
 
-#ifdef vfork /* Autoconf may define this to fork for us. */
+#ifdef vfork /* Autoconf may define this to fork for us.  */
 # define VFORK_STRING "fork"
 #else
 # define VFORK_STRING "vfork"
@@ -163,6 +163,10 @@ int do_collecting = 1;
 #else
 int do_collecting = 0;
 #endif
+
+/* Nonzero if we should suppress the automatic demangling of identifiers
+   in linker error messages.  Set from COLLECT_NO_DEMANGLE.  */
+int no_demangle;
 
 /* Linked lists of constructor and destructor names.  */
 
@@ -254,7 +258,7 @@ struct path_prefix
 };
 
 #ifdef COLLECT_EXPORT_LIST
-/* Lists to keep libraries to be scanned for global constructors/destructors. */
+/* Lists to keep libraries to be scanned for global constructors/destructors.  */
 static struct head libs;                    /* list of libraries */
 static struct path_prefix cmdline_lib_dirs; /* directories specified with -L */
 static struct path_prefix libpath_lib_dirs; /* directories in LIBPATH */
@@ -522,7 +526,6 @@ dump_file (name)
      const char *name;
 {
   FILE *stream = fopen (name, "r");
-  int no_demangle = !! getenv ("COLLECT_NO_DEMANGLE");
 
   if (stream == 0)
     return;
@@ -556,7 +559,7 @@ dump_file (name)
 	      fputs (result, stderr);
 
 	      diff = strlen (word) - strlen (result);
-	      while (diff > 0)
+	      while (diff > 0 && c == ' ')
 		--diff, putc (' ', stderr);
 	      while (diff < 0 && c == ' ')
 		++diff, c = getc (stream);
@@ -857,6 +860,11 @@ main (argc, argv)
   const char **object;
   int first_file;
   int num_c_args	= argc+9;
+
+  no_demangle = !! getenv ("COLLECT_NO_DEMANGLE");
+
+  /* Suppress demangling by the real linker, which may be broken.  */
+  putenv (xstrdup ("COLLECT_NO_DEMANGLE="));
 
 #if defined (COLLECT2_HOST_INITIALIZATION)
   /* Perform system dependent initialization, if neccessary.  */
@@ -1427,7 +1435,7 @@ main (argc, argv)
       return 0;
     }
 
-  /* Sort ctor and dtor lists by priority. */
+  /* Sort ctor and dtor lists by priority.  */
   sort_ids (&constructors);
   sort_ids (&destructors);
 
@@ -1703,7 +1711,7 @@ extract_init_priority (name)
     ++pos;
   pos += 10; /* strlen ("GLOBAL__X_") */
 
-  /* Extract init_p number from ctor/dtor name. */
+  /* Extract init_p number from ctor/dtor name.  */
   pri = atoi (name + pos);
   return pri ? pri : DEFAULT_INIT_PRIORITY;
 }
@@ -2949,7 +2957,7 @@ static const char *aix_std_libs[] = {
 };
 
 /* This function checks the filename and returns 1
-   if this name matches the location of a standard AIX library. */
+   if this name matches the location of a standard AIX library.  */
 static int
 ignore_library (name)
      const char *name;

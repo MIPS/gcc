@@ -969,8 +969,8 @@ extern const char * structure_size_string;
    If we have to have a frame pointer we might as well make use of it.
    APCS says that the frame pointer does not need to be pushed in leaf
    functions, or simple tail call functions.  */
-#define FRAME_POINTER_REQUIRED						\
-  (current_function_has_nonlocal_label					\
+#define FRAME_POINTER_REQUIRED					\
+  (current_function_has_nonlocal_label				\
    || (TARGET_ARM && TARGET_APCS_FRAME && ! leaf_function_p ()))
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
@@ -1433,8 +1433,6 @@ enum reg_class
    This is added to the cfun structure.  */
 typedef struct machine_function
 {
-  /* Records __builtin_return address.  */
-  struct rtx_def *ra_rtx;
   /* Additionsl stack adjustment in __builtin_eh_throw.  */
   struct rtx_def *eh_epilogue_sp_ofs;
   /* Records if LR has to be saved for far jumps.  */
@@ -1534,17 +1532,6 @@ typedef struct
     (PRETEND_SIZE) = (NUM_ARG_REGS - (CUM).nregs) * UNITS_PER_WORD;	\
 }
 
-/* Generate assembly output for the start of a function.  */
-#define FUNCTION_PROLOGUE(STREAM, SIZE)		\
-  do						\
-    {						\
-      if (TARGET_ARM)				\
-        output_arm_prologue (STREAM, SIZE);	\
-      else					\
-	output_thumb_prologue (STREAM);		\
-    }						\
-  while (0)
-
 /* If your target environment doesn't prefix user functions with an
    underscore, you may wish to re-define this to prevent any conflicts.
    e.g. AOF may prefix mcount with an underscore.  */
@@ -1603,10 +1590,6 @@ typedef struct
    On the ARM, the function epilogue recovers the stack pointer from the
    frame.  */
 #define EXIT_IGNORE_STACK 1
-
-/* Generate the assembly code for function exit. */
-#define FUNCTION_EPILOGUE(STREAM, SIZE)	\
-  output_func_epilogue (SIZE)
 
 #define EPILOGUE_USES(REGNO) (reload_completed && (REGNO) == LR_REGNUM)
 
@@ -2544,24 +2527,6 @@ extern const char * arm_pic_register_string;
    offset.  */
 extern int making_const_table;
 
-/* If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for TYPE.
-   The attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-#define VALID_MACHINE_TYPE_ATTRIBUTE(TYPE, ATTRIBUTES, NAME, ARGS) \
-  (arm_valid_type_attribute_p (TYPE, ATTRIBUTES, NAME, ARGS))
-
-/* If defined, a C expression whose value is zero if the attributes on
-   TYPE1 and TYPE2 are incompatible, one if they are compatible, and
-   two if they are nearly compatible (which causes a warning to be
-   generated).  */
-#define COMP_TYPE_ATTRIBUTES(TYPE1, TYPE2) \
-  (arm_comp_type_attributes (TYPE1, TYPE2))
-
-/* If defined, a C statement that assigns default attributes to newly
-   defined TYPE.  */
-#define SET_DEFAULT_TYPE_ATTRIBUTES(TYPE) \
-  arm_set_default_type_attributes (TYPE)
-
 /* Handle pragmas for compatibility with Intel's compilers.  */
 #define REGISTER_TARGET_PRAGMAS(PFILE) do { \
   cpp_register_pragma (PFILE, 0, "long_calls", arm_pr_long_calls); \
@@ -2723,15 +2688,6 @@ extern int making_const_table;
                  (LOG), (MAX_SKIP));				\
     }
 #endif
-
-/* Target characters.  */
-#define TARGET_BELL	007
-#define TARGET_BS	010
-#define TARGET_TAB	011
-#define TARGET_NEWLINE	012
-#define TARGET_VT	013
-#define TARGET_FF	014
-#define TARGET_CR	015
 
 /* Only perform branch elimination (by making instructions conditional) if
    we're optimising.  Otherwise it's of no use anyway.  */
@@ -2760,12 +2716,12 @@ extern int making_const_table;
 #define HOST_UINT(x) ((unsigned HOST_WIDE_INT) x)
 #endif
 
-#define ARM_SIGN_EXTEND(x)  ((HOST_WIDE_INT)	\
-  (HOST_BITS_PER_WIDE_INT <= 32 ? (x)		\
-   : (((x) & HOST_UINT (0xffffffff)) |		\
-      (((x) & HOST_UINT (0x80000000))		\
-       ? ((~ HOST_INT (0))			\
-	  & ~ HOST_UINT(0xffffffff))		\
+#define ARM_SIGN_EXTEND(x)  ((HOST_WIDE_INT)			\
+  (HOST_BITS_PER_WIDE_INT <= 32 ? (unsigned HOST_WIDE_INT) (x)	\
+   : ((((unsigned HOST_WIDE_INT)(x)) & HOST_UINT (0xffffffff)) |\
+      ((((unsigned HOST_WIDE_INT)(x)) & HOST_UINT (0x80000000))	\
+       ? ((~ HOST_UINT (0))					\
+	  & ~ HOST_UINT(0xffffffff))				\
        : 0))))
 
 /* Output the address of an operand.  */
@@ -2998,14 +2954,4 @@ enum arm_builtins
   ARM_BUILTIN_PREFETCH,
   ARM_BUILTIN_MAX
 };
-
-#define MD_INIT_BUILTINS	\
-  do				\
-    {				\
-      arm_init_builtins ();	\
-    }				\
-  while (0)
-
-#define MD_EXPAND_BUILTIN(EXP, TARGET, SUBTARGET, MODE, IGNORE) \
-    arm_expand_builtin ((EXP), (TARGET), (SUBTARGET), (MODE), (IGNORE))
 #endif /* ! GCC_ARM_H */

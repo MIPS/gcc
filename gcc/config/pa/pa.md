@@ -2814,11 +2814,11 @@
   
   /* Fall through means we're going to use our block move pattern.  */
   operands[0]
-    = change_address (operands[0], VOIDmode,
-		      copy_to_mode_reg (SImode, XEXP (operands[0], 0)));
+    = replace_equiv_address (operands[0],
+			     copy_to_mode_reg (SImode, XEXP (operands[0], 0)));
   operands[1]
-    = change_address (operands[1], VOIDmode,
-		      copy_to_mode_reg (SImode, XEXP (operands[1], 0)));
+    = replace_equiv_address (operands[1],
+			     copy_to_mode_reg (SImode, XEXP (operands[1], 0)));
   operands[4] = gen_reg_rtx (SImode);
   operands[5] = gen_reg_rtx (SImode);
   operands[6] = gen_reg_rtx (SImode);
@@ -3869,11 +3869,12 @@
 	      (clobber (match_dup 3))
 	      (clobber (reg:SI 26))
 	      (clobber (reg:SI 25))
-	      (clobber (reg:SI 31))])
+	      (clobber (match_dup 4))])
    (set (match_operand:SI 0 "general_operand" "") (reg:SI 29))]
   ""
   "
 {
+  operands[4] = gen_rtx_REG (SImode, TARGET_64BIT ? 2 : 31);
   if (TARGET_PA_11 && ! TARGET_DISABLE_FPREGS && ! TARGET_SOFT_FLOAT)
     {
       rtx scratch = gen_reg_rtx (DImode);
@@ -3930,7 +3931,7 @@
    (clobber (reg:SI 26))
    (clobber (reg:SI 25))
    (clobber (reg:SI 31))]
-  ""
+  "!TARGET_64BIT"
   "* return output_mul_insn (0, insn);"
   [(set_attr "type" "milli")
    (set (attr "length")
@@ -3954,6 +3955,17 @@
 
 ;; Out of reach, can use ble
           (const_int 12)))])
+
+(define_insn ""
+  [(set (reg:SI 29) (mult:SI (reg:SI 26) (reg:SI 25)))
+   (clobber (match_operand:SI 0 "register_operand" "=a"))
+   (clobber (reg:SI 26))
+   (clobber (reg:SI 25))
+   (clobber (reg:SI 2))]
+  "TARGET_64BIT"
+  "* return output_mul_insn (0, insn);"
+  [(set_attr "type" "milli")
+   (set (attr "length") (const_int 4))])
 
 (define_expand "muldi3"
   [(set (match_operand:DI 0 "register_operand" "")
@@ -4012,15 +4024,22 @@
 	      (clobber (match_dup 4))
 	      (clobber (reg:SI 26))
 	      (clobber (reg:SI 25))
-	      (clobber (reg:SI 31))])
+	      (clobber (match_dup 5))])
    (set (match_operand:SI 0 "general_operand" "") (reg:SI 29))]
   ""
   "
 {
   operands[3] = gen_reg_rtx (SImode);
-  operands[4] = gen_reg_rtx (SImode);
   if (TARGET_64BIT)
-    operands[4] = gen_rtx_REG (SImode, 2);
+    {
+      operands[5] = gen_rtx_REG (SImode, 2);
+      operands[4] = operands[5];
+    }
+  else
+    {
+      operands[5] = gen_rtx_REG (SImode, 31);
+      operands[4] = gen_reg_rtx (SImode);
+    }
   if (GET_CODE (operands[2]) == CONST_INT && emit_hpdiv_const (operands, 0))
     DONE;
 }")
@@ -4033,7 +4052,7 @@
    (clobber (reg:SI 26))
    (clobber (reg:SI 25))
    (clobber (reg:SI 31))]
-  ""
+  "!TARGET_64BIT"
   "*
    return output_div_insn (operands, 0, insn);"
   [(set_attr "type" "milli")
@@ -4059,6 +4078,20 @@
 ;; Out of reach, can use ble
           (const_int 12)))])
 
+(define_insn ""
+  [(set (reg:SI 29)
+	(div:SI (reg:SI 26) (match_operand:SI 0 "div_operand" "")))
+   (clobber (match_operand:SI 1 "register_operand" "=a"))
+   (clobber (match_operand:SI 2 "register_operand" "=&r"))
+   (clobber (reg:SI 26))
+   (clobber (reg:SI 25))
+   (clobber (reg:SI 2))]
+  "TARGET_64BIT"
+  "*
+   return output_div_insn (operands, 0, insn);"
+  [(set_attr "type" "milli")
+   (set (attr "length") (const_int 4))])
+
 (define_expand "udivsi3"
   [(set (reg:SI 26) (match_operand:SI 1 "move_operand" ""))
    (set (reg:SI 25) (match_operand:SI 2 "move_operand" ""))
@@ -4067,15 +4100,22 @@
 	      (clobber (match_dup 4))
 	      (clobber (reg:SI 26))
 	      (clobber (reg:SI 25))
-	      (clobber (reg:SI 31))])
+	      (clobber (match_dup 5))])
    (set (match_operand:SI 0 "general_operand" "") (reg:SI 29))]
   ""
   "
 {
   operands[3] = gen_reg_rtx (SImode);
-  operands[4] = gen_reg_rtx (SImode);
   if (TARGET_64BIT)
-    operands[4] = gen_rtx_REG (SImode, 2);
+    {
+      operands[5] = gen_rtx_REG (SImode, 2);
+      operands[4] = operands[5];
+    }
+  else
+    {
+      operands[5] = gen_rtx_REG (SImode, 31);
+      operands[4] = gen_reg_rtx (SImode);
+    }
   if (GET_CODE (operands[2]) == CONST_INT && emit_hpdiv_const (operands, 1))
     DONE;
 }")
@@ -4088,7 +4128,7 @@
    (clobber (reg:SI 26))
    (clobber (reg:SI 25))
    (clobber (reg:SI 31))]
-  ""
+  "!TARGET_64BIT"
   "*
    return output_div_insn (operands, 1, insn);"
   [(set_attr "type" "milli")
@@ -4114,6 +4154,20 @@
 ;; Out of reach, can use ble
           (const_int 12)))])
 
+(define_insn ""
+  [(set (reg:SI 29)
+	(udiv:SI (reg:SI 26) (match_operand:SI 0 "div_operand" "")))
+   (clobber (match_operand:SI 1 "register_operand" "=a"))
+   (clobber (match_operand:SI 2 "register_operand" "=&r"))
+   (clobber (reg:SI 26))
+   (clobber (reg:SI 25))
+   (clobber (reg:SI 2))]
+  "TARGET_64BIT"
+  "*
+   return output_div_insn (operands, 1, insn);"
+  [(set_attr "type" "milli")
+   (set (attr "length") (const_int 4))])
+
 (define_expand "modsi3"
   [(set (reg:SI 26) (match_operand:SI 1 "move_operand" ""))
    (set (reg:SI 25) (match_operand:SI 2 "move_operand" ""))
@@ -4122,14 +4176,21 @@
 	      (clobber (match_dup 4))
 	      (clobber (reg:SI 26))
 	      (clobber (reg:SI 25))
-	      (clobber (reg:SI 31))])
+	      (clobber (match_dup 5))])
    (set (match_operand:SI 0 "general_operand" "") (reg:SI 29))]
   ""
   "
 {
-  operands[4] = gen_reg_rtx (SImode);
   if (TARGET_64BIT)
-    operands[4] = gen_rtx_REG (SImode, 2);
+    {
+      operands[5] = gen_rtx_REG (SImode, 2);
+      operands[4] = operands[5];
+    }
+  else
+    {
+      operands[5] = gen_rtx_REG (SImode, 31);
+      operands[4] = gen_reg_rtx (SImode);
+    }
   operands[3] = gen_reg_rtx (SImode);
 }")
 
@@ -4140,7 +4201,7 @@
    (clobber (reg:SI 26))
    (clobber (reg:SI 25))
    (clobber (reg:SI 31))]
-  ""
+  "!TARGET_64BIT"
   "*
   return output_mod_insn (0, insn);"
   [(set_attr "type" "milli")
@@ -4166,6 +4227,19 @@
 ;; Out of reach, can use ble
           (const_int 12)))])
 
+(define_insn ""
+  [(set (reg:SI 29) (mod:SI (reg:SI 26) (reg:SI 25)))
+   (clobber (match_operand:SI 0 "register_operand" "=a"))
+   (clobber (match_operand:SI 1 "register_operand" "=&r"))
+   (clobber (reg:SI 26))
+   (clobber (reg:SI 25))
+   (clobber (reg:SI 2))]
+  "TARGET_64BIT"
+  "*
+  return output_mod_insn (0, insn);"
+  [(set_attr "type" "milli")
+   (set (attr "length") (const_int 4))])
+
 (define_expand "umodsi3"
   [(set (reg:SI 26) (match_operand:SI 1 "move_operand" ""))
    (set (reg:SI 25) (match_operand:SI 2 "move_operand" ""))
@@ -4174,14 +4248,21 @@
 	      (clobber (match_dup 4))
 	      (clobber (reg:SI 26))
 	      (clobber (reg:SI 25))
-	      (clobber (reg:SI 31))])
+	      (clobber (match_dup 5))])
    (set (match_operand:SI 0 "general_operand" "") (reg:SI 29))]
   ""
   "
 {
-  operands[4] = gen_reg_rtx (SImode);
   if (TARGET_64BIT)
-    operands[4] = gen_rtx_REG (SImode, 2);
+    {
+      operands[5] = gen_rtx_REG (SImode, 2);
+      operands[4] = operands[5];
+    }
+  else
+    {
+      operands[5] = gen_rtx_REG (SImode, 31);
+      operands[4] = gen_reg_rtx (SImode);
+    }
   operands[3] = gen_reg_rtx (SImode);
 }")
 
@@ -4192,7 +4273,7 @@
    (clobber (reg:SI 26))
    (clobber (reg:SI 25))
    (clobber (reg:SI 31))]
-  ""
+  "!TARGET_64BIT"
   "*
   return output_mod_insn (1, insn);"
   [(set_attr "type" "milli")
@@ -4217,6 +4298,19 @@
 
 ;; Out of reach, can use ble
           (const_int 12)))])
+
+(define_insn ""
+  [(set (reg:SI 29) (umod:SI (reg:SI 26) (reg:SI 25)))
+   (clobber (match_operand:SI 0 "register_operand" "=a"))
+   (clobber (match_operand:SI 1 "register_operand" "=&r"))
+   (clobber (reg:SI 26))
+   (clobber (reg:SI 25))
+   (clobber (reg:SI 2))]
+  "TARGET_64BIT"
+  "*
+  return output_mod_insn (1, insn);"
+  [(set_attr "type" "milli")
+   (set (attr "length") (const_int 4))])
 
 ;;- and instructions
 ;; We define DImode `and` so with DImode `not` we can get
@@ -4710,11 +4804,11 @@
 ;; We want to split this up during scheduling since we want both insns
 ;; to schedule independently.
 (define_split
-  [(set (match_operand:DF 0 "register_operand" "=f")
-	(plus:DF (mult:DF (match_operand:DF 1 "register_operand" "f")
-			  (match_operand:DF 2 "register_operand" "f"))
-		 (match_operand:DF 3 "register_operand" "f")))
-   (set (match_operand:DF 4 "register_operand" "=&f")
+  [(set (match_operand:DF 0 "register_operand" "")
+	(plus:DF (mult:DF (match_operand:DF 1 "register_operand" "")
+			  (match_operand:DF 2 "register_operand" ""))
+		 (match_operand:DF 3 "register_operand" "")))
+   (set (match_operand:DF 4 "register_operand" "")
 	(mult:DF (match_dup 1) (match_dup 2)))]
   "! TARGET_SOFT_FLOAT && TARGET_PA_20"
   [(set (match_dup 4) (mult:DF (match_dup 1) (match_dup 2)))
@@ -4739,11 +4833,11 @@
 ;; We want to split this up during scheduling since we want both insns
 ;; to schedule independently.
 (define_split
-  [(set (match_operand:SF 0 "register_operand" "=f")
-	(plus:SF (mult:SF (match_operand:SF 1 "register_operand" "f")
-			  (match_operand:SF 2 "register_operand" "f"))
-		 (match_operand:SF 3 "register_operand" "f")))
-   (set (match_operand:SF 4 "register_operand" "=&f")
+  [(set (match_operand:SF 0 "register_operand" "")
+	(plus:SF (mult:SF (match_operand:SF 1 "register_operand" "")
+			  (match_operand:SF 2 "register_operand" ""))
+		 (match_operand:SF 3 "register_operand" "")))
+   (set (match_operand:SF 4 "register_operand" "")
 	(mult:SF (match_dup 1) (match_dup 2)))]
   "! TARGET_SOFT_FLOAT && TARGET_PA_20"
   [(set (match_dup 4) (mult:SF (match_dup 1) (match_dup 2)))
@@ -4785,10 +4879,10 @@
    (set_attr "length" "8")])
 
 (define_split
-  [(set (match_operand:DF 0 "register_operand" "=f")
-	(neg:DF (mult:DF (match_operand:DF 1 "register_operand" "f")
-			 (match_operand:DF 2 "register_operand" "f"))))
-   (set (match_operand:DF 3 "register_operand" "=&f")
+  [(set (match_operand:DF 0 "register_operand" "")
+	(neg:DF (mult:DF (match_operand:DF 1 "register_operand" "")
+			 (match_operand:DF 2 "register_operand" ""))))
+   (set (match_operand:DF 3 "register_operand" "")
 	(mult:DF (match_dup 1) (match_dup 2)))]
   "! TARGET_SOFT_FLOAT && TARGET_PA_20"
   [(set (match_dup 3) (mult:DF (match_dup 1) (match_dup 2)))
@@ -4809,10 +4903,10 @@
    (set_attr "length" "8")])
 
 (define_split
-  [(set (match_operand:SF 0 "register_operand" "=f")
-	(neg:SF (mult:SF (match_operand:SF 1 "register_operand" "f")
-			 (match_operand:SF 2 "register_operand" "f"))))
-   (set (match_operand:SF 3 "register_operand" "=&f")
+  [(set (match_operand:SF 0 "register_operand" "")
+	(neg:SF (mult:SF (match_operand:SF 1 "register_operand" "")
+			 (match_operand:SF 2 "register_operand" ""))))
+   (set (match_operand:SF 3 "register_operand" "")
 	(mult:SF (match_dup 1) (match_dup 2)))]
   "! TARGET_SOFT_FLOAT && TARGET_PA_20"
   [(set (match_dup 3) (mult:SF (match_dup 1) (match_dup 2)))
@@ -4855,11 +4949,11 @@
    (set_attr "length" "8")])
 
 (define_split
-  [(set (match_operand:DF 0 "register_operand" "=f")
-	(plus:DF (neg:DF (mult:DF (match_operand:DF 1 "register_operand" "f")
-				  (match_operand:DF 2 "register_operand" "f")))
-		 (match_operand:DF 3 "register_operand" "f")))
-   (set (match_operand:DF 4 "register_operand" "=&f")
+  [(set (match_operand:DF 0 "register_operand" "")
+	(plus:DF (neg:DF (mult:DF (match_operand:DF 1 "register_operand" "")
+				  (match_operand:DF 2 "register_operand" "")))
+		 (match_operand:DF 3 "register_operand" "")))
+   (set (match_operand:DF 4 "register_operand" "")
 	(mult:DF (match_dup 1) (match_dup 2)))]
   "! TARGET_SOFT_FLOAT && TARGET_PA_20"
   [(set (match_dup 4) (mult:DF (match_dup 1) (match_dup 2)))
@@ -4882,11 +4976,11 @@
    (set_attr "length" "8")])
 
 (define_split
-  [(set (match_operand:SF 0 "register_operand" "=f")
-	(plus:SF (neg:SF (mult:SF (match_operand:SF 1 "register_operand" "f")
-				  (match_operand:SF 2 "register_operand" "f")))
-		 (match_operand:SF 3 "register_operand" "f")))
-   (set (match_operand:SF 4 "register_operand" "=&f")
+  [(set (match_operand:SF 0 "register_operand" "")
+	(plus:SF (neg:SF (mult:SF (match_operand:SF 1 "register_operand" "")
+				  (match_operand:SF 2 "register_operand" "")))
+		 (match_operand:SF 3 "register_operand" "")))
+   (set (match_operand:SF 4 "register_operand" "")
 	(mult:SF (match_dup 1) (match_dup 2)))]
   "! TARGET_SOFT_FLOAT && TARGET_PA_20"
   [(set (match_dup 4) (mult:SF (match_dup 1) (match_dup 2)))
@@ -4909,11 +5003,11 @@
    (set_attr "length" "8")])
 
 (define_split
-  [(set (match_operand:DF 0 "register_operand" "=f")
-	(minus:DF (match_operand:DF 3 "register_operand" "f")
-		  (mult:DF (match_operand:DF 1 "register_operand" "f")
-			   (match_operand:DF 2 "register_operand" "f"))))
-   (set (match_operand:DF 4 "register_operand" "=&f")
+  [(set (match_operand:DF 0 "register_operand" "")
+	(minus:DF (match_operand:DF 3 "register_operand" "")
+		  (mult:DF (match_operand:DF 1 "register_operand" "")
+			   (match_operand:DF 2 "register_operand" ""))))
+   (set (match_operand:DF 4 "register_operand" "")
 	(mult:DF (match_dup 1) (match_dup 2)))]
   "! TARGET_SOFT_FLOAT && TARGET_PA_20"
   [(set (match_dup 4) (mult:DF (match_dup 1) (match_dup 2)))
@@ -4936,11 +5030,11 @@
    (set_attr "length" "8")])
 
 (define_split
-  [(set (match_operand:SF 0 "register_operand" "=f")
-	(minus:SF (match_operand:SF 3 "register_operand" "f")
-		  (mult:SF (match_operand:SF 1 "register_operand" "f")
-			   (match_operand:SF 2 "register_operand" "f"))))
-   (set (match_operand:SF 4 "register_operand" "=&f")
+  [(set (match_operand:SF 0 "register_operand" "")
+	(minus:SF (match_operand:SF 3 "register_operand" "")
+		  (mult:SF (match_operand:SF 1 "register_operand" "")
+			   (match_operand:SF 2 "register_operand" ""))))
+   (set (match_operand:SF 4 "register_operand" "")
 	(mult:SF (match_dup 1) (match_dup 2)))]
   "! TARGET_SOFT_FLOAT && TARGET_PA_20"
   [(set (match_dup 4) (mult:SF (match_dup 1) (match_dup 2)))
@@ -4959,9 +5053,9 @@
    (set_attr "length" "8")])
 
 (define_split
-  [(set (match_operand:DF 0 "register_operand" "=f")
-	(neg:DF (abs:DF (match_operand:DF 1 "register_operand" "f"))))
-   (set (match_operand:DF 2 "register_operand" "=&f") (abs:DF (match_dup 1)))]
+  [(set (match_operand:DF 0 "register_operand" "")
+	(neg:DF (abs:DF (match_operand:DF 1 "register_operand" ""))))
+   (set (match_operand:DF 2 "register_operand" "") (abs:DF (match_dup 1)))]
   "! TARGET_SOFT_FLOAT && TARGET_PA_20"
   [(set (match_dup 2) (abs:DF (match_dup 1)))
    (set (match_dup 0) (neg:DF (abs:DF (match_dup 1))))]
@@ -4978,9 +5072,9 @@
    (set_attr "length" "8")])
 
 (define_split
-  [(set (match_operand:SF 0 "register_operand" "=f")
-	(neg:SF (abs:SF (match_operand:SF 1 "register_operand" "f"))))
-   (set (match_operand:SF 2 "register_operand" "=&f") (abs:SF (match_dup 1)))]
+  [(set (match_operand:SF 0 "register_operand" "")
+	(neg:SF (abs:SF (match_operand:SF 1 "register_operand" ""))))
+   (set (match_operand:SF 2 "register_operand" "") (abs:SF (match_dup 1)))]
   "! TARGET_SOFT_FLOAT && TARGET_PA_20"
   [(set (match_dup 2) (abs:SF (match_dup 1)))
    (set (match_dup 0) (neg:SF (abs:SF (match_dup 1))))]
@@ -5697,9 +5791,6 @@
 		    gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
 				  GEN_INT (64)));
 
-  if (flag_pic && PIC_OFFSET_TABLE_SAVE_RTX == NULL_RTX)
-    hppa_init_pic_save ();
-
   /* Use two different patterns for calls to explicitly named functions
      and calls through function pointers.  This is necessary as these two
      types of calls use different calling conventions, and CSE might try
@@ -5728,7 +5819,7 @@
 
       /* After each call we must restore the PIC register, even if it
 	 doesn't appear to be used.  */
-      emit_move_insn (pic_offset_table_rtx, PIC_OFFSET_TABLE_SAVE_RTX);
+      emit_move_insn (pic_offset_table_rtx, hppa_pic_save_rtx ());
     }
   DONE;
 }")
@@ -5869,9 +5960,6 @@
 		    gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
 				  GEN_INT (64)));
 
-  if (flag_pic && PIC_OFFSET_TABLE_SAVE_RTX == NULL_RTX)
-    hppa_init_pic_save ();
-
   /* Use two different patterns for calls to explicitly named functions
      and calls through function pointers.  This is necessary as these two
      types of calls use different calling conventions, and CSE might try
@@ -5904,7 +5992,7 @@
 
       /* After each call we must restore the PIC register, even if it
 	 doesn't appear to be used.  */
-      emit_move_insn (pic_offset_table_rtx, PIC_OFFSET_TABLE_SAVE_RTX);
+      emit_move_insn (pic_offset_table_rtx, hppa_pic_save_rtx ());
     }
   DONE;
 }")
@@ -6067,9 +6155,6 @@
 
   op = XEXP (operands[0], 0);
 
-  if (flag_pic && PIC_OFFSET_TABLE_SAVE_RTX == NULL_RTX)
-    hppa_init_pic_save ();
-
   /* We do not allow indirect sibling calls.  */
   call_insn = emit_call_insn (gen_sibcall_internal_symref (op, operands[1]));
 
@@ -6079,7 +6164,7 @@
 
       /* After each call we must restore the PIC register, even if it
 	 doesn't appear to be used.  */
-      emit_move_insn (pic_offset_table_rtx, PIC_OFFSET_TABLE_SAVE_RTX);
+      emit_move_insn (pic_offset_table_rtx, hppa_pic_save_rtx ());
     }
   DONE;
 }")
@@ -6125,9 +6210,6 @@
 
   op = XEXP (operands[1], 0);
 
-  if (flag_pic && PIC_OFFSET_TABLE_SAVE_RTX == NULL_RTX)
-    hppa_init_pic_save ();
-
   /* We do not allow indirect sibling calls.  */
   call_insn = emit_call_insn (gen_sibcall_value_internal_symref (operands[0],
 								 op,
@@ -6138,7 +6220,7 @@
 
       /* After each call we must restore the PIC register, even if it
 	 doesn't appear to be used.  */
-      emit_move_insn (pic_offset_table_rtx, PIC_OFFSET_TABLE_SAVE_RTX);
+      emit_move_insn (pic_offset_table_rtx, hppa_pic_save_rtx ());
     }
   DONE;
 }")
@@ -7135,12 +7217,9 @@
   "flag_pic"
   "
 {
-  if (PIC_OFFSET_TABLE_SAVE_RTX == NULL_RTX)
-    hppa_init_pic_save ();
-
   /* Restore the PIC register.  Hopefully, this will always be from
      a stack slot.  The only registers that are valid after a
      builtin_longjmp are the stack and frame pointers.  */
-  emit_move_insn (pic_offset_table_rtx, PIC_OFFSET_TABLE_SAVE_RTX);
+  emit_move_insn (pic_offset_table_rtx, hppa_pic_save_rtx ());
   DONE;
 }")

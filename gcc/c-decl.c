@@ -41,6 +41,8 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "tm_p.h"
 #include "cpplib.h"
+#include "target.h"
+#include "debug.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -1403,7 +1405,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 
   if (DECL_P (olddecl))
     DECL_MACHINE_ATTRIBUTES (newdecl)
-      = merge_machine_decl_attributes (olddecl, newdecl);
+      = (*targetm.merge_decl_attributes) (olddecl, newdecl);
 
   if (TREE_CODE (newtype) == ERROR_MARK
       || TREE_CODE (oldtype) == ERROR_MARK)
@@ -1959,7 +1961,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	 been written out yet.  */
       if (new_is_definition && DECL_INITIAL (olddecl) && TREE_USED (olddecl))
 	{
-	  note_outlining_of_inline_function (olddecl);
+	  (*debug_hooks->outlining_inline_function) (olddecl);
 
 	  /* The new defn must not be inline.  */
 	  DECL_INLINE (newdecl) = 0;
@@ -3096,7 +3098,7 @@ c_make_fname_decl (id, type_dep)
 	   build_index_type (size_int (length)));
 
   decl = build_decl (VAR_DECL, id, type);
-  /* We don't push the decl, so have to set its context here. */
+  /* We don't push the decl, so have to set its context here.  */
   DECL_CONTEXT (decl) = current_function_decl;
   
   TREE_STATIC (decl) = 1;
@@ -3335,13 +3337,13 @@ groktypename_in_parm_context (typename)
    grokfield and not through here.  */
 
 tree
-start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
+start_decl (declarator, declspecs, initialized, attributes)
      tree declarator, declspecs;
      int initialized;
-     tree attributes, prefix_attributes;
+     tree attributes;
 {
-  register tree decl = grokdeclarator (declarator, declspecs,
-				       NORMAL, initialized);
+  tree decl = grokdeclarator (declarator, declspecs,
+			      NORMAL, initialized);
   register tree tem;
 
   if (warn_main > 0 && TREE_CODE (decl) != FUNCTION_DECL
@@ -3446,12 +3448,8 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
   if (! flag_no_common || ! TREE_PUBLIC (decl))
     DECL_COMMON (decl) = 1;
 
-#ifdef SET_DEFAULT_DECL_ATTRIBUTES
-  SET_DEFAULT_DECL_ATTRIBUTES (decl, attributes);
-#endif
-
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
-  decl_attributes (decl, attributes, prefix_attributes);
+  decl_attributes (&decl, attributes, 0);
 
   /* Add this decl to the current binding level.
      TEM may equal DECL or it may be a previous decl of the same name.  */
@@ -3715,8 +3713,7 @@ push_parm_decl (parm)
 
   decl = grokdeclarator (TREE_VALUE (TREE_PURPOSE (parm)),
 			 TREE_PURPOSE (TREE_PURPOSE (parm)), PARM, 0);
-  decl_attributes (decl, TREE_VALUE (TREE_VALUE (parm)),
-		   TREE_PURPOSE (TREE_VALUE (parm)));
+  decl_attributes (&decl, TREE_VALUE (parm), 0);
 
 #if 0
   if (DECL_NAME (decl))
@@ -4357,8 +4354,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	      /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
 	      STRIP_TYPE_NOPS (size);
 
-	      if (TREE_CODE (TREE_TYPE (size)) != INTEGER_TYPE
-		  && TREE_CODE (TREE_TYPE (size)) != ENUMERAL_TYPE)
+	      if (! INTEGRAL_TYPE_P (TREE_TYPE (size)))
 		{
 		  error ("size of array `%s' has non-integer type", name);
 		  size = integer_one_node;
@@ -4719,7 +4715,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 
     if (decl_context == PARM)
       {
-	tree type_as_written = type;
+	tree type_as_written;
 	tree promoted_type;
 
 	/* A parameter declared as an array of T is really a pointer to T.
@@ -4782,6 +4778,10 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	    type = build_pointer_type (type);
 	    type_quals = TYPE_UNQUALIFIED;
 	  }
+	else if (type_quals)
+	  type = c_build_qualified_type (type, type_quals);
+	  
+	type_as_written = type;
 
 	decl = build_decl (PARM_DECL, declarator, type);
 	if (size_varies)
@@ -4908,7 +4908,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	    type_quals = TYPE_UNQUALIFIED;
 #endif
 	  }
-
+	else if (type_quals)
+	  type = c_build_qualified_type (type, type_quals);
+	  
 	decl = build_decl (VAR_DECL, declarator, type);
 	if (size_varies)
 	  C_DECL_VARIABLE_SIZE (decl) = 1;
@@ -5220,11 +5222,18 @@ xref_tag (code, name)
      already defined for this tag and return it.  */
 
   register tree ref = lookup_tag (code, name, current_binding_level, 0);
-  /* Even if this is the wrong type of tag, return what we found.
-     There will be an error message anyway, from pending_xref_error.
-     If we create an empty xref just for an invalid use of the type,
-     the main result is to create lots of superfluous error messages.  */
-  if (ref)
+  /* If this is the right type of tag, return what we found.
+     (This reference will be shadowed by shadow_tag later if appropriate.)
+     If this is the wrong type of tag, do not return it.  If it was the
+     wrong type in the same binding level, we will have had an error
+     message already; if in a different binding level and declaring
+     a name, pending_xref_error will give an error message; but if in a
+     different binding level and not declaring a name, this tag should
+     shadow the previous declaration of a different type of tag, and
+     this would not work properly if we return the reference found.
+     (For example, with "struct foo" in an outer scope, "union foo;"
+     must shadow that tag with a new one of union type.)  */
+  if (ref && TREE_CODE (ref) == code)
     return ref;
 
   /* If no such tag is yet defined, create a forward-reference node
@@ -5332,7 +5341,7 @@ finish_struct (t, fieldlist, attributes)
 
   TYPE_SIZE (t) = 0;
 
-  decl_attributes (t, attributes, NULL_TREE);
+  decl_attributes (&t, attributes, 0);
 
   /* Nameless union parm types are useful as GCC extension.  */
   if (! (TREE_CODE (t) == UNION_TYPE && TYPE_NAME (t) == 0) && !pedantic)
@@ -5696,7 +5705,7 @@ finish_enum (enumtype, values, attributes)
   if (in_parm_level_p ())
     warning ("enum defined inside parms");
 
-  decl_attributes (enumtype, attributes, NULL_TREE);
+  decl_attributes (&enumtype, attributes, 0);
 
   /* Calculate the maximum value of any enumerator in this type.  */
 
@@ -5880,7 +5889,7 @@ build_enumerator (name, value)
 
 
 /* Create the FUNCTION_DECL for a function definition.
-   DECLSPECS, DECLARATOR, PREFIX_ATTRIBUTES and ATTRIBUTES are the parts of
+   DECLSPECS, DECLARATOR and ATTRIBUTES are the parts of
    the declaration; they describe the function's name and the type it returns,
    but twisted together in a fashion that parallels the syntax of C.
 
@@ -5892,8 +5901,8 @@ build_enumerator (name, value)
    yyparse to report a parse error.  */
 
 int
-start_function (declspecs, declarator, prefix_attributes, attributes)
-     tree declarator, declspecs, prefix_attributes, attributes;
+start_function (declspecs, declarator, attributes)
+     tree declarator, declspecs, attributes;
 {
   tree decl1, old_decl;
   tree restype;
@@ -5920,7 +5929,7 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
       return 0;
     }
 
-  decl_attributes (decl1, prefix_attributes, attributes);
+  decl_attributes (&decl1, attributes, 0);
 
   announce_function (decl1);
 
@@ -6008,10 +6017,6 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
      However, `extern inline' acts like a declaration
      except for defining how to inline.  So set DECL_EXTERNAL in that case.  */
   DECL_EXTERNAL (decl1) = current_extern_inline;
-
-#ifdef SET_DEFAULT_DECL_ATTRIBUTES
-  SET_DEFAULT_DECL_ATTRIBUTES (decl1, attributes);
-#endif
 
   /* This function exists in static storage.
      (This does not mean `static' in the C sense!)  */
@@ -6423,9 +6428,11 @@ store_parm_decls ()
 					    "prototype declaration");
 		  break;
 		}
-	      /* Type for passing arg must be consistent
-		 with that declared for the arg.  */
-	      if (! comptypes (DECL_ARG_TYPE (parm), TREE_VALUE (type)))
+	      /* Type for passing arg must be consistent with that
+		 declared for the arg.  ISO C says we take the unqualified
+		 type for parameters declared with qualified type.  */
+	      if (! comptypes (TYPE_MAIN_VARIANT (DECL_ARG_TYPE (parm)),
+			       TYPE_MAIN_VARIANT (TREE_VALUE (type))))
 		{
 		  if (TYPE_MAIN_VARIANT (TREE_TYPE (parm))
 		      == TYPE_MAIN_VARIANT (TREE_VALUE (type)))
@@ -6561,149 +6568,6 @@ store_parm_decls ()
      not safe to try to expand expressions involving them.  */
   immediate_size_expand = 0;
   cfun->x_dont_save_pending_sizes_p = 1;
-}
-
-/* SPECPARMS is an identifier list--a chain of TREE_LIST nodes
-   each with a parm name as the TREE_VALUE.  A null pointer as TREE_VALUE
-   stands for an ellipsis in the identifier list.
-
-   PARMLIST is the data returned by get_parm_info for the
-   parmlist that follows the semicolon.
-
-   We return a value of the same sort that get_parm_info returns,
-   except that it describes the combination of identifiers and parmlist.  */
-
-tree
-combine_parm_decls (specparms, parmlist, void_at_end)
-     tree specparms, parmlist;
-     int void_at_end;
-{
-  register tree fndecl = current_function_decl;
-  register tree parm;
-
-  tree parmdecls = TREE_PURPOSE (parmlist);
-
-  /* This is a chain of any other decls that came in among the parm
-     declarations.  They were separated already by get_parm_info,
-     so we just need to keep them separate.  */
-  tree nonparms = TREE_VALUE (parmlist);
-
-  tree types = 0;
-
-  for (parm = parmdecls; parm; parm = TREE_CHAIN (parm))
-    DECL_WEAK (parm) = 0;
-
-  for (parm = specparms; parm; parm = TREE_CHAIN (parm))
-    {
-      register tree tail, found = NULL;
-
-      /* See if any of the parmdecls specifies this parm by name.  */
-      for (tail = parmdecls; tail; tail = TREE_CHAIN (tail))
-	if (DECL_NAME (tail) == TREE_VALUE (parm))
-	  {
-	    found = tail;
-	    break;
-	  }
-
-      /* If declaration already marked, we have a duplicate name.
-	 Complain, and don't use this decl twice.   */
-      if (found && DECL_WEAK (found))
-	{
-	  error_with_decl (found, "multiple parameters named `%s'");
-	  found = 0;
-	}
-
-      /* If the declaration says "void", complain and ignore it.  */
-      if (found && VOID_TYPE_P (TREE_TYPE (found)))
-	{
-	  error_with_decl (found, "parameter `%s' declared void");
-	  TREE_TYPE (found) = integer_type_node;
-	  DECL_ARG_TYPE (found) = integer_type_node;
-	  layout_decl (found, 0);
-	}
-
-      /* Traditionally, a parm declared float is actually a double.  */
-      if (found && flag_traditional
-	  && TYPE_MAIN_VARIANT (TREE_TYPE (found)) == float_type_node)
-	{
-	  TREE_TYPE (found) = double_type_node;
-	  DECL_ARG_TYPE (found) = double_type_node;
-	  layout_decl (found, 0);
-	}
-
-      /* If no declaration found, default to int.  */
-      if (!found)
-	{
-	  found = build_decl (PARM_DECL, TREE_VALUE (parm),
-			      integer_type_node);
-	  DECL_ARG_TYPE (found) = TREE_TYPE (found);
-	  DECL_SOURCE_LINE (found) = DECL_SOURCE_LINE (fndecl);
-	  DECL_SOURCE_FILE (found) = DECL_SOURCE_FILE (fndecl);
-	  error_with_decl (found, "type of parameter `%s' is not declared");
-	  pushdecl (found);
-	}
-
-      TREE_PURPOSE (parm) = found;
-
-      /* Mark this decl as "already found".  */
-      DECL_WEAK (found) = 1;
-    }
-
-  /* Complain about any actual PARM_DECLs not matched with any names.  */
-
-  for (parm = parmdecls; parm;)
-    {
-      tree next = TREE_CHAIN (parm);
-      TREE_CHAIN (parm) = 0;
-
-      /* Complain about args with incomplete types.  */
-      if (!COMPLETE_TYPE_P (TREE_TYPE (parm)))
-	{
-	  error_with_decl (parm, "parameter `%s' has incomplete type");
-	  TREE_TYPE (parm) = error_mark_node;
-	}
-
-      if (! DECL_WEAK (parm))
-	{
-	  error_with_decl (parm,
-			   "declaration for parameter `%s' but no such parameter");
-	  /* Pretend the parameter was not missing.
-	     This gets us to a standard state and minimizes
-	     further error messages.  */
-	  specparms
-	    = chainon (specparms,
-		       tree_cons (parm, NULL_TREE, NULL_TREE));
-	}
-
-      parm = next;
-    }
-
-  /* Chain the declarations together in the order of the list of names.
-     At the same time, build up a list of their types, in reverse order.  */
-
-  parm = specparms;
-  parmdecls = 0;
-  {
-    register tree last;
-    for (last = 0; parm; parm = TREE_CHAIN (parm))
-      if (TREE_PURPOSE (parm))
-	{
-	  if (last == 0)
-	    parmdecls = TREE_PURPOSE (parm);
-	  else
-	    TREE_CHAIN (last) = TREE_PURPOSE (parm);
-	  last = TREE_PURPOSE (parm);
-	  TREE_CHAIN (last) = 0;
-
-	  types = tree_cons (NULL_TREE, TREE_TYPE (parm), types);
-	}
-  }
-
-  if (void_at_end)
-    return tree_cons (parmdecls, nonparms,
-		      nreverse (tree_cons (NULL_TREE, void_type_node, types)));
-
-  return tree_cons (parmdecls, nonparms, nreverse (types));
 }
 
 /* Finish up a function declaration and compile that function
@@ -6912,22 +6776,20 @@ c_expand_body (fndecl, nested_p)
 
   if (DECL_STATIC_CONSTRUCTOR (fndecl))
     {
-#ifndef ASM_OUTPUT_CONSTRUCTOR
-      if (! flag_gnu_linker)
-	static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
+      if (targetm.have_ctors_dtors)
+	(* targetm.asm_out.constructor) (XEXP (DECL_RTL (fndecl), 0),
+				         DEFAULT_INIT_PRIORITY);
       else
-#endif
-	assemble_constructor (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl)));
-
+	static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
     }
+
   if (DECL_STATIC_DESTRUCTOR (fndecl))
     {
-#ifndef ASM_OUTPUT_DESTRUCTOR
-      if (! flag_gnu_linker)
-	static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
+      if (targetm.have_ctors_dtors)
+	(* targetm.asm_out.destructor) (XEXP (DECL_RTL (fndecl), 0),
+				        DEFAULT_INIT_PRIORITY);
       else
-#endif
-	assemble_destructor (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl)));
+	static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
     }
 
   if (nested_p)

@@ -1,10 +1,6 @@
 dnl Process this with autoconf to create configure
 AC_INIT(java/lang/System.java)
 
-dnl Can't be done in LIBGCJ_CONFIGURE because that confuses automake.
-AC_CONFIG_AUX_DIR(..)
-
-AC_CANONICAL_SYSTEM
 AC_PROG_LN_S
 
 dnl We use these options to decide which functions to include.
@@ -26,6 +22,9 @@ if test -z "${with_cross_host}"; then
    AC_DEFINE(USE_LTDL)
    # Sigh.  Libtool's macro doesn't do the right thing.
    INCLTDL="-I\$(top_srcdir)/libltdl $INCLTDL"
+   # FIXME: this is a hack.
+   sub_auxdir="`cd $ac_aux_dir && pwd`"
+   ac_configure_args="$ac_configure_args --with-auxdir=$sub_auxdir"
 fi
 AC_SUBST(INCLTDL)
 AC_SUBST(LIBLTDL)
@@ -330,8 +329,15 @@ THREADH=
 THREADSPEC=
 case "$THREADS" in
  posix)
-    THREADLIBS=-lpthread
-    THREADSPEC=-lpthread
+    case "$host" in
+     *-*-cygwin*)
+	# Don't set THREADLIBS here.  Cygwin doesn't have -lpthread.
+	;;
+     *)
+	THREADLIBS=-lpthread
+	THREADSPEC=-lpthread
+	;;
+    esac
     THREADOBJS=posix-threads.lo
     THREADH=posix-threads.h
     # MIT pthreads doesn't seem to have the mutexattr functions.
@@ -363,7 +369,7 @@ HASH_SYNC_SPEC=
 # Hash synchronization is only useful with posix threads right now.
 if test "$enable_hash_synchronization" = yes && test "$THREADS" = "posix"; then
    HASH_SYNC_SPEC=-fhash-synchronization
-   AC_DEFINE(JV_HASH_SYNCHRONIZATION)
+   AC_DEFINE(JV_HASH_SYNCHRONIZATION, 1, [Define if hash synchronization is in use])
 fi
 AC_SUBST(HASH_SYNC_SPEC)
 
@@ -375,7 +381,7 @@ NULL_TARGET=no
 NATIVE=yes
 
 # We're in the tree with gcc, and need to include some of its headers.
-GCC_UNWIND_INCLUDE='-I$(top_srcdir)/../gcc'
+GCC_UNWIND_INCLUDE='-I$(libgcj_basedir)/../gcc'
 
 if test -n "${with_cross_host}"; then
    # We are being configured with a cross compiler.  AC_REPLACE_FUNCS
@@ -412,7 +418,7 @@ else
    AC_CHECK_FUNCS(strerror ioctl select fstat open fsync sleep)
    AC_CHECK_FUNCS(gmtime_r localtime_r readdir_r getpwuid_r getcwd)
    AC_CHECK_FUNCS(access stat mkdir rename rmdir unlink realpath utime chmod)
-   AC_CHECK_FUNCS(iconv nl_langinfo setlocale)
+   AC_CHECK_FUNCS(nl_langinfo setlocale)
    AC_CHECK_FUNCS(inet_aton inet_addr, break)
    AC_CHECK_FUNCS(inet_pton uname inet_ntoa)
    AC_CHECK_FUNCS(backtrace fork execvp pipe sigaction)
@@ -421,6 +427,8 @@ else
      AC_DEFINE(HAVE_DLADDR)])
    AC_CHECK_FILES(/proc/self/exe, [
      AC_DEFINE(HAVE_PROC_SELF_EXE)])
+
+   AM_ICONV
 
    AC_CHECK_FUNCS(gethostbyname_r, [
      AC_DEFINE(HAVE_GETHOSTBYNAME_R)
@@ -716,6 +724,12 @@ AC_TRY_COMPILE([#include <netinet/in.h>], [struct ip_mreq mreq;],
    AC_MSG_RESULT(yes)],
   [AC_MSG_RESULT(no)])
 
+AC_MSG_CHECKING([whether struct ipv6_mreq is in netinet/in.h])
+AC_TRY_COMPILE([#include <netinet/in.h>], [struct ipv6_mreq mreq6;],
+  [AC_DEFINE(HAVE_STRUCT_IPV6_MREQ)
+   AC_MSG_RESULT(yes)],
+  [AC_MSG_RESULT(no)])
+
 AC_MSG_CHECKING([whether struct sockaddr_in6 is in netinet/in.h])
 AC_TRY_COMPILE([#include <netinet/in.h>], [struct sockaddr_in6 addr6;],
   [AC_DEFINE(HAVE_INET6)
@@ -723,7 +737,8 @@ AC_TRY_COMPILE([#include <netinet/in.h>], [struct sockaddr_in6 addr6;],
   [AC_MSG_RESULT(no)])
 
 AC_MSG_CHECKING([for socklen_t in sys/socket.h])
-AC_TRY_COMPILE([#include <sys/types.h>
+AC_TRY_COMPILE([#define _POSIX_PII_SOCKET
+#include <sys/types.h>
 #include <sys/socket.h>], [socklen_t x = 5;],
   [AC_DEFINE(HAVE_SOCKLEN_T)
    AC_MSG_RESULT(yes)],
@@ -847,7 +862,7 @@ h=`pwd`
 changequote(<<,>>)
 	 d=`echo $f | sed -e 's,/[^/]*$,,'`
 changequote([,])
-	 $srcdir/../mkinstalldirs $d
+	 $libgcj_basedir/../mkinstalldirs $d
 	 echo > $f
       }
    done

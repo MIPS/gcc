@@ -54,6 +54,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "function.h"
 #include "expr.h"
+#include "libfuncs.h"
 #include "insn-config.h"
 #include "except.h"
 #include "integrate.h"
@@ -100,7 +101,7 @@ tree (*lang_eh_runtime_type) PARAMS ((tree));
 rtx exception_handler_labels;
 
 static int call_site_base;
-static int sjlj_funcdef_number;
+static unsigned int sjlj_funcdef_number;
 static htab_t type_to_runtime_map;
 
 /* Describe the SjLj_Function_Context structure.  */
@@ -256,7 +257,7 @@ static tree lookup_type_for_runtime		PARAMS ((tree));
 
 static struct eh_region *expand_eh_region_end	PARAMS ((void));
 
-static rtx get_exception_filter			PARAMS ((void));
+static rtx get_exception_filter			PARAMS ((struct function *));
 
 static void collect_eh_region_array		PARAMS ((void));
 static void resolve_fixup_regions		PARAMS ((void));
@@ -720,9 +721,9 @@ expand_eh_region_end_cleanup (handler)
   /* In case this cleanup involves an inline destructor with a try block in
      it, we need to save the EH return data registers around it.  */
   data_save[0] = gen_reg_rtx (Pmode);
-  emit_move_insn (data_save[0], get_exception_pointer ());
+  emit_move_insn (data_save[0], get_exception_pointer (cfun));
   data_save[1] = gen_reg_rtx (word_mode);
-  emit_move_insn (data_save[1], get_exception_filter ());
+  emit_move_insn (data_save[1], get_exception_filter (cfun));
 
   expand_expr (handler, const0_rtx, VOIDmode, 0);
 
@@ -862,6 +863,10 @@ expand_eh_region_end_allowed (allowed, failure)
 
   emit_label (region->label);
   expand_expr (failure, const0_rtx, VOIDmode, EXPAND_NORMAL);
+  /* We must adjust the stack before we reach the AROUND_LABEL because
+     the call to FAILURE does not occur on all paths to the
+     AROUND_LABEL.  */
+  do_pending_stack_adjust ();
 
   emit_label (around_label);
 }
@@ -947,13 +952,14 @@ expand_eh_region_end_fixup (handler)
    within a handler.  */
 
 rtx
-get_exception_pointer ()
+get_exception_pointer (fun)
+     struct function *fun;
 {
-  rtx exc_ptr = cfun->eh->exc_ptr;
-  if (! exc_ptr)
+  rtx exc_ptr = fun->eh->exc_ptr;
+  if (fun == cfun && ! exc_ptr)
     {
       exc_ptr = gen_reg_rtx (Pmode);
-      cfun->eh->exc_ptr = exc_ptr;
+      fun->eh->exc_ptr = exc_ptr;
     }
   return exc_ptr;
 }
@@ -962,13 +968,14 @@ get_exception_pointer ()
    within a handler.  */
 
 static rtx
-get_exception_filter ()
+get_exception_filter (fun)
+     struct function *fun;
 {
-  rtx filter = cfun->eh->filter;
-  if (! filter)
+  rtx filter = fun->eh->filter;
+  if (fun == cfun && ! filter)
     {
       filter = gen_reg_rtx (word_mode);
-      cfun->eh->filter = filter;
+      fun->eh->filter = filter;
     }
   return filter;
 }
@@ -1082,7 +1089,7 @@ resolve_fixup_regions ()
   for (i = 1; i <= n; ++i)
     {
       struct eh_region *fixup = cfun->eh->region_array[i];
-      struct eh_region *cleanup;
+      struct eh_region *cleanup = 0;
 
       if (! fixup || fixup->type != ERT_FIXUP)
 	continue;
@@ -1123,7 +1130,7 @@ remove_fixup_regions ()
 	&& fixup->type == ERT_FIXUP)
       {
 	if (fixup->u.fixup.real_region)
-	  XEXP (note, 1) = GEN_INT (fixup->u.fixup.real_region->region_number);
+	  XEXP (note, 0) = GEN_INT (fixup->u.fixup.real_region->region_number);
 	else
 	  remove_note (insn, note);
       }
@@ -1234,6 +1241,8 @@ convert_from_eh_region_ranges_1 (pinsns, orig_sp, cur)
 		  /* If we wanted exceptions for non-call insns, then
 		     any may_trap_p instruction could throw.  */
 		  || (flag_non_call_exceptions
+		      && GET_CODE (PATTERN (insn)) != CLOBBER
+		      && GET_CODE (PATTERN (insn)) != USE
 		      && may_trap_p (PATTERN (insn)))))
 	    {
 	      REG_NOTES (insn) = alloc_EXPR_LIST (REG_EH_REGION, GEN_INT (cur),
@@ -1438,7 +1447,7 @@ duplicate_eh_regions (ifun, map)
 	cur->inner = root;
 
       for (i = 1; i <= ifun_last_region_number; ++i)
-	if (n_array[i]->outer == NULL)
+	if (n_array[i] && n_array[i]->outer == NULL)
 	  n_array[i]->outer = cur;
     }
   else
@@ -1840,8 +1849,7 @@ connect_post_landing_pads ()
       seq = get_insns ();
       end_sequence ();
       emit_insns_before (seq, region->resume);
-
-      /* Leave the RESX to be deleted by flow.  */
+      flow_delete_insn (region->resume);
     }
 }
 
@@ -1849,7 +1857,8 @@ connect_post_landing_pads ()
 static void
 dw2_build_landing_pads ()
 {
-  int i, j;
+  int i;
+  unsigned int j;
 
   for (i = cfun->eh->last_region_number; i > 0; --i)
     {
@@ -2032,9 +2041,8 @@ sjlj_mark_call_sites (lp_info)
   int last_call_site = -2;
   rtx insn, mem;
 
-  mem = change_address (cfun->eh->sjlj_fc, TYPE_MODE (integer_type_node),
-			plus_constant (XEXP (cfun->eh->sjlj_fc, 0),
-				       sjlj_fc_call_site_ofs));
+  mem = adjust_address (cfun->eh->sjlj_fc, TYPE_MODE (integer_type_node),
+			sjlj_fc_call_site_ofs);
 
   for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
     {
@@ -2078,51 +2086,7 @@ sjlj_mark_call_sites (lp_info)
       /* Don't separate a call from it's argument loads.  */
       before = insn;
       if (GET_CODE (insn) == CALL_INSN)
-	{
-	  HARD_REG_SET parm_regs;
-	  int nparm_regs;
-	  
-	  /* Since different machines initialize their parameter registers
-	     in different orders, assume nothing.  Collect the set of all
-	     parameter registers.  */
-	  CLEAR_HARD_REG_SET (parm_regs);
-	  nparm_regs = 0;
-	  for (p = CALL_INSN_FUNCTION_USAGE (insn); p ; p = XEXP (p, 1))
-	    if (GET_CODE (XEXP (p, 0)) == USE
-		&& GET_CODE (XEXP (XEXP (p, 0), 0)) == REG)
-	      {
-		if (REGNO (XEXP (XEXP (p, 0), 0)) >= FIRST_PSEUDO_REGISTER)
-		  abort ();
-
-		/* We only care about registers which can hold function
-		   arguments.  */
-		if (! FUNCTION_ARG_REGNO_P (REGNO (XEXP (XEXP (p, 0), 0))))
-		  continue;
-
-		SET_HARD_REG_BIT (parm_regs, REGNO (XEXP (XEXP (p, 0), 0)));
-		nparm_regs++;
-	      }
-
-	  /* Search backward for the first set of a register in this set.  */
-	  while (nparm_regs)
-	    {
-	      before = PREV_INSN (before);
-
-	      /* Given that we've done no other optimizations yet,
-		 the arguments should be immediately available.  */
-	      if (GET_CODE (before) == CODE_LABEL)
-		abort ();
-
-	      p = single_set (before);
-	      if (p && GET_CODE (SET_DEST (p)) == REG
-		  && REGNO (SET_DEST (p)) < FIRST_PSEUDO_REGISTER
-		  && TEST_HARD_REG_BIT (parm_regs, REGNO (SET_DEST (p))))
-		{
-		  CLEAR_HARD_REG_BIT (parm_regs, REGNO (SET_DEST (p)));
-		  nparm_regs--;
-		}
-	    }
-	}
+         before = find_first_parameter_load (insn, NULL_RTX);
 
       start_sequence ();
       emit_move_insn (mem, GEN_INT (this_call_site));
@@ -2150,12 +2114,10 @@ sjlj_emit_function_enter (dispatch_label)
      calling it directly.  Thus, we must call assemble_external_libcall
      here, as we can not depend on emit_library_call to do it for us.  */
   assemble_external_libcall (eh_personality_libfunc);
-  mem = change_address (fc, Pmode,
-			plus_constant (XEXP (fc, 0), sjlj_fc_personality_ofs));
+  mem = adjust_address (fc, Pmode, sjlj_fc_personality_ofs);
   emit_move_insn (mem, eh_personality_libfunc);
 
-  mem = change_address (fc, Pmode,
-			plus_constant (XEXP (fc, 0), sjlj_fc_lsda_ofs));
+  mem = adjust_address (fc, Pmode, sjlj_fc_lsda_ofs);
   if (cfun->uses_eh_lsda)
     {
       char buf[20];
@@ -2252,12 +2214,11 @@ sjlj_emit_dispatch_table (dispatch_label, lp_info)
 
   /* Load up dispatch index, exc_ptr and filter values from the
      function context.  */
-  mem = change_address (fc, TYPE_MODE (integer_type_node),
-			plus_constant (XEXP (fc, 0), sjlj_fc_call_site_ofs));
+  mem = adjust_address (fc, TYPE_MODE (integer_type_node),
+			sjlj_fc_call_site_ofs);
   dispatch = copy_to_reg (mem);
 
-  mem = change_address (fc, word_mode,
-			plus_constant (XEXP (fc, 0), sjlj_fc_data_ofs));
+  mem = adjust_address (fc, word_mode, sjlj_fc_data_ofs);
   if (word_mode != Pmode)
     {
 #ifdef POINTERS_EXTEND_UNSIGNED
@@ -2268,9 +2229,7 @@ sjlj_emit_dispatch_table (dispatch_label, lp_info)
     }
   emit_move_insn (cfun->eh->exc_ptr, mem);
 
-  mem = change_address (fc, word_mode,
-			plus_constant (XEXP (fc, 0),
-				       sjlj_fc_data_ofs + UNITS_PER_WORD));
+  mem = adjust_address (fc, word_mode, sjlj_fc_data_ofs + UNITS_PER_WORD);
   emit_move_insn (cfun->eh->filter, mem);
 
   /* Jump to one of the directly reachable regions.  */
@@ -2346,14 +2305,14 @@ finish_eh_generation ()
      connect many of the handlers, and then type information will not
      be effective.  Still, this is a win over previous implementations.  */
 
-  jump_optimize_minimal (get_insns ());
+  rebuild_jump_labels (get_insns ());
   find_basic_blocks (get_insns (), max_reg_num (), 0);
-  cleanup_cfg ();
+  cleanup_cfg (CLEANUP_PRE_LOOP);
 
   /* These registers are used by the landing pads.  Make sure they
      have been generated.  */
-  get_exception_pointer ();
-  get_exception_filter ();
+  get_exception_pointer (cfun);
+  get_exception_filter (cfun);
 
   /* Construct the landing pads.  */
 
@@ -2369,9 +2328,9 @@ finish_eh_generation ()
 
   /* We've totally changed the CFG.  Start over.  */
   find_exception_handler_labels ();
-  jump_optimize_minimal (get_insns ());
+  rebuild_jump_labels (get_insns ());
   find_basic_blocks (get_insns (), max_reg_num (), 0);
-  cleanup_cfg ();
+  cleanup_cfg (CLEANUP_PRE_LOOP);
 }
 
 /* This section handles removing dead code for flow.  */
@@ -2728,14 +2687,20 @@ reachable_handlers (insn)
   region = cfun->eh->region_array[region_number];
 
   type_thrown = NULL_TREE;
-  if (region->type == ERT_THROW)
+  if (GET_CODE (insn) == JUMP_INSN
+      && GET_CODE (PATTERN (insn)) == RESX)
+    {
+      /* A RESX leaves a region instead of entering it.  Thus the
+	 region itself may have been deleted out from under us.  */
+      if (region == NULL)
+	return NULL;
+      region = region->outer;
+    }
+  else if (region->type == ERT_THROW)
     {
       type_thrown = region->u.throw.type;
       region = region->outer;
     }
-  else if (GET_CODE (insn) == JUMP_INSN
-	   && GET_CODE (PATTERN (insn)) == RESX)
-    region = region->outer;
 
   for (; region; region = region->outer)
     if (reachable_next_level (region, type_thrown, &info) >= RNL_CAUGHT)
@@ -2901,7 +2866,7 @@ void
 expand_builtin_unwind_init ()
 {
   /* Set this so all the registers get saved in our frame; we need to be
-     able to copy the saved values for any registers from frames we unwind. */
+     able to copy the saved values for any registers from frames we unwind.  */
   current_function_has_nonlocal_label = 1;
 
 #ifdef SETUP_FRAME_ADDRESSES
@@ -3058,6 +3023,17 @@ expand_eh_return ()
   emit_label (around_label);
 }
 
+/* In the following functions, we represent entries in the action table
+   as 1-based indicies.  Special cases are:
+
+	 0:	null action record, non-null landing pad; implies cleanups
+	-1:	null action record, null landing pad; implies no action
+	-2:	no call-site entry; implies must_not_throw
+	-3:	we have yet to process outer regions
+
+   Further, no special cases apply to the "next" field of the record.
+   For next, 0 means end of list.  */
+
 struct action_record
 {
   int offset;
@@ -3161,8 +3137,16 @@ collect_one_action_chain (ar_hash, region)
 	      if (next == -3)
 		{
 		  next = collect_one_action_chain (ar_hash, region->outer);
-		  if (next < 0)
+
+		  /* If there is no next action, terminate the chain.  */
+		  if (next == -1)
 		    next = 0;
+		  /* If all outer actions are cleanups or must_not_throw,
+		     we'll have no action record for it, since we had wanted
+		     to encode these states in the call-site record directly.
+		     Add a cleanup action to the chain to catch these.  */
+		  else if (next <= 0)
+		    next = add_action_record (ar_hash, 0, 0);
 		}
 	      next = add_action_record (ar_hash, c->u.catch.filter, next);
 	    }
@@ -3233,7 +3217,7 @@ convert_to_eh_region_ranges ()
   rtx last_action_insn = NULL_RTX;
   rtx last_landing_pad = NULL_RTX;
   rtx first_no_action_insn = NULL_RTX;
-  int call_site;
+  int call_site = 0;
 
   if (USING_SJLJ_EXCEPTIONS || cfun->eh->region_tree == NULL)
     return;
@@ -3504,7 +3488,7 @@ output_function_exception_table ()
 #endif
   int have_tt_data;
   int funcdef_number;
-  int tt_format_size;
+  int tt_format_size = 0;
 
   /* Not all functions need anything.  */
   if (! cfun->uses_eh_lsda)
@@ -3538,7 +3522,7 @@ output_function_exception_table ()
 #endif
       tt_format_size = size_of_encoded_value (tt_format);
 
-      assemble_eh_align (tt_format_size * BITS_PER_UNIT);
+      assemble_align (tt_format_size * BITS_PER_UNIT);
     }
 
   ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LLSDA", funcdef_number);
@@ -3645,7 +3629,7 @@ output_function_exception_table ()
 			 (i ? NULL : "Action record table"));
 
   if (have_tt_data)
-    assemble_eh_align (tt_format_size * BITS_PER_UNIT);
+    assemble_align (tt_format_size * BITS_PER_UNIT);
 
   i = VARRAY_ACTIVE_SIZE (cfun->eh->ttype_data);
   while (i-- > 0)

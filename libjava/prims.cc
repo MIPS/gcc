@@ -690,14 +690,6 @@ win32_exception_handler (LPEXCEPTION_POINTERS e)
 
 #endif
 
-/* This will be non-NULL if the user has preloaded a JNI library, or
-   linked one into the executable.  */
-extern "C" 
-{
-#pragma weak JNI_OnLoad
-  extern jint JNI_OnLoad (JavaVM *, void *) __attribute__((weak));
-}
-
 
 #ifndef DISABLE_GETENV_PROPERTIES
 
@@ -890,26 +882,6 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
 
   _Jv_JNI_Init ();
 
-  /* Some systems let you preload shared libraries before running a
-     program.  Under Linux, this is done by setting the LD_PRELOAD
-     environment variable.  We take advatage of this here to allow for
-     dynamically loading a JNI library into a fully linked executable.  */
-
-  if (JNI_OnLoad != NULL)
-    {
-      JavaVM *vm = _Jv_GetJavaVM ();
-      if (vm == NULL)
-	{
-	  // FIXME: what?
-	  return -1;
-	}
-      jint vers = JNI_OnLoad (vm, NULL);
-      if (vers != JNI_VERSION_1_1 && vers != JNI_VERSION_1_2)
-	{
-	  // FIXME: unload the library.
-	  _Jv_Throw (new java::lang::UnsatisfiedLinkError (JvNewStringLatin1 ("unrecognized version from preloaded JNI_OnLoad")));
-	}
-    }
   return 0;
 }
 
@@ -1008,6 +980,10 @@ JvRunMain (jclass klass, int argc, const char **argv)
   _Jv_ThisExecutable (argv[0]);
 #endif
 
+  // Get the Runtime here.  We want to initialize it before searching
+  // for `main'; that way it will be set up if `main' is a JNI method.
+  java::lang::Runtime *rtime = java::lang::Runtime::getRuntime ();
+
   main_thread = _Jv_AttachCurrentThread (JvNewStringLatin1 ("main"), NULL);
   arg_vec = JvConvertArgv (argc - 1, argv + 1);
   runFirst (klass, arg_vec);
@@ -1015,7 +991,7 @@ JvRunMain (jclass klass, int argc, const char **argv)
 
   int status = (int) java::lang::ThreadGroup::had_uncaught_exception;
     
-  java::lang::Runtime::getRuntime ()->_exit (status);
+  rtime->_exit (status);
 }
 
 void
@@ -1030,6 +1006,10 @@ _Jv_RunMain (const char *name, int argc, const char **argv, bool is_jar)
   sprintf (exec_name, "/proc/%d/exe", getpid ());
   _Jv_ThisExecutable (exec_name);
 #endif
+
+  // Get the Runtime here.  We want to initialize it before searching
+  // for `main'; that way it will be set up if `main' is a JNI method.
+  java::lang::Runtime *rtime = java::lang::Runtime::getRuntime ();
 
   main_thread = _Jv_AttachCurrentThread (JvNewStringLatin1 ("main"), NULL);
 
@@ -1061,7 +1041,7 @@ _Jv_RunMain (const char *name, int argc, const char **argv, bool is_jar)
 
   int status = (int) java::lang::ThreadGroup::had_uncaught_exception;
 
-  java::lang::Runtime::getRuntime ()->exit (status);
+  rtime->exit (status);
 }
 
 

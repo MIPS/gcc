@@ -35,6 +35,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "toplev.h"
 #include "parse.h"
 #include "ggc.h"
+#include "debug.h"
 
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
@@ -101,14 +102,15 @@ static void jcf_parse PARAMS ((struct JCF*));
 static void load_inner_classes PARAMS ((tree));
 
 /* Mark (for garbage collection) all the tree nodes that are
-   referenced from JCF's constant pool table. */
+   referenced from JCF's constant pool table. Do that only if the JCF
+   hasn't been marked finished.  */
 
 static void
 ggc_mark_jcf (elt)
      void **elt;
 {
   JCF *jcf = *(JCF**) elt;
-  if (jcf != NULL)
+  if (jcf != NULL && !jcf->finished)
     {
       CPool *cpool = &jcf->cpool;
       int size = CPOOL_COUNT(cpool);
@@ -465,6 +467,8 @@ handle_innerclass_attribute (count, jcf)
       /* Read inner_name_index. If the class we're dealing with is
 	 an annonymous class, it must be 0. */
       int ini = JCF_readu2 (jcf);
+      /* Read the access flag. */
+      int acc = JCF_readu2 (jcf);
       /* If icii is 0, don't try to read the class. */
       if (icii >= 0)
 	{
@@ -475,13 +479,13 @@ handle_innerclass_attribute (count, jcf)
 	    {
 	      tree outer = TYPE_NAME (get_class_constant (jcf, ocii));
 	      tree alias = (ini ? get_name_constant (jcf, ini) : NULL_TREE);
+	      set_class_decl_access_flags (acc, decl);
 	      DECL_CONTEXT (decl) = outer;
 	      DECL_INNER_CLASS_LIST (outer) =
 		tree_cons (decl, alias, DECL_INNER_CLASS_LIST (outer));
 	      CLASS_COMPLETE_P (decl) = 1;
             }
 	}
-      JCF_SKIP (jcf, 2);
     }
 }
 
@@ -771,7 +775,7 @@ parse_class_file ()
 
   input_filename = DECL_SOURCE_FILE (TYPE_NAME (current_class));
   lineno = 0;
-  debug_start_source_file (input_filename);
+  (*debug_hooks->start_source_file) (lineno, input_filename);
   init_outgoing_cpool ();
 
   /* Currently we always have to emit calls to _Jv_InitClass when
@@ -788,10 +792,21 @@ parse_class_file ()
 
       if (METHOD_NATIVE (method))
 	{
+	  tree arg;
+	  int  decl_max_locals;
+
 	  if (! flag_jni)
 	    continue;
-	  DECL_MAX_LOCALS (method)
-	    = list_length (TYPE_ARG_TYPES (TREE_TYPE (method)));
+	  /* We need to compute the DECL_MAX_LOCALS. We need to take
+             the wide types into account too. */
+	  for (arg = TYPE_ARG_TYPES (TREE_TYPE (method)), decl_max_locals = 0; 
+	       arg != end_params_node;
+	       arg = TREE_CHAIN (arg), decl_max_locals += 1)
+	    {
+	      if (TREE_VALUE (arg) && TYPE_IS_WIDE (TREE_VALUE (arg)))
+		decl_max_locals += 1;
+	    }
+	  DECL_MAX_LOCALS (method) = decl_max_locals;
 	  start_java_method (method);
 	  give_name_to_locals (jcf);
 	  expand_expr_stmt (build_jni_stub (method));
@@ -846,7 +861,7 @@ parse_class_file ()
 
   finish_class ();
 
-  debug_end_source_file (save_lineno);
+  (*debug_hooks->end_source_file) (save_lineno);
   input_filename = save_input_filename;
   lineno = save_lineno;
 }

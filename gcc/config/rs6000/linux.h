@@ -34,6 +34,12 @@ Boston, MA 02111-1307, USA.  */
 #undef	CPP_OS_DEFAULT_SPEC
 #define CPP_OS_DEFAULT_SPEC "%(cpp_os_linux)"
 
+/* The GNU C++ standard library currently requires _GNU_SOURCE being
+   defined on glibc-based systems. This temporary hack accomplishes this,
+   it should go away as soon as libstdc++-v3 has a real fix.  */
+#undef CPLUSPLUS_CPP_SPEC
+#define CPLUSPLUS_CPP_SPEC "-D_GNU_SOURCE %(cpp)"
+
 #undef LINK_SHLIB_SPEC
 #define LINK_SHLIB_SPEC "%{shared:-shared} %{!shared: %{static:-static}}"
 
@@ -62,11 +68,6 @@ Boston, MA 02111-1307, USA.  */
 /* Override rs6000.h definition.  */
 #undef ASM_APP_OFF
 #define ASM_APP_OFF "#NO_APP\n"
-
-#undef DEFAULT_VTABLE_THUNKS
-#ifndef USE_GNULIBC_1
-#define DEFAULT_VTABLE_THUNKS 1
-#endif
 
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */

@@ -42,7 +42,7 @@ extern int code_for_indirect_jump_scratch;
 
 #define SDB_DELIM ";"
 
-#define CPP_SPEC "%{ml:-D__LITTLE_ENDIAN__} \
+#define CPP_SPEC " \
 %{m1:-D__sh1__} \
 %{m2:-D__sh2__} \
 %{m3:-D__sh3__} \
@@ -51,9 +51,34 @@ extern int code_for_indirect_jump_scratch;
 %{m4-single:-D__SH4_SINGLE__} \
 %{m4-nofpu:-D__sh3__ -D__SH4_NOFPU__} \
 %{m4:-D__SH4__} \
-%{!m1:%{!m2:%{!m3:%{!m3e:%{!m4:%{!m4-single:%{!m4-single-only:%{!m4-nofpu:-D__sh1__}}}}}}}} \
+%{!m1:%{!m2:%{!m3*:%{!m4*:%(cpp_default_cpu_spec)}}}} \
 %{mnomacsave:-D__NOMACSAVE__} \
-%{mhitachi:-D__HITACHI__}"
+%{mhitachi:-D__HITACHI__} \
+%(subtarget_cpp_spec) \
+%(subtarget_cpp_ptr_spec) \
+%(subtarget_cpp_endian_spec) "
+
+#ifndef SUBTARGET_CPP_ENDIAN_SPEC
+#define SUBTARGET_CPP_ENDIAN_SPEC "%{ml:-D__LITTLE_ENDIAN__}"
+#endif
+
+#ifndef SUBTARGET_CPP_SPEC
+#define SUBTARGET_CPP_SPEC ""
+#endif
+
+#ifndef CPP_DEFAULT_CPU_SPEC
+#define CPP_DEFAULT_CPU_SPEC "-D__sh1__"
+#endif
+
+#ifndef SUBTARGET_CPP_PTR_SPEC
+#define SUBTARGET_CPP_PTR_SPEC "-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int"
+#endif
+
+#define EXTRA_SPECS						\
+  { "subtarget_cpp_spec", SUBTARGET_CPP_SPEC },			\
+  { "subtarget_cpp_endian_spec", SUBTARGET_CPP_ENDIAN_SPEC },	\
+  { "subtarget_cpp_ptr_spec", SUBTARGET_CPP_PTR_SPEC },		\
+  { "cpp_default_cpu_spec", CPP_DEFAULT_CPU_SPEC },
 
 #define CPP_PREDEFINES "-D__sh__ -Acpu=sh -Amachine=sh"
 
@@ -278,14 +303,16 @@ do {									\
 	fp_reg_names[regno][0] = 0;					\
     }									\
   if (flag_omit_frame_pointer < 0)					\
-   /* The debugging information is sufficient,				\
-      but gdb doesn't implement this yet */				\
-   if (0)								\
-    flag_omit_frame_pointer						\
-      = (PREFERRED_DEBUGGING_TYPE == DWARF_DEBUG			\
-	 || PREFERRED_DEBUGGING_TYPE == DWARF2_DEBUG);			\
-   else									\
-    flag_omit_frame_pointer = 0;					\
+   {									\
+     /* The debugging information is sufficient,			\
+        but gdb doesn't implement this yet */				\
+     if (0)								\
+      flag_omit_frame_pointer						\
+        = (PREFERRED_DEBUGGING_TYPE == DWARF_DEBUG			\
+	   || PREFERRED_DEBUGGING_TYPE == DWARF2_DEBUG);		\
+     else								\
+      flag_omit_frame_pointer = 0;					\
+   }									\
 									\
   if (flag_pic && ! TARGET_PREFERGOT)					\
     flag_no_function_cse = 1;						\
@@ -1217,11 +1244,6 @@ extern int current_function_anonymous_args;
 
 #define EXIT_IGNORE_STACK 1
 
-/* Generate the assembly code for function exit
-   Just dump out any accumulated constant table.  */
-
-#define FUNCTION_EPILOGUE(STREAM, SIZE)  function_epilogue ((STREAM), (SIZE))
-
 /* 
    On the SH, the trampoline looks like
    2 0002 D202     	   	mov.l	l2,r2
@@ -1245,7 +1267,9 @@ extern int current_function_anonymous_args;
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT) do			\
 {									\
   emit_move_insn (gen_rtx_MEM (SImode, (TRAMP)),			\
-		  GEN_INT (TARGET_LITTLE_ENDIAN ? 0xd301d202 : 0xd202d301));\
+                  GEN_INT (trunc_int_for_mode                  		\
+                         (TARGET_LITTLE_ENDIAN ? 0xd301d202 : 0xd202d301,\
+                          SImode))); \
   emit_move_insn (gen_rtx_MEM (SImode, plus_constant ((TRAMP), 4)),	\
 		  GEN_INT (TARGET_LITTLE_ENDIAN ? 0x0009422b : 0x422b0009));\
   emit_move_insn (gen_rtx_MEM (SImode, plus_constant ((TRAMP), 8)),	\
@@ -1873,28 +1897,6 @@ while (0)
 
 #define TEXT_SECTION_ASM_OP  		"\t.text"
 #define DATA_SECTION_ASM_OP  		"\t.data"
-#define CTORS_SECTION_ASM_OP 		"\t.section\t.ctors\n"
-#define DTORS_SECTION_ASM_OP 		"\t.section\t.dtors\n"
-#define EXTRA_SECTIONS 			in_ctors, in_dtors
-#define EXTRA_SECTION_FUNCTIONS					\
-void								\
-ctors_section()							\
-{								\
-  if (in_section != in_ctors)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);	\
-      in_section = in_ctors;					\
-    }								\
-}								\
-void								\
-dtors_section()							\
-{								\
-  if (in_section != in_dtors)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);	\
-      in_section = in_dtors;					\
-    }								\
-}
 
 /* If defined, a C expression whose value is a string containing the
    assembler operation to identify the following data as
@@ -1924,45 +1926,15 @@ dtors_section()							\
    which could be text or it could be a user defined section.  */
 #define JUMP_TABLES_IN_TEXT_SECTION 1
 
-/* A C statement to output something to the assembler file to switch to section
-   NAME for object DECL which is either a FUNCTION_DECL, a VAR_DECL or
-   NULL_TREE.  Some target formats do not support arbitrary sections.  Do not
-   define this macro in such cases.  */
-
-#define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC) \
-   do { fprintf (FILE, ".section\t%s\n", NAME); } while (0)
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION  sh_asm_named_section
 
 /* This is the pseudo-op used to generate a reference to a specific
    symbol in some section.  */
 
 #define INT_ASM_OP	"\t.long\t"
      
-/* A C statement (sans semicolon) to output an
-   element in the table of global constructors.  */
-#define ASM_OUTPUT_CONSTRUCTOR(FILE, NAME)			\
-  do								\
-    {								\
-      ctors_section ();						\
-      fprintf (FILE, "%s", INT_ASM_OP);				\
-      assemble_name (FILE, NAME);				\
-      fprintf (FILE, "\n");					\
-    }								\
-  while (0)
-
-/* A C statement (sans semicolon) to output an
-   element in the table of global destructors.  */
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       			\
-  do								\
-    {								\
-      dtors_section ();                   			\
-      fprintf (FILE, "%s", INT_ASM_OP);				\
-      assemble_name (FILE, NAME);              			\
-      fprintf (FILE, "\n");					\
-    }								\
-  while (0)
-
 #undef DO_GLOBAL_CTORS_BODY
-
 #define DO_GLOBAL_CTORS_BODY			\
 {						\
   typedef (*pfunc)();				\
@@ -2166,19 +2138,6 @@ do { char dstr[30];					\
 ( fputs ("\t.lcomm ", (FILE)),				\
   assemble_name ((FILE), (NAME)),			\
   fprintf ((FILE), ",%d\n", (SIZE)))
-
-/* The assembler's parentheses characters.  */
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
-/* Target characters.  */
-#define TARGET_BELL	007
-#define TARGET_BS	010
-#define TARGET_TAB	011
-#define TARGET_NEWLINE	012
-#define TARGET_VT	013
-#define TARGET_FF	014
-#define TARGET_CR	015
 
 /* A C statement to be executed just prior to the output of
    assembler code for INSN, to modify the extracted operands so
@@ -2299,18 +2258,13 @@ extern enum mdep_reorg_phase_e mdep_reorg_phase;
 
 extern int pragma_interrupt;
 
+/* Set when processing a function with interrupt attribute.  */
+
+extern int current_function_interrupt;
+
 /* Set to an RTX containing the address of the stack to switch to
    for interrupt functions.  */
 extern struct rtx_def *sp_switch;
-
-/* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
-   is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) \
-sh_valid_machine_decl_attribute (DECL, ATTRIBUTES, IDENTIFIER, ARGS)
-
-#define PRAGMA_INSERT_ATTRIBUTES(node, pattr, prefix_attr) \
-  sh_pragma_insert_attributes (node, pattr, prefix_attr)
 
 extern int rtx_equal_function_value_matters;
 extern struct rtx_def *fpscr_rtx;
@@ -2443,6 +2397,9 @@ do {									\
 
 #define EMIT_MODE_SET(ENTITY, MODE, HARD_REGS_LIVE) \
   fpscr_set_from_mem ((MODE), (HARD_REGS_LIVE))
+
+#define MD_CAN_REDIRECT_BRANCH(INSN, SEQ) \
+  sh_can_redirect_branch ((INSN), (SEQ))
 
 #define DWARF_LINE_MIN_INSTR_LENGTH 2
 

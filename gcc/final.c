@@ -41,8 +41,8 @@ Boston, MA 02111-1307, USA.  */
    (the one that tests the condition codes) to be modified.
 
    The code for the function prologue and epilogue are generated
-   directly as assembler code by the macros FUNCTION_PROLOGUE and
-   FUNCTION_EPILOGUE.  Those instructions never exist as rtl.  */
+   directly in assembler by the target functions function_prologue and
+   function_epilogue.  Those instructions never exist as rtl.  */
 
 #include "config.h"
 #include "system.h"
@@ -65,25 +65,16 @@ Boston, MA 02111-1307, USA.  */
 #include "reload.h"
 #include "intl.h"
 #include "basic-block.h"
-
-#if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
-#include "dbxout.h"
-#endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
+#include "target.h"
+#include "debug.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
-#include "xcoffout.h"
-#endif
-
-#ifdef DWARF_DEBUGGING_INFO
-#include "dwarfout.h"
+#include "xcoffout.h"		/* Needed for external data
+				   declarations for e.g. AIX 4.x.  */
 #endif
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
-#endif
-
-#ifdef SDB_DEBUGGING_INFO
-#include "sdbout.h"
 #endif
 
 /* If we aren't using cc0, CC_STATUS_INIT shouldn't exist.  So define a
@@ -250,7 +241,7 @@ static void profile_function	PARAMS ((FILE *));
 static void profile_after_prologue PARAMS ((FILE *));
 static void add_bb		PARAMS ((FILE *));
 static int add_bb_string	PARAMS ((const char *, int));
-static void output_source_line	PARAMS ((FILE *, rtx));
+static void notice_source_line	PARAMS ((rtx));
 static rtx walk_alter_subreg	PARAMS ((rtx));
 static void output_asm_name	PARAMS ((void));
 static void output_operand	PARAMS ((rtx, int));
@@ -298,12 +289,13 @@ end_final (filename)
       struct bb_list *ptr;
       struct bb_str *sptr;
       int long_bytes = LONG_TYPE_SIZE / BITS_PER_UNIT;
+      int gcov_type_bytes = GCOV_TYPE_SIZE / BITS_PER_UNIT;
       int pointer_bytes = POINTER_SIZE / BITS_PER_UNIT;
 
       if (profile_block_flag)
 	size = long_bytes * count_basic_blocks;
       else
-	size = long_bytes * count_instrumented_edges;
+	size = gcov_type_bytes * count_instrumented_edges;
       rounded = size;
 
       rounded += (BIGGEST_ALIGNMENT / BITS_PER_UNIT) - 1;
@@ -531,6 +523,24 @@ end_final (filename)
 			    1);
 	}
     }
+}
+
+/* Default target function prologue and epilogue assembler output.
+
+   If not overridden for epilogue code, then the function body itself
+   contains return instructions wherever needed.  */
+void
+default_function_pro_epilogue (file, size)
+     FILE *file ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
+{
+}
+
+/* Default target hook that outputs nothing to a stream.  */
+void
+no_asm_to_stream (file)
+     FILE *file ATTRIBUTE_UNUSED;
+{
 }
 
 /* Enable APP processing of subsequent output.
@@ -908,7 +918,7 @@ insn_current_reference_address (branch)
     return insn_current_address;
   dest = JUMP_LABEL (branch);
 
-  /* BRANCH has no proper alignment chain set, so use SEQ.  
+  /* BRANCH has no proper alignment chain set, so use SEQ.
      BRANCH also has no INSN_SHUID.  */
   if (INSN_SHUID (seq) < INSN_SHUID (dest))
     {
@@ -960,26 +970,6 @@ shorten_branches (first)
   int uid;
   rtx align_tab[MAX_CODE_ALIGN];
 
-  /* In order to make sure that all instructions have valid length info,
-     we must split them before we compute the address/length info.  */
-
-  for (insn = NEXT_INSN (first); insn; insn = NEXT_INSN (insn))
-    if (INSN_P (insn))
-      {
-	rtx old = insn;
-	/* Don't split the insn if it has been deleted.  */
-	if (! INSN_DELETED_P (old))
-	  insn = try_split (PATTERN (old), old, 1);
-	/* When not optimizing, the old insn will be still left around
-	   with only the 'deleted' bit set.  Transform it into a note
-	   to avoid confusion of subsequent processing.  */
-	if (INSN_DELETED_P (old))
-	  {
-	    PUT_CODE (old, NOTE);
-	    NOTE_LINE_NUMBER (old) = NOTE_INSN_DELETED;
-	    NOTE_SOURCE_FILE (old) = 0;
-	  }
-      }
 #endif
 
   /* We must do some computations even when not actually shortening, in
@@ -1455,9 +1445,28 @@ shorten_branches (first)
 
 	  if (! (varying_length[uid]))
 	    {
-	      insn_current_address += insn_lengths[uid];
+	      if (GET_CODE (insn) == INSN
+		  && GET_CODE (PATTERN (insn)) == SEQUENCE)
+		{
+		  int i;
+
+		  body = PATTERN (insn);
+		  for (i = 0; i < XVECLEN (body, 0); i++)
+		    {
+		      rtx inner_insn = XVECEXP (body, 0, i);
+		      int inner_uid = INSN_UID (inner_insn);
+
+		      INSN_ADDRESSES (inner_uid) = insn_current_address;
+
+		      insn_current_address += insn_lengths[inner_uid];
+		    }
+                }
+	      else
+		insn_current_address += insn_lengths[uid];
+
 	      continue;
 	    }
+
 	  if (GET_CODE (insn) == INSN && GET_CODE (PATTERN (insn)) == SEQUENCE)
 	    {
 	      int i;
@@ -1575,37 +1584,16 @@ final_start_function (first, file, optimize)
     }
 #endif
 
-  /* Initial line number is supposed to be output
-     before the function's prologue and label
-     so that the function's address will not appear to be
-     in the last statement of the preceding function.  */
   if (NOTE_LINE_NUMBER (first) != NOTE_INSN_DELETED)
-    last_linenum = high_block_linenum = high_function_linenum
-      = NOTE_LINE_NUMBER (first);
+    notice_source_line (first);
+  high_block_linenum = high_function_linenum = last_linenum;
 
-#if defined (DWARF2_UNWIND_INFO) || defined (IA64_UNWIND_INFO) \
-    || defined (DWARF2_DEBUGGING_INFO)
-  dwarf2out_begin_prologue ();
-#endif
+  (*debug_hooks->begin_prologue) (last_linenum, last_filename);
 
-  /* For SDB and XCOFF, the function beginning must be marked between
-     the function label and the prologue.  We always need this, even when
-     -g1 was used.  Defer on MIPS systems so that parameter descriptions
-     follow function entry.  */
-#if defined(SDB_DEBUGGING_INFO) && !defined(MIPS_DEBUGGING_INFO)
-  if (write_symbols == SDB_DEBUG)
-    sdbout_begin_function (last_linenum);
-  else
+#if defined (DWARF2_UNWIND_INFO) || defined (IA64_UNWIND_INFO)
+  if (write_symbols != DWARF2_DEBUG)
+    dwarf2out_begin_prologue (0, NULL);
 #endif
-#ifdef XCOFF_DEBUGGING_INFO
-    if (write_symbols == XCOFF_DEBUG)
-      xcoffout_begin_function (file, last_linenum);
-    else
-#endif
-      /* But only output line number for other debug info types if -g2
-	 or better.  */
-      if (NOTE_LINE_NUMBER (first) != NOTE_INSN_DELETED)
-	output_source_line (file, first);
 
 #ifdef LEAF_REG_REMAP
   if (current_function_uses_only_leaf_regs)
@@ -1628,18 +1616,17 @@ final_start_function (first, file, optimize)
      function.  */
   if (write_symbols)
     {
-      number_blocks (current_function_decl);
       remove_unnecessary_notes ();
+      reorder_blocks ();
+      number_blocks (current_function_decl);
       /* We never actually put out begin/end notes for the top-level
 	 block in the function.  But, conceptually, that block is
 	 always needed.  */
       TREE_ASM_WRITTEN (DECL_INITIAL (current_function_decl)) = 1;
     }
 
-#ifdef FUNCTION_PROLOGUE
   /* First output the function prologue: code to set up the stack frame.  */
-  FUNCTION_PROLOGUE (file, get_frame_size ());
-#endif
+  (*targetm.asm_out.function_prologue) (file, get_frame_size ());
 
   /* If the machine represents the prologue as RTL, the profiling code must
      be emitted when NOTE_INSN_PROLOGUE_END is scanned.  */
@@ -1758,58 +1745,25 @@ profile_function (file)
    even though not all of them are needed.  */
 
 void
-final_end_function (first, file, optimize)
-     rtx first ATTRIBUTE_UNUSED;
-     FILE *file ATTRIBUTE_UNUSED;
-     int optimize ATTRIBUTE_UNUSED;
+final_end_function ()
 {
   app_disable ();
 
-#ifdef SDB_DEBUGGING_INFO
-  if (write_symbols == SDB_DEBUG)
-    sdbout_end_function (high_function_linenum);
-#endif
+  (*debug_hooks->end_function) (high_function_linenum);
 
-#ifdef DWARF_DEBUGGING_INFO
-  if (write_symbols == DWARF_DEBUG)
-    dwarfout_end_function ();
-#endif
-
-#ifdef XCOFF_DEBUGGING_INFO
-  if (write_symbols == XCOFF_DEBUG)
-    xcoffout_end_function (file, high_function_linenum);
-#endif
-
-#ifdef FUNCTION_EPILOGUE
   /* Finally, output the function epilogue:
      code to restore the stack frame and return to the caller.  */
-  FUNCTION_EPILOGUE (file, get_frame_size ());
-#endif
+  (*targetm.asm_out.function_epilogue) (asm_out_file, get_frame_size ());
 
-#ifdef SDB_DEBUGGING_INFO
-  if (write_symbols == SDB_DEBUG)
-    sdbout_end_epilogue ();
-#endif
+  /* And debug output.  */
+  (*debug_hooks->end_epilogue) ();
 
-#ifdef DWARF_DEBUGGING_INFO
-  if (write_symbols == DWARF_DEBUG)
-    dwarfout_end_epilogue ();
-#endif
-
-#if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
-  if (dwarf2out_do_frame ())
+#if defined (DWARF2_UNWIND_INFO)
+  if (write_symbols != DWARF2_DEBUG && dwarf2out_do_frame ())
     dwarf2out_end_epilogue ();
 #endif
 
-#ifdef XCOFF_DEBUGGING_INFO
-  if (write_symbols == XCOFF_DEBUG)
-    xcoffout_end_epilogue (file);
-#endif
-
   bb_func_label_num = -1;	/* not in function, nuke label # */
-
-  /* If FUNCTION_EPILOGUE is not defined, then the function body
-     itself contains return instructions wherever needed.  */
 }
 
 /* Add a block to the linked list that remembers the current line/file/function
@@ -1984,7 +1938,7 @@ final (first, file, optimize, prescan)
   for (insn = NEXT_INSN (first); insn;)
     {
 #ifdef HAVE_ATTR_length
-      if (INSN_UID (insn) >= INSN_ADDRESSES_SIZE ())
+      if ((unsigned) INSN_UID (insn) >= INSN_ADDRESSES_SIZE ())
 	{
 #ifdef STACK_REGS
 	  /* Irritatingly, the reg-stack pass is creating new instructions
@@ -2076,7 +2030,6 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	case NOTE_INSN_LOOP_CONT:
 	case NOTE_INSN_LOOP_VTOP:
 	case NOTE_INSN_FUNCTION_END:
-	case NOTE_INSN_SETJMP:
 	case NOTE_INSN_REPEATED_LINE_NUMBER:
 	case NOTE_INSN_RANGE_BEG:
 	case NOTE_INSN_RANGE_END:
@@ -2104,37 +2057,17 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	  break;
 
 	case NOTE_INSN_PROLOGUE_END:
-#ifdef FUNCTION_END_PROLOGUE
-	  FUNCTION_END_PROLOGUE (file);
-#endif
+	  (*targetm.asm_out.function_end_prologue) (file);
 	  profile_after_prologue (file);
 	  break;
 
 	case NOTE_INSN_EPILOGUE_BEG:
-#ifdef FUNCTION_BEGIN_EPILOGUE
-	  FUNCTION_BEGIN_EPILOGUE (file);
-#endif
+	  (*targetm.asm_out.function_begin_epilogue) (file);
 	  break;
 
 	case NOTE_INSN_FUNCTION_BEG:
-#if defined(SDB_DEBUGGING_INFO) && defined(MIPS_DEBUGGING_INFO)
-	  /* MIPS stabs require the parameter descriptions to be after the
-	     function entry point rather than before.  */
-	  if (write_symbols == SDB_DEBUG)
-	    {
-	      app_disable ();
-	      sdbout_begin_function (last_linenum);
-	    }
-#endif
-#ifdef DWARF_DEBUGGING_INFO
-	  /* This outputs a marker where the function body starts, so it
-	     must be after the prologue.  */
-	  if (write_symbols == DWARF_DEBUG)
-	    {
-	      app_disable ();
-	      dwarfout_begin_function ();
-	    }
-#endif
+	  app_disable ();
+	  (*debug_hooks->end_prologue) (last_linenum);
 	  break;
 
 	case NOTE_INSN_BLOCK_BEG:
@@ -2149,27 +2082,8 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	      ++block_depth;
 	      high_block_linenum = last_linenum;
 
-	    /* Output debugging info about the symbol-block beginning.  */
-#ifdef SDB_DEBUGGING_INFO
-	      if (write_symbols == SDB_DEBUG)
-		sdbout_begin_block (file, last_linenum, n);
-#endif
-#ifdef XCOFF_DEBUGGING_INFO
-	      if (write_symbols == XCOFF_DEBUG)
-		xcoffout_begin_block (file, last_linenum, n);
-#endif
-#ifdef DBX_DEBUGGING_INFO
-	      if (write_symbols == DBX_DEBUG)
-		ASM_OUTPUT_INTERNAL_LABEL (file, "LBB", n);
-#endif
-#ifdef DWARF_DEBUGGING_INFO
-	      if (write_symbols == DWARF_DEBUG)
-		dwarfout_begin_block (n);
-#endif
-#ifdef DWARF2_DEBUGGING_INFO
-	      if (write_symbols == DWARF2_DEBUG)
-		dwarf2out_begin_block (n);
-#endif
+	      /* Output debugging info about the symbol-block beginning.  */
+	      (*debug_hooks->begin_block) (last_linenum, n);
 
 	      /* Mark this block as output.  */
 	      TREE_ASM_WRITTEN (NOTE_BLOCK (insn)) = 1;
@@ -2191,26 +2105,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	      if (block_depth < 0)
 		abort ();
 
-#ifdef XCOFF_DEBUGGING_INFO
-	      if (write_symbols == XCOFF_DEBUG)
-		xcoffout_end_block (file, high_block_linenum, n);
-#endif
-#ifdef DBX_DEBUGGING_INFO
-	      if (write_symbols == DBX_DEBUG)
-		ASM_OUTPUT_INTERNAL_LABEL (file, "LBE", n);
-#endif
-#ifdef SDB_DEBUGGING_INFO
-	      if (write_symbols == SDB_DEBUG)
-		sdbout_end_block (file, high_block_linenum, n);
-#endif
-#ifdef DWARF_DEBUGGING_INFO
-	      if (write_symbols == DWARF_DEBUG)
-		dwarfout_end_block (n);
-#endif
-#ifdef DWARF2_DEBUGGING_INFO
-	      if (write_symbols == DWARF2_DEBUG)
-		dwarf2out_end_block (n);
-#endif
+	      (*debug_hooks->end_block) (high_block_linenum, n);
 	    }
 	  break;
 
@@ -2267,7 +2162,10 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	    /* Output this line note if it is the first or the last line
 	       note in a row.  */
 	    if (!note_after)
-	      output_source_line (file, insn);
+	      {
+		notice_source_line (insn);
+		(*debug_hooks->source_line) (last_linenum, last_filename);
+	      }
 	  }
 	  break;
 	}
@@ -2332,10 +2230,9 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
       FINAL_PRESCAN_INSN (insn, NULL, 0);
 #endif
 
-#ifdef SDB_DEBUGGING_INFO
-      if (write_symbols == SDB_DEBUG && LABEL_NAME (insn))
-	sdbout_label (insn);
-#endif
+      if (LABEL_NAME (insn))
+	(*debug_hooks->label) (insn);
+
       if (app_on)
 	{
 	  fputs (ASM_APP_OFF, file);
@@ -2852,7 +2749,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
            print_rtl_single (asm_out_file, insn);
            print_rtx_head = "";
          }
-       
+
 	if (! constrain_operands_cached (1))
 	  fatal_insn_not_found (insn);
 
@@ -2982,8 +2879,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
    based on the NOTE-insn INSN, assumed to be a line number.  */
 
 static void
-output_source_line (file, insn)
-     FILE *file ATTRIBUTE_UNUSED;
+notice_source_line (insn)
      rtx insn;
 {
   register const char *filename = NOTE_SOURCE_FILE (insn);
@@ -3000,48 +2896,6 @@ output_source_line (file, insn)
   last_linenum = NOTE_LINE_NUMBER (insn);
   high_block_linenum = MAX (last_linenum, high_block_linenum);
   high_function_linenum = MAX (last_linenum, high_function_linenum);
-
-  if (write_symbols != NO_DEBUG)
-    {
-#ifdef SDB_DEBUGGING_INFO
-      if (write_symbols == SDB_DEBUG
-#if 0 /* People like having line numbers even in wrong file!  */
-	  /* COFF can't handle multiple source files--lose, lose.  */
-	  && !strcmp (filename, main_input_filename)
-#endif
-	  /* COFF relative line numbers must be positive.  */
-	  && last_linenum > sdb_begin_function_line)
-	{
-#ifdef ASM_OUTPUT_SOURCE_LINE
-	  ASM_OUTPUT_SOURCE_LINE (file, last_linenum);
-#else
-	  fprintf (file, "\t.ln\t%d\n",
-		   ((sdb_begin_function_line > -1)
-		    ? last_linenum - sdb_begin_function_line : 1));
-#endif
-	}
-#endif
-
-#if defined (DBX_DEBUGGING_INFO)
-      if (write_symbols == DBX_DEBUG)
-	dbxout_source_line (file, filename, NOTE_LINE_NUMBER (insn));
-#endif
-
-#if defined (XCOFF_DEBUGGING_INFO)
-      if (write_symbols == XCOFF_DEBUG)
-	xcoffout_source_line (file, filename, insn);
-#endif
-
-#ifdef DWARF_DEBUGGING_INFO
-      if (write_symbols == DWARF_DEBUG)
-	dwarfout_line (filename, NOTE_LINE_NUMBER (insn));
-#endif
-
-#ifdef DWARF2_DEBUGGING_INFO
-      if (write_symbols == DWARF2_DEBUG)
-	dwarf2out_line (filename, NOTE_LINE_NUMBER (insn));
-#endif
-    }
 }
 
 /* For each operand in INSN, simplify (subreg (reg)) so that it refers
@@ -3104,7 +2958,7 @@ alter_subreg (x)
     }
   else if (GET_CODE (y) == MEM)
     {
-      register int offset = SUBREG_BYTE (x);
+      HOST_WIDE_INT offset = SUBREG_BYTE (x);
 
       /* Catch these instead of generating incorrect code.  */
       if ((offset % GET_MODE_SIZE (GET_MODE (x))) != 0)
@@ -3675,9 +3529,9 @@ output_addr_const (file, x)
 	   && INTVAL (XEXP (x, 1)) < 0)
 	  || GET_CODE (XEXP (x, 1)) != CONST_INT)
 	{
-	  fprintf (file, "%s", ASM_OPEN_PAREN);
+	  fputs (targetm.asm_out.open_paren, file);
 	  output_addr_const (file, XEXP (x, 1));
-	  fprintf (file, "%s", ASM_CLOSE_PAREN);
+	  fputs (targetm.asm_out.close_paren, file);
 	}
       else
 	output_addr_const (file, XEXP (x, 1));
@@ -4084,6 +3938,25 @@ leaf_function_p ()
     }
 
   return 1;
+}
+
+/* Return 1 if branch is an forward branch.
+   Uses insn_shuid array, so it works only in the final pass.  May be used by
+   output templates to customary add branch prediction hints.
+ */
+int
+final_forward_branch_p (insn)
+     rtx insn;
+{
+  int insn_id, label_id;
+  if (!uid_shuid)
+    abort ();
+  insn_id = INSN_SHUID (insn);
+  label_id = INSN_SHUID (JUMP_LABEL (insn));
+  /* We've hit some insns that does not have id information available.  */
+  if (!insn_id || !label_id)
+    abort ();
+  return insn_id < label_id;
 }
 
 /* On some machines, a function with no call insns

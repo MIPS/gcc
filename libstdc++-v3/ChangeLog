@@ -1,3 +1,1381 @@
+2001-08-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.in (libtool_VERSION): Add.
+	(VERSION): Change to 
+	(release_VERSION): This.
+	* configure: Regenerate.	
+	* src/Makefile.am (libstdc___la_LDFLAGS): Use -version-info with
+	libtool_VERSION.
+	* src/Makefile.in: Regenerate.
+
+	* intl/Makefile.am: Remove.
+	* intl/Makefile.in: Remove.
+	* intl: Remove.
+	* Makefile.am (SUBDIRS): Remove intl.
+	* po/Makefile.am (DISTFILES): Add string_literals.cc
+	(MSGFMT): Add.
+	* po/string_literals.cc: Add.
+	* po/POTFILES.in: Fix path.
+	* acinclude.m4 (GLIBCPP_ENABLE_CLOCALE): Don't call AM_GNU_GETTEXT. 
+	* aclocal.m4: Regenerate.
+	* configure.in: Remove AC_OUTPUT of intl/Makefile.
+	
+	* include/backward/backward_warning.h: Clarify message.
+
+	* testsuite_flags.in (--cxxflags): Use same debug flags for
+	library and testsuite.
+
+	* include/Makefile.am (c_compatibility): Remove.
+	* include/Makefile.in: Regenerate.
+	
+2001-08-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* configure.in (LIMITS_INC_SRCDIR): New variable.
+	* configure.target (LIMITSH): New variable.
+	* porting.texi: Discuss numeric limits.
+	* config/cpu/generic/bits/limits.h: New file.
+	* config/cpu/i386/bits/limits.h: New file.
+	* include/Makefile.am: Install bits/limits.h.
+	* include/bits/c++config: Include bits/limits.h.
+
+2001-08-13  H.J. Lu  (hjl@gnu.org)
+
+	* testsuite/lib/libstdc++-v3-dg.exp (libstdc++-v3-copy-files):
+	New. Copy files.
+	(libstdc++-v3-init ): Use it.
+
+2001-08-13  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* include/bits/ostream.tcc (__pad_char): Change toplevel '__fmt'
+	to '__adjust' to avoid shadowing in nested scope.
+
+2001-08-10  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* include/bits/std_limits.h(__glibcpp_char_is_signed): Use
+	__CHAR_UNSIGNED__.
+
+	* config/os/gnu-linux/bits/os_defines.h(__glibcpp_char_is_signed):
+	Likewise. 
+	* config/os/aix/bits/os_defines.h(__glibcpp_plain_char_is_signed): 
+	Remove.
+
+2001-08-10  Loren J. Rittle  <ljrittle@acm.org>
+
+	* testsuite/testsuite_hooks.h (__set_testsuite_memlimit): Add
+	dummy default argument to the non-limit implementation.
+
+	bootstrap/3963
+	* include/Makefile.am: Use relative file path in rule to allow
+	colon in $(objdir).
+	* include/Makefile.in: Rebuilt.
+
+2001-08-10   Gunter Winkler  <gunter.winkler@mathematik.tu-chemnitz.de>
+
+	* include/bits/std_complex.h (complex<long double>::operator*=,
+ 	complex<long double>::operator/=): Fix thinko.
+
+2001-08-10  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* include/bits/std_limits.h: New file.
+	* include/Makefile.am (bits_headers): Add std_limits.h
+	(all-local): std_limits.h is no longer built.
+	(${target_builddir}/std_limits.h): Remove.
+	* include/Makefile.in: Regenerate.
+	* src/limits.cc: New file.
+	* src/Makefile.am (sources): Add limits.cc in replacement of
+	limitsMEMBERS.cc.
+	* src/Makefile.in: Regenerate.
+
+
+2001-08-09  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* src/gen-num-limits.cc (digits10): Fix thinko.
+
+2001-08-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* po/Makefile.am (check-no): Add.
+	(check-yes): Same.
+	* po/Makefile.in: Regenerate.
+	
+2001-08-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acconfig.h (_GLIBCPP_MEM_LIMITS): Define.
+	* config.h.in: Regenerate.
+	* acinclude.m4 (GLIBCPP_CHECK_SETRLIMIT): Check for setrlimit
+	function.
+	* aclocal.m4: Regenerate.
+	* configure.in: Remove duplicate AM_CONFIG_HEADER.
+	(AM_CONFIG_HEADER): Remove testsuite/testsuite_hooks.h.
+	Only call GLIBCPP_CHECK_SETRLIMIT for native compiles.
+	* configure: Regenerate.
+	* testsuite_hooks.h.in: Move to...
+	* testsuite_hooks.h: Here, include c++config.h. Use it.
+	
+	* Makefile.am (SUBDIRS): Move testsuite to last directory.
+	* Makefile.in: Regenerate.
+	* po/Makefile.am (stamp-po): Add.
+
+2001-08-09  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/os/aix/bits/os_defines.h: Define std_limits.h macros.
+	* config/os/generic/bits/os_defines.h: Likewise.
+	* config/os/gnu-linux/bits/os_defines.h: Likewise.
+	* config/os/hpux/bits/os_defines.h: Likewise.
+	* config/os/irix/irix6.5/bits/os_defines.h: Likewise.
+	* config/os/solaris/solaris2.7/bits/os_defines.h: Likewise.
+
+2001-08-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/Makefile.am (libstdc___la_LDFLAGS): Use -release instead of
+	-version-info, use substituted VERSION info.
+	* src/Makefile.in: Regenerate.
+	
+2001-08-07  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Implement std::messages.
+	Make config a fully-nested directory.
+	* config/locale: New directory.
+	* config/c_locale_generic.cc: Move into locale subdirectory.
+	* config/c_locale_generic.h: Same.
+	* config/c_locale_gnu.cc: Same.
+	* config/c_locale_gnu.h: Same.
+	* config/c_locale_ieee_1003.1-200x.cc: Same.
+	* config/c_locale_ieee_1003.1-200x_.h: Same.
+	* config/codecvt_specializations_generic.h: Same.
+	* config/codecvt_specializations_ieee_1003.1-200x.h: Same.	
+	* config/messages_members_gnu.h: Same.
+	* config/messaages_members_gnu.cc: Same.
+	* config/messages_members_generic.h: Same.
+	* config/messaages_members_generic.cc: Same.
+	* config/messages_members_ieee_1003.1-200x.h: Same.
+	* config/messaages_members_ieee_1003.1-200x.cc: Same.
+	* config/io: New directory.
+	* config/basic_file_libio.h: Move into io subdirectory.	
+	* config/basic_file_libio.cc: Same.
+	* config/c_io_libio.h: Same.
+	* config/c_io_libio_codecvt.c: Same.	
+	* config/basic_file_stdio.h: Same.
+	* config/basic_file_stdio.cc: Same.
+	* config/c_io_stdio.h: Same.
+	
+	* po: New directory.
+	* po/POTFILES.in: New file.
+	* po/Makefile.am: New file.
+	* po/Makefile.in: New file.	
+	* po/libstdc++.pot: Generic translation file.
+	* po/fr.po: Preliminary French translation.
+	* po/de.po: Preliminary German translation.
+	* intl: New directory.
+	* intl/Makefile.am: New file.
+	* intl/Makefile.in: New file.	
+	* intl/string_literals.cc: New file.
+	* acinclude.m4 (GLIBCPP_CONFIGURE): Bump VERSION to 3.1.0. Add
+	requisite setup for gettext. Re-arrange.
+	* aclocal.m4: Regenerate.
+	* configure.in: Don't call GLIBCPP_CHECK_COMPILER_VERSION.
+	Output Makefile bits for po and intl.
+	* configure: Regenerate.
+	* Makefile.am (SUBDIRS): Add intl, po. Add rule for dist.
+	* Makefile.in: Regenerate.
+	* acconfig.h: Add ENABLE_NLS, HAVE_CATGETS, HAVE_GETTEXT, HAVE_STPCPY.
+	* config.h.in: Regenerate.
+
+	* acinclude.m4 (AC_REPLACE_STRINGFUNCS): Remove.
+	
+	* include/Makefile.am (install-data-local): Don't install Makefile.
+	* include/Makefile.in: Regenerate.
+	
+	* include/bits/locale_facet.h (locale::facet::_S_clone_c_locale):
+	Add member.
+	* config/locale/c_locale_gnu.cc (_S_clone_c_locale): Add definition.
+	* config/locale/c_locale_generic.cc: Same.
+	* config/locale/c_locale_ieee_1003.1-200x.cc: Same.
+
+	* include/bits/codecvt.h: Excise non-standard, non-required
+	bits. This includes __enc_traits, and partial specializations of
+	codecvt for __enc_traits.
+	* src/codecvt.cc (__enc_traits::_S_max_size): Guard 
+	* config/codecvt_partials_ieee_1003.1-200x.h: New file.	
+	* config/codecvt_partials_generic.h: New file.		
+	* include/Makefile.am (allstamps): Add stamp-codecvt_model.
+	(stamp-codecvt_model): Add.
+	* include/Makefile.in: Regenerate.
+	* acinclude.m4 (GLIBCPP_ENABLE_CLOCALE): Add in codecvt configury.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* testsuite/22_locale/codecvt_unicode_wchar_t.cc: Use macro guard.
+	* testsuite/22_locale/codecvt_unicode_char.cc: Same.
+	* testsuite/22_locale/ctor_copy_dtor.cc: And here.
+	
+	* include/bits/localefwd.h (class locale::facet): Add __enc_traits
+	as a friend for _S_*_c_locale functions.
+	* include/bits/codecvt.h (__enc_traits::__enc_traits): Add locale
+	argument to default constructor so that CODESET information can be
+	deduced.
+	* include/bits/locale_facets.h (messages_byname):
+	Re-implement. Remove specializations.
+	* src/locale.cc (messages_byname<char>): Remove specialization.
+	(messages_byname<wchar_t>): Same.
+	* config/locale/c_locale_ieee_1003.1-200x.cc: New file.
+	* config/locale/c_locale_ieee_1003.1-200x.h: New file.	
+	* config/locale/messages_members_ieee_1003.1-200x.cc: New file.
+	* config/locale/messages_members_ieee_1003.1-200x.h: New file.	
+	* config/locale/messages_members_gnu.cc: New file.
+	* config/locale/messages_members_gnu.h: New file.	
+	* config/locale/messages_members_generic.cc: New file.
+	* config/locale/messages_members_generic.h: New file.	
+	
+	* docs/html/configopts.html: Add documentation for new locale
+	model, ieee_1003.1. Adjust other flags for current defaults.
+	* docs/html/22_locale/locale.html: Update.
+	* docs/html/22_locale/howto.html: Add link to messages.html. Organize.
+	* docs/html/22_locale/messages.html: New.
+
+	* src/Makefile.am (sources): Add messages_virtuals.cc.
+	* src/Makefile.in: Regenerate.
+	* include/Makefile.am (allstamps): Add stamp-messages_model.
+	(stamp-messages_model): Add.
+	* include/Makefile.in: Regenerate.
+	* acinclude.m4 (GLIBCPP_ENABLE_CLOCALE): Add in messages configury.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+	* testsuite_flags.in (--cxxflags): Add LOCALEDIR.
+	* testsuite/lib/libstdc++-v3-dg.exp: Remove broken LD_LIBRARY_PATH
+	bits for Irix. 
+	* acinclude (GLIBCPP_ENABLE_CLOCALE): Set glibcpp_localedir to the
+	build directories message catalog base directory, and export.
+	Eventually this should probably be made to deal with build and
+	install directories. For now, punt on this as the library itself
+	doesn't use message catalogs (yet).
+	* testsuite/22_locale/messages.cc: New file.
+	* testsuite/22_locale/messages_char_members.cc: New file.
+	* testsuite/22_locale/messages_byname.cc: New file.
+
+2001-08-06  Phil Edwards  <pme@sources.redhat.com>
+
+	* acinclude.m4 (GLIBCPP_CONFIGURE_TESTSUITE):  New macro, calls...
+	(GLIBCPP_CHECK_SETRLIMIT):  ...this new macro, which also uses...
+	(GLIBCPP_CHECK_SETRLIMIT_ancilliary):  ...this new macro.
+	* configure.in (AM_CONFIG_HEADER):  Also generate testsuite_hooks.h.
+	Call GLIBCPP_CONFIGURE_TESTSUITE.
+	* aclocal.m4:  Regenerate.
+	* config.h.in:  Regenerate.
+	* configure:  Regenerate.
+
+	* testsuite/lib/libstdc++-v3-dg.exp:  Download new header instead
+	of old header.
+
+	* testsuite_flags.in:  Add build dir's testsuite to INCLUDES.
+	* testsuite/debug_assert.h:  Removed; contents merged into...
+	* testsuite/testsuite_hooks.h.in:  ...here.  New file.
+	* testsuite/17_intro/header_ciso646.cc:  No longer include
+	debug_assert.h, include testsuite_hooks.h instead.
+	* testsuite/17_intro/header_fstream.cc:  Likewise.
+	* testsuite/17_intro/header_iomanip.cc:  Likewise.
+	* testsuite/17_intro/header_ios.cc:  Likewise.
+	* testsuite/17_intro/header_iosfwd.cc:  Likewise.
+	* testsuite/17_intro/header_iostream.cc:  Likewise.
+	* testsuite/17_intro/header_istream.cc:  Likewise.
+	* testsuite/17_intro/header_ostream.cc:  Likewise.
+	* testsuite/17_intro/header_sstream.cc:  Likewise.
+	* testsuite/17_intro/header_streambuf.cc:  Likewise.
+	* testsuite/18_support/numeric_limits.cc:  Likewise.
+	* testsuite/19_diagnostics/stdexceptions.cc:  Likewise.
+	* testsuite/20_util/allocator_members.cc:  Likewise.
+	* testsuite/20_util/auto_ptr.cc:  Likewise.
+	* testsuite/20_util/pairs.cc:  Likewise.
+	* testsuite/21_strings/append.cc:  Likewise.
+	* testsuite/21_strings/capacity.cc:  Likewise.
+	* testsuite/21_strings/char_traits_requirements.cc:  Likewise.
+	* testsuite/21_strings/compare.cc:  Likewise.
+	* testsuite/21_strings/ctor_copy_dtor.cc:  Likewise.  Also set up
+	call to (disabled) __set_testsuite_memlimit() wrapper.
+	* testsuite/21_strings/element_access.cc:  Likewise.
+	* testsuite/21_strings/find.cc:  Likewise.
+	* testsuite/21_strings/insert.cc:  Likewise.  Also set up call to
+	(disabled) __set_testsuite_memlimit() wrapper.
+	* testsuite/21_strings/inserters_extractors.cc:  Likewise.
+	* testsuite/21_strings/invariants.cc:  Likewise.
+	* testsuite/21_strings/nonmember.cc:  Likewise.
+	* testsuite/21_strings/operations.cc:  Likewise.
+	* testsuite/21_strings/replace.cc:  Likewise.
+	* testsuite/21_strings/rfind.cc:  Likewise.
+	* testsuite/21_strings/substr.cc:  Likewise.
+	* testsuite/22_locale/codecvt_char_char.cc:  Likewise.
+	* testsuite/22_locale/codecvt_unicode_char.cc:  Likewise.
+	* testsuite/22_locale/codecvt_unicode_wchar_t.cc:  Likewise.
+	* testsuite/22_locale/codecvt_wchar_t_char.cc:  Likewise.
+	* testsuite/22_locale/ctor_copy_dtor.cc:  Likewise.
+	* testsuite/22_locale/ctype_char_members.cc:  Likewise.
+	* testsuite/22_locale/ctype_wchar_t_members.cc:  Likewise.
+	* testsuite/22_locale/facet.cc:  Likewise.
+	* testsuite/22_locale/global_templates.cc:  Likewise.
+	* testsuite/22_locale/members.cc:  Likewise.
+	* testsuite/22_locale/numpunct_byname.cc:  Likewise.
+	* testsuite/22_locale/numpunct_char_members.cc:  Likewise.
+	* testsuite/22_locale/operators.cc:  Likewise.
+	* testsuite/22_locale/static_members.cc:  Likewise.
+	* testsuite/23_containers/bitset_ctor.cc:  Likewise.
+	* testsuite/23_containers/bitset_members.cc:  Likewise.
+	* testsuite/23_containers/bitset_shift.cc:  Likewise.
+	* testsuite/23_containers/vector_capacity.cc:  Likewise.
+	* testsuite/23_containers/vector_ctor.cc:  Likewise.
+	* testsuite/23_containers/vector_element_access.cc:  Likewise.
+	* testsuite/23_containers/vector_modifiers.cc:  Likewise.
+	* testsuite/24_iterators/istreambuf_iterator.cc:  Likewise.
+	* testsuite/24_iterators/iterator.cc:  Likewise.
+	* testsuite/24_iterators/ostreambuf_iterator.cc:  Likewise.
+	* testsuite/25_algorithms/binary_search.cc:  Likewise.
+	* testsuite/25_algorithms/copy.cc:  Likewise.
+	* testsuite/25_algorithms/heap.cc:  Likewise.
+	* testsuite/25_algorithms/lower_bound.cc:  Likewise.
+	* testsuite/25_algorithms/min_max.cc:  Likewise.
+	* testsuite/25_algorithms/partition.cc:  Likewise.
+	* testsuite/25_algorithms/rotate.cc:  Likewise.
+	* testsuite/25_algorithms/sort.cc:  Likewise.
+	* testsuite/26_numerics/c_math.cc:  Likewise.
+	* testsuite/26_numerics/complex_inserters_extractors.cc:  Likewise.
+	* testsuite/26_numerics/complex_value.cc:  Likewise.
+	* testsuite/27_io/filebuf.cc:  Likewise.
+	* testsuite/27_io/filebuf_members.cc:  Likewise.
+	* testsuite/27_io/filebuf_virtuals.cc:  Likewise.
+	* testsuite/27_io/fpos.cc:  Likewise.
+	* testsuite/27_io/fstream_members.cc:  Likewise.
+	* testsuite/27_io/ifstream_members.cc:  Likewise.
+	* testsuite/27_io/ios_base_callbacks.cc:  Likewise.
+	* testsuite/27_io/ios_base_members_static.cc:  Likewise.
+	* testsuite/27_io/ios_base_storage.cc:  Likewise.
+	* testsuite/27_io/ios_ctor.cc:  Likewise.
+	* testsuite/27_io/ios_init.cc:  Likewise.
+	* testsuite/27_io/ios_manip_basefield.cc:  Likewise.
+	* testsuite/27_io/ios_manip_fmtflags.cc:  Likewise.
+	* testsuite/27_io/ios_members.cc:  Likewise.
+	* testsuite/27_io/istream_extractor_arith.cc:  Likewise.
+	* testsuite/27_io/istream_extractor_char.cc:  Likewise.
+	* testsuite/27_io/istream_extractor_other.cc:  Likewise.
+	* testsuite/27_io/istream_manip.cc:  Likewise.
+	* testsuite/27_io/istream_seeks.cc:  Likewise.
+	* testsuite/27_io/istream_sentry.cc:  Likewise.
+	* testsuite/27_io/istream_unformatted.cc:  Likewise.
+	* testsuite/27_io/istringstream_members.cc:  Likewise.
+	* testsuite/27_io/narrow_stream_objects.cc:  Likewise.
+	* testsuite/27_io/ofstream_members.cc:  Likewise.
+	* testsuite/27_io/ostream_inserter_arith.cc:  Likewise.
+	* testsuite/27_io/ostream_inserter_char.cc:  Likewise.
+	* testsuite/27_io/ostream_inserter_other.cc:  Likewise.
+	* testsuite/27_io/ostream_manip.cc:  Likewise.
+	* testsuite/27_io/ostream_seeks.cc:  Likewise.
+	* testsuite/27_io/ostream_unformatted.cc:  Likewise.
+	* testsuite/27_io/ostringstream_members.cc:  Likewise.
+	* testsuite/27_io/streambuf.cc:  Likewise.
+	* testsuite/27_io/stringbuf.cc:  Likewise.
+	* testsuite/27_io/stringbuf_virtuals.cc:  Likewise.
+	* testsuite/27_io/stringstream.cc:  Likewise.
+	* testsuite/27_io/stringstream_members.cc:  Likewise.
+	* testsuite/27_io/wide_stream_objects.cc:  Likewise.
+
+2001-07-31  Loren J. Rittle  <ljrittle@acm.org>
+
+        * src/gen-num-limits.cc:  Use __LONG_LONG_MAX__.
+
+2001-07-30  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.target: Remove mips from cpu table.
+	* config/cpu/mips/bits/atomicity.h: Remove generic
+	versions. Comment sgidefs include.
+	
+2001-07-25  H.J. Lu <hjl@gnu.org>
+
+	* configure.target (cpu_include_dir): Set to `config/cpu/mips'
+	for mips.
+
+	* config/cpu/mips/bits/atomicity.h: New.
+
+2001-07-25  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* acinclude.m4: CHECK_MATH_DECL_AND_LINKAGE for hypot, hypotf,
+	hypotl, atan2f, atan2l.  Remove from REPLACE_MATHFUNCS list.
+	* aclocal.m4: Regenerate.
+	* config.h.in: Likewise.
+	* configure: Likewise.
+	* libmath/Makefile.am (EXTRA_LONG_DOUBLE_yes): Remove hypotl.c
+	(EXTRA_DIST): Remove hypot.c hypotf.c.
+	* libmath/Makefile.am: Regenerate.
+	* libmath/hypotf.c: Remove.
+	* libmath/hypot.c: Likewise.
+	* libmath/hypotl.c: Likewise.
+	* libmath/stubs.c: The macros seen here are HAVE_xxx, not
+	_GLIBCPP_HAVE_xxx.  Add long double versions.
+
+2001-07-23  David Edelsohn  <edelsohn@gnu.org>
+
+	* include/bits/limits_generic.h (int): Set digits and digits10
+	appropriately for word size.
+	(unsigned int,long,unsigned long): Likewise.
+
+2001-07-19  Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
+
+        * include/bits/stl_algo.h : Fix typos.
+	* testsuite/25_algorithms/unique.cc: New file.
+	
+2001-07-19  Phil Edwards  <pme@sources.redhat.com>
+            Mark Mitchell <mark@codesourcery.com>
+
+	Merge from cp-parser-branch.
+	* include/bits/basic_string.h:  Qualify symbols with 'template'.
+	* include/bits/basic_string.tcc:  Likewise.
+	* include/bits/fstream.tcc:  Likewise.
+	* include/bits/istream.tcc:  Likewise.
+	* include/bits/sstream.tcc:  Likewise.
+	* include/bits/std_istream.h:  Likewise.
+	* include/bits/stl_iterator.h:  Likewise.
+	* include/bits/streambuf.tcc:  Likewise.
+	* src/gen-num-limits.cc:  Add 'template<>' to specializations.
+	* src/locale.cc:  Likewise.
+
+2001-07-19  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+	    Bert De Knuydt <Bert.Deknuydt@esat.kuleuven.ac.be>
+
+	* src/gen-num-limits.cc (set_signals_handler): New function.
+	Factor out signals setting.  Set signal handler for SIGILL.
+
+2001-07-18  Phil Edwards  <pme@sources.redhat.com>
+
+	* docs/html/27_io/howto.html:  Fix typo.
+	* docs/html/faq/index.html:  Minor updates for 3.0 all around.
+	* docs/html/faq/index.txt:  Regenerated.
+
+2001-07-18  Stephen M. Webb  <stephen@bregmasoft..com>
+            Roman Sulzhyk  <roman_sulzhyk@yahoo.com>
+
+        libstdc++/3599
+        * include/bits/ostream.tcc (ostream::put): Fixed error condition check.
+        * testsuite/27_io/streambuf.cc (test07): Added new regression test.
+
+2001-07-17  Stephen M. Webb   <stephen@bregmasoft.com>r
+
+	All occurrences of the __value_type() and __distance_type()
+	functions, which were required to support the HP STL, have been
+	removed along with all the auxiliary forwarding functions that
+	were required to support their use.
+
+	The __iterator_category() function was pretty much left alone
+	because there was no benefit to removing it and its use made code
+	just a little more readable.
+
+	Incidences of distance() with nonstandard argument list were
+	replaced by calls to the standard function (only in the files
+	affected by the removal of the other HP functions).
+
+	The signature of the rotate() algorithm was changed to match the
+	standard.
+
+	Headers were reformatted under C++STYLE guidelines (indentation,
+	linebreaks, typename keyword).
+
+	* include/bits/stl_algo.h: replaced __value_type() and
+	__distance_type() with iterator_traits, eliminated auxiliary
+	support functions required to support said function usage.
+	Changed nonstandard distance() call to standard call.
+
+	* include/bits/stl_algobase.h: Same.
+	* include/bits/stl_heap.h: Same.
+	* include/bits/stl_numeric.h: Same.
+	* include/bits/stl_uninitialized.h: Same.
+	* include/bits/stl_iterator_base_types.h (__value_type()):
+	Removed.
+	(__distance_type()): Removed.
+	(value_type()): Gone.
+	(distance_type()): Done in.
+	(iterator_category()): Hasta la vista, baby.
+
+	* include/bits/stl_iterator_base_funcs.h (iterator_category()):
+	Replaced with __iterator_category().
+	* include/backward/iterator.h: moved definition of value_type(),
+	distance_type(), and iterator_category() out of std:: and into
+	here.
+	* testsuite/23_containers/vector_ctor.cc (test03): New testcases.
+	* testsuite/23_containers/vector_modifiers.cc (test03): New testcases.
+	* testsuite/25_algorithms/rotate.cc: New testcase.
+	* testsuite/25_algorithms/copy.cc: New testcase.
+	* testsuite/25_algorithms/sort.cc: Same.
+	* testsuite/25_algorithms/heap.cc: Same.
+	* testsuite/25_algorithms/partition.cc: Same.
+	* testsuite/25_algorithms/binary_search.cc: Same.
+	* testsuite/26_numerics/sum_diff.cc: Ditto.
+
+001-07-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/README: Add notes on naming test cases.
+	* testsuite/22_locale/members.cc: Mark as xfail.
+	* testsuite/22_locale/numpunct_char_members.cc: Same.
+
+2001-07-16  Stephen M. Webb  <stephen@bregmasoft.com>
+
+	* acinclude.m4 (GLIBCPP_ENABLE_CHEADERS):  Use glibcpp_srcdir when
+	setting C_INCLUDE_DIR.
+	* configure.in:  Revert yesterday's LN_S change.
+	* aclocal.m4:  Regenerate.
+	* configure:  Regenerate.
+
+2001-07-15  Phil Edwards  <pme@sources.redhat.com>
+
+	* configure.in:  Temporarily force LN_S to copy instead of symlink.
+	* configure:  Regenerate.
+
+2001-07-13  Phil Edwards  <pme@sources.redhat.com>
+
+	* include/bits/std_sstream.h (basic_stringbuf::basic_stringbuf(string):
+	Initialize _M_string with pointer-and-size constructor, not just
+	pointer.  Fix some comments.
+	* testsuite/21_strings/ctor_copy_dtor.cc (test03):  New test.
+	* testsuite/27_io/stringbuf.cc (test02):  Remove unused variable.
+	(test03):  Add embedded-NUL tests.
+
+	* mkcheck.in:  When printing totals, match the order of the tests.
+	* include/bits/stringfwd.h:  Use same declaration keywords.
+	* include/bits/std_iosfwd.h:  Cosmetic spacing.
+
+2001-07-13  Stephen M. Webb  <stephen@bregmasoft.com>
+            Loren J. Rittle  <ljrittle@acm.org>
+            Phil Edwards  <pme@sources.redhat.com>
+
+	* include/Makefile.am:  New file encapsulating header generation rules.
+	* Makefile.am (SUBDIRS):  Prepend 'include' directory.
+	* acinclude.m4:  Moved/removed rules for building various headers.
+	* configure.in (AC_OUTPUT):  Add include/Makefile.
+	* mkc++config:  Removed.
+
+	* testsuite_flags.in:  Changed build-includes to match new scheme.
+	* mknumeric_limits:  Likewise.
+	* libio/Makefile.am:  Changed INCLUDES to maatch new header scheme.
+	* libmath/Makefile.am:  Likewise.
+	* libsupc++/Makefile.am:  Likewise.
+	* src/Makefile.am:  Likewise; removed rules to build headers.
+	* libmath/mathconf.h:  Changed #include'd header names to match.
+	* libmath/stubs.c:  Likewise.
+	* src/gen-num-limits.cc:  Likewise.
+
+	* configure:  Regenerated.
+	* config.h.in:  Regenerated.
+	* aclocal.m4:  Regenerated.
+	* Makefile.in:  Regenerated.
+	* include/Makefile.in:  Regenerated.
+	* libio/Makefile.in:  Regenerated.
+	* libmath/Makefile.in:  Regenerated.
+	* libsupc++/Makefile.in:  Regenerated.
+	* src/Makefile.in:  Regenerated.
+	* testsuite/Makefile.in:  Regenerated.
+
+2001-07-11   Felix Natter  <fnatter@gmx.net>
+
+	* docs/html/17_intro/porting-howto.xml:  Initial checkin of
+	master copy.
+	* docs/html/17_intro/porting-howto.html:  check in v0.9.3
+
+2001-07-11  Phil Edwards  <pme@sources.redhat.com>
+
+	* docs/doxygen/run_doxygen:  Don't keep output from previous run.
+	* docs/doxygen/user.cfg.in:  Tweaks.
+	* include/bits/c++config:  Documentation comments for Doxygen.
+	* include/bits/char_traits.h:  Likewise.
+	* include/bits/limits_generic.h:  Likewise.
+	* include/bits/std_stdexcept.h:  Likewise.
+	* include/bits/stl_pair.h:  Likewise.
+	* libsupc++/exception:  Likewise.
+	* libsupc++/new:  Likewise.
+	* libsupc++/typeinfo:  Likewise.
+	* libmath/Makefile.am:  Update and correct copyright.
+
+2001-07-10  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* acinclude.m4: Don't AC_REPLACE_MATHFUNCS expf and atan2f.
+	* aclocal.m4: Regenerate.
+	* configure: Same.
+
+2001-07-09  Phil Edwards  <pme@sources.redhat.com>
+
+	* docs/html/configopts.html:  Fix thinko.
+	* docs/html/27_io/howto.html:  Fix thinko and HTML markup.
+	* include/bits/stl_iterator.h:  Fix typo.
+
+2001-07-09  Phil Edwards  <pme@sources.redhat.com>
+
+	* docs/html/explanations.html:  New file.
+	* docs/html/configopts.html:  Link to it to provide more notes
+	on cstdio.  Minor markup and spacing fixes.
+	* docs/html/27_io/howto.html:  Talk about sync_with_stdio.
+
+2001-07-09  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* include/bits/valarray_meta.h (_Expr::operator+): Use qualified id
+	for _Expr template template argument.
+	(_Expr::operator-): Likewise.
+	(_Expr::operator~): Likewise.
+	(_Expr::operator!): Likewise.
+	(_DEFINE_EXPR_UNARY_OPERATOR): Likewise.
+
+2001-07-06  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+        * libmath/Makefile.am (EXTRA_DIST): Remove atan2f.c and expf.c
+        * libmath/Makefile.in: Regenerate.
+        * libmath/expf.c: Remove.
+        * libmath/atan2f.c: Likewise.
+
+2001-07-06  Daniel Jacobowitz  <drow@mvista.com>
+
+        * configure.in: Remove NATIVE, NULL_TARGET.
+        Set CANADIAN only for Canadian crosses.  Set xcompiling
+        for both Canadian crosses and host-x-host crosses.
+        * configure: Regenerated.
+
+2001-07-06  Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
+
+        * include/bits/stl_vector.h (vector::_M_initialize_aux): Fix typo.
+
+2001-07-05  Jason Merrill  <jason_merrill@redhat.com>
+
+	* testsuite_flags.in (--build-includes): backward, not backwards.
+
+2001-07-04  Jeffrey Oldham  <oldham@codesourcery.com>
+
+	* include/ext/ropeimpl.h (_Rope_RopeRep::_M_free_c_string):
+	Replace destroy by _Destroy.
+	(_Rope_RopeRep::_S_free_string): Likewise.
+	(rope::c_str()): Likewise.
+	* include/ext/slist (_Slist_base::_M_erase_after>): Likewise.
+	(_Slist_base::_M_erase_after): Likewise.
+	(slist::_M_create_node): Replace construct by _Construct.
+	(slist::pop_front): Replace destroy by _Destroy.
+	* include/ext/stl_hashtable.h (hashtable::_M_new_node): Replace
+	construct by _Construct.
+	(hashtable::_M_delete_node): Replace destroy by _Destroy.
+	* include/ext/stl_rope.h (rope::rope): Replace construct by
+	_Construct.
+	(rope::copy): Replace destroy by _Destroy.
+
+2001-07-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/localefwd.h: Format.	
+	* include/bits/locale_facts.tcc (locale::combine): Adjust.
+	* src/locale.cc (locale::locale::(_Impl)): Don't call
+	_M_add_reference.
+	(locale::facet::_M_remove_reference): Simplify.
+	* src/globals.cc (locale_impl_c): New. Format.
+	(locale_c): New.
+	* src/ios.cc (ios_base::Init::Init): Increment _S_ios_base_init last.
+
+2001-07-02  Loren J. Rittle  <ljrittle@acm.org>
+
+	* acinclude.m4 (GLIBCPP_ENABLE_THREADS): Protect variable from shell
+	expansion (thanks to Alexandre Oliva).
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2001-07-02  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* src/locale.cc (locale::locale(const char*)): Make sure global
+	locales are initialized.
+	* include/bits/locale_facets.tcc (locale::combine): Refcout should
+	be zero, not one as it's return-by-value.
+	* testsuite/27_io/ios_base_callbacks.cc (test01): Don't check for
+	named locales here.
+	* testsuite/22_locale/ctor_copy_dtor.cc (test01): Instead, check
+	for it here.
+	(test02): Add test.
+	* libsupc++/eh_alloc.cc: Use climits, not limits.h.
+
+2001-07-02  Loren J. Rittle  <ljrittle@acm.org>
+
+	libstdc++/3284
+	* acinclude.m4 (GLIBCPP_ENABLE_THREADS): Portability enhancement.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	
+2001-07-02  Loren J. Rittle  <ljrittle@acm.org>
+
+	libstdc++/3243
+	* acinclude.m4 (GLIBCPP_ENABLE_THREADS): Add relative path to
+	staged/installed area to support -I-.  Document.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2001-07-02  Loren J. Rittle  <ljrittle@acm.org>
+
+	libstdc++/2211
+	* src/ios.cc (ios_base::Init::_S_ios_create): Rename __bufsize to
+	__out_bufsize.  Add __in_bufsize, document it and use it.  
+
+2001-07-01  Stephen M. Webb <stephen@bregmasoft.com>
+
+	* include/bits/stl_construct.h (construct): Remove.
+      	(destroy): Remove.
+      	(__destroy): Replaced by use of iterator_traits.
+	* include/bits/stl_deque.h: replaced HP iterator functions with
+	iterator_traits.
+        (construct): changed to _Construct.
+	(destroy): changed to _Destroy.
+	* include/bits/stl_tempbuf.h: Same.
+	* include/bits/stl_tree.h: Same.
+	* include/bits/stl_vector.h: Same.
+	* include/backward/iterator.h (construct): moved definition to here.
+	(destroy): Same.
+
+2001-06-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_facets.tcc (locale::combine): Clone _Impl.
+	before replacing facet.
+	* include/bits/localefwd.h (locale::_Impl::_M_remove_reference):
+	Correct decrement.
+	* src/localename.cc (locale::_Impl): Correct ctor initialization
+	lists. Initialize ref count with one. Simplify.
+	* src/locale.cc: Add comment.
+	* testsuite/22_locale/numpunct.cc (test01): Add derivation test.
+	* testsuite/22_locale/numpunct_char_members.cc (test01): Add tests.
+	* testsuite/22_locale/members.cc (test02): Fix.
+
+2001-06-27  Phil Edwards  <pme@sources.redhat.com>
+
+	* include/backward/algo.h:  Add "GPL plus runtime exception" comment
+	block, this time for real.
+	* include/backward/algobase.h:  Likewise.
+	* include/backward/alloc.h:  Likewise.
+	* include/backward/bvector.h:  Likewise.
+	* include/backward/defalloc.h:  Likewise.
+	* include/backward/deque.h:  Likewise.
+	* include/backward/function.h:  Likewise.
+	* include/backward/hash_map.h:  Likewise.
+	* include/backward/hash_set.h:  Likewise.
+	* include/backward/hashtable.h:  Likewise.
+	* include/backward/heap.h:  Likewise.
+	* include/backward/iterator.h:  Likewise.
+	* include/backward/list.h:  Likewise.
+	* include/backward/map.h:  Likewise.
+	* include/backward/multimap.h:  Likewise.
+	* include/backward/multiset.h:  Likewise.
+	* include/backward/pair.h:  Likewise.
+	* include/backward/rope.h:  Likewise.
+	* include/backward/set.h:  Likewise.
+	* include/backward/slist.h:  Likewise.
+	* include/backward/stack.h:  Likewise.
+	* include/backward/strstream:  Likewise.
+	* include/backward/tempbuf.h:  Likewise.
+	* include/backward/tree.h:  Likewise.
+	* include/backward/vector.h:  Likewise.
+	* include/bits/pthread_allocimpl.h:  Likewise.
+	* include/bits/std_algorithm.h:  Likewise.
+	* include/bits/std_bitset.h:  Likewise.
+	* include/bits/std_deque.h:  Likewise.
+	* include/bits/std_functional.h:  Likewise.
+	* include/bits/std_iterator.h:  Likewise.
+	* include/bits/std_list.h:  Likewise.
+	* include/bits/std_map.h:  Likewise.
+	* include/bits/std_memory.h:  Likewise.
+	* include/bits/std_numeric.h:  Likewise.
+	* include/bits/std_queue.h:  Likewise.
+	* include/bits/std_set.h:  Likewise.
+	* include/bits/std_stack.h:  Likewise.
+	* include/bits/std_utility.h:  Likewise.
+	* include/bits/std_vector.h:  Likewise.
+	* include/bits/stl_algo.h:  Likewise.
+	* include/bits/stl_algobase.h:  Likewise.
+	* include/bits/stl_alloc.h:  Likewise.
+	* include/bits/stl_bvector.h:  Likewise.
+	* include/bits/stl_construct.h:  Likewise.
+	* include/bits/stl_deque.h:  Likewise.
+	* include/bits/stl_function.h:  Likewise.
+	* include/bits/stl_heap.h:  Likewise.
+	* include/bits/stl_iterator.h:  Likewise.
+	* include/bits/stl_iterator_base_funcs.h:  Likewise.
+	* include/bits/stl_iterator_base_types.h:  Likewise.
+	* include/bits/stl_list.h:  Likewise.
+	* include/bits/stl_map.h:  Likewise.
+	* include/bits/stl_multimap.h:  Likewise.
+	* include/bits/stl_multiset.h:  Likewise.
+	* include/bits/stl_numeric.h:  Likewise.
+	* include/bits/stl_pair.h:  Likewise.
+	* include/bits/stl_pthread_alloc.h:  Likewise.
+	* include/bits/stl_queue.h:  Likewise.
+	* include/bits/stl_raw_storage_iter.h:  Likewise.
+	* include/bits/stl_relops.h:  Likewise.
+	* include/bits/stl_set.h:  Likewise.
+	* include/bits/stl_stack.h:  Likewise.
+	* include/bits/stl_tempbuf.h:  Likewise.
+	* include/bits/stl_threads.h:  Likewise.
+	* include/bits/stl_tree.h:  Likewise.
+	* include/bits/stl_uninitialized.h:  Likewise.
+	* include/bits/stl_vector.h:  Likewise.
+	* include/bits/type_traits.h:  Likewise.
+	* include/ext/hash_map:  Likewise.
+	* include/ext/hash_set:  Likewise.
+	* include/ext/rope:  Likewise.
+	* include/ext/ropeimpl.h:  Likewise.
+	* include/ext/slist:  Likewise.
+	* include/ext/stl_hash_fun.h:  Likewise.
+	* include/ext/stl_hashtable.h:  Likewise.
+	* include/ext/stl_rope.h:  Likewise.
+	* src/bitset.cc:  Likewise.
+	* src/strstream.cc:  Likewise.
+
+2001-06-26  Benjamin Kosnik  <bkoz@redhat.com>
+	                     <vakatov@ncbi.nlm.nih.gov>
+
+	libstdc++/3272
+	* include/bits/streambuf.tcc (__copy_streambufs): Don't set eofbit.
+	* testsuite/27_io/ostream_inserter_other.cc (test04): Add test.
+	* testsuite/27_io/istream_extractor_other.cc: Fix.
+	
+2001-06-26  Zoltan Hidvegi  <hzoli@austin.ibm.com>
+
+	* acinclude.m4 (glibcpp_toolexeclibdir): Make multilib safe.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	
+2001-06-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/stream_iterator.h (istream_iterator): Add copy ctor.
+	(ostream_iterator): Same.
+	* include/bits/stl_iterator.h (front_insert_iterator::operator=):
+	Change argument to const_reference.
+	(back_insert_iterator): Same.
+	
+2001-06-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/sbuf_iter.h: Change to..
+	* include/bits/streambuf_iterator.h: This.
+	* include/bits/stl_iterator.h: Take out of here...
+	* include/bits/stream_iterator.h: Add.
+	* src/Makefile.am (base_headers): Add streambuf_iterator,
+	stream_iterator.h
+	* src/Makefile.in: Regenerate.
+	* include/bits/std_string.h: Adjust includes.
+	* include/bits/basic_ios.h: Same.
+	* include/bits/locale_facets.tcc: Same.
+	* include/bits/std_iosfwd.h: Same.	
+	
+	* include/bits/std_iterator.h: Add istream, ostream includes.
+	* include/bits/stl_iterator.h: Tweak.
+	* testsuite/24_iterators/ostream_iterator.cc: Add test.
+	* testsuite/24_iterators/istream_iterator.cc: Same.
+	* testsuite/23_containers/multiset.cc: Add iterator include.
+
+2001-06-26  Phil Edwards  <pme@sources.redhat.com>
+
+	* acinclude.m4:  Clean extraneous tabs, rewrap 'test' lines.
+	* aclocal.m4:  Regenerate.
+	* configure:  Regenerate.
+
+2001-06-26  Felix Natter  <f.natter@ndh.net>
+
+	* docs/html/17_intro/porting-howto.html:  Fixed some errors.
+
+2001-06-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/stl_iterator.h (istream_iterator::operator->): Fix
+	return values.
+	(istream_iterator::operator*): Same.
+
+2001-06-26  Benjamin Kosnik  <bkoz@redhat.com>
+            Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+        * testsuite/21_strings/element_access.cc (test01): Chill Out Cafe
+        is on 41st, not 14th.
+
+2001-06-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/std_iterator.h: Include sbuf_iter.h via std_ios.h.
+
+	* include/bits/stl_iterator.h (istream_iterator): Inherit from
+	iterator.
+	(ostream_iterator): Same.
+	* testsuite/24_iterators/istream_iterator.cc: New file.
+	* testsuite/24_iterators/ostream_iterator.cc: New file.
+	
+	* include/bits/sbuf_iter.h: Remove self typedef.
+	* testsuite/24_iterators/ostreambuf_iterator.cc: Add test.
+	* testsuite/24_iterators/istreambuf_iterator.cc: Add test.
+	
+	* include/bits/stl_iterator.h (reverse_iterator): Remove
+	extraneous typedefs. Add typename.
+	(__normal_iterator): Remove typedefs referring to self. Add typename.
+	(reverse_bidiretional_iterator): Remove, not longer required.
+
+2001-06-26  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* include/bits/stl_iterator.h (__normal_iterator<>): Qualify
+	dependent names with `typename'.  Bring in various required
+	iterator_traits members.  Can't imagine why that used to work.
+
+2001-06-25  Phil Edwards  <pme@sources.redhat.com>
+            Kurt Garloff <garloff@suse.de>
+
+	PR libstdc++/3377
+	* src/cmath.cc:  New [version of an old] file; instantiate
+	__cmath_power to start with.
+	* src/Makefile.am (sources):  Add cmath.cc (and alphabetize).
+	* Makefile.in:  Regenerate.
+	* libio/Makefile.in:  Regenerate.
+	* libmath/Makefile.in:  Regenerate.
+	* libsupc++/Makefile.in:  Regenerate.
+	* src/Makefile.in:  Regenerate.
+	* testsuite/Makefile.in:  Regenerate.
+
+2001-06-24  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* libmath/stubs.c: Fix thinko.
+
+2001-06-24  David Edelsohn <dje@watson.ibm.com>
+
+	* libmath/stubs.c (sqrtf): Define.
+	(tanf): Correct typo.
+
+2001-06-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/stl_iterator.h (reverse_iterator): Inherit from
+	iterator.
+	(back_insert_iterator): Same.	
+	(front_insert_iterator): Same.
+	(insert_iterator): Same.
+
+	* testsuite/20_util/raw_storage_iterator.cc: Modify.
+	* testsuite/24_iterators/reverse_iterator.cc: New file.
+	* testsuite/24_iterators/back_insert_iterator.cc: New file.
+	* testsuite/24_iterators/front_insert_iterator.cc: New file.
+	* testsuite/24_iterators/insert_iterator.cc: New file.
+
+2001-06-22  Phil Edwards  <pme@sources.redhat.com>
+
+	* include/*:  Revert comment/license change from yesterday for all
+	except libsupc++/unwind-cxx.h.
+	* src/bitset.cc:  Likewise.
+	* src/strstream.cc:  Likewise.
+
+2001-06-22  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* libmath/stubs.c: New file.
+	(tanhf): Fix typo.
+	(powf): Likewise.
+
+	* libmath/Makefile.am (libmath_la_SOURCES): Add.
+	* libmath/Makefile.in.  Regenerate.
+
+2001-06-21  Phil Edwards  <pme@sources.redhat.com>
+
+	* include/backward/algo.h:  Add "GPL plus runtime exception" comment.
+	* include/backward/algobase.h:  Likewise.
+	* include/backward/alloc.h:  Likewise.
+	* include/backward/bvector.h:  Likewise.
+	* include/backward/defalloc.h:  Likewise.
+	* include/backward/deque.h:  Likewise.
+	* include/backward/function.h:  Likewise.
+	* include/backward/hash_map.h:  Likewise.
+	* include/backward/hash_set.h:  Likewise.
+	* include/backward/hashtable.h:  Likewise.
+	* include/backward/heap.h:  Likewise.
+	* include/backward/iterator.h:  Likewise.
+	* include/backward/list.h:  Likewise.
+	* include/backward/map.h:  Likewise.
+	* include/backward/multimap.h:  Likewise.
+	* include/backward/multiset.h:  Likewise.
+	* include/backward/pair.h:  Likewise.
+	* include/backward/rope.h:  Likewise.
+	* include/backward/set.h:  Likewise.
+	* include/backward/slist.h:  Likewise.
+	* include/backward/stack.h:  Likewise.
+	* include/backward/strstream:  Likewise.
+	* include/backward/tempbuf.h:  Likewise.
+	* include/backward/tree.h:  Likewise.
+	* include/backward/vector.h:  Likewise.
+	* include/bits/pthread_allocimpl.h:  Likewise.
+	* include/bits/std_algorithm.h:  Likewise.
+	* include/bits/std_bitset.h:  Likewise.
+	* include/bits/std_deque.h:  Likewise.
+	* include/bits/std_functional.h:  Likewise.
+	* include/bits/std_iterator.h:  Likewise.
+	* include/bits/std_list.h:  Likewise.
+	* include/bits/std_map.h:  Likewise.
+	* include/bits/std_memory.h:  Likewise.
+	* include/bits/std_numeric.h:  Likewise.
+	* include/bits/std_queue.h:  Likewise.
+	* include/bits/std_set.h:  Likewise.
+	* include/bits/std_stack.h:  Likewise.
+	* include/bits/std_utility.h:  Likewise.
+	* include/bits/std_vector.h:  Likewise.
+	* include/bits/stl_algo.h:  Likewise.
+	* include/bits/stl_algobase.h:  Likewise.
+	* include/bits/stl_alloc.h:  Likewise.
+	* include/bits/stl_bvector.h:  Likewise.
+	* include/bits/stl_construct.h:  Likewise.
+	* include/bits/stl_deque.h:  Likewise.
+	* include/bits/stl_function.h:  Likewise.
+	* include/bits/stl_heap.h:  Likewise.
+	* include/bits/stl_iterator.h:  Likewise.
+	* include/bits/stl_iterator_base_funcs.h:  Likewise.
+	* include/bits/stl_iterator_base_types.h:  Likewise.
+	* include/bits/stl_list.h:  Likewise.
+	* include/bits/stl_map.h:  Likewise.
+	* include/bits/stl_multimap.h:  Likewise.
+	* include/bits/stl_multiset.h:  Likewise.
+	* include/bits/stl_numeric.h:  Likewise.
+	* include/bits/stl_pair.h:  Likewise.
+	* include/bits/stl_pthread_alloc.h:  Likewise.
+	* include/bits/stl_queue.h:  Likewise.
+	* include/bits/stl_raw_storage_iter.h:  Likewise.
+	* include/bits/stl_relops.h:  Likewise.
+	* include/bits/stl_set.h:  Likewise.
+	* include/bits/stl_stack.h:  Likewise.
+	* include/bits/stl_tempbuf.h:  Likewise.
+	* include/bits/stl_threads.h:  Likewise.
+	* include/bits/stl_tree.h:  Likewise.
+	* include/bits/stl_uninitialized.h:  Likewise.
+	* include/bits/stl_vector.h:  Likewise.
+	* include/bits/type_traits.h:  Likewise.
+	* include/ext/hash_map:  Likewise.
+	* include/ext/hash_set:  Likewise.
+	* include/ext/rope:  Likewise.
+	* include/ext/ropeimpl.h:  Likewise.
+	* include/ext/slist:  Likewise.
+	* include/ext/stl_hash_fun.h:  Likewise.
+	* include/ext/stl_hashtable.h:  Likewise.
+	* include/ext/stl_rope.h:  Likewise.
+	* libsupc++/unwind-cxx.h:  Likewise.
+	* src/bitset.cc:  Likewise.
+	* src/strstream.cc:  Likewise.
+
+2001-06-21  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* include/bits/indirect_array.h (indirect_array<>::operator=):
+	Make copy and assignment operator public.  Implement.  Format.
+
+	* include/bits/valarray_array.h (__valarray_copy): Add overloads
+	for copy between index arrays.  Format.
+
+2001-06-19  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* mknumeric_limits: Add static definitions, format.
+	* testsuite/18_support/numeric_limits.cc (test02): Add test.
+
+	* include/c_std/bits/std_cwchar.h: Include ctime.
+	* testsuite/17_intro/header_cwchar.cc : Check.
+
+	* include/c_std/bits/std_cwctype.h: Inject wctype.
+	* testsuite/17_intro/header_cwctype.cc: Update.
+
+2001-06-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/stl_raw_storage_iter.h: Format. Correct derivation.
+	* testsuite/20_util/raw_storage_iterator.cc: Same.
+	
+        * include/bits/stl_alloc.h (_S_chunk_alloc): Change malloc to
+        operator new.
+        (__mem_interface): New typedef for switching between malloc and new.
+	* testsuite/20_util/allocator_members.cc: New file.	
+
+	* testsuite/20_util/comparisons.cc: New file.
+	* testsuite/20_util/pairs.cc: New file.	
+
+2001-06-15  Phil Edwards  <pme@sources.redhat.com>
+
+	* docs/html/documentation.html:  Point to new doxygen'ed collection.
+
+2001-06-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* configure.in (auxdir): Replace by ...
+	(toprel): ... new variable.
+	(toplevel_srcdir): Construct from $toprel.
+	* acinclude.m4 (GLIBCPP_ENABLE_THREADS): Use $toprel
+	rather than .. to locate gcc source directory.
+	(GLIBCPP_CONFIGURE): Replace $auxdir with $srcdir/$toprel.
+	* aclocal.m4, configure: Rebuilt.
+
+2001-06-13  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	(Approved by Mark and Benjamin.  Applied by Loren.)
+
+	* src/globals.cc: Define globals _GLIBCPP_mutex_init (),
+	_GLIBCPP_mutex_address_init (), _GLIBCPP_once, _GLIBCPP_mutex
+	and _GLIBCPP_mutex_address.
+	* include/bits/stl_threads.h (_STL_mutex_lock): Use above to provide
+	once-only runtime initialization of _M_lock mutex when
+	__GTHREAD_MUTEX_INIT_FUNCTION is defined.
+	(__STL_MUTEX_INITIALIZER): Provide initializer for _STL_mutex_lock
+	for __GTHREAD_MUTEX_INIT_FUNCTION case.
+
+2001-06-13  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* testsuite/26_numerics/slice_array_assignment.cc (main): New test.
+
+	* include/bits/slice_array.h (slice_array<>::operator=): Make
+	public and implement.
+	(slice_array<>::slice_array): Make copy-constructor public.
+
+	* include/bits/valarray_array.h (__valarray_copy): Add another
+	overload to copy between strided arrays.
+
+2001-06-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCPP_CONFIGURE): Bump version to 3.0.0.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* include/bits/c++config (__GLIBCPP__): Update date.
+
+2001-06-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/fpos.h (fpos::operator-): Don't return reference,
+	return original, non-modified version.
+	(fpos::operator+): Same.
+	* testsuite/27_io/fpos.cc: Add test.
+	
+2001-06-12  Loren J. Rittle  <ljrittle@acm.org>
+
+	libstdc++/2071
+	* porting.texi: Add documentation about libstdc++-v3-specific
+	macros that are currently included in os_defines.h files.
+
+	* config/basic_file_stdio.h (sys_getc): New method.
+	(sys_ungetc): New method.
+	* include/bits/basic_file.h: (sys_getc): New method signature.
+	(sys_ungetc): New method signature.
+
+	* include/bits/fstream.tcc (underflow): Add conditional code
+	paths which avoid using short seeks on streams (especially
+	useful when the stream might be interactive or a pipe).  At
+	the moment, this alternate path only avoids seeking when the
+	``buffer size'' of underflow() is 1 since the C standard only
+	guarantees buffer space for one ungetc (this technique could
+	be extended since *-*-solaris* supports buffering for 4 calls
+	to ungetc and *-*-*bsd* supports buffering limited only by
+	memory resources).  Also, _GLIBCPP_AVOID_FSEEK must be defined
+	in a port's os_defines.h file for this alternate path to even
+	be considered.  As a bonus, the idiom of using getc/ungetc
+	requires no system calls whereas fseek maps to one or two
+	system call(s) on many platforms.
+
+	* config/os/bsd/freebsd/bits/os_defines.h (_GLIBCPP_AVOID_FSEEK):
+	Define it.
+	* config/os/solaris/solaris2.5/bits/os_defines.h
+	(_GLIBCPP_AVOID_FSEEK): Likewise.
+	* config/os/solaris/solaris2.6/bits/os_defines.h
+	(_GLIBCPP_AVOID_FSEEK): Likewise.
+	* config/os/solaris/solaris2.7/bits/os_defines.h
+	(_GLIBCPP_AVOID_FSEEK): Likewise.
+
+2001-06-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCPP_CHECK_COMPILER_VERSION): Change to
+	AC_TRY_COMPILE, so that the built compiler is checked, and
+	bootstraps or cross compiles with an older compile still work.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	
+2001-06-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	libstdc++/3142
+	* include/bits/std_sstream.h: Add allocator_type, as per DR 251.
+
+	libstdc++/3141
+	* include/bits/istream.tcc (getline, get): Fix as per DR 243.
+
+	libstdc++/3140
+	* include/bits/std_bitset.h (bitset::set): Fix as per DR 186.
+
+	libstdc++/3139
+	* include/bits/limits_generic.h: Fix as per DR 184.
+
+2001-06-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	libstdc++/3126
+	* include/bits/basic_string.h (string::compare): Adjust signatures
+	as per DR 5.
+	* include/bits/basic_string.tcc: And here.
+
+	libstdc++/2346
+	* config/c_io_stdio.h: Remove whitespace.
+	* testsuite/27_io/istream_seeks.cc (test03): Add regression.
+	(test02): Add regression.
+	* testsuite/27_io/istream_seeks-3.tst: New file.
+	
+2001-06-11  Phil Edwards  <pme@sources.redhat.com>
+
+	* README:  Update to reflect reality.
+	* acinclude.m4:  Update descriptions, fix typos.  Comment changes only.
+	* configure.in:  Make certain target_alias is set and subst'd for 2.50.
+	* aclocal.m4:  Regenerate.
+	* configure:  Regenerate (with 2.13).
+
+2001-06-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	libstdc++/3114
+	* include/bits/ostream.tcc (ostream::seekp): Add error checking as
+	per DR 129.
+	* include/bits/istream.tcc (istream::seekg): Same.
+	* testsuite/27_io/istream_seeks.cc: Fix.
+	
+	libstdc++/3113
+	* include/bits/stl_function.h (binder2nd): Fix as per DR 109.
+	(binder1st): Same.
+	* include/bits/std_queue.h: Add c++config.h.
+	* testsuite/20_util/binders.cc: New test.
+	
+2001-06-11  Matthias Klose  <doko@debian.org>
+            Phil Edwards  <pme@sources.redhat.com>
+
+	* docs/doxygen/run_doxygen (find_doxygen):  Tweak version check.
+	(main script):  Echo more information.
+
+2001-06-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/c_std/bits/std_cwchar.h: Alphabetize.
+	* include/bits/char_traits.h: Tweak.
+	* acinclude.m4 (GLIBCPP_CHECK_WCHAR_T_SUPPORT): Check for
+	everything used by std_cwchar.h.
+	* aclocal.m4: Regenerate.
+	* configure.in: Regenerate.
+	* config.h.in: Regenerate.
+	
+2001-06-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCPP_ENABLE_C99): Add stdio.h checking.
+	Add checking for strtof, _Exit in stdlib.h
+	* aclocal.m4: Regenerate.
+	* configure.in: Regenerate.
+	* include/c_std/bits/std_cstdio.h: Alphabetize lists. 
+	(snprintf): Put C99 functions into __gnu_cxx namespace.
+	(vfscanf): Same.
+	(vscanf): Same.
+	(vsnprintf): Same.
+	(vsscanf): Same.
+	* include/c_std/bits/std_cstdlib.h: Alphabetize lists. Put undefs
+	for C99 functions within _GLIBCPP_USE_C99 guard.
+	(_Exit): Same.
+	(strtof): Same.
+	(strtold): Same.
+	* include/bits/locale_facets.tcc: Check if C99 is enabled.
+	* include/c_std/bits/std_cwchar.h (__gnu_cxx): Put undefs within
+	C99 guard.
+	* include/c_std/bits/cmath.tcc: Formatting tweak.
+	* include/c_std/bits/std_cmath.h: Same.
+	
+2001-06-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/c_std/bits/std_cstdio.h: Include cstddef for size_t.
+
+2001-06-09  Alexandre Oliva  <aoliva@redhat.com> 
+	    Stephen L Moshier  <moshier@mediaone.net>
+
+	* acinclude.m4 (AC_EXEEXT): Work around in case it expands to
+	nothing, as in autoconf 2.50.
+	* configure: Rebuilt.
+
+2001-06-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/c_std/bits/std_cwchar.h: Remove size_t injection,
+	include std_cstddef.
+	* include/c_std/bits/std_ctime.h: Same.
+	* include/c_std/bits/std_cstring.h: Same.
+	* include/c_std/bits/std_cstdlib.h: Same.
+	
+	* include/c_std/bits/std_cstdio.h: Remove vsnprintf, snprintf.
+	* include/c_std/bits/std_cctype.h: Remove isblank.
+
+2001-06-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCPP_CHECK_WCHAR_T_SUPPORT): Check for fgetwc,
+	fgetws.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* include/c_std/bits/std_cwchar.h: Remove duplicate fgetwc
+	injection, guard fgetwc, fgetws.
+	* include/c_std/bits/std_cstdio.h: Remove superfluous includes.
+	* include/c_std/bits/std_clocale.h: And here.
+	* include/c_std/bits/std_cctype.h: And here.
+	* include/c_std/bits/std_cstdlib.h (strtof): Guard strtof injection.
+
+	* config/basic_file_stdio.h: Don't include unistd.h.
+	* config/c_io_stdio.h: Don't use compatibility headers.
+	* libsupc++/eh_terminate.cc: Qualify abort.
+	(__terminate): And here.
+	* libsupc++/eh_catch.cc (__cxa_end_catch): Qualify abort.
+	
+2001-06-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/c_std/bits/std_cstdlib.h: Remove _Exit, strtof injections.
+
+2001-06-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	libstdc++/2767
+	libstdc++/2989
+	libstdc++/2992
+	* include/std/*: Add copyright notice.
+	* include/c_std/bits/*: Use using statements instead of extern "C".
+	* include/c_std/bits/std_cmath.h: Don't overload double versions
+	of math functions with __buitin versions, use global version to
+	prevent ambiguities. Remove define hacks.
+	* include/c_std/bits/std_cwchar.h: Using declarations for "C"
+	functions that have changed signatures and std::
+	declarations. Remove define hacks.
+	* include/c_std/bits/std_cwchar.h: Same, plus remove ambiguous
+	__builtins in std::. Remove define hacks.
+	* testsuite/17_intro/headers_c.cc: Add tests.
+	* testsuite/17_intro/headers_c++.cc: Add test.
+
+2001-06-07  Loren J. Rittle  <ljrittle@acm.org>
+	    John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	c++/3082
+	* libsupc++/eh_alloc.cc: Ensure that required macros are
+	defined before including gthr.h.  Ensure that we get the
+	version of gthr.h for which we know how to provide a
+	configuration.
+	* libsupc++/eh_globals.cc: Likewise.  And, bring the threading
+	code path into line with the current EH model.  Use std, where
+	appropriate.
+
+2001-06-07  Loren J. Rittle  <ljrittle@acm.org>
+	    John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* config/threads-no.h: Remove file.
+	* config/threads-posix.h: Remove file.
+
+	* acconfig.h (_GLIBCPP_USE_THREADS): Remove.
+	(_GLIBCPP_SUPPORTS_WEAK): Add (required by namespace-clean gthr*.h).
+	(_GLIBCPP_HAVE_GTHR_DEFAULT): Likewise.
+	* config.h.in: Regenerate.
+
+	* acinclude.m4 (GLIBCPP_ENABLE_THREADS): Completely rework to
+	setup and use gthr*.h files.  In particular, make gthr.h files
+	namespace-clean in the staging area (they don't have to be for
+	libgcc.a).
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+	* src/Makefile.am (build_headers): Remove bits/c++threads.h
+	and add bits/gthr.h bits/gthr-single.h bits/gthr-default.h.
+	* src/Makefile.in: Regenerate.
+
+	* include/bits/c++config: Cleanup threading configuration macros.
+	In particular, define __STL_GTHREADS macro which controls...
+	* include/bits/stl_threads.h: ...a brand new gthr.h-based
+        configuration here.
+
+	* config/c_io_stdio.h: Include staged gthr.h instead of local
+	thread configuration file.  Always use __gthread_mutex_t
+	instead of __mutext_type (or int).
+	* include/bits/std_fstream.h: Likewise.
+
+	* docs/html/17_intro/howto.html: Remove placeholder comment in
+	case this configuration patch didn't make it.  Add advice that
+	section only applies if configured with --enable-threads.
+	* docs/html/23_containers/howto.html: Reword to make clear
+	that _PTHREADS is no longer required for any port to be
+	correctly using STL with threads.  Add advice that section
+	only applies if configured with --enable-threads.
+
+2001-06-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/string-inst.cc (_Rep::_S_max_size): Add instantiation.
+
 2001-06-05  Benjamin Kosnik  <bkoz@redhat.com>
 
 	libstdc++/3045

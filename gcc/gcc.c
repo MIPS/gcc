@@ -185,7 +185,7 @@ static int print_help_list;
 
 static int verbose_flag;
 
-/* Flag indicating to print target specific command line options. */
+/* Flag indicating to print target specific command line options.  */
 
 static int target_help_flag;
 
@@ -663,7 +663,7 @@ static const char *cc1_options =
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
  %{g*} %{O*} %{W*} %{w} %{pedantic*} %{std*} %{ansi}\
  %{traditional} %{v:-version} %{pg:-p} %{p} %{f*}\
- %{aux-info*} %{Qn:-fno-ident} %{--help:--help}\
+ %{Qn:-fno-ident} %{--help:--help}\
  %{--target-help:--target-help}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
  %{fsyntax-only:-o %j} %{-param*}";
@@ -952,6 +952,18 @@ struct option_map option_map[] =
    {"--", "-f", "*j"}
  };
 
+
+#ifdef TARGET_OPTION_TRANSLATE_TABLE
+static struct {
+  const char *option_found;
+  const char *replacements;
+} target_option_translations[] =
+{
+  TARGET_OPTION_TRANSLATE_TABLE,
+  { 0, 0 }
+};
+#endif
+
 /* Translate the options described by *ARGCP and *ARGVP.
    Make a new vector and store it back in *ARGVP,
    and store its length in *ARGVC.  */
@@ -964,8 +976,9 @@ translate_options (argcp, argvp)
   int i;
   int argc = *argcp;
   const char *const *argv = *argvp;
+  int newvsize = (argc + 2) * 2 * sizeof (const char *);
   const char **newv =
-    (const char **) xmalloc ((argc + 2) * 2 * sizeof (const char *));
+    (const char **) xmalloc (newvsize);
   int newindex = 0;
 
   i = 0;
@@ -973,6 +986,56 @@ translate_options (argcp, argvp)
 
   while (i < argc)
     {
+#ifdef TARGET_OPTION_TRANSLATE_TABLE
+      int tott_idx;
+
+      for (tott_idx = 0;
+	   target_option_translations[tott_idx].option_found;
+	   tott_idx++)
+	{
+	  if (strcmp (target_option_translations[tott_idx].option_found,
+		      argv[i]) == 0)
+	    {
+	      int spaces = 1;
+	      const char *sp;
+	      char *np;
+
+	      for (sp = target_option_translations[tott_idx].replacements;
+		   *sp; sp++)
+		{
+		  if (*sp == ' ')
+		    spaces ++;
+		}
+
+	      newvsize += spaces * sizeof (const char *);
+	      newv = (const char **) xrealloc (newv, newvsize);
+
+	      sp = target_option_translations[tott_idx].replacements;
+	      np = (char *) xmalloc (strlen (sp) + 1);
+	      strcpy (np, sp);
+
+	      while (1)
+		{
+		  while (*np == ' ')
+		    np++;
+		  if (*np == 0)
+		    break;
+		  newv[newindex++] = np;
+		  while (*np != ' ' && *np)
+		    np++;
+		  if (*np == 0)
+		    break;
+		  *np++ = 0;
+		}
+
+	      i ++;
+	      break;
+	    }
+	}
+      if (target_option_translations[tott_idx].option_found)
+	continue;
+#endif
+
       /* Translate -- options.  */
       if (argv[i][0] == '-' && argv[i][1] == '-')
 	{
@@ -3217,7 +3280,7 @@ process_command (argc, argv)
 	}
       else if (strcmp (argv[i], "-ftarget-help") == 0)
         {
-          /* translate_options() has turned --target-help into -ftarget-help. */
+          /* translate_options() has turned --target-help into -ftarget-help.  */
           target_help_flag = 1;
 
           /* We will be passing a dummy file on to the sub-processes.  */
@@ -3366,36 +3429,57 @@ process_command (argc, argv)
 	    case 'B':
 	      {
 		const char *value;
+		int len;
+
 		if (p[1] == 0 && i + 1 == argc)
 		  fatal ("argument to `-B' is missing");
 		if (p[1] == 0)
 		  value = argv[++i];
 		else
 		  value = p + 1;
-		{
-		  /* As a kludge, if the arg is "[foo/]stageN/", just
-		     add "[foo/]include" to the include prefix.  */
-		  int len = strlen (value);
-		  if ((len == 7
-		       || (len > 7
-			   && (IS_DIR_SEPARATOR (value[len - 8]))))
-		      && strncmp (value + len - 7, "stage", 5) == 0
-		      && ISDIGIT (value[len - 2])
-		      && (IS_DIR_SEPARATOR (value[len - 1])))
-		    {
-		      if (len == 7)
-			add_prefix (&include_prefixes, "include", NULL,
+
+		len = strlen (value);
+
+		/* Catch the case where the user has forgotten to append a
+		   directory seperator to the path.  Note, they may be using
+		   -B to add an executable name prefix, eg "i386-elf-", in
+		   order to distinguish between multiple installations of
+		   GCC in the same directory.  Hence we must check to see
+		   if appending a directory separator actually makes a
+		   valid directory name.  */
+		if (! IS_DIR_SEPARATOR (value [len - 1])
+		    && is_directory (value, "", 0))
+		  {
+		    char *tmp = xmalloc (len + 2);
+		    strcpy (tmp, value);
+		    tmp[len] = DIR_SEPARATOR;
+		    tmp[++ len] = 0;
+		    value = tmp;
+		  }
+		
+		/* As a kludge, if the arg is "[foo/]stageN/", just
+		   add "[foo/]include" to the include prefix.  */
+		if ((len == 7
+		     || (len > 7
+			 && (IS_DIR_SEPARATOR (value[len - 8]))))
+		    && strncmp (value + len - 7, "stage", 5) == 0
+		    && ISDIGIT (value[len - 2])
+		    && (IS_DIR_SEPARATOR (value[len - 1])))
+		  {
+		    if (len == 7)
+		      add_prefix (&include_prefixes, "include", NULL,
+				  PREFIX_PRIORITY_B_OPT, 0, NULL);
+		    else
+		      {
+			char * string = xmalloc (len + 1);
+
+			strncpy (string, value, len - 7);
+			strcpy (string + len - 7, "include");
+			add_prefix (&include_prefixes, string, NULL,
 				    PREFIX_PRIORITY_B_OPT, 0, NULL);
-		      else
-			{
-			  char *string = xmalloc (len + 1);
-			  strncpy (string, value, len-7);
-			  strcpy (string+len-7, "include");
-			  add_prefix (&include_prefixes, string, NULL,
-				      PREFIX_PRIORITY_B_OPT, 0, NULL);
-			}
-		    }
-		}
+		      }
+		  }
+
 		add_prefix (&exec_prefixes, value, NULL,
 			    PREFIX_PRIORITY_B_OPT, 0, &warn_B);
 		add_prefix (&startfile_prefixes, value, NULL,
@@ -3920,7 +4004,7 @@ static int this_is_library_file;
 static int input_from_pipe;
 
 /* Nonnull means substitute this for any suffix when outputting a switches
-   arguments. */
+   arguments.  */
 static const char *suffix_subst;
 
 /* Process the spec SPEC and run the commands specified therein.
@@ -5795,7 +5879,7 @@ main (argc, argv)
       /* We do not exit here. Instead we have created a fake input file
          called 'target-dummy' which needs to be compiled, and we pass this
          on to the various sub-processes, along with the --target-help
-         switch. */
+         switch.  */
     }
 
   if (print_help_list)

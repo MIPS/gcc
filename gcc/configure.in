@@ -93,7 +93,7 @@ gnu_ld_flag=no)
 
 # With pre-defined ld
 AC_ARG_WITH(ld,
-[  --with-ld               arrange to use the specified ld (full pathname).],
+[  --with-ld               arrange to use the specified ld (full pathname)],
 DEFAULT_LINKER="$with_ld")
 if test x"${DEFAULT_LINKER+set}" = x"set"; then
   if test ! -x "$DEFAULT_LINKER"; then
@@ -107,12 +107,12 @@ fi
 
 # With GNU as
 AC_ARG_WITH(gnu-as,
-[  --with-gnu-as           arrange to work with GNU as.],
+[  --with-gnu-as           arrange to work with GNU as],
 gas_flag="$with_gnu_as",
 gas_flag=no)
 
 AC_ARG_WITH(as,
-[  --with-as               arrange to use the specified as (full pathname).],
+[  --with-as               arrange to use the specified as (full pathname)],
 DEFAULT_ASSEMBLER="$with_as")
 if test x"${DEFAULT_ASSEMBLER+set}" = x"set"; then
   if test ! -x "$DEFAULT_ASSEMBLER"; then
@@ -126,20 +126,20 @@ fi
 
 # With stabs
 AC_ARG_WITH(stabs,
-[  --with-stabs            arrange to use stabs instead of host debug format.],
+[  --with-stabs            arrange to use stabs instead of host debug format],
 stabs="$with_stabs",
 stabs=no)
 
 # With ELF
 AC_ARG_WITH(elf,
-[  --with-elf              arrange to use ELF instead of host debug format.],
+[  --with-elf              arrange to use ELF instead of host debug format],
 elf="$with_elf",
 elf=no)
 
 # Specify the local prefix
 local_prefix=
 AC_ARG_WITH(local-prefix,
-[  --with-local-prefix=DIR specifies directory to put local include.],
+[  --with-local-prefix=DIR specifies directory to put local include],
 [case "${withval}" in
 yes)	AC_MSG_ERROR(bad value ${withval} given for local include directory prefix) ;;
 no)	;;
@@ -158,7 +158,7 @@ gcc_gxx_include_dir=
 # Specify the g++ header file directory
 AC_ARG_WITH(gxx-include-dir,
 [  --with-gxx-include-dir=DIR
-                          specifies directory to put g++ header files.],
+                          specifies directory to put g++ header files],
 [case "${withval}" in
 yes)	AC_MSG_ERROR(bad value ${withval} given for g++ include directory) ;;
 no)	;;
@@ -178,7 +178,7 @@ fi
 
 # Determine whether or not multilibs are enabled.
 AC_ARG_ENABLE(multilib,
-[  --enable-multilib      enable library support for multiple ABIs],
+[  --enable-multilib       enable library support for multiple ABIs],
 [], [enable_multilib=yes])
 AC_SUBST(enable_multilib)
 
@@ -247,13 +247,13 @@ fi
 
 
 AC_ARG_ENABLE(cpp,
-[  --disable-cpp           don't provide a user-visible C preprocessor.],
+[  --disable-cpp           don't provide a user-visible C preprocessor],
 [], [enable_cpp=yes])
 
 AC_ARG_WITH(cpp_install_dir,
 [  --with-cpp-install-dir=DIR
                           install the user visible C preprocessor in DIR
-                          (relative to PREFIX) as well as PREFIX/bin.],
+                          (relative to PREFIX) as well as PREFIX/bin],
 [if test x$withval = xyes; then
   AC_MSG_ERROR([option --with-cpp-install-dir requires an argument])
 elif test x$withval != xno; then
@@ -262,7 +262,7 @@ fi])
 
 # Enable Multibyte Characters for C/C++
 AC_ARG_ENABLE(c-mbchar,
-[  --enable-c-mbchar       Enable multibyte characters for C and C++.],
+[  --enable-c-mbchar       enable multibyte characters for C and C++],
 if test x$enable_c_mbchar != xno; then
   AC_DEFINE(MULTIBYTE_CHARS, 1,
   [Define if you want the C and C++ compilers to support multibyte
@@ -273,8 +273,8 @@ fi)
 # Pass with no value to take the default
 # Pass with a value to specify a thread package
 AC_ARG_ENABLE(threads,
-[  --enable-threads        enable thread usage for target GCC.
-  --enable-threads=LIB    use LIB thread package for target GCC.],,
+[  --enable-threads        enable thread usage for target GCC
+  --enable-threads=LIB    use LIB thread package for target GCC],,
 enable_threads='')
 
 enable_threads_flag=$enable_threads
@@ -289,7 +289,7 @@ case x${enable_threads_flag} in
 		target_thread_file=''
 		;;
 	xdecosf1 | xirix | xmach | xos2 | xposix | xpthreads | xsingle | \
-	xsolaris | xwin32 | xdce | xvxworks | xaix)
+	xsolaris | xwin32 | xdce | xrtems| xvxworks | xaix)
 		target_thread_file=$enable_threads_flag
 		;;
 	*)
@@ -300,7 +300,7 @@ esac
 
 AC_ARG_ENABLE(objc-gc,
 [  --enable-objc-gc	  enable the use of Boehm's garbage collector with
-			  the GNU Objective-C runtime.],
+			  the GNU Objective-C runtime],
 if test x$enable_objc_gc = xno; then
 	objc_boehm_gc=''
 else
@@ -309,12 +309,12 @@ fi,
 objc_boehm_gc='')
 
 AC_ARG_WITH(dwarf2,
-[  --with-dwarf2	  force the default debug format to be DWARF2.],
+[  --with-dwarf2           force the default debug format to be DWARF 2],
 dwarf2="$with_dwarf2",
 dwarf2=no)
 
 AC_ARG_ENABLE(shared,
-[  --disable-shared       don't provide a shared libgcc.],
+[  --disable-shared        don't provide a shared libgcc],
 [
   case $enable_shared in
   yes | no) ;;
@@ -457,7 +457,7 @@ AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h \
 		 fcntl.h unistd.h sys/file.h sys/time.h \
 		 sys/resource.h sys/param.h sys/times.h sys/stat.h \
-		 direct.h malloc.h langinfo.h iconv.h)
+		 direct.h malloc.h langinfo.h)
 
 # Check for thread headers.
 AC_CHECK_HEADER(thread.h, [have_thread_h=yes], [have_thread_h=])
@@ -578,7 +578,7 @@ dnl gcc_AC_C_ENUM_BF_UNSIGNED
 AC_CHECK_FUNCS(strtoul bsearch popen times clock \
 	strchr strrchr kill getrlimit setrlimit atoll atoq \
 	sysconf isascii gettimeofday strsignal putc_unlocked fputc_unlocked \
-	fputs_unlocked getrusage iconv nl_langinfo lstat)
+	fputs_unlocked getrusage nl_langinfo lstat)
 
 AC_CHECK_TYPE(ssize_t, int)
 
@@ -616,6 +616,8 @@ esac
 AC_FUNC_VFORK
 AC_FUNC_MMAP_ANYWHERE
 AC_FUNC_MMAP_FILE
+
+AM_ICONV
 
 # We will need to find libiberty.h and ansidecl.h
 saved_CFLAGS="$CFLAGS"
@@ -844,8 +846,11 @@ else
 	/* | [A-Za-z]:[\\/]* ) realsrcdir=${srcdir};;
 	*) realsrcdir=../${srcdir};;
 	esac
-	CC=${CC_FOR_BUILD} ${realsrcdir}/configure \
+	saved_CFLAGS="${CFLAGS}"
+	CC="${CC_FOR_BUILD}" CFLAGS="${CFLAGS_FOR_BUILD}" \
+	${realsrcdir}/configure \
 		--target=$target --host=$build --build=$build
+	CFLAGS="${saved_CFLAGS}"
 
 	# We just finished tests for the build machine, so rename
 	# the file auto-build.h in the gcc directory.
@@ -930,12 +935,12 @@ XGETTEXT="AWK='$AWK' \$(SHELL) \$(top_srcdir)/exgettext $XGETTEXT"
 # Windows32 Registry support for specifying GCC installation paths.
 AC_ARG_ENABLE(win32-registry,
 [  --disable-win32-registry
-                          Disable lookup of installation paths in the
-                         Registry on Windows hosts.
-  --enable-win32-registry Enable registry lookup (default).
+                          disable lookup of installation paths in the
+                          Registry on Windows hosts
+  --enable-win32-registry enable registry lookup (default)
   --enable-win32-registry=KEY
-                          Use KEY instead of GCC version as the last portion
-                         of the registry key.],,)
+                          use KEY instead of GCC version as the last portion
+                          of the registry key],,)
 case $host_os in
 	win32 | pe | cygwin* | mingw32* | uwin*)
 AC_MSG_CHECKING(whether windows registry support is requested)
@@ -1124,15 +1129,10 @@ if test x$use_collect2 = xno; then
 fi
 
 # Add a definition of USE_COLLECT2 if system wants one.
-# Also tell toplev.c what to do.
-# This substitutes for lots of t-* files.
-if test x$use_collect2 = x
+if test x$use_collect2 != x
 then
-	will_use_collect2=
-	maybe_use_collect2=
-else
-	will_use_collect2="collect2"
-	maybe_use_collect2="-DUSE_COLLECT2"
+	host_xm_defines="${host_xm_defines} USE_COLLECT2"
+	xm_defines="${xm_defines} USE_COLLECT2"
 fi
 
 # If we have gas in the build tree, make a link to it.
@@ -1147,11 +1147,7 @@ fi
 
 # If we have ld in the build tree, make a link to it.
 if test -f ../ld/Makefile; then
-#	if test x$use_collect2 = x; then
-#		rm -f ld; $symbolic_link ../ld/ld-new$host_exeext ld$host_exeext 2>/dev/null
-#	else
-		rm -f collect-ld; $symbolic_link ../ld/ld-new$host_exeext collect-ld$host_exeext 2>/dev/null
-#	fi
+	rm -f collect-ld; $symbolic_link ../ld/ld-new$host_exeext collect-ld$host_exeext 2>/dev/null
 fi
 
 # Figure out what assembler we will be using.
@@ -1457,17 +1453,23 @@ __FRAME_BEGIN__:
 	.4byte	.L1-.LFB1
 .LEFDE1:
 EOF
-		cat > conftest.exp <<EOF
+		cat > conftest.lit <<EOF
  0000 10000000 00000000 017a0001 781a0004  .........z..x...
  0010 01000000 12000000 18000000 00000000  ................
  0020 08000000 04080000 0044               .........D      
+EOF
+		cat > conftest.big <<EOF
+ 0000 00000010 00000000 017a0001 781a0004  .........z..x...
+ 0010 00000001 00000012 00000018 00000000  ................
+ 0020 00000008 04000000 0844               .........D      
 EOF
 		# If the assembler didn't choke, and we can objdump,
 		# and we got the correct data, then succeed.
 		if $gcc_cv_as -o conftest.o conftest.s > /dev/null 2>&1 \
 		   && objdump -s -j .eh_frame conftest.o 2>/dev/null \
 		      | tail -3 > conftest.got \
-		   && cmp conftest.exp conftest.got > /dev/null 2>&1
+		   && { cmp conftest.lit conftest.got > /dev/null 2>&1 \
+		        || cmp conftest.big conftest.got > /dev/null 2>&1; }
 		then
 			gcc_cv_as_eh_frame="yes"
 		else
@@ -1587,6 +1589,7 @@ changequote([, ])
 		[Define if your assembler supports offsetable %lo().])
 	fi
     fi
+
     ;;
 
 changequote(,)dnl
@@ -1626,7 +1629,7 @@ gcc_cv_as_dwarf2_debug_line=no
 # ??? Once 2.11 is released, probably need to add first known working
 # version to the per-target configury.
 case "$target" in
-  i?86*-*-* | mips*-*-* | alpha*-*-* | powerpc*-*-* | sparc*-*-*)
+  i?86*-*-* | mips*-*-* | alpha*-*-* | powerpc*-*-* | sparc*-*-* | m68*-*-*)
     insn="nop"
     ;;
   ia64*-*-*)
@@ -1772,8 +1775,8 @@ AC_SUBST(gthread_flags)
 
 # Find out what GC implementation we want, or may, use.
 AC_ARG_WITH(gc,
-[  --with-gc={simple,page} Choose the garbage collection mechanism to use
-                           with the compiler.],
+[  --with-gc={simple,page} choose the garbage collection mechanism to use
+                          with the compiler],
 [case "$withval" in
   simple | page)
     GGC=ggc-$withval
@@ -1802,7 +1805,8 @@ dnl Very limited version of automake's enable-maintainer-mode
 AC_MSG_CHECKING([whether to enable maintainer-specific portions of Makefiles])
   dnl maintainer-mode is disabled by default
   AC_ARG_ENABLE(maintainer-mode,
-[  --enable-maintainer-mode enable make rules and dependencies not useful
+[  --enable-maintainer-mode
+                          enable make rules and dependencies not useful
                           (and sometimes confusing) to the casual installer],
       maintainer_mode=$enableval,
       maintainer_mode=no)
@@ -1818,7 +1822,8 @@ AC_SUBST(MAINT)dnl
 
 # With Setjmp/Longjmp based exception handling.
 AC_ARG_ENABLE(sjlj-exceptions,
-[  --enable-sjlj-exceptions arrange to use setjmp/longjmp exception handling.],
+[  --enable-sjlj-exceptions
+                          arrange to use setjmp/longjmp exception handling],
 [sjlj=`if test $enableval = yes; then echo 1; else echo 0; fi`
 AC_DEFINE_UNQUOTED(CONFIG_SJLJ_EXCEPTIONS, $sjlj,
   [Define 0/1 to force the choice for exception handling model.])])
@@ -2008,8 +2013,9 @@ AC_SUBST(dollar)
 # Find a directory in which to install a shared libgcc.
 
 AC_ARG_ENABLE(version-specific-runtime-libs,
-[  --enable-version-specific-runtime-libs    Specify that runtime libraries shou
-ld be installed in a compiler-specific directory ])
+[  --enable-version-specific-runtime-libs
+                          specify that runtime libraries should be
+                          installed in a compiler-specific directory])
 
 AC_ARG_WITH(slibdir,
 [  --with-slibdir=DIR      shared libraries in DIR [LIBDIR]],
@@ -2074,7 +2080,6 @@ AC_SUBST(lang_options_files)
 AC_SUBST(lang_specs_files)
 AC_SUBST(lang_tree_files)
 AC_SUBST(local_prefix)
-AC_SUBST(maybe_use_collect2)
 AC_SUBST(md_file)
 AC_SUBST(objc_boehm_gc)
 AC_SUBST(out_file)
@@ -2088,7 +2093,6 @@ AC_SUBST(tm_p_file_list)
 AC_SUBST(tm_p_file)
 AC_SUBST(xm_file)
 AC_SUBST(xm_defines)
-AC_SUBST(will_use_collect2)
 AC_SUBST(c_target_objs)
 AC_SUBST(cxx_target_objs)
 AC_SUBST(target_cpu_default)

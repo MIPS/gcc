@@ -109,7 +109,9 @@ java::io::FileDescriptor::open (jstring path, jint jflags)
   if (fd == -1)
     {
       char msg[MAXPATHLEN + 200];
-      sprintf (msg, "%s: %s", buf, strerror (errno));
+      // We choose the formatting here for JDK compatibility, believe
+      // it or not.
+      sprintf (msg, "%s (%s)", buf, strerror (errno));
       throw new FileNotFoundException (JvNewStringLatin1 (msg));
     }
   return fd;
@@ -175,15 +177,19 @@ java::io::FileDescriptor::close (void)
 }
 
 jint
-java::io::FileDescriptor::seek (jlong pos, jint whence)
+java::io::FileDescriptor::seek (jlong pos, jint whence, jboolean eof_trunc)
 {
   JvAssert (whence == SET || whence == CUR);
 
   jlong len = length ();
   jlong here = getFilePointer ();
 
-  if ((whence == SET && pos > len) || (whence == CUR && here + pos > len))
-    throw new EOFException;
+  if (eof_trunc
+      && ((whence == SET && pos > len) || (whence == CUR && here + pos > len)))
+    {
+      whence = SET;
+      pos = len;
+    }
 
   off_t r = ::lseek (fd, (off_t) pos, whence == SET ? SEEK_SET : SEEK_CUR);
   if (r == -1)

@@ -41,12 +41,6 @@ Boston, MA 02111-1307, USA.  */
   { "marm", "mlittle-endian", "msoft-float", "mapcs-32", "mno-thumb-interwork" }
 #endif
 
-/* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
-   is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) \
-  arm_valid_machine_decl_attribute (DECL, IDENTIFIER, ARGS)
-
 /* This is COFF, but prefer stabs.  */
 #define SDB_DEBUGGING_INFO
 
@@ -70,21 +64,8 @@ Boston, MA 02111-1307, USA.  */
     }								\
   while (0)
 
-/* A C statement to output something to the assembler file to switch to
-   section NAME for object DECL which is either a FUNCTION_DECL, a VAR_DECL or
-   NULL_TREE.  Some target formats do not support arbitrary sections.  Do not
-   define this macro in such cases.  */
-#define ASM_OUTPUT_SECTION_NAME(STREAM, DECL, NAME, RELOC)	\
-  do								\
-    {								\
-      if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL)		\
-        fprintf (STREAM, "\t.section %s,\"x\"\n", (NAME));	\
-      else if ((DECL) && DECL_READONLY_SECTION (DECL, RELOC))	\
-        fprintf (STREAM, "\t.section %s,\"\"\n", (NAME));	\
-      else							\
-        fprintf (STREAM, "\t.section %s,\"w\"\n", (NAME));	\
-    }								\
-  while (0)
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION  default_coff_asm_named_section
 
 /* Support the ctors/dtors and other sections.  */
 
@@ -108,7 +89,7 @@ Boston, MA 02111-1307, USA.  */
    given time.  */
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS SUBTARGET_EXTRA_SECTIONS in_rdata, in_ctors, in_dtors
+#define EXTRA_SECTIONS SUBTARGET_EXTRA_SECTIONS in_rdata
 
 #define SUBTARGET_EXTRA_SECTIONS
 
@@ -117,8 +98,6 @@ Boston, MA 02111-1307, USA.  */
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS \
   RDATA_SECTION_FUNCTION	\
-  CTORS_SECTION_FUNCTION	\
-  DTORS_SECTION_FUNCTION	\
   SUBTARGET_EXTRA_SECTION_FUNCTIONS
 
 #define SUBTARGET_EXTRA_SECTION_FUNCTIONS
@@ -133,58 +112,10 @@ rdata_section ()						\
       in_section = in_rdata;					\
     }								\
 }
-
-#define CTORS_SECTION_FUNCTION \
-void								\
-ctors_section ()						\
-{								\
-  if (in_section != in_ctors)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);	\
-      in_section = in_ctors;					\
-    }								\
-}
-
-#define DTORS_SECTION_FUNCTION \
-void								\
-dtors_section ()						\
-{								\
-  if (in_section != in_dtors)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);	\
-      in_section = in_dtors;					\
-    }								\
-}
 
 /* Support the ctors/dtors sections for g++.  */
 
 #define INT_ASM_OP "\t.word\t"
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#undef ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(STREAM, NAME)	\
-  do						\
-    {						\
-      ctors_section ();				\
-      fprintf (STREAM, "%s", INT_ASM_OP);	\
-      assemble_name (STREAM, NAME);		\
-      fprintf (STREAM, "\n");			\
-    }						\
-  while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-#undef ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(STREAM, NAME)	\
-  do						\
-    {						\
-      dtors_section ();				\
-      fprintf (STREAM, "%s", INT_ASM_OP);	\
-      assemble_name (STREAM, NAME);		\
-      fprintf (STREAM, "\n");			\
-    }						\
-  while (0)
 
 /* __CTOR_LIST__ and __DTOR_LIST__ must be defined by the linker script.  */
 #define CTOR_LISTS_DEFINED_EXTERNALLY

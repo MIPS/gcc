@@ -61,8 +61,6 @@ struct op
 #define SYNTAX_ERROR2(msgid, arg) \
   do { cpp_error (pfile, msgid, arg); goto syntax_error; } while(0)
 
-/* Parse and convert an integer for #if.  Accepts decimal, hex, or octal
-   with or without size suffixes.  */
 struct suffix
 {
   unsigned char s[4];
@@ -86,6 +84,10 @@ const struct suffix vsuf_3[] = {
   { "llu", 1, 2 }, { "LLU", 1, 2 }, { "LLu", 1, 2 }, { "llU", 1, 2 }
 };
 #define Nsuff(tab) (sizeof tab / sizeof (struct suffix))
+
+/* Parse and convert an integer for #if.  Accepts decimal, hex, or
+   octal with or without size suffixes.  Returned op is CPP_ERROR on
+   error, otherwise it is a CPP_NUMBER.  */
 
 static struct op
 parse_number (pfile, tok)
@@ -198,7 +200,7 @@ parse_number (pfile, tok)
     }
 
   op.value = n;
-  op.op = CPP_INT;
+  op.op = CPP_NUMBER;
   return op;
 
  invalid_suffix:
@@ -263,25 +265,21 @@ parse_defined (pfile)
     {
       op.value = node->type == NT_MACRO;
       op.unsignedp = 0;
-      op.op = CPP_INT;
+      op.op = CPP_NUMBER;
 
-      /* No macros?  At top of file?  */
-      if (pfile->mi_state == MI_OUTSIDE && pfile->mi_cmacro == 0
-	  && pfile->mi_if_not_defined == MI_IND_NOT && pfile->mi_lexed == 1)
-	{
-	  cpp_start_lookahead (pfile);
-	  cpp_get_token (pfile, &token);
-	  if (token.type == CPP_EOF)
-	    pfile->mi_ind_cmacro = node;
-	  cpp_stop_lookahead (pfile, 0);
-	}
+      /* A possible controlling macro of the form #if !defined ().
+	 _cpp_parse_expr checks there was no other junk on the line.  */
+      pfile->mi_ind_cmacro = node;
     }
 
   pfile->state.prevent_expansion--;
   return op;
 }
 
-/* Read one token.  */
+/* Read a token.  The returned type is CPP_NUMBER for a valid number
+   (an interpreted preprocessing number or character constant, or the
+   result of the "defined" or "#" operators), CPP_ERROR on error,
+   CPP_EOF, or the type of an operator token.  */
 
 static struct op
 lex (pfile, skip_evaluation, token)
@@ -295,7 +293,6 @@ lex (pfile, skip_evaluation, token)
 
   switch (token->type)
     {
-    case CPP_INT:
     case CPP_NUMBER:
       return parse_number (pfile, token);
 
@@ -306,7 +303,7 @@ lex (pfile, skip_evaluation, token)
 
 	/* This is always a signed type.  */
 	op.unsignedp = 0;
-	op.op = CPP_INT;
+	op.op = CPP_NUMBER;
 	op.value = cpp_interpret_charconst (pfile, token, 1, 0, &chars_seen);
 	return op;
       }
@@ -314,9 +311,6 @@ lex (pfile, skip_evaluation, token)
     case CPP_STRING:
     case CPP_WSTRING:
       SYNTAX_ERROR ("string constants are not valid in #if");
-
-    case CPP_FLOAT:
-      SYNTAX_ERROR ("floating point numbers are not valid in #if");
 
     case CPP_OTHER:
       if (ISGRAPH (token->val.c))
@@ -336,7 +330,7 @@ lex (pfile, skip_evaluation, token)
 	       && (token->val.node == pfile->spec_nodes.n_true
 		   || token->val.node == pfile->spec_nodes.n_false))
 	{
-	  op.op = CPP_INT;
+	  op.op = CPP_NUMBER;
 	  op.unsignedp = 0;
 	  op.value = (token->val.node == pfile->spec_nodes.n_true);
 
@@ -350,11 +344,7 @@ lex (pfile, skip_evaluation, token)
 	}
       else
 	{
-	  /* Controlling #if expressions cannot contain identifiers (they
-	     could become macros in the future).  */
-	  pfile->mi_state = MI_FAILED;
-
-	  op.op = CPP_INT;
+	  op.op = CPP_NUMBER;
 	  op.unsignedp = 0;
 	  op.value = 0;
 
@@ -368,18 +358,13 @@ lex (pfile, skip_evaluation, token)
       {
 	int temp;
 
-	op.op = CPP_INT;
+	op.op = CPP_NUMBER;
 	if (_cpp_test_assertion (pfile, &temp))
 	  op.op = CPP_ERROR;
 	op.unsignedp = 0;
 	op.value = temp;
 	return op;
       }
-
-    case CPP_NOT:
-      /* We don't worry about its position here.  */
-      pfile->mi_if_not_defined = MI_IND_NOT;
-      /* Fall through.  */
 
     default:
       if (((int) token->type > (int) CPP_EQ
@@ -479,8 +464,8 @@ be handled with operator-specific code.  */
 #define FLAG_BITS  8
 #define FLAG_MASK ((1 << FLAG_BITS) - 1)
 #define PRIO_SHIFT (FLAG_BITS + 1)
-#define EXTRACT_PRIO(cnst) (cnst >> FLAG_BITS)
-#define EXTRACT_FLAGS(cnst) (cnst & FLAG_MASK)
+#define EXTRACT_PRIO(CNST) ((CNST) >> FLAG_BITS)
+#define EXTRACT_FLAGS(CNST) ((CNST) & FLAG_MASK)
 
 /* Flags.  */
 #define HAVE_VALUE     (1 << 0)
@@ -597,10 +582,12 @@ _cpp_parse_expr (pfile)
   register struct op *top = stack + 1;
   int skip_evaluation = 0;
   int result;
+  unsigned int lex_count, saw_leading_not;
 
   /* Set up detection of #if ! defined().  */
-  pfile->mi_lexed = 0;
-  pfile->mi_if_not_defined = MI_IND_NONE;
+  pfile->mi_ind_cmacro = 0;
+  saw_leading_not = 0;
+  lex_count = 0;
 
   /* We've finished when we try to reduce this.  */
   top->op = CPP_EOF;
@@ -617,7 +604,7 @@ _cpp_parse_expr (pfile)
 
       /* Read a token */
       op = lex (pfile, skip_evaluation, &token);
-      pfile->mi_lexed++;
+      lex_count++;
 
       /* If the token is an operand, push its value and get next
 	 token.  If it is an operator, get its priority and flags, and
@@ -627,7 +614,7 @@ _cpp_parse_expr (pfile)
 	case CPP_ERROR:
 	  goto syntax_error;
 	push_immediate:
-	case CPP_INT:
+	case CPP_NUMBER:
 	  /* Push a value onto the stack.  */
 	  if (top->flags & HAVE_VALUE)
 	    SYNTAX_ERROR ("missing binary operator");
@@ -637,6 +624,11 @@ _cpp_parse_expr (pfile)
 	  continue;
 
 	case CPP_EOF:	prio = FORCE_REDUCE_PRIO;	break;
+
+	case CPP_NOT:
+	  saw_leading_not = lex_count == 1;
+	  prio = op_to_prio[op.op];
+	  break;
 	case CPP_PLUS:
 	case CPP_MINUS: prio = PLUS_PRIO;  if (top->flags & HAVE_VALUE) break;
           /* else unary; fall through */
@@ -868,7 +860,14 @@ _cpp_parse_expr (pfile)
     }
 
  done:
+  /* The controlling macro expression is only valid if we called lex 3
+     times: <!> <defined expression> and <EOF>.  push_conditional ()
+     checks that we are at top-of-file.  */
+  if (pfile->mi_ind_cmacro && !(saw_leading_not && lex_count == 3))
+    pfile->mi_ind_cmacro = 0;
+
   result = (top[1].value != 0);
+
   if (top != stack)
     CPP_ICE ("unbalanced stack in #if");
   else if (!(top[1].flags & HAVE_VALUE))

@@ -32,15 +32,20 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-attr.h"
 #include "flags.h"
 #include "tree.h"
-#include "reload.h"
 #include "expr.h"
+#include "optabs.h"
+#include "libfuncs.h"
+#include "reload.h"
 #include "c-tree.h"
+#include "integrate.h"
 #include "function.h"
 #include "obstack.h"
 #include "toplev.h"
 #include "ggc.h"
 #include "recog.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
 
 #ifndef DO_FRAME_NOTES
 #ifdef INCOMING_RETURN_ADDR_RTX
@@ -50,9 +55,6 @@ Boston, MA 02111-1307, USA.  */
 #endif
 #endif
 
-static void pa_init_machine_status PARAMS ((struct function *));
-static void pa_mark_machine_status PARAMS ((struct function *));
-static void pa_free_machine_status PARAMS ((struct function *));
 static inline rtx force_mode PARAMS ((enum machine_mode, rtx));
 static void pa_combine_instructions PARAMS ((rtx));
 static int pa_can_combine_p PARAMS ((rtx, rtx, rtx, int, rtx, rtx, rtx));
@@ -66,6 +68,7 @@ static void remove_useless_addtr_insns PARAMS ((rtx, int));
 static rtx store_reg PARAMS ((int, int, int));
 static rtx load_reg PARAMS ((int, int, int));
 static rtx set_reg_plus_d PARAMS ((int, int, int));
+static void pa_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -105,7 +108,15 @@ struct deferred_plabel
   char *name;
 } *deferred_plabels = 0;
 int n_deferred_plabels = 0;
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE pa_output_function_prologue
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE pa_output_function_epilogue
 
+struct gcc_target targetm = TARGET_INITIALIZER;
+
 void
 override_options ()
 {
@@ -190,45 +201,7 @@ override_options ()
 
   /* Register global variables with the garbage collector.  */
   pa_add_gc_roots ();
-
-  /* Arrange to save and restore machine status around nested functions.  */
-  init_machine_status = pa_init_machine_status;
-  mark_machine_status = pa_mark_machine_status;
-  free_machine_status = pa_free_machine_status;
 }
-
-/* Functions to initialize pic_offset_table_save_rtx.
-   These will be called, via pointer variables,
-   from push_function_context and pop_function_context.  */
-
-static void
-pa_init_machine_status (p)
-     struct function *p;
-{
-  p->machine = (machine_function *) xmalloc (sizeof (machine_function));
-
-  p->machine->pic_offset_table_save_rtx = NULL_RTX;
-}
-
-static void
-pa_mark_machine_status (p)
-     struct function *p;
-{
-  if (p->machine)
-    ggc_mark_rtx (p->machine->pic_offset_table_save_rtx);
-}
-
-static void
-pa_free_machine_status (p)
-     struct function *p;
-{
-  if (p->machine == NULL)
-    return;
-
-  free (p->machine);
-  p->machine = NULL;
-}
-
 
 /* Return non-zero only if OP is a register of mode MODE,
    or CONST0_RTX.  */
@@ -752,7 +725,7 @@ legitimize_pic_address (orig, mode, reg)
       if (GET_CODE (orig) == CONST_INT)
 	{
 	  if (INT_14_BITS (orig))
-	    return plus_constant_for_output (base, INTVAL (orig));
+	    return plus_constant (base, INTVAL (orig));
 	  orig = force_reg (Pmode, orig);
 	}
       pic_ref = gen_rtx_PLUS (Pmode, base, orig);
@@ -2055,14 +2028,14 @@ output_move_double (operands)
   if (optype0 == REGOP)
     latehalf[0] = gen_rtx_REG (SImode, REGNO (operands[0]) + 1);
   else if (optype0 == OFFSOP)
-    latehalf[0] = adj_offsettable_operand (operands[0], 4);
+    latehalf[0] = adjust_address (operands[0], SImode, 4);
   else
     latehalf[0] = operands[0];
 
   if (optype1 == REGOP)
     latehalf[1] = gen_rtx_REG (SImode, REGNO (operands[1]) + 1);
   else if (optype1 == OFFSOP)
-    latehalf[1] = adj_offsettable_operand (operands[1], 4);
+    latehalf[1] = adjust_address (operands[1], SImode, 4);
   else if (optype1 == CNSTOP)
     split_double (operands[1], &operands[1], &latehalf[1]);
   else
@@ -2772,7 +2745,7 @@ remove_useless_addtr_insns (insns, check_notes)
 
 */
 
-/* Global variables set by FUNCTION_PROLOGUE.  */
+/* Global variables set by output_function_prologue().  */
 /* Size of frame.  Need to know this to emit return insns from
    leaf procedures.  */
 static int actual_fsize;
@@ -2887,10 +2860,27 @@ compute_frame_size (size, fregs_live)
   return (fsize + STACK_BOUNDARY - 1) & ~(STACK_BOUNDARY - 1);
 }
 
+/* Generate the assembly code for function entry.  FILE is a stdio
+   stream to output the code to.  SIZE is an int: how many units of
+   temporary storage to allocate.
+
+   Refer to the array `regs_ever_live' to determine which registers to
+   save; `regs_ever_live[I]' is nonzero if register number I is ever
+   used in the function.  This function is responsible for knowing
+   which registers should not be saved even if used.  */
+
+/* On HP-PA, move-double insns between fpu and cpu need an 8-byte block
+   of memory.  If any fpu reg is used in the function, we allocate
+   such a block here, at the bottom of the frame, just in case it's needed.
+
+   If this function is a leaf procedure, then we may choose not
+   to do a "save" insn.  The decision about whether or not
+   to do this is made in regclass.c.  */
+
 void
-output_function_prologue (file, size)
+pa_output_function_prologue (file, size)
      FILE *file;
-     int size ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   /* The function's label and associated .PROC must never be
      separated and must be output *after* any profiling declarations
@@ -3207,10 +3197,18 @@ load_reg (reg, disp, base)
   return i;
 }
 
-void
-output_function_epilogue (file, size)
+/* This function generates the assembly code for function exit.
+   Args are as for output_function_prologue ().
+
+   The function epilogue should not depend on the current stack
+   pointer!  It should use the frame pointer only.  This is mandatory
+   because of alloca; we also take advantage of it to omit stack
+   adjustments before returning. */
+
+static void
+pa_output_function_epilogue (file, size)
      FILE *file;
-     int size ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   rtx insn = get_last_insn ();
 
@@ -3360,23 +3358,10 @@ hppa_expand_epilogue ()
     FRP (load_reg (2, ret_off, STACK_POINTER_REGNUM));
 }
 
-/* Set up a callee saved register for the pic offset table register.  */
-void
-hppa_init_pic_save ()
+rtx
+hppa_pic_save_rtx ()
 {
-  rtx insn, picreg;
-
-  picreg = gen_rtx_REG (word_mode, PIC_OFFSET_TABLE_REGNUM);
-  PIC_OFFSET_TABLE_SAVE_RTX = gen_reg_rtx (Pmode);
-  RTX_UNCHANGING_P (PIC_OFFSET_TABLE_SAVE_RTX) = 1;
-  insn = gen_rtx_SET (VOIDmode, PIC_OFFSET_TABLE_SAVE_RTX, picreg);
-
-  /* Emit the insn at the beginning of the function after the prologue.  */
-  if (tail_recursion_reentry)
-    emit_insn_before (insn, tail_recursion_reentry);
-  else
-    /* We must have been called via PROFILE_HOOK.  */
-    emit_insn (insn);
+  return get_hard_reg_initial_val (word_mode, PIC_OFFSET_TABLE_REGNUM);
 }
 
 void
@@ -3396,9 +3381,6 @@ hppa_profile_hook (label_no)
     emit_move_insn (arg_pointer_rtx,
 		    gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
 				  GEN_INT (64)));
-
-  if (flag_pic && PIC_OFFSET_TABLE_SAVE_RTX == NULL_RTX)
-    hppa_init_pic_save ();
 
   emit_move_insn (gen_rtx_REG (word_mode, 26), gen_rtx_REG (word_mode, 2));
 
@@ -3458,7 +3440,7 @@ hppa_profile_hook (label_no)
       if (TARGET_64BIT)
 	use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), arg_pointer_rtx);
 
-      emit_move_insn (pic_offset_table_rtx, PIC_OFFSET_TABLE_SAVE_RTX);
+      emit_move_insn (pic_offset_table_rtx, hppa_pic_save_rtx ());
     }
 }
 
@@ -4470,6 +4452,8 @@ emit_hpdiv_const (operands, unsignedp)
       && INTVAL (operands[2]) < 16
       && magic_milli[INTVAL (operands[2])])
     {
+      rtx ret = gen_rtx_REG (SImode, TARGET_64BIT ? 2 : 31);
+
       emit_move_insn (gen_rtx_REG (SImode, 26), operands[1]);
       emit
 	(gen_rtx
@@ -4483,7 +4467,7 @@ emit_hpdiv_const (operands, unsignedp)
 		     gen_rtx_CLOBBER (VOIDmode, operands[3]),
 		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (SImode, 26)),
 		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (SImode, 25)),
-		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (SImode, 31)))));
+		     gen_rtx_CLOBBER (VOIDmode, ret))));
       emit_move_insn (operands[0], gen_rtx_REG (SImode, 29));
       return 1;
     }
@@ -4819,7 +4803,7 @@ hppa_builtin_saveregs ()
   dest = gen_rtx_MEM (BLKmode,
 		      plus_constant (current_function_internal_arg_pointer,
 				     -16));
-  MEM_ALIAS_SET (dest) = get_varargs_alias_set ();
+  set_mem_alias_set (dest, get_varargs_alias_set ());
   move_block_from_reg (23, dest, 4, 4 * UNITS_PER_WORD);
 
   /* move_block_from_reg will emit code to store the argument registers
@@ -6924,12 +6908,18 @@ pa_can_combine_p (new, anchor, floater, reversed, dest, src1, src2)
 
    Millicode calls always expect their arguments in the integer argument
    registers, and always return their result in %r29 (ret1).  They
-   are expected to clobber their arguments, %r1, %r29, and %r31 and
-   nothing else.
+   are expected to clobber their arguments, %r1, %r29, and the return
+   pointer which is %r31 on 32-bit and %r2 on 64-bit, and nothing else.
 
-   By considering this effects delayed reorg reorg can put insns
-   which set the argument registers into the delay slot of the millicode
-   call -- thus they act more like traditional CALL_INSNs.
+   This function tells reorg that the references to arguments and
+   millicode calls do not appear to happen until after the millicode call.
+   This allows reorg to put insns which set the argument registers into the
+   delay slot of the millicode call -- thus they act more like traditional
+   CALL_INSNs.
+
+   Note we can not consider side effects of the insn to be delayed because
+   the branch and link insn will clobber the return pointer.  If we happened
+   to use the return pointer in the delay slot of the call, then we lose.
 
    get_attr_type will try to recognize the given insn, so make sure to
    filter out things it will not accept -- SEQUENCE, USE and CLOBBER insns

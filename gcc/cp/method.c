@@ -54,10 +54,6 @@ enum mangling_flags
 
 typedef enum mangling_flags mangling_flags;
 
-/* TREE_LIST of the current inline functions that need to be
-   processed.  */
-struct pending_inline *pending_inlines;
-
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
 
@@ -283,14 +279,13 @@ request for member `%D' is ambiguous in multiple inheritance lattice",
 /* Return a thunk to FUNCTION.  For a virtual thunk, DELTA is the
    offset to this used to locate the vptr, and VCALL_INDEX is used to
    look up the eventual subobject location.  For a non-virtual thunk,
-   DELTA is the offset to this and VCALL_INDEX is zero.  */
+   DELTA is the offset to this and VCALL_INDEX is NULL.  */
 
 tree
-make_thunk (function, delta, vcall_index, generate_with_vtable_p)
+make_thunk (function, delta, vcall_index)
      tree function;
      tree delta;
      tree vcall_index;
-     int generate_with_vtable_p;
 {
   tree thunk_id;
   tree thunk;
@@ -339,7 +334,6 @@ make_thunk (function, delta, vcall_index, generate_with_vtable_p)
       DECL_INITIAL (thunk) = function;
       THUNK_DELTA (thunk) = d;
       THUNK_VCALL_OFFSET (thunk) = vcall_offset;
-      THUNK_GENERATE_WITH_VTABLE_P (thunk) = generate_with_vtable_p;
       /* The thunk itself is not a constructor or destructor, even if
          the thing it is thunking to is.  */
       DECL_INTERFACE_KNOWN (thunk) = 1;
@@ -372,7 +366,6 @@ void
 use_thunk (thunk_fndecl, emit_p)
      tree thunk_fndecl;
      int emit_p;
-     
 {
   tree fnaddr;
   tree function;
@@ -385,9 +378,7 @@ use_thunk (thunk_fndecl, emit_p)
   fnaddr = DECL_INITIAL (thunk_fndecl);
   if (TREE_CODE (DECL_INITIAL (thunk_fndecl)) != ADDR_EXPR)
     /* We already turned this thunk into an ordinary function.
-       There's no need to process this thunk again.  (We can't just
-       clear DECL_THUNK_P because that will confuse
-       FNADDR_FROM_VTABLE_ENTRY and friends.)  */
+       There's no need to process this thunk again.  */
     return;
 
   /* Thunks are always addressable; they only appear in vtables.  */
@@ -551,25 +542,31 @@ do_build_copy_constructor (fndecl)
       int cvquals = CP_TYPE_QUALS (TREE_TYPE (parm));
       int i;
 
-      /* Initialize all the base-classes.  */
+      /* Initialize all the base-classes with the parameter converted to
+         their type so that we get their copy constructor and not another
+         constructor that takes current_class_type.  */
       for (t = CLASSTYPE_VBASECLASSES (current_class_type); t;
 	   t = TREE_CHAIN (t))
-	base_init_list 
-	  = tree_cons (BINFO_TYPE (TREE_VALUE (t)), parm, 
-		       base_init_list);
+	{
+	  tree type = BINFO_TYPE (TREE_VALUE (t));
+	  base_init_list = tree_cons (type, convert_lvalue (type, parm),
+				      base_init_list);
+	}
+
       for (i = 0; i < n_bases; ++i)
 	{
 	  t = TREE_VEC_ELT (binfos, i);
 	  if (TREE_VIA_VIRTUAL (t))
 	    continue; 
 
-	  base_init_list 
-	    = tree_cons (BINFO_TYPE (t), parm, base_init_list);
+	  t = BINFO_TYPE (t);
+	  base_init_list = tree_cons (t, convert_lvalue (t, parm),
+				      base_init_list);
 	}
 
       for (; fields; fields = TREE_CHAIN (fields))
 	{
-	  tree init, t;
+	  tree init;
 	  tree field = fields;
 
 	  if (TREE_CODE (field) != FIELD_DECL)
@@ -579,8 +576,6 @@ do_build_copy_constructor (fndecl)
 	  if (DECL_NAME (field))
 	    {
 	      if (VFIELD_NAME_P (DECL_NAME (field)))
-		continue;
-	      if (VBASE_NAME_P (DECL_NAME (field)))
 		continue;
 
 	      /* True for duplicate members.  */
@@ -639,12 +634,7 @@ do_build_assign_ref (fndecl)
       for (i = 0; i < n_bases; ++i)
 	{
 	  tree basetype = BINFO_TYPE (TREE_VEC_ELT (binfos, i));
-	  tree p = build_qualified_type (basetype, cvquals);
-
-	  p = convert_to_reference
-	    (build_reference_type (p), parm,
-	     CONV_IMPLICIT, LOOKUP_COMPLAIN, NULL_TREE);
-	  p = convert_from_reference (p);
+	  tree p = convert_lvalue (basetype, parm);
 	  p = (build_member_call 
 	       (basetype, 
 		lookup_member (basetype,
@@ -679,8 +669,6 @@ do_build_assign_ref (fndecl)
 	  if (DECL_NAME (field))
 	    {
 	      if (VFIELD_NAME_P (DECL_NAME (field)))
-		continue;
-	      if (VBASE_NAME_P (DECL_NAME (field)))
 		continue;
 
 	      /* True for duplicate members.  */

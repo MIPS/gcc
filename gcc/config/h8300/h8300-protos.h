@@ -45,6 +45,7 @@ extern void split_adds_subs PARAMS ((enum machine_mode, rtx[]));
 
 extern int general_operand_src PARAMS ((rtx, enum machine_mode));
 extern int general_operand_dst PARAMS ((rtx, enum machine_mode));
+extern int general_operand_dst_push PARAMS ((rtx, enum machine_mode mode));
 extern int o_operand PARAMS ((rtx, enum machine_mode));
 extern int p_operand PARAMS ((rtx, enum machine_mode));
 extern int call_insn_operand PARAMS ((rtx, enum machine_mode));
@@ -61,8 +62,6 @@ extern int nshift_operator PARAMS ((rtx, enum machine_mode));
 #ifdef TREE_CODE
 extern struct rtx_def *function_arg PARAMS ((CUMULATIVE_ARGS *,
 					     enum machine_mode, tree, int));
-extern int h8300_valid_machine_decl_attribute PARAMS ((tree, tree, tree,
-						       tree));
 extern int h8300_funcvec_function_p PARAMS ((tree));
 extern int h8300_eightbit_data_p PARAMS ((tree));
 extern int h8300_tiny_data_p PARAMS ((tree));
@@ -70,8 +69,6 @@ extern void h8300_encode_label PARAMS ((tree));
 #endif /* TREE_CODE */
 
 extern void h8300_init_once PARAMS ((void));
-extern void function_prologue PARAMS ((FILE *, int));
-extern void function_epilogue PARAMS ((FILE *, int));
 extern void asm_file_start PARAMS ((FILE *));
 extern void asm_file_end PARAMS ((FILE *));
 extern int ok_for_bclr PARAMS ((HOST_WIDE_INT));

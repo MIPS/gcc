@@ -121,7 +121,7 @@ fix = {
 /* _INT_VARARGS.H - Define the common stuff for varargs/stdarg/stdio.   */
 /************************************************************************/
 
-/*
+/*" "
 ** This file is a DG internal header.  Never include this
 ** file directly.
 */
@@ -1149,6 +1149,53 @@ fix = {
 
 
 /*
+ * Delete C++ double pow (double, int) inline function from HP-UX 10 & 11
+ * math.h to prevent clash with define in c_std/bits/std_cmath.h.
+ */
+fix = {
+    hackname  = hpux10_cpp_pow_inline;
+    files     = fixinc-test-limits.h, math.h;
+    select    = <<-	END_POW_INLINE
+	^# +ifdef +__cplusplus
+	 +}
+	 +inline +double +pow\(double +__d,int +__expon\) +{
+	[ 	]+return +pow\(__d,\(double\)__expon\);
+	 +}
+	 +extern +"C" +{
+	#else
+	# +endif
+	END_POW_INLINE;
+ 
+    c_fix     = format;
+    c_fix_arg = "";
+
+    test_text =
+	"#    ifdef __cplusplus\n"
+	"     }\n"
+	"     inline double pow(double __d,int __expon) {\n"
+	"\t return pow(__d,(double)__expon);\n"
+	"     }\n"
+	'     extern "C"' " {\n"
+	"#else\n"
+	"#    endif";
+};
+
+fix = {
+     hackname  = hpux11_cpp_pow_inline;
+     files     = math.h;
+     select    = " +inline double pow\\(double d,int expon\\) {\n"
+                 " +return pow\\(d, \\(double\\)expon\\);\n"
+                 " +}\n";
+     c_fix     = format;
+     c_fix_arg = "";
+
+     test_text =
+            "   inline double pow(double d,int expon) {\n"
+            "     return pow(d, (double)expon);\n"
+            "   }\n";
+};
+
+/*
  *  Keep HP-UX 11 from stomping on C++ math namespace
  *  with defines for fabsf.
  */
@@ -1193,6 +1240,24 @@ fix = {
     test_text =
     "#define CONCAT_U__(__c)\t__CONCAT__(__c,u)\n"
     "#define UINT32_C(__c)\t__CONCAT__(__CONCAT_U__(__c),l)";
+};
+
+
+/*
+ *  Fix hpux 11.00 broken vsnprintf declaration
+ */
+fix = {
+    hackname = hpux11_vsnprintf;
+    files    = stdio.h;
+    select   = 'extern int vsnprintf\(char \*, __size_t, const char \*,'
+                                     ' __va__list\);';
+
+    c_fix     = format;
+    c_fix_arg = "extern int vsnprintf(char *, __size_t, const char *,"
+                                     " __va_list);";
+
+    test_text = 'extern int vsnprintf(char *, __size_t, const char *,'
+                                     ' __va__list);';
 };
 
 
@@ -2019,22 +2084,30 @@ fix = {
 
 
 /*
- * Sun Solaris 2.7 defines PTHREAD_MUTEX_INITIALIZER with a trailing
+ * Sun Solaris defines PTHREAD_MUTEX_INITIALIZER with a trailing
  * "0" for the last field of the pthread_mutex_t structure, which is
  * of type upad64_t, which itself is typedef'd to int64_t, but with
  * __STDC__ defined (e.g. by -ansi) it is a union. So change the
  * initializer to "{0}" instead
  */
 fix = {
-  hackname = solaris27_mutex_init;
-  select = '@\(#\)pthread.h' "[ \t]+1.26[ \t]+98/04/12 SMI";
-  files = pthread.h;
-  c_fix = format;
-  c_fix_arg = "%1, {0}}";
-  c_fix_arg = "(define[ \t]+PTHREAD_MUTEX_INITIALIZER.*),[ \t]*0}$";
-  test_text =
-  '#ident "@(#)pthread.h  1.26  98/04/12 SMI"'"\n"
-  "#define PTHREAD_MUTEX_INITIALIZER {{{0},0}, {{{0}}}, 0}";
+    hackname = solaris_mutex_init;
+    select = '@\(#\)pthread.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
+    files = pthread.h;
+    c_fix = format;
+    c_fix_arg = "#if __STDC__ - 0 == 0 && !defined(_NO_LONGLONG)\n"
+                "%0\n"
+                "#else\n"
+                "%1, {0}}%3\n"
+                "#endif";
+    c_fix_arg = "(^#define[ \t]+PTHREAD_(MUTEX|COND)_INITIALIZER[ \t]+{.*)"
+                ",[ \t]*0}" "(|[ \t].*)$";
+    test_text =
+    '#ident "@(#)pthread.h  1.26  98/04/12 SMI"'"\n"
+    "#define PTHREAD_MUTEX_INITIALIZER\t{{{0},0}, {{{0}}}, 0}\n"
+    "#define PTHREAD_COND_INITIALIZER\t{{{0}, 0}, 0}\t/* DEFAULTCV */\n"
+    "#define PTHREAD_RWLOCK_INITIALIZER\t"
+             "{0, 0, 0, {0, 0, 0}, {0, 0}, {0, 0}}";
 };
 
 
@@ -2814,6 +2887,21 @@ fix = {
 
 
 /*
+ *  function parameter to atexit is missing "void" on VAX Ultrix 4.3.
+ */
+fix = {
+    hackname = ultrix_atexit_param;
+    files    = stdlib.h;
+    select   = 'atexit\(.*\(\)';
+
+    c_fix     = format;
+    c_fix_arg = "atexit( void (*__func)( void )";
+
+    test_text = "int atexit( void (*__func)() );\n";
+};
+
+
+/*
  *  parameter to atof not const on DECstation Ultrix V4.0 and NEWS-OS 4.2R.
  */
 fix = {
@@ -3025,7 +3113,7 @@ fix = {
     hackname = uw7_byteorder_fix;
     files    = arpa/inet.h;
     select   = "in_port_t";
-    test     = "-f $DESTDIR/sys/byteorder.h";
+    test     = "-f sys/byteorder.h";
 #ifndef SVR5
 	mach = "*-*-sysv4*";
 	mach = "i?86-*-sysv5*";
@@ -3037,12 +3125,12 @@ fix = {
 
     c_fix     = format;
     c_fix_arg = "";
-    c_fix_arg = "^extern.*(htons|ntohs).*\\(in_port_t\\).*\n";
+    c_fix_arg = "^extern.*[ \t](htons|ntohs).*\\(in_port_t\\).*;";
 
-    test_text = "extern htons(in_port_t);"
+    test_text = "extern in_port_t\thtons __P((in_port_t));\n"
+                "extern in_port_t\tntohs __P((in_port_t));"
                 "`[ ! -d $DESTDIR/sys ] && mkdir $DESTDIR/sys\n"
-                "echo '/* DUMMY */' >> sys/byteorder.h\n"
-                "touch $DESTDIR/sys/byteorder.h`";
+                "echo '/* DUMMY */' >> sys/byteorder.h`";
 };
 
 

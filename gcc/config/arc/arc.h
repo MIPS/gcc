@@ -312,15 +312,6 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
 #define PTRDIFF_TYPE "long int"
 #define WCHAR_TYPE "short unsigned int"
 #define WCHAR_TYPE_SIZE 16
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 /* Standard register usage.  */
 
@@ -843,35 +834,11 @@ arc_setup_incoming_varargs(&ARGS_SO_FAR, MODE, TYPE, &PRETEND_SIZE, NO_RTL)
    is passed to a function, or 0 to use `invisible' first argument.  */
 #define STRUCT_VALUE 0
 
-/* Function entry and exit.  */
-
-/* This macro generates the assembly code for function entry.
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.
-   Refer to the array `regs_ever_live' to determine which registers
-   to save; `regs_ever_live[I]' is nonzero if register number I
-   is ever used in the function.  This macro is responsible for
-   knowing which registers should not be saved even if used.  */
-#define FUNCTION_PROLOGUE(FILE, SIZE) \
-arc_output_function_prologue (FILE, SIZE)
-
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
    functions that have frame pointers.
    No definition is equivalent to always zero.  */
 #define EXIT_IGNORE_STACK 0
-
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.
-
-   The function epilogue should not depend on the current stack pointer!
-   It should use the frame pointer only.  This is mandatory because
-   of alloca; we also take advantage of it to omit stack adjustments
-   before returning.  */
-#define FUNCTION_EPILOGUE(FILE, SIZE) \
-arc_output_function_epilogue (FILE, SIZE)
 
 /* Epilogue delay slots.  */
 #define DELAY_SLOTS_FOR_EPILOGUE arc_delay_slots_for_epilogue ()
@@ -1330,10 +1297,6 @@ do {									\
 #define ASM_OUTPUT_BYTE(FILE, VALUE)  \
   fprintf (FILE, "%s0x%x\n", ASM_BYTE_OP, (VALUE))
 
-/* The assembler's parentheses characters.  */
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
 #define ASM_OUTPUT_LABEL(FILE, NAME) \
@@ -1409,28 +1372,6 @@ do {						\
    late for defaults.h (which contains the default definition of ASM_OUTPUT_DEF
    that we use).  */
 #define SET_ASM_OP "\t.set\t"
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#undef ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(FILE, NAME) \
-do {					\
-  ctors_section ();			\
-  fprintf (FILE, "\t.word\t%%st(");	\
-  assemble_name (FILE, NAME);		\
-  fprintf (FILE, ")\n");		\
-} while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-#undef ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(FILE, NAME) \
-do {					\
-  dtors_section ();			\
-  fprintf (FILE, "\t.word\t%%st(");	\
-  assemble_name (FILE, NAME);		\
-  fprintf (FILE, ")\n");		\
-} while (0)
 
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).  */
@@ -1583,22 +1524,6 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
 
 /* A function address in a call instruction.  */
 #define FUNCTION_MODE SImode
-
-/* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
-   is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) \
-arc_valid_machine_decl_attribute (DECL, ATTRIBUTES, IDENTIFIER, ARGS)
-
-/* A C expression that returns zero if the attributes on TYPE1 and TYPE2 are
-   incompatible, one if they are compatible, and two if they are
-   nearly compatible (which causes a warning to be generated).  */
-#define COMP_TYPE_ATTRIBUTES(TYPE1, TYPE2) \
-arc_comp_type_attributes (TYPE1, TYPE2)
-
-/* Give newly defined TYPE some default attributes.  */
-#define SET_DEFAULT_TYPE_ATTRIBUTES(TYPE) \
-arc_set_default_type_attributes (TYPE)
 
 /* alloca should avoid clobbering the old register save area.  */
 /* ??? Not defined in tm.texi.  */

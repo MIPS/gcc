@@ -3794,8 +3794,7 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
       if (arglist2 == error_mark_node)
 	return error_mark_node;
 
-      parm = copy_template_template_parm (TREE_TYPE (template), arglist2);
-      TYPE_SIZE (parm) = 0;
+      parm = bind_template_template_parm (TREE_TYPE (template), arglist2);
       return parm;
     }
   else 
@@ -4877,7 +4876,6 @@ instantiate_class_template (type)
   TYPE_HAS_NEW_OPERATOR (type) = TYPE_HAS_NEW_OPERATOR (pattern);
   TYPE_HAS_ARRAY_NEW_OPERATOR (type) = TYPE_HAS_ARRAY_NEW_OPERATOR (pattern);
   TYPE_GETS_DELETE (type) = TYPE_GETS_DELETE (pattern);
-  TYPE_VEC_DELETE_TAKES_SIZE (type) = TYPE_VEC_DELETE_TAKES_SIZE (pattern);
   TYPE_HAS_ASSIGN_REF (type) = TYPE_HAS_ASSIGN_REF (pattern);
   TYPE_HAS_CONST_ASSIGN_REF (type) = TYPE_HAS_CONST_ASSIGN_REF (pattern);
   TYPE_HAS_ABSTRACT_ASSIGN_REF (type) = TYPE_HAS_ABSTRACT_ASSIGN_REF (pattern);
@@ -5164,12 +5162,7 @@ static tree
 maybe_fold_nontype_arg (arg)
      tree arg;
 {
-  /* If we're not in a template, ARG is already as simple as it's going to
-     get, and trying to reprocess the trees will break.  */
-  if (! processing_template_decl)
-    return arg;
-
-  if (!TYPE_P (arg) && !uses_template_parms (arg))
+  if (arg && !TYPE_P (arg) && !uses_template_parms (arg))
     {
       /* Sometimes, one of the args was an expression involving a
 	 template constant parameter, like N - 1.  Now that we've
@@ -5179,10 +5172,18 @@ maybe_fold_nontype_arg (arg)
 	 fool build_expr_from_tree() into building an actual
 	 tree.  */
 
-      int saved_processing_template_decl = processing_template_decl; 
-      processing_template_decl = 0;
-      arg = fold (build_expr_from_tree (arg));
-      processing_template_decl = saved_processing_template_decl; 
+      /* If the TREE_TYPE of ARG is not NULL_TREE, ARG is already
+	 as simple as it's going to get, and trying to reprocess
+	 the trees will break.  */
+      if (!TREE_TYPE (arg))
+	{
+	  int saved_processing_template_decl = processing_template_decl; 
+	  processing_template_decl = 0;
+	  arg = build_expr_from_tree (arg);
+	  processing_template_decl = saved_processing_template_decl; 
+	}
+
+      arg = fold (arg);
     }
   return arg;
 }
@@ -5261,8 +5262,9 @@ tsubst_template_parms (parms, args, complain)
 	    TREE_VALUE (TREE_VEC_ELT (TREE_VALUE (parms), i));
 	  
 	  TREE_VEC_ELT (new_vec, i)
-	    = build_tree_list (tsubst (default_value, args, complain,
-				       NULL_TREE), 
+	    = build_tree_list (maybe_fold_nontype_arg (
+				  tsubst_expr (default_value, args, complain,
+					       NULL_TREE)), 
 			       tsubst (parm_decl, args, complain,
 				       NULL_TREE));
 	}
@@ -5761,8 +5763,7 @@ tsubst_decl (t, args, type)
 
 	DECL_CONTEXT (r) = NULL_TREE;
 	if (PROMOTE_PROTOTYPES
-	    && (TREE_CODE (type) == INTEGER_TYPE
-		|| TREE_CODE (type) == ENUMERAL_TYPE)
+	    && INTEGRAL_TYPE_P (type)
 	    && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
 	  DECL_ARG_TYPE (r) = integer_type_node;
 	if (TREE_CHAIN (t))
@@ -5826,12 +5827,13 @@ tsubst_decl (t, args, type)
 	  ctx = tsubst_aggr_type (DECL_CONTEXT (t), args, 
 				  /*complain=*/1,
 				  in_decl, /*entering_scope=*/1);
+	else if (DECL_NAMESPACE_SCOPE_P (t))
+	  ctx = DECL_CONTEXT (t);
 	else
 	  {
 	    /* Subsequent calls to pushdecl will fill this in.  */
 	    ctx = NULL_TREE;
-	    if (!DECL_NAMESPACE_SCOPE_P (t))
-	      local_p = 1;
+	    local_p = 1;
 	  }
 
 	/* Check to see if we already have this specialization.  */
@@ -8409,7 +8411,7 @@ unify (tparms, targs, parm, arg, strict)
     return 1;
 
   if (!(strict & UNIFY_ALLOW_OUTER_LEVEL)
-      && TYPE_P (arg) && !CP_TYPE_CONST_P (arg))
+      && TYPE_P (parm) && !CP_TYPE_CONST_P (parm))
     strict &= ~UNIFY_ALLOW_MORE_CV_QUAL;
   strict &= ~UNIFY_ALLOW_OUTER_LEVEL;
   strict &= ~UNIFY_ALLOW_DERIVED;
@@ -8617,6 +8619,18 @@ unify (tparms, targs, parm, arg, strict)
 	     level of pointers.  */
 	  strict |= (strict_in & UNIFY_ALLOW_DERIVED);
 
+	if (TREE_CODE (TREE_TYPE (parm)) == OFFSET_TYPE
+	    && TREE_CODE (TREE_TYPE (arg)) == OFFSET_TYPE)
+	  {
+	    /* Avoid getting confused about cv-quals; don't recurse here.
+	       Pointers to members should really be just OFFSET_TYPE, not
+	       this two-level nonsense... */
+
+	    parm = TREE_TYPE (parm);
+	    arg = TREE_TYPE (arg);
+	    goto offset;
+	  }
+
 	return unify (tparms, targs, TREE_TYPE (parm), 
 		      TREE_TYPE (arg), strict);
       }
@@ -8769,6 +8783,7 @@ unify (tparms, targs, parm, arg, strict)
 				    DEDUCE_EXACT, 0, -1);
 
     case OFFSET_TYPE:
+    offset:
       if (TREE_CODE (arg) != OFFSET_TYPE)
 	return 1;
       if (unify (tparms, targs, TYPE_OFFSET_BASETYPE (parm),

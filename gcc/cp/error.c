@@ -116,7 +116,8 @@ static void dump_scope PARAMS ((tree, int));
 static void dump_template_parms PARAMS ((tree, int, int));
 
 static const char *function_category PARAMS ((tree));
-static void lang_print_error_function PARAMS ((const char *));
+static void lang_print_error_function PARAMS ((diagnostic_context *,
+                                               const char *));
 static void maybe_print_instantiation_context PARAMS ((output_buffer *));
 static void print_instantiation_full_context PARAMS ((output_buffer *));
 static void print_instantiation_partial_context PARAMS ((output_buffer *, tree,
@@ -191,13 +192,12 @@ cp_printer * cp_printers[256] =
 void
 init_error ()
 {
-  init_output_buffer (scratch_buffer, /* prefix */NULL, /* line-width */0);
-  
   print_error_function = lang_print_error_function;
-  lang_diagnostic_starter = cp_diagnostic_starter;
-  lang_diagnostic_finalizer = cp_diagnostic_finalizer;
-
-  lang_printer = cp_tree_printer;
+  diagnostic_starter (global_dc) = cp_diagnostic_starter;
+  diagnostic_finalizer (global_dc) = cp_diagnostic_finalizer;
+  diagnostic_format_decoder (global_dc) = cp_tree_printer;
+  
+  init_output_buffer (scratch_buffer, /* prefix */NULL, /* line-width */0);
 }
 
 /* Dump a scope, if deemed necessary.  */
@@ -950,13 +950,8 @@ dump_decl (t, flags)
       if (DECL_NAME (t) && VTABLE_NAME_P (DECL_NAME (t)))
 	{
 	  output_add_string (scratch_buffer, "vtable for ");
-	  if (TYPE_P (DECL_CONTEXT (t)))
-	    dump_type (DECL_CONTEXT (t), flags);
-	  else
-	    /* This case can arise with -fno-vtable-thunks.  See
-	       expand_upcast_fixups.  It's not clear what to print
-	       here.  */
-	    print_identifier (scratch_buffer, "<unknown type>");
+	  my_friendly_assert (TYPE_P (DECL_CONTEXT (t)), 20010720);
+	  dump_type (DECL_CONTEXT (t), flags);
 	  break;
 	}
       /* else fall through */
@@ -1918,17 +1913,9 @@ dump_expr (t, flags)
     case CONSTRUCTOR:
       if (TREE_TYPE (t) && TYPE_PTRMEMFUNC_P (TREE_TYPE (t)))
 	{
-	  tree fn = pfn_from_ptrmemfunc (t);
+	  tree idx = build_component_ref_by_name (t, pfn_identifier);
 
-	  STRIP_NOPS (fn);
-
-	  if (TREE_CODE (fn) == ADDR_EXPR)
-	    {
-	      dump_unary_op ("&", fn, flags | TFF_EXPR_IN_PARENS);
-	      break;
-	    }
-	  else if (TREE_CODE (fn) == INTEGER_CST
-		   && integer_zerop (fn))
+	  if (integer_zerop (idx))
 	    {
 	      /* A NULL pointer-to-member constant.  */
 	      output_add_string (scratch_buffer, "((");
@@ -1936,7 +1923,7 @@ dump_expr (t, flags)
 	      output_add_string (scratch_buffer, ") 0)");
 	      break;
 	    }
-	  else if (host_integerp (fn, 0))
+	  else if (host_integerp (idx, 0))
 	    {
 	      tree virtuals;
 	      unsigned HOST_WIDE_INT n;
@@ -1945,7 +1932,7 @@ dump_expr (t, flags)
 	      t = TYPE_METHOD_BASETYPE (t);
 	      virtuals = TYPE_BINFO_VIRTUALS (TYPE_MAIN_VARIANT (t));
 
-	      n = (tree_low_cst (fn, 0) - 1) / 2;
+	      idx = (tree_low_cst (idx, 0) - 1) / 2;
 	      while (n > 0 && virtuals)
 		{
 		  --n;
@@ -2468,16 +2455,17 @@ cv_to_string (p, v)
 }
 
 static void
-lang_print_error_function (file)
+lang_print_error_function (context, file)
+     diagnostic_context *context;
      const char *file;
 {
   output_state os;
 
-  default_print_error_function (file);
-  os = output_buffer_state (diagnostic_buffer);
-  output_set_prefix (diagnostic_buffer, file);
-  maybe_print_instantiation_context (diagnostic_buffer);
-  output_buffer_state (diagnostic_buffer) = os;
+  default_print_error_function (context, file);
+  os = output_buffer_state (context);
+  output_set_prefix ((output_buffer *)context, file);
+  maybe_print_instantiation_context ((output_buffer *)context);
+  output_buffer_state (context) = os;
 }
 
 static void

@@ -41,6 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "intl.h"
 #include "ggc.h"
+#include "target.h"
 
 /* Nonzero if we've already printed a "missing braces around initializer"
    message within this initializer.  */
@@ -205,7 +206,7 @@ common_type (t1, t2)
     return t1;
 
   /* Merge the attributes.  */
-  attributes = merge_machine_type_attributes (t1, t2);
+  attributes = (*targetm.merge_type_attributes) (t1, t2);
 
   /* Treat an enum type as the unsigned integer type of the same width.  */
 
@@ -482,12 +483,8 @@ comptypes (type1, type2)
   if (TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
     return 1;
 
-#ifndef COMP_TYPE_ATTRIBUTES
-#define COMP_TYPE_ATTRIBUTES(t1,t2)	1
-#endif
-
   /* 1 if no need for warning yet, 2 if warning cause has been seen.  */
-  if (! (attrval = COMP_TYPE_ATTRIBUTES (t1, t2)))
+  if (! (attrval = (*targetm.comp_type_attributes) (t1, t2)))
      return 0;
 
   /* 1 if no need for warning yet, 2 if warning cause has been seen.  */
@@ -651,7 +648,8 @@ type_lists_compatible_p (args1, args2)
 	  if (simple_type_promotes_to (TREE_VALUE (args1)) != NULL_TREE)
 	    return 0;
 	}
-      else if (! (newval = comptypes (TREE_VALUE (args1), TREE_VALUE (args2))))
+      else if (! (newval = comptypes (TYPE_MAIN_VARIANT (TREE_VALUE (args1)), 
+				      TYPE_MAIN_VARIANT (TREE_VALUE (args2)))))
 	{
 	  /* Allow  wait (union {union wait *u; int *i} *)
 	     and  wait (union wait *)  to be compatible.  */
@@ -2471,22 +2469,12 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	      /* We can shorten only if the shift count is less than the
 		 number of bits in the smaller type size.  */
 	      && compare_tree_int (op1, TYPE_PRECISION (TREE_TYPE (arg0))) < 0
-	      /* If arg is sign-extended and then unsigned-shifted,
-		 we can simulate this with a signed shift in arg's type
-		 only if the extended result is at least twice as wide
-		 as the arg.  Otherwise, the shift could use up all the
-		 ones made by sign-extension and bring in zeros.
-		 We can't optimize that case at all, but in most machines
-		 it never happens because available widths are 2**N.  */
-	      && (!TREE_UNSIGNED (final_type)
-		  || unsigned_arg
-		  || (2 * TYPE_PRECISION (TREE_TYPE (arg0))
-		      <= TYPE_PRECISION (result_type))))
+	      /* We cannot drop an unsigned shift after sign-extension.  */
+	      && (!TREE_UNSIGNED (final_type) || unsigned_arg))
 	    {
 	      /* Do an unsigned shift if the operand was zero-extended.  */
 	      result_type
-		= signed_or_unsigned_type (unsigned_arg,
-					   TREE_TYPE (arg0));
+		= signed_or_unsigned_type (unsigned_arg, TREE_TYPE (arg0));
 	      /* Convert value-to-be-shifted to that type.  */
 	      if (TREE_TYPE (op0) != result_type)
 		op0 = convert (result_type, op0);
@@ -4506,7 +4494,7 @@ static int spelling_size;		/* Size of the spelling stack.  */
    Alternative to SAVE_SPELLING_STACK.  */
 
 #define SPELLING_DEPTH() (spelling - spelling_base)
-#define RESTORE_SPELLING_DEPTH(depth) (spelling = spelling_base + depth)
+#define RESTORE_SPELLING_DEPTH(DEPTH) (spelling = spelling_base + (DEPTH))
 
 /* Save and restore the spelling stack around arbitrary C code.  */
 
@@ -5862,7 +5850,7 @@ add_pending_init (purpose, value)
 	    {
 	      if (r->balance < 0)
 		{
-		  /* L rotation. */
+		  /* L rotation.  */
 		  p->left = r->right;
 		  if (p->left)
 		    p->left->parent = p;
@@ -5886,7 +5874,7 @@ add_pending_init (purpose, value)
 		}
 	      else
 		{
-		  /* LR rotation. */
+		  /* LR rotation.  */
 		  struct init_node *t = r->right;
 
 		  r->right = t->left;
@@ -5935,7 +5923,7 @@ add_pending_init (purpose, value)
 	    {
 	      if (r->balance > 0)
 		{
-		  /* R rotation. */
+		  /* R rotation.  */
 		  p->right = r->left;
 		  if (p->right)
 		    p->right->parent = p;
@@ -5994,7 +5982,7 @@ add_pending_init (purpose, value)
 	    }
 	  else
 	    {
-	      /* p->balance == -1; growth of right side balances the node. */
+	      /* p->balance == -1; growth of right side balances the node.  */
 	      p->balance = 0;
 	      break;
 	    }
@@ -7076,8 +7064,7 @@ c_start_case (exp)
       code = TREE_CODE (TREE_TYPE (exp));
       type = TREE_TYPE (exp);
 
-      if (code != INTEGER_TYPE 
-	  && code != ENUMERAL_TYPE 
+      if (! INTEGRAL_TYPE_P (type)
 	  && code != ERROR_MARK)
 	{
 	  error ("switch quantity not an integer");

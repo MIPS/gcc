@@ -212,26 +212,16 @@ Boston, MA 02111-1307, USA.  */
 #define INIT_SECTION_ASM_OP
 #undef	INVOKE__main
 
-#undef	ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)                       \
-  do { constructor_section ();                                  \
-       ASM_OUTPUT_ALIGN (FILE, 1);                              \
-       fprintf (FILE, "\t.long ");                              \
-       assemble_name (FILE, NAME);                              \
-       fprintf (FILE, "\n");                                    \
-       fprintf (FILE, ".reference .constructors_used\n");       \
-      } while (0)
+#define TARGET_ASM_CONSTRUCTOR  nextstep_asm_out_constructor
+#define TARGET_ASM_DESTRUCTOR   nextstep_asm_out_destructor
+extern void nextstep_asm_out_constructor  PARAMS ((struct rtx_def *, int));
+extern void nextstep_asm_out_destructor  PARAMS ((struct rtx_def *, int));
 
-#undef	ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)                        \
-  do { destructor_section ();                                   \
-       ASM_OUTPUT_ALIGN (FILE, 1);                              \
-       fprintf (FILE, "\t.long ");                              \
-       assemble_name (FILE, NAME);                              \
-       fprintf (FILE, "\n");                                    \
-       fprintf (FILE, ".reference .destructors_used\n");        \
-      } while (0)
-
+/* ??? Should be changed to EH_FRAME_SECTION_NAME, but that requires
+   named section support.  Based on this definition, it seems clear
+   that the object file format supports named sections, but it has
+   not been implemented in gcc.  */
+#error "Implement named section support"
 #define EH_FRAME_SECTION_ASM_OP "\t.section __TEXT,__eh_frame,regular"
 
 /* Don't output a .file directive.  That is only used by the assembler for

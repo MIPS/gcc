@@ -35,6 +35,10 @@ struct function;
 union tree_node;
 #endif
 
+/* Value used by some passes to "recognize" noop moves as valid instructions.
+ */
+#define NOOP_MOVE_INSN_CODE	INT_MAX
+
 /* Register Transfer Language EXPRESSIONS CODES */
 
 #define RTX_CODE	enum rtx_code
@@ -320,6 +324,7 @@ extern void rtvec_check_failed_bounds PARAMS ((rtvec, int,
 #define XBITMAP(RTX, N) (RTL_CHECK1(RTX, N, 'b').rtbit)
 #define XTREE(RTX, N)   (RTL_CHECK1(RTX, N, 't').rttree)
 #define XBBDEF(RTX, N)	(RTL_CHECK1(RTX, N, 'B').bb)
+#define XTMPL(RTX, N)	(RTL_CHECK1(RTX, N, 'T').rtstr)
 
 #define XVECEXP(RTX, N, M)	RTVEC_ELT (XVEC (RTX, N), M)
 #define XVECLEN(RTX, N)		GET_NUM_ELEM (XVEC (RTX, N))
@@ -388,8 +393,8 @@ extern void rtvec_check_failed_bounds PARAMS ((rtvec, int,
 /* 1 if insn has been deleted.  */
 #define INSN_DELETED_P(INSN) ((INSN)->volatil)
 
-/* 1 if insn is a call to a const function.  */
-#define CONST_CALL_P(INSN) ((INSN)->unchanging)
+/* 1 if insn is a call to a const or pure function.  */
+#define CONST_OR_PURE_CALL_P(INSN) ((INSN)->unchanging)
 
 /* 1 if insn (assumed to be a CALL_INSN) is a sibling call.  */
 #define SIBLING_CALL_P(INSN) ((INSN)->jump)
@@ -497,10 +502,10 @@ enum reg_note
      flow, are represented by a 0 reg note kind.  */
   REG_DEP_ANTI, REG_DEP_OUTPUT,
 
-  /* REG_BR_PROB is attached to JUMP_INSNs and CALL_INSNs when the flag
-     -fbranch-probabilities is given.  It has an integer value.  For jumps,
-     it is the probability that this is a taken branch.  For calls, it is
-     the probability that this call won't return.  */
+  /* REG_BR_PROB is attached to JUMP_INSNs and CALL_INSNs.
+     It has an integer value.  For jumps, it is the probability that this is a
+     taken branch.  For calls, it is the probability that this call won't
+     return.  */
   REG_BR_PROB,
 
   /* REG_EXEC_COUNT is attached to the first insn of each basic block, and
@@ -516,8 +521,10 @@ enum reg_note
      where SETJMP_VIA_SAVE_AREA is true.  */
   REG_SAVE_AREA,
 
-  /* Attached to JUMP_INSNs only, it holds the branch prediction flags
-     computed by get_jump_flags() after dbr scheduling is complete.  */
+  /* REG_BR_PRED is attached to JUMP_INSNs and CALL_INSNSs.  It contains
+     CONCAT of two integer value.  First specifies the branch predictor
+     that added the note, second specifies the predicted hitrate of branch
+     in the same format as REG_BR_PROB note uses.  */
   REG_BR_PRED,
 
   /* Attached to insns that are RTX_FRAME_RELATED_P, but are too complex
@@ -536,11 +543,6 @@ enum reg_note
      throw, nor will it execute a non-local goto.  */
   REG_EH_REGION,
 
-  /* Indicates that a call is actually a call to rethrow, and specifies the
-     rethrow symbol for the region the rethrow is targetting.  This provides
-     a way to generate the non standard flow edges required for a rethrow.  */
-  REG_EH_RETHROW,
-
   /* Used by haifa-sched to save NOTE_INSN notes across scheduling.  */
   REG_SAVE_NOTE,
 
@@ -555,7 +557,14 @@ enum reg_note
 
   /* Indicates that an indirect jump is a non-local goto instead of a 
      computed goto.  */
-  REG_NON_LOCAL_GOTO
+  REG_NON_LOCAL_GOTO,
+
+  /* This kind of note is generated at each to `setjmp',
+     and similar functions that can return twice.  */
+  REG_SETJMP,
+
+  /* Indicate calls that always returns.  */
+  REG_ALWAYS_RETURN
 };
 
 /* The base value for branch probability notes.  */
@@ -652,10 +661,6 @@ enum insn_note
      enabling that optimizer to determine whether control can fall
      off the end of the function body without a return statement.  */
   NOTE_INSN_FUNCTION_END,
-
-  /* This kind of note is generated just after each call to `setjmp',
-     and similar functions that can return twice.  */
-  NOTE_INSN_SETJMP,
 
   /* This marks the point immediately after the last prologue insn.  */
   NOTE_INSN_PROLOGUE_END,
@@ -1141,8 +1146,8 @@ extern int ceil_log2			PARAMS ((unsigned HOST_WIDE_INT));
 
 #define plus_constant(X,C) plus_constant_wide (X, (HOST_WIDE_INT) (C))
 
-#define plus_constant_for_output(X,C)  \
-  plus_constant_for_output_wide (X, (HOST_WIDE_INT) (C))
+/* In builtins.c */
+extern rtx expand_builtin_expect_jump	PARAMS ((union tree_node *, rtx, rtx));
 
 /* In explow.c */
 extern void set_stack_check_libfunc PARAMS ((rtx));
@@ -1156,14 +1161,12 @@ extern void optimize_save_area_alloca	PARAMS ((rtx));
 extern rtx gen_rtx			PARAMS ((enum rtx_code,
 						 enum machine_mode, ...));
 extern rtvec gen_rtvec			PARAMS ((int, ...));
-
-/* In other files */
-extern rtx rtx_alloc			PARAMS ((RTX_CODE));
-extern rtvec rtvec_alloc		PARAMS ((int));
 extern rtx copy_insn_1			PARAMS ((rtx));
 extern rtx copy_insn			PARAMS ((rtx));
 
 /* In rtl.c */
+extern rtx rtx_alloc			PARAMS ((RTX_CODE));
+extern rtvec rtvec_alloc		PARAMS ((int));
 extern rtx copy_rtx			PARAMS ((rtx));
 
 /* In emit-rtl.c */
@@ -1187,6 +1190,8 @@ extern rtx gen_lowpart_if_possible	PARAMS ((enum machine_mode, rtx));
 
 /* In emit-rtl.c */
 extern rtx gen_highpart			PARAMS ((enum machine_mode, rtx));
+extern rtx gen_highpart_mode		PARAMS ((enum machine_mode,
+						 enum machine_mode, rtx));
 extern rtx gen_realpart			PARAMS ((enum machine_mode, rtx));
 extern rtx gen_imagpart			PARAMS ((enum machine_mode, rtx));
 extern rtx operand_subword		PARAMS ((rtx, unsigned int, int,
@@ -1280,7 +1285,8 @@ extern enum rtx_code reverse_condition_maybe_unordered PARAMS ((enum rtx_code));
 extern enum rtx_code swap_condition	PARAMS ((enum rtx_code));
 extern enum rtx_code unsigned_condition	PARAMS ((enum rtx_code));
 extern enum rtx_code signed_condition	PARAMS ((enum rtx_code));
-extern void mark_jump_label		PARAMS ((rtx, rtx, int, int));
+extern void mark_jump_label		PARAMS ((rtx, rtx, int));
+extern void cleanup_barriers		PARAMS ((void));
 
 /* In jump.c */
 extern rtx squeeze_notes		PARAMS ((rtx, rtx));
@@ -1292,10 +1298,11 @@ extern rtx get_label_after		PARAMS ((rtx));
 extern rtx follow_jumps			PARAMS ((rtx));
 
 /* In recog.c  */
-extern rtx adj_offsettable_operand	PARAMS ((rtx, int));
+extern rtx *find_constant_term_loc	PARAMS ((rtx *));
 
 /* In emit-rtl.c  */
 extern rtx try_split			PARAMS ((rtx, rtx, int));
+extern int split_branch_probability;
 
 /* In unknown file  */
 extern rtx split_insns			PARAMS ((rtx, rtx));
@@ -1338,6 +1345,7 @@ extern rtx simplify_gen_subreg		PARAMS ((enum machine_mode,
 						 unsigned int));
 extern rtx simplify_replace_rtx		PARAMS ((rtx, rtx, rtx));
 extern rtx simplify_rtx			PARAMS ((rtx));
+extern rtx avoid_constant_pool_reference PARAMS ((rtx));
 
 /* In function.c  */
 extern rtx gen_mem_addressof		PARAMS ((rtx, union tree_node *));
@@ -1381,6 +1389,7 @@ extern int reg_set_p			PARAMS ((rtx, rtx));
 extern rtx single_set_2			PARAMS ((rtx, rtx));
 extern int multiple_sets		PARAMS ((rtx));
 extern int set_noop_p			PARAMS ((rtx));
+extern int noop_move_p			PARAMS ((rtx));
 extern rtx find_last_value		PARAMS ((rtx, rtx *, rtx, int));
 extern int refers_to_regno_p		PARAMS ((unsigned int, unsigned int,
 						 rtx, rtx *));
@@ -1419,6 +1428,7 @@ extern int auto_inc_p			PARAMS ((rtx));
 extern void remove_node_from_expr_list	PARAMS ((rtx, rtx *));
 extern int insns_safe_to_move_p         PARAMS ((rtx, rtx, rtx *));
 extern int loc_mentioned_in_p		PARAMS ((rtx *, rtx));
+extern rtx find_first_parameter_load	PARAMS ((rtx, rtx));
 
 /* flow.c */
 
@@ -1455,6 +1465,7 @@ extern enum reg_class reg_alternate_class PARAMS ((int));
 extern rtx get_first_nonparm_insn	PARAMS ((void));
 
 extern void split_all_insns		PARAMS ((int));
+extern void split_all_insns_noflow	PARAMS ((void));
 
 #define MAX_SAVED_CONST_INT 64
 extern rtx const_int_rtx[MAX_SAVED_CONST_INT * 2 + 1];
@@ -1684,7 +1695,7 @@ struct cse_basic_block_data;
 
 extern int rtx_cost			PARAMS ((rtx, enum rtx_code));
 extern int address_cost			PARAMS ((rtx, enum machine_mode));
-extern void delete_trivially_dead_insns	PARAMS ((rtx, int));
+extern void delete_trivially_dead_insns	PARAMS ((rtx, int, int));
 #ifdef BUFSIZ
 extern int cse_main			PARAMS ((rtx, int, int, FILE *));
 #endif
@@ -1710,8 +1721,6 @@ extern int rtx_renumbered_equal_p	PARAMS ((rtx, rtx));
 extern int true_regnum			PARAMS ((rtx));
 extern int redirect_jump_1		PARAMS ((rtx, rtx));
 extern int redirect_jump		PARAMS ((rtx, rtx, int));
-extern void jump_optimize		PARAMS ((rtx, int, int, int));
-extern void jump_optimize_minimal	PARAMS ((rtx));
 extern void rebuild_jump_labels		PARAMS ((rtx));
 extern void thread_jumps		PARAMS ((rtx, int, int));
 extern int rtx_equal_for_thread_p	PARAMS ((rtx, rtx, rtx));
@@ -1722,12 +1731,8 @@ extern enum rtx_code reversed_comparison_code_parts PARAMS ((enum rtx_code,
 extern void delete_for_peephole		PARAMS ((rtx, rtx));
 extern int condjump_in_parallel_p	PARAMS ((rtx));
 extern void never_reached_warning	PARAMS ((rtx));
-
-/* Flags for jump_optimize() */
-#define JUMP_CROSS_JUMP			1
-#define JUMP_CROSS_JUMP_DEATH_MATTERS	2
-#define JUMP_NOOP_MOVES			1
-#define JUMP_AFTER_REGSCAN		1
+extern void purge_line_number_notes	PARAMS ((rtx));
+extern void copy_loop_headers		PARAMS ((rtx));
 
 /* In emit-rtl.c. */
 extern int max_reg_num				PARAMS ((void));
@@ -1943,7 +1948,8 @@ enum libcall_type
   LCT_CONST_MAKE_BLOCK = 3,
   LCT_PURE_MAKE_BLOCK = 4,
   LCT_NORETURN = 5,
-  LCT_THROW = 6
+  LCT_THROW = 6,
+  LCT_ALWAYS_RETURN = 7
 };
 
 extern void emit_library_call		PARAMS ((rtx, enum libcall_type,
@@ -1999,6 +2005,7 @@ extern void init_alias_once		PARAMS ((void));
 extern void init_alias_analysis		PARAMS ((void));
 extern void end_alias_analysis		PARAMS ((void));
 extern rtx addr_side_effect_eval	PARAMS ((rtx, int, int));
+extern void set_mem_alias_set		PARAMS ((rtx, HOST_WIDE_INT));
 
 /* In sibcall.c */
 typedef enum {
@@ -2020,7 +2027,9 @@ extern rtx stack_limit_rtx;
 /* In regrename.c */
 extern void regrename_optimize		PARAMS ((void));
 
-/* In condexec.c */
+/* In ifcvt.c */
 extern void if_convert			PARAMS ((int));
 
+/* In predict.c */
+extern void invert_br_probabilities	PARAMS ((rtx));
 #endif /* ! GCC_RTL_H */

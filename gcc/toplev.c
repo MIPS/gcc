@@ -65,10 +65,9 @@ Boston, MA 02111-1307, USA.  */
 #include "params.h"
 #include "reload.h"
 #include "dwarf2asm.h"
-
-#ifdef DWARF_DEBUGGING_INFO
-#include "dwarfout.h"
-#endif
+#include "integrate.h"
+#include "debug.h"
+#include "target.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -83,7 +82,8 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #ifdef XCOFF_DEBUGGING_INFO
-#include "xcoffout.h"
+#include "xcoffout.h"		/* Needed for external data
+				   declarations for e.g. AIX 4.x.  */
 #endif
 
 #ifdef VMS
@@ -161,6 +161,7 @@ static const char *decl_name PARAMS ((tree, int));
 
 static void float_signal PARAMS ((int)) ATTRIBUTE_NORETURN;
 static void crash_signal PARAMS ((int)) ATTRIBUTE_NORETURN;
+static void set_float_handler PARAMS ((jmp_buf));
 static void compile_file PARAMS ((const char *));
 static void display_help PARAMS ((void));
 static void display_target_options PARAMS ((void));
@@ -224,6 +225,10 @@ const char *dump_base_name;
 
 extern int target_flags;
 
+/* Debug hooks - dependent upon command line options.  */
+
+struct gcc_debug_hooks *debug_hooks;
+
 /* Describes a dump file.  */
 
 struct dump_file_info
@@ -252,11 +257,12 @@ enum dump_file_index
   DFI_sibling,
   DFI_eh,
   DFI_jump,
+  DFI_ssa,
+  DFI_ssa_ccp,
+  DFI_ssa_dce,
+  DFI_ussa,
   DFI_cse,
   DFI_addressof,
-  DFI_ssa,
-  DFI_dce,
-  DFI_ussa,
   DFI_gcse,
   DFI_loop,
   DFI_cse2,
@@ -275,11 +281,10 @@ enum dump_file_index
   DFI_rnreg,
   DFI_ce2,
   DFI_sched2,
+  DFI_stack,
   DFI_bbro,
-  DFI_jump2,
   DFI_mach,
   DFI_dbr,
-  DFI_stack,
   DFI_MAX
 };
 
@@ -289,7 +294,7 @@ enum dump_file_index
    Remaining -d letters:
 
 	"              o q   u     "
-	"       H  K   OPQ  TUVW YZ"
+	"       H JK   OPQ  TUV  YZ"
 */
 
 struct dump_file_info dump_file[DFI_MAX] =
@@ -298,11 +303,12 @@ struct dump_file_info dump_file[DFI_MAX] =
   { "sibling",  'i', 0, 0, 0 },
   { "eh",	'h', 0, 0, 0 },
   { "jump",	'j', 0, 0, 0 },
+  { "ssa",	'e', 1, 0, 0 },
+  { "ssaccp",	'W', 1, 0, 0 },
+  { "ssadce",	'X', 1, 0, 0 },
+  { "ussa",	'e', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
   { "cse",	's', 0, 0, 0 },
   { "addressof", 'F', 0, 0, 0 },
-  { "ssa",	'e', 1, 0, 0 },
-  { "dce",	'X', 1, 0, 0 },
-  { "ussa",	'e', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
   { "gcse",	'G', 1, 0, 0 },
   { "loop",	'L', 1, 0, 0 },
   { "cse2",	't', 1, 0, 0 },
@@ -321,11 +327,10 @@ struct dump_file_info dump_file[DFI_MAX] =
   { "rnreg",	'n', 1, 0, 0 },
   { "ce2",	'E', 1, 0, 0 },
   { "sched2",	'R', 1, 0, 0 },
+  { "stack",	'k', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
-  { "jump2",	'J', 1, 0, 0 },
   { "mach",	'M', 1, 0, 0 },
   { "dbr",	'd', 0, 0, 0 },
-  { "stack",	'k', 1, 0, 0 },
 };
 
 static int open_dump_file PARAMS ((enum dump_file_index, tree));
@@ -817,8 +822,11 @@ int flag_gnu_linker = 1;
 /* Enable SSA.  */
 int flag_ssa = 0;
 
-/* Enable dead code elimination. */
-int flag_dce = 0;
+/* Enable ssa conditional constant propagation.  */
+int flag_ssa_ccp = 0;
+
+/* Enable ssa aggressive dead code elimination.  */
+int flag_ssa_dce = 0;
 
 /* Tag all structures with __attribute__(packed).  */
 int flag_pack_struct = 0;
@@ -1141,8 +1149,10 @@ lang_independent_options f_options[] =
    N_("Instrument function entry/exit with profiling calls") },
   {"ssa", &flag_ssa, 1,
    N_("Enable SSA optimizations") },
-  {"dce", &flag_dce, 1,
-   N_("Enable dead code elimination") },
+  {"ssa-ccp", &flag_ssa_ccp, 1,
+   N_("Enable SSA conditonal constant propagation") },
+  {"ssa-dce", &flag_ssa_dce, 1,
+   N_("Enable aggressive SSA dead code elimination") },
   {"leading-underscore", &flag_leading_underscore, 1,
    N_("External symbols have a leading underscore") },
   {"ident", &flag_no_ident, 0,
@@ -1670,7 +1680,7 @@ float_signal (signo)
 /* Specify where to longjmp to when a floating arithmetic error happens.
    If HANDLER is 0, it means don't handle the errors any more.  */
 
-void
+static void
 set_float_handler (handler)
      jmp_buf handler;
 {
@@ -2048,47 +2058,7 @@ check_global_declarations (vec, len)
 	warning_with_decl (decl, "`%s' defined but not used");
 
       timevar_push (TV_SYMOUT);
-#ifdef SDB_DEBUGGING_INFO
-      /* The COFF linker can move initialized global vars to the end.
-	 And that can screw up the symbol ordering.
-	 By putting the symbols in that order to begin with,
-	 we avoid a problem.  mcsun!unido!fauern!tumuc!pes@uunet.uu.net.  */
-      if (write_symbols == SDB_DEBUG && TREE_CODE (decl) == VAR_DECL
-	  && TREE_PUBLIC (decl) && DECL_INITIAL (decl)
-	  && ! DECL_EXTERNAL (decl)
-	  && DECL_RTL (decl) != 0)
-	sdbout_symbol (decl, 0);
-
-      /* Output COFF information for non-global
-	 file-scope initialized variables.  */
-      if (write_symbols == SDB_DEBUG
-	  && TREE_CODE (decl) == VAR_DECL
-	  && DECL_INITIAL (decl)
-	  && ! DECL_EXTERNAL (decl)
-	  && DECL_RTL (decl) != 0
-	  && GET_CODE (DECL_RTL (decl)) == MEM)
-	sdbout_toplevel_data (decl);
-#endif /* SDB_DEBUGGING_INFO  */
-#ifdef DWARF_DEBUGGING_INFO
-      /* Output DWARF information for file-scope tentative data object
-	 declarations, file-scope (extern) function declarations (which
-	 had no corresponding body) and file-scope tagged type declarations
-	 and definitions which have not yet been forced out.  */
-
-      if (write_symbols == DWARF_DEBUG
-	  && (TREE_CODE (decl) != FUNCTION_DECL || !DECL_INITIAL (decl)))
-	dwarfout_file_scope_decl (decl, 1);
-#endif
-#ifdef DWARF2_DEBUGGING_INFO
-      /* Output DWARF2 information for file-scope tentative data object
-	 declarations, file-scope (extern) function declarations (which
-	 had no corresponding body) and file-scope tagged type declarations
-	 and definitions which have not yet been forced out.  */
-
-      if (write_symbols == DWARF2_DEBUG
-	  && (TREE_CODE (decl) != FUNCTION_DECL || !DECL_INITIAL (decl)))
-	dwarf2out_decl (decl);
-#endif
+      (*debug_hooks->global_decl) (decl);
       timevar_pop (TV_SYMOUT);
     }
 }
@@ -2257,7 +2227,9 @@ compile_file (name)
     }
   else
     {
+#ifdef ASM_FILE_START
       ASM_FILE_START (asm_out_file);
+#endif
 
 #ifdef ASM_COMMENT_START
       if (flag_verbose_asm)
@@ -2273,18 +2245,43 @@ compile_file (name)
 #endif
     } /* ! flag_syntax_only  */
 
-#ifndef ASM_OUTPUT_SECTION_NAME
-  if (flag_function_sections)
-    {
-      warning ("-ffunction-sections not supported for this target.");
-      flag_function_sections = 0;
-    }
-  if (flag_data_sections)
-    {
-      warning ("-fdata-sections not supported for this target.");
-      flag_data_sections = 0;
-    }
+  /* Set up the debug hooks based on write_symbols.  Default to doing
+     nothing.  */
+  debug_hooks = &do_nothing_debug_hooks;  
+#if defined(DBX_DEBUGGING_INFO)
+  if (write_symbols == DBX_DEBUG)
+    debug_hooks = &dbx_debug_hooks;
 #endif
+#if defined(XCOFF_DEBUGGING_INFO)
+  if (write_symbols == XCOFF_DEBUG)
+    debug_hooks = &xcoff_debug_hooks;
+#endif
+#ifdef SDB_DEBUGGING_INFO
+  if (write_symbols == SDB_DEBUG)
+    debug_hooks = &sdb_debug_hooks;
+#endif
+#ifdef DWARF_DEBUGGING_INFO
+  if (write_symbols == DWARF_DEBUG)
+    debug_hooks = &dwarf_debug_hooks;
+#endif
+#ifdef DWARF2_DEBUGGING_INFO
+  if (write_symbols == DWARF2_DEBUG)
+    debug_hooks = &dwarf2_debug_hooks;
+#endif
+
+  if (! targetm.have_named_sections)
+    {
+      if (flag_function_sections)
+	{
+	  warning ("-ffunction-sections not supported for this target.");
+	  flag_function_sections = 0;
+	}
+      if (flag_data_sections)
+	{
+	  warning ("-fdata-sections not supported for this target.");
+	  flag_data_sections = 0;
+	}
+    }
 
   if (flag_function_sections
       && (profile_flag || profile_block_flag))
@@ -2301,26 +2298,12 @@ compile_file (name)
   /* If dbx symbol table desired, initialize writing it
      and output the predefined types.  */
   timevar_push (TV_SYMOUT);
-#if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
-  if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
-    dbxout_init (asm_out_file, main_input_filename, getdecls ());
-#endif
-#ifdef SDB_DEBUGGING_INFO
-  if (write_symbols == SDB_DEBUG)
-    sdbout_init (asm_out_file, main_input_filename, getdecls ());
-#endif
-#ifdef DWARF_DEBUGGING_INFO
-  if (write_symbols == DWARF_DEBUG)
-    dwarfout_init (asm_out_file, main_input_filename);
-#endif
 #ifdef DWARF2_UNWIND_INFO
   if (dwarf2out_do_frame ())
     dwarf2out_frame_init ();
 #endif
-#ifdef DWARF2_DEBUGGING_INFO
-  if (write_symbols == DWARF2_DEBUG)
-    dwarf2out_init (asm_out_file, main_input_filename);
-#endif
+
+  (*debug_hooks->init) (main_input_filename);
   timevar_pop (TV_SYMOUT);
 
   /* Initialize yet another pass.  */
@@ -2393,25 +2376,13 @@ compile_file (name)
 
   /* Do dbx symbols.  */
   timevar_push (TV_SYMOUT);
-#if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
-  if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
-    dbxout_finish (asm_out_file, main_input_filename);
-#endif
-
-#ifdef DWARF_DEBUGGING_INFO
-  if (write_symbols == DWARF_DEBUG)
-    dwarfout_finish ();
-#endif
 
 #ifdef DWARF2_UNWIND_INFO
   if (dwarf2out_do_frame ())
     dwarf2out_frame_finish ();
 #endif
 
-#ifdef DWARF2_DEBUGGING_INFO
-  if (write_symbols == DWARF2_DEBUG)
-    dwarf2out_finish ();
-#endif
+  (*debug_hooks->finish) (main_input_filename);
   timevar_pop (TV_SYMOUT);
 
   /* Output some stuff at end of file if nec.  */
@@ -2623,64 +2594,6 @@ rest_of_type_compilation (type, toplev)
   timevar_pop (TV_SYMOUT);
 }
 
-/* DECL is an inline function, whose body is present, but which is not
-   being output at this point.  (We're putting that off until we need
-   to do it.)  If there are any actions that need to take place,
-   including the emission of debugging information for the function,
-   this is where they should go.  This function may be called by
-   language-dependent code for front-ends that do not even generate
-   RTL for functions that don't need to be put out.  */
-
-void
-note_deferral_of_defined_inline_function (decl)
-     tree decl ATTRIBUTE_UNUSED;
-{
-#ifdef DWARF_DEBUGGING_INFO
-  /* Generate the DWARF info for the "abstract" instance of a function
-     which we may later generate inlined and/or out-of-line instances
-     of.  */
-  if (write_symbols == DWARF_DEBUG
-      && (DECL_INLINE (decl) || DECL_ABSTRACT (decl))
-      && ! DECL_ABSTRACT_ORIGIN (decl))
-    {
-      /* The front-end may not have set CURRENT_FUNCTION_DECL, but the
-	 DWARF code expects it to be set in this case.  Intuitively,
-	 DECL is the function we just finished defining, so setting
-	 CURRENT_FUNCTION_DECL is sensible.  */
-      tree saved_cfd = current_function_decl;
-      int was_abstract = DECL_ABSTRACT (decl);
-      current_function_decl = decl;
-
-      /* Let the DWARF code do its work.  */
-      set_decl_abstract_flags (decl, 1);
-      dwarfout_file_scope_decl (decl, 0);
-      if (! was_abstract)
-	set_decl_abstract_flags (decl, 0);
-
-      /* Reset CURRENT_FUNCTION_DECL.  */
-      current_function_decl = saved_cfd;
-    }
-#endif
-}
-
-/* FNDECL is an inline function which is about to be emitted out of line.
-   Do any preparation, such as emitting abstract debug info for the inline
-   before it gets mangled by optimization.  */
-
-void
-note_outlining_of_inline_function (fndecl)
-     tree fndecl ATTRIBUTE_UNUSED;
-{
-#ifdef DWARF2_DEBUGGING_INFO
-  /* The DWARF 2 backend tries to reduce debugging bloat by not emitting
-     the abstract description of inline functions until something tries to
-     reference them.  Force it out now, before optimizations mangle the
-     block tree.  */
-  if (write_symbols == DWARF2_DEBUG)
-    dwarf2out_abstract_function (fndecl);
-#endif
-}
-
 /* This is called from finish_function (within yyparse)
    after each top-level definition is parsed.
    It is supposed to compile that function or variable
@@ -2811,23 +2724,23 @@ rest_of_compilation (decl)
 	   declared inline but not inlined, and those inlined even
 	   though they weren't declared inline.  Conveniently, that's
 	   what DECL_INLINE means at this point.  */
-	note_deferral_of_defined_inline_function (decl);
+	(*debug_hooks->deferred_inline_function) (decl);
 
       if (DECL_DEFER_OUTPUT (decl))
 	{
 	  /* If -Wreturn-type, we have to do a bit of compilation.  We just
-	     want to call jump_optimize to figure out whether or not we can
+	     want to call cleanup the cfg to figure out whether or not we can
 	     fall off the end of the function; we do the minimum amount of
-	     work necessary to make that safe.  And, we set optimize to zero
-	     to keep jump_optimize from working too hard.  */
+	     work necessary to make that safe.  */
 	  if (warn_return_type)
 	    {
 	      int saved_optimize = optimize;
 
 	      optimize = 0;
+	      rebuild_jump_labels (insns);
 	      find_exception_handler_labels ();
-	      jump_optimize (insns, !JUMP_CROSS_JUMP, !JUMP_NOOP_MOVES,
-			     !JUMP_AFTER_REGSCAN);
+	      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+	      cleanup_cfg (CLEANUP_PRE_SIBCALL | CLEANUP_PRE_LOOP);
 	      optimize = saved_optimize;
 	    }
 
@@ -2863,11 +2776,13 @@ rest_of_compilation (decl)
      distinguish between the return value of this function and the
      return value of called functions.  Also, we can remove all SETs
      of subregs of hard registers; they are only here because of
-     integrate.*/
+     integrate.  Also, we can now initialize pseudos intended to 
+     carry magic hard reg data throughout the function.  */
   rtx_equal_function_value_matters = 0;
   purge_hard_subreg_sets (get_insns ());
+  emit_initial_value_sets ();
 
-  /* Don't return yet if -Wreturn-type; we need to do jump_optimize.  */
+  /* Don't return yet if -Wreturn-type; we need to do cleanup_cfg.  */
   if ((rtl_dump_and_exit || flag_syntax_only) && !warn_return_type)
     goto exit_rest_of_compilation;
 
@@ -2932,8 +2847,11 @@ rest_of_compilation (decl)
   expected_value_to_br_prob ();
 
   reg_scan (insns, max_reg_num (), 0);
-  jump_optimize (insns, !JUMP_CROSS_JUMP, !JUMP_NOOP_MOVES,
-		 JUMP_AFTER_REGSCAN);
+  rebuild_jump_labels (insns);
+  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP);
+  copy_loop_headers (insns);
+  purge_line_number_notes (insns);
 
   timevar_pop (TV_JUMP);
 
@@ -2944,12 +2862,83 @@ rest_of_compilation (decl)
       goto exit_rest_of_compilation;
     }
 
+  /* Long term, this should probably move before the jump optimizer too,
+     but I didn't want to disturb the rtl_dump_and_exit and related
+     stuff at this time.  */
+  if (optimize > 0 && flag_ssa)
+    {
+      /* Convert to SSA form.  */
+
+      timevar_push (TV_TO_SSA);
+      open_dump_file (DFI_ssa, decl);
+
+      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+      convert_to_ssa ();
+
+      close_dump_file (DFI_ssa, print_rtl_with_bb, insns);
+      timevar_pop (TV_TO_SSA);
+
+      /* Perform sparse conditional constant propagation, if requested.  */
+      if (flag_ssa_ccp)
+	{
+	  timevar_push (TV_SSA_CCP);
+	  open_dump_file (DFI_ssa_ccp, decl);
+
+	  ssa_const_prop ();
+
+	  close_dump_file (DFI_ssa_ccp, print_rtl_with_bb, get_insns ());
+	  timevar_pop (TV_SSA_CCP);
+	}
+
+      /* It would be useful to cleanup the CFG at this point, but block
+	 merging and possibly other transformations might leave a PHI
+	 node in the middle of a basic block, which is a strict no-no.  */
+
+      /* The SSA implementation uses basic block numbers in its phi
+	 nodes.  Thus, changing the control-flow graph or the basic
+	 blocks, e.g., calling find_basic_blocks () or cleanup_cfg (),
+	 may cause problems.  */
+
+      if (flag_ssa_dce)
+	{
+	  /* Remove dead code. */
+
+	  timevar_push (TV_SSA_DCE);
+	  open_dump_file (DFI_ssa_dce, decl);
+
+	  insns = get_insns ();
+	  ssa_eliminate_dead_code();
+
+	  close_dump_file (DFI_ssa_dce, print_rtl_with_bb, insns);
+	  timevar_pop (TV_SSA_DCE);
+	}
+
+      /* Convert from SSA form.  */
+
+      timevar_push (TV_FROM_SSA);
+      open_dump_file (DFI_ussa, decl);
+
+      convert_from_ssa ();
+      /* New registers have been created.  Rescan their usage.  */
+      reg_scan (insns, max_reg_num (), 1);
+      /* Life analysis used in SSA adds log_links but these
+	 shouldn't be there until the flow stage, so clear
+	 them away.  */
+      clear_log_links (insns);
+
+      close_dump_file (DFI_ussa, print_rtl_with_bb, insns);
+      timevar_pop (TV_FROM_SSA);
+
+      ggc_collect ();
+    }
+
   timevar_push (TV_JUMP);
 
   if (optimize > 0)
     {
       find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-      cleanup_cfg ();
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
       /* ??? Run if-conversion before delete_null_pointer_checks,
          since the later does not preserve the CFG.  This should
@@ -3004,14 +2993,15 @@ rest_of_compilation (decl)
       if (tem || optimize > 1)
 	{
 	  timevar_push (TV_JUMP);
-	  jump_optimize (insns, !JUMP_CROSS_JUMP, !JUMP_NOOP_MOVES,
-			 !JUMP_AFTER_REGSCAN);
+	  rebuild_jump_labels (insns);
+	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 	  timevar_pop (TV_JUMP);
 	}
 
       /* Run this after jump optmizations remove all the unreachable code
 	 so that unreachable code will not keep values live.  */
-      delete_trivially_dead_insns (insns, max_reg_num ());
+      delete_trivially_dead_insns (insns, max_reg_num (), 0);
 
       /* Try to identify useless null pointer tests and delete them.  */
       if (flag_delete_null_pointer_checks)
@@ -3019,7 +3009,7 @@ rest_of_compilation (decl)
 	  timevar_push (TV_JUMP);
 	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 
-	  cleanup_cfg ();
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
 	  delete_null_pointer_checks (insns);
 	  timevar_pop (TV_JUMP);
@@ -3042,58 +3032,6 @@ rest_of_compilation (decl)
 
   ggc_collect ();
 
-  if (optimize > 0 && flag_ssa)
-    {
-      /* Convert to SSA form.  */
-
-      timevar_push (TV_TO_SSA);
-      open_dump_file (DFI_ssa, decl);
-
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-      cleanup_cfg ();
-      convert_to_ssa ();
-
-      close_dump_file (DFI_ssa, print_rtl_with_bb, insns);
-      timevar_pop (TV_TO_SSA);
-
-      /* The SSA implementation uses basic block numbers in its phi
-	 nodes.  Thus, changing the control-flow graph or the basic
-	 blocks, e.g., calling find_basic_blocks () or cleanup_cfg (),
-	 may cause problems.  */
-
-      if (flag_dce)
-	{
-	  /* Remove dead code. */
-
-	  timevar_push (TV_DEAD_CODE_ELIM);
-	  open_dump_file (DFI_dce, decl);
-
-	  insns = get_insns ();
-	  eliminate_dead_code();
-
-	  close_dump_file (DFI_dce, print_rtl_with_bb, insns);
-	  timevar_pop (TV_DEAD_CODE_ELIM);
-	}
-
-      /* Convert from SSA form.  */
-
-      timevar_push (TV_FROM_SSA);
-      open_dump_file (DFI_ussa, decl);
-
-      convert_from_ssa ();
-      /* New registers have been created.  Rescan their usage.  */
-      reg_scan (insns, max_reg_num (), 1);
-      /* Life analysis used in SSA adds log_links but these
-	 shouldn't be there until the flow stage, so clear
-	 them away.  */
-      clear_log_links (insns);
-
-      close_dump_file (DFI_ussa, print_rtl_with_bb, insns);
-      timevar_pop (TV_FROM_SSA);
-
-      ggc_collect ();
-    }
-
   /* Perform global cse.  */
 
   if (optimize > 0 && flag_gcse)
@@ -3105,7 +3043,7 @@ rest_of_compilation (decl)
       open_dump_file (DFI_gcse, decl);
 
       find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-      cleanup_cfg ();
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       tem = gcse_main (insns, rtl_dump_file);
 
       save_csb = flag_cse_skip_blocks;
@@ -3129,8 +3067,10 @@ rest_of_compilation (decl)
 	{
 	  tem = tem2 = 0;
 	  timevar_push (TV_JUMP);
-	  jump_optimize (insns, !JUMP_CROSS_JUMP, !JUMP_NOOP_MOVES,
-			 !JUMP_AFTER_REGSCAN);
+	  rebuild_jump_labels (insns);
+	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
+	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 	  timevar_pop (TV_JUMP);
 
 	  if (flag_expensive_optimizations)
@@ -3159,6 +3099,8 @@ rest_of_compilation (decl)
 
       if (flag_rerun_loop_opt)
 	{
+	  cleanup_barriers ();
+
 	  /* We only want to perform unrolling once.  */
 
 	  loop_optimize (insns, rtl_dump_file, 0);
@@ -3167,12 +3109,13 @@ rest_of_compilation (decl)
 	     trivially dead.  We delete those instructions now in the
 	     hope that doing so will make the heuristics in loop work
 	     better and possibly speed up compilation.  */
-	  delete_trivially_dead_insns (insns, max_reg_num ());
+	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
 
 	  /* The regscan pass is currently necessary as the alias
 		  analysis code depends on this information.  */
 	  reg_scan (insns, max_reg_num (), 1);
 	}
+      cleanup_barriers ();
       loop_optimize (insns, rtl_dump_file,
 		     (flag_unroll_loops ? LOOP_UNROLL : 0) | LOOP_BCT);
 
@@ -3200,16 +3143,14 @@ rest_of_compilation (decl)
 	     trivially dead.  We delete those instructions now in the
 	     hope that doing so will make the heuristics in jump work
 	     better and possibly speed up compilation.  */
-	  delete_trivially_dead_insns (insns, max_reg_num ());
+	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
 
 	  reg_scan (insns, max_reg_num (), 0);
-	  jump_optimize (insns, !JUMP_CROSS_JUMP,
-			 !JUMP_NOOP_MOVES, JUMP_AFTER_REGSCAN);
 
 	  timevar_push (TV_IFCVT);
 
 	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-	  cleanup_cfg ();
+	  cleanup_cfg (CLEANUP_EXPENSIVE);
 	  if_convert (0);
 
 	  timevar_pop(TV_IFCVT);
@@ -3222,8 +3163,9 @@ rest_of_compilation (decl)
 	  if (tem)
 	    {
 	      timevar_push (TV_JUMP);
-	      jump_optimize (insns, !JUMP_CROSS_JUMP,
-			     !JUMP_NOOP_MOVES, !JUMP_AFTER_REGSCAN);
+	      rebuild_jump_labels (insns);
+	      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+	      cleanup_cfg (CLEANUP_EXPENSIVE);
 	      timevar_pop (TV_JUMP);
 	    }
 	}
@@ -3255,8 +3197,17 @@ rest_of_compilation (decl)
   open_dump_file (DFI_cfg, decl);
 
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-  cleanup_cfg ();
+  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0);
   check_function_return_warnings ();
+
+  /* It may make more sense to mark constant functions after dead code is
+     eliminated by life_analyzis, but we need to do it early, as -fprofile-arcs
+     may insert code making function non-constant, but we still must consider
+     it as constant, otherwise -fbranch-probabilities will not read data back.
+
+     life_analyzis rarely eliminates modification of external memory.
+   */
+  mark_constant_function ();
 
   close_dump_file (DFI_cfg, print_rtl_with_bb, insns);
 
@@ -3290,10 +3241,8 @@ rest_of_compilation (decl)
       flow_loops_free (&loops);
     }
   life_analysis (insns, rtl_dump_file, PROP_FINAL);
-  mark_constant_function ();
   timevar_pop (TV_FLOW);
 
-  register_life_up_to_date = 1;
   no_new_pseudos = 1;
 
   if (warn_uninitialized || extra_warnings)
@@ -3319,6 +3268,10 @@ rest_of_compilation (decl)
       rebuild_jump_labels_after_combine
 	= combine_instructions (insns, max_reg_num ());
 
+      /* Always purge dead edges, as we may eliminate an insn throwing
+         exception.  */
+      rebuild_jump_labels_after_combine |= purge_all_dead_edges ();
+
       /* Combining insns may have turned an indirect jump into a
 	 direct jump.  Rebuid the JUMP_LABEL fields of jumping
 	 instructions.  */
@@ -3329,14 +3282,14 @@ rest_of_compilation (decl)
 	  timevar_pop (TV_JUMP);
 
 	  timevar_push (TV_FLOW);
-	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-	  cleanup_cfg ();
+	  cleanup_cfg (CLEANUP_EXPENSIVE);
 
 	  /* Blimey.  We've got to have the CFG up to date for the call to
 	     if_convert below.  However, the random deletion of blocks
 	     without updating life info can wind up with Wierd Stuff in
 	     global_live_at_end.  We then run sched1, which updates things
 	     properly, discovers the wierdness and aborts.  */
+	  allocate_bb_life_data ();
 	  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
 			    PROP_DEATH_NOTES | PROP_KILL_DEAD_CODE
 			    | PROP_SCAN_DEAD_CODE);
@@ -3380,14 +3333,18 @@ rest_of_compilation (decl)
       ggc_collect ();
     }
 
+  /* Do unconditional splitting before register allocation to allow machine
+     description to add extra information not needed previously.  */
+  split_all_insns (1);
+
   /* Any of the several passes since flow1 will have munged register
      lifetime data a bit.  */
-  if (optimize > 0)
-    register_life_up_to_date = 0;
+  register_life_up_to_date = 0;
 
 #ifdef OPTIMIZE_MODE_SWITCHING
   timevar_push (TV_GCSE);
 
+  no_new_pseudos = 0;
   if (optimize_mode_switching (NULL))
     {
       /* We did work, and so had to regenerate global life information.
@@ -3395,9 +3352,12 @@ rest_of_compilation (decl)
 	 information below.  */
       register_life_up_to_date = 1;
     }
+  no_new_pseudos = 1;
 
   timevar_pop (TV_GCSE);
 #endif
+
+  timevar_push (TV_SCHED);
 
 #ifdef INSN_SCHEDULING
 
@@ -3405,7 +3365,6 @@ rest_of_compilation (decl)
      because doing the sched analysis makes some of the dump.  */
   if (optimize > 0 && flag_schedule_insns)
     {
-      timevar_push (TV_SCHED);
       open_dump_file (DFI_sched, decl);
 
       /* Do control and data sched analysis,
@@ -3414,15 +3373,15 @@ rest_of_compilation (decl)
       schedule_insns (rtl_dump_file);
 
       close_dump_file (DFI_sched, print_rtl_with_bb, insns);
-      timevar_pop (TV_SCHED);
-
-      ggc_collect ();
 
       /* Register lifetime information was updated as part of verifying
 	 the schedule.  */
       register_life_up_to_date = 1;
     }
 #endif
+  timevar_pop (TV_SCHED);
+
+  ggc_collect ();
 
   /* Determine if the current function is a leaf before running reload
      since this can impact optimizations done by the prologue and
@@ -3498,22 +3457,6 @@ rest_of_compilation (decl)
       timevar_pop (TV_RELOAD_CSE_REGS);
     }
 
-  /* If optimizing, then go ahead and split insns now since we are about
-     to recompute flow information anyway.  Since we can't split insns after
-     reload, do the splitting unconditionally here to avoid gcc from losing
-     REG_DEAD notes.  */
-#ifdef STACK_REGS
-  if (1)
-#else
-  if (optimize > 0)
-#endif
-    {
-      int old_labelnum = max_label_num ();
-
-      split_all_insns (0);
-      rebuild_label_notes_after_reload |= old_labelnum != max_label_num ();
-    }
-
   /* Register allocation and reloading may have turned an indirect jump into
      a direct jump.  If so, we must rebuild the JUMP_LABEL fields of
      jumping instructions.  */
@@ -3532,9 +3475,17 @@ rest_of_compilation (decl)
   timevar_push (TV_FLOW2);
   open_dump_file (DFI_flow2, decl);
 
-  jump_optimize (insns, !JUMP_CROSS_JUMP,
-		 JUMP_NOOP_MOVES, !JUMP_AFTER_REGSCAN);
-  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+#ifdef ENABLE_CHECKING
+  verify_flow_info ();
+#endif
+
+  compute_bb_for_insn (get_max_uid ());
+
+  /* If optimizing, then go ahead and split insns now.  */
+  if (optimize > 0)
+    split_all_insns (0);
+
+  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0);
 
   /* On some machines, the prologue and epilogue code, or parts thereof,
      can be represented as RTL.  Doing so lets us schedule insns between
@@ -3544,7 +3495,7 @@ rest_of_compilation (decl)
 
   if (optimize)
     {
-      cleanup_cfg ();
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_CROSSJUMP);
       life_analysis (insns, rtl_dump_file, PROP_FINAL);
 
       /* This is kind of a heuristic.  We need to run combine_stack_adjustments
@@ -3598,6 +3549,10 @@ rest_of_compilation (decl)
       close_dump_file (DFI_ce2, print_rtl_with_bb, insns);
       timevar_pop (TV_IFCVT2);
     }
+#ifdef STACK_REGS
+  if (optimize)
+    split_all_insns (1);
+#endif
 
 #ifdef INSN_SCHEDULING
   if (optimize > 0 && flag_schedule_insns_after_reload)
@@ -3607,6 +3562,8 @@ rest_of_compilation (decl)
 
       /* Do control and data sched analysis again,
 	 and write some more of the results to dump file.  */
+
+      split_all_insns (1);
 
       schedule_insns (rtl_dump_file);
 
@@ -3622,32 +3579,34 @@ rest_of_compilation (decl)
     = optimize > 0 && only_leaf_regs_used () && leaf_function_p ();
 #endif
 
-  if (optimize > 0 && flag_reorder_blocks)
+#ifdef STACK_REGS
+  timevar_push (TV_REG_STACK);
+  open_dump_file (DFI_stack, decl);
+
+  reg_to_stack (insns, rtl_dump_file);
+
+  close_dump_file (DFI_stack, print_rtl, insns);
+  timevar_pop (TV_REG_STACK);
+
+  ggc_collect ();
+#endif
+  if (optimize > 0)
     {
       timevar_push (TV_REORDER_BLOCKS);
       open_dump_file (DFI_bbro, decl);
 
-      reorder_basic_blocks ();
+      /* Last attempt to optimize CFG, as life analyzis possibly removed
+	 some instructions.  */
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
+		   | CLEANUP_CROSSJUMP);
+      if (flag_reorder_blocks)
+	{
+	  reorder_basic_blocks ();
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
+	}
 
       close_dump_file (DFI_bbro, print_rtl_with_bb, insns);
       timevar_pop (TV_REORDER_BLOCKS);
-    }
-
-  /* One more attempt to remove jumps to .+1 left by dead-store elimination.
-     Also do cross-jumping this time and delete no-op move insns.  */
-
-  if (optimize > 0)
-    {
-      timevar_push (TV_JUMP);
-      open_dump_file (DFI_jump2, decl);
-
-      jump_optimize (insns, JUMP_CROSS_JUMP, JUMP_NOOP_MOVES,
-		     !JUMP_AFTER_REGSCAN);
-
-      /* CFG no longer kept up to date.  */
-
-      close_dump_file (DFI_jump2, print_rtl, insns);
-      timevar_pop (TV_JUMP);
     }
 
   /* If a machine dependent reorganization is needed, call it.  */
@@ -3660,6 +3619,11 @@ rest_of_compilation (decl)
 
   ggc_collect ();
 #endif
+
+  /* CFG no longer kept up to date.  */
+
+  purge_line_number_notes (insns);
+  cleanup_barriers ();
 
   /* If a scheduling pass for delayed branches is to be done,
      call the scheduling code.  */
@@ -3679,33 +3643,18 @@ rest_of_compilation (decl)
     }
 #endif
 
-#ifndef STACK_REGS
-  /* ??? Do this before shorten branches so that we aren't creating
-     insns too late and fail sanity checks in final. */
-  convert_to_eh_region_ranges ();
+#if defined (HAVE_ATTR_length) && !defined (STACK_REGS)
+  timevar_push (TV_SHORTEN_BRANCH);
+  split_all_insns_noflow ();
+  timevar_pop (TV_SHORTEN_BRANCH);
 #endif
 
-  /* Shorten branches.
+  convert_to_eh_region_ranges ();
 
-     Note this must run before reg-stack because of death note (ab)use
-     in the ia32 backend.  */
+  /* Shorten branches.  */
   timevar_push (TV_SHORTEN_BRANCH);
   shorten_branches (get_insns ());
   timevar_pop (TV_SHORTEN_BRANCH);
-
-#ifdef STACK_REGS
-  timevar_push (TV_REG_STACK);
-  open_dump_file (DFI_stack, decl);
-
-  reg_to_stack (insns, rtl_dump_file);
-
-  close_dump_file (DFI_stack, print_rtl, insns);
-  timevar_pop (TV_REG_STACK);
-
-  ggc_collect ();
-
-  convert_to_eh_region_ranges ();
-#endif
 
   current_function_nothrow = nothrow_function_p ();
   if (current_function_nothrow)
@@ -3734,7 +3683,7 @@ rest_of_compilation (decl)
     assemble_start_function (decl, fnname);
     final_start_function (insns, asm_out_file, optimize);
     final (insns, asm_out_file, optimize, 0);
-    final_end_function (insns, asm_out_file, optimize);
+    final_end_function ();
 
 #ifdef IA64_UNWIND_INFO
     /* ??? The IA-64 ".handlerdata" directive must be issued before
@@ -3773,20 +3722,7 @@ rest_of_compilation (decl)
      generated.  During that call, we *will* be routed past here.  */
 
   timevar_push (TV_SYMOUT);
-#ifdef DBX_DEBUGGING_INFO
-  if (write_symbols == DBX_DEBUG)
-    dbxout_function (decl);
-#endif
-
-#ifdef DWARF_DEBUGGING_INFO
-  if (write_symbols == DWARF_DEBUG)
-    dwarfout_file_scope_decl (decl, 0);
-#endif
-
-#ifdef DWARF2_DEBUGGING_INFO
-  if (write_symbols == DWARF2_DEBUG)
-    dwarf2out_decl (decl);
-#endif
+  (*debug_hooks->function_decl) (decl);
   timevar_pop (TV_SYMOUT);
 
  exit_rest_of_compilation:
@@ -3867,7 +3803,7 @@ display_help ()
 
   printf (_("  -O[number]              Set optimisation level to [number]\n"));
   printf (_("  -Os                     Optimise for space rather than speed\n"));
-  for (i = sizeof (compiler_params); i--;)
+  for (i = LAST_PARAM; i--;)
     {
       const char *description = compiler_params[i].help;
       const int length = 21-strlen(compiler_params[i].option);
@@ -3913,7 +3849,7 @@ display_help ()
 		debug_args[i].arg, _(debug_args[i].description));
     }
 
-  printf (_("  -aux-info <file>        Emit declaration info into <file>.X\n"));
+  printf (_("  -aux-info <file>        Emit declaration info into <file>\n"));
   printf (_("  -quiet                  Do not display functions compiled or elapsed time\n"));
   printf (_("  -version                Display the compiler's version\n"));
   printf (_("  -d[letters]             Enable dumps from specific passes of the compiler\n"));
@@ -4171,16 +4107,17 @@ decode_f_option (arg)
     }
   else if ((option_value
             = skip_leading_substring (arg, "message-length=")))
-    diagnostic_message_length_per_line =
-      read_integral_parameter (option_value, arg - 2,
-			       diagnostic_message_length_per_line);
+    output_set_maximum_length
+      (&global_dc->buffer, read_integral_parameter
+       (option_value, arg - 2, diagnostic_line_cutoff (global_dc)));
   else if ((option_value
 	    = skip_leading_substring (arg, "diagnostics-show-location=")))
     {
       if (!strcmp (option_value, "once"))
-	set_message_prefixing_rule (DIAGNOSTICS_SHOW_PREFIX_ONCE);
+        diagnostic_prefixing_rule (global_dc) = DIAGNOSTICS_SHOW_PREFIX_ONCE;
       else if (!strcmp (option_value, "every-line"))
-	set_message_prefixing_rule (DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE);
+        diagnostic_prefixing_rule (global_dc)
+          = DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE;
       else
 	error ("Unrecognized option `%s'", arg - 2);
     }
@@ -4255,7 +4192,7 @@ static int
 decode_g_option (arg)
      const char *arg;
 {
-  unsigned level;
+  static unsigned level=0;
   /* A lot of code assumes write_symbols == NO_DEBUG if the
      debugging level is 0 (thus -gstabs1 -gstabs0 would lose track
      of what debugging type has been selected).  This records the
@@ -4299,7 +4236,7 @@ decode_g_option (arg)
 	  if (*p)
 	    level = read_integral_parameter (p, 0, max_debug_level + 1);
 	  else
-	    level = 2;
+	    level = (level == 0) ? 2 : level;
 
 	  if (da_len > 1 && *p && !strncmp (arg, "dwarf", da_len))
 	    {
@@ -4548,17 +4485,22 @@ independent_decode_option (argc, argv)
 	}
       else if (!strncmp (arg, "aux-info", 8))
 	{
-	  flag_gen_aux_info = 1;
 	  if (arg[8] == '\0')
 	    {
 	      if (argc == 1)
 		return 0;
 
 	      aux_info_file_name = argv[1];
+	      flag_gen_aux_info = 1;
 	      return 2;
 	    }
+	  else if (arg[8] == '=')
+	    {
+	      aux_info_file_name = arg + 9;
+	      flag_gen_aux_info = 1;
+	    }
 	  else
-	    aux_info_file_name = arg + 8;
+	    return 0;
 	}
       else
 	return 0;
@@ -4687,7 +4629,7 @@ toplev_main (argc, argv)
   ggc_add_tree_root (&current_function_func_begin_label, 1);
 
   /* Initialize the diagnostics reporting machinery.  */
-  initialize_diagnostics ();
+  diagnostic_initialize (global_dc);
 
   /* Register the language-independent parameters.  */
   add_params (lang_independent_params, LAST_PARAM);
@@ -4869,9 +4811,6 @@ toplev_main (argc, argv)
 
   if (exit_after_options)
     exit (0);
-
-  /* Reflect any language-specific diagnostic option setting.  */
-  reshape_diagnostic_buffer ();
 
   /* Checker uses the frame pointer.  */
   if (flag_check_memory_usage)
@@ -5153,117 +5092,4 @@ print_switch_values (file, pos, max, indent, sep, term)
 #endif
 
   fprintf (file, "%s", term);
-}
-
-/* Record the beginning of a new source file, named FILENAME.  */
-
-void
-debug_start_source_file (filename)
-     register const char *filename ATTRIBUTE_UNUSED;
-{
-#ifdef DBX_DEBUGGING_INFO
-  if (write_symbols == DBX_DEBUG)
-    dbxout_start_new_source_file (filename);
-#endif
-#ifdef DWARF_DEBUGGING_INFO
-  if (debug_info_level == DINFO_LEVEL_VERBOSE
-      && write_symbols == DWARF_DEBUG)
-    dwarfout_start_new_source_file (filename);
-#endif /* DWARF_DEBUGGING_INFO  */
-#ifdef DWARF2_DEBUGGING_INFO
-  if (write_symbols == DWARF2_DEBUG)
-    dwarf2out_start_source_file (filename);
-#endif /* DWARF2_DEBUGGING_INFO  */
-#ifdef SDB_DEBUGGING_INFO
-  if (write_symbols == SDB_DEBUG)
-    sdbout_start_new_source_file (filename);
-#endif
-}
-
-/* Record the resumption of a source file.  LINENO is the line number in
-   the source file we are returning to.  */
-
-void
-debug_end_source_file (lineno)
-     register unsigned lineno ATTRIBUTE_UNUSED;
-{
-#ifdef DBX_DEBUGGING_INFO
-  if (write_symbols == DBX_DEBUG)
-    dbxout_resume_previous_source_file ();
-#endif
-#ifdef DWARF_DEBUGGING_INFO
-  if (debug_info_level == DINFO_LEVEL_VERBOSE
-      && write_symbols == DWARF_DEBUG)
-    dwarfout_resume_previous_source_file (lineno);
-#endif /* DWARF_DEBUGGING_INFO  */
-#ifdef DWARF2_DEBUGGING_INFO
-  if (write_symbols == DWARF2_DEBUG)
-    dwarf2out_end_source_file ();
-#endif /* DWARF2_DEBUGGING_INFO  */
-#ifdef SDB_DEBUGGING_INFO
-  if (write_symbols == SDB_DEBUG)
-    sdbout_resume_previous_source_file ();
-#endif
-}
-
-/* Called from cb_define in c-lex.c.  The `buffer' parameter contains
-   the tail part of the directive line, i.e. the part which is past the
-   initial whitespace, #, whitespace, directive-name, whitespace part.  */
-
-void
-debug_define (lineno, buffer)
-     register unsigned lineno ATTRIBUTE_UNUSED;
-     register const char *buffer ATTRIBUTE_UNUSED;
-{
-#ifdef DWARF_DEBUGGING_INFO
-  if (write_symbols == DWARF_DEBUG)
-    dwarfout_define (lineno, buffer);
-#endif /* DWARF_DEBUGGING_INFO  */
-#ifdef DWARF2_DEBUGGING_INFO
-  if (write_symbols == DWARF2_DEBUG)
-    dwarf2out_define (lineno, buffer);
-#endif /* DWARF2_DEBUGGING_INFO  */
-}
-
-/* Called from cb_undef in c-lex.c.  The `buffer' parameter contains
-   the tail part of the directive line, i.e. the part which is past the
-   initial whitespace, #, whitespace, directive-name, whitespace part.  */
-
-void
-debug_undef (lineno, buffer)
-     register unsigned lineno ATTRIBUTE_UNUSED;
-     register const char *buffer ATTRIBUTE_UNUSED;
-{
-#ifdef DWARF_DEBUGGING_INFO
-  if (write_symbols == DWARF_DEBUG)
-    dwarfout_undef (lineno, buffer);
-#endif /* DWARF_DEBUGGING_INFO  */
-#ifdef DWARF2_DEBUGGING_INFO
-  if (write_symbols == DWARF2_DEBUG)
-    dwarf2out_undef (lineno, buffer);
-#endif /* DWARF2_DEBUGGING_INFO  */
-}
-
-/* Returns nonzero if it is appropriate not to emit any debugging
-   information for BLOCK, because it doesn't contain any instructions.
-   This may not be the case for blocks containing nested functions, since
-   we may actually call such a function even though the BLOCK information
-   is messed up.  */
-
-int
-debug_ignore_block (block)
-     tree block ATTRIBUTE_UNUSED;
-{
-  /* Never delete the BLOCK for the outermost scope
-     of the function; we can refer to names from
-     that scope even if the block notes are messed up.  */
-  if (is_body_block (block))
-    return 0;
-
-#ifdef DWARF2_DEBUGGING_INFO
-  if (write_symbols == DWARF2_DEBUG)
-    return dwarf2out_ignore_block (block);
-#endif
-
-  return 1;
 }

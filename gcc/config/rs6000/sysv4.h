@@ -202,6 +202,8 @@ do {									\
     rs6000_current_abi = ABI_AIX;					\
   else if (!strcmp (rs6000_abi_name, "linux"))				\
     rs6000_current_abi = ABI_V4;					\
+  else if (!strcmp (rs6000_abi_name, "netbsd"))				\
+    rs6000_current_abi = ABI_V4;					\
   else if (!strcmp (rs6000_abi_name, "solaris"))			\
     rs6000_current_abi = ABI_SOLARIS;					\
   else if (!strcmp (rs6000_abi_name, "i960-old"))			\
@@ -442,14 +444,12 @@ do {									\
 /* Besides the usual ELF sections, we need a toc section.  */
 /* Override elfos.h definition.  */
 #undef	EXTRA_SECTIONS
-#define	EXTRA_SECTIONS in_const, in_ctors, in_dtors, in_toc, in_sdata, in_sdata2, in_sbss, in_init, in_fini
+#define	EXTRA_SECTIONS in_const, in_toc, in_sdata, in_sdata2, in_sbss, in_init, in_fini
 
 /* Override elfos.h definition.  */
 #undef	EXTRA_SECTION_FUNCTIONS
 #define	EXTRA_SECTION_FUNCTIONS						\
   CONST_SECTION_FUNCTION						\
-  CTORS_SECTION_FUNCTION						\
-  DTORS_SECTION_FUNCTION						\
   TOC_SECTION_FUNCTION							\
   SDATA_SECTION_FUNCTION						\
   SDATA2_SECTION_FUNCTION						\
@@ -809,6 +809,10 @@ do {									\
 
 extern int fixuplabelno;
 
+/* Handle constructors specially for -mrelocatable.  */
+#define TARGET_ASM_CONSTRUCTOR  rs6000_elf_asm_out_constructor
+#define TARGET_ASM_DESTRUCTOR   rs6000_elf_asm_out_destructor
+
 /* This is how to output an assembler line defining an `int' constant.
    For -mrelocatable, we mark all addresses that need to be fixed up
    in the .fixup section.  */
@@ -820,8 +824,6 @@ do {									\
   if (TARGET_RELOCATABLE						\
       && in_section != in_toc						\
       && in_section != in_text						\
-      && in_section != in_ctors						\
-      && in_section != in_dtors						\
       && !recurse							\
       && GET_CODE (VALUE) != CONST_INT					\
       && GET_CODE (VALUE) != CONST_DOUBLE				\
@@ -866,11 +868,11 @@ do {									\
 
 /* This is the end of what might become sysv4.h.  */
 
-/* Allow stabs and dwarf, for now, make stabs the default debugging type,
-   not dwarf since G++ doesn't support dwarf.  */
+/* Use DWARF 2 debugging information by default.  */
 #undef	PREFERRED_DEBUGGING_TYPE
-#define	PREFERRED_DEBUGGING_TYPE DBX_DEBUG
+#define	PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
+/* Historically we have also supported stabs debugging.  */
 #define	DBX_DEBUGGING_INFO
 
 /* If we are referencing a function that is static or is known to be
@@ -917,103 +919,6 @@ do {						\
     asm_fprintf (FILE, "%U%s", _name);		\
 } while (0)
 
-/* Switch into a generic section.
-
-   We make the section read-only and executable for a function decl,
-   read-only for a const data decl, and writable for a non-const data decl.
-
-   If the section has already been defined, we must not
-   emit the attributes here. The SVR4 assembler does not
-   recognize section redefinitions.
-   If DECL is NULL, no attributes are emitted.
-
-   Note, Solaris as doesn't like @nobits, and gas can handle .sbss without
-   needing @nobits.  */
-
-/* Override elfos.h definition.  */
-#undef	ASM_OUTPUT_SECTION_NAME
-#define	ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC)		\
-do {									\
-  static struct section_info						\
-    {									\
-      struct section_info *next;				        \
-      char *name;						        \
-      enum sect_enum {SECT_RW, SECT_RO, SECT_EXEC} type;		\
-    } *sections;							\
-  struct section_info *s;						\
-  const char *mode;							\
-  enum sect_enum type;							\
-									\
-  for (s = sections; s; s = s->next)					\
-    if (!strcmp (NAME, s->name))					\
-      break;								\
-									\
-  if (DECL && TREE_CODE (DECL) == FUNCTION_DECL)			\
-    type = SECT_EXEC, mode = "ax";					\
-  else if (DECL && DECL_READONLY_SECTION (DECL, RELOC) && !TARGET_RELOCATABLE && !flag_pic) \
-    type = SECT_RO, mode = "a";						\
-  else									\
-    type = SECT_RW, mode = "aw";					\
-									\
-  if (s == 0)								\
-    {									\
-      s = (struct section_info *) xmalloc (sizeof (struct section_info));  \
-      s->name = xmalloc ((strlen (NAME) + 1) * sizeof (*NAME));		\
-      strcpy (s->name, NAME);						\
-      s->type = type;							\
-      s->next = sections;						\
-      sections = s;							\
-      fprintf (FILE, "\t.section\t\"%s\",\"%s\"\n", NAME, mode);	\
-    }									\
-  else									\
-    {									\
-      if (DECL && s->type != type)					\
-	error_with_decl (DECL, "%s causes a section type conflict");	\
-									\
-      fprintf (FILE, "\t.section\t\"%s\"\n", NAME);			\
-    }									\
-} while (0)
-
-/* Override elfos.h definition.  */
-#undef	ASM_OUTPUT_CONSTRUCTOR
-#define	ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
-  do {									\
-    if (DEFAULT_ABI != ABI_SOLARIS)					\
-      {									\
-	ctors_section ();						\
-	fprintf (FILE, "%s", INT_ASM_OP);				\
-	assemble_name (FILE, NAME);					\
-      }									\
-    else								\
-      {									\
-	init_section ();						\
-	fputs ("\tbl ", FILE);						\
-	assemble_name (FILE, NAME);					\
-      }									\
-    fputs ("\n", FILE);							\
-  } while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-/* Override elfos.h definition.  */
-#undef	ASM_OUTPUT_DESTRUCTOR
-#define	ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       				\
-  do {									\
-    if (DEFAULT_ABI != ABI_SOLARIS)					\
-      {									\
-	dtors_section ();						\
-	fprintf (FILE, "%s", INT_ASM_OP);				\
-	assemble_name (FILE, NAME);					\
-      }									\
-    else								\
-      {									\
-	fini_section ();						\
-	fputs ("\tbl ", FILE);						\
-	assemble_name (FILE, NAME);					\
-      }									\
-    fputs ("\n", FILE);							\
-  } while (0)
-
 /* But, to make this work, we have to output the stabs for the function
    name *first*...  */
 
@@ -1040,7 +945,8 @@ do {									\
 %{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: \
     %{mcall-solaris: -mlittle -msolaris} \
     %{mcall-i960-old: -mlittle} \
-    %{mcall-linux: -mbig} }}}}"
+    %{mcall-linux: -mbig} \
+    %{mcall-netbsd: -mbig} }}}}"
 
 #define	CC1_ENDIAN_BIG_SPEC ""
 
@@ -1062,9 +968,10 @@ do {									\
     %{mcall-solaris: -mlittle %(cc1_endian_little) } \
     %{mcall-i960-old: -mlittle %(cc1_endian_little) } \
     %{mcall-linux: -mbig %(cc1_endian_big) } \
-    %{!mcall-aixdesc: %{!mcall-solaris: %{!mcall-i960-old: %{!mcall-linux: \
+    %{mcall-netbsd: -mbig %(cc1_endian_big) } \
+    %{!mcall-aixdesc: %{!mcall-solaris: %{!mcall-i960-old: %{!mcall-linux: %{!mcall-netbsd: \
 	    %(cc1_endian_default) \
-    }}}} \
+    }}}}} \
 }}}} \
 %{mcall-solaris: -mregnames } \
 %{mno-sdata: -msdata=none } \
@@ -1073,7 +980,8 @@ do {									\
     %{mrelocatable: -meabi } \
     %{mcall-solaris: -mno-eabi } \
     %{mcall-i960-old: -meabi } \
-    %{mcall-linux: -mno-eabi }}} \
+    %{mcall-linux: -mno-eabi } \
+    %{mcall-netbsd: -mno-eabi }}} \
 %{msdata: -msdata=default} \
 %{mno-sdata: -msdata=none} \
 %{profile: -p}"
@@ -1102,8 +1010,9 @@ do {									\
 %{mmvme: %(link_start_mvme) } \
 %{msim: %(link_start_sim) } \
 %{mcall-linux: %(link_start_linux) } \
+%{mcall-netbsd: %(link_start_netbsd) } \
 %{mcall-solaris: %(link_start_solaris) } \
-%{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-solaris: %(link_start_default) }}}}}}"
+%{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-netbsd: %{!mcall-solaris: %(link_start_default) }}}}}}}"
 
 #define LINK_START_DEFAULT_SPEC ""
 
@@ -1111,7 +1020,7 @@ do {									\
 #undef	LINK_SPEC
 #define	LINK_SPEC "\
 %{h*} %{v:-V} %{G*} \
-%{Wl,*:%*} %{YP,*} %{R*} \
+%{YP,*} %{R*} \
 %{Qy:} %{!Qn:-Qy} \
 %(link_shlib) \
 %{!Wl,-T*: %{!T*: %(link_start) }} \
@@ -1157,8 +1066,9 @@ do {									\
 %{mmvme: %(link_os_mvme) } \
 %{msim: %(link_os_sim) } \
 %{mcall-linux: %(link_os_linux) } \
+%{mcall-netbsd: %(link_os_netbsd) } \
 %{mcall-solaris: %(link_os_solaris) } \
-%{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-solaris: %(link_os_default) }}}}}}"
+%{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-netbsd: %{!mcall-solaris: %(link_os_default) }}}}}}}"
 
 #define LINK_OS_DEFAULT_SPEC ""
 
@@ -1205,9 +1115,10 @@ do {									\
 %{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: \
     %{mcall-solaris: %(cpp_endian_solaris) } \
     %{mcall-linux: %(cpp_endian_big) } \
+    %{mcall-netbsd: %(cpp_endian_big) } \
     %{mcall-i960-old: %(cpp_endian_little) } \
     %{mcall-aixdesc:  %(cpp_endian_big) } \
-    %{!mcall-solaris: %{!mcall-linux: %{!mcall-aixdesc: %(cpp_endian_default) }}}}}}}"
+    %{!mcall-solaris: %{!mcall-linux: %{!mcall-netbsd: %{!mcall-aixdesc: %(cpp_endian_default) }}}}}}}}"
 
 #define	CPP_ENDIAN_DEFAULT_SPEC "%(cpp_endian_big)"
 
@@ -1219,8 +1130,9 @@ do {									\
 %{mmvme: %(cpp_os_mvme) } \
 %{msim: %(cpp_os_sim) } \
 %{mcall-linux: %(cpp_os_linux) } \
+%{mcall-netbsd: %(cpp_os_netbsd) } \
 %{mcall-solaris: %(cpp_os_solaris) } \
-%{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-solaris: %(cpp_os_default) }}}}}}"
+%{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-netbsd: %{!mcall-solaris: %(cpp_os_default) }}}}}}}"
 
 #define	CPP_OS_DEFAULT_SPEC ""
 
@@ -1232,8 +1144,9 @@ do {									\
 %{mmvme: %(startfile_mvme) } \
 %{msim: %(startfile_sim) } \
 %{mcall-linux: %(startfile_linux) } \
+%{mcall-netbsd: %(startfile_netbsd) } \
 %{mcall-solaris: %(startfile_solaris) } \
-%{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-solaris: %(startfile_default) }}}}}}"
+%{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-netbsd: %{!mcall-solaris: %(startfile_default) }}}}}}}"
 
 #define	STARTFILE_DEFAULT_SPEC ""
 
@@ -1245,8 +1158,9 @@ do {									\
 %{mmvme: %(lib_mvme) } \
 %{msim: %(lib_sim) } \
 %{mcall-linux: %(lib_linux) } \
+%{mcall-netbsd: %(lib_netbsd) } \
 %{mcall-solaris: %(lib_solaris) } \
-%{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-solaris: %(lib_default) }}}}}}"
+%{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-netbsd: %{!mcall-solaris: %(lib_default) }}}}}}}"
 
 #define LIB_DEFAULT_SPEC ""
 
@@ -1258,9 +1172,10 @@ do {									\
 %{mmvme: %(endfile_mvme)} \
 %{msim: %(endfile_sim)} \
 %{mcall-linux: %(endfile_linux) } \
+%{mcall-netbsd: %(endfile_netbsd) } \
 %{mcall-solaris: %(endfile_solaris)} \
 %{mvxworks: %(endfile_vxworks) } \
-%{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-solaris: %{!mvxworks: %(endfile_default) }}}}}}}"
+%{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-netbsd: %{!mcall-solaris: %{!mvxworks: %(endfile_default) }}}}}}}}"
 
 #define	ENDFILE_DEFAULT_SPEC ""
 
@@ -1355,6 +1270,29 @@ do {									\
     %{std=gnu*:-Dunix -D__unix -Dlinux -D__linux}}}		\
 -Asystem=unix -Asystem=posix %{pthread:-D_REENTRANT}"
 #endif
+
+/* NetBSD support.  */
+#define LIB_NETBSD_SPEC "\
+%{profile:-lgmon -lc_p} %{!profile:-lc}"
+
+#define	STARTFILE_NETBSD_SPEC "\
+ncrti.o%s crt0.o%s \
+%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
+
+#define ENDFILE_NETBSD_SPEC "\
+%{!shared:crtend.o%s} %{shared:crtendS.o%s} \
+ncrtn.o%s"
+
+#define LINK_START_NETBSD_SPEC "\
+"
+
+#define LINK_OS_NETBSD_SPEC "\
+%{!shared: %{!static: \
+  %{rdynamic:-export-dynamic} \
+  %{!dynamic-linker:-dynamic-linker /usr/libexec/ld.elf_so}}}"
+
+#define CPP_OS_NETBSD_SPEC "\
+-D__powerpc__ -D__NetBSD__ -D__ELF__ -D__KPRINTF_ATTRIBUTE__"
 
 /* Solaris support.  */
 /* For Solaris, Gcc automatically adds in one of the files
@@ -1451,6 +1389,7 @@ do {									\
   { "lib_mvme",			LIB_MVME_SPEC },			\
   { "lib_sim",			LIB_SIM_SPEC },				\
   { "lib_linux",		LIB_LINUX_SPEC },			\
+  { "lib_netbsd",		LIB_NETBSD_SPEC },			\
   { "lib_solaris",		LIB_SOLARIS_SPEC },			\
   { "lib_vxworks",		LIB_VXWORKS_SPEC },			\
   { "lib_default",		LIB_DEFAULT_SPEC },			\
@@ -1459,6 +1398,7 @@ do {									\
   { "startfile_mvme",		STARTFILE_MVME_SPEC },			\
   { "startfile_sim",		STARTFILE_SIM_SPEC },			\
   { "startfile_linux",		STARTFILE_LINUX_SPEC },			\
+  { "startfile_netbsd",		STARTFILE_NETBSD_SPEC },		\
   { "startfile_solaris",	STARTFILE_SOLARIS_SPEC },		\
   { "startfile_vxworks",	STARTFILE_VXWORKS_SPEC },		\
   { "startfile_default",	STARTFILE_DEFAULT_SPEC },		\
@@ -1467,6 +1407,7 @@ do {									\
   { "endfile_mvme",		ENDFILE_MVME_SPEC },			\
   { "endfile_sim",		ENDFILE_SIM_SPEC },			\
   { "endfile_linux",		ENDFILE_LINUX_SPEC },			\
+  { "endfile_netbsd",		ENDFILE_NETBSD_SPEC },			\
   { "endfile_solaris",		ENDFILE_SOLARIS_SPEC },			\
   { "endfile_vxworks",		ENDFILE_VXWORKS_SPEC },			\
   { "endfile_default",		ENDFILE_DEFAULT_SPEC },			\
@@ -1479,6 +1420,7 @@ do {									\
   { "link_start_mvme",		LINK_START_MVME_SPEC },			\
   { "link_start_sim",		LINK_START_SIM_SPEC },			\
   { "link_start_linux",		LINK_START_LINUX_SPEC },		\
+  { "link_start_netbsd",	LINK_START_NETBSD_SPEC },		\
   { "link_start_solaris",	LINK_START_SOLARIS_SPEC },		\
   { "link_start_vxworks",	LINK_START_VXWORKS_SPEC },		\
   { "link_start_default",	LINK_START_DEFAULT_SPEC },		\
@@ -1488,6 +1430,7 @@ do {									\
   { "link_os_mvme",		LINK_OS_MVME_SPEC },			\
   { "link_os_sim",		LINK_OS_SIM_SPEC },			\
   { "link_os_linux",		LINK_OS_LINUX_SPEC },			\
+  { "link_os_netbsd",		LINK_OS_NETBSD_SPEC },			\
   { "link_os_solaris",		LINK_OS_SOLARIS_SPEC },			\
   { "link_os_vxworks",		LINK_OS_VXWORKS_SPEC },			\
   { "link_os_default",		LINK_OS_DEFAULT_SPEC },			\
@@ -1504,6 +1447,7 @@ do {									\
   { "cpp_os_mvme",		CPP_OS_MVME_SPEC },			\
   { "cpp_os_sim",		CPP_OS_SIM_SPEC },			\
   { "cpp_os_linux",		CPP_OS_LINUX_SPEC },			\
+  { "cpp_os_netbsd",		CPP_OS_NETBSD_SPEC },			\
   { "cpp_os_solaris",		CPP_OS_SOLARIS_SPEC },			\
   { "cpp_os_vxworks",		CPP_OS_VXWORKS_SPEC },			\
   { "cpp_os_default",		CPP_OS_DEFAULT_SPEC },
@@ -1605,3 +1549,4 @@ do {									\
    : DW_EH_PE_absptr)
 
 #define EXCEPTION_SECTION readonly_data_section
+#define DOUBLE_INT_ASM_OP "\t.quad\t"

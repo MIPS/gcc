@@ -1,6 +1,5 @@
 			Blanket Write Privs.
 
-Craig Burley					craig@jcb-sc.com
 John Carr					jfc@mit.edu
 Richard Earnshaw				rearnsha@arm.com
 Richard Henderson                               rth@redhat.com
@@ -17,6 +16,7 @@ Jim Wilson					wilson@redhat.com
 
 			Various Maintainers
 
+Fortran Front End	Craig Burley		craig@jcb-sc.com
 sh port			Joern Rennecke		amylaar@redhat.com
 			Alexandre Oliva		aoliva@redhat.com
 v850 port		Nick Clifton		nickc@redhat.com
@@ -27,7 +27,6 @@ m32r port		Nick Clifton		nickc@redhat.com
 			Michael Meissner	meissner@redhat.com
 h8 port			Jeff Law		law@redhat.com
 mcore			Nick Clifton		nickc@redhat.com
-			Jim Dein		jdein@windriver.com
 mn10200 port		Jeff Law		law@redhat.com
 mn10300 port		Jeff Law		law@redhat.com
 			Alexandre Oliva		aoliva@redhat.com
@@ -81,7 +80,6 @@ c++ runtime libs	Phil Edwards		pedwards@jaj.com
 c++ runtime libs	Benjamin Kosnik		bkoz@redhat.com
 *synthetic multiply	Torbjorn Granlund	tege@swox.com
 *c-torture		Torbjorn Granlund	tege@swox.com
-*f-torture		Kate Hedstrom		kate@ahab.rutgers.edu
 darwin			Stan Shebs		shebs@apple.com
 sco5, unixware, sco udk	Robert Lipe		robertlipe@usa.net
 fixincludes		Bruce Korb		bkorb@gnu.org
@@ -104,6 +102,12 @@ libiberty		DJ Delorie		dj@redhat.com
 build machinery (*.in)	DJ Delorie		dj@redhat.com
 build machinery (*.in)	Alexandre Oliva		aoliva@redhat.com
 docs co-maintainer	Gerald Pfeifer		pfeifer@dbai.tuwien.ac.at
+Pico-Java port		Steve Chamberlain	sac@transmeta.com
+RTEMS Ports		Joel Sherrill
+s390 port		Hartmut Penner		hpenner@de.ibm.com
+s390 port		Ulrich Weigand		uweigand@de.ibm.com
+mips port               Eric Christopher        echristo@redhat.com
+predict.def		Jan Hubicka		jh@suse.cz
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
@@ -115,7 +119,6 @@ Laurynas Biveinis				lauras@softhome.net
 Phil Blundell					pb@futuretv.com
 Hans Boehm					hboehm@gcc.gnu.org
 Andrew cagney					cagney@redhat.com
-Eric Christopher				echristo@redhat.com
 William Cohen					wcohen@redhat.com
 *Paul Eggert					eggert@twinsun.com
 Ben Elliston					bje@redhat.com
@@ -174,10 +177,26 @@ Mike Stump					mrs@windriver.com
 Ian Taylor					ian@zembu.com
 Philipp Thomas					pthomas@suse.de
 Kresten Krab Thorup				krab@gcc.gnu.org
+Nicola Pero					n.pero@mi.flashnet.it
 Tom Tromey					tromey@redhat.com
 John Wehle					john@feith.com
 Mark Wielaard					mark@gcc.gnu.org
 Graham Stott					grahams@redhat.com
-* Indicates folks we need to get Kerberos/ssh accounts ready so they
-can write in the source tree
+Daniel Berlin					dan@cgsoftware.com
+Jim Blandy					jimb@redhat.com
+Chandra Chavva					cchavva@redhat.com
+Chris Demetriou					cgd@sibyte.com
+Doug Evans					devans@transmeta.com
+Michael Matz
+Tom Rix						trix@redhat.com
+Richard Stallman				rms@gnu.org
+Graham Stott					grahams@redhat.com
+Michael Tiemann					tiemann@redhat.com
 
+GNATS only accounts
+Peter Bienstman(?)
+Craig Rodrigues(?)
+Benjamin Chelf(?)
+James Dennett(?)
+Mark Galassi(?)
+Jeff Strum(?)

@@ -3,8 +3,14 @@
 /* Define if you have a working `mmap' system call.  */
 #undef HAVE_MMAP
 
-// Include support for multiple threads, e.g., in the I/O package.
-#undef _GLIBCPP_USE_THREADS
+/* Define if you need to in order for stat and other things to work.  */
+#undef _POSIX_SOURCE
+
+// Define if GCC supports weak symbols
+#undef _GLIBCPP_SUPPORTS_WEAK
+
+// Define if gthr-default.h exists (meaning that threading support is enabled)
+#undef HAVE_GTHR_DEFAULT
 
 // Include support for 'long long' and 'unsigned long long'.
 #undef _GLIBCPP_USE_LONG_LONG
@@ -17,6 +23,9 @@
 
 // Define if code specialized for wchar_t should be used.
 #undef _GLIBCPP_USE_WCHAR_T
+
+// Define if using setrlimit to limit memory usage during 'make check'.
+#undef _GLIBCPP_MEM_LIMITS
 
 // Define if mbstate_t exists in wchar.h.
 #undef HAVE_MBSTATE_T
@@ -83,6 +92,9 @@
 
 /* Define if you have the _asinl function.  */
 #undef HAVE__ASINL
+
+/* Define if you have the _atan2f function.  */
+#undef HAVE__ATAN2F
 
 /* Define if you have the _atan2l function.  */
 #undef HAVE__ATAN2L
@@ -155,6 +167,15 @@
 
 /* Define if you have the _frexpl function.  */
 #undef HAVE__FREXPL
+
+/* Define if you have the _hypot function.  */
+#undef HAVE__HYPOT
+
+/* Define if you have the _hypotf function.  */
+#undef HAVE__HYPOTF
+
+/* Define if you have the _hypotl function.  */
+#undef HAVE__HYPOTL
 
 /* Define if you have the _isinf function.  */
 #undef HAVE__ISINF
@@ -270,6 +291,9 @@
 /* Define if you have the atanl function.  */
 #undef HAVE_ATANL
 
+/* Define if you have the btowc function.  */
+#undef HAVE_BTOWC
+
 /* Define if you have the ceilf function.  */
 #undef HAVE_CEILF
 
@@ -300,9 +324,6 @@
 /* Define if you have the drand48 function.  */
 #undef HAVE_DRAND48
 
-/* Define if you have the expf function.  */
-#undef HAVE_EXPF
-
 /* Define if you have the expl function.  */
 #undef HAVE_EXPL
 
@@ -311,6 +332,12 @@
 
 /* Define if you have the fabsl function.  */
 #undef HAVE_FABSL
+
+/* Define if you have the fgetwc function.  */
+#undef HAVE_FGETWC
+
+/* Define if you have the fgetws function.  */
+#undef HAVE_FGETWS
 
 /* Define if you have the finite function.  */
 #undef HAVE_FINITE
@@ -336,14 +363,35 @@
 /* Define if you have the fpclass function.  */
 #undef HAVE_FPCLASS
 
+/* Define if you have the fputwc function.  */
+#undef HAVE_FPUTWC
+
+/* Define if you have the fputws function.  */
+#undef HAVE_FPUTWS
+
 /* Define if you have the frexpf function.  */
 #undef HAVE_FREXPF
 
 /* Define if you have the frexpl function.  */
 #undef HAVE_FREXPL
 
+/* Define if you have the fwide function.  */
+#undef HAVE_FWIDE
+
+/* Define if you have the fwprintf function.  */
+#undef HAVE_FWPRINTF
+
+/* Define if you have the fwscanf function.  */
+#undef HAVE_FWSCANF
+
 /* Define if you have the getpagesize function.  */
 #undef HAVE_GETPAGESIZE
+
+/* Define if you have the getwc function.  */
+#undef HAVE_GETWC
+
+/* Define if you have the getwchar function.  */
+#undef HAVE_GETWCHAR
 
 /* Define if you have the hypot function.  */
 #undef HAVE_HYPOT
@@ -399,6 +447,15 @@
 /* Define if you have the logl function.  */
 #undef HAVE_LOGL
 
+/* Define if you have the mbrlen function.  */
+#undef HAVE_MBRLEN
+
+/* Define if you have the mbrtowc function.  */
+#undef HAVE_MBRTOWC
+
+/* Define if you have the mbsinit function.  */
+#undef HAVE_MBSINIT
+
 /* Define if you have the mbsrtowcs function.  */
 #undef HAVE_MBSRTOWCS
 
@@ -419,6 +476,12 @@
 
 /* Define if you have the powl function.  */
 #undef HAVE_POWL
+
+/* Define if you have the putwc function.  */
+#undef HAVE_PUTWC
+
+/* Define if you have the putwchar function.  */
+#undef HAVE_PUTWCHAR
 
 /* Define if you have the qfpclass function.  */
 #undef HAVE_QFPCLASS
@@ -453,11 +516,14 @@
 /* Define if you have the sqrtl function.  */
 #undef HAVE_SQRTL
 
-/* Define if you have the strtof function.  */
-#undef HAVE_STRTOF
-
 /* Define if you have the strtold function.  */
 #undef HAVE_STRTOLD
+
+/* Define if you have the swprintf function.  */
+#undef HAVE_SWPRINTF
+
+/* Define if you have the swscanf function.  */
+#undef HAVE_SWSCANF
 
 /* Define if you have the tanf function.  */
 #undef HAVE_TANF
@@ -471,11 +537,98 @@
 /* Define if you have the tanl function.  */
 #undef HAVE_TANL
 
+/* Define if you have the ungetwc function.  */
+#undef HAVE_UNGETWC
+
+/* Define if you have the vfwprintf function.  */
+#undef HAVE_VFWPRINTF
+
+/* Define if you have the vfwscanf function.  */
+#undef HAVE_VFWSCANF
+
+/* Define if you have the vswprintf function.  */
+#undef HAVE_VSWPRINTF
+
+/* Define if you have the vswscanf function.  */
+#undef HAVE_VSWSCANF
+
+/* Define if you have the vwprintf function.  */
+#undef HAVE_VWPRINTF
+
+/* Define if you have the vwscanf function.  */
+#undef HAVE_VWSCANF
+
+/* Define if you have the wcrtomb function.  */
+#undef HAVE_WCRTOMB
+
+/* Define if you have the wcscat function.  */
+#undef HAVE_WCSCAT
+
+/* Define if you have the wcschr function.  */
+#undef HAVE_WCSCHR
+
+/* Define if you have the wcscmp function.  */
+#undef HAVE_WCSCMP
+
+/* Define if you have the wcscoll function.  */
+#undef HAVE_WCSCOLL
+
+/* Define if you have the wcscpy function.  */
+#undef HAVE_WCSCPY
+
+/* Define if you have the wcscspn function.  */
+#undef HAVE_WCSCSPN
+
+/* Define if you have the wcsftime function.  */
+#undef HAVE_WCSFTIME
+
 /* Define if you have the wcslen function.  */
 #undef HAVE_WCSLEN
 
+/* Define if you have the wcsncat function.  */
+#undef HAVE_WCSNCAT
+
+/* Define if you have the wcsncmp function.  */
+#undef HAVE_WCSNCMP
+
+/* Define if you have the wcsncpy function.  */
+#undef HAVE_WCSNCPY
+
+/* Define if you have the wcspbrk function.  */
+#undef HAVE_WCSPBRK
+
+/* Define if you have the wcsrchr function.  */
+#undef HAVE_WCSRCHR
+
 /* Define if you have the wcsrtombs function.  */
 #undef HAVE_WCSRTOMBS
+
+/* Define if you have the wcsspn function.  */
+#undef HAVE_WCSSPN
+
+/* Define if you have the wcsstr function.  */
+#undef HAVE_WCSSTR
+
+/* Define if you have the wcstod function.  */
+#undef HAVE_WCSTOD
+
+/* Define if you have the wcstof function.  */
+#undef HAVE_WCSTOF
+
+/* Define if you have the wcstok function.  */
+#undef HAVE_WCSTOK
+
+/* Define if you have the wcstol function.  */
+#undef HAVE_WCSTOL
+
+/* Define if you have the wcstoul function.  */
+#undef HAVE_WCSTOUL
+
+/* Define if you have the wcsxfrm function.  */
+#undef HAVE_WCSXFRM
+
+/* Define if you have the wctob function.  */
+#undef HAVE_WCTOB
 
 /* Define if you have the wmemchr function.  */
 #undef HAVE_WMEMCHR
@@ -491,6 +644,12 @@
 
 /* Define if you have the wmemset function.  */
 #undef HAVE_WMEMSET
+
+/* Define if you have the wprintf function.  */
+#undef HAVE_WPRINTF
+
+/* Define if you have the wscanf function.  */
+#undef HAVE_WSCANF
 
 /* Define if you have the <endian.h> header file.  */
 #undef HAVE_ENDIAN_H
@@ -528,6 +687,9 @@
 /* Define if you have the <sys/machine.h> header file.  */
 #undef HAVE_SYS_MACHINE_H
 
+/* Define if you have the <sys/resource.h> header file.  */
+#undef HAVE_SYS_RESOURCE_H
+
 /* Define if you have the <unistd.h> header file.  */
 #undef HAVE_UNISTD_H
 
@@ -548,6 +710,18 @@
 
 /* Define if sigsetjmp is available.   */
 #undef HAVE_SIGSETJMP
+
+/* Only used in build directory testsuite_hooks.h. */
+#undef HAVE_MEMLIMIT_DATA
+
+/* Only used in build directory testsuite_hooks.h. */
+#undef HAVE_MEMLIMIT_RSS
+
+/* Only used in build directory testsuite_hooks.h. */
+#undef HAVE_MEMLIMIT_VMEM
+
+/* Only used in build directory testsuite_hooks.h. */
+#undef HAVE_MEMLIMIT_AS
 
 //
 // Systems that have certain non-standard functions prefixed with an

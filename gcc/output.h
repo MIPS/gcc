@@ -1,7 +1,7 @@
 /* Declarations for insn-output.c.  These functions are defined in recog.c,
    final.c, and varasm.c.
    Copyright (C) 1987, 1991, 1994, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -35,7 +35,7 @@ extern void app_enable		PARAMS ((void));
    Called from varasm.c before most kinds of output.  */
 extern void app_disable		PARAMS ((void));
 
-/* Return the number of slots filled in the current 
+/* Return the number of slots filled in the current
    delayed branch sequence (we don't count the insn needing the
    delay slot).   Zero if not in a delayed branch sequence.  */
 extern int dbr_sequence_length	PARAMS ((void));
@@ -62,7 +62,7 @@ extern void final_start_function  PARAMS ((rtx, FILE *, int));
 /* Output assembler code for the end of a function.
    For clarity, args are same as those of `final_start_function'
    even though not all of them are needed.  */
-extern void final_end_function  PARAMS ((rtx, FILE *, int));
+extern void final_end_function  PARAMS ((void));
 
 /* Output assembler code for some insns: all or part of a function.  */
 extern void final		PARAMS ((rtx, FILE *, int, int));
@@ -116,6 +116,11 @@ extern void split_double	PARAMS ((rtx, rtx *, rtx *));
 /* Return nonzero if this function has no function calls.  */
 extern int leaf_function_p	PARAMS ((void));
 
+/* Return 1 if branch is an forward branch.
+   Uses insn_shuid array, so it works only in the final pass.  May be used by
+   output templates to add branch prediction hints, for example.  */
+extern int final_forward_branch_p PARAMS ((rtx));
+
 /* Return 1 if this function uses only the registers that can be
    safely renumbered.  */
 extern int only_leaf_regs_used	PARAMS ((void));
@@ -132,7 +137,7 @@ extern void allocate_for_life_analysis	PARAMS ((void));
 extern int regno_uninitialized		PARAMS ((int));
 extern int regno_clobbered_at_setjmp	PARAMS ((int));
 extern void find_basic_blocks		PARAMS ((rtx, int, FILE *));
-extern void cleanup_cfg			PARAMS ((void));
+extern void cleanup_cfg			PARAMS ((int));
 extern void check_function_return_warnings PARAMS ((void));
 #endif
 
@@ -153,10 +158,6 @@ extern void readonly_data_section	PARAMS ((void));
 
 /* Determine if we're in the text section. */
 extern int in_text_section		PARAMS ((void));
-
-#ifdef EH_FRAME_SECTION_ASM_OP
-extern void eh_frame_section		PARAMS ((void));
-#endif
 
 #ifdef CTORS_SECTION_ASM_OP
 extern void ctors_section PARAMS ((void));
@@ -256,21 +257,6 @@ extern void assemble_variable		PARAMS ((tree, int, int, int));
 extern void assemble_external		PARAMS ((tree));
 #endif /* TREE_CODE */
 
-/* Record an element in the table of global destructors.
-   How this is done depends on what sort of assembler and linker
-   are in use.
-
-   NAME should be the name of a global function to be called
-   at exit time.  This name is output using assemble_name.  */
-extern void assemble_destructor		PARAMS ((const char *));
-
-/* Likewise for global constructors.  */
-extern void assemble_constructor	PARAMS ((const char *));
-
-/* Likewise for entries we want to record for garbage collection.
-   Garbage collection is still under development.  */
-extern void assemble_gc_entry		PARAMS ((const char *));
-
 /* Assemble code to leave SIZE bytes of zeros.  */
 extern void assemble_zeros		PARAMS ((int));
 
@@ -369,8 +355,8 @@ extern void output_constant		PARAMS ((tree, int));
 extern rtx final_sequence;
 #endif
 
-/* The line number of the beginning of the current function.
-   sdbout.c needs this so that it can output relative linenumbers.  */
+/* The line number of the beginning of the current function.  Various
+   md code needs this so that it can output relative linenumbers.  */
 
 #ifdef SDB_DEBUGGING_INFO /* Avoid undef sym in certain broken linkers.  */
 extern int sdb_begin_function_line;
@@ -448,3 +434,46 @@ extern const char *user_label_prefix;
 /* Assign unique numbers to labels generated for profiling.  */
 
 extern int profile_label_no;
+
+/* Default target function prologue and epilogue assembler output.  */
+extern void default_function_pro_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+
+/* Default target hook that outputs nothing to a stream.  */
+extern void no_asm_to_stream PARAMS ((FILE *));
+
+/* Flags controling properties of a section.  */
+#define SECTION_CODE	    1	/* contains code */
+#define SECTION_WRITE	    2	/* data is writable */
+#define SECTION_DEBUG	    4	/* contains debug data */
+#define SECTION_LINKONCE    8	/* is linkonce */
+#define SECTION_SMALL	   16	/* contains "small data" */
+#define SECTION_BSS	   32	/* contains zeros only */
+#define SECTION_FORGET	   64	/* forget that we've entered the section */
+#define SECTION_MACH_DEP  128	/* subsequent bits reserved for target */
+
+extern void named_section_flags		PARAMS ((const char *, unsigned int,
+						 unsigned int));
+
+union tree_node;
+extern unsigned int default_section_type_flags PARAMS ((union tree_node *,
+							const char *, int));
+
+extern void default_no_named_section PARAMS ((const char *, unsigned int,
+					      unsigned int));
+extern void default_elf_asm_named_section PARAMS ((const char *, unsigned int,
+					      unsigned int));
+extern void default_coff_asm_named_section PARAMS ((const char *, unsigned int,
+					      unsigned int));
+extern void default_pe_asm_named_section PARAMS ((const char *, unsigned int,
+					      unsigned int));
+
+extern void default_stabs_asm_out_destructor PARAMS ((struct rtx_def *, int));
+extern void default_named_section_asm_out_destructor PARAMS ((struct rtx_def *,
+							      int));
+extern void default_dtor_section_asm_out_destructor PARAMS ((struct rtx_def *,
+							     int));
+extern void default_stabs_asm_out_constructor PARAMS ((struct rtx_def *, int));
+extern void default_named_section_asm_out_constructor PARAMS ((struct rtx_def *,
+							       int));
+extern void default_ctor_section_asm_out_constructor PARAMS ((struct rtx_def *,
+							      int));

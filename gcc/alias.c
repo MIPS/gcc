@@ -107,8 +107,6 @@ static int aliases_everything_p         PARAMS ((rtx));
 static int write_dependence_p           PARAMS ((rtx, rtx, int));
 static int nonlocal_mentioned_p         PARAMS ((rtx));
 
-static int loop_p                       PARAMS ((void));
-
 /* Set up all info needed to perform alias analysis on memory references.  */
 
 /* Returns the size in bytes of the mode of X.  */
@@ -278,6 +276,24 @@ alias_sets_conflict_p (set1, set2)
   return 0;
 }
 
+/* Set the alias set of MEM to SET.  */
+
+void
+set_mem_alias_set (mem, set)
+     rtx mem;
+     HOST_WIDE_INT set;
+{
+  /* We would like to do this test but can't yet since when converting a
+     REG to a MEM, the alias set field is undefined.  */
+#if 0
+  /* If the new and old alias sets don't conflict, something is wrong.  */
+  if (!alias_sets_conflict_p (set, MEM_ALIAS_SET (mem)))
+    abort ();
+#endif
+
+  MEM_ALIAS_SET (mem) = set;
+}
+
 /* Return 1 if TYPE is a RECORD_TYPE, UNION_TYPE, or QUAL_UNION_TYPE and has
    has any readonly fields.  If any of the fields have types that
    contain readonly fields, return true as well.  */
@@ -336,7 +352,7 @@ objects_must_conflict_p (t1, t2)
       != (t2 != 0 && AGGREGATE_TYPE_P (t2)))
     return 0;
 
-  /* Otherwise they conflict only if the alias sets conflict. */
+  /* Otherwise they conflict only if the alias sets conflict.  */
   return alias_sets_conflict_p (t1 ? get_alias_set (t1) : 0,
 				t2 ? get_alias_set (t2) : 0);
 }
@@ -383,7 +399,6 @@ find_base_decl (t)
     case '3':
       d0 = find_base_decl (TREE_OPERAND (t, 0));
       d1 = find_base_decl (TREE_OPERAND (t, 1));
-      d0 = find_base_decl (TREE_OPERAND (t, 0));
       d2 = find_base_decl (TREE_OPERAND (t, 2));
 
       /* Set any nonzero values from the last, then from the first.  */
@@ -510,6 +525,13 @@ get_alias_set (t)
 	  if (TREE_CODE (TREE_TYPE (t)) == VOID_TYPE)
 	    return 0;
 	}
+
+      /* If we've already determined the alias set for this decl, just
+	 return it.  This is necessary for C++ anonymous unions, whose
+	 component variables don't look like union members (boo!).  */
+      if (TREE_CODE (t) == VAR_DECL
+	  && DECL_RTL_SET_P (t) && GET_CODE (DECL_RTL (t)) == MEM)
+	return MEM_ALIAS_SET (DECL_RTL (t));
 
       /* Give the language another chance to do something special.  */
       if (orig_t != t
@@ -742,7 +764,7 @@ find_base_value (src)
       if (GET_CODE (src) != PLUS && GET_CODE (src) != MINUS)
 	break;
 
-      /* ... fall through ... */
+      /* ... fall through ...  */
 
     case PLUS:
     case MINUS:
@@ -791,7 +813,7 @@ find_base_value (src)
 
     case AND:
       /* If the second operand is constant set the base
-	 address to the first operand. */
+	 address to the first operand.  */
       if (GET_CODE (XEXP (src, 1)) == CONST_INT && INTVAL (XEXP (src, 1)) != 0)
 	return find_base_value (XEXP (src, 0));
       return 0;
@@ -959,12 +981,10 @@ canon_rtx (x)
 
       if (x0 != XEXP (x, 0) || x1 != XEXP (x, 1))
 	{
-	  /* We can tolerate LO_SUMs being offset here; these
-	     rtl are used for nothing other than comparisons.  */
 	  if (GET_CODE (x0) == CONST_INT)
-	    return plus_constant_for_output (x1, INTVAL (x0));
+	    return plus_constant (x1, INTVAL (x0));
 	  else if (GET_CODE (x1) == CONST_INT)
-	    return plus_constant_for_output (x0, INTVAL (x1));
+	    return plus_constant (x0, INTVAL (x1));
 	  return gen_rtx_PLUS (GET_MODE (x), x0, x1);
 	}
     }
@@ -974,17 +994,8 @@ canon_rtx (x)
      MEM alone, but need to return the canonicalized MEM with
      all the flags with their original values.  */
   else if (GET_CODE (x) == MEM)
-    {
-      rtx addr = canon_rtx (XEXP (x, 0));
+    x = replace_equiv_address_nv (x, canon_rtx (XEXP (x, 0)));
 
-      if (addr != XEXP (x, 0))
-	{
-	  rtx new = gen_rtx_MEM (GET_MODE (x), addr);
-
-	  MEM_COPY_ATTRIBUTES (new, x);
-	  x = new;
-	}
-    }
   return x;
 }
 
@@ -1027,6 +1038,9 @@ rtx_equal_for_memref_p (x, y)
   /* Some RTL can be compared without a recursive examination.  */
   switch (code)
     {
+    case VALUE:
+      return CSELIB_VAL_PTR (x) == CSELIB_VAL_PTR (y);
+
     case REG:
       return REGNO (x) == REGNO (y);
 
@@ -1093,6 +1107,12 @@ rtx_equal_for_memref_p (x, y)
 
 	case 'e':
 	  if (rtx_equal_for_memref_p (XEXP (x, i), XEXP (y, i)) == 0)
+	    return 0;
+	  break;
+
+	  /* This can happen for asm operands.  */
+	case 's':
+	  if (strcmp (XSTR (x, i), XSTR (y, i)))
 	    return 0;
 	  break;
 
@@ -1309,11 +1329,11 @@ base_alias_check (x, y, x_mode, y_mode)
 	return 1;
       if (GET_CODE (x) == AND
 	  && (GET_CODE (XEXP (x, 1)) != CONST_INT
-	      || GET_MODE_UNIT_SIZE (y_mode) < -INTVAL (XEXP (x, 1))))
+	      || (int) GET_MODE_UNIT_SIZE (y_mode) < -INTVAL (XEXP (x, 1))))
 	return 1;
       if (GET_CODE (y) == AND
 	  && (GET_CODE (XEXP (y, 1)) != CONST_INT
-	      || GET_MODE_UNIT_SIZE (x_mode) < -INTVAL (XEXP (y, 1))))
+	      || (int) GET_MODE_UNIT_SIZE (x_mode) < -INTVAL (XEXP (y, 1))))
 	return 1;
       /* Differing symbols never alias.  */
       return 0;
@@ -1333,7 +1353,7 @@ base_alias_check (x, y, x_mode, y_mode)
   if (flag_argument_noalias > 1)
     return 0;
 
-  /* Weak noalias assertion (arguments are distinct, but may match globals). */
+  /* Weak noalias assertion (arguments are distinct, but may match globals).  */
   return ! (GET_MODE (x_base) == VOIDmode && GET_MODE (y_base) == VOIDmode);
 }
 
@@ -1920,7 +1940,7 @@ nonlocal_mentioned_p (x)
     {
       /* Constant functions can be constant if they don't use
          scratch memory used to mark function w/o side effects.  */
-      if (code == CALL_INSN && CONST_CALL_P (x))
+      if (code == CALL_INSN && CONST_OR_PURE_CALL_P (x))
         {
 	  x = CALL_INSN_FUNCTION_USAGE (x);
 	  if (x == 0)
@@ -2038,96 +2058,6 @@ nonlocal_mentioned_p (x)
   return 0;
 }
 
-/* Return non-zero if a loop (natural or otherwise) is present.
-   Inspired by Depth_First_Search_PP described in:
-
-     Advanced Compiler Design and Implementation
-     Steven Muchnick
-     Morgan Kaufmann, 1997
-
-   and heavily borrowed from flow_depth_first_order_compute.  */
-
-static int
-loop_p ()
-{
-  edge *stack;
-  int *pre;
-  int *post;
-  int sp;
-  int prenum = 1;
-  int postnum = 1;
-  sbitmap visited;
-
-  /* Allocate the preorder and postorder number arrays.  */
-  pre = (int *) xcalloc (n_basic_blocks, sizeof (int));
-  post = (int *) xcalloc (n_basic_blocks, sizeof (int));
-
-  /* Allocate stack for back-tracking up CFG.  */
-  stack = (edge *) xmalloc ((n_basic_blocks + 1) * sizeof (edge));
-  sp = 0;
-
-  /* Allocate bitmap to track nodes that have been visited.  */
-  visited = sbitmap_alloc (n_basic_blocks);
-
-  /* None of the nodes in the CFG have been visited yet.  */
-  sbitmap_zero (visited);
-
-  /* Push the first edge on to the stack.  */
-  stack[sp++] = ENTRY_BLOCK_PTR->succ;
-
-  while (sp)
-    {
-      edge e;
-      basic_block src;
-      basic_block dest;
-
-      /* Look at the edge on the top of the stack.  */
-      e = stack[sp - 1];
-      src = e->src;
-      dest = e->dest;
-
-      /* Check if the edge destination has been visited yet.  */
-      if (dest != EXIT_BLOCK_PTR && ! TEST_BIT (visited, dest->index))
-	{
-	  /* Mark that we have visited the destination.  */
-	  SET_BIT (visited, dest->index);
-
-	  pre[dest->index] = prenum++;
-
-	  if (dest->succ)
-	    {
-	      /* Since the DEST node has been visited for the first
-		 time, check its successors.  */
-	      stack[sp++] = dest->succ;
-	    }
-	  else
-	    post[dest->index] = postnum++;
-	}
-      else
-	{
-	  if (dest != EXIT_BLOCK_PTR
-	      && pre[src->index] >= pre[dest->index]
-	      && post[dest->index] == 0)
-	    break;
-
-	  if (! e->succ_next && src != ENTRY_BLOCK_PTR)
-	    post[src->index] = postnum++;
-
-	  if (e->succ_next)
-	    stack[sp - 1] = e->succ_next;
-	  else
-	    sp--;
-	}
-    }
-
-  free (pre);
-  free (post);
-  free (stack);
-  sbitmap_free (visited);
-
-  return sp;
-}
-
 /* Mark the function if it is constant.  */
 
 void
@@ -2144,7 +2074,7 @@ mark_constant_function ()
     return;
 
   /* A loop might not return which counts as a side effect.  */
-  if (loop_p ())
+  if (mark_dfs_back_edges ())
     return;
 
   nonlocal_mentioned = 0;
@@ -2182,7 +2112,7 @@ init_alias_once ()
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     /* Check whether this register can hold an incoming pointer
        argument.  FUNCTION_ARG_REGNO_P tests outgoing register
-       numbers, so translate if necessary due to register windows. */
+       numbers, so translate if necessary due to register windows.  */
     if (FUNCTION_ARG_REGNO_P (OUTGOING_REGNO (i))
 	&& HARD_REGNO_MODE_OK (i, Pmode))
       SET_HARD_REG_BIT (argument_registers, i);
@@ -2310,7 +2240,7 @@ init_alias_analysis ()
 
 	      /* If this insn has a noalias note, process it,  Otherwise,
 	         scan for sets.  A simple set will have no side effects
-	         which could change the base value of any other register. */
+	         which could change the base value of any other register.  */
 
 	      if (GET_CODE (PATTERN (insn)) == SET
 		  && REG_NOTES (insn) != 0
@@ -2349,8 +2279,7 @@ init_alias_analysis ()
 		      rtx op0 = XEXP (src, 0);
 		      op0 = reg_known_value[REGNO (op0)];
 		      reg_known_value[regno]
-			= plus_constant_for_output (op0,
-						    INTVAL (XEXP (src, 1)));
+			= plus_constant (op0, INTVAL (XEXP (src, 1)));
 		      reg_known_equiv_p[regno] = 0;
 		    }
 		  else if (REG_N_SETS (regno) == 1

@@ -345,15 +345,6 @@ extern struct processor_costs *m68hc11_cost;
    where TARGET_SHORT is not available.  */
 #define WCHAR_TYPE              "short int"
 #define WCHAR_TYPE_SIZE         16
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL		007
-#define TARGET_BS		010
-#define TARGET_TAB		011
-#define TARGET_NEWLINE		012
-#define TARGET_VT		013
-#define TARGET_FF		014
-#define TARGET_CR		015
 
 
 /* Standard register usage.  */
@@ -884,8 +875,7 @@ extern enum reg_class m68hc11_tmp_regs_class;
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
    first local allocated.  Otherwise, it is the offset to the BEGINNING
    of the first local allocated.  */
-extern int m68hc11_sp_correction;
-#define STARTING_FRAME_OFFSET		m68hc11_sp_correction
+#define STARTING_FRAME_OFFSET		0
 
 /* Offset of first parameter from the argument pointer register value.  */
 
@@ -900,6 +890,12 @@ extern int m68hc11_sp_correction;
    Before the prologue, RA is at 0(sp). */
 #define INCOMING_RETURN_ADDR_RTX \
     gen_rtx_MEM (VOIDmode, gen_rtx_REG (VOIDmode, STACK_POINTER_REGNUM))
+
+/* After the prologue, RA is at 0(AP) in the current frame.  */
+#define RETURN_ADDR_RTX(COUNT, FRAME)					\
+  ((COUNT) == 0								\
+   ? gen_rtx_MEM (Pmode, arg_pointer_rtx)                               \
+   : 0)
 
 /* Before the prologue, the top of the frame is at 2(sp).  */
 #define INCOMING_FRAME_SP_OFFSET        2
@@ -1095,8 +1091,6 @@ typedef struct m68hc11_args
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   m68hc11_va_arg (valist, type)
 
-#define FUNCTION_EPILOGUE(FILE, SIZE)	m68hc11_function_epilogue(FILE, SIZE)
-
 /* For an arg passed partly in registers and partly in memory,
    this is the number of registers used.
    For args passed entirely in registers or entirely in memory, zero.
@@ -1197,35 +1191,6 @@ typedef struct m68hc11_args
   m68hc11_initialize_trampoline ((TRAMP), (FNADDR), (CXT))
 
 
-
-/* If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, NAME, ARGS) \
-  (m68hc11_valid_decl_attribute_p (DECL, ATTRIBUTES, NAME, ARGS))
-
-/* If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for TYPE.
-   The attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-
-#define VALID_MACHINE_TYPE_ATTRIBUTE(TYPE, ATTRIBUTES, NAME, ARGS) \
-  (m68hc11_valid_type_attribute_p (TYPE, ATTRIBUTES, NAME, ARGS))
-
-/* If defined, a C expression whose value is zero if the attributes on
-   TYPE1 and TYPE2 are incompatible, one if they are compatible, and
-   two if they are nearly compatible (which causes a warning to be
-   generated).  */
-
-#define COMP_TYPE_ATTRIBUTES(TYPE1, TYPE2) \
-  (m68hc11_comp_type_attributes (TYPE1, TYPE2))
-
-/* If defined, a C statement that assigns default attributes to newly
-   defined TYPE.  */
-
-#define SET_DEFAULT_TYPE_ATTRIBUTES(TYPE) \
-  (m68hc11_set_default_type_attributes (TYPE))
-
 /* Define this macro if references to a symbol must be treated
    differently depending on something about the variable or function
    named by the symbol (such as what section it is in).
@@ -1615,6 +1580,28 @@ do {                                                                    \
 /* Output before uninitialized data.  */
 #define BSS_SECTION_ASM_OP 	("\t.sect\t.bss")
 
+/* This is the pseudo-op used to generate a reference to a specific
+   symbol in some section.  It is only used in machine-specific
+   configuration files.  This is the same for all known svr4
+   assemblers, except those in targets that don't use 32-bit pointers.
+   Those should override INT_ASM_OP.  Yes, the name of the macro is
+   misleading.  */
+#undef INT_ASM_OP
+#define INT_ASM_OP		"\t.word\t"
+
+/* Define the pseudo-ops used to switch to the .ctors and .dtors sections.
+
+   Same as config/elfos.h but don't mark these section SHF_WRITE since
+   there is no shared library problem.  */
+#undef CTORS_SECTION_ASM_OP
+#define CTORS_SECTION_ASM_OP	"\t.section\t.ctors,\"a\""
+
+#undef DTORS_SECTION_ASM_OP
+#define DTORS_SECTION_ASM_OP	"\t.section\t.dtors,\"a\""
+
+#define TARGET_ASM_CONSTRUCTOR  m68hc11_asm_out_constructor
+#define TARGET_ASM_DESTRUCTOR   m68hc11_asm_out_destructor
+
 /* This is how to begin an assembly language file.  Most svr4 assemblers want
    at least a .file directive to come first, and some want to see a .version
    directive come right after that.  Here we just establish a default
@@ -1680,13 +1667,6 @@ do { long l;						\
 
 #define ASM_OUTPUT_BYTE(FILE,VALUE)			\
   fprintf ((FILE), "%s0x%x\n", ASM_BYTE_OP, (VALUE))
-
-
-/* Define the parentheses used to group arithmetic operations in assembler
- * code.  
- */
-#define ASM_OPEN_PAREN		"("
-#define ASM_CLOSE_PAREN		")"
 
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */

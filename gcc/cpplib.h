@@ -25,6 +25,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include <sys/types.h>
 #include "hashtable.h"
+#include "line-map.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -124,8 +125,6 @@ struct ht;
   OP(CPP_ATSIGN,	"@")  /* used in Objective C */ \
 \
   TK(CPP_NAME,		SPELL_IDENT)	/* word */			\
-  TK(CPP_INT,		SPELL_STRING)	/* 23 */			\
-  TK(CPP_FLOAT,		SPELL_STRING)	/* 3.14159 */			\
   TK(CPP_NUMBER,	SPELL_STRING)	/* 34_be+ta  */			\
 \
   TK(CPP_CHAR,		SPELL_STRING)	/* 'char' */			\
@@ -174,6 +173,8 @@ struct cpp_string
    occupy 12 bytes on 32-bit hosts and 16 bytes on 64-bit hosts.  */
 struct cpp_token
 {
+  unsigned int line;		/* Logical line of first char of token.  */
+  unsigned short col;		/* Column of first char of token.  */
   ENUM_BITFIELD(cpp_ttype) type : CHAR_BIT;  /* token type */
   unsigned char flags;		/* flags - see above */
 
@@ -386,36 +387,16 @@ struct cpp_options
   unsigned char help_only;
 };
 
-/* This structure is passed to the call back when changing file.  */
-enum cpp_fc_reason {FC_ENTER = 0, FC_LEAVE, FC_RENAME};
-
-struct cpp_file_loc
-{
-  const char *filename;
-  unsigned int lineno;
-};
-
-typedef struct cpp_file_change cpp_file_change;
-struct cpp_file_change
-{
-  struct cpp_file_loc from;	/* Line of #include or #line.  */
-  struct cpp_file_loc to;	/* Line after #include or #line, or start.  */
-  enum cpp_fc_reason reason;	/* Reason for change.  */
-  unsigned char sysp;		/* Nonzero if system header.  */
-  unsigned char externc;	/* Nonzero if wrapper needed.  */
-};
-
 /* Call backs.  */
 struct cpp_callbacks
 {
-    void (*file_change) PARAMS ((cpp_reader *, const cpp_file_change *));
-    void (*include) PARAMS ((cpp_reader *, const unsigned char *,
-			     const cpp_token *));
-    void (*define) PARAMS ((cpp_reader *, cpp_hashnode *));
-    void (*undef) PARAMS ((cpp_reader *, cpp_hashnode *));
-    void (*poison) PARAMS ((cpp_reader *));
-    void (*ident) PARAMS ((cpp_reader *, const cpp_string *));
-    void (*def_pragma) PARAMS ((cpp_reader *));
+    void (*file_change) PARAMS ((cpp_reader *, const struct line_map *));
+    void (*include) PARAMS ((cpp_reader *, unsigned int,
+			     const unsigned char *, const cpp_token *));
+    void (*define) PARAMS ((cpp_reader *, unsigned int, cpp_hashnode *));
+    void (*undef) PARAMS ((cpp_reader *, unsigned int, cpp_hashnode *));
+    void (*ident) PARAMS ((cpp_reader *, unsigned int, const cpp_string *));
+    void (*def_pragma) PARAMS ((cpp_reader *, unsigned int));
 };
 
 #define CPP_FATAL_LIMIT 1000
@@ -425,10 +406,9 @@ struct cpp_callbacks
 /* Name under which this program was invoked.  */
 extern const char *progname;
 
-/* Where does this buffer come from?  A faked include, a source file,
-   a builtin macro, a command-line option, or a _Pragma operator.  */
-enum cpp_buffer_type {BUF_FAKE, BUF_FILE, BUF_BUILTIN,
-		      BUF_CL_OPTION, BUF_PRAGMA};
+/* Where does this buffer come from?  A source file, a builtin macro,
+   a command-line option, or a _Pragma operator.  */
+enum cpp_buffer_type {BUF_FILE, BUF_BUILTIN, BUF_CL_OPTION, BUF_PRAGMA};
 
 /* The structure of a node in the hash table.  The hash table has
    entries for all identifiers: either macros defined by #define
@@ -511,6 +491,7 @@ extern int cpp_destroy PARAMS ((cpp_reader *));
    through the pointer returned from cpp_get_callbacks, or set them
    with cpp_set_callbacks.  */
 extern cpp_options *cpp_get_options PARAMS ((cpp_reader *));
+extern const struct line_maps *cpp_get_line_maps PARAMS ((cpp_reader *));
 extern cpp_callbacks *cpp_get_callbacks PARAMS ((cpp_reader *));
 extern void cpp_set_callbacks PARAMS ((cpp_reader *, cpp_callbacks *));
 
@@ -562,8 +543,7 @@ extern void cpp_unassert PARAMS ((cpp_reader *, const char *));
 extern cpp_buffer *cpp_push_buffer PARAMS ((cpp_reader *,
 					    const unsigned char *, size_t,
 					    enum cpp_buffer_type,
-					    const char *));
-extern cpp_buffer *cpp_pop_buffer PARAMS ((cpp_reader *));
+					    const char *, int));
 extern int cpp_defined PARAMS ((cpp_reader *, const unsigned char *, int));
 
 /* N.B. The error-message-printer prototypes have not been nicely
@@ -619,7 +599,7 @@ extern void cpp_forall_identifiers	PARAMS ((cpp_reader *,
 						 cpp_cb, void *));
 
 /* In cppmacro.c */
-extern void cpp_scan_buffer_nooutput	PARAMS ((cpp_reader *, int));
+extern void cpp_scan_nooutput		PARAMS ((cpp_reader *));
 extern void cpp_start_lookahead		PARAMS ((cpp_reader *));
 extern void cpp_stop_lookahead		PARAMS ((cpp_reader *, int));
 extern int  cpp_sys_macro_p		PARAMS ((cpp_reader *));

@@ -137,7 +137,7 @@ extern rtx expand_builtin_dwarf_fp_regnum	PARAMS ((void));
 extern void expand_builtin_eh_return		PARAMS ((tree, tree));
 extern void expand_eh_return			PARAMS ((void));
 
-extern rtx get_exception_pointer		PARAMS ((void));
+extern rtx get_exception_pointer		PARAMS ((struct function *));
 
 struct function;
 struct inline_remap;
@@ -180,7 +180,7 @@ extern tree (*lang_eh_runtime_type) PARAMS ((tree));
 
 #if ! (defined (EH_RETURN_DATA_REGNO)			\
        && (defined (IA64_UNWIND_INFO)			\
-	   || (defined (DWARF2_UNWIND_INFO)		\
+	   || (DWARF2_UNWIND_INFO			\
 	       && defined (EH_RETURN_STACKADJ_RTX)	\
 	       && (defined (EH_RETURN_HANDLER_RTX)	\
 		   || defined (HAVE_eh_return)))))

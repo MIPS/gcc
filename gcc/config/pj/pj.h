@@ -1239,22 +1239,9 @@ do { char dstr[30];                                     \
   assemble_name ((FILE), (NAME)),                       \
   fprintf ((FILE), ",%d\n", (SIZE)))
 
-/* The assembler's parentheses characters.  */
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
 /* We don't want the default switch handling.  */
 #undef ASM_OUTPUT_BEFORE_CASE_LABEL
 #undef ASM_OUTPUT_CASE_LABEL
-
-/* Target characters.  */
-#define TARGET_BELL     007
-#define TARGET_BS       010
-#define TARGET_TAB      011
-#define TARGET_NEWLINE  012
-#define TARGET_VT       013
-#define TARGET_FF       014
-#define TARGET_CR       015
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or star or 0 if no letter was specified.
@@ -1333,9 +1320,6 @@ do {                                                                          \
 /* Before the prologue, the return address is just above optop.  */
 #define INCOMING_RETURN_ADDR_RTX  \
   plus_constant (gen_rtx_REG (Pmode, OPTOP_REG), 4)
-
-/* Use thunks for vtables.  */
-#define DEFAULT_VTABLE_THUNKS 1
 
 /* Rewrite the rtl to use take advantage of the opstack.  */
 #define MACHINE_DEPENDENT_REORG(INSNS) pj_machine_dependent_reorg(INSNS)

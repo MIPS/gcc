@@ -45,7 +45,6 @@ do									\
   void **_p = (void **)&_dummy;						\
   struct sigcontext_struct *_regs = (struct sigcontext_struct *)++_p;	\
 									\
-  register unsigned long *_ebp = (unsigned long *)_regs->ebp;		\
   register unsigned char *_eip = (unsigned char *)_regs->eip;		\
 									\
   /* According to the JVM spec, "if the dividend is the negative	\
@@ -87,21 +86,6 @@ do									\
 	  _eip += 2;							\
 	  _regs->eip = (unsigned long)_eip;				\
 	  return;							\
-	}								\
-      else if (((_modrm >> 3) & 7) == 6) /* Unsigned divide */		\
-	{								\
-	  /* We assume that unsigned divisions are in library code, so	\
-	   * we throw one level down the stack, which was hopefully	\
-	   * the place that called the library routine.  This will	\
-	   * break if the library is ever compiled with			\
-	   * -fomit-frame-pointer, but at least this way we've got a	\
-	   * good chance of finding the exception handler. */		\
-									\
-	  _eip = (unsigned char *)_ebp[1];				\
-	  _ebp = (unsigned long *)_ebp[0];				\
-									\
-	  asm volatile ("mov %0, (%%ebp); mov %1, 4(%%ebp)"		\
-			: : "r"(_ebp), "r"(_eip));			\
 	}								\
       else								\
 	{								\

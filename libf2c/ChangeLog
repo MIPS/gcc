@@ -1,3 +1,90 @@
+2001-07-18  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* libI77/configure.in (_XOPEN_SOURCE, _FILE_OFFSET_BITS): Move
+	these defines before tests which might be affected by them.
+	(_XOPEN_SOURCE_EXTENDED): Define.
+	* libI77/configure, libI77/config.h.in: Regenerate.
+
+Wed Jul 18 11:14:33 2001  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libU77/configure.in (_XOPEN_SOURCE, _FILE_OFFSET_BITS): Move
+	these defines before tests which might be affected by them.
+	(_XOPEN_SOURCE_EXTENDED): Define.
+
+	* libU77/configure, libU77/config.hin: Regenerate.
+
+2001-07-10  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* libI77/fio.h: Revert type of url from off_t to int.
+	* libI77/dfe.c (c_dfe): Cast offset expression in FSEEK to off_t.
+	* libI77/due.c (c_due): Ditto.  (e_rdue): Ditto.
+	* libI77/ftell_.c (G77_ftell_0): Cast result of FTELL to integer.
+	(G77_fseek_0): Cast offset argument of FSEEK to off_t.
+
+2001-07-07  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* libI77/Makefile.in: Update config.h dependencies.
+	* libI77/configure.in: Define _XOPEN_SOURCE and
+	_FILE_OFFSET_BITS unconditionally.
+	* libI77/configure: Rebuilt.
+	* libI77/config.h.in: Rebuilt.
+	* libI77/endfile.c (t_runc): Replace rewind by FSEEK.
+	* libI77/err.c (f__nowwriting): The type of `loc' is off_t.
+	* libI77/open.c (f_open): Replace rewind by FSEEK.
+	* libI77/rewind.c: Include config.h.  (f_rew): Replace
+	rewind by FSEEK.
+	* libI77/sfe.c: Include config.h.
+	* libI77/wsfe.c: Ditto.
+	* libU77/configure.in: Define _XOPEN_SOURCE and
+	_FILE_OFFSET_BITS unconditionally.
+	* libU77/configure: Rebuilt.
+	* libU77/config.hin: Rebuilt.
+
+2001-07-07  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* libI77/Makefile.in: Add necessary dependencies on config.h.
+
+2001-07-06  Toon Moene  <toon@moene.indiv.nluug.nl>
+            Pedro Vazquez  <vazquez@penelope.iqm.unicamp.br>
+
+	* libI77/configure.in: Check for fseeko, ftello.
+	* libI77/configure: Rebuilt.
+	* libI77/config.h.in: Rebuilt.
+	* libI77/fio.h: Define FSEEK to be fseek or fseeko, depending
+	on configure's findings.  Ditto for FTELL and ftell / ftello.
+	* libI77/backspace.c (f_back): Use FSEEK for fseek, FTELL for ftell.
+	* libI77/dfe.c (c_dfe): Ditto.
+	* libI77/due.c (c_due, e_rdue): Ditto.
+	* libI77/endfile.c (t_runc): Ditto.
+	* libI77/err.c (f__nowreading, f__nowwriting): Ditto.
+	* libI77/ftell_.c (G77_ftell_0, G77_fseek_0): Ditto.
+	* libI77/inquire.c (f_inqu): Ditto.
+	* libI77/open.c (f_open): Ditto.
+	* libI77/rdfmt.c (rd_ed): Ditto.
+	* libI77/sue.c (s_wsue, e_wsue, e_rsue): Ditto.
+
+2001-07-04  Zack Weinberg  <zackw@stanford.edu>
+
+	* Makefile.in: Take PICFLAG and RUNTESTFLAGS out of FLAGS_TO_PASS.
+
+2001-07-01  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* libI77/fio.h: Include <sys/types.h> for off_t.
+
+2001-07-01  Toon Moene  <toon@moene.indiv.nluug.nl>
+            Pedro Vazquez  <vazquez@penelope.iqm.unicamp.br>
+
+	* libI77/fio.h: Use off_t when appropriate.
+	* libI77/backspace.c (f_back): Ditto.
+	* libI77/endfile.c (t_runc): Ditto.
+	* libI77/err.c (f__nowreading): Ditto.
+	* libI77/ftell_.c (unit_chk): Ditto.
+	* libI77/sue.c (global f__recloc, s_wsue): Ditto.
+
+2001-06-13  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* libI77/inquire.c: Include "config.h".
+
 2001-05-21  Loren J. Rittle  <ljrittle@acm.org>
 
 	* libI77/Makefile.in (stamp-h): Create in $(objdir) instead

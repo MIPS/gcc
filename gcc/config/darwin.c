@@ -35,8 +35,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "expr.h"
 #include "reload.h"
-/* need for IDENTIFIER_GLOBAL_VALUE and IDENTIFIER_LOCAL_VALUE */
-#include "c-tree.h"
 #include "function.h"
 #include "ggc.h"
 
@@ -46,10 +44,8 @@ extern void machopic_output_stub PARAMS ((FILE *, const char *, const char *));
 
 static int machopic_data_defined_p PARAMS ((const char *));
 static int func_name_maybe_scoped PARAMS ((const char *));
-
-/* Make everything that used to go in the text section really go there.  */
-
-int flag_no_mach_text_sections = 0;
+static void update_non_lazy_ptrs PARAMS ((const char *));
+static void update_stubs PARAMS ((const char *));
 
 int
 name_needs_quotes (name)
@@ -85,10 +81,11 @@ machopic_classify_ident (ident)
 		     && name[3] == 'J'
 		     && name[4] == 'C'
 		     && name[5] == '_'));
-  tree temp, decl = lookup_name_darwin (ident);
+  tree temp;
 
-  if (!decl)
+  if (name[0] != '!')
     {
+      /* Here if no special encoding to be found.  */
       if (lprefix)
 	{
 	  const char *name = IDENTIFIER_POINTER (ident);
@@ -114,36 +111,24 @@ machopic_classify_ident (ident)
       return MACHOPIC_UNDEFINED;
     }
 
-  /* variable declarations */
-  else if (TREE_CODE (decl) == VAR_DECL)
-    {
-      if ((DECL_INITIAL (decl)
-           || TREE_STATIC (decl))
-          && ! TREE_PUBLIC (decl))
-	return MACHOPIC_DEFINED_DATA;
-    }
+  else if (name[1] == 'D')
+    return MACHOPIC_DEFINED_DATA;
 
-  /* function declarations */
-  else if (TREE_CODE (decl) == FUNCTION_DECL
-	   && (!DECL_EXTERNAL (decl)))
-    {
-      if (TREE_STATIC (decl)
-	  || TREE_ASM_WRITTEN (decl))
-	return MACHOPIC_DEFINED_FUNCTION;
-    }
+  else if (name[1] == 'T')
+    return MACHOPIC_DEFINED_FUNCTION;
 
   for (temp = machopic_defined_list; temp != NULL_TREE; temp = TREE_CHAIN (temp))
     {
       if (ident == TREE_VALUE (temp))
 	{
-	  if (TREE_CODE (decl) == FUNCTION_DECL)
+	  if (name[1] == 'T')
 	    return MACHOPIC_DEFINED_FUNCTION;
 	  else
 	    return MACHOPIC_DEFINED_DATA;
 	}
     }
   
-  if (TREE_CODE (decl) == FUNCTION_DECL)
+  if (name[1] == 't' || name[1] == 'T')
     {
       if (lprefix)
 	return MACHOPIC_DEFINED_FUNCTION;
@@ -218,20 +203,6 @@ machopic_define_name (name)
   machopic_define_ident (get_identifier (name));
 }
 
-tree
-lookup_name_darwin (name)
-     tree name;
-{
-  tree val;
-
-  if (!global_bindings_p()
-      && IDENTIFIER_LOCAL_VALUE (name))
-    val = IDENTIFIER_LOCAL_VALUE (name);
-  else
-    val = IDENTIFIER_GLOBAL_VALUE (name);
-  return val;
-}
-
 /* This is a static to make inline functions work.  The rtx
    representing the PIC base symbol always points to here. */
 
@@ -279,6 +250,7 @@ char *
 machopic_non_lazy_ptr_name (name)
      const char *name;
 {
+  char *temp_name;
   tree temp, ident = get_identifier (name);
   
   for (temp = machopic_non_lazy_pointers;
@@ -287,6 +259,22 @@ machopic_non_lazy_ptr_name (name)
     {
       if (ident == TREE_VALUE (temp))
 	return IDENTIFIER_POINTER (TREE_PURPOSE (temp));
+    }
+
+  STRIP_NAME_ENCODING (name, name);
+
+  /* Try again, but comparing names this time.  */
+  for (temp = machopic_non_lazy_pointers;
+       temp != NULL_TREE; 
+       temp = TREE_CHAIN (temp))
+    {
+      if (TREE_VALUE (temp))
+	{
+	  temp_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
+	  STRIP_NAME_ENCODING (temp_name, temp_name);
+	  if (strcmp (name, temp_name) == 0)
+	    return IDENTIFIER_POINTER (TREE_PURPOSE (temp));
+	}
     }
 
   {
@@ -343,7 +331,11 @@ machopic_stub_name (name)
     {
       if (ident == TREE_VALUE (temp))
 	return IDENTIFIER_POINTER (TREE_PURPOSE (temp));
+      if (strcmp (name, IDENTIFIER_POINTER (TREE_VALUE (temp))) == 0)
+	return IDENTIFIER_POINTER (TREE_PURPOSE (temp));
     }
+
+  STRIP_NAME_ENCODING (name, name);
 
   {
     char *buffer;
@@ -384,7 +376,8 @@ machopic_validate_stub_or_non_lazy_ptr (name, validate_stub)
      const char *name;
      int validate_stub;
 {
-    tree temp, ident = get_identifier (name);
+  char *real_name;
+  tree temp, ident = get_identifier (name), id2;
 
     for (temp = (validate_stub ? machopic_stubs : machopic_non_lazy_pointers);
          temp != NULL_TREE;
@@ -396,6 +389,10 @@ machopic_validate_stub_or_non_lazy_ptr (name, validate_stub)
           TREE_USED (temp) = 1;
 	  if (TREE_CODE (TREE_VALUE (temp)) == IDENTIFIER_NODE)
 	    TREE_SYMBOL_REFERENCED (TREE_VALUE (temp)) = 1;
+	  STRIP_NAME_ENCODING (real_name, IDENTIFIER_POINTER (TREE_VALUE (temp)));
+	  id2 = maybe_get_identifier (real_name);
+	  if (id2)
+	    TREE_SYMBOL_REFERENCED (id2) = 1;
 	}
 }
 
@@ -476,13 +473,9 @@ machopic_indirect_data_reference (orig, reg)
 	return orig;
 
       if (MACHOPIC_PURE && GET_CODE (orig) == CONST_INT)
-        {
-	  result = plus_constant_for_output (base, INTVAL (orig));
-        }
+	result = plus_constant (base, INTVAL (orig));
       else
-        {
-           result = gen_rtx (PLUS, Pmode, base, orig);
-        }
+	result = gen_rtx (PLUS, Pmode, base, orig);
 
       if (RTX_UNCHANGING_P (base) && RTX_UNCHANGING_P (orig))
 	RTX_UNCHANGING_P (result) = 1;
@@ -837,13 +830,11 @@ machopic_legitimize_pic_address (orig, mode, reg)
 					      Pmode, (base == reg ? 0 : reg));
       if (GET_CODE (orig) == CONST_INT)
 	{
-	  pic_ref = plus_constant_for_output (base, INTVAL (orig));
+	  pic_ref = plus_constant (base, INTVAL (orig));
 	  is_complex = 1;
 	}
       else
-	{
-	  pic_ref = gen_rtx (PLUS, Pmode, base, orig);
-	}
+	pic_ref = gen_rtx (PLUS, Pmode, base, orig);
 
       if (RTX_UNCHANGING_P (base) && RTX_UNCHANGING_P (orig))
 	RTX_UNCHANGING_P (pic_ref) = 1;
@@ -890,19 +881,11 @@ machopic_finish (asm_out_file)
       char *stub_name = IDENTIFIER_POINTER (TREE_PURPOSE (temp));
       char *sym;
       char *stub;
-      tree decl = lookup_name_darwin (TREE_VALUE (temp));
 
       if (! TREE_USED (temp))
 	continue;
 
-      /* Don't emit stubs for static inline functions which have not
-         been compiled.  */
-      if (decl
-          && TREE_CODE (decl) == FUNCTION_DECL
-          && DECL_INLINE (decl)
-          && ! TREE_PUBLIC (decl)
-          && ! TREE_ASM_WRITTEN (decl))
-	continue;
+      STRIP_NAME_ENCODING (sym_name, sym_name);
 
       sym = alloca (strlen (sym_name) + 2);
       if (sym_name[0] == '*' || sym_name[0] == '&')
@@ -999,4 +982,158 @@ machopic_operand_p (op)
 #endif
 
   return 0;
+}
+
+/* This function records whether a given name corresponds to a defined
+   or undefined function or variable, for machopic_classify_ident to
+   use later.  */
+
+void
+darwin_encode_section_info (decl)
+     tree decl;
+{
+  char code = '\0';
+  int defined = 0;
+  rtx sym_ref;
+  char *orig_str, *new_str;
+  size_t len, new_len;
+
+  if ((TREE_CODE (decl) == FUNCTION_DECL
+       || TREE_CODE (decl) == VAR_DECL)
+      && !DECL_EXTERNAL (decl)
+      && ((TREE_STATIC (decl)
+	   && (!DECL_COMMON (decl) || !TREE_PUBLIC (decl)))
+	  || DECL_INITIAL (decl)))
+    defined = 1;
+
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    code = (defined ? 'T' : 't');
+  else if (TREE_CODE (decl) == VAR_DECL)
+    code = (defined ? 'D' : 'd');
+
+  if (code == '\0')
+    return;
+
+  sym_ref = XEXP (DECL_RTL (decl), 0);
+  orig_str = XSTR (sym_ref, 0);
+  len = strlen (orig_str) + 1;
+
+  if (orig_str[0] == '!')
+    {
+      /* Already encoded; see if we need to change it.  */
+      if (code == orig_str[1])
+	return;
+      /* Yes, tweak a copy of the name and put it in a new string.  */
+      new_str = alloca (len);
+      memcpy (new_str, orig_str, len);
+      new_str[1] = code;
+      XSTR (sym_ref, 0) = ggc_alloc_string (new_str, len);
+    }
+  else
+    {
+      /* Add the encoding.  */
+      new_len = len + 4;
+      new_str = alloca (new_len);
+      new_str[0] = '!';
+      new_str[1] = code;
+      new_str[2] = '_';
+      new_str[3] = '_';
+      memcpy (new_str + 4, orig_str, len);
+      XSTR (sym_ref, 0) = ggc_alloc_string (new_str, new_len);
+    }
+  /* The non-lazy pointer list may have captured references to the
+     old encoded name, change them.  */
+  update_non_lazy_ptrs (XSTR (sym_ref, 0));
+  update_stubs (XSTR (sym_ref, 0));
+}
+
+/* Scan the list of non-lazy pointers and update any recorded names whose
+   stripped name matches the argument.  */
+
+static void
+update_non_lazy_ptrs (name)
+     const char *name;
+{
+  char *name1, *name2;
+  tree temp;
+
+  STRIP_NAME_ENCODING (name1, name);
+
+  for (temp = machopic_non_lazy_pointers;
+       temp != NULL_TREE; 
+       temp = TREE_CHAIN (temp))
+    {
+      char *sym_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
+
+      if (*sym_name == '!')
+	{
+	  STRIP_NAME_ENCODING (name2, sym_name);
+	  if (strcmp (name1, name2) == 0)
+	    {
+	      IDENTIFIER_POINTER (TREE_VALUE (temp)) = name;
+	      break;
+	    }
+	}
+    }
+}
+
+
+/* Scan the list of stubs and update any recorded names whose
+   stripped name matches the argument.  */
+
+static void
+update_stubs (name)
+     const char *name;
+{
+  char *name1, *name2;
+  tree temp;
+
+  STRIP_NAME_ENCODING (name1, name);
+
+  for (temp = machopic_stubs;
+       temp != NULL_TREE; 
+       temp = TREE_CHAIN (temp))
+    {
+      char *sym_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
+
+      if (*sym_name == '!')
+	{
+	  STRIP_NAME_ENCODING (name2, sym_name);
+	  if (strcmp (name1, name2) == 0)
+	    {
+	      IDENTIFIER_POINTER (TREE_VALUE (temp)) = name;
+	      break;
+	    }
+	}
+    }
+}
+
+void
+machopic_asm_out_constructor (symbol, priority)
+     rtx symbol;
+     int priority ATTRIBUTE_UNUSED;
+{
+  if (flag_pic)
+    mod_init_section ();
+  else
+    constructor_section ();
+  assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, 1);
+
+  if (!flag_pic)
+    fprintf (asm_out_file, ".reference .constructors_used\n");
+}
+
+void
+machopic_asm_out_destructor (symbol, priority)
+     rtx symbol;
+     int priority ATTRIBUTE_UNUSED;
+{
+  if (flag_pic)
+    mod_term_section ();
+  else
+    destructor_section ();
+  assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, 1);
+
+  if (!flag_pic)
+    fprintf (asm_out_file, ".reference .destructors_used\n");
 }

@@ -304,15 +304,6 @@ extern struct small_memory_info small_memory[(int)SMALL_MEMORY_max];
 
    On the NEC V850, loads do sign extension, so make this default. */
 #define DEFAULT_SIGNED_CHAR 1
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 /* Standard register usage.  */
 
@@ -788,10 +779,6 @@ extern int current_function_anonymous_args;
 
 #define EXIT_IGNORE_STACK 1
 
-/* Initialize data used by insn expanders.  This is called from insn_emit,
-   once for every function before code is generated.  */
-#define INIT_EXPANDERS  v850_init_expanders ()
-
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
@@ -988,7 +975,7 @@ do {									\
 /* Tell final.c how to eliminate redundant test instructions.  */
 
 /* Here we define machine-dependent flags and fields in cc_status
-   (see `conditions.h').  No extra ones are needed for the vax.  */
+   (see `conditions.h').  No extra ones are needed for the VAX.  */
 
 /* Store in cc_status the expressions
    that the condition codes will describe
@@ -1069,8 +1056,8 @@ typedef enum
    `in_text' and `in_data'.  You need not define this macro on a
    system with no other sections (that GCC needs to use).  */
 #undef	EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_tdata, in_sdata, in_zdata, in_const, in_ctors, \
-in_dtors, in_rozdata, in_rosdata, in_sbss, in_zbss, in_zcommon, in_scommon
+#define EXTRA_SECTIONS in_tdata, in_sdata, in_zdata, in_const, \
+ in_rozdata, in_rosdata, in_sbss, in_zbss, in_zcommon, in_scommon
 
 /* One or more functions to be defined in `varasm.c'.  These
    functions should do jobs analogous to those of `text_section' and
@@ -1081,8 +1068,6 @@ in_dtors, in_rozdata, in_rosdata, in_sbss, in_zbss, in_zcommon, in_scommon
 /* This could be done a lot more cleanly using ANSI C ... */
 #define EXTRA_SECTION_FUNCTIONS						\
 CONST_SECTION_FUNCTION							\
-CTORS_SECTION_FUNCTION							\
-DTORS_SECTION_FUNCTION							\
 									\
 void									\
 sdata_section ()							\
@@ -1303,12 +1288,6 @@ do { char dstr[30];					\
 #define ASM_OUTPUT_BYTE(FILE, VALUE)  \
   fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
 
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
 /* This says how to output the assembler to define a global
    uninitialized but not common symbol.  */
 
@@ -1350,6 +1329,17 @@ do { char dstr[30];					\
       fputs ("\n", FILE);			\
     }						\
   while (0)
+
+/* This is how to output a reference to a user-level label named NAME.
+   `assemble_name' uses this.  */
+
+#undef ASM_OUTPUT_LABELREF
+#define ASM_OUTPUT_LABELREF(FILE, NAME)           \
+  do {                                            \
+  char* real_name;                                \
+  STRIP_NAME_ENCODING (real_name, (NAME));        \
+  asm_fprintf (FILE, "%U%s", real_name);          \
+  } while (0)
 
 
 /* Store in OUTPUT a string (made with alloca) containing
@@ -1499,16 +1489,6 @@ do { char dstr[30];					\
    so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE QImode
 
-/* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
-   is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) \
-  v850_valid_machine_decl_attribute (DECL, IDENTIFIER, ARGS)
-
-/* A C statement that assigns default attributes to a newly created DECL.  */
-#define SET_DEFAULT_DECL_ATTRIBUTES(decl, attr) \
-     v850_set_default_decl_attr (decl)
-
 /* Tell compiler we want to support GHS pragmas */
 #define REGISTER_TARGET_PRAGMAS(PFILE) do {				  \
   cpp_register_pragma_space (PFILE, "ghs");				  \
@@ -1587,13 +1567,13 @@ extern union tree_node * GHS_current_section_names [(int) COUNT_OF_GHS_SECTION_K
 
 #define EP_REGNUM 30	/* ep register number */
 
-#define ENCODE_SECTION_INFO(DECL)			\
-  do							\
-    {							\
-      if ((TREE_STATIC (DECL) || DECL_EXTERNAL (DECL))	\
-	  && TREE_CODE (DECL) == VAR_DECL)		\
-	v850_encode_data_area (DECL);			\
-    }							\
+#define ENCODE_SECTION_INFO(DECL)				\
+  do								\
+    {								\
+      if (TREE_CODE (DECL) == VAR_DECL				\
+          && (TREE_STATIC (DECL) || DECL_EXTERNAL (DECL)))	\
+	v850_encode_data_area (DECL);				\
+    }								\
   while (0)
 
 #define ZDA_NAME_FLAG_CHAR '@'

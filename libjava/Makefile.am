@@ -58,10 +58,6 @@ ZIP = jar
 endif
 GCJH = gcjh
 else # CANADIAN
-## JAVAC is set to `$(GCJ) -C'.  However, JAVAC is run from the srcdir
-## (due to problems running it in builddir).  In this case the obvious
-## definition of GCJ won't work; instead we resort to this ugly
-## definition that gives us absolute paths.
 GCJH = $(MULTIBUILDTOP)../$(COMPPATH)/gcc/gcjh$(EXEEXT)
 ZIP = $(MULTIBUILDTOP)../$(COMPPATH)/fastjar/jar$(EXEEXT)
 endif # CANADIAN
@@ -71,8 +67,8 @@ endif # CANADIAN
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8
 
 GCJCOMPILE = $(LIBTOOL) --tag=GCJ --mode=compile $(GCJ_WITH_FLAGS) -fassume-compiled -fclasspath=$(here) -L$(here) $(JC1FLAGS) -MD -MT $@ -MF $(@:.lo=.d) -c
-GCJLINK = $(LIBTOOL) --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
-LIBLINK = $(LIBTOOL) --mode=link $(CC) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
+GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
+LIBLINK = $(LIBTOOL) --tag=CC --mode=link $(CC) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
 
 ## We define this because otherwise libtool can be run with different
 ## values of `CXX' and will then get confused and fail to work.  So,
@@ -90,7 +86,8 @@ WARNINGS = -W -Wall
 AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions \
 ## Some systems don't allow `$' in identifiers by default, so we force it.
 	-fdollars-in-identifiers \
-	@LIBGCJ_CXXFLAGS@ @X_CFLAGS@ $(WARNINGS) -D_GNU_SOURCE
+	@LIBGCJ_CXXFLAGS@ @X_CFLAGS@ $(WARNINGS) -D_GNU_SOURCE \
+	-DPREFIX="\"$(prefix)\""
 if USING_GCC
 AM_CFLAGS = @LIBGCJ_CFLAGS@ $(WARNINGS)
 else
@@ -164,6 +161,7 @@ install-exec-hook:
 ## a .java file with some other class which is caught.  Note that we
 ## only want to create headers for those files which do not have
 ## hand-maintained headers.
+$(built_java_source_files:.java=.class): libgcj.jar
 $(java_source_files:.java=.class): libgcj.jar
 
 ## The .class files for X will not be included in libgcj.jar, but the
@@ -171,42 +169,26 @@ $(java_source_files:.java=.class): libgcj.jar
 ## built. We need this to generate headers for the nat-files.
 $(x_java_source_files:.java=.class): libgcj.jar
 
-## FIXME: this isn't really correct.
-$(built_java_source_files:.java=.class): $(built_java_source_files)
-## This little nastiness is here so that the backquoted stuff in the
-## GCJ definition can be correctly expanded, if required.
-	@javac="$(JAVAC)"; \
-	for f in $?; do \
-	  echo $$javac -L$(here) $(JCFLAGS) -classpath $(here):`cd $(srcdir) && /bin/pwd` -d $(here) $$f; \
-	  $$javac -L$(here) $(JCFLAGS) -classpath $(here):`cd $(srcdir) && /bin/pwd` \
-	  -d $(here) $$f; \
-	done
-
 ## We have the zip file depend on the java sources and not the class
 ## files, because we don't know the names of all the class files.
 ## FIXME: this method fails in a peculiar case: if libgcj.jar is
 ## up-to-date, and foo.class is removed, and bar.java is touched, then
 ## `make libgcj.jar' will not rebuilt foo.class.  That's because
 ## libgcj.jar is not out-of-date with respect to foo.java.
-libgcj.jar: $(java_source_files) $(x_java_source_files)
+libgcj.jar: $(built_java_source_files) $(java_source_files) $(x_java_source_files)
 ## Create a list of all Java sources, without exceeding any shell limits.
-	@: $(shell echo Creating list of files to compile...) $(shell rm -f tmp-list || :) $(shell touch tmp-list) $(foreach source,$(subst $(srcdir)/,,$?),$(shell echo $(source) >> tmp-list))
-## FIXME: this ought to depend on built_java_source_files, but right
-## now it can't.  Ugly.
-	$(MAKE) $(built_java_source_files:.java=.class)
-## This little nastiness is here so that the backquoted stuff in the
-## GCJ definition can be correctly expanded, if required.
+	@: $(shell echo Creating list of files to compile...) $(shell rm -f tmp-list || :) $(shell touch tmp-list) $(foreach source,$?,$(shell echo $(source) >> tmp-list))
 	@set fnord $(MAKEFLAGS); amf=$$2; fail=no; \
-	javac="$(JAVAC)"; dir=`/bin/pwd`; cd $(srcdir); \
-	for f in `cat $$dir/tmp-list`; do \
-	  echo $$javac $(JCFLAGS) -classpath $(here):`/bin/pwd` -d $(here) $$f; \
-	  $$javac $(JCFLAGS) -classpath $(here):`/bin/pwd` -d $(here) $$f \
+	javac="$(JAVAC)"; \
+	cat tmp-list | (while read f; do \
+	  echo $$javac $(JCFLAGS) -classpath $(here):$(srcdir) -d $(here) $$f; \
+	  $$javac $(JCFLAGS) -classpath $(here):$(srcdir) -d $(here) $$f \
 	    || case "$$amf" in *=*) exit 1;; *k*) fail=yes ;; *) exit 1;; esac; \
 	done; \
-	test "$$fail" = no
+	test "$$fail" = no)
 	-@rm -f tmp-list libgcj.jar
 ## Note that we explicitly want to include directory information.
-	find java gnu -type d -o -type f -name '*.class' | \
+	find java gnu org -type d -o -type f -name '*.class' | \
 	  sed -e '/\/\./d' -e '/\/xlib/d' | \
 	  $(ZIP) cfM0E@ $@
 
@@ -252,15 +234,13 @@ $(javao_files) $(x_javao_files): %.lo: %.java
 ## Pass the list of object files to libtool in a temporary file to 
 ## avoid tripping platform command line length limits.
 libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES)
-	@echo $(libgcj_la_OBJECTS) > libgcj.objectlist;
-	@echo $(libgcj_la_LIBADD) >> libgcj.objectlist;
+	@: $(shell echo Creating list of files to link...) $(shell rm -f libgcj.objectlist || :) $(shell touch libgcj.objectlist) $(foreach object,$(libgcj_la_OBJECTS) $(libgcj_la_LIBADD),$(shell echo $(object) >> libgcj.objectlist))
 	$(libgcj_la_LINK) -objectlist libgcj.objectlist \
 	@LIBFFI@ \
 	-rpath $(toolexeclibdir) $(libgcj_la_LDFLAGS) $(LIBS)
 
 libgcjx.la: $(libgcjx_la_OBJECTS) $(libgcjx_la_DEPENDENCIES)
-	@echo $(libgcjx_la_OBJECTS) > libgcjx.objectlist;
-	@echo $(libgcjx_la_LIBADD) >> libgcjx.objectlist;
+	@: $(shell echo Creating list of files to link...) $(shell rm -f libgcjx.objectlist || :) $(shell touch libgcjx.objectlist) $(foreach object,$(libgcjx_la_OBJECTS) $(libgcjx_la_LIBADD),$(shell echo $(object) >> libgcjx.objectlist))
 	$(libgcjx_la_LINK) -objectlist libgcjx.objectlist \
 	-rpath $(toolexeclibdir) $(libgcjx_la_LDFLAGS) $(LIBS)
 
@@ -281,6 +261,8 @@ nat_headers = $(ordinary_java_source_files:.java=.h) \
 	java/io/ObjectInputStream$$GetField.h
 
 x_nat_headers = $(x_java_source_files:.java=.h)
+
+$(nat_headers) $(x_nat_headers): libgcj.jar
 
 java/lang/ClassLoader.h: java/lang/ClassLoader.class libgcj.jar
 	$(GCJH) -classpath $(top_builddir) \
@@ -352,6 +334,9 @@ java/io/ObjectOutputStream$$PutField.h: libgcj.jar
 
 ## Headers we maintain by hand and which we want to install.
 extra_headers = java/lang/Object.h java/lang/Class.h
+
+$(extra_headers):
+	@:
 
 ## Install the headers.  It is fairly ugly that we have to do this by
 ## hand.
@@ -855,12 +840,14 @@ java/lang/System.java \
 java/lang/Thread.java \
 java/lang/ThreadDeath.java \
 java/lang/ThreadGroup.java \
+java/lang/ThreadLocal.java \
 java/lang/Throwable.java \
 java/lang/UnknownError.java \
 java/lang/UnsatisfiedLinkError.java \
 java/lang/UnsupportedOperationException.java \
 java/lang/VerifyError.java \
 java/lang/VirtualMachineError.java \
+java/lang/VMClassLoader.java \
 java/lang/Void.java \
 java/io/BufferedInputStream.java \
 java/io/BufferedOutputStream.java \
@@ -990,7 +977,6 @@ java/util/TreeSet.java \
 java/util/TooManyListenersException.java \
 java/util/Vector.java \
 java/util/WeakHashMap.java
-
 
 ## List of all .java files to be compiled.  Please keep this list
 ## alphabetical.  Please put files from java/lang, java/io, and java/util
@@ -1266,6 +1252,60 @@ java/util/zip/ZipException.java	\
 java/util/zip/ZipFile.java \
 java/util/zip/ZipInputStream.java \
 java/util/zip/ZipOutputStream.java \
+org/w3c/dom/Attr.java \
+org/w3c/dom/CDATASection.java \
+org/w3c/dom/CharacterData.java \
+org/w3c/dom/Comment.java \
+org/w3c/dom/DOMException.java \
+org/w3c/dom/DOMImplementation.java \
+org/w3c/dom/Document.java \
+org/w3c/dom/DocumentFragment.java \
+org/w3c/dom/DocumentType.java \
+org/w3c/dom/Element.java \
+org/w3c/dom/Entity.java \
+org/w3c/dom/EntityReference.java \
+org/w3c/dom/NamedNodeMap.java \
+org/w3c/dom/Node.java \
+org/w3c/dom/NodeList.java \
+org/w3c/dom/Notation.java \
+org/w3c/dom/ProcessingInstruction.java \
+org/w3c/dom/Text.java \
+org/w3c/dom/ranges/DocumentRange.java \
+org/w3c/dom/ranges/Range.java \
+org/w3c/dom/ranges/RangeException.java \
+org/w3c/dom/traversal/DocumentTraversal.java \
+org/w3c/dom/traversal/NodeFilter.java \
+org/w3c/dom/traversal/NodeIterator.java \
+org/w3c/dom/traversal/TreeWalker.java \
+org/xml/sax/ext/DeclHandler.java \
+org/xml/sax/ext/LexicalHandler.java \
+org/xml/sax/helpers/AttributeListImpl.java \
+org/xml/sax/helpers/AttributesImpl.java \
+org/xml/sax/helpers/DefaultHandler.java \
+org/xml/sax/helpers/LocatorImpl.java \
+org/xml/sax/helpers/NamespaceSupport.java \
+org/xml/sax/helpers/ParserAdapter.java \
+org/xml/sax/helpers/ParserFactory.java \
+org/xml/sax/helpers/XMLFilterImpl.java \
+org/xml/sax/helpers/XMLReaderAdapter.java \
+org/xml/sax/helpers/XMLReaderFactory.java \
+org/xml/sax/AttributeList.java \
+org/xml/sax/Attributes.java \
+org/xml/sax/ContentHandler.java \
+org/xml/sax/DTDHandler.java \
+org/xml/sax/DocumentHandler.java \
+org/xml/sax/EntityResolver.java \
+org/xml/sax/ErrorHandler.java \
+org/xml/sax/HandlerBase.java \
+org/xml/sax/InputSource.java \
+org/xml/sax/Locator.java \
+org/xml/sax/Parser.java \
+org/xml/sax/SAXException.java \
+org/xml/sax/SAXNotRecognizedException.java \
+org/xml/sax/SAXNotSupportedException.java \
+org/xml/sax/SAXParseException.java \
+org/xml/sax/XMLFilter.java \
+org/xml/sax/XMLReader.java \
 $(awt_java_source_files) \
 $(convert_source_files)
 
@@ -1470,6 +1510,7 @@ AM_MAKEFLAGS = \
 	"PICFLAG=$(PICFLAG)" \
 	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" \
 	"SHELL=$(SHELL)" \
+	"RUNTESTFLAGS=$(RUNTESTFLAGS)" \
 	"exec_prefix=$(exec_prefix)" \
 	"infodir=$(infodir)" \
 	"libdir=$(libdir)" \
@@ -1485,7 +1526,7 @@ AM_MAKEFLAGS = \
 	"RANLIB=$(RANLIB)" \
 	"DESTDIR=$(DESTDIR)"
 
-CONFIG_STATUS_DEPENDENCIES = $(libgcj_basedir)/configure.host
+CONFIG_STATUS_DEPENDENCIES = $(srcdir)/configure.host
 
 MAKEOVERRIDES=
 

@@ -32,6 +32,11 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "except.h"
 
+/* In case alternate_exit_block contains copy from pseudo, to return value,
+   record the pseudo here.  In such case the pseudo must be set to function
+   return in the sibcall sequence.  */
+static rtx return_value_pseudo;
+
 static int identify_call_return_value	PARAMS ((rtx, rtx *, rtx *));
 static rtx skip_copy_to_return_value	PARAMS ((rtx));
 static rtx skip_use_of_return_value	PARAMS ((rtx, enum rtx_code));
@@ -43,6 +48,7 @@ static int uses_addressof		PARAMS ((rtx));
 static int sequence_uses_addressof	PARAMS ((rtx));
 static void purge_reg_equiv_notes	PARAMS ((void));
 static void purge_mem_unchanging_flag	PARAMS ((rtx));
+static rtx skip_unreturned_value 	PARAMS ((rtx));
 
 /* Examine a CALL_PLACEHOLDER pattern and determine where the call's
    return value is located.  P_HARD_RETURN receives the hard register
@@ -151,6 +157,13 @@ skip_copy_to_return_value (orig_insn)
   if (! set)
     return orig_insn;
 
+  if (return_value_pseudo)
+    {
+      if (SET_DEST (set) == return_value_pseudo)
+        return insn;
+      return orig_insn;
+    }
+
   /* The destination must be the same as the called function's return
      value to ensure that any return value is put in the same place by the
      current function and the function we're calling. 
@@ -217,6 +230,35 @@ skip_use_of_return_value (orig_insn, code)
 	  || XEXP (PATTERN (insn), 0) == const0_rtx))
     return insn;
 
+  return orig_insn;
+}
+
+/* In case function does not return value,  we get clobber of pseudo followed
+   by set to hard return value.  */
+static rtx
+skip_unreturned_value (orig_insn)
+     rtx orig_insn;
+{
+  rtx insn = next_nonnote_insn (orig_insn);
+
+  /* Skip possible clobber of pseudo return register.  */
+  if (insn
+      && GET_CODE (insn) == INSN
+      && GET_CODE (PATTERN (insn)) == CLOBBER
+      && REG_P (XEXP (PATTERN (insn), 0))
+      && (REGNO (XEXP (PATTERN (insn), 0)) >= FIRST_PSEUDO_REGISTER))
+    {
+      rtx set_insn = next_nonnote_insn (insn);
+      rtx set;
+      if (!set_insn)
+	return insn;
+      set = single_set (set_insn);
+      if (!set
+	  || SET_SRC (set) != XEXP (PATTERN (insn), 0)
+	  || SET_DEST (set) != current_function_return_rtx)
+	return insn;
+      return set_insn;
+    }
   return orig_insn;
 }
 
@@ -293,6 +335,7 @@ call_ends_block_p (insn, end)
      rtx insn;
      rtx end;
 {
+  rtx new_insn;
   /* END might be a note, so get the last nonnote insn of the block.  */
   end = next_nonnote_insn (PREV_INSN (end));
 
@@ -303,7 +346,15 @@ call_ends_block_p (insn, end)
   /* Skip over copying from the call's return value pseudo into
      this function's hard return register and if that's the end
      of the block, we're OK.  */
-  insn = skip_copy_to_return_value (insn);
+  new_insn = skip_copy_to_return_value (insn);
+
+  /* In case we return value in pseudo, we must set the pseudo to
+     return value of called function, otherwise we are returning
+     something else.  */
+  if (return_value_pseudo && insn == new_insn)
+    return 0;
+  insn = new_insn;
+
   if (insn == end)
     return 1;
 
@@ -314,6 +365,11 @@ call_ends_block_p (insn, end)
 
   /* Skip over a CLOBBER of the return value as a hard reg.  */
   insn = skip_use_of_return_value (insn, CLOBBER);
+  if (insn == end)
+    return 1;
+
+  /* Skip over a CLOBBER of the return value as a hard reg.  */
+  insn = skip_unreturned_value (insn);
   if (insn == end)
     return 1;
 
@@ -530,19 +586,17 @@ optimize_sibling_and_tail_recursive_calls ()
      ahead and find all the EH labels.  */
   find_exception_handler_labels ();
 
-  /* Run a jump optimization pass to clean up the CFG.  We primarily want
-     this to thread jumps so that it is obvious which blocks jump to the
-     epilouge.  */
-  jump_optimize_minimal (insns);
-
+  rebuild_jump_labels (insns);
   /* We need cfg information to determine which blocks are succeeded
      only by the epilogue.  */
   find_basic_blocks (insns, max_reg_num (), 0);
-  cleanup_cfg ();
+  cleanup_cfg (CLEANUP_PRE_SIBCALL | CLEANUP_PRE_LOOP);
 
   /* If there are no basic blocks, then there is nothing to do.  */
   if (n_basic_blocks == 0)
     return;
+
+  return_value_pseudo = NULL_RTX;
 
   /* Find the exit block.
 
@@ -564,6 +618,7 @@ optimize_sibling_and_tail_recursive_calls ()
 	   insn;
 	   insn = NEXT_INSN (insn))
 	{
+	  rtx set;
 	  /* This should only happen once, at the start of this block.  */
 	  if (GET_CODE (insn) == CODE_LABEL)
 	    continue;
@@ -575,6 +630,18 @@ optimize_sibling_and_tail_recursive_calls ()
 	      && GET_CODE (PATTERN (insn)) == USE)
 	    continue;
 
+	  /* Exit block also may contain copy from pseudo containing
+	     return value to hard register.  */
+	  if (GET_CODE (insn) == INSN
+	      && (set = single_set (insn))
+	      && SET_DEST (set) == current_function_return_rtx
+	      && REG_P (SET_SRC (set))
+	      && !return_value_pseudo)
+	    {
+	      return_value_pseudo = SET_SRC (set);
+	      continue;
+	    }
+
 	  break;
 	}
 
@@ -583,6 +650,8 @@ optimize_sibling_and_tail_recursive_calls ()
 	 valid alternate exit block.  */
       if (insn == NULL)
 	alternate_exit = e->src;
+      else
+	return_value_pseudo = NULL;
     }
 
   /* If the function uses ADDRESSOF, we can't (easily) determine

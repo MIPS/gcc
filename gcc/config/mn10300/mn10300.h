@@ -130,15 +130,6 @@ extern int target_flags;
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 0
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 /* Standard register usage.  */
 
@@ -198,6 +189,8 @@ extern int target_flags;
 
 #define CONDITIONAL_REGISTER_USAGE \
 {						\
+  unsigned int i;				\
+						\
   if (!TARGET_AM33)				\
     {						\
       for (i = FIRST_EXTENDED_REGNUM; 		\
@@ -802,7 +795,7 @@ struct cum_arg {int nbytes; };
 /* Tell final.c how to eliminate redundant test instructions.  */
 
 /* Here we define machine-dependent flags and fields in cc_status
-   (see `conditions.h').  No extra ones are needed for the vax.  */
+   (see `conditions.h').  No extra ones are needed for the VAX.  */
 
 /* Store in cc_status the expressions
    that the condition codes will describe
@@ -948,12 +941,6 @@ do { char dstr[30];					\
 /* This is how to output an assembler line for a numeric constant byte.  */
 #define ASM_OUTPUT_BYTE(FILE, VALUE)  \
   fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
-
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
 
 /* This says how to output the assembler to define a global
    uninitialized but not common symbol.

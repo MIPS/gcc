@@ -1,6 +1,6 @@
 /* Threads compatibility routines for libgcc2 and libobjc.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1997, 1999, 2000 Free Software Foundation, Inc.
+/* Copyright (C) 1997, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -67,6 +67,8 @@ typedef pthread_mutex_t __gthread_mutex_t;
 #pragma weak pthread_mutex_init
 #pragma weak pthread_mutex_destroy
 #pragma weak pthread_self
+#pragma weak sched_get_priority_max
+#pragma weak sched_get_priority_min
 #pragma weak sched_yield
 #pragma weak pthread_attr_destroy
 #pragma weak pthread_attr_init
@@ -129,8 +131,8 @@ __gthread_objc_init_thread_system(void)
             return 0;
         }
     }
-  else
-    return -1;
+
+  return -1;
 }
 
 /* Close the threads subsystem. */
@@ -158,7 +160,7 @@ __gthread_objc_thread_detach(void (*func)(void *), void *arg)
     return NULL;
  
   if ( !(pthread_create(&new_thread_handle, NULL, (void *)func, arg)) )
-    thread_id = *(objc_thread_t *)&new_thread_handle;
+    thread_id = (objc_thread_t) new_thread_handle;
   else
     thread_id = NULL;
   
@@ -246,13 +248,9 @@ static inline objc_thread_t
 __gthread_objc_thread_id(void)
 {
   if (__gthread_active_p ())
-    {
-      pthread_t self = pthread_self();
-
-      return *(objc_thread_t *)&self;
-    }
+    return (objc_thread_t) pthread_self();
   else
-    return (objc_thread_t)1;
+    return (objc_thread_t) 1;
 }
 
 /* Sets the thread's local storage pointer. */
@@ -333,30 +331,39 @@ __gthread_objc_mutex_deallocate(objc_mutex_t mutex)
 static inline int
 __gthread_objc_mutex_lock(objc_mutex_t mutex)
 {
-  if (__gthread_active_p ())
-    return pthread_mutex_lock((pthread_mutex_t *)mutex->backend);
-  else
-    return 0;
+  if (__gthread_active_p () 
+      && pthread_mutex_lock((pthread_mutex_t *)mutex->backend) != 0)
+    {
+      return -1;
+    }
+
+  return 0;
 }
 
 /* Try to grab a lock on a mutex. */
 static inline int
 __gthread_objc_mutex_trylock(objc_mutex_t mutex)
 {
-  if (__gthread_active_p ())
-    return pthread_mutex_trylock((pthread_mutex_t *)mutex->backend);
-  else
-    return 0;
+  if (__gthread_active_p () 
+      && pthread_mutex_trylock((pthread_mutex_t *)mutex->backend) != 0)
+    {
+      return -1;
+    }
+
+  return 0;
 }
 
 /* Unlock the mutex */
 static inline int
 __gthread_objc_mutex_unlock(objc_mutex_t mutex)
 {
-  if (__gthread_active_p ())
-    return pthread_mutex_unlock((pthread_mutex_t *)mutex->backend);
-  else
-    return 0;
+  if (__gthread_active_p () 
+      && pthread_mutex_unlock((pthread_mutex_t *)mutex->backend) != 0)
+    {
+      return -1;
+    }
+
+  return 0;
 }
 
 /* Backend condition mutex functions */

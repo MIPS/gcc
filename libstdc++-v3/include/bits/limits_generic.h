@@ -35,6 +35,11 @@
 // 18.2.1
 //
 
+/** @file limits_generic.h
+ *  ISO 14882:1998
+ *  18.2.1
+ */
+
 #ifndef _CPP_NUMERIC_LIMITS
 #define _CPP_NUMERIC_LIMITS 1
 
@@ -49,6 +54,7 @@
 
 namespace std {
 
+    /// Rounding style determines the behavior of floating-point calculations.
     enum float_round_style {
         round_indeterminate       = -1,
         round_toward_zero         = 0,
@@ -57,12 +63,20 @@ namespace std {
         round_toward_neg_infinity = 3
     };
 
+    /// This enum signals whether a type has denormalization.
     enum float_denorm_style {
         denorm_indeterminate = -1,
         denorm_absent        = 0,
         denorm_present       = 1
     };
 
+    /**
+     *  [18.2.1]/1:  "The numeric_limits component provides a C++ program
+     *  with information about various properties of the implementation's
+     *  representation of the fundamental types."  All of the standard
+     *  fundamental types have specializations of this class template.
+     *  @brief Properties of fundamental types on a per-platform basis.
+     */
     template<typename _T> struct numeric_limits {
         static const bool is_specialized = false;
 
@@ -117,8 +131,8 @@ namespace std {
         static bool max() throw()
         { return true; }
 
-        static const int digits = 8;
-        static const int digits10 = 2;
+        static const int digits = 1;
+        static const int digits10 = 0;
         static const bool is_signed = false;
         static const bool is_integer = true;
         static const bool is_exact = true;
@@ -148,9 +162,9 @@ namespace std {
         static bool denorm_min() throw()
         { return static_cast<bool>(0); }
 
-        static const bool is_iec559 = true;
+        static const bool is_iec559 = false;
         static const bool is_bounded = true;
-        static const bool is_modulo = true;
+        static const bool is_modulo = false;
 
         static const bool traps = false;
         static const bool tinyness_before = false;
@@ -455,8 +469,13 @@ namespace std {
         static int max() throw()
         { return INT_MAX; }
 
+#if INT_MAX > 32767
         static const int digits = 31;
         static const int digits10 = 9;
+#else
+        static const int digits = 15;
+        static const int digits10 = 4;
+#endif
         static const bool is_signed = true;
         static const bool is_integer = true;
         static const bool is_exact = true;
@@ -503,8 +522,13 @@ namespace std {
         static unsigned int max() throw()
         { return UINT_MAX; }
 
+#if INT_MAX > 32767
         static const int digits = 32;
         static const int digits10 = 9;
+#else
+        static const int digits = 16;
+        static const int digits10 = 4;
+#endif
         static const bool is_signed = false;
         static const bool is_integer = true;
         static const bool is_exact = true;
@@ -551,8 +575,16 @@ namespace std {
         static long max() throw()
         { return LONG_MAX; }
 
+#if LONG_MAX > 2147483647
+        static const int digits = 63;
+        static const int digits10 = 18;
+#elif LONG_MAX > 32767
         static const int digits = 31;
         static const int digits10 = 9;
+#else
+        static const int digits = 15;
+        static const int digits10 = 4;
+#endif
         static const bool is_signed = true;
         static const bool is_integer = true;
         static const bool is_exact = true;
@@ -599,8 +631,16 @@ namespace std {
         static unsigned long max() throw()
         { return ULONG_MAX; }
 
+#if LONG_MAX > 2147483647
+        static const int digits = 64;
+        static const int digits10 = 19;
+#elif LONG_MAX > 32767
         static const int digits = 32;
         static const int digits10 = 9;
+#else
+        static const int digits = 16;
+        static const int digits10 = 4;
+#endif
         static const bool is_signed = false;
         static const bool is_integer = true;
         static const bool is_exact = true;

@@ -183,36 +183,7 @@ rdata_section ()						\
 #define STARTFILE_SPEC "crt0.o%s"
 #define ENDFILE_SPEC  "%{!mno-lsim:-lsim}"
 
-#undef  CTORS_SECTION_ASM_OP
-#define CTORS_SECTION_ASM_OP	"\t.section\t.ctors,\"x\""
-#undef  DTORS_SECTION_ASM_OP
-#define DTORS_SECTION_ASM_OP	"\t.section\t.dtors,\"x\""
-
 #define INT_ASM_OP "\t.long\t"
-
-#undef  ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(STREAM, NAME) 	\
-  do						\
-    {						\
-      ctors_section ();				\
-      fprintf (STREAM, "%s", INT_ASM_OP);	\
-      assemble_name (STREAM, NAME);		\
-      fprintf (STREAM, "\n");			\
-    }						\
-  while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-#undef  ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(STREAM, NAME) 	\
-  do						\
-    {						\
-      dtors_section ();                   	\
-      fprintf (STREAM, "%s", INT_ASM_OP);	\
-      assemble_name (STREAM, NAME);             \
-      fprintf (STREAM, "\n");			\
-    }						\
-  while (0)
 
 /* __CTOR_LIST__ and __DTOR_LIST__ must be defined by the linker script.  */
 #define CTOR_LISTS_DEFINED_EXTERNALLY
@@ -220,31 +191,10 @@ rdata_section ()						\
 #undef DO_GLOBAL_CTORS_BODY
 #undef DO_GLOBAL_DTORS_BODY
 #undef INIT_SECTION_ASM_OP
-
-#define UNIQUE_SECTION_P(DECL) DECL_ONE_ONLY (DECL)
+#undef DTORS_SECTION_ASM_OP
 
 #define SUPPORTS_ONE_ONLY 1
 
-/* A C statement to output something to the assembler file to switch to section
-   NAME for object DECL which is either a FUNCTION_DECL, a VAR_DECL or
-   NULL_TREE.  Some target formats do not support arbitrary sections.  Do not
-   define this macro in such cases.  */
-#undef  ASM_OUTPUT_SECTION_NAME
-#define ASM_OUTPUT_SECTION_NAME(STREAM, DECL, NAME, RELOC) 	\
-  do								\
-    {								\
-      if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL)		\
-	fprintf (STREAM, "\t.section %s,\"x\"\n", NAME);	\
-      else if ((DECL) && DECL_READONLY_SECTION (DECL, RELOC))	\
-	fprintf (STREAM, "\t.section %s,\"\"\n", NAME);		\
-      else							\
-	fprintf (STREAM, "\t.section %s,\"w\"\n", NAME);	\
-      /* Functions may have been compiled at various levels of	\
-	 optimization so we can't use `same_size' here.  	\
-	 Instead, have the linker pick one.  */			\
-      if ((DECL) && DECL_ONE_ONLY (DECL))			\
-	fprintf (STREAM, "\t.linkonce %s\n",			\
-		 TREE_CODE (DECL) == FUNCTION_DECL		\
-		 ? "discard" : "same_size");			\
-    }								\
-  while (0)
+/* Switch into a generic section.  */
+#undef TARGET_ASM_NAMED_SECTION
+#define TARGET_ASM_NAMED_SECTION  default_pe_asm_named_section

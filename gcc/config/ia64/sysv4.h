@@ -47,25 +47,35 @@ do {									\
   ASM_OUTPUT_SKIP (FILE, SIZE ? SIZE : 1);				\
 } while (0)
 
-/* ??? Intel assembler does not allow "." in section names, so turn off
-   gnu.linkonce section support, but only when using the Intel assembler.  */
-#undef UNIQUE_SECTION_P
-#define UNIQUE_SECTION_P(DECL) (TARGET_GNU_AS ? DECL_ONE_ONLY (DECL) : 0)
-
 /* The # tells the Intel assembler that this is not a register name.
    However, we can't emit the # in a label definition, so we set a variable
-   in ASM_OUTPUT_LABEL to control whether we want the postfix here or not.  */
+   in ASM_OUTPUT_LABEL to control whether we want the postfix here or not.
+   We append the # to the label name, but since NAME can be an expression
+   we have to scan it for a non-label character and insert the # there.  */
 
 #undef ASM_OUTPUT_LABELREF
-#define ASM_OUTPUT_LABELREF(STREAM, NAME) \
-do									\
-  {									\
-    const char *real_name;						\
-    STRIP_NAME_ENCODING (real_name, NAME);				\
-    asm_fprintf (STREAM, "%U%s%s", real_name,				\
-		 (ia64_asm_output_label ? "" : "#"));			\
-  }									\
-while (0)
+#define ASM_OUTPUT_LABELREF(STREAM, NAME) 				\
+  do									\
+    {									\
+      const char *real_name;						\
+      const char *name_end;						\
+									\
+      STRIP_NAME_ENCODING (real_name, NAME);				\
+      name_end = strchr (real_name, '+');				\
+									\
+      fputs (user_label_prefix, STREAM);				\
+      if (name_end)							\
+	fwrite (real_name, name_end - real_name, 1, STREAM);		\
+      else								\
+	fputs (real_name, STREAM);					\
+									\
+      if (ia64_asm_output_label)					\
+	fputc ('#', STREAM);						\
+									\
+      if (name_end)							\
+	fputs (name_end, STREAM);					\
+    }									\
+  while (0)
 
 /* Intel assembler requires both flags and type if declaring a non-predefined
    section.  */
@@ -73,46 +83,6 @@ while (0)
 #define INIT_SECTION_ASM_OP	"\t.section\t.init,\"ax\",\"progbits\""
 #undef FINI_SECTION_ASM_OP
 #define FINI_SECTION_ASM_OP	"\t.section\t.fini,\"ax\",\"progbits\""
-#undef CTORS_SECTION_ASM_OP
-#define CTORS_SECTION_ASM_OP	"\t.section\t.ctors,\"aw\",\"progbits\""
-#undef DTORS_SECTION_ASM_OP
-#define DTORS_SECTION_ASM_OP	"\t.section\t.dtors,\"aw\",\"progbits\""
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-/* Must override this to get @fptr relocation.  */
-#undef ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
-  do {									\
-    ctors_section ();							\
-    if (TARGET_NO_PIC || TARGET_AUTO_PIC)				\
-      fputs ("\tdata8\t ", FILE);					\
-    else								\
-      fputs ("\tdata8\t @fptr(", FILE);					\
-    assemble_name (FILE, NAME);						\
-    if (TARGET_NO_PIC || TARGET_AUTO_PIC)				\
-      fputs ("\n", FILE);						\
-    else								\
-      fputs (")\n", FILE);						\
-  } while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-/* Must override this to get @fptr relocation.  */
-#undef ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       				\
-  do {									\
-    dtors_section ();                   				\
-    if (TARGET_NO_PIC || TARGET_AUTO_PIC)				\
-      fputs ("\tdata8\t ", FILE);					\
-    else								\
-      fputs ("\tdata8\t @fptr(", FILE);					\
-    assemble_name (FILE, NAME);              				\
-    if (TARGET_NO_PIC || TARGET_AUTO_PIC)				\
-      fputs ("\n", FILE);						\
-    else								\
-      fputs (")\n", FILE);						\
-  } while (0)
 
 /* svr4.h undefines this, so we need to define it here.  */
 #define DBX_REGISTER_NUMBER(REGNO) \
@@ -228,13 +198,11 @@ extern unsigned int ia64_section_threshold;
 }
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_ctors, in_dtors, in_sdata, in_sbss
+#define EXTRA_SECTIONS in_const, in_sdata, in_sbss
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
   CONST_SECTION_FUNCTION						\
-  CTORS_SECTION_FUNCTION						\
-  DTORS_SECTION_FUNCTION						\
   SDATA_SECTION_FUNCTION						\
   SBSS_SECTION_FUNCTION
 

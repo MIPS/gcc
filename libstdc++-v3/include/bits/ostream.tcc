@@ -358,7 +358,7 @@ namespace std
       if (__cerb) 
 	{
 	  int_type __put = rdbuf()->sputc(__c); 
-	  if (__put != traits_type::to_int_type(__c))
+	  if (traits_type::eq_int_type(__put, traits_type::eof()))
 	    this->setstate(ios_base::badbit);
 	}
       return *this;
@@ -411,10 +411,16 @@ namespace std
       bool __testok = this->fail() != true;
       
       if (__testok)
+	{
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
 // 136.  seekp, seekg setting wrong streams?
-	this->rdbuf()->pubseekpos(__pos, ios_base::out);
+	  pos_type __err = this->rdbuf()->pubseekpos(__pos, ios_base::out);
+
+// 129. Need error indication from seekp() and seekg()
+	  if (__err == pos_type(off_type(-1)))
+	    this->setstate(failbit);
 #endif
+	}
       return *this;
     }
 
@@ -426,9 +432,16 @@ namespace std
       bool __testok = this->fail() != true;
       
       if (__testok)
+	{
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
 // 136.  seekp, seekg setting wrong streams?
-	this->rdbuf()->pubseekoff(__off, __d, ios_base::out);
+	  pos_type __err = this->rdbuf()->pubseekoff(__off, __d, 
+						     ios_base::out);
+
+// 129. Need error indication from seekp() and seekg()
+	  if (__err == pos_type(off_type(-1)))
+	    this->setstate(failbit);
+	}
 #endif
       return *this;
     }
@@ -459,16 +472,16 @@ namespace std
       char_type* __end;
       size_t __mod = 0;
       size_t __beglen; //either __plen or __oldlen
-      ios_base::fmtflags __fmt = __ios.flags() & ios_base::adjustfield;
+      ios_base::fmtflags __adjust = __ios.flags() & ios_base::adjustfield;
 
-      if (__fmt == ios_base::left)
+      if (__adjust == ios_base::left)
 	{
 	  // Padding last.
 	  __beg = const_cast<char_type*>(__olds);
 	  __beglen = __oldlen;
 	  __end = __pads;
 	}
-      else if (__fmt == ios_base::internal)
+      else if (__adjust == ios_base::internal)
 	{
 	  // Pad after the sign, if there is one.
 	  // Pad after 0[xX], if there is one.

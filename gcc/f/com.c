@@ -89,6 +89,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"  /* Must follow tree.h so TREE_CODE is defined! */
 #include "convert.h"
 #include "ggc.h"
+#include "diagnostic.h"
 #endif	/* FFECOM_targetCURRENT == FFECOM_targetGCC */
 
 #define FFECOM_GCC_INCLUDE 1	/* Enable -I. */
@@ -1557,7 +1558,6 @@ ffecom_overlap_ (tree dest_decl, tree dest_offset, tree dest_size,
     case FIX_FLOOR_EXPR:
     case FIX_ROUND_EXPR:
     case FLOAT_EXPR:
-    case EXPON_EXPR:
     case NEGATE_EXPR:
     case MIN_EXPR:
     case MAX_EXPR:
@@ -4524,7 +4524,7 @@ ffecom_expr_intrinsic_ (ffebld expr, tree dest_tree,
 						   integer_type_node,
 						   TYPE_SIZE (uns_type),
 						   arg3_tree))));
-#if !defined(TREE_SHIFT_FULLWIDTH) || !TREE_SHIFT_FULLWIDTH
+	/* Fix up, because the RSHIFT_EXPR above can't shift over TYPE_SIZE.  */
 	expr_tree
 	  = ffecom_3 (COND_EXPR, tree_type,
 		      ffecom_truth_value
@@ -4533,7 +4533,6 @@ ffecom_expr_intrinsic_ (ffebld expr, tree dest_tree,
 				 integer_zero_node)),
 		      expr_tree,
 		      convert (tree_type, integer_zero_node));
-#endif
       }
       return expr_tree;
 
@@ -4569,16 +4568,17 @@ ffecom_expr_intrinsic_ (ffebld expr, tree dest_tree,
 					 ffecom_1 (NEGATE_EXPR,
 						   integer_type_node,
 						   arg2_tree))));
-#if !defined(TREE_SHIFT_FULLWIDTH) || !TREE_SHIFT_FULLWIDTH
+	/* Fix up, because {L|R}SHIFT_EXPR don't go over TYPE_SIZE bounds.  */
 	expr_tree
 	  = ffecom_3 (COND_EXPR, tree_type,
 		      ffecom_truth_value
 		      (ffecom_2 (NE_EXPR, integer_type_node,
-				 arg2_tree,
+				 ffecom_1 (ABS_EXPR,
+					   integer_type_node,
+					   arg2_tree),
 				 TYPE_SIZE (uns_type))),
 		      expr_tree,
 		      convert (tree_type, integer_zero_node));
-#endif
 	/* Make sure SAVE_EXPRs get referenced early enough. */
 	expr_tree
 	  = ffecom_2 (COMPOUND_EXPR, tree_type,
@@ -4608,7 +4608,7 @@ ffecom_expr_intrinsic_ (ffebld expr, tree dest_tree,
 		      ffecom_1 (BIT_NOT_EXPR, tree_type,
 				convert (tree_type, integer_zero_node)),
 		      arg3_tree);
-#if !defined(TREE_SHIFT_FULLWIDTH) || !TREE_SHIFT_FULLWIDTH
+	/* Fix up, because LSHIFT_EXPR above can't shift over TYPE_SIZE.  */
 	mask_arg1
 	  = ffecom_3 (COND_EXPR, tree_type,
 		      ffecom_truth_value
@@ -4617,7 +4617,6 @@ ffecom_expr_intrinsic_ (ffebld expr, tree dest_tree,
 				 TYPE_SIZE (uns_type))),
 		      mask_arg1,
 		      convert (tree_type, integer_zero_node));
-#endif
 	mask_arg1 = ffecom_save_tree (mask_arg1);
 	masked_arg1
 	  = ffecom_2 (BIT_AND_EXPR, tree_type,
@@ -4766,7 +4765,7 @@ ffecom_expr_intrinsic_ (ffebld expr, tree dest_tree,
 				convert (arg4_type,
 					 integer_zero_node)),
 		      arg5_plus_arg3);
-#if !defined(TREE_SHIFT_FULLWIDTH) || !TREE_SHIFT_FULLWIDTH
+	/* Fix up, because LSHIFT_EXPR above can't shift over TYPE_SIZE.  */
 	prep_arg4
 	  = ffecom_3 (COND_EXPR, arg4_type,
 		      ffecom_truth_value
@@ -4776,7 +4775,6 @@ ffecom_expr_intrinsic_ (ffebld expr, tree dest_tree,
 					  TYPE_SIZE (arg4_type)))),
 		      prep_arg4,
 		      convert (arg4_type, integer_zero_node));
-#endif
 	prep_arg4
 	  = ffecom_2 (BIT_AND_EXPR, arg4_type,
 		      arg4_tree,
@@ -4794,7 +4792,8 @@ ffecom_expr_intrinsic_ (ffebld expr, tree dest_tree,
 	  = ffecom_2 (BIT_IOR_EXPR, arg4_type,
 		      prep_arg1,
 		      prep_arg4);
-#if !defined(TREE_SHIFT_FULLWIDTH) || !TREE_SHIFT_FULLWIDTH
+	/* Fix up (twice), because LSHIFT_EXPR above
+	   can't shift over TYPE_SIZE.  */
 	prep_arg1
 	  = ffecom_3 (COND_EXPR, arg4_type,
 		      ffecom_truth_value
@@ -4813,7 +4812,6 @@ ffecom_expr_intrinsic_ (ffebld expr, tree dest_tree,
 					  TYPE_SIZE (arg4_type)))),
 		      prep_arg1,
 		      arg1_tree);
-#endif
 	expr_tree
 	  = ffecom_2s (MODIFY_EXPR, void_type_node,
 		       arg4_tree,
@@ -9043,7 +9041,6 @@ ffecom_tree_canonize_ref_ (tree *decl, tree *offset,
     case FIX_FLOOR_EXPR:
     case FIX_ROUND_EXPR:
     case FLOAT_EXPR:
-    case EXPON_EXPR:
     case NEGATE_EXPR:
     case MIN_EXPR:
     case MAX_EXPR:
@@ -13989,7 +13986,8 @@ lang_printable_name (tree decl, int v)
 
 #if BUILT_FOR_270
 static void
-lang_print_error_function (const char *file)
+lang_print_error_function (diagnostic_context *context __attribute__((unused)),
+                           const char *file)
 {
   static ffeglobal last_g = NULL;
   static ffesymbol last_s = NULL;

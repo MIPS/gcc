@@ -1,6 +1,6 @@
 /* Allocate registers within a basic block, for GNU compiler.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -73,6 +73,7 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "output.h"
 #include "toplev.h"
+#include "except.h"
 
 /* Next quantity number available for allocation.  */
 
@@ -84,6 +85,10 @@ struct qty
   /* The number of refs to quantity Q.  */
 
   int n_refs;
+
+  /* The frequency of uses of quantity Q.  */
+
+  int freq;
 
   /* Insn number (counting from head of basic block)
      where quantity Q was born.  -1 if birth has not been recorded.  */
@@ -321,6 +326,7 @@ alloc_qty (regno, mode, size, birth)
   qty[qtyno].min_class = reg_preferred_class (regno);
   qty[qtyno].alternate_class = reg_alternate_class (regno);
   qty[qtyno].n_refs = REG_N_REFS (regno);
+  qty[qtyno].freq = REG_FREQ (regno);
   qty[qtyno].changes_mode = REG_CHANGES_MODE (regno);
 }
 
@@ -493,7 +499,7 @@ validate_equiv_mem (start, reg, memref)
 	return 1;
 
       if (GET_CODE (insn) == CALL_INSN && ! RTX_UNCHANGING_P (memref)
-	  && ! CONST_CALL_P (insn))
+	  && ! CONST_OR_PURE_CALL_P (insn))
 	return 0;
 
       note_stores (PATTERN (insn), validate_equiv_mem_from_store, NULL);
@@ -1097,6 +1103,12 @@ update_equiv_regs ()
 		abort ();
 	      equiv_insn = XEXP (reg_equiv[regno].init_insns, 0);
 
+	      /* We may not move instructions that can throw, since
+		 that changes basic block boundaries and we are not
+		 prepared to adjust the CFG to match.  */
+	      if (can_throw_internal (equiv_insn))
+		continue;
+
 	      if (asm_noperands (PATTERN (equiv_insn)) < 0
 		  && validate_replace_rtx (regno_reg_rtx[regno],
 					   reg_equiv[regno].src, insn))
@@ -1127,6 +1139,7 @@ update_equiv_regs ()
 
 		  remove_death (regno, insn);
 		  REG_N_REFS (regno) = 0;
+		  REG_FREQ (regno) = 0;
 		  PUT_CODE (equiv_insn, NOTE);
 		  NOTE_LINE_NUMBER (equiv_insn) = NOTE_INSN_DELETED;
 		  NOTE_SOURCE_FILE (equiv_insn) = 0;
@@ -1692,13 +1705,14 @@ block_alloc (b)
 
 /* Note that the quotient will never be bigger than
    the value of floor_log2 times the maximum number of
-   times a register can occur in one insn (surely less than 100).
-   Multiplying this by 10000 can't overflow.
+   times a register can occur in one insn (surely less than 100)
+   weighted by frequency (max REG_FREQ_MAX).
+   Multiplying this by 10000/REG_FREQ_MAX can't overflow.
    QTY_CMP_PRI is also used by qty_sugg_compare.  */
 
 #define QTY_CMP_PRI(q)		\
-  ((int) (((double) (floor_log2 (qty[q].n_refs) * qty[q].n_refs * qty[q].size) \
-	  / (qty[q].death - qty[q].birth)) * 10000))
+  ((int) (((double) (floor_log2 (qty[q].n_refs) * qty[q].freq * qty[q].size) \
+	  / (qty[q].death - qty[q].birth)) * (10000 / REG_FREQ_MAX)))
 
 static int
 qty_compare (q1, q2)
@@ -1966,6 +1980,7 @@ combine_regs (usedreg, setreg, may_save_copy, insn_number, insn, already_dead)
       /* Update info about quantity SQTY.  */
       qty[sqty].n_calls_crossed += REG_N_CALLS_CROSSED (sreg);
       qty[sqty].n_refs += REG_N_REFS (sreg);
+      qty[sqty].freq += REG_FREQ (sreg);
       if (usize < ssize)
 	{
 	  register int i;

@@ -55,7 +55,6 @@ static int perhaps_ends_bb_p	PARAMS ((rtx));
 static int optimize_reg_copy_1	PARAMS ((rtx, rtx, rtx));
 static void optimize_reg_copy_2	PARAMS ((rtx, rtx, rtx));
 static void optimize_reg_copy_3	PARAMS ((rtx, rtx, rtx));
-static rtx gen_add3_insn	PARAMS ((rtx, rtx, rtx));
 static void copy_src_to_dest	PARAMS ((rtx, rtx, rtx, int));
 static int *regmove_bb_head;
 
@@ -72,7 +71,7 @@ static void flags_set_1 PARAMS ((rtx, rtx, void *));
 
 static int try_auto_increment PARAMS ((rtx, rtx, rtx, rtx, HOST_WIDE_INT, int));
 static int find_matches PARAMS ((rtx, struct match *));
-static void replace_in_call_usage PARAMS ((rtx *, int, rtx, rtx));
+static void replace_in_call_usage PARAMS ((rtx *, unsigned int, rtx, rtx));
 static int fixup_match_1 PARAMS ((rtx, rtx, rtx, rtx, rtx, int, int, int, FILE *))
 ;
 static int reg_is_remote_constant_p PARAMS ((rtx, rtx, rtx));
@@ -93,27 +92,6 @@ regclass_compatible_p (class0, class1)
 	  || (reg_class_subset_p (class1, class0)
 	      && ! CLASS_LIKELY_SPILLED_P (class1)));
 }
-
-/* Generate and return an insn body to add r1 and c,
-   storing the result in r0.  */
-static rtx
-gen_add3_insn (r0, r1, c)
-     rtx r0, r1, c;
-{
-  int icode = (int) add_optab->handlers[(int) GET_MODE (r0)].insn_code;
-
-    if (icode == CODE_FOR_nothing
-      || ! ((*insn_data[icode].operand[0].predicate)
-	    (r0, insn_data[icode].operand[0].mode))
-      || ! ((*insn_data[icode].operand[1].predicate)
-	    (r1, insn_data[icode].operand[1].mode))
-      || ! ((*insn_data[icode].operand[2].predicate)
-	    (c, insn_data[icode].operand[2].mode)))
-    return NULL_RTX;
-
-  return (GEN_FCN (icode) (r0, r1, c));
-}
-
 
 /* INC_INSN is an instruction that adds INCREMENT to REG.
    Try to fold INC_INSN as a post/pre in/decrement into INSN.
@@ -437,7 +415,7 @@ optimize_reg_copy_1 (insn, dest, src)
   int sregno = REGNO (src);
   int dregno = REGNO (dest);
 
-  /* We don't want to mess with hard regs if register classes are small. */
+  /* We don't want to mess with hard regs if register classes are small.  */
   if (sregno == dregno
       || (SMALL_REGISTER_CLASSES
 	  && (sregno < FIRST_PSEUDO_REGISTER
@@ -703,6 +681,9 @@ optimize_reg_copy_3 (insn, dest, src)
 
   if (! (set = single_set (p))
       || GET_CODE (SET_SRC (set)) != MEM
+      /* If there's a REG_EQUIV note, this must be an insn that loads an
+	 argument.  Prefer keeping the note over doing this optimization.  */
+      || find_reg_note (p, REG_EQUIV, NULL_RTX)
       || SET_DEST (set) != src_reg)
     return;
 
@@ -746,6 +727,12 @@ optimize_reg_copy_3 (insn, dest, src)
       /* One or more changes were no good.  Back out everything.  */
       PUT_MODE (src_reg, old_mode);
       XEXP (src, 0) = src_reg;
+    }
+  else
+    {
+      rtx note = find_reg_note (p, REG_EQUAL, NULL_RTX);
+      if (note)
+	remove_note (p, note);
     }
 }
 
@@ -1216,7 +1203,7 @@ regmove_optimize (f, nregs, regmove_dump_file)
 	      if (recog_data.operand[match_no] != SET_DEST (set))
 		continue;
 
-	      /* If the operands already match, then there is nothing to do. */
+	      /* If the operands already match, then there is nothing to do.  */
 	      if (operands_match_p (src, dst))
 		continue;
 
@@ -1233,6 +1220,9 @@ regmove_optimize (f, nregs, regmove_dump_file)
 	      src_class = reg_preferred_class (REGNO (src));
 	      dst_class = reg_preferred_class (REGNO (dst));
 	      if (! regclass_compatible_p (src_class, dst_class))
+		continue;
+
+	      if (GET_MODE (src) != GET_MODE (dst))
 		continue;
 
 	      if (fixup_match_1 (insn, set, src, src_subreg, dst, pass,
@@ -1292,7 +1282,7 @@ regmove_optimize (f, nregs, regmove_dump_file)
 		  || RTX_UNCHANGING_P (dst))
 		continue;
 
-	      /* If the operands already match, then there is nothing to do. */
+	      /* If the operands already match, then there is nothing to do.  */
 	      if (operands_match_p (src, dst))
 		continue;
 
@@ -1305,6 +1295,14 @@ regmove_optimize (f, nregs, regmove_dump_file)
 
 	      set = single_set (insn);
 	      if (! set)
+		continue;
+
+	      /* Note that single_set ignores parts of a parallel set for
+		 which one of the destinations is REG_UNUSED.  We can't
+		 handle that here, since we can wind up rewriting things
+		 such that a single register is set twice within a single
+		 parallel.  */
+	      if (reg_set_p (src, insn))
 		continue;
 
 	      /* match_no/dst must be a write-only operand, and
@@ -1610,7 +1608,7 @@ find_matches (insn, matchp)
 static void
 replace_in_call_usage (loc, dst_reg, src, insn)
      rtx *loc;
-     int dst_reg;
+     unsigned int dst_reg;
      rtx src;
      rtx insn;
 {
@@ -1987,7 +1985,7 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
 	{
 	  /* ??? We can't scan past the end of a basic block without updating
 	     the register lifetime info
-	     (REG_DEAD/basic_block_live_at_start). */
+	     (REG_DEAD/basic_block_live_at_start).  */
 	  if (perhaps_ends_bb_p (q))
 	    break;
 	  else if (! INSN_P (q))
@@ -2251,14 +2249,11 @@ try_apply_stack_adjustment (insn, memlist, new_adjust, delta)
   validate_change (insn, &XEXP (SET_SRC (set), 1), GEN_INT (new_adjust), 1);
 
   for (ml = memlist; ml ; ml = ml->next)
-    {
-      HOST_WIDE_INT c = ml->sp_offset - delta;
-      rtx new = gen_rtx_MEM (GET_MODE (*ml->mem),
-			     plus_constant (stack_pointer_rtx, c));
-
-      MEM_COPY_ATTRIBUTES (new, *ml->mem);
-      validate_change (ml->insn, ml->mem, new, 1);
-    }
+    validate_change
+      (ml->insn, ml->mem,
+       replace_equiv_address_nv (*ml->mem,
+				 plus_constant (stack_pointer_rtx,
+						ml->sp_offset - delta)), 1);
 
   if (apply_change_group ())
     {
@@ -2449,8 +2444,9 @@ combine_stack_adjustments_for_block (bb)
 	      && ! reg_mentioned_p (stack_pointer_rtx, src)
 	      && memory_address_p (GET_MODE (dest), stack_pointer_rtx)
 	      && validate_change (insn, &SET_DEST (set),
-				  change_address (dest, VOIDmode,
-						  stack_pointer_rtx), 0))
+				  replace_equiv_address (dest,
+							 stack_pointer_rtx),
+				  0))
 	    {
 	      if (last_sp_set == bb->head)
 		bb->head = NEXT_INSN (last_sp_set);

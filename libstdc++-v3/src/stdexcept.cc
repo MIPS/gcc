@@ -39,7 +39,7 @@ namespace std
   logic_error::logic_error(const string& __arg) 
   : exception(), _M_msg(__arg) { }
 
-  logic_error::~logic_error() throw() { };
+  logic_error::~logic_error() throw() { }
 
   const char*
   logic_error::what() const throw()
@@ -60,7 +60,7 @@ namespace std
   runtime_error::runtime_error(const string& __arg) 
   : exception(), _M_msg(__arg) { }
 
-  runtime_error::~runtime_error() throw() { };
+  runtime_error::~runtime_error() throw() { }
 
   const char*
   runtime_error::what() const throw()

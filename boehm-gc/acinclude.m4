@@ -28,8 +28,18 @@ else
   boehm_gc_basedir="[$]{srcdir}/$1"
 fi
 AC_SUBST(boehm_gc_basedir)
+AC_CONFIG_AUX_DIR($boehm_gc_basedir/..)
+if :; then :; else
+  # This overrides the previous occurrence for automake, but not for
+  # autoconf, which is exactly what we want.
+  AC_CONFIG_AUX_DIR(..)
+fi
 
-AC_CANONICAL_HOST
+AC_CANONICAL_SYSTEM
+
+# This works around an automake problem.
+mkinstalldirs="`cd $ac_aux_dir && pwd`/mkinstalldirs"
+AC_SUBST(mkinstalldirs)
 
 AM_INIT_AUTOMAKE(boehm-gc, 5.1, no-define)
 
@@ -131,10 +141,14 @@ AM_MAINTAINER_MODE
 # automake happy, but we don't execute it, since we don't care about
 # the result.
 if false; then
+  # autoconf 2.50 runs AC_EXEEXT by default, and the macro expands
+  # to nothing, so nothing would remain between `then' and `fi' if it
+  # were not for the `:' below.
+  :
   AC_EXEEXT
 fi
 
-. [$]{boehm_gc_basedir}/configure.host
+. [$]{srcdir}/configure.host
 
 case [$]{boehm_gc_basedir} in
 /* | [A-Za-z]:[/\\]*) boehm_gc_flagbasedir=[$]{boehm_gc_basedir} ;;

@@ -158,33 +158,8 @@ do { text_section ();							\
 
 #undef	INVOKE__main
 
-#undef	ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)                       \
-  do { if (flag_pic)                                            \
-	 mod_init_section ();                                   \
-       else							\
-	 constructor_section ();				\
-       ASM_OUTPUT_ALIGN (FILE, 1);                              \
-       fprintf (FILE, "\t.long ");                              \
-       assemble_name (FILE, NAME);                              \
-       fprintf (FILE, "\n");                                    \
-       if (!flag_pic)                                    	\
-	 fprintf (FILE, ".reference .constructors_used\n");     \
-      } while (0)
-
-#undef	ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)                        \
-  do { if (flag_pic)                                            \
-	 mod_term_section ();                                   \
-       else							\
-	 destructor_section ();					\
-       ASM_OUTPUT_ALIGN (FILE, 1);				\
-       fprintf (FILE, "\t.long ");				\
-       assemble_name (FILE, NAME);				\
-       fprintf (FILE, "\n");					\
-       if (!flag_pic)                                    	\
-       	fprintf (FILE, ".reference .destructors_used\n");	\
-     } while (0)
+#define TARGET_ASM_CONSTRUCTOR  machopic_asm_out_constructor
+#define TARGET_ASM_DESTRUCTOR   machopic_asm_out_destructor
 
 
 /* Don't output a .file directive.  That is only used by the assembler for
@@ -196,7 +171,6 @@ do { text_section ();							\
 #undef	ASM_FILE_END
 #define ASM_FILE_END(FILE)					\
   do {								\
-    extern const char *language_string;				\
     machopic_finish (asm_out_file);                             \
     if (strcmp (language_string, "GNU C++") == 0)		\
       {								\
@@ -234,6 +208,10 @@ do { text_section ();							\
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))               \
         || DECL_INITIAL (DECL))                                         \
       machopic_define_name (xname);                                     \
+    if ((TREE_STATIC (DECL)                                             \
+	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))               \
+        || DECL_INITIAL (DECL))                                         \
+      ENCODE_SECTION_INFO (DECL);  \
     ASM_OUTPUT_LABEL (FILE, xname);                                     \
   } while (0)
 
@@ -243,6 +221,7 @@ do { text_section ();							\
 #undef	ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(FILE,NAME)	\
   do {									\
+       STRIP_NAME_ENCODING (NAME, NAME);  \
        if (NAME[0] == '&')						\
          {								\
            int len = strlen (NAME);					\
@@ -283,6 +262,10 @@ do { text_section ();							\
     if ((DECL) && ((TREE_STATIC (DECL)                                             \
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))               \
         || DECL_INITIAL (DECL)))                                         \
+      ENCODE_SECTION_INFO (DECL);  \
+    if ((DECL) && ((TREE_STATIC (DECL)                                             \
+	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))               \
+        || DECL_INITIAL (DECL)))                                         \
       machopic_define_name (NAME);                                     \
   } while (0)
 
@@ -300,17 +283,13 @@ do { text_section ();							\
 /* Create new Mach-O sections. */
 
 #undef	SECTION_FUNCTION
-#define SECTION_FUNCTION(FUNCTION, SECTION, DIRECTIVE, WAS_TEXT, OBJC)	\
+#define SECTION_FUNCTION(FUNCTION, SECTION, DIRECTIVE, OBJC)		\
 void									\
 FUNCTION ()								\
 {									\
-  extern void text_section ();					 	\
   extern void objc_section_init ();					\
-  extern int flag_no_mach_text_sections;				\
   									\
-  if (WAS_TEXT && flag_no_mach_text_sections)       			\
-    text_section ();							\
-  else if (in_section != SECTION)					\
+  if (in_section != SECTION)						\
     {									\
       if (OBJC)								\
 	objc_section_init ();						\
@@ -353,104 +332,104 @@ do { if (!strcmp (alias_name, name))					\
 #define EXTRA_SECTION_FUNCTIONS			\
 SECTION_FUNCTION (const_section,		\
                   in_const,			\
-                  ".const", 1, 0)		\
+                  ".const", 0)			\
 SECTION_FUNCTION (const_data_section,		\
                   in_const_data,		\
-                  ".const_data", 1, 0)		\
+                  ".const_data", 0)		\
 SECTION_FUNCTION (cstring_section,		\
 		  in_cstring,			\
-		  ".cstring", 1, 0)		\
+		  ".cstring", 0)		\
 SECTION_FUNCTION (literal4_section,		\
 		  in_literal4,			\
-		  ".literal4", 1, 0)		\
+		  ".literal4", 0)		\
 SECTION_FUNCTION (literal8_section,		\
 		  in_literal8,			\
-		  ".literal8", 1, 0)		\
+		  ".literal8", 0)		\
 SECTION_FUNCTION (constructor_section,		\
 		  in_constructor,		\
-		  ".constructor", 0, 0)		\
+		  ".constructor", 0)		\
 SECTION_FUNCTION (mod_init_section,		\
 		  in_mod_init,			\
-		  ".mod_init_func", 0, 0)	\
+		  ".mod_init_func", 0)	\
 SECTION_FUNCTION (mod_term_section, \
 		  in_mod_term,			\
-		  ".mod_term_func", 0, 0)	\
+		  ".mod_term_func", 0)	\
 SECTION_FUNCTION (destructor_section,		\
 		  in_destructor,		\
-		  ".destructor", 0, 0)		\
+		  ".destructor", 0)		\
 SECTION_FUNCTION (objc_class_section,		\
 		  in_objc_class,		\
-		  ".objc_class", 0, 1)		\
+		  ".objc_class", 1)		\
 SECTION_FUNCTION (objc_meta_class_section,	\
 		  in_objc_meta_class,		\
-		  ".objc_meta_class", 0, 1)	\
+		  ".objc_meta_class", 1)	\
 SECTION_FUNCTION (objc_category_section,	\
 		  in_objc_category,		\
-		".objc_category", 0, 1)		\
+		".objc_category", 1)		\
 SECTION_FUNCTION (objc_class_vars_section,	\
 		  in_objc_class_vars,		\
-		  ".objc_class_vars", 0, 1)	\
+		  ".objc_class_vars", 1)	\
 SECTION_FUNCTION (objc_instance_vars_section,	\
 		  in_objc_instance_vars,	\
-		  ".objc_instance_vars", 0, 1)	\
+		  ".objc_instance_vars", 1)	\
 SECTION_FUNCTION (objc_cls_meth_section,	\
 		  in_objc_cls_meth,		\
-		  ".objc_cls_meth", 0, 1)	\
+		  ".objc_cls_meth", 1)	\
 SECTION_FUNCTION (objc_inst_meth_section,	\
 		  in_objc_inst_meth,		\
-		  ".objc_inst_meth", 0, 1)	\
+		  ".objc_inst_meth", 1)	\
 SECTION_FUNCTION (objc_cat_cls_meth_section,	\
 		  in_objc_cat_cls_meth,		\
-		  ".objc_cat_cls_meth", 0, 1)	\
+		  ".objc_cat_cls_meth", 1)	\
 SECTION_FUNCTION (objc_cat_inst_meth_section,	\
 		  in_objc_cat_inst_meth,	\
-		  ".objc_cat_inst_meth", 0, 1)	\
+		  ".objc_cat_inst_meth", 1)	\
 SECTION_FUNCTION (objc_selector_refs_section,	\
 		  in_objc_selector_refs,	\
-		  ".objc_message_refs", 0, 1)	\
+		  ".objc_message_refs", 1)	\
 SECTION_FUNCTION (objc_selector_fixup_section,	\
 		  in_objc_selector_fixup,	\
-		  ".section __OBJC, __sel_fixup", 0, 1)	\
+		  ".section __OBJC, __sel_fixup", 1)	\
 SECTION_FUNCTION (objc_symbols_section,		\
 		  in_objc_symbols,		\
-		  ".objc_symbols", 0, 1)	\
+		  ".objc_symbols", 1)	\
 SECTION_FUNCTION (objc_module_info_section,	\
 		  in_objc_module_info,		\
-		  ".objc_module_info", 0, 1)	\
+		  ".objc_module_info", 1)	\
 SECTION_FUNCTION (objc_protocol_section,	\
 		  in_objc_protocol,		\
-		  ".objc_protocol", 0, 1)	\
+		  ".objc_protocol", 1)	\
 SECTION_FUNCTION (objc_string_object_section,	\
 		  in_objc_string_object,	\
-		  ".objc_string_object", 0, 1)	\
+		  ".objc_string_object", 1)	\
 SECTION_FUNCTION (objc_constant_string_object_section,	\
 		  in_objc_constant_string_object,	\
-		  ".section __OBJC, __cstring_object", 0, 1)	\
+		  ".section __OBJC, __cstring_object", 1)	\
 SECTION_FUNCTION (objc_class_names_section,	\
 		in_objc_class_names,		\
-		".objc_class_names", 0, 1)	\
+		".objc_class_names", 1)	\
 SECTION_FUNCTION (objc_meth_var_names_section,	\
 		in_objc_meth_var_names,		\
-		".objc_meth_var_names", 0, 1)	\
+		".objc_meth_var_names", 1)	\
 SECTION_FUNCTION (objc_meth_var_types_section,	\
 		in_objc_meth_var_types,		\
-		".objc_meth_var_types", 0, 1)	\
+		".objc_meth_var_types", 1)	\
 SECTION_FUNCTION (objc_cls_refs_section,	\
 		in_objc_cls_refs,		\
-		".objc_cls_refs", 0, 1)		\
+		".objc_cls_refs", 1)		\
 						\
 SECTION_FUNCTION (machopic_lazy_symbol_ptr_section,	\
 		in_machopic_lazy_symbol_ptr,		\
-		".lazy_symbol_pointer", 0, 0)      	\
+		".lazy_symbol_pointer", 0)      	\
 SECTION_FUNCTION (machopic_nl_symbol_ptr_section,	\
 		in_machopic_nl_symbol_ptr,		\
-		".non_lazy_symbol_pointer", 0, 0)      	\
+		".non_lazy_symbol_pointer", 0)      	\
 SECTION_FUNCTION (machopic_symbol_stub_section,		\
 		in_machopic_symbol_stub,		\
-		".symbol_stub", 0, 0)      		\
+		".symbol_stub", 0)      		\
 SECTION_FUNCTION (machopic_picsymbol_stub_section,	\
 		in_machopic_picsymbol_stub,		\
-		".picsymbol_stub", 0, 0)      		\
+		".picsymbol_stub", 0)      		\
 							\
 void						\
 objc_section_init ()				\
@@ -655,12 +634,12 @@ void alias_section (name, alias)			\
 	 }                                                              \
        } while (0)
 
-#define DECLARE_CLASS_REFERENCE(NAME) \
-    do { extern FILE* asm_out_file;					\
-	 if (asm_out_file) {						\
-	   fprintf (asm_out_file, "\t");				\
-	   assemble_name (asm_out_file, NAME); 				\
-	   fprintf (asm_out_file, "=0\n");				\
+#define ASM_DECLARE_CLASS_REFERENCE(FILE,NAME)				\
+    do {								\
+	 if (FILE) {							\
+	   fprintf (FILE, "\t");					\
+	   assemble_name (FILE, NAME); 					\
+	   fprintf (FILE, "=0\n");					\
 	   assemble_global (NAME);					\
 	 }								\
        } while (0)
@@ -705,6 +684,16 @@ enum machopic_addr_class {
 #define MACHOPIC_JUST_INDIRECT (flag_pic == 1)
 #define MACHOPIC_PURE          (flag_pic == 2)
 
+#define ENCODE_SECTION_INFO(DECL)  \
+  darwin_encode_section_info (DECL)
+
+/* Be conservative and always redo the encoding.  */
+
+#define REDO_SECTION_INFO_P(DECL) (1)
+
+#define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)  \
+  ((VAR) = ((SYMBOL_NAME[0] == '!') ? (SYMBOL_NAME) + 4 : (SYMBOL_NAME)))
+
 #define GEN_BINDER_NAME_FOR_STUB(BUF,STUB,STUB_LENGTH)		\
   do {								\
     const char *stub_ = (STUB);					\
@@ -741,6 +730,7 @@ enum machopic_addr_class {
   do {								\
     const char *symbol_ = (SYMBOL);				\
     char *buffer_ = (BUF);					\
+    STRIP_NAME_ENCODING (symbol_, symbol_);  \
     if (symbol_[0] == '"')					\
       {								\
         strcpy (buffer_, "\"L");					\
@@ -761,3 +751,10 @@ enum machopic_addr_class {
       }								\
   } while (0)
 
+#define REGISTER_TARGET_PRAGMAS(PFILE)                          \
+  do {                                                          \
+    cpp_register_pragma (PFILE, 0, "mark", darwin_pragma_ignore);  \
+    cpp_register_pragma (PFILE, 0, "options", darwin_pragma_options);  \
+    cpp_register_pragma (PFILE, 0, "segment", darwin_pragma_ignore);  \
+    cpp_register_pragma (PFILE, 0, "unused", darwin_pragma_unused);  \
+  } while (0)

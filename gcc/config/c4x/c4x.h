@@ -1979,48 +1979,14 @@ if (REG_P (OP1) && ! REG_P (OP0))			\
 
 #define FINI_SECTION_ASM_OP  "\t.sect\t\".fini\""
 
-/* Support const sections and the ctors and dtors sections for g++.
-   Note that there appears to be two different ways to support const
-   sections at the moment.  You can either #define the symbol
-   READONLY_DATA_SECTION (giving it some code which switches to the
-   readonly data section) or else you can #define the symbols
-   EXTRA_SECTIONS, EXTRA_SECTION_FUNCTIONS, SELECT_SECTION, and
-   SELECT_RTX_SECTION.  We do both here just to be on the safe side.  */
-
-/* Define a few machine-specific details of the implementation of
-   constructors.
-
-   The __CTORS_LIST__ goes in the .ctors section.  Define CTOR_LIST_BEGIN
-   and CTOR_LIST_END to contribute to the .ctors section an instruction to
-   push a word containing 0 (or some equivalent of that).
-
-   Define ASM_OUTPUT_CONSTRUCTOR to push the address of the constructor.  */
-
-#define CTORS_SECTION_ASM_OP	"\t.sect\t\".ctors\""
-#define DTORS_SECTION_ASM_OP    "\t.sect\t\".dtors\""
-
-/* Constructor list on stack is in reverse order.  Go to the end of the
-   list and go backwards to call constructors in the right order.  */
-
-#define DO_GLOBAL_CTORS_BODY					\
-do {								\
-  extern func_ptr __CTOR_LIST__[];				\
-  func_ptr *p, *beg = __CTOR_LIST__ + 1;			\
-  for (p = beg; *p ; p++) ;					\
-  while (p != beg)						\
-    (*--p) ();							\
-} while (0)
-
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_init, in_fini, in_ctors, in_dtors
+#define EXTRA_SECTIONS in_const, in_init, in_fini
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS					\
   CONST_SECTION_FUNCTION					\
   INIT_SECTION_FUNCTION						\
-  FINI_SECTION_FUNCTION						\
-  CTORS_SECTION_FUNCTION					\
-  DTORS_SECTION_FUNCTION
+  FINI_SECTION_FUNCTION
 
 #define INIT_SECTION_FUNCTION					\
 void								\
@@ -2061,57 +2027,8 @@ const_section ()							\
 
 #define ASM_STABS_OP "\t.stabs\t"
 
-/* The ctors and dtors sections are not normally put into use 
-   by EXTRA_SECTIONS and EXTRA_SECTION_FUNCTIONS as defined in svr3.h,
-   but it can't hurt to define these macros for whatever systems use them.  */
-
-#define CTORS_SECTION_FUNCTION						\
-void									\
-ctors_section ()							\
-{									\
-  if (in_section != in_ctors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);		\
-      in_section = in_ctors;						\
-    }									\
-}
-
-#define DTORS_SECTION_FUNCTION						\
-void									\
-dtors_section ()							\
-{									\
-  if (in_section != in_dtors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);		\
-      in_section = in_dtors;						\
-    }									\
-}
-
-#define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC) \
-   fprintf (FILE, "\t.sect\t\"%s\"\n", NAME);
-
-/* This is machine-dependent because it needs to push something
-   on the stack.  */
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
-  do {									\
-    ctors_section ();							\
-    fprintf (FILE, "\t.word\t ");					\
-    assemble_name (FILE, NAME);						\
-    fprintf (FILE, "\n");						\
-  } while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       				\
-  do {									\
-    dtors_section ();                   				\
-    fprintf (FILE, "\t.word\t ");					\
-    assemble_name (FILE, NAME);              				\
-    fprintf (FILE, "\n");						\
-  } while (0)
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION c4x_asm_named_section
 
 /* A C statement or statements to switch to the appropriate
    section for output of DECL.  DECL is either a `VAR_DECL' node
@@ -2252,10 +2169,6 @@ dtors_section ()							\
   fprintf (FILE, "\t.word\t0%xh\n", (VALUE))
 
 #define ASM_OUTPUT_ASCII(FILE, PTR, LEN) c4x_output_ascii (FILE, PTR, LEN)
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
 
 /* Output and Generation of Labels.  */
 
@@ -2443,12 +2356,6 @@ do {						\
   c4x_init_pragma (&c_lex);						\
 } while (0)
 
-#define SET_DEFAULT_DECL_ATTRIBUTES(DECL, ATTRIBUTES) \
-  c4x_set_default_attributes (DECL, &ATTRIBUTES)
-
-#define VALID_MACHINE_TYPE_ATTRIBUTE(TYPE, ATTRIBUTES, NAME, ARGS) \
-  (c4x_valid_type_attribute_p (TYPE, ATTRIBUTES, NAME, ARGS))
-
 /* Assembler Commands for Alignment.  */
 
 #define ASM_OUTPUT_SKIP(FILE, SIZE) \
@@ -2513,17 +2420,6 @@ do { fprintf (asm_out_file, "\t.sdef\t");		\
      fprintf (asm_out_file,				\
 	      "%s\t.val\t.%s\t.scl\t-1%s\t.endef\n",	\
 	      SDB_DELIM, SDB_DELIM, SDB_DELIM); } while (0)
-
-
-/* Define results of standard character escape sequences.  */
-
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 /* This is the kind of divide that is easiest to do in the general case.  */
 
@@ -2765,10 +2661,3 @@ enum c4x_builtins
   C4X_BUILTIN_FRIEEE,	/*	frieee	   (only C4x)	*/
   C4X_BUILTIN_RCPF	/*	fast_invf  (only C4x)	*/
 };
-
-#define MD_INIT_BUILTINS do { \
-    c4x_init_builtins (void_list_node); \
-  } while (0)
-
-#define MD_EXPAND_BUILTIN(EXP, TARGET, SUBTARGET, MODE, IGNORE) \
-    c4x_expand_builtin ((EXP), (TARGET), (SUBTARGET), (MODE), (IGNORE))

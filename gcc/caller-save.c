@@ -1,6 +1,6 @@
 /* Save and restore call-clobbered registers which are live across a call.
    Copyright (C) 1989, 1992, 1994, 1995, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "reload.h"
 #include "function.h"
 #include "expr.h"
+#include "optabs.h"
 #include "toplev.h"
 #include "tm_p.h"
 
@@ -329,15 +330,12 @@ setup_save_areas ()
 
 	/* Setup single word save area just in case...  */
 	for (k = 0; k < j; k++)
-	  {
-	    /* This should not depend on WORDS_BIG_ENDIAN.
-	       The order of words in regs is the same as in memory.  */
-	    rtx temp = gen_rtx_MEM (regno_save_mode[i + k][1], 
-				    XEXP (regno_save_mem[i][j], 0));
-
-	    regno_save_mem[i + k][1] 
-	      = adj_offsettable_operand (temp, k * UNITS_PER_WORD);
-	  }
+	  /* This should not depend on WORDS_BIG_ENDIAN.
+	     The order of words in regs is the same as in memory.  */
+	  regno_save_mem[i + k][1]
+	    = adjust_address_nv (regno_save_mem[i][j],
+				 regno_save_mode[i + k][1],
+				 k * UNITS_PER_WORD);
       }
 
   /* Now loop again and set the alias set of any save areas we made to
@@ -345,7 +343,7 @@ setup_save_areas ()
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     for (j = MOVE_MAX_WORDS; j > 0; j--)
       if (regno_save_mem[i][j] != 0)
-	MEM_ALIAS_SET (regno_save_mem[i][j]) = get_frame_alias_set ();
+	set_mem_alias_set (regno_save_mem[i][j], get_frame_alias_set ());
 }
 
 /* Find the places where hard regs are live across calls and save them.  */
@@ -677,7 +675,7 @@ insert_restore (chain, before_p, regno, maxrestore, save_mode)
   if (save_mode [regno] != VOIDmode
       && save_mode [regno] != GET_MODE (mem)
       && numregs == HARD_REGNO_NREGS (regno, save_mode [regno]))
-    mem = change_address (mem, save_mode[regno], XEXP (mem, 0));
+    mem = adjust_address (mem, save_mode[regno], 0);
   pat = gen_rtx_SET (VOIDmode,
 		     gen_rtx_REG (GET_MODE (mem), 
 				  regno), mem);
@@ -754,7 +752,7 @@ insert_save (chain, before_p, regno, to_save, save_mode)
   if (save_mode [regno] != VOIDmode
       && save_mode [regno] != GET_MODE (mem)
       && numregs == HARD_REGNO_NREGS (regno, save_mode [regno]))
-    mem = change_address (mem, save_mode[regno], XEXP (mem, 0));
+    mem = adjust_address (mem, save_mode[regno], 0);
   pat = gen_rtx_SET (VOIDmode, mem,
 		     gen_rtx_REG (GET_MODE (mem),
 				  regno));

@@ -1,7 +1,7 @@
 /* Instruction scheduling pass.  This file computes dependencies between
    instructions.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -38,6 +38,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "recog.h"
 #include "sched-int.h"
+#include "params.h"
+#include "cselib.h"
 
 extern char *reg_known_equiv_p;
 extern rtx *reg_known_value;
@@ -197,7 +199,6 @@ add_dependence (insn, elem, dep_type)
 {
   rtx link, next;
   int present_p;
-  enum reg_note present_dep_type;
   rtx cond1, cond2;
 
   /* Don't depend an insn on itself.  */
@@ -271,10 +272,13 @@ add_dependence (insn, elem, dep_type)
      dramatically for some code.  */
   if (true_dependency_cache != NULL)
     {
+      enum reg_note present_dep_type = 0;
+
       if (anti_dependency_cache == NULL || output_dependency_cache == NULL)
 	abort ();
       if (TEST_BIT (true_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem)))
-	present_dep_type = 0;
+	/* Do nothing (present_set_type is already 0).  */
+	;
       else if (TEST_BIT (anti_dependency_cache[INSN_LUID (insn)],
 			 INSN_LUID (elem)))
 	present_dep_type = REG_DEP_ANTI;
@@ -479,6 +483,11 @@ add_insn_mem_dependence (deps, insn_list, mem_list, insn, mem)
   link = alloc_INSN_LIST (insn, *insn_list);
   *insn_list = link;
 
+  if (current_sched_info->use_cselib)
+    {
+      mem = shallow_copy_rtx (mem);
+      XEXP (mem, 0) = cselib_subst_to_values (XEXP (mem, 0));
+    }
   link = alloc_EXPR_LIST (VOIDmode, mem, *mem_list);
   *mem_list = link;
 
@@ -532,6 +541,7 @@ flush_pending_lists (deps, insn, only_write)
 
   free_INSN_LIST_list (&deps->last_pending_memory_flush);
   deps->last_pending_memory_flush = alloc_INSN_LIST (insn, NULL_RTX);
+  deps->pending_flush_length = 1;
 }
 
 /* Analyze a single SET, CLOBBER, PRE_DEC, POST_DEC, PRE_INC or POST_INC
@@ -616,7 +626,9 @@ sched_analyze_1 (deps, x, insn)
 		SET_REGNO_REG_SET (reg_pending_clobbers, r);
 
 	      /* Function calls clobber all call_used regs.  */
-	      if (global_regs[r] || (code == SET && call_used_regs[r]))
+	      if (global_regs[r]
+		  || (code == SET
+		      && TEST_HARD_REG_BIT (regs_invalidated_by_call, r)))
 		for (u = deps->last_function_call; u; u = XEXP (u, 1))
 		  add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
 	    }
@@ -670,15 +682,22 @@ sched_analyze_1 (deps, x, insn)
   else if (GET_CODE (dest) == MEM)
     {
       /* Writing memory.  */
+      rtx t = dest;
 
-      if (deps->pending_lists_length > 32)
+      if (current_sched_info->use_cselib)
+	{
+	  t = shallow_copy_rtx (dest);
+	  cselib_lookup (XEXP (t, 0), Pmode, 1);
+	  XEXP (t, 0) = cselib_subst_to_values (XEXP (t, 0));
+	}
+
+      if (deps->pending_lists_length > MAX_PENDING_LIST_LENGTH)
 	{
 	  /* Flush all pending reads and writes to prevent the pending lists
 	     from getting any larger.  Insn scheduling runs too slowly when
-	     these lists get long.  The number 32 was chosen because it
-	     seems like a reasonable number.  When compiling GCC with itself,
+	     these lists get long.  When compiling GCC with itself,
 	     this flush occurs 8 times for sparc, and 10 times for m88k using
-	     the number 32.  */
+	     the default value of 32.  */
 	  flush_pending_lists (deps, insn, 0);
 	}
       else
@@ -690,7 +709,7 @@ sched_analyze_1 (deps, x, insn)
 	  pending_mem = deps->pending_read_mems;
 	  while (pending)
 	    {
-	      if (anti_dependence (XEXP (pending_mem, 0), dest))
+	      if (anti_dependence (XEXP (pending_mem, 0), t))
 		add_dependence (insn, XEXP (pending, 0), REG_DEP_ANTI);
 
 	      pending = XEXP (pending, 1);
@@ -701,7 +720,7 @@ sched_analyze_1 (deps, x, insn)
 	  pending_mem = deps->pending_write_mems;
 	  while (pending)
 	    {
-	      if (output_dependence (XEXP (pending_mem, 0), dest))
+	      if (output_dependence (XEXP (pending_mem, 0), t))
 		add_dependence (insn, XEXP (pending, 0), REG_DEP_OUTPUT);
 
 	      pending = XEXP (pending, 1);
@@ -833,12 +852,19 @@ sched_analyze_2 (deps, x, insn)
 	/* Reading memory.  */
 	rtx u;
 	rtx pending, pending_mem;
+	rtx t = x;
 
+	if (current_sched_info->use_cselib)
+	  {
+	    t = shallow_copy_rtx (t);
+	    cselib_lookup (XEXP (t, 0), Pmode, 1);
+	    XEXP (t, 0) = cselib_subst_to_values (XEXP (t, 0));
+	  }
 	pending = deps->pending_read_insns;
 	pending_mem = deps->pending_read_mems;
 	while (pending)
 	  {
-	    if (read_dependence (XEXP (pending_mem, 0), x))
+	    if (read_dependence (XEXP (pending_mem, 0), t))
 	      add_dependence (insn, XEXP (pending, 0), REG_DEP_ANTI);
 
 	    pending = XEXP (pending, 1);
@@ -850,7 +876,7 @@ sched_analyze_2 (deps, x, insn)
 	while (pending)
 	  {
 	    if (true_dependence (XEXP (pending_mem, 0), VOIDmode,
-				 x, rtx_varies_p))
+				 t, rtx_varies_p))
 	      add_dependence (insn, XEXP (pending, 0), 0);
 
 	    pending = XEXP (pending, 1);
@@ -1012,13 +1038,17 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 
   /* Mark registers CLOBBERED or used by called function.  */
   if (GET_CODE (insn) == CALL_INSN)
-    for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
-      {
-	if (GET_CODE (XEXP (link, 0)) == CLOBBER)
-	  sched_analyze_1 (deps, XEXP (link, 0), insn);
-	else
-	  sched_analyze_2 (deps, XEXP (link, 0), insn);
-      }
+    {
+      for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
+	{
+	  if (GET_CODE (XEXP (link, 0)) == CLOBBER)
+	    sched_analyze_1 (deps, XEXP (link, 0), insn);
+	  else
+	    sched_analyze_2 (deps, XEXP (link, 0), insn);
+	}
+      if (find_reg_note (insn, REG_SETJMP, NULL))
+	schedule_barrier_found = 1;
+    }
 
   if (GET_CODE (insn) == JUMP_INSN)
     {
@@ -1089,8 +1119,7 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 	  if (INTVAL (XEXP (link, 0)) == NOTE_INSN_LOOP_BEG
 	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_LOOP_END
 	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_EH_REGION_BEG
-	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_EH_REGION_END
-	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_SETJMP)
+	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_EH_REGION_END)
 	    schedule_barrier_found = 1;
 
 	  link = XEXP (link, 1);
@@ -1229,6 +1258,9 @@ sched_analyze (deps, head, tail)
   register rtx u;
   rtx loop_notes = 0;
 
+  if (current_sched_info->use_cselib)
+    cselib_init ();
+
   for (insn = head;; insn = NEXT_INSN (insn))
     {
       if (GET_CODE (insn) == INSN || GET_CODE (insn) == JUMP_INSN)
@@ -1242,8 +1274,14 @@ sched_analyze (deps, head, tail)
 	  /* Make each JUMP_INSN a scheduling barrier for memory
              references.  */
 	  if (GET_CODE (insn) == JUMP_INSN)
-	    deps->last_pending_memory_flush
-	      = alloc_INSN_LIST (insn, deps->last_pending_memory_flush);
+	    {
+	      /* Keep the list a reasonable size.  */
+	      if (deps->pending_flush_length++ > MAX_PENDING_LIST_LENGTH)
+		flush_pending_lists (deps, insn, 0);
+	      else
+		deps->last_pending_memory_flush
+		  = alloc_INSN_LIST (insn, deps->last_pending_memory_flush);
+	    }
 	  sched_analyze_insn (deps, PATTERN (insn), insn, loop_notes);
 	  loop_notes = 0;
 	}
@@ -1266,15 +1304,14 @@ sched_analyze (deps, head, tail)
 	     past a void call (i.e. it does not explicitly set the hard
 	     return reg).  */
 
-	  /* If this call is followed by a NOTE_INSN_SETJMP, then assume that
+	  /* If this call has REG_SETJMP, then assume that
 	     all registers, not just hard registers, may be clobbered by this
 	     call.  */
 
 	  /* Insn, being a CALL_INSN, magically depends on
 	     `last_function_call' already.  */
 
-	  if (NEXT_INSN (insn) && GET_CODE (NEXT_INSN (insn)) == NOTE
-	      && NOTE_LINE_NUMBER (NEXT_INSN (insn)) == NOTE_INSN_SETJMP)
+	  if (find_reg_note (insn, REG_SETJMP, NULL))
 	    {
 	      for (i = 0; i < deps->max_reg; i++)
 		{
@@ -1290,16 +1327,6 @@ sched_analyze (deps, head, tail)
 		  free_INSN_LIST_list (&reg_last->uses);
 		}
 	      reg_pending_sets_all = 1;
-
-	      /* Add a pair of REG_SAVE_NOTEs which we will later
-		 convert back into a NOTE_INSN_SETJMP note.  See
-		 reemit_notes for why we use a pair of NOTEs.  */
-	      REG_NOTES (insn) = alloc_EXPR_LIST (REG_SAVE_NOTE,
-						  GEN_INT (0),
-						  REG_NOTES (insn));
-	      REG_NOTES (insn) = alloc_EXPR_LIST (REG_SAVE_NOTE,
-						  GEN_INT (NOTE_INSN_SETJMP),
-						  REG_NOTES (insn));
 	    }
 	  else
 	    {
@@ -1332,7 +1359,7 @@ sched_analyze (deps, head, tail)
 	     all pending reads and writes, and start new dependencies starting
 	     from here.  But only flush writes for constant calls (which may
 	     be passed a pointer to something we haven't written yet).  */
-	  flush_pending_lists (deps, insn, CONST_CALL_P (insn));
+	  flush_pending_lists (deps, insn, CONST_OR_PURE_CALL_P (insn));
 
 	  /* Depend this function call (actually, the user of this
 	     function call) on all hard register clobberage.  */
@@ -1364,9 +1391,7 @@ sched_analyze (deps, head, tail)
 	       && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
 		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END
 		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG
-		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END
-		   || (NOTE_LINE_NUMBER (insn) == NOTE_INSN_SETJMP
-		       && GET_CODE (PREV_INSN (insn)) != CALL_INSN)))
+		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END))
 	{
 	  rtx rtx_region;
 
@@ -1382,11 +1407,17 @@ sched_analyze (deps, head, tail)
 	  loop_notes = alloc_EXPR_LIST (REG_SAVE_NOTE,
 					GEN_INT (NOTE_LINE_NUMBER (insn)),
 					loop_notes);
-	  CONST_CALL_P (loop_notes) = CONST_CALL_P (insn);
+	  CONST_OR_PURE_CALL_P (loop_notes) = CONST_OR_PURE_CALL_P (insn);
 	}
 
+      if (current_sched_info->use_cselib)
+	cselib_process_insn (insn);
       if (insn == tail)
-	return;
+	{
+	  if (current_sched_info->use_cselib)
+	    cselib_finish ();
+	  return;
+	}
     }
   abort ();
 }
@@ -1469,6 +1500,7 @@ init_deps (deps)
   deps->pending_write_insns = 0;
   deps->pending_write_mems = 0;
   deps->pending_lists_length = 0;
+  deps->pending_flush_length = 0;
   deps->last_pending_memory_flush = 0;
   deps->last_function_call = 0;
   deps->in_post_call_group_p = 0;
@@ -1539,14 +1571,14 @@ free_dependency_caches ()
 {
   if (true_dependency_cache)
     {
-      free (true_dependency_cache);
+      sbitmap_vector_free (true_dependency_cache);
       true_dependency_cache = NULL;
-      free (anti_dependency_cache);
+      sbitmap_vector_free (anti_dependency_cache);
       anti_dependency_cache = NULL;
-      free (output_dependency_cache);
+      sbitmap_vector_free (output_dependency_cache);
       output_dependency_cache = NULL;
 #ifdef ENABLE_CHECKING
-      free (forward_dependency_cache);
+      sbitmap_vector_free (forward_dependency_cache);
       forward_dependency_cache = NULL;
 #endif
     }

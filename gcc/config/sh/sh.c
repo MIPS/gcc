@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "flags.h"
 #include "expr.h"
+#include "optabs.h"
 #include "function.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -37,11 +38,16 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "c-pragma.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 
 #define MSW (TARGET_LITTLE_ENDIAN ? 1 : 0)
 #define LSW (TARGET_LITTLE_ENDIAN ? 0 : 1)
+
+/* Set to 1 by expand_prologue() when the function is an interrupt handler.  */
+int current_function_interrupt;
 
 /* ??? The pragma interrupt support will not work for SH3.  */
 /* This is set by #pragma interrupt and #pragma trapa, and causes gcc to
@@ -148,6 +154,23 @@ static int calc_live_regs PARAMS ((int *, int *));
 static void mark_use PARAMS ((rtx, rtx *));
 static HOST_WIDE_INT rounded_frame_size PARAMS ((int));
 static rtx mark_constant_pool_use PARAMS ((rtx));
+static int sh_valid_decl_attribute PARAMS ((tree, tree, tree, tree));
+static void sh_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void sh_insert_attributes PARAMS ((tree, tree *));
+static void sh_asm_named_section PARAMS ((const char *, unsigned int,
+					  unsigned int));
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_VALID_DECL_ATTRIBUTE
+#define TARGET_VALID_DECL_ATTRIBUTE sh_valid_decl_attribute
+
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE sh_output_function_epilogue
+
+#undef TARGET_INSERT_ATTRIBUTES
+#define TARGET_INSERT_ATTRIBUTES sh_insert_attributes
+
+struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Print the operand address in x to the stream.  */
 
@@ -282,7 +305,7 @@ print_operand (stream, x, code)
 	case MEM:
 	  if (GET_CODE (XEXP (x, 0)) != PRE_DEC
 	      && GET_CODE (XEXP (x, 0)) != POST_INC)
-	    x = adj_offsettable_operand (x, 4);
+	    x = adjust_address (x, SImode, 4);
 	  print_operand_address (stream, XEXP (x, 0));
 	  break;
 	default:
@@ -802,12 +825,8 @@ output_branch (logic, insn, operands)
      rtx insn;
      rtx *operands;
 {
-  int len = get_attr_length (insn);
-
-  switch (len)
+  switch (get_attr_length (insn))
     {
-    case 16:
-    case 12:
     case 6:
       /* This can happen if filling the delay slot has caused a forward
 	 branch to exceed its range (we could reverse it, but only
@@ -830,24 +849,16 @@ output_branch (logic, insn, operands)
 	  if (final_sequence
 	      && ! INSN_ANNULLED_BRANCH_P (XVECEXP (final_sequence, 0, 0)))
 	    {
-	      asm_fprintf (asm_out_file, "\tb%s%ss\t%LLF%d\n",
-			   logic ? "f" : "t",
+	      asm_fprintf (asm_out_file, "\tb%s%ss\t%LLF%d\n", logic ? "f" : "t",
 	                   ASSEMBLER_DIALECT ? "/" : ".", label);
 	      print_slot (final_sequence);
 	    }
 	  else
-	    asm_fprintf (asm_out_file, "\tb%s\t%LLF%d\n", logic ? "f" : "t",
-			 label);
+	    asm_fprintf (asm_out_file, "\tb%s\t%LLF%d\n", logic ? "f" : "t", label);
     
-	  if (len == 6)
-	    {
-	      output_asm_insn ("bra\t%l0", &op0);
-	      fprintf (asm_out_file, "\tnop\n");
-	    }
-	  else
-	    output_far_jump (insn, op0);
-
-	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LF", label);
+	  output_asm_insn ("bra\t%l0", &op0);
+	  fprintf (asm_out_file, "\tnop\n");
+	  ASM_OUTPUT_INTERNAL_LABEL(asm_out_file, "LF", label);
     
 	  return "";
 	}
@@ -856,6 +867,9 @@ output_branch (logic, insn, operands)
     case 2:
       return logic ? "bt%.\t%l0" : "bf%.\t%l0";
     default:
+      /* There should be no longer branches now - that would
+	 indicate that something has destroyed the branches set
+	 up in machine_dependent_reorg.  */
       abort ();
     }
 }
@@ -2945,21 +2959,32 @@ barrier_align (barrier_or_label)
 	}
       if (prev
 	  && GET_CODE (prev) == JUMP_INSN
-	  && JUMP_LABEL (prev)
-	  && (jump_to_next || next_real_insn (JUMP_LABEL (prev)) == next
+	  && JUMP_LABEL (prev))
+	{
+	  rtx x;
+	  if (jump_to_next 
+	      || next_real_insn (JUMP_LABEL (prev)) == next
 	      /* If relax_delay_slots() decides NEXT was redundant
 		 with some previous instruction, it will have
 		 redirected PREV's jump to the following insn.  */
-	      || JUMP_LABEL (prev) == next_nonnote_insn (next)))
-	{
-	  rtx pat = PATTERN (prev);
-	  if (GET_CODE (pat) == PARALLEL)
-	    pat = XVECEXP (pat, 0, 0);
-	  if (credit - slot >= (GET_CODE (SET_SRC (pat)) == PC ? 2 : 0))
-	    return 0;
-	}
+	      || JUMP_LABEL (prev) == next_nonnote_insn (next)
+	      /* There is no upper bound on redundant instructions that
+		 might have been skipped, but we must not put an
+		 alignment where none had been before.  */
+	      || (x = (NEXT_INSN (NEXT_INSN (PREV_INSN (prev)))),	    
+		  (INSN_P (x) 
+		   && (INSN_CODE (x) == CODE_FOR_block_branch_redirect
+		       || INSN_CODE (x) == CODE_FOR_indirect_jump_scratch))))
+	    {
+	      rtx pat = PATTERN (prev);
+	      if (GET_CODE (pat) == PARALLEL)
+	      pat = XVECEXP (pat, 0, 0);
+	      if (credit - slot >= (GET_CODE (SET_SRC (pat)) == PC ? 2 : 0))
+		return 0;
+	    }
+	}     
     }
-
+  
   return CACHE_LOG;
 }
 
@@ -3005,7 +3030,7 @@ machine_dependent_reorg (first)
      optimizing, they'll have already been split.  Otherwise, make
      sure we don't split them too late.  */
   if (! optimize)
-    split_all_insns (0);
+    split_all_insns_noflow ();
 
   /* If relaxing, generate pseudo-ops to associate function calls with
      the symbols they call.  It does no harm to not generate these
@@ -4010,6 +4035,11 @@ sh_expand_prologue ()
   int live_regs_mask2;
   int save_flags = target_flags;
 
+  current_function_interrupt
+    = lookup_attribute ("interrupt_handler",
+			DECL_MACHINE_ATTRIBUTES (current_function_decl))
+    != NULL_TREE;
+
   /* We have pretend args if we had an object sent partially in registers
      and partially on the stack, e.g. a large structure.  */
   output_stack_adjust (-current_function_pretend_args_size,
@@ -4179,10 +4209,10 @@ sh_need_epilogue ()
 
 /* Clear variables at function end.  */
 
-void
-function_epilogue (stream, size)
-     FILE *stream ATTRIBUTE_UNUSED;
-     int size ATTRIBUTE_UNUSED;
+static void
+sh_output_function_epilogue (file, size)
+     FILE *file ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   trap_exit = pragma_interrupt = pragma_trapa = pragma_nosave_low_regs = 0;
   sh_need_epilogue_known = 0;
@@ -4201,7 +4231,8 @@ sh_builtin_saveregs ()
   /* Number of SFmode float regs to save.  */
   int n_floatregs = MAX (0, NPARM_REGS (SFmode) - first_floatreg);
   rtx regbuf, fpregs;
-  int bufsize, regno, alias_set;
+  int bufsize, regno;
+  HOST_WIDE_INT alias_set;
 
   /* Allocate block of memory for the regs. */
   /* ??? If n_intregs + n_floatregs == 0, should we allocate at least 1 byte?
@@ -4210,17 +4241,15 @@ sh_builtin_saveregs ()
 
   regbuf = assign_stack_local (BLKmode, bufsize, 0);
   alias_set = get_varargs_alias_set ();
-  MEM_ALIAS_SET (regbuf) = alias_set;
+  set_mem_alias_set (regbuf, alias_set);
 
   /* Save int args.
      This is optimized to only save the regs that are necessary.  Explicitly
      named args need not be saved.  */
   if (n_intregs > 0)
     move_block_from_reg (BASE_ARG_REG (SImode) + first_intreg,
-			 change_address (regbuf, BLKmode,
-					 plus_constant (XEXP (regbuf, 0),
-							(n_floatregs
-							 * UNITS_PER_WORD))), 
+			 adjust_address (regbuf, BLKmode,
+					 n_floatregs * UNITS_PER_WORD),
 			 n_intregs, n_intregs * UNITS_PER_WORD);
 
   /* Save float args.
@@ -4243,7 +4272,7 @@ sh_builtin_saveregs ()
 	  emit_insn (gen_addsi3 (fpregs, fpregs,
 				 GEN_INT (-2 * UNITS_PER_WORD)));
 	  mem = gen_rtx_MEM (DFmode, fpregs);
-	  MEM_ALIAS_SET (mem) = alias_set;
+	  set_mem_alias_set (mem, alias_set);
 	  emit_move_insn (mem, 
 			  gen_rtx (REG, DFmode, BASE_ARG_REG (DFmode) + regno));
 	}
@@ -4252,7 +4281,7 @@ sh_builtin_saveregs ()
 	{
 	  emit_insn (gen_addsi3 (fpregs, fpregs, GEN_INT (- UNITS_PER_WORD)));
 	  mem = gen_rtx_MEM (SFmode, fpregs);
-	  MEM_ALIAS_SET (mem) = alias_set;
+	  set_mem_alias_set (mem, alias_set);
 	  emit_move_insn (mem,
 			  gen_rtx (REG, SFmode, BASE_ARG_REG (SFmode) + regno
 						- (TARGET_LITTLE_ENDIAN != 0)));
@@ -4262,9 +4291,10 @@ sh_builtin_saveregs ()
     for (regno = NPARM_REGS (SFmode) - 1; regno >= first_floatreg; regno--)
       {
         rtx mem;
+
 	emit_insn (gen_addsi3 (fpregs, fpregs, GEN_INT (- UNITS_PER_WORD)));
 	mem = gen_rtx_MEM (SFmode, fpregs);
-	MEM_ALIAS_SET (mem) = alias_set;
+	set_mem_alias_set (mem, alias_set);
 	emit_move_insn (mem,
 			gen_rtx_REG (SFmode, BASE_ARG_REG (SFmode) + regno));
       }
@@ -4555,13 +4585,7 @@ initial_elimination_offset (from, to)
 
   if (from == RETURN_ADDRESS_POINTER_REGNUM
       && (to == FRAME_POINTER_REGNUM || to == STACK_POINTER_REGNUM))
-    {
-      int i, n = total_saved_regs_space;
-      for (i = PR_REG-1; i >= 0; i--)
-	if (live_regs_mask & (1 << i))
-	  n -= 4;
-      return n + total_auto_space;
-    }
+    return UNITS_PER_WORD + total_auto_space;
 
   abort ();
 }
@@ -4592,11 +4616,10 @@ sh_pr_nosave_low_regs (pfile)
 
 /* Generate 'handle_interrupt' attribute for decls */
 
-void
-sh_pragma_insert_attributes (node, attributes, prefix)
+static void
+sh_insert_attributes (node, attributes)
      tree node;
      tree * attributes;
-     tree * prefix ATTRIBUTE_UNUSED;
 {
   if (! pragma_interrupt
       || TREE_CODE (node) != FUNCTION_DECL)
@@ -4626,8 +4649,8 @@ sh_pragma_insert_attributes (node, attributes, prefix)
    trap_exit -- use a trapa to exit an interrupt function instead of
    an rte instruction.  */
 
-int
-sh_valid_machine_decl_attribute (decl, attributes, attr, args)
+static int
+sh_valid_decl_attribute (decl, attributes, attr, args)
      tree decl;
      tree attributes ATTRIBUTE_UNUSED;
      tree attr;
@@ -5498,4 +5521,50 @@ static rtx mark_constant_pool_use (x)
     }
 
   return lab;
+}
+
+/* Return true if it's possible to redirect BRANCH1 to the destination
+   of an unconditional jump BRANCH2.  We only want to do this if the
+   resulting branch will have a short displacement.  */
+int 
+sh_can_redirect_branch (branch1, branch2)
+     rtx branch1;
+     rtx branch2;
+{
+  if (flag_expensive_optimizations && simplejump_p (branch2))
+    {
+      rtx dest = XEXP (SET_SRC (single_set (branch2)), 0);
+      rtx insn;
+      int distance;
+      
+      for (distance = 0, insn = NEXT_INSN (branch1); 
+	   insn && distance < 256; 
+	   insn = PREV_INSN (insn))
+	{
+	  if (insn == dest)    
+	    return 1;
+	  else
+	    distance += get_attr_length (insn);
+	}
+      for (distance = 0, insn = NEXT_INSN (branch1); 
+	   insn && distance < 256; 
+	   insn = NEXT_INSN (insn))
+	{
+	  if (insn == dest)    
+	    return 1;
+	  else
+	    distance += get_attr_length (insn);
+	}
+    }
+  return 0;
+}
+
+static void
+sh_asm_named_section (name, flags, align)
+     const char *name;
+     unsigned int flags ATTRIBUTE_UNUSED;
+     unsigned int align ATTRIBUTE_UNUSED;
+{
+  /* ??? Perhaps we should be using default_coff_asm_named_section.  */
+  fprintf (asm_out_file, "\t.section %s\n", name);
 }

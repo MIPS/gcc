@@ -56,24 +56,9 @@ do {							\
 #undef MAX_OFILE_ALIGNMENT
 #define MAX_OFILE_ALIGNMENT (32768*8)
 
-/* A C statement to output something to the assembler file to switch to section
-   NAME for object DECL which is either a FUNCTION_DECL, a VAR_DECL or
-   NULL_TREE.  Some target formats do not support arbitrary sections.  Do not
-   define this macro in such cases.  */
-
-#undef ASM_OUTPUT_SECTION_NAME
-#define ASM_OUTPUT_SECTION_NAME(F, DECL, NAME, RELOC) \
-do {								\
-  extern FILE *asm_out_text_file;				\
-  if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL)		\
-    fprintf (asm_out_text_file, "\t.section %s,\"ax\",@progbits\n", (NAME)); \
-  else if ((DECL) && DECL_READONLY_SECTION (DECL, RELOC))	\
-    fprintf (F, "\t.section %s,\"a\",@progbits\n", (NAME));	\
-  else if (! strcmp (NAME, ".bss"))                             \
-    fprintf (F, "\t.section %s,\"aw\",@nobits\n", (NAME));      \
-  else								\
-    fprintf (F, "\t.section %s,\"aw\",@progbits\n", (NAME));	\
-} while (0)
+/* Switch into a generic section.  */
+#undef TARGET_ASM_NAMED_SECTION
+#define TARGET_ASM_NAMED_SECTION  default_elf_asm_named_section
 
 /* The following macro defines the format used to output the second
    operand of the .type assembler directive.  Different svr4 assemblers
@@ -211,97 +196,10 @@ do {									 \
  } while (0)
 
 #define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
-#undef UNIQUE_SECTION_P
-#define UNIQUE_SECTION_P(DECL) (DECL_ONE_ONLY (DECL))
 #undef UNIQUE_SECTION
-#define UNIQUE_SECTION(DECL,RELOC)					   \
-do {									   \
-  int len, size, sec;							   \
-  char *name, *string, *prefix;						   \
-  static char *prefixes[4][2] = {					   \
-    { ".text.", ".gnu.linkonce.t." },					   \
-    { ".rodata.", ".gnu.linkonce.r." },					   \
-    { ".data.", ".gnu.linkonce.d." },					   \
-    { ".sdata.", ".gnu.linkonce.s." }					   \
-  };									   \
-									   \
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL));		   \
-  size = int_size_in_bytes (TREE_TYPE (decl));				   \
-									   \
-  /* Determine the base section we are interested in:			   \
-     0=text, 1=rodata, 2=data, 3=sdata, [4=bss].  */			   \
-  if (TREE_CODE (DECL) == FUNCTION_DECL)				   \
-    sec = 0;								   \
-  else if (DECL_INITIAL (DECL) == 0					   \
-           || DECL_INITIAL (DECL) == error_mark_node)			   \
-    sec = 2;								   \
-  else if ((TARGET_EMBEDDED_PIC || TARGET_MIPS16)			   \
-      && TREE_CODE (decl) == STRING_CST					   \
-      && !flag_writable_strings)					   \
-    {									   \
-      /* For embedded position independent code, put constant strings	   \
-	 in the text section, because the data section is limited to	   \
-	 64K in size.  For mips16 code, put strings in the text		   \
-	 section so that a PC relative load instruction can be used to	   \
-	 get their address.  */						   \
-      sec = 0;								   \
-    }									   \
-  else if (TARGET_EMBEDDED_DATA)					   \
-    {									   \
-      /* For embedded applications, always put an object in read-only data \
-	 if possible, in order to reduce RAM usage.  */			   \
-									   \
-      if (DECL_READONLY_SECTION (DECL, RELOC))				   \
-	sec = 1;							   \
-      else if (size > 0 && size <= mips_section_threshold)		   \
-	sec = 3;							   \
-      else								   \
-	sec = 2;							   \
-    }									   \
-  else									   \
-    {									   \
-      /* For hosted applications, always put an object in small data if	   \
-	 possible, as this gives the best performance.  */		   \
-									   \
-      if (size > 0 && size <= mips_section_threshold)			   \
-	sec = 3;							   \
-      else if (DECL_READONLY_SECTION (DECL, RELOC))			   \
-	sec = 1;							   \
-      else								   \
-	sec = 2;							   \
-    }									   \
-									   \
-  prefix = prefixes[sec][DECL_ONE_ONLY (DECL)];				   \
-  len = strlen (name) + strlen (prefix);				   \
-  string = alloca (len + 1);						   \
-  sprintf (string, "%s%s", prefix, name);				   \
-									   \
-  DECL_SECTION_NAME (DECL) = build_string (len, string);		   \
-} while (0)
+#define UNIQUE_SECTION(DECL,RELOC) \
+  mips_unique_section ((DECL), (RELOC))
 
-/* Support the ctors/dtors and other sections.  */
- 
-/* Define the names of and pseudo-ops used to switch to the .ctors and
-   .dtors sections.
- 
-   Note that we want to give these sections the SHF_WRITE attribute
-   because these sections will actually contain data (i.e. tables of
-   addresses of functions in the current root executable or shared library
-   file) and, in the case of a shared library, the relocatable addresses
-   will have to be properly resolved/relocated (and then written into) by
-   the dynamic linker when it actually attaches the given shared library
-   to the executing process.  (Note that on SVR4, you may wish to use the
-   `-z text' option to the ELF linker, when building a shared library, as
-   an additional check that you are doing everything right.  But if you do
-   use the `-z text' option when building a shared library, you will get
-   errors unless the .ctors and .dtors sections are marked as writable
-   via the SHF_WRITE attribute.)  */
-
-#define CTORS_SECTION_NAME      ".ctors"
-#define CTORS_SECTION_ASM_OP    "\t.section\t.ctors,\"aw\""
-#define DTORS_SECTION_NAME      ".dtors"
-#define DTORS_SECTION_ASM_OP    "\t.section\t.dtors,\"aw\""
- 
 /* There's no point providing a default definition of __CTOR_LIST__
    since people are expected either to use crtbegin.o, or an equivalent,
    or provide their own definition.  */
@@ -310,7 +208,7 @@ do {									   \
 /* A list of other sections which the compiler might be "in" at any
    given time.  */
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_sbss, in_rdata, in_ctors, in_dtors
+#define EXTRA_SECTIONS in_sdata, in_sbss, in_rdata
  
 #define INVOKE__main
 
@@ -318,9 +216,7 @@ do {									   \
 #define EXTRA_SECTION_FUNCTIONS                                         \
   SECTION_FUNCTION_TEMPLATE(sdata_section, in_sdata, SDATA_SECTION_ASM_OP) \
   SECTION_FUNCTION_TEMPLATE(sbss_section, in_sbss, SBSS_SECTION_ASM_OP) \
-  SECTION_FUNCTION_TEMPLATE(rdata_section, in_rdata, RDATA_SECTION_ASM_OP) \
-  SECTION_FUNCTION_TEMPLATE(ctors_section, in_ctors, CTORS_SECTION_ASM_OP) \
-  SECTION_FUNCTION_TEMPLATE(dtors_section, in_dtors, DTORS_SECTION_ASM_OP)
+  SECTION_FUNCTION_TEMPLATE(rdata_section, in_rdata, RDATA_SECTION_ASM_OP)
 
 #define SECTION_FUNCTION_TEMPLATE(FN, ENUM, OP)                               \
 void FN ()                                                            \
@@ -331,46 +227,6 @@ void FN ()                                                            \
       in_section = ENUM;                                              \
     }                                                                 \
 }
-
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#undef ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)                             \
-  do {                                                                \
-    ctors_section ();                                                 \
-    fprintf (FILE, "\t%s\t", TARGET_LONG64 ? ".dword" : ".word");     \
-    assemble_name (FILE, NAME);                                       \
-    fprintf (FILE, "\n");                                             \
-  } while (0)
-
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-#undef ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)                              \
-  do {                                                                \
-    dtors_section ();                                                 \
-    fprintf (FILE, "\t%s\t", TARGET_LONG64 ? ".dword" : ".word");     \
-    assemble_name (FILE, NAME);                                       \
-    fprintf (FILE, "\n");                                             \
-  } while (0)
-
-#define CTOR_LIST_BEGIN                                               \
-func_ptr __CTOR_LIST__ __attribute__((section(CTORS_SECTION_NAME))) = \
-  (func_ptr) (-1)
- 
-#define CTOR_LIST_END                                                 \
-func_ptr __CTOR_END__ __attribute__((section(CTORS_SECTION_NAME))) =  \
-  (func_ptr) 0
- 
-#define DTOR_LIST_BEGIN                                               \
-func_ptr __DTOR_LIST__ __attribute__((section(DTORS_SECTION_NAME))) = \
-  (func_ptr) (-1)
-
-#define DTOR_LIST_END                                                 \
-func_ptr __DTOR_END__ __attribute__((section(DTORS_SECTION_NAME))) =  \
-  (func_ptr) 0
 
 /* Don't set the target flags, this is done by the linker script */
 #undef LIB_SPEC

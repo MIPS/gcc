@@ -1,6 +1,6 @@
 // 2000-08-23 Benjamin Kosnik <bkoz@cygnus.com>
 
-// Copyright (C) 2000 Free Software Foundation
+// Copyright (C) 2000, 2001 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,11 +21,11 @@
 // 22.2.1.5 - Template class codecvt [lib.locale.codecvt]
 
 #include <locale>
-#include <debug_assert.h>
+#include <testsuite_hooks.h>
 
 using namespace std;
 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCPP_USE___ENC_TRAITS
 
 void
 initialize_state(__enc_traits& state)
@@ -120,13 +120,14 @@ void test01()
   delete [] e_arr;
   delete [] i_arr;
 }
-#endif /* !defined(_GLIBCPP_USE_WCHAR_T) */
+#endif // _GLIBCPP_USE___ENC_TRAITS
 
 int main ()
 {
-#if _GLIBCPP_USE_WCHAR_T
+#if _GLIBCPP_USE___ENC_TRAITS
   test01();
-#endif /* !defined(_GLIBCPP_USE_WCHAR_T) */
+#endif 
 
   return 0;
 }
+

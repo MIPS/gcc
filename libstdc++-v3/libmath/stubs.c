@@ -143,7 +143,7 @@ logf(float x)
 }
 #endif
 
-#ifndef HAVE_LOGL
+#ifndef _GBLICPP_HAVE_LOGL
 long double
 logl(long double x)
 {

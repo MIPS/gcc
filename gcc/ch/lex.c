@@ -21,7 +21,6 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-#include <setjmp.h>
 #include <sys/stat.h>
 
 #include "tree.h"
@@ -34,10 +33,6 @@ Boston, MA 02111-1307, USA.  */
 #include "obstack.h"
 #include "toplev.h"
 #include "tm_p.h"
-
-#ifdef DWARF_DEBUGGING_INFO
-#include "dwarfout.h"
-#endif
 
 #ifdef MULTIBYTE_CHARS
 #include <locale.h>

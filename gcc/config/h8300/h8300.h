@@ -664,11 +664,6 @@ struct cum_arg
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg (&CUM, MODE, TYPE, NAMED)
 
-/* Generate assembly output for the start of a function.  */
-
-#define FUNCTION_PROLOGUE(FILE, SIZE) \
-  function_prologue (FILE, SIZE)
-
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
@@ -709,14 +704,6 @@ struct cum_arg
    No definition is equivalent to always zero.  */
 
 #define EXIT_IGNORE_STACK 0
-
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.  */
-
-#define FUNCTION_EPILOGUE(FILE, SIZE) \
-  function_epilogue (FILE, SIZE)
 
 /* Output assembler code for a block containing the constant parts
    of a trampoline, leaving space for the variable parts.  
@@ -846,18 +833,22 @@ struct cum_arg
 
 /* Extra constraints.  */
 
-/* 'T' if valid for dec.[wl] on H8/300H and H8/S.  Note that, for
-   inc.[wl], we can use 'K', which has already been defined.  */
-#define OK_FOR_T(OP)				\
-  (GET_CODE (OP) == CONST_INT			\
-   && (INTVAL (OP) == -1 || INTVAL (OP) == -2))
-
 /* Nonzero if X is a constant address suitable as an 8-bit absolute on
    the H8/300H, which is a special case of the 'R' operand.  */
 
 #define EIGHTBIT_CONSTANT_ADDRESS_P(X)			\
   (GET_CODE (X) == CONST_INT && TARGET_H8300H		\
    && 0xffff00 <= INTVAL (X) && INTVAL (X) <= 0xffffff)
+
+/* 'T' if valid for a push destination using pre_modify.  */
+#define OK_FOR_T(OP)							      \
+  (GET_CODE (OP) == MEM							      \
+   && GET_CODE (XEXP (OP, 0)) == PRE_MODIFY				      \
+   && GET_CODE (XEXP (XEXP (OP, 0), 1)) == PLUS				      \
+   && XEXP (XEXP (XEXP (OP, 0), 1), 0) == XEXP (XEXP (OP, 0), 0)	      \
+   && GET_CODE (XEXP (XEXP (XEXP (OP, 0), 1), 1)) == CONST_INT		      \
+   && INTVAL (XEXP (XEXP (XEXP (OP, 0), 1), 1)) == - (int) STACK_BOUNDARY / 8 \
+   && XEXP (XEXP (OP, 0), 0) == stack_pointer_rtx)
 
 /* 'U' if valid for a bset destination;
    i.e. a register, register indirect, or the eightbit memory region
@@ -1005,12 +996,6 @@ struct cum_arg
    so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE QImode
 
-/* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
-   is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) \
-h8300_valid_machine_decl_attribute (DECL, ATTRIBUTES, IDENTIFIER, ARGS)
-
 #define ADJUST_INSN_LENGTH(INSN, LENGTH) \
   LENGTH += h8300_adjust_insn_length (INSN, LENGTH);
 
@@ -1103,34 +1088,11 @@ h8300_valid_machine_decl_attribute (DECL, ATTRIBUTES, IDENTIFIER, ARGS)
 #define DATA_SECTION_ASM_OP "\t.section .data"
 #define BSS_SECTION_ASM_OP "\t.section .bss"
 #define INIT_SECTION_ASM_OP "\t.section .init"
-#define CTORS_SECTION_ASM_OP "\t.section .ctors"
-#define DTORS_SECTION_ASM_OP "\t.section .dtors"
 #define READONLY_DATA_SECTION_ASM_OP "\t.section .rodata"
 
-#define EXTRA_SECTIONS in_ctors, in_dtors, in_readonly_data
+#define EXTRA_SECTIONS in_readonly_data
 
 #define EXTRA_SECTION_FUNCTIONS						\
-									\
-void									\
-ctors_section ()							\
-{									\
-  if (in_section != in_ctors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);		\
-      in_section = in_ctors;						\
-    }									\
-}									\
-									\
-void									\
-dtors_section ()							\
-{									\
-  if (in_section != in_dtors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);		\
-      in_section = in_dtors;						\
-    }									\
-}									\
-									\
 void									\
 readonly_data ()							\
 {									\
@@ -1140,22 +1102,6 @@ readonly_data ()							\
       in_section = in_readonly_data;					\
     }									\
 }
-
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)		\
-  do							\
-    {							\
-      ctors_section ();					\
-      fprintf (FILE, "%s_%s\n", ASM_WORD_OP, NAME);	\
-    }							\
-  while (0)
-
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)		\
-  do							\
-    {							\
-      dtors_section ();			       		\
-      fprintf (FILE, "%s_%s\n", ASM_WORD_OP, NAME);	\
-    }							\
-  while (0)
 
 #undef DO_GLOBAL_CTORS_BODY
 #define DO_GLOBAL_CTORS_BODY			\
@@ -1171,7 +1117,7 @@ readonly_data ()							\
 }
 
 #undef DO_GLOBAL_DTORS_BODY
-#define DO_GLOBAL_DTORS_BODY                    \
+#define DO_GLOBAL_DTORS_BODY			\
 {						\
   typedef (*pfunc)();				\
   extern pfunc __dtors[];			\
@@ -1188,17 +1134,17 @@ readonly_data ()							\
 /* If we are referencing a function that is supposed to be called
    through the function vector, the SYMBOL_REF_FLAG in the rtl
    so the call patterns can generate the correct code.  */
-#define ENCODE_SECTION_INFO(DECL)			\
-  if (TREE_CODE (DECL) == FUNCTION_DECL			\
-       && h8300_funcvec_function_p (DECL))		\
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;	\
-  else if ((TREE_STATIC (DECL) || DECL_EXTERNAL (DECL))	\
-      && TREE_CODE (DECL) == VAR_DECL			\
-      && h8300_eightbit_data_p (DECL))			\
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;	\
-  else if ((TREE_STATIC (DECL) || DECL_EXTERNAL (DECL))	\
-      && TREE_CODE (DECL) == VAR_DECL			\
-      && h8300_tiny_data_p (DECL))			\
+#define ENCODE_SECTION_INFO(DECL)				\
+  if (TREE_CODE (DECL) == FUNCTION_DECL				\
+      && h8300_funcvec_function_p (DECL))			\
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;		\
+  else if (TREE_CODE (DECL) == VAR_DECL				\
+	   && (TREE_STATIC (DECL) || DECL_EXTERNAL (DECL))	\
+	   && h8300_eightbit_data_p (DECL))			\
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;		\
+  else if (TREE_CODE (DECL) == VAR_DECL				\
+	   && (TREE_STATIC (DECL) || DECL_EXTERNAL (DECL))	\
+	   && h8300_tiny_data_p (DECL))				\
     h8300_encode_label (DECL);
 
 /* Store the user-specified part of SYMBOL_NAME in VAR.
@@ -1240,13 +1186,8 @@ readonly_data ()							\
   fprintf (FILE,							\
 	   "\t.text\n.stabs \"\",%d,0,0,.Letext\n.Letext:\n", N_SO)
 
-/* A C statement to output something to the assembler file to switch to section
-   NAME for object DECL which is either a FUNCTION_DECL, a VAR_DECL or
-   NULL_TREE.  Some target formats do not support arbitrary sections.  Do not
-   define this macro in such cases.  */
-
-#define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC) \
-  fprintf (FILE, "\t.section %s\n", NAME)
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION h8300_asm_named_section
 
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
@@ -1309,7 +1250,8 @@ readonly_data ()							\
       char dstr[30];						\
       REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);		\
       fprintf (FILE, "\t.double %s\n", dstr);			\
-    } while (0)
+    }								\
+  while (0)
 
 /* This is how to output an assembler line defining a `float' constant.  */
 #define ASM_OUTPUT_FLOAT(FILE, VALUE)				\
@@ -1318,7 +1260,8 @@ readonly_data ()							\
       char dstr[30];						\
       REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);		\
       fprintf (FILE, "\t.float %s\n", dstr);			\
-    } while (0)
+    }								\
+  while (0)
 
 /* This is how to output an assembler line defining an `int' constant.  */
 
@@ -1412,21 +1355,6 @@ readonly_data ()							\
 #define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
   sprintf ((OUTPUT), "%s___%d", (NAME), (LABELNO)))
-
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 /* Print an instruction operand X on file FILE.
    Look in h8300.c for details.  */

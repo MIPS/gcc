@@ -22,6 +22,13 @@
    compatibility problems with the base ABI.  This is slightly better
    than duplicating code, however.  */
 
+/* If using C++, references to abort have to be qualified with std::. */
+#if __cplusplus
+#define __gxx_abort std::abort
+#else
+#define __gxx_abort abort
+#endif
+
 /* Pointer encodings, from dwarf2.h.  */
 #define DW_EH_PE_absptr         0x00
 #define DW_EH_PE_omit           0xff
@@ -66,8 +73,10 @@ size_of_encoded_value (unsigned char encoding)
     case DW_EH_PE_udata8:
       return 8;
     }
-  abort ();
+  __gxx_abort ();
 }
+
+#ifndef NO_BASE_OF_ENCODED_VALUE
 
 /* Given an encoding and an _Unwind_Context, return the base to which
    the encoding is relative.  This base may then be passed to
@@ -94,8 +103,10 @@ base_of_encoded_value (unsigned char encoding, struct _Unwind_Context *context)
     case DW_EH_PE_funcrel:
       return _Unwind_GetRegionStart (context);
     }
-  abort ();
+  __gxx_abort ();
 }
+
+#endif
 
 /* Load an encoded value from memory at P.  The value is returned in VAL;
    The function returns P incremented past the value.  BASE is as given
@@ -197,7 +208,7 @@ read_encoded_value_with_base (unsigned char encoding, _Unwind_Ptr base,
 	  break;
 
 	default:
-	  abort ();
+	  __gxx_abort ();
 	}
 
       if (result != 0)
@@ -213,6 +224,8 @@ read_encoded_value_with_base (unsigned char encoding, _Unwind_Ptr base,
   return p;
 }
 
+#ifndef NO_BASE_OF_ENCODED_VALUE
+
 /* Like read_encoded_value_with_base, but get the base from the context
    rather than providing it directly.  */
 
@@ -224,6 +237,8 @@ read_encoded_value (struct _Unwind_Context *context, unsigned char encoding,
 		base_of_encoded_value (encoding, context),
 		p, val);
 }
+
+#endif
 
 /* Read an unsigned leb128 value from P, store the value in VAL, return
    P incremented past the value.  */

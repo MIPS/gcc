@@ -36,7 +36,9 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "toplev.h"
 #include "output.h"
 #include "parse.h"
+#include "function.h"
 #include "ggc.h"
+#include "target.h"
 
 static tree make_method_value PARAMS ((tree));
 static tree build_java_method_type PARAMS ((tree, tree, int));
@@ -331,6 +333,10 @@ push_class (class_type, class_name)
   input_filename = IDENTIFIER_POINTER (source_name);
   lineno = 0;
   decl = build_decl (TYPE_DECL, class_name, class_type);
+
+  /* dbxout needs a DECL_SIZE if in gstabs mode */
+  DECL_SIZE (decl) = integer_zero_node;
+
   input_filename = save_input_filename;
   lineno = save_lineno;
   signature = identifier_subst (class_name, "L", '.', '/', ";");
@@ -394,6 +400,14 @@ set_super_info (access_flags, this_class, super_class, interfaces_count)
       CLASS_HAS_SUPER (this_class) = 1;
     }
 
+  set_class_decl_access_flags (access_flags, class_decl);
+}
+
+void
+set_class_decl_access_flags (access_flags, class_decl)
+     int access_flags;
+     tree class_decl;
+{
   if (access_flags & ACC_PUBLIC)    CLASS_PUBLIC (class_decl) = 1;
   if (access_flags & ACC_FINAL)     CLASS_FINAL (class_decl) = 1;
   if (access_flags & ACC_SUPER)     CLASS_SUPER (class_decl) = 1;
@@ -618,9 +632,9 @@ init_test_hash_newfunc (entry, table, string)
   return (struct hash_entry *) ret;
 }
 
-/* Hash table helpers. Also reused in find_applicable_accessible_methods_list
-   (parse.y). The hash of a tree node is it's pointer value,
-   comparison is direct. */
+/* Hash table helpers. Also reused in find_applicable_accessible_methods_list 
+   (parse.y). The hash of a tree node is its pointer value, comparison
+   is direct. */
 
 unsigned long
 java_hash_hash_tree_node (k)
@@ -659,6 +673,18 @@ add_method_1 (handle_class, access_flags, name, function_type)
   hash_table_init (&DECL_FUNCTION_INIT_TEST_TABLE (fndecl),
 		   init_test_hash_newfunc, java_hash_hash_tree_node, 
 		   java_hash_compare_tree_node);
+
+  /* Initialize the initialized (static) class table. */
+  if (access_flags & ACC_STATIC)
+    hash_table_init (&DECL_FUNCTION_INITIALIZED_CLASS_TABLE (fndecl),
+		     init_test_hash_newfunc, java_hash_hash_tree_node,
+		     java_hash_compare_tree_node);
+
+  /* Initialize the static method invocation compound table */
+  if (STATIC_CLASS_INIT_OPT_P ())
+    hash_table_init (&DECL_FUNCTION_STATIC_METHOD_INVOCATION_COMPOUND (fndecl),
+		     init_test_hash_newfunc, java_hash_hash_tree_node,
+		     java_hash_compare_tree_node);
 
   TREE_CHAIN (fndecl) = TYPE_METHODS (handle_class);
   TYPE_METHODS (handle_class) = fndecl;
@@ -836,7 +862,6 @@ build_utf8_ref (name)
   sprintf(buf, "_Utf%d", ++utf8_count);
 
   decl = build_decl (VAR_DECL, get_identifier (buf), utf8const_type);
-  /* FIXME get some way to force this into .text, not .data. */
   TREE_STATIC (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
   DECL_IGNORED_P (decl) = 1;
@@ -1472,18 +1497,11 @@ finish_class ()
     {
       if (! TREE_ASM_WRITTEN (method) && DECL_SAVED_INSNS (method) != 0)
 	{
-	  /* It's a deferred inline method.  Decide if we need to emit it. */
-	  if (flag_keep_inline_functions
-	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (method))
-	      || ! METHOD_PRIVATE (method)
-	      || saw_native_method)
-	    {
-	      output_inline_function (method);
-	      /* Scan the list again to see if there are any earlier
-                 methods to emit. */
-	      method = type_methods;
-	      continue;
-	    }
+	  output_inline_function (method);
+	  /* Scan the list again to see if there are any earlier
+	     methods to emit. */
+	  method = type_methods;
+	  continue;
 	}
       method = TREE_CHAIN (method);
     }
@@ -1853,45 +1871,77 @@ register_class ()
   end = current;
 }
 
-/* Generate a function that gets called at start-up (static contructor) time,
-   which calls registerClass for all the compiled classes. */
+/* Emit something to register classes at start-up time.
+
+   The preferred mechanism is through the .jcr section, which contain
+   a list of pointers to classes which get registered during
+   constructor invoction time.  The fallback mechanism is to generate
+   a `constructor' function which calls _Jv_RegisterClass for each
+   class in this file.  */
 
 void
 emit_register_classes ()
 {
-  extern tree get_file_function_name PARAMS ((int));
-  tree init_name = get_file_function_name ('I');
-  tree init_type = build_function_type (void_type_node, end_params_node);
-  tree init_decl;
-  tree t;
+  /* ??? This isn't quite the correct test.  We also have to know
+     that the target is using gcc's crtbegin/crtend objects rather
+     than the ones that come with the operating system.  */
+  if (SUPPORTS_WEAK && targetm.have_named_sections)
+    {
+#ifdef JCR_SECTION_NAME
+      tree t;
+      named_section_flags (JCR_SECTION_NAME, SECTION_WRITE,
+			   POINTER_SIZE / BITS_PER_UNIT);
+      for (t = registered_class; t; t = TREE_CHAIN (t))
+	assemble_integer (XEXP (DECL_RTL (t), 0),
+			  POINTER_SIZE / BITS_PER_UNIT, 1);
+#else
+      abort ();
+#endif
+    }
+  else
+    {
+      extern tree get_file_function_name PARAMS ((int));
+      tree init_name = get_file_function_name ('I');
+      tree init_type = build_function_type (void_type_node, end_params_node);
+      tree init_decl;
+      tree t;
+      
+      init_decl = build_decl (FUNCTION_DECL, init_name, init_type);
+      SET_DECL_ASSEMBLER_NAME (init_decl, init_name);
+      TREE_STATIC (init_decl) = 1;
+      current_function_decl = init_decl;
+      DECL_RESULT (init_decl) = build_decl (RESULT_DECL, NULL_TREE,
+					    void_type_node);
 
-  init_decl = build_decl (FUNCTION_DECL, init_name, init_type);
-  SET_DECL_ASSEMBLER_NAME (init_decl, init_name);
-  TREE_STATIC (init_decl) = 1;
-  current_function_decl = init_decl;
-  DECL_RESULT (init_decl) = build_decl(RESULT_DECL, NULL_TREE, void_type_node);
-  /*  DECL_EXTERNAL (init_decl) = 1;*/
-  TREE_PUBLIC (init_decl) = 1;
-  pushlevel (0);
-  make_decl_rtl (init_decl, NULL);
-  init_function_start (init_decl, input_filename, 0);
-  expand_function_start (init_decl, 0);
+      /* It can be a static function as long as collect2 does not have
+         to scan the object file to find its ctor/dtor routine.  */
+      TREE_PUBLIC (init_decl) = ! targetm.have_ctors_dtors;
 
-  for ( t = registered_class; t; t = TREE_CHAIN (t))
-    emit_library_call (registerClass_libfunc, 0, VOIDmode, 1,
-		       XEXP (DECL_RTL (t), 0), Pmode);
+      /* Suppress spurious warnings.  */
+      TREE_USED (init_decl) = 1;
 
-  expand_function_end (input_filename, 0, 0);
-  poplevel (1, 0, 1);
-  { 
-    /* Force generation, even with -O3 or deeper. Gross hack. FIXME */
-    int saved_flag = flag_inline_functions;
-    flag_inline_functions = 0;	
-    rest_of_compilation (init_decl);
-    flag_inline_functions = saved_flag;
-  }
-  current_function_decl = NULL_TREE;
-  assemble_constructor (IDENTIFIER_POINTER (init_name));
+      pushlevel (0);
+      make_decl_rtl (init_decl, NULL);
+      init_function_start (init_decl, input_filename, 0);
+      expand_function_start (init_decl, 0);
+
+      /* Do not allow the function to be deferred.  */
+      current_function_cannot_inline
+	= "static constructors and destructors cannot be inlined";
+
+      for ( t = registered_class; t; t = TREE_CHAIN (t))
+	emit_library_call (registerClass_libfunc, 0, VOIDmode, 1,
+			   XEXP (DECL_RTL (t), 0), Pmode);
+      
+      expand_function_end (input_filename, 0, 0);
+      poplevel (1, 0, 1);
+      rest_of_compilation (init_decl);
+      current_function_decl = NULL_TREE;
+
+      if (targetm.have_ctors_dtors)
+	(* targetm.asm_out.constructor) (XEXP (DECL_RTL (init_decl), 0),
+					 DEFAULT_INIT_PRIORITY);
+    }
 }
 
 void

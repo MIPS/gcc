@@ -103,52 +103,6 @@ Boston, MA 02111-1307, USA. */
 
 #define NEED_ATEXIT 1
 
-#undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_ctor, in_dtor
-
-#undef EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS					\
-  CTOR_SECTION_FUNCTION						\
-  DTOR_SECTION_FUNCTION
-
-#define CTOR_SECTION_FUNCTION					\
-void								\
-ctor_section ()							\
-{								\
-  if (in_section != in_ctor)					\
-    {								\
-      fprintf (asm_out_file, "\t.section .ctor\n");		\
-      in_section = in_ctor;					\
-    }								\
-}
-
-#define DTOR_SECTION_FUNCTION					\
-void								\
-dtor_section ()							\
-{								\
-  if (in_section != in_dtor)					\
-    {								\
-      fprintf (asm_out_file, "\t.section .dtor\n");		\
-      in_section = in_dtor;					\
-    }								\
-}
-
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)	\
-  do {						\
-    ctor_section ();				\
-    fputs (ASM_LONG, FILE);			\
-    assemble_name (FILE, NAME);			\
-    fprintf (FILE, "\n");			\
-  } while (0)
-
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       	\
-  do {						\
-    dtor_section ();                   		\
-    fputs (ASM_LONG, FILE);			\
-    assemble_name (FILE, NAME);              	\
-    fprintf (FILE, "\n");			\
-  } while (0)
-
 /* Define this macro if references to a symbol must be treated
    differently depending on something about the variable or
    function named by the symbol (such as what section it is in).
@@ -233,33 +187,16 @@ do {									\
    symbols must be explicitly imported from shared libraries (DLLs).  */
 #define MULTIPLE_SYMBOL_SPACES
 
-#define UNIQUE_SECTION_P(DECL) DECL_ONE_ONLY (DECL)
 extern void i386_pe_unique_section ();
 #define UNIQUE_SECTION(DECL,RELOC) i386_pe_unique_section (DECL, RELOC)
 
 #define SUPPORTS_ONE_ONLY 1
 
-/* A C statement to output something to the assembler file to switch to section
-   NAME for object DECL which is either a FUNCTION_DECL, a VAR_DECL or
-   NULL_TREE.  Some target formats do not support arbitrary sections.  Do not
-   define this macro in such cases.  */
-#undef ASM_OUTPUT_SECTION_NAME
-#define ASM_OUTPUT_SECTION_NAME(STREAM, DECL, NAME, RELOC)	\
-do {								\
-  if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL)		\
-    fprintf (STREAM, "\t.section %s,\"x\"\n", (NAME));		\
-  else if ((DECL) && DECL_READONLY_SECTION (DECL, RELOC))	\
-    fprintf (STREAM, "\t.section %s,\"\"\n", (NAME));		\
-  else								\
-    fprintf (STREAM, "\t.section %s,\"w\"\n", (NAME));		\
-  /* Functions may have been compiled at various levels of	\
-     optimization so we can't use `same_size' here.  Instead,	\
-     have the linker pick one.  */				\
-  if ((DECL) && DECL_ONE_ONLY (DECL))				\
-    fprintf (STREAM, "\t.linkonce %s\n",			\
-	     TREE_CODE (DECL) == FUNCTION_DECL			\
-	     ? "discard" : "same_size");			\
-} while (0)
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION  i386_pe_asm_named_section
+
+/* Select attributes for named sections.  */
+#define TARGET_SECTION_TYPE_FLAGS  i386_pe_section_type_flags
 
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START " #"

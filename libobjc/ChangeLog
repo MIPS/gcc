@@ -1,3 +1,38 @@
+Wed Jul 18 12:48:56 2001  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* thr.c (objc_mutex_lock): Invoke __objc_thread_id directly,
+	rather than through objc_thread_id, to save a function call.
+	(objc_mutex_trylock, objc_mutex_unlock, objc_condition_wait):
+	Ditto.
+
+Mon Jul 16 12:15:00 2001  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* objc/objc-api.h (object_is_class): Fixed - buggy code was trying
+	to cast an id to a Class, which can not be done.  Make the check
+	by using CLS_ISMETA on the class pointer instead.
+	(object_is_meta_class): Similar fix.
+
+2001-06-09  Alexandre Oliva  <aoliva@redhat.com>, Stephen L Moshier  <moshier@mediaone.net>
+
+	* configure.in (AC_EXEEXT): Work around in case it expands to
+	nothing, as in autoconf 2.50.
+	* acinclude.m4: Likewise.
+	* configure: Rebuilt.
+
+2001-06-08  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* THREADS: Explain that when we compile libobjc inside GCC, we
+	always use thr-objc.c as a backend, which uses GCC's thread code.
+
+2001-06-06  Richard Frith-Macdonald  <rrfm@gnu.org>
+
+	* init.c (__objc_send_message_in_list): When setting a new entry
+	in __objc_load_methods use the method IMP as key, but check to see
+	if the method is in the hashtable by looking at the IMP also.
+	Also ... call the method after adding it to the hashtable rather
+	than before ... thus preventing an obscure possibility of infinite
+	recursion if a +load method itself loads a subclass.
+
 2001-05-25  Ovidiu Predescu  <ovidiu@cup.hp.com>
 
 	* init.c (__objc_send_message_in_list): When setting a new entry

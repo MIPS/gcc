@@ -100,32 +100,6 @@ extern void *__deregister_frame_info_bases (void *)
 
 #ifndef OBJECT_FORMAT_MACHO
 
-/* Provide default definitions for the pseudo-ops used to switch to the
-   .ctors and .dtors sections.
- 
-   Note that we want to give these sections the SHF_WRITE attribute
-   because these sections will actually contain data (i.e. tables of
-   addresses of functions in the current root executable or shared library
-   file) and, in the case of a shared library, the relocatable addresses
-   will have to be properly resolved/relocated (and then written into) by
-   the dynamic linker when it actually attaches the given shared library
-   to the executing process.  (Note that on SVR4, you may wish to use the
-   `-z text' option to the ELF linker, when building a shared library, as
-   an additional check that you are doing everything right.  But if you do
-   use the `-z text' option when building a shared library, you will get
-   errors unless the .ctors and .dtors sections are marked as writable
-   via the SHF_WRITE attribute.)
-
-   These defaults do not include leading spacing, as they will only be
-   used in asm:s here.  */
-
-#ifndef CTORS_SECTION_ASM_OP
-#define CTORS_SECTION_ASM_OP	".section\t.ctors,\"aw\""
-#endif
-#ifndef DTORS_SECTION_ASM_OP
-#define DTORS_SECTION_ASM_OP	".section\t.dtors,\"aw\""
-#endif
-
 #ifdef OBJECT_FORMAT_ELF
 
 /*  Declare a pointer to void function type.  */
@@ -211,7 +185,7 @@ __do_global_dtors_aux (void)
       f ();
     }
 
-#ifdef EH_FRAME_SECTION_ASM_OP
+#ifdef EH_FRAME_SECTION_NAME
 #if defined(CRT_GET_RFIB_TEXT) || defined(CRT_GET_RFIB_DATA)
   /* If we used the new __register_frame_info_bases interface,
      make sure that we deregister from the same place.  */
@@ -240,7 +214,7 @@ fini_dummy (void)
   asm (TEXT_SECTION_ASM_OP);
 }
 
-#ifdef EH_FRAME_SECTION_ASM_OP
+#ifdef EH_FRAME_SECTION_NAME
 /* Stick a call to __register_frame_info into the .init section.  For some
    reason calls with no arguments work more reliably in .init, so stick the
    call in another function.  */
@@ -279,7 +253,7 @@ init_dummy (void)
 #endif
   asm (TEXT_SECTION_ASM_OP);
 }
-#endif /* EH_FRAME_SECTION_ASM_OP */
+#endif /* EH_FRAME_SECTION_NAME */
 
 #else  /* OBJECT_FORMAT_ELF */
 
@@ -350,13 +324,13 @@ __do_global_dtors (void)
   for (p = __DTOR_LIST__ + 1; (f = *p); p++)
     f ();
 
-#ifdef EH_FRAME_SECTION_ASM_OP
+#ifdef EH_FRAME_SECTION_NAME
   if (__deregister_frame_info)
     __deregister_frame_info (__EH_FRAME_BEGIN__);
 #endif
 }
 
-#ifdef EH_FRAME_SECTION_ASM_OP
+#ifdef EH_FRAME_SECTION_NAME
 /* Define a function here to call __register_frame.  crtend.o is linked in
    after libgcc.a, and hence can't call libgcc.a functions directly.  That
    can lead to unresolved function references.  */
@@ -372,9 +346,6 @@ __frame_dummy (void)
 
 #endif /* defined(INIT_SECTION_ASM_OP) */
 
-/* Force cc1 to switch to .data section.  */
-static func_ptr force_to_data[1] __attribute__ ((__unused__)) = { };
-
 /* NOTE:  In order to be able to support SVR4 shared libraries, we arrange
    to have one set of symbols { __CTOR_LIST__, __DTOR_LIST__, __CTOR_END__,
    __DTOR_END__ } per root executable and also one set of these symbols
@@ -387,33 +358,56 @@ static func_ptr force_to_data[1] __attribute__ ((__unused__)) = { };
    refer to only the __CTOR_END__ symbol in crtend.o and the __DTOR_LIST__
    symbol in crtbegin.o, where they are defined.  */
 
-/* The -1 is a flag to __do_global_[cd]tors
-   indicating that this table does not start with a count of elements.  */
+/* The -1 is a flag to __do_global_[cd]tors indicating that this table
+   does not start with a count of elements.  */
 #ifdef CTOR_LIST_BEGIN
 CTOR_LIST_BEGIN;
-#else
-asm (CTORS_SECTION_ASM_OP);	/* cc1 doesn't know that we are switching! */
-STATIC func_ptr __CTOR_LIST__[1] __attribute__ ((__unused__))
+
+#elif defined(CTORS_SECTION_ASM_OP)
+/* Hack: force cc1 to switch to .data section early, so that assembling
+   __CTOR_LIST__ does not undo our behind-the-back change to .ctors.  */
+static func_ptr force_to_data[1] __attribute__ ((__unused__)) = { };
+asm (CTORS_SECTION_ASM_OP);
+STATIC func_ptr __CTOR_LIST__[1]
+  __attribute__ ((__unused__))
   = { (func_ptr) (-1) };
+
+#else
+STATIC func_ptr __CTOR_LIST__[1]
+  __attribute__ ((__unused__, section(".ctors")))
+  = { (func_ptr) (-1) };
+
 #endif
 
 #ifdef DTOR_LIST_BEGIN
 DTOR_LIST_BEGIN;
-#else
-asm (DTORS_SECTION_ASM_OP);	/* cc1 doesn't know that we are switching! */
+#elif defined(DTORS_SECTION_ASM_OP)
+asm (DTORS_SECTION_ASM_OP);
 STATIC func_ptr __DTOR_LIST__[1] = { (func_ptr) (-1) };
+#else
+STATIC func_ptr __DTOR_LIST__[1]
+  __attribute__((section(".dtors")))
+  = { (func_ptr) (-1) };
 #endif
 
-#ifdef EH_FRAME_SECTION_ASM_OP
+#ifdef EH_FRAME_SECTION_NAME
 /* Stick a label at the beginning of the frame unwind info so we can register
    and deregister it with the exception handling library code.  */
-
-asm (EH_FRAME_SECTION_ASM_OP);
 #ifdef INIT_SECTION_ASM_OP
 STATIC
 #endif
-char __EH_FRAME_BEGIN__[] = { };
-#endif /* EH_FRAME_SECTION_ASM_OP */
+char __EH_FRAME_BEGIN__[]
+     __attribute__((section(EH_FRAME_SECTION_NAME)))
+     = { };
+#endif /* EH_FRAME_SECTION_NAME */
+
+#ifdef JCR_SECTION_NAME
+/* Stick a label at the beginning of the java class registration info
+   so we can register them properly.  */
+
+STATIC void *__JCR_LIST__[] __attribute__ ((unused, section(JCR_SECTION_NAME)))
+  = { 0 };
+#endif /* JCR_SECTION_NAME */
 
 #endif /* defined(CRT_BEGIN) */
 
@@ -423,11 +417,25 @@ char __EH_FRAME_BEGIN__[] = { };
 
 #ifdef OBJECT_FORMAT_ELF
 
+#ifdef JCR_SECTION_NAME
+extern void _Jv_RegisterClasses (void *) __attribute__((weak));
+static void *__JCR_END__[];
+#endif
+
 static func_ptr __CTOR_END__[];
 static void
 __do_global_ctors_aux (void)
 {
   func_ptr *p;
+#ifdef JCR_SECTION_NAME
+  void **jcr;
+  if (_Jv_RegisterClasses)
+    {
+      for (jcr = __JCR_END__ - 1; *jcr != NULL; jcr--);
+      if (*(jcr + 1))
+	_Jv_RegisterClasses (jcr + 1);
+    }
+#endif
   for (p = __CTOR_END__ - 1; *p != (func_ptr) -1; p--)
     (*p) ();
 }
@@ -494,14 +502,14 @@ asm (TEXT_SECTION_ASM_OP);
    not an SVR4-style .init section.  __do_global_ctors can be non-static
    in this case because we protect it with -hidden_symbol.  */
 static func_ptr __CTOR_END__[];
-#ifdef EH_FRAME_SECTION_ASM_OP
+#ifdef EH_FRAME_SECTION_NAME
 extern void __frame_dummy (void);
 #endif
 void
 __do_global_ctors (void)
 {
   func_ptr *p;
-#ifdef EH_FRAME_SECTION_ASM_OP
+#ifdef EH_FRAME_SECTION_NAME
   __frame_dummy ();
 #endif
   for (p = __CTOR_END__ - 1; *p != (func_ptr) -1; p--)
@@ -511,9 +519,6 @@ __do_global_ctors (void)
 
 #endif /* defined(INIT_SECTION_ASM_OP) */
 
-/* Force cc1 to switch to .data section.  */
-static func_ptr force_to_data[1] __attribute__ ((__unused__)) = { };
-
 /* Put a word containing zero at the end of each of our two lists of function
    addresses.  Note that the words defined here go into the .ctors and .dtors
    sections of the crtend.o file, and since that file is always linked in
@@ -522,27 +527,47 @@ static func_ptr force_to_data[1] __attribute__ ((__unused__)) = { };
 
 #ifdef CTOR_LIST_END
 CTOR_LIST_END;
-#else
-asm (CTORS_SECTION_ASM_OP);	/* cc1 doesn't know that we are switching! */
+
+#elif defined(CTORS_SECTION_ASM_OP)
+/* Hack: force cc1 to switch to .data section early, so that assembling
+   __CTOR_LIST__ does not undo our behind-the-back change to .ctors.  */
+static func_ptr force_to_data[1] __attribute__ ((__unused__)) = { };
+asm (CTORS_SECTION_ASM_OP);
 STATIC func_ptr __CTOR_END__[1] = { (func_ptr) 0 };
+
+#else
+STATIC func_ptr __CTOR_END__[1]
+  __attribute__((section(".ctors")))
+  = { (func_ptr) 0 };
 #endif
 
 #ifdef DTOR_LIST_END
 DTOR_LIST_END;
+#elif defined(DTORS_SECTION_ASM_OP)
+asm (DTORS_SECTION_ASM_OP);
+STATIC func_ptr __DTOR_END__[1] __attribute__ ((unused))
+  = { (func_ptr) 0 };
 #else
-asm (DTORS_SECTION_ASM_OP);	/* cc1 doesn't know that we are switching! */
-STATIC func_ptr __DTOR_END__[1] __attribute__ ((__unused__))
+STATIC func_ptr __DTOR_END__[1]
+  __attribute__((unused, section(".dtors")))
   = { (func_ptr) 0 };
 #endif
 
-#ifdef EH_FRAME_SECTION_ASM_OP
+#ifdef EH_FRAME_SECTION_NAME
 /* Terminate the frame unwind info section with a 4byte 0 as a sentinel;
    this would be the 'length' field in a real FDE.  */
-
-typedef unsigned int ui32 __attribute__ ((mode (SI)));
-asm (EH_FRAME_SECTION_ASM_OP);
-STATIC ui32 __FRAME_END__[] __attribute__ ((__unused__)) = { 0 };
+STATIC int __FRAME_END__[]
+     __attribute__ ((unused, mode(SI), section(EH_FRAME_SECTION_NAME)))
+     = { 0 };
 #endif /* EH_FRAME_SECTION */
+
+#ifdef JCR_SECTION_NAME
+/* Stick a label at the beginning of the java class registration info
+   so we can register them properly.  */
+
+STATIC void *__JCR_END__[1] 
+     __attribute__ ((unused, section(JCR_SECTION_NAME))) = { 0 };
+#endif /* JCR_SECTION_NAME */
 
 #endif /* defined(CRT_END) */
 
@@ -556,13 +581,13 @@ STATIC ui32 __FRAME_END__[] __attribute__ ((__unused__)) = { 0 };
    by putting a constructor in crtbegin.o and a destructor in crtend.o.
 
    crtend.o also puts in the terminating zero in the frame information
-   segment. */
+   segment.  */
 
 /* The crtstuff for other object formats use the symbol __EH_FRAME_BEGIN__
    to figure out the start of the exception frame, but here we use
    getsectbynamefromheader to find this value. Either method would work,
    but this method avoids creating any global symbols, which seems
-   cleaner. */
+   cleaner.  */
 
 #include <mach-o/ldsyms.h>
 extern const struct section *
@@ -600,16 +625,10 @@ __dereg_frame_dtor (void)
   __deregister_frame_info ((void *) eh_frame->addr);
 }
 
-/* Terminate the frame section with a final zero. */
-
-/* Force cc1 to switch to .data section.  */
-static void * force_to_data[1] __attribute__ ((__unused__)) = { };
-
-typedef unsigned int ui32 __attribute__ ((mode (SI)));
-asm (EH_FRAME_SECTION_ASM_OP);
-static ui32 __FRAME_END__[] __attribute__ ((__unused__)) = { 0 };
-
+/* Terminate the frame section with a final zero.  */
+STATIC int __FRAME_END__[]
+     __attribute__ ((unused, mode(SI), section(EH_FRAME_SECTION_NAME)))
+     = { 0 };
 #endif /* CRT_END */
 
 #endif /* OBJECT_FORMAT_MACHO */
-

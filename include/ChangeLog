@@ -1,3 +1,23 @@
+2001-08-10  Andrew Cagney  <ac131313@redhat.com>
+
+	* libiberty.h (lbasename): Change function declaration to return a
+	const char pointer.
+
+2001-08-02  Mark Kettenis  <kettenis@gnu.org>
+
+	* xregex.h (_REGEX_RE_COMP): Define.
+	(re_comp): Define to xre_comp.
+	(re_exec): Define to xre_exec.
+
+2001-07-18  Andreas Jaeger  <aj@suse.de>
+
+	* xregex2.h: Place under LGPL version 2.1.
+
+2001-07-10  Jeff Johnston  <jjohnstn@redhat.com>
+
+	* xregex.h: New file to support libiberty regex.
+	* xregex2.h: Ditto.
+
 2001-05-16  Matt Kraai  <kraai@alumni.carnegiemellon.edu>
 
 	* partition.h: Fix misspelling of `implementation'.

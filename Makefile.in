@@ -87,6 +87,7 @@ CXXFLAGS = -g -O2
 
 LDFLAGS = 
 LIBCFLAGS = $(CFLAGS)
+CFLAGS_FOR_BUILD = $(CFLAGS)
 CFLAGS_FOR_TARGET = $(CFLAGS)
 LDFLAGS_FOR_TARGET = 
 LIBCFLAGS_FOR_TARGET = $(CFLAGS_FOR_TARGET)
@@ -230,6 +231,8 @@ GCC_FOR_TARGET = $$r/gcc/xgcc -B$$r/gcc/ $(FLAGS_FOR_TARGET)
 AS_FOR_TARGET = ` \
   if [ -f $$r/gas/as-new ] ; then \
     echo $$r/gas/as-new ; \
+  elif [ -f $$r/gcc/xgcc ]; then \
+    $(CC_FOR_TARGET) -print-prog-name=as ; \
   else \
     if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
       echo $(AS); \
@@ -241,6 +244,8 @@ AS_FOR_TARGET = ` \
 LD_FOR_TARGET = ` \
   if [ -f $$r/ld/ld-new ] ; then \
     echo $$r/ld/ld-new ; \
+  elif [ -f $$r/gcc/xgcc ]; then \
+    $(CC_FOR_TARGET) -print-prog-name=ld ; \
   else \
     if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
       echo $(LD); \
@@ -300,6 +305,8 @@ RANLIB_FOR_TARGET = ` \
 NM_FOR_TARGET = ` \
   if [ -f $$r/binutils/nm-new ] ; then \
     echo $$r/binutils/nm-new ; \
+  elif [ -f $$r/gcc/xgcc ]; then \
+    $(CC_FOR_TARGET) -print-prog-name=nm ; \
   else \
     if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
       echo $(NM); \
@@ -467,6 +474,7 @@ EXTRA_GCC_FLAGS = \
 	"`echo 'RANLIB=$(RANLIB)' | sed -e s/.*=$$/XFOO=/`" \
 	'WINDRES=$$(WINDRES_FOR_TARGET)' \
 	"GCC_FOR_TARGET=$(GCC_FOR_TARGET)" \
+	"CFLAGS_FOR_BUILD=$(CFLAGS_FOR_BUILD)" \
 	"`echo 'LANGUAGES=$(LANGUAGES)' | sed -e s/.*=$$/XFOO=/`" \
 	"`echo 'STMP_FIXPROTO=$(STMP_FIXPROTO)' | sed -e s/.*=$$/XFOO=/`" \
 	"`echo 'LIMITS_H_TEST=$(LIMITS_H_TEST)' | sed -e s/.*=$$/XFOO=/`" \
@@ -1524,7 +1532,7 @@ check-c++:
 	  s=`cd $(srcdir); pwd`; export s; \
 	  $(SET_LIB_PATH) \
 	  (cd gcc; $(MAKE) $(GCC_FLAGS_TO_PASS) check-c++); \
-	  $(MAKE) check-target-libstdc++-v3 \
+	  $(MAKE) check-target-libstdc++-v3; \
 	else \
 	  true; \
 	fi 

@@ -29,7 +29,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "cpphash.h"
 #include "intl.h"
 
-static void print_containing_files	PARAMS ((cpp_buffer *));
 static void print_location		PARAMS ((cpp_reader *,
 						 const char *,
 						 const cpp_lexer_pos *));
@@ -38,44 +37,6 @@ static void print_location		PARAMS ((cpp_reader *,
    script will mistake this as a function definition */
 #define v_message(msgid, ap) \
  do { vfprintf (stderr, _(msgid), ap); putc ('\n', stderr); } while (0)
-
-/* Print the file names and line numbers of the #include
-   commands which led to the current file.  */
-static void
-print_containing_files (ip)
-     cpp_buffer *ip;
-{
-  int first = 1;
-
-  /* Find the other, outer source files.  */
-  for (ip = ip->prev; ip; ip = ip->prev)
-    {
-      if (first)
-	{
-	  first = 0;
-	  /* The current line in each outer source file is now the
-	     same as the line of the #include.  */
-	  fprintf (stderr,  _("In file included from %s:%u"),
-		   ip->nominal_fname, CPP_BUF_LINE (ip));
-	}
-      else
-	/* Translators note: this message is used in conjunction
-	   with "In file included from %s:%ld" and some other
-	   tricks.  We want something like this:
-
-	   | In file included from sys/select.h:123,
-	   |                  from sys/types.h:234,
-	   |                  from userfile.c:31:
-	   | bits/select.h:45: <error message here>
-
-	   with all the "from"s lined up.
-	   The trailing comma is at the beginning of this message,
-	   and the trailing colon is not translated.  */
-	fprintf (stderr, _(",\n                 from %s:%u"),
-		 ip->nominal_fname, CPP_BUF_LINE (ip));
-    }
-  fputs (":\n", stderr);
-}
 
 static void
 print_location (pfile, filename, pos)
@@ -100,43 +61,38 @@ print_location (pfile, filename, pos)
 	line = 0;
       else
 	{
-	  if (type == BUF_PRAGMA)
-	    {
-	      buffer = buffer->prev;
-	      line = CPP_BUF_LINE (buffer);
-	      col = CPP_BUF_COL (buffer);
-	    }
-	  else
-	    {
-	      if (pos == 0)
-		pos = cpp_get_line (pfile);
-	      line = pos->line;
-	      col = pos->col;
-	    }
+	  const struct line_map *map;
 
+	  if (type == BUF_PRAGMA)
+	    buffer = buffer->prev;
+
+	  if (pos == 0)
+	    pos = cpp_get_line (pfile);
+	  map = lookup_line (&pfile->line_maps, pos->line);
+	  line = SOURCE_LINE (map, pos->line);
+	  if (filename == 0)
+	    filename = map->to_file;
+
+	  col = pos->col;
 	  if (col == 0)
 	    col = 1;
 
-	  /* Don't repeat the include stack unnecessarily.  */
-	  if (buffer->prev && ! buffer->include_stack_listed)
-	    {
-	      buffer->include_stack_listed = 1;
-	      print_containing_files (buffer);
-	    }
+	  print_containing_files (&pfile->line_maps, map);
 	}
 
       if (filename == 0)
 	filename = buffer->nominal_fname;
 
       if (line == 0)
-	fprintf (stderr, "%s: ", filename);
+	fprintf (stderr, "%s:", filename);
       else if (CPP_OPTION (pfile, show_column) == 0)
-	fprintf (stderr, "%s:%u: ", filename, line);
+	fprintf (stderr, "%s:%u:", filename, line);
       else
-	fprintf (stderr, "%s:%u:%u: ", filename, line, col);
+	fprintf (stderr, "%s:%u:%u:", filename, line, col);
 
       if (type == BUF_PRAGMA)
-	fprintf (stderr, "_Pragma: ");
+	fprintf (stderr, "_Pragma:");
+      fputc (' ', stderr);
     }
 }
 

@@ -574,12 +574,9 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-config.h"
 #include "reload.h"
 #include "output.h"
-#include "dwarfout.h"
 #include "toplev.h"
 #include "tm_p.h"
-
-/* IMPORTANT NOTE: Please see the file README.DWARF for important details
-   regarding the GNU implementation of Dwarf.  */
+#include "debug.h"
 
 /* NOTE: In the comments in this file, many references are made to
    so called "Debugging Information Entries".  For the sake of brevity,
@@ -786,6 +783,24 @@ static int in_class;
 
 /* Forward declarations for functions defined in this file.  */
 
+static void dwarfout_init 		PARAMS ((const char *));
+static void dwarfout_finish		PARAMS ((const char *));
+static void dwarfout_define	        PARAMS ((unsigned int, const char *));
+static void dwarfout_undef	        PARAMS ((unsigned int, const char *));
+static void dwarfout_start_source_file	PARAMS ((unsigned, const char *));
+static void dwarfout_start_source_file_check PARAMS ((unsigned, const char *));
+static void dwarfout_end_source_file	PARAMS ((unsigned));
+static void dwarfout_end_source_file_check PARAMS ((unsigned));
+static void dwarfout_begin_block	PARAMS ((unsigned, unsigned));
+static void dwarfout_end_block		PARAMS ((unsigned, unsigned));
+static void dwarfout_end_epilogue	PARAMS ((void));
+static void dwarfout_source_line	PARAMS ((unsigned int, const char *));
+static void dwarfout_end_prologue	PARAMS ((unsigned int));
+static void dwarfout_end_function	PARAMS ((unsigned int));
+static void dwarfout_function_decl	PARAMS ((tree));
+static void dwarfout_global_decl	PARAMS ((tree));
+static void dwarfout_deferred_inline_function	PARAMS ((tree));
+static void dwarfout_file_scope_decl 	PARAMS ((tree , int));
 static const char *dwarf_tag_name	PARAMS ((unsigned));
 static const char *dwarf_attr_name	PARAMS ((unsigned));
 static const char *dwarf_stack_op_name	PARAMS ((unsigned));
@@ -1357,6 +1372,31 @@ static void retry_incomplete_types	PARAMS ((void));
   ASM_OUTPUT_DWARF_STRING (FILE,P), ASM_OUTPUT_DWARF_STRING (FILE,"\n") 
 #endif
 
+
+/* The debug hooks structure.  */
+struct gcc_debug_hooks dwarf_debug_hooks =
+{
+  dwarfout_init,
+  dwarfout_finish,
+  dwarfout_define,
+  dwarfout_undef,
+  dwarfout_start_source_file_check,
+  dwarfout_end_source_file_check,
+  dwarfout_begin_block,
+  dwarfout_end_block,
+  debug_true_tree,		/* ignore_block */
+  dwarfout_source_line,		/* source_line */
+  dwarfout_source_line,		/* begin_prologue */
+  dwarfout_end_prologue,
+  dwarfout_end_epilogue,
+  debug_nothing_tree,		/* begin_function */
+  dwarfout_end_function,
+  dwarfout_function_decl,
+  dwarfout_global_decl,
+  dwarfout_deferred_inline_function,
+  debug_nothing_tree,		/* outlining_inline_function */
+  debug_nothing_rtx		/* label */
+};
 
 /************************ general utility functions **************************/
 
@@ -2342,7 +2382,7 @@ output_bound_representation (bound, dim_num, u_or_l)
 	   comprehend that a missing upper bound specification in a
 	   array type used for a storage class `auto' local array variable
 	   indicates that the upper bound is both unknown (at compile-
-	   time) and unknowable (at run-time) due to optimization. */
+	   time) and unknowable (at run-time) due to optimization.  */
 
 	if (! optimize)
 	  {
@@ -2544,7 +2584,7 @@ field_byte_offset (decl)
 
      The value we deduce is then used (by the callers of this routine) to
      generate AT_location and AT_bit_offset attributes for fields (both
-     bit-fields and, in the case of AT_location, regular fields as well). */
+     bit-fields and, in the case of AT_location, regular fields as well).  */
 
   /* Figure out the bit-distance from the start of the structure to the
      "deepest" bit of the bit-field.  */
@@ -5290,7 +5330,7 @@ output_decl (decl, containing_scope)
 
       /* If we're emitting an out-of-line copy of an inline function,
 	 set up to refer to the abstract instance emitted from
-	 note_deferral_of_defined_inline_function.  */
+	 dwarfout_deferred_inline_function.  */
       if (DECL_INLINE (decl) && ! DECL_ABSTRACT (decl)
 	  && ! (containing_scope && TYPE_P (containing_scope)))
 	set_decl_origin_self (decl);
@@ -5597,7 +5637,62 @@ output_decl (decl, containing_scope)
     }
 }
 
-void
+/* Output debug information for a function.  */
+static void
+dwarfout_function_decl (decl)
+     tree decl;
+{
+  dwarfout_file_scope_decl (decl, 0);
+}
+
+/* Debug information for a global DECL.  Called from toplev.c after
+   compilation proper has finished.  */
+static void
+dwarfout_global_decl (decl)
+     tree decl;
+{
+  /* Output DWARF information for file-scope tentative data object
+     declarations, file-scope (extern) function declarations (which
+     had no corresponding body) and file-scope tagged type
+     declarations and definitions which have not yet been forced out.  */
+
+  if (TREE_CODE (decl) != FUNCTION_DECL || !DECL_INITIAL (decl))
+    dwarfout_file_scope_decl (decl, 1);
+}
+
+/* DECL is an inline function, whose body is present, but which is not
+   being output at this point.  (We're putting that off until we need
+   to do it.)  */
+static void
+dwarfout_deferred_inline_function (decl)
+     tree decl;
+{
+  /* Generate the DWARF info for the "abstract" instance of a function
+     which we may later generate inlined and/or out-of-line instances
+     of.  */
+  if ((DECL_INLINE (decl) || DECL_ABSTRACT (decl))
+      && ! DECL_ABSTRACT_ORIGIN (decl))
+    {
+      /* The front-end may not have set CURRENT_FUNCTION_DECL, but the
+	 DWARF code expects it to be set in this case.  Intuitively,
+	 DECL is the function we just finished defining, so setting
+	 CURRENT_FUNCTION_DECL is sensible.  */
+      tree saved_cfd = current_function_decl;
+      int was_abstract = DECL_ABSTRACT (decl);
+      current_function_decl = decl;
+
+      /* Let the DWARF code do its work.  */
+      set_decl_abstract_flags (decl, 1);
+      dwarfout_file_scope_decl (decl, 0);
+      if (! was_abstract)
+	set_decl_abstract_flags (decl, 0);
+
+      /* Reset CURRENT_FUNCTION_DECL.  */
+      current_function_decl = saved_cfd;
+    }
+}
+
+static void
 dwarfout_file_scope_decl (decl, set_finalizing)
      register tree decl;
      register int set_finalizing;
@@ -5813,9 +5908,10 @@ dwarfout_file_scope_decl (decl, set_finalizing)
 /* Output a marker (i.e. a label) for the beginning of the generated code
    for a lexical block.	 */
 
-void
-dwarfout_begin_block (blocknum)
-     register unsigned blocknum;
+static void
+dwarfout_begin_block (line, blocknum)
+     unsigned int line ATTRIBUTE_UNUSED;
+     unsigned int blocknum;
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
@@ -5827,9 +5923,10 @@ dwarfout_begin_block (blocknum)
 /* Output a marker (i.e. a label) for the end of the generated code
    for a lexical block.	 */
 
-void
-dwarfout_end_block (blocknum)
-     register unsigned blocknum;
+static void
+dwarfout_end_block (line, blocknum)
+     unsigned int line ATTRIBUTE_UNUSED;
+     unsigned int blocknum;
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
@@ -5842,13 +5939,15 @@ dwarfout_end_block (blocknum)
    the real body of the function begins (after parameters have been moved
    to their home locations).  */
 
-void
-dwarfout_begin_function ()
+static void
+dwarfout_end_prologue (line)
+     unsigned int line ATTRIBUTE_UNUSED;
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
   if (! use_gnu_debug_info_extensions)
     return;
+
   function_section (current_function_decl);
   sprintf (label, BODY_BEGIN_LABEL_FMT, current_funcdef_number);
   ASM_OUTPUT_LABEL (asm_out_file, label);
@@ -5857,8 +5956,9 @@ dwarfout_begin_function ()
 /* Output a marker (i.e. a label) for the point in the generated code where
    the real body of the function ends (just before the epilogue code).  */
 
-void
-dwarfout_end_function ()
+static void
+dwarfout_end_function (line)
+     unsigned int line ATTRIBUTE_UNUSED;
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
@@ -5873,7 +5973,7 @@ dwarfout_end_function ()
    for a function definition.  This gets called *after* the epilogue code
    has been generated.	*/
 
-void
+static void
 dwarfout_end_epilogue ()
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
@@ -6025,10 +6125,10 @@ generate_srcinfo_entry (line_entry_num, files_entry_num)
   ASM_OUTPUT_POP_SECTION (asm_out_file);
 }
 
-void
-dwarfout_line (filename, line)
-     register const char *filename;
-     register unsigned line;
+static void
+dwarfout_source_line (line, filename)
+     unsigned int line;
+     const char *filename;
 {
   if (debug_info_level >= DINFO_LEVEL_NORMAL
       /* We can't emit line number info for functions in separate sections,
@@ -6097,8 +6197,19 @@ generate_macinfo_entry (type_and_offset, string)
   ASM_OUTPUT_POP_SECTION (asm_out_file);
 }
 
-void
-dwarfout_start_new_source_file (filename)
+/* Wrapper for toplev.c callback to check debug info level.  */
+static void
+dwarfout_start_source_file_check (line, filename)
+     unsigned int line;
+     register const char *filename;
+{
+  if (debug_info_level == DINFO_LEVEL_VERBOSE)
+    dwarfout_start_source_file (line, filename);
+}
+
+static void
+dwarfout_start_source_file (line, filename)
+     unsigned int line ATTRIBUTE_UNUSED;
      register const char *filename;
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
@@ -6113,8 +6224,17 @@ dwarfout_start_new_source_file (filename)
   generate_macinfo_entry (type_and_offset, "");
 }
 
-void
-dwarfout_resume_previous_source_file (lineno)
+/* Wrapper for toplev.c callback to check debug info level.  */
+static void
+dwarfout_end_source_file_check (lineno)
+     register unsigned lineno;
+{
+  if (debug_info_level == DINFO_LEVEL_VERBOSE)
+    dwarfout_end_source_file (lineno);
+}
+
+static void
+dwarfout_end_source_file (lineno)
      register unsigned lineno;
 {
   char type_and_offset[MAX_ARTIFICIAL_LABEL_BYTES*2];
@@ -6129,7 +6249,7 @@ dwarfout_resume_previous_source_file (lineno)
    is past the initial whitespace, #, whitespace, directive-name,
    whitespace part.  */
 
-void
+static void
 dwarfout_define (lineno, buffer)
      register unsigned lineno;
      register const char *buffer;
@@ -6139,7 +6259,7 @@ dwarfout_define (lineno, buffer)
 
   if (!initialized)
     {
-      dwarfout_start_new_source_file (primary_filename);
+      dwarfout_start_source_file (0, primary_filename);
       initialized = 1;
     }
   sprintf (type_and_offset, "0x%08x+%u",
@@ -6152,7 +6272,7 @@ dwarfout_define (lineno, buffer)
    is past the initial whitespace, #, whitespace, directive-name,
    whitespace part.  */
 
-void
+static void
 dwarfout_undef (lineno, buffer)
      register unsigned lineno;
      register const char *buffer;
@@ -6166,9 +6286,8 @@ dwarfout_undef (lineno, buffer)
 
 /* Set up for Dwarf output at the start of compilation.	 */
 
-void
-dwarfout_init (asm_out_file, main_input_filename)
-     register FILE *asm_out_file;
+static void
+dwarfout_init (main_input_filename)
      register const char *main_input_filename;
 {
   /* Remember the name of the primary input file.  */
@@ -6356,8 +6475,9 @@ dwarfout_init (asm_out_file, main_input_filename)
 
 /* Output stuff that dwarf requires at the end of every file.  */
 
-void
-dwarfout_finish ()
+static void
+dwarfout_finish (main_input_filename)
+     register const char *main_input_filename ATTRIBUTE_UNUSED;
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
@@ -6475,7 +6595,7 @@ dwarfout_finish ()
 	{
 	  /* Output terminating entries for the .debug_macinfo section.  */
 	
-	  dwarfout_resume_previous_source_file (0);
+	  dwarfout_end_source_file (0);
 
 	  fputc ('\n', asm_out_file);
 	  ASM_OUTPUT_PUSH_SECTION (asm_out_file, DEBUG_MACINFO_SECTION);

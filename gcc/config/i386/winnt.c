@@ -29,6 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "tm_p.h"
 #include "toplev.h"
+#include "hashtab.h"
 
 /* i386/PE specific attribute support.
 
@@ -55,7 +56,7 @@ void i386_pe_mark_dllimport PARAMS ((tree));
 int
 i386_pe_valid_decl_attribute_p (decl, attributes, attr, args)
      tree decl;
-     tree attributes;
+     tree attributes ATTRIBUTE_UNUSED;
      tree attr;
      tree args;
 {
@@ -69,7 +70,7 @@ i386_pe_valid_decl_attribute_p (decl, attributes, attr, args)
 	return TREE_CODE (decl) == VAR_DECL;
     }
 
-  return ix86_valid_decl_attribute_p (decl, attributes, attr, args);
+  return 0;
 }
 
 /* Return nonzero if ATTR is a valid attribute for TYPE.
@@ -93,59 +94,6 @@ i386_pe_valid_type_attribute_p (type, attributes, attr, args)
     }
 
   return ix86_valid_type_attribute_p (type, attributes, attr, args);
-}
-
-/* Merge attributes in decls OLD and NEW.
-
-   This handles the following situation:
-
-   __declspec (dllimport) int foo;
-   int foo;
-
-   The second instance of `foo' nullifies the dllimport.  */
-
-tree
-i386_pe_merge_decl_attributes (old, new)
-     tree old, new;
-{
-  tree a;
-  int delete_dllimport_p;
-
-  old = DECL_MACHINE_ATTRIBUTES (old);
-  new = DECL_MACHINE_ATTRIBUTES (new);
-
-  /* What we need to do here is remove from `old' dllimport if it doesn't
-     appear in `new'.  dllimport behaves like extern: if a declaration is
-     marked dllimport and a definition appears later, then the object
-     is not dllimport'd.  */
-
-  if (lookup_attribute ("dllimport", old) != NULL_TREE
-      && lookup_attribute ("dllimport", new) == NULL_TREE)
-    delete_dllimport_p = 1;
-  else
-    delete_dllimport_p = 0;
-
-  a = merge_attributes (old, new);
-
-  if (delete_dllimport_p)
-    {
-      tree prev,t;
-
-      /* Scan the list for dllimport and delete it.  */
-      for (prev = NULL_TREE, t = a; t; prev = t, t = TREE_CHAIN (t))
-	{
-	  if (is_attribute_p ("dllimport", TREE_PURPOSE (t)))
-	    {
-	      if (prev == NULL_TREE)
-		a = TREE_CHAIN (a);
-	      else
-		TREE_CHAIN (prev) = TREE_CHAIN (t);
-	      break;
-	    }
-	}
-    }
-
-  return a;
 }
 
 /* Return the type that we should use to determine if DECL is
@@ -507,6 +455,99 @@ i386_pe_unique_section (decl, reloc)
   sprintf (string, "%s%s", prefix, name);
 
   DECL_SECTION_NAME (decl) = build_string (len, string);
+}
+
+/* Select a set of attributes for section NAME based on the properties
+   of DECL and whether or not RELOC indicates that DECL's initializer
+   might contain runtime relocations.
+
+   We make the section read-only and executable for a function decl,
+   read-only for a const data decl, and writable for a non-const data decl.
+
+   If the section has already been defined, to not allow it to have
+   different attributes, as (1) this is ambiguous since we're not seeing
+   all the declarations up front and (2) some assemblers (e.g. SVR4)
+   do not recoginize section redefinitions.  */
+/* ??? This differs from the "standard" PE implementation in that we
+   handle the SHARED variable attribute.  Should this be done for all
+   PE targets?  */
+
+#define SECTION_PE_SHARED	SECTION_MACH_DEP
+
+unsigned int
+i386_pe_section_type_flags (decl, name, reloc)
+     tree decl;
+     const char *name;
+     int reloc;
+{
+  static htab_t htab;
+  unsigned int flags;
+  unsigned int **slot;
+
+  /* The names we put in the hashtable will always be the unique
+     versions gived to us by the stringtable, so we can just use
+     their addresses as the keys.  */
+  if (!htab)
+    htab = htab_create (31, htab_hash_pointer, htab_eq_pointer, NULL);
+
+  if (decl && TREE_CODE (decl) == FUNCTION_DECL)
+    flags = SECTION_CODE;
+  else if (decl && DECL_READONLY_SECTION (decl, reloc))
+    flags = 0;
+  else
+    {
+      flags = SECTION_WRITE;
+
+      if (decl && TREE_CODE (decl) == VAR_DECL
+	  && lookup_attribute ("shared", DECL_MACHINE_ATTRIBUTES (decl)))
+	flags |= SECTION_PE_SHARED;
+    }
+
+  if (decl && DECL_ONE_ONLY (decl))
+    flags |= SECTION_LINKONCE;
+
+  /* See if we already have an entry for this section.  */
+  slot = (unsigned int **) htab_find_slot (htab, name, INSERT);
+  if (!*slot)
+    {
+      *slot = (unsigned int *) xmalloc (sizeof (unsigned int));
+      **slot = flags;
+    }
+  else
+    {
+      if (decl && **slot != flags)
+	error_with_decl (decl, "%s causes a section type conflict");
+    }
+
+  return flags;
+}
+
+void
+i386_pe_asm_named_section (name, flags, align)
+     const char *name;
+     unsigned int flags;
+     unsigned int align ATTRIBUTE_UNUSED;
+{
+  char flagchars[8], *f = flagchars;
+
+  if (flags & SECTION_CODE)
+    *f++ = 'x';
+  if (flags & SECTION_WRITE)
+    *f++ = 'w';
+  if (flags & SECTION_PE_SHARED)
+    *f++ = 's';
+  *f = '\0';
+
+  fprintf (asm_out_file, "\t.section\t%s,\"%s\"\n", name, flagchars);
+
+  if (flags & SECTION_LINKONCE)
+    {
+      /* Functions may have been compiled at various levels of
+         optimization so we can't use `same_size' here.
+         Instead, have the linker pick one.  */
+      fprintf (asm_out_file, "\t.linkonce %s\n",
+	       (flags & SECTION_CODE ? "discard" : "same_size"));
+    }
 }
 
 /* The Microsoft linker requires that every function be marked as

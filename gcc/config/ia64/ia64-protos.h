@@ -77,8 +77,6 @@ extern void ia64_expand_call PARAMS((rtx, rtx, rtx, int));
 extern HOST_WIDE_INT ia64_initial_elimination_offset PARAMS((int, int));
 extern void ia64_expand_prologue PARAMS((void));
 extern void ia64_expand_epilogue PARAMS((int));
-extern void ia64_function_prologue PARAMS((FILE *, int));
-extern void ia64_function_epilogue PARAMS((FILE *, int));
 
 extern int ia64_direct_return PARAMS((void));
 extern void ia64_expand_load_address PARAMS((rtx, rtx, rtx));
@@ -124,14 +122,12 @@ extern void ia64_function_arg_advance PARAMS((CUMULATIVE_ARGS *,
 extern int ia64_return_in_memory PARAMS((tree));
 extern void ia64_asm_output_external PARAMS((FILE *, tree, const char *));
 
-extern int ia64_valid_type_attribute PARAMS((tree, tree, tree, tree));
 extern void ia64_encode_section_info PARAMS((tree));
 #endif /* TREE_CODE */
 
 extern int ia64_register_move_cost PARAMS((enum reg_class, enum reg_class));
 extern int ia64_epilogue_uses PARAMS((int));
 extern void emit_safe_across_calls PARAMS((FILE *));
-extern void ia64_output_end_prologue PARAMS((FILE *));
 extern void ia64_init_builtins PARAMS((void));
 extern void ia64_override_options PARAMS((void));
 extern int ia64_dbx_register_number PARAMS((int));

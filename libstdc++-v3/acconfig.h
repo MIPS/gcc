@@ -1,7 +1,20 @@
 // acconfig.h symbols and macros for libstdc++ v3 -*- C++ -*-
 
-// Include support for multiple threads, e.g., in the I/O package.
-#undef _GLIBCPP_USE_THREADS
+// Defines libstdc++ version.
+#undef PACKAGE
+#undef VERSION
+
+// Needed for gettext.
+#undef ENABLE_NLS
+#undef HAVE_CATGETS
+#undef HAVE_GETTEXT
+#undef HAVE_STPCPY
+
+// Define if GCC supports weak symbols
+#undef _GLIBCPP_SUPPORTS_WEAK
+
+// Define if gthr-default.h exists (meaning that threading support is enabled)
+#undef HAVE_GTHR_DEFAULT
 
 // Include support for 'long long' and 'unsigned long long'.
 #undef _GLIBCPP_USE_LONG_LONG
@@ -17,6 +30,9 @@
 
 // Define if code specialized for wchar_t should be used.
 #undef _GLIBCPP_USE_WCHAR_T
+
+// Define if using setrlimit to limit memory usage during 'make check'.
+#undef _GLIBCPP_MEM_LIMITS
 
 // Define if you have the atan2f function.
 #undef _GLIBCPP_HAVE_ATAN2F 

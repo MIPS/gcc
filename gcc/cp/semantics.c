@@ -37,6 +37,7 @@
 #include "expr.h"
 #include "output.h"
 #include "timevar.h"
+#include "debug.h"
 
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
@@ -892,23 +893,65 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
     }
 
   if (!processing_template_decl)
-    for (t = input_operands; t; t = TREE_CHAIN (t))
-      {
-	tree converted_operand 
-	  = decay_conversion (TREE_VALUE (t)); 
+    {
+      int i;
+      int ninputs;
+      int noutputs;
 
-	/* If the type of the operand hasn't been determined (e.g.,
-	   because it involves an overloaded function), then issue an
-	   error message.  There's no context available to resolve the
-	   overloading.  */
-	if (TREE_TYPE (converted_operand) == unknown_type_node)
-	  {
-	    cp_error ("type of asm operand `%E' could not be determined", 
-		      TREE_VALUE (t));
-	    converted_operand = error_mark_node;
-	  }
-	TREE_VALUE (t) = converted_operand;
-      }
+      for (t = input_operands; t; t = TREE_CHAIN (t))
+	{
+	  tree converted_operand 
+	    = decay_conversion (TREE_VALUE (t)); 
+	  
+	  /* If the type of the operand hasn't been determined (e.g.,
+	     because it involves an overloaded function), then issue
+	     an error message.  There's no context available to
+	     resolve the overloading.  */
+	  if (TREE_TYPE (converted_operand) == unknown_type_node)
+	    {
+	      cp_error ("type of asm operand `%E' could not be determined", 
+			TREE_VALUE (t));
+	      converted_operand = error_mark_node;
+	    }
+	  TREE_VALUE (t) = converted_operand;
+	}
+
+      ninputs = list_length (input_operands);
+      noutputs = list_length (output_operands);
+
+      for (i = 0, t = output_operands; t; t = TREE_CHAIN (t), ++i)
+	{
+	  bool allows_mem;
+	  bool allows_reg;
+	  bool is_inout;
+	  const char *constraint;
+	  tree operand;
+
+	  constraint = TREE_STRING_POINTER (TREE_PURPOSE (t));
+	  operand = TREE_VALUE (output_operands);
+
+	  if (!parse_output_constraint (&constraint,
+					i, ninputs, noutputs,
+					&allows_mem,
+					&allows_reg,
+					&is_inout))
+	    {
+	      /* By marking the type as erroneous, we will not try to
+		 process this operand again in expand_asm_operands.  */
+	      TREE_TYPE (operand) = error_mark_node;
+	      continue;
+	    }
+
+	  /* If the operand is a DECL that is going to end up in
+	     memory, assume it is addressable.  This is a bit more
+	     conservative than it would ideally be; the exact test is
+	     buried deep in expand_asm_operands and depends on the
+	     DECL_RTL for the OPERAND -- which we don't have at this
+	     point.  */
+	  if (!allows_reg && DECL_P (operand))
+	    mark_addressable (operand);
+	}
+    }
 
   r = build_stmt (ASM_STMT, cv_qualifier, string,
 		  output_operands, input_operands,
@@ -1376,9 +1419,6 @@ finish_this_expr ()
 
   if (current_class_ptr)
     {
-#ifdef WARNING_ABOUT_CCD
-      TREE_USED (current_class_ptr) = 1;
-#endif
       result = current_class_ptr;
     }
   else if (current_function_decl
@@ -2262,7 +2302,7 @@ emit_associated_thunks (fn)
      is so that you can know statically the entire set of thunks that
      will ever be needed for a given virtual function, thereby
      enabling you to output all the thunks with the function itself.  */
-  if (vcall_offsets_in_vtable_p () && DECL_VIRTUAL_P (fn))
+  if (DECL_VIRTUAL_P (fn))
     {
       tree binfo;
       tree v;
@@ -2273,7 +2313,7 @@ emit_associated_thunks (fn)
 	for (v = BINFO_VIRTUALS (binfo); v; v = TREE_CHAIN (v))
 	  if (BV_FN (v) == fn
 	      && (!integer_zerop (BV_DELTA (v))
-		  || BV_VCALL_INDEX (v)))
+		  || BV_USE_VCALL_INDEX_P (v)))
 	    {
 	      tree thunk;
 	      tree vcall_index;
@@ -2290,8 +2330,7 @@ emit_associated_thunks (fn)
 					  vfunc_ptr_type_node,
 					  fn),
 				  BV_DELTA (v),
-				  vcall_index,
-				  /*generate_with_vtable_p=*/0);
+				  vcall_index);
 	      use_thunk (thunk, /*emit_p=*/1);
 	    }
     }
@@ -2329,8 +2368,8 @@ expand_body (fn)
 				simplify_aggr_init_exprs_r,
 				NULL);
 
-  /* If this is a constructor or destructor body, we have to clone it
-     under the new ABI.  */
+  /* If this is a constructor or destructor body, we have to clone
+     it.  */
   if (maybe_clone_body (fn))
     {
       /* We don't want to process FN again, so pretend we've written
@@ -2367,7 +2406,7 @@ expand_body (fn)
 	 we actually need to write this function out.  */
       defer_fn (fn);
       /* Let the back-end know that this funtion exists.  */
-      note_deferral_of_defined_inline_function (fn);
+      (*debug_hooks->deferred_inline_function) (fn);
       return;
     }
 
@@ -2381,13 +2420,8 @@ expand_body (fn)
 
   timevar_push (TV_INTEGRATION);
 
-  /* Optimize the body of the function before expanding it.  We do not
-     optimize thunks, as (1) the backend tries to optimize the call to
-     the thunkee, (b) the tree based inliner breaks that optimization,
-     (c) virtual functions are rarely inlineable, and (d)
-     ASM_OUTPUT_MI_THUNK is there to DTRT anyway.  */
-  if (!DECL_THUNK_P (fn))
-    optimize_function (fn);
+  /* Optimize the body of the function before expanding it.  */
+  optimize_function (fn);
 
   timevar_pop (TV_INTEGRATION);
   timevar_push (TV_EXPAND);
@@ -2436,6 +2470,32 @@ expand_body (fn)
   extract_interface_info ();
 
   timevar_pop (TV_EXPAND);
+}
+
+/* Helper function for walk_tree, used by finish_function to override all
+   the RETURN_STMTs and pertinent CLEANUP_STMTs for the named return
+   value optimization.  */
+
+tree
+nullify_returns_r (tp, walk_subtrees, data)
+     tree *tp;
+     int *walk_subtrees;
+     void *data;
+{
+  tree nrv = (tree) data;
+
+  /* No need to walk into types.  There wouldn't be any need to walk into
+     non-statements, except that we have to consider STMT_EXPRs.  */
+  if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+  else if (TREE_CODE (*tp) == RETURN_STMT)
+    RETURN_EXPR (*tp) = NULL_TREE;
+  else if (TREE_CODE (*tp) == CLEANUP_STMT
+	   && CLEANUP_DECL (*tp) == nrv)
+    CLEANUP_EXPR (*tp) = NULL_TREE;
+
+  /* Keep iterating.  */
+  return NULL_TREE;
 }
 
 /* Start generating the RTL for FN.  */
@@ -2515,6 +2575,10 @@ genrtl_start_function (fn)
   /* Create a binding contour which can be used to catch
      cleanup-generated temporaries.  */
   expand_start_bindings (2);
+
+  /* Give our named return value the same RTL as our RESULT_DECL.  */
+  if (current_function_return_value)
+    COPY_DECL_RTL (DECL_RESULT (fn), current_function_return_value);
 }
 
 /* Finish generating the RTL for FN.  */
@@ -2553,7 +2617,6 @@ genrtl_finish_function (fn)
 
   if (!dtor_label && !DECL_CONSTRUCTOR_P (fn)
       && return_label != NULL_RTX
-      && current_function_return_value == NULL_TREE
       && ! DECL_NAME (DECL_RESULT (current_function_decl)))
     no_return_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
 

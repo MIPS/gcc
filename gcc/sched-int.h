@@ -53,6 +53,10 @@ struct deps
      a function of the length of these pending lists.  */
   int pending_lists_length;
 
+  /* Length of the pending memory flush list. Large functions with no
+     calls may build up extremely large lists.  */
+  int pending_flush_length;
+
   /* The last insn upon which all memory references must depend.
      This is an insn which flushed the pending lists, creating a dependency
      between it and all previously pending memory references.  This creates
@@ -142,7 +146,12 @@ struct sched_info
   rtx head, tail;
 
   /* If nonzero, enables an additional sanity check in schedule_block.  */
-  int queue_must_finish_empty;
+  unsigned int queue_must_finish_empty:1;
+  /* Nonzero if we should use cselib for better alias analysis.  This
+     must be 0 if the dependency information is used after sched_analyze
+     has completed, e.g. if we're using it to initialize state for successor
+     blocks in region scheduling.  */
+  unsigned int use_cselib:1;
 };
 
 extern struct sched_info *current_sched_info;

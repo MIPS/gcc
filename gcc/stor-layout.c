@@ -381,7 +381,7 @@ layout_decl (decl, known_align)
       DECL_BIT_FIELD_TYPE (decl) = DECL_BIT_FIELD (decl) ? type : 0;
       if (maximum_field_alignment != 0)
 	DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl), maximum_field_alignment);
-      else if (DECL_PACKED (decl) && known_align % DECL_ALIGN (decl) != 0)
+      else if (DECL_PACKED (decl))
 	{
 	  DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl), BITS_PER_UNIT);
 	  DECL_USER_ALIGN (decl) = 0;
@@ -1866,10 +1866,11 @@ unsigned int
 get_mode_alignment (mode)
      enum machine_mode mode;
 {
-  unsigned int alignment = GET_MODE_UNIT_SIZE (mode) * BITS_PER_UNIT;
+  unsigned int alignment = GET_MODE_UNIT_SIZE (mode);
   
   /* Extract the LSB of the size.  */
   alignment = alignment & -alignment;
+  alignment *= BITS_PER_UNIT;
 
   alignment = MIN (BIGGEST_ALIGNMENT, MAX (1, alignment));
   return alignment;

@@ -41,6 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "toplev.h"
 #include "diagnostic.h"
+#include "target.h"
 
 static tree convert_for_assignment PARAMS ((tree, tree, const char *, tree,
 					  int));
@@ -211,8 +212,8 @@ qualify_type_recursive (t1, t2)
       tree tt2 = TREE_TYPE (t2);
       tree b1;
       int type_quals;
-      tree target;
-      tree attributes = merge_machine_type_attributes (t1, t2);
+      tree tgt;
+      tree attributes = (*targetm.merge_type_attributes) (t1, t2);
 
       if (TREE_CODE (tt1) == OFFSET_TYPE)
 	{
@@ -224,11 +225,11 @@ qualify_type_recursive (t1, t2)
 	b1 = NULL_TREE;
 
       type_quals = (CP_TYPE_QUALS (tt1) | CP_TYPE_QUALS (tt2));
-      target = qualify_type_recursive (tt1, tt2);
-      target = cp_build_qualified_type (target, type_quals);
+      tgt = qualify_type_recursive (tt1, tt2);
+      tgt = cp_build_qualified_type (tgt, type_quals);
       if (b1)
-	target = build_offset_type (b1, target);
-      t1 = build_pointer_type (target);
+	tgt = build_offset_type (b1, tgt);
+      t1 = build_pointer_type (tgt);
       t1 = build_type_attribute_variant (t1, attributes);
     }
   return t1;
@@ -343,7 +344,7 @@ type_after_usual_arithmetic_conversions (t1, t2)
 
   /* In what follows, we slightly generalize the rules given in [expr]
      so as to deal with `long long'.  First, merge the attributes.  */
-  attributes = merge_machine_type_attributes (t1, t2);
+  attributes = (*targetm.merge_type_attributes) (t1, t2);
 
   /* If only one is real, use it as the result.  */
   if (code1 == REAL_TYPE && code2 != REAL_TYPE)
@@ -549,7 +550,7 @@ common_type (t1, t2)
     return type_after_usual_arithmetic_conversions (t1, t2);
 
   /* Merge the attributes.  */
-  attributes = merge_machine_type_attributes (t1, t2);
+  attributes = (*targetm.merge_type_attributes) (t1, t2);
 
   /* Treat an enum type as the unsigned integer type of the same width.  */
 
@@ -996,16 +997,10 @@ comptypes (t1, t2, strict)
   if (TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
     return 1;
 
-  /* ??? COMP_TYPE_ATTRIBUTES is currently useless for variables as each
-     attribute is its own main variant (`val' will remain 0).  */
-#ifndef COMP_TYPE_ATTRIBUTES
-#define COMP_TYPE_ATTRIBUTES(t1,t2)	1
-#endif
-
   if (strict & COMPARE_NO_ATTRIBUTES)
     attrval = 1;
   /* 1 if no need for warning yet, 2 if warning cause has been seen.  */
-  else if (! (attrval = COMP_TYPE_ATTRIBUTES (t1, t2)))
+  else if (! (attrval = (*targetm.comp_type_attributes) (t1, t2)))
      return 0;
 
   /* 1 if no need for warning yet, 2 if warning cause has been seen.  */
@@ -1735,6 +1730,12 @@ decay_conversion (exp)
   if (type == error_mark_node)
     return error_mark_node;
 
+  if (type_unknown_p (exp))
+    {
+      incomplete_type_error (exp, TREE_TYPE (exp));
+      return error_mark_node;
+    }
+  
   /* Constants can be used directly unless they're not loadable.  */
   if (TREE_CODE (exp) == CONST_DECL)
     exp = DECL_INITIAL (exp);
@@ -2211,16 +2212,7 @@ build_component_ref (datum, component, basetype_path)
 	      error ("invalid reference to NULL ptr, use ptr-to-member instead");
 	      return error_mark_node;
 	    }
-	  if (VBASE_NAME_P (DECL_NAME (component)))
-	    {
-	      /* It doesn't matter which vbase pointer we grab, just
-		 find one of them.  */
-	      tree binfo = get_binfo (base,
-				      TREE_TYPE (TREE_TYPE (addr)), 0);
-	      addr = convert_pointer_to_real (binfo, addr);
-	    }
-	  else
-	    addr = convert_pointer_to (base, addr);
+	  addr = convert_pointer_to (base, addr);
 	  datum = build_indirect_ref (addr, NULL);
 	  if (datum == error_mark_node)
 	    return error_mark_node;
@@ -2845,7 +2837,7 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 
   if (TYPE_PTRMEMFUNC_P (TREE_TYPE (function)))
     {
-      tree fntype, idx, e1, delta, delta2, e2, e3, aref, vtbl;
+      tree fntype, idx, e1, delta, delta2, e2, e3, vtbl;
       tree instance, basetype;
 
       tree instance_ptr = *instance_ptrptr;
@@ -2919,9 +2911,6 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 	  abort ();
 	}
 
-      delta = cp_convert (ptrdiff_type_node,
-			  build_component_ref_by_name (function, 
-						       delta_identifier));
       /* DELTA2 is the amount by which to adjust the `this' pointer
 	 to find the vtbl.  */
       delta2 = delta;
@@ -2930,26 +2919,8 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 	 build_pointer_type (build_pointer_type (vtable_entry_type)),
 	 vtbl, cp_convert (ptrdiff_type_node, delta2));
       vtbl = build_indirect_ref (vtbl, NULL);
-      aref = build_array_ref (vtbl, idx);
+      e2 = build_array_ref (vtbl, idx);
 
-      if (! flag_vtable_thunks)
-	{
-	  aref = save_expr (aref);
-	  
-	  delta = cp_build_binary_op
-	    (PLUS_EXPR,
-	     build_conditional_expr 
-	     (e1,
-	      build_component_ref_by_name (aref,
-					   delta_identifier),
-	      integer_zero_node),
-	     delta);
-	}
-
-      if (flag_vtable_thunks)
-	e2 = aref;
-      else
-	e2 = build_component_ref_by_name (aref, pfn_identifier);
       TREE_TYPE (e2) = TREE_TYPE (e3);
       e1 = build_conditional_expr (e1, e2, e3);
       
@@ -3217,8 +3188,7 @@ convert_arguments (typelist, values, fndecl, flags)
 		(NULL_TREE, type, val, flags,
 		 "argument passing", fndecl, i);
 	      if (PROMOTE_PROTOTYPES
-		  && (TREE_CODE (type) == INTEGER_TYPE
-		      || TREE_CODE (type) == ENUMERAL_TYPE)
+		  && INTEGRAL_TYPE_P (type)
 		  && (TYPE_PRECISION (type)
 		      < TYPE_PRECISION (integer_type_node)))
 		parmval = default_conversion (parmval);
@@ -3374,17 +3344,24 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
   int common = 0;
 
   /* Apply default conversions.  */
+  op0 = orig_op0;
+  op1 = orig_op1;
+  
   if (code == TRUTH_AND_EXPR || code == TRUTH_ANDIF_EXPR
       || code == TRUTH_OR_EXPR || code == TRUTH_ORIF_EXPR
       || code == TRUTH_XOR_EXPR)
     {
-      op0 = decay_conversion (orig_op0);
-      op1 = decay_conversion (orig_op1);
+      if (!really_overloaded_fn (op0))
+	op0 = decay_conversion (op0);
+      if (!really_overloaded_fn (op1))
+	op1 = decay_conversion (op1);
     }
   else
     {
-      op0 = default_conversion (orig_op0);
-      op1 = default_conversion (orig_op1);
+      if (!really_overloaded_fn (op0))
+	op0 = default_conversion (op0);
+      if (!really_overloaded_fn (op1))
+	op1 = default_conversion (op1);
     }
 
   /* Strip NON_LVALUE_EXPRs, etc., since we aren't using as an lvalue.  */
@@ -4339,6 +4316,8 @@ condition_conversion (expr)
   tree t;
   if (processing_template_decl)
     return expr;
+  if (TREE_CODE (expr) == OFFSET_REF)
+    expr = resolve_offset_ref (expr);
   t = perform_implicit_conversion (boolean_type_node, expr);
   t = fold (build1 (CLEANUP_POINT_EXPR, boolean_type_node, t));
   return t;
@@ -4800,12 +4779,21 @@ unary_complex_lvalue (code, arg)
       || TREE_CODE (arg) == MIN_EXPR || TREE_CODE (arg) == MAX_EXPR)
     return rationalize_conditional_expr (code, arg);
 
+  /* Handle (a = b), (++a), and (--a) used as an "lvalue".  */
   if (TREE_CODE (arg) == MODIFY_EXPR
       || TREE_CODE (arg) == PREINCREMENT_EXPR
       || TREE_CODE (arg) == PREDECREMENT_EXPR)
-    return unary_complex_lvalue
-      (code, build (COMPOUND_EXPR, TREE_TYPE (TREE_OPERAND (arg, 0)),
-		    arg, TREE_OPERAND (arg, 0)));
+    {
+      tree lvalue = TREE_OPERAND (arg, 0);
+      if (TREE_SIDE_EFFECTS (lvalue))
+	{
+	  lvalue = stabilize_reference (lvalue);
+	  arg = build (TREE_CODE (arg), TREE_TYPE (arg),
+		       lvalue, TREE_OPERAND (arg, 1));
+	}
+      return unary_complex_lvalue
+	(code, build (COMPOUND_EXPR, TREE_TYPE (lvalue), arg, lvalue));
+    }
 
   if (code != ADDR_EXPR)
     return 0;
@@ -5099,7 +5087,6 @@ build_static_cast (type, expr)
 				    build_tree_list (NULL_TREE, expr),
 				    TYPE_BINFO (type), LOOKUP_NORMAL)));
   
-  expr = decay_conversion (expr);
   intype = TREE_TYPE (expr);
 
   /* FIXME handle casting to array type.  */
@@ -6088,8 +6075,7 @@ build_ptrmemfunc (type, pfn, force)
 	  delta = build_component_ref_by_name (pfn, delta_identifier);
 	}
 
-      /* Under the new ABI, the conversion is easy.  Just adjust
-	 the DELTA field.  */
+      /* Just adjust the DELTA field.  */
       delta = cp_convert (ptrdiff_type_node, delta);
       if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_delta)
 	n = cp_build_binary_op (LSHIFT_EXPR, n, integer_one_node);
@@ -6154,17 +6140,16 @@ expand_ptrmemfunc_cst (cst, delta, pfn)
       *delta = fold (build (PLUS_EXPR, TREE_TYPE (*delta),
 			    *delta, BINFO_OFFSET (binfo)));
 
-      /* Under the new ABI, we set PFN to the vtable offset at
-	 which the function can be found, plus one (unless
-	 ptrmemfunc_vbit_in_delta, in which case delta is shifted
-	 left, and then incremented).  */
+      /* We set PFN to the vtable offset at which the function can be
+	 found, plus one (unless ptrmemfunc_vbit_in_delta, in which
+	 case delta is shifted left, and then incremented).  */
       *pfn = DECL_VINDEX (fn);
+      *pfn = fold (build (MULT_EXPR, integer_type_node, *pfn,
+			  TYPE_SIZE_UNIT (vtable_entry_type)));
 
       switch (TARGET_PTRMEMFUNC_VBIT_LOCATION)
 	{
 	case ptrmemfunc_vbit_in_pfn:
-	  *pfn = fold (build (MULT_EXPR, integer_type_node, *pfn,
-			      TYPE_SIZE_UNIT (vtable_entry_type)));
 	  *pfn = fold (build (PLUS_EXPR, integer_type_node, *pfn,
 			      integer_one_node));
 	  break;
@@ -6665,6 +6650,45 @@ check_return_expr (retval)
       && DECL_NAME (current_function_decl) == ansi_assopname(NOP_EXPR)
       && retval != current_class_ref)
     cp_warning ("`operator=' should return a reference to `*this'");
+
+  /* The fabled Named Return Value optimization, as per [class.copy]/15:
+
+     [...]      For  a function with a class return type, if the expression
+     in the return statement is the name of a local  object,  and  the  cv-
+     unqualified  type  of  the  local  object  is the same as the function
+     return type, an implementation is permitted to omit creating the  tem-
+     porary  object  to  hold  the function return value [...]
+
+     So, if this is a value-returning function that always returns the same
+     local variable, remember it.
+
+     It might be nice to be more flexible, and choose the first suitable
+     variable even if the function sometimes returns something else, but
+     then we run the risk of clobbering the variable we chose if the other
+     returned expression uses the chosen variable somehow.  And people expect
+     this restriction, anyway.  (jason 2000-11-19)
+
+     See finish_function, genrtl_start_function, and declare_return_variable
+     for other pieces of this optimization.  */
+
+  if (fn_returns_value_p && flag_elide_constructors)
+    {
+      if (retval != NULL_TREE
+	  && (current_function_return_value == NULL_TREE
+	      || current_function_return_value == retval)
+	  && TREE_CODE (retval) == VAR_DECL
+	  && DECL_CONTEXT (retval) == current_function_decl
+	  && ! TREE_STATIC (retval)
+	  && (DECL_ALIGN (retval)
+	      >= DECL_ALIGN (DECL_RESULT (current_function_decl)))
+	  && same_type_p ((TYPE_MAIN_VARIANT
+			   (TREE_TYPE (retval))),
+			  (TYPE_MAIN_VARIANT
+			   (TREE_TYPE (TREE_TYPE (current_function_decl))))))
+	current_function_return_value = retval;
+      else
+	current_function_return_value = error_mark_node;
+    }
 
   /* We don't need to do any conversions when there's nothing being
      returned.  */

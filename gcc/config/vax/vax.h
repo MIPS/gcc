@@ -1,4 +1,4 @@
-/* Definitions of target machine for GNU compiler.  Vax version.
+/* Definitions of target machine for GNU compiler.  VAX version.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001 Free Software Foundation, Inc.
 
@@ -19,6 +19,7 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#define VMS_TARGET 0
 
 /* Names to predefine in the preprocessor for this target machine.  */
 
@@ -94,16 +95,16 @@ extern int target_flags;
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.
-   This is not true on the vax.  */
+   This is not true on the VAX.  */
 #define BITS_BIG_ENDIAN 0
 
 /* Define this if most significant byte of a word is the lowest numbered.  */
-/* That is not true on the vax.  */
+/* That is not true on the VAX.  */
 #define BYTES_BIG_ENDIAN 0
 
 /* Define this if most significant word of a multiword number is the lowest
    numbered.  */
-/* This is not true on the vax.  */
+/* This is not true on the VAX.  */
 #define WORDS_BIG_ENDIAN 0
 
 /* Number of bits in an addressable storage unit */
@@ -165,7 +166,7 @@ extern int target_flags;
 
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.
-   On the vax, these are the AP, FP, SP and PC.  */
+   On the VAX, these are the AP, FP, SP and PC.  */
 #define FIXED_REGISTERS {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1}
 
 /* 1 for registers not available across function calls.
@@ -180,12 +181,12 @@ extern int target_flags;
    to hold something of mode MODE.
    This is ordinarily the length in words of a value of mode MODE
    but can be less for certain modes in special long registers.
-   On the vax, all registers are one word long.  */
+   On the VAX, all registers are one word long.  */
 #define HARD_REGNO_NREGS(REGNO, MODE)   \
  ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
-   On the vax, all registers can hold all modes.  */
+   On the VAX, all registers can hold all modes.  */
 #define HARD_REGNO_MODE_OK(REGNO, MODE) 1
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
@@ -197,7 +198,7 @@ extern int target_flags;
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */
 
-/* Vax pc is overloaded on a register.  */
+/* VAX pc is overloaded on a register.  */
 #define PC_REGNUM 15
 
 /* Register to use for pushing function arguments.  */
@@ -242,7 +243,7 @@ extern int target_flags;
    For any two classes, it is very desirable that there be another
    class that represents their union.  */
    
-/* The vax has only one kind of registers, so NO_REGS and ALL_REGS
+/* The VAX has only one kind of registers, so NO_REGS and ALL_REGS
    are the only classes.  */
 
 enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
@@ -322,7 +323,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.  */
-/* On the vax, this is always the size of MODE in words,
+/* On the VAX, this is always the size of MODE in words,
    since all registers are the same size.  */
 #define CLASS_MAX_NREGS(CLASS, MODE)	\
  ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
@@ -356,7 +357,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 /* If we generate an insn to push BYTES bytes,
    this says how many the stack pointer really advances by.
-   On the vax, -(sp) pushes only the bytes of the operands.  */
+   On the VAX, -(sp) pushes only the bytes of the operands.  */
 #define PUSH_ROUNDING(BYTES) (BYTES)
 
 /* Offset of first parameter from the argument pointer register value.  */
@@ -369,7 +370,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    or for a library call it is an identifier node for the subroutine name.
    SIZE is the number of bytes of arguments passed on the stack.
 
-   On the Vax, the RET insn pops a maximum of 255 args for any function.  */
+   On the VAX, the RET insn pops a maximum of 255 args for any function.  */
 
 #define RETURN_POPS_ARGS(FUNDECL,FUNTYPE,SIZE) \
   ((SIZE) > 255*4 ? 0 : (SIZE))
@@ -379,7 +380,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    If the precise function being called is known, FUNC is its FUNCTION_DECL;
    otherwise, FUNC is 0.  */
 
-/* On the Vax the return value is in R0 regardless.  */   
+/* On the VAX the return value is in R0 regardless.  */   
 
 #define FUNCTION_VALUE(VALTYPE, FUNC)  \
   gen_rtx_REG (TYPE_MODE (VALTYPE), 0)
@@ -387,7 +388,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
 
-/* On the Vax the return value is in R0 regardless.  */   
+/* On the VAX the return value is in R0 regardless.  */   
 
 #define LIBCALL_VALUE(MODE)  gen_rtx_REG (MODE, 0)
 
@@ -397,12 +398,12 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 #define PCC_STATIC_STRUCT_RETURN
 
 /* 1 if N is a possible register number for a function value.
-   On the Vax, R0 is the only register thus used.  */
+   On the VAX, R0 is the only register thus used.  */
 
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == 0)
 
 /* 1 if N is a possible register number for function argument passing.
-   On the Vax, no registers are used in this way.  */
+   On the VAX, no registers are used in this way.  */
 
 #define FUNCTION_ARG_REGNO_P(N) 0
 
@@ -412,7 +413,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    and about the args processed so far, enough to enable macros
    such as FUNCTION_ARG to determine where the next arg should go.
 
-   On the vax, this is a single integer, which is a number of bytes
+   On the VAX, this is a single integer, which is a number of bytes
    of arguments scanned so far.  */
 
 #define CUMULATIVE_ARGS int
@@ -421,7 +422,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.
 
-   On the vax, the offset starts at 0.  */
+   On the VAX, the offset starts at 0.  */
 
 #define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
  ((CUM) = 0)
@@ -448,34 +449,9 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    NAMED is nonzero if this argument is a named parameter
     (otherwise it is an extra parameter matching an ellipsis).  */
 
-/* On the vax all args are pushed.  */   
+/* On the VAX all args are pushed.  */   
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) 0
-
-/* This macro generates the assembly code for function entry.
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate,
-   adjusted by STARTING_FRAME_OFFSET to accommodate vms.h.
-   Refer to the array `regs_ever_live' to determine which registers
-   to save; `regs_ever_live[I]' is nonzero if register number I
-   is ever used in the function.  This macro is responsible for
-   knowing which registers should not be saved even if used.  */
-
-#define FUNCTION_PROLOGUE(FILE, SIZE)     \
-{ register int regno;						\
-  register int mask = 0;					\
-  register int size = SIZE - STARTING_FRAME_OFFSET;		\
-  extern char call_used_regs[];					\
-  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)	\
-    if (regs_ever_live[regno] && !call_used_regs[regno])	\
-       mask |= 1 << regno;					\
-  fprintf (FILE, "\t.word 0x%x\n", mask);			\
-  MAYBE_VMS_FUNCTION_PROLOGUE(FILE)				\
-  if ((size) >= 64) fprintf (FILE, "\tmovab %d(sp),sp\n", -size);\
-  else if (size) fprintf (FILE, "\tsubl2 $%d,sp\n", (size)); }
-
-/* vms.h redefines this.  */
-#define MAYBE_VMS_FUNCTION_PROLOGUE(FILE)
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
@@ -510,19 +486,12 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define EXIT_IGNORE_STACK 1
 
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.  */
-
-/* #define FUNCTION_EPILOGUE(FILE, SIZE)  */
-
 /* Store in the variable DEPTH the initial difference between the
    frame pointer reg contents and the stack pointer reg contents,
    as of the start of the function body.  This depends on the layout
    of the fixed parts of the stack frame and on how registers are saved.
 
-   On the Vax, FRAME_POINTER_REQUIRED is always 1, so the definition of this
+   On the VAX, FRAME_POINTER_REQUIRED is always 1, so the definition of this
    macro doesn't matter.  But it must be defined.  */
 
 #define INITIAL_FRAME_POINTER_OFFSET(DEPTH) (DEPTH) = 0;
@@ -530,7 +499,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* Output assembler code for a block containing the constant parts
    of a trampoline, leaving space for the variable parts.  */
 
-/* On the vax, the trampoline contains an entry mask and two instructions:
+/* On the VAX, the trampoline contains an entry mask and two instructions:
      .word NN
      movl $STATIC,r0   (store the functions static chain)
      jmp  *$FUNCTION   (jump to function code at address FUNCTION)  */
@@ -798,7 +767,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    It is always safe for this macro to do nothing.  It exists to recognize
    opportunities to optimize the output.
 
-   For the vax, nothing needs to be done.  */
+   For the VAX, nothing needs to be done.  */
 
 #define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)  {}
 
@@ -866,7 +835,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
 /* When a prototype says `char' or `short', really pass an `int'.
-   (On the vax, this is required for system-library compatibility.)  */
+   (On the VAX, this is required for system-library compatibility.)  */
 #define PROMOTE_PROTOTYPES 1
 
 /* Specify the machine mode that pointers have.
@@ -973,7 +942,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* Tell final.c how to eliminate redundant test instructions.  */
 
 /* Here we define machine-dependent flags and fields in cc_status
-   (see `conditions.h').  No extra ones are needed for the vax.  */
+   (see `conditions.h').  No extra ones are needed for the VAX.  */
 
 /* Store in cc_status the expressions
    that the condition codes will describe
@@ -986,7 +955,30 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 	CC_STATUS_INIT;						\
       else if (GET_CODE (SET_DEST (EXP)) != ZERO_EXTRACT	\
 	       && GET_CODE (SET_DEST (EXP)) != PC)		\
-	{ cc_status.flags = 0;					\
+	{							\
+	  cc_status.flags = 0;					\
+	  /* The integer operations below don't set carry or	\
+	     set it in an incompatible way.  That's ok though	\
+	     as the Z bit is all we need when doing unsigned	\
+	     comparisons on the result of these insns (since	\
+	     they're always with 0).  Set CC_NO_OVERFLOW to	\
+	     generate the correct unsigned branches.  */	\
+	  switch (GET_CODE (SET_SRC (EXP)))			\
+	    {							\
+	    case NEG:						\
+	      if (GET_MODE_CLASS (GET_MODE (EXP)) == MODE_FLOAT)\
+	 	break;						\
+	    case AND:						\
+	    case IOR:						\
+	    case XOR:						\
+	    case NOT:						\
+	    case MEM:						\
+	    case REG:						\
+	      cc_status.flags = CC_NO_OVERFLOW;			\
+	      break;						\
+	    default:						\
+	      break;						\
+	    }							\
 	  cc_status.value1 = SET_DEST (EXP);			\
 	  cc_status.value2 = SET_SRC (EXP); } }			\
   else if (GET_CODE (EXP) == PARALLEL				\
@@ -1064,7 +1056,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 #define DBX_DEBUGGING_INFO
 
 /* How to renumber registers for dbx and gdb.
-   Vax needs no change in the numeration.  */
+   VAX needs no change in the numeration.  */
 
 #define DBX_REGISTER_NUMBER(REGNO) (REGNO)
 
@@ -1085,7 +1077,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* Output the .stabs for a C `static' variable in the data section.  */
 #define DBX_STATIC_STAB_DATA_SECTION
 
-/* Vax specific: which type character is used for type double?  */
+/* VAX specific: which type character is used for type double?  */
 
 #define ASM_DOUBLE_CHAR (TARGET_G_FLOAT ? 'g' : 'd')
 
@@ -1173,7 +1165,7 @@ do { char dstr[30];							\
   fprintf (FILE, "\tmovl (sp)+,%s\n", reg_names[REGNO])
 
 /* This is how to output an element of a case-vector that is absolute.
-   (The Vax does not use such vectors,
+   (The VAX does not use such vectors,
    but we must define this macro anyway.)  */
 
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
@@ -1236,21 +1228,6 @@ do {						\
   fprintf (FILE, "+2\n");			\
 } while (0)
 
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
-
 /* Print an instruction operand X on file FILE.
    CODE is the code from the %-spec that requested printing this operand;
    if `%z3' was used to print operand 3, then CODE is 'z'.
@@ -1270,7 +1247,7 @@ VAX operand formatting codes:
    h	the low 16 bits of a negated constant operand
    #	'd' or 'g' depending on whether dfloat or gfloat is used  */
 
-/* The purpose of D is to get around a quirk or bug in vax assembler
+/* The purpose of D is to get around a quirk or bug in VAX assembler
    whereby -1 in a 64-bit immediate operand means 0x00000000ffffffff,
    which is not a 64-bit minus one.  */
 

@@ -33,10 +33,6 @@ Boston, MA 02111-1307, USA.  */
 	{ "marm", "mlittle-endian", "mhard-float", "mapcs-32", "mno-thumb-interwork" }
 #define CPP_APCS_PC_DEFAULT_SPEC "-D__APCS_32__"
 
-/* This was defined in linux.h.  Define it here also. */
-#undef  DEFAULT_VTABLE_THUNKS
-#define DEFAULT_VTABLE_THUNKS   1
-
 /* Handle #pragma weak and #pragma pack.  */
 #define HANDLE_SYSV_PRAGMA
 
@@ -136,15 +132,8 @@ const_section ()							\
     }									\
 }
 
-/* Switch into a generic section.
-   This is currently only used to support section attributes.
-
-   We make the section read-only and executable for a function decl,
-   read-only for a const data decl, and writable for a non-const data decl.  */
-#define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC) \
-  fprintf (FILE, ".section\t%s,\"%s\",%%progbits\n", NAME, \
-	   (DECL) && TREE_CODE (DECL) == FUNCTION_DECL ? "ax" : \
-	   (DECL) && DECL_READONLY_SECTION (DECL, RELOC) ? "a" : "aw")
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION  arm_elf_asm_named_section
 
 /* A C statement or statements to switch to the appropriate
    section for output of DECL.  DECL is either a `VAR_DECL' node
@@ -175,8 +164,6 @@ const_section ()							\
 }
 
 #define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
-#define UNIQUE_SECTION_P(DECL)   (DECL_ONE_ONLY (DECL))
-
 #define UNIQUE_SECTION(DECL, RELOC)				\
   do								\
     {								\

@@ -54,9 +54,20 @@ using std::random_access_iterator;
 
 using std::iterator_traits;
 
-using std::iterator_category;
-using std::distance_type;
-using std::value_type;
+template <class _Iter>
+  inline typename iterator_traits<_Iter>::iterator_category
+  iterator_category(const _Iter& __i)
+  { return __iterator_category(__i); }
+
+template <class _Iter>
+  inline typename iterator_traits<_Iter>::difference_type*
+  distance_type(const _Iter&)
+  { return static_cast<typename iterator_traits<_Iter>::difference_type*>(0); }
+
+template<class _Iter>
+  inline typename iterator_traits<_Iter>::value_type*
+  value_type(const _Iter& __i)
+  { return static_cast<typename iterator_traits<_Iter>::value_type*>(0); }
 
 using std::distance; 
 using std::advance; 
@@ -75,8 +86,26 @@ using std::istream_iterator;
 using std::ostream_iterator;
 
 // Names from stl_construct.h
-using std::construct;
-using std::destroy;
+template<class _T1, class _T2>
+  inline void
+  construct(_T1* __p, const _T2& __value)
+  { std::_Construct(__p, __value); }
+
+template<class _T1>
+  inline void
+  construct(_T1* __p)
+  { std::_Construct(__p); }
+
+template <class _Tp>
+  inline void
+  destroy(_Tp* __pointer)
+  { std::_Destroy(__pointer); }
+  
+template <class _ForwardIterator>
+  inline void
+  destroy(_ForwardIterator __first, _ForwardIterator __last)
+  { std::_Destroy(__first, __last); }
+}
 
 // Names from stl_raw_storage_iter.h
 using std::raw_storage_iterator;

@@ -29,13 +29,10 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "function.h"
 #include "expr.h"
+#include "optabs.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
 #include "recog.h"
-
-#if !defined PREFERRED_STACK_BOUNDARY && defined STACK_BOUNDARY
-#define PREFERRED_STACK_BOUNDARY STACK_BOUNDARY
-#endif
 
 static rtx break_out_memory_refs	PARAMS ((rtx));
 static void emit_stack_probe		PARAMS ((rtx));
@@ -78,6 +75,7 @@ plus_constant_wide (x, c)
      register HOST_WIDE_INT c;
 {
   register RTX_CODE code;
+  rtx y;
   register enum machine_mode mode;
   register rtx tem;
   int all_constant = 0;
@@ -89,6 +87,8 @@ plus_constant_wide (x, c)
 
   code = GET_CODE (x);
   mode = GET_MODE (x);
+  y = x;
+
   switch (code)
     {
     case CONST_INT:
@@ -159,22 +159,24 @@ plus_constant_wide (x, c)
 	  x = XEXP (x, 0);
 	  goto restart;
 	}
-      else if (CONSTANT_P (XEXP (x, 0)))
-	{
-	  x = gen_rtx_PLUS (mode,
-			    plus_constant (XEXP (x, 0), c),
-			    XEXP (x, 1));
-	  c = 0;
-	}
       else if (CONSTANT_P (XEXP (x, 1)))
 	{
-	  x = gen_rtx_PLUS (mode,
-			    XEXP (x, 0),
-			    plus_constant (XEXP (x, 1), c));
+	  x = gen_rtx_PLUS (mode, XEXP (x, 0), plus_constant (XEXP (x, 1), c));
+	  c = 0;
+	}
+      else if (find_constant_term_loc (&y))
+	{
+	  /* We need to be careful since X may be shared and we can't
+	     modify it in place.  */
+	  rtx copy = copy_rtx (x);
+	  rtx *const_loc = find_constant_term_loc (&copy);
+
+	  *const_loc = plus_constant (*const_loc, c);
+	  x = copy;
 	  c = 0;
 	}
       break;
-      
+
     default:
       break;
     }
@@ -188,25 +190,6 @@ plus_constant_wide (x, c)
     return gen_rtx_CONST (mode, x);
   else
     return x;
-}
-
-/* This is the same as `plus_constant', except that it handles LO_SUM.
-
-   This function should be used via the `plus_constant_for_output' macro.  */
-
-rtx
-plus_constant_for_output_wide (x, c)
-     register rtx x;
-     register HOST_WIDE_INT c;
-{
-  register enum machine_mode mode = GET_MODE (x);
-
-  if (GET_CODE (x) == LO_SUM)
-    return gen_rtx_LO_SUM (mode, XEXP (x, 0),
-			   plus_constant_for_output (XEXP (x, 1), c));
-
-  else
-    return plus_constant (x, c);
 }
 
 /* If X is a sum, return a new sum like X but lacking any constant terms.
@@ -301,7 +284,13 @@ rtx
 expr_size (exp)
      tree exp;
 {
-  tree size = size_in_bytes (TREE_TYPE (exp));
+  tree size;
+
+  if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'd'
+      && DECL_SIZE_UNIT (exp) != 0)
+    size = DECL_SIZE_UNIT (exp);
+  else
+    size = size_in_bytes (TREE_TYPE (exp));
 
   if (TREE_CODE (size) != INTEGER_CST
       && contains_placeholder_p (size))
@@ -373,25 +362,36 @@ convert_memory_address (to_mode, x)
       return x;
 
     case SUBREG:
-      if (GET_MODE (SUBREG_REG (x)) == to_mode)
+      if (POINTERS_EXTEND_UNSIGNED >= 0
+	  && GET_MODE (SUBREG_REG (x)) == to_mode)
 	return SUBREG_REG (x);
       break;
 
     case LABEL_REF:
-      temp = gen_rtx_LABEL_REF (to_mode, XEXP (x, 0));
-      LABEL_REF_NONLOCAL_P (temp) = LABEL_REF_NONLOCAL_P (x);
-      return temp;
+      if (POINTERS_EXTEND_UNSIGNED >= 0)
+	{
+	  temp = gen_rtx_LABEL_REF (to_mode, XEXP (x, 0));
+	  LABEL_REF_NONLOCAL_P (temp) = LABEL_REF_NONLOCAL_P (x);
+	  return temp;
+	}
+      break;
 
     case SYMBOL_REF:
-      temp = gen_rtx_SYMBOL_REF (to_mode, XSTR (x, 0));
-      SYMBOL_REF_FLAG (temp) = SYMBOL_REF_FLAG (x);
-      CONSTANT_POOL_ADDRESS_P (temp) = CONSTANT_POOL_ADDRESS_P (x);
-      STRING_POOL_ADDRESS_P (temp) = STRING_POOL_ADDRESS_P (x);
-      return temp;
+      if (POINTERS_EXTEND_UNSIGNED >= 0)
+	{
+	  temp = gen_rtx_SYMBOL_REF (to_mode, XSTR (x, 0));
+	  SYMBOL_REF_FLAG (temp) = SYMBOL_REF_FLAG (x);
+	  CONSTANT_POOL_ADDRESS_P (temp) = CONSTANT_POOL_ADDRESS_P (x);
+	  STRING_POOL_ADDRESS_P (temp) = STRING_POOL_ADDRESS_P (x);
+	  return temp;
+	}
+      break;
 
     case CONST:
-      return gen_rtx_CONST (to_mode, 
-			    convert_memory_address (to_mode, XEXP (x, 0)));
+      if (POINTERS_EXTEND_UNSIGNED >= 0)
+        return gen_rtx_CONST (to_mode, 
+			      convert_memory_address (to_mode, XEXP (x, 0)));
+      break;
 
     case PLUS:
     case MULT:
@@ -399,10 +399,11 @@ convert_memory_address (to_mode, x)
 	 permute the conversion and addition operation.  We can always safely
 	 permute them if we are making the address narrower.  In addition,
 	 always permute the operations if this is a constant.  */
-      if (GET_MODE_SIZE (to_mode) < GET_MODE_SIZE (from_mode)
-	  || (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 1)) == CONST_INT
-	      && (INTVAL (XEXP (x, 1)) + 20000 < 40000
-		  || CONSTANT_P (XEXP (x, 0)))))
+      if (POINTERS_EXTEND_UNSIGNED >= 0
+	  && (GET_MODE_SIZE (to_mode) < GET_MODE_SIZE (from_mode)
+	      || (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 1)) == CONST_INT
+		  && (INTVAL (XEXP (x, 1)) + 20000 < 40000
+		      || CONSTANT_P (XEXP (x, 0))))))
 	return gen_rtx_fmt_ee (GET_CODE (x), to_mode, 
 			       convert_memory_address (to_mode, XEXP (x, 0)),
 			       convert_memory_address (to_mode, XEXP (x, 1)));
@@ -613,10 +614,12 @@ validize_mem (ref)
 {
   if (GET_CODE (ref) != MEM)
     return ref;
-  if (memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
+  if (! (flag_force_addr && CONSTANT_ADDRESS_P (XEXP (ref, 0)))
+      && memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
     return ref;
+
   /* Don't alter REF itself, since that is probably a stack slot.  */
-  return change_address (ref, GET_MODE (ref), XEXP (ref, 0));
+  return replace_equiv_address (ref, XEXP (ref, 0));
 }
 
 /* Given REF, either a MEM or a REG, and T, either the type of X or
@@ -667,12 +670,12 @@ set_mem_attributes (ref, t, objectp)
      here, because, in C and C++, the fact that a location is accessed
      through a const expression does not mean that the value there can
      never change.  */
-  MEM_ALIAS_SET (ref) = get_alias_set (t);
+  set_mem_alias_set (ref, get_alias_set (t));
   MEM_VOLATILE_P (ref) = TYPE_VOLATILE (type);
   MEM_IN_STRUCT_P (ref) = AGGREGATE_TYPE_P (type);
 
   /* If we are making an object of this type, we know that it is a scalar if
-     the type is not an aggregate. */
+     the type is not an aggregate.  */
   if (objectp && ! AGGREGATE_TYPE_P (type))
     MEM_SCALAR_P (ref) = 1;
 
@@ -716,21 +719,13 @@ rtx
 stabilize (x)
      rtx x;
 {
-  register rtx addr;
 
-  if (GET_CODE (x) != MEM)
+  if (GET_CODE (x) != MEM
+      || ! rtx_unstable_p (XEXP (x, 0)))
     return x;
 
-  addr = XEXP (x, 0);
-  if (rtx_unstable_p (addr))
-    {
-      rtx temp = force_reg (Pmode, copy_all_regs (addr));
-      rtx mem = gen_rtx_MEM (GET_MODE (x), temp);
-
-      MEM_COPY_ATTRIBUTES (mem, x);
-      return mem;
-    }
-  return x;
+  return
+    replace_equiv_address (x, force_reg (Pmode, copy_all_regs (XEXP (x, 0))));
 }
 
 /* Copy the value or contents of X to a new temp reg and return that reg.  */
@@ -978,7 +973,6 @@ rtx
 round_push (size)
      rtx size;
 {
-#ifdef PREFERRED_STACK_BOUNDARY
   int align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
   if (align == 1)
     return size;
@@ -999,7 +993,6 @@ round_push (size)
 			    NULL_RTX, 1);
       size = expand_mult (Pmode, size, GEN_INT (align), NULL_RTX, 1);
     }
-#endif /* PREFERRED_STACK_BOUNDARY */
   return size;
 }
 
@@ -1262,9 +1255,7 @@ allocate_dynamic_stack_space (size, target, known_align)
   /* We can't attempt to minimize alignment necessary, because we don't
      know the final value of preferred_stack_boundary yet while executing
      this code.  */
-#ifdef PREFERRED_STACK_BOUNDARY
   cfun->preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
-#endif
 
   /* We will need to ensure that the address we return is aligned to
      BIGGEST_ALIGNMENT.  If STACK_DYNAMIC_OFFSET is defined, we don't
@@ -1279,7 +1270,7 @@ allocate_dynamic_stack_space (size, target, known_align)
      If we have to align, we must leave space in SIZE for the hole
      that might result from the alignment operation.  */
 
-#if defined (STACK_DYNAMIC_OFFSET) || defined (STACK_POINTER_OFFSET) || ! defined (PREFERRED_STACK_BOUNDARY)
+#if defined (STACK_DYNAMIC_OFFSET) || defined (STACK_POINTER_OFFSET)
 #define MUST_ALIGN 1
 #else
 #define MUST_ALIGN (PREFERRED_STACK_BOUNDARY < BIGGEST_ALIGNMENT)
@@ -1309,11 +1300,10 @@ allocate_dynamic_stack_space (size, target, known_align)
 	/* See optimize_save_area_alloca to understand what is being
 	   set up here.  */
 
-#if !defined(PREFERRED_STACK_BOUNDARY) || !defined(MUST_ALIGN) || (PREFERRED_STACK_BOUNDARY != BIGGEST_ALIGNMENT)
-	/* If anyone creates a target with these characteristics, let them
-	   know that our optimization cannot work correctly in such a case.  */
-	abort ();
-#endif
+	/* ??? Code below assumes that the save area needs maximal
+	   alignment.  This constraint may be too strong.  */
+	if (PREFERRED_STACK_BOUNDARY != BIGGEST_ALIGNMENT)
+	  abort ();
 
 	if (GET_CODE (size) == CONST_INT)
 	  {
@@ -1359,23 +1349,19 @@ allocate_dynamic_stack_space (size, target, known_align)
      way of knowing which systems have this problem.  So we avoid even
      momentarily mis-aligning the stack.  */
 
-#ifdef PREFERRED_STACK_BOUNDARY
   /* If we added a variable amount to SIZE,
      we can no longer assume it is aligned.  */
 #if !defined (SETJMP_VIA_SAVE_AREA)
   if (MUST_ALIGN || known_align % PREFERRED_STACK_BOUNDARY != 0)
 #endif
     size = round_push (size);
-#endif
 
   do_pending_stack_adjust ();
 
  /* We ought to be called always on the toplevel and stack ought to be aligned
     propertly.  */
-#ifdef PREFERRED_STACK_BOUNDARY
   if (stack_pointer_delta % (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT))
     abort ();
-#endif
 
   /* If needed, check that we have the required amount of stack.  Take into
      account what has already been checked.  */
@@ -1665,7 +1651,7 @@ probe_stack_range (first, size)
    otherwise 0.
    OUTGOING is 1 if on a machine with register windows this function
    should return the register in which the function will put its result
-   and 0 otherwise. */
+   and 0 otherwise.  */
 
 rtx
 hard_function_value (valtype, func, outgoing)

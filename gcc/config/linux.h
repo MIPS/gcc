@@ -75,10 +75,9 @@ Boston, MA 02111-1307, USA.  */
 #define CC1_SPEC "%{profile:-p}"
 #endif
 
-#ifndef USE_GNULIBC_1
-#undef DEFAULT_VTABLE_THUNKS
-#define DEFAULT_VTABLE_THUNKS 1
-#endif
+/* The GNU C++ standard library requires that these macros be defined.  */
+#undef CPLUSPLUS_CPP_SPEC
+#define CPLUSPLUS_CPP_SPEC "-D_GNU_SOURCE %(cpp)"
 
 #undef	LIB_SPEC
 /* We no longer link with libc_p.a or libg.a by default. If you

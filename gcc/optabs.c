@@ -25,7 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 
 /* Include insn-config.h before expr.h so that HAVE_conditional_move
-   is properly defined. */
+   is properly defined.  */
 #include "insn-config.h"
 #include "rtl.h"
 #include "tree.h"
@@ -34,6 +34,8 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "except.h"
 #include "expr.h"
+#include "optabs.h"
+#include "libfuncs.h"
 #include "recog.h"
 #include "reload.h"
 #include "ggc.h"
@@ -1992,12 +1994,10 @@ expand_twoval_binop (binoptab, op0, op1, targ0, targ1, unsignedp)
 	    {
 	      register rtx t0 = gen_reg_rtx (wider_mode);
 	      register rtx t1 = gen_reg_rtx (wider_mode);
+	      rtx cop0 = convert_modes (wider_mode, mode, op0, unsignedp);
+	      rtx cop1 = convert_modes (wider_mode, mode, op1, unsignedp);
 
-	      if (expand_twoval_binop (binoptab,
-				       convert_modes (wider_mode, mode, op0,
-						      unsignedp),
-				       convert_modes (wider_mode, mode, op1,
-						      unsignedp),
+	      if (expand_twoval_binop (binoptab, cop0, cop1,
 				       t0, t1, unsignedp))
 		{
 		  convert_move (targ0, t0, unsignedp);
@@ -2822,23 +2822,36 @@ emit_libcall_block (insns, target, result, equiv)
      into a MEM later.  Protect the libcall block from this change.  */
   if (! REG_P (target) || REG_USERVAR_P (target))
     target = gen_reg_rtx (GET_MODE (target));
-
+  
+  /* If we're using non-call exceptions, a libcall corresponding to an
+     operation that may trap may also trap.  */
+  if (flag_non_call_exceptions && may_trap_p (equiv))
+    {
+      for (insn = insns; insn; insn = NEXT_INSN (insn))
+	if (GET_CODE (insn) == CALL_INSN)
+	  {
+	    rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
+	    
+	    if (note != 0 && INTVAL (XEXP (note, 0)) <= 0)
+	      remove_note (insn, note);
+	  }
+    }
+  else
   /* look for any CALL_INSNs in this sequence, and attach a REG_EH_REGION
      reg note to indicate that this call cannot throw or execute a nonlocal
      goto (unless there is already a REG_EH_REGION note, in which case
      we update it).  */
-
-  for (insn = insns; insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == CALL_INSN)
-      {
-	rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
-
-	if (note != 0)
-	  XEXP (note, 0) = GEN_INT (-1);
-	else
-	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EH_REGION, GEN_INT (-1),
-						REG_NOTES (insn));
-      }
+    for (insn = insns; insn; insn = NEXT_INSN (insn))
+      if (GET_CODE (insn) == CALL_INSN)
+	{
+	  rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
+	
+	  if (note != 0)
+	    XEXP (note, 0) = GEN_INT (-1);
+	  else
+	    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EH_REGION, GEN_INT (-1),
+						  REG_NOTES (insn));
+	}
 
   /* First emit all insns that set pseudos.  Remove them from the list as
      we go.  Avoid insns that set pseudos which were referenced in previous
@@ -3727,7 +3740,7 @@ can_conditionally_move_p (mode)
 
 #endif /* HAVE_conditional_move */
 
-/* These three functions generate an insn body and return it
+/* These functions generate an insn body and return it
    rather than emitting the insn.
 
    They do not protect from queued increments,
@@ -3753,11 +3766,49 @@ gen_add2_insn (x, y)
   return (GEN_FCN (icode) (x, x, y));
 }
 
-int
-have_add2_insn (mode)
-     enum machine_mode mode;
+/* Generate and return an insn body to add r1 and c,
+   storing the result in r0.  */
+rtx
+gen_add3_insn (r0, r1, c)
+     rtx r0, r1, c;
 {
-  return add_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing;
+  int icode = (int) add_optab->handlers[(int) GET_MODE (r0)].insn_code;
+
+    if (icode == CODE_FOR_nothing
+      || ! ((*insn_data[icode].operand[0].predicate)
+	    (r0, insn_data[icode].operand[0].mode))
+      || ! ((*insn_data[icode].operand[1].predicate)
+	    (r1, insn_data[icode].operand[1].mode))
+      || ! ((*insn_data[icode].operand[2].predicate)
+	    (c, insn_data[icode].operand[2].mode)))
+    return NULL_RTX;
+
+  return (GEN_FCN (icode) (r0, r1, c));
+}
+
+int
+have_add2_insn (x, y)
+     rtx x, y;
+{
+  int icode;
+
+  if (GET_MODE (x) == VOIDmode)
+    abort ();
+
+  icode = (int) add_optab->handlers[(int) GET_MODE (x)].insn_code; 
+
+  if (icode == CODE_FOR_nothing)
+    return 0;
+
+  if (! ((*insn_data[icode].operand[0].predicate)
+	 (x, insn_data[icode].operand[0].mode))
+      || ! ((*insn_data[icode].operand[1].predicate)
+	    (x, insn_data[icode].operand[1].mode))
+      || ! ((*insn_data[icode].operand[2].predicate)
+	    (y, insn_data[icode].operand[2].mode)))
+    return 0;
+
+  return 1;
 }
 
 /* Generate and return an insn body to subtract Y from X.  */
@@ -3780,10 +3831,28 @@ gen_sub2_insn (x, y)
 }
 
 int
-have_sub2_insn (mode)
-     enum machine_mode mode;
+have_sub2_insn (x, y)
+     rtx x, y;
 {
-  return sub_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing;
+  int icode;
+
+  if (GET_MODE (x) == VOIDmode)
+    abort ();
+
+  icode = (int) sub_optab->handlers[(int) GET_MODE (x)].insn_code; 
+
+  if (icode == CODE_FOR_nothing)
+    return 0;
+
+  if (! ((*insn_data[icode].operand[0].predicate)
+	 (x, insn_data[icode].operand[0].mode))
+      || ! ((*insn_data[icode].operand[1].predicate)
+	    (x, insn_data[icode].operand[1].mode))
+      || ! ((*insn_data[icode].operand[2].predicate)
+	    (y, insn_data[icode].operand[2].mode)))
+    return 0;
+
+  return 1;
 }
 
 /* Generate the body of an instruction to copy Y into X.
@@ -3835,16 +3904,14 @@ gen_move_insn (x, y)
 	  x = gen_lowpart_common (tmode, x1);
 	  if (x == 0 && GET_CODE (x1) == MEM)
 	    {
-	      x = gen_rtx_MEM (tmode, XEXP (x1, 0));
-	      MEM_COPY_ATTRIBUTES (x, x1);
+	      x = adjust_address_nv (x1, tmode, 0);
 	      copy_replacements (x1, x);
 	    }
 
 	  y = gen_lowpart_common (tmode, y1);
 	  if (y == 0 && GET_CODE (y1) == MEM)
 	    {
-	      y = gen_rtx_MEM (tmode, XEXP (y1, 0));
-	      MEM_COPY_ATTRIBUTES (y, y1);
+	      y = adjust_address_nv (y1, tmode, 0);
 	      copy_replacements (y1, y);
 	    }
 	}
@@ -3874,7 +3941,12 @@ can_extend_p (to_mode, from_mode, unsignedp)
      enum machine_mode to_mode, from_mode;
      int unsignedp;
 {
-  return extendtab[(int) to_mode][(int) from_mode][unsignedp != 0];
+#ifdef HAVE_ptr_extend
+  if (unsignedp < 0)
+    return CODE_FOR_ptr_extend;
+  else
+#endif
+    return extendtab[(int) to_mode][(int) from_mode][unsignedp != 0];
 }
 
 /* Generate the body of an insn to extend Y (with mode MFROM)
@@ -4632,6 +4704,7 @@ init_optabs ()
   cbranch_optab = init_optab (UNKNOWN);
   cmov_optab = init_optab (UNKNOWN);
   cstore_optab = init_optab (UNKNOWN);
+  push_optab = init_optab (UNKNOWN);
 
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {

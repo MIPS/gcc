@@ -23,9 +23,17 @@
 #include <cwchar> // for mbstate_t
 #include <locale>
 #include <stdexcept>
-#include <debug_assert.h>
+#include <testsuite_hooks.h>
 
-#if _GLIBCPP_USE_WCHAR_T
+
+void test00()
+{
+  // Should be able to do this as the first thing that happens in a
+  // file and have it not crash.
+  std::locale loc("C");
+}
+
+#if _GLIBCPP_USE___ENC_TRAITS
 typedef std::codecvt<char, char, std::mbstate_t> 	      c_codecvt;
 typedef std::codecvt_byname<char, char, std::mbstate_t>       c_codecvt_byname;
 typedef std::codecvt<wchar_t, char, std::mbstate_t>	      w_codecvt;
@@ -121,6 +129,13 @@ void test01()
   VERIFY (loc07.name() == "");
   try
     { locale loc08(static_cast<const char*>(NULL)); }
+  catch(runtime_error& obj)
+    { VERIFY (true); }
+  catch(...)
+    { VERIFY (false); }
+
+  try
+    { locale loc08("saturn_SUN*RA"); }
   catch(runtime_error& obj)
     { VERIFY (true); }
   catch(...)
@@ -222,11 +237,13 @@ void test01()
     VERIFY (loc15 != loc09);  
   }
 }
-#endif /* !defined(_GLIBCPP_USE_WCHAR_T) */
+#endif // _GLIBCPP_USE___ENC_TRAITS
 
 int main ()
 {
-#if _GLIBCPP_USE_WCHAR_T
+  test00();
+
+#if _GLIBCPP_USE___ENC_TRAITS
   test01();
 #endif 
 

@@ -71,12 +71,6 @@ enum architecture_type
 };
 
 struct rtx_def;
-/* A C structure for machine-specific, per-function data.
-   This is added to the cfun structure.  */
-typedef struct machine_function
-{
-  struct rtx_def *pic_offset_table_save_rtx;
-} machine_function;
 
 /* For -march= option.  */
 extern const char *pa_arch_string;
@@ -517,10 +511,9 @@ extern int target_flags;
 #define PIC_OFFSET_TABLE_REGNUM (TARGET_64BIT ? 27 : 19)
 #define PIC_OFFSET_TABLE_REG_CALL_CLOBBERED 1
 
-/* Register into which we save the PIC_OFFSET_TABLE_REGNUM so that it
-   can be restored across function calls.  */
-#define PIC_OFFSET_TABLE_SAVE_RTX (cfun->machine->pic_offset_table_save_rtx)
-extern void hppa_init_pic_save PARAMS ((void));
+/* Function to return the rtx used to save the pic offset table register
+   across function calls.  */
+extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
@@ -878,7 +871,7 @@ extern enum cmp_type hppa_branch_type;
 #define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
 { const char *target_name = XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0); \
   STRIP_NAME_ENCODING (target_name, target_name); \
-  output_function_prologue (FILE, 0); \
+  pa_output_function_prologue (FILE, 0); \
   if (VAL_14_BITS_P (DELTA)) \
     fprintf (FILE, "\tb %s\n\tldo %d(%%r26),%%r26\n", target_name, DELTA); \
   else \
@@ -886,25 +879,6 @@ extern enum cmp_type hppa_branch_type;
 	     DELTA, target_name, DELTA); \
   fprintf (FILE, "\n\t.EXIT\n\t.PROCEND\n"); \
 }
-
-/* This macro generates the assembly code for function entry.
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.
-   Refer to the array `regs_ever_live' to determine which registers
-   to save; `regs_ever_live[I]' is nonzero if register number I
-   is ever used in the function.  This macro is responsible for
-   knowing which registers should not be saved even if used.  */
-
-/* On HP-PA, move-double insns between fpu and cpu need an 8-byte block
-   of memory.  If any fpu reg is used in the function, we allocate
-   such a block here, at the bottom of the frame, just in case it's needed.
-
-   If this function is a leaf procedure, then we may choose not
-   to do a "save" insn.  The decision about whether or not
-   to do this is made in regclass.c.  */
-
-#define FUNCTION_PROLOGUE(FILE, SIZE) \
-  output_function_prologue (FILE, SIZE)
 
 /* On HPPA, we emit profiling code as rtl via PROFILE_HOOK rather than
    as assembly via FUNCTION_PROFILER.  */
@@ -924,20 +898,6 @@ extern int may_call_alloca;
 #define EXIT_IGNORE_STACK	\
  (get_frame_size () != 0	\
   || current_function_calls_alloca || current_function_outgoing_args_size)
-
-
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.
-
-   The function epilogue should not depend on the current stack pointer!
-   It should use the frame pointer only.  This is mandatory because
-   of alloca; we also take advantage of it to omit stack adjustments
-   before returning.  */
-
-#define FUNCTION_EPILOGUE(FILE, SIZE)			\
-  output_function_epilogue (FILE, SIZE)
 
 /* Output assembler code for a block containing the constant parts
    of a trampoline, leaving space for the variable parts.\
@@ -1731,8 +1691,8 @@ while (0)
 
    Millicode calls always expect their arguments in the integer argument
    registers, and always return their result in %r29 (ret1).  They
-   are expected to clobber their arguments, %r1, %r29, and %r31 and
-   nothing else.
+   are expected to clobber their arguments, %r1, %r29, and the return
+   pointer which is %r31 on 32-bit and %r2 on 64-bit, and nothing else.
 
    This macro tells reorg that the references to arguments and
    millicode calls do not appear to happen until after the millicode call.
@@ -1912,23 +1872,8 @@ while (0)
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 12),	\
   sprintf ((OUTPUT), "%s___%d", (NAME), (LABELNO)))
 
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
 /* All HP assemblers use "!" to separate logical lines.  */
 #define IS_ASM_LOGICAL_LINE_SEPARATOR(C) ((C) == '!')
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
   ((CHAR) == '@' || (CHAR) == '#' || (CHAR) == '*' || (CHAR) == '^')

@@ -32,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tsystem.h"
 #include "dwarf2.h"
 #include "unwind.h"
+#define NO_BASE_OF_ENCODED_VALUE
 #include "unwind-pe.h"
 #include "unwind-dw2-fde.h"
 #include "gthr.h"
@@ -197,21 +198,11 @@ __deregister_frame_info_bases (void *begin)
   return (void *) ob;
 }
 
-#ifdef ASM_OUTPUT_DEF
-/* Note that __USER_LABEL_PREFIX__ is not a string.  Stringize it.  */
-#define STR1(X) #X
-#define STR(X) STR1(X)
-void *
-__deregister_frame_info (void *)
-   __attribute__((alias(STR(__USER_LABEL_PREFIX__)
-		        "__deregister_frame_info_bases")));
-#else
 void *
 __deregister_frame_info (void *begin)
 {
   return __deregister_frame_info_bases (begin);
 }
-#endif
 
 void
 __deregister_frame (void *begin)

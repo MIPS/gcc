@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Convex.
-   Copyright (C) 1988, 1993, 1994, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1993, 1994, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -33,6 +33,8 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "expr.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
 
 /* Tables used in convex.h */
 
@@ -62,6 +64,52 @@ static int frame_argblock_size;
 static rtx convert_arg_pushes ();
 #endif
 static void expand_movstr_call PARAMS ((rtx *));
+static void convex_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+static void convex_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE convex_output_function_prologue
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE convex_output_function_epilogue
+
+struct gcc_target targetm = TARGET_INITIALIZER;
+
+/* Generate the assembly code for function entry.  FILE is a stdio
+   stream to output the code to.  SIZE is an int: how many units of
+   temporary storage to allocate.
+
+   Refer to the array `regs_ever_live' to determine which registers to
+   save; `regs_ever_live[I]' is nonzero if register number I is ever
+   used in the function.  This function is responsible for knowing
+   which registers should not be saved even if used.  */
+
+static void
+convex_output_function_prologue (file, size)
+     FILE *file;
+     HOST_WIDE_INT size;
+{
+  size = ((size) + 7) & -8;
+  if (size)
+    fprintf (file, "\tsub.w #%d,sp\n", size);
+}
+
+/* This function generates the assembly code for function exit.
+   Args are as for output_function_prologue ().
+
+   The function epilogue should not depend on the current stack
+   pointer!  It should use the frame pointer only.  This is mandatory
+   because of alloca; we also take advantage of it to omit stack
+   adjustments before returning. */
+
+static void
+convex_output_function_epilogue (file, size)
+     FILE *file;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
+{
+  /* Follow function with a zero to stop c34 icache prefetching. */
+  fprintf (file, "\tds.h 0\n");
+}
 
 /* Here from OVERRIDE_OPTIONS at startup.  Initialize constant tables. */
 
@@ -363,8 +411,10 @@ expand_movstr (operands)
 
       /* Get src and dest in the right mode */
       if (GET_MODE (src) != mode)
-	src = change_address (src, mode, 0),
-	dest = change_address (dest, mode, 0);
+	{
+	  src = adjust_address (src, mode, 0);
+	  dest = adjust_address (dest, mode, 0);
+	}
 
       /* Make load and store patterns for this piece */
       load = gen_rtx_SET (VOIDmode, reg, src);
@@ -389,8 +439,8 @@ expand_movstr (operands)
 
       /* Advance to next piece. */
       size = GET_MODE_SIZE (mode);
-      src = adj_offsettable_operand (src, size);
-      dest = adj_offsettable_operand (dest, size);
+      src = adjust_address (src, mode, size);
+      dest = adjust_address (dest, mode, size);
       len -= size;
     }
 

@@ -94,6 +94,15 @@ HARD_REG_SET losing_caller_save_reg_set;
 /* Data for initializing the above.  */
 
 static char initial_call_used_regs[] = CALL_USED_REGISTERS;
+
+/* This is much like call_used_regs, except it doesn't have to
+   be a superset of FIXED_REGISTERS. This vector indicates
+   what is really call clobbered, and is used when defining 
+   regs_invalidated_by_call.  */
+
+#ifdef CALL_REALLY_USED_REGISTERS
+char call_really_used_regs[] = CALL_REALLY_USED_REGISTERS;
+#endif
   
 /* Indexed by hard register number, contains 1 for registers that are
    fixed use or call used registers that cannot hold quantities across
@@ -116,7 +125,16 @@ int n_non_fixed_regs;
    and are also considered fixed.  */
 
 char global_regs[FIRST_PSEUDO_REGISTER];
-  
+
+/* Contains 1 for registers that are set or clobbered by calls.  */
+/* ??? Ideally, this would be just call_used_regs plus global_regs, but
+   for someone's bright idea to have call_used_regs strictly include
+   fixed_regs.  Which leaves us guessing as to the set of fixed_regs
+   that are actually preserved.  We know for sure that those associated
+   with the local stack frame are safe, but scant others.  */
+
+HARD_REG_SET regs_invalidated_by_call;
+
 /* Table of register numbers in the order in which to try to use them.  */
 #ifdef REG_ALLOC_ORDER
 int reg_alloc_order[FIRST_PSEUDO_REGISTER] = REG_ALLOC_ORDER;
@@ -131,10 +149,11 @@ HARD_REG_SET reg_class_contents[N_REG_CLASSES];
 
 /* The same information, but as an array of unsigned ints.  We copy from
    these unsigned ints to the table above.  We do this so the tm.h files
-   do not have to be aware of the wordsize for machines with <= 64 regs.  */
+   do not have to be aware of the wordsize for machines with <= 64 regs.
+   Note that we hard-code 32 here, not HOST_BITS_PER_INT.  */
 
 #define N_REG_INTS  \
-  ((FIRST_PSEUDO_REGISTER + (HOST_BITS_PER_INT - 1)) / HOST_BITS_PER_INT)
+  ((FIRST_PSEUDO_REGISTER + (32 - 1)) / 32)
 
 static unsigned int_reg_class_contents[N_REG_CLASSES][N_REG_INTS] 
   = REG_CLASS_CONTENTS;
@@ -246,7 +265,7 @@ struct reg_info_data {
 static struct reg_info_data *reg_info_head;
 
 /* No more global register variables may be declared; true once
-   regclass has been initialized. */
+   regclass has been initialized.  */
 
 static int no_global_reg_vars = 0;
 
@@ -266,9 +285,10 @@ init_reg_sets ()
     {
       CLEAR_HARD_REG_SET (reg_class_contents[i]);
 
+      /* Note that we hard-code 32 here, not HOST_BITS_PER_INT.  */
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
-	if (int_reg_class_contents[i][j / HOST_BITS_PER_INT]
-	    & ((unsigned) 1 << (j % HOST_BITS_PER_INT)))
+	if (int_reg_class_contents[i][j / 32]
+	    & ((unsigned) 1 << (j % 32)))
 	  SET_HARD_REG_BIT (reg_class_contents[i], j);
     }
 
@@ -410,6 +430,7 @@ init_reg_sets_1 ()
   CLEAR_HARD_REG_SET (fixed_reg_set);
   CLEAR_HARD_REG_SET (call_used_reg_set);
   CLEAR_HARD_REG_SET (call_fixed_reg_set);
+  CLEAR_HARD_REG_SET (regs_invalidated_by_call);
 
   memcpy (call_fixed_regs, fixed_regs, sizeof call_fixed_regs);
 
@@ -428,7 +449,40 @@ init_reg_sets_1 ()
 	SET_HARD_REG_BIT (call_fixed_reg_set, i);
       if (CLASS_LIKELY_SPILLED_P (REGNO_REG_CLASS (i)))
 	SET_HARD_REG_BIT (losing_caller_save_reg_set, i);
+
+      /* There are a couple of fixed registers that we know are safe to
+	 exclude from being clobbered by calls:
+
+	 The frame pointer is always preserved across calls.  The arg pointer
+	 is if it is fixed.  The stack pointer usually is, unless
+	 RETURN_POPS_ARGS, in which case an explicit CLOBBER will be present.
+	 If we are generating PIC code, the PIC offset table register is
+	 preserved across calls, though the target can override that.  */
+	 
+      if (i == STACK_POINTER_REGNUM || i == FRAME_POINTER_REGNUM)
+	;
+#if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
+      else if (i == HARD_FRAME_POINTER_REGNUM)
+	;
+#endif
+#if ARG_POINTER_REGNUM != FRAME_POINTER_REGNUM
+      else if (i == ARG_POINTER_REGNUM && fixed_regs[i])
+	;
+#endif
+#ifndef PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
+      else if (i == PIC_OFFSET_TABLE_REGNUM && flag_pic)
+	;
+#endif
+      else if (0
+#ifdef CALL_REALLY_USED_REGS
+	       || call_really_used_regs[i]
+#else
+	       || call_used_regs[i]
+#endif
+	       || global_regs[i])
+	SET_HARD_REG_BIT (regs_invalidated_by_call, i);
     }
+
   memset (contains_reg_of_mode, 0, sizeof (contains_reg_of_mode));
   memset (allocatable_regs_of_mode, 0, sizeof (allocatable_regs_of_mode));
   for (m = 0; m < (unsigned int) MAX_MACHINE_MODE; m++)
@@ -579,7 +633,7 @@ memory_move_secondary_cost (mode, class, in)
   enum reg_class altclass;
   int partial_cost = 0;
   /* We need a memory reference to feed to SECONDARY... macros.  */
-  /* mem may be unused even if the SECONDARY_ macros are defined. */
+  /* mem may be unused even if the SECONDARY_ macros are defined.  */
   rtx mem ATTRIBUTE_UNUSED = top_of_stack[(int) mode];
 
 
@@ -708,6 +762,10 @@ fix_register (name, fixed, call_used)
 	{
 	  fixed_regs[i] = fixed;
 	  call_used_regs[i] = call_used;
+#ifdef CALL_REALLY_USED_REGS
+	  if (fixed == 0)
+	    call_really_used_regs[i] = call_used;
+#endif
 	}
     }
   else
@@ -790,14 +848,13 @@ static struct costs init_cost;
 
 static struct reg_pref *reg_pref;
 
-/* Allocated buffers for reg_pref. */
+/* Allocated buffers for reg_pref.  */
 
 static struct reg_pref *reg_pref_buffer;
 
-/* Account for the fact that insns within a loop are executed very commonly,
-   but don't keep doing this as loops go too deep.  */
+/* Frequency of executions of current insn.  */
 
-static int loop_cost;
+static int frequency;
 
 static rtx scan_one_insn	PARAMS ((rtx, int));
 static void record_operand_costs PARAMS ((rtx, struct costs *, struct reg_pref *));
@@ -851,7 +908,7 @@ regclass_init ()
      before regclass is run.  */
   reg_pref = NULL;
 
-  /* No more global register variables may be declared. */
+  /* No more global register variables may be declared.  */
   no_global_reg_vars = 1;
 }
 
@@ -928,10 +985,10 @@ record_operand_costs (insn, op_costs, reg_pref)
 
       if (GET_CODE (recog_data.operand[i]) == MEM)
 	record_address_regs (XEXP (recog_data.operand[i], 0),
-			     BASE_REG_CLASS, loop_cost * 2);
+			     BASE_REG_CLASS, frequency * 2);
       else if (constraints[i][0] == 'p')
 	record_address_regs (recog_data.operand[i],
-			     BASE_REG_CLASS, loop_cost * 2);
+			     BASE_REG_CLASS, frequency * 2);
     }
 
   /* Check for commutative in a separate loop so everything will
@@ -1007,9 +1064,9 @@ scan_one_insn (insn, pass)
       costs[REGNO (SET_DEST (set))].mem_cost
 	-= (MEMORY_MOVE_COST (GET_MODE (SET_DEST (set)),
 			      GENERAL_REGS, 1)
-	    * loop_cost);
+	    * frequency);
       record_address_regs (XEXP (SET_SRC (set), 0),
-			   BASE_REG_CLASS, loop_cost * 2);
+			   BASE_REG_CLASS, frequency * 2);
       return insn;
     }
 
@@ -1059,14 +1116,17 @@ scan_one_insn (insn, pass)
       /* This makes one more setting of new insns's dest.  */
       REG_N_SETS (REGNO (recog_data.operand[0]))++;
       REG_N_REFS (REGNO (recog_data.operand[0]))++;
+      REG_FREQ (REGNO (recog_data.operand[0])) += frequency;
 
       *recog_data.operand_loc[1] = recog_data.operand[0];
       REG_N_REFS (REGNO (recog_data.operand[0]))++;
+      REG_FREQ (REGNO (recog_data.operand[0])) += frequency;
       for (i = recog_data.n_dups - 1; i >= 0; i--)
 	if (recog_data.dup_num[i] == 1)
 	  {
 	    *recog_data.dup_loc[i] = recog_data.operand[0];
 	    REG_N_REFS (REGNO (recog_data.operand[0]))++;
+	    REG_FREQ (REGNO (recog_data.operand[0])) += frequency;
 	  }
 
       return PREV_INSN (newinsn);
@@ -1084,9 +1144,9 @@ scan_one_insn (insn, pass)
 	int regno = REGNO (recog_data.operand[i]);
 	struct costs *p = &costs[regno], *q = &op_costs[i];
 
-	p->mem_cost += q->mem_cost * loop_cost;
+	p->mem_cost += q->mem_cost * frequency;
 	for (j = 0; j < N_REG_CLASSES; j++)
-	  p->cost[j] += q->cost[j] * loop_cost;
+	  p->cost[j] += q->cost[j] * frequency;
       }
 
   return insn;
@@ -1192,7 +1252,7 @@ regclass (f, nregs, dump)
 
       if (!optimize)
 	{
-	  loop_cost = 1;
+	  frequency = REG_FREQ_MAX;
 	  for (insn = f; insn; insn = NEXT_INSN (insn))
 	    insn = scan_one_insn (insn, pass);
 	}
@@ -1205,10 +1265,7 @@ regclass (f, nregs, dump)
 	       times more than insns outside a loop.  This is much more
 	       aggressive than the assumptions made elsewhere and is being
 	       tried as an experiment.  */
-	    if (optimize_size)
-	      loop_cost = 1;
-	    else
-	      loop_cost = 1 << (2 * MIN (bb->loop_depth, 5));
+	    frequency = REG_FREQ_FROM_BB (bb);
 	    for (insn = bb->head; ; insn = NEXT_INSN (insn))
 	      {
 		insn = scan_one_insn (insn, pass);
@@ -2386,7 +2443,10 @@ reg_scan_mark_refs (x, insn, note_flag, min_regno)
 
       if (GET_CODE (dest) == REG
 	  && REGNO (dest) >= min_regno)
-	REG_N_SETS (REGNO (dest))++;
+	{
+	  REG_N_SETS (REGNO (dest))++;
+	  REG_N_REFS (REGNO (dest))++;
+	}
 
       /* If this is setting a pseudo from another pseudo or the sum of a
 	 pseudo and a constant integer and the other pseudo is known to be

@@ -27,8 +27,6 @@ Boston, MA 02111-1307, USA.  */
 #define GCC_MIPS_PROTOS_H
 
 extern HOST_WIDE_INT	compute_frame_size PARAMS ((HOST_WIDE_INT));
-extern void		function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
-extern void		function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 extern void		mips_asm_file_end PARAMS ((FILE *));
 extern void		mips_asm_file_start PARAMS ((FILE *));
 extern int		mips_can_use_return_insn PARAMS ((void));
@@ -62,6 +60,7 @@ extern void		mips_va_start PARAMS ((int, tree, rtx));
 #endif /* RTX_CODE */
 extern struct rtx_def  *mips_va_arg PARAMS ((tree, tree));
 extern void		mips_select_section PARAMS ((tree, int));
+extern void		mips_unique_section PARAMS ((tree, int));
 #endif /* TREE_CODE */
 
 #ifdef RTX_CODE

@@ -2556,15 +2556,19 @@ resolve_args (args)
   tree t;
   for (t = args; t; t = TREE_CHAIN (t))
     {
-      if (TREE_VALUE (t) == error_mark_node)
+      tree arg = TREE_VALUE (t);
+      
+      if (arg == error_mark_node)
 	return error_mark_node;
-      else if (TREE_CODE (TREE_TYPE (TREE_VALUE (t))) == VOID_TYPE)
+      else if (VOID_TYPE_P (TREE_TYPE (arg)))
 	{
 	  error ("invalid use of void expression");
 	  return error_mark_node;
 	}
-      else if (TREE_CODE (TREE_VALUE (t)) == OFFSET_REF)
-	TREE_VALUE (t) = resolve_offset_ref (TREE_VALUE (t));
+      else if (TREE_CODE (arg) == OFFSET_REF)
+	arg = resolve_offset_ref (arg);
+      arg = convert_from_reference (arg);
+      TREE_VALUE (t) = arg;
     }
   return args;
 }
@@ -3092,6 +3096,9 @@ build_conditional_expr (arg1, arg2, arg3)
     arg3 = decay_conversion (arg3);
   arg3_type = TREE_TYPE (arg3);
 
+  if (arg2 == error_mark_node || arg3 == error_mark_node)
+    return error_mark_node;
+  
   /* [expr.cond]
      
      After those conversions, one of the following shall hold:
@@ -3217,6 +3224,10 @@ build_new_op (code, flags, arg1, arg2, arg3)
   else
     fnname = ansi_opname (code);
 
+  if (TREE_CODE (arg1) == OFFSET_REF)
+    arg1 = resolve_offset_ref (arg1);
+  arg1 = convert_from_reference (arg1);
+  
   switch (code)
     {
     case NEW_EXPR:
@@ -3233,19 +3244,18 @@ build_new_op (code, flags, arg1, arg2, arg3)
       break;
     }
 
-  /* The comma operator can have void args.  */
-  if (TREE_CODE (arg1) == OFFSET_REF)
-    arg1 = resolve_offset_ref (arg1);
-  if (arg2 && TREE_CODE (arg2) == OFFSET_REF)
-    arg2 = resolve_offset_ref (arg2);
-  if (arg3 && TREE_CODE (arg3) == OFFSET_REF)
-    arg3 = resolve_offset_ref (arg3);
-
-  arg1 = convert_from_reference (arg1);
   if (arg2)
-    arg2 = convert_from_reference (arg2);
+    {
+      if (TREE_CODE (arg2) == OFFSET_REF)
+	arg2 = resolve_offset_ref (arg2);
+      arg2 = convert_from_reference (arg2);
+    }
   if (arg3)
-    arg3 = convert_from_reference (arg3);
+    {
+      if (TREE_CODE (arg3) == OFFSET_REF)
+	arg3 = resolve_offset_ref (arg3);
+      arg3 = convert_from_reference (arg3);
+    }
   
   if (code == COND_EXPR)
     {
@@ -3555,7 +3565,8 @@ build_op_delete_call (code, addr, size, flags, placement)
      tree addr, size, placement;
      int flags;
 {
-  tree fn, fns, fnname, fntype, argtypes, args, type;
+  tree fn = NULL_TREE;
+  tree fns, fnname, fntype, argtypes, args, type;
   int pass;
 
   if (addr == error_mark_node)
@@ -3871,8 +3882,7 @@ convert_like_real (convs, expr, fn, argnum, inner)
       /* Copy-initialization where the cv-unqualified version of the source
 	 type is the same class as, or a derived class of, the class of the
 	 destination [is treated as direct-initialization].  [dcl.init] */
-      if (fn)
-	savew = warningcount, savee = errorcount;
+      savew = warningcount, savee = errorcount;
       expr = build_new_method_call (NULL_TREE, complete_ctor_identifier,
 				    build_tree_list (NULL_TREE, expr),
 				    TYPE_BINFO (totype),
@@ -4054,8 +4064,7 @@ convert_default_arg (type, arg, fn, parmnum)
       arg = convert_for_initialization (0, type, arg, LOOKUP_NORMAL,
 					"default argument", fn, parmnum);
       if (PROMOTE_PROTOTYPES
-	  && (TREE_CODE (type) == INTEGER_TYPE
-	      || TREE_CODE (type) == ENUMERAL_TYPE)
+	  && INTEGRAL_TYPE_P (type)
 	  && (TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)))
 	arg = default_conversion (arg);
     }
@@ -4171,8 +4180,7 @@ build_over_call (cand, args, flags)
 	}
 
       if (PROMOTE_PROTOTYPES
-	  && (TREE_CODE (type) == INTEGER_TYPE
-	      || TREE_CODE (type) == ENUMERAL_TYPE)
+	  && INTEGRAL_TYPE_P (type)
 	  && (TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)))
 	val = default_conversion (val);
       converted_args = tree_cons (NULL_TREE, val, converted_args);
@@ -4251,30 +4259,19 @@ build_over_call (cand, args, flags)
 	    return build_target_expr_with_type (arg, DECL_CONTEXT (fn));
 	}
       else if (! real_lvalue_p (arg)
-	       || TYPE_HAS_TRIVIAL_INIT_REF (DECL_CONTEXT (fn)))
+	       /* Empty classes have padding which can be hidden
+	          inside an (empty) base of the class. This must not
+	          be touched as it might overlay things. When the
+	          gcc core learns about empty classes, we can treat it
+	          like other classes. */
+	       || (!is_empty_class (DECL_CONTEXT (fn))
+		   && TYPE_HAS_TRIVIAL_INIT_REF (DECL_CONTEXT (fn))))
 	{
 	  tree address;
 	  tree to = stabilize_reference
 	    (build_indirect_ref (TREE_VALUE (args), 0));
 
-	  /* If we're initializing an empty class, then we actually
-	     have to use a MODIFY_EXPR rather than an INIT_EXPR.  The
-	     reason is that the dummy padding member in the target may
-	     not actually be allocated if TO is a base class
-	     subobject.  Since we've set TYPE_NONCOPIED_PARTS on the
-	     padding, a MODIFY_EXPR will preserve its value, which is
-	     the right thing to do if it's not really padding at all.
-	  
-	     It's not safe to just throw away the ARG if we're looking
-	     at an empty class because the ARG might contain a
-	     TARGET_EXPR which wants to be bound to TO.  If it is not,
-	     expand_expr will assign a dummy slot for the TARGET_EXPR,
-	     and we will call a destructor for it, which is wrong,
-	     because we will also destroy TO, but will never have
-	     constructed it.  */
-	  val = build (is_empty_class (DECL_CONTEXT (fn))
-		       ? MODIFY_EXPR : INIT_EXPR, 
-		       DECL_CONTEXT (fn), to, arg);
+	  val = build (INIT_EXPR, DECL_CONTEXT (fn), to, arg);
 	  address = build_unary_op (ADDR_EXPR, val, 0);
 	  /* Avoid a warning about this expression, if the address is
 	     never used.  */
@@ -4290,8 +4287,23 @@ build_over_call (cand, args, flags)
 	(build_indirect_ref (TREE_VALUE (converted_args), 0));
 
       arg = build_indirect_ref (TREE_VALUE (TREE_CHAIN (converted_args)), 0);
+      if (is_empty_class (TREE_TYPE (to)))
+	{
+	  TREE_USED (arg) = 1;
 
-      val = build (MODIFY_EXPR, TREE_TYPE (to), to, arg);
+	  val = build (COMPOUND_EXPR, DECL_CONTEXT (fn), arg, to);
+	  /* Even though the assignment may not actually result in any
+	     code being generated, we do not want to warn about the
+	     assignment having no effect.  That would be confusing to
+	     users who may be performing the assignment as part of a
+	     generic algorithm, for example.
+	     
+	     Ideally, the notions of having side-effects and of being
+	     useless would be orthogonal.  */
+	  TREE_SIDE_EFFECTS (val) = 1;
+	}
+      else
+	val = build (MODIFY_EXPR, TREE_TYPE (to), to, arg);
       return val;
     }
 
@@ -4309,7 +4321,7 @@ build_over_call (cand, args, flags)
       if (DECL_CONTEXT (fn) && TYPE_JAVA_INTERFACE (DECL_CONTEXT (fn)))
 	fn = build_java_interface_fn_ref (fn, *p);
       else
-	fn = build_vfn_ref (p, build_indirect_ref (*p, 0), DECL_VINDEX (fn));
+	fn = build_vfn_ref (build_indirect_ref (*p, 0), DECL_VINDEX (fn));
       TREE_TYPE (fn) = t;
     }
   else if (DECL_INLINE (fn))
@@ -5364,22 +5376,6 @@ joust (cand1, cand2, warn)
         return winner;
     }
 
-  /* a non-template user function is better than a builtin.  (Pedantically
-     the builtin which matched the user function should not be added to
-     the overload set, but we spot it here.
-     
-     [over.match.oper]
-     ... the builtin candidates include ...
-     - do not have the same parameter type list as any non-template
-       non-member candidate.  */
-                            
-  if (TREE_CODE (cand1->fn) != IDENTIFIER_NODE
-      && TREE_CODE (cand2->fn) == IDENTIFIER_NODE)
-    return 1;
-  else if (TREE_CODE (cand1->fn) == IDENTIFIER_NODE
-           && TREE_CODE (cand2->fn) != IDENTIFIER_NODE)
-    return -1;
-  
   /* or, if not that,
      the  context  is  an  initialization by user-defined conversion (see
      _dcl.init_  and  _over.match.user_)  and  the  standard   conversion
@@ -5395,21 +5391,42 @@ joust (cand1, cand2, warn)
         return winner;
     }
   
-  /* If the built-in candidates are the same, arbitrarily pick one.  */
-  if (cand1->fn == cand2->fn
-      && TREE_CODE (cand1->fn) == IDENTIFIER_NODE)
+  /* Check whether we can discard a builtin candidate, either because we
+     have two identical ones or matching builtin and non-builtin candidates.
+
+     (Pedantically in the latter case the builtin which matched the user
+     function should not be added to the overload set, but we spot it here.
+     
+     [over.match.oper]
+     ... the builtin candidates include ...
+     - do not have the same parameter type list as any non-template
+       non-member candidate.  */
+                            
+  if (TREE_CODE (cand1->fn) == IDENTIFIER_NODE
+      || TREE_CODE (cand2->fn) == IDENTIFIER_NODE)
     {
       for (i = 0; i < len; ++i)
 	if (!same_type_p (TREE_TYPE (TREE_VEC_ELT (cand1->convs, i)),
 			  TREE_TYPE (TREE_VEC_ELT (cand2->convs, i))))
 	  break;
       if (i == TREE_VEC_LENGTH (cand1->convs))
-	return 1;
+	{
+	  if (cand1->fn == cand2->fn)
+	    /* Two built-in candidates; arbitrarily pick one.  */
+	    return 1;
+	  else if (TREE_CODE (cand1->fn) == IDENTIFIER_NODE)
+	    /* cand1 is built-in; prefer cand2.  */
+	    return -1;
+	  else
+	    /* cand2 is built-in; prefer cand1.  */
+	    return 1;
+	}
 
       /* Kludge around broken overloading rules whereby
 	 Integer a, b; test ? a : b; is ambiguous, since there's a builtin
 	 that takes references and another that takes values.  */
-      if (cand1->fn == ansi_opname (COND_EXPR))
+      if (cand1->fn == cand2->fn
+	  && cand1->fn == ansi_opname (COND_EXPR))
 	{
 	  tree c1 = TREE_VEC_ELT (cand1->convs, 1);
 	  tree c2 = TREE_VEC_ELT (cand2->convs, 1);
@@ -5439,7 +5456,7 @@ tweak:
   if (!pedantic)
     {
       int rank1 = IDENTITY_RANK, rank2 = IDENTITY_RANK;
-      struct z_candidate *w, *l;
+      struct z_candidate *w = 0, *l = 0;
 
       for (i = 0; i < len; ++i)
 	{

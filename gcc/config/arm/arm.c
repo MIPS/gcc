@@ -38,12 +38,16 @@ Boston, MA 02111-1307, USA.  */
 #include "reload.h"
 #include "function.h"
 #include "expr.h"
+#include "optabs.h"
 #include "toplev.h"
 #include "recog.h"
 #include "ggc.h"
 #include "except.h"
 #include "c-pragma.h"
+#include "integrate.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
 
 /* Forward definitions of types.  */
 typedef struct minipool_node    Mnode;
@@ -99,12 +103,63 @@ static int       current_file_function_operand	PARAMS ((rtx));
 static Ulong     arm_compute_save_reg_mask	PARAMS ((void));
 static Ulong     arm_isr_value 			PARAMS ((tree));
 static Ulong     arm_compute_func_type		PARAMS ((void));
-
+static int	 arm_valid_type_attribute_p	PARAMS ((tree, tree,
+							 tree, tree));
+static int	 arm_valid_decl_attribute_p	PARAMS ((tree, tree,
+							 tree, tree));
+static void	 arm_output_function_epilogue	PARAMS ((FILE *,
+							 HOST_WIDE_INT));
+static void	 arm_output_function_prologue	PARAMS ((FILE *,
+							 HOST_WIDE_INT));
+static void	 thumb_output_function_prologue PARAMS ((FILE *,
+							 HOST_WIDE_INT));
+static int	 arm_comp_type_attributes	PARAMS ((tree, tree));
+static void	 arm_set_default_type_attributes	PARAMS ((tree));
+static void	 arm_elf_asm_named_section	PARAMS ((const char *,
+							 unsigned int,
+							 unsigned int));
 #undef Hint
 #undef Mmode
 #undef Ulong
 #undef Ccstar
+
+/* Initialize the GCC target structure.  */
+#ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
+#undef TARGET_MERGE_DECL_ATTRIBUTES
+#define TARGET_MERGE_DECL_ATTRIBUTES merge_dllimport_decl_attributes
+#endif
 
+#undef TARGET_VALID_TYPE_ATTRIBUTE
+#define TARGET_VALID_TYPE_ATTRIBUTE arm_valid_type_attribute_p
+
+#undef TARGET_VALID_DECL_ATTRIBUTE
+#ifdef ARM_PE
+   static int arm_pe_valid_decl_attribute_p PARAMS ((tree, tree, tree, tree));
+#  define TARGET_VALID_DECL_ATTRIBUTE arm_pe_valid_decl_attribute_p
+#else
+#  define TARGET_VALID_DECL_ATTRIBUTE arm_valid_decl_attribute_p
+#endif
+
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE arm_output_function_prologue
+
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE arm_output_function_epilogue
+
+#undef TARGET_COMP_TYPE_ATTRIBUTES
+#define TARGET_COMP_TYPE_ATTRIBUTES arm_comp_type_attributes
+
+#undef TARGET_SET_DEFAULT_TYPE_ATTRIBUTES
+#define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES arm_set_default_type_attributes
+
+#undef TARGET_INIT_BUILTINS
+#define TARGET_INIT_BUILTINS arm_init_builtins
+
+#undef TARGET_EXPAND_BUILTIN
+#define TARGET_EXPAND_BUILTIN arm_expand_builtin
+
+struct gcc_target targetm = TARGET_INITIALIZER;
+
 /* Obstack for minipool constant handling.  */
 static struct obstack minipool_obstack;
 static char *minipool_startobj;
@@ -1850,10 +1905,10 @@ arm_pr_long_calls_off (pfile)
 }
 
 
-/* Return nonzero if IDENTIFIER with arguments ARGS is a valid machine specific
-   attribute for TYPE.  The attributes in ATTRIBUTES have previously been
-   assigned to TYPE.  */
-int
+/* Return nonzero if IDENTIFIER with arguments ARGS is a valid machine
+   specific attribute for TYPE.  The attributes in ATTRIBUTES have
+   previously been assigned to TYPE.  */
+static int
 arm_valid_type_attribute_p (type, attributes, identifier, args)
      tree type;
      tree attributes ATTRIBUTE_UNUSED;
@@ -1888,7 +1943,7 @@ arm_valid_type_attribute_p (type, attributes, identifier, args)
 /* Return 0 if the attributes for two types are incompatible, 1 if they
    are compatible, and 2 if they are nearly compatible (which causes a
    warning to be generated).  */
-int
+static int
 arm_comp_type_attributes (type1, type2)
      tree type1;
      tree type2;
@@ -1959,7 +2014,7 @@ arm_encode_call_attribute (decl, flag)
 /*  Assigns default attributes to newly defined type.  This is used to
     set short_call/long_call attributes for function types of
     functions defined inside corresponding #pragma scopes.  */
-void
+static void
 arm_set_default_type_attributes (type)
   tree type;
 {
@@ -2201,7 +2256,7 @@ legitimize_pic_address (orig, mode, reg)
 
 	win:
 	  if (GET_CODE (offset) == CONST_INT)
-	    return plus_constant_for_output (base, INTVAL (offset));
+	    return plus_constant (base, INTVAL (offset));
 	}
 
       if (GET_MODE_SIZE (mode) > 4
@@ -4092,9 +4147,10 @@ multi_register_push (op, mode)
      Always assume that this function will be entered in ARM mode,
      not Thumb mode, and that the caller wishes to be returned to in
      ARM mode.  */
-int
-arm_valid_machine_decl_attribute (decl, attr, args)
+static int
+arm_valid_decl_attribute_p (decl, attributes, attr, args)
      tree decl;
+     tree attributes ATTRIBUTE_UNUSED;
      tree attr;
      tree args;
 {
@@ -4117,6 +4173,39 @@ arm_valid_machine_decl_attribute (decl, attr, args)
   
   return 0;
 }
+
+#ifdef ARM_PE
+
+/* ARM/PE has three new attributes:
+   naked - for interrupt functions
+   dllexport - for exporting a function/variable that will live in a dll
+   dllimport - for importing a function/variable from a dll
+
+   Microsoft allows multiple declspecs in one __declspec, separating
+   them with spaces.  We do NOT support this.  Instead, use __declspec
+   multiple times.
+*/
+
+static int
+arm_pe_valid_decl_attribute_p (decl, attributes, attr, args)
+     tree decl;
+     tree attributes;
+     tree attr;
+     tree args;
+{
+  if (args != NULL_TREE)
+    return 0;
+
+  if (is_attribute_p ("dllexport", attr))
+    return 1;
+  
+  if (is_attribute_p ("dllimport", attr))
+    return 1;
+
+  return arm_valid_decl_attribute_p (decl, attributes, attr, args);
+}
+
+#endif /* ARM_PE  */
 
 /* Routines for use in generating RTL.  */
 rtx
@@ -6502,7 +6591,7 @@ output_move_double (operands)
                 }
               else
                 {
-		  otherops[1] = adj_offsettable_operand (operands[1], 4);
+		  otherops[1] = adjust_address (operands[1], VOIDmode, 4);
 		  /* Take care of overlapping base/data reg.  */
 		  if (reg_mentioned_p (operands[0], operands[1]))
 		    {
@@ -6568,7 +6657,7 @@ output_move_double (operands)
 	  /* Fall through */
 
         default:
-	  otherops[0] = adj_offsettable_operand (operands[0], 4);
+	  otherops[0] = adjust_address (operands[0], VOIDmode, 4);
 	  otherops[1] = gen_rtx_REG (SImode, 1 + REGNO (operands[1]));
 	  output_asm_insn ("str%?\t%1, %0", operands);
 	  output_asm_insn ("str%?\t%1, %0", otherops);
@@ -6931,12 +7020,29 @@ arm_compute_save_reg_mask ()
   if (IS_VOLATILE (func_type))
     return save_reg_mask;
 
-  if (ARM_FUNC_TYPE (func_type) == ARM_FT_ISR)
+  if (IS_INTERRUPT (func_type))
     {
-      /* FIQ handlers have registers r8 - r12 banked, so
-	 we only need to check r0 - r7, they must save them.  */
-      for (reg = 0; reg < 8; reg++)
-	if (regs_ever_live[reg])
+      unsigned int max_reg;
+      
+      /* Interrupt functions must not corrupt any registers,
+	 even call clobbered ones.  If this is a leaf function
+	 we can just examine the registers used by the RTL, but
+	 otherwise we have to assume that whatever function is
+	 called might clobber anything, and so we have to save
+	 all the call-clobbered registers as well.  */
+      if (ARM_FUNC_TYPE (func_type) == ARM_FT_FIQ)
+	/* FIQ handlers have registers r8 - r12 banked, so
+	   we only need to check r0 - r7, Normal ISRs only
+	   bank r14 and r15, so ew must check up to r12.
+	   r13 is the stack pointer which is always preserved,
+	   so we do not need to consider it here.  */
+	max_reg = 7;
+      else
+	max_reg = 12;
+	
+      for (reg = 0; reg <= max_reg; reg++)
+	if (regs_ever_live[reg]
+	    || (! current_function_is_leaf && call_used_regs [reg]))
 	  save_reg_mask |= (1 << reg);
     }
   else
@@ -7229,12 +7335,18 @@ arm_poke_function_name (stream, name)
 /* Place some comments into the assembler stream
    describing the current function.  */
 
-void
-output_arm_prologue (f, frame_size)
+static void
+arm_output_function_prologue (f, frame_size)
      FILE * f;
-     int frame_size;
+     HOST_WIDE_INT frame_size;
 {
   unsigned long func_type;
+
+  if (!TARGET_ARM)
+    {
+      thumb_output_function_prologue (f, frame_size);
+      return;
+    }
   
   /* Sanity check.  */
   if (arm_ccfsm_state || arm_target_insn)
@@ -7410,6 +7522,11 @@ arm_output_epilogue (really_return)
 	saved_regs_mask &= ~ (1 << PC_REGNUM);
       
       print_multi_reg (f, "ldmea\t%r", FP_REGNUM, saved_regs_mask);
+
+      if (IS_INTERRUPT (func_type))
+	/* Interrupt handlers will have pushed the
+	   IP onto the stack, so restore it now.  */
+	print_multi_reg (f, "ldmea\t%r", SP_REGNUM, 1 << IP_REGNUM);
     }
   else
     {
@@ -7548,9 +7665,10 @@ arm_output_epilogue (really_return)
   return "";
 }
 
-void
-output_func_epilogue (frame_size)
-     int frame_size;
+static void
+arm_output_function_epilogue (file, frame_size)
+     FILE *file ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT frame_size;
 {
   if (TARGET_THUMB)
     {
@@ -7783,7 +7901,15 @@ arm_expand_prologue ()
 
   if (frame_pointer_needed)
     {
-      if (IS_NESTED (func_type))
+      if (IS_INTERRUPT (func_type))
+	{
+	  /* Interrupt functions must not corrupt any registers.
+	     Creating a frame pointer however, corrupts the IP
+	     register, so we must push it first.  */
+	  insn = emit_multi_reg_push (1 << IP_REGNUM);
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	}
+      else if (IS_NESTED (func_type))
 	{
 	  /* The Static chain register is the same as the IP register
 	     used as a scratch register during stack frame creation.
@@ -8925,7 +9051,7 @@ replace_symbols_in_block (block, orig, new)
 	      )
 	    continue;
 
-	  DECL_RTL (sym) = new;
+	  SET_DECL_RTL (sym, new);
 	}
       
       replace_symbols_in_block (BLOCK_SUBBLOCKS (block), orig, new);
@@ -9606,10 +9732,7 @@ arm_mark_machine_status (p)
   machine_function *machine = p->machine;
 
   if (machine)
-    {
-      ggc_mark_rtx (machine->ra_rtx);
-      ggc_mark_rtx (machine->eh_epilogue_sp_ofs);
-    }
+    ggc_mark_rtx (machine->eh_epilogue_sp_ofs);
 }
 
 static void
@@ -9642,37 +9765,17 @@ arm_return_addr (count, frame)
      int count;
      rtx frame ATTRIBUTE_UNUSED;
 {
-  rtx reg;
-
   if (count != 0)
     return NULL_RTX;
 
-  reg = cfun->machine->ra_rtx;
-  
-  if (reg == NULL)
+  if (TARGET_APCS_32)
+    return get_hard_reg_initial_val (Pmode, LR_REGNUM);
+  else
     {
-      rtx init;
-      
-      /* No rtx yet.  Invent one, and initialize it for r14 (lr) in 
-	 the prologue.  */
-      reg = gen_reg_rtx (Pmode);
-      cfun->machine->ra_rtx = reg;
-      
-      if (!TARGET_APCS_32)
-	init = gen_rtx_AND (Pmode, gen_rtx_REG (Pmode, LR_REGNUM),
+      rtx lr = gen_rtx_AND (Pmode, gen_rtx_REG (Pmode, LR_REGNUM),
 			    GEN_INT (RETURN_ADDR_MASK26));
-      else
-	init = gen_rtx_REG (Pmode, LR_REGNUM);
-
-      init = gen_rtx_SET (VOIDmode, reg, init);
-
-      /* Emit the insn to the prologue with the other argument copies.  */
-      push_topmost_sequence ();
-      emit_insn_after (init, get_insns ());
-      pop_topmost_sequence ();
+      return get_func_hard_reg_initial_val (cfun, lr);
     }
-
-  return reg;
 }
 
 /* Do anything needed before RTL is emitted for each function.  */
@@ -9818,9 +9921,10 @@ thumb_expand_epilogue ()
     emit_insn (gen_blockage ());
 }
 
-void
-output_thumb_prologue (f)
+static void
+thumb_output_function_prologue (f, size)
      FILE * f;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   int live_regs_mask = 0;
   int high_regs_pushed = 0;
@@ -10532,3 +10636,38 @@ aof_dump_imports (f)
     }
 }
 #endif /* AOF_ASSEMBLER */
+
+/* Switch to an arbitrary section NAME with attributes as specified
+   by FLAGS.  ALIGN specifies any known alignment requirements for
+   the section; 0 if the default should be used.
+
+   Differs from the default elf version only in the prefix character
+   used before the section type.  */
+
+static void
+arm_elf_asm_named_section (name, flags, align)
+     const char *name;
+     unsigned int flags;
+     unsigned int align ATTRIBUTE_UNUSED;
+{
+  char flagchars[8], *f = flagchars;
+  const char *type;
+
+  if (!(flags & SECTION_DEBUG))
+    *f++ = 'a';
+  if (flags & SECTION_WRITE)
+    *f++ = 'w';
+  if (flags & SECTION_CODE)
+    *f++ = 'x';
+  if (flags & SECTION_SMALL)
+    *f++ = 's';
+  *f = '\0';
+
+  if (flags & SECTION_BSS)
+    type = "nobits";
+  else
+    type = "progbits";
+
+  fprintf (asm_out_file, "\t.section\t%s,\"%s\",%%%s\n",
+	   name, flagchars, type);
+}

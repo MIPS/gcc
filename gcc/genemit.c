@@ -735,7 +735,7 @@ output_added_clobbers_hard_reg_p ()
 }
 
 /* Generate code to invoke find_free_register () as needed for the
-   scratch registers used by the peephole2 pattern in SPLIT. */
+   scratch registers used by the peephole2 pattern in SPLIT.  */
 
 static void
 output_peephole2_scratches (split)
@@ -809,6 +809,7 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"tm_p.h\"\n");
   printf ("#include \"function.h\"\n");
   printf ("#include \"expr.h\"\n");
+  printf ("#include \"optabs.h\"\n");
   printf ("#include \"real.h\"\n");
   printf ("#include \"flags.h\"\n");
   printf ("#include \"output.h\"\n");

@@ -86,6 +86,10 @@ Boston, MA 02111-1307, USA. */
 		       "-idirafter /usr/include/mingw"
 #endif
 
+/* Get tree.c to declare a target-specific specialization of
+   merge_decl_attributes.  */
+#define TARGET_DLLIMPORT_DECL_ATTRIBUTES
+
 /* Support the __declspec keyword by turning them into attributes.
    We currently only support: dllimport and dllexport.
    Note that the current way we do this may result in a collision with
@@ -178,31 +182,8 @@ Boston, MA 02111-1307, USA. */
 /* Enable parsing of #pragma pack(push,<n>) and #pragma pack(pop).  */
 #define HANDLE_PRAGMA_PACK_PUSH_POP 1
 
-/* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
-   is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-
 union tree_node;
 #define TREE union tree_node *
-
-#undef VALID_MACHINE_DECL_ATTRIBUTE
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) \
-  i386_pe_valid_decl_attribute_p (DECL, ATTRIBUTES, IDENTIFIER, ARGS)
-extern int i386_pe_valid_decl_attribute_p PARAMS ((TREE, TREE, TREE, TREE));
-
-/* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
-   is a valid machine specific attribute for TYPE.
-   The attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-
-#undef VALID_MACHINE_TYPE_ATTRIBUTE
-#define VALID_MACHINE_TYPE_ATTRIBUTE(TYPE, ATTRIBUTES, IDENTIFIER, ARGS) \
-  i386_pe_valid_type_attribute_p (TYPE, ATTRIBUTES, IDENTIFIER, ARGS)
-extern int i386_pe_valid_type_attribute_p PARAMS ((TREE, TREE, TREE, TREE));
-
-extern union tree_node *i386_pe_merge_decl_attributes PARAMS ((TREE, TREE));
-#define MERGE_MACHINE_DECL_ATTRIBUTES(OLD, NEW) \
-  i386_pe_merge_decl_attributes ((OLD), (NEW))
-extern TREE i386_pe_merge_decl_attributes PARAMS ((TREE, TREE));
 
 /* Used to implement dllexport overriding dllimport semantics.  It's also used
    to handle vtables - the first pass won't do anything because
@@ -218,38 +199,12 @@ extern TREE i386_pe_merge_decl_attributes PARAMS ((TREE, TREE));
 
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_ctor, in_dtor, in_drectve
+#define EXTRA_SECTIONS in_drectve
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS					\
-  CTOR_SECTION_FUNCTION						\
-  DTOR_SECTION_FUNCTION						\
   DRECTVE_SECTION_FUNCTION					\
   SWITCH_TO_SECTION_FUNCTION
-
-#define CTOR_SECTION_FUNCTION					\
-void								\
-ctor_section ()							\
-{								\
-  if (in_section != in_ctor)					\
-    {								\
-      fprintf (asm_out_file, "\t.section .ctor\n");		\
-      in_section = in_ctor;					\
-    }								\
-}
-void ctor_section PARAMS ((void));
-
-#define DTOR_SECTION_FUNCTION					\
-void								\
-dtor_section ()							\
-{								\
-  if (in_section != in_dtor)					\
-    {								\
-      fprintf (asm_out_file, "\t.section .dtor\n");		\
-      in_section = in_dtor;					\
-    }								\
-}
-void dtor_section PARAMS ((void));
 
 #define DRECTVE_SECTION_FUNCTION \
 void									\
@@ -281,28 +236,10 @@ switch_to_section (section, decl) 				\
       case in_text: text_section (); break; 			\
       case in_data: data_section (); break; 			\
       case in_named: named_section (decl, NULL, 0); break; 	\
-      case in_ctor: ctor_section (); break; 			\
-      case in_dtor: dtor_section (); break; 			\
       case in_drectve: drectve_section (); break; 		\
       default: abort (); break; 				\
     } 								\
 }
-
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)	\
-  do {						\
-    ctor_section ();				\
-    fputs (ASM_LONG, FILE);			\
-    assemble_name (FILE, NAME);			\
-    fprintf (FILE, "\n");			\
-  } while (0)
-
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       	\
-  do {						\
-    dtor_section ();                   		\
-    fputs (ASM_LONG, FILE);			\
-    assemble_name (FILE, NAME);			\
-    fprintf (FILE, "\n");			\
-  } while (0)
 
 /* Don't allow flag_pic to propagate since gas may produce invalid code
    otherwise. */
@@ -426,69 +363,16 @@ do {							\
    symbols must be explicitly imported from shared libraries (DLLs).  */
 #define MULTIPLE_SYMBOL_SPACES
 
-#define UNIQUE_SECTION_P(DECL) DECL_ONE_ONLY (DECL)
 extern void i386_pe_unique_section PARAMS ((TREE, int));
 #define UNIQUE_SECTION(DECL,RELOC) i386_pe_unique_section (DECL, RELOC)
 
 #define SUPPORTS_ONE_ONLY 1
 
-/* A C statement to output something to the assembler file to switch to section
-   NAME for object DECL which is either a FUNCTION_DECL, a VAR_DECL or
-   NULL_TREE.  Some target formats do not support arbitrary sections.  Do not
-   define this macro in such cases.  */
-#undef ASM_OUTPUT_SECTION_NAME
-#define ASM_OUTPUT_SECTION_NAME(STREAM, DECL, NAME, RELOC)		\
-do {									\
-  static struct section_info						\
-    {									\
-      struct section_info *next;					\
-      char *name;							\
-      enum sect_enum {SECT_RW, SECT_RO, SECT_EXEC} type;		\
-    } *sections;							\
-  struct section_info *s;						\
-  const char *mode;							\
-  enum sect_enum type;							\
-									\
-  for (s = sections; s; s = s->next)					\
-    if (!strcmp (NAME, s->name))					\
-      break;								\
-									\
-  if (DECL && TREE_CODE (DECL) == FUNCTION_DECL)			\
-    type = SECT_EXEC, mode = "x";					\
-  else if (DECL && DECL_READONLY_SECTION (DECL, RELOC))			\
-    type = SECT_RO, mode = "";						\
-  else									\
-    {									\
-      type = SECT_RW;							\
-      if (DECL && TREE_CODE (DECL) == VAR_DECL				\
-	  && lookup_attribute ("shared", DECL_MACHINE_ATTRIBUTES (DECL))) \
-	mode = "ws";							\
-      else								\
-	mode = "w";							\
-    }									\
-									\
-  if (s == 0)								\
-    {									\
-      s = (struct section_info *) xmalloc (sizeof (struct section_info)); \
-      s->name = xmalloc ((strlen (NAME) + 1) * sizeof (*NAME));		\
-      strcpy (s->name, NAME);						\
-      s->type = type;							\
-      s->next = sections;						\
-      sections = s;							\
-      fprintf (STREAM, ".section\t%s,\"%s\"\n", NAME, mode);		\
-      /* Functions may have been compiled at various levels of		\
-	 optimization so we can't use `same_size' here.  Instead,	\
-	 have the linker pick one.  */					\
-      if ((DECL) && DECL_ONE_ONLY (DECL))				\
-	fprintf (STREAM, "\t.linkonce %s\n",				\
-		 TREE_CODE (DECL) == FUNCTION_DECL			\
-		 ? "discard" : "same_size");				\
-    }									\
-  else									\
-    {									\
-      fprintf (STREAM, ".section\t%s,\"%s\"\n", NAME, mode);		\
-    }									\
-} while (0)
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION  i386_pe_asm_named_section
+
+/* Select attributes for named sections.  */
+#define TARGET_SECTION_TYPE_FLAGS  i386_pe_section_type_flags
 
 /* Write the extra assembler code needed to declare a function
    properly.  If we are generating SDB debugging information, this

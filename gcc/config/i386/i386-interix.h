@@ -253,10 +253,7 @@ Boston, MA 02111-1307, USA.  */
 #undef LD_FINI_SWITCH
 
 
-/* The following are needed for C++, but also needed for profiling */
-
-/* Support const sections and the ctors and dtors sections for g++.
-   Note that there appears to be two different ways to support const
+/* Note that there appears to be two different ways to support const
    sections at the moment.  You can either #define the symbol
    READONLY_DATA_SECTION (giving it some code which switches to the
    readonly data section) or else you can #define the symbols
@@ -267,31 +264,13 @@ Boston, MA 02111-1307, USA.  */
 
 #define CONST_SECTION_ASM_OP	"\t.section\t.rdata,\"r\""
 
-/* Define the pseudo-ops used to switch to the .ctors and .dtors sections.
-
-   Note that we want to give these sections the SHF_WRITE attribute
-   because these sections will actually contain data (i.e. tables of
-   addresses of functions in the current root executable or shared library
-   file) and, in the case of a shared library, the relocatable addresses
-   will have to be properly resolved/relocated (and then written into) by
-   the dynamic linker when it actually attaches the given shared library
-   to the executing process.  (Note that on SVR4, you may wish to use the
-   `-z text' option to the ELF linker, when building a shared library, as
-   an additional check that you are doing everything right.  But if you do
-   use the `-z text' option when building a shared library, you will get
-   errors unless the .ctors and .dtors sections are marked as writable
-   via the SHF_WRITE attribute.)  */
-
-#define CTORS_SECTION_ASM_OP	"\t.section\t.ctors,\"x\""
-#define DTORS_SECTION_ASM_OP	"\t.section\t.dtors,\"x\""
-
 /* A default list of other sections which we might be "in" at any given
    time.  For targets that use additional sections (e.g. .tdesc) you
    should override this definition in the target-specific file which
    includes this file.  */
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_ctors, in_dtors
+#define EXTRA_SECTIONS in_const
 
 /* A default list of extra section function definitions.  For targets
    that use additional sections (e.g. .tdesc) you should override this
@@ -299,9 +278,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
-  CONST_SECTION_FUNCTION						\
-  CTORS_SECTION_FUNCTION						\
-  DTORS_SECTION_FUNCTION
+  CONST_SECTION_FUNCTION
 
 #undef READONLY_DATA_SECTION
 #define READONLY_DATA_SECTION() const_section ()
@@ -319,72 +296,10 @@ const_section ()							\
     }									\
 }
 
-#define CTORS_SECTION_FUNCTION						\
-void									\
-ctors_section ()							\
-{									\
-  if (in_section != in_ctors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);		\
-      in_section = in_ctors;						\
-    }									\
-}
-
-#define DTORS_SECTION_FUNCTION						\
-void									\
-dtors_section ()							\
-{									\
-  if (in_section != in_dtors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);		\
-      in_section = in_dtors;						\
-    }									\
-}
-
-#if 0
-/* Currently gas chokes on this; that's not too hard to fix, but there's
-   not a lot of impeteus to do it, either.  If it is done, gas will have
-   to handle long section name escapes (which are defined in the COFF/PE
-   document as /nnn where nnn is a string table index).  The benefit:
-   section attributes and -ffunction-sections, neither of which seem to
-   be critical. */
-/* gas may have been fixed? bfd was. */
-
-/* Switch into a generic section.
-   This is currently only used to support section attributes.
-
-   We make the section read-only and executable for a function decl,
-   read-only for a const data decl, and writable for a non-const data decl.  */
-#define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME) \
-  fprintf (FILE, ".section\t%s,\"%s\",@progbits\n", NAME, \
-	   (DECL) && TREE_CODE (DECL) == FUNCTION_DECL ? "ax" : \
-	   (DECL) && TREE_READONLY (DECL) ? "a" : "aw")
-#endif
-
 /* The MS compilers take alignment as a number of bytes, so we do as well */
 #undef ASM_OUTPUT_ALIGN
 #define ASM_OUTPUT_ALIGN(FILE,LOG) \
   if ((LOG)!=0) fprintf ((FILE), "\t.balign %d\n", 1<<(LOG))
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
-  do {									\
-    ctors_section ();							\
-    fprintf (FILE, "%s", INT_ASM_OP);					\
-    assemble_name (FILE, NAME);						\
-    fprintf (FILE, "\n");						\
-  } while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       				\
-  do {									\
-    dtors_section ();                   				\
-    fprintf (FILE, "%s", INT_ASM_OP);					\
-    assemble_name (FILE, NAME);              				\
-    fprintf (FILE, "\n");						\
-  } while (0)
 
 /* The linker will take care of this, and having them causes problems with
    ld -r (specifically -rU). */
@@ -505,63 +420,13 @@ do {									\
    symbols must be explicitly imported from shared libraries (DLLs).  */
 #define MULTIPLE_SYMBOL_SPACES
 
-#define UNIQUE_SECTION_P(DECL) DECL_ONE_ONLY (DECL)
 extern void i386_pe_unique_section ();
 #define UNIQUE_SECTION(DECL,RELOC) i386_pe_unique_section (DECL, RELOC)
 
 #define SUPPORTS_ONE_ONLY 1
 
-/* A C statement to output something to the assembler file to switch to section
-   NAME for object DECL which is either a FUNCTION_DECL, a VAR_DECL or
-   NULL_TREE.  Some target formats do not support arbitrary sections.  Do not
-   define this macro in such cases.  */
-#undef ASM_OUTPUT_SECTION_NAME
-#define ASM_OUTPUT_SECTION_NAME(STREAM, DECL, NAME, RELOC)		\
-do {									\
-  static struct section_info						\
-    {									\
-      struct section_info *next;					\
-      char *name;							\
-      enum sect_enum {SECT_RW, SECT_RO, SECT_EXEC} type;		\
-    } *sections;							\
-  struct section_info *s;						\
-  const char *mode;							\
-  enum sect_enum type;							\
-									\
-  for (s = sections; s; s = s->next)					\
-    if (!strcmp (NAME, s->name))					\
-      break;								\
-									\
-  if (DECL && TREE_CODE (DECL) == FUNCTION_DECL)			\
-    type = SECT_EXEC, mode = "x";					\
-  else if (DECL && DECL_READONLY_SECTION (DECL, RELOC))			\
-    type = SECT_RO, mode = "r";						\
-  else									\
-    type = SECT_RW, mode = "w";						\
-									\
-  if (s == 0)								\
-    {									\
-      s = (struct section_info *) xmalloc (sizeof (struct section_info)); \
-      s->name = xmalloc ((strlen (NAME) + 1) * sizeof (*NAME));		\
-      strcpy (s->name, NAME);						\
-      s->type = type;							\
-      s->next = sections;						\
-      sections = s;							\
-      fprintf (STREAM, ".section\t%s,\"%s\"\n", NAME, mode);		\
-      /* Functions may have been compiled at various levels of		\
-         optimization so we can't use `same_size' here.  Instead,	\
-         have the linker pick one.  */					\
-      if ((DECL) && DECL_ONE_ONLY (DECL))				\
-        fprintf (STREAM, "\t.linkonce %s\n",				\
-	         TREE_CODE (DECL) == FUNCTION_DECL			\
-	         ? "discard" : "same_size");				\
-    }									\
-  else									\
-    {									\
-      fprintf (STREAM, ".section\t%s,\"%s\"\n", NAME, mode);		\
-    }									\
-} while (0)
-
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION  default_pe_asm_named_section
 #endif /* 0 */
 
 /* DWARF2 Unwinding doesn't work with exception handling yet. */

@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "rtl.h"
 #include "expr.h"
+#include "libfuncs.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "obstack.h"
@@ -62,16 +63,13 @@ init_exception_processing ()
 {
   tree tmp;
 
-  if (flag_honor_std)
-    push_namespace (std_identifier);
-
   /* void std::terminate (); */
+  push_namespace (std_identifier);
   tmp = build_function_type (void_type_node, void_list_node);
   terminate_node = build_cp_library_fn_ptr ("terminate", tmp);
   TREE_THIS_VOLATILE (terminate_node) = 1;
   TREE_NOTHROW (terminate_node) = 1;
-  if (flag_honor_std)
-    pop_namespace ();
+  pop_namespace ();
 
   /* void __cxa_call_unexpected(void *); */
   tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
@@ -348,7 +346,7 @@ initialize_handler_parm (decl, exp)
      adjusted by value from __cxa_begin_catch.  Others are returned by 
      reference.  */
   init_type = TREE_TYPE (decl);
-  if (TREE_CODE (init_type) != POINTER_TYPE
+  if (! TYPE_PTR_P (init_type)
       && TREE_CODE (init_type) != REFERENCE_TYPE)
     init_type = build_reference_type (init_type);
 
@@ -357,8 +355,8 @@ initialize_handler_parm (decl, exp)
 
   /* Since pointers are passed by value, initialize a reference to
      pointer catch parm with the address of the temporary.  */
-  if (TREE_CODE (init_type) == REFERENCE_TYPE 
-      && TREE_CODE (TREE_TYPE (init_type)) == POINTER_TYPE)
+  if (TREE_CODE (init_type) == REFERENCE_TYPE
+      && TYPE_PTR_P (TREE_TYPE (init_type)))
     exp = build_unary_op (ADDR_EXPR, exp, 1);
 
   exp = ocp_convert (init_type, exp, CONV_IMPLICIT|CONV_FORCE_TEMP, 0);

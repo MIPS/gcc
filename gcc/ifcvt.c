@@ -1,5 +1,5 @@
 /* If-conversion support.
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GNU CC.
 
@@ -30,6 +30,7 @@
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "expr.h"
+#include "optabs.h"
 #include "real.h"
 #include "output.h"
 #include "toplev.h"
@@ -48,6 +49,12 @@
 #ifndef HAVE_decscc
 #define HAVE_decscc 0
 #endif
+#ifndef HAVE_trap
+#define HAVE_trap 0
+#endif
+#ifndef HAVE_conditional_trap
+#define HAVE_conditional_trap 0
+#endif
 
 #ifndef MAX_CONDITIONAL_EXECUTE
 #define MAX_CONDITIONAL_EXECUTE   (BRANCH_COST + 1)
@@ -65,6 +72,9 @@ static int num_updated_if_blocks;
 
 /* # of basic blocks that were removed.  */
 static int num_removed_blocks;
+
+/* True if life data ok at present.  */
+static bool life_data_ok;
 
 /* The post-dominator relation on the original block numbers.  */
 static sbitmap *post_dominators;
@@ -94,9 +104,10 @@ static int find_if_header		PARAMS ((basic_block));
 static int find_if_block		PARAMS ((basic_block, edge, edge));
 static int find_if_case_1		PARAMS ((basic_block, edge, edge));
 static int find_if_case_2		PARAMS ((basic_block, edge, edge));
+static int find_cond_trap		PARAMS ((basic_block, edge, edge));
 static int find_memory			PARAMS ((rtx *, void *));
 static int dead_or_predicable		PARAMS ((basic_block, basic_block,
-						 basic_block, rtx, int));
+						 basic_block, basic_block, int));
 static void noce_emit_move_insn		PARAMS ((rtx, rtx));
 
 /* Abuse the basic_block AUX field to store the original block index,
@@ -288,9 +299,14 @@ cond_exec_get_condition (jump)
      reverse the condition.  */
   if (GET_CODE (XEXP (test_if, 2)) == LABEL_REF
       && XEXP (XEXP (test_if, 2), 0) == JUMP_LABEL (jump))
-    cond = gen_rtx_fmt_ee (reverse_condition (GET_CODE (cond)),
-			   GET_MODE (cond), XEXP (cond, 0),
-			   XEXP (cond, 1));
+    {
+      enum rtx_code rev = reversed_comparison_code (cond, jump);
+      if (rev == UNKNOWN)
+	return NULL_RTX;
+
+      cond = gen_rtx_fmt_ee (rev, GET_MODE (cond), XEXP (cond, 0),
+			     XEXP (cond, 1));
+    }
 
   return cond;
 }
@@ -311,13 +327,14 @@ cond_exec_process_if_block (test_bb, then_bb, else_bb, join_bb)
   rtx then_end;			/* last insn + 1 in THEN block */
   rtx else_start = NULL_RTX;	/* first insn in ELSE block or NULL */
   rtx else_end = NULL_RTX;	/* last insn + 1 in ELSE block */
-  int max;			/* max # of insns to convert. */
+  int max;			/* max # of insns to convert.  */
   int then_mod_ok;		/* whether conditional mods are ok in THEN */
   rtx true_expr;		/* test for else block insns */
   rtx false_expr;		/* test for then block insns */
   rtx true_prob_val;		/* probability of else block */
   rtx false_prob_val;		/* probability of then block */
   int n_insns;
+  enum rtx_code false_code;
 
   /* Find the conditional jump to the ELSE or JOIN part, and isolate
      the test.  */
@@ -379,9 +396,13 @@ cond_exec_process_if_block (test_bb, then_bb, else_bb, join_bb)
      the conditionally executed code.  */
   
   true_expr = test_expr;
-  false_expr = gen_rtx_fmt_ee (reverse_condition (GET_CODE (true_expr)),
-			       GET_MODE (true_expr), XEXP (true_expr, 0),
-			       XEXP (true_expr, 1));
+
+  false_code = reversed_comparison_code (true_expr, test_bb->end);
+  if (false_code != UNKNOWN)
+    false_expr = gen_rtx_fmt_ee (false_code, GET_MODE (true_expr),
+				 XEXP (true_expr, 0), XEXP (true_expr, 1));
+  else
+    false_expr = NULL_RTX;
 
 #ifdef IFCVT_MODIFY_TESTS
   /* If the machine description needs to modify the tests, such as setting a
@@ -411,8 +432,9 @@ cond_exec_process_if_block (test_bb, then_bb, else_bb, join_bb)
      to conditional execution.  */
 
   if (then_end
-      && ! cond_exec_process_insns (then_start, then_end,
-				    false_expr, false_prob_val, then_mod_ok))
+      && (! false_expr
+	  || ! cond_exec_process_insns (then_start, then_end, false_expr,
+					false_prob_val, then_mod_ok)))
     goto fail;
 
   if (else_bb
@@ -621,14 +643,16 @@ noce_try_store_flag_constants (if_info)
   int reversep;
   HOST_WIDE_INT itrue, ifalse, diff, tmp;
   int normalize, can_reverse;
+  enum machine_mode mode;
 
   if (! no_new_pseudos
       && GET_CODE (if_info->a) == CONST_INT
       && GET_CODE (if_info->b) == CONST_INT)
     {
+      mode = GET_MODE (if_info->x);
       ifalse = INTVAL (if_info->a);
       itrue = INTVAL (if_info->b);
-      diff = itrue - ifalse;
+      diff = trunc_int_for_mode (itrue - ifalse, mode);
 
       can_reverse = (reversed_comparison_code (if_info->cond, if_info->jump)
 		     != UNKNOWN);
@@ -659,7 +683,7 @@ noce_try_store_flag_constants (if_info)
       if (reversep)
       	{
 	  tmp = itrue; itrue = ifalse; ifalse = tmp;
-	  diff = -diff;
+	  diff = trunc_int_for_mode (-diff, mode);
 	}
 
       start_sequence ();
@@ -674,7 +698,7 @@ noce_try_store_flag_constants (if_info)
 	 =>   x = 3 + (test == 0);  */
       if (diff == STORE_FLAG_VALUE || diff == -STORE_FLAG_VALUE)
 	{
-	  target = expand_binop (GET_MODE (if_info->x),
+	  target = expand_binop (mode,
 				 (diff == STORE_FLAG_VALUE
 				  ? add_optab : sub_optab),
 				 GEN_INT (ifalse), target, if_info->x, 0,
@@ -685,7 +709,7 @@ noce_try_store_flag_constants (if_info)
 	 =>   x = (test != 0) << 3;  */
       else if (ifalse == 0 && (tmp = exact_log2 (itrue)) >= 0)
 	{
-	  target = expand_binop (GET_MODE (if_info->x), ashl_optab,
+	  target = expand_binop (mode, ashl_optab,
 				 target, GEN_INT (tmp), if_info->x, 0,
 				 OPTAB_WIDEN);
 	}
@@ -694,7 +718,7 @@ noce_try_store_flag_constants (if_info)
 	 =>   x = -(test != 0) | b;  */
       else if (itrue == -1)
 	{
-	  target = expand_binop (GET_MODE (if_info->x), ior_optab,
+	  target = expand_binop (mode, ior_optab,
 				 target, GEN_INT (ifalse), if_info->x, 0,
 				 OPTAB_WIDEN);
 	}
@@ -703,11 +727,11 @@ noce_try_store_flag_constants (if_info)
 	 =>   x = (-(test != 0) & (b - a)) + a;  */
       else
 	{
-	  target = expand_binop (GET_MODE (if_info->x), and_optab,
+	  target = expand_binop (mode, and_optab,
 				 target, GEN_INT (diff), if_info->x, 0,
 				 OPTAB_WIDEN);
 	  if (target)
-	    target = expand_binop (GET_MODE (if_info->x), add_optab,
+	    target = expand_binop (mode, add_optab,
 				   target, GEN_INT (ifalse), if_info->x, 0,
 				   OPTAB_WIDEN);
 	}
@@ -1084,7 +1108,7 @@ noce_try_cmove_arith (if_info)
       if (MEM_SCALAR_P (if_info->a) && MEM_SCALAR_P (if_info->b))
 	MEM_SCALAR_P (tmp) = 1;
       if (MEM_ALIAS_SET (if_info->a) == MEM_ALIAS_SET (if_info->b))
-	MEM_ALIAS_SET (tmp) = MEM_ALIAS_SET (if_info->a);
+	set_mem_alias_set (tmp, MEM_ALIAS_SET (if_info->a));
 
       noce_emit_move_insn (if_info->x, tmp);
     }
@@ -1126,6 +1150,108 @@ noce_get_alt_condition (if_info, target, earliest)
   reverse
     = GET_CODE (XEXP (SET_SRC (set), 2)) == LABEL_REF
       && XEXP (XEXP (SET_SRC (set), 2), 0) == JUMP_LABEL (if_info->jump);
+
+  /* If we're looking for a constant, try to make the conditional
+     have that constant in it.  There are two reasons why it may
+     not have the constant we want:
+
+     1. GCC may have needed to put the constant in a register, because
+        the target can't compare directly against that constant.  For
+        this case, we look for a SET immediately before the comparison
+        that puts a constant in that register.
+
+     2. GCC may have canonicalized the conditional, for example
+	replacing "if x < 4" with "if x <= 3".  We can undo that (or
+	make equivalent types of changes) to get the constants we need
+	if they're off by one in the right direction.  */
+
+  if (GET_CODE (target) == CONST_INT)
+    {
+      enum rtx_code code = GET_CODE (if_info->cond);
+      rtx op_a = XEXP (if_info->cond, 0);
+      rtx op_b = XEXP (if_info->cond, 1);
+      rtx prev_insn;
+
+      /* First, look to see if we put a constant in a register.  */
+      prev_insn = PREV_INSN (if_info->cond_earliest);
+      if (prev_insn
+	  && INSN_P (prev_insn)
+	  && GET_CODE (PATTERN (prev_insn)) == SET)
+	{
+	  rtx src = find_reg_equal_equiv_note (prev_insn);
+	  if (!src)
+	    src = SET_SRC (PATTERN (prev_insn));
+	  if (GET_CODE (src) == CONST_INT)
+	    {
+	      if (rtx_equal_p (op_a, SET_DEST (PATTERN (prev_insn))))
+		op_a = src;
+	      else if (rtx_equal_p (op_b, SET_DEST (PATTERN (prev_insn))))
+		op_b = src;
+
+	      if (GET_CODE (op_a) == CONST_INT)
+		{
+		  rtx tmp = op_a;
+		  op_a = op_b;
+		  op_b = tmp;
+		  code = swap_condition (code);
+		}
+	    }
+	}
+
+      /* Now, look to see if we can get the right constant by
+	 adjusting the conditional.  */
+      if (GET_CODE (op_b) == CONST_INT)
+	{
+	  HOST_WIDE_INT desired_val = INTVAL (target);
+	  HOST_WIDE_INT actual_val = INTVAL (op_b);
+
+	  switch (code)
+	    {
+	    case LT:
+	      if (actual_val == desired_val + 1)
+		{
+		  code = LE;
+		  op_b = GEN_INT (desired_val);
+		}
+	      break;
+	    case LE:
+	      if (actual_val == desired_val - 1)
+		{
+		  code = LT;
+		  op_b = GEN_INT (desired_val);
+		}
+	      break;
+	    case GT:
+	      if (actual_val == desired_val - 1)
+		{
+		  code = GE;
+		  op_b = GEN_INT (desired_val);
+		}
+	      break;
+	    case GE:
+	      if (actual_val == desired_val + 1)
+		{
+		  code = GT;
+		  op_b = GEN_INT (desired_val);
+		}
+	      break;
+	    default:
+	      break;
+	    }
+	}
+
+      /* If we made any changes, generate a new conditional that is
+	 equivalent to what we started with, but has the right
+	 constants in it.  */
+      if (code != GET_CODE (if_info->cond)
+	  || op_a != XEXP (if_info->cond, 0)
+	  || op_b != XEXP (if_info->cond, 1))
+	{
+	  cond = gen_rtx_fmt_ee (code, GET_MODE (cond), op_a, op_b);
+	  *earliest = if_info->cond_earliest;
+	  return cond;
+	}
+    }
 
   cond = canonicalize_condition (if_info->jump, cond, reverse,
 				 earliest, target);
@@ -1719,7 +1845,7 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
   /* First merge TEST block into THEN block.  This is a no-brainer since
      the THEN block did not have a code label to begin with.  */
 
-  if (combo_bb->global_live_at_end)
+  if (life_data_ok)
     COPY_REG_SET (combo_bb->global_live_at_end, then_bb->global_live_at_end);
   merge_blocks_nomove (combo_bb, then_bb);
   num_removed_blocks++;
@@ -1743,10 +1869,9 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
       if (combo_bb->succ == NULL_EDGE)
 	abort ();
 
-      /* There should sill be a branch at the end of the THEN or ELSE
+      /* There should still be a branch at the end of the THEN or ELSE
          blocks taking us to our final destination.  */
-      if (! any_uncondjump_p (combo_bb->end)
-          && ! returnjump_p (combo_bb->end))
+      if (GET_CODE (combo_bb->end) != JUMP_INSN)
 	abort ();
     }
 
@@ -1759,7 +1884,7 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
   else if (join_bb->pred == NULL || join_bb->pred->pred_next == NULL)
     {
       /* We can merge the JOIN.  */
-      if (combo_bb->global_live_at_end)
+      if (life_data_ok)
 	COPY_REG_SET (combo_bb->global_live_at_end,
 		      join_bb->global_live_at_end);
       merge_blocks_nomove (combo_bb, join_bb);
@@ -1820,6 +1945,9 @@ find_if_header (test_bb)
     return FALSE;
 
   if (find_if_block (test_bb, then_edge, else_edge))
+    goto success;
+  if (HAVE_trap && HAVE_conditional_trap
+      && find_cond_trap (test_bb, then_edge, else_edge))
     goto success;
   if (post_dominators
       && (! HAVE_conditional_execution || reload_completed))
@@ -1951,6 +2079,130 @@ find_if_block (test_bb, then_edge, else_edge)
   return process_if_block (test_bb, then_bb, else_bb, join_bb);
 }
 
+/* Convert a branch over a trap, or a branch to a trap,
+   into a conditional trap.  */
+
+static int
+find_cond_trap (test_bb, then_edge, else_edge)
+     basic_block test_bb;
+     edge then_edge, else_edge;
+{
+  basic_block then_bb, else_bb, join_bb, trap_bb;
+  rtx trap, jump, cond, cond_earliest, seq;
+  enum rtx_code code;
+
+  then_bb = then_edge->dest;
+  else_bb = else_edge->dest;
+  join_bb = NULL;
+
+  /* Locate the block with the trap instruction.  */
+  /* ??? While we look for no successors, we really ought to allow
+     EH successors.  Need to fix merge_if_block for that to work.  */
+  /* ??? We can't currently handle merging the blocks if they are not
+     already adjacent.  Prevent losage in merge_if_block by detecting
+     this now.  */
+  if (then_bb->succ == NULL)
+    {
+      trap_bb = then_bb;
+      if (else_bb->index != then_bb->index + 1)
+	return FALSE;
+      join_bb = else_bb;
+      else_bb = NULL;
+    }
+  else if (else_bb->succ == NULL)
+    {
+      trap_bb = else_bb;
+      if (else_bb->index != then_bb->index + 1)
+	else_bb = NULL;
+      else if (then_bb->succ
+	  && ! then_bb->succ->succ_next
+	  && ! (then_bb->succ->flags & EDGE_COMPLEX)
+	  && then_bb->succ->dest->index == else_bb->index + 1)
+	join_bb = then_bb->succ->dest;
+    }
+  else
+    return FALSE;
+
+  /* Don't confuse a conditional return with something we want to
+     optimize here.  */
+  if (trap_bb == EXIT_BLOCK_PTR)
+    return FALSE;
+
+  /* The only instruction in the THEN block must be the trap.  */
+  trap = first_active_insn (trap_bb);
+  if (! (trap == trap_bb->end
+	 && GET_CODE (PATTERN (trap)) == TRAP_IF
+         && TRAP_CONDITION (PATTERN (trap)) == const_true_rtx))
+    return FALSE;
+
+  if (rtl_dump_file)
+    {
+      if (trap_bb == then_bb)
+	fprintf (rtl_dump_file,
+		 "\nTRAP-IF block found, start %d, trap %d",
+		 test_bb->index, then_bb->index);
+      else
+	fprintf (rtl_dump_file,
+		 "\nTRAP-IF block found, start %d, then %d, trap %d",
+		 test_bb->index, then_bb->index, trap_bb->index);
+      if (join_bb)
+	fprintf (rtl_dump_file, ", join %d\n", join_bb->index);
+      else
+	fputc ('\n', rtl_dump_file);
+    }
+
+  /* If this is not a standard conditional jump, we can't parse it.  */
+  jump = test_bb->end;
+  cond = noce_get_condition (jump, &cond_earliest);
+  if (! cond)
+    return FALSE;
+
+  /* If the conditional jump is more than just a conditional jump,
+     then we can not do if-conversion on this block.  */
+  if (! onlyjump_p (jump))
+    return FALSE;
+
+  /* We must be comparing objects whose modes imply the size.  */
+  if (GET_MODE (XEXP (cond, 0)) == BLKmode)
+    return FALSE;
+
+  /* Reverse the comparison code, if necessary.  */
+  code = GET_CODE (cond);
+  if (then_bb == trap_bb)
+    {
+      code = reversed_comparison_code (cond, jump);
+      if (code == UNKNOWN)
+	return FALSE;
+    }
+
+  /* Attempt to generate the conditional trap.  */
+  seq = gen_cond_trap (code, XEXP (cond, 0), XEXP (cond, 1),
+		       TRAP_CODE (PATTERN (trap)));
+  if (seq == NULL)
+    return FALSE;
+
+  /* Emit the new insns before cond_earliest; delete the old jump
+     and trap insns.  */
+
+  emit_insn_before (seq, cond_earliest);
+
+  test_bb->end = PREV_INSN (jump);
+  flow_delete_insn (jump);
+
+  trap_bb->end = PREV_INSN (trap);
+  flow_delete_insn (trap);
+
+  /* Merge the blocks!  */
+  if (trap_bb != then_bb && ! else_bb)
+    {
+      flow_delete_block (trap_bb);
+      num_removed_blocks++;
+    }
+  merge_if_block (test_bb, then_bb, else_bb, join_bb);
+
+  return TRUE;
+}
+
 /* Look for IF-THEN-ELSE cases in which one of THEN or ELSE is
    transformable, but not necessarily the other.  There need be no
    JOIN block.
@@ -2034,9 +2286,8 @@ find_if_case_1 (test_bb, then_edge, else_edge)
       edge then_edge, else_edge;
 {
   basic_block then_bb = then_edge->dest;
-  basic_block else_bb = else_edge->dest;
+  basic_block else_bb = else_edge->dest, new_bb;
   edge then_succ = then_bb->succ;
-  rtx new_lab;
 
   /* THEN has one successor.  */
   if (!then_succ || then_succ->succ_next != NULL)
@@ -2050,8 +2301,8 @@ find_if_case_1 (test_bb, then_edge, else_edge)
   if (then_bb->pred->pred_next != NULL)
     return FALSE;
 
-  /* ELSE follows THEN.  (??? could be moved)  */
-  if (else_bb->index != then_bb->index + 1)
+  /* THEN must do something.  */
+  if (forwarder_block_p (then_bb))
     return FALSE;
 
   num_possible_if_blocks++;
@@ -2064,18 +2315,9 @@ find_if_case_1 (test_bb, then_edge, else_edge)
   if (count_bb_insns (then_bb) > BRANCH_COST)
     return FALSE;
 
-  /* Find the label for THEN's destination.  */
-  if (then_succ->dest == EXIT_BLOCK_PTR)
-    new_lab = NULL_RTX;
-  else
-    {
-      new_lab = JUMP_LABEL (then_bb->end);
-      if (! new_lab)
-	abort ();
-    }
-
   /* Registers set are dead, or are predicable.  */
-  if (! dead_or_predicable (test_bb, then_bb, else_bb, new_lab, 1))
+  if (! dead_or_predicable (test_bb, then_bb, else_bb, 
+			    then_bb->succ->dest, 1))
     return FALSE;
 
   /* Conversion went ok, including moving the insns and fixing up the
@@ -2086,9 +2328,17 @@ find_if_case_1 (test_bb, then_edge, else_edge)
 		    else_bb->global_live_at_start,
 		    then_bb->global_live_at_end, BITMAP_IOR);
   
-  make_edge (NULL, test_bb, then_succ->dest, 0);
+  new_bb = redirect_edge_and_branch_force (FALLTHRU_EDGE (test_bb), else_bb);
+  /* Make rest of code believe that the newly created block is the THEN_BB
+     block we are going to remove.  */
+  if (new_bb)
+    {
+      new_bb->aux = then_bb->aux;
+      SET_UPDATE_LIFE (then_bb);
+    }
   flow_delete_block (then_bb);
-  tidy_fallthru_edge (else_edge, test_bb, else_bb);
+  /* We've possibly created jump to next insn, cleanup_cfg will solve that
+     later.  */
 
   num_removed_blocks++;
   num_updated_if_blocks++;
@@ -2106,7 +2356,7 @@ find_if_case_2 (test_bb, then_edge, else_edge)
   basic_block then_bb = then_edge->dest;
   basic_block else_bb = else_edge->dest;
   edge else_succ = else_bb->succ;
-  rtx new_lab, note;
+  rtx note;
 
   /* ELSE has one successor.  */
   if (!else_succ || else_succ->succ_next != NULL)
@@ -2145,27 +2395,8 @@ find_if_case_2 (test_bb, then_edge, else_edge)
   if (count_bb_insns (then_bb) > BRANCH_COST)
     return FALSE;
 
-  /* Find the label for ELSE's destination.  */
-  if (else_succ->dest == EXIT_BLOCK_PTR)
-    new_lab = NULL_RTX;
-  else
-    {
-      if (else_succ->flags & EDGE_FALLTHRU)
-	{
-	  new_lab = else_succ->dest->head;
-	  if (GET_CODE (new_lab) != CODE_LABEL)
-	    abort ();
-	}
-      else
-	{
-	  new_lab = JUMP_LABEL (else_bb->end);
-	  if (! new_lab)
-	    abort ();
-	}
-    }
-
   /* Registers set are dead, or are predicable.  */
-  if (! dead_or_predicable (test_bb, else_bb, then_bb, new_lab, 0))
+  if (! dead_or_predicable (test_bb, else_bb, then_bb, else_succ->dest, 0))
     return FALSE;
 
   /* Conversion went ok, including moving the insns and fixing up the
@@ -2176,8 +2407,6 @@ find_if_case_2 (test_bb, then_edge, else_edge)
 		    then_bb->global_live_at_start,
 		    else_bb->global_live_at_end, BITMAP_IOR);
   
-  remove_edge (else_edge);
-  make_edge (NULL, test_bb, else_succ->dest, 0);
   flow_delete_block (else_bb);
 
   num_removed_blocks++;
@@ -2211,10 +2440,10 @@ find_memory (px, data)
 static int
 dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
      basic_block test_bb, merge_bb, other_bb;
-     rtx new_dest;
+     basic_block new_dest;
      int reversep;
 {
-  rtx head, end, jump, earliest, old_dest;
+  rtx head, end, jump, earliest, old_dest, new_label;
 
   jump = test_bb->end;
 
@@ -2258,6 +2487,8 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
       rtx cond, prob_val;
 
       cond = cond_exec_get_condition (jump);
+      if (! cond)
+	return FALSE;
 
       prob_val = find_reg_note (jump, REG_BR_PROB, NULL_RTX);
       if (prob_val)
@@ -2265,8 +2496,10 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
 
       if (reversep)
 	{
-	  cond = gen_rtx_fmt_ee (reverse_condition (GET_CODE (cond)),
-			         GET_MODE (cond), XEXP (cond, 0),
+	  enum rtx_code rev = reversed_comparison_code (cond, jump);
+	  if (rev == UNKNOWN)
+	    return FALSE;
+	  cond = gen_rtx_fmt_ee (rev, GET_MODE (cond), XEXP (cond, 0),
 			         XEXP (cond, 1));
 	  if (prob_val)
 	    prob_val = GEN_INT (REG_BR_PROB_BASE - INTVAL (prob_val));
@@ -2395,9 +2628,10 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
      change group management.  */
 
   old_dest = JUMP_LABEL (jump);
+  new_label = block_label (new_dest);
   if (reversep
-      ? ! invert_jump_1 (jump, new_dest)
-      : ! redirect_jump_1 (jump, new_dest))
+      ? ! invert_jump_1 (jump, new_label)
+      : ! redirect_jump_1 (jump, new_label))
     goto cancel;
 
   if (! apply_change_group ())
@@ -2405,15 +2639,23 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
 
   if (old_dest)
     LABEL_NUSES (old_dest) -= 1;
-  if (new_dest)
-    LABEL_NUSES (new_dest) += 1;
-  JUMP_LABEL (jump) = new_dest;
+  if (new_label)
+    LABEL_NUSES (new_label) += 1;
+  JUMP_LABEL (jump) = new_label;
 
   if (reversep)
+    invert_br_probabilities (jump);
+
+  redirect_edge_succ (BRANCH_EDGE (test_bb), new_dest);
+  if (reversep)
     {
-      rtx note = find_reg_note (jump, REG_BR_PROB, NULL_RTX);
-      if (note)
-	XEXP (note, 0) = GEN_INT (REG_BR_PROB_BASE - INTVAL (XEXP (note, 0)));
+      gcov_type count, probability;
+      count = BRANCH_EDGE (test_bb)->count;
+      BRANCH_EDGE (test_bb)->count = FALLTHRU_EDGE (test_bb)->count;
+      FALLTHRU_EDGE (test_bb)->count = count;
+      probability = BRANCH_EDGE (test_bb)->probability;
+      BRANCH_EDGE (test_bb)->probability = FALLTHRU_EDGE (test_bb)->probability;
+      FALLTHRU_EDGE (test_bb)->probability = probability;
     }
 
   /* Move the insns out of MERGE_BB to before the branch.  */
@@ -2448,14 +2690,15 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
 /* Main entry point for all if-conversion.  */
 
 void
-if_convert (life_data_ok)
-     int life_data_ok;
+if_convert (x_life_data_ok)
+     int x_life_data_ok;
 {
   int block_num;
 
   num_possible_if_blocks = 0;
   num_updated_if_blocks = 0;
   num_removed_blocks = 0;
+  life_data_ok = (x_life_data_ok != 0);
 
   /* Free up basic_block_for_insn so that we don't have to keep it 
      up to date, either here or in merge_blocks_nomove.  */

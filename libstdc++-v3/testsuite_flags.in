@@ -28,16 +28,13 @@ query=$1
 
 case ${query} in
     --install-includes)
-      INCLUDES="-I${SRC_DIR}/testsuite"
+      INCLUDES="-I${SRC_DIR}/testsuite -I${BUILD_DIR}/testsuite"
       echo ${INCLUDES}
       ;;
     --build-includes)
-      C_DIR="`basename  @C_INCLUDE_DIR@`"
-      INCLUDES="-nostdinc++ -I${BUILD_DIR}/include -I${SRC_DIR}/include
-                -I${SRC_DIR}/include/std  -I${SRC_DIR}/include/$C_DIR
+      INCLUDES="-nostdinc++ @GLIBCPP_INCLUDES@
 	        -I${SRC_DIR}/libsupc++ -I${SRC_DIR}/libio 
-		-I${SRC_DIR}/testsuite
-		-I${SRC_DIR}/include/backwards -I${SRC_DIR}/include/ext"
+		-I${SRC_DIR}/testsuite -I${BUILD_DIR}/testsuite"
       echo ${INCLUDES}
       ;;
     --install-cxx)
@@ -50,7 +47,8 @@ case ${query} in
       echo ${CXX}
       ;;
     --cxxflags)
-      CXXFLAGS=" -ggdb3 -DDEBUG_ASSERT @SECTION_FLAGS@ @SECTION_LDFLAGS@"
+      CXXFLAGS=' -g @SECTION_FLAGS@ @SECTION_LDFLAGS@ 
+		 -DDEBUG_ASSERT  -DLOCALEDIR="@glibcpp_localedir@" '
       echo ${CXXFLAGS}
       ;;
     *)
@@ -59,5 +57,3 @@ case ${query} in
 esac
 
 exit 0
-
-

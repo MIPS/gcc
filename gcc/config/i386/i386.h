@@ -114,13 +114,14 @@ extern int target_flags;
 #define MASK_INLINE_ALL_STROPS	0x00002000	/* Inline stringops in all cases */
 #define MASK_NO_PUSH_ARGS	0x00004000	/* Use push instructions */
 #define MASK_ACCUMULATE_OUTGOING_ARGS 0x00008000/* Accumulate outgoing args */
-#define MASK_MMX		0x00010000	/* Support MMX regs/builtins */
-#define MASK_SSE		0x00020000	/* Support SSE regs/builtins */
-#define MASK_SSE2		0x00040000	/* Support SSE2 regs/builtins */
-#define MASK_128BIT_LONG_DOUBLE 0x00080000	/* long double size is 128bit */
-#define MASK_MIX_SSE_I387	0x00100000	/* Mix SSE and i387 instructions */
-#define MASK_64BIT		0x00200000	/* Produce 64bit code */
-#define MASK_NO_RED_ZONE	0x00400000	/* Do not use red zone */
+#define MASK_NO_ACCUMULATE_OUTGOING_ARGS 0x00010000
+#define MASK_MMX		0x00020000	/* Support MMX regs/builtins */
+#define MASK_SSE		0x00040000	/* Support SSE regs/builtins */
+#define MASK_SSE2		0x00080000	/* Support SSE2 regs/builtins */
+#define MASK_128BIT_LONG_DOUBLE 0x00100000	/* long double size is 128bit */
+#define MASK_MIX_SSE_I387	0x00200000	/* Mix SSE and i387 instructions */
+#define MASK_64BIT		0x00400000	/* Produce 64bit code */
+#define MASK_NO_RED_ZONE	0x00800000	/* Do not use red zone */
 
 /* Temporary codegen switches */
 #define MASK_INTEL_SYNTAX	0x00000200
@@ -202,7 +203,7 @@ extern int target_flags;
 #define CPUMASK (1 << ix86_cpu)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
 extern const int x86_use_bit_test, x86_cmove, x86_deep_branch;
-extern const int x86_unroll_strlen;
+extern const int x86_branch_hints, x86_unroll_strlen;
 extern const int x86_double_with_add, x86_partial_reg_stall, x86_movx;
 extern const int x86_use_loop, x86_use_fiop, x86_use_mov0;
 extern const int x86_use_cltd, x86_read_modify_write;
@@ -212,6 +213,8 @@ extern const int x86_himode_math, x86_qimode_math, x86_promote_qi_regs;
 extern const int x86_promote_hi_regs, x86_integer_DFmode_moves;
 extern const int x86_add_esp_4, x86_add_esp_8, x86_sub_esp_4, x86_sub_esp_8;
 extern const int x86_partial_reg_dependency, x86_memory_mismatch_stall;
+extern const int x86_accumulate_outgoing_args, x86_prologue_using_move;
+extern const int x86_epilogue_using_move;
 
 #define TARGET_USE_LEAVE (x86_use_leave & CPUMASK)
 #define TARGET_PUSH_MEMORY (x86_push_memory & CPUMASK)
@@ -222,6 +225,7 @@ extern const int x86_partial_reg_dependency, x86_memory_mismatch_stall;
    safe to enable all CMOVE instructions.  */
 #define TARGET_CMOVE ((x86_cmove & (1 << ix86_arch)) || TARGET_SSE)
 #define TARGET_DEEP_BRANCH_PREDICTION (x86_deep_branch & CPUMASK)
+#define TARGET_BRANCH_PREDICTION_HINTS (x86_branch_hints & CPUMASK)
 #define TARGET_DOUBLE_WITH_ADD (x86_double_with_add & CPUMASK)
 #define TARGET_USE_SAHF ((x86_use_sahf & CPUMASK) && !TARGET_64BIT)
 #define TARGET_MOVX (x86_movx & CPUMASK)
@@ -246,6 +250,8 @@ extern const int x86_partial_reg_dependency, x86_memory_mismatch_stall;
 #define TARGET_INTEGER_DFMODE_MOVES (x86_integer_DFmode_moves & CPUMASK)
 #define TARGET_PARTIAL_REG_DEPENDENCY (x86_partial_reg_dependency & CPUMASK)
 #define TARGET_MEMORY_MISMATCH_STALL (x86_memory_mismatch_stall & CPUMASK)
+#define TARGET_PROLOGUE_USING_MOVE (x86_prologue_using_move & CPUMASK)
+#define TARGET_EPILOGUE_USING_MOVE (x86_epilogue_using_move & CPUMASK)
 
 #define TARGET_STACK_PROBE (target_flags & MASK_STACK_PROBE)
 
@@ -569,7 +575,7 @@ extern int ix86_arch;
 #endif
 /* Tell real.c that this is the 80-bit Intel extended float format
    packaged in a 128-bit or 96bit entity.  */
-#define INTEL_EXTENDED_IEEE_FORMAT
+#define INTEL_EXTENDED_IEEE_FORMAT 1
 
 
 #define SHORT_TYPE_SIZE 16
@@ -633,6 +639,13 @@ extern int ix86_arch;
 /* Boundary (in *bits*) on which the stack pointer preferrs to be
    aligned; the compiler cannot rely on having this alignment.  */
 #define PREFERRED_STACK_BOUNDARY ix86_preferred_stack_boundary
+
+/* As of July 2001, many runtimes to not align the stack properly when
+   entering main.  This causes expand_main_function to forcably align
+   the stack, which results in aligned frames for functions called from
+   main, though it does nothing for the alignment of main itself.  */
+#define FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN \
+  (ix86_preferred_stack_boundary > STACK_BOUNDARY)
 
 /* Allocation boundary for the code of a function. */
 #define FUNCTION_BOUNDARY 16
@@ -2170,21 +2183,6 @@ enum ix86_builtins
 
   IX86_BUILTIN_MAX
 };
-
-/* Initialize the target-specific builtin functions.  Only do something
-   if TARGET_MMX is nonzero; we take care in ix86_init_builtins not to
-   enable any SSE builtins if TARGET_SSE is zero.  */
-#define MD_INIT_BUILTINS	\
-  do				\
-    {				\
-      if (TARGET_MMX)		\
-	ix86_init_builtins ();	\
-    }				\
-  while (0)
-
-/* Expand a target-specific builtin function.  */
-#define MD_EXPAND_BUILTIN(EXP, TARGET, SUBTARGET, MODE, IGNORE) \
-  ix86_expand_builtin (EXP, TARGET, SUBTARGET, MODE, IGNORE)
 
 /* Define this macro if references to a symbol must be treated
    differently depending on something about the variable or
@@ -2234,33 +2232,6 @@ do									\
 while (0)
 
 
-/* If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, NAME, ARGS) \
-  (ix86_valid_decl_attribute_p (DECL, ATTRIBUTES, NAME, ARGS))
-
-/* If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for TYPE.
-   The attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-
-#define VALID_MACHINE_TYPE_ATTRIBUTE(TYPE, ATTRIBUTES, NAME, ARGS) \
-  (ix86_valid_type_attribute_p (TYPE, ATTRIBUTES, NAME, ARGS))
-
-/* If defined, a C expression whose value is zero if the attributes on
-   TYPE1 and TYPE2 are incompatible, one if they are compatible, and
-   two if they are nearly compatible (which causes a warning to be
-   generated).  */
-
-#define COMP_TYPE_ATTRIBUTES(TYPE1, TYPE2) \
-  (ix86_comp_type_attributes (TYPE1, TYPE2))
-
-/* If defined, a C statement that assigns default attributes to newly
-   defined TYPE.  */
-
-/* #define SET_DEFAULT_TYPE_ATTRIBUTES (TYPE) */
-
 /* Max number of args passed in registers.  If this is more than 3, we will
    have problems with ebx (register #4), since it is a caller save register and
    is also used as the pic register in ELF.  So for now, don't allow more than
@@ -2369,22 +2340,21 @@ while (0)
 
 #define CONST_COSTS(RTX,CODE,OUTER_CODE) \
   case CONST_INT:						\
-    return (unsigned) INTVAL (RTX) < 256 ? 0 : 1;		\
   case CONST:							\
   case LABEL_REF:						\
   case SYMBOL_REF:						\
-    return flag_pic && SYMBOLIC_CONST (RTX) ? 2 : 1;		\
+    return flag_pic && SYMBOLIC_CONST (RTX) ? 1 : 0;		\
 								\
   case CONST_DOUBLE:						\
     {								\
       int code;							\
       if (GET_MODE (RTX) == VOIDmode)				\
-	return 2;						\
+	return 0;						\
 								\
       code = standard_80387_constant_p (RTX);			\
-      return code == 1 ? 0 :					\
-	     code == 2 ? 1 :					\
-			 2;					\
+      return code == 1 ? 1 :					\
+	     code == 2 ? 2 :					\
+			 3;					\
     }
 
 /* Delete the definition here when TOPLEVEL_COSTS_N_INSNS gets added to cse.c */
@@ -2755,11 +2725,6 @@ while (0)
    For float regs, the stack top is sometimes referred to as "%st(0)"
    instead of just "%st".  PRINT_REG handles this with the "y" code.  */
 
-#define HI_REGISTER_NAMES						\
-{"ax","dx","cx","bx","si","di","bp","sp",				\
- "st","st(1)","st(2)","st(3)","st(4)","st(5)","st(6)","st(7)","",	\
- "flags","fpsr", "dirflag", "frame" }
-
 #undef  HI_REGISTER_NAMES						
 #define HI_REGISTER_NAMES						\
 {"ax","dx","cx","bx","si","di","bp","sp",				\
@@ -2797,9 +2762,6 @@ number as al, and ax.
 
 #define QI_HIGH_REGISTER_NAMES \
 {"ah", "dh", "ch", "bh", }
-
-#define MMX_REGISTER_NAMES \
-{0,0,0,0,0,0,0,0,"mm0","mm1","mm2","mm3","mm4","mm5","mm6","mm7"}
 
 /* How to renumber registers for dbx and gdb.  */
 
@@ -2952,51 +2914,22 @@ do { long l;						\
 
 #define ASM_SIMPLIFY_DWARF_ADDR(X) \
   i386_simplify_dwarf_addr(X)
-
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN ""
-#define ASM_CLOSE_PAREN ""
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
-   The CODE z takes the size of operand from the following digit, and
-   outputs b,w,or l respectively.
-
-   On the 80386, we use several such letters:
-   f -- float insn (print a CONST_DOUBLE as a float rather than in hex).
-   L,W,B,Q,S,T -- print the opcode suffix for specified size of operand.
-   R -- print the prefix for register names.
-   z -- print the opcode suffix for the size of the current operand.
-   * -- print a star (in certain assembler syntax)
-   A -- print an absolute memory reference.
-   P -- if PIC, print an @PLT suffix.
-   X -- don't print any sort of PIC '@' suffix for a symbol.
-   s -- ??? something to do with double shifts.  not actually used, afaik.
-   C -- print a conditional move suffix corresponding to the op code.
-   c -- likewise, but reverse the condition.
-   F,f -- likewise, but for floating-point.  */
+   Effect of various CODE letters is described in i386.c near
+   print_operand function.  */
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)				\
-  ((CODE) == '*')
+  ((CODE) == '*' || (CODE) == '+')
 
 /* Print the name of a register based on its machine mode and number.
    If CODE is 'w', pretend the mode is HImode.
    If CODE is 'b', pretend the mode is QImode.
    If CODE is 'k', pretend the mode is SImode.
-   If CODE is 'd', pretend the mode is DImode.
+   If CODE is 'q', pretend the mode is DImode.
    If CODE is 'h', pretend the reg is the `high' byte register.
-   If CODE is 'y', print "st(0)" instead of "st", if the reg is stack op. */
+   If CODE is 'y', print "st(0)" instead of "st", if the reg is stack op.  */
 
 #define PRINT_REG(X, CODE, FILE)  \
   print_reg (X, CODE, FILE)
@@ -3191,6 +3124,78 @@ extern const char * const qi_high_reg_name[];	/* names for 8 bit regs (high) */
 extern enum reg_class const regclass_map[];	/* smalled class containing REGNO */
 extern struct rtx_def *ix86_compare_op0;	/* operand 0 for comparisons */
 extern struct rtx_def *ix86_compare_op1;	/* operand 1 for comparisons */
+
+/* To properly truncate FP values into integers, we need to set i387 control
+   word.  We can't emit proper mode switching code before reload, as spills
+   generated by reload may truncate values incorrectly, but we still can avoid
+   redundant computation of new control word by the mode switching pass.
+   The fldcw instructions are still emitted redundantly, but this is probably
+   not going to be noticeable problem, as most CPUs do have fast path for
+   the sequence.  
+
+   The machinery is to emit simple truncation instructions and split them
+   before reload to instructions having USEs of two memory locations that
+   are filled by this code to old and new control word.
+ 
+   Post-reload pass may be later used to eliminate the redundant fildcw if
+   needed.  */
+
+enum fp_cw_mode {FP_CW_STORED, FP_CW_UNINITIALIZED, FP_CW_ANY};
+
+/* Define this macro if the port needs extra instructions inserted
+   for mode switching in an optimizing compilation.  */
+
+#define OPTIMIZE_MODE_SWITCHING(ENTITY) 1
+
+/* If you define `OPTIMIZE_MODE_SWITCHING', you have to define this as
+   initializer for an array of integers.  Each initializer element N
+   refers to an entity that needs mode switching, and specifies the
+   number of different modes that might need to be set for this
+   entity.  The position of the initializer in the initializer -
+   starting counting at zero - determines the integer that is used to
+   refer to the mode-switched entity in question.  */
+
+#define NUM_MODES_FOR_MODE_SWITCHING { FP_CW_ANY }
+
+/* ENTITY is an integer specifying a mode-switched entity.  If
+   `OPTIMIZE_MODE_SWITCHING' is defined, you must define this macro to
+   return an integer value not larger than the corresponding element
+   in `NUM_MODES_FOR_MODE_SWITCHING', to denote the mode that ENTITY
+   must be switched into prior to the execution of INSN.  */
+
+#define MODE_NEEDED(ENTITY, I)						\
+  (GET_CODE (I) == CALL_INSN						\
+   || (GET_CODE (I) == INSN && (asm_noperands (PATTERN (I)) >= 0 	\
+				|| GET_CODE (PATTERN (I)) == ASM_INPUT))\
+   ? FP_CW_UNINITIALIZED						\
+   : recog_memoized (I) < 0 || get_attr_type (I) != TYPE_FISTP		\
+   ? FP_CW_ANY								\
+   : FP_CW_STORED)
+
+/* This macro specifies the order in which modes for ENTITY are
+   processed.  0 is the highest priority.  */
+
+#define MODE_PRIORITY_TO_MODE(ENTITY, N) N
+
+/* Generate one or more insns to set ENTITY to MODE.  HARD_REG_LIVE
+   is the set of hard registers live at the point where the insn(s)
+   are to be inserted.  */
+
+#define EMIT_MODE_SET(ENTITY, MODE, HARD_REGS_LIVE) 			\
+  (MODE == FP_CW_STORED							\
+   ? emit_i387_cw_initialization (assign_386_stack_local (HImode, 1),	\
+				  assign_386_stack_local (HImode, 2)), 0\
+   : 0)
+
+/* Avoid renaming of stack registers, as doing so in combination with
+   scheduling just increases amount of live registers at time and in
+   the turn amount of fxch instructions needed.
+
+   ??? Maybe Pentium chips benefits from renaming, someone can try...  */
+
+#define HARD_REGNO_RENAME_OK(src,target)  \
+   ((src) < FIRST_STACK_REG || (src) > LAST_STACK_REG)
+
 
 /*
 Local variables:

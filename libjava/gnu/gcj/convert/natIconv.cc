@@ -1,6 +1,6 @@
 // Input_iconv.java -- Java side of iconv() reader.
 
-/* Copyright (C) 2000  Free Software Foundation
+/* Copyright (C) 2000, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -17,7 +17,10 @@ details.  */
 
 #include <gnu/gcj/convert/Input_iconv.h>
 #include <gnu/gcj/convert/Output_iconv.h>
+#include <java/io/CharConversionException.h>
 #include <java/io/UnsupportedEncodingException.h>
+
+#include <errno.h>
 
 #ifdef HAVE_ICONV
 #include <iconv.h>
@@ -84,7 +87,14 @@ gnu::gcj::convert::Input_iconv::read (jcharArray outbuffer,
   size_t r = iconv_adapter (iconv, (iconv_t) handle,
 			    &inbuf, &inavail,
 			    &outbuf, &outavail);
-  // FIXME: what if R==-1?
+
+  if (r == (size_t) -1)
+    {
+      // Incomplete character.
+      if (errno == EINVAL || errno == E2BIG)
+	return 0;
+      throw new java::io::CharConversionException ();
+    }
 
   if (iconv_byte_swap)
     {
@@ -102,6 +112,24 @@ gnu::gcj::convert::Input_iconv::read (jcharArray outbuffer,
   return (old_out - outavail) / sizeof (jchar);
 #else /* HAVE_ICONV */
   return -1;
+#endif /* HAVE_ICONV */
+}
+
+void
+gnu::gcj::convert::Input_iconv::done ()
+{
+#ifdef HAVE_ICONV
+  // 50 bytes should be enough for any reset sequence.
+  size_t avail = 50;
+  char tmp[avail];
+  char *p = tmp;
+  // Calling iconv() with a NULL INBUF pointer will cause iconv() to
+  // switch to its initial state.  We don't care about the output that
+  // might be generated in that situation.
+  iconv_adapter (iconv, (iconv_t) handle, NULL, NULL, &p, &avail);
+  BytesToUnicode::done ();
+#else /* HAVE_ICONV */
+  // If no iconv, do nothing
 #endif /* HAVE_ICONV */
 }
 
@@ -240,4 +268,22 @@ gnu::gcj::convert::IOConverter::iconv_init (void)
     }
 #endif /* HAVE_ICONV */
   return result;
+}
+
+void
+gnu::gcj::convert::Output_iconv::done ()
+{
+#ifdef HAVE_ICONV
+  // 50 bytes should be enough for any reset sequence.
+  size_t avail = 50;
+  char tmp[avail];
+  char *p = tmp;
+  // Calling iconv() with a NULL INBUF pointer will cause iconv() to
+  // switch to its initial state.  We don't care about the output that
+  // might be generated in that situation.
+  iconv_adapter (iconv, (iconv_t) handle, NULL, NULL, &p, &avail);
+  UnicodeToBytes::done ();
+#else /* HAVE_ICONV */
+  // If no iconv, do nothing
+#endif /* HAVE_ICONV */
 }

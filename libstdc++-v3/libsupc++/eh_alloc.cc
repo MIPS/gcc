@@ -33,9 +33,10 @@
 #include <exception>
 #include <cstdlib>
 #include <cstring>
-#include <limits.h>
+#include <climits>
 #include "unwind-cxx.h"
-#include "gthr.h"
+#include "bits/c++config.h"
+#include "bits/gthr.h"
 
 using namespace __cxxabiv1;
 

@@ -44,7 +44,6 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-#include <setjmp.h>
 #include "flags.h"
 #include "tree.h"
 #include "rtl.h"
@@ -59,6 +58,9 @@ static void encode		PARAMS ((HOST_WIDE_INT *,
 static void decode		PARAMS ((HOST_WIDE_INT *,
 					 unsigned HOST_WIDE_INT *,
 					 HOST_WIDE_INT *));
+#ifndef REAL_ARITHMETIC
+static void exact_real_inverse_1 PARAMS ((PTR));
+#endif
 static tree negate_expr		PARAMS ((tree));
 static tree split_tree		PARAMS ((tree, enum tree_code, tree *, tree *,
 					 int));
@@ -956,51 +958,41 @@ target_negative (x)
 
 /* Try to change R into its exact multiplicative inverse in machine mode
    MODE.  Return nonzero function value if successful.  */
-
-int
-exact_real_inverse (mode, r)
-     enum machine_mode mode;
-     REAL_VALUE_TYPE *r;
+struct exact_real_inverse_args
 {
-  jmp_buf float_error;
+  REAL_VALUE_TYPE *r;
+  enum machine_mode mode;
+  int success;
+};
+
+static void
+exact_real_inverse_1 (p)
+     PTR p;
+{
+  struct exact_real_inverse_args *args =
+    (struct exact_real_inverse_args *) p;
+
+  enum machine_mode mode = args->mode;
+  REAL_VALUE_TYPE *r = args->r;
+
   union
-    {
-      double d;
-      unsigned short i[4];
-    }x, t, y;
+  {
+    double d;
+    unsigned short i[4];
+  }
+  x, t, y;
 #ifdef CHECK_FLOAT_VALUE
   int i;
 #endif
 
-  /* Usually disable if bounds checks are not reliable.  */
-  if ((HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT) && !flag_pretend_float)
-    return 0;
-
   /* Set array index to the less significant bits in the unions, depending
-     on the endian-ness of the host doubles.
-     Disable if insufficient information on the data structure.  */
-#if HOST_FLOAT_FORMAT == UNKNOWN_FLOAT_FORMAT
-  return 0;
+     on the endian-ness of the host doubles.  */
+#if HOST_FLOAT_FORMAT == VAX_FLOAT_FORMAT \
+ || HOST_FLOAT_FORMAT == IBM_FLOAT_FORMAT
+# define K 2
 #else
-#if HOST_FLOAT_FORMAT == VAX_FLOAT_FORMAT
-#define K 2
-#else
-#if HOST_FLOAT_FORMAT == IBM_FLOAT_FORMAT
-#define K 2
-#else
-#define K (2 * HOST_FLOAT_WORDS_BIG_ENDIAN)
+# define K (2 * HOST_FLOAT_WORDS_BIG_ENDIAN)
 #endif
-#endif
-#endif
-
-  if (setjmp (float_error))
-    {
-      /* Don't do the optimization if there was an arithmetic error.  */
-fail:
-      set_float_handler (NULL);
-      return 0;
-    }
-  set_float_handler (float_error);
 
   /* Domain check the argument.  */
   x.d = *r;
@@ -1040,9 +1032,40 @@ fail:
 #endif
 
   /* Output the reciprocal and return success flag.  */
-  set_float_handler (NULL);
   *r = y.d;
-  return 1;
+  args->success = 1;
+  return;
+
+ fail:
+  args->success = 0;
+  return;
+
+#undef K
+}
+
+
+int
+exact_real_inverse (mode, r)
+     enum machine_mode mode;
+     REAL_VALUE_TYPE *r;
+{
+  struct exact_real_inverse_args args;
+
+  /* Disable if insufficient information on the data structure.  */
+#if HOST_FLOAT_FORMAT == UNKNOWN_FLOAT_FORMAT
+  return 0;
+#endif
+
+  /* Usually disable if bounds checks are not reliable.  */
+  if ((HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT) && !flag_pretend_float)
+    return 0;
+
+  args.mode = mode;
+  args.r = r;
+
+  if (do_float_handler (exact_real_inverse_1, (PTR) &args))
+    return args.success;
+  return 0;
 }
 
 /* Convert C99 hexadecimal floating point string constant S.  Return
@@ -1051,11 +1074,11 @@ fail:
 
 REAL_VALUE_TYPE
 real_hex_to_f (s, mode)
-   char *s;
+   const char *s;
    enum machine_mode mode;
 {
   REAL_VALUE_TYPE ip;
-  char *p = s;
+  const char *p = s;
   unsigned HOST_WIDE_INT low, high;
   int shcount, nrmcount, k;
   int sign, expsign, isfloat;
@@ -1354,7 +1377,7 @@ split_tree (in, code, conp, litp, negate_p)
   *conp = 0;
   *litp = 0;
 
-  /* Strip any conversions that don't change the machine mode or signedness. */
+  /* Strip any conversions that don't change the machine mode or signedness.  */
   STRIP_SIGN_NOPS (in);
 
   if (TREE_CODE (in) == INTEGER_CST || TREE_CODE (in) == REAL_CST)
@@ -1385,7 +1408,7 @@ split_tree (in, code, conp, litp, negate_p)
 	*conp = op1, neg_conp_p = neg1_p, op1 = 0;
 
       /* If we haven't dealt with either operand, this is not a case we can
-	 decompose.  Otherwise, VAR is either of the ones remaining, if any. */
+	 decompose.  Otherwise, VAR is either of the ones remaining, if any.  */
       if (op0 != 0 && op1 != 0)
 	var = in;
       else if (op0 != 0)
@@ -1546,7 +1569,7 @@ int_const_binop (code, arg1, arg2, notrunc, forsize)
 	  break;
 	}
 
-      /* ... fall through ... */
+      /* ... fall through ...  */
 
     case ROUND_DIV_EXPR:
       if (int2h == 0 && int2l == 1)
@@ -1579,7 +1602,7 @@ int_const_binop (code, arg1, arg2, notrunc, forsize)
 	  break;
 	}
 
-      /* ... fall through ... */
+      /* ... fall through ...  */
 
     case ROUND_MOD_EXPR:
       overflow = div_and_round_double (code, uns,
@@ -1745,11 +1768,11 @@ const_binop (code, arg1, arg2, notrunc)
       args.code = code;
 
       if (do_float_handler (const_binop_1, (PTR) &args))
-	/* Receive output from const_binop_1. */
+	/* Receive output from const_binop_1.  */
 	t = args.t;
       else
 	{
-	  /* We got an exception from const_binop_1. */
+	  /* We got an exception from const_binop_1.  */
 	  t = copy_node (arg1);
 	  overflow = 1;
 	}
@@ -1980,9 +2003,9 @@ size_diffop (arg0, arg1)
 /* This structure is used to communicate arguments to fold_convert_1.  */
 struct fc_args
 {
-  tree arg1;			/* Input: value to convert. */
-  tree type;			/* Input: type to convert value to. */
-  tree t;			/* Ouput: result of conversion. */
+  tree arg1;			/* Input: value to convert.  */
+  tree type;			/* Input: type to convert value to.  */
+  tree t;			/* Ouput: result of conversion.  */
 };
 
 /* Function to convert floating-point constants, protected by floating
@@ -2383,7 +2406,7 @@ operand_equal_p (arg0, arg1, only_const)
 
     case 'r':
       /* If either of the pointer (or reference) expressions we are dereferencing
-	 contain a side effect, these cannot be equal. */
+	 contain a side effect, these cannot be equal.  */
       if (TREE_SIDE_EFFECTS (arg0)
 	  || TREE_SIDE_EFFECTS (arg1))
 	return 0;
@@ -3265,7 +3288,7 @@ range_binop (code, type, arg0, upper0_p, arg1, upper1_p)
      the same. But, this is computer arithmetic, where numbers are finite.
      We can therefore make the transformation of any unbounded range with
      the value Z, Z being greater than any representable number. This permits
-     us to treat unbounded ranges as equal. */
+     us to treat unbounded ranges as equal.  */
   sgn0 = arg0 != 0 ? 0 : (upper0_p ? 1 : -1);
   sgn1 = arg1 != 0 ? 0 : (upper1_p ? 1 : -1);
   switch (code)
@@ -4552,7 +4575,7 @@ extract_muldiv (t, c, code, wide_type)
 
       /* The last case is if we are a multiply.  In that case, we can
 	 apply the distributive law to commute the multiply and addition
-	 if the multiplication of the constants doesn't overflow. */
+	 if the multiplication of the constants doesn't overflow.  */
       if (code == MULT_EXPR)
 	return fold (build (tcode, ctype, fold (build (code, ctype,
 						       convert (ctype, op0),
@@ -4570,7 +4593,7 @@ extract_muldiv (t, c, code, wide_type)
 	  && integer_zerop (const_binop (TRUNC_MOD_EXPR, op1, c, 0)))
 	return omit_one_operand (type, integer_zero_node, op0);
 
-      /* ... fall through ... */
+      /* ... fall through ...  */
 
     case TRUNC_DIV_EXPR:  case CEIL_DIV_EXPR:  case FLOOR_DIV_EXPR:
     case ROUND_DIV_EXPR:  case EXACT_DIV_EXPR:
@@ -5564,7 +5587,7 @@ fold (expr)
 	     associate each group together, the constants with literals,
 	     then the result with variables.  This increases the chances of
 	     literals being recombined later and of generating relocatable
-	     expressions for the sum of a constant and literal. */
+	     expressions for the sum of a constant and literal.  */
 	  var0 = split_tree (arg0, code, &con0, &lit0, 0);
 	  var1 = split_tree (arg1, code, &con1, &lit1, code == MINUS_EXPR);
 
@@ -5854,7 +5877,7 @@ fold (expr)
 	      && 0 != (tem = const_binop (code, build_real (type, dconst1),
 					  arg1, 0)))
 	    return fold (build (MULT_EXPR, type, arg0, tem));
-	  /* Find the reciprocal if optimizing and the result is exact. */
+	  /* Find the reciprocal if optimizing and the result is exact.  */
 	  else if (optimize)
 	    {
 	      REAL_VALUE_TYPE r;
@@ -5865,6 +5888,23 @@ fold (expr)
 		  return fold (build (MULT_EXPR, type, arg0, tem));
 		}
 	    }
+	}
+      /* Convert A/B/C to A/(B*C).  */
+      if (flag_unsafe_math_optimizations
+	  && TREE_CODE (arg0) == RDIV_EXPR)
+	{
+	  return fold (build (RDIV_EXPR, type, TREE_OPERAND (arg0, 0),
+			      build (MULT_EXPR, type, TREE_OPERAND (arg0, 1),
+				     arg1)));
+	}
+      /* Convert A/(B/C) to (A/B)*C.  */
+      if (flag_unsafe_math_optimizations
+	  && TREE_CODE (arg1) == RDIV_EXPR)
+	{
+	  return fold (build (MULT_EXPR, type,
+			      build (RDIV_EXPR, type, arg0,
+			     	     TREE_OPERAND (arg1, 0)),
+	 		      TREE_OPERAND (arg1, 1)));
 	}
       goto binary;
 
@@ -6028,7 +6068,7 @@ fold (expr)
 	 truth and/or operations and the transformation will still be
 	 valid.   Also note that we only care about order for the
 	 ANDIF and ORIF operators.  If B contains side effects, this
-	 might change the truth-value of A. */
+	 might change the truth-value of A.  */
       if (TREE_CODE (arg0) == TREE_CODE (arg1)
 	  && (TREE_CODE (arg0) == TRUTH_ANDIF_EXPR
 	      || TREE_CODE (arg0) == TRUTH_ORIF_EXPR
@@ -6499,7 +6539,7 @@ fold (expr)
 	    case EQ_EXPR:
 	    case GE_EXPR:
 	    case LE_EXPR:
-	      if (INTEGRAL_TYPE_P (TREE_TYPE (arg0)))
+	      if (! FLOAT_TYPE_P (TREE_TYPE (arg0)))
 		return constant_boolean_node (1, type);
 	      code = EQ_EXPR;
 	      TREE_SET_CODE (t, code);
@@ -6507,7 +6547,7 @@ fold (expr)
 
 	    case NE_EXPR:
 	      /* For NE, we can only do this simplification if integer.  */
-	      if (! INTEGRAL_TYPE_P (TREE_TYPE (arg0)))
+	      if (FLOAT_TYPE_P (TREE_TYPE (arg0)))
 		break;
 	      /* ... fall through ...  */
 	    case GT_EXPR:
@@ -7325,7 +7365,7 @@ multiple_of_p (type, top, bottom)
 	      < TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (top, 0)))))
 	return 0;
 
-      /* .. fall through ... */
+      /* .. fall through ...  */
 
     case SAVE_EXPR:
       return multiple_of_p (type, TREE_OPERAND (top, 0), bottom);

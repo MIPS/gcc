@@ -472,8 +472,8 @@ DEFTREECODE (METHOD_CALL_EXPR, "method_call_expr", 'e', 4)
 
 /* Specify a value to compute along with its corresponding cleanup.
    Operand 0 argument is an expression whose value needs a cleanup.
-   Operand 1 is an RTL_EXPR which will eventually represent that value.
-   Operand 2 is the cleanup expression for the object.
+   Operand 1 is the cleanup expression for the object.
+   Operand 2 is an RTL_EXPR which will eventually represent that value.
      The RTL_EXPR is used in this expression, which is how the expression
      manages to act on the proper value.
    The cleanup is executed by the first enclosing CLEANUP_POINT_EXPR, if
@@ -599,10 +599,6 @@ DEFTREECODE (FIX_ROUND_EXPR, "fix_round_expr", '1', 1)
 /* Conversion of an integer to a real.  */
 DEFTREECODE (FLOAT_EXPR, "float_expr", '1', 1)
 
-/* Exponentiation.  Operands may have any types;
-   constraints on value type are not known yet.  */
-DEFTREECODE (EXPON_EXPR, "expon_expr", '2', 2)
-
 /* Unary negation.  */
 DEFTREECODE (NEGATE_EXPR, "negate_expr", '1', 1)
 
@@ -621,7 +617,9 @@ DEFTREECODE (FFS_EXPR, "ffs_expr", '1', 1)
    Shift means logical shift if done on an
    unsigned type, arithmetic shift if done on a signed type.
    The second operand is the number of bits to
-   shift by; it need not be the same type as the first operand and result.  */
+   shift by; it need not be the same type as the first operand and result.
+   Note that the result is undefined if the second operand is larger
+   than the first operand's type size.  */
 DEFTREECODE (LSHIFT_EXPR, "lshift_expr", '2', 2)
 DEFTREECODE (RSHIFT_EXPR, "rshift_expr", '2', 2)
 DEFTREECODE (LROTATE_EXPR, "lrotate_expr", '2', 2)
