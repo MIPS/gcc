@@ -318,6 +318,7 @@ static int rank_for_schedule PARAMS ((const PTR, const PTR));
 static void swap_sort PARAMS ((rtx *, int));
 static void queue_insn PARAMS ((rtx, int));
 static void schedule_insn PARAMS ((rtx, struct ready_list *, int));
+static int find_set_reg_weight PARAMS ((rtx));
 static void find_insn_reg_weight PARAMS ((int));
 static void adjust_priority PARAMS ((rtx));
 static void advance_one_cycle PARAMS ((void));
@@ -851,6 +852,7 @@ rank_for_schedule (x, y)
 
   /* Prefer insn with higher priority.  */
   priority_val = INSN_PRIORITY (tmp2) - INSN_PRIORITY (tmp);
+
   if (priority_val)
     return priority_val;
 
@@ -1537,6 +1539,32 @@ rm_other_notes (head, tail)
 
 /* Functions for computation of registers live/usage info.  */
 
+/* This function looks for a new register being defined.
+   If the destination register is already used by the source,
+   a new register is not needed. */
+
+static int
+find_set_reg_weight (x)
+    rtx x;
+{
+  if (GET_CODE (x) == CLOBBER
+      && register_operand (SET_DEST (x), VOIDmode))
+    return 1;
+  if (GET_CODE (x) == SET
+      && register_operand (SET_DEST (x), VOIDmode))
+    {
+      if (GET_CODE (SET_DEST (x)) == REG)
+	{
+	  if (!reg_mentioned_p (SET_DEST (x), SET_SRC (x)))
+	    return 1;
+	  else
+	    return 0;
+	}
+      return 1;
+    }
+  return 0;
+}
+
 /* Calculate INSN_REG_WEIGHT for all insns of a block.  */
 
 static void
@@ -1559,21 +1587,16 @@ find_insn_reg_weight (b)
 
       /* Increment weight for each register born here.  */
       x = PATTERN (insn);
-      if ((GET_CODE (x) == SET || GET_CODE (x) == CLOBBER)
-	  && register_operand (SET_DEST (x), VOIDmode))
-	reg_weight++;
-      else if (GET_CODE (x) == PARALLEL)
-	{
-	  int j;
-	  for (j = XVECLEN (x, 0) - 1; j >= 0; j--)
-	    {
-	      x = XVECEXP (PATTERN (insn), 0, j);
-	      if ((GET_CODE (x) == SET || GET_CODE (x) == CLOBBER)
-		  && register_operand (SET_DEST (x), VOIDmode))
-		reg_weight++;
-	    }
-	}
-
+      reg_weight += find_set_reg_weight (x);
+      if (GET_CODE (x) == PARALLEL)
+ 	{
+ 	  int j;
+ 	  for (j = XVECLEN (x, 0) - 1; j >= 0; j--)
+ 	    {
+ 	      x = XVECEXP (PATTERN (insn), 0, j);
+	      reg_weight += find_set_reg_weight (x);
+ 	    }
+ 	}
       /* Decrement weight for each register that dies here.  */
       for (x = REG_NOTES (insn); x; x = XEXP (x, 1))
 	{
@@ -2219,11 +2242,14 @@ schedule_block (b, rgn_n_insns)
 	next:
 	  first_cycle_insn_p = 0;
 
+	  /* Sort the ready list based on priority.  This must be
+	     redone here, as schedule_insn may have readied additional
+	     insns that will not be sorted correctly. */
+	  if (ready.n_ready > 0)
+	    ready_sort (&ready);
+
 	  if (targetm.sched.reorder2)
 	    {
-	      /* Sort the ready list based on priority.  */
-	      if (ready.n_ready > 0)
-		ready_sort (&ready);
 	      can_issue_more =
 		(*targetm.sched.reorder2) (sched_dump, sched_verbose,
 					   ready.n_ready

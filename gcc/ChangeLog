@@ -1,3 +1,12 @@
+2002-12-17  Vladimir Makarov  <vmakarov@redhat.com>
+
+	2002-10-31  Dale Johannesen <dalej@apple.com>
+
+	* haifa-sched.c (find_set_reg_weight): New function.
+	(find_insn_reg_weight): Use the new function.
+	(schedule_block): Do sorting ready queue always
+	after insn issue.
+
 2002-11-27  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* config/ia64/ia64.c (bundling): Use MFI template instead of MLX.
