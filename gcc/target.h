@@ -217,6 +217,14 @@ struct gcc_target
     rtx (* dfa_bubble) PARAMS ((int));
   } sched;
 
+  /* Functions relating to callgraph optimizations.  */
+  struct cgraph
+  {
+    /* Called for static functions whose address is not taken,  so for instance
+       calling convention can be customized.  */
+    void (* optimize_local_function) PARAMS ((tree));
+  } cgraph;
+
   /* Given two decls, merge their attributes and return the result.  */
   tree (* merge_decl_attributes) PARAMS ((tree, tree));
 

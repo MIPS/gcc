@@ -910,6 +910,10 @@ int flag_new_regalloc = 0;
 
 int flag_tracer = 0;
 
+/* Nonzero if we porform compilation unit at time compilation.  */
+
+int flag_unit_at_time = 0;
+
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
    For each variable, there is an _log variant which is the power
@@ -1022,6 +1026,8 @@ static const lang_independent_options f_options[] =
    N_("Optimize sibling and tail recursive calls") },
   {"tracer", &flag_tracer, 1,
    N_("Perform superblock formation via tail duplication") },
+  {"unit-at-time", &flag_unit_at_time, 1,
+   N_("Compile whole compilation unit at time") },
   {"cse-follow-jumps", &flag_cse_follow_jumps, 1,
    N_("When running CSE, follow jumps to their targets") },
   {"cse-skip-blocks", &flag_cse_skip_blocks, 1,
@@ -4966,6 +4972,7 @@ parse_options_and_default_flags (argc, argv)
       flag_inline_functions = 1;
       flag_rename_registers = 1;
       flag_tracer = 1;
+      flag_unit_at_time = 1;
     }
 
   if (optimize < 2 || optimize_size)
@@ -5157,6 +5164,11 @@ process_options ()
     flag_asynchronous_unwind_tables = 1;
   if (flag_asynchronous_unwind_tables)
     flag_unwind_tables = 1;
+
+  /* Disable unit-at-time mode for frontends not supporting callgraph
+     interface.  */
+  if (flag_unit_at_time && ! lang_hooks.callgraph.expand_function)
+    flag_unit_at_time = 0;
 
   /* Warn about options that are not supported on this machine.  */
 #ifndef INSN_SCHEDULING

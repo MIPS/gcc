@@ -217,6 +217,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SCHED_INIT_DFA_BUBBLES,				\
    TARGET_SCHED_DFA_BUBBLE}
 
+#define TARGET_CGRAPH_OPTIMIZE_LOCAL_FUNCTION 0
+#define TARGET_CGRAPH						\
+   {TARGET_CGRAPH_OPTIMIZE_LOCAL_FUNCTION}
+
 /* All in tree.c.  */
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_decl_attributes
 #define TARGET_MERGE_TYPE_ATTRIBUTES merge_type_attributes
@@ -261,6 +265,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 {						\
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
+  TARGET_CGRAPH,				\
   TARGET_MERGE_DECL_ATTRIBUTES,			\
   TARGET_MERGE_TYPE_ATTRIBUTES,			\
   TARGET_ATTRIBUTE_TABLE,			\

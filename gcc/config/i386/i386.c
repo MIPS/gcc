@@ -905,6 +905,7 @@ static rtx construct_container PARAMS ((enum machine_mode, tree, int, int, int,
 					const int *, int));
 static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 						    enum x86_64_reg_class));
+static void x86_optimize_local_function PARAMS ((tree));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -963,6 +964,9 @@ static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
   ia32_multipass_dfa_lookahead
+#undef TARGET_CGRAPH_OPTIMIZE_LOCAL_FUNCTION
+#define TARGET_CGRAPH_OPTIMIZE_LOCAL_FUNCTION x86_optimize_local_function
+
 
 #ifdef HAVE_AS_TLS
 #undef TARGET_HAVE_TLS
@@ -7949,7 +7953,7 @@ ix86_expand_vector_move (mode, operands)
   if ((reload_in_progress | reload_completed) == 0
       && register_operand (operands[0], mode)
       && CONSTANT_P (operands[1]))
-    operands[1] = force_const_mem (mode, operands[1]);
+    operands[1] = validize_mem (force_const_mem (mode, operands[1]));
 
   /* Make operand1 a register if it isn't already.  */
   if (!no_new_pseudos
@@ -14549,7 +14553,7 @@ x86_function_profiler (file, labelno)
   else
     {
 #ifndef NO_PROFILE_COUNTERS
-      fprintf (file, "\tmovl\t$%sP%d,%%$s\n", LPREFIX, labelno,
+      fprintf (file, "\tmovl\t$%sP%d,%%$%s\n", LPREFIX, labelno,
 	       PROFILE_COUNT_REGISTER);
 #endif
       fprintf (file, "\tcall\t%s\n", MCOUNT_NAME);
@@ -14641,6 +14645,29 @@ x86_extended_reg_mentioned_p (insn)
      rtx insn;
 {
   return for_each_rtx (&PATTERN (insn), extended_reg_mentioned_1, NULL);
+}
+
+static void
+x86_optimize_local_function (decl)
+     tree decl;
+{
+  if (!TARGET_64BIT
+      && !lookup_attribute ("regparm", TYPE_ATTRIBUTES (TREE_TYPE (decl)))
+      && !lookup_attribute ("stdcall", TYPE_ATTRIBUTES (TREE_TYPE (decl)))
+      && !lookup_attribute ("fastcall", TYPE_ATTRIBUTES (TREE_TYPE (decl)))
+      /* We can't use regparm(3) for nested functions as these use
+         static chain pointer in third argument.  */
+      && !(DECL_CONTEXT (decl) && !DECL_NO_STATIC_CHAIN (decl)))
+    {
+      tree type = copy_node (TREE_TYPE (decl));
+      TYPE_ATTRIBUTES (type) = copy_list (TYPE_ATTRIBUTES (type));
+      TYPE_ATTRIBUTES (type) =
+	chainon (TYPE_ATTRIBUTES (type),
+		 build_tree_list (get_identifier ("regparm"),
+				  build_tree_list (NULL_TREE,
+						   build_int_2 (3, 0))));
+      TREE_TYPE (decl) = type;
+    }
 }
 
 #include "gt-i386.h"

@@ -356,7 +356,13 @@ finish_cdtor (body)
 void
 c_objc_common_finish_file ()
 {
-  expand_deferred_fns ();
+  if (flag_unit_at_time)
+    {
+      cgraph_finalize_compilation_unit ();
+      cgraph_optimize ();
+    }
+  else
+    expand_deferred_fns ();
 
   if (static_ctors)
     {

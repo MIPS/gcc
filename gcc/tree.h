@@ -3173,6 +3173,15 @@ extern void dump_node			PARAMS ((tree, int, FILE *));
 extern int dump_switch_p                PARAMS ((const char *));
 extern const char *dump_flag_name	PARAMS ((enum tree_dump_index));
 
+/* In callgraph.c  */
+void cgraph_finalize_function		PARAMS ((tree, tree));
+void cgraph_finalize_compilation_unit	PARAMS ((void));
+void cgraph_create_edges		PARAMS ((tree, tree));
+void dump_cgraph			PARAMS ((FILE *));
+void cgraph_optimize			PARAMS ((void));
+void cgraph_remove_call			PARAMS ((tree, tree));
+bool cgraph_calls_p			PARAMS ((tree, tree));
+
 
 /* Redefine abort to report an internal error w/o coredump, and
    reporting the location of the error in the source file.  This logic

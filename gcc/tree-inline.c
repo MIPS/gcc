@@ -103,6 +103,8 @@ typedef struct inline_data
   /* Hash table used to prevent walk_tree from visiting the same node
      umpteen million times.  */
   htab_t tree_pruner;
+  /* Decl of function we are inlining into.  */
+  tree decl;
 } inline_data;
 
 /* Prototypes.  */
@@ -112,7 +114,7 @@ static tree copy_body_r PARAMS ((tree *, int *, void *));
 static tree copy_body PARAMS ((inline_data *));
 static tree expand_call_inline PARAMS ((tree *, int *, void *));
 static void expand_calls_inline PARAMS ((tree *, inline_data *));
-static int inlinable_function_p PARAMS ((tree, inline_data *));
+static int inlinable_function_p PARAMS ((tree, inline_data *, int));
 static tree remap_decl PARAMS ((tree, inline_data *));
 #ifndef INLINER_FOR_JAVA
 static tree initialize_inlined_parameters PARAMS ((inline_data *, tree, tree));
@@ -867,10 +869,11 @@ declare_return_variable (id, var)
 /* Returns nonzero if a function can be inlined as a tree.  */
 
 int
-tree_inlinable_function_p (fn)
+tree_inlinable_function_p (fn, nolimit)
      tree fn;
+     int nolimit;
 {
-  return inlinable_function_p (fn, NULL);
+  return inlinable_function_p (fn, NULL, nolimit);
 }
 
 /* If *TP is possibly call to alloca, return nonzero.  */
@@ -924,9 +927,10 @@ find_builtin_longjmp_call (exp)
    can be inlined at all.  */
 
 static int
-inlinable_function_p (fn, id)
+inlinable_function_p (fn, id, nolimit)
      tree fn;
      inline_data *id;
+     int nolimit;
 {
   int inlinable;
   int currfn_insns;
@@ -951,12 +955,13 @@ inlinable_function_p (fn, id)
      front-end that must set DECL_INLINE in this case, because
      dwarf2out loses if a function is inlined that doesn't have
      DECL_INLINE set.  */
-  else if (! DECL_INLINE (fn))
+  else if (! DECL_INLINE (fn) && !nolimit)
     ;
   /* We can't inline functions that are too big.  Only allow a single
      function to be of MAX_INLINE_INSNS_SINGLE size.  Make special
      allowance for extern inline functions, though.  */
   else if (! (*lang_hooks.tree_inlining.disregard_inline_limits) (fn)
+	   && !nolimit
 	   && currfn_insns > MAX_INLINE_INSNS_SINGLE)
     ;
   /* We can't inline functions that call __builtin_longjmp at all.
@@ -987,7 +992,7 @@ inlinable_function_p (fn, id)
   /* In case we don't disregard the inlining limits and we basically
      can inline this function, investigate further.  */
   if (! (*lang_hooks.tree_inlining.disregard_inline_limits) (fn)
-      && inlinable)
+      && inlinable && !nolimit)
     {
       int sum_insns = (id ? id->inlined_stmts : 0) * INSNS_PER_STMT
 		     + currfn_insns;
@@ -1140,7 +1145,7 @@ expand_call_inline (tp, walk_subtrees, data)
 
   /* Don't try to inline functions that are not well-suited to
      inlining.  */
-  if (!inlinable_function_p (fn, id))
+  if (!inlinable_function_p (fn, id, 0))
     return NULL_TREE;
 
   if (! (*lang_hooks.tree_inlining.start_inlining) (fn))
@@ -1362,6 +1367,13 @@ expand_call_inline (tp, walk_subtrees, data)
   /* For accounting, subtract one for the saved call/ret.  */
   id->inlined_stmts += DECL_NUM_STMTS (fn) - 1;
 
+  /* Update callgraph if needed.  */
+  if (id->decl && flag_unit_at_time)
+    {
+      cgraph_remove_call (id->decl, fn);
+      cgraph_create_edges (id->decl, *inlined_body);
+    }
+
   /* Recurse into the body of the just inlined function.  */
   expand_calls_inline (inlined_body, id);
   VARRAY_POP (id->fns);
@@ -1375,7 +1387,6 @@ expand_call_inline (tp, walk_subtrees, data)
   *walk_subtrees = 0;
 
   (*lang_hooks.tree_inlining.end_inlining) (fn);
-
   /* Keep iterating.  */
   return NULL_TREE;
 }
@@ -1408,6 +1419,7 @@ optimize_inline_calls (fn)
   /* Clear out ID.  */
   memset (&id, 0, sizeof (id));
 
+  id.decl = fn;
   /* Don't allow recursion into FN.  */
   VARRAY_TREE_INIT (id.fns, 32, "fns");
   VARRAY_PUSH_TREE (id.fns, fn);
