@@ -1,5 +1,8 @@
 2004-03-13  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* jni/classpath/jcl.c: Include stdlib.h, not malloc.h.
+	* jni/classpath/jnilink.c: Likewise.
+
 	* java/applet/Applet.java (getPreferredSize): New method.
 	(getMinimumSize): New method.
 
