@@ -1,5 +1,14 @@
 2002-08-14  Graydon Hoare  <graydon@redhat.com>
 
+	* Makefile.am (TESTS): Add testsuite support.
+	* Makefile.in: Regenerate.
+	* test/mf-driver.c: New file.
+	* test/buildtest.sh: New file.
+	* test/passNN-frag.c: New testcases.
+	* test/failNN-frag.c: New testcases.
+
+2002-08-14  Graydon Hoare  <graydon@redhat.com>
+
 	* mf-hooks.c: Change __real_strlen() to __real_strlen()+1 when
 	verifying non-size-limited string extents.
 
