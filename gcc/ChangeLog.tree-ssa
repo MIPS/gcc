@@ -1,5 +1,10 @@
 2003-08-05  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dce.c (mark_tree_necessary): Empty statements may be
+	necessary.
+	(process_worklist): Handle any incoming abnormal edges the first
+	time a statement in each block becomes executable.
+
         * tree-ssa-ccp.c (substitute_and_fold): Substitute known
         constants into PHI nodes.
 

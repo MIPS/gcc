@@ -114,7 +114,6 @@ mark_tree_necessary (tree t)
   void **slot;
 
   if (t == NULL
-      || IS_EMPTY_STMT (t)
       || t == error_mark_node
       || necessary_p (t))
     return 0;
@@ -345,7 +344,8 @@ process_worklist (void)
 	      if (p == ENTRY_BLOCK_PTR)
 		continue;
 	      j = last_stmt (p);
-	      if (j && TREE_CODE (j) == GOTO_EXPR)
+	      if ((e->flags & EDGE_ABNORMAL)
+		  || (j && TREE_CODE (j) == GOTO_EXPR))
 		mark_necessary (j);
 	    }
 	}
