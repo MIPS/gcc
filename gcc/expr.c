@@ -1658,6 +1658,7 @@ emit_block_move (x, y, size, align)
 	  /* This was copied from except.c, I don't know if all this is
 	     necessary in this context or not.  */
 	  fn = get_identifier ("memcpy");
+	  ggc_add_tree_root (&fn, 1);
 	  push_obstacks_nochange ();
 	  end_temporary_allocation ();
 	  fntype = build_pointer_type (void_type_node);

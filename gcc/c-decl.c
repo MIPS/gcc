@@ -3573,6 +3573,8 @@ init_decl_processing ()
   ggc_add_tree_root (&void_type_node, 1);
   ggc_add_root (&global_binding_level, 1, sizeof(global_binding_level),
 		mark_binding_level);
+  ggc_add_root (&current_binding_level, 1, sizeof(current_binding_level),
+		mark_binding_level);
   ggc_add_root (&label_level_chain, 1, sizeof(label_level_chain),
 		mark_binding_level);
   ggc_add_tree_root (&static_ctors, 1);
