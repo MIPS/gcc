@@ -49,7 +49,3 @@ readonly_fields_p (type)
 /* There should be one load of ->common.code.  We currently fail this
    because we load from ->common.code using different types.  */
 /* { dg-final { scan-tree-dump-times "common\.code" 1 "ssa"} } */
-
-/* And there should be a single conditional since the second conditional
-   is redundant with the first.  */
-/* { dg-final { scan-tree-dump-times "if " 1 "ssa"} } */

@@ -32,17 +32,18 @@ union tree_node
   struct tree_decl decl;
 };
 long
-get_alias_set (t)
+get_alias_set (t,z)
      tree t;
+     rtx z;
 {
-  if (t->decl.rtl && (((t->decl.rtl ? 0
+  if (t->decl.rtl && (((t->decl.rtl ? z
                         : (make_decl_rtl (t, 0), t->decl.rtl)))->code))
-    return (((((t->decl.rtl ? 0 : (make_decl_rtl (t, 0), t->decl.rtl)))->
+    return (((((t->decl.rtl ? z : (make_decl_rtl (t, 0), t->decl.rtl)))->
               fld[1]).rtmem) == 0 ? 0 : (((((
                                                {
                                                t;}
                                             )->decl.
-                                            rtl ? 0 : (make_decl_rtl (t, 0),
+                                            rtl ? z : (make_decl_rtl (t, 0),
                                                        t->decl.rtl)))->
                                           fld[1]).rtmem)->alias);
 }

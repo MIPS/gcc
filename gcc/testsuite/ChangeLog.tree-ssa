@@ -1,3 +1,13 @@
+2003-08-14  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030711-2.c: Update slightly to avoid
+	dereferences of constant addresses.
+ 
+	* gcc.dg/tree-ssa/20030729-1.c: Remove incorrect test for
+	IF statement removal.
+ 
+	* gcc.dg/tree-ssa/20030808-1.c: New test.
+
 2003-08-12  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/20030807-8.c: New test.
