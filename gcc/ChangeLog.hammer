@@ -1,3 +1,28 @@
+2003-11-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Sync with 3.3-branch:
+
+	* config/i386/i386.c (MASK_SSE1): Removed.
+	(MASK_SSE164): Removed.
+	(MASK_SSE264): Removed.
+	(bdesc_comi): Replace MASK_SSE1 with MASK_SSE. Replace
+	MASK_SSE164 with MASK_SSE | MASK_64BIT. Replace MASK_SSE264
+	with MASK_SSE2 | MASK_64BIT.
+	(bdesc_2arg): Likewise.
+
+	* doc/extend.texi: Document new builtin functions for Intel
+	Prescott New Intrunctions.
+
+	* doc/invoke.texi: Document new command-line options, -mpni and
+	-mno-pni, for Intel Prescott New Intrunctions.
+
+	* config.gcc (extra_headers): Add emmintrin.h for i[34567]86-*-*
+	and x86_64-*-*.
+
+	* config/i386/emmintrin.h: Updated from 3.3-branch.
+	* config/i386/mmintrin.h: Likewise.
+	* config/i386/xmmintrin.h: Likewise.
+
 2003-11-24  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* genattrtab.c (strcmp_check, DEF_ATTR_STRING): New macros.
