@@ -291,7 +291,6 @@ static void hybrid_search_sbitmap PARAMS ((basic_block, sbitmap *, sbitmap *,
 					   enum df_confluence_op,
 					   transfer_function_sbitmap,
 					   sbitmap, sbitmap, void *));
-static inline bool read_modify_subreg_p PARAMS ((rtx));
 
 
 /* Local memory allocation/deallocation routines.  */
@@ -902,7 +901,7 @@ df_ref_record (df, reg, loc, insn, ref_type, ref_flags)
 /* Writes to paradoxical subregs, or subregs which are too narrow
    are read-modify-write.  */
 
-static inline bool
+inline bool
 read_modify_subreg_p (x)
      rtx x;
 {
@@ -911,13 +910,8 @@ read_modify_subreg_p (x)
     return false;
   isize = GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)));
   osize = GET_MODE_SIZE (GET_MODE (x));
-  if (isize <= osize)
-    return false;
-  if (isize <= UNITS_PER_WORD)
-    return false;
-  if (osize > UNITS_PER_WORD)
-    return false;
-  return true;
+  /* Paradoxical subreg writes don't leave a trace of the old content.  */
+  return (isize > osize && isize > UNITS_PER_WORD);
 }
 
 /* Process all the registers defined in the rtx, X.  */

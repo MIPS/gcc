@@ -1,5 +1,56 @@
 2003-11-24  Jan Hubicka  <jh@suse.cz>
 
+	Merge:
+	2003-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+		* optabs.c (prepare_cmp_insn): Try cmpmemM first if it exists,
+		then fall back to cmpstrM.
+		* builtins.c (expand_builtin_memcmp): Likewise.
+		* config/s390/s390-protos.h (s390_expand_cmpstr): Rename to...
+		(s390_expand_cmpmem): ... this.
+		* config/s390/s390.md (cmpmemdi, cmpmemsi, cmpmem_short_64,
+		cmpmem_short_31, cmpmem_long_64, cmpmem_long_31): Renamed
+		from cmpstr* patterns.  Rename call to s390_expand_cmpstr
+		to s390_expand_cmpmem.
+		* config/s390/s390.c (s390_expand_cmpstr): Rename to...
+		(s390_expand_cmpstr): ... this.  Rename cmpstr* instructions
+		to cmpmem*.
+		* config/i370/i370.md (cmpmemsi, cmpmemsi_1): Renamed from
+		cmpstr* patterns.
+		* doc/md.texi (cmpstrM): Describe as String compare insn, not
+		Block compare insn.
+		(cmpmemM): Add.
+
+		* gcc.dg/20030711-1.c: New test.
+
+	Ulrich Weigand
+		* prims.cc (catch_segv): Unblock correct signal.
+		(catch_fpe): Likewise.
+
+		* reload.c (find_reloads_subreg_address): Use correct offset for
+		paradoxical MEM subregs on big-endian targets.
+
+		* combine.c (simplify_set): Do not clear out undobuf.other_insn
+		already set elsewhere.
+
+		* combine.c (combine_simplify_rtx): Fix RTL sharing bug.
+
+		* combine.c (distribute_notes): Handle REG_ALWAYS_RETURN.
+
+		* config/s390/s390.c (s390_function_arg_float): New function.
+		(s390_function_arg_pass_by_reference): Use it.
+		(s390_function_arg_advance): Likewise.
+		(s390_function_arg): Likewise.
+		(s390_va_arg): Likewise
+
+		* config/s390/s390.c (s390_va_arg): Fix alignment when retrieving 
+		non-integral types from integer register save area slots.
+
+		* combine.c (simplify_comparison): Re-enable widening of comparisons
+		with non-paradoxical subregs of non-REG expressions.
+
+2003-11-24  Jan Hubicka  <jh@suse.cz>
+
 	* i386.c: Merge merdium model fixes from mainline.
 	* i386.h: Likewise.
 	* i386.md: Likewise.

@@ -3766,8 +3766,8 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 
 	  /* Simplify the alternative arms; this may collapse the true and
 	     false arms to store-flag values.  */
-	  true_rtx = subst (true_rtx, pc_rtx, pc_rtx, 0, 0);
-	  false_rtx = subst (false_rtx, pc_rtx, pc_rtx, 0, 0);
+	  true_rtx = subst (copy_rtx (true_rtx), pc_rtx, pc_rtx, 0, 0);
+	  false_rtx = subst (copy_rtx (false_rtx), pc_rtx, pc_rtx, 0, 0);
 
 	  /* If true_rtx and false_rtx are not general_operands, an if_then_else
 	     is unlikely to be simpler.  */
@@ -5280,10 +5280,12 @@ simplify_set (x)
 	 undobuf.other_insn.  */
       if (new_code != old_code)
 	{
+	  int other_changed_previously = other_changed;
 	  unsigned HOST_WIDE_INT mask;
 
 	  SUBST (*cc_use, gen_rtx_fmt_ee (new_code, GET_MODE (*cc_use),
 					  dest, const0_rtx));
+	  other_changed = 1;
 
 	  /* If the only change we made was to change an EQ into an NE or
 	     vice versa, OP0 has only one bit that might be nonzero, and OP1
@@ -5293,7 +5295,7 @@ simplify_set (x)
 
 	  if (((old_code == NE && new_code == EQ)
 	       || (old_code == EQ && new_code == NE))
-	      && ! other_changed && op1 == const0_rtx
+	      && ! other_changed_previously && op1 == const0_rtx
 	      && GET_MODE_BITSIZE (GET_MODE (op0)) <= HOST_BITS_PER_WIDE_INT
 	      && exact_log2 (mask = nonzero_bits (op0, GET_MODE (op0))) >= 0)
 	    {
@@ -5303,13 +5305,11 @@ simplify_set (x)
 		   && ! check_asm_operands (pat)))
 		{
 		  PUT_CODE (*cc_use, old_code);
-		  other_insn = 0;
+		  other_changed = 0;
 
 		  op0 = gen_binary (XOR, GET_MODE (op0), op0, GEN_INT (mask));
 		}
 	    }
-
-	  other_changed = 1;
 	}
 
       if (other_changed)
@@ -11454,9 +11454,6 @@ simplify_comparison (code, pop0, pop1)
   op1 = make_compound_operation (op1, SET);
 
   if (GET_CODE (op0) == SUBREG && subreg_lowpart_p (op0)
-      /* Case 3 above, to sometimes allow (subreg (mem x)), isn't
-	 implemented.  */
-      && GET_CODE (SUBREG_REG (op0)) == REG
       && GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT
       && GET_MODE_CLASS (GET_MODE (SUBREG_REG (op0))) == MODE_INT
       && (code == NE || code == EQ))
@@ -11464,8 +11461,13 @@ simplify_comparison (code, pop0, pop1)
       if (GET_MODE_SIZE (GET_MODE (op0))
 	  > GET_MODE_SIZE (GET_MODE (SUBREG_REG (op0))))
 	{
-	  op0 = SUBREG_REG (op0);
-	  op1 = gen_lowpart_for_combine (GET_MODE (op0), op1);
+	  /* For paradoxical subregs, allow case 1 as above.  Case 3 isn't
+	     implemented.  */
+          if (GET_CODE (SUBREG_REG (op0)) == REG)
+	    {
+	      op0 = SUBREG_REG (op0);
+	      op1 = gen_lowpart_for_combine (GET_MODE (op0), op1);
+	    }
 	}
       else if ((GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (op0)))
 		<= HOST_BITS_PER_WIDE_INT)

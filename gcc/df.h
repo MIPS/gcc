@@ -343,3 +343,4 @@ extern void iterative_dataflow_bitmap PARAMS ((bitmap *, bitmap *, bitmap *,
 					       enum df_confluence_op, 
 					       transfer_function_bitmap, 
 					       int *, void *));
+extern bool read_modify_subreg_p PARAMS ((rtx));
