@@ -210,6 +210,18 @@ get_scalar_for_field (tree var, tree field)
 {
   struct sra_elt key;
 
+#ifdef ENABLE_CHECKING
+  /* Validate that FIELD actually exists in VAR's type.  */
+  {
+    tree f;
+    for (f = TYPE_FIELDS (TREE_TYPE (var)); f ; f = TREE_CHAIN (f))
+      if (f == field)
+	goto found;
+    abort ();
+   found:;
+  }
+#endif
+
   key.kind = COMPONENT_REF;
   key.base = var;
   key.field = field;
@@ -686,25 +698,32 @@ create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode)
     }
   else
     {
-      tree f;
+      tree lf, rf;
 
-      for (f = TYPE_FIELDS (type); f; f = TREE_CHAIN (f))
+      /* ??? C++ generates copies between different pointer-to-member
+	 structures of different types.  To combat this, we must track
+	 the field of both the left and right structures, so that we
+	 index the variables with fields of their own type.  */
+
+      for (lf = TYPE_FIELDS (type), rf = TYPE_FIELDS (TREE_TYPE (rhs));
+	   lf;
+	   lf = TREE_CHAIN (lf), rf = TREE_CHAIN (rf))
 	{
 	  tree lhs_var, rhs_var;
 
 	  /* Only copy FIELD_DECLs.  */
-	  if (TREE_CODE (f) != FIELD_DECL)
+	  if (TREE_CODE (lf) != FIELD_DECL)
 	    continue;
 
 	  if (mode == FIELD_SCALAR)
-	    lhs_var = csc_build_component_ref (lhs, f);
+	    lhs_var = csc_build_component_ref (lhs, lf);
 	  else
-	    lhs_var = get_scalar_for_field (lhs, f);
+	    lhs_var = get_scalar_for_field (lhs, lf);
 
 	  if (mode == SCALAR_FIELD)
-	    rhs_var = csc_build_component_ref (rhs, f);
+	    rhs_var = csc_build_component_ref (rhs, rf);
 	  else
-	    rhs_var = get_scalar_for_field (rhs, f);
+	    rhs_var = get_scalar_for_field (rhs, rf);
 
 	  csc_assign (&tsi, lhs_var, rhs_var);
 	}
