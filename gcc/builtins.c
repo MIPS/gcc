@@ -59,8 +59,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 const char *const built_in_class_names[4]
   = {"NOT_BUILT_IN", "BUILT_IN_FRONTEND", "BUILT_IN_MD", "BUILT_IN_NORMAL"};
 
-#define DEF_BUILTIN(X, N, C, T, LT, B, F, NA, AT, IM) #X,
-const char *const built_in_names[(int) END_BUILTINS] =
+#define DEF_BUILTIN(X, N, C, T, LT, B, F, NA, AT, IM, COND) #X,
+const char * built_in_names[(int) END_BUILTINS] =
 {
 #include "builtins.def"
 };
@@ -152,6 +152,7 @@ static tree fold_builtin_cabs (tree, tree);
 static tree fold_builtin_sqrt (tree, tree);
 static tree fold_builtin_cbrt (tree, tree);
 static tree fold_builtin_pow (tree, tree, tree);
+static tree fold_builtin_powi (tree, tree, tree);
 static tree fold_builtin_sin (tree);
 static tree fold_builtin_cos (tree, tree, tree);
 static tree fold_builtin_tan (tree);
@@ -169,7 +170,7 @@ static tree fold_builtin_memcmp (tree);
 static tree fold_builtin_strcmp (tree);
 static tree fold_builtin_strncmp (tree);
 static tree fold_builtin_signbit (tree);
-static tree fold_builtin_copysign (tree, tree);
+static tree fold_builtin_copysign (tree, tree, tree);
 static tree fold_builtin_isascii (tree);
 static tree fold_builtin_toascii (tree);
 static tree fold_builtin_isdigit (tree);
@@ -1563,6 +1564,7 @@ mathfn_built_in (tree type, enum built_in_function fn)
       CASE_MATHFN (BUILT_IN_NEXTAFTER)
       CASE_MATHFN (BUILT_IN_NEXTTOWARD)
       CASE_MATHFN (BUILT_IN_POW)
+      CASE_MATHFN (BUILT_IN_POWI)
       CASE_MATHFN (BUILT_IN_POW10)
       CASE_MATHFN (BUILT_IN_REMAINDER)
       CASE_MATHFN (BUILT_IN_REMQUO)
@@ -1860,6 +1862,7 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
 {
   optab builtin_optab;
   rtx op0, op1, insns;
+  int op1_type = REAL_TYPE;
   tree fndecl = get_callee_fndecl (exp);
   tree arglist = TREE_OPERAND (exp, 1);
   tree arg0, arg1, temp, narg;
@@ -1867,7 +1870,12 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
   bool errno_set = true;
   bool stable = true;
 
-  if (!validate_arglist (arglist, REAL_TYPE, REAL_TYPE, VOID_TYPE))
+  if ((DECL_FUNCTION_CODE (fndecl) == BUILT_IN_LDEXP)
+      || (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_LDEXPF)
+      || (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_LDEXPL))
+    op1_type = INTEGER_TYPE;
+
+  if (!validate_arglist (arglist, REAL_TYPE, op1_type, VOID_TYPE))
     return 0;
 
   arg0 = TREE_VALUE (arglist);
@@ -1883,6 +1891,10 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
     case BUILT_IN_ATAN2F:
     case BUILT_IN_ATAN2L:
       builtin_optab = atan2_optab; break;
+    case BUILT_IN_LDEXP:
+    case BUILT_IN_LDEXPF:
+    case BUILT_IN_LDEXPL:
+      builtin_optab = ldexp_optab; break;
     case BUILT_IN_FMOD:
     case BUILT_IN_FMODF:
     case BUILT_IN_FMODL:
@@ -2347,6 +2359,66 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
   if (! flag_unsafe_math_optimizations)
     return NULL_RTX;
   return expand_builtin_mathfn_2 (exp, target, subtarget);
+}
+
+/* Expand a call to the powi built-in mathematical function.  Return 0 if
+   a normal call should be emitted rather than expanding the function
+   in-line.  EXP is the expression that is a call to the builtin
+   function; if convenient, the result should be placed in TARGET.  */
+
+static rtx
+expand_builtin_powi (tree exp, rtx target, rtx subtarget)
+{
+  tree arglist = TREE_OPERAND (exp, 1);
+  tree arg0, arg1;
+  rtx op0, op1;
+  enum machine_mode mode;
+
+  if (! validate_arglist (arglist, REAL_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+
+  arg0 = TREE_VALUE (arglist);
+  arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  mode = TYPE_MODE (TREE_TYPE (exp));
+
+  /* Handle constant power.  */
+
+  if (TREE_CODE (arg1) == INTEGER_CST
+      && ! TREE_CONSTANT_OVERFLOW (arg1))
+    {
+      HOST_WIDE_INT n = TREE_INT_CST_LOW (arg1);
+
+      /* If the exponent is -1, 0, 1 or 2, then expand_powi is exact.
+	 Otherwise, check the number of multiplications required.  */
+      if ((TREE_INT_CST_HIGH (arg1) == 0
+	   || TREE_INT_CST_HIGH (arg1) == -1)
+	  && ((n >= -1 && n <= 2)
+	      || (! optimize_size
+		  && powi_cost (n) <= POWI_MAX_MULTS)))
+	{
+	  op0 = expand_expr (arg0, subtarget, VOIDmode, 0);
+	  op0 = force_reg (mode, op0);
+	  return expand_powi (op0, mode, n);
+	}
+    }
+
+  /* Emit a libcall to libgcc.  */
+
+  if (target == NULL_RTX)
+    target = gen_reg_rtx (mode);
+
+  op0 = expand_expr (arg0, subtarget, mode, 0);
+  if (GET_MODE (op0) != mode)
+    op0 = convert_to_mode (mode, op0, 0);
+  op1 = expand_expr (arg1, 0, word_mode, 0);
+  if (GET_MODE (op1) != word_mode)
+    op1 = convert_to_mode (word_mode, op1, 0);
+
+  target = emit_library_call_value (powi_optab->handlers[(int) mode].libfunc,
+				    target, LCT_CONST_MAKE_BLOCK, mode, 2,
+				    op0, mode, op1, word_mode);
+
+  return target;
 }
 
 /* Expand expression EXP which is a call to the strlen builtin.  Return 0
@@ -5186,9 +5258,20 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	return target;
       break;
 
+    case BUILT_IN_POWI:
+    case BUILT_IN_POWIF:
+    case BUILT_IN_POWIL:
+      target = expand_builtin_powi (exp, target, subtarget);
+      if (target)
+	return target;
+      break;
+
     case BUILT_IN_ATAN2:
     case BUILT_IN_ATAN2F:
     case BUILT_IN_ATAN2L:
+    case BUILT_IN_LDEXP:
+    case BUILT_IN_LDEXPF:
+    case BUILT_IN_LDEXPL:
     case BUILT_IN_FMOD:
     case BUILT_IN_FMODF:
     case BUILT_IN_FMODL:
@@ -6186,7 +6269,7 @@ fold_builtin_sqrt (tree arglist, tree type)
 	}
     }
 
-  /* Optimize sqrt(pow(x,y)) = pow(x,y*0.5).  */
+  /* Optimize sqrt(pow(x,y)) = pow(|x|,y*0.5).  */
   if (flag_unsafe_math_optimizations
       && (fcode == BUILT_IN_POW
 	  || fcode == BUILT_IN_POWF
@@ -6195,8 +6278,11 @@ fold_builtin_sqrt (tree arglist, tree type)
       tree powfn = TREE_OPERAND (TREE_OPERAND (arg, 0), 0);
       tree arg0 = TREE_VALUE (TREE_OPERAND (arg, 1));
       tree arg1 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg, 1)));
-      tree narg1 = fold (build2 (MULT_EXPR, type, arg1,
-				 build_real (type, dconsthalf)));
+      tree narg1;
+      if (!tree_expr_nonnegative_p (arg0))
+	arg0 = build1 (ABS_EXPR, type, arg0);
+      narg1 = fold (build2 (MULT_EXPR, type, arg1,
+			    build_real (type, dconsthalf)));
       arglist = tree_cons (NULL_TREE, arg0,
 			   build_tree_list (NULL_TREE, narg1));
       return build_function_call_expr (powfn, arglist);
@@ -6772,7 +6858,10 @@ fold_builtin_pow (tree fndecl, tree arglist, tree type)
   if (TREE_CODE (arg1) == REAL_CST
       && ! TREE_CONSTANT_OVERFLOW (arg1))
     {
+      REAL_VALUE_TYPE cint;
       REAL_VALUE_TYPE c;
+      HOST_WIDE_INT n;
+
       c = TREE_REAL_CST (arg1);
 
       /* Optimize pow(x,0.0) = 1.0.  */
@@ -6802,17 +6891,14 @@ fold_builtin_pow (tree fndecl, tree arglist, tree type)
 	    }
 	}
 
-      /* Attempt to evaluate pow at compile-time.  */
-      if (TREE_CODE (arg0) == REAL_CST
-	  && ! TREE_CONSTANT_OVERFLOW (arg0))
+      /* Check for an integer exponent.  */
+      n = real_to_integer (&c);
+      real_from_integer (&cint, VOIDmode, n, n < 0 ? -1 : 0, 0);
+      if (real_identical (&c, &cint))
 	{
-	  REAL_VALUE_TYPE cint;
-	  HOST_WIDE_INT n;
-
-	  n = real_to_integer (&c);
-	  real_from_integer (&cint, VOIDmode, n,
-			     n < 0 ? -1 : 0, 0);
-	  if (real_identical (&c, &cint))
+	  /* Attempt to evaluate pow at compile-time.  */
+	  if (TREE_CODE (arg0) == REAL_CST
+	      && ! TREE_CONSTANT_OVERFLOW (arg0))
 	    {
 	      REAL_VALUE_TYPE x;
 	      bool inexact;
@@ -6821,6 +6907,18 @@ fold_builtin_pow (tree fndecl, tree arglist, tree type)
 	      inexact = real_powi (&x, TYPE_MODE (type), &x, n);
 	      if (flag_unsafe_math_optimizations || !inexact)
 		return build_real (type, x);
+	    }
+
+	  /* Strip sign ops from even integer powers.  */
+	  if ((n & 1) == 0 && flag_unsafe_math_optimizations)
+	    {
+	      tree narg0 = fold_strip_sign_ops (arg0);
+	      if (narg0)
+		{
+		  arglist = build_tree_list (NULL_TREE, arg1);
+		  arglist = tree_cons (NULL_TREE, narg0, arglist);
+		  return build_function_call_expr (fndecl, arglist);
+		}
 	    }
 	}
     }
@@ -6861,6 +6959,53 @@ fold_builtin_pow (tree fndecl, tree arglist, tree type)
 			   build_tree_list (NULL_TREE, narg1));
       return build_function_call_expr (fndecl, arglist);
     }
+  return NULL_TREE;
+}
+
+/* Fold a builtin function call to powi, powif, or powil.  Return
+   NULL_TREE if no simplification can be made.  */
+static tree
+fold_builtin_powi (tree fndecl ATTRIBUTE_UNUSED, tree arglist, tree type)
+{
+  tree arg0 = TREE_VALUE (arglist);
+  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+
+  if (!validate_arglist (arglist, REAL_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return NULL_TREE;
+
+  /* Optimize pow(1.0,y) = 1.0.  */
+  if (real_onep (arg0))
+    return omit_one_operand (type, build_real (type, dconst1), arg1);
+
+  if (host_integerp (arg1, 0))
+    {
+      HOST_WIDE_INT c = TREE_INT_CST_LOW (arg1);
+
+      /* Evaluate powi at compile-time.  */
+      if (TREE_CODE (arg0) == REAL_CST
+	  && ! TREE_CONSTANT_OVERFLOW (arg0))
+	{
+	  REAL_VALUE_TYPE x;
+	  x = TREE_REAL_CST (arg0);
+	  real_powi (&x, TYPE_MODE (type), &x, c);
+	  return build_real (type, x);
+	}
+
+      /* Optimize pow(x,0) = 1.0.  */
+      if (c == 0)
+	return omit_one_operand (type, build_real (type, dconst1),
+				 arg0);
+
+      /* Optimize pow(x,1) = x.  */
+      if (c == 1)
+	return arg0;
+
+      /* Optimize pow(x,-1) = 1.0/x.  */
+      if (c == -1)
+	return fold (build2 (RDIV_EXPR, type,
+			     build_real (type, dconst1), arg0));
+    }
+
   return NULL_TREE;
 }
 
@@ -7375,9 +7520,9 @@ fold_builtin_signbit (tree exp)
    Return NULL_TREE if no simplification can be made.  */
 
 static tree
-fold_builtin_copysign (tree arglist, tree type)
+fold_builtin_copysign (tree fndecl, tree arglist, tree type)
 {
-  tree arg1, arg2;
+  tree arg1, arg2, tem;
 
   if (!validate_arglist (arglist, REAL_TYPE, REAL_TYPE, VOID_TYPE))
     return NULL_TREE;
@@ -7410,6 +7555,14 @@ fold_builtin_copysign (tree arglist, tree type)
     return omit_one_operand (type,
 			     fold (build1 (ABS_EXPR, type, arg1)),
 			     arg2);
+
+  /* Strip sign changing operations for the first argument.  */
+  tem = fold_strip_sign_ops (arg1);
+  if (tem)
+    {
+      arglist = tree_cons (NULL_TREE, tem, TREE_CHAIN (arglist));
+      return build_function_call_expr (fndecl, arglist);
+    }
 
   return NULL_TREE;
 }
@@ -7877,6 +8030,11 @@ fold_builtin_1 (tree exp, bool ignore)
     case BUILT_IN_POWL:
       return fold_builtin_pow (fndecl, arglist, type);
 
+    case BUILT_IN_POWI:
+    case BUILT_IN_POWIF:
+    case BUILT_IN_POWIL:
+      return fold_builtin_powi (fndecl, arglist, type);
+
     case BUILT_IN_INF:
     case BUILT_IN_INFF:
     case BUILT_IN_INFL:
@@ -7984,7 +8142,7 @@ fold_builtin_1 (tree exp, bool ignore)
     case BUILT_IN_COPYSIGN:
     case BUILT_IN_COPYSIGNF:
     case BUILT_IN_COPYSIGNL:
-      return fold_builtin_copysign (arglist, type);
+      return fold_builtin_copysign (fndecl, arglist, type);
 
     case BUILT_IN_FINITE:
     case BUILT_IN_FINITEF:

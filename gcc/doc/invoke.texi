@@ -49,8 +49,7 @@ and the Info entries for @file{gcc}, @file{cpp}, @file{as},
 @c man end
 @c man begin BUGS
 For instructions on reporting bugs, see
-@w{@uref{http://gcc.gnu.org/bugs.html}}.  Use of the @command{gccbug}
-script to report bugs is recommended.
+@w{@uref{http://gcc.gnu.org/bugs.html}}.
 @c man end
 @c man begin AUTHOR
 See the Info entry for @command{gcc}, or
@@ -215,7 +214,7 @@ Objective-C and Objective-C++ Dialects}.
 -w  -Wextra  -Wall  -Waggregate-return @gol
 -Wcast-align  -Wcast-qual  -Wchar-subscripts  -Wcomment @gol
 -Wconversion  -Wno-deprecated-declarations @gol
--Wdisabled-optimization  -Wno-div-by-zero  -Wendif-labels @gol
+-Wdisabled-optimization  -Wno-div-by-zero  -Wno-endif-labels @gol
 -Werror  -Werror-implicit-function-declaration @gol
 -Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
 -Wno-format-extra-args -Wformat-nonliteral @gol
@@ -267,6 +266,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-nrv -fdump-tree-vect @gol
 -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
 -fdump-tree-fre@r{[}-@var{n}@r{]} @gol
+-ftree-vectorizer-verbose=@var{n} @gol
 -fdump-tree-storeccp@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs -ftree-based-profiling @gol
@@ -604,7 +604,7 @@ See RS/6000 and PowerPC Options.
 -mpowerpc-gfxopt  -mno-powerpc-gfxopt @gol
 -mnew-mnemonics  -mold-mnemonics @gol
 -mfull-toc   -mminimal-toc  -mno-fp-in-toc  -mno-sum-in-toc @gol
--m64  -m32  -mxl-call  -mno-xl-call  -mpe @gol
+-m64  -m32  -mxl-compat  -mno-xl-compat  -mpe @gol
 -malign-power  -malign-natural @gol
 -msoft-float  -mhard-float  -mmultiple  -mno-multiple @gol
 -mstring  -mno-string  -mupdate  -mno-update @gol
@@ -2168,11 +2168,13 @@ Inhibit warning messages about the use of @samp{#import}.
 Warn if an array subscript has type @code{char}.  This is a common cause
 of error, as programmers often forget that this type is signed on some
 machines.
+This warning is enabled by @option{-Wall}.
 
 @item -Wcomment
 @opindex Wcomment
 Warn whenever a comment-start sequence @samp{/*} appears in a @samp{/*}
 comment, or whenever a Backslash-Newline appears in a @samp{//} comment.
+This warning is enabled by @option{-Wall}.
 
 @item -Wfatal-errors
 @opindex Wfatal-errors
@@ -2293,6 +2295,7 @@ int f()
 @item -Wimplicit-int
 @opindex Wimplicit-int
 Warn when a declaration does not specify a type.
+This warning is enabled by @option{-Wall}.
 
 @item -Wimplicit-function-declaration
 @itemx -Werror-implicit-function-declaration
@@ -2301,16 +2304,19 @@ Warn when a declaration does not specify a type.
 Give a warning (or error) whenever a function is used before being
 declared.  The form @option{-Wno-error-implicit-function-declaration}
 is not supported.
+This warning is enabled by @option{-Wall} (as a warning, not an error).
 
 @item -Wimplicit
 @opindex Wimplicit
 Same as @option{-Wimplicit-int} and @option{-Wimplicit-function-declaration}.
+This warning is enabled by @option{-Wall}.
 
 @item -Wmain
 @opindex Wmain
 Warn if the type of @samp{main} is suspicious.  @samp{main} should be a
 function with external linkage, returning int, taking either zero
 arguments, two, or three arguments of appropriate types.
+This warning is enabled by @option{-Wall}.
 
 @item -Wmissing-braces
 @opindex Wmissing-braces
@@ -2322,6 +2328,8 @@ bracketed, but that for @samp{b} is fully bracketed.
 int a[2][2] = @{ 0, 1, 2, 3 @};
 int b[2][2] = @{ @{ 0, 1 @}, @{ 2, 3 @} @};
 @end smallexample
+
+This warning is enabled by @option{-Wall}.
 
 @item -Wmissing-include-dirs @r{(C, C++, Objective-C and Objective-C++ only)}
 @opindex Wmissing-include-dirs
@@ -2379,6 +2387,8 @@ the enclosing @code{if}.  The resulting code would look like this:
 @end group
 @end smallexample
 
+This warning is enabled by @option{-Wall}.
+
 @item -Wsequence-point
 @opindex Wsequence-point
 Warn about code that may have undefined semantics because of violations
@@ -2425,6 +2435,8 @@ Links to discussions of the problem, including proposed formal
 definitions, may be found on the GCC readings page, at
 @w{@uref{http://gcc.gnu.org/readings.html}}.
 
+This warning is enabled by @option{-Wall}.
+
 @item -Wreturn-type
 @opindex Wreturn-type
 Warn whenever a function is defined with a return-type that defaults to
@@ -2441,6 +2453,8 @@ For C++, a function without return type always produces a diagnostic
 message, even when @option{-Wno-return-type} is specified.  The only
 exceptions are @samp{main} and functions defined in system headers.
 
+This warning is enabled by @option{-Wall}.
+
 @item -Wswitch
 @opindex Wswitch
 Warn whenever a @code{switch} statement has an index of enumerated type
@@ -2448,6 +2462,7 @@ and lacks a @code{case} for one or more of the named codes of that
 enumeration.  (The presence of a @code{default} label prevents this
 warning.)  @code{case} labels outside the enumeration range also
 provoke warnings when this option is used.
+This warning is enabled by @option{-Wall}.
 
 @item -Wswitch-default
 @opindex Wswitch-switch
@@ -2465,15 +2480,18 @@ provoke warnings when this option is used.
 @opindex Wtrigraphs
 Warn if any trigraphs are encountered that might change the meaning of
 the program (trigraphs within comments are not warned about).
+This warning is enabled by @option{-Wall}.
 
 @item -Wunused-function
 @opindex Wunused-function
 Warn whenever a static function is declared but not defined or a
 non\-inline static function is unused.
+This warning is enabled by @option{-Wall}.
 
 @item -Wunused-label
 @opindex Wunused-label
 Warn whenever a label is declared but not used.
+This warning is enabled by @option{-Wall}.
 
 To suppress this warning use the @samp{unused} attribute
 (@pxref{Variable Attributes}).
@@ -2489,6 +2507,7 @@ To suppress this warning use the @samp{unused} attribute
 @opindex Wunused-variable
 Warn whenever a local variable or non-constant static variable is unused
 aside from its declaration
+This warning is enabled by @option{-Wall}.
 
 To suppress this warning use the @samp{unused} attribute
 (@pxref{Variable Attributes}).
@@ -2496,6 +2515,7 @@ To suppress this warning use the @samp{unused} attribute
 @item -Wunused-value
 @opindex Wunused-value
 Warn whenever a statement computes a result that is explicitly not used.
+This warning is enabled by @option{-Wall}.
 
 To suppress this warning cast the expression to @samp{void}.
 
@@ -2584,6 +2604,8 @@ in fact be called at the place which would cause a problem.
 Some spurious warnings can be avoided if you declare all the functions
 you use that never return as @code{noreturn}.  @xref{Function
 Attributes}.
+
+This warning is enabled by @option{-Wall}.
 
 @item -Wunknown-pragmas
 @opindex Wunknown-pragmas
@@ -2856,9 +2878,10 @@ GCC versions before GCC 3.0.  @xref{Mixed Declarations}.
 @opindex Wundef
 Warn if an undefined identifier is evaluated in an @samp{#if} directive.
 
-@item -Wendif-labels
+@item -Wno-endif-labels
+@opindex Wno-endif-labels
 @opindex Wendif-labels
-Warn whenever an @samp{#else} or an @samp{#endif} are followed by text.
+Do not warn whenever an @samp{#else} or an @samp{#endif} are followed by text.
 
 @item -Wshadow
 @opindex Wshadow
@@ -3878,6 +3901,13 @@ made by appending @file{.vect} to the source file name.
 Enable all the available tree dumps with the flags provided in this option.
 @end table
 
+@item -ftree-vectorizer-verbose=@var{n}
+@opindex ftree-vectorizer-verbose
+This option controls the amount of debugging output the vectorizer prints.
+This information is written to standard error, unless @option{-fdump-tree-all}
+or @option{-fdump-tree-vect} is specified, in which case it is output to the
+usual dump listing file, @file{.vect}.
+
 @item -frandom-seed=@var{string}
 @opindex frandom-string
 This option provides a seed that GCC uses when it would otherwise use
@@ -4069,14 +4099,23 @@ compilation time.
 
 @option{-O} turns on the following optimization flags:
 @gccoptlist{-fdefer-pop @gol
--fmerge-constants @gol
--fthread-jumps @gol
+-fdelayed-branch @gol
+-fguess-branch-probability @gol
+-fcprop-registers @gol
 -floop-optimize @gol
 -fif-conversion @gol
 -fif-conversion2 @gol
--fdelayed-branch @gol
--fguess-branch-probability @gol
--fcprop-registers}
+-ftree-ccp @gol
+-ftree-dce @gol
+-ftree-dom @gol
+-ftree-dse @gol
+-ftree-ter @gol
+-ftree-live_range_split @gol
+-ftree-sra @gol
+-ftree-copyrename @gol
+-ftree-fre @gol
+-ftree-ch @gol
+-fmerge-constants}
 
 @option{-O} also turns on @option{-fomit-frame-pointer} on machines
 where doing so does not interfere with debugging.
@@ -4091,25 +4130,27 @@ and the performance of the generated code.
 
 @option{-O2} turns on all optimization flags specified by @option{-O}.  It
 also turns on the following optimization flags:
-@gccoptlist{-fforce-mem @gol
+@gccoptlist{-fthread-jumps @gol
+-fcrossjumping @gol
 -foptimize-sibling-calls @gol
--fstrength-reduce @gol
 -fcse-follow-jumps  -fcse-skip-blocks @gol
--frerun-cse-after-loop  -frerun-loop-opt @gol
--fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las @gol
--fdelete-null-pointer-checks @gol
+-fgcse  -fgcse-lm  @gol
 -fexpensive-optimizations @gol
--fregmove @gol
+-fstrength-reduce @gol
+-frerun-cse-after-loop  -frerun-loop-opt @gol
+-fcaller-saves @gol
+-fforce-mem @gol
+-fpeephole2 @gol
 -fschedule-insns  -fschedule-insns2 @gol
 -fsched-interblock  -fsched-spec @gol
--fcaller-saves @gol
--fpeephole2 @gol
--freorder-blocks  -freorder-functions @gol
+-fregmove @gol
 -fstrict-aliasing @gol
+-fdelete-null-pointer-checks @gol
+-freorder-blocks  -freorder-functions @gol
 -funit-at-a-time @gol
 -falign-functions  -falign-jumps @gol
 -falign-loops  -falign-labels @gol
--fcrossjumping}
+-ftree-pre}
 
 Please note the warning under @option{-fgcse} about
 invoking @option{-O2} on programs that use computed gotos.
@@ -4118,7 +4159,7 @@ invoking @option{-O2} on programs that use computed gotos.
 @opindex O3
 Optimize yet more.  @option{-O3} turns on all optimizations specified by
 @option{-O2} and also turns on the @option{-finline-functions},
-@option{-fweb} and @option{-fgcse-after-reload} options.
+@option{-funswitch-loops} and @option{-fgcse-after-reload} options.
 
 @item -O0
 @opindex O0
@@ -4389,7 +4430,7 @@ so, the first branch is redirected to either the destination of the
 second branch or a point immediately following it, depending on whether
 the condition is known to be true or false.
 
-Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fcse-follow-jumps
 @opindex fcse-follow-jumps
@@ -4453,7 +4494,7 @@ stores out of loops.  When used in conjunction with @option{-fgcse-lm},
 loops containing a load/store sequence can be changed to a load before
 the loop and a store after the loop.
 
-Enabled by default when gcse is enabled.
+Not enabled at any optimization level.
 
 @item -fgcse-las
 @opindex fgcse-las
@@ -4461,7 +4502,7 @@ When @option{-fgcse-las} is enabled, the global common subexpression
 elimination pass eliminates redundant loads that come after stores to the
 same memory location (both partial and full redundancies).
 
-Enabled by default when gcse is enabled.
+Not enabled at any optimization level.
 
 @item -fgcse-after-reload
 @opindex fgcse-after-reload
@@ -4646,7 +4687,7 @@ Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -ftree-pre
 Perform Partial Redundancy Elimination (PRE) on trees.  This flag is
-enabled by default at @option{-O} and higher.
+enabled by default at @option{-O2} and @option{-O3}.
 
 @item -ftree-fre
 Perform Full Redundancy Elimination (FRE) on trees.  The difference
@@ -4840,8 +4881,8 @@ sections.
 
 @item -freorder-functions
 @opindex freorder-functions
-Reorder basic blocks in the compiled function in order to reduce number of
-taken branches and improve code locality.  This is implemented by using special
+Reorder functions in the object file in order to
+improve code locality.  This is implemented by using special
 subsections @code{.text.hot} for most frequently executed functions and
 @code{.text.unlikely} for unlikely executed functions.  Reordering is done by
 the linker so object file format must support named sections and linker must
@@ -10496,13 +10537,17 @@ Specifying @option{-maix64} implies @option{-mpowerpc64} and
 @option{-mpowerpc}, while @option{-maix32} disables the 64-bit ABI and
 implies @option{-mno-powerpc64}.  GCC defaults to @option{-maix32}.
 
-@item -mxl-call
-@itemx -mno-xl-call
-@opindex mxl-call
-@opindex mno-xl-call
-On AIX, pass floating-point arguments to prototyped functions beyond the
-register save area (RSA) on the stack in addition to argument FPRs.  The
-AIX calling convention was extended but not initially documented to
+@item -mxl-compat
+@itemx -mno-xl-compat
+@opindex mxl-compat
+@opindex mno-xl-compat
+Produce code that conforms more closely to IBM XLC semantics when using
+AIX-compatible ABI.  Pass floating-point arguments to prototyped
+functions beyond the register save area (RSA) on the stack in addition
+to argument FPRs.  Do not assume that most significant double in 128
+bit long double value is properly rounded when comparing values.
+
+The AIX calling convention was extended but not initially documented to
 handle an obscure K&R C case of calling a function that takes the
 address of its arguments with fewer arguments than declared.  AIX XL
 compilers access floating point arguments which do not fit in the

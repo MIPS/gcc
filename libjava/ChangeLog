@@ -1,3 +1,641 @@
+2005-02-15  David Daney <ddaney@avtrex.com>
+	    Bryce McKinlay  <mckinlay@redhat.com>
+	    
+	* prims.cc (_Jv_CreateJavaVM): Add comment about initialization order.
+	* posix-threads.cc (_Jv_InitThreads): Call block_sigchld() here to
+	ensure that GC threads inherit the new signal mask.
+	(block_sigchld): Call JvFail rather than throwing exception if
+	pthread_sigmask() fails.
+
+2005-02-15  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/jar/Attributes.java (Name.CLASS_PATH): Document that
+	file path elements are separated by spaces.
+
+2005-02-15  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/jar/Attributes.java (Attributes.Name): Add documentation
+	to describe attributes without a constant field value in this class.
+
+2005-02-15  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/jar/Attributes.java
+	(CREATED_BY, JAVA_BEAN, MAGIC): Removed.
+
+2005-02-15  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/URLClassLoader.java (JarURLLoader.JarURLLoader): Just use
+	space for parsing CLASS_PATH attribute.
+
+2005-02-15  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/URLClassLoader.java (JarURLLoader.JarURLLoader): Don't look
+	aside for "GCJLIBS" in directory where jarfiles are loaded.
+	(JarURLLoader.getClass): Removed method.
+	(JarURLLoader.toString): Removed method.
+	(FileResource.toString): Removed method.
+
+2005-02-15  Mark Wielaard  <mark@klomp.org>
+ 
+	* javax/net/ssl/SSLContext.java (getInstance): Add exception message
+	and/or cause before throwing.
+
+2005-02-15  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.am (libgcj_la_SOURCES): Move all sources ...
+	(libgcj0_convenience_la_SOURCES): ... here.
+	(libgcj_la_LIBADD): Add libgcj0_convenience.la.
+	(libgcj_la_DEPENDENCIES): Include libgcj_la_LIBADD.
+	* Makefile.in: Regenerate.
+
+2005-02-14  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* jawt.c: New file.
+	* include/jawt.h: Likewise.
+	* include/jawt_md.h: Likewise.
+	* include/Makefile.am (tool_include__HEADERS): Add jawt.h and
+	jawt_md.h files.
+	* include/Makefile.in: Regenerate.
+	* jni/classpath/classpath_jawt.h: Likewise.
+	* jni/gtk-peer/gtk_jawt.c: Likewise.
+	* Makefile.am: Build libjawt.so.
+	* Makefile.in: Regenerate.
+
+2005-02-14  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.lang/PR19921.java: Use correct class name.
+
+2005-02-14  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.lang/PR19921.out: Renamed from PR19929.out.
+	* testsuite/libjava.lang/PR19921.java: Renamed from PR19929.java.
+
+2005-02-14  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/19929:
+	* testsuite/libjava.lang/PR19929.out: New file.
+	* testsuite/libjava.lang/PR19929.java: New file.
+
+2005-02-14  Anthony Green  <green@redhat.com>
+
+	PR libgcj/18116
+	* testsuite/libjava.jni/PR18116.c: New file.
+	* testsuite/libjava.jni/PR18116.java: New file.
+	* testsuite/libjava.jni/PR18116.out: New file.
+
+2005-02-13  Anthony Green  <green@redhat.com>
+
+	PR libgcj/18116
+	* jni.cc (nathash_add): Don't strdup the method signature.
+	(_Jv_JNI_RegisterNatives): Convert the slashes to dots in the
+	method signature.
+	Update copyright.
+
+2005-02-12  Mark Wielaard  <mark@klomp.org>
+
+	Fixes bug libgcj/8170
+	* java/lang/ClassLoader.java (loadClass): Don't rewrap
+	ClassNotFoundException.
+	* gnu/java/lang/MainThread.java (run): Chain NoClassDefFoundError.
+	* gnu/gcj/runtime/NameFinder.java (remove_interpreter): Removed.
+	(remove_internal): New field superceding remove_interpreter.
+	(sanitizeStack): Remove all no-package classes starting with "_Jv_".
+	Remove no-class methods starting with "_Jv_". And Replace null
+	class or method names with the empty string. Stop at either the
+	MainThread or a real Thread run() method.
+	(newElement): Made static.
+	* java/net/URLClassLoader.java (findClass): Throw
+	ClassNotFoundExceptions including urls, plus parent using toString().
+	(thisString): New field.
+	(toString): New method.
+
+2005-02-10  Tom Tromey  <tromey@redhat.com>
+
+	* external/sax/Makefile.in: Rebuilt.
+	* external/sax/Makefile.am (all-local): Removed.
+	(BUILT_SOURCES): New variable.
+	(mostlyclean-local): No error if no classes to delete.
+	* external/w3c_dom/Makefile.in: Rebuilt.
+	* external/w3c_dom/Makefile.am (all-local): Removed.
+	(BUILT_SOURCES): New variable.
+	(mostlyclean-local): No error if no classes to delete.
+
+2005-02-10  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* testsuite/libjava.mauve/xfails: Updated to reflect current state 
+	of mauve and libjava.
+
+2005-02-09  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/java/net/protocol/jar/Connection.java (getJarFile): Open
+	jar file with OPEN_DELETE.
+	* java/util/zip/ZipFile.java (ZipFile): Call deleteOnExit when
+	OPEN_DELETE is used.
+
+2005-02-09  Tom Tromey  <tromey@redhat.com>
+
+	* java/util/zip/InflaterInputStream.java (markSupported):
+	Override.
+	(mark, reset): Likewise.
+
+2005-02-08  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/URI.java (AUTHORITY_REGEXP): Handle case where user
+	name or port is missing.
+	(AUTHORITY_USERINFO_GROUP, AUTHORITY_HOST_GROUP,
+	AUTHORITY_PORT_GROUP): Updated.
+
+2005-02-08  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.ac: Reduce number of calls to AC_CHECK_FUNCS and
+	AC_CHECK_HEADERS.
+
+2005-02-07  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natRuntime.cc (insertSystemProperties): Set
+	sun.boot.class.path earlier.
+
+2005-02-07  Tom Tromey  <tromey@redhat.com>
+
+	* defineclass.cc (handleClassBegin): Use
+	_Jv_RegisterInitiatingLoader.
+	* java/lang/Class.h (_Jv_UnregisterInitiatingLoader): Declare.
+	* java/lang/natVMClassLoader.cc (resolveClass): Don't register
+	class.  Use _Jv_UnregisterInitiatingLoader.
+	* java/lang/natClassLoader.cc (_Jv_UnregisterInitiatingLoader):
+	New function.
+
+2005-02-07  Mark Wielaard  <mark@klomp.org>
+
+        Reported by Timo Lindfors <timo.lindfors@iki.fi>
+        java/util/regex/Matcher.java (lookingAt): Set position when match
+        found.
+        (matches): Implemented through lookingAt().
+
+2005-02-07  Mark Wielaard  <mark@klomp.org>
+
+        Fix suggested by Timo Lindfors <timo.lindfors@iki.fi>
+        * java/util/regex/Pattern.java (split(CharSequence,int)):
+        Fix while empties > 0 loops.
+
+2005-02-07  Robert Schuster  <thebohemian@gmx.net>
+
+	* gnu/java/nio/charset/ISO_8859_1.java,
+	gnu/java/nio/charset/US_ASCII.java, 
+	gnu/java/nio/charset/UTF_16.java,
+	gnu/java/nio/charset/UTF_16_LE.java,
+	gnu/java/nio/charset/UTF_16_BE.java,
+	gnu/java/nio/charset/UTF_8.java: Fixed canonical names
+	 and aliases according to
+	 "http://www.iana.org/assignments/character-sets",
+	 "http://java.sun.com/j2se/1.5.0/docs/guide/intl/encoding.doc.html"
+	 and "http://oss.software.ibm.com/cgi-bin/icu/convexp?s=ALL".
+	* gnu/java/nio/charset/Provider.java: Made charset lookup
+	 case-insensitive which fixes bug #11740. 
+
+2005-02-07  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/19611:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (src.zip): New target.
+	(install-src.zip): Likewise.
+	(sourcesdir): New variable.
+
+2005-02-06  Jerry Quinn  <jlquinn@optonline.net>
+
+	* javax/imageio/metadata/IIOMetadataNode.java:
+	Implemented.
+	* javax/imageio/metadata/IIOAttr.java,
+	javax/imageio/metadata/IIONamedNodeMap.java,
+	javax/imageio/metadata/IIONodeList.java:
+	New files
+
+2005-02-06  Graydon Hoare  <graydon@redhat.com>
+
+	* gnu/java/awt/ClasspathToolkit.java
+	(registerImageIOSpis): New method.
+	* javax/imageio/ImageIO.java
+	(WriterFormatFilter.filter): Fix copy-and-paste typos.
+	(WriterMIMETypeFilter.filter): Likewise.
+	(ImageReaderIterator): Pass extension argument through to SPI.
+	(getReadersByFilter): Likewise.
+	(getWritersByFilter): Likewise.
+	(getImageReadersByFormatName): Likewise.
+	(getImageReadersByMIMEType): Likewise.
+	(getImageReadersBySuffix): Likewise.
+	(getImageWritersByFormatName): Likewise.
+	(getImageWritersByMIMEType): Likewise.
+	(getImageWritersBySuffix): Likewise.
+	(read): Implement.
+	(write): Implement.
+	* javax/imageio/ImageReader.java
+	(progressListeners): Initialize.
+	(setInput): Implement.
+	* javax/imageio/ImageWriter.java
+	(progressListeners): Initialize.
+	(warningListeners): Likewise.
+	(warningLocales): Likewise.
+	(setOutput): Test "isInstance" rather than class equality.
+	* javax/imageio/spi/IIORegistry.java
+	(static): Add reader and writer SPIs.
+	(IIORegistry): Call ClasspathToolkit.registerImageIOSpis.
+
+2004-02-06  Michael Koch  <konqueror@gmx.de>
+
+	* javax/imageio/metadata/IIOInvalidTreeException.java
+	(IIOInvalidTreeException): Reformatted.
+	* javax/imageio/spi/IIORegistry.java
+	(static): Register ImageReaderSpi.class and ImageWriterSpi.class.
+	* javax/imageio/stream/MemoryCacheImageInputStream.java:
+	Reworked import statements.
+
+2004-02-06  Michael Koch  <konqueror@gmx.de>
+
+	* javax/imageio/stream/FileImageOutputStream.java:
+	Implemented.
+
+2004-02-06  Michael Koch  <konqueror@gmx.de>
+
+	* javax/imageio/stream/FileCacheImageInputStream.java,
+	javax/imageio/stream/FileCacheImageOutputStream.java,
+	javax/imageio/stream/FileImageInputStream.java,
+	javax/imageio/stream/ImageInputStreamImpl.java,
+	javax/imageio/stream/ImageOutputStreamImpl.java,
+	javax/imageio/stream/MemoryCacheImageInputStream.java,
+	javax/imageio/stream/MemoryCacheImageOutputStream.java:
+	Added all missing methods in javax.imageio.stream.
+
+2005-02-02  David Daney  <ddaney@avtrex.com>
+
+	* java/net/InetAddress.java (InetAddress): Make a private copy of
+	the address.
+	* java/net/Inet4Address.java (getAddress): Return a copy of the
+	address.
+	* java/net/Inet6Address.java (Inet6Address): Use private copy of
+	the address
+	(getAddress): Return a copy of the address.
+	(equals): Rewrote.
+
+2005-02-02  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (classes.stamp): New target, broken out from
+	libgcj.jar target.
+	($(all_java_class_files)): Depend on it.
+	(libgcj-@gcc_version@.jar): Likewise.
+	(all-recursive): Likewise.
+	(CLEANFILES): Include classes.stamp.
+
+2005-02-02  Hans Boehm  <Hans.Boehm@hp.com>
+
+	* link.cc: Include <stdio.h>
+
+2005-02-02  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/19681:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (ordinary_java_source_files): Added new class.
+	* java/lang/natVMClassLoader.cc (getSystemClassLoaderInternal):
+	Use system_instance, not instance.
+	* gnu/gcj/runtime/SystemClassLoader.java: New file.
+	* gnu/gcj/runtime/VMClassLoader.java (init): Don't search
+	java.class.path.
+	(system_instance): New field.
+	(initialize): Initialize the system loader as well.
+	(VMClassLoader): Default to LIB_CACHE.
+
+2005-02-02  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/gcj/runtime/PersistentByteMap.java: Fixed typo.
+	* prims.cc: Fixed comment.
+
+2005-02-01  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (BOOTCLASSPATH): Added sax and w3c_dom.
+	(.java.class): Use BOOTCLASSPATH.
+
+2005-02-01  Tom Tromey  <tromey@redhat.com>
+
+	* external/w3c_dom/Makefile.am: New file.
+	* external/w3c_dom/Makefile.in: New file.
+	* external/sax/Makefile.am: New file.
+	* external/sax/Makefile.in: New file.
+	* external/Makefile.in: New file.
+	* external/Makefile.am: New file.
+	* external/README: New file from Classpath.
+	* configure, aclocal.m4, Makefile.in: Rebuilt.
+	* configure.ac (AC_CONFIG_FILES): Create new Makefiles.
+	* Makefile.am (SUBDIRS): Added external.
+	(toolexeclib_LTLIBRARIES): Removed lib-org-xml-sax.la,
+	lib-org-w3c-dom.la, lib-org-ietf-gss.la.
+	(BOOTCLASSPATH): New variable.
+	(AM_GCJFLAGS): Use it.
+	(gnu_xml_source_files): New variable.
+	(libgcj_la_SOURCES): Use it.
+	(libgcj_la_LDADD): Include new convenience libraries.
+	(lib_org_ietf_jgss_la_SOURCES): Removed.
+	(lib_org_ietf_jgss_la_DEPENDENCIES): Likewise.
+	(lib_org_ietf_jgss_la_LIBADD): Likewise.
+	(lib_org_w3c_dom_la_SOURCES): Removed.
+	(lib_org_w3c_dom_la_DEPENDENCIES): Likewise.
+	(lib_org_w3c_dom_la_LIBADD): Likewise.
+	(lib_org_xml_sax_la_SOURCES): Removed.
+	(lib_org_xml_sax_la_DEPENDENCIES): Likewise.
+	(lib_org_xml_sax_la_LIBADD): Likewise.
+	(all_java_source_files): Updated.
+	(property_files): Likewise.
+	(libgcj-@gcc_version@.jar): Include classes from external/.
+	(javax_source_files): Updated.
+	(ordinary_java_source_files): Updated.
+	* javax/xml/XMLConstants.java,
+	javax/xml/datatype/DatatypeConfigurationException.java,
+	javax/xml/datatype/DatatypeConstants.java,
+	javax/xml/datatype/DatatypeFactory.java,
+	javax/xml/datatype/Duration.java,
+	javax/xml/datatype/XMLGregorianCalendar.java,
+	javax/xml/datatype/package.html,
+	javax/xml/namespace/NamespaceContext.java,
+	javax/xml/namespace/QName.java, javax/xml/namespace/package.html,
+	javax/xml/parsers/DocumentBuilder.java,
+	javax/xml/parsers/DocumentBuilderFactory.java,
+	javax/xml/parsers/FactoryConfigurationError.java,
+	javax/xml/parsers/ParserConfigurationException.java,
+	javax/xml/parsers/SAXParser.java,
+	javax/xml/parsers/SAXParserFactory.java,
+	javax/xml/parsers/package.html,
+	javax/xml/transform/ErrorListener.java,
+	javax/xml/transform/OutputKeys.java,
+	javax/xml/transform/Result.java, javax/xml/transform/Source.java,
+	javax/xml/transform/SourceLocator.java,
+	javax/xml/transform/Templates.java,
+	javax/xml/transform/Transformer.java,
+	javax/xml/transform/TransformerConfigurationException.java,
+	javax/xml/transform/TransformerException.java,
+	javax/xml/transform/TransformerFactory.java,
+	javax/xml/transform/TransformerFactoryConfigurationError.java,
+	javax/xml/transform/URIResolver.java,
+	javax/xml/transform/package.html,
+	javax/xml/transform/dom/DOMLocator.java,
+	javax/xml/transform/dom/DOMResult.java,
+	javax/xml/transform/dom/DOMSource.java,
+	javax/xml/transform/dom/package.html,
+	javax/xml/transform/sax/SAXResult.java,
+	javax/xml/transform/sax/SAXSource.java,
+	javax/xml/transform/sax/SAXTransformerFactory.java,
+	javax/xml/transform/sax/TemplatesHandler.java,
+	javax/xml/transform/sax/TransformerHandler.java,
+	javax/xml/transform/sax/package.html,
+	javax/xml/transform/stream/StreamResult.java,
+	javax/xml/transform/stream/StreamSource.java,
+	javax/xml/transform/stream/package.html,
+	javax/xml/validation/Schema.java,
+	javax/xml/validation/SchemaFactory.java,
+	javax/xml/validation/TypeInfoProvider.java,
+	javax/xml/validation/Validator.java,
+	javax/xml/validation/ValidatorHandler.java,
+	javax/xml/validation/package.html, javax/xml/xpath/XPath.java,
+	javax/xml/xpath/XPathConstants.java,
+	javax/xml/xpath/XPathException.java,
+	javax/xml/xpath/XPathExpression.java,
+	javax/xml/xpath/XPathExpressionException.java,
+	javax/xml/xpath/XPathFactory.java,
+	javax/xml/xpath/XPathFactoryConfigurationException.java,
+	javax/xml/xpath/XPathFunction.java,
+	javax/xml/xpath/XPathFunctionException.java,
+	javax/xml/xpath/XPathFunctionResolver.java,
+	javax/xml/xpath/XPathVariableResolver.java,
+	javax/xml/xpath/package.html: New files, from GNU JAXP.
+	* org/w3c/dom/Attr.java, org/w3c/dom/CDATASection.java,
+	org/w3c/dom/CharacterData.java, org/w3c/dom/Comment.java,
+	org/w3c/dom/DOMException.java, org/w3c/dom/DOMImplementation.java,
+	org/w3c/dom/Document.java, org/w3c/dom/DocumentFragment.java,
+	org/w3c/dom/DocumentType.java, org/w3c/dom/Element.java,
+	org/w3c/dom/Entity.java, org/w3c/dom/EntityReference.java,
+	org/w3c/dom/NamedNodeMap.java, org/w3c/dom/Node.java,
+	org/w3c/dom/NodeList.java, org/w3c/dom/Notation.java,
+	org/w3c/dom/ProcessingInstruction.java, org/w3c/dom/Text.java,
+	org/w3c/dom/ranges/DocumentRange.java,
+	org/w3c/dom/ranges/Range.java,
+	org/w3c/dom/ranges/RangeException.java,
+	org/w3c/dom/traversal/DocumentTraversal.java,
+	org/w3c/dom/traversal/NodeFilter.java,
+	org/w3c/dom/traversal/NodeIterator.java,
+	org/w3c/dom/traversal/TreeWalker.java,
+	org/xml/sax/AttributeList.java, org/xml/sax/Attributes.java,
+	org/xml/sax/ContentHandler.java, org/xml/sax/DTDHandler.java,
+	org/xml/sax/DocumentHandler.java, org/xml/sax/EntityResolver.java,
+	org/xml/sax/ErrorHandler.java, org/xml/sax/HandlerBase.java,
+	org/xml/sax/InputSource.java, org/xml/sax/Locator.java,
+	org/xml/sax/Parser.java, org/xml/sax/SAXException.java,
+	org/xml/sax/SAXNotRecognizedException.java,
+	org/xml/sax/SAXNotSupportedException.java,
+	org/xml/sax/SAXParseException.java, org/xml/sax/XMLFilter.java,
+	org/xml/sax/XMLReader.java, org/xml/sax/package.html,
+	org/xml/sax/ext/DeclHandler.java,
+	org/xml/sax/ext/LexicalHandler.java, org/xml/sax/ext/package.html,
+	org/xml/sax/helpers/AttributeListImpl.java,
+	org/xml/sax/helpers/AttributesImpl.java,
+	org/xml/sax/helpers/DefaultHandler.java,
+	org/xml/sax/helpers/LocatorImpl.java,
+	org/xml/sax/helpers/NamespaceSupport.java,
+	org/xml/sax/helpers/NewInstance.java,
+	org/xml/sax/helpers/ParserAdapter.java,
+	org/xml/sax/helpers/ParserFactory.java,
+	org/xml/sax/helpers/XMLFilterImpl.java,
+	org/xml/sax/helpers/XMLReaderAdapter.java,
+	org/xml/sax/helpers/XMLReaderFactory.java,
+	org/xml/sax/helpers/package.html: Moved to external/.
+	* external/sax/README,
+	external/sax/org/xml/sax/AttributeList.java,
+	external/sax/org/xml/sax/Attributes.java,
+	external/sax/org/xml/sax/ContentHandler.java,
+	external/sax/org/xml/sax/DTDHandler.java,
+	external/sax/org/xml/sax/DocumentHandler.java,
+	external/sax/org/xml/sax/EntityResolver.java,
+	external/sax/org/xml/sax/ErrorHandler.java,
+	external/sax/org/xml/sax/HandlerBase.java,
+	external/sax/org/xml/sax/InputSource.java,
+	external/sax/org/xml/sax/Locator.java,
+	external/sax/org/xml/sax/Parser.java,
+	external/sax/org/xml/sax/SAXException.java,
+	external/sax/org/xml/sax/SAXNotRecognizedException.java,
+	external/sax/org/xml/sax/SAXNotSupportedException.java,
+	external/sax/org/xml/sax/SAXParseException.java,
+	external/sax/org/xml/sax/XMLFilter.java,
+	external/sax/org/xml/sax/XMLReader.java,
+	external/sax/org/xml/sax/package.html,
+	external/sax/org/xml/sax/ext/Attributes2.java,
+	external/sax/org/xml/sax/ext/Attributes2Impl.java,
+	external/sax/org/xml/sax/ext/DeclHandler.java,
+	external/sax/org/xml/sax/ext/DefaultHandler2.java,
+	external/sax/org/xml/sax/ext/EntityResolver2.java,
+	external/sax/org/xml/sax/ext/LexicalHandler.java,
+	external/sax/org/xml/sax/ext/Locator2.java,
+	external/sax/org/xml/sax/ext/Locator2Impl.java,
+	external/sax/org/xml/sax/ext/package.html,
+	external/sax/org/xml/sax/helpers/AttributeListImpl.java,
+	external/sax/org/xml/sax/helpers/AttributesImpl.java,
+	external/sax/org/xml/sax/helpers/DefaultHandler.java,
+	external/sax/org/xml/sax/helpers/LocatorImpl.java,
+	external/sax/org/xml/sax/helpers/NamespaceSupport.java,
+	external/sax/org/xml/sax/helpers/NewInstance.java,
+	external/sax/org/xml/sax/helpers/ParserAdapter.java,
+	external/sax/org/xml/sax/helpers/ParserFactory.java,
+	external/sax/org/xml/sax/helpers/XMLFilterImpl.java,
+	external/sax/org/xml/sax/helpers/XMLReaderAdapter.java,
+	external/sax/org/xml/sax/helpers/XMLReaderFactory.java,
+	external/sax/org/xml/sax/helpers/package.html,
+	external/w3c_dom/COPYRIGHT.html, external/w3c_dom/README,
+	external/w3c_dom/org/w3c/dom/Attr.java,
+	external/w3c_dom/org/w3c/dom/CDATASection.java,
+	external/w3c_dom/org/w3c/dom/CharacterData.java,
+	external/w3c_dom/org/w3c/dom/Comment.java,
+	external/w3c_dom/org/w3c/dom/DOMConfiguration.java,
+	external/w3c_dom/org/w3c/dom/DOMError.java,
+	external/w3c_dom/org/w3c/dom/DOMErrorHandler.java,
+	external/w3c_dom/org/w3c/dom/DOMException.java,
+	external/w3c_dom/org/w3c/dom/DOMImplementation.java,
+	external/w3c_dom/org/w3c/dom/DOMImplementationList.java,
+	external/w3c_dom/org/w3c/dom/DOMImplementationSource.java,
+	external/w3c_dom/org/w3c/dom/DOMLocator.java,
+	external/w3c_dom/org/w3c/dom/DOMStringList.java,
+	external/w3c_dom/org/w3c/dom/Document.java,
+	external/w3c_dom/org/w3c/dom/DocumentFragment.java,
+	external/w3c_dom/org/w3c/dom/DocumentType.java,
+	external/w3c_dom/org/w3c/dom/Element.java,
+	external/w3c_dom/org/w3c/dom/Entity.java,
+	external/w3c_dom/org/w3c/dom/EntityReference.java,
+	external/w3c_dom/org/w3c/dom/NameList.java,
+	external/w3c_dom/org/w3c/dom/NamedNodeMap.java,
+	external/w3c_dom/org/w3c/dom/Node.java,
+	external/w3c_dom/org/w3c/dom/NodeList.java,
+	external/w3c_dom/org/w3c/dom/Notation.java,
+	external/w3c_dom/org/w3c/dom/ProcessingInstruction.java,
+	external/w3c_dom/org/w3c/dom/Text.java,
+	external/w3c_dom/org/w3c/dom/TypeInfo.java,
+	external/w3c_dom/org/w3c/dom/UserDataHandler.java,
+	external/w3c_dom/org/w3c/dom/bootstrap/DOMImplementationRegistry.java,
+	external/w3c_dom/org/w3c/dom/css/CSS2Properties.java,
+	external/w3c_dom/org/w3c/dom/css/CSSCharsetRule.java,
+	external/w3c_dom/org/w3c/dom/css/CSSFontFaceRule.java,
+	external/w3c_dom/org/w3c/dom/css/CSSImportRule.java,
+	external/w3c_dom/org/w3c/dom/css/CSSMediaRule.java,
+	external/w3c_dom/org/w3c/dom/css/CSSPageRule.java,
+	external/w3c_dom/org/w3c/dom/css/CSSPrimitiveValue.java,
+	external/w3c_dom/org/w3c/dom/css/CSSRule.java,
+	external/w3c_dom/org/w3c/dom/css/CSSRuleList.java,
+	external/w3c_dom/org/w3c/dom/css/CSSStyleDeclaration.java,
+	external/w3c_dom/org/w3c/dom/css/CSSStyleRule.java,
+	external/w3c_dom/org/w3c/dom/css/CSSStyleSheet.java,
+	external/w3c_dom/org/w3c/dom/css/CSSUnknownRule.java,
+	external/w3c_dom/org/w3c/dom/css/CSSValue.java,
+	external/w3c_dom/org/w3c/dom/css/CSSValueList.java,
+	external/w3c_dom/org/w3c/dom/css/Counter.java,
+	external/w3c_dom/org/w3c/dom/css/DOMImplementationCSS.java,
+	external/w3c_dom/org/w3c/dom/css/DocumentCSS.java,
+	external/w3c_dom/org/w3c/dom/css/ElementCSSInlineStyle.java,
+	external/w3c_dom/org/w3c/dom/css/RGBColor.java,
+	external/w3c_dom/org/w3c/dom/css/Rect.java,
+	external/w3c_dom/org/w3c/dom/css/ViewCSS.java,
+	external/w3c_dom/org/w3c/dom/events/DocumentEvent.java,
+	external/w3c_dom/org/w3c/dom/events/Event.java,
+	external/w3c_dom/org/w3c/dom/events/EventException.java,
+	external/w3c_dom/org/w3c/dom/events/EventListener.java,
+	external/w3c_dom/org/w3c/dom/events/EventTarget.java,
+	external/w3c_dom/org/w3c/dom/events/MouseEvent.java,
+	external/w3c_dom/org/w3c/dom/events/MutationEvent.java,
+	external/w3c_dom/org/w3c/dom/events/UIEvent.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLAnchorElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLAppletElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLAreaElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLBRElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLBaseElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLBaseFontElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLBodyElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLButtonElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLCollection.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLDListElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLDirectoryElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLDivElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLDocument.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLFieldSetElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLFontElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLFormElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLFrameElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLFrameSetElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLHRElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLHeadElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLHeadingElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLHtmlElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLIFrameElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLImageElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLInputElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLIsIndexElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLLIElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLLabelElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLLegendElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLLinkElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLMapElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLMenuElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLMetaElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLModElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLOListElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLObjectElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLOptGroupElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLOptionElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLOptionsCollection.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLParagraphElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLParamElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLPreElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLQuoteElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLScriptElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLSelectElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLStyleElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLTableCaptionElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLTableCellElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLTableColElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLTableElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLTableRowElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLTableSectionElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLTextAreaElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLTitleElement.java,
+	external/w3c_dom/org/w3c/dom/html2/HTMLUListElement.java,
+	external/w3c_dom/org/w3c/dom/ls/DOMImplementationLS.java,
+	external/w3c_dom/org/w3c/dom/ls/LSException.java,
+	external/w3c_dom/org/w3c/dom/ls/LSInput.java,
+	external/w3c_dom/org/w3c/dom/ls/LSLoadEvent.java,
+	external/w3c_dom/org/w3c/dom/ls/LSOutput.java,
+	external/w3c_dom/org/w3c/dom/ls/LSParser.java,
+	external/w3c_dom/org/w3c/dom/ls/LSParserFilter.java,
+	external/w3c_dom/org/w3c/dom/ls/LSProgressEvent.java,
+	external/w3c_dom/org/w3c/dom/ls/LSResourceResolver.java,
+	external/w3c_dom/org/w3c/dom/ls/LSSerializer.java,
+	external/w3c_dom/org/w3c/dom/ls/LSSerializerFilter.java,
+	external/w3c_dom/org/w3c/dom/ranges/DocumentRange.java,
+	external/w3c_dom/org/w3c/dom/ranges/Range.java,
+	external/w3c_dom/org/w3c/dom/ranges/RangeException.java,
+	external/w3c_dom/org/w3c/dom/stylesheets/DocumentStyle.java,
+	external/w3c_dom/org/w3c/dom/stylesheets/LinkStyle.java,
+	external/w3c_dom/org/w3c/dom/stylesheets/MediaList.java,
+	external/w3c_dom/org/w3c/dom/stylesheets/StyleSheet.java,
+	external/w3c_dom/org/w3c/dom/stylesheets/StyleSheetList.java,
+	external/w3c_dom/org/w3c/dom/traversal/DocumentTraversal.java,
+	external/w3c_dom/org/w3c/dom/traversal/NodeFilter.java,
+	external/w3c_dom/org/w3c/dom/traversal/NodeIterator.java,
+	external/w3c_dom/org/w3c/dom/traversal/TreeWalker.java,
+	external/w3c_dom/org/w3c/dom/views/AbstractView.java,
+	external/w3c_dom/org/w3c/dom/views/DocumentView.java,
+	external/w3c_dom/org/w3c/dom/xpath/XPathEvaluator.java,
+	external/w3c_dom/org/w3c/dom/xpath/XPathException.java,
+	external/w3c_dom/org/w3c/dom/xpath/XPathExpression.java,
+	external/w3c_dom/org/w3c/dom/xpath/XPathNSResolver.java,
+	external/w3c_dom/org/w3c/dom/xpath/XPathNamespace.java,
+	external/w3c_dom/org/w3c/dom/xpath/XPathResult.java: New files
+	from Classpath.
+
 2005-01-31  Anthony Green  <green@redhat.com>
 
 	* gnu/java/net/natPlainDatagramSocketImplPosix.cc (getOption):

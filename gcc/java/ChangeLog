@@ -1,9 +1,73 @@
+2005-02-14  Tom Tromey  <tromey@redhat.com>
+
+	PR java/19921:
+	* jcf-write.c (generate_bytecode_insns) <CALL_EXPR>: Note the
+	stack effect of multianewarray.
+
+2005-02-14  Andrew Haley  <aph@redhat.com>
+
+	PR java/19907
+	* expr.c (expand_byte_code): Call promote_arguments().
+	(promote_arguments): New function.
+	* decl.c (check_local_unnamed_variable): Remve special case for
+	new verifier.
+	(find_local_variable): Promote all boolean types to int
+	when searching for local variable decls.
+	
+2005-02-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* builtins.c, java-except.h, jcf-parse.c, jv-scan.c, lex.c,
+	parse-scan.y: Update copyright.
+
+2005-02-11  Per Bothner  <per@bothner.com>
+
+	PR java/15543
+	* parse-scan.y (input_location): Remove variable.
+	(main_input_filename): New - replaces input_filename, which isn't
+	settable if USE_MAPPED_LOCATION.
+	* lex.c (java_init_lex): Wrap some more places in #ifndef JC1-LITE,
+	so we don't reference input_location or wfl_operator in that case.
+	* jv-scan.c (expand_location): Remove - no longer used.
+	(main): Set main_input_filename rather than input_filename.
+
+2005-02-09  Richard Henderson  <rth@redhat.com>
+
+	* builtins.c (initialize_builtins): Call build_common_builtin_nodes.
+	* decl.c (java_init_decl_processing): Initialize const_ptr_type_node.
+
+2005-02-08  Marcin Dalecki  <martin@dalecki.de>
+
+	* expr.c (add_type_assertion): Use the proper enumeration type,
+	since this is what htab_find_slot() is expecting.
+
+2005-02-06  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcj.texi: Update copyright dates.
+
+2005-02-02  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (libgcj Runtime Properties): Default library_control
+	to 'cache'.
+
+2005-02-02  Ranjit Mathew  <rmathew@hotmail.com>
+
+	PR java/15543
+	* parse-scan.y (formal_parameter): Use $2 (type) instead of $$
+	(modifiers) when square brackets are present in a declaration for
+	a final paramter.
+	* jv-scan.c (main): Set input_filename and input_line.
+
+2005-02-01  Tom Tromey  <tromey@redhat.com>
+
+	PR java/19742:
+	* gjavah.c (get_field_name): Don't override name for JNI header.
+
 2005-02-01  Roger Sayle  <roger@eyesopen.com>
 
 	* jcf-write.c (generate_bytecode_insns): Implement RSHIFT_EXPR
 	of unsigned types using iushr and lushr JVM bytecodes.
 
-2005-02-02  Ranjit Mathew  <rmathew@hotmail.com>
+2005-02-01  Ranjit Mathew  <rmathew@hotmail.com>
 
 	PR java/19738
 	* gjavah.c (jni_print_float): Do not emit floating-point

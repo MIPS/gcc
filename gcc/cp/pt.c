@@ -1883,6 +1883,11 @@ check_explicit_specialization (tree declarator,
 	      /* Find the namespace binding, using the declaration
                  context.  */
 	      fns = namespace_binding (dname, CP_DECL_CONTEXT (decl));
+	      if (!fns || !is_overloaded_fn (fns))
+		{
+		  error ("%qD is not a template function", dname);
+		  fns = error_mark_node;
+		}
 	    }
 
 	  declarator = lookup_template_function (fns, NULL_TREE);
@@ -1932,7 +1937,7 @@ check_explicit_specialization (tree declarator,
 	      int is_constructor = DECL_CONSTRUCTOR_P (decl);
 	      
 	      if (is_constructor ? !TYPE_HAS_CONSTRUCTOR (ctype)
-		  : !TYPE_HAS_DESTRUCTOR (ctype))
+		  : !CLASSTYPE_DESTRUCTORS (ctype))
 		{
 		  /* From [temp.expl.spec]:
 		       
@@ -2099,49 +2104,6 @@ check_explicit_specialization (tree declarator,
     }
   
   return decl;
-}
-
-/* TYPE is being declared.  Verify that the use of template headers
-   and such is reasonable.  Issue error messages if not.  */
-
-void
-maybe_check_template_type (tree type)
-{
-  if (template_header_count)
-    {
-      /* We are in the scope of some `template <...>' header.  */
-
-      int context_depth 
-	= template_class_depth_real (TYPE_CONTEXT (type),
-				     /*count_specializations=*/1);
-
-      if (template_header_count <= context_depth)
-	/* This is OK; the template headers are for the context.  We
-	   are actually too lenient here; like
-	   check_explicit_specialization we should consider the number
-	   of template types included in the actual declaration.  For
-	   example, 
-
-	     template <class T> struct S {
-	       template <class U> template <class V>
-	       struct I {};
-	     }; 
-
-	   is invalid, but:
-
-	     template <class T> struct S {
-	       template <class U> struct I;
-	     }; 
-
-	     template <class T> template <class U.
-	     struct S<T>::I {};
-
-	   is not.  */
-	; 
-      else if (template_header_count > context_depth + 1)
-	/* There are two many template parameter lists.  */
-	error ("too many template parameter lists in declaration of %qT", type); 
-    }
 }
 
 /* Returns 1 iff PARMS1 and PARMS2 are identical sets of template
@@ -4239,17 +4201,8 @@ lookup_template_function (tree fns, tree arglist)
     return error_mark_node;
 
   gcc_assert (!arglist || TREE_CODE (arglist) == TREE_VEC);
-  if (fns == NULL_TREE 
-      || TREE_CODE (fns) == FUNCTION_DECL)
-    {
-      error ("non-template used as template");
-      return error_mark_node;
-    }
-
-  gcc_assert (TREE_CODE (fns) == TEMPLATE_DECL
-	      || TREE_CODE (fns) == OVERLOAD
-	      || BASELINK_P (fns)
-	      || TREE_CODE (fns) == IDENTIFIER_NODE);
+  gcc_assert (fns && (is_overloaded_fn (fns)
+		      || TREE_CODE (fns) == IDENTIFIER_NODE));
 
   if (BASELINK_P (fns))
     {
@@ -5541,7 +5494,6 @@ instantiate_class_template (tree type)
   input_location = DECL_SOURCE_LOCATION (TYPE_NAME (pattern));
 
   TYPE_HAS_CONSTRUCTOR (type) = TYPE_HAS_CONSTRUCTOR (pattern);
-  TYPE_HAS_DESTRUCTOR (type) = TYPE_HAS_DESTRUCTOR (pattern);
   TYPE_HAS_NEW_OPERATOR (type) = TYPE_HAS_NEW_OPERATOR (pattern);
   TYPE_HAS_ARRAY_NEW_OPERATOR (type) = TYPE_HAS_ARRAY_NEW_OPERATOR (pattern);
   TYPE_GETS_DELETE (type) = TYPE_GETS_DELETE (pattern);
@@ -8903,6 +8855,7 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 {
   int ix, len = DECL_NTPARMS (tmpl);
   bool result = false;
+  bool error_p = complain & tf_error;
 
   for (ix = 0; ix != len; ix++)
     {
@@ -8920,10 +8873,11 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 	  if (nt)
 	    {
 	      if (TYPE_ANONYMOUS_P (nt))
-		error ("%qT uses anonymous type", t);
+		error ("%qT is/uses anonymous type", t);
 	      else
 		error ("%qT uses local type %qT", t, nt);
 	      result = true;
+	      error_p = true;
 	    }
 	  /* In order to avoid all sorts of complications, we do not
 	     allow variably-modified types as template arguments.  */
@@ -8945,7 +8899,7 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 	  result = true;
 	}
     }
-  if (result && complain & tf_error)
+  if (result && error_p)
     error ("  trying to instantiate %qD", tmpl);
   return result;
 }
@@ -11692,7 +11646,7 @@ get_mostly_instantiated_function_type (tree decl)
     ;
   else
     {
-      int i;
+      int i, save_access_control;
       tree partial_args;
 
       /* Replace the innermost level of the TARGS with NULL_TREEs to
@@ -11705,12 +11659,10 @@ get_mostly_instantiated_function_type (tree decl)
 			   TMPL_ARGS_DEPTH (targs),
 			   make_tree_vec (DECL_NTPARMS (tmpl)));
 
-      /* Make sure that we can see identifiers, and compute access
-	 correctly.  We can just use the context of DECL for the
-	 partial substitution here.  It depends only on outer template
-	 parameters, regardless of whether the innermost level is
-	 specialized or not.  */
-      push_access_scope (decl);
+      /* Disable access control as this function is used only during
+	 name-mangling.  */
+      save_access_control = flag_access_control;
+      flag_access_control = 0;
 
       ++processing_template_decl;
       /* Now, do the (partial) substitution to figure out the
@@ -11725,7 +11677,7 @@ get_mostly_instantiated_function_type (tree decl)
       TREE_VEC_LENGTH (partial_args)--;
       tparms = tsubst_template_parms (tparms, partial_args, tf_error);
 
-      pop_access_scope (decl);
+      flag_access_control = save_access_control;
     }
 
   return fn_type;
@@ -12018,6 +11970,36 @@ value_dependent_expression_p (tree expression)
   if (TREE_CODE (expression) == COMPONENT_REF)
     return (value_dependent_expression_p (TREE_OPERAND (expression, 0))
 	    || value_dependent_expression_p (TREE_OPERAND (expression, 1)));
+
+  /* A CALL_EXPR is value-dependent if any argument is
+     value-dependent.  Why do we have to handle CALL_EXPRs in this
+     function at all?  First, some function calls, those for which
+     value_dependent_expression_p is true, man appear in constant
+     expressions.  Second, there appear to be bugs which result in
+     other CALL_EXPRs reaching this point. */
+  if (TREE_CODE (expression) == CALL_EXPR)
+    {
+      tree function = TREE_OPERAND (expression, 0);
+      tree args = TREE_OPERAND (expression, 1);
+
+      if (value_dependent_expression_p (function))
+	return true;
+      else if (! args)
+	return false;
+      else if (TREE_CODE (args) == TREE_LIST)
+	{
+	  do
+	    {
+	      if (value_dependent_expression_p (TREE_VALUE (args)))
+		return true;
+	      args = TREE_CHAIN (args);
+	    }
+	  while (args);
+	  return false;
+	}
+      else
+	return value_dependent_expression_p (args);
+    }
   /* A constant expression is value-dependent if any subexpression is
      value-dependent.  */
   if (EXPR_P (expression))

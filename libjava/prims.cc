@@ -921,6 +921,8 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
 
   PROCESS_GCJ_PROPERTIES;
 
+  /* Threads must be initialized before the GC, so that it inherits the
+     signal mask.  */
   _Jv_InitThreads ();
   _Jv_InitGC ();
   _Jv_InitializeSyncMutex ();
@@ -964,8 +966,7 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   // of VMClassLoader.
   _Jv_InitClass (&java::lang::ClassLoader::class$);
 
-  // Once the bootstrap loader is in place, change it into a kind of
-  // system loader, by having it read the class path.
+  // Set up the system class loader.
   gnu::gcj::runtime::VMClassLoader::initialize();
 
   _Jv_RegisterBootstrapPackages();

@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2004, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2005, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -118,7 +118,6 @@ struct language_function GTY(())
   int unused;
 };
 
-static void gnat_define_builtin (const char *, tree, int, const char *, bool);
 static void gnat_install_builtins (void);
 static tree merge_sizes (tree, tree, tree, bool, bool);
 static tree compute_related_constant (tree, tree);
@@ -310,7 +309,7 @@ insert_block (tree block)
 }
 
 /* Records a ..._DECL node DECL as belonging to the current lexical scope
-   and uses GNAT_NODE for location information.  */
+   and uses GNAT_NODE for location information and propagating flags.  */
 
 void
 gnat_pushdecl (tree decl, Node_Id gnat_node)
@@ -321,6 +320,8 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
     DECL_CONTEXT (decl) = 0;
   else
     DECL_CONTEXT (decl) = current_function_decl;
+
+  TREE_NO_WARNING (decl) = (gnat_node == Empty || Warnings_Off (gnat_node));
 
   /* Set the location of DECL and emit a declaration for it.  */
   if (Present (gnat_node))
@@ -405,110 +406,13 @@ gnat_init_decl_processing (void)
   gnat_install_builtins ();
 }
 
-/* Define a builtin function.  This is temporary and is just being done
-   to initialize *_built_in_decls for the middle-end.  We'll want
-   to do full builtin processing soon.  */
-
-static void
-gnat_define_builtin (const char *name, tree type,
-		     int function_code, const char *library_name, bool const_p)
-{
-  tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
-
-  DECL_EXTERNAL (decl) = 1;
-  TREE_PUBLIC (decl) = 1;
-  if (library_name)
-    SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
-  make_decl_rtl (decl);
-  gnat_pushdecl (decl, Empty);
-  DECL_BUILT_IN_CLASS (decl) = BUILT_IN_NORMAL;
-  DECL_FUNCTION_CODE (decl) = function_code;
-  TREE_READONLY (decl) = const_p;
-
-  implicit_built_in_decls[function_code] = decl;
-  built_in_decls[function_code] = decl;
-}
-
 /* Install the builtin functions the middle-end needs.  */
 
 static void
 gnat_install_builtins ()
 {
-  tree ftype;
-  tree tmp;
-
-  tmp = tree_cons (NULL_TREE, long_integer_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, long_integer_type_node, tmp);
-  ftype = build_function_type (long_integer_type_node, tmp);
-  gnat_define_builtin ("__builtin_expect", ftype, BUILT_IN_EXPECT,
-		       "__builtin_expect", true);
-
-  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, ptr_void_type_node, tmp);
-  tmp = tree_cons (NULL_TREE, ptr_void_type_node, tmp);
-  ftype = build_function_type (ptr_void_type_node, tmp);
-  gnat_define_builtin ("__builtin_memcpy", ftype, BUILT_IN_MEMCPY,
-		       "memcpy", false);
-
-  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, ptr_void_type_node, tmp);
-  tmp = tree_cons (NULL_TREE, ptr_void_type_node, tmp);
-  ftype = build_function_type (integer_type_node, tmp);
-  gnat_define_builtin ("__builtin_memcmp", ftype, BUILT_IN_MEMCMP,
-		       "memcmp", false);
-
-  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, integer_type_node, tmp);
-  tmp = tree_cons (NULL_TREE, ptr_void_type_node, tmp);
-  ftype = build_function_type (integer_type_node, tmp);
-  gnat_define_builtin ("__builtin_memset", ftype, BUILT_IN_MEMSET,
-		       "memset", false);
-
-  tmp = tree_cons (NULL_TREE, integer_type_node, void_list_node);
-  ftype = build_function_type (integer_type_node, tmp);
-  gnat_define_builtin ("__builtin_clz", ftype, BUILT_IN_CLZ, "clz", true);
-
-  tmp = tree_cons (NULL_TREE, long_integer_type_node, void_list_node);
-  ftype = build_function_type (integer_type_node, tmp);
-  gnat_define_builtin ("__builtin_clzl", ftype, BUILT_IN_CLZL, "clzl", true);
-
-  tmp = tree_cons (NULL_TREE, long_long_integer_type_node, void_list_node);
-  ftype = build_function_type (integer_type_node, tmp);
-  gnat_define_builtin ("__builtin_clzll", ftype, BUILT_IN_CLZLL, "clzll",
-		       true);
-
-  /* The init_trampoline and adjust_trampoline builtins aren't used directly.
-     They are inserted during lowering of nested functions.  */
-
-  tmp = tree_cons (NULL_TREE, ptr_void_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, ptr_void_type_node, tmp);
-  tmp = tree_cons (NULL_TREE, ptr_void_type_node, tmp);
-  ftype = build_function_type (void_type_node, tmp);
-  gnat_define_builtin ("__builtin_init_trampoline", ftype,
-		       BUILT_IN_INIT_TRAMPOLINE, "init_trampoline", false);
-
-  tmp = tree_cons (NULL_TREE, ptr_void_type_node, void_list_node);
-  ftype = build_function_type (ptr_void_type_node, tmp);
-  gnat_define_builtin ("__builtin_adjust_trampoline", ftype,
-		       BUILT_IN_ADJUST_TRAMPOLINE, "adjust_trampoline", true);
-
-  /* The stack_save, stack_restore, and alloca builtins aren't used directly.
-     They are inserted during gimplification to implement variable sized stack
-     allocation.  */
-
-  ftype = build_function_type (ptr_void_type_node, void_list_node);
-  gnat_define_builtin ("__builtin_stack_save", ftype, BUILT_IN_STACK_SAVE,
-		       "stack_save", false);
-
-  tmp = tree_cons (NULL_TREE, ptr_void_type_node, void_list_node);
-  ftype = build_function_type (void_type_node, tmp);
-  gnat_define_builtin ("__builtin_stack_restore", ftype,
-		       BUILT_IN_STACK_RESTORE, "stack_restore", false);
-
-  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-  ftype = build_function_type (ptr_void_type_node, tmp);
-  gnat_define_builtin ("__builtin_alloca", ftype, BUILT_IN_ALLOCA,
-		       "alloca", false);
+  /* Builtins used by generic optimizers.  */
+  build_common_builtin_nodes ();
 
   /* Target specific builtins, such as the AltiVec family on ppc.  */
   targetm.init_builtins ();
@@ -1280,8 +1184,8 @@ create_type_decl (tree type_name, tree type, struct attrib *attr_list,
       || !debug_info_p)
     DECL_IGNORED_P (type_decl) = 1;
   else if (code != ENUMERAL_TYPE && code != RECORD_TYPE
-      && !((code == POINTER_TYPE || code == REFERENCE_TYPE)
-	   && TYPE_IS_DUMMY_P (TREE_TYPE (type))))
+	   && !((code == POINTER_TYPE || code == REFERENCE_TYPE)
+		&& TYPE_IS_DUMMY_P (TREE_TYPE (type))))
     rest_of_decl_compilation (type_decl, global_bindings_p (), 0);
 
   if (!TYPE_IS_DUMMY_P (type))
@@ -1924,10 +1828,14 @@ gnat_type_for_mode (enum machine_mode mode, int unsignedp)
     return NULL_TREE;
   else if (mode == VOIDmode)
     return void_type_node;
-  else if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+  else if (COMPLEX_MODE_P (mode))
+    return NULL_TREE;
+  else if (SCALAR_FLOAT_MODE_P (mode))
     return float_type_for_precision (GET_MODE_PRECISION (mode), mode);
-  else
+  else if (SCALAR_INT_MODE_P (mode))
     return gnat_type_for_size (GET_MODE_BITSIZE (mode), unsignedp);
+  else
+    return NULL_TREE;
 }
 
 /* Return the unsigned version of a TYPE_NODE, a scalar type.  */
@@ -3003,21 +2911,29 @@ convert (tree type, tree expr)
       return unchecked_convert (type, expr, false);
 
     case UNION_TYPE:
-      /* Just validate that the type is indeed that of a field
-	 of the type.  Then make the simple conversion.  */
-      for (tem = TYPE_FIELDS (type); tem; tem = TREE_CHAIN (tem))
+      /* For unchecked unions, just validate that the type is indeed that of
+	 a field of the type.  Then make the simple conversion.  */
+      if (TYPE_UNCHECKED_UNION_P (type))
 	{
-	  if (TREE_TYPE (tem) == etype)
-	    return build1 (CONVERT_EXPR, type, expr);
-	  else if (TREE_CODE (TREE_TYPE (tem)) == RECORD_TYPE
-		   && (TYPE_JUSTIFIED_MODULAR_P (TREE_TYPE (tem))
-		       || TYPE_IS_PADDING_P (TREE_TYPE (tem)))
-		   && TREE_TYPE (TYPE_FIELDS (TREE_TYPE (tem))) == etype)
-	    return build1 (CONVERT_EXPR, type,
-			   convert (TREE_TYPE (tem), expr));
-	}
+	  for (tem = TYPE_FIELDS (type); tem; tem = TREE_CHAIN (tem))
+	    {
+	      if (TREE_TYPE (tem) == etype)
+		return build1 (CONVERT_EXPR, type, expr);
+	      else if (TREE_CODE (TREE_TYPE (tem)) == RECORD_TYPE
+		       && (TYPE_JUSTIFIED_MODULAR_P (TREE_TYPE (tem))
+			   || TYPE_IS_PADDING_P (TREE_TYPE (tem)))
+		       && TREE_TYPE (TYPE_FIELDS (TREE_TYPE (tem))) == etype)
+		return build1 (CONVERT_EXPR, type,
+			       convert (TREE_TYPE (tem), expr));
+	    }
 
-      gcc_unreachable ();
+	  gcc_unreachable ();
+	}
+      else
+	/* Otherwise, this is a conversion between a tagged type and some
+	   subtype, which we have to mark as a UNION_TYPE because of
+	   overlapping fields.  */
+	return unchecked_convert (type, expr, false);
 
     case UNCONSTRAINED_ARRAY_TYPE:
       /* If EXPR is a constrained array, take its address, convert it to a
@@ -3312,6 +3228,7 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
 /* Search the chain of currently reachable declarations for a builtin
    FUNCTION_DECL node corresponding to function NAME (an IDENTIFIER_NODE).
    Return the first node found, if any, or NULL_TREE otherwise.  */
+
 tree
 builtin_decl_for (tree name __attribute__ ((unused)))
 {

@@ -3668,6 +3668,10 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	  pref_or_nothing[commutative] = pref_or_nothing[commutative + 1];
 	  pref_or_nothing[commutative + 1] = t;
 
+	  t = address_reloaded[commutative];
+	  address_reloaded[commutative] = address_reloaded[commutative + 1];
+	  address_reloaded[commutative + 1] = t;
+
 	  memcpy (constraints, recog_data.constraints,
 		  noperands * sizeof (char *));
 	  goto try_swapped;
@@ -6705,12 +6709,14 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
 
 	  if (regno >= 0 && regno < FIRST_PSEUDO_REGISTER)
 	    for (i = 0; i < nregs; ++i)
-	      if (call_used_regs[regno + i])
+	      if (call_used_regs[regno + i]
+		  || HARD_REGNO_CALL_PART_CLOBBERED (regno + i, mode))
 		return 0;
 
 	  if (valueno >= 0 && valueno < FIRST_PSEUDO_REGISTER)
 	    for (i = 0; i < valuenregs; ++i)
-	      if (call_used_regs[valueno + i])
+	      if (call_used_regs[valueno + i]
+		  || HARD_REGNO_CALL_PART_CLOBBERED (valueno + i, mode))
 		return 0;
 	}
 

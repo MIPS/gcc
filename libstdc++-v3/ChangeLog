@@ -1,3 +1,73 @@
+2005-02-15  Paolo Carlini  <pcarlini@suse.de>
+	    Jon Grimm  <jgrimm2@us.ibm.com>
+	
+	PR libstdc++/19955
+	* include/bits/locale_facets.h (ctype<char>::_M_narrow_init()):
+	Fix the logic setting _M_narrow_ok: first check whether the
+	transformation is trivial with a dflt == 0, then deal with the
+	special case of zero.
+	* testsuite/22_locale/ctype/narrow/char/19955.cc: New.
+
+	* include/bits/locale_facets.h (ctype<char>::_M_widen_init()):
+	Tweak consistently to use memcmp; minor formatting fixes.
+
+2005-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/19946
+	* testsuite/demangle/abi_examples/01.cc (main): Adjust for 2005-02-13
+	demangler change.
+	* testsuite/demangle/abi_examples/02.cc (main): Likewise.
+
+2005-02-13  Richard Guenther  <rguenth@gcc.gnu.org>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/11706
+	* include/c_std/std_cmath.h (pow): Use __builtin_powi[lf]
+	for integer overloads.
+
+	* testsuite/26_numerics/cmath/powi.cc: New.
+
+2005-02-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* testsuite/26_numerics/complex/13450.cc: Fix XFAIL selector.
+	* testsuite/26_numerics/complex/complex_value.cc: Ditto.
+	* testsuite/26_numerics/complex/pow.cc: Ditto.
+
+	* testsuite/lib/libstdc++.exp: Load target-supports-dg.exp.
+	* testsuite/26_numerics/complex/13450.cc: XFAIL for broken_cplxf_arg.
+	* testsuite/26_numerics/complex/complex_value.cc: Ditto.
+	* testsuite/26_numerics/complex/pow.cc: Ditto.
+
+2005-02-09  Mike Stump  <mrs@apple.com>
+
+	* libsupc++/del_op.cc: Don't include cstdlib when !_GLIBCXX_HOSTED.
+
+2005-02-09  Janis Johnson  <janis187@us.ibm.com>
+
+	* testsuite/ext/array_allocator/2.cc: XFAIL for powerpc*-*-linux*.
+
+2005-02-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/linker-map.gnu (GLIBCXX_3.4): Add _ZNSdC* and _ZNSdD*.
+
+2005-02-07  Loren J. Rittle  <ljrittle@acm.org>
+
+	* testsuite/27_io/basic_istream/getline/wchar_t/5.cc: Make buf static.
+	* testsuite/27_io/basic_stringbuf/setbuf/wchar_t/4.cc: Make ref and
+	src static.
+
+2005-02-02  Brad Spencer  <spencer@infointeractive.com>
+
+	* debug.html: Fix broken tags.
+	* documentation.html: Same.
+
+2005-02-02  Andreas Jaeger  <aj@suse.de>
+
+	* testsuite/lib/libstdc++.exp: Revert Geoffrey Keating's patch
+	from 2005-01-28.
+	* testsuite/Makefile.am: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
 2005-02-01  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/cpp_type_traits.h: Rename _M_type fields to

@@ -171,6 +171,8 @@ enum optab_index
   OTI_exp2,
   /* Exponential - 1*/
   OTI_expm1,
+  /* Load exponent of a floating point number */
+  OTI_ldexp,
   /* Radix-independent exponent */
   OTI_logb,
   OTI_ilogb,
@@ -234,6 +236,9 @@ enum optab_index
   OTI_vec_init,
   /* Extract specified elements from vectors, for vector load.  */
   OTI_vec_realign_load,
+
+  /* Perform a raise to the power of integer.  */
+  OTI_powi,
 
   OTI_MAX
 };
@@ -299,6 +304,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define exp10_optab (optab_table[OTI_exp10])
 #define exp2_optab (optab_table[OTI_exp2])
 #define expm1_optab (optab_table[OTI_expm1])
+#define ldexp_optab (optab_table[OTI_ldexp])
 #define logb_optab (optab_table[OTI_logb])
 #define ilogb_optab (optab_table[OTI_ilogb])
 #define log_optab (optab_table[OTI_log])
@@ -339,6 +345,8 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define vec_extract_optab (optab_table[OTI_vec_extract])
 #define vec_init_optab (optab_table[OTI_vec_init])
 #define vec_realign_load_optab (optab_table[OTI_vec_realign_load])
+
+#define powi_optab (optab_table[OTI_powi])
 
 /* Conversion optabs have their own table and indexes.  */
 enum convert_optab_index

@@ -1913,7 +1913,8 @@ redeclaration_error_message (tree newdecl, tree olddecl)
       /* If this is a pure function, its olddecl will actually be
 	 the original initialization to `0' (which we force to call
 	 abort()).  Don't complain about redefinition in this case.  */
-      if (DECL_LANG_SPECIFIC (olddecl) && DECL_PURE_VIRTUAL_P (olddecl))
+      if (DECL_LANG_SPECIFIC (olddecl) && DECL_PURE_VIRTUAL_P (olddecl)
+	  && DECL_INITIAL (olddecl) == NULL_TREE)
 	return 0;
 
       /* If both functions come from different namespaces, this is not
@@ -4352,10 +4353,15 @@ reshape_init (tree type, tree *initp)
 	new_init = build_tree_list (TREE_PURPOSE (old_init), new_init);
     }
 
-  /* If this was a brace-enclosed initializer and all of the
-     initializers were not used up, there is a problem.  */
-  if (brace_enclosed_p && *initp)
-    error ("too many initializers for %qT", type);
+  /* If there are more initializers than necessary, issue a
+     diagnostic.  */  
+  if (*initp)
+    {
+      if (brace_enclosed_p)
+	error ("too many initializers for %qT", type);
+      else if (warn_missing_braces)
+	warning ("missing braces around initializer");
+    }
 
   return new_init;
 }
@@ -6553,9 +6559,22 @@ grokdeclarator (const cp_declarator *declarator,
 	      {
 	      case BIT_NOT_EXPR:
 		{
-		  tree type = TREE_OPERAND (decl, 0);
-		  type = constructor_name (type);
-		  name = IDENTIFIER_POINTER (type);
+		  tree type;
+
+		  if (innermost_code != cdk_function)
+		    {
+		      error ("declaration of %qD as non-function", decl);
+		      return error_mark_node;
+		    }
+		  else if (!qualifying_scope 
+			   && !(current_class_type && at_class_scope_p ()))
+		    {
+		      error ("declaration of %qD as non-member", decl);
+		      return error_mark_node;
+		    }
+		  
+		  type = TREE_OPERAND (decl, 0);
+		  name = IDENTIFIER_POINTER (constructor_name (type));
 		}
 		break;
 
@@ -7329,6 +7348,9 @@ grokdeclarator (const cp_declarator *declarator,
 			 declarator->u.pointer.class_type);
 		  type = build_pointer_type (type);
 		}
+	      else if (declarator->u.pointer.class_type == error_mark_node)
+		/* We will already have complained.  */
+		type = error_mark_node;
 	      else
 		type = build_ptrmem_type (declarator->u.pointer.class_type,
 					  type);
@@ -7803,15 +7825,6 @@ grokdeclarator (const cp_declarator *declarator,
 	    int publicp = 0;
 	    tree function_context;
 
-	    /* We catch the others as conflicts with the builtin
-	       typedefs.  */
-	    if (friendp && unqualified_id == ridpointers[(int) RID_SIGNED])
-	      {
-		error ("function %qD cannot be declared friend",
-		       unqualified_id);
-		friendp = 0;
-	      }
-
 	    if (friendp == 0)
 	      {
 		if (ctype == NULL_TREE)
@@ -7847,6 +7860,18 @@ grokdeclarator (const cp_declarator *declarator,
 		  type = build_method_type_directly (ctype,
 						     TREE_TYPE (type),
 						     TYPE_ARG_TYPES (type));
+	      }
+
+	    /* Check that the name used for a destructor makes sense.  */
+	    if (sfk == sfk_destructor
+		&& !same_type_p (TREE_OPERAND 
+				 (id_declarator->u.id.unqualified_name, 0),
+				 ctype))
+	      {
+		error ("declaration of %qD as member of %qT", 
+		       id_declarator->u.id.unqualified_name,
+		       ctype);
+		return error_mark_node;
 	      }
 
 	    /* Tell grokfndecl if it needs to set TREE_PUBLIC on the node.  */
@@ -10928,9 +10953,6 @@ cxx_maybe_build_cleanup (tree decl)
 
       rval = build_delete (TREE_TYPE (rval), rval,
 			   sfk_complete_destructor, flags, 0);
-
-      if (has_vbases && !TYPE_HAS_DESTRUCTOR (type))
-	rval = build_compound_expr (rval, build_vbase_delete (type, decl));
 
       return rval;
     }

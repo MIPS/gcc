@@ -1048,24 +1048,13 @@ rest_of_handle_gcse (void)
     }
 
   /* If gcse or cse altered any jumps, rerun jump optimizations to clean
-     things up.  Then possibly re-run CSE again.  */
-  while (tem || tem2)
+     things up.  */
+  if (tem || tem2)
     {
-      tem = tem2 = 0;
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       timevar_pop (TV_JUMP);
-
-      if (flag_expensive_optimizations)
-	{
-	  timevar_push (TV_CSE);
-	  reg_scan (get_insns (), max_reg_num ());
-	  tem2 = cse_main (get_insns (), max_reg_num (), dump_file);
-	  purge_all_dead_edges (0);
-	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
-	  timevar_pop (TV_CSE);
-	}
     }
 
   close_dump_file (DFI_gcse, print_rtl_with_bb, get_insns ());
@@ -1086,8 +1075,6 @@ rest_of_handle_loop_optimize (void)
   int do_prefetch;
 
   timevar_push (TV_LOOP);
-  delete_dead_jumptables ();
-  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
   open_dump_file (DFI_loop, current_function_decl);
 
   /* CFG is no longer maintained up-to-date.  */
@@ -1118,7 +1105,7 @@ rest_of_handle_loop_optimize (void)
 
   /* Loop can create trivially dead instructions.  */
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
-  find_basic_blocks (get_insns (), max_reg_num (), dump_file);
+  find_basic_blocks (get_insns ());
   close_dump_file (DFI_loop, print_rtl, get_insns ());
   timevar_pop (TV_LOOP);
 
@@ -1652,7 +1639,7 @@ rest_of_compilation (void)
   /* Any of the several passes since flow1 will have munged register
      lifetime data a bit.  We need it to be up to date for scheduling
      (see handling of reg_known_equiv in init_alias_analysis).  */
-  recompute_reg_usage (get_insns (), !optimize_size);
+  recompute_reg_usage ();
 
 #ifdef INSN_SCHEDULING
   if (optimize > 0 && flag_modulo_sched)

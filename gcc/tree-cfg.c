@@ -2094,6 +2094,14 @@ remove_bb (basic_block bb)
   remove_phi_nodes_and_edges_for_unreachable_block (bb);
 }
 
+/* A list of all the noreturn calls passed to modify_stmt.
+   cleanup_control_flow uses it to detect cases where a mid-block
+   indirect call has been turned into a noreturn call.  When this
+   happens, all the instructions after the call are no longer
+   reachable and must be deleted as dead.  */
+
+VEC(tree) *modified_noreturn_calls;
+
 /* Try to remove superfluous control structures.  */
 
 static bool
@@ -2102,7 +2110,16 @@ cleanup_control_flow (void)
   basic_block bb;
   block_stmt_iterator bsi;
   bool retval = false;
-  tree stmt, call;
+  tree stmt;
+
+  /* Detect cases where a mid-block call is now known not to return.  */
+  while (VEC_length (tree, modified_noreturn_calls))
+    {
+      stmt = VEC_pop (tree, modified_noreturn_calls);
+      bb = bb_for_stmt (stmt);
+      if (bb != NULL && last_stmt (bb) != stmt && noreturn_call_p (stmt))
+	split_block (bb, stmt);
+    }
 
   FOR_EACH_BB (bb)
     {
@@ -2118,10 +2135,7 @@ cleanup_control_flow (void)
 
       /* Check for indirect calls that have been turned into
 	 noreturn calls.  */
-      call = get_call_expr_in (stmt);
-      if (call != 0
-	  && (call_expr_flags (call) & ECF_NORETURN) != 0
-	  && remove_fallthru_edge (bb->succs))
+      if (noreturn_call_p (stmt) && remove_fallthru_edge (bb->succs))
 	{
 	  free_dominance_info (CDI_DOMINATORS);
 	  retval = true;
@@ -3273,12 +3287,14 @@ has_label_p (basic_block bb, tree label)
 
 
 /* Callback for walk_tree, check that all elements with address taken are
-   properly noticed as such.  */
+   properly noticed as such.  The DATA is an int* that is 1 if TP was seen
+   inside a PHI node.  */
 
 static tree
 verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
   tree t = *tp, x;
+  bool in_phi = (data != NULL);
 
   if (TYPE_P (t))
     *walk_subtrees = 0;
@@ -3321,6 +3337,16 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       break;
 
     case ADDR_EXPR:
+      /* ??? tree-ssa-alias.c may have overlooked dead PHI nodes, missing
+	 dead PHIs that take the address of something.  But if the PHI
+	 result is dead, the fact that it takes the address of anything
+	 is irrelevant.  Because we can not tell from here if a PHI result
+	 is dead, we just skip this check for PHIs altogether.  This means
+	 we may be missing "valid" checks, but what can you do?
+	 This was PR19217.  */
+      if (in_phi)
+	break;
+
       /* Skip any references (they will be checked when we recurse down the
 	 tree) and ensure that any variable used as a prefix is marked
 	 addressable.  */
@@ -3597,7 +3623,7 @@ verify_stmts (void)
 		  err |= true;
 		}
 
-	      addr = walk_tree (&t, verify_expr, NULL, NULL);
+	      addr = walk_tree (&t, verify_expr, (void *) 1, NULL);
 	      if (addr)
 		{
 		  debug_generic_stmt (addr);

@@ -1,6 +1,6 @@
 ;;  Mips.md	     Machine Description for MIPS based processors
 ;;  Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+;;  1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 ;;  Contributed by   A. Lichnewsky, lich@inria.inria.fr
 ;;  Changes by       Michael Meissner, meissner@osf.org
 ;;  64 bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -2903,9 +2903,9 @@ beq\t%2,%.,1b\;\
 ;;	dsll32	op1,op1,0
 ;;	daddu	op1,op1,op0
 (define_peephole2
-  [(match_scratch:DI 0 "d")
-   (set (match_operand:DI 1 "register_operand")
-	(high:DI (match_operand:DI 2 "general_symbolic_operand")))]
+  [(set (match_operand:DI 1 "register_operand")
+	(high:DI (match_operand:DI 2 "general_symbolic_operand")))
+   (match_scratch:DI 0 "d")]
   "TARGET_EXPLICIT_RELOCS && ABI_HAS_64BIT_SYMBOLS"
   [(set (match_dup 1) (high:DI (match_dup 3)))
    (set (match_dup 0) (high:DI (match_dup 4)))

@@ -1346,8 +1346,12 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 
 	  /* Don't constant fold this floating point operation if the
 	     result may dependent upon the run-time rounding mode and
-	     flag_rounding_math is set.  */
-	  if (flag_rounding_math
+	     flag_rounding_math is set, or if GCC's software emulation
+	     is unable to accurately represent the result.  */
+
+	  if ((flag_rounding_math
+	       || (REAL_MODE_FORMAT_COMPOSITE_P (mode)
+		   && !flag_unsafe_math_optimizations))
 	      && (inexact || !real_identical (&result, &value)))
 	    return NULL_RTX;
 
@@ -1921,7 +1925,7 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	    return const0_rtx;
 
 	  /* Transform (and (extend X) C) into (zero_extend (and X C)) if
-	     there are no non-zero bits of C outside of X's mode.  */
+	     there are no nonzero bits of C outside of X's mode.  */
 	  if ((GET_CODE (op0) == SIGN_EXTEND
 	       || GET_CODE (op0) == ZERO_EXTEND)
 	      && GET_CODE (trueop1) == CONST_INT
@@ -2875,6 +2879,19 @@ simplify_relational_operation_1 (enum rtx_code code, enum machine_mode mode,
 			       cmp_mode, op1, c);
       return simplify_gen_relational (code, mode, cmp_mode, x, c);
     }
+
+  /* (ne:SI (zero_extract:SI FOO (const_int 1) BAR) (const_int 0))) is
+     the same as (zero_extract:SI FOO (const_int 1) BAR).  */
+  if (code == NE
+      && op1 == const0_rtx
+      && GET_MODE_CLASS (mode) == MODE_INT
+      && cmp_mode != VOIDmode
+      && cmp_mode != BImode
+      && nonzero_bits (op0, cmp_mode) == 1
+      && STORE_FLAG_VALUE == 1)
+    return GET_MODE_SIZE (mode) > GET_MODE_SIZE (cmp_mode)
+	   ? simplify_gen_unary (ZERO_EXTEND, mode, op0, cmp_mode)
+	   : lowpart_subreg (mode, op0, cmp_mode);
 
   return NULL_RTX;
 }

@@ -1,3 +1,7 @@
+2005-02-16  Diego Novillo  <dnovillo@redhat.com>
+
+	Merge from mainline (tree-cleanup-merge-20050216).
+	
 2005-02-14  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-into-ssa.c (REGISTER_DEFS_IN_STMT): Define.

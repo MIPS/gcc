@@ -5170,11 +5170,14 @@ rs6000_spe_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
      are passed and returned in a pair of GPRs for ABI compatibility.  */
   if (TARGET_E500_DOUBLE && (mode == DFmode || mode == DCmode))
     {
-      /* Doubles go in an odd/even register pair (r5/r6, etc).  */
-      gregno += (1 - gregno) & 1;
+      int n_words = rs6000_arg_size (mode, type);
 
-      /* We do not split between registers and stack.  */
-      if (gregno + 1 > GP_ARG_MAX_REG)
+      /* Doubles go in an odd/even register pair (r5/r6, etc).  */
+      if (mode == DFmode)
+	gregno += (1 - gregno) & 1;
+
+      /* Multi-reg args are not split between registers and stack.  */
+      if (gregno + n_words - 1 > GP_ARG_MAX_REG)
 	return NULL_RTX;
 
       return spe_build_register_parallel (mode, gregno);
@@ -5601,7 +5604,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	  needs_psave = (type
 			 && (cum->nargs_prototype <= 0
 			     || (DEFAULT_ABI == ABI_AIX
-				 && TARGET_XL_CALL
+				 && TARGET_XL_COMPAT
 				 && align_words >= GP_ARG_NUM_REG)));
 
 	  if (!needs_psave && mode == fmode)
@@ -5709,7 +5712,7 @@ rs6000_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       && !(type
 	   && (cum->nargs_prototype <= 0
 	       || (DEFAULT_ABI == ABI_AIX
-		   && TARGET_XL_CALL
+		   && TARGET_XL_COMPAT
 		   && align_words >= GP_ARG_NUM_REG))))
     {
       if (cum->fregno + ((GET_MODE_SIZE (mode) + 7) >> 3) > FP_ARG_MAX_REG + 1)
@@ -7222,7 +7225,7 @@ altivec_expand_dst_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 	  }
 
 	if (! (*insn_data[d->icode].operand[0].predicate) (op0, mode0))
-	  op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
+	  op0 = copy_to_mode_reg (Pmode, op0);
 	if (! (*insn_data[d->icode].operand[1].predicate) (op1, mode1))
 	  op1 = copy_to_mode_reg (mode1, op1);
 
@@ -8868,10 +8871,10 @@ rs6000_init_libfuncs (void)
 	}
 
       /* Standard AIX/Darwin/64-bit SVR4 quad floating point routines.  */
-      set_optab_libfunc (add_optab, TFmode, "_xlqadd");
-      set_optab_libfunc (sub_optab, TFmode, "_xlqsub");
-      set_optab_libfunc (smul_optab, TFmode, "_xlqmul");
-      set_optab_libfunc (sdiv_optab, TFmode, "_xlqdiv");
+      set_optab_libfunc (add_optab, TFmode, "__gcc_qadd");
+      set_optab_libfunc (sub_optab, TFmode, "__gcc_qsub");
+      set_optab_libfunc (smul_optab, TFmode, "__gcc_qmul");
+      set_optab_libfunc (sdiv_optab, TFmode, "__gcc_qdiv");
     }
   else
     {
@@ -11455,10 +11458,34 @@ rs6000_generate_compare (enum rtx_code code)
       emit_insn (cmp);
     }
   else
-    emit_insn (gen_rtx_SET (VOIDmode, compare_result,
-			    gen_rtx_COMPARE (comp_mode,
-					     rs6000_compare_op0,
-					     rs6000_compare_op1)));
+    {
+      /* Generate XLC-compatible TFmode compare as PARALLEL with extra
+	 CLOBBERs to match cmptf_internal2 pattern.  */
+      if (comp_mode == CCFPmode && TARGET_XL_COMPAT
+	  && GET_MODE (rs6000_compare_op0) == TFmode
+	  && (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN)
+	  && TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_LONG_DOUBLE_128)
+	emit_insn (gen_rtx_PARALLEL (VOIDmode,
+	  gen_rtvec (9,
+		     gen_rtx_SET (VOIDmode,
+				  compare_result,
+				  gen_rtx_COMPARE (comp_mode,
+						   rs6000_compare_op0,
+						   rs6000_compare_op1)),
+		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
+		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
+		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
+		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
+		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
+		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
+		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
+		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)))));
+      else
+	emit_insn (gen_rtx_SET (VOIDmode, compare_result,
+				gen_rtx_COMPARE (comp_mode,
+						 rs6000_compare_op0,
+						 rs6000_compare_op1)));
+    }
 
   /* Some kinds of FP comparisons need an OR operation;
      under flag_unsafe_math_optimizations we don't bother.  */

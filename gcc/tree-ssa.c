@@ -773,6 +773,7 @@ delete_tree_ssa (void)
   call_clobbered_vars = NULL;
   BITMAP_XFREE (addressable_vars);
   addressable_vars = NULL;
+  modified_noreturn_calls = NULL;
 }
 
 

@@ -38,7 +38,6 @@ exception statement from your version. */
 package gnu.xml.dom;
 
 import org.w3c.dom.Attr;
-import org.w3c.dom.DOMException;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.TypeInfo;
@@ -195,7 +194,7 @@ public class DomAttr
   {
     if (readonly)
       {
-        throw new DomDOMException(DOMException.NO_MODIFICATION_ALLOWED_ERR);
+        throw new DomEx(DomEx.NO_MODIFICATION_ALLOWED_ERR);
       }
     if (value == null)
       {
@@ -285,11 +284,11 @@ public class DomAttr
   {
     if (parent != null)
       {
-        throw new DomDOMException(DOMException.HIERARCHY_REQUEST_ERR);
+        throw new DomEx (DomEx.HIERARCHY_REQUEST_ERR);
       }
     if (!(e instanceof DomElement))
       {
-        throw new DomDOMException(DOMException.WRONG_DOCUMENT_ERR);
+        throw new DomEx(DomEx.WRONG_DOCUMENT_ERR);
       }
     parent = (DomElement) e;
     depth = parent.depth + 1;

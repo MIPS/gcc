@@ -436,8 +436,8 @@ typedef struct reg_set
 {
   /* The next setting of this register.  */
   struct reg_set *next;
-  /* The insn where it was set.  */
-  rtx insn;
+  /* The index of the block where it was set.  */
+  int bb_index;
 } reg_set;
 
 static reg_set **reg_set_table;
@@ -500,7 +500,10 @@ static bitmap modify_mem_list_set;
 
 /* This array parallels modify_mem_list, but is kept canonicalized.  */
 static rtx * canon_modify_mem_list;
-static bitmap canon_modify_mem_list_set;
+
+/* Bitmap indexed by block numbers to record which blocks contain
+   function calls.  */
+static bitmap blocks_with_calls;
 
 /* Various variables for statistics gathering.  */
 
@@ -535,7 +538,6 @@ static void free_gcse_mem (void);
 static void alloc_reg_set_mem (int);
 static void free_reg_set_mem (void);
 static void record_one_set (int, rtx);
-static void replace_one_set (int, rtx, rtx);
 static void record_set_info (rtx, rtx, void *);
 static void compute_sets (rtx);
 static void hash_scan_insn (rtx, struct hash_table *, int);
@@ -969,7 +971,7 @@ alloc_gcse_mem (rtx f)
   modify_mem_list = gcalloc (last_basic_block, sizeof (rtx));
   canon_modify_mem_list = gcalloc (last_basic_block, sizeof (rtx));
   modify_mem_list_set = BITMAP_XMALLOC ();
-  canon_modify_mem_list_set = BITMAP_XMALLOC ();
+  blocks_with_calls = BITMAP_XMALLOC ();
 }
 
 /* Free memory allocated by alloc_gcse_mem.  */
@@ -985,7 +987,7 @@ free_gcse_mem (void)
   sbitmap_vector_free (reg_set_in_block);
   free_modify_mem_tables ();
   BITMAP_XFREE (modify_mem_list_set);
-  BITMAP_XFREE (canon_modify_mem_list_set);
+  BITMAP_XFREE (blocks_with_calls);
 }
 
 /* Compute the local properties of each recorded expression.
@@ -1104,24 +1106,6 @@ free_reg_set_mem (void)
   obstack_free (&reg_set_obstack, NULL);
 }
 
-/* An OLD_INSN that used to set REGNO was replaced by NEW_INSN.
-   Update the corresponding `reg_set_table' entry accordingly.
-   We assume that NEW_INSN is not already recorded in reg_set_table[regno].  */
-
-static void
-replace_one_set (int regno, rtx old_insn, rtx new_insn)
-{
-  struct reg_set *reg_info;
-  if (regno >= reg_set_table_size)
-    return;
-  for (reg_info = reg_set_table[regno]; reg_info; reg_info = reg_info->next)
-    if (reg_info->insn == old_insn)
-      {
-        reg_info->insn = new_insn;
-        break;
-      }
-}
-
 /* Record REGNO in the reg_set table.  */
 
 static void
@@ -1144,7 +1128,7 @@ record_one_set (int regno, rtx insn)
 
   new_reg_info = obstack_alloc (&reg_set_obstack, sizeof (struct reg_set));
   bytes_used += sizeof (struct reg_set);
-  new_reg_info->insn = insn;
+  new_reg_info->bb_index = BLOCK_NUM (insn);
   new_reg_info->next = reg_set_table[regno];
   reg_set_table[regno] = new_reg_info;
 }
@@ -1970,7 +1954,6 @@ canon_list_insert (rtx dest ATTRIBUTE_UNUSED, rtx unused1 ATTRIBUTE_UNUSED,
     alloc_EXPR_LIST (VOIDmode, dest_addr, canon_modify_mem_list[bb]);
   canon_modify_mem_list[bb] =
     alloc_EXPR_LIST (VOIDmode, dest, canon_modify_mem_list[bb]);
-  bitmap_set_bit (canon_modify_mem_list_set, bb);
 }
 
 /* Record memory modification information for INSN.  We do not actually care
@@ -1994,7 +1977,7 @@ record_last_mem_set_info (rtx insn)
 	 need to insert a pair of items, as canon_list_insert does.  */
       canon_modify_mem_list[bb] =
 	alloc_INSN_LIST (insn, canon_modify_mem_list[bb]);
-      bitmap_set_bit (canon_modify_mem_list_set, bb);
+      bitmap_set_bit (blocks_with_calls, bb);
     }
   else
     note_stores (PATTERN (insn), canon_list_insert, (void*) insn);
@@ -2218,17 +2201,13 @@ clear_modify_mem_tables (void)
   EXECUTE_IF_SET_IN_BITMAP (modify_mem_list_set, 0, i, bi)
     {
       free_INSN_LIST_list (modify_mem_list + i);
-    }
-  bitmap_clear (modify_mem_list_set);
-
-  EXECUTE_IF_SET_IN_BITMAP (canon_modify_mem_list_set, 0, i, bi)
-    {
       free_insn_expr_list_list (canon_modify_mem_list + i);
     }
-  bitmap_clear (canon_modify_mem_list_set);
+  bitmap_clear (modify_mem_list_set);
+  bitmap_clear (blocks_with_calls);
 }
 
-/* Release memory used by modify_mem_list_set and canon_modify_mem_list_set.  */
+/* Release memory used by modify_mem_list_set.  */
 
 static void
 free_modify_mem_tables (void)
@@ -2468,7 +2447,7 @@ compute_transp (rtx x, int indx, sbitmap *bmap, int set_p)
 	  else
 	    {
 	      for (r = reg_set_table[REGNO (x)]; r != NULL; r = r->next)
-		SET_BIT (bmap[BLOCK_NUM (r->insn)], indx);
+		SET_BIT (bmap[r->bb_index], indx);
 	    }
 	}
       else
@@ -2482,48 +2461,58 @@ compute_transp (rtx x, int indx, sbitmap *bmap, int set_p)
 	  else
 	    {
 	      for (r = reg_set_table[REGNO (x)]; r != NULL; r = r->next)
-		RESET_BIT (bmap[BLOCK_NUM (r->insn)], indx);
+		RESET_BIT (bmap[r->bb_index], indx);
 	    }
 	}
 
       return;
 
     case MEM:
-      FOR_EACH_BB (bb)
-	{
-	  rtx list_entry = canon_modify_mem_list[bb->index];
+      {
+	bitmap_iterator bi;
+	unsigned bb_index;
 
-	  while (list_entry)
-	    {
-	      rtx dest, dest_addr;
+	/* First handle all the blocks with calls.  We don't need to
+	   do any list walking for them.  */
+	EXECUTE_IF_SET_IN_BITMAP (blocks_with_calls, 0, bb_index, bi)
+	  {
+	    if (set_p)
+	      SET_BIT (bmap[bb_index], indx);
+	    else
+	      RESET_BIT (bmap[bb_index], indx);
+	  }
 
-	      if (CALL_P (XEXP (list_entry, 0)))
-		{
-		  if (set_p)
-		    SET_BIT (bmap[bb->index], indx);
-		  else
-		    RESET_BIT (bmap[bb->index], indx);
-		  break;
-		}
-	      /* LIST_ENTRY must be an INSN of some kind that sets memory.
-		 Examine each hunk of memory that is modified.  */
+	/* Now iterate over the blocks which have memory modifications
+	   but which do not have any calls.  */
+	EXECUTE_IF_AND_COMPL_IN_BITMAP (modify_mem_list_set, blocks_with_calls,
+					0, bb_index, bi)
+	  {
+	    rtx list_entry = canon_modify_mem_list[bb_index];
 
-	      dest = XEXP (list_entry, 0);
-	      list_entry = XEXP (list_entry, 1);
-	      dest_addr = XEXP (list_entry, 0);
+	    while (list_entry)
+	      {
+		rtx dest, dest_addr;
 
-	      if (canon_true_dependence (dest, GET_MODE (dest), dest_addr,
-					 x, rtx_addr_varies_p))
-		{
-		  if (set_p)
-		    SET_BIT (bmap[bb->index], indx);
-		  else
-		    RESET_BIT (bmap[bb->index], indx);
-		  break;
-		}
-	      list_entry = XEXP (list_entry, 1);
-	    }
-	}
+		/* LIST_ENTRY must be an INSN of some kind that sets memory.
+		   Examine each hunk of memory that is modified.  */
+
+		dest = XEXP (list_entry, 0);
+		list_entry = XEXP (list_entry, 1);
+		dest_addr = XEXP (list_entry, 0);
+
+		if (canon_true_dependence (dest, GET_MODE (dest), dest_addr,
+					   x, rtx_addr_varies_p))
+		  {
+		    if (set_p)
+		      SET_BIT (bmap[bb_index], indx);
+		    else
+		      RESET_BIT (bmap[bb_index], indx);
+		    break;
+		  }
+		list_entry = XEXP (list_entry, 1);
+	      }
+	  }
+      }
 
       x = XEXP (x, 0);
       goto repeat;
@@ -4260,7 +4249,6 @@ pre_insert_copy_insn (struct expr *expr, rtx insn)
           new_insn = emit_insn_after (new_insn, insn);
 
           /* Keep register set table up to date.  */
-          replace_one_set (REGNO (old_reg), insn, new_insn);
           record_one_set (regno, insn);
         }
       else

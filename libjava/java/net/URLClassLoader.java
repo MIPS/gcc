@@ -1,5 +1,6 @@
 /* URLClassLoader.java --  ClassLoader that loads classes from one or more URLs
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -305,8 +306,6 @@ public class URLClassLoader extends SecureClassLoader
 
     Vector classPath;	// The "Class-Path" attribute of this Jar's manifest
 
-    SoURLLoader soURLLoader;
-
     public JarURLLoader(URLClassLoader classloader, URL baseURL)
     {
       super(classloader, baseURL);
@@ -319,70 +318,44 @@ public class URLClassLoader extends SecureClassLoader
       sb.append("!/");
       String jarURL = sb.toString();
 
-      this.soURLLoader = null;
       this.classPath = null;
       URL baseJarURL = null;
       JarFile jarfile = null;
       try
 	{
-	  baseJarURL
-	    = new URL(null, jarURL, classloader.getURLStreamHandler("jar"));
-	  jarfile
-	    = ((JarURLConnection) baseJarURL.openConnection()).getJarFile();
-
-	  if (jarfile != null)
+	  baseJarURL =
+	    new URL(null, jarURL, classloader.getURLStreamHandler("jar"));
+	  
+	  jarfile =
+	    ((JarURLConnection) baseJarURL.openConnection()).getJarFile();
+	  
+	  Manifest manifest;
+	  Attributes attributes;
+	  String classPathString;
+	  
+	  if ((manifest = jarfile.getManifest()) != null
+	      && (attributes = manifest.getMainAttributes()) != null
+	      && ((classPathString 
+		   = attributes.getValue(Attributes.Name.CLASS_PATH)) 
+		  != null))
 	    {
-	      String fileName = baseURL.getFile();
-	      if (fileName != null)
-		{
-		  File f = new File(fileName);
-		  String libDirName = f.getCanonicalFile().getParent()
-		    + File.separator + "GCJLIBS";
-		  File libDir = new File(libDirName);
-		  if (libDir != null && (libDir.isDirectory()))
+	      this.classPath = new Vector();
+	      
+	      StringTokenizer st = new StringTokenizer(classPathString, " ");
+	      while (st.hasMoreElements ()) 
+		{  
+		  String e = st.nextToken ();
+		  try
 		    {
-		      File soFile = new File (libDirName 
-					      + File.separator + f.getName() 
-					      + ".so");
-		      if (soFile != null && soFile.isFile())
-			this.soURLLoader
-			  = new SoURLLoader (classloader, soFile.toURL(),
-					     baseURL);
+		      URL url = new URL(baseURL, e);
+		      this.classPath.add(url);
+		    } 
+		  catch (java.net.MalformedURLException xx)
+		    {
+		      // Give up
 		    }
 		}
-
-	      Manifest manifest;
-	      Attributes attributes;
-	      String classPathString;
-
-	      if ((manifest = jarfile.getManifest()) != null
-		  && (attributes = manifest.getMainAttributes()) != null
-		  && ((classPathString 
-		       = attributes.getValue(Attributes.Name.CLASS_PATH)) 
-		      != null))
-		{
-		  this.classPath = new Vector();
-
-		  StringTokenizer st
-		    = new StringTokenizer 
-		      (classPathString,
-		       System.getProperty ("path.separator", ":"));
-      
-		  while (st.hasMoreElements ()) 
-		    {  
-		      String e = st.nextToken ();
-		      try
-			{
-			  URL url = new URL(baseURL, e);
-			  this.classPath.add(url);
-			} 
-		      catch (java.net.MalformedURLException xx)
-			{
-			  // Give up
-			}
-		    }
-		}
- 	    }
+	    }
 	}
       catch (IOException ioe)
         {
@@ -391,13 +364,6 @@ public class URLClassLoader extends SecureClassLoader
 
       this.baseJarURL = baseJarURL;
       this.jarfile = jarfile;
-    }
-
-    Class getClass(String className)
-    {
-      if (soURLLoader != null)
-	return soURLLoader.getClass(className);
-      return null;
     }
 
     /** get resource with the name "name" in the jar url */
@@ -414,11 +380,6 @@ public class URLClassLoader extends SecureClassLoader
         return new JarURLResource(this, name, je);
       else
         return null;
-    }
-
-    public String toString ()
-    {
-	return "jarfile " + jarfile.getName();
     }
 
     Manifest getManifest()
@@ -669,11 +630,6 @@ public class URLClassLoader extends SecureClassLoader
     public int getLength()
     {
       return (int) file.length();
-    }
-
-    public String toString ()
-    {
-	return "file " +file.getAbsolutePath();
     }
 
     public URL getURL()
@@ -958,7 +914,7 @@ public class URLClassLoader extends SecureClassLoader
 	resource = loader.getResource(resourceName);
       }
     if (resource == null)
-      throw new ClassNotFoundException(className + " not found in " + urls);
+      throw new ClassNotFoundException(className + " not found in " + this);
 
     // Try to read the class data, create the CodeSource, Package and
     // construct the class (and watch out for those nasty IOExceptions)
@@ -1039,8 +995,42 @@ public class URLClassLoader extends SecureClassLoader
       }
     catch (IOException ioe)
       {
-        throw new ClassNotFoundException(className, ioe);
+	ClassNotFoundException cnfe;
+	cnfe = new ClassNotFoundException(className + " not found in " + this);
+	cnfe.initCause(ioe);
+	throw cnfe;
       }
+  }
+  
+  // Cached String representation of this URLClassLoader
+  private String thisString;
+  
+  /**
+   * Returns a String representation of this URLClassLoader giving the
+   * actual Class name, the URLs that are searched and the parent
+   * ClassLoader.
+   */
+  public String toString()
+  {
+    if (thisString == null)
+      {
+	StringBuffer sb = new StringBuffer();
+	sb.append(this.getClass().getName());
+	sb.append("{urls=[" );
+	URL[] thisURLs = getURLs();
+	for (int i = 0; i < thisURLs.length; i++)
+	  {
+	    sb.append(thisURLs[i]);
+	    if (i < thisURLs.length - 1)
+	      sb.append(',');
+	  }
+	sb.append(']');
+	sb.append(", parent=");
+	sb.append(getParent());
+	sb.append('}');
+	thisString = sb.toString();
+      }
+    return thisString;
   }
 
   /**

@@ -57,6 +57,7 @@ static void casts_away_constness_r (tree *, tree *);
 static bool casts_away_constness (tree, tree);
 static void maybe_warn_about_returning_address_of_local (tree);
 static tree lookup_destructor (tree, tree, tree);
+static tree convert_arguments (tree, tree, tree, int);
 
 /* Return the target type of TYPE, which means return T for:
    T*, T&, T[], T (...), and otherwise, just T.  */
@@ -137,12 +138,11 @@ complete_type (tree type)
 }
 
 /* Like complete_type, but issue an error if the TYPE cannot be completed.
-   VALUE is used for informative diagnostics.  DIAG_TYPE indicates the type
-   of diagnostic: 0 for an error, 1 for a warning, 2 for a pedwarn.
+   VALUE is used for informative diagnostics.
    Returns NULL_TREE if the type cannot be made complete.  */
 
 tree
-complete_type_or_diagnostic (tree type, tree value, int diag_type)
+complete_type_or_else (tree type, tree value)
 {
   type = complete_type (type);
   if (type == error_mark_node)
@@ -150,7 +150,7 @@ complete_type_or_diagnostic (tree type, tree value, int diag_type)
     return NULL_TREE;
   else if (!COMPLETE_TYPE_P (type))
     {
-      cxx_incomplete_type_diagnostic (value, type, diag_type);
+      cxx_incomplete_type_diagnostic (value, type, 0);
       return NULL_TREE;
     }
   else
@@ -174,7 +174,7 @@ type_unknown_p (tree exp)
    As an optimization, free the space we allocate if the parameter
    lists are already common.  */
 
-tree
+static tree
 commonparms (tree p1, tree p2)
 {
   tree oldargs = p1, newargs, n;
@@ -1577,9 +1577,6 @@ build_class_member_access_expr (tree object, tree member,
   if (object == error_mark_node || member == error_mark_node)
     return error_mark_node;
 
-  if (TREE_CODE (member) == PSEUDO_DTOR_EXPR)
-    return member;
-
   gcc_assert (DECL_P (member) || BASELINK_P (member));
 
   /* [expr.ref]
@@ -1753,7 +1750,7 @@ build_class_member_access_expr (tree object, tree member,
 	 expression itself.  */
       if (type_quals & TYPE_QUAL_CONST)
 	TREE_READONLY (result) = 1;
-      else if (type_quals & TYPE_QUAL_VOLATILE)
+      if (type_quals & TYPE_QUAL_VOLATILE)
 	TREE_THIS_VOLATILE (result) = 1;
     }
   else if (BASELINK_P (member))
@@ -1822,9 +1819,6 @@ lookup_destructor (tree object, tree scope, tree dtor_name)
 	     TYPE_MAIN_VARIANT (object_type), dtor_type);
       return error_mark_node;
     }
-  if (!TYPE_HAS_DESTRUCTOR (dtor_type))
-    return build3 (PSEUDO_DTOR_EXPR, void_type_node, object, scope,
-		   dtor_type);
   expr = lookup_member (dtor_type, complete_dtor_identifier,
 			/*protect=*/1, /*want_type=*/false);
   expr = (adjust_result_of_qualified_name_lookup
@@ -2325,7 +2319,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	function = save_expr (function);
 
       /* Start by extracting all the information from the PMF itself.  */
-      e3 = PFN_FROM_PTRMEMFUNC (function);
+      e3 = pfn_from_ptrmemfunc (function);
       delta = build_ptrmemfunc_access_expr (function, delta_identifier);
       idx = build1 (NOP_EXPR, vtable_index_type, e3);
       switch (TARGET_PTRMEMFUNC_VBIT_LOCATION)
@@ -2493,7 +2487,7 @@ build_function_call (tree function, tree params)
    In C++, unspecified trailing parameters can be filled in with their
    default arguments, if such were specified.  Do so here.  */
 
-tree
+static tree
 convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 {
   tree typetail, valtail;

@@ -150,7 +150,10 @@ final public class SAXDriver
     private Stack			entityStack;
 
     // one vector (of object/struct): faster, smaller
-    private List			attributesList;
+    private List			attributesList = Collections.synchronizedList(new ArrayList());
+  
+    private boolean			attributeSpecified [] = new boolean[10];
+    private boolean			attributeDeclared [] = new boolean[10];
 
     private boolean			namespaces = true;
     private boolean			xmlNames = false;
@@ -180,6 +183,8 @@ final public class SAXDriver
       elementName = null;
       entityStack = new Stack ();
       attributesList = Collections.synchronizedList(new ArrayList());
+      attributeSpecified = new boolean[10];
+      attributeDeclared = new boolean[10];
       attributeCount = 0;
       attributes = false;
       nsTemp = new String[3];
@@ -844,10 +849,17 @@ final public class SAXDriver
   }
 	// remember this attribute ...
 
+	if (attributeCount == attributeSpecified.length) { 	// grow array?
+	    boolean temp [] = new boolean [attributeSpecified.length + 5];
+	    System.arraycopy (attributeSpecified, 0, temp, 0, attributeCount);
+	    attributeSpecified = temp;
+	}
+	attributeSpecified [attributeCount] = isSpecified;
+
 	attributeCount++;
 	
 	// attribute type comes from querying parser's DTD records
-	attributesList.add(new Attribute(qname, value, isSpecified));
+	attributesList.add(new Attribute(qname, value));
 
     }
 
@@ -1031,7 +1043,7 @@ final public class SAXDriver
      */
     public int getLength ()
     {
-	return attributesList.size();
+	return attributesList.size ();
     }
 
     /**
@@ -1039,11 +1051,7 @@ final public class SAXDriver
      */
     public String getURI (int index)
     {
-        if (index < 0 || index >= attributesList.size())
-          {
-            return null;
-          }
-	return ((Attribute) attributesList.get(index)).nameSpace;
+	return ((Attribute) attributesList.get (index)).nameSpace;
     }
 
     /**
@@ -1051,11 +1059,7 @@ final public class SAXDriver
      */
     public String getLocalName (int index)
     {
-        if (index < 0 || index >= attributesList.size())
-          {
-            return null;
-          }
-        Attribute attr = (Attribute) attributesList.get(index);
+        Attribute attr = (Attribute) attributesList.get (index);
         // FIXME attr.localName is sometimes null, why?
         if (namespaces && attr.localName == null)
           {
@@ -1064,51 +1068,38 @@ final public class SAXDriver
             attr.localName = (ci == -1) ? attr.name :
               attr.name.substring(ci + 1);
           }
-        return (attr.localName == null) ? "" : attr.localName;
+        return attr.localName;
     }
 
     /**
      * <b>SAX2 Attributes</b> method (don't invoke on parser);
      */
-    public String getQName (int index)
+    public String getQName (int i)
     {
-        if (index < 0 || index >= attributesList.size())
-          {
-            return null;
-          }
-        Attribute attr = (Attribute) attributesList.get(index);
-    	return (attr.name == null) ? "" : attr.name;
+    	return ((Attribute) attributesList.get (i)).name;
     }
 
     /**
      * <b>SAX1 AttributeList</b> method (don't invoke on parser);
      */
-    public String getName (int index)
+    public String getName (int i)
     {
-    	return getQName(index);
+    	return ((Attribute) attributesList.get (i)).name;
     }
 
     /**
      * <b>SAX1 AttributeList, SAX2 Attributes</b> method
      * (don't invoke on parser);
      */
-    public String getType (int index)
+    public String getType (int i)
     {
-        if (index < 0 || index >= attributesList.size())
-          {
-            return null;
-          }
-	String	type = parser.getAttributeType(elementName, getQName(index));
+	String	type = parser.getAttributeType (elementName, getQName (i));
 	if (type == null)
-          {
 	    return "CDATA";
-          }
 	// ... use DeclHandler.attributeDecl to see enumerations
-        if (type == "ENUMERATION")
-          {
-            return "NMTOKEN";
-          }
-        return type;
+      if (type == "ENUMERATION")
+        return "NMTOKEN";
+	return type;
     }
 
 
@@ -1116,13 +1107,9 @@ final public class SAXDriver
      * <b>SAX1 AttributeList, SAX2 Attributes</b> method
      * (don't invoke on parser);
      */
-    public String getValue (int index)
+    public String getValue (int i)
     {
-        if (index < 0 || index >= attributesList.size())
-          {
-            return null;
-          }
-    	return ((Attribute) attributesList.get(index)).value;
+    	return ((Attribute) attributesList.get (i)).value;
     }
 
 
@@ -1131,19 +1118,14 @@ final public class SAXDriver
      */
     public int getIndex (String uri, String local)
     {
-	int length = getLength();
+	int length = getLength ();
 
-	for (int i = 0; i < length; i++)
-          {
-            if (!getURI(i).equals(uri))
-              {
+	for (int i = 0; i < length; i++) {
+	    if (!getURI (i).equals (uri))
 		continue;
-              }
-	    if (getLocalName(i).equals(local))
-              {
+	    if (getLocalName (i).equals (local))
 		return i;
-              }
-          }
+	}
 	return -1;
     }
 
@@ -1153,15 +1135,12 @@ final public class SAXDriver
      */
     public int getIndex (String xmlName)
     {
-	int length = getLength();
+	int length = getLength ();
 
-	for (int i = 0; i < length; i++)
-          {
-            if (getQName(i).equals(xmlName))
-              {
+	for (int i = 0; i < length; i++) {
+	    if (getQName (i).equals (xmlName))
 		return i;
-              }
-          }
+	}
 	return -1;
     }
 
@@ -1171,13 +1150,11 @@ final public class SAXDriver
      */
     public String getType (String uri, String local)
     {
-	int index = getIndex(uri, local);
+	int index = getIndex (uri, local);
 
 	if (index < 0)
-          {
 	    return null;
-          }
-	return getType(index);
+	return getType (index);
     }
 
 
@@ -1187,13 +1164,11 @@ final public class SAXDriver
      */
     public String getType (String xmlName)
     {
-	int index = getIndex(xmlName);
+	int index = getIndex (xmlName);
 
 	if (index < 0)
-          {
 	    return null;
-          }
-	return getType(index);
+	return getType (index);
     }
 
 
@@ -1202,13 +1177,11 @@ final public class SAXDriver
      */
     public String getValue (String uri, String local)
     {
-	int index = getIndex(uri, local);
+	int index = getIndex (uri, local);
 
 	if (index < 0)
-          {
 	    return null;
-          }
-	return getValue(index);
+	return getValue (index);
     }
 
 
@@ -1218,13 +1191,11 @@ final public class SAXDriver
      */
     public String getValue (String xmlName)
     {
-	int index = getIndex(xmlName);
+	int index = getIndex (xmlName);
 
 	if (index < 0)
-          {
 	    return null;
-          }
-	return getValue(index);
+	return getValue (index);
     }
 
 
@@ -1241,31 +1212,31 @@ final public class SAXDriver
     {
 	if (index < 0 || index >= attributeCount) 
 	    throw new ArrayIndexOutOfBoundsException ();
-        String type = parser.getAttributeType(elementName, getQName(index));
-        return (type != null);
+	return attributeDeclared [index];
     }
 
     /** @return false unless the attribute was declared in the DTD.
      * @throws java.lang.IllegalArgumentException
      *   When the supplied names do not identify an attribute.
      */
-    public boolean isDeclared (String qName)
+    public boolean isDeclared (java.lang.String qName)
     {
 	int index = getIndex (qName);
 	if (index < 0)
 	    throw new IllegalArgumentException ();
-        String type = parser.getAttributeType(elementName, qName);
-        return (type != null);
+	return attributeDeclared [index];
     }
 
     /** @return false unless the attribute was declared in the DTD.
      * @throws java.lang.IllegalArgumentException
      *   When the supplied names do not identify an attribute.
      */
-    public boolean isDeclared (String uri, String localName)
+    public boolean isDeclared (java.lang.String uri, java.lang.String localName)
     {
 	int index = getIndex (uri, localName);
-        return isDeclared(index);
+	if (index < 0)
+	    throw new IllegalArgumentException ();
+	return attributeDeclared [index];
     }
 
 
@@ -1274,7 +1245,9 @@ final public class SAXDriver
      */
     public boolean isSpecified (int index)
     {
-	return ((Attribute) attributesList.get(index)).specified;
+	if (index < 0 || index >= attributeCount) 
+	    throw new ArrayIndexOutOfBoundsException ();
+	return attributeSpecified [index];
     }
 
     /**
@@ -1283,7 +1256,10 @@ final public class SAXDriver
     public boolean isSpecified (String uri, String local)
     {
 	int index = getIndex (uri, local);
-        return isSpecified(index);
+
+	if (index < 0)
+	    throw new IllegalArgumentException ();
+	return attributeSpecified [index];
     }
 
     /**
@@ -1292,7 +1268,10 @@ final public class SAXDriver
     public boolean isSpecified (String xmlName)
     {
 	int index = getIndex (xmlName);
-        return isSpecified(index);
+
+	if (index < 0)
+	    throw new IllegalArgumentException ();
+	return attributeSpecified [index];
     }
 
 
@@ -1395,14 +1374,12 @@ class Attribute
     String value;
     String nameSpace;
     String localName;
-    boolean specified;
 
-    Attribute(String name, String value, boolean specified)
+    Attribute(String name, String value)
     {
         this.name = name;
         this.value = value;
         this.nameSpace = "";
-        this.specified = specified;
     }
 }
 

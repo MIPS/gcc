@@ -8,6 +8,14 @@
    by the Free Software Foundation; either version 2, or (at your
    option) any later version.
 
+   In addition to the permissions in the GNU General Public License,
+   the Free Software Foundation gives you unlimited permission to link
+   the compiled version of this file with other programs, and to
+   distribute those programs without any restriction coming from the
+   use of this file.  (The General Public License restrictions do
+   apply in other respects; for example, they cover modification of
+   the file, and distribution when not linked into another program.)
+
    GCC is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
@@ -194,7 +202,7 @@ get_regs (struct _Unwind_Context *context)
 }
 #endif
 
-/* Find an entry in the process auxilliary vector.  The canonical way to
+/* Find an entry in the process auxiliary vector.  The canonical way to
    test for VMX is to look at AT_HWCAP.  */
 
 static long
