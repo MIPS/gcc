@@ -1,3 +1,13 @@
+2004-01-26  Josef Zlomek  <zlomekj@suse.cz>
+
+	* basic-block.h (BB_HEAD): Define.
+	(BB_END): Define.
+	* var-tracking.c: Fix formating of comments.
+	(vt_find_locations): Coding style.
+	(prologue_stack_adjust): Use BB_HEAD and BB_END.
+	(vt_emit_notes): Likewise.
+	(vt_initialize): Likewise.
+
 2004-01-26  Hartmut Penner  <hpenner@de.ibm.com>
 
 	Backport new 64bit altivec changes from mainline.

@@ -500,11 +500,11 @@ prologue_stack_adjust ()
   rtx insn;
   rtx end;
 
-  if (!bb->end)
+  if (!BB_END (bb))
     return 0;
 
-  end = NEXT_INSN (bb->end);
-  for (insn = bb->head; insn != end; insn = NEXT_INSN (insn))
+  end = NEXT_INSN (BB_END (bb));
+  for (insn = BB_HEAD (bb); insn != end; insn = NEXT_INSN (insn))
     {
       if (GET_CODE (insn) == NOTE
 	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_PROLOGUE_END)
@@ -1010,8 +1010,8 @@ variable_union_info_cmp_pos (n1, n2)
    from hash table DATA.  Compute "sorted" union of the location chains
    for common offsets, i.e. the locations of a variable part are sorted by
    a priority where the priority is the sum of the positions in the 2 chains
-   (if a location is only in one list the position in the second list is defined
-   to be larger than the length of the chains).
+   (if a location is only in one list the position in the second list is
+   defined to be larger than the length of the chains).
    When we are updating the location parts the newest location is in the
    beginning of the chain, so when we do the described "sorted" union
    we keep the newest locations in the beginning.  */
@@ -1715,7 +1715,8 @@ vt_find_locations ()
 			    {
 			      /* Send E->DEST to next round.  */
 			      SET_BIT (in_pending, e->dest->index);
-			      fibheap_insert (pending, bb_order[e->dest->index],
+			      fibheap_insert (pending,
+					      bb_order[e->dest->index],
 					      e->dest);
 			    }
 			}
@@ -1784,6 +1785,7 @@ dump_variable (slot, data)
 }
 
 /* Print the information about variables from hash table VARS to dump file.  */
+
 static void
 dump_vars (vars)
      htab_t vars;
@@ -2110,9 +2112,9 @@ delete_variable_part (set, loc, decl, offset)
     }
 }
 
-/* Emit the NOTE_INSN_VAR_LOCATION for variable *VARP.  DATA contains additional
-   parameters: WHERE specifies whether the note shall be emitted before of after
-   instruction INSN.  */
+/* Emit the NOTE_INSN_VAR_LOCATION for variable *VARP.  DATA contains
+   additional parameters: WHERE specifies whether the note shall be emitted
+   before of after instruction INSN.  */
 
 static int
 emit_note_insn_var_location (varp, data)
@@ -2393,7 +2395,7 @@ vt_emit_notes ()
     {
       /* Emit the notes for changes of variable locations between two
 	 subsequent basic blocks.  */
-      emit_notes_for_differences (bb->head, last_out, &VTI (bb)->in);
+      emit_notes_for_differences (BB_HEAD (bb), last_out, &VTI (bb)->in);
 
       /* Emit the notes for the changes in the basic block itself.  */
       emit_notes_in_bb (bb);
@@ -2518,7 +2520,7 @@ vt_initialize ()
 
       /* Count the number of micro operations.  */
       VTI (bb)->n_mos = 0;
-      for (insn = bb->head; insn != NEXT_INSN (bb->end);
+      for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb));
 	   insn = NEXT_INSN (insn))
 	{
 	  if (INSN_P (insn))
@@ -2542,7 +2544,7 @@ vt_initialize ()
       VTI (bb)->mos = xmalloc (VTI (bb)->n_mos
 			       * sizeof (struct micro_operation_def));
       VTI (bb)->n_mos = 0;
-      for (insn = bb->head; insn != NEXT_INSN (bb->end);
+      for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb));
 	   insn = NEXT_INSN (insn))
 	{
 	  if (INSN_P (insn))

@@ -316,6 +316,9 @@ extern struct obstack flow_obstack;
 #define BLOCK_HEAD_TREE(B) (BASIC_BLOCK (B)->head_tree)
 #define BLOCK_END_TREE(B) (BASIC_BLOCK (B)->end_tree)
 
+#define BB_HEAD(BB)	(BB)->head
+#define BB_END(BB)	(BB)->end
+
 /* Special block numbers [markers] for entry and exit.  */
 #define ENTRY_BLOCK (-1)
 #define EXIT_BLOCK (-2)
