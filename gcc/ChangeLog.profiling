@@ -1,3 +1,10 @@
+2004-10-29  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_reset_node): Break out from ...
+	(cgraph_finalize_function): ... here.
+	(cgraph_finalize_compilation_unit): Prune out finalized functions
+	that has been taken back by frontend (ugh ugh); add sanity checking
+
 2004-10-28  Steven Bosscher  <stevenb@suse.de>
 
 	Ported from mainline:
