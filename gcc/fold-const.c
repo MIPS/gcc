@@ -1,6 +1,6 @@
 /* Fold a constant sub-tree into a single node for C-compiler
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -68,7 +68,7 @@ static tree associate_trees (tree, tree, enum tree_code, tree);
 static tree const_binop (enum tree_code, tree, tree, int);
 static hashval_t size_htab_hash (const void *);
 static int size_htab_eq (const void *, const void *);
-static tree fold_convert (tree, tree);
+static tree fold_convert_const (enum tree_code, tree, tree);
 static enum tree_code invert_tree_comparison (enum tree_code);
 static enum tree_code swap_tree_comparison (enum tree_code);
 static int comparison_to_compcode (enum tree_code);
@@ -1648,14 +1648,17 @@ size_diffop (tree arg0, tree arg1)
 }
 
 
-/* Given T, a tree representing type conversion of ARG1, a constant,
-   return a constant tree representing the result of conversion.  */
+/* Attempt to fold type conversion operation CODE of expression ARG1 to
+   type TYPE.  If no simplification can be done return NULL_TREE.  */
 
 static tree
-fold_convert (tree t, tree arg1)
+fold_convert_const (enum tree_code code, tree type, tree arg1)
 {
-  tree type = TREE_TYPE (t);
   int overflow = 0;
+  tree t;
+
+  if (TREE_TYPE (arg1) == type)
+    return arg1;
 
   if (POINTER_TYPE_P (type) || INTEGRAL_TYPE_P (type))
     {
@@ -1664,7 +1667,7 @@ fold_convert (tree t, tree arg1)
 	  /* If we would build a constant wider than GCC supports,
 	     leave the conversion unfolded.  */
 	  if (TYPE_PRECISION (type) > 2 * HOST_BITS_PER_WIDE_INT)
-	    return t;
+	    return NULL_TREE;
 
 	  /* If we are trying to make a sizetype for a small integer, use
 	     size_int to pick up cached types to reduce duplicate nodes.  */
@@ -1692,6 +1695,7 @@ fold_convert (tree t, tree arg1)
 	       || TREE_OVERFLOW (arg1));
 	  TREE_CONSTANT_OVERFLOW (t)
 	    = TREE_OVERFLOW (t) | TREE_CONSTANT_OVERFLOW (arg1);
+	  return t;
 	}
       else if (TREE_CODE (arg1) == REAL_CST)
 	{
@@ -1706,25 +1710,43 @@ fold_convert (tree t, tree arg1)
 
 	  HOST_WIDE_INT high, low;
 
+	  REAL_VALUE_TYPE r;
 	  REAL_VALUE_TYPE x = TREE_REAL_CST (arg1);
-	  /* If x is NaN, return zero and show we have an overflow.  */
-	  if (REAL_VALUE_ISNAN (x))
+
+	  switch (code)
+	    {
+	    case FIX_TRUNC_EXPR:
+	      real_trunc (&r, VOIDmode, &x);
+	      break;
+
+	    case FIX_CEIL_EXPR:
+	      real_ceil (&r, VOIDmode, &x);
+	      break;
+
+	    case FIX_FLOOR_EXPR:
+	      real_floor (&r, VOIDmode, &x);
+	      break;
+
+	    default:
+	      abort ();
+	    }
+
+	  /* If R is NaN, return zero and show we have an overflow.  */
+	  if (REAL_VALUE_ISNAN (r))
 	    {
 	      overflow = 1;
 	      high = 0;
 	      low = 0;
 	    }
 
-	  /* See if X will be in range after truncation towards 0.
-	     To compensate for truncation, move the bounds away from 0,
-	     but reject if X exactly equals the adjusted bounds.  */
+	  /* See if R is less than the lower bound or greater than the
+	     upper bound.  */
 
 	  if (! overflow)
 	    {
 	      tree lt = TYPE_MIN_VALUE (type);
 	      REAL_VALUE_TYPE l = real_value_from_int_cst (NULL_TREE, lt);
-	      REAL_ARITHMETIC (l, MINUS_EXPR, l, dconst1);
-	      if (! REAL_VALUES_LESS (l, x))
+	      if (REAL_VALUES_LESS (r, l))
 		{
 		  overflow = 1;
 		  high = TREE_INT_CST_HIGH (lt);
@@ -1738,8 +1760,7 @@ fold_convert (tree t, tree arg1)
 	      if (ut)
 		{
 		  REAL_VALUE_TYPE u = real_value_from_int_cst (NULL_TREE, ut);
-		  REAL_ARITHMETIC (u, PLUS_EXPR, u, dconst1);
-		  if (! REAL_VALUES_LESS (x, u))
+		  if (REAL_VALUES_LESS (u, r))
 		    {
 		      overflow = 1;
 		      high = TREE_INT_CST_HIGH (ut);
@@ -1749,7 +1770,7 @@ fold_convert (tree t, tree arg1)
 	    }
 
 	  if (! overflow)
-	    REAL_VALUE_TO_INT (&low, &high, x);
+	    REAL_VALUE_TO_INT (&low, &high, r);
 
 	  t = build_int_2 (low, high);
 	  TREE_TYPE (t) = type;
@@ -1757,8 +1778,8 @@ fold_convert (tree t, tree arg1)
 	    = TREE_OVERFLOW (arg1) | force_fit_type (t, overflow);
 	  TREE_CONSTANT_OVERFLOW (t)
 	    = TREE_OVERFLOW (t) | TREE_CONSTANT_OVERFLOW (arg1);
+	  return t;
 	}
-      TREE_TYPE (t) = type;
     }
   else if (TREE_CODE (type) == REAL_TYPE)
     {
@@ -1786,11 +1807,7 @@ fold_convert (tree t, tree arg1)
 	  return t;
 	}
     }
-
-  TREE_CONSTANT (t) = 1;
-  TREE_INVARIANT (t) = 1;
-
-  return t;
+  return NULL_TREE;
 }
 
 /* Return an expr equal to X but certainly not valid as an lvalue.  */
@@ -5427,8 +5444,8 @@ fold (tree expr)
     case FLOAT_EXPR:
     case CONVERT_EXPR:
     case FIX_TRUNC_EXPR:
-      /* Other kinds of FIX are not handled properly by fold_convert.  */
-
+    case FIX_CEIL_EXPR:
+    case FIX_FLOOR_EXPR:
       if (TREE_TYPE (TREE_OPERAND (t, 0)) == TREE_TYPE (t))
 	return TREE_OPERAND (t, 0);
 
@@ -5592,18 +5609,8 @@ fold (tree expr)
 		          TREE_OPERAND (arg0, 1));
 	}
 
-      if (!wins)
-	{
-	  if (TREE_CONSTANT (t) != TREE_CONSTANT (arg0))
-	    {
-	      if (t == orig_t)
-		t = copy_node (t);
-	      TREE_CONSTANT (t) = TREE_CONSTANT (arg0);
-	      TREE_INVARIANT (t) = TREE_INVARIANT (arg0);
-	    }
-	  return t;
-	}
-      return fold_convert (t, arg0);
+      tem = fold_convert_const (code, TREE_TYPE (t), arg0);
+      return tem ? tem : t;
 
     case VIEW_CONVERT_EXPR:
       if (TREE_CODE (TREE_OPERAND (t, 0)) == VIEW_CONVERT_EXPR)
@@ -9425,13 +9432,9 @@ nondestructive_fold_unary_to_constant (enum tree_code code, tree type,
     case FLOAT_EXPR:
     case CONVERT_EXPR:
     case FIX_TRUNC_EXPR:
-
-      /* Other kinds of FIX are not handled properly by fold_convert.  */
-
-      if (TREE_TYPE (op0) == type)
-	return op0;
-
-      return fold_convert (build1 (code, type, op0), op0);
+    case FIX_FLOOR_EXPR:
+    case FIX_CEIL_EXPR:
+      return fold_convert_const (code, type, op0);
 
     case NEGATE_EXPR:
       if (TREE_CODE (op0) == INTEGER_CST || TREE_CODE (op0) == REAL_CST)
