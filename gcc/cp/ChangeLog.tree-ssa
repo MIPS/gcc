@@ -1,5 +1,10 @@
 2003-06-05  Frank Ch. Eigler  <fche@redhat.com>
 
+	* cp-mudflap.c (mflang_register_call): Give the synthetic decl
+	undefined (not zero) size.
+
+2003-06-05  Frank Ch. Eigler  <fche@redhat.com>
+
         * cp-mudflap.c (mx_flag): Remove.  Update callers to use mf_mark.
 
 2003-05-24  Diego Novillo  <dnovillo@redhat.com>

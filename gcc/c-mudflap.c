@@ -86,7 +86,7 @@ mflang_register_call (label, regsize, regtype, regname)
   tree mf_register_fndecl = mflang_lookup_decl ("__mf_register");
 
   /* See gcc-checker's c-bounds.c (declare_private_statics)  */
-  decltype = build_array_type (char_type_node, build_index_type (integer_zero_node));
+  decltype = build_array_type (char_type_node, 0);
   decl = mf_mark (build_decl (VAR_DECL, get_identifier (label), decltype));
 
   TREE_STATIC (decl) = 1;
