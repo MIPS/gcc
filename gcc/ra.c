@@ -55,19 +55,17 @@
    * reuse stack-slots
    * use the frame-pointer, when we can
    * delete coalesced insns
-   * create webs dynamically instead of one large array
-     web2def[] should by like use2web[]
    * don't insert hard-regs, but a limited set of pseudo-reg
      in emit_colors, and setup reg_renumber accordingly
    * when spilling, update interference graph incrementally, which
      is possible, as we don't use global liveness
    * don't destroy coalescing information completely when spilling
-   * use the constrains from asms
+   * use the constraints from asms
    * correctly handle SUBREG as being one hardreg on it's
      own, to handle such things:
      (set (subreg:SI (reg:DI 40) 0) (...))
      (set (reg:SI 41) (...)) 
-     where it's clear from constrains, that 40 should go to
+     where it's clear from constraints, that 40 should go to
      0 and 41 to 1.  For now they conflict for the code below, although
      they don't in reality.
    * implement spill coalescing/propagation
@@ -174,7 +172,7 @@ enum move_type
   LAST_MOVE_TYPE
 };
 
-/* Structure of a move we are considering coalescing */
+/* Structure of a move we are considering coalescing.  */
 struct move
 {
   rtx insn;
@@ -184,7 +182,7 @@ struct move
   struct dlist *dlink;
 };
 
-/* List of moves */
+/* List of moves.  */
 struct move_list
 {
   struct move_list *next;
@@ -207,9 +205,11 @@ static void prune_hardregs_for_mode PARAMS ((HARD_REG_SET *, enum machine_mode))
 static void init_one_web PARAMS ((struct web *, int));
 static void init_web_parts PARAMS ((struct df *));
 static void record_conflict PARAMS ((struct web *, struct web *));
-static void parts_to_webs PARAMS ((struct df *));
+static void parts_to_webs PARAMS ((struct df *, struct web **));
+static void conflicts_between_webs PARAMS ((struct df *, struct web **));
 static void remember_web_was_spilled PARAMS ((struct web *));
 static void detect_spill_temps PARAMS ((void));
+static void make_webs PARAMS ((struct df *));
 static void moves_to_webs PARAMS ((struct df *));
 static void connect_rmw_web_parts PARAMS ((struct df *));
 static void build_web_parts_and_conflicts PARAMS ((struct df *));
@@ -670,7 +670,8 @@ dump_number_seen (void)
   debug_msg (0, "from overall %d insns\n", get_max_uid ());
 }
 
-/* Connect web parts, thereby building webs, and their conflicts.  */
+/* Connect web parts, thereby implicitely building webs, and
+   their conflicts.  */
 static void
 build_web_parts_and_conflicts (df)
      struct df *df;
@@ -714,7 +715,7 @@ build_web_parts_and_conflicts (df)
   visited = NULL;
 }
 
-/* Handle tricky asm insns */
+/* Handle tricky asm insns.  */
 static void
 handle_asm_insn (df, insn)
      struct df *df;
@@ -900,13 +901,13 @@ prune_hardregs_for_mode (s, mode)
   AND_HARD_REG_SET (*s, all);
 }
 
-/* Initialize a single web */
+/* Initialize a single web.  */
 static void
 init_one_web (web, regno)
      struct web *web;
      int regno;
 {
-  /* web->id isn't initialized here. */
+  /* web->id isn't initialized here.  */
   web->regno = regno;
   web->weight = 0;
   web->span_insns = 0;
@@ -951,7 +952,7 @@ init_one_web (web, regno)
       /* add_hardregs is wrong in multi-length classes, e.g.
 	 using a DFmode pseudo on x86 can result in class FLOAT_INT_REG,
 	 where, if it finally is allocated to GENERAL_REGS it needs two,
-	 if allocated to FLOAT_REGS only one hardreg.  */
+	 if allocated to FLOAT_REGS only one hardreg.  XXX */
       web->add_hardregs =
 	CLASS_MAX_NREGS (web->regclass, PSEUDO_REGNO_MODE (web->regno)) - 1;
       web->num_conflicts = web->add_hardregs;
@@ -977,7 +978,7 @@ init_one_web (web, regno)
   web->dlink = NULL;
 }
 
-/* Initialize all the web parts we are going to need */
+/* Initialize all the web parts we are going to need.  */
 static void
 init_web_parts (df)
      struct df *df;
@@ -1083,18 +1084,17 @@ record_conflict (web1, web2)
     }
 }
 
+/* This builds full webs out of web parts, without relating them to each
+   other.  */
 static void
-parts_to_webs (df)
+parts_to_webs (df, part2web)
      struct df *df;
+     struct web **part2web;
 {
   unsigned int i;
   unsigned int webnum;
-  struct web **part2web;
   struct ref **ref_use, **ref_def;
   struct web_part *wp_first_use = &web_parts[df->def_id];
-
-  part2web = (struct web **) xcalloc (df->def_id + df->use_id,
-				      sizeof (struct web *));
 
   /* For each root web part: create and initialize a new web,
      setup def2web[] and use2web[] for all defs and uses, and
@@ -1176,6 +1176,28 @@ parts_to_webs (df)
       web->uses -= web->num_uses;
       web->weight *= (1 + web->add_hardregs);
     }
+}
+
+/* Convert the conflicts between web parts to conflicts between full webs.  
+
+   This can't be done in parts_to_webs(), because for recording conflicts
+   between webs we need to know their final usable_regs set, which is used
+   to discard non-conflicts (between webs having no hard reg in common).  
+   But this is set for spill temporaries only after the webs itself are
+   built.  Until then the usable_regs set is based on the pseudo regno used
+   in this web, which may contain far less registers than later determined.  
+   This would result in us loosing conflicts (due to record_conflict()
+   thinking that a web can only be allocated to the current usable_regs,
+   whereas later this is extended) leading to colorings, where some regs which
+   in reality conflict get the same color.  
+ 
+   This also deallocates the conflicts bitmaps for all web parts.  */
+static void
+conflicts_between_webs (df, part2web)
+     struct df *df;
+     struct web **part2web;
+{
+  unsigned int i;
 
   /* Now record all conflicts between webs.  */
   for (i = 0; i < df->def_id; i++)
@@ -1200,11 +1222,9 @@ parts_to_webs (df)
   for (i = 0; i < df->use_id; i++)
     if (! web_parts[i + df->def_id].uplink)
       BITMAP_XFREE (web_parts[i + df->def_id].conflicts);
-
-  free (part2web);
 }
 
-/* Remember that a web was spilled */
+/* Remember that a web was spilled.  */
 static void
 remember_web_was_spilled (web)
      struct web *web;
@@ -1225,7 +1245,7 @@ remember_web_was_spilled (web)
      preferences, as the original pseudo, esp. if they were very narrow.
      (E.g. there once was a reg wanting class AREG (only one register)
      without alternative class.  As long, as also the spill-temps for
-     this pseudo had the same constrains it was spilled over and over. */
+     this pseudo had the same constraints it was spilled over and over.  */
   COPY_HARD_REG_SET (web->usable_regs, reg_class_contents[(int) ALL_REGS]);
   AND_COMPL_HARD_REG_SET (web->usable_regs, never_use_colors);
   prune_hardregs_for_mode (&web->usable_regs, PSEUDO_REGNO_MODE (web->regno));
@@ -1340,7 +1360,32 @@ detect_spill_temps (void)
     }
 }
 
-/* Distribute moves to the corresponding webs */
+/* Converts the connected web parts to full webs.  This means, it allocates
+   all webs, and initializes all fields, including detecting spill
+   temporaries.  It does not distribute moves to their corresponding webs,
+   though.  */
+static void
+make_webs (df)
+     struct df *df;
+{
+  /* Our mapping from part-IDs to webs for the process of converting them.  */
+  struct web **part2web;
+
+  part2web = (struct web **) xcalloc (df->def_id + df->use_id,
+				      sizeof (struct web *));
+  /* First build all the webs itself.  They are not related with
+     others yet.  */
+  parts_to_webs (df, part2web);
+  /* Now detect spill temporaries to initialize their usable_regs set.  */
+  detect_spill_temps ();
+  /* And finally relate them to each other, meaning to record all possible
+     conflicts between webs (see the comment there).  */
+  conflicts_between_webs (df, part2web);
+
+  free (part2web);
+}
+
+/* Distribute moves to the corresponding webs.  */
 static void
 moves_to_webs (df)
      struct df *df;
@@ -1466,10 +1511,7 @@ build_i_graph (df)
   /* The webs are conceptually complete now, but still scattered around as
      connected web parts.  Collect all information and build the webs
      including all conflicts between webs (instead web parts).  */
-  parts_to_webs (df);
-
-  /* XXX remove web_parts[] and [].conflicts bitmaps here.  */
-  detect_spill_temps ();
+  make_webs (df);
   moves_to_webs (df);
 
   /* Look for additional constrains given by asms.  */
@@ -1477,7 +1519,7 @@ build_i_graph (df)
     handle_asm_insn (df, insn);
 }
 
-/* Dump the interference graph */
+/* Dump the interference graph.  */
 static void
 dump_igraph (df)
      struct df *df ATTRIBUTE_UNUSED;

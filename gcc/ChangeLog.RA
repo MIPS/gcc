@@ -1,3 +1,12 @@
+2001-02-24  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	* ra.c (conflicts_between_web): new function, split out from ...
+	(parts_to_webs): ... here, new argument part2web.  Change callers.
+	(make_webs): new function, calling the above in the right order;
+	partly split out from ...
+	(build_i_graph): ... here.
+	(everywhere): format some comments.
+
 2001-02-23  Michael Matz  <matzmich@cs.tu-berlin.de>
 
 	* ra.c (colorize_one_web): only use array-ref, if HARD_REG_SET
