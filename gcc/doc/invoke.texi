@@ -290,7 +290,7 @@ in the following sections.
 -fstrength-reduce  -fstrict-aliasing  -ftracer -fthread-jumps @gol
 -ftrapv -funroll-all-loops  -funroll-loops  @gol
 -ftree-ssa  -fdisable-simple  -funroll-all-loops  -funroll-loops  @gol
--ftree-ssa-pre -ftree-ssa-ccp  -ftree-ssa-dce @gol
+-ftree-pre -ftree-ccp  -ftree-dce @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -3814,13 +3814,13 @@ Do not re-write trees into SIMPLE form.  This switch also disables
 tree-based optimizations (See @option{-ftree-ssa}).  @emph{Note:} This
 option is only useful when debugging the tree simplification pass in GCC.
 
-@item -ftree-ssa-pre
+@item -ftree-pre
 Perform Partial Redundancy Elimination (PRE) on trees.
 
-@item -ftree-ssa-ccp
+@item -ftree-ccp
 Perform sparse conditional constant propagation (CCP) on trees.
 
-@item -ftree-ssa-dce
+@item -ftree-dce
 Perform dead code elimination (DCE) on trees.
 
 @item -ftracer
