@@ -1,3 +1,8 @@
+2003-10-27  Anthony Green  <green@redhat.com>
+
+	* Make-lang.in (f95.stageprofile): Use tabs, not spaces.
+	(f95.stagefeedback): Ditto.
+
 2003-10-27  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR fortran/12682

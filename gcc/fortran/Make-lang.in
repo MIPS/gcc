@@ -246,9 +246,9 @@ f95.stage3: stage3-start
 f95.stage4: stage4-start
 	-mv fortran/*$(objext) stage4/fortran
 f95.stageprofile: stageprofile-start
-        -mv fortran/*$(objext) stageprofile/fortran
+	-mv fortran/*$(objext) stageprofile/fortran
 f95.stagefeedback: stageprofile-start
-        -mv fortran/*$(objext) stagefeedback/fortran
+	-mv fortran/*$(objext) stagefeedback/fortran
 
 #
 # .o: .h dependencies.
