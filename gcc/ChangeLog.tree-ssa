@@ -1,3 +1,10 @@
+2003-11-28  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa.c (remove_annotations_r): Kill.
+	(delete_tree_ssa): Remove annotations using statement walk;
+	kill argument fndecl.
+	(rewrite_out_of_ssa): Update call.
+
 2003-11-27  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-live.c (register_ssa_partition): Abort if a virtual SSA
