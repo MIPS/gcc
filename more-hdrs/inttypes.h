@@ -278,9 +278,13 @@ __BEGIN_DECLS
 #ifndef __cplusplus /* wchar_t is a built-in type in C++ */
 #  ifndef	_BSD_WCHAR_T_DEFINED_
 #    define	_BSD_WCHAR_T_DEFINED_
-     typedef	_BSD_WCHAR_T_	wchar_t;
-#  endif
-#endif
+#    ifdef	__WCHAR_TYPE__
+       typedef __WCHAR_TYPE__ wchar_t;
+#    else /* __WCHAR_TYPE__ */
+       typedef	_BSD_WCHAR_T_	wchar_t;
+#    endif /* __WCHAR_TYPE__ */
+#  endif /* _BSD_WCHAR_T_DEFINED_ */
+#endif /* __cplusplus */
 
   /* 7.8.2.4 */
   extern intmax_t wcstoimax(const wchar_t * restrict nptr, wchar_t ** restrict endptr, int base);

@@ -161,16 +161,22 @@ typedef unsigned long long      uintmax_t;
 
 #define SIZE_MAX          UINT32_MAX
 
-#ifndef WCHAR_MIN
-#  define WCHAR_MIN       0
-#endif
-
 #ifndef WCHAR_MAX
 #  ifdef __WCHAR_MAX__
 #    define WCHAR_MAX     __WCHAR_MAX__
 #  else
 #    define WCHAR_MAX     0x7fffffff
 #  endif
+#endif
+
+/* WCHAR_MIN should be 0 if wchar_t is an unsigned type and
+   (-WCHAR_MAX-1) if wchar_t is a signed type.  Unfortunately,
+   it turns out that -fshort-wchar changes the signedness of
+   the type. */
+#if WCHAR_MAX == 0xffff
+#  define WCHAR_MIN       0
+#else
+#  define WCHAR_MIN       (-WCHAR_MAX-1)
 #endif
 
 /* We have no wint_t yet, so no WINT_{MIN,MAX}.
@@ -185,13 +191,13 @@ typedef unsigned long long      uintmax_t;
 #if (! defined(__cplusplus)) || defined(__STDC_CONSTANT_MACROS)
 
 /* 7.18.4 Macros for integer constants */
-#define INT8_C(v)    ((int8_t)v)
-#define INT16_C(v)   ((int16_t)v)
+#define INT8_C(v)    (v)
+#define INT16_C(v)   (v)
 #define INT32_C(v)   (v ## L)
 #define INT64_C(v)   (v ## LL)
 
-#define UINT8_C(v)   ((uint8_t)v)
-#define UINT16_C(v)  ((uint16_t)v)
+#define UINT8_C(v)   (v ## U)
+#define UINT16_C(v)  (v ## U)
 #define UINT32_C(v)  (v ## UL)
 #define UINT64_C(v)  (v ## ULL)
 
