@@ -2248,7 +2248,10 @@ expand_call (exp, target, ignore)
       {
 	struct_value_size = int_size_in_bytes (TREE_TYPE (exp));
 
-	if (target && GET_CODE (target) == MEM)
+	if (CALL_EXPR_HAS_RETURN_SLOT_ADDR (exp))
+	  /* The structure value address arg is already in actparms.  */
+	  structure_value_addr_parm = 1;
+	else if (target && GET_CODE (target) == MEM)
 	  structure_value_addr = XEXP (target, 0);
 	else
 	  {

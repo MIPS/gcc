@@ -1,3 +1,7 @@
+Sun Dec 14 15:25:57 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from BIB (rtlopt-merge-20021412)
+
 Sat Dec 14 14:50:52 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* Makefile.in (web.o): New.

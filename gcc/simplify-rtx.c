@@ -579,8 +579,6 @@ simplify_unary_operation (code, mode, op, op_mode)
       switch (code)
 	{
 	case SQRT:
-	  if (! flag_unsafe_math_optimizations)
-	    return 0;
 	  if (HONOR_SNANS (mode) && real_isnan (&d))
 	    return 0;
 	  real_sqrt (&t, mode, &d);

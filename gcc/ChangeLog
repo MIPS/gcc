@@ -1,3 +1,103 @@
+2002-12-13  Jason Merrill  <jason@redhat.com>
+
+	* tree.h (CALL_EXPR_HAS_RETURN_SLOT_ADDR): New macro.
+	* calls.c (expand_call): Handle it.
+	* tree-inline.c (struct inline_data): Remove target_exprs field.
+	(optimize_inline_calls): Don't initialize it.
+	(expand_call_inline): Don't modify it.  Handle
+	CALL_EXPR_HAS_RETURN_SLOT_ADDR.
+	(declare_return_variable): Take return slot addr.
+	* langhooks.h (copy_res_decl_for_inlining): Change target_exprs parm 
+	to return_slot_addr.
+	* langhooks-def.h, langhooks.c: Adjust.
+	* explow.c (maybe_set_unchanging): Don't set RTX_UNCHANGING_P for
+	a decl with no DECL_INITIAL.
+
+	* expr.c (expand_expr): Don't discard the target of a call which
+	returns in memory.
+
+2002-12-13  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cppinit.c (path_include): Take an environment variable name.
+	Tidy up.
+	(init_standard_includes): Simplify environment handling, and
+	move to ...
+	(cpp_read_main_file): ...here as -nostdinc should not affect
+	environment variable paths.
+
+2002-12-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* hooks.h (hook_tree_tree_bool_false): Declare
+	hook_bool_tree_tree_false instead.
+
+2002-12-11  Zack Weinberg  <zack@codesourcery.com>
+
+	* Makefile.in (GTFILES): Add $(host_xm_file_list) and
+	$(tm_file_list).
+
+2002-12-11  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/t-rs6000-c-rule: Add coretypes.h $(TM_H) dependencies.
+
+Wed Dec 11 15:20:45 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (cmove splitters): Avoid creation of unnecesary subregs.
+
+2002-12-10  David Edelsohn  <edelsohn@gnu.org>
+
+	* haifa-sched.c (rank_for_schedule): Correct style.
+
+2002-12-10  Per Bothner  <pbothner@apple.com>
+
+	* cpplib.h (struct cpp_hashnode):  Split a non-portably-signed field
+	directive_index into an unsigned field and a new is_directive field.
+	* cppinit.c (mark_named_operators):  Update to set new fields.
+	* cpplex.c (_cpp_lex_direct):  Now directive_field is unsigned.
+	* cpplib.c [_cpp_handle_directive]:   Test is_directive field.
+	No longer need to subtract 1 from directive_index.
+	(_cpp_init_directives):  No longer need to add 1 to directive_index.
+	* cpptrad.c (scan_out_logical_line):  Use is_directive field.
+
+2002-12-10  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c (fold_builtin): Remove -funsafe-math-optimizations
+	check for evaluating sqrt of a constant at compile time.
+	* simplify-rtx.c (simplify_unary_operation): Likewise.
+
+2002-12-06  Per Bothner  <pbothner@apple.com>
+
+	* cpplib.h (struct cpp_hashnode):  Change field directive_index from
+	char to an int bit-field, for hosts where char is unsigned.
+
+2002-12-07  Roger Sayle  <roger@eyesopen.com>
+	    Richard Henderson <rth@redhat.com>
+
+	* real.c (ieee_extended_motorola_format,
+	ieee_extended_intel_96_format, ieee_extended_intel_128_format,
+	ieee_quad_format, vax_d_format, vax_g_format, i370_double_format):
+	Provide appropriate values for new signbit field.
+
+2002-12-07  Roger Sayle  <roger@eyesopen.com>
+
+	* real.h (real_format): Add signbit field.
+	* real.c (ieee_single_format, ieee_double_format,
+	ieee_extended_motorola_format, ieee_extended_intel_96_format,
+	ieee_extended_intel_128_format, ibm_extended_format,
+	ieee_quad_format, vax_f_format, vax_d_format,
+	vax_g_format, i370_single_format, i370_double_format,
+	c4x_single_format, c4x_extended_format, real_internal_format):
+	Provide suitable signbit value, or -1 to avoid bit twiddling.
+
+	* optabs.c (expand_unop): Try implementing negation of
+	floating point modes by flipping the sign bit.
+	(expand_abs): Try implementing abs of floating point modes
+	by clearing the sign bit.
+
+Sat Dec  7 22:29:47 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_int_movcc):  Use force_operand instead
+	of constructing insn directly.
+
 2002-12-06  Per Bothner  <pbothner@apple.com>
 
 	* cpplib.h (NODE_MACRO_ARG):  New flag.
@@ -36,7 +136,7 @@ Thu Dec  5 00:52:37 CET 2002  Jan Hubicka  <jh@suse.cz>
 	* i386.md (negsf2_ifs, negdf2_ifs, negdf2_ifs_rex64, abssf2_ifs,
 	absdf2_ifs, absdf2_ifs_rex64): Fix constraints.
 	neg?f2_ifs, abs?f2_ifs splitters): Refuse memory operand; do not
-        generate unnecesary subregs.
+	generate unnecesary subregs.
 
 Wed Dec  4 11:53:07 CET 2002  Jan Hubicka  <jh@suse.cz>
 

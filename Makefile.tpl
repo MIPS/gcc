@@ -112,7 +112,7 @@ INSTALL_DATA = $(INSTALL) -m 644
 AS = @AS@
 AR = @AR@
 AR_FLAGS = rc
-CC = cc
+CC = @CC@
 
 # Special variables passed down in EXTRA_GCC_FLAGS.  They are defined
 # here so that they can be overridden by Makefile fragments.
@@ -120,9 +120,8 @@ BUILD_CC = $(CC_FOR_BUILD)
 BUILD_PREFIX = @BUILD_PREFIX@
 BUILD_PREFIX_1 = @BUILD_PREFIX_1@
 
-# These flag values are normally overridden by the configure script.
-CFLAGS = -g
-CXXFLAGS = -g -O2
+CFLAGS = @CFLAGS@
+CXXFLAGS = @CXXFLAGS@
 
 LDFLAGS = 
 LIBCFLAGS = $(CFLAGS)
@@ -137,7 +136,7 @@ LIBCFLAGS_FOR_TARGET = $(CFLAGS_FOR_TARGET)
 PICFLAG = 
 PICFLAG_FOR_TARGET = 
 
-CXX = c++
+CXX = @CXX@
 
 # Use -O2 to stress test the compiler.
 LIBCXXFLAGS = $(CXXFLAGS) -fno-implicit-templates
@@ -1312,7 +1311,7 @@ all-itcl: maybe-all-tcl maybe-all-tk
 install-itcl: maybe-install-tcl
 all-sid: maybe-all-tcl maybe-all-tk
 install-sid: maybe-install-tcl maybe-install-tk
-all-sim: maybe-all-libiberty maybe-all-bfd maybe-all-opcodes maybe-all-readline
+all-sim: maybe-all-libiberty maybe-all-bfd maybe-all-opcodes maybe-all-readline maybe-configure-gdb
 configure-tk: maybe-configure-tcl
 all-tk: maybe-all-tcl
 configure-tix: maybe-configure-tcl maybe-configure-tk
@@ -1339,7 +1338,6 @@ all-sed: maybe-all-libiberty
 all-send-pr: maybe-all-prms
 all-snavigator: maybe-all-tcl maybe-all-tk maybe-all-itcl maybe-all-tix maybe-all-db maybe-all-grep maybe-all-libgui
 all-tar: maybe-all-libiberty
-all-tclX: maybe-all-tcl maybe-all-tk
 all-uudecode: maybe-all-libiberty
 
 ALL_GCC = maybe-all-gcc
@@ -1368,6 +1366,7 @@ all-target-libgloss: maybe-configure-target-newlib
 configure-target-libiberty: $(ALL_GCC_C)
 configure-target-libtermcap: $(ALL_GCC_C)
 configure-target-newlib: $(ALL_GCC)
+configure-target-rda: $(ALL_GCC_C)
 configure-target-winsup: $(ALL_GCC_C)
 all-target-winsup: maybe-all-target-libiberty maybe-all-target-libtermcap
 

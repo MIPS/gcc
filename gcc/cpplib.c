@@ -366,8 +366,8 @@ _cpp_handle_directive (pfile, indented)
 
   if (dname->type == CPP_NAME)
     {
-      if (dname->val.node->directive_index > 0)
-	dir = &dtable[dname->val.node->directive_index - 1];
+      if (dname->val.node->is_directive)
+	dir = &dtable[dname->val.node->directive_index];
     }
   /* We do not recognize the # followed by a number extension in
      assembler code.  */
@@ -2004,6 +2004,7 @@ _cpp_init_directives (pfile)
   for (i = 0; i < (unsigned int) N_DIRECTIVES; i++)
     {
       node = cpp_lookup (pfile, dtable[i].name, dtable[i].length);
-      node->directive_index = i + 1;
+      node->is_directive = 1;
+      node->directive_index = i;
     }
 }

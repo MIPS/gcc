@@ -1,3 +1,26 @@
+2002-12-13  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in, Makefile.tpl, Makefile.def: Remove tclX.
+	* Makefile.in: Regenerate.
+
+2002-12-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.tpl (configure-target-rda): Depend on $(ALL_GCC_C).
+	* Makefile.in: Rebuilt.
+
+2002-12-10  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure: Fix bug put in by gremlins.
+
+	* Makefile.tpl: Substitute more autoconfily.
+	* configure: Substitute more autoconfily.
+	* Makefile.in: Regenerate.
+
+2002-12-08  Andrew Cagney  <ac131313@redhat.com>
+
+	* Makefile.tpl (all-sim): Depend on maybe-configure-gdb.
+	* Makefile.in (all-sim): Ditto.
+
 2002-12-06  DJ Delorie  <dj@redhat.com>
 
 	* Makefile.tpl: Change configure dependencies to not have real

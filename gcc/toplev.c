@@ -3159,9 +3159,10 @@ rest_of_compilation (decl)
     {
       open_dump_file (DFI_web, decl);
       timevar_push (TV_WEB);
+      cleanup_cfg (0);
       web_main ();
       delete_trivially_dead_insns (get_insns (), max_reg_num ());
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
 
       timevar_pop (TV_WEB);
       close_dump_file (DFI_web, print_rtl_with_bb, get_insns ());
