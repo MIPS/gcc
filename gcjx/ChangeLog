@@ -1,5 +1,9 @@
 2005-03-27  Tom Tromey  <tromey@redhat.com>
 
+	* aot/aotclass.cc (register_something): Start at 1.
+
+2005-03-27  Tom Tromey  <tromey@redhat.com>
+
 	* aot/aotclass.cc (register_indirect_call): Handle constructors
 	and other atable methods.
 

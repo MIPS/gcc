@@ -270,6 +270,7 @@ bc_abi::build_method_call (tree_builtins *builtins, aot_class *current,
 			   tree obj, tree args,
 			   model_method *meth, bool /*is_super*/)
 {
+  builtins->lay_out_class (meth->get_declaring_class ());
   tree meth_tree = builtins->map_method (meth);
   tree meth_ptr_type = build_pointer_type (TREE_TYPE (meth_tree));
 
@@ -295,9 +296,38 @@ bc_abi::build_method_call (tree_builtins *builtins, aot_class *current,
     {
       assert (obj != NULL_TREE);
 
-      int slot = current->register_interface_call (meth);
+      int slot = 2 * current->register_interface_call (meth);
       tree itable = builtins->get_itable_decl (current->get ());
-      abort ();
+
+      tree interface = convert (type_class_ptr,
+				build4 (ARRAY_REF, ptr_type_node, itable,
+					build_int_cst (type_jint, slot - 1),
+					NULL_TREE, NULL_TREE));
+      tree idx = convert (type_jint,
+			  build4 (ARRAY_REF, ptr_type_node, itable,
+				  build_int_cst (type_jint, slot),
+				  NULL_TREE, NULL_TREE));
+
+      obj = builtins->check_reference (obj);
+      tree dtable = build1 (INDIRECT_REF, type_object,
+			    build1 (NOP_EXPR, type_object_ptr, obj));
+      dtable = build3 (COMPONENT_REF, type_dtable_ptr,
+		       dtable,
+		       builtins->find_decl (type_object, "vtable"),
+		       NULL_TREE);
+
+      tree obj_class = build3 (COMPONENT_REF, type_class_ptr,
+			       build1 (INDIRECT_REF, type_dtable, dtable),
+			       builtins->find_decl (type_dtable, "class"),
+			       NULL_TREE);
+
+      tree lookup = tree_cons (NULL_TREE, obj_class,
+			       tree_cons (NULL_TREE, interface,
+					  build_tree_list (NULL_TREE, idx)));
+      func = build3 (CALL_EXPR, ptr_type_node,
+		     builtin_Jv_LookupInterfaceMethodIdx,
+		     lookup, NULL_TREE);
+      func = convert (meth_ptr_type, func);
     }
   // Note that, unlike the C++ ABI, we call final methods via the
   // vtable.  This is because a final method can be made non-final and
@@ -385,6 +415,7 @@ bc_abi::build_field_reference (tree_builtins *builtins, aot_class *current,
 			       tree obj, model_field *field)
 {
   tree result;
+  builtins->lay_out_class (field->get_declaring_class ());
   int slot = current->register_field_reference (field);
   tree field_type = builtins->map_type (field->type ());
   if (field->static_p ())

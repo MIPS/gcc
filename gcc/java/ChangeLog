@@ -1,5 +1,11 @@
 2005-03-27  Tom Tromey  <tromey@redhat.com>
 
+	* abi.cc (build_method_call): Lay out declaring class.  Handle
+	interface calls.
+	(build_field_reference): Likewise.
+
+2005-03-27  Tom Tromey  <tromey@redhat.com>
+
 	* abi.cc (build_direct_class_reference): New method.
 	(build_new): Fix type of result.
 	(build_class_reference): Fix type of array reference.

@@ -309,10 +309,14 @@ class_object_creator::create_index_table (const std::vector<model_element *> &ta
 							 table.size ())));
   result_syms = make_decl (type, build_constructor (type, result_list));
 
+  // Note that the table itself has an extra element for the status.
+  // FIXME: itable is double the size.
   tree symtype
     = build_array_type (ptr_type_node,
 			build_index_type (build_int_cst (type_jint,
-							 table.size ())));
+							 1 + table.size ())));
+  // FIXME: set DECL_INITIAL here?
+  // ... and note that itable has a different format.
 
   TREE_TYPE (table_decl) = symtype;
   rest_of_decl_compilation (table_decl, 1, 0);

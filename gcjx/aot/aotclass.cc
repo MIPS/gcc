@@ -250,7 +250,9 @@ int
 aot_class::register_something (std::vector<model_element *> &the_map,
 			       model_element *item)
 {
-  int index = 0;
+  // Note that "entry 0" is a flag indicating whether the state is
+  // initialized.
+  int index = 1;
   for (std::vector<model_element *>::const_iterator i = the_map.begin ();
        i != the_map.end ();
        ++i, ++index)
@@ -258,7 +260,6 @@ aot_class::register_something (std::vector<model_element *> &the_map,
       if (*i == item)
 	return index;
     }
-  index = the_map.size ();
   the_map.push_back (item);
   return index;
 }
