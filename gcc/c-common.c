@@ -583,11 +583,6 @@ int cw_asm_in_operands;
 /* Count used for synthetic labels derived from asm block labels.  */
 int cw_asm_labelno;
 
-/* Used to record actual line at a convenient moment, rather than
-   trying to pass it via function args as save_lineno normally does -
-   would break down if asms could be nested.  */
-int cw_asm_lineno;
-
 /* Working buffer for building the assembly string.  */
 static char *cw_asm_buffer;
 
@@ -6161,7 +6156,7 @@ cw_asm_identifier (tree expr)
 
 /* Build an asm statement from CW-syntax bits.  */
 tree
-cw_asm_stmt (tree expr, tree args)
+cw_asm_stmt (tree expr, tree args, int lineno)
 {
   tree sexpr;
   tree arg, tail;
@@ -6236,8 +6231,22 @@ cw_asm_stmt (tree expr, tree args)
 
   if (cw_asm_buffer == NULL)
     cw_asm_buffer = xmalloc (4000);
-  cw_asm_buffer[0] = '\0';
 
+  /* Build .file "file-name" directive. */
+  sprintf(cw_asm_buffer, "%s \"%s\"", ".file", input_filename);
+  sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
+  stmt = build_stmt (ASM_EXPR, sexpr, NULL_TREE, NULL_TREE, NULL_TREE);
+  ASM_VOLATILE_P (stmt) = 1;
+  (void)add_stmt (stmt);
+
+  /* Build .line "line-number" directive. */
+  sprintf(cw_asm_buffer, "%s %d", ".line", lineno);
+  sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
+  stmt = build_stmt (ASM_EXPR, sexpr, NULL_TREE, NULL_TREE, NULL_TREE);
+  ASM_VOLATILE_P (stmt) = 1;
+  (void)add_stmt (stmt);
+
+  cw_asm_buffer[0] = '\0';
   strncat (cw_asm_buffer, opcodename, IDENTIFIER_LENGTH (expr));
   strcat (cw_asm_buffer, " ");
   n = 1;

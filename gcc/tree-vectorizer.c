@@ -4203,6 +4203,9 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
 
   loop_depth = vect_build_dist_vector (loop, ddr);
 
+  if (!DDR_DIST_VECT (ddr))
+    return true;
+
   dist = DDR_DIST_VECT (ddr)[loop_depth];
 
   /* Same loop iteration.  */

@@ -695,13 +695,16 @@ digest_init (tree type, tree init, tree* tail)
 	      || (element && TREE_CODE (element) == STRING_CST)))
 	{
 	  tree string = element ? element : init;
+	  /* APPLE LOCAL begin pascal strings */
+	  bool pascal_p
+	    = (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
+	       == unsigned_char_type_node);
+	  /* APPLE LOCAL end pascal strings */
 
 	  if ((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
 	       != char_type_node)
-	      /* APPLE LOCAL begin pascal strings */
-	      && (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
-	       != unsigned_char_type_node) 
-	      /* APPLE LOCAL end pascal strings */
+	      /* APPLE LOCAL pascal strings */
+	      && !pascal_p
 	      && TYPE_PRECISION (typ1) == BITS_PER_UNIT)
 	    {
 	      error ("char-array initialized from wide string");
@@ -710,8 +713,7 @@ digest_init (tree type, tree init, tree* tail)
           /* APPLE LOCAL begin pascal strings */
 	  if (((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
 	       == char_type_node)
-	      || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
-	       == unsigned_char_type_node))	       
+	      || pascal_p)	       
 	      /* APPLE LOCAL end pascal strings */
 	      && TYPE_PRECISION (typ1) != BITS_PER_UNIT)
 	    {
@@ -729,7 +731,13 @@ digest_init (tree type, tree init, tree* tail)
 		 because it's ok to ignore the terminating null char that is
 		 counted in the length of the constant, but in C++ this would
 		 be invalid.  */
-	      if (size < TREE_STRING_LENGTH (string))
+	      /* APPLE LOCAL begin pascal strings */
+	      /* For Pascal strings, though, ignoring the terminating NUL
+		 is still cool.  */
+	      if (size < (pascal_p
+			  ? TREE_STRING_LENGTH (string) - 1
+			  : TREE_STRING_LENGTH (string)))
+	      /* APPLE LOCAL end pascal strings */
 		pedwarn ("initializer-string for array of chars is too long");
 	    }
 	  return string;

@@ -77,8 +77,14 @@ typedef struct S2 {
 } S2;
 #endif /* GCC3 */
 
-static void check(char * rec_name, int actual, int expected, char * comment)
+static void check(char * rec_name, int actual, int expected_ppc32, int expected_ia32, char * comment)
 {
+    int expected;
+#ifdef __i386__
+    expected = expected_ia32;
+#else
+    expected = expected_ppc32;
+#endif
     if (flag_verbose || (actual != expected)) {
         printf("%-20s = %2d (%2d) ", rec_name, actual, expected);
         if (actual != expected) {
@@ -115,10 +121,10 @@ int main(int argc, char *argv[])
     if (bad_option)
         return 1;
 
-    check(Q(sizeof(S0)), 5, "struct with 1 long, 1 char; pack(1) mode");
-    check(Q(sizeof(S1)), 6, "struct with 1 long, 1 char; should be mac68k mode");
+    check(Q(sizeof(S0)), 5, 5, "struct with 1 long, 1 char; pack(1) mode");
+    check(Q(sizeof(S1)), 6, 6, "struct with 1 long, 1 char; should be mac68k mode");
 #if GCC3
-    check(Q(sizeof(S2)), 6, "struct with 1 long, 1 char; should be mac68k mode");
+    check(Q(sizeof(S2)), 6, 6, "struct with 1 long, 1 char; should be mac68k mode");
 #endif
 
     if (nbr_failures > 0)

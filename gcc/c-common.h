@@ -44,7 +44,6 @@ extern int cw_asm_block;
 extern int cw_asm_at_bol;
 extern int cw_asm_in_operands;
 extern int cw_asm_labelno;
-extern int cw_asm_lineno;
 /* APPLE LOCAL end CW asm blocks */
 
 /* Usage of TREE_LANG_FLAG_?:
@@ -1037,6 +1036,8 @@ extern void objc_build_finally_clause (location_t, tree);
 extern tree objc_build_synchronized (location_t, tree, tree);
 extern int objc_static_init_needed_p (void);
 extern tree objc_generate_static_init_call (tree);
+/* APPLE LOCAL ObjC GC */
+extern tree objc_generate_write_barrier (tree, enum tree_code, tree);
 
 /* The following are provided by the C and C++ front-ends, and called by
    ObjC/ObjC++.  */
@@ -1050,7 +1051,7 @@ extern void pp_file_change (const struct line_map *);
 extern void pp_dir_change (cpp_reader *, const char *);
 
 /* APPLE LOCAL begin CW asm blocks */
-extern tree cw_asm_stmt (tree, tree);
+extern tree cw_asm_stmt (tree, tree, int);
 extern tree cw_asm_build_register_offset (tree, tree);
 extern tree cw_asm_label (tree, int);
 extern tree prepend_char_identifier (tree, char);

@@ -1,7 +1,7 @@
 /* APPLE LOCAL file CW asm blocks with AltiVec insn. */
 /* Test asm-syntax blocks within functions.  */
 
-/* { dg-do run } */
+/* { dg-do run { target powerpc*-*-darwin* } } */
 /* { dg-options "-faltivec -fasm-blocks" } */
 
 extern void abort();

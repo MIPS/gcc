@@ -52,7 +52,7 @@ Boston, MA 02111-1307, USA.  */
 #define CC1_SPEC "\
 %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
 "/* APPLE LOCAL ignore -mcpu=G4 -mcpu=G5 */"\
-%{!static:%{!mxxdynamic-no-pic:-fPIC}} %<faltivec %<mlong-branch %<mlongcall %<mcpu=G4 %<mcpu=G5"
+%{!static:%{!mxxdynamic-no-pic:-fPIC}} %<faltivec %<mno-fused-madd %<mlong-branch %<mlongcall %<mcpu=G4 %<mcpu=G5"
 /* APPLE LOCAL end dynamic-no-pic */
 
 /* APPLE LOCAL AltiVec */
@@ -160,6 +160,16 @@ Boston, MA 02111-1307, USA.  */
 #define rs6000_alignment_flags target_flags
 #define MASK_ALIGN_MAC68K	0x20000000
 #define TARGET_ALIGN_MAC68K	(target_flags & MASK_ALIGN_MAC68K)
+
+#define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS
+
+#define ROUND_TYPE_ALIGN(TYPE, COMPUTED, SPECIFIED) \
+  (((TREE_CODE (TYPE) == RECORD_TYPE \
+     || TREE_CODE (TYPE) == UNION_TYPE \
+     || TREE_CODE (TYPE) == QUAL_UNION_TYPE) \
+    && TARGET_ALIGN_MAC68K \
+    && MAX (COMPUTED, SPECIFIED) == 8) ? 16 \
+    : MAX (COMPUTED, SPECIFIED))
 
 #undef SUBTARGET_SWITCHES
 #define SUBTARGET_SWITCHES						\

@@ -417,6 +417,23 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
 
   SIBLING_CALL_P (call_insn) = ((ecf_flags & ECF_SIBCALL) != 0);
 
+  /* APPLE LOCAL begin ObjC direct dispatch */
+  /* Annotate calls to functions with fixed addresses.  */
+  if (fndecl && TREE_CODE (fndecl) == FUNCTION_DECL)
+    {
+      tree t = lookup_attribute ("hard_coded_address", 
+				 DECL_ATTRIBUTES (fndecl));
+      if (t)
+	/* The constant address stored here has only 32 bits.  This
+	   is not a limitation, because the bla instruction has an
+	   architectural limit of 26 bits.  */
+        REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_ABSCALL,
+		gen_rtx_CONST_INT (FUNCTION_MODE,
+			    tree_low_cst (TREE_VALUE (t), 0)),
+		 REG_NOTES (call_insn));
+    }
+  /* APPLE LOCAL end ObjC direct dispatch */
+
   /* Restore this now, so that we do defer pops for this call's args
      if the context of the call as a whole permits.  */
   inhibit_defer_pop = old_inhibit_defer_pop;

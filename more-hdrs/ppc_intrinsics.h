@@ -226,7 +226,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  *   int __lwbrx(void *, int);
  */
 #define __lwbrx(base, index)    \
-  ({ unsigned long lwbrxResult; \
+  ({ unsigned int lwbrxResult; \
      __asm__ volatile ("lwbrx %0, %1, %2" : "=r" (lwbrxResult) : "b%" (index), "r" (base) : "memory"); \
      /*return*/ lwbrxResult; })
 
@@ -253,38 +253,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /*
  * __cntlzw - Count Leading Zeros Word
- */
-static inline int __cntlzw (int value) __attribute__((always_inline));
-static inline int 
-__cntlzw (int value)
-{
-  long result;
-  __asm__ ("cntlzw %0, %1" 
-           /* outputs:  */ : "=r" (result) 
-           /* inputs:   */ : "r" (value));
-  return result;
-}
-
-#if defined( __ppc64__ )
-/*
  * __cntlzd - Count Leading Zeros Double Word
  */
-static inline long __cntlzd (long value) __attribute__((always_inline));
-static inline long 
-__cntlzd (long value)
-{
-  long result;
-  __asm__ ("cntlzd %0, %1" 
-           /* outputs:  */ : "=r" (result) 
-           /* inputs:   */ : "r" (value));
-  return result;
-}
-#endif
+
+#define __cntlzw(a)     __builtin_clz(a)
+#define __cntlzd(a)     __builtin_clzll(a)
 
 /*
  * __rlwimi - Rotate Left Word Immediate then Mask Insert
  *
- *   int __rlwimi(int, int, int, int, int);
+ *   int __rlwimi(int, long, int, int, int);
  *
  * We don't mention "%1" below: operand[1] needs to be skipped as 
  * it's just a placeholder to let the compiler know that rA is read 
@@ -298,21 +276,21 @@ __cntlzd (long value)
 /*
  * __rlwinm - Rotate Left Word Immediate then AND with Mask
  *
- *   int __rlwinm(int, int, int, int);
+ *   int __rlwinm(long, int, int, int);
  */
 #define __rlwinm(rS, cnt, mb, me)                          \
-  ({ unsigned long val, src = (rS);                        \
+  ({ unsigned int val;                         \
      __asm__ ("rlwinm %0,%1,%2,%3,%4" : "=r" (val)         \
-              : "r" (src), "n" (cnt), "n" (mb), "n" (me)); \
+              : "r" (rS), "n" (cnt), "n" (mb), "n" (me)); \
      /*return*/ val;})
 
 /*
  * __rlwnm - Rotate Left Word then AND with Mask
  *
- *   int __rlwnm(int, int, int, int);
+ *   int __rlwnm(long, int, int, int);
  */
 #define __rlwnm(value, leftRotateBits, maskStart, maskEnd)                        \
-  ({ long result;                                                        \
+  ({ unsigned int result;                                                        \
      __asm__ ("rlwnm %0, %1, %2, %3, %4" : "=r" (result) :                        \
               "r" (value), "r" (leftRotateBits), "n" (maskStart), "n" (maskEnd)); \
      /*return */ result; })
@@ -883,7 +861,7 @@ static inline int __mulhw (int a, int b) __attribute__((always_inline));
 static inline int 
 __mulhw (int a, int b)
 {
-  long result;
+  int result;
   __asm__ ("mulhw %0, %1, %2" 
            /* outputs:  */ : "=r" (result) 
            /* inputs:   */ : "r" (a), "r"(b));
@@ -897,7 +875,7 @@ static inline unsigned int __mulhwu (unsigned int a, unsigned int b) __attribute
 static inline unsigned int 
 __mulhwu (unsigned int a, unsigned int b)
 {
-  unsigned long result;
+  unsigned int result;
   __asm__ ("mulhwu %0, %1, %2" 
            /* outputs:  */ : "=r" (result) 
            /* inputs:   */ : "r" (a), "r"(b));

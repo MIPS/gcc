@@ -1,5 +1,5 @@
 /* APPLE LOCAL file AltiVec */
-/* { dg-do compile { target "*-*-darwin*" } } */
+/* { dg-do compile { target powerpc*-*-darwin* } } */
 /* { dg-options "-O -faltivec" } */
 /* { dg-final { scan-assembler "vspltisw v2,1" } } */
 /* { dg-final { scan-assembler "vspltisw v3,2" } } */

@@ -1,6 +1,5 @@
 /* APPLE LOCAL file */
-/* Check if finding multiple signatures for a method is handled gracefully.  */
-/* Author:  Ziemowit Laski <zlaski@apple.com>  */
+/* Check if finding multiple signatures for a method is handled gracefully.  Author:  Ziemowit Laski <zlaski@apple.com>  */
 /* { dg-do compile } */
 
 #include <objc/Object.h>

@@ -1,6 +1,5 @@
 /* APPLE LOCAL file */
-/* Check if finding multiple signatures for a method is handled gracefully
-   when method lookup succeeds (see also method-7.m).  */
+/* Check if finding multiple signatures for a method is handled gracefully when method lookup succeeds (see also method-7.m).  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>  */
 /* { dg-do compile } */
 

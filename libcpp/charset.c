@@ -1433,7 +1433,17 @@ _cpp_convert_input (cpp_reader *pfile, const char *input_charset,
   if (to.len + 4096 < to.asize || to.len >= to.asize)
     to.text = xrealloc (to.text, to.len + 1);
 
-  to.text[to.len] = '\n';
+  /* APPLE LOCAL begin mainline 2005-03-04 */
+  /* If the file is using old-school Mac line endings (\r only),
+     terminate with another \r, not an \n, so that we do not mistake
+     the \r\n sequence for a single DOS line ending and erroneously
+     issue the "No newline at end of file" diagnostic.  */
+  if (to.text[to.len - 1] == '\r')
+    to.text[to.len] = '\r';
+  else
+    to.text[to.len] = '\n';
+  /* APPLE LOCAL end mainline 2005-03-04 */
+
   *st_size = to.len;
   return to.text;
 }

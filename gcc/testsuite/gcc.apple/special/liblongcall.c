@@ -1,4 +1,4 @@
-/* { dg-do compile } */
+/* { dg-do compile { target powerpc*-*-darwin* } } */
 /* { dg-options "-mlongcall" } */
 #include <stdio.h>
 

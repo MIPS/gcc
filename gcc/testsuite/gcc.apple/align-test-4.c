@@ -75,9 +75,14 @@ typedef short SInt16;
 
 
 static void check(char * rec_name, int actual, int expected32, int expected64,
-		  char * comment)
+		  int expected_ia32, char * comment)
 {
-    int expected = ((sizeof(char *) == 8) ? expected64 : expected32);
+    int expected;
+#ifdef __i386__
+    expected = expected_ia32;
+#else
+    expected = ((sizeof(char *) == 8) ? expected64 : expected32);
+#endif
     if (flag_verbose || (actual != expected)) {
         printf("%-30s = %2d (%2d) ", rec_name, actual, expected);
         if (actual != expected) {
@@ -118,19 +123,19 @@ int main(int argc, char *argv[])
 #define MODE power
 
 #if USE_GCC2_VALUES
-    check(SIZEOF(LoaderExport, MODE), 12, 12, "kernel struct");
-    check(OFFSETOF(LoaderExport, MODE, offset), 4, 4, "offset of offset");
-    check(OFFSETOF(LoaderExport, MODE, sectionNumber), 8, 8, "offset of sectionNumber");
-    check(SIZEOF(S1, MODE), 8, 8, "bitfields & char");
-    check(SIZEOF(S2, MODE), 8, 8, "int & char");
-    check(SIZEOF(S3, MODE), 12, 12, "char, bitfields(32), char");
-    check(OFFSETOF(S3, MODE, f3), 8, 8, "offset of 2nd char");
-    check(SIZEOF(S4, MODE), 8, 8, "char, bitfields(32), char");
-    check(OFFSETOF(S4, MODE, f3), 7, 7, "offset of 2nd char");
-    check(SIZEOF(S5, MODE), 4, 4, "char, bitfields(16), char");
-    check(OFFSETOF(S5, MODE, f3), 3, 3, "offset of 2nd char");
-    check(SIZEOF(S6, MODE), 4, 4, "char, bitfields(8), char");
-    check(OFFSETOF(S6, MODE, f3), 2, 2, "offset of 2nd char");
+    check(SIZEOF(LoaderExport, MODE), 12, 12, 12, "kernel struct");
+    check(OFFSETOF(LoaderExport, MODE, offset), 4, 4, 4, "offset of offset");
+    check(OFFSETOF(LoaderExport, MODE, sectionNumber), 8, 8, 8, "offset of sectionNumber");
+    check(SIZEOF(S1, MODE), 8, 8, 8, "bitfields & char");
+    check(SIZEOF(S2, MODE), 8, 8, 8, "int & char");
+    check(SIZEOF(S3, MODE), 12, 12, 12, "char, bitfields(32), char");
+    check(OFFSETOF(S3, MODE, f3), 8, 8, 8, "offset of 2nd char");
+    check(SIZEOF(S4, MODE), 8, 8, 8, "char, bitfields(32), char");
+    check(OFFSETOF(S4, MODE, f3), 7, 7, 7, "offset of 2nd char");
+    check(SIZEOF(S5, MODE), 4, 4, 4, "char, bitfields(16), char");
+    check(OFFSETOF(S5, MODE, f3), 3, 3, 3, "offset of 2nd char");
+    check(SIZEOF(S6, MODE), 4, 4, 4, "char, bitfields(8), char");
+    check(OFFSETOF(S6, MODE, f3), 2, 2, 2, "offset of 2nd char");
 #else
     check(SIZEOF(LoaderExport, MODE), 12, 12, "kernel struct");
     check(OFFSETOF(LoaderExport, MODE, offset), 4, 4, "offset of offset");
@@ -152,24 +157,24 @@ int main(int argc, char *argv[])
 #define MODE mac68k
 
 #if USE_GCC2_VALUES
-    check(SIZEOF(LoaderExport, MODE), 10, 10, "kernel struct");
-    check(OFFSETOF(LoaderExport, MODE, offset), 4, 4, "offset of offset");
-    check(OFFSETOF(LoaderExport, MODE, sectionNumber), 8, 8, "offset of sectionNumber");
+    check(SIZEOF(LoaderExport, MODE), 10, 10, 10, "kernel struct");
+    check(OFFSETOF(LoaderExport, MODE, offset), 4, 4, 4, "offset of offset");
+    check(OFFSETOF(LoaderExport, MODE, sectionNumber), 8, 8, 8, "offset of sectionNumber");
 #if 1
     // GCC 2 is wrong on the following.
-    check(SIZEOF(S1, MODE), 6, 6, "bitfields & char");
+    check(SIZEOF(S1, MODE), 6, 6, 6, "bitfields & char");
 #else
     check(SIZEOF(S1, MODE), 8, 8, "bitfields & char");
 #endif
-    check(SIZEOF(S2, MODE), 6, 6, "int & char");
-    check(SIZEOF(S3, MODE), 6, 6, "char, bitfields(32), char");
-    check(OFFSETOF(S3, MODE, f3), 5, 5, "offset of 2nd char");
-    check(SIZEOF(S4, MODE), 6, 6, "char, bitfields(32), char");
-    check(OFFSETOF(S4, MODE, f3), 5, 5, "offset of 2nd char");
-    check(SIZEOF(S5, MODE), 4, 4, "char, bitfields(16), char");
-    check(OFFSETOF(S5, MODE, f3), 3, 3, "offset of 2nd char");
-    check(SIZEOF(S6, MODE), 4, 4, "char, bitfields(8), char");
-    check(OFFSETOF(S6, MODE, f3), 2, 2, "offset of 2nd char");
+    check(SIZEOF(S2, MODE), 6, 6, 6, "int & char");
+    check(SIZEOF(S3, MODE), 6, 6, 6, "char, bitfields(32), char");
+    check(OFFSETOF(S3, MODE, f3), 5, 5, 5, "offset of 2nd char");
+    check(SIZEOF(S4, MODE), 6, 6, 6, "char, bitfields(32), char");
+    check(OFFSETOF(S4, MODE, f3), 5, 5, 5, "offset of 2nd char");
+    check(SIZEOF(S5, MODE), 4, 4, 4, "char, bitfields(16), char");
+    check(OFFSETOF(S5, MODE, f3), 3, 3, 3, "offset of 2nd char");
+    check(SIZEOF(S6, MODE), 4, 4, 4, "char, bitfields(8), char");
+    check(OFFSETOF(S6, MODE, f3), 2, 2, 2, "offset of 2nd char");
 #else
     check(SIZEOF(LoaderExport, MODE), 10, 10, "kernel struct");
     check(OFFSETOF(LoaderExport, MODE, offset), 4, 4, "offset of offset");
@@ -191,20 +196,20 @@ int main(int argc, char *argv[])
 #define MODE pack2
 
 #if USE_GCC2_VALUES
-    check(SIZEOF(LoaderExport, MODE), 10, 10, "kernel struct");
-    check(OFFSETOF(LoaderExport, MODE, offset), 4, 4, "offset of offset");
-    check(OFFSETOF(LoaderExport, MODE, sectionNumber), 8, 8, "offset of sectionNumber");
+    check(SIZEOF(LoaderExport, MODE), 10, 10, 10, "kernel struct");
+    check(OFFSETOF(LoaderExport, MODE, offset), 4, 4, 4, "offset of offset");
+    check(OFFSETOF(LoaderExport, MODE, sectionNumber), 8, 8, 8, "offset of sectionNumber");
     /* GCC2 used to have this as '8', but it should really be 6.  */
-    check(SIZEOF(S1, MODE), 6, 6, "bitfields & char");
-    check(SIZEOF(S2, MODE), 6, 6, "int & char");
-    check(SIZEOF(S3, MODE), 6, 6, "char, bitfields(32), char");
-    check(OFFSETOF(S3, MODE, f3), 5, 5, "offset of 2nd char");
-    check(SIZEOF(S4, MODE), 6, 6, "char, bitfields(32), char");
-    check(OFFSETOF(S4, MODE, f3), 5, 5, "offset of 2nd char");
-    check(SIZEOF(S5, MODE), 4, 4, "char, bitfields(16), char");
-    check(OFFSETOF(S5, MODE, f3), 3, 3, "offset of 2nd char");
-    check(SIZEOF(S6, MODE), 4, 4, "char, bitfields(8), char");
-    check(OFFSETOF(S6, MODE, f3), 2, 2, "offset of 2nd char");
+    check(SIZEOF(S1, MODE), 6, 6, 6, "bitfields & char");
+    check(SIZEOF(S2, MODE), 6, 6, 6, "int & char");
+    check(SIZEOF(S3, MODE), 6, 6, 6, "char, bitfields(32), char");
+    check(OFFSETOF(S3, MODE, f3), 5, 5, 5, "offset of 2nd char");
+    check(SIZEOF(S4, MODE), 6, 6, 6, "char, bitfields(32), char");
+    check(OFFSETOF(S4, MODE, f3), 5, 5, 5, "offset of 2nd char");
+    check(SIZEOF(S5, MODE), 4, 4, 4, "char, bitfields(16), char");
+    check(OFFSETOF(S5, MODE, f3), 3, 3, 3, "offset of 2nd char");
+    check(SIZEOF(S6, MODE), 4, 4, 4, "char, bitfields(8), char");
+    check(OFFSETOF(S6, MODE, f3), 2, 2, 2, "offset of 2nd char");
 #else
     check(SIZEOF(LoaderExport, MODE), 10, 10, "kernel struct");
     check(OFFSETOF(LoaderExport, MODE, offset), 4, 4, "offset of offset");

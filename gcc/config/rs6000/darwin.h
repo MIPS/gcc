@@ -131,6 +131,8 @@ do {									\
    the kernel or some such.  */
 
 #define CC1_SPEC "\
+"/* APPLE LOCAL ignore -msse and -msse2 and other x86 options */"\
+%<msse  %<msse2 %<march=pentium4 %<mcpu=pentium4 \
 %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
 "/* APPLE LOCAL -fast and PIC code.  */"\

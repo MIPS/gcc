@@ -170,6 +170,12 @@ Wall
 C ObjC C++ ObjC++
 Enable most warning messages
 
+; APPLE LOCAL begin ObjC GC
+Wassign-intercept
+ObjC ObjC++ Var(warn_assign_intercept)
+Warn whenever an ObjC assignment is being intercepted by the garbage collector
+; APPLE LOCAL end ObjC GC
+
 Wbad-function-cast
 C ObjC Var(warn_bad_function_cast)
 Warn about casting functions to incompatible types
@@ -359,6 +365,12 @@ Wnewline-eof
 C ObjC C++ ObjC++
 Warn about files missing a newline at the end of the file
 ; APPLE LOCAL end -Wnewline-eof
+
+; APPLE LOCAL begin non lvalue assign
+Wnon-lvalue-assign
+C ObjC C++ ObjC++ Var(warn_non_lvalue_assign) Init(1)
+Warn about assignment to casts and conditional expressions of lvalues
+; APPLE LOCAL end non lvalue assign
 
 Wnon-template-friend
 C++ ObjC++ Var(warn_nontemplate_friend) Init(1)
@@ -696,9 +708,21 @@ ObjC++
 Generate special ObjC methods to initialize/destroy non-POD C++ ivars, if needed
 ; APPLE LOCAL end ObjC C++ ivars
 
+; APPLE LOCAL begin ObjC direct dispatch
+fobjc-direct-dispatch
+ObjC ObjC++ Var(flag_objc_direct_dispatch)
+Allow fast jumps (via comm page) to the message dispatcher
+; APPLE LOCAL end ObjC direct dispatch
+
 fobjc-exceptions
 ObjC ObjC++
 Enable Objective-C exception and synchronization syntax
+
+; APPLE LOCAL begin ObjC GC
+fobjc-gc
+ObjC ObjC++ Var(flag_objc_gc)
+Enable garbage collection (GC) in ObjC/ObjC++ programs
+; APPLE LOCAL end ObjC GC
 
 fobjc-sjlj-exceptions
 ObjC ObjC++

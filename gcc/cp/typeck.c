@@ -4864,6 +4864,20 @@ convert_member_func_to_ptr (tree type, tree expr)
   gcc_assert (TYPE_PTRMEMFUNC_P (intype)
 	      || TREE_CODE (intype) == METHOD_TYPE);
 
+  /* APPLE LOCAL begin kext ptmf casts --bowdidge*/
+  /* Beginning in gcc-4.0, casts from pointer-to-member-function to pointer-to-
+     function should always be done with the OSMemberFunctionCast() to guarantee
+     the 2.95 behavior.  Casts the "old fashioned way" should be flagged as
+     errors so developers won't have kexts that silently use the new 
+     ptmf->pmf behavior and get a different function than 3.3. */ 
+
+  if (flag_apple_kext)
+    {
+      error ("converting from `%T' to `%T' in a kext.  Use OSMemberFunctionCast() instead.", intype, type);
+      return error_mark_node;
+    }
+  /* APPLE LOCAL end kext ptmf casts */
+
   if (pedantic || warn_pmf2ptr)
     pedwarn ("converting from %qT to %qT", intype, type);
     
@@ -5584,6 +5598,16 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 
   if (newrhs == error_mark_node)
     return error_mark_node;
+
+  /* APPLE LOCAL begin ObjC GC */
+  if (c_dialect_objc () && flag_objc_gc)
+    {
+      result = objc_generate_write_barrier (lhs, modifycode, newrhs);
+
+      if (result)
+	return result;
+    }
+  /* APPLE LOCAL end ObjC GC */
 
   result = build2 (modifycode == NOP_EXPR ? MODIFY_EXPR : INIT_EXPR,
 		   lhstype, lhs, newrhs);

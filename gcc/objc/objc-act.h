@@ -22,6 +22,10 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_OBJC_ACT_H
 #define GCC_OBJC_ACT_H
 
+/* APPLE LOCAL begin Radar 4015820 FSF candidate */
+/* For enum gimplify_status */
+#include "tree-gimple.h"
+/* APPLE LOCAL end Radar 4015820 FSF candidate */
 /*** Language hooks ***/
 
 bool objc_init (void);
@@ -31,6 +35,8 @@ tree objc_get_callee_fndecl (tree);
 void objc_finish_file (void);
 tree objc_fold_obj_type_ref (tree, tree);
 int objc_types_compatible_p (tree, tree);
+/* APPLE LOCAL Radar 4015820 FSF candidate */
+enum gimplify_status objc_gimplify_expr (tree *, tree *, tree *);
 
 /* NB: The remaining public functions are prototyped in c-common.h, for the
    benefit of stub-objc.c and objc-act.c.  */
@@ -194,6 +200,8 @@ enum objc_tree_index
 
     OCTI_SELF_DECL,
     OCTI_UMSG_DECL,
+    /* APPLE LOCAL ObjC direct dispatch */
+    OCTI_UMSG_FAST_DECL,
     OCTI_UMSG_SUPER_DECL,
     OCTI_UMSG_STRET_DECL,
     OCTI_UMSG_SUPER_STRET_DECL,
@@ -281,6 +289,13 @@ enum objc_tree_index
     OCTI_CATCH_TYPE,
     OCTI_EXECCLASS_DECL,
 
+    /* APPLE LOCAL begin ObjC GC */
+    OCTI_ASSIGN_IVAR_DECL,
+    OCTI_ASSIGN_IVAR_FAST_DECL,
+    OCTI_ASSIGN_GLOBAL_DECL,
+    OCTI_ASSIGN_STRONGCAST_DECL,
+    /* APPLE LOCAL end ObjC GC */
+
     OCTI_MAX
 };
 
@@ -300,6 +315,8 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 
 #define self_decl		objc_global_trees[OCTI_SELF_DECL]
 #define umsg_decl		objc_global_trees[OCTI_UMSG_DECL]
+/* APPLE LOCAL ObjC GC */
+#define umsg_fast_decl		objc_global_trees[OCTI_UMSG_FAST_DECL]
 #define umsg_super_decl		objc_global_trees[OCTI_UMSG_SUPER_DECL]
 #define umsg_stret_decl		objc_global_trees[OCTI_UMSG_STRET_DECL]
 #define umsg_super_stret_decl	objc_global_trees[OCTI_UMSG_SUPER_STRET_DECL]
@@ -410,6 +427,15 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define objc_catch_type		objc_global_trees[OCTI_CATCH_TYPE]
 
 #define execclass_decl		objc_global_trees[OCTI_EXECCLASS_DECL]
+
+/* APPLE LOCAL begin ObjC GC */
+#define objc_assign_ivar_decl	objc_global_trees[OCTI_ASSIGN_IVAR_DECL]
+#define objc_assign_ivar_fast_decl		\
+				objc_global_trees[OCTI_ASSIGN_IVAR_FAST_DECL]
+#define objc_assign_global_decl	objc_global_trees[OCTI_ASSIGN_GLOBAL_DECL]
+#define objc_assign_strong_cast_decl		\
+				objc_global_trees[OCTI_ASSIGN_STRONGCAST_DECL]
+/* APPLE LOCAL end ObjC GC */
 
 #define objc_method_template	objc_global_trees[OCTI_METH_TEMPL]
 #define objc_ivar_template	objc_global_trees[OCTI_IVAR_TEMPL]

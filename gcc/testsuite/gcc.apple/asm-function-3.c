@@ -1,7 +1,7 @@
 /* APPLE LOCAL file CW asm blocks */
 /* More tests of asm functions.  */
 
-/* { dg-do run } */
+/* { dg-do run { target powerpc*-*-* } } */
 /* { dg-options "-fasm-blocks -O2" } */
 
 void abort(void);

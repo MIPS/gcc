@@ -1,3 +1,41 @@
+2005-03-02  Robert Bowdidge <bowdidge@apple.com
+	Radar 4025293
+	* cp/typeck.c (convert_member_func_to_ptr) Ban casts from pointer-to-
+        member-function to pointer-to-function whenever the -fapple-kext flag
+	was passed to the compiler.  Behavior changed between 3.3 and 4.0 in
+	incompatible ways, and the IOKit team wants all kexts to use a macro
+	that provides the correct (3.3) behavior.
+
+2005-02-21  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3809189
+	* typeck2.c (digest_init): Factor out Pascal-ness of string
+	initializer; allow NUL terminator to not fit into the array
+	being initialized.
+
+2005-02-18  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4011192
+	* parser.c (cp_parser_objc_try_catch_finally_statement): When
+	parsing '@finally' blocks, make sure the compound statement
+	winds up in a special STATEMENT_LIST instead of current scope.
+	(cp_parser_objc_synchronized_statement): Likewise for
+	'@synchronized' blocks.
+
+2005-02-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3635843, 3922342
+	* tree.c (lvalue_or_else): Do not emit warning if
+	'-Wno-non-lvalue-assign' has been specified.
+	* typeck.c (build_modify_expr): Call
+	objc_generate_write_barrier() if '-fobjc-gc' has been specified.
+
+2005-02-16  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3971074
+
+	* parser.c (cp_parser_cw_asm_statement): Pass lineno to cw_asm_stmt.
+
 2005-02-16  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 3970655

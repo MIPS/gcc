@@ -1,7 +1,7 @@
 /* APPLE LOCAL file CW asm blocks */
 /* Test entry points in asm functions.  */
 
-/* { dg-do run } */
+/* { dg-do run { target powerpc*-*-darwin* } } */
 /* { dg-options "-fasm-blocks -O2" } */
 
 #include <stdlib.h>

@@ -1,3 +1,12 @@
+2005-02-28  Stan Shebs  <shebs@apple.com>
+	    Ian Ollmann <iano@apple.com>
+
+	Radar 3951637
+	* more-hdrs/ppc_intrinsic.h: Make 64-bit friendly:
+	(__lwbrx, __rlwnm, __rlwinm, __mulhw, __mulhwu): Use int
+	instead of long	for 32-bit values.
+	(__cntlzw, __cntlzd): Use existing builtins.
+	
 2005-01-24  Robert Bowdidge <bowdidge@apple.com>
 	Radar 3971437
 	* build_gcc: run nmedit on libcc_kext.a so that dependent kexts can

@@ -1,3 +1,145 @@
+2005-03-03  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3897244
+	* gcc.apple/align-test-1.c:  Adjust for x86.
+	* gcc.apple/align-test-2.c:  Adjust for x86.
+	* gcc.apple/align-test-3.c:  Adjust for x86.
+	* gcc.apple/align-test-4.c:  Adjust for x86.
+	* gcc.apple/align-test-5a.c:  Adjust for x86.
+	* gcc.apple/align-test-5d.c:  New.
+	* g++.dg/align-test-1.C:  Adjust for x86.
+	* g++.old-deja/g++.abi/align.C:  Enable for darwin x86.
+
+2005-03-02  Robert Bowdidge <bowdidge@apple.com>
+	Radar 4025923
+	* g++.dg/kext11.C: add new test for ptmf casts in kexts
+
+2005-03-02  Stan Shebs  <shebs@apple.com>
+
+	Radar 3951637
+	* gcc.dg/ppc_intrinsics-2.c: New.
+	* gcc.dg/ppc_intrinsics-1.c: Is ppc-only.
+
+2005-03-01  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4015382 (Part II)
+	* g++.dg/ext/new-delete-1.C: Replace confusing '$'
+	with '.' in search string.
+	* g++.dg/ext/new-delete-2.C: Likewise.
+
+2005-02-28  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4015382
+	* g++.dg/ext/new-delete-1.C: New.
+	* g++.dg/ext/new-delete-2.C: New.
+
+2005-02-25  Stan Shebs  <shebs@apple.com>
+
+	Radar 4020219
+	* gcc.dg/pragma-darwin.c: Avoid mac68k align stuff if 64-bit.
+	* g++.dg/expr/align68k-1.C: Stub out for 64-bit.
+	* g++.dg/expr/align68k-2.C: Stub out for 64-bit.
+
+2005-02-23  Devang Patel  <dpatel@apple.com>
+
+	Radar 4021019
+	* gcc.apple/ppc-ignored-options.c: New test.
+	* gcc.apple/x86-ignored-options.c: New test.
+
+2005-02-23  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3809189 (additional test cases)
+	* obj-c++.dg/pascal-strings-1.mm: New.
+	* obj-c++.dg/pascal-strings-2.mm: New.
+	* objc.dg/pascal-strings-1.m: New.
+
+2005-02-22  Devang Patel  <dpatel@apple.com>
+
+	Radar 3844827
+	Backport from Mainline.
+
+	2005-01-18  Michael Matz  <matz@suse.de>
+
+        * gcc.dg/Wno-pointer-sign.c: New test for -Wno-pointer-sign.
+
+2005-02-22  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4015820
+	* obj-c++.dg/objc-fast-4.mm:  New.
+
+2005-02-22  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4015820
+	* objc.dg/objc-fast-4.m:  New.
+
+2005-02-21  Stan Shebs  <shebs@apple.com>
+
+	Radar 3939071
+	* gcc.dg/mac68k-pragma-unsup-1.c: New.
+
+2005-02-21  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3809189
+	* g++.dg/pascal-strings-3.C: New.
+	* g++.dg/pascal-strings-4.C: New.
+	* gcc.apple/pascal-strings-3.c: New.
+
+2005-02-21  Devang Patel  <dpatel@apple.com>
+
+	Radar 4007432
+	* gcc.dg/cpp/mac-eol-at-eof.c: New test.
+
+2005-02-19  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4014879
+	* obj-c++.dg/objc-fast-3.mm: New.
+	* objc.dg/objc-fast-3.m: New.
+
+2005-02-18  Devang Patel  <dpatel@apple.com>
+
+	Radar 3984893
+	* gcc.dg/vect/vect-dv-1.c: New.
+
+2005-02-18  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4011192
+	* obj-c++.dg/try-catch-7.mm: New.
+	* obj-c++.dg/try-catch-8.mm: New.
+	* objc.dg/try-catch-6.m: New.
+	* objc.dg/try-catch-7.m: New.
+
+2005-02-17  Devang Patel  <dpatel@apple.com>
+
+	Radar 3958387
+	* gcc.apple/Wno-newline-1.c: New.
+	* gcc.apple/Wno-newline-2.c: New.
+
+2005-02-17  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3971074
+
+	* gcc.apple/asm-function-14.c: New.
+
+2005-02-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4006978
+	* obj-c++.dg/isa-field-1.mm: New.
+	* objc.dg/isa-field-1.m: New.
+
+2005-02-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3635843, 3922342
+	* obj-c++.dg/objc-fast-1.mm: New.
+	* obj-c++.dg/objc-fast-2.mm: New.
+	* obj-c++.dg/objc-gc-1.mm: New.
+	* obj-c++.dg/objc-gc-2.mm: New.
+	* objc.dg/next-runtime-1.m: New.
+	* objc.dg/objc-fast-1.m: New.
+	* objc.dg/objc-fast-2.m: New.
+	* objc.dg/objc-gc-1.m: New.
+	* objc.dg/objc-gc-2.m: New.
+	* objc.dg/objc-gc-3.m: New.
+
 2005-02-16  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4006687

@@ -1,6 +1,5 @@
 /* APPLE LOCAL file */
-/* Check that sending messages to variables of type 'Class' does not involve instance methods,
-   unless they reside in root classes.  */
+/* Check that sending messages to variables of type 'Class' does not involve instance methods, unless they reside in root classes.  */
 /* Author: Ziemowit Laski <zlaski@apple.com>  */
 /* { dg-do compile } */
 

@@ -4180,6 +4180,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
     }
 #endif
 
+  /* APPLE LOCAL begin mainline 2005-03-04 */
   /* Force ld/std non-word aligned offset into base register by wrapping
      in offset 0.  */
   if (GET_CODE (x) == PLUS
@@ -4188,6 +4189,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       && REG_MODE_OK_FOR_BASE_P (XEXP (x, 0), mode)
       && GET_CODE (XEXP (x, 1)) == CONST_INT
       && (INTVAL (XEXP (x, 1)) & 3) != 0
+      && !ALTIVEC_VECTOR_MODE (mode)
       && GET_MODE_SIZE (mode) >= UNITS_PER_WORD
       && TARGET_POWERPC64)
     {
@@ -4198,6 +4200,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       *win = 1;
       return x;
     }
+  /* APPLE LOCAL end mainline 2005-03-04 */
 
   if (GET_CODE (x) == PLUS
       && GET_CODE (XEXP (x, 0)) == REG

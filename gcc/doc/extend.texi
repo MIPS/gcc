@@ -455,8 +455,10 @@ bar (int *array, int offset, int size)
 @end group
 @end smallexample
 
+@c APPLE LOCAL begin mainline 2005-03-04
 A nested function always has no linkage.  Declaring one with
 @code{extern} or @code{static} is erroneous.  If you need to declare the nested function
+@c APPLE LOCAL end mainline 2005-03-04
 before its definition, use @code{auto} (which is otherwise meaningless
 for function declarations).
 
