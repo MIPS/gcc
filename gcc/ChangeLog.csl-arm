@@ -1,3 +1,9 @@
+2005-08-28  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/symbian.h (SUBTARGET_ASM_FLOAT_SPEC): Default to
+	-mfpu=vfp -march=armv5t
+	* config/arm/t-symbian: Change multilib to mfloat-abi=softfp.
+
 2004-06-23  Richard Earnshaw  <rearnsha@arm.com>
 
 	PR target/15927
