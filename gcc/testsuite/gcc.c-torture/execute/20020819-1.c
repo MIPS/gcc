@@ -17,4 +17,6 @@ main()
       if (k)
 	abort ();
     }
+
+  exit (0);
 }
