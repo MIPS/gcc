@@ -2181,11 +2181,6 @@ _Jv_LayoutClass(jclass klass, int *static_size)
       else
 	{
 	  instance_size      = ROUND (instance_size, field_align);
-	  if (field->u.boffset != instance_size)
-	    fprintf (stderr, "change to %s.%s: old = %d new=%d\n",
-		     (const char*)(klass->name->data), 
-		     (const char*)(field->name->data), 
-		     field->u.boffset, instance_size);
 	  field->u.boffset   = instance_size;
 	  instance_size     += field_size;
 	  if (field_align > max_align)

@@ -1,3 +1,7 @@
+2004-05-24  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natClass.cc (_Jv_LayoutClass): Remove warning message.
+
 2004-04-20  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* Merged with HEAD as of 20040514. Diff against
