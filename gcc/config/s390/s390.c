@@ -5494,8 +5494,9 @@ s390_register_info (int base_used, int return_addr_used)
         cfun_frame_layout.last_save_gpr = 6;
 
       /* Mark f0, f2 for 31 bit and f0-f4 for 64 bit to be saved.  */
-      for (i = 0; i < (TARGET_64BIT ? 4 : 2); i++)
-	cfun_set_fpr_bit (i);
+      if (TARGET_HARD_FLOAT)
+	for (i = 0; i < (TARGET_64BIT ? 4 : 2); i++)
+	  cfun_set_fpr_bit (i);
     }
 
   if (!TARGET_64BIT)

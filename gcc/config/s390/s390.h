@@ -404,6 +404,12 @@ do								\
         for (i = 18; i < 20; i++)				\
 	    call_used_regs[i] = call_really_used_regs[i] = 0;	\
       }								\
+                                                                \
+    if (TARGET_SOFT_FLOAT)                                      \
+      {                                                         \
+        for (i = 16; i < 32; i++)                               \
+	  call_used_regs[i] = fixed_regs[i] = 1;                \
+      }                                                         \
  } while (0)
 
 /* Preferred register allocation order.  */
