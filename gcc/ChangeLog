@@ -1,3 +1,8 @@
+2004-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* genoutput.c (process_template): Strip trailing whitespace in @
+	templates and issue a warning if there was any.
+
 2004-01-20  Jakub Jelinek  <jakub@redhat.com>
 
 	* crtstuff.c (frame_dummy, __do_global_ctors_1): Call
