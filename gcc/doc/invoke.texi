@@ -199,8 +199,6 @@ in the following sections.
 -fsigned-bitfields  -fsigned-char @gol
 @c APPLE LOCAL pascal strings
 -fpascal-strings (APPLE ONLY) @gol
-@c APPLE LOCAL coalescing 2002-04-11 --tur **
--fcoalesce (APPLE ONLY) -fweak-coalesced (APPLE ONLY) @gol
 @c APPLE LOCAL -Wno-#warnings
 -Wno-#warnings (APPLE ONLY) @gol
 @c APPLE LOCAL -Wextra-tokens 2001-08-02 --sts **
@@ -225,8 +223,6 @@ in the following sections.
 -fno-implicit-templates @gol
 -fno-implicit-inline-templates @gol
 -fno-implement-inlines @gol
-@c APPLE LOCAL coalescing 2002-04-11 --tur **
--fcoalesce-templates (APPLE ONLY) @gol
 -fms-extensions @gol
 -fno-nonansi-builtins  -fno-operator-names @gol
 -fno-optional-diags  -fpermissive @gol
@@ -1494,19 +1490,6 @@ Length Byte}, for more information on the syntax and semantics of Pascal
 string literals.
 @c APPLE LOCAL end pascal strings
 
-@c APPLE LOCAL begin coalescing 2002-04-11 --turly **
-@item -fcoalesce
-@opindex fcoalesce
-Coalesce duplicated functions and data. The linker will discard all
-but one, saving space.  Enabled by default.  (APPLE ONLY)
-
-@item -fweak-coalesced 
-@opindex fweak-coalesced
-Use the new OS X ``weak_definitions'' section attribute for coalesced items.
-A single ``normal'' definition will be chosen by the linker over any number
-of weakly-coalesced ones.  (APPLE ONLY)
-@c APPLE LOCAL end coalescing 2002-04-11 --turly **
-
 @c APPLE LOCAL begin fwritable strings. 
 @item -fwritable-strings
 @opindex fwritable-strings
@@ -1651,14 +1634,6 @@ without optimization will need the same set of explicit instantiations.
 To save space, do not emit out-of-line copies of inline functions
 controlled by @samp{#pragma implementation}.  This will cause linker
 errors if these functions are not inlined everywhere they are called.
-
-
-@c APPLE LOCAL begin coalescing 2002-04-11 --turly **
-@item -fcoalesce-templates
-@opindex fcoalesce-templates
-Mark instantiated templates as ``coalesced'': the linker will discard
-all but one, thus saving space.  (APPLE ONLY)
-@c APPLE LOCAL end coalescing 2002-04-11 --turly **
 
 @item -fms-extensions
 @opindex fms-extensions

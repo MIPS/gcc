@@ -1199,18 +1199,6 @@ enum machopic_addr_class {
     /* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */ \
   } while (0)
 
-extern int flag_coalescing_enabled,
-	   flag_coalesce_templates, flag_weak_coalesced_definitions;
-
-/* Coalesced symbols are private extern by default.  This EXPERIMENTAL
-   flag will make them global instead.  */
-extern int flag_export_coalesced;
-
-#define COALESCING_ENABLED_P()  (flag_coalescing_enabled && MACHOPIC_INDIRECT)
-
-#define COALESCING_TEMPLATES_P(DECL)				\
-        (COALESCING_ENABLED_P () && flag_coalesce_templates)
-
 /* Experimentally, putting jump tables in text is faster on SPEC.
    Also this is needed for correctness for coalesced functions.  */
 
@@ -1219,23 +1207,6 @@ extern int flag_export_coalesced;
 #endif
 
 #define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
-
-#define MARK_TEMPLATE_COALESCED(DECL)					\
-  do {									\
-    if (COALESCING_TEMPLATES_P (DECL)) {				\
-      int explicit = TREE_PUBLIC (DECL)					\
-	&& (DECL_EXPLICIT_INSTANTIATION (DECL)				\
-	    /* Or an explicitly instantiated function.  */		\
-	    || (TREE_CODE (DECL) == FUNCTION_DECL			\
-		&& DECL_INTERFACE_KNOWN (DECL)				\
-		&& DECL_NOT_REALLY_EXTERN (DECL))			\
-	    /* Or a non-common VAR_DECL.  */				\
-	    || (TREE_CODE (DECL) == VAR_DECL && ! DECL_COMMON (DECL)));	\
-      if (!explicit							\
-	  || /*it IS explicit, but*/ !flag_weak_coalesced_definitions)	\
-        MAKE_DECL_COALESCED (DECL);					\
-    }							\
-  } while (0)
 
 #undef TARGET_ASM_NAMED_SECTION
 #define TARGET_ASM_NAMED_SECTION darwin_asm_named_section
