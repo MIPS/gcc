@@ -1,3 +1,40 @@
+2004-12-22  Robert Schuster <thebohemian@gmx.net>
+
+	* javax/swing/JComboBox.java:
+	(JComboBox): Removed selection of the
+	first item in the model.
+
+2004-12-22  Robert Schuster <thebohemian@gmx.net>
+
+	* javax/swing/JComboBox.java
+	added support for no item being selected
+	(JComboBox): select first or nothing depending on element count
+	(setModel): cleaned up unneeded "this." usage, added more
+	docs, made exception behavior match that of the JDK
+	(setLighWeightPopupEnabled): removed unneeded "this." usage
+	(setEditable): dito
+	(setMaximumRowCount): dito
+	(setRenderer): dito
+	(setPrototypeDisplayValue): dito
+	(getSelectedItem): simplified, added more user doc
+	(setSelectedIndex): corrected exception behavior, added more user doc
+	(getSelectedIndex): fixed hardcoded dependency on DefaultComboBoxModel,
+	added performance warning to user doc
+	(addItem): fixed exception behavior, added user doc
+	(insertItemAt): dito
+	(removeItem): dito
+	(removeItemAt): dito
+	(removeAll): fixed exception behavior, added user doc, added support
+	for model not being instance of DefaultComboBoxModel
+	(getSelectedItemObjects): simplified
+	(getItemCount): fixed dependency on DefaultComboBoxModel
+	(getItemAt): fixed dependency on MutableComboBoxModel
+	* javax/swing/DefaultComboBoxModel.java:
+	(setSelectedItem): updates selected item only if new
+	value is null or known (match JDK behavior)
+	* javax/swing/plaf/basic/BasicComboBoxUI.java:
+	(paintCurrentValue): renders "" if no item is selected
+
 2004-12-22  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/plaf/metal/MetalTheme.java,
