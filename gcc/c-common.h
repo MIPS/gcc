@@ -224,6 +224,7 @@ extern void process_undo_buffer (void);
 extern tree save_fragment_bindings (void);
 extern bool cb_enter_fragment (cpp_reader*, cpp_fragment*, const char*, int);
 extern void cb_exit_fragment (cpp_reader*, cpp_fragment*);
+extern void cb_uses_fragment (cpp_reader*, cpp_fragment*);
 void init_output_fragment (void);
 extern void create_output_fragment (void);
 extern void end_output_fragment (void);

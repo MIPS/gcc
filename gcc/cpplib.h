@@ -402,6 +402,9 @@ struct cpp_callbacks
   void (*dir_change) (cpp_reader *, const char *);
   void (*include) (cpp_reader *, unsigned int, const unsigned char *,
 		   const char *, int);
+  /* Notifies front-end end that the current fragment uses some other
+     fragment.  Called if non-null when a macro is used. */
+  void (*uses_fragment) PARAMS ((cpp_reader*, cpp_fragment*));
   bool (*enter_fragment) PARAMS ((cpp_reader *, cpp_fragment *,
 				  const char*, int));
   void (*exit_fragment) PARAMS ((cpp_reader *, cpp_fragment *));

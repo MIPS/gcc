@@ -101,6 +101,7 @@ struct cpp_macro
 
   /* Definition line number.  */
   fileline line;
+  struct cpp_fragment *defining_fragment;
 
   /* Number of tokens in expansion, or bytes for traditional macros.  */
   unsigned int count;

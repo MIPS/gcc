@@ -4715,6 +4715,16 @@ cb_exit_fragment (reader, fragment)
 #endif
 }
 
+/* A cpp-callable wrapper around register_fragment_dependency. */
+
+void
+cb_uses_fragment (cpp_reader* reader ATTRIBUTE_UNUSED,
+		  cpp_fragment *fragment)
+{
+  if (fragment != NULL && fragment != builtins_fragment)
+    register_fragment_dependency (C_FRAGMENT (fragment));
+}
+
 /* These are used to track builtin decls for an output fragment.  */
 
 static GTY(()) struct c_include_fragment *output_c_fragment = 0;

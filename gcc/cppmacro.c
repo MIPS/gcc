@@ -719,6 +719,9 @@ enter_macro_context (cpp_reader *pfile, cpp_hashnode *node)
     {
       cpp_macro *macro = node->value.macro;
 
+      if (pfile->cb.uses_fragment != NULL)
+	(pfile->cb.uses_fragment) (pfile, macro->defining_fragment);
+
       if (macro->fun_like)
 	{
 	  _cpp_buff *buff;
@@ -1481,6 +1484,7 @@ _cpp_create_definition (cpp_reader *pfile, cpp_hashnode *node)
 
   macro = (cpp_macro *) _cpp_aligned_alloc (pfile, sizeof (cpp_macro));
   macro->line = pfile->directive_line;
+  macro->defining_fragment = pfile->current_fragment;
   macro->params = 0;
   macro->paramc = 0;
   macro->variadic = 0;
