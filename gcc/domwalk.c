@@ -135,14 +135,10 @@ Boston, MA 02111-1307, USA.  */
    actions during the dominator walk as well as a stack of block local
    data maintained during the dominator walk.
 
-   BB is the basic block we are currently visiting.
-
-   PARENT is BB's parent block in the dominator tree.  */
+   BB is the basic block we are currently visiting.  */
 
 void
-walk_dominator_tree (struct dom_walk_data *walk_data,
-		     basic_block bb,
-		     basic_block parent)
+walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
 {
   void *bd = NULL;
   basic_block dest;
@@ -177,16 +173,16 @@ walk_dominator_tree (struct dom_walk_data *walk_data,
   /* Callback for operations to execute before we have walked the
      dominator children, but before we walk statements.  */
   if (walk_data->before_dom_children_before_stmts)
-    (*walk_data->before_dom_children_before_stmts) (walk_data, bb, parent);
+    (*walk_data->before_dom_children_before_stmts) (walk_data, bb);
 
   /* Statement walk before walking dominator children.  */
   if (walk_data->before_dom_children_walk_stmts)
-    (*walk_data->before_dom_children_walk_stmts) (walk_data, bb, parent);
+    (*walk_data->before_dom_children_walk_stmts) (walk_data, bb);
 
   /* Callback for operations to execute before we have walked the
      dominator children, and after we walk statements.  */
   if (walk_data->before_dom_children_after_stmts)
-    (*walk_data->before_dom_children_after_stmts) (walk_data, bb, parent);
+    (*walk_data->before_dom_children_after_stmts) (walk_data, bb);
 
   /* Recursively call ourselves on the dominator children of BB.  */
   for (dest = first_dom_son (CDI_DOMINATORS, bb);
@@ -196,22 +192,22 @@ walk_dominator_tree (struct dom_walk_data *walk_data,
       /* The destination block may have become unreachable, in
 	 which case there's no point in optimizing it.  */
       if (dest->pred)
-	walk_dominator_tree (walk_data, dest, bb);
+	walk_dominator_tree (walk_data, dest);
     }
 
   /* Callback for operations to execute after we have walked the
      dominator children, but before we walk statements.  */
   if (walk_data->after_dom_children_before_stmts)
-    (*walk_data->after_dom_children_before_stmts) (walk_data, bb, parent);
+    (*walk_data->after_dom_children_before_stmts) (walk_data, bb);
 
   /* Statement walk after walking dominator children.  */
   if (walk_data->after_dom_children_walk_stmts)
-    (*walk_data->after_dom_children_walk_stmts) (walk_data, bb, parent);
+    (*walk_data->after_dom_children_walk_stmts) (walk_data, bb);
 
   /* Callback for operations to execute after we have walked the
      dominator children and after we have walked statements.  */
   if (walk_data->after_dom_children_after_stmts)
-    (*walk_data->after_dom_children_after_stmts) (walk_data, bb, parent);
+    (*walk_data->after_dom_children_after_stmts) (walk_data, bb);
 
   if (walk_data->initialize_block_local_data)
     {

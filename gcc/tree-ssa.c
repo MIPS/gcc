@@ -160,19 +160,13 @@ struct rewrite_block_data
 static struct ssa_stats_d ssa_stats;
 
 /* Local functions.  */
-static void rewrite_finalize_block (struct dom_walk_data *,
-				    basic_block, basic_block);
+static void rewrite_finalize_block (struct dom_walk_data *, basic_block);
 static void rewrite_initialize_block_local_data (struct dom_walk_data *,
 						 basic_block, bool);
-static void rewrite_initialize_block (struct dom_walk_data *,
-				      basic_block, basic_block);
-static void rewrite_walk_stmts (struct dom_walk_data *,
-				basic_block, basic_block);
-static void rewrite_add_phi_arguments (struct dom_walk_data *,
-				       basic_block, basic_block);
-static void mark_def_sites (struct dom_walk_data *walk_data,
-			    basic_block bb,
-			    basic_block parent ATTRIBUTE_UNUSED);
+static void rewrite_initialize_block (struct dom_walk_data *, basic_block);
+static void rewrite_walk_stmts (struct dom_walk_data *, basic_block);
+static void rewrite_add_phi_arguments (struct dom_walk_data *, basic_block);
+static void mark_def_sites (struct dom_walk_data *walk_data, basic_block bb);
 static void compute_global_livein (bitmap, bitmap);
 static void set_def_block (tree, basic_block);
 static void set_livein_block (tree, basic_block);
@@ -391,7 +385,7 @@ rewrite_into_ssa (void)
   init_walk_dominator_tree (&walk_data);
 
   /* Recursively walk the dominator tree.  */
-  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR, NULL);
+  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
 
   /* Finalize the dominator walker.  */
   fini_walk_dominator_tree (&walk_data);
@@ -421,7 +415,7 @@ rewrite_into_ssa (void)
 
   /* Recursively walk the dominator tree rewriting each statement in
      each basic block.  */
-  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR, NULL);
+  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
 
   /* Finalize the dominator walker.  */
   fini_walk_dominator_tree (&walk_data);
@@ -521,9 +515,7 @@ compute_global_livein (bitmap livein, bitmap def_blocks)
    we create.  */
 
 static void
-mark_def_sites (struct dom_walk_data *walk_data,
-                basic_block bb,
-                basic_block parent ATTRIBUTE_UNUSED)
+mark_def_sites (struct dom_walk_data *walk_data, basic_block bb)
 {
   struct mark_def_sites_global_data *gd = walk_data->global_data;
   sbitmap kills = gd->kills;
@@ -822,9 +814,7 @@ rewrite_initialize_block_local_data (struct dom_walk_data *walk_data,
    block.  */
 
 static void
-rewrite_initialize_block (struct dom_walk_data *walk_data,
-			  basic_block bb,
-			  basic_block parent ATTRIBUTE_UNUSED)
+rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
 {
   tree phi;
   struct rewrite_block_data *bd
@@ -851,8 +841,7 @@ rewrite_initialize_block (struct dom_walk_data *walk_data,
 
 static void
 rewrite_walk_stmts (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
-		    basic_block bb,
-		    basic_block parent ATTRIBUTE_UNUSED)
+		    basic_block bb)
 {
   block_stmt_iterator si;
   struct rewrite_block_data *bd
@@ -870,8 +859,7 @@ rewrite_walk_stmts (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
 static void
 rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
-			   basic_block bb,
-			   basic_block parent ATTRIBUTE_UNUSED)
+			   basic_block bb)
 {
   edge e;
 
@@ -900,8 +888,7 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
 static void
 rewrite_finalize_block (struct dom_walk_data *walk_data,
-			basic_block bb ATTRIBUTE_UNUSED,
-			basic_block parent ATTRIBUTE_UNUSED)
+			basic_block bb ATTRIBUTE_UNUSED)
 {
   struct rewrite_block_data *bd
     = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);

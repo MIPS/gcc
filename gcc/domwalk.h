@@ -1,5 +1,5 @@
 /* Generic dominator tree walker
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -43,27 +43,27 @@ struct dom_walk_data
      This typically initializes an block local data and pushes that
      data onto BLOCK_DATA_STACK.  */
   void (*before_dom_children_before_stmts) (struct dom_walk_data *,
-					    basic_block, basic_block);
+					    basic_block);
 
   /* Function to call to walk statements before the recursive walk
      of the dominator children.  */
   void (*before_dom_children_walk_stmts) (struct dom_walk_data *,
-					  basic_block, basic_block);
+					  basic_block);
 
   /* Function to call after the statement walk occurring before the
      recursive walk of the dominator children.  */
   void (*before_dom_children_after_stmts) (struct dom_walk_data *,
-					   basic_block, basic_block);
+					   basic_block);
 
   /* Function to call before the statement walk occurring after the
      recursive walk of the dominator children.  */
   void (*after_dom_children_before_stmts) (struct dom_walk_data *,
-					   basic_block, basic_block);
+					   basic_block);
 
   /* Function to call to walk statements after the recursive walk
      of the dominator children.  */
   void (*after_dom_children_walk_stmts) (struct dom_walk_data *,
-					 basic_block, basic_block);
+					 basic_block);
 
   /* Function to call after the statement walk occurring after the
      recursive walk of the dominator children. 
@@ -71,7 +71,7 @@ struct dom_walk_data
      This typically finalizes any block local data and pops
      that data from BLOCK_DATA_STACK.  */
   void (*after_dom_children_after_stmts) (struct dom_walk_data *,
-					  basic_block, basic_block);
+					  basic_block);
 
   /* Global data for a walk through the dominator tree.  */
   void *global_data;
@@ -92,6 +92,6 @@ struct dom_walk_data
   varray_type free_block_data;
 };
 
-void walk_dominator_tree (struct dom_walk_data *, basic_block, basic_block);
+void walk_dominator_tree (struct dom_walk_data *, basic_block);
 void init_walk_dominator_tree (struct dom_walk_data *);
 void fini_walk_dominator_tree (struct dom_walk_data *);

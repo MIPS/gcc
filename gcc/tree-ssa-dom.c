@@ -238,21 +238,18 @@ static bool extract_range_from_cond (tree, tree *, tree *, int *);
 static bool cprop_into_stmt (tree);
 static void record_equivalences_from_phis (struct dom_walk_data *, basic_block);
 static void record_equivalences_from_incoming_edge (struct dom_walk_data *,
-						    basic_block, basic_block);
+						    basic_block);
 static bool eliminate_redundant_computations (struct dom_walk_data *,
 					      tree, stmt_ann_t);
 static void record_equivalences_from_stmt (tree, varray_type *, varray_type *,
 					   int, stmt_ann_t);
 static void thread_across_edge (struct dom_walk_data *, edge);
-static void dom_opt_finalize_block (struct dom_walk_data *,
-				    basic_block, basic_block);
+static void dom_opt_finalize_block (struct dom_walk_data *, basic_block);
 static void dom_opt_initialize_block_local_data (struct dom_walk_data *,
 						 basic_block, bool);
-static void dom_opt_initialize_block (struct dom_walk_data *,
-				      basic_block, basic_block);
-static void dom_opt_walk_stmts (struct dom_walk_data *,
-				basic_block, basic_block);
-static void cprop_into_phis (struct dom_walk_data *, basic_block, basic_block);
+static void dom_opt_initialize_block (struct dom_walk_data *, basic_block);
+static void dom_opt_walk_stmts (struct dom_walk_data *, basic_block);
+static void cprop_into_phis (struct dom_walk_data *, basic_block);
 static void remove_local_expressions_from_table (varray_type locals,
 						 unsigned limit,
 						 htab_t table);
@@ -612,7 +609,7 @@ tree_ssa_dominator_optimize (void)
       cfg_altered = false;
 
       /* Recursively walk the dominator tree optimizing statements.  */
-      walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR, NULL);
+      walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
 
       /* Wipe the hash tables.  */
       htab_empty (avail_exprs);
@@ -1025,14 +1022,12 @@ dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data,
    reach BB or they may come from PHI nodes at the start of BB.  */
 
 static void
-dom_opt_initialize_block (struct dom_walk_data *walk_data,
-			  basic_block bb,
-			  basic_block parent)
+dom_opt_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
 {
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     fprintf (tree_dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
 
-  record_equivalences_from_incoming_edge (walk_data, bb, parent);
+  record_equivalences_from_incoming_edge (walk_data, bb);
 
   /* PHI nodes can create equivalences too.  */
   record_equivalences_from_phis (walk_data, bb);
@@ -1112,9 +1107,7 @@ extract_true_false_edges_from_block (basic_block b,
    the dominator tree.  */
 
 static void
-dom_opt_finalize_block (struct dom_walk_data *walk_data,
-			basic_block bb,
-			basic_block parent ATTRIBUTE_UNUSED)
+dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 {
   struct dom_walk_block_data *bd
     = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
@@ -1355,10 +1348,10 @@ record_equivalences_from_phis (struct dom_walk_data *walk_data, basic_block bb)
 
 static void
 record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
-					basic_block bb,
-					basic_block parent)
+					basic_block bb)
 {
   int edge_flags;
+  basic_block parent;
   struct eq_expr_value eq_expr_value;
   tree parent_block_last_stmt = NULL;
   struct dom_walk_block_data *bd
@@ -1367,7 +1360,7 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
   /* If our parent block ended with a control statment, then we may be
      able to record some equivalences based on which outgoing edge from
      the parent was followed.  */
-	
+  parent = get_immediate_dominator (CDI_DOMINATORS, bb);
   if (parent)
     {
       parent_block_last_stmt = last_stmt (parent);
@@ -1494,9 +1487,7 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
    CFG_ALTERED is set to true if cfg is altered.  */
 
 static void
-dom_opt_walk_stmts (struct dom_walk_data *walk_data,
-		    basic_block bb,
-		    basic_block parent ATTRIBUTE_UNUSED)
+dom_opt_walk_stmts (struct dom_walk_data *walk_data, basic_block bb)
 {
   block_stmt_iterator si;
   struct dom_walk_block_data *bd
@@ -2382,8 +2373,7 @@ cprop_into_stmt (tree stmt)
 
 static void
 cprop_into_phis (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
-		 basic_block bb,
-		 basic_block parent ATTRIBUTE_UNUSED)
+		 basic_block bb)
 {
   edge e;
 

@@ -9,6 +9,12 @@
 
 2004-02-09  Jeff Law  <law@redhat.com>
 
+	* domwalk.c (walk_dominator_tree): Completely lose PARENT argument.
+	Callers updated.  No longer pass PARENT to callbacks.
+	* domwalk.h (struct dom_walk_data): Corresponding changes.
+	* tree-ssa-dom.c: Likewise.
+	* tree-ssa.c: Likewise.
+
 	* domwalk.c (walk_dominator_tree): Change last argument to be the
 	parent block in the dominator tree rather than the last statement
 	in the parent block in the dominator tree.  Similarly in all the
