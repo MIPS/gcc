@@ -76,7 +76,6 @@ struct alias_set_d
   tree tag;
   tree tag_sym;
   HOST_WIDE_INT tag_set;
-  HOST_WIDE_INT tag_sym_set;
   size_t num_elements;
 };
 
@@ -323,11 +322,30 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
   if (class == 'c'
       || class == 't'
       || class == 'b'
-      || code == ADDR_EXPR
       || code == FUNCTION_DECL
       || code == EXC_PTR_EXPR
       || code == LABEL_DECL)
     return;
+
+  /* We could have the address of a component, array member, etc which
+     has interesting variable references.  */
+  if (code == ADDR_EXPR)
+    {
+      enum tree_code subcode = TREE_CODE (TREE_OPERAND (expr, 0));
+
+      /* Only a few specific types of ADDR_EXPR expressions are
+       	 of interest.  */
+      if (subcode != COMPONENT_REF
+	  && subcode != INDIRECT_REF
+	  && subcode != ARRAY_REF)
+	return;
+
+      /* Avoid recursion.  */
+      code = subcode;
+      class = TREE_CODE_CLASS (code);
+      expr_p = &TREE_OPERAND (expr, 0);
+      expr = *expr_p;
+    }
 
   /* If this reference is associated with a non SIMPLE expression, then we
      mark the statement non GIMPLE and recursively clobber every
@@ -1785,10 +1803,11 @@ compute_alias_sets ()
 }
 
 
-/* Try to add DEREF as a new alias tag in ALIAS_SETS.  If a conflicting
-   tag is already present, then instead of adding a new entry, DEREF is
-   marked as an alias of the existing entry.  DEREF_SYM is the base symbol
-   of DEREF.  */
+/* Potentially add DEREF as a new alias tag in ALIAS_SETS.  DEREF_SYM
+   is the base symbol of DEREF. 
+
+   Note that if DEREF == DEREF_SYM, then we know implicitly that
+   DEREF is an addressable DECL.  */
 
 static void
 register_alias_set (deref, deref_sym)
@@ -1796,99 +1815,89 @@ register_alias_set (deref, deref_sym)
      tree deref_sym;
 {
   size_t i, num_sets;
-  struct alias_set_d *curr, *prev;
-  HOST_WIDE_INT deref_set, deref_sym_set;
-  long last_found;
+  struct alias_set_d *curr;
+  HOST_WIDE_INT deref_set;
+  int replaced, found;
 
   deref_set = get_alias_set (deref);
-  deref_sym_set = get_alias_set (deref_sym);
 
+  /* Search the alias_sets list for entries which match DEREF_SET.
+
+     If we find a matching entry that is an INDIRECT_REF, then stop
+     the loop as the existing entry carries all the required aliases.
+
+     Else if we find a matching entry and DEREF is an INDIRECT_REF,
+     then replace the existing entry with DEREF and remove all other
+     matching entries.
+
+     Else add DEREF to the list and quit.  */
   /* FIXME: ALIAS_SETS will usually be small (<< 10 entries).  If it becomes
      a performance problem, try with a splay tree.  */
-  last_found = -1;
-  prev = NULL;
+  replaced = 0;
+  found = 0;
   for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_sets); i++)
     {
       curr = (struct alias_set_d *) VARRAY_GENERIC_PTR (alias_sets, i);
 
-      if (may_alias_p (deref, deref_sym, deref_set,
-	               curr->tag, curr->tag_sym, curr->tag_set))
-	{
-	  /* If this is the first time we find a conflict, mark the entry
-	     index where the conflict was found and continue.  */
-	  if (last_found == -1)
+      /* See if we have any entries with the same alias set.  */
+      if (curr->tag_set == deref_set)
+        {
+	  found = 1;
+
+	  /* We found an INDIRECT_REF in ALIAS_SETS, it carries all
+	     our aliases.  */
+	  if (curr->tag != curr->tag_sym)
+	    break;
+
+	  /* We have a VAR_DECL and we found a VAR_DECL in ALIAS_SETS.
+	     Just add a new entry entry to the list and quit.  */
+	  if (deref == deref_sym)
 	    {
-	      last_found = i;
-	      continue;
+	      curr = xmalloc (sizeof (*curr));
+	      curr->tag = deref;
+	      curr->tag_set = deref_set;
+	      curr->tag_sym = deref_sym;
+	      curr->num_elements = 0;
+	      VARRAY_PUSH_GENERIC_PTR (alias_sets, (void *) curr);
+	      break;
 	    }
 
-	  /* We had found a conflict before, this means that DEREF may
-	     alias variables that are in different alias sets.  If this
-	     happens, we need to aggregate the two alias sets into a new
-	     one with DEREF as its tag.
-
-	     Replace the tag for the previous entry with DEREF and remove
-	     the current entry by swapping it with the last element in the
-	     ALIAS_SETS array.  */
-	  prev = (struct alias_set_d *) VARRAY_GENERIC_PTR (alias_sets,
-							    last_found);
-
-	  /* We only need to update the previous tag once.  */
-	  if (prev->tag != deref)
+	  /* We have an INDIRECT_REF and ALIAS_SETS contains VAR_DECLs.
+	     We need to replace the first entry with our INDIRECT_REF
+	     and delete the VAR_DECLs.  */
+	  if (replaced == 0)
 	    {
-	      prev->tag = deref;
-	      prev->tag_sym = deref_sym;
-	      prev->tag_set = deref_set;
-	      prev->tag_sym_set = deref_sym_set;
+	      curr->tag = deref;
+	      curr->tag_sym = deref_sym;
+	      curr->tag_set = deref_set;
+	      replaced = 1;
 	    }
-
-	  /* Swap the current and the last element, and pop the array.  */
-	  num_sets = VARRAY_ACTIVE_SIZE (alias_sets);
-	  if (i < num_sets - 1)
+	  else
 	    {
-	      VARRAY_GENERIC_PTR (alias_sets, i) =
+	      /* Swap the current and the last element, and pop the array. 
+	         Don't forget to free the element we are deleting!  */
+	      curr = VARRAY_GENERIC_PTR (alias_sets, i);
+	      free (curr);
+	      num_sets = VARRAY_ACTIVE_SIZE (alias_sets);
+	      if (i < num_sets - 1)
+		{
+		  VARRAY_GENERIC_PTR (alias_sets, i) =
 		  VARRAY_GENERIC_PTR (alias_sets, num_sets - 1);
-	      i--;	/* Reset the iterator to avoid missing the entry we
-			   just swapped.  */
+		  i--;
+		}
+	      VARRAY_POP (alias_sets);
 	    }
-
-	  VARRAY_POP (alias_sets);
-	}
+        }
     }
 
-  /* If DEREF aliased precisely one entry, then we may want to
-     record DEREF as the alias set leader rather than the existing
-     entry.  For example, if *p conflicted with q, we want to
-     have *p be the alias leader.
-
-     By doing this we can continue to not consider VAR_DECLs with the
-     same alias set as not aliasing each other in may_alias_p.  */
-  if (prev == NULL && last_found != -1)
-    {
-      prev
-	= (struct alias_set_d *) VARRAY_GENERIC_PTR (alias_sets, last_found);
-
-      /* If the existing entry was not an INDIRECT_REF and the current
-         object is an INDIRECT_REF, then replace the existing entry with
-	 the current entry.  */
-      if (TREE_CODE (prev->tag) != INDIRECT_REF
-	  && TREE_CODE (deref) == INDIRECT_REF)
-	{
-	  prev->tag = deref;
-	  prev->tag_sym = deref_sym;
-	  prev->tag_set = deref_set;
-	  prev->tag_sym_set = deref_sym_set;
-	}
-    }
-
-  /* If we didn't find an existing set that conflicts with SET.  Add it.  */
-  if (last_found == -1)
+  /* If we did not find an entry in ALIAS_SETS with a matching
+     alias set, create a new entry.  */
+  if (! found)
     {
       curr = xmalloc (sizeof (*curr));
       curr->tag = deref;
       curr->tag_set = deref_set;
       curr->tag_sym = deref_sym;
-      curr->tag_sym_set = deref_sym_set;
       curr->num_elements = 0;
       VARRAY_PUSH_GENERIC_PTR (alias_sets, (void *) curr);
     }
