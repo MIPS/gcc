@@ -148,8 +148,8 @@
 3665098: gcc.dg/compat/struct-by-value-8 c_compat_x_tst.o-c_compat_y_tst.o link
 3665098: gcc.dg/compat/struct-by-value-9 c_compat_x_tst.o-c_compat_y_tst.o link
 3665098: gcc.dg/compat/struct-return-2 c_compat_x_tst.o-c_compat_y_tst.o link
-3665240: gcc.c-torture/execute/simd-2.c execution,  -O3 -fomit-frame-pointer
-3665240: gcc.c-torture/execute/simd-2.c execution,  -O3 -g
+#3665240: gcc.c-torture/execute/simd-2.c execution,  -O3 -fomit-frame-pointer
+#3665240: gcc.c-torture/execute/simd-2.c execution,  -O3 -g
 #3649581: gcc.dg/gnu89-dupqual-1.c  (test for bogus messages, line 5)
 #3649581: gcc.dg/gnu89-dupqual-1.c  (test for bogus messages, line 6)
 #3649581: gcc.dg/gnu89-dupqual-1.c  (test for bogus messages, line 7)
@@ -377,10 +377,10 @@
 #3665286: gcc.dg/altivec-13.c (test for excess errors)
 #3665286: gcc.dg/altivec-6.c (test for excess errors)
 #3665286: gcc.dg/altivec-7.c (test for excess errors)
-3673607: gcc.c-torture/execute/950915-1.c execution,  -fast
+#3673607: gcc.c-torture/execute/950915-1.c execution,  -fast
 #3673610: gcc.c-torture/execute/va-arg-17.c execution,  -fast
-3673612: gcc.c-torture/execute/va-arg-22.c compilation,  -fast
-3673612: gcc.c-torture/compile/zero-strct-1.c  -fast  (test for excess errors)
+#3673612: gcc.c-torture/execute/va-arg-22.c compilation,  -fast
+#3673612: gcc.c-torture/compile/zero-strct-1.c  -fast  (test for excess errors)
 3673618: gcc.c-torture/execute/ieee/fp-cmp-1.c execution,  -fast
 3673618: gcc.c-torture/execute/ieee/fp-cmp-2.c execution,  -fast
 3673618: gcc.c-torture/execute/ieee/fp-cmp-3.c execution,  -fast
@@ -405,22 +405,22 @@
 3681923: gcc.c-torture/execute/20040307-1.c execution,  -O3 -g
 3681923: gcc.c-torture/execute/20040307-1.c execution,  -Os
 3681923: gcc.c-torture/execute/20040307-1.c execution,  -fast
-3681923: gcc.c-torture/execute/931004-12.c execution,  -O0
-3681923: gcc.c-torture/execute/931004-12.c execution,  -O1
-3681923: gcc.c-torture/execute/931004-12.c execution,  -O2
-3681923: gcc.c-torture/execute/931004-12.c execution,  -O3 -fomit-frame-pointer
-3681923: gcc.c-torture/execute/931004-12.c execution,  -O3 -fomit-frame-pointer -funroll-loops
-3681923: gcc.c-torture/execute/931004-12.c execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
-3681923: gcc.c-torture/execute/931004-12.c execution,  -O3 -g
-3681923: gcc.c-torture/execute/931004-12.c execution,  -Os
-3681923: gcc.c-torture/execute/va-arg-22.c execution,  -O0
-3681923: gcc.c-torture/execute/va-arg-22.c execution,  -O1
-3681923: gcc.c-torture/execute/va-arg-22.c execution,  -O2
-3681923: gcc.c-torture/execute/va-arg-22.c execution,  -O3 -fomit-frame-pointer
-3681923: gcc.c-torture/execute/va-arg-22.c execution,  -O3 -fomit-frame-pointer -funroll-loops
-3681923: gcc.c-torture/execute/va-arg-22.c execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
-3681923: gcc.c-torture/execute/va-arg-22.c execution,  -O3 -g
-3681923: gcc.c-torture/execute/va-arg-22.c execution,  -Os
+#3681923: gcc.c-torture/execute/931004-12.c execution,  -O0
+#3681923: gcc.c-torture/execute/931004-12.c execution,  -O1
+#3681923: gcc.c-torture/execute/931004-12.c execution,  -O2
+#3681923: gcc.c-torture/execute/931004-12.c execution,  -O3 -fomit-frame-pointer
+#3681923: gcc.c-torture/execute/931004-12.c execution,  -O3 -fomit-frame-pointer -funroll-loops
+#3681923: gcc.c-torture/execute/931004-12.c execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+#3681923: gcc.c-torture/execute/931004-12.c execution,  -O3 -g
+#3681923: gcc.c-torture/execute/931004-12.c execution,  -Os
+#3681923: gcc.c-torture/execute/va-arg-22.c execution,  -O0
+#3681923: gcc.c-torture/execute/va-arg-22.c execution,  -O1
+#3681923: gcc.c-torture/execute/va-arg-22.c execution,  -O2
+#3681923: gcc.c-torture/execute/va-arg-22.c execution,  -O3 -fomit-frame-pointer
+#3681923: gcc.c-torture/execute/va-arg-22.c execution,  -O3 -fomit-frame-pointer -funroll-loops
+#3681923: gcc.c-torture/execute/va-arg-22.c execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+#3681923: gcc.c-torture/execute/va-arg-22.c execution,  -O3 -g
+#3681923: gcc.c-torture/execute/va-arg-22.c execution,  -Os
 3681923: gcc.dg/c90-const-expr-3.c (test for excess errors)
 3681923: gcc.dg/c99-const-expr-3.c (test for excess errors)
 3691367: gcc.dg/rs6000-power2-2.c scan-assembler-not lfd
@@ -430,3 +430,5 @@
 #3666982: gcc.dg/tree-ssa-vect/tree-ssa-vect-none.c scan-tree-dump-times vectorized 0 loops 2
 #3666982: gcc.dg/tree-ssa-vect/tree-ssa-vect-none.c scan-tree-dump-times vectorized 1 loops 1
 3691624: gcc.dg/debug/dwarf2/dwarf-die7.c scan-assembler 1.*DW_AT_inline
+3717694: gcc.dg/pch/valid-3.c  -fast   (test for errors, line 3)
+3717694: gcc.dg/pch/valid-3.c  -fast   (test for errors, line 3) #1
