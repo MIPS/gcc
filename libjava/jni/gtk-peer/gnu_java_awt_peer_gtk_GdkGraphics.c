@@ -228,7 +228,7 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGraphics_drawString
 
   gdk_draw_layout (g->drawable, g->gc,
                    x + g->x_offset,
-                   y + g->y_offset - (baseline_y / dpi_conversion_factor),
+                   y + g->y_offset - (baseline_y / PANGO_SCALE),
                    layout);
 
   pango_font_description_free (font_desc);

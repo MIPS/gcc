@@ -1,5 +1,9 @@
 2004-05-27  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c (drawString):
+	Divide baseline y coordinate by PANGO_SCALE, not DPI conversion
+	factor.
+
 	* gnu/java/awt/peer/gtk/GtkTextAreaPeer.java (create): Set
 	"Dialog" as the default font.
 	* gnu/java/awt/peer/gtk/GtkTextFieldPeer.java (create):
