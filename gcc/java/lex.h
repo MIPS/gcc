@@ -95,13 +95,13 @@ struct java_error {
   int error;
 };
 
-typedef struct _java_lc {
+typedef struct java_lc_s GTY(()) {
   int line;
   int prev_col;
   int col;
 } java_lc;
 
-typedef struct java_lexer
+struct java_lexer
 {
   /* The file from which we're reading.  */
   FILE *finput;
@@ -154,7 +154,8 @@ typedef struct java_lexer
   int out_last;
 
 #endif /* HAVE_ICONV */
-} java_lexer;
+};
+typedef struct java_lexer java_lexer;
 
 /* Destroy a lexer object.  */
 extern void java_destroy_lexer PARAMS ((java_lexer *));
