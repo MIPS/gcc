@@ -1,3 +1,10 @@
+2005-02-02  Stan Shebs  <shebs@apple.com>
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Default to
+	natural alignment for 64-bit Darwin.
+	(rs6000_parse_alignment_option): Error or warn on uses of
+	-malign-mac68k and -malign-power on 64-bit Darwin, respectively.
+
 2005-01-19  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 3932082

@@ -1540,6 +1540,8 @@ rs6000_override_options (const char *default_cpu)
       /* APPLE LOCAL 64-bit mainline */
       /* Setting to empty string is same as "-mone-byte-bool".  */
       darwin_one_byte_bool = "";
+      /* Default to natural alignment, for better performance.  */
+      rs6000_alignment_flags = MASK_ALIGN_NATURAL;
     }
 
   /* Handle -mabi= options.  */
@@ -1927,10 +1929,27 @@ rs6000_parse_alignment_option (void)
     return;
   /* APPLE LOCAL begin Macintosh alignment 2002-2-26 --ff */
   else if (! strcmp (rs6000_alignment_string, "mac68k"))
-    rs6000_alignment_flags = MASK_ALIGN_MAC68K;
+    {
+      /* The old mac68k alignment has zero value for 64-bit work,
+	 forbid its use.  */
+      if (DEFAULT_ABI == ABI_DARWIN && TARGET_64BIT)
+	error ("-malign-mac68k is not allowed for 64-bit Darwin");
+      rs6000_alignment_flags = MASK_ALIGN_MAC68K;
+    }
   /* APPLE LOCAL end Macintosh alignment 2002-2-26 --ff */
   else if (! strcmp (rs6000_alignment_string, "power"))
-    rs6000_alignment_flags = MASK_ALIGN_POWER;
+    /* APPLE LOCAL begin mainline 64-bit */
+    {
+      /* On 64-bit Darwin, power alignment is ABI-incompatible with
+	 some C library functions, so warn about it. The flag may be
+	 useful for performance studies from time to time though, so
+	 don't disable it entirely.  */
+      if (DEFAULT_ABI == ABI_DARWIN && TARGET_64BIT)
+	warning ("-malign-power is not supported for 64-bit Darwin;"
+		 " it is incompatible with the installed C and C++ libraries");
+      rs6000_alignment_flags = MASK_ALIGN_POWER;
+    }
+    /* APPLE LOCAL end mainline 64-bit */
   else if (! strcmp (rs6000_alignment_string, "natural"))
     rs6000_alignment_flags = MASK_ALIGN_NATURAL;
   else

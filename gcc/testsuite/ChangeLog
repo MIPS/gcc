@@ -1,3 +1,7 @@
+2005-02-02  Stan Shebs  <shebs@apple.com>
+
+	* gcc.dg/power-align-unsup.c: New.
+
 2004-12-16  Geoffrey Keating  <geoffk@apple.com>
 
 	* gcc.dg/rs6000-ldouble-2.c: New.

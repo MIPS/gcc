@@ -1,3 +1,9 @@
+2005-02-02  Stan Shebs  <shebs@apple.com>
+
+	* gcc.apple/align-test-5b.c: Xfail for 64-bit.
+	* gcc.apple/align-test-5c.c: Xfail for 64-bit.
+	* gcc.apple/mac68k-align-unsup.c: New.
+
 2005-02-02  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3984534
