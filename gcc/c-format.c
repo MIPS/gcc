@@ -2404,19 +2404,24 @@ check_format_types (int *status, format_wanted_type *types)
       {
 	const char *this;
 	const char *that;
+	tree tmp;
 
-	this = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (wanted_type)));
+	tmp = TYPE_NAME (wanted_type);
+	if (TREE_CODE (tmp) == TYPE_DECL)
+	  tmp = DECL_NAME (tmp);
+	this = IDENTIFIER_POINTER (tmp);
+
 	that = 0;
 	if (TYPE_NAME (orig_cur_type) != 0
 	    && TREE_CODE (orig_cur_type) != INTEGER_TYPE
 	    && !(TREE_CODE (orig_cur_type) == POINTER_TYPE
 		 && TREE_CODE (TREE_TYPE (orig_cur_type)) == INTEGER_TYPE))
 	  {
-	    if (TREE_CODE (TYPE_NAME (orig_cur_type)) == TYPE_DECL
-		&& DECL_NAME (TYPE_NAME (orig_cur_type)) != 0)
-	      that = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (orig_cur_type)));
-	    else
-	      that = IDENTIFIER_POINTER (TYPE_NAME (orig_cur_type));
+	    tmp = TYPE_NAME (orig_cur_type);
+	    if (TREE_CODE (tmp) == TYPE_DECL)
+	      tmp = DECL_NAME (tmp);
+	    if (tmp)
+	      that = IDENTIFIER_POINTER (tmp);
 	  }
 
 	/* A nameless type can't possibly match what the format wants.
