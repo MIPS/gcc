@@ -5832,7 +5832,7 @@ output_pic_addr_const (FILE *file, rtx x, int code)
        const char *name = XSTR (x, 0);
        if (MACHOPIC_INDIRECT
 	   && machopic_classify_symbol (x) == MACHOPIC_UNDEFINED_FUNCTION)
-	 name = machopic_indirection_name (name, /*stub_p=*/true);
+	 name = machopic_indirection_name (x, /*stub_p=*/true);
        assemble_name (file, name);
      }
 #else
