@@ -1927,6 +1927,7 @@ AM_MAKEFLAGS = \
 	"RUNTESTFLAGS=$(RUNTESTFLAGS)" \
 	"exec_prefix=$(exec_prefix)" \
 	"infodir=$(infodir)" \
+	"includedir=$(includedir)" \
 	"libdir=$(libdir)" \
 	"prefix=$(prefix)" \
 	"AR=$(AR)" \

@@ -1,9 +1,17 @@
+2002-07-10  Christopher Faylor  <cgf@redhat.com>
+
+	* Makefile.am (AM_MAKEFLAGS): Add includedir to list.
+	* Makefile.in (AM_MAKEFLAGS): Regenerate.
+	* configure.in: Fix if test which used '&&'.
+	* configure: Regenerate.
+
 2002-07-08  Christopher Faylor  <cgf@redhat.com>
 
 	* configure.in: Invalidate cross-compilation assumption.
 	* configure: Regenerate.
 	* acinclude.m4: Fix several unguarded use of variables in test
 	statements.
+	* aclocal.m4: Regenerate.
 
 2002-06-09  David Billinghurst <David.Billinghurst@riotinto.com>
 
