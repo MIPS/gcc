@@ -5252,6 +5252,13 @@ nondestructive_fold_binary (code, type, op0, op1)
 	 case will be handled here.  */
       if (integer_zerop (op0))
 	return omit_one_operand (type, op0, op1);
+      if (TREE_CODE (op0) == INTEGER_CST && TREE_CODE (op1) == INTEGER_CST)
+	{
+	  int x1 = ! integer_zerop (op0);
+	  int x2 = ! integer_zerop (op1);
+
+	  return ((x1 & x2) ? integer_one_node : integer_zero_node);
+	}
       return NULL_TREE;
 
     case TRUTH_OR_EXPR:
@@ -5263,10 +5270,23 @@ nondestructive_fold_binary (code, type, op0, op1)
 	 TRUTH_OR_EXPR.  */
       if (TREE_CODE (op0) == INTEGER_CST && ! integer_zerop (op0))
 	return omit_one_operand (type, op0, op1);
+      if (TREE_CODE (op0) == INTEGER_CST && TREE_CODE (op1) == INTEGER_CST)
+	{
+	  int x1 = ! integer_zerop (op0);
+	  int x2 = ! integer_zerop (op1);
+
+	  return ((x1 | x2) ? integer_one_node : integer_zero_node);
+	}
       return NULL_TREE;
 
     case TRUTH_XOR_EXPR:
-      /* We could probably handle this.  */
+      if (TREE_CODE (op0) == INTEGER_CST && TREE_CODE (op1) == INTEGER_CST)
+	{
+	  int x1 = ! integer_zerop (op0);
+	  int x2 = ! integer_zerop (op1);
+
+	  return ((x1 ^ x2) ? integer_one_node : integer_zero_node);
+	}
       return NULL_TREE;
 
     default:
@@ -5352,6 +5372,13 @@ nondestructive_fold_unary (code, type, op0)
 	return TREE_IMAGPART (op0);
       else
 	return NULL_TREE;
+
+    case CONJ_EXPR:
+      if (TREE_CODE (op0) == COMPLEX_CST
+	  && TREE_CODE (TREE_TYPE (op0)) == COMPLEX_TYPE)
+	return build_complex (type, TREE_REALPART (op0),
+			      negate_expr (TREE_IMAGPART (op0)));
+      return NULL_TREE;
 
     case FFS_EXPR:
     case CLZ_EXPR:

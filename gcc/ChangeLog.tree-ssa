@@ -1,3 +1,8 @@
+2003-02-26  Jeff Law  <law@redhat.com>
+
+	* fold-const.c (nondestructive_fold_binary): Handle truth ops
+	when both arguments are constant (duh!).  Handle CONJ_EXPR.
+
 2003-02-25  Jeff Law  <law@redhat.com>
 	    Diego Novillo  <dnovillo@redhat.com>
 
