@@ -1900,17 +1900,6 @@ import_export_decl (tree decl)
   else
     comdat_p = true;
 
-/* APPLE LOCAL begin MERGE FIXME -- The test which we've LOCALly added a clause to has disappeared */
-  /*if (IS_AGGR_TYPE (type) && CLASSTYPE_INTERFACE_KNOWN (type)
-      && TYPE_POLYMORPHIC_P (type)*/
-      /* If -fno-rtti, we're not necessarily emitting this stuff with
-	 the class, so go ahead and emit it now.  This can happen when
-	 a class is used in exception handling.  */
-      /*&& flag_rtti*/
-      /* APPLE LOCAL Jaguar C++ abi compat --mrs */
-      /*&& abi_version_at_least (1))*/
-/* APPLE LOCAL end MERGE FIXME -- The test which we've LOCALly added a clause to has disappeared */
-
   if (import_p)
     {
       /* If we are importing DECL into this translation unit, mark is
