@@ -127,7 +127,15 @@ public class SharedLibHelper
   public Class findClass(String name)
   {
     ensureInit();
-    return (Class) classMap.get(name);
+    Class result = (Class) classMap.get(name);
+    if (result != null)
+      {
+	// We never want to return a class without its supers linked.
+	// It isn't clear from the spec, but this is what other
+	// implementations do in practice.
+	ensureSupersLinked(result);
+      }
+    return result;
   }
 
   public URL findResource (String name)
@@ -160,6 +168,7 @@ public class SharedLibHelper
 
   native boolean hasResource(String name);
   native void init();
+  native void ensureSupersLinked(Class k);
 
   public String toString ()
   {

@@ -125,3 +125,9 @@ gnu::gcj::runtime::SharedLibHelper::finalize()
   dlclose (handler);
 #endif
 }
+
+void
+gnu::gcj::runtime::SharedLibHelper::ensureSupersLinked(jclass k)
+{
+  _Jv_Linker::wait_for_state (k, JV_STATE_LOADING);
+}

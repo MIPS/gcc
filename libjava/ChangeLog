@@ -1,3 +1,13 @@
+2004-11-11  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/gcj/runtime/natSharedLibLoader.cc (ensureSupersLinked): New
+	method.
+	* gnu/gcj/runtime/SharedLibHelper.java (findClass): Ensure supers
+	linked.
+	(ensureSupersLinked): Declare.
+	* java/lang/natVMClassLoader.cc (loadClass): Ensure supers
+	linked.
+
 2004-11-10  Tom Tromey  <tromey@redhat.com>
 
 	* gij.cc (main): Treat -verbose the same as -verbose:class.

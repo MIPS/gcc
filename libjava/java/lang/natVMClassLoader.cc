@@ -132,9 +132,16 @@ jclass
 java::lang::VMClassLoader::loadClass(jstring name, jboolean resolve)
 {
   _Jv_Utf8Const *utf = _Jv_makeUtf8Const (name);
-  // FIXME: we culd make _Jv_FindClassFromSignature a template.
   jclass klass = _Jv_FindClassInCache (utf, NULL);
-  if (klass && resolve)
-    _Jv_InitClass (klass);
+  if (klass)
+    {
+      // We never want to return a class without its supers linked.
+      // It isn't clear from the spec, but this is what other
+      // implementations do in practice.
+      if (resolve)
+	_Jv_InitClass (klass);
+      else
+	_Jv_Linker::wait_for_state (klass, JV_STATE_LOADING);
+    }
   return klass;
 }
