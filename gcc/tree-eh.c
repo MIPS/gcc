@@ -1673,13 +1673,19 @@ bool
 tree_could_trap_p (tree expr)
 {
   enum tree_code code = TREE_CODE (expr);
-  if (code == INDIRECT_REF
-      || (code == COMPONENT_REF
-	  && (TREE_CODE (TREE_OPERAND (expr, 0)) == INDIRECT_REF)))
-    return true;
-  
+  tree t;
+
   switch (code)
     {
+    case ARRAY_REF:
+    case COMPONENT_REF:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+    case BIT_FIELD_REF:
+      t = get_base_address (expr);
+      return !t || TREE_CODE (t) == INDIRECT_REF;
+
+    case INDIRECT_REF:
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
@@ -1690,6 +1696,7 @@ tree_could_trap_p (tree expr)
     case ROUND_MOD_EXPR:
     case TRUNC_MOD_EXPR:
       return true;
+
     default:
       break;
     }

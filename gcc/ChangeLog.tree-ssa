@@ -1,3 +1,7 @@
+2004-05-07  Richard Henderson  <rth@redhat.com>
+
+	* tree-eh.c (tree_could_trap_p): Use get_base_address on references.
+	
 2004-05-07  Diego Novillo  <dnovillo@redhat.com>
 
 	* doc/invoke.texi: Remove documentation for -ftree-copyprop.
