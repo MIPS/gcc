@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fdump-scalar-evolutions -fall-data-deps -fdump-all-data-deps" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-scalar-evolutions -fall-data-deps -fdump-tree-alldd" } */
 
 int foo (int);
 
@@ -35,3 +35,4 @@ int main ()
 
 /* { dg-final { diff-tree-dumps "scev" } } */
 /* { dg-final { diff-tree-dumps "alldd" } } */
+y

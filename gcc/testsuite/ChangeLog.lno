@@ -1,3 +1,11 @@
+2004-01-21  Sebastian Pop  <s.pop@laposte.net>
+
+	* ssa-chrec-*: Replace -fdump-scalar-evolutions with
+	-fdump-tree-scev.  Replace -fdump-all-data-deps with
+	-fdump-tree-alldd.
+	* tree-ssa-vect-*: Use -fdump-tree-vect instead of
+	-fdump-tree-vect-stats.
+
 2004-01-15  Sebastian Pop  <s.pop@laposte.net>
 
 	* ssa-chrec-{06, 38, 42, 43}.c: Modify comments.

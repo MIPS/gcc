@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fdump-scalar-evolutions" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev" } */
 
 
 int foo (int ParmN)
