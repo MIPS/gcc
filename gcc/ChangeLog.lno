@@ -1,3 +1,21 @@
+2004-07-27  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* Makefile.in (tree-data-ref.o): Use TREE_DATA_REF_H.
+	* tree-data-ref.c: Remove uses of DR_ID, and SUB_DIRECTION.
+	Replace ggc_alloc with xmalloc for data_reference, 
+	data_dependence_relation, and subscript structures.
+	(finalize_ddr_dependent): Extra debugging dump.
+	(analyze_all_data_dependences): Make sure that the dependence 
+	relation has distance and direction vectors before their dumping.
+	* tree-data-ref.h (data_reference.id, DR_ID, subscript.direction, 
+	SUB_DIRECTION): Removed.
+	* tree-loop-linear.c (try_interchange_loops): Verify the
+	legality only after a transform.
+	(linear_transform_loops): Move variables declarations inside the loop.
+	Use a different variable for iterating on dumping elements than the one
+	used on the main iteration.  Dump only when the dependence vectors
+	exist.  Clear the varrays on end of each iteration.
+	
 2004-07-27  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-align.c (visit_phi_node):  Make sure our alignment

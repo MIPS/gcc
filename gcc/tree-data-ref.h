@@ -26,9 +26,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 struct data_reference
 {
-  /* An identifier.  */
-  unsigned int id;
-  
   /* A pointer to the statement that contains this DR.  */
   tree stmt;
   
@@ -49,7 +46,6 @@ struct data_reference
 
 };
 
-#define DR_ID(DR) DR->id
 #define DR_STMT(DR) DR->stmt
 #define DR_REF(DR) DR->ref
 #define DR_BASE_NAME(DR) DR->base_name
@@ -93,11 +89,6 @@ struct subscript
      B.  The distance is a tree scalar expression, ie. a constant or a
      symbolic expression, but certainly not a chrec function.  */
   tree distance;
-  
-  /* Direction (or sign) of the distance.  This more abstract (less
-     precise) information is extracted from the distance field, for
-     the convenience of some analyzers.  */
-  enum data_dependence_direction direction;
 };
 
 #define SUB_CONFLICTS_IN_A(SUB) SUB->conflicting_iterations_in_a
@@ -105,7 +96,6 @@ struct subscript
 #define SUB_LAST_CONFLICT_IN_A(SUB) SUB->last_conflict_in_a
 #define SUB_LAST_CONFLICT_IN_B(SUB) SUB->last_conflict_in_b
 #define SUB_DISTANCE(SUB) SUB->distance
-#define SUB_DIRECTION(SUB) SUB->direction
 
 /* A data_dependence_relation represents a relation between two
    data_references A and B.  */

@@ -348,7 +348,7 @@ dump_data_reference (FILE *outf,
 {
   unsigned int i;
   
-  fprintf (outf, "(Data Ref %d: \n  stmt: ", DR_ID (dr));
+  fprintf (outf, "(Data Ref: \n  stmt: ");
   print_generic_stmt (outf, DR_STMT (dr), 0);
   fprintf (outf, "  ref: ");
   print_generic_stmt (outf, DR_REF (dr), 0);
@@ -376,7 +376,7 @@ dump_data_dependence_relation (FILE *outf,
   drb = DDR_B (ddr);
   
   if (dra && drb)
-    fprintf (outf, "(Data Dep (A = %d, B = %d):", DR_ID (dra), DR_ID (drb));
+    fprintf (outf, "(Data Dep:");
   else
     fprintf (outf, "(Data Dep:");
 
@@ -543,7 +543,7 @@ analyze_array (tree stmt, tree ref, bool is_read)
       fprintf (dump_file, ")\n");
     }
   
-  res = ggc_alloc (sizeof (struct data_reference));
+  res = xmalloc (sizeof (struct data_reference));
   
   DR_STMT (res) = stmt;
   DR_REF (res) = ref;
@@ -578,7 +578,7 @@ init_data_ref (tree stmt,
       fprintf (dump_file, ")\n");
     }
   
-  res = ggc_alloc (sizeof (struct data_reference));
+  res = xmalloc (sizeof (struct data_reference));
   
   DR_STMT (res) = stmt;
   DR_REF (res) = ref;
@@ -634,7 +634,7 @@ initialize_data_dependence_relation (struct data_reference *a,
   struct data_dependence_relation *res;
   bool differ_p;
   
-  res = ggc_alloc (sizeof (struct data_dependence_relation));
+  res = xmalloc (sizeof (struct data_dependence_relation));
   DDR_A (res) = a;
   DDR_B (res) = b;
 
@@ -659,13 +659,12 @@ initialize_data_dependence_relation (struct data_reference *a,
 	{
 	  struct subscript *subscript;
 	  
-	  subscript = ggc_alloc (sizeof (struct subscript));
+	  subscript = xmalloc (sizeof (struct subscript));
 	  SUB_CONFLICTS_IN_A (subscript) = chrec_dont_know;
 	  SUB_CONFLICTS_IN_B (subscript) = chrec_dont_know;
 	  SUB_LAST_CONFLICT_IN_A (subscript) = chrec_dont_know;
 	  SUB_LAST_CONFLICT_IN_B (subscript) = chrec_dont_know;
 	  SUB_DISTANCE (subscript) = chrec_dont_know;
-	  SUB_DIRECTION (subscript) = dir_star;
 	  VARRAY_PUSH_GENERIC_PTR (DDR_SUBSCRIPTS (res), subscript);
 	}
     }
@@ -680,6 +679,13 @@ static inline void
 finalize_ddr_dependent (struct data_dependence_relation *ddr, 
 			tree chrec)
 {
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "(dependence classified: ");
+      print_generic_expr (dump_file, chrec, 0);
+      fprintf (dump_file, ")\n");
+    }
+
   DDR_ARE_DEPENDENT (ddr) = chrec;  
   varray_clear (DDR_SUBSCRIPTS (ddr));
 }
@@ -1687,8 +1693,7 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "(compute_affine_dependence (%d, %d)\n", 
-	       DR_ID (dra), DR_ID (drb));
+      fprintf (dump_file, "(compute_affine_dependence\n");
       fprintf (dump_file, "  (stmt_a = \n");
       print_generic_expr (dump_file, DR_STMT (dra), 0);
       fprintf (dump_file, ")\n  (stmt_b = \n");
@@ -1894,12 +1899,15 @@ analyze_all_data_dependences (struct loops *loops)
 	  struct data_dependence_relation *ddr = 
 	    (struct data_dependence_relation *) 
 	    VARRAY_GENERIC_PTR (dependence_relations, i);
-	  fprintf (dump_file, "DISTANCE_V (");
-	  print_lambda_vector (dump_file, DDR_DIST_VECT (ddr), loops->num);
-	  fprintf (dump_file, ")\n");
-	  fprintf (dump_file, "DIRECTION_V (");
-	  print_lambda_vector (dump_file, DDR_DIR_VECT (ddr), loops->num);
-	  fprintf (dump_file, ")\n");
+	  if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
+	    {
+	      fprintf (dump_file, "DISTANCE_V (");
+	      print_lambda_vector (dump_file, DDR_DIST_VECT (ddr), loops->num);
+	      fprintf (dump_file, ")\n");
+	      fprintf (dump_file, "DIRECTION_V (");
+	      print_lambda_vector (dump_file, DDR_DIR_VECT (ddr), loops->num);
+	      fprintf (dump_file, ")\n");
+	    }
 	}
       fprintf (dump_file, "\n\n");
     }

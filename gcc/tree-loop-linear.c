@@ -128,7 +128,7 @@ try_interchange_loops (lambda_trans_matrix trans,
     return trans;
   
   /* LOOP_I is always the outer loop.  */
-  for (loop_j = 0; loop_j < depth; loop_j++)
+  for (loop_j = 1; loop_j < depth; loop_j++)
     for (loop_i = 0; loop_i < loop_j; loop_i++)
       {
 	gather_interchange_stats (dependence_relations, loop_i, &steps_i, 
@@ -143,17 +143,19 @@ try_interchange_loops (lambda_trans_matrix trans,
 	*/
 	if (steps_i < steps_j 
 	    || nb_deps_not_carried_by_i > nb_deps_not_carried_by_j)
-	  lambda_matrix_row_exchange (LTM_MATRIX (trans), loop_i, loop_j);
+	  {
+	    lambda_matrix_row_exchange (LTM_MATRIX (trans), loop_i, loop_j);
 	
-	/* Validate the resulting matrix.  When the transformation
-	   is not valid, reverse to the previous matrix.  
-	   
-	   FIXME: In this case of transformation it could be
-	   faster to verify the validity of the interchange
-	   without applying the transform to the matrix.  But for
-	   the moment do it cleanly: this is just a prototype.  */
-	if (!lambda_transform_legal_p (trans, depth, dependence_relations))
-	  lambda_matrix_row_exchange (LTM_MATRIX (trans), loop_i, loop_j);
+	    /* Validate the resulting matrix.  When the transformation
+	       is not valid, reverse to the previous matrix.  
+	       
+	       FIXME: In this case of transformation it could be
+	       faster to verify the validity of the interchange
+	       without applying the transform to the matrix.  But for
+	       the moment do it cleanly: this is just a prototype.  */
+	    if (!lambda_transform_legal_p (trans, depth, dependence_relations))
+	      lambda_matrix_row_exchange (LTM_MATRIX (trans), loop_i, loop_j);
+	  }
       }
   
   return trans;
@@ -164,13 +166,13 @@ try_interchange_loops (lambda_trans_matrix trans,
 void
 linear_transform_loops (struct loops *loops)
 {
-  unsigned int i;  
-  unsigned int depth = 0;
-  varray_type datarefs;
-  varray_type dependence_relations;
+  unsigned int i;
 
   for (i = 1; i < loops->num; i++)
     {
+      unsigned int depth = 0;
+      varray_type datarefs;
+      varray_type dependence_relations;
       struct loop *loop_nest = loops->parray[i];
       struct loop *temp;
       varray_type oldivs;
@@ -219,17 +221,22 @@ linear_transform_loops (struct loops *loops)
 					 &datarefs, &dependence_relations);
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (dependence_relations); i++)
+	  unsigned int j;
+	  for (j = 0; j < VARRAY_ACTIVE_SIZE (dependence_relations); j++)
 	    {
 	      struct data_dependence_relation *ddr = 
 		(struct data_dependence_relation *) 
-		VARRAY_GENERIC_PTR (dependence_relations, i);
-	      fprintf (dump_file, "DISTANCE_V (");
-	      print_lambda_vector (dump_file, DDR_DIST_VECT (ddr), loops->num);
-	      fprintf (dump_file, ")\n");
-	      fprintf (dump_file, "DIRECTION_V (");
-	      print_lambda_vector (dump_file, DDR_DIR_VECT (ddr), loops->num);
-	      fprintf (dump_file, ")\n");
+		VARRAY_GENERIC_PTR (dependence_relations, j);
+
+	      if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
+		{
+		  fprintf (dump_file, "DISTANCE_V (");
+		  print_lambda_vector (dump_file, DDR_DIST_VECT (ddr), loops->num);
+		  fprintf (dump_file, ")\n");
+		  fprintf (dump_file, "DIRECTION_V (");
+		  print_lambda_vector (dump_file, DDR_DIR_VECT (ddr), loops->num);
+		  fprintf (dump_file, ")\n");
+		}
 	    }
 	  fprintf (dump_file, "\n\n");
 	}
@@ -270,5 +277,9 @@ linear_transform_loops (struct loops *loops)
 	}
       lambda_loopnest_to_gcc_loopnest (loop_nest, oldivs, invariants,
 				       after, trans);
+      varray_clear (datarefs);
+      varray_clear (dependence_relations);
+      varray_clear (oldivs);
+      varray_clear (invariants);
     }
 }
