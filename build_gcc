@@ -423,8 +423,9 @@ find obj-* -name \*.\[chy\] -print | cpio -pdml $SYM_DIR/src || exit 1
 find $DEST_DIR -perm -0111 \! -name \*.dylib -type f -print \
   | xargs strip || exit 1
 if [ "$VERS" != "3.5.0" ]; then
-find $DEST_DIR \( -name \*.a -or -name \*.dylib \) -type f -print \
-  | xargs strip -SX || exit 1
+  # these go away when rdar://problem/3812858 is fixed
+  find $DEST_DIR \( -name \*.a -or -name \*.dylib \) -type f -print \
+    | xargs strip -SX || exit 1
 fi
 find $DEST_DIR -name \*.a -type f -print \
   | xargs ranlib || exit 1
