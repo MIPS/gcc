@@ -1870,8 +1870,11 @@ _Jv_LinkSymbolTable(jclass klass)
 		  _Jv_ResolveField (field, cls->loader);
 
 		if (_Jv_IsInterpretedClass (target_class))
-		  _Jv_AssertDoCall ("can't fixup reference to static field in interpreted class");
-		
+		  {
+		    JvSynchronize sync (target_class);
+		    _Jv_PrepareClass(target_class);
+		  }
+
 // 		if (field_type != 0 && field->type != field_type)
 // 		  throw new java::lang::LinkageError
 // 		    (JvNewStringLatin1 

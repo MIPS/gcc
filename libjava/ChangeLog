@@ -1,3 +1,8 @@
+2004-08-13  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natClass.cc (_Jv_LinkSymbolTable): Prepare the target
+	class if it is interpreted.
+
 2004-08-12  Tom Tromey  <tromey@redhat.com>
 
 	* java/lang/natClassLoader.cc (_Jv_WaitForState): Updated.
