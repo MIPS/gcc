@@ -1,3 +1,7 @@
+2003-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20030313-1.c: New test.
+
 2003-03-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* gcc.dg/i386-loop-1.c: New test.

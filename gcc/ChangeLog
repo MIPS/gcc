@@ -1,5 +1,9 @@
 2003-03-14  Jakub Jelinek  <jakub@redhat.com>
 
+	* stmt.c (expand_start_case): Call emit_queue ().
+
+2003-03-14  Jakub Jelinek  <jakub@redhat.com>
+
 	* config/rs6000/rs6000.c (rs6000_emit_load_toc_table): Don't call
 	rs6000_maybe_dead if !fromprolog.
 
