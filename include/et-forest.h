@@ -1,5 +1,5 @@
 /* Et-forest data structure implementation.  
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 2002 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,8 +19,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    the structure maintains a tree structure and offers logarithmic time
    for tree operations (insertion and removal of nodes and edges) and
    poly-logarithmic time for nearest common ancesto.
-
-   Node values are generic pointers.
  
    ET tree strores its structue as a sequence of symbols obtained 
    by dfs(root)
@@ -52,59 +50,31 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include <ansidecl.h>
 #include <stddef.h>
-#include "hashtab.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-typedef void * et_forest_value;
-
-/* The function for computing hash value of vertices.  */
-typedef hashval_t (*et_forest_hash) PARAMS ((const et_forest_value));
-
-/* The vertex comparsion function.  */
-typedef int (*et_forest_eq) PARAMS ((const et_forest_value,
-				     const et_forest_value));
-
-/* Cleanup function. Called in destroy and remove.  */
-typedef void (*et_forest_del) PARAMS ((et_forest_value));
-
-
-/* The ET-forest type.  */
-struct et_forest
-{
-  /* The hash table.  */
-  htab_t table;
-
-  /* Pointer to the hash function.  */
-  et_forest_hash hash_f;
-
-  /* Pointer to the comparsion function.  */
-  et_forest_eq eq_f;
-
-  /* Pointer to the delete function.  */
-  et_forest_del del_f;
-};
-
 typedef struct et_forest *et_forest_t;
+typedef struct et_forest_node *et_forest_node_t;
 
-extern et_forest_t et_forest_create PARAMS ((size_t, et_forest_hash,
-                                         et_forest_eq, et_forest_del));
+extern et_forest_t et_forest_create PARAMS ((void));
 
 extern void et_forest_delete PARAMS ((et_forest_t));
 
-extern void et_forest_add_vertex PARAMS ((et_forest_t, et_forest_value));
-extern void et_forest_add_edge PARAMS ((et_forest_t, et_forest_value, 
-					et_forest_value));
-extern void et_forest_remove_vertex PARAMS ((et_forest_t, et_forest_value));
-extern void et_forest_remove_edge PARAMS ((et_forest_t, et_forest_value,
-					   et_forest_value));
-extern et_forest_value et_forest_parent PARAMS ((et_forest_t, et_forest_value));
-extern et_forest_value et_forest_common_ancestor PARAMS ((et_forest_t,
-							  et_forest_value,
-							  et_forest_value));
-extern int et_forest_contains_vertex PARAMS ((et_forest_t, et_forest_value));
+extern et_forest_node_t et_forest_add_node PARAMS ((et_forest_t, void *));
+extern int et_forest_add_edge PARAMS ((et_forest_t, et_forest_node_t, 
+					et_forest_node_t));
+extern void et_forest_remove_node PARAMS ((et_forest_t, et_forest_node_t));
+extern int et_forest_remove_edge PARAMS ((et_forest_t, et_forest_node_t,
+					   et_forest_node_t));
+extern et_forest_node_t et_forest_parent PARAMS ((et_forest_t, et_forest_node_t));
+extern et_forest_node_t et_forest_common_ancestor PARAMS ((et_forest_t,
+							  et_forest_node_t,
+							  et_forest_node_t));
+extern void * et_forest_node_value PARAMS ((et_forest_t, et_forest_node_t));
+extern int et_forest_enumerate_sons PARAMS ((et_forest_t, et_forest_node_t,
+					     et_forest_node_t *));
 
 #ifdef __cplusplus
 }

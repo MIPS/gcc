@@ -39,7 +39,18 @@
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "error.h"
+#include "et-forest.h"
 
+struct dominance_info
+{
+  et_forest_t forest;
+  varray_type varray;
+};
+
+#define BB_NODE(info, bb) \
+  ((et_forest_node_t)VARRAY_GENERIC_PTR ((info)->varray, (bb)->index + 2))
+#define SET_BB_NODE(info, bb, node) \
+  (VARRAY_GENERIC_PTR ((info)->varray, (bb)->index + 2) = (node))
 
 /* We name our nodes with integers, beginning with 1.  Zero is reserved for
    'undefined' or 'end of list'.  The name of each node is given by the dfs
@@ -114,8 +125,6 @@ static TBB eval				PARAMS ((struct dom_info *, TBB));
 static void link_roots			PARAMS ((struct dom_info *, TBB, TBB));
 static void calc_idoms			PARAMS ((struct dom_info *,
 						 enum cdi_direction));
-static hashval_t bb_hash_func PARAMS ((const et_forest_value));
-static int bb_eq_func PARAMS ((const et_forest_value, const et_forest_value));
 void debug_dominance_info		PARAMS ((dominance_info));
 
 /* Helper macro for allocating and initializing an array,
@@ -554,13 +563,17 @@ calculate_dominance_info (reverse)
   basic_block b;
 
   /* allocate structure for dominance information.  */
-  info = et_forest_create (n_basic_blocks * 4 / 3 + 10,
-			   bb_hash_func, bb_eq_func, NULL);
+  info = xmalloc (sizeof (struct dominance_info));
+  info->forest = et_forest_create ();
+  VARRAY_GENERIC_PTR_INIT (info->varray, last_basic_block + 3, "dominance info");
+
   /* Add the two well-known basic blocks.  */
-  et_forest_add_vertex (info, ENTRY_BLOCK_PTR);
-  et_forest_add_vertex (info, EXIT_BLOCK_PTR);
+  SET_BB_NODE (info, ENTRY_BLOCK_PTR, et_forest_add_node (info->forest,
+							  ENTRY_BLOCK_PTR));
+  SET_BB_NODE (info, EXIT_BLOCK_PTR, et_forest_add_node (info->forest,
+							 EXIT_BLOCK_PTR));
   FOR_EACH_BB (b)
-    et_forest_add_vertex (info, b);
+    SET_BB_NODE (info, b, et_forest_add_node (info->forest, b));
 
   init_dom_info (&di);
   calc_dfs_tree (&di, reverse);
@@ -571,32 +584,12 @@ calculate_dominance_info (reverse)
     {
       TBB d = di.dom[di.dfs_order[b->index]];
 
-      set_immediate_dominator (info, b, di.dfs_to_bb[d]);
+      if (di.dfs_to_bb[d])
+        et_forest_add_edge (info->forest, BB_NODE (info, di.dfs_to_bb[d]), BB_NODE (info, b));
     }
 
   free_dom_info (&di);
   return info;
-}
-
-/* Callback functions needed by et_forest_t.  */
-static hashval_t
-bb_hash_func (_bb)
-     const et_forest_value _bb;
-{
-  /* Basic block numbers are not stable - we can't use them as hash value.  */
-  int hash = (int) _bb;
-
-  hash >>= 4;
-
-  return hash;
-}
-
-static int
-bb_eq_func (_bb1, _bb2)
-     const et_forest_value _bb1;
-     const et_forest_value _bb2;
-{
-  return _bb1 == _bb2;
 }
 
 /* Free dominance information.  */
@@ -604,7 +597,19 @@ void
 free_dominance_info (info)
      dominance_info info;
 {
-  et_forest_delete (info);
+  basic_block bb;
+
+  /* Allow users to create new basic block without setting up the dominance
+     information for them.  */
+  FOR_EACH_BB (bb)
+    if (bb->index < (int)(info->varray->num_elements - 2)
+	&& BB_NODE (info, bb))
+      delete_from_dominance_info (info, bb);
+  delete_from_dominance_info (info, ENTRY_BLOCK_PTR);
+  delete_from_dominance_info (info, EXIT_BLOCK_PTR);
+  et_forest_delete (info->forest);
+  VARRAY_GROW (info->varray, 0);
+  free (info);
 }
 
 /* Return the immediate dominator of basic block BB.  */
@@ -613,32 +618,30 @@ get_immediate_dominator (dom, bb)
      dominance_info dom;
      basic_block bb;
 {
-  return et_forest_parent (dom, bb);
+  return et_forest_node_value (dom->forest,
+			       et_forest_parent (dom->forest,
+						 BB_NODE (dom, bb)));
 }
 
 /* Set the immediate dominator of the block possibly removing
    existing edge.  NULL can be used to remove any edge.  */
-void
+inline void
 set_immediate_dominator (dom, bb, dominated_by)
-       dominance_info dom;
-       basic_block bb, dominated_by;
+     dominance_info dom;
+     basic_block bb, dominated_by;
 {
-  basic_block aux_bb;
+  void *aux_bb_node;
+  et_forest_node_t bb_node = BB_NODE (dom, bb);
 
-  aux_bb = et_forest_parent (dom, bb);
-
-  if (aux_bb)
-    et_forest_remove_edge (dom, aux_bb, bb);
-
+  aux_bb_node = et_forest_parent (dom->forest, bb_node);
+  if (aux_bb_node)
+    et_forest_remove_edge (dom->forest, aux_bb_node, bb_node);
   if (dominated_by != NULL)
     {
-      /* Check for cycles in the structure.  */
-#ifdef ENABLE_CHECKING
-      if (bb == dominated_by
-	  || dominated_by_p (dom, dominated_by, bb))
+      if (bb == dominated_by)
 	abort ();
-#endif
-      et_forest_add_edge (dom, dominated_by, bb);
+      if (!et_forest_add_edge (dom->forest, BB_NODE (dom, dominated_by), bb_node))
+	abort ();
     }
 }
 
@@ -649,18 +652,12 @@ get_dominated_by (dom, bb, bbs)
      basic_block bb;
      basic_block **bbs;
 {
-  int n;
-  basic_block b;
-  n = 0;
+  int n, i;
 
-  FOR_EACH_BB (b)
-    if (get_immediate_dominator (dom, b) == bb)
-      n++;
-  *bbs = xcalloc (n, sizeof (basic_block));
-  n = 0;
-  FOR_EACH_BB (b)
-    if (get_immediate_dominator (dom, b) == bb)
-      (*bbs)[n++] = b;
+  *bbs = xmalloc (n_basic_blocks * sizeof (basic_block));
+  n = et_forest_enumerate_sons (dom->forest, BB_NODE (dom, bb), (et_forest_node_t *)*bbs);
+  for (i = 0; i < n; i++)
+   (*bbs)[i] = et_forest_node_value (dom->forest, (et_forest_node_t)(*bbs)[i]);
   return n;
 }
 
@@ -671,11 +668,18 @@ redirect_immediate_dominators (dom, bb, to)
      basic_block bb;
      basic_block to;
 {
-  basic_block b;
+  et_forest_node_t *bbs = xmalloc (n_basic_blocks * sizeof (basic_block));
+  et_forest_node_t node = BB_NODE (dom, bb);
+  et_forest_node_t node2 = BB_NODE (dom, to);
+  int n = et_forest_enumerate_sons (dom->forest, node, bbs);
+  int i;
 
-  FOR_EACH_BB (b)
-    if (get_immediate_dominator (dom, b) == bb)
-      set_immediate_dominator (dom, b, to);
+  for (i = 0; i < n; i++)
+    {
+      et_forest_remove_edge (dom->forest, node, bbs[i]);
+      et_forest_add_edge (dom->forest, node2, bbs[i]);
+    }
+  free (bbs);
 }
 
 /* Find first basic block in the tree dominating both BB1 and BB2.  */
@@ -689,7 +693,11 @@ nearest_common_dominator (dom, bb1, bb2)
     return bb2;
   if (!bb2)
     return bb1;
-  return et_forest_common_ancestor (dom, bb1, bb2);
+  return et_forest_node_value (dom->forest,
+			       et_forest_common_ancestor (dom->forest,
+							  BB_NODE (dom, bb1),
+							  BB_NODE (dom,
+								   bb2)));
 }
 
 /* Return TRUE in case BB1 is dominated by BB2.  */
@@ -699,12 +707,7 @@ dominated_by_p (dom, bb1, bb2)
      basic_block bb1;
      basic_block bb2;
 {
-  return  nearest_common_dominator (dom, bb1, bb2) == bb2;
-#if 0
-  while (bb1 && bb1 != bb2)
-    bb1 = get_immediate_dominator (dom, bb1);
-  return bb1 != NULL;
-#endif
+  return nearest_common_dominator (dom, bb1, bb2) == bb2;
 }
 
 /* Verify invariants of dominator structure.  */
@@ -781,7 +784,12 @@ add_to_dominance_info (dom, bb)
      dominance_info dom;
      basic_block bb;
 {
-  et_forest_add_vertex (dom, bb);
+  VARRAY_GROW (dom->varray, last_basic_block + 3);
+#ifdef ENABLE_CHECKING
+  if (BB_NODE (dom, bb))
+    abort ();
+#endif
+  SET_BB_NODE (dom, bb, et_forest_add_node (dom->forest, bb));
 }
 
 void
@@ -789,7 +797,8 @@ delete_from_dominance_info (dom, bb)
      dominance_info dom;
      basic_block bb;
 {
-  et_forest_remove_vertex (dom, bb);
+  et_forest_remove_node (dom->forest, BB_NODE (dom, bb));
+  SET_BB_NODE (dom, bb, NULL);
 }
 
 void

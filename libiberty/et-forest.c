@@ -1,7 +1,6 @@
 /* ET-trees datastructure implementation.
    Contributed by Pavel Nejedly
    Copyright (C) 2002 Free Software Foundation, Inc.
-   Contributed by Cygnus Solutions.
 
 This file is part of the libiberty library.
 Libiberty is free software; you can redistribute it and/or
@@ -34,16 +33,20 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #include "libiberty.h"
-#include "et-forest.h"
 
+#include "et-forest.h"
 
 struct et_forest_occurrence;
 typedef struct et_forest_occurrence* et_forest_occurrence_t;
 
-struct et_forest_node;
-typedef struct et_forest_node* et_forest_node_t;
+/* The ET-forest type.  */
+struct et_forest
+{
+  /* Linked list of nodes is used to destroy the structure.  */
+  int nnodes;
+};
 
-/* Single occurrence of vertex in ET-forest.  
+/* Single occurrence of node in ET-forest.  
    A single node may have multiple occurrences.
  */
 struct et_forest_occurrence
@@ -68,20 +71,13 @@ struct et_forest_occurrence
 /* ET-forest node.  */
 struct et_forest_node
 {
-  /* The value of the node.  */
-  et_forest_value value;
-  
-  /* In order to use hashtable, we need to know hash_f, eq_f and del_f.  */
   et_forest_t forest;
+  void *value;
 
   /* First and last occurrence of this node in the sequence.  */
   et_forest_occurrence_t first, last;
 };
 
-
-static hashval_t _hash_func PARAMS ((const void*));
-static int _compare_func PARAMS ((const void*, const void*));
-static void _delete_func PARAMS ((void*));
 
 static et_forest_occurrence_t splay PARAMS ((et_forest_occurrence_t));
 static void remove_all_occurrences PARAMS ((et_forest_node_t));
@@ -91,49 +87,28 @@ static et_forest_occurrence_t find_rightmost_node
                                PARAMS ((et_forest_occurrence_t));
 static int calculate_value PARAMS ((et_forest_occurrence_t));
 
-
-static
-hashval_t
-_hash_func (_node)
-     const void *_node;
+static inline et_forest_occurrence_t
+find_leftmost_node (tree)
+     et_forest_occurrence_t tree;
 {
-  et_forest_node_t node = (et_forest_node_t) _node;
+  while (tree->left)
+    tree = tree->left;
 
-  return node->forest->hash_f (node->value);
+  return tree;
+}
+
+static inline et_forest_occurrence_t
+find_rightmost_node (tree)
+     et_forest_occurrence_t tree;
+{
+  while (tree->right)
+    tree = tree->right;
+  return tree;
 }
 
 
-static
-int
-_compare_func (_node1, _node2)
-     const void *_node1;
-     const void *_node2;
-{
-  et_forest_node_t node1 = (et_forest_node_t) _node1;
-  et_forest_node_t node2 = (et_forest_node_t) _node2;
 
-  return node1->forest->eq_f (node1->value, node2->value);
-}
-
-
-static
-void
-_delete_func (_node)
-     void *_node;
-{
-  et_forest_node_t node = (et_forest_node_t) _node;
-
-  if (node->forest->del_f)
-    node->forest->del_f (node->value);
-
-  remove_all_occurrences (node);
-
-  free (node);
-}
-
-static 
-et_forest_occurrence_t
-splay (node)
+static et_forest_occurrence_t splay (node)
      et_forest_occurrence_t node;
 {
   et_forest_occurrence_t parent;
@@ -364,8 +339,7 @@ splay (node)
 }
 
 
-static
-void
+static void
 remove_all_occurrences (forest_node)
      et_forest_node_t forest_node;
 {
@@ -441,30 +415,7 @@ remove_all_occurrences (forest_node)
 }
 
 
-static
-et_forest_occurrence_t
-find_leftmost_node (tree)
-     et_forest_occurrence_t tree;
-{
-  while (tree->left)
-    tree = tree->left;
-
-  return tree;
-}
-
-
-static
-et_forest_occurrence_t
-find_rightmost_node (tree)
-     et_forest_occurrence_t tree;
-{
-  while (tree->right)
-    tree = tree->right;
-  return tree;
-}
-
-
-int
+static inline int
 calculate_value (node)
      et_forest_occurrence_t node;
 {
@@ -486,22 +437,14 @@ calculate_value (node)
 
 /* Create ET-forest structure.  */
 et_forest_t
-et_forest_create (initial_htab_size, hash_func, compare_func, delete_func)
-     size_t initial_htab_size;
-     et_forest_hash hash_func;
-     et_forest_eq compare_func;
-     et_forest_del delete_func;
+et_forest_create ()
 {
 
-  et_forest_t forest = xmalloc (sizeof (struct et_forest));
-  
-  forest->table = htab_create (initial_htab_size, _hash_func, _compare_func,
-			       _delete_func);
+  et_forest_t forest = malloc (sizeof (struct et_forest));
+  if (!forest)
+    return NULL;
 
-  forest->hash_f = hash_func;
-  forest->eq_f = compare_func;
-  forest->del_f = delete_func;
-
+  forest->nnodes = 0;
   return forest;
 }
 
@@ -512,62 +455,50 @@ void
 et_forest_delete (forest)
      et_forest_t forest;
 {
+  if (forest->nnodes)
+    abort ();
 
-  /* This removes nodes and occurrences as well.  */
-  htab_delete (forest->table);
-  
   free (forest);
 }
 
 
-void
-et_forest_add_vertex (forest, vertex)
+et_forest_node_t
+et_forest_add_node (forest, value)
      et_forest_t forest;
-     et_forest_value vertex;
+     void *value;
 {
   /* Create node with one occurrence.  */
   et_forest_node_t node;
   et_forest_occurrence_t occ;
-  void **slot;
 
-  node = xmalloc (sizeof (struct et_forest_node));
-  occ = xmalloc (sizeof (struct et_forest_occurrence));
+  node = malloc (sizeof (struct et_forest_node));
+  if (!node)
+    return NULL;
+  occ = malloc (sizeof (struct et_forest_occurrence));
+  if (!occ)
+    {
+      free (node);
+      return NULL;
+    }
 
-  node->value = vertex;
-  node->forest = forest;
   node->first = node->last = occ;
-
-  slot = htab_find_slot (forest->table, node, 1);
-  if (!slot)
-    abort ();
-
-  if (*slot)
-    abort ();    /* Already inserted.  */
-
-  *slot = node;
+  node->value = value;
+  forest->nnodes++;
 
   occ->node = node;
   occ->left = occ->right = occ->parent = 0;
   occ->next = 0;
   occ->count_left = occ->count_right = 0;
+  return node;
 }
 
-void
-et_forest_add_edge (forest, parent, child)
-     et_forest_t forest;
-     et_forest_value parent;
-     et_forest_value child;
+int
+et_forest_add_edge (forest, parent_node, child_node)
+     et_forest_t forest ATTRIBUTE_UNUSED;
+     et_forest_node_t parent_node;
+     et_forest_node_t child_node;
 {
-  struct et_forest_node fake_node;
-  et_forest_node_t parent_node;
-  et_forest_node_t child_node;
   et_forest_occurrence_t new_occ, parent_occ, child_occ;
-
-  fake_node.forest = forest;
-  fake_node.value = parent;
-  parent_node = htab_find (forest->table, &fake_node);
-  fake_node.value = child;
-  child_node = htab_find (forest->table, &fake_node);
 
   if (! parent_node || ! child_node)
     abort ();
@@ -579,12 +510,14 @@ et_forest_add_edge (forest, parent, child)
   splay (child_occ);
 
   if (parent_occ->parent)
-    abort ();  /* Both child and parent are in the same tree.  */
+    return 0; /* Both child and parent are in the same tree.  */
 
   if (child_occ->left)
     abort ();  /* child must be root of its containing tree.  */
   
-  new_occ = xmalloc (sizeof (struct et_forest_occurrence));
+  new_occ = malloc (sizeof (struct et_forest_occurrence));
+  if (!new_occ)
+    return 0;
 
   new_occ->node = parent_node;
   new_occ->left = child_occ;
@@ -602,47 +535,34 @@ et_forest_add_edge (forest, parent, child)
 
   if (parent_node->last == parent_occ)
     parent_node->last = new_occ;
+  return 1;
 }
 
 
 void
-et_forest_remove_vertex (forest, vertex)
+et_forest_remove_node (forest, node)
      et_forest_t forest;
-     et_forest_value vertex;
+     et_forest_node_t node;
 {
-  struct et_forest_node fake_node;
+  remove_all_occurrences (node);
+  forest->nnodes--;
 
-  fake_node.forest = forest;
-  fake_node.value = vertex;
-  
-  htab_remove_elt (forest->table, &fake_node);
+  free (node);
 }
 
 
-void
-et_forest_remove_edge (forest, parent, child)
-     et_forest_t forest;
-     et_forest_value parent;
-     et_forest_value child;
+int
+et_forest_remove_edge (forest, parent_node, child_node)
+     et_forest_t forest ATTRIBUTE_UNUSED;
+     et_forest_node_t parent_node;
+     et_forest_node_t child_node;
 {
-  struct et_forest_node fake_node;
-  et_forest_node_t parent_node;
-  et_forest_node_t child_node;
   et_forest_occurrence_t parent_pre_occ, parent_post_occ;
-
-  fake_node.forest = forest;
-  fake_node.value = parent;
-  parent_node = htab_find (forest->table, &fake_node);
-  fake_node.value = child;
-  child_node = htab_find (forest->table, &fake_node);
-
-  if (! child_node || ! parent_node)
-    abort ();
 
   splay (child_node->first);
 
   if (! child_node->first->left)
-    abort (); /* must have parent.  */
+    return 0;
 
   parent_pre_occ = find_rightmost_node (child_node->first->left);
   if (parent_pre_occ->node != parent_node)
@@ -667,53 +587,35 @@ et_forest_remove_edge (forest, parent, child)
     parent_node->last = parent_pre_occ;
 
   free (parent_post_occ);
+  return 1;
 }
 
 
-et_forest_value
-et_forest_parent (forest, vertex)
-     et_forest_t forest;
-     et_forest_value vertex;
+et_forest_node_t
+et_forest_parent (forest, node)
+     et_forest_t forest ATTRIBUTE_UNUSED;
+     et_forest_node_t node;
 {
-  et_forest_node_t node;
-  struct et_forest_node fake_node;
-
-  fake_node.forest = forest;
-  fake_node.value = vertex;
-  node = htab_find (forest->table, &fake_node);
-
-  if (! node)
-    abort ();  /* Node not found.  */
-
   splay (node->first);
 
   if (node->first->left)
-    return find_rightmost_node (node->first->left)->node->value;
+    return find_rightmost_node (node->first->left)->node;
   else
     return 0;
 }
 
 
-et_forest_value
-et_forest_common_ancestor (forest, vertex1, vertex2)
-     et_forest_t forest;
-     et_forest_value vertex1;
-     et_forest_value vertex2;
+et_forest_node_t
+et_forest_common_ancestor (forest, node1, node2)
+     et_forest_t forest ATTRIBUTE_UNUSED;
+     et_forest_node_t node1;
+     et_forest_node_t node2;
 {
-  et_forest_node_t node1;
-  et_forest_node_t node2;
-  struct et_forest_node fake_node;
   int value1, value2, max_value;
   et_forest_node_t ancestor;
 
-  fake_node.forest = forest;
-  fake_node.value = vertex1;
-  node1 = htab_find (forest->table, &fake_node);
-  fake_node.value = vertex2;
-  node2 = htab_find (forest->table, &fake_node);
-
-  if (vertex1 == vertex2)
-    return vertex1;
+  if (node1 == node2)
+    return node1;
   
   if (! node1 || ! node2)
     abort ();
@@ -745,19 +647,42 @@ et_forest_common_ancestor (forest, vertex1, vertex2)
       ancestor = find_rightmost_node (ancestor->first->left) ->node;
     }
 
-  return ancestor->value;
+  return ancestor;
 }
 
+void *
+et_forest_node_value (forest, node)
+     et_forest_t forest ATTRIBUTE_UNUSED;
+     et_forest_node_t node;
+{
+  /* Alloc threading NULL as a special node of the forest.  */
+  if (!node)
+    return NULL;
+  return node->value;
+}
 
 int
-et_forest_contains_vertex (forest, vertex)
-     et_forest_t forest;
-     et_forest_value vertex;
+et_forest_enumerate_sons (forest, node, array)
+     et_forest_t forest ATTRIBUTE_UNUSED;
+     et_forest_node_t node;
+     et_forest_node_t *array;
 {
-  struct et_forest_node fake_node;
+  int n = 0;
+  et_forest_occurrence_t occ = node->first, stop = node->last, occ1;
 
-  fake_node.forest = forest;
-  fake_node.value = vertex;
-  
-  return htab_find (forest->table, &fake_node) != 0;
+  /* Parent is the rightmost node of the left successor.
+     Look for all occurences having no right succesor
+     and lookup the sons. */
+  while (occ != stop)
+    {
+      splay (occ);
+      if (occ->right)
+	{
+          occ1 = find_leftmost_node (occ->right);
+	  if (occ1->node->first == occ1)
+	    array[n++] = occ1->node;
+	}
+      occ = occ->next;
+    }
+  return n;
 }

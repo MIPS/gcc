@@ -26,7 +26,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "sbitmap.h"
 #include "varray.h"
 #include "partition.h"
-#include "et-forest.h"
 
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
@@ -355,7 +354,7 @@ extern rtx first_insn_after_basic_block_note	PARAMS ((basic_block));
 
 /* Dominator information for basic blocks.  */
 
-typedef et_forest_t dominance_info;
+typedef struct dominance_info *dominance_info;
 
 /* Structure to hold information for each natural loop.  */
 struct loop

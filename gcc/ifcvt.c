@@ -2063,6 +2063,8 @@ process_double_test_block (test_bb, test2_bb, then_bb, else_bb,
   /* Delete the second test basic block.  */
   if (test2_bb->pred != NULL_EDGE)
     abort ();
+  if (post_dominators)
+    delete_from_dominance_info (post_dominators, test2_bb);
   flow_delete_block (test2_bb);
   num_removed_blocks_double_test++;
   num_updated_double_test_blocks++;
@@ -2335,6 +2337,8 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
       if (combo_bb->global_live_at_end)
 	COPY_REG_SET (combo_bb->global_live_at_end,
 		      then_bb->global_live_at_end);
+      if (post_dominators)
+	delete_from_dominance_info (post_dominators, then_bb);
       merge_blocks_nomove (combo_bb, then_bb);
       num_removed_blocks++;
     }
@@ -2344,6 +2348,8 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
      get their addresses taken.  */
   if (else_bb)
     {
+      if (post_dominators)
+	delete_from_dominance_info (post_dominators, else_bb);
       merge_blocks_nomove (combo_bb, else_bb);
       num_removed_blocks++;
     }
@@ -2398,6 +2404,8 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
       if (combo_bb->global_live_at_end)
 	COPY_REG_SET (combo_bb->global_live_at_end,
 		      join_bb->global_live_at_end);
+      if (post_dominators)
+	delete_from_dominance_info (post_dominators, join_bb);
       merge_blocks_nomove (combo_bb, join_bb);
       num_removed_blocks++;
     }
@@ -2754,6 +2762,8 @@ find_cond_trap (test_bb, then_edge, else_edge)
   remove_edge (trap_bb == then_bb ? then_edge : else_edge);
   if (trap_bb->pred == NULL)
     {
+      if (post_dominators)
+	delete_from_dominance_info (post_dominators, trap_bb);
       flow_delete_block (trap_bb);
       num_removed_blocks++;
     }
@@ -2935,6 +2945,8 @@ find_if_case_1 (test_bb, then_edge, else_edge)
   
   new_bb = redirect_edge_and_branch_force (FALLTHRU_EDGE (test_bb), else_bb);
   then_bb_index = then_bb->index;
+  if (post_dominators)
+    delete_from_dominance_info (post_dominators, then_bb);
   flow_delete_block (then_bb);
   /* Make rest of code believe that the newly created block is the THEN_BB
      block we removed.  */
@@ -3012,6 +3024,8 @@ find_if_case_2 (test_bb, then_edge, else_edge)
 		    then_bb->global_live_at_start,
 		    else_bb->global_live_at_end, BITMAP_IOR);
   
+  if (post_dominators)
+    delete_from_dominance_info (post_dominators, else_bb);
   flow_delete_block (else_bb);
 
   num_removed_blocks++;
