@@ -1,3 +1,7 @@
+2004-09-30  Andreas Schwab  <schwab@suse.de>
+
+	* tree-vectorizer.c (vectorizable_load): Always declare params.
+
 2004-09-29  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* builtin-types.def (BT_CHAR_VECTOR, BT_FN_CHAR_VECTOR_PTR): Removed.
