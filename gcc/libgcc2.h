@@ -301,6 +301,8 @@ extern SItype __negvsi2 (SItype);
 #endif /* COMPAT_SIMODE_TRAPPING_ARITHMETIC */
 
 #if BITS_PER_UNIT == 8
+/* APPLE LOCAL begin mainline 2005-03-30 */
+#undef int
 extern DWtype __fixdfdi (DFtype);
 extern DWtype __fixsfdi (SFtype);
 extern DFtype __floatdidf (DWtype);
@@ -309,8 +311,8 @@ extern UWtype __fixunsdfSI (DFtype);
 extern UWtype __fixunssfSI (SFtype);
 extern DWtype __fixunsdfDI (DFtype);
 extern DWtype __fixunssfDI (SFtype);
-extern SFtype __powisf2 (SFtype, Wtype);
-extern DFtype __powidf2 (DFtype, Wtype);
+extern SFtype __powisf2 (SFtype, int);
+extern DFtype __powidf2 (DFtype, int);
 
 extern SCtype __divsc3 (SFtype, SFtype, SFtype, SFtype);
 extern SCtype __mulsc3 (SFtype, SFtype, SFtype, SFtype);
@@ -322,7 +324,7 @@ extern DWtype __fixxfdi (XFtype);
 extern DWtype __fixunsxfDI (XFtype);
 extern XFtype __floatdixf (DWtype);
 extern UWtype __fixunsxfSI (XFtype);
-extern XFtype __powixf2 (XFtype, Wtype);
+extern XFtype __powixf2 (XFtype, int);
 extern XCtype __divxc3 (XFtype, XFtype, XFtype, XFtype);
 extern XCtype __mulxc3 (XFtype, XFtype, XFtype, XFtype);
 #endif
@@ -331,10 +333,12 @@ extern XCtype __mulxc3 (XFtype, XFtype, XFtype, XFtype);
 extern DWtype __fixunstfDI (TFtype);
 extern DWtype __fixtfdi (TFtype);
 extern TFtype __floatditf (DWtype);
-extern TFtype __powitf2 (TFtype, Wtype);
+extern TFtype __powitf2 (TFtype, int);
 extern TCtype __divtc3 (TFtype, TFtype, TFtype, TFtype);
 extern TCtype __multc3 (TFtype, TFtype, TFtype, TFtype);
 #endif
+#define int bogus_type
+/* APPLE LOCAL end mainline 2005-03-30 */
 #endif /* BITS_PER_UNIT == 8 */
 
 /* DWstructs are pairs of Wtype values in the order determined by

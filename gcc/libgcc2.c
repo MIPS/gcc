@@ -1493,10 +1493,13 @@ __fixunssfSI (SFtype a)
 #  define NAME __powitf2
 # endif
 
+/* APPLE LOCAL begin mainline 2005-03-30 */
+#undef int
+#undef unsigned
 TYPE
-NAME (TYPE x, Wtype m)
+NAME (TYPE x, int m)
 {
-  UWtype n = m < 0 ? -m : m;
+  unsigned int n = m < 0 ? -m : m;
   TYPE y = n % 2 ? x : 1;
   while (n >>= 1)
     {
@@ -1506,6 +1509,7 @@ NAME (TYPE x, Wtype m)
     }
   return m < 0 ? 1/y : y;
 }
+/* APPLE LOCAL end mainline 2005-03-30 */
 
 #endif
 
