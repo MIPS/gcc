@@ -1,3 +1,11 @@
+2004-02-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/13944
+	* except.c (do_free_exception): Remove #if 0 wrapper.
+	(build_throw): Use it if we elide a copy into the exception object.
+
+	* tree.c (stabilize_call): Fix thinko.
+
 2004-02-19  Steven Bosscher  <stevenb@suse.de>
 
 	* decl.c (poplevel): Don't output nested inline functions.

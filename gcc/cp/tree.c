@@ -2456,7 +2456,9 @@ stabilize_call (tree call, tree *initp)
       {
 	tree init;
 	TREE_VALUE (t) = stabilize_expr (TREE_VALUE (t), &init);
-	if (inits)
+	if (!init)
+	  /* Nothing.  */;
+	else if (inits)
 	  inits = build (COMPOUND_EXPR, void_type_node, inits, init);
 	else
 	  inits = init;
