@@ -248,6 +248,9 @@ struct leh_tf_state
   tree try_finally_expr;
   tree *top_p;
 
+  /* The state outside this try_finally node.  */
+  struct leh_state *outer;
+
   /* The exception region created for it.  */
   struct eh_region *region;
 
@@ -674,6 +677,24 @@ lower_try_finally_dup_block (tree t, struct leh_state *outer_state)
   return t;
 }
 
+/* A subroutine of lower_try_finally.  Create a fallthru label for
+   the given try_finally state.  The only tricky bit here is that
+   we have to make sure to record the label in our outer context.  */
+
+static tree
+lower_try_finally_fallthru_label (struct leh_tf_state *tf)
+{
+  tree label = tf->fallthru_label;
+  if (!label)
+    {
+      label = create_artificial_label ();
+      tf->fallthru_label = label;
+      if (tf->outer->tf)
+        record_in_finally_tree (label, tf->outer->tf->try_finally_expr); 
+    }
+  return label;
+}
+
 /* A subroutine of lower_try_finally.  If lang_protect_cleanup_actions
    returns non-null, then the language requires that the exception path out
    of a try_finally be treated specially.  To wit: the code within the
@@ -794,9 +815,8 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
 
   if (tf->may_fallthru)
     {
-      if (!tf->fallthru_label)
-	tf->fallthru_label = create_artificial_label ();
-      x = build1 (GOTO_EXPR, void_type_node, tf->fallthru_label);
+      x = lower_try_finally_fallthru_label (tf);
+      x = build1 (GOTO_EXPR, void_type_node, x);
       tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
 
       if (this_state)
@@ -950,9 +970,8 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
       lower_eh_constructs_1 (state, &x);
       append_to_statement_list (x, &new_stmt);
 
-      if (!tf->fallthru_label)
-	tf->fallthru_label = create_artificial_label ();
-      x = build1 (GOTO_EXPR, void_type_node, tf->fallthru_label);
+      x = lower_try_finally_fallthru_label (tf);
+      x = build1 (GOTO_EXPR, void_type_node, x);
       append_to_statement_list (x, &new_stmt);
     }
 
@@ -1083,8 +1102,6 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 	  append_to_statement_list (x, tf->top_p);
 	}
 
-      if (!tf->fallthru_label)
-	tf->fallthru_label = create_artificial_label ();
 
       last_case = build (CASE_LABEL_EXPR, void_type_node,
 			 build_int_2 (fallthru_index, 0), NULL,
@@ -1094,7 +1111,9 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 
       x = build (LABEL_EXPR, void_type_node, CASE_LABEL (last_case));
       append_to_statement_list (x, &switch_body);
-      x = build1 (GOTO_EXPR, void_type_node, tf->fallthru_label);
+
+      x = lower_try_finally_fallthru_label (tf);
+      x = build1 (GOTO_EXPR, void_type_node, x);
       append_to_statement_list (x, &switch_body);
     }
 
@@ -1233,6 +1252,7 @@ lower_try_finally (struct leh_state *state, tree *tp)
   memset (&this_tf, 0, sizeof (this_tf));
   this_tf.try_finally_expr = *tp;
   this_tf.top_p = tp;
+  this_tf.outer = state;
   if (using_eh_for_cleanups_p)
     this_tf.region
       = gen_eh_region_cleanup (state->cur_region, state->prev_try);
@@ -1435,6 +1455,7 @@ lower_cleanup (struct leh_state *state, tree *tp)
      honor_protect_cleanup_actions.  */
   memset (&fake_tf, 0, sizeof (fake_tf));
   fake_tf.top_p = tp;
+  fake_tf.outer = state;
   fake_tf.region = this_region;
   fake_tf.may_fallthru = block_may_fallthru (TREE_OPERAND (*tp, 0));
   fake_tf.may_throw = true;

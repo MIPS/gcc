@@ -1,5 +1,12 @@
 2003-11-14  Richard Henderson  <rth@redhat.com>
 
+	PR c++/12751
+	* tree-eh.c (struct leh_tf_state): Add outer.
+	(lower_try_finally, lower_cleanup): Set it.
+	(lower_try_finally_fallthru_label): New.
+	(honor_protect_cleanup_actions): Use it.
+	(lower_try_finally_copy, lower_try_finally_switch): Likewise.
+
 	* tree-eh.c (collect_finally_tree): Complete manual tailrecurse
 	transformation.
 
