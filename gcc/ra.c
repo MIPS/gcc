@@ -5884,12 +5884,18 @@ try_recolor_web (web)
 	  for (wl = web->conflict_list; wl; wl = wl->next)
 	    {
 	      struct web *web2 = alias (wl->t);
-	      if (web2->type == SPILLED && old_colors[web2->id])
+	      if (old_colors[web2->id])
 		{
-		  remove_list (web2->dlink, &WEBS(SPILLED));
-		  web2->color = old_colors[web2->id] - 1;
-		  put_web (web2, COLORED);
-		}
+		  if (web2->type == SPILLED)
+		    {
+		      remove_list (web2->dlink, &WEBS(SPILLED));
+		      web2->color = old_colors[web2->id] - 1;
+		      put_web (web2, COLORED);
+		    }
+		  else if (web2->type == COLORED)
+		    web2->color = old_colors[web2->id] - 1;
+		  else
+		    abort ();
 	    }
 	}
       free (old_colors);

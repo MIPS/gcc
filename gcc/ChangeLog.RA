@@ -1,3 +1,8 @@
+Thu Feb 28 22:14:34 2002  Denis Chertykov  <denisc@overta.ru>
+
+	* ra.c: (try_recolor_web): Restore original colors: spilled,
+	allocated.
+
 Sat Feb  2 18:58:07 2002  Denis Chertykov  <denisc@overta.ru>
 
         * pre-reload.h: New. Communication between reload.c, reload1.c and
