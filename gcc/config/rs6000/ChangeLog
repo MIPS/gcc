@@ -1,3 +1,31 @@
+2000-02-09  Clinton Popetz  <cpopetz@cygnus.com>
+
+	* config/rs6000/rs6000-protos.h: (get_TOC_alias_set, uses_TOC,
+	constant_pool_expr_p): Declare them.
+	(constant_pool_expr_p): Declare it.
+	* config/rs6000/rs6000.c (toc_label_name): Define.
+	(rs6000_override_options): Set toc_label_name.
+	(input_operand): Allow any TOC_RELATIVE_EXPR_P.
+	(get_TOC_alias_set, constant_pool_expr_p, constant_pool_expr_1,
+	uses_TOC): New functions.
+	(print_operand): Delete old '*' case.
+	(print_operand_address): Use LEGITIMATE_CONSTANT_POOL_ADDRESS_P,
+	and strip off rtl for TOC before calling output_addr_const.
+	(rs6000_emit_load_toc_table): Use toc_label_name.
+	* config/rs6000/rs6000.h (TARGET_SWITCHES): Make msched-prolog
+	the default.
+	(LEGITIMATE_CONSTANT_POOL_BASE_P): Delete.
+	(CONSTANT_POOL_EXPR_P, TOC_RELATIVE_EXPR_P): New macros.
+	(LEGITIMATE_CONSTANT_POOL_ADDRESS_P): Use CONSTANT_POOL_EXPR_P.
+	(LEGITIMIZE_ADDRESS, LEGITIMIZE_RELOAD_ADDRESS): Turn symbol_refs
+	into explicit TOC_REGISTER offsets.
+	(TOC_REGISTER): New macro.
+	* config/rs6000/rs6000.md (movsi, movdi): Emit rtl under 
+	TARGET_TOC to reference TOC_REGISTER.
+	(load_toc_v4_PIC_1b): Add 4 to offset for toc reload.
+	* config/rs6000/sysv4.h (ASM_DECLARE_FUNCTION_NAME): Call  
+	uses_TOC before emitting label references.
+
 2000-02-05  Geoff Keating  <geoffk@cygnus.com>
 
 	* rs6000.md (stack_tie): Fix warning.

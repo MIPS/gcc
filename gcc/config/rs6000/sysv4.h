@@ -577,7 +577,8 @@ extern int rs6000_pic_labelno;
     const char *init_ptr = (TARGET_64BIT) ? ".quad" : ".long";		\
     STRIP_NAME_ENCODING (orig_name, NAME);				\
 									\
-    if (TARGET_RELOCATABLE && (get_pool_size () != 0 || profile_flag))	\
+    if (TARGET_RELOCATABLE && (get_pool_size () != 0 || profile_flag)   \
+	&& uses_TOC())							\
       {									\
 	char buf[256];							\
 	const char *buf_ptr;						\

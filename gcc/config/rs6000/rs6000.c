@@ -115,6 +115,7 @@ int rs6000_debug_arg;		/* debug argument handling */
 
 /* Flag to say the TOC is initialized */
 int toc_initialized;
+char toc_label_name[10];
 
 /* Alias set for saves and restores from the rs6000 stack.  */
 static int rs6000_sr_alias_set;
@@ -130,6 +131,7 @@ static unsigned toc_hash_function PARAMS ((hash_table_entry_t));
 static int toc_hash_eq PARAMS ((hash_table_entry_t, hash_table_entry_t));
 static int toc_hash_mark_entry PARAMS ((hash_table_entry_t, void *));
 static void toc_hash_mark_table PARAMS ((void *));
+static int constant_pool_expr_1 PARAMS ((rtx, int *, int *));
 
 /* Default register names.  */
 char rs6000_reg_names[][8] =
@@ -392,6 +394,9 @@ rs6000_override_options (default_cpu)
 
   /* Allocate an alias set for register saves & restores from stack.  */
   rs6000_sr_alias_set = new_alias_set ();
+
+  if (TARGET_TOC) 
+    ASM_GENERATE_INTERNAL_LABEL (toc_label_name, "LCTOC", 1);
 }
 
 void
@@ -1200,6 +1205,10 @@ input_operand (op, mode)
   if (LEGITIMATE_CONSTANT_POOL_ADDRESS_P (op))
     return 1;
 
+  /* A constant pool expression (relative to the TOC) is valid */
+  if (TOC_RELATIVE_EXPR_P (op))
+    return 1;
+
   /* V.4 allows SYMBOL_REFs and CONSTs that are in the small data region
      to be valid.  */
   if ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
@@ -1257,6 +1266,63 @@ small_data_operand (op, mode)
 #else
   return 0;
 #endif
+}
+
+int 
+constant_pool_expr_1 (op, have_sym, have_toc) 
+    rtx op;
+    int *have_sym;
+    int *have_toc;
+{
+  switch (GET_CODE(op)) 
+    {
+    case SYMBOL_REF:
+	if (CONSTANT_POOL_ADDRESS_P (op))
+	  {
+	   if (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (op)))
+	     {
+	       *have_sym = 1;
+	       return 1;
+	     }
+	   else
+	     return 0;
+	  }
+	else if (! strcmp (XSTR (op, 0), toc_label_name))
+	  {
+	    *have_toc = 1;
+	    return 1;
+	  }
+	else
+	  return 0;
+    case PLUS:
+    case MINUS:
+	return constant_pool_expr_1 (XEXP (op, 0), have_sym, have_toc) &&
+	    	constant_pool_expr_1 (XEXP (op, 1), have_sym, have_toc);
+    case CONST:
+	return constant_pool_expr_1 (XEXP (op, 0), have_sym, have_toc);
+    case CONST_INT:
+	return 1;
+    default:
+	return 0;
+    }
+}
+
+int
+constant_pool_expr_p (op)
+    rtx op;
+{
+  int have_sym = 0;
+  int have_toc = 0;
+  return constant_pool_expr_1 (op, &have_sym, &have_toc) && have_sym;
+}
+
+int
+toc_relative_expr_p (op)
+    rtx op;
+{
+    int have_sym = 0;
+    int have_toc = 0;
+    return constant_pool_expr_1 (op, &have_sym, &have_toc) && have_toc;
 }
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
@@ -3108,11 +3174,6 @@ print_operand (file, x, code)
       asm_fprintf (file, RS6000_CALL_GLUE);
       return;
 
-    case '*':
-      /* Write the register number of the TOC register.  */
-      fputs (TARGET_MINIMAL_TOC ? reg_names[30] : reg_names[2 /* PIC_OFFSET_TABLE_REGNUM? */ ], file);
-      return;
-
     case '$':
       /* Write out either a '.' or '$' for the current location, depending
 	 on whether this is Solaris or not.  */
@@ -3724,19 +3785,15 @@ print_operand_address (file, x)
 {
   if (GET_CODE (x) == REG)
     fprintf (file, "0(%s)", reg_names[ REGNO (x) ]);
-  else if (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == CONST || GET_CODE (x) == LABEL_REF)
+  else if (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == CONST
+	   || GET_CODE (x) == LABEL_REF)
     {
       output_addr_const (file, x);
       if (small_data_operand (x, GET_MODE (x)))
 	fprintf (file, "@%s(%s)", SMALL_DATA_RELOC,
 		 reg_names[SMALL_DATA_REG]);
-
-#ifdef TARGET_NO_TOC
-      else if (TARGET_NO_TOC)
-	;
-#endif
-      else
-	fprintf (file, "(%s)", reg_names[ TARGET_MINIMAL_TOC ? 30 : 2 /* PIC_OFFSET_TABLE_REGNUM? */ ]);
+      else if (TARGET_TOC)
+	abort();
     }
   else if (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 1)) == REG)
     {
@@ -3760,6 +3817,24 @@ print_operand_address (file, x)
       fprintf (file, "@l(%s)", reg_names[ REGNO (XEXP (x, 0)) ]);
     }
 #endif
+  else if (LEGITIMATE_CONSTANT_POOL_ADDRESS_P(x))
+    {
+      /* Find the (minus (sym) (toc)) buried in X, and temporarily
+	 turn it into (sym) for output_addr_const. */
+      rtx contains_minus = XEXP (x, 1); 
+      rtx minus;
+
+      while (GET_CODE (XEXP (contains_minus, 0)) != MINUS)
+	contains_minus = XEXP (contains_minus, 0);
+
+      minus = XEXP (contains_minus, 0); 
+      XEXP (contains_minus, 0) = XEXP (minus, 0);
+      
+      output_addr_const (file, XEXP (x, 1)); 	  
+      XEXP (contains_minus, 0) = minus;
+
+      fprintf (file, "(%s)", reg_names[TOC_REGISTER]);
+    }
   else
     abort ();
 }
@@ -4270,8 +4345,8 @@ rs6000_emit_load_toc_table (fromprolog)
 	      rtx tocsym;
 	      static int reload_toc_labelno = 0;
 
-	      ASM_GENERATE_INTERNAL_LABEL (buf, "LCTOC", 1);
-	      tocsym = gen_rtx_SYMBOL_REF (Pmode, ggc_alloc_string (buf, -1));
+	      tocsym = gen_rtx_SYMBOL_REF (Pmode, 
+		      ggc_alloc_string (toc_label_name, -1));
 
 	      ASM_GENERATE_INTERNAL_LABEL (buf, "LCG", reload_toc_labelno++);
 	      symF = gen_rtx_SYMBOL_REF (Pmode, ggc_alloc_string (buf, -1));
@@ -4304,6 +4379,51 @@ rs6000_emit_load_toc_table (fromprolog)
         emit_insn (gen_load_toc_aix_di (dest));
     }
 }
+
+int   
+get_TOC_alias_set ()
+{
+    static int set = -1;
+    if (set == -1)
+      set = new_alias_set ();
+    return set;
+}   
+
+/* This retuns nonzero if the current function uses the TOC.  This is
+   determined by the presence of (unspec ... 7), which is generated by
+   the various load_toc_* patterns.  */
+int
+uses_TOC () 
+{
+    rtx insn;
+
+    for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+      if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
+	{
+	  rtx pat = PATTERN (insn);
+	  int i;
+
+	  if (GET_CODE(pat) == PARALLEL) 
+	    for (i = 0; i < XVECLEN (PATTERN (insn), 0); i++)
+	      if (GET_CODE (XVECEXP (PATTERN (insn), 0, i)) == UNSPEC 
+		 && XINT (XVECEXP (PATTERN (insn), 0, i), 1) == 7)
+		  return 1;
+	}
+    return 0;
+}
+
+rtx
+create_TOC_reference(symbol) 
+    rtx symbol;
+{
+    return gen_rtx (PLUS, Pmode, 
+	    gen_rtx_REG (Pmode, TOC_REGISTER),
+	    gen_rtx_CONST (Pmode, 
+		gen_rtx_MINUS (Pmode, symbol, 
+		    gen_rtx_SYMBOL_REF (Pmode,
+			ggc_alloc_string (toc_label_name, -1)))));
+}
+
 
 /* This ties together stack memory 
    (MEM with an alias set of rs6000_sr_alias_set)

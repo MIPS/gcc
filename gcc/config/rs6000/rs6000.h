@@ -329,7 +329,7 @@ extern int target_flags;
   {"no-fused-madd",	MASK_NO_FUSED_MADD,				\
 			"Don't generate fused multiply/add instructions"},\
   {"sched-prolog",      MASK_SCHED_PROLOG,                              \
-			"Schedule the start and end of the procedure"},	\
+			""},						\
   {"no-sched-prolog",   -MASK_SCHED_PROLOG,                             \
 			"Don't schedule the start and end of the procedure"},\
   {"sched-epilog",      MASK_SCHED_PROLOG,                              \
@@ -337,7 +337,7 @@ extern int target_flags;
   {"no-sched-epilog",   -MASK_SCHED_PROLOG,                             \
 			""},						\
   SUBTARGET_SWITCHES							\
-  {"",			TARGET_DEFAULT,					\
+  {"",			TARGET_DEFAULT | MASK_SCHED_PROLOG,		\
 			""}}
 
 #define TARGET_DEFAULT (MASK_POWER | MASK_MULTIPLE | MASK_STRING)
@@ -1799,18 +1799,16 @@ typedef struct rs6000_args
    adjacent memory cells are accessed by adding word-sized offsets
    during assembly output.  */
 
-#define LEGITIMATE_CONSTANT_POOL_BASE_P(X)				\
-  (TARGET_TOC && GET_CODE (X) == SYMBOL_REF				\
-   && CONSTANT_POOL_ADDRESS_P (X)					\
-   && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (X)))
+#define CONSTANT_POOL_EXPR_P(X) (constant_pool_expr_p (X))
 
-/* AIX64 guaranteed to have 64 bit TOC alignment.  */
+#define TOC_RELATIVE_EXPR_P(X) (toc_relative_expr_p (X))
+
 #define LEGITIMATE_CONSTANT_POOL_ADDRESS_P(X)				\
-  (LEGITIMATE_CONSTANT_POOL_BASE_P (X)					\
-   || (TARGET_TOC							\
-       && GET_CODE (X) == CONST && GET_CODE (XEXP (X, 0)) == PLUS	\
-       && GET_CODE (XEXP (XEXP (X, 0), 1)) == CONST_INT			\
-       && LEGITIMATE_CONSTANT_POOL_BASE_P (XEXP (XEXP (X, 0), 0))))
+  (TARGET_TOC								\
+  && GET_CODE (X) == PLUS						\
+  && GET_CODE (XEXP (X, 0)) == REG					\
+  && REGNO (XEXP (X, 0)) == TOC_REGISTER 				\
+  && CONSTANT_POOL_EXPR_P (XEXP (X, 1)))
 
 #define LEGITIMATE_SMALL_DATA_P(MODE, X)				\
   ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)		\
@@ -1942,6 +1940,11 @@ typedef struct rs6000_args
       (X) = gen_rtx_LO_SUM (Pmode, reg, (X));				\
       goto WIN;								\
     }									\
+  else if (TARGET_TOC && CONSTANT_POOL_EXPR_P (X))			\
+    {									\
+      (X) = create_TOC_reference(X);					\
+      goto WIN;								\
+    }									\
 }
 
 /* Try a machine-dependent way of reloading an illegitimate address
@@ -1994,6 +1997,11 @@ do {                                                                    \
                    OPNUM, TYPE);                                        \
       goto WIN;                                                         \
     }                                                                   \
+  else if (TARGET_TOC && CONSTANT_POOL_EXPR_P (X))			\
+    {									\
+      (X) = create_TOC_reference(X);					\
+      goto WIN;								\
+    }									\
 } while (0)
 
 /* Go to LABEL if ADDR (a legitimate address expression)
@@ -2028,6 +2036,8 @@ do {                                                                    \
    to allocate such a register (if necessary).  */
 
 #define PIC_OFFSET_TABLE_REGNUM 30
+
+#define TOC_REGISTER (TARGET_MINIMAL_TOC ? 30 : 2)
 
 /* Define this macro if the register defined by
    `PIC_OFFSET_TABLE_REGNUM' is clobbered by calls.  Do not define
