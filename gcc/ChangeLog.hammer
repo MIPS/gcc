@@ -1,3 +1,7 @@
+Thu Feb 20 14:36:55 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/execute/20020720-1.x: XFAIL for x86-64.
+
 Wed Feb 19 17:18:06 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (movsfcc_1, movdfcc_1): Fix constrains.
