@@ -23,32 +23,63 @@
 #include <testsuite_iterators.h>
 
 using __gnu_test::test_container;
+using __gnu_test::input_iterator_wrapper;
 using __gnu_test::forward_iterator_wrapper;
+using __gnu_test::output_iterator_wrapper;
 using std::unique;
 
-typedef test_container<int, forward_iterator_wrapper> Container;
+typedef test_container<int, input_iterator_wrapper> Icontainer;
+typedef test_container<int, forward_iterator_wrapper> Fcontainer;
+typedef test_container<int, output_iterator_wrapper> Ocontainer;
+
 int array1[] = {0, 0, 0, 1, 1, 1};
 int array2[2];
 
 void 
 test1()
 {
-  Container con1(array1, array1);
-  Container con2(array2, array2);
+  bool test __attribute__((unused)) = true;
+  Icontainer con1(array1, array1);
+  Ocontainer con2(array2, array2);
   VERIFY(unique_copy(con1.begin(), con1.end(), con2.begin()).ptr == array2);
 }
 
 void
 test2()
-{  
-  Container con1(array1, array1 + 6);
-  Container con2(array2, array2 + 2);
+{
+  bool test __attribute__((unused)) = true;
+  Icontainer con1(array1, array1 + 6);
+  Ocontainer con2(array2, array2 + 2);
   VERIFY(unique_copy(con1.begin(), con1.end(), con2.begin()).ptr 
          == array2 + 2);
+  VERIFY(array2[0] == 0 && array2[1] == 1);
+}
+
+void
+test3()
+{
+  bool test __attribute__((unused)) = true;
+  Icontainer con1(array1, array1);
+  Fcontainer con2(array2, array2);
+  VERIFY(unique_copy(con1.begin(), con1.end(), con2.begin()).ptr == array2);
+}
+
+void
+test4()
+{
+  bool test __attribute__((unused)) = true;
+  Icontainer con1(array1, array1 + 6);
+  Fcontainer con2(array2, array2 + 2);
+  VERIFY(unique_copy(con1.begin(), con1.end(), con2.begin()).ptr
+         == array2 + 2);
+  VERIFY(array2[0] == 0 && array2[1] == 1);
 }
 
 int 
 main()
 {
   test1();
+  test2();
+  test3();
+  test4();
 }

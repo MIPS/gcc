@@ -1,3 +1,16 @@
+2005-03-29  Christopher Jefferson  <chris@bubblescope.net>
+
+	* testsuite/25_algorithms/includes/1.cc: Add tests.
+	* testsuite/25_algorithms/search/1.cc: Likewise.
+	* testsuite/25_algorithms/unique_copy/1.cc: Likewise.
+	* testsuite/25_algorithms/swap_ranges/1.cc: New.
+	* testsuite/25_algorithms/swap_ranges/check_type.cc: New.
+	* testsuite/25_algorithms/rotate.cc: Move to...
+	* testsuite/25_algorithms/rotate/rotate.cc: ... here.
+	* testsuite/25_algorithms/rotate/1.cc: New.
+	* testsuite/25_algorithms/rotate/check_type.cc: New.
+	* testsuite/25_algorithms/search_n/iterator.cc: Fix typo.
+
 2005-03-22  Paolo Carlini  <pcarlini@suse.de>
 
         Merged to mainline at tag libstdcxx_so_7-merge-20050322.

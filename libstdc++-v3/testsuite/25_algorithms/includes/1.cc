@@ -31,6 +31,7 @@ typedef test_container<int, input_iterator_wrapper> Container;
 void
 test1()
 {
+  bool test __attribute__((unused)) = true;
   int array[] = {0};
   Container con1(array, array);
   Container con2(array, array);
@@ -40,6 +41,7 @@ test1()
 void
 test2()
 {
+  bool test __attribute__((unused)) = true;
   int array[] = {0, 1};
   Container con1(array, array);
   Container con2(array, array + 2);
@@ -49,10 +51,33 @@ test2()
 void
 test3()
 {
+  bool test __attribute__((unused)) = true;
   int array[] = {0, 1};
   Container con1(array, array + 2);
   Container con2(array, array);
   VERIFY(includes(con1.begin(), con1.end(), con2.begin(), con2.end()));
+}
+
+void
+test4()
+{
+  bool test __attribute__((unused)) = true;
+  int array1[] = {1, 2, 3, 4, 6, 8, 9};
+  int array2[] = {2, 4, 6, 8};
+  Container con1(array1, array1 + 7);
+  Container con2(array2, array2 + 4);
+  VERIFY(includes(con1.begin(), con1.end(), con2.begin(), con2.end()));
+}
+
+void
+test5()
+{
+  bool test __attribute__((unused)) = true;
+  int array1[] = {1, 2, 3, 5};
+  int array2[] = {2, 4, 6, 8};
+  Container con1(array1, array1 + 4);
+  Container con2(array2, array2 + 4);
+  VERIFY(!includes(con1.begin(), con1.end(), con2.begin(), con2.end()));
 }
 
 int main()
@@ -60,4 +85,6 @@ int main()
   test1();
   test2();
   test3();
+  test4();
+  test5();
 }

@@ -33,6 +33,7 @@ int array2[] = {0, 0, 0};
 void 
 test1()
 {
+  bool test __attribute__((unused)) = true;
   Container con1(array1, array1);
   Container con2(array1, array1 + 1);
   VERIFY(search(con1.begin(), con1.end(), con2.begin(), con2.end()).ptr == array1);
@@ -42,6 +43,7 @@ test1()
 void
 test2()
 {
+  bool test __attribute__((unused)) = true;
   Container con1(array1, array1 + 3);
   Container con2(array2, array2 + 3);
   VERIFY(search(con1.begin(), con1.end(), con2.begin(), con2.end()).ptr 
@@ -51,10 +53,52 @@ test2()
 void
 test3()
 {
+  bool test __attribute__((unused)) = true;
   Container con1(array1 + 3, array1 + 10);
   Container con2(array2, array2 + 3);
   VERIFY(search(con1.begin(), con1.end(), con2.begin(), con2.end()).ptr 
          == array1 + 10);
+}
+
+void
+test4()
+{
+  bool test __attribute__((unused)) = true;
+  Container con1(array1, array1 + 10);
+  Container con2(array2, array2 + 1);
+  VERIFY(search(con1.begin(), con1.end(), con2.begin(), con2.end()).ptr
+	 == array1);
+}
+
+void
+test5()
+{
+  bool test __attribute__((unused)) = true;
+  Container con1(array1 + 6, array1 + 10);
+  Container con2(array2, array2 + 1);
+  VERIFY(search(con1.begin(), con1.end(), con2.begin(), con2.end()).ptr
+	 == array1 + 10);
+}
+
+void
+test6()
+{
+  bool test __attribute__((unused)) = true;
+  int array3[]={2, 2, 1, 2, 3, 5};
+  int array4[]={1, 2, 3, 4};
+  Container con1(array3, array3 + 3);
+  Container con2(array3, array3 + 4);
+  Container con3(array3, array3 + 5);
+  Container con4(array3, array3 + 6);
+  Container endcon(array4, array4 + 4);
+  VERIFY(search(con1.begin(), con1.end(), endcon.begin(), endcon.end()).ptr
+	 == array3 + 3);
+  VERIFY(search(con2.begin(), con2.end(), endcon.begin(), endcon.end()).ptr
+	 == array3 + 4);
+  VERIFY(search(con3.begin(), con3.end(), endcon.begin(), endcon.end()).ptr
+	 == array3 + 5);
+  VERIFY(search(con4.begin(), con4.end(), endcon.begin(), endcon.end()).ptr
+	 == array3 + 6);
 }
 
 int 
@@ -63,4 +107,7 @@ main()
   test1();
   test2();
   test3();
+  test4();
+  test5();
+  test6();
 }
