@@ -1,3 +1,10 @@
+2004-08-08  Paul Kienzle  <pkienzle@nist.gov>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13450
+	* include/std/std_complex.h (pow(const complex&, const _Tp&),
+	pow(const _Tp&, const complex&)): Use cmath pow only when safe.
+
 2004-08-06  Jerry Quinn  <jlquinn@optonline.net>
 
 	PR libstdc++/3247
