@@ -11260,20 +11260,13 @@ instantiate_decl (tree d, int defer_ok)
 	}
       else
 	{
-	  /* This is done in analogous to `start_decl'.  It is
-	     required for correct access checking.  */
+	  /* Enter the scope of D so that access-checking works correctly.  */
 	  push_nested_class (DECL_CONTEXT (d));
 	  cp_finish_decl (d, 
 			  (!DECL_INITIALIZED_IN_CLASS_P (d) 
 			   ? DECL_INITIAL (d) : NULL_TREE),
 			  NULL_TREE, 0);
-	  /* Normally, pop_nested_class is called by cp_finish_decl
-	     above.  But when instantiate_decl is triggered during
-	     instantiate_class_template processing, its DECL_CONTEXT
-	     is still not completed yet, and pop_nested_class isn't
-	     called.  */
-	  if (!COMPLETE_TYPE_P (DECL_CONTEXT (d)))
-	    pop_nested_class ();
+	  pop_nested_class ();
 	}
       /* We're not deferring instantiation any more.  */
       TI_PENDING_TEMPLATE_FLAG (DECL_TEMPLATE_INFO (d)) = 0;

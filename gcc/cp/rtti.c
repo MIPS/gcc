@@ -354,21 +354,16 @@ get_tinfo_decl (tree type)
       TREE_READONLY (d) = 1;
       TREE_STATIC (d) = 1;
       DECL_EXTERNAL (d) = 1;
+      DECL_TINFO_P (d) = 1;
       DECL_COMDAT (d) = 1;
       TREE_PUBLIC (d) = 1;
       SET_DECL_ASSEMBLER_NAME (d, name);
-
-      pushdecl_top_level_and_finish (d, NULL_TREE);
-
-      if (CLASS_TYPE_P (type))
-	{
-	  CLASSTYPE_TYPEINFO_VAR (TYPE_MAIN_VARIANT (type)) = d;
-	  DECL_VISIBILITY (d) = CLASSTYPE_VISIBILITY (type);
-	  DECL_VISIBILITY_SPECIFIED (d) = CLASSTYPE_VISIBILITY_SPECIFIED (type);
-	}
-
       /* Remember the type it is for.  */
       TREE_TYPE (name) = type;
+      if (CLASS_TYPE_P (type))
+	CLASSTYPE_TYPEINFO_VAR (TYPE_MAIN_VARIANT (type)) = d;
+
+      pushdecl_top_level_and_finish (d, NULL_TREE);
 
       /* Add decl to the global array of tinfo decls.  */
       my_friendly_assert (unemitted_tinfo_decls != 0, 20030312);
@@ -755,24 +750,20 @@ tinfo_base_init (tree desc, tree target)
                      NULL_TREE);
     tree name_string = tinfo_name (target);
 
+    /* Determine the name of the variable -- and remember with which
+       type it is associated.  */
     name_name = mangle_typeinfo_string_for_type (target);
+    TREE_TYPE (name_name) = target;
+
     name_decl = build_lang_decl (VAR_DECL, name_name, name_type);
-    
+    SET_DECL_ASSEMBLER_NAME (name_decl, name_name);
     DECL_ARTIFICIAL (name_decl) = 1;
     TREE_READONLY (name_decl) = 1;
     TREE_STATIC (name_decl) = 1;
     DECL_EXTERNAL (name_decl) = 0;
+    DECL_TINFO_P (name_decl) = 1;
     TREE_PUBLIC (name_decl) = 1;
-    if (CLASS_TYPE_P (target))
-      {
-        DECL_VISIBILITY (name_decl) = CLASSTYPE_VISIBILITY (target);
-        DECL_VISIBILITY_SPECIFIED (name_decl) = CLASSTYPE_VISIBILITY_SPECIFIED (target);
-      }
     import_export_tinfo (name_decl, target, typeinfo_in_lib_p (target));
-    /* External name of the string containing the type's name has a
-       special name.  */
-    SET_DECL_ASSEMBLER_NAME (name_decl,
-			     mangle_typeinfo_string_for_type (target));
     DECL_INITIAL (name_decl) = name_string;
     mark_used (name_decl);
     pushdecl_top_level_and_finish (name_decl, name_string);

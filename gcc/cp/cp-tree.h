@@ -75,6 +75,7 @@ struct diagnostic_context;
           or FIELD_DECL).
       NEED_TEMPORARY_P (in REF_BIND, BASE_CONV)
       IDENTIFIER_TYPENAME_P (in IDENTIFIER_NODE)
+      DECL_TINFO_P (in VAR_DECL)
    5: C_IS_RESERVED_WORD (in IDENTIFIER_NODE)
       DECL_VTABLE_OR_VTT_P (in VAR_DECL)
    6: For future expansion
@@ -2069,6 +2070,10 @@ struct lang_decl GTY(())
   (DECL_CONTEXT (NODE) \
    && TREE_CODE (DECL_CONTEXT (NODE)) == FUNCTION_DECL)
 
+/* 1 iff VAR_DECL node NODE is a type-info decl.  This flag is set for
+   both the primary typeinfo object and the associated NTBS name.  */
+#define DECL_TINFO_P(NODE) TREE_LANG_FLAG_4 (VAR_DECL_CHECK (NODE))
+
 /* 1 iff VAR_DECL node NODE is virtual table or VTT.  */
 #define DECL_VTABLE_OR_VTT_P(NODE) TREE_LANG_FLAG_5 (VAR_DECL_CHECK (NODE))
 
@@ -3673,7 +3678,7 @@ extern int init_type_desc			(void);
 extern tree check_tag_decl			(tree);
 extern tree shadow_tag				(tree);
 extern tree groktypename			(tree);
-extern tree start_decl				(tree, tree, int, tree, tree);
+extern tree start_decl				(tree, tree, int, tree, tree, bool *);
 extern void start_decl_1			(tree);
 extern void cp_finish_decl			(tree, tree, tree, int);
 extern void finish_decl				(tree, tree, tree);
@@ -3757,6 +3762,7 @@ extern tree finish_table (tree, tree, tree, int);
 extern tree coerce_new_type (tree);
 extern tree coerce_delete_type (tree);
 extern void comdat_linkage (tree);
+extern void determine_visibility (tree);
 extern void import_export_vtable (tree, tree, int);
 extern void import_export_decl (tree);
 extern void import_export_tinfo	(tree, tree, bool);
