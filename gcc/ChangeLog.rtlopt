@@ -1,5 +1,9 @@
 2003-07-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* expr.c (force_operand): Handle subregs.
+
+2003-07-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* loop-ivopts.c (execute_strength_reductions, create_biv): Ensure
 	biv increment is placed on correct place.
 	* algebraic.c (simplify_alg_expr_one_level): Improve AND
