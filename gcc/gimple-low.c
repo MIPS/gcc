@@ -57,7 +57,6 @@ void
 lower_function_body (tree *body)
 {
   struct lower_data data;
-  tree root;
 
   if (TREE_CODE (*body) != BIND_EXPR)
     abort ();
@@ -67,15 +66,13 @@ lower_function_body (tree *body)
   BLOCK_CHAIN (data.block) = NULL_TREE;
 
   record_vars (BIND_EXPR_VARS (*body));
-  root = BIND_EXPR_BODY (*body);
-  lower_stmt_body (&root, &data);
+  *body = BIND_EXPR_BODY (*body);
+  lower_stmt_body (body, &data);
 
   if (data.block != DECL_INITIAL (current_function_decl))
     abort ();
-  BLOCK_SUBBLOCKS (data.block) =
-	  blocks_nreverse (BLOCK_SUBBLOCKS (data.block));
-
-  *body = root;
+  BLOCK_SUBBLOCKS (data.block)
+    = blocks_nreverse (BLOCK_SUBBLOCKS (data.block));
 }
 
 /* Lowers the EXPR.  Unlike gimplification the statements are not relowered
@@ -104,9 +101,7 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     {
     case BIND_EXPR:
       lower_bind_expr (tsi, data);
-      /* Avoid moving the tsi -- it has already been moved by delinking the
-	 statement.  */
-      return;
+      break;
 
     case COMPOUND_EXPR:
       abort ();
@@ -121,6 +116,7 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     case VA_ARG_EXPR:
     case RESX_EXPR:
     case SWITCH_EXPR:
+      tsi_next (tsi);
       break;
 
     case COND_EXPR:
@@ -128,11 +124,9 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
       break;
 
     default:
-      print_node_brief (stderr, "", tsi_stmt (*tsi), 0);
+      print_node_brief (stderr, "", stmt, 0);
       abort ();
     }
-
-  tsi_next (tsi);
 }
 
 /* Record the variables in VARS.  */
@@ -201,12 +195,11 @@ lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 {
   tree stmt = tsi_stmt (*tsi);
   bool then_is_goto, else_is_goto;
-  tree then_branch, else_branch, then_label, else_label, end_label;
+  tree then_branch, else_branch, then_label, else_label, end_label, t;
   
   lower_stmt_body (&COND_EXPR_THEN (stmt), data);
   lower_stmt_body (&COND_EXPR_ELSE (stmt), data);
 
-  /* Find out whether the branches are ordinary local gotos.  */
   then_branch = COND_EXPR_THEN (stmt);
   else_branch = COND_EXPR_ELSE (stmt);
 
@@ -214,26 +207,49 @@ lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
   else_is_goto = simple_goto_p (else_branch);
 
   if (then_is_goto && else_is_goto)
-    return;
+    {
+      tsi_next (tsi);
+      return;
+    }
+
+  then_label = NULL_TREE;
+  else_label = NULL_TREE;
+  end_label = NULL_TREE;
  
   /* Replace the cond_expr with explicit gotos.  */
   if (!then_is_goto)
     {
-      then_label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-      COND_EXPR_THEN (stmt) = build_and_jump (&LABEL_EXPR_LABEL (then_label));
+      t = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+      if (TREE_SIDE_EFFECTS (then_branch))
+	then_label = t;
+      else
+	end_label = t;
+      COND_EXPR_THEN (stmt) = build_and_jump (&LABEL_EXPR_LABEL (t));
     }
-  else
-    then_label = NULL_TREE;
 
   if (!else_is_goto)
     {
-      else_label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-      COND_EXPR_ELSE (stmt) = build_and_jump (&LABEL_EXPR_LABEL (else_label));
+      t = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+      if (TREE_SIDE_EFFECTS (else_branch))
+	else_label = t;
+      else
+	{
+	  /* Both THEN and ELSE can be no-ops if one or both contained an
+	     empty BIND_EXPR that was associated with the toplevel block
+	     of an inlined function.  In that case remove_useless_stmts
+	     can't have cleaned things up for us; kill the whole 
+	     conditional now.  */
+	  if (end_label)
+	    {
+	      tsi_delink (tsi);
+	      return;
+	    }
+	  else
+	    end_label = t;
+	}
+      COND_EXPR_ELSE (stmt) = build_and_jump (&LABEL_EXPR_LABEL (t));
     }
-  else
-    else_label = NULL_TREE;
 
-  end_label = NULL_TREE;
   if (then_label)
     {
       tsi_link_after (tsi, then_label, TSI_CONTINUE_LINKING);
@@ -255,6 +271,7 @@ lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 
   if (end_label)
     tsi_link_after (tsi, end_label, TSI_CONTINUE_LINKING);
+  tsi_next (tsi);
 }
 
 /* Expand those variables in the unexpanded_var_list that are used.  */
