@@ -107,9 +107,9 @@ do {									\
 %{gused: -g -feliminate-unused-debug-symbols %<gused }\
 %{gfull: -g -fno-eliminate-unused-debug-symbols %<gfull }\
 %{g: %{!gfull: -feliminate-unused-debug-symbols %<gfull }}\
-%{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
-/* APPLE LOCAL -fast and PIC code.  */
-%{!static:%{!fast:%{!fastf:%{!fastcp:%{!mdynamic-no-pic:-fPIC}}}}}"
+%{static: %{Zdynamic: %e conflicting code gen style switches are used}}"\
+/* APPLE LOCAL -fast and PIC code.  */\
+"%{!static:%{!fast:%{!fastf:%{!fastcp:%{!mdynamic-no-pic:-fPIC}}}}}"
 
 /* APPLE LOCAL begin .machine assembler directive (radar 3492132) */
 
