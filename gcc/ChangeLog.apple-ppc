@@ -1,3 +1,7 @@
+2005-03-09  Devang Patel  <dpatel@apple.com>
+
+	* tree-vectorizer.c (vect_analyze_loop): Reorder data refs alignment analysis.
+	
 2005-03-08  Dale Johannesen  <dalej@apple.com>
 
 	* Makefile.in:  Remove useless code from LNO branch.

@@ -5960,18 +5960,6 @@ vect_analyze_loop (struct loop *loop)
   /* APPLE LOCAL begin AV data dependence. -dpatel */
   /* Analyze operations before data dependence.  */
 
-  /* Analyze the alignment of the data-refs in the loop.
-     FORNOW: Only aligned accesses are handled.  */
-
-  ok = vect_analyze_data_refs_alignment (loop_vinfo);
-  if (!ok)
-    {
-      if (vect_print_dump_info (REPORT_DETAILS, LOOP_LOC (loop_vinfo)))
-	fprintf (vect_dump, "bad data dependence.");
-      destroy_loop_vec_info (loop_vinfo);
-      return NULL;
-    }
-
   /* Scan all the operations in the loop and make sure they are
      vectorizable.  */
 
@@ -6007,6 +5995,19 @@ vect_analyze_loop (struct loop *loop)
       destroy_loop_vec_info (loop_vinfo);
       return NULL;
     }
+
+  /* Analyze the alignment of the data-refs in the loop.
+     FORNOW: Only aligned accesses are handled.  */
+
+  ok = vect_analyze_data_refs_alignment (loop_vinfo);
+  if (!ok)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS, LOOP_LOC (loop_vinfo)))
+	fprintf (vect_dump, "bad data dependence.");
+      destroy_loop_vec_info (loop_vinfo);
+      return NULL;
+    }
+
   /* APPLE LOCAL end AV data dependence. -dpatel */
   
   LOOP_VINFO_VECTORIZABLE_P (loop_vinfo) = 1;
