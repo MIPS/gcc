@@ -1077,7 +1077,7 @@ struct tree_phi_node GTY(())
 
   /* Nonzero if the PHI node was rewritten by a previous pass through the
      SSA renamer.  */
-  int rewritten:
+  int rewritten;
 
   struct phi_arg_d GTY ((length ("((tree)&%h)->phi.capacity"))) a[1];
 };
