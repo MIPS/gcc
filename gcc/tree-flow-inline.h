@@ -33,18 +33,10 @@ var_ann (t)
   if (!SSA_VAR_P (t))
     abort ();
 #endif
-  /* SSA_NAME nodes share the same annotations as the VAR_DECL node that
-     they wrap.  */
+  /* SSA_NAME nodes share the same annotations as the VAR_DECL/INDIRECT_REF
+     node that they wrap.  */
   if (TREE_CODE (t) == SSA_NAME)
     t = SSA_NAME_VAR (t);
-
-  /* INDIRECT_REF nodes share the annotation from the canonical
-     dereference for their base pointer (see find_vars_r).  */
-  if (TREE_CODE (t) == INDIRECT_REF)
-    {
-      t = get_base_symbol (t);
-      t = ((var_ann_t) t->common.ann)->indirect_ref;
-    }
 
   return (t->common.ann && t->common.ann->common.type == VAR_ANN)
 	 ? (var_ann_t) t->common.ann
@@ -84,13 +76,6 @@ may_aliases (var)
 }
 
 static inline bool
-is_aliased (var)
-     tree var;
-{
-  return may_aliases (var) != NULL;
-}
-
-static inline bool
 may_alias_global_mem_p (var)
      tree var;
 {
@@ -115,13 +100,6 @@ indirect_ref (var)
 {
   var_ann_t ann = var_ann (var);
   return ann ? ann->indirect_ref : NULL_TREE;
-}
-
-static inline bool
-is_dereferenced (var)
-     tree var;
-{
-  return indirect_ref (var) != NULL_TREE;
 }
 
 static inline int
@@ -333,14 +311,6 @@ is_exec_stmt (t)
      tree t;
 {
   return (t && t != empty_stmt_node && t != error_mark_node);
-}
-
-static inline bool
-same_var_p (v1, v2)
-     tree v1;
-     tree v2;
-{
-  return htab_var_eq ((const void *)v1, (const void *)v2);
 }
 
 #endif /* _TREE_FLOW_INLINE_H  */

@@ -937,30 +937,34 @@ tree
 get_base_symbol (t)
      tree t;
 {
-  STRIP_NOPS (t);
-
-  switch (TREE_CODE (t))
+  do
     {
-    case VAR_DECL:
-    case FUNCTION_DECL:
-    case PARM_DECL:
-    case FIELD_DECL:
-    case LABEL_DECL:
-      return t;
+      STRIP_NOPS (t);
 
-    case SSA_NAME:
-      return get_base_symbol (SSA_NAME_VAR (t));
+      if (DECL_P (t))
+	return t;
 
-    case ARRAY_REF:
-    case COMPONENT_REF:
-    case INDIRECT_REF:
-    case REALPART_EXPR:
-    case IMAGPART_EXPR:
-      return get_base_symbol (TREE_OPERAND (t, 0));
+      switch (TREE_CODE (t))
+	{
+	case SSA_NAME:
+	  t = SSA_NAME_VAR (t);
+	  break;
 
-    default:
-      return NULL_TREE;
+	case ARRAY_REF:
+	case COMPONENT_REF:
+	case INDIRECT_REF:
+	case REALPART_EXPR:
+	case IMAGPART_EXPR:
+	  t = TREE_OPERAND (t, 0);
+	  break;
+
+	default:
+	  return NULL_TREE;
+	}
     }
+  while (t);
+
+  return t;
 }
 
 void

@@ -1,3 +1,25 @@
+2003-02-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (find_vars_r): Share INDIRECT_REF nodes whose operand
+	is a VAR_DECL.  
+	(add_referenced_var): Add additional argument 'sym'.  Update all users.
+	Don't call get_base_symbol.
+	(add_indirect_ref_var): Rename argument 'var' to 'ptr'.
+	(htab_hash_var): Remove.  Update all users to use htab_hash_pointer.
+	(htab_var_eq): Remove.  Update all users to use htab_eq_pointer.
+
+	* tree-flow-inline.h (var_ann): Don't retrieve the annotation of
+	the base pointer for INDIRECT_REF variables.
+	(is_aliased): Remove.  Update all users.
+	(is_dereferenced): Remove.  Update all users.
+	(same_var_p): Remove.  Update all users to use pointer equality.
+
+	* tree-simple.c (get_base_symbol): Convert tail recursion into
+	iteration.
+
+	* tree-ssa.c (rewrite_out_of_ssa): Add FIXME note about overlapping
+	live ranges for different versions of the same variable.
+
 2003-02-03  Jeff Law  <law@redhat.com>
 
 	* tree-dfa.c (add_referenced_var): Annotate each item in the

@@ -104,7 +104,7 @@ static void add_stmt_operand		PARAMS ((tree *, tree, int, int,
       						 voperands_t));
 static void add_immediate_use		PARAMS ((tree, tree));
 static tree find_vars_r			PARAMS ((tree *, int *, void *));
-static void add_referenced_var		PARAMS ((tree, void *));
+static void add_referenced_var		PARAMS ((tree, tree, void *));
 static void add_indirect_ref_var	PARAMS ((tree, void *));
 static void compute_immediate_uses_for	PARAMS ((tree, int));
 static void add_may_alias		PARAMS ((tree, tree));
@@ -514,7 +514,8 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
      voperands_t prev_vops;
 {
   bool is_scalar;
-  tree var;
+  tree var, deref;
+  varray_type aliases;
 
   var = *var_p;
   STRIP_NOPS (var);
@@ -530,7 +531,8 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
   if (var == NULL_TREE || !SSA_VAR_P (var))
     return;
 
-  if (!is_aliased (var))
+  aliases = may_aliases (var);
+  if (aliases == NULL)
     {
       /* The variable is not aliased.  If it's a scalar, process it as a
 	 real operand.  Otherwise, add it to the virtual operands.  Note
@@ -562,7 +564,6 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
     {
       /* The variable is aliased.  Add its aliases to the virtual operands.  */
       size_t i;
-      varray_type aliases = may_aliases (var);
 
       if (is_def)
 	{
@@ -579,12 +580,12 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
   /* A definition of a pointer variable 'p' clobbers its associated
      indirect variable '*p', because now 'p' is pointing to a different
      memory location.  */
+  deref = indirect_ref (var);
   if (is_def
       && SSA_DECL_P (var)
       && POINTER_TYPE_P (TREE_TYPE (var))
-      && is_dereferenced (var))
+      && deref != NULL_TREE)
     {
-      tree deref = indirect_ref (var);
       add_stmt_operand (&deref, stmt, true, true, prev_vops);
 
       /* If the relocation of 'p' is due to an expression that may
@@ -687,7 +688,7 @@ add_vdef (var, stmt, prev_vops)
       for (i = 0; i < VARRAY_ACTIVE_SIZE (prev_vops->vdef_ops); i++)
 	{
 	  tree d = VARRAY_TREE (prev_vops->vdef_ops, i);
-	  if (same_var_p (var, SSA_NAME_VAR (VDEF_RESULT (d))))
+	  if (var == SSA_NAME_VAR (VDEF_RESULT (d)))
 	    {
 	      vdef = d;
 	      break;
@@ -716,7 +717,7 @@ add_vdef (var, stmt, prev_vops)
 
   /* Don't allow duplicate entries.  */
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->vops->vdef_ops); i++)
-    if (same_var_p (var, VDEF_RESULT (VARRAY_TREE (ann->vops->vdef_ops, i))))
+    if (var == VDEF_RESULT (VARRAY_TREE (ann->vops->vdef_ops, i)))
       return;
 
   VARRAY_PUSH_TREE (ann->vops->vdef_ops, vdef);
@@ -743,7 +744,7 @@ add_vuse (var, stmt, prev_vops)
       for (i = 0; i < VARRAY_ACTIVE_SIZE (prev_vops->vuse_ops); i++)
 	{
 	  tree u = VARRAY_TREE (prev_vops->vuse_ops, i);
-	  if (same_var_p (var, SSA_NAME_VAR (u)))
+	  if (var == SSA_NAME_VAR (u))
 	    {
 	      vuse = u;
 	      break;
@@ -774,7 +775,7 @@ add_vuse (var, stmt, prev_vops)
 
   /* Don't allow duplicate entries.  */
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->vops->vuse_ops); i++)
-    if (same_var_p (var, VARRAY_TREE (ann->vops->vuse_ops, i)))
+    if (var == VARRAY_TREE (ann->vops->vuse_ops, i))
       return;
 
   VARRAY_PUSH_TREE (ann->vops->vuse_ops, var);
@@ -1079,6 +1080,8 @@ dump_variable (file, var)
      FILE *file;
      tree var;
 {
+  varray_type aliases;
+
   if (var == NULL_TREE)
     {
       fprintf (file, "<nil>");
@@ -1087,9 +1090,9 @@ dump_variable (file, var)
 
   print_generic_expr (file, var, 0);
   
-  if (is_aliased (var))
+  aliases = may_aliases (var);
+  if (aliases)
     {
-      varray_type aliases = may_aliases (var);
       size_t i, num_aliases = VARRAY_ACTIVE_SIZE (aliases);
       fprintf (file, ", may aliases: ");
       for (i = 0; i < num_aliases; i++)
@@ -1435,13 +1438,15 @@ compute_may_aliases ()
   VARRAY_WIDE_INT_INIT (addressable_vars_alias_set, 20, "addressable_vars_alias_set");
 
   /* Hash table of all the objects the SSA builder needs to be aware of.  */
-  vars_found = htab_create (50, htab_hash_var, htab_var_eq, NULL);
+  vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
 
   /* Hash table of all the unique INDIRECT_REFs found.  */
-  indirect_refs_found = htab_create (50, htab_hash_var, htab_var_eq, NULL);
+  indirect_refs_found = htab_create (50, htab_hash_pointer, htab_eq_pointer,
+				     NULL);
 
   /* Hash table of all the unique addressable variables found.  */
-  addressable_vars_found = htab_create (50, htab_hash_var, htab_var_eq, NULL);
+  addressable_vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer,
+					NULL);
 
   walk_state[0] = vars_found;
   walk_state[1] = indirect_refs_found;
@@ -1786,7 +1791,7 @@ add_may_alias (var, alias)
 
   /* Avoid adding duplicates.  */
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->may_aliases); i++)
-    if (same_var_p (alias, VARRAY_TREE (ann->may_aliases, i)))
+    if (alias == VARRAY_TREE (ann->may_aliases, i))
       return;
 
   VARRAY_PUSH_TREE (ann->may_aliases, alias);
@@ -1987,9 +1992,30 @@ find_vars_r (tp, walk_subtrees, data)
 {
   if (SSA_VAR_P (*tp))
     {
-      add_referenced_var (*tp, data);
+      tree sym, var, deref;
+
+      var = *tp;
+      sym = get_base_symbol (var);
+
+      /* If VAR is an INDIRECT_REF node for a VAR_DECL pointer, rewrite *TP
+	 with the first INDIRECT_REF we found (if any).  We need to share
+	 INDIRECT_REF nodes because we treat them as regular variables and
+	 several passes rely on pointer equality for testing if two variables
+	 are the same.  */
+      if (TREE_CODE (var) == INDIRECT_REF && DECL_P (TREE_OPERAND (var, 0)))
+	{
+	  deref = indirect_ref (sym);
+	  if (deref)
+	    *tp = deref;
+	  else
+	    set_indirect_ref (sym, var);
+	}
+
+      add_referenced_var (var, sym, data);
+
       return NULL_TREE;
     }
+
 
   /* Function calls.  Consider them a reference for an artificial variable
      called GLOBAL_VAR.  This variable is a pointer that will alias every
@@ -2028,46 +2054,28 @@ find_vars_r (tp, walk_subtrees, data)
 }
 
 
-/* Add VAR to the list of dereferenced variables.  Also add it to the sets
-   ADDRESSABLE_VARS or INDIRECT_REFS needed for alias analysis.  DATA is an
-   array with three hash tables used to avoid adding the same variable more
-   than once to its corresponding set.  Note that this function assumes
-   that VAR is a valid SSA variable.  */
+/* Add VAR to the list of dereferenced variables.  SYM is the base symbol
+   when VAR is anything but a _DECL node.  Otherwise, SYM and VAR are the
+   same tree.
+   
+   Also add VAR to the sets ADDRESSABLE_VARS or INDIRECT_REFS needed for
+   alias analysis.  DATA is an array with three hash tables used to avoid
+   adding the same variable more than once to its corresponding set.  Note
+   that this function assumes that VAR is a valid SSA variable.  */
 
 static void
-add_referenced_var (var, data)
+add_referenced_var (var, sym, data)
      tree var;
+     tree sym;
      void *data;
 {
   void **slot;
-  tree sym;
-  tree ind;
   htab_t vars_found = ((htab_t *) data)[0];
   htab_t indirect_refs_found = ((htab_t *) data)[1];
   htab_t addressable_vars_found = ((htab_t *) data)[2];
 
-  /* Get the underlying symbol.  We will need it shortly.  */
-  if (TREE_CODE (var) == INDIRECT_REF)
-    {
-      sym = get_base_symbol (TREE_OPERAND (var, 0));
-      ind = var;
-
-      if (!is_dereferenced (sym))
-	set_indirect_ref (sym, ind);
-      else
-	ind = indirect_ref (sym);
-    }
-  else
-    {
-      sym = get_base_symbol (var);
-      ind = NULL_TREE;
-    }
-
-  /* Make VAR either the canonical INDIRECT_REF or the real symbol.  */
-  var = (ind ? ind : var);
-
   /* First handle an INDIRECT_REF.  */
-  if (ind)
+  if (TREE_CODE (var) == INDIRECT_REF)
     {
       slot = htab_find_slot (indirect_refs_found, (void *) var, INSERT);
       if (*slot == NULL)
@@ -2115,49 +2123,18 @@ add_referenced_var (var, data)
    pointer decl.  */
 
 static void
-add_indirect_ref_var (var, data)
-     tree var;
+add_indirect_ref_var (ptr, data)
+     tree ptr;
      void *data;
 {
-  tree deref = indirect_ref (var);
-
+  tree deref = indirect_ref (ptr);
   if (deref == NULL_TREE)
     {
-      deref = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (var)), var);
-      set_indirect_ref (var, deref);
+      deref = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (ptr)), ptr);
+      set_indirect_ref (ptr, deref);
     }
 
-  add_referenced_var (deref, data);
-}
-
-
-/* Return a hash value for a variable.  If the variable is an INDIRECT_REF
-   node, return the hash value for its pointer.  */
-
-hashval_t
-htab_hash_var (p)
-     const void *p;
-{
-  tree v = (tree) p;
-  if (TREE_CODE (v) == INDIRECT_REF)
-    v = TREE_OPERAND (v, 0);
-  return htab_hash_pointer (v);
-}
-
-
-/* Check if variables V1 and V2 are the same.
-   Two variables are the same if both V1 and V2 are pointers to the same
-   variable, or if they are both indirect refs to the same variable.  */
-
-int
-htab_var_eq (v1, v2)
-     const void *v1;
-     const void *v2;
-{
-  return (v1 == v2
-	  || (TREE_CODE ((tree) v1) == INDIRECT_REF
-	      && TREE_CODE ((tree) v2) == INDIRECT_REF
-	      && TREE_OPERAND ((tree) v1, 0) == TREE_OPERAND ((tree) v2, 0)));
+  add_referenced_var (deref, ptr, data);
 }
 
 

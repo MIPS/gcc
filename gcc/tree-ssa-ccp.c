@@ -1074,7 +1074,7 @@ static hashval_t
 value_map_hash (p)
      const void *p;
 {
-  return htab_hash_var ((const void *)((const struct value_map_d *)p)->var);
+  return htab_hash_pointer ((const void *)((const struct value_map_d *)p)->var);
 }
 
 static int
@@ -1082,6 +1082,6 @@ value_map_eq (p1, p2)
      const void *p1;
      const void *p2;
 {
-  return same_var_p (((const struct value_map_d *)p1)->var,
-		     ((const struct value_map_d *)p2)->var);
+  return ((const struct value_map_d *)p1)->var
+	 == ((const struct value_map_d *)p2)->var;
 }

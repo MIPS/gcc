@@ -495,7 +495,12 @@ rewrite_block (bb)
 }
 
 
-/* Take function FNDECL out of SSA form.  */
+/* Take function FNDECL out of SSA form.
+
+   FIXME: Need to support overlapping live ranges for different versions of
+	  the same variable.  At the moment, we will silently generate
+	  wrong code if an optimizer pass moves code so that two versions
+	  of the same variable have overlapping live ranges.  */
 
 void
 rewrite_out_of_ssa (fndecl)
@@ -993,7 +998,7 @@ static hashval_t
 def_blocks_hash (p)
      const void *p;
 {
-  return htab_hash_var ((const void *)((const struct def_blocks_d *)p)->var);
+  return htab_hash_pointer ((const void *)((const struct def_blocks_d *)p)->var);
 }
 
 static int
@@ -1001,8 +1006,8 @@ def_blocks_eq (p1, p2)
      const void *p1;
      const void *p2;
 {
-  return same_var_p (((const struct def_blocks_d *)p1)->var,
-                     ((const struct def_blocks_d *)p2)->var);
+  return ((const struct def_blocks_d *)p1)->var
+	 == ((const struct def_blocks_d *)p2)->var;
 }
 
 
@@ -1012,7 +1017,7 @@ static hashval_t
 currdef_hash (p)
      const void *p;
 {
-  return htab_hash_var ((const void *)((const struct currdef_d *)p)->var);
+  return htab_hash_pointer ((const void *)((const struct currdef_d *)p)->var);
 }
 
 static int
@@ -1020,8 +1025,8 @@ currdef_eq (p1, p2)
      const void *p1;
      const void *p2;
 {
-  return same_var_p (((const struct currdef_d *)p1)->var,
-                     ((const struct currdef_d *)p2)->var);
+  return ((const struct currdef_d *)p1)->var
+	 == ((const struct currdef_d *)p2)->var;
 }
 
 
