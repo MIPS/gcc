@@ -1,0 +1,5 @@
+2004-11-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/i386/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Do not define
+	when inhibit_libc is set.
+
