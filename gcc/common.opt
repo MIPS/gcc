@@ -179,6 +179,9 @@ Common
 fPIE
 Common
 
+fabi-version=
+Common Joined UInteger
+
 falign-functions
 Common
 Align the start of functions
@@ -801,10 +804,6 @@ Construct webs and split unrelated uses of single variable
 fwrapv
 Common
 Assume signed arithmetic overflow wraps around
-
-fwritable-strings
-Common
-Store strings in writable data section
 
 fzero-initialized-in-bss
 Common

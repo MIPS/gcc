@@ -1654,10 +1654,10 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
   /* If we have z = (x OP C1), see if we earlier had x = y OP C2.
      If OP is associative, create and fold (y OP C2) OP C1 which
      should result in (y OP C3), use that as the RHS for the
-     assignment.  */
-  if (associative_tree_code (rhs_code)
+     assignment.  Add minus to this, as we handle it specially below.  */
+  if ((associative_tree_code (rhs_code) || rhs_code == MINUS_EXPR)
       && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
-      && TREE_CONSTANT (TREE_OPERAND (rhs, 1)))
+      && is_gimple_min_invariant (TREE_OPERAND (rhs, 1)))
     {
       tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
 
@@ -1676,14 +1676,30 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 
 	      if (TREE_CODE (def_stmt_op0) == SSA_NAME
 		  && ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def_stmt_op0)
-		  && TREE_CONSTANT (def_stmt_op1))
+		  && is_gimple_min_invariant (def_stmt_op1))
 		{
 		  tree outer_const = TREE_OPERAND (rhs, 1);
 		  tree type = TREE_TYPE (TREE_OPERAND (stmt, 0));
 		  tree t;
 
-		  /* Build and fold (Y OP C2) OP C1.  */
-		  t = build (rhs_code, type, rhs_def_rhs, outer_const);
+		  /* Ho hum.  So fold will only operate on the outermost
+		     thingy that we give it, so we have to build the new
+		     expression in two pieces.  This requires that we handle
+		     combinations of plus and minus.  */
+		  if (rhs_def_code != rhs_code)
+		    {
+		      if (rhs_def_code == MINUS_EXPR)
+		        t = build (MINUS_EXPR, type, outer_const, def_stmt_op1);
+		      else
+		        t = build (MINUS_EXPR, type, def_stmt_op1, outer_const);
+		      rhs_code = PLUS_EXPR;
+		    }
+		  else if (rhs_def_code == MINUS_EXPR)
+		    t = build (PLUS_EXPR, type, def_stmt_op1, outer_const);
+		  else
+		    t = build (rhs_def_code, type, def_stmt_op1, outer_const);
+		  t = local_fold (t);
+		  t = build (rhs_code, type, def_stmt_op0, t);
 		  t = local_fold (t);
 
 		  /* If the result is a suitable looking gimple expression,
@@ -1694,8 +1710,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 		      || ((TREE_CODE_CLASS (TREE_CODE (t)) == '2'
 			   || TREE_CODE_CLASS (TREE_CODE (t)) == '<')
 			  && TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME
-			  && (TREE_CODE (TREE_OPERAND (t, 1)) == SSA_NAME
-			      || TREE_CODE_CLASS (TREE_CODE (TREE_OPERAND (t, 1))) == 'c')))
+			  && is_gimple_val (TREE_OPERAND (t, 1))))
 		    result = update_rhs_and_lookup_avail_expr
 		      (stmt, t, &bd->avail_exprs, ann, insert);
 		}

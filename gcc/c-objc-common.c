@@ -275,7 +275,9 @@ c_objc_common_finish_file (void)
 
     if (stream)
       {
-	dump_node (getdecls (), flags & ~TDF_SLIM, stream);
+	tree decls = getdecls ();
+	if (decls)
+	  dump_node (decls, flags & ~TDF_SLIM, stream);
 	dump_end (TDI_tu, stream);
       }
   }

@@ -626,6 +626,8 @@ estimate_probability (struct loops *loops_info)
 
   predict_loops (loops_info, true);
 
+  iv_analysis_done ();
+
   /* Attempt to predict conditional jumps using a number of heuristics.  */
   FOR_EACH_BB (bb)
     {

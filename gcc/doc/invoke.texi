@@ -166,8 +166,7 @@ in the following sections.
 -trigraphs  -no-integrated-cpp  -traditional  -traditional-cpp @gol
 -fallow-single-precision  -fcond-mismatch @gol
 -fsigned-bitfields  -fsigned-char @gol
--funsigned-bitfields  -funsigned-char @gol
--fwritable-strings}
+-funsigned-bitfields  -funsigned-char}
 
 @item C++ Language Options
 @xref{C++ Dialect Options,,Options Controlling C++ Dialect}.
@@ -232,7 +231,8 @@ in the following sections.
 -Wsystem-headers  -Wtrigraphs  -Wundef  -Wuninitialized @gol
 -Wunknown-pragmas  -Wunreachable-code @gol
 -Wunused  -Wunused-function  -Wunused-label  -Wunused-parameter @gol
--Wunused-value  -Wunused-variable  -Wwrite-strings}
+-Wunused-value  -Wunused-variable  -Wwrite-strings @gol
+-Wvariadic-macros}
 
 @item C-only Warning Options
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
@@ -505,7 +505,7 @@ in the following sections.
 -mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} @gol
--mmmx  -msse  -msse2 -mpni -m3dnow @gol
+-mmmx  -msse  -msse2 -msse3 -m3dnow @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -momit-leaf-frame-pointer @gol
@@ -650,6 +650,7 @@ in the following sections.
 -malloc-cc  -mfixed-cc  -mdword  -mno-dword @gol
 -mdouble  -mno-double @gol
 -mmedia  -mno-media  -mmuladd  -mno-muladd @gol
+-mfdpic -minline-plt -mgprel-ro -multilib-library-pic -mlinked-fp @gol
 -mlibrary-pic  -macc-4 -macc-8 @gol
 -mpack  -mno-pack  -mno-eflags  -mcond-move  -mno-cond-move @gol
 -mscc  -mno-scc  -mcond-exec  -mno-cond-exec @gol
@@ -1231,17 +1232,6 @@ These options control whether a bit-field is signed or unsigned, when the
 declaration does not use either @code{signed} or @code{unsigned}.  By
 default, such a bit-field is signed, because this is consistent: the
 basic integer types such as @code{int} are signed types.
-
-@item -fwritable-strings
-@opindex fwritable-strings
-Store string constants in the writable data segment and don't uniquize
-them.  This is for compatibility with old programs which assume they can
-write into string constants.
-
-Writing into string constants is a very bad idea; ``constants'' should
-be constant.
-
-This option is deprecated.
 @end table
 
 @node C++ Dialect Options
@@ -1277,7 +1267,7 @@ the version that conforms most closely to the C++ ABI specification.
 Therefore, the ABI obtained using version 0 will change as ABI bugs
 are fixed.
 
-The default is version 1.
+The default is version 2.
 
 @item -fno-access-control
 @opindex fno-access-control
@@ -1313,8 +1303,7 @@ been added for putting variables into BSS without making them common.
 Give string constants type @code{char *} instead of type @code{const
 char *}.  By default, G++ uses type @code{const char *} as required by
 the standard.  Even if you use @option{-fno-const-strings}, you cannot
-actually modify the value of a string constant, unless you also use
-@option{-fwritable-strings}.
+actually modify the value of a string constant.
 
 This option might be removed in a future release of G++.  For maximum
 portability, you should structure your code so that it works with
@@ -2984,6 +2973,13 @@ Warn if @samp{long long} type is used.  This is default.  To inhibit
 the warning messages, use @option{-Wno-long-long}.  Flags
 @option{-Wlong-long} and @option{-Wno-long-long} are taken into account
 only when @option{-pedantic} flag is used.
+
+@item -Wvariadic-macros
+@opindex Wvariadic-macros
+@opindex Wno-variadic-macros
+Warn if variadic macros are used in pedantic ISO C90 mode, or the GNU
+alternate syntax when in pedantic ISO C99 mode.  This is default.
+To inhibit the warning messages, use @option{-Wno-variadic-macros}.
 
 @item -Wdisabled-optimization
 @opindex Wdisabled-optimization
@@ -8396,11 +8392,20 @@ Intel PentiumMMX CPU based on Pentium core with MMX instruction set support.
 Intel PentiumPro CPU.
 @item pentium2
 Intel Pentium2 CPU based on PentiumPro core with MMX instruction set support.
-@item pentium3
+@item pentium3, pentium3m
 Intel Pentium3 CPU based on PentiumPro core with MMX and SSE instruction set
 support.
-@item pentium4
+@item pentium-m
+Low power version of Intel Pentium3 CPU with MMX, SSE and SSE2 instruction set
+support.  Used by Centrino notebooks.
+@item pentium4, pentium4m
 Intel Pentium4 CPU with MMX, SSE and SSE2 instruction set support.
+@item prescott
+Improved version of Intel Pentium4 CPU with MMX, SSE, SSE2 and SSE3 instruction
+set support.
+@item nocona
+Improved version of Intel Pentium4 CPU with 64-bit extensions, MMX, SSE,
+SSE2 and SSE3 instruction set support.
 @item k6
 AMD K6 CPU with MMX instruction set support.
 @item k6-2, k6-3
@@ -8670,8 +8675,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -mno-sse
 @item -msse2
 @itemx -mno-sse2
-@item -mpni
-@itemx -mno-pni
+@item -msse3
+@itemx -mno-sse3
 @item -m3dnow
 @itemx -mno-3dnow
 @opindex mmmx
@@ -8681,7 +8686,7 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @opindex m3dnow
 @opindex mno-3dnow
 These switches enable or disable the use of built-in functions that allow
-direct access to the MMX, SSE, SSE2, PNI and 3Dnow extensions of the
+direct access to the MMX, SSE, SSE2, SSE3 and 3Dnow extensions of the
 instruction set.
 
 @xref{X86 Built-in Functions}, for details of the functions enabled
@@ -8939,6 +8944,53 @@ ld.  The ld that is called is determined by the @option{--with-ld}
 configure option, gcc's program search path, and finally by the user's
 @env{PATH}.  The linker used by GCC can be printed using @samp{which
 `gcc -print-prog-name=ld`}.
+
+@item -mfdpic
+@opindex mfdpic
+
+Select the FDPIC ABI, that uses function descriptors to represent
+pointers to functions.  Without any PIC/PIE-related options, it
+implies @option{-fPIE}.  With @option{-fpic} or @option{-fpie}, it
+assumes GOT entries and small data are within a 12-bit range from the
+GOT base address; with @option{-fPIC} or @option{-fPIE}, GOT offsets
+are computed with 32 bits.
+
+@item -minline-plt
+@opindex minline-plt
+
+Enable inlining of PLT entries in function calls to functions that are
+not known to bind locally.  It has no effect without @option{-mfdpic}.
+It's enabled by default if optimizing for speed and compiling for
+shared libraries (i.e., @option{-fPIC} or @option{-fpic}), or when an
+optimization option such as @option{-O3} or above is present in the
+command line.
+
+@item -mgprel-ro
+@opindex mgprel-ro
+
+Enable the use of @code{GPREL} relocations in the FDPIC ABI for data
+that is known to be in read-only sections.  It's enabled by default,
+except for @option{-fpic} or @option{-fpie}: even though it may help
+make the global offset table smaller, it trades 1 instruction for 4.
+With @option{-fPIC} or @option{-fPIE}, it trades 3 instructions for 4,
+one of which may be shared by multiple symbols, and it avoids the need
+for a GOT entry for the referenced symbol, so it's more likely to be a
+win.  If it is not, @option{-mno-gprel-ro} can be used to disable it.
+
+@item -multilib-library-pic
+@opindex multilib-library-pic
+
+Link with the (library, not FD) pic libraries.  It's implied by
+@option{-mlibrary-pic}, as well as by @option{-fPIC} and
+@option{-fpic} without @option{-mfdpic}.  You should never have to use
+it explicitly.
+
+@item -mlinked-fp
+@opindex mlinked-fp
+
+Follow the EABI requirement of always creating a frame pointer whenever
+a stack frame is allocated.  This option is enabled by default and can
+be disabled with @option{-mno-linked-fp}.
 
 @item -mlong-calls
 @opindex mno-long-calls
@@ -10714,7 +10766,7 @@ Do not use multiply and add/subtract instructions.
 @item -mlibrary-pic
 @opindex mlibrary-pic
 
-Enable PIC support for building libraries
+Generate position-independent EABI code.
 
 @item -macc-4
 @opindex macc-4

@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>
 
@@ -1402,7 +1402,7 @@ init_web_parts (struct df *df)
 	    num_webs++;
 	}
       else
-	/* The last iteration might have left .ref set, while df_analyse()
+	/* The last iteration might have left .ref set, while df_analyze()
 	   removed that ref (due to a removed copy insn) from the df->defs[]
 	   array.  As we don't check for that in realloc_web_parts()
 	   we do that here.  */

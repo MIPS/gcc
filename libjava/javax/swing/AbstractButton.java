@@ -186,19 +186,19 @@ public abstract class AbstractButton extends JComponent
   String text;
 
   /** The vertical alignment of the button's text and icon. */
-  int vert_align = CENTER;
+  int vert_align;
 
   /** The horizontal alignment of the button's text and icon. */
-  int hori_align = CENTER;
+  int hori_align;
 
   /** The horizontal position of the button's text relative to its icon. */
-  int hori_text_pos = CENTER;
+  int hori_text_pos;
 
   /** The vertical position of the button's text relative to its icon. */
-  int vert_text_pos = CENTER;
+  int vert_text_pos;
 
   /** Whether or not the button paints its border. */
-  boolean paint_border = true;
+  boolean paint_border;
 
   /** Whether or not the button paints its focus state. */
   boolean paint_focus;
@@ -233,61 +233,61 @@ public abstract class AbstractButton extends JComponent
   PropertyChangeListener actionPropertyChangeListener;
   
   /** Fired in a PropertyChangeEvent when the "borderPainted" property changes. */
-  public static String BORDER_PAINTED_CHANGED_PROPERTY = "borderPainted";
+  public static final String BORDER_PAINTED_CHANGED_PROPERTY = "borderPainted";
   
   /** Fired in a PropertyChangeEvent when the "contentAreaFilled" property changes. */
-  public static String CONTENT_AREA_FILLED_CHANGED_PROPERTY = "contentAreaFilled";
+  public static final String CONTENT_AREA_FILLED_CHANGED_PROPERTY = "contentAreaFilled";
   
   /** Fired in a PropertyChangeEvent when the "disabledIcon" property changes. */
-  public static String DISABLED_ICON_CHANGED_PROPERTY = "disabledIcon";
+  public static final String DISABLED_ICON_CHANGED_PROPERTY = "disabledIcon";
   
   /** Fired in a PropertyChangeEvent when the "disabledSelectedIcon" property changes. */
-  public static String DISABLED_SELECTED_ICON_CHANGED_PROPERTY = "disabledSelectedIcon";
+  public static final String DISABLED_SELECTED_ICON_CHANGED_PROPERTY = "disabledSelectedIcon";
   
   /** Fired in a PropertyChangeEvent when the "focusPainted" property changes. */
-  public static String FOCUS_PAINTED_CHANGED_PROPERTY = "focusPainted";
+  public static final String FOCUS_PAINTED_CHANGED_PROPERTY = "focusPainted";
 
   /** Fired in a PropertyChangeEvent when the "horizontalAlignment" property changes. */
-  public static String HORIZONTAL_ALIGNMENT_CHANGED_PROPERTY = "horizontalAlignment";
+  public static final String HORIZONTAL_ALIGNMENT_CHANGED_PROPERTY = "horizontalAlignment";
 
   /** Fired in a PropertyChangeEvent when the "horizontalTextPosition" property changes. */
-  public static String HORIZONTAL_TEXT_POSITION_CHANGED_PROPERTY = "horizontalTextPosition";
+  public static final String HORIZONTAL_TEXT_POSITION_CHANGED_PROPERTY = "horizontalTextPosition";
 
   /** Fired in a PropertyChangeEvent when the "icon" property changes. */
-  public static String ICON_CHANGED_PROPERTY = "icon";
+  public static final String ICON_CHANGED_PROPERTY = "icon";
 
   /** Fired in a PropertyChangeEvent when the "margin" property changes. */
-  public static String MARGIN_CHANGED_PROPERTY = "margin";
+  public static final String MARGIN_CHANGED_PROPERTY = "margin";
 
   /** Fired in a PropertyChangeEvent when the "mnemonic" property changes. */
-  public static String MNEMONIC_CHANGED_PROPERTY = "mnemonic";
+  public static final String MNEMONIC_CHANGED_PROPERTY = "mnemonic";
 
   /** Fired in a PropertyChangeEvent when the "model" property changes. */
-  public static String MODEL_CHANGED_PROPERTY = "model";
+  public static final String MODEL_CHANGED_PROPERTY = "model";
 
   /** Fired in a PropertyChangeEvent when the "pressedIcon" property changes. */
-  public static String PRESSED_ICON_CHANGED_PROPERTY = "pressedIcon";
+  public static final String PRESSED_ICON_CHANGED_PROPERTY = "pressedIcon";
 
   /** Fired in a PropertyChangeEvent when the "rolloverEnabled" property changes. */
-  public static String ROLLOVER_ENABLED_CHANGED_PROPERTY = "rolloverEnabled";
+  public static final String ROLLOVER_ENABLED_CHANGED_PROPERTY = "rolloverEnabled";
 
   /** Fired in a PropertyChangeEvent when the "rolloverIcon" property changes. */
-  public static String ROLLOVER_ICON_CHANGED_PROPERTY = "rolloverIcon";
+  public static final String ROLLOVER_ICON_CHANGED_PROPERTY = "rolloverIcon";
   
   /** Fired in a PropertyChangeEvent when the "rolloverSelectedIcon" property changes. */
-  public static String ROLLOVER_SELECTED_ICON_CHANGED_PROPERTY = "rolloverSelectedIcon";
+  public static final String ROLLOVER_SELECTED_ICON_CHANGED_PROPERTY = "rolloverSelectedIcon";
   
   /** Fired in a PropertyChangeEvent when the "selectedIcon" property changes. */
-  public static String SELECTED_ICON_CHANGED_PROPERTY = "selectedIcon";
+  public static final String SELECTED_ICON_CHANGED_PROPERTY = "selectedIcon";
 
   /** Fired in a PropertyChangeEvent when the "text" property changes. */
-  public static String TEXT_CHANGED_PROPERTY = "text";
+  public static final String TEXT_CHANGED_PROPERTY = "text";
 
   /** Fired in a PropertyChangeEvent when the "verticalAlignment" property changes. */
-  public static String VERTICAL_ALIGNMENT_CHANGED_PROPERTY = "verticalAlignment";
+  public static final String VERTICAL_ALIGNMENT_CHANGED_PROPERTY = "verticalAlignment";
 
   /** Fired in a PropertyChangeEvent when the "verticalTextPosition" property changes. */
-  public static String VERTICAL_TEXT_POSITION_CHANGED_PROPERTY = "verticalTextPosition";
+  public static final String VERTICAL_TEXT_POSITION_CHANGED_PROPERTY = "verticalTextPosition";
 
     /**
    * A Java Accessibility extension of the AbstractButton.
@@ -487,8 +487,16 @@ public abstract class AbstractButton extends JComponent
     model.addChangeListener(changeListener);
     model.addItemListener(itemListener);
 
+    hori_align = CENTER;
+    hori_text_pos = TRAILING;
+    vert_align = CENTER;
+    vert_text_pos = CENTER;
+    paint_border = true;
+    content_area_filled = true;
+
     setAlignmentX(LEFT_ALIGNMENT);
     setAlignmentY(CENTER_ALIGNMENT);
+
     addFocusListener(new ButtonFocusListener());
     updateUI();
   }
@@ -1604,7 +1612,7 @@ public abstract class AbstractButton extends JComponent
    *
    * @return The current rollover selected icon
    */
-  Icon getRolloverSelectedIcon()
+  public Icon getRolloverSelectedIcon()
   {
     return rollover_selected_icon;
   }
@@ -1640,7 +1648,7 @@ public abstract class AbstractButton extends JComponent
    *
    * @return The current selected icon
    */
-  Icon getSelectedIcon()
+  public Icon getSelectedIcon()
   {
     return selected_icon;
   }

@@ -201,12 +201,8 @@ struct tree_common GTY(())
            VAR_DECL or FUNCTION_DECL or IDENTIFIER_NODE
        TREE_VIA_PUBLIC in
            TREE_LIST or TREE_VEC
-       EXPR_WFL_EMIT_LINE_NOTE in
-           EXPR_WITH_FILE_LOCATION
        ASM_VOLATILE_P in
            ASM_EXPR
-       EXPR_WFL_EMIT_LINE_NOTE in
-           EXPR_WITH_FILE_LOCATION
 
    private_flag:
 
@@ -2523,7 +2519,7 @@ enum ptrmemfunc_vbit_where_t
 
 #define NULL_TREE (tree) NULL
 
-extern tree frame_base_decl;
+extern GTY(()) tree frame_base_decl;
 extern tree decl_assembler_name (tree);
 
 /* Compute the number of bytes occupied by 'node'.  This routine only
@@ -2793,6 +2789,11 @@ extern tree merge_attributes (tree, tree);
 extern tree merge_dllimport_decl_attributes (tree, tree);
 #endif
 
+/* Check whether CAND is suitable to be returned from get_qualified_type
+   (BASE, TYPE_QUALS).  */
+
+extern bool check_qualified_type (tree, tree, int);
+
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
    return NULL_TREE.  */
@@ -2955,7 +2956,6 @@ extern tree size_int_type_wide (HOST_WIDE_INT, tree);
 extern tree round_up (tree, int);
 extern tree round_down (tree, int);
 extern tree get_pending_sizes (void);
-extern int is_pending_size (tree);
 extern void put_pending_size (tree);
 extern void put_pending_sizes (tree);
 
@@ -3424,7 +3424,6 @@ extern void indent_to (FILE *, int);
 #endif
 
 /* In expr.c */
-extern int apply_args_register_offset (int);
 extern rtx expand_builtin_return_addr (enum built_in_function, int, rtx);
 extern void check_max_integer_computation_mode (tree);
 
@@ -3522,7 +3521,6 @@ extern void expand_decl (tree);
 extern int expand_decl_cleanup (tree, tree);
 extern int expand_decl_cleanup_eh (tree, tree, int);
 extern void expand_anon_union_decl (tree, tree, tree);
-extern void expand_start_case_dummy (void);
 extern int containing_blocks_have_cleanups_or_stack_level (void);
 
 /* In gimplify.c.  */

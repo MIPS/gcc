@@ -1,6 +1,6 @@
 /* C-compiler utilities for types and variables storage layout
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -100,19 +100,6 @@ get_pending_sizes (void)
 
   pending_sizes = 0;
   return chain;
-}
-
-/* Return nonzero if EXPR is present on the pending sizes list.  */
-
-int
-is_pending_size (tree expr)
-{
-  tree t;
-
-  for (t = pending_sizes; t; t = TREE_CHAIN (t))
-    if (TREE_VALUE (t) == expr)
-      return 1;
-  return 0;
 }
 
 /* Add EXPR to the pending sizes list.  */
@@ -2118,6 +2105,29 @@ get_best_mode (int bitsize, int bitpos, unsigned int align,
     }
 
   return mode;
+}
+
+/* Gets minimal and maximal values for MODE (signed or unsigned depending on
+   SIGN).  */
+
+void
+get_mode_bounds (enum machine_mode mode, int sign, rtx *mmin, rtx *mmax)
+{
+  int size = GET_MODE_BITSIZE (mode);
+
+  if (size > HOST_BITS_PER_WIDE_INT)
+    abort ();
+
+  if (sign)
+    {
+      *mmin = GEN_INT (-((unsigned HOST_WIDE_INT) 1 << (size - 1)));
+      *mmax = GEN_INT (((unsigned HOST_WIDE_INT) 1 << (size - 1)) - 1);
+    }
+  else
+    {
+      *mmin = const0_rtx;
+      *mmax = GEN_INT (((unsigned HOST_WIDE_INT) 1 << (size - 1) << 1) - 1);
+    }
 }
 
 #include "gt-stor-layout.h"

@@ -647,8 +647,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	     If rest_of_compilation set this to 0, leave it 0.  */
 	  if (DECL_INITIAL (fndecl) != 0)
 	    DECL_INITIAL (fndecl) = error_mark_node;
-
-	  DECL_ARGUMENTS (fndecl) = 0;
 	}
     }
 

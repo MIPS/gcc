@@ -378,10 +378,8 @@ lshift_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
       return;
     }
 
-#ifdef SHIFT_COUNT_TRUNCATED
   if (SHIFT_COUNT_TRUNCATED)
     count %= prec;
-#endif
 
   if (count >= 2 * HOST_BITS_PER_WIDE_INT)
     {
@@ -441,10 +439,8 @@ rshift_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
 	      ? -((unsigned HOST_WIDE_INT) h1 >> (HOST_BITS_PER_WIDE_INT - 1))
 	      : 0);
 
-#ifdef SHIFT_COUNT_TRUNCATED
   if (SHIFT_COUNT_TRUNCATED)
     count %= prec;
-#endif
 
   if (count >= 2 * HOST_BITS_PER_WIDE_INT)
     {
@@ -726,7 +722,7 @@ div_and_round_double (enum tree_code code, int uns,
   if (quo_neg)
     neg_double (*lquo, *hquo, lquo, hquo);
 
-  /* compute trial remainder:  rem = num - (quo * den)  */
+  /* Compute trial remainder:  rem = num - (quo * den)  */
   mul_double (*lquo, *hquo, lden_orig, hden_orig, lrem, hrem);
   neg_double (*lrem, *hrem, lrem, hrem);
   add_double (lnum_orig, hnum_orig, *lrem, *hrem, lrem, hrem);
@@ -5459,7 +5455,8 @@ fold (tree expr)
      to ARG1 to reduce the number of tests below.  */
   if (commutative_tree_code (code)
       && tree_swap_operands_p (arg0, arg1, true))
-    return fold (build (code, type, arg1, arg0));
+    return fold (build (code, type, TREE_OPERAND (t, 1),
+			TREE_OPERAND (t, 0)));
 
   /* Now WINS is set as described above,
      ARG0 is the first operand of EXPR,

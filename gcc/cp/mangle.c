@@ -58,6 +58,7 @@
 #include "obstack.h"
 #include "toplev.h"
 #include "varray.h"
+#include "flags.h"
 
 /* Debugging support.  */
 
@@ -2120,9 +2121,9 @@ write_template_arg_literal (const tree value)
     {
       if (same_type_p (type, boolean_type_node))
 	{
-	  if (value == boolean_false_node || integer_zerop (value))
+	  if (integer_zerop (value))
 	    write_unsigned_number (0);
-	  else if (value == boolean_true_node)
+	  else if (integer_onep (value))
 	    write_unsigned_number (1);
 	  else 
 	    abort ();

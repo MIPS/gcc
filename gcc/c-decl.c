@@ -616,7 +616,7 @@ poplevel (int keep, int dummy ATTRIBUTE_UNUSED, int functionbody)
 	      && DECL_NAME (p)
 	      && !DECL_ARTIFICIAL (p))
 	    warning ("%Junused variable `%D'", p, p);
-	  /* fall through */
+	  /* Fall through.  */
 
 	default:
 	normal:
@@ -799,7 +799,7 @@ match_builtin_function_types (tree newtype, tree oldtype)
 
 /* Subroutine of diagnose_mismatched_decls.  Check for function type
    mismatch involving an empty arglist vs a nonempty one and give clearer
-   diagnostics. */
+   diagnostics.  */
 static void
 diagnose_arglist_conflict (tree newdecl, tree olddecl,
 			   tree newtype, tree oldtype)
@@ -975,7 +975,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	    {
 	      /* If types don't match for a built-in, throw away the
 		 built-in.  No point in calling locate_old_decl here, it
-		 won't print anything. */
+		 won't print anything.  */
 	      warning ("%Jconflicting types for built-in function '%D'",
 		       newdecl, newdecl);
 	      return false;
@@ -1021,7 +1021,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
   if (TREE_CODE (newdecl) == TYPE_DECL)
     {
       if (DECL_IN_SYSTEM_HEADER (newdecl) || DECL_IN_SYSTEM_HEADER (olddecl))
-	return true;  /* allow OLDDECL to continue in use */
+	return true;  /* Allow OLDDECL to continue in use.  */
       
       error ("%Jredefinition of typedef '%D'", newdecl, newdecl);
       locate_old_decl (olddecl, error);
@@ -2057,12 +2057,13 @@ define_label (location_t location, tree name)
   return label;
 }
 
-/* Return the list of declarations of the current scope.  */
+/* Return the list of declarations of the current scope.
+   This hook is optional and not implemented for C.  */
 
 tree
 getdecls (void)
 {
-  return current_scope->names;
+  return 0;
 }
 
 
@@ -6163,27 +6164,6 @@ finish_function (void)
   current_function_decl = NULL;
 }
 
-/* Generate the RTL for a deferred function FNDECL.  */
-
-void
-c_expand_deferred_function (tree fndecl)
-{
-  /* DECL_INLINE or DECL_RESULT might got cleared after the inline
-     function was deferred, e.g. in duplicate_decls.  */
-  if (DECL_INLINE (fndecl) && DECL_RESULT (fndecl))
-    {
-      if (flag_inline_trees)
-	{
-	  timevar_push (TV_INTEGRATION);
-	  optimize_inline_calls (fndecl);
-	  timevar_pop (TV_INTEGRATION);
-	  dump_function (TDI_inlined, fndecl);
-	}
-      c_expand_body (fndecl);
-      current_function_decl = NULL;
-    }
-}
-
 /* Generate the RTL for the body of FNDECL.  If NESTED_P is nonzero,
    then we are already in the process of generating RTL for another
    function.  */
@@ -6283,7 +6263,7 @@ check_for_loop_decls (void)
         }
     }
 
-  for (t = getdecls (); t; t = TREE_CHAIN (t))
+  for (t = current_scope->names; t; t = TREE_CHAIN (t))
     {
       if (TREE_CODE (t) != VAR_DECL && DECL_NAME (t))
 	error ("%Jdeclaration of non-variable '%D' in 'for' loop "
@@ -6479,11 +6459,14 @@ void
 record_builtin_type (enum rid rid_index, const char *name, tree type)
 {
   tree id;
+  tree tdecl;
   if (name == 0)
     id = ridpointers[(int) rid_index];
   else
     id = get_identifier (name);
-  pushdecl (build_decl (TYPE_DECL, id, type));
+  tdecl = build_decl (TYPE_DECL, id, type);
+  pushdecl (tdecl);
+  debug_hooks->type_decl (tdecl, 0);
 }
 
 /* Build the void_list_node (void_type_node having been created).  */

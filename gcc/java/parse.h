@@ -1,5 +1,5 @@
 /* Language parser definitions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
@@ -807,7 +807,7 @@ struct parser_ctxt GTY(()) {
    an inner class is pushed. After, use FIXME. */
 #define CPC_INNER_P() GET_CPC_LIST ()
 
-/* Get the currently parsed class DECL_TYPE node.  */
+/* The TYPE_DECL node of the class currently being parsed.  */
 #define GET_CPC() TREE_VALUE (GET_CPC_LIST ())
 
 /* Get the currently parsed class unqualified IDENTIFIER_NODE.  */

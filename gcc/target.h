@@ -183,6 +183,12 @@ struct gcc_target
     /* Finalize machine-dependent scheduling code.  */
     void (* md_finish) (FILE *, int);
 
+    /* Initialize machine-dependent function while scheduling code.  */
+    void (* md_init_global) (FILE *, int, int);
+
+    /* Finalize machine-dependent function wide scheduling code.  */
+    void (* md_finish_global) (FILE *, int);
+
     /* Reorder insns in a machine-dependent fashion, in two different
        places.  Default does nothing.  */
     int (* reorder) (FILE *, int, rtx *, int *, int);
@@ -409,6 +415,11 @@ struct gcc_target
   */
   void * (* get_pch_validity) (size_t *);
   const char * (* pch_valid_p) (const void *, size_t);
+
+  /* True if the compiler should give an @code{enum} type only as many
+     bytes as it takes to represent the range of possible values of
+     that type.  */
+  bool (* default_short_enums) (void);
 
   /* Leave the boolean fields at the end.  */
 

@@ -650,7 +650,7 @@ convert_move (rtx to, rtx from, int unsignedp)
       if (to_mode == full_mode)
 	return;
 
-      /* else proceed to integer conversions below */
+      /* else proceed to integer conversions below.  */
       from_mode = full_mode;
     }
 
@@ -1422,6 +1422,7 @@ static bool
 emit_block_move_via_movstr (rtx x, rtx y, rtx size, unsigned int align)
 {
   rtx opalign = GEN_INT (align / BITS_PER_UNIT);
+  int save_volatile_ok = volatile_ok;
   enum machine_mode mode;
 
   /* Since this is a move insn, we don't care about volatility.  */
@@ -1471,7 +1472,7 @@ emit_block_move_via_movstr (rtx x, rtx y, rtx size, unsigned int align)
 	  if (pat)
 	    {
 	      emit_insn (pat);
-	      volatile_ok = 0;
+	      volatile_ok = save_volatile_ok;
 	      return true;
 	    }
 	  else
@@ -1479,7 +1480,7 @@ emit_block_move_via_movstr (rtx x, rtx y, rtx size, unsigned int align)
 	}
     }
 
-  volatile_ok = 0;
+  volatile_ok = save_volatile_ok;
   return false;
 }
 
@@ -5691,6 +5692,20 @@ force_operand (rtx value, rtx target)
   rtx subtarget = get_subtarget (target);
   enum rtx_code code = GET_CODE (value);
 
+  /* Check for subreg applied to an expression produced by loop optimizer.  */
+  if (code == SUBREG
+      && GET_CODE (SUBREG_REG (value)) != REG
+      && GET_CODE (SUBREG_REG (value)) != MEM)
+    {
+      value = simplify_gen_subreg (GET_MODE (value),
+				   force_reg (GET_MODE (SUBREG_REG (value)),
+					      force_operand (SUBREG_REG (value),
+							     NULL_RTX)),
+				   GET_MODE (SUBREG_REG (value)),
+				   SUBREG_BYTE (value));
+      code = GET_CODE (value);
+    }
+
   /* Check for a PIC address load.  */
   if ((code == PLUS || code == MINUS)
       && XEXP (value, 0) == pic_offset_table_rtx
@@ -8232,7 +8247,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       /* First try to do it with a special MIN or MAX instruction.
 	 If that does not win, use a conditional jump to select the proper
 	 value.  */
-      this_optab = (TREE_UNSIGNED (type)
+      this_optab = (unsignedp
 		    ? (code == MIN_EXPR ? umin_optab : umax_optab)
 		    : (code == MIN_EXPR ? smin_optab : smax_optab));
 
@@ -8266,18 +8281,16 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  && ! can_compare_p (GE, mode, ccp_jump))
 	{
 	  if (code == MAX_EXPR)
-	    do_jump_by_parts_greater_rtx (mode, TREE_UNSIGNED (type),
-					  target, op1, NULL_RTX, op0);
+	    do_jump_by_parts_greater_rtx (mode, unsignedp, target, op1,
+					  NULL_RTX, op0);
 	  else
-	    do_jump_by_parts_greater_rtx (mode, TREE_UNSIGNED (type),
-					  op1, target, NULL_RTX, op0);
+	    do_jump_by_parts_greater_rtx (mode, unsignedp, op1, target,
+					  NULL_RTX, op0);
 	}
       else
 	{
-	  int unsignedp = TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 1)));
 	  do_compare_rtx_and_jump (target, op1, code == MAX_EXPR ? GE : LE,
-				   unsignedp, mode, NULL_RTX, NULL_RTX,
-				   op0);
+				   unsignedp, mode, NULL_RTX, NULL_RTX, op0);
 	}
       emit_move_insn (target, op1);
       emit_label (op0);
@@ -9404,7 +9417,8 @@ is_aligning_offset (tree offset, tree exp)
      power of 2 and which is larger than BIGGEST_ALIGNMENT.  */
   if (TREE_CODE (offset) != BIT_AND_EXPR
       || !host_integerp (TREE_OPERAND (offset, 1), 1)
-      || compare_tree_int (TREE_OPERAND (offset, 1), BIGGEST_ALIGNMENT) <= 0
+      || compare_tree_int (TREE_OPERAND (offset, 1), 
+			   BIGGEST_ALIGNMENT / BITS_PER_UNIT) <= 0
       || !exact_log2 (tree_low_cst (TREE_OPERAND (offset, 1), 1) + 1) < 0)
     return 0;
 

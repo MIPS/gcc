@@ -91,10 +91,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "target.h"
 
-#ifndef SHIFT_COUNT_TRUNCATED
-#define SHIFT_COUNT_TRUNCATED 0
-#endif
-
 /* Number of attempts to combine instructions in this function.  */
 
 static int combine_attempts;
@@ -813,9 +809,6 @@ setup_incoming_promotions (void)
 
   if (targetm.calls.promote_function_args (TREE_TYPE (cfun->decl)))
     {
-#ifndef OUTGOING_REGNO
-#define OUTGOING_REGNO(N) N
-#endif
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	/* Check whether this register can hold an incoming pointer
 	   argument.  FUNCTION_ARG_REGNO_P tests outgoing register
@@ -963,6 +956,7 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED, rtx succ,
       for (i = 0; i < XVECLEN (PATTERN (insn), 0); i++)
 	{
 	  rtx elt = XVECEXP (PATTERN (insn), 0, i);
+	  rtx note;
 
 	  switch (GET_CODE (elt))
 	    {
@@ -1013,6 +1007,8 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED, rtx succ,
 	      /* Ignore SETs whose result isn't used but not those that
 		 have side-effects.  */
 	      if (find_reg_note (insn, REG_UNUSED, SET_DEST (elt))
+		  && (!(note = find_reg_note (insn, REG_EH_REGION, NULL_RTX))
+		      || INTVAL (XEXP (note, 0)) <= 0)
 		  && ! side_effects_p (elt))
 		break;
 
@@ -1456,7 +1452,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
   int added_sets_1, added_sets_2;
   /* Total number of SETs to put into I3.  */
   int total_sets;
-  /* Nonzero is I2's body now appears in I3.  */
+  /* Nonzero if I2's body now appears in I3.  */
   int i2_is_used;
   /* INSN_CODEs for new I3, new I2, and user of condition code.  */
   int insn_code_number, i2_code_number = 0, other_code_number = 0;
@@ -2017,15 +2013,26 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
   insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
 
   /* If the result isn't valid, see if it is a PARALLEL of two SETs where
-     the second SET's destination is a register that is unused.  In that case,
+     the second SET's destination is a register that is unused and isn't
+     marked as an instruction that might trap in an EH region.  In that case,
      we just need the first SET.   This can occur when simplifying a divmod
      insn.  We *must* test for this case here because the code below that
      splits two independent SETs doesn't handle this case correctly when it
-     updates the register status.  Also check the case where the first
-     SET's destination is unused.  That would not cause incorrect code, but
-     does cause an unneeded insn to remain.  */
+     updates the register status.
 
-  if (insn_code_number < 0 && GET_CODE (newpat) == PARALLEL
+     It's pointless doing this if we originally had two sets, one from
+     i3, and one from i2.  Combining then splitting the parallel results
+     in the original i2 again plus an invalid insn (which we delete).
+     The net effect is only to move instructions around, which makes
+     debug info less accurate.
+
+     Also check the case where the first SET's destination is unused.
+     That would not cause incorrect code, but does cause an unneeded
+     insn to remain.  */
+
+  if (insn_code_number < 0
+      && !(added_sets_2 && i1 == 0)
+      && GET_CODE (newpat) == PARALLEL
       && XVECLEN (newpat, 0) == 2
       && GET_CODE (XVECEXP (newpat, 0, 0)) == SET
       && GET_CODE (XVECEXP (newpat, 0, 1)) == SET
@@ -2033,37 +2040,42 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
     {
       rtx set0 = XVECEXP (newpat, 0, 0);
       rtx set1 = XVECEXP (newpat, 0, 1);
-  
+      rtx note;
+
       if (((GET_CODE (SET_DEST (set1)) == REG
-            && find_reg_note (i3, REG_UNUSED, SET_DEST (set1)))
-          || (GET_CODE (SET_DEST (set1)) == SUBREG
-              && find_reg_note (i3, REG_UNUSED, SUBREG_REG (SET_DEST (set1)))))
-          && ! side_effects_p (SET_SRC (set1)))
-        {
-          newpat = set0;
-          insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
-        }
-  
+	    && find_reg_note (i3, REG_UNUSED, SET_DEST (set1)))
+	   || (GET_CODE (SET_DEST (set1)) == SUBREG
+	       && find_reg_note (i3, REG_UNUSED, SUBREG_REG (SET_DEST (set1)))))
+	  && (!(note = find_reg_note (i3, REG_EH_REGION, NULL_RTX))
+	      || INTVAL (XEXP (note, 0)) <= 0)
+	  && ! side_effects_p (SET_SRC (set1)))
+	{
+	  newpat = set0;
+	  insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
+	}
+
       else if (((GET_CODE (SET_DEST (set0)) == REG
-                && find_reg_note (i3, REG_UNUSED, SET_DEST (set0)))
-                || (GET_CODE (SET_DEST (set0)) == SUBREG
-                    && find_reg_note (i3, REG_UNUSED,
-                                      SUBREG_REG (SET_DEST (set0)))))
-              && ! side_effects_p (SET_SRC (set0)))
-        {
-          newpat = set1;
-          insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
-    
-          if (insn_code_number >= 0)
-            {
-              /* If we will be able to accept this, we have made a
-                 change to the destination of I3.  This requires us to
-                 do a few adjustments.  */
-            
-              PATTERN (i3) = newpat;
-              adjust_for_new_dest (i3);
-            }
-        }
+		 && find_reg_note (i3, REG_UNUSED, SET_DEST (set0)))
+		|| (GET_CODE (SET_DEST (set0)) == SUBREG
+		    && find_reg_note (i3, REG_UNUSED,
+				      SUBREG_REG (SET_DEST (set0)))))
+	       && (!(note = find_reg_note (i3, REG_EH_REGION, NULL_RTX))
+		   || INTVAL (XEXP (note, 0)) <= 0)
+	       && ! side_effects_p (SET_SRC (set0)))
+	{
+	  newpat = set1;
+	  insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
+
+	  if (insn_code_number >= 0)
+	    {
+	      /* If we will be able to accept this, we have made a
+		 change to the destination of I3.  This requires us to
+		 do a few adjustments.  */
+
+	      PATTERN (i3) = newpat;
+	      adjust_for_new_dest (i3);
+	    }
+	}
     }
 
   /* If we were combining three insns and the result is a simple SET
@@ -4930,6 +4942,7 @@ simplify_if_then_else (rtx x)
   /* (IF_THEN_ELSE (NE REG 0) (0) (8)) is REG for nonzero_bits (REG) == 8.  */
   if (true_code == NE && XEXP (cond, 1) == const0_rtx
       && false_rtx == const0_rtx && GET_CODE (true_rtx) == CONST_INT
+      && GET_MODE (XEXP (cond, 0)) == mode
       && (INTVAL (true_rtx) & GET_MODE_MASK (mode))
 	  == nonzero_bits (XEXP (cond, 0), mode)
       && (i = exact_log2 (INTVAL (true_rtx) & GET_MODE_MASK (mode))) >= 0)

@@ -1708,6 +1708,10 @@ build_function_call (tree function, tree params)
 	 executions of the program must execute the code.  */
       warning ("function called through a non-compatible type");
 
+      /* We can, however, treat "undefined" any way we please.
+	 Call abort to encourage the user to fix the program.  */
+      inform ("if this code is reached, the program will abort");
+
       if (VOID_TYPE_P (return_type))
 	return trap;
       else
@@ -5987,77 +5991,28 @@ process_init_element (tree value)
   constructor_range_stack = 0;
 }
 
-/* Build a simple asm-statement, from one string literal.  */
+/* Build a complete asm-statement, whose components are a CV_QUALIFIER
+   (guaranteed to be 'volatile' or null) and ARGS (represented using
+   an ASM_STMT node).  */
 tree
-simple_asm_stmt (tree expr)
+build_asm_stmt (tree cv_qualifier, tree args)
 {
-  STRIP_NOPS (expr);
-
-  if (TREE_CODE (expr) == ADDR_EXPR)
-    expr = TREE_OPERAND (expr, 0);
-
-  if (TREE_CODE (expr) == STRING_CST)
-    {
-      tree stmt;
-
-      stmt = add_stmt (build_stmt (ASM_STMT, expr,
-				   NULL_TREE, NULL_TREE,
-				   NULL_TREE));
-      /* Simple asm statements are treated as volatile.  */
-      ASM_VOLATILE_P (stmt) = 1;
-      ASM_INPUT_P (stmt) = 1;
-      return stmt;
-    }
-
-  error ("argument of `asm' is not a constant string");
-  return NULL_TREE;
+  if (!ASM_VOLATILE_P (args) && cv_qualifier)
+    ASM_VOLATILE_P (args) = 1;
+  return add_stmt (args);
 }
 
-/* Build an asm-statement, whose components are a CV_QUALIFIER, a
-   STRING, some OUTPUTS, some INPUTS, and some CLOBBERS.  */
-
+/* Build an asm-expr, whose components are a STRING, some OUTPUTS,
+   some INPUTS, and some CLOBBERS.  The latter three may be NULL.
+   SIMPLE indicates whether there was anything at all after the
+   string in the asm expression -- asm("blah") and asm("blah" : )
+   are subtly different.  We use a ASM_STMT node to represent this.  */
 tree
-build_asm_stmt (tree cv_qualifier, tree string, tree outputs, tree inputs, tree clobbers)
+build_asm_expr (tree string, tree outputs, tree inputs, tree clobbers,
+		bool simple)
 {
   tree tail;
-  tree stmt;
-
-  if (TREE_CODE (string) != STRING_CST)
-    {
-      error ("asm template is not a string constant");
-      return NULL_TREE;
-    }
-
-  if (cv_qualifier != NULL_TREE
-      && cv_qualifier != ridpointers[(int) RID_VOLATILE])
-    {
-      warning ("%s qualifier ignored on asm",
-	       IDENTIFIER_POINTER (cv_qualifier));
-      cv_qualifier = NULL_TREE;
-    }
-
-  /* We can remove output conversions that change the type,
-     but not the mode.  */
-  for (tail = outputs; tail; tail = TREE_CHAIN (tail))
-    {
-      tree output = TREE_VALUE (tail);
-
-      STRIP_NOPS (output);
-      TREE_VALUE (tail) = output;
-
-      /* Allow conversions as LHS here.  build_modify_expr as called below
-	 will do the right thing with them.  */
-      while (TREE_CODE (output) == NOP_EXPR
-	     || TREE_CODE (output) == CONVERT_EXPR
-	     || TREE_CODE (output) == FLOAT_EXPR
-	     || TREE_CODE (output) == FIX_TRUNC_EXPR
-	     || TREE_CODE (output) == FIX_FLOOR_EXPR
-	     || TREE_CODE (output) == FIX_ROUND_EXPR
-	     || TREE_CODE (output) == FIX_CEIL_EXPR)
-	output = TREE_OPERAND (output, 0);
-
-      lvalue_or_else (TREE_VALUE (tail), "invalid lvalue in asm statement");
-    }
+  tree args;
 
   /* Remove output conversions that change the type but not the mode.  */
   for (tail = outputs; tail; tail = TREE_CHAIN (tail))
@@ -6065,6 +6020,7 @@ build_asm_stmt (tree cv_qualifier, tree string, tree outputs, tree inputs, tree 
       tree output = TREE_VALUE (tail);
       STRIP_NOPS (output);
       TREE_VALUE (tail) = output;
+      lvalue_or_else (output, "invalid lvalue in asm statement");
     }
 
   /* Perform default conversions on array and function inputs.
@@ -6073,10 +6029,15 @@ build_asm_stmt (tree cv_qualifier, tree string, tree outputs, tree inputs, tree 
   for (tail = inputs; tail; tail = TREE_CHAIN (tail))
     TREE_VALUE (tail) = default_function_array_conversion (TREE_VALUE (tail));
 
-  stmt = build_stmt (ASM_STMT, string, outputs, inputs, clobbers);
-  if (cv_qualifier)
-    ASM_VOLATILE_P (stmt) = 1;
-  return add_stmt (stmt);
+  args = build_stmt (ASM_STMT, string, outputs, inputs, clobbers);
+
+  /* Simple asm statements are treated as volatile.  */
+  if (simple)
+    {
+      ASM_VOLATILE_P (args) = 1;
+      ASM_INPUT_P (args) = 1;
+    }
+  return args;
 }
 
 /* Expand an ASM statement with operands, handling output operands
@@ -6213,7 +6174,7 @@ c_expand_return (tree retval)
 	      while (TREE_CODE_CLASS (TREE_CODE (inner)) == 'r')
 		inner = TREE_OPERAND (inner, 0);
 
-	      if (TREE_CODE (inner) == VAR_DECL
+	      if (DECL_P (inner)
 		  && ! DECL_EXTERNAL (inner)
 		  && ! TREE_STATIC (inner)
 		  && DECL_CONTEXT (inner) == current_function_decl)

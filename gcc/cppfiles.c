@@ -109,11 +109,8 @@ struct _cpp_file
   /* If BUFFER above contains the true contents of the file.  */
   bool buffer_valid;
 
-  /* 0: file not known to be a PCH.
-     1: file is a PCH (on return from find_include_file).
-     2: file is not and never will be a valid precompiled header.
-     3: file is always a valid precompiled header.  */
-  uchar pch;
+  /* File is a PCH (on return from find_include_file).  */
+  bool pch;
 };
 
 /* A singly-linked list for all searches for a given file name, with
@@ -180,7 +177,6 @@ static void read_name_map (cpp_dir *dir);
 static char *remap_filename (cpp_reader *pfile, _cpp_file *file);
 static char *append_file_to_dir (const char *fname, cpp_dir *dir);
 static bool validate_pch (cpp_reader *, _cpp_file *file, const char *pchname);
-static bool include_pch_p (_cpp_file *file);
 static int pchf_adder (void **slot, void *data);
 static int pchf_save_compare (const void *e1, const void *e2);
 static int pchf_compare (const void *d_p, const void *e_p);
@@ -577,7 +573,7 @@ should_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
     return false;
 
   /* Handle PCH files immediately; don't stack them.  */
-  if (include_pch_p (file))
+  if (file->pch)
     {
       pfile->cb.read_pch (pfile, file->path, file->fd, file->pchname);
       close (file->fd);
@@ -640,8 +636,10 @@ _cpp_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
   if (!should_stack_file (pfile, file, import))
       return false;
 
-  sysp = MAX ((pfile->map ? pfile->map->sysp : 0),
-	      (file->dir ? file->dir->sysp : 0));
+  if (pfile->buffer == NULL || file->dir == NULL)
+    sysp = 0;
+  else
+    sysp = MAX (pfile->buffer->sysp,  file->dir->sysp);
 
   /* Add the file to the dependencies on its first inclusion.  */
   if (CPP_OPTION (pfile, deps.style) > !!sysp && !file->stack_count)
@@ -658,6 +656,7 @@ _cpp_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
   buffer = cpp_push_buffer (pfile, file->buffer, file->st.st_size,
 			    CPP_OPTION (pfile, preprocessed));
   buffer->file = file;
+  buffer->sysp = sysp;
 
   /* Initialize controlling macro state.  */
   pfile->mi_valid = true;
@@ -707,7 +706,8 @@ search_path_head (cpp_reader *pfile, const char *fname, int angle_brackets,
   else if (pfile->quote_ignores_source_dir)
     dir = pfile->quote_include;
   else
-    return make_cpp_dir (pfile, dir_name_of_file (file), pfile->map->sysp);
+    return make_cpp_dir (pfile, dir_name_of_file (file),
+			 pfile->buffer ? pfile->buffer->sysp : 0);
 
   if (dir == NULL)
     cpp_error (pfile, CPP_DL_ERROR,
@@ -743,20 +743,32 @@ _cpp_stack_include (cpp_reader *pfile, const char *fname, int angle_brackets,
 		    enum include_type type)
 {
   struct cpp_dir *dir;
+  _cpp_file *file;
 
   dir = search_path_head (pfile, fname, angle_brackets, type);
   if (!dir)
     return false;
 
-  return _cpp_stack_file (pfile, _cpp_find_file (pfile, fname, dir, false),
-		     type == IT_IMPORT);
+  file = _cpp_find_file (pfile, fname, dir, false);
+
+  /* Compensate for the increment in linemap_add.  In the case of a
+     normal #include, we're currently at the start of the line
+     *following* the #include.  A separate source_location for this
+     location makes no sense (until we do the LC_LEAVE), and
+     complicates LAST_SOURCE_LINE_LOCATION.  This does not apply if we
+     found a PCH file (in which case linemap_add is not called) or we
+     were included from the command-line.  */
+  if (! file->pch && file->err_no == 0 && type != IT_CMDLINE)
+    pfile->line_table->highest_location--;
+
+  return _cpp_stack_file (pfile, file, type == IT_IMPORT);
 }
 
 /* Could not open FILE.  The complication is dependency output.  */
 static void
 open_file_failed (cpp_reader *pfile, _cpp_file *file)
 {
-  int sysp = pfile->map ? pfile->map->sysp: 0;
+  int sysp = pfile->line > 1 && pfile->buffer ? pfile->buffer->sysp : 0;
   bool print_dep = CPP_OPTION (pfile, deps.style) > !!sysp;
 
   errno = file->err_no;
@@ -936,12 +948,14 @@ void
 cpp_make_system_header (cpp_reader *pfile, int syshdr, int externc)
 {
   int flags = 0;
+  const struct line_map *map = linemap_lookup (pfile->line_table, pfile->line);
 
   /* 1 = system header, 2 = system header to be treated as C.  */
   if (syshdr)
     flags = 1 + (externc != 0);
-  _cpp_do_file_change (pfile, LC_RENAME, pfile->map->to_file,
-		       SOURCE_LINE (pfile->map, pfile->line), flags);
+  pfile->buffer->sysp = flags;
+  _cpp_do_file_change (pfile, LC_RENAME, map->to_file,
+		       SOURCE_LINE (map, pfile->line), flags);
 }
 
 /* Allow the client to change the current file.  Used by the front end
@@ -1026,8 +1040,6 @@ _cpp_compare_file_date (cpp_reader *pfile, const char *fname,
 bool
 cpp_push_include (cpp_reader *pfile, const char *fname)
 {
-  /* Make the command line directive take up a line.  */
-  pfile->line++;
   return _cpp_stack_include (pfile, fname, false, IT_CMDLINE);
 }
 
@@ -1220,13 +1232,6 @@ remap_filename (cpp_reader *pfile, _cpp_file *file)
       dir = make_cpp_dir (pfile, new_dir, dir->sysp);
       fname = p + 1;
     }
-}
-
-/* Return true if FILE is usable by PCH.  */
-static bool
-include_pch_p (_cpp_file *file)
-{
-  return file->pch & 1;
 }
 
 /* Returns true if PCHNAME is a valid PCH file for FILE.  */

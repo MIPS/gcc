@@ -308,7 +308,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP GNATBIND ac_ct_GNATBIND strict1_warn warn_cflags WERROR nocommon_flag EGREP valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep SET_MAKE AWK LN LN_S RANLIB ac_ct_RANLIB INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON stage1_cflags COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LIBICONV_DEP manext objext extra_modes_file FORBUILD PACKAGE VERSION USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS CROSS ALL SYSTEM_HEADER_DIR inhibit_libc BUILD_PREFIX BUILD_PREFIX_1 CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO libgcc_visibility gthread_flags GGC zlibdir zlibinc MAINT ANDER BANSHEEINC BANSHEELIB BANSHEEREBUILD gcc_tooldir dollar gmplibs gmpinc slibdir objdir subdirs srcdir all_boot_languages all_compilers all_gtfiles all_gtfiles_files_langs all_gtfiles_files_files all_lang_makefrags all_lang_makefiles all_languages all_stagestuff build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cc_set_by_configure quoted_cc_set_by_configure cpp_install_dir xmake_file tmake_file extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir libstdcxx_incdir gcc_version gcc_version_full gcc_version_trigger host_exeext host_extra_gcc_objs host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file stage_prefix_set_by_configure quoted_stage_prefix_set_by_configure symbolic_link thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines target_noncanonical c_target_objs cxx_target_objs target_cpu_default LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP GNATBIND ac_ct_GNATBIND strict1_warn warn_cflags WERROR nocommon_flag EGREP valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep SET_MAKE AWK LN LN_S RANLIB ac_ct_RANLIB INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON stage1_cflags COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LIBICONV_DEP manext objext extra_modes_file FORBUILD PACKAGE VERSION USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS CROSS ALL SYSTEM_HEADER_DIR inhibit_libc BUILD_PREFIX BUILD_PREFIX_1 CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO libgcc_visibility gthread_flags GGC zlibdir zlibinc MAINT ANDER BANSHEEINC BANSHEELIB BANSHEEREBUILD gcc_tooldir dollar gmplibs gmpinc slibdir objdir subdirs srcdir all_boot_languages all_compilers all_gtfiles all_gtfiles_files_langs all_gtfiles_files_files all_lang_makefrags all_lang_makefiles all_languages all_stagestuff build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cc_set_by_configure quoted_cc_set_by_configure cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir libstdcxx_incdir gcc_version gcc_version_full gcc_version_trigger host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file stage_prefix_set_by_configure quoted_stage_prefix_set_by_configure symbolic_link thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines target_noncanonical c_target_objs cxx_target_objs target_cpu_default LIBOBJS LTLIBOBJS'
 ac_subst_files='language_hooks'
 
 # Initialize some variables set by options.
@@ -8635,6 +8635,7 @@ target_gtfiles=
 . ${srcdir}/config.gcc
 
 extra_objs="${host_extra_objs} ${extra_objs}"
+extra_gcc_objs="${host_extra_gcc_objs} ${extra_gcc_objs}"
 
 # Default the target-machine variables that were not explicitly set.
 if test x"$tm_file" = x
@@ -8896,6 +8897,7 @@ else
 	saved_CFLAGS="${CFLAGS}"
 	CC="${CC_FOR_BUILD}" CFLAGS="${CFLAGS_FOR_BUILD}" \
 	${realsrcdir}/configure \
+		--enable-languages=${enable_languages} \
 		--target=$target_alias --host=$build_alias --build=$build_alias
 	CFLAGS="${saved_CFLAGS}"
 
@@ -9520,11 +9522,11 @@ if test "x$gcc_cv_as" = x; then
 	if test "x$program_prefix" != xNONE; then
 		gcc_cv_as=${program_prefix}as$host_exeext
 	else
-		gcc_cv_as=`echo as | sed ${program_transform_name}`$host_exeext
+		gcc_cv_as=`echo as | sed "${program_transform_name}"`$host_exeext
 	fi
 
-	test_dirs="$test_prefix/lib/gcc-lib/$target_noncanonical/$gcc_version \
-		   $test_prefix/lib/gcc-lib/$target_noncanonical \
+	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
+		   $test_prefix/libexec/gcc/$target_noncanonical \
 		   /usr/lib/gcc/$target_noncanonical/$gcc_version \
 		   /usr/lib/gcc/$target_noncanonical \
 		   $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
@@ -9579,7 +9581,9 @@ gcc_cv_ld_gld_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/ld
 gcc_cv_ld_bfd_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/bfd
 if test -x "$DEFAULT_LINKER"; then
 	gcc_cv_ld="$DEFAULT_LINKER"
-elif test -x "$LD"; then
+elif test -x "$LD_FOR_TARGET"; then
+        gcc_cv_ld="$LD_FOR_TARGET"
+elif test -x "$LD" && test x$host = x$target; then
 	gcc_cv_ld="$LD"
 elif test -x collect-ld$host_exeext; then
 	# Build using linker in the current directory.
@@ -9635,11 +9639,11 @@ if test "x$gcc_cv_ld" = x; then
 	if test "x$program_prefix" != xNONE; then
 		gcc_cv_ld=${program_prefix}ld$host_exeext
 	else
-		gcc_cv_ld=`echo ld | sed ${program_transform_name}`$host_exeext
+		gcc_cv_ld=`echo ld | sed "${program_transform_name}"`$host_exeext
 	fi
 
-	test_dirs="$test_prefix/lib/gcc-lib/$target_noncanonical/$gcc_version \
-		   $test_prefix/lib/gcc-lib/$target_noncanonical \
+	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
+		   $test_prefix/libexec/gcc/$target_noncanonical \
 		   /usr/lib/gcc/$target_noncanonical/$gcc_version \
 		   /usr/lib/gcc/$target_noncanonical \
 		   $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
@@ -9694,7 +9698,7 @@ elif test -f $gcc_cv_binutils_srcdir/configure.in \
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_nm=${program_prefix}nm$host_exeext
 else
-	gcc_cv_nm=`echo nm | sed ${program_transform_name}`$host_exeext
+	gcc_cv_nm=`echo nm | sed "${program_transform_name}"`$host_exeext
 fi
 case $in_tree_nm in
   yes) echo "$as_me:$LINENO: result: \"newly built nm\"" >&5
@@ -9721,7 +9725,7 @@ elif test "x$program_prefix" != xNONE; then
 	gcc_cv_objdump=${program_prefix}objdump$host_exeext
 else
 	gcc_cv_objdump=`echo objdump | \
-		sed ${program_transform_name}`$host_exeext
+		sed "${program_transform_name}"`$host_exeext
 fi
 case $in_tree_objdump in
   yes) echo "$as_me:$LINENO: result: \"newly built objdump\"" >&5
@@ -12705,6 +12709,7 @@ s,@quoted_cc_set_by_configure@,$quoted_cc_set_by_configure,;t t
 s,@cpp_install_dir@,$cpp_install_dir,;t t
 s,@xmake_file@,$xmake_file,;t t
 s,@tmake_file@,$tmake_file,;t t
+s,@extra_gcc_objs@,$extra_gcc_objs,;t t
 s,@extra_headers_list@,$extra_headers_list,;t t
 s,@extra_objs@,$extra_objs,;t t
 s,@extra_parts@,$extra_parts,;t t
@@ -12718,7 +12723,6 @@ s,@gcc_version@,$gcc_version,;t t
 s,@gcc_version_full@,$gcc_version_full,;t t
 s,@gcc_version_trigger@,$gcc_version_trigger,;t t
 s,@host_exeext@,$host_exeext,;t t
-s,@host_extra_gcc_objs@,$host_extra_gcc_objs,;t t
 s,@host_xm_file_list@,$host_xm_file_list,;t t
 s,@host_xm_include_list@,$host_xm_include_list,;t t
 s,@host_xm_defines@,$host_xm_defines,;t t

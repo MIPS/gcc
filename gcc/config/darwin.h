@@ -20,6 +20,9 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifndef CONFIG_DARWIN_H
+#define CONFIG_DARWIN_H
+
 /* The definitions in this file are common to all processor types
    running Darwin, which is the kernel for Mac OS X.  Darwin is
    basically a BSD user layer laid over a Mach kernel, then evolved
@@ -29,11 +32,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* Although NeXT ran on many different architectures, as of Jan 2001
    the only supported Darwin targets are PowerPC and x86.  */
-
-/* Technically, STANDARD_EXEC_PREFIX should be /usr/libexec/, but in
-   practice this makes it hard to install new compilers elsewhere, so
-   leave it undefined and expect system builders to set configure args
-   correctly.  */
 
 /* One of Darwin's NeXT legacies is the Mach-O format, which is partly
    like a.out and partly like COFF, with additional features like
@@ -99,7 +97,13 @@ Boston, MA 02111-1307, USA.  */
    Note that an option name with a prefix that matches another option
    name, that also takes an argument, needs to be modified so the
    prefix is different, otherwise a '*' after the shorter option will
-   match with the longer one.  */
+   match with the longer one.
+   
+   The SUBTARGET_OPTION_TRANSLATE_TABLE macro, which _must_ be defined
+   in gcc/config/{i386,rs6000}/darwin.h, should contain any additional
+   command-line option translations specific to the particular target
+   architecture.  */
+   
 #define TARGET_OPTION_TRANSLATE_TABLE \
   { "-all_load", "-Zall_load" },  \
   { "-allowable_client", "-Zallowable_client" },  \
@@ -126,8 +130,9 @@ Boston, MA 02111-1307, USA.  */
   { "-multi_module", "-Zmulti_module" },  \
   { "-static", "-static -Wa,-static" },  \
   { "-single_module", "-Zsingle_module" },  \
-  { "-unexported_symbols_list", "-Zunexported_symbols_list" }
-
+  { "-unexported_symbols_list", "-Zunexported_symbols_list" }, \
+  SUBTARGET_OPTION_TRANSLATE_TABLE
+  
 /* These compiler options take n arguments.  */
 
 #undef  WORD_SWITCH_TAKES_ARG
@@ -828,3 +833,7 @@ enum machopic_addr_class {
 #define ASM_APP_ON ""
 #undef ASM_APP_OFF
 #define ASM_APP_OFF ""
+
+#define TARGET_HAS_F_SETLKW
+
+#endif /* CONFIG_DARWIN_H */

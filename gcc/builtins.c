@@ -48,14 +48,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define CALLED_AS_BUILT_IN(NODE) \
    (!strncmp (IDENTIFIER_POINTER (DECL_NAME (NODE)), "__builtin_", 10))
 
-/* Register mappings for target machines without register windows.  */
-#ifndef INCOMING_REGNO
-#define INCOMING_REGNO(OUT) (OUT)
-#endif
-#ifndef OUTGOING_REGNO
-#define OUTGOING_REGNO(IN) (IN)
-#endif
-
 #ifndef PAD_VARARGS_DOWN
 #define PAD_VARARGS_DOWN BYTES_BIG_ENDIAN
 #endif
@@ -994,23 +986,6 @@ static enum machine_mode apply_result_mode[FIRST_PSEUDO_REGISTER];
    used for calling a function.  */
 static int apply_args_reg_offset[FIRST_PSEUDO_REGISTER];
 
-/* Return the offset of register REGNO into the block returned by
-   __builtin_apply_args.  This is not declared static, since it is
-   needed in objc-act.c.  */
-
-int
-apply_args_register_offset (int regno)
-{
-  apply_args_size ();
-
-  /* Arguments are always put in outgoing registers (in the argument
-     block) if such make sense.  */
-#ifdef OUTGOING_REGNO
-  regno = OUTGOING_REGNO (regno);
-#endif
-  return apply_args_reg_offset[regno];
-}
-
 /* Return the size required for the block returned by __builtin_apply_args,
    and initialize apply_args_mode.  */
 
@@ -1765,6 +1740,14 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
     case BUILT_IN_LOGF:
     case BUILT_IN_LOGL:
       errno_set = true; builtin_optab = log_optab; break;
+    case BUILT_IN_LOG10:
+    case BUILT_IN_LOG10F:
+    case BUILT_IN_LOG10L:
+      errno_set = true; builtin_optab = log10_optab; break;
+    case BUILT_IN_LOG2:
+    case BUILT_IN_LOG2F:
+    case BUILT_IN_LOG2L:
+      errno_set = true; builtin_optab = log2_optab; break;
     case BUILT_IN_TAN:
     case BUILT_IN_TANF:
     case BUILT_IN_TANL:
@@ -4240,6 +4223,7 @@ expand_builtin_va_arg (tree valist, tree type)
 
       /* We can, however, treat "undefined" any way we please.
 	 Call abort to encourage the user to fix the program.  */
+      inform ("if this code is reached, the program will abort");
       expand_builtin_trap ();
 
       /* This is dead code, but go ahead and finish so that the
@@ -5345,6 +5329,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_LOG:
     case BUILT_IN_LOGF:
     case BUILT_IN_LOGL:
+    case BUILT_IN_LOG10:
+    case BUILT_IN_LOG10F:
+    case BUILT_IN_LOG10L:
+    case BUILT_IN_LOG2:
+    case BUILT_IN_LOG2F:
+    case BUILT_IN_LOG2L:
     case BUILT_IN_TAN:
     case BUILT_IN_TANF:
     case BUILT_IN_TANL:

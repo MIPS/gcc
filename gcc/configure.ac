@@ -1010,6 +1010,7 @@ target_gtfiles=
 . ${srcdir}/config.gcc
 
 extra_objs="${host_extra_objs} ${extra_objs}"
+extra_gcc_objs="${host_extra_gcc_objs} ${extra_gcc_objs}"
 
 # Default the target-machine variables that were not explicitly set.
 if test x"$tm_file" = x
@@ -1188,6 +1189,7 @@ else
 	saved_CFLAGS="${CFLAGS}"
 	CC="${CC_FOR_BUILD}" CFLAGS="${CFLAGS_FOR_BUILD}" \
 	${realsrcdir}/configure \
+		--enable-languages=${enable_languages} \
 		--target=$target_alias --host=$build_alias --build=$build_alias
 	CFLAGS="${saved_CFLAGS}"
 
@@ -1622,11 +1624,11 @@ if test "x$gcc_cv_as" = x; then
 	if test "x$program_prefix" != xNONE; then
 		gcc_cv_as=${program_prefix}as$host_exeext
 	else
-		gcc_cv_as=`echo as | sed ${program_transform_name}`$host_exeext
+		gcc_cv_as=`echo as | sed "${program_transform_name}"`$host_exeext
 	fi
 
-	test_dirs="$test_prefix/lib/gcc-lib/$target_noncanonical/$gcc_version \
-		   $test_prefix/lib/gcc-lib/$target_noncanonical \
+	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
+		   $test_prefix/libexec/gcc/$target_noncanonical \
 		   /usr/lib/gcc/$target_noncanonical/$gcc_version \
 		   /usr/lib/gcc/$target_noncanonical \
 		   $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
@@ -1678,7 +1680,9 @@ gcc_cv_ld_gld_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/ld
 gcc_cv_ld_bfd_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/bfd
 if test -x "$DEFAULT_LINKER"; then
 	gcc_cv_ld="$DEFAULT_LINKER"
-elif test -x "$LD"; then
+elif test -x "$LD_FOR_TARGET"; then
+        gcc_cv_ld="$LD_FOR_TARGET"
+elif test -x "$LD" && test x$host = x$target; then
 	gcc_cv_ld="$LD"
 elif test -x collect-ld$host_exeext; then
 	# Build using linker in the current directory.
@@ -1738,11 +1742,11 @@ if test "x$gcc_cv_ld" = x; then
 	if test "x$program_prefix" != xNONE; then
 		gcc_cv_ld=${program_prefix}ld$host_exeext
 	else
-		gcc_cv_ld=`echo ld | sed ${program_transform_name}`$host_exeext
+		gcc_cv_ld=`echo ld | sed "${program_transform_name}"`$host_exeext
 	fi
 
-	test_dirs="$test_prefix/lib/gcc-lib/$target_noncanonical/$gcc_version \
-		   $test_prefix/lib/gcc-lib/$target_noncanonical \
+	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
+		   $test_prefix/libexec/gcc/$target_noncanonical \
 		   /usr/lib/gcc/$target_noncanonical/$gcc_version \
 		   /usr/lib/gcc/$target_noncanonical \
 		   $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
@@ -1794,7 +1798,7 @@ elif test -f $gcc_cv_binutils_srcdir/configure.in \
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_nm=${program_prefix}nm$host_exeext
 else
-	gcc_cv_nm=`echo nm | sed ${program_transform_name}`$host_exeext
+	gcc_cv_nm=`echo nm | sed "${program_transform_name}"`$host_exeext
 fi
 case $in_tree_nm in
   yes) AC_MSG_RESULT("newly built nm") ;;
@@ -1818,7 +1822,7 @@ elif test "x$program_prefix" != xNONE; then
 	gcc_cv_objdump=${program_prefix}objdump$host_exeext
 else
 	gcc_cv_objdump=`echo objdump | \
-		sed ${program_transform_name}`$host_exeext
+		sed "${program_transform_name}"`$host_exeext
 fi
 case $in_tree_objdump in
   yes) AC_MSG_RESULT("newly built objdump") ;;
@@ -3105,6 +3109,7 @@ AC_SUBST(quoted_cc_set_by_configure)
 AC_SUBST(cpp_install_dir)
 AC_SUBST(xmake_file)
 AC_SUBST(tmake_file)
+AC_SUBST(extra_gcc_objs)
 AC_SUBST(extra_headers_list)
 AC_SUBST(extra_objs)
 AC_SUBST(extra_parts)
@@ -3118,7 +3123,6 @@ AC_SUBST(gcc_version)
 AC_SUBST(gcc_version_full)
 AC_SUBST(gcc_version_trigger)
 AC_SUBST(host_exeext)
-AC_SUBST(host_extra_gcc_objs)
 AC_SUBST(host_xm_file_list)
 AC_SUBST(host_xm_include_list)
 AC_SUBST(host_xm_defines)

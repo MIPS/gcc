@@ -3499,37 +3499,6 @@ consec_sets_invariant_p (const struct loop *loop, rtx reg, int n_sets,
   /* If loop_invariant_p ever returned 2, we return 2.  */
   return 1 + (value & 2);
 }
-
-#if 0
-/* I don't think this condition is sufficient to allow INSN
-   to be moved, so we no longer test it.  */
-
-/* Return 1 if all insns in the basic block of INSN and following INSN
-   that set REG are invariant according to TABLE.  */
-
-static int
-all_sets_invariant_p (rtx reg, rtx insn, short *table)
-{
-  rtx p = insn;
-  int regno = REGNO (reg);
-
-  while (1)
-    {
-      enum rtx_code code;
-      p = NEXT_INSN (p);
-      code = GET_CODE (p);
-      if (code == CODE_LABEL || code == JUMP_INSN)
-	return 1;
-      if (code == INSN && GET_CODE (PATTERN (p)) == SET
-	  && GET_CODE (SET_DEST (PATTERN (p))) == REG
-	  && REGNO (SET_DEST (PATTERN (p))) == regno)
-	{
-	  if (! loop_invariant_p (loop, SET_SRC (PATTERN (p)), table))
-	    return 0;
-	}
-    }
-}
-#endif /* 0 */
 
 /* Look at all uses (not sets) of registers in X.  For each, if it is
    the single use, set USAGE[REGNO] to INSN; if there was a previous use in
@@ -8015,6 +7984,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
   struct loop_ivs *ivs = LOOP_IVS (loop);
   struct iv_class *bl;
   rtx reg;
+  enum machine_mode mode;
   rtx jump_label;
   rtx final_value;
   rtx start_value;
@@ -8435,6 +8405,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
 
 	      /* Save some info needed to produce the new insns.  */
 	      reg = bl->biv->dest_reg;
+	      mode = GET_MODE (reg);
 	      jump_label = condjump_label (PREV_INSN (loop_end));
 	      new_add_val = GEN_INT (-INTVAL (bl->biv->add_val));
 
@@ -8446,12 +8417,12 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	      if (initial_value == const0_rtx
 		  && GET_CODE (comparison_value) == CONST_INT)
 		{
-		  start_value = GEN_INT (comparison_val - add_adjust);
+		  start_value
+		    = gen_int_mode (comparison_val - add_adjust, mode);
 		  loop_insn_hoist (loop, gen_move_insn (reg, start_value));
 		}
 	      else if (GET_CODE (initial_value) == CONST_INT)
 		{
-		  enum machine_mode mode = GET_MODE (reg);
 		  rtx offset = GEN_INT (-INTVAL (initial_value) - add_adjust);
 		  rtx add_insn = gen_add3_insn (reg, comparison_value, offset);
 
@@ -8467,7 +8438,6 @@ check_dbra_loop (struct loop *loop, int insn_count)
 		}
 	      else if (! add_adjust)
 		{
-		  enum machine_mode mode = GET_MODE (reg);
 		  rtx sub_insn = gen_sub3_insn (reg, comparison_value,
 						initial_value);
 
@@ -8525,7 +8495,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	      /* Add new compare/branch insn at end of loop.  */
 	      start_sequence ();
 	      emit_cmp_and_jump_insns (reg, const0_rtx, cmp_code, NULL_RTX,
-				       GET_MODE (reg), 0,
+				       mode, 0,
 				       XEXP (jump_label, 0));
 	      tem = get_insns ();
 	      end_sequence ();

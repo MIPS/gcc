@@ -2220,14 +2220,22 @@ insn_dead_p (struct propagate_block_info *pbi, rtx x, int call_ok,
     }
 
   /* A CLOBBER of a pseudo-register that is dead serves no purpose.  That
-     is not necessarily true for hard registers.  */
-  else if (code == CLOBBER && GET_CODE (XEXP (x, 0)) == REG
-	   && REGNO (XEXP (x, 0)) >= FIRST_PSEUDO_REGISTER
-	   && ! REGNO_REG_SET_P (pbi->reg_live, REGNO (XEXP (x, 0))))
-    return 1;
+     is not necessarily true for hard registers until after reload.  */
+  else if (code == CLOBBER)
+    {
+      if (GET_CODE (XEXP (x, 0)) == REG
+	  && (REGNO (XEXP (x, 0)) >= FIRST_PSEUDO_REGISTER
+	      || reload_completed)
+	  && ! REGNO_REG_SET_P (pbi->reg_live, REGNO (XEXP (x, 0))))
+	return 1;
+    }
 
-  /* We do not check other CLOBBER or USE here.  An insn consisting of just
-     a CLOBBER or just a USE should not be deleted.  */
+  /* ??? A base USE is a historical relic.  It ought not be needed anymore.
+     Instances where it is still used are either (1) temporary and the USE
+     escaped the pass, (2) cruft and the USE need not be emitted anymore,
+     or (3) hiding bugs elsewhere that are not properly representing data
+     flow.  */
+
   return 0;
 }
 
@@ -4187,7 +4195,10 @@ void
 recompute_reg_usage (rtx f ATTRIBUTE_UNUSED, int loop_step ATTRIBUTE_UNUSED)
 {
   allocate_reg_life_data ();
-  update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_REG_INFO);
+  /* distribute_notes in combiner fails to convert some of the REG_UNUSED notes
+   to REG_DEAD notes.  This causes CHECK_DEAD_NOTES in sched1 to abort.  To 
+   solve this update the DEATH_NOTES here.  */
+  update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_REG_INFO | PROP_DEATH_NOTES);
 }
 
 /* Optionally removes all the REG_DEAD and REG_UNUSED notes from a set of
