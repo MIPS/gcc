@@ -1,5 +1,15 @@
 2004-02-13  David Jee  <djee@redhat.com>
 
+	* java/awt/GridBagLayout.java
+	(GetLayoutInfo): Fix weight and size distribution. Relocate repeated
+	code to helper methods.
+	(sortBySpan): New helper method.
+	(distributeSizeAndWeight): Likewise.
+	(calcCellWeights): Likewise.
+	(calcCellSizes): Add comments.
+
+2004-02-13  David Jee  <djee@redhat.com>
+
 	* java/awt/Component.java
         (show): Only do something if component is invisible at the moment.
         (hide): Only do something if component is visible at the moment.
