@@ -87,7 +87,6 @@ public class Window extends Container implements Accessible
   private transient WindowFocusListener windowFocusListener;
   private transient WindowStateListener windowStateListener;
   private transient GraphicsConfiguration graphicsConfiguration;
-  private transient AccessibleContext accessibleContext;
 
   private transient boolean shown;
 
@@ -816,7 +815,7 @@ public class Window extends Container implements Accessible
   }
 
   /**
-   * Gets the AccessibleContext associated with this <code>List</code>.
+   * Gets the AccessibleContext associated with this <code>Window</code>.
    * The context is created, if necessary.
    *
    * @return the associated context

@@ -1,5 +1,14 @@
 2004-12-28  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/Dialog.java (AccessibleAWTFrame, getAccessibleContext):
+	Implement.
+	* java/awt/Frame.java (AccessibleAWTFrame, getAccessibleContext):
+	Implement.
+	* java/awt/Window.java (getAccessibleContext): Fix comment.
+	Remove extra import.
+
+2004-12-28  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/Window.java (AccessibleAWTWindow): Implement.
 	(isActive, isFocused, getAccessibleContext): Implement.
 
