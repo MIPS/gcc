@@ -1,3 +1,42 @@
+2003-09-13  Jason Merrill  <jason@redhat.com>
+
+	* c-common.c (c_build_qualified_type): Unset TREE_READONLY for
+	types with constructors.
+	(c_apply_type_quals_to_decl): Remove superfluous references to
+	TREE_TYPE (decl).
+
+2003-09-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* opts.c (decode_options): Enable must-alias optimization by default.
+	* tree-dfa.c (get_expr_operands): Always call add_stmt_operand when
+	dealing with ADDR_EXPR nodes.
+	(add_stmt_operand): If the variable has an alias set
+	of size zero, abort.
+	Call get_base_symbol() to retrieve the variable from an ADDR_EXPR
+	node.
+	(compute_alias_sets): Deep copy the aliases array when triggering
+	the alias grouping heuristic.
+	Don't group aliases if -ftree-must-alias is given.
+	* tree-must-alias.c (tree_compute_must_alias): Call
+	dump_referenced_vars when doing detailed dumps.
+	Rename promoted_vars to vars_to_rename.  Update all users.
+	(find_addressable_vars): Always mark statements modified.
+	(promote_var): Also mark aliases of promoted variable to be
+	renamed.
+	Call find_variable_in and remove_element_from to update varrays for
+	call-clobbered variables and alias sets.
+	(find_variable_in): New local function.
+	(remove_element_from): New local function.
+	* varray.c (varray_copy): New function.
+	* varray.h (varray_copy): Declare.
+
+2003-09-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-flow-inline.h (is_optimizable_addr_expr): Remove.  Update
+	all users.
+	* tree-ssa-dom.c (optimize_stmt): Do not propagate SSA names from
+	redundant expressions across abnormal edges.
+
 2003-09-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-cfg.c (remove_unreachable_blocks): Clean up.

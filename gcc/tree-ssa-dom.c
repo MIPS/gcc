@@ -810,7 +810,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	      continue;
 
 	    /* Gather statistics.  */
-	    if (is_unchanging_value (val) || is_optimizable_addr_expr (val))
+	    if (is_unchanging_value (val))
 	      opt_stats.num_const_prop++;
 	    else
 	      opt_stats.num_copy_prop++;
@@ -882,19 +882,23 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	def = TREE_OPERAND (stmt, 0);
 
       opt_stats.num_exprs_considered++;
+
+      if (TREE_CODE (stmt) == COND_EXPR)
+	expr_p = &TREE_OPERAND (stmt, 0);
+      else if (TREE_CODE (stmt) == RETURN_EXPR && TREE_OPERAND (stmt, 0))
+	expr_p = &TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
+      else
+	expr_p = &TREE_OPERAND (stmt, 1);
+
       /* It is safe to ignore types here since we have already done
 	 type checking in the hashing and equality routines.  In fact
 	 type checking here merely gets in the way of constant
-	 propagation.  */
-      if (cached_lhs)
+	 propagation.  Also, make sure that it is safe to propagate
+	 CACHED_LHS into *EXPR_P.  */
+      if (cached_lhs
+	  && (TREE_CODE (cached_lhs) != SSA_NAME
+	      || may_propagate_copy (cached_lhs, *expr_p)))
 	{
-	  if (TREE_CODE (stmt) == COND_EXPR)
-	    expr_p = &TREE_OPERAND (stmt, 0);
-	  else if (TREE_CODE (stmt) == RETURN_EXPR && TREE_OPERAND (stmt, 0))
-	    expr_p = &TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
-	  else
-	    expr_p = &TREE_OPERAND (stmt, 1);
-
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "  Replaced redundant expr '");
@@ -908,8 +912,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 
 #if defined ENABLE_CHECKING
 	  if (TREE_CODE (cached_lhs) != SSA_NAME
-	      && !is_unchanging_value (cached_lhs)
-	      && !is_optimizable_addr_expr (cached_lhs))
+	      && !is_unchanging_value (cached_lhs))
 	    abort ();
 #endif
 
@@ -939,8 +942,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
       if (may_optimize_p)
 	{
 	  if (TREE_CODE (rhs) == SSA_NAME
-	      || is_unchanging_value (rhs)
-	      || is_optimizable_addr_expr (rhs))
+	      || is_unchanging_value (rhs))
 	    set_value_for (TREE_OPERAND (stmt, 0), rhs, const_and_copies);
 	}
     }
@@ -1323,8 +1325,7 @@ lookup_avail_expr (tree stmt,
      Constants and copy operations are handled by the constant/copy propagator
      in optimize_stmt.  */
   if (TREE_CODE (rhs) == SSA_NAME
-      || is_unchanging_value (rhs)
-      || is_optimizable_addr_expr (rhs))
+      || is_unchanging_value (rhs))
     return NULL_TREE;
 
   slot = htab_find_slot (avail_exprs, stmt, (insert ? INSERT : NO_INSERT));
@@ -1419,7 +1420,6 @@ get_eq_expr_value (tree if_stmt, int true_arm,
 	   && TREE_CODE (cond) == EQ_EXPR
 	   && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
 	   && (is_unchanging_value (TREE_OPERAND (cond, 1))
-	       || is_optimizable_addr_expr (TREE_OPERAND (cond, 1))
 	       || TREE_CODE (TREE_OPERAND (cond, 1)) == SSA_NAME))
     value = build (MODIFY_EXPR, TREE_TYPE (cond),
 		   TREE_OPERAND (cond, 0),
@@ -1431,7 +1431,6 @@ get_eq_expr_value (tree if_stmt, int true_arm,
 	   && TREE_CODE (cond) == NE_EXPR
 	   && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
 	   && (is_unchanging_value (TREE_OPERAND (cond, 1))
-	       || is_optimizable_addr_expr (TREE_OPERAND (cond, 1))
 	       || TREE_CODE (TREE_OPERAND (cond, 1)) == SSA_NAME))
     value = build (MODIFY_EXPR, TREE_TYPE (cond),
 		   TREE_OPERAND (cond, 0),

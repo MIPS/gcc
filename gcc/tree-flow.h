@@ -519,7 +519,6 @@ void fixup_var_scope (tree, tree);
 static inline int phi_arg_from_edge (tree, edge);
 static inline struct phi_arg_d *phi_element_for_edge (tree, edge);
 static inline bool is_unchanging_value (tree);
-static inline bool is_optimizable_addr_expr (tree);
 static inline bool may_propagate_copy (tree, tree);
 
 /* In tree-must-alias.c  */

@@ -234,6 +234,7 @@ extern varray_type varray_grow (varray_type, size_t);
 #define VARRAY_CLEAR(VA) varray_clear(VA)
 
 extern void varray_clear (varray_type);
+extern void varray_copy (varray_type v1, varray_type v2);
 
 /* Check for VARRAY_xxx macros being in bound.  */
 #if defined ENABLE_CHECKING && (GCC_VERSION >= 2007)

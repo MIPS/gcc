@@ -526,21 +526,10 @@ is_unchanging_value (tree val)
 }
 
 static inline bool
-is_optimizable_addr_expr (tree val)
-{
-  /* FIXME: It should be possible to accept type-casted ADDR_EXPRs if we
-     made sure that the folded INDIRECT_REF kept the type-cast.  See for
-     instance, gcc.c-torture/compile/990203-1.c.  */
-  return (TREE_CODE (val) == ADDR_EXPR
-	  && (TREE_CODE (TREE_OPERAND (val, 0)) == VAR_DECL
-	      || TREE_CODE (TREE_OPERAND (val, 0)) == PARM_DECL));
-}
-
-static inline bool
 may_propagate_copy (tree dest, tree orig)
 {
   return (!SSA_NAME_OCCURS_IN_ABNORMAL_PHI (dest)
-	  && (TREE_CONSTANT (orig)
+	  && (TREE_CODE (orig) != SSA_NAME
 	      || !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig))
 	  && !DECL_HARD_REGISTER (SSA_NAME_VAR (dest)));
 }

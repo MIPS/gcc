@@ -2749,9 +2749,16 @@ c_build_qualified_type (tree type, int type_quals)
 void
 c_apply_type_quals_to_decl (int type_quals, tree decl)
 {
-  if ((type_quals & TYPE_QUAL_CONST)
-      || (TREE_TYPE (decl)
-	  && TREE_CODE (TREE_TYPE (decl)) == REFERENCE_TYPE))
+  tree type = TREE_TYPE (decl);
+
+  if (((type_quals & TYPE_QUAL_CONST)
+       || (type && TREE_CODE (type) == REFERENCE_TYPE))
+      /* An object declared 'const' is only readonly after it is
+	 initialized.  We don't have any way of expressing this currently,
+	 so we need to be conservative and unset TREE_READONLY for types
+	 with constructors.  Otherwise aliasing code will ignore stores in
+	 an inline constructor.  */
+      && !(type && TYPE_NEEDS_CONSTRUCTING (type)))
     TREE_READONLY (decl) = 1;
   if (type_quals & TYPE_QUAL_VOLATILE)
     {
@@ -2760,9 +2767,9 @@ c_apply_type_quals_to_decl (int type_quals, tree decl)
     }
   if (type_quals & TYPE_QUAL_RESTRICT)
     {
-      if (!TREE_TYPE (decl)
-	  || !POINTER_TYPE_P (TREE_TYPE (decl))
-	  || !C_TYPE_OBJECT_OR_INCOMPLETE_P (TREE_TYPE (TREE_TYPE (decl))))
+      if (!type
+	  || !POINTER_TYPE_P (type)
+	  || !C_TYPE_OBJECT_OR_INCOMPLETE_P (TREE_TYPE (type)))
 	error ("invalid use of `restrict'");
       else if (flag_strict_aliasing)
 	/* Indicate we need to make a unique alias set for this pointer.

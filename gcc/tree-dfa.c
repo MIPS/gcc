@@ -310,11 +310,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
       /* Taking the address of a variable does not represent a
 	 reference to it, but the fact that STMT takes its address will be
 	 of interest to some passes (e.g. must-alias resolution).  */
-      if (SSA_VAR_P (TREE_OPERAND (expr, 0)))
-	{
-	  add_stmt_operand (expr_p, stmt, 0, NULL);
-	  return;
-	}
+      add_stmt_operand (expr_p, stmt, 0, NULL);
 
       /* Only a few specific types of ADDR_EXPR expressions are
        	 of interest.  */
@@ -546,13 +542,14 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
      variables that have had their address taken in this statement.  */
   if (TREE_CODE (var) == ADDR_EXPR)
     {
-      var = TREE_OPERAND (var, 0);
-      if (SSA_VAR_P (var))
+      var = get_base_symbol (TREE_OPERAND (var, 0));
+      if (var && SSA_VAR_P (var))
 	{
 	  if (s_ann->addresses_taken == NULL)
 	    VARRAY_TREE_INIT (s_ann->addresses_taken, 2, "addresses_taken");
 	  VARRAY_PUSH_TREE (s_ann->addresses_taken, var);
 	}
+
       return;
     }
 
@@ -630,6 +627,9 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
     }
   else
     {
+      if (VARRAY_ACTIVE_SIZE (aliases) == 0)
+	abort ();
+
       /* The variable is aliased.  Add its aliases to the virtual operands.  */
       if (flags & opf_is_def)
 	{
@@ -2041,7 +2041,12 @@ compute_alias_sets (void)
 		 tremendously.  */
 	      if (mem_ann->may_aliases
 		  && VARRAY_ACTIVE_SIZE (mem_ann->may_aliases) >= 5)
-		v_ann->may_aliases = mem_ann->may_aliases;
+		{
+		  VARRAY_TREE_INIT (v_ann->may_aliases,
+				    VARRAY_SIZE (mem_ann->may_aliases),
+				    "aliases");
+		  varray_copy (v_ann->may_aliases, mem_ann->may_aliases);
+		}
 	      else
 		add_may_alias (mem, var->var);
 	    }
