@@ -1,3 +1,13 @@
+2004-03-19  Graydon Hoare  <graydon@redhat.com>
+
+	* javax/swing/JComponent.java: Turn off double buffer by default.
+	* javax/swing/plaf/basic/BasicViewportUI.java: Clear rects before painting.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
+	(Java_gnu_java_awt_peer_gtk_GdkGraphics2D_gdkDrawDrawable): 
+	Use cairo to copy areas.
+	(Java_gnu_java_awt_peer_gtk_GdkGraphics2D_cairoClip):
+	Initialize and set clip region.
+
 2004-03-15  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* java/applet/Applet.java (preferredSize): Override deprecated
