@@ -710,7 +710,7 @@ try_redirect_by_replacing_jump (e, target)
       rtx target_label = block_label (target);
       rtx barrier;
 
-      emit_jump_insn_after (gen_jump (target_label), kill_from);
+      emit_jump_insn_after (gen_jump (target_label), insn);
       JUMP_LABEL (src->end) = target_label;
       LABEL_NUSES (target_label)++;
       if (rtl_dump_file)
@@ -1659,10 +1659,10 @@ verify_flow_info ()
 	}
       if (!has_fallthru)
 	{
-	  rtx insn = bb->end;
+	  rtx insn;
 
 	  /* Ensure existence of barrier in BB with no fallthru edges.  */
-	  for (insn = bb->end; GET_CODE (insn) != BARRIER;
+	  for (insn = bb->end; !insn || GET_CODE (insn) != BARRIER;
 	       insn = NEXT_INSN (insn))
 	    if (!insn
 		|| (GET_CODE (insn) == NOTE
@@ -1670,6 +1670,7 @@ verify_flow_info ()
 		{
 		  error ("Missing barrier after block %i", bb->index);
 		  err = 1;
+		  break;
 		}
 	}
 
@@ -1862,9 +1863,11 @@ purge_dead_edges (bb)
 	{
 	  next = e->succ_next;
 
-	  /* Avoid abnormal flags to leak from computed jumps turned into simplejumps.  */
-	  if (e->flags & EDGE_ABNORMAL)
-	    e->flags &= ~EDGE_ABNORMAL;
+	  /* Avoid abnormal flags to leak from computed jumps turned
+	     into simplejumps.  */
+ 
+	  e->flags &= EDGE_ABNORMAL;
+
 	  /* Check purposes we can have edge.  */
 	  if ((e->flags & EDGE_FALLTHRU)
 	      && any_condjump_p (insn))
@@ -1963,7 +1966,7 @@ purge_dead_edges (bb)
 
 bool
 purge_all_dead_edges (update_life_p)
-     bool update_life_p;
+     int update_life_p;
 {
   int i, purged = false;
   sbitmap blocks;

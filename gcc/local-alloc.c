@@ -74,6 +74,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "toplev.h"
 #include "except.h"
+#include "integrate.h"
 
 /* Next quantity number available for allocation.  */
 
@@ -1216,7 +1217,7 @@ block_alloc (b)
 {
   int i, q;
   rtx insn;
-  rtx note;
+  rtx note, hard_reg;
   int insn_number = 0;
   int insn_count = 0;
   int max_uid = get_max_uid ();
@@ -1339,6 +1340,18 @@ block_alloc (b)
 		  if (recog_data.constraints[i][0] == 'p')
 		    while (GET_CODE (r1) == PLUS || GET_CODE (r1) == MULT)
 		      r1 = XEXP (r1, 0);
+
+		  /* Avoid making a call-saved register unnecessarily
+                     clobbered.  */
+		  hard_reg = get_hard_reg_initial_reg (cfun, r1);
+		  if (hard_reg != NULL_RTX)
+		    {
+		      if (GET_CODE (hard_reg) == REG
+			  && REGNO (hard_reg) >= 0
+			  && REGNO (hard_reg) < FIRST_PSEUDO_REGISTER
+			  && ! call_used_regs[REGNO (hard_reg)])
+			continue;
+		    }
 
 		  if (GET_CODE (r0) == REG || GET_CODE (r0) == SUBREG)
 		    {
@@ -1788,20 +1801,29 @@ combine_regs (usedreg, setreg, may_save_copy, insn_number, insn, already_dead)
 
   while (GET_CODE (usedreg) == SUBREG)
     {
-      if (GET_MODE_SIZE (GET_MODE (SUBREG_REG (usedreg))) > UNITS_PER_WORD)
-	may_save_copy = 0;
-      if (REGNO (SUBREG_REG (usedreg)) < FIRST_PSEUDO_REGISTER)
-	offset += subreg_regno_offset (REGNO (SUBREG_REG (usedreg)),
-				       GET_MODE (SUBREG_REG (usedreg)),
-				       SUBREG_BYTE (usedreg),
-				       GET_MODE (usedreg));
-      else
-	offset += (SUBREG_BYTE (usedreg)
-		   / REGMODE_NATURAL_SIZE (GET_MODE (usedreg)));
-      usedreg = SUBREG_REG (usedreg);
+      rtx subreg = SUBREG_REG (usedreg);
+
+      if (GET_CODE (subreg) == REG)
+	{
+	  if (GET_MODE_SIZE (GET_MODE (subreg)) > UNITS_PER_WORD)
+	    may_save_copy = 0;
+
+	  if (REGNO (subreg) < FIRST_PSEUDO_REGISTER)
+	    offset += subreg_regno_offset (REGNO (subreg),
+					   GET_MODE (subreg),
+					   SUBREG_BYTE (usedreg),
+					   GET_MODE (usedreg));
+	  else
+	    offset += (SUBREG_BYTE (usedreg)
+		      / REGMODE_NATURAL_SIZE (GET_MODE (usedreg)));
+	}
+
+      usedreg = subreg;
     }
+
   if (GET_CODE (usedreg) != REG)
     return 0;
+
   ureg = REGNO (usedreg);
   if (ureg < FIRST_PSEUDO_REGISTER)
     usize = HARD_REGNO_NREGS (ureg, GET_MODE (usedreg));
@@ -1812,20 +1834,29 @@ combine_regs (usedreg, setreg, may_save_copy, insn_number, insn, already_dead)
 
   while (GET_CODE (setreg) == SUBREG)
     {
-      if (GET_MODE_SIZE (GET_MODE (SUBREG_REG (setreg))) > UNITS_PER_WORD)
-	may_save_copy = 0;
-      if (REGNO (SUBREG_REG (setreg)) < FIRST_PSEUDO_REGISTER)
-	offset -= subreg_regno_offset (REGNO (SUBREG_REG (setreg)),
-				       GET_MODE (SUBREG_REG (setreg)),
-				       SUBREG_BYTE (setreg),
-				       GET_MODE (setreg));
-      else
-	offset -= (SUBREG_BYTE (setreg)
-		   / REGMODE_NATURAL_SIZE (GET_MODE (setreg)));
-      setreg = SUBREG_REG (setreg);
+      rtx subreg = SUBREG_REG (setreg);
+
+      if (GET_CODE (subreg) == REG)
+	{
+	  if (GET_MODE_SIZE (GET_MODE (subreg)) > UNITS_PER_WORD)
+	    may_save_copy = 0;
+
+	  if (REGNO (subreg) < FIRST_PSEUDO_REGISTER)
+	    offset -= subreg_regno_offset (REGNO (subreg),
+					   GET_MODE (subreg),
+					   SUBREG_BYTE (setreg),
+					   GET_MODE (setreg));
+	  else
+	    offset -= (SUBREG_BYTE (setreg)
+		      / REGMODE_NATURAL_SIZE (GET_MODE (setreg)));
+	}
+
+      setreg = subreg;
     }
+
   if (GET_CODE (setreg) != REG)
     return 0;
+
   sreg = REGNO (setreg);
   if (sreg < FIRST_PSEUDO_REGISTER)
     ssize = HARD_REGNO_NREGS (sreg, GET_MODE (setreg));

@@ -1088,7 +1088,9 @@ _cpp_backup_tokens (pfile, count)
       while (count--)
 	{
 	  pfile->cur_token--;
-	  if (pfile->cur_token == pfile->cur_run->base)
+	  if (pfile->cur_token == pfile->cur_run->base
+	      /* Possible with -fpreprocessed and no leading #line.  */
+	      && pfile->cur_run->prev != NULL)
 	    {
 	      pfile->cur_run = pfile->cur_run->prev;
 	      pfile->cur_token = pfile->cur_run->limit;

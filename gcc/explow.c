@@ -32,6 +32,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "optabs.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
+#include "ggc.h"
 #include "recog.h"
 
 static rtx break_out_memory_refs	PARAMS ((rtx));
@@ -1347,7 +1348,7 @@ allocate_dynamic_stack_space (size, target, known_align)
 				    NULL_RTX, 1, OPTAB_WIDEN);
 #endif
 	  emit_cmp_and_jump_insns (available, size, GEU, NULL_RTX, Pmode, 1,
-				   0, space_available);
+				   space_available);
 #ifdef HAVE_trap
 	  if (HAVE_trap)
 	    emit_insn (gen_trap ());
@@ -1416,6 +1417,7 @@ set_stack_check_libfunc (libfunc)
      rtx libfunc;
 {
   stack_check_libfunc = libfunc;
+  ggc_add_rtx_root (&stack_check_libfunc, 1);
 }
 
 /* Emit one stack probe at ADDRESS, an address within the stack.  */
@@ -1469,7 +1471,7 @@ probe_stack_range (first, size)
 	addr = convert_memory_address (ptr_mode, addr);
 #endif
 
-      emit_library_call (stack_check_libfunc, 0, VOIDmode, 1, addr,
+      emit_library_call (stack_check_libfunc, LCT_NORMAL, VOIDmode, 1, addr,
 			 ptr_mode);
     }
 
@@ -1562,7 +1564,7 @@ probe_stack_range (first, size)
 
       emit_label (test_lab);
       emit_cmp_and_jump_insns (test_addr, last_addr, CMP_OPCODE,
-			       NULL_RTX, Pmode, 1, 0, loop_lab);
+			       NULL_RTX, Pmode, 1, loop_lab);
       emit_jump (end_lab);
       emit_note (NULL, NOTE_INSN_LOOP_END);
       emit_label (end_lab);

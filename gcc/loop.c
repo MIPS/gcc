@@ -1346,7 +1346,10 @@ combine_movables (movables, regs)
 	/* We want later insns to match the first one.  Don't make the first
 	   one match any later ones.  So start this loop at m->next.  */
 	for (m1 = m->next; m1; m1 = m1->next)
-	  if (m != m1 && m1->match == 0
+	  /* ??? HACK!  move_movables does not verify that the replacement
+	     is valid, which can have disasterous effects with hard regs
+	     and match_dup.  Turn combination off for now.  */
+	  if (0 && m != m1 && m1->match == 0
 	      && regs->array[m1->regno].n_times_set == 1
 	      /* A reg used outside the loop mustn't be eliminated.  */
 	      && !m1->global
@@ -2745,7 +2748,8 @@ find_and_verify_loops (f, loops)
 
 			/* Include the BARRIER after INSN and copy the
 			   block after LOC.  */
-			squeeze_notes (&new_label, &last_insn_to_move);
+			if (squeeze_notes (&new_label, &last_insn_to_move))
+			  abort ();
 			reorder_insns (new_label, last_insn_to_move, loc);
 
 			/* All those insns are now in TARGET_LOOP.  */
@@ -7659,7 +7663,7 @@ check_dbra_loop (loop, insn_count)
 	      /* Add new compare/branch insn at end of loop.  */
 	      start_sequence ();
 	      emit_cmp_and_jump_insns (reg, const0_rtx, cmp_code, NULL_RTX,
-				       GET_MODE (reg), 0, 0,
+				       GET_MODE (reg), 0,
 				       XEXP (jump_label, 0));
 	      tem = gen_sequence ();
 	      end_sequence ();

@@ -2197,9 +2197,7 @@ expand_expr_stmt (exp)
 	  emit_cmp_and_jump_insns (last_expr_value, last_expr_value, EQ,
 				   expand_expr (TYPE_SIZE (last_expr_type),
 						NULL_RTX, VOIDmode, 0),
-				   BLKmode, 0,
-				   TYPE_ALIGN (last_expr_type) / BITS_PER_UNIT,
-				   lab);
+				   BLKmode, 0, lab);
 	  emit_label (lab);
 	}
     }
@@ -3742,7 +3740,7 @@ expand_nl_goto_receivers (thisblock)
   if (any_invalid)
     {
       expand_nl_goto_receiver ();
-      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "abort"), 0,
+      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "abort"), LCT_NORETURN,
 			 VOIDmode, 0);
       emit_barrier ();
     }
@@ -5598,7 +5596,8 @@ expand_end_case (orig_index)
 
       before_case = NEXT_INSN (before_case);
       end = get_last_insn ();
-      squeeze_notes (&before_case, &end);
+      if (squeeze_notes (&before_case, &end))
+	abort ();
       reorder_insns (before_case, end,
 		     thiscase->data.case_stmt.start);
     }
@@ -5644,20 +5643,16 @@ do_jump_if_equal (op1, op2, label, unsignedp)
      rtx op1, op2, label;
      int unsignedp;
 {
-  if (GET_CODE (op1) == CONST_INT
-      && GET_CODE (op2) == CONST_INT)
+  if (GET_CODE (op1) == CONST_INT && GET_CODE (op2) == CONST_INT)
     {
       if (INTVAL (op1) == INTVAL (op2))
 	emit_jump (label);
     }
   else
-    {
-      enum machine_mode mode = GET_MODE (op1);
-      if (mode == VOIDmode)
-	mode = GET_MODE (op2);
-      emit_cmp_and_jump_insns (op1, op2, EQ, NULL_RTX, mode, unsignedp,
-			       0, label);
-    }
+    emit_cmp_and_jump_insns (op1, op2, EQ, NULL_RTX,
+			     (GET_MODE (op1) == VOIDmode
+			     ? GET_MODE (op2) : GET_MODE (op1)),
+			     unsignedp, label);
 }
 
 /* Not all case values are encountered equally.  This function
@@ -6100,7 +6095,7 @@ emit_case_nodes (index, node, default_label, index_type)
 					expand_expr (node->high, NULL_RTX,
 						     VOIDmode, 0),
 					unsignedp),
-				       GT, NULL_RTX, mode, unsignedp, 0,
+				       GT, NULL_RTX, mode, unsignedp,
 				       label_rtx (node->right->code_label));
 	      emit_case_nodes (index, node->left, default_label, index_type);
 	    }
@@ -6113,7 +6108,7 @@ emit_case_nodes (index, node, default_label, index_type)
 					expand_expr (node->high, NULL_RTX,
 						     VOIDmode, 0),
 					unsignedp),
-				       LT, NULL_RTX, mode, unsignedp, 0,
+				       LT, NULL_RTX, mode, unsignedp,
 				       label_rtx (node->left->code_label));
 	      emit_case_nodes (index, node->right, default_label, index_type);
 	    }
@@ -6132,7 +6127,7 @@ emit_case_nodes (index, node, default_label, index_type)
 					expand_expr (node->high, NULL_RTX,
 						     VOIDmode, 0),
 					unsignedp),
-				       GT, NULL_RTX, mode, unsignedp, 0,
+				       GT, NULL_RTX, mode, unsignedp,
 				       label_rtx (test_label));
 
 	      /* Value must be on the left.
@@ -6167,7 +6162,7 @@ emit_case_nodes (index, node, default_label, index_type)
 					    expand_expr (node->high, NULL_RTX,
 							 VOIDmode, 0),
 					    unsignedp),
-					   LT, NULL_RTX, mode, unsignedp, 0,
+					   LT, NULL_RTX, mode, unsignedp,
 					   default_label);
 		}
 
@@ -6200,7 +6195,7 @@ emit_case_nodes (index, node, default_label, index_type)
 					    expand_expr (node->high, NULL_RTX,
 							 VOIDmode, 0),
 					    unsignedp),
-					   GT, NULL_RTX, mode, unsignedp, 0,
+					   GT, NULL_RTX, mode, unsignedp,
 					   default_label);
 		}
 
@@ -6243,7 +6238,7 @@ emit_case_nodes (index, node, default_label, index_type)
 				      expand_expr (node->high, NULL_RTX,
 						   VOIDmode, 0),
 				      unsignedp),
-				     GT, NULL_RTX, mode, unsignedp, 0,
+				     GT, NULL_RTX, mode, unsignedp,
 				     label_rtx (node->right->code_label));
 	  else
 	    {
@@ -6257,7 +6252,7 @@ emit_case_nodes (index, node, default_label, index_type)
 					expand_expr (node->high, NULL_RTX,
 						     VOIDmode, 0),
 					unsignedp),
-				       GT, NULL_RTX, mode, unsignedp, 0,
+				       GT, NULL_RTX, mode, unsignedp,
 				       label_rtx (test_label));
 	    }
 
@@ -6269,7 +6264,7 @@ emit_case_nodes (index, node, default_label, index_type)
 				    expand_expr (node->low, NULL_RTX,
 						 VOIDmode, 0),
 				    unsignedp),
-				   GE, NULL_RTX, mode, unsignedp, 0,
+				   GE, NULL_RTX, mode, unsignedp,
 				   label_rtx (node->code_label));
 
 	  /* Handle the left-hand subtree.  */
@@ -6300,7 +6295,7 @@ emit_case_nodes (index, node, default_label, index_type)
 					expand_expr (node->low, NULL_RTX,
 						     VOIDmode, 0),
 					unsignedp),
-				       LT, NULL_RTX, mode, unsignedp, 0,
+				       LT, NULL_RTX, mode, unsignedp,
 				       default_label);
 	    }
 
@@ -6312,7 +6307,7 @@ emit_case_nodes (index, node, default_label, index_type)
 				    expand_expr (node->high, NULL_RTX,
 						 VOIDmode, 0),
 				    unsignedp),
-				   LE, NULL_RTX, mode, unsignedp, 0,
+				   LE, NULL_RTX, mode, unsignedp,
 				   label_rtx (node->code_label));
 
 	  emit_case_nodes (index, node->right, default_label, index_type);
@@ -6330,7 +6325,7 @@ emit_case_nodes (index, node, default_label, index_type)
 					expand_expr (node->high, NULL_RTX,
 						     VOIDmode, 0),
 					unsignedp),
-				       GT, NULL_RTX, mode, unsignedp, 0,
+				       GT, NULL_RTX, mode, unsignedp,
 				       default_label);
 	    }
 
@@ -6342,7 +6337,7 @@ emit_case_nodes (index, node, default_label, index_type)
 				    expand_expr (node->low, NULL_RTX,
 						 VOIDmode, 0),
 				    unsignedp),
-				   GE, NULL_RTX, mode, unsignedp, 0,
+				   GE, NULL_RTX, mode, unsignedp,
 				   label_rtx (node->code_label));
 
 	  emit_case_nodes (index, node->left, default_label, index_type);
@@ -6364,7 +6359,7 @@ emit_case_nodes (index, node, default_label, index_type)
 					expand_expr (node->high, NULL_RTX,
 						     VOIDmode, 0),
 					unsignedp),
-				       GT, NULL_RTX, mode, unsignedp, 0,
+				       GT, NULL_RTX, mode, unsignedp,
 				       default_label);
 	    }
 
@@ -6376,7 +6371,7 @@ emit_case_nodes (index, node, default_label, index_type)
 					expand_expr (node->low, NULL_RTX,
 						     VOIDmode, 0),
 					unsignedp),
-				       LT, NULL_RTX, mode, unsignedp, 0,
+				       LT, NULL_RTX, mode, unsignedp,
 				       default_label);
 	    }
 	  else if (!low_bound && !high_bound)
@@ -6398,7 +6393,7 @@ emit_case_nodes (index, node, default_label, index_type)
 				       NULL_RTX, mode, 0);
 				
 	      emit_cmp_and_jump_insns (new_index, new_bound, GT, NULL_RTX,
-				       mode, 1, 0, default_label);
+				       mode, 1, default_label);
 	    }
 
 	  emit_jump (label_rtx (node->code_label));

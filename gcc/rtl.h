@@ -130,7 +130,8 @@ struct rtx_def
   /* 1 in an INSN if it can alter flow of control
      within this function.
      MEM_KEEP_ALIAS_SET_P in a MEM.
-     LINK_COST_ZERO in an INSN_LIST.  */
+     LINK_COST_ZERO in an INSN_LIST.
+     SET_IS_RETURN_P in a SET.  */
   unsigned int jump : 1;
   /* 1 in an INSN if it can call another function.
      LINK_COST_FREE in an INSN_LIST.  */
@@ -965,6 +966,7 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
    and SET_SRC is the value it is set to.  */
 #define SET_DEST(RTX) XC2EXP(RTX, 0, SET, CLOBBER)
 #define SET_SRC(RTX) XCEXP(RTX, 1, SET)
+#define SET_IS_RETURN_P(RTX) ((RTX)->jump)
 
 /* For a TRAP_IF rtx, TRAP_CONDITION is an expression.  */
 #define TRAP_CONDITION(RTX) XCEXP(RTX, 0, TRAP_IF)
@@ -1289,6 +1291,8 @@ extern rtx assign_stack_local		PARAMS ((enum machine_mode,
 					       HOST_WIDE_INT, int));
 extern rtx assign_stack_temp		PARAMS ((enum machine_mode,
 					       HOST_WIDE_INT, int));
+extern rtx assign_stack_temp_for_type	PARAMS ((enum machine_mode,
+						 HOST_WIDE_INT, int, tree));
 extern rtx assign_temp			PARAMS ((tree, int, int, int));
 /* In emit-rtl.c */
 extern rtx emit_insn_before		PARAMS ((rtx, rtx));
@@ -1340,7 +1344,7 @@ extern void mark_jump_label		PARAMS ((rtx, rtx, int));
 extern void cleanup_barriers		PARAMS ((void));
 
 /* In jump.c */
-extern void squeeze_notes		PARAMS ((rtx *, rtx *));
+extern bool squeeze_notes		PARAMS ((rtx *, rtx *));
 extern rtx delete_related_insns			PARAMS ((rtx));
 extern void delete_jump			PARAMS ((rtx));
 extern void delete_barrier		PARAMS ((rtx));
@@ -1681,6 +1685,15 @@ extern rtx gen_lowpart_SUBREG PARAMS ((enum machine_mode, rtx));
 #define VIRTUAL_CFA_REGNUM		((FIRST_VIRTUAL_REGISTER) + 4)
 
 #define LAST_VIRTUAL_REGISTER		((FIRST_VIRTUAL_REGISTER) + 4)
+
+/* Nonzero if REGNUM is a pointer into the stack frame.  */
+#define REGNO_PTR_FRAME_P(REGNUM) 		\
+  ((REGNUM) == STACK_POINTER_REGNUM		\
+   || (REGNUM) == FRAME_POINTER_REGNUM		\
+   || (REGNUM) == HARD_FRAME_POINTER_REGNUM	\
+   || (REGNUM) == ARG_POINTER_REGNUM		\
+   || ((REGNUM) >= FIRST_VIRTUAL_REGISTER	\
+       && (REGNUM) <= LAST_VIRTUAL_REGISTER))
 
 /* REGNUM never really appearing in the INSN stream.  */
 #define INVALID_REGNUM			(~(unsigned int)0)

@@ -3933,6 +3933,7 @@ try_replace_reg (from, to, insn)
      parts that has not been touched.  */
   if (!success && note == 0 && set != 0)
     note = set_unique_reg_note (insn, REG_EQUAL, copy_rtx (src));
+
   /* If there is already a NOTE, update the expression in it with our
      replacement.  */
   else if (note != 0)
@@ -4045,7 +4046,10 @@ cprop_jump (bb, insn, from, src)
       SET_SRC (set) = new;
 
       if (JUMP_LABEL (insn) != 0)
-	--LABEL_NUSES (JUMP_LABEL (insn));
+	{
+	  --LABEL_NUSES (JUMP_LABEL (insn));
+	  JUMP_LABEL (insn) = NULL_RTX;
+	}
     }
 
   /* Otherwise, this must be a valid instruction.  */

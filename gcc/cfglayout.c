@@ -1,5 +1,5 @@
 /* Basic block reordering routines for the GNU compiler.
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -81,10 +81,10 @@ static void free_scope_tree		PARAMS ((scope));
 static void cleanup_unconditional_jumps	PARAMS ((void));
 void dump_scope_tree			PARAMS ((FILE *, scope));
 static void dump_scope_tree_1		PARAMS ((FILE *, scope, int));
-static void fixup_fallthru_exit_predecesor PARAMS ((void));
 
 void verify_insn_chain			PARAMS ((void));
 void change_scope			PARAMS ((rtx, scope, scope));
+static void fixup_fallthru_exit_predecessor PARAMS ((void));
 
 /* Skip over inter-block insns occurring after BB which are typically
    associated with BB (e.g., barriers). If there are any such insns,
@@ -786,10 +786,10 @@ cleanup_unconditional_jumps ()
     }
 }
 
-/* The block falling trought to exit must be last in the reordered
-   chain.  Make it happen so.  */
+/* The block falling through to exit must be the last one in the
+   reordered chain.  Ensure that this condition is met.  */
 static void
-fixup_fallthru_exit_predecesor ()
+fixup_fallthru_exit_predecessor ()
 {
   edge e;
   basic_block bb = NULL;
@@ -1073,7 +1073,7 @@ cfg_layout_initialize ()
 void
 cfg_layout_finalize ()
 {
-  fixup_fallthru_exit_predecesor ();
+  fixup_fallthru_exit_predecessor ();
   fixup_reorder_chain ();
 #ifdef ENABLE_CHECKING
   verify_insn_chain ();

@@ -44,7 +44,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 static int c_tree_printer PARAMS ((output_buffer *));
 static int c_missing_noreturn_ok_p PARAMS ((tree));
-static void c_init PARAMS ((void));
+static const char *c_init PARAMS ((const char *));
 static void c_init_options PARAMS ((void));
 static void c_post_options PARAMS ((void));
 static int c_disregard_inline_limits PARAMS ((tree));
@@ -54,6 +54,8 @@ static int c_cannot_inline_tree_fn PARAMS ((tree *));
 #define LANG_HOOKS_NAME "GNU C"
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT c_init
+#undef LANG_HOOKS_FINISH
+#define LANG_HOOKS_FINISH c_common_finish
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS c_init_options
 #undef LANG_HOOKS_DECODE_OPTION
@@ -108,16 +110,21 @@ c_post_options ()
 static void
 c_init_options ()
 {
-  parse_in = cpp_create_reader (ident_hash, CLK_GNUC89);
+  parse_in = cpp_create_reader (CLK_GNUC89);
 
   /* Mark as "unspecified".  */
   flag_bounds_check = -1;
 }
 
-static void
-c_init ()
+static const char *
+c_init (filename)
+     const char *filename;
 {
-  c_common_lang_init ();
+  c_init_decl_processing ();
+
+  filename = c_common_lang_init (filename);
+
+  add_c_tree_codes ();
 
   /* If still unspecified, make it match -std=c99
      (allowing for -pedantic-errors).  */
@@ -138,10 +145,10 @@ c_init ()
   lang_expand_decl_stmt = &c_expand_decl_stmt;
   lang_missing_noreturn_ok_p = &c_missing_noreturn_ok_p;
 
-  c_parse_init ();
-
   VARRAY_TREE_INIT (deferred_fns, 32, "deferred_fns");
   ggc_add_tree_varray_root (&deferred_fns, 1);
+
+  return filename;
 }
 
 /* Used by c-lex.c, but only for objc.  */
@@ -196,7 +203,6 @@ lookup_objc_ivar (id)
   return 0;
 }
 
-#if !defined(ASM_OUTPUT_CONSTRUCTOR) || !defined(ASM_OUTPUT_DESTRUCTOR)
 extern tree static_ctors;
 extern tree static_dtors;
 
@@ -246,7 +252,6 @@ finish_cdtor (body)
 
   finish_function (0);
 }
-#endif
 
 /* Register a function tree, so that its optimization and conversion
    to RTL is only done at the end of the compilation.  */
@@ -265,17 +270,23 @@ defer_fn (fn)
 void
 finish_file ()
 {
-  int i;
+  unsigned int i;
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_fns); i++)
-    /* Don't output the same function twice.  We may run into such
-       situations when an extern inline function is later given a
-       non-extern-inline definition.  */
-    if (! TREE_ASM_WRITTEN (VARRAY_TREE (deferred_fns, i)))
-      c_expand_deferred_function (VARRAY_TREE (deferred_fns, i));
+    {
+      tree decl = VARRAY_TREE (deferred_fns, i);
+
+      if (! TREE_ASM_WRITTEN (decl))
+	{
+	  /* For static inline functions, delay the decision whether to
+	     emit them or not until wrapup_global_declarations.  */
+	  if (! TREE_PUBLIC (decl))
+	    DECL_DEFER_OUTPUT (decl) = 1;
+	  c_expand_deferred_function (decl);
+	}
+    }
   VARRAY_FREE (deferred_fns);
 
-#ifndef ASM_OUTPUT_CONSTRUCTOR
   if (static_ctors)
     {
       tree body = start_cdtor ('I');
@@ -286,8 +297,6 @@ finish_file ()
 
       finish_cdtor (body);
     }
-#endif
-#ifndef ASM_OUTPUT_DESTRUCTOR
   if (static_dtors)
     {
       tree body = start_cdtor ('D');
@@ -298,7 +307,6 @@ finish_file ()
 
       finish_cdtor (body);
     }
-#endif
 
   if (back_end_hook)
     (*back_end_hook) (getdecls ());

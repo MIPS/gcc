@@ -302,8 +302,7 @@ extern int have_sub2_insn PARAMS ((rtx, rtx));
 /* Emit a pair of rtl insns to compare two rtx's and to jump 
    to a label if the comparison is true.  */
 extern void emit_cmp_and_jump_insns PARAMS ((rtx, rtx, enum rtx_code, rtx,
-					     enum machine_mode, int,
-					     unsigned int, rtx));
+					     enum machine_mode, int, rtx));
 
 /* Generate code to indirectly jump to a location given in the rtx LOC.  */
 extern void emit_indirect_jump PARAMS ((rtx));
@@ -542,10 +541,10 @@ extern void do_jump PARAMS ((tree, rtx, rtx));
 
 /* Generate rtl to compare two rtx's, will call emit_cmp_insn.  */
 extern rtx compare_from_rtx PARAMS ((rtx, rtx, enum rtx_code, int,
-				     enum machine_mode, rtx, unsigned int));
+				     enum machine_mode, rtx));
 extern void do_compare_rtx_and_jump PARAMS ((rtx, rtx, enum rtx_code, int,
 					     enum machine_mode, rtx,
-					     unsigned int, rtx, rtx));
+					     rtx, rtx));
 
 /* Two different ways of generating switch statements.  */
 extern int try_casesi    PARAMS ((tree, tree, tree, tree, rtx, rtx));
@@ -627,14 +626,26 @@ extern rtx change_address PARAMS ((rtx, enum machine_mode, rtx));
 /* Return a memory reference like MEMREF, but with its mode changed
    to MODE and its address offset by OFFSET bytes.  */
 #define adjust_address(MEMREF, MODE, OFFSET) \
-  adjust_address_1 (MEMREF, MODE, OFFSET, 1)
+  adjust_address_1 (MEMREF, MODE, OFFSET, 1, 1)
 
 /* Likewise, but the reference is not required to be valid.  */
 #define adjust_address_nv(MEMREF, MODE, OFFSET) \
-  adjust_address_1 (MEMREF, MODE, OFFSET, 0)
+  adjust_address_1 (MEMREF, MODE, OFFSET, 0, 1)
+
+/* Return a memory reference like MEMREF, but with its mode changed
+   to MODE and its address changed to ADDR, which is assumed to be
+   increased by OFFSET bytes from MEMREF.  */
+#define adjust_automodify_address(MEMREF, MODE, ADDR, OFFSET) \
+  adjust_automodify_address_1 (MEMREF, MODE, ADDR, OFFSET, 1)
+
+/* Likewise, but the reference is not required to be valid.  */
+#define adjust_automodify_address_nv(MEMREF, MODE, ADDR, OFFSET) \
+  adjust_automodify_address_1 (MEMREF, MODE, ADDR, OFFSET, 0)
 
 extern rtx adjust_address_1 PARAMS ((rtx, enum machine_mode, HOST_WIDE_INT,
-				     int));
+				     int, int));
+extern rtx adjust_automodify_address_1 PARAMS ((rtx, enum machine_mode,
+						rtx, HOST_WIDE_INT, int));
 
 /* Return a memory reference like MEMREF, but whose address is changed by
    adding OFFSET, an RTX, to it.  POW2 is the highest power of two factor

@@ -3025,7 +3025,6 @@ optimize_bit_field_compare (code, compare_type, lhs, rhs)
   enum machine_mode lmode, rmode, nmode;
   int lunsignedp, runsignedp;
   int lvolatilep = 0, rvolatilep = 0;
-  unsigned int alignment;
   tree linner, rinner = NULL_TREE;
   tree mask;
   tree offset;
@@ -3036,7 +3035,7 @@ optimize_bit_field_compare (code, compare_type, lhs, rhs)
      do anything if the inner expression is a PLACEHOLDER_EXPR since we
      then will no longer be able to replace it.  */
   linner = get_inner_reference (lhs, &lbitsize, &lbitpos, &offset, &lmode,
-				&lunsignedp, &lvolatilep, &alignment);
+				&lunsignedp, &lvolatilep);
   if (linner == lhs || lbitsize == GET_MODE_BITSIZE (lmode) || lbitsize < 0
       || offset != 0 || TREE_CODE (linner) == PLACEHOLDER_EXPR)
     return 0;
@@ -3046,7 +3045,7 @@ optimize_bit_field_compare (code, compare_type, lhs, rhs)
      /* If this is not a constant, we can only do something if bit positions,
 	sizes, and signedness are the same.  */
      rinner = get_inner_reference (rhs, &rbitsize, &rbitpos, &offset, &rmode,
-				   &runsignedp, &rvolatilep, &alignment);
+				   &runsignedp, &rvolatilep);
 
      if (rinner == rhs || lbitpos != rbitpos || lbitsize != rbitsize
 	 || lunsignedp != runsignedp || offset != 0
@@ -3204,7 +3203,6 @@ decode_field_reference (exp, pbitsize, pbitpos, pmode, punsignedp,
   tree mask, inner, offset;
   tree unsigned_type;
   unsigned int precision;
-  unsigned int alignment;
 
   /* All the optimizations using this function assume integer fields.
      There are problems with FP fields since the type_for_size call
@@ -3224,7 +3222,7 @@ decode_field_reference (exp, pbitsize, pbitpos, pmode, punsignedp,
     }
 
   inner = get_inner_reference (exp, pbitsize, pbitpos, &offset, pmode,
-			       punsignedp, pvolatilep, &alignment);
+			       punsignedp, pvolatilep);
   if ((inner == exp && and_mask == 0)
       || *pbitsize < 0 || offset != 0
       || TREE_CODE (inner) == PLACEHOLDER_EXPR)
@@ -5310,6 +5308,12 @@ fold (expr)
 	}
       return fold_convert (t, arg0);
 
+    case VIEW_CONVERT_EXPR:
+      if (TREE_CODE (TREE_OPERAND (t, 0)) == VIEW_CONVERT_EXPR)
+	return build1 (VIEW_CONVERT_EXPR, type,
+		       TREE_OPERAND (TREE_OPERAND (t, 0), 0));
+      return t;
+
 #if 0  /* This loses on &"foo"[0].  */
     case ARRAY_REF:
 	{
@@ -6897,6 +6901,33 @@ fold (expr)
 			      type,
 			      fold (build (code, type, real0, real1)),
 			      fold (build (code, type, imag0, imag1))));
+	}
+
+      /* Optimize comparisons of strlen vs zero to a compare of the
+	 first character of the string vs zero.  To wit, 
+	 	strlen(ptr) == 0   =>  *ptr == 0
+		strlen(ptr) != 0   =>  *ptr != 0
+	 Other cases should reduce to one of these two (or a constant)
+	 due to the return value of strlen being unsigned.  */
+      if ((code == EQ_EXPR || code == NE_EXPR)
+	  && integer_zerop (arg1)
+	  && TREE_CODE (arg0) == CALL_EXPR
+	  && TREE_CODE (TREE_OPERAND (arg0, 0)) == ADDR_EXPR)
+	{
+	  tree fndecl = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
+	  tree arglist;
+
+	  if (TREE_CODE (fndecl) == FUNCTION_DECL
+	      && DECL_BUILT_IN (fndecl)
+	      && DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_MD
+	      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_STRLEN
+	      && (arglist = TREE_OPERAND (arg0, 1))
+	      && TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) == POINTER_TYPE
+	      && ! TREE_CHAIN (arglist))
+	    return fold (build (code, type,
+				build1 (INDIRECT_REF, char_type_node,
+					TREE_VALUE(arglist)),
+				integer_zero_node));
 	}
 
       /* From here on, the only cases we handle are when the result is

@@ -1133,9 +1133,10 @@ if test -f ../gas/Makefile; then
 	rm -f as; $symbolic_link ../gas/as-new$host_exeext as$host_exeext 2>/dev/null
 fi
 
-# If we have nm in the build tree, make a link to it.
+# If we have nm and objdump in the build tree, make a link to them.
 if test -f ../binutils/Makefile; then
 	rm -f nm; $symbolic_link ../binutils/nm-new$host_exeext nm$host_exeext 2>/dev/null
+	rm -f objdump; $symbolic_link ../binutils/objdump$host_exeext objdump$host_exeext 2>/dev/null
 fi
 
 # If we have ld in the build tree, make a link to it.
@@ -1241,6 +1242,16 @@ elif test x$host = x$target; then
 	gcc_cv_nm=nm$host_exeext
 fi
 AC_MSG_RESULT($gcc_cv_nm)
+
+# Figure out what objdump we will be using.
+AC_MSG_CHECKING(what objdump to use)
+if test -x objdump$host_exeext; then
+	gcc_cv_objdump=./objdump$host_exeext
+elif test x$host = x$target; then
+	# Native build.
+	gcc_cv_objdump=objdump$host_exeext
+fi
+AC_MSG_RESULT($gcc_cv_objdump)
 
 # Figure out what assembler alignment features are present.
 AC_MSG_CHECKING(assembler alignment features)
@@ -1460,7 +1471,7 @@ EOF
 		# If the assembler didn't choke, and we can objdump,
 		# and we got the correct data, then succeed.
 		if $gcc_cv_as -o conftest.o conftest.s > /dev/null 2>&1 \
-		   && objdump -s -j .eh_frame conftest.o 2>/dev/null \
+		   && $gcc_cv_objdump -s -j .eh_frame conftest.o 2>/dev/null \
 		      | tail -3 > conftest.got \
 		   && { cmp conftest.lit conftest.got > /dev/null 2>&1 \
 		        || cmp conftest.big conftest.got > /dev/null 2>&1; }
@@ -1713,6 +1724,57 @@ if test x"$gcc_cv_as_dwarf2_debug_line" = xyes; then
    and preserves file table indices exactly as given.])
 fi
 AC_MSG_RESULT($gcc_cv_as_dwarf2_debug_line)
+
+AC_MSG_CHECKING(assembler --gdwarf2 support)
+gcc_cv_as_gdwarf2_flag=no
+if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x;
+then
+  if test "$gcc_cv_gas_major_version" -eq 2 \
+	-a "$gcc_cv_gas_minor_version" -ge 11 \
+	-o "$gcc_cv_gas_major_version" -gt 2 \
+     && grep 'obj_format = elf' ../gas/Makefile > /dev/null \
+     && test x"$insn" != x ; then
+    gcc_cv_as_gdwarf2_debug_flag="yes"
+  fi
+elif test x$gcc_cv_as != x -a x"$insn" != x ; then
+	echo '' > conftest.s
+	# ??? This fails with non-gnu grep.
+	if $gcc_cv_as --gdwarf2 -o conftest.o conftest.s > /dev/null 2>&1
+	  then
+	  gcc_cv_as_gdwarf2_flag="yes"
+	fi
+	rm -f conftest.s conftest.o
+fi
+if test x"$gcc_cv_as_gdwarf2_flag" = xyes; then
+	AC_DEFINE(HAVE_AS_GDWARF2_DEBUG_FLAG, 1,
+[Define if your assembler supports the --gdwarf2 option.])
+fi
+AC_MSG_RESULT($gcc_cv_as_gdwarf2_flag)
+
+AC_MSG_CHECKING(assembler --gstabs support)
+gcc_cv_as_gstabs_flag=no
+if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x;
+then
+  if test "$gcc_cv_gas_major_version" -eq 2 \
+	-a "$gcc_cv_gas_minor_version" -ge 11 \
+	-o "$gcc_cv_gas_major_version" -gt 2 \
+     && grep 'obj_format = elf' ../gas/Makefile > /dev/null \
+     && test x"$insn" != x ; then
+    gcc_cv_as_gstabs_debug_flag="yes"
+  fi
+elif test x$gcc_cv_as != x -a x"$insn" != x ; then
+	echo '' > conftest.s
+	# ??? This fails with non-gnu grep.
+	if $gcc_cv_as --gstabs -o conftest.o conftest.s > /dev/null 2>&1 ; then
+	  gcc_cv_as_gstabs_flag="yes"
+	fi
+	rm -f conftest.s conftest.o
+fi
+if test x"$gcc_cv_as_gstabs_flag" = xyes; then
+	AC_DEFINE(HAVE_AS_GSTABS_DEBUG_FLAG, 1,
+[Define if your assembler supports the --gstabs option.])
+fi
+AC_MSG_RESULT($gcc_cv_as_gstabs_flag)
 
 if test "$prefix" != "/usr" && test "$prefix" != "/usr/local" ; then
   AC_DEFINE_UNQUOTED(PREFIX_INCLUDE_DIR, "$prefix/include")
@@ -2204,7 +2266,7 @@ esac
 # This is virtually a duplicate of what happens in configure.lang; we do
 # an extra check to make sure this only happens if ln -s can be used.
 if test "$symbolic_link" = "ln -s"; then
- for d in .. ${subdirs} ; do
+ for d in .. ${subdirs} fixinc ; do
    if test $d != ..; then
 	STARTDIR=`pwd`
 	cd $d

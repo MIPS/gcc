@@ -596,6 +596,14 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
    an exception.  In a CALL_EXPR, nonzero means the call cannot throw.  */
 #define TREE_NOTHROW(NODE) ((NODE)->common.nothrow_flag)
 
+/* In a type, nonzero means that all objects of the type are guaranteed by the
+   language or front-end to be properly aligned, so we can indicate that a MEM
+   of this type is aligned at least to the alignment of the type, even if it
+   doesn't appear that it is.  We see this, for example, in object-oriented
+   languages where a tag field may show this is an object of a more-aligned
+   variant of the more generic type.  */
+#define TYPE_ALIGN_OK(NODE) (TYPE_CHECK (NODE)->common.nothrow_flag)
+
 /* Used in classes in C++.  */
 #define TREE_PRIVATE(NODE) ((NODE)->common.private_flag)
 /* Used in classes in C++.
@@ -2577,7 +2585,11 @@ extern tree maybe_build_cleanup		PARAMS ((tree));
 extern tree get_inner_reference		PARAMS ((tree, HOST_WIDE_INT *,
 						 HOST_WIDE_INT *, tree *,
 						 enum machine_mode *, int *,
-						 int *, unsigned int *));
+						 int *));
+
+/* Return 1 if T is an expression that get_inner_reference handles.  */
+
+extern int handled_component_p		PARAMS ((tree));
 
 /* Given a DECL or TYPE, return the scope in which it was declared, or
    NUL_TREE if there is no containing scope.  */
@@ -2646,9 +2658,6 @@ extern const char *(*decl_printable_name)	PARAMS ((tree, int));
    end of compilation.  */
 
 extern void (*incomplete_decl_finalize_hook)	PARAMS ((tree));
-
-extern const char *init_parse			PARAMS ((const char *));
-extern void finish_parse			PARAMS ((void));
 
 /* Declare a predefined function.  Return the declaration.  This function is
    provided by each language frontend.  */
@@ -2774,9 +2783,6 @@ extern tree (*lang_type_promotes_to)	PARAMS ((tree));
 extern tree fold_builtin		PARAMS ((tree));
 
 /* The language front-end must define these functions.  */
-
-/* Function of no arguments for initializing the symbol table.  */
-extern void init_decl_processing		PARAMS ((void));
 
 /* Function to replace the DECL_LANG_SPECIFIC field of a DECL with a copy.  */
 extern void copy_lang_decl			PARAMS ((tree));
@@ -3052,6 +3058,37 @@ extern void dwarf2out_return_reg	PARAMS ((const char *, unsigned));
 /* The type of a function that walks over tree structure.  */
 
 typedef tree (*walk_tree_fn)		PARAMS ((tree *, int *, void *));
+
+/* In tree-dump.c */
+
+/* Different tree dump places.  When you add new tree dump places,
+   extend the DUMP_FILES array in tree-dump.c */
+enum tree_dump_index
+{
+  TDI_all,			/* dump the whole translation unit */
+  TDI_class,			/* dump class hierarchy */
+  TDI_original,			/* dump each function before optimizing it */
+  TDI_optimized,		/* dump each function after optimizing it */
+  TDI_inlined,			/* dump each function after inlining
+				   within it.  */
+  TDI_end
+};
+
+/* Bit masks to control tree dumping. Not all values are applicable to
+   all tree dumps. Add new ones at the end. When you define new
+   values, extend the DUMP_OPTIONS array in tree-dump.c */
+#define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
+#define TDF_SLIM	(1 << 1)	/* don't go wild following links */
+
+typedef struct dump_info *dump_info_p;
+
+extern int dump_flag			PARAMS ((dump_info_p, int, tree));
+extern int dump_enabled_p		PARAMS ((enum tree_dump_index));
+extern FILE *dump_begin			PARAMS ((enum tree_dump_index, int *));
+extern void dump_end			PARAMS ((enum tree_dump_index, FILE *));
+extern void dump_node			PARAMS ((tree, int, FILE *));
+extern int dump_switch_p                PARAMS ((const char *));
+extern const char *dump_flag_name	PARAMS ((enum tree_dump_index));
 
 
 /* Redefine abort to report an internal error w/o coredump, and

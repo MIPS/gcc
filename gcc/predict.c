@@ -619,7 +619,10 @@ typedef struct edge_info_def
 {
   /* In case edge is an loopback edge, the probability edge will be reached
      in case header is.  Estimated number of iterations of the loop can be
-     then computed as 1 / (1 - back_edge_prob).  */
+     then computed as 1 / (1 - back_edge_prob).
+
+     Volatile is needed to avoid differences in the optimized and unoptimized
+     builds on machines where FP registers are wider than double.  */
   volatile double back_edge_prob;
   /* True if the edge is an loopback edge in the natural loop.  */
   int back_edge:1;

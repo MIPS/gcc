@@ -270,6 +270,13 @@ do {								\
 #define DWARF_FRAME_REGISTERS FIRST_PSEUDO_REGISTER
 #endif
 
+/* How to renumber registers for dbx and gdb.  If not defined, assume
+   no renumbering is necessary.  */
+
+#ifndef DBX_REGISTER_NUMBER
+#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
+#endif
+
 /* Default sizes for base C types.  If the sizes are different for
    your target, you should override these values by defining the
    appropriate symbols in your tm.h file.  */
@@ -408,6 +415,43 @@ do {								\
 
 #ifndef ASM_BYTE_OP
 #define ASM_BYTE_OP			"\t.byte\t"
+#endif
+
+#ifndef DEFAULT_GDB_EXTENSIONS
+#define DEFAULT_GDB_EXTENSIONS 1
+#endif
+
+/* If more than one debugging type is supported, you must define
+   PREFERRED_DEBUGGING_TYPE to choose a format in a system-dependent way.
+
+   This is one long line cause VAXC can't handle a \-newline.  */
+#if 1 < (defined (DBX_DEBUGGING_INFO) + defined (SDB_DEBUGGING_INFO) + defined (DWARF_DEBUGGING_INFO) + defined (DWARF2_DEBUGGING_INFO) + defined (XCOFF_DEBUGGING_INFO))
+#ifndef PREFERRED_DEBUGGING_TYPE
+You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
+#endif /* no PREFERRED_DEBUGGING_TYPE */
+#else /* Only one debugging format supported.  Define PREFERRED_DEBUGGING_TYPE
+	 so other code needn't care.  */
+#ifdef DBX_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
+#endif
+#ifdef SDB_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE SDB_DEBUG
+#endif
+#ifdef DWARF_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE DWARF_DEBUG
+#endif
+#ifdef DWARF2_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
+#endif
+#ifdef XCOFF_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE XCOFF_DEBUG
+#endif
+#endif /* More than one debugger format enabled.  */
+
+/* If still not defined, must have been because no debugging formats
+   are supported.  */
+#ifndef PREFERRED_DEBUGGING_TYPE
+#define PREFERRED_DEBUGGING_TYPE NO_DEBUG
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

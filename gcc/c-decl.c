@@ -457,6 +457,7 @@ c_decode_option (argc, argv)
 
   if (!strcmp (p, "-ftraditional") || !strcmp (p, "-traditional"))
     {
+      warning ("-traditional is deprecated and may be removed");
       flag_traditional = 1;
       flag_writable_strings = 1;
     }
@@ -596,6 +597,8 @@ c_decode_option (argc, argv)
     flag_no_builtin = 0;
   else if (!strcmp (p, "-fno-builtin"))
     flag_no_builtin = 1;
+  else if (!strncmp (p, "-fno-builtin-", strlen ("-fno-builtin-")))
+    disable_builtin_function (p + strlen ("-fno-builtin-"));
   else if (p[0] == '-' && p[1] == 'f' && dump_switch_p (p + 2))
     ;
   else if (!strcmp (p, "-ansi"))
@@ -2977,10 +2980,13 @@ mark_binding_level (arg)
    Make definitions for built-in primitive functions.  */
 
 void
-init_decl_processing ()
+c_init_decl_processing ()
 {
   tree endlink;
   tree ptr_ftype_void, ptr_ftype_ptr;
+
+  /* Adds some ggc roots, and reserved words for c-parse.in.  */
+  c_parse_init ();
 
   current_function_decl = NULL;
   named_labels = NULL;
@@ -6762,8 +6768,13 @@ void
 c_expand_deferred_function (fndecl)
      tree fndecl;
 {
-  c_expand_body (fndecl, 0, 0);
-  current_function_decl = NULL;
+  /* DECL_INLINE or DECL_RESULT might got cleared after the inline
+     function was deferred, e.g. in duplicate_decls.  */
+  if (DECL_INLINE (fndecl) && DECL_RESULT (fndecl))
+    {
+      c_expand_body (fndecl, 0, 0);
+      current_function_decl = NULL;
+    }
 }
 
 /* Generate the RTL for the body of FNDECL.  If NESTED_P is non-zero,

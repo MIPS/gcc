@@ -7929,6 +7929,7 @@ loc_descriptor_from_tree (loc, addressp)
     case NOP_EXPR:
     case CONVERT_EXPR:
     case NON_LVALUE_EXPR:
+    case VIEW_CONVERT_EXPR:
     case SAVE_EXPR:
       return loc_descriptor_from_tree (TREE_OPERAND (loc, 0), addressp);
 
@@ -7941,10 +7942,9 @@ loc_descriptor_from_tree (loc, addressp)
 	HOST_WIDE_INT bitsize, bitpos, bytepos;
 	enum machine_mode mode;
 	int volatilep;
-	unsigned int alignment;
 
 	obj = get_inner_reference (loc, &bitsize, &bitpos, &offset, &mode,
-				   &unsignedp, &volatilep, &alignment);
+				   &unsignedp, &volatilep);
 
 	if (obj == loc)
 	  return 0;
@@ -8850,6 +8850,7 @@ add_bound_info (subrange_die, bound_attr, bound)
     case CONVERT_EXPR:
     case NOP_EXPR:
     case NON_LVALUE_EXPR:
+    case VIEW_CONVERT_EXPR:
       add_bound_info (subrange_die, bound_attr, TREE_OPERAND (bound, 0));
       break;
 
@@ -11853,6 +11854,9 @@ dwarf2out_finish (input_filename)
 	    add_child_die (origin->die_parent, die);
 	  else if (die == comp_unit_die)
 	    ;
+	  else if (errorcount > 0 || sorrycount > 0)
+	    /* It's OK to be confused by errors in the input.  */
+	    add_child_die (comp_unit_die, die);
 	  else
 	    abort ();
 	}
