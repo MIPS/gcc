@@ -251,28 +251,6 @@ extern int errno;
 #include <sys/wait.h>
 #endif
 
-#ifndef WIFSIGNALED
-#define WIFSIGNALED(S) (((S) & 0xff) != 0 && ((S) & 0xff) != 0x7f)
-#endif
-#ifndef WTERMSIG
-#define WTERMSIG(S) ((S) & 0x7f)
-#endif
-#ifndef WIFEXITED
-#define WIFEXITED(S) (((S) & 0xff) == 0)
-#endif
-#ifndef WEXITSTATUS
-#define WEXITSTATUS(S) (((S) & 0xff00) >> 8)
-#endif
-#ifndef WSTOPSIG
-#define WSTOPSIG WEXITSTATUS
-#endif
-#ifndef WCOREDUMP
-#define WCOREDUMP(S) ((S) & WCOREFLG)
-#endif
-#ifndef WCOREFLG
-#define WCOREFLG 0200
-#endif
-
 /* The HAVE_DECL_* macros are three-state, undefined, 0 or 1.  If they
    are defined to 0 then we must provide the relevant declaration
    here.  These checks will be in the undefined state while configure

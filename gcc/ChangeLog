@@ -1,3 +1,8 @@
+2004-02-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* system.h (WIFSIGNALED, WTERMSIG, WIFEXITED, WEXITSTATUS,
+	WSTOPSIG, SCOREDUMP, WCOREFLG): Remove definitions.
+
 2004-01-30  Paul Brook  <paul@codesourcery.com>
 
 	* aof.h (REGISTER_NAMES): Add vfp reg names
