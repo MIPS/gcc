@@ -3849,6 +3849,8 @@ also turns on the following optimization flags:
 -freorder-blocks  -freorder-functions @gol
 -fstrict-aliasing @gol
 -funit-at-a-time @gol
+-fipa-cp @gol
+-fipa-no-cloning @gol
 -falign-functions  -falign-jumps @gol
 -falign-loops  -falign-labels @gol
 -fcrossjumping}
@@ -4706,6 +4708,17 @@ attribute @code{used} will prevent this behavior.
 
 As a temporary workaround, @option{-fno-unit-at-a-time} can be used,
 but this scheme may not be supported by future releases of GCC.
+
+Enabled at levels @option{-O2}, @option{-O3}.
+
+@item -fipa-cp
+@opindex fipa-cp
+Perform Interprocedural constant propagation.
+It is a part of the cgraph optimization (enabled with funit-at-a-time).
+
+@item -fipa-no-cloning
+@opindex fipa-no-cloning
+Perform Interprocedural constant propagation without cloning.
 
 Enabled at levels @option{-O2}, @option{-O3}.
 

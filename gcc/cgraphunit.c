@@ -185,6 +185,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-common.h"
 #include "intl.h"
 #include "function.h"
+#include "ipa_prop.h"
 
 #define INSNS_PER_CALL 10
 
@@ -437,6 +438,8 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 		       visited_nodes);
 	    *walk_subtrees = 0;
 	  }
+        if (flag_ipa_cp && decl == NULL_TREE)
+          flag_ipa_cp = 0;
 	break;
       }
 
@@ -1733,6 +1736,8 @@ cgraph_optimize (void)
 #endif
   if (!flag_unit_at_a_time)
     return;
+  if (flag_ipa_cp && flag_ipa_no_cloning)
+    ipcp_driver ();
   timevar_push (TV_CGRAPHOPT);
   if (!quiet_flag)
     fprintf (stderr, "Performing intraprocedural optimizations\n");

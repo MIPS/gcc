@@ -1,3 +1,13 @@
+2004-08-28  Razya Ladelsky  <razya@il.ibm.com>
+
+        * ipa_prop.c: New File: IPA constant propagation. 
+        * ipa_prop.h: New File: Same.
+        * Makefile.in (ipa_prop.c, ipa_prop.h): Add new files.
+        * common.opt (fipa-cp, fipa-no-cloning): New flags for IPA
+	constant propagation. 
+        * cgraphunit.c (cgraph_optimize, record_call_1): Support for IPA 
+	constant propagation.
+
 2004-08-16  Jan Hubicka  <jh@suse.cz>
 
 	* predict.c (estimate_probability): Run BB level predictors just once per block.
