@@ -1,4 +1,31 @@
-2001-02-19  Jeff Law  <law@redhat.com>
+2003-02-20  Jeff Law  <law@redhat.com>
+
+	* tree-dfa.c (INDIRECT_REFs and ADDRESSABLE_VARs varrays): Replace
+	with a single ALIASED_OBJECTs set of varrays.
+	(dump_dfa_stats): Corresponding changes.
+	(compute_may_aliases, dump_alias_info): Likewise.
+	(compute_alias_sets): Likesise.  Update comments.    Register
+	alias sets for all potentially aliased objects which are stored.
+	Check each potentially aliased object with the registered alias
+	sets.
+	(register_alias_set): If DEREF aliases a single registered _DECL,
+	then replace the _DECL's entry with DEREF.
+	(find_alias_for): Update comments.  Do not stop the search when
+	an alias is found.  There may be multiple entries with conflicting
+	alias sets.
+	(struct walk_state): New structure for statement walker callbacks.
+	(find_vars_r): Add logic to track loads and stores of potentially
+	aliased objects separately.  Various changes related to
+	using a single set of varrays for all aliased objects. 
+	(add_referenced_var): Record in the var's annotation if the 
+	var is read or written.  Various changes related to using a
+	single set of varrays for all the aliased objects.
+	(add_stmt_operand): Only set may_point_to_global_mem for INDIRECT_REFs.
+	* tree-flow.h (struct var_ann_d): Add new fields indicating if
+	the var is loaded or stored.  Explicitly note unused bitfield
+	entries.
+
+2003-02-19  Jeff Law  <law@redhat.com>
 
 	* fold-const.c (fold_negate_const): New function.  Broken out of
 	the generic fold code.
@@ -14,7 +41,7 @@
 	(evaluate_stmt): Rework to use ccp_fold instead of copying
 	statements.
 
-2001-02-18  Jeff Law  <law@redhat.com>
+2003-02-18  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-ccp.c (visit_assignment): For simple copies, copy the
 	lattice values.

@@ -64,6 +64,21 @@ struct var_ann_d GTY(())
      find_vla_decl_r).  */
   unsigned is_vla_decl : 1;
 
+  /* Nonzero if this variable was stored/written in the function.
+     
+     Note this only applies to objects which are subject to
+     alias analysis.  */
+  unsigned int is_stored: 1;
+
+  /* Nonzero if this variable was loaded/read in this function.
+
+     Note this only applies to objects which are subject to
+     alias analysis.  */
+  unsigned int is_loaded: 1;
+
+  /* Unused bits.  */
+  unsigned int unused: 27;
+
   /* An INDIRECT_REF expression representing all the dereferences of this
      pointer.  Used to store aliasing information for pointer dereferences
      (see add_stmt_operand and find_vars_r).  */

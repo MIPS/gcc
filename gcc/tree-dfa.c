@@ -126,37 +126,34 @@ unsigned long num_referenced_vars;
 /* Array of all variables referenced in the function.  */
 varray_type referenced_vars;
 
-/* The total number of unique INDIRECT_REFs in the function.  */
-static unsigned long num_indirect_refs;
+/* The total number of unique aliased objects in the function.  */
+static unsigned long num_aliased_objects;
 
-/* Arrays for all the unique INDIRECT_REFs in the function. 
+/* Arrays for all the potentially aliased memory objects in the 
+   function.
 
-   INDIRECT_REFS contains the canonical INDIRECT_REFs
-   INDIRECT_REFS_BASE contains the base symbol for those refs
-   INDIRECT_REFS_ALIAS_SET contains the alias set for this INDIRECT_REF.  */
+   A potentially aliased memory object can come from the following
+   sources:
 
-static varray_type indirect_refs;
-static varray_type indirect_refs_base;
-static varray_type indirect_refs_alias_set;
+     * INDIRECT_REFs
+     * Addressable variable which is used or assigned
+     * global scoped variable which is used or assigned
+     * ASM_OUTPUTs, ASM_CLOBBERS and ASM_INPUTs
+     * CALL_EXPRs which load and store GLOBAL_VAR
 
-/* The total number of unique addressable vars in the function.  */
-static unsigned long num_addressable_vars;
+   ALIASED_OBJECTS contains the object 
+   ALIASED_OBJECTS_BASE contains the base symbol for those objects
+   ALIASED_OBJECTS_ALIAS_SET contains the alias set for those objects.  */
 
-/* Arrays for all the unique addressable vars in the function. 
-
-   ADDRESSABLE_VARS contains the canonical addressable variable
-   ADDRESSABLE_VARS_BASE contains the base symbol for those variables
-   ADDRESSABLE_VARS_ALIAS_SET contains the alias set for this addressable
-   variable.  */
-static varray_type addressable_vars;
-static varray_type addressable_vars_base;
-static varray_type addressable_vars_alias_set;
+static varray_type aliased_objects;
+static varray_type aliased_objects_base;
+static varray_type aliased_objects_alias_set;
 
 /* Artificial variable used to model the effects of function calls on every
    variable that they may use and define.  Calls to non-const and non-pure
-   functions are assumed to use and clobber this variable.  The SSA builder
-   will then consider this variable to be an alias for every global
-   variable and every local that has had its address taken.  */
+   functions are assumed to use and clobber this variable.
+
+   Aliased loads and stores will be considered aliased with this variable.  */
 tree global_var;
 
 /* Get the operands of statement STMT.  Note that repeated calls to
@@ -614,7 +611,8 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
 		{
 		  tree alias = VARRAY_TREE (aliases, i);
 		  set_may_alias_global_mem (alias);
-		  set_may_point_to_global_mem (TREE_OPERAND (alias, 0));
+		  if (TREE_CODE (alias) == INDIRECT_REF)
+		    set_may_point_to_global_mem (TREE_OPERAND (alias, 0));
 		}
 	    }
 	}
@@ -1264,14 +1262,9 @@ dump_dfa_stats (file)
   fprintf (file, fmt_str_1, "Referenced variables", num_referenced_vars, 
 	   SCALE (size), LABEL (size));
 
-  size = num_indirect_refs * sizeof (tree);
+  size = num_aliased_objects * sizeof (tree);
   total += size;
-  fprintf (file, fmt_str_1, "INDIRECT_REFs", num_indirect_refs, 
-	   SCALE (size), LABEL (size));
-
-  size = num_addressable_vars * sizeof (tree);
-  total += size;
-  fprintf (file, fmt_str_1, "Addressable variables", num_addressable_vars, 
+  fprintf (file, fmt_str_1, "Aliased objects", num_aliased_objects, 
 	   SCALE (size), LABEL (size));
 
   size = dfa_stats.num_stmt_anns * sizeof (struct stmt_ann_d);
@@ -1454,6 +1447,14 @@ clobber_vars_r (tp, walk_subtrees, data)
 /*---------------------------------------------------------------------------
 				    Aliasing
 ---------------------------------------------------------------------------*/
+
+struct walk_state
+{
+  htab_t vars_found;
+  htab_t aliased_objects_found;
+  int is_store;
+};
+
 /* Compute may-alias information for every variable referenced in the
    program.  Note that in the absence of points-to analysis
    (-ftree-points-to), this may compute a much bigger set than necessary.  */
@@ -1462,11 +1463,10 @@ void
 compute_may_aliases ()
 {
   static htab_t vars_found;
-  static htab_t indirect_refs_found;
-  static htab_t addressable_vars_found;
+  static htab_t aliased_objects_found;
   basic_block bb;
   block_stmt_iterator si;
-  htab_t walk_state[3];
+  struct walk_state walk_state;
 
   /* Walk the lexical blocks in the function looking for variables that may
      have been used to declare VLAs.  Those variables will be considered
@@ -1476,31 +1476,21 @@ compute_may_aliases ()
 
   timevar_push (TV_TREE_MAY_ALIAS);
 
-  num_indirect_refs = 0;
-  VARRAY_TREE_INIT (indirect_refs, 20, "indirect_refs");
-  VARRAY_TREE_INIT (indirect_refs_base, 20, "indirect_refs_base");
-  VARRAY_WIDE_INT_INIT (indirect_refs_alias_set, 20, "indirect_refs_alias_set");
-
-  num_addressable_vars = 0;
-  VARRAY_TREE_INIT (addressable_vars, 20, "addressable_vars");
-  VARRAY_TREE_INIT (addressable_vars_base, 20, "addressable_vars_base");
-  VARRAY_WIDE_INT_INIT (addressable_vars_alias_set, 20,
-			"addressable_vars_alias_set");
+  num_aliased_objects = 0;
+  VARRAY_TREE_INIT (aliased_objects, 20, "aliased_objects");
+  VARRAY_TREE_INIT (aliased_objects_base, 20, "aliased_objects_base");
+  VARRAY_WIDE_INT_INIT (aliased_objects_alias_set, 20, "aliased_objects_alias_set");
 
   /* Hash table of all the objects the SSA builder needs to be aware of.  */
   vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
 
-  /* Hash table of all the unique INDIRECT_REFs found.  */
-  indirect_refs_found = htab_create (50, htab_hash_pointer, htab_eq_pointer,
+  /* Hash table of all the unique aliased objects found.  */
+  aliased_objects_found = htab_create (50, htab_hash_pointer, htab_eq_pointer,
 				     NULL);
 
-  /* Hash table of all the unique addressable variables found.  */
-  addressable_vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer,
-					NULL);
-
-  walk_state[0] = vars_found;
-  walk_state[1] = indirect_refs_found;
-  walk_state[2] = addressable_vars_found;
+  walk_state.vars_found = vars_found;
+  walk_state.aliased_objects_found = aliased_objects_found;
+  walk_state.is_store = 0;
 
   /* Find all the variables referenced in the function.  */
   FOR_EACH_BB (bb)
@@ -1508,10 +1498,9 @@ compute_may_aliases ()
       walk_tree (bsi_stmt_ptr (si), find_vars_r, &walk_state, NULL);
 
   htab_delete (vars_found);
-  htab_delete (indirect_refs_found);
-  htab_delete (addressable_vars_found);
+  htab_delete (aliased_objects_found);
 
-  if (flag_tree_points_to != PTA_NONE && indirect_refs_found)
+  if (flag_tree_points_to != PTA_NONE && aliased_objects_found)
     {
       timevar_push (TV_TREE_PTA);
       create_alias_vars (current_function_decl);
@@ -1520,24 +1509,25 @@ compute_may_aliases ()
 
   compute_alias_sets ();
 
-  num_indirect_refs = 0;
-  indirect_refs = 0;
-  indirect_refs_base = 0;
-  indirect_refs_alias_set = 0;
-  num_addressable_vars = 0;
-  addressable_vars = 0;
-  addressable_vars_base = 0;
-  addressable_vars_alias_set = 0;
+  num_aliased_objects = 0;
+  aliased_objects = 0;
+  aliased_objects_base = 0;
+  aliased_objects_alias_set = 0;
 
   timevar_pop (TV_TREE_MAY_ALIAS);
 }
 
 
-/* Compute type-based alias sets.  This is used in the absence of
-   points-to analysis.  We compute the alias sets for every addressable and
-   pointer variable.  Those sets that conflict are considered to alias each
-   other.
-
+/* Compute type-based alias sets.  This can be used in conjunction with
+   points-to analysis.
+ 
+   First we compute alias sets for objects which are stored into.  Stores
+   create the only may alias relationships we care about.  If there are
+   no aliased stores, then there's really nothing to do. 
+  
+   Once we have alias sets for the aliased stores, we can check for
+   conflicts with all the aliased objects in the function.
+   
    Each entry I in ALIAS_SETS represents a set of all the variables that
    are aliased by ALIAS_SETS[I].  The ALIAS_SETS array tends to have few
    entries, and each entry will likely alias many program variables.
@@ -1554,7 +1544,7 @@ compute_alias_sets ()
 
   VARRAY_GENERIC_PTR_INIT (alias_sets, 20, "alias_sets");
 
-  /* For each pointer P dereferenced in the program, compute its alias set
+  /* For each object that is stored in the program, compute its alias set
      and register it in ALIAS_SETS.  If P's alias set does not conflict
      with any entry in ALIAS_SETS, or if it conflicts with more than one
      entry, create a new entry for P.
@@ -1579,29 +1569,21 @@ compute_alias_sets ()
   if (deref_gv)
     register_alias_set (deref_gv, global_var);
 
-  for (i = 0; i < num_indirect_refs; i++)
+  for (i = 0; i < num_aliased_objects; i++)
     {
-      var = VARRAY_TREE (indirect_refs, i);
-      sym = VARRAY_TREE (indirect_refs_base, i);
-      if (var != deref_gv)
+      var = VARRAY_TREE (aliased_objects, i);
+      sym = VARRAY_TREE (aliased_objects_base, i);
+      if (var_ann (var)->is_stored && var != deref_gv)
 	register_alias_set (var, sym);
     }
 
-  /* Compute alias sets for indirect_refs and addressables.  For every
-     variable V, find an entry P in ALIAS_SETS such that P and V have
-     conflicting alias sets. If none is found, then V is not aliased to
-     anything.  */
-  for (i = 0; i < num_indirect_refs; i++)
+  /* Now for every potentially aliased object, see the object's alias
+     set conflicts with any of the alias sets for objects which were
+     stored.  */
+  for (i = 0; i < num_aliased_objects; i++)
     {
-      var = VARRAY_TREE (indirect_refs, i);
-      sym = VARRAY_TREE (indirect_refs_base, i);
-      find_alias_for (var, sym);
-    }
-
-  for (i = 0; i < num_addressable_vars; i++)
-    {
-      var = VARRAY_TREE (addressable_vars, i);
-      sym = VARRAY_TREE (addressable_vars_base, i);
+      var = VARRAY_TREE (aliased_objects, i);
+      sym = VARRAY_TREE (aliased_objects_base, i);
       find_alias_for (var, sym);
     }
 
@@ -1645,6 +1627,7 @@ register_alias_set (deref, deref_sym)
   /* FIXME: ALIAS_SETS will usually be small (<< 10 entries).  If it becomes
      a performance problem, try with a splay tree.  */
   last_found = -1;
+  prev = NULL;
   for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_sets); i++)
     {
       curr = (struct alias_set_d *) VARRAY_GENERIC_PTR (alias_sets, i);
@@ -1694,6 +1677,31 @@ register_alias_set (deref, deref_sym)
 	}
     }
 
+  /* If DEREF aliased precisely one entry, then we may want to
+     record DEREF as the alias set leader rather than the existing
+     entry.  For example, if *p conflicted with q, we want to
+     have *p be the alias leader.
+
+     By doing this we can continue to not consider VAR_DECLs with the
+     same alias set as not aliasing each other in may_alias_p.  */
+  if (prev == NULL && last_found != -1)
+    {
+      prev
+	= (struct alias_set_d *) VARRAY_GENERIC_PTR (alias_sets, last_found);
+
+      /* If the existing entry was not an INDIRECT_REF and the current
+         object is an INDIRECT_REF, then replace the existing entry with
+	 the current entry.  */
+      if (TREE_CODE (prev->tag) != INDIRECT_REF
+	  && TREE_CODE (deref) == INDIRECT_REF)
+	{
+	  prev->tag = deref;
+	  prev->tag_sym = deref_sym;
+	  prev->tag_set = deref_set;
+	  prev->tag_sym_set = deref_sym_set;
+	}
+    }
+
   /* If we didn't find an existing set that conflicts with SET.  Add it.  */
   if (last_found == -1)
     {
@@ -1706,10 +1714,15 @@ register_alias_set (deref, deref_sym)
     }
 }
 
-
-/* Set an alias between VAR and the first entry in ALIAS_SETS that has a
+/* Set an alias between VAR and any entry in ALIAS_SETS that has a
    conflicting alias set with VAR.  SYM is VAR's base symbol (needed when
-   VAR is an INDIRECT_REF node).  */
+   VAR is an INDIRECT_REF node).
+
+   We can have multiple entries with the same alias set on the
+   aliase_sets list.  How?  Consider two addressable VAR_DECLs of
+   the same type.  They have the same alias set, but they are
+   distinct objects (ie, they are known to be distinct from
+   each other).  */
 
 static void
 find_alias_for (var, sym)
@@ -1756,8 +1769,6 @@ find_alias_for (var, sym)
 		of gcc.c-torture/execute/950929-1.c.  */
 	      add_may_alias (as->tag, as->tag_sym, as->tag, as->tag_sym);
 	    }
-
-	  return;
 	}
     }
 }
@@ -1875,8 +1886,6 @@ may_alias_p (v1, v1_base, v1_alias_set, v2, v2_base, v2_alias_set)
   return true;
 }
 
-
-
 /* Add ALIAS to the set of variables that may alias VAR.  VAR_SYM and
    ALIAS_SYM are the base symbols for VAR and ALIAS respectively.  */
 
@@ -1943,22 +1952,11 @@ dump_alias_info (file)
       fprintf (file, "Alias set #%ld:\n", i);
       fprintf (file, "  Tag: ");
       dump_variable (file, as->tag);
-      fprintf (file, "  Aliases: { ");
+      fprintf (file, "  Aliases objects: { ");
 
-      for (j = 0; j < num_addressable_vars; j++)
+      for (j = 0; j < num_aliased_objects; j++)
 	{
-	  tree var = VARRAY_TREE (addressable_vars, j);
-	  varray_type aliases = may_aliases (var);
-	  if (aliases && VARRAY_TREE (aliases, 0) == as->tag)
-	    {
-	      print_generic_expr (file, var, 0);
-	      fprintf (file, " ");
-	    }
-	}
-
-      for (j = 0; j < num_indirect_refs; j++)
-	{
-	  tree var = VARRAY_TREE (indirect_refs, j);
+	  tree var = VARRAY_TREE (aliased_objects, j);
 	  varray_type aliases = may_aliases (var);
 	  if (aliases && VARRAY_TREE (aliases, 0) == as->tag)
 	    {
@@ -2092,8 +2090,32 @@ static tree
 find_vars_r (tp, walk_subtrees, data)
     tree *tp;
     int *walk_subtrees ATTRIBUTE_UNUSED;
-    void *data ATTRIBUTE_UNUSED;
+    void *data;
 {
+  tree t = *tp;
+  struct walk_state *walk_state = (struct walk_state *)data;
+  int saved_is_store = walk_state->is_store;
+
+  if (TREE_CODE (t) == MODIFY_EXPR || TREE_CODE (t) == INIT_EXPR)
+    {
+      walk_state->is_store = 1;
+      walk_tree (&TREE_OPERAND (t, 0), find_vars_r, data, NULL);
+      walk_state->is_store = 0;
+      walk_tree (&TREE_OPERAND (t, 1), find_vars_r, data, NULL);
+      walk_state->is_store = saved_is_store;
+      return t;
+    }
+  else if (TREE_CODE (t) == ASM_EXPR)
+    {
+      walk_state->is_store = 1;
+      walk_tree (&ASM_OUTPUTS (t), find_vars_r, data, NULL);
+      walk_tree (&ASM_CLOBBERS (t), find_vars_r, data, NULL);
+      walk_state->is_store = 0;
+      walk_tree (&ASM_INPUTS (t), find_vars_r, data, NULL);
+      walk_state->is_store = saved_is_store;
+      return t;
+    }
+
   if (SSA_VAR_P (*tp))
     {
       tree sym, var, deref;
@@ -2136,11 +2158,15 @@ find_vars_r (tp, walk_subtrees, data)
   if (TREE_CODE (*tp) == CALL_EXPR)
     {
       if (call_may_clobber (*tp))
-	add_indirect_ref_var (global_var, data);
+	{
+          walk_state->is_store = 1;
+	  add_indirect_ref_var (global_var, data);
+	}
       else
 	{
 	  tree op;
 
+          walk_state->is_store = 0;
 	  /* If the function does not clobber locals, it still may
 	     dereference them.  Scan its operands to see if it receives any
 	     pointers.  For every pointer 'p' add '*p' to the list of
@@ -2152,6 +2178,7 @@ find_vars_r (tp, walk_subtrees, data)
 		add_indirect_ref_var (arg, data);
 	    }
 	}
+      walk_state->is_store = saved_is_store;
     }
 
   return NULL_TREE;
@@ -2162,9 +2189,10 @@ find_vars_r (tp, walk_subtrees, data)
    when VAR is anything but a _DECL node.  Otherwise, SYM and VAR are the
    same tree.
    
-   Also add VAR to the sets ADDRESSABLE_VARS or INDIRECT_REFS needed for
-   alias analysis.  DATA is an array with three hash tables used to avoid
-   adding the same variable more than once to its corresponding set.  Note
+   Also add VAR to the ALIASED_OBJECTS set of varrays that are needed for
+   alias analysis.  DATA is an array with three two tables used to avoid
+   adding the same variable more than once to its corresponding set as
+   well as a bit indicating if we're processing a load or store.  Note
    that this function assumes that VAR is a valid SSA variable.  */
 
 static void
@@ -2174,34 +2202,36 @@ add_referenced_var (var, sym, data)
      void *data;
 {
   void **slot;
-  htab_t vars_found = ((htab_t *) data)[0];
-  htab_t indirect_refs_found = ((htab_t *) data)[1];
-  htab_t addressable_vars_found = ((htab_t *) data)[2];
+  struct walk_state *walk_state = (struct walk_state *)data;
+  htab_t vars_found = walk_state->vars_found;
+  htab_t aliased_objects_found = walk_state->aliased_objects_found;
+  int is_store = walk_state->is_store;
 
-  /* First handle an INDIRECT_REF.  */
-  if (TREE_CODE (var) == INDIRECT_REF)
+  /* First handle aliasing information.  */
+  if (TREE_CODE (var) == INDIRECT_REF
+      || TREE_ADDRESSABLE (sym)
+      || decl_function_context (sym) == NULL)
     {
-      slot = htab_find_slot (indirect_refs_found, (void *) var, INSERT);
+      var_ann_t ann;
+      slot = htab_find_slot (aliased_objects_found, (void *) var, INSERT);
       if (*slot == NULL)
 	{
 	  *slot = (void *) var;
-	  VARRAY_PUSH_TREE (indirect_refs, var);
-	  VARRAY_PUSH_TREE (indirect_refs_base, sym);
-	  VARRAY_PUSH_INT (indirect_refs_alias_set, get_alias_set (var));
-	  num_indirect_refs++;
+
+	  VARRAY_PUSH_TREE (aliased_objects, var);
+	  VARRAY_PUSH_TREE (aliased_objects_base, sym);
+	  VARRAY_PUSH_INT (aliased_objects_alias_set, get_alias_set (var));
+	  num_aliased_objects++;
 	}
-    }
-  else if (TREE_ADDRESSABLE (sym) || decl_function_context (sym) == NULL)
-    {
-      slot = htab_find_slot (addressable_vars_found, (void *) var, INSERT);
-      if (*slot == NULL)
-	{
-	  *slot = (void *) var;
-	  VARRAY_PUSH_TREE (addressable_vars, var);
-	  VARRAY_PUSH_TREE (addressable_vars_base, sym);
-	  VARRAY_PUSH_INT (addressable_vars_alias_set, get_alias_set (var));
-	  num_addressable_vars++;
-	}
+
+      /* Note if this object was loaded or stored.  */
+      ann = var_ann (var);
+      if (! ann)
+	ann = create_var_ann (var);
+      if (is_store)
+	ann->is_stored = 1;
+      else
+	ann->is_loaded = 1;
     }
 
   slot = htab_find_slot (vars_found, (void *) var, INSERT);
