@@ -661,17 +661,21 @@ java_init_decl_processing (void)
   method_symbols_array_ptr_type = build_pointer_type 
 				  (method_symbols_array_type);
 
-  otable_decl = build_decl (VAR_DECL, get_identifier ("otable"), otable_type);
-  DECL_EXTERNAL (otable_decl) = 1;
-  TREE_STATIC (otable_decl) = 1;
-  TREE_READONLY (otable_decl) = 1;
-  pushdecl (otable_decl);
+  if (flag_indirect_dispatch)
+    {
+      otable_decl = build_decl (VAR_DECL, get_identifier ("otable"),
+				otable_type);
+      DECL_EXTERNAL (otable_decl) = 1;
+      TREE_STATIC (otable_decl) = 1;
+      TREE_READONLY (otable_decl) = 1;
+      pushdecl (otable_decl);
   
-  otable_syms_decl = build_decl (VAR_DECL, get_identifier ("otable_syms"), 
-    method_symbols_array_type);
-  TREE_STATIC (otable_syms_decl) = 1;
-  TREE_CONSTANT (otable_syms_decl) = 1;
-  pushdecl (otable_syms_decl);
+      otable_syms_decl = build_decl (VAR_DECL, get_identifier ("otable_syms"), 
+				     method_symbols_array_type);
+      TREE_STATIC (otable_syms_decl) = 1;
+      TREE_CONSTANT (otable_syms_decl) = 1;
+      pushdecl (otable_syms_decl);
+    }
   
   PUSH_FIELD (object_type_node, field, "vtable", dtable_ptr_type);
   /* This isn't exactly true, but it is what we have in the source.
@@ -1935,17 +1939,76 @@ end_java_method (void)
   current_function_decl = NULL_TREE;
 }
 
-/* Dump FUNCTION_DECL FN as tree dump PHASE. */
+/* Expand a function's body.  */
 
-void java_optimize_inline (tree fndecl)
+void
+java_expand_body (tree fndecl)
 {
-  if (flag_inline_trees)
+  const char *saved_input_filename = input_filename;
+  int saved_lineno = input_line;
+  tree saved_tree, saved_initial;
+
+  current_function_decl = fndecl;
+  input_filename = DECL_SOURCE_FILE (fndecl);
+  input_line = DECL_SOURCE_LINE (fndecl);
+
+  timevar_push (TV_EXPAND);
+
+  /* Prepare the function for tree completion.  */
+  start_complete_expand_method (fndecl);
+
+  if (! flag_emit_class_files && ! flag_emit_xref)
     {
-      timevar_push (TV_INTEGRATION);
-      optimize_inline_calls (fndecl);
-      timevar_pop (TV_INTEGRATION);
-      dump_function (TDI_inlined, fndecl);
+      /* Initialize the RTL code for the function.  */
+      init_function_start (fndecl);
+
+      /* Set up parameters and prepare for return, for the function.  */
+      expand_function_start (fndecl, 0);
+
+      /* This function is being processed in whole-function mode.  */
+      cfun->x_whole_function_mode_p = 1;
+
+      if (! flag_disable_gimple)
+	{
+	  remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), false);
+	  lower_eh_constructs (&DECL_SAVED_TREE (fndecl));
+
+	  /* Run SSA optimizers if gimplify succeeded.  */
+	  if (optimize > 0 && !flag_disable_tree_ssa)
+	    optimize_function_tree (fndecl);
+	}
+
+      /* Generate the RTL for this function.  */
+      expand_expr_stmt_value (DECL_SAVED_TREE (fndecl), 0, 1);
     }
+
+  /* Pop out of its parameters.  FIXME: poplevel clobbers DECL_SAVED_TREE
+     and DECL_INITIAL.  Save/restore them so inlining works.  */
+  pushdecl_force_head (DECL_ARGUMENTS (fndecl));
+  saved_tree = DECL_SAVED_TREE (fndecl);
+  saved_initial = DECL_INITIAL (fndecl);
+  poplevel (1, 0, 1);
+  DECL_SAVED_TREE (fndecl) = saved_tree;
+  DECL_INITIAL (fndecl) = saved_initial;
+  BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
+
+  if (! flag_emit_class_files && ! flag_emit_xref)
+    {
+      /* Generate RTL for function exit.  */
+      input_line = DECL_FUNCTION_LAST_LINE (fndecl);
+      expand_function_end ();
+
+      /* Run the optimizers and output the assembler code
+	 for this function.  */
+      rest_of_compilation (fndecl);
+    }
+
+  timevar_pop (TV_EXPAND);
+
+  input_filename = saved_input_filename;
+  input_line = saved_lineno;
+
+  current_function_decl = NULL_TREE;
 }
 
 /* We pessimistically marked all methods and fields external until we

@@ -1,6 +1,107 @@
+2003-09-23  Roger Sayle  <roger@eyesopen.com>
+
+	* jcf-write.c (generate_bytecode_insns): Optimize binary operations
+	with equal operands without side-effects.
+
+2003-09-22  Jeff Sturm  <jsturm@one-point.com>
+
+	* decl.c (java_init_decl_processing): Don't emit otable decls
+	if flag_indirect_dispatch is not set.
+
+2003-09-21  Richard Henderson  <rth@redhat.com>
+
+	* class.c, decl.c, jcf-parse.c, jcf-write.c, parse.y, 
+	resource.c: Revert.
+
+2003-09-21  Richard Henderson  <rth@redhat.com>
+
+	* class.c, decl.c, jcf-parse.c, jcf-write.c, parse.y, 
+	resource.c: Update for DECL_SOURCE_LOCATION rename and change to const.
+
 2003-09-20  Richard Henderson  <rth@redhat.com>
 
         * check-init.c, class.c, decl.c, expr.c: Use %J in diagnostics.
+
+2003-09-18  Roger Sayle  <roger@eyesopen.com>
+
+	* expr.c (java_truthvalue_conversion): Remove FFS_EXPR case.
+	* check-init.c (check_init): Likewise.
+
+2003-09-18  Roger Sayle  <roger@eyesopen.com>
+
+	* jcf-write.c (generate_bytecode_insns): Add support for fconst_2.
+
+2003-09-16  Andrew Haley  <aph@redhat.com>
+
+	* jcf-write.c (generate_bytecode_insns): Add MIN_EXPR and MAX_EXPR.
+
+2003-09-17  Ranjit Mathew  <rmathew@hotmail.com>
+
+	Fixes PR java/9577
+	* mangle.c (find_compression_record_match): Skip
+	over a "6JArray" (the array template mangled string)
+	IDENTIFIER_NODE.
+	(mangle_array_type): Correct minor typo.
+	(atms): Move definition to the beginning.
+
+2003-09-16  Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* class.c (add_miranda_methods): Ensure super-interfaces are laid 
+	out. Fix for PR java/12254.
+
+2003-09-11  Richard Henderson  <rth@redhat.com>
+
+        * parse.y (source_end_java_method): Update for new
+        cgraph_finalize_function argument.
+
+2003-09-09  Richard Henderson  <rth@redhat.com>
+
+        * parse.y (source_end_java_method): Update call to
+        cgraph_finalize_function.
+
+2003-09-03  Jeff Sturm  <jsturm@one-point.com>
+
+	* decl.c (java_expand_body): New function.
+	* expr.c (build_class_init): Set DECL_IGNORED_P.
+	* java-tree.h (start_complete_expand_method,
+	java_expand_body): Declare.
+	* jcf-parse.c (cgraph.h): Include.
+	(java_parse_file): Handle flag_unit_at_a_time.
+	* lang.c (LANG_HOOKS_TREE_INLINING_START_INLINING,
+	LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION): Define.
+	(java_estimate_num_insns): Use walk_tree_without_duplicates.
+	(java_start_inlining): New function.
+	* parse.h (java_finish_classes): Declare.
+	* parse.y: Include cgraph.h.
+	(block): Don't special-case empty block production.
+	(craft_constructor): Set DECL_INLINE.
+	(source_end_java_method): Handle flag_unit_at_a_time.
+	Replace inline code with call to java_expand_body.
+	(start_complete_expand_method): Remove static modifier.
+	(java_expand_method_bodies): Patch function tree for
+	class initialization and/or synchronization as needed.
+	Don't begin RTL expansion yet.
+	(java_expand_classes): Check flag_unit_at_a_time before
+	calling finish_class.
+	(java_finish_classes): New function.
+	(java_complete_lhs): Ensure COMPOUND_EXPR has non-NULL type.
+	(patch_assignment): Set DECL_CONTEXT on temporary variable.
+	(emit_test_initialization): Set DECL_IGNORED_P.
+
+2003-09-03  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c (enum builtin_type): Delete unused enumeration.
+	* Make-lang.in (java/builtins.o): Remove built-types.def dependency.
+
+2003-08-28  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (Extensions): Document gcjlib URLs.
+
+2003-08-20  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (Extensions): Added xref.
+	(libgcj Runtime Properties): Document
+	gnu.gcj.runtime.VMClassLoader.library_control.
 
 2003-08-13  Tom Tromey  <tromey@redhat.com>
 
@@ -102,7 +203,7 @@
 
 	* expr.c: Remove the last argument to expand_assignment().
 
-Wed Jul  9 02:29:15 CEST 2003  Jan Hubicka  <jh@suse.cz>
+2003-07-09  Jan Hubicka  <jh@suse.cz>
 
 	* java-tree.h (DECL_NUM_STMTS): Rename to...
 	(DECL_ESTIMATED_INSNS): ... this.
@@ -287,7 +388,7 @@ Wed Jul  9 02:29:15 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* lang.c (java_init_options): Update.
 
-Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
+2003-06-05  Jan Hubicka  <jh@suse.cz>
 
 	* Make-lang.in:  Add support for stageprofile and stagefeedback
 

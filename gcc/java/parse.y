@@ -73,6 +73,7 @@ definitions and other extensions.  */
 #include "tree-inline.h"
 #include "tree-dump.h"
 #include "tree-flow.h"
+#include "cgraph.h"
 
 /* Local function prototypes */
 static char *java_accstring_lookup (int);
@@ -143,7 +144,6 @@ static tree java_complete_tree (tree);
 static tree maybe_generate_pre_expand_clinit (tree);
 static int analyze_clinit_body (tree, tree);
 static int maybe_yank_clinit (tree);
-static void start_complete_expand_method (tree);
 static void java_complete_expand_method (tree);
 static void java_expand_method_bodies (tree);
 static int  unresolved_type_p (tree, tree *);
@@ -1353,14 +1353,8 @@ variable_initializers:
 
 /* 19.11 Production from 14: Blocks and Statements  */
 block:
-	OCB_TK CCB_TK
-		{
-		  /* Store the location of the `}' when doing xrefs */
-		  if (current_function_decl && flag_emit_xref)
-		    DECL_END_SOURCE_LINE (current_function_decl) =
-		      EXPR_WFL_ADD_COL ($2.location, 1);
-		  $$ = build_java_empty_stmt ();
-		}
+	block_begin block_end
+		{ $$ = $2; }
 |	block_begin block_statements block_end
 		{ $$ = $3; }
 ;
@@ -5406,6 +5400,7 @@ craft_constructor (tree class_decl, tree args)
   /* Now, mark the artificial parameters. */
   DECL_FUNCTION_NAP (decl) = artificial;
   DECL_FUNCTION_SYNTHETIC_CTOR (decl) = DECL_CONSTRUCTOR_P (decl) = 1;
+  DECL_INLINE (decl) = 1;
   return decl;
 }
 
@@ -7485,10 +7480,19 @@ source_end_java_method (void)
       /* Convert function tree to GIMPLE.  */
       if (!flag_disable_gimple)
 	{
-	  cfun->x_whole_function_mode_p = 1;
 	  /* Genericize with the gimplifier.  */
 	  gimplify_function_tree (fndecl);
 	  dump_function (TDI_generic, fndecl);
+
+	  /* In unit-at-a-time mode, defer expansion to the
+	     cgraph optimizers.  */
+	  if (DECL_SAVED_TREE (fndecl) && flag_unit_at_a_time)
+	    {
+	      cgraph_finalize_function (fndecl, false);
+	      current_function_decl = NULL_TREE;
+	      java_parser_context_restore_global ();
+	      return;
+	    }
 
 	  /* Inline suitable calls from this function.  */
 	  if (flag_inline_trees)
@@ -7503,36 +7507,12 @@ source_end_java_method (void)
 
 	  /* Debugging dump after gimplification.  */
 	  dump_function (TDI_gimple, fndecl);
-
-	  remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), false);
-	  lower_eh_constructs (&DECL_SAVED_TREE (fndecl));
-
-	  /* Run SSA optimizers if gimplify succeeded.  */
-	  if (optimize > 0 && !flag_disable_tree_ssa)
-	    optimize_function_tree (fndecl);
 	}
 
-      /* Generate function's code.  */
-      expand_expr_stmt (DECL_SAVED_TREE (fndecl));
+      /* Expand the function's body.  */
+      java_expand_body (fndecl);
     }
 
-  /* pop out of its parameters */
-  pushdecl_force_head (DECL_ARGUMENTS (fndecl));
-  poplevel (1, 0, 1);
-  BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
-
-  /* Generate rtl for function exit.  */
-  if (! flag_emit_class_files && ! flag_emit_xref)
-    {
-      input_line = DECL_SOURCE_LINE_LAST (fndecl);
-      expand_function_end ();
-
-      DECL_SOURCE_LINE (fndecl) = DECL_SOURCE_LINE_FIRST (fndecl);
-
-      rest_of_compilation (fndecl);
-    }
-
-  current_function_decl = NULL_TREE;
   java_parser_context_restore_global ();
 }
 
@@ -7990,7 +7970,7 @@ maybe_yank_clinit (tree mdecl)
 /* Install the argument from MDECL. Suitable to completion and
    expansion of mdecl's body.  */
 
-static void
+void
 start_complete_expand_method (tree mdecl)
 {
   tree tem;
@@ -8133,14 +8113,26 @@ java_expand_method_bodies (tree class)
   tree decl;
   for (decl = TYPE_METHODS (class); decl; decl = TREE_CHAIN (decl))
     {
-      if (!DECL_FUNCTION_BODY (decl))
+      tree block;
+      tree body;
+
+      if (! DECL_FUNCTION_BODY (decl))
 	continue;
 
       current_function_decl = decl;
 
-      /* Save the function for gimplify and inlining.  */
-      DECL_SAVED_TREE (decl) =
-	BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (decl));
+      block = BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (decl));
+
+      if (TREE_CODE (block) != BLOCK)
+	abort ();
+
+      /* Save the function body for gimplify and inlining.  */
+      DECL_SAVED_TREE (decl) = block;
+
+      body = BLOCK_EXPR_BODY (block);
+
+      if (TREE_TYPE (body) == NULL_TREE)
+	abort ();
 
       /* It's time to assign the variable flagging static class
 	 initialization based on which classes invoked static methods
@@ -8173,15 +8165,41 @@ java_expand_method_bodies (tree class)
 	    }
 	}
 
-      /* Prepare the function for RTL expansion */
-      start_complete_expand_method (decl);
+      /* Prepend class initialization to static methods.  */
+      if (METHOD_STATIC (decl) && ! METHOD_PRIVATE (decl)
+	  && ! flag_emit_class_files
+	  && ! DECL_CLINIT_P (decl)
+	  && ! CLASS_INTERFACE (TYPE_NAME (class)))
+	{
+	  tree init = build (CALL_EXPR, void_type_node,
+			     build_address_of (soft_initclass_node),
+			     build_tree_list (NULL_TREE,
+					      build_class_ref (class)),
+			     NULL_TREE);
+	  TREE_SIDE_EFFECTS (init) = 1;
+	  body = build (COMPOUND_EXPR, TREE_TYPE (body), init, body);
+	  BLOCK_EXPR_BODY (block) = body;
+	}
 
-      /* Expand function start, generate initialization flag
-	 assignment, and handle synchronized methods. */
-      complete_start_java_method (decl);
+      /* Wrap synchronized method bodies in a monitorenter
+	 plus monitorexit cleanup.  */
+      if (METHOD_SYNCHRONIZED (decl) && ! flag_emit_class_files)
+	{
+	  tree enter, exit, lock;
+	  if (METHOD_STATIC (decl))
+	    lock = build_class_ref (class);
+	  else
+	    lock = DECL_ARGUMENTS (decl);
+	  BUILD_MONITOR_ENTER (enter, lock);
+	  BUILD_MONITOR_EXIT (exit, lock);
 
-      /* Expand the rest of the function body and terminate
-         expansion. */
+	  body = build (COMPOUND_EXPR, void_type_node,
+			enter,
+			build (TRY_FINALLY_EXPR, void_type_node, body, exit));
+	  BLOCK_EXPR_BODY (block) = body;
+	}
+
+      /* Expand the the function body.  */
       source_end_java_method ();
     }
 }
@@ -9144,8 +9162,26 @@ java_expand_classes (void)
 	  else if (! flag_syntax_only)
 	    {
 	      java_expand_method_bodies (current_class);
-	      finish_class ();
+	      if (!flag_unit_at_a_time)
+		finish_class ();
 	    }
+	}
+    }
+}
+
+void
+java_finish_classes (void)
+{
+  static struct parser_ctxt *cur_ctxp = NULL;
+  for (cur_ctxp = ctxp_for_generation; cur_ctxp; cur_ctxp = cur_ctxp->next)
+    {
+      tree current;
+      ctxp = cur_ctxp;
+      for (current = ctxp->class_list; current; current = TREE_CHAIN (current))
+	{
+	  current_class = TREE_TYPE (current);
+	  outgoing_cpool = TYPE_CPOOL (current_class);
+	  finish_class ();
 	}
     }
 }
@@ -11679,6 +11715,8 @@ java_complete_lhs (tree node)
 		      && TREE_CODE (wfl_op2) != DEFAULT_EXPR)
 		    unreachable_stmt_error (*ptr);
 		}
+	      if (TREE_TYPE (*ptr) == NULL_TREE)
+		TREE_TYPE (*ptr) = void_type_node;
 	      ptr = next;
 	    }
 	  *ptr = java_complete_tree (*ptr);
@@ -12910,6 +12948,7 @@ patch_assignment (tree node, tree wfl_op1)
 	    tree block = build (BLOCK, TREE_TYPE (new_rhs), NULL);
 	    tree assignment 
 	      = build (MODIFY_EXPR, TREE_TYPE (new_rhs), tmp, fold (new_rhs));
+	    DECL_CONTEXT (tmp) = current_function_decl;
 	    BLOCK_VARS (block) = tmp;
 	    BLOCK_EXPR_BODY (block) = assignment;
 	    TREE_SIDE_EFFECTS (block) = 1;
@@ -16229,6 +16268,8 @@ emit_test_initialization (void **entry_p, void *info)
       LOCAL_CLASS_INITIALIZATION_FLAG (decl) = 1;
       DECL_CONTEXT (decl) = current_function_decl;
       DECL_INITIAL (decl) = boolean_true_node;
+      /* Don't emit any symbolic debugging info for this decl.  */
+      DECL_IGNORED_P (decl) = 1;
 
       /* The trick is to find the right context for it. */
       block = BLOCK_SUBBLOCKS (GET_CURRENT_BLOCK (current_function_decl));

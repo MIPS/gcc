@@ -1711,6 +1711,8 @@ build_class_init (tree clas, tree expr)
 	  if (!STATIC_CLASS_INIT_OPT_P ())
 	    DECL_BIT_INDEX(*init_test_decl) = -1;
 	  DECL_INITIAL (*init_test_decl) = integer_zero_node;
+	  /* Don't emit any symbolic debugging info for this decl.  */
+	  DECL_IGNORED_P (*init_test_decl) = 1;
 	}
 
       init = build (CALL_EXPR, void_type_node,
@@ -2345,7 +2347,7 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
 	      if (! DECL_CONSTRUCTOR_P (current_function_decl)
 		  && !ID_FINIT_P (cfndecl_name))
                 warning ("%Jassignment to final field '%D' not in constructor",
-                         field_decl, field_decl);
+			 field_decl, field_decl);
 	    }
 	}
       java_add_stmt (build (MODIFY_EXPR, 

@@ -1278,7 +1278,6 @@ extern void append_gpp_mangled_name (const char *, int);
 extern void add_predefined_file (tree);
 extern int predefined_filename_p (tree);
 
-extern void java_optimize_inline (tree);
 extern tree decl_constant_value (tree);
 
 extern void java_mark_class_local (tree);
@@ -1298,6 +1297,10 @@ extern tree add_stmt_to_compound (tree, tree, tree);
 extern tree java_add_stmt (tree);
 extern tree java_add_local_var (tree decl);
 extern tree *get_stmts (void);
+
+extern void start_complete_expand_method (tree);
+extern void java_expand_body (tree);
+
 
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 
