@@ -1,3 +1,10 @@
+2003-02-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* config/rs6000/t-rs6000 (jump.o, regmove.o, c-typeck.o, cfgrtl.o,
+	combine.o, fold-const.o, ifcvt.o, reload1.o, rtlanal.o,
+	cp/decl2.o, cp/pt.o, f/where.o, java/expr.o, objc/objc-act.o,
+	rs6000.o, insn-emit.o): Compile with -Wno-error.
+
 2003-02-03  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (make_blocks): Don't always start a new block with
