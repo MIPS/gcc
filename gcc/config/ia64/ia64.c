@@ -375,6 +375,10 @@ static const struct attribute_spec ia64_attribute_table[] =
 /* On HPUX, virtual destructors behave as if they are declared last. */
 #undef TARGET_ABI_CXX_VIRTUAL_DTORS_POSITION
 #define TARGET_ABI_CXX_VIRTUAL_DTORS_POSITION abi_cxx_vdp_declared_last
+/* On HPUX DECL nodes are mangled independently and then encoded as a
+   source_name.  */
+#undef TARGET_ABI_CXX_EXPR_DECL_MANGLING
+#define TARGET_ABI_CXX_EXPR_DECL_MANGLING abi_cxx_edm_as_nested_source_name
 #endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;

@@ -58,6 +58,7 @@
 #include "obstack.h"
 #include "toplev.h"
 #include "varray.h"
+#include "target.h"
 
 /* Debugging support.  */
 
@@ -89,7 +90,8 @@
        || (CLASSTYPE_TEMPLATE_INFO (NODE) != NULL			\
 	   && (PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (NODE))))))
 
-/* Things we only need one of.  This module is not reentrant.  */
+/* Things we only need one of.  We are only reentrant when mangling
+   template arguments that are external objects.  */
 static struct globals
 {
   /* The name in which we're building the mangled name.  */
@@ -1893,7 +1895,48 @@ write_expression (tree expr)
       if (code == CONST_DECL)
 	G.need_abi_warning = 1;
       write_char ('L');
-      write_mangled_name (expr);
+
+      switch (targetm.abi.cxx_expr_decl_mangling)
+	{
+	case abi_cxx_edm_default:
+	  write_mangled_name (expr);
+	  break;
+	case abi_cxx_edm_as_nested_source_name:
+	  {
+	    /* HPUX mangles the declaration in its own right, and then
+	       uses that as a <source-name>.  We must nest the current
+	       mangling completely.  Substitutions do not cross over
+	       between current and inner manglings.  */
+	    varray_type substs;
+	    char *decl_mangle;
+	    char *current_mangle;
+	    tree entity;
+	    
+	    /* Save the current mangling context.  */
+	    write_char (0);
+	    current_mangle =
+	      xstrdup ((const char *)obstack_base (&G.name_obstack));
+	    substs = G.substitutions;
+	    entity = G.entity;
+
+	    /* Mangle the declaration in its own right.  */
+	    decl_mangle = xstrdup (mangle_decl_string (expr));
+	    obstack_free (&G.name_obstack, obstack_base (&G.name_obstack));
+      
+	    /* Restore the mangling context.  */
+	    G.entity = entity;
+	    G.substitutions = substs;
+	    write_string (current_mangle);
+
+	    /* Append the decl's mangling with a character count.  */
+	    write_unsigned_number (strlen (decl_mangle));
+	    write_string (decl_mangle);
+      
+	    free (decl_mangle);
+	    free (current_mangle);
+	    break;
+	  }
+	}
       write_char ('E');
     }
   else if (TREE_CODE (expr) == SIZEOF_EXPR 

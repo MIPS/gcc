@@ -350,9 +350,11 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    }
 
 #define TARGET_ABI_CXX_VIRTUAL_DTORS_POSITION abi_cxx_vdp_default
+#define TARGET_ABI_CXX_EXPR_DECL_MANGLING abi_cxx_edm_default
 
 #define TARGET_ABI {						\
    TARGET_ABI_CXX_VIRTUAL_DTORS_POSITION,			\
+   TARGET_ABI_CXX_EXPR_DECL_MANGLING,				\
    }
 
 /* The whole shebang.  */

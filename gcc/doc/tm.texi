@@ -4518,6 +4518,17 @@ the difference is that @code{abi_cxx_vdp_declared_last} affects the
 choice of key function, but @code{abi_cxx_vdp_last_in_vtable} does not.)
 @end deftypevr
 
+@findex abi_cxx_edm_default
+@findex abi_cxx_edm_as_nested_source_name
+@deftypevr {Target Hook} {enum cxx_expr_decl_mangling} TARGET_ABI_CXX_EXPR_DECL_MANGLING
+Set this hook if the default mangling of DECL nodes in expressions is
+is not correct for the platform C++ ABI.  The default is
+@code{abi_cxx_edm_default}, which means they are mangled recursively
+within the current mangling. If instead they should be mangled
+independently and then encoded as a @code{source-name}, set the hook to
+@code{abi_cxx_edm_as_nested_source_name}.
+@end deftypevr
+
 @node Trampolines
 @section Trampolines for Nested Functions
 @cindex trampolines for nested functions

@@ -448,6 +448,13 @@ struct gcc_target
       abi_cxx_vdp_last_in_vtable,  /* Placed last in vtable. */
       abi_cxx_vdp_declared_last    /* As if they are declared last. */
     } cxx_virtual_dtors_position;
+    /* How _DECL nodes are mangled in expressions. */
+    enum abi_cxx_expr_decl_mangling {
+      abi_cxx_edm_default,
+      abi_cxx_edm_as_nested_source_name  /* As an indepedently mangled
+					    symbol, encoded as a
+					    source_name */
+    } cxx_expr_decl_mangling;
   } abi;
 };
 
