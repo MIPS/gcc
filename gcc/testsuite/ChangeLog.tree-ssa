@@ -1,12 +1,15 @@
 2003-11-13  Jeff Law  <law@redhat.com>
 
+	* gcc.dg/tree-ssa/20030808-1.c:Scan dce2 output rather than dom2
+	output.
+                                                                                
 	* gcc.dg/tree-ssa/20030728-1.c: Update for jump threading changes.
 
 	* gcc.dg/tree-ssa/20030730-1.c: No longer expect abort declaration
 	to be present.
 
-        * gcc.dg/tree-ssa/20030730-1.c: Make "foo" have external linkage.
-        * gcc.dg/tree-ssa/20030730-2.c: Similarly.
+	* gcc.dg/tree-ssa/20030730-1.c: Make "foo" have external linkage.
+	* gcc.dg/tree-ssa/20030730-2.c: Similarly.
 
 2003-11-13  Jan Hubicka  <jh@suse.cz>
 
