@@ -1,3 +1,84 @@
+Mon Jul 16 12:15:00 2001  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* objc/objc-api.h (object_is_class): Fixed - buggy code was trying
+	to cast an id to a Class, which can not be done.  Make the check
+	by using CLS_ISMETA on the class pointer instead.
+	(object_is_meta_class): Similar fix.
+
+2001-06-09  Alexandre Oliva  <aoliva@redhat.com>, Stephen L Moshier  <moshier@mediaone.net>
+
+	* configure.in (AC_EXEEXT): Work around in case it expands to
+	nothing, as in autoconf 2.50.
+	* acinclude.m4: Likewise.
+	* configure: Rebuilt.
+
+2001-06-08  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* THREADS: Explain that when we compile libobjc inside GCC, we
+	always use thr-objc.c as a backend, which uses GCC's thread code.
+
+2001-06-06  Richard Frith-Macdonald  <rrfm@gnu.org>
+
+	* init.c (__objc_send_message_in_list): When setting a new entry
+	in __objc_load_methods use the method IMP as key, but check to see
+	if the method is in the hashtable by looking at the IMP also.
+	Also ... call the method after adding it to the hashtable rather
+	than before ... thus preventing an obscure possibility of infinite
+	recursion if a +load method itself loads a subclass.
+
+2001-05-25  Ovidiu Predescu  <ovidiu@cup.hp.com>
+
+	* init.c (__objc_send_message_in_list): When setting a new entry
+	in __objc_load_methods use the method name as key, not the method
+	IMP (reported by Richard Frith-Macdonald <richard@brainstorm.co.uk>).
+
+2001-05-09  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* objc-features.texi: Move to ../gcc/objc.texi.
+	* fdl.texi: Remove.
+	* Makefile.in: Don't generate documentation from
+	objc-features.texi.
+
+2001-05-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* fdl.texi: New file.
+	* objc-features.texi: Simplify.
+	* Makefile.in: Adjust accordingly.
+
+2001-04-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* objc-features.texi: Use the GFDL.
+
+Wed Mar 21 04:44:58 EST 2001  John Wehle  (john@feith.com)
+
+	* encoding.c (REAL_TYPE): Define.
+
+2001-03-19  David Edelsohn  <edelsohn@gnu.org>
+
+	* encoding.c (TYPE_MODE): Define.
+
+2001-03-14  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* thr.c (objc_thread_add): New function.
+	(objc_thread_remove): Ditto.
+	* objc/thr.h: Declare them.
+	* libobjc.def: Mention them.
+
+2001-02-28  Ovidiu Predescu  <ovidiu@cup.hp.com>
+
+	* objc-features.texi: Document the @compatibility_alias compiler
+	directive (description from Nicola Pero <n.pero@mi.flashnet.it>).
+
+Fri Feb 23 18:12:00 2001  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* sendmsg.c (__objc_forward): Delete strlen() declaration.
+
+2001-02-08  Geoffrey Keating  <geoffk@redhat.com>
+
+	* configure.in: Don't run AC_PROG_CC_WORKS or AC_EXEEXT, because
+	we're not interested in the result and they might fail.
+	* configure: Regenerated.
+
 2001-01-12  Joseph S. Myers  <jsm28@cam.ac.uk>
 
 	* objc-features.texi: Use @email.

@@ -1,3 +1,377 @@
+2001-07-16  Aldy Hernandez  <aldyh@redhat.com>
+
+        * config.sub: Fix mips64vr5000el typo in CPU-COMPANY.
+
+Fri Jul 13 14:31:57 2001  Nicola Pero  <nicola@brainstorm.co.uk>
+
+	* MAINTAINERS (Write After Approval): Added myself.
+
+2001-07-12  Stephane Carrez  <Stephane.Carrez@worldnet.fr>
+
+	* configure.in (noconfigdirs): Don't compile libiberty, libstdcxx
+	and libgcj on m68hc11/m68hc12.
+
+2001-06-27  H.J. Lu  (hjl@gnu.org)
+
+	* Makefile (CFLAGS_FOR_BUILD): New.
+	(EXTRA_GCC_FLAGS): Add CFLAGS_FOR_BUILD.
+
+2001-06-13  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* README: Remove version number.
+
+2001-06-13  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* INSTALL/README: Update wrt. to the installation instructions now
+	residing in gcc/doc/install.texi.
+
+2001-06-13  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* README: Replace with a cut-down and updated version of gcc/README.
+
+2001-06-12  David Edelsohn  <edelsohn@gnu.org>
+
+	* config-ml.in (powerpc-*-* | rs6000-*-*): Allow aix64 and pthread
+	multilibs to be disabled.
+
+2001-06-11  Daniel Berlin  <dan@cgsoftware.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+	
+2001-06-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config.guess: Import CVS version 1.195.
+	* config.sub: Import CVS version 1.212.
+
+2001-06-08  Alexandre Oliva  <aoliva@redhat.com>, Jeff Sturm  <jsturm@one-point.com>
+
+	* Makefile.in (AS_FOR_TARGET, LD_FOR_TARGET, NM_FOR_TARGET): If
+	gcc/xgcc is built, use -print-prog-name to find out the program
+	name to use.
+
+2001-06-04  Phil Edwards  <pme@sources.redhat.com>
+
+	* config.guess:  Import CVS version 1.194.  All gcc-local changes
+	appear to also be in the master copy.
+	* config.sub:  Import CVS version 1.211.
+
+Mon Jun  4 16:32:53 2001  Mark Mitchell  <mark@codesourcery.com>
+
+	* ltcf-c.sh (archive_cmds, archive_expsym_cmds) [solaris,
+	with_gcc]: Use `gcc -shared' to build a shared library.
+
+Mon Jun  4 16:24:43 2001  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* ltcf-c.sh (archive_cmd) [hpux, with_gcc]: Use gcc to link shared
+	archives.
+
+Fri Jun  1 18:55:19 2001  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2001-06-01  Hans-Peter Nilsson  <hp@axis.com>
+
+	* configure.in (libstdcxx_flags): Do not try to execute
+	libstdc++-v3/testsuite_flags until it exists.
+
+2001-06-01  Alan Modra  <amodra@bigpond.net.au>
+
+	* MAINTAINERS: Update my email address.
+
+2001-05-31  Graham Stott  <grahams@redhat.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2001-05-28  Simon Patarin <simon.patarin@inria.fr>
+
+	* ltcf-cxx.sh (osf3/osf4/osf5): Support creation of C++  shared
+	libraries when using g++ with native linker.
+
+2001-05-28  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ltconfig, ltmain.sh: Upgrade to libtool 1.4a 1.641.2.256.
+
+2001-05-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ltcf-cxx.sh (allow_undefined_flag, no_undefined_flag)
+	[aix4*|aix5*]: Prepend blank.
+
+2001-05-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ltconfig, ltmain.sh, libtool.m4, ltcf-c.sh, ltcf-cxx.sh,
+	ltcf-gcj.sh: Upgraded to libtool 1.4a 1.641.2.254.  Rebuilt a number
+	of subdir/configure scripts to use the new libtool.m4.
+
+2001-05-19  Matt Kraai  <kraai@alumni.carnegiemellon.edu>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2001-05-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.in (libstdcxx_flags): Remove reference to libstdc++.INC.
+
+2001-05-11  Ben Elliston  <bje@redhat.com>
+
+	* Makefile.in (all-sid): New target.
+	(check-sid, clean-sid, install-sid): Likewise.
+
+2001-05-09  Jeffrey Oldham  <oldham@codesourcery.com>
+
+	* ltcf-cxx.sh: Add -nostdlib to IRIX 6 archive_cmds.
+
+2001-05-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (noconfigdirs) [*-cygwin*, *-mingw*, *-beos]: Disable
+	libgcj.
+
+2001-05-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (AS_FOR_TARGET, LD_FOR_TARGET, NM_FOR_TARGET): If
+	gcc/xgcc is built, use -print-prog-name to find out the program
+	name to use.
+
+2001-04-26  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (noconfigdirs): Don't reset it from scratch in the
+	target case; only append to it.
+	
+	* configure.in (noconfigdirs) [hppa*-*-*, mips*-*-irix6*,
+	sparc-*-solaris2.8]: Disable ${libgcj}.
+
+2001-04-25  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (libgcj_saved): Copy from $libgcj.
+	(libgcj): Zero out if --enable-libgcj; add to noconfigdirs is
+	--disable-libgcj.
+
+2001-04-25  Gavin Romig-Koch  <gavin@redhat.com>
+
+	* MAINTAINERS: Remove self as MIPS maintainer and
+	C front end maintainer.  
+
+Mon Apr 23 09:15:03 2001  Anthony Green  <green@redhat.com>
+
+	* configure.in: Move *-chorusos target case to the proper switch.
+	Disable libgcj.
+
+2001-04-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ltconfig, ltmain.sh, ltcf-cxx.sh: Upgraded to libtool 1.4a
+	1.641.2.228.
+
+2001-04-13  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* Makefile.in (STAGE1_CFLAGS): Pass down.
+
+2001-04-13  Alan Modra  <amodra@one.net.au>
+
+	* config.guess: Add hppa64-linux support.  Note for next import that
+	this is already in the master file.
+	* configure.in: Likewise.  Accept `parisc' alias for `hppa'.
+
+2001-04-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ltconfig, ltmain.sh, libtool.m4, ltcf-c.sh, ltcf-cxx.sh,
+	ltcf-gcj.sh: Upgraded to libtool 1.4a 1.641.2.226.
+
+2001-04-11  Stan Shebs  <shebs@apple.com>
+
+	* MAINTAINERS: Add self as Darwin port maintainer.
+
+2001-04-11  Alan Modra  <amodra@one.net.au>
+
+	* MAINTAINERS: Update my email address.
+
+2001-04-10  Loren J. Rittle  <ljrittle@acm.org>
+
+	* ltcf-cxx.sh: Support creation of C++ shared libraries on
+	recent versions of FreeBSD (release 3 or later).
+	* ltconfig: On FreeBSD, -lc must not be provided when building
+	a shared library or else the standard -pthread gcc option is
+	rendered worthless to later users of the built library.
+
+2001-04-06  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* MAINTAINERS: Add self and RTH as C front end maintainers.
+
+2001-04-05  Alexandre Oliva  <aoliva@redhat.com>
+
+        * config.sub: Make sure to match an already-canonicalized
+        machine name (eg. mn10300-unknown-elf).
+
+2001-04-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (CXX_FOR_TARGET_FOR_RECURSIVE_MAKE, RECURSE_FLAGS):
+	New macros.
+	(bootstrap, cross): Use RECURSE_FLAGS.
+	* configure.in: Subst CXX_FOR_TARGET_FOR_RECURSIVE_MAKE.
+
+2001-03-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (CXX_FOR_TARGET): Use xgcc for libstdc++-v3.
+
+2001-03-22  Colin Howell  <chowell@redhat.com>
+
+	* Makefile.in (DO_X): Do not backslash single-quotes in
+	backquotes (two places).
+
+2001-03-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	Re-installed:
+	2001-01-02  Laurynas Biveinis  <lauras@softhome.net>
+	* ltcf-c.sh: Clear ac_cv_prog_cc_pic for DJGPP.  Do not add
+	'-DPIC' to ac_cv_prog_cc_pic for DJGPP.
+	* ltcf-cxx.sh: Likewise.
+	* ltcf-gcj.sh: Likewise.
+
+2001-03-22  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* MAINTAINERS: Add myself as "documentation co-maintainer".
+
+2001-03-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ltconfig, ltmain.sh, libtool.m4, ltcf-c.sh, ltcf-cxx.sh,
+	ltcf-gcj.sh: Upgraded to libtool 1.4a 1.641.2.198.
+
+2001-03-19  Tom Tromey  <tromey@redhat.com>
+
+	* config-ml.in: Handle GCJ and GCJFLAGS.
+
+2001-03-21  Michael Chastain  <chastain@redhat.com>
+
+	* Makefile.in: all-m4 depends on all-texinfo.
+
+2001-03-20  Loren J. Rittle  <ljrittle@acm.org>
+
+	* MAINTAINERS: Add myself to write after approval list.
+
+2001-03-18  Laurynas Biveinis  <lauras@softhome.net>
+
+	* Makefile.in (DO_X): Quote nested quotes.
+
+2001-03-18  Alan Modra  <alan@linuxcare.com.au>
+
+	* MAINTAINERS: Add myself to write after approval list.
+
+2001-03-15  Laurynas Biveinis  <lauras@softhome.net>
+
+	* Makefile.in (DO_X): Use double quotes for quoting
+	"RANLIB=$${RANLIB}".
+
+2001-03-10  Ovidiu Predescu  <ovidiu@cup.hp.com>
+
+	* MAINTAINERS: Added Stan Shebs as new maintainer for Objective-C.
+
+2001-03-09  Nicola Pero <n.pero@mi.flashnet.it>
+
+	* configure.in: Only use `lang_requires' for languages athat are
+	actually enabled.
+
+2001-03-08  Phil Edwards  <pme@sources.redhat.com>
+
+	* MAINTAINERS (C++ runtime libs):  Update and alphabatize.
+
+2001-03-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (ALL_GCC, ALL_GCC_C, ALL_GCC_CXX): Set before use.
+
+2001-03-07  Tom Tromey  <tromey@redhat.com>
+
+	* configure.in: Allow config-lang.in to set `lang_requires' to list
+	of other required languages.
+
+2001-03-06  Laurynas Biveinis  <lauras@softhome.net>
+
+	* Makefile.in: Remove RANLIB definition. Use RANLIB
+	in RANLIB_FOR_TARGET, EXTRA_HOST_FLAGS, EXTRA_TARGET_FLAGS,
+	EXTRA_GCC_FLAGS, $(DO_X) targets only when the RANLIB is set.
+		    
+2001-02-28  Benjamin Kosnik  <bkoz@redhat.com>
+            Alexandre Oliva  <aoliva@redhat.com>
+	
+	* Makefile.in (check-c++): Use tabs, not spaces.
+
+2001-02-20  Laurynas Biveinis  <lauras@softhome.net>
+	
+	* MAINTAINERS: add myself to Write After Approval list.
+
+2001-02-19  Benjamin Kosnik  <bkoz@redhat.com>
+
+        * Makefile.in (check-c++): New rule.
+	
+	* configure.in (target_libs): Remove libg++.
+	(noconfigdirs): Remove libg++.
+	(noconfigdirs): Same.
+	(noconfigdirs): Same.
+	(noconfigdirs): Same.
+
+	* config-ml.in: Remove libg++ references.
+
+	* Makefile.in (TARGET_CONFIGDIRS): Remove libio, libstdc++, libg++.
+	(ALL_TARGET_MODULES): Same.
+	(configure-target-libg++): Remove.
+	(all-target-libg++): Remove.
+	(configure-target-libio): Remove.
+	(all-target-libio): Remove.
+	(check-target-libio): Remove.
+	(.PHONY): Remove.
+	(libg++.tar.bz2): Remove.
+	(all-target-cygmon): Remove libio.
+	(all-target-libstdc++): Remove.
+	(configure-target-libstdc++): Remove.
+	(TARGET_LIB_PATH): Remove libstdc++.
+	(ALL_GCC_CXX): Remove libstdc++.
+	(all-target-gperf): Correct.
+
+2001-02-16  Nick Clifton  <nickc@redhat.com>
+
+	* configure.in (noconfigdirs): Allow configuration of texinfo
+	for Cygwin hosts.
+
+2001-02-15  Anthony Green  <green@redhat.com>
+
+	* configure: Introduce GCJ_FOR_TARGET.
+	* configure.in: Ditto.
+	* Makefile.in: Ditto.
+
+2001-02-13  Andreas Schwab  <schwab@suse.de>
+
+	* MAINTAINERS: Update mail address.
+
+2001-02-09  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+
+	* config.guess: Add linux target for S/390.
+	* config.sub: Likewise.
+
+2001-02-08  Chandrakala Chavva <cchavva@redhat.com>
+
+	* configure.in: for *-chorusos, don't config target-newlib and
+        target-libgloss.
+
+2001-02-06  Ben Elliston  <bje@redhat.com>
+
+	* configure: Output host type to stdout, not stderr.
+
+2001-02-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* ltcf-c.sh: Add support for -no-undefined under GNU/Linux.
+	* ltcf-cxx.sh: Likewise.
+
+	* config.if: Assume enable_libstdcxx_v3 is defined.
+
+2001-02-04  Mark Mitchell  <mark@codesourcery.com>
+
+	Remove V2 C++ library.
+	* configure.in: Remove --enable-libstdcxx_v3 support.
+
+2001-01-31  Bryce McKinlay  <bryce@albatross.co.nz>
+
+	* include/demangle.h: Add prototype for java_demangle_v3.
+
+2001-01-29  Phil Edwards  <pme@sources.redhat.com>
+
+	* COPYING.LIB:  Update to LGPL 2.1 from the FSF.
+
 2001-01-27  Richard Henderson  <rth@redhat.com>
 
 	* configure.in (target_makefile_frag) [alpha*-*]: Use mt-alphaieee.
@@ -65,13 +439,13 @@
 	* Makefile.in (CONFIGURE_TARGET_MODULES): Pass back configuration
 	failures of subdirectories.
 
-2001-01-02  Laurynas Biveinis  &lt;lauras@softhome.net&gt;
+2001-01-02  Laurynas Biveinis  <lauras@softhome.net>
 
-	* ltcf-c.sh: clear ac_cv_prog_cc_pic for DJGPP. Do not add
+	* ltcf-c.sh: Clear ac_cv_prog_cc_pic for DJGPP.  Do not add
 	'-DPIC' to ac_cv_prog_cc_pic for DJGPP.
-	* ltcf-cxx.sh: likewise.
-	* ltcf-gcj.sh: likewise.
-	* ltconfig.sh: fix typo.
+	* ltcf-cxx.sh: Likewise.
+	* ltcf-gcj.sh: Likewise.
+	* ltconfig.sh: Fix typo.
 
 2001-01-02  Laurynas Biveinis  <lauras@softhome.net>
 

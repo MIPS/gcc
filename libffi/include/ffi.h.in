@@ -1,8 +1,6 @@
 /* -----------------------------------------------------------------*-C-*-
    libffi @VERSION@ - Copyright (c) 1996-1999  Cygnus Solutions
 
-   $Id: ffi.h.in,v 1.5 2000/04/17 02:15:31 green Exp $
-
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
    ``Software''), to deal in the Software without restriction, including
@@ -43,11 +41,11 @@
 
    More details on the raw and cloure API can be found in:
 
-   http://sourceware.cygnus.com/ml/java-discuss/1999-q3/msg00138.html
+   http://gcc.gnu.org/ml/java/1999-q3/msg00138.html
 
    and
 
-   http://sourceware.cygnus.com/ml/java-discuss/1999-q3/msg00174.html
+   http://gcc.gnu.org/ml/java/1999-q3/msg00174.html
    -------------------------------------------------------------------- */
 
 #ifndef LIBFFI_H
@@ -193,6 +191,12 @@ typedef enum ffi_abi {
 
   /* ---- Intel x86 ---------------- */
 #ifdef X86
+  FFI_SYSV,
+  FFI_DEFAULT_ABI = FFI_SYSV,
+#endif
+
+  /* ---- Intel x86 Win32 ---------- */
+#ifdef X86_WIN32
   FFI_SYSV,
   FFI_DEFAULT_ABI = FFI_SYSV,
 #endif
@@ -353,6 +357,12 @@ size_t ffi_java_raw_size (ffi_cif *cif);
 #define FFI_TRAMPOLINE_SIZE 10
 #define FFI_NATIVE_RAW_API 1	/* and has native raw api support */
 
+#elif defined(X86_WIN32)
+
+#define FFI_CLOSURES 1		/* x86 supports closures */
+#define FFI_TRAMPOLINE_SIZE 10
+#define FFI_NATIVE_RAW_API 1	/* and has native raw api support */
+
 #elif defined(IA64)
 
 #define FFI_CLOSURES 1
@@ -372,6 +382,12 @@ struct ffi_ia64_trampoline_struct {
 
 #define FFI_CLOSURES 1
 #define FFI_TRAMPOLINE_SIZE 24
+#define FFI_NATIVE_RAW_API 0
+
+#elif defined(POWERPC)
+
+#define FFI_CLOSURES 1
+#define FFI_TRAMPOLINE_SIZE 40
 #define FFI_NATIVE_RAW_API 0
 
 #else 

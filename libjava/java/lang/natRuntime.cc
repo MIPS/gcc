@@ -1,6 +1,6 @@
 // natRuntime.cc - Implementation of native side of Runtime class.
 
-/* Copyright (C) 1998, 1999, 2000  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -69,7 +69,15 @@ _Jv_FindSymbolInExecutable (const char *symname)
 	return r;
     }
 
-  return lt_dlsym (NULL, symname);
+  return NULL;
+}
+
+#else
+
+void *
+_Jv_FindSymbolInExecutable (const char *symname)
+{
+  return NULL;
 }
 
 #endif /* USE_LTDL */
@@ -78,7 +86,12 @@ void
 java::lang::Runtime::exit (jint status)
 {
   checkExit (status);
+  _exit (status);
+}
 
+void
+java::lang::Runtime::_exit (jint status)
+{
   // Make status right for Unix.  This is perhaps strange.
   if (status < 0 || status > 255)
     status = 255;
@@ -131,7 +144,7 @@ java::lang::Runtime::_load (jstring path, jboolean do_search)
       const char *msg = lt_dlerror ();
       jstring str = path->concat (JvNewStringLatin1 (": "));
       str = str->concat (JvNewStringLatin1 (msg));
-      _Jv_Throw (new UnsatisfiedLinkError (str));
+      throw new UnsatisfiedLinkError (str);
     }
 
   add_library (h);
@@ -149,14 +162,14 @@ java::lang::Runtime::_load (jstring path, jboolean do_search)
       if (vers != JNI_VERSION_1_1 && vers != JNI_VERSION_1_2)
 	{
 	  // FIXME: unload the library.
-	  _Jv_Throw (new UnsatisfiedLinkError (JvNewStringLatin1 ("unrecognized version from JNI_OnLoad")));
+	  throw new UnsatisfiedLinkError (JvNewStringLatin1 ("unrecognized version from JNI_OnLoad"));
 	}
     }
 #else
-  _Jv_Throw (new UnknownError
-	     (JvNewStringLatin1 (do_search
-				 ? "Runtime.loadLibrary not implemented"
-				 : "Runtime.load not implemented")));
+  throw new UnknownError
+    (JvNewStringLatin1 (do_search
+			? "Runtime.loadLibrary not implemented"
+			: "Runtime.load not implemented"));
 #endif /* USE_LTDL */
 }
 
@@ -186,6 +199,9 @@ java::lang::Runtime::init (void)
   finalize_on_exit = false;
 #ifdef USE_LTDL
   lt_dlinit ();
+  lt_dlhandle self = lt_dlopen (NULL);
+  if (self != NULL)
+    add_library (self);
 #endif
 }
 

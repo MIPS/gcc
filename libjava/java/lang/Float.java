@@ -1,4 +1,4 @@
-/* Copyright (C) 1998, 1999, 2000  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -49,6 +49,14 @@ public final class Float extends Number implements Comparable
     this.value = valueOf (s).floatValue ();
   }
 
+  public static float parseFloat (String s) throws NumberFormatException
+  {
+    // The spec says that parseFloat() should work like
+    // Double.valueOf().  This is equivalent, in our implementation,
+    // but more efficient.
+    return (float) Double.parseDouble (s);
+  }
+
   public String toString ()
   {
     return toString (value);
@@ -56,9 +64,6 @@ public final class Float extends Number implements Comparable
 
   public boolean equals (Object obj)
   {
-    if (obj == null)
-      return false;
-
     if (!(obj instanceof Float))
       return false;
 
@@ -107,12 +112,8 @@ public final class Float extends Number implements Comparable
     return Double.toString ((double) v, true);
   } 
 
-  public static Float valueOf (String s) throws NullPointerException, 
-    NumberFormatException
+  public static Float valueOf (String s) throws NumberFormatException
   {
-    if (s == null)
-      throw new NullPointerException ();
-
     return new Float (Double.valueOf (s).floatValue ());
   }
 
@@ -144,7 +145,7 @@ public final class Float extends Number implements Comparable
   }
 
   public static native int floatToIntBits (float value);
-
+  public static native int floatToRawIntBits (float value);
   public static native float intBitsToFloat (int bits);
 
   public int compareTo (Float d)

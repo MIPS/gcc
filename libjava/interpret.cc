@@ -1,6 +1,6 @@
 // interpret.cc - Code for the interpreter
 
-/* Copyright (C) 1999, 2000  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -36,9 +36,6 @@ details.  */
 #ifdef INTERPRETER
 
 #include <stdlib.h>
-#if HAVE_ALLOCA_H
-#include <alloca.h>
-#endif
 
 static _Jv_Utf8Const *init_name = _Jv_makeUtf8Const ("<init>", 6);
 
@@ -336,11 +333,11 @@ void _Jv_InterpMethod::run_normal (ffi_cif* cif,
   // "run" ro be inlined.  Otherwise gcc will ignore the inline directive.
   int storage_size = _this->max_stack+_this->max_locals;
   _Jv_InterpMethodInvocation* inv = (_Jv_InterpMethodInvocation*) 
-    alloca (sizeof (_Jv_InterpMethodInvocation)
-	    + storage_size * sizeof (_Jv_word));
+    __builtin_alloca (sizeof (_Jv_InterpMethodInvocation)
+		      + storage_size * sizeof (_Jv_word));
 
   jobject ex = _this->run (cif, ret, args, inv);
-  if (ex != 0) _Jv_Throw (ex);
+  if (ex != 0) throw static_cast<jthrowable>(ex);
 }
 
 void _Jv_InterpMethod::run_synch_object (ffi_cif* cif,
@@ -353,14 +350,14 @@ void _Jv_InterpMethod::run_synch_object (ffi_cif* cif,
 
   int storage_size = _this->max_stack+_this->max_locals;
   _Jv_InterpMethodInvocation* inv = (_Jv_InterpMethodInvocation*) 
-    alloca (sizeof (_Jv_InterpMethodInvocation)
-	    + storage_size * sizeof (_Jv_word));
+    __builtin_alloca (sizeof (_Jv_InterpMethodInvocation)
+		      + storage_size * sizeof (_Jv_word));
 
   _Jv_MonitorEnter (rcv);
   jobject ex = _this->run (cif, ret, args, inv);
   _Jv_MonitorExit (rcv);
 
-  if (ex != 0) _Jv_Throw (ex);
+  if (ex != 0) throw static_cast<jthrowable>(ex);
 }
 
 void _Jv_InterpMethod::run_synch_class (ffi_cif* cif,
@@ -373,14 +370,14 @@ void _Jv_InterpMethod::run_synch_class (ffi_cif* cif,
 
   int storage_size = _this->max_stack+_this->max_locals;
   _Jv_InterpMethodInvocation* inv = (_Jv_InterpMethodInvocation*) 
-    alloca (sizeof (_Jv_InterpMethodInvocation)
-	    + storage_size * sizeof (_Jv_word));
+    __builtin_alloca (sizeof (_Jv_InterpMethodInvocation)
+		      + storage_size * sizeof (_Jv_word));
 
   _Jv_MonitorEnter (sync);
   jobject ex = _this->run (cif, ret, args, inv);
   _Jv_MonitorExit (sync);
 
-  if (ex != 0) _Jv_Throw (ex);
+  if (ex != 0) throw static_cast<jthrowable>(ex);
 }
 
 /*
@@ -678,7 +675,11 @@ void _Jv_InterpMethod::continue1 (_Jv_InterpMethodInvocation *inv)
 	rmeth = (_Jv_ResolvePoolEntry (defining_class, index)).rmethod;
 
 	sp -= rmeth->stack_item_count;
-	NULLCHECK (sp[0].o);
+	// We don't use NULLCHECK here because we can't rely on that
+	// working if the method is final.  So instead we do an
+	// explicit test.
+	if (! sp[0].o)
+	  throw new java::lang::NullPointerException;
 
 	if (rmeth->vtable_index == -1)
 	  {
@@ -1978,7 +1979,7 @@ void _Jv_InterpMethod::continue1 (_Jv_InterpMethodInvocation *inv)
 	jclass type = field->type;
 	jint field_offset = field->u.boffset;
 	if (field_offset > 0xffff)
-	  JvThrow (new java::lang::VirtualMachineError);
+	  throw new java::lang::VirtualMachineError;
 
 	jobject obj   = POPA();
 	NULLCHECK(obj);
@@ -2085,7 +2086,7 @@ void _Jv_InterpMethod::continue1 (_Jv_InterpMethodInvocation *inv)
 
 	jint field_offset = field->u.boffset;
 	if (field_offset > 0xffff)
-	  JvThrow (new java::lang::VirtualMachineError);
+	  throw new java::lang::VirtualMachineError;
 
 	if (type->isPrimitive ())
 	  {
@@ -2236,7 +2237,7 @@ void _Jv_InterpMethod::continue1 (_Jv_InterpMethodInvocation *inv)
       SAVE_PC;
       {
 	jobject value = POPA();
-	JvThrow (value);
+	throw static_cast<jthrowable>(value);
       }
       NEXT_INSN;
 
@@ -2249,8 +2250,7 @@ void _Jv_InterpMethod::continue1 (_Jv_InterpMethodInvocation *inv)
 
 	if (value != NULL && ! to->isInstance (value))
 	  {
-	    JvThrow (new java::lang::ClassCastException
-		     (to->getName()));
+	    throw new java::lang::ClassCastException (to->getName());
 	  }
 
 	PUSHA (value);
@@ -2376,7 +2376,7 @@ void _Jv_InterpMethod::continue1 (_Jv_InterpMethodInvocation *inv)
 	jclass type    
 	  = (_Jv_ResolvePoolEntry (defining_class, kind_index)).clazz;
 	_Jv_InitClass (type);
-	jint *sizes    = (jint*) alloca (sizeof (jint)*dim);
+	jint *sizes    = (jint*) __builtin_alloca (sizeof (jint)*dim);
 
 	for (int i = dim - 1; i >= 0; i--)
 	  {
@@ -2411,13 +2411,13 @@ void _Jv_InterpMethod::continue1 (_Jv_InterpMethodInvocation *inv)
 static void
 throw_internal_error (char *msg)
 {
-  JvThrow (new java::lang::InternalError (JvNewStringLatin1 (msg)));
+  throw new java::lang::InternalError (JvNewStringLatin1 (msg));
 }
 
 static void 
 throw_incompatible_class_change_error (jstring msg)
 {
-  JvThrow (new java::lang::IncompatibleClassChangeError (msg));
+  throw new java::lang::IncompatibleClassChangeError (msg);
 }
 
 #ifndef HANDLE_SEGV
@@ -2428,7 +2428,7 @@ throw_null_pointer_exception ()
   if (null_pointer_exc == NULL)
     null_pointer_exc = new java::lang::NullPointerException;
 
-  JvThrow (null_pointer_exc);
+  throw null_pointer_exc;
 }
 #endif
 

@@ -1,6 +1,6 @@
 // posix-threads.cc - interface between libjava and POSIX threads.
 
-/* Copyright (C) 1998, 1999, 2000  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -16,11 +16,7 @@ details.  */
 // If we're using the Boehm GC, then we need to override some of the
 // thread primitives.  This is fairly gross.
 #ifdef HAVE_BOEHM_GC
-extern "C"
-{
-#include <gcconfig.h>
 #include <gc.h>
-};
 #endif /* HAVE_BOEHM_GC */
 
 #include <stdlib.h>
@@ -300,7 +296,7 @@ _Jv_InitThreads (void)
 _Jv_Thread_t *
 _Jv_ThreadInitData (java::lang::Thread *obj)
 {
-  _Jv_Thread_t *data = new _Jv_Thread_t;
+  _Jv_Thread_t *data = (_Jv_Thread_t *) _Jv_Malloc (sizeof (_Jv_Thread_t));
   data->flags = 0;
   data->thread_obj = obj;
 
@@ -315,7 +311,7 @@ _Jv_ThreadDestroyData (_Jv_Thread_t *data)
 {
   pthread_mutex_destroy (&data->wait_mutex);
   pthread_cond_destroy (&data->wait_cond);
-  delete data;
+  _Jv_Free ((void *)data);
 }
 
 void
@@ -330,6 +326,41 @@ _Jv_ThreadSetPriority (_Jv_Thread_t *data, jint prio)
     }
 }
 
+void
+_Jv_ThreadRegister (_Jv_Thread_t *data)
+{
+  pthread_setspecific (_Jv_ThreadKey, data->thread_obj);
+  pthread_setspecific (_Jv_ThreadDataKey, data);
+
+  // glibc 2.1.3 doesn't set the value of `thread' until after start_routine
+  // is called. Since it may need to be accessed from the new thread, work 
+  // around the potential race here by explicitly setting it again.
+  data->thread = pthread_self ();
+
+# ifdef SLOW_PTHREAD_SELF
+    // Clear all self cache slots that might be needed by this thread.
+    int dummy;
+    int low_index = SC_INDEX(&dummy) + SC_CLEAR_MIN;
+    int high_index = SC_INDEX(&dummy) + SC_CLEAR_MAX;
+    for (int i = low_index; i <= high_index; ++i) 
+      {
+        int current_index = i;
+	if (current_index < 0)
+	  current_index += SELF_CACHE_SIZE;
+	if (current_index >= SELF_CACHE_SIZE)
+	  current_index -= SELF_CACHE_SIZE;
+	_Jv_self_cache[current_index].high_sp_bits = BAD_HIGH_SP_VALUE;
+      }
+# endif
+}
+
+void
+_Jv_ThreadUnRegister ()
+{
+  pthread_setspecific (_Jv_ThreadKey, NULL);
+  pthread_setspecific (_Jv_ThreadDataKey, NULL);
+}
+
 // This function is called when a thread is started.  We don't arrange
 // to call the `run' method directly, because this function must
 // return a value.
@@ -338,16 +369,10 @@ really_start (void *x)
 {
   struct starter *info = (struct starter *) x;
 
-  pthread_setspecific (_Jv_ThreadKey, info->data->thread_obj);
-  pthread_setspecific (_Jv_ThreadDataKey, info->data);
-
-  // glibc 2.1.3 doesn't set the value of `thread' until after start_routine
-  // is called. Since it may need to be accessed from the new thread, work 
-  // around the potential race here by explicitly setting it again.
-  info->data->thread = pthread_self ();
+  _Jv_ThreadRegister (info->data);
 
   info->method (info->data->thread_obj);
-  
+
   if (! (info->data->flags & FLAG_DAEMON))
     {
       pthread_mutex_lock (&daemon_mutex);
@@ -356,7 +381,7 @@ really_start (void *x)
 	pthread_cond_signal (&daemon_cond);
       pthread_mutex_unlock (&daemon_mutex);
     }
-  
+
   return NULL;
 }
 
@@ -378,7 +403,6 @@ _Jv_ThreadStart (java::lang::Thread *thread, _Jv_Thread_t *data,
   pthread_attr_setschedparam (&attr, &param);
   pthread_attr_setdetachstate (&attr, PTHREAD_CREATE_DETACHED);
 
-  // FIXME: handle marking the info object for GC.
   info = (struct starter *) _Jv_AllocBytes (sizeof (struct starter));
   info->method = meth;
   info->data = data;
@@ -398,7 +422,7 @@ _Jv_ThreadStart (java::lang::Thread *thread, _Jv_Thread_t *data,
   if (r)
     {
       const char* msg = "Cannot create additional threads";
-      JvThrow (new java::lang::OutOfMemoryError (JvNewStringUTF (msg)));
+      throw new java::lang::OutOfMemoryError (JvNewStringUTF (msg));
     }
 }
 
@@ -410,3 +434,23 @@ _Jv_ThreadWait (void)
     pthread_cond_wait (&daemon_cond, &daemon_mutex);
   pthread_mutex_unlock (&daemon_mutex);
 }
+
+#if defined(SLOW_PTHREAD_SELF)
+
+// Support for pthread_self() lookup cache.
+
+volatile self_cache_entry _Jv_self_cache[SELF_CACHE_SIZE];
+
+
+_Jv_ThreadId_t
+_Jv_ThreadSelf_out_of_line(volatile self_cache_entry *sce, size_t high_sp_bits)
+{
+  pthread_t self = pthread_self();
+  // The ordering between the following writes matters.
+  // On Alpha, we probably need a memory barrier in the middle.
+  sce -> high_sp_bits = high_sp_bits;
+  sce -> self = self;
+  return self;
+}
+
+#endif /* SLOW_PTHREAD_SELF */

@@ -2980,7 +2980,7 @@ coalesce (void)
       add_worklist (target);
     }
   else if ((source->type == PRECOLORED && ok (target, source))
-	   || (source->type != PRECOLORED && conservative (target, source)))
+	   || (source->type != PRECOLORED /*&& conservative (target, source)*/))
     {
       remove_move (source, m);
       remove_move (target, m);
@@ -3028,7 +3028,7 @@ freeze (void)
 {
   struct dlist *d = pop_list (&freeze_wl);
   put_web (DLIST_WEB (d), SIMPLIFY);
-  freeze_moves (DLIST_WEB (d));
+  //freeze_moves (DLIST_WEB (d));
 }
 
 static long (*spill_heuristic) PARAMS ((struct web *));

@@ -106,18 +106,6 @@ public:
     { _Jv_MonitorExit (obj); }
 };
 
-#ifdef SJLJ_EXCEPTIONS
-#define _Jv_Throw _Jv_Sjlj_Throw
-#endif
-
-// Throw some exception.
-extern void JvThrow (jobject obj) __attribute__ ((__noreturn__));
-extern inline void
-JvThrow (jobject obj)
-{
-  _Jv_Throw ((void *) obj);
-}
-
 /* Call malloc, but throw exception if insufficient memory. */
 extern inline void *
 JvMalloc (jsize size)
@@ -129,5 +117,23 @@ extern inline void
 JvFree (void *ptr)
 {
   return _Jv_Free (ptr);
+}
+
+extern inline jint
+JvCreateJavaVM (void* vm_args)
+{
+  return _Jv_CreateJavaVM (vm_args);
+}
+
+extern inline java::lang::Thread*
+JvAttachCurrentThread (jstring name, java::lang::ThreadGroup* group)
+{
+  return _Jv_AttachCurrentThread (name, group);
+}
+
+extern inline jint
+JvDetachCurrentThread (void)
+{
+  return _Jv_DetachCurrentThread ();
 }
 #endif /* __GCJ_CNI_H__ */

@@ -36,6 +36,7 @@ details.  */
 
 #ifdef ENABLE_JVMPI
 #include <jvmpi.h>
+#include <java/lang/ThreadGroup.h>
 #endif
 
 #ifndef DISABLE_GETENV_PROPERTIES
@@ -62,6 +63,7 @@ details.  */
 #include <java/lang/System.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/io/PrintStream.h>
+#include <java/lang/UnsatisfiedLinkError.h>
 
 #ifdef USE_LTDL
 #include <ltdl.h>
@@ -74,8 +76,10 @@ static java::lang::OutOfMemoryError *no_memory;
 // Largest representable size_t.
 #define SIZE_T_MAX ((size_t) (~ (size_t) 0))
 
+static const char *no_properties[] = { NULL };
+
 // Properties set at compile time.
-const char **_Jv_Compiler_Properties;
+const char **_Jv_Compiler_Properties = no_properties;
 
 // The JAR file to add to the beginning of java.class.path.
 const char *_Jv_Jar_Class_Path;
@@ -92,6 +96,8 @@ static char * _Jv_execName;
 const char **_Jv_argv;
 int _Jv_argc;
 
+typedef void main_func (jobject);
+
 #ifdef ENABLE_JVMPI
 // Pointer to JVMPI notification functions.
 void (*_Jv_JVMPI_Notify_OBJECT_ALLOC) (JVMPI_Event *event);
@@ -100,17 +106,16 @@ void (*_Jv_JVMPI_Notify_THREAD_END) (JVMPI_Event *event);
 #endif
 
 
-extern "C" void _Jv_ThrowSignal (void *) __attribute ((noreturn));
+extern "C" void _Jv_ThrowSignal (jthrowable) __attribute ((noreturn));
 
 // Just like _Jv_Throw, but fill in the stack trace first.  Although
 // this is declared extern in order that its name not be mangled, it
 // is not intended to be used outside this file.
 void 
-_Jv_ThrowSignal (void *e)
+_Jv_ThrowSignal (jthrowable throwable)
 {
-  java::lang::Throwable *throwable = (java::lang::Throwable *)e;
   throwable->fillInStackTrace ();
-  _Jv_Throw (throwable);
+  throw throwable;
 }
  
 #ifdef HANDLE_SEGV
@@ -216,11 +221,11 @@ _Jv_strLengthUtf8(char* str, int len)
   ptr = (unsigned char*) str;
   limit = ptr + len;
   str_length = 0;
-  for (; ptr < limit; str_length++) {
-    if (UTF8_GET (ptr, limit) < 0) {
-      return (-1);
+  for (; ptr < limit; str_length++)
+    {
+      if (UTF8_GET (ptr, limit) < 0)
+	return (-1);
     }
-  }
   return (str_length);
 }
 
@@ -251,7 +256,7 @@ _Jv_makeUtf8Const (char* s, int len)
     len = strlen (s);
   Utf8Const* m = (Utf8Const*) _Jv_AllocBytes (sizeof(Utf8Const) + len + 1);
   if (! m)
-    JvThrow (no_memory);
+    throw no_memory;
   memcpy (m->data, s, len);
   m->data[len] = 0;
   m->length = len;
@@ -266,7 +271,7 @@ _Jv_makeUtf8Const (jstring string)
   jint len = _Jv_GetStringUTFLength (string);
 
   Utf8Const* m = (Utf8Const*)
-    _Jv_AllocBytesChecked (sizeof(Utf8Const) + len + 1);
+    _Jv_AllocBytes (sizeof(Utf8Const) + len + 1);
 
   m->hash = hash;
   m->length = len;
@@ -316,24 +321,21 @@ _Jv_GCWatch (jobject obj)
 void
 _Jv_ThrowBadArrayIndex(jint bad_index)
 {
-  JvThrow (new java::lang::ArrayIndexOutOfBoundsException
-	   (java::lang::String::valueOf(bad_index)));
+  throw new java::lang::ArrayIndexOutOfBoundsException
+    (java::lang::String::valueOf (bad_index));
 }
 
 void
 _Jv_ThrowNullPointerException ()
 {
-  throw new java::lang::NullPointerException ();
+  throw new java::lang::NullPointerException;
 }
 
-// Allocate some unscanned memory and throw an exception if no memory.
-void *
-_Jv_AllocBytesChecked (jsize size)
+// Explicitly throw a no memory exception.
+// The collector calls this when it encounters an out-of-memory condition.
+void _Jv_ThrowNoMemory()
 {
-  void *r = _Jv_AllocBytes (size);
-  if (! r)
-    _Jv_Throw (no_memory);
-  return r;
+  _Jv_Throw (no_memory);
 }
 
 // Allocate a new object of class KLASS.  SIZE is the size of the object
@@ -345,8 +347,6 @@ _Jv_AllocObject (jclass klass, jint size)
   _Jv_InitClass (klass);
 
   jobject obj = (jobject) _Jv_AllocObj (size, klass);
-  if (__builtin_expect (! obj, false))
-    JvThrow (no_memory);
 
   // If this class has inherited finalize from Object, then don't
   // bother registering a finalizer.  We know that finalize() is the
@@ -374,6 +374,14 @@ _Jv_AllocObject (jclass klass, jint size)
       event.u.obj_alloc.size = size;
       event.u.obj_alloc.obj_id = (jobjectID) obj;
 
+      // FIXME:  This doesn't look right for the Boehm GC.  A GC may
+      // already be in progress.  _Jv_DisableGC () doesn't wait for it.
+      // More importantly, I don't see the need for disabling GC, since we
+      // blatantly have a pointer to obj on our stack, ensuring that the
+      // object can't be collected.  Even for a nonconservative collector,
+      // it appears to me that this must be true, since we are about to
+      // return obj. Isn't this whole approach way too intrusive for
+      // a useful profiling interface?			- HB
       _Jv_DisableGC ();
       (*_Jv_JVMPI_Notify_OBJECT_ALLOC) (&event);
       _Jv_EnableGC ();
@@ -383,6 +391,43 @@ _Jv_AllocObject (jclass klass, jint size)
   return obj;
 }
 
+// A version of the above that assumes the object contains no pointers,
+// and requires no finalization.  This can't happen if we need pointers
+// to locks.
+#ifdef JV_HASH_SYNCHRONIZATION
+jobject
+_Jv_AllocPtrFreeObject (jclass klass, jint size)
+{
+  _Jv_InitClass (klass);
+
+  jobject obj = (jobject) _Jv_AllocPtrFreeObj (size, klass);
+
+#ifdef ENABLE_JVMPI
+  // Service JVMPI request.
+
+  if (__builtin_expect (_Jv_JVMPI_Notify_OBJECT_ALLOC != 0, false))
+    {
+      JVMPI_Event event;
+
+      event.event_type = JVMPI_EVENT_OBJECT_ALLOC;
+      event.env_id = NULL;
+      event.u.obj_alloc.arena_id = 0;
+      event.u.obj_alloc.class_id = (jobjectID) klass;
+      event.u.obj_alloc.is_array = 0;
+      event.u.obj_alloc.size = size;
+      event.u.obj_alloc.obj_id = (jobjectID) obj;
+
+      _Jv_DisableGC ();
+      (*_Jv_JVMPI_Notify_OBJECT_ALLOC) (&event);
+      _Jv_EnableGC ();
+    }
+#endif
+
+  return obj;
+}
+#endif /* JV_HASH_SYNCHRONIZATION */
+
+
 // Allocate a new array of Java objects.  Each object is of type
 // `elementClass'.  `init' is used to initialize each slot in the
 // array.
@@ -390,7 +435,7 @@ jobjectArray
 _Jv_NewObjectArray (jsize count, jclass elementClass, jobject init)
 {
   if (__builtin_expect (count < 0, false))
-    JvThrow (new java::lang::NegativeArraySizeException);
+    throw new java::lang::NegativeArraySizeException;
 
   JvAssert (! elementClass->isPrimitive ());
 
@@ -403,8 +448,6 @@ _Jv_NewObjectArray (jsize count, jclass elementClass, jobject init)
   jclass klass = _Jv_GetArrayClass (elementClass, 0);
 
   obj = (jobjectArray) _Jv_AllocArray (size, klass);
-  if (__builtin_expect (! obj, false))
-    JvThrow (no_memory);
   // Cast away const.
   jsize *lp = const_cast<jsize *> (&obj->length);
   *lp = count;
@@ -426,7 +469,7 @@ _Jv_NewPrimArray (jclass eltype, jint count)
 {
   int elsize = eltype->size();
   if (__builtin_expect (count < 0, false))
-    JvThrow (new java::lang::NegativeArraySizeException ());
+    throw new java::lang::NegativeArraySizeException;
 
   JvAssert (eltype->isPrimitive ());
   jobject dummy = NULL;
@@ -435,17 +478,23 @@ _Jv_NewPrimArray (jclass eltype, jint count)
   // Check for overflow.
   if (__builtin_expect ((size_t) count > 
 			(SIZE_T_MAX - size) / elsize, false))
-    JvThrow (no_memory);
+    throw no_memory;
 
   jclass klass = _Jv_GetArrayClass (eltype, 0);
 
+# ifdef JV_HASH_SYNCHRONIZATION
+  // Since the vtable is always statically allocated,
+  // these are completely pointerfree!  Make sure the GC doesn't touch them.
+  __JArray *arr =
+    (__JArray*) _Jv_AllocPtrFreeObj (size + elsize * count, klass);
+  memset((char *)arr + size, 0, elsize * count);
+# else
   __JArray *arr = (__JArray*) _Jv_AllocObj (size + elsize * count, klass);
-  if (__builtin_expect (! arr, false))
-    JvThrow (no_memory);
+  // Note that we assume we are given zeroed memory by the allocator.
+# endif
   // Cast away const.
   jsize *lp = const_cast<jsize *> (&arr->length);
   *lp = count;
-  // Note that we assume we are given zeroed memory by the allocator.
 
   return arr;
 }
@@ -559,10 +608,14 @@ _Jv_FindClassFromSignature (char *sig, java::lang::ClassLoader *loader)
 
       }
     case '[':
-      return _Jv_GetArrayClass (_Jv_FindClassFromSignature (&sig[1], loader),
-				loader);
+      {
+	jclass klass = _Jv_FindClassFromSignature (&sig[1], loader);
+	if (! klass)
+	  return NULL;
+	return _Jv_GetArrayClass (klass, loader);
+      }
     }
-  JvFail ("couldn't understand class signature");
+
   return NULL;			// Placate compiler.
 }
 
@@ -606,7 +659,7 @@ _Jv_ThisExecutable (const char *name)
 {
   if (name)
     {
-      _Jv_execName = new char[strlen (name) + 1];
+      _Jv_execName = (char *) _Jv_Malloc (strlen (name) + 1);
       strcpy (_Jv_execName, name);
     }
 }
@@ -637,50 +690,14 @@ win32_exception_handler (LPEXCEPTION_POINTERS e)
 
 #endif
 
-static void
-main_init ()
+/* This will be non-NULL if the user has preloaded a JNI library, or
+   linked one into the executable.  */
+extern "C" 
 {
-  // Turn stack trace generation off while creating exception objects.
-  _Jv_InitClass (&java::lang::Throwable::class$);
-  java::lang::Throwable::trace_enabled = 0;
-  
-  INIT_SEGV;
-#ifdef HANDLE_FPE
-  INIT_FPE;
-#else
-  arithexception = new java::lang::ArithmeticException
-    (JvNewStringLatin1 ("/ by zero"));
-#endif
-
-  no_memory = new java::lang::OutOfMemoryError;
-
-  java::lang::Throwable::trace_enabled = 1;
-
-#ifdef USE_LTDL
-  LTDL_SET_PRELOADED_SYMBOLS ();
-#endif
-
-#ifdef USE_WINSOCK
-  // Initialise winsock for networking
-  WSADATA data;
-  if (WSAStartup (MAKEWORD (1, 1), &data))
-      MessageBox (NULL, "Error initialising winsock library.", "Error", MB_OK | MB_ICONEXCLAMATION);
-#endif /* USE_WINSOCK */
-
-#ifdef USE_WIN32_SIGNALLING
-  // Install exception handler
-  SetUnhandledExceptionFilter (win32_exception_handler);
-#else
-  // We only want this on POSIX systems.
-  struct sigaction act;
-  act.sa_handler = SIG_IGN;
-  sigemptyset (&act.sa_mask);
-  act.sa_flags = 0;
-  sigaction (SIGPIPE, &act, NULL);
-#endif /* USE_WIN32_SIGNALLING */
-
-  _Jv_JNI_Init ();
+#pragma weak JNI_OnLoad
+  extern jint JNI_OnLoad (JavaVM *, void *) __attribute__((weak));
 }
+
 
 #ifndef DISABLE_GETENV_PROPERTIES
 
@@ -825,15 +842,164 @@ process_gcj_properties ()
 }
 #endif // DISABLE_GETENV_PROPERTIES
 
-void
-JvRunMain (jclass klass, int argc, const char **argv)
+jint
+_Jv_CreateJavaVM (void* /*vm_args*/)
 {
   PROCESS_GCJ_PROPERTIES;
 
+  // Turn stack trace generation off while creating exception objects.
+  _Jv_InitClass (&java::lang::Throwable::class$);
+  java::lang::Throwable::trace_enabled = 0;
+  
+  INIT_SEGV;
+#ifdef HANDLE_FPE
+  INIT_FPE;
+#else
+  arithexception = new java::lang::ArithmeticException
+    (JvNewStringLatin1 ("/ by zero"));
+#endif
+
+  no_memory = new java::lang::OutOfMemoryError;
+
+  java::lang::Throwable::trace_enabled = 1;
+
+#ifdef USE_LTDL
+  LTDL_SET_PRELOADED_SYMBOLS ();
+#endif
+
+#ifdef USE_WINSOCK
+  // Initialise winsock for networking
+  WSADATA data;
+  if (WSAStartup (MAKEWORD (1, 1), &data))
+      MessageBox (NULL, "Error initialising winsock library.", "Error", MB_OK | MB_ICONEXCLAMATION);
+#endif /* USE_WINSOCK */
+
+#ifdef USE_WIN32_SIGNALLING
+  // Install exception handler
+  SetUnhandledExceptionFilter (win32_exception_handler);
+#elif defined(HAVE_SIGACTION)
+  // We only want this on POSIX systems.
+  struct sigaction act;
+  act.sa_handler = SIG_IGN;
+  sigemptyset (&act.sa_mask);
+  act.sa_flags = 0;
+  sigaction (SIGPIPE, &act, NULL);
+#else
+  signal (SIGPIPE, SIG_IGN);
+#endif
+
+  _Jv_JNI_Init ();
+
+  /* Some systems let you preload shared libraries before running a
+     program.  Under Linux, this is done by setting the LD_PRELOAD
+     environment variable.  We take advatage of this here to allow for
+     dynamically loading a JNI library into a fully linked executable.  */
+
+  if (JNI_OnLoad != NULL)
+    {
+      JavaVM *vm = _Jv_GetJavaVM ();
+      if (vm == NULL)
+	{
+	  // FIXME: what?
+	  return -1;
+	}
+      jint vers = JNI_OnLoad (vm, NULL);
+      if (vers != JNI_VERSION_1_1 && vers != JNI_VERSION_1_2)
+	{
+	  // FIXME: unload the library.
+	  _Jv_Throw (new java::lang::UnsatisfiedLinkError (JvNewStringLatin1 ("unrecognized version from preloaded JNI_OnLoad")));
+	}
+    }
+  return 0;
+}
+
+static void
+runFirst (::java::lang::Class *klass, ::java::lang::Object *args)
+{
+  Utf8Const* main_signature = _Jv_makeUtf8Const ("([Ljava.lang.String;)V", 22);
+  Utf8Const* main_name = _Jv_makeUtf8Const ("main", 4);
+
+  _Jv_Method *meth = _Jv_GetMethodLocal (klass, main_name, main_signature);
+
+  // Some checks from Java Spec section 12.1.4.
+  const char *msg = NULL;
+  if (meth == NULL)
+    msg = "no suitable method `main' in class";
+  else if (! java::lang::reflect::Modifier::isStatic(meth->accflags))
+    msg = "`main' must be static";
+  else if (! java::lang::reflect::Modifier::isPublic(meth->accflags))
+    msg =  "`main' must be public";
+  if (msg != NULL)
+    {
+      fprintf (stderr, "%s\n", msg);
+      ::exit(1);
+    }
+
+#ifdef WITH_JVMPI
+  if (_Jv_JVMPI_Notify_THREAD_START)
+    {
+      JVMPI_Event event;
+
+      jstring thread_name = getName ();
+      jstring group_name = NULL, parent_name = NULL;
+      java::lang::ThreadGroup *group = getThreadGroup ();
+
+      if (group)
+	{
+	  group_name = group->getName ();
+	  group = group->getParent ();
+
+	  if (group)
+	    parent_name = group->getName ();
+	}
+
+      int thread_len = thread_name ? JvGetStringUTFLength (thread_name) : 0;
+      int group_len = group_name ? JvGetStringUTFLength (group_name) : 0;
+      int parent_len = parent_name ? JvGetStringUTFLength (parent_name) : 0;
+
+      char thread_chars[thread_len + 1];
+      char group_chars[group_len + 1];
+      char parent_chars[parent_len + 1];
+
+      if (thread_name)
+	JvGetStringUTFRegion (thread_name, 0, 
+			      thread_name->length(), thread_chars);
+      if (group_name)
+	JvGetStringUTFRegion (group_name, 0, 
+			      group_name->length(), group_chars);
+      if (parent_name)
+	JvGetStringUTFRegion (parent_name, 0, 
+			      parent_name->length(), parent_chars);
+
+      thread_chars[thread_len] = '\0';
+      group_chars[group_len] = '\0';
+      parent_chars[parent_len] = '\0';
+
+      event.event_type = JVMPI_EVENT_THREAD_START;
+      event.env_id = NULL;
+      event.u.thread_start.thread_name = thread_chars;
+      event.u.thread_start.group_name = group_chars;
+      event.u.thread_start.parent_name = parent_chars;
+      event.u.thread_start.thread_id = (jobjectID) this;
+      event.u.thread_start.thread_env_id = _Jv_GetCurrentJNIEnv ();
+
+      _Jv_DisableGC ();
+      (*_Jv_JVMPI_Notify_THREAD_START) (&event);
+      _Jv_EnableGC ();
+    }
+#endif
+
+  main_func *real_main = (main_func *) meth->ncode;
+  (*real_main) (args);
+}
+
+void
+JvRunMain (jclass klass, int argc, const char **argv)
+{
   _Jv_argv = argv;
   _Jv_argc = argc;
 
-  main_init ();
+  _Jv_CreateJavaVM (NULL);
 #ifdef HAVE_PROC_SELF_EXE
   char exec_name[20];
   sprintf (exec_name, "/proc/%d/exe", getpid ());
@@ -842,24 +1008,26 @@ JvRunMain (jclass klass, int argc, const char **argv)
   _Jv_ThisExecutable (argv[0]);
 #endif
 
-  arg_vec = JvConvertArgv (argc - 1, argv + 1);
-  main_thread = new gnu::gcj::runtime::FirstThread (klass, arg_vec);
+  // Get the Runtime here.  We want to initialize it before searching
+  // for `main'; that way it will be set up if `main' is a JNI method.
+  java::lang::Runtime *rtime = java::lang::Runtime::getRuntime ();
 
-  main_thread->start();
+  main_thread = _Jv_AttachCurrentThread (JvNewStringLatin1 ("main"), NULL);
+  arg_vec = JvConvertArgv (argc - 1, argv + 1);
+  runFirst (klass, arg_vec);
   _Jv_ThreadWait ();
 
   int status = (int) java::lang::ThreadGroup::had_uncaught_exception;
     
-  java::lang::Runtime::getRuntime ()->exit (status);
+  rtime->_exit (status);
 }
 
 void
 _Jv_RunMain (const char *name, int argc, const char **argv, bool is_jar)
 {
   jstring class_name;
-  PROCESS_GCJ_PROPERTIES;
 
-  main_init ();
+  _Jv_CreateJavaVM (NULL);
 
 #ifdef HAVE_PROC_SELF_EXE
   char exec_name[20];
@@ -867,23 +1035,21 @@ _Jv_RunMain (const char *name, int argc, const char **argv, bool is_jar)
   _Jv_ThisExecutable (exec_name);
 #endif
 
+  // Get the Runtime here.  We want to initialize it before searching
+  // for `main'; that way it will be set up if `main' is a JNI method.
+  java::lang::Runtime *rtime = java::lang::Runtime::getRuntime ();
+
+  main_thread = _Jv_AttachCurrentThread (JvNewStringLatin1 ("main"), NULL);
+
   if (is_jar)
     {
       // name specifies a jar file.  We must now extract the
-      // Main-Class attribute from the jar's manifest file.  This is
-      // done by gnu.gcj.runtime.FirstThread.main.
+      // Main-Class attribute from the jar's manifest file.
+      // This is done by gnu.gcj.runtime.FirstThread.getMain.
       _Jv_Jar_Class_Path = strdup (name);
-      arg_vec = JvConvertArgv (1, &_Jv_Jar_Class_Path);
-
-      main_thread = 
-	new gnu::gcj::runtime::FirstThread (&gnu::gcj::runtime::FirstThread::class$,
-					    arg_vec);
-      main_thread->start();
-      _Jv_ThreadWait ();
-      
-      // FirstThread.main extracts the main class name and stores it
-      // here.
-      class_name = gnu::gcj::runtime::FirstThread::jarMainClassName;
+      jstring jar_name = JvNewStringLatin1 (name);
+      // FirstThread.getMain extracts the main class name.
+      class_name = gnu::gcj::runtime::FirstThread::getMain (jar_name);
 
       // We need a new ClassLoader because the classpath must be the
       // jar file only.  The easiest way to do this is to lose our
@@ -897,14 +1063,13 @@ _Jv_RunMain (const char *name, int argc, const char **argv, bool is_jar)
 
   if (class_name)
     {
-      main_thread = new gnu::gcj::runtime::FirstThread (class_name, arg_vec);
-      main_thread->start();
+      runFirst(java::lang::Class::forName (class_name), arg_vec);
       _Jv_ThreadWait ();
     }
 
   int status = (int) java::lang::ThreadGroup::had_uncaught_exception;
 
-  java::lang::Runtime::getRuntime ()->exit (status);
+  rtime->exit (status);
 }
 
 
@@ -949,7 +1114,7 @@ _Jv_Malloc (jsize size)
     size = 1;
   void *ptr = malloc ((size_t) size);
   if (__builtin_expect (ptr == NULL, false))
-    JvThrow (no_memory);
+    throw no_memory;
   return ptr;
 }
 
@@ -960,7 +1125,7 @@ _Jv_Realloc (void *ptr, jsize size)
     size = 1;
   ptr = realloc (ptr, (size_t) size);
   if (__builtin_expect (ptr == NULL, false))
-    JvThrow (no_memory);
+    throw no_memory;
   return ptr;
 }
 

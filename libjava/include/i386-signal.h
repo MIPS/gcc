@@ -1,6 +1,6 @@
 // i386-signal.h - Catch runtime signals and turn them into exceptions.
 
-/* Copyright (C) 1998, 1999  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -17,6 +17,7 @@ details.  */
 #define JAVA_SIGNAL_H 1
 
 #include <signal.h>
+#include <sys/syscall.h>
 
 #define HANDLE_SEGV 1
 #define HANDLE_FPE 1
@@ -30,16 +31,11 @@ do									\
   void **_p = (void **)&_dummy;						\
   struct sigcontext_struct *_regs = (struct sigcontext_struct *)++_p;	\
 									\
-  register unsigned long _ebp = _regs->ebp;				\
-  register unsigned char *_eip = (unsigned char *)_regs->eip;		\
-									\
   /* Advance the program counter so that it is after the start of the	\
      instruction:  the x86 exception handler expects			\
      the PC to point to the instruction after a call. */		\
-  _eip += 2;								\
+  _regs->eip += 2;							\
 									\
-  asm volatile ("mov %0, (%%ebp); mov %1, 4(%%ebp)"			\
-		: : "r"(_ebp), "r"(_eip));				\
 }									\
 while (0)
 
@@ -62,7 +58,7 @@ do									\
    * As the instructions are variable length it is necessary to do a	\
    * little calculation to figure out where the following instruction	\
    * actually is.							\
-  									\
+									\
    */									\
 									\
   if (_eip[0] == 0xf7)							\
@@ -92,30 +88,15 @@ do									\
 	  _regs->eip = (unsigned long)_eip;				\
 	  return;							\
 	}								\
-      else if (((_modrm >> 3) & 7) == 6) /* Unsigned divide */		\
-	{								\
-	  /* We assume that unsigned divisions are in library code, so	\
-	   * we throw one level down the stack, which was hopefully	\
-	   * the place that called the library routine.  This will	\
-	   * break if the library is ever compiled with			\
-	   * -fomit-frame-pointer, but at least this way we've got a	\
-	   * good chance of finding the exception handler. */		\
-									\
-	  _eip = (unsigned char *)_ebp[1];				\
-	  _ebp = (unsigned long *)_ebp[0];				\
-	}								\
       else								\
 	{								\
 	  /* Advance the program counter so that it is after the start	\
 	     of the instruction: this is because the x86 exception	\
 	     handler expects the PC to point to the instruction after a	\
 	     call. */							\
-	  _eip += 2;							\
+	  _regs->eip += 2;						\
 	}								\
     }									\
-									\
-  asm volatile ("mov %0, (%%ebp); mov %1, 4(%%ebp)"			\
-		: : "r"(_ebp), "r"(_eip));				\
 }									\
 while (0)
 
@@ -127,7 +108,7 @@ do								\
     act.sa_handler = catch_segv;				\
     sigemptyset (&act.sa_mask);					\
     act.sa_flags = 0;						\
-    __sigaction (SIGSEGV, &act, NULL);				\
+    syscall (SYS_sigaction, SIGSEGV, &act, NULL);		\
   }								\
 while (0)  
 
@@ -140,9 +121,22 @@ do								\
     act.sa_handler = catch_fpe;					\
     sigemptyset (&act.sa_mask);					\
     act.sa_flags = 0;						\
-    __sigaction (SIGFPE, &act, NULL);				\
+    syscall (SYS_sigaction, SIGFPE, &act, NULL);		\
   }								\
 while (0)  
+
+/* You might wonder why we use syscall(SYS_sigaction) in INIT_FPE
+ * instead of the standard sigaction().  This is necessary because of
+ * the shenanigans above where we increment the PC saved in the
+ * context and then return.  This trick will only work when we are
+ * called _directly_ by the kernel, because linuxthreads wraps signal
+ * handlers and its wrappers do not copy the sigcontext struct back
+ * when returning from a signal handler.  If we return from our divide
+ * handler to a linuxthreads wrapper, we will lose the PC adjustment
+ * we made and return to the faulting instruction again.  Using
+ * syscall(SYS_sigaction) causes our handler to be called directly by
+ * the kernel, bypassing any wrappers.  This is a kludge, and a future
+ * version of this handler will do something better.  */
 
 #endif /* JAVA_SIGNAL_H */
   

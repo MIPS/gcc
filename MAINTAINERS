@@ -1,6 +1,5 @@
 			Blanket Write Privs.
 
-Craig Burley					craig@jcb-sc.com
 John Carr					jfc@mit.edu
 Richard Earnshaw				rearnsha@arm.com
 Richard Henderson                               rth@redhat.com
@@ -17,6 +16,7 @@ Jim Wilson					wilson@redhat.com
 
 			Various Maintainers
 
+Fortran Front End	Craig Burley		craig@jcb-sc.com
 sh port			Joern Rennecke		amylaar@redhat.com
 			Alexandre Oliva		aoliva@redhat.com
 v850 port		Nick Clifton		nickc@redhat.com
@@ -27,7 +27,6 @@ m32r port		Nick Clifton		nickc@redhat.com
 			Michael Meissner	meissner@redhat.com
 h8 port			Jeff Law		law@redhat.com
 mcore			Nick Clifton		nickc@redhat.com
-			Jim Dein		jdein@windriver.com
 mn10200 port		Jeff Law		law@redhat.com
 mn10300 port		Jeff Law		law@redhat.com
 			Alexandre Oliva		aoliva@redhat.com
@@ -37,7 +36,6 @@ m68k port (?)		Jeff Law		law@redhat.com
 m68k-motorola-sysv port	Philippe De Muyter	phdm@macqel.be
 rs6000 port		Geoff Keating		geoffk@redhat.com
 rs6000 port		David Edelsohn		dje@watson.ibm.com
-mips port		Gavin Romig-Koch	gavin@redhat.com
 ia64 port		Jim Wilson		wilson@redhat.com
 i860 port		Jason Eckhardt		jle@redhat.com
 i960 port		Jim Wilson		wilson@redhat.com
@@ -60,10 +58,11 @@ chill			Per Bothner		per@bothner.com
 java			Per Bothner		per@bothner.com
 java			Alexandre Petit-Bianco	apbianco@redhat.com
 mercury			Fergus Henderson	fjh@cs.mu.oz.au
+objective-c		Stan Shebs		shebs@apple.com
 objective-c		Ovidiu Predescu		ovidiu@cup.hp.com
 cpplib			Dave Brolley		brolley@redhat.com
 cpplib			Per Bothner		per@bothner.com
-cpplib			Zack Weinberg		zack@wolery.cumb.org
+cpplib			Zack Weinberg		zackw@stanford.edu
 cpplib			Neil Booth		neil@daikokuya.demon.co.uk
 alias analysis		John Carr		jfc@mit.edu
 loop unrolling		Jim Wilson		wilson@redhat.com
@@ -75,18 +74,21 @@ reorg			Jeff Law		law@redhat.com
 caller-save.c		Jeff Law		law@redhat.com
 debugging code		Jim Wilson		wilson@redhat.com
 dwarf debugging code	Jason Merrill		jason@redhat.com
-c++ runtime libs	Ulrich Drepper		drepper@redhat.com
 c++ runtime libs        Gabriel Dos Reis        dosreis@cmla.ens-cachan.fr
+c++ runtime libs	Ulrich Drepper		drepper@redhat.com
+c++ runtime libs	Phil Edwards		pedwards@jaj.com
+c++ runtime libs	Benjamin Kosnik		bkoz@redhat.com
 *synthetic multiply	Torbjorn Granlund	tege@swox.com
 *c-torture		Torbjorn Granlund	tege@swox.com
-*f-torture		Kate Hedstrom		kate@ahab.rutgers.edu
+darwin			Stan Shebs		shebs@apple.com
 sco5, unixware, sco udk	Robert Lipe		robertlipe@usa.net
 fixincludes		Bruce Korb		bkorb@gnu.org
 gcse.c 			Jeff Law		law@redhat.com
 global opt framework	Jeff Law		law@redhat.com
 jump.c			David S. Miller		davem@redhat.com
 web pages		Gerald Pfeifer		pfeifer@dbai.tuwien.ac.at
-C front end/ISO C99	Gavin Romig-Koch	gavin@redhat.com
+C front end/ISO C99	Joseph Myers		jsm28@cam.ac.uk
+C front end/ISO C99	Richard Henderson	rth@redhat.com
 config.sub/config.guess	Ben Elliston		bje@redhat.com
 avr port		Denis Chertykov		denisc@overta.ru
 			Marek Michalkiewicz	marekm@linux.org.pl
@@ -99,6 +101,10 @@ DJGPP			DJ Delorie		dj@delorie.com
 libiberty		DJ Delorie		dj@redhat.com
 build machinery (*.in)	DJ Delorie		dj@redhat.com
 build machinery (*.in)	Alexandre Oliva		aoliva@redhat.com
+docs co-maintainer	Gerald Pfeifer		pfeifer@dbai.tuwien.ac.at
+Pico-Java port		Steve Chamberlain	sac@transmeta.com
+RTEMS Ports		Joel Sherrill	
+s390 port		Hartmut Penner		hpenner@de.ibm.com
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
@@ -106,12 +112,12 @@ in changes outside of the parts of the compiler they maintain.
 
 			Write After Approval
 Scott Bambrough					scottb@netwinder.org
+Laurynas Biveinis				lauras@softhome.net
 Phil Blundell					pb@futuretv.com
 Hans Boehm					hboehm@gcc.gnu.org
 Andrew cagney					cagney@redhat.com
 Eric Christopher				echristo@redhat.com
 William Cohen					wcohen@redhat.com
-Phil Edwards                                    pedwards@jaj.com
 *Paul Eggert					eggert@twinsun.com
 Ben Elliston					bje@redhat.com
 Marc Espie					espie@cvs.openbsd.org
@@ -120,6 +126,7 @@ Anthony Green					green@redhat.com
 Stu Grossman					grossman@redhat.com
 Andrew Haley					aph@redhat.com
 Aldy Hernandez					aldyh@redhat.com
+Matthew Hiller					hiller@redhat.com
 Kazu Hirata					kazu@hxi.com
 Manfred Hollstein				mhollstein@redhat.com
 Jan Hubicka					hubicka@freesoft.cz
@@ -128,7 +135,8 @@ Jakub Jelinek					jakub@redhat.com
 Klaus Kaempf					kkaempf@progis.de
 Brendan Kehoe					brendan@redhat.com
 Mumit Khan					khan@xraylith.wisc.edu
-Benjamin Kosnik					bkoz@redhat.com
+Jeff Knaggs					jknaggs@redhat.com
+Matt Kraai					kraai@alumni.carnegiemellon.edu
 Marc Lehmann					pcg@goof.com
 Alan Lehotsky					apl@alum.mit.edu
 Warren Levy					warrenl@redhat.com
@@ -142,21 +150,24 @@ Vladimir Makarov				vmakarov@redhat.com
 Michael Matz					matzmich@cs.tu-berlin.de
 Greg McGary					gkm@gnu.org
 Bryce McKinlay					bryce@gcc.gnu.org
+Alan Modra					amodra@bigpond.net.au
 Toon Moene					toon@moene.indiv.nluug.nl
 Catherine Moore					clm@redhat.com
-Joseph Myers					jsm28@cam.ac.uk
 Hans-Peter Nilsson				hp@bitrange.com
 Diego Novillo					dnovillo@redhat.com
 David O'Brien					obrien@FreeBSD.org
 Jeffrey D. Oldham				oldham@codesourcery.com
+Rainer Orth					ro@TechFak.Uni-Bielefeld.DE
 Alexandre Petit-Bianco				apbianco@redhat.com
 Clinton Popetz					cpopetz@cpopetz.com
 Ken Raeburn					raeburn@redhat.com
 Rolf Rasmussen					rolfwr@gcc.gnu.org
 Gabriel Dos Reis                                dosreis@cmla.ens-cachan.fr
+Loren J. Rittle					ljrittle@acm.org
+Gavin Romig-Koch				gavin@redhat.com
 Alex Samuel					samuel@codesourcery.com
 Bernd Schmidt					bernds@redhat.com
-Andreas Schwab					schwab@issan.informatik.uni-dortmund.de
+Andreas Schwab					schwab@suse.de
 Stan Shebs					shebs@apple.com
 Nathan Sidwell					nathan@acm.org
 Franz Sirl					franz.sirl-kernel@lauterbach.com
@@ -165,9 +176,28 @@ Mike Stump					mrs@windriver.com
 Ian Taylor					ian@zembu.com
 Philipp Thomas					pthomas@suse.de
 Kresten Krab Thorup				krab@gcc.gnu.org
+Nicola Pero					n.pero@mi.flashnet.it
 Tom Tromey					tromey@redhat.com
 John Wehle					john@feith.com
 Mark Wielaard					mark@gcc.gnu.org
-* Indicates folks we need to get Kerberos/ssh accounts ready so they
-can write in the source tree
+Graham Stott					grahams@redhat.com
+Daniel Berlin					dan@cgsoftware.com
+Jim Blandy					jimb@redhat.com
+Chandra Chavva					cchavva@redhat.com
+Chris Demetriou					cgd@sibyte.com
+Doug Evans					devans@transmeta.com
+Michael Matz
+Tom Rix						trix@redhat.com
+Richard Stallman				rms@gnu.org
+Graham Stott					grahams@redhat.com
+Michael Tiemann					tiemann@redhat.com
+
+GNATS only accounts
+Peter Bienstman(?)
+Craig Rodrigues(?)
+Benjamin Chelf(?)
+James Dennett(?)
+Mark Galassi(?)
+Jeff Strum(?)
+
 

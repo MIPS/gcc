@@ -1,6 +1,6 @@
 // natConstructor.cc - Native code for Constructor class.
 
-/* Copyright (C) 1999, 2000  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -34,6 +34,10 @@ java::lang::reflect::Constructor::getType ()
 			     declaringClass,
 			     &parameter_types,
 			     NULL);
+
+  // FIXME: for now we have no way to get exception information.
+  exception_types = 
+    (JArray<jclass> *) JvNewObjectArray (0, &java::lang::Class::class$, NULL);
 }
 
 jobject
@@ -44,7 +48,7 @@ java::lang::reflect::Constructor::newInstance (jobjectArray args)
 
   using namespace java::lang::reflect;
   if (Modifier::isAbstract (declaringClass->getModifiers()))
-    JvThrow (new InstantiationException);
+    throw new InstantiationException;
 
   jmethodID meth = _Jv_FromReflectedConstructor (this);
   // In the constructor case the return type is the type of the

@@ -17,8 +17,6 @@
 #   . ${srcdir}/../config-ml.in
 # fi
 #
-# See librx/configure.in in the libg++ distribution for an example of how
-# to handle autoconf'd libraries.
 #
 # Things are complicated because 6 separate cases must be handled:
 # 2 (native, cross) x 3 (absolute-path, relative-not-dot, dot) = 6.
@@ -30,13 +28,10 @@
 # The build tree is layed out as
 #
 # ./
-#   libg++
 #   newlib
 #   m68020/
-#          libg++
 #          newlib
 #          m68881/
-#                 libg++
 #                 newlib
 #
 # The nice feature about this arrangement is that inter-library references
@@ -156,7 +151,7 @@ done
 if [ "${enable_multilib}" = yes ]; then
 
 # Compute whether this is the library's top level directory
-# (ie: not a multilib subdirectory, and not a subdirectory like libg++/src).
+# (ie: not a multilib subdirectory, and not a subdirectory like newlib/src).
 # ${with_multisubdir} tells us we're in the right branch, but we could be
 # in a subdir of that.
 # ??? The previous version could void this test by separating the process into
@@ -397,6 +392,28 @@ mips*-*-*)
 	esac
 	;;
 powerpc*-*-* | rs6000*-*-*)
+	if [ x$enable_aix64 = xno ]
+	then
+	  old_multidirs="${multidirs}"
+	  multidirs=""
+	  for x in ${old_multidirs}; do
+	    case "$x" in
+	      *ppc64* ) : ;;
+	      *) multidirs="${multidirs} ${x}" ;;
+	    esac
+	  done
+	fi
+	if [ x$enable_pthread = xno ]
+	then
+	  old_multidirs="${multidirs}"
+	  multidirs=""
+	  for x in ${old_multidirs}; do
+	    case "$x" in
+	      *pthread* ) : ;;
+	      *) multidirs="${multidirs} ${x}" ;;
+	    esac
+	  done
+	fi
 	if [ x$enable_softfloat = xno ]
 	then
 	  old_multidirs="${multidirs}"
@@ -531,6 +548,7 @@ multi-do:
 				CFLAGS="$(CFLAGS) $${flags}" \
 				prefix="$(prefix)" \
 				exec_prefix="$(exec_prefix)" \
+				GCJFLAGS="$(GCJFLAGS) $${flags}" \
 				CXXFLAGS="$(CXXFLAGS) $${flags}" \
 				LIBCFLAGS="$(LIBCFLAGS) $${flags}" \
 				LIBCXXFLAGS="$(LIBCXXFLAGS) $${flags}" \
@@ -753,11 +771,12 @@ if [ -n "${multidirs}" ] && [ -z "${ml_norecursion}" ]; then
         break
       fi
     done
-    ml_config_env='CC="${CC_}$flags" CXX="${CXX_}$flags"'
+    ml_config_env='CC="${CC_}$flags" CXX="${CXX_}$flags" GCJ="${GCJ_}$flags"'
 
     if [ "${with_target_subdir}" = "." ]; then
 	CC_=$CC' '
 	CXX_=$CXX' '
+	GCJ_=$GCJ' '
     else
 	# Create a regular expression that matches any string as long
 	# as ML_POPDIR.
@@ -783,6 +802,18 @@ if [ -n "${multidirs}" ] && [ -z "${ml_norecursion}" ]; then
 	    CXX_="${CXX_}"`echo "X${arg}" | sed -n "s/X\\(${popdir_rx}\\).*/\\1/p"`/${ml_dir}`echo "X${arg}" | sed -n "s/X${popdir_rx}\\(.*\\)/\\1/p"`' ' ;;
 	  *)
 	    CXX_="${CXX_}${arg} " ;;
+	  esac
+	done
+
+	GCJ_=
+	for arg in ${GCJ}; do
+	  case $arg in
+	  -[BIL]"${ML_POPDIR}"/*)
+	    GCJ_="${GCJ_}"`echo "X${arg}" | sed -n "s/X\\(-[BIL]${popdir_rx}\\).*/\\1/p"`/${ml_dir}`echo "X${arg}" | sed -n "s/X-[BIL]${popdir_rx}\\(.*\\)/\\1/p"`' ' ;;
+	  "${ML_POPDIR}"/*)
+	    GCJ_="${GCJ_}"`echo "X${arg}" | sed -n "s/X\\(${popdir_rx}\\).*/\\1/p"`/${ml_dir}`echo "X${arg}" | sed -n "s/X${popdir_rx}\\(.*\\)/\\1/p"`' ' ;;
+	  *)
+	    GCJ_="${GCJ_}${arg} " ;;
 	  esac
 	done
 

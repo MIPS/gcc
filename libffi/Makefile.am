@@ -7,10 +7,11 @@ SUBDIRS = include
 EXTRA_DIST = LICENSE ChangeLog.v1 src/mips/ffi.c src/mips/n32.S \
 		src/mips/n32.s src/mips/o32.S src/mips/o32.s \
 		src/sparc/ffi.c src/sparc/v8.S src/sparc/v9.S \
-		src/x86/ffi.c src/x86/sysv.S \
+		src/x86/ffi.c src/x86/sysv.S src/x86/win32.S \
 		src/alpha/ffi.c src/alpha/osf.S \
 		src/m68k/ffi.c src/m68k/sysv.S \
-		src/powerpc/ffi.c src/powerpc/sysv.S src/powerpc/asm.h \
+		src/powerpc/ffi.c src/powerpc/sysv.S \
+                src/powerpc/ppc_closure.S src/powerpc/asm.h \
 		src/arm/ffi.c src/arm/sysv.S
 
 VPATH = @srcdir@:@srcdir@/src:@srcdir@/src/@TARGETDIR@
@@ -79,20 +80,23 @@ toolexeclibdir = $(toolexecdir)/lib$(MULTISUBDIR)
 endif
 
 toolexeclib_LTLIBRARIES = libffi.la
+noinst_LTLIBRARIES = libfficonvenience.la
 
 noinst_PROGRAMS = ffitest
 
 ffitest_SOURCES = src/ffitest.c
 ffitest_LDADD = libffi.la
+ffitest_LDFLAGS = -shared-libgcc
 
 TARGET_SRC_MIPS_GCC = src/mips/ffi.c src/mips/o32.S src/mips/n32.S
 TARGET_SRC_MIPS_SGI = src/mips/ffi.c src/mips/o32.s src/mips/n32.s
 TARGET_SRC_X86 = src/x86/ffi.c src/x86/sysv.S
+TARGET_SRC_X86_WIN32 = src/x86/ffi.c src/x86/win32.S
 TARGET_SRC_SPARC = src/sparc/ffi.c src/sparc/v8.S src/sparc/v9.S
 TARGET_SRC_ALPHA = src/alpha/ffi.c src/alpha/osf.S
 TARGET_SRC_IA64 = src/ia64/ffi.c src/ia64/unix.S
 TARGET_SRC_M68K = src/m68k/ffi.c src/m68k/sysv.S
-TARGET_SRC_POWERPC = src/powerpc/ffi.c src/powerpc/sysv.S
+TARGET_SRC_POWERPC = src/powerpc/ffi.c src/powerpc/sysv.S src/powerpc/ppc_closure.S
 TARGET_SRC_ARM =  src/arm/sysv.S src/arm/ffi.c
 
 ##libffi_la_SOURCES = src/debug.c src/prep_cif.c src/types.c $(TARGET_SRC_@TARGET@)
@@ -101,30 +105,43 @@ libffi_la_common_SOURCES = src/debug.c src/prep_cif.c src/types.c \
 		src/raw_api.c src/java_raw_api.c
 if MIPS_GCC
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_GCC)
+libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_GCC)
 endif
 if MIPS_SGI
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_SGI)
+libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_SGI)
 endif
 if X86
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_X86)
+libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_X86)
+endif
+if X86_WIN32
+libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_X86_WIN32)
+libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_X86_WIN32)
 endif
 if SPARC
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_SPARC)
+libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_SPARC)
 endif
 if ALPHA
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_ALPHA)
+libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_ALPHA)
 endif
 if IA64
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_IA64)
+libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_IA64)
 endif
 if M68K
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_M68K)
+libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_M68K)
 endif
 if POWERPC
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_POWERPC)
+libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_POWERPC)
 endif
 if ARM
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_ARM)
+libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_ARM)
 endif
 
 AM_CFLAGS = -fexceptions
@@ -132,6 +149,26 @@ AM_CFLAGS = -fexceptions
 libffi_la_LDFLAGS = -release $(VERSION) 
 
 INCLUDES = -I$(top_srcdir)/include -Iinclude -I$(top_srcdir)/src
+
+# Override these rules so that object files get put in the correct 
+# subdirectories. 
+.c.o:
+	$(LTCOMPILE) -c -o $@ $<
+
+.s.o:
+	$(LTCOMPILE) -c -o $@ $<
+
+.S.o:
+	$(LTCOMPILE) -c -o $@ $<
+
+.c.lo:
+	$(LTCOMPILE) -c -o $@ $<
+
+.s.lo:
+	$(LTCOMPILE) -c -o $@ $<
+
+.S.lo:
+	$(LTCOMPILE) -c -o $@ $<
 
 # Multilib support.
 .PHONY: all-multi mostlyclean-multi clean-multi distclean-multi \

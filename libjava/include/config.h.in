@@ -131,12 +131,12 @@
 /* Define if java.net native functions should be stubbed out.  */
 #undef DISABLE_JAVA_NET
 
+/* Define if we're to use libffi.  */
+#undef USE_LIBFFI
+
 /* Define if system properties shouldn't be read from
    getenv("GCJ_PROPERTIES").  */
 #undef DISABLE_GETENV_PROPERTIES
-
-/* Define if using setjmp/longjmp exceptions.  */
-#undef SJLJ_EXCEPTIONS
 
 /* Define if you have /proc/self/exe */
 #undef HAVE_PROC_SELF_EXE
@@ -166,6 +166,9 @@
 
 /* Define if you have the backtrace function.  */
 #undef HAVE_BACKTRACE
+
+/* Define if you have the chmod function.  */
+#undef HAVE_CHMOD
 
 /* Define if you have the execvp function.  */
 #undef HAVE_EXECVP
@@ -269,6 +272,9 @@
 /* Define if you have the setlocale function.  */
 #undef HAVE_SETLOCALE
 
+/* Define if you have the sigaction function.  */
+#undef HAVE_SIGACTION
+
 /* Define if you have the sleep function.  */
 #undef HAVE_SLEEP
 
@@ -286,6 +292,9 @@
 
 /* Define if you have the unlink function.  */
 #undef HAVE_UNLINK
+
+/* Define if you have the utime function.  */
+#undef HAVE_UTIME
 
 /* Define if you have the <arpa/inet.h> header file.  */
 #undef HAVE_ARPA_INET_H
@@ -358,6 +367,9 @@
 
 /* Version number of package */
 #undef VERSION
+
+/* Define if the compiler is configured for setjmp/longjmp exceptions. */
+#undef SJLJ_EXCEPTIONS
 
 /* Required define if using POSIX threads */
 #undef _REENTRANT

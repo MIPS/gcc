@@ -46,17 +46,20 @@ Boston, MA 02111-1307, USA.  */
 /* Various hacks for objc_layout_record. These are used by the target
    macros. */
 
-#define TREE_CODE(TYPE) *TYPE
-#define TREE_TYPE(TREE) TREE
+#define TREE_CODE(TYPE) *(TYPE)
+#define TREE_TYPE(TREE) (TREE)
 
 #define RECORD_TYPE     _C_STRUCT_B
 #define UNION_TYPE      _C_UNION_B
 #define QUAL_UNION_TYPE _C_UNION_B
 #define ARRAY_TYPE      _C_ARY_B
 
+#define REAL_TYPE       _C_DBL
+
 #define TYPE_FIELDS(TYPE)     objc_skip_typespec (TYPE)
 
-#define DECL_MODE(TYPE)         *(TYPE)
+#define DECL_MODE(TYPE) *(TYPE)
+#define TYPE_MODE(TYPE) *(TYPE)
 
 #define DFmode          _C_DBL
 

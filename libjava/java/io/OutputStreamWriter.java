@@ -1,4 +1,4 @@
-/* Copyright (C) 1998, 1999, 2000  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -69,6 +69,9 @@ public class OutputStreamWriter extends Writer
   {
     synchronized (lock)
       {
+	if (out == null)
+	  throw new IOException("Stream closed");
+
 	if (wcount > 0)
 	  {
 	    writeChars(work, 0, wcount);
@@ -83,6 +86,9 @@ public class OutputStreamWriter extends Writer
   {
     synchronized (lock)
       {
+	if (out == null)
+	  throw new IOException("Stream closed");
+
 	if (wcount > 0)
 	  {
 	    writeChars(work, 0, wcount);
@@ -121,6 +127,9 @@ public class OutputStreamWriter extends Writer
   {
     synchronized (lock)
       {
+	if (out == null)
+	  throw new IOException("Stream closed");
+
 	if (work == null)
 	  work = new char[100];
 	int wlength = work.length;
@@ -149,6 +158,9 @@ public class OutputStreamWriter extends Writer
   {
     synchronized (lock)
       {
+	if (out == null)
+	  throw new IOException("Stream closed");
+
 	if (work == null)
 	  work = new char[100];
 	if (wcount >= work.length)

@@ -1,3 +1,76 @@
+2001-07-03  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* texi2pod.pl: Handle @r inside @item.
+
+2001-07-02  Zack Weinberg  <zackw@stanford.edu>
+
+	* gcc_update: Remove entries for gcc.1, cpp.1, gcov.1.
+
+2001-07-01  Zoltan Felleg <zfelleg@telnet.hu>
+
+	* warn_summary: Fix typo in a comment.
+
+2001-06-14  Albert Chin-A-Young  <china@thewrittenword.com>
+
+        * contrib/gcc_update: Fix timestamp on gcc/f/intdoc.texi.
+
+2001-06-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* gennews: Set TERM to vt100 for Lynx.
+
+2001-06-13  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* release: Remove.
+
+Tue Jun 12 12:21:40 CEST 2001  Jan Hubicka  <jh@suse.cz>
+
+	* analyze_brprob: New file.
+
+2001-06-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc_build: Output information about the commands used to 
+	configure the compiler.
+
+2001-06-07  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gennews: Update for GCC 3.0.
+
+2001-06-02  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc_update: Update for move of documentation to gcc/doc.
+
+2001-05-28  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* contrib/test_summary (files): Sort before evaluating.
+
+2001-05-23  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* gcc_update (UPDATE_OPTIONS): Add -d to the default settings.
+
+2001-05-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc_build: Use -d when invoking gcc_update.
+
+2001-05-18  Andreas Jaeger  <aj@suse.de>
+
+	* gcc_update: Add rules for libf2c/libI77.
+
+2001-05-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc_update (touch_files): Use simpler, yet as portable, syntax.
+
+2001-05-14  Loren J. Rittle  <ljrittle@acm.org>
+
+	* gcc_update (touch_files): Enhance make portability.
+
+2001-05-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc_update (touch_files): Use a Makefile to touch files.
+
+2001-05-03  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* texi2pod.pl: Add copyright and GPL notices.
+
 2001-01-24  Joseph S. Myers  <jsm28@cam.ac.uk>
 
 	* texi2pod.pl: Handle "\,".
@@ -153,7 +226,7 @@ Sat Nov 11 17:29:03 2000  Mark P Mitchell  <mark@codesourcery.com>
 2000-09-28  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* gcc_update (touch_files): Add some informative output.
-	
+
 2000-09-16  Andreas Jaeger  <aj@suse.de>
 
 	* gcc_update: Remove gcc/c-parse.gperf.

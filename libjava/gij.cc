@@ -1,4 +1,4 @@
-/* Copyright (C) 1999, 2000  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -33,7 +33,7 @@ help ()
   printf ("  --ms=NUMBER       set initial heap size\n");
   printf ("  --mx=NUMBER       set maximum heap size\n");
   printf ("  --version         print version number, then exit\n");
-  printf ("\nSee http://sources.redhat.com/java/ for information on reporting bugs\n");
+  printf ("\nSee http://gcc.gnu.org/java/ for information on reporting bugs\n");
   exit (0);
 }
 
@@ -41,7 +41,7 @@ static void
 version ()
 {
   printf ("gij (GNU libgcj) version %s\n\n", VERSION);
-  printf ("Copyright (C) 1999, 2000 Free Software Foundation.\n");
+  printf ("Copyright (C) 2001 Free Software Foundation.\n");
   printf ("This is free software; see the source for copying conditions.  There is NO\n");
   printf ("warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
   exit (0);

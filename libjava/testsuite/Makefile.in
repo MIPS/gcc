@@ -73,21 +73,23 @@ CXXCPP = @CXXCPP@
 DIRLTDL = @DIRLTDL@
 DIVIDESPEC = @DIVIDESPEC@
 DLLTOOL = @DLLTOOL@
-EH_COMMON_INCLUDE = @EH_COMMON_INCLUDE@
 EXCEPTIONSPEC = @EXCEPTIONSPEC@
 EXEEXT = @EXEEXT@
-FORCELIBGCCSPEC = @FORCELIBGCCSPEC@
+GCC_UNWIND_INCLUDE = @GCC_UNWIND_INCLUDE@
 GCDEPS = @GCDEPS@
 GCINCS = @GCINCS@
 GCJ = @GCJ@
 GCJFLAGS = @GCJFLAGS@
+GCJVERSION = @GCJVERSION@
 GCLIBS = @GCLIBS@
 GCOBJS = @GCOBJS@
 GCSPEC = @GCSPEC@
 GCTESTSPEC = @GCTESTSPEC@
+HASH_SYNC_SPEC = @HASH_SYNC_SPEC@
 INCLTDL = @INCLTDL@
 JC1GCSPEC = @JC1GCSPEC@
-LIBDATASTARTSPEC = @LIBDATASTARTSPEC@
+LIBFFI = @LIBFFI@
+LIBFFIINCS = @LIBFFIINCS@
 LIBGCJDEBUG = @LIBGCJDEBUG@
 LIBGCJTESTSPEC = @LIBGCJTESTSPEC@
 LIBGCJ_CFLAGS = @LIBGCJ_CFLAGS@
@@ -119,8 +121,9 @@ ZLIBSPEC = @ZLIBSPEC@
 ZLIBTESTSPEC = @ZLIBTESTSPEC@
 here = @here@
 libgcj_basedir = @libgcj_basedir@
+mkinstalldirs = @mkinstalldirs@
 
-AUTOMAKE_OPTIONS = foreign dejagnu no-installinfo
+AUTOMAKE_OPTIONS = foreign dejagnu
 
 # Setup the testing framework, if you have one
 EXPECT = `if [ -f $(top_builddir)/../expect/expect ] ; then \
@@ -134,8 +137,7 @@ RUNTEST = `if [ -f $(top_srcdir)/../dejagnu/runtest ] ; then \
 
 
 RUNTESTFLAGS = @AM_RUNTESTFLAGS@
-mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
-CONFIG_HEADER = ../include/config.h
+CONFIG_HEADER = ../include/config.h ../gcj/libgcj-config.h
 CONFIG_CLEAN_FILES = 
 DIST_COMMON =  ChangeLog Makefile.am Makefile.in
 
@@ -218,8 +220,6 @@ check-am: all-am
 check: check-am
 installcheck-am:
 installcheck: installcheck-am
-install-info-am: 
-install-info: install-info-am
 install-exec-am:
 install-exec: install-exec-am
 
@@ -267,11 +267,11 @@ maintainer-clean-am:  maintainer-clean-generic distclean-am
 maintainer-clean: maintainer-clean-am
 
 .PHONY: tags distdir check-DEJAGNU info-am info dvi-am dvi check \
-check-am installcheck-am installcheck install-info-am install-info \
-install-exec-am install-exec install-data-am install-data install-am \
-install uninstall-am uninstall all-redirect all-am all installdirs \
-mostlyclean-generic distclean-generic clean-generic \
-maintainer-clean-generic clean mostlyclean distclean maintainer-clean
+check-am installcheck-am installcheck install-exec-am install-exec \
+install-data-am install-data install-am install uninstall-am uninstall \
+all-redirect all-am all installdirs mostlyclean-generic \
+distclean-generic clean-generic maintainer-clean-generic clean \
+mostlyclean distclean maintainer-clean
 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

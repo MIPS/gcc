@@ -40,20 +40,13 @@ details.  */
 #include <java/util/Hashtable.h>
 #include <java/lang/Integer.h>
 #include <java/lang/ThreadGroup.h>
-#include <gnu/gcj/jni/NativeThread.h>
+#include <java/lang/Thread.h>
 
 #include <gcj/method.h>
 #include <gcj/field.h>
 
 #include <java-interp.h>
-
-// FIXME: remove these defines.
-#define ClassClass java::lang::Class::class$
-#define ObjectClass java::lang::Object::class$
-#define ThrowableClass java::lang::Throwable::class$
-#define MethodClass java::lang::reflect::Method::class$
-#define ThreadGroupClass java::lang::ThreadGroup::class$
-#define NativeThreadClass gnu::gcj::jni::NativeThread::class$
+#include <java-threads.h>
 
 // This enum is used to select different template instantiations in
 // the invocation code.
@@ -97,8 +90,10 @@ struct _Jv_JNI_LocalFrame
   jobject vec[0];
 };
 
-// This holds a reference count for all local and global references.
-static java::util::Hashtable *ref_table;
+// This holds a reference count for all local references.
+static java::util::Hashtable *local_ref_table;
+// This holds a reference count for all global references.
+static java::util::Hashtable *global_ref_table;
 
 // The only VM.
 static JavaVM *the_vm;
@@ -153,8 +148,9 @@ jvmpiDisableEvent (jint event_type, void *)
 void
 _Jv_JNI_Init (void)
 {
-  ref_table = new java::util::Hashtable;
-  
+  local_ref_table = new java::util::Hashtable;
+  global_ref_table = new java::util::Hashtable;
+
 #ifdef ENABLE_JVMPI
   _Jv_JVMPI_Interface.version = 1;
   _Jv_JVMPI_Interface.EnableEvent = &jvmpiEnableEvent;
@@ -167,7 +163,7 @@ _Jv_JNI_Init (void)
 
 // Tell the GC that a certain pointer is live.
 static void
-mark_for_gc (jobject obj)
+mark_for_gc (jobject obj, java::util::Hashtable *ref_table)
 {
   JvSynchronize sync (ref_table);
 
@@ -180,7 +176,7 @@ mark_for_gc (jobject obj)
 
 // Unmark a pointer.
 static void
-unmark_for_gc (jobject obj)
+unmark_for_gc (jobject obj, java::util::Hashtable *ref_table)
 {
   JvSynchronize sync (ref_table);
 
@@ -188,6 +184,7 @@ unmark_for_gc (jobject obj)
   Integer *refcount = (Integer *) ref_table->get (obj);
   JvAssert (refcount);
   jint val = refcount->intValue () - 1;
+  JvAssert (val >= 0);
   if (val == 0)
     ref_table->remove (obj);
   else
@@ -200,14 +197,14 @@ unmark_for_gc (jobject obj)
 static jobject
 _Jv_JNI_NewGlobalRef (JNIEnv *, jobject obj)
 {
-  mark_for_gc (obj);
+  mark_for_gc (obj, global_ref_table);
   return obj;
 }
 
 static void
 _Jv_JNI_DeleteGlobalRef (JNIEnv *, jobject obj)
 {
-  unmark_for_gc (obj);
+  unmark_for_gc (obj, global_ref_table);
 }
 
 static void
@@ -222,7 +219,7 @@ _Jv_JNI_DeleteLocalRef (JNIEnv *env, jobject obj)
 	  if (frame->vec[i] == obj)
 	    {
 	      frame->vec[i] = NULL;
-	      unmark_for_gc (obj);
+	      unmark_for_gc (obj, local_ref_table);
 	      return;
 	    }
 	}
@@ -281,16 +278,23 @@ _Jv_JNI_NewLocalRef (JNIEnv *env, jobject obj)
   // Try to find an open slot somewhere in the topmost frame.
   _Jv_JNI_LocalFrame *frame = env->locals;
   bool done = false, set = false;
-  while (frame != NULL && ! done)
+  for (; frame != NULL && ! done; frame = frame->next)
     {
       for (int i = 0; i < frame->size; ++i)
-	if (frame->vec[i] == NULL)
-	  {
-	    set = true;
-	    done = true;
-	    frame->vec[i] = obj;
-	    break;
-	  }
+	{
+	  if (frame->vec[i] == NULL)
+	    {
+	      set = true;
+	      done = true;
+	      frame->vec[i] = obj;
+	      break;
+	    }
+	}
+
+      // If we found a slot, or if the frame we just searched is the
+      // mark frame, then we are done.
+      if (done || frame->marker != MARK_NONE)
+	break;
     }
 
   if (! set)
@@ -302,7 +306,7 @@ _Jv_JNI_NewLocalRef (JNIEnv *env, jobject obj)
       env->locals->vec[0] = obj;
     }
 
-  mark_for_gc (obj);
+  mark_for_gc (obj, local_ref_table);
   return obj;
 }
 
@@ -316,7 +320,7 @@ _Jv_JNI_PopLocalFrame (JNIEnv *env, jobject result, int stop)
     {  
       for (int i = 0; i < rf->size; ++i)
 	if (rf->vec[i] != NULL)
-	  unmark_for_gc (rf->vec[i]);
+	  unmark_for_gc (rf->vec[i], local_ref_table);
 
       // If the frame we just freed is the marker frame, we are done.
       done = (rf->marker == stop);
@@ -334,6 +338,9 @@ _Jv_JNI_PopLocalFrame (JNIEnv *env, jobject result, int stop)
       _Jv_Free (rf);
       rf = n;
     }
+
+  // Update the local frame information.
+  env->locals = rf;
 
   return result == NULL ? NULL : _Jv_JNI_NewLocalRef (env, result);
 }
@@ -369,11 +376,15 @@ wrap_value (JNIEnv *, T value)
   return value;
 }
 
-template<>
-static jobject
-wrap_value (JNIEnv *env, jobject value)
+// This specialization is used for jobject, jclass, jstring, jarray,
+// etc.
+template<typename T>
+static T *
+wrap_value (JNIEnv *env, T *value)
 {
-  return value == NULL ? value : _Jv_JNI_NewLocalRef (env, value);
+  return (value == NULL
+	  ? value
+	  : (T *) _Jv_JNI_NewLocalRef (env, (jobject) value));
 }
 
 
@@ -460,7 +471,7 @@ static jint
 _Jv_JNI_Throw (JNIEnv *env, jthrowable obj)
 {
   // We check in case the user did some funky cast.
-  JvAssert (obj != NULL && (&ThrowableClass)->isInstance (obj));
+  JvAssert (obj != NULL && java::lang::Throwable::class$.isInstance (obj));
   env->ex = obj;
   return 0;
 }
@@ -470,13 +481,14 @@ _Jv_JNI_ThrowNew (JNIEnv *env, jclass clazz, const char *message)
 {
   using namespace java::lang::reflect;
 
-  JvAssert ((&ThrowableClass)->isAssignableFrom (clazz));
+  JvAssert (java::lang::Throwable::class$.isAssignableFrom (clazz));
 
   int r = JNI_OK;
   try
     {
       JArray<jclass> *argtypes
-	= (JArray<jclass> *) JvNewObjectArray (1, &ClassClass, NULL);
+	= (JArray<jclass> *) JvNewObjectArray (1, &java::lang::Class::class$,
+					       NULL);
 
       jclass *elts = elements (argtypes);
       elts[0] = &StringClass;
@@ -915,7 +927,7 @@ _Jv_JNI_CallStaticMethodV (JNIEnv *env, jclass klass,
 			   jmethodID id, va_list args)
 {
   JvAssert (((id->accflags) & java::lang::reflect::Modifier::STATIC));
-  JvAssert ((&ClassClass)->isInstance (klass));
+  JvAssert (java::lang::Class::class$.isInstance (klass));
 
   return _Jv_JNI_CallAnyMethodV<T, static_type> (env, NULL, klass, id, args);
 }
@@ -930,7 +942,7 @@ _Jv_JNI_CallStaticMethod (JNIEnv *env, jclass klass, jmethodID id, ...)
   T result;
 
   JvAssert (((id->accflags) & java::lang::reflect::Modifier::STATIC));
-  JvAssert ((&ClassClass)->isInstance (klass));
+  JvAssert (java::lang::Class::class$.isInstance (klass));
 
   va_start (args, id);
   result = _Jv_JNI_CallAnyMethodV<T, static_type> (env, NULL, klass,
@@ -948,7 +960,7 @@ _Jv_JNI_CallStaticMethodA (JNIEnv *env, jclass klass, jmethodID id,
 			   jvalue *args)
 {
   JvAssert (((id->accflags) & java::lang::reflect::Modifier::STATIC));
-  JvAssert ((&ClassClass)->isInstance (klass));
+  JvAssert (java::lang::Class::class$.isInstance (klass));
 
   return _Jv_JNI_CallAnyMethodA<T, static_type> (env, NULL, klass, id, args);
 }
@@ -1068,8 +1080,13 @@ _Jv_JNI_GetAnyFieldID (JNIEnv *env, jclass clazz,
 
       // FIXME: what if field_class == NULL?
 
+      java::lang::ClassLoader *loader = clazz->getClassLoader ();
       while (clazz != NULL)
 	{
+	  // We acquire the class lock so that fields aren't resolved
+	  // while we are running.
+	  JvSynchronize sync (clazz);
+
 	  jint count = (is_static
 			? JvNumStaticFields (clazz)
 			: JvNumInstanceFields (clazz));
@@ -1078,12 +1095,11 @@ _Jv_JNI_GetAnyFieldID (JNIEnv *env, jclass clazz,
 			    : JvGetFirstInstanceField (clazz));
 	  for (jint i = 0; i < count; ++i)
 	    {
-	      // The field is resolved as a side effect of class
-	      // initialization.
-	      JvAssert (field->isResolved ());
-
 	      _Jv_Utf8Const *f_name = field->getNameUtf8Const(clazz);
 
+	      // The field might be resolved or it might not be.  It
+	      // is much simpler to always resolve it.
+	      _Jv_ResolveField (field, loader);
 	      if (_Jv_equalUtf8Consts (f_name, a_name)
 		  && field->getClass() == field_class)
 		return field;
@@ -1144,7 +1160,7 @@ static const jchar *
 _Jv_JNI_GetStringChars (JNIEnv *, jstring string, jboolean *isCopy)
 {
   jchar *result = _Jv_GetStringChars (string);
-  mark_for_gc (string);
+  mark_for_gc (string, global_ref_table);
   if (isCopy)
     *isCopy = false;
   return (const jchar *) result;
@@ -1153,7 +1169,7 @@ _Jv_JNI_GetStringChars (JNIEnv *, jstring string, jboolean *isCopy)
 static void
 _Jv_JNI_ReleaseStringChars (JNIEnv *, jstring string, const jchar *)
 {
-  unmark_for_gc (string);
+  unmark_for_gc (string, global_ref_table);
 }
 
 static jstring
@@ -1332,7 +1348,7 @@ _Jv_JNI_GetPrimitiveArrayElements (JNIEnv *, JArray<T> *array,
       // We elect never to copy.
       *isCopy = false;
     }
-  mark_for_gc (array);
+  mark_for_gc (array, global_ref_table);
   return elts;
 }
 
@@ -1344,7 +1360,7 @@ _Jv_JNI_ReleasePrimitiveArrayElements (JNIEnv *, JArray<T> *array,
   // Note that we ignore MODE.  We can do this because we never copy
   // the array elements.  My reading of the JNI documentation is that
   // this is an option for the implementor.
-  unmark_for_gc (array);
+  unmark_for_gc (array, global_ref_table);
 }
 
 template<typename T>
@@ -1353,7 +1369,9 @@ _Jv_JNI_GetPrimitiveArrayRegion (JNIEnv *env, JArray<T> *array,
 				 jsize start, jsize len,
 				 T *buf)
 {
-  if (start < 0 || len >= array->length || start + len >= array->length)
+  // The cast to unsigned lets us save a comparison.
+  if (start < 0 || len < 0
+      || (unsigned long) (start + len) > (unsigned long) array->length)
     {
       try
 	{
@@ -1378,7 +1396,9 @@ static void
 _Jv_JNI_SetPrimitiveArrayRegion (JNIEnv *env, JArray<T> *array, 
 				 jsize start, jsize len, T *buf)
 {
-  if (start < 0 || len >= array->length || start + len >= array->length)
+  // The cast to unsigned lets us save a comparison.
+  if (start < 0 || len < 0
+      || (unsigned long) (start + len) > (unsigned long) array->length)
     {
       try
 	{
@@ -1421,7 +1441,8 @@ _Jv_JNI_MonitorEnter (JNIEnv *env, jobject obj)
 {
   try
     {
-      return _Jv_MonitorEnter (obj);
+      _Jv_MonitorEnter (obj);
+      return 0;
     }
   catch (jthrowable t)
     {
@@ -1435,7 +1456,8 @@ _Jv_JNI_MonitorExit (JNIEnv *env, jobject obj)
 {
   try
     {
-      return _Jv_MonitorExit (obj);
+      _Jv_MonitorExit (obj);
+      return 0;
     }
   catch (jthrowable t)
     {
@@ -1515,7 +1537,7 @@ static jmethodID
 _Jv_JNI_FromReflectedMethod (JNIEnv *, jobject method)
 {
   using namespace java::lang::reflect;
-  if ((&MethodClass)->isInstance (method))
+  if (Method::class$.isInstance (method))
     return _Jv_FromReflectedMethod (reinterpret_cast<Method *> (method));
   return
     _Jv_FromReflectedConstructor (reinterpret_cast<Constructor *> (method));
@@ -1591,8 +1613,6 @@ _Jv_JNI_UnregisterNatives (JNIEnv *, jclass)
 
 
 
-#ifdef INTERPRETER
-
 // Add a character to the buffer, encoding properly.
 static void
 add_char (char *buf, jchar c, int *here)
@@ -1612,11 +1632,14 @@ add_char (char *buf, jchar c, int *here)
       buf[(*here)++] = '_';
       buf[(*here)++] = '3';
     }
-  else if (c == '/')
+
+  // Also check for `.' here because we might be passed an internal
+  // qualified class name like `foo.bar'.
+  else if (c == '/' || c == '.')
     buf[(*here)++] = '_';
   else if ((c >= '0' && c <= '9')
-      || (c >= 'a' && c <= 'z')
-      || (c >= 'A' && c <= 'Z'))
+	   || (c >= 'a' && c <= 'z')
+	   || (c >= 'A' && c <= 'Z'))
     buf[(*here)++] = (char) c;
   else
     {
@@ -1626,7 +1649,7 @@ add_char (char *buf, jchar c, int *here)
       for (int i = 0; i < 4; ++i)
 	{
 	  int val = c & 0x0f;
-	  buf[(*here) + 4 - i] = (val > 10) ? ('a' + val - 10) : ('0' + val);
+	  buf[(*here) + 3 - i] = (val > 10) ? ('a' + val - 10) : ('0' + val);
 	  c >>= 4;
 	}
       *here += 4;
@@ -1739,12 +1762,14 @@ _Jv_LookupJNIMethod (jclass klass, _Jv_Utf8Const *name,
       if (function == NULL)
 	{
 	  jstring str = JvNewStringUTF (name->data);
-	  JvThrow (new java::lang::AbstractMethodError (str));
+	  throw new java::lang::AbstractMethodError (str);
 	}
     }
 
   return function;
 }
+
+#ifdef INTERPRETER
 
 // This function is the stub which is used to turn an ordinary (CNI)
 // method call into a JNI call.
@@ -1811,7 +1836,7 @@ _Jv_JNI_AttachCurrentThread (JavaVM *, jstring name, void **penv, void *args)
 	  && attach->version != JNI_VERSION_1_1)
 	return JNI_EVERSION;
 
-      JvAssert ((&ThreadGroupClass)->isInstance (attach->group));
+      JvAssert (java::lang::ThreadGroup::class$.isInstance (attach->group));
       group = reinterpret_cast<java::lang::ThreadGroup *> (attach->group);
     }
 
@@ -1842,7 +1867,7 @@ _Jv_JNI_AttachCurrentThread (JavaVM *, jstring name, void **penv, void *args)
     {
       try
 	{
-	  (void) new gnu::gcj::jni::NativeThread (group, name);
+	  _Jv_AttachCurrentThread (name, group);
 	}
       catch (jthrowable t)
 	{
@@ -1896,28 +1921,11 @@ _Jv_JNI_DestroyJavaVM (JavaVM *vm)
   return JNI_ERR;
 }
 
-static jint
+jint
 _Jv_JNI_DetachCurrentThread (JavaVM *)
 {
-  java::lang::Thread *t = _Jv_ThreadCurrent ();
-  if (t == NULL)
-    return JNI_EDETACHED;
-
-  // FIXME: we only allow threads attached via AttachCurrentThread to
-  // be detached.  I have no idea how we could implement detaching
-  // other threads, given the requirement that we must release all the
-  // monitors.  That just seems evil.
-  JvAssert ((&NativeThreadClass)->isInstance (t));
-
-  // FIXME: release the monitors.  We'll take this to mean all
-  // monitors acquired via the JNI interface.  This means we have to
-  // keep track of them.
-
-  gnu::gcj::jni::NativeThread *nt
-    = reinterpret_cast<gnu::gcj::jni::NativeThread *> (t);
-  nt->finish ();
-
-  return 0;
+  jint code = _Jv_DetachCurrentThread ();
+  return code  ? JNI_EDETACHED : 0;
 }
 
 static jint

@@ -1,3 +1,4 @@
+#include "config.h"
 #ifndef NON_UNIX_STDIO
 #define _INCLUDE_POSIX_SOURCE	/* for HP-UX */
 #define _INCLUDE_XOPEN_SOURCE	/* for HP-UX */
@@ -209,7 +210,7 @@ f__nowreading(x) unit *x;
 f__nowreading(unit *x)
 #endif
 {
-	long loc;
+	off_t loc;
 	int ufmt, urw;
 	extern char *f__r_mode[], *f__w_mode[];
 
@@ -218,7 +219,7 @@ f__nowreading(unit *x)
 	if (!x->ufnm)
 		goto cantread;
 	ufmt = x->url ? 0 : x->ufmt;
-	loc = ftell(x->ufd);
+	loc = FTELL(x->ufd);
 	urw = 3;
 	if (!freopen(x->ufnm, f__w_mode[ufmt|2], x->ufd)) {
 		urw = 1;
@@ -228,7 +229,7 @@ f__nowreading(unit *x)
 			return 1;
 			}
 		}
-	fseek(x->ufd,loc,SEEK_SET);
+	FSEEK(x->ufd,loc,SEEK_SET);
 	x->urw = urw;
  done:
 	x->uwrt = 0;
@@ -240,7 +241,7 @@ f__nowwriting(x) unit *x;
 f__nowwriting(unit *x)
 #endif
 {
-	long loc;
+	off_t loc;
 	int ufmt;
 	extern char *f__w_mode[];
 
@@ -256,7 +257,7 @@ f__nowwriting(unit *x)
 		x->urw = 2;
 		}
 	else {
-		loc=ftell(x->ufd);
+		loc=FTELL(x->ufd);
 		if (!(f__cf = x->ufd =
 			freopen(x->ufnm, f__w_mode[ufmt |= 2], x->ufd)))
 			{
@@ -266,7 +267,7 @@ f__nowwriting(unit *x)
 			return(1);
 			}
 		x->urw = 3;
-		fseek(x->ufd,loc,SEEK_SET);
+		FSEEK(x->ufd,loc,SEEK_SET);
 		}
  done:
 	x->uwrt = 1;

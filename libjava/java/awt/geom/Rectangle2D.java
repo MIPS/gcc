@@ -1,4 +1,4 @@
-/* Copyright (C) 2000  Free Software Foundation
+/* Copyright (C) 2000, 2001  Free Software Foundation
 
    This file is part of libjava.
 
@@ -45,7 +45,7 @@ public abstract class Rectangle2D extends RectangularShape
    * @param x1 X coordinate of first end of line segment
    * @param y1 Y coordinate of first end of line segment
    * @param x2 X coordinate of second end of line segment
-   * @param y1 Y coordinate of segment end of line segment
+   * @param y2 Y coordinate of segment end of line segment
    */
   public boolean intersectsLine (double x1, double y1, double x2, double y2)
   {
@@ -377,6 +377,14 @@ public abstract class Rectangle2D extends RectangularShape
       this.y = (float) y;
       this.width = (float) w;
       this.height = (float) h;
+    }
+
+    public void setRect (float x, float y, float w, float h)
+    {
+      this.x = x;
+      this.y = y;
+      this.width = w;
+      this.height = h;
     }
 
     public void setRect (Rectangle2D r)

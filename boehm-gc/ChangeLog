@@ -1,3 +1,149 @@
+2001-07-03  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR bootstrap/3281:
+	* aclocal.m4, configure, Makefile.in: Rebuilt.
+	* acinclude.m4: Set mkinstalldirs for in-tree build.
+
+2001-06-26  Richard Henderson  <rth@redhat.com>
+
+	* alpha_mach_dep.s: Mark call-saved FP registers.
+	* include/private/gcconfig.h (ALPHA): Remove USE_GENERIC_PUSH_REGS.
+	* configure.in (alpha*): Re-enable alpha_mach_dep.s
+	* configure: Rebuild.
+
+2001-06-12  Tom Tromey  <tromey@redhat.com>
+
+	* aclocal.m4, configure: Rebuilt.
+	* acinclude.m4: Find configure.host in srcdir.
+
+2001-06-09  Alexandre Oliva  <aoliva@redhat.com>, Stephen L Moshier  <moshier@mediaone.net>
+
+	* configure.in (AC_EXEEXT): Work around in case it expands to
+	nothing, as in autoconf 2.50.
+	* acinclude.m4: Likewise.
+	* aclocal.m4, configure: Rebuilt.
+
+2001-06-07  Tom Tromey  <tromey@redhat.com>
+
+	For PR bootstrap/3075:
+	* configure, aclocal.m4, Makefile.in: Rebuilt.
+	* configure.in: Don't call AC_CONFIG_AUX_DIR or
+	AC_CANONICAL_SYSTEM.
+	* acinclude.m4 (BOEHM_CONFIGURE): Call AC_CONFIG_AUX_DIR and
+	AC_CANONICAL_SYSTEM here.
+	* Makefile.am (CONFIG_STATUS_DEPENDENCIES): Use srcdir, not
+	boehm_gc_basedir.
+
+2001-05-24  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.am: Override gctest_OBJECTS so tests/test.c can be built.
+	(libgcjgc_la_SOURCES): Remove typo.
+	* tests/test.c: Fix struct names and includes for GC_GCJ_SUPPORT case.
+	* Makefile.in: Rebuilt.
+
+2001-05-21  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Imported version version 6.0alpha7.
+
+	* README, README.Mac, README.OS2, README.QUICK, README.alpha,
+	README.amiga, README.debugging, README.dj, README.hp, README.linux,
+	README.rs6000, README.sgi, README.solaris2, README.uts,
+	README.win32, SCoptions.amiga, backptr.h, barrett_diagram,
+	dbg_mlc.h, gc.h, gc.man, gc_alloc.h, gc_cpp.h, gc_hdrs.h, gc_mark.h,
+	gc_priv.h, gc_private.h, gc_typed.h, gcconfig.h,
+	hpux_irix_threads.c, makefile.depend, nursery.c,
+	solaris_threads.h, test.c, test_cpp.cc, weakpointer.h, cord/README,
+	cord/SCOPTIONS.amiga, cord/SMakefile.amiga, cord/cord.h,
+	cord/ec.h, cord/gc.h, cord/private/cord_pos.h, include/backptr.h,
+	include/gc_copy_descr.h, include/gc_nursery.h: Remove obsolete/moved
+	files.
+
+2001-05-19  Hans Boehm  <hans_boehm@hp.com>
+
+	* configure.host: Build with -fexceptions.
+	* linux_threads.c: Remember which thread stopped world for
+
+2001-05-04  Loren J. Rittle  <ljrittle@acm.org>
+	    with final tuning by Bryce McKinlay
+
+	* configure.in: Add support for --enable-threads=posix on FreeBSD.
+	* configure: Rebuilt.
+
+2001-05-01  Jeffrey Oldham  <oldham@codesourcery.com>
+
+	* gc_priv.h (UNLOCK): Change type of GC_noop1 argument.
+	(GC_noop1): Change declaration to take one argument.
+
+2001-04-26  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in: Obtain THREADS with `gcc -v'.
+	* configure: Rebuilt.
+
+2001-04-05  Hans Boehm  <hans_boehm@hp.com>
+
+	* misc.c: Back out buggy changes to stack clearing code.
+	Reduce CLEAR_SIZE to 1/4 of original value to reduce time
+	spent clearing memory.
+
+2001-04-04  Hans Boehm  <hans_boehm@hp.com>
+
+	* finalize.c:
+	- Accomodate finalization requests for static objects.
+	  (Will be required by hash synchronization.  May be needed
+	  in some configurations now.)
+
+	* gc_priv.h:
+	- Define MIN_WORDS.  All allocation requests are rounded
+	  up to at least this size.  Removes a subtle assumption that
+	  Java objects have a 2 word header.
+
+	* gcconfig.h:
+	- Adjust Linux/IA64 configuration for non-ancient kernels.
+	  (Necessary fix for IA64.)
+
+	* linux_threads.c:
+	- Fix syntax error in currently unused code.  Will be needed
+	  for Linux/PA-RISC.
+
+	* malloc.c:
+	- Handle MIN_WORDS.
+
+	* misc.c:
+	- Handle MIN_WORDS.
+	- Change stack cleaning code to typically clear about one tenth
+	  the memory it used to in the threads configuration.  Occasionally
+	  still clear more.  (This is really a fix for a long-standing
+	  and fairly significant performance bug with threads.)
+
+	* os_dep.c:
+	- Fix the code for finding the beginning of the data segment under
+	  Linux.  I believe this is necessary for some IA64 Linux
+	  distributions.  It will also helo other platforms, though those
+	  may additionally require a gcconfig.h adjustment.  (This basically
+	  works around the absence of a data_start or __data_start
+	  definition in glibc.)
+
+	* test.c:
+	- Handle rounding due to MIN_WORDS.
+
+2001-03-22  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.am (gctest_LDFLAGS): Use -shared-libgcc.
+
+2001-03-19  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (gctest_LDFLAGS): new macro.
+
+2001-03-16  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (TESTS_ENVIRONMENT): New macro.
+
+2001-01-23  Rod Stewart <stewart@lab43.org>
+
+	* gcconfig.h: Check for `__arm__', not `arm'.
+
 2000-12-30  Bryce McKinlay  <bryce@albatross.co.nz>
 
 	* configure.in: Rename THREADLIB to THREADLIBS.

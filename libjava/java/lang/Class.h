@@ -19,6 +19,7 @@ details.  */
 #include <java/lang/String.h>
 #include <java/net/URL.h>
 #include <java/lang/reflect/Modifier.h>
+#include <java/security/ProtectionDomain.h>
 
 // We declare these here to avoid including gcj/cni.h.
 extern "C" void _Jv_InitClass (jclass klass);
@@ -98,6 +99,13 @@ struct _Jv_ifaces
   jshort count;
 };
 
+// Used for vtable pointer manipulation.
+union _Jv_Self
+{
+  char *vtable_ptr;
+  jclass self;
+};
+
 #define JV_PRIMITIVE_VTABLE ((_Jv_VTable *) -1)
 
 #define JV_CLASS(Obj) ((jclass) (*(_Jv_VTable **) Obj)->clas)
@@ -105,7 +113,8 @@ struct _Jv_ifaces
 class java::lang::Class : public java::lang::Object
 {
 public:
-  static jclass forName (jstring className, java::lang::ClassLoader *loader);
+  static jclass forName (jstring className, jboolean initialize, 
+			 java::lang::ClassLoader *loader);
   static jclass forName (jstring className);
   JArray<jclass> *getClasses (void);
 
@@ -135,6 +144,7 @@ private:
 		    jint offset);
   java::lang::reflect::Field *getPrivateField (jstring);
   java::lang::reflect::Method *getPrivateMethod (jstring, JArray<jclass> *);
+  java::security::ProtectionDomain *getProtectionDomain0 ();
 
 public:
   JArray<java::lang::reflect::Field *> *getFields (void);
@@ -197,8 +207,6 @@ public:
   // finalization
   void finalize ();
 
-  Class () {};
-
   // This constructor is used to create Class object for the primitive
   // types. See prims.cc.
   Class (jobject cname, jbyte sig, jint len, jobject array_vtable)
@@ -208,9 +216,8 @@ public:
 
     // C++ ctors set the vtbl pointer to point at an offset inside the vtable
     // object. That doesn't work for Java, so this hack adjusts it back.
-    void *p =  ((void **)this)[0];
-    ((void **)this)[0] = (void *)((char *)p-2*sizeof (void *));
-
+    ((_Jv_Self *)this)->vtable_ptr -= 2 * sizeof (void *);
+    
     // We must initialize every field of the class.  We do this in the
     // same order they are declared in Class.h, except for fields that
     // are initialized to NULL.
@@ -228,6 +235,8 @@ public:
   static java::lang::Class class$;
 
 private:   
+
+  Class ();
 
   void checkMemberAccess (jint flags);
 
@@ -258,6 +267,7 @@ private:
 
   friend jobject _Jv_AllocObject (jclass, jint);
   friend void *_Jv_AllocObj (jint, jclass);
+  friend void *_Jv_AllocPtrFreeObj (jint, jclass);
   friend void *_Jv_AllocArray (jint, jclass);
 
   friend jobject _Jv_JNI_ToReflectedField (_Jv_JNIEnv *, jclass, jfieldID,
@@ -380,6 +390,8 @@ private:
   _Jv_IDispatchTable *idt;
   // Pointer to the class that represents an array of this class.
   jclass arrayclass;
+  // Security Domain to which this class belongs (or null).
+  java::security::ProtectionDomain *protectionDomain;
 };
 
 #endif /* __JAVA_LANG_CLASS_H__ */

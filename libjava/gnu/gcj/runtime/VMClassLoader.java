@@ -1,4 +1,4 @@
-/* Copyright (C) 1999  Free Software Foundation
+/* Copyright (C) 1999, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -14,7 +14,7 @@ import java.io.*;
 import java.util.StringTokenizer;
 import java.net.URL;
 
-final class VMClassLoader extends java.net.URLClassLoader
+public final class VMClassLoader extends java.net.URLClassLoader
 {
   private VMClassLoader ()
   {	
@@ -65,18 +65,11 @@ final class VMClassLoader extends java.net.URLClassLoader
   /** This is overridden to search the internal hash table, which 
    * will only search existing linked-in classes.   This will make
    * the default implementation of loadClass (in ClassLoader) work right.
+   * The implementation of this method is in java/lang/natClassLoader.cc.
    */
-  protected final native Class findSystemClass(String name) 
-    throws java.lang.ClassNotFoundException, java.lang.LinkageError;
-
-  // Return the sole VMClassLoader.
-  private static synchronized VMClassLoader getVMClassLoader ()
-  {
-    if (redirect == null)
-      redirect = new VMClassLoader ();
-    return redirect;
-  }
+  protected native Class findClass(String name) 
+    throws java.lang.ClassNotFoundException;
 
   // The only VMClassLoader that can exist.
-  private static VMClassLoader redirect;
+  public static VMClassLoader instance = new VMClassLoader ();
 }

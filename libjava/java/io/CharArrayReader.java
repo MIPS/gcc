@@ -1,4 +1,4 @@
-/* Copyright (C) 1998, 1999  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -41,17 +41,16 @@ public class CharArrayReader extends Reader
   public CharArrayReader(char[] buffer, int offset, int length)
   {
     super();
+    if (offset < 0  || length < 0 || offset > buffer.length)
+      throw new IllegalArgumentException();
+    
     buf = buffer;
 
     count = offset + length;
     if (count > buf.length)
       count = buf.length;
-
+    
     pos = offset;
-    // TBD: What should we do if pos is neg. or > count?  E.g. throw exc. or:
-    // if (pos < 0 || pos > count)
-    //   pos = 0;
-
     markedPos = pos;
   }
 
@@ -63,10 +62,12 @@ public class CharArrayReader extends Reader
     }
   }
 
-  public void mark(int readAheadLimit)
+  public void mark(int readAheadLimit) throws IOException
   {
     synchronized (lock)
     {
+      if (buf == null)
+	throw new IOException("Stream closed");
       // readAheadLimit is ignored per Java Class Lib. book, p. 318.
       markedPos = pos;
     }
@@ -82,7 +83,7 @@ public class CharArrayReader extends Reader
     synchronized (lock)
     {
       if (buf == null)
-        throw new IOException();
+	throw new IOException("Stream closed");
 
       if (pos < 0)
         throw new ArrayIndexOutOfBoundsException(pos);
@@ -98,7 +99,7 @@ public class CharArrayReader extends Reader
     synchronized (lock)
     {
       if (buf == null)
-        throw new IOException();
+	throw new IOException("Stream closed");
 
       /* Don't need to check pos value, arraycopy will check it. */
       if (off < 0 || len < 0 || off + len > b.length)
@@ -114,12 +115,17 @@ public class CharArrayReader extends Reader
     }
   }
 
+  /** Return true if more characters are available to be read. 
+    *
+    * @specnote The JDK 1.3 API docs are wrong here. This method will
+    *           return false if there are no more characters available.
+    */
   public boolean ready() throws IOException
   {
     if (buf == null)
-      throw new IOException();
+      throw new IOException("Stream closed");
 
-    return true;
+    return (pos < count);
   }
 
   public void reset() throws IOException
@@ -127,7 +133,7 @@ public class CharArrayReader extends Reader
     synchronized (lock)
     {
       if (buf == null)
-        throw new IOException();
+	throw new IOException("Stream closed");
 
       pos = markedPos;
     }
@@ -138,7 +144,7 @@ public class CharArrayReader extends Reader
     synchronized (lock)
     {
       if (buf == null)
-        throw new IOException();
+	throw new IOException("Stream closed");
 
       // Even though the var numChars is a long, in reality it can never
       // be larger than an int since the result of subtracting 2 positive

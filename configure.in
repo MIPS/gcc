@@ -48,15 +48,9 @@ if [ "${enable_gdbgui}" = "yes" ] ; then
 	host_libs="${host_libs} libgui"
 fi
 
-# Set up configure/Makefile variables if libstdc++-v3 is to be built.
-if [ "${enable_libstdcxx_v3}" = "yes" ] && test -d $srcdir/libstdc++-v3; then
-        libstdcxx_version="target-libstdc++-v3"
-	# Don't use libstdc++-v3's flags to configure/build itself.
-	libstdcxx_flags='`case $$dir in libstdc++-v3) ;; *) cat $$r/$(TARGET_SUBDIR)/libstdc++-v3/src/libstdc++.INC 2>/dev/null || : ;; esac` -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs'
-else
-        libstdcxx_version="target-libio target-libstdc++"
-        libstdcxx_flags='-isystem $$s/libstdc++ -isystem $$s/libstdc++/std -isystem $$s/libstdc++/stl -isystem $$s/libio -isystem $$r/$(TARGET_SUBDIR)/libio -L$$r/$(TARGET_SUBDIR)/libstdc++'
-fi
+libstdcxx_version="target-libstdc++-v3"
+# Don't use libstdc++-v3's flags to configure/build itself.
+libstdcxx_flags='`case $$dir in libstdc++-v3) ;; *) test ! -f $$r/$(TARGET_SUBDIR)/libstdc++-v3/testsuite_flags || $(SHELL) $$r/$(TARGET_SUBDIR)/libstdc++-v3/testsuite_flags --build-includes;; esac` -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs'
 
 # these tools are built for the host environment
 # Note, the powerpc-eabi build depends on sim occurring before gdb in order to
@@ -78,7 +72,6 @@ target_libs="target-libiberty \
 		target-newlib \
 		target-librx \
 		${libstdcxx_version} \
-		target-libg++ \
 		target-libf2c \
 		target-libchill \
 		${libgcj}
@@ -311,7 +304,7 @@ if [ x${shared} = xyes ]; then
     arm*-*-*)
       host_makefile_frag="${host_makefile_frag} config/mh-armpic"
       ;;
-    hppa*-*-*)
+    parisc*-*-* | hppa*-*-*)
       host_makefile_frag="${host_makefile_frag} config/mh-papic"
       ;;
     i[3456]86-*-cygwin*)
@@ -579,7 +572,7 @@ case "${host}" in
      noconfigdirs="$noconfigdirs tk itcl tix libgui gdb"
      ;;
   *-*-cygwin*)
-     noconfigdirs="autoconf automake send-pr rcs guile perl texinfo apache inet"
+     noconfigdirs="autoconf automake send-pr rcs guile perl apache inet"
     ;;
   *-*-netbsd*)
     noconfigdirs="rcs"
@@ -592,9 +585,28 @@ case "${host}" in
     ;;
 esac
 
+# Save it here so that, even in case of --enable-libgcj, if the Java
+# front-end isn't enabled, we still get libgcj disabled.
+libgcj_saved=$libgcj
+case $enable_libgcj in
+yes)
+  # If we reset it here, it won't get added to noconfigdirs in the
+  # target-specific build rules, so it will be forcibly enabled
+  # (unless the Java language itself isn't enabled).
+  libgcj=
+  ;;
+no)
+  # Make sure we get it printed in the list of not supported target libs.
+  noconfigdirs="$noconfigdirs ${libgcj}"
+  ;;
+esac
+
 case "${target}" in
+  *-*-chorusos)
+    noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"
+    ;;
   *-*-netware)
-    noconfigdirs="$noconfigdirs target-libg++ ${libstdcxx_version} target-librx target-newlib target-libiberty target-libgloss ${libgcj}"
+    noconfigdirs="$noconfigdirs ${libstdcxx_version} target-librx target-newlib target-libiberty target-libgloss ${libgcj}"
     ;;
   *-*-rtems*)
     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
@@ -658,7 +670,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
     ;;
   c4x-*-*)
-    noconfigdirs="$noconfigdirs target-libg++ ${libstdcxx_version} target-librx target-libgloss ${libgcj}"
+    noconfigdirs="$noconfigdirs ${libstdcxx_version} target-librx target-libgloss ${libgcj}"
     ;;
   c54x*-*-* | tic54x-*-*)
     noconfigdirs="$noconfigdirs ${libstdcxx_version} target-libgloss ${libgcj} gcc gdb newlib"
@@ -703,26 +715,32 @@ case "${target}" in
     noconfigdirs="$noconfigdirs ld target-libgloss ${libgcj}"
     ;;
   d10v-*-*)
-    noconfigdirs="$noconfigdirs target-librx target-libg++ ${libstdcxx_version} target-libgloss ${libgcj}"
+    noconfigdirs="$noconfigdirs target-librx ${libstdcxx_version} target-libgloss ${libgcj}"
     ;;
   d30v-*-*)
-    noconfigdirs="${libgcj}"
+    noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
   fr30-*-elf*)
-    noconfigdirs="${libgcj}"
+    noconfigdirs="$noconfigdirs ${libgcj}"
     if [ x${is_cross_compiler} != xno ] ; then
 	   target_configdirs="${target_configdirs} target-bsp target-libstub target-cygmon"
     fi
     ;;
   h8300*-*-* | \
   h8500-*-*)
-    noconfigdirs="$noconfigdirs target-libg++ ${libstdcxx_version} target-librx target-libgloss ${libgcj}"
+    noconfigdirs="$noconfigdirs ${libstdcxx_version} target-librx target-libgloss ${libgcj}"
+    ;;
+  hppa*64*-*-linux* | parisc*64*-*-linux*)
+    # In this case, it's because the hppa64-linux target is for
+    # the kernel only at this point and has no libc, and thus no
+    # headers, crt*.o, etc., all of which are needed by these.
+    noconfigdirs="$noconfigdirs target-zlib"
     ;;
   hppa*-*-*elf* | \
-  hppa*-*-linux* | \
+  parisc*-*-linux* | hppa*-*-linux* | \
   hppa*-*-lites* | \
   hppa*64*-*-*)
-    noconfigdirs="${libgcj}"
+    noconfigdirs="$noconfigdirs ${libgcj}"
     # Do configure ld/binutils/gas for this case.
     ;;
   hppa*-*-*)
@@ -733,14 +751,16 @@ case "${target}" in
 	"" | cc*) noconfigdirs="$noconfigdirs emacs emacs19" ;;
         *) ;;
     esac
-    noconfigdirs="$noconfigdirs ld shellutils"
+    # According to Alexandre Oliva <aoliva@redhat.com>, libjava won't
+    # build on HP-UX 10.20.
+    noconfigdirs="$noconfigdirs ld shellutils ${libgcj}"
     ;;
   ia64*-*-elf*)
     # No gdb support yet.
     noconfigdirs="$noconfigdirs tix readline mmalloc libgui itcl gdb"
     ;;
   i[3456]86-*-coff | i[3456]86-*-elf)
-    noconfigdirs="${libgcj}"
+    noconfigdirs="$noconfigdirs ${libgcj}"
     if [ x${is_cross_compiler} != xno ] ; then
          target_configdirs="${target_configdirs} target-libstub target-cygmon"
     fi
@@ -751,7 +771,7 @@ case "${target}" in
     ;;
   i[3456]86-*-mingw32*)
     target_configdirs="$target_configdirs target-mingw"
-    noconfigdirs="$noconfigdirs expect target-libgloss"
+    noconfigdirs="$noconfigdirs expect target-libgloss ${libgcj}"
 
     # Can't build gdb for mingw32 if not native.
     case "${host}" in
@@ -762,7 +782,7 @@ case "${target}" in
     ;;    
   *-*-cygwin*)
     target_configdirs="$target_configdirs target-libtermcap target-winsup"
-    noconfigdirs="$noconfigdirs target-gperf target-libgloss"
+    noconfigdirs="$noconfigdirs target-gperf target-libgloss ${libgcj}"
     # always build newlib.
     skipdirs=`echo " ${skipdirs} " | sed -e 's/ target-newlib / /'`
 
@@ -774,7 +794,7 @@ case "${target}" in
     esac
     ;;    
   i[3456]86-*-pe)
-    noconfigdirs="$noconfigdirs target-libg++ ${libstdcxx_version} target-librx target-libgloss ${libgcj}"
+    noconfigdirs="$noconfigdirs ${libstdcxx_version} target-librx target-libgloss ${libgcj}"
     ;;
   i[3456]86-*-sco3.2v5*)
     # The linker does not yet know about weak symbols in COFF,
@@ -797,16 +817,19 @@ case "${target}" in
     noconfigdirs="$noconfigdirs emacs emacs19 target-libgloss ${libgcj}"
     ;;
   i[3456]86-*-beos*)
-     noconfigdirs="$noconfigdirs gdb target-newlib target-libgloss"
+     noconfigdirs="$noconfigdirs gdb target-newlib target-libgloss ${libgcj}"
      ;;
+  m68hc11-*-*|m6811-*-*|m68hc12-*-*|m6812-*-*)
+    noconfigdirs="$noconfigdirs target-libiberty ${libstdcxx_version} ${libgcj}"
+    ;;
   m68k-*-elf*)
-    noconfigdirs="${libgcj}"
+    noconfigdirs="$noconfigdirs ${libgcj}"
     if [ x${is_cross_compiler} != xno ] ; then
 	   target_configdirs="${target_configdirs} target-bsp target-cygmon"
     fi
     ;;
   m68k-*-coff*)
-    noconfigdirs="${libgcj}"
+    noconfigdirs="$noconfigdirs ${libgcj}"
     if [ x${is_cross_compiler} != xno ] ; then
 	   target_configdirs="${target_configdirs} target-bsp target-cygmon"
     fi
@@ -846,7 +869,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs gdb target-newlib target-libgloss ${libgcj}"
     ;;
   powerpc-*-eabi)
-    noconfigdirs="${libgcj}"
+    noconfigdirs="$noconfigdirs ${libgcj}"
     if [ x${is_cross_compiler} != xno ] ; then
 	   target_configdirs="${target_configdirs} target-bsp target-libstub target-cygmon"
     fi
@@ -877,7 +900,11 @@ case "${target}" in
   mips*-*-irix6*)
     # The GNU assembler does not support IRIX 6.
     # emacs is emacs 18, which does not work on Irix 5 (emacs19 does work)
-    noconfigdirs="$noconfigdirs gas gprof emacs target-libgloss"
+    # Linking libjava exceeds command-line length limits on at least
+    # IRIX 6.2, but not on IRIX 6.5.
+    # Also, boehm-gc won't build on IRIX 6.5, according to Jeffrey Oldham
+    # <oldham@codesourcery.com>
+    noconfigdirs="$noconfigdirs gas gprof emacs target-libgloss ${libgcj}"
     ;;
   mips*-dec-bsd*)
     noconfigdirs="$noconfigdirs gprof target-libgloss ${libgcj}"
@@ -918,10 +945,10 @@ case "${target}" in
     if [ x${is_cross_compiler} != xno ] ; then
 	   target_configdirs="${target_configdirs} target-bsp target-libstub target-cygmon"
     fi
-    noconfigdirs="${libgcj}"
+    noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
   sparc-*-sunos4*)
-    noconfigdirs="${libgcj}"
+    noconfigdirs="$noconfigdirs ${libgcj}"
     if [ x${is_cross_compiler} != xno ] ; then
            noconfigdirs="$noconfigdirs gdb gdbtest target-newlib target-libgloss"
     else
@@ -929,9 +956,18 @@ case "${target}" in
     fi
     ;;
   sparc-*-solaris*)
+    case "${host}" in
+    sparc-*-solaris2.8)
+      # According to Gerald Pfeifer <pfeifer@dbai.tuwien.ac.at>, libjava
+      # won't build correctly on Solaris 8 if there's a
+      # previously-installed version of GCC in the configured prefix.
+      # This problem does not show up on earlier versions of Solaris.
+      noconfigdirs="$noconfigdirs ${libgcj}"
+      ;;
+    esac
     ;;
   v810-*-*)
-    noconfigdirs="$noconfigdirs bfd binutils gas gcc gdb ld target-libg++ ${libstdcxx_version} opcodes target-libgloss ${libgcj}"
+    noconfigdirs="$noconfigdirs bfd binutils gas gcc gdb ld ${libstdcxx_version} opcodes target-libgloss ${libgcj}"
     ;;
   v850-*-*)
     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
@@ -955,10 +991,10 @@ case "${target}" in
   *-*-mpw*)
     # Macs want a resource compiler.
     configdirs="$configdirs grez"
-    noconfigdirs="${libgcj}"
+    noconfigdirs="$noconfigdirs ${libgcj}"
     ;;    
   *-*-*)
-    noconfigdirs="${libgcj}"
+    noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
 esac
 
@@ -997,6 +1033,39 @@ else
 		exit 1
 	fi
 fi
+
+# First scan to see if an enabled language requires some other language.
+# We assume that a given config-lang.in will list all the language
+# front ends it requires, even if some are required indirectly.
+for lang in ${srcdir}/gcc/*/config-lang.in ..
+do
+   case $lang in
+    ..)
+       ;;
+    # The odd quoting in the next line works around
+    # an apparent bug in bash 1.12 on linux.
+    ${srcdir}/gcc/[*]/config-lang.in)
+       ;;
+    *)
+       lang_alias=`sed -n -e 's,^language=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^language=\([^ 	]*\).*$,\1,p' $lang`
+       this_lang_requires=`sed -n -e 's,^lang_requires=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^lang_requires=\([^ 	]*\).*$,\1,p' $lang`
+       for other in $this_lang_requires
+       do
+	  case ,${enable_languages}, in
+	   *,$other,*)
+	      ;;
+	   *,all,*)
+	      ;;
+	   *,$lang_alias,*)
+	      echo " \`$other' language required by \`$lang_alias'; enabling" 1>&2
+	      enable_languages="$enable_languages,$other"
+	      ;;
+	  esac
+       done
+       ;;
+   esac
+done
+
 subdirs=
 for lang in ${srcdir}/gcc/*/config-lang.in ..
 do
@@ -1029,7 +1098,6 @@ do
 	  ;;
 	esac
 done
-
 
 # Remove the entries in $skipdirs and $noconfigdirs from $configdirs and
 # $target_configdirs.
@@ -1165,7 +1233,7 @@ fi
 
 if [ x${shared} = xyes ]; then
   case "${target}" in
-    hppa*)
+    hppa* | parisc*)
       target_makefile_frag="${target_makefile_frag} config/mt-papic"
       ;;
     i[3456]86-*)
@@ -1295,7 +1363,7 @@ fi
 
 # provide a proper gxx_include_dir.
 # Note, if you change the default, make sure to fix both here and in
-# the gcc, libio, libstdc++ and libg++ subdirectories.
+# the gcc and libstdc++-v3 subdirectories.
 # Check whether --with-gxx-include-dir or --without-gxx-include-dir was given.
 gxx_include_dir=
 if test -n "${with_gxx_include_dir}"; then
@@ -1415,10 +1483,20 @@ case $CHILL_FOR_TARGET in
 *) CHILL_FOR_TARGET=$CHILL_FOR_TARGET' $(FLAGS_FOR_TARGET)' ;;
 esac
 
+if test "x${GCJ_FOR_TARGET+set}" = xset; then
+  :
+elif test -d ${topsrcdir}/gcc; then
+  GCJ_FOR_TARGET='$$r/gcc/gcj -B$$r/gcc/'
+elif test "$host" = "$target"; then
+  GCJ_FOR_TARGET='gcj'
+else
+  GCJ_FOR_TARGET=`echo gcj | sed -e 's/x/x/' ${program_transform_name}`
+fi
+
 if test "x${CXX_FOR_TARGET+set}" = xset; then
   :
 elif test -d ${topsrcdir}/gcc; then
-  CXX_FOR_TARGET='$$r/gcc/g++ -B$$r/gcc/ -nostdinc++ '$libstdcxx_flags
+  CXX_FOR_TARGET='$$r/gcc/`case $$dir in libstdc++-v3) echo xgcc ;; *) echo g++ ;; esac` -B$$r/gcc/ -nostdinc++ '$libstdcxx_flags
 elif test "$host" = "$target"; then
   CXX_FOR_TARGET='$(CXX)'
 else
@@ -1428,7 +1506,15 @@ case $CXX_FOR_TARGET in
 *' $(FLAGS_FOR_TARGET)') ;;
 *) CXX_FOR_TARGET=$CXX_FOR_TARGET' $(FLAGS_FOR_TARGET)' ;;
 esac
-qCXX_FOR_TARGET=`echo "$CXX_FOR_TARGET" | sed 's,&,\\\&,g'`
+qCXX_FOR_TARGET=`echo "$CXX_FOR_TARGET" | sed 's,[&%],\\\&,g'`
+
+# We want to defer the evaluation of `cmd`s and shell variables in
+# CXX_FOR_TARGET when recursing in the top-level Makefile, such as for
+# bootstrap.  We'll enclose CXX_FOR_TARGET_FOR_RECURSIVE_MAKE in single
+# quotes, but we still have to duplicate `$'s so that shell variables
+# can be expanded by the nested make as shell variables, not as make
+# macros.
+qqCXX_FOR_TARGET=`echo "$qCXX_FOR_TARGET" | sed -e 's,[$][$],$$$$,g'`
 
 targargs="--cache-file=../config.cache --host=${target_alias} --build=${build_alias} ${targargs}"
 sed -e "s:^TARGET_CONFIGDIRS[ 	]*=.*$:TARGET_CONFIGDIRS = ${target_configdirs}:" \
@@ -1436,7 +1522,9 @@ sed -e "s:^TARGET_CONFIGDIRS[ 	]*=.*$:TARGET_CONFIGDIRS = ${target_configdirs}:"
     -e "s%^FLAGS_FOR_TARGET[ 	]*=.*$%FLAGS_FOR_TARGET = ${FLAGS_FOR_TARGET}%" \
     -e "s%^CC_FOR_TARGET[ 	]*=.*$%CC_FOR_TARGET = ${CC_FOR_TARGET}%" \
     -e "s%^CHILL_FOR_TARGET[ 	]*=.*$%CHILL_FOR_TARGET = ${CHILL_FOR_TARGET}%" \
+    -e "s%^GCJ_FOR_TARGET[      ]*=.*$%GCJ_FOR_TARGET = ${GCJ_FOR_TARGET}%" \
     -e "s%^CXX_FOR_TARGET[ 	]*=.*$%CXX_FOR_TARGET = ${qCXX_FOR_TARGET}%" \
+    -e "s%^CXX_FOR_TARGET_FOR_RECURSIVE_MAKE[ 	]*=.*$%CXX_FOR_TARGET_FOR_RECURSIVE_MAKE = ${qqCXX_FOR_TARGET}%" \
     -e "s%^TARGET_SUBDIR[ 	]*=.*$%TARGET_SUBDIR = ${target_subdir}%" \
     -e "s%^gxx_include_dir[ 	]*=.*$%gxx_include_dir=${gxx_include_dir}%" \
        Makefile > Makefile.tem

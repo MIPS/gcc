@@ -1,3 +1,132 @@
+2001-07-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* src/x86/sysv.S: Avoid gas-only .balign directive.
+	Use C style comments.
+
+2001-07-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* src/alpha/ffi.c (ffi_prep_closure): Avoid gas-only mnemonic.
+	Fixes PR bootstrap/3563.
+
+2001-06-26  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* src/alpha/osf.S (ffi_closure_osf): Use .rdata for ECOFF.
+
+2001-06-25  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in: Recognize sparc*-sun-* host.
+	* configure: Regenerate.
+	
+2001-06-06  Andrew Haley  <aph@redhat.com>
+
+        * src/alpha/osf.S (__FRAME_BEGIN__): Conditionalize for ELF.
+
+2001-06-03  Andrew Haley  <aph@redhat.com>
+
+        * src/alpha/osf.S: Add unwind info.
+        * src/powerpc/sysv.S: Add unwind info.
+        * src/powerpc/ppc_closure.S: Likewise.
+
+2000-05-31  Jeff Sturm  <jsturm@one-point.com>
+
+	* configure.in: Fix AC_ARG_ENABLE usage.
+	* configure: Rebuilt.
+
+2001-05-06  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* configure.in: Remove warning about beta code.
+	* configure: Rebuilt.
+
+2001-04-25  Hans Boehm <Hans_Boehm@hp.com>
+
+	* src/ia64/unix.S: Restore stack pointer when returning from
+	ffi_closure_UNIX.
+	* src/ia64/ffi.c: Fix typo in comment.
+
+2001-04-18  Jim Wilson  <wilson@redhat.com>
+
+	* src/ia64/unix.S: Delete unnecessary increment and decrement of loc2
+	to eliminate RAW DV.
+
+2001-04-12  Bryce McKinlay  <bryce@albatross.co.nz>
+
+	* Makefile.am: Make a libtool convenience library.
+	* Makefile.in: Rebuilt.
+
+2001-03-29  Bryce McKinlay  <bryce@albatross.co.nz>
+
+	* configure.in: Use different syntax for subdirectory creation.
+	* configure: Rebuilt.
+
+2001-03-27  Jon Beniston  <jon@beniston.com>
+
+	* configure.in: Added X86_WIN32 target (Win32, CygWin, MingW).
+	* configure: Rebuilt.
+	* Makefile.am: Added X86_WIN32 target support.
+	* Makefile.in: Rebuilt.
+
+	* include/ffi.h.in: Added X86_WIN32 target support.
+
+	* src/ffitest.c: Doesn't run structure tests for X86_WIN32 targets.
+	* src/types.c: Added X86_WIN32 target support.
+
+	* src/x86/win32.S: New file. Based on sysv.S, but with EH
+	stuff removed and made to work with CygWin's gas.
+
+2001-03-26  Bryce McKinlay  <bryce@albatross.co.nz>
+
+	* configure.in: Make target subdirectory in build dir.
+	* Makefile.am: Override suffix based rules to specify correct output
+	subdirectory.
+	* Makefile.in: Rebuilt.
+	* configure: Rebuilt.
+
+2001-03-23  Kevin B Hendricks  <khendricks@ivey.uwo.ca>
+
+	* src/powerpc/ppc_closure.S: New file.
+	* src/powerpc/ffi.c (ffi_prep_args): Fixed ABI compatibility bug
+	involving long long and register pairs.
+	(ffi_prep_closure): New function.
+	(flush_icache): Likewise.
+	(ffi_closure_helper_SYSV): Likewise.
+	* include/ffi.h.in (FFI_CLOSURES): Define on PPC.
+	(FFI_TRAMPOLINE_SIZE): Likewise.
+	(FFI_NATIVE_RAW_API): Likewise.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (EXTRA_DIST): Added src/powerpc/ppc_closure.S.
+	(TARGET_SRC_POWERPC): Likewise.
+
+2001-03-19  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (ffitest_LDFLAGS): New macro.
+
+2001-03-02  Nick Clifton  <nickc@redhat.com>
+
+	* include/ffi.h.in: Remove RCS ident string.
+	* include/ffi_mips.h: Remove RCS ident string.
+	* src/debug.c: Remove RCS ident string.
+	* src/ffitest.c: Remove RCS ident string.
+	* src/prep_cif.c: Remove RCS ident string.
+	* src/types.c: Remove RCS ident string.
+	* src/alpha/ffi.c: Remove RCS ident string.
+	* src/alpha/osf.S: Remove RCS ident string.
+	* src/arm/ffi.c: Remove RCS ident string.
+	* src/arm/sysv.S: Remove RCS ident string.
+	* src/mips/ffi.c: Remove RCS ident string.
+	* src/mips/n32.S: Remove RCS ident string.
+	* src/mips/o32.S: Remove RCS ident string.
+	* src/sparc/ffi.c: Remove RCS ident string.
+	* src/sparc/v8.S: Remove RCS ident string.
+	* src/sparc/v9.S: Remove RCS ident string.
+	* src/x86/ffi.c: Remove RCS ident string.
+	* src/x86/sysv.S: Remove RCS ident string.
+
+2001-02-08  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* include/ffi.h.in: Change sourceware.cygnus.com references to
+	gcc.gnu.org.
+
 2000-12-09  Richard Henderson  <rth@redhat.com>
 
 	* src/alpha/ffi.c (ffi_call): Simplify struct return test.

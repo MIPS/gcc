@@ -67,18 +67,23 @@ AS = @AS@
 CC = @CC@
 COMPPATH = @COMPPATH@
 CPP = @CPP@
+CXX = @CXX@
+CXXCPP = @CXXCPP@
 DLLTOOL = @DLLTOOL@
 EXEEXT = @EXEEXT@
-LD = @LD@
+GCJ = @GCJ@
+GCJFLAGS = @GCJFLAGS@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
-NM = @NM@
+OBJDUMP = @OBJDUMP@
+OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 RANLIB = @RANLIB@
-USE_SYMBOL_UNDERSCORE = @USE_SYMBOL_UNDERSCORE@
+STRIP = @STRIP@
 VERSION = @VERSION@
+mkinstalldirs = @mkinstalldirs@
 target_all = @target_all@
 zlib_basedir = @zlib_basedir@
 
@@ -91,9 +96,12 @@ MULTIDIRS =
 MULTISUBDIR = 
 MULTIDO = true
 MULTICLEAN = true
-@USE_LIBDIR_TRUE@toolexeclibdir = @USE_LIBDIR_TRUE@$(libdir)$(MULTISUBDIR)
-@USE_LIBDIR_FALSE@toolexeclibdir = @USE_LIBDIR_FALSE@$(toolexecdir)/lib$(MULTISUBDIR)
-@USE_LIBDIR_FALSE@toolexecdir = @USE_LIBDIR_FALSE@$(exec_prefix)/$(target_alias)
+@USE_LIBDIR_TRUE@toolexeclibdir = \
+@USE_LIBDIR_TRUE@$(libdir)$(MULTISUBDIR)
+@USE_LIBDIR_FALSE@toolexeclibdir = \
+@USE_LIBDIR_FALSE@$(toolexecdir)/lib$(MULTISUBDIR)
+@USE_LIBDIR_FALSE@toolexecdir = \
+@USE_LIBDIR_FALSE@$(exec_prefix)/$(target_alias)
 
 ZLIB_SOURCES = adler32.c compress.c crc32.c deflate.c deflate.h \
 gzio.c infblock.c infblock.h infcodes.c infcodes.h inffast.c inffast.h \
@@ -101,12 +109,18 @@ inffixed.h inflate.c inftrees.c inftrees.h infutil.c infutil.h trees.c \
 trees.h uncompr.c zconf.h zlib.h zutil.c zutil.h
 
 
-@TARGET_LIBRARY_TRUE@toolexeclib_LTLIBRARIES = @TARGET_LIBRARY_TRUE@@target_all@
-@TARGET_LIBRARY_TRUE@EXTRA_LTLIBRARIES = @TARGET_LIBRARY_TRUE@libzgcj.la
-@TARGET_LIBRARY_TRUE@libzgcj_la_SOURCES = @TARGET_LIBRARY_TRUE@$(ZLIB_SOURCES)
-@TARGET_LIBRARY_TRUE@libzgcj_la_LDFLAGS = @TARGET_LIBRARY_TRUE@-version-info 0:0:0 -rpath $(toolexeclibdir)
-@TARGET_LIBRARY_FALSE@toolexeclib_LIBRARIES = @TARGET_LIBRARY_FALSE@libz.a
-@TARGET_LIBRARY_FALSE@libz_a_SOURCES = @TARGET_LIBRARY_FALSE@$(ZLIB_SOURCES)
+@TARGET_LIBRARY_TRUE@toolexeclib_LTLIBRARIES = \
+@TARGET_LIBRARY_TRUE@@target_all@
+@TARGET_LIBRARY_TRUE@EXTRA_LTLIBRARIES = \
+@TARGET_LIBRARY_TRUE@libzgcj.la
+@TARGET_LIBRARY_TRUE@libzgcj_la_SOURCES = \
+@TARGET_LIBRARY_TRUE@$(ZLIB_SOURCES)
+@TARGET_LIBRARY_TRUE@libzgcj_la_LDFLAGS = \
+@TARGET_LIBRARY_TRUE@-version-info 0:0:0 -rpath $(toolexeclibdir)
+@TARGET_LIBRARY_FALSE@toolexeclib_LIBRARIES = \
+@TARGET_LIBRARY_FALSE@libz.a
+@TARGET_LIBRARY_FALSE@libz_a_SOURCES = \
+@TARGET_LIBRARY_FALSE@$(ZLIB_SOURCES)
 
 # Work around what appears to be a GNU make bug handling MAKEFLAGS
 # values defined in terms of make variables, as is the case for CC and
@@ -150,7 +164,6 @@ AM_MAKEFLAGS = \
 	"DESTDIR=$(DESTDIR)"
 
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
 CONFIG_CLEAN_FILES = 
 LIBRARIES =  $(toolexeclib_LIBRARIES)
 
@@ -160,10 +173,13 @@ CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 libz_a_LIBADD = 
-@TARGET_LIBRARY_FALSE@libz_a_OBJECTS =  adler32.o compress.o crc32.o \
-@TARGET_LIBRARY_FALSE@deflate.o gzio.o infblock.o infcodes.o inffast.o \
-@TARGET_LIBRARY_FALSE@inflate.o inftrees.o infutil.o trees.o uncompr.o \
-@TARGET_LIBRARY_FALSE@zutil.o
+@TARGET_LIBRARY_FALSE@libz_a_OBJECTS =  adler32.$(OBJEXT) \
+@TARGET_LIBRARY_FALSE@compress.$(OBJEXT) crc32.$(OBJEXT) \
+@TARGET_LIBRARY_FALSE@deflate.$(OBJEXT) gzio.$(OBJEXT) \
+@TARGET_LIBRARY_FALSE@infblock.$(OBJEXT) infcodes.$(OBJEXT) \
+@TARGET_LIBRARY_FALSE@inffast.$(OBJEXT) inflate.$(OBJEXT) \
+@TARGET_LIBRARY_FALSE@inftrees.$(OBJEXT) infutil.$(OBJEXT) \
+@TARGET_LIBRARY_FALSE@trees.$(OBJEXT) uncompr.$(OBJEXT) zutil.$(OBJEXT)
 AR = ar
 LTLIBRARIES =  $(toolexeclib_LTLIBRARIES)
 
@@ -183,14 +199,14 @@ aclocal.m4 configure configure.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gtar
+TAR = tar
 GZIP_ENV = --best
 SOURCES = $(libz_a_SOURCES) $(libzgcj_la_SOURCES)
 OBJECTS = $(libz_a_OBJECTS) $(libzgcj_la_OBJECTS)
 
 all: all-redirect
 .SUFFIXES:
-.SUFFIXES: .S .c .lo .o .s
+.SUFFIXES: .S .c .lo .o .obj .s
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
 	cd $(top_srcdir) && $(AUTOMAKE) --cygnus Makefile
 
@@ -241,6 +257,11 @@ uninstall-toolexeclibLIBRARIES:
 .c.o:
 	$(COMPILE) -c $<
 
+# FIXME: We should only use cygpath when building on Windows,
+# and only if it is available.
+.c.obj:
+	$(COMPILE) -c `cygpath -w $<`
+
 .s.o:
 	$(COMPILE) -c $<
 
@@ -249,6 +270,7 @@ uninstall-toolexeclibLIBRARIES:
 
 mostlyclean-compile:
 	-rm -f *.o core *.core
+	-rm -f *.$(OBJEXT)
 
 clean-compile:
 
@@ -379,7 +401,7 @@ distdir: $(DISTFILES)
 	@for file in $(DISTFILES); do \
 	  if test -f $$file; then d=.; else d=$(srcdir); fi; \
 	  if test -d $$d/$$file; then \
-	    cp -pr $$d/$$file $(distdir)/$$file; \
+	    cp -pr $$/$$file $(distdir)/$$file; \
 	  else \
 	    test -f $(distdir)/$$file \
 	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \

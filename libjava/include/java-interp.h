@@ -1,6 +1,6 @@
 // java-interp.h - Header file for the bytecode interpreter.  -*- c++ -*-
 
-/* Copyright (C) 1999, 2000  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -33,14 +33,13 @@ _Jv_IsInterpretedClass (jclass c)
 
 struct _Jv_ResolvedMethod;
 
-void _Jv_VerifyFieldSignature (_Jv_Utf8Const*sig);
-void _Jv_VerifyMethodSignature (_Jv_Utf8Const*sig);
-void _Jv_VerifyClassName (unsigned char* ptr, _Jv_ushort length);
-void _Jv_VerifyClassName (_Jv_Utf8Const *name);
-void _Jv_VerifyIdentifier (_Jv_Utf8Const *);
+bool _Jv_VerifyFieldSignature (_Jv_Utf8Const*sig);
+bool _Jv_VerifyMethodSignature (_Jv_Utf8Const*sig);
+bool _Jv_VerifyClassName (unsigned char* ptr, _Jv_ushort length);
+bool _Jv_VerifyClassName (_Jv_Utf8Const *name);
+bool _Jv_VerifyIdentifier (_Jv_Utf8Const *);
 bool _Jv_ClassNameSamePackage (_Jv_Utf8Const *name1, _Jv_Utf8Const *name2);
 void _Jv_DefineClass (jclass, jbyteArray, jint, jint);
-void _Jv_ResolveField (_Jv_Field *, java::lang::ClassLoader*);
 
 void _Jv_InitField (jobject, jclass, int);
 void * _Jv_AllocMethodInvocation (jsize size);
@@ -159,7 +158,9 @@ class _Jv_InterpClass : public java::lang::Class
   friend class _Jv_InterpMethod;
   friend void  _Jv_PrepareClass(jclass);
   friend void  _Jv_InitField (jobject, jclass, int);
-  friend void* _Jv_MarkObj (void *, void *, void *, void *);
+#ifdef JV_MARKOBJ_DECL
+  friend JV_MARKOBJ_DECL;
+#endif
 
   friend _Jv_MethodBase ** _Jv_GetFirstMethod (_Jv_InterpClass *klass);
 };

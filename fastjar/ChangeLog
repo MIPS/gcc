@@ -1,3 +1,26 @@
+2001-07-04  Tom Tromey  <tromey@redhat.com>
+
+	Modified from patch by Julian Hall <jules@acris.co.uk>:
+	* jartool.c (errno): Conditionally declare.
+	(O_BINARY): Conditionally define.
+	(main): Use open, not creat.  Use O_BINARY everywhere.
+	(make_manifest): Use O_BINARY.
+	(add_to_jar): Likewise.
+
+2001-06-28  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.in: Accept --with-system-zlib.  Fixes PR java/3441.
+
+2001-05-15  Per Bothner  <per@bothner.com>
+
+        * Makefile.am (bin_PROGRAMS):  Renamed from "fastjar" to "jar".
+
+2001-05-03  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* jartool.c (jt_strdup): New function.
+	(get_next_arg): Use jt_strdup instead of strdup.
+
 2001-01-21  Tom Tromey  <tromey@redhat.com>
 
 	* Makefile.in: Rebuilt.

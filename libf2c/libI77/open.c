@@ -1,6 +1,7 @@
 /* Define _XOPEN_SOURCE to get tempnam prototype with glibc et al --
    more general than _INCLUDE_XOPEN_SOURCE used elsewhere `for HP-UX'.  */
 #define _XOPEN_SOURCE 1
+#include "config.h"
 #include "f2c.h"
 #include "fio.h"
 #include <string.h>
@@ -280,9 +281,9 @@ integer f_open(olist *a)
 #endif
 	if(b->useek)
 		if (a->orl)
-			rewind(b->ufd);
+			FSEEK(b->ufd, 0, SEEK_SET);
 		else if ((s = a->oacc) && (*s == 'a' || *s == 'A')
-			&& fseek(b->ufd, 0L, SEEK_END))
+			&& FSEEK(b->ufd, 0, SEEK_END))
 				opnerr(a->oerr,129,"open");
 	return(0);
 }

@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in.
 
-AUTOMAKE_OPTIONS = foreign no-installinfo
+AUTOMAKE_OPTIONS = foreign
 
 if TESTSUBDIR
 SUBDIRS = $(DIRLTDL) testsuite gcj include
@@ -23,20 +23,15 @@ toolexecdir = $(exec_prefix)/$(target_alias)
 toolexeclibdir = $(toolexecdir)/lib$(MULTISUBDIR)
 endif
 
-if NO_X
-cond_x_ltlibrary =
-else
+if XLIB_AWT
 cond_x_ltlibrary = libgcjx.la
+else
+cond_x_ltlibrary =
 endif
 
 toolexeclib_LTLIBRARIES = libgcj.la $(cond_x_ltlibrary)
 toolexeclib_DATA = libgcj.spec
 data_DATA = libgcj.jar
-
-if NEEDS_DATA_START
-toolexeclib_LIBRARIES = libgcjdata.a
-libgcjdata_a_SOURCES = libgcjdata.c
-endif
 
 ## For now, only on native systems.  FIXME.
 if NATIVE
@@ -57,18 +52,14 @@ if CANADIAN
 if NULL_TARGET
 ## In this case, gcj is found outside the build tree.  However, zip is
 ## found in the build tree.
-ZIP = $(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar$(EXEEXT)
+ZIP = $(MULTIBUILDTOP)../$(COMPPATH)/fastjar/jar$(EXEEXT)
 else
-ZIP = fastjar
+ZIP = jar
 endif
 GCJH = gcjh
 else # CANADIAN
-## JAVAC is set to `$(GCJ) -C'.  However, JAVAC is run from the srcdir
-## (due to problems running it in builddir).  In this case the obvious
-## definition of GCJ won't work; instead we resort to this ugly
-## definition that gives us absolute paths.
 GCJH = $(MULTIBUILDTOP)../$(COMPPATH)/gcc/gcjh$(EXEEXT)
-ZIP = $(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar$(EXEEXT)
+ZIP = $(MULTIBUILDTOP)../$(COMPPATH)/fastjar/jar$(EXEEXT)
 endif # CANADIAN
 
 ## The compiler with whatever flags we want for both -c and -C
@@ -79,20 +70,24 @@ GCJCOMPILE = $(LIBTOOL) --tag=GCJ --mode=compile $(GCJ_WITH_FLAGS) -fassume-comp
 GCJLINK = $(LIBTOOL) --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
 LIBLINK = $(LIBTOOL) --mode=link $(CC) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
 
+## We define this because otherwise libtool can be run with different
+## values of `CXX' and will then get confused and fail to work.  So,
+## we use --tag explicitly.  Someday automake will be changed to do
+## this automatically.
+LTCXXCOMPILE = $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
+
 JAVAC = $(GCJ_WITH_FLAGS) -C
 
-EH_COMMON_INCLUDE = @EH_COMMON_INCLUDE@
+GCC_UNWIND_INCLUDE = @GCC_UNWIND_INCLUDE@
 
 WARNINGS = -W -Wall
 ## We need _GNU_SOURCE defined for some Linux builds.  It doesn't hurt
 ## to always define it.
-## Note that we need -fasynchronous-exceptions because gcc is
-## currently broken with respect to exception handling in leaf
-## functions.
-AM_CXXFLAGS = -fno-rtti -fvtable-thunks -fasynchronous-exceptions \
+AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions \
 ## Some systems don't allow `$' in identifiers by default, so we force it.
 	-fdollars-in-identifiers \
-	@LIBGCJ_CXXFLAGS@ @EXCEPTIONSPEC@ @X_CFLAGS@ $(WARNINGS) -D_GNU_SOURCE
+	@LIBGCJ_CXXFLAGS@ @X_CFLAGS@ $(WARNINGS) -D_GNU_SOURCE \
+	-DPREFIX="\"$(prefix)\""
 if USING_GCC
 AM_CFLAGS = @LIBGCJ_CFLAGS@ $(WARNINGS)
 else
@@ -100,13 +95,13 @@ AM_CFLAGS = @LIBGCJ_CFLAGS@
 endif
 
 JCFLAGS = -g
-JC1FLAGS = -g @LIBGCJ_JAVAFLAGS@
+JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
 
-LIBFFIINCS = -I$(top_srcdir)/../libffi/include -I$(MULTIBUILDTOP)../libffi/include
+LIBFFIINCS = @LIBFFIINCS@
 
 INCLUDES = -I$(top_srcdir) -Iinclude -I$(top_srcdir)/include \
 	$(GCINCS) $(THREADINCS) $(INCLTDL) \
-	$(EH_COMMON_INCLUDE) $(ZINCS) $(LIBFFIINCS)
+	$(GCC_UNWIND_INCLUDE) $(ZINCS) $(LIBFFIINCS)
 
 
 ## ################################################################
@@ -125,9 +120,6 @@ javao_files = $(java_source_files:.java=.lo) \
 	$(built_java_source_files:.java=.lo)
 x_javao_files = $(x_java_source_files:.java=.lo)
 
-## Extract the libffi object file names.
-libffi_files = `$(AR) t ../libffi/.libs/libffi.a 2>/dev/null | sed 's/\.o/\.lo/g' | sed 's/^/..\/libffi\//g'`
-
 libgcj_la_SOURCES = prims.cc posix.cc jni.cc exception.cc \
 	resolve.cc defineclass.cc interpret.cc name-finder.cc \
 	$(nat_source_files)
@@ -136,12 +128,11 @@ EXTRA_libgcj_la_SOURCES = boehm.cc nogc.cc posix-threads.cc no-threads.cc \
 libgcj_la_DEPENDENCIES = libgcj.jar $(javao_files) \
 	$(c_files) $(GCOBJS) $(THREADOBJS) $(LIBLTDL)
 
+libgcj_la_LIBADD = $(javao_files) $(c_files) $(GCOBJS) \
+	$(THREADOBJS)
 # Include THREADLIBS here to ensure that the correct version of
 # certain linuxthread functions get linked:
-libgcj_la_LIBADD = $(javao_files) $(c_files) $(GCOBJS) \
-	$(THREADOBJS) $(THREADLIBS) $(libffi_files) $(LIBLTDL)
-libgcj_la_LDFLAGS = -L$(here)/../libstdc++-v3/libsupc++ -lsupc++ \
-	-rpath $(toolexeclibdir) \
+libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLIBS) $(LIBLTDL) \
 ## The mysterious backslash is consumed by make.
 	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
 libgcj_la_LINK = $(LIBLINK)
@@ -151,7 +142,6 @@ EXTRA_libgcjx_la_SOURCES = $(x_java_source_files)
 libgcjx_la_DEPENDENCIES = libgcj.jar $(x_javao_files)
 libgcjx_la_LIBADD = $(x_javao_files)
 libgcjx_la_LDFLAGS = @X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
-        -L$(here)/../libstdc++-v3/libsupc++ -lsupc++ \
         -rpath $(toolexeclibdir) \
 ## The mysterious backslash is consumed by make.
         -version-info `grep -v '^\#' $(srcdir)/libtool-version`
@@ -171,6 +161,7 @@ install-exec-hook:
 ## a .java file with some other class which is caught.  Note that we
 ## only want to create headers for those files which do not have
 ## hand-maintained headers.
+$(built_java_source_files:.java=.class): libgcj.jar
 $(java_source_files:.java=.class): libgcj.jar
 
 ## The .class files for X will not be included in libgcj.jar, but the
@@ -178,42 +169,26 @@ $(java_source_files:.java=.class): libgcj.jar
 ## built. We need this to generate headers for the nat-files.
 $(x_java_source_files:.java=.class): libgcj.jar
 
-## FIXME: this isn't really correct.
-$(built_java_source_files:.java=.class): $(built_java_source_files)
-## This little nastiness is here so that the backquoted stuff in the
-## GCJ definition can be correctly expanded, if required.
-	@javac="$(JAVAC)"; \
-	for f in $?; do \
-	  echo $$javac -L$(here) $(JCFLAGS) -classpath $(here):`cd $(srcdir) && /bin/pwd` -d $(here) $$f; \
-	  $$javac -L$(here) $(JCFLAGS) -classpath $(here):`cd $(srcdir) && /bin/pwd` \
-	  -d $(here) $$f; \
-	done
-
 ## We have the zip file depend on the java sources and not the class
 ## files, because we don't know the names of all the class files.
 ## FIXME: this method fails in a peculiar case: if libgcj.jar is
 ## up-to-date, and foo.class is removed, and bar.java is touched, then
 ## `make libgcj.jar' will not rebuilt foo.class.  That's because
 ## libgcj.jar is not out-of-date with respect to foo.java.
-libgcj.jar: $(java_source_files) $(x_java_source_files)
+libgcj.jar: $(built_java_source_files) $(java_source_files) $(x_java_source_files)
 ## Create a list of all Java sources, without exceeding any shell limits.
-	@: $(shell echo Creating list of files to compile...) $(shell rm -f tmp-list || :) $(shell touch tmp-list) $(foreach source,$(subst $(srcdir)/,,$?),$(shell echo $(source) >> tmp-list))
-## FIXME: this ought to depend on built_java_source_files, but right
-## now it can't.  Ugly.
-	$(MAKE) $(built_java_source_files:.java=.class)
-## This little nastiness is here so that the backquoted stuff in the
-## GCJ definition can be correctly expanded, if required.
+	@: $(shell echo Creating list of files to compile...) $(shell rm -f tmp-list || :) $(shell touch tmp-list) $(foreach source,$?,$(shell echo $(source) >> tmp-list))
 	@set fnord $(MAKEFLAGS); amf=$$2; fail=no; \
-	javac="$(JAVAC)"; dir=`/bin/pwd`; cd $(srcdir); \
-	for f in `cat $$dir/tmp-list`; do \
-	  echo $$javac $(JCFLAGS) -classpath $(here):`/bin/pwd` -d $(here) $$f; \
-	  $$javac $(JCFLAGS) -classpath $(here):`/bin/pwd` -d $(here) $$f \
+	javac="$(JAVAC)"; \
+	cat tmp-list | while read f; do \
+	  echo $$javac $(JCFLAGS) -classpath $(here):$(srcdir) -d $(here) $$f; \
+	  $$javac $(JCFLAGS) -classpath $(here):$(srcdir) -d $(here) $$f \
 	    || case "$$amf" in *=*) exit 1;; *k*) fail=yes ;; *) exit 1;; esac; \
 	done; \
 	test "$$fail" = no
 	-@rm -f tmp-list libgcj.jar
 ## Note that we explicitly want to include directory information.
-	find java gnu -type d -o -type f -name '*.class' | \
+	find java gnu org -type d -o -type f -name '*.class' | \
 	  sed -e '/\/\./d' -e '/\/xlib/d' | \
 	  $(ZIP) cfM0E@ $@
 
@@ -256,6 +231,19 @@ $(c_files): java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h
 $(javao_files) $(x_javao_files): %.lo: %.java
 	$(GCJCOMPILE) -o $@ $<
 
+## Pass the list of object files to libtool in a temporary file to 
+## avoid tripping platform command line length limits.
+libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES)
+	@: $(shell echo Creating list of files to link...) $(shell rm -f libgcj.objectlist || :) $(shell touch libgcj.objectlist) $(foreach object,$(libgcj_la_OBJECTS) $(libgcj_la_LIBADD),$(shell echo $(object) >> libgcj.objectlist))
+	$(libgcj_la_LINK) -objectlist libgcj.objectlist \
+	@LIBFFI@ \
+	-rpath $(toolexeclibdir) $(libgcj_la_LDFLAGS) $(LIBS)
+
+libgcjx.la: $(libgcjx_la_OBJECTS) $(libgcjx_la_DEPENDENCIES)
+	@: $(shell echo Creating list of files to link...) $(shell rm -f libgcjx.objectlist || :) $(shell touch libgcjx.objectlist) $(foreach object,$(libgcjx_la_OBJECTS) $(libgcjx_la_LIBADD),$(shell echo $(object) >> libgcjx.objectlist))
+	$(libgcjx_la_LINK) -objectlist libgcjx.objectlist \
+	-rpath $(toolexeclibdir) $(libgcjx_la_LDFLAGS) $(LIBS)
+
 ## ################################################################
 
 ##
@@ -274,6 +262,8 @@ nat_headers = $(ordinary_java_source_files:.java=.h) \
 
 x_nat_headers = $(x_java_source_files:.java=.h)
 
+$(nat_headers) $(x_nat_headers): libgcj.jar
+
 java/lang/ClassLoader.h: java/lang/ClassLoader.class libgcj.jar
 	$(GCJH) -classpath $(top_builddir) \
 		-friend 'jclass _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader);' \
@@ -290,12 +280,12 @@ gnu/gcj/runtime/FirstThread.h: gnu/gcj/runtime/FirstThread.class libgcj.jar
 java/lang/Thread.h: java/lang/Thread.class libgcj.jar
 	$(GCJH) -classpath $(top_builddir) \
 		-prepend 'class _Jv_JNIEnv;' \
-		-prepend 'extern "Java" { namespace gnu { namespace gcj { namespace jni { class NativeThread; } } } };' \
 		-prepend '#define _JV_NOT_OWNER 1' \
 		-prepend '#define _JV_INTERRUPTED 2' \
 		-friend '_Jv_JNIEnv * _Jv_GetCurrentJNIEnv ();' \
 		-friend 'void _Jv_SetCurrentJNIEnv (_Jv_JNIEnv *env);' \
-		-friend 'class gnu::gcj::jni::NativeThread;' \
+		-friend 'java::lang::Thread* _Jv_AttachCurrentThread(jstring name, java::lang::ThreadGroup* group);' \
+		-friend 'jint _Jv_DetachCurrentThread ();' \
 		$(basename $<)
 
 java/lang/String.h: java/lang/String.class libgcj.jar
@@ -344,6 +334,9 @@ java/io/ObjectOutputStream$$PutField.h: libgcj.jar
 
 ## Headers we maintain by hand and which we want to install.
 extra_headers = java/lang/Object.h java/lang/Class.h
+
+$(extra_headers):
+	@:
 
 ## Install the headers.  It is fairly ugly that we have to do this by
 ## hand.
@@ -410,7 +403,7 @@ EXTRA_jv_convert_SOURCES = $(convert_source_files)
 ## need this because we are explicitly using libtool to link using the
 ## `.la' file.
 jv_convert_LDFLAGS = --main=gnu.gcj.convert.Convert \
-	-rpath $(toolexeclibdir)
+	-rpath $(toolexeclibdir) -shared-libgcc
 jv_convert_LINK = $(GCJLINK)
 ## We explicitly link in the libraries we need.  This way we don't
 ## need -nodefaultlibs, so we can still rely on gcj picking up the
@@ -428,7 +421,7 @@ gij_SOURCES = gij.cc
 ## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
 ## need this because we are explicitly using libtool to link using the
 ## `.la' file.
-gij_LDFLAGS = -rpath $(toolexeclibdir)
+gij_LDFLAGS = -rpath $(toolexeclibdir) -shared-libgcc
 gij_LINK = $(GCJLINK)
 ## We explicitly link in the libraries we need.  This way we don't
 ## need -nodefaultlibs, so we can still rely on gcj picking up the
@@ -621,6 +614,7 @@ java/awt/Paint.java \
 java/awt/PaintContext.java \
 java/awt/Panel.java \
 java/awt/Point.java \
+java/awt/Polygon.java \
 java/awt/PopupMenu.java	\
 java/awt/Rectangle.java	\
 java/awt/RenderingHints.java \
@@ -680,6 +674,7 @@ java/awt/geom/AffineTransform.java \
 java/awt/geom/Dimension2D.java \
 java/awt/geom/Ellipse2D.java \
 java/awt/geom/IllegalPathStateException.java \
+java/awt/geom/Line2D.java \
 java/awt/geom/NoninvertibleTransformException.java \
 java/awt/geom/PathIterator.java	\
 java/awt/geom/Point2D.java \
@@ -828,6 +823,7 @@ java/lang/NullPointerException.java \
 java/lang/Number.java \
 java/lang/NumberFormatException.java \
 java/lang/OutOfMemoryError.java	\
+java/lang/Package.java \
 java/lang/Process.java \
 java/lang/Runnable.java	\
 java/lang/Runtime.java \
@@ -844,6 +840,7 @@ java/lang/System.java \
 java/lang/Thread.java \
 java/lang/ThreadDeath.java \
 java/lang/ThreadGroup.java \
+java/lang/ThreadLocal.java \
 java/lang/Throwable.java \
 java/lang/UnknownError.java \
 java/lang/UnsatisfiedLinkError.java \
@@ -851,7 +848,6 @@ java/lang/UnsupportedOperationException.java \
 java/lang/VerifyError.java \
 java/lang/VirtualMachineError.java \
 java/lang/Void.java \
-java/io/BlockDataException.java	\
 java/io/BufferedInputStream.java \
 java/io/BufferedOutputStream.java \
 java/io/BufferedReader.java \
@@ -975,10 +971,11 @@ java/util/StringTokenizer.java \
 java/util/TimeZone.java	\
 java/util/Timer.java \
 java/util/TimerTask.java \
+java/util/TreeMap.java \
+java/util/TreeSet.java \
 java/util/TooManyListenersException.java \
-java/util/Vector.java
-#java/util/WeakHashmap.java
-
+java/util/Vector.java \
+java/util/WeakHashMap.java
 
 ## List of all .java files to be compiled.  Please keep this list
 ## alphabetical.  Please put files from java/lang, java/io, and java/util
@@ -991,7 +988,6 @@ gnu/gcj/RawData.java \
 gnu/gcj/io/DefaultMimeTypes.java \
 gnu/gcj/io/MimeTypes.java \
 gnu/gcj/io/SimpleSHSStream.java	\
-gnu/gcj/jni/NativeThread.java \
 gnu/gcj/math/MPN.java \
 gnu/gcj/protocol/file/Connection.java \
 gnu/gcj/protocol/file/Handler.java \
@@ -1020,6 +1016,7 @@ gnu/java/locale/Calendar.java \
 gnu/java/locale/Calendar_de.java \
 gnu/java/locale/Calendar_en.java \
 gnu/java/locale/Calendar_nl.java \
+gnu/java/security/provider/DefaultPolicy.java \
 gnu/java/security/provider/Gnu.java \
 gnu/java/security/provider/SHA.java \
 gnu/java/security/provider/SHA1PRNG.java \
@@ -1052,6 +1049,7 @@ java/net/InetAddress.java \
 java/net/JarURLConnection.java \
 java/net/MalformedURLException.java \
 java/net/MulticastSocket.java \
+java/net/NetPermission.java \
 java/net/NoRouteToHostException.java \
 java/net/PlainDatagramSocketImpl.java \
 java/net/PlainSocketImpl.java \
@@ -1062,6 +1060,7 @@ java/net/SocketException.java \
 java/net/SocketImpl.java \
 java/net/SocketImplFactory.java	\
 java/net/SocketOptions.java \
+java/net/SocketPermission.java \
 java/net/URL.java \
 java/net/URLClassLoader.java \
 java/net/URLConnection.java \
@@ -1071,34 +1070,80 @@ java/net/URLStreamHandler.java \
 java/net/URLStreamHandlerFactory.java \
 java/net/UnknownHostException.java \
 java/net/UnknownServiceException.java \
+java/security/AccessControlContext.java \
+java/security/AccessControlException.java \
+java/security/AccessController.java \
+java/security/AlgorithmParameterGenerator.java \
+java/security/AlgorithmParameters.java \
 java/security/AlgorithmParameterGeneratorSpi.java \
+java/security/AlgorithmParametersSpi.java \
+java/security/AllPermission.java \
 java/security/BasicPermission.java \
+java/security/Certificate.java \
+java/security/CodeSource.java \
 java/security/DigestException.java \
 java/security/DigestOutputStream.java \
+java/security/DummyKeyPairGenerator.java \
+java/security/DummySignature.java \
+java/security/DigestInputStream.java \
+java/security/DomainCombiner.java \
+java/security/DummyMessageDigest.java \
 java/security/GeneralSecurityException.java \
 java/security/Guard.java \
+java/security/GuardedObject.java \
+java/security/Identity.java \
+java/security/IdentityScope.java \
 java/security/InvalidAlgorithmParameterException.java \
 java/security/InvalidKeyException.java \
 java/security/InvalidParameterException.java \
 java/security/Key.java \
-java/security/KeyException.java	\
-java/security/KeyPair.java \
+java/security/KeyFactorySpi.java \
 java/security/KeyPairGenerator.java \
+java/security/KeyStoreException.java \
+java/security/KeyException.java \
+java/security/KeyManagementException.java \
 java/security/KeyPairGeneratorSpi.java \
+java/security/KeyStoreSpi.java \
+java/security/KeyFactory.java \
+java/security/KeyPair.java \
+java/security/KeyStore.java \
 java/security/MessageDigest.java \
+java/security/MessageDigestSpi.java \
 java/security/NoSuchAlgorithmException.java \
 java/security/NoSuchProviderException.java \
 java/security/Permission.java \
-java/security/PermissionCollection.java	\
 java/security/Principal.java \
-java/security/PrivateKey.java \
-java/security/Provider.java \
+java/security/PrivilegedExceptionAction.java \
 java/security/PublicKey.java \
+java/security/PermissionCollection.java \
+java/security/PrivateKey.java \
+java/security/ProtectionDomain.java \
+java/security/Permissions.java \
+java/security/PrivilegedAction.java \
+java/security/Provider.java \
+java/security/Policy.java \
+java/security/PrivilegedActionException.java \
+java/security/ProviderException.java \
 java/security/SecureClassLoader.java \
-java/security/SecureRandom.java	\
+java/security/SecureRandomSpi.java \
+java/security/SecurityPermission.java \
+java/security/SignatureException.java \
+java/security/SignedObject.java \
+java/security/SecureRandom.java \
 java/security/Security.java \
 java/security/Signature.java \
-java/security/SignatureException.java \
+java/security/SignatureSpi.java \
+java/security/Signer.java \
+java/security/UnrecoverableKeyException.java \
+java/security/UnresolvedPermission.java \
+java/security/acl/Acl.java \
+java/security/acl/AclNotFoundException.java \
+java/security/acl/LastOwnerException.java \
+java/security/acl/Owner.java \
+java/security/acl/AclEntry.java \
+java/security/acl/Group.java \
+java/security/acl/NotOwnerException.java \
+java/security/acl/Permission.java \
 java/security/cert/CRL.java \
 java/security/cert/CRLException.java \
 java/security/cert/Certificate.java \
@@ -1114,19 +1159,28 @@ java/security/cert/X509CRLEntry.java \
 java/security/cert/X509Certificate.java \
 java/security/cert/X509Extension.java \
 java/security/interfaces/DSAKey.java \
-java/security/interfaces/DSAParams.java	\
+java/security/interfaces/DSAKeyPairGenerator.java \
+java/security/interfaces/DSAParams.java \
 java/security/interfaces/DSAPrivateKey.java \
 java/security/interfaces/DSAPublicKey.java \
+java/security/interfaces/RSAKey.java \
 java/security/interfaces/RSAPrivateCrtKey.java \
 java/security/interfaces/RSAPrivateKey.java \
 java/security/interfaces/RSAPublicKey.java \
 java/security/spec/AlgorithmParameterSpec.java \
-java/security/spec/InvalidKeySpecException.java	\
+java/security/spec/DSAParameterSpec.java \
+java/security/spec/DSAPrivateKeySpec.java \
+java/security/spec/DSAPublicKeySpec.java \
+java/security/spec/EncodedKeySpec.java \
+java/security/spec/InvalidKeySpecException.java \
 java/security/spec/InvalidParameterSpecException.java \
-java/security/spec/KeySpec.java	\
+java/security/spec/KeySpec.java \
+java/security/spec/PKCS8EncodedKeySpec.java \
+java/security/spec/RSAKeyGenParameterSpec.java \
 java/security/spec/RSAPrivateCrtKeySpec.java \
 java/security/spec/RSAPrivateKeySpec.java \
 java/security/spec/RSAPublicKeySpec.java \
+java/security/spec/X509EncodedKeySpec.java \
 java/sql/Array.java \
 java/sql/BatchUpdateException.java \
 java/sql/Blob.java \
@@ -1197,8 +1251,63 @@ java/util/zip/ZipException.java	\
 java/util/zip/ZipFile.java \
 java/util/zip/ZipInputStream.java \
 java/util/zip/ZipOutputStream.java \
+org/w3c/dom/Attr.java \
+org/w3c/dom/CDATASection.java \
+org/w3c/dom/CharacterData.java \
+org/w3c/dom/Comment.java \
+org/w3c/dom/DOMException.java \
+org/w3c/dom/DOMImplementation.java \
+org/w3c/dom/Document.java \
+org/w3c/dom/DocumentFragment.java \
+org/w3c/dom/DocumentType.java \
+org/w3c/dom/Element.java \
+org/w3c/dom/Entity.java \
+org/w3c/dom/EntityReference.java \
+org/w3c/dom/NamedNodeMap.java \
+org/w3c/dom/Node.java \
+org/w3c/dom/NodeList.java \
+org/w3c/dom/Notation.java \
+org/w3c/dom/ProcessingInstruction.java \
+org/w3c/dom/Text.java \
+org/w3c/dom/ranges/DocumentRange.java \
+org/w3c/dom/ranges/Range.java \
+org/w3c/dom/ranges/RangeException.java \
+org/w3c/dom/traversal/DocumentTraversal.java \
+org/w3c/dom/traversal/NodeFilter.java \
+org/w3c/dom/traversal/NodeIterator.java \
+org/w3c/dom/traversal/TreeWalker.java \
+org/xml/sax/ext/DeclHandler.java \
+org/xml/sax/ext/LexicalHandler.java \
+org/xml/sax/helpers/AttributeListImpl.java \
+org/xml/sax/helpers/AttributesImpl.java \
+org/xml/sax/helpers/DefaultHandler.java \
+org/xml/sax/helpers/LocatorImpl.java \
+org/xml/sax/helpers/NamespaceSupport.java \
+org/xml/sax/helpers/ParserAdapter.java \
+org/xml/sax/helpers/ParserFactory.java \
+org/xml/sax/helpers/XMLFilterImpl.java \
+org/xml/sax/helpers/XMLReaderAdapter.java \
+org/xml/sax/helpers/XMLReaderFactory.java \
+org/xml/sax/AttributeList.java \
+org/xml/sax/Attributes.java \
+org/xml/sax/ContentHandler.java \
+org/xml/sax/DTDHandler.java \
+org/xml/sax/DocumentHandler.java \
+org/xml/sax/EntityResolver.java \
+org/xml/sax/ErrorHandler.java \
+org/xml/sax/HandlerBase.java \
+org/xml/sax/InputSource.java \
+org/xml/sax/Locator.java \
+org/xml/sax/Parser.java \
+org/xml/sax/SAXException.java \
+org/xml/sax/SAXNotRecognizedException.java \
+org/xml/sax/SAXNotSupportedException.java \
+org/xml/sax/SAXParseException.java \
+org/xml/sax/XMLFilter.java \
+org/xml/sax/XMLReader.java \
 $(awt_java_source_files) \
 $(convert_source_files)
+
 
 java_source_files = $(special_java_source_files) $(ordinary_java_source_files)
 
@@ -1232,8 +1341,6 @@ gnu/gcj/convert/natOutput_EUCJIS.cc \
 gnu/gcj/convert/natOutput_SJIS.cc \
 gnu/gcj/io/natSimpleSHSStream.cc \
 gnu/gcj/io/shs.cc \
-gnu/gcj/jni/natNativeThread.cc \
-gnu/gcj/runtime/natFirstThread.cc \
 java/io/natFile.cc \
 java/io/natFileDescriptor.cc \
 java/io/natObjectInputStream.cc \
@@ -1248,6 +1355,7 @@ java/lang/natMath.cc \
 java/lang/natObject.cc \
 java/lang/natRuntime.cc	\
 java/lang/natString.cc \
+java/lang/natStringBuffer.cc \
 java/lang/natSystem.cc \
 java/lang/natThread.cc \
 java/lang/natThrowable.cc \
@@ -1259,7 +1367,6 @@ java/net/natInetAddress.cc \
 java/net/natPlainDatagramSocketImpl.cc \
 java/net/natPlainSocketImpl.cc \
 java/text/natCollator.cc \
-java/util/natGregorianCalendar.cc \
 java/util/zip/natDeflater.cc \
 java/util/zip/natInflater.cc
 
@@ -1417,7 +1524,7 @@ AM_MAKEFLAGS = \
 	"RANLIB=$(RANLIB)" \
 	"DESTDIR=$(DESTDIR)"
 
-CONFIG_STATUS_DEPENDENCIES = $(libgcj_basedir)/configure.host
+CONFIG_STATUS_DEPENDENCIES = $(srcdir)/configure.host
 
 MAKEOVERRIDES=
 

@@ -1,8 +1,6 @@
 /* -----------------------------------------------------------------------
    ffitest.c - Copyright (c) 1996, 1997, 1998  Cygnus Solutions
 
-   $Id: ffitest.c,v 1.1.1.1 1998/11/29 16:48:16 green Exp $
-
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
    ``Software''), to deal in the Software without restriction, including
@@ -543,6 +541,8 @@ int main(/*@unused@*/ int argc, /*@unused@*/ char *argv[])
     printf("%lu promotion tests run\n", ul);
   }
 
+#ifndef X86_WIN32 /* Structures dont work on Win32 */
+
   /* struct tests */
   {
     test_structure_1 ts1_arg;
@@ -700,6 +700,10 @@ int main(/*@unused@*/ int argc, /*@unused@*/ char *argv[])
 
     free (ts5_result);
   }
+
+#else
+  printf("Structure passing doesn't work on Win32.\n");
+#endif /* X86_WIN32 */
 
 # if FFI_CLOSURES
   /* A simple closure test */

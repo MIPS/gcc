@@ -1,6 +1,6 @@
 // natDouble.cc - Implementation of java.lang.Double native methods.
 
-/* Copyright (C) 1998, 1999, 2000  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -10,15 +10,12 @@ details.  */
 
 #include <config.h>
 
-#if HAVE_ALLOCA_H
-#include <alloca.h>
-#endif
-
 #include <stdlib.h>
 
 #include <gcj/cni.h>
 #include <java/lang/String.h>
 #include <java/lang/Double.h>
+#include <java/lang/Character.h>
 #include <java/lang/NumberFormatException.h>
 #include <jvm.h>
 
@@ -45,6 +42,14 @@ java::lang::Double::doubleToLongBits(jdouble value)
   if (e == 0x7ff0000000000000LL && f != 0L)
     u.l = 0x7ff8000000000000LL;
 
+  return u.l;
+}
+
+jlong 
+java::lang::Double::doubleToRawLongBits(jdouble value)
+{
+  union u u;
+  u.d = value;
   return u.l;
 }
 
@@ -156,23 +161,28 @@ jdouble
 java::lang::Double::parseDouble(jstring str)
 {
   int length = str->length();
-  // Note that UTF can expand 3x.
+  while (length > 0
+	 && Character::isWhitespace(str->charAt(length - 1)))
+    length--;
+  jsize start = 0;
+  while (length > 0
+	 && Character::isWhitespace(str->charAt(start)))
+    start++, length--;
 
-#ifdef HAVE_ALLOCA
-  char *data = (char *) alloca (3 * length + 1);
-#else
-#error --- need an alternate implementation here ---
-#endif
+  if (length > 0)
+    {
+      // Note that UTF can expand 3x.
+      char *data = (char *) __builtin_alloca (3 * length + 1);
+      jsize blength = _Jv_GetStringUTFRegion (str, start, length, data);
+      data[blength] = 0; 
 
-  data[_Jv_GetStringUTFRegion (str, 0, length, data)] = 0; 
+      struct _Jv_reent reent;  
+      memset (&reent, 0, sizeof reent);
 
-  struct _Jv_reent reent;  
-  memset (&reent, 0, sizeof reent);
-
-  double val = _strtod_r (&reent, data, NULL);
-
-  if (reent._errno)
-    _Jv_Throw (new NumberFormatException);
-
-  return val;
+      char *endptr;
+      double val = _strtod_r (&reent, data, &endptr);
+      if (endptr == data + blength)
+	return val;
+    }
+  throw new NumberFormatException;
 }

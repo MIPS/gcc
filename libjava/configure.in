@@ -1,10 +1,6 @@
 dnl Process this with autoconf to create configure
 AC_INIT(java/lang/System.java)
 
-dnl Can't be done in LIBGCJ_CONFIGURE because that confuses automake.
-AC_CONFIG_AUX_DIR(..)
-
-AC_CANONICAL_SYSTEM
 AC_PROG_LN_S
 
 dnl We use these options to decide which functions to include.
@@ -16,7 +12,7 @@ AC_ARG_WITH(cross-host,
 
 LIBGCJ_CONFIGURE(.)
 
-AM_CONFIG_HEADER(include/config.h)
+AM_CONFIG_HEADER(include/config.h gcj/libgcj-config.h)
 
 # Only use libltdl for native builds.
 if test -z "${with_cross_host}"; then
@@ -26,6 +22,9 @@ if test -z "${with_cross_host}"; then
    AC_DEFINE(USE_LTDL)
    # Sigh.  Libtool's macro doesn't do the right thing.
    INCLTDL="-I\$(top_srcdir)/libltdl $INCLTDL"
+   # FIXME: this is a hack.
+   sub_auxdir="`cd $ac_aux_dir && pwd`"
+   ac_configure_args="$ac_configure_args --with-auxdir=$sub_auxdir"
 fi
 AC_SUBST(INCLTDL)
 AC_SUBST(LIBLTDL)
@@ -57,12 +56,25 @@ AC_ARG_ENABLE(getenv-properties,
                           don't set system properties from GCJ_PROPERTIES])
 
 dnl Whether GCJ_PROPERTIES is used depends on the target.
-if test -n "$enable_getenv_properties"; then
+if test -z "$enable_getenv_properties"; then
    enable_getenv_properties=${enable_getenv_properties_default-yes}
 fi
 if test "$enable_getenv_properties" = no; then
    AC_DEFINE(DISABLE_GETENV_PROPERTIES)
 fi
+
+
+dnl Should we use hashtable-based synchronization?
+dnl Currently works only for Linux X86/ia64
+dnl Typically faster and more space-efficient
+AC_ARG_ENABLE(hash-synchronization,
+[  --enable-hash-synchronization
+                          Use global hash table for monitor locks])
+
+if test -z "$enable_hash_synchronization"; then
+   enable_hash_synchronization=$enable_hash_synchronization_default
+fi
+
 
 dnl See if the user has requested runtime debugging.
 LIBGCJDEBUG="false"
@@ -88,35 +100,51 @@ if test "$libgcj_interpreter" = yes; then
    AC_DEFINE(INTERPRETER)
 fi
 
-EXCEPTIONSPEC=
-dnl See if we should use setjmp/longjmp exceptions
+AC_MSG_CHECKING([for exception model to use])
+AC_LANG_SAVE
+AC_LANG_CPLUSPLUS
 AC_ARG_ENABLE(sjlj-exceptions,
-[  --enable-sjlj-exceptions    use setjmp/longjmp exceptions],
-  if test "$enable_sjlj_exceptions" = yes; then
-     # This can be set in configure.host.
-     libgcj_sjlj=yes
-  fi)
-
-if test "$libgcj_sjlj" = yes; then
-   EXCEPTIONSPEC="-fsjlj-exceptions"
-   AC_DEFINE(SJLJ_EXCEPTIONS)
+[  --enable-sjlj-exceptions  force use of builtin_setjmp for exceptions],
+[:],
+[dnl Botheration.  Now we've got to detect the exception model.
+dnl Link tests against libgcc.a are problematic since -- at least
+dnl as of this writing -- we've not been given proper -L bits for
+dnl single-tree newlib and libgloss.
+dnl
+dnl This is what AC_TRY_COMPILE would do if it didn't delete the
+dnl conftest files before we got a change to grep them first.
+cat > conftest.$ac_ext << EOF
+[#]line __oline__ "configure"
+struct S { ~S(); };
+void bar();
+void foo()
+{
+  S s;
+  bar();
+}
+EOF
+old_CXXFLAGS="$CXXFLAGS"  
+CXXFLAGS=-S
+if AC_TRY_EVAL(ac_compile); then
+  if grep _Unwind_SjLj_Resume conftest.s >/dev/null 2>&1 ; then
+    enable_sjlj_exceptions=yes
+  elif grep _Unwind_Resume conftest.s >/dev/null 2>&1 ; then
+    enable_sjlj_exceptions=no
+  fi
 fi
-
-FORCELIBGCCSPEC=
-dnl Work around libgcc design flaw.
-if test "$ac_cv_prog_gnu_ld" = yes; then
-   FORCELIBGCCSPEC="-u __rethrow -u __frame_state_for -lgcc"
-fi   
-
-AC_MSG_CHECKING([for data_start])
-LIBDATASTARTSPEC=
-NEEDS_DATA_START=
-AC_TRY_LINK([extern int data_start;], [return ((int) &data_start);],
-  [AC_MSG_RESULT(found it)],
-  [LIBDATASTARTSPEC="-u data_start libgcjdata.a%s"
-   NEEDS_DATA_START=yes	
-   AC_MSG_RESULT(missing)])
-AC_SUBST(LIBDATASTARTSPEC)
+CXXFLAGS="$old_CXXFLAGS"
+rm -f conftest*])
+if test x$enable_sjlj_exceptions = xyes; then
+  AC_DEFINE(SJLJ_EXCEPTIONS, 1,
+	[Define if the compiler is configured for setjmp/longjmp exceptions.])
+  ac_exception_model_name=sjlj
+elif test x$enable_sjlj_exceptions = xno; then
+  ac_exception_model_name="call frame"
+else
+  AC_MSG_ERROR([unable to detect exception model])
+fi
+AC_LANG_RESTORE
+AC_MSG_RESULT($ac_exception_model_name)
 
 dnl See if the user wants to disable java.net.  This is the mildly
 dnl ugly way that we admit that target-side configuration sucks.
@@ -124,12 +152,28 @@ AC_ARG_ENABLE(java-net,
 [  --disable-java-net      disable java.net])
 
 dnl Whether java.net is built by default can depend on the target.
-if test -n "$enable_java_net"; then
+if test -z "$enable_java_net"; then
    enable_java_net=${enable_java_net_default-yes}
 fi
 if test "$enable_java_net" = no; then
    AC_DEFINE(DISABLE_JAVA_NET)
 fi
+
+dnl See if the user wants to configure without libffi.  Some
+dnl architectures don't support it, and default values are set in 
+dnl configure.host.
+AC_ARG_WITH(libffi,
+[  --without-libffi        don't use libffi],,with_libffi=${with_libffi_default-yes})
+
+LIBFFI=
+LIBFFIINCS=
+if test "$with_libffi" != no; then
+   AC_DEFINE(USE_LIBFFI)
+   LIBFFI=../libffi/libfficonvenience.la
+   LIBFFIINCS="-I$(top_srcdir)/../libffi/include -I$(MULTIBUILDTOP)../libffi/include"
+fi
+AC_SUBST(LIBFFI)
+AC_SUBST(LIBFFIINCS)
 
 dnl See if the user wants to disable JVMPI support.
 AC_ARG_ENABLE(jvmpi,
@@ -222,7 +266,7 @@ case "$GC" in
     # We include the path to the boehm-gc build directory.
     # See Makefile.am to understand why.
     GCLIBS="$GCDEPS -L\$(here)/../boehm-gc/$libsubdir"
-    GCINCS='-I$(top_srcdir)/../boehm-gc -I$(top_builddir)/../boehm-gc'
+    GCINCS='-I$(top_srcdir)/../boehm-gc/include'
     GCSPEC='-lgcjgc'
     JC1GCSPEC='-fuse-boehm-gc'
     GCTESTSPEC="-L`pwd`/../boehm-gc/.libs -rpath `pwd`/../boehm-gc/.libs"
@@ -253,43 +297,9 @@ AC_SUBST(GCTESTSPEC)
 AC_LINK_FILES(include/$GCHDR, include/java-gc.h)
 
 
-dnl Note that this code is kept in sync with similar code in gcc/configure.in.
-dnl In particular both packages must make the same decision about which
-dnl thread package to use.
-AC_MSG_CHECKING([for threads package to use])
-AC_ARG_ENABLE(threads, [  --enable-threads=TYPE   choose threading package],
-  THREADS=$enableval,
-  dnl FIXME: figure out native threads to use here.
-  THREADS=no)
-
-if test "$THREADS" = yes; then
-   case "$host" in
-    *-*-vxworks*)
-       THREADS=vxworks
-       ;;
-    *-*-linux*)
-       # FIXME: this isn't correct in all cases.
-       THREADS=posix
-       ;;
-    *-*-win*)
-       THREADS=win32
-       ;;
-    *-*-irix*)
-       # FIXME: for now, choose POSIX, because we implement that.
-       # Later, choose irix threads.
-       THREADS=posix
-       ;;
-    *-*-solaris*)
-       # FIXME: for now, choose POSIX, because we implement that.
-       # Later, choose solaris threads.
-       THREADS=posix
-       ;;
-    *)
-       # For now.
-       THREADS=none
-       ;;
-   esac
-fi
+AC_MSG_CHECKING([for thread model used by GCC])
+THREADS=`$CC -v 2>&1 | sed -n 's/^Thread model: //p'`
+AC_MSG_RESULT([$THREADS])
 
 case "$THREADS" in
  no | none | single)
@@ -310,7 +320,6 @@ case "$THREADS" in
     AC_MSG_ERROR($THREADS is an unknown thread package)
     ;;
 esac
-AC_MSG_RESULT($THREADS)
 
 THREADLIBS=
 THREADINCS=
@@ -349,24 +358,23 @@ AC_SUBST(THREADDEPS)
 AC_SUBST(THREADOBJS)
 AC_SUBST(THREADSPEC)
 
+HASH_SYNC_SPEC=
+# Hash synchronization is only useful with posix threads right now.
+if test "$enable_hash_synchronization" = yes && test "$THREADS" = "posix"; then
+   HASH_SYNC_SPEC=-fhash-synchronization
+   AC_DEFINE(JV_HASH_SYNCHRONIZATION)
+fi
+AC_SUBST(HASH_SYNC_SPEC)
+
+
 AM_CONDITIONAL(USING_GCC, test "$GCC" = yes)
 
 CANADIAN=no
 NULL_TARGET=no
 NATIVE=yes
 
-# Find eh-common.h and support headers.  If we're in the tree with
-# gcc, then look there.  Otherwise look in compat-include.  If all else
-# fails, just hope the user has set things up somehow.
-if test -r $srcdir/../gcc/eh-common.h; then
-   EH_COMMON_INCLUDE='-I$(top_srcdir)/../gcc -I$(top_srcdir)/../include'
-else
-   if test -d $srcdir/../compat-include; then
-      EH_COMMON_INCLUDE='-I$(top_srcdir)/../compat-include'
-   else
-      EH_COMMON_INCLUDE=
-   fi
-fi
+# We're in the tree with gcc, and need to include some of its headers.
+GCC_UNWIND_INCLUDE='-I$(libgcj_basedir)/../gcc'
 
 if test -n "${with_cross_host}"; then
    # We are being configured with a cross compiler.  AC_REPLACE_FUNCS
@@ -393,22 +401,20 @@ if test -n "${with_cross_host}"; then
 
    # If Canadian cross, then don't pick up tools from the build
    # directory.
-   if test "$build" != "$with_cross_host"; then
+   if test x"$build" != x"$with_cross_host" && x"$build" != x"$target"; then
       CANADIAN=yes
-      EH_COMMON_INCLUDE=
+      GCC_UNWIND_INCLUDE=
       GCJ="${target_alias}-gcj"
-   else
-      GCJ=
    fi
    NATIVE=no
 else
    AC_CHECK_FUNCS(strerror ioctl select fstat open fsync sleep)
    AC_CHECK_FUNCS(gmtime_r localtime_r readdir_r getpwuid_r getcwd)
-   AC_CHECK_FUNCS(access stat mkdir rename rmdir unlink realpath)
+   AC_CHECK_FUNCS(access stat mkdir rename rmdir unlink realpath utime chmod)
    AC_CHECK_FUNCS(iconv nl_langinfo setlocale)
    AC_CHECK_FUNCS(inet_aton inet_addr, break)
    AC_CHECK_FUNCS(inet_pton uname inet_ntoa)
-   AC_CHECK_FUNCS(backtrace fork execvp pipe)
+   AC_CHECK_FUNCS(backtrace fork execvp pipe sigaction)
    AC_CHECK_HEADERS(execinfo.h unistd.h dlfcn.h) 
    AC_CHECK_LIB(dl, dladdr, [
      AC_DEFINE(HAVE_DLADDR)])
@@ -608,7 +614,30 @@ fi
 # Create it, so that compile/link tests don't fail
 test -f libgcj.spec || touch libgcj.spec
 
+# We must search the source tree for java.lang, since we still don't
+# have libgcj.jar nor java/lang/*.class
+GCJ_SAVE_CPPFLAGS=$CPPFLAGS
+CPPFLAGS="$CPPFLAGS -I`pwd` -I`cd $srcdir && pwd`"
+
+# Since some classes depend on this one, we need its source available
+# before we can do any GCJ compilation test :-(
+if test ! -f gnu/classpath/Configuration.java; then
+  test -d gnu || mkdir gnu
+  test -d gnu/classpath || mkdir gnu/classpath
+  sed 's,@LIBGCJDEBUG@,$LIBGCJDEBUG,' \
+	< $srcdir/gnu/classpath/Configuration.java.in \
+	> gnu/classpath/Configuration.java
+  # We do not want to redirect the output of the grep below to /dev/null,
+  # but we add /dev/null to the input list so that grep will print the
+  # filename of Configuration.java in case it finds any matches.
+  if grep @ gnu/classpath/Configuration.java /dev/null; then
+    AC_MSG_ERROR([configure.in is missing the substitutions above])
+  fi
+fi
+
 LT_AC_PROG_GCJ
+
+CPPFLAGS=$GCJ_SAVE_CPPFLAGS
 
 dnl FIXME: cross compilation
 AC_CHECK_SIZEOF(void *)
@@ -630,20 +659,20 @@ AC_SUBST(ZDEPS)
 AC_SUBST(ZINCS)
 AC_SUBST(DIVIDESPEC)
 AC_SUBST(EXCEPTIONSPEC)
-AC_SUBST(FORCELIBGCCSPEC)
 
 AM_CONDITIONAL(CANADIAN, test "$CANADIAN" = yes)
 AM_CONDITIONAL(NULL_TARGET, test "$NULL_TARGET" = yes)
 AM_CONDITIONAL(NATIVE, test "$NATIVE" = yes || test "$NULL_TARGET" = yes)
 AM_CONDITIONAL(USE_LIBDIR, test -z "$with_cross_host")
 AM_CONDITIONAL(NEEDS_DATA_START, test "$NEEDS_DATA_START" = yes && test "$NATIVE" = yes)
-AC_SUBST(EH_COMMON_INCLUDE)
+AC_SUBST(GCC_UNWIND_INCLUDE)
 
 # Determine gcj version number.
 changequote(<<,>>)
 gcjvers="`$GCJ -v 2>&1 | sed -n 's/^.*version \([^ ]*\).*$/\1/p'`"
 changequote([,])
 AC_DEFINE_UNQUOTED(GCJVERSION, "$gcjvers")
+AC_SUBST(GCJVERSION)
 
 AC_SUBST(AM_RUNTESTFLAGS)
 
@@ -726,9 +755,15 @@ case "${host}" in
  sparc-sun-solaris*)
     SIGNAL_HANDLER=include/sparc-signal.h
     ;;
- ia64-*)
-    SYSDEP_SOURCES=sysdep/ia64.c
-    test -d sysdep || mkdir sysdep
+# ia64-*)
+#    SYSDEP_SOURCES=sysdep/ia64.c
+#    test -d sysdep || mkdir sysdep
+#    ;;
+ powerpc-*-linux*)
+    SIGNAL_HANDLER=include/dwarf2-signal.h
+    ;;
+ alpha*-*-linux*)
+    SIGNAL_HANDLER=include/dwarf2-signal.h
     ;;
  *)
     SIGNAL_HANDLER=include/default-signal.h
@@ -736,7 +771,7 @@ case "${host}" in
 esac
 
 # If we're using sjlj exceptions, forget what we just learned.
-if test "$libgcj_sjlj" = yes; then
+if test "$enable_sjlj_exceptions" = yes; then
    SIGNAL_HANDLER=include/default-signal.h
 fi
 
@@ -752,16 +787,50 @@ fi
 
 AC_PATH_XTRA
 
-AM_CONDITIONAL(NO_X, test "$no_x" = yes)
+dnl Determine which AWT peer libraries to build
+AC_ARG_ENABLE(java-awt,
+[  --enable-java-awt       list of AWT peer implementations to be built])
+
+peerlibs="`echo ${enable_java_awt} | tr ',' ' '`"
+use_xlib_awt=""
+use_gtk_awt=""
+
+for peer in $peerlibs ; do
+  case $peer in
+    xlib)
+      if [test "$no_x" = yes]; then
+        echo "*** xlib peers requested but no X library available" 1>&2
+        exit 1
+      else
+        use_xlib_awt="yes"
+      fi
+      ;;
+    gtk)
+      # Nothing, yet...
+      ;;
+    *)
+      echo "*** unrecognised argument \"${peer}\" for --enable-java-awt" 1>&2
+      exit 1
+  esac
+done
+
+AM_CONDITIONAL(XLIB_AWT, test "$use_xlib_awt" = yes)
+AM_CONDITIONAL(GTK_AWT, test "$use_gtk_awt" = yes)
+
 
 here=`pwd`
 AC_SUBST(here)
 
+# We get this from the environment.
+AC_SUBST(GCJFLAGS)
 
 AC_OUTPUT(Makefile libgcj.spec libgcj-test.spec gnu/classpath/Configuration.java gcj/Makefile include/Makefile testsuite/Makefile,
-[if test -n "$CONFIG_FILES"; then
-  ac_file=Makefile . ${libgcj_basedir}/../config-ml.in
-fi
+[# Only add multilib support code if we just rebuilt top-level Makefile.
+case " $CONFIG_FILES " in
+ *" Makefile "*)
+   ac_file=Makefile . ${libgcj_basedir}/../config-ml.in
+   ;;
+esac
 
 # Make subdirectories and `.d' files.  Look in both srcdir and
 # builddir for the .java files.
@@ -777,7 +846,7 @@ h=`pwd`
 changequote(<<,>>)
 	 d=`echo $f | sed -e 's,/[^/]*$,,'`
 changequote([,])
-	 $srcdir/../mkinstalldirs $d
+	 $libgcj_basedir/../mkinstalldirs $d
 	 echo > $f
       }
    done

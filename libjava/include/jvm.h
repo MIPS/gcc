@@ -1,6 +1,6 @@
 // jvm.h - Header file for private implementation information. -*- c++ -*-
 
-/* Copyright (C) 1998, 1999, 2000  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -107,10 +107,18 @@ typedef void _Jv_FinalizerFunc (jobject);
 
 /* Allocate space for a new Java object.  */
 void *_Jv_AllocObj (jsize size, jclass cl) __attribute__((__malloc__));
+/* Allocate space for a potentially uninitialized pointer-free object.
+   Interesting only with JV_HASH_SYNCHRONIZATION.  */
+void *_Jv_AllocPtrFreeObj (jsize size, jclass cl) __attribute__((__malloc__));
 /* Allocate space for an array of Java objects.  */
 void *_Jv_AllocArray (jsize size, jclass cl) __attribute__((__malloc__));
 /* Allocate space that is known to be pointer-free.  */
 void *_Jv_AllocBytes (jsize size) __attribute__((__malloc__));
+/* Explicitly throw an out-of-memory exception.	*/
+void _Jv_ThrowNoMemory() __attribute__((__noreturn__));
+/* Allocate an object with a single pointer.  The first word is reserved
+   for the GC, and the second word is the traced pointer.  */
+void *_Jv_AllocTraceOne (jsize size /* incl. reserved slot */);
 /* Initialize the GC.  */
 void _Jv_InitGC (void);
 /* Register a finalizer.  */
@@ -156,9 +164,6 @@ void _Jv_SetInitialHeapSize (const char *arg);
    number which can optionally have "k" or "m" appended and calls
    _Jv_GCSetMaximumHeapSize.  */
 void _Jv_SetMaximumHeapSize (const char *arg);
-
-/* Allocate some unscanned bytes.  Throw exception if out of memory.  */
-void *_Jv_AllocBytesChecked (jsize size) __attribute__((__malloc__));
 
 extern "C" void JvRunMain (jclass klass, int argc, const char **argv);
 void _Jv_RunMain (const char* name, int argc, const char **argv, bool is_jar);
@@ -219,6 +224,7 @@ extern "C" void _Jv_CheckArrayStore (jobject array, jobject obj);
 extern "C" void _Jv_RegisterClass (jclass klass);
 extern "C" void _Jv_RegisterClasses (jclass *classes);
 extern void _Jv_UnregisterClass (_Jv_Utf8Const*, java::lang::ClassLoader*);
+extern void _Jv_ResolveField (_Jv_Field *, java::lang::ClassLoader*);
 
 extern jclass _Jv_FindClass (_Jv_Utf8Const *name,
 			     java::lang::ClassLoader *loader);

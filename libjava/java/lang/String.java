@@ -319,10 +319,7 @@ public final class String implements Serializable, Comparable
 
   public static native String valueOf (char c);
 
-  public static String valueOf (int i)
-  {
-    return Integer.toString(i);
-  }
+  public static native String valueOf (int i);
 
   public static String valueOf (long l)
   {
@@ -347,6 +344,5 @@ public final class String implements Serializable, Comparable
   private native void init (byte[] chars, int hibyte, int offset, int count);
   private native void init (byte[] chars, int offset, int count, String enc)
     throws UnsupportedEncodingException;
-  private static native void unintern (Object obj);
   private static native void rehash ();
 }

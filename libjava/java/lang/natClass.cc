@@ -72,10 +72,11 @@ static _Jv_Utf8Const *finit_leg_name = _Jv_makeUtf8Const ("$finit$", 7);
 
 
 jclass
-java::lang::Class::forName (jstring className, java::lang::ClassLoader *loader)
+java::lang::Class::forName (jstring className, jboolean initialize,
+                            java::lang::ClassLoader *loader)
 {
   if (! className)
-    JvThrow (new java::lang::NullPointerException);
+    throw new java::lang::NullPointerException;
 
   jsize length = _Jv_GetStringUTFLength (className);
   char buffer[length];
@@ -90,10 +91,11 @@ java::lang::Class::forName (jstring className, java::lang::ClassLoader *loader)
 		  ? _Jv_FindClassFromSignature (name->data, loader)
 		  : _Jv_FindClass (name, loader));
 
-  if (klass)
+  if (klass == NULL)
+    throw new java::lang::ClassNotFoundException (className);
+
+  if (initialize)
     _Jv_InitClass (klass);
-  else
-    JvThrow (new java::lang::ClassNotFoundException (className));
 
   return klass;
 }
@@ -102,7 +104,7 @@ jclass
 java::lang::Class::forName (jstring className)
 {
   // FIXME: should use class loader from calling method.
-  return forName (className, NULL);
+  return forName (className, true, NULL);
 }
 
 java::lang::reflect::Constructor *
@@ -129,7 +131,7 @@ java::lang::Class::getConstructor (JArray<jclass> *param_types)
 	  return cons;
 	}
     }
-  JvThrow (new java::lang::NoSuchMethodException);
+  throw new java::lang::NoSuchMethodException;
 }
 
 JArray<java::lang::reflect::Constructor *> *
@@ -194,7 +196,7 @@ java::lang::Class::getDeclaredConstructor (JArray<jclass> *param_types)
 	  return cons;
 	}
     }
-  JvThrow (new java::lang::NoSuchMethodException);
+  throw new java::lang::NoSuchMethodException;
 }
 
 java::lang::reflect::Field *
@@ -241,7 +243,7 @@ java::lang::Class::getDeclaredField (jstring name)
       rfield->name = name;
       return rfield;
     }
-  JvThrow (new java::lang::NoSuchFieldException (name));
+  throw new java::lang::NoSuchFieldException (name);
 }
 
 JArray<java::lang::reflect::Field *> *
@@ -290,8 +292,12 @@ java::lang::Class::getSignature (JArray<jclass> *param_types,
   java::lang::StringBuffer *buf = new java::lang::StringBuffer ();
   buf->append((jchar) '(');
   jclass *v = elements (param_types);
-  for (int i = 0; i < param_types->length; ++i)
-    v[i]->getSignature(buf);
+  // A NULL param_types means "no parameters".
+  if (param_types != NULL)
+    {
+      for (int i = 0; i < param_types->length; ++i)
+	v[i]->getSignature(buf);
+    }
   buf->append((jchar) ')');
   if (is_constructor)
     buf->append((jchar) 'V');
@@ -320,7 +326,7 @@ java::lang::Class::getDeclaredMethod (jstring name,
 	  return rmethod;
 	}
     }
-  JvThrow (new java::lang::NoSuchMethodException);
+  throw new java::lang::NoSuchMethodException;
 }
 
 JArray<java::lang::reflect::Method *> *
@@ -496,7 +502,7 @@ java::lang::Class::getMethod (jstring name, JArray<jclass> *param_types)
 	    }
 	}
     }
-  JvThrow (new java::lang::NoSuchMethodException);
+  throw new java::lang::NoSuchMethodException;
 }
 
 // This is a very slow implementation, since it re-scans all the
@@ -627,7 +633,7 @@ java::lang::Class::isAssignableFrom (jclass klass)
 jboolean
 java::lang::Class::isInstance (jobject obj)
 {
-  if (__builtin_expect (! obj || isPrimitive (), false))
+  if (! obj)
     return false;
   _Jv_InitClass (this);
   return _Jv_IsAssignableFrom (this, JV_CLASS (obj));
@@ -641,19 +647,19 @@ java::lang::Class::newInstance (void)
   // FIXME: we special-case one check here just to pass a Plum Hall
   // test.  Once access checking is implemented, remove this.
   if (this == &ClassClass)
-    JvThrow (new java::lang::IllegalAccessException);
+    throw new java::lang::IllegalAccessException;
 
   if (isPrimitive ()
       || isInterface ()
       || isArray ()
       || java::lang::reflect::Modifier::isAbstract(accflags))
-    JvThrow (new java::lang::InstantiationException);
+    throw new java::lang::InstantiationException;
 
   _Jv_InitClass (this);
 
   _Jv_Method *meth = _Jv_GetMethodLocal (this, init_name, void_signature);
   if (! meth)
-    JvThrow (new java::lang::NoSuchMethodException);
+    throw new java::lang::NoSuchMethodException;
 
   jobject r = JvAllocObject (this);
   ((void (*) (jobject)) meth->ncode) (r);
@@ -674,7 +680,7 @@ java::lang::Class::finalize (void)
 void
 java::lang::Class::initializeClass (void)
 {
-  // jshort-circuit to avoid needless locking.
+  // short-circuit to avoid needless locking.
   if (state == JV_STATE_DONE)
     return;
 
@@ -709,7 +715,9 @@ java::lang::Class::initializeClass (void)
     wait ();
 
   // Steps 3 &  4.
-  if (state == JV_STATE_DONE || state == JV_STATE_IN_PROGRESS || thread == self)
+  if (state == JV_STATE_DONE
+      || state == JV_STATE_IN_PROGRESS
+      || thread == self)
     {
       _Jv_MonitorExit (this);
       return;
@@ -719,7 +727,7 @@ java::lang::Class::initializeClass (void)
   if (state == JV_STATE_ERROR)
     {
       _Jv_MonitorExit (this);
-      JvThrow (new java::lang::NoClassDefFoundError);
+      throw new java::lang::NoClassDefFoundError;
     }
 
   // Step 6.
@@ -770,7 +778,7 @@ java::lang::Class::initializeClass (void)
       state = JV_STATE_ERROR;
       notifyAll ();
       _Jv_MonitorExit (this);
-      JvThrow (except);
+      throw except;
     }
 
   _Jv_MonitorEnter (this);
@@ -874,21 +882,20 @@ _Jv_LookupInterfaceMethod (jclass klass, _Jv_Utf8Const *name,
         continue;
 
       if (Modifier::isStatic(meth->accflags))
-	JvThrow (new java::lang::IncompatibleClassChangeError
-	         (_Jv_GetMethodString (klass, meth->name)));
+	throw new java::lang::IncompatibleClassChangeError
+	  (_Jv_GetMethodString (klass, meth->name));
       if (Modifier::isAbstract(meth->accflags))
-	JvThrow (new java::lang::AbstractMethodError
-	         (_Jv_GetMethodString (klass, meth->name)));
+	throw new java::lang::AbstractMethodError
+	  (_Jv_GetMethodString (klass, meth->name));
       if (! Modifier::isPublic(meth->accflags))
-	JvThrow (new java::lang::IllegalAccessError
-	         (_Jv_GetMethodString (klass, meth->name)));
+	throw new java::lang::IllegalAccessError
+	  (_Jv_GetMethodString (klass, meth->name));
 
       _Jv_AddMethodToCache (klass, meth);
 
       return meth->ncode;
     }
-  JvThrow (new java::lang::IncompatibleClassChangeError);
-  return NULL;                 // Placate compiler.
+  throw new java::lang::IncompatibleClassChangeError;
 }
 
 // Fast interface method lookup by index.
@@ -903,11 +910,8 @@ _Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface, int method_idx)
 jboolean
 _Jv_IsAssignableFrom (jclass target, jclass source)
 {
-  if (source == target
-      || (target == &ObjectClass && !source->isPrimitive())
-      || (source->ancestors != NULL 
-          && source->ancestors[source->depth - target->depth] == target))
-     return true;
+  if (source == target)
+    return true;
      
   // If target is array, so must source be.  
   if (target->isArray ())
@@ -932,15 +936,31 @@ _Jv_IsAssignableFrom (jclass target, jclass source)
       if (__builtin_expect ((if_idt == NULL), false))
 	return false; // No class implementing TARGET has been loaded.    
       jshort cl_iindex = cl_idt->cls.iindex;
-      if (cl_iindex <= if_idt->iface.ioffsets[0])
+      if (cl_iindex < if_idt->iface.ioffsets[0])
         {
 	  jshort offset = if_idt->iface.ioffsets[cl_iindex];
-	  if (offset < cl_idt->cls.itable_length
+	  if (offset != -1 && offset < cl_idt->cls.itable_length
 	      && cl_idt->cls.itable[offset] == target)
 	    return true;
 	}
+      return false;
     }
+     
+  // Primitive TYPE classes are only assignable to themselves.
+  if (__builtin_expect (target->isPrimitive(), false))
+    return false;
     
+  if (target == &ObjectClass)
+    {
+      if (source->isPrimitive())
+        return false;
+      return true;
+    }
+  else if (source->ancestors != NULL 
+           && source->depth >= target->depth
+	   && source->ancestors[source->depth - target->depth] == target)
+    return true;
+      
   return false;
 }
 
@@ -979,7 +999,12 @@ _Jv_CheckCast (jclass c, jobject obj)
 {
   if (__builtin_expect 
        (obj != NULL && ! _Jv_IsAssignableFrom(c, JV_CLASS (obj)), false))
-    JvThrow (new java::lang::ClassCastException);
+    throw new java::lang::ClassCastException
+      ((new java::lang::StringBuffer
+	(obj->getClass()->getName()))->append
+       (JvNewStringUTF(" cannot be cast to "))->append
+       (c->getName())->toString());
+
   return obj;
 }
 
@@ -993,7 +1018,7 @@ _Jv_CheckArrayStore (jobject arr, jobject obj)
       jclass obj_class = JV_CLASS (obj);
       if (__builtin_expect 
           (! _Jv_IsAssignableFrom (elt_class, obj_class), false))
-	JvThrow (new java::lang::ArrayStoreException);
+	throw new java::lang::ArrayStoreException;
     }
 }
 
@@ -1005,7 +1030,7 @@ static _Jv_IDispatchTable null_idt = { {SHRT_MAX, 0, NULL} };
 // Generate tables for constant-time assignment testing and interface
 // method lookup. This implements the technique described by Per Bothner
 // <per@bothner.com> on the java-discuss mailing list on 1999-09-02:
-// http://sourceware.cygnus.com/ml/java-discuss/1999-q3/msg00377.html
+// http://gcc.gnu.org/ml/java/1999-q3/msg00377.html
 void 
 _Jv_PrepareConstantTimeTables (jclass klass)
 {  
@@ -1166,8 +1191,7 @@ _Jv_GenerateITable (jclass klass, _Jv_ifaces *ifaces, jshort *itable_offsets)
     { 
       jclass iface = ifaces->list[i];
       itable_offsets[i] = itable_pos;
-      itable_pos = _Jv_AppendPartialITable (klass, iface, itable,
-                   itable_pos);
+      itable_pos = _Jv_AppendPartialITable (klass, iface, itable, itable_pos);
       
       /* Create interface dispatch table for iface */
       if (iface->idt == NULL)
@@ -1200,7 +1224,7 @@ _Jv_GetMethodString (jclass klass, _Jv_Utf8Const *name)
 void 
 _Jv_ThrowNoSuchMethodError ()
 {
-  JvThrow (new java::lang::NoSuchMethodError ());
+  throw new java::lang::NoSuchMethodError;
 }
 
 // Each superinterface of a class (i.e. each interface that the class
@@ -1243,14 +1267,14 @@ _Jv_AppendPartialITable (jclass klass, jclass iface, void **itable,
       else if (meth)
         {
 	  if (Modifier::isStatic(meth->accflags))
-	    JvThrow (new java::lang::IncompatibleClassChangeError
-	             (_Jv_GetMethodString (klass, meth->name)));
+	    throw new java::lang::IncompatibleClassChangeError
+	      (_Jv_GetMethodString (klass, meth->name));
 	  if (Modifier::isAbstract(meth->accflags))
-	    JvThrow (new java::lang::AbstractMethodError
-	             (_Jv_GetMethodString (klass, meth->name)));
+	    throw new java::lang::AbstractMethodError
+	      (_Jv_GetMethodString (klass, meth->name));
 	  if (! Modifier::isPublic(meth->accflags))
-	    JvThrow (new java::lang::IllegalAccessError
-	             (_Jv_GetMethodString (klass, meth->name)));
+	    throw new java::lang::IllegalAccessError
+	      (_Jv_GetMethodString (klass, meth->name));
 
 	  itable[pos] = meth->ncode;
 	}
@@ -1310,7 +1334,7 @@ _Jv_FindIIndex (jclass *ifaces, jshort *offsets, jshort num)
         {
 	  if (j >= num)
 	    goto found;
-	  if (i > ifaces[j]->idt->iface.ioffsets[0])
+	  if (i >= ifaces[j]->idt->iface.ioffsets[0])
 	    continue;
 	  int ioffset = ifaces[j]->idt->iface.ioffsets[i];
 	  /* We can potentially share this position with another class. */
@@ -1400,5 +1424,12 @@ java::lang::Class::getPrivateMethod (jstring name, JArray<jclass> *param_types)
 	    }
 	}
     }
-  JvThrow (new java::lang::NoSuchMethodException);
+  throw new java::lang::NoSuchMethodException;
+}
+
+// Private accessor method for Java code to retrieve the protection domain.
+java::security::ProtectionDomain *
+java::lang::Class::getProtectionDomain0 ()
+{
+  return protectionDomain;
 }

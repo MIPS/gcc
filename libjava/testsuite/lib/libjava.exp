@@ -1,4 +1,4 @@
-# Copyright (C) 1998, 1999, 2000 Free Software Foundation
+# Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation
 
 load_lib "libgloss.exp"
 
@@ -107,11 +107,11 @@ set libjava_initialized 0
 proc libjava_init { args } {
     global wrapper_file;
     global wrap_compile_flags;
-    global libjava_initialized
+    global libjava_initialized libjava_uses_threads
     global GCJ_UNDER_TEST
     global TOOL_EXECUTABLE
     global original_ld_library_path
-    global env
+    global env objdir
 
     if { $libjava_initialized == 1 } { return; }
 
@@ -126,6 +126,16 @@ proc libjava_init { args } {
 	    }
 	}
     }
+
+    # The -B is so we find libgcj.spec.
+    set text [eval exec "$GCJ_UNDER_TEST -B$objdir/../ -v 2>@ stdout"]
+    regexp -- "Thread model: (\[^\n\]+)\n" $text ignore model
+    set libjava_uses_threads [expr {! ($model == "no"
+				       || $model == "none"
+				       || $model == "single")}]
+
+    # Always set encoding used by gcj.
+    append GCJ_UNDER_TEST " --encoding=UTF-8"
 
     if [info exists env(LD_LIBRARY_PATH)] {
 	set original_ld_library_path $env(LD_LIBRARY_PATH)
@@ -178,6 +188,21 @@ proc libjava_find_lib {dir name} {
     return ""
 }
 
+# Remove a bunch of files.
+proc gcj_cleanup {args} {
+    foreach file $args {
+	if {[string match *.o $file]} {
+	    verbose "removing [file rootname $file].lo"
+	    file delete -force [file rootname $file].lo
+	}
+	file delete -force -- $file
+	verbose "removing $file"
+    }
+    # It is simplest to do this instead of trying to figure out what
+    # bits in .libs ought to be removed.
+    catch {system "rm -rf .libs"}
+}
+
 # Compute arguments needed for compiler.  MODE is a libtool mode:
 # either compile or link.
 proc libjava_arguments {{mode compile}} {
@@ -192,6 +217,7 @@ proc libjava_arguments {{mode compile}} {
     global tmpdir
     global runtests
     global env
+    global tool_root_dir
 
     if [info exists LIBJAVA] {
 	set libjava $LIBJAVA;
@@ -230,17 +256,25 @@ proc libjava_arguments {{mode compile}} {
     # Basically we want to build up a colon separated path list from
     # the value of $libjava.
 
-    # First strip away any -L arguments.
-    regsub -all -- "-L" $libjava "" ld_library_path
+    set lpath {}
+    foreach dir [list $libjava $libgc $libz] {
+	foreach item [split $dir " "] {
+	    switch -glob -- $item {
+		"-L*" {
+		    lappend lpath [string range $item 2 end]
+		}
+	    }
+	}
+    }
 
-    # Then remove any -lgcj argument.
-    regsub -all -- " -lgcj.*" $ld_library_path "" ld_library_path
+    # Finally, add the gcc build directory so that we can find the
+    # shared libgcc.  This, like much of dejagnu, is hideous.
+    set gccdir [lookfor_file $tool_root_dir gcc/libgcc_s.so]
+    if {$gccdir != ""} {
+	lappend lpath [file dirname $gccdir]
+    }
 
-    # First strip away any -L arguments.
-    regsub -all -- "-L" $libgc $ld_library_path ld_library_path
-
-    # Then remove any -lgcjgc argument.
-    regsub -all -- " -lgcjgc.*" $ld_library_path "" ld_library_path
+    set ld_library_path [join $lpath :]
 
     # That's enough to make things work for the normal case.
     # If we wanted to handle an arbitrary value of libjava,
@@ -250,6 +284,8 @@ proc libjava_arguments {{mode compile}} {
     global original_ld_library_path
     setenv LD_LIBRARY_PATH "$ld_library_path:$original_ld_library_path"
     setenv SHLIB_PATH "$ld_library_path:$original_ld_library_path"
+
+    verbose "LD_LIBRARY_PATH = $env(LD_LIBRARY_PATH)"
 
     # Set the CLASSPATH environment variable
     verbose "CLASSPATH is .:$srcdir/$subdir:$objdir:$objdir/../libgcj.jar"
@@ -292,9 +328,35 @@ proc libjava_arguments {{mode compile}} {
 	lappend args "compiler=$GCJ_UNDER_TEST -B$objdir/../"
     }
 
+    # Avoid libtool wrapper scripts when possible.
+    if {$mode == "link"} {
+        lappend args "additional_flags=-no-install"
+    }
+
     return $args
 }
 
+# Link a bunch of objects into a program.  MAIN is the name of the
+# class holding `main'.  Return 0 on failure.
+proc gcj_link {program main files {options {}}} {
+    set arguments [libjava_arguments link]
+    if {[llength $options]} {
+	eval lappend arguments $options
+    }
+    lappend arguments "additional_flags=--main=$main"
+    set x [prune_warnings [libjava_tcompile $files $program executable \
+			     $arguments]]
+    if {$x != ""} {
+	verbose "link failure: $x" 2
+	fail "linking $program"
+	setup_xfail "*-*-*"
+	fail "running $program"
+	return 0
+    }
+
+    pass "linking $program"
+    return 1
+}
 
 #
 # Run the test specified by srcfile and resultfile. compile_args and
@@ -315,6 +377,15 @@ proc test_libjava_from_source { options srcfile compile_args inpfile resultfile 
     unset opts(_)
     foreach item $exec_args {
 	set opts($item) x
+    }
+
+    # If we need threads and we don't have them then set the `no-exec'
+    # flag.  This is case is also handled specially later.
+    if {[info exists opts(need-threads)]} {
+	global libjava_uses_threads
+	if {! $libjava_uses_threads} {
+	    set opts(no-exec) x
+	}
     }
 
     set errname [file rootname [file tail $srcfile]]
@@ -348,6 +419,8 @@ proc test_libjava_from_source { options srcfile compile_args inpfile resultfile 
 	set errname "$errname $compile_args"
     }
 
+    set removeList [list $executable]
+
     set x [prune_warnings \
 	     [libjava_tcompile $srcfile "$executable" $target $args]]
     if {[info exists opts(xfail-gcj)]} {
@@ -358,15 +431,16 @@ proc test_libjava_from_source { options srcfile compile_args inpfile resultfile 
 
 	if {[info exists opts(shouldfail)]} {
 	    pass "$errname compilation from source"
+	    eval gcj_cleanup $removeList
 	    return
 	}
 
 	fail "$errname compilation from source"
-	if {[info exists opts(xfail-gcj)] || ! [info exists opts(no-exec)]} {
-	    setup_xfail "*-*-*"
-	    fail "$errname execution from source compiled test"
-	    setup_xfail "*-*-*"
-	    fail "$errname output from source compiled test"
+	if {[info exists opts(xfail-gcj)]
+	    || ! [info exists opts(no-exec)]
+	    || [info exists opts(need-threads)]} {
+	    untested "$errname execution from source compiled test"
+	    untested "$errname output from source compiled test"
 	}
 	return
     }
@@ -376,8 +450,19 @@ proc test_libjava_from_source { options srcfile compile_args inpfile resultfile 
     }
     pass "$errname compilation from source"
 
-    if {[info exists opts(no-exec)]
-	|| [info exists opts(no-link)]} {
+    if {[info exists opts(no-exec)]} {
+	if {[info exists opts(need-threads)]} {
+	    # This means we wanted to try to run it but we couldn't
+	    # because threads aren't supported.  So we have to
+	    # generate an `untested'.
+	    untested "$errname execution from source compiled test"
+	    untested "$errname output from source compiled test"
+	}
+	eval gcj_cleanup $removeList
+	return
+    }
+    if {[info exists opts(no-link)]} {
+	eval gcj_cleanup $removeList
 	return
     }
 
@@ -389,8 +474,7 @@ proc test_libjava_from_source { options srcfile compile_args inpfile resultfile 
     }
     $status "$errname execution from source compiled test"
     if { $status != "pass" } {
-	setup_xfail "*-*-*"
-	fail "$errname execution from source compiled test"
+	untested "$errname output from source compiled test"
 	return;
     }
 
@@ -424,6 +508,7 @@ proc test_libjava_from_source { options srcfile compile_args inpfile resultfile 
     }
     if { $passed == 1 } {
 	pass "$errname output from source compiled test"
+	eval gcj_cleanup $removeList
     } else {
 	clone_output "expected was $expected"
 	clone_output "output was $output"
@@ -453,6 +538,14 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
 	set opts($item) x
     }
 
+    # If we need threads and we don't have them then set the `no-exec'
+    # flag.  This is case is also handled specially later.
+    if {[info exists opts(need-threads)]} {
+	global libjava_uses_threads
+	if {! $libjava_uses_threads} {
+	    set opts(no-exec) x
+	}
+    }
     set errname [file rootname [file tail $srcfile]]
     if {! [runtest_file_p $runtests $errname]} {
         return
@@ -477,13 +570,11 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
 	    return
 	}
 	fail "$errname byte compilation"
-	setup_xfail "*-*-*"
-	fail "$errname compilation from bytecode"
-	if {! [info exists opts(no-exec)]} {
-	    setup_xfail "*-*-*"
-	    fail "$errname execution from bytecode->native test"
-	    setup_xfail "*-*-*"
-	    fail "$errname output from bytecode->native test"
+	untested "$errname compilation from bytecode"
+	if {! [info exists opts(no-exec)]
+	    || [info exists opts(need-threads)]} {
+	    untested "$errname execution from bytecode->native test"
+	    untested "$errname output from bytecode->native test"
 	}
 	return
     }
@@ -493,30 +584,27 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
     }
     pass "$errname byte compilation"
 
+    set removeList {}
+
     # Find name to use for --main, and name of all class files.
     set jvscan [find_jvscan]
     verbose "jvscan is $jvscan"
     set main_name [string trim \
 		     [prune_warnings \
-			[libjava_tcompile $srcfile "" none \
-			   "compiler=$jvscan additional_flags=--print-main"]]]
+			[lindex [local_exec "$jvscan --encoding=UTF-8 $srcfile --print-main" "" "" 300] 1]]]
     verbose "main name is $main_name"
     set class_out [string trim \
 		     [prune_warnings \
-			[libjava_tcompile $srcfile "" none \
-			   "compiler=$jvscan additional_flags=--list-class"]]]
+			[lindex [local_exec "$jvscan --encoding=UTF-8 $srcfile --list-class" "" "" 300] 1]]]
     verbose "class list is $class_out"
 
     if {[string match "*parse error*" $main_name]
 	|| [string match "*parse error*" $class_out]} {
-	# Do the remaining fails.
-	setup_xfail "*-*-*"
-	fail "$errname compilation from bytecode"
-	if {! [info exists opts(no-exec)]} {
-	    setup_xfail "*-*-*"
-	    fail "$errname execution from bytecode->native test"
-	    setup_xfail "*-*-*"
-	    fail "$errname output from bytecode->native test"
+	untested "$errname compilation from bytecode"
+	if {! [info exists opts(no-exec)]
+	    || [info exists opts(need-threads)]} {
+	    untested "$errname execution from bytecode->native test"
+	    untested "$errname output from bytecode->native test"
 	}
 	return
     }
@@ -528,6 +616,8 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
 	set file [join [split $file .] /]
 	lappend class_files $objdir/$file.class
     }
+
+    eval lappend removeList $class_files
 
     # Usually it is an error for a test program not to have a `main'
     # method.  However, for no-exec tests it is ok.  Treat no-link
@@ -571,18 +661,20 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
 	    set executable [file rootname [file tail $c_file]].o
 	    set x [prune_warnings \
 		     [libjava_tcompile $c_file "$executable" $type $args]]
+	    lappend removeList $executable
 	    if {$x != ""} {
 		break
 	    }
 	}
     } else {
-	# This is no evil: we de-listify CLASS_FILES so that we can
+	# This is so evil: we de-listify CLASS_FILES so that we can
 	# turn around and quote the `$' in it for the shell.  I really
 	# hate DejaGNU.  It is so !@#$!@# unpredictable.
 	set hack ""
 	foreach stupid $class_files {
 	    set hack "$hack $stupid"
 	}
+	lappend removeList $executable
 	set x [prune_warnings \
 		 [libjava_tcompile $hack "$executable" $type $args]]
     }
@@ -592,17 +684,21 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
     if { $x != "" } {
 	verbose "target_compile failed: $x" 2
 	fail "$errname compilation from bytecode"
-	setup_xfail "*-*-*"
-	if {! [info exists opts(no-exec)]} {
-	    fail "$errname execution from bytecode->native test"
-	    setup_xfail "*-*-*"
-	    fail "$errname output from bytecode->native test"
+	if {! [info exists opts(no-exec)]
+	    || [info exists opts(need-threads)]} {
+	    untested "$errname execution from bytecode->native test"
+	    untested "$errname output from bytecode->native test"
 	}
 	return;
     }
     pass "$errname compilation from bytecode"
 
     if {[info exists opts(no-exec)]} {
+	if {[info exists opts(need-threads)]} {
+	    untested "$errname execution from bytecode->native test"
+	    untested "$errname output from bytecode->native test"
+	}
+	eval gcj_cleanup $removeList
 	return
     }
 
@@ -614,9 +710,8 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
     }
     $status "$errname execution from bytecode->native test"
     if { $status != "pass" } {
-	setup_xfail "*-*-*"
-	fail "$errname output from bytecode->native test"
-	return;
+	untested "$errname output from bytecode->native test"
+	return
     }
 
     verbose "resultfile is $resultfile"
@@ -649,6 +744,7 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
     }
     if { $passed == 1 } {
 	pass "$errname output from bytecode->native test"
+	eval gcj_cleanup $removeList
     } else {
 	clone_output "expected was $expected"
 	clone_output "output was $output"
@@ -672,7 +768,10 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
 #                 front end.
 #   `xfail-byte'  compilation from bytecode will fail
 #   `xfail-exec'  exec will fail
-#   `xfail-output' output will be wrong
+#   `xfail-output'
+#                 output will be wrong
+#   `need-threads'
+#                 test relies on thread support
 #
 proc test_libjava { options srcfile compile_args inpfile resultfile exec_args } {
     test_libjava_from_source $options $srcfile $compile_args $inpfile $resultfile $exec_args
