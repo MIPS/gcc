@@ -1350,8 +1350,9 @@ tree_generator::visit_cast (model_cast *,
 
   if (dest->type ()->primitive_p ())
     {
-      current = fold_convert (gcc_builtins->map_type (dest->type ()),
-			      expr_tree);
+      // We can't use fold_convert() here since, apparently, it can't
+      // convert a float to an int.
+      current = convert (gcc_builtins->map_type (dest->type ()), expr_tree);
       TREE_SIDE_EFFECTS (current) = TREE_SIDE_EFFECTS (expr_tree);
     }
   else
