@@ -37,7 +37,6 @@ Boston, MA 02111-1307, USA.  */
 #include "cp-tree.h"
 #include "decl.h"
 #include "lex.h"
-#include <signal.h>
 #include "defaults.h"
 #include "output.h"
 #include "except.h"
@@ -105,7 +104,6 @@ static void suspend_binding_level PARAMS ((void));
 static void resume_binding_level PARAMS ((struct binding_level *));
 static struct binding_level *make_binding_level PARAMS ((void));
 static void declare_namespace_level PARAMS ((void));
-static void signal_catch PARAMS ((int)) ATTRIBUTE_NORETURN;
 static int decl_jump_unsafe PARAMS ((tree));
 static void storedecls PARAMS ((tree));
 static void require_complete_types_for_parms PARAMS ((tree));
@@ -376,6 +374,10 @@ tree signed_size_zero_node;
    unit.  */
 tree anonymous_namespace_name;
 
+/* The number of function bodies which we are currently processing.
+   (Zero if we are at namespace scope, one inside the body of a
+   function, two inside the body of a function in a local class, etc.)  */
+int function_depth;
 
 /* For each binding contour we allocate a binding_level structure
    which records the names defined in that contour.
@@ -1443,7 +1445,8 @@ poplevel (keep, reverse, functionbody)
   /* Remove declarations for all the DECLs in this level.  */
   for (link = decls; link; link = TREE_CHAIN (link))
     {
-      if (leaving_for_scope && TREE_CODE (link) == VAR_DECL)
+      if (leaving_for_scope && TREE_CODE (link) == VAR_DECL
+          && DECL_NAME (link))
 	{
 	  tree outer_binding
 	    = TREE_CHAIN (IDENTIFIER_BINDING (DECL_NAME (link)));
@@ -2589,7 +2592,6 @@ maybe_push_to_top_level (pseudo)
   VARRAY_TREE_INIT (current_lang_base, 10, "current_lang_base");
   current_lang_stack = &VARRAY_TREE (current_lang_base, 0);
   current_lang_name = lang_name_cplusplus;
-  strict_prototype = strict_prototypes_lang_cplusplus;
   current_namespace = global_namespace;
 }
 
@@ -2622,11 +2624,6 @@ pop_from_top_level ()
 	  IDENTIFIER_CLASS_VALUE (id) = TREE_VEC_ELT (t, 3);
  	}
     }
-
-  if (current_lang_name == lang_name_cplusplus)
-    strict_prototype = strict_prototypes_lang_cplusplus;
-  else if (current_lang_name == lang_name_c)
-    strict_prototype = strict_prototypes_lang_c;
 
   /* If we were in the middle of compiling a function, restore our
      state.  */
@@ -3022,22 +3019,31 @@ decls_match (newdecl, olddecl)
 
       if (same_type_p (TREE_TYPE (f1), TREE_TYPE (f2)))
 	{
-	  if ((! strict_prototypes_lang_c || DECL_BUILT_IN (olddecl))
-	      && DECL_EXTERN_C_P (olddecl)
-	      && p2 == NULL_TREE)
+	  if (p2 == NULL_TREE && DECL_EXTERN_C_P (olddecl)
+	      && (DECL_BUILT_IN (olddecl)
+#ifndef NO_IMPLICIT_EXTERN_C
+	          || (DECL_IN_SYSTEM_HEADER (newdecl) && !DECL_CLASS_SCOPE_P (newdecl))
+	          || (DECL_IN_SYSTEM_HEADER (olddecl) && !DECL_CLASS_SCOPE_P (olddecl))
+#endif
+	      ))
 	    {
 	      types_match = self_promoting_args_p (p1);
 	      if (p1 == void_list_node)
 		TREE_TYPE (newdecl) = TREE_TYPE (olddecl);
 	    }
-	  else if (!strict_prototypes_lang_c 
-		   && DECL_EXTERN_C_P (olddecl)
-		   && DECL_EXTERN_C_P (newdecl)
-		   && p1 == NULL_TREE)
+#ifndef NO_IMPLICIT_EXTERN_C
+	  else if (p1 == NULL_TREE
+		   && (DECL_EXTERN_C_P (olddecl)
+	               && DECL_IN_SYSTEM_HEADER (olddecl)
+	               && !DECL_CLASS_SCOPE_P (olddecl))
+		   && (DECL_EXTERN_C_P (newdecl)
+	               && DECL_IN_SYSTEM_HEADER (newdecl)
+	               && !DECL_CLASS_SCOPE_P (newdecl)))
 	    {
 	      types_match = self_promoting_args_p (p2);
 	      TREE_TYPE (newdecl) = TREE_TYPE (olddecl);
 	    }
+#endif
 	  else
 	    types_match = compparms (p1, p2);
 	}
@@ -3519,6 +3525,11 @@ duplicate_decls (newdecl, olddecl)
 
       /* Merge the data types specified in the two decls.  */
       newtype = common_type (TREE_TYPE (newdecl), TREE_TYPE (olddecl));
+
+      /* If common_type produces a non-typedef type, just use the old type.  */
+      if (TREE_CODE (newdecl) == TYPE_DECL
+	  && newtype == DECL_ORIGINAL_TYPE (newdecl))
+	newtype = oldtype;
 
       if (TREE_CODE (newdecl) == VAR_DECL)
 	DECL_THIS_EXTERN (newdecl) |= DECL_THIS_EXTERN (olddecl);
@@ -6096,33 +6107,6 @@ end_only_namespace_names ()
   only_namespace_names = 0;
 }
 
-/* Arrange for the user to get a source line number, even when the
-   compiler is going down in flames, so that she at least has a
-   chance of working around problems in the compiler.  We used to
-   call error(), but that let the segmentation fault continue
-   through; now, it's much more passive by asking them to send the
-   maintainers mail about the problem.  */
-
-static void
-signal_catch (sig)
-     int sig ATTRIBUTE_UNUSED;
-{
-  signal (SIGSEGV, SIG_DFL);
-#ifdef SIGIOT
-  signal (SIGIOT, SIG_DFL);
-#endif
-#ifdef SIGILL
-  signal (SIGILL, SIG_DFL);
-#endif
-#ifdef SIGABRT
-  signal (SIGABRT, SIG_DFL);
-#endif
-#ifdef SIGBUS
-  signal (SIGBUS, SIG_DFL);
-#endif
-  my_friendly_abort (0);
-}
-
 /* Push the declarations of builtin types into the namespace.
    RID_INDEX, if < CP_RID_MAX is the index of the builtin type
    in the array RID_POINTERS.  NAME is the name used when looking
@@ -6315,14 +6299,10 @@ init_decl_processing ()
   current_lang_name = NULL_TREE;
 
   /* Adjust various flags based on command-line settings.  */
-  if (flag_strict_prototype == 2)
-    flag_strict_prototype = pedantic;
   if (! flag_permissive && ! pedantic)
     flag_pedantic_errors = 1;
   if (!flag_no_inline)
     flag_inline_trees = 1;
-
-  strict_prototypes_lang_c = flag_strict_prototype;
 
   /* Initially, C.  */
   current_lang_name = lang_name_c;
@@ -6330,28 +6310,6 @@ init_decl_processing ()
   current_function_decl = NULL_TREE;
   current_binding_level = NULL_BINDING_LEVEL;
   free_binding_level = NULL_BINDING_LEVEL;
-
-  /* Because most segmentation signals can be traced back into user
-     code, catch them and at least give the user a chance of working
-     around compiler bugs.  */
-  signal (SIGSEGV, signal_catch);
-
-  /* We will also catch aborts in the back-end through signal_catch and
-     give the user a chance to see where the error might be, and to defeat
-     aborts in the back-end when there have been errors previously in their
-     code.  */
-#ifdef SIGIOT
-  signal (SIGIOT, signal_catch);
-#endif
-#ifdef SIGILL
-  signal (SIGILL, signal_catch);
-#endif
-#ifdef SIGABRT
-  signal (SIGABRT, signal_catch);
-#endif
-#ifdef SIGBUS
-  signal (SIGBUS, signal_catch);
-#endif
 
   build_common_tree_nodes (flag_signed_char);
 
@@ -7822,11 +7780,8 @@ make_rtl_for_nonlocal_decl (decl, init, asmspec)
      tree init;
      const char *asmspec;
 {
-  int toplev;
-  tree type;
-
-  type = TREE_TYPE (decl);
-  toplev = toplevel_bindings_p ();
+  int toplev = toplevel_bindings_p ();
+  int defer_p;
 
   /* Handle non-variables up front.  */
   if (TREE_CODE (decl) != VAR_DECL)
@@ -7835,54 +7790,55 @@ make_rtl_for_nonlocal_decl (decl, init, asmspec)
       return;
     }
 
+  /* If we see a class member here, it should be a static data
+     member.  */
+  if (DECL_LANG_SPECIFIC (decl) && DECL_IN_AGGR_P (decl))
+    {
+      my_friendly_assert (TREE_STATIC (decl), 19990828);
+      /* An in-class declaration of a static data member should be
+	 external; it is only a declaration, and not a definition.  */
+      if (init == NULL_TREE)
+	my_friendly_assert (DECL_EXTERNAL (decl), 20000723);
+    }
+
   /* Set the DECL_ASSEMBLER_NAME for the variable.  */
   if (asmspec)
     DECL_ASSEMBLER_NAME (decl) = get_identifier (asmspec);
 
-  if (DECL_VIRTUAL_P (decl))
-    make_decl_rtl (decl, NULL_PTR, toplev);
-  else if (TREE_READONLY (decl)
-	   && DECL_INITIAL (decl) != NULL_TREE
-	   && DECL_INITIAL (decl) != error_mark_node
-	   && ! EMPTY_CONSTRUCTOR_P (DECL_INITIAL (decl)))
-    {
-      DECL_INITIAL (decl) = save_expr (DECL_INITIAL (decl));
+  /* We don't create any RTL for local variables.  */
+  if (DECL_FUNCTION_SCOPE_P (decl) && !TREE_STATIC (decl))
+    return;
 
-      if (toplev && ! TREE_PUBLIC (decl))
-	{
-	  /* If this is a static const, change its apparent linkage
-	     if it belongs to a #pragma interface.  */
-	  if (!interface_unknown)
-	    {
-	      TREE_PUBLIC (decl) = 1;
-	      DECL_EXTERNAL (decl) = interface_only;
-	    }
-	  make_decl_rtl (decl, asmspec, toplev);
-	}
-      else if (toplev)
-	rest_of_decl_compilation (decl, asmspec, toplev, at_eof);
-    }
-  else if (DECL_LANG_SPECIFIC (decl) && DECL_IN_AGGR_P (decl))
-    {
-      my_friendly_assert (TREE_STATIC (decl), 19990828);
+  /* We defer emission of local statics until the corresponding
+     DECL_STMT is expanded.  */
+  defer_p = DECL_FUNCTION_SCOPE_P (decl) || DECL_VIRTUAL_P (decl);
 
-      if (init == NULL_TREE
-#ifdef DEFAULT_STATIC_DEFS
-	  /* If this code is dead, then users must
-	     explicitly declare static member variables
-	     outside the class def'n as well.  */
-	  && TYPE_NEEDS_CONSTRUCTING (type)
-#endif
-	  )
+  /* We try to defer namespace-scope static constants so that they are
+     not emitted into the object file unncessarily.  */
+  if (!DECL_VIRTUAL_P (decl)
+      && TREE_READONLY (decl)
+      && DECL_INITIAL (decl) != NULL_TREE
+      && DECL_INITIAL (decl) != error_mark_node
+      && ! EMPTY_CONSTRUCTOR_P (DECL_INITIAL (decl))
+      && toplev
+      && !TREE_PUBLIC (decl))
+    {
+      /* Fool with the linkage according to #pragma interface.  */
+      if (!interface_unknown)
 	{
-	  DECL_EXTERNAL (decl) = 1;
-	  make_decl_rtl (decl, asmspec, 1);
+	  TREE_PUBLIC (decl) = 1;
+	  DECL_EXTERNAL (decl) = interface_only;
 	}
-      else
-	rest_of_decl_compilation (decl, asmspec, toplev, at_eof);
+
+      defer_p = 1;
     }
-  else if (TREE_CODE (CP_DECL_CONTEXT (decl)) == NAMESPACE_DECL
-	   || (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl)))
+
+  /* If we're deferring the variable, just make RTL.  Do not actually
+     emit the variable.  */
+  if (defer_p)
+    make_decl_rtl (decl, asmspec, toplev);
+  /* If we're not deferring, go ahead and assemble the variable.  */
+  else
     rest_of_decl_compilation (decl, asmspec, toplev, at_eof);
 }
 
@@ -7896,6 +7852,9 @@ void
 maybe_inject_for_scope_var (decl)
      tree decl;
 {
+  if (!DECL_NAME (decl))
+    return;
+  
   if (current_binding_level->is_for_scope)
     {
       struct binding_level *outer
@@ -8035,7 +7994,7 @@ destroy_local_var (decl)
    If the length of an array type is not known before,
    it must be determined now, from the initial value, or it is an error.
 
-   INIT0 holds the value of an initializer that should be allowed to escape
+   INIT holds the value of an initializer that should be allowed to escape
    the normal rules.
 
    FLAGS is LOOKUP_ONLYCONVERTING if the = init syntax was used, else 0
@@ -8412,6 +8371,11 @@ start_cleanup_fn ()
      compiler.  */
   TREE_PUBLIC (fndecl) = 0;
   DECL_ARTIFICIAL (fndecl) = 1;
+  /* Make the function `inline' so that it is only emitted if it is
+     actually needed.  It is unlikely that it will be inlined, since
+     it is only called via a function pointer, but we avoid unncessary
+     emissions this way.  */
+  DECL_INLINE (fndecl) = 1;
   /* Build the parameter.  */
   if (flag_use_cxa_atexit)
     {
@@ -10747,10 +10711,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		if (TREE_CODE (declarator) == BIT_NOT_EXPR)
 		  declarator = TREE_OPERAND (declarator, 0);
 
-		if (strict_prototype == 0 && arg_types == NULL_TREE)
-		  arg_types = void_list_node;
-		else if (arg_types == NULL_TREE
-			 || arg_types != void_list_node)
+                if (arg_types != void_list_node)
 		  {
 		    cp_error ("destructors may not have parameters");
 		    arg_types = void_list_node;
@@ -13454,8 +13415,6 @@ build_enumerator (name, value, enumtype)
 }
 
 
-static int function_depth;
-
 /* We're defining DECL.  Make sure that it's type is OK.  */
 
 static void

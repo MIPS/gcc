@@ -47,31 +47,40 @@ namespace std {
     {
     public:
       // Types:
-      typedef _CharT                     	       	  char_type;
-      typedef typename _Traits::int_type 		  int_type;
-      typedef typename _Traits::pos_type 		  pos_type;
-      typedef typename _Traits::off_type 		  off_type;
-      typedef _Traits                    		  traits_type;
-
+      typedef _CharT                     	        char_type;
+      typedef _Traits                    	        traits_type;
+      typedef typename traits_type::int_type 		int_type;
+      typedef typename traits_type::pos_type 		pos_type;
+      typedef typename traits_type::off_type 		off_type;
+      
       // Non-standard Types:
-      typedef basic_streambuf<_CharT, _Traits> 		  __streambuf_type;
-      typedef basic_filebuf<_CharT, _Traits>		  __filebuf_type;
-      typedef __basic_file				  __file_type;
-      typedef typename _Traits::state_type                __state_type;
-      typedef codecvt<_CharT, char, __state_type>         __codecvt_type;
-      typedef typename __codecvt_type::result 		  __res_type;
+      typedef basic_streambuf<char_type, traits_type>  	__streambuf_type;
+      typedef basic_filebuf<char_type, traits_type>     __filebuf_type;
+      typedef __basic_file<char_type>		        __file_type;
+      typedef typename traits_type::state_type          __state_type;
+      typedef codecvt<char_type, char, __state_type>    __codecvt_type;
+      typedef typename __codecvt_type::result 	        __res_type;
       
       friend ios_base; // For sync_with_stdio.
 
     private:
       // Data Members:
+      // External buffer.
       __file_type* 		_M_file;
-      __state_type		_M_state_cur;// Current state type for codecvt.
+
+      // Current and beginning state type for codecvt.
+      __state_type		_M_state_cur;
       __state_type 		_M_state_beg; 	
-      const __codecvt_type*	_M_fcvt;       // Cached value from use_facet.
-      __mutext_type           	_M_lock;
-      bool			_M_last_overflowed;  // XXX Needed?
- 
+
+      // Cached value from use_facet.
+      const __codecvt_type*	_M_fcvt;       
+      
+      // MT lock inherited from libio or other low-level io library.
+      __c_lock          	_M_lock;
+
+      // XXX Needed? 
+      bool			_M_last_overflowed;  
+  
     public:
       // Constructors/destructor:
       basic_filebuf();
@@ -98,9 +107,13 @@ namespace std {
       close(void);
 
     protected:
-      // Common initialization code for both ctors goes here.
+      // Allocate up pback and internal buffers.
+      void 
+      _M_allocate_buffers();
+
+      // Create __file_type object and initialize it properly.
       void
-      _M_init_filebuf(void);
+      _M_filebuf_init();
 
       // Overridden virtual functions:
       virtual streamsize 
@@ -173,7 +186,7 @@ namespace std {
 	    // (_M_out_beg - _M_out_cur)
 	    streamoff __cur = _M_file->seekoff(0, ios_base::cur);
 	    off_type __off = _M_out_cur - _M_out_beg;
-	    this->_M_really_overflow();
+	    _M_really_overflow();
 	    _M_file->seekpos(__cur + __off);
 	  }
 	_M_last_overflowed = false;	
@@ -183,6 +196,34 @@ namespace std {
       virtual void 
       imbue(const locale& __loc);
 
+      virtual streamsize 
+      xsgetn(char_type* __s, streamsize __n)
+      {
+	streamsize __ret = 0;
+	// Clear out pback buffer before going on to the real deal...
+	if (_M_pback_init)
+	  {
+	    while (__ret < __n && _M_in_cur < _M_in_end)
+	      {
+		*__s = *_M_in_cur;
+		++__ret;
+		++__s;
+		++_M_in_cur;
+	      }
+	    _M_pback_destroy();
+	  }
+	if (__ret < __n)
+	  __ret += __streambuf_type::xsgetn(__s, __n - __ret);
+	return __ret;
+      }
+ 
+      virtual streamsize 
+      xsputn(const char_type* __s, streamsize __n)
+      {
+	_M_pback_destroy();
+	return __streambuf_type::xsputn(__s, __n);
+      }
+       
       void
       _M_output_unshift();
     };
@@ -196,15 +237,15 @@ namespace std {
     {
     public:
       // Types:
-      typedef _CharT 				char_type;
-      typedef typename _Traits::int_type 	int_type;
-      typedef typename _Traits::pos_type 	pos_type;
-      typedef typename _Traits::off_type 	off_type;
-      typedef _Traits 				traits_type;
+      typedef _CharT 					char_type;
+      typedef _Traits 					traits_type;
+      typedef typename traits_type::int_type 		int_type;
+      typedef typename traits_type::pos_type 		pos_type;
+      typedef typename traits_type::off_type 		off_type;
 
       // Non-standard types:
-      typedef basic_filebuf<_CharT, _Traits> 	__filebuf_type;
-      typedef basic_istream<_CharT, _Traits>	__istream_type;
+      typedef basic_filebuf<char_type, traits_type> 	__filebuf_type;
+      typedef basic_istream<char_type, traits_type>	__istream_type;
     
       // Constructors/Destructors:
       basic_ifstream()
@@ -250,17 +291,17 @@ namespace std {
     class basic_ofstream : public basic_ostream<_CharT,_Traits>
     {
     public:
-       // Types:
-      typedef _CharT 				char_type;
-      typedef typename _Traits::int_type 	int_type;
-      typedef typename _Traits::pos_type 	pos_type;
-      typedef typename _Traits::off_type 	off_type;
-      typedef _Traits 				traits_type;
+      // Types:
+      typedef _CharT 					char_type;
+      typedef _Traits 					traits_type;
+      typedef typename traits_type::int_type 		int_type;
+      typedef typename traits_type::pos_type 		pos_type;
+      typedef typename traits_type::off_type 		off_type;
 
       // Non-standard types:
-      typedef basic_filebuf<_CharT, _Traits> 	__filebuf_type;
-      typedef basic_ostream<_CharT, _Traits>	__ostream_type;
-     
+      typedef basic_filebuf<char_type, traits_type> 	__filebuf_type;
+      typedef basic_ostream<char_type, traits_type>	__ostream_type;
+      
       // Constructors:
       basic_ofstream()
       : __ostream_type(new __filebuf_type())
@@ -311,17 +352,17 @@ namespace std {
     class basic_fstream : public basic_iostream<_CharT, _Traits>
     {
     public:
-       // Types:
-      typedef _CharT 				char_type;
-      typedef typename _Traits::int_type 	int_type;
-      typedef typename _Traits::pos_type 	pos_type;
-      typedef typename _Traits::off_type 	off_type;
-      typedef _Traits 				traits_type;
+      // Types:
+      typedef _CharT 					char_type;
+      typedef _Traits 					traits_type;
+      typedef typename traits_type::int_type 		int_type;
+      typedef typename traits_type::pos_type 		pos_type;
+      typedef typename traits_type::off_type 		off_type;
 
       // Non-standard types:
-      typedef basic_filebuf<_CharT, _Traits> 	__filebuf_type;
-      typedef basic_ios<_CharT, _Traits>	__ios_type;
-      typedef basic_iostream<_CharT, _Traits>	__iostream_type;
+      typedef basic_filebuf<char_type, traits_type> 	__filebuf_type;
+      typedef basic_ios<char_type, traits_type>		__ios_type;
+      typedef basic_iostream<char_type, traits_type>	__iostream_type;
 
       // Constructors/destructor:
       basic_fstream()

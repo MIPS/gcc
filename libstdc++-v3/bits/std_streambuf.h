@@ -55,14 +55,14 @@ namespace std {
     public:
       // Types:
       typedef _CharT 					char_type;
-      typedef typename _Traits::int_type 		int_type;
-      typedef typename _Traits::pos_type 		pos_type;
-      typedef typename _Traits::off_type 		off_type;
       typedef _Traits 					traits_type;
+      typedef typename traits_type::int_type 		int_type;
+      typedef typename traits_type::pos_type 		pos_type;
+      typedef typename traits_type::off_type 		off_type;
 
       // Non-standard Types:
-      typedef ctype<_CharT>           			__ctype_type;
-      typedef basic_streambuf<_CharT, _Traits> 		__streambuf_type;
+      typedef ctype<char_type>           		__ctype_type;
+      typedef basic_streambuf<char_type, traits_type>  	__streambuf_type;
       
       friend class basic_ios<char_type, traits_type>;
       friend class basic_istream<char_type, traits_type>;
@@ -71,9 +71,8 @@ namespace std {
       friend class ostreambuf_iterator<char_type, traits_type>;
 
       friend streamsize
-      _S_copy_streambufs<>(basic_ios<_CharT, _Traits>& __ios,
-			 basic_streambuf<_CharT, _Traits>* __sbin,
-			 basic_streambuf<_CharT, _Traits>* __sbout);
+      _S_copy_streambufs<>(basic_ios<char_type, traits_type>& __ios,
+			   __streambuf_type* __sbin,__streambuf_type* __sbout);
       
     protected:
 
@@ -99,24 +98,79 @@ namespace std {
       // for an internal buffer.
       // get == input == read
       // put == output == write
-      char_type* 		_M_in_cur;	// Current read area. 
       char_type* 		_M_in_beg;  	// Start of get area. 
+      char_type* 		_M_in_cur;	// Current read area. 
       char_type* 		_M_in_end;	// End of get area. 
-      char_type* 		_M_out_cur;  	// Current put area. 
       char_type* 		_M_out_beg; 	// Start of put area. 
+      char_type* 		_M_out_cur;  	// Current put area. 
       char_type* 		_M_out_end;  	// End of put area. 
 
       // Place to stash in || out || in | out settings for current streambuf.
       ios_base::openmode 	_M_mode;	
 
       // Current locale setting.
-      locale 			_M_locale_buf;	
+      locale 			_M_buf_locale;	
 
       // True iff locale is initialized.
-      bool 			_M_locale_set;
+      bool 			_M_buf_locale_init;
 
       // Cached use_facet<ctype>, which is based on the current locale info.
-      const __ctype_type*	_M_fctype_buf;      
+      const __ctype_type*	_M_buf_fctype;      
+
+      // Necessary bits for putback buffer management. Only used in
+      // the basic_filebuf class, as necessary for the standard
+      // requirements. The only basic_streambuf member function that
+      // needs access to these data members is in_avail...
+      // NB: pbacks of over one character are not currently supported.
+      int_type    		_M_pback_size; 
+      char_type*		_M_pback; 
+      char_type*		_M_pback_cur_save;
+      char_type*		_M_pback_end_save;
+      bool			_M_pback_init; 
+
+      // Initializes pback buffers, and moves normal buffers to safety.
+      // Assumptions:
+      // _M_in_cur has already been moved back
+      void
+      _M_pback_create()
+      {
+	if (!_M_pback_init)
+	  {
+	    int_type __dist = _M_in_end - _M_in_cur;
+	    int_type __len = min(_M_pback_size, __dist);
+	    traits_type::copy(_M_pback, _M_in_cur, __len);
+	    _M_pback_cur_save = _M_in_cur;
+	    _M_pback_end_save = _M_in_end;
+	    this->setg(_M_pback, _M_pback, _M_pback + __len);
+	    _M_pback_init = true;
+	  }
+      }
+
+      // Deactivates pback buffer contents, and restores normal buffer.
+      // Assumptions:
+      // The pback buffer has only moved forward.
+      void
+      _M_pback_destroy()
+      {
+	if (_M_pback_init)
+	  {
+	    // Length _M_in_cur moved in the pback buffer.
+	    int_type __off_cur = _M_in_cur - _M_pback;
+	    
+	    // For in | out buffers, the end can be pushed back...
+	    int_type __off_end = 0;
+	    int_type __pback_len = _M_in_end - _M_pback;
+	    int_type __save_len = _M_pback_end_save - _M_buf;
+	    if (__pback_len > __save_len)
+	      __off_end = __pback_len - __save_len;
+
+	    this->setg(_M_buf, _M_pback_cur_save + __off_cur, 
+		       _M_pback_end_save + __off_end);
+	    _M_pback_cur_save = NULL;
+	    _M_pback_end_save = NULL;
+	    _M_pback_init = false;
+	  }
+      }
 
       // Correctly sets the _M_out_cur pointer, and bumps the
       // appropriate _M_*_end pointers as well. Necessary for the
@@ -127,23 +181,24 @@ namespace std {
       // the same range:
       // _M_buf <= _M_*_ <= _M_buf + _M_buf_size
       void 
-      _M_buf_bump(off_type __n) // argument needs to be +-
+      _M_out_cur_move(off_type __n) // argument needs to be +-
       {
 	bool __testin = _M_mode & ios_base::in;
-	bool __testout = _M_mode & ios_base::out;
+
 	_M_out_cur += __n;
-	if (_M_buf_unified && __testin)
-	  _M_in_cur = _M_out_cur;
+	if (__testin && _M_buf_unified)
+	  _M_in_cur += __n;
 	if (_M_out_cur > _M_out_end)
 	  {
 	    _M_out_end = _M_out_cur;
-	    if (__testin && __testout && _M_out_end > _M_in_end)
-	      _M_in_end = _M_out_cur;
+	    // NB: in | out buffers drag the _M_in_end pointer along...
+	    if (__testin)
+	      _M_in_end += __n;
 	  }
       }
 
       // These three functions are used to clarify internal buffer
-      // maintance. After an overflow, or after a seekoff call that
+      // maintenance. After an overflow, or after a seekoff call that
       // started at beg or end, or possibly when the stream becomes
       // unbuffered, and a myrid other obscure corner cases, the
       // internal buffer does not truly reflect the contents of the
@@ -177,12 +232,12 @@ namespace std {
       bool
       _M_is_indeterminate(void)
       { 
-	bool __retval = false;
+	bool __ret = false;
 	if (_M_mode & ios_base::in)
-	  __retval = _M_in_beg == _M_in_cur && _M_in_cur == _M_in_end;
+	  __ret = _M_in_beg == _M_in_cur && _M_in_cur == _M_in_end;
 	if (_M_mode & ios_base::out)
-	  __retval = _M_out_beg == _M_out_cur && _M_out_cur == _M_out_end;
-	return __retval;
+	  __ret = _M_out_beg == _M_out_cur && _M_out_cur == _M_out_end;
+	return __ret;
       }
 
   public:
@@ -193,8 +248,9 @@ namespace std {
 	_M_buf_size = 0;
 	_M_buf_size_opt = 0;
 	_M_mode = ios_base::openmode(0);
-	_M_fctype_buf = NULL;
-	_M_locale_set = false;
+	_M_buf_fctype = NULL;
+	_M_buf_locale_init = false;
+
       }
 
       // Locales:
@@ -209,8 +265,8 @@ namespace std {
       locale   
       getloc() const
       {
-	if (_M_locale_set)
-	  return _M_locale_buf; 
+	if (_M_buf_locale_init)
+	  return _M_buf_locale; 
 	else 
 	  return locale();
       } 
@@ -238,12 +294,21 @@ namespace std {
       streamsize 
       in_avail() 
       { 
-	streamsize __retval;
+	streamsize __ret;
 	if (_M_in_cur && _M_in_cur < _M_in_end)
-	  __retval = this->egptr() - this->gptr();
+	  {
+	    if (_M_pback_init)
+	      {
+		int_type __save_len =  _M_pback_end_save - _M_pback_cur_save;
+		int_type __pback_len = _M_in_cur - _M_pback;
+		__ret = __save_len - __pback_len;
+	      }
+	    else
+	      __ret = this->egptr() - this->gptr();
+	  }
 	else
-	  __retval = this->showmanyc();
-	return __retval;
+	  __ret = this->showmanyc();
+	return __ret;
       }
 
       int_type 
@@ -259,12 +324,12 @@ namespace std {
       int_type 
       sgetc()
       {
-	int_type __retval;
+	int_type __ret;
 	if (_M_in_cur && _M_in_cur < _M_in_end)
-	  __retval = traits_type::to_int_type(*gptr());
+	  __ret = traits_type::to_int_type(*gptr());
 	else 
-	  __retval = this->underflow();
-	return __retval;
+	  __ret = this->underflow();
+	return __ret;
       }
 
       streamsize 
@@ -289,13 +354,12 @@ namespace std {
     protected:
       basic_streambuf()
       : _M_buf(NULL), _M_buf_size(0), 
-	_M_buf_size_opt(static_cast<int_type>(BUFSIZ * sizeof(char_type))),
-	_M_buf_unified(false), _M_in_cur(0), _M_in_beg(0), _M_in_end(0), 
-	_M_out_cur(0), _M_out_beg(0), _M_out_end(0), 
-	_M_mode(ios_base::openmode(0)), _M_locale_buf(locale()), 
-	_M_locale_set(false) 
-
-      { _M_fctype_buf =  &use_facet<__ctype_type>(this->getloc()); }
+      _M_buf_size_opt(static_cast<int_type>(BUFSIZ)), _M_buf_unified(false), 
+      _M_in_beg(0), _M_in_cur(0), _M_in_end(0), _M_out_beg(0), _M_out_cur(0), 
+      _M_out_end(0), _M_mode(ios_base::openmode(0)), _M_buf_locale(locale()), 
+      _M_buf_locale_init(false), _M_pback_size(1), _M_pback(NULL), 
+      _M_pback_cur_save(NULL), _M_pback_end_save(NULL), _M_pback_init(false)
+      { _M_buf_fctype = &use_facet<__ctype_type>(this->getloc()); }
 
       // Get area:
       char_type* 
@@ -353,11 +417,11 @@ namespace std {
       virtual void 
       imbue(const locale& __loc) 
       { 
-	_M_locale_set = true;
-	if (_M_locale_buf != __loc)
+	_M_buf_locale_init = true;
+	if (_M_buf_locale != __loc)
 	 {
-	   _M_locale_buf = __loc;
-	   _M_fctype_buf = &use_facet<__ctype_type>(_M_locale_buf); 
+	   _M_buf_locale = __loc;
+	   _M_buf_fctype = &use_facet<__ctype_type>(_M_buf_locale); 
 	 }	
       }
 
@@ -393,18 +457,18 @@ namespace std {
       virtual int_type 
       uflow() 
       {
-	int_type __retval = traits_type::eof();
-	bool __testeof = this->underflow() == __retval;
+	int_type __ret = traits_type::eof();
+	bool __testeof = this->underflow() == __ret;
 	bool __testpending = _M_in_cur && _M_in_cur < _M_in_end;
 	
 	if (!__testeof && __testpending)
 	  {
-	    __retval = traits_type::to_int_type(*_M_in_cur);
+	    __ret = traits_type::to_int_type(*_M_in_cur);
 	    ++_M_in_cur;
 	    if (_M_buf_unified && _M_mode & ios_base::out)
 	      ++_M_out_cur;
 	  }
-	return __retval;    
+	return __ret;    
       }
 
       // Putback:

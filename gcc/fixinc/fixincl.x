@@ -5795,15 +5795,3 @@ tFixDesc fixDescList[ FIX_COUNT ] = {
      X11_SPRINTF_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
      aX11_SprintfTests,   apzX11_SprintfPatch }
 };
-
-#define GNU_TYPE_CT 3
-int gnu_type_map_ct = GNU_TYPE_CT;
-
-tSCC z_cxx_guard[] = " && !defined(__cplusplus)";
-tSCC z_nil[]       = "";
-
-t_gnu_type_map gnu_type_map[ GNU_TYPE_CT ] = {
-  { 7, "ptrdiff", "PTRDIFF", "long int", z_nil },
-  { 4, "size", "SIZE", "long unsigned int", z_nil },
-  { 5, "wchar", "WCHAR", "int", z_cxx_guard }
-};

@@ -1,6 +1,6 @@
 #### This script is meant to be sourced by ltconfig.
 
-# $Id: ltcf-cxx.sh,v 1.1.2.18 2000/07/24 06:10:27 oliva Exp $
+# $Id: ltcf-cxx.sh,v 1.1 2000/07/28 18:04:21 bkoz Exp $
 
 # ltcf-cxx.sh - Create a C++ compiler specific configuration
 #

@@ -610,7 +610,7 @@ main (argc, argv)
 
       case 'D':
 	{
-	  char *p, *p1;
+	  char *p;
 
 	  if (argv[i][2] != 0)
 	    p = argv[i] + 2;
@@ -619,8 +619,6 @@ main (argc, argv)
 	  else
 	    p = argv[++i];
 
-	  if ((p1 = (char *) strchr (p, '=')) != NULL)
-	    *p1 = ' ';
 	  pend_defs[i] = p;
 	}
 	break;
@@ -741,6 +739,8 @@ main (argc, argv)
 	last_include->next = dirtmp;
       last_include = dirtmp;	/* Tail follows the last one */
       dirtmp->fname = di->fname;
+      if (strlen (dirtmp->fname) > max_include_len)
+	max_include_len = strlen (dirtmp->fname);
     }
 
     if (ignore_srcdir && first_bracket_include == 0)
@@ -1187,32 +1187,11 @@ do { ip = &instack[indepth];		\
       if (ident_length)
 	goto specialchar;
 
-      /* # keyword: a # must be first nonblank char on the line */
+      /* # keyword: a # must be the first char on the line */
       if (beg_of_line == 0)
 	goto randomchar;
-      {
-	U_CHAR *bp;
-
-	/* Scan from start of line, skipping whitespace, comments
-	   and backslash-newlines, and see if we reach this #.
-	   If not, this # is not special.  */
-	bp = beg_of_line;
-	while (1) {
-	  if (is_hor_space[*bp])
-	    bp++;
-	  else if (*bp == '\\' && bp[1] == '\n')
-	    bp += 2;
-	  else if (*bp == '/' && (newline_fix (bp + 1), bp[1]) == '*') {
-	    bp += 2;
-	    while (!(*bp == '*' && (newline_fix (bp + 1), bp[1]) == '/'))
-	      bp++;
-	    bp += 1;
-	  }
-	  else break;
-	}
-	if (bp + 1 != ibp)
-	  goto randomchar;
-      }
+      if (beg_of_line + 1 != ibp)
+	goto randomchar;
 
       /* This # can start a directive.  */
 
@@ -2564,8 +2543,8 @@ do_define (buf, limit, op, keyword)
     }
 
     ++bp;			/* skip paren */
-    /* Skip exactly one space or tab if any.  */
-    if (bp < limit && (*bp == ' ' || *bp == '\t')) ++bp;
+    while (is_hor_space[*bp])	/* and leading whitespace */
+      ++bp;
     /* now everything from bp before limit is the definition. */
     defn = collect_expansion (bp, limit, argno, arg_ptrs);
 
@@ -2587,9 +2566,9 @@ do_define (buf, limit, op, keyword)
       defn->argnames[i] = 0;
     }
   } else {
-    /* simple expansion or empty definition; gobble it */
-    if (is_hor_space[*bp])
-      ++bp;		/* skip exactly one blank/tab char */
+    /* simple expansion or empty definition; skip leading whitespace */
+    while (is_hor_space[*bp])
+      ++bp;
     /* now everything from bp before limit is the definition. */
     defn = collect_expansion (bp, limit, -1, 0);
     defn->argnames = (U_CHAR *) "";
@@ -4272,10 +4251,7 @@ fancy_abort (line, func)
      int line;
      const char *func;
 {
-  if (!func)
-    func = "?";
-  
-  fatal ("Internal error in \"%s\", at tradcpp.c:%d\n\
+  fatal ("Internal error in %s, at tradcpp.c:%d\n\
 Please submit a full bug report.\n\
 See %s for instructions.", func, line, GCCBUGURL);
 }
@@ -4688,52 +4664,26 @@ make_definition (str)
   FILE_BUF *ip;
   struct directive *kt;
   U_CHAR *buf, *p;
+  size_t len = strlen ((char *)str);
 
-  buf = str;
-  p = str;
-  while (is_idchar[*p]) p++;
-  if (p == str) {
-    error ("malformed option `-D %s'", str);
-    return;
-  }
-  if (*p == 0) {
-    buf = (U_CHAR *) alloca (p - buf + 4);
-    strcpy ((char *)buf, (char *)str);
-    strcat ((char *)buf, " 1");
-  } else if (*p != ' ') {
-    error ("malformed option `-D %s'", str);
-    return;
+  p = (U_CHAR *) strchr ((char *)str, '=');
+  if (p == NULL) {
+    /* Change -DFOO into #define FOO 1 */
+    buf = (U_CHAR *) alloca (len + 3);
+    memcpy (buf, str, len);
+    memcpy (buf + len, " 1", 3);
+    len += 2;
   } else {
-    U_CHAR *q;
-    /* Copy the entire option so we can modify it.  */
-    buf = (U_CHAR *) alloca (2 * strlen ((char *)str) + 1);
-    strncpy ((char *)buf, (char *)str, p - str);
-    /* Change the = to a space.  */
+    buf = (U_CHAR *) alloca (len + 1);
+    memcpy (buf, str, len + 1);
     buf[p - str] = ' ';
-    /* Scan for any backslash-newline and remove it.  */
-    p++;
-    q = &buf[p - str];
-    while (*p) {
-      if (*p == '\\' && p[1] == '\n')
-	p += 2;
-      /* Change newline chars into newline-markers.  */
-      else if (*p == '\n')
-	{
-	  *q++ = '\n';
-	  *q++ = '\n';
-	  p++;
-	}
-      else
-	*q++ = *p++;
-    }
-    *q = 0;
   }
   
   ip = &instack[++indepth];
   ip->fname = "*Initialization*";
 
   ip->buf = ip->bufp = buf;
-  ip->length = strlen ((char *)buf);
+  ip->length = len;
   ip->lineno = 1;
   ip->macro = 0;
   ip->free_ptr = 0;

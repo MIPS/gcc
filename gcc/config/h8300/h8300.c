@@ -626,9 +626,9 @@ call_insn_operand (op, mode)
   return 0;
 }
 
-/* Return 1 if a addition/subtraction of a constant integer can be
+/* Return 1 if an addition/subtraction of a constant integer can be
    transformed into two consecutive adds/subs that are faster than the
-   straightforward way.  Otherwise, return 0. */
+   straightforward way.  Otherwise, return 0.  */
 
 int
 two_insn_adds_subs_operand (op, mode)
@@ -648,13 +648,13 @@ two_insn_adds_subs_operand (op, mode)
 	  /* A constant addition/subtraction takes 2 states in QImode,
 	     4 states in HImode, and 6 states in SImode.  Thus, the
 	     only case we can win is when SImode is used, in which
-	     case, two adds/subs is used, taking 4 states.  */
+	     case, two adds/subs are used, taking 4 states.  */
 	  if (mode == SImode
 	      && (value == 2 + 1
 		  || value == 4 + 1
 		  || value == 4 + 2
 		  || value == 4 + 4))
-	      return 1;
+	    return 1;
 	}
       else
 	{
@@ -1419,6 +1419,9 @@ print_operand (file, x, code)
 	  else if (GET_CODE (XEXP (x, 0)) == SYMBOL_REF
 		   && TINY_DATA_NAME_P (XSTR (XEXP (x, 0), 0)))
 	    fprintf (file, ":16");
+	  else if ((code == 'R')
+		   && EIGHTBIT_CONSTANT_ADDRESS_P (XEXP (x, 0)))
+	    fprintf (file, ":8");
 	  break;
 
 	case CONST_INT:
@@ -1531,9 +1534,9 @@ final_prescan_insn (insn, operand, num_operands)
 
   if (TARGET_ADDRESSES)
     {
-      fprintf (asm_out_file, "; 0x%x %d\n", insn_addresses[uid],
-	       insn_addresses[uid] - last_insn_address);
-      last_insn_address = insn_addresses[uid];
+      fprintf (asm_out_file, "; 0x%x %d\n", INSN_ADDRESSES (uid),
+	       INSN_ADDRESSES (uid) - last_insn_address);
+      last_insn_address = INSN_ADDRESSES (uid);
     }
 }
 

@@ -5692,7 +5692,7 @@ finish_enum (enumtype, values, attributes)
      tree attributes;
 {
   register tree pair, tem;
-  tree minnode = 0, maxnode = 0;
+  tree minnode = 0, maxnode = 0, enum_value_type;
   int precision, unsign;
   int toplevel = (global_binding_level == current_binding_level);
 
@@ -5733,6 +5733,11 @@ finish_enum (enumtype, values, attributes)
       precision = TYPE_PRECISION (long_long_integer_type_node);
     }
 
+  if (precision == TYPE_PRECISION (integer_type_node))
+    enum_value_type = type_for_size (precision, 0);
+  else
+    enum_value_type = enumtype;
+
   TYPE_MIN_VALUE (enumtype) = minnode;
   TYPE_MAX_VALUE (enumtype) = maxnode;
   TYPE_PRECISION (enumtype) = precision;
@@ -5759,7 +5764,18 @@ finish_enum (enumtype, values, attributes)
 	  DECL_ALIGN (enu) = TYPE_ALIGN (enumtype);
 	  DECL_USER_ALIGN (enu) = TYPE_USER_ALIGN (enumtype);
 	  DECL_MODE (enu) = TYPE_MODE (enumtype);
-	  DECL_INITIAL (enu) = convert (enumtype, DECL_INITIAL (enu));
+
+	  /* The ISO C Standard mandates enumerators to have type int,
+	     even though the underlying type of an enum type is
+	     unspecified.  Here we convert any enumerators that fit in
+	     an int to type int, to avoid promotions to unsigned types
+	     when comparing integers with enumerators that fit in the
+	     int range.  When -pedantic is given, build_enumerator()
+	     would have already taken care of those that don't fit.  */
+	  if (int_fits_type_p (DECL_INITIAL (enu), enum_value_type))
+	    DECL_INITIAL (enu) = convert (enum_value_type, DECL_INITIAL (enu));
+	  else
+	    DECL_INITIAL (enu) = convert (enumtype, DECL_INITIAL (enu));
 
 	  TREE_PURPOSE (pair) = DECL_NAME (enu);
 	  TREE_VALUE (pair) = DECL_INITIAL (enu);
@@ -5836,7 +5852,7 @@ build_enumerator (name, value)
   if (pedantic && ! int_fits_type_p (value, integer_type_node))
     {
       pedwarn ("ANSI C restricts enumerator values to range of `int'");
-      value = integer_zero_node;
+      value = convert (integer_type_node, value);
     }
 
   /* Set basis for default for next value.  */
@@ -6314,7 +6330,9 @@ store_parm_decls ()
 	      DECL_ARG_TYPE (found) = TREE_TYPE (found);
 	      DECL_SOURCE_LINE (found) = DECL_SOURCE_LINE (fndecl);
 	      DECL_SOURCE_FILE (found) = DECL_SOURCE_FILE (fndecl);
-	      if (extra_warnings)
+	      if (flag_isoc99)
+		pedwarn_with_decl (found, "type of `%s' defaults to `int'");
+	      else if (extra_warnings)
 		warning_with_decl (found, "type of `%s' defaults to `int'");
 	      pushdecl (found);
 	    }
@@ -6734,7 +6752,7 @@ finish_function (nested)
       setjmp_protect_args ();
     }
 
-  if (MAIN_NAME_P (DECL_NAME (fndecl)))
+  if (MAIN_NAME_P (DECL_NAME (fndecl)) && flag_hosted)
     {
       if (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (fndecl)))
 	  != integer_type_node)
@@ -6749,6 +6767,9 @@ finish_function (nested)
 #ifdef DEFAULT_MAIN_RETURN
 	  /* Make it so that `main' always returns success by default.  */
 	  DEFAULT_MAIN_RETURN;
+#else
+	  if (flag_isoc99)
+	    c_expand_return (integer_zero_node);
 #endif
 	}
     }

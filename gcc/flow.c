@@ -372,6 +372,8 @@ static rtx not_reg_cond			PARAMS ((rtx));
 static rtx nand_reg_cond		PARAMS ((rtx, rtx));
 #endif
 #ifdef AUTO_INC_DEC
+static void attempt_auto_inc		PARAMS ((struct propagate_block_info *,
+						 rtx, rtx, rtx, rtx, rtx));
 static void find_auto_inc		PARAMS ((struct propagate_block_info *,
 						 rtx, rtx));
 static int try_pre_increment_1		PARAMS ((struct propagate_block_info *,
@@ -535,9 +537,10 @@ count_basic_blocks (f)
   return count;
 }
 
-/* Scan a list of insns for labels referrred to other than by jumps.
+/* Scan a list of insns for labels referred to other than by jumps.
    This is used to scan the alternatives of a call placeholder.  */
-static rtx find_label_refs (f, lvl)
+static rtx
+find_label_refs (f, lvl)
      rtx f;
      rtx lvl;
 {
@@ -1672,8 +1675,7 @@ commit_one_edge_insertion (e)
       tmp = bb->head;
       if (GET_CODE (tmp) == CODE_LABEL)
 	tmp = NEXT_INSN (tmp);
-      if (GET_CODE (tmp) == NOTE
-	  && NOTE_LINE_NUMBER (tmp) == NOTE_INSN_BASIC_BLOCK)
+      if (NOTE_INSN_BASIC_BLOCK_P (tmp))
 	tmp = NEXT_INSN (tmp);
       if (tmp == bb->head)
 	before = tmp;
@@ -2163,8 +2165,7 @@ merge_blocks_nomove (a, b)
     }
 
   /* Delete the basic block note.  */
-  if (GET_CODE (b_head) == NOTE 
-      && NOTE_LINE_NUMBER (b_head) == NOTE_INSN_BASIC_BLOCK)
+  if (NOTE_INSN_BASIC_BLOCK_P (b_head))
     {
       if (b_head == b_end)
 	b_empty = 1;
@@ -3188,7 +3189,7 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 	  /* If any bits were removed from live_at_end, we'll have to
 	     rescan the block.  This wouldn't be necessary if we had
 	     precalculated local_live, however with PROP_SCAN_DEAD_CODE
-	     local_live is really dependant on live_at_end.  */
+	     local_live is really dependent on live_at_end.  */
 	  CLEAR_REG_SET (tmp);
 	  rescan = bitmap_operation (tmp, bb->global_live_at_end,
 				     new_live_at_end, BITMAP_AND_COMPL);
@@ -4554,7 +4555,7 @@ mark_regno_cond_dead (pbi, regno, cond)
 {
   /* If this is a store to a predicate register, the value of the
      predicate is changing, we don't know that the predicate as seen
-     before is the same as that seen after.  Flush all dependant
+     before is the same as that seen after.  Flush all dependent
      conditions from reg_cond_dead.  This will make all such
      conditionally live registers unconditionally live.  */
   if (REGNO_REG_SET_P (pbi->reg_cond_reg, regno))
@@ -4801,6 +4802,156 @@ nand_reg_cond (old, x)
 
 #ifdef AUTO_INC_DEC
 
+/* Try to substitute the auto-inc expression INC as the address inside
+   MEM which occurs in INSN.  Currently, the address of MEM is an expression
+   involving INCR_REG, and INCR is the next use of INCR_REG; it is an insn
+   that has a single set whose source is a PLUS of INCR_REG and something
+   else.  */
+
+static void
+attempt_auto_inc (pbi, inc, insn, mem, incr, incr_reg)
+     struct propagate_block_info *pbi;
+     rtx inc, insn, mem, incr, incr_reg;
+{
+  int regno = REGNO (incr_reg);
+  rtx set = single_set (incr);
+  rtx q = SET_DEST (set);
+  rtx y = SET_SRC (set);
+  int opnum = XEXP (y, 0) == incr_reg ? 0 : 1;
+
+  /* Make sure this reg appears only once in this insn.  */
+  if (count_occurrences (PATTERN (insn), incr_reg, 1) != 1)
+    return;
+
+  if (dead_or_set_p (incr, incr_reg)
+      /* Mustn't autoinc an eliminable register.  */
+      && (regno >= FIRST_PSEUDO_REGISTER
+	  || ! TEST_HARD_REG_BIT (elim_reg_set, regno)))
+    {
+      /* This is the simple case.  Try to make the auto-inc.  If
+	 we can't, we are done.  Otherwise, we will do any
+	 needed updates below.  */
+      if (! validate_change (insn, &XEXP (mem, 0), inc, 0))
+	return;
+    }
+  else if (GET_CODE (q) == REG
+	   /* PREV_INSN used here to check the semi-open interval
+	      [insn,incr).  */
+	   && ! reg_used_between_p (q,  PREV_INSN (insn), incr)
+	   /* We must also check for sets of q as q may be
+	      a call clobbered hard register and there may
+	      be a call between PREV_INSN (insn) and incr.  */
+	   && ! reg_set_between_p (q,  PREV_INSN (insn), incr))
+    {
+      /* We have *p followed sometime later by q = p+size.
+	 Both p and q must be live afterward,
+	 and q is not used between INSN and its assignment.
+	 Change it to q = p, ...*q..., q = q+size.
+	 Then fall into the usual case.  */
+      rtx insns, temp;
+      basic_block bb;
+
+      start_sequence ();
+      emit_move_insn (q, incr_reg);
+      insns = get_insns ();
+      end_sequence ();
+
+      if (basic_block_for_insn)
+	for (temp = insns; temp; temp = NEXT_INSN (temp))
+	  set_block_for_insn (temp, pbi->bb);
+
+      /* If we can't make the auto-inc, or can't make the
+	 replacement into Y, exit.  There's no point in making
+	 the change below if we can't do the auto-inc and doing
+	 so is not correct in the pre-inc case.  */
+
+      XEXP (inc, 0) = q;
+      validate_change (insn, &XEXP (mem, 0), inc, 1);
+      validate_change (incr, &XEXP (y, opnum), q, 1);
+      if (! apply_change_group ())
+	return;
+
+      /* We now know we'll be doing this change, so emit the
+	 new insn(s) and do the updates.  */
+      emit_insns_before (insns, insn);
+
+      if (pbi->bb->head == insn)
+	pbi->bb->head = insns;
+
+      /* INCR will become a NOTE and INSN won't contain a
+	 use of INCR_REG.  If a use of INCR_REG was just placed in
+	 the insn before INSN, make that the next use. 
+	 Otherwise, invalidate it.  */
+      if (GET_CODE (PREV_INSN (insn)) == INSN
+	  && GET_CODE (PATTERN (PREV_INSN (insn))) == SET
+	  && SET_SRC (PATTERN (PREV_INSN (insn))) == incr_reg)
+	pbi->reg_next_use[regno] = PREV_INSN (insn);
+      else
+	pbi->reg_next_use[regno] = 0;
+
+      incr_reg = q;
+      regno = REGNO (q);
+
+      /* REGNO is now used in INCR which is below INSN, but
+	 it previously wasn't live here.  If we don't mark
+	 it as live, we'll put a REG_DEAD note for it
+	 on this insn, which is incorrect.  */
+      SET_REGNO_REG_SET (pbi->reg_live, regno);
+
+      /* If there are any calls between INSN and INCR, show
+	 that REGNO now crosses them.  */
+      for (temp = insn; temp != incr; temp = NEXT_INSN (temp))
+	if (GET_CODE (temp) == CALL_INSN)
+	  REG_N_CALLS_CROSSED (regno)++;
+    }
+  else
+    return;
+
+  /* If we haven't returned, it means we were able to make the
+     auto-inc, so update the status.  First, record that this insn
+     has an implicit side effect.  */
+
+  REG_NOTES (insn)
+    = alloc_EXPR_LIST (REG_INC, incr_reg, REG_NOTES (insn));
+
+  /* Modify the old increment-insn to simply copy
+     the already-incremented value of our register.  */
+  if (! validate_change (incr, &SET_SRC (set), incr_reg, 0))
+    abort ();
+
+  /* If that makes it a no-op (copying the register into itself) delete
+     it so it won't appear to be a "use" and a "set" of this
+     register.  */
+  if (REGNO (SET_DEST (set)) == REGNO (incr_reg))
+    {
+      /* If the original source was dead, it's dead now.  */
+      rtx note;
+      
+      while (note = find_reg_note (incr, REG_DEAD, NULL_RTX))
+	{
+	  remove_note (incr, note);
+	  if (XEXP (note, 0) != incr_reg)
+	    CLEAR_REGNO_REG_SET (pbi->reg_live, REGNO (XEXP (note, 0)));
+	}
+
+      PUT_CODE (incr, NOTE);
+      NOTE_LINE_NUMBER (incr) = NOTE_INSN_DELETED;
+      NOTE_SOURCE_FILE (incr) = 0;
+    }
+
+  if (regno >= FIRST_PSEUDO_REGISTER)
+    {
+      /* Count an extra reference to the reg.  When a reg is
+	 incremented, spilling it is worse, so we want to make
+	 that less likely.  */
+      REG_N_REFS (regno) += (optimize_size ? 1 : pbi->bb->loop_depth + 1);
+
+      /* Count the increment as a setting of the register,
+	 even though it isn't a SET in rtl.  */
+      REG_N_SETS (regno)++;
+    }
+}
+
 /* X is a MEM found in INSN.  See if we can convert it into an auto-increment
    reference.  */
 
@@ -4812,7 +4963,12 @@ find_auto_inc (pbi, x, insn)
 {
   rtx addr = XEXP (x, 0);
   HOST_WIDE_INT offset = 0;
-  rtx set;
+  rtx set, y, incr, inc_val;
+  int regno;
+  int size = GET_MODE_SIZE (GET_MODE (x));
+
+  if (GET_CODE (insn) == JUMP_INSN)
+    return;
 
   /* Here we detect use of an index register which might be good for
      postincrement, postdecrement, preincrement, or predecrement.  */
@@ -4820,170 +4976,69 @@ find_auto_inc (pbi, x, insn)
   if (GET_CODE (addr) == PLUS && GET_CODE (XEXP (addr, 1)) == CONST_INT)
     offset = INTVAL (XEXP (addr, 1)), addr = XEXP (addr, 0);
 
-  if (GET_CODE (addr) == REG)
+  if (GET_CODE (addr) != REG)
+    return;
+
+  regno = REGNO (addr);
+
+  /* Is the next use an increment that might make auto-increment? */
+  incr = pbi->reg_next_use[regno];
+  if (incr == 0 || BLOCK_NUM (incr) != BLOCK_NUM (insn))
+    return;
+  set = single_set (incr);
+  if (set == 0 || GET_CODE (set) != SET)
+    return;
+  y = SET_SRC (set);
+
+  if (GET_CODE (y) != PLUS)
+    return;
+
+  if (REGNO (XEXP (y, 0)) == REGNO (addr))
+    inc_val = XEXP (y, 1);
+  else if (REGNO (XEXP (y, 1)) == REGNO (addr))
+    inc_val = XEXP (y, 0);
+  else
+    abort ();
+
+  if (GET_CODE (inc_val) == CONST_INT)
     {
-      register rtx y;
-      register int size = GET_MODE_SIZE (GET_MODE (x));
-      rtx use;
-      rtx incr;
-      int regno = REGNO (addr);
+      if (HAVE_POST_INCREMENT
+	  && (INTVAL (inc_val) == size && offset == 0))
+	attempt_auto_inc (pbi, gen_rtx_POST_INC (Pmode, addr), insn, x,
+			  incr, addr);
+      else if (HAVE_POST_DECREMENT
+	       && (INTVAL (inc_val) == - size && offset == 0))
+	attempt_auto_inc (pbi, gen_rtx_POST_DEC (Pmode, addr), insn, x,
+			  incr, addr);
+      else if (HAVE_PRE_INCREMENT
+	       && (INTVAL (inc_val) == size && offset == size))
+	attempt_auto_inc (pbi, gen_rtx_PRE_INC (Pmode, addr), insn, x,
+			  incr, addr);
+      else if (HAVE_PRE_DECREMENT
+	       && (INTVAL (inc_val) == - size && offset == - size))
+	attempt_auto_inc (pbi, gen_rtx_PRE_DEC (Pmode, addr), insn, x,
+			  incr, addr);
+      else if (HAVE_POST_MODIFY_DISP && offset == 0)
+	attempt_auto_inc (pbi, gen_rtx_POST_MODIFY (Pmode, addr,
+						    gen_rtx_PLUS (Pmode,
+								  addr,
+								  inc_val)),
+			  insn, x, incr, addr);
+    }
+  else if (GET_CODE (inc_val) == REG
+	   && ! reg_set_between_p (inc_val, PREV_INSN (insn),
+				   NEXT_INSN (incr)))
 
-      /* Is the next use an increment that might make auto-increment? */
-      if ((incr = pbi->reg_next_use[regno]) != 0
-	  && (set = single_set (incr)) != 0
-	  && GET_CODE (set) == SET
-	  && BLOCK_NUM (incr) == BLOCK_NUM (insn)
-	  /* Can't add side effects to jumps; if reg is spilled and
-	     reloaded, there's no way to store back the altered value.  */
-	  && GET_CODE (insn) != JUMP_INSN
-	  && (y = SET_SRC (set), GET_CODE (y) == PLUS)
-	  && XEXP (y, 0) == addr
-	  && GET_CODE (XEXP (y, 1)) == CONST_INT
-	  && ((HAVE_POST_INCREMENT
-	       && (INTVAL (XEXP (y, 1)) == size && offset == 0))
-	      || (HAVE_POST_DECREMENT
-		  && (INTVAL (XEXP (y, 1)) == - size && offset == 0))
-	      || (HAVE_PRE_INCREMENT
-		  && (INTVAL (XEXP (y, 1)) == size && offset == size))
-	      || (HAVE_PRE_DECREMENT
-		  && (INTVAL (XEXP (y, 1)) == - size && offset == - size)))
-	  /* Make sure this reg appears only once in this insn.  */
-	  && (use = find_use_as_address (PATTERN (insn), addr, offset),
-	      use != 0 && use != (rtx) 1))
-	{
-	  rtx q = SET_DEST (set);
-	  enum rtx_code inc_code = (INTVAL (XEXP (y, 1)) == size
-				    ? (offset ? PRE_INC : POST_INC)
-				    : (offset ? PRE_DEC : POST_DEC));
-
-	  if (dead_or_set_p (incr, addr)
-	      /* Mustn't autoinc an eliminable register.  */
-	      && (regno >= FIRST_PSEUDO_REGISTER
-	          || ! TEST_HARD_REG_BIT (elim_reg_set, regno)))
-	    {
-	      /* This is the simple case.  Try to make the auto-inc.  If
-		 we can't, we are done.  Otherwise, we will do any
-		 needed updates below.  */
-	      if (! validate_change (insn, &XEXP (x, 0),
-				     gen_rtx_fmt_e (inc_code, Pmode, addr),
-				     0))
-		return;
-	    }
-	  else if (GET_CODE (q) == REG
-		   /* PREV_INSN used here to check the semi-open interval
-		      [insn,incr).  */
-		   && ! reg_used_between_p (q,  PREV_INSN (insn), incr)
-		   /* We must also check for sets of q as q may be
-		      a call clobbered hard register and there may
-		      be a call between PREV_INSN (insn) and incr.  */
-		   && ! reg_set_between_p (q,  PREV_INSN (insn), incr))
-	    {
-	      /* We have *p followed sometime later by q = p+size.
-		 Both p and q must be live afterward,
-		 and q is not used between INSN and its assignment.
-		 Change it to q = p, ...*q..., q = q+size.
-		 Then fall into the usual case.  */
-	      rtx insns, temp;
-
-	      start_sequence ();
-	      emit_move_insn (q, addr);
-	      insns = get_insns ();
-	      end_sequence ();
-
-	      if (basic_block_for_insn)
-		for (temp = insns; temp; temp = NEXT_INSN (temp))
-		  set_block_for_insn (temp, pbi->bb);
-
-	      /* If we can't make the auto-inc, or can't make the
-		 replacement into Y, exit.  There's no point in making
-		 the change below if we can't do the auto-inc and doing
-		 so is not correct in the pre-inc case.  */
-
-	      validate_change (insn, &XEXP (x, 0),
-			       gen_rtx_fmt_e (inc_code, Pmode, q),
-			       1);
-	      validate_change (incr, &XEXP (y, 0), q, 1);
-	      if (! apply_change_group ())
-		return;
-
-	      /* We now know we'll be doing this change, so emit the
-		 new insn(s) and do the updates.  */
-	      emit_insns_before (insns, insn);
-
-	      if (pbi->bb->head == insn)
-		pbi->bb->head = insns;
-
-	      /* INCR will become a NOTE and INSN won't contain a
-		 use of ADDR.  If a use of ADDR was just placed in
-		 the insn before INSN, make that the next use. 
-		 Otherwise, invalidate it.  */
-	      if (GET_CODE (PREV_INSN (insn)) == INSN
-		  && GET_CODE (PATTERN (PREV_INSN (insn))) == SET
-		  && SET_SRC (PATTERN (PREV_INSN (insn))) == addr)
-		pbi->reg_next_use[regno] = PREV_INSN (insn);
-	      else
-		pbi->reg_next_use[regno] = 0;
-
-	      addr = q;
-	      regno = REGNO (q);
-
-	      /* REGNO is now used in INCR which is below INSN, but it
-		 previously wasn't live here.  If we don't mark it as
-		 live, we'll put a REG_DEAD note for it on this insn,
-		 which is incorrect.  */
-	      SET_REGNO_REG_SET (pbi->reg_live, regno);
-
-	      /* If there are any calls between INSN and INCR, show
-		 that REGNO now crosses them.  */
-	      for (temp = insn; temp != incr; temp = NEXT_INSN (temp))
-		if (GET_CODE (temp) == CALL_INSN)
-		  REG_N_CALLS_CROSSED (regno)++;
-	    }
-	  else
-	    return;
-
-	  /* If we haven't returned, it means we were able to make the
-	     auto-inc, so update the status.  First, record that this insn
-	     has an implicit side effect.  */
-
-	  REG_NOTES (insn)
-	    = alloc_EXPR_LIST (REG_INC, addr, REG_NOTES (insn));
-
-	  /* Modify the old increment-insn to simply copy
-	     the already-incremented value of our register.  */
-	  if (! validate_change (incr, &SET_SRC (set), addr, 0))
-	    abort ();
-
-	  /* If that makes it a no-op (copying the register into itself) delete
-	     it so it won't appear to be a "use" and a "set" of this
-	     register.  */
-	  if (SET_DEST (set) == addr)
-	    {
-	      /* If the original source was dead, it's dead now.  */
-	      rtx note = find_reg_note (incr, REG_DEAD, NULL_RTX);
-	      if (note && XEXP (note, 0) != addr)
-		CLEAR_REGNO_REG_SET (pbi->reg_live, REGNO (XEXP (note, 0)));
-	      
-	      PUT_CODE (incr, NOTE);
-	      NOTE_LINE_NUMBER (incr) = NOTE_INSN_DELETED;
-	      NOTE_SOURCE_FILE (incr) = 0;
-	    }
-
-	  if (regno >= FIRST_PSEUDO_REGISTER)
-	    {
-	      /* Count an extra reference to the reg.  When a reg is
-		 incremented, spilling it is worse, so we want to make
-		 that less likely.  */
-	      REG_N_REFS (regno) += (optimize_size ? 1
-				     : pbi->bb->loop_depth + 1);
-
-	      /* Count the increment as a setting of the register,
-		 even though it isn't a SET in rtl.  */
-	      REG_N_SETS (regno)++;
-	    }
-	}
+    {
+      if (HAVE_POST_MODIFY_REG && offset == 0)
+	attempt_auto_inc (pbi, gen_rtx_POST_MODIFY (Pmode, addr,
+						    gen_rtx_PLUS (Pmode,
+								  addr,
+								  inc_val)),
+			  insn, x, incr, addr);
     }
 }
+
 #endif /* AUTO_INC_DEC */
 
 static void
@@ -6342,34 +6397,37 @@ verify_flow_info ()
 {
   const int max_uid = get_max_uid ();
   const rtx rtx_first = get_insns ();
+  rtx last_head = get_last_insn ();
   basic_block *bb_info;
   rtx x;
   int i, last_bb_num_seen, num_bb_notes, err = 0;
 
   bb_info = (basic_block *) xcalloc (max_uid, sizeof (basic_block));
 
-  /* First pass check head/end pointers and set bb_info array used by
-     later passes.  */
   for (i = n_basic_blocks - 1; i >= 0; i--)
     {
       basic_block bb = BASIC_BLOCK (i);
+      rtx head = bb->head;
+      rtx end = bb->end;
 
-      /* Check the head pointer and make sure that it is pointing into
-         insn list.  */
-      for (x = rtx_first; x != NULL_RTX; x = NEXT_INSN (x))
-	if (x == bb->head)
+      /* Verify the end of the basic block is in the INSN chain.  */
+      for (x = last_head; x != NULL_RTX; x = PREV_INSN (x))
+	if (x == end)
 	  break;
       if (!x)
 	{
-	  error ("Head insn %d for block %d not found in the insn stream.",
-		 INSN_UID (bb->head), bb->index);
+	  error ("End insn %d for block %d not found in the insn stream.",
+		 INSN_UID (end), bb->index);
 	  err = 1;
 	}
 
-      /* Check the end pointer and make sure that it is pointing into
-         insn list.  */
-      for (x = bb->head; x != NULL_RTX; x = NEXT_INSN (x))
+      /* Work backwards from the end to the head of the basic block
+	 to verify the head is in the RTL chain.  */
+      for ( ; x != NULL_RTX; x = PREV_INSN (x))
 	{
+	  /* While walking over the insn chain, verify insns appear
+	     in only one basic block and initialize the BB_INFO array
+	     used by other passes.  */
 	  if (bb_info[INSN_UID (x)] != NULL)
 	    {
 	      error ("Insn %d is in multiple basic blocks (%d and %d)",
@@ -6378,15 +6436,17 @@ verify_flow_info ()
 	    }
 	  bb_info[INSN_UID (x)] = bb;
 
-	  if (x == bb->end)
+	  if (x == head)
 	    break;
 	}
       if (!x)
 	{
-	  error ("End insn %d for block %d not found in the insn stream.",
-		 INSN_UID (bb->end), bb->index);
+	  error ("Head insn %d for block %d not found in the insn stream.",
+		 INSN_UID (head), bb->index);
 	  err = 1;
 	}
+
+      last_head = x;
     }
 
   /* Now check the basic blocks (boundaries etc.) */
@@ -6465,9 +6525,7 @@ verify_flow_info ()
 	    }
 	  x = NEXT_INSN (x);
 	}
-      if (GET_CODE (x) != NOTE
-	  || NOTE_LINE_NUMBER (x) != NOTE_INSN_BASIC_BLOCK
-	  || NOTE_BASIC_BLOCK (x) != bb)
+      if (!NOTE_INSN_BASIC_BLOCK_P (x) || NOTE_BASIC_BLOCK (x) != bb)
 	{
 	  error ("NOTE_INSN_BASIC_BLOCK is missing for block %d\n",
 		 bb->index);
@@ -6483,8 +6541,7 @@ verify_flow_info ()
 	  x = NEXT_INSN (x);
 	  while (x)
 	    {
-	      if (GET_CODE (x) == NOTE
-		  && NOTE_LINE_NUMBER (x) == NOTE_INSN_BASIC_BLOCK)
+	      if (NOTE_INSN_BASIC_BLOCK_P (x))
 		{
 		  error ("NOTE_INSN_BASIC_BLOCK %d in the middle of basic block %d",
 			 INSN_UID (x), bb->index);
@@ -6512,8 +6569,7 @@ verify_flow_info ()
   x = rtx_first;
   while (x)
     {
-      if (GET_CODE (x) == NOTE
-	  && NOTE_LINE_NUMBER (x) == NOTE_INSN_BASIC_BLOCK)
+      if (NOTE_INSN_BASIC_BLOCK_P (x))
 	{
 	  basic_block bb = NOTE_BASIC_BLOCK (x);
 	  num_bb_notes++;
@@ -6570,16 +6626,16 @@ verify_flow_info ()
 
 /* Functions to access an edge list with a vector representation.
    Enough data is kept such that given an index number, the 
-   pred and succ that edge reprsents can be determined, or
-   given a pred and a succ, it's index number can be returned.
-   This allows algorithms which comsume a lot of memory to 
+   pred and succ that edge represents can be determined, or
+   given a pred and a succ, its index number can be returned.
+   This allows algorithms which consume a lot of memory to 
    represent the normally full matrix of edge (pred,succ) with a
    single indexed vector,  edge (EDGE_INDEX (pred, succ)), with no
    wasted space in the client code due to sparse flow graphs.  */
 
 /* This functions initializes the edge list. Basically the entire 
    flowgraph is processed, and all edges are assigned a number,
-   and the data structure is filed in.  */
+   and the data structure is filled in.  */
 struct edge_list *
 create_edge_list ()
 {
@@ -6671,7 +6727,7 @@ print_edge_list (f, elist)
     }
 }
 
-/* This function provides an internal consistancy check of an edge list,
+/* This function provides an internal consistency check of an edge list,
    verifying that all edges are present, and that there are no 
    extra edges.  */
 void
@@ -6899,7 +6955,7 @@ remove_fake_edges ()
   remove_fake_successors (ENTRY_BLOCK_PTR);
 }
 
-/* This functions will add a fake edge between any block which has no
+/* This function will add a fake edge between any block which has no
    successors, and the exit block. Some data flow equations require these
    edges to exist.  */
 void

@@ -284,72 +284,84 @@ namespace std
       do_is(mask, char_type) const
       {
 	// XXX Need definitions for these abstract mf's.
+	return true;
       }
 
       virtual const char_type*
-      do_is(const char_type*, const char_type*, mask*) const
+      do_is(const char_type*  __lo, const char_type*, mask*) const
       {
 	// XXX Need definitions for these abstract mf's.
+	return __lo;
       }
 
       virtual const char_type*
-      do_scan_is(mask, const char_type*, const char_type*) const
+      do_scan_is(mask, const char_type* __lo, const char_type*) const
       {
 	// XXX Need definitions for these abstract mf's.
+	return __lo;
       }
 
       virtual const char_type*
-      do_scan_not(mask, const char_type*, const char_type*) const
+      do_scan_not(mask, const char_type* __lo, const char_type*) const
       {
 	// XXX Need definitions for these abstract mf's.
+	return __lo;
       }
 
       virtual char_type 
-      do_toupper(char_type) const
+      do_toupper(char_type __c) const
       {
 	// XXX Need definitions for these abstract mf's.
+	return __c;
       }
 
       virtual const char_type*
-      do_toupper(char_type*, const char_type*) const
+      do_toupper(char_type* __lo, const char_type*) const
       {
 	// XXX Need definitions for these abstract mf's.
+	return __lo;
       }
 
       virtual char_type 
-      do_tolower(char_type) const
+      do_tolower(char_type __c) const
       {
 	// XXX Need definitions for these abstract mf's.
+	return __c;
       }
 
       virtual const char_type*
-      do_tolower(char_type*, const char_type*) const
+      do_tolower(char_type* __lo, const char_type*) const
       {
 	// XXX Need definitions for these abstract mf's.
+	return __lo;
       }
       
       virtual char_type 
-      do_widen(char) const
+      do_widen(char __c) const
       {
 	// XXX Need definitions for these abstract mf's.
+	return __c;
       }
 
       virtual const char*
-      do_widen(const char*, const char*, char_type*) const
+      do_widen(const char* __lo, const char*, char_type*) const
       {
 	// XXX Need definitions for these abstract mf's.
+	return __lo;
       }
 
       virtual char 
-      do_narrow(char_type, char) const
+      do_narrow(char_type, char __c) const
       {
 	// XXX Need definitions for these abstract mf's.
+	return __c;
       }
 
       virtual const char_type*
-      do_narrow(const char_type*, const char_type*, char, char*) const
+      do_narrow(const char_type* __lo, const char_type*, char, char*) const
       {
 	// XXX Need definitions for these abstract mf's.
+	return __lo;
       }
     };
 
@@ -1268,7 +1280,7 @@ namespace std
     protected:
       // For use only during construction
       void 
-      _M_init_boolnames(const string_type& __t, const string_type& __f)
+      _M_boolnames_init(const string_type& __t, const string_type& __f)
       {
 	_M_truename = __t;
 	_M_falsename = __f;
@@ -1297,7 +1309,7 @@ namespace std
     numpunct<char>::numpunct(size_t __refs): _Numpunct<char>(__refs)
     {
       _M_init('.', ',', "");
-      _M_init_boolnames("true", "false");
+      _M_boolnames_init("true", "false");
     }
 
 #ifdef _GLIBCPP_USE_WCHAR_T
@@ -1305,7 +1317,7 @@ namespace std
     numpunct<wchar_t>::numpunct(size_t __refs): _Numpunct<wchar_t>(__refs)
     {
       _M_init(L'.', L',', "");
-      _M_init_boolnames(L"true", L"false");
+      _M_boolnames_init(L"true", L"false");
     }
 #endif
 

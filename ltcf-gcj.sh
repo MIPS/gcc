@@ -1,6 +1,6 @@
 #### This script is meant to be sourced by ltconfig.
 
-# $Id: ltcf-gcj.sh,v 1.1.2.5 2000/07/20 02:29:15 oliva Exp $
+# $Id: ltcf-gcj.sh,v 1.1 2000/07/28 18:04:21 bkoz Exp $
 
 # ltcf-gcj.sh - Create a GCJ compiler specific configuration
 #

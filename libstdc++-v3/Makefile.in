@@ -65,12 +65,10 @@ target_alias = @target_alias@
 target_triplet = @target@
 AR = @AR@
 AS = @AS@
-BUILD_LIBIO_INCLUDE = @BUILD_LIBIO_INCLUDE@
 CC = @CC@
 CPP = @CPP@
 CPU_FLAGS = @CPU_FLAGS@
 CSHADOWFLAGS = @CSHADOWFLAGS@
-CSHADOW_INCLUDES = @CSHADOW_INCLUDES@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 DEBUG_FLAGS = @DEBUG_FLAGS@
@@ -87,10 +85,13 @@ LN_S = @LN_S@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 OBJDUMP = @OBJDUMP@
+OBJEXT = @OBJEXT@
+OPT_LDFLAGS = @OPT_LDFLAGS@
 PACKAGE = @PACKAGE@
 RANLIB = @RANLIB@
 SECTION_FLAGS = @SECTION_FLAGS@
 SECTION_LDFLAGS = @SECTION_LDFLAGS@
+STRIP = @STRIP@
 THREADDEPS = @THREADDEPS@
 THREADINCS = @THREADINCS@
 THREADLIBS = @THREADLIBS@
@@ -103,6 +104,7 @@ WFMT_FLAGS = @WFMT_FLAGS@
 cpu_include_dir = @cpu_include_dir@
 ctype_include_dir = @ctype_include_dir@
 glibcpp_basedir = @glibcpp_basedir@
+ifGNUmake = @ifGNUmake@
 libinst_wstring_la = @libinst_wstring_la@
 
 AUTOMAKE_OPTIONS = 1.3 cygnus
@@ -151,48 +153,7 @@ MULTICLEAN = true
 # Work around what appears to be a GNU make bug handling MAKEFLAGS
 # values defined in terms of make variables, as is the case for CC and
 # friends when we are called from the top level Makefile.
-AM_MAKEFLAGS = \
-	"AR_FLAGS=$(AR_FLAGS)" \
-	"CC_FOR_BUILD=$(CC_FOR_BUILD)" \
-	"CC_FOR_TARGET=$(CC_FOR_TARGET)" \
-	"CFLAGS=$(CFLAGS)" \
-	"CXXFLAGS=$(CXXFLAGS)" \
-	"CFLAGS_FOR_BUILD=$(CFLAGS_FOR_BUILD)" \
-	"CFLAGS_FOR_TARGET=$(CFLAGS_FOR_TARGET)" \
-	"INSTALL=$(INSTALL)" \
-	"INSTALL_DATA=$(INSTALL_DATA)" \
-	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" \
-	"INSTALL_SCRIPT=$(INSTALL_SCRIPT)" \
-	"LDFLAGS=$(LDFLAGS)" \
-	"LIBCFLAGS=$(LIBCFLAGS)" \
-	"LIBCFLAGS_FOR_TARGET=$(LIBCFLAGS_FOR_TARGET)" \
-	"MAKE=$(MAKE)" \
-	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" \
-	"PICFLAG=$(PICFLAG)" \
-	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" \
-	"SHELL=$(SHELL)" \
-	"EXPECT=$(EXPECT)" \
-	"RUNTEST=$(RUNTEST)" \
-	"RUNTESTFLAGS=$(RUNTESTFLAGS)" \
-	"exec_prefix=$(exec_prefix)" \
-	"infodir=$(infodir)" \
-	"libdir=$(libdir)" \
-	"includedir=$(includedir)" \
-	"prefix=$(prefix)" \
-	"tooldir=$(tooldir)" \
-	"AR=$(AR)" \
-	"AS=$(AS)" \
-	"CC=$(CC)" \
-	"CXX=$(CXX)" \
-	"LD=$(LD)" \
-	"LIBCFLAGS=$(LIBCFLAGS)" \
-	"PICFLAG=$(PICFLAG)" \
-	"RANLIB=$(RANLIB)" \
-	"NM=$(NM)" \
-	"NM_FOR_BUILD=$(NM_FOR_BUILD)" \
-	"NM_FOR_TARGET=$(NM_FOR_TARGET)" \
-	"DESTDIR=$(DESTDIR)" \
-	"WERROR=$(WERROR)"
+AM_MAKEFLAGS =  	"AR_FLAGS=$(AR_FLAGS)" 	"CC_FOR_BUILD=$(CC_FOR_BUILD)" 	"CC_FOR_TARGET=$(CC_FOR_TARGET)" 	"CFLAGS=$(CFLAGS)" 	"CXXFLAGS=$(CXXFLAGS)" 	"CFLAGS_FOR_BUILD=$(CFLAGS_FOR_BUILD)" 	"CFLAGS_FOR_TARGET=$(CFLAGS_FOR_TARGET)" 	"INSTALL=$(INSTALL)" 	"INSTALL_DATA=$(INSTALL_DATA)" 	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" 	"INSTALL_SCRIPT=$(INSTALL_SCRIPT)" 	"LDFLAGS=$(LDFLAGS)" 	"LIBCFLAGS=$(LIBCFLAGS)" 	"LIBCFLAGS_FOR_TARGET=$(LIBCFLAGS_FOR_TARGET)" 	"MAKE=$(MAKE)" 	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" 	"PICFLAG=$(PICFLAG)" 	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" 	"SHELL=$(SHELL)" 	"EXPECT=$(EXPECT)" 	"RUNTEST=$(RUNTEST)" 	"RUNTESTFLAGS=$(RUNTESTFLAGS)" 	"exec_prefix=$(exec_prefix)" 	"infodir=$(infodir)" 	"libdir=$(libdir)" 	"includedir=$(includedir)" 	"prefix=$(prefix)" 	"tooldir=$(tooldir)" 	"AR=$(AR)" 	"AS=$(AS)" 	"CC=$(CC)" 	"CXX=$(CXX)" 	"LD=$(LD)" 	"LIBCFLAGS=$(LIBCFLAGS)" 	"PICFLAG=$(PICFLAG)" 	"RANLIB=$(RANLIB)" 	"NM=$(NM)" 	"NM_FOR_BUILD=$(NM_FOR_BUILD)" 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" 	"DESTDIR=$(DESTDIR)" 	"WERROR=$(WERROR)"
 
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
@@ -464,13 +425,16 @@ distclean-generic clean-generic maintainer-clean-generic clean \
 mostlyclean distclean maintainer-clean
 
 
+# Use $(blddir) instead of $(top_builddir) for arguments to "mkcheck"
+# because then the paths will be full pathnames, not relative
+# pathnames. (-Wl,--rpath seems to like this better.)
 check:  $(top_builddir)/mkcheck
 	chmod +x  $(top_builddir)/mkcheck
-	$(top_builddir)/mkcheck 0 $(top_builddir) $(top_srcdir)
+	$(top_builddir)/mkcheck 0 `pwd` $(top_srcdir)
 
 check-install: $(top_builddir)/mkcheck
 	chmod +x  $(top_builddir)/mkcheck
-	$(top_builddir)/mkcheck 1 $(top_builddir) $(top_srcdir) $(prefix)
+	$(top_builddir)/mkcheck 1 `pwd` $(top_srcdir) $(prefix)
 
 # Multilib Makefile bits.
 .PHONY: all-multi mostlyclean-multi clean-multi distclean-multi \

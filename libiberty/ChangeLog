@@ -1,3 +1,82 @@
+2000-07-26  Dave Pitts  <dpitts@cozx.com>	
+
+	* config/mh-openedition.h: Added -DLE370 definition.
+
+2000-07-26 Mark Elbrecht <snowball3@bigfoot.com>
+
+	* pexecute.c (pexecute) [__MSDOS__]: Change __GO32__ to
+	__DJGPP__. Use P_WAIT instead of constant in the spawnv* call.
+	Cast program to 'char *' in errmsg_arg assignment.
+	(PWAIT_ERROR): Define.
+	(pwait): Use PWAIT_ERROR.  Adjust DJGPP's status code to conform
+	to DJGPP's WIF* macros.
+
+2000-07-27  RodneyBrown  <RodneyBrown@pmsc.com>
+	    Jeff Law <law@cygnus.com>
+
+	* getcwd.c: Include string.h, stdlib.h for prototypes
+
+	* Makefile.in (rename.o, waitpid.o): Depend on config.h
+	* rename.c: Include config.h, unistd.h
+	* waitpid.c: Include config.h, sys/wait.h
+
+2000-07-21  Alex Samuel  <samuel@codesourcery.com>
+
+	* cp-demangle.c (demangle_ctor_dtor_name): Remove not-in-charge
+	allocating ctor mangling.
+	(demangle_array_type): Handle empty and non-constant array length.
+
+2000-07-23  Michael Sokolov  <msokolov@ivan.Harhan.ORG>
+	    Jeff Law <law@cygnus.com>
+
+	* configure.in (AC_CHECK_HEADERS): Add time.h.
+	(AC_HEADER_TIME): Add check.
+	* configure, config.in: Regenerate.
+	* getruntime.c: Portably #include <sys/time.h> and/or <time.h>.
+
+	* configure.in (AC_CHECK_HEADERS): Add limits.h.
+	* configure, config.in: Regenerate.
+	* sort.c: Portably #include <limits.h> and/or <sys/param.h>.
+	* strtol.c, strtoul.c: #include "config.h". Portably #include
+	<limits.h> and/or <sys/param.h>.
+	* Makefile.in (strtol.o, strtoul.o): Update dependencies.
+
+	* aclocal.m4 (libiberty_AC_DECLARE_ERRNO): New macro.
+	* configure.in (libiberty_AC_DECLARE_ERRNO): Add check.
+	* configure, config.in: Regenerate.
+	* pexecute.c, strtol.c, strtoul.c: Declare errno if necessary.
+
+	* cp-demangle.c, mkstemps.c: #include <sys/types.h>.
+
+2000-07-21  Mike Stump  <mrs@wrs.com>
+
+	* Makefile.in (xexit.o): Add dependency for config.h in xexit.c.
+	* (vasprintf.o): Add dependency for config.h in vasprintf.c.
+
+2000-07-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* cp-demangle.c (cp_demangle_type): Wrap in IN_LIBGCC2.
+
+	* setenv.c (setenv): Initialize variable `ep'.
+
+	* sigsetmask.c (abort): Prototype.
+
+	* vasprintf.c: Include config.h.  Check ANSI_PROTOTYPES, not
+	__STDC__ for stdarg.h include.
+	(int_vasprintf): Prototype.
+	(checkit): Prototype.  Use VPARAMS/ANSI_PROTOTYPES/VA_START in
+	definition.  Cast `global_total_width' in comparison.
+	(main): Prototype.  Return a value.
+
+	* vfork.c (fork): Prototype.
+
+	* xexit.c: Include config.h.
+
+2000-07-20  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* cplus-dem.c (demangle_fund_type): Make 'dec' an unsigned int,
+	and print it with %u.
+
 2000-07-17  Hans-Peter Nilsson  <hp@axis.com>
 
 	* testsuite/regress-demangle (failed test): Show result and

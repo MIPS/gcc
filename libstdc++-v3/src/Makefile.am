@@ -21,6 +21,8 @@
 ## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 ## USA.
 
+## $Id: Makefile.am,v 1.25 2000/07/26 21:30:45 pme Exp $
+
 AUTOMAKE_OPTIONS = 1.3 gnits
 MAINT_CHARSET = latin1
 
@@ -52,7 +54,7 @@ AC_CXXFLAGS = \
 # the end of the compile line so that -O2 can be overridden as the
 # occasion call for it. (ie, --enable-debug)
 AM_CXXFLAGS = \
-	-D_GNU_SOURCE -fno-implicit-templates $(OPTIMIZE_CXXFLAGS) \
+	-fno-implicit-templates $(OPTIMIZE_CXXFLAGS) \
 	-Wall -Wno-format -W -Wwrite-strings -Winline \
 	$(AC_CXXFLAGS) 
 
@@ -60,18 +62,29 @@ AM_CXXFLAGS = \
 # Passed down for cross compilers, canadian crosses.
 TOPLEVEL_INCLUDES = -I$(includedir)
 
-LIBIO_INCLUDES = @BUILD_LIBIO_INCLUDE@ -I$(top_srcdir)/libio 
+if GLIBCPP_NEED_LIBIO
+LIBIO_INCLUDES = \
+	-I$(top_builddir)/libio -I$(top_srcdir)/libio 
+else
+LIBIO_INCLUDES = -I$(top_srcdir)/libio
+endif
 
-CSHADOW_INCLUDES = @CSHADOWFLAGS@ @CSHADOW_INCLUDES@
+if GLIBCPP_USE_CSHADOW
+CSHADOW_INCLUDES = 
+#CSHADOW_INCLUDES = \
+#	@CSHADOWFLAGS@ -I$(top_srcdir)/shadow -I$(top_builddir)/cshadow
+else
+CSHADOW_INCLUDES =
+endif
 
 CONFIG_INCLUDES = \
 	-I$(top_srcdir)/@cpu_include_dir@ \
 	-I$(top_srcdir)/@ctype_include_dir@
 
 INCLUDES = \
-	-nostdinc++ -I$(top_srcdir) \
-	$(LIBIO_INCLUDES) $(CONFIG_INCLUDES) $(CSHADOW_INCLUDES) \
-	$(TOPLEVEL_INCLUDES)	
+	-D_GNU_SOURCE -nostdinc++ -I$(top_srcdir) \
+	$(CSHADOW_INCLUDES) $(LIBIO_INCLUDES) \
+	$(CONFIG_INCLUDES) $(TOPLEVEL_INCLUDES)	
 
 
 # Need to explicitly set this so that AM_CXXFLAGS is last. (That way,
@@ -87,7 +100,7 @@ LTCXXCOMPILE = $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(INCLUDES) \
 # rules automake generates would be used.  We cannot allow CXX to be used
 # in libtool since this would add -lstdc++ to the link line which of
 # course is impossible.
-CXXLINK = $(LIBTOOL) --mode=link "$(CC)" @SECTION_LDFLAGS@ $(AM_CXXFLAGS) $(LDFLAGS) -o $@
+CXXLINK = $(LIBTOOL) --mode=link "$(CC)" @OPT_LDFLAGS@ @SECTION_LDFLAGS@ $(AM_CXXFLAGS) $(LDFLAGS) -o $@
 
 
 headers = \
@@ -189,10 +202,11 @@ cpu_headers = \
 
 
 sources = \
-	limitsMEMBERS.cc c++io.cc \
+	limitsMEMBERS.cc \
 	cmath.cc \
 	complex.cc complexf.cc complexl.cc complex_io.cc \
-	stdexcept.cc ios.cc stdstreams.cc strstream.cc \
+	stdexcept.cc \
+	c++io.cc ios.cc stdstreams.cc strstream.cc \
 	locale.cc localename.cc  \
 	locale-inst.cc stl-inst.cc misc-inst.cc valarray-inst.cc string-inst.cc
 

@@ -26,22 +26,43 @@ AUTOMAKE_OPTIONS = 1.3 cygnus
 # Passed down for cross compilers, canadian crosses.
 TOPLEVEL_INCLUDES = -I$(includedir)
 
-LIBIO_INCLUDES = @BUILD_LIBIO_INCLUDE@ -I$(top_srcdir)/libio 
-
-CSHADOW_INCLUDES = @CSHADOWFLAGS@ @CSHADOW_INCLUDES@
+if GLIBCPP_NEED_LIBIO
+LIBIO_INCLUDES = \
+	-I$(top_builddir)/libio -I$(top_srcdir)/libio 
+else
+LIBIO_INCLUDES = 
+endif
 
 CONFIG_INCLUDES = \
 	-I$(top_srcdir)/@cpu_include_dir@ \
 	-I$(top_srcdir)/@ctype_include_dir@
 
 INCLUDES = \
-	-D_GNU_SOURCE -nostdinc++ -I$(top_srcdir) \
-	$(LIBIO_INCLUDES) $(CONFIG_INCLUDES) $(CSHADOW_INCLUDES) \
+	-nostdinc++ -I$(top_srcdir) \
+	$(LIBIO_INCLUDES) $(CONFIG_INCLUDES) \
 	$(TOPLEVEL_INCLUDES)	
 
 noinst_LTLIBRARIES = libio.la
 
-LINK = $(LIBTOOL) --mode=link "$(CCLD)" $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
+# These bits are all figured out from configure. Look in acinclude.m4
+# or configure.in to see how they are set.
+# NB: DEBUGFLAGS have to be at the end so that -O2 can be overridden.
+AC_CFLAGS = \
+	$(WERROR) @CPU_FLAGS@ @DEBUG_FLAGS@ 
+
+# Need to manually set this option because AC_CXXFLAGS has to be at
+# the end of the compile line so that -O2 can be overridden as the
+# occasion call for it. (ie, --enable-debug)
+AM_CFLAGS = \
+	-D_GNU_SOURCE $(AC_CFLAGS) 
+
+COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(CFLAGS) \
+	$(AM_CFLAGS) 
+
+LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) \
+	$(AM_CPPFLAGS) \$(CPPFLAGS)  $(CFLAGS) $(AM_CFLAGS)
+
+LINK = $(LIBTOOL) --mode=link "$(CCLD)" $(CFLAGS) $(AM_CFLAGS) $(LDFLAGS) -o $@
 
 #includes = 
 
@@ -62,10 +83,17 @@ else
 LIBIO_WSRCS =
 endif
 
+if GLIBCPP_NEED_XTRA_LIBIO
+LIBIO_XTRASRCS = \
+	iofclose.c iofopen.c stdio.c
+else
+LIBIO_XTRASRCS =
+endif
+
 
 EXTRA_DIST = iostreamP.h
 
-libio_la_LIBADD = $(LIBIO_SRCS) $(LIBIO_WSRCS) 
+libio_la_LIBADD = $(LIBIO_SRCS) $(LIBIO_WSRCS) $(LIBIO_XTRASRCS)
 libio_la_DEPENDENCIES = $(libio_la_LIBADD)
-libio_la_SOURCES = $(LIBIO_SRCS) $(LIBIO_WSRCS) 
+libio_la_SOURCES = $(LIBIO_SRCS) $(LIBIO_WSRCS) $(LIBIO_XTRASRCS)
 

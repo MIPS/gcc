@@ -1,6 +1,6 @@
 #### This script is meant to be sourced by ltconfig.
 
-# $Id: ltcf-c.sh,v 1.1.2.9 2000/07/24 05:28:14 oliva Exp $
+# $Id: ltcf-c.sh,v 1.1 2000/07/28 18:04:21 bkoz Exp $
 
 # ltcf-c.sh - Create a C compiler specific configuration
 #

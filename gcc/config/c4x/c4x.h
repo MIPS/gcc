@@ -449,17 +449,23 @@ extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
 
 /* Extended precision registers (low set).  */
 
-#define IS_R0R1_REGNO(r)           ((((r) >= R0_REGNO) && ((r) <= R1_REGNO)))
-#define IS_R2R3_REGNO(r)           ((((r) >= R2_REGNO) && ((r) <= R3_REGNO)))
-#define IS_EXT_LOW_REGNO(r)        ((((r) >= R0_REGNO) && ((r) <= R7_REGNO)))
+#define IS_R0R1_REGNO(r) \
+     ((unsigned int)((r) - R0_REGNO) <= (R1_REGNO - R0_REGNO))
+#define IS_R2R3_REGNO(r) \
+     ((unsigned int)((r) - R2_REGNO) <= (R3_REGNO - R2_REGNO))   
+#define IS_EXT_LOW_REGNO(r) \
+     ((unsigned int)((r) - R0_REGNO) <= (R7_REGNO - R0_REGNO))   
 
 /* Extended precision registers (high set).  */
 
-#define IS_EXT_HIGH_REGNO(r)       (! TARGET_C3X \
-			            && ((r) >= R8_REGNO) && ((r) <= R11_REGNO))
+#define IS_EXT_HIGH_REGNO(r) \
+(! TARGET_C3X \
+ && ((unsigned int) ((r) - R8_REGNO) <= (R11_REGNO - R8_REGNO)))
+
 /* Address registers.  */
 
-#define IS_AUX_REGNO(r)    (((r) >= AR0_REGNO) && ((r) <= AR7_REGNO))
+#define IS_AUX_REGNO(r) \
+    ((unsigned int)((r) - AR0_REGNO) <= (AR7_REGNO - AR0_REGNO))   
 #define IS_ADDR_REGNO(r)   IS_AUX_REGNO(r)
 #define IS_DP_REGNO(r)     ((r) == DP_REGNO)
 #define IS_INDEX_REGNO(r)  (((r) == IR0_REGNO) || ((r) == IR1_REGNO))
@@ -1147,12 +1153,6 @@ CUMULATIVE_ARGS;
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   c4x_va_arg (valist, type)
 
-/* Function Entry and Exit.  */
-
-#define FUNCTION_PROLOGUE(FILE, SIZE)	c4x_function_prologue(FILE, SIZE)
-#define FUNCTION_EPILOGUE(FILE, SIZE)	c4x_function_epilogue(FILE, SIZE)
-
-
 /* Generating Code for Profiling.  */
 
 /* Note that the generated assembly uses the ^ operator to load the 16
@@ -1372,13 +1372,16 @@ CUMULATIVE_ARGS;
       }								\
     }
 
-#define FUNCTION_BLOCK_PROFILER_EXIT(FILE)			\
+#define FUNCTION_BLOCK_PROFILER_EXIT				\
     {								\
-	fprintf (FILE, "\tpush\tst\n");				\
-	fprintf (FILE, "\tpush\tar2\n");			\
-	fprintf (FILE, "\tcall\t___bb_trace_ret\n");		\
-	fprintf (FILE, "\tpop\tar2\n");				\
-	fprintf (FILE, "\tpop\tst\n");				\
+      emit_insn (gen_push_st ()); 				\
+      emit_insn (gen_pushqi (					\
+		gen_rtx_REG (QImode, AR2_REGNO)));		\
+      emit_call_insn (gen_nodb_call (				\
+		gen_rtx_SYMBOL_REF (QImode, "__bb_trace_ret")));\
+      emit_insn (gen_popqi_unspec (				\
+		gen_rtx_REG (QImode, AR2_REGNO)));		\
+      emit_insn (gen_pop_st ());				\
     }
 
 #define	MACHINE_STATE_SAVE(ID)		\
@@ -2259,7 +2262,7 @@ asm_fprintf (FILE, "%s%d:\n", PREFIX, NUM)
 
 #define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)  \
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),    \
-  sprintf ((OUTPUT), "%s%d", (NAME), (LABELNO)))
+  sprintf ((OUTPUT), "%s$%d", (NAME), (LABELNO)))
 
 
 /* Output of Dispatch Tables.  */

@@ -397,7 +397,6 @@ lex (pfile, skip_evaluation)
   switch (tok->type)
     {
     case CPP_PLACEMARKER:
-      /* XXX These shouldn't be visible outside cpplex.c.  */
       goto retry;
 
     case CPP_INT:
@@ -420,10 +419,10 @@ lex (pfile, skip_evaluation)
       else
 	SYNTAX_ERROR2 ("invalid character '\\%03o' in #if", tok->val.aux);
 
-    case CPP_NAME:
-      if (tok->val.node == pfile->spec_nodes->n_defined)
-	return parse_defined (pfile);
+    case CPP_DEFINED:
+      return parse_defined (pfile);
 
+    case CPP_NAME:
       op.op = CPP_INT;
       op.unsignedp = 0;
       op.value = 0;
@@ -443,8 +442,7 @@ lex (pfile, skip_evaluation)
 	  return op;
 	}
 
-      SYNTAX_ERROR2("'%s' is not valid in #if expressions",
-		    _cpp_spell_operator (tok->type));
+      SYNTAX_ERROR2("'%s' is not valid in #if expressions", TOKEN_NAME (tok));
   }
 
  syntax_error:
@@ -650,12 +648,13 @@ be handled with operator-specific code.  */
 #define OR_PRIO             (8 << PRIO_SHIFT)
 #define XOR_PRIO            (9 << PRIO_SHIFT)
 #define AND_PRIO           (10 << PRIO_SHIFT)
-#define EQUAL_PRIO         (11 << PRIO_SHIFT)
-#define LESS_PRIO          (12 << PRIO_SHIFT)
-#define SHIFT_PRIO         (13 << PRIO_SHIFT)
-#define PLUS_PRIO          (14 << PRIO_SHIFT)
-#define MUL_PRIO           (15 << PRIO_SHIFT)
-#define UNARY_PRIO        ((16 << PRIO_SHIFT) | RIGHT_ASSOC | NO_L_OPERAND)
+#define MINMAX_PRIO	   (11 << PRIO_SHIFT)
+#define EQUAL_PRIO         (12 << PRIO_SHIFT)
+#define LESS_PRIO          (13 << PRIO_SHIFT)
+#define SHIFT_PRIO         (14 << PRIO_SHIFT)
+#define PLUS_PRIO          (15 << PRIO_SHIFT)
+#define MUL_PRIO           (16 << PRIO_SHIFT)
+#define UNARY_PRIO        ((17 << PRIO_SHIFT) | RIGHT_ASSOC | NO_L_OPERAND)
 
 /* Operator to priority map.  Must be in the same order as the first
    N entries of enum cpp_ttype.  */
@@ -676,6 +675,8 @@ op_to_prio[] =
   /* XOR */		XOR_PRIO,
   /* RSHIFT */		SHIFT_PRIO,
   /* LSHIFT */		SHIFT_PRIO,
+  /* MIN */		MINMAX_PRIO,	/* C++ specific */
+  /* MAX */		MINMAX_PRIO,	/* extensions */
 
   /* COMPL */		UNARY_PRIO,
   /* AND_AND */		ANDAND_PRIO,
@@ -702,6 +703,9 @@ op_to_prio[] =
 #define BITWISE(OP) \
   top->value = v1 OP v2; \
   top->unsignedp = unsigned1 | unsigned2;
+#define MINMAX(OP) \
+  top->value = (v1 OP v2) ? v1 : v2; \
+  top->unsignedp = unsigned1 | unsigned2;
 #define UNARY(OP) \
   top->value = OP v2; \
   top->unsignedp = unsigned2; \
@@ -717,6 +721,8 @@ op_to_prio[] =
 
 /* Parse and evaluate a C expression, reading from PFILE.
    Returns the truth value of the expression.  */
+
+#define TYPE_NAME(t) _cpp_token_spellings[t].name
 
 int
 _cpp_parse_expr (pfile)
@@ -804,7 +810,7 @@ _cpp_parse_expr (pfile)
 		SYNTAX_ERROR ("void expression between '(' and ')'");
 	      else
 		SYNTAX_ERROR2 ("operator '%s' has no right operand",
-			       _cpp_spell_operator (top->op));
+			       TYPE_NAME (top->op));
 	    }
 
 	  unsigned2 = top->unsignedp, v2 = top->value;
@@ -815,8 +821,7 @@ _cpp_parse_expr (pfile)
 	  switch (top[1].op)
 	    {
 	    default:
-	      cpp_ice (pfile, "impossible operator type %s",
-		       _cpp_spell_operator (op.op));
+	      cpp_ice (pfile, "impossible operator type %s", TYPE_NAME (op.op));
 	      goto syntax_error;
 
 	    case CPP_NOT:	 UNARY(!);	break;
@@ -832,6 +837,8 @@ _cpp_parse_expr (pfile)
 	    case CPP_OR:	 BITWISE(|);	break;
 	    case CPP_LSHIFT:	 SHIFT(left_shift, right_shift); break;
 	    case CPP_RSHIFT:	 SHIFT(right_shift, left_shift); break;
+	    case CPP_MIN:	 MINMAX(<);	break;
+	    case CPP_MAX:	 MINMAX(>);	break;
 
 	    case CPP_PLUS:
 	      if (!(top->flags & HAVE_VALUE))
@@ -842,6 +849,10 @@ _cpp_parse_expr (pfile)
 		  top->value = v2;
 		  top->unsignedp = unsigned2;
 		  top->flags |= HAVE_VALUE;
+
+		  if (CPP_WTRADITIONAL (pfile))
+		    cpp_warning (pfile,
+			"traditional C rejects the unary plus operator");
 		}
 	      else
 		{
@@ -969,13 +980,13 @@ _cpp_parse_expr (pfile)
 	{
 	  if (top->flags & HAVE_VALUE)
 	    SYNTAX_ERROR2 ("missing binary operator before '%s'",
-			   _cpp_spell_operator (op.op));
+			   TYPE_NAME (op.op));
 	}
       else
 	{
 	  if (!(top->flags & HAVE_VALUE))
 	    SYNTAX_ERROR2 ("operator '%s' has no left operand",
-			   _cpp_spell_operator (op.op));
+			   TYPE_NAME (op.op));
 	}
 
       /* Check for and handle stack overflow.  */

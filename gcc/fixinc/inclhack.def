@@ -2519,8 +2519,6 @@ fix = {
 
 /*
  * Fix these files to use the same types that we think they should.
- * Each type must be present in two places:  the select clause
- * and a "type_map" entry below.
  */
 fix = {
     hackname  = gnu_types;
@@ -2537,22 +2535,6 @@ fix = {
     test_text = "typedef long int ptrdiff_t; /* long int */\n"
                 "typedef uint_t size_t; /* uint_t */\n"
                 "typedef ushort_t wchar_t; /* ushort_t */";
-};
-
-type_map = {
-  type_name = ptrdiff;
-  gnu_type  = "long int";
-};
-
-type_map = {
-  type_name = size;
-  gnu_type  = "long unsigned int";
-};
-
-type_map = {
-  type_name = wchar;
-  gnu_type  = int;
-  cxx_type;
 };
 
 

@@ -161,8 +161,8 @@ Boston, MA 02111-1307, USA.  */
 ({  const tree __t = NODE;					\
     enum tree_code __c = TREE_CODE(__t);			\
     if (__c != VAR_DECL && __c != FUNCTION_DECL)		\
-      tree_check_failed (__t, VAR_DECL, __FILE__,		\
-			 __LINE__, __PRETTY_FUNCTION__);	\
+      tree_check_failed (__t, VAR_DECL, __FILE__, __LINE__,	\
+			 __FUNCTION__);				\
     __t; })
 
 #define VAR_FUNCTION_OR_PARM_DECL_CHECK(NODE)			\
@@ -171,8 +171,8 @@ Boston, MA 02111-1307, USA.  */
     if (__c != VAR_DECL 					\
 	&& __c != FUNCTION_DECL 				\
         && __c != PARM_DECL)					\
-      tree_check_failed (__t, VAR_DECL, __FILE__,		\
-			 __LINE__, __PRETTY_FUNCTION__);	\
+      tree_check_failed (__t, VAR_DECL, __FILE__, __LINE__,	\
+			 __FUNCTION__);				\
     __t; })
 
 #define VAR_TEMPL_TYPE_OR_FUNCTION_DECL_CHECK(NODE)		\
@@ -182,16 +182,16 @@ Boston, MA 02111-1307, USA.  */
 	&& __c != FUNCTION_DECL					\
 	&& __c != TYPE_DECL					\
 	&& __c != TEMPLATE_DECL)				\
-      tree_check_failed (__t, VAR_DECL, __FILE__,		\
-			 __LINE__, __PRETTY_FUNCTION__);	\
+      tree_check_failed (__t, VAR_DECL, __FILE__, __LINE__,	\
+			 __FUNCTION__);				\
     __t; })
 
 #define RECORD_OR_UNION_TYPE_CHECK(NODE)			\
 ({  const tree __t = NODE;					\
     enum tree_code __c = TREE_CODE(__t);			\
     if (__c != RECORD_TYPE && __c != UNION_TYPE)		\
-      tree_check_failed (__t, RECORD_TYPE, __FILE__,		\
-			 __LINE__, __PRETTY_FUNCTION__);	\
+      tree_check_failed (__t, RECORD_TYPE, __FILE__, __LINE__,	\
+			 __FUNCTION__);				\
     __t; })
 
 #else /* not ENABLE_TREE_CHECKING, or not gcc */
@@ -1180,10 +1180,6 @@ extern int flag_use_repository;
 /* Nonzero if we want to issue diagnostics that the standard says are not
    required.  */
 extern int flag_optional_diags;
-
-/* Nonzero means do not consider empty argument prototype to mean function
-   takes no arguments.  */
-extern int flag_strict_prototype;
 
 /* Nonzero means output .vtable_{entry,inherit} for use in doing vtable gc.  */
 extern int flag_vtable_gc;
@@ -2317,10 +2313,12 @@ struct lang_decl
 /* Template information for an ENUMERAL_, RECORD_, or UNION_TYPE.  */
 #define TYPE_TEMPLATE_INFO(NODE)			\
   (TREE_CODE (NODE) == ENUMERAL_TYPE			\
-   ? ENUM_TEMPLATE_INFO (NODE) : 			\
+   ? ENUM_TEMPLATE_INFO (NODE) :			\
    (TREE_CODE (NODE) == TEMPLATE_TEMPLATE_PARM		\
-    ? TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (NODE)	\
-    : CLASSTYPE_TEMPLATE_INFO (NODE)))
+    ? TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (NODE) :	\
+    (TYPE_LANG_SPECIFIC (NODE)				\
+     ? CLASSTYPE_TEMPLATE_INFO (NODE)			\
+     : NULL_TREE)))
 
 /* Set the template information for an ENUMERAL_, RECORD_, or
    UNION_TYPE to VAL.  */
@@ -3216,11 +3214,6 @@ typedef enum special_function_kind {
   sfk_conversion           /* A conversion operator.  */
 } special_function_kind;
 
-/* Zero means prototype weakly, as in ANSI C (no args means nothing).
-   Each language context defines how this variable should be set.  */
-extern int strict_prototype;
-extern int strict_prototypes_lang_c, strict_prototypes_lang_cplusplus;
-
 /* Non-zero means that if a label exists, and no other identifier
    applies, use the value of the label.  */
 extern int flag_labels_ok;
@@ -3302,6 +3295,11 @@ extern tree pending_vtables;
 extern tree integer_two_node, integer_three_node;
 
 extern tree anonymous_namespace_name;
+
+/* The number of function bodies which we are currently processing.
+   (Zero if we are at namespace scope, one inside the body of a
+   function, two inside the body of a function in a local class, etc.)  */
+extern int function_depth;
 
 /* in pt.c  */
 
@@ -4547,6 +4545,8 @@ extern tree build_shared_int_cst                PARAMS ((int));
 extern special_function_kind special_function_p PARAMS ((tree));
 extern int count_trees                          PARAMS ((tree));
 extern int char_type_p                          PARAMS ((tree));
+extern void verify_stmt_tree                    PARAMS ((tree));
+extern tree find_tree                           PARAMS ((tree, tree));
   
 /* in typeck.c */
 extern int string_conv_p			PARAMS ((tree, tree, int));
@@ -4628,9 +4628,15 @@ extern tree binfo_or_else			PARAMS ((tree, tree));
 extern void readonly_error			PARAMS ((tree, const char *, int));
 extern int abstract_virtuals_error		PARAMS ((tree, tree));
 extern void incomplete_type_error		PARAMS ((tree, tree));
-extern void my_friendly_abort			PARAMS ((int))
+extern void friendly_abort			PARAMS ((int, const char *,
+							 int, const char *))
   ATTRIBUTE_NORETURN;
-extern void my_friendly_assert			PARAMS ((int, int));
+
+#define my_friendly_abort(N) \
+  friendly_abort (N, __FILE__, __LINE__, __FUNCTION__)
+#define my_friendly_assert(EXP, N) \
+ (((EXP) == 0) ? (friendly_abort (N, __FILE__, __LINE__, __FUNCTION__), 0) : 0)
+
 extern tree store_init_value			PARAMS ((tree, tree));
 extern tree digest_init				PARAMS ((tree, tree, tree *));
 extern tree build_scoped_ref			PARAMS ((tree, tree));

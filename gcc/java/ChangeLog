@@ -1,6 +1,83 @@
+2000-07-27  Tom Tromey  <tromey@cygnus.com>
+            Anthony Green  <green@cygnus.com>
+	    Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* class.c (make_class_data): Create vtable for abstract classes.
+	(get_dispatch_table): Changed to cope with abstract classes.
+
+2000-07-27  Tom Tromey  <tromey@cygnus.com>
+
+	* parse.y (patch_method_invocation): Don't reverse the argument
+	list when dealing with anonymous class constructors. Fixed typo in
+	comment.
+
+2000-07-27  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (build_alias_initializer_parameter_list): Reverse
+	crafted list when building aliases for anonymous class
+	constructors.
+
+2000-07-25  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (jdep_resolve_class): Don't bother checking potential
+	innerclass access if `decl' is NULL.
+	(find_in_imports_on_demand): TREE_PURPOSE of `import' contains the
+	WFL.
+
+2000-07-25  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.c: Remove (again.)
+
+2000-07-24  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (find_as_inner_class): Removed 2000-07-19 patches.
+	* jcf-parse.c (HANDLE_INNERCLASSES_ATTRIBUTE): Local `decl' moved
+	outside the `if' statement, alias to innerclass removed, `decl'
+	used to mark the class complete.
+
+2000-07-21  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (simple_name:): Fixed typo in error message.
+
+2000-07-21  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (java_complete_lhs): LOOP_EXPR:, SWITCH_EXPR: the node
+	or its first operand can be error marks.
+
+2000-07-20  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.h (SET_TYPE_FOR_RESOLUTION): Use GET_CPC.
+	* parse.y (method_header): Likewise.
+
+2000-07-19  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (find_as_inner_class): Handle the case where the
+	enclosing context of an innerclass has been loaded as bytecode.
+
+2000-07-19  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+        * parse.y (simple_name:): Reject `$' in type names.
+	(resolve_type_during_patch): Use `type' as a second
+	argument to resolve_no_layout. Fixes gcj/257.
+
+2000-07-18  Jeff Sturm  <jeff.sturm@appnet.com>
+
+	* lang-specs.h: Added %(jc1) to java compiler options.
+
 2000-07-14  Zack Weinberg  <zack@wolery.cumb.org>
 
 	* .cvsignore: New file.
+
+2000-07-13  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (not_accessible_p): Access granted to innerclasses
+	(indirectly) extending the reference type. Fixes gcj/249.
+
+2000-07-13  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (patch_method_invocation): Fixed comment.
+	(maybe_use_access_method): Build this$<n>s to the context of the
+	target method, or a type that extends it. Fixes gcj/242.
 
 2000-07-13  Mark Mitchell  <mark@codesourcery.com>
 
@@ -24,8 +101,34 @@
 
 2000-07-10  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
+	* class.c (set_super_info): Handled protected inner classes.
+	(common_enclosing_context_p): Bail early if arguments aren't both
+	inner classes.
+	(get_access_flags_from_decl): Handle private and protected inner
+	classes.
+	* java-tree.h (TYPE_PROTECTED_INNER_CLASS): New macro.
+	(CLASS_PROTECTED): Likewise.
+	(struct lang_type): New bitfield `poic.'
+	* parse.y (jdep_resolve_class): Call check_inner_class_access on
+	inner classes only.
+	(check_inner_class_access): Renamed arguments, added
+	comments. Handles protected inner classes (fixes gcj/225)
+	(not_accessible_p): Fixed comments. Avoid handling inner classes.
+
+2000-07-10  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (resolve_qualified_expression_name): Verify qualified
+	access to `this.' Fixes gcj/239.
+
+2000-07-10  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
 	* jcf-write.c (generate_classfile): Don't install ConstantValue
 	for null pointers.
+
+2000-07-07  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (resolve_qualified_expression_name): Handle inner class
+	access. Fixes gcj/256.
 
 2000-07-07  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 

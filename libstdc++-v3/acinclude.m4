@@ -1,3 +1,4 @@
+
 dnl
 dnl Initialize configure bits.
 dnl
@@ -27,9 +28,16 @@ AC_DEFUN(GLIBCPP_CONFIGURE, [
   fi
   AC_SUBST(glibcpp_basedir)
 
-  AC_CANONICAL_HOST
-
   AM_INIT_AUTOMAKE(libstdc++, 2.90.8)
+
+  # Never versions of autoconf add an underscore to these functions.
+  # Prevent future problems ...
+  ifdef([AC_PROG_CC_G],[],[define([AC_PROG_CC_G],defn([_AC_PROG_CC_G]))])
+  ifdef([AC_PROG_CC_GNU],[],[define([AC_PROG_CC_GNU],defn([_AC_PROG_CC_GNU]))])
+  ifdef([AC_PROG_CXX_G],[],[define([AC_PROG_CXX_G],defn([_AC_PROG_CXX_G]))])
+  ifdef([AC_PROG_CXX_GNU],[],[define([AC_PROG_CXX_GNU],defn([_AC_PROG_CXX_GNU]))])
+
+#  AC_PROG_CC
 
 # FIXME: We temporarily define our own version of AC_PROG_CC.  This is
 # copied from autoconf 2.12, but does not call AC_PROG_CC_WORKS.  We
@@ -73,6 +81,9 @@ fi
 
 LIB_AC_PROG_CC
 
+# Can't just call these here as g++ requires libstc++ to be built....
+#  AC_PROG_CXX
+
 # Likewise for AC_PROG_CXX.
 AC_DEFUN(LIB_AC_PROG_CXX,
 [AC_BEFORE([$0], [AC_PROG_CXXCPP])dnl
@@ -107,49 +118,42 @@ fi
 
 LIB_AC_PROG_CXX
 
-# AC_CHECK_TOOL does AC_REQUIRE (AC_CANONICAL_BUILD).  If we dont
-# run it explicitly here, it will be run implicitly before
-# LIBGCJ_CONFIGURE, which doesn't work because that means that it will
-# be run before AC_CANONICAL_HOST.
-AC_CANONICAL_BUILD
+  AC_CHECK_TOOL(AS, as)
+  AC_CHECK_TOOL(AR, ar)
+  AC_CHECK_TOOL(RANLIB, ranlib, :)
 
-AC_CHECK_TOOL(AS, as)
-AC_CHECK_TOOL(AR, ar)
-AC_CHECK_TOOL(RANLIB, ranlib, :)
+  AC_PROG_INSTALL
 
-AC_PROG_INSTALL
+  AM_MAINTAINER_MODE
 
-AM_MAINTAINER_MODE
+  # We need AC_EXEEXT to keep automake happy in cygnus mode.  However,
+  # at least currently, we never actually build a program, so we never
+  # need to use $(EXEEXT).  Moreover, the test for EXEEXT normally
+  # fails, because we are probably configuring with a cross compiler
+  # which cant create executables.  So we include AC_EXEEXT to keep
+  # automake happy, but we dont execute it, since we dont care about
+  # the result.
+  if false; then
+    AC_EXEEXT
+  fi
 
-# We need AC_EXEEXT to keep automake happy in cygnus mode.  However,
-# at least currently, we never actually build a program, so we never
-# need to use $(EXEEXT).  Moreover, the test for EXEEXT normally
-# fails, because we are probably configuring with a cross compiler
-# which cant create executables.  So we include AC_EXEEXT to keep
-# automake happy, but we dont execute it, since we dont care about
-# the result.
-if false; then
-  AC_EXEEXT
-fi
+  # configure.host sets the following important variables
+  #	glibcpp_cflags    - host specific C compiler flags
+  #	glibcpp_cxxflags  - host specific C++ compiler flags
+  glibcpp_cflags=
+  glibcpp_cxxflags=
 
-# configure.host sets the following important variables
-#	glibcpp_cflags    - host specific C compiler flags
-#	glibcpp_cxxflags  - host specific C++ compiler flags
+  . [$]{glibcpp_basedir}/configure.host
 
-glibcpp_cflags=
-glibcpp_cxxflags=
+  case [$]{glibcpp_basedir} in
+    /* | [A-Za-z]:[/\\]*) libgcj_flagbasedir=[$]{glibcpp_basedir} ;;
+    *) glibcpp_flagbasedir='[$](top_builddir)/'[$]{glibcpp_basedir} ;;
+  esac
 
-. [$]{glibcpp_basedir}/configure.host
-
-case [$]{glibcpp_basedir} in
-/* | [A-Za-z]:[/\\]*) libgcj_flagbasedir=[$]{glibcpp_basedir} ;;
-*) glibcpp_flagbasedir='[$](top_builddir)/'[$]{glibcpp_basedir} ;;
-esac
-
-GLIBCPP_CFLAGS="[$]{glibcpp_cflags}"
-GLIBCPP_CXXFLAGS="[$]{glibcpp_cxxflags}"
-AC_SUBST(GLIBCPP_CFLAGS)
-AC_SUBST(GLIBCPP_CXXFLAGS)
+  GLIBCPP_CFLAGS="[$]{glibcpp_cflags}"
+  GLIBCPP_CXXFLAGS="[$]{glibcpp_cxxflags}"
+  AC_SUBST(GLIBCPP_CFLAGS)
+  AC_SUBST(GLIBCPP_CXXFLAGS)
 ])
 
 
@@ -196,7 +200,7 @@ AC_DEFUN(GLIBCPP_CHECK_COMPILER_FEATURES, [
   # Check for pragma system_header.
   AC_MSG_CHECKING([for g++ that supports pragma system_header])
   CXXFLAGS='-Wunknown-pragmas -Werror'
-  AC_TRY_COMPILE([#pragma system_header], [int foo;
+  AC_TRY_COMPILE([#pragma GCC system_header], [int foo;
   ], [ac_newpragma=yes], [ac_newpragma=no])
   if test "$ac_test_CXXFLAGS" = set; then
     CXXFLAGS="$ac_save_CXXFLAGS"
@@ -249,39 +253,56 @@ AC_DEFUN(GLIBCPP_CHECK_COMPILER_FEATURES, [
 
 
 dnl
-dnl Check to see if tricky linker opts can be used.
+dnl If GNU ld is in use, check to see if tricky linker opts can be used.  If
+dnl the native linker is in use, all variables will be defined to something
+dnl safe (like an empty string).
 dnl
-dnl Define SECTION_LDFLAGS='-Wl,--gc-sections' if possible
+dnl Define SECTION_LDFLAGS='-Wl,--gc-sections' if possible.
+dnl Define OPT_LDFLAGS='-Wl,-O1' if possible.
+dnl
 dnl GLIBCPP_CHECK_LINKER_FEATURES
 AC_DEFUN(GLIBCPP_CHECK_LINKER_FEATURES, [
-  # All these tests are for C++; save the language and the compiler flags.
-  # Need to do this so that g++ won't try to link in libstdc++
-  ac_test_CFLAGS="${CFLAGS+set}"
-  ac_save_CFLAGS="$CFLAGS"
-  CFLAGS='-x c++  -Wl,--gc-sections'
+  # If we're not using GNU ld, then there's no point in even trying these
+  # tests.  Check for that first.  We should have already tested for gld
+  # by now (in libtool), but require it now just to be safe...
+  AC_REQUIRE([AC_PROG_LD])
+  if test "$ac_cv_prog_gnu_ld" = "no"; then
+    SECTION_LDFLAGS=''
+    OPT_LDFLAGS=''
 
-  # Check for -Wl,--gc-sections
-  AC_MSG_CHECKING([for ld that supports -Wl,--gc-sections])
-  AC_TRY_RUN([
-   int main(void) 
-   {
-     try { throw 1; }
-     catch (...) { };
-     return 0;
-   }
-  ], [ac_sectionLDflags=yes], [ac_sectionLFflags=no], [ac_sectionLDflags=yes])
-  if test "$ac_test_CFLAGS" = set; then
-    CFLAGS="$ac_save_CFLAGS"
-  else
-    # this is the suspicious part
-    CFLAGS=''
-  fi
-  if test "$ac_sectionLDflags" = "yes"; then
-    SECTION_LDFLAGS='-Wl,--gc-sections'
-  fi
-  AC_MSG_RESULT($ac_sectionLDflags)
+  else   # GNU ld it is!  Joy and bunny rabbits!
 
+    # All these tests are for C++; save the language and the compiler flags.
+    # Need to do this so that g++ won't try to link in libstdc++
+    ac_test_CFLAGS="${CFLAGS+set}"
+    ac_save_CFLAGS="$CFLAGS"
+    CFLAGS='-x c++  -Wl,--gc-sections'
+
+    # Check for -Wl,--gc-sections
+    AC_MSG_CHECKING([for ld that supports -Wl,--gc-sections])
+    AC_TRY_RUN([
+     int main(void) 
+     {
+       try { throw 1; }
+       catch (...) { };
+       return 0;
+     }
+    ], [ac_sectionLDflags=yes], [ac_sectionLFflags=no], [ac_sectionLDflags=yes])
+    if test "$ac_test_CFLAGS" = set; then
+      CFLAGS="$ac_save_CFLAGS"
+    else
+      # this is the suspicious part
+      CFLAGS=''
+    fi
+    if test "$ac_sectionLDflags" = "yes"; then
+      SECTION_LDFLAGS='-Wl,--gc-sections'
+    fi
+    AC_MSG_RESULT($ac_sectionLDflags)
+    OPT_LDFLAGS='-Wl,-O1'
+
+  fi
   AC_SUBST(SECTION_LDFLAGS)
+  AC_SUBST(OPT_LDFLAGS)
 ])
 
 
@@ -298,15 +319,17 @@ dnl ASSUMES argument is a math function with ONE parameter
 dnl
 dnl GLIBCPP_CHECK_MATH_DECL_AND_LINKAGE_1
 AC_DEFUN(GLIBCPP_CHECK_MATH_DECL_AND_LINKAGE_1, [
-  AC_LANG_SAVE
-  AC_LANG_CPLUSPLUS
   AC_MSG_CHECKING([for $1 declaration])
-  AC_TRY_COMPILE([#include <math.h>], 
-  [ $1(0);], 
-  [use_$1=yes], [use_$1=no])
-  AC_MSG_RESULT($use_$1)
-  AC_LANG_RESTORE
-  if test x$use_$1 = x"yes"; then
+  AC_CACHE_VAL(glibcpp_cv_func_$1_use, [
+    AC_LANG_SAVE
+    AC_LANG_CPLUSPLUS
+    AC_TRY_COMPILE([#include <math.h>], 
+                   [ $1(0);], 
+                   [glibcpp_cv_func_$1_use=yes], [glibcpp_cv_func_$1_use=no])
+    AC_LANG_RESTORE
+  ])
+  AC_MSG_RESULT($glibcpp_cv_func_$1_use)
+  if test x$glibcpp_cv_func_$1_use = x"yes"; then
     AC_CHECK_FUNCS($1)    
   fi
 ])
@@ -325,15 +348,17 @@ dnl ASSUMES argument is a math function with TWO parameters
 dnl
 dnl GLIBCPP_CHECK_MATH_DECL_AND_LINKAGE_2
 AC_DEFUN(GLIBCPP_CHECK_MATH_DECL_AND_LINKAGE_2, [
-  AC_LANG_SAVE
-  AC_LANG_CPLUSPLUS
   AC_MSG_CHECKING([for $1 declaration])
-  AC_TRY_COMPILE([#include <math.h>], 
-  [ $1(0, 0);], 
-  [use_$1=yes], [use_$1=no])
-  AC_MSG_RESULT($use_$1)
-  AC_LANG_RESTORE
-  if test x$use_$1 = x"yes"; then
+  AC_CACHE_VAL(glibcpp_cv_func_$1_use, [
+    AC_LANG_SAVE
+    AC_LANG_CPLUSPLUS
+    AC_TRY_COMPILE([#include <math.h>], 
+                   [ $1(0, 0);], 
+                   [glibcpp_cv_func_$1_use=yes], [glibcpp_cv_func_$1_use=no])
+    AC_LANG_RESTORE
+  ])
+  AC_MSG_RESULT($glibcpp_cv_func_$1_use)
+  if test x$glibcpp_cv_func_$1_use = x"yes"; then
     AC_CHECK_FUNCS($1)    
   fi
 ])
@@ -352,15 +377,17 @@ dnl ASSUMES argument is a math function with THREE parameters
 dnl
 dnl GLIBCPP_CHECK_MATH_DECL_AND_LINKAGE_3
 AC_DEFUN(GLIBCPP_CHECK_MATH_DECL_AND_LINKAGE_3, [
-  AC_LANG_SAVE
-  AC_LANG_CPLUSPLUS
   AC_MSG_CHECKING([for $1 declaration])
-  AC_TRY_COMPILE([#include <math.h>], 
-  [ $1(0, 0, 0);], 
-  [use_$1=yes], [use_$1=no])
-  AC_MSG_RESULT($use_$1)
-  AC_LANG_RESTORE
-  if test x$use_$1 = x"yes"; then
+  AC_CACHE_VAL(glibcpp_cv_func_$1_use, [
+    AC_LANG_SAVE
+    AC_LANG_CPLUSPLUS
+    AC_TRY_COMPILE([#include <math.h>], 
+                   [ $1(0, 0, 0);], 
+                   [glibcpp_cv_func_$1_use=yes], [glibcpp_cv_func_$1_use=no])
+    AC_LANG_RESTORE
+  ])
+  AC_MSG_RESULT($glibcpp_cv_func_$1_use)
+  if test x$glibcpp_cv_func_$1_use = x"yes"; then
     AC_CHECK_FUNCS($1)    
   fi
 ])
@@ -381,21 +408,25 @@ dnl ASSUMES argument is a math function with ONE parameter
 dnl
 dnl GLIBCPP_CHECK_BUILTIN_MATH_DECL_LINKAGE_1
 AC_DEFUN(GLIBCPP_CHECK_BUILTIN_MATH_DECL_AND_LINKAGE_1, [
-  AC_LANG_SAVE
-  AC_LANG_CPLUSPLUS
   AC_MSG_CHECKING([for $1 declaration])
-  AC_TRY_COMPILE([#include <math.h>], 
-  [ $1(0);], 
-  [use_$1=yes], [use_$1=no])
-  AC_MSG_RESULT($use_$1)
-  AC_LANG_RESTORE
-  if test x$use_$1 = x"yes"; then
+  AC_CACHE_VAL(glibcpp_cv_func_$1_use, [
+    AC_LANG_SAVE
+    AC_LANG_CPLUSPLUS
+    AC_TRY_COMPILE([#include <math.h>], 
+                   [ $1(0);], 
+                   [glibcpp_cv_func_$1_use=yes], [glibcpp_cv_func_$1_use=no])
+    AC_LANG_RESTORE
+  ])
+  AC_MSG_RESULT($glibcpp_cv_func_$1_use)
+  if test x$glibcpp_cv_func_$1_use = x"yes"; then
     AC_MSG_CHECKING([for $1 linkage])
+    AC_CACHE_VAL(glibcpp_cv_func_$1_link, [
       AC_TRY_LINK([#include <math.h>], 
-      [ $1(0);],
-      [link_$1=yes], [link_$1=no])
-    AC_MSG_RESULT($link_$1)
-    if test x$link_$1 = x"yes"; then
+                  [ $1(0);], 
+                  [glibcpp_cv_func_$1_link=yes], [glibcpp_cv_func_$1_link=no])
+    ])
+    AC_MSG_RESULT($glibcpp_cv_func_$1_link)
+    if test x$glibcpp_cv_func_$1_link = x"yes"; then
       ac_tr_func=HAVE_`echo $1 | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
       AC_DEFINE_UNQUOTED(${ac_tr_func})
     fi
@@ -676,7 +707,7 @@ dnl GLIBCPP_CHECK_CPU
 AC_DEFUN(GLIBCPP_CHECK_CPU, [
     AC_MSG_CHECKING([for cpu primitives directory])
     CPU_FLAGS=			
-    case "$target_cpu" in
+    case "${target_cpu}" in
       alpha*)
 	cpu_include_dir="config/cpu/alpha"
         ;;
@@ -930,6 +961,10 @@ AC_DEFUN(GLIBCPP_CHECK_WCHAR_T_SUPPORT, [
 
     dnl At the moment, only enable wchar_t specializations if all the
     dnl above support is present.
+    dnl 2000-07-07-bkoz-hack-xxx
+#    ac_isoC9X_wchar_t=no
+    dnl 2000-07-07-bkoz-hack-xxx
+
     AC_MSG_CHECKING([for enabled wchar_t specializations])
     if test x"$ac_isoC9X_wchar_t" = xyes && test x"$ac_XPG2_wchar_t" = xyes; then
       libinst_wstring_la="libinst-wstring.la"
@@ -1035,14 +1070,15 @@ AC_ARG_ENABLE(debug,
 changequote(<<, >>)dnl
 <<  --enable-debug          extra debugging, turn off optimization [default=>>GLIBCPP_ENABLE_DEBUG_DEFAULT],
 changequote([, ])dnl
-[case "$enableval" in
+[case "${enableval}" in
  yes) enable_debug=yes ;;
  no)  enable_debug=no ;;
  *)   AC_MSG_ERROR([Unknown argument to enable/disable extra debugging]) ;;
  esac],
 enable_debug=GLIBCPP_ENABLE_DEBUG_DEFAULT)dnl
+
 dnl Option parsed, now set things appropriately
-case "$enable_debug" in
+case "${enable_debug}" in
     yes) 
 	DEBUG_FLAGS='-O0 -ggdb'			
 	;;
@@ -1077,13 +1113,20 @@ changequote(<<, >>)dnl
                                 [default=>>GLIBCPP_ENABLE_CXX_FLAGS_DEFAULT],
 changequote([, ])dnl
 [case "x$enableval" in
- xyes)   AC_MSG_ERROR([--enable-cxx-flags needs compiler flags as arguments]) ;;
- xno|x)  enable_cxx_flags='' ;;
- *)      enable_cxx_flags="$enableval" ;;
+ xyes)   
+	AC_MSG_ERROR([--enable-cxx-flags needs compiler flags as arguments]) ;;
+ xno|x)  
+	enable_cxx_flags='' ;;
+ *)      
+	enable_cxx_flags="$enableval" ;;
  esac],
-enable_cxx_flags='GLIBCPP_ENABLE_CXX_FLAGS_DEFAULT')dnl
+enable_cxx_flags='GLIBCPP_ENABLE_CXX_FLAGS_DEFAULT')
+
 dnl Thinko on my part during design.  This kludge is the workaround.
-if test "$enable_cxx_flags" = "none"; then enable_cxx_flags=''; fi
+if test "$enable_cxx_flags" = "none"; then 
+  enable_cxx_flags=''; 
+fi
+
 dnl Run through flags (either default or command-line) and set anything
 dnl extra (e.g., #defines) that must accompany particular g++ options.
 if test -n "$enable_cxx_flags"; then
@@ -1165,54 +1208,68 @@ AC_DEFUN(GLIBCPP_ENABLE_CSTDIO, [
 
   dnl Check if a valid thread package
   case x${enable_cstdio_flag} in
-	xlibio | x | xno | xnone | xyes)
-	  # default
-	  CSTDIO_H=config/c_io_libio.h
-	  CSTDIO_CC=config/c_io_libio.cc
- 	  AC_MSG_RESULT(libio)
+    xlibio | x | xno | xnone | xyes)
+      # default
+      CSTDIO_H=config/c_io_libio.h
+      CSTDIO_CC=config/c_io_libio.cc
+      AC_MSG_RESULT(libio)
 
-	  # see if we are on a system with libio native (ie, linux)
-  	  AC_CHECK_HEADER(libio.h,  has_libio=yes, has_libio=no)
+      # see if we are on a system with libio native (ie, linux)
+      AC_CHECK_HEADER(libio.h,  has_libio=yes, has_libio=no)
 
-	  # bkoz XXX hack hack need version checks, this is temporary
-	  has_libio=no
+      # Need to check and see what version of glibc is being used. If
+      # it's not glibc-2.2 or higher, then we'll need to go ahead and 
+      # compile most of libio for linux systems.
+      if test x$has_libio = x"yes"; then
+        case "$target" in
+          *-*-linux*)
+  	    AC_MSG_CHECKING([for glibc version >= 2.2])
+  	    AC_EGREP_CPP([ok], [
+	    #include <features.h>
+  	    #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 2) 
+    		ok
+  	    #endif
+  	    ], glibc_satisfactory=yes, glibc_satisfactory=no)
+  	    AC_MSG_RESULT($glibc_satisfactory)
+	    ;;
+        esac
 
-  	  if test $has_libio = "yes"; then
-   	    BUILD_LIBIO_INCLUDE=
-	    need_libio=no
-  	  else
-   	  BUILD_LIBIO_INCLUDE='-I../libio'
-     	    need_libio=yes
-  	  fi
-  	  AC_SUBST(BUILD_LIBIO_INCLUDE)
+  	if test x$glibc_satisfactory = x"yes"; then
+	  need_libio=no
+	  need_xtra_libio=no
+      	  need_wlibio=no	
+      	else
+	  need_libio=yes
+	  need_xtra_libio=yes
+          # bkoz XXX need to add checks to enable this
+          need_wlibio=yes
+	fi
 
-	  # see if the _G_config.h header needs to be built. 
-	  # NB: This replaces the _G_CONFIG_H machinery in libio-v2
-	  AC_CHECK_HEADER(_G_config.h,  has_gconf_h=yes, has_gconf_h=no)
-  	  AM_CONDITIONAL(GLIBCPP_NEED_LIBIO_CONFIG_H, test "$has_gconf_h" = no)
-	  # bkoz XXX hack need to add support for non-glibc systems here
-	   has_gconf=no
+      # Using libio, but <libio.h> doesn't exist on the target system. . .
+      else
+	need_libio=yes
+        need_xtra_libio=no
+        # bkoz XXX need to add checks to enable this
+        need_wlibio=no
+      fi
+      ;;
 
-	  # bkoz XXX need to add checks for this
-	  need_wlibio=yes
-	  ;;
-        xwince)
-    	  CSTDIO_H=config/c_io_wince.h
-          CSTDIO_CC=config/c_io_wince.cc
-          AC_MSG_RESULT(wince)
+    xwince)
+      CSTDIO_H=config/c_io_wince.h
+      CSTDIO_CC=config/c_io_wince.cc
+      AC_MSG_RESULT(wince)
 
-          need_libio=no
-          BUILD_LIBIO_INCLUDE=
-          AC_SUBST(BUILD_LIBIO_INCLUDE)
-          ;;
-	*)
-	  echo "$enable_cstdio is an unknown io package" 1>&2
-	  exit 1
-	  ;;
+      need_libio=no
+      ;;
+    *)
+      echo "$enable_cstdio is an unknown io package" 1>&2
+      exit 1
+      ;;
   esac
   AC_LINK_FILES($CSTDIO_H, bits/c++io.h)
   AC_LINK_FILES($CSTDIO_CC, src/c++io.cc)
   AM_CONDITIONAL(GLIBCPP_NEED_LIBIO, test "$need_libio" = yes)
+  AM_CONDITIONAL(GLIBCPP_NEED_XTRA_LIBIO, test "$need_xtra_libio" = yes)
   AM_CONDITIONAL(GLIBCPP_NEED_WLIBIO, test "$need_wlibio" = yes)
 ])
 
@@ -1371,32 +1428,31 @@ AC_ARG_ENABLE(cshadow-headers,
 changequote(<<, >>)dnl
 <<  --enable-cshadow-headers construct "shadowed" C header files for
                            g++ [default=>>GLIBCPP_ENABLE_SHADOW_DEFAULT],
-changequote([, ])dnl
-[case "$enableval" in
- yes) enable_cshadow_headers=yes 
+changequote([, ])
+  [case "$enableval" in
+   yes) enable_cshadow_headers=yes 
 	;;
- no)  enable_cshadow_headers=no 
+   no)  enable_cshadow_headers=no 
 	;;
- *)   AC_MSG_ERROR([Unknown argument to enable/disable shadowed C headers]) 
+   *)   AC_MSG_ERROR([Unknown argument to enable/disable shadowed C headers]) 
 	;;
- esac],
-enable_cshadow_headers=GLIBCPP_ENABLE_SHADOW_DEFAULT)dnl
-AC_MSG_RESULT($enable_cshadow_headers)
-dnl Option parsed, now set things appropriately
-case "$enable_cshadow_headers" in
+  esac],
+  enable_cshadow_headers=GLIBCPP_ENABLE_SHADOW_DEFAULT)
+  AC_MSG_RESULT($enable_cshadow_headers)
+
+  dnl Option parsed, now set things appropriately
+  dnl CSHADOWFLAGS is currently unused, but may be useful in the future.
+  case "$enable_cshadow_headers" in
     yes) 
-	CSHADOWFLAGS="-D_GNU_SOURCE"
-	CSHADOW_INCLUDES=" -I$srcdir/shadow -I$blddir/cshadow"
+	CSHADOWFLAGS=""
 	;;
     no)   
 	CSHADOWFLAGS=""
-	CSHADOW_INCLUDES=""
         ;;
-esac
+  esac
 
-AC_SUBST(CSHADOWFLAGS)
-AC_SUBST(CSHADOW_INCLUDES)
-AM_CONDITIONAL(GLIBCPP_USE_CSHADOW, test "$enable_cshadow_headers" = yes)
+  AC_SUBST(CSHADOWFLAGS)
+  AM_CONDITIONAL(GLIBCPP_USE_CSHADOW, test "$enable_cshadow_headers" = yes)
 ])
 
 
@@ -1457,7 +1513,7 @@ AC_SUBST(LIBSTRINGOBJS)dnl
 
 dnl This macro searches for a GNU version of make.  If a match is found, the
 dnl makefile variable `ifGNUmake' is set to the empty string, otherwise it is
-dnl set to "#".  This is useful for  including a special features in a Makefile,
+dnl set to "#". This is useful for  including a special features in a Makefile,
 dnl which cannot be handled by other versions of make.  The variable
 dnl _cv_gnu_make_command is set to the command to invoke GNU make if it exists,
 dnl the empty string otherwise.
@@ -1492,7 +1548,7 @@ dnl Then, if any (well almost any) other make is called, and GNU make also
 dnl exists, then the other make wraps the GNU make.
 dnl
 dnl @author John Darrington <j.darrington@elvis.murdoch.edu.au>
-dnl @version $Id: acinclude.m4,v 1.42 2000/07/17 18:17:33 pme Exp $
+dnl @version 1.1 #### replaced Id string now that Id is for lib-v3; pme
 dnl
 dnl #### Changes for libstdc++-v3:  reformatting and linewrapping; prepending
 dnl #### GLIBCPP_ to the macro name; adding the :-make fallback in the
@@ -1519,4 +1575,12 @@ dnl string, '#' otherwise
   AC_SUBST(ifGNUmake)
 ])
 
-
+sinclude(../libtool.m4)
+dnl The lines below arrange for aclocal not to bring an installed
+dnl libtool.m4 into aclocal.m4, while still arranging for automake to
+dnl add a definition of LIBTOOL to Makefile.in.
+ifelse(,,,[AC_SUBST(LIBTOOL)
+AC_DEFUN([AM_PROG_LIBTOOL])
+AC_DEFUN([AC_LIBTOOL_DLOPEN])
+AC_DEFUN([AC_PROG_LD])
+])

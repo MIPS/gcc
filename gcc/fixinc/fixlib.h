@@ -96,6 +96,25 @@ typedef int apply_fix_p_t;  /* Apply Fix Predicate Type */
 #define _P_(p)	()
 #endif
 
+#define ENV_TABLE                                    \
+  _ENV_( pz_machine,   BOOL_TRUE, "TARGET_MACHINE",  \
+         "output from config.guess" )                \
+                                                     \
+  _ENV_( pz_src_dir,   BOOL_TRUE, "SRCDIR",          \
+         "directory of original files" )             \
+                                                     \
+  _ENV_( pz_input_dir, BOOL_TRUE, "INPUT",           \
+         "current directory for fixincl" )           \
+                                                     \
+  _ENV_( pz_dest_dir,  BOOL_TRUE, "DESTDIR",         \
+         "output directory" )                        \
+                                                     \
+  _ENV_( pz_verbose,  BOOL_FALSE, "VERBOSE",         \
+         "amount of user entertainment" )            \
+                                                     \
+  _ENV_( pz_find_base, BOOL_TRUE, "FIND_BASE",       \
+         "leader to trim from file names" )
+
 /*  Test Descriptor
 
     Each fix may have associated tests that determine
@@ -128,7 +147,8 @@ typedef struct patch_desc tPatchDesc;
     a particular fix (which files, how to qualify them,
     how to actually make the fix, etc...)
 
-    NB:  the FD_ defines are BIT FLAGS
+    NB:  the FD_ defines are BIT FLAGS, even though
+         some are mutually exclusive
 
     */
 #define FD_MACH_ONLY      0x0000
@@ -156,10 +176,17 @@ typedef struct {
   tCC*        pz_type;
   tCC*        pz_TYPE;
   tCC*        pz_gtype;
-  tCC*        pz_cxx_guard;
 } t_gnu_type_map;
 
 extern int gnu_type_map_ct;
+
+#ifdef HAVE_MMAP_FILE
+#define UNLOAD_DATA() do { if (curr_data_mapped) { \
+  munmap ((void*)pz_curr_data, data_map_size); close (data_map_fd); } \
+  else free ((void*)pz_curr_data); } while(0)
+#else
+#define UNLOAD_DATA() free ((void*)pz_curr_data)
+#endif
 
 /*
  *  Exported procedures

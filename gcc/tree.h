@@ -282,14 +282,12 @@ struct tree_common
 #define TREE_CHECK(t, code) __extension__				\
 ({  const tree __t = t;							\
     if (TREE_CODE(__t) != (code))					\
-      tree_check_failed (__t, code, __FILE__,				\
-			 __LINE__, __PRETTY_FUNCTION__);		\
+      tree_check_failed (__t, code, __FILE__, __LINE__, __FUNCTION__);	\
     __t; })
 #define TREE_CLASS_CHECK(t, class) __extension__			\
 ({  const tree __t = t;							\
     if (TREE_CODE_CLASS(TREE_CODE(__t)) != (class))			\
-      tree_class_check_failed (__t, class, __FILE__,			\
-			       __LINE__, __PRETTY_FUNCTION__);		\
+      tree_class_check_failed (__t, class, __FILE__, __LINE__, __FUNCTION__); \
     __t; })
 
 /* These checks have to be special cased.  */
@@ -297,16 +295,14 @@ struct tree_common
 ({  const tree __t = t;							\
     enum tree_code __c = TREE_CODE(__t);				\
     if (__c != CONSTRUCTOR && TREE_CODE_CLASS(__c) != 'c')		\
-      tree_check_failed (__t, CONSTRUCTOR, __FILE__,			\
-			 __LINE__, __PRETTY_FUNCTION__);		\
+      tree_check_failed (__t, CONSTRUCTOR, __FILE__, __LINE__, __FUNCTION__); \
     __t; })
 #define EXPR_CHECK(t) __extension__					\
 ({  const tree __t = t;							\
     char __c = TREE_CODE_CLASS(TREE_CODE(__t));				\
     if (__c != 'r' && __c != 's' && __c != '<'				\
 	&& __c != '1' && __c != '2' && __c != 'e')			\
-      tree_class_check_failed(__t, 'e', __FILE__,			\
-			      __LINE__, __PRETTY_FUNCTION__);		\
+      tree_class_check_failed(__t, 'e', __FILE__, __LINE__, __FUNCTION__); \
     __t; })
 
 extern void tree_check_failed PARAMS ((const tree, enum tree_code,
@@ -2697,7 +2693,11 @@ extern void end_temporary_allocation PARAMS ((void));
 extern void pop_obstacks PARAMS ((void));
 
 /* In alias.c */
-void record_component_aliases		PARAMS ((tree));
+extern void record_component_aliases		PARAMS ((tree));
+extern HOST_WIDE_INT get_alias_set		PARAMS ((tree));
+
+/* In c-common.c */
+extern HOST_WIDE_INT lang_get_alias_set		PARAMS ((tree));
 
 /* In tree.c */
 extern int really_constant_p		PARAMS ((tree));
@@ -2961,8 +2961,4 @@ extern void dwarf2out_end_epilogue	PARAMS ((void));
 
 extern void fancy_abort PARAMS ((const char *, int, const char *))
     ATTRIBUTE_NORETURN;
-#if (GCC_VERSION >= 2007)
-#define abort() fancy_abort (__FILE__, __LINE__, __PRETTY_FUNCTION__)
-#else
-#define abort() fancy_abort (__FILE__, __LINE__, 0)
-#endif
+#define abort() fancy_abort (__FILE__, __LINE__, __FUNCTION__)

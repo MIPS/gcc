@@ -615,4 +615,11 @@ extern void abort PARAMS ((void));
 extern void *alloca (__SIZE_TYPE__);
 #endif
 
+/* Various error reporting routines want to use __FUNCTION__.  */
+#if (GCC_VERSION < 2007)
+#ifndef __FUNCTION__
+#define __FUNCTION__ "?"
+#endif /* ! __FUNCTION__ */
+#endif
+
 #endif /* __GCC_SYSTEM_H__ */

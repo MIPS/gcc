@@ -386,7 +386,11 @@ static int *uid_cuid;
 static int max_uid;
 
 /* Get the cuid of an insn.  */
+#ifdef ENABLE_CHECKING
+#define INSN_CUID(INSN) (INSN_UID (INSN) > max_uid ? (abort (), 0) : uid_cuid[INSN_UID (INSN)])
+#else
 #define INSN_CUID(INSN) (uid_cuid[INSN_UID (INSN)])
+#endif
 
 /* Number of cuids.  */
 static int max_cuid;
@@ -489,13 +493,6 @@ static int copy_prop_count;
 /* These variables are used by classic GCSE.
    Normally they'd be defined a bit later, but `rd_gen' needs to
    be declared sooner.  */
-
-/* A bitmap of all ones for implementing the algorithm for available
-   expressions and reaching definitions.  */
-/* ??? Available expression bitmaps have a different size than reaching
-   definition bitmaps.  This should be the larger of the two, however, it
-   is not currently used for reaching definitions.  */
-static sbitmap u_bitmap;
 
 /* Each block has a bitmap of each type.
    The length of each blocks bitmap is:
@@ -896,9 +893,9 @@ alloc_gcse_mem (f)
   for (insn = f, i = 0; insn; insn = NEXT_INSN (insn))
     {
       if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
-	INSN_CUID (insn) = i++;
+	uid_cuid[INSN_UID (insn)] = i++;
       else
-	INSN_CUID (insn) = i;
+	uid_cuid[INSN_UID (insn)] = i;
     }
 
   /* Create a table mapping cuids to insns.  */
@@ -1117,7 +1114,7 @@ record_one_set (regno, insn)
      rtx insn;
 {
   /* allocate a new reg_set element and link it onto the list */
-  struct reg_set *new_reg_info, *reg_info_ptr1, *reg_info_ptr2;
+  struct reg_set *new_reg_info;
 
   /* If the table isn't big enough, enlarge it.  */
   if (regno >= reg_set_table_size)
@@ -1136,21 +1133,8 @@ record_one_set (regno, insn)
 						   sizeof (struct reg_set));
   bytes_used += sizeof (struct reg_set);
   new_reg_info->insn = insn;
-  new_reg_info->next = NULL;
-  if (reg_set_table[regno] == NULL)
-    reg_set_table[regno] = new_reg_info;
-  else
-    {
-      reg_info_ptr1 = reg_info_ptr2 = reg_set_table[regno];
-      /* ??? One could keep a "last" pointer to speed this up.  */
-      while (reg_info_ptr1 != NULL)
-	{
-	  reg_info_ptr2 = reg_info_ptr1;
-	  reg_info_ptr1 = reg_info_ptr1->next;
-	}
-
-      reg_info_ptr2->next = new_reg_info;
-    }
+  new_reg_info->next = reg_set_table[regno];
+  reg_set_table[regno] = new_reg_info;
 }
 
 /* Called from compute_sets via note_stores to handle one SET or CLOBBER in
@@ -1266,6 +1250,8 @@ oprs_unchanged_p (x, insn, avail_p)
     case PRE_INC:
     case POST_DEC:
     case POST_INC:
+    case PRE_MODIFY:
+    case POST_MODIFY:
       return 0;
 
     case PC:
@@ -2672,9 +2658,6 @@ alloc_avail_expr_mem (n_blocks, n_exprs)
 
   ae_out = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_exprs);
   sbitmap_vector_zero (ae_out, n_basic_blocks);
-
-  u_bitmap = (sbitmap) sbitmap_alloc (n_exprs);
-  sbitmap_ones (u_bitmap);
 }
 
 static void
@@ -2684,7 +2667,6 @@ free_avail_expr_mem ()
   free (ae_gen);
   free (ae_in);
   free (ae_out);
-  free (u_bitmap);
 }
 
 /* Compute the set of available expressions generated in each basic block.  */
@@ -4047,8 +4029,6 @@ static sbitmap *pre_delete_map;
 /* Contains the edge_list returned by pre_edge_lcm.  */
 static struct edge_list *edge_list;
 
-static sbitmap *temp_bitmap;
-
 /* Redundant insns.  */
 static sbitmap pre_redundant_insns;
 
@@ -4061,7 +4041,6 @@ alloc_pre_mem (n_blocks, n_exprs)
   transp = sbitmap_vector_alloc (n_blocks, n_exprs);
   comp = sbitmap_vector_alloc (n_blocks, n_exprs);
   antloc = sbitmap_vector_alloc (n_blocks, n_exprs);
-  temp_bitmap = sbitmap_vector_alloc (n_blocks, n_exprs);
 
   pre_optimal = NULL;
   pre_redundant = NULL;
@@ -4069,8 +4048,6 @@ alloc_pre_mem (n_blocks, n_exprs)
   pre_delete_map = NULL;
   ae_in = NULL;
   ae_out = NULL;
-  u_bitmap = NULL;
-  transpout = sbitmap_vector_alloc (n_blocks, n_exprs);
   ae_kill = sbitmap_vector_alloc (n_blocks, n_exprs);
 
   /* pre_insert and pre_delete are allocated later.  */
@@ -4083,8 +4060,8 @@ free_pre_mem ()
 {
   free (transp);
   free (comp);
-  free (antloc);
-  free (temp_bitmap);
+
+  /* ANTLOC and AE_KILL are freed just after pre_lcm finishes.  */
 
   if (pre_optimal)
     free (pre_optimal);
@@ -4094,23 +4071,15 @@ free_pre_mem ()
     free (pre_insert_map);
   if (pre_delete_map)
     free (pre_delete_map);
-  if (transpout)
-    free (transpout);
 
   if (ae_in)
     free (ae_in);
   if (ae_out)
     free (ae_out);
-  if (ae_kill)
-    free (ae_kill);
-  if (u_bitmap)
-    free (u_bitmap);
 
-  transp = comp = antloc = NULL;
+  transp = comp = NULL;
   pre_optimal = pre_redundant = pre_insert_map = pre_delete_map = NULL;
-  transpout = ae_in = ae_out = ae_kill = NULL;
-  u_bitmap = NULL;
-
+  ae_in = ae_out = NULL;
 }
 
 /* Top level routine to do the dataflow analysis needed by PRE.  */
@@ -4121,7 +4090,6 @@ compute_pre_data ()
   int i;
 
   compute_local_properties (transp, comp, antloc, 0);
-  compute_transpout ();
   sbitmap_vector_zero (ae_kill, n_basic_blocks);
 
   /* Compute ae_kill for each basic block using:
@@ -4138,6 +4106,10 @@ compute_pre_data ()
 
   edge_list = pre_edge_lcm (gcse_file, n_exprs, transp, comp, antloc,
 			    ae_kill, &pre_insert_map, &pre_delete_map);
+  free (antloc);
+  antloc = NULL;
+  free (ae_kill);
+  ae_kill = NULL; 
 }
 
 /* PRE utilities */
@@ -4361,8 +4333,7 @@ insert_insn_end_bb (expr, bb, pre)
 	 the insn in the wrong basic block.  In that case, put the insn
 	 after the CODE_LABEL.  Also, respect NOTE_INSN_BASIC_BLOCK.  */
       while (GET_CODE (insn) == CODE_LABEL
-	     || (GET_CODE (insn) == NOTE
-		 && NOTE_LINE_NUMBER (insn) == NOTE_INSN_BASIC_BLOCK))
+	     || NOTE_INSN_BASIC_BLOCK_P (insn))
 	insn = NEXT_INSN (insn);
 
       new_insn = emit_block_insn_before (pat, insn, BASIC_BLOCK (bb));
@@ -4600,14 +4571,9 @@ static int
 pre_delete ()
 {
   unsigned int i;
-  int bb, changed;
+  int changed;
   struct expr *expr;
   struct occr *occr;
-
-  /* Compute the expressions which are redundant and need to be replaced by
-     copies from the reaching reg to the target reg.  */
-  for (bb = 0; bb < n_basic_blocks; bb++)
-    sbitmap_copy (temp_bitmap[bb], pre_delete_map[bb]);
 
   changed = 0;
   for (i = 0; i < expr_hash_table_size; i++)
@@ -4624,7 +4590,7 @@ pre_delete ()
 	    rtx set;
 	    int bb = BLOCK_NUM (insn);
 
-	    if (TEST_BIT (temp_bitmap[bb], indx))
+	    if (TEST_BIT (pre_delete_map[bb], indx))
 	      {
 		set = single_set (insn);
 		if (! set)

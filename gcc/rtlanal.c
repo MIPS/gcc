@@ -26,7 +26,7 @@ Boston, MA 02111-1307, USA.  */
 
 static int rtx_addr_can_trap_p	PARAMS ((rtx));
 static void reg_set_p_1		PARAMS ((rtx, rtx, void *));
-static void insn_dependant_p_1	PARAMS ((rtx, rtx, void *));
+static void insn_dependent_p_1	PARAMS ((rtx, rtx, void *));
 static void reg_set_last_1	PARAMS ((rtx, rtx, void *));
 
 
@@ -244,6 +244,69 @@ get_related_value (x)
 	   && GET_CODE (XEXP (x, 1)) == CONST_INT)
     return XEXP (x, 0);
   return 0;
+}
+
+/* Return the number of places FIND appears within X.  If COUNT_DEST is
+   zero, we do not count occurrences inside the destination of a SET.  */
+
+int
+count_occurrences (x, find, count_dest)
+     rtx x, find;
+     int count_dest;
+{
+  int i, j;
+  enum rtx_code code;
+  const char *format_ptr;
+  int count;
+
+  if (x == find)
+    return 1;
+
+  code = GET_CODE (x);
+
+  switch (code)
+    {
+    case REG:
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case SYMBOL_REF:
+    case CODE_LABEL:
+    case PC:
+    case CC0:
+      return 0;
+
+    case MEM:
+      if (GET_CODE (find) == MEM && rtx_equal_p (x, find))
+	return 1;
+      break;
+
+    case SET:
+      if (SET_DEST (x) == find && ! count_dest)
+	return count_occurrences (SET_SRC (x), find, count_dest);
+      break;
+
+    default:
+      break;
+    }
+
+  format_ptr = GET_RTX_FORMAT (code);
+  count = 0;
+
+  for (i = 0; i < GET_RTX_LENGTH (code); i++)
+    {
+      switch (*format_ptr++)
+	{
+	case 'e':
+	  count += count_occurrences (XEXP (x, i), find, count_dest);
+	  break;
+
+	case 'E':
+	  for (j = 0; j < XVECLEN (x, i); j++)
+	    count += count_occurrences (XVECEXP (x, i, j), find, count_dest);
+	  break;
+	}
+    }
+  return count;
 }
 
 /* Nonzero if register REG appears somewhere within IN.
@@ -689,11 +752,11 @@ modified_in_p (x, insn)
   return 0;
 }
 
-/* Return true if anything in insn X is (anti,output,true) dependant on
+/* Return true if anything in insn X is (anti,output,true) dependent on
    anything in insn Y.  */
 
 int
-insn_dependant_p (x, y)
+insn_dependent_p (x, y)
      rtx x, y;
 {
   rtx tmp;
@@ -702,22 +765,22 @@ insn_dependant_p (x, y)
     abort ();
 
   tmp = PATTERN (y);
-  note_stores (PATTERN (x), insn_dependant_p_1, &tmp);
+  note_stores (PATTERN (x), insn_dependent_p_1, &tmp);
   if (tmp == NULL_RTX)
     return 1;
 
   tmp = PATTERN (x);
-  note_stores (PATTERN (y), insn_dependant_p_1, &tmp);
+  note_stores (PATTERN (y), insn_dependent_p_1, &tmp);
   if (tmp == NULL_RTX)
     return 1;
 
   return 0;
 }
 
-/* A helper routine for insn_dependant_p called through note_stores.  */
+/* A helper routine for insn_dependent_p called through note_stores.  */
 
 static void
-insn_dependant_p_1 (x, pat, data)
+insn_dependent_p_1 (x, pat, data)
      rtx x;
      rtx pat ATTRIBUTE_UNUSED;
      void *data;
@@ -2113,7 +2176,7 @@ jmp_uses_reg_or_mem (x)
 /* Return nonzero if INSN is an indirect jump (aka computed jump).
 
    Tablejumps and casesi insns are not considered indirect jumps;
-   we can recognize them by a (use (lael_ref)).  */
+   we can recognize them by a (use (label_ref)).  */
 
 int
 computed_jump_p (insn)

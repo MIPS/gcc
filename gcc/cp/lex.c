@@ -3073,7 +3073,6 @@ do_identifier (token, parsing, args)
 {
   register tree id;
   int lexing = (parsing == 1);
-  int in_call = (parsing == 2);
 
   if (! lexing || IDENTIFIER_OPNAME_P (token))
     id = lookup_name (token, 0);
@@ -3115,19 +3114,6 @@ do_identifier (token, parsing, args)
 	  if (token != ansi_opname (ERROR_MARK))
 	    cp_error ("`%D' not defined", token);
 	  id = error_mark_node;
-	}
-      else if (in_call && ! flag_strict_prototype)
-	{
-	  if (!id)
-	    id = implicitly_declare (token);
-	  else
-	    {
-	      /* Implicit declaration of built-in function.  Don't
-		 change the built-in declaration, but don't let this
-		 go by silently, either.  */
-	      cp_pedwarn ("implicit declaration of function `%D'", token);
-	      DECL_ANTICIPATED (id) = 0;  /* only issue this warning once */
-	    }
 	}
       else if (current_function_decl == 0)
 	{
@@ -3258,17 +3244,11 @@ do_scoped_id (token, parsing)
 	  LOOKUP_EXPR_GLOBAL (id) = 1;
 	  return id;
 	}
-      if (parsing && (yychar == '(' || yychar == LEFT_RIGHT)
-	  && ! flag_strict_prototype)
-	id = implicitly_declare (token);
-      else
-	{
-	  if (IDENTIFIER_NAMESPACE_VALUE (token) != error_mark_node)
-	    cp_error ("`::%D' undeclared (first use here)", token);
-	  id = error_mark_node;
-	  /* Prevent repeated error messages.  */
-	  SET_IDENTIFIER_NAMESPACE_VALUE (token, error_mark_node);
-	}
+      if (IDENTIFIER_NAMESPACE_VALUE (token) != error_mark_node)
+        cp_error ("`::%D' undeclared (first use here)", token);
+      id = error_mark_node;
+      /* Prevent repeated error messages.  */
+      SET_IDENTIFIER_NAMESPACE_VALUE (token, error_mark_node);
     }
   else
     {

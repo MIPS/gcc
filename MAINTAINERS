@@ -4,6 +4,7 @@ Craig Burley					craig@jcb-sc.com
 John Carr					jfc@mit.edu
 Richard Earnshaw				rearnsha@arm.com
 Richard Henderson                               rth@cygnus.com
+Geoffrey Keating				geoffk@cygnus.com
 Richard Kenner					kenner@nyu.edu
 Jeff Law					law@cygnus.com
 Jason Merrill					jason@cygnus.com
@@ -35,6 +36,7 @@ rs6000 port		Geoff Keating		geoffk@cygnus.com
 rs6000 port		David Edelsohn		dje@watson.ibm.com
 mips port		Gavin Romig-Koch	gavin@cygnus.com
 ia64 port		Jim Wilson		wilson@cygnus.com
+i860 port		Jason Eckhardt		jle@cygnus.com
 i960 port		Jim Wilson		wilson@cygnus.com
 a29k port		Jim Wilson		wilson@cygnus.com
 alpha port		Richard Henderson	rth@cygnus.com
@@ -84,6 +86,8 @@ avr port		Denis Chertykov		denisc@overta.ru
 basic block reordering	Jason Eckhardt		jle@cygnus.com
 i18n			Philipp Thomas		pthomas@suse.de
 diagnostic messages	Gabriel Dos Reis	gdr@codesourcery.com
+windows, cygwin, mingw	Christopher Faylor	cgf@redhat.com
+windows, cygwin, mingw	DJ Delorie		dj@redhat.com
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
@@ -115,6 +119,7 @@ Toon Moene					toon@moene.indiv.nluug.nl
 Catherine Moore					clm@cygnus.com
 Hans-Peter Nilsson				hp@bitrange.com
 Diego Novillo					dnovillo@cygnus.com
+Jeffrey D. Oldham				oldham@codesourcery.com
 Alexandre Oliva					oliva@lsd.ic.unicamp.br
 Alexandre Petit-Bianco				apbianco@cygnus.com
 Clinton Popetz					cpopetz@cygnus.com
@@ -133,6 +138,7 @@ Ian Taylor					ian@zembu.com
 Andreas Jaeger					aj@suse.de
 Andrew cagney					cagney@redhat.com
 Philipp Thomas					pthomas@suse.de
+Eric Christopher				echristo@cygnus.com
 
 * Indicates folks we need to get Kerberos/ssh accounts ready so they
 can write in the source tree

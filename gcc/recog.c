@@ -934,10 +934,13 @@ general_operand (op, mode)
   if (code == MEM)
     {
       register rtx y = XEXP (op, 0);
+
       if (! volatile_ok && MEM_VOLATILE_P (op))
 	return 0;
+
       if (GET_CODE (y) == ADDRESSOF)
 	return 1;
+
       /* Use the mem's mode, since it will be reloaded thus.  */
       mode = GET_MODE (op);
       GO_IF_LEGITIMATE_ADDRESS (mode, y, win);
@@ -1882,8 +1885,7 @@ offsettable_address_p (strictp, mode, y)
       return good;
     }
 
-  if (ycode == PRE_DEC || ycode == PRE_INC
-      || ycode == POST_DEC || ycode == POST_INC)
+  if (GET_RTX_CLASS (ycode) == 'a')
     return 0;
 
   /* The offset added here is chosen as the maximum offset that

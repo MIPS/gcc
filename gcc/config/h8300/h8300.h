@@ -828,9 +828,24 @@ struct cum_arg
 
 #endif
 
-/* Extra constraints - 'U' if for an operand valid for a bset
-   destination; i.e. a register, register indirect, or the
-   eightbit memory region (a SYMBOL_REF with an SYMBOL_REF_FLAG set). 
+/* Extra constraints.  */
+
+/* 'T' if valid for dec.[wl] on H8/300H and H8/S.  Note that, for
+   inc.[wl], we can use 'K', which has already been defined.  */
+#define OK_FOR_T(OP)				\
+  (GET_CODE (OP) == CONST_INT			\
+   && (INTVAL (OP) == -1 || INTVAL (OP) == -2))
+
+/* Nonzero if X is a constant address suitable as an 8-bit absolute on
+   the H8/300H, which is a special case of the 'R' operand.  */
+
+#define EIGHTBIT_CONSTANT_ADDRESS_P(X)			\
+  (GET_CODE (X) == CONST_INT && TARGET_H8300H		\
+   && 0xffff00 <= INTVAL (X) && INTVAL (X) <= 0xffffff)
+
+/* 'U' if valid for a bset destination;
+   i.e. a register, register indirect, or the eightbit memory region
+   (a SYMBOL_REF with an SYMBOL_REF_FLAG set).
 
    On the H8/S 'U' can also be a 16bit or 32bit absolute.  */
 #define OK_FOR_U(OP) \
@@ -843,10 +858,16 @@ struct cum_arg
         && GET_CODE (XEXP (XEXP (OP, 0), 0)) == PLUS \
         && GET_CODE (XEXP (XEXP (XEXP (OP, 0), 0), 0)) == SYMBOL_REF \
         && GET_CODE (XEXP (XEXP (XEXP (OP, 0), 0), 1)) == CONST_INT) \
-        && (TARGET_H8300S || SYMBOL_REF_FLAG (XEXP (XEXP (OP, 0), 0)))))
+        && (TARGET_H8300S || SYMBOL_REF_FLAG (XEXP (XEXP (OP, 0), 0)))) \
+   || (GET_CODE (OP) == MEM						\
+       && EIGHTBIT_CONSTANT_ADDRESS_P (XEXP (OP, 0))))
 
-#define EXTRA_CONSTRAINT(OP, C) \
- ((C) == 'U' ? OK_FOR_U (OP) : 0)
+
+
+#define EXTRA_CONSTRAINT(OP, C)			\
+  ((C) == 'T' ? OK_FOR_T (OP) :			\
+   (C) == 'U' ? OK_FOR_U (OP) :			\
+   0)
 
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
    that is a valid memory address for an instruction.

@@ -1,3 +1,23 @@
+Thu Jul 27 11:50:08 2000  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* fini.c (main): Avoid automatic aggregate initialization.
+
+	* proj.h: Indent #error directive.
+
+2000-07-26  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* lang-specs.h: Remove one /dev/null from tradcpp invocation.
+
+Sun Jul 23 15:47:30 2000  Billinghurst, David <David.Billinghurst@riotinto.com>
+
+	* Make-lang.in: Put $(build_exeext) suffix on programs which run
+	on the build machine.
+
+2000-07-22  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* com.c (ffecom_expr_intrinsic_): case FFEINTRIN_impFGETC_subr,
+	FFEINTRIN_impFPUTC_subr: Check for arg3 being NULL.
+
 2000-07-13  Zack Weinberg  <zack@wolery.cumb.org>
 
 	* lang-specs.h: Use the new named specs.  Remove unnecessary braces.

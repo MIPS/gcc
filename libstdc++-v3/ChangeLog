@@ -1,3 +1,242 @@
+2000-07-28  Alexandre Oliva  <aoliva@redhat.com>
+
+	* acinclude.m4: Include ../libtool.m4.
+        * aclocal.m4, configure: Rebuilt.
+	
+2000-07-26  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* acinclude.m4 (GLIBCPP_CHECK_LINKER_FEATURES):  Test for GNU ld
+	  before trying to use any of its options.
+	  (CHECK_MATH_DECL*,CHECK_BUILTIN_MATH_DECL*):  Cache tests.
+	* aclocal.m4:  Regenerate.
+	* configure.in:  Having found GNU make, name it.
+	* configure:  Regenerate.
+	* docs/install.html:  Mention possible problems with caching.
+	* src/Makefile.am (CXXLINK):  Use new OPT_LDFLAGS.
+	* src/Makefile.in:  Regenerate.
+	* libio/Makefile.in:  Regenerate.
+	* math/Makefile.in:  Regenerate.
+	* Makefile.in:  Regenerate.
+
+2000-07-26  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* src/misc-inst.cc (std): Remove instantiations.
+
+	* acinclude.m4: Add forward-looking bits for autoconf.
+	* aclocal.m4: Regenerate.
+
+	* bits/ostream.tcc (ostream::operator<<): Fix const char* case.
+
+2000-07-25  Benjamin Kosnik  <bkoz@gnu.org>
+
+	* configure.in: Change AM_PROG_LIBTOOL to AC_PROG_LIBTOOL. Change
+	it back for current versions of maintainer-tools...
+	* acinclude.m4: Some cleanups...
+	* aclocal: Regenerated.
+	* configure: Regenerated.
+	
+	* src/Makefile.am (CXXLINK): Add -Wl,-01 to the link line for
+	optimizing/adapting the hash table using GNU ld.
+	* src/Makefile.in: Regenerate.
+	
+2000-07-24  H.J. Lu  <hjl@gnu.org>
+
+        * src/Makefile.am (LIBIO_INCLUDES): Set to -I$(top_srcdir)/libio
+        even if GLIBCPP_NEED_LIBIO is false. The installed glibc header
+        files don't include private libio header files needed by
+        libstdc++ v3.
+        * src/Makefile.in: Rebuild.
+
+2000-07-24  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* bits/std_fstream.h: Parameterize __basic_file.
+	* config/c_io_libio.cc: Add wchar_t methods for parameterization.
+	* bits/basic_file.h: Same here.
+
+	* bits/istream.tcc (getline): Tweaks.
+
+	* bits/fstream.tcc: Shorten __retval to __ret.
+	* bits/ostream.tcc: Same.
+	* bits/sbuf_iter.h: Same.
+	* bits/sstream.tcc: Same.
+	* bits/streambuf.tcc: Same.
+	* bits/std_fstream.h: Same.
+	* src/string-inst.cc: Same.
+	* src/ios.cc: Same.
+	* config/c_io_libio.cc: Same.
+	* bits/string.tcc: Same.
+	* bits/std_streambuf.h: Same.
+
+2000-07-23  Brent Verner <brent@rcfile.org>
+
+        * bits/istream.tcc: istream::getline(char_type*, streamsize,
+	char_type) make compliant
+        * testsuite/27_io/istream_unformatted.cc: test for compliant behavior
+
+2000-07-23  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* acinclude.m4 (enable_cshadow_headers): Fix problems with blddir
+	and srcdir used to define CSHADOW_INCLUDES..
+
+	* configure.in: For consistency, change .sanity_warned to
+	stamp-sanity-warned.
+
+	* acinclude.m4: Tweak formatting.
+	* Makefile.am (check): Call mkcheck with full pathname for build
+	directory...
+	(check-install): And here.
+	* Makefile.in: Regenerate.
+	
+2000-07-22  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	Line up with libstdc++-v2 version of valarray.
+	* bits/valarray_array.h (__valarray_product): Make inline.
+	* src/valarray-inst.cc (__valarray_product): Remove explicit
+	instantiation. 
+
+2000-07-21  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+        * src/stl-inst.cc: Change __sink_unused_warning to unsigned int
+        for alpha.
+
+        * testsuite/26_numerics/complex_inserters_extractors.cc (testall):
+        Change return type to void.
+        * testsuite/25_algorithms/lower_bound.cc: Add return values.
+	* testsuite/17_intro/header_ciso646.cc: Modify.
+        * bits/locale_facets.h: Add return values for the generic cases.
+
+2000-07-21  H.J. Lu  (hjl@gnu.org)
+
+        * acinclude.m4: Include <features.h> for glibc testing.
+        * aclocal.m4: Likewise.
+
+        * configure: Rebuild.
+
+2000-07-20  H.J. Lu  (hjl@gnu.org)
+
+        * acinclude.m4: Change "#pragma system_header" to
+        "#pragma GCC system_header".
+        * aclocal.m4: Likewise.
+        * bits/std_cmath.h: Likewise.
+        * bits/std_cassert.h: Likewise.
+        * bits/std_cctype.h: Likewise.
+        * bits/std_cerrno.h: Likewise.
+        * bits/std_cfloat.h: Likewise.
+        * bits/std_climits.h: Likewise.
+        * bits/std_clocale.h: Likewise.
+        * bits/std_cwchar.h: Likewise.
+        * bits/std_csetjmp.h: Likewise.
+        * bits/std_csignal.h: Likewise.
+        * bits/std_cstdarg.h: Likewise.
+        * bits/std_cstddef.h: Likewise.
+        * bits/std_cstdio.h: Likewise.
+        * bits/std_cstdlib.h: Likewise.
+        * bits/std_cstring.h: Likewise.
+        * bits/std_ctime.h: Likewise.
+        * bits/std_cwctype.h: Likewise.
+        * bits/std_exception.h: Likewise.
+        * bits/std_new.h: Likewise.
+        * bits/std_typeinfo.h: Likewise.
+        * shadow/bits/std_cassert.h: Likewise.
+        * shadow/bits/std_cctype.h: Likewise.
+        * shadow/bits/std_cerrno.h: Likewise.
+        * shadow/bits/std_cfloat.h: Likewise.
+        * shadow/bits/std_climits.h: Likewise.
+        * shadow/bits/std_clocale.h: Likewise.
+        * shadow/bits/std_cmath.h: Likewise.
+        * shadow/bits/std_csetjmp.h: Likewise.
+        * shadow/bits/std_csignal.h: Likewise.
+        * shadow/bits/std_cstdarg.h: Likewise.
+        * shadow/bits/std_cstddef.h: Likewise.
+        * shadow/bits/std_cstdio.h: Likewise.
+        * shadow/bits/std_cstdlib.h: Likewise.
+        * shadow/bits/std_cstring.h: Likewise.
+        * shadow/bits/std_ctime.h: Likewise.
+        * shadow/bits/std_cwchar.h: Likewise.
+        * shadow/bits/std_cwctype.h: Likewise.
+        * shadow/bits/wrap_libio.h: Likewise.
+        * shadow/bits/wrap_unistd.h: Likewise.
+        * shadow/sys/cdefs.h: Likewise.
+
+        * configure: Rebuild.
+
+2000-07-20  Jakub Jelinek  <jakub@redhat.com>
+
+        * config/cpu/sparc/sparc64/bits/atomicity.h (__exchange_and_add):
+        Use extended word instructions to match 64bit _Atomic_word.
+        (__atomic_add): Likewise.
+        * math/clog10l.c (clog10l): Use M_PIl if defined.
+        * math/c_logl.c (c_logl): Likewise.
+        * math/signbitl.c (__signbitl): Adapt for IEEE quad long doubles.
+        * math/mathconf.h (ieee_quad_double_shape_type): New type.
+        (GET_LDOUBLE_MSW64): New define.
+
+2000-07-20  Benjamin Kosnik  <bkoz@cygnus.com>
+
+	* bits/std_streambuf.h: Add bits for pback buffers here, so that
+	in_avail, etc can use them.
+	* bits/std_fstream.h: Ditto.
+	* bits/fstream.tcc: Ditto.
+	* testsuite/27_io/filebuf.cc: Tweaks.
+	* testsuite/27_io/filebuf-3.tst: Correct for pbackfail bits.
+
+2000-07-19  Benjamin Kosnik  <bkoz@cygnus.com>
+
+	* src/localename.cc: Same.
+	* src/locale.cc: Same.
+	* bits/localefwd.h: _M_init_facet to _M_facet_init.
+
+	* bits/locale_facets.h: _M_init_boolnames to _M_boolnames_init.
+
+	* bits/std_sstream.h: Change _M_init_stringbuf to _M_stringbuf_init.
+
+	* bits/fstream.tcc: Change _M_init_filebuf to _M_filebuf_init.
+	* bits/std_fstream.h: Same.
+
+	* bits/basic_string.h: Tweaks.
+	
+2000-07-19  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* docs/18_support/howto.html:  Update.
+
+2000-07-19  Benjamin Kosnik  <bkoz@milou.soma.redhat.com>
+
+	Internal consistency checks.....
+	* bits/ios_base.h: Change _M_locale_ios to _M_ios_locale.
+	* src/ios.cc: Same.
+	
+	* bits/basic_ios.h: Change _M_fctype_ios to _M_ios_fctype.
+	* bits/basic_ios.tcc: Same.
+	
+	* bits/std_streambuf.h: Change _M_locale_buf to _M_buf_locale.
+	Change _M_fctype_buf to _M_buf_fctype.
+	* bits/fstream.tcc: Same.
+
+	* bits/std_streambuf.h: Change _M_buf_bump to _M_out_cur_move.
+	Change _M_locale_set to _M_buf_locale_init.
+	* bits/streambuf.tcc: Same.
+	* bits/sstream.tcc: Same.
+	* bits/fstream.tcc: Same.
+
+	* bits/std_streambuf.h: Make typedefs consistent.
+	(_M_buf_bump): Be more careful with input sequence.
+
+	* bits/std_sstream.h: Same.
+	* bits/std_fstream.h: Same.
+
+2000-07-18  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* acinclude.m4: Tweaks.
+	* config/c_io_libio.cc: Tweaks.
+	* bits/sstream.tcc (stringbuf::pbackfail): Simplify.
+	* libio/_G_config.h: Don't define _G_HAVE_ST_BLKSIZE.
+	* libio/[iofwide.c, wfiledoalloc.c, wfiteopos.c, wgenops.c]: New files.
+	* libio/iofclose.c iofopen.c, stdio.c: New files.
+	* libio/Makefile.am: Add files, add flags, etc.
+	* src/Makefile.am (sources): Add filebuf.cc.
+	* acinclude.m4 (GLIBCPP_CHECK_WCHAR_T_SUPPORT):
+	(GLIBCPP_ENABLE_CSTDIO): Versioning testing, etc etc.
+
 2000-07-17  Phil Edwards  <pme@sourceware.cygnus.com>
 
 	* acinclude.m4:  Import CHECK_GNU_MAKE from autoconf macro archive.

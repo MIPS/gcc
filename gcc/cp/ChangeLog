@@ -1,3 +1,97 @@
+2000-07-27  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (duplicate_decls): If common_type produces a non-typedef
+	type for a typedef, just use the old type.
+
+2000-07-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (function_depth): Declare.
+	(verify_stmt_tree): Likewise.
+	(find_tree): Likewise.
+	* decl.c (function_depth): Give it external linkage.
+	* optimize.c (optimize_function): Increment and decrement it.
+	* tree.c (verify_stmt_tree_r): New function.
+	(verify_stmt_tree): Likewise.
+	(find_tree_r): Likewise.
+	(find_tree): Likewise.
+
+2000-07-27  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (for_each_template_parm_r, case RECORD_TYPE): Use
+	TYPE_PTRMEMFUNC_P.
+	* cp-tree.h (TYPE_TEMPLATE_INFO): Check for TYPE_LANG_SPECIFIC.
+
+2000-07-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (start_cleanup_fn): Mark the function as `inline'.
+	* decl2.c (get_guard): Call cp_finish_decl, not
+	rest_of_decl_compilation, for local guards.
+	* lex.c (do_identifier): Remove unused variable.
+
+Wed Jul 26 15:05:51 CEST 2000	Marc Espie <espie@cvs.openbsd.org>
+
+	* parse.y:  Add missing ';'.
+
+2000-07-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* parse.y (empty_parms): Use `()', not `(...)', when in the scope
+	of `extern "C++"'.
+
+2000-07-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Kill strict_prototype. Backwards compatibility only for
+	non NO_IMPLICIT_EXTERN_C systems.
+	* cp-tree.h (flag_strict_prototype): Remove.
+	(strict_prototype): Remove.
+	(strict_prototypes_lang_c, strict_prototypes_lang_cplusplus): Remove.
+	* decl.c (maybe_push_to_top_level): Adjust.
+	(pop_from_top_level): Adjust.
+	(decls_match): Only allow sloppy parm matching for ancient
+	system headers.
+	(init_decl_processing): Adjust.
+	(grokdeclarator): Adjust.
+	* decl2.c (flag_strict_prototype): Remove.
+	(strict_prototype): Remove.
+	(strict_prototypes_lang_c, strict_prototypes_lang_cplusplus): Remove.
+	(lang_f_options): Remove "strict-prototype".
+	(unsupported-options): Add "strict-prototype".
+	* lex.c (do_identifier): Adjust.
+	(do_scoped_id): Adjust.
+	* parse.y (empty_parms): Adjust.
+	* class.c (push_lang_context): Adjust.
+	(pop_lang_context): Adjust.
+	* typeck.c (comp_target_parms): Adjust.
+
+2000-07-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (poplevel): Deal with anonymous variables at for scope.
+	(maybe_inject_for_scope_var): Likewise.
+
+2000-07-25  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* decl.c: Remove all signal handling code, now done in toplev.c.
+
+2000-07-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (make_rtl_for_nonlocal_decl): Rework.
+
+	* pt.c (lookup_template_class): Ensure that TYPE_CONTEXT is set
+	correctly.
+
+2000-07-20  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cp-tree.h: Use __FUNCTION__ not __PRETTY_FUNCTION__.
+	Define my_friendly_assert and my_friendly_abort as macros
+	which may call friendly_abort.  Prototype friendly abort, not
+	my_friendly_abort or my_friendly_assert.
+	* decl.c (signal_catch): Report the signal caught in the error
+	message.  Call fatal directly.
+	* typeck2.c (ack, my_friendly_assert): Delete.
+	(my_friendly_abort): Rename to friendly_abort.  Expect file,
+	line, and function parameters.  Report the abort code, then
+	call fancy_abort.  Do not mask an abort if errors have
+	already occurred.
+
 2000-07-18  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* typeck.c (comp_target_parms): Remove obsolete parameter.

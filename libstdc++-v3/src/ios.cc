@@ -201,7 +201,7 @@ namespace std {
     _M_callbacks = 0;
     _M_words = 0;
     _M_word_limit = 0;
-    _M_locale_ios = locale();
+    _M_ios_locale = locale();
     // No init needed for _M_word_array or _M_dummy.
   }  
   
@@ -209,8 +209,8 @@ namespace std {
   locale
   ios_base::imbue(const locale& __loc)
   {
-    locale __old = _M_locale_ios;
-    _M_locale_ios = __loc;
+    locale __old = _M_ios_locale;
+    _M_ios_locale = __loc;
     // Make sure there's a callback for the format caches so they will be
     // marked dirty.
     _Format_cache<char>::_S_get(*this);
@@ -271,10 +271,10 @@ namespace std {
   { 
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
     // 49.  Underspecification of ios_base::sync_with_stdio
-    bool __retval = __ioinit._M_cin->_M_file->get_fileno() == 0;
-    
+    bool __ret = __ioinit._M_cin->_M_file->get_fileno() == 0;
+
     // Turn off sync with C FILE* for cin, cout, cerr, clog.
-    if (!__sync && __retval)
+    if (!__sync && __ret)
       {
 	// Need to dispose of the buffers created at initialization.
 	__ioinit._M_cout->~filebuf();
@@ -309,7 +309,7 @@ namespace std {
 #endif
       }
     
-    return __retval; 
+    return __ret; 
 #endif
   }
 

@@ -45,13 +45,14 @@ namespace std {
     public:
       // Types:
       typedef _CharT 					char_type;
-      typedef typename _Traits::int_type 		int_type;
-      typedef typename _Traits::pos_type 		pos_type;
-      typedef typename _Traits::off_type 		off_type;
-      typedef _Traits                    		traits_type;
-      // Non-standard types:
-      typedef basic_streambuf<_CharT, _Traits> 		__streambuf_type;
-      typedef basic_string<_CharT, _Traits, _Alloc> 	__string_type;
+      typedef _Traits 					traits_type;
+      typedef typename traits_type::int_type 		int_type;
+      typedef typename traits_type::pos_type 		pos_type;
+      typedef typename traits_type::off_type 		off_type;
+
+      // Non-standard Types:
+      typedef basic_streambuf<char_type, traits_type>  	__streambuf_type;
+      typedef basic_string<char_type, _Traits, _Alloc> 	__string_type;
       typedef typename __string_type::size_type		__size_type;
 
     private:
@@ -63,13 +64,13 @@ namespace std {
       explicit 
       basic_stringbuf(ios_base::openmode __mode = ios_base::in | ios_base::out)
       : __streambuf_type(), _M_string()
-      { _M_init_stringbuf(__mode); }
+      { _M_stringbuf_init(__mode); }
 
       explicit 
       basic_stringbuf(const __string_type& __str,
 		      ios_base::openmode __mode = ios_base::in | ios_base::out)
       : __streambuf_type(), _M_string(__str)
-      { _M_init_stringbuf(__mode); }
+      { _M_stringbuf_init(__mode); }
 
       // Get and set:
       __string_type 
@@ -94,13 +95,13 @@ namespace std {
       str(const __string_type& __s)
       {
 	_M_string = __s;
-	_M_init_stringbuf(_M_mode);
+	_M_stringbuf_init(_M_mode);
       }
 
     protected:
       // Common initialization code for both ctors goes here.
       void
-      _M_init_stringbuf(ios_base::openmode __mode)
+      _M_stringbuf_init(ios_base::openmode __mode)
       {
 	// _M_buf_size is a convenient alias for "what the streambuf
 	// thinks the allocated size of the string really is." This is
@@ -192,16 +193,16 @@ namespace std {
     {
     public:
       // Types:
-      typedef _CharT char_type;
-      typedef typename _Traits::int_type 		int_type;
-      typedef typename _Traits::pos_type 		pos_type;
-      typedef typename _Traits::off_type 		off_type;
-      typedef _Traits                    		traits_type;
+      typedef _CharT 					char_type;
+      typedef _Traits 					traits_type;
+      typedef typename traits_type::int_type 		int_type;
+      typedef typename traits_type::pos_type 		pos_type;
+      typedef typename traits_type::off_type 		off_type;
 
       // Non-standard types:
       typedef basic_string<_CharT, _Traits, _Alloc> 	__string_type;
       typedef basic_stringbuf<_CharT, _Traits, _Alloc> 	__stringbuf_type;
-      typedef basic_istream<_CharT, _Traits>		__istream_type;
+      typedef basic_istream<char_type, traits_type>	__istream_type;
 
       // Constructors:
       explicit 
@@ -245,15 +246,16 @@ namespace std {
     {
     public:
       // Types:
-      typedef _CharT char_type;
-      typedef typename _Traits::int_type int_type;
-      typedef typename _Traits::pos_type pos_type;
-      typedef typename _Traits::off_type off_type;
-      typedef _Traits                    traits_type;
+      typedef _CharT 					char_type;
+      typedef _Traits 					traits_type;
+      typedef typename traits_type::int_type 		int_type;
+      typedef typename traits_type::pos_type 		pos_type;
+      typedef typename traits_type::off_type 		off_type;
+
       // Non-standard types:
       typedef basic_string<_CharT, _Traits, _Alloc> 	__string_type;
       typedef basic_stringbuf<_CharT, _Traits, _Alloc> 	__stringbuf_type;
-      typedef basic_ostream<_CharT, _Traits>		__ostream_type;
+      typedef basic_ostream<char_type, traits_type>	__ostream_type;
 
       // Constructors/destructor:
       explicit 
@@ -296,16 +298,17 @@ namespace std {
     class basic_stringstream : public basic_iostream<_CharT, _Traits>
     {
     public:
-      // Types
-      typedef _CharT char_type;
-      typedef typename _Traits::int_type int_type;
-      typedef typename _Traits::pos_type pos_type;
-      typedef typename _Traits::off_type off_type;
-      typedef _Traits                    traits_type;
-       // Non-standard types:
+      // Types:
+      typedef _CharT 					char_type;
+      typedef _Traits 					traits_type;
+      typedef typename traits_type::int_type 		int_type;
+      typedef typename traits_type::pos_type 		pos_type;
+      typedef typename traits_type::off_type 		off_type;
+
+      // Non-standard Types:
       typedef basic_string<_CharT, _Traits, _Alloc> 	__string_type;
       typedef basic_stringbuf<_CharT, _Traits, _Alloc> 	__stringbuf_type;
-      typedef basic_iostream<_CharT, _Traits>		__iostream_type;
+      typedef basic_iostream<char_type, traits_type>	__iostream_type;
      
       // Constructors/destructors
       explicit 

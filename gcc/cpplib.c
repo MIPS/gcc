@@ -154,27 +154,32 @@ _cpp_check_directive (pfile, token, bol)
   for (i = 0; i < N_DIRECTIVES; i++)
     if (pfile->spec_nodes->dirs[i] == token->val.node)
       {
+	/* In -traditional mode, a directive is ignored unless its #
+	   is in column 1.  In code intended to work with K+R compilers,
+	   therefore, directives added by C89 must have their # indented,
+	   and directives present in traditional C must not.  This is true
+	   even of directives in skipped conditional blocks.  */
+	if (CPP_WTRADITIONAL (pfile))
+	  {
+	    if (!bol && dtable[i].origin == KANDR)
+	      cpp_warning (pfile,
+			   "traditional C ignores #%s with the # indented",
+			   dtable[i].name);
+
+	    if (bol && dtable[i].origin != KANDR)
+	      cpp_warning (pfile,
+		    "suggest hiding #%s from traditional C with an indented #",
+			   dtable[i].name);
+	  }
+
 	/* If we are skipping a failed conditional group, all non-conditional
 	   directives are ignored.  */
 	if (pfile->skipping && !(dtable[i].flags & COND))
 	  return 0;
 
-	/* In -traditional mode, a directive is ignored unless its #
-	   is in column 1.  */
-	if (!bol && dtable[i].origin == KANDR && CPP_WTRADITIONAL (pfile))
-	  cpp_warning (pfile, "traditional C ignores #%s with the # indented",
-		       dtable[i].name);
-
 	/* Issue -pedantic warnings for extended directives.   */
 	if (CPP_PEDANTIC (pfile) && dtable[i].origin == EXTENSION)
 	  cpp_pedwarn (pfile, "ISO C does not allow #%s", dtable[i].name);
-
-	/* -Wtraditional gives warnings about directives with inappropriate
-	   indentation of #.  */
-	if (bol && dtable[i].origin != KANDR && CPP_WTRADITIONAL (pfile))
-	  cpp_warning (pfile,
-		    "suggest hiding #%s from traditional C with an indented #",
-		       dtable[i].name);
 
 	return &dtable[i];
       }
@@ -236,39 +241,42 @@ static cpp_hashnode *
 get_define_node (pfile)
      cpp_reader *pfile;
 {
-  cpp_hashnode *node;
   const cpp_token *token;
 
   /* Skip any -C comments.  */
   while ((token = _cpp_get_token (pfile))->type == CPP_COMMENT)
     ;
 
+  /* The token immediately after #define must be an identifier.  That
+     identifier is not allowed to be "defined".  See predefined macro
+     names (6.10.8.4).  In C++, it is not allowed to be any of the
+     <iso646.h> macro names (which are keywords in C++) either.  */
+
   if (token->type != CPP_NAME)
     {
-      cpp_error_with_line (pfile, token->line, token->col,
+      if (token->type == CPP_DEFINED)
+	cpp_error_with_line (pfile, token->line, token->col,
+			     "\"defined\" cannot be used as a macro name");
+      else if (token->flags & NAMED_OP)
+	cpp_error_with_line (pfile, token->line, token->col,
+			     "\"%s\" cannot be used as a macro name in C++",
+			     token->val.node->name);
+      else
+	cpp_error_with_line (pfile, token->line, token->col,
 			   "macro names must be identifiers");
       return 0;
     }
 
-  /* That identifier is not allowed to be "defined".  See predefined
-     macro names (6.10.8.4).  */
-  node = token->val.node;
-
-  if (node == pfile->spec_nodes->n_defined)
-    {
-      cpp_error_with_line (pfile, pfile->token_list.line, token->col,
-			   "\"defined\" is not a legal macro name");
-      return 0;
-    }
-
   /* Check for poisoned identifiers now.  */
-  if (node->type == T_POISON)
+  if (token->val.node->type == T_POISON)
     {
-      cpp_error (pfile, "attempt to use poisoned \"%s\"", node->name);
+      cpp_error_with_line (pfile, token->line, token->col,
+			   "attempt to use poisoned \"%s\"",
+			   token->val.node->name);
       return 0;
     }
 
-  return node;
+  return token->val.node;
 }
 
 /* Process a #define command.  */
@@ -876,8 +884,8 @@ do_pragma_dependency (pfile)
 	  _cpp_dump_list (pfile, &pfile->token_list, msg, 0);
 	  limit = pfile->limit;
 	  pfile->limit = text;
+	  /* There must be something non-whitespace after. */
 	  while (*text == ' ')
-	    /* There must be something non-whitespace after. */
 	    text++; 
 	  cpp_warning (pfile, "%.*s", (int)(limit - text), text);
 	}
@@ -915,8 +923,7 @@ detect_if_not_defined (pfile)
     return 0;
 
   token++;
-  if (token->type != CPP_NAME
-      || token->val.node != pfile->spec_nodes->n_defined)
+  if (token->type != CPP_DEFINED)
     return 0;
 
   token++;
@@ -1252,7 +1259,7 @@ _cpp_parse_assertion (pfile, answerp)
       dest = &list->tokens[list->tokens_used++];
       *dest = *token;
 
-      if (token_spellings[token->type].type == SPELL_STRING)
+      if (TOKEN_SPELL (token) == SPELL_STRING)
 	{
 	  _cpp_expand_name_space (list, token->val.str.len);
 	  dest->val.str.text = list->namebuf + list->name_used;
@@ -1338,8 +1345,7 @@ do_assert (pfile)
   return;
 
  err:
-  cpp_warning (pfile, "\"%.*s\" re-asserted",
-	       node->length - 1, node->name + 1);
+  cpp_warning (pfile, "\"%s\" re-asserted", node->name + 1);
   FREE_ANSWER (new_answer);
 }
 
@@ -1535,7 +1541,6 @@ _cpp_init_stacks (pfile)
   /* Perhaps not the ideal place to put this.  */
   pfile->spec_nodes = s = xnew (struct spec_nodes);
   s->n_L                = cpp_lookup (pfile, DSC("L"));
-  s->n_defined          = cpp_lookup (pfile, DSC("defined"));
   s->n__STRICT_ANSI__   = cpp_lookup (pfile, DSC("__STRICT_ANSI__"));
   s->n__CHAR_UNSIGNED__ = cpp_lookup (pfile, DSC("__CHAR_UNSIGNED__"));
   s->n__VA_ARGS__       = cpp_lookup (pfile, DSC("__VA_ARGS__"));
