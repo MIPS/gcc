@@ -1,3 +1,24 @@
+2004-12-06  Keith Besaw  <kbesaw@us.ibm.com>
+
+	* tree-vectorizer.c (update_vuses_to_preheader): New, fixup VUSEs for
+	loads added to loop preheader block.
+	(vect_create_data_ref_ptr): Remove code which sets the bitmap
+	vars_to_rename.
+	(vectorizable_store): Call copy_virtual_operands to copy V_MAY_DEFs
+	from array element store to vector store and then update the statements
+	defining the virtual SSA_NAMES.
+	(vectorizable_load): Call copy_virtual_operands to copy VUSEs from
+	array element load to vector load.  Call update_vuses_to_preheader for
+	loads inserted into loop preheader block.
+	(vect_do_peeling_for_alignment): Add need_loop_closed_rewrite parm.
+	(vect_transform_loop): Add need_loop_closed_rewrite_parm.
+	(vectorize_loops): Eliminate call to rewrite_into_ssa, only call
+	rewrite_into_loop_closed_ssa if tree_duplicate_loop_to_edge has been
+	called in vect_do_peeling_for_alignment or vect_transform_loop.
+	* rs6000.c (altivect_init_builtins): Add the "const" attribute to
+	__builtin_altivec_mask_for_store and 
+	__builtin_altivec_mask_for_load.
+
 2004-11-29  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-data-ref.c (dependence_stats): New structure.

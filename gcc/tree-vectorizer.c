@@ -143,6 +143,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-chrec.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
+#include "tree-ssa-operands.h"
 #include "tree-vectorizer.h"
 #include "tree-pass.h"
 
@@ -158,7 +159,7 @@ static bool vect_compute_data_refs_alignment (loop_vec_info);
 static bool vect_analyze_operations (loop_vec_info);
 
 /* Main code transformation functions.  */
-static void vect_transform_loop (loop_vec_info, struct loops *);
+static void vect_transform_loop (loop_vec_info, struct loops *, bool *);
 static void vect_transform_loop_bound (loop_vec_info, tree niters);
 static bool vect_transform_stmt (tree, block_stmt_iterator *);
 static bool vectorizable_load (tree, block_stmt_iterator *, tree *);
@@ -247,6 +248,8 @@ static struct loop *tree_duplicate_loop_to_edge_cfg (struct loop *,
 						     edge);
 static edge add_loop_guard (basic_block, tree, basic_block);
 static bool verify_loop_for_duplication (struct loop *, bool, edge);
+
+static void update_vuses_to_preheader (tree, struct loop*);
 
 /* Utilities dealing with loop peeling (not peeling itself).  */
 static tree vect_gen_niters_for_prolog_loop (loop_vec_info, tree);
@@ -1056,6 +1059,84 @@ tree_duplicate_loop_to_edge (struct loop *loop, struct loops *loops,
 }
 
 
+/* Function update_vuses_to_preheader.
+
+   Input:
+   STMT - a statement with potential VUSEs.
+   LOOP - the loop whose preheader will contain STMT.
+
+   It's possible to vectorize a loop even though an SSA_NAME from a VUSE
+   appears to be defined in a V_MAY_DEF in another statement in a loop.
+   One such case is when the VUSE is at the dereference of a __restricted__
+   pointer in a load and the V_MAY_DEF is at the dereference of a different
+   __restricted__ pointer in a store.  Vectorization may result in
+   copy_virtual_uses being called to copy the problematic VUSE to a new
+   statement that is being inserted in the loop preheader.  This procedure
+   is called to change the SSA_NAME in the new statement's VUSE from the
+   SSA_NAME updated in the loop to the related SSA_NAME available on the
+   path entering the loop.
+
+   When this function is called, we have the following situation:
+
+        # vuse <name1>
+        S1: vload
+    do {
+        # name1 = phi < name0 , name2>
+
+        # vuse <name1>
+        S2: vload
+
+        # name2 = vdef <name1>
+        S3: vstore
+
+    }while...
+
+   Stmt S1 was created in the loop preheader block as part of misaligned-load
+   handling. This function fixes the name of the vuse of S1 from 'name1' to
+   'name0'.  */
+
+static void
+update_vuses_to_preheader (tree stmt, struct loop* loop)
+{
+  basic_block header_bb = loop->header;
+  edge preheader_e = loop_preheader_edge (loop);
+  vuse_optype vuses = STMT_VUSE_OPS (stmt);
+  int nvuses = NUM_VUSES (vuses);
+  int i;
+
+  for (i = 0; i < nvuses; i++)
+    {
+      tree ssa_name = VUSE_OP (vuses, i);
+      tree def_stmt = SSA_NAME_DEF_STMT (ssa_name);
+      tree name_var = SSA_NAME_VAR (ssa_name);
+      basic_block bb = bb_for_stmt (def_stmt);
+
+      /* For a use before any definitions, def_stmt is a NOP_EXPR.  */
+      if (!IS_EMPTY_STMT (def_stmt)
+	  && flow_bb_inside_loop_p (loop, bb))
+        {
+          /* If the block containing the statement defining the SSA_NAME
+             is in the loop then it's necessary to find the definition
+             outside the loop using the PHI nodes of the header.  */
+	  tree phi;
+	  bool updated = false;
+
+	  for (phi = phi_nodes (header_bb); phi; phi = TREE_CHAIN (phi))
+	    {
+	      if (SSA_NAME_VAR (PHI_RESULT (phi)) == name_var)
+		{
+		  int j = phi_arg_from_edge (phi, preheader_e);
+		  SET_VUSE_OP (vuses, i, PHI_ARG_DEF (phi, j));
+		  updated = true;
+		  break;
+		}
+	    }
+	  gcc_assert (updated);
+	}
+    }
+}
+
+
 
 /* Here the proper Vectorizer starts.  */
 
@@ -1829,11 +1910,6 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   tree vect_ptr_type;
   tree vect_ptr;
   tree tag;
-  v_may_def_optype v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
-  v_must_def_optype v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
-  vuse_optype vuses = STMT_VUSE_OPS (stmt);
-  int nvuses, nv_may_defs, nv_must_defs;
-  int i;
   tree new_temp;
   tree vec_stmt;
   tree new_stmt_list = NULL_TREE;
@@ -1876,30 +1952,6 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   gcc_assert (tag);
   get_var_ann (vect_ptr)->type_mem_tag = tag;
   
-  /* Mark for renaming all aliased variables
-     (i.e, the may-aliases of the type-mem-tag).  */
-  nvuses = NUM_VUSES (vuses);
-  nv_may_defs = NUM_V_MAY_DEFS (v_may_defs);
-  nv_must_defs = NUM_V_MUST_DEFS (v_must_defs);
-  for (i = 0; i < nvuses; i++)
-    {
-      tree use = VUSE_OP (vuses, i);
-      if (TREE_CODE (use) == SSA_NAME)
-        bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (use))->uid);
-    }
-  for (i = 0; i < nv_may_defs; i++)
-    {
-      tree def = V_MAY_DEF_RESULT (v_may_defs, i);
-      if (TREE_CODE (def) == SSA_NAME)
-        bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
-    }
-  for (i = 0; i < nv_must_defs; i++)
-    {
-      tree def = V_MUST_DEF_RESULT (v_must_defs, i);
-      if (TREE_CODE (def) == SSA_NAME)
-        bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
-    }
-
 
   /** (3) Calculate the initial address the vector-pointer, and set
           the vector-pointer to point to it before the loop:  **/
@@ -2372,6 +2424,8 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   enum machine_mode vec_mode;
   tree dummy;
   enum dr_alignment_support alignment_support_cheme;
+  v_may_def_optype v_may_defs;
+  int nv_may_defs, i;
 
   /* Is vectorizable store? */
 
@@ -2407,7 +2461,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       return true;
     }
 
-  /** Trasform.  **/
+  /** Transform.  **/
 
   if (vect_debug_details (NULL))
     fprintf (dump_file, "transform store");
@@ -2428,6 +2482,20 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   /* Arguments are ready. create the new vector stmt.  */
   *vec_stmt = build2 (MODIFY_EXPR, vectype, data_ref, vec_oprnd1);
   vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
+
+  /* Copy the V_MAY_DEFS representing the aliasing of the original array
+     element's definition to the vector's definition then update the
+     defining statement.  The original is being deleted so the same
+     SSA_NAMEs can be used.  */
+  copy_virtual_operands (*vec_stmt, stmt);
+  v_may_defs = STMT_V_MAY_DEF_OPS (*vec_stmt);
+  nv_may_defs = NUM_V_MAY_DEFS (v_may_defs);
+	    
+  for (i = 0; i < nv_may_defs; i++)
+    {
+      tree ssa_name = V_MAY_DEF_RESULT (v_may_defs, i);
+      SSA_NAME_DEF_STMT (ssa_name) = *vec_stmt;
+    }
 
   return true;
 }
@@ -2494,7 +2562,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       return true;
     }
 
-  /** Trasform.  **/
+  /** Transform.  **/
 
   if (vect_debug_details (NULL))
     fprintf (dump_file, "transform load.");
@@ -2532,6 +2600,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       new_temp = make_ssa_name (vec_dest, new_stmt);
       TREE_OPERAND (new_stmt, 0) = new_temp;
       vect_finish_stmt_generation (stmt, new_stmt, bsi);
+      copy_virtual_operands (new_stmt, stmt);
     }
   else if (alignment_support_cheme == dr_unaligned_software_pipeline)
     {
@@ -2569,6 +2638,8 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
       gcc_assert (!new_bb);
       msq_init = TREE_OPERAND (new_stmt, 0);
+      copy_virtual_operands (new_stmt, stmt);
+      update_vuses_to_preheader (new_stmt, loop);
 
 
       /* <2> Create lsq = *(floor(p2')) in the loop  */ 
@@ -2583,6 +2654,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       TREE_OPERAND (new_stmt, 0) = new_temp;
       vect_finish_stmt_generation (stmt, new_stmt, bsi);
       lsq = TREE_OPERAND (new_stmt, 0);
+      copy_virtual_operands (new_stmt, stmt);
 
 
       /* <3> */
@@ -3364,7 +3436,8 @@ vect_do_peeling_for_alignment (loop_vec_info loop_vinfo, struct loops *loops)
 
 static void
 vect_transform_loop (loop_vec_info loop_vinfo, 
-		     struct loops *loops ATTRIBUTE_UNUSED)
+		     struct loops *loops ATTRIBUTE_UNUSED,
+                     bool *need_loop_closed_rewrite)    /* FORNOW.  */
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
@@ -3383,7 +3456,10 @@ vect_transform_loop (loop_vec_info loop_vinfo,
 
   
   if (LOOP_DO_PEELING_FOR_ALIGNMENT (loop_vinfo))
-    vect_do_peeling_for_alignment (loop_vinfo, loops);
+    {
+      vect_do_peeling_for_alignment (loop_vinfo, loops);
+      *need_loop_closed_rewrite = true;    /* FORNOW.  */
+    }
   
   /* If the loop has a symbolic number of iterations 'n' 
      (i.e. it's not a compile time constant), 
@@ -3394,7 +3470,10 @@ vect_transform_loop (loop_vec_info loop_vinfo,
      (VF is the vectorization factor).  */
 
   if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo))
-    vect_transform_for_unknown_loop_bound (loop_vinfo, &ratio, loops);
+    {
+      vect_transform_for_unknown_loop_bound (loop_vinfo, &ratio, loops);
+      *need_loop_closed_rewrite = true;    /* FORNOW.  */
+    }
 
   /* FORNOW: we'll treat the case where niters is constant and 
      
@@ -3405,7 +3484,10 @@ vect_transform_loop (loop_vec_info loop_vinfo,
 
   if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo) 
       && (LOOP_VINFO_INT_NITERS (loop_vinfo) % vectorization_factor != 0))
-    vect_transform_for_unknown_loop_bound (loop_vinfo, &ratio, loops);
+    {
+      vect_transform_for_unknown_loop_bound (loop_vinfo, &ratio, loops);
+      *need_loop_closed_rewrite = true;    /* FORNOW.  */
+    }
 
 
   /* 1) Make sure the loop header has exactly two entries
@@ -5916,6 +5998,7 @@ vectorize_loops (struct loops *loops)
 {
   unsigned int i;
   unsigned int num_vectorized_loops = 0;
+  bool need_loop_closed_rewrite = false;
 
   /* Does the target support SIMD?  */
   /* FORNOW: until more sophisticated machine modelling is in place.  */
@@ -5948,7 +6031,7 @@ vectorize_loops (struct loops *loops)
       if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
 	continue;
 
-      vect_transform_loop (loop_vinfo, loops); 
+      vect_transform_loop (loop_vinfo, loops, &need_loop_closed_rewrite); 
       num_vectorized_loops++;
     }
 
@@ -5971,14 +6054,8 @@ vectorize_loops (struct loops *loops)
       loop->aux = NULL;
     }
 
-  rewrite_into_ssa (false);
-  if (!bitmap_empty_p (vars_to_rename))
-    {
-      /* The rewrite of ssa names may cause violation of loop closed ssa
-         form invariants.  TODO -- avoid these rewrites completely.
-         Information in virtual phi nodes is sufficient for it.  */
-      rewrite_into_loop_closed_ssa (); 
-    }
-  rewrite_into_loop_closed_ssa (); 
-  bitmap_clear (vars_to_rename);
+  /* FORNOW: tree_duplicate_loop_to_edge requires a rewrite into
+     loop closed ssa form.  */
+  if (need_loop_closed_rewrite)
+    rewrite_into_loop_closed_ssa ();
 }
