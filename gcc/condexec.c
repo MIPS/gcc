@@ -1550,8 +1550,9 @@ find_if_case_2 (test_bb, then_edge, else_edge)
   if (note && INTVAL (XEXP (note, 0)) >= REG_BR_PROB_BASE / 2)
     ;
   else if (else_succ->dest->index < 0
-	   || TEST_BIT (post_dominators[ORIG_INDEX (then_bb)], 
-			ORIG_INDEX (else_succ->dest)))
+	   || (then_bb->index >= 0
+	       && TEST_BIT (post_dominators[ORIG_INDEX (then_bb)], 
+			    ORIG_INDEX (else_succ->dest))))
     ;
   else
     return FALSE;
