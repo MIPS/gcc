@@ -1,73 +1,74 @@
 
-/*  A Bison parser, made from objc-parse.y with Bison version GNU Bison version 1.24
+/*  A Bison parser, made from objc-parse.y
+ by  GNU Bison version 1.27
   */
 
 #define YYBISON 1  /* Identify Bison output.  */
 
-#define	IDENTIFIER	258
-#define	TYPENAME	259
-#define	SCSPEC	260
-#define	TYPESPEC	261
-#define	TYPE_QUAL	262
-#define	CONSTANT	263
-#define	STRING	264
-#define	ELLIPSIS	265
-#define	SIZEOF	266
-#define	ENUM	267
-#define	STRUCT	268
-#define	UNION	269
-#define	IF	270
-#define	ELSE	271
-#define	WHILE	272
-#define	DO	273
-#define	FOR	274
-#define	SWITCH	275
-#define	CASE	276
-#define	DEFAULT	277
-#define	BREAK	278
-#define	CONTINUE	279
-#define	RETURN	280
-#define	GOTO	281
-#define	ASM_KEYWORD	282
-#define	TYPEOF	283
-#define	ALIGNOF	284
-#define	ATTRIBUTE	285
-#define	EXTENSION	286
-#define	LABEL	287
-#define	REALPART	288
-#define	IMAGPART	289
-#define	VA_ARG	290
-#define	PTR_VALUE	291
-#define	PTR_BASE	292
-#define	PTR_EXTENT	293
-#define	END_OF_LINE	294
-#define	ASSIGN	295
-#define	OROR	296
-#define	ANDAND	297
-#define	EQCOMPARE	298
-#define	ARITHCOMPARE	299
-#define	LSHIFT	300
-#define	RSHIFT	301
-#define	UNARY	302
-#define	PLUSPLUS	303
-#define	MINUSMINUS	304
-#define	HYPERUNARY	305
-#define	POINTSAT	306
-#define	INTERFACE	307
-#define	IMPLEMENTATION	308
-#define	END	309
-#define	SELECTOR	310
-#define	DEFS	311
-#define	ENCODE	312
-#define	CLASSNAME	313
-#define	PUBLIC	314
-#define	PRIVATE	315
-#define	PROTECTED	316
-#define	PROTOCOL	317
-#define	OBJECTNAME	318
-#define	CLASS	319
-#define	ALIAS	320
-#define	OBJC_STRING	321
+#define	IDENTIFIER	257
+#define	TYPENAME	258
+#define	SCSPEC	259
+#define	TYPESPEC	260
+#define	TYPE_QUAL	261
+#define	CONSTANT	262
+#define	STRING	263
+#define	ELLIPSIS	264
+#define	SIZEOF	265
+#define	ENUM	266
+#define	STRUCT	267
+#define	UNION	268
+#define	IF	269
+#define	ELSE	270
+#define	WHILE	271
+#define	DO	272
+#define	FOR	273
+#define	SWITCH	274
+#define	CASE	275
+#define	DEFAULT	276
+#define	BREAK	277
+#define	CONTINUE	278
+#define	RETURN	279
+#define	GOTO	280
+#define	ASM_KEYWORD	281
+#define	TYPEOF	282
+#define	ALIGNOF	283
+#define	ATTRIBUTE	284
+#define	EXTENSION	285
+#define	LABEL	286
+#define	REALPART	287
+#define	IMAGPART	288
+#define	VA_ARG	289
+#define	PTR_VALUE	290
+#define	PTR_BASE	291
+#define	PTR_EXTENT	292
+#define	END_OF_LINE	293
+#define	ASSIGN	294
+#define	OROR	295
+#define	ANDAND	296
+#define	EQCOMPARE	297
+#define	ARITHCOMPARE	298
+#define	LSHIFT	299
+#define	RSHIFT	300
+#define	UNARY	301
+#define	PLUSPLUS	302
+#define	MINUSMINUS	303
+#define	HYPERUNARY	304
+#define	POINTSAT	305
+#define	INTERFACE	306
+#define	IMPLEMENTATION	307
+#define	END	308
+#define	SELECTOR	309
+#define	DEFS	310
+#define	ENCODE	311
+#define	CLASSNAME	312
+#define	PUBLIC	313
+#define	PRIVATE	314
+#define	PROTECTED	315
+#define	PROTOCOL	316
+#define	OBJECTNAME	317
+#define	CLASS	318
+#define	ALIAS	319
+#define	OBJC_STRING	320
 
 #line 34 "objc-parse.y"
 
@@ -161,23 +162,6 @@ c_parse_init ()
   ggc_add_tree_root (&prefix_attributes, 1);
 }
 
-
-#ifndef YYLTYPE
-typedef
-  struct yyltype
-    {
-      int timestamp;
-      int first_line;
-      int first_column;
-      int last_line;
-      int last_column;
-      char *text;
-   }
-  yyltype;
-
-#define YYLTYPE yyltype
-#endif
-
 #include <stdio.h>
 
 #ifndef __cplusplus
@@ -192,7 +176,7 @@ typedef
 #define	YYFLAG		-32768
 #define	YYNTBASE	89
 
-#define YYTRANSLATE(x) ((unsigned)(x) <= 321 ? yytranslate[x] : 317)
+#define YYTRANSLATE(x) ((unsigned)(x) <= 320 ? yytranslate[x] : 317)
 
 static const char yytranslate[] = {     0,
      2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
@@ -220,14 +204,13 @@ static const char yytranslate[] = {     0,
      2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
      2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
      2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-     2,     2,     2,     2,     2,     1,     2,     3,     4,     5,
-     6,     7,     8,     9,    10,    11,    12,    13,    14,    15,
-    16,    17,    18,    19,    20,    21,    22,    23,    24,    25,
-    26,    27,    28,    29,    30,    31,    32,    33,    34,    35,
-    36,    37,    38,    39,    40,    44,    45,    49,    50,    51,
-    52,    58,    59,    60,    61,    62,    66,    67,    68,    69,
-    70,    71,    72,    73,    74,    75,    76,    77,    78,    79,
-    80
+     2,     2,     2,     2,     2,     1,     3,     4,     5,     6,
+     7,     8,     9,    10,    11,    12,    13,    14,    15,    16,
+    17,    18,    19,    20,    21,    22,    23,    24,    25,    26,
+    27,    28,    29,    30,    31,    32,    33,    34,    35,    36,
+    37,    38,    39,    40,    44,    45,    49,    50,    51,    52,
+    58,    59,    60,    61,    62,    66,    67,    68,    69,    70,
+    71,    72,    73,    74,    75,    76,    77,    78,    79,    80
 };
 
 #if YYDEBUG != 0
@@ -533,6 +516,10 @@ static const short yyrline[] = { 0,
   2892,  2895,  2897,  2904,  2916,  2921,  2927,  2929,  2935,  2939,
   2940,  2946,  2948,  2951,  2953,  2959,  2964,  2970,  2977,  2986
 };
+#endif
+
+
+#if YYDEBUG != 0 || defined (YYERROR_VERBOSE)
 
 static const char * const yytname[] = {   "$","error","$undefined.","IDENTIFIER",
 "TYPENAME","SCSPEC","TYPESPEC","TYPE_QUAL","CONSTANT","STRING","ELLIPSIS","SIZEOF",
@@ -577,8 +564,7 @@ static const char * const yytname[] = {   "$","error","$undefined.","IDENTIFIER"
 "myxdecls","mydecls","mydecl","myparms","myparm","optparmlist","@62","unaryselector",
 "keywordselector","selector","reservedwords","keyworddecl","messageargs","keywordarglist",
 "keywordexpr","keywordarg","receiver","objcmessageexpr","@63","@64","selectorarg",
-"keywordnamelist","keywordname","objcselectorexpr","objcprotocolexpr","objcencodeexpr",
-""
+"keywordnamelist","keywordname","objcselectorexpr","objcprotocolexpr","objcencodeexpr", NULL
 };
 #endif
 
@@ -1768,7 +1754,8 @@ static const short yycheck[] = {    56,
     50,    51,    52,    53,    54,    55,    56,    57
 };
 /* -*-C-*-  Note some compilers choke on comments on `#line' lines.  */
-#line 3 "/usr/local/gnu/share/bison.simple"
+#line 3 "/usr/lib/bison.simple"
+/* This file comes from bison-1.27.  */
 
 /* Skeleton output parser for bison,
    Copyright (C) 1984, 1989, 1990 Free Software Foundation, Inc.
@@ -1785,46 +1772,66 @@ static const short yycheck[] = {    56,
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+   Foundation, Inc., 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
 
 /* As a special exception, when this file is copied by Bison into a
    Bison output file, you may use that output file without restriction.
    This special exception was added by the Free Software Foundation
    in version 1.24 of Bison.  */
 
-#ifndef alloca
-#ifdef __GNUC__
-#define alloca __builtin_alloca
-#else /* not GNU C.  */
-#if (!defined (__STDC__) && defined (sparc)) || defined (__sparc__) || defined (__sparc) || defined (__sgi)
-#include <alloca.h>
-#else /* not sparc */
-#if defined (MSDOS) && !defined (__TURBOC__)
-#include <malloc.h>
-#else /* not MSDOS, or __TURBOC__ */
-#if defined(_AIX)
-#include <malloc.h>
- #pragma alloca
-#else /* not MSDOS, __TURBOC__, or _AIX */
-#ifdef __hpux
-#ifdef __cplusplus
-extern "C" {
-void *alloca (unsigned int);
-};
-#else /* not __cplusplus */
-void *alloca ();
-#endif /* not __cplusplus */
-#endif /* __hpux */
-#endif /* not _AIX */
-#endif /* not MSDOS, or __TURBOC__ */
-#endif /* not sparc.  */
-#endif /* not GNU C.  */
-#endif /* alloca not defined.  */
-
 /* This is the parser code that is written into each bison parser
   when the %semantic_parser declaration is not specified in the grammar.
   It was written by Richard Stallman by simplifying the hairy parser
   used when %semantic_parser is specified.  */
+
+#ifndef YYSTACK_USE_ALLOCA
+#ifdef alloca
+#define YYSTACK_USE_ALLOCA
+#else /* alloca not defined */
+#ifdef __GNUC__
+#define YYSTACK_USE_ALLOCA
+#define alloca __builtin_alloca
+#else /* not GNU C.  */
+#if (!defined (__STDC__) && defined (sparc)) || defined (__sparc__) || defined (__sparc) || defined (__sgi) || (defined (__sun) && defined (__i386))
+#define YYSTACK_USE_ALLOCA
+#include <alloca.h>
+#else /* not sparc */
+/* We think this test detects Watcom and Microsoft C.  */
+/* This used to test MSDOS, but that is a bad idea
+   since that symbol is in the user namespace.  */
+#if (defined (_MSDOS) || defined (_MSDOS_)) && !defined (__TURBOC__)
+#if 0 /* No need for malloc.h, which pollutes the namespace;
+	 instead, just don't use alloca.  */
+#include <malloc.h>
+#endif
+#else /* not MSDOS, or __TURBOC__ */
+#if defined(_AIX)
+/* I don't know what this was needed for, but it pollutes the namespace.
+   So I turned it off.   rms, 2 May 1997.  */
+/* #include <malloc.h>  */
+ #pragma alloca
+#define YYSTACK_USE_ALLOCA
+#else /* not MSDOS, or __TURBOC__, or _AIX */
+#if 0
+#ifdef __hpux /* haible@ilog.fr says this works for HPUX 9.05 and up,
+		 and on HPUX 10.  Eventually we can turn this on.  */
+#define YYSTACK_USE_ALLOCA
+#define alloca __builtin_alloca
+#endif /* __hpux */
+#endif
+#endif /* not _AIX */
+#endif /* not MSDOS, or __TURBOC__ */
+#endif /* not sparc */
+#endif /* not GNU C */
+#endif /* alloca not defined */
+#endif /* YYSTACK_USE_ALLOCA not defined */
+
+#ifdef YYSTACK_USE_ALLOCA
+#define YYSTACK_ALLOC alloca
+#else
+#define YYSTACK_ALLOC malloc
+#endif
 
 /* Note: there must be only one dollar sign in this file.
    It is replaced by the list of actions, each action
@@ -1834,8 +1841,8 @@ void *alloca ();
 #define yyclearin	(yychar = YYEMPTY)
 #define YYEMPTY		-2
 #define YYEOF		0
-#define YYACCEPT	return(0)
-#define YYABORT 	return(1)
+#define YYACCEPT	goto yyacceptlab
+#define YYABORT 	goto yyabortlab
 #define YYERROR		goto yyerrlab1
 /* Like YYERROR except do call yyerror.
    This remains here temporarily to ease the
@@ -1916,24 +1923,24 @@ int yydebug;			/*  nonzero means print parse trace	*/
 #ifndef YYMAXDEPTH
 #define YYMAXDEPTH 10000
 #endif
-
-/* Prevent warning if -Wstrict-prototypes.  */
-#ifdef __GNUC__
-int yyparse (void);
-#endif
 
+/* Define __yy_memcpy.  Note that the size argument
+   should be passed with type unsigned int, because that is what the non-GCC
+   definitions require.  With GCC, __builtin_memcpy takes an arg
+   of type size_t, but it can handle unsigned int.  */
+
 #if __GNUC__ > 1		/* GNU C and GNU C++ define this.  */
-#define __yy_memcpy(FROM,TO,COUNT)	__builtin_memcpy(TO,FROM,COUNT)
+#define __yy_memcpy(TO,FROM,COUNT)	__builtin_memcpy(TO,FROM,COUNT)
 #else				/* not GNU C or C++ */
 #ifndef __cplusplus
 
 /* This is the most reliable way to avoid incompatibilities
    in available built-in functions on various systems.  */
 static void
-__yy_memcpy (from, to, count)
-     char *from;
+__yy_memcpy (to, from, count)
      char *to;
-     int count;
+     char *from;
+     unsigned int count;
 {
   register char *f = from;
   register char *t = to;
@@ -1948,10 +1955,10 @@ __yy_memcpy (from, to, count)
 /* This is the most reliable way to avoid incompatibilities
    in available built-in functions on various systems.  */
 static void
-__yy_memcpy (char *from, char *to, int count)
+__yy_memcpy (char *to, char *from, unsigned int count)
 {
-  register char *f = from;
   register char *t = to;
+  register char *f = from;
   register int i = count;
 
   while (i-- > 0)
@@ -1961,7 +1968,7 @@ __yy_memcpy (char *from, char *to, int count)
 #endif
 #endif
 
-#line 192 "/usr/local/gnu/share/bison.simple"
+#line 216 "/usr/lib/bison.simple"
 
 /* The user can define YYPARSE_PARAM as the name of an argument to be passed
    into yyparse.  The argument should have type void *.
@@ -1970,14 +1977,29 @@ __yy_memcpy (char *from, char *to, int count)
    to the proper pointer type.  */
 
 #ifdef YYPARSE_PARAM
-#define YYPARSE_PARAM_DECL void *YYPARSE_PARAM;
-#else
-#define YYPARSE_PARAM
+#ifdef __cplusplus
+#define YYPARSE_PARAM_ARG void *YYPARSE_PARAM
 #define YYPARSE_PARAM_DECL
+#else /* not __cplusplus */
+#define YYPARSE_PARAM_ARG YYPARSE_PARAM
+#define YYPARSE_PARAM_DECL void *YYPARSE_PARAM;
+#endif /* not __cplusplus */
+#else /* not YYPARSE_PARAM */
+#define YYPARSE_PARAM_ARG
+#define YYPARSE_PARAM_DECL
+#endif /* not YYPARSE_PARAM */
+
+/* Prevent warning if -Wstrict-prototypes.  */
+#ifdef __GNUC__
+#ifdef YYPARSE_PARAM
+int yyparse (void *);
+#else
+int yyparse (void);
+#endif
 #endif
 
 int
-yyparse(YYPARSE_PARAM)
+yyparse(YYPARSE_PARAM_ARG)
      YYPARSE_PARAM_DECL
 {
   register int yystate;
@@ -2004,6 +2026,7 @@ yyparse(YYPARSE_PARAM)
 #endif
 
   int yystacksize = YYINITDEPTH;
+  int yyfree_stacks = 0;
 
 #ifdef YYPURE
   int yychar;
@@ -2088,18 +2111,32 @@ yynewstate:
       if (yystacksize >= YYMAXDEPTH)
 	{
 	  yyerror("parser stack overflow");
+	  if (yyfree_stacks)
+	    {
+	      free (yyss);
+	      free (yyvs);
+#ifdef YYLSP_NEEDED
+	      free (yyls);
+#endif
+	    }
 	  return 2;
 	}
       yystacksize *= 2;
       if (yystacksize > YYMAXDEPTH)
 	yystacksize = YYMAXDEPTH;
-      yyss = (short *) alloca (yystacksize * sizeof (*yyssp));
-      __yy_memcpy ((char *)yyss1, (char *)yyss, size * sizeof (*yyssp));
-      yyvs = (YYSTYPE *) alloca (yystacksize * sizeof (*yyvsp));
-      __yy_memcpy ((char *)yyvs1, (char *)yyvs, size * sizeof (*yyvsp));
+#ifndef YYSTACK_USE_ALLOCA
+      yyfree_stacks = 1;
+#endif
+      yyss = (short *) YYSTACK_ALLOC (yystacksize * sizeof (*yyssp));
+      __yy_memcpy ((char *)yyss, (char *)yyss1,
+		   size * (unsigned int) sizeof (*yyssp));
+      yyvs = (YYSTYPE *) YYSTACK_ALLOC (yystacksize * sizeof (*yyvsp));
+      __yy_memcpy ((char *)yyvs, (char *)yyvs1,
+		   size * (unsigned int) sizeof (*yyvsp));
 #ifdef YYLSP_NEEDED
-      yyls = (YYLTYPE *) alloca (yystacksize * sizeof (*yylsp));
-      __yy_memcpy ((char *)yyls1, (char *)yyls, size * sizeof (*yylsp));
+      yyls = (YYLTYPE *) YYSTACK_ALLOC (yystacksize * sizeof (*yylsp));
+      __yy_memcpy ((char *)yyls, (char *)yyls1,
+		   size * (unsigned int) sizeof (*yylsp));
 #endif
 #endif /* no yyoverflow */
 
@@ -2552,7 +2589,7 @@ case 65:
 		  else
 		    name = "";
 		  yyval.ttype = result;
-		  if (TREE_CODE (type) == ARRAY_TYPE && TYPE_SIZE (type) == 0)
+		  if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
 		    {
 		      int failure = complete_array_type (type, yyval.ttype, 1);
 		      if (failure)
@@ -5054,7 +5091,7 @@ case 570:
     break;}
 }
    /* the action file gets copied in in place of this dollarsign */
-#line 487 "/usr/local/gnu/share/bison.simple"
+#line 542 "/usr/lib/bison.simple"
 
   yyvsp -= yylen;
   yyssp -= yylen;
@@ -5249,6 +5286,30 @@ yyerrhandle:
 
   yystate = yyn;
   goto yynewstate;
+
+ yyacceptlab:
+  /* YYACCEPT comes here.  */
+  if (yyfree_stacks)
+    {
+      free (yyss);
+      free (yyvs);
+#ifdef YYLSP_NEEDED
+      free (yyls);
+#endif
+    }
+  return 0;
+
+ yyabortlab:
+  /* YYABORT comes here.  */
+  if (yyfree_stacks)
+    {
+      free (yyss);
+      free (yyvs);
+#ifdef YYLSP_NEEDED
+      free (yyls);
+#endif
+    }
+  return 1;
 }
 #line 2993 "objc-parse.y"
 

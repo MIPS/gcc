@@ -1,3 +1,11 @@
+2000-04-03  Richard Earnshaw (rearnsha@arm.com)
+
+	Merge Change from trunk:
+	Thu Mar 30 13:30:40 2000  Jeffrey A Law  (law@cygnus.com)
+	* c-parse.in (cast_expr): Move change from March 21 into c-parse.in
+	since it is used to generate c-parse.y.
+	* objc-parse.c, objc-parse.y: Regenerated.
+
 2000-04-03  Philip Blundell  <philb@gnu.org>
 
 	* config/arm/linux-elf.h (SUBTARGET_EXTRA_LINK_SPEC): Fix typos.
