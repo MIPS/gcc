@@ -1966,6 +1966,9 @@ gfc_match_rvalue (gfc_expr ** result)
 	  break;
 	}
 
+      if (sym->result == NULL)
+	sym->result = sym;
+
       m = MATCH_YES;
       break;
 

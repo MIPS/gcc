@@ -1601,7 +1601,8 @@ gfc_conv_string_parameter (gfc_se * se)
   if (TYPE_STRING_FLAG (type))
     {
       assert (TREE_CODE (se->expr) == VAR_DECL
-	      || TREE_CODE (se->expr) == COMPONENT_REF);
+	      || TREE_CODE (se->expr) == COMPONENT_REF
+	      || TREE_CODE (se->expr) == PARM_DECL);
       TREE_ADDRESSABLE (se->expr) = 1;
       se->expr = build1 (ADDR_EXPR, build_pointer_type (type), se->expr);
       se->expr = fold (convert (pchar_type_node, se->expr));

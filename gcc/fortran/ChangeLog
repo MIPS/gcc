@@ -1,5 +1,10 @@
 2003-09-14  Paul Brook  <paul@nowt.org>
 
+	* primary.c (gfc_match_rvalue): Make sure sym->result is set.
+	* trans-expr.c (gfc_conv_string_parameter): Also allow PRAM_DECLs.
+
+2003-09-14  Paul Brook  <paul@nowt.org>
+
 	* check.c (dim_rank_check): Allow assumed bounds if requested.
 	(gfc_check_lbound): Call it.
 	(gfc_check_ubound): Ditto.
