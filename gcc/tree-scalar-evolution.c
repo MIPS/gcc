@@ -293,8 +293,9 @@ tree chrec_top;
 tree chrec_bot;
 
 static struct loops *current_loops;
-static varray_type scalar_evolution_info;
 static varray_type already_instantiated;
+
+static htab_t scalar_evolution_info;
 
 /* Flag to indicate availability of dependency info.  */
 static bool dd_info_available;
@@ -307,11 +308,38 @@ new_scev_info_str (tree var)
 {
   struct scev_info_str *res;
   
-  res = ggc_alloc (sizeof (struct scev_info_str));
+  res = xmalloc (sizeof (struct scev_info_str));
   res->var = var;
   res->chrec = chrec_not_analyzed_yet;
   
   return res;
+}
+
+/* Computes a hash function for database element ELT.  */
+
+static hashval_t
+hash_scev_info (const void *elt)
+{
+  return SSA_NAME_VERSION (((struct scev_info_str *) elt)->var);
+}
+
+/* Compares database elements E1 and E2.  */
+
+static int
+eq_scev_info (const void *e1, const void *e2)
+{
+  const struct scev_info_str *elt1 = e1;
+  const struct scev_info_str *elt2 = e2;
+
+  return elt1->var == elt2->var;
+}
+
+/* Deletes database element E.  */
+
+static void
+del_scev_info (void *e)
+{
+  free (e);
 }
 
 /* Get the index corresponding to VAR in the current LOOP.  If
@@ -321,20 +349,17 @@ new_scev_info_str (tree var)
 static tree *
 find_var_scev_info (tree var)
 {
-  unsigned int i;
   struct scev_info_str *res;
-  
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (scalar_evolution_info); i++)
-    {
-      res = VARRAY_GENERIC_PTR (scalar_evolution_info, i);
-      if (res->var == var)
-	return &res->chrec;
-    }
-  
-  /* The variable is not in the table, create a new entry for it.  */
-  res = new_scev_info_str (var);
-  VARRAY_PUSH_GENERIC_PTR (scalar_evolution_info, res);
-  
+  struct scev_info_str tmp;
+  PTR *slot;
+
+  tmp.var = var;
+  slot = htab_find_slot (scalar_evolution_info, &tmp, INSERT);
+
+  if (!*slot)
+    *slot = new_scev_info_str (var);
+  res = *slot;
+
   return &res->chrec;
 }
 
@@ -575,7 +600,12 @@ chrec_is_positive (tree chrec, bool *value)
 static void
 set_scalar_evolution (tree scalar, tree chrec)
 {
-  tree *scalar_info = find_var_scev_info (scalar);
+  tree *scalar_info;
+ 
+  if (TREE_CODE (scalar) != SSA_NAME)
+    return;
+
+  scalar_info = find_var_scev_info (scalar);
   
   if (dump_file)
     {
@@ -3203,7 +3233,7 @@ dump_chrecs_stats (FILE *file, struct chrec_stats *stats)
 	   stats->nb_undetermined);
   fprintf (file, "-----------------------------------------\n");
   fprintf (file, "%d\tchrecs in the scev database\n", 
-	   (int) VARRAY_ACTIVE_SIZE (scalar_evolution_info));
+	   (int) htab_elements (scalar_evolution_info));
   fprintf (file, "%d\tsets in the scev database\n", nb_set_scev);
   fprintf (file, "%d\tgets in the scev database\n", nb_get_scev);
   fprintf (file, "-----------------------------------------\n");
@@ -3339,26 +3369,34 @@ analyze_scalar_evolution_for_all_loop_phi_nodes (varray_type exit_conditions)
     dump_chrecs_stats (dump_file, &stats);
 }
 
+/* Callback for htab_traverse, gathers information on chrecs in the
+   hashtable.  */
+
+static int
+gather_stats_on_scev_database_1 (void **slot, void *stats)
+{
+  struct scev_info_str *entry = *slot;
+
+  gather_chrec_stats (entry->chrec, stats);
+
+  return 1;
+}
+
 /* Classify the chrecs of the whole database.  */
 
 void 
 gather_stats_on_scev_database (void)
 {
-  unsigned i;
   struct chrec_stats stats;
   
   if (!dump_file)
     return;
   
   reset_chrecs_counters (&stats);
-  
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (scalar_evolution_info); i++)
-    {
-      struct scev_info_str *elt = 
-	VARRAY_GENERIC_PTR (scalar_evolution_info, i);
-      gather_chrec_stats (elt->chrec, &stats);
-    }
-  
+ 
+  htab_traverse (scalar_evolution_info, gather_stats_on_scev_database_1,
+		 &stats);
+
   dump_chrecs_stats (dump_file, &stats);
 }
 
@@ -3399,8 +3437,8 @@ scev_initialize (struct loops *loops)
   unsigned i;
   current_loops = loops;
 
-  VARRAY_GENERIC_PTR_INIT (scalar_evolution_info, 100, 
-			   "scalar_evolution_info");
+  scalar_evolution_info = htab_create (100, hash_scev_info,
+				       eq_scev_info, del_scev_info);
   VARRAY_TREE_INIT (already_instantiated, 3, 
 		    "already_instantiated");
   
@@ -3464,7 +3502,7 @@ scev_elim_checks (void)
 static void
 scev_linear_transform (void)
 {
-  linear_transform_loops (current_loops, scalar_evolution_info);
+  linear_transform_loops (current_loops);
 }
 
 /* Runs the canonical iv creation pass.  */
@@ -3482,7 +3520,7 @@ scev_vectorize (void)
 {
   bitmap_clear (vars_to_rename);
 
-  vectorize_loops (current_loops, scalar_evolution_info);
+  vectorize_loops (current_loops);
 }
 
 /* Finalize the scalar evolution analysis.  */
@@ -3490,7 +3528,7 @@ scev_vectorize (void)
 void
 scev_finalize (void)
 {
-  scalar_evolution_info = NULL;
+  htab_delete (scalar_evolution_info);
   already_instantiated = NULL;
   current_loops = NULL;
 }

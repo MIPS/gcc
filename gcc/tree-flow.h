@@ -621,7 +621,7 @@ struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
 				    basic_block *);
 void update_lv_condition (basic_block *, tree);
 bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
-void linear_transform_loops (struct loops *, varray_type);
+void linear_transform_loops (struct loops *);
 void loop_commit_inserts (void);
 void tree_ssa_unswitch_loops (struct loops *loops);
 unsigned estimate_loop_size (struct loop *loop);

@@ -1,3 +1,22 @@
+2004-04-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-flow.h (linear_transform_loops): Prototype changed.
+	* tree-vectorizer.h (vectorize_loops): Ditto.
+	* tree-loop-linear.c (linear_transform_loops): Remove unused
+	argument.
+	* tree-vectorizer.c (vectorize_loops): Ditto.
+	* tree-scalar-evolution.c (scalar_evolution_info): Type changed
+	to hash table.
+	(new_scev_info_str): Use xmalloc instead of ggc_alloc.
+	(hash_scev_info, eq_scev_info, del_scev_info,
+	gather_stats_on_scev_database_1): New functions.
+	(find_var_scev_info, dump_chrecs_stats, gather_stats_on_scev_database,
+	scev_initialize, scev_finalize): Work with hash table instead of a
+	list.
+	(scev_elim_checks, scev_vectorize): Do not pass unused arguments to
+	functions.
+
+
 2004-04-21  Sebastian Pop  <sebastian.pop@ensmp.fr>
 
 	* tree-chrec.c (chrec_apply): Fail on chrec_top when the chrec 

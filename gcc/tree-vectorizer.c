@@ -3334,8 +3334,7 @@ need_imm_uses_for (tree var)
    Entry Point to loop vectorization phase.  */
 
 void
-vectorize_loops (struct loops *loops,
-		 varray_type ev_info ATTRIBUTE_UNUSED)
+vectorize_loops (struct loops *loops)
 {
   unsigned int i;
   unsigned int num_vectorized_loops = 0;

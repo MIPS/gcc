@@ -63,8 +63,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Perform a set of linear transforms on LOOPS.  */
 
 void
-linear_transform_loops (struct loops *loops, 
-			varray_type ev_info ATTRIBUTE_UNUSED)		   
+linear_transform_loops (struct loops *loops)
 {
   unsigned int i;  
   for (i = 1; i < loops->num; i++)
