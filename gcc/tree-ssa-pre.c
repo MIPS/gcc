@@ -248,6 +248,10 @@ static bool split_critical_edges (void);
 static void collect_expressions (basic_block, varray_type *);
 static int build_dfn_array (basic_block, int);
 static int eref_compare (const void *, const void *);
+static inline bool fast_a_dominates_b (basic_block, basic_block);
+static void build_dfs_id_array_1 (basic_block, int *);
+static void build_dfs_id_array (void);
+
 
 /* Bitmap of E-PHI predecessor operands have already been created. 
    We only create one phi-pred per block.  */
@@ -834,7 +838,43 @@ ephi_at_block (basic_block bb)
     return NULL_TREE;
 }
 
+static int *dfs_id;
+static int *dfs_id_last;
 
+/* Depth first ID calculation.
+   In order to not have to deal with the et-forest, which can be slow,
+   we calculate two arrays that can quickly tell us whether one block
+   dominates another.  One array tracks the dfs_id of each block.
+   The other array tracks the last dfs_id of the dominator children of
+   the block.  */
+
+static void
+build_dfs_id_array_1 (basic_block bb, int *id)
+{
+  int i;
+  if (bb->index > 0)
+    dfs_id[bb->index] = *id;
+  
+  ++(*id);
+  if (dom_children (bb))
+    EXECUTE_IF_SET_IN_BITMAP(dom_children (bb), 0, i,
+    {
+      build_dfs_id_array_1 (BASIC_BLOCK (i), id);
+    });
+  if (bb->index > 0)
+    dfs_id_last[bb->index] = *id - 1;
+  
+}
+static void
+build_dfs_id_array (void)
+{
+  int id = 0;
+  dfs_id = xcalloc (last_basic_block + 1, sizeof (int));
+  dfs_id_last = xcalloc (last_basic_block + 1, sizeof (int));
+  build_dfs_id_array_1 (ENTRY_BLOCK_PTR, &id);
+}
+
+			       
 static int *dfn;
 
 /* Build a depth first numbering array to be used in sorting in
@@ -919,10 +959,11 @@ insert_occ_in_preorder_dt_order (struct expr_info *ei)
   
   FOR_EACH_BB (block)
   {
+    tree ephi = ephi_at_block (block);
     /* The ordering for a given BB is EPHI's, real/left/kill
        occurrences, phi preds, exit occurrences.   */
-    if (ephi_at_block (block) != NULL_TREE)
-      VARRAY_PUSH_TREE (ei->euses_dt_order, ephi_at_block (block));
+    if (ephi != NULL_TREE)
+      VARRAY_PUSH_TREE (ei->euses_dt_order, ephi);
   }
   
 
@@ -982,11 +1023,11 @@ insert_occ_in_preorder_dt_order (struct expr_info *ei)
       {
 	if (succ->dest != EXIT_BLOCK_PTR)
 	  {
-	    if (ephi_at_block (succ->dest) != NULL 
+	    tree ephi = ephi_at_block (succ->dest);
+	    if (ephi != NULL 
 		&& !bitmap_bit_p (created_phi_preds, block->index))
 	      {
 		tree newref = create_expr_ref (ei, 0, EUSE_NODE, block, NULL);
-		tree ephi = ephi_at_block (succ->dest);
 		curr_phi_pred = newref;
 		VARRAY_PUSH_TREE (ei->euses_dt_order, newref);
 		append_eref_to_block (newref, block);
@@ -1000,13 +1041,13 @@ insert_occ_in_preorder_dt_order (struct expr_info *ei)
 		bitmap_set_bit (created_phi_preds, block->index);
 		add_ephi_pred (ephi, newref, succ); 
 	      }
-	    else if (ephi_at_block (succ->dest) != NULL)
+	    else if (ephi != NULL)
 	      {
 #ifdef ENABLE_CHECKING
 		if (curr_phi_pred == NULL_TREE)
 		  abort();
 #endif
-		add_ephi_pred (ephi_at_block (succ->dest), curr_phi_pred, succ);
+		add_ephi_pred (ephi, curr_phi_pred, succ);
 	      }
 	  }	
 	else if (succ->dest == EXIT_BLOCK_PTR && !(succ->flags & EDGE_FAKE))
@@ -1334,7 +1375,7 @@ bool load_modified_phi_result (basic_block bb, tree cr)
   basic_block defbb = bb_for_stmt (SSA_NAME_DEF_STMT (cr));
   if (defbb != bb)
     {
-      if (dominated_by_p (pre_idom, bb, defbb))
+      if (fast_a_dominates_b (defbb, bb))
 	return false;
     }
   else
@@ -1352,6 +1393,7 @@ bool same_e_version_phi_result (struct expr_info *ei, tree def, tree cr,
   bool not_mod = true;
   size_t i;
   varray_type cruses = use_ops (stmt_ann (cr));
+
   if (!cruses)
     return false;
   
@@ -1483,6 +1525,19 @@ process_delayed_rename (struct expr_info *ei, tree use, tree real_occ)
     }
 }
 
+/* Return whether BB A dominates BB B without using the slow
+   et-forest all the time.  */
+
+static inline bool 
+fast_a_dominates_b (basic_block bb1, basic_block bb2)
+{
+  if (!bb1 || !bb2 || bb1->index < 0 || bb2->index < 0)
+    return dominated_by_p (pre_idom, bb1, bb2);
+  
+  return (dfs_id[bb2->index] >= dfs_id[bb1->index])
+    && (dfs_id[bb2->index] <= dfs_id_last[bb1->index]);
+}
+
 /* Renaming is done like Open64 does it.  Basically as the paper says, 
    except that we try to use earlier defined occurrences if they are
    available in order to keep the number of saves down.  */
@@ -1498,14 +1553,16 @@ rename_1 (struct expr_info *ei)
   VARRAY_TREE_INIT (stack, 1, "Stack for renaming");
 
   insert_occ_in_preorder_dt_order (ei);
+  build_dfs_id_array ();
+  
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
     {
       occur = VARRAY_TREE (ei->euses_dt_order, i);
       
-      while (VARRAY_ACTIVE_SIZE (stack) > 0
-	     && !dominated_by_p (pre_idom, 
-				 bb_for_stmt (occur), 
-				 bb_for_stmt (VARRAY_TOP_TREE (stack))))
+      while (VARRAY_ACTIVE_SIZE (stack) > 0	     
+	     && !fast_a_dominates_b (bb_for_stmt (VARRAY_TOP_TREE (stack)),
+				     bb_for_stmt (occur)))
+	
 	VARRAY_POP (stack);
       if (VARRAY_TOP_TREE (stack) == NULL || VARRAY_ACTIVE_SIZE (stack) == 0)
 	{
@@ -1563,9 +1620,9 @@ rename_1 (struct expr_info *ei)
 	      tree tos = VARRAY_TOP_TREE (stack);
 	      for (e = pred_bb->succ; e; e = e->succ_next)
 		{
-		  if (ephi_at_block (e->dest) != NULL_TREE)
+		  tree ephi = ephi_at_block (e->dest);
+		  if (ephi != NULL_TREE)
 		    {
-		      tree ephi = ephi_at_block (e->dest);
 		      int opnum = opnum_of_ephi (ephi, e);
 
 		      EPHI_ARG_DELAYED_RENAME (ephi, opnum) = true;
@@ -1596,25 +1653,24 @@ rename_1 (struct expr_info *ei)
     }
   FOR_EACH_BB (phi_bb)
   {
-    if (ephi_at_block (phi_bb) != NULL
-	&& EREF_STMT (ephi_at_block (phi_bb)) != NULL)
-      process_delayed_rename (ei, ephi_at_block (phi_bb),
-			      EREF_STMT (ephi_at_block (phi_bb)));
+    tree ephi = ephi_at_block (phi_bb);
+    if (ephi != NULL && EREF_STMT (ephi) != NULL)
+      process_delayed_rename (ei, ephi, EREF_STMT (ephi));
   }
   FOR_EACH_BB (phi_bb)
   {
-    if (ephi_at_block (phi_bb) != NULL)
+    tree ephi = ephi_at_block (phi_bb);
+    if (ephi != NULL)
       {
-	tree exp_phi = ephi_at_block (phi_bb);
 	int j;
-	for (j = 0; j < EPHI_NUM_ARGS (exp_phi); j++)
+	for (j = 0; j < EPHI_NUM_ARGS (ephi); j++)
 	  {
-	    if (EPHI_ARG_DELAYED_RENAME (exp_phi, j))
+	    if (EPHI_ARG_DELAYED_RENAME (ephi, j))
 	      {
-		tree def = EPHI_ARG_DEF (exp_phi, j);
+		tree def = EPHI_ARG_DEF (ephi, j);
 		if (def && TREE_CODE (def) == EPHI_NODE)
 		  EPHI_DOWNSAFE (def) = false;
-		EPHI_ARG_DEF (exp_phi, j) = NULL;
+		EPHI_ARG_DEF (ephi, j) = NULL;
 	      }
 	  }
       }
@@ -3004,9 +3060,10 @@ pre_expression (struct expr_info *slot, void *data, sbitmap vars_to_rename)
       fprintf (dump_file, " after down safety and will_be_avail computation\n");
       FOR_EACH_BB (bb)
       {
-	if (ephi_at_block (bb) != NULL)
+	tree ephi = ephi_at_block (bb);
+	if (ephi != NULL)
 	  {
-	    print_generic_expr (dump_file, ephi_at_block (bb), 1);
+	    print_generic_expr (dump_file, ephi, 1);
 	    fprintf (dump_file, "\n");
 	  }
       }
@@ -3021,6 +3078,8 @@ pre_expression (struct expr_info *slot, void *data, sbitmap vars_to_rename)
     }
   
  cleanup:
+  free (dfs_id);
+  free (dfs_id_last);
   free (phi_pred_cache);
   if (ephi_pindex_htab)
     {
@@ -3035,6 +3094,8 @@ pre_expression (struct expr_info *slot, void *data, sbitmap vars_to_rename)
 
   return 0;
 }
+
+/* Split all critical edges.  */
 
 static bool
 split_critical_edges (void)
@@ -3087,7 +3148,7 @@ collect_expressions (basic_block block, varray_type *bexprsp)
       
       if (use_ops (ann) == NULL)
 	{
-	  process_left_occs_and_kills (bexprs, bsi_stmt (j));
+	  process_left_occs_and_kills (bexprs, expr);
 	  continue;
 	}
       
@@ -3126,7 +3187,7 @@ collect_expressions (basic_block block, varray_type *bexprsp)
 		slot = NULL;
 	      if (slot)
 		{
-		  VARRAY_PUSH_TREE (slot->occurs, bsi_stmt (j));
+		  VARRAY_PUSH_TREE (slot->occurs, orig_expr);
 		  VARRAY_PUSH_TREE (slot->kills, NULL);
 		  VARRAY_PUSH_TREE (slot->lefts, NULL);
 		  VARRAY_PUSH_TREE (slot->reals, stmt);
@@ -3142,7 +3203,7 @@ collect_expressions (basic_block block, varray_type *bexprsp)
 		  VARRAY_TREE_INIT (slot->reals, 1, "Real occurrences");
 		  VARRAY_TREE_INIT (slot->euses_dt_order, 1, "EUSEs");
 		  
-		  VARRAY_PUSH_TREE (slot->occurs, bsi_stmt (j));
+		  VARRAY_PUSH_TREE (slot->occurs, orig_expr);
 		  VARRAY_PUSH_TREE (slot->kills, NULL);
 		  VARRAY_PUSH_TREE (slot->lefts, NULL);
 		  VARRAY_PUSH_TREE (slot->reals, stmt);
@@ -3155,7 +3216,7 @@ collect_expressions (basic_block block, varray_type *bexprsp)
 		}
 	    }
 	}
-      process_left_occs_and_kills (bexprs, bsi_stmt (j));  
+      process_left_occs_and_kills (bexprs, orig_expr);
     }
   *bexprsp = bexprs;
   if (dom_children (block))
@@ -3179,6 +3240,8 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   size_t k;
   int i;
   sbitmap vars_to_rename;
+  
+  
   split_critical_edges ();  
   timevar_push (TV_TREE_PRE);
   dump_file = dump_begin (phase, &dump_flags);

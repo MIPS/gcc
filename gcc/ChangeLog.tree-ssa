@@ -1,4 +1,19 @@
 2003-11-06  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (fast_a_dominates_b): New function.
+	(build_dfs_id_array_1): Ditto.
+	(build_dfs_id_array): Ditto.
+	(load_modified_phi_result): Use fast_a_dominates_b.
+	(rename_1): Ditto.
+	Also use build_dfs_id_array, and remove some duplicate ephi_at_block
+	calls.
+	(insert_occ_in_preorder_dt_order): Remove some duplicate ephi_at_block
+	calls.
+	(pre_expression): Ditto. 
+	Also free dfs_id arrays here.
+	(collect_expressions): Remove duplicate bsi_stmt calls.
+
+2003-11-06  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* tree-ssa-pre.c (count_stmts_in_bb): Removed.
 	(set_var_phis): Only call bb_for_stmt once.
