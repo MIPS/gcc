@@ -6260,17 +6260,8 @@ java_check_regular_methods (tree class_decl)
       if (check_method_redefinition (class, method))
 	continue;
 
-      /* If we see one constructor a mark so we don't generate the
-	 default one. Also skip other verifications: constructors
-	 can't be inherited hence hiden or overriden */
-     if (DECL_CONSTRUCTOR_P (method))
-       {
-	 saw_constructor = 1;
-	 continue;
-       }
-
-      /* We verify things thrown by the method. They must inherits from
-	 java.lang.Throwable */
+      /* We verify things thrown by the method.  They must inherit from
+	 java.lang.Throwable.  */
       for (mthrows = DECL_FUNCTION_THROWS (method);
 	   mthrows; mthrows = TREE_CHAIN (mthrows))
 	{
@@ -6279,6 +6270,15 @@ java_check_regular_methods (tree class_decl)
 	      (TREE_PURPOSE (mthrows), "Class `%s' in `throws' clause must be a subclass of class `java.lang.Throwable'",
 	       IDENTIFIER_POINTER
 	         (DECL_NAME (TYPE_NAME (TREE_VALUE (mthrows)))));
+	}
+
+      /* If we see one constructor a mark so we don't generate the
+	 default one.  Also skip other verifications: constructors
+	 can't be inherited hence hidden or overridden.  */
+      if (DECL_CONSTRUCTOR_P (method))
+	{
+	  saw_constructor = 1;
+	  continue;
 	}
 
       sig = build_java_argument_signature (TREE_TYPE (method));
@@ -8887,6 +8887,65 @@ java_expand_classes (void)
 	    }
 	}
     }
+
+  /* Expanding the constructors of anonymous classes generates access
+     methods.  Scan all the methods looking for null DECL_RESULTs --
+     this will be the case if a method hasn't been expanded.  */
+  for (cur_ctxp = ctxp_for_generation; cur_ctxp; cur_ctxp = cur_ctxp->next)
+    {
+      tree current;
+      ctxp = cur_ctxp;
+      for (current = ctxp->class_list; current; current = TREE_CHAIN (current))
+	{
+	  tree d;
+	  current_class = TREE_TYPE (current);
+	  for (d = TYPE_METHODS (current_class); d; d = TREE_CHAIN (d))
+	    {
+	      if (DECL_RESULT (d) == NULL_TREE)
+		{
+		  restore_line_number_status (1);
+		  java_complete_expand_method (d);
+		  restore_line_number_status (0);
+		}
+	    }
+	}
+    }
+
+  /* ???  Instead of all this we could iterate around the list of
+     classes until there were no more un-expanded methods.  It would
+     take a little longer -- one pass over the whole list of methods
+     -- but it would be simpler.  Like this:  */
+#if 0
+    {
+      int something_changed;
+    
+      do
+	{
+	  something_changed = 0;
+	  for (cur_ctxp = ctxp_for_generation; cur_ctxp; cur_ctxp = cur_ctxp->next)
+	    {
+	      tree current;
+	      ctxp = cur_ctxp;
+	      for (current = ctxp->class_list; current; current = TREE_CHAIN (current))
+		{
+		  tree d;
+		  current_class = TREE_TYPE (current);
+		  for (d = TYPE_METHODS (current_class); d; d = TREE_CHAIN (d))
+		    {
+		      if (DECL_RESULT (d) == NULL_TREE)
+			{
+			  something_changed = 1;
+			  restore_line_number_status (1);
+			  java_complete_expand_method (d);
+			  restore_line_number_status (0);
+			}
+		    }
+		}
+	    }
+	}
+      while (something_changed);
+    }
+#endif
 
   /* If we've found error at that stage, don't try to generate
      anything, unless we're emitting xrefs or checking the syntax only
@@ -12640,7 +12699,7 @@ patch_assignment (tree node, tree wfl_op1)
     }
 
   /* Copy the rhs if it's a reference.  */
-  if (! flag_check_references && optimize > 0)
+  if (! flag_check_references && ! flag_emit_class_files && optimize > 0)
     {
       switch (TREE_CODE (new_rhs))
 	{

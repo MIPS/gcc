@@ -169,8 +169,8 @@ static void asm_output_bss		PARAMS ((FILE *, tree, const char *, int, int));
 #endif
 #ifdef BSS_SECTION_ASM_OP
 #ifdef ASM_OUTPUT_ALIGNED_BSS
-static void asm_output_aligned_bss	PARAMS ((FILE *, tree, const char *,
-						 int, int));
+static void asm_output_aligned_bss
+  PARAMS ((FILE *, tree, const char *, int, int)) ATTRIBUTE_UNUSED;
 #endif
 #endif /* BSS_SECTION_ASM_OP */
 static hashval_t const_str_htab_hash	PARAMS ((const void *x));
@@ -919,14 +919,6 @@ make_decl_rtl (decl, asmspec)
       SET_DECL_ASSEMBLER_NAME (decl, get_identifier (new_name));
       name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
     }
-
-  /* If this variable is to be treated as volatile, show its
-     tree node has side effects.  */
-  if ((flag_volatile_global && TREE_CODE (decl) == VAR_DECL
-       && TREE_PUBLIC (decl))
-      || ((flag_volatile_static && TREE_CODE (decl) == VAR_DECL
-	   && (TREE_PUBLIC (decl) || TREE_STATIC (decl)))))
-    TREE_SIDE_EFFECTS (decl) = 1;
 
   x = gen_rtx_MEM (DECL_MODE (decl), gen_rtx_SYMBOL_REF (Pmode, name));
   SYMBOL_REF_WEAK (XEXP (x, 0)) = DECL_WEAK (decl);

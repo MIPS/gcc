@@ -1,6 +1,6 @@
 /* Output Dwarf2 format symbol table information from the GNU C compiler.
-   Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
-   Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+   2003 Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -8365,9 +8365,7 @@ mem_loc_descriptor (rtl, mode)
      actually within the array.  That's *not* necessarily the same as the
      zeroth element of the array.  */
 
-#ifdef ASM_SIMPLIFY_DWARF_ADDR
-  rtl = ASM_SIMPLIFY_DWARF_ADDR (rtl);
-#endif
+  rtl = (*targetm.delegitimize_address) (rtl);
 
   switch (GET_CODE (rtl))
     {
@@ -9499,9 +9497,7 @@ rtl_for_decl_location (decl)
 	      || (GET_CODE (rtl) == MEM
 	          && CONSTANT_P (XEXP (rtl, 0)))))
 	{
-#ifdef ASM_SIMPLIFY_DWARF_ADDR
-	  rtl = ASM_SIMPLIFY_DWARF_ADDR (rtl);
-#endif
+	  rtl = (*targetm.delegitimize_address) (rtl);
 	  return rtl;
 	}
       rtl = NULL_RTX;
@@ -9607,10 +9603,8 @@ rtl_for_decl_location (decl)
 	}
     }
 
-#ifdef ASM_SIMPLIFY_DWARF_ADDR
   if (rtl)
-    rtl = ASM_SIMPLIFY_DWARF_ADDR (rtl);
-#endif
+    rtl = (*targetm.delegitimize_address) (rtl);
 
   /* If we don't look past the constant pool, we risk emitting a
      reference to a constant pool entry that isn't referenced from
@@ -11821,6 +11815,21 @@ gen_type_die (type, context_die)
   if (type == NULL_TREE || type == error_mark_node)
     return;
 
+  if (TYPE_NAME (type) && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
+      && DECL_ORIGINAL_TYPE (TYPE_NAME (type)))
+    {
+      if (TREE_ASM_WRITTEN (type))
+	return;
+
+      /* Prevent broken recursion; we can't hand off to the same type.  */
+      if (DECL_ORIGINAL_TYPE (TYPE_NAME (type)) == type)
+	abort ();
+
+      TREE_ASM_WRITTEN (type) = 1;
+      gen_decl_die (TYPE_NAME (type), context_die);
+      return;
+    }
+
   /* We are going to output a DIE to represent the unqualified version
      of this type (i.e. without any const or volatile qualifiers) so
      get the main variant (i.e. the unqualified version) of this type
@@ -11831,18 +11840,6 @@ gen_type_die (type, context_die)
 
   if (TREE_ASM_WRITTEN (type))
     return;
-
-  if (TYPE_NAME (type) && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
-      && DECL_ORIGINAL_TYPE (TYPE_NAME (type)))
-    {
-      /* Prevent broken recursion; we can't hand off to the same type.  */
-      if (DECL_ORIGINAL_TYPE (TYPE_NAME (type)) == type)
-	abort ();
-
-      TREE_ASM_WRITTEN (type) = 1;
-      gen_decl_die (TYPE_NAME (type), context_die);
-      return;
-    }
 
   switch (TREE_CODE (type))
     {
@@ -12913,6 +12910,16 @@ dwarf2out_finish (input_filename)
   add_name_attribute (comp_unit_die, input_filename);
   if (input_filename[0] != DIR_SEPARATOR)
     add_comp_dir_attribute (comp_unit_die);
+  else if (get_AT (comp_unit_die, DW_AT_comp_dir) == NULL)
+    {
+      size_t i;
+      for (i = 1; i < VARRAY_ACTIVE_SIZE (file_table); i++)
+	if (VARRAY_CHAR_PTR (file_table, i)[0] != DIR_SEPARATOR)
+	  {
+	    add_comp_dir_attribute (comp_unit_die);
+	    break;
+	  }
+    }
 
   /* Traverse the limbo die list, and add parent/child links.  The only
      dies without parents that should be here are concrete instances of

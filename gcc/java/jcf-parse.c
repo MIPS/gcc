@@ -47,7 +47,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include <locale.h>
 #endif
 
-#ifdef HAVE_NL_LANGINFO
+#ifdef HAVE_LANGINFO_CODESET
 #include <langinfo.h>
 #endif
 
@@ -516,6 +516,10 @@ read_class (tree name)
 	    read_zip_member(current_jcf,
 			    current_jcf->zipd, current_jcf->zipd->zipf);
 	  jcf_parse (current_jcf);
+	  /* Parsing might change the class, in which case we have to
+	     put it back where we found it.  */
+	  if (current_class != class && icv != NULL_TREE)
+	    TREE_TYPE (icv) = current_class;
 	  class = current_class;
 	  java_pop_parser_context (0);
 	  java_parser_context_restore_global ();
@@ -798,7 +802,7 @@ parse_source_file_1 (tree file, FILE *finput)
   /* There's no point in trying to find the current encoding unless we
      are going to do something intelligent with it -- hence the test
      for iconv.  */
-#if defined (HAVE_LOCALE_H) && defined (HAVE_ICONV) && defined (HAVE_NL_LANGINFO)
+#if defined (HAVE_LOCALE_H) && defined (HAVE_ICONV) && defined (HAVE_LANGINFO_CODESET)
   setlocale (LC_CTYPE, "");
   if (current_encoding == NULL)
     current_encoding = nl_langinfo (CODESET);

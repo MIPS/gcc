@@ -28,15 +28,12 @@ Boston, MA 02111-1307, USA.  */
 #ifdef RTX_CODE
 extern const char *output_plussi PARAMS ((rtx *));
 extern unsigned int compute_plussi_length PARAMS ((rtx *));
-extern enum attr_cc compute_plussi_cc PARAMS ((rtx *));
+extern int compute_plussi_cc PARAMS ((rtx *));
 extern const char *output_a_shift PARAMS ((rtx *));
 extern unsigned int compute_a_shift_length PARAMS ((rtx, rtx *));
 extern const char *emit_a_rotate PARAMS ((enum rtx_code, rtx *));
 extern const char *output_simode_bld PARAMS ((int, rtx[]));
 extern void print_operand_address PARAMS ((FILE *, rtx));
-extern int const_costs PARAMS ((rtx, enum rtx_code, enum rtx_code));
-extern int h8300_and_costs PARAMS ((rtx));
-extern int h8300_shift_costs PARAMS ((rtx));
 extern void print_operand PARAMS ((FILE *, rtx, int));
 extern void final_prescan_insn PARAMS ((rtx, rtx *, int));
 extern int do_movsi PARAMS ((rtx[]));
@@ -98,6 +95,7 @@ extern void asm_file_start PARAMS ((FILE *));
 extern void asm_file_end PARAMS ((FILE *));
 extern int h8300_initial_elimination_offset PARAMS ((int, int));
 
+struct cpp_reader;
 extern void h8300_pr_interrupt PARAMS ((struct cpp_reader *));
 extern void h8300_pr_saveall PARAMS ((struct cpp_reader *));
 

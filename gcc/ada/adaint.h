@@ -7,7 +7,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2002 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2003 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -30,6 +30,10 @@
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
+
+#if defined(__rtems__)
+#include <stdio.h>
+#endif
 
 #include <dirent.h>
 
@@ -133,6 +137,9 @@ extern int    __gnat_expect_poll		   PARAMS ((int *, int, int,
 extern void    __gnat_set_binary_mode		   PARAMS ((int));
 extern void    __gnat_set_text_mode		   PARAMS ((int));
 extern char   *__gnat_ttyname			   PARAMS ((int));
+
+extern void   convert_addresses			   PARAMS ((char *[], int,
+							    void *, int *));
 
 #ifdef IN_RTS
 /* Portable definition of strdup, which is not available on all systems.  */

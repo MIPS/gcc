@@ -112,9 +112,6 @@ VALGRIND_DRIVER_DEFINES = @valgrind_path_defines@
 GCC_WARN_CFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG) $(WERROR) $($@-warn)
 
 # These files are to have -Werror bypassed in stage2:
-# These contain warnings from the PCH merge.
-gtype-desc.o-warn = -Wno-error
-c-decl.o-warn = -Wno-error
 # These are very hard to completely clean due to target complexities.
 varasm.o-warn = -Wno-error
 gcc.o-warn = -Wno-error
@@ -318,6 +315,7 @@ target_cpu_default=@target_cpu_default@
 GCC_THREAD_FILE=@thread_file@
 OBJC_BOEHM_GC=@objc_boehm_gc@
 GTHREAD_FLAGS=@gthread_flags@
+host_hook_obj=@out_host_hook_obj@
 # Be prepared for gcc2 merges.
 gcc_version=@gcc_version@
 gcc_version_trigger=@gcc_version_trigger@
@@ -789,7 +787,7 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  stor-layout.o stringpool.o timevar.o toplev.o tracer.o tree.o tree-dump.o \
  tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o vpt.o	   \
  alloc-pool.o xcoffout.o et-forest.o web.o var-tracking.o		   \
- $(GGC) $(out_object_file) $(EXTRA_OBJS)
+ $(GGC) $(out_object_file) $(EXTRA_OBJS) $(host_hook_obj)
 
 BACKEND = main.o libbackend.a
 
@@ -816,28 +814,26 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  *.[0-9][0-9].* *.[si] libcpp.a libbackend.a libgcc.mk \
  $(LANG_STAGESTUFF)
 
-# Library members defined in libgcc2.c.
-# Variable length limited to 255 charactes when passed to a shell script.
-LIB2FUNCS_1 = _muldi3 _negdi2 _lshrdi3 _ashldi3 _ashrdi3 _ffsdi2 _clz \
-    _cmpdi2 _ucmpdi2 _floatdidf _floatdisf _fixunsdfsi _fixunssfsi \
-    _fixunsdfdi _fixdfdi _fixunssfdi _fixsfdi _fixxfdi _fixunsxfdi
-
-LIB2FUNCS_2 = _floatdixf _fixunsxfsi _fixtfdi _fixunstfdi _floatditf \
-    _clear_cache _trampoline __main _exit _absvsi2 _absvdi2 _addvsi3 \
-    _addvdi3 _subvsi3 _subvdi3 _mulvsi3 _mulvdi3 _negvsi2 _negvdi2 _ctors
-
 # Defined in libgcc2.c, included only in the static library.
-LIB2FUNCS_ST = _eprintf _gcov __gcc_bcmp
+LIB2FUNCS_ST = _eprintf __gcc_bcmp
+
+# Defined in libgcov.c, included only in gcov library
+LIBGCOV = _gcov
 
 FPBIT_FUNCS = _pack_sf _unpack_sf _addsub_sf _mul_sf _div_sf \
     _fpcmp_parts_sf _compare_sf _eq_sf _ne_sf _gt_sf _ge_sf \
     _lt_sf _le_sf _unord_sf _si_to_sf _sf_to_si _negate_sf _make_sf \
-    _sf_to_df _thenan_sf _sf_to_usi _usi_to_sf
+    _sf_to_df _sf_to_tf _thenan_sf _sf_to_usi _usi_to_sf
 
 DPBIT_FUNCS = _pack_df _unpack_df _addsub_df _mul_df _div_df \
     _fpcmp_parts_df _compare_df _eq_df _ne_df _gt_df _ge_df \
     _lt_df _le_df _unord_df _si_to_df _df_to_si _negate_df _make_df \
-    _df_to_sf _thenan_df _df_to_usi _usi_to_df
+    _df_to_sf _df_to_tf _thenan_df _df_to_usi _usi_to_df
+
+TPBIT_FUNCS = _pack_tf _unpack_tf _addsub_tf _mul_tf _div_tf \
+    _fpcmp_parts_tf _compare_tf _eq_tf _ne_tf _gt_tf _ge_tf \
+    _lt_tf _le_tf _unord_tf _si_to_tf _tf_to_si _negate_tf _make_tf \
+    _tf_to_df _tf_to_sf _thenan_tf _tf_to_usi _usi_to_tf
 
 # These might cause a divide overflow trap and so are compiled with
 # unwinder info.
@@ -1048,9 +1044,8 @@ LIB2ADD_ST = $(LIB2FUNCS_STATIC_EXTRA)
 libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) xgcc$(exeext) specs
 	objext='$(objext)' \
 	LIB1ASMFUNCS='$(LIB1ASMFUNCS)' \
-	LIB2FUNCS_1='$(LIB2FUNCS_1)' \
-	LIB2FUNCS_2='$(LIB2FUNCS_2)' \
 	LIB2FUNCS_ST='$(LIB2FUNCS_ST)' \
+	LIBGCOV='$(LIBGCOV)' \
 	LIB2ADD='$(LIB2ADD)' \
 	LIB2ADD_ST='$(LIB2ADD_ST)' \
 	LIB2ADDEH='$(LIB2ADDEH)' \
@@ -1060,6 +1055,8 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) xgcc$(exeext
 	LIB2_DIVMOD_FUNCS='$(LIB2_DIVMOD_FUNCS)' \
 	DPBIT='$(DPBIT)' \
 	DPBIT_FUNCS='$(DPBIT_FUNCS)' \
+	TPBIT='$(TPBIT)' \
+	TPBIT_FUNCS='$(TPBIT_FUNCS)' \
 	MULTILIBS=`$(GCC_FOR_TARGET) --print-multi-lib` \
 	EXTRA_MULTILIB_PARTS='$(EXTRA_MULTILIB_PARTS)' \
 	SHLIB_LINK='$(SHLIB_LINK)' \
@@ -1077,10 +1074,13 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) xgcc$(exeext
 
 # All the things that might cause us to want to recompile bits of libgcc.
 LIBGCC_DEPS = $(GCC_PASSES) $(LANGUAGES) stmp-int-hdrs $(STMP_FIXPROTO) \
-	libgcc.mk $(srcdir)/libgcc2.c $(TCONFIG_H) \
+	libgcc.mk $(srcdir)/libgcc2.c $(srcdir)/libgcov.c $(TCONFIG_H) \
 	$(MACHMODE_H) longlong.h gbl-ctors.h config.status stmp-int-hdrs \
-	tsystem.h $(FPBIT) $(DPBIT) $(LIB2ADD) $(LIB2ADD_ST) $(LIB2ADDEH) \
-	$(LIB2ADDEHDEP) $(EXTRA_PARTS) $(srcdir)/config/$(LIB1ASMSRC)
+	tsystem.h $(FPBIT) $(DPBIT) $(TPBIT) $(LIB2ADD) \
+	$(LIB2ADD_ST) $(LIB2ADDEH) $(LIB2ADDEHDEP) $(EXTRA_PARTS) \
+	$(srcdir)/config/$(LIB1ASMSRC)
+
+libgcov.a: libgcc.a; @true
 
 libgcc.a: $(LIBGCC_DEPS)
 	$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
@@ -1200,7 +1200,7 @@ c-parse.o : $(parsedir)/c-parse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(
     $(GGC_H) intl.h $(C_TREE_H) input.h flags.h toplev.h output.h $(CPPLIB_H) \
     varray.h gt-c-parse.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
-	       -c $(srcdir)/c-parse.c $(OUTPUT_OPTION)
+	       -c $(parsedir)/c-parse.c $(OUTPUT_OPTION)
 
 $(parsedir)/c-parse.c: $(parsedir)/c-parse.y
 	cd $(parsedir) && \
@@ -1430,12 +1430,15 @@ toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_
    debug.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h \
    dwarf2out.h sdbout.h dbxout.h $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) \
    graph.h $(LOOP_H) except.h $(REGS_H) $(TIMEVAR_H) $(lang_options_files) \
-   ssa.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) vpt.h \
-   langhooks.h insn-flags.h options.h cfglayout.h gcse-globals.h real.h
+   ssa.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) gcse-globals.h \
+   langhooks.h insn-flags.h options.h cfglayout.h real.h cfgloop.h hosthooks.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  -DTARGET_NAME=\"$(target_alias)\" \
 	  -c $(srcdir)/toplev.c $(OUTPUT_OPTION)
 main.o : main.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) toplev.h
+
+host-default.o : host-default.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+	hosthooks.h hosthooks-def.h
 
 rtl-error.o: rtl-error.c $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(INSN_ATTR_H) \
    insn-config.h input.h toplev.h intl.h diagnostic.h $(CONFIG_H)
@@ -1463,7 +1466,7 @@ function.o : function.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(T
 stmt.o : stmt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) flags.h \
    function.h insn-config.h hard-reg-set.h $(EXPR_H) libfuncs.h except.h \
    $(LOOP_H) $(RECOG_H) toplev.h output.h varray.h $(GGC_H) $(TM_P_H) \
-   langhooks.h $(PREDICT_H) gt-stmt.h
+   langhooks.h $(PREDICT_H) gt-stmt.h $(OPTABS_H)
 except.o : except.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    flags.h except.h function.h $(EXPR_H) libfuncs.h integrate.h langhooks.h \
    insn-config.h hard-reg-set.h $(BASIC_BLOCK_H) output.h \
@@ -1500,11 +1503,12 @@ sdbout.o : sdbout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_
    sdbout.h toplev.h $(TM_P_H) except.h debug.h langhooks.h gt-sdbout.h
 dwarfout.o : dwarfout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) dwarf.h flags.h insn-config.h reload.h output.h toplev.h $(TM_P_H) \
-   debug.h langhooks.h
+   debug.h langhooks.h $(TARGET_H)
 dwarf2out.o : dwarf2out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) dwarf2.h debug.h flags.h insn-config.h reload.h output.h diagnostic.h real.h \
    hard-reg-set.h $(REGS_H) $(EXPR_H) libfuncs.h toplev.h dwarf2out.h varray.h \
-   $(GGC_H) except.h dwarf2asm.h $(TM_P_H) langhooks.h $(HASHTAB_H) gt-dwarf2out.h
+   $(GGC_H) except.h dwarf2asm.h $(TM_P_H) langhooks.h $(HASHTAB_H) \
+   gt-dwarf2out.h $(TARGET_H)
 dwarf2asm.o : dwarf2asm.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) flags.h $(RTL_H) \
    $(TREE_H) output.h dwarf2asm.h $(TM_P_H) $(GGC_H) gt-dwarf2asm.h
 vmsdbgout.o : vmsdbgout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
@@ -1526,13 +1530,14 @@ jump.o : jump.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags.h \
 
 simplify-rtx.o : simplify-rtx.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(REGS_H) hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
-   output.h function.h $(GGC_H) $(OBSTACK_H) $(TM_P_H) $(TREE_H)
+   output.h function.h $(GGC_H) $(OBSTACK_H) $(TM_P_H) $(TREE_H) $(TARGET_H)
 cselib.o : cselib.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
    output.h function.h cselib.h $(GGC_H) $(TM_P_H) gt-cselib.h
 cse.o : cse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
-   hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h output.h \
-   function.h $(BASIC_BLOCK_H) $(GGC_H) $(TM_P_H) $(TIMEVAR_H)
+   hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
+   output.h function.h $(BASIC_BLOCK_H) $(GGC_H) $(TM_P_H) $(TIMEVAR_H) \
+   except.h $(TARGET_H)
 gcse.o : gcse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h flags.h real.h insn-config.h ggc.h $(RECOG_H) $(EXPR_H) \
    $(BASIC_BLOCK_H) function.h output.h toplev.h $(TM_P_H) $(PARAMS_H) except.h 
@@ -2770,7 +2775,8 @@ mostlyclean: $(INTL_MOSTLYCLEAN) lang.mostlyclean
 # that don't exist in the distribution.
 INTL_CLEAN = intl.clean
 clean: mostlyclean $(INTL_CLEAN) lang.clean
-	-rm -f libgcc.a libgcc_eh.a libgcc_s$(SHLIB_EXT) libgcc_s$(SHLIB_EXT).1
+	-rm -f libgcc.a libgcc_eh.a libgcov.a
+	-rm -f libgcc_s$(SHLIB_EXT) libgcc_s$(SHLIB_EXT).1
 	-rm -f config.h tconfig.h bconfig.h tm_p.h tm.h
 	-rm -f cs-*
 	-rm -rf libgcc
@@ -3026,7 +3032,7 @@ install-man: installdirs $(GENERATED_MANPAGES) lang.install-man
 	-chmod a-x $(DESTDIR)$(man7dir)/gpl$(man7ext)
 
 # Install the library.
-install-libgcc: libgcc.mk libgcc.a installdirs
+install-libgcc: libgcc.mk libgcc.a libgcov.a installdirs
 	$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 	  BUILD_PREFIX="$(BUILD_PREFIX)" BUILD_PREFIX_1="$(BUILD_PREFIX_1)" \
 	  AR_FOR_TARGET="$(AR_FOR_TARGET)" \
@@ -3046,7 +3052,7 @@ install-libgcc: libgcc.mk libgcc.a installdirs
 	  slibdir="$(slibdir)" \
 	  -f libgcc.mk install
 
-# Install multiple versions of libgcc.a.
+# Install multiple versions of libgcc.a, libgcov.a.
 install-multilib: stmp-multilib installdirs
 	$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 	  BUILD_PREFIX="$(BUILD_PREFIX)" BUILD_PREFIX_1="$(BUILD_PREFIX_1)" \
@@ -3653,9 +3659,11 @@ stage1-start:
 	-if [ -f as$(exeext) ] ; then (cd stage1 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage1/libgcc.a stage1/libgcc_eh.a
+	-rm -f stage1/libgcc.a stage1/libgcc_eh.a stage1/libgcov.a
 	-cp libgcc.a stage1
 	-$(RANLIB_FOR_TARGET) stage1/libgcc.a
+	-cp libgcov.a stage1
+	-$(RANLIB_FOR_TARGET) stage1/libgcov.a
 	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage1; \
 	   $(RANLIB_FOR_TARGET) stage1/libgcc_eh.a; \
 	fi
@@ -3683,9 +3691,11 @@ stage2-start:
 	-if [ -f as$(exeext) ] ; then (cd stage2 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage2/libgcc.a stage2/libgcc_eh.a
+	-rm -f stage2/libgcc.a stage2/libgcov.a stage2/libgcc_eh.a
 	-cp libgcc.a stage2
 	-$(RANLIB_FOR_TARGET) stage2/libgcc.a
+	-cp libgcov.a stage2
+	-$(RANLIB_FOR_TARGET) stage2/libgcov.a
 	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage2; \
 	   $(RANLIB_FOR_TARGET) stage2/libgcc_eh.a; \
 	fi
@@ -3709,9 +3719,11 @@ stage3-start:
 	-if [ -f as$(exeext) ] ; then (cd stage3 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage3/libgcc.a stage3/libgcc_eh.a
+	-rm -f stage3/libgcc.a stage3/libgcov.a stage3/libgcc_eh.a
 	-cp libgcc.a stage3
 	-$(RANLIB_FOR_TARGET) stage3/libgcc.a
+	-cp libgcov.a stage3
+	-$(RANLIB_FOR_TARGET) stage3/libgcov.a
 	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage3; \
 	   $(RANLIB_FOR_TARGET) stage3/libgcc_eh.a; \
 	fi
@@ -3735,9 +3747,11 @@ stage4-start:
 	-if [ -f as$(exeext) ] ; then (cd stage4 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage4/libgcc.a stage4/libgcc_eh.a
+	-rm -f stage4/libgcc.a stage4/libgcov.a stage4/libgcc_eh.a
 	-cp libgcc.a stage4
 	-$(RANLIB_FOR_TARGET) stage4/libgcc.a
+	-cp libgcov.a stage4
+	-$(RANLIB_FOR_TARGET) stage4/libgcov.a
 	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage4; \
 	   $(RANLIB_FOR_TARGET) stage4/libgcc_eh.a; \
 	fi

@@ -41,6 +41,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "timevar.h"
 #include "except.h"
+#include "target.h"
 
 /* The basic idea of common subexpression elimination is to go
    through the code, keeping a record of expressions that would
@@ -832,7 +833,7 @@ rtx_cost (x, outer_code)
     return 0;
 
   /* Compute the default costs of certain things.
-     Note that RTX_COSTS can override the defaults.  */
+     Note that targetm.rtx_costs can override the defaults.  */
 
   code = GET_CODE (x);
   switch (code)
@@ -867,17 +868,9 @@ rtx_cost (x, outer_code)
 			      + GET_MODE_SIZE (GET_MODE (x)) / UNITS_PER_WORD);
       break;
 
-#ifdef RTX_COSTS
-      RTX_COSTS (x, code, outer_code);
-#endif
-#ifdef CONST_COSTS
-      CONST_COSTS (x, code, outer_code);
-#endif
-
     default:
-#ifdef DEFAULT_RTX_COSTS
-      DEFAULT_RTX_COSTS (x, code, outer_code);
-#endif
+      if ((*targetm.rtx_costs) (x, code, outer_code, &total))
+	return total;
       break;
     }
 
@@ -903,7 +896,7 @@ address_cost (x, mode)
      rtx x;
      enum machine_mode mode;
 {
-  /* The ADDRESS_COST macro does not deal with ADDRESSOF nodes.  But,
+  /* The address_cost target hook does not deal with ADDRESSOF nodes.  But,
      during CSE, such nodes are present.  Using an ADDRESSOF node which
      refers to the address of a REG is a good thing because we can then
      turn (MEM (ADDRESSSOF (REG))) into just plain REG.  */
@@ -913,17 +906,22 @@ address_cost (x, mode)
 
   /* We may be asked for cost of various unusual addresses, such as operands
      of push instruction.  It is not worthwhile to complicate writing
-     of ADDRESS_COST macro by such cases.  */
+     of the target hook by such cases.  */
 
   if (!memory_address_p (mode, x))
     return 1000;
-#ifdef ADDRESS_COST
-  return ADDRESS_COST (x);
-#else
-  return rtx_cost (x, MEM);
-#endif
+
+  return (*targetm.address_cost) (x);
 }
 
+/* If the target doesn't override, compute the cost as with arithmetic.  */
+
+int
+default_address_cost (x)
+     rtx x;
+{
+  return rtx_cost (x, MEM);
+}
 
 static struct cse_reg_info *
 get_cse_reg_info (regno)
@@ -2872,13 +2870,12 @@ canon_reg (x, insn)
    is a good approximation for that cost.  However, most RISC machines have
    only a few (usually only one) memory reference formats.  If an address is
    valid at all, it is often just as cheap as any other address.  Hence, for
-   RISC machines, we use the configuration macro `ADDRESS_COST' to compare the
-   costs of various addresses.  For two addresses of equal cost, choose the one
-   with the highest `rtx_cost' value as that has the potential of eliminating
-   the most insns.  For equal costs, we choose the first in the equivalence
-   class.  Note that we ignore the fact that pseudo registers are cheaper
-   than hard registers here because we would also prefer the pseudo registers.
-  */
+   RISC machines, we use `address_cost' to compare the costs of various
+   addresses.  For two addresses of equal cost, choose the one with the
+   highest `rtx_cost' value as that has the potential of eliminating the
+   most insns.  For equal costs, we choose the first in the equivalence
+   class.  Note that we ignore the fact that pseudo registers are cheaper than
+   hard registers here because we would also prefer the pseudo registers.  */
 
 static void
 find_best_addr (insn, loc, mode)
@@ -2888,10 +2885,8 @@ find_best_addr (insn, loc, mode)
 {
   struct table_elt *elt;
   rtx addr = *loc;
-#ifdef ADDRESS_COST
   struct table_elt *p;
   int found_better = 1;
-#endif
   int save_do_not_record = do_not_record;
   int save_hash_arg_in_memory = hash_arg_in_memory;
   int addr_volatile;
@@ -2954,22 +2949,6 @@ find_best_addr (insn, loc, mode)
     return;
 
   elt = lookup (addr, hash, Pmode);
-
-#ifndef ADDRESS_COST
-  if (elt)
-    {
-      int our_cost = elt->cost;
-
-      /* Find the lowest cost below ours that works.  */
-      for (elt = elt->first_same_value; elt; elt = elt->next_same_value)
-	if (elt->cost < our_cost
-	    && (GET_CODE (elt->exp) == REG
-		|| exp_equiv_p (elt->exp, elt->exp, 1, 0))
-	    && validate_change (insn, loc,
-				canon_reg (copy_rtx (elt->exp), NULL_RTX), 0))
-	  return;
-    }
-#else
 
   if (elt)
     {
@@ -3101,7 +3080,6 @@ find_best_addr (insn, loc, mode)
 	    }
 	}
     }
-#endif
 }
 
 /* Given an operation (CODE, *PARG1, *PARG2), where code is a comparison
@@ -4338,7 +4316,7 @@ fold_rtx (x, insn)
 	{
 	  if (const_arg0)
 	    return const1_rtx;
-	  if (!flag_gcse)
+	  if (optimize == 0 || !flag_gcse)
 	    return const0_rtx;
 	}
       break;
@@ -5691,12 +5669,16 @@ cse_insn (insn, libcall_insn)
 		&& GET_CODE (XEXP (XEXP (src_const, 0), 0)) == LABEL_REF
 		&& GET_CODE (XEXP (XEXP (src_const, 0), 1)) == LABEL_REF))
 	{
-	  /* Make sure that the rtx is not shared with any other insn.  */
-	  src_const = copy_rtx (src_const);
+	  /* We only want a REG_EQUAL note if src_const != src.  */
+	  if (! rtx_equal_p (src, src_const))
+	    {
+	      /* Make sure that the rtx is not shared.  */
+	      src_const = copy_rtx (src_const);
 
-	  /* Record the actual constant value in a REG_EQUAL note, making
-	     a new one if one does not already exist.  */
-	  set_unique_reg_note (insn, REG_EQUAL, src_const);
+	      /* Record the actual constant value in a REG_EQUAL note,
+		 making a new one if one does not already exist.  */
+	      set_unique_reg_note (insn, REG_EQUAL, src_const);
+	    }
 
 	  /* If storing a constant value in a register that
 	     previously held the constant value 0,

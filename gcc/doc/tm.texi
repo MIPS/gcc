@@ -2599,10 +2599,9 @@ should be the maximum value of @code{HARD_REGNO_NREGS (@var{regno},
 This macro helps control the handling of multiple-word values
 in the reload pass.
 
-@item CANNOT_CHANGE_MODE_CLASS(@var{from}, @var{to})
-If defined, a C expression that returns a register class for which
-a change from mode @var{from} to mode @var{to} is invalid, otherwise the
-macro returns @code{NO_REGS}.
+@item CANNOT_CHANGE_MODE_CLASS(@var{from}, @var{to}, @var{class})
+If defined, a C expression that returns nonzero for a @var{class} for which
+a change from mode @var{from} to mode @var{to} is invalid.
 
 For the example, loading 32-bit integer or floating-point objects into
 floating-point registers on the Alpha extends them to 64 bits.
@@ -2612,8 +2611,9 @@ register.  Therefore, @file{alpha.h} defines @code{CANNOT_CHANGE_MODE_CLASS}
 as below:
 
 @example
-#define CANNOT_CHANGE_MODE_CLASS \
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO) ? FLOAT_REGS : NO_REGS)
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
+  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO) \
+   ? reg_classes_intersect_p (FLOAT_REGS, (CLASS)) : 0)
 @end example
 @end table
 
@@ -4783,7 +4783,7 @@ Define this macro if GCC should generate calls to the ISO C
 @cindex C99 math functions, implicit usage
 @item TARGET_C99_FUNCTIONS
 When this macro is nonzero, GCC will implicitly optimize @code{sin} calls into
-@code{sinf} and similary for other functions defined by C99 standard.  The
+@code{sinf} and similarly for other functions defined by C99 standard.  The
 default is nonzero that should be proper value for most modern systems, however
 number of existing systems lacks support for these functions in the runtime so
 they needs this macro to be redefined to 0.
@@ -5264,91 +5264,6 @@ These macros let you describe the relative speed of various operations
 on the target machine.
 
 @table @code
-@findex CONST_COSTS
-@item CONST_COSTS (@var{x}, @var{code}, @var{outer_code})
-A part of a C @code{switch} statement that describes the relative costs
-of constant RTL expressions.  It must contain @code{case} labels for
-expression codes @code{const_int}, @code{const}, @code{symbol_ref},
-@code{label_ref} and @code{const_double}.  Each case must ultimately
-reach a @code{return} statement to return the relative cost of the use
-of that kind of constant value in an expression.  The cost may depend on
-the precise value of the constant, which is available for examination in
-@var{x}, and the rtx code of the expression in which it is contained,
-found in @var{outer_code}.
-
-@var{code} is the expression code---redundant, since it can be
-obtained with @code{GET_CODE (@var{x})}.
-
-@findex RTX_COSTS
-@findex COSTS_N_INSNS
-@item RTX_COSTS (@var{x}, @var{code}, @var{outer_code})
-Like @code{CONST_COSTS} but applies to nonconstant RTL expressions.
-This can be used, for example, to indicate how costly a multiply
-instruction is.  In writing this macro, you can use the construct
-@code{COSTS_N_INSNS (@var{n})} to specify a cost equal to @var{n} fast
-instructions.  @var{outer_code} is the code of the expression in which
-@var{x} is contained.
-
-This macro is optional; do not define it if the default cost assumptions
-are adequate for the target machine.
-
-@findex DEFAULT_RTX_COSTS
-@item DEFAULT_RTX_COSTS (@var{x}, @var{code}, @var{outer_code})
-This macro, if defined, is called for any case not handled by the
-@code{RTX_COSTS} or @code{CONST_COSTS} macros.  This eliminates the need
-to put case labels into the macro, but the code, or any functions it
-calls, must assume that the RTL in @var{x} could be of any type that has
-not already been handled.  The arguments are the same as for
-@code{RTX_COSTS}, and the macro should execute a return statement giving
-the cost of any RTL expressions that it can handle.  The default cost
-calculation is used for any RTL for which this macro does not return a
-value.
-
-This macro is optional; do not define it if the default cost assumptions
-are adequate for the target machine.
-
-@findex ADDRESS_COST
-@item ADDRESS_COST (@var{address})
-An expression giving the cost of an addressing mode that contains
-@var{address}.  If not defined, the cost is computed from
-the @var{address} expression and the @code{CONST_COSTS} values.
-
-For most CISC machines, the default cost is a good approximation of the
-true cost of the addressing mode.  However, on RISC machines, all
-instructions normally have the same length and execution time.  Hence
-all addresses will have equal costs.
-
-In cases where more than one form of an address is known, the form with
-the lowest cost will be used.  If multiple forms have the same, lowest,
-cost, the one that is the most complex will be used.
-
-For example, suppose an address that is equal to the sum of a register
-and a constant is used twice in the same basic block.  When this macro
-is not defined, the address will be computed in a register and memory
-references will be indirect through that register.  On machines where
-the cost of the addressing mode containing the sum is no higher than
-that of a simple indirect reference, this will produce an additional
-instruction and possibly require an additional register.  Proper
-specification of this macro eliminates this overhead for such machines.
-
-Similar use of this macro is made in strength reduction of loops.
-
-@var{address} need not be valid as an address.  In such a case, the cost
-is not relevant and can be any value; invalid addresses need not be
-assigned a different cost.
-
-On machines where an address involving more than one register is as
-cheap as an address computation involving only one register, defining
-@code{ADDRESS_COST} to reflect this can cause two registers to be live
-over a region of code where only one would have been if
-@code{ADDRESS_COST} were not defined in that manner.  This effect should
-be considered in the definition of this macro.  Equivalent costs should
-probably only be given to addresses with different numbers of registers
-on machines with lots of registers.
-
-This macro will normally either not be defined or be defined as a
-constant.
-
 @findex REGISTER_MOVE_COST
 @item REGISTER_MOVE_COST (@var{mode}, @var{from}, @var{to})
 A C expression for the cost of moving data of mode @var{mode} from a
@@ -5550,6 +5465,62 @@ Define this macro if it is as good or better for a function to call
 itself with an explicit address than to call an address kept in a
 register.
 @end table
+
+@deftypefn {Target Hook} bool TARGET_RTX_COSTS (rtx @var{x}, int @var{code}, int @var{outer_code}, int *@var{total})
+This target hook describes the relative costs of RTL expressions.
+
+The cost may depend on the precise form of the expression, which is
+available for examination in @var{x}, and the rtx code of the expression
+in which it is contained, found in @var{outer_code}.  @var{code} is the
+expression code---redundant, since it can be obtained with
+@code{GET_CODE (@var{x})}.
+
+In implementing this hook, you can use the construct
+@code{COSTS_N_INSNS (@var{n})} to specify a cost equal to @var{n} fast
+instructions.
+
+On entry to the hook, @code{*@var{total}} contains a default estimate
+for the cost of the expression.  The hook should modify this value as
+necessary.
+
+The hook returns true when all subexpressions of @var{x} have been
+processed, and false when @code{rtx_cost} should recurse.
+@end deftypefn
+
+@deftypefn {Target Hook} int TARGET_ADDRESS_COST (rtx @var{address})
+This hook computes the cost of an addressing mode that contains
+@var{address}.  If not defined, the cost is computed from
+the @var{address} expression and the @code{TARGET_RTX_COST} hook.
+
+For most CISC machines, the default cost is a good approximation of the
+true cost of the addressing mode.  However, on RISC machines, all
+instructions normally have the same length and execution time.  Hence
+all addresses will have equal costs.
+
+In cases where more than one form of an address is known, the form with
+the lowest cost will be used.  If multiple forms have the same, lowest,
+cost, the one that is the most complex will be used.
+
+For example, suppose an address that is equal to the sum of a register
+and a constant is used twice in the same basic block.  When this macro
+is not defined, the address will be computed in a register and memory
+references will be indirect through that register.  On machines where
+the cost of the addressing mode containing the sum is no higher than
+that of a simple indirect reference, this will produce an additional
+instruction and possibly require an additional register.  Proper
+specification of this macro eliminates this overhead for such machines.
+
+This hook is never called with an invalid address.
+
+On machines where an address involving more than one register is as
+cheap as an address computation involving only one register, defining
+@code{TARGET_ADDRESS_COST} to reflect this can cause two registers to
+be live over a region of code where only one would have been if
+@code{TARGET_ADDRESS_COST} were not defined in that manner.  This effect
+should be considered in the definition of this macro.  Equivalent costs
+should probably only be given to addresses with different numbers of
+registers on machines with lots of registers.
+@end deftypefn
 
 @node Scheduling
 @section Adjusting the Instruction Scheduler
@@ -8627,6 +8598,16 @@ is best to use a jump-table instead of a tree of conditional branches.
 The default is four for machines with a @code{casesi} instruction and
 five otherwise.  This is best for most machines.
 
+@findex CASE_USE_BIT_TESTS
+@item CASE_USE_BIT_TESTS
+Define this macro to be a C expression to indicate whether C switch
+statements may be implemented by a sequence of bit tests.  This is
+advantageous on processors that can efficiently implement left shift
+of 1 by the number of bits held in a register, but inappropriate on
+targets that would require a loop.  By default, this macro returns
+@code{true} if the target defines an @code{ashlsi3} pattern, and
+@code{false} otherwise.
+
 @findex WORD_REGISTER_OPERATIONS
 @item WORD_REGISTER_OPERATIONS
 Define this macro if operations between registers with integral mode
@@ -8818,6 +8799,25 @@ returned when comparison operators with floating-point results are true.
 Define this macro on machine that have comparison operations that return
 floating-point values.  If there are no such operations, do not define
 this macro.
+
+@findex CLZ_DEFINED_VALUE_AT_ZERO
+@findex CTZ_DEFINED_VALUE_AT_ZERO
+@item CLZ_DEFINED_VALUE_AT_ZERO (@var{mode}, @var{value})
+@itemx CTZ_DEFINED_VALUE_AT_ZERO (@var{mode}, @var{value})
+A C expression that evaluates to true if the architecture defines a value
+for @code{clz} or @code{ctz} with a zero operand.  If so, @var{value}
+should be set to this value.  If this macro is not defined, the value of
+@code{clz} or @code{ctz} is assumed to be undefined.
+
+This macro must be defined if the target's expansion for @code{ffs}
+relies on a particular value to get correct results.  Otherwise it
+is not necessary, though it may be used to optimize some corner cases.
+
+Note that regardless of this macro the ``definedness'' of @code{clz}
+and @code{ctz} at zero do @emph{not} extend to the builtin functions
+visible to the user.  Thus one may be free to adjust the value at will
+to match the target expansion of these operations without fear of
+breaking the API.
 
 @findex Pmode
 @item Pmode

@@ -1,5 +1,5 @@
 /* Loop manipulation code for GNU compiler.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1226,7 +1226,7 @@ create_preheader (loop, dom, flags)
 {
   edge e, fallthru;
   basic_block dummy;
-  basic_block jump, src;
+  basic_block jump, src = 0;
   struct loop *cloop, *ploop;
   int nentry = 0;
   rtx insn;
@@ -1341,8 +1341,10 @@ force_single_succ_latches (loops)
       if (!loop->latch->succ->succ_next)
 	continue;
  
-      for (e = loop->header->pred; e->src != loop->latch; e = e->pred_next);
-	loop_split_edge_with (e, NULL_RTX, loops);
+      for (e = loop->header->pred; e->src != loop->latch; e = e->pred_next)
+	continue;
+
+      loop_split_edge_with (e, NULL_RTX, loops);
     }
   loops->state |= LOOPS_HAVE_SIMPLE_LATCHES;
 }

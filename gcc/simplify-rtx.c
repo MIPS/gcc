@@ -38,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "output.h"
 #include "ggc.h"
+#include "target.h"
 
 /* Simplification and canonicalization of RTL.  */
 
@@ -106,12 +107,35 @@ rtx
 avoid_constant_pool_reference (x)
      rtx x;
 {
-  rtx c, addr;
+  rtx c, tmp, addr;
   enum machine_mode cmode;
 
-  if (GET_CODE (x) != MEM)
-    return x;
+  switch (GET_CODE (x))
+    {
+    case MEM:
+      break;
+
+    case FLOAT_EXTEND:
+      /* Handle float extensions of constant pool references.  */
+      tmp = XEXP (x, 0);
+      c = avoid_constant_pool_reference (tmp);
+      if (c != tmp && GET_CODE (c) == CONST_DOUBLE)
+	{
+	  REAL_VALUE_TYPE d;
+
+	  REAL_VALUE_FROM_CONST_DOUBLE (d, c);
+	  return CONST_DOUBLE_FROM_REAL_VALUE (d, GET_MODE (x));
+	}
+      return x;
+
+    default:
+      return x;
+    }
+
   addr = XEXP (x, 0);
+
+  /* Call target hook to avoid the effects of -fpic etc...  */
+  addr = (*targetm.delegitimize_address) (addr);
 
   if (GET_CODE (addr) == LO_SUM)
     addr = XEXP (addr, 1);
@@ -423,6 +447,42 @@ simplify_unary_operation (code, mode, op, op_mode)
 	  val = exact_log2 (arg0 & (- arg0)) + 1;
 	  break;
 
+	case CLZ:
+	  arg0 &= GET_MODE_MASK (mode);
+	  if (arg0 == 0 && CLZ_DEFINED_VALUE_AT_ZERO (mode, val))
+	    ;
+	  else
+	    val = GET_MODE_BITSIZE (mode) - floor_log2 (arg0) - 1;
+	  break;
+
+	case CTZ:
+	  arg0 &= GET_MODE_MASK (mode);
+	  if (arg0 == 0)
+	    {
+	      /* Even if the value at zero is undefined, we have to come
+		 up with some replacement.  Seems good enough.  */
+	      if (! CTZ_DEFINED_VALUE_AT_ZERO (mode, val))
+		val = GET_MODE_BITSIZE (mode);
+	    }
+	  else
+	    val = exact_log2 (arg0 & -arg0);
+	  break;
+
+	case POPCOUNT:
+	  arg0 &= GET_MODE_MASK (mode);
+	  val = 0;
+	  while (arg0)
+	    val++, arg0 &= arg0 - 1;
+	  break;
+
+	case PARITY:
+	  arg0 &= GET_MODE_MASK (mode);
+	  val = 0;
+	  while (arg0)
+	    val++, arg0 &= arg0 - 1;
+	  val &= 1;
+	  break;
+
 	case TRUNCATE:
 	  val = arg0;
 	  break;
@@ -523,9 +583,55 @@ simplify_unary_operation (code, mode, op, op_mode)
 	case FFS:
 	  hv = 0;
 	  if (l1 == 0)
-	    lv = HOST_BITS_PER_WIDE_INT + exact_log2 (h1 & (-h1)) + 1;
+	    {
+	      if (h1 == 0)
+		lv = 0;
+	      else
+		lv = HOST_BITS_PER_WIDE_INT + exact_log2 (h1 & -h1) + 1;
+	    }
 	  else
-	    lv = exact_log2 (l1 & (-l1)) + 1;
+	    lv = exact_log2 (l1 & -l1) + 1;
+	  break;
+
+	case CLZ:
+	  hv = 0;
+	  if (h1 == 0)
+	    lv = GET_MODE_BITSIZE (mode) - floor_log2 (l1) - 1;
+	  else
+	    lv = GET_MODE_BITSIZE (mode) - floor_log2 (h1) - 1
+	      - HOST_BITS_PER_WIDE_INT;
+	  break;
+
+	case CTZ:
+	  hv = 0;
+	  if (l1 == 0)
+	    {
+	      if (h1 == 0)
+		lv = GET_MODE_BITSIZE (mode);
+	      else
+		lv = HOST_BITS_PER_WIDE_INT + exact_log2 (h1 & -h1);
+	    }
+	  else
+	    lv = exact_log2 (l1 & -l1);
+	  break;
+
+	case POPCOUNT:
+	  hv = 0;
+	  lv = 0;
+	  while (l1)
+	    lv++, l1 &= l1 - 1;
+	  while (h1)
+	    lv++, h1 &= h1 - 1;
+	  break;
+
+	case PARITY:
+	  hv = 0;
+	  lv = 0;
+	  while (l1)
+	    lv++, l1 &= l1 - 1;
+	  while (h1)
+	    lv++, h1 &= h1 - 1;
+	  lv &= 1;
 	  break;
 
 	case TRUNCATE:
@@ -2544,7 +2650,7 @@ simplify_subreg (outermode, op, innermode, byte)
 	  || ! rtx_equal_function_value_matters)
       && REGNO (op) < FIRST_PSEUDO_REGISTER
 #ifdef CANNOT_CHANGE_MODE_CLASS
-      && ! (REG_CANNOT_CHANGE_MODE_P (REGNO (op), outermode, innermode)
+      && ! (REG_CANNOT_CHANGE_MODE_P (REGNO (op), innermode, outermode)
 	    && GET_MODE_CLASS (innermode) != MODE_COMPLEX_INT
 	    && GET_MODE_CLASS (innermode) != MODE_COMPLEX_FLOAT)
 #endif

@@ -1530,10 +1530,9 @@ walk_tree (tp, func, data, htab_)
 
       /* Don't walk the same tree twice, if the user has requested
          that we avoid doing so.  */
-      if (htab_find (htab, *tp))
-	return NULL_TREE;
-      /* If we haven't already seen this node, add it to the table.  */
       slot = htab_find_slot (htab, *tp, INSERT);
+      if (*slot)
+	return NULL_TREE;
       *slot = *tp;
     }
 
@@ -1655,6 +1654,7 @@ walk_tree (tp, func, data, htab_)
     case ENUMERAL_TYPE:
     case BLOCK:
     case RECORD_TYPE:
+    case CHAR_TYPE:
       /* None of thse have subtrees other than those already walked
          above.  */
       break;

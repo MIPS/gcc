@@ -65,7 +65,7 @@ test02()
 {
   using namespace std;
   istringstream in("80.21 56.89 12.3");
-  bool  test = true;
+  bool test = true;
   int i = 0;
   double x;
 
@@ -79,9 +79,23 @@ test02()
   VERIFY( i == 3 );
 }    
 
+// libstdc++/9562
+void
+test03()
+{
+  bool test = true;
+
+  std::stringbuf strbuf01;
+  std::istream strm1(&strbuf01);
+  const std::istream::sentry sentry1(strm1);
+
+  VERIFY( bool(sentry1) == false );
+}
+
 int main() 
 {
   test01();
   test02();
+  test03();
   return 0;
 }

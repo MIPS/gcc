@@ -2445,7 +2445,7 @@ emit_group_store (orig_dst, src, ssize)
     {
       dst = gen_reg_rtx (GET_MODE (orig_dst));
       /* Make life a bit easier for combine.  */
-      emit_move_insn (dst, const0_rtx);
+      emit_move_insn (dst, CONST0_RTX (GET_MODE (orig_dst)));
     }
 
   /* Process the pieces.  */
@@ -4398,12 +4398,12 @@ store_expr (exp, target, want_value)
 
       temp = expand_expr (exp, inner_target, VOIDmode, 0);
 
-      /* If TEMP is a volatile MEM and we want a result value, make
-	 the access now so it gets done only once.  Likewise if
-	 it contains TARGET.  */
-      if (GET_CODE (temp) == MEM && want_value
-	  && (MEM_VOLATILE_P (temp)
-	      || reg_mentioned_p (SUBREG_REG (target), XEXP (temp, 0))))
+      /* If TEMP is a MEM and we want a result value, make the access
+	 now so it gets done only once.  Strictly speaking, this is 
+	 only necessary if the MEM is volatile, or if the address 
+	 overlaps TARGET.  But not performing the load twice also
+	 reduces the amount of rtl we generate and then have to CSE.  */
+      if (GET_CODE (temp) == MEM && want_value)
 	temp = copy_to_reg (temp);
 
       /* If TEMP is a VOIDmode constant, use convert_modes to make
@@ -8349,6 +8349,34 @@ expand_expr (exp, target, tmode, modifier)
     case FFS_EXPR:
       op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
       temp = expand_unop (mode, ffs_optab, op0, target, 1);
+      if (temp == 0)
+	abort ();
+      return temp;
+
+    case CLZ_EXPR:
+      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
+      temp = expand_unop (mode, clz_optab, op0, target, 1);
+      if (temp == 0)
+	abort ();
+      return temp;
+
+    case CTZ_EXPR:
+      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
+      temp = expand_unop (mode, ctz_optab, op0, target, 1);
+      if (temp == 0)
+	abort ();
+      return temp;
+
+    case POPCOUNT_EXPR:
+      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
+      temp = expand_unop (mode, popcount_optab, op0, target, 1);
+      if (temp == 0)
+	abort ();
+      return temp;
+
+    case PARITY_EXPR:
+      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
+      temp = expand_unop (mode, parity_optab, op0, target, 1);
       if (temp == 0)
 	abort ();
       return temp;

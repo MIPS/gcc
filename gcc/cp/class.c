@@ -190,7 +190,7 @@ static void mark_primary_bases (tree);
 static tree mark_primary_virtual_base (tree, tree);
 static void clone_constructors_and_destructors (tree);
 static tree build_clone (tree, tree);
-static void update_vtable_entry_for_fn (tree, tree, tree, tree *);
+static void update_vtable_entry_for_fn (tree, tree, tree, tree *, unsigned);
 static tree copy_virtuals (tree);
 static void build_ctor_vtbl_group (tree, tree);
 static void build_vtt (tree);
@@ -2395,7 +2395,8 @@ get_vcall_index (tree fn, tree type)
    corresponding position in the BINFO_VIRTUALS list.  */
 
 static void
-update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals)
+update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
+			    unsigned ix)
 {
   tree b;
   tree overrider;
@@ -2479,7 +2480,7 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals)
 	      
 		  virtual_offset = binfo_for_vbase (BINFO_TYPE (thunk_binfo),
 						    TREE_TYPE (over_return));
-		  offset = size_diffop (offset,
+		  offset = size_binop (MINUS_EXPR, offset,
 					BINFO_OFFSET (virtual_offset));
 		}
 	      if (fixed_offset)
@@ -2523,6 +2524,38 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals)
 	virtual_base = b;
     }
 
+  if (overrider_fn != overrider_target && !virtual_base)
+    {
+      /* The ABI specifies that a covariant thunk includes a mangling
+   	 for a this pointer adjustment.  This-adjusting thunks that
+   	 override a function from a virtual base have a vcall
+   	 adjustment.  When the virtual base in question is a primary
+   	 virtual base, we know the adjustments are zero, (and in the
+   	 non-covariant case, we would not use the thunk).
+   	 Unfortunately we didn't notice this could happen, when
+   	 designing the ABI and so never mandated that such a covariant
+   	 thunk should be emitted.  Because we must use the ABI mandated
+   	 name, we must continue searching from the binfo where we
+   	 found the most recent definition of the function, towards the
+   	 primary binfo which first introduced the function into the
+   	 vtable.  If that enters a virtual base, we must use a vcall
+   	 this-adjusting thunk.  Bleah! */
+      tree probe;
+      
+      for (probe = first_defn; (probe = get_primary_binfo (probe));)
+	{
+	  if (TREE_VIA_VIRTUAL (probe))
+	    virtual_base = probe;
+	  if ((unsigned) list_length (BINFO_VIRTUALS (probe)) <= ix)
+	    break;
+	}
+      if (virtual_base)
+	/* Even if we find a virtual base, the correct delta is
+	   between the overrider and the binfo we're building a vtable
+	   for.  */
+	goto virtual_covariant;
+    }
+  
   /* Compute the constant adjustment to the `this' pointer.  The
      `this' pointer, when this function is called, will point at BINFO
      (or one of its primary bases, which are at the same offset).  */
@@ -2541,6 +2574,7 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals)
     /* The `this' pointer needs to be adjusted from pointing to
        BINFO to pointing at the base where the final overrider
        appears.  */
+    virtual_covariant:
     delta = size_diffop (BINFO_OFFSET (TREE_VALUE (overrider)),
 			 BINFO_OFFSET (binfo));
 
@@ -2564,26 +2598,25 @@ dfs_modify_vtables (tree binfo, void* data)
       /* Similarly, a base without a vtable needs no modification.  */
       && CLASSTYPE_VFIELDS (BINFO_TYPE (binfo)))
     {
-      tree t;
+      tree t = (tree) data;
       tree virtuals;
       tree old_virtuals;
-
-      t = (tree) data;
-
+      unsigned ix;
+      
       make_new_vtable (t, binfo);
       
       /* Now, go through each of the virtual functions in the virtual
 	 function table for BINFO.  Find the final overrider, and
 	 update the BINFO_VIRTUALS list appropriately.  */
-      for (virtuals = BINFO_VIRTUALS (binfo),
+      for (ix = 0, virtuals = BINFO_VIRTUALS (binfo),
 	     old_virtuals = BINFO_VIRTUALS (TYPE_BINFO (BINFO_TYPE (binfo)));
 	   virtuals;
-	   virtuals = TREE_CHAIN (virtuals),
+	   ix++, virtuals = TREE_CHAIN (virtuals),
 	     old_virtuals = TREE_CHAIN (old_virtuals))
 	update_vtable_entry_for_fn (t, 
 				    binfo, 
 				    BV_FN (old_virtuals),
-				    &virtuals);
+				    &virtuals, ix);
     }
 
   SET_BINFO_MARKED (binfo);
@@ -3380,7 +3413,7 @@ check_field_decls (tree t, tree *access_decls,
             cp_warning_at ("non-static const member `%#D' in class without a constructor", x);
 	}
       /* A field that is pseudo-const makes the structure likewise.  */
-      else if (IS_AGGR_TYPE (type))
+      else if (CLASS_TYPE_P (type))
 	{
 	  C_TYPE_FIELDS_READONLY (t) |= C_TYPE_FIELDS_READONLY (type);
 	  SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT (t,
@@ -5725,7 +5758,7 @@ init_class_processing (void)
    that name becomes `error_mark_node'.  */
 
 void
-pushclass (tree type, int modify)
+pushclass (tree type, bool modify)
 {
   type = TYPE_MAIN_VARIANT (type);
 
@@ -5847,10 +5880,11 @@ int
 currently_open_class (tree t)
 {
   int i;
-  if (t == current_class_type)
+  if (current_class_type && same_type_p (t, current_class_type))
     return 1;
   for (i = 1; i < current_class_depth; ++i)
-    if (current_class_stack [i].type == t)
+    if (current_class_stack[i].type
+	&& same_type_p (current_class_stack [i].type, t))
       return 1;
   return 0;
 }
@@ -5879,14 +5913,13 @@ currently_open_derived_class (tree t)
 }
 
 /* When entering a class scope, all enclosing class scopes' names with
-   static meaning (static variables, static functions, types and enumerators)
-   have to be visible.  This recursive function calls pushclass for all
-   enclosing class contexts until global or a local scope is reached.
-   TYPE is the enclosed class and MODIFY is equivalent with the pushclass
-   formal of the same name.  */
+   static meaning (static variables, static functions, types and
+   enumerators) have to be visible.  This recursive function calls
+   pushclass for all enclosing class contexts until global or a local
+   scope is reached.  TYPE is the enclosed class.  */
 
 void
-push_nested_class (tree type, int modify)
+push_nested_class (tree type)
 {
   tree context;
 
@@ -5902,8 +5935,8 @@ push_nested_class (tree type, int modify)
   context = DECL_CONTEXT (TYPE_MAIN_DECL (type));
 
   if (context && CLASS_TYPE_P (context))
-    push_nested_class (context, 2);
-  pushclass (type, modify);
+    push_nested_class (context);
+  pushclass (type, true);
 }
 
 /* Undoes a push_nested_class call.  */

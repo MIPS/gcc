@@ -7,7 +7,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2002 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2003 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -1099,7 +1099,7 @@ __gnat_error_handler (sig, sip)
 {
   struct Exception_Data *exception;
   static int recurse = 0;
-  char *msg;
+  const char *msg;
 
   /* If this was an explicit signal from a "kill", just resignal it.  */
   if (SI_FROMUSER (sip))
@@ -1633,6 +1633,22 @@ __gnat_initialize ()
   intConnect (INUM_TO_IVEC (IV_TRAP_VEC), &__gnat_int_handler, IV_TRAP_VEC);
 #endif
 #endif
+}
+
+/***************************************/
+/* __gnat_initialize (RTEMS version) */
+/***************************************/
+
+#elif defined(__rtems__)
+
+extern void __gnat_install_handler ();
+
+/* For RTEMS, each bsp will provide a custom __gnat_install_handler (). */
+
+void
+__gnat_initialize ()
+{
+   __gnat_install_handler ();
 }
 
 #else

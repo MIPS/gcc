@@ -208,9 +208,11 @@ extern unsigned xtensa_current_frame_size;
       }									\
   } while (0)
 
-/* Define this to set the endianness to use in libgcc2.c, which can
-   not depend on target_flags.  */
-#define LIBGCC2_WORDS_BIG_ENDIAN XCHAL_HAVE_BE
+#ifdef __XTENSA_EB__
+#define LIBGCC2_WORDS_BIG_ENDIAN 1
+#else
+#define LIBGCC2_WORDS_BIG_ENDIAN 0
+#endif
 
 /* Show we can debug even without a frame pointer.  */
 #define CAN_DEBUG_WITHOUT_FP
@@ -345,7 +347,6 @@ extern unsigned xtensa_current_frame_size;
    0 - 15	AR[0] - AR[15]
    16		FRAME_POINTER (fake = initial sp)
    17		ARG_POINTER (fake = initial sp + framesize)
-   18           LOOP_COUNT (loop count special register)
    18		BR[0] for floating-point CC
    19 - 34	FR[0] - FR[15]
    35		MAC16 accumulator */
@@ -394,10 +395,11 @@ extern unsigned xtensa_current_frame_size;
    have been exhausted.  */
 
 #define REG_ALLOC_ORDER \
-{  8,  9, 10, 11, 12, 13, 14, 15,  7,  6,  5,  4,  3,  2, 19, \
-  20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, \
+{  8,  9, 10, 11, 12, 13, 14, 15,  7,  6,  5,  4,  3,  2, \
+  18, \
+  19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, \
    0,  1, 16, 17, \
-  36, \
+  35, \
 }
 
 #define ORDER_REGS_FOR_LOCAL_ALLOC order_regs_for_local_alloc ()
@@ -423,11 +425,6 @@ extern int leaf_function;
 #define GP_REG_FIRST 0
 #define GP_REG_LAST  17
 #define GP_REG_NUM   (GP_REG_LAST - GP_REG_FIRST + 1)
-
-/* Special registers */
-#define SPEC_REG_FIRST 18
-#define SPEC_REG_LAST  18
-#define SPEC_REG_NUM   (SPEC_REG_LAST - SPEC_REG_FIRST + 1)
 
 /* Coprocessor registers */
 #define BR_REG_FIRST 18
@@ -472,9 +469,6 @@ extern char xtensa_hard_regno_mode_ok[][FIRST_PSEUDO_REGISTER];
     GET_MODE_CLASS (MODE1) == MODE_COMPLEX_FLOAT)			\
    == (GET_MODE_CLASS (MODE2) == MODE_FLOAT ||				\
        GET_MODE_CLASS (MODE2) == MODE_COMPLEX_FLOAT))
-
-/* Register to use for LCOUNT special register.  */
-#define COUNT_REGISTER_REGNUM (SPEC_REG_FIRST + 0)
 
 /* Register to use for pushing function arguments.  */
 #define STACK_POINTER_REGNUM (GP_REG_FIRST + 1)
@@ -1280,157 +1274,6 @@ typedef struct xtensa_args {
 /* A function address in a call instruction is a word address (for
    indexing purposes) so give the MEM rtx a words's mode.  */
 #define FUNCTION_MODE SImode
-
-/* Xtensa constant costs.  */
-#define CONST_COSTS(X, CODE, OUTER_CODE)				\
-  case CONST_INT:							\
-    switch (OUTER_CODE)							\
-      {									\
-      case SET:								\
-	if (xtensa_simm12b (INTVAL (X))) return 4;			\
-	break;								\
-      case PLUS:							\
-	if (xtensa_simm8 (INTVAL (X))) return 0;			\
-	if (xtensa_simm8x256 (INTVAL (X))) return 0;			\
-	break;								\
-      case AND:								\
-	if (xtensa_mask_immediate (INTVAL (X))) return 0;		\
-	break;								\
-      case COMPARE:							\
-	if ((INTVAL (X) == 0) || xtensa_b4const (INTVAL (X))) return 0;	\
-	break;								\
-      case ASHIFT:							\
-      case ASHIFTRT:							\
-      case LSHIFTRT:							\
-      case ROTATE:							\
-      case ROTATERT:							\
-        /* no way to tell if X is the 2nd operand so be conservative */	\
-      default: break;							\
-      }									\
-    if (xtensa_simm12b (INTVAL (X))) return 5;				\
-    return 6;								\
-  case CONST:								\
-  case LABEL_REF:							\
-  case SYMBOL_REF:							\
-    return 5;								\
-  case CONST_DOUBLE:							\
-    return 7;
-
-/* Costs of various Xtensa operations.  */
-#define RTX_COSTS(X, CODE, OUTER_CODE)					\
-  case MEM:								\
-    {									\
-	int num_words =							\
-	  (GET_MODE_SIZE (GET_MODE (X)) > UNITS_PER_WORD) ?  2 : 1;	\
-	if (memory_address_p (GET_MODE (X), XEXP ((X), 0)))		\
-	  return COSTS_N_INSNS (num_words);				\
-									\
-	return COSTS_N_INSNS (2*num_words);				\
-    }									\
-									\
-  case FFS:								\
-    return COSTS_N_INSNS (TARGET_NSA ? 5 : 50);				\
-									\
-  case NOT:								\
-    return COSTS_N_INSNS ((GET_MODE (X) == DImode) ? 3 : 2);		\
-									\
-  case AND:								\
-  case IOR:								\
-  case XOR:								\
-    if (GET_MODE (X) == DImode) return COSTS_N_INSNS (2);		\
-    return COSTS_N_INSNS (1);						\
-									\
-  case ASHIFT:								\
-  case ASHIFTRT:							\
-  case LSHIFTRT:							\
-    if (GET_MODE (X) == DImode) return COSTS_N_INSNS (50);		\
-    return COSTS_N_INSNS (1);						\
-									\
-  case ABS:								\
-    {									\
-	enum machine_mode xmode = GET_MODE (X);				\
-	if (xmode == SFmode)						\
-	  return COSTS_N_INSNS (TARGET_HARD_FLOAT ? 1 : 50);		\
-	if (xmode == DFmode)						\
-	  return COSTS_N_INSNS (50);					\
-	return COSTS_N_INSNS (4);					\
-    }									\
-									\
-  case PLUS:								\
-  case MINUS:								\
-    {									\
-	enum machine_mode xmode = GET_MODE (X);				\
-	if (xmode == SFmode)						\
-	  return COSTS_N_INSNS (TARGET_HARD_FLOAT ? 1 : 50);		\
-	if (xmode == DFmode || xmode == DImode)				\
-	  return COSTS_N_INSNS (50);					\
-	return COSTS_N_INSNS (1);					\
-    }									\
-									\
-  case NEG:								\
-    return COSTS_N_INSNS ((GET_MODE (X) == DImode) ? 4 : 2);		\
-									\
-  case MULT:								\
-    {									\
-	enum machine_mode xmode = GET_MODE (X);				\
-	if (xmode == SFmode)						\
-	  return COSTS_N_INSNS (TARGET_HARD_FLOAT ? 4 : 50);		\
-	if (xmode == DFmode || xmode == DImode)				\
-	    return COSTS_N_INSNS (50);					\
-	if (TARGET_MUL32)						\
-	  return COSTS_N_INSNS (4);					\
-	if (TARGET_MAC16)						\
-	  return COSTS_N_INSNS (16);					\
-	if (TARGET_MUL16)						\
-	  return COSTS_N_INSNS (12);					\
-	return COSTS_N_INSNS (50);					\
-    }									\
-									\
-  case DIV:								\
-  case MOD:								\
-    {									\
-	enum machine_mode xmode = GET_MODE (X);				\
-	if (xmode == SFmode)						\
-	  return COSTS_N_INSNS (TARGET_HARD_FLOAT_DIV ? 8 : 50);	\
-	if (xmode == DFmode)						\
-	  return COSTS_N_INSNS (50);					\
-    }									\
-    /* fall through */							\
-									\
-  case UDIV:								\
-  case UMOD:								\
-    {									\
-	enum machine_mode xmode = GET_MODE (X);				\
-	if (xmode == DImode)						\
-	  return COSTS_N_INSNS (50);					\
-	if (TARGET_DIV32)						\
-	  return COSTS_N_INSNS (32);					\
-	return COSTS_N_INSNS (50);					\
-    }									\
-									\
-  case SQRT:								\
-    if (GET_MODE (X) == SFmode)						\
-      return COSTS_N_INSNS (TARGET_HARD_FLOAT_SQRT ? 8 : 50);		\
-    return COSTS_N_INSNS (50);						\
-									\
-  case SMIN:								\
-  case UMIN:								\
-  case SMAX:								\
-  case UMAX:								\
-    return COSTS_N_INSNS (TARGET_MINMAX ? 1 : 50);			\
-									\
-  case SIGN_EXTRACT:							\
-  case SIGN_EXTEND:							\
-    return COSTS_N_INSNS (TARGET_SEXT ? 1 : 2);				\
-									\
-  case ZERO_EXTRACT:							\
-  case ZERO_EXTEND:							\
-    return COSTS_N_INSNS (1);
-
-
-/* An expression giving the cost of an addressing mode that
-   contains ADDRESS.  */
-#define ADDRESS_COST(ADDR) 1
 
 /* A C expression for the cost of moving data from a register in
    class FROM to one in class TO.  The classes are expressed using

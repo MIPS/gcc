@@ -1,6 +1,6 @@
 /* Optimize by combining instructions for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -444,7 +444,7 @@ do_SUBST (into, newval)
 	  || (GET_CODE (oldval) == ZERO_EXTEND
 	      && GET_CODE (XEXP (oldval, 0)) == CONST_INT))
 	abort ();
-     }
+    }
 
   if (undobuf.frees)
     buf = undobuf.frees, undobuf.frees = buf->next;
@@ -3708,6 +3708,8 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	  if (general_operand (true_rtx, VOIDmode)
 	      && general_operand (false_rtx, VOIDmode))
 	    {
+	      enum rtx_code reversed;
+
 	      /* Restarting if we generate a store-flag expression will cause
 		 us to loop.  Just drop through in this case.  */
 
@@ -3716,9 +3718,10 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	      if (true_rtx == const_true_rtx && false_rtx == const0_rtx)
 		x = gen_binary (cond_code, mode, cond, cop1);
 	      else if (true_rtx == const0_rtx && false_rtx == const_true_rtx
-		       && reverse_condition (cond_code) != UNKNOWN)
-		x = gen_binary (reverse_condition (cond_code),
-				mode, cond, cop1);
+		       && ((reversed = reversed_comparison_code_parts
+			   		(cond_code, cond, cop1, NULL))
+		           != UNKNOWN))
+		x = gen_binary (reversed, mode, cond, cop1);
 
 	      /* Likewise, we can make the negate of a comparison operation
 		 if the result values are - STORE_FLAG_VALUE and zero.  */
@@ -3731,11 +3734,13 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 					mode);
 	      else if (GET_CODE (false_rtx) == CONST_INT
 		       && INTVAL (false_rtx) == - STORE_FLAG_VALUE
-		       && true_rtx == const0_rtx)
+		       && true_rtx == const0_rtx
+		       && ((reversed = reversed_comparison_code_parts
+			   		(cond_code, cond, cop1, NULL))
+		           != UNKNOWN))
 		x = simplify_gen_unary (NEG, mode,
-					gen_binary (reverse_condition
-						    (cond_code),
-						    mode, cond, cop1),
+					gen_binary (reversed, mode,
+					  	    cond, cop1),
 					mode);
 	      else
 		return gen_rtx_IF_THEN_ELSE (mode,
@@ -4286,7 +4291,7 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	 "a = (b & 8) == 0;"  */
       if (XEXP (x, 1) == constm1_rtx
 	  && GET_CODE (XEXP (x, 0)) != REG
-	  && ! (GET_CODE (XEXP (x,0)) == SUBREG
+	  && ! (GET_CODE (XEXP (x, 0)) == SUBREG
 		&& GET_CODE (SUBREG_REG (XEXP (x, 0))) == REG)
 	  && nonzero_bits (XEXP (x, 0), mode) == 1)
 	return simplify_shift_const (NULL_RTX, ASHIFTRT, mode,
@@ -4349,8 +4354,8 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 			     XEXP (x, 0));
 	}
 
-       /* Canonicalize (minus (neg A) (mult B C)) to 
-	  (minus (mult (neg B) C) A).  */
+      /* Canonicalize (minus (neg A) (mult B C)) to 
+	 (minus (mult (neg B) C) A).  */
       if (GET_CODE (XEXP (x, 1)) == MULT 
 	  && GET_CODE (XEXP (x, 0)) == NEG)
 	{
@@ -4550,7 +4555,7 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	  if (new_code == NE && GET_MODE_CLASS (mode) == MODE_INT
 	      && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
 	      && ((STORE_FLAG_VALUE & GET_MODE_MASK (mode))
-		  == (unsigned HOST_WIDE_INT) 1 << (GET_MODE_BITSIZE(mode)-1))
+		  == (unsigned HOST_WIDE_INT) 1 << (GET_MODE_BITSIZE (mode) - 1))
 	      && op1 == const0_rtx
 	      && mode == GET_MODE (op0)
 	      && (i = exact_log2 (nonzero_bits (op0, mode))) >= 0)
@@ -4626,6 +4631,13 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
       /* (ffs (*_extend <X>)) = (ffs <X>) */
       if (GET_CODE (XEXP (x, 0)) == SIGN_EXTEND
 	  || GET_CODE (XEXP (x, 0)) == ZERO_EXTEND)
+	SUBST (XEXP (x, 0), XEXP (XEXP (x, 0), 0));
+      break;
+
+    case POPCOUNT:
+    case PARITY:
+      /* (pop* (zero_extend <X>)) = (pop* <X>) */
+      if (GET_CODE (XEXP (x, 0)) == ZERO_EXTEND)
 	SUBST (XEXP (x, 0), XEXP (XEXP (x, 0), 0));
       break;
 
@@ -5238,8 +5250,8 @@ simplify_set (x)
 #ifdef CANNOT_CHANGE_MODE_CLASS
       && ! (GET_CODE (dest) == REG && REGNO (dest) < FIRST_PSEUDO_REGISTER
 	    && REG_CANNOT_CHANGE_MODE_P (REGNO (dest),
-					 GET_MODE (src), 
-					 GET_MODE (SUBREG_REG (src))))
+					 GET_MODE (SUBREG_REG (src)), 
+					 GET_MODE (src)))
 #endif
       && (GET_CODE (dest) == REG
 	  || (GET_CODE (dest) == SUBREG
@@ -5325,16 +5337,16 @@ simplify_set (x)
 
       if (GET_CODE (true_rtx) == IOR
 	  && rtx_equal_p (XEXP (true_rtx, 0), false_rtx))
-	term1 = false_rtx, true_rtx = XEXP(true_rtx, 1), false_rtx = const0_rtx;
+	term1 = false_rtx, true_rtx = XEXP (true_rtx, 1), false_rtx = const0_rtx;
       else if (GET_CODE (true_rtx) == IOR
 	       && rtx_equal_p (XEXP (true_rtx, 1), false_rtx))
-	term1 = false_rtx, true_rtx = XEXP(true_rtx, 0), false_rtx = const0_rtx;
+	term1 = false_rtx, true_rtx = XEXP (true_rtx, 0), false_rtx = const0_rtx;
       else if (GET_CODE (false_rtx) == IOR
 	       && rtx_equal_p (XEXP (false_rtx, 0), true_rtx))
-	term1 = true_rtx, false_rtx = XEXP(false_rtx, 1), true_rtx = const0_rtx;
+	term1 = true_rtx, false_rtx = XEXP (false_rtx, 1), true_rtx = const0_rtx;
       else if (GET_CODE (false_rtx) == IOR
 	       && rtx_equal_p (XEXP (false_rtx, 1), true_rtx))
-	term1 = true_rtx, false_rtx = XEXP(false_rtx, 0), true_rtx = const0_rtx;
+	term1 = true_rtx, false_rtx = XEXP (false_rtx, 0), true_rtx = const0_rtx;
 
       term2 = gen_binary (AND, GET_MODE (src),
 			  XEXP (XEXP (src, 0), 0), true_rtx);
@@ -6452,7 +6464,7 @@ extract_left_shift (x, count)
     case PLUS:  case IOR:  case XOR:  case AND:
       /* If we can safely shift this constant and we find the inner shift,
 	 make a new operation.  */
-      if (GET_CODE (XEXP (x,1)) == CONST_INT
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT
 	  && (INTVAL (XEXP (x, 1)) & ((((HOST_WIDE_INT) 1 << count)) - 1)) == 0
 	  && (tem = extract_left_shift (XEXP (x, 0), count)) != 0)
 	return gen_binary (code, mode, tem,
@@ -7254,7 +7266,7 @@ force_to_mode (x, mode, mask, reg, just_select)
 	  temp = simplify_binary_operation (code == ROTATE ? ROTATERT : ROTATE,
 					    GET_MODE (x), GEN_INT (mask),
 					    XEXP (x, 1));
-	  if (temp && GET_CODE(temp) == CONST_INT)
+	  if (temp && GET_CODE (temp) == CONST_INT)
 	    SUBST (XEXP (x, 0),
 		   force_to_mode (XEXP (x, 0), GET_MODE (x),
 				  INTVAL (temp), reg, next_select));
@@ -7310,7 +7322,8 @@ force_to_mode (x, mode, mask, reg, just_select)
 	 which is equal to STORE_FLAG_VALUE.  */
       if ((mask & ~STORE_FLAG_VALUE) == 0 && XEXP (x, 1) == const0_rtx
 	  && exact_log2 (nonzero_bits (XEXP (x, 0), mode)) >= 0
-	  && nonzero_bits (XEXP (x, 0), mode) == STORE_FLAG_VALUE)
+	  && (nonzero_bits (XEXP (x, 0), mode)
+	      == (unsigned HOST_WIDE_INT) STORE_FLAG_VALUE))
 	return force_to_mode (XEXP (x, 0), mode, mask, reg, next_select);
 
       break;
@@ -7326,7 +7339,7 @@ force_to_mode (x, mode, mask, reg, just_select)
       SUBST (XEXP (x, 2),
 	     gen_lowpart_for_combine (GET_MODE (x),
 				      force_to_mode (XEXP (x, 2), mode,
-						     mask, reg,next_select)));
+						     mask, reg, next_select)));
       break;
 
     default:
@@ -8368,14 +8381,15 @@ nonzero_bits (x, mode)
       {
 	unsigned HOST_WIDE_INT nz0 = nonzero_bits (XEXP (x, 0), mode);
 	unsigned HOST_WIDE_INT nz1 = nonzero_bits (XEXP (x, 1), mode);
+	int sign_index = GET_MODE_BITSIZE (GET_MODE (x)) - 1;
 	int width0 = floor_log2 (nz0) + 1;
 	int width1 = floor_log2 (nz1) + 1;
 	int low0 = floor_log2 (nz0 & -nz0);
 	int low1 = floor_log2 (nz1 & -nz1);
 	HOST_WIDE_INT op0_maybe_minusp
-	  = (nz0 & ((HOST_WIDE_INT) 1 << (mode_width - 1)));
+	  = (nz0 & ((HOST_WIDE_INT) 1 << sign_index));
 	HOST_WIDE_INT op1_maybe_minusp
-	  = (nz1 & ((HOST_WIDE_INT) 1 << (mode_width - 1)));
+	  = (nz1 & ((HOST_WIDE_INT) 1 << sign_index));
 	unsigned int result_width = mode_width;
 	int result_low = 0;
 
@@ -8533,8 +8547,31 @@ nonzero_bits (x, mode)
       break;
 
     case FFS:
+    case POPCOUNT:
       /* This is at most the number of bits in the mode.  */
-      nonzero = ((HOST_WIDE_INT) 1 << (floor_log2 (mode_width) + 1)) - 1;
+      nonzero = ((HOST_WIDE_INT) 2 << (floor_log2 (mode_width))) - 1;
+      break;
+
+    case CLZ:
+      /* If CLZ has a known value at zero, then the nonzero bits are
+	 that value, plus the number of bits in the mode minus one.  */
+      if (CLZ_DEFINED_VALUE_AT_ZERO (mode, nonzero))
+	nonzero |= ((HOST_WIDE_INT) 1 << (floor_log2 (mode_width))) - 1;
+      else
+	nonzero = -1;
+      break;
+
+    case CTZ:
+      /* If CTZ has a known value at zero, then the nonzero bits are
+	 that value, plus the number of bits in the mode minus one.  */
+      if (CTZ_DEFINED_VALUE_AT_ZERO (mode, nonzero))
+	nonzero |= ((HOST_WIDE_INT) 1 << (floor_log2 (mode_width))) - 1;
+      else
+	nonzero = -1;
+      break;
+
+    case PARITY:
+      nonzero = 1;
       break;
 
     case IF_THEN_ELSE:
@@ -9798,7 +9835,7 @@ simplify_shift_const (x, code, result_mode, varop, orig_count)
   /* If COMPLEMENT_P is set, we have to complement X before doing the outer
      operation.  */
   if (complement_p)
-    x =simplify_gen_unary (NOT, result_mode, x, result_mode);
+    x = simplify_gen_unary (NOT, result_mode, x, result_mode);
 
   if (outer_op != NIL)
     {
@@ -10454,7 +10491,7 @@ simplify_comparison (code, pop0, pop1)
 
 	  /* (unsigned) > 0x7fffffff is equivalent to < 0.  */
 	  else if ((mode_width <= HOST_BITS_PER_WIDE_INT)
-		    && (const_op == ((HOST_WIDE_INT) 1 << (mode_width - 1)) - 1))
+		   && (const_op == ((HOST_WIDE_INT) 1 << (mode_width - 1)) - 1))
 	    {
 	      const_op = 0, op1 = const0_rtx;
 	      code = LT;
@@ -10908,6 +10945,12 @@ simplify_comparison (code, pop0, pop1)
 	     represents the low part, permute the SUBREG and the AND and
 	     try again.  */
 	  if (GET_CODE (XEXP (op0, 0)) == SUBREG
+	      /* It is unsafe to commute the AND into the SUBREG if the SUBREG
+		 is paradoxical and WORD_REGISTER_OPERATIONS is not defined.
+		 As originally written the upper bits have a defined value
+		 due to the AND operation.  However, if we commute the AND
+		 inside the SUBREG then they no longer have defined values
+		 and the meaning of the code has been changed.  */
 	      && (0
 #ifdef WORD_REGISTER_OPERATIONS
 		  || ((mode_width
@@ -10919,16 +10962,6 @@ simplify_comparison (code, pop0, pop1)
 		       <= (GET_MODE_BITSIZE
 			   (GET_MODE (SUBREG_REG (XEXP (op0, 0))))))
 		      && subreg_lowpart_p (XEXP (op0, 0))))
-#ifndef WORD_REGISTER_OPERATIONS
-	      /* It is unsafe to commute the AND into the SUBREG if the SUBREG
-		 is paradoxical and WORD_REGISTER_OPERATIONS is not defined.
-		 As originally written the upper bits have a defined value
-		 due to the AND operation.  However, if we commute the AND
-		 inside the SUBREG then they no longer have defined values
-		 and the meaning of the code has been changed.  */
-	      && (GET_MODE_SIZE (GET_MODE (XEXP (op0, 0)))
-		  <= GET_MODE_SIZE (GET_MODE (SUBREG_REG (XEXP (op0, 0)))))
-#endif
 	      && GET_CODE (XEXP (op0, 1)) == CONST_INT
 	      && mode_width <= HOST_BITS_PER_WIDE_INT
 	      && (GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (XEXP (op0, 0))))
@@ -11281,6 +11314,7 @@ combine_reversed_comparison_code (exp)
   return reversed_comparison_code_parts (GET_CODE (exp),
 					 XEXP (x, 0), XEXP (x, 1), NULL);
 }
+
 /* Return comparison with reversed code of EXP and operands OP0 and OP1.
    Return NULL_RTX in case we fail to do the reversal.  */
 static rtx

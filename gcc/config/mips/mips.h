@@ -1517,8 +1517,14 @@ do {							\
    the next available register.  */
 #define FP_INC (TARGET_FLOAT64 || TARGET_SINGLE_FLOAT ? 1 : 2)
 
-/* The largest size of value that can be held in floating-point registers.  */
-#define UNITS_PER_FPVALUE (TARGET_SOFT_FLOAT ? 0 : FP_INC * UNITS_PER_FPREG)
+/* The largest size of value that can be held in floating-point
+   registers and moved with a single instruction.  */
+#define UNITS_PER_HWFPVALUE (TARGET_SOFT_FLOAT ? 0 : FP_INC * UNITS_PER_FPREG)
+
+/* The largest size of value that can be held in floating-point
+   registers.  */
+#define UNITS_PER_FPVALUE \
+  (TARGET_SOFT_FLOAT ? 0 : (LONG_DOUBLE_TYPE_SIZE / BITS_PER_UNIT))
 
 /* The number of bytes in a double.  */
 #define UNITS_PER_DOUBLE (TYPE_PRECISION (double_type_node) / BITS_PER_UNIT)
@@ -1565,7 +1571,21 @@ do {							\
 /* A C expression for the size in bits of the type `long double' on
    the target machine.  If you don't define this, the default is two
    words.  */
-#define LONG_DOUBLE_TYPE_SIZE 64
+#define LONG_DOUBLE_TYPE_SIZE \
+  (mips_abi == ABI_N32 || mips_abi == ABI_64 ? 128 : 64)
+
+/* long double is not a fixed mode, but the idea is that, if we
+   support long double, we also want a 128-bit integer type.  */
+#define MAX_FIXED_MODE_SIZE LONG_DOUBLE_TYPE_SIZE
+
+#ifdef IN_LIBGCC2
+#if  (defined _ABIN32 && _MIPS_SIM == _ABIN32) \
+  || (defined _ABI64 && _MIPS_SIM == _ABI64)
+#  define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 128
+# else
+#  define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
+# endif
+#endif
 
 /* Width in bits of a pointer.
    See also the macro `Pmode' defined below.  */
@@ -1592,7 +1612,7 @@ do {							\
 #define STRUCTURE_SIZE_BOUNDARY 8
 
 /* There is no point aligning anything to a rounder boundary than this.  */
-#define BIGGEST_ALIGNMENT 64
+#define BIGGEST_ALIGNMENT LONG_DOUBLE_TYPE_SIZE
 
 /* Set this nonzero if move instructions will actually fail to work
    when given unaligned data.  */
@@ -2356,8 +2376,8 @@ extern enum reg_class mips_char_to_class[256];
 
 #define CLASS_MAX_NREGS(CLASS, MODE) mips_class_max_nregs (CLASS, MODE)
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO) \
-  mips_cannot_change_mode_class (FROM, TO)
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
+  mips_cannot_change_mode_class (FROM, TO, CLASS)
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -2654,7 +2674,9 @@ extern enum reg_class mips_char_to_class[256];
    On the MIPS, R2 R3 and F0 F2 are the only register thus used.
    Currently, R2 and F0 are only implemented  here (C has no complex type)  */
 
-#define FUNCTION_VALUE_REGNO_P(N) ((N) == GP_RETURN || (N) == FP_RETURN)
+#define FUNCTION_VALUE_REGNO_P(N) ((N) == GP_RETURN || (N) == FP_RETURN \
+  || (LONG_DOUBLE_TYPE_SIZE == 128 && FP_RETURN != GP_RETURN \
+      && (N) == FP_RETURN + 2))
 
 /* 1 if N is a possible register number for function argument passing.
    We have no FP argument registers when soft-float.  When FP registers
@@ -3363,360 +3385,6 @@ typedef struct mips_args {
 #define FUNCTION_MODE (Pmode == DImode ? DImode : SImode)
 
 
-/* A part of a C `switch' statement that describes the relative
-   costs of constant RTL expressions.  It must contain `case'
-   labels for expression codes `const_int', `const', `symbol_ref',
-   `label_ref' and `const_double'.  Each case must ultimately reach
-   a `return' statement to return the relative cost of the use of
-   that kind of constant value in an expression.  The cost may
-   depend on the precise value of the constant, which is available
-   for examination in X.
-
-   CODE is the expression code--redundant, since it can be obtained
-   with `GET_CODE (X)'.  */
-
-#define CONST_COSTS(X,CODE,OUTER_CODE)					\
-  case CONST_INT:							\
-    if (! TARGET_MIPS16)						\
-      {									\
-	/* Always return 0, since we don't have different sized		\
-	   instructions, hence different costs according to Richard	\
-	   Kenner */							\
-	return 0;							\
-      }									\
-    if ((OUTER_CODE) == SET)						\
-      {									\
-	if (INTVAL (X) >= 0 && INTVAL (X) < 0x100)			\
-	  return 0;							\
-	else if ((INTVAL (X) >= 0 && INTVAL (X) < 0x10000)		\
-		 || (INTVAL (X) < 0 && INTVAL (X) > -0x100))		\
-	  return COSTS_N_INSNS (1);					\
-	else								\
-	  return COSTS_N_INSNS (2);					\
-      }									\
-    /* A PLUS could be an address.  We don't want to force an address	\
-       to use a register, so accept any signed 16 bit value without	\
-       complaint.  */							\
-    if ((OUTER_CODE) == PLUS						\
-	&& INTVAL (X) >= -0x8000 && INTVAL (X) < 0x8000)		\
-      return 0;								\
-    /* A number between 1 and 8 inclusive is efficient for a shift.	\
-       Otherwise, we will need an extended instruction.  */		\
-    if ((OUTER_CODE) == ASHIFT || (OUTER_CODE) == ASHIFTRT		\
-	|| (OUTER_CODE) == LSHIFTRT)					\
-      {									\
-	if (INTVAL (X) >= 1 && INTVAL (X) <= 8)				\
-	  return 0;							\
-	return COSTS_N_INSNS (1);					\
-      }									\
-    /* We can use cmpi for an xor with an unsigned 16 bit value.  */	\
-    if ((OUTER_CODE) == XOR						\
-	&& INTVAL (X) >= 0 && INTVAL (X) < 0x10000)			\
-      return 0;								\
-    /* We may be able to use slt or sltu for a comparison with a	\
-       signed 16 bit value.  (The boundary conditions aren't quite	\
-       right, but this is just a heuristic anyhow.)  */			\
-    if (((OUTER_CODE) == LT || (OUTER_CODE) == LE			\
-	 || (OUTER_CODE) == GE || (OUTER_CODE) == GT			\
-	 || (OUTER_CODE) == LTU || (OUTER_CODE) == LEU			\
-	 || (OUTER_CODE) == GEU || (OUTER_CODE) == GTU)			\
-	&& INTVAL (X) >= -0x8000 && INTVAL (X) < 0x8000)		\
-      return 0;								\
-    /* Equality comparisons with 0 are cheap.  */			\
-    if (((OUTER_CODE) == EQ || (OUTER_CODE) == NE)			\
-	&& INTVAL (X) == 0)						\
-      return 0;								\
-									\
-    /* Otherwise, work out the cost to load the value into a		\
-       register.  */							\
-    if (INTVAL (X) >= 0 && INTVAL (X) < 0x100)				\
-      return COSTS_N_INSNS (1);						\
-    else if ((INTVAL (X) >= 0 && INTVAL (X) < 0x10000)			\
-	     || (INTVAL (X) < 0 && INTVAL (X) > -0x100))		\
-      return COSTS_N_INSNS (2);						\
-    else								\
-      return COSTS_N_INSNS (3);						\
-									\
-  case LABEL_REF:							\
-    return COSTS_N_INSNS (2);						\
-									\
-  case CONST:								\
-    {									\
-      rtx offset = const0_rtx;						\
-      rtx symref = eliminate_constant_term (XEXP (X, 0), &offset);	\
-									\
-      if (TARGET_MIPS16 && mips16_gp_offset_p (X))			\
-	{								\
-	  /* Treat this like a signed 16 bit CONST_INT.  */		\
-	  if ((OUTER_CODE) == PLUS)					\
-	    return 0;							\
-	  else if ((OUTER_CODE) == SET)					\
-	    return COSTS_N_INSNS (1);					\
-	  else								\
-	    return COSTS_N_INSNS (2);					\
-	}								\
-									\
-      if (GET_CODE (symref) == LABEL_REF)				\
-	return COSTS_N_INSNS (2);					\
-									\
-      if (GET_CODE (symref) != SYMBOL_REF)				\
-	return COSTS_N_INSNS (4);					\
-									\
-      /* let's be paranoid....  */					\
-      if (INTVAL (offset) < -32768 || INTVAL (offset) > 32767)		\
-	return COSTS_N_INSNS (2);					\
-									\
-      return COSTS_N_INSNS (SYMBOL_REF_FLAG (symref) ? 1 : 2);		\
-    }									\
-									\
-  case SYMBOL_REF:							\
-    return COSTS_N_INSNS (SYMBOL_REF_FLAG (X) ? 1 : 2);			\
-									\
-  case CONST_DOUBLE:							\
-    {									\
-      rtx high, low;							\
-      if (TARGET_MIPS16)						\
-	return COSTS_N_INSNS (4);					\
-      split_double (X, &high, &low);					\
-      return COSTS_N_INSNS ((high == CONST0_RTX (GET_MODE (high))	\
-			     || low == CONST0_RTX (GET_MODE (low)))	\
-			    ? 2 : 4);					\
-    }
-
-/* Like `CONST_COSTS' but applies to nonconstant RTL expressions.
-   This can be used, for example, to indicate how costly a multiply
-   instruction is.  In writing this macro, you can use the construct
-   `COSTS_N_INSNS (N)' to specify a cost equal to N fast instructions.
-
-   This macro is optional; do not define it if the default cost
-   assumptions are adequate for the target machine.
-
-   If -mdebugd is used, change the multiply cost to 2, so multiply by
-   a constant isn't converted to a series of shifts.  This helps
-   strength reduction, and also makes it easier to identify what the
-   compiler is doing.  */
-
-/* ??? Fix this to be right for the R8000.  */
-#define RTX_COSTS(X,CODE,OUTER_CODE)					\
-  case MEM:								\
-    {									\
-      int num_words = (GET_MODE_SIZE (GET_MODE (X)) > UNITS_PER_WORD) ? 2 : 1; \
-      if (simple_memory_operand (X, GET_MODE (X)))			\
-	return COSTS_N_INSNS (num_words);				\
-									\
-      return COSTS_N_INSNS (2*num_words);				\
-    }									\
-									\
-  case FFS:								\
-    return COSTS_N_INSNS (6);						\
-									\
-  case NOT:								\
-    return COSTS_N_INSNS ((GET_MODE (X) == DImode && !TARGET_64BIT) ? 2 : 1); \
-									\
-  case AND:								\
-  case IOR:								\
-  case XOR:								\
-    if (GET_MODE (X) == DImode && !TARGET_64BIT)			\
-      return COSTS_N_INSNS (2);						\
-									\
-    break;								\
-									\
-  case ASHIFT:								\
-  case ASHIFTRT:							\
-  case LSHIFTRT:							\
-    if (GET_MODE (X) == DImode && !TARGET_64BIT)			\
-      return COSTS_N_INSNS ((GET_CODE (XEXP (X, 1)) == CONST_INT) ? 4 : 12); \
-									\
-    break;								\
-									\
-  case ABS:								\
-    {									\
-      enum machine_mode xmode = GET_MODE (X);				\
-      if (xmode == SFmode || xmode == DFmode)				\
-	return COSTS_N_INSNS (1);					\
-									\
-      return COSTS_N_INSNS (4);						\
-    }									\
-									\
-  case PLUS:								\
-  case MINUS:								\
-    {									\
-      enum machine_mode xmode = GET_MODE (X);				\
-      if (xmode == SFmode || xmode == DFmode)				\
-	{								\
-	  if (TUNE_MIPS3000                                             \
-              || TUNE_MIPS3900)         				\
-	    return COSTS_N_INSNS (2);					\
-	  else if (TUNE_MIPS6000)       				\
-	    return COSTS_N_INSNS (3);					\
-	  else								\
-	    return COSTS_N_INSNS (6);					\
-	}								\
-									\
-      if (xmode == DImode && !TARGET_64BIT)				\
-	return COSTS_N_INSNS (4);					\
-									\
-      break;								\
-    }									\
-									\
-  case NEG:								\
-    if (GET_MODE (X) == DImode && !TARGET_64BIT)			\
-      return 4;								\
-									\
-    break;								\
-									\
-  case MULT:								\
-    {									\
-      enum machine_mode xmode = GET_MODE (X);				\
-      if (xmode == SFmode)						\
-	{								\
-	  if (TUNE_MIPS3000						\
-	      || TUNE_MIPS3900						\
-	      || TUNE_MIPS5000)						\
-	    return COSTS_N_INSNS (4);					\
-	  else if (TUNE_MIPS6000                                        \
-		   || TUNE_MIPS5400                                     \
-		   || TUNE_MIPS5500)					\
-	    return COSTS_N_INSNS (5);					\
-	  else								\
-	    return COSTS_N_INSNS (7);					\
-	}								\
-									\
-      if (xmode == DFmode)						\
-	{								\
-	  if (TUNE_MIPS3000						\
-	      || TUNE_MIPS3900						\
-	      || TUNE_MIPS5000)						\
-	    return COSTS_N_INSNS (5);					\
-	  else if (TUNE_MIPS6000                                        \
-		   || TUNE_MIPS5400                                     \
-		   || TUNE_MIPS5500)					\
-	    return COSTS_N_INSNS (6);					\
-	  else								\
-	    return COSTS_N_INSNS (8);					\
-	}								\
-									\
-      if (TUNE_MIPS3000)						\
-	return COSTS_N_INSNS (12);					\
-      else if (TUNE_MIPS3900)						\
-	return COSTS_N_INSNS (2);					\
-     else if (TUNE_MIPS5400 || TUNE_MIPS5500)                           \
-        return COSTS_N_INSNS ((xmode == DImode) ? 4 : 3);               \
-      else if (TUNE_MIPS6000)						\
-	return COSTS_N_INSNS (17);					\
-      else if (TUNE_MIPS5000)						\
-	return COSTS_N_INSNS (5);					\
-      else								\
-	return COSTS_N_INSNS (10);					\
-    }									\
-									\
-  case DIV:								\
-  case MOD:								\
-    {									\
-      enum machine_mode xmode = GET_MODE (X);				\
-      if (xmode == SFmode)						\
-	{								\
-	  if (TUNE_MIPS3000						\
-              || TUNE_MIPS3900)						\
-	    return COSTS_N_INSNS (12);					\
-	  else if (TUNE_MIPS6000)					\
-	    return COSTS_N_INSNS (15);					\
-         else if (TUNE_MIPS5400 || TUNE_MIPS5500)                       \
-            return COSTS_N_INSNS (30);                                  \
-	  else								\
-	    return COSTS_N_INSNS (23);					\
-	}								\
-									\
-      if (xmode == DFmode)						\
-	{								\
-	  if (TUNE_MIPS3000						\
-              || TUNE_MIPS3900)						\
-	    return COSTS_N_INSNS (19);					\
-          else if (TUNE_MIPS5400 || TUNE_MIPS5500)                      \
-            return COSTS_N_INSNS (59);                                  \
-	  else if (TUNE_MIPS6000)					\
-	    return COSTS_N_INSNS (16);					\
-	  else								\
-	    return COSTS_N_INSNS (36);					\
-	}								\
-    }									\
-    /* fall through */							\
-									\
-  case UDIV:								\
-  case UMOD:								\
-    if (TUNE_MIPS3000							\
-        || TUNE_MIPS3900)						\
-      return COSTS_N_INSNS (35);					\
-    else if (TUNE_MIPS6000)						\
-      return COSTS_N_INSNS (38);					\
-    else if (TUNE_MIPS5000)						\
-      return COSTS_N_INSNS (36);					\
-    else if (TUNE_MIPS5400 || TUNE_MIPS5500)                            \
-      return COSTS_N_INSNS ((GET_MODE (X) == SImode) ? 42 : 74);        \
-    else								\
-      return COSTS_N_INSNS (69);					\
-									\
-  case SIGN_EXTEND:							\
-    /* A sign extend from SImode to DImode in 64 bit mode is often	\
-       zero instructions, because the result can often be used		\
-       directly by another instruction; we'll call it one.  */		\
-    if (TARGET_64BIT && GET_MODE (X) == DImode				\
-	&& GET_MODE (XEXP (X, 0)) == SImode)				\
-      return COSTS_N_INSNS (1);						\
-    else								\
-      return COSTS_N_INSNS (2);						\
-									\
-  case ZERO_EXTEND:							\
-    if (TARGET_64BIT && GET_MODE (X) == DImode				\
-	&& GET_MODE (XEXP (X, 0)) == SImode)				\
-      return COSTS_N_INSNS (2);						\
-    else								\
-      return COSTS_N_INSNS (1);
-
-/* An expression giving the cost of an addressing mode that
-   contains ADDRESS.  If not defined, the cost is computed from the
-   form of the ADDRESS expression and the `CONST_COSTS' values.
-
-   For most CISC machines, the default cost is a good approximation
-   of the true cost of the addressing mode.  However, on RISC
-   machines, all instructions normally have the same length and
-   execution time.  Hence all addresses will have equal costs.
-
-   In cases where more than one form of an address is known, the
-   form with the lowest cost will be used.  If multiple forms have
-   the same, lowest, cost, the one that is the most complex will be
-   used.
-
-   For example, suppose an address that is equal to the sum of a
-   register and a constant is used twice in the same basic block.
-   When this macro is not defined, the address will be computed in
-   a register and memory references will be indirect through that
-   register.  On machines where the cost of the addressing mode
-   containing the sum is no higher than that of a simple indirect
-   reference, this will produce an additional instruction and
-   possibly require an additional register.  Proper specification
-   of this macro eliminates this overhead for such machines.
-
-   Similar use of this macro is made in strength reduction of loops.
-
-   ADDRESS need not be valid as an address.  In such a case, the
-   cost is not relevant and can be any value; invalid addresses
-   need not be assigned a different cost.
-
-   On machines where an address involving more than one register is
-   as cheap as an address computation involving only one register,
-   defining `ADDRESS_COST' to reflect this can cause two registers
-   to be live over a region of code where only one would have been
-   if `ADDRESS_COST' were not defined in that manner.  This effect
-   should be considered in the definition of this macro.
-   Equivalent costs should probably only be given to addresses with
-   different numbers of registers on machines with lots of registers.
-
-   This macro will normally either not be defined or be defined as
-   a constant.  */
-
-#define ADDRESS_COST(ADDR) (REG_P (ADDR) ? 1 : mips_address_cost (ADDR))
-
 /* A C expression for the cost of moving data from a register in
    class FROM to one in class TO.  The classes are expressed using
    the enumeration values such as `GENERAL_REGS'.  A value of 2 is

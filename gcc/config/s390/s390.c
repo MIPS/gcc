@@ -56,6 +56,7 @@ static void s390_select_rtx_section PARAMS ((enum machine_mode, rtx,
 static void s390_encode_section_info PARAMS ((tree, int));
 static const char *s390_strip_name_encoding PARAMS ((const char *));
 static bool s390_cannot_force_const_mem PARAMS ((rtx));
+static rtx s390_delegitimize_address PARAMS ((rtx));
 static void s390_init_builtins PARAMS ((void));
 static rtx s390_expand_builtin PARAMS ((tree, rtx, rtx, 
 					enum machine_mode, int));
@@ -66,6 +67,8 @@ static enum attr_type s390_safe_attr_type PARAMS ((rtx));
 static int s390_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int s390_issue_rate PARAMS ((void));
 static int s390_use_dfa_pipeline_interface PARAMS ((void));
+static bool s390_rtx_costs PARAMS ((rtx, int, int, int *));
+static int s390_address_cost PARAMS ((rtx));
 
 
 #undef  TARGET_ASM_ALIGNED_HI_OP
@@ -96,6 +99,9 @@ static int s390_use_dfa_pipeline_interface PARAMS ((void));
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM s390_cannot_force_const_mem
 
+#undef TARGET_DELEGITIMIZE_ADDRESS
+#define TARGET_DELEGITIMIZE_ADDRESS s390_delegitimize_address
+
 #undef  TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS s390_init_builtins
 #undef  TARGET_EXPAND_BUILTIN
@@ -113,6 +119,10 @@ static int s390_use_dfa_pipeline_interface PARAMS ((void));
 #undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
 #define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE s390_use_dfa_pipeline_interface
 
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS s390_rtx_costs
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST s390_address_cost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1192,9 +1202,82 @@ q_constraint (op)
   return 1;
 }
 
+/* Compute a (partial) cost for rtx X.  Return true if the complete
+   cost has been computed, and false if subexpressions should be
+   scanned.  In either case, *TOTAL contains the cost result.  */
+
+static bool
+s390_rtx_costs (x, code, outer_code, total)
+     rtx x;
+     int code, outer_code;
+     int *total;
+{
+  switch (code)
+    {
+    case CONST:
+      if (GET_CODE (XEXP (x, 0)) == MINUS
+	  && GET_CODE (XEXP (XEXP (x, 0), 1)) != CONST_INT)
+	*total = 1000;
+      else
+	*total = 0;
+      return true;
+
+    case CONST_INT:
+      /* Force_const_mem does not work out of reload, because the
+	 saveable_obstack is set to reload_obstack, which does not
+	 live long enough.  Because of this we cannot use force_const_mem
+	 in addsi3.  This leads to problems with gen_add2_insn with a
+	 constant greater than a short. Because of that we give an
+	 addition of greater constants a cost of 3 (reload1.c 10096).  */
+      /* ??? saveable_obstack no longer exists.  */
+      if (outer_code == PLUS
+	  && (INTVAL (x) > 32767 || INTVAL (x) < -32768))
+	*total = COSTS_N_INSNS (3);
+      else
+	*total = 0;
+      return true;
+
+    case LABEL_REF:
+    case SYMBOL_REF:
+    case CONST_DOUBLE:
+      *total = 0;
+      return true;
+
+    case ASHIFT:
+    case ASHIFTRT:
+    case LSHIFTRT:
+    case PLUS:
+    case AND:
+    case IOR:
+    case XOR:
+    case MINUS:
+    case NEG:
+    case NOT:
+      *total = COSTS_N_INSNS (1);
+      return true;
+
+    case MULT:
+      if (GET_MODE (XEXP (x, 0)) == DImode)
+        *total = COSTS_N_INSNS (40);
+      else
+        *total = COSTS_N_INSNS (7);
+      return true;
+
+    case DIV:
+    case UDIV:
+    case MOD:
+    case UMOD:
+      *total = COSTS_N_INSNS (33);
+      return true;
+
+    default:
+      return false;
+    }
+}
+
 /* Return the cost of an address rtx ADDR.  */
 
-int
+static int
 s390_address_cost (addr)
      rtx addr;
 {
@@ -2977,8 +3060,8 @@ s390_expand_cmpstr (target, op0, op1, len)
    general assembler losage, recognize various UNSPEC sequences
    and turn them back into a direct symbol reference.  */
 
-rtx
-s390_simplify_dwarf_addr (orig_x)
+static rtx
+s390_delegitimize_address (orig_x)
      rtx orig_x;
 {
   rtx x = orig_x, y;

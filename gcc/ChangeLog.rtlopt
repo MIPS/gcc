@@ -1,3 +1,7 @@
+Sat Feb  8 20:33:41 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (rtlopt-merge-20030208)
+
 2003-02-07  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (get_decl_and_offset): Remove abort().

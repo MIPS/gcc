@@ -1,5 +1,5 @@
 /* General-purpose hooks.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -97,6 +97,13 @@ hook_int_tree_tree_1 (a, b)
   return 1;
 }
 
+int
+hook_int_rtx_0 (a)
+     rtx a ATTRIBUTE_UNUSED;
+{
+  return 0;
+}
+
 void
 hook_void_tree (a)
      tree a ATTRIBUTE_UNUSED;
@@ -131,3 +138,22 @@ hook_bool_rtx_false (a)
 {
   return false;
 }
+
+bool
+hook_bool_rtx_int_int_intp_false (a, b, c, d)
+     rtx a ATTRIBUTE_UNUSED;
+     int b ATTRIBUTE_UNUSED;
+     int c ATTRIBUTE_UNUSED;
+     int *d ATTRIBUTE_UNUSED;
+{
+  return false;
+}
+
+/* Generic hook that takes an rtx and returns it.  */
+rtx
+hook_rtx_rtx_identity (x)
+     rtx x;
+{
+  return x;
+}
+

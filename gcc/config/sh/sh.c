@@ -214,7 +214,12 @@ static void sh_media_init_builtins PARAMS ((void));
 static rtx sh_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int));
 static int flow_dependent_p PARAMS ((rtx, rtx));
 static void flow_dependent_p_1 PARAMS ((rtx, rtx, void *));
-
+static int shiftcosts PARAMS ((rtx));
+static int andcosts PARAMS ((rtx));
+static int addsubcosts PARAMS ((rtx));
+static int multcosts PARAMS ((rtx));
+static bool sh_rtx_costs PARAMS ((rtx, int, int, int *));
+static int sh_address_cost PARAMS ((rtx));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -265,6 +270,11 @@ static void flow_dependent_p_1 PARAMS ((rtx, rtx, void *));
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL sh_function_ok_for_sibcall
+
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS sh_rtx_costs
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST sh_address_cost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1274,7 +1284,7 @@ shift_insns_rtx (insn)
 
 /* Return the cost of a shift.  */
 
-int
+static inline int
 shiftcosts (x)
      rtx x;
 {
@@ -1314,7 +1324,7 @@ shiftcosts (x)
 
 /* Return the cost of an AND operation.  */
 
-int
+static inline int
 andcosts (x)
      rtx x;
 {
@@ -1354,7 +1364,7 @@ andcosts (x)
 
 /* Return the cost of an addition or a subtraction.  */
 
-int
+static inline int
 addsubcosts (x)
      rtx x;
 {
@@ -1395,7 +1405,7 @@ addsubcosts (x)
 }
 
 /* Return the cost of a multiply.  */
-int
+static inline int
 multcosts (x)
      rtx x ATTRIBUTE_UNUSED;
 {
@@ -1419,6 +1429,113 @@ multcosts (x)
 
   /* Otherwise count all the insns in the routine we'd be calling too.  */
   return 20;
+}
+
+/* Compute a (partial) cost for rtx X.  Return true if the complete
+   cost has been computed, and false if subexpressions should be
+   scanned.  In either case, *TOTAL contains the cost result.  */
+
+static bool
+sh_rtx_costs (x, code, outer_code, total)
+     rtx x;
+     int code, outer_code, *total;
+{
+  switch (code)
+    {
+    case CONST_INT:
+      if (TARGET_SHMEDIA)
+        {
+	  if (INTVAL (x) == 0)
+	    *total = 0;
+	  else if (outer_code == AND && and_operand ((x), DImode))
+	    *total = 0;
+	  else if ((outer_code == IOR || outer_code == XOR
+	            || outer_code == PLUS)
+		   && CONST_OK_FOR_P (INTVAL (x)))
+	    *total = 0;
+	  else if (CONST_OK_FOR_J (INTVAL (x)))
+            *total = COSTS_N_INSNS (outer_code != SET);
+	  else if (CONST_OK_FOR_J (INTVAL (x) >> 16))
+	    *total = COSTS_N_INSNS (2);
+	  else if (CONST_OK_FOR_J ((INTVAL (x) >> 16) >> 16))
+	    *total = COSTS_N_INSNS (3);
+          else
+	    *total = COSTS_N_INSNS (4);
+	  return true;
+        }
+      if (CONST_OK_FOR_I (INTVAL (x)))
+        *total = 0;
+      else if ((outer_code == AND || outer_code == IOR || outer_code == XOR)
+	       && CONST_OK_FOR_L (INTVAL (x)))
+        *total = 1;
+      else
+        *total = 8;
+      return true;
+
+    case CONST:
+    case LABEL_REF:
+    case SYMBOL_REF:
+      if (TARGET_SHMEDIA64)
+        *total = COSTS_N_INSNS (4);
+      else if (TARGET_SHMEDIA32)
+        *total = COSTS_N_INSNS (2);
+      else
+	*total = 5;
+      return true;
+
+    case CONST_DOUBLE:
+      if (TARGET_SHMEDIA)
+        *total = COSTS_N_INSNS (4);
+      else
+        *total = 10;
+      return true;
+
+    case PLUS:
+      *total = COSTS_N_INSNS (addsubcosts (x));
+      return true;
+
+    case AND:
+      *total = COSTS_N_INSNS (andcosts (x));
+      return true;
+
+    case MULT:
+      *total = COSTS_N_INSNS (multcosts (x));
+      return true;
+
+    case ASHIFT:
+    case ASHIFTRT:
+    case LSHIFTRT:
+      *total = COSTS_N_INSNS (shiftcosts (x));
+      return true;
+
+    case DIV:
+    case UDIV:
+    case MOD:
+    case UMOD:
+      *total = COSTS_N_INSNS (20);
+      return true;
+
+    case FLOAT:
+    case FIX:
+      *total = 100;
+      return true;
+
+    default:
+      return false;
+    }
+}
+
+/* Compute the cost of an address.  For the SH, all valid addresses are
+   the same cost.  Use a slightly higher cost for reg + reg addressing,
+   since it increases pressure on r0.  */
+
+static int
+sh_address_cost (X)
+     rtx X;
+{
+  return (GET_CODE (X) == PLUS
+	  && ! CONSTANT_P (XEXP (X, 1))
+	  && ! TARGET_SHMEDIA ? 1 : 0);
 }
 
 /* Code to expand a shift.  */
@@ -6546,7 +6663,7 @@ sh_1el_vec (v, mode)
   if (GET_CODE (v) != CONST_VECTOR
       || (GET_MODE (v) != mode && mode != VOIDmode))
     return 0;
-  /* Determine numbers of last and of least significat elements.  */
+  /* Determine numbers of last and of least significant elements.  */
   last = XVECLEN (v, 0) - 1;
   least = TARGET_LITTLE_ENDIAN ? 0 : last;
   if (GET_CODE (XVECEXP (v, 0, least)) != CONST_INT)
@@ -6761,7 +6878,7 @@ expand_df_binop (fun, operands)
 }
 
 /* ??? gcc does flow analysis strictly after common subexpression
-   elimination.  As a result, common subespression elimination fails
+   elimination.  As a result, common subexpression elimination fails
    when there are some intervening statements setting the same register.
    If we did nothing about this, this would hurt the precision switching
    for SH4 badly.  There is some cse after reload, but it is unable to
@@ -7502,7 +7619,7 @@ sh_initialize_trampoline (tramp, fnaddr, cxt)
       rtx quad0 = gen_reg_rtx (DImode), cxtload = gen_reg_rtx (DImode);
       rtx quad1 = gen_reg_rtx (DImode), quad2 = gen_reg_rtx (DImode);
       /* movi 0,r1: 0xcc000010 shori 0,r1: c8000010  concatenated,
-	 rotated 10 right, and higer 16 bit of every 32 selected.  */
+	 rotated 10 right, and higher 16 bit of every 32 selected.  */
       rtx movishori
 	= force_reg (V2HImode, (simplify_gen_subreg
 				(V2HImode, GEN_INT (0x4330432), SImode, 0)));
@@ -7913,24 +8030,25 @@ sh_expand_binop_v2sf (code, op0, op1, op2)
 
 /* Return the class of registers for which a mode change from FROM to TO
    is invalid.  */
-enum reg_class 
-sh_cannot_change_mode_class (from, to)
+bool
+sh_cannot_change_mode_class (from, to, class)
      enum machine_mode from, to;
+     enum reg_class class;
 {
   if (GET_MODE_SIZE (from) != GET_MODE_SIZE (to))
     {
        if (TARGET_LITTLE_ENDIAN)
          {
 	   if (GET_MODE_SIZE (to) < 8 || GET_MODE_SIZE (from) < 8)
-	     return DF_REGS;
+	     return reg_classes_intersect_p (DF_REGS, class);
 	 }
        else
 	 {
 	   if (GET_MODE_SIZE (from) < 8)
-	     return DF_HI_REGS;
+	     return reg_classes_intersect_p (DF_HI_REGS, class);
 	 }
     }
-  return NO_REGS;
+  return 0;
 }
 
 

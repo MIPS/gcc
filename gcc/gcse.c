@@ -367,7 +367,6 @@ int copy_prop_count;
 
 static void alloc_gcse_mem	PARAMS ((rtx));
 static void free_gcse_mem	PARAMS ((void));
-static void compute_sets	PARAMS ((rtx));
 
 /* Entry point for global common subexpression elimination.
    F is the first instruction in the function.  */
@@ -652,7 +651,7 @@ free_gcse_mem ()
    This is called once, at the start of the gcse pass.  See the comments for
    `reg_set_table' for further documentation.  */
 
-static void
+void
 compute_sets (f)
      rtx f;
 {

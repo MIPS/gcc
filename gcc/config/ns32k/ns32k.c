@@ -72,6 +72,8 @@ const struct attribute_spec ns32k_attribute_table[];
 static void ns32k_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void ns32k_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void ns32k_encode_section_info PARAMS ((tree, int));
+static bool ns32k_rtx_costs PARAMS ((rtx, int, int, int *));
+static int ns32k_address_cost PARAMS ((rtx));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -91,6 +93,11 @@ static void ns32k_encode_section_info PARAMS ((tree, int));
 #define TARGET_ASM_FUNCTION_EPILOGUE ns32k_output_function_epilogue
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO ns32k_encode_section_info
+
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS ns32k_rtx_costs
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST ns32k_address_cost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -490,6 +497,38 @@ hard_regno_mode_ok (regno, mode)
   return 0;
 }
 
+static bool
+ns32k_rtx_costs (x, code, outer_code, total)
+     rtx x;
+     int code, outer_code ATTRIBUTE_UNUSED;
+     int *total;
+{
+  switch (code)
+    {
+    case CONST_INT:
+      if (INTVAL (x) <= 7 && INTVAL (x) >= -8)
+	*total = 0;
+      else if (INTVAL (x) < 0x2000 && INTVAL (x) >= -0x2000)
+        *total = 1;
+      else
+	*total = 3;
+      return true;
+
+    case CONST:
+    case LABEL_REF:
+    case SYMBOL_REF:
+      *total = 3;
+      return true;
+
+    case CONST_DOUBLE:
+      *total = 5;
+      return true;
+
+    default:
+      return false;
+    }
+}
+
 int register_move_cost (CLASS1, CLASS2)
      enum reg_class CLASS1;
      enum reg_class CLASS2;
@@ -523,28 +562,26 @@ int secondary_memory_needed (CLASS1, CLASS2, M)
 #endif
     
 
-/* ADDRESS_COST calls this.  This function is not optimal
+/* TARGET_ADDRESS_COST calls this.  This function is not optimal
    for the 32032 & 32332, but it probably is better than
    the default. */
 
-int
-calc_address_cost (operand)
+static int
+ns32k_address_cost (operand)
      rtx operand;
 {
-  int i;
   int cost = 0;
-  if (GET_CODE (operand) == MEM)
-    cost += 3;
-  if (GET_CODE (operand) == MULT)
-    cost += 2;
+
   switch (GET_CODE (operand))
     {
     case REG:
       cost += 1;
       break;
+
     case POST_DEC:
     case PRE_DEC:
       break;
+
     case CONST_INT:
       if (INTVAL (operand) <= 7 && INTVAL (operand) >= -8)
 	break;
@@ -561,18 +598,23 @@ calc_address_cost (operand)
     case CONST_DOUBLE:
       cost += 5;
       break;
+
     case MEM:
-      cost += calc_address_cost (XEXP (operand, 0));
+      cost += ns32k_address_cost (XEXP (operand, 0)) + 3;
       break;
+
     case MULT:
+      cost += 2;
+      /* FALLTHRU */
     case PLUS:
-      for (i = 0; i < GET_RTX_LENGTH (GET_CODE (operand)); i++)
-	{
-	  cost += calc_address_cost (XEXP (operand, i));
-	}
+      cost += ns32k_address_cost (XEXP (operand, 0));
+      cost += ns32k_address_cost (XEXP (operand, 1));
+      break;
+
     default:
       break;
     }
+
   return cost;
 }
 

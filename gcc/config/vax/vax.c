@@ -45,6 +45,10 @@ static int follows_p PARAMS ((rtx, rtx));
 static void vax_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void vax_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 					 HOST_WIDE_INT, tree));
+static int vax_address_cost_1 PARAMS ((rtx));
+static int vax_address_cost PARAMS ((rtx));
+static int vax_rtx_costs_1 PARAMS ((rtx, enum rtx_code, enum rtx_code));
+static bool vax_rtx_costs PARAMS ((rtx, int, int, int *));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -57,6 +61,11 @@ static void vax_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 #define TARGET_ASM_OUTPUT_MI_THUNK vax_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
+
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS vax_rtx_costs
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST vax_address_cost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -413,8 +422,8 @@ vax_float_literal(c)
    2 - indirect */
 
 
-int
-vax_address_cost (addr)
+static int
+vax_address_cost_1 (addr)
     register rtx addr;
 {
   int reg = 0, indexed = 0, indir = 0, offset = 0, predec = 0;
@@ -482,16 +491,22 @@ vax_address_cost (addr)
   return reg + indexed + indir + offset + predec;
 }
 
+static int
+vax_address_cost (x)
+     rtx x;
+{
+  return (1 + (GET_CODE (x) == REG ? 0 : vax_address_cost_1 (x)));
+}
 
 /* Cost of an expression on a VAX.  This version has costs tuned for the
    CVAX chip (found in the VAX 3 series) with comments for variations on
    other models.  */
 
-int
-vax_rtx_cost (x)
+static int
+vax_rtx_costs_1 (x, code, outer_code)
     register rtx x;
+    enum rtx_code code, outer_code;
 {
-  register enum rtx_code code = GET_CODE (x);
   enum machine_mode mode = GET_MODE (x);
   register int c;
   int i = 0;				/* may be modified in switch */
@@ -499,6 +514,40 @@ vax_rtx_cost (x)
 
   switch (code)
     {
+      /* On a VAX, constants from 0..63 are cheap because they can use the
+         1 byte literal constant format.  compare to -1 should be made cheap
+         so that decrement-and-branch insns can be formed more easily (if
+         the value -1 is copied to a register some decrement-and-branch
+	 patterns will not match).  */
+    case CONST_INT:
+      if (INTVAL (x) == 0)
+	return 0;
+      if (outer_code == AND)
+        return ((unsigned HOST_WIDE_INT) ~INTVAL (x) <= 077) ? 1 : 2;
+      if ((unsigned HOST_WIDE_INT) INTVAL (x) <= 077)
+	return 1;
+      if (outer_code == COMPARE && INTVAL (x) == -1)
+        return 1;
+      if (outer_code == PLUS && (unsigned HOST_WIDE_INT) -INTVAL (x) <= 077)
+        return 1;
+      /* FALLTHRU */
+
+    case CONST:
+    case LABEL_REF:
+    case SYMBOL_REF:
+      return 3;
+
+    case CONST_DOUBLE:
+      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+        return vax_float_literal (x) ? 5 : 8;
+      else
+        return (((CONST_DOUBLE_HIGH (x) == 0
+		  && (unsigned HOST_WIDE_INT) CONST_DOUBLE_LOW (x) < 64)
+	         || (outer_code == PLUS
+		     && CONST_DOUBLE_HIGH (x) == -1		\
+		     && (unsigned HOST_WIDE_INT)-CONST_DOUBLE_LOW (x) < 64))
+	        ? 2 : 5);
+ 
     case POST_INC:
       return 2;
     case PRE_DEC:
@@ -611,12 +660,11 @@ vax_rtx_cost (x)
       x = XEXP (x, 0);
       if (GET_CODE (x) == REG || GET_CODE (x) == POST_INC)
 	return c;
-      return c + vax_address_cost (x);
+      return c + vax_address_cost_1 (x);
     default:
       c = 3;
       break;
     }
-
 
   /* Now look inside the expression.  Operands which are not registers or
      short constants add to the cost.
@@ -666,7 +714,7 @@ vax_rtx_cost (x)
 	case MEM:
 	  c += 1;		/* 2 on VAX 2 */
 	  if (GET_CODE (XEXP (op, 0)) != REG)
-	    c += vax_address_cost (XEXP (op, 0));
+	    c += vax_address_cost_1 (XEXP (op, 0));
 	  break;
 	case REG:
 	case SUBREG:
@@ -677,6 +725,16 @@ vax_rtx_cost (x)
 	}
     }
   return c;
+}
+
+static bool
+vax_rtx_costs (x, code, outer_code, total)
+    rtx x;
+    int code, outer_code;
+    int *total;
+{
+  *total = vax_rtx_costs_1 (x, code, outer_code);
+  return true;
 }
 
 /* Return 1 if insn A follows B.  */
@@ -713,6 +771,13 @@ reg_was_0_p (insn, op)
 	  /* Make sure the reg hasn't been clobbered.  */
 	  && ! reg_set_between_p (op, XEXP (link, 0), insn));
 }
+
+/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
+   Used for C++ multiple inheritance.
+	.mask	^m<r2,r3,r4,r5,r6,r7,r8,r9,r10,r11>  #conservative entry mask
+	addl2	$DELTA, 4(ap)	#adjust first argument
+	jmp	FUNCTION+2	#jump beyond FUNCTION's entry mask
+*/
 
 static void
 vax_output_mi_thunk (file, thunk, delta, vcall_offset, function)

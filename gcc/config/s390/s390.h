@@ -374,8 +374,9 @@ do								\
 /* If a 4-byte value is loaded into a FPR, it is placed into the
    *upper* half of the register, not the lower.  Therefore, we
    cannot use SUBREGs to switch between modes in FP registers.  */
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO)		\
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO) ? FP_REGS : NO_REGS)
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)		\
+  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)			\
+   ? reg_classes_intersect_p (FP_REGS, CLASS) : 0)
 
 /* Register classes.  */
  
@@ -812,77 +813,6 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1;
 
 /* Relative costs of operations.  */
 
-/* A part of a C `switch' statement that describes the relative costs
-   of constant RTL expressions.  It must contain `case' labels for
-   expression codes `const_int', `const', `symbol_ref', `label_ref'
-   and `const_double'.  Each case must ultimately reach a `return'
-   statement to return the relative cost of the use of that kind of
-   constant value in an expression.  The cost may depend on the
-   precise value of the constant, which is available for examination
-   in X, and the rtx code of the expression in which it is contained,
-   found in OUTER_CODE.
-
-   CODE is the expression code--redundant, since it can be obtained
-   with `GET_CODE (X)'.  */
-/* Force_const_mem does not work out of reload, because the saveable_obstack
-   is set to reload_obstack, which does not live long enough. 
-   Because of this we cannot use force_const_mem in addsi3.
-   This leads to problems with gen_add2_insn with a constant greater
-   than a short. Because of that we give an addition of greater
-   constants a cost of 3 (reload1.c 10096).  */
-
-#define CONST_COSTS(RTX, CODE, OUTER_CODE)                      \
-  case CONST:                                                   \
-    if ((GET_CODE (XEXP (RTX, 0)) == MINUS) &&                  \
-	(GET_CODE (XEXP (XEXP (RTX, 0), 1)) != CONST_INT))      \
-     return 1000;                                               \
-  case CONST_INT:                                               \
-       if ((OUTER_CODE == PLUS) &&                              \
-	   ((INTVAL (RTX) > 32767) ||                           \
-	   (INTVAL (RTX) < -32768))) 	                        \
-         return COSTS_N_INSNS (3);                              \
-  case LABEL_REF:                                               \
-  case SYMBOL_REF:                                              \
-  case CONST_DOUBLE:                                            \
-    return 0;                                                   \
-
-
-/* Like `CONST_COSTS' but applies to nonconstant RTL expressions.
-   This can be used, for example, to indicate how costly a multiply
-   instruction is.  In writing this macro, you can use the construct
-   `COSTS_N_INSNS (N)' to specify a cost equal to N fast
-   instructions.  OUTER_CODE is the code of the expression in which X
-   is contained.  */
-
-#define RTX_COSTS(X, CODE, OUTER_CODE)                                  \
-  case ASHIFT:                                                          \
-  case ASHIFTRT:                                                        \
-  case LSHIFTRT:                                                        \
-  case PLUS:                                                            \
-  case AND:                                                             \
-  case IOR:                                                             \
-  case XOR:                                                             \
-  case MINUS:                                                           \
-  case NEG:                                                             \
-  case NOT:                                                             \
-    return COSTS_N_INSNS (1);                                           \
-  case MULT:                                                            \
-    if (GET_MODE (XEXP (X, 0)) == DImode)                               \
-      return COSTS_N_INSNS (40);                                        \
-    else                                                                \
-      return COSTS_N_INSNS (7);                                         \
-  case DIV:                                                             \
-  case UDIV:                                                            \
-  case MOD:                                                             \
-  case UMOD:                                                            \
-    return COSTS_N_INSNS (33);
-
-
-/* An expression giving the cost of an addressing mode that contains
-   ADDRESS.  If not defined, the cost is computed from the ADDRESS
-   expression and the `CONST_COSTS' values.  */
-#define ADDRESS_COST(RTX) s390_address_cost ((RTX))
-
 /* On s390, copy between fprs and gprs is expensive.  */
 #define REGISTER_MOVE_COST(MODE, CLASS1, CLASS2)                        \
   ((   (   reg_classes_intersect_p ((CLASS1), GENERAL_REGS)		\
@@ -980,10 +910,6 @@ extern int flag_pic;
 
 /* The LOCAL_LABEL_PREFIX variable is used by dbxelf.h.  */
 #define LOCAL_LABEL_PREFIX "."
-
-/* Either simplify a location expression, or return the original.  */
-#define ASM_SIMPLIFY_DWARF_ADDR(X) \
-  s390_simplify_dwarf_addr (X)
 
 /* How to refer to registers in assembler output.  This sequence is
    indexed by compiler's hard-register-number (see above).  */

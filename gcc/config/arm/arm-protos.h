@@ -57,7 +57,7 @@ extern int    thumb_legitimate_address_p PARAMS ((enum machine_mode, rtx,
 						  int));
 extern int    thumb_legitimate_offset_p	PARAMS ((enum machine_mode,
 						 HOST_WIDE_INT));
-extern int    arm_rtx_costs		PARAMS ((rtx, RTX_CODE, RTX_CODE));
+extern rtx    arm_legitimize_address	PARAMS ((rtx, rtx, enum machine_mode));
 extern int    const_double_rtx_ok_for_fpu	PARAMS ((rtx));
 extern int    neg_const_double_rtx_ok_for_fpu	PARAMS ((rtx));
 
@@ -209,13 +209,6 @@ extern void arm_mark_dllexport 		PARAMS ((tree));
 extern void arm_mark_dllimport 		PARAMS ((tree));
 #endif
 
-extern void arm_init_builtins		PARAMS ((void));
-#if defined (TREE_CODE) && defined (RTX_CODE)
-extern rtx arm_expand_builtin		PARAMS ((tree, rtx, rtx,
-					       enum machine_mode, int));
-#endif
-
-struct cpp_reader;
 extern void arm_pr_long_calls		PARAMS ((struct cpp_reader *));
 extern void arm_pr_no_long_calls	PARAMS ((struct cpp_reader *));
 extern void arm_pr_long_calls_off	PARAMS ((struct cpp_reader *));

@@ -1010,38 +1010,7 @@ struct cum_arg
 #define ADJUST_INSN_LENGTH(INSN, LENGTH) \
   LENGTH += h8300_adjust_insn_length (INSN, LENGTH);
 
-/* Compute the cost of computing a constant rtl expression RTX
-   whose rtx-code is CODE.  The body of this macro is a portion
-   of a switch statement.  If the code is computed here,
-   return it with a return statement.  Otherwise, break from the switch.  */
-
-#define DEFAULT_RTX_COSTS(RTX, CODE, OUTER_CODE) \
-  return (const_costs (RTX, CODE, OUTER_CODE));
-
 #define BRANCH_COST 0
-
-/* We say that MOD and DIV are so cheap because otherwise we'll
-   generate some really horrible code for division of a power of two.  */
-
-/* Provide the costs of a rtl expression.  This is in the body of a
-   switch on CODE.  */
-
-#define RTX_COSTS(RTX, CODE, OUTER_CODE)		\
-  case AND:						\
-    return COSTS_N_INSNS (h8300_and_costs (RTX));	\
-  case MOD:						\
-  case DIV:						\
-    return 60;						\
-  case MULT:						\
-    return 20;						\
-  case ASHIFT:						\
-  case ASHIFTRT:					\
-  case LSHIFTRT:					\
-    return COSTS_N_INSNS (h8300_shift_costs (RTX));	\
-  case ROTATE:						\
-  case ROTATERT:					\
-    if (GET_MODE (RTX) == HImode) return 2;		\
-    return 8;
 
 /* Tell final.c how to eliminate redundant test instructions.  */
 
@@ -1301,25 +1270,29 @@ struct cum_arg
 
 /* Define the codes that are matched by predicates in h8300.c.  */
 
-#define PREDICATE_CODES					\
-  {"single_one_operand", {CONST_INT}},			\
-  {"single_zero_operand", {CONST_INT}},			\
-  {"call_insn_operand", {MEM}},				\
-  {"small_call_insn_operand", {MEM}},			\
-  {"jump_address_operand", {REG, MEM}},			\
-  {"two_insn_adds_subs_operand", {CONST_INT}},		\
-  {"bit_operand", {REG, SUBREG, MEM}},			\
-  {"bit_memory_operand", {MEM}},			\
-  {"stack_pointer_operand", {REG}},			\
-  {"const_int_le_2_operand", {CONST_INT}},		\
-  {"const_int_le_6_operand", {CONST_INT}},		\
-  {"const_int_gt_2_operand", {CONST_INT}},		\
-  {"const_int_ge_8_operand", {CONST_INT}},		\
-  {"const_int_qi_operand", {CONST_INT}},		\
-  {"const_int_hi_operand", {CONST_INT}},		\
-  {"incdec_operand", {CONST_INT}},			\
-  {"bit_operator", {XOR, AND, IOR}},			\
-  {"nshift_operator", {ASHIFTRT, LSHIFTRT, ASHIFT}},	\
+#define PREDICATE_CODES							\
+  {"general_operand_src", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
+			   LABEL_REF, SUBREG, REG, MEM, ADDRESSOF}},	\
+  {"general_operand_dst", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
+			   LABEL_REF, SUBREG, REG, MEM, ADDRESSOF}},	\
+  {"single_one_operand", {CONST_INT}},					\
+  {"single_zero_operand", {CONST_INT}},					\
+  {"call_insn_operand", {MEM}},						\
+  {"small_call_insn_operand", {MEM}},					\
+  {"jump_address_operand", {REG, MEM}},					\
+  {"two_insn_adds_subs_operand", {CONST_INT}},				\
+  {"bit_operand", {REG, SUBREG, MEM}},					\
+  {"bit_memory_operand", {MEM}},					\
+  {"stack_pointer_operand", {REG}},					\
+  {"const_int_le_2_operand", {CONST_INT}},				\
+  {"const_int_le_6_operand", {CONST_INT}},				\
+  {"const_int_gt_2_operand", {CONST_INT}},				\
+  {"const_int_ge_8_operand", {CONST_INT}},				\
+  {"const_int_qi_operand", {CONST_INT}},				\
+  {"const_int_hi_operand", {CONST_INT}},				\
+  {"incdec_operand", {CONST_INT}},					\
+  {"bit_operator", {XOR, AND, IOR}},					\
+  {"nshift_operator", {ASHIFTRT, LSHIFTRT, ASHIFT}},			\
   {"eqne_operator", {EQ, NE}},
 
 #endif /* ! GCC_H8300_H */

@@ -1,5 +1,5 @@
 /* Output routines for GCC for ARM.
-   Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
@@ -140,6 +140,10 @@ static void	 arm_internal_label		PARAMS ((FILE *, const char *, unsigned long));
 static void arm_output_mi_thunk			PARAMS ((FILE *, tree,
 							 HOST_WIDE_INT,
 							 HOST_WIDE_INT, tree));
+static int arm_rtx_costs_1			PARAMS ((rtx, enum rtx_code,
+							 enum rtx_code));
+static bool arm_rtx_costs			PARAMS ((rtx, int, int, int*));
+static int arm_address_cost			PARAMS ((rtx));
 
 #undef Hint
 #undef Mmode
@@ -183,12 +187,6 @@ static void arm_output_mi_thunk			PARAMS ((FILE *, tree,
 #undef  TARGET_SET_DEFAULT_TYPE_ATTRIBUTES
 #define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES arm_set_default_type_attributes
 
-#undef  TARGET_INIT_BUILTINS
-#define TARGET_INIT_BUILTINS arm_init_builtins
-
-#undef  TARGET_EXPAND_BUILTIN
-#define TARGET_EXPAND_BUILTIN arm_expand_builtin
-
 #undef  TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST arm_adjust_cost
 
@@ -212,6 +210,11 @@ static void arm_output_mi_thunk			PARAMS ((FILE *, tree,
 #define TARGET_ASM_OUTPUT_MI_THUNK arm_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
+
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS arm_rtx_costs
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST arm_address_cost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -258,7 +261,7 @@ int    arm_structure_size_boundary = DEFAULT_STRUCTURE_SIZE_BOUNDARY;
 #define FL_THUMB      (1 << 6)        /* Thumb aware */
 #define FL_LDSCHED    (1 << 7)	      /* Load scheduling necessary */
 #define FL_STRONG     (1 << 8)	      /* StrongARM */
-#define FL_ARCH5E     (1 << 9)        /* DSP extenstions to v5 */
+#define FL_ARCH5E     (1 << 9)        /* DSP extensions to v5 */
 #define FL_XSCALE     (1 << 10)	      /* XScale */
 
 /* The bits in this mask specify which
@@ -1809,12 +1812,12 @@ arm_return_in_memory (type)
       return (size < 0 || size > UNITS_PER_WORD);
     }
   
-  /* For the arm-wince targets we choose to be compitable with Microsoft's
+  /* For the arm-wince targets we choose to be compatible with Microsoft's
      ARM and Thumb compilers, which always return aggregates in memory.  */
 #ifndef ARM_WINCE
   /* All structures/unions bigger than one word are returned in memory.
      Also catch the case where int_size_in_bytes returns -1.  In this case
-     the aggregate is either huge or of varaible size, and in either case
+     the aggregate is either huge or of variable size, and in either case
      we will want to return it via memory and not in a register.  */
   if (size < 0 || size > UNITS_PER_WORD)
     return 1;
@@ -2250,7 +2253,7 @@ arm_set_default_type_attributes (type)
 }
 
 /* Return 1 if the operand is a SYMBOL_REF for a function known to be
-   defined within the current compilation unit.  If this caanot be
+   defined within the current compilation unit.  If this cannot be
    determined, then 0 is returned.  */
 
 static int
@@ -2896,6 +2899,91 @@ thumb_legitimate_offset_p (mode, val)
     }
 }
 
+/* Try machine-dependent ways of modifying an illegitimate address
+   to be legitimate.  If we find one, return the new, valid address.  */
+
+rtx
+arm_legitimize_address (x, orig_x, mode)
+     rtx x;
+     rtx orig_x;
+     enum machine_mode mode;
+{
+  if (GET_CODE (x) == PLUS)
+    {
+      rtx xop0 = XEXP (x, 0);
+      rtx xop1 = XEXP (x, 1);
+
+      if (CONSTANT_P (xop0) && !symbol_mentioned_p (xop0))
+	xop0 = force_reg (SImode, xop0);
+
+      if (CONSTANT_P (xop1) && !symbol_mentioned_p (xop1))
+	xop1 = force_reg (SImode, xop1);
+
+      if (ARM_BASE_REGISTER_RTX_P (xop0)
+	  && GET_CODE (xop1) == CONST_INT)
+	{
+	  HOST_WIDE_INT n, low_n;
+	  rtx base_reg, val;
+	  n = INTVAL (xop1);
+
+	  if (mode == DImode || (TARGET_SOFT_FLOAT && mode == DFmode))
+	    {
+	      low_n = n & 0x0f;
+	      n &= ~0x0f;
+	      if (low_n > 4)
+		{
+		  n += 16;
+		  low_n -= 16;
+		}
+	    }
+	  else
+	    {
+	      low_n = ((mode) == TImode ? 0
+		       : n >= 0 ? (n & 0xfff) : -((-n) & 0xfff));
+	      n -= low_n;
+	    }
+
+	  base_reg = gen_reg_rtx (SImode);
+	  val = force_operand (gen_rtx_PLUS (SImode, xop0,
+					     GEN_INT (n)), NULL_RTX);
+	  emit_move_insn (base_reg, val);
+	  x = (low_n == 0 ? base_reg
+	       : gen_rtx_PLUS (SImode, base_reg, GEN_INT (low_n)));
+	}
+      else if (xop0 != XEXP (x, 0) || xop1 != XEXP (x, 1))
+	x = gen_rtx_PLUS (SImode, xop0, xop1);
+    }
+
+  /* XXX We don't allow MINUS any more -- see comment in
+     arm_legitimate_address_p ().  */
+  else if (GET_CODE (x) == MINUS)
+    {
+      rtx xop0 = XEXP (x, 0);
+      rtx xop1 = XEXP (x, 1);
+
+      if (CONSTANT_P (xop0))
+	xop0 = force_reg (SImode, xop0);
+
+      if (CONSTANT_P (xop1) && ! symbol_mentioned_p (xop1))
+	xop1 = force_reg (SImode, xop1);
+
+      if (xop0 != XEXP (x, 0) || xop1 != XEXP (x, 1))
+	x = gen_rtx_MINUS (SImode, xop0, xop1);
+    }
+
+  if (flag_pic)
+    {
+      /* We need to find and carefully transform any SYMBOL and LABEL
+	 references; so go back to the original address expression.  */
+      rtx new_x = legitimize_pic_address (orig_x, mode, NULL_RTX);
+
+      if (new_x != orig_x)
+	x = new_x;
+    }
+
+  return x;
+}
+
 
 
 #define REG_OR_SUBREG_REG(X)						\
@@ -2909,8 +2997,8 @@ thumb_legitimate_offset_p (mode, val)
 #define COSTS_N_INSNS(N) ((N) * 4 - 2)
 #endif
 
-int
-arm_rtx_costs (x, code, outer)
+static inline int
+arm_rtx_costs_1 (x, code, outer)
      rtx x;
      enum rtx_code code;
      enum rtx_code outer;
@@ -3294,6 +3382,50 @@ arm_rtx_costs (x, code, outer)
     }
 }
 
+static bool
+arm_rtx_costs (x, code, outer_code, total)
+     rtx x;
+     int code, outer_code;
+     int *total;
+{
+  *total = arm_rtx_costs_1 (x, code, outer_code);
+  return true;
+}
+
+/* All address computations that can be done are free, but rtx cost returns
+   the same for practically all of them.  So we weight the different types
+   of address here in the order (most pref first):
+   PRE/POST_INC/DEC, SHIFT or NON-INT sum, INT sum, REG, MEM or LABEL. */
+
+static int
+arm_address_cost (X)
+    rtx X;
+{
+#define ARM_ADDRESS_COST(X)						     \
+  (10 - ((GET_CODE (X) == MEM || GET_CODE (X) == LABEL_REF		     \
+	  || GET_CODE (X) == SYMBOL_REF)				     \
+	 ? 0								     \
+	 : ((GET_CODE (X) == PRE_INC || GET_CODE (X) == PRE_DEC		     \
+	     || GET_CODE (X) == POST_INC || GET_CODE (X) == POST_DEC)	     \
+	    ? 10							     \
+	    : (((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS)		     \
+		? 6 + (GET_CODE (XEXP (X, 1)) == CONST_INT ? 2 		     \
+		       : ((GET_RTX_CLASS (GET_CODE (XEXP (X, 0))) == '2'     \
+			   || GET_RTX_CLASS (GET_CODE (XEXP (X, 0))) == 'c'  \
+			   || GET_RTX_CLASS (GET_CODE (XEXP (X, 1))) == '2'  \
+			   || GET_RTX_CLASS (GET_CODE (XEXP (X, 1))) == 'c') \
+			  ? 1 : 0))					     \
+		: 4)))))
+	 
+#define THUMB_ADDRESS_COST(X) 					\
+  ((GET_CODE (X) == REG 					\
+    || (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 0)) == REG	\
+	&& GET_CODE (XEXP (X, 1)) == CONST_INT))		\
+   ? 1 : 2)
+     
+  return (TARGET_ARM ? ARM_ADDRESS_COST (X) : THUMB_ADDRESS_COST (X));
+}
+
 static int
 arm_adjust_cost (insn, link, dep, cost)
      rtx insn;
@@ -3534,7 +3666,7 @@ arm_reload_memory_operand (op, mode)
    memory access (architecture V4).
    MODE is QImode if called when computing constraints, or VOIDmode when
    emitting patterns.  In this latter case we cannot use memory_operand()
-   because it will fail on badly formed MEMs, which is precisly what we are
+   because it will fail on badly formed MEMs, which is precisely what we are
    trying to catch.  */
 
 int
@@ -5076,7 +5208,7 @@ arm_gen_rotated_half_load (memref)
    COND_OR == 0 => (X && Y) 
    COND_OR == 1 => ((! X( || Y)
    COND_OR == 2 => (X || Y) 
-   If we are unable to support a dominance comparsison we return CC mode.  
+   If we are unable to support a dominance comparison we return CC mode.  
    This will then fail to match for the RTL expressions that generate this
    call.  */
 
@@ -5932,7 +6064,7 @@ add_minipool_forward_ref (fix)
      a new entry for it.  If MAX_MP is NULL, the entry will be put on
      the end of the list since the placement is less constrained than
      any existing entry.  Otherwise, we insert the new fix before
-     MAX_MP and, if neceesary, adjust the constraints on the other
+     MAX_MP and, if necessary, adjust the constraints on the other
      entries.  */
   mp = xmalloc (sizeof (* mp));
   mp->fix_size = fix->fix_size;
@@ -8071,7 +8203,7 @@ arm_output_epilogue (really_return)
       if (IS_INTERRUPT (func_type))
 	/* Interrupt handlers will have pushed the
 	   IP onto the stack, so restore it now.  */
-	print_multi_reg (f, "ldmfd\t%r", SP_REGNUM, 1 << IP_REGNUM);
+	print_multi_reg (f, "ldmfd\t%r!", SP_REGNUM, 1 << IP_REGNUM);
     }
   else
     {
@@ -8202,7 +8334,7 @@ arm_output_epilogue (really_return)
 
     default:
       if (frame_pointer_needed)
-	/* If we used the frame pointer then the return adddress
+	/* If we used the frame pointer then the return address
 	   will have been loaded off the stack directly into the
 	   PC, so there is no need to issue a MOV instruction
 	   here.  */
@@ -8510,10 +8642,14 @@ arm_compute_initial_elimination_offset (from, to)
 	  reg_mask = reg_mask & ~ (reg_mask & - reg_mask);
 	}
 
-      if (regs_ever_live[LR_REGNUM]
-	  /* If a stack frame is going to be created, the LR will
-	     be saved as part of that, so we do not need to allow
-	     for it here.  */
+      if ((regs_ever_live[LR_REGNUM]
+	   /* If optimizing for size, then we save the link register if
+	      any other integer register is saved.  This gives a smaller
+	      return sequence.  */
+	   || (optimize_size && call_saved_registers > 0))
+	  /* But if a stack frame is going to be created, the LR will
+	     be saved as part of that, so we do not need to allow for
+	     it here.  */
 	  && ! frame_pointer_needed)
 	call_saved_registers += 4;
 
@@ -9839,82 +9975,6 @@ arm_debugger_arg_offset (value, addr)
 
   return value;
 }
-
-#define def_builtin(NAME, TYPE, CODE) \
-  builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD, NULL, NULL_TREE)
-
-void
-arm_init_builtins ()
-{
-  tree endlink = void_list_node;
-  tree int_endlink = tree_cons (NULL_TREE, integer_type_node, endlink);
-  tree pchar_type_node = build_pointer_type (char_type_node);
-
-  tree int_ftype_int, void_ftype_pchar;
-
-  /* void func (char *) */
-  void_ftype_pchar
-    = build_function_type_list (void_type_node, pchar_type_node, NULL_TREE);
-
-  /* int func (int) */
-  int_ftype_int
-    = build_function_type (integer_type_node, int_endlink);
-
-  /* Initialize arm V5 builtins.  */
-  if (arm_arch5)
-    def_builtin ("__builtin_clz", int_ftype_int, ARM_BUILTIN_CLZ);
-}
-
-/* Expand an expression EXP that calls a built-in function,
-   with result going to TARGET if that's convenient
-   (and in mode MODE if that's convenient).
-   SUBTARGET may be used as the target for computing one of EXP's operands.
-   IGNORE is nonzero if the value is to be ignored.  */
-
-rtx
-arm_expand_builtin (exp, target, subtarget, mode, ignore)
-     tree exp;
-     rtx target;
-     rtx subtarget ATTRIBUTE_UNUSED;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
-     int ignore ATTRIBUTE_UNUSED;
-{
-  enum insn_code icode;
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
-  tree arglist = TREE_OPERAND (exp, 1);
-  tree arg0;
-  rtx op0, pat;
-  enum machine_mode tmode, mode0;
-  int fcode = DECL_FUNCTION_CODE (fndecl);
-
-  switch (fcode)
-    {
-    default:
-      break;
-      
-    case ARM_BUILTIN_CLZ:
-      icode = CODE_FOR_clz;
-      arg0 = TREE_VALUE (arglist);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      tmode = insn_data[icode].operand[0].mode;
-      mode0 = insn_data[icode].operand[1].mode;
-
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
-      if (target == 0
-	  || GET_MODE (target) != tmode
-	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
-	target = gen_reg_rtx (tmode);
-      pat = GEN_FCN (icode) (target, op0);
-      if (! pat)
-	return 0;
-      emit_insn (pat);
-      return target;
-    }
-
-  /* @@@ Should really do something sensible here.  */
-  return NULL_RTX;
-}
 
 /* Recursively search through all of the blocks in a function
    checking to see if any of the variables created in that
@@ -10145,7 +10205,7 @@ thumb_exit (f, reg_containing_return_addr, eh_ofs)
 	number_of_first_bit_set (regs_available_for_popping);
 
       /* Remove this register for the mask of available registers, so that
-         the return address will not be corrupted by futher pops.  */
+         the return address will not be corrupted by further pops.  */
       regs_available_for_popping &= ~(1 << reg_containing_return_addr);
     }
 
@@ -10806,7 +10866,7 @@ thumb_expand_prologue ()
 	    {
 	      rtx spare = gen_rtx (REG, SImode, IP_REGNUM);
 
-	      /* Choose an arbitary, non-argument low register.  */
+	      /* Choose an arbitrary, non-argument low register.  */
 	      reg = gen_rtx (REG, SImode, LAST_LO_REGNUM);
 
 	      /* Save it by copying it into a high, scratch register.  */

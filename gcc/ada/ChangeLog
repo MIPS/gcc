@@ -1,3 +1,59 @@
+2003-02-04  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gnat_rm.texi, gnat_ug.texi: Update to GFDL 1.2.
+	* gnat_ug_unx.texi, gnat_ug_vms.texi, gnat_ug_vxw.texi,
+	gnat_ug_wnt.texi: Regenerate.
+
+2003-02-03  Christian Cornelssen <ccorn@cs.tu-berlin.de>
+
+	* Make-lang.in (ada.install-info): Let $(DESTDIR)$(infodir)
+	be created if necessary.
+	(ada.install-common): Let $(DESTDIR)$(bindir) be created
+	if necessary.  Remove erroneous and redundant gnatchop
+	installation commands.	Test for gnatdll before attempting
+	to install it.
+	(ada.uninstall): Also uninstall gnatfind, gnatxref, gnatlbr,
+	and gnatdll from all plausible locations.
+
+2003-02-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* utils2.c (build_unary_op): Don't check flag_volatile.
+	* gnat_ug.texi: Remove -fvolatile from example.
+	* gnat_ug_vxw.texi: Likewise.
+
+2003-01-29  Laurent Guerby <guerby@acm.org>
+
+        PR ada/8344
+        * final.c: rename to adafinal.c to avoid file name conflicts with gcc file.
+        * Makefile.in: match previous change. 
+        * Make-lang.in: match previous change. 
+
+2003-01-29	Joel Sherrill <joel@OARcorp.com>
+
+	* 5rosinte.ads: Add SIGXCPU.
+	* 5rtpopsp.adb: New file.
+	* Make-lang.in: Do not build gnatpsta and gnatpsys when cross.
+	* Makefile.in: Recognize more RTEMS targets and add the RTEMS
+	specific file 5rtpopsp.adb.
+	* adaint.h: Add include of <stdio.h> when target is RTEMS.  This
+	is likely needed for all newlib targets.
+	* init.c: Add RTEMS specific version of __gnat_initialize().
+
+2003-01-28  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* adaint.c, adaint.h, gmem.c, init.c: Update copyright year.
+
+2003-01-27  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* init.c (__gnat_error_handler): Make msg const.
+
+	* gmem.c (convert_addresses): Move declaration ...
+	* adaint.h: ... here.
+	* adaint.c (convert_addresses): Adapt addrs type to match
+	prototype.
+
+	* adaint.c (__gnat_try_lock): Cast pid_t to long, adapt format.
+
 2003-01-24  Andreas Schwab  <schwab@suse.de>
 
 	* ada-tree.h (SET_TYPE_DIGITS_VALUE): Add intermediate cast to

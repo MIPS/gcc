@@ -9,9 +9,8 @@
 #
 # objext
 # LIB1ASMFUNCS
-# LIB2FUNCS_1
-# LIB2FUNCS_2
 # LIB2FUNCS_ST
+# LIBGCOV
 # LIB2ADD
 # LIB2ADD_ST 
 # LIB2ADDEH
@@ -21,6 +20,8 @@
 # LIB2_DIVMOD_FUNCS
 # DPBIT
 # DPBIT_FUNCS
+# TPBIT
+# TPBIT_FUNCS
 # LIBGCC
 # MULTILIBS
 # EXTRA_MULTILIB_PARTS
@@ -41,6 +42,16 @@ echo 'EQ = ='
 echo
 echo 'force:'
 echo
+
+# Library members defined in libgcc2.c.
+lib2funcs='_muldi3 _negdi2 _lshrdi3 _ashldi3 _ashrdi3
+	_cmpdi2 _ucmpdi2 _floatdidf _floatdisf _fixunsdfsi _fixunssfsi
+	_fixunsdfdi _fixdfdi _fixunssfdi _fixsfdi _fixxfdi _fixunsxfdi
+	_floatdixf _fixunsxfsi _fixtfdi _fixunstfdi _floatditf _clear_cache
+	_trampoline __main _exit _absvsi2 _absvdi2 _addvsi3 _addvdi3
+	_subvsi3 _subvdi3 _mulvsi3 _mulvdi3 _negvsi2 _negvdi2 _ctors
+	_ffssi2 _ffsdi2 _clz _clzsi2 _clzdi2 _ctzsi2 _ctzdi2 _popcount_tab
+	_popcountsi2 _popcountdi2 _paritysi2 _paritydi2'
 
 # Disable SHLIB_LINK if shared libgcc not enabled.
 if [ "@enable_shared@" = "no" ]; then
@@ -63,6 +74,9 @@ make_compile='$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 # Dependencies for libgcc2.c
 libgcc2_c_dep='stmp-dirs $(srcdir)/libgcc2.c $(CONFIG_H) coretypes.h $(TM_H) $(MACHMODE_H) longlong.h gbl-ctors.h config.status stmp-int-hdrs tsystem.h'" $LIB2ADDEHDEP"
 
+# Dependencies for libgcov.c
+libgcov_c_dep='stmp-dirs $(srcdir)/libgcov.c $(CONFIG_H) coretypes.h $(TM_H) $(MACHMODE_H) longlong.h gbl-ctors.h config.status stmp-int-hdrs tsystem.h'
+
 # Dependencies for fp-bit.c
 fpbit_c_dep='stmp-dirs config.status tsystem.h'
 
@@ -82,14 +96,11 @@ for name in $LIB1ASMFUNCS; do
     echo "	$gcc_compile" $flags -DL$name -xassembler-with-cpp \
 	  -c '$(srcdir)/config/$(LIB1ASMSRC)' -o $out
 
-    # Remove any objects from LIB2FUNCS and LIB2_DIVMOD_FUNCS that are
+    # Remove any objects from lib2funcs and LIB2_DIVMOD_FUNCS that are
     # defined as optimized assembly code in LIB1ASMFUNCS.
-    LIB2FUNCS_1=`echo $LIB2FUNCS_1 | sed -e 's/^'$name' //' \
-				         -e 's/ '$name' / /' \
-				         -e 's/ '$name'$//'`
-    LIB2FUNCS_2=`echo $LIB2FUNCS_2 | sed -e 's/^'$name' //' \
-				         -e 's/ '$name' / /' \
-				         -e 's/ '$name'$//'`
+    lib2funcs=`echo $lib2funcs | sed -e 's/^'$name' //' \
+				     -e 's/ '$name' / /' \
+				     -e 's/ '$name'$//'`
     LIB2_DIVMOD_FUNCS=`echo $LIB2_DIVMOD_FUNCS | sed -e 's/^'$name' //' \
 				                     -e 's/ '$name' / /' \
 				                     -e 's/ '$name'$//'`
@@ -105,7 +116,7 @@ libgcc2_objs=""
 libgcc2_st_objs=""
 libgcc2_eh_objs=""
 
-for name in $LIB2FUNCS_1 $LIB2FUNCS_2; do
+for name in $lib2funcs; do
   for ml in $MULTILIBS; do
     dir=`echo ${ml} | sed -e 's/;.*$//' -e 's/=/$(EQ)/g'`
     flags=`echo ${ml} | sed -e 's/^[^;]*;//' -e 's/@/ -/g'`;
@@ -174,6 +185,21 @@ if [ "$DPBIT" ]; then
   done
 fi
 
+if [ "$TPBIT" ]; then
+  for name in $TPBIT_FUNCS; do
+    for ml in $MULTILIBS; do
+      dir=`echo ${ml} | sed -e 's/;.*$//' -e 's/=/$(EQ)/g'`
+      flags=`echo ${ml} | sed -e 's/^[^;]*;//' -e 's/@/ -/g'`;
+      out="libgcc/${dir}/${name}${objext}"
+
+      echo $out: $TPBIT $fpbit_c_dep
+      echo "	$gcc_compile" -DFINE_GRAINED_LIBRARIES $flags -DL$name \
+	-c $TPBIT -o $out
+    done
+    libgcc2_objs="$libgcc2_objs ${name}${objext}"
+  done
+fi
+
 for file in $LIB2ADD; do
   name=`echo $file | sed -e 's/[.][cSo]$//' -e 's/[.]asm$//' -e 's/[.]txt$//'`
   oname=`echo $name | sed -e 's,.*/,,'`
@@ -232,6 +258,25 @@ for file in $LIB2ADD_ST; do
   libgcc2_st_objs="$libgcc2_st_objs ${oname}${objext}"
 done
 
+#
+# build libgcov components
+#
+
+libgcov_objs=""
+
+for name in $LIBGCOV; do
+  for ml in $MULTILIBS; do
+    dir=`echo ${ml} | sed -e 's/;.*$//' -e 's/=/$(EQ)/g'`
+    flags=`echo ${ml} | sed -e 's/^[^;]*;//' -e 's/@/ -/g'`;
+    out="libgcc/${dir}/${name}${objext}"
+
+    echo $out: $libgcov_c_dep
+    echo "	$gcc_compile" '$(MAYBE_USE_COLLECT2)' $flags -DL$name \
+      -c '$(srcdir)/libgcov.c' -o $out
+  done
+  libgcov_objs="$libgcov_objs ${name}${objext}"
+done
+
 # SHLIB_MKMAP
 # SHLIB_MKMAP_OPTS
 # SHLIB_MAPFILES
@@ -258,6 +303,11 @@ for ml in $MULTILIBS; do
     libgcc_st_objs="$libgcc_st_objs libgcc/${dir}/$o"
   done
 
+  libgcov_a_objs=""
+  for o in $libgcov_objs; do
+    libgcov_a_objs="$libgcov_a_objs libgcc/${dir}/$o"
+  done
+  
   if [ "$SHLIB_LINK" -a "$SHLIB_MKMAP" ]; then
     mapfile="libgcc/${dir}/libgcc.map"
     tmpmapfile="libgcc/${dir}/tmp-libgcc.map"
@@ -296,6 +346,12 @@ for ml in $MULTILIBS; do
   echo "	-rm -rf ${dir}/libgcc.a"
   echo '	$(AR_CREATE_FOR_TARGET)' ${dir}/libgcc.a $libgcc_a_objs
   echo '	$(RANLIB_FOR_TARGET)' ${dir}/libgcc.a
+
+  echo ""
+  echo "${dir}/libgcov.a: $libgcov_a_objs"
+  echo "	-rm -rf ${dir}/libgcov.a"
+  echo '	$(AR_CREATE_FOR_TARGET)' ${dir}/libgcov.a $libgcov_a_objs
+  echo '	$(RANLIB_FOR_TARGET)' ${dir}/libgcov.a
 
   if [ "$SHLIB_LINK" ]; then
 
@@ -378,7 +434,7 @@ for ml in $MULTILIBS; do
   if [ $dir != . ]; then
     dirs="$dirs ${dir} libgcc/${dir}"
   fi
-  all="$all ${dir}/libgcc.a"
+  all="$all ${dir}/libgcc.a ${dir}/libgcov.a"
   if [ "$SHLIB_LINK" ]; then
     all="$all ${dir}/libgcc_eh.a"
     if [ -z "$SHLIB_MULTILIB" ]; then
@@ -439,6 +495,8 @@ for ml in $MULTILIBS; do
   fi
   echo '	$(INSTALL_DATA)' ${dir}/libgcc.a ${ldir}/
   echo '	$(RANLIB_FOR_TARGET)' ${ldir}/libgcc.a
+  echo '	$(INSTALL_DATA)' ${dir}/libgcov.a ${ldir}/
+  echo '	$(RANLIB_FOR_TARGET)' ${ldir}/libgcov.a
 
   if [ "$SHLIB_LINK" ]; then
     echo '	$(INSTALL_DATA)' ${dir}/libgcc_eh.a ${ldir}/

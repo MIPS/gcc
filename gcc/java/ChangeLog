@@ -1,3 +1,61 @@
+2003-02-04  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcj.texi: Update to GFDL 1.2.
+
+2003-01-31  Andrew Haley  <aph@redhat.com>
+
+	* parse.y (java_expand_classes): Scan the whole class list looking
+	for access methods that haven't yet been expanded.
+
+2003-01-31 Adrian Bunk <bunk@fs.tum.de>
+
+	Fix for java/4269:
+
+	* jv-scan.c: Use HAVE_LANGINFO_CODESET instead of HAVE_NL_LANGINFO
+	to fix bootstrap on sparc-unknown-netbsdelf1.5.
+	* jcf-parse.c: Likewise.
+
+2003-01-31  Mark Wielaard  <mark@klomp.org>
+
+	* gjavah.c (throwable_p): Allocate 1 more byte for string.
+
+2003-01-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (make_class): Use BINFO_ELTS.
+	(set_super_info): Likewse.
+	(add_interface_do): Likewise.
+
+2003-01-30  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-parse.c (read_class): Update identifier's class value if it
+	changed during parsing.
+
+2003-01-30  Loren James Rittle  <ljrittle@acm.org>
+
+	* Make-lang.in (po-generated): Find the targets in $(parsedir).
+	Propagate change to all other rules as required.
+	(java/parse-scan.o): Add explicit dependency on
+	$(parsedir)/java/parse-scan.c .
+
+2003-01-29  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (patch_assignment): Only transform the rhs of an
+	assignment when compiling to native.
+
+2003-01-28  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-write.c (generate_bytecode_conditional): Typo fixes.
+
+2003-01-28  Tom Tromey  <tromey@redhat.com>
+
+	* lex.c (java_lex): Don't include UEOF as part of token.
+	(java_read_unicode): Error if \u sequence prematurely terminated.
+
+2003-01-27  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (java_check_regular_methods): Check for construct after
+	checking types in throws clause.
+
 2003-01-24  Tom Tromey  <tromey@redhat.com>
 
 	* class.c (build_static_field_ref): Only a String or numeric field

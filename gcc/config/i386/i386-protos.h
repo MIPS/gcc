@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
-   2000, 2001 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -121,7 +121,6 @@ extern const char *output_fp_compare PARAMS ((rtx, rtx*, int, int));
 
 extern void i386_dwarf_output_addr_const PARAMS ((FILE*, rtx));
 extern void i386_output_dwarf_dtprel PARAMS ((FILE*, int, rtx));
-extern rtx i386_simplify_dwarf_addr PARAMS ((rtx));
 
 extern void ix86_expand_clear PARAMS ((rtx));
 extern void ix86_expand_move PARAMS ((enum machine_mode, rtx[]));
@@ -149,7 +148,6 @@ extern void ix86_split_long_move PARAMS ((rtx[]));
 extern void ix86_split_ashldi PARAMS ((rtx *, rtx));
 extern void ix86_split_ashrdi PARAMS ((rtx *, rtx));
 extern void ix86_split_lshrdi PARAMS ((rtx *, rtx));
-extern int ix86_address_cost PARAMS ((rtx));
 extern rtx ix86_find_base_term PARAMS ((rtx));
 
 extern rtx assign_386_stack_local PARAMS ((enum machine_mode, int));
@@ -190,6 +188,7 @@ extern void emit_i387_cw_initialization PARAMS ((rtx, rtx));
 extern bool ix86_fp_jump_nontrivial_p PARAMS ((enum rtx_code));
 extern void x86_order_regs_for_local_alloc PARAMS ((void));
 extern void x86_function_profiler PARAMS ((FILE *, int));
+extern void x86_emit_floatuns PARAMS ((rtx [2]));
 
 
 #ifdef TREE_CODE

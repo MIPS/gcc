@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for ATMEL AVR at90s8515, ATmega103/103L, ATmega603/603L microcontrollers.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
 This file is part of GNU CC.
@@ -22,7 +22,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Names to predefine in the preprocessor for this target machine. */
 
-#define TARGET_CPU_CPP_BUILTINS() 		\
+#define TARGET_CPU_CPP_BUILTINS()		\
   do						\
     {						\
       builtin_define_std ("AVR");		\
@@ -58,7 +58,7 @@ extern int target_flags;
 
 #define TARGET_ORDER_1		(target_flags & MASK_ORDER_1)
 #define TARGET_ORDER_2		(target_flags & MASK_ORDER_2)
-#define TARGET_INT8  		(target_flags & MASK_INT8)
+#define TARGET_INT8		(target_flags & MASK_INT8)
 #define TARGET_NO_INTERRUPTS	(target_flags & MASK_NO_INTERRUPTS)
 #define TARGET_INSN_SIZE_DUMP	(target_flags & MASK_INSN_SIZE_DUMP)
 #define TARGET_CALL_PROLOGUES	(target_flags & MASK_CALL_PROLOGUES)
@@ -70,7 +70,7 @@ extern int target_flags;
    This is for debugging the compiler itself.  */
 
 #define TARGET_RTL_DUMP		(target_flags & MASK_RTL_DUMP)
-#define TARGET_ALL_DEBUG 	(target_flags & MASK_ALL_DEBUG)
+#define TARGET_ALL_DEBUG	(target_flags & MASK_ALL_DEBUG)
 
 #define TARGET_SWITCHES {						\
   { "order1", MASK_ORDER_1, NULL },					\
@@ -244,7 +244,7 @@ extern int avr_asm_only_p;
 /* A C expression for a string describing the name of the data type
    to use for size values.  The typedef name `size_t' is defined
    using the contents of the string.
-   
+
    The string can contain more than one keyword.  If so, separate
    them with spaces, and write first any length keyword, then
    `unsigned' if appropriate, and finally `int'.  The string must
@@ -252,7 +252,7 @@ extern int avr_asm_only_p;
    `init_decl_processing' in the file `c-decl.c'.  You may not omit
    `int' or change the order--that would cause the compiler to crash
    on startup.
-   
+
    If you don't define this macro, the default is `"long unsigned
    int"'.  */
 
@@ -261,7 +261,7 @@ extern int avr_asm_only_p;
    to use for the result of subtracting two pointers.  The typedef
    name `ptrdiff_t' is defined using the contents of the string.  See
    `SIZE_TYPE' above for more information.
-   
+
    If you don't define this macro, the default is `"long int"'.  */
 
 
@@ -365,10 +365,10 @@ extern int avr_asm_only_p;
 /* If defined, an initializer for a vector of integers, containing the
    numbers of hard registers in the order in which GNU CC should
    prefer to use them (from most preferred to least).
-   
+
    If this macro is not defined, registers are used lowest numbered
    first (all else being equal).
-   
+
    One use of this macro is on machines where the highest numbered
    registers must always be saved and the save-multiple-registers
    instruction supports only sequences of consetionve registers.  On
@@ -543,10 +543,10 @@ enum reg_class {
      0x00000000},		/* POINTER_REGS, r26 - r31 */		\
   {(3 << REG_X) | (3 << REG_Y) | (3 << REG_Z) | (3 << REG_W),		\
      0x00000000},		/* ADDW_REGS, r24 - r31 */		\
-  {0x00ff0000,0x00000000}, 	/* SIMPLE_LD_REGS r16 - r23 */          \
+  {0x00ff0000,0x00000000},	/* SIMPLE_LD_REGS r16 - r23 */          \
   {(3 << REG_X)|(3 << REG_Y)|(3 << REG_Z)|(3 << REG_W)|(0xff << 16),	\
      0x00000000},	/* LD_REGS, r16 - r31 */			\
-  {0x0000ffff,0x00000000}, 	/* NO_LD_REGS  r0 - r15 */              \
+  {0x0000ffff,0x00000000},	/* NO_LD_REGS  r0 - r15 */              \
   {0xffffffff,0x00000000},	/* GENERAL_REGS, r0 - r31 */		\
   {0xffffffff,0x00000003}	/* ALL_REGS */				\
 }
@@ -1148,7 +1148,7 @@ typedef struct avr_args {
    is zero for a call to an explicitly named function, a library
    function call, or when `INIT_CUMULATIVE_ARGS' is used to find
    arguments for the function being compiled.
-   
+
    When processing a call to a compiler support library function,
    LIBNAME identifies which one.  It is a `symbol_ref' rtx which
    contains the name of the function, as a string.  LIBNAME is 0 when
@@ -1164,7 +1164,7 @@ typedef struct avr_args {
    MODE, TYPE and NAMED describe that argument.  Once this is done,
    the variable CUM is suitable for analyzing the *following*
    argument with `FUNCTION_ARG', etc.
-   
+
    This macro need not do anything if the argument in question was
    passed on the stack.  The compiler knows how to track the amount
    of stack space used for arguments without any special help. */
@@ -1496,7 +1496,7 @@ do {									    \
    top level, you'll need to replace first the top leve It is not
    necessary for this macro to come up with a legitimate address;
    but often a machine-dependent strategy can generate better code.  */
-	
+
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)			\
       if (GET_CODE (ADDR) == POST_INC || GET_CODE (ADDR) == PRE_DEC)	\
         goto LABEL
@@ -1520,102 +1520,6 @@ do {									    \
    satisfies `CONSTANT_P', so you need not check this.  In fact, `1'
    is a suitable definition for this macro on machines where anything
    `CONSTANT_P' is valid.  */
-
-#define CONST_COSTS(x,CODE,OUTER_CODE)		\
-    case CONST_INT:				\
-      if (OUTER_CODE == PLUS			\
-	  || OUTER_CODE == IOR			\
-	  || OUTER_CODE == AND			\
-	  || OUTER_CODE == MINUS		\
-	  || OUTER_CODE == SET			\
-	  || INTVAL (x) == 0)			\
-        return 2;				\
-      if (OUTER_CODE == COMPARE			\
-	  && INTVAL (x) >= 0			\
-	  && INTVAL (x) <= 255)			\
-        return 2;				\
-    case CONST:					\
-    case LABEL_REF:				\
-    case SYMBOL_REF:				\
-      return 4;					\
-    case CONST_DOUBLE:				\
-      return 4;
-
-/* A part of a C `switch' statement that describes the relative costs
-   of constant RTL expressions.  It must contain `case' labels for
-   expression codes `const_int', `const', `symbol_ref', `label_ref'
-   and `const_double'.  Each case must ultimately reach a `return'
-   statement to return the relative cost of the use of that kind of
-   constant value in an expression.  The cost may depend on the
-   precise value of the constant, which is available for examination
-   in X, and the rtx code of the expression in which it is contained,
-   found in OUTER_CODE.
-
-   CODE is the expression code--redundant, since it can be obtained
-   with `GET_CODE (X)'.  */
-
-#define DEFAULT_RTX_COSTS(x, code, outer_code)		\
-{							\
-  int cst = default_rtx_costs (x, code, outer_code);	\
-  if (cst>0)						\
-    return cst; 			                \
-  else if (cst<0)					\
-    total += -cst; 			                \
-  break;						\
-}
-
-/* Like `CONST_COSTS' but applies to nonconstant RTL expressions.
-   This can be used, for example, to indicate how costly a multiply
-   instruction is.  In writing this macro, you can use the construct
-   `COSTS_N_INSNS (N)' to specify a cost equal to N fast
-   instructions.  OUTER_CODE is the code of the expression in which X
-   is contained.
-
-   This macro is optional; do not define it if the default cost
-   assumptions are adequate for the target machine.  */
-
-#define ADDRESS_COST(ADDRESS) avr_address_cost (ADDRESS)
-
-/* An expression giving the cost of an addressing mode that contains
-   ADDRESS.  If not defined, the cost is computed from the ADDRESS
-   expression and the `CONST_COSTS' values.
-
-   For most CISC machines, the default cost is a good approximation
-   of the true cost of the addressing mode.  However, on RISC
-   machines, all instructions normally have the same length and
-   execution time.  Hence all addresses will have equal costs.
-
-   In cases where more than one form of an address is known, the form
-   with the lowest cost will be used.  If multiple forms have the
-   same, lowest, cost, the one that is the most complex will be used.
-
-   For example, suppose an address that is equal to the sum of a
-   register and a constant is used twice in the same basic block.
-   When this macro is not defined, the address will be computed in a
-   register and memory references will be indirect through that
-   register.  On machines where the cost of the addressing mode
-   containing the sum is no higher than that of a simple indirect
-   reference, this will produce an additional instruction and
-   possibly require an additional register.  Proper specification of
-   this macro eliminates this overhead for such machines.
-
-   Similar use of this macro is made in strength reduction of loops.
-
-   ADDRESS need not be valid as an address.  In such a case, the cost
-   is not relevant and can be any value; invalid addresses need not be
-   assigned a different cost.
-
-   On machines where an address involving more than one register is as
-   cheap as an address computation involving only one register,
-   defining `ADDRESS_COST' to reflect this can cause two registers to
-   be live over a region of code where only one would have been if
-   `ADDRESS_COST' were not defined in that manner.  This effect should
-   be considered in the definition of this macro.  Equivalent costs
-   should probably only be given to addresses with different numbers
-   of registers on machines with lots of registers.
-
-   This macro will normally either not be defined or be defined as a
-   constant.  */
 
 #define REGISTER_MOVE_COST(MODE, FROM, TO) ((FROM) == STACK_REG ? 6 \
 					    : (TO) == STACK_REG ? 12 \
@@ -1758,7 +1662,7 @@ progmem_section ()							      \
     {									      \
       fprintf (asm_out_file,						      \
 	       "\t.section .progmem.gcc_sw_table, \"%s\", @progbits\n",	      \
-	       AVR_MEGA ? "a" : "ax"); 					      \
+	       AVR_MEGA ? "a" : "ax");					      \
       /* Should already be aligned, this is just to be safe if it isn't.  */  \
       fprintf (asm_out_file, "\t.p2align 1\n");				      \
       in_section = in_progmem;						      \
@@ -1986,6 +1890,7 @@ do {									\
    If this macro is not defined, then the variable name is defined in
    the usual manner as a label (by means of `ASM_OUTPUT_LABEL').  */
 
+#undef ASM_FINISH_DECLARE_OBJECT
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)	 \
 do {									 \
      const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		 \
@@ -2050,11 +1955,11 @@ do {									 \
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP ".global\t"
 
-#define ASM_WEAKEN_LABEL(FILE, NAME) 	\
+#define ASM_WEAKEN_LABEL(FILE, NAME)	\
   do					\
     {					\
       fputs ("\t.weak\t", (FILE));	\
-      assemble_name ((FILE), (NAME)); 	\
+      assemble_name ((FILE), (NAME));	\
       fputc ('\n', (FILE));		\
     }					\
   while (0)

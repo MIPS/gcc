@@ -23,6 +23,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_GCSE_UTILS_H
 #define GCC_GCSE_UTILS_H
 
+/* Array of implicit set patterns indexed by basic block index.  */
+extern rtx *implicit_sets;
+
 /* Memory allocation.  */
 extern char *gmalloc			PARAMS ((unsigned int));
 extern char *grealloc			PARAMS ((char *, unsigned int));
@@ -83,4 +86,5 @@ extern void insert_insn_start_bb	PARAMS ((rtx, basic_block));
 extern int expr_equiv_p			PARAMS ((rtx, rtx));
 extern int expr_killed_p		PARAMS ((rtx, basic_block));
 
+extern void compute_sets		PARAMS ((rtx));
 #endif

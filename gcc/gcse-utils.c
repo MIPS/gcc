@@ -47,6 +47,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "gcse-globals.h"
 #include "gcse-utils.h"
 
+/* Array of implicit set patterns indexed by basic block index.  */
+rtx *implicit_sets;
+
 /* Hash tables.  */
 static void compute_can_copy		PARAMS ((char []));
 static int oprs_unchanged_p		PARAMS ((rtx, rtx, int, basic_block, struct reg_avail_info *));
@@ -1128,6 +1131,12 @@ compute_hash_table_work (table)
 	  rlsi_reg_avail_info = reg_avail_info;
 	  note_stores (PATTERN (insn), record_last_set_info, insn);
 	}
+
+      /* Insert implicit sets in the hash table.  */
+      if (table->set_p
+	  && implicit_sets[current_bb->index] != NULL_RTX)
+	hash_scan_set (implicit_sets[current_bb->index],
+		       current_bb->head, table, current_bb, reg_avail_info);
 
       /* The next pass builds the hash table.  */
 

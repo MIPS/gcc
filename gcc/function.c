@@ -3007,10 +3007,7 @@ purge_addressof_1 (loc, insn, force, store, ht)
       rtx sub, insns;
 
       if (GET_CODE (XEXP (x, 0)) != MEM)
-	{
-	  put_addressof_into_stack (x, ht);
-	  return true;
-	}
+	put_addressof_into_stack (x, ht);
 
       /* We must create a copy of the rtx because it was created by
 	 overwriting a REG rtx which is always shared.  */
@@ -3372,8 +3369,7 @@ purge_addressof (insns)
   compute_insns_for_mem (insns, NULL_RTX, ht);
 
   for (insn = insns; insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == INSN || GET_CODE (insn) == JUMP_INSN
-	|| GET_CODE (insn) == CALL_INSN)
+    if (INSN_P (insn))
       {
 	if (! purge_addressof_1 (&PATTERN (insn), insn,
 				 asm_noperands (PATTERN (insn)) > 0, 0, ht))
@@ -4008,6 +4004,8 @@ instantiate_virtual_regs_1 (loc, object, extra_insns)
     case ABS:
     case SQRT:
     case FFS:
+    case CLZ:          case CTZ:
+    case POPCOUNT:     case PARITY:
       /* These case either have just one operand or we know that we need not
 	 check the rest of the operands.  */
       loc = &XEXP (x, 0);
@@ -6166,6 +6164,8 @@ prepare_function_start ()
   current_function_calls_longjmp = 0;
 
   current_function_calls_alloca = 0;
+  current_function_calls_eh_return = 0;
+  current_function_calls_constant_p = 0;
   current_function_contains_functions = 0;
   current_function_is_leaf = 0;
   current_function_nothrow = 0;

@@ -1382,17 +1382,21 @@ extern enum reg_class reg_class_from_letter[];
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.
 
-   On SH this is the size of MODE in words.  */
+   If TARGET_SHMEDIA, we need two FP registers per word.
+   Otherwise we will need at most one register per word.  */
 #define CLASS_MAX_NREGS(CLASS, MODE) \
-     ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
+    (TARGET_SHMEDIA \
+     && TEST_HARD_REG_BIT (reg_class_contents[CLASS], FIRST_FP_REG) \
+     ? (GET_MODE_SIZE (MODE) + UNITS_PER_WORD/2 - 1) / (UNITS_PER_WORD/2) \
+     : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* If defined, gives a class of registers that cannot be used as the
    operand of a SUBREG that changes the mode of the object illegally.  */
 /* ??? We need to renumber the internal numbers for the frnn registers
    when in little endian in order to allow mode size changes.  */
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO) 			    \
-  sh_cannot_change_mode_class (FROM, TO)
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) 			    \
+  sh_cannot_change_mode_class (FROM, TO, CLASS)
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -2690,70 +2694,6 @@ while (0)
 #define Pmode  (TARGET_SHMEDIA64 ? DImode : SImode)
 #define FUNCTION_MODE  Pmode
 
-/* The relative costs of various types of constants.  */
-
-#define CONST_COSTS(RTX, CODE, OUTER_CODE)	\
-  case CONST_INT:				\
-    if (TARGET_SHMEDIA)				\
-      {						\
-	if (INTVAL (RTX) == 0)			\
-	  return 0;				\
-	if ((OUTER_CODE) == AND && and_operand ((RTX), DImode)) \
-	  return 0;				\
-	if (((OUTER_CODE) == IOR || (OUTER_CODE) == XOR \
-	     || (OUTER_CODE) == PLUS) \
-	    && CONST_OK_FOR_P (INTVAL (RTX)))	\
-	  return 0;				\
-	if (CONST_OK_FOR_J (INTVAL (RTX)))	\
-          return COSTS_N_INSNS ((OUTER_CODE) != SET);		\
-	else if (CONST_OK_FOR_J (INTVAL (RTX) >> 16)) \
-	  return COSTS_N_INSNS (2);		\
-	else if (CONST_OK_FOR_J ((INTVAL (RTX) >> 16) >> 16)) \
-	  return COSTS_N_INSNS (3);		\
-        else					\
-	  return COSTS_N_INSNS (4);		\
-      }						\
-    if (CONST_OK_FOR_I (INTVAL (RTX)))		\
-      return 0;					\
-    else if (((OUTER_CODE) == AND || (OUTER_CODE) == IOR || (OUTER_CODE) == XOR) \
-	     && CONST_OK_FOR_L (INTVAL (RTX)))	\
-      return 1;					\
-    else					\
-      return 8;					\
-  case CONST: 					\
-  case LABEL_REF:				\
-  case SYMBOL_REF:				\
-    if (TARGET_SHMEDIA64)			\
-      return COSTS_N_INSNS (4);			\
-    if (TARGET_SHMEDIA32)			\
-      return COSTS_N_INSNS (2);			\
-    return 5;					\
-  case CONST_DOUBLE:				\
-    if (TARGET_SHMEDIA)				\
-      return COSTS_N_INSNS (4);			\
-    else					\
-      return 10;
-
-#define RTX_COSTS(X, CODE, OUTER_CODE)			\
-  case PLUS:						\
-    return COSTS_N_INSNS (addsubcosts (X));		\
-  case AND:						\
-    return COSTS_N_INSNS (andcosts (X));		\
-  case MULT:						\
-    return COSTS_N_INSNS (multcosts (X));		\
-  case ASHIFT:						\
-  case ASHIFTRT:					\
-  case LSHIFTRT:					\
-    return COSTS_N_INSNS (shiftcosts (X));		\
-  case DIV:						\
-  case UDIV:						\
-  case MOD:						\
-  case UMOD:						\
-    return COSTS_N_INSNS (20);				\
-  case FLOAT:						\
-  case FIX:						\
-    return 100;
-
 /* The multiply insn on the SH1 and the divide insns on the SH1 and SH2
    are actually function calls with some special constraints on arguments
    and register usage.
@@ -2812,14 +2752,6 @@ while (0)
 ((GET_CODE (X) == SYMBOL_REF || GET_CODE (X) == LABEL_REF)	\
   && nonpic_symbol_mentioned_p (X))
 
-/* Compute the cost of an address.  For the SH, all valid addresses are
-   the same cost.  Use a slightly higher cost for reg + reg addressing,
-   since it increases pressure on r0.  */
-
-#define ADDRESS_COST(X) (GET_CODE (X) == PLUS && ! CONSTANT_P (XEXP (X, 1)) \
-			 && ! TARGET_SHMEDIA \
-			 ? 1 : 0)
-
 /* Compute extra cost of moving data between one register class
    and another.  */
 

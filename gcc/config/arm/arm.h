@@ -707,7 +707,7 @@ extern int arm_structure_size_boundary;
 
 /* This is the value used to initialize arm_structure_size_boundary.  If a
    particular arm target wants to change the default value it should change
-   the definition of this macro, not STRUCTRUE_SIZE_BOUNDARY.  See netbsd.h
+   the definition of this macro, not STRUCTURE_SIZE_BOUNDARY.  See netbsd.h
    for an example of this.  */
 #ifndef DEFAULT_STRUCTURE_SIZE_BOUNDARY
 #define DEFAULT_STRUCTURE_SIZE_BOUNDARY 32
@@ -836,7 +836,7 @@ extern const char * structure_size_string;
   SUBTARGET_CONDITIONAL_REGISTER_USAGE				\
 }
     
-/* These are a couple of extensions to the formats accecpted
+/* These are a couple of extensions to the formats accepted
    by asm_fprintf:
      %@ prints out ASM_COMMENT_START
      %r prints out REGISTER_PREFIX reg_names[arg]  */
@@ -908,7 +908,7 @@ extern const char * structure_size_string;
    should point to a special register that we will make sure is eliminated.
 
    For the Thumb we have another problem.  The TPCS defines the frame pointer
-   as r11, and GCC belives that it is always possible to use the frame pointer
+   as r11, and GCC believes that it is always possible to use the frame pointer
    as base register for addressing purposes.  (See comments in
    find_reloads_address()).  But - the Thumb does not allow high registers,
    including r11, to be used as base address registers.  Hence our problem.
@@ -916,7 +916,7 @@ extern const char * structure_size_string;
    The solution used here, and in the old thumb port is to use r7 instead of
    r11 as the hard frame pointer and to have special code to generate
    backtrace structures on the stack (if required to do so via a command line
-   option) using r11.  This is the only 'user visable' use of r11 as a frame
+   option) using r11.  This is the only 'user visible' use of r11 as a frame
    pointer.  */
 #define ARM_HARD_FRAME_POINTER_REGNUM	11
 #define THUMB_HARD_FRAME_POINTER_REGNUM	 7
@@ -1061,7 +1061,7 @@ enum reg_class
 #define BASE_REG_CLASS   (TARGET_THUMB ? LO_REGS : GENERAL_REGS)
 
 /* For the Thumb the high registers cannot be used as base registers
-   when addressing quanitities in QI or HI mode; if we don't know the
+   when addressing quantities in QI or HI mode; if we don't know the
    mode, then we must be conservative.  After reload we must also be
    conservative, since we can't support SP+reg addressing, and we
    can't fix up any bad substitutions.  */
@@ -1416,7 +1416,7 @@ enum reg_class
    This is added to the cfun structure.  */
 typedef struct machine_function GTY(())
 {
-  /* Additionsl stack adjustment in __builtin_eh_throw.  */
+  /* Additional stack adjustment in __builtin_eh_throw.  */
   rtx eh_epilogue_sp_ofs;
   /* Records if LR has to be saved for far jumps.  */
   int far_jump_used;
@@ -1856,7 +1856,7 @@ typedef struct
 #define SUBTARGET_NAME_ENCODING_LENGTHS
 #endif
 
-/* This is a C fragement for the inside of a switch statement.
+/* This is a C fragment for the inside of a switch statement.
    Each case label should return the number of characters to
    be stripped from the start of a function's name, if that
    name starts with the indicated character.  */
@@ -1964,92 +1964,28 @@ typedef struct
 
 
 /* Try machine-dependent ways of modifying an illegitimate address
-   to be legitimate.  If we find one, return the new, valid address.
-   This macro is used in only one place: `memory_address' in explow.c.
+   to be legitimate.  If we find one, return the new, valid address.  */
+#define ARM_LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)	\
+do {							\
+  X = arm_legitimize_address (X, OLDX, MODE);		\
+							\
+  if (memory_address_p (MODE, X))			\
+    goto WIN;						\
+} while (0)
 
-   OLDX is the address as it was before break_out_memory_refs was called.
-   In some cases it is useful to look at this to decide what needs to be done.
+#define THUMB_LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)		\
+do {								\
+  if (flag_pic)							\
+    (X) = legitimize_pic_address (OLDX, MODE, NULL_RTX);	\
+} while (0)
 
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
-
-   It is always safe for this macro to do nothing.  It exists to recognize
-   opportunities to optimize the output.
-
-   On the ARM, try to convert [REG, #BIGCONST]
-   into ADD BASE, REG, #UPPERCONST and [BASE, #VALIDCONST],
-   where VALIDCONST == 0 in case of TImode.  */
-#define ARM_LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)			 \
-{									 \
-  if (GET_CODE (X) == PLUS)						 \
-    {									 \
-      rtx xop0 = XEXP (X, 0);						 \
-      rtx xop1 = XEXP (X, 1);						 \
-									 \
-      if (CONSTANT_P (xop0) && ! symbol_mentioned_p (xop0))		 \
-	xop0 = force_reg (SImode, xop0);				 \
-      if (CONSTANT_P (xop1) && ! symbol_mentioned_p (xop1))		 \
-	xop1 = force_reg (SImode, xop1);				 \
-      if (ARM_BASE_REGISTER_RTX_P (xop0)				 \
-	  && GET_CODE (xop1) == CONST_INT)				 \
-	{								 \
-	  HOST_WIDE_INT n, low_n;					 \
-	  rtx base_reg, val;						 \
-	  n = INTVAL (xop1);						 \
-									 \
-	  if (MODE == DImode || (TARGET_SOFT_FLOAT && MODE == DFmode))	 \
-	    {								 \
-	      low_n = n & 0x0f;						 \
-	      n &= ~0x0f;						 \
-	      if (low_n > 4)						 \
-		{							 \
-		  n += 16;						 \
-		  low_n -= 16;						 \
-		}							 \
-	    }								 \
-	  else								 \
-	    {								 \
-	      low_n = ((MODE) == TImode ? 0				 \
-		       : n >= 0 ? (n & 0xfff) : -((-n) & 0xfff));	 \
-	      n -= low_n;						 \
-	    }								 \
-	  base_reg = gen_reg_rtx (SImode);				 \
-	  val = force_operand (gen_rtx_PLUS (SImode, xop0,		 \
-					     GEN_INT (n)), NULL_RTX);	 \
-	  emit_move_insn (base_reg, val);				 \
-	  (X) = (low_n == 0 ? base_reg					 \
-		 : gen_rtx_PLUS (SImode, base_reg, GEN_INT (low_n)));	 \
-	}								 \
-      else if (xop0 != XEXP (X, 0) || xop1 != XEXP (x, 1))		 \
-	(X) = gen_rtx_PLUS (SImode, xop0, xop1);			 \
-    }									 \
-  else if (GET_CODE (X) == MINUS)					 \
-    {									 \
-      rtx xop0 = XEXP (X, 0);						 \
-      rtx xop1 = XEXP (X, 1);						 \
-									 \
-      if (CONSTANT_P (xop0))						 \
-	xop0 = force_reg (SImode, xop0);				 \
-      if (CONSTANT_P (xop1) && ! symbol_mentioned_p (xop1))		 \
-	xop1 = force_reg (SImode, xop1);				 \
-      if (xop0 != XEXP (X, 0) || xop1 != XEXP (X, 1))			 \
-	(X) = gen_rtx_MINUS (SImode, xop0, xop1);			 \
-    }									 \
-  if (flag_pic)								 \
-    (X) = legitimize_pic_address (OLDX, MODE, NULL_RTX);		 \
-  if (memory_address_p (MODE, X))					 \
-    goto WIN;								 \
-}
-
-#define THUMB_LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)	\
-  if (flag_pic)						\
-    (X) = legitimize_pic_address (OLDX, MODE, NULL_RTX);		
-     
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)	\
-  if (TARGET_ARM)				\
-    ARM_LEGITIMIZE_ADDRESS (X, OLDX, MODE, WIN)	\
-  else						\
-    THUMB_LEGITIMIZE_ADDRESS (X, OLDX, MODE, WIN)
+#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)		\
+do {							\
+  if (TARGET_ARM)					\
+    ARM_LEGITIMIZE_ADDRESS (X, OLDX, MODE, WIN);	\
+  else							\
+    THUMB_LEGITIMIZE_ADDRESS (X, OLDX, MODE, WIN);	\
+} while (0)
      
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.  */
@@ -2138,44 +2074,12 @@ typedef struct
   (   (X) == frame_pointer_rtx || (X) == stack_pointer_rtx	\
    || (X) == arg_pointer_rtx)
 
-#define DEFAULT_RTX_COSTS(X, CODE, OUTER_CODE)		\
-  return arm_rtx_costs (X, CODE, OUTER_CODE);
-
 /* Moves to and from memory are quite expensive */
 #define MEMORY_MOVE_COST(M, CLASS, IN)			\
   (TARGET_ARM ? 10 :					\
    ((GET_MODE_SIZE (M) < 4 ? 8 : 2 * GET_MODE_SIZE (M))	\
     * (CLASS == LO_REGS ? 1 : 2)))
  
-/* All address computations that can be done are free, but rtx cost returns
-   the same for practically all of them.  So we weight the different types
-   of address here in the order (most pref first):
-   PRE/POST_INC/DEC, SHIFT or NON-INT sum, INT sum, REG, MEM or LABEL. */
-#define ARM_ADDRESS_COST(X)						     \
-  (10 - ((GET_CODE (X) == MEM || GET_CODE (X) == LABEL_REF		     \
-	  || GET_CODE (X) == SYMBOL_REF)				     \
-	 ? 0								     \
-	 : ((GET_CODE (X) == PRE_INC || GET_CODE (X) == PRE_DEC		     \
-	     || GET_CODE (X) == POST_INC || GET_CODE (X) == POST_DEC)	     \
-	    ? 10							     \
-	    : (((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS)		     \
-		? 6 + (GET_CODE (XEXP (X, 1)) == CONST_INT ? 2 		     \
-		       : ((GET_RTX_CLASS (GET_CODE (XEXP (X, 0))) == '2'     \
-			   || GET_RTX_CLASS (GET_CODE (XEXP (X, 0))) == 'c'  \
-			   || GET_RTX_CLASS (GET_CODE (XEXP (X, 1))) == '2'  \
-			   || GET_RTX_CLASS (GET_CODE (XEXP (X, 1))) == 'c') \
-			  ? 1 : 0))					     \
-		: 4)))))
-	 
-#define THUMB_ADDRESS_COST(X) 					\
-  ((GET_CODE (X) == REG 					\
-    || (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 0)) == REG	\
-	&& GET_CODE (XEXP (X, 1)) == CONST_INT))		\
-   ? 1 : 2)
-     
-#define ADDRESS_COST(X) \
-     (TARGET_ARM ? ARM_ADDRESS_COST (X) : THUMB_ADDRESS_COST (X))
-   
 /* Try to generate sequences that don't involve branches, we can then use
    conditional instructions */
 #define BRANCH_COST \
@@ -2242,6 +2146,8 @@ extern int making_const_table;
 
 #define STORE_FLAG_VALUE 1
 
+/* The arm5 clz instruction returns 32.  */
+#define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE)  ((VALUE) = 32, 1)
 
 
 /* Gcc puts the pool in the wrong place for ARM, since we can only
@@ -2552,9 +2458,4 @@ extern int making_const_table;
 #define SPECIAL_MODE_PREDICATES			\
  "cc_register", "dominant_cc_register",
 
-enum arm_builtins
-{
-  ARM_BUILTIN_CLZ,
-  ARM_BUILTIN_MAX
-};
 #endif /* ! GCC_ARM_H */
