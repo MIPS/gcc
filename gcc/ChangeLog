@@ -1,3 +1,8 @@
+2002-09-12  Jason Merrill  <jason@redhat.com>
+
+	* unroll.c (copy_loop_body): Don't copy NOTE_INSN_DELETED_LABELs
+	between copy_notes_from and loop_end, either.
+
 2002-08-24  Stuart Hastings  <stuart@apple.com>
 
 	* function.h (struct function): Add flag

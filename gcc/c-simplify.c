@@ -625,6 +625,8 @@ finish_bc_block (label, body)
   if (TREE_USED (label))
     {
       tree expr = build1 (LABEL_EXPR, void_type_node, label);
+      /* Clear the name so flow can delete the label.  */
+      DECL_NAME (label) = NULL_TREE;
       body = add_stmt_to_compound (body, expr);
     }
 
