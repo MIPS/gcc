@@ -1,3 +1,9 @@
+2002-11-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* config.gcc (x86_64-*-linux*) [tmake_file]: Remove i386/t-crtstuff.
+	* config/t-linux (CRTSTUFF_T_CFLAGS_S): Add $(CRTSTUFF_T_CFLAGS).
+	* config/i386/t-linux64 (CRTSTUFF_T_CFLAGS): Define.
+
 2002-11-25  Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
 
 	PR c/8639
