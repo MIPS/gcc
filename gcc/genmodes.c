@@ -431,7 +431,7 @@ make_complex_modes (enum mode_class cl,
          This inconsistency should be eliminated.  */
       if (cl == MODE_FLOAT)
 	{
-	  char *p, *q;
+	  char *p, *q = 0;
 	  strncpy (buf, m->name, sizeof buf);
 	  p = strchr (buf, 'F');
 	  if (p == 0)

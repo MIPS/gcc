@@ -1,3 +1,7 @@
+2005-02-17  Ben Elliston  <bje@au.ibm.com>
+
+	* genmodes.c (make_complex_modes): Initialise q to allay warning.
+
 2005-02-14  David Edelsohn  <dje@watson.ibm.com>
 
 	* config/rs6000/rs6000-modes.def: Add decimal floating point SDmode,
