@@ -1095,7 +1095,7 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
      */
     private DragWindow()
     {
-      super((Window) SwingUtilities.getOwnerFrame());
+      super();
     }
 
     /**
@@ -1285,8 +1285,8 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
      */
     public ToolBarDialog()
     {
-      super(SwingUtilities.getOwnerFrame(),
-            (toolBar.getName() != null) ? toolBar.getName() : "");
+      super();
+      setName((toolBar.getName() != null) ? toolBar.getName() : "");
     }
   }
 

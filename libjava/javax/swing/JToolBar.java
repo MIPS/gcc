@@ -140,7 +140,7 @@ public class JToolBar extends JComponent implements SwingConstants, Accessible
 	  insets.bottom += margin.bottom;
 	  insets.right += margin.right;
         }
-      Component[] components = c.component;
+      Component[] components = c.getComponents();
       Dimension tdims = c.getSize();
       int start = 0;
       Dimension pref;

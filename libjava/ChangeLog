@@ -1,3 +1,12 @@
+2004-07-13  Kim Ho  <kho@redhat.com>
+
+	* javax/swing/JToolBar.java:
+	(layoutContainer): Use getComponents.
+	* javax/swing/plaf/basic/BasicToolBarUI.java:
+	(DragWindow): Don't use SwingUtilities' 
+	getOwnerFrame
+	(ToolBarDialog): ditto.
+
 2004-07-12  Kim Ho  <kho@redhat.com>
 
 	* Makefile.am: Added new file.
