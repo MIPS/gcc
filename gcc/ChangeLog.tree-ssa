@@ -1,5 +1,8 @@
 2003-03-12  Jeff Law  <law@redhat.com>
 
+	* cfgrtl.c (verify_flow_info): Ignore EDGE_EXECUTABLE, it's for
+	the CCP optimizer only.
+
 	* ssa.c (convert_to_ssa): Use last_basic_block, not n_basic_blocks.
 
 2003-03-11  Jeff Law  <law@redhat.com>
