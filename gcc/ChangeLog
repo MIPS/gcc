@@ -1,3 +1,7 @@
+2004-06-24  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_output_epilogue): Remove excess checks.
+
 2004-06-21  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.h (ARM_LEGITIMIZE_RELOAD_ADDRESS): Soft-float need
