@@ -1,5 +1,5 @@
 /* GtkToolkit.java -- Implements an AWT Toolkit using GTK for peers
-   Copyright (C) 1998, 1999, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,6 +38,14 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
+import gnu.classpath.Configuration;
+import gnu.java.awt.EmbeddedWindow;
+import gnu.java.awt.EmbeddedWindowSupport;
+import gnu.java.awt.peer.ClasspathFontPeer;
+import gnu.java.awt.peer.ClasspathTextLayoutPeer;
+import gnu.java.awt.peer.EmbeddedWindowPeer;
+import gnu.java.awt.peer.gtk.GdkPixbufDecoder;
+
 import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.dnd.DragGestureEvent;
@@ -46,8 +54,8 @@ import java.awt.font.TextAttribute;
 import java.awt.im.InputMethodHighlight;
 import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;
-import java.awt.image.ImageObserver;
 import java.awt.image.ImageConsumer;
+import java.awt.image.ImageObserver;
 import java.awt.image.ImageProducer;
 import java.awt.font.FontRenderContext;
 import java.awt.GraphicsEnvironment;
@@ -61,17 +69,10 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.MissingResourceException;
 import java.util.Properties;
-import gnu.java.awt.EmbeddedWindow;
-import gnu.java.awt.EmbeddedWindowSupport;
-import gnu.java.awt.peer.EmbeddedWindowPeer;
-import gnu.java.awt.peer.ClasspathFontPeer;
-import gnu.java.awt.peer.ClasspathTextLayoutPeer;
-import gnu.classpath.Configuration;
-import gnu.java.awt.peer.gtk.GdkPixbufDecoder;
 
 /* This class uses a deprecated method java.awt.peer.ComponentPeer.getPeer().
    This merits comment.  We are basically calling Sun's bluff on this one.
-   We think Sun has deprecated it simply to discourage its use as it is 
+   We think Sun has deprecated it simply to discourage its use as it is
    bad programming style.  However, we need to get at a component's peer in
    this class.  If getPeer() ever goes away, we can implement a hash table
    that will keep up with every window's peer, but for now this is faster. */
@@ -83,7 +84,6 @@ import gnu.java.awt.peer.gtk.GdkPixbufDecoder;
  * drawing contexts. Any other value will cause the older GdkGraphics
  * object to be used.
  */
-
 public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
   implements EmbeddedWindowSupport
 {
@@ -91,7 +91,6 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
   Hashtable containers = new Hashtable();
   static EventQueue q = new EventQueue();
   static Clipboard systemClipboard;
-
   static boolean useGraphics2dSet;
   static boolean useGraphics2d;
 
@@ -543,7 +542,7 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
    */
   protected FontPeer getFontPeer (String name, int style) {
     // All fonts get a default size of 12 if size is not specified.
-    return getFontPeer (name, style, 12);
+    return getFontPeer(name, style, 12);
   }
 
   /**
@@ -556,7 +555,7 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
     ClasspathFontPeer.copySizeToAttrs (size, attrs);
     return getClasspathFontPeer (name, attrs);
   }
-  
+
   /**
    * Newer method to produce a peer for a Font object, even though Sun's
    * design claims Font should now be peerless, we do not agree with this
