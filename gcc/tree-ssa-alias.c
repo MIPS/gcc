@@ -1760,7 +1760,7 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
 /* 	    fprintf(stderr, "\n"); */
 
  	    alias_stats.structnoaddress_queries++;
- 	    if (ipa_static_address_not_taken_of_field (var_type,
+ 	    if (ipa_static_field_does_not_clobber_p (var_type,
  						       TREE_TYPE (TREE_TYPE (ptr))))
  	      {
 /* 		fprintf(stderr, "success\n"); */

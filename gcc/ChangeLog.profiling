@@ -1,3 +1,13 @@
+2005-03-29  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* ipa_static.h: Renamed ipa_static_address_not_taken_of_field to 
+	to ipa_static_field_does_not_clobber_p.
+	* ipa_static_vars_anal: Renamed 
+	ipa_static_address_not_taken_of_field to 
+	to ipa_static_field_does_not_clobber_p.  Fixed fast test to 
+	understand that it could not be applied to unions.
+       	* alias.c (nonoverlapping_memrefs_p): Renamed call.
+	* tree_ssa_alias.c (may_alias_p): Renamed call.
+
 2005-03-25  Jan Hubicka  <jh@suse.cz>
 
 	* value-prof.c (tree_divmod_fixed_value): Use fold_convert to produce

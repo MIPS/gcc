@@ -521,11 +521,11 @@ ipa_static_type_contained_p (tree type)
   return !bitmap_bit_p (global_types_full_escape, uid);
 }
 
-/* Return true if no fields with type FIELD_TYPE within a record of
-   RECORD_TYPE has its address taken.  */
+/* Return true a modification to a field of type FIELD_TYPE cannot
+   clobber a record of RECORD_TYPE.  */
 
 bool 
-ipa_static_address_not_taken_of_field (tree record_type, tree field_type)
+ipa_static_field_does_not_clobber_p (tree record_type, tree field_type)
 { 
   splay_tree_node result;
   int uid;
@@ -544,7 +544,20 @@ ipa_static_address_not_taken_of_field (tree record_type, tree field_type)
       if (POINTER_TYPE_P (field_type)) 
 	field_type = TYPE_MAIN_VARIANT (TREE_TYPE (field_type));
       else 
-	return true;
+	/* However, if field_type is a union, this quick test is not
+	   correct since one of the variants of the union may be a
+	   pointer to type and we cannot see across that here.  So we
+	   just strip the remaining pointer tos off the record type
+	   and fall thru to the more precise code.  */
+	if (TREE_CODE (field_type) == QUAL_UNION_TYPE 
+	    || TREE_CODE (field_type) == UNION_TYPE)
+	  {
+	    while (POINTER_TYPE_P (record_type))
+	      record_type = TYPE_MAIN_VARIANT (TREE_TYPE (record_type));
+	    break;
+	  } 
+	else 
+	  return true;
     }
   
   /* The record type must be contained.  The field type may

@@ -2068,7 +2068,7 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
 	{
 	 tree field = TREE_OPERAND (exprx, 1);
 	 tree fieldcontext = DECL_FIELD_CONTEXT (field);
-	 if (ipa_static_address_not_taken_of_field (fieldcontext,
+	 if (ipa_static_field_does_not_clobber_p (fieldcontext,
 						    TREE_TYPE (field)))
 	   return 1;	 
 	}
@@ -2098,7 +2098,7 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
 	{
 	 tree field = TREE_OPERAND (expry, 1);
 	 tree fieldcontext = DECL_FIELD_CONTEXT (field);
-	 if (ipa_static_address_not_taken_of_field (fieldcontext,
+	 if (ipa_static_field_does_not_clobber_p (fieldcontext,
 						    TREE_TYPE (field)))
 	   return 1;	 
 	}
