@@ -1,3 +1,18 @@
+2004-04-23  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-loop-linear.c (linear_transform_loops): Add invariants array.
+	* lambda-code.c (gcc_tree_to_linear_expression): Change arguments
+	to include invariants array, and an int, instead of a bool.
+	Handle invariants.
+	(invariant_in_loop): New function.
+	(gcc_loop_to_lambda_loop): Add support for invariants as bounds,
+	and NE_EXPR tests.
+	(gcc_loopnest_to_lambda_loopnest): Add invariants argument,
+	init the invariants array, and pass it along to gcc_loop_to_lambda_loop.
+	(lle_to_gcc_expression): Handle invariants and simple linear offsets.
+	(lambda_loopnest_to_gcc_loopnest): Ditto.
+	Also use the right test if the step is negative.
+
 2004-04-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-scalar-evolution.c (instantiate_parameters_1): Handle changed

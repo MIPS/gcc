@@ -70,6 +70,7 @@ linear_transform_loops (struct loops *loops)
     {
       struct loop *loop_nest = loops->parray[i];
       varray_type oldivs;
+      varray_type invariants;
       lambda_loopnest before, after;
       lambda_trans_matrix trans;
 
@@ -77,11 +78,12 @@ linear_transform_loops (struct loops *loops)
 	continue;
       flow_loop_scan (loop_nest, LOOP_ALL);
       flow_loop_scan (loop_nest->inner, LOOP_ALL);
+#if 0
       if (loop_nest->num_pre_header_edges != 1 
 	  || loop_nest->inner->num_pre_header_edges != 1)
-	continue;
-	  
-      before = gcc_loopnest_to_lambda_loopnest (loop_nest, &oldivs);
+	  continue;
+#endif 
+      before = gcc_loopnest_to_lambda_loopnest (loop_nest, &oldivs, &invariants);
       if (!before)
 	continue;
       if (dump_file)
@@ -94,10 +96,10 @@ linear_transform_loops (struct loops *loops)
       lambda_matrix_id (LTM_MATRIX (trans), LN_DEPTH (before));
 #else
       /* This is a 2x2 interchange matrix.  */
-      LTM_MATRIX (trans)[0][0] = 1;
-      LTM_MATRIX (trans)[0][1] = 0;
-      LTM_MATRIX (trans)[1][0] = 0;
-      LTM_MATRIX (trans)[1][1] = 2;
+      LTM_MATRIX (trans)[0][0] = 0;
+      LTM_MATRIX (trans)[0][1] = 1;
+      LTM_MATRIX (trans)[1][0] = 1;
+      LTM_MATRIX (trans)[1][1] = 0;
 #endif
       after = lambda_loopnest_transform (before, trans);
       if (dump_file)
@@ -105,6 +107,7 @@ linear_transform_loops (struct loops *loops)
 	  fprintf (dump_file, "After:\n");
 	  print_lambda_loopnest (dump_file, after, 'u');
 	}
-      lambda_loopnest_to_gcc_loopnest (loop_nest, oldivs, after, trans);
+      lambda_loopnest_to_gcc_loopnest (loop_nest, oldivs, invariants,
+				       after, trans);
     }
 }
