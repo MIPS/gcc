@@ -146,7 +146,7 @@ gfc_add_modify_expr (stmtblock_t * pblock, tree lhs, tree rhs)
 {
   tree tmp;
 
-  tmp = build_v (MODIFY_EXPR, lhs, rhs);
+  tmp = fold (build_v (MODIFY_EXPR, lhs, rhs));
   gfc_add_expr_to_block (pblock, tmp);
 }
 
@@ -387,6 +387,7 @@ gfc_add_expr_to_block (stmtblock_t * block, tree expr)
   if (expr == NULL_TREE || IS_EMPTY_STMT (expr))
     return;
 
+  expr = fold (expr);
   if (block->head)
     block->head = build_v (COMPOUND_EXPR, block->head, expr);
   else

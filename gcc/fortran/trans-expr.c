@@ -891,11 +891,11 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
   if (lop)
     {
       /* The result of logical ops is always boolean_type_node.  */
-      tmp = build (code, type, lse.expr, rse.expr);
+      tmp = fold (build (code, type, lse.expr, rse.expr));
       se->expr = convert (type, tmp);
     }
   else
-    se->expr = build (code, type, lse.expr, rse.expr);
+    se->expr = fold (build (code, type, lse.expr, rse.expr));
 
 
   /* Add the post blocks.  */

@@ -1,3 +1,8 @@
+2003-12-20  Steven Bosscher  <stevenb@suse.de>
+
+	* trans-expr.c (gfc_conv_expr_op): Fold the result expression.
+	* trans.c (gfc_add_modify_expr, gfc_add_expr_to_block): Likewise.
+
 2003-12-12  Huang Chun <chunhuang73@hotmail.com>
 
 	* primary.c (match_substring): Fix substring bug for start point
