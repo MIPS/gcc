@@ -511,7 +511,7 @@ analyze_array_indexes (struct loop *loop,
 		       tree ref)
 {
   tree opnd0, opnd1;
-  tree access_fn;
+  tree access_fn, niter;
   
   opnd0 = TREE_OPERAND (ref, 0);
   opnd1 = TREE_OPERAND (ref, 1);
@@ -523,7 +523,9 @@ analyze_array_indexes (struct loop *loop,
   access_fn = instantiate_parameters 
     (loop, analyze_scalar_evolution (loop, opnd1));
 
-  if (chrec_contains_symbols (number_of_iterations_in_loop (loop)))
+  niter = number_of_iterations_in_loop (loop);
+  if (chrec_contains_symbols (niter)
+      || chrec_contains_undetermined (niter))
     estimate_niter_from_size_of_data (loop, opnd0, access_fn);
   
   VARRAY_PUSH_TREE (*access_fns, access_fn);

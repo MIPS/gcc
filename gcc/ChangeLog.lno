@@ -1,5 +1,11 @@
 2004-09-02  Sebastian Pop  <pop@cri.ensmp.fr>
 
+	* tree-data-ref.c (analyze_array_indexes): Determine the estimation 
+	of number of iteration also when the number_of_iterations_in_loop 
+	contains undetermined elements.
+
+2004-09-02  Sebastian Pop  <pop@cri.ensmp.fr>
+
 	* tree-loop-linear.c (gather_interchange_stats): Add more comments.
 	Gather also strides of accessed data.  Pass in the data references 
 	array.
