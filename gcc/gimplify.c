@@ -87,6 +87,7 @@ static tree lookup_tmp_var (tree, bool);
 static tree internal_get_tmp_var (tree, tree *, bool);
 static tree build_and_jump (tree *);
 static tree shortcut_cond_expr (tree);
+static tree gimple_boolify (tree);
 
 static struct gimplify_ctx
 {
@@ -461,9 +462,9 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case TRUTH_NOT_EXPR:
-	  tmp = TREE_OPERAND (*expr_p, 0);
-	  gimplify_expr (&tmp, pre_p, post_p, is_gimple_id, fb_rvalue);
-	  *expr_p = build (EQ_EXPR, TREE_TYPE (*expr_p), tmp, integer_zero_node);
+	  tmp = gimple_boolify (TREE_OPERAND (*expr_p, 0));
+	  *expr_p = build (EQ_EXPR, TREE_TYPE (*expr_p), tmp,
+			   convert (boolean_type_node, integer_zero_node));
 	  recalculate_side_effects (*expr_p);
 	  break;
 
@@ -1762,12 +1763,13 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, tree target)
       return;
     }
 
+  /* Make sure the condition has BOOLEAN_TYPE.  */
+  TREE_OPERAND (expr, 0) = gimple_boolify (TREE_OPERAND (expr, 0));
+
   /* Rewrite "if (a); else b" to "if (!a) b"  */
   if (!TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
     {
-      /* Make sure the condition is something invert_truthvalue will accept. */
-      tree cond = (*lang_hooks.truthvalue_conversion) (TREE_OPERAND (expr, 0));
-      TREE_OPERAND (expr, 0) = invert_truthvalue (cond);
+      TREE_OPERAND (expr, 0) = invert_truthvalue (TREE_OPERAND (expr, 0));
       tmp = TREE_OPERAND (expr, 1);
       TREE_OPERAND (expr, 1) = TREE_OPERAND (expr, 2);
       TREE_OPERAND (expr, 2) = tmp;
@@ -1954,10 +1956,9 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, int want_value)
 static void
 gimplify_boolean_expr (tree *expr_p, tree *pre_p)
 {
-  enum tree_code code;
   tree t, lhs, rhs, if_body, if_cond, if_stmt;
 
-  code = TREE_CODE (*expr_p);
+  enum tree_code code = TREE_CODE (*expr_p);
 
 #if defined ENABLE_CHECKING
   if (code != TRUTH_ANDIF_EXPR && code != TRUTH_ORIF_EXPR)
@@ -1968,31 +1969,22 @@ gimplify_boolean_expr (tree *expr_p, tree *pre_p)
      produce nested ifs.  */
   *expr_p = right_assocify_expr (*expr_p);
 
-  /* First, make sure that our operands are truthvalues.  This should
-     already be the case, but they may have the wrong type.  */
-  lhs = (*lang_hooks.truthvalue_conversion) (TREE_OPERAND (*expr_p, 0));
-  rhs = (*lang_hooks.truthvalue_conversion) (TREE_OPERAND (*expr_p, 1));
+  /* First, make sure that our operands have boolean type.  */
+  lhs = gimple_boolify (TREE_OPERAND (*expr_p, 0));
+  rhs = gimple_boolify (TREE_OPERAND (*expr_p, 1));
 
   /* Build 'T = a'  */
   t = get_initialized_tmp_var (lhs, pre_p);
 
   /* Build the body for the if() statement that conditionally evaluates the
-     RHS of the expression.  Note that we first build the assignment
-     surrounded by a new scope so that its gimplified form is computed
-     inside the new scope.  */
+     RHS of the expression.  */
   if_body = build (MODIFY_EXPR, TREE_TYPE (t), t, rhs);
 
-  /* Build the statement 'if (T = a <comp> 0) T = b;'.  Where <comp> is
-     NE_EXPR if we are processing && and EQ_EXPR if we are processing ||.
-
-     Note that we are deliberately creating a non GIMPLE statement to
-     explicitly expose the sequence points to the gimplifier.  When the
-     resulting if() statement is gimplified, the side effects for the LHS
-     of 'a && b' will be inserted before the evaluation of 'b'.  */
+  /* Build the condition.  */
   if (code == TRUTH_ANDIF_EXPR)
     if_cond = t;
   else
-    if_cond = build (EQ_EXPR, TREE_TYPE (t), t, integer_zero_node);
+    if_cond = build1 (TRUTH_NOT_EXPR, TREE_TYPE (t), t);
 
   if_stmt = build (COND_EXPR, void_type_node, if_cond, if_body,
 		   build_empty_stmt ());
@@ -2124,6 +2116,44 @@ gimplify_asm_expr (tree expr, tree *pre_p)
 		       is_gimple_val, fb_rvalue);
     }
 
+}
+
+/* If EXPR is a boolean expression, make sure it has BOOLEAN_TYPE.  */
+
+static tree
+gimple_boolify (tree expr)
+{
+  tree type = TREE_TYPE (expr);
+
+  if (TREE_CODE (type) == BOOLEAN_TYPE)
+    return expr;
+
+  /* If this is the predicate of a COND_EXPR, it might not even be a
+     truthvalue yet.  */
+  expr = (*lang_hooks.truthvalue_conversion) (expr);
+
+  switch (TREE_CODE (expr))
+    {
+    case TRUTH_AND_EXPR:
+    case TRUTH_OR_EXPR:
+    case TRUTH_XOR_EXPR:
+    case TRUTH_ANDIF_EXPR:
+    case TRUTH_ORIF_EXPR:
+      /* Also boolify the arguments of truth exprs.  */
+      TREE_OPERAND (expr, 1) = gimple_boolify (TREE_OPERAND (expr, 1));
+    case TRUTH_NOT_EXPR:
+      TREE_OPERAND (expr, 0) = gimple_boolify (TREE_OPERAND (expr, 0));
+    case EQ_EXPR: case NE_EXPR:
+    case LE_EXPR: case GE_EXPR: case LT_EXPR: case GT_EXPR:
+      /* These expressions always produce boolean results.  */
+      TREE_TYPE (expr) = boolean_type_node;
+      return expr;
+      
+    default:
+      /* Other expressions that get here must have boolean values, but
+	 might need to be converted to the appropriate mode.  */
+      return convert (boolean_type_node, expr);
+    }
 }
 
 /* Apply FN to each statement under *STMT_P, which may be a COMPOUND_EXPR
@@ -2746,9 +2776,11 @@ gimple_push_cleanup (tree cleanup, tree *pre_p)
 	   val
       */
 
-      tree flag = create_tmp_var (integer_type_node, "cleanup");
-      tree ffalse = build (MODIFY_EXPR, void_type_node, flag, integer_zero_node);
-      tree ftrue = build (MODIFY_EXPR, void_type_node, flag, integer_one_node);
+      tree flag = create_tmp_var (boolean_type_node, "cleanup");
+      tree ffalse = build (MODIFY_EXPR, void_type_node, flag,
+			   convert (boolean_type_node, integer_zero_node));
+      tree ftrue = build (MODIFY_EXPR, void_type_node, flag,
+			  convert (boolean_type_node, integer_one_node));
       cleanup = build (COND_EXPR, void_type_node, flag, cleanup,
 		       build_empty_stmt ());
       wce = build (WITH_CLEANUP_EXPR, void_type_node, NULL_TREE,

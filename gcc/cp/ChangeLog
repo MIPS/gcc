@@ -1,3 +1,7 @@
+2003-07-24  Jason Merrill  <jason@redhat.com>
+
+	* decl.c: Just set truthvalue_* to boolean_*.
+
 2003-07-21  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* cp-tree.h (hack_identifier): Remove.

@@ -1,3 +1,18 @@
+2003-07-24  Jason Merrill  <jason@redhat.com>
+
+	* gimplify.c (gimple_boolify): New fn.
+	(gimplify_expr) <TRUTH_NOT_EXPR>: Boolify arg.
+	(gimplify_cond_expr): Boolify condition.
+	(gimplify_boolean_expr): Boolify args.
+	(gimple_push_cleanup): Make flag boolean.
+
+	* tree-simple.c (is_gimple_relop): TRUTH_{AND,OR,XOR}_EXPR
+	are not comparisons.
+	(is_gimple_binary_expr): They are binary ops.
+
+	* tree-mudflap.c (mf_build_check_statement_for): Use TRUTH_OR_EXPR
+	rather than BIT_IOR_EXPR.
+
 2003-07-23  Jason Merrill  <jason@redhat.com>
 	    Diego Novillo  <dnovillo@redhat.com>
 

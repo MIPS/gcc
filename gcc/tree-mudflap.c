@@ -640,11 +640,7 @@ mf_build_check_statement_for (tree ptrvalue, tree chkbase, tree chksize,
 		             t1_2b_1,
 			     integer_one_node)));
 
-    /* Note that we use BIT_IOR_EXPR instead of TRUTH_ORIF_EXPR.  Although,
-       TRUTH_ORIF_EXPR generates short-circuit logic, it also generates
-       more branches.  Using TRUTH_ORIF_EXPR was found to be faster on
-       ia32, but slower on powerpc and x86-64.  */
-    t1_4_1 = build (BIT_IOR_EXPR, integer_type_node,
+    t1_4_1 = build (TRUTH_OR_EXPR, integer_type_node,
 		    build (GT_EXPR, integer_type_node, t0, t1_2a_1),
 		    build (LT_EXPR, integer_type_node, t1, t2));
 

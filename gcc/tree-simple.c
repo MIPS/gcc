@@ -311,10 +311,7 @@ is_gimple_modify_expr_lhs (tree t)
 bool
 is_gimple_relop (enum tree_code code)
 {
-  return (TREE_CODE_CLASS (code) == '<'
-	  || code == TRUTH_AND_EXPR
-	  || code == TRUTH_OR_EXPR
-	  || code == TRUTH_XOR_EXPR);
+  return (TREE_CODE_CLASS (code) == '<');
 }
 
 
@@ -326,11 +323,16 @@ is_gimple_relop (enum tree_code code)
 int
 is_gimple_binary_expr (tree t)
 {
+  enum tree_code code = TREE_CODE (t);
+
   if (t == NULL_TREE)
     return 1;
 
-  return ((TREE_CODE_CLASS (TREE_CODE (t)) == '2'
-	   || is_gimple_relop (TREE_CODE (t)))
+  return ((TREE_CODE_CLASS (code) == '2'
+	   || is_gimple_relop (code)
+	   || code == TRUTH_AND_EXPR
+	   || code == TRUTH_OR_EXPR
+	   || code == TRUTH_XOR_EXPR)
 	  && is_gimple_val (TREE_OPERAND (t, 0))
 	  && is_gimple_val (TREE_OPERAND (t, 1)));
 }
