@@ -65,6 +65,7 @@ target_libs="target-libiberty \
 		target-libgloss \
 		target-newlib \
 		${libstdcxx_version} \
+		target-libmudflap \
 		target-libf2c \
 		${libgcj}
 		target-libobjc"

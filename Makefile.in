@@ -217,7 +217,7 @@ HOST_LIB_PATH = $$r/bfd:$$r/opcodes
 
 # This is the list of directories that may be needed in RPATH_ENVVAR
 # so that prorgams built for the target machine work.
-TARGET_LIB_PATH = $$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs:
+TARGET_LIB_PATH = $$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs:$$r/$(TARGET_SUBDIR)/libmudflap/.libs
 
 # configure.in sets SET_LIB_PATH to this if --enable-shared was used.
 # Some platforms don't like blank entries, so we remove duplicate,
@@ -770,7 +770,8 @@ ALL_TARGET_MODULES = \
 	all-target-libjava \
 	all-target-zlib \
 	all-target-boehm-gc \
-	all-target-qthreads
+	all-target-qthreads \
+	all-target-libmudflap
 
 # This is a list of the configure targets for all of the modules which
 # are compiled using the target tools.
@@ -789,7 +790,8 @@ CONFIGURE_TARGET_MODULES = \
 	configure-target-libjava \
 	configure-target-zlib \
 	configure-target-boehm-gc \
-	configure-target-qthreads
+	configure-target-qthreads \
+	configure-target-libmudflap
 
 # This is a list of the check targets for all of the modules which are
 # compiled using $(TARGET_FLAGS_TO_PASS).
@@ -822,7 +824,8 @@ INSTALL_TARGET_MODULES = \
 	install-target-zlib \
 	install-target-boehm-gc \
 	install-target-qthreads \
-	install-target-gperf
+	install-target-gperf \
+	install-target-libmudflap
 
 # This is a list of the targets for which we can do a clean-{target}.
 CLEAN_MODULES = \
@@ -902,7 +905,8 @@ CLEAN_TARGET_MODULES = \
 	clean-target-libjava \
 	clean-target-zlib \
 	clean-target-boehm-gc \
-	clean-target-qthreads
+	clean-target-qthreads \
+	clean-target-libmudflap
 
 # All of the x11 modules that can be cleaned
 CLEAN_X11_MODULES = \
@@ -1715,6 +1719,8 @@ all-make: all-libiberty
 all-mmalloc:
 configure-target-newlib: $(ALL_GCC)
 all-target-newlib: configure-target-newlib
+configure-target-libmudflap: $(ALL_GCC)
+all-target-libmudflap: configure-target-libmudflap
 configure-target-libtermcap: $(ALL_GCC_C)
 all-target-libtermcap: configure-target-libtermcap
 all-opcodes: all-bfd all-libiberty
