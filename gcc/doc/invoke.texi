@@ -242,8 +242,8 @@ in the following sections.
 -fdump-tree-optimized@r{[}-@var{n}@r{]} @gol
 -fdump-tree-inlined@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups  -fmem-report @gol
--fprofile-arcs  -fsched-verbose=@var{n} @gol
--ftest-coverage  -ftime-report @gol
+-fprofile-arcs  -frandom-seed=@var{n} @gol
+-fsched-verbose=@var{n} -ftest-coverage  -ftime-report @gol
 -g  -g@var{level}  -gcoff  -gdwarf  -gdwarf-1  -gdwarf-1+  -gdwarf-2 @gol
 -ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
@@ -2762,6 +2762,15 @@ code is to provide behavior which is selectable at compile-time.
 @item -Winline
 @opindex Winline
 Warn if a function can not be inlined and it was declared as inline.
+Even with this option, the compiler will not warn about failures to
+inline functions declared in system headers.  
+
+The compiler uses a variety of heuristics to determine whether or not
+to inline a function.  For example, the compiler takes into account
+the size of the function being inlined and the the amount of inlining
+that has already been done in the current function.  Therefore,
+seemingly insignificant changes in the source program can cause the
+warnings produced by @option{-Winline} to appear or disappear.
 
 @item -Wlong-long
 @opindex Wlong-long
@@ -3059,25 +3068,20 @@ Dump after SSA optimizations, to @file{@var{file}.04.ssa} and
 Dump after the second if conversion, to @file{@var{file}.29.ce3}.
 @item f
 @opindex df
-Dump after life analysis, to @file{@var{file}.18.life}.
+Dump after control and data flow analysis, to @file{@var{file}.14.cfg}.
+Also dump after life analysis, to @file{@var{file}.18.life}.
 @item F
 @opindex dF
 Dump after purging @code{ADDRESSOF} codes, to @file{@var{file}.10.addressof}.
 @item g
 @opindex dg
 Dump after global register allocation, to @file{@var{file}.24.greg}.
-@item h
-@opindex dh
-Dump after finalization of EH handling code, to @file{@var{file}.02.eh}.
-@item k
-@opindex dk
-Dump after reg-to-stack conversion, to @file{@var{file}.31.stack}.
-@item o
-@opindex do
-Dump after post-reload optimizations, to @file{@var{file}.25.postreload}.
 @item G
 @opindex dG
 Dump after GCSE, to @file{@var{file}.11.gcse}.
+@item h
+@opindex dh
+Dump after finalization of EH handling code, to @file{@var{file}.02.eh}.
 @item i
 @opindex di
 Dump after sibling call optimizations, to @file{@var{file}.01.sibling}.
@@ -3103,6 +3107,9 @@ Dump after register renumbering, to @file{@var{file}.28.rnreg}.
 @item N
 @opindex dN
 Dump after the register move pass, to @file{@var{file}.21.regmove}.
+@item o
+@opindex do
+Dump after post-reload optimizations, to @file{@var{file}.25.postreload}.
 @item r
 @opindex dr
 Dump after RTL generation, to @file{@var{file}.00.rtl}.
@@ -3220,6 +3227,14 @@ Dump after all tree based optimization, to @file{@var{file}.optimized}.
 @item inlined
 Dump after function inlining, to @file{@var{file}.inlined}.
 @end table
+
+@item -frandom-seed=@var{string}
+@opindex frandom-string
+This option provides a seed that GCC uses when it would otherwise use
+random numbers.  At present, this is used to generate certain symbol names
+that have to be different in every compiled file.
+
+The @var{string} should be different for every file you compile.
 
 @item -fsched-verbose=@var{n}
 @opindex fsched-verbose

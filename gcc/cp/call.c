@@ -3062,23 +3062,27 @@ op_error (code, code2, arg1, arg2, arg3, problem)
   switch (code)
     {
     case COND_EXPR:
-      error ("%s for `%T ? %T : %T' operator", problem,
-		error_type (arg1), error_type (arg2), error_type (arg3));
+      error ("%s for ternary 'operator?:' in '%E ? %E : %E'",
+             problem, arg1, arg2, arg3);
       break;
+      
     case POSTINCREMENT_EXPR:
     case POSTDECREMENT_EXPR:
-      error ("%s for `%T %s' operator", problem, error_type (arg1), opname);
+      error ("%s for 'operator%s' in '%E%s'", problem, opname, arg1, opname);
       break;
+      
     case ARRAY_REF:
-      error ("%s for `%T [%T]' operator", problem,
-		error_type (arg1), error_type (arg2));
+      error ("%s for 'operator[]' in '%E[%E]'", problem, arg1, arg2);
       break;
+      
     default:
       if (arg2)
-	error ("%s for `%T %s %T' operator", problem,
-		  error_type (arg1), opname, error_type (arg2));
+	error ("%s for 'operator%s' in '%E %s %E'",
+               problem, opname, arg1, opname, arg2);
       else
-	error ("%s for `%s %T' operator", problem, opname, error_type (arg1));
+	error ("%s for 'operator%s' in '%s%E'",
+               problem, opname, opname, arg1);
+      break;
     }
 }
 
@@ -5706,7 +5710,7 @@ joust (cand1, cand2, warn)
 	      && TREE_CODE (convn) == QUAL_CONV)
 	    /* Don't complain about `operator char *()' beating
 	       `operator const char *() const'.  */;
-	  else if (warn)
+	  else if (warn && warn_conversion)
 	    {
 	      tree source = source_type (TREE_VEC_ELT (w->convs, 0));
 	      if (! DECL_CONSTRUCTOR_P (w->fn))
@@ -6054,7 +6058,7 @@ initialize_reference (type, expr, decl)
        T t;
        const S& s = t;
 
-    we can extend the lifetime of the returnn value of the conversion
+    we can extend the lifetime of the return value of the conversion
     operator.  */
   my_friendly_assert (TREE_CODE (conv) == REF_BIND, 20030302);
   if (decl)
@@ -6077,13 +6081,33 @@ initialize_reference (type, expr, decl)
       expr = convert_like (conv, expr);
       if (!real_non_cast_lvalue_p (expr))
 	{
+	  tree init;
+	  tree type;
+
 	  /* Create the temporary variable.  */
-	  var = make_temporary_var_for_ref_to_temp (decl, TREE_TYPE (expr));
-	  DECL_INITIAL (var) = expr;
-	  cp_finish_decl (var, expr, NULL_TREE, 
-		      LOOKUP_ONLYCONVERTING|DIRECT_BIND);
+	  type = TREE_TYPE (expr);
+	  var = make_temporary_var_for_ref_to_temp (decl, type);
+	  layout_decl (var, 0);
+	  if (at_function_scope_p ())
+	    {
+	      tree cleanup;
+
+	      add_decl_stmt (var);
+	      cleanup = cxx_maybe_build_cleanup (var);
+	      if (cleanup)
+		finish_decl_cleanup (var, cleanup);
+	    }
+	  else
+	    {
+	      rest_of_decl_compilation (var, NULL, /*toplev=*/1, at_eof);
+	      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
+		static_aggregates = tree_cons (NULL_TREE, var,
+					       static_aggregates);
+	    }
+	  init = build (INIT_EXPR, type, var, expr);
 	  /* Use its address to initialize the reference variable.  */
 	  expr = build_address (var);
+	  expr = build (COMPOUND_EXPR, TREE_TYPE (expr), init, expr);
 	}
       else
 	/* Take the address of EXPR.  */

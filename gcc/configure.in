@@ -676,7 +676,7 @@ dnl gcc_AC_C_ENUM_BF_UNSIGNED
 AC_CHECK_FUNCS(times clock dup2 kill getrlimit setrlimit atoll atoq \
 	sysconf strsignal putc_unlocked fputc_unlocked fputs_unlocked \
 	fwrite_unlocked fprintf_unlocked getrusage nl_langinfo lstat \
-        scandir alphasort)
+        scandir alphasort gettimeofday)
 
 AC_CHECK_TYPE(ssize_t, int)
 
@@ -2362,6 +2362,13 @@ elif test x$gcc_cv_as != x -a x"$insn" != x ; then
 	# ??? This fails with non-gnu grep.
 	if $gcc_cv_as --gstabs -o conftest.o conftest.s > /dev/null 2>&1 ; then
 	  gcc_cv_as_gstabs_flag="yes"
+	  # The native Solaris 9/Intel assembler doesn't understand --gstabs
+	  # and warns about it, but still exits successfully.  So check for
+	  # this.
+	  if $gcc_cv_as --gstabs -o conftest.o conftest.s 2>&1 | \
+		grep -i warning > /dev/null ; then
+	    gcc_cv_as_gstabs_flag="no"
+	  fi
 	fi
 	rm -f conftest.s conftest.o
 fi

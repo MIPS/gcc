@@ -50,6 +50,7 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "debug.h"
 #include "timevar.h"
+#include "input.h"
 
 static tree grokparms				PARAMS ((tree));
 static const char *redeclaration_error_message	PARAMS ((tree, tree));
@@ -1224,11 +1225,18 @@ add_binding (id, decl)
 	 type to which it already refers.  */
     ok = 0;
   /* There can be two block-scope declarations of the same variable,
-     so long as they are `extern' declarations.  */
+     so long as they are `extern' declarations.  However, there cannot
+     be two declarations of the same static data member:
+
+       [class.mem]
+
+       A member shall not be declared twice in the
+       member-specification.  */
   else if (TREE_CODE (decl) == VAR_DECL
 	   && TREE_CODE (BINDING_VALUE (binding)) == VAR_DECL
 	   && DECL_EXTERNAL (decl)
-	   && DECL_EXTERNAL (BINDING_VALUE (binding)))
+	   && DECL_EXTERNAL (BINDING_VALUE (binding))
+	   && !DECL_CLASS_SCOPE_P (decl))
     {
       duplicate_decls (decl, BINDING_VALUE (binding));
       ok = 0;
@@ -4565,26 +4573,48 @@ pushdecl_namespace_level (x)
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
 }
 
-/* Like pushdecl, only it places X in the global scope if appropriate.  */
+/* Like pushdecl, only it places X in the global scope if appropriate.
+   Calls cp_finish_decl to register the variable, initializing it with
+   *INIT, if INIT is non-NULL.  */
 
-tree
-pushdecl_top_level (x)
-     tree x;
+static tree
+pushdecl_top_level_1 (tree x, tree *init)
 {
   timevar_push (TV_NAME_LOOKUP);
   push_to_top_level ();
   x = pushdecl_namespace_level (x);
+  if (init)
+    cp_finish_decl (x, *init, NULL_TREE, 0);
   pop_from_top_level ();
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, x);
 }
 
+/* Like pushdecl, only it places X in the global scope if appropriate.  */
+
+tree
+pushdecl_top_level (tree x)
+{
+  return pushdecl_top_level_1 (x, NULL);
+}
+
+/* Like pushdecl, only it places X in the global scope if
+   appropriate.  Calls cp_finish_decl to register the variable,
+   initializing it with INIT.  */
+
+tree
+pushdecl_top_level_and_finish (tree x, tree init)
+{
+  return pushdecl_top_level_1 (x, &init);
+}
+
 /* Make the declaration of X appear in CLASS scope.  */
 
-void
+bool
 pushdecl_class_level (x)
      tree x;
 {
   tree name;
+  bool is_valid = true;
 
   timevar_push (TV_NAME_LOOKUP);
   /* Get the name of X.  */
@@ -4595,7 +4625,7 @@ pushdecl_class_level (x)
 
   if (name)
     {
-      push_class_level_binding (name, x);
+      is_valid = push_class_level_binding (name, x);
       if (TREE_CODE (x) == TYPE_DECL)
 	set_identifier_type_value (name, TREE_TYPE (x));
     }
@@ -4607,9 +4637,16 @@ pushdecl_class_level (x)
       tree f;
 
       for (f = TYPE_FIELDS (TREE_TYPE (x)); f; f = TREE_CHAIN (f))
-	pushdecl_class_level (f);
+	{
+	  push_srcloc (DECL_SOURCE_FILE (f), DECL_SOURCE_LINE (f));
+	  if (!pushdecl_class_level (f))
+	    is_valid = false;
+	  pop_srcloc ();
+	}
     }
   timevar_pop (TV_NAME_LOOKUP);
+
+  return is_valid;
 }
 
 /* Enter DECL into the symbol table, if that's appropriate.  Returns
@@ -4642,13 +4679,11 @@ maybe_push_decl (decl)
     return pushdecl (decl);
 }
 
-/* Make the declaration(s) of X appear in CLASS scope
-   under the name NAME.  */
+/* Make the declaration(s) of X appear in CLASS scope under the name
+   NAME.  Returns true if the binding is valid.  */
 
-void
-push_class_level_binding (name, x)
-     tree name;
-     tree x;
+bool
+push_class_level_binding (tree name, tree x)
 {
   cxx_binding *binding;
   
@@ -4656,7 +4691,7 @@ push_class_level_binding (name, x)
   /* The class_binding_level will be NULL if x is a template
      parameter name in a member template.  */
   if (!class_binding_level)
-    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, (void)0);
+    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, true);
 
   /* Make sure that this new member does not have the same name
      as a template parameter.  */
@@ -4706,7 +4741,7 @@ push_class_level_binding (name, x)
 	    INHERITED_VALUE_BINDING_P (binding) = 0;
 	    TREE_TYPE (shadow) = x;
 	    IDENTIFIER_CLASS_VALUE (name) = x;
-	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, (void)0);
+	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, true);
 	  }
     }
 
@@ -4720,8 +4755,10 @@ push_class_level_binding (name, x)
       /* Record the value we are binding NAME to so that we can know
 	 what to pop later.  */
       TREE_TYPE (class_binding_level->class_shadowed) = x;
+      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, true);
     }
-  timevar_pop (TV_NAME_LOOKUP);
+
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, false);
 }
 
 /* Insert another USING_DECL into the current binding level, returning
@@ -8627,6 +8664,7 @@ initialize_local_var (decl, init)
      tree init;
 {
   tree type = TREE_TYPE (decl);
+  tree cleanup;
 
   my_friendly_assert (TREE_CODE (decl) == VAR_DECL
 		      || TREE_CODE (decl) == RESULT_DECL, 
@@ -8676,17 +8714,9 @@ initialize_local_var (decl, init)
     }
 
   /* Generate a cleanup, if necessary.  */
-  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
-    {
-      tree cleanup;
-
-      /* Compute the cleanup.  */
-      cleanup = cxx_maybe_build_cleanup (decl);
-      
-      /* Record the cleanup required for this declaration.  */
-      if (DECL_SIZE (decl) && cleanup)
-	finish_decl_cleanup (decl, cleanup);
-    }
+  cleanup = cxx_maybe_build_cleanup (decl);
+  if (DECL_SIZE (decl) && cleanup)
+    finish_decl_cleanup (decl, cleanup);
 }
 
 /* Finish processing of a declaration;
@@ -13208,7 +13238,7 @@ grok_op_properties (decl, friendp)
 		       && DERIVED_FROM_P (t, current_class_type))
 		what = "a base class";
 
-	      if (what)
+	      if (what && warn_conversion)
 		warning ("conversion to %s%s will never use a type conversion operator",
 			 ref ? "a reference to " : "", what);
 	    }

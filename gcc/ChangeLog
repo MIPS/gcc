@@ -1,3 +1,106 @@
+2003-06-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/invoke.texi: Document dump, .cfg.
+
+2003-06-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/invoke.texi: Alphabetize dump options.
+
+2003-06-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/invoke.texi: Remove a duplicate -dk.
+
+2003-06-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/rtl.texi: Fix the @findex for pre_modify.
+
+Sat Jun 21 13:37:52 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_va_arg): Fix allocation of temporary slot.
+
+2003-06-14  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/contrib.texi (Contributors): Use Windows instead of Win32.
+
+	Update Andreas Jaeger's entry.
+
+	Merge the two entries of Kaveh Ghazi, David Edelsohn, and
+	Loren J. Rittle.
+
+2003-06-20  Geoffrey Keating  <geoffk@apple.com>
+
+	PR c++/9393
+	* doc/invoke.texi (Debugging Options): Document -frandom-seed.
+	* configure.in: Check for gettimeofday.
+	* tree.c (flag_random_seed): Define.
+	(default_flag_random_seed): New.
+	(append_random_chars): Use flag_random_seed rather than trying
+	to acquire randomness here.
+	* tree.h (default_flag_random_seed): Declare.
+	* toplev.c (display_help): Add -frandom-seed and -fstack-limit-*
+	descriptions.
+	(decode_f_option): Handle -frandom-seed.
+	(print_switch_values): Call default_flag_random_seed.
+	* flags.h (flag_random_seed): Declare.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	
+2003-06-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10888
+	* tree-inline.c (expand_call_inline): Do not warn about failing to
+	inline functions declared in system headers.
+	* doc/invoke.texi (-Winline): Expand on documentation.
+
+2003-06-20  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in (gcc_cv_as_gstabs_flag): Disable if assembler warns.
+	* configure: Regenerate.
+	Fixes PR driver/9362.
+
+2003-06-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* haifa-sched.c (max_isse): Backport from the mainline.
+	(choice_entry): New structure.
+	(choice_stack, cycle_issued_insns, max_lookahead_tries,
+	cached_first_cycle_multipass_dfa_lookahead, cached_issue_rate):
+	New variables.
+	(choose_ready): Calculate max_lookahead_tries.  Initiate
+	ready_try.
+	(schedule_block): Allocate/deallocate choice_stack.  Change
+	cycle_issued_insns value as necessary.
+	(sched_init): Check cached_issue_rate.
+
+2003-06-20  Daniel Egger  <degger@fhm.edu>
+            Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/install.texi (Building): Correct and improve statement
+	about parallel builds.
+
+2003-06-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/install.texi (--with-gnu-as): Mention SPARC/Solaris and
+	SPARC64/Solaris as platforms where --with-gnu-as makes a difference.
+	(--with-as): Add @anchor.
+	(--with-gnu-ld): Fix typo.
+	(--with-ld): Add @uref to --with-as.
+
+2003-06-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* flow.c (initialize_uninitialized_subregs): Use
+	emit_move_insn instead of emitting a hardcoded move.
+
+2003-06-19  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (init_cumulative_args): Limit CALL_LIBCALL
+	to ABI_V4.
+
+2003-06-19  DJ Delorie  <dj@redhat.com>
+
+	PR preprocessor/11022
+	* cppmacro.c (warn_of_redefinition): Handle cases where the two
+	definitions have different numbers of tokens.
+
 2003-06-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-decl.c (finish_decl): Change _libfunc SYMBOL_REFs created in
