@@ -9173,8 +9173,7 @@ ix86_expand_int_movcc (operands)
   /* Don't attempt mode expansion here -- if we had to expand 5 or 6
      HImode insns, we'd be swallowed in word prefix ops.  */
 
-  if ((mode != HImode || TARGET_FAST_PREFIX)
-      && (mode != DImode || TARGET_64BIT)
+  if ((mode != DImode || TARGET_64BIT)
       && GET_CODE (operands[2]) == CONST_INT
       && GET_CODE (operands[3]) == CONST_INT)
     {
@@ -9182,6 +9181,14 @@ ix86_expand_int_movcc (operands)
       HOST_WIDE_INT ct = INTVAL (operands[2]);
       HOST_WIDE_INT cf = INTVAL (operands[3]);
       HOST_WIDE_INT diff;
+
+      /* Promote OUT into SImode to avoid extra prefix operations.
+         Since we can generate minus and neg, we can't rely on insn splitting
+	 to do the job.  */
+      if (GET_MODE (out) == HImode
+	  && !TARGET_PARTIAL_REG_STALL
+	  && (REG_P (out) || GET_CODE (out) == SUBREG))
+	out = gen_lowpart (SImode, out);
 
       diff = ct - cf;
       /*  Sign bit compares are better done using shifts than we do by using
@@ -9546,7 +9553,7 @@ ix86_expand_int_movcc (operands)
       optab op;
       rtx var, orig_out, out, tmp;
 
-      if (BRANCH_COST >= 2)
+      if (BRANCH_COST <= 2)
 	return 0; /* FAIL */
 
       /* If one of the two operands is an interesting constant, load a
@@ -9555,9 +9562,9 @@ ix86_expand_int_movcc (operands)
       if (GET_CODE (operands[2]) == CONST_INT)
 	{
 	  var = operands[3];
-	  if (INTVAL (operands[2]) == 0)
+	  if (INTVAL (operands[2]) == 0 && operands[3] != constm1_rtx)
 	    operands[3] = constm1_rtx, op = and_optab;
-	  else if (INTVAL (operands[2]) == -1)
+	  else if (INTVAL (operands[2]) == -1 && operands[3] != const0_rtx)
 	    operands[3] = const0_rtx, op = ior_optab;
 	  else
 	    return 0; /* FAIL */
@@ -9565,9 +9572,9 @@ ix86_expand_int_movcc (operands)
       else if (GET_CODE (operands[3]) == CONST_INT)
 	{
 	  var = operands[2];
-	  if (INTVAL (operands[3]) == 0)
+	  if (INTVAL (operands[3]) == 0 && operands[2] != constm1_rtx)
 	    operands[2] = constm1_rtx, op = and_optab;
-	  else if (INTVAL (operands[3]) == -1)
+	  else if (INTVAL (operands[3]) == -1 && operands[3] != const0_rtx)
 	    operands[2] = const0_rtx, op = ior_optab;
 	  else
 	    return 0; /* FAIL */
