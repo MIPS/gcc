@@ -1318,8 +1318,8 @@ df_bb_reg_def_chain_create (struct df *df, basic_block bb)
 
 
 /* Create reg-def chains for each basic block within BLOCKS.  These
-   are a list of definitions for each register.  If REDO is true, remove the
-   old reg-def chains first, otherwise just add new defs to them.  */
+   are a list of definitions for each register.  If REDO is true, add
+   all defs, otherwise just add the new defs.  */
 
 static void
 df_reg_def_chain_create (struct df *df, bitmap blocks, bool redo)
@@ -1330,8 +1330,11 @@ df_reg_def_chain_create (struct df *df, bitmap blocks, bool redo)
 
   if (redo)
     {
+#ifdef ENABLE_CHECKING
       for (regno = 0; regno < df->n_regs; regno++)
-	free_reg_ref_chain (&df->regs[regno].defs);
+	if (df->regs[regno].defs)
+	  abort ();
+#endif
 
       /* Pretend that all defs are new.  */
       df->def_id_save = 0;
@@ -1343,6 +1346,17 @@ df_reg_def_chain_create (struct df *df, bitmap blocks, bool redo)
     });
 
   df->def_id_save = old_def_id_save;
+}
+
+/* Remove all reg-def chains stored in the dataflow object DF.  */
+
+static void
+df_reg_def_chain_clean (struct df *df)
+{
+  unsigned regno;
+
+  for (regno = 0; regno < df->n_regs; regno++)
+    free_reg_ref_chain (&df->regs[regno].defs);
 }
 
 /* Create reg-use chains for basic block BB.  These are a list of uses
@@ -1396,8 +1410,11 @@ df_reg_use_chain_create (struct df *df, bitmap blocks, bool redo)
 
   if (redo)
     {
+#ifdef ENABLE_CHECKING
       for (regno = 0; regno < df->n_regs; regno++)
-	free_reg_ref_chain (&df->regs[regno].uses);
+	if (df->regs[regno].uses)
+	  abort ();
+#endif
 
       /* Pretend that all uses are new.  */
       df->use_id_save = 0;
@@ -1411,6 +1428,16 @@ df_reg_use_chain_create (struct df *df, bitmap blocks, bool redo)
   df->use_id_save = old_use_id_save;
 }
 
+/* Remove all reg-use chains stored in the dataflow object DF.  */
+
+static void
+df_reg_use_chain_clean (struct df *df)
+{
+  unsigned regno;
+
+  for (regno = 0; regno < df->n_regs; regno++)
+    free_reg_ref_chain (&df->regs[regno].uses);
+}
 
 /* Create def-use chains from reaching use bitmaps for basic block BB.  */
 static void
@@ -2343,6 +2370,9 @@ df_analyse_subcfg (struct df *df, bitmap blocks, int flags)
 	    }
 	}
     }
+
+  df_reg_def_chain_clean (df);
+  df_reg_use_chain_clean (df);
 
   df_refs_update (df, blocks);
 

@@ -1,3 +1,10 @@
+2004-03-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* df.c (df_reg_def_chain_create, df_reg_use_chain_create): Do not clean
+	up the old information here.
+	(df_reg_def_chain_clean, df_reg_use_chain_clean): New.
+	(df_analyse_subcfg): Call them.
+
 2003-03-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-flow.h (loop_commit_inserts): Declare.
