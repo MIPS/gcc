@@ -1,3 +1,9 @@
+2002-05-21  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Makefile.in ($(docdir)/gccint.info): Depend on gty.texi.
+	* doc/gccint.texi (Top): Include gty.texi.
+	* doc/gty.texi: New file.
+
 2002-05-17  Geoffrey Keating  <geoffk@redhat.com>
 
 	* bitmap.c: Include ggc.h, gt-bitmap.h.
