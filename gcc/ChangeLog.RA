@@ -1,3 +1,13 @@
+Wed Aug  1 23:35:02 2001  Denis Chertykov  <denisc@overta.ru>
+
+	* ra.c (combine): combine add_hardregs's of U and V.
+	(ok): Remove check for combining a web with a precolored web.
+	Check a precolored web for usable_regs.
+
+	(rewrite_program): Since we always call `regclass' if
+	`changed' we can emit a new pseudos which will have a new reg
+	class preferences.
+
 Mon Jul 30 20:21:07 2001  Denis Chertykov  <denisc@overta.ru>
 
 	* ra.c (get_free_reg): Wrong test removed.
