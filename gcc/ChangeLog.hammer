@@ -1,3 +1,8 @@
+2003-09-02  Josef Zlomek  <zlomekj@suse.cz>
+
+	* toplev.c (rest_of_compilation): Run loop optimizations only
+	if optimize > 0.
+
 2003-09-02  Andreas Schwab  <schwab@suse.de>
 
 	* Makefile.in (STAGESTUFF): Use build_ext gcov_iov.
