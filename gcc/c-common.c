@@ -4199,6 +4199,7 @@ create_builtins_fragment (void)
   st = alloc_include_fragment ();
   C_FRAGMENT (fragment) = st;
   st->valid = 1;
+  st->name = fragment->name;
   current_c_fragment = st;
   builtins_fragment = fragment;
   builtins_c_fragment = st;
@@ -4365,6 +4366,7 @@ register_fragment_dependency (used)
      struct c_include_fragment* used;
 {
   if (! used->used_in_current && used != current_c_fragment
+      && used != builtins_c_fragment
       && current_c_fragment != NULL)
     {
       if (current_fragment_deps_stack == NULL_TREE)
@@ -4464,6 +4466,8 @@ cb_enter_fragment (reader, fragment, name, line)
 {
   struct c_include_fragment* st = C_FRAGMENT (fragment);
   bool valid = 0;
+  input_filename = fragment->name;
+  input_line = line;
   if (st == NULL)
     {
       if (!lang_hooks.uses_conditional_symtab)
@@ -4482,7 +4486,7 @@ cb_enter_fragment (reader, fragment, name, line)
 	{
 	  valid = 0;
 	  if (warn_fragment_invalidation)
-	    warning ("invalidating cached fragment %s:%d because inside declaration", name, line);
+ 	    inform ("invalidating cached fragment because it is inside a declaration");
 	}
 
       if (st->include_timestamp >= main_timestamp
@@ -4494,19 +4498,7 @@ cb_enter_fragment (reader, fragment, name, line)
 	     the correct re-definition errors is to force reparsing. */
 	  valid = 0;
 	  if (warn_fragment_invalidation)
-	    warning ("invalidating cached fragment %s:%d because already included", name, line);
-	}
-
-      if (warn_fragment_invalidation)
-	{
-	  if (! st->valid)
-	    fprintf (stderr, "(invalidating cached fragment %s:%d as base frag invalid)\n", name, line);
-	  else if (! (st->include_timestamp < main_timestamp)
-		   && ! lang_hooks.uses_conditional_symtab)
-	    fprintf (stderr, "(invalidating cached fragment %s:%d as include %d out of date wrt mainfile %d)\n",
-		     name, line, st->include_timestamp, main_timestamp);
-	  else if (! ! currently_nested)
-	    fprintf (stderr, "(invalidating cached fragment %s:%d as it's nested)\n", name, line);
+	    inform ("invalidating cached fragment because already included");
 	}
 
       if (valid)
@@ -4532,15 +4524,13 @@ cb_enter_fragment (reader, fragment, name, line)
 		    {
 		      if (uses->include_timestamp < main_timestamp
 			  && ! lang_hooks.uses_conditional_symtab)
-			fprintf (stderr, "(invalidating cached fragment %s:%d as uses out of date wrt mainfile)\n", name, line);
+			inform ("invalidating cached fragment it depends on %s which has not been included",
+				 uses->name);
 		      else if (uses->read_timestamp == 0)
-			fprintf (stderr, "(invalidating cached fragment %s:%d as it's unread)\n",
-				 name, line);
+			inform ("invalidating cached fragment as it's unread");
 		      else if (uses->read_timestamp > st->read_timestamp)
-			fprintf (stderr, "(invalidating cached fragment %s:%d as uses reread)\n", name, line);
+			inform ("invalidating cached fragment as it uses more-recently-read %s", uses->name);
 		    }
-		  if (warn_fragment_invalidation)
-		    warning ("invalidating cached fragment %s:%d because of %s", name, line, uses->name);
 		  break;
 		}
 	    }
@@ -4553,7 +4543,7 @@ cb_enter_fragment (reader, fragment, name, line)
       else
 	{
 	  if (warn_fragment_invalidation)
-	    fprintf (stderr, "(reusing cached fragment %s:%d)\n", name, line);
+	    inform ("reusing cached fragment");
 	  restore_fragment (fragment);
 	}
     }

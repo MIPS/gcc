@@ -1,5 +1,16 @@
 2003-11-05  Per Bothner  <pbothner@apple.com>
 
+	* c-common.c (create_builtins_fragment):  Copy name.
+
+	* c-common.c (register_fragment_dependency):  Don't register
+	dependency on builtins_c_fragment.
+
+	* c-common.c (cb_enter_fragment):  Set input_location.
+	Use 'inform' instead of 'warning' on fragment reuse and invalidation.
+	Remove some bogus messages, and improve text for others.
+
+2003-11-05  Per Bothner  <pbothner@apple.com>
+
 	* dwarf2out.c (init_done, frame_init_done):  New statics.
 	(dwarf2out_frame_init, init_file_table, dwarf2out_init):  Reset
 	tables if called a second time for compile server.
