@@ -1,3 +1,24 @@
+2003-06-26  H.J. Lu <hongjiu.lu@intel.com>
+
+	* config.gcc (extra_headers): Add pmmintrin.h for i[34567]86-*-*.
+
+	* config/i386/i386.c (override_options): Turn on MASK_SSE2
+	for -mpni.
+	(ix86_init_mmx_sse_builtins): Handle PNI builtins.
+	(ix86_expand_builtin): Likewise.
+
+	* config/i386/i386.h (MASK_3DNOW, MASK_3DNOW_A,
+	MASK_128BIT_LONG_DOUBLE, MASK_64BIT, MASK_MS_BITFIELD_LAYOUT,
+	MASK_TLS_DIRECT_SEG_REFS): Renumbered.
+	(TARGET_PNI): New.
+	(TARGET_SWITCHES): Add -mpni and -mno-pni.
+	(CPP_CPUCOMMON_SPEC): Defined __PNI__ for PNI.
+	(ix86_builtins): Add PNI builtins.
+
+	* config/i386/i386.md: Add PNI patterns.
+
+	* config/i386/pmmintrin.h: New file.
+
 2003-08-21  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (override_options): Turn on MASK_SSE for

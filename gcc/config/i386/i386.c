@@ -1184,6 +1184,10 @@ override_options ()
   if (x86_arch_always_fancy_math_387 & (1 << ix86_arch))
     target_flags &= ~MASK_NO_FANCY_MATH_387;
 
+  /* Turn on SSE2 builtins for -mpni.  */
+  if (TARGET_PNI)
+    target_flags |= MASK_SSE2;
+
   /* Turn on SSE builtins for -msse2.  */
   if (TARGET_SSE2)
     target_flags |= MASK_SSE;
@@ -12328,6 +12332,20 @@ ix86_init_mmx_sse_builtins ()
                                       tree_cons (NULL_TREE,
                                                  V2SF_type_node,
                                                  endlink)));
+  tree void_ftype_unsigned_unsigned
+    = build_function_type (void_type_node,
+			   tree_cons (NULL_TREE, unsigned_type_node,
+				      tree_cons (NULL_TREE,
+						 unsigned_type_node,
+						 endlink)));
+  tree void_ftype_pcvoid_unsigned_unsigned
+    = build_function_type (void_type_node,
+			   tree_cons (NULL_TREE, const_ptr_type_node,
+				      tree_cons (NULL_TREE,
+						 unsigned_type_node,
+						 tree_cons (NULL_TREE,
+							    unsigned_type_node,
+							    endlink))));
 
   /* Add all builtins that are more or less simple operations on two
      operands.  */
@@ -12479,6 +12497,14 @@ ix86_init_mmx_sse_builtins ()
   def_builtin (MASK_3DNOW_A, "__builtin_ia32_pswapdsi", v2si_ftype_v2si, IX86_BUILTIN_PSWAPDSI);
 
   def_builtin (MASK_SSE, "__builtin_ia32_setzerops", v4sf_ftype_void, IX86_BUILTIN_SSE_ZERO);
+
+  /* Prescott New Instructions.  */
+  def_builtin (MASK_PNI, "__builtin_ia32_monitor",
+	       void_ftype_pcvoid_unsigned_unsigned,
+	       IX86_BUILTIN_MONITOR);
+  def_builtin (MASK_PNI, "__builtin_ia32_mwait",
+	       void_ftype_unsigned_unsigned,
+	       IX86_BUILTIN_MWAIT);
 }
 
 /* Errors in the source file can cause expand_expr to return const0_rtx
@@ -13170,6 +13196,34 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
       target = gen_reg_rtx (DImode);
       emit_insn (gen_mmx_clrdi (target));
       return target;
+
+    case IX86_BUILTIN_MONITOR:
+      arg0 = TREE_VALUE (arglist);
+      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+      if (!REG_P (op0))
+	op0 = copy_to_mode_reg (SImode, op0);
+      if (!REG_P (op1))
+	op1 = copy_to_mode_reg (SImode, op1);
+      if (!REG_P (op2))
+	op2 = copy_to_mode_reg (SImode, op2);
+      emit_insn (gen_monitor (op0, op1, op2));
+      return 0;
+
+    case IX86_BUILTIN_MWAIT:
+      arg0 = TREE_VALUE (arglist);
+      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      if (!REG_P (op0))
+	op0 = copy_to_mode_reg (SImode, op0);
+      if (!REG_P (op1))
+	op1 = copy_to_mode_reg (SImode, op1);
+      emit_insn (gen_mwait (op0, op1));
+      return 0;
 
     default:
       break;
