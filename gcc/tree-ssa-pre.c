@@ -141,9 +141,6 @@ static void insert_occ_in_preorder_dt_order (struct expr_info *);
 static void insert_euse_in_preorder_dt_order_1 (struct expr_info *,
 						basic_block);
 static void insert_euse_in_preorder_dt_order (struct expr_info *);
-#ifdef ENABLE_CHECKING
-static int count_stmts_in_bb (basic_block);
-#endif
 static bool ephi_has_unsafe_arg (tree);
 static void reset_down_safe (tree, int);
 static void compute_down_safety (struct expr_info *);
@@ -664,14 +661,15 @@ static bitmap varphis;
 static void
 set_var_phis (struct expr_info *ei, tree phi)
 {
+  basic_block bb = bb_for_stmt (phi);
   /* If we've already got an EPHI set to be placed in PHI's BB, we
      don't need to do this again. */
-  if (!bitmap_bit_p (varphis, bb_for_stmt (phi)->index)
-	&& !bitmap_bit_p (dfphis, bb_for_stmt (phi)->index))
+  if (!bitmap_bit_p (varphis, bb->index)
+	&& !bitmap_bit_p (dfphis, bb->index))
     {
       tree phi_operand;
       int curr_phi_operand;
-      bitmap_set_bit (varphis, bb_for_stmt (phi)->index);
+      bitmap_set_bit (varphis, bb->index);
       for (curr_phi_operand = 0;
            curr_phi_operand < PHI_NUM_ARGS (phi);
            curr_phi_operand++)
@@ -783,7 +781,6 @@ expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
 	    continue;
 	  set_var_phis (ei, SSA_NAME_DEF_STMT (use));
 	}
-#if 1
       if (ei->loadpre_cand && TREE_CODE (ei->expr) == INDIRECT_REF)
 	{  
 	  uses = vuse_ops (stmt_ann (occurp));
@@ -798,7 +795,6 @@ expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
 	      set_var_phis (ei, SSA_NAME_DEF_STMT (use));
 	    }
 	}
-#endif
     }
   /* Union the results of the dfphis and the varphis to get the
      answer to everywhere we need EPHIS. */
@@ -937,7 +933,7 @@ insert_occ_in_preorder_dt_order (struct expr_info *ei)
 	current = VARRAY_TREE (ei->occurs, i);
 	current = current ? current : VARRAY_TREE (ei->kills, i);
 	current = current ? current : VARRAY_TREE (ei->lefts, i);
-  block = bb_for_stmt (current);
+	block = bb_for_stmt (current);
 	if (VARRAY_TREE (ei->kills, i) != NULL)
 	  {
 	    tree killexpr  = VARRAY_TREE (ei->kills, i);
@@ -1335,10 +1331,10 @@ bool load_modified_real_occ_real_occ (tree def, tree use)
 static
 bool load_modified_phi_result (basic_block bb, tree cr)
 {
-  if (bb_for_stmt (SSA_NAME_DEF_STMT (cr)) != bb)
+  basic_block defbb = bb_for_stmt (SSA_NAME_DEF_STMT (cr));
+  if (defbb != bb)
     {
-      if (dominated_by_p (pre_idom, bb,
-			  bb_for_stmt (SSA_NAME_DEF_STMT (cr))))
+      if (dominated_by_p (pre_idom, bb, defbb))
 	return false;
     }
   else
@@ -1935,14 +1931,9 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
   tree temp = ei->temp;
   tree copy;
   tree newtemp;
-  tree endtree;
-  tree *endtreep;
   basic_block bb = bb_for_stmt (x);
   edge e = NULL;
   block_stmt_iterator bsi;
-#ifdef ENABLE_CHECKING
-  bool insert_done = false;
-#endif
   
   /* Insert definition of expr at end of BB containing x. */
   copy = TREE_OPERAND (EREF_STMT (ephi), 1);
@@ -1964,27 +1955,6 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
       fprintf (dump_file, " (on edge), because of EPHI");
       fprintf (dump_file, " in BB %d\n", bb_for_stmt (ephi)->index);
     }
-  /* Sigh. last_stmt and last_stmt_ptr use bsi_last,
-     which is broken in some cases.  Get the last
-     statement the hard way.  */
-  {
-    block_stmt_iterator bsi2;
-    block_stmt_iterator bsi3;
-    if (!bsi_end_p (bsi_start (bb)))
-      {
-	for (bsi2 = bsi3 = bsi_start (bb);
-	     !bsi_end_p (bsi2);
-	     bsi_next (&bsi2))
-	  bsi3 = bsi2;
-	endtree = bsi_stmt (bsi3);
-	endtreep = bsi_stmt_ptr (bsi3);
-      }
-    else
-      {
-	endtree = NULL_TREE;
-	endtreep = NULL;
-      }
-  }
   set_bb_for_stmt (expr, bb);
 		      
   /* Find the edge to insert on. */
@@ -1992,40 +1962,9 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
   if (e == NULL)
     abort ();
 		      
-  /* Do the insertion.
-     If the block is empty, don't worry about updating
-     pointers, just insert before the beginning of the
-     successor block.
-     Otherwise, need to get a BSI in case
-     insert_on_edge_immediate does an insert before,
-     in which case we will  need to update pointers like
-     do_proper_save does.   */ 
+  /* Do the insertion.  */
   bsi = bsi_start (bb);
-  if (bsi_end_p (bsi_start (bb)))
-    {
-#ifdef ENABLE_CHECKING
-      insert_done = true;
-#endif
-      bsi_insert_on_edge_immediate (e, expr, NULL, NULL);
-    }
-  else
-    {
-      for (; !bsi_end_p (bsi); bsi_next (&bsi))
-	{
-	  if (bsi_stmt (bsi) == endtree)
-	    {
-#ifdef ENABLE_CHECKING
-	      insert_done = true;
-#endif
-	      bsi_insert_on_edge_immediate (e, expr, &bsi, NULL);
-	      break;
-	    }
-	}
-    }
-#ifdef ENABLE_CHECKING
-  if (!insert_done)
-    abort ();
-#endif
+  bsi_insert_on_edge_immediate (e, expr, NULL, NULL);
   
   EPHI_ARG_DEF (ephi, opnd_indx) = create_expr_ref (ei, ei->expr, EUSE_NODE,
 						    bb, 0);
@@ -2096,8 +2035,9 @@ finalize_1 (struct expr_info *ei)
       else
 	{
 	  edge succ;
+	  basic_block bb = bb_for_stmt (x);
 	  /* For each ephi in the successor blocks.  */
-	  for (succ = bb_for_stmt (x)->succ; succ; succ = succ->succ_next)
+	  for (succ = bb->succ; succ; succ = succ->succ_next)
 	    {
 	      tree ephi = ephi_at_block (succ->dest);
 	      if (ephi == NULL_TREE)
@@ -2529,28 +2469,6 @@ calculate_increment (struct expr_info *ei, tree expr)
 #endif
 
 
-#ifdef ENABLE_CHECKING
-static int
-count_stmts_in_bb (basic_block bb)
-{
-  block_stmt_iterator bsi;
-  int num_stmt1 = 0;
-  int num_stmt2 = 0;
-
-  bsi = bsi_start (bb);
-  for (; !bsi_end_p (bsi); bsi_next  (&bsi))
-    num_stmt1++;
-
-  bsi = bsi_last (bb);
-  for (; !bsi_end_p (bsi); bsi_prev  (&bsi))
-    num_stmt2++;
-
-  /* Reverse iterators are broken, so don't abort for now.
-     if (num_stmt1 != num_stmt2)
-     abort ();  */
-  return num_stmt1;
-}
-#endif
 /* Perform an insertion of EXPR before/after USE, depending on the
    value of BEFORE.  */
 
@@ -2633,9 +2551,6 @@ code_motion (struct expr_info *ei)
   tree use;
   tree newtemp;
   size_t euse_iter;
-#ifdef ENABLE_CHECKING
-  int before, after;
-#endif
   tree temp = ei->temp;
   bb_ann_t ann;
   basic_block bb;
@@ -2686,6 +2601,7 @@ code_motion (struct expr_info *ei)
 	  tree newexpr;
 	  tree use_stmt;
 	  tree copy;
+	  basic_block usebb = bb_for_stmt (use);
 	  use_stmt = EREF_STMT (use);
 
 	  copy = TREE_OPERAND (use_stmt, 1);
@@ -2699,7 +2615,7 @@ code_motion (struct expr_info *ei)
 	  if (dump_file)
 	    {
 	      fprintf (dump_file, "In BB %d, insert save of ",
-		       bb_for_stmt (use)->index);
+		       usebb->index);
 	      print_generic_expr (dump_file, copy, 0);
 	      fprintf (dump_file, " to ");
 	      print_generic_expr (dump_file, newtemp, 0);
@@ -2712,16 +2628,8 @@ code_motion (struct expr_info *ei)
 	    }
 	  modify_stmt (newexpr);
 	  modify_stmt (use_stmt);
-	  set_bb_for_stmt (newexpr, bb_for_stmt (use));
-#ifdef ENABLE_CHECKING
-	  before = count_stmts_in_bb (bb_for_stmt (use));
-#endif
+	  set_bb_for_stmt (newexpr, usebb);
 	  EREF_STMT (use) = do_proper_save (use_stmt, newexpr, true);
-#ifdef ENABLE_CHECKING
-	  after = count_stmts_in_bb (bb_for_stmt (use));
-	  if (before + 1 != after)
-	    abort ();
-#endif
 	  pre_stats.saves++;
 	}
       else if (EREF_RELOAD (use))
@@ -3049,6 +2957,8 @@ pre_expression (struct expr_info *slot, void *data, sbitmap vars_to_rename)
   if (VARRAY_ACTIVE_SIZE (ei->reals) < 2 
       && !ei->loadpre_cand)
     return 1;
+  if (VARRAY_ACTIVE_SIZE (ei->reals) == 0)
+    return 1;
   
   pre_stats.ephi_allocated = 0;
   pre_stats.eref_allocated = 0;
@@ -3186,8 +3096,8 @@ collect_expressions (basic_block block, varray_type *bexprsp)
       if ((TREE_CODE_CLASS (TREE_CODE (expr)) == '2'
 	   || TREE_CODE_CLASS (TREE_CODE (expr)) == '<'
 	   /*|| TREE_CODE_CLASS (TREE_CODE (expr)) == '1'*/
-/*	   || TREE_CODE (expr) == SSA_NAME
-	   || TREE_CODE (expr) == INDIRECT_REF*/)
+	   || TREE_CODE (expr) == SSA_NAME
+	   || TREE_CODE (expr) == INDIRECT_REF)
 	  && !ann->makes_aliased_stores
 	  && !ann->has_volatile_ops)
 	{

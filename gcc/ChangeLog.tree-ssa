@@ -1,3 +1,11 @@
+2003-11-06  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-ssa-pre.c (count_stmts_in_bb): Removed.
+	(set_var_phis): Only call bb_for_stmt once.
+	(insert_one_operand): Remove endtree, endtreep, a lot of special handling
+	no longer needed.  Remove insert_done.
+	(collect_expressions): Enable INDIRECT_REF and SSA_NAME handling.
+	
 2003-11-06  Steven Bosscher  <stevenb@suse.de>
 
 	* tree-cfg.c (STRIP_CONTAINERS): Remove.
@@ -55,7 +63,7 @@
 
 2003-11-03  Daniel Berlin  <dberlin@dberlin.org>
 
-	* tree-ssa-pre (handle_bb_creation): Removed.
+	* tree-ssa-pre.c (handle_bb_creation): Removed.
 	(redo_dominators): Removed.
 	(insert_one_operand): Remove code to handle bb creation, since all
 	critical edges are now pre-split.
