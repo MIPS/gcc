@@ -1,3 +1,26 @@
+2004-11-06  Michael Koch  <address@bogus.example.com>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuBarPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.c:
+	Fixed method names to start at begin of line. This is desired by GNU
+	coding style guide.
+
 2004-11-06  Michael Koch  <konqueror@gmx.de>
 
 	* gnu/java/awt/peer/gtk/GtkComponentPeer.java
