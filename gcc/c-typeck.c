@@ -2162,7 +2162,15 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 
       if (type == void_type_node)
 	{
-	  error ("too many arguments to function %qE", function);
+	  /* Normal builtins that have replaced library functions may be
+	     overriding the implicit declaration which accepts more/less
+	     arguments than the real number. In these cases, only make it a
+	     warning.  */
+	  if (DECL_BUILT_IN (fundecl) 
+	      && DECL_BUILT_IN_CLASS (fundecl) == BUILT_IN_NORMAL)
+	    warning ("too many arguments to function %qE", function);
+	  else
+	    error ("too many arguments to function %qE", function);
 	  break;
 	}
 
