@@ -99,6 +99,25 @@ vinfo_for_stmt (tree stmt)
 }
 
 /*-----------------------------------------------------------------*/
+/* Info on data references alignment.                              */
+/*-----------------------------------------------------------------*/
+
+#define DR_MISALIGNMENT(DR)   (DR)->aux
+
+static inline bool
+aligned_access_p (struct data_reference *data_ref_info)
+{
+  return (DR_MISALIGNMENT (data_ref_info) == 0);
+}
+
+static inline bool
+unknown_alignment_for_access_p (struct data_reference *data_ref_info)
+{
+  return (DR_MISALIGNMENT (data_ref_info) == -1);
+}
+
+
+/*-----------------------------------------------------------------*/
 /* Info on vectorized loops.                                       */
 /*-----------------------------------------------------------------*/
 typedef struct _loop_vec_info {

@@ -38,6 +38,9 @@ struct data_reference GTY(())
   
   /* A list of chrecs.  */
   varray_type access_fns;
+
+  /* Auxiliary info specific to a pass.  */
+  int aux;
 };
 
 #define DR_ID(DR) DR->id

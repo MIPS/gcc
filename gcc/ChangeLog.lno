@@ -1,3 +1,22 @@
+2004-04-15  Dorit Naishlos <dorit@il.ibm.com>
+
+        * tree-data-ref.h (struct data_reference): New field "aux".
+        * tree-vectorizer.h (aligned_access_p, unknown_alignment_for_access_p):
+        New functions.
+        (DR_MISLAIGNMENT): New macro, for accessing the new 'aux' field in
+        data_reference.
+        * tree-vectorizer.c: (vect_analyze_data_refs_alignment): New function.
+        (vect_compute_data_refs_alignment): New function.
+        (vect_compute_data_ref_alignment): New function.
+        (vect_enhance_data_refs_alignment): New function.
+        (vect_force_dr_alignment_p): New function.
+        (vect_align_data_ref): Use new functions aligned_access_p and
+        vect_force_dr_alignment_p.
+        (vect_analyze_data_ref_access): Alignment related checks moved to new
+        functions that deal with alignment.
+        (vect_analyze_data_refs): Likewise.
+        (vect_analyze_loop): Call vect_analyze_data_refs_alignment.
+	
 2004-04-15  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* loop-invariant.c (may_assign_reg_p): Prevent unused parameter

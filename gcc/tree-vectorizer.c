@@ -160,6 +160,8 @@ static bool vect_mark_stmts_to_be_vectorized (loop_vec_info);
 static bool vect_analyze_scalar_cycles (loop_vec_info);
 static bool vect_analyze_data_ref_dependences (loop_vec_info);
 static bool vect_analyze_data_ref_accesses (loop_vec_info);
+static bool vect_analyze_data_refs_alignment (loop_vec_info);
+static void vect_compute_data_refs_alignment (loop_vec_info);
 static bool vect_analyze_operations (loop_vec_info);
 
 /* Main code transformation functions.  */
@@ -171,6 +173,7 @@ static tree vect_transform_store (tree, block_stmt_iterator *);
 static tree vect_transform_op (tree, block_stmt_iterator *);
 static tree vect_transform_assignment (tree, block_stmt_iterator *);
 static void vect_align_data_ref (tree, tree);
+static void vect_enhance_data_refs_alignment (loop_vec_info);
 
 /* Utility functions for the analyses.  */
 static bool vect_is_supportable_op (tree);
@@ -183,10 +186,13 @@ static bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *, bool);
 static void vect_mark_relevant (varray_type, tree);
 static bool vect_stmt_relevant_p (tree, loop_vec_info);
 static tree vect_get_loop_niters (struct loop *, int *);
+static void vect_compute_data_ref_alignment 
+  (struct data_reference *, loop_vec_info);
 static bool vect_analyze_data_ref_access (struct data_reference *);
 static bool vect_analyze_data_ref_dependence
   (struct data_reference *, struct data_reference *);
 static bool vect_get_array_first_index (tree, int *);
+static bool vect_force_dr_alignment_p (struct data_reference *);
 
 /* Utility functions for the code transformation.  */
 static tree vect_create_destination_var (tree, tree);
@@ -321,6 +327,47 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo)
   varray_clear (LOOP_VINFO_DATAREF_READS (loop_vinfo));
 
   free (loop_vinfo);
+}
+
+
+/* Function vect_force_dr_alignment_p
+
+   Returned whether the alignment of a certain data structure can be forced. */
+
+static bool
+vect_force_dr_alignment_p (struct data_reference *dr)
+{
+  tree ref = DR_REF (dr);
+  tree array_base;
+
+  if (TREE_CODE (ref) != ARRAY_REF)
+    return false;
+
+  array_base = get_array_base (ref);
+
+  /* We want to make sure that we can force alignment of
+     the data structure that is being accessed, because we do not
+     handle misalignment yet.
+
+     CHECKME: Is this a correct check for this purpose?
+     CHECKME: This is a very strict check.
+     CHECKME: Can we force the alignment of external decls?
+   */
+
+  if (TREE_CODE (TREE_TYPE (array_base)) != ARRAY_TYPE
+      || TREE_CODE (array_base) != VAR_DECL
+      || DECL_EXTERNAL (array_base))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        {
+          fprintf (dump_file, "unhandled ptr-based array ref\n");
+          if (TREE_CODE (array_base) == VAR_DECL && DECL_EXTERNAL (array_base))
+            fprintf (dump_file,"\nextern decl.\n");
+        }
+      return false;
+    }
+
+  return true;
 }
 
 
@@ -663,28 +710,31 @@ vect_align_data_ref (tree ref, tree stmt)
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   tree array_base = get_array_base (ref);
+  struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
 
-  /* The following two restrictions are in place until we can support
-     vectorization of references which alignment can't be forced.  */
+  if (!aligned_access_p (dr))
+    abort (); /* FORNOW, can't handle misliagned accesses.  */
 
-  if (TREE_CODE (TREE_TYPE (array_base)) != ARRAY_TYPE)
-    abort ();
+  /* The access is aligned, but some accesses are marked alignd under the
+     assumption that alignment of the base of the data structure will be 
+     forced:  */ 
 
-  if (TREE_CODE (array_base) != VAR_DECL || DECL_EXTERNAL (array_base))
-    abort ();
-
-  if (DECL_ALIGN (array_base) < TYPE_ALIGN (vectype))
+  if (vect_force_dr_alignment_p (dr))
     {
-      /* CHECKME: is this the way to force the alignment of an array base?  */
-      /* CHECKME: will it also work for extern decls?  */
+      if (DECL_ALIGN (array_base) < TYPE_ALIGN (vectype))
+        {
+          /* CHECKME:
+	     - is this the way to force the alignment of an array base?
+             - can it be made to also work for extern decls?  */
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
-        fprintf (dump_file,
+          if (dump_file && (dump_flags & TDF_DETAILS))
+            fprintf (dump_file,
                   "\nforce alignment. before: scalar/vec type_align = %d/%d\n",
                   DECL_ALIGN (array_base), TYPE_ALIGN (vectype));
 
-      DECL_ALIGN (array_base) = TYPE_ALIGN (vectype);
-    }
+          DECL_ALIGN (array_base) = TYPE_ALIGN (vectype);
+        }
+   }
 }
 
 
@@ -2064,7 +2114,7 @@ vect_is_simple_iv_evolution (unsigned loop_nb, tree access_fn, tree * init,
   
   step_expr = evolution_part;
   init_expr = initial_condition (access_fn);
-  
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\nstep: ");
@@ -2428,6 +2478,292 @@ vect_get_array_first_index (tree ref, int *array_first_index)
 }
 
 
+/* Function vect_compute_data_ref_alignment
+
+   Compute the mislignment of the data reference DR.
+
+   FOR NOW: No analysis is actually performed. Misalignment is calculated
+   only for trivial cases. TODO.  */
+
+static void
+vect_compute_data_ref_alignment (struct data_reference *dr, 
+				 loop_vec_info loop_vinfo ATTRIBUTE_UNUSED)
+{
+  tree stmt = DR_STMT (dr);
+  tree ref = DR_REF (dr);
+  tree vectype;
+  tree access_fn = DR_ACCESS_FN (dr, 0); /* CHECKME */
+  tree init;
+  int init_val;
+  tree scalar_type;
+  int misalign;
+  int array_start_val;
+  bool ok;
+
+  /* Initialize misalignment to unknown.  */
+  DR_MISALIGNMENT (dr) = -1;
+
+
+  /* In the special case of an array which alignment can be forced, we may be
+     able to compute more informative information.  */
+
+  if (!vect_force_dr_alignment_p (dr))
+    return;
+
+  init = initial_condition (access_fn);
+
+  /* FORNOW: In order to simplify the handling of alignment, we make sure 
+     that the first location at which the array is accessed ('init') is on an 
+     'NUNITS' boundary, since we are assuming here that the alignment of the
+     'array base' is aligned. This is too conservative, since we require that 
+     both {'array_base' is a multiple of NUNITS} && {'init' is a multiple of 
+     NUNITS}, instead of just {('array_base' + 'init') is a multiple of NUNITS}.
+     This should be relaxed in the future.  */
+
+  if (init && TREE_CODE (init) != INTEGER_CST)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        fprintf (dump_file, "init not INTEGER_CST\n");
+      return;
+    }
+
+  /* CHECKME */
+  if (TREE_INT_CST_HIGH (init) != 0)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        fprintf (dump_file, "init CST_HIGH != 0\n");
+      return;
+    }
+
+  init_val = TREE_INT_CST_LOW (init);
+
+  scalar_type = TREE_TYPE (ref);
+  vectype = get_vectype_for_scalar_type (scalar_type);
+  if (!vectype)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        {
+          fprintf (dump_file, "no vectype for stmt: ");
+          print_generic_expr (dump_file, stmt, TDF_SLIM);
+          fprintf (dump_file, "\nscalar_type: ");
+          print_generic_expr (dump_file, scalar_type, TDF_DETAILS);
+          fprintf (dump_file, "\n");
+        }
+      return;
+    }
+
+  ok = vect_get_array_first_index (ref, &array_start_val);
+  if (!ok)
+    return;
+
+  misalign = (init_val - array_start_val) % 
+		GET_MODE_NUNITS (TYPE_MODE (vectype));
+
+  DR_MISALIGNMENT (dr) = misalign;
+
+  return;
+}
+
+
+/* Function vect_compute_data_refs_alignment
+
+   Compute the mislignment of data references in the loop.
+   This pass may take place at function granularity instead of at loop
+   granularity.
+
+   FOR NOW: No analysis is actually performed. Misalignment is calculated
+   only for trivial cases. TODO.  */
+
+static void
+vect_compute_data_refs_alignment (loop_vec_info loop_vinfo)
+{
+  varray_type loop_write_datarefs = LOOP_VINFO_DATAREF_WRITES (loop_vinfo);
+  varray_type loop_read_datarefs = LOOP_VINFO_DATAREF_READS (loop_vinfo);
+  unsigned int i;
+  
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_write_datarefs); i++)
+    {
+      struct data_reference *dr = VARRAY_GENERIC_PTR (loop_write_datarefs, i);
+      vect_compute_data_ref_alignment (dr, loop_vinfo);
+    }
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_read_datarefs); i++)
+    {
+      struct data_reference *dr = VARRAY_GENERIC_PTR (loop_read_datarefs, i);
+      vect_compute_data_ref_alignment (dr, loop_vinfo);
+    }
+
+  return; 
+}
+
+
+/* Function vect_enhance_data_refs_alignment
+
+   This pass will use loop versioning and loop peeling in order to enhance
+   the alignment of data references in the loop.
+
+   FOR NOW: we assume that whatever versioning/peeling takes place, only the
+   original loop is to be vectorized; Any other loops that are created by
+   the transformations performed in this pass - are not supposed to be
+   vectorized. This restriction will be relaxed.
+
+   FOR NOW: No transformation is actually performed. TODO.  */
+
+static void
+vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo ATTRIBUTE_UNUSED)
+{
+  /*
+     This pass will require a cost model to guide it whether to apply peeling 
+     or versioning or a combination of the two. For example, the scheme that
+     intel uses when given a loop with several memory accesses, is as follows:
+     choose one memory access ('p') which alignment you want to force by doing 
+     peeling. Then, either (1) generate a loop in which 'p' is aligned and all 
+     other accesses are not necessarily aligned, or (2) use loop versioning to 
+     generate one loop in which all accesses are aligned, and another loop in 
+     which only 'p' is necessarily aligned. 
+
+     ("Automatic Intra-Register Vectorization for the Intel Architecture",
+      Aart J.C. Bik, Milind Girkar, Paul M. Grey and Ximmin Tian, International
+      Journal of Parallel Programming, Vol. 30, No. 2, April 2002.)	
+
+     Devising a cost model is the most critical aspect of this work. It will 
+     guide us on which access to peel for, whether to use loop versioning, how 
+     many versions to create, etc. The cost model will probably consist of 
+     generic considerations as well as target specific considerations (on 
+     powerpc for example, misaligned stores are more painful than misaligned 
+     loads). 
+
+     Here is the general steps involved in alignment enhancements:
+    
+     -- original loop, before alignment analysis:
+	for (i=0; i<N; i++){
+	  x = q[i];			# DR_MISALIGNMENT(q) = unknown
+	  p[i] = y;			# DR_MISALIGNMENT(p) = unknown
+	}
+
+     -- After vect_compute_data_refs_alignment:
+	for (i=0; i<N; i++){
+	  x = q[i];			# DR_MISALIGNMENT(q) = 3
+	  p[i] = y;			# DR_MISALIGNMENT(p) = unknown
+	}
+
+     -- Possibility 1: we do loop versioning:
+     if (p is aligned) {
+	for (i=0; i<N; i++){	# loop 1A
+	  x = q[i];			# DR_MISALIGNMENT(q) = 3
+	  p[i] = y;			# DR_MISALIGNMENT(p) = 0
+	}
+     } 
+     else {
+	for (i=0; i<N; i++){	# loop 1B
+	  x = q[i];			# DR_MISALIGNMENT(q) = 3
+	  p[i] = y;			# DR_MISALIGNMENT(p) = unaligned
+	}
+     }
+   
+     -- Possibility 2: we do loop peeling:
+     for (i = 0; i < 3; i++){	# (scalar loop, not to be vectorized).
+	x = q[i];
+	p[i] = y;
+     }
+     for (i = 3; i < N; i++){	# loop 2A
+	x = q[i];			# DR_MISALIGNMENT(q) = 0
+	p[i] = y;			# DR_MISALIGNMENT(p) = unknown
+     }
+
+     -- Possibility 3: combination of loop peeling and versioning:
+     for (i = 0; i < 3; i++){	# (scalar loop, not to be vectorized).
+	x = q[i];
+	p[i] = y;
+     }
+     if (p is aligned) {
+	for (i = 3; i<N; i++){  # loop 3A
+	  x = q[i];			# DR_MISALIGNMENT(q) = 0
+	  p[i] = y;			# DR_MISALIGNMENT(p) = 0
+	}
+     } 
+     else {
+	for (i = 3; i<N; i++){	# loop 3B
+	  x = q[i];			# DR_MISALIGNMENT(q) = 0
+	  p[i] = y;			# DR_MISALIGNMENT(p) = unaligned
+	}
+     }
+
+     These loops are later passed to loop_transform to be vectorized. The 
+     vectorizer will use the alignment information to guide the transformation 
+     (whether to generate regular loads/stores, or with special handling for 
+     misalignment). 
+   */
+
+  return;  
+}
+
+
+/* Function vect_analyze_data_refs_alignment
+
+   Analyze the alignment of the data-references in the loop.
+   FOR NOW: Until support fot misliagned accesses is in place, only if all
+   accesses are aligned can the loop be vectorized. This restruction will be 
+   relaxed.  */ 
+
+static bool
+vect_analyze_data_refs_alignment (loop_vec_info loop_vinfo)
+{
+  varray_type loop_write_datarefs = LOOP_VINFO_DATAREF_WRITES (loop_vinfo);
+  varray_type loop_read_datarefs = LOOP_VINFO_DATAREF_READS (loop_vinfo);
+  unsigned int i;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "\n<<vect_analyze_data_refs_alignment>>\n");
+
+
+  /* This pass may take place at function granularity instead of at loop
+     granularity.  */
+
+  vect_compute_data_refs_alignment (loop_vinfo);
+
+
+  /* This pass will use loop versioning and loop peeling in order to enhance
+     the alignment of data references in the loop.
+     FOR NOW: we assume that whatever versioning/peeling took place, the 
+     original loop is to be vectorized. Any other loops that were created by
+     the transformations performed in this pass - are not supposed to be 
+     vectorized. This restriction will be relaxed.  */
+
+  vect_enhance_data_refs_alignment (loop_vinfo);
+
+
+  /* Finally, check that loop can be vectorized. 
+     FOR NOW: Until support fot misliagned accesses is in place, only if all
+     accesses are aligned can the loop be vectorized. This restruction will be 
+     relaxed.  */
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_write_datarefs); i++)
+    {
+      struct data_reference *dr = VARRAY_GENERIC_PTR (loop_write_datarefs, i);
+      if (!aligned_access_p (dr))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+            fprintf (dump_file, "first access not aligned.\n");
+	  return false;
+	}
+    }
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_read_datarefs); i++)
+    {
+      struct data_reference *dr = VARRAY_GENERIC_PTR (loop_read_datarefs, i);
+      if (!aligned_access_p (dr))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+            fprintf (dump_file, "first access not aligned.\n");
+	  return false;
+	}
+    }
+
+  return true;
+}
+
+
 /* Function vect_analyze_data_ref_access.
 
    Analyze the access pattern of the data-reference DR. For now, a data access
@@ -2437,16 +2773,8 @@ static bool
 vect_analyze_data_ref_access (struct data_reference *dr)
 {
   varray_type access_fns = DR_ACCESS_FNS (dr);
-  tree stmt = DR_STMT (dr);
-  tree ref = DR_REF (dr);
-  tree vectype;
   tree access_fn;
   tree init, step;
-  int init_val;
-  tree scalar_type;
-  int misalign;
-  int array_start_val;
-  bool ok;
 
   /* FORNOW: handle only one dimensional arrays.
      This restriction will be relaxed in the future.  */
@@ -2466,57 +2794,6 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 	  fprintf (dump_file, "too complicated access function\n");
 	  print_generic_expr (dump_file, access_fn, TDF_SLIM);
 	}
-      return false;
-    }
-
-  /* FORNOW: In order to simplify the handling of alignment, in addition
-     to the above we also make sure that the first location
-     at which the array is accessed ('init') is on an 'NUNITS'
-     boundary, since we are also making sure that the array base
-     is aligned. This restriction will be relaxed in the future.  */
-  if (TREE_CODE (init) != INTEGER_CST)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "init not INTEGER_CST\n");
-      return false;
-    }
-
-  /* CHECKME */
-  if (TREE_INT_CST_HIGH (init) != 0)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "init CST_HIGH != 0\n");
-      return false;
-    }
-
-  init_val = TREE_INT_CST_LOW (init);
-
-  scalar_type = TREE_TYPE (ref);
-  vectype = get_vectype_for_scalar_type (scalar_type);
-  if (!vectype)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "no vectype for stmt: ");
-	  print_generic_expr (dump_file, stmt, TDF_SLIM);
-	  fprintf (dump_file, "\nscalar_type: ");
-          print_generic_expr (dump_file, scalar_type, TDF_DETAILS);
-	  fprintf (dump_file, "\n");
-	}
-      return false;
-    }
-
-  ok = vect_get_array_first_index (ref, &array_start_val);
-  if (!ok)
-    return false;
-
-  misalign = (init_val - array_start_val) %
-        GET_MODE_NUNITS (TYPE_MODE (vectype));
-
-  if (misalign)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "first access not aligned.\n");
       return false;
     }
 
@@ -2593,7 +2870,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
 	  vdef_optype vdefs = STMT_VDEF_OPS (stmt);
 	  vuse_optype vuses = STMT_VUSE_OPS (stmt);
-	  varray_type datarefs = NULL;
+	  varray_type *datarefs = NULL;
 	  int nvuses = 0, nvdefs = 0;
 	  tree ref = NULL;
 	  tree array_base;
@@ -2645,7 +2922,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == ARRAY_REF)
 		{
 		  ref = TREE_OPERAND (stmt, 1);
-		  datarefs = LOOP_VINFO_DATAREF_READS (loop_vinfo);
+		  datarefs = &(LOOP_VINFO_DATAREF_READS (loop_vinfo));
 		}
 	    }
 
@@ -2654,7 +2931,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_REF)
 		{
 		  ref = TREE_OPERAND (stmt, 0);
-		  datarefs = LOOP_VINFO_DATAREF_WRITES (loop_vinfo);
+		  datarefs = &(LOOP_VINFO_DATAREF_WRITES (loop_vinfo));
 		}
 	    }
 
@@ -2686,34 +2963,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	      return false;
 	    }
 
-	  /* CHECKME: We want to make sure that we can force alignment of
-	     the data structure that is being accessed, because we do not
-	     handle misalignment yet. 
-	     CHECKME: Is this a correct check for this purpose?
-	     CHECKME: This is a very strict check.  
-	     CHECKME: Can we force the alignment of external decls?
-	   */
-
-	  if (TREE_CODE (TREE_TYPE (array_base)) != ARRAY_TYPE
-	      || TREE_CODE (array_base) != VAR_DECL 
-	      || DECL_EXTERNAL (array_base))
-	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		{
-		  fprintf (dump_file, "unhandled ptr-based array ref\n");
-		  if (TREE_CODE (array_base) == VAR_DECL 
-		      && DECL_EXTERNAL (array_base))
-		    fprintf (dump_file,"\nextern decl.\n");
-		  print_generic_stmt (dump_file, stmt, TDF_SLIM);
-		}
-	      return false;
-	    }
-
-	  /* In addition to the above, we also check that the first
-	     location in the array that is being accessed is aligned
-	     (in analyze_data_ref_accesses).  */
-
-	  VARRAY_PUSH_GENERIC_PTR (datarefs, dr);
+	  VARRAY_PUSH_GENERIC_PTR (*datarefs, dr);
 	  STMT_VINFO_DATA_REF (stmt_info) = dr;
 	}
     }
@@ -3201,6 +3451,19 @@ vect_analyze_loop (struct loop *loop)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "loop_analyzer: bad data access.\n");
+      destroy_loop_vec_info (loop_vinfo);
+      return NULL;
+    }
+
+
+  /* Analyze the alignment of the data-refs in the loop.
+     FORNOW: Only aligned accesses are handled.  */
+
+  ok = vect_analyze_data_refs_alignment (loop_vinfo);
+  if (!ok)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "loop_analyzer: bad data alignment.\n");
       destroy_loop_vec_info (loop_vinfo);
       return NULL;
     }
