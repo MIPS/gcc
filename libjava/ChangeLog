@@ -1,5 +1,12 @@
 2005-01-01  Michael Koch  <konqueror@gmx.de>
 
+	* gnu/java/awt/ClasspathToolkit.java
+	(createRobot): Throws java.awt.AWTException.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkRobotPeer.c:
+	Added '__attribute__((unused))' to all unused method arguments.
+
+2005-01-01  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/DefaultBoundedRangeModel.java
 	(fireValueChanged): Fixed off-by-one error.
 

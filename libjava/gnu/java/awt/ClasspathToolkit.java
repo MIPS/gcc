@@ -41,6 +41,7 @@ package gnu.java.awt;
 import gnu.java.awt.peer.ClasspathFontPeer;
 import gnu.java.awt.peer.ClasspathTextLayoutPeer;
 
+import java.awt.AWTException;
 import java.awt.Image;
 import java.awt.Dimension;
 import java.awt.DisplayMode;
@@ -351,5 +352,6 @@ public abstract class ClasspathToolkit
     return null;
   }
 
-  public abstract RobotPeer createRobot (GraphicsDevice screen);
+  public abstract RobotPeer createRobot (GraphicsDevice screen)
+    throws AWTException;
 }

@@ -58,7 +58,7 @@ awt_button_mask_to_num (int buttons)
 
 JNIEXPORT jboolean JNICALL
 Java_gnu_java_awt_peer_gtk_GdkRobotPeer_initXTest
-  (JNIEnv *env, jobject obj)
+  (JNIEnv *env __attribute__((unused)), jobject obj __attribute__((unused)))
 {
   GdkDisplay *display;
   Display *xdisplay;
@@ -86,7 +86,7 @@ Java_gnu_java_awt_peer_gtk_GdkRobotPeer_initXTest
 
 JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GdkRobotPeer_mouseMove
-  (JNIEnv *env, jobject obj, jint x, jint y)
+  (JNIEnv *env __attribute__((unused)), jobject obj __attribute__((unused)), jint x, jint y)
 {
   GdkDisplay *display;
   Display *xdisplay;
@@ -107,7 +107,7 @@ Java_gnu_java_awt_peer_gtk_GdkRobotPeer_mouseMove
 
 JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GdkRobotPeer_mousePress
-  (JNIEnv *env, jobject obj, jint buttons)
+  (JNIEnv *env __attribute__((unused)), jobject obj __attribute__((unused)), jint buttons)
 {
   GdkDisplay *display;
   Display *xdisplay;
@@ -128,7 +128,7 @@ Java_gnu_java_awt_peer_gtk_GdkRobotPeer_mousePress
 
 JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GdkRobotPeer_mouseRelease
-  (JNIEnv *env, jobject obj, jint buttons)
+  (JNIEnv *env __attribute__((unused)), jobject obj __attribute__((unused)), jint buttons)
 {
   GdkDisplay *display;
   Display *xdisplay;
@@ -149,7 +149,7 @@ Java_gnu_java_awt_peer_gtk_GdkRobotPeer_mouseRelease
 
 JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GdkRobotPeer_mouseWheel
-  (JNIEnv *env, jobject obj, jint wheelAmt)
+  (JNIEnv *env __attribute__((unused)), jobject obj __attribute__((unused)), jint wheelAmt)
 {
   GdkDisplay *display;
   Display *xdisplay;
@@ -186,7 +186,7 @@ Java_gnu_java_awt_peer_gtk_GdkRobotPeer_mouseWheel
 
 JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GdkRobotPeer_keyPress
-  (JNIEnv *env, jobject obj, jint keycode)
+  (JNIEnv *env __attribute__((unused)), jobject obj __attribute__((unused)), jint keycode)
 {
   GdkDisplay *display;
   Display *xdisplay;
@@ -228,7 +228,7 @@ Java_gnu_java_awt_peer_gtk_GdkRobotPeer_keyPress
 
 JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GdkRobotPeer_keyRelease
-  (JNIEnv *env, jobject obj, jint keycode)
+  (JNIEnv *env __attribute__((unused)), jobject obj __attribute__((unused)), jint keycode)
 {
   GdkDisplay *display;
   Display *xdisplay;
@@ -270,7 +270,7 @@ Java_gnu_java_awt_peer_gtk_GdkRobotPeer_keyRelease
 
 JNIEXPORT jintArray JNICALL
 Java_gnu_java_awt_peer_gtk_GdkRobotPeer_nativeGetRGBPixels
-  (JNIEnv *env, jobject obj, jint x, jint y,
+  (JNIEnv *env, jobject obj __attribute__((unused)), jint x, jint y,
    jint width, jint height)
 {
   jint stride_bytes, stride_pixels, n_channels, n_pixels;
