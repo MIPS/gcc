@@ -1,3 +1,12 @@
+2004-04-01 Mostafa Hagog  <mustafa@il.ibm.com>
+	   Dorit Naishlos <dorit@il.ibm.com>
+
+        * config/rs6000/rs6000.md ("*ctrsi_internal1", "*ctrsi_internal2",
+        "*ctrdi_internal1", "*ctrdi_internal2", "*ctrsi_internal3",
+        "*ctrsi_internal4", "*ctrdi_internal3", "*ctrdi_internal4",
+        "*ctrsi_internal5", "*ctrsi_internal6", "*ctrdi_internal5",
+        "*ctrdi_internal6"): Replace register_operand with nonimmediate_operand
+
 2004-03-31  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-into-ssa.c (ssa_rewrite_initialize_block): Update
