@@ -856,6 +856,10 @@ gfc_init_builtin_functions (void)
   tmp = tree_cons (NULL_TREE, long_integer_type_node, voidchain);
   ftype = build_function_type (integer_type_node, tmp);
   gfc_define_builtin ("__builtin_clzl", ftype, BUILT_IN_CLZL, "clzl");
+
+  tmp = tree_cons (NULL_TREE, long_long_integer_type_node, voidchain);
+  ftype = build_function_type (integer_type_node, tmp);
+  gfc_define_builtin ("__builtin_clzll", ftype, BUILT_IN_CLZLL, "clzll");
 }
 
 #undef DEFINE_MATH_BUILTIN

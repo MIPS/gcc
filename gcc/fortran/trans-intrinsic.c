@@ -2254,11 +2254,14 @@ static tree
 call_builtin_clz (tree result_type, tree op0)
 {
   tree fn, parms, call;
+  enum machine_mode op0_mode = TYPE_MODE (TREE_TYPE (op0));
 
-  if (TYPE_MODE (TREE_TYPE (op0)) == TYPE_MODE (integer_type_node))
+  if (op0_mode == TYPE_MODE (integer_type_node))
     fn = built_in_decls[BUILT_IN_CLZ];
-  else if (TYPE_MODE (TREE_TYPE (op0)) == TYPE_MODE (long_integer_type_node))
+  else if (op0_mode == TYPE_MODE (long_integer_type_node))
     fn = built_in_decls[BUILT_IN_CLZL];
+  else if (op0_mode == TYPE_MODE (long_long_integer_type_node))
+    fn = built_in_decls[BUILT_IN_CLZLL];
   else
     abort ();
 

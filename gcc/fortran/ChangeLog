@@ -1,3 +1,8 @@
+2003-10-06  Richard Henderson  <rth@redhat.com>
+
+	* f95-lang.c (gfc_init_builtin_functions): Add clzll.
+	* trans-intrinsic.c (call_builtin_clz): Use it.
+
 2003-10-05  Paul Brook  <paul@nowt.org>
 
 	* f95-lang.c (expand_function_body): Call (push|pop)_function_context.
