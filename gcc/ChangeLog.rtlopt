@@ -1,5 +1,9 @@
 2003-02-20  Josef Zlomek  <zlomekj@suse.cz>
 
+	* dwarf2out.c (dwarf2out_var_location): Do not emit unnecessary labels.
+
+2003-02-20  Josef Zlomek  <zlomekj@suse.cz>
+
 	* var-tracking.c (note_insn_var_location_emit): When variable is not
 	complete emit note with NULL_RTX in the location part, coding style.
 	* dwarf2out.c (struct var_loc_list_def): New structure.

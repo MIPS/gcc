@@ -12615,17 +12615,37 @@ dwarf2out_var_location (loc_note)
 {
   char loclabel[MAX_ARTIFICIAL_LABEL_BYTES];
   struct var_loc_node *newloc;
+  rtx prev_insn;
+  static rtx last_insn;
+  static const char *last_label;
 
   if (!DECL_P (NOTE_VAR_LOCATION_DECL (loc_note)))
     return;
+  prev_insn = PREV_INSN (loc_note);
 
   newloc = ggc_alloc_cleared (sizeof (struct var_loc_node));
-  ASM_GENERATE_INTERNAL_LABEL (loclabel, "LVL", loclabel_num++);
-  ASM_OUTPUT_LABEL (asm_out_file, loclabel);  
-  newloc->label = ggc_strdup (loclabel);
+  /* If the insn we processed last time is the previous insn
+     and it is also a var location note, use the label we emitted
+     last time.  */
+  if (last_insn != NULL_RTX
+      && last_insn == prev_insn
+      && GET_CODE (prev_insn) == NOTE
+      && NOTE_LINE_NUMBER (prev_insn) == NOTE_INSN_VAR_LOCATION)
+    {
+      newloc->label = last_label;
+    }
+  else
+    {
+      ASM_GENERATE_INTERNAL_LABEL (loclabel, "LVL", loclabel_num++);
+      ASM_OUTPUT_LABEL (asm_out_file, loclabel);  
+      newloc->label = ggc_strdup (loclabel);
+    }
   newloc->var_loc_note = loc_note;
   newloc->next = NULL;
 
+  last_insn = loc_note;
+  last_label = newloc->label;
+  
   add_var_loc_to_decl (NOTE_VAR_LOCATION_DECL (loc_note), newloc);
 }
 
