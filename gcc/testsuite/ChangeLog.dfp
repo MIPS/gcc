@@ -1,3 +1,8 @@
+2005-03-15  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/dfp/loop.c: Correct dg-options.
+	(main): Don't produce stray test output.
+
 2005-03-14  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.dg/dfp/modes.c (dd2): Correct type to be decimal64.
