@@ -5,6 +5,11 @@
 
 2004-11-16  Dale Johannesen  <dalej@apple.com>
 
+	* dbxout.c (dbxout_source_file):  Restore local patch
+	for hot/cold partitioning.
+
+2004-11-16  Dale Johannesen  <dalej@apple.com>
+
 	* calls.c (expand_call):  Fix ICE building crafty.
 
 2004-11-15  Dale Johannesen  <dalej@apple.com>

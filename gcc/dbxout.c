@@ -776,10 +776,10 @@ dbxout_source_file (FILE *file, const char *filename)
       output_quoted_string (file, filename);
       /* APPLE LOCAL STABS SOL address suppression (radar 3109828) */
       fprintf (file, ",%d,0,0,0\n", N_SOL);
-
-      /* APPLE LOCAL mainline */
       /* Don't change section amid function.  */
-      if (current_function_decl == NULL_TREE)
+      /* APPLE LOCAL begin hot/cold partitioning  */
+      if (current_function_decl == NULL_TREE
+	  && !flag_reorder_blocks_and_partition)
 	text_section ();
 
       targetm.asm_out.internal_label (file, "Ltext", source_label_number);
