@@ -356,16 +356,23 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 
   for (i = 0; i < n_peel; i++)
     {
+      edge e;
       start_sequence ();
       niter = expand_simple_binop (GET_MODE (desc->var), MINUS,
 				   niter, const1_rtx,
 				   NULL_RTX, 0, OPTAB_LIB_WIDEN);
       if (i || !skip_first_test)
 	{
+	  rtx jump;
 	  do_compare_rtx_and_jump (copy_rtx (niter), const0_rtx, EQ, 0,
 		GET_MODE (desc->var), NULL_RTX, NULL_RTX,
 		loop_beg_label);
-	  JUMP_LABEL (get_last_insn ()) = loop_beg_label;
+	  jump = get_last_insn ();
+	  JUMP_LABEL (jump) = loop_beg_label;
+	  REG_NOTES (jump)
+	    = gen_rtx_EXPR_LIST (REG_BR_PROB,
+				 GEN_INT (REG_BR_PROB_BASE / (n_peel - i + 1)), REG_NOTES (jump));
+	
 	  LABEL_NUSES (loop_beg_label)++;
 	}
       branch_code = get_insns ();
@@ -373,6 +380,11 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 
       preheader =
 	loop_split_edge_with (loop_preheader_edge (loop), branch_code, loops);
+
+      e = loop_preheader_edge (loop);
+      /* Now lower the probablity of the edge as the other edge will handle it.  */
+      e->probability = REG_BR_PROB_BASE - (REG_BR_PROB_BASE / (n_peel - i + 1));
+      e->count = e->count * e->probability / REG_BR_PROB_BASE;
 
       if (i || !skip_first_test)
 	make_edge (preheader, fake, 0);
