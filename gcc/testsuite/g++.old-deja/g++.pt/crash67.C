@@ -7,6 +7,9 @@
 // Bug 2526. We ICE'd after diagnosing dependant name confusion in
 // friendliness when not being pedantic.
 
+// We no longer issue a dependant name diagnostic - that was from the
+// implicit typename hackery.
+
 template<typename T>
 struct B
 {
@@ -16,5 +19,5 @@ struct B
 template<typename T>
 struct D : B<T>
 {
-  friend class Mother; // WARNING - defines namespace class
+  friend class Mother;
 };
