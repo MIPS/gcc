@@ -951,14 +951,19 @@ create_temp (tree t)
   if (name == NULL)
     name = "temp";
   tmp = create_tmp_var (type, name);
-  create_var_ann (tmp);
+  add_referenced_tmp_var (tmp);
+
+  /* Mark the new variable as used.  */
   set_is_used (tmp);
 
-  /* We have just created a new variable.  Make sure it has a UID and
-     an appropriate memory tag, then put it in REFERENCED_VARS.  */
-  var_ann (tmp)->uid = num_referenced_vars;
+  /* add_referenced_tmp_var will create the annotation and set up some
+     of the flags in the annotation.  However, some flags we need to
+     inherit from our original variable.  */
   var_ann (tmp)->mem_tag = var_ann (t)->mem_tag;
-  VARRAY_PUSH_TREE (referenced_vars, tmp);
+  var_ann (tmp)->is_dereferenced_load = var_ann (t)->is_dereferenced_load;
+  var_ann (tmp)->is_dereferenced_store = var_ann (t)->is_dereferenced_store;
+  var_ann (tmp)->is_call_clobbered = var_ann (t)->is_call_clobbered;
+  var_ann (tmp)->is_stored = var_ann (t)->is_stored;
 
   return tmp;
 }
