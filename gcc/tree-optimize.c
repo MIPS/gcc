@@ -264,13 +264,14 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_mudflap_1);
   NEXT_PASS (pass_lower_cf);
   NEXT_PASS (pass_lower_eh);
+  NEXT_PASS (pass_build_cfg);
   NEXT_PASS (pass_all_optimizations);
+  NEXT_PASS (pass_del_cfg);
   NEXT_PASS (pass_mudflap_2);
   NEXT_PASS (pass_rebuild_bind);
   *p = NULL;
 
   p = &pass_all_optimizations.sub;
-  NEXT_PASS (pass_build_cfg);
   NEXT_PASS (pass_tree_profile);
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_build_pta);
@@ -310,7 +311,6 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_late_warn_uninitialized);
   NEXT_PASS (pass_warn_function_return);
   NEXT_PASS (pass_del_ssa);
-  NEXT_PASS (pass_del_cfg);
   *p = NULL;
 
 #undef NEXT_PASS
@@ -513,73 +513,55 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	}
     }
 
-  /* Perform all tree transforms and optimizations.  */
-  execute_pass_list (all_passes);
-
-  /* If the function has a variably modified type, there may be
-     SAVE_EXPRs in the parameter types.  Their context must be set to
-     refer to this function; they cannot be expanded in the containing
-     function.  */
-  if (decl_function_context (fndecl) == current_function_decl
-      && variably_modified_type_p (TREE_TYPE (fndecl)))
-    walk_tree (&TREE_TYPE (fndecl), set_save_expr_context, fndecl,
-	       NULL);
-
-  /* Set up parameters and prepare for return, for the function.  */
-  expand_function_start (fndecl, 0);
-
-  /* Expand the variables recorded during gimple lowering.  */
-  expand_used_vars ();
-
-  /* Allow language dialects to perform special processing.  */
-  (*lang_hooks.rtl_expand.start) ();
-
-  /* If this function is `main', emit a call to `__main'
-     to run global initializers, etc.  */
-  if (DECL_NAME (fndecl)
-      && MAIN_NAME_P (DECL_NAME (fndecl))
-      && DECL_FILE_SCOPE_P (fndecl))
-    expand_main_function ();
-
-  /* Generate the RTL for this function.  */
-  if (n_basic_blocks > 0)
-    tree_expand_cfg ();
-  else
+  /* Do not confuse backend by incorrect instruction chain.  */
+  if (!errorcount && !sorrycount)
     {
-      (*lang_hooks.rtl_expand.stmt) (DECL_SAVED_TREE (fndecl));
+      /* Perform all tree transforms and optimizations.  */
+      execute_pass_list (all_passes);
 
-      /* We hard-wired immediate_size_expand to zero above.
-	 expand_function_end will decrement this variable.  So, we set the
-	 variable to one here, so that after the decrement it will remain
-	 zero.  */
-      immediate_size_expand = 1;
+      /* If the function has a variably modified type, there may be
+	 SAVE_EXPRs in the parameter types.  Their context must be set to
+	 refer to this function; they cannot be expanded in the containing
+	 function.  */
+      if (decl_function_context (fndecl) == current_function_decl
+	  && variably_modified_type_p (TREE_TYPE (fndecl)))
+	walk_tree (&TREE_TYPE (fndecl), set_save_expr_context, fndecl,
+		   NULL);
 
-      /* Make sure the locus is set to the end of the function, so that 
-	 epilogue line numbers and warnings are set properly.  */
-      if (cfun->function_end_locus.file)
-	input_location = cfun->function_end_locus;
+      /* Set up parameters and prepare for return, for the function.  */
+      expand_function_start (fndecl, 0);
 
-      /* The following insns belong to the top scope.  */
-      record_block_change (DECL_INITIAL (current_function_decl));
-      
+      /* Expand the variables recorded during gimple lowering.  */
+      expand_used_vars ();
+
       /* Allow language dialects to perform special processing.  */
-      (*lang_hooks.rtl_expand.end) ();
+      (*lang_hooks.rtl_expand.start) ();
 
-      /* Generate rtl for function exit.  */
-      expand_function_end ();
+      /* If this function is `main', emit a call to `__main'
+	 to run global initializers, etc.  */
+      if (DECL_NAME (fndecl)
+	  && MAIN_NAME_P (DECL_NAME (fndecl))
+	  && DECL_FILE_SCOPE_P (fndecl))
+	expand_main_function ();
+
+      /* Generate the RTL for this function.  */
+      tree_expand_cfg ();
+
+      /* If this is a nested function, protect the local variables in the stack
+	 above us from being collected while we're compiling this function.  */
+      if (nested_p)
+	ggc_push_context ();
+
+      /* There's no need to defer outputting this function any more; we
+	 know we want to output it.  */
+      DECL_DEFER_OUTPUT (fndecl) = 0;
+
+      /* Run the optimizers and output the assembler code for this function.  */
+      rest_of_compilation (fndecl);
     }
-
-  /* If this is a nested function, protect the local variables in the stack
-     above us from being collected while we're compiling this function.  */
-  if (nested_p)
-    ggc_push_context ();
-
-  /* There's no need to defer outputting this function any more; we
-     know we want to output it.  */
-  DECL_DEFER_OUTPUT (fndecl) = 0;
-
-  /* Run the optimizers and output the assembler code for this function.  */
-  rest_of_compilation (fndecl);
+  else
+    /* Pretend that we compiled the function.  */
+    TREE_ASM_WRITTEN (fndecl) = 1;
 
   /* Restore original body if still needed.  */
   if (cfun->saved_tree)

@@ -1,3 +1,11 @@
+2004-02-22  Jan Hubicka  <jh@suse.cz>
+
+	* cfgexpand.c:  Include flags.h
+	(tree_expand_cfg): Do cleanup only when optimizing.
+	* tree-optimize.c (init_tree_optimization_passes): Always build cfg.
+	(tree_rest_of_compilation): Don't get into RTL when errorcount/sorrycount
+	is set.
+
 2004-02-21  Jan Hubicka  <jh@suse.cz>
 
 	* Makefile.in (builtins.o): Include basic-blocks.h.

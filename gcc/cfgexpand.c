@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dump.h"
 #include "tree-pass.h"
 #include "except.h"
+#include "flags.h"
 
 /* Expand basic block BB fron trees to RTL form.  */
 static basic_block
@@ -355,7 +356,8 @@ tree_expand_cfg (void)
 #ifdef ENABLE_CHECKING
   verify_flow_info();
 #endif
-  cleanup_cfg (CLEANUP_PRE_LOOP);
+  if (optimize)
+    cleanup_cfg (CLEANUP_PRE_LOOP | CLEANUP_EXPENSIVE);
 #ifdef ENABLE_CHECKING
   verify_flow_info();
 #endif
