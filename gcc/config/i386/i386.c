@@ -1657,7 +1657,7 @@ const struct attribute_spec ix86_attribute_table[] =
   { "ms_struct", 0, 0, false, false,  false, ix86_handle_struct_attribute },
   { "gcc_struct", 0, 0, false, false,  false, ix86_handle_struct_attribute },
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
-  SUBTARGET_ATTRIBUTE_TABLE,
+  SUBTARGET_ATTRIBUTE_TABLE
 #endif
   { NULL,        0, 0, false, false, false, NULL }
 };
@@ -5831,8 +5831,8 @@ output_pic_addr_const (FILE *file, rtx x, int code)
      {
        const char *name = XSTR (x, 0);
        if (MACHOPIC_INDIRECT
-	   && machopic_classify_name (name) == MACHOPIC_UNDEFINED_FUNCTION)
-	 name = machopic_indirect_name (name, /*stub_p=*/true);
+	   && machopic_classify_symbol (x) == MACHOPIC_UNDEFINED_FUNCTION)
+	 name = machopic_indirection_name (name, /*stub_p=*/true);
        assemble_name (file, name);
      }
 #else
