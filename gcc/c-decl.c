@@ -652,10 +652,13 @@ poplevel (keep, reverse, functionbody)
 	    warning_with_decl (label, "label `%s' defined but not used");
 	  IDENTIFIER_LABEL_VALUE (DECL_NAME (label)) = 0;
 
-	  /* Put the labels into the "variables" of the
-	     top-level block, so debugger can see them.  */
-	  TREE_CHAIN (label) = BLOCK_VARS (block);
-	  BLOCK_VARS (block) = label;
+	  if (!C_DECLARED_LABEL_FLAG (label))
+	    {
+	      /* Put undeclared labels into the "variables" of the
+		 top-level block, so debugger can see them.  */
+	      TREE_CHAIN (label) = BLOCK_VARS (block);
+	      BLOCK_VARS (block) = label;
+	    }
 	}
     }
 
@@ -6548,7 +6551,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   if (statement_code_p (TREE_CODE (DECL_SAVED_TREE (fndecl))))
     expand_stmt (DECL_SAVED_TREE (fndecl));
   else
-    expand_expr_stmt (DECL_SAVED_TREE (fndecl));
+    expand_expr_stmt_value (DECL_SAVED_TREE (fndecl), 0, 0);
 
   if (uninlinable)
     {
@@ -6884,6 +6887,9 @@ c_expand_decl (decl)
       && DECL_CONTEXT (decl) == current_function_decl
       && DECL_SAVED_TREE (decl))
     c_expand_body (decl, /*nested_p=*/1, /*can_defer_p=*/0);
+  else if (TREE_CODE (decl) == LABEL_DECL 
+	   && C_DECLARED_LABEL_FLAG (decl))
+    declare_nonlocal_label (decl);
 }
 
 /* Return the IDENTIFIER_GLOBAL_VALUE of T, for use in common code, since

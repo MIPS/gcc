@@ -2134,6 +2134,7 @@ label_decl:
 		    {
 		      tree label = shadow_label (TREE_VALUE (link));
 		      C_DECLARED_LABEL_FLAG (label) = 1;
+		      pushdecl (label);
 		      add_decl_stmt (label);
 		    }
 		}
