@@ -47,6 +47,7 @@ static void change_scope		PARAMS ((rtx, tree, tree));
 
 void verify_insn_chain			PARAMS ((void));
 static void fixup_fallthru_exit_predecessor PARAMS ((void));
+static void cleanup_unconditional_jumps	PARAMS ((void));
 
 /* Map insn uid to lexical block.  */
 static varray_type insn_scopes;
@@ -884,7 +885,6 @@ cfg_layout_duplicate_bb (bb, e)
   alloc_aux_for_block (new_bb, sizeof (struct reorder_block_def));
   RBI (new_bb)->eff_head = NEXT_INSN (last);
   RBI (new_bb)->eff_end = get_last_insn ();
-  RBI (new_bb)->scope = RBI (bb)->scope;
   RBI (new_bb)->original = bb;
   return new_bb;
 }
