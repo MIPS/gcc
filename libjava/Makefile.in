@@ -1218,6 +1218,7 @@ javax/swing/text/Highlighter.java \
 javax/swing/text/JTextComponent.java \
 javax/swing/text/Keymap.java \
 javax/swing/text/LayeredHighlighter.java \
+javax/swing/text/PasswordView.java \
 javax/swing/text/PlainDocument.java \
 javax/swing/text/PlainView.java \
 javax/swing/text/Position.java \
@@ -3314,7 +3315,7 @@ javax/swing/text/DocumentFilter.lo javax/swing/text/EditorKit.lo \
 javax/swing/text/Element.lo javax/swing/text/FieldView.lo \
 javax/swing/text/GapContent.lo javax/swing/text/Highlighter.lo \
 javax/swing/text/JTextComponent.lo javax/swing/text/Keymap.lo \
-javax/swing/text/LayeredHighlighter.lo \
+javax/swing/text/LayeredHighlighter.lo javax/swing/text/PasswordView.lo \
 javax/swing/text/PlainDocument.lo javax/swing/text/PlainView.lo \
 javax/swing/text/Position.lo javax/swing/text/Segment.lo \
 javax/swing/text/SimpleAttributeSet.lo javax/swing/text/Style.lo \
@@ -5429,6 +5430,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/text/LayeredHighlighter.P \
 .deps/javax/swing/text/MutableAttributeSet.P \
 .deps/javax/swing/text/NavigationFilter.P \
+.deps/javax/swing/text/PasswordView.P \
 .deps/javax/swing/text/PlainDocument.P \
 .deps/javax/swing/text/PlainView.P .deps/javax/swing/text/Position.P \
 .deps/javax/swing/text/Segment.P \

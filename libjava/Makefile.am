@@ -1540,6 +1540,7 @@ javax/swing/text/Highlighter.java \
 javax/swing/text/JTextComponent.java \
 javax/swing/text/Keymap.java \
 javax/swing/text/LayeredHighlighter.java \
+javax/swing/text/PasswordView.java \
 javax/swing/text/PlainDocument.java \
 javax/swing/text/PlainView.java \
 javax/swing/text/Position.java \
