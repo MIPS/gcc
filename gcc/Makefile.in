@@ -1475,7 +1475,7 @@ ggc-common.o: ggc-common.c $(CONFIG_H) $(RTL_H) $(TREE_H) \
 ggc-simple.o: ggc-simple.c $(CONFIG_H) $(RTL_H) $(TREE_H) flags.h \
 	$(GGC_H) varray.h
 
-ggc-page.o: ggc-page.c $(CONFIG_H) $(RTL_H) $(TREE_H) flags.h \
+ggc-page.o: ggc-page.c $(CONFIG_H) $(RTL_H) $(TREE_H) flags.h toplev.h \
 	$(GGC_H) varray.h
 
 ggc-none.o: ggc-none.c $(CONFIG_H) $(RTL_H) $(GGC_H)
@@ -1533,7 +1533,7 @@ except.o : except.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
 expr.o : expr.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h function.h \
    $(REGS_H) insn-flags.h insn-codes.h $(EXPR_H) insn-config.h $(RECOG_H) \
    output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h except.h \
-   $(GGC_H) intl.h
+   reload.h $(GGC_H) intl.h
 builtins.o : builtins.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
    function.h $(REGS_H) insn-flags.h insn-codes.h $(EXPR_H) insn-config.h \
    $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \

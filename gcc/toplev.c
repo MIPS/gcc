@@ -1401,38 +1401,40 @@ read_integral_parameter (p, pname, defval)
 }
 
 
-/* Time accumulators, to count the total time spent in various passes.  */
+/* Time accumulators, to count the total time spent in various passes.
+   The first three are used in other files; the latter two only here.  */
 
-int parse_time;
-int varconst_time;
-int integration_time;
-int jump_time;
-int cse_time;
-int gcse_time;
-int loop_time;
-int cse2_time;
-int branch_prob_time;
-int flow_time;
-int combine_time;
-int regmove_time;
-int sched_time;
-int local_alloc_time;
-int global_alloc_time;
-int flow2_time;
-int peephole2_time;
-int sched2_time;
-int dbr_sched_time;
-int reorder_blocks_time;
-int rename_registers_time;
-int shorten_branch_time;
-int stack_reg_time;
-int to_ssa_time;
-int from_ssa_time;
-int final_time;
-int symout_time;
-int dump_time;
-int gc_time;
-int all_time;
+long gc_time;
+long parse_time;
+long varconst_time;
+
+static long integration_time;
+static long jump_time;
+static long cse_time;
+static long gcse_time;
+static long loop_time;
+static long cse2_time;
+static long branch_prob_time;
+static long flow_time;
+static long combine_time;
+static long regmove_time;
+static long sched_time;
+static long local_alloc_time;
+static long global_alloc_time;
+static long flow2_time;
+static long peephole2_time;
+static long sched2_time;
+static long dbr_sched_time;
+static long reorder_blocks_time;
+static long rename_registers_time;
+static long shorten_branch_time;
+static long stack_reg_time;
+static long to_ssa_time;
+static long from_ssa_time;
+static long final_time;
+static long symout_time;
+static long dump_time;
+static long all_time;
 
 /* Return time used so far, in microseconds.  */
 
@@ -1503,18 +1505,23 @@ get_run_time ()
 #endif	/* __BEOS__ */
 }
 
-#define TIMEVAR(VAR, BODY)    \
-do { int otime = get_run_time (); BODY; VAR += get_run_time () - otime; } while (0)
+#define TIMEVAR(VAR, BODY)		\
+do {					\
+  long otime = get_run_time ();		\
+  BODY;					\
+  VAR += get_run_time () - otime;	\
+} while (0)
 
 void
 print_time (str, total)
      const char *str;
-     int total;
+     long total;
 {
   fprintf (stderr,
-	   "time in %s: %d.%06d (%d%%)\n",
+	   "time in %s: %ld.%06ld (%ld%%)\n",
 	   str, total / 1000000, total % 1000000,
-	   all_time == 0 ? 0 : (100 * total) / all_time);
+	   all_time == 0 ? 0
+	   : (long) (((100.0 * (double) total) / (double) all_time) + .5));
 }
 
 /* This is the default decl_printable_name function.  */
@@ -1528,6 +1535,7 @@ decl_name (decl, verbosity)
 }
 
 /* Mark P for GC.  Also mark main_input_filename and input_filename.  */
+
 static void
 mark_file_stack (p)
      void *p;
@@ -3782,7 +3790,7 @@ display_help ()
   printf ("  -d[letters]             Enable dumps from specific passes of the compiler\n");
   printf ("  -dumpbase <file>        Base name to be used for dumps from specific passes\n");
 #if defined INSN_SCHEDULING
-  printf ("  -sched-verbose=<number> Set the verbosity level of the scheduler\n");
+  printf ("  -fsched-verbose=<number> Set the verbosity level of the scheduler\n");
 #endif
   printf ("  --help                  Display this information\n");
 

@@ -1,6 +1,291 @@
+2000-04-15  David Edelsohn  <edelsohn@gnu.org>
+
+	* toplev.c (display_help): Prefix "f" to "sched-verbose=".
+	* haifa-sched.c: Update -fsched-verbose comments to use "=".
+
+Sat Apr 15 10:59:19 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* Makefile.in (ggc-page.o): Now includes toplev.h.
+	* ggc-page.c (toplev.h): Now included.
+	(gc_time): Remove declaration.
+	(ggc_collect): TIME now long.
+	* toplev.c (parse_time, varasm_time, gc_time): Still global; all
+	others static.
+	* toplev.h (gc_time, parse_time, gc_time): New declarations.
+
+	* toplev.c: Make *_time variable long to reduce chance of overflow.
+	(TIMEVAR): Likewise for `otime'.
+	(print_time): Arg is now long; compute percentage in FP and round.
+	* toplev.h (print_time): Arg is long.
+
+	* tree.c: Minor whitespace changes.
+
+	* configure.in (alpha*-*-*): Add config/alpha/t-alpha.
+	* configure: Rebuilt.
+	* libgcc2.c (__fixunstfDI): Renamed from __fixunstfdi.
+	(__fixunsxfDI): Renamed from __fixunsxfdi.
+	(__fixunsdfDI): Renamed from __fixunsdfdi.
+	(__fixunssfDI): Renamed from __fixunssfdi.
+	(__floatdisf): Use proper type in REP_BIT macro.
+	(__fixunsxfSI): Renamed from __fixunsxfsi.
+	(__fixunsdfSI): Renamed from __fixunsdfsi.
+	(__fixunssfSI): Renamed from __fixunssfsi.
+	* libgcc2.h: Add cases for MIN_UNITS_PER_WORD > 4.
+	Change location of macros and upper-case some names as above.
+	* longlong.h ([alpha]): Use PARAMS, not __P in decl of __udiv__qrnnd.
+	* config/alpha/t-alpha, config/alpha/qrnnd.asm: New files.
+
+	* varasm.c (assemble_variable): Add cast to remove warning.
+	(immed_real_const_1): Only use CONST[01]_RTX if not in nested function.
+
+	* flow.c (count_basic_blocks, find_basic_blocks_1): Remove last change.
+	* optabs.c (emit_libcall_block): If have REG_EH_REGION, update
+	region number to -1.
+
+2000-04-15  Richard Earnshaw (rearnsah@arm.com)
+
+	* emit-rtl.c (unshare_all_rtl_again): Unmark everything, then
+	call unshare_all_rtl.
+
+	* arm.md (movhi): REGNO_POINTER_ALIGN is now bits.
+
+Fri Apr 14 16:58:45 2000  Jim Wilson  <wilson@cygnus.com>
+
+	* config/ia64/lib1funcs.asm (__divdi3, __moddi3, __udivdi3, __umoddi3):
+	Use .s1 not .s0 for all FP instructions.
+
+2000-04-14  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpplex.c (cpp_output_tokens, cpp_scan_buffer_nooutput): New public
+	interfaces.
+	(safe_fwrite, output_line_command): New static functions.
+	(cpp_expand_to_buffer): Now private to cpplib.
+	(cpp_scan_buffer): Take a printer.
+
+	* cpphash.h: Update prototypes.
+	* cpplib.h: Update prototypes.
+	(cpp_printer): New.
+	(cpp_buffer): Remove last_nominal_fname.
+	(cpp_reader): Remove lineno.
+
+	* cppmain.c: Use a cpp_printer.
+	* fix-header.c: No need to inhibit line commands.  Call
+	cpp_start_read with no printer.
+
+	* cpperror.c (cpp_notice_from_errno): Provide default name.
+	* cppfiles.c (make_IHASH, _cpp_fake_ihash): New functions.
+	(find_include_file, cpp_read_file): Use make_IHASH.
+	(file_cleanup): Set control_macro and clear
+	input_stack_listing_current here.
+	(_cpp_execute_include): Don't output entering-file marker.
+	* cpphash.c (special_symbol): Look for the line number in the
+	buffer, not the reader.
+	(_cpp_macroexpand): No need to disable line commands.
+	(_cpp_dump_definition): No need to generate line commands.
+	(dump_hash_helper): Remove excess newline from output.
+	* cppinit.c (dump_special_to_buffer): No need to generate line
+	commands.
+	(cpp_printer_init): New.
+	(cpp_start_read): Take a printer, and start it up if it's not
+	NULL.  No need to generate line commands.
+	(cpp_finish): Expect no buffers stacked at all.  Take a
+	printer argument, and flush the output buffer if it's not
+	NULL.
+	* cpplex.c (_cpp_lex_token): Return EOF if there's no buffer.
+	Don't put two hashes at the beginning of an assertion.
+	(cpp_get_token): Don't increment pfile->lineno or emit line
+	commands here.  Return EOF if there's no buffer when we get
+	EOF.
+	* cpplib.c (do_define, skip_if_group): 
+	No need to disable line commands.
+	(_cpp_output_line_command): Delete function.
+	(do_line): Don't emit line commands here, but set things up so
+	they will be emitted if necessary.  Use _cpp_fake_ihash to
+	make unique nominal_fnames if necessary.
+	(do_elif, do_else, _cpp_handle_eof): Call cpp_error_with_line
+	with 0 for column, not -1.
+	(_cpp_handle_eof): Don't set the control macro here.  Don't
+	clear input_stack_listing_current here.  Don't emit line
+	commands.
+
+2000-04-14  Geoff Keating  <geoffk@cygnus.com>
+
+	* config/rs6000/sysv4.h (LINK_START_SOLARIS_SPEC): Define to empty
+	always, use the default SVR4 start address.
+
+	* config/rs6000/linux.h (LINK_SPEC): Don't define.
+	(LINK_SHLIB_SPEC): Define.
+	(LINK_START_DEFAULT_SPEC): Define.
+	(LINK_OS_DEFAULT_SPEC): Define.
+
+	* config/rs6000/sysv4.h (ENDFILE_SPEC): Use the %(endfile_*) macros.
+
+	* config/rs6000/eabi.asm (__eabi): Call __init rather than 
+	__do_global_ctors to handle constructors.
+	* config/rs6000/sysv4.h (STARTFILE_ADS_SPEC): Use crtbegin.
+	(STARTFILE_YELLOWKNIFE_SPEC): Likewise.
+	(STARTFILE_MVME_SPEC): Likewise.
+	(STARTFILE_SIM_SPEC): Likewise.
+	(ENDFILE_ADS_SPEC): Use crtend.
+	(ENDFILE_YELLOWKNIFE_SPEC): Likewise.
+	(ENDFILE_MVME_SPEC): Likewise.
+	(ENDFILE_SIM_SPEC): Likewise.
+	(STARTFILE_SOLARIS_SPEC): Use crtbegin/crtbeginS.
+	(ENDFILE_SOLARIS_SPEC): Use crtend/crtendS.
+	(STARTFILE_LINUX_SPEC): Use crtbeginS for shared objects.
+	(ENDFILE_LINUX_SPEC): Use crtendS for shared objects.
+	* config/rs6000/t-ppccomm (LIB2FUNCS_EXTRA): Don't build eabi-ctors.o.
+	(EXTRA_MULTILIB_PARTS): Build crtbeginS/crtendS.
+	(CRTSTUFF_T_CFLAGS_S): Define.
+	* config/rs6000/eabi-ctors.c: Delete.
+	
+	* config/rs6000/eabi-ci.asm (__init): Align stack to 16-byte
+	boundary.
+	(__fini): Likewise.
+	* config/rs6000/eabi-cn.asm (__init): Allow for 16-byte stack frame.
+	boundary.
+	(__fini): Likewise.
+
+Fri Apr 14 16:09:02 2000  Jim Wilson  <wilson@cygnus.com>
+
+	* combine.c (force_to_mode, case LSHIFTRT): Check that shift shift
+	plus mask size is smaller or equal to the mode size.
+
+Fri Apr 14 18:07:30 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* print-rtl.c (print_rtx, case NOTE): Don't blow up if NOTE_BASIC_BLOCK
+	not yet set.
+
+	* expr.c (reload.h): Now included.
+	(emit_block_move): Set volatile_ok when checking for movstr.
+	(emit_move_1): Check for replacements in addresses in multi-word case.
+	* Makefile.in (expr.o): Now includes reload.h.
+
+	* flow.c (count_basic_blocks): Remove unused var PREV_CALL.
+	Never have a LIBCALL end a basic block.
+	(find_basic_blocks_1): Likewise.
+	Reorganize CALL_INSN cases.
+
+	* sbitmap.h (EXECUTE_IF_SET_IN_SBITMAP): Revert last change.
+
+Fri Apr 14 10:54:22 2000  Jim Wilson  <wilson@cygnus.com>
+
+	* config/ia64/lib1funcs.asm (__ia64_nonlocal_goto): Drop obsolete
+	completers from mov.ret instruction.
+
+2000-04-14  Richard Henderson  <rth@cygnus.com>
+
+        * fold-const.c (extract_muldiv): Don't distribute and widen
+        multiply across plus for non-sizetype unsigned types.
+
+2000-04-14  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (find_auto_inc): Don't autoinc eliminable registers.
+	If the original source is dead in the incr insn, it's dead now.
+
+Fri Apr 14 07:40:32 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* stor-layout.c (layout_decl): Properly compare KNOWN_ALIGN to
+	see if DECL_BIT_FIELD needs to still be set.
+
+	* tree.h (struct tree_type): Make PRECISION 9 bits and MODE 7.
+
+	* dbxout.c (dbxout_type, case INTEGER_TYPE): Don't call
+	print_int_cst_octal with something that's not an INTEGER_CST.
+
+	* config/alpha/alpha.c (alpha_emit_floatuns): Ensure we pass a REG
+	and not a SUBREG to a FLOAT rtl.
+
+Thu Apr 13 19:39:56 2000  Clinton Popetz  <cpopetz@cygnus.com>
+
+	* emit-rtl.c (try_split): Avoid infinite loop if the split
+	results in a sequence that contains the original insn.
+
+2000-04-13  Andreas Jaeger  <aj@suse.de>
+
+	* config/mips/mips.c (expand_block_move): Pass alignment
+        argument to move_by_pieces in bits, not bytes.
+
+	* config/mips/linux.h (CPP_PREDEFINES): Also define __PIC__ and
+	__pic__ for little endian.
+
+2000-04-13  Andreas Jaeger  <aj@suse.de>
+
+	* config/i386/i386-protos.h: Add prototype for
+	uno_comparison_operator.
+
+Thu Apr 13 15:55:08 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* alias.c (nonlocal_reference_p): Take care of CALL_INSNS's fusage.
+	* calls.c (ECF_PURE): New flag.
+	(emit_call_1): Handle ECF_PURE calls.
+	(initialize_argument_information): Unset ECF_PURE flag too.
+	(precompute_arguments): Precompute for ECF_PURE too.
+	(expand_call): Handle ECF_PURE calls too.
+	(emit_library_call_value_1): Rename no_queue argument to fn_type,
+	accept value of 2 as pure function.
+	(emit_library_call_value, emit_library_call): Rename no_queue argument
+	to fn_type.
+	* optabs.c (prepare_cmp_insn): Pass fn_type 2 to memcmp call.
+
+	* tree.h (DECL_IS_PURE): New macro.
+	(struct tree_decl): Add pure_flag.
+	* c-common.c (enum attrs): Add attribute "pure".
+	(init_attributes): Initialize attribute "pure"
+	(decl_attributes): Handle attribute "pure".
+	* extend.texi (Attribute "pure"): Document.
+	* calls.c (expand_call): Add (mem:BLK (scratch)) to "equal from"
+	in pure function.
+	(flags_from_decl_or_type): Support attribute "pure".
+
+2000-04-13  Jason Merrill  <jason@casey.cygnus.com>
+
+	* cpplex.c (_cpp_lex_token): Handle digraphs.  Don't null-terminate
+	the token except for numbers and identifiers.
+
+Thu Apr 13 00:09:16 EDT 2000  John Wehle  (john@feith.com)
+
+	* i386.c (ix86_expand_binary_operator,
+	ix86_expand_unary_operator): Check no_new_pseudos
+	instead of reload_in_progress and reload_completed.
+	(ix86_split_ashldi, ix86_split_ashrdi,
+	ix86_split_lshrdi): Check no_new_pseudos instead
+	of reload_completed.
+
+2000-04-12  Jeffrey A Law  (law@cygnus.com)
+
+	* function.c (purge_addressof): Unshare any shared rtl created by
+	purge_addressof and its children.
+
+2000-04-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* function.c (aggregate_value_p): VOID_TYPE nodes are never
+	aggregates.
+
+2000-04-05  Andreas Jaeger  <aj@suse.de>
+
+	* config/mips/linux.h (SUBTARGET_ASM_SPEC): Use proper flags if
+	not compiling PIC code, add flags for mabi=64.
+	(SUBTARGET_CPP_SIZE_SPEC): New.
+	(SUBTARGET_CPP_SPEC): New.
+	(CPP_PREDEFINES): Define __PIC__ and __pic__.  PIC code is default
+	for MIPS/Linux and lots of code needs these defines.
+
+Wed Apr 12 22:44:11 2000  Hans-Peter Nilsson  <hp@axis.com>
+
+	* reorg.c (fill_slots_from_thread): Check side_effects_p when
+	trying the "opposite arithmetic" approach.
+
+Wed Apr 12 20:51:20 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* sh.h (STRUCT_VALUE): Just 0 for TARGET_HITACHI.
+	(struct sh_args): Add new field force_mem.
+	(INIT_CUMULATIVE_ARGS): Initialize it.
+	(FUNCTION_ARG, FUNCTION_ARG_ADVANCE): Act on it.
+
 Wed Apr 12 17:20:41 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
-	(expand_call): Do not reverse args in "equal from" field.
+	* calls.c (expand_call): Do not reverse args in "equal from" field.
 	(emit_library_call_value_1): Emit_libcall_block for const and pure
 	function.
 

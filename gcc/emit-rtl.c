@@ -1724,6 +1724,8 @@ unshare_all_rtl_again (insn)
      rtx insn;
 {
   rtx p;
+  tree decl;
+
   for (p = insn; p; p = NEXT_INSN (p))
     if (GET_RTX_CLASS (GET_CODE (p)) == 'i')
       {
@@ -1731,7 +1733,14 @@ unshare_all_rtl_again (insn)
 	reset_used_flags (REG_NOTES (p));
 	reset_used_flags (LOG_LINKS (p));
       }
-  unshare_all_rtl_1 (insn);
+
+  /* Make sure that virtual parameters are not shared.  */
+  for (decl = DECL_ARGUMENTS (cfun->decl); decl; decl = TREE_CHAIN (decl))
+    reset_used_flags (DECL_RTL (decl));
+
+  reset_used_flags (stack_slot_list);
+
+  unshare_all_rtl (cfun->decl, insn);
 }
 
 /* Go through all the RTL insn bodies and copy any invalid shared structure.
@@ -2336,10 +2345,18 @@ try_split (pat, trial, last)
 	 it, in turn, will be split (SFmode on the 29k is an example).  */
       if (GET_CODE (seq) == SEQUENCE)
 	{
+	  int i;
+
+	  /* Avoid infinite loop if any insn of the result matches 
+	     the original pattern.  */
+	  for (i = 0; i < XVECLEN (seq, 0); i++)
+  	    if (GET_CODE (XVECEXP (seq, 0, i)) == INSN 
+		&& rtx_equal_p (PATTERN (XVECEXP (seq, 0, i)), pat))
+  	      return trial;
+
 	  /* If we are splitting a JUMP_INSN, look for the JUMP_INSN in
 	     SEQ and copy our JUMP_LABEL to it.  If JUMP_LABEL is non-zero,
 	     increment the usage count so we don't delete the label.  */
-	  int i;
 
 	  if (GET_CODE (trial) == JUMP_INSN)
 	    for (i = XVECLEN (seq, 0) - 1; i >= 0; i--)
