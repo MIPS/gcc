@@ -2089,6 +2089,8 @@ extern void delete_insn_chain_and_edges (rtx, rtx);
 extern int combine_instructions (rtx, unsigned int);
 extern unsigned int extended_count (rtx, enum machine_mode, int);
 extern rtx remove_death (unsigned int, rtx);
+extern bool validate_subreg (enum machine_mode, enum machine_mode,
+			     rtx, unsigned int);
 #ifdef BUFSIZ
 extern void dump_combine_stats (FILE *);
 extern void dump_combine_total_stats (FILE *);

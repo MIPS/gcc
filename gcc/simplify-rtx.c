@@ -3340,13 +3340,15 @@ simplify_subreg (enum machine_mode outermode, rtx op,
 	    return NULL_RTX;
 	}
 
-      /* Recurse for further possible simplifications.  */
-      new = simplify_subreg (outermode, SUBREG_REG (op),
-			     GET_MODE (SUBREG_REG (op)),
-			     final_offset);
+        /* Recurse for further possible simplifications.  */
+      new = simplify_subreg (outermode, SUBREG_REG (op), innermostmode,
+                             final_offset);
       if (new)
 	return new;
-      return gen_rtx_SUBREG (outermode, SUBREG_REG (op), final_offset);
+      if (validate_subreg (outermode, innermostmode,
+			   SUBREG_REG (op), final_offset))
+	return gen_rtx_SUBREG (outermode, SUBREG_REG (op), final_offset);
+      return NULL_RTX;
     }
 
   /* SUBREG of a hard register => just change the register number
@@ -3426,8 +3428,9 @@ simplify_subreg (enum machine_mode outermode, rtx op,
       res = simplify_subreg (outermode, part, GET_MODE (part), final_offset);
       if (res)
 	return res;
-      /* We can at least simplify it by referring directly to the relevant part.  */
-      return gen_rtx_SUBREG (outermode, part, final_offset);
+      if (validate_subreg (outermode, GET_MODE (part), part, final_offset))
+	return gen_rtx_SUBREG (outermode, part, final_offset);
+      return NULL_RTX;
     }
 
   return NULL_RTX;
@@ -3440,18 +3443,6 @@ simplify_gen_subreg (enum machine_mode outermode, rtx op,
 		     enum machine_mode innermode, unsigned int byte)
 {
   rtx new;
-  /* Little bit of sanity checking.  */
-  if (innermode == VOIDmode || outermode == VOIDmode
-      || innermode == BLKmode || outermode == BLKmode)
-    abort ();
-
-  if (GET_MODE (op) != innermode
-      && GET_MODE (op) != VOIDmode)
-    abort ();
-
-  if (byte % GET_MODE_SIZE (outermode)
-      || byte >= GET_MODE_SIZE (innermode))
-    abort ();
 
   if (GET_CODE (op) == QUEUED)
     return NULL_RTX;
@@ -3463,8 +3454,12 @@ simplify_gen_subreg (enum machine_mode outermode, rtx op,
   if (GET_CODE (op) == SUBREG || GET_MODE (op) == VOIDmode)
     return NULL_RTX;
 
-  return gen_rtx_SUBREG (outermode, op, byte);
+  if (validate_subreg (outermode, innermode, op, byte))
+    return gen_rtx_SUBREG (outermode, op, byte);
+
+  return NULL_RTX;
 }
+
 /* Simplify X, an rtx expression.
 
    Return the simplified expression or NULL if no simplifications
