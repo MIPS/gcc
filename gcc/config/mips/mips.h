@@ -779,6 +779,10 @@ extern void		sbss_section PARAMS ((void));
 /* Likewise for 32-bit regs.  */
 #define ABI_NEEDS_32BIT_REGS	(mips_abi == ABI_32)
 
+/* True if symbols are 64 bits wide.  At present, n64 is the only
+   ABI for which this is true.  */
+#define ABI_HAS_64BIT_SYMBOLS	(mips_abi == ABI_64)
+
 /* ISA has instructions for managing 64 bit fp and gp regs (eg. mips3).  */
 #define ISA_HAS_64BIT_REGS	(ISA_MIPS3				\
 				 || ISA_MIPS4				\
@@ -1978,6 +1982,7 @@ enum reg_class
   M16_REGS,			/* mips16 directly accessible registers */
   T_REG,			/* mips16 T register ($24) */
   M16_T_REGS,			/* mips16 registers plus T register */
+  PIC_FN_ADDR_REG,		/* SVR4 PIC function address register */
   GR_REGS,			/* integer registers */
   FP_REGS,			/* floating point registers */
   HI_REG,			/* hi register */
@@ -2016,6 +2021,7 @@ enum reg_class
   "M16_REGS",								\
   "T_REG",								\
   "M16_T_REGS",								\
+  "PIC_FN_ADDR_REG",							\
   "GR_REGS",								\
   "FP_REGS",								\
   "HI_REG",								\
@@ -2057,6 +2063,7 @@ enum reg_class
   { 0x000300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* mips16 registers */	\
   { 0x01000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* mips16 T register */	\
   { 0x010300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* mips16 and T regs */ \
+  { 0x02000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* SVR4 PIC function address register */ \
   { 0xffffffff, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* integer registers */	\
   { 0x00000000, 0xffffffff, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* floating registers*/	\
   { 0x00000000, 0x00000000, 0x00000001, 0x00000000, 0x00000000, 0x00000000 },	/* hi register */	\
@@ -2113,7 +2120,8 @@ extern const enum reg_class mips_regno_to_class[];
 /* This macro is used later on in the file.  */
 #define GR_REG_CLASS_P(CLASS)						\
   ((CLASS) == GR_REGS || (CLASS) == M16_REGS || (CLASS) == T_REG	\
-   || (CLASS) == M16_T_REGS || (CLASS) == M16_NA_REGS)
+   || (CLASS) == M16_T_REGS || (CLASS) == M16_NA_REGS			\
+   || (CLASS) == PIC_FN_ADDR_REG)
 
 /* This macro is also used later on in the file.  */
 #define COP_REG_CLASS_P(CLASS)						\
@@ -2172,6 +2180,35 @@ extern enum reg_class mips_char_to_class[256];
 
 #define REG_CLASS_FROM_LETTER(C) mips_char_to_class[(unsigned char)(C)]
 
+/* True if VALUE is a signed 16-bit number.  */
+
+#define SMALL_OPERAND(VALUE) \
+  ((unsigned HOST_WIDE_INT) (VALUE) + 0x8000 < 0x10000)
+
+/* True if VALUE is an unsigned 16-bit number.  */
+
+#define SMALL_OPERAND_UNSIGNED(VALUE) \
+  (((VALUE) & ~(unsigned HOST_WIDE_INT) 0xffff) == 0)
+
+/* True if VALUE can be loaded into a register using LUI.  */
+
+#define LUI_OPERAND(VALUE)					\
+  (((VALUE) | 0x7fff0000) == 0x7fff0000				\
+   || ((VALUE) | 0x7fff0000) + 0x10000 == 0)
+
+/* Return a value X with the low 16 bits clear, and such that
+   VALUE - X is a signed 16-bit value.  */
+
+#define CONST_HIGH_PART(VALUE) \
+  (((VALUE) + 0x8000) & ~(unsigned HOST_WIDE_INT) 0xffff)
+
+#define CONST_LOW_PART(VALUE) \
+  ((VALUE) - CONST_HIGH_PART (VALUE))
+
+#define SMALL_INT(X) SMALL_OPERAND (INTVAL (X))
+#define SMALL_INT_UNSIGNED(X) SMALL_OPERAND_UNSIGNED (INTVAL (X))
+#define LUI_INT(X) LUI_OPERAND (INTVAL (X))
+
 /* The letters I, J, K, L, M, N, O, and P in a register constraint
    string can be used to stand for particular ranges of immediate
    operands.  This macro defines what the ranges are.  C is the
@@ -2200,21 +2237,14 @@ extern enum reg_class mips_char_to_class[256];
 
    `P'	is used for positive 16 bit constants.  */
 
-#define SMALL_INT(X) ((unsigned HOST_WIDE_INT) (INTVAL (X) + 0x8000) < 0x10000)
-#define SMALL_INT_UNSIGNED(X) ((unsigned HOST_WIDE_INT) (INTVAL (X)) < 0x10000)
-
 #define CONST_OK_FOR_LETTER_P(VALUE, C)					\
-  ((C) == 'I' ? ((unsigned HOST_WIDE_INT) ((VALUE) + 0x8000) < 0x10000)	\
+  ((C) == 'I' ? SMALL_OPERAND (VALUE)					\
    : (C) == 'J' ? ((VALUE) == 0)					\
-   : (C) == 'K' ? ((unsigned HOST_WIDE_INT) (VALUE) < 0x10000)		\
-   : (C) == 'L' ? (((VALUE) & 0x0000ffff) == 0				\
-		   && (((VALUE) & ~2147483647) == 0			\
-		       || ((VALUE) & ~2147483647) == ~2147483647))	\
-   : (C) == 'M' ? ((((VALUE) & ~0x0000ffff) != 0)			\
-		   && (((VALUE) & ~0x0000ffff) != ~0x0000ffff)		\
-		   && (((VALUE) & 0x0000ffff) != 0			\
-		       || (((VALUE) & ~2147483647) != 0			\
-			   && ((VALUE) & ~2147483647) != ~2147483647)))	\
+   : (C) == 'K' ? SMALL_OPERAND_UNSIGNED (VALUE)			\
+   : (C) == 'L' ? LUI_OPERAND (VALUE)					\
+   : (C) == 'M' ? (!SMALL_OPERAND (VALUE)				\
+		   && !SMALL_OPERAND_UNSIGNED (VALUE)			\
+		   && !LUI_OPERAND (VALUE))				\
    : (C) == 'N' ? ((unsigned HOST_WIDE_INT) ((VALUE) + 0xffff) < 0xffff) \
    : (C) == 'O' ? ((unsigned HOST_WIDE_INT) ((VALUE) + 0x4000) < 0x8000) \
    : (C) == 'P' ? ((VALUE) != 0 && (((VALUE) & ~0x0000ffff) == 0))	\
@@ -2237,16 +2267,15 @@ extern enum reg_class mips_char_to_class[256];
    operand as its first argument and the constraint letter as its
    second operand.
 
-   `Q'	is for mips16 GP relative constants
-   `R'	is for memory references which take 1 word for the instruction.
-   `T'	is for memory addresses that can be used to load two words.  */
+   `Q' is for signed 16-bit constants.
+   `R' is for constant move_operands.
+   `S' is for legitimate constant call addresses.  */
 
 #define EXTRA_CONSTRAINT(OP,CODE)					\
-  (((CODE) == 'T')	  ? double_memory_operand (OP, GET_MODE (OP))	\
-   : ((CODE) == 'Q')	  ? (GET_CODE (OP) == CONST			\
-			     && mips16_gp_offset_p (OP))		\
-   : (GET_CODE (OP) != MEM) ? FALSE					\
-   : ((CODE) == 'R')	  ? simple_memory_operand (OP, GET_MODE (OP))	\
+  (((CODE) == 'Q')	  ? const_arith_operand (OP, VOIDmode)		\
+   : ((CODE) == 'R')	  ? (CONSTANT_P (OP) && move_operand (OP, VOIDmode)) \
+   : ((CODE) == 'S')	  ? (CONSTANT_P (OP) && !TARGET_ABICALLS	\
+			     && call_insn_operand (OP, VOIDmode))	\
    : FALSE)
 
 /* Given an rtx X being reloaded into a reg required to be
@@ -3015,32 +3044,12 @@ typedef struct mips_args {
 }
 #endif
 
-/* A C expression that is 1 if the RTX X is a constant which is a
-   valid address.  This is defined to be the same as `CONSTANT_P (X)',
-   but rejecting CONST_DOUBLE.  */
-/* When pic, we must reject addresses of the form symbol+large int.
-   This is because an instruction `sw $4,s+70000' needs to be converted
-   by the assembler to `lw $at,s($gp);sw $4,70000($at)'.  Normally the
-   assembler would use $at as a temp to load in the large offset.  In this
-   case $at is already in use.  We convert such problem addresses to
-   `la $5,s;sw $4,70000($5)' via LEGITIMIZE_ADDRESS.  */
-/* ??? SGI Irix 6 assembler fails for CONST address, so reject them
-   when !TARGET_GAS.  */
-/* We should be rejecting everything but const addresses.  */
-#define CONSTANT_ADDRESS_P(X)						\
-  (GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
-    || GET_CODE (X) == CONST_INT || GET_CODE (X) == HIGH		\
-    || (GET_CODE (X) == CONST						\
-	&& ! (flag_pic && pic_address_needs_scratch (X))		\
-	&& (TARGET_GAS)							\
-	&& (mips_abi != ABI_N32 					\
-	    && mips_abi != ABI_64)))
+/* Check for constness inline but use mips_legitimate_address_p
+   to check whether a constant really is an address.  */
 
+#define CONSTANT_ADDRESS_P(X) \
+  (CONSTANT_P (X) && mips_legitimate_address_p (SImode, X, 0))
 
-/* Define this, so that when PIC, reload won't try to reload invalid
-   addresses which require two reload registers.  */
-
-#define LEGITIMATE_PIC_OPERAND_P(X)  (! pic_address_needs_scratch (X))
 
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.
@@ -3055,130 +3064,13 @@ typedef struct mips_args {
    gp pseudo reg (see mips16_gp_pseudo_reg) deciding it is not
    a LEGITIMATE_CONSTANT.  If we ever want mips16 and ABI_N32 or
    ABI_64 to work together, we'll need to fix this.  */
-#define LEGITIMATE_CONSTANT_P(X)					\
-  ((GET_CODE (X) != CONST_DOUBLE					\
-    || mips_const_double_ok (X, GET_MODE (X)))				\
-   && ! (GET_CODE (X) == CONST 						\
-	 && ! TARGET_GAS						\
-	 && (mips_abi == ABI_N32 					\
-	     || mips_abi == ABI_64))					\
-   && (! TARGET_MIPS16 || mips16_constant (X, GET_MODE (X), 0, 0)))
+#define LEGITIMATE_CONSTANT_P(X) (mips_const_insns (X) > 0)
 
-/* A C compound statement that attempts to replace X with a valid
-   memory address for an operand of mode MODE.  WIN will be a C
-   statement label elsewhere in the code; the macro definition may
-   use
-
-          GO_IF_LEGITIMATE_ADDRESS (MODE, X, WIN);
-
-   to avoid further processing if the address has become legitimate.
-
-   X will always be the result of a call to `break_out_memory_refs',
-   and OLDX will be the operand that was given to that function to
-   produce X.
-
-   The code generated by this macro should not alter the
-   substructure of X.  If it transforms X into a more legitimate
-   form, it should assign X (which will always be a C variable) a
-   new value.
-
-   It is not necessary for this macro to come up with a legitimate
-   address.  The compiler has standard ways of doing so in all
-   cases.  In fact, it is safe for this macro to do nothing.  But
-   often a machine-dependent strategy can generate better code.
-
-   For the MIPS, transform:
-
-	memory(X + <large int>)
-
-   into:
-
-	Y = <large int> & ~0x7fff;
-	Z = X + Y
-	memory (Z + (<large int> & 0x7fff));
-
-   This is for CSE to find several similar references, and only use one Z.
-
-   When PIC, convert addresses of the form memory (symbol+large int) to
-   memory (reg+large int).  */
-
-
-#define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)				\
-{									\
-  register rtx xinsn = (X);						\
-									\
-  if (TARGET_DEBUG_B_MODE)						\
-    {									\
-      GO_PRINTF ("\n========== LEGITIMIZE_ADDRESS\n");			\
-      GO_DEBUG_RTX (xinsn);						\
-    }									\
-									\
-  if (mips_split_addresses && mips_check_split (X, MODE))		\
-    {									\
-      /* ??? Is this ever executed?  */					\
-      X = gen_rtx_LO_SUM (Pmode,					\
-			  copy_to_mode_reg (Pmode,			\
-					    gen_rtx (HIGH, Pmode, X)),	\
-			  X);						\
-      goto WIN;								\
-    }									\
-									\
-  if (GET_CODE (xinsn) == CONST						\
-      && ((flag_pic && pic_address_needs_scratch (xinsn))		\
-	  /* ??? SGI's Irix 6 assembler can't handle CONST.  */		\
-	  || (!TARGET_GAS						\
-	      && (mips_abi == ABI_N32 					\
-	          || mips_abi == ABI_64))))    				\
-    {									\
-      rtx ptr_reg = gen_reg_rtx (Pmode);				\
-      rtx constant = XEXP (XEXP (xinsn, 0), 1);				\
-									\
-      emit_move_insn (ptr_reg, XEXP (XEXP (xinsn, 0), 0));		\
-									\
-      X = gen_rtx_PLUS (Pmode, ptr_reg, constant);			\
-      if (SMALL_INT (constant))						\
-	goto WIN;							\
-      /* Otherwise we fall through so the code below will fix the	\
-	 constant.  */							\
-      xinsn = X;							\
-    }									\
-									\
-  if (GET_CODE (xinsn) == PLUS)						\
-    {									\
-      register rtx xplus0 = XEXP (xinsn, 0);				\
-      register rtx xplus1 = XEXP (xinsn, 1);				\
-      register enum rtx_code code0 = GET_CODE (xplus0);			\
-      register enum rtx_code code1 = GET_CODE (xplus1);			\
-									\
-      if (code0 != REG && code1 == REG)					\
-	{								\
-	  xplus0 = XEXP (xinsn, 1);					\
-	  xplus1 = XEXP (xinsn, 0);					\
-	  code0 = GET_CODE (xplus0);					\
-	  code1 = GET_CODE (xplus1);					\
-	}								\
-									\
-      if (code0 == REG && REG_MODE_OK_FOR_BASE_P (xplus0, MODE)		\
-	  && code1 == CONST_INT && !SMALL_INT (xplus1))			\
-	{								\
-	  rtx int_reg = gen_reg_rtx (Pmode);				\
-	  rtx ptr_reg = gen_reg_rtx (Pmode);				\
-									\
-	  emit_move_insn (int_reg,					\
-			  GEN_INT (INTVAL (xplus1) & ~ 0x7fff));	\
-									\
-	  emit_insn (gen_rtx_SET (VOIDmode,				\
-				  ptr_reg,				\
-				  gen_rtx_PLUS (Pmode, xplus0, int_reg))); \
-									\
-	  X = plus_constant (ptr_reg, INTVAL (xplus1) & 0x7fff);	\
-	  goto WIN;							\
-	}								\
-    }									\
-									\
-  if (TARGET_DEBUG_B_MODE)						\
-    GO_PRINTF ("LEGITIMIZE_ADDRESS could not fix.\n");			\
-}
+#define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)			\
+  do {								\
+    if (mips_legitimize_address (&(X), MODE))			\
+      goto WIN;							\
+  } while (0)
 
 
 /* A C statement or compound statement with a conditional `goto
@@ -3213,12 +3105,6 @@ typedef struct mips_args {
 
 #define ASM_OUTPUT_POOL_EPILOGUE(FILE, FNNAME, FNDECL, SIZE)	\
   mips_string_length = 0;
-
-#if 0
-/* In mips16 mode, put most string constants after the function.  */
-#define CONSTANT_AFTER_FUNCTION_P(tree)				\
-  (TARGET_MIPS16 && mips16_constant_after_function_p (tree))
-#endif
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.
@@ -3277,11 +3163,10 @@ typedef struct mips_args {
 #define Pmode (TARGET_64BIT ? DImode : SImode)
 #endif
 
-/* A function address in a call instruction
-   is a word address (for indexing purposes)
-   so give the MEM rtx a words's mode.  */
+/* Give call MEMs SImode since it is the "most permissive" mode
+   for both 32-bit and 64-bit targets.  */
 
-#define FUNCTION_MODE Pmode
+#define FUNCTION_MODE SImode
 
 
 /* A part of a C `switch' statement that describes the relative
@@ -3305,22 +3190,6 @@ typedef struct mips_args {
 	   Kenner */							\
 	return 0;							\
       }									\
-    if ((OUTER_CODE) == SET)						\
-      {									\
-	if (INTVAL (X) >= 0 && INTVAL (X) < 0x100)			\
-	  return 0;							\
-	else if ((INTVAL (X) >= 0 && INTVAL (X) < 0x10000)		\
-		 || (INTVAL (X) < 0 && INTVAL (X) > -0x100))		\
-	  return COSTS_N_INSNS (1);					\
-	else								\
-	  return COSTS_N_INSNS (2);					\
-      }									\
-    /* A PLUS could be an address.  We don't want to force an address	\
-       to use a register, so accept any signed 16 bit value without	\
-       complaint.  */							\
-    if ((OUTER_CODE) == PLUS						\
-	&& INTVAL (X) >= -0x8000 && INTVAL (X) < 0x8000)		\
-      return 0;								\
     /* A number between 1 and 8 inclusive is efficient for a shift.	\
        Otherwise, we will need an extended instruction.  */		\
     if ((OUTER_CODE) == ASHIFT || (OUTER_CODE) == ASHIFTRT		\
@@ -3348,61 +3217,26 @@ typedef struct mips_args {
 	&& INTVAL (X) == 0)						\
       return 0;								\
 									\
-    /* Otherwise, work out the cost to load the value into a		\
-       register.  */							\
-    if (INTVAL (X) >= 0 && INTVAL (X) < 0x100)				\
-      return COSTS_N_INSNS (1);						\
-    else if ((INTVAL (X) >= 0 && INTVAL (X) < 0x10000)			\
-	     || (INTVAL (X) < 0 && INTVAL (X) > -0x100))		\
-      return COSTS_N_INSNS (2);						\
-    else								\
-      return COSTS_N_INSNS (3);						\
-									\
-  case LABEL_REF:							\
-    return COSTS_N_INSNS (2);						\
+    /* Otherwise fall through to the handling below.  */		\
 									\
   case CONST:								\
-    {									\
-      rtx offset = const0_rtx;						\
-      rtx symref = eliminate_constant_term (XEXP (X, 0), &offset);	\
-									\
-      if (TARGET_MIPS16 && mips16_gp_offset_p (X))			\
-	{								\
-	  /* Treat this like a signed 16 bit CONST_INT.  */		\
-	  if ((OUTER_CODE) == PLUS)					\
-	    return 0;							\
-	  else if ((OUTER_CODE) == SET)					\
-	    return COSTS_N_INSNS (1);					\
-	  else								\
-	    return COSTS_N_INSNS (2);					\
-	}								\
-									\
-      if (GET_CODE (symref) == LABEL_REF)				\
-	return COSTS_N_INSNS (2);					\
-									\
-      if (GET_CODE (symref) != SYMBOL_REF)				\
-	return COSTS_N_INSNS (4);					\
-									\
-      /* let's be paranoid....  */					\
-      if (INTVAL (offset) < -32768 || INTVAL (offset) > 32767)		\
-	return COSTS_N_INSNS (2);					\
-									\
-      return COSTS_N_INSNS (SYMBOL_REF_FLAG (symref) ? 1 : 2);		\
-    }									\
-									\
   case SYMBOL_REF:							\
-    return COSTS_N_INSNS (SYMBOL_REF_FLAG (X) ? 1 : 2);			\
-									\
+  case LABEL_REF:							\
   case CONST_DOUBLE:							\
-    {									\
-      rtx high, low;							\
-      if (TARGET_MIPS16)						\
-	return COSTS_N_INSNS (4);					\
-      split_double (X, &high, &low);					\
-      return COSTS_N_INSNS ((high == CONST0_RTX (GET_MODE (high))	\
-			     || low == CONST0_RTX (GET_MODE (low)))	\
-			    ? 2 : 4);					\
-    }
+    if (((OUTER_CODE) == PLUS || (OUTER_CODE) == MINUS)			\
+        && const_arith_operand (X, VOIDmode))				\
+      return 0;								\
+    else								\
+      {									\
+        int n = mips_const_insns (X);					\
+        return (n == 0 ? CONSTANT_POOL_COST : COSTS_N_INSNS (n));	\
+      }
+
+/* The cost of loading values from the constant pool.  It should be
+   larger than the cost of any constant we want to synthesise in-line.  */
+
+#define CONSTANT_POOL_COST COSTS_N_INSNS (8)
+
 
 /* Like `CONST_COSTS' but applies to nonconstant RTL expressions.
    This can be used, for example, to indicate how costly a multiply
@@ -3421,11 +3255,12 @@ typedef struct mips_args {
 #define RTX_COSTS(X,CODE,OUTER_CODE)					\
   case MEM:								\
     {									\
-      int num_words = (GET_MODE_SIZE (GET_MODE (X)) > UNITS_PER_WORD) ? 2 : 1; \
-      if (simple_memory_operand (X, GET_MODE (X)))			\
-	return COSTS_N_INSNS (num_words);				\
-									\
-      return COSTS_N_INSNS (2*num_words);				\
+      /* If the address is legitimate, return the number of		\
+	 instructions it needs, otherwise use the default handling.  */	\
+      int n = mips_address_insns (XEXP (X, 0), GET_MODE (X));		\
+      if (n > 0)							\
+	return COSTS_N_INSNS (1 + n);					\
+      break;								\
     }									\
 									\
   case FFS:								\
@@ -3458,6 +3293,9 @@ typedef struct mips_args {
 									\
       return COSTS_N_INSNS (4);						\
     }									\
+									\
+  case LO_SUM:								\
+    return COSTS_N_INSNS (1);						\
 									\
   case PLUS:								\
   case MINUS:								\
@@ -3594,50 +3432,6 @@ typedef struct mips_args {
     else								\
       return COSTS_N_INSNS (1);
 
-/* An expression giving the cost of an addressing mode that
-   contains ADDRESS.  If not defined, the cost is computed from the
-   form of the ADDRESS expression and the `CONST_COSTS' values.
-
-   For most CISC machines, the default cost is a good approximation
-   of the true cost of the addressing mode.  However, on RISC
-   machines, all instructions normally have the same length and
-   execution time.  Hence all addresses will have equal costs.
-
-   In cases where more than one form of an address is known, the
-   form with the lowest cost will be used.  If multiple forms have
-   the same, lowest, cost, the one that is the most complex will be
-   used.
-
-   For example, suppose an address that is equal to the sum of a
-   register and a constant is used twice in the same basic block.
-   When this macro is not defined, the address will be computed in
-   a register and memory references will be indirect through that
-   register.  On machines where the cost of the addressing mode
-   containing the sum is no higher than that of a simple indirect
-   reference, this will produce an additional instruction and
-   possibly require an additional register.  Proper specification
-   of this macro eliminates this overhead for such machines.
-
-   Similar use of this macro is made in strength reduction of loops.
-
-   ADDRESS need not be valid as an address.  In such a case, the
-   cost is not relevant and can be any value; invalid addresses
-   need not be assigned a different cost.
-
-   On machines where an address involving more than one register is
-   as cheap as an address computation involving only one register,
-   defining `ADDRESS_COST' to reflect this can cause two registers
-   to be live over a region of code where only one would have been
-   if `ADDRESS_COST' were not defined in that manner.  This effect
-   should be considered in the definition of this macro.
-   Equivalent costs should probably only be given to addresses with
-   different numbers of registers on machines with lots of registers.
-
-   This macro will normally either not be defined or be defined as
-   a constant.  */
-
-#define ADDRESS_COST(ADDR) (REG_P (ADDR) ? 1 : mips_address_cost (ADDR))
-
 /* A C expression for the cost of moving data from a register in
    class FROM to one in class TO.  The classes are expressed using
    the enumeration values such as `GENERAL_REGS'.  A value of 2 is
@@ -3710,7 +3504,9 @@ typedef struct mips_args {
 
 #define PREDICATE_CODES							\
   {"uns_arith_operand",		{ REG, CONST_INT, SUBREG }},		\
-  {"arith_operand",		{ REG, CONST_INT, SUBREG }},		\
+  {"symbolic_operand",		{ CONST, SYMBOL_REF, LABEL_REF }},	\
+  {"const_arith_operand",	{ CONST, CONST_INT }},			\
+  {"arith_operand",		{ REG, CONST_INT, CONST, SUBREG }},	\
   {"arith32_operand",		{ REG, CONST_INT, SUBREG }},		\
   {"reg_or_0_operand",		{ REG, CONST_INT, CONST_DOUBLE, SUBREG }}, \
   {"true_reg_or_0_operand",	{ REG, CONST_INT, CONST_DOUBLE, SUBREG }}, \
@@ -3724,7 +3520,7 @@ typedef struct mips_args {
 				  LTU, LEU }},				\
   {"trap_cmp_op",		{ EQ, NE, GE, GEU, LT, LTU }},		\
   {"pc_or_label_operand",	{ PC, LABEL_REF }},			\
-  {"call_insn_operand",		{ CONST_INT, CONST, SYMBOL_REF, REG}},	\
+  {"call_insn_operand",		{ CONST, SYMBOL_REF, LABEL_REF, REG }},	\
   {"move_operand", 		{ CONST_INT, CONST_DOUBLE, CONST,	\
 				  SYMBOL_REF, LABEL_REF, SUBREG,	\
 				  REG, MEM}},				\

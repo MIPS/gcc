@@ -1,3 +1,127 @@
+2003-01-09  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips-protos.h (mips16_constant_after_function_p,
+	mips_address_cost, mips_check_split, double_memory_operand,
+	mips16_gp_offset, mips16_gp_offset_p, mips16_constant,
+	pic_address_needs_scratch, symbolic_operand): Remove declarations.
+	(mips_legitimate_address_p): Return bool.
+	(mips_address_insns, mips_fetch_insns, mips_const_insns,
+	mips_legitimize_address, mips_legitimize_move,
+	mips_expand_call): Declare.
+	(mips_return_addr): Move outside #ifdef RTX_CODE.
+
+	* config/mips/mips.h (ABI_HAS_64BIT_SYMBOLS): New macro.
+	(PIC_FN_ADDR_REG): New reg_class.
+	(REG_CLASS_NAMES, REG_CLASS_CONTENTS): Add corresponding entries.
+	(GR_REG_CLASS_P): True for PIC_FN_ADDR_REG.
+	(SMALL_OPERAND, SMALL_OPERAND_UNSIGNED, LUI_OPERAND,
+	CONST_HIGH_PART, CONST_LOW_PART, LUI_INT): New macros.
+	(SMALL_INT, SMALL_INT_UNSIGNED, CONST_OK_FOR_LETTER_P): Use new macros.
+	(EXTRA_CONSTRAINTS): Give new meanings to Q, R and S.
+	(CONSTANT_ADDRESS_P): Use mips_legitimate_address_p.
+	(LEGITIMATE_PIC_OPERAND): Undefine.
+	(LEGITIMATE_CONSTANT_P): Use mips_const_insns.
+	(LEGITIMIZE_ADDRESS): Use mips_legitimize_address.
+	(CONSTANT_AFTER_FUNCTION_P): Remove definition in #if 0 block.
+	(FUNCTION_MODE): Change to SImode.
+	(CONST_COSTS): Use mips_const_insns to calculate the cost of
+	most constants.  Treat const_artih_operands specially if they
+	occur in a PLUS or MINUS.
+	(CONSTANT_POOL_COST): New macro.
+	(RTX_COSTS): Use mips_address_insns for MEMs, with a base cost of 2.
+	Add LO_SUM handling.
+	(ADDRESS_COST): Undefine.
+	(PREDICATE_CODES): Add symbolic_operand and const_arith_operand.
+	Add CONST to the list of codes for arith_operand.  Add LABEL_REF
+	to call_insn_operand and remove CONST_INT.
+
+	* config/mips/mips.c: Include integrate.h.
+	(SINGLE_WORD_MODE_P): New macro.
+	(mips_constant_type, mips_symbol_type, mips_address_type): New enums.
+	(mips_constant_info, mips_address_info): New structs.
+	(mips_regno_to_class): Map $25 to PIC_FN_ADDR_REG.
+	(mips_classify_constant, mips_classify_symbol,
+	mips_valid_base_register_p, mips_symbolic_address_p,
+	mips_classify_address, mips_symbol_insns,
+	mips16_unextended_reference_p, mips_address_insns, mips_const_insns,
+	mips_fetch_insns, mips_force_temporary, mips_add_offset,
+	mips_legitimize_symbol, mips_legitimize_address, mips_legitimize_move,
+	mips_print_relocation): New functions.
+	(const_arith_operand): New operand predicate.
+	(arith_operand): Use it.
+	(mips_const_double_ok, mips16_simple_memory_operand,
+	simple_memory_operand, double_memory_operand, mips_check_split,
+	mips_address_cost, pic_address_needs_scratch, mips16_gp_offset,
+	mips16_gp_offset_p, mips16_output_gp_offset,
+	mips16_constant_after_function_p, mips16_constant): Remove.
+	(call_insn_operand): Be more fussy about symbolic constants.
+	Use register_operand.
+	(move_operand): Use mips_symbolic_address_p to check symbolic
+	operands and general_operand to check the rest.
+	(symbolic_operand): Use mips_classify_constant.
+	(mips_legitimate_address_p): Use mips_classify_address.
+	(mips_move_1word): Combine handling of symbolic addresses.
+	Remove special treatment of gp-relative loads for TARGET_MIPS16.
+	(move_move_2words): Likewise.  Assume addresses are offsettable
+	if they need to refer to more than one word.  Add HIGH handling.
+	(mips_restore_gp): Use ptr_mode for the GP save slot.
+	(mips_expand_call): New function, combining the old mips.md
+	call and call_internal define_expands.  If the address isn't
+	a call_insn_operand, force it into a register.  For SVR4 PIC,
+	emit an exception_receiver instruction after the call.
+	(override_options): Only override flag_pic for TARGET_ABICALLS
+	if it is currently zero.  Allow mips_split_addresses when
+	Pmode == DImode too, except when ABI_HAS_64BIT_SYMBOLS.
+	Add new register class letter, 'c'.
+	(print_operand): Use mips_classify_constant for constant operands.
+	(print_operand_address): Use mips_classify_address.
+	(mips_output_function_prologue): Don't use .cprestore.
+	(mips_expand_epilogue): For TARGET_MIPS16, only adjust the stack
+	via the frame pointer if current_function_calls_eh_return.
+	(mips_encode_section_info): For TARGET_ABICALLS, use SYMBOL_REF_FLAG
+	to mark whether a symbol is local or global.
+	(build_mips16_call_stub): Expect the address of the function rather
+	than a MEM reference to it.  Update call generation sequences.
+	(mips16_optimize_gp): Remove Pmode checks.  Temporarily disable
+	small-data adjustments.
+
+	* config/mips/mips.md: Remove 'R'/'m' memory distinction.  Use default
+	length for loads and stores.
+	(UNSPEC_CPADD, UNSPEC_RELOC_GPREL16): New constants.
+	(define_attr type): Add const and prefetch.
+	(define_attr length): Use mips_const_insns for const instructions.
+	Use mips_fetch_insns for load and store instructions.
+	(define_attr single_insn): New.
+	(define_attr can_delay): Use it.
+	(define_attr abicalls): Remove.
+	(define_delay): Use can_delay.  Always allow calls to have delay slots.
+	(addsi3_internal_2): Add 'Q' constraint.
+	(movsi_ulw, movsi_usw, movdi_uld, movdi_usd): Set length to 8.
+	(high): Remove.
+	(lowsi): Renamed from low.
+	(lowdi): New pattern.
+	(movdi, movsi): Use mips_legitimize_move.  Remove define_split.
+	(lwxc1, ldxc1, swxc1, sdxc1): Set length to 4.
+	(loadgp): Change operand 0 to an immediate_operand.
+	(tablejump): Use the same patterns for SVR4 PIC but emit a cpadd
+	beforehand.
+	(cpaddsi, cpadddi): New patterns.
+	(tablejump_internal3, tablejump_internal4): Remove define_expands
+	and associated define_splits.
+	(call, call_value): Use mips_expand_call.
+	(call_internal): New, replacing all existing call_internal* insns.
+	(call_value_internal): Likewise call_value_internal*.
+	(call_value_multiple_internal): Likewise call_value_multiple_internal*.
+	(untyped_call): Remove if (operands[0]) magic.
+	(prefetch_si_address, prefetch_si): Change type to "prefetch".
+	(prefetch_di_address, prefetch_di): Likewise.
+	(leasi, leadi): Remove.
+	(reloc_gprel16): New.
+
+	* config/mips/5400.md (ir_vr54_hilo): Include const type.
+	* config/mips/5500.md (ir_vr55_hilo): Likewise.
+	* config/mips/sr71k.md (ir_sr70_hilo): Likewise.
+
 2003-01-08  Eric Christopher  <echristo@redhat.com>
 
 	* config.gcc (mipsisa32*): Change ABI_MEABI to ABI_EABI.
