@@ -693,6 +693,9 @@ extern int arm_arch5;
 /* Nonzero if this chip supports the ARM Architecture 5E extensions */
 extern int arm_arch5e;
 
+/* Nonzero if this chip supports the ARM Architecture 6 extensions */
+extern int arm_arch6j;
+
 /* Nonzero if this chip can benefit from load scheduling.  */
 extern int arm_ld_sched;
 

@@ -1,3 +1,12 @@
+2003-12-24  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_arch6j): New variable.
+	(arm_override_options): Set it.
+	(arm_emit_extendsi): New function.
+	* config/arm/arm-protos.h (arm_emit_extendsi): Add prototype.
+	* config/arm/arm.h (arm_arch6j): Declare.
+	* config/arm/arm.md: Add sign/zero extend insns.
+
 2003-12-23  Mark Mitchell  <mark@codesourcery.com>
 
 	* calls.c (expand_call): Recognize calls to "sqrt" and create

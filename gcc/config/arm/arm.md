@@ -3132,63 +3132,47 @@
   "TARGET_EITHER"
   "
   {
-    if (TARGET_ARM)
+    if ((TARGET_THUMB || arm_arch4) && GET_CODE (operands[1]) == MEM)
       {
-        if (arm_arch4 && GET_CODE (operands[1]) == MEM)
-          {
-           /* Note: We do not have to worry about TARGET_MMU_TRAPS
-	      here because the insn below will generate an LDRH instruction
-	      rather than an LDR instruction, so we cannot get an unaligned
-	      word access.  */
-            emit_insn (gen_rtx_SET (VOIDmode, operands[0],
-			            gen_rtx_ZERO_EXTEND (SImode,
-							 operands[1])));
-            DONE;
-          }
-        if (TARGET_MMU_TRAPS && GET_CODE (operands[1]) == MEM)
-          {
-            emit_insn (gen_movhi_bytes (operands[0], operands[1]));
-            DONE;
-          }
-        if (!s_register_operand (operands[1], HImode))
-          operands[1] = copy_to_mode_reg (HImode, operands[1]);
-        operands[1] = gen_lowpart (SImode, operands[1]);
-        operands[2] = gen_reg_rtx (SImode);
+       /* Note: We do not have to worry about TARGET_MMU_TRAPS
+	  here because the insn below will generate an LDRH instruction
+	  rather than an LDR instruction, so we cannot get an unaligned
+	  word access.  */
+	emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+				gen_rtx_ZERO_EXTEND (SImode,
+						     operands[1])));
+	DONE;
       }
-    else /* TARGET_THUMB */
+    if (TARGET_ARM && TARGET_MMU_TRAPS && GET_CODE (operands[1]) == MEM)
       {
-        if (GET_CODE (operands[1]) == MEM)
-	  {
-	    rtx tmp;
-
-	    tmp = gen_rtx_ZERO_EXTEND (SImode, operands[1]);
-	    tmp = gen_rtx_SET (VOIDmode, operands[0], tmp);
-	    emit_insn (tmp);
-	  }
-	else
-	  {
-	    rtx ops[3];
+	emit_insn (gen_movhi_bytes (operands[0], operands[1]));
+	DONE;
+      }
+    if (arm_emit_extendsi (ZERO_EXTEND, operands[0], operands[1]))
+      DONE;
+    if (!s_register_operand (operands[1], HImode))
+      operands[1] = copy_to_mode_reg (HImode, operands[1]);
+    operands[1] = gen_lowpart (SImode, operands[1]);
+    operands[2] = gen_reg_rtx (SImode);
 	    
-	    if (!s_register_operand (operands[1], HImode))
-	      operands[1] = copy_to_mode_reg (HImode, operands[1]);
-	    operands[1] = gen_lowpart (SImode, operands[1]);
-	    operands[2] = gen_reg_rtx (SImode);
-	    
-	    ops[0] = operands[2];
-	    ops[1] = operands[1];
-	    ops[2] = GEN_INT (16);
-	    
-	    emit_insn (gen_rtx_SET (VOIDmode, ops[0],
-				    gen_rtx_ASHIFT (SImode, ops[1], ops[2])));
+    if (TARGET_THUMB)
+      {
+	rtx ops[3];
+	
+	ops[0] = operands[2];
+	ops[1] = operands[1];
+	ops[2] = GEN_INT (16);
+	
+	emit_insn (gen_rtx_SET (VOIDmode, ops[0],
+				gen_rtx_ASHIFT (SImode, ops[1], ops[2])));
 
-	    ops[0] = operands[0];
-	    ops[1] = operands[2];
-	    ops[2] = GEN_INT (16);
+	ops[0] = operands[0];
+	ops[1] = operands[2];
+	ops[2] = GEN_INT (16);
 
-	    emit_insn (gen_rtx_SET (VOIDmode, ops[0],
-				    gen_rtx_LSHIFTRT (SImode, ops[1],
-						      ops[2])));
-	  }
+	emit_insn (gen_rtx_SET (VOIDmode, ops[0],
+				gen_rtx_LSHIFTRT (SImode, ops[1],
+						  ops[2])));
 	DONE; 
       }
   }"
@@ -3247,6 +3231,23 @@
    (set_attr "neg_pool_range" "244")]
 )
 
+(define_insn "*arm_zero_extendhisi2_reg"
+  [(set (match_operand:SI		  0 "s_register_operand" "=r")
+	(zero_extend:SI (subreg:HI
+	    (match_operand:SI 1 "s_register_operand" "r") 0)))]
+  "TARGET_EITHER && arm_arch6j"
+  "uxth%?\\t%0, %1"
+)
+
+(define_insn "*arm_zero_extendhisi2addsi"
+  [(set (match_operand:SI	    0 "s_register_operand" "=r")
+	(plus:SI (zero_extend:SI (subreg:HI
+		  (match_operand:SI 1 "s_register_operand" "r") 0))
+		(match_operand:SI   2 "s_register_operand" "r")))]
+  "TARGET_ARM && arm_arch6j"
+  "uxtah%?\\t%0, %2, %1"
+)
+
 (define_split
   [(set (match_operand:SI 0 "s_register_operand" "")
 	(zero_extend:SI (match_operand:HI 1 "alignable_memory_operand" "")))
@@ -3282,6 +3283,8 @@
 	(zero_extend:SI (match_operand:QI 1 "nonimmediate_operand" "")))]
   "TARGET_EITHER"
   "
+  if (arm_emit_extendsi (ZERO_EXTEND, operands[0], operands[1]))
+    DONE;
   if (GET_CODE (operands[1]) != MEM)
     {
       if (TARGET_ARM)
@@ -3338,6 +3341,23 @@
    (set_attr "neg_pool_range" "4084")]
 )
 
+(define_insn "*arm_zero_extendqisi2_reg"
+  [(set (match_operand:SI		  0 "s_register_operand" "=r")
+	(zero_extend:SI (subreg:QI
+	    (match_operand:SI 1 "s_register_operand" "r") 0)))]
+  "TARGET_EITHER && arm_arch6j"
+  "uxtb%?\\t%0, %1"
+)
+
+(define_insn "*arm_zero_extendqisi2addsi"
+  [(set (match_operand:SI	    0 "s_register_operand" "=r")
+	(plus:SI (zero_extend:SI (subreg:QI
+		  (match_operand:SI 1 "s_register_operand" "r") 0))
+		(match_operand:SI   2 "s_register_operand" "r")))]
+  "TARGET_ARM && arm_arch6j"
+  "uxtab%?\\t%0, %2, %1"
+)
+
 (define_split
   [(set (match_operand:SI 0 "s_register_operand" "")
 	(zero_extend:SI (subreg:QI (match_operand:SI 1 "" "") 0)))
@@ -3383,6 +3403,8 @@
         emit_insn (gen_extendhisi2_mem (operands[0], operands[1]));
         DONE;
       }
+      if (arm_emit_extendsi (SIGN_EXTEND, operands[0], operands[1]))
+	DONE;
     if (!s_register_operand (operands[1], HImode))
       operands[1] = copy_to_mode_reg (HImode, operands[1]);
     operands[1] = gen_lowpart (SImode, operands[1]);
@@ -3517,6 +3539,23 @@
    (set_attr "neg_pool_range" "244")]
 )
 
+(define_insn "*arm_extendhisi2_reg"
+  [(set (match_operand:SI		  0 "s_register_operand" "=r")
+	(sign_extend:SI (subreg:HI
+	    (match_operand:SI 1 "s_register_operand" "r") 0)))]
+  "TARGET_EITHER && arm_arch6j"
+  "sxth%?\\t%0, %1"
+)
+
+(define_insn "*arm_extendhisi2addsi"
+  [(set (match_operand:SI	    0 "s_register_operand" "=r")
+	(plus:SI (sign_extend:SI (subreg:HI
+		  (match_operand:SI 1 "s_register_operand" "r") 0))
+		(match_operand:SI   2 "s_register_operand" "r")))]
+  "TARGET_ARM && arm_arch6j"
+  "sxtah%?\\t%0, %2, %1"
+)
+
 (define_split
   [(set (match_operand:SI                 0 "s_register_operand" "")
 	(sign_extend:SI (match_operand:HI 1 "alignable_memory_operand" "")))
@@ -3641,6 +3680,8 @@
 			        gen_rtx_SIGN_EXTEND (SImode, operands[1])));
         DONE;
       }
+    if (arm_emit_extendsi (SIGN_EXTEND, operands[0], operands[1]))
+      DONE;
     if (!s_register_operand (operands[1], QImode))
       operands[1] = copy_to_mode_reg (QImode, operands[1]);
     operands[1] = gen_lowpart (SImode, operands[1]);
@@ -3686,6 +3727,23 @@
    (set_attr "length" "8")
    (set_attr "pool_range" "256")
    (set_attr "neg_pool_range" "244")]
+)
+
+(define_insn "*arm_extendqisi2_reg"
+  [(set (match_operand:SI		  0 "s_register_operand" "=r")
+	(sign_extend:SI (subreg:QI
+	    (match_operand:SI 1 "s_register_operand" "r") 0)))]
+  "TARGET_EITHER && arm_arch6j"
+  "sxtb%?\\t%0, %1"
+)
+
+(define_insn "*arm_extendqisi2addsi"
+  [(set (match_operand:SI	    0 "s_register_operand" "=r")
+	(plus:SI (sign_extend:SI (subreg:QI
+		  (match_operand:SI 1 "s_register_operand" "r") 0))
+		(match_operand:SI   2 "s_register_operand" "r")))]
+  "TARGET_ARM && arm_arch6j"
+  "sxtab%?\\t%0, %2, %1"
 )
 
 (define_split

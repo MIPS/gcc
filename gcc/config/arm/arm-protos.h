@@ -140,6 +140,7 @@ extern void arm_final_prescan_insn (rtx);
 extern int arm_go_if_legitimate_address (enum machine_mode, rtx);
 extern int arm_debugger_arg_offset (int, rtx);
 extern int arm_is_longcall_p (rtx, int, int);
+extern int arm_emit_extendsi (enum rtx_code, rtx, rtx);
 extern int    arm_emit_vector_const (FILE *, rtx);
 extern const char * arm_output_load_gr (rtx *);
 
