@@ -1,5 +1,7 @@
 2004-12-16  Geoffrey Keating  <geoffk@apple.com>
 
+	* gcc.dg/rs6000-ldouble-2.c: New.
+
 	* gcc.dg/darwin-weakimport-1.c: Remove check for variables
 	producing warning.
 	* gcc.dg/darwin-weakimport-2.c: New.
