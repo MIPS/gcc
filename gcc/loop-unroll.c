@@ -381,7 +381,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 	 number of iterations.  Also, in case of postincrement we do
 	 not know whether we should not exit before reaching the loop.  */
       sbitmap_zero (wont_exit);
-      if (desc->postincr && (i || desc->cond == NE))
+      if (!desc->postincr && (i || desc->cond == NE))
 	SET_BIT (wont_exit, 1);
 
       if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),

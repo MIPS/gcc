@@ -1,3 +1,7 @@
+Fri Oct 25 23:31:53 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* unroll.c (unroll_loop_runtime_iterations): Fix.
+
 Wed Oct 23 17:30:54 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* Mailine merge (rtlopt-merge-20022710 tag)
