@@ -1,3 +1,10 @@
+2003-10-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa.c (degrees): Removed.
+	(rewrite_into_ssa): Degrees initialization removed.
+	(rewrite_block): Test vars_to_rename instead.
+	* tree-dfa.c (remove_phi_arg_num): Don't update PHI_ARG_CAPACITY.
+
 2003-10-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	Merge from tree-ssa-branch (tree-ssa-cfg-merge-20031001)

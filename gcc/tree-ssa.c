@@ -61,9 +61,6 @@ Boston, MA 02111-1307, USA.  */
    init_tree_ssa.  */
 unsigned int next_ssa_version;
 
-/* Indegrees of basic blocks.  */
-int *degrees;
-
 /* Dump file and flags.  */
 static FILE *dump_file;
 static int dump_flags;
@@ -284,7 +281,6 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
   sbitmap globals;
   dominance_info idom;
   basic_block bb;
-  edge e;
   
   timevar_push (TV_TREE_SSA_OTHER);
 
@@ -339,20 +335,10 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
   /* Insert PHI nodes at dominance frontiers of definition blocks.  */
   insert_phi_nodes (dfs, globals);
 
-  /* Compute indegrees of all basic blocks.  */
-  degrees = xcalloc (last_basic_block, sizeof (int));
-  FOR_EACH_BB (bb)
-    {
-      for (e = bb->pred; e; e = e->pred_next)
-	degrees[bb->index]++;
-    }
-
   /* Rewrite all the basic blocks in the program.  */
   timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
   rewrite_block (ENTRY_BLOCK_PTR);
   timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
-
-  free (degrees);
 
   /* Debugging dumps.  */
   if (dump_file)
@@ -807,7 +793,8 @@ rewrite_block (basic_block bb)
 	  tree currdef;
 
 	  /* Ignore PHI nodes that have already been renamed.  */
-	  if (PHI_NUM_ARGS (phi) == degrees[e->dest->index])
+	  if (!TEST_BIT (vars_to_rename,
+			 var_ann (SSA_NAME_VAR (PHI_RESULT (phi)))->uid))
 	    continue;
 
 	  currdef = get_reaching_def (SSA_NAME_VAR (PHI_RESULT (phi)));
