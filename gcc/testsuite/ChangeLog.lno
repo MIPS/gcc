@@ -1,5 +1,16 @@
 2004-06-14  Dorit Naishlos <dorit@il.ibm.com>
 
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-46.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-47.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-48.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-49.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-50.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-51.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-52.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-53.c: New test.
+
+2004-06-14  Dorit Naishlos <dorit@il.ibm.com>
+
 	* gcc.dg/tree-ssa-vect/tree-ssa-vect-40.c: New test.
 	* gcc.dg/tree-ssa-vect/tree-ssa-vect-41.c: New test.
 	* gcc.dg/tree-ssa-vect/tree-ssa-vect-42.c: New test.

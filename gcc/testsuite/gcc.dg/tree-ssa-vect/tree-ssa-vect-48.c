@@ -8,8 +8,9 @@
 
 #define N 256
 
+typedef float afloat __attribute__ ((__aligned__(16)));
 
-void bar (const float *pa, const float *pb, const float *pc) 
+void bar (float *pa, float *pb, float *pc) 
 {
   int i;
 
@@ -25,7 +26,7 @@ void bar (const float *pa, const float *pb, const float *pc)
 
 
 int
-main1 (float *pa, float *pb, float *pc)
+main1 (afloat * __restrict__ pa, float * __restrict__ pb, float * __restrict__ pc)
 {
   int i;
 

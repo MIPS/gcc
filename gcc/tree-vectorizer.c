@@ -3412,7 +3412,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	  nv_may_defs = NUM_V_MAY_DEFS (v_may_defs);
 	  nv_must_defs = NUM_V_MUST_DEFS (v_must_defs);
 
-	  if (nvuses + nv_may_defs + nv_must_defs != 1)
+	  if (nvuses && (nv_may_defs || nv_must_defs))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{

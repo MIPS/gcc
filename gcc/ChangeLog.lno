@@ -1,3 +1,7 @@
+2004-06-14  Dorit Naishlos <dorit@il.ibm.com>
+
+	* tree-vectorizer.c (vect_analyze_data_refs): Minor fix.
+
 2004-06-14  Andrew Pinski  <apinski@apple.com>
 
 	* tree-ssa-return.c: Remove.
@@ -64,7 +68,7 @@
 
 	* tree-vectorizer.c (vect_transform_loop): Add calls to 
 	add_bb_to_loop.
-	(vect_analyze_data_ref_dependence): Fix last argment in call to 
+	(vect_analyze_data_ref_dependence): Fix last argument in call to 
 	ddg_direction_between_stmts.
 
 2004-06-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
