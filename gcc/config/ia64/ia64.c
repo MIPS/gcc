@@ -4272,7 +4272,7 @@ ia64_override_options ()
     }
 
   if (!ia64_cpu_string)
-    ia64_cpu_string = "itanium";
+    ia64_cpu_string = "itanium2";
 
   for (i = 0; i < pta_size; i++)
     if (! strcmp (ia64_cpu_string, processor_alias_table[i].name))
