@@ -1,3 +1,8 @@
+2002-02-14  Jeff Law  <law@redhat.com>
+
+ 	* tree-ssa-ccp.c (tree_ssa_ccp): Work through the entire
+	ssa_edges worklist each iteration through the main loop.
+
 2002-02-13  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-ccp.c: Fix comment formatting glitches.

@@ -155,7 +155,9 @@ tree_ssa_ccp (fndecl)
 	  simulate_block (dest_block);
 	}
 
-      if (VARRAY_ACTIVE_SIZE (ssa_edges) > 0)
+      /* The SSA_EDGES worklist can get rather large.  Go ahead and
+         drain the entire worklist each iteration through this loop.  */
+      while (VARRAY_ACTIVE_SIZE (ssa_edges) > 0)
 	{
 	  /* Pull the next reference off the worklist.  The SSA edges
 	     worklist stores the origination definition for each edge.  */
