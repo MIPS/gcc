@@ -1295,7 +1295,10 @@ next_record (int done)
     next_record_w (done);
 
   current_unit->current_record = 0;
-  current_unit->last_record++;
+  if (current_unit->flags.access == ACCESS_DIRECT)
+    current_unit->last_record = ioparm.rec;
+  else
+    current_unit->last_record++;
 
   if (!done)
     pre_position ();

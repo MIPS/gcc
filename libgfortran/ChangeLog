@@ -1,7 +1,12 @@
 2004-04-03  Bud Davis  <bdavis9659@comcast.net>
 
-        PR gfortran/14837
-        * io/unix.c (find_file0): Use fd field of struct
+	PR gfortran/14836
+	* io/transfer.c (next_record): Update last_record for DIRECT
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14837
+	* io/unix.c (find_file0): Use fd field of struct
 
 2004-04-03  Bud Davis  <bdavis9659@comcast.net>
  
