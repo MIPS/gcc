@@ -1,3 +1,12 @@
+2004-07-30  David Jee  <djee@redhat.com>
+
+	* java/awt/DefaultKeyboardFocusManager.java
+	(postProcessKeyEvent): Only activate MenuShortcuts on KEY_PRESSED
+	event.  Fix shift modifier checking.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.c
+	(accel_attach): Remove.
+	(setupAccelGroup): Remove calls to accel_attach.
+
 2004-07-30  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkArg.java: Remove file.
