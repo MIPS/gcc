@@ -156,6 +156,12 @@ copyprop_phi (tree phi)
       fprintf (dump_file, "\n");
     }
 
+  /* If the result is a abnormal PHI, then there's no sense in trying
+     to copy propagate into its arguments since every attempt will
+     fail.  */
+  if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)))
+    return;
+
   for (i = 0; i < PHI_NUM_ARGS (phi); i++)
     {
       tree arg = PHI_ARG_DEF (phi, i);

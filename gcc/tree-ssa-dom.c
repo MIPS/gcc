@@ -1490,6 +1490,11 @@ cprop_into_phis (basic_block bb, varray_type const_and_copies)
       int phi_num_args;
       int hint;
 
+      /* If this is an abnormal edge, then we do not want to copy propagate
+	 into the PHI alternative associated with this edge.  */
+      if (e->flags & EDGE_ABNORMAL)
+	continue;
+
       phi = phi_nodes (e->dest);
       if (! phi)
 	continue;

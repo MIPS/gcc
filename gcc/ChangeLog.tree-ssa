@@ -62,6 +62,11 @@
 
 2003-10-14  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (cprop_into_phis): Avoid doing useless work if the
+	edge we care about is abnormal.
+	* tree-ssa-copyprop (cprop_phi): Avoid doing useless work if the
+	destination of the PHI node occurs in an abnormal PHI.
+
 	* tree-ssa-dom.c (record_equivalences_from_stmt): Renamed from
 	record_equivalances.  Caller updated.
 	(record_equivalences_from_phis): New function extracted from
