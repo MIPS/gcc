@@ -1245,15 +1245,16 @@ cgraph_optimize (void)
       dump_varpool (cgraph_dump_file);
     }
 
-  if (flag_peel_structs)
-    lang_hooks.optimize.structure_reorg_optimization ();
-
   if (flag_matrix_flattening)
     matrix_reorg ();
 
   bitmap_obstack_initialize (NULL);
 
   ipa_passes ();
+
+  if (flag_peel_structs)
+    lang_hooks.optimize.structure_reorg_optimization ();
+
   bitmap_obstack_release (NULL);
   /* FIXME: this should be unnecesary if inliner took care of removing dead
      functions.  */

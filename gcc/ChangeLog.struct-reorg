@@ -1,3 +1,28 @@
+2005-02-01  Caroline Tice  <ctice@apple.com>
+
+	* c-lang.c (LANG_HOOKS_OPTIMIZE_BUILD_ARRAY_REF) New lang hooks 
+	definition.
+	* cgraphunit.c (cgraph_optimize):  Move call to structure reorg
+	optimization to occur after the ipa_passes.
+	* langhooks-def.h (lhd_optimize_build_array_ref): New extern function
+	declaration.
+	(LANG_HOOKS_OPTIMIZE_BUILD_ARRAY_REF): New macro definition.
+	(LANG_HOOKS_OTPIMIZE_INITIALIZER):  Add new initializer for  
+	build_array_ref.
+	* langhooks.c (lhd_optimize_build_array_ref): New function.
+	* langhooks.h (struct lang_hooks_for_optimizations):  Add new field,
+	build_array_ref.
+	* struct-reorg.c (ipa-static.h): Add include statement.
+	(get_stmt_accessed_fields_1):  Add test for MEM_REF.
+	(collect_mallco_data): Add test for "xmalloc"
+	(create_cascading_mallocs): Add new arguments to calls to 
+	cgraph_create_edge.
+	(create_new_mallocs): Add code to allow "xmalloc".
+	(update_field_accesses): Add code to check for and properly handle
+	MEM_REF.
+	(perforem_escape_analysis): Add code to deal with nested pointer types.
+	(peel_structs): Add comment.
+
 2005-01-27  Daniel Berlin  <dberlin@dberlin.org>
 
 	* c-typeck.c (build_unary_op): It's not the symbol that is addressable

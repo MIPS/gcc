@@ -290,6 +290,13 @@ lhd_optimize_build_field_reference (tree t1 ATTRIBUTE_UNUSED,
 }
 
 tree
+lhd_optimize_build_array_ref (tree t1 ATTRIBUTE_UNUSED,
+			      tree t2 ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+tree
 lhd_optimize_decl_attributes (tree *t1 ATTRIBUTE_UNUSED,
 			      tree  t2 ATTRIBUTE_UNUSED,
 			      int i ATTRIBUTE_UNUSED)

@@ -50,6 +50,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "struct-reorg.h"
 #include "opts.h"
+#include "ipa-static.h"
 
 /*  ************** Static Global Data Structures  ********************  */
 
@@ -614,7 +615,8 @@ get_stmt_accessed_fields_1 (tree stmt, tree op, struct data_structure *ds,
 
   if (TREE_CODE (struct_var) == VAR_DECL)
     struct_type = TREE_TYPE (struct_var);
-  else if (TREE_CODE (struct_var) == INDIRECT_REF)
+  else if (TREE_CODE (struct_var) == INDIRECT_REF
+	   || TREE_CODE (struct_var) == MEM_REF)
     struct_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND (struct_var, 0)));
 
   if (! struct_type || ! similar_struct_decls_p (ds->decl, struct_type))
@@ -1169,7 +1171,7 @@ build_child_struct (struct struct_tree_list *struct_list, int count,
   new_type->sub_type = false;
       
   new_struct = lang_hooks.optimize.build_data_struct ((void *) new_type, new_name,
-						      orig_struct);
+ 						      orig_struct);
   
   for (current = struct_list; current; current = current->next)
     update_field_mappings (current->data, new_struct, struct_data);
@@ -1312,7 +1314,7 @@ create_and_assemble_new_types (struct data_structure *struct_data,
 
   new_types->next = NULL;
 
-  new_type = lang_hooks.optimize.build_data_struct ((void *) new_types, new_name,
+  new_type = lang_hooks.optimize.build_data_struct ((void *) new_types, new_name, 
 						    struct_data->decl);
 
   if (child_struct)
@@ -1741,8 +1743,10 @@ collect_malloc_data (void)
       if (TREE_CODE (malloc_fn_decl) != FUNCTION_DECL)
 	fatal_error ("Expected FUNCTION_DECL, found something else.");
 
-      if (strcmp (IDENTIFIER_POINTER (DECL_NAME (malloc_fn_decl)),
+      if ((strcmp (IDENTIFIER_POINTER (DECL_NAME (malloc_fn_decl)),
 		  "malloc") == 0)
+	  || (strcmp (IDENTIFIER_POINTER (DECL_NAME (malloc_fn_decl)),
+		      "xmalloc") == 0))
 	is_malloc = true;
       else if (strcmp (IDENTIFIER_POINTER (DECL_NAME (malloc_fn_decl)),
 		       "calloc") == 0)
@@ -1976,9 +1980,8 @@ add_field_mallocs (tree cur_lhs,
 	  tree assign_stmt;
 	  tree void_pointer_type;
 
-
 	  new_struct_size = lang_hooks.optimize.sizeof_type (field_type,
-							     SIZEOF_EXPR, 0);
+						      SIZEOF_EXPR, 0);
 	  arg_list = build_tree_list (NULL_TREE, new_struct_size);
 	  call_expr = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (malloc_fn_decl)),
 			      build1 (ADDR_EXPR,
@@ -2002,19 +2005,17 @@ add_field_mallocs (tree cur_lhs,
 				build1 (CONVERT_EXPR, save_type, tmp_var1));
 
 	  append_to_statement_list (convert_stmt, new_mallocs_list);
-	  new_lhs = lang_hooks.optimize.build_field_reference (lang_hooks.optimize.build_pointer_ref 
-							       (cur_lhs, ""),
-							       field_identifier);
 
+	  new_lhs = lang_hooks.optimize.build_field_reference (lang_hooks.optimize.build_pointer_ref (cur_lhs, ""),
+					   field_identifier);
 	  new_malloc_stmt = build (MODIFY_EXPR, TREE_TYPE (new_lhs),
 				   new_lhs,
 				   tmp_var2);
 
 	  append_to_statement_list (new_malloc_stmt, new_mallocs_list);
 
-	  new_rhs = lang_hooks.optimize.build_field_reference (lang_hooks.optimize.build_pointer_ref 
-							       (cur_lhs, ""),
-							       field_identifier);
+	  new_rhs = lang_hooks.optimize.build_field_reference (lang_hooks.optimize.build_pointer_ref (cur_lhs, ""),
+					   field_identifier);
 
 	  tmp_var3 = create_tmp_var_raw (TREE_TYPE (new_rhs), NULL);
 	  gimple_add_tmp_var (tmp_var3);
@@ -2098,7 +2099,7 @@ create_cascading_mallocs (struct malloc_struct *cur_malloc,
 
   c_node = cgraph_node (cur_malloc->context);
   c_node2 = cgraph_node (malloc_fn_decl);
-  cgraph_create_edge (c_node, c_node2, call_expr, /*FKZ HACK*/ 0, 0);
+  cgraph_create_edge (c_node, c_node2, call_expr, /*FKZ HACK*/0, 0);
 
   add_field_mallocs (cur_var->new_vars->data, new_struct_type, struct_data,
 		     new_mallocs_list, cur_malloc, malloc_fn_decl);
@@ -2178,7 +2179,8 @@ create_new_mallocs (struct struct_list *data_struct_list,
 	      char *fn_name = (char *) IDENTIFIER_POINTER (DECL_NAME (tmp_tree));
 	      
 	      if (strcmp (fn_name,  "malloc") != 0
-		  && strcmp (fn_name, "calloc") != 0)
+		  && strcmp (fn_name, "calloc") != 0
+		  && strcmp (fn_name, "xmalloc") != 0)
 		fatal_error ("Expected malloc or calloc function");
 	      
 	      malloc_fn_decl = tmp_tree;
@@ -2813,10 +2815,8 @@ build_new_stmts (tree lhs, struct new_var_data *new_vars, tree stmt,
 	    
 	    field_identifier = DECL_NAME (field_identifier);
 
-	    if (lang_hooks.optimize.lookup_field (TREE_TYPE (cur_lhs->data), 
-						  field_identifier))
-	      new_lhs = lang_hooks.optimize.build_field_reference
-		                              (lang_hooks.optimize.build_pointer_ref (cur_lhs->data, 
+	    if (lang_hooks.optimize.lookup_field (TREE_TYPE (cur_lhs->data), field_identifier))
+	      new_lhs = lang_hooks.optimize.build_field_reference (lang_hooks.optimize.build_pointer_ref (cur_lhs->data, 
 								   ""),
 					       field_identifier);
 	    else
@@ -3103,7 +3103,9 @@ update_field_accesses (struct struct_list *data_struct_list,
 	    bool found = false;
 	    tree_stmt_iterator *insertion_point = NULL;
 	    block_stmt_iterator bsi;
-	    bool is_indirect_ref = true;
+	    bool is_indirect_ref = false;
+	    bool is_mem_ref = false;
+	    tree mem_ref_index;
 
 	    new_stmt_list = NULL_TREE;
 
@@ -3134,8 +3136,13 @@ update_field_accesses (struct struct_list *data_struct_list,
 
 	    /* find <indirect_ref> whose arg1 is field decl for cur_field */
 	    
-	    if (TREE_CODE (arg0) != INDIRECT_REF)
-	      is_indirect_ref = false;
+	    if (TREE_CODE (arg0) == INDIRECT_REF)
+	      is_indirect_ref = true;
+	    else if (TREE_CODE (arg0) == MEM_REF)
+	      {
+		is_mem_ref = true;
+		mem_ref_index = TREE_OPERAND (arg0, 1);
+	      }
 
 	    if ((strcmp (IDENTIFIER_POINTER (DECL_NAME (arg1)),
 			IDENTIFIER_POINTER (DECL_NAME (cur_field.decl))) != 0)
@@ -3163,7 +3170,8 @@ update_field_accesses (struct struct_list *data_struct_list,
 			while (POINTER_TYPE_P (var_type))
 			  var_type = TREE_TYPE (var_type);
 			
-			if (var_type == new_mapping->decl)
+			if (similar_struct_decls_p (var_type, new_mapping->decl))
+			  /* if (var_type == new_mapping->decl) */
 			  {
 			    tree tmp_field;
 			    tree tmp_type;
@@ -3205,9 +3213,17 @@ update_field_accesses (struct struct_list *data_struct_list,
 				      new_stmt = build (MODIFY_EXPR,
 							save_type,
 							new_var,
-							lang_hooks.optimize.build_field_reference
+							lang_hooks.optimize.build_field_reference 
 							(lang_hooks.optimize.build_pointer_ref 
 							 (old_var, ""),
+							 field_identifier));
+				    else if (is_mem_ref)
+				      new_stmt = build (MODIFY_EXPR,
+							save_type,
+							new_var,
+							lang_hooks.optimize.build_field_reference 
+							(lang_hooks.optimize.build_array_ref 
+							 (old_var, mem_ref_index),
 							 field_identifier));
 				    else
 				      new_stmt = build (MODIFY_EXPR,
@@ -3225,13 +3241,15 @@ update_field_accesses (struct struct_list *data_struct_list,
 				  {
 				    field_identifier = DECL_NAME (arg1);
 				    if (is_indirect_ref)
-				      new_access = 
-					lang_hooks.optimize.build_field_reference
+				      new_access = lang_hooks.optimize.build_field_reference
 					(lang_hooks.optimize.build_pointer_ref (old_var, ""),
 					 field_identifier);
+				    else if (is_mem_ref)
+				      new_access = lang_hooks.optimize.build_field_reference
+					(lang_hooks.optimize.build_array_ref (old_var, mem_ref_index),
+					 field_identifier);
 				    else
-				      new_access = 
-					lang_hooks.optimize.build_field_reference
+				      new_access = lang_hooks.optimize.build_field_reference
 					(old_var, field_identifier);
 				  }
 			      }
@@ -3915,6 +3933,10 @@ make_data_struct_node (struct struct_list *s_list, tree var_decl)
   if (! struct_type || get_data_struct_by_decl (s_list, struct_type))
     return NULL;
 
+  /* Check to see if it is legal to rearrange this structure.  */
+  if (ipa_static_type_contained_p (struct_type))
+    return NULL;
+
   d_node = (struct data_structure *) 
 	   xcalloc (1, sizeof (struct data_structure));
   num_fields = fields_length (struct_type);
@@ -4060,7 +4082,7 @@ perform_escape_analysis (bitmap escaped_vars, bitmap escaped_types,
 		      bitmap_set_bit (escaped_vars, arg->decl.uid);
 		      if (type_check_p
 			  && (AGGREGATE_TYPE_P (arg_type))
-			  && !bitmap_bit_p (escaped_types,
+			  && !bitmap_bit_p (escaped_types, 
 					    arg_type->type.uid))
 			bitmap_set_bit (escaped_types, 
 					arg_type->type.uid);
@@ -4087,6 +4109,7 @@ perform_escape_analysis (bitmap escaped_vars, bitmap escaped_types,
 
 		    while (POINTER_TYPE_P (arg_type))
 		      arg_type = TREE_TYPE (arg_type);
+
 		    if (DECL_P (arg))
 		      {
 			bitmap_set_bit (escaped_vars, arg->decl.uid);
@@ -4259,10 +4282,13 @@ peel_structs (void)
    
   vcg_dump = fopen (concat (dump_base_name, ".struct-reorg.vcg", NULL), "w");
 
+  /* Verify that this compiler invocation was passed *all* the user-written
+     code for this program.  */
+  
   if (! flag_whole_program)
     {
-      inform
-	("Whole program not passed to compiler: Can't perform struct peeling.");
+      inform 
+      ("Whole program not passed to compiler: Can't perform struct peeling.");
       return;
     }
 

@@ -55,6 +55,7 @@ struct lang_hooks_for_optimizations
 {
   tree (*build_field_reference) (tree, tree);
   tree (*build_pointer_ref) (tree, const char *);
+  tree (*build_array_ref) (tree, tree);
   tree (*lookup_field) (tree, tree);
   tree (*build_data_struct) (void *, char *, tree);
   tree (*sizeof_type) (tree, enum tree_code, int);

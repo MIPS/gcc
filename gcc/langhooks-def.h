@@ -88,6 +88,7 @@ extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
 
 extern tree lhd_optimize_build_field_reference (tree, tree);
 extern tree lhd_optimize_build_pointer_ref (tree, const char *);
+extern tree lhd_optimize_build_array_ref (tree, tree);
 extern tree lhd_optimize_lookup_field (tree, tree);
 extern tree lhd_optimize_build_data_struct (void *, char *, tree);
 extern tree lhd_optimize_sizeof_type (tree, enum tree_code, int);
@@ -164,6 +165,7 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 /* Optimization hooks.  */
 #define LANG_HOOKS_OPTIMIZE_BUILD_DATA_STRUCT lhd_optimize_build_data_struct
 #define LANG_HOOKS_OPTIMIZE_BUILD_POINTER_REF lhd_optimize_build_pointer_ref
+#define LANG_HOOKS_OPTIMIZE_BUILD_ARRAY_REF lhd_optimize_build_array_ref
 #define LANG_HOOKS_OPTIMIZE_SIZEOF_TYPE lhd_optimize_sizeof_type
 #define LANG_HOOKS_OPTIMIZE_DECL_ATTRIBUTES lhd_optimize_decl_attributes
 #define LANG_HOOKS_OPTIMIZE_LOOKUP_FIELD lhd_optimize_lookup_field
@@ -175,6 +177,7 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_OPTIMIZE_INITIALIZER {     \
   LANG_HOOKS_OPTIMIZE_BUILD_FIELD_REFERENCE,  \
   LANG_HOOKS_OPTIMIZE_BUILD_POINTER_REF,      \
+  LANG_HOOKS_OPTIMIZE_BUILD_ARRAY_REF,        \
   LANG_HOOKS_OPTIMIZE_LOOKUP_FIELD,           \
   LANG_HOOKS_OPTIMIZE_BUILD_DATA_STRUCT,      \
   LANG_HOOKS_OPTIMIZE_SIZEOF_TYPE,            \
