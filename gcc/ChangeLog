@@ -1,3 +1,7 @@
+Wed Oct 23 12:42:32 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (movti_rex64): Fix constraints.
+
 Wed Oct 23 12:01:21 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (abssf,absdf): Use vector operands for SSE
