@@ -6018,7 +6018,7 @@ fold (expr)
 	  tree targ1 = strip_float_extensions (arg1);
 	  tree newtype = TREE_TYPE (targ0);
 
-	  if (TYPE_PRECISION (TREE_TYPE (targ1)) > TYPE_PRECISION (type))
+	  if (TYPE_PRECISION (TREE_TYPE (targ1)) > TYPE_PRECISION (newtype))
 	    newtype = TREE_TYPE (targ1);
 
 	  /* Fold (double)float1 CMP (double)float2 into float1 CMP float2.  */

@@ -1,3 +1,7 @@
+Sat May 10 21:17:37 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* fold-const.c (fold):  Fix fp compare optimization.
+
 Thu May  1 11:39:07 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from 3.3-branch (hammer-3_3-merge-20030430)
