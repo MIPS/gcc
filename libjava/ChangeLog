@@ -1,3 +1,10 @@
+2004-08-08  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR AWT/16121
+	* jni/gtk-peer/gthread-jni.c: Include stdio.h.  Eliminate
+	type-punning compiler warnings using unions.
+	(throw): Replace bzero with memset.
+
 2004-08-08  Andreas Tobler  <a.tobler@schweiz.ch>
 	    Thomas Fitzsimmons  <fitzsim@redhat.com>
 
