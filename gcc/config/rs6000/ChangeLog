@@ -1,5 +1,12 @@
 2000-01-19  Geoff Keating  <geoffk@cygnus.com>
 
+	* rs6000.md (movsi): Don't use force_reg when no_new_pseudos.
+	(movdi): Likewise.
+	(movhi): Likewise.
+	(movqi): Likewise.
+
+2000-01-19  Geoff Keating  <geoffk@cygnus.com>
+
 	* rs6000.md (movsi_got): 'unspec 8' returns a SImode result,
 	at present.
 	(movsi_got_internal): Likewise.
