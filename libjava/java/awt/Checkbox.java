@@ -47,6 +47,7 @@ import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleAction;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
+import javax.accessibility.AccessibleState;
 import javax.accessibility.AccessibleValue;
 
 /**
@@ -104,8 +105,9 @@ protected class AccessibleAWTCheckBox
    */
   public void itemStateChanged(ItemEvent event)
   {
-    // TODO Auto-generated method stub
-    
+    firePropertyChange(ACCESSIBLE_STATE_PROPERTY,
+		       state ? null : AccessibleState.CHECKED,
+                       state ? AccessibleState.CHECKED : null);
   }
   
   public AccessibleAction getAccessibleAction()
@@ -494,7 +496,9 @@ paramString()
 
 public AccessibleContext getAccessibleContext()
 {
-  return new AccessibleAWTCheckBox();
+  AccessibleAWTCheckBox ac = new AccessibleAWTCheckBox();
+  addItemListener(ac);
+  return ac;
 }
 
 } // class Checkbox 
