@@ -1,3 +1,7 @@
+2004-09-16  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c: Synchronize with mainline.
+
 2004-09-14  Jan Hubicka  <jh@suse.cz>
 
 	* cfgexpand.c: Fix merge problems.

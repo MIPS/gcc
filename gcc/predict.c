@@ -554,18 +554,15 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
 }
 
 /* Predict edge probabilities by exploiting loop structure.
-   When SIMPLELOOPS is set, attempt to count number of iterations by analyzing
-   RTL.  */
+   When RTLSIMPLELOOPS is set, attempt to count number of iterations by analyzing
+   RTL otherwise use tree based approach.  */
 static void
-predict_loops (struct loops *loops_info, bool simpleloops)
+predict_loops (struct loops *loops_info, bool rtlsimpleloops)
 {
   unsigned i;
 
-  if (!simpleloops)
-    {
-      scev_initialize (loops_info);
-      estimate_numbers_of_iterations (loops_info);
-    }
+  if (!rtlsimpleloops)
+    scev_initialize (loops_info);
 
   /* Try to predict out blocks in a loop that are not part of a
      natural loop.  */
@@ -581,7 +578,7 @@ predict_loops (struct loops *loops_info, bool simpleloops)
       flow_loop_scan (loop, LOOP_EXIT_EDGES);
       exits = loop->num_exits;
 
-      if (simpleloops)
+      if (rtlsimpleloops)
 	{
 	  iv_analysis_loop_init (loop);
 	  find_simple_exit (loop, &desc);
@@ -622,8 +619,9 @@ predict_loops (struct loops *loops_info, bool simpleloops)
 	      if (TREE_CODE (niter) == INTEGER_CST)
 		{
 		  int probability;
-		  if (tree_int_cst_lt (niter,
-				       build_int_cstu (NULL_TREE,
+		  if (host_integerp (niter, 1)
+		      && tree_int_cst_lt (niter,
+				          build_int_cstu (NULL_TREE,
 						       REG_BR_PROB_BASE - 1)))
 		    {
 		      HOST_WIDE_INT nitercst = tree_low_cst (niter, 1) + 1;
@@ -652,7 +650,7 @@ predict_loops (struct loops *loops_info, bool simpleloops)
 	     statements construct loops via "non-loop" constructs
 	     in the source language and are better to be handled
 	     separately.  */
-	  if ((simpleloops && !can_predict_insn_p (BB_END (bb)))
+	  if ((rtlsimpleloops && !can_predict_insn_p (BB_END (bb)))
 	      || predicted_by_p (bb, PRED_CONTINUE))
 	    continue;
 
@@ -683,11 +681,8 @@ predict_loops (struct loops *loops_info, bool simpleloops)
       free (bbs);
     }
 
-  if (!simpleloops)
-    {
-      free_numbers_of_iterations_estimates (loops_info);
-      scev_reset ();
-    }
+  if (!rtlsimpleloops)
+    scev_reset ();
 }
 
 /* Attempt to predict probabilities of BB outgoing edges using local
