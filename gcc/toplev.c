@@ -897,9 +897,6 @@ int flag_new_regalloc = 0;
 /* Disable tree simplification.  */
 int flag_disable_simple = 0;
 
-/* Enable the SSA tree optimizer.  */
-int flag_tree_ssa = 0;
-
 /* Enable the SSA-PRE tree optimization.  */
 int flag_tree_pre = 0;
 
@@ -1227,8 +1224,6 @@ static const lang_independent_options f_options[] =
    N_("Use graph coloring register allocation.") },
   { "disable-simple", &flag_disable_simple, 1,
    N_("Do not re-write trees into SIMPLE form") },
-  { "tree-ssa", &flag_tree_ssa, 1,
-   N_("Enable SSA optimizations on trees") },
   { "tree-pre", &flag_tree_pre, 1,
    N_("Enable SSA-PRE optimization on trees") },
   { "tree-points-to", &flag_tree_points_to, 1,
@@ -4841,8 +4836,7 @@ parse_options_and_default_flags (argc, argv)
       flag_crossjumping = 1;
       flag_if_conversion = 1;
       flag_if_conversion2 = 1;
-      flag_tree_ssa = 1;
-      /*flag_tree_ccp = 1;*/
+      /* flag_tree_ccp = 1; */
     }
 
   if (optimize >= 2)
@@ -5186,7 +5180,7 @@ process_options ()
 
   /* -ftree-ssa and -fdisable-simple cannot be used together because the
      tree SSA code can only use SIMPLE trees.  */
-  if (flag_tree_ssa && flag_disable_simple)
+  if (optimize >= 1 && flag_disable_simple)
     warning ("-fdisable-simple also disables optimizations on trees");
 
   if (flag_dump_tree_all_ssa)
