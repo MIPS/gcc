@@ -1,5 +1,11 @@
 2004-09-27  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JTextArea.java
+	(append): Re-implemented.
+	(insert): Likewise.
+
+2004-09-27  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JSpinner.java
 	(serialVersionUID): New static field.
 	* javax/swing/JToggleButton.java
@@ -2516,25 +2522,25 @@
 2004-07-07  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/JCheckBox.java: Reformated.
-        (JCheckBox): Fixed all constructors.
-        (isBorderPaintedFlat): New method.
-        (setBorderPaintedFlat): New method.
+	(JCheckBox): Fixed all constructors.
+	(isBorderPaintedFlat): New method.
+	(setBorderPaintedFlat): New method.
 	* javax/swing/JEditorPane.java
-        (createEditorKitForContentType): Made public.
-        (scrollToReference): Likewise.
+	(createEditorKitForContentType): Made public.
+	(scrollToReference): Likewise.
 	* javax/swing/JTextArea.java
-        (setLineWrap): Fire property change.
+	(setLineWrap): Fire property change.
 	* javax/swing/JToggleButton.java
-        (JToggleButton): New constructor.
-        (JToggleButton): Simplified.
+	(JToggleButton): New constructor.
+	(JToggleButton): Simplified.
 	* javax/swing/text/AttributeSet.java
-        (FontAttribute): Renamed from FontCharacterAttribute.
+	(FontAttribute): Renamed from FontCharacterAttribute.
 	* javax/swing/text/JTextComponent.java
-        (KeyBinBinding): Added javadoc.
-        (JTextComponent): Likewise.
-        (getAccessibleContext): Fixed javadoc.
+	(KeyBinBinding): Added javadoc.
+	(JTextComponent): Likewise.
+	(getAccessibleContext): Fixed javadoc.
 	* javax/swing/text/View.java
-        (View): Added javadoc.
+	(View): Added javadoc.
 	* javax/swing/text/TabableView.java: New file.
 	* Makefile.am: Added javax/swing/text/TabableView.java.
 	* Makefile.in: Regenerated.

@@ -195,7 +195,15 @@ public class JTextArea extends JTextComponent
    */
   public void append(String toAppend)
   {
-    setText(getText() + toAppend);
+      try
+	  {
+	      getDocument().insertString(getText().length(), toAppend, null);
+	  }
+      catch (BadLocationException exception)
+	  {
+	      /* This shouldn't happen in theory -- but, if it does...  */
+	      throw new RuntimeException("Unexpected exception occurred.", exception);
+	  }
   }
 
   /**
@@ -428,17 +436,24 @@ public class JTextArea extends JTextComponent
    */
   public void insert(String string, int position)
   {
-    if (position < doc.getStartPosition().getOffset()
-	|| position >= doc.getEndPosition().getOffset())
-      throw new IllegalArgumentException();
+    // Retrieve the document model.
+    Document doc = getDocument();
+      
+    // Check the model and string for validity.
+    if (doc == null
+	|| string == null
+	|| string.length() == 0)
+      return;
 
+    // Insert the text into the model.
     try
       {
 	doc.insertString(position, string, null);
       }
     catch (BadLocationException e)
       {
-	// This cannot happen as we check position above.
+	throw new IllegalArgumentException("The supplied position, "
+					   + position + ", was invalid.");
       }
   }
 
