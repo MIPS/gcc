@@ -1,3 +1,7 @@
+2003-05-14  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* Makefile.in: Add additional -Wno-error targets for Alpha.
+
 2003-05-13  Jason Merrill  <jason@redhat.com>
 
 	* gdbinit.in (pgs, pge): New macros.
