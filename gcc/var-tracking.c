@@ -574,7 +574,7 @@ vt_stack_adjustments (void)
 	      return false;
 	    }
 
-	  if (! ei_end_p (ei))
+	  if (! ei_one_before_end_p (ei))
 	    /* Go to the next edge.  */
 	    ei_next (&stack[sp - 1]);
 	  else

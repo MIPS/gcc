@@ -1,3 +1,8 @@
+2004-09-19  Ben Elliston  <bje@au.ibm.com>
+
+	* var-tracking.c (vt_stack_adjustments): Use ei_one_before_end_p,
+	not ei_end_p, to correct an off-by-one error.
+
 2004-09-18  Ben Elliston  <bje@au.ibm.com>
 
 	* Merge with edge-vector-mergepoint-20040918.
