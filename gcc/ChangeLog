@@ -1,3 +1,8 @@
+2003-02-26  Jan Hubicka  <jh@suse.cz>
+
+	* expr.c (emit_group_store):  Fix crash when converting single
+	register into complex register.
+
 2004-04-28  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR target/15084
