@@ -130,38 +130,14 @@ extern int ffe_fixed_line_length_;
 extern mallocPool ffe_file_pool_;
 extern mallocPool ffe_any_unit_pool_;
 extern mallocPool ffe_program_unit_pool_;
-extern ffeCounter ffe_count_0;
-extern ffeCounter ffe_count_1;
-extern ffeCounter ffe_count_2;
-extern ffeCounter ffe_count_3;
-extern ffeCounter ffe_count_4;
-extern bool ffe_in_0;
-extern bool ffe_in_1;
-extern bool ffe_in_2;
-extern bool ffe_in_3;
-extern bool ffe_in_4;
-
-/* Declare functions with prototypes. */
-
-int ffe_decode_option (int argc, char **argv);
-void ffe_file (ffewhereFile wf, FILE *f);
-void ffe_init_0 (void);
-void ffe_init_1 (void);
-void ffe_init_2 (void);
-void ffe_init_3 (void);
-void ffe_init_4 (void);
-void ffe_terminate_0 (void);
-void ffe_terminate_1 (void);
-void ffe_terminate_2 (void);
-void ffe_terminate_3 (void);
-void ffe_terminate_4 (void);
-
-/* Define macros. */
 
 #define ffe_case_intrin() ffe_case_intrin_
 #define ffe_case_match() ffe_case_match_
 #define ffe_case_source() ffe_case_source_
 #define ffe_case_symbol() ffe_case_symbol_
+int ffe_decode_option (int argc, char **argv);
+void ffe_file (ffewhereFile wf, FILE *f);
+void ffe_initialize (void);
 #define ffe_intrinsic_state_badu77() ffe_intrinsic_state_badu77_
 #define ffe_intrinsic_state_f2c() ffe_intrinsic_state_f2c_
 #define ffe_intrinsic_state_f90() ffe_intrinsic_state_f90_
@@ -261,6 +237,7 @@ void ffe_terminate_4 (void);
 #define ffe_set_is_zeros(f) (ffe_is_zeros_ = (f))
 #define ffe_set_fixed_line_length(l) (ffe_fixed_line_length_ = (l))
 #define ffe_state_max(s1,s2) ((s1) > (s2) ? (s1) : (s2))
+void ffe_terminate (void);
 
 /* End of #include file. */
 

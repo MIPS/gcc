@@ -19,7 +19,12 @@ along with GNU Fortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-/* No lexeme.  */
+/* No lexeme.  Used to flag end of buffer-full of lexemes,
+   and in that context is preceded in the buffer by no lexeme
+   other than NONE, EOS, or SEMI.  That makes coding the parser
+   much easier, as it needn't worry about running off the end of
+   the buffer during lookahead, as long as it focuses on a single
+   statement at a time.  */
 DEFLEX ('0', FFELEX_NONE)
 
 /* Beginning of Fortran statement.  Always ended by EOS, with no
@@ -50,7 +55,7 @@ DEFLEX ('&', FFELEX_AMPERSAND)
 
 /* Apostrophe.  Usually in pairs with intervening character
    constant, but not always -- VXT supports "READ(1'10) ...".  */
-DEFLEX ('\'', FFELEX_APOSTROPHE)
+DEFLEX ('\'', FFELEX_APOS)
 
 /* Left (open) parenthese.  */
 DEFLEX ('(', FFELEX_LPAREN)
@@ -126,5 +131,6 @@ DEFLEX_MULTI ('!', FFELEX_COMMENT)
 
 /* Diagnostic lexemes:  */
 
-/* Something was wrong here.  */
-DEFLEX_DIAG ('b', FFELEX_something?)
+/* Invalid (non-printing) character seen.  */
+DEFLEX_DIAG (FFELEX_BADCHAR)
+

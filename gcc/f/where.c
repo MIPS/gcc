@@ -32,7 +32,7 @@ static ffewhereIncl ffewhere_last_incl_ = NULL;
 /* Obtain file object given name (and its length) of file.  */
 
 ffewhereFile
-ffewhere_file (char *name, size_t length)
+ffewhere_file_new (char *name, size_t length)
 {
   ffewhereFile wf;
 
@@ -64,11 +64,11 @@ ffewhere_file (char *name, size_t length)
 
 /* Obtain inclusion encapsulation for inclusion of a file corresponding
    to a given global line number, along with first line number (none
-   if have_num is FALSE).  */
+   if have_num is 0).  */
 
 ffewhereIncl
-ffewhere_incl (ffewhereFile wf, ffewhereLine global_line, bool have_num,
-	       ffewhereLine line_offset)
+ffewhere_incl_new (ffewhereFile wf, ffewhereLine global_line, int have_num,
+		   ffewhereLine line_offset)
 {
   ffewhereIncl incl;
 
@@ -136,16 +136,4 @@ ffewhere_incl_find (ffewhereLine wl)
 
   assert ("cannot find global line number in list of inclusions" == NULL);
   return NULL;
-}
-
-/* Lookup file object from line object, return line number.  */
-
-ffewhereLineNumber
-ffewhere_line_filelinenum (ffewhereLine wl)
-{
-  ffewhereLL_ ll;
-
-  assert (wl != NULL);
-  ll = ffewhere_ll_lookup_ (wl->line_num);
-  return wl->line_num + ll->offset - ll->line_no;
 }

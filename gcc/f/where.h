@@ -25,8 +25,6 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "glimits.j"
 #include "top.h"
 
-#define FFEWHERE_nameUNKNOWN ("(input file)")
-
 /* Line number within all the source code read (in order)
    during lexing.  Starts with 1 for first line.  */
 typedef unsigned long ffewhereLine;
@@ -55,7 +53,7 @@ struct _ffewhere_file_
   ffewhereFile ffewhere_file_prev_;
 
   /* Length of name of this file.  */
-  size_t ffewhere_file_length_;
+  size_t ffewhere_file_len_;
 
   /* Name of this file.  */
   char ffewhere_file_name_[1];
@@ -80,8 +78,8 @@ struct _ffewhere_incl_
 };
 
 /* Return a point encapsulation of global line and column numbers.  */
-static inline ffewherePt
-ffewhere_pt (ffewhereLine l, ffewhereCol c)
+extern inline ffewherePt
+ffewhere_pt_new (ffewhereLine l, ffewhereCol c)
 {
   if (l > FFEWHERE_lineMAX)
     l = FFEWHERE_lineMAX;
@@ -97,19 +95,19 @@ ffewhere_pt (ffewhereLine l, ffewhereCol c)
 #define ffewhere_col_pt(p) ((p) & UCHAR_MAX)
 
 /* Return a file encapsulation for a given file name/length.  */
-ffewhereFile ffewhere_file (char *name, size_t length);
+ffewhereFile ffewhere_file_new (char *name, size_t length);
 
 /* Return the file name given a file encapsulation.  */
-#define ffewhere_file_name(f) ((f)->ffewhere_file_text_)
+#define ffewhere_name_file(f) ((f)->ffewhere_file_name_)
 
 /* Return the length of the file name given a file encapsulation.  */
-#define ffewhere_file_namelen(f) ((f)->ffewhere_file_length_)
+#define ffewhere_len_file(f) ((f)->ffewhere_file_len_)
 
 /* Return an inclusion encapsulation given the file and global line
    number for the inclusion and, optionally, the line offset desired
    for within-file line numbers.  */
-ffewhereIncl ffewhere_incl (ffewhereFile wf, ffewhereLine global_line,
-			    bool have_num, ffewhereLine line_offset);
+ffewhereIncl ffewhere_incl_new (ffewhereFile wf, ffewhereLine global_line,
+				int have_num, ffewhereLine line_offset);
 
 /* Find inclusion encapsulation given a global line number.  */
 ffewhereIncl ffewhere_incl_find (ffewhereLine wl);

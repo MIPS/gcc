@@ -1,5 +1,5 @@
-/* proj.h file for Gnu Fortran
-   Copyright (C) 1995, 1996 Free Software Foundation, Inc.
+/* proj.h
+   Copyright (C) 1995, 1996, 1999 Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
@@ -17,9 +17,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GNU Fortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
-
-*/
+02111-1307, USA.  */
 
 #ifndef _H_f_proj
 #define _H_f_proj
@@ -31,8 +29,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #endif
 #include "system.j"
 
-#if !defined (__GNUC__) || (__GNUC__ < 2)
-#error "You have to use gcc 2.x to build g77 (might be fixed in g77-0.6)."
+#if ! defined (__STDC__)
+#error "You have to use an ANSI C compiler to build g77"
 #endif
 
 #ifndef BUILT_WITH_270
@@ -53,28 +51,15 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include <stddef.h>
 #endif
 
-/* Generally useful definitions. */
-
-typedef enum
-  {
-#if !defined(false) || !defined(true)
-    false = 0, true = 1,
-#endif
-#if !defined(FALSE) || !defined(TRUE)
-    FALSE = 0, TRUE = 1,
-#endif
-    Doggone_Trailing_Comma_Dont_Work = 1
-  } bool;
-
-#define ARRAY_SIZE(a) (sizeof(a)/sizeof(a[0]))
+#define ARRAY_SIZE(a) (sizeof((a))/sizeof((a)[0]))
 
 #ifndef UNUSED	/* Compile with -DUNUSED= if cc doesn't support this. */
 #if BUILT_WITH_270
 #define UNUSED __attribute__ ((unused))
-#else	/* !BUILT_WITH_270 */
+#else	/* ! BUILT_WITH_270 */
 #define UNUSED
-#endif	/* !BUILT_WITH_270 */
-#endif  /* !defined (UNUSED) */
+#endif	/* ! BUILT_WITH_270 */
+#endif  /* ! defined (UNUSED) */
 
 #ifndef dmpout
 #define dmpout stderr

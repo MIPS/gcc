@@ -1,5 +1,5 @@
-/* Implementation of Fortran lexer
-   Copyright (C) 1995-1998 Free Software Foundation, Inc.
+/* lex.c
+   Copyright (C) 1995-1999 Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
@@ -21,10 +21,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "proj.h"
 #include "top.h"
-#include "bad.h"
-#include "com.h"
 #include "lex.h"
-#include "malloc.h"
 #include "src.h"
 #if FFECOM_targetCURRENT == FFECOM_targetGCC
 #include "flags.j"
@@ -55,8 +52,7 @@ static void ffelex_finish_statement_ (void);
 static int ffelex_get_directive_line_ (char **text, FILE *finput);
 static int ffelex_hash_ (FILE *f);
 #endif
-static ffewhereColumnNumber ffelex_image_char_ (int c,
-						ffewhereColumnNumber col);
+static ffewhereCol ffelex_image_char_ (int c, ffewhereCol col);
 static void ffelex_include_ (void);
 static bool ffelex_is_free_char_ctx_contin_ (ffewhereColumnNumber col);
 static bool ffelex_is_free_nonc_ctx_contin_ (ffewhereColumnNumber col);
@@ -1426,110 +1422,6 @@ ffelex_hash_ (FILE *finput)
     ;
   return c;
 }
-#endif	/* FFECOM_targetCURRENT == FFECOM_targetGCC */
-
-/* "Image" a character onto the card image, return incremented column number.
-
-   Normally invoking this function as in
-     column = ffelex_image_char_ (c, column);
-   is the same as doing:
-     ffelex_card_image_[column++] = c;
-
-   However, tabs and carriage returns are handled specially, to preserve
-   the visual "image" of the input line (in most editors) in the card
-   image.
-
-   Carriage returns are ignored, as they are assumed to be followed
-   by newlines.
-
-   A tab is handled by first doing:
-     ffelex_card_image_[column++] = ' ';
-   That is, it translates to at least one space.  Then, as many spaces
-   are imaged as necessary to bring the column number to the next tab
-   position, where tab positions start in the ninth column and each
-   eighth column afterwards.  ALSO, a static var named ffelex_saw_tab_
-   is set to TRUE to notify the lexer that a tab was seen.
-
-   Columns are numbered and tab stops set as illustrated below:
-
-   012345670123456701234567...
-   x	   y	   z
-   xx	   yy	   zz
-   ...
-   xxxxxxx yyyyyyy zzzzzzz
-   xxxxxxxx	   yyyyyyyy...  */
-
-static ffewhereColumnNumber
-ffelex_image_char_ (int c, ffewhereColumnNumber column)
-{
-  ffewhereColumnNumber old_column = column;
-
-  if (column >= ffelex_card_size_)
-    {
-      ffewhereColumnNumber newmax = ffelex_card_size_ << 1;
-
-      if (ffelex_bad_line_)
-	return column;
-
-      if ((newmax >> 1) != ffelex_card_size_)
-	{			/* Overflowed column number. */
-	overflow:	/* :::::::::::::::::::: */
-
-	  ffelex_bad_line_ = TRUE;
-	  strcpy (&ffelex_card_image_[column - 3], "...");
-	  ffelex_card_length_ = column;
-	  ffelex_bad_1_ (FFEBAD_LINE_TOO_LONG,
-			 ffelex_linecount_current_, column + 1);
-	  return column;
-	}
-
-      ffelex_card_image_
-	= malloc_resize_ksr (malloc_pool_image (),
-			     ffelex_card_image_,
-			     newmax + 9,
-			     ffelex_card_size_ + 9);
-      ffelex_card_size_ = newmax;
-    }
-
-  switch (c)
-    {
-    case '\r':
-      break;
-
-    case '\t':
-      ffelex_saw_tab_ = TRUE;
-      ffelex_card_image_[column++] = ' ';
-      while ((column & 7) != 0)
-	ffelex_card_image_[column++] = ' ';
-      break;
-
-    case '\0':
-      if (!ffelex_bad_line_)
-	{
-	  ffelex_bad_line_ = TRUE;
-	  strcpy (&ffelex_card_image_[column], "[\\0]");
-	  ffelex_card_length_ = column + 4;
-	  ffebad_start_msg_lex ("Null character at %0 -- line ignored",
-				FFEBAD_severityFATAL);
-	  ffelex_bad_here_ (0, ffelex_linecount_current_, column + 1);
-	  ffebad_finish ();
-	  column += 4;
-	}
-      break;
-
-    default:
-      ffelex_card_image_[column++] = c;
-      break;
-    }
-
-  if (column < old_column)
-    {
-      column = old_column;
-      goto overflow;	/* :::::::::::::::::::: */
-    }
-
-  return column;
-}
 
 static void
 ffelex_include_ ()
@@ -1751,97 +1643,6 @@ ffelex_token_new_ ()
   return t;
 }
 
-static const char *
-ffelex_type_string_ (ffelexType type)
-{
-  static const char *types[] = {
-    "FFELEX_typeNONE",
-    "FFELEX_typeCOMMENT",
-    "FFELEX_typeEOS",
-    "FFELEX_typeEOF",
-    "FFELEX_typeERROR",
-    "FFELEX_typeRAW",
-    "FFELEX_typeQUOTE",
-    "FFELEX_typeDOLLAR",
-    "FFELEX_typeHASH",
-    "FFELEX_typePERCENT",
-    "FFELEX_typeAMPERSAND",
-    "FFELEX_typeAPOSTROPHE",
-    "FFELEX_typeOPEN_PAREN",
-    "FFELEX_typeCLOSE_PAREN",
-    "FFELEX_typeASTERISK",
-    "FFELEX_typePLUS",
-    "FFELEX_typeMINUS",
-    "FFELEX_typePERIOD",
-    "FFELEX_typeSLASH",
-    "FFELEX_typeNUMBER",
-    "FFELEX_typeOPEN_ANGLE",
-    "FFELEX_typeEQUALS",
-    "FFELEX_typeCLOSE_ANGLE",
-    "FFELEX_typeNAME",
-    "FFELEX_typeCOMMA",
-    "FFELEX_typePOWER",
-    "FFELEX_typeCONCAT",
-    "FFELEX_typeDEBUG",
-    "FFELEX_typeNAMES",
-    "FFELEX_typeHOLLERITH",
-    "FFELEX_typeCHARACTER",
-    "FFELEX_typeCOLON",
-    "FFELEX_typeSEMICOLON",
-    "FFELEX_typeUNDERSCORE",
-    "FFELEX_typeQUESTION",
-    "FFELEX_typeOPEN_ARRAY",
-    "FFELEX_typeCLOSE_ARRAY",
-    "FFELEX_typeCOLONCOLON",
-    "FFELEX_typeREL_LE",
-    "FFELEX_typeREL_NE",
-    "FFELEX_typeREL_EQ",
-    "FFELEX_typePOINTS",
-    "FFELEX_typeREL_GE"
-  };
-
-  if (type >= ARRAY_SIZE (types))
-    return "???";
-  return types[type];
-}
-
-void
-ffelex_display_token (ffelexToken t)
-{
-  if (t == NULL)
-    t = ffelex_token_;
-
-  fprintf (dmpout, "; Token #%lu is %s (line %" ffewhereLineNumber_f "u, col %"
-	   ffewhereColumnNumber_f "u)",
-	   t->id_,
-	   ffelex_type_string_ (t->type),
-	   ffewhere_line_number (t->where_line),
-	   ffewhere_column_number (t->where_col));
-
-  if (t->text != NULL)
-    fprintf (dmpout, ": \"%.*s\"\n",
-	     (int) t->length,
-	     t->text);
-  else
-    fprintf (dmpout, ".\n");
-}
-
-/* ffelex_expecting_character -- Tells if next token expected to be CHARACTER
-
-   if (ffelex_expecting_character())
-       // next token delivered by lexer will be CHARACTER.
-
-   If the most recent call to ffelex_set_expecting_hollerith since the last
-   token was delivered by the lexer passed a length of -1, then we return
-   TRUE, because the next token we deliver will be typeCHARACTER, else we
-   return FALSE.  */
-
-bool
-ffelex_expecting_character ()
-{
-  return (ffelex_raw_mode_ != 0);
-}
-
 /* ffelex_file_fixed -- Lex a given file in fixed source form
 
    ffewhere wf;
@@ -1850,24 +1651,23 @@ ffelex_expecting_character ()
 
    Lexes the file according to Fortran 90 ANSI + VXT specifications.  */
 
-ffelexHandler
-ffelex_file_fixed (ffewhereFile wf, FILE *f)
+void
+ffelex_run (ffewhereFile wf, FILE *f, int free_form, int is_vxt,
+	    int dollar_ok)
 {
-  register int c = 0;		/* Character currently under consideration. */
-  register ffewhereColumnNumber column = 0;	/* Not really; 0 means column 1... */
-  bool disallow_continuation_line;
-  bool ignore_disallowed_continuation = FALSE;
-  int latest_char_in_file = 0;	/* For getting back into comment-skipping
-				   code. */
+  register int c = 0;
+  register ffewhereCol column = 1;
+  int disallow_continuation_line = 1;
+  int ignore_disallowed_continuation = 0;
+  int latest_char_in_file = 0;
   ffelexType lextype;
-  ffewhereColumnNumber first_label_char;	/* First char of label --
-						   column number. */
-  char label_string[6];		/* Text of label. */
-  int labi;			/* Length of label text. */
-  bool finish_statement;	/* Previous statement finished? */
-  bool have_content;		/* This line have content? */
-  bool just_do_label;		/* Nothing but label (and continuation?) on
-				   line. */
+  ffewhereCol first_label_char;
+  char label_text[6];
+  int label_text_len;
+  bool finish_statement;
+  bool have_content;
+  bool just_do_label;
+  char dollar = dollar_ok ? '$' : 'A';
 
   /* Lex is called for a particular file, not for a particular program unit.
      Yet the two events do share common characteristics.  The first line in a
@@ -1875,61 +1675,42 @@ ffelex_file_fixed (ffewhereFile wf, FILE *f)
      be in mid-formation.  No current label for the statement exists, since
      there is no current statement. */
 
-  assert (ffelex_handler_ != NULL);
-
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
-  lineno = 0;
-  input_filename = ffewhere_file_name (wf);
-#endif
   ffelex_current_wf_ = wf;
   disallow_continuation_line = TRUE;
   ignore_disallowed_continuation = FALSE;
-  ffelex_token_->type = FFELEX_typeNONE;
   ffelex_number_of_tokens_ = 0;
   ffelex_label_tokens_ = 0;
-  ffelex_current_wl_ = ffewhere_line_unknown ();
-  ffelex_current_wc_ = ffewhere_column_unknown ();
+  ffelex_current_wl_ = ffewhere_line_none ();
+  ffelex_current_wc_ = ffewhere_col_none ();
   latest_char_in_file = '\n';
 
   if (ffe_is_null_version ())
     {
       /* Just substitute a "program" directly here.  */
 
+#if 1
+      assert ("-fversion not working yet" == NULL);
+#else
       char line[] = "      call g77__fvers;call g77__ivers;call g77__uvers;end";
       char *p;
 
-      column = 0;
+      column = 1;
       for (p = &line[0]; *p != '\0'; ++p)
 	column = ffelex_image_char_ (*p, column);
 
       c = EOF;
 
       goto have_line;		/* :::::::::::::::::::: */
+#endif
     }
 
   goto first_line;		/* :::::::::::::::::::: */
-
-  /* Come here to get a new line. */
 
  beginning_of_line:		/* :::::::::::::::::::: */
 
   disallow_continuation_line = FALSE;
 
-  /* Come here directly when last line didn't clarify the continuation issue. */
-
  beginning_of_line_again:	/* :::::::::::::::::::: */
-
-#ifdef REDUCE_CARD_SIZE_AFTER_BIGGY	/* Define if occasional large lines. */
-  if (ffelex_card_size_ != FFELEX_columnINITIAL_SIZE_)
-    {
-      ffelex_card_image_
-	= malloc_resize_ks (malloc_pool_image (),
-			    ffelex_card_image_,
-			    FFELEX_columnINITIAL_SIZE_ + 9,
-			    ffelex_card_size_ + 9);
-      ffelex_card_size_ = FFELEX_columnINITIAL_SIZE_;
-    }
-#endif
 
  first_line:			/* :::::::::::::::::::: */
 
@@ -2344,7 +2125,9 @@ ffelex_file_fixed (ffewhereFile wf, FILE *f)
   if (just_do_label)
     goto beginning_of_line;	/* :::::::::::::::::::: */
 
-  /* Here is the main engine for parsing.  c holds the character at column.
+  /* Here is the main engine for parsing.  c holds the character at column
+     wc.
+
      It is already known that c is not a blank, end of line, or shriek,
      unless ffelex_raw_mode_ is not 0 (indicating we are in a
      character/hollerith constant). A partially filled token may already
@@ -2354,16 +2137,16 @@ ffelex_file_fixed (ffewhereFile wf, FILE *f)
      continuation lines during this program unit in that case. This is
      according to ANSI. */
 
-  if (ffelex_raw_mode_ != 0)
+  if (raw)
     {
 
     parse_raw_character:	/* :::::::::::::::::::: */
 
-      if (c == '\0')
+      if (c == '\n')
 	{
-	  ffewhereColumnNumber i;
+	  ffewhereCol i;
 
-	  if (ffelex_saw_tab_ || (column >= ffelex_final_nontab_column_))
+	  if (column >= ffelex_final_nontab_column_)
 	    goto beginning_of_line;	/* :::::::::::::::::::: */
 
 	  /* Pad out line with "virtual" spaces. */
@@ -2452,331 +2235,87 @@ ffelex_file_fixed (ffewhereFile wf, FILE *f)
 
  parse_nonraw_character:	/* :::::::::::::::::::: */
 
-  switch (ffelex_token_->type)
+  switch (lexeme->type)
     {
     case FFELEX_typeNONE:
-      switch (c)
+      if ((c >= '0' && c <= '9' && (type = FFELEX_typeNUMBER))
+	  || (((c >= 'A' && c <= 'Z')
+	       || (c >= 'a' && c <= 'z'))
+	      && (type = FFELEX_typeNAME)))
 	{
-	case '\"':
-	  ffelex_token_->type = FFELEX_typeQUOTE;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  ffelex_send_token_ ();
-	  break;
+	  char *ptr;
 
-	case '$':
-	  ffelex_token_->type = FFELEX_typeDOLLAR;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  ffelex_send_token_ ();
-	  break;
-
-	case '%':
-	  ffelex_token_->type = FFELEX_typePERCENT;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  ffelex_send_token_ ();
-	  break;
-
-	case '&':
-	  ffelex_token_->type = FFELEX_typeAMPERSAND;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  ffelex_send_token_ ();
-	  break;
-
-	case '\'':
-	  ffelex_token_->type = FFELEX_typeAPOSTROPHE;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  ffelex_send_token_ ();
-	  break;
-
-	case '(':
-	  ffelex_token_->type = FFELEX_typeOPEN_PAREN;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  break;
-
-	case ')':
-	  ffelex_token_->type = FFELEX_typeCLOSE_PAREN;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  ffelex_send_token_ ();
-	  break;
-
-	case '*':
-	  ffelex_token_->type = FFELEX_typeASTERISK;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  break;
-
-	case '+':
-	  ffelex_token_->type = FFELEX_typePLUS;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  ffelex_send_token_ ();
-	  break;
-
-	case ',':
-	  ffelex_token_->type = FFELEX_typeCOMMA;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  ffelex_send_token_ ();
-	  break;
-
-	case '-':
-	  ffelex_token_->type = FFELEX_typeMINUS;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  ffelex_send_token_ ();
-	  break;
-
-	case '.':
-	  ffelex_token_->type = FFELEX_typePERIOD;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  ffelex_send_token_ ();
-	  break;
-
-	case '/':
-	  ffelex_token_->type = FFELEX_typeSLASH;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  break;
-
-	case '0':
-	case '1':
-	case '2':
-	case '3':
-	case '4':
-	case '5':
-	case '6':
-	case '7':
-	case '8':
-	case '9':
-	  ffelex_token_->type
-	    = ffelex_hexnum_ ? FFELEX_typeNAME : FFELEX_typeNUMBER;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  ffelex_append_to_token_ (c);
-	  break;
-
-	case ':':
-	  ffelex_token_->type = FFELEX_typeCOLON;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  break;
-
-	case ';':
-	  ffelex_token_->type = FFELEX_typeSEMICOLON;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  ffelex_permit_include_ = TRUE;
-	  ffelex_send_token_ ();
-	  ffelex_permit_include_ = FALSE;
-	  break;
-
-	case '<':
-	  ffelex_token_->type = FFELEX_typeOPEN_ANGLE;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  break;
-
-	case '=':
-	  ffelex_token_->type = FFELEX_typeEQUALS;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  break;
-
-	case '>':
-	  ffelex_token_->type = FFELEX_typeCLOSE_ANGLE;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  break;
-
-	case '?':
-	  ffelex_token_->type = FFELEX_typeQUESTION;
-	  ffelex_token_->where_line = ffewhere_line_use (ffelex_current_wl_);
-	  ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	  ffelex_send_token_ ();
-	  break;
-
-	case '_':
-	  if (1 || ffe_is_90 ())
+	  /* Begin multi-character lexeme.  Its type is already in `type'.  */
+	  if (! text)
 	    {
-	      ffelex_token_->type = FFELEX_typeUNDERSCORE;
-	      ffelex_token_->where_line
-		= ffewhere_line_use (ffelex_current_wl_);
-	      ffelex_token_->where_col
-		= ffewhere_column_new (column + 1);
-	      ffelex_send_token_ ();
-	      break;
+	      ~~~~Make room for more text.
 	    }
-	  /* Fall through. */
-	case 'A':
-	case 'B':
-	case 'C':
-	case 'D':
-	case 'E':
-	case 'F':
-	case 'G':
-	case 'H':
-	case 'I':
-	case 'J':
-	case 'K':
-	case 'L':
-	case 'M':
-	case 'N':
-	case 'O':
-	case 'P':
-	case 'Q':
-	case 'R':
-	case 'S':
-	case 'T':
-	case 'U':
-	case 'V':
-	case 'W':
-	case 'X':
-	case 'Y':
-	case 'Z':
-	case 'a':
-	case 'b':
-	case 'c':
-	case 'd':
-	case 'e':
-	case 'f':
-	case 'g':
-	case 'h':
-	case 'i':
-	case 'j':
-	case 'k':
-	case 'l':
-	case 'm':
-	case 'n':
-	case 'o':
-	case 'p':
-	case 'q':
-	case 'r':
-	case 's':
-	case 't':
-	case 'u':
-	case 'v':
-	case 'w':
-	case 'x':
-	case 'y':
-	case 'z':
-	  c = ffesrc_char_source (c);
+	  lexeme->u.text = text;
+	  lexeme->u.type = type;
+	  lexeme->spaced = spaced;
+	  ptr = &text->ffelex_text_p_[0];
 
-	  if (ffesrc_char_match_init (c, 'H', 'h')
-	      && ffelex_expecting_hollerith_ != 0)
+	  *ptr = (char) c;
+	  c = GETC ();
+	  while ((c >= '0' && c <= '9')
+		 || ((type == 'A')
+		     && ((c >= 'A' && c <= 'Z')
+			 || (c >= 'a' && c <= 'z')
+			 || (c == '_')
+			 || (c == dollar))))
 	    {
-	      ffelex_raw_mode_ = ffelex_expecting_hollerith_;
-	      ffelex_token_->type = FFELEX_typeHOLLERITH;
-	      ffelex_token_->where_line = ffelex_raw_where_line_;
-	      ffelex_token_->where_col = ffelex_raw_where_col_;
-	      ffelex_raw_where_line_ = ffewhere_line_unknown ();
-	      ffelex_raw_where_col_ = ffewhere_column_unknown ();
-	      c = ffelex_card_image_[++column];
-	      goto parse_raw_character;	/* :::::::::::::::::::: */
+	      *ptr = (char) c;
+	      ++wc;
+	      c = GETC ();
 	    }
-
-	  if (ffelex_names_)
-	    {
-	      ffelex_token_->where_line
-		= ffewhere_line_use (ffelex_token_->currentnames_line
-				     = ffewhere_line_use (ffelex_current_wl_));
-	      ffelex_token_->where_col
-		= ffewhere_column_use (ffelex_token_->currentnames_col
-				       = ffewhere_column_new (column + 1));
-	      ffelex_token_->type = FFELEX_typeNAMES;
-	    }
-	  else
-	    {
-	      ffelex_token_->where_line
-		= ffewhere_line_use (ffelex_current_wl_);
-	      ffelex_token_->where_col = ffewhere_column_new (column + 1);
-	      ffelex_token_->type = FFELEX_typeNAME;
-	    }
-	  ffelex_append_to_token_ (c);
-	  break;
-
-	default:
-	  ffelex_bad_1_ (FFEBAD_UNRECOGNIZED_CHARACTER,
-			 ffelex_linecount_current_, column + 1);
-	  ffelex_finish_statement_ ();
-	  disallow_continuation_line = TRUE;
-	  ignore_disallowed_continuation = TRUE;
-	  goto beginning_of_line_again;	/* :::::::::::::::::::: */
+	  if (c == ' ')
+	    ++wc;
+	  else if (c == '\t')
+	    ~~~~~
 	}
-      break;
+      else if (c == '!')
+	{
+	  /* Begin comment.  */
+	  spaced = 1;
+	  done = 1;
+	}
+      else if ((c == '\'')
+	       || (c == '\"' && ! ffe_is_vxt ()))
+	{
+	  /* APOS/QUOTE lexeme followed by character constant.  */
+	  lexeme->u.pt = ffewhere_pt_new (wl, wc);
+	  lexeme->type = c;
+	  lexeme->spaced = spaced;
+	  done = 1;
+	  raw = 1;
+	}
+      else if (c >= '\"' && c <= '~')
+	{
+	  /* Simple lexeme.  */
+	  lexeme->u.pt = ffewhere_pt_new (wl, wc);
+	  lexeme->type = c;
+	  lexeme->spaced = spaced;
+	  if (c == ';')
+	    done = 1;
+	}
+      else
+	{
+	  /* Bad character.  Diagnose.  */
+	  lexeme->u.pt = ffewhere_pt_new (wl, wc);
+	  lexeme->type = FFELEX_BADCHAR;
+	  lexeme=>spaced = spaced;
+	  done = 1;
+	} 
+      spaced = 0;
 
     case FFELEX_typeNAME:
       switch (c)
 	{
 	case 'A':
-	case 'B':
-	case 'C':
-	case 'D':
-	case 'E':
-	case 'F':
-	case 'G':
-	case 'H':
-	case 'I':
-	case 'J':
-	case 'K':
-	case 'L':
-	case 'M':
-	case 'N':
-	case 'O':
-	case 'P':
-	case 'Q':
-	case 'R':
-	case 'S':
-	case 'T':
-	case 'U':
-	case 'V':
-	case 'W':
-	case 'X':
-	case 'Y':
-	case 'Z':
-	case 'a':
-	case 'b':
-	case 'c':
-	case 'd':
-	case 'e':
-	case 'f':
-	case 'g':
-	case 'h':
-	case 'i':
-	case 'j':
-	case 'k':
-	case 'l':
-	case 'm':
-	case 'n':
-	case 'o':
-	case 'p':
-	case 'q':
-	case 'r':
-	case 's':
-	case 't':
-	case 'u':
-	case 'v':
-	case 'w':
-	case 'x':
-	case 'y':
 	case 'z':
 	  c = ffesrc_char_source (c);
 	  /* Fall through.  */
 	case '0':
-	case '1':
-	case '2':
-	case '3':
-	case '4':
-	case '5':
-	case '6':
-	case '7':
-	case '8':
 	case '9':
 	case '_':
 	case '$':
