@@ -1,3 +1,7 @@
+2003-11-13  Paul Brook  <paul@nowt.org>
+
+	* gfortran.fortran-torture/execute/module_interface.f90: New test.
+
 2003-11-13  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/20030808-1.c:Scan dce2 output rather than dom2
