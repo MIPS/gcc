@@ -77,70 +77,70 @@ static dominance_info pdom_info = NULL;
 static struct cfg_stats_d cfg_stats;
 
 /* Basic blocks and flowgraphs.  */
-static basic_block make_blocks		PARAMS ((tree *, tree, tree,
-						 basic_block));
-static void make_cond_expr_blocks	PARAMS ((tree *, tree, basic_block));
-static void make_catch_expr_blocks	PARAMS ((tree *, tree, basic_block));
-static void make_eh_filter_expr_blocks	PARAMS ((tree *, tree, basic_block));
-static void make_try_expr_blocks	PARAMS ((tree *, tree, basic_block));
-static void make_loop_expr_blocks	PARAMS ((tree *, basic_block));
-static void make_switch_expr_blocks	PARAMS ((tree *, tree, basic_block));
-static basic_block make_bind_expr_blocks PARAMS ((tree *, tree, basic_block,
-						  tree));
-static inline void add_stmt_to_bb	PARAMS ((tree *, basic_block, tree));
-static inline void append_stmt_to_bb	PARAMS ((tree *, basic_block, tree));
-static inline void set_parent_stmt	PARAMS ((tree *, tree));
+static basic_block make_blocks (tree *, tree, tree, basic_block);
+static void make_cond_expr_blocks (tree *, tree, basic_block);
+static void make_catch_expr_blocks (tree *, tree, basic_block);
+static void make_eh_filter_expr_blocks (tree *, tree, basic_block);
+static void make_try_expr_blocks (tree *, tree, basic_block);
+static void make_loop_expr_blocks (tree *, basic_block);
+static void make_switch_expr_blocks (tree *, tree, basic_block);
+static basic_block make_bind_expr_blocks (tree *, tree, basic_block, tree);
+static inline void add_stmt_to_bb (tree *, basic_block, tree);
+static inline void append_stmt_to_bb (tree *, basic_block, tree);
+static inline void set_parent_stmt (tree *, tree);
 
 /* Edges.  */
-static void make_edges			PARAMS ((void));
-static void make_ctrl_stmt_edges	PARAMS ((basic_block));
-static void make_exit_edges		PARAMS ((basic_block));
-static void make_loop_expr_edges	PARAMS ((basic_block));
-static void make_cond_expr_edges	PARAMS ((basic_block));
-static void make_goto_expr_edges	PARAMS ((basic_block));
-static void make_case_label_edges	PARAMS ((basic_block));
+static void make_edges (void);
+static void make_ctrl_stmt_edges (basic_block);
+static void make_exit_edges (basic_block);
+static void make_loop_expr_edges (basic_block);
+static void make_cond_expr_edges (basic_block);
+static void make_goto_expr_edges (basic_block);
+static void make_case_label_edges (basic_block);
 
 /* Various helpers.  */
-static basic_block successor_block	PARAMS ((basic_block));
-static basic_block first_exec_block	PARAMS ((tree *));
-static tree *first_exec_stmt		PARAMS ((tree *));
-static basic_block switch_parent	PARAMS ((basic_block));
-static inline bool stmt_starts_bb_p	PARAMS ((tree, tree));
-static inline bool stmt_ends_bb_p	PARAMS ((tree));
+static basic_block successor_block (basic_block);
+static basic_block first_exec_block (tree *);
+static tree *first_exec_stmt (tree *);
+static basic_block switch_parent (basic_block);
+static inline bool stmt_starts_bb_p (tree, tree);
+static inline bool stmt_ends_bb_p (tree);
 static void find_contained_blocks_and_edge_targets
-  PARAMS ((tree *, bitmap, bitmap, tree **));
-static void compute_reachable_eh	(tree stmt);
-static int could_trap_p			PARAMS ((tree));
+		(tree *, bitmap, bitmap, tree **);
+static void compute_reachable_eh (tree);
+static int could_trap_p (tree);
 
 /* Flowgraph optimization and cleanup.  */
-static void remove_unreachable_blocks	PARAMS ((void));
-static void remove_unreachable_block	PARAMS ((basic_block));
-static void remove_bb			PARAMS ((basic_block, int));
-static void remove_stmt			PARAMS ((tree *));
-static bool blocks_unreachable_p	PARAMS ((varray_type));
-static void remove_blocks		PARAMS ((varray_type));
-static varray_type find_subblocks	PARAMS ((basic_block));
-static bool is_parent			PARAMS ((basic_block, basic_block));
-static void cleanup_control_flow	PARAMS ((void));
-static void cleanup_cond_expr_graph	PARAMS ((basic_block));
-static void cleanup_switch_expr_graph	PARAMS ((basic_block));
-static void disconnect_unreachable_case_labels PARAMS ((basic_block));
-static edge find_taken_edge_cond_expr	PARAMS ((basic_block, tree));
-static edge find_taken_edge_switch_expr	PARAMS ((basic_block, tree));
-static bool value_matches_some_label	PARAMS ((edge, tree, edge *));
-static void linearize_control_structures	PARAMS ((void));
-static bool linearize_cond_expr		PARAMS ((tree *, basic_block));
-static void replace_stmt		PARAMS ((tree *, tree *));
-static void merge_tree_blocks		PARAMS ((basic_block, basic_block));
-static bool remap_stmts			PARAMS ((basic_block, basic_block, tree *));
-static tree *handle_switch_split	PARAMS ((basic_block, basic_block));
+static void remove_unreachable_blocks (void);
+static void remove_unreachable_block (basic_block);
+static void remove_bb (basic_block, int);
+static void remove_stmt (tree *);
+static bool blocks_unreachable_p (varray_type);
+static void remove_blocks (varray_type);
+static varray_type find_subblocks (basic_block);
+static bool is_parent (basic_block, basic_block);
+static void cleanup_control_flow (void);
+static void cleanup_cond_expr_graph (basic_block);
+static void cleanup_switch_expr_graph (basic_block);
+static void disconnect_unreachable_case_labels (basic_block);
+static edge find_taken_edge_cond_expr (basic_block, tree);
+static edge find_taken_edge_switch_expr (basic_block, tree);
+static bool value_matches_some_label (edge, tree, edge *);
+static void linearize_control_structures (void);
+static bool linearize_cond_expr (tree *, basic_block);
+static void replace_stmt (tree *, tree *);
+static void merge_tree_blocks (basic_block, basic_block);
+static bool remap_stmts (basic_block, basic_block, tree *);
+static tree *handle_switch_split (basic_block, basic_block);
 
 /* Block iterator helpers.  */
 
-static block_stmt_iterator bsi_init 	PARAMS ((tree *, basic_block));
-static inline void bsi_update_from_tsi	PARAMS (( block_stmt_iterator *, tree_stmt_iterator));
-static tree_stmt_iterator bsi_link_after	PARAMS ((tree_stmt_iterator *, tree, basic_block, tree));
-static block_stmt_iterator bsi_commit_first_edge_insert	PARAMS ((edge, tree));
+static block_stmt_iterator bsi_init (tree *, basic_block);
+static inline void bsi_update_from_tsi
+		(block_stmt_iterator *, tree_stmt_iterator);
+static tree_stmt_iterator bsi_link_after
+		(tree_stmt_iterator *, tree, basic_block, tree);
+static block_stmt_iterator bsi_commit_first_edge_insert (edge, tree);
 
 /* Values returned by location parameter of find_insert_location.  */
 
@@ -151,7 +151,8 @@ enum find_location_action {
   EDGE_INSERT_LOCATION_ELSE,
   EDGE_INSERT_LOCATION_NEW_ELSE };
 
-static tree_stmt_iterator find_insert_location	PARAMS ((basic_block, basic_block, basic_block, enum find_location_action *));
+static tree_stmt_iterator find_insert_location
+	(basic_block, basic_block, basic_block, enum find_location_action *);
 
 /* Location to track pending stmt for edge insertion.  */
 #define PENDING_STMT(e)	((tree)(e->insns))
@@ -197,8 +198,7 @@ static tree_stmt_iterator find_insert_location	PARAMS ((basic_block, basic_block
    function to process.  */
 
 void
-build_tree_cfg (fnbody)
-     tree fnbody;
+build_tree_cfg (tree fnbody)
 {
   tree *first_p;
 
@@ -301,11 +301,8 @@ build_tree_cfg (fnbody)
    more statements or not.  */
 
 static basic_block
-make_blocks (first_p, next_block_link, parent_stmt, bb)
-     tree *first_p;
-     tree next_block_link;
-     tree parent_stmt;
-     basic_block bb;
+make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
+	     basic_block bb)
 {
   tree_stmt_iterator i;
   tree stmt, last;
@@ -446,8 +443,7 @@ make_blocks (first_p, next_block_link, parent_stmt, bb)
    invalid pointer location.  */
 
 static int
-could_trap_p (expr)
-  tree expr;
+could_trap_p (tree expr)
 {
   return (TREE_CODE (expr) == INDIRECT_REF
 	  || (TREE_CODE (expr) == COMPONENT_REF
@@ -464,9 +460,7 @@ could_trap_p (expr)
    ENTRY is the block whose last statement is *LOOP_P.  */
 
 static void
-make_loop_expr_blocks (loop_p, entry)
-     tree *loop_p;
-     basic_block entry;
+make_loop_expr_blocks (tree *loop_p, basic_block entry)
 {
   tree_stmt_iterator si;
   tree loop = *loop_p;
@@ -514,10 +508,8 @@ make_loop_expr_blocks (loop_p, entry)
    ENTRY is the block whose last statement is *COND_P.  */
 
 static void
-make_cond_expr_blocks (cond_p, next_block_link, entry)
-     tree *cond_p;
-     tree next_block_link;
-     basic_block entry;
+make_cond_expr_blocks (tree *cond_p, tree next_block_link,
+		       basic_block entry)
 {
   tree_stmt_iterator si;
   tree cond = *cond_p;
@@ -543,10 +535,8 @@ make_cond_expr_blocks (cond_p, next_block_link, entry)
    pointed by expr_p.  */
 
 static void
-make_try_expr_blocks (expr_p, next_block_link, entry)
-     tree *expr_p;
-     tree next_block_link;
-     basic_block entry;
+make_try_expr_blocks (tree *expr_p, tree next_block_link,
+		      basic_block entry)
 {
   tree_stmt_iterator si;
   tree expr = *expr_p;
@@ -583,10 +573,8 @@ make_try_expr_blocks (expr_p, next_block_link, entry)
 /* Create the blocks for the CATCH_EXPR node pointed to by expr_p.  */
 
 static void
-make_catch_expr_blocks (expr_p, next_block_link, entry)
-     tree *expr_p;
-     tree next_block_link;
-     basic_block entry;
+make_catch_expr_blocks (tree *expr_p, tree next_block_link,
+			basic_block entry)
 {
   tree_stmt_iterator si;
   tree expr = *expr_p;
@@ -610,10 +598,8 @@ make_catch_expr_blocks (expr_p, next_block_link, entry)
 /* Create the blocks for the EH_FILTER_EXPR node pointed to by expr_p.  */
 
 static void
-make_eh_filter_expr_blocks (expr_p, next_block_link, entry)
-     tree *expr_p;
-     tree next_block_link;
-     basic_block entry;
+make_eh_filter_expr_blocks (tree *expr_p, tree next_block_link,
+			    basic_block entry)
 {
   tree_stmt_iterator si;
   tree expr = *expr_p;
@@ -645,10 +631,8 @@ make_eh_filter_expr_blocks (expr_p, next_block_link, entry)
    ENTRY is the block whose last statement is *SWITCH_E_P.  */
 
 static void
-make_switch_expr_blocks (switch_e_p, next_block_link, entry)
-     tree *switch_e_p;
-     tree next_block_link;
-     basic_block entry;
+make_switch_expr_blocks (tree *switch_e_p, tree next_block_link,
+			 basic_block entry)
 {
   tree_stmt_iterator si;
   tree switch_e = *switch_e_p;
@@ -688,11 +672,8 @@ make_switch_expr_blocks (switch_e_p, next_block_link, entry)
    not.  */
 
 static basic_block
-make_bind_expr_blocks (bind_p, next_block_link, entry, parent_stmt)
-     tree *bind_p;
-     tree next_block_link;
-     basic_block entry;
-     tree parent_stmt;
+make_bind_expr_blocks (tree *bind_p, tree next_block_link,
+		       basic_block entry, tree parent_stmt)
 {
   tree_stmt_iterator si;
   tree bind = *bind_p;
@@ -724,9 +705,7 @@ make_bind_expr_blocks (bind_p, next_block_link, entry, parent_stmt)
    pointed by STMT_P.  */
 
 static inline void
-set_parent_stmt (stmt_p, parent_stmt)
-     tree *stmt_p;
-     tree parent_stmt;
+set_parent_stmt (tree *stmt_p, tree parent_stmt)
 {
   tree t;
 
@@ -748,10 +727,7 @@ set_parent_stmt (stmt_p, parent_stmt)
    first statement in the block.  */
 
 static inline void
-add_stmt_to_bb (stmt_p, bb, parent)
-     tree *stmt_p;
-     basic_block bb;
-     tree parent;
+add_stmt_to_bb (tree *stmt_p, basic_block bb, tree parent)
 {
   set_bb_for_stmt (*stmt_p, bb);
 
@@ -768,10 +744,7 @@ add_stmt_to_bb (stmt_p, bb, parent)
    control structure holding *STMT_P.  */
 
 static inline void
-append_stmt_to_bb (stmt_p, bb, parent)
-     tree *stmt_p;
-     basic_block bb;
-     tree parent;
+append_stmt_to_bb (tree *stmt_p, basic_block bb, tree parent)
 {
   add_stmt_to_bb (stmt_p, bb, parent);
 
@@ -786,7 +759,7 @@ append_stmt_to_bb (stmt_p, bb, parent)
 /* Create and return a new basic block.  */
 
 basic_block
-create_bb ()
+create_bb (void)
 {
   basic_block bb;
 
@@ -828,7 +801,7 @@ varray_type try_finallys;
 /* Join all the blocks in the flowgraph.  */
 
 static void
-make_edges ()
+make_edges (void)
 {
   basic_block bb;
   unsigned int i;
@@ -970,11 +943,8 @@ make_edges ()
    last statement processed in *last_p.  */
 
 static void
-find_contained_blocks_and_edge_targets (stmt_p, my_blocks, my_targets, last_p)
-     tree *stmt_p;
-     bitmap my_blocks;
-     bitmap my_targets;
-     tree **last_p;
+find_contained_blocks_and_edge_targets (tree *stmt_p, bitmap my_blocks,
+					bitmap my_targets, tree **last_p)
 {
   tree_stmt_iterator tsi;
 
@@ -1081,8 +1051,7 @@ find_contained_blocks_and_edge_targets (stmt_p, my_blocks, my_targets, last_p)
 /* Create edges for control statement at basic block BB.  */
 
 static void
-make_ctrl_stmt_edges (bb)
-     basic_block bb;
+make_ctrl_stmt_edges (basic_block bb)
 {
   tree last = last_stmt (bb);
 
@@ -1151,8 +1120,7 @@ make_ctrl_stmt_edges (bb)
    and calls to non-returning functions.  */
 
 static void
-make_exit_edges (bb)
-     basic_block bb;
+make_exit_edges (basic_block bb)
 {
   tree last = last_stmt (bb);
 
@@ -1272,8 +1240,7 @@ make_exit_edges (bb)
              LOOP_EXPR_BODY  */
 
 static void
-make_loop_expr_edges (bb)
-     basic_block bb;
+make_loop_expr_edges (basic_block bb)
 {
   tree entry = last_stmt (bb);
   basic_block body_bb;
@@ -1301,8 +1268,7 @@ make_loop_expr_edges (bb)
    Either clause may be empty.  */
 
 static void
-make_cond_expr_edges (bb)
-     basic_block bb;
+make_cond_expr_edges (basic_block bb)
 {
   tree entry = last_stmt (bb);
   basic_block successor_bb, then_bb, else_bb;
@@ -1333,8 +1299,7 @@ make_cond_expr_edges (bb)
 /* Create edges for a goto statement at block BB.  */
 
 static void
-make_goto_expr_edges (bb)
-     basic_block bb;
+make_goto_expr_edges (basic_block bb)
 {
   tree goto_t, dest;
   basic_block target_bb;
@@ -1404,8 +1369,7 @@ make_goto_expr_edges (bb)
    associated SWITCH_EXPR node.  */
 
 static void
-make_case_label_edges (bb)
-     basic_block bb;
+make_case_label_edges (basic_block bb)
 {
   basic_block switch_bb = switch_parent (bb);
 
@@ -1426,7 +1390,7 @@ make_case_label_edges (bb)
 /* Remove unreachable blocks and other miscellaneous clean up work.  */
 
 void
-cleanup_tree_cfg ()
+cleanup_tree_cfg (void)
 {
   timevar_push (TV_TREE_CLEANUP_CFG);
   pdom_info = NULL;
@@ -1461,8 +1425,7 @@ cleanup_tree_cfg ()
    to ensure we eliminate all the useless code.  */
   
 int
-remove_useless_stmts_and_vars (first_p)
-     tree *first_p;
+remove_useless_stmts_and_vars (tree *first_p)
 {
   tree_stmt_iterator i;
   int repeat = 0;
@@ -1641,7 +1604,7 @@ remove_useless_stmts_and_vars (first_p)
 /* Delete all unreachable basic blocks.   */
 
 static void
-remove_unreachable_blocks ()
+remove_unreachable_blocks (void)
 {
   int i, n;
 
@@ -1668,8 +1631,7 @@ remove_unreachable_blocks ()
 /* Helper for remove_unreachable_blocks.  */
 
 static void
-remove_unreachable_block (bb)
-     basic_block bb;
+remove_unreachable_block (basic_block bb)
 {
   varray_type subblocks;
 
@@ -1717,9 +1679,7 @@ remove_unreachable_block (bb)
    compound structure are also removed.  */
 
 static void
-remove_bb (bb, remove_stmts)
-     basic_block bb;
-     int remove_stmts;
+remove_bb (basic_block bb, int remove_stmts)
 {
   block_stmt_iterator i;
   int already_warned;
@@ -1796,8 +1756,7 @@ remove_bb (bb, remove_stmts)
 /* Remove all the blocks in BB_ARRAY.  */
 
 static void
-remove_blocks (bb_array)
-     varray_type bb_array;
+remove_blocks (varray_type bb_array)
 {
   size_t i;
 
@@ -1812,8 +1771,7 @@ remove_blocks (bb_array)
 /* Return true if all the blocks in BB_ARRAY are unreachable.  */
 
 static bool
-blocks_unreachable_p (bb_array)
-     varray_type bb_array;
+blocks_unreachable_p (varray_type bb_array)
 {
   size_t i;
 
@@ -1832,8 +1790,7 @@ blocks_unreachable_p (bb_array)
    structure starting at block BB.  */
 
 static varray_type
-find_subblocks (bb)
-     basic_block bb;
+find_subblocks (basic_block bb)
 {
   varray_type subblocks;
   basic_block child_bb;
@@ -1874,9 +1831,7 @@ find_subblocks (bb)
    is not contained in 1's compound structure.  */
 
 static bool
-is_parent (bb, child_bb)
-     basic_block bb;
-     basic_block child_bb;
+is_parent (basic_block bb, basic_block child_bb)
 {
   basic_block parent;
 
@@ -1901,8 +1856,7 @@ is_parent (bb, child_bb)
     function.  */
 
 void
-bsi_remove (i)
-     block_stmt_iterator *i;
+bsi_remove (block_stmt_iterator *i)
 {
   tree t = *(i->tp);
 
@@ -1928,9 +1882,7 @@ bsi_remove (i)
    a COMPOUND_EXPR node, only a simple stmt.  */
 
 void
-bsi_replace (bsi, stmt)
-     block_stmt_iterator bsi;
-     tree stmt;
+bsi_replace (block_stmt_iterator bsi, tree stmt)
 {
   if (TREE_CODE (stmt) == COMPOUND_EXPR)
     abort ();
@@ -1949,8 +1901,7 @@ bsi_replace (bsi, stmt)
    calling this function.  */
 
 static void
-remove_stmt (stmt_p)
-     tree *stmt_p;
+remove_stmt (tree *stmt_p)
 {
   varray_type vdefs;
   size_t i;
@@ -2017,7 +1968,7 @@ remove_stmt (stmt_p)
 /* Try to remove superfluous control structures.  */
 
 static void
-cleanup_control_flow ()
+cleanup_control_flow (void)
 {
   basic_block bb;
 
@@ -2044,8 +1995,7 @@ cleanup_control_flow ()
    disconnect the subgraph that contains the clause that is never executed.  */
 
 static void
-cleanup_cond_expr_graph (bb)
-     basic_block bb;
+cleanup_cond_expr_graph (basic_block bb)
 {
   tree cond_expr = last_stmt (bb);
   tree val;
@@ -2081,8 +2031,7 @@ cleanup_cond_expr_graph (bb)
    never be taken.  */
 
 static void
-cleanup_switch_expr_graph (switch_bb)
-     basic_block switch_bb;
+cleanup_switch_expr_graph (basic_block switch_bb)
 {
 #if defined ENABLE_CHECKING
   tree switch_expr = last_stmt (switch_bb);
@@ -2119,8 +2068,7 @@ cleanup_switch_expr_graph (switch_bb)
    condition, disconnect all the unreachable case labels.  */
 
 static void
-disconnect_unreachable_case_labels (bb)
-     basic_block bb;
+disconnect_unreachable_case_labels (basic_block bb)
 {
   edge taken_edge;
   tree switch_val;
@@ -2152,9 +2100,7 @@ disconnect_unreachable_case_labels (bb)
    NULL is returned.  */
 
 edge
-find_taken_edge (bb, val)
-     basic_block bb;
-     tree val;
+find_taken_edge (basic_block bb, tree val)
 {
   tree stmt;
 
@@ -2186,9 +2132,7 @@ find_taken_edge (bb, val)
    block.  Return NULL if either edge may be taken.  */
 
 static edge
-find_taken_edge_cond_expr (bb, val)
-     basic_block bb;
-     tree val;
+find_taken_edge_cond_expr (basic_block bb, tree val)
 {
   bool always_false;
   bool always_true;
@@ -2220,9 +2164,7 @@ find_taken_edge_cond_expr (bb, val)
    NULL if any edge may be taken.  */
 
 static edge
-find_taken_edge_switch_expr (bb, val)
-     basic_block bb;
-     tree val;
+find_taken_edge_switch_expr (basic_block bb, tree val)
 {
   edge e, default_edge;
 
@@ -2258,10 +2200,7 @@ find_taken_edge_switch_expr (bb, val)
    label is found to match VAL.  */
 
 static bool
-value_matches_some_label (dest_edge, val, default_edge_p)
-     edge dest_edge;
-     tree val;
-     edge *default_edge_p;
+value_matches_some_label (edge dest_edge, tree val, edge *default_edge_p)
 {
   basic_block dest_bb = dest_edge->dest;
   block_stmt_iterator i;
@@ -2294,7 +2233,7 @@ value_matches_some_label (dest_edge, val, default_edge_p)
 /* Convert control structures into linear code whenever possible.  */
 
 static void
-linearize_control_structures ()
+linearize_control_structures (void)
 {
   basic_block bb;
 
@@ -2383,9 +2322,7 @@ linearize_cond_expr (tree *entry_p, basic_block bb)
 /* Insert basic block NEW_BB before block BB.  */
 
 void
-insert_bb_before (new_bb, bb)
-     basic_block new_bb;
-     basic_block bb;
+insert_bb_before (basic_block new_bb, basic_block bb)
 {
   edge e;
 
@@ -2406,11 +2343,7 @@ insert_bb_before (new_bb, bb)
 /* Dump a basic block to a file.  */
 
 void
-dump_tree_bb (outf, prefix, bb, indent)
-     FILE *outf;
-     const char *prefix;
-     basic_block bb;
-     int indent;
+dump_tree_bb (FILE *outf, const char *prefix, basic_block bb, int indent)
 {
   edge e;
   char *s_indent;
@@ -2480,8 +2413,7 @@ dump_tree_bb (outf, prefix, bb, indent)
 /* Dump a basic block on stderr.  */
 
 void
-debug_tree_bb (bb)
-     basic_block bb;
+debug_tree_bb (basic_block bb)
 {
   dump_tree_bb (stderr, "", bb, 0);
 }
@@ -2493,8 +2425,7 @@ debug_tree_bb (bb)
    (see TDF_* in tree.h).  */
 
 void
-debug_tree_cfg (flags)
-     int flags;
+debug_tree_cfg (int flags)
 {
   dump_tree_cfg (stderr, flags);
 }
@@ -2506,9 +2437,7 @@ debug_tree_cfg (flags)
    tree.h).  */
 
 void
-dump_tree_cfg (file, flags)
-     FILE *file;
-     int flags;
+dump_tree_cfg (FILE *file, int flags)
 {
   basic_block bb;
 
@@ -2540,8 +2469,7 @@ dump_tree_cfg (file, flags)
 /* Dump CFG statistics on FILE.  */
 
 void
-dump_cfg_stats (file)
-     FILE *file;
+dump_cfg_stats (FILE *file)
 {
   static long max_num_merged_cases = 0;
   static long max_num_merged_labels = 0;
@@ -2613,7 +2541,7 @@ dump_cfg_stats (file)
 /* Dump CFG statistics on stderr.  */
 
 void
-debug_cfg_stats ()
+debug_cfg_stats (void)
 {
   dump_cfg_stats (stderr);
 }
@@ -2622,8 +2550,7 @@ debug_cfg_stats ()
 /* Dump the flowgraph to a .dot FILE.  */
 
 void
-tree_cfg2dot (file)
-     FILE *file;
+tree_cfg2dot (FILE *file)
 {
   edge e;
   basic_block bb;
@@ -2708,8 +2635,7 @@ tree_cfg2dot (file)
    nesting level 0, return the exit block.  */
 
 static basic_block
-successor_block (bb)
-     basic_block bb;
+successor_block (basic_block bb)
 {
   basic_block succ_bb;
   tree_stmt_iterator i;
@@ -2754,8 +2680,7 @@ successor_block (bb)
 /* Return true if T represents a control statement.  */
 
 bool
-is_ctrl_stmt (t)
-     tree t;
+is_ctrl_stmt (tree t)
 {
 #if defined ENABLE_CHECKING
   if (t == NULL)
@@ -2776,8 +2701,7 @@ is_ctrl_stmt (t)
    GOTO, RETURN or a call to a non-returning function.  */
 
 bool
-is_ctrl_altering_stmt (t)
-     tree t;
+is_ctrl_altering_stmt (tree t)
 {
   enum tree_code code;
 
@@ -2835,8 +2759,7 @@ is_ctrl_altering_stmt (t)
    rtl.h)  */
 
 int
-call_expr_flags (t)
-  tree t;
+call_expr_flags (tree t)
 {
   int flags;
   tree decl = get_callee_fndecl (t);
@@ -2856,8 +2779,7 @@ call_expr_flags (t)
 /* Return true if T represent a loop statement.  */
 
 bool
-is_loop_stmt (t)
-     tree t;
+is_loop_stmt (tree t)
 {
   return (TREE_CODE (t) == LOOP_EXPR);
 }
@@ -2866,8 +2788,7 @@ is_loop_stmt (t)
 /* Return true if T is a computed goto.  */
 
 bool
-is_computed_goto (t)
-     tree t;
+is_computed_goto (tree t)
 {
   return (TREE_CODE (t) == GOTO_EXPR
           && TREE_CODE (GOTO_DESTINATION (t)) != LABEL_DECL);
@@ -2881,9 +2802,7 @@ is_computed_goto (t)
    unnecessary basic blocks that only contain a single label.  */
 
 static inline bool
-stmt_starts_bb_p (t, prev_t)
-     tree t;
-     tree prev_t;
+stmt_starts_bb_p (tree t, tree prev_t)
 {
   enum tree_code code;
   
@@ -2917,8 +2836,7 @@ stmt_starts_bb_p (t, prev_t)
 /* Return true if T should end a basic block.  */
 
 static inline bool
-stmt_ends_bb_p (t)
-     tree t;
+stmt_ends_bb_p (tree t)
 {
   enum tree_code code = TREE_CODE (t);
 
@@ -2936,7 +2854,7 @@ stmt_ends_bb_p (t)
 /* Remove all the blocks and edges that make up the flowgraph.  */
 
 void
-delete_tree_cfg ()
+delete_tree_cfg (void)
 {
   if (n_basic_blocks > 0)
     free_aux_for_blocks ();
@@ -2950,8 +2868,7 @@ delete_tree_cfg ()
    one at the moment.  */
 
 basic_block
-is_latch_block_for (bb)
-     basic_block bb;
+is_latch_block_for (basic_block bb)
 {
   edge e;
 
@@ -2969,8 +2886,7 @@ is_latch_block_for (bb)
 /* Return a pointer to the first executable statement starting at ENTRY_P.  */
 
 static tree *
-first_exec_stmt (entry_p)
-     tree *entry_p;
+first_exec_stmt (tree *entry_p)
 {
   tree_stmt_iterator i;
   tree stmt;
@@ -2996,8 +2912,7 @@ first_exec_stmt (entry_p)
    at ENTRY_P.  */
 
 static basic_block
-first_exec_block (entry_p)
-     tree *entry_p;
+first_exec_block (tree *entry_p)
 {
   tree *exec_p;
 
@@ -3013,8 +2928,7 @@ first_exec_block (entry_p)
    BB.  Return NULL if BB is not inside a switch statement.  */
 
 static basic_block
-switch_parent (bb)
-     basic_block bb;
+switch_parent (basic_block bb)
 {
   tree parent = parent_stmt (last_stmt (bb));
 
@@ -3029,8 +2943,7 @@ switch_parent (bb)
    containers.  */
 
 tree
-first_stmt (bb)
-     basic_block bb;
+first_stmt (basic_block bb)
 {
   block_stmt_iterator i;
 
@@ -3046,8 +2959,7 @@ first_stmt (bb)
    no such statements.  */
 
 tree
-last_stmt (bb)
-     basic_block bb;
+last_stmt (basic_block bb)
 {
   block_stmt_iterator b;
   
@@ -3059,8 +2971,7 @@ last_stmt (bb)
 /* Return a pointer to the last statement in block BB.  */
 
 tree *
-last_stmt_ptr (bb)
-     basic_block bb;
+last_stmt_ptr (basic_block bb)
 {
   block_stmt_iterator last;
 
@@ -3076,9 +2987,7 @@ last_stmt_ptr (bb)
    set up the context chains properly. */
 
 static block_stmt_iterator
-bsi_init (tp, bb)
-     tree *tp;
-     basic_block bb;
+bsi_init (tree *tp, basic_block bb)
 {
   block_stmt_iterator i, bind;
   tree stmt;
@@ -3138,9 +3047,7 @@ bsi_init (tp, bb)
    empty statement nodes inside a basic block.  */
 
 void
-bsi_next_in_bb (i, bb)
-     block_stmt_iterator *i;
-     basic_block bb;
+bsi_next_in_bb (block_stmt_iterator *i, basic_block bb)
 {
   tree t, stmt = NULL_TREE;
   block_stmt_iterator bind;
@@ -3215,8 +3122,7 @@ bsi_next_in_bb (i, bb)
    NULL is returned if there are no such statements.  */
 
 block_stmt_iterator
-bsi_start (bb)
-     basic_block bb;
+bsi_start (basic_block bb)
 {
   block_stmt_iterator i;
   tree t;
@@ -3250,8 +3156,7 @@ bsi_start (bb)
    a basic block, if there is one.  */
 
 block_stmt_iterator
-bsi_last (bb)
-     basic_block bb;
+bsi_last (basic_block bb)
 {
   block_stmt_iterator b, tmp;
   
@@ -3278,8 +3183,7 @@ bsi_last (bb)
 /* Find the previous iterator value.  */
 
 void
-bsi_prev (i)
-     block_stmt_iterator *i;
+bsi_prev (block_stmt_iterator *i)
 {
   block_stmt_iterator bi, next;
 
@@ -3313,8 +3217,7 @@ bsi_prev (i)
    through the block until it finds the specified tsi stmt.  */
 
 block_stmt_iterator
-bsi_from_tsi (ti)
-     tree_stmt_iterator ti;
+bsi_from_tsi (tree_stmt_iterator ti)
 {
   basic_block bb;
   tree stmt;
@@ -3345,9 +3248,7 @@ bsi_from_tsi (ti)
    the insert routines which know what they are doing.  */
 
 static inline void
-bsi_update_from_tsi (bsi, tsi)
-     block_stmt_iterator *bsi;
-     tree_stmt_iterator tsi;
+bsi_update_from_tsi (block_stmt_iterator *bsi, tree_stmt_iterator tsi)
 {
   /* Pretty simple right now, but its better to have this in an interface 
      rather than exposed right in the insert routine.  */
@@ -3358,9 +3259,7 @@ bsi_update_from_tsi (bsi, tsi)
 /* Insert statement T into basic block BB.  */
 
 void
-set_bb_for_stmt (t, bb)
-     tree t;
-     basic_block bb;
+set_bb_for_stmt (tree t, basic_block bb)
 {
   stmt_ann_t ann;
 
@@ -3409,11 +3308,8 @@ set_bb_for_stmt (t, bb)
    which is updated to point to the new stmt.  */
 
 static tree_stmt_iterator
-bsi_link_after (this_tsi, t, curr_bb, parent)
-  tree_stmt_iterator *this_tsi;
-  tree t;
-  basic_block curr_bb;
-  tree parent;
+bsi_link_after (tree_stmt_iterator *this_tsi, tree t,
+		basic_block curr_bb, tree parent)
 {
   enum link_after_cases { NO_UPDATE, 
 			  END_OF_CHAIN, 
@@ -3504,10 +3400,8 @@ bsi_link_after (this_tsi, t, curr_bb, parent)
    statement.  (Which may have a different container, by the way.)  */
 
 void
-bsi_insert_after (curr_bsi, t, mode)
-     block_stmt_iterator *curr_bsi;
-     tree t;
-     enum bsi_iterator_update mode;
+bsi_insert_after (block_stmt_iterator *curr_bsi, tree t,
+		  enum bsi_iterator_update mode)
 {
   tree_stmt_iterator inserted_tsi, same_tsi;
   basic_block curr_bb;
@@ -3585,10 +3479,8 @@ bsi_insert_after (curr_bsi, t, mode)
    is updated to point to the new stmt, or left pointing to the original
    statement.  (Which will have a different container.)  */
 void
-bsi_insert_before (curr_bsi, t, mode)
-     block_stmt_iterator *curr_bsi;
-     tree t;
-     enum bsi_iterator_update mode;
+bsi_insert_before (block_stmt_iterator *curr_bsi, tree t,
+		   enum bsi_iterator_update mode)
 {
   tree_stmt_iterator inserted_tsi, same_tsi;
   basic_block curr_bb;
@@ -3703,9 +3595,7 @@ bsi_insert_before (curr_bsi, t, mode)
    BB_a will remain the DEST block.  */
 
 static tree *
-handle_switch_split (src, dest)
-     basic_block src;
-     basic_block dest;
+handle_switch_split (basic_block src, basic_block dest)
 {
   block_stmt_iterator bsi, tmp;
   tree_stmt_iterator tsi;
@@ -3820,11 +3710,8 @@ handle_switch_split (src, dest)
    to be used.  */
 
 static tree_stmt_iterator
-find_insert_location (src, dest, new_block, location)
-     basic_block src;
-     basic_block dest;
-     basic_block new_block;
-     enum find_location_action *location;
+find_insert_location (basic_block src, basic_block dest, basic_block new_block,
+		      enum find_location_action *location)
 {
   block_stmt_iterator bsi;
   tree *ret, stmt;
@@ -3892,9 +3779,7 @@ find_insert_location (src, dest, new_block, location)
    stmt is added to the new block.  An iterator to the new stmt is returned.  */
 
 static block_stmt_iterator 
-bsi_commit_first_edge_insert (e, stmt)
-     edge e;
-     tree stmt;
+bsi_commit_first_edge_insert (edge e, tree stmt)
 {
   basic_block src, dest, new_bb;
   block_stmt_iterator bsi, tmp;
@@ -4062,9 +3947,7 @@ bsi_commit_first_edge_insert (e, stmt)
    created.  */
 
 int
-bsi_commit_edge_inserts (update_annotations, new_blocks)
-     int update_annotations;
-     int *new_blocks;
+bsi_commit_edge_inserts (int update_annotations, int *new_blocks)
 {
   basic_block bb;
   block_stmt_iterator bsi, ret;
@@ -4113,9 +3996,7 @@ bsi_commit_edge_inserts (update_annotations, new_blocks)
    insertion is made until a call to bsi_commit_edge_inserts () is made.  */
 
 void
-bsi_insert_on_edge (e, stmt)
-     edge e;
-     tree stmt;
+bsi_insert_on_edge (edge e, tree stmt)
 {
   tree t;
   
@@ -4138,9 +4019,7 @@ bsi_insert_on_edge (e, stmt)
 
 /* Push another block_stmt_iterator onto the stack.  */
 void 
-push_bsi (list, bsi)
-     bsi_list_p *list;
-     block_stmt_iterator bsi;
+push_bsi (bsi_list_p *list, block_stmt_iterator bsi)
 {
   bsi_list_p tmp;
   if (*list == NULL)
@@ -4166,8 +4045,7 @@ push_bsi (list, bsi)
 
 /* Pop a block_stmt_iterator off the stack.  */
 block_stmt_iterator
-pop_bsi (list)
-     bsi_list_p *list;
+pop_bsi (bsi_list_p *list)
 {
   block_stmt_iterator bsi;
   bsi_list_p tmp;
@@ -4493,8 +4371,7 @@ compute_reachable_eh (tree stmt)
    Abort on abnormal edges.  */
 
 basic_block
-tree_split_edge (edge_in)
-     edge edge_in;
+tree_split_edge (edge edge_in)
 {
   basic_block new_bb, dest;
   
@@ -4514,6 +4391,6 @@ tree_split_edge (edge_in)
 /* Verifies that the flow information is ok.  */
 
 void 
-tree_verify_flow_info ()
+tree_verify_flow_info (void)
 {
 }

@@ -400,31 +400,30 @@ call_clobbered_var (i)
 			      Function prototypes
 ---------------------------------------------------------------------------*/
 /* In tree-cfg.c  */
-extern void build_tree_cfg		PARAMS ((tree));
-extern void delete_tree_cfg		PARAMS ((void));
-extern bool is_ctrl_stmt		PARAMS ((tree));
-extern bool is_ctrl_altering_stmt	PARAMS ((tree));
-extern bool is_loop_stmt		PARAMS ((tree));
-extern bool is_computed_goto		PARAMS ((tree));
-extern tree loop_body			PARAMS ((tree));
-extern void set_loop_body		PARAMS ((tree, tree));
-extern void dump_tree_bb		PARAMS ((FILE *, const char *,
-	                			 basic_block, int));
-extern void debug_tree_bb		PARAMS ((basic_block));
-extern void dump_tree_cfg		PARAMS ((FILE *, int));
-extern void debug_tree_cfg		PARAMS ((int));
-extern void dump_cfg_stats		PARAMS ((FILE *));
-extern void debug_cfg_stats		PARAMS ((void));
-extern void tree_cfg2dot		PARAMS ((FILE *));
-extern void insert_bb_before		PARAMS ((basic_block, basic_block));
-extern void cleanup_tree_cfg		PARAMS ((void));
-extern tree first_stmt			PARAMS ((basic_block));
-extern tree last_stmt			PARAMS ((basic_block));
-extern tree *last_stmt_ptr		PARAMS ((basic_block));
-extern basic_block is_latch_block_for	PARAMS ((basic_block));
-extern edge find_taken_edge		PARAMS ((basic_block, tree));
-extern int call_expr_flags		PARAMS ((tree));
-extern int remove_useless_stmts_and_vars PARAMS ((tree *));
+extern void build_tree_cfg (tree);
+extern void delete_tree_cfg (void);
+extern bool is_ctrl_stmt (tree);
+extern bool is_ctrl_altering_stmt (tree);
+extern bool is_loop_stmt (tree);
+extern bool is_computed_goto (tree);
+extern tree loop_body (tree);
+extern void set_loop_body (tree, tree);
+extern void dump_tree_bb (FILE *, const char *, basic_block, int);
+extern void debug_tree_bb (basic_block);
+extern void dump_tree_cfg (FILE *, int);
+extern void debug_tree_cfg (int);
+extern void dump_cfg_stats (FILE *);
+extern void debug_cfg_stats (void);
+extern void tree_cfg2dot (FILE *);
+extern void insert_bb_before (basic_block, basic_block);
+extern void cleanup_tree_cfg (void);
+extern tree first_stmt (basic_block);
+extern tree last_stmt (basic_block);
+extern tree *last_stmt_ptr (basic_block);
+extern basic_block is_latch_block_for (basic_block);
+extern edge find_taken_edge (basic_block, tree);
+extern int call_expr_flags (tree);
+extern int remove_useless_stmts_and_vars (tree *);
 
 /* In tree-dfa.c  */
 extern void get_stmt_operands		PARAMS ((tree));

@@ -391,7 +391,7 @@ extern void dump_edge_info		PARAMS ((FILE *, edge, int));
 extern void clear_edges			PARAMS ((void));
 extern void mark_critical_edges		PARAMS ((void));
 extern rtx first_insn_after_basic_block_note	PARAMS ((basic_block));
-extern basic_block create_bb		        PARAMS ((void));
+extern basic_block create_bb (void);
 
 /* Dominator information for basic blocks.  */
 

@@ -1,3 +1,8 @@
+2003-06-09  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* basic-block.h, tree-cfg.c, tree-flow.h: Convert function
+	prototypes to ISO C.
+
 2003-06-09  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-cfg.c (bsi_commit_edge_inserts): Fix computation of
