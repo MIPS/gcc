@@ -3958,127 +3958,103 @@ move\\t%0,%z4\\n\\
   [(set_attr "type"	"fcvt")
    (set_attr "mode"	"SF")])
 
+;; Integer truncation patterns.  Truncating SImode values to smaller
+;; modes is a no-op, as it is for most other GCC ports.  Truncating
+;; DImode values to SImode is not a no-op for TARGET_64BIT since we
+;; need to make sure that the lower 32 bits are properly sign-extended
+;; (see TRULY_NOOP_TRUNCATION).  Truncating DImode values into modes
+;; smaller than SImode is equivalent to two separate truncations:
+;;
+;;                        A       B
+;;    DI ---> HI  ==  DI ---> SI ---> HI
+;;    DI ---> QI  ==  DI ---> SI ---> QI
+;;
+;; Step A needs a real instruction but step B does not.
+
 (define_insn "truncdisi2"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-        (truncate:SI (match_operand:DI 1 "register_operand" "d")))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=d,m")
+        (truncate:SI (match_operand:DI 1 "register_operand" "d,d")))]
   "TARGET_64BIT"
-  "*
-{
-  if (TARGET_MIPS16)
-    return \"dsll\\t%0,%1,32\;dsra\\t%0,32\";
-  return \"dsll\\t%0,%1,32\;dsra\\t%0,%0,32\";
-}"
-  [(set_attr "type"     "darith")
-   (set_attr "mode"     "SI")
-   (set (attr "length") (if_then_else (eq (symbol_ref "mips16") (const_int 0))
-                                      (const_int 8)
-                                      (const_int 16)))])
+  "@
+    sll\t%0,%1,0
+    sw\t%1,%0"
+  [(set_attr "type" "darith")
+   (set_attr "mode" "SI")])
 
 (define_insn "truncdihi2"
-  [(set (match_operand:HI 0 "register_operand" "=d")
-        (truncate:HI (match_operand:DI 1 "register_operand" "d")))]
+  [(set (match_operand:HI 0 "nonimmediate_operand" "=d,m")
+        (truncate:HI (match_operand:DI 1 "register_operand" "d,d")))]
   "TARGET_64BIT"
-  "*
-{
-  if (TARGET_MIPS16)
-    return \"dsll\\t%0,%1,48\;dsra\\t%0,48\";
-  return \"andi\\t%0,%1,0xffff\";
-}"
-  [(set_attr "type"     "darith")
-   (set_attr "mode"     "HI")
-   (set (attr "length") (if_then_else (eq (symbol_ref "mips16") (const_int 0))
-                                      (const_int 4)
-                                      (const_int 16)))])
+  "@
+    sll\t%0,%1,0
+    sh\t%1,%0"
+  [(set_attr "type" "darith")
+   (set_attr "mode" "SI")])
 
 (define_insn "truncdiqi2"
-  [(set (match_operand:QI 0 "register_operand" "=d")
-        (truncate:QI (match_operand:DI 1 "register_operand" "d")))]
+  [(set (match_operand:QI 0 "nonimmediate_operand" "=d,m")
+        (truncate:QI (match_operand:DI 1 "register_operand" "d,d")))]
   "TARGET_64BIT"
-  "*
-{
-  if (TARGET_MIPS16)
-    return \"dsll\\t%0,%1,56\;dsra\\t%0,56\";
-  return \"andi\\t%0,%1,0x00ff\";
-}"
-  [(set_attr "type"     "darith")
-   (set_attr "mode"     "QI")
-   (set (attr "length") (if_then_else (eq (symbol_ref "mips16") (const_int 0))
-                                      (const_int 4)
-                                      (const_int 16)))])
+  "@
+    sll\t%0,%1,0
+    sb\t%1,%0"
+  [(set_attr "type" "darith")
+   (set_attr "mode" "SI")])
 
 ;; Combiner patterns to optimize shift/truncate combinations.
+
 (define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=d")
         (truncate:SI (ashiftrt:DI (match_operand:DI 1 "register_operand" "d")
                                   (match_operand:DI 2 "small_int" "I"))))]
-  "TARGET_64BIT && !TARGET_MIPS16"
-  "*
-{
-  int shift_amt = INTVAL (operands[2]) & 0x3f;
-
-  if (shift_amt < 32)
-    {
-      operands[2] = GEN_INT (32 - shift_amt);
-      return \"dsll\\t%0,%1,%2\;dsra\\t%0,%0,32\";
-    }
-  else
-    {
-      operands[2] = GEN_INT (shift_amt);
-      return \"dsra\\t%0,%1,%2\";
-    }
-}"
-  [(set_attr "type"     "darith")
-   (set_attr "mode"     "SI")
-   (set_attr "length"   "8")])
+  "TARGET_64BIT && !TARGET_MIPS16 && INTVAL (operands[2]) >= 32"
+  "dsra\\t%0,%1,%2"
+  [(set_attr "type" "darith")
+   (set_attr "mode" "SI")])
 
 (define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=d")
         (truncate:SI (lshiftrt:DI (match_operand:DI 1 "register_operand" "d")
-                                  (match_operand:DI 2 "small_int" "I"))))]
+                                  (const_int 32))))]
   "TARGET_64BIT && !TARGET_MIPS16"
-  "*
-{
-  int shift_amt = INTVAL (operands[2]) & 0x3f;
+  "dsra\\t%0,%1,32"
+  [(set_attr "type" "darith")
+   (set_attr "mode" "SI")])
 
-  if (shift_amt < 32)
-    {
-      operands[2] = GEN_INT (32 - shift_amt);
-      return \"dsll\\t%0,%1,%2\;dsra\\t%0,%0,32\";
-    }
-  else if (shift_amt == 32)
-    return \"dsra\\t%0,%1,32\";
-  else
-    {
-      operands[2] = GEN_INT (shift_amt);
-      return \"dsrl\\t%0,%1,%2\";
-    }
-}"
-  [(set_attr "type"     "darith")
-   (set_attr "mode"     "SI")
-   (set_attr "length"   "8")])
 
-(define_insn ""
+;; Combiner patterns for truncate/sign_extend combinations.  They use
+;; the shift/truncate patterns above.
+
+(define_insn_and_split ""
   [(set (match_operand:SI 0 "register_operand" "=d")
-        (truncate:SI (ashift:DI (match_operand:DI 1 "register_operand" "d")
-                                (match_operand:DI 2 "small_int" "I"))))]
-  "TARGET_64BIT"
-  "*
-{
-  int shift_amt = INTVAL (operands[2]) & 0x3f;
+	(sign_extend:SI
+	    (truncate:HI (match_operand:DI 1 "register_operand" "d"))))]
+  "TARGET_64BIT && !TARGET_MIPS16"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 2)
+	(ashift:DI (match_dup 1)
+		   (const_int 48)))
+   (set (match_dup 0)
+	(truncate:SI (ashiftrt:DI (match_dup 2)
+				  (const_int 48))))]
+  { operands[2] = gen_lowpart (DImode, operands[0]); })
 
-  if (shift_amt < 32)
-    {
-      operands[2] = GEN_INT (32 + shift_amt);
-      if (TARGET_MIPS16)
-        return \"dsll\\t%0,%1,%2\;dsra\\t%0,32\";
-      return \"dsll\\t%0,%1,%2\;dsra\\t%0,%0,32\";
-    }
-  else
-    return \"move\\t%0,%.\";
-}"
-  [(set_attr "type"     "darith")
-   (set_attr "mode"     "SI")
-   (set_attr "length"   "8")])
+(define_insn_and_split ""
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(sign_extend:SI
+	    (truncate:QI (match_operand:DI 1 "register_operand" "d"))))]
+  "TARGET_64BIT && !TARGET_MIPS16"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 2)
+	(ashift:DI (match_dup 1)
+		   (const_int 56)))
+   (set (match_dup 0)
+	(truncate:SI (ashiftrt:DI (match_dup 2)
+				  (const_int 56))))]
+  { operands[2] = gen_lowpart (DImode, operands[0]); })
+
 
 ;; Combiner patterns to optimize truncate/zero_extend combinations.
 

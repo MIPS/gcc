@@ -1,3 +1,12 @@
+2003-03-18  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.md (truncdisi2): Add commentary.  Use sll instead
+	of a two-instruction sequence.  Add register->memory alternative.
+	(truncdihi2, truncdiqi2): Likewise.
+	Rework shift/truncate instructions so that they only handle right
+	shifts of 32 (or more, in the case of arithmetic shifts).
+	Add patterns for truncate/sign-extend.
+
 2003-03-13  Richard Sandiford  <rsandifo@redhat.com>
 
 	* configure.in (mips*-*-*): Check for explicit relocation support.
