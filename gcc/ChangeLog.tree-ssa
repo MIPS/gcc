@@ -1,3 +1,9 @@
+2004-03-30  Brian Booth  <bbooth@redhat.com>
+
+	* tree-pretty-print.c (dump_vops): Add flags argument and
+	propagate it to dump_generic_node calls.
+	(dump_generic_node): Update dump_vops call.
+
 2004-03-29  Diego Novillo  <dnovillo@redhat.com>
 
 	* configure.ac: Emit confirmation messages for libbanshee.
