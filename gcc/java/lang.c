@@ -180,6 +180,9 @@ int flag_optimize_sci = 1;
    in order to improve binary compatibility. */
 int flag_indirect_dispatch = 0;
 
+/* Don't attempt to verify invocations.  */
+int flag_verify_invocations = 0; 
+
 /* When zero, don't generate runtime array store checks. */
 int flag_store_check = 1;
 
@@ -1251,6 +1254,10 @@ java_get_callee_fndecl (tree call_expr)
   tree method, table, element, atable_methods;
 
   HOST_WIDE_INT index;
+
+  /* FIXME: This is disabled because we end up passing calls through
+     the PLT, and we do NOT want to do that.  */
+  return NULL;
 
   if (TREE_CODE (call_expr) != CALL_EXPR)
     return NULL;
