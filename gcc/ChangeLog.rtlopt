@@ -1,3 +1,19 @@
+Fri Feb 21 13:38:57 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* builtins.c (expand_builtin_expect):  Do not predict
+	flag_guess_branch_prob is not set.
+	* c-semantics.c (expand_stmt): Likewise.
+	* predict.c (predict_insn): Likewise.
+	* stmt.c (expand_continue_loop): Likewise.
+	* toplev.c (rest_of_compilation): Do not call
+	note_prediction_to_br_prob and note_prediction_to_br_prob
+	when not optimizing.
+
+	* basic-block.h (tidy_fallthru_edges): Kill.
+	* cfgrtl.c (tidy_fallthru_edges): Kill.
+	* cfgbuild.c (find_basic_blocks): Do not call tidy_fallthru_edges.
+	* cfgcleanup.c (delete_unreachable_blocks): Likewise.
+
 2003-02-21  Josef Zlomek  <zlomekj@suse.cz>
 
 	* config/i386/i386.md: Use gen_lowpart instead of gen_rtx_REG for

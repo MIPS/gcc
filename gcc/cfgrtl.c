@@ -1147,48 +1147,6 @@ tidy_fallthru_edge (e, b, c)
 
   e->flags |= EDGE_FALLTHRU;
 }
-
-/* Fix up edges that now fall through, or rather should now fall through
-   but previously required a jump around now deleted blocks.  Simplify
-   the search by only examining blocks numerically adjacent, since this
-   is how find_basic_blocks created them.  */
-
-void
-tidy_fallthru_edges ()
-{
-  basic_block b, c;
-
-  if (ENTRY_BLOCK_PTR->next_bb == EXIT_BLOCK_PTR)
-    return;
-
-  FOR_BB_BETWEEN (b, ENTRY_BLOCK_PTR->next_bb, EXIT_BLOCK_PTR->prev_bb, next_bb)
-    {
-      edge s;
-
-      c = b->next_bb;
-
-      /* We care about simple conditional or unconditional jumps with
-	 a single successor.
-
-	 If we had a conditional branch to the next instruction when
-	 find_basic_blocks was called, then there will only be one
-	 out edge for the block which ended with the conditional
-	 branch (since we do not create duplicate edges).
-
-	 Furthermore, the edge will be marked as a fallthru because we
-	 merge the flags for the duplicate edges.  So we do not want to
-	 check that the edge is not a FALLTHRU edge.  */
-
-      if ((s = b->succ) != NULL
-	  && ! (s->flags & EDGE_COMPLEX)
-	  && s->succ_next == NULL
-	  && s->dest == c
-	  /* If the jump insn has side effects, we can't tidy the edge.  */
-	  && (GET_CODE (b->end) != JUMP_INSN
-	      || onlyjump_p (b->end)))
-	tidy_fallthru_edge (s, b, c);
-    }
-}
 
 /* Helper function for split_edge.  Return true in case edge BB2 to BB1
    is back edge of syntactic loop.  */

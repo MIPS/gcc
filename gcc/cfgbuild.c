@@ -651,10 +651,6 @@ find_basic_blocks (f, nregs, file)
   /* Discover the edges of our cfg.  */
   make_edges (label_value_list, ENTRY_BLOCK_PTR->next_bb, EXIT_BLOCK_PTR->prev_bb, 0);
 
-  /* Do very simple cleanup now, for the benefit of code that runs between
-     here and cleanup_cfg, e.g. thread_prologue_and_epilogue_insns.  */
-  tidy_fallthru_edges ();
-
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif

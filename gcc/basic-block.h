@@ -365,7 +365,6 @@ extern void clear_bb_flags		PARAMS ((void));
 extern void merge_blocks_nomove		PARAMS ((basic_block, basic_block));
 extern void tidy_fallthru_edge		PARAMS ((edge, basic_block,
 						 basic_block));
-extern void tidy_fallthru_edges		PARAMS ((void));
 extern void flow_reverse_top_sort_order_compute	PARAMS ((int *));
 extern int flow_depth_first_order_compute	PARAMS ((int *, int *));
 extern void flow_preorder_transversal_compute	PARAMS ((int *));

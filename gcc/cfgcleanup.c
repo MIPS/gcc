@@ -1795,9 +1795,6 @@ delete_unreachable_blocks ()
 	  changed = true;
 	}
     }
-
-  if (changed)
-    tidy_fallthru_edges ();
   return changed;
 }
 
