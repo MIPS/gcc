@@ -609,9 +609,8 @@ cpp_read_state (r, name, f, data)
 
       if (defnlen < m.definition_length + 1)
 	{
-	  free (defn);
 	  defnlen = m.definition_length + 256;
-	  defn = xmalloc (m.definition_length);
+	  defn = xrealloc (defn, defnlen);
 	}
 
       if (fread (defn, 1, m.definition_length, f) != m.definition_length)

@@ -1,3 +1,7 @@
+2002-11-15  Geoffrey Keating  <geoffk@apple.com>
+
+	* cpppch.c (cpp_read_state): Correct size reallocated for 'defn'.
+
 2002-11-14  Geoffrey Keating  <geoffk@apple.com>
 
 	* optabs.h (code_to_optab): Add GTY marker.
