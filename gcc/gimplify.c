@@ -197,7 +197,10 @@ simplify_function_tree (fndecl)
   /* If there isn't an outer BIND_EXPR, add one.  */
   tmp = fnbody;
   if (TREE_CODE (tmp) != BIND_EXPR)
-    fnbody = build (BIND_EXPR, void_type_node, NULL_TREE, fnbody, NULL_TREE);
+    {
+      fnbody = build (BIND_EXPR, void_type_node, NULL_TREE, fnbody, NULL_TREE);
+      TREE_SIDE_EFFECTS (fnbody) = 1;
+    }
 
   DECL_SAVED_TREE (fndecl) = fnbody;
 

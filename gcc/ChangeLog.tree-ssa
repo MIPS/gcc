@@ -1,3 +1,8 @@
+2003-01-30  Jason Merrill  <jason@redhat.com>
+
+	* gimplify.c (simplify_function_tree): Set TREE_SIDE_EFFECTS on
+	the BIND_EXPR wrapper.
+
 2003-01-30  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (call_may_clobber): New function.
