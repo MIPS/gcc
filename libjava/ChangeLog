@@ -1,5 +1,9 @@
 2004-09-16  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/image/Raster.java (getNumBands): Implement.
+
+2004-09-16  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/image/Raster.java
 	(createPackedRaster(int,int,int,int,int,Point)): Implement for
 	bands>1.

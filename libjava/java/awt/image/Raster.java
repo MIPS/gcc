@@ -361,6 +361,11 @@ public class Raster
     return height;
   }
 
+  public final int getNumBands()
+  {
+    return numBands;
+  }
+    
   public final int getNumDataElements()
   {
     return numDataElements;
