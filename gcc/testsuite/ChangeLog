@@ -1,3 +1,6 @@
+2004-11-08  Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
+	* gcc.c-torture/execute/20041007-1.c: New 
+
 2004-10-22  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/18095
