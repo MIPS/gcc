@@ -538,6 +538,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
                   /* Return the @-sign verbatim.  */
                   *value = NULL;
                   tok = lasttok;
+		  type = tok->type;
                   break;
                 }
 	      /* APPLE LOCAL end CW asm blocks C++ */
@@ -560,6 +561,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
 	    /* Return the @-sign verbatim.  */
 	    *value = NULL;
 	    tok = lasttok;
+	    type = tok->type;
 	    break;
 	  }
        /* APPLE LOCAL end CW asm blocks C++ */
