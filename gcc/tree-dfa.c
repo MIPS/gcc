@@ -137,7 +137,7 @@ static void add_indirect_ref_var	PARAMS ((tree, struct walk_state *));
 static void compute_immediate_uses_for	PARAMS ((tree, int));
 static void add_may_alias		PARAMS ((tree, tree, tree, tree));
 static bool call_may_clobber		PARAMS ((tree));
-static int find_hidden_use_vars		PARAMS ((tree));
+static void find_hidden_use_vars	PARAMS ((tree));
 static tree find_hidden_use_vars_r	PARAMS ((tree *, int *, void *));
 
 
@@ -2525,17 +2525,13 @@ call_may_clobber (expr)
 
 /* Mark variables that have hidden uses.
 
-   A hidden use can occur due to VLA declarations or nested functions. 
+   A hidden use can occur due to VLA declarations or nested functions.   */
 
-   Return nonzero if we found a nested function at this block's
-   depth or in one of its children (recursively).  */
-
-static int
+static void
 find_hidden_use_vars (block)
     tree block;
 {
   tree sub, decl;
-  int found_nested_function = 0;
 
   /* Check all the arrays declared in the block for VLAs.
 
@@ -2545,30 +2541,18 @@ find_hidden_use_vars (block)
     {
       int inside_vla = 0;
 
-      /* Note if we saw a nested function.  */
-      if (TREE_CODE (decl) == FUNCTION_DECL)
-	found_nested_function = 1;
+      /* The front-ends nicely set DECL_NONLOCAL for us to mark 
+	 variables which are referenced inside nested functions.  */
+      if ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL)
+	  &&  DECL_NONLOCAL (decl))
+	set_has_hidden_use (decl);
 
       walk_tree (&decl, find_hidden_use_vars_r, &inside_vla, NULL);
     }
 
   /* Now repeat the search in any sub-blocks.  */
   for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
-    found_nested_function |= find_hidden_use_vars (sub);
-
-  /* If this scope or one of its children has a nested function,
-     then we have to mark all the variables at this block's scope
-     as having a hidden use and propagate that information up the
-     block scope tree.  */
-  if (found_nested_function)
-    {
-      for (decl = BLOCK_VARS (block); decl; decl = TREE_CHAIN (decl))
-        if (TREE_CODE (decl) == VAR_DECL)
-	  set_has_hidden_use (decl);
-      return 1;
-    }
-
-  return 0;
+    find_hidden_use_vars (sub);
 }
 
 /* Callback for walk_tree used by find_hidden_use_vars to analyze each 
