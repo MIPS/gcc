@@ -1007,7 +1007,16 @@ dump_c_node (buffer, node, spc, brief_dump)
       break;
 
     case LABEL_EXPR:
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      op0 = TREE_OPERAND (node, 0);
+      /* If this is for break or continue, don't bother printing it.  */
+      if (DECL_NAME (op0))
+	{
+	  const char *name = IDENTIFIER_POINTER (DECL_NAME (op0));
+	  if (strcmp (name, "break") == 0
+	      || strcmp (name, "continue") == 0)
+	    break;
+	}
+      dump_c_node (buffer, op0, spc, brief_dump);
       output_add_character (buffer, ':');
       output_add_character (buffer, ';');
       break;
@@ -1255,8 +1264,19 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case GOTO_EXPR:
     case GOTO_STMT:
+      op0 = GOTO_DESTINATION (node);
+      if (DECL_NAME (op0))
+	{
+	  const char *name = IDENTIFIER_POINTER (DECL_NAME (op0));
+	  if (strcmp (name, "break") == 0
+	      || strcmp (name, "continue") == 0)
+	    {
+	      output_add_string (buffer, name);
+	      break;
+	    }
+	}
       output_add_string (buffer, "goto ");
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_c_node (buffer, op0, spc, brief_dump);
       output_add_character (buffer, ';');
       break;
 

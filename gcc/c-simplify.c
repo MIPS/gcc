@@ -91,8 +91,6 @@ static void simplify_block	     PARAMS ((tree *, tree *));
 static tree simplify_c_loop	     PARAMS ((tree, tree, tree, int));
 static void push_context             PARAMS ((void));
 static void pop_context              PARAMS ((void));
-static tree begin_labeled_block      PARAMS ((tree));
-static tree finish_labeled_block     PARAMS ((tree, tree));
 static void simplify_break_or_continue	PARAMS ((tree *));
 
 /* Should move to tree-simple.c when the target language loses the C-isms.  */
@@ -115,26 +113,20 @@ static void simplify_return_expr     PARAMS ((tree, tree *));
 static tree build_addr_expr	     PARAMS ((tree));
 static tree add_stmt_to_compound	PARAMS ((tree, tree));
 
+typedef void foreach_stmt_fn PARAMS ((tree *));
+void foreach_stmt PARAMS ((tree *, foreach_stmt_fn *));
+
+static void wrap_with_wfl PARAMS ((tree *));
+void wrap_all_with_wfl PARAMS ((tree *, const char *, int));
+
+enum bc_t { bc_break = 0, bc_continue = 1 };
+static tree begin_bc_block PARAMS ((enum bc_t));
+static tree finish_bc_block PARAMS ((tree, tree));
+static tree build_bc_goto PARAMS ((enum bc_t));
 
 /* Local variables.  */
 static FILE *dump_file;
 static int dump_flags;
-
-struct c_simplify_ctx
-{
-  tree current_labeled_block;	    /* List of currently nested
-				       labeled blocks. */
-  tree continue_id;
-  tree break_id;
-} *ctxp;
-
-#define PUSH_LABELED_BLOCK(B)				\
-  {							\
-    TREE_CHAIN (B) = ctxp->current_labeled_block;	\
-    ctxp->current_labeled_block = (B);			\
-  }
-#define POP_LABELED_BLOCK() 						\
-  ctxp->current_labeled_block = TREE_CHAIN (ctxp->current_labeled_block)
 
 #define STRIP_WFL(NODE)					\
   do {							\
@@ -142,47 +134,30 @@ struct c_simplify_ctx
       NODE = EXPR_WFL_NODE (NODE);			\
   } while (0);
 
+struct c_simplify_ctx
+{
+  /* For handling break and continue.  */
+  tree current_bc_label;
+  tree bc_id[2];
+} *ctxp;
+
 static void
 push_context ()
 {
   if (ctxp)
     abort ();
   ctxp = (struct c_simplify_ctx *) xcalloc (1, sizeof (struct c_simplify_ctx));
-  ctxp->continue_id = get_identifier ("continue");
-  ctxp->break_id = get_identifier ("break");
+  ctxp->bc_id[bc_continue] = get_identifier ("continue");
+  ctxp->bc_id[bc_break] = get_identifier ("break");
 }
 
 static void
 pop_context ()
 {
-  if (!ctxp || ctxp->current_labeled_block)
+  if (!ctxp || ctxp->current_bc_label)
     abort ();
   free (ctxp);
   ctxp = NULL;
-}
-
-static tree
-begin_labeled_block (name)
-     tree name;
-{
-  tree label = build_decl (LABEL_DECL, name, NULL_TREE);
-  tree block = build (LABELED_BLOCK_EXPR, void_type_node, label, NULL_TREE);
-  TREE_SIDE_EFFECTS (block) = 1;
-  PUSH_LABELED_BLOCK (block);
-  return block;
-}
-
-static tree
-finish_labeled_block (block, body)
-     tree block, body;
-{
-  POP_LABELED_BLOCK ();
-  if (TREE_USED (block))
-    {
-      LABELED_BLOCK_BODY (block) = body;
-      body = block;
-    }
-  return body;
 }
 
 /* Simplification of statement trees.  */
@@ -272,12 +247,10 @@ simplify_stmt (stmt_p)
   return simplify_expr (stmt_p, NULL, NULL, is_simple_stmt, fb_rvalue);
 }
 
-typedef void (*foreach_stmt_fn) PARAMS ((tree *));
-
 void
 foreach_stmt (stmt_p, fn)
      tree *stmt_p;
-     foreach_stmt_fn fn;
+     foreach_stmt_fn *fn;
 {
   if (*stmt_p == NULL_TREE)
     return;
@@ -401,11 +374,11 @@ c_simplify_stmt (stmt_p)
 	  break;
 
 	case LABEL_STMT:
-	  stmt = build (LABEL_EXPR, void_type_node, LABEL_STMT_LABEL (stmt));
+	  stmt = build1 (LABEL_EXPR, void_type_node, LABEL_STMT_LABEL (stmt));
 	  break;
 
 	case GOTO_STMT:
-	  stmt = build (GOTO_EXPR, void_type_node, GOTO_DESTINATION (stmt));
+	  stmt = build1 (GOTO_EXPR, void_type_node, GOTO_DESTINATION (stmt));
 	  break;
 
 	case CASE_LABEL:
@@ -471,28 +444,6 @@ c_simplify_stmt (stmt_p)
     }
   add_tree (stmt, &outer_pre);
   *stmt_p = rationalize_compound_expr (outer_pre);
-}
-
-static void
-simplify_break_or_continue (stmt_p)
-     tree *stmt_p;
-{
-  tree stmt = *stmt_p;
-  tree labeled_block;
-  tree target_name;
-
-  if (TREE_CODE (stmt) == BREAK_STMT)
-    target_name = ctxp->break_id;
-  else
-    target_name = ctxp->continue_id;
-
-  for (labeled_block = ctxp->current_labeled_block; ;
-       labeled_block = TREE_CHAIN (labeled_block))
-    if (DECL_NAME (LABELED_BLOCK_LABEL (labeled_block)) == target_name)
-      break;
-
-  TREE_USED (labeled_block) = 1;
-  *stmt_p = build (EXIT_BLOCK_EXPR, void_type_node, labeled_block, NULL_TREE);
 }
 
 static void
@@ -572,6 +523,62 @@ simplify_expr_stmt (stmt_p)
 }
 
 static tree
+begin_bc_block (bc)
+     enum bc_t bc;
+{
+  tree label = build_decl (LABEL_DECL, ctxp->bc_id[bc], NULL_TREE);
+  TREE_CHAIN (label) = ctxp->current_bc_label;
+  ctxp->current_bc_label = label;
+  return label;
+}
+
+static tree
+finish_bc_block (label, body)
+     tree label, body;
+{
+  if (label != ctxp->current_bc_label)
+    abort ();
+
+  if (TREE_USED (label))
+    {
+      tree expr = build1 (LABEL_EXPR, void_type_node, label);
+      body = add_stmt_to_compound (body, expr);
+    }
+
+  ctxp->current_bc_label = TREE_CHAIN (label);
+  TREE_CHAIN (label) = NULL_TREE;
+  return body;
+}
+
+static tree
+build_bc_goto (bc)
+     enum bc_t bc;
+{
+  tree label;
+  tree target_name = ctxp->bc_id[bc];
+
+  for (label = ctxp->current_bc_label; ;
+       label = TREE_CHAIN (label))
+    if (DECL_NAME (label) == target_name)
+      break;
+
+  TREE_USED (label) = 1;
+  return build1 (GOTO_EXPR, void_type_node, label);
+}
+
+static void
+simplify_break_or_continue (stmt_p)
+     tree *stmt_p;
+{
+  enum bc_t bc;
+  if (TREE_CODE (*stmt_p) == BREAK_STMT)
+    bc = bc_break;
+  else
+    bc = bc_continue;
+  *stmt_p = build_bc_goto (bc);
+}
+
+static tree
 simplify_c_loop (cond, body, incr, cond_is_first)
      tree cond;
      tree body;
@@ -580,23 +587,28 @@ simplify_c_loop (cond, body, incr, cond_is_first)
 {
   tree exit, cont_block, break_block, loop;
 
-  break_block = begin_labeled_block (ctxp->break_id);
+  break_block = begin_bc_block (bc_break);
 
   loop = build (LOOP_EXPR, void_type_node, NULL_TREE);
 
   if (cond)
     {
+#if 0
       exit = build (EXIT_EXPR, void_type_node, cond);
       EXIT_EXPR_IS_LOOP_COND (exit) = 1;
+#else 
+      exit = build_bc_goto (bc_break);
+      exit = build (COND_EXPR, void_type_node, cond, empty_stmt_node, exit);
+#endif
     }
   else
     exit = NULL_TREE;
 
-  cont_block = begin_labeled_block (ctxp->continue_id);
+  cont_block = begin_bc_block (bc_continue);
 
   c_simplify_stmt (&body);
 
-  body = finish_labeled_block (cont_block, body);
+  body = finish_bc_block (cont_block, body);
 
   body = add_stmt_to_compound (body, incr);
   if (cond_is_first)
@@ -606,7 +618,7 @@ simplify_c_loop (cond, body, incr, cond_is_first)
 
   LOOP_EXPR_BODY (loop) = body;
 
-  loop = finish_labeled_block (break_block, loop);
+  loop = finish_bc_block (break_block, loop);
 
   return loop;
 }
@@ -792,14 +804,14 @@ simplify_switch_stmt (stmt_p)
   tree body = SWITCH_BODY (stmt);
   tree break_block, switch_;
 
-  break_block = begin_labeled_block (ctxp->break_id);
+  break_block = begin_bc_block (bc_break);
 
   c_simplify_stmt (&body);
 
   switch_ = build (SWITCH_EXPR, void_type_node, SWITCH_COND (stmt), body,
 		   NULL_TREE);
 
-  switch_ = finish_labeled_block (break_block, switch_);
+  switch_ = finish_bc_block (break_block, switch_);
 
   *stmt_p = switch_;
 }
