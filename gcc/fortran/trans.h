@@ -451,6 +451,11 @@ extern GTY(()) tree gfor_fndecl_adjustr;
 extern GTY(()) tree gfor_fndecl_size0;
 extern GTY(()) tree gfor_fndecl_size1;
 
+/* Implemented in FORTRAN.  */
+extern GTY(()) tree gfor_fndecl_si_kind;
+extern GTY(()) tree gfor_fndecl_sr_kind;
+
+
 /* True if node is an integer constant.  */
 #define INTEGER_CST_P(node) (TREE_CODE(node) == INTEGER_CST)
 

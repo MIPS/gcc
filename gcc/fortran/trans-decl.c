@@ -125,6 +125,11 @@ tree gfor_fndecl_adjustr;
 tree gfor_fndecl_size0;
 tree gfor_fndecl_size1;
 
+/* Intrinsic functions implemented in FORTRAN.  */
+tree gfor_fndecl_si_kind;
+tree gfor_fndecl_sr_kind;
+
+
 static void
 gfc_add_decl_to_parent_function (tree decl)
 {
@@ -1312,6 +1317,19 @@ gfc_build_intrinsic_function_decls (void)
 				     3,
 				     pchar_type_node,
 				     gfc_strlen_type_node, pchar_type_node);
+
+  gfor_fndecl_si_kind =
+    gfc_build_library_function_decl (get_identifier ("selected_int_kind"),
+                                     gfc_int4_type_node,
+                                     1,
+                                     pvoid_type_node);
+
+  gfor_fndecl_sr_kind =
+    gfc_build_library_function_decl (get_identifier ("selected_real_kind"),
+                                     gfc_int4_type_node,
+                                     2, pvoid_type_node,
+                                     pvoid_type_node);
+
 
   /* Power functions.  */
   gfor_fndecl_math_powf =

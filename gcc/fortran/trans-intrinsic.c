@@ -2900,6 +2900,47 @@ gfc_conv_intrinsic_rrspacing (gfc_se * se, gfc_expr * expr)
    se->expr = tmp;
 }
 
+/* Generate code for SELECTED_INT_KIND (R) intrinsic function.  */
+
+static void
+gfc_conv_intrinsic_si_kind (gfc_se * se, gfc_expr * expr)
+{
+  tree args;
+
+  args = gfc_conv_intrinsic_function_args (se, expr);
+  args = TREE_VALUE (args);
+  args = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (args)), args);
+  args = tree_cons (NULL_TREE, args, NULL_TREE);
+  se->expr = gfc_build_function_call (gfor_fndecl_si_kind, args);
+}
+
+/* Generate code for SELECTED_REAL_KIND (P, R) intrinsic function.  */
+
+static void
+gfc_conv_intrinsic_sr_kind (gfc_se * se, gfc_expr * expr)
+{
+  gfc_actual_arglist *actual;
+  tree args;
+  gfc_se argse;
+
+  args = NULL_TREE;
+  for (actual = expr->value.function.actual; actual; actual = actual->next)
+    {
+      gfc_init_se (&argse, se);
+
+      /* Pass a NULL pointer for an absent arg.  */
+      if (actual->expr == NULL)
+        argse.expr = null_pointer_node;
+      else
+        gfc_conv_expr_reference (&argse, actual->expr);
+
+      gfc_add_block_to_block (&se->pre, &argse.pre);
+      gfc_add_block_to_block (&se->post, &argse.post);
+      args = gfc_chainon_list (args, argse.expr);
+    }
+  se->expr = gfc_build_function_call (gfor_fndecl_sr_kind, args);
+}
+
 
 /* Generate code for an intrinsic function.  Some map directly to library
    calls, others get special handling.  In some cases the name of the function
@@ -2935,10 +2976,16 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
 
     case GFC_ISYM_CSHIFT:
     case GFC_ISYM_REPEAT:
-    case GFC_ISYM_SI_KIND:
-    case GFC_ISYM_SR_KIND:
     case GFC_ISYM_TRIM:
       gfc_todo_error ("Intrinsic %s", expr->value.function.name);
+
+    case GFC_ISYM_SI_KIND:
+      gfc_conv_intrinsic_si_kind (se, expr);
+      break;
+
+    case GFC_ISYM_SR_KIND:
+      gfc_conv_intrinsic_sr_kind (se, expr);
+      break;
 
     case GFC_ISYM_EXPONENT:
       gfc_conv_intrinsic_exponent (se, expr);

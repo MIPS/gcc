@@ -171,6 +171,7 @@ intrinsics/string_intrinsics.c \
 intrinsics/random.c \
 intrinsics/reshape_generic.c \
 intrinsics/reshape_packed.c \
+intrinsics/selected_kind.f90 \
 intrinsics/transpose_generic.c \
 intrinsics/unpack_generic.c \
 runtime/in_pack_generic.c \
@@ -541,8 +542,8 @@ am__objects_25 = backspace.lo close.lo endfile.lo format.lo inquire.lo \
 am__objects_26 = associated.lo abort.lo cpu_time.lo eoshift0.lo \
 	eoshift2.lo ishftc.lo pack_generic.lo size.lo spread_generic.lo \
 	string_intrinsics.lo random.lo reshape_generic.lo \
-	reshape_packed.lo transpose_generic.lo unpack_generic.lo \
-	in_pack_generic.lo in_unpack_generic.lo
+	reshape_packed.lo selected_kind.lo transpose_generic.lo \
+	unpack_generic.lo in_pack_generic.lo in_unpack_generic.lo
 am__objects_27 =
 am__objects_28 = _abs_r4.lo _abs_r8.lo _exp_r4.lo _exp_r8.lo _exp_c4.lo \
 	_exp_c8.lo _log_r4.lo _log_r8.lo _log_c4.lo _log_c8.lo \
@@ -5398,6 +5399,15 @@ hyp_c8.lo: generated/hyp_c8.c
 
 .f90.lo:
 	$(LTF77COMPILE) -c -o $@ `test -f '$<' || echo '$(srcdir)/'`$<
+
+selected_kind.o: intrinsics/selected_kind.f90
+	$(F77) $(AM_FFLAGS) $(FFLAGS) -c -o selected_kind.o `test -f 'intrinsics/selected_kind.f90' || echo '$(srcdir)/'`intrinsics/selected_kind.f90
+
+selected_kind.obj: intrinsics/selected_kind.f90
+	$(F77) $(AM_FFLAGS) $(FFLAGS) -c -o selected_kind.obj `if test -f 'intrinsics/selected_kind.f90'; then $(CYGPATH_W) 'intrinsics/selected_kind.f90'; else $(CYGPATH_W) '$(srcdir)/intrinsics/selected_kind.f90'; fi`
+
+selected_kind.lo: intrinsics/selected_kind.f90
+	$(LIBTOOL) --mode=compile $(F77) $(AM_FFLAGS) $(FFLAGS) -c -o selected_kind.lo `test -f 'intrinsics/selected_kind.f90' || echo '$(srcdir)/'`intrinsics/selected_kind.f90
 
 _abs_r4.o: generated/_abs_r4.f90
 	$(F77) $(AM_FFLAGS) $(FFLAGS) -c -o _abs_r4.o `test -f 'generated/_abs_r4.f90' || echo '$(srcdir)/'`generated/_abs_r4.f90

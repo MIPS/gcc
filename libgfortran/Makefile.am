@@ -43,6 +43,7 @@ intrinsics/string_intrinsics.c \
 intrinsics/random.c \
 intrinsics/reshape_generic.c \
 intrinsics/reshape_packed.c \
+intrinsics/selected_kind.f90 \
 intrinsics/transpose_generic.c \
 intrinsics/unpack_generic.c \
 runtime/in_pack_generic.c \

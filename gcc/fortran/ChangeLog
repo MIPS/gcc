@@ -1,3 +1,13 @@
+2003-09-20  Kejia Zhao  <kejia_zh@yahoo.com.cn>
+ 
+	* trans.h: Add declarations for gfor_fndecl_si_kind and
+	gfor_fndecl_sr_kind.
+	* trans-decl.c (g95_build_intrinsic_function_decls): Build them.
+	* trans-intrinsic.c (g95_conv_intrinsic_si_kind): New function.
+	(g95_conv_intrinsic_sr_kind): New function.
+	(g95_conv_intrinsic_function): Add SELECTED_INT_KIND and
+	SELECTED_REAL_KIND.
+
 2003-09-17  Lars Segerlund  <Lars.Segerlund@comsys.se>
 
 	* iresolve.c (gfc_resolve_random_number): Generate _r4 & _r8

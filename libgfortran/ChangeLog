@@ -1,3 +1,9 @@
+2003-09-20  Kejia Zhao  <kejia_zh@yahoo.com.cn>
+ 
+	* intrinsics/selected_kind.f90: New file.
+	* Makefile.am: Add it.
+	* Makefile.in: regenerate.
+
 2003-09-19  Lars Segerlund  <Lars.Segerlund@comsys.se>
 	Paul Brook  <paul@nowt.org>
 
@@ -25,10 +31,10 @@
 	* libgfortran.h (xtoa, itoa): Parameter modified.
 	* io/io.h (namelist_info): Declaration to support namelist I/O
 	(st_parameter): Add namelist related component
-        (ionml, empty_internal_buffer, st_set_nml_var_int, 
+	(ionml, empty_internal_buffer, st_set_nml_var_int, 
 	st_set_nml_var_float, st_set_nml_var_char, st_set_nml_var_complex,
 	st_set_nml_var_log): Declaration
-        (set_integer, set_integer): Parameter changed
+	(set_integer, set_integer): Parameter changed
 	* io/format.c (free_nodes): Fix annoying bug of lefting "deallocated"
 	 fnodes
 	(parse_format_list): Fix bug about FMT_SLASH
