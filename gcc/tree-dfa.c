@@ -2454,7 +2454,9 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
       for (op = TREE_OPERAND (t, 1); op; op = TREE_CHAIN (op))
 	{
 	  tree arg = TREE_VALUE (op);
-	  if (SSA_VAR_P (arg) && POINTER_TYPE_P (TREE_TYPE (arg)))
+	  if (SSA_VAR_P (arg)
+	      && POINTER_TYPE_P (TREE_TYPE (arg))
+	      && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (arg))))
 	    {
 	      walk_state->is_indirect_ref = 1;
 	      add_referenced_var (arg, walk_state);

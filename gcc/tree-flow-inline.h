@@ -528,6 +528,53 @@ is_unchanging_value (tree val)
 static inline bool
 may_propagate_copy (tree dest, tree orig)
 {
+  /* FIXME.  GIMPLE is allowing pointer assignments and comparisons of
+     pointers that have different alias sets.  This means that these
+     pointers will have different memory tags associated to them.
+     
+     If we allow copy propagation in these cases, statements de-referencing
+     the new pointer will now have a reference to a different memory tag
+     with potentially incorrect SSA information.
+
+     This was showing up in libjava/java/util/zip/ZipFile.java with code
+     like:
+
+     	struct java.io.BufferedInputStream *T.660;
+	struct java.io.BufferedInputStream *T.647;
+	struct java.io.InputStream *is;
+	struct java.io.InputStream *is.662;
+	[ ... ]
+	T.660 = T.647;
+	is = T.660;	<-- This ought to be type-casted
+	is.662 = is;
+
+     Also, f/name.c exposed a similar problem with a COND_EXPR predicate
+     that was causing DOM to generate and equivalence with two pointers of
+     alias-incompatible types:
+
+     	struct _ffename_space *n;
+	struct _ffename *ns;
+	[ ... ]
+	if (n == ns)
+	  goto lab;
+	...
+	lab:
+	return n;
+
+     I think that GIMPLE should emit the appropriate type-casts.  For the
+     time being, blocking copy-propagation in these cases is the safe thing
+     to do.  */
+  if (TREE_CODE (dest) == SSA_NAME
+      && TREE_CODE (orig) == SSA_NAME
+      && POINTER_TYPE_P (TREE_TYPE (dest))
+      && POINTER_TYPE_P (TREE_TYPE (orig)))
+    {
+      tree mt_dest = var_ann (SSA_NAME_VAR (dest))->mem_tag;
+      tree mt_orig = var_ann (SSA_NAME_VAR (orig))->mem_tag;
+      if (mt_dest && mt_orig && mt_dest != mt_orig)
+	return false;
+    }
+
   return (!SSA_NAME_OCCURS_IN_ABNORMAL_PHI (dest)
 	  && (TREE_CODE (orig) != SSA_NAME
 	      || !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig))

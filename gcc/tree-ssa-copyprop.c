@@ -223,8 +223,13 @@ propagate_copy (tree *op_p, tree var, tree scope)
     {
       var_ann_t new_ann = var_ann (SSA_NAME_VAR (var));
       var_ann_t orig_ann = var_ann (SSA_NAME_VAR (*op_p));
+
       if (new_ann->mem_tag == NULL_TREE)
 	new_ann->mem_tag = orig_ann->mem_tag;
+      else if (orig_ann->mem_tag == NULL_TREE)
+	orig_ann->mem_tag = new_ann->mem_tag;
+      else if (new_ann->mem_tag != orig_ann->mem_tag)
+	abort ();
     }
 
   *op_p = var;

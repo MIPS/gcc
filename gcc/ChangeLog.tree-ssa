@@ -1,3 +1,13 @@
+2003-09-17  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (find_vars_r): Do not consider 'void *' pointers as
+	dereferenced when scanning function call arguments.
+	* tree-flow-inline.h (may_propagate_copy): Block propagation of
+	pointers when they have different memory tags.
+	* tree-ssa-copyprop.c (propagate_copy): When copy propagating
+	pointers, abort if the two pointers don't have identical memory
+	tags.
+
 2003-09-16  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-ccp.c (visit_stmt): Do not set DONT_SIMULATE_AGAIN
