@@ -55,7 +55,7 @@ public class Utilities
   private static final int BUF_LENGTH = 64;
 
   /**
-   * Creates a new Utilities object.
+   * Creates a new <code>Utilities</code> object.
    */
   public Utilities()
   {
@@ -80,16 +80,8 @@ public class Utilities
                                          TabExpander e, int startOffset)
   {
     // This buffers the chars to be drawn.
-    char[] buffer = new char[BUF_LENGTH];
+    char[] buffer = s.array;
 
-    // The current index in the buffer.
-    int bufIndex = 0;
-
-    // Set the character iterator to startOffset.
-    s.setIndex(startOffset);
-
-    // The current character.
-    char currentChar = Segment.DONE;
 
     // The current x and y pixel coordinates.
     int pixelX = x;
@@ -98,47 +90,33 @@ public class Utilities
     // The font metrics of the current selected font.
     FontMetrics metrics = g.getFontMetrics();
 
-    // Loop over every character.
-    do
+    for (int offset = s.offset; offset < (s.offset + s.count); ++offset)
       {
-	currentChar = s.next();
-
-	if (currentChar != Segment.DONE)
+	switch (buffer[offset])
 	  {
-	    switch (currentChar)
-	      {
-	      case '\t':
-		// In case we have a tab, we must draw the
-		// buffer and 'jump' over the tab.
-		g.drawChars(buffer, 0, bufIndex, pixelX, pixelY);
-		pixelX += metrics.charWidth(buffer[bufIndex]);
-		pixelX += (int) e.nextTabStop((float) pixelX, s.getIndex());
-		bufIndex = 0;
-		break;
-	      case '\n':
-		// In case we have a newline, we must draw
-		// the buffer and jump on the next line.
-		g.drawChars(buffer, 0, bufIndex, pixelX, pixelY);
-		pixelY -= metrics.getHeight();
-		pixelX = x;
-		bufIndex = 0;
-		break;
-	      default:
-		// Here we have to put the char into the buffer
-		// and draw it, if it's full.
-		buffer[bufIndex] = currentChar;
-		bufIndex++;
-		if (bufIndex == BUF_LENGTH)
-		  {
-		    g.drawChars(buffer, 0, bufIndex, pixelX, pixelY);
-		    pixelX += metrics.charWidth(buffer[bufIndex]);
-		    bufIndex = 0;
-		  }
-		break;
-	      }
+	  case '\t':
+	    // In case we have a tab, we just 'jump' over the tab.
+	    // When we have no tab expander we just use the width of 'm'.
+	    if (e != null)
+	      pixelX += (int) e.nextTabStop((float) pixelX,
+					    startOffset + offset - s.offset);
+	    else
+	      pixelX += metrics.charWidth('m');
+	    break;
+	  case '\n':
+	    // In case we have a newline, we must draw
+	    // the buffer and jump on the next line.
+	    g.drawChars(buffer, offset, 1, pixelX, y);
+	    pixelY += metrics.getHeight();
+	    pixelX = x;
+	    break;
+	  default:
+	    // Here we draw the char.
+	    g.drawChars(buffer, offset, 1, pixelX, y);
+	    pixelX += metrics.charWidth(buffer[offset]);
+	    break;
 	  }
       }
-    while (currentChar != Segment.DONE);
 
     return pixelX;
   }
@@ -160,10 +138,7 @@ public class Utilities
                                              int startOffset)
   {
     // This buffers the chars to be drawn.
-    char[] buffer = new char[BUF_LENGTH];
-
-    // The current index in the buffer.
-    int bufIndex = 0;
+    char[] buffer = s.array;
 
     // The current x coordinate.
     int pixelX = x;
@@ -171,51 +146,35 @@ public class Utilities
     // The current maximum width.
     int maxWidth = 0;
 
-    // The current character.
-    char currentChar = Segment.DONE;
-
-    // Loop over every char.
-    do
+    for (int offset = s.offset; offset < (s.offset + s.count); ++offset)
       {
-	currentChar = s.next();
-
-	if (currentChar != Segment.DONE)
+	switch (buffer[offset])
 	  {
-	    switch (currentChar)
-	      {
-	      case '\t':
-		// In case we have a tab, we must 'draw' the
-		// buffer and 'jump' over the tab.
-		pixelX += metrics.charWidth(buffer[bufIndex]);
-		pixelX += (int) e.nextTabStop((float) pixelX, s.getIndex());
-		bufIndex = 0;
-		break;
-	      case '\n':
-		// In case we have a newline, we must 'draw'
-		// the buffer and jump on the next line.
-		pixelX += metrics.charWidth(buffer[bufIndex]);
-		maxWidth = Math.max(maxWidth, pixelX - x);
-		pixelX = x;
-		bufIndex = 0;
-		break;
-	      default:
-		// Here we have to put the char into the buffer
-		// and draw it, if it's full.
-		buffer[bufIndex] = currentChar;
-		bufIndex++;
-		if (bufIndex == BUF_LENGTH)
-		  {
-		    pixelX += metrics.charWidth(buffer[bufIndex]);
-		    bufIndex = 0;
-		  }
-		break;
-	      }
+	  case '\t':
+	    // In case we have a tab, we just 'jump' over the tab.
+	    // When we have no tab expander we just use the width of 'm'.
+	    if (e != null)
+	      pixelX += (int) e.nextTabStop((float) pixelX,
+					    startOffset + offset - s.offset);
+	    else
+	      pixelX += metrics.charWidth('m');
+	    break;
+	  case '\n':
+	    // In case we have a newline, we must 'draw'
+	    // the buffer and jump on the next line.
+	    pixelX += metrics.charWidth(buffer[offset]);
+	    maxWidth = Math.max(maxWidth, pixelX - x);
+	    pixelX = x;
+	    break;
+	  default:
+	    // Here we draw the char.
+	    pixelX += metrics.charWidth(buffer[offset]);
+	    break;
 	  }
-	else
-	  // Take the last 'drawn' line into account.
-	  maxWidth = Math.max(maxWidth, pixelX - x);
       }
-    while (currentChar != Segment.DONE);
+
+    // Take the last line into account.
+    maxWidth = Math.max(maxWidth, pixelX - x);
 
     return maxWidth;
   }

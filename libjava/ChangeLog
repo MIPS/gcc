@@ -1,5 +1,11 @@
 2004-08-13  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/text/Utilities.java
+	(drawTabbedText): Reimplemented.
+	(getTabbedTextWidth): Likewise.
+
+2004-08-13  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/plaf/basic/BasicTextUI.java
 	(installDefaults): Install caret and highlighter.
 	(modelToView): Use Bias.Forward when calling sibling.
