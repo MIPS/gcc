@@ -275,6 +275,11 @@ DEFPARAM(PARAM_MAX_RELOAD_SEARCH_INSNS,
 	 "The maximum number of instructions to search backward when looking for equivalent reload",
 	 100)
 
+DEFPARAM(PARAM_MIN_PRETEND_DYNAMIC_SIZE,
+	 "min-pretend-dynamic-size",
+	 "The minimum size for an auto object to allocate it in the stack as if its size was dynamic",
+	 0)
+
 /*
 Local variables:
 mode:c

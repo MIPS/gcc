@@ -58,6 +58,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "predict.h"
 #include "optabs.h"
 #include "target.h"
+#include "params.h"
 
 /* Assume that case vectors are not pc-relative.  */
 #ifndef CASE_VECTOR_PC_RELATIVE
@@ -4006,6 +4007,11 @@ expand_decl (tree decl)
     }
 
   else if (TREE_CODE (DECL_SIZE_UNIT (decl)) == INTEGER_CST
+	   && (block_stack->next == 0
+	       || PARAM_VALUE (PARAM_MIN_PRETEND_DYNAMIC_SIZE) == 0
+	       || 0 > compare_tree_int (DECL_SIZE_UNIT (decl),
+					PARAM_VALUE
+					(PARAM_MIN_PRETEND_DYNAMIC_SIZE)))
 	   && ! (flag_stack_check && ! STACK_CHECK_BUILTIN
 		 && 0 < compare_tree_int (DECL_SIZE_UNIT (decl),
 					  STACK_CHECK_MAX_VAR_SIZE)))

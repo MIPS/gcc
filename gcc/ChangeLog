@@ -1,5 +1,13 @@
 2004-02-23  Alexandre Oliva  <aoliva@redhat.com>
 
+	* params.def (min-pretend-dynamic-size): New.
+	* stmt.c: Include params.h.
+	(expand_decl): Test it.
+	* doc/invoke.texi: Document it.
+	* Makefile.in (stmt.o): Adjust dependencies.
+
+2004-02-23  Alexandre Oliva  <aoliva@redhat.com>
+
 	PR 14236
 	* stmt.c (nesting_block::called_alloca): New.
 	(expand_start_bindings_and_block): Initialize it.
