@@ -3,6 +3,9 @@
 	* gimplify.c (gimplify_lhs_complex_part_expr): Remove.
 	(gimplify_modify_expr): Don't call it.
 
+	* tree-alias-common.c (HAVE_BANSHEE): Make sure it's defined.
+	(pass_build_pta): Set name.
+
 2004-01-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-tailcall.c (eliminate_tail_call): Add phi nodes for the call

@@ -52,6 +52,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "tree-pass.h"
 #include "timevar.h"
 
+/* Reduce ifdefery later.  */
+#ifndef HAVE_BANSHEE
+#define HAVE_BANSHEE 0
+#endif
 
 /*  This file contains the implementation of the common parts of the
     tree points-to analysis infrastructure.
@@ -970,7 +974,7 @@ create_alias_vars (void)
 
 struct tree_opt_pass pass_build_pta = 
 {
-  NULL,					/* name */
+  "pta",				/* name */
   NULL,					/* gate */
   create_alias_vars,			/* execute */
   NULL,					/* sub */
