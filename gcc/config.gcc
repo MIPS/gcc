@@ -2038,7 +2038,7 @@ powerpc-*-eabiaix*)
 powerpc-*-eabispe*)
 	xm_defines=POSIX
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/eabi.h rs6000/eabispe.h"
-	tmake_file="rs6000/t-ppcendian rs6000/t-ppccomm"
+	tmake_file="rs6000/t-spe rs6000/t-ppccomm"
 	;;
 powerpc-*-eabisimaltivec*)
 	xm_defines=POSIX
