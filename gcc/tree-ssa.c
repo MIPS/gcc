@@ -62,13 +62,11 @@ static void follow_chain PARAMS ((varref, varref));
 static void delete_refs PARAMS ((varray_type));
 
 
-/* {{{ tree_build_ssa()
+/** Build the SSA form for the given function. This implements Factored
+    Use-Def Chains as described in 
 
-   Build the SSA form for the given function. This implements Factored
-   Use-Def Chains as described in 
-
-   Wolfe, M. J., High Performance Compilers for Parallel Computing,
-   Addison-Wesley, 1996.  */
+    Wolfe, M. J., High Performance Compilers for Parallel Computing,
+    Addison-Wesley, 1996.  */
 
 void
 tree_build_ssa ()
@@ -127,12 +125,9 @@ tree_build_ssa ()
     }
 }
 
-/* }}} */
 
-/* {{{ insert_phi_terms()
-
-   Insert PHI terms at the dominance frontier of nodes with variable
-   definitions.  */
+/** Insert PHI terms at the dominance frontier of nodes with variable
+    definitions.  */
 
 static void
 insert_phi_terms (dfs)
@@ -228,11 +223,8 @@ insert_phi_terms (dfs)
     }
 }
 
-/* }}} */
 
-/* {{{ build_fud_chains()
-
-   Build FUD (Factored Use-Def) chains.  */
+/** Build FUD (Factored Use-Def) chains.  */
 
 static void
 build_fud_chains (idom)
@@ -248,12 +240,9 @@ build_fud_chains (idom)
   search_fud_chains (ENTRY_BLOCK_PTR, idom);
 }
 
-/* }}} */
 
-/* {{{ search_fud_chains()
-
-   Perform a depth-first traversal of the dominator tree looking for FUD
-   chains.  */
+/** Perform a depth-first traversal of the dominator tree looking for FUD
+    chains.  */
 
 static void
 search_fud_chains (bb, idom)
@@ -382,11 +371,8 @@ search_fud_chains (bb, idom)
     }
 }
 
-/* }}} */
 
-/* {{{ delete_ssa()
-
-   Deallocate memory associated with SSA data structures.  */
+/** Deallocate memory associated with SSA data structures.  */
 
 void
 delete_ssa ()
@@ -429,14 +415,11 @@ delete_refs (refs)
     }
 }
 
-/* }}} */
 
 /* Reaching definitions.  */
 
-/* {{{ tree_compute_rdefs()
-
-   Computes reaching definitions and reached uses for all the variables
-   referenced in the current function.  */
+/** Computes reaching definitions and reached uses for all the variables
+    referenced in the current function.  */
 
 void
 tree_compute_rdefs ()
@@ -517,12 +500,9 @@ tree_compute_rdefs ()
     }
 }
 
-/* }}} */
 
-/* {{{ analyze_rdefs()
-
-  Analyze reaching definition information and warn about uses of potentially
-  uninitialized variables if -Wuninitialized was given.  */
+/** Analyze reaching definition information and warn about uses of
+    potentially uninitialized variables if -Wuninitialized was given.  */
 
 void
 analyze_rdefs ()
@@ -589,13 +569,10 @@ analyze_rdefs ()
     }
 }
 
-/* }}} */
 
-/* {{{ follow_chain()
-
-   Follows the factored use-def links to find all possible reaching
-   definitions for U, starting with D.  This also updates reached uses for
-   each reaching definition found.  */
+/** Follows the factored use-def links to find all possible reaching
+    definitions for U, starting with D.  This also updates reached uses for
+    each reaching definition found.  */
 
 static void
 follow_chain (d, u)
@@ -635,14 +612,11 @@ follow_chain (d, u)
       }
 }
 
-/* }}} */
 
-/* {{{ is_upward_exposed()
-
-   Return 1 if one or more uses of SYM in BB_SET have reaching definitions
-   coming from blocks outside BB_SET.  If EXCLUDE_INIT_DECL is nonzero,
-   the initializer expression used in the declaration of SYM will always be
-   considered external to BB_SET.  */
+/** Return 1 if one or more uses of SYM in BB_SET have reaching definitions
+    coming from blocks outside BB_SET.  If EXCLUDE_INIT_DECL is nonzero,
+    the initializer expression used in the declaration of SYM will always
+    be considered external to BB_SET.  */
 
 int
 is_upward_exposed (sym, bb_set, exclude_init_decl)
@@ -681,5 +655,3 @@ is_upward_exposed (sym, bb_set, exclude_init_decl)
 
   return 0;
 }
-
-/* }}} */

@@ -203,9 +203,7 @@ static bool is_union_based_ref		PARAMS ((tree));
 
 /* Validation of SIMPLE statements.  */
 
-/** {{{ is_simple_stmt ()
-
-    Return nonzero if T is a statement that complies with the SIMPLE
+/** Return nonzero if T is a statement that complies with the SIMPLE
     grammar.
 
       stmt
@@ -316,11 +314,8 @@ is_simple_stmt (t)
     }
 }
 
-/* }}} */
 
-/** {{{ is_simple_compstmt ()
-
-    Return nonzero if T is a SIMPLE compound statement.
+/** Return nonzero if T is a SIMPLE compound statement.
 
       compsmt
 	      : '{' all_stmts '}'
@@ -356,14 +351,11 @@ is_simple_compstmt (t)
   return 1;
 }
 
-/* }}} */
 
 
 /* Validation of SIMPLE expressions.  */
 
-/** {{{ is_simple_expr ()
-
-    Return nonzero if T is an expression that complies with the SIMPLE
+/** Return nonzero if T is an expression that complies with the SIMPLE
     grammar.
 
       expr
@@ -380,11 +372,8 @@ is_simple_expr (t)
   return (is_simple_rhs (t) || is_simple_modify_expr (t));
 }
 
-/* }}} */
 
-/** {{{ is_simple_rhs ()
-
-    Return nonzero if T is a SIMPLE RHS:
+/** Return nonzero if T is a SIMPLE RHS:
 
       rhs
 	      : binary_expr
@@ -401,11 +390,8 @@ is_simple_rhs (t)
           || is_simple_unary_expr (t));
 }
 
-/* }}} */
 
-/** {{{ is_simple_modify_expr ()
-
-    Return nonzero if T is a SIMPLE assignment expression:
+/** Return nonzero if T is a SIMPLE assignment expression:
 
       modify_expr
 	      : varname '=' rhs
@@ -429,11 +415,8 @@ is_simple_modify_expr (t)
 	  && is_simple_rhs (TREE_OPERAND (t, 1)));
 }
 
-/* }}} */
 
-/** {{{ is_simple_modify_expr_lhs ()
-
-    Return nonzero if T is a valid LHS for a SIMPLE assignment expression.  */
+/** Return nonzero if T is a valid LHS for a SIMPLE assignment expression.  */
 
 int
 is_simple_modify_expr_lhs (t)
@@ -447,11 +430,8 @@ is_simple_modify_expr_lhs (t)
 	      && is_simple_id (TREE_OPERAND (t, 0))));
 }
 
-/* }}} */
 
-/** {{{ is_simple_relop ()
-
-    Return true if CODE is designates a SIMPLE relop:
+/** Return true if CODE is designates a SIMPLE relop:
 
       relop
 	      : '<'
@@ -468,11 +448,8 @@ is_simple_relop (code)
 	  || code == TRUTH_XOR_EXPR);
 }
 
-/* }}} */
 
-/** {{{ is_simple_binary_expr ()
-
-    Return nonzero if T is a SIMPLE binary expression:
+/** Return nonzero if T is a SIMPLE binary expression:
 
       binary_expr
 	      : val binop val  */
@@ -496,11 +473,8 @@ is_simple_binary_expr (t)
 	  && is_simple_val (TREE_OPERAND (t, 1)));
 }
 
-/* }}} */
 
-/** {{{ is_simple_condexpr ()
-
-    Return nonzero if T is a SIMPLE conditional expression:
+/** Return nonzero if T is a SIMPLE conditional expression:
 
       condexpr
 	      : val
@@ -525,11 +499,8 @@ is_simple_condexpr (t)
 	      && is_simple_val (TREE_OPERAND (t, 1))));
 }
 
-/* }}} */
 
-/** {{{ is_simple_unary_expr ()
-
-    Return nonzero if T is a unary expression as defined by the SIMPLE
+/** Return nonzero if T is a unary expression as defined by the SIMPLE
     grammar:
 
       unary_expr
@@ -619,11 +590,8 @@ is_simple_unary_expr (t)
   return 0;
 }
 
-/* }}} */
 
-/** {{{ is_simple_call_expr ()
-
-    Return nonzero if T is a SIMPLE call expression:
+/** Return nonzero if T is a SIMPLE call expression:
 
       call_expr
 	      : ID '(' arglist ')'
@@ -657,11 +625,8 @@ is_simple_call_expr (t)
           && is_simple_arglist (TREE_OPERAND (t, 1)));
 }
 
-/* }}} */
 
-/** {{{ is_simple_arglist ()
-
-    Return nonzero if T is a SIMPLE argument list:
+/** Return nonzero if T is a SIMPLE argument list:
 
       arglist
 	      : arglist ',' val
@@ -681,11 +646,8 @@ is_simple_arglist (t)
   return 1;
 }
 
-/* }}} */
 
-/** {{{ is_simple_varname ()
-
-    Return nonzero if T is SIMPLE variable name:
+/** Return nonzero if T is SIMPLE variable name:
 
       varname
 	      : arrayref
@@ -702,11 +664,8 @@ is_simple_varname (t)
   return (is_simple_id (t) || is_simple_arrayref (t) || is_simple_compref (t));
 }
 
-/* }}} */
 
-/** {{{ is_simple_const ()
-
-    Return nonzero if T is a constant.  */
+/** Return nonzero if T is a constant.  */
 
 int
 is_simple_const (t)
@@ -729,11 +688,8 @@ is_simple_const (t)
 	  || TREE_CODE (t) == COMPLEX_CST);
 }
 
-/* }}} */
 
-/** {{{ is_simple_id ()
-
-    Return nonzero if T is a SIMPLE identifier.  */
+/** Return nonzero if T is a SIMPLE identifier.  */
 
 int
 is_simple_id (t)
@@ -767,11 +723,8 @@ is_simple_id (t)
 	  || TREE_CODE (t) == COMPOUND_LITERAL_EXPR);
 }
 
-/* }}} */
 
-/** {{{ is_simple_val ()
-
-    Return nonzero if T is an identifier or a constant.  */
+/** Return nonzero if T is an identifier or a constant.  */
 
 int
 is_simple_val (t)
@@ -783,11 +736,8 @@ is_simple_val (t)
   return (is_simple_id (t) || is_simple_const (t));
 }
 
-/* }}} */
 
-/** {{{ is_simple_min_lvalue ()
-
-    Return true if T is a SIMPLE minimal lvalue, of the form
+/** Return true if T is a SIMPLE minimal lvalue, of the form
 
     min_lval: ID | '(' '*' ID ')'
 
@@ -807,11 +757,8 @@ is_simple_min_lval (t)
 	  || is_union_based_ref (t));
 }
 
-/* }}} */
 
-/** {{{ is_union_based_ref ()
-
-    Returns true iff T is a compound lvalue expression involving a union.
+/** Returns true iff T is a compound lvalue expression involving a union.
     We currently don't simplify such expressions because it confuses alias
     analysis.  FIXME alias analysis should be smarter, and this should go
     away.  gcc.c-torture/execute/990413-2.c breaks without this.  */
@@ -831,11 +778,8 @@ is_union_based_ref (t)
   return 0;
 }
 
-/* }}} */
 
-/** {{{ is_simple_arrayref ()
-
-    Return nonzero if T is an array reference of the form:
+/** Return nonzero if T is an array reference of the form:
 
       arrayref
 	      : ID reflist
@@ -868,11 +812,8 @@ is_simple_arrayref (t)
   return is_simple_min_lval (t);
 }
 
-/* }}} */
 
-/** {{{ is_simple_compref ()
-
-    Return nonzero if T is a component reference of the form:
+/** Return nonzero if T is a component reference of the form:
 
       compref
 	      : '(' '*' ID ')' '.' idlist
@@ -899,12 +840,9 @@ is_simple_compref (t)
   return is_simple_min_lval (t);
 }
 
-/* }}} */
 
-/** {{{ is_simple_cast ()
-
-   Return nonzero if T is a typecast operation of the form
-   '(' cast ')' varname.  */
+/** Return nonzero if T is a typecast operation of the form
+    '(' cast ')' varname.  */
 
 int
 is_simple_cast (t)
@@ -916,11 +854,8 @@ is_simple_cast (t)
   return (is_simple_cast_op (t) && is_simple_varname (TREE_OPERAND (t, 0)));
 }
 
-/* }}} */
 
-/** {{{ is_simple_cast_op ()
-
-    Return nonzero if T is a typecast operator.  */
+/** Return nonzero if T is a typecast operator.  */
 
 int
 is_simple_cast_op (t)
@@ -937,11 +872,8 @@ is_simple_cast_op (t)
           || TREE_CODE (t) == FIX_ROUND_EXPR);
 }
 
-/* }}} */
 
-/** {{{ is_simple_exprseq ()
-
-    Return 1 if T is a SIMPLE expression sequence:
+/** Return 1 if T is a SIMPLE expression sequence:
 
       exprseq
 	      : exprseq ',' expr
@@ -960,5 +892,3 @@ is_simple_exprseq (t)
 	      && is_simple_expr (TREE_OPERAND (t, 0))
 	      && is_simple_exprseq (TREE_OPERAND (t, 1))));
 }
-
-/* }}} */

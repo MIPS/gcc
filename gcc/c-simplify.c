@@ -53,7 +53,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
     http://www-acaps.cs.mcgill.ca/info/McCAT/McCAT.html   */
 
-/* {{{ Local declarations.  */
+/* Local declarations.  */
 
 static void simplify_stmt            PARAMS ((tree));
 static void simplify_for_stmt        PARAMS ((tree, tree *));
@@ -101,14 +101,11 @@ static int dump_flags;
    might represent the return value of the statement expression.  */
 static int stmt_expr_level;
 
-/* }}} */
 
 
 /* Simplification of statement trees.  */
 
-/** {{{ c_simplify_function_tree ()
-
-    Entry point to the simplification pass.  FNDECL is the FUNCTION_DECL
+/** Entry point to the simplification pass.  FNDECL is the FUNCTION_DECL
     node for the function we want to simplify.  */
 
 int
@@ -165,11 +162,8 @@ c_simplify_function_tree (fndecl)
   return 1;
 }
 
-/* }}} */
 
-/** {{{ simplify_stmt ()
-  
-    Entry point for the tree lowering pass.  Recursively scan
+/** Entry point for the tree lowering pass.  Recursively scan
     STMT and convert it to a SIMPLE tree.  */
 
 static void 
@@ -341,11 +335,8 @@ simplify_stmt (stmt)
     }
 }
 
-/* }}} */
 
-/** {{{ simplify_for_stmt ()
-
-    Simplify a FOR_STMT node.  This will convert:
+/** Simplify a FOR_STMT node.  This will convert:
 
     	for (init; cond; expr)
 	  {
@@ -560,11 +551,8 @@ simplify_for_stmt (stmt, pre_p)
   }
 }
 
-/* }}} */
 
-/** {{{ simplify_while_stmt ()
-
-    Simplify a WHILE_STMT node.  This will convert:
+/** Simplify a WHILE_STMT node.  This will convert:
 
     	while (cond)
 	  {
@@ -631,11 +619,8 @@ simplify_while_stmt (stmt, pre_p)
                               STMT_LINENO (stmt));
 }
 
-/* }}} */
 
-/** {{{ simplify_do_stmt ()
-
-    Simplify a DO_STMT node.  This will convert:
+/** Simplify a DO_STMT node.  This will convert:
 
 	do
 	  {
@@ -692,11 +677,8 @@ simplify_do_stmt (stmt)
   insert_before_continue_end (stmt_chain, DO_BODY (stmt), STMT_LINENO (stmt));
 }
 
-/* }}} */
 
-/** {{{ simplify_if_stmt ()
-    
-    Simplify an IF_STMT.  This will convert:
+/** Simplify an IF_STMT.  This will convert:
 
     	if (cond)
 	  {
@@ -762,11 +744,8 @@ simplify_if_stmt (stmt, pre_p)
     simplify_stmt (ELSE_CLAUSE (stmt));
 }
 
-/* }}} */
 
-/** {{{ simplify_switch_stmt ()
-
-    Simplify a SWITCH_STMT.  This will convert:
+/** Simplify a SWITCH_STMT.  This will convert:
 
     	switch (cond)
 	  {
@@ -808,11 +787,8 @@ simplify_switch_stmt (stmt, pre_p)
   simplify_stmt (SWITCH_BODY (stmt));
 }
 
-/* }}} */
 
-/** {{{ simplify_return_stmt ()
-
-    Simplify a RETURN_STMT.  If the expression to be returned is not a
+/** Simplify a RETURN_STMT.  If the expression to be returned is not a
     SIMPLE value, it is assigned to a new temporary and the statement is
     re-written to return the temporary.
 
@@ -848,14 +824,11 @@ simplify_return_stmt (stmt, pre_p)
     }
 }
 
-/* }}} */
 
 
 /* Simplification of expression trees.  */
 
-/** {{{ simplify_expr_common ()
-
-    Simplifies the expression tree pointed by EXPR_P.
+/** Simplifies the expression tree pointed by EXPR_P.
 
     PRE_P points to the list where side effects that must happen before
 	EXPR should be stored.
@@ -1151,11 +1124,8 @@ simplify_expr_either (expr_p, pre_p, post_p, simple_test_f, stmt)
   simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt, 1|2);
 }
 
-/* }}} */
 
-/** {{{ build_addr_expr ()
-  
-    Build an expression for the address of T.  Folds away INDIRECT_REF to
+/** Build an expression for the address of T.  Folds away INDIRECT_REF to
     avoid confusing the simplify process.  */
 
 static tree
@@ -1175,11 +1145,8 @@ build_addr_expr (t)
   return t;
 }
 
-/* }}} */
   
-/** {{{ simplify_array_ref ()
-
-    Re-write the ARRAY_REF node pointed by EXPR_P.
+/** Re-write the ARRAY_REF node pointed by EXPR_P.
 
     PRE_P points to the list where side effects that must happen before
 	*EXPR_P should be stored.
@@ -1231,11 +1198,8 @@ simplify_array_ref (expr_p, pre_p, post_p, stmt)
     }
 }
 
-/* }}} */
 
-/** {{{ simplify_self_mod_expr ()
-
-    Simplify the self modifying expression pointed by EXPR_P (++, --, +=, -=).
+/** Simplify the self modifying expression pointed by EXPR_P (++, --, +=, -=).
 
     PRE_P points to the list where side effects that must happen before
 	*EXPR_P should be stored.
@@ -1297,11 +1261,8 @@ simplify_self_mod_expr (expr_p, pre_p, post_p, stmt)
   *expr_p = lvalue;
 }
 
-/* }}} */
 
-/** {{{ simplify_component_ref ()
-    
-    Simplify the COMPONENT_REF node pointed by EXPR_P.
+/** Simplify the COMPONENT_REF node pointed by EXPR_P.
 
     PRE_P points to the list where side effects that must happen before
 	*EXPR_P should be stored.
@@ -1334,11 +1295,8 @@ simplify_component_ref (expr_p, pre_p, post_p, stmt)
   simplify_expr_either (p, pre_p, post_p, is_simple_min_lval, stmt);
 }
 
-/* }}} */
 
-/** {{{ simplify_call_expr ()
-
-    Simplify the CALL_EXPR node pointed by EXPR_P.
+/** Simplify the CALL_EXPR node pointed by EXPR_P.
 
     PRE_P points to the list where side effects that must happen before
 	*EXPR_P should be stored.
@@ -1375,11 +1333,8 @@ simplify_call_expr (expr_p, pre_p, post_p, stmt)
                  stmt);
 }
 
-/* }}} */
 
-/** {{{ simplify_tree_list ()
-
-    Simplify the TREE_LIST node pointed by EXPR_P.
+/** Simplify the TREE_LIST node pointed by EXPR_P.
 
     PRE_P points to the list where side effects that must happen before
 	*EXPR_P should be stored.
@@ -1407,11 +1362,8 @@ simplify_tree_list (expr_p, pre_p, post_p, stmt)
     simplify_expr (&TREE_VALUE (op), pre_p, post_p, is_simple_val, stmt);
 }
 
-/* }}} */
 
-/** {{{ simplify_cond_expr ()
-
-    Convert the conditional expression pointed by EXPR_P '(p) ? a : b;'
+/** Convert the conditional expression pointed by EXPR_P '(p) ? a : b;'
     into
 
     if (p)			if (p)
@@ -1480,11 +1432,8 @@ simplify_cond_expr (expr_p, pre_p, stmt)
   *expr_p = tmp;
 }
 
-/* }}} */
 
-/** {{{ simplify_modify_expr ()
-
-    Simplify the MODIFY_EXPR node pointed by EXPR_P.
+/** Simplify the MODIFY_EXPR node pointed by EXPR_P.
 
     PRE_P points to the list where side effects that must happen before
 	*EXPR_P should be stored.
@@ -1515,11 +1464,8 @@ simplify_modify_expr (expr_p, pre_p, post_p, stmt)
   *expr_p = TREE_OPERAND (*expr_p, 0);
 }
 
-/* }}} */
 
-/** {{{ simplify_boolean_expr ()
-
-    Simplify TRUTH_ANDIF_EXPR and TRUTH_ORIF_EXPR expressions.  EXPR_P
+/** Simplify TRUTH_ANDIF_EXPR and TRUTH_ORIF_EXPR expressions.  EXPR_P
     points to the expression to simplify.
 
     Expressions of the form 'a && b' are simplified to:
@@ -1605,11 +1551,8 @@ simplify_boolean_expr (expr_p, pre_p, stmt)
   *expr_p = t;
 }
 
-/* }}} */
 
-/** {{{ simplify_compound_expr ()
-
-    Simplifies an expression sequence. This function simplifies each
+/** Simplifies an expression sequence.  This function simplifies each
     expression and re-writes the original expression with the last
     expression of the sequence in SIMPLE form.
 
@@ -1701,17 +1644,14 @@ simplify_compound_expr (expr_p, pre_p, post_p, stmt)
   *expr_p = ret;
 }
 
-/* }}} */
 
-/** {{{ simplify_expr_wfl ()
+/** Simplify an EXPR_WITH_FILE_LOCATION.  EXPR_P points to the expression
+    to simplify.
 
-    Simplify an EXPR_WITH_FILE_LOCATION.  EXPR_P points tothe expression to
-    simplify.
-    
-    After simplification, all the nodes in PRE_P and POST_P are wrapped
-    inside a EXPR_WITH_FILE_LOCATION node to preserve the original
-    semantics.  The simplified expression is also returned inside an
-    EXPR_WITH_FILE_LOCATION node.
+    After simplification, all the nodes in PRE_P and POST_P are wrapped inside
+    a EXPR_WITH_FILE_LOCATION node to preserve the original semantics.  The
+    simplified expression is also returned inside an EXPR_WITH_FILE_LOCATION
+    node.
 
     PRE_P points to the list where side effects that must happen before
 	*EXPR_P should be stored.
@@ -1755,13 +1695,10 @@ simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f, stmt)
     TREE_VALUE (op) = build_expr_wfl (TREE_VALUE (op), file, line, col);
 }
 
-/* }}} */
 
 /* Code generation.  */
 
-/** {{{ tree_build_scope ()
-   
-   Replaces T; by a COMPOUND_STMT containing {T;}.  */
+/** Replaces T; by a COMPOUND_STMT containing {T;}.  */
 
 void
 tree_build_scope (t)
@@ -1805,11 +1742,8 @@ tree_build_scope (t)
   *t = comp_stmt;
 }
 
-/* }}} */
 
-/** {{{ add_tree ()
-
-    Add T to the list container pointed by LIST_P.  If T is a TREE_LIST
+/** Add T to the list container pointed by LIST_P.  If T is a TREE_LIST
     node, it is linked-in directly.  If T is an expression with no effects,
     it is ignored.
     
@@ -1850,11 +1784,8 @@ add_tree (t, list_p)
   return n;
 }
 
-/* }}} */
 
-/** {{{ insert_before_continue_end ()
-    
-    Insert the REEVAL list before CONTINUE_STMTs and at the end of the loop
+/** Insert the REEVAL list before CONTINUE_STMTs and at the end of the loop
     body BODY.  Set the line number of the REEVAL list to LINE.  */
 
 void
@@ -1893,11 +1824,8 @@ insert_before_continue_end (reeval, body, line)
     }
 }
 
-/* }}} */
 
-/** {{{ insert_before_continue ()
-    
-    Insert the statement list REEVAL before each CONTINUE_STMT in the block
+/** Insert the statement list REEVAL before each CONTINUE_STMT in the block
     pointed to by NODE.  At the end returns a pointer to the beforelast
     node in the block NODE.  The caller can insert then the last loop
     reevaluation at the end of the loop block.  */
@@ -1970,42 +1898,11 @@ insert_before_continue (node, reeval)
   return node;
 }
 
-/* }}} */
-
-#if 0
-/* unused */
-/** {{{ insert_before_first ()
-
-    Insert statement T before the first statement of the compound statement
-    BODY.  */
-
-static void
-insert_before_first (t, body)
-     tree t;
-     tree body;
-{
-  tree first_stmt;
-
-  if (TREE_CODE (body) != COMPOUND_STMT)
-    abort ();
-
-  if (t == NULL)
-    return;
-
-  first_stmt = COMPOUND_BODY (body);
-  chainon (t, TREE_CHAIN (first_stmt));
-  TREE_CHAIN (first_stmt) = t;
-}
-
-/* }}} */
-#endif
 
 /* Miscellaneous helpers.  */
 
-/** {{{ create_tmp_var ()
-
-   Create a new temporary variable declaration of type TYPE.  Returns the
-   newly created decl and pushes it into the current binding.  */
+/** Create a new temporary variable declaration of type TYPE.  Returns the
+    newly created decl and pushes it into the current binding.  */
 
 tree
 create_tmp_var (type)
@@ -2041,10 +1938,9 @@ create_tmp_var (type)
   return tmp_var;
 }
 
-/* }}} */
 
-/* Returns a new temporary variable, initialized with VAL.  PRE_P and STMT
-   are as in simplify_expr.*/
+/** Returns a new temporary variable, initialized with VAL.  PRE_P and STMT
+    are as in simplify_expr.  */
 
 tree
 get_initialized_tmp_var (val, pre_p, stmt)
@@ -2062,9 +1958,7 @@ get_initialized_tmp_var (val, pre_p, stmt)
   return t;
 }
 
-/** {{{ is_simple_tmp_var ()
-
-    Returns true if T is a SIMPLE temporary variable, false otherwise.  */
+/** Returns true if T is a SIMPLE temporary variable, false otherwise.  */
 
 bool
 is_simple_tmp_var (t)
@@ -2075,9 +1969,7 @@ is_simple_tmp_var (t)
 	  && !TREE_STATIC (t) && !DECL_EXTERNAL (t));
 }
 
-/** {{{ make_type_writable ()
-
-    Change the flags for the type of the node T to make it writable.  */
+/** Change the flags for the type of the node T to make it writable.  */
 
 static void 
 make_type_writable (t)
@@ -2120,12 +2012,9 @@ make_type_writable (t)
     }
 }
 
-/* }}} */
 
-/** {{{ declare_tmp_vars ()
-
-    Declares all the variables in VARS in SCOPE.  Returns the last DECL_STMT
-    emitted.  */
+/** Declares all the variables in VARS in SCOPE.  Returns the last
+    DECL_STMT emitted.  */
 
 tree
 declare_tmp_vars (vars, scope)
@@ -2155,11 +2044,8 @@ declare_tmp_vars (vars, scope)
   return last;
 }
 
-/* }}} */
 
-/** {{{ tree_last_decl ()
-    
-    Returns the last DECL_STMT in the scope SCOPE.  */
+/** Returns the last DECL_STMT in the scope SCOPE.  */
 
 static tree
 tree_last_decl (scope)
@@ -2182,11 +2068,8 @@ tree_last_decl (scope)
   return last;
 }
 
-/* }}} */
 
-/** {{{ deep_copy_list ()
-    
-    Copy every statement from the chain CHAIN by calling deep_copy_node().
+/** Copy every statement from the chain CHAIN by calling deep_copy_node().
     Return the new chain.  */
 
 tree
@@ -2212,11 +2095,8 @@ deep_copy_list (chain)
   return res;
 }
 
-/* }}} */
 
-/** {{{ deep_copy_node ()
-
-    Create a deep copy of NODE.  The only nodes that are not deep copied
+/** Create a deep copy of NODE.  The only nodes that are not deep copied
     are declarations, constants and types.  */
 
 tree 
@@ -2313,11 +2193,8 @@ deep_copy_node (node)
   return res;
 }
 
-/* }}} */
 
-/** {{{ update_line_number ()
-
-    Updates the STMT_LINENO of each stmt in the tree t to the line number
+/** Updates the STMT_LINENO of each stmt in the tree t to the line number
     LINE.  Returns the last stmt in the tree chain.  */
 
 tree
@@ -2334,11 +2211,8 @@ update_line_number (t, line)
   return t;
 }
 
-/* }}} */
 
-/** {{{ convert_to_stmt_chain ()
-
-    Convert the list of expressions LIST into a list of statements.  Each
+/** Convert the list of expressions LIST into a list of statements.  Each
     statement in the new list gets line number information from STMT.  */
 
 static tree
@@ -2366,11 +2240,8 @@ convert_to_stmt_chain (list, stmt)
   return stmt_list;
 }
 
-/* }}} */
 
-/** {{{ stmt_has_effect ()
-
-    Return nonzero if STMT has some effect (i.e., if it's not of the form
+/** Return nonzero if STMT has some effect (i.e., if it's not of the form
     'a;' where a is a non-volatile variable).  */
     
 static int
@@ -2397,11 +2268,8 @@ stmt_has_effect (stmt)
   return 0;
 }
 
-/* }}} */
 
-/** {{{ expr_has_effect ()
-
-    Return nonzero if EXPR has some effect (e.g., it's not a single
+/** Return nonzero if EXPR has some effect (e.g., it's not a single
     non-volatile VAR_DECL).  */
 
 static int
@@ -2413,11 +2281,8 @@ expr_has_effect (expr)
 	      && VOID_TYPE_P (TREE_TYPE (expr))));
 }
 
-/* }}} */
 
-/** {{{ mostly_copy_tree_r ()
-
-    Similar to copy_tree_r() but do not copy SAVE_EXPR nor STMT_EXPR nodes.  */
+/** Similar to copy_tree_r() but do not copy SAVE_EXPR nor STMT_EXPR nodes.  */
 
 static tree
 mostly_copy_tree_r (tp, walk_subtrees, data)
@@ -2433,5 +2298,3 @@ mostly_copy_tree_r (tp, walk_subtrees, data)
 
   return NULL_TREE;
 }
-
-/* }}} */

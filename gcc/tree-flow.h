@@ -24,16 +24,15 @@ Boston, MA 02111-1307, USA.  */
 
 #include "bitmap.h"
 
-/* {{{ Types of references.  */
+/* Types of references.  */
 
 enum treeref_type { VARDEF, VARUSE, VARPHI, 
 		    EXPRPHI, EXPRUSE, EXPRKILL, EXPRINJ };
 
 union varref_def;
 
-/* }}} */
 
-/* {{{ Common features of every variable reference.  */
+/* Common features of every variable reference.  */
 
 struct treeref_common
 {
@@ -54,7 +53,6 @@ struct treeref_common
 
 };
 
-/* }}} */
 
 /* Stuff common to all expression references.  */
 struct exprref_common
@@ -110,7 +108,7 @@ struct exprphi
 #define EXPRPHI_PROCESSED(r) (r)->ephi.processed
 #define EXPRPHI_WILLBEAVAIL(r) (EXPRPHI_CANBEAVAIL ((r)) && !EXPRPHI_LATER ((r)))
 
-/* {{{ Variable definitions.  */
+/* Variable definitions.  */
 
 struct vardef
 {
@@ -145,9 +143,8 @@ struct vardef
 #define VARDEF_PHI_CHAIN(r) (r)->def.phi_chain
 #define VARDEF_PHI_CHAIN_BB(r) (r)->def.phi_chain_bb
 
-/* }}} */
 
-/* {{{ Variable uses.  */
+/* Variable uses.  */
 
 struct varuse
 {
@@ -163,9 +160,8 @@ struct varuse
 #define VARUSE_CHAIN(r) (r)->use.chain
 #define VARUSE_RDEFS(r) (r)->use.rdefs
 
-/* }}} */
 
-/* {{{ Expressions uses.  */
+/* Expressions uses.  */
 
 struct expruse
 {
@@ -186,9 +182,8 @@ struct expruse
 #define EXPRUSE_HAS_REAL_USE(r) (r)->euse.has_real_use
 
 
-/* }}} */
 
-/* {{{ Generic variable reference structure.  */
+/* Generic variable reference structure.  */
 
 union varref_def
 {
@@ -227,9 +222,8 @@ typedef union varref_def *varref;
 #define IS_ARTIFICIAL_REF(R)	\
     (IS_GHOST_DEF (R) || VARREF_TYPE (R) == VARPHI)
 
-/* }}} */
 
-/* {{{ Tree annotations stored in tree_common.aux.  */
+/* Tree annotations stored in tree_common.aux.  */
 
 struct tree_ann_def
 {
@@ -264,9 +258,8 @@ typedef struct tree_ann_def *tree_ann;
 #define TREE_COMPOUND_STMT(NODE)\
     ((TREE_ANN (NODE)) ? TREE_ANN (NODE)->compound_stmt : NULL)
 
-/* }}} */
 
-/* {{{ Block annotations stored in basic_block.aux.  */
+/* Block annotations stored in basic_block.aux.  */
 
 struct for_header_blocks
 {
@@ -320,9 +313,8 @@ typedef struct bb_ann_def *bb_ann;
 #define END_WHILE_BB(BLOCK)	BB_LOOP_HDR (BLOCK)->end_while_bb
 #define DO_COND_BB(BLOCK)	BB_LOOP_HDR (BLOCK)->do_cond_bb
 
-/* }}} */
 
-/* {{{ Global declarations.  */
+/* Global declarations.  */
 
 /* Nonzero to warn about variables used before they are initialized.  */
 
@@ -344,10 +336,9 @@ extern varray_type referenced_symbols;
 #define FCALL_PURE	(1 << 1)
 #define FCALL_BUILT_IN	(1 << 2)
 
-/* }}} */
 
 
-/* {{{ Functions in tree-cfg.c  */
+/* Functions in tree-cfg.c  */
 
 extern void tree_find_basic_blocks PARAMS ((tree));
 extern int is_ctrl_stmt PARAMS ((tree));
@@ -383,9 +374,8 @@ extern void insert_bb_before PARAMS ((basic_block, basic_block));
 extern void tree_cleanup_cfg PARAMS ((void));
 extern basic_block tree_split_bb PARAMS ((basic_block, tree));
 
-/* }}} */
 
-/* {{{ Functions in tree-dfa.c  */
+/* Functions in tree-dfa.c  */
 
 extern void tree_find_varrefs PARAMS ((void));
 extern tree_ann get_tree_ann PARAMS ((tree));
@@ -400,16 +390,14 @@ extern int function_may_recurse_p PARAMS ((void));
 extern void get_fcalls PARAMS ((varray_type *, unsigned));
 extern basic_block find_declaration PARAMS ((tree));
 
-/* }}} */
 
-/* {{{ Functions in tree-ssa-pre.c */
+/* Functions in tree-ssa-pre.c */
 
 extern void tree_perform_ssapre PARAMS ((void));
 
-/* }}} */
 
 
-/* {{{ Functions in tree-ssa.c  */
+/* Functions in tree-ssa.c  */
 
 extern void tree_build_ssa PARAMS ((void));
 extern void tree_compute_rdefs PARAMS ((void));
@@ -417,6 +405,5 @@ extern void analyze_rdefs PARAMS ((void));
 extern int is_upward_exposed PARAMS ((tree, sbitmap, int));
 extern void delete_ssa PARAMS ((void));
 
-/* }}} */
 
 #endif /* _TREE_FLOW_H  */

@@ -92,10 +92,8 @@ static void insert_after_loop_body PARAMS ((tree, basic_block));
 
 /* Create basic blocks.  */
 
-/* {{{ tree_find_basic_blocks()
-   
-   Entry point to the CFG builder for trees.  FNBODY is the body of the
-   function to process.  */
+/** Entry point to the CFG builder for trees.  FNBODY is the body of the
+    function to process.  */
 
 void
 tree_find_basic_blocks (fnbody)
@@ -145,26 +143,24 @@ tree_find_basic_blocks (fnbody)
     }
 }
 
-/* }}} */
 
-/* {{{ make_blocks()
-
-   Build a flowgraph for the tree starting with T.
+/** Build a flowgraph for the tree starting with T.
    
-   CONTROL_PARENT is the header block for the control structure immediately
-      enclosing the new sub-graph.
+    CONTROL_PARENT is the header block for the control structure
+      immediately enclosing the new sub-graph.
 
-   COMPOUND_STMT is the immediately enclosing compound statement to which T
-      belongs.  These statements are not represented in the flowgraph, but
-      are important to determine successor basic blocks in successor_block().
+    COMPOUND_STMT is the immediately enclosing compound statement to which
+      T belongs.  These statements are not represented in the flowgraph,
+      but are important to determine successor basic blocks in
+      successor_block().
 
-   PREV_CHAIN_P is the address into the tree preceeding T that contains a
+    PREV_CHAIN_P is the address into the tree preceeding T that contains a
       pointer to T.  This is used when we need to insert statements before
       the first tree of the block.
 
-   When creating basic blocks one important property should be maintained:
-   It must be possible to traverse all the trees inside a basic block by
-   following the TREE_CHAIN from bb->head_tree.  */
+    When creating basic blocks one important property should be maintained:
+    It must be possible to traverse all the trees inside a basic block by
+    following the TREE_CHAIN from bb->head_tree.  */
 
 static void
 make_blocks (t, control_parent, compound_stmt, prev_chain_p)
@@ -242,11 +238,9 @@ make_blocks (t, control_parent, compound_stmt, prev_chain_p)
     }
 }
 
-/* }}} */
 
-/* {{{ make_for_stmt_blocks()
-
-   Create the blocks for a FOR_STMT.  */
+/** Create the blocks for a FOR_STMT T.  CONTROL_PARENT, COMPOUND_STMT and
+    PREV_CHAIN_P are as in make_blocks.  */
 
 static void
 make_for_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
@@ -290,11 +284,9 @@ make_for_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
   FOR_EXPR_BB (entry) = bb;
 }
 
-/* }}} */
 
-/* {{{ make_while_stmt_blocks ()
-
-   Create the blocks for a WHILE_STMT.  */
+/** Create the blocks for a WHILE_STMT T.  CONTROL_PARENT, COMPOUND_STMT
+    and PREV_CHAIN_P are as in make_blocks.  */
 
 static void
 make_while_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
@@ -317,11 +309,9 @@ make_while_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
   END_WHILE_BB (entry) = bb;
 }
 
-/* }}} */
 
-/* {{{ make_do_stmt_blocks ()
-
-   Create the blocks for a DO_STMT.  */
+/** Create the blocks for a DO_STMT T.  CONTROL_PARENT, COMPOUND_STMT
+    and PREV_CHAIN_P are as in make_blocks.  */
 
 static void
 make_do_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
@@ -342,11 +332,9 @@ make_do_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
   DO_COND_BB (entry) = bb;
 }
 
-/* }}} */
 
-/* {{{ make_if_stmt_blocks ()
-
-   Create the blocks for an IF_STMT.  */
+/** Create the blocks for an IF_STMT.  CONTROL_PARENT, COMPOUND_STMT
+    and PREV_CHAIN_P are as in make_blocks.  */
 
 static void
 make_if_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
@@ -362,11 +350,9 @@ make_if_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
   make_blocks (ELSE_CLAUSE (t), bb, compound_stmt, &(ELSE_CLAUSE (t)));
 }
 
-/* }}} */
 
-/* {{{ make_switch_stmt_blocks ()
-
-   Create the blocks for a SWITCH_STMT.  */
+/** Create the blocks for a SWITCH_STMT.  CONTROL_PARENT, COMPOUND_STMT
+    and PREV_CHAIN_P are as in make_blocks.  */
 
 static void
 make_switch_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
@@ -381,29 +367,26 @@ make_switch_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
   make_blocks (SWITCH_BODY (t), bb, compound_stmt, &(SWITCH_BODY (t)));
 }
 
-/* }}} */
 
-/* {{{ create_maximal_bb ()
+/** Create a maximal basic block.  A maximal basic block is a maximal
+    length sequence of consecutive statements that are always executed
+    together.  In other words, if the first statement of the block is
+    executed, then all the other statements will be executed in sequence
+    until and including the last one in the block. 
 
-   Create a maximal basic block.  A maximal basic block is a maximal
-   length sequence of consecutive statements that are always executed
-   together.  In other words, if the first statement of the block is
-   executed, then all the other statements will be executed in sequence
-   until and including the last one in the block. 
+    T is the first tree of the basic block.
 
-   T is the first tree of the basic block.
-
-   CONTROL_PARENT is the basic block of the innermost containing control
+    CONTROL_PARENT is the basic block of the innermost containing control
       structure.
 
-   COMPOUND_STMT is the immediately enclosing compound statement to which
+    COMPOUND_STMT is the immediately enclosing compound statement to which
       the first tree of the block belongs.
 
-   PREV_CHAIN_P is the address into the tree preceeding T that contains a
+    PREV_CHAIN_P is the address into the tree preceeding T that contains a
       pointer to T.  This is used when we need to insert statements before
       the first tree of the block.
 
-   Returns the new basic block.  */
+    Returns the new basic block.  */
 
 static basic_block
 create_maximal_bb (t, control_parent, compound_stmt, prev_chain_p)
@@ -439,22 +422,19 @@ create_maximal_bb (t, control_parent, compound_stmt, prev_chain_p)
   return bb;
 }
 
-/* }}} */
 
-/* {{{ create_bb()
+/** Creates and returns a new basic block.
 
-   Creates and returns a new basic block.
+    HEAD and END are the first and last statements in the block.
 
-   HEAD and END are the first and last statements in the block.
-
-   CONTROL_PARENT is the entry block for the control structure containing
+    CONTROL_PARENT is the entry block for the control structure containing
       the new block.
 
-   PREV_CHAIN_P is the address into the tree preceeding T that contains a
+    PREV_CHAIN_P is the address into the tree preceeding T that contains a
       pointer to T.  This is used when we need to insert statements before
       the first tree of the block.
 
-   BINDING_SCOPE is the binding scope enclosing the block.  If NULL, the
+    BINDING_SCOPE is the binding scope enclosing the block.  If NULL, the
       binding scope is the top element of the array binding_stack.  */
 
 static basic_block
@@ -521,14 +501,11 @@ create_bb (head, end, control_parent, prev_chain_p, binding_scope)
   return bb;
 }
 
-/* }}} */
 
-/* {{{ map_stmt_to_bb()
-
-   Map statement T to basic block BB.  Note that we only do this on
-   statement trees.  Other types of trees may be shared, making this
-   annotation useless.  Code requesting the basic block for a tree,
-   should be ready to deal with NULL responses.  */
+/** Map statement T to basic block BB.  Note that we only do this on
+    statement trees.  Other types of trees may be shared, making this
+    annotation useless.  Code requesting the basic block for a tree, should
+    be ready to deal with NULL responses.  */
 
 static void
 map_stmt_to_bb (t, bb)
@@ -544,12 +521,9 @@ map_stmt_to_bb (t, bb)
   ann->bb = bb;
 }
 
-/* }}} */
 
-/* {{{ get_bb_ann()
-
-   Get the annotation for the given block.  Create a new one if
-   necessary.  */
+/** Get the annotation for the given block.  Create a new one if
+    necessary.  */
 
 bb_ann
 get_bb_ann (bb)
@@ -561,11 +535,8 @@ get_bb_ann (bb)
   return BB_ANN (bb);
 }
 
-/* }}} */
 
-/* {{{ create_bb_ann()
-
-   Create a new annotation for basic block BB.  */
+/** Create a new annotation for basic block BB.  */
 
 static void
 create_bb_ann (bb)
@@ -577,11 +548,8 @@ create_bb_ann (bb)
   bb->aux = (void *) ann;
 }
 
-/* }}} */
 
-/* {{{ remove_bb_ann()
-
-   Remove the annotation from block BB.  */
+/** Remove the annotation from block BB.  */
 
 static void
 remove_bb_ann (bb)
@@ -598,16 +566,13 @@ remove_bb_ann (bb)
   bb->aux = NULL;
 }
 
-/* }}} */
 
-/* {{{ tree_split_bb()
+/** Splits basic block BB at statement T.  A new basic block is created
+    starting with the statement following T.  If T is already the last
+    statement in the block, nothing is done.
 
-   Splits basic block BB at statement T.  A new basic block is created
-   starting with the statement following T.  If T is already the last
-   statement in the block, nothing is done.
-
-   Returns the newly created basic block or NULL if no splitting is
-   necessary.  */
+    Returns the newly created basic block or NULL if no splitting is
+    necessary.  */
 
 basic_block
 tree_split_bb (bb, t)
@@ -627,14 +592,11 @@ tree_split_bb (bb, t)
   return new_bb;
 }
 
-/* }}} */
 
 
 /* Create edges.  */
 
-/* {{{ make_edges()
-
-   Join all the blocks in the flowgraph.  */
+/** Join all the blocks in the flowgraph.  */
 
 static void
 make_edges ()
@@ -704,11 +666,8 @@ make_edges ()
   tree_cleanup_cfg ();
 }
 
-/* }}} */
 
-/* {{{ make_ctrl_stmt_edges()
-
-   Create edges for control statement at basic block BB.  */
+/** Create edges for control statement at basic block BB.  */
 
 static void
 make_ctrl_stmt_edges (bb)
@@ -742,12 +701,9 @@ make_ctrl_stmt_edges (bb)
     }
 }
 
-/* }}} */
 
-/* {{{ make_exit_edges()
-
-   Create exit edges for statements that alter the flow of control
-   (BREAK, CONTINUE, GOTO, RETURN and calls to non-returning functions).  */
+/** Create exit edges for statements that alter the flow of control
+    (BREAK, CONTINUE, GOTO, RETURN and calls to non-returning functions).  */
 
 static void
 make_exit_edges (bb)
@@ -777,11 +733,8 @@ make_exit_edges (bb)
     }
 }
 
-/* }}} */
 
-/* {{{ make_for_stmt_edges()
-
-   Create edges for a FOR_STMT structure that starts at basic block BB.  */
+/** Create edges for a FOR_STMT structure that starts at basic block BB.  */
 
 static void
 make_for_stmt_edges (bb)
@@ -856,11 +809,8 @@ make_for_stmt_edges (bb)
     make_edge (cond_bb, successor_block (bb), 0);
 }
 
-/* }}} */
 
-/* {{{ make_while_stmt_edges()
-
-   Create the edges for a WHILE_STMT structure starting with bb.  */
+/** Create the edges for a WHILE_STMT structure starting with bb.  */
 
 static void
 make_while_stmt_edges (bb)
@@ -917,11 +867,8 @@ make_while_stmt_edges (bb)
     make_edge (bb, successor_block (bb), 0);
 }
 
-/* }}} */
 
-/* {{{ make_do_stmt_edges()
-
-   Create the edges for a DO_STMT structure starting with bb.  */
+/** Create the edges for a DO_STMT structure starting with bb.  */
 
 static void
 make_do_stmt_edges (bb)
@@ -977,11 +924,8 @@ make_do_stmt_edges (bb)
     make_edge (cond_bb, successor_block (bb), 0);
 }
 
-/* }}} */
 
-/* {{{ make_if_stmt_edges()
-
-   Create the edges for an IF_STMT structure starting with BB.  */
+/** Create the edges for an IF_STMT structure starting with BB.  */
 
 static void
 make_if_stmt_edges (bb)
@@ -1038,11 +982,8 @@ make_if_stmt_edges (bb)
     make_edge (bb, successor_bb, 0);
 }
 
-/* }}} */
 
-/* {{{ make_goto_stmt_edges()
-
-   Create edges for a goto statement.  */
+/** Create edges for a goto statement.  */
 
 static void
 make_goto_stmt_edges (bb)
@@ -1081,12 +1022,9 @@ make_goto_stmt_edges (bb)
     }
 }
 
-/* }}} */
 
-/* {{{ make_break_stmt_edges()
-
-   A break statement creates an edge from the break block to the successor
-   block for the break statement's control parent.  */
+/** A break statement creates an edge from the break block to the successor
+    block for the break statement's control parent.  */
 
 static void
 make_break_stmt_edges (bb)
@@ -1114,12 +1052,9 @@ make_break_stmt_edges (bb)
   make_edge (bb, successor_block (control_parent), 0);
 }
 
-/* }}} */
 
-/* {{{ make_continue_stmt_edges()
-
-   A continue statement creates an edge from the continue block to the
-   control parent's expression block.  */
+/** A continue statement creates an edge from the continue block to the
+    control parent's expression block.  */
 
 static void
 make_continue_stmt_edges (bb)
@@ -1145,14 +1080,11 @@ make_continue_stmt_edges (bb)
   make_edge (bb, latch_block (loop_bb), 0);
 }
 
-/* }}} */
 
 
 /* Flowgraph analysis.  */
 
-/* {{{ tree_cleanup_cfg()
-
-   Remove unreachable blocks and other miscellaneous clean up work.  */
+/** Remove unreachable blocks and other miscellaneous clean up work.  */
 
 void
 tree_cleanup_cfg ()
@@ -1160,11 +1092,8 @@ tree_cleanup_cfg ()
   remove_unreachable_blocks ();
 }
 
-/* }}} */
 
-/* {{{ remove_unreachable_blocks()
-   
-   Delete all unreachable basic blocks.   */
+/** Delete all unreachable basic blocks.   */
 
 static void
 remove_unreachable_blocks ()
@@ -1182,11 +1111,8 @@ remove_unreachable_blocks ()
     }
 }
 
-/* }}} */
 
-/* {{{ tree_delete_bb()
-
-   Remove a block from the flowgraph.  */
+/** Remove a block from the flowgraph.  */
 
 static void
 tree_delete_bb (bb)
@@ -1227,13 +1153,10 @@ tree_delete_bb (bb)
   expunge_block (bb);
 }
 
-/* }}} */
 
-/* {{{ validate_loops()
-
-   Scan all the loops in the flowgraph verifying their validity.   A valid
-   loop L contains no calls to user functions, no returns, no jumps out of
-   the loop and non-local gotos.  */
+/** Scan all the loops in the flowgraph verifying their validity.   A valid
+    loop L contains no calls to user functions, no returns, no jumps out of
+    the loop and non-local gotos.  */
 
 void
 validate_loops (loops)
@@ -1258,13 +1181,10 @@ validate_loops (loops)
     }
 }
 
-/* }}} */
 
-/* {{{ block_invalidates_loop()
-
-   Returns 1 if the basic block BB makes the LOOP invalid.  This occurs if
-   the block contains a call to a user function, a return, a jump out of
-   the loop or a non-local goto.  */
+/** Returns 1 if the basic block BB makes the LOOP invalid.  This occurs if
+    the block contains a call to a user function, a return, a jump out of
+    the loop or a non-local goto.  */
 
 static int
 block_invalidates_loop (bb, loop)
@@ -1300,16 +1220,13 @@ block_invalidates_loop (bb, loop)
   return 0;
 }
 
-/* }}} */
 
 
 /* Helper functions and predicates.  */
 
-/* {{{ successor_block()
-
-   Return the successor block for BB.  If the block has no successors we try
-   the enclosing control structure until we find one.  If we reached nesting
-   level 0, return the exit block.  */
+/** Return the successor block for BB.  If the block has no successors we
+    try the enclosing control structure until we find one.  If we reached
+    nesting level 0, return the exit block.  */
 
 static basic_block
 successor_block (bb)
@@ -1356,11 +1273,8 @@ successor_block (bb)
   return EXIT_BLOCK_PTR;
 }
 
-/* }}} */
 
-/* {{{ is_ctrl_stmt()
-
-   Return 1 if T represents a control statement.  */
+/** Return 1 if T represents a control statement.  */
 
 int
 is_ctrl_stmt (t)
@@ -1376,12 +1290,9 @@ is_ctrl_stmt (t)
 	  || TREE_CODE (t) == DO_STMT);
 }
 
-/* }}} */
 
-/* {{{ is_ctrl_altering_stmt()
-
-   Returns 1 if T alters the flow of control (i.e., T is BREAK, GOTO,
-   CONTINUE or RETURN)  */
+/** Returns 1 if T alters the flow of control (i.e., T is BREAK, GOTO,
+    CONTINUE or RETURN)  */
 
 int
 is_ctrl_altering_stmt (t)
@@ -1411,11 +1322,8 @@ is_ctrl_altering_stmt (t)
   return 0;
 }
 
-/* }}} */
 
-/* {{{ is_loop_stmt()
-
-   Return 1 if T represent a loop statement.  */
+/** Return 1 if T represent a loop statement.  */
 
 int
 is_loop_stmt (t)
@@ -1428,11 +1336,8 @@ is_loop_stmt (t)
 	  || TREE_CODE (t) == WHILE_STMT || TREE_CODE (t) == DO_STMT);
 }
 
-/* }}} */
 
-/* {{{ loop_body()
-
-   Return the first statement in the body of LOOP.  */
+/** Return the first statement in the body of LOOP.  */
 
 tree
 loop_body (loop)
@@ -1448,11 +1353,8 @@ loop_body (loop)
     abort ();
 }
 
-/* }}} */
 
-/* {{{ set_loop_body()
-
-   Set the body of LOOP to be STMT.  */
+/** Set the body of LOOP to be STMT.  */
 
 void
 set_loop_body (loop, stmt)
@@ -1486,11 +1388,8 @@ set_loop_body (loop, stmt)
   make_edges ();
 }
 
-/* }}} */
 
-/* {{{ stmt_starts_bb_p()
-
-   Return 1 if the given tree should start a new basic block.  */
+/** Return 1 if the given tree should start a new basic block.  */
 
 int
 stmt_starts_bb_p (t)
@@ -1507,12 +1406,9 @@ stmt_starts_bb_p (t)
 	  || is_ctrl_stmt (t));
 }
 
-/* }}} */
 
-/* {{{ stmt_ends_bb_p()
-
-   Return 1 if the given tree T should be the last in a basic block.
-   T ends a basic block if T's successor starts a new one.  */
+/** Return 1 if the given tree T should be the last in a basic block.
+    T ends a basic block if T's successor starts a new one.  */
 
 int
 stmt_ends_bb_p (t)
@@ -1529,11 +1425,8 @@ stmt_ends_bb_p (t)
   return 0;
 }
 
-/* }}} */
 
-/* {{{ delete_cfg()
-
-   Remove all the blocks and edges that make up the flowgraph.  */
+/** Remove all the blocks and edges that make up the flowgraph.  */
 
 void
 delete_cfg ()
@@ -1553,12 +1446,9 @@ delete_cfg ()
   VARRAY_FREE (basic_block_info);
 }
 
-/* }}} */
 
-/* {{{ loop_parent()
-
-   Returns the header block for the innermost loop containing BB.  It
-   returns NULL if BB is not inside a loop.  */
+/** Returns the header block for the innermost loop containing BB.  It
+    returns NULL if BB is not inside a loop.  */
 
 basic_block
 loop_parent (bb)
@@ -1571,13 +1461,10 @@ loop_parent (bb)
   return bb;
 }
 
-/* }}} */
 
-/* {{{ latch_block()
-
-   Returns the block marking the end of the loop body.  This is the block
-   that contains the back edge to the start of the loop (i.e., to the block
-   containing DO_COND or WHILE_COND or FOR_COND).  */
+/** Returns the block marking the end of the loop body.  This is the block
+    that contains the back edge to the start of the loop (i.e., to the
+    block containing DO_COND or WHILE_COND or FOR_COND).  */
 
 basic_block
 latch_block (loop_bb)
@@ -1595,12 +1482,9 @@ latch_block (loop_bb)
     abort ();
 }
 
-/* }}} */
 
-/* {{{ switch_parent()
-
-   Returns the header block for the innermost switch statement containing
-   BB.  It returns NULL if BB is not inside a switch statement.  */
+/** Returns the header block for the innermost switch statement containing
+    BB.  It returns NULL if BB is not inside a switch statement.  */
 
 basic_block
 switch_parent (bb)
@@ -1613,11 +1497,8 @@ switch_parent (bb)
   return bb;
 }
 
-/* }}} */
 
-/* {{{ first_exec_stmt()
-
-   Return the first executable statement starting at T.  */
+/** Return the first executable statement starting at T.  */
 
 tree
 first_exec_stmt (t)
@@ -1655,11 +1536,8 @@ first_exec_stmt (t)
   return first_exec_stmt (TREE_CHAIN (t));
 }
 
-/* }}} */
 
-/* {{{ last_exec_stmt (t)
-
-   Return the last executable statement starting at T.  */
+/** Return the last executable statement starting at T.  */
 
 tree
 last_exec_stmt (t)
@@ -1681,11 +1559,8 @@ last_exec_stmt (t)
   return prev;
 }
 
-/* }}} */
 
-/* {{{ is_exec_stmt()
-
-   Return 1 if T is an executable statement.  */
+/** Return 1 if T is an executable statement.  */
 
 int
 is_exec_stmt (t)
@@ -1697,11 +1572,8 @@ is_exec_stmt (t)
           && ! (TREE_CODE (t) == SCOPE_STMT && SCOPE_END_P (t)));
 }
 
-/* }}} */
 
-/* {{{ is_statement_expression()
-
-   Return 1 if T is a statement-expression.  */
+/** Return 1 if T is a statement-expression.  */
 
 int
 is_statement_expression (t)
@@ -1712,12 +1584,9 @@ is_statement_expression (t)
 	  && TREE_CODE (TREE_OPERAND (t, 0)) == STMT_EXPR);
 }
 
-/* }}} */
 
-/* {{{ first_non_decl_stmt()
-
-   Returns the first statement that is not a DECL_STMT or SCOPE_STMT, starting
-   with T.  */
+/** Returns the first statement that is not a DECL_STMT or SCOPE_STMT,
+    starting with T.  */
 
 tree
 first_non_decl_stmt (t)
@@ -1729,12 +1598,9 @@ first_non_decl_stmt (t)
   return t;
 }
 
-/* }}} */
 
-/* {{{ first_decl_stmt()
-
-   Returns the first statement that is not a DECL_STMT or SCOPE_STMT, starting
-   with T.  */
+/** Returns the first statement that is not a DECL_STMT or SCOPE_STMT,
+    starting with T.  */
 
 tree
 first_decl_stmt (t)
@@ -1746,12 +1612,10 @@ first_decl_stmt (t)
   return t;
 }
 
-/* }}} */
 
-/* {{{ first_non_label_in_bb()
-
-   Returns the first executable statement that is not a LABEL or CASE_LABEL
-   in basic block BB.  Returns NULL if the block only contains labels.  */
+/** Returns the first executable statement that is not a LABEL or
+    CASE_LABEL in basic block BB.  Returns NULL if the block only contains
+    labels.  */
 
 tree
 first_non_label_in_bb (bb)
@@ -1770,24 +1634,21 @@ first_non_label_in_bb (bb)
   return ((t && t != bb->end_tree) ? t : NULL);
 }
 
-/* }}} */
 
 
 /* Code insertion and replacement.  */
 
-/* {{{ insert_stmt_tree_before()
+/** Insert statement STMT before tree WHERE in basic block BB.  The
+    insertion is flow-sensitive.  After insertion, statement STMT is
+    guaranteed to always execute before WHERE.
 
-   Insert statement STMT before tree WHERE in basic block BB.  The
-   insertion is flow-sensitive.  After insertion, statement STMT is
-   guaranteed to always execute before WHERE.
-
-   ??? Important, this code only supports the insertion of simple
-   statements. Inserting control statements will require re-computing the
-   flowgraph.
+    ??? Important, this code only supports the insertion of simple
+    statements. Inserting control statements will require re-computing the
+    flowgraph.
    
-   Also, insertion of expressions is not supported.  The code is
-   not prepared to handle all the side-effects and look for correct
-   sequence points where to insert arbitrary expressions.  */
+    Also, insertion of expressions is not supported.  The code is not
+    prepared to handle all the side-effects and look for correct sequence
+    points where to insert arbitrary expressions.  */
 
 void
 insert_stmt_tree_before (stmt, where, bb)
@@ -1812,12 +1673,9 @@ insert_stmt_tree_before (stmt, where, bb)
     dump_end (TDI_cfg, dump_file);
 }
 
-/* }}} */
 
-/* {{{ insert_before_ctrl_stmt()
-
-   Subroutine of insert_stmt_before() to handle insertions in control
-   header blocks.  */
+/** Subroutine of insert_stmt_before() to handle insertions in control
+    header blocks.  */
 
 static void
 insert_before_ctrl_stmt (stmt, where, bb)
@@ -1935,13 +1793,10 @@ insert_before_ctrl_stmt (stmt, where, bb)
     abort ();
 }
 
-/* }}} */
 
-/* {{{ insert_before_normal_stmt()
-
-   Subroutine of insert_stmt_tree_before() to handle insertions in regular
-   statements.  If STMT is inserted before a block boundary, a new basic
-   block is created to hold it.  */
+/** Subroutine of insert_stmt_tree_before() to handle insertions in regular
+    statements.  If STMT is inserted before a block boundary, a new basic
+    block is created to hold it.  */
 
 static void
 insert_before_normal_stmt (stmt, where, bb)
@@ -2019,21 +1874,18 @@ insert_before_normal_stmt (stmt, where, bb)
     }
 }
 
-/* }}} */
 
-/* {{{ insert_stmt_tree_after()
+/** Insert statement STMT after statement WHERE in basic block BB.  The
+    insertion is flow-sensitive.  After insertion, statement STMT is
+    guaranteed to always execute after WHERE.
 
-   Insert statement STMT after statement WHERE in basic block BB.  The
-   insertion is flow-sensitive.  After insertion, statement STMT is
-   guaranteed to always execute after WHERE.
-
-   ??? Important, this code only supports the insertion of simple
-   statements. Inserting control statements will require re-computing the
-   flowgraph.
+    ??? Important, this code only supports the insertion of simple
+    statements. Inserting control statements will require re-computing the
+    flowgraph.
    
-   Also, insertion of expressions is not supported.  The code is
-   not prepared to handle all the side-effects and look for correct
-   sequence points where to insert arbitrary expressions.  */
+    Also, insertion of expressions is not supported.  The code is not
+    prepared to handle all the side-effects and look for correct sequence
+    points where to insert arbitrary expressions.  */
 
 void
 insert_stmt_tree_after (stmt, where, bb)
@@ -2056,12 +1908,9 @@ insert_stmt_tree_after (stmt, where, bb)
     dump_end (TDI_cfg, dump_file);
 }
 
-/* }}} */
 
-/* {{{ insert_after_ctrl_stmt()
-
-   Subroutine of insert_stmt_tree_after() to handle insertions at control
-   statement header blocks.  */
+/** Subroutine of insert_stmt_tree_after() to handle insertions at control
+    statement header blocks.  */
 
 static void
 insert_after_ctrl_stmt (stmt, bb)
@@ -2202,12 +2051,9 @@ insert_after_ctrl_stmt (stmt, bb)
     abort ();
 }
 
-/* }}} */
 
-/* {{{ insert_after_normal_stmt()
-
-   Subroutine of insert_stmt_tree_after() to insert after normal
-   statements.  */
+/** Subroutine of insert_stmt_tree_after() to insert after normal
+    statements.  */
 
 static void
 insert_after_normal_stmt (stmt, where, bb)
@@ -2251,12 +2097,9 @@ insert_after_normal_stmt (stmt, where, bb)
     }
 }
 
-/* }}} */
 
-/* {{{ insert_after_loop_body()
-
-   Inserts STMT so that it will be executed after the body of the loop
-   starting at basic block LOOP.  */
+/** Inserts STMT so that it will be executed after the body of the loop
+    starting at basic block LOOP.  */
 
 static void
 insert_after_loop_body (stmt, loop)
@@ -2304,11 +2147,8 @@ insert_after_loop_body (stmt, loop)
                             BB_FOR_STMT (last_stmt));
 }
 
-/* }}} */
 
-/* {{{ replace_expr_in_tree()
-
-   Replace expression EXPR in statement STMT with NEW_EXPR.  */
+/** Replace expression EXPR in statement STMT with NEW_EXPR.  */
 
 void
 replace_expr_in_tree (stmt, old_expr, new_expr)
@@ -2362,13 +2202,10 @@ replace_expr_in_tree (stmt, old_expr, new_expr)
     *old_expr_p = new_expr;
 }
 
-/* }}} */
 
-/* {{{ find_expr_in_tree()
-
-   Returns the location of expression EXPR in T.  The search is guaranteed
-   to not go outside statement nodes, only their sub-expressions are
-   searched.  */
+/** Returns the location of expression EXPR in T.  The search is guaranteed
+    to not go outside statement nodes, only their sub-expressions are
+    searched.  */
 
 tree *
 find_expr_in_tree (t, expr)
@@ -2442,11 +2279,8 @@ find_expr_in_tree (t, expr)
   return NULL;
 }
 
-/* }}} */
 
-/* {{{ insert_bb_before()
-
-   Insert basic block NEW_BB before BB.  */
+/** Insert basic block NEW_BB before BB.  */
 
 void
 insert_bb_before (new_bb, bb)
@@ -2463,14 +2297,11 @@ insert_bb_before (new_bb, bb)
   make_edge (new_bb, bb, 0);
 }
 
-/* }}} */
 
 
 /* Debugging functions.  */
 
-/* {{{ tree_dump_bb
-
-   Dump a basic block to a file.  */
+/** Dump a basic block to a file.  */
 
 void
 tree_dump_bb (outf, prefix, bb, indent)
@@ -2561,11 +2392,8 @@ tree_dump_bb (outf, prefix, bb, indent)
     fprintf (outf, "nil\n");
 }
 
-/* }}} */
 
-/* {{{ tree_debug_bb()
-
-   Dump a basic block on stderr.  */
+/** Dump a basic block on stderr.  */
 
 void
 tree_debug_bb (bb)
@@ -2574,11 +2402,8 @@ tree_debug_bb (bb)
   tree_dump_bb (stderr, "", bb, 0);
 }
 
-/* }}} */
 
-/* {{{ tree_debug_cfg()
-
-   Dump the CFG on stderr.  */
+/** Dump the CFG on stderr.  */
 
 void
 tree_debug_cfg ()
@@ -2586,11 +2411,8 @@ tree_debug_cfg ()
   tree_dump_cfg (stderr);
 }
 
-/* }}} */
 
-/* {{{ tree_dump_cfg ()
-
-   Dump the CFG on the given FILE.  */
+/** Dump the CFG on the given FILE.  */
 
 void
 tree_dump_cfg (file)
@@ -2611,11 +2433,8 @@ tree_dump_cfg (file)
     }
 }
 
-/* }}} */
 
-/* {{{ tree_cfg2dot()
-
-   Dump the flowgraph to a .dot FILE.  */
+/** Dump the flowgraph to a .dot FILE.  */
 
 void
 tree_cfg2dot (file)
@@ -2680,5 +2499,3 @@ tree_cfg2dot (file)
 
   fputs ("}\n\n", file);
 }
-
-/* }}} */

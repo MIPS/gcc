@@ -38,9 +38,8 @@ Boston, MA 02111-1307, USA.  */
 /* Local functions.  */
 static void init_tree_flow PARAMS ((void));
 
-/* {{{ optimize_function_tree ()
-
-   Main entry point to the tree SSA transformation routines.  */
+/** Main entry point to the tree SSA transformation routines.  FNDECL is
+    the FUNCTION_DECL node for the function to optimize.  */
 
 void
 optimize_function_tree (fndecl)
@@ -77,11 +76,8 @@ optimize_function_tree (fndecl)
   referenced_symbols = NULL;
 }
 
-/* }}} */
 
-/* {{{ build_tree_ssa()
-
-   Main entry point to the tree SSA analysis routines.  */
+/** Main entry point to the tree SSA analysis routines.  */
 
 void
 build_tree_ssa (fndecl)
@@ -101,11 +97,8 @@ build_tree_ssa (fndecl)
     }
 }
 
-/* }}} */
 
-/* {{{ init_tree_flow()
-
-   Initialize internal data structures and flags for the tree SSA pass.  */
+/** Initialize internal data structures and flags for the tree SSA pass.  */
 
 static void
 init_tree_flow ()
@@ -120,5 +113,3 @@ init_tree_flow ()
       warn_uninitialized = 0;
     }
 }
-
-/* }}} */

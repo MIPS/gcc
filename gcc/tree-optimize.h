@@ -22,11 +22,9 @@ Boston, MA 02111-1307, USA.  */
 #ifndef _TREE_OPTIMIZE_H
 #define _TREE_OPTIMIZE_H 1
 
-/* {{{ Function prototypes.  */
+/* Function prototypes.  */
 
 void optimize_function_tree PARAMS ((tree));
 void build_tree_ssa PARAMS ((tree));
-
-/* }}} */
 
 #endif /* _TREE_OPTIMIZE_H */

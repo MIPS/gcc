@@ -60,9 +60,7 @@ varray_type referenced_symbols;
 
 /* Find variable references in the code.  */
 
-/* {{{ tree_find_varrefs()
-
-   Look for variable references in every block of the flowgraph.  */
+/** Look for variable references in every block of the flowgraph.  */
 
 void
 tree_find_varrefs ()
@@ -116,12 +114,9 @@ tree_find_varrefs ()
     }
 }
 
-/* }}} */
 
-/* {{{ find_refs_in_stmt()
-
-   Walks T looking for variable references.  BB is the basic block that
-   contains T.  */
+/** Walks T looking for variable references.  BB is the basic block that
+    contains T.  */
 
 static void
 find_refs_in_stmt (t, bb)
@@ -213,16 +208,13 @@ find_refs_in_stmt (t, bb)
     }
 }
 
-/* }}} */
 
-/* {{{ find_refs_in_expr()
-
-   Recursively scan the expression tree EXPR looking for variable
-   references.
+/** Recursively scan the expression tree EXPR looking for variable
+    references.
    
-   REF_TYPE indicates what type of reference should be created.
+    REF_TYPE indicates what type of reference should be created.
 
-   BB, PARENT_STMT and PARENT_EXPR are the block, statement and expression
+    BB, PARENT_STMT and PARENT_EXPR are the block, statement and expression
       trees containing EXPR.  */
 
 static void
@@ -445,18 +437,17 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
     }
 }
 
-/* }}} */
 
 
 /* Create references and associations to symbols and basic blocks.  */
 
-/* {{{ create_ref()
+/** Create a new variable reference for symbol SYM and add it to the list
+    of references for SYM and the basic block that holds the reference.
 
-   Create a new variable reference for symbol SYM and add it to the list
-   of references for SYM and the basic block that holds the reference.
-   REF_TYPE is the type of reference to create (def, use, phi, etc).
-   BB, PARENT_STMT and PARENT_EXPR give the exact location of the
-   reference.  */
+    REF_TYPE is the type of reference to create (def, use, phi, etc).
+    
+    BB, PARENT_STMT and PARENT_EXPR give the exact location of the
+      reference.  */
 
 varref
 create_ref (sym, ref_type, bb, parent_stmt, parent_expr)
@@ -536,11 +527,8 @@ create_ref (sym, ref_type, bb, parent_stmt, parent_expr)
   return ref;
 }
 
-/* }}} */
 
-/* {{{ add_ref_symbol()
-
-   Adds a unique copy of symbol SYM to the list of referenced symbols.  */
+/** Adds a unique copy of symbol SYM to the list of referenced symbols.  */
 
 static void
 add_ref_symbol (sym)
@@ -559,14 +547,11 @@ add_ref_symbol (sym)
   create_tree_ann (sym);
 }
 
-/* }}} */
 
 
 /* Manage annotations.  */
 
-/* {{{ get_tree_ann()
-
-   Get the annotation for the given tree.  Create a new one if necessary.  */
+/** Get the annotation for the given tree.  Create a new one if necessary.  */
 
 tree_ann
 get_tree_ann (t)
@@ -578,11 +563,8 @@ get_tree_ann (t)
   return TREE_ANN (t);
 }
 
-/* }}} */
 
-/* {{{ create_tree_ann()
-
-   Create a new annotation for tree T.  */
+/** Create a new annotation for tree T.  */
 
 static void
 create_tree_ann (t)
@@ -594,14 +576,11 @@ create_tree_ann (t)
   t->common.aux = (void *) ann;
 }
 
-/* }}} */
 
 
 /* Miscellaneous helpers.  */
 
-/* {{{ function_may_recurse_p()
-
-   Return 1 if the function may call itself.
+/** Return 1 if the function may call itself.
    
    ??? Currently this is very limited because we do not have call-graph
        information.  */
@@ -634,15 +613,12 @@ function_may_recurse_p ()
   return 0;
 }
 
-/* }}} */
 
-/* {{{ get_fcalls()
+/** Push into variable array *FCALLS_P all the function call references made
+    in this function.
 
-   Push into variable array *FCALLS_P all the function call references made
-   in this function.
-
-   WHICH is a bitmask specifying the type of function call that the caller
-   is interested in (see tree-flow.h).  */
+    WHICH is a bitmask specifying the type of function call that the caller
+      is interested in (see tree-flow.h).  */
 
 void
 get_fcalls (fcalls_p, which)
@@ -681,11 +657,8 @@ get_fcalls (fcalls_p, which)
     }
 }
 
-/* }}} */
 
-/* {{{ find_declaration()
-
-   Returns the basic block containing the statement that declares DECL.  */
+/** Returns the basic block containing the statement that declares DECL.  */
 
 basic_block
 find_declaration (decl)
@@ -717,16 +690,13 @@ find_declaration (decl)
   return NULL;
 }
 
-/* }}} */
 
 
 /* Debugging functions.  */
 
-/* {{{ dump_varref()
-
-   Display variable reference REF on stream OUTF. PREFIX is a string that
-   is prefixed to every line of output, and INDENT is the amount of left
-   margin to leave.  If DETAILS is nonzero, the output is more verbose.  */
+/** Display variable reference REF on stream OUTF. PREFIX is a string that
+    is prefixed to every line of output, and INDENT is the amount of left
+    margin to leave.  If DETAILS is nonzero, the output is more verbose.  */
 
 void
 dump_varref (outf, prefix, ref, indent, details)
@@ -823,11 +793,8 @@ dump_varref (outf, prefix, ref, indent, details)
   fputc ('\n', outf);
 }
 
-/* }}} */
 
-/* {{{ debug_varref()
-
-   Display variable reference REF on stderr.  */
+/** Display variable reference REF on stderr.  */
 
 void
 debug_varref (ref)
@@ -836,14 +803,11 @@ debug_varref (ref)
   dump_varref (stderr, "", ref, 0, 1);
 }
 
-/* }}} */
 
-/* {{{ dump_varref_list()
-
-   Display a list of variable references on stream OUTF. PREFIX is a string
-   that is prefixed to every line of output, and INDENT is the amount of
-   left margin to leave.  If DETAILS is nonzero, the output is more
-   verbose.  */
+/** Display a list of variable references on stream OUTF. PREFIX is a
+    string that is prefixed to every line of output, and INDENT is the
+    amount of left margin to leave.  If DETAILS is nonzero, the output is
+    more verbose.  */
 
 void
 dump_varref_list (outf, prefix, reflist, indent, details)
@@ -864,11 +828,8 @@ dump_varref_list (outf, prefix, reflist, indent, details)
 		   indent, details);
 }
 
-/* }}} */
 
-/* {{{ debug_varref_list()
-
-   Dump REFLIST on stderr.  */
+/** Dump REFLIST on stderr.  */
 
 void
 debug_varref_list (reflist)
@@ -876,5 +837,3 @@ debug_varref_list (reflist)
 {
   dump_varref_list (stderr, "", reflist, 0, 1);
 }
-
-/* }}} */

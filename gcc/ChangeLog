@@ -1,3 +1,15 @@
+2002-06-11  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-simplify.c: Remove folding markers.
+	(insert_before_first): Remove unused function.
+	* tree-cfg.c: Remove folding markers.
+	* tree-dfa.c: Ditto.
+	* tree-flow.h: Ditto.
+	* tree-optimize.c: Ditto.
+	* tree-optimize.h: Ditto.
+	* tree-simple.c: Ditto.
+	* tree-ssa.c: Ditto.
+
 2002-06-11  Jason Merrill  <jason@redhat.com>
 
 	* c-simplify.c (add_tree): Don't deep-copy expressions.
