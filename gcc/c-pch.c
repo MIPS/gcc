@@ -466,7 +466,7 @@ c_common_no_more_pch (void)
 }
 
 /* APPLE LOCAL distcc pch indirection --mrs */
-const char *indirect_file (const char *, int);
+const char *indirect_file PARAMS ((const char *, int));
 
 /* Handle #pragma GCC pch_preprocess, to load in the PCH file.  */
 
