@@ -1,3 +1,9 @@
+2003-07-29  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-alias-common.c (create_alias_vars):  If we created global_var,
+	delete it when we are done.
+	(ptr_may_alias_var): Handle case that global_var is now NULL_TREE.
+
 2003-07-29  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (optimize_stmt): Propagate copies into VUSEs and

@@ -929,6 +929,7 @@ create_alias_var (tree decl)
 void
 create_alias_vars (tree fndecl)
 {
+  bool we_created_global_var = false;
 #if 0
   tree currdecl = getdecls ();
   tree fnbody;
@@ -936,7 +937,10 @@ create_alias_vars (tree fndecl)
   size_t i;
   currptadecl = fndecl;
   if (!global_var)
-    create_global_var ();
+    {
+      create_global_var ();
+      we_created_global_var = true;
+    }
   /* If the #if block printing out the points-to sets is #if 0'd out, the
      compiler will complain i is unused. So use it. */
   i = 0;
@@ -972,6 +976,9 @@ create_alias_vars (tree fndecl)
       find_func_decls, NULL);*/
   walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
 				find_func_aliases, NULL);
+  if (we_created_global_var)
+    global_var = NULL_TREE;
+
 }
 
 /**
@@ -1069,7 +1076,8 @@ ptr_may_alias_var (tree ptr, tree var)
       if (varcontext == NULL)
 	var = global_var;
     }
-  if (ptr == var || (ptrcontext == NULL && varcontext == NULL))
+  if (ptr == var || (ptrcontext == NULL && varcontext == NULL)
+      || (ptr == global_var))
     return true;
 
   if (DECL_P (ptr))
@@ -1090,6 +1098,8 @@ ptr_may_alias_var (tree ptr, tree var)
 	return false;
       ptrtv = result->value;
     }
+  if (var == global_var && global_var == NULL)
+    return false;
   if (DECL_P (var))
     {
       vartv = DECL_PTA_TYPEVAR (var);
