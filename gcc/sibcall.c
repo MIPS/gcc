@@ -578,10 +578,10 @@ optimize_sibling_and_tail_recursive_calls ()
   bool replaced_call_placeholder = false;
   edge e;
 
-  insns = get_insns ();
-
   delete_trivially_dead_insns (get_insns(), max_reg_num ());
   cleanup_cfg (CLEANUP_PRE_SIBCALL | CLEANUP_PRE_LOOP);
+
+  insns = get_insns ();
 
   /* If there are no basic blocks, then there is nothing to do.  */
   if (n_basic_blocks == 0)

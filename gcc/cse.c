@@ -7585,6 +7585,17 @@ count_reg_usage (x, counts, dest, incr)
       note = find_reg_equal_equiv_note (x);
       if (note)
         count_reg_usage (XEXP (note, 0), counts, NULL_RTX, incr);
+      
+      /* If there is a REG_SAVE_AREA note count it too
+	 for the case we are calling DELETE_TRIVIALLY_DEAD_INSNS
+	 before OPTIMIZE_SAVE_AREA_ALLOCA.  Such notes are there only
+         when CURRENT_FUNCTION_CALLS_ALLOCA.  */
+      if (current_function_calls_alloca)
+	{
+	  note = find_reg_note (x, REG_SAVE_AREA, NULL_RTX);
+	  if (note)
+	    count_reg_usage (XEXP (note, 0), counts, NULL_RTX, incr);
+	}
       return;
 
     case INSN_LIST:

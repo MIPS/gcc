@@ -1,3 +1,10 @@
+2003-08-26  Josef Zlomek  <zlomekj@suse.cz>
+
+	* cse.c (count_reg_usage): Count register usage also for
+	REG_SAVE_AREA note.
+	* sibcall.c (optimize_sibling_and_tail_recursive_call): Set INSNS
+	after deleting dead insns and CFG cleanup.
+
 Tue Aug 26 15:19:39 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* c-semantics.c (add_stmt): Do not touch estimated_insns.
