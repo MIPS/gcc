@@ -1621,6 +1621,8 @@ struct tree_decl GTY(())
 {
   struct tree_common common;
   location_t locus;
+  /* FIXME make part of locus - or of context! */
+  tree defining_fragment;
   unsigned int uid;
   tree size;
   ENUM_BITFIELD(machine_mode) mode : 8;

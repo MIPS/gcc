@@ -43,6 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "tm_p.h"
 #include "cpplib.h"
+#include "cpphash.h" /* FIXME */
 #include "target.h"
 #include "debug.h"
 #include "opts.h"
@@ -129,11 +130,6 @@ static GTY(()) tree c_scope_stmt_stack;
 /* A list of external DECLs that appeared at block scope when there was
    some other global meaning for that identifier.  */
 static GTY(()) tree truly_local_externals;
-
-/* All the builtins; this is a subset of the entries of global_scope.  */
-
-static GTY(()) tree first_builtin_decl;
-static GTY(()) tree last_builtin_decl;
 
 /* A DECL for the current file-scope context.  */
 
@@ -378,6 +374,151 @@ c_finish_incomplete_decl (tree decl)
 	  layout_decl (decl, 0);
 	}
     }
+}
+
+/* Language-specific callback used by cb_enter_fragment to restore bindings
+   (declarations and macros) associated with a fragment we're re-using. */
+
+void
+restore_fragment_bindings (tree bindings)
+{
+  int i;
+  int len;
+  struct c_scope *b = current_scope;
+  if (bindings == NULL_TREE)
+    return;
+  len = TREE_VEC_LENGTH (bindings);
+  for (i = 0;  i < len;  )
+    {
+      tree x = TREE_VEC_ELT (bindings, i);
+
+      if (TREE_CODE_CLASS (TREE_CODE (x)) == 'd')
+	{
+	  tree n = DECL_NAME (x);
+	  if (n != NULL_TREE)
+	    IDENTIFIER_SYMBOL_VALUE (n) = x;
+	  TREE_CHAIN (x) = b->names;
+	  b->names = x;
+	  i++;
+	}
+#if 0
+      else if (TREE_CODE (x) == INTEGER_CST)
+	{ /* finish_struct */
+	  tree type = TREE_VEC_ELT (bindings, i + 1);
+	  TYPE_FIELDS (type) = TREE_VEC_ELT (bindings, i + 2);
+	  TYPE_SIZE (type) = x;
+	  i += 3;
+	}
+      else if (TREE_CODE (x) == TREE_LIST) /* pushtag */
+	{
+	  tree type = TREE_VALUE (x);
+	  tree name = TREE_PURPOSE (x);
+	  TREE_CHAIN (x) = b->tags;
+	  TYPE_SIZE (type) = NULL_TREE;
+	  TYPE_FIELDS (type) = NULL_TREE;
+	  b->tags = x;
+	  if (name != NULL_TREE)
+	    IDENTIFIER_TAG_VALUE (name) = type;
+	  i++;
+	}
+#endif
+      else if (TREE_CODE_CLASS (TREE_CODE (x)) == 't')
+	{ /* lookup_tag/pushtag/finish_struct */
+	  tree type = x;
+	  tree name = TYPE_NAME (type);
+	  if (name != NULL_TREE)
+	    {
+	      if (IDENTIFIER_TAG_VALUE (name) == NULL)
+		{
+		  IDENTIFIER_TAG_VALUE (name) = type;
+		  TREE_CHAIN (x) = b->tags;
+		  b->tags = x;
+		  TYPE_SIZE (type) = NULL_TREE;
+		  TYPE_FIELDS (type) = NULL_TREE;
+		}
+	    }
+	  if (TYPE_SIZE (type) == NULL_TREE)
+	    {
+	      TYPE_FIELDS (type) = TREE_VEC_ELT (bindings, i + 1);
+	      TYPE_SIZE (type) = TREE_VEC_ELT (bindings, i + 2);
+	    }
+	  i += 3;
+	}
+      else
+	abort ();
+    }
+}
+
+int
+lang_clear_identifier (pfile, node, v)
+     cpp_reader *pfile ATTRIBUTE_UNUSED;
+     cpp_hashnode *node;
+     void *v ATTRIBUTE_UNUSED;
+{
+  tree tnode = HT_IDENT_TO_GCC_IDENT (node);
+  if (TREE_CODE (tnode) != IDENTIFIER_NODE)
+     abort();
+  IDENTIFIER_SYMBOL_VALUE (tnode) = NULL_TREE;
+  IDENTIFIER_TAG_VALUE (tnode) = NULL_TREE;
+  IDENTIFIER_LABEL_VALUE (tnode) = NULL_TREE;
+  reset_hashnode (node);
+
+  return 1;
+}
+
+void setup_globals ()
+{
+  truly_local_externals = NULL_TREE;
+
+  current_function_decl = NULL;
+  current_scope = NULL;
+  current_function_scope = NULL;
+
+  /* Make the binding_level structure for global names.  */
+  pushlevel (0);
+  global_scope = current_scope;
+  /* Declarations from c_common_nodes_and_builtins must not be associated
+     with this input file, lest we get differences between using and not
+     using preprocessed headers.  */
+  input_filename = NULL;
+}
+
+void
+init_c_decl_processing_eachsrc ()
+{
+  static int c_init_decl_done = 0;
+
+  tree file_scope_decl;
+
+  main_timestamp = ++c_timestamp;
+  file_scope_decl = current_file_decl;
+  /* This is a kludge because init_c_decl_processing_once has alreaady
+     done some of this for the first source file, and those things (such
+     as setup_globals) out to be the responsibility of this function. */
+  if (c_init_decl_done++ > 0)
+    {
+      if (server_mode != 1)
+	{
+	  process_undo_buffer ();
+	  DECL_INITIAL (file_scope_decl) = poplevel (1, 0, 0);
+	}
+      /* Or perhaps just: current_scope = global_scope;*/
+      setup_globals ();
+      current_scope = global_scope;
+      if (server_mode != 1)
+	{
+	  reset_cpp_hashnodes ();
+	  current_scope = global_scope;
+	  global_scope->tags = NULL_TREE;
+	  global_scope->names = NULL_TREE;
+	  restore_fragment_bindings (builtins_c_fragment->bindings);
+	}
+  }
+
+  /* Make the DECL for the toplevel file scope.  */
+  current_file_decl = build_decl (TRANSLATION_UNIT_DECL, NULL, NULL);
+  DECL_SOURCE_LOCATION (current_file_decl) = input_location;
+  TREE_CHAIN (current_file_decl) = file_scope_decl;
 }
 
 /* Reuse or create a struct for this scope.  */
@@ -708,6 +849,13 @@ pushtag (tree name, tree type)
     }
 
   b->tags = tree_cons (name, type, b->tags);
+
+#if 0
+  if (b == global_scope && server_mode >= 0 && server_mode != 1)
+    {
+      note_fragment_binding_1 (b->tags);
+    }
+#endif
 
   /* Create a fake NULL-named TYPE_DECL node whose TREE_TYPE will be the
      tagged type we just added to the current scope.  This fake
@@ -1742,6 +1890,12 @@ pushdecl (tree x)
 	}
 
       /* Install the new declaration in the requested scope.  */
+      if (server_mode >= 0 && server_mode != 1
+	  && scope == global_scope)
+	{
+	  SET_DECL_FRAGMENT (x, current_c_fragment);
+	  note_fragment_binding_1 (x);
+	}
       IDENTIFIER_SYMBOL_VALUE (name) = x;
       C_DECL_INVISIBLE (x) = 0;
 
@@ -2205,6 +2359,11 @@ lookup_name (tree name)
     return decl;
   if (C_DECL_INVISIBLE (decl))
     return 0;
+  /* FIXME also need to do this for C++ !*/
+  if (decl != NULL_TREE
+      && (server_mode > 1
+	  || server_mode == 0 /* ??? */))
+    register_decl_dependency (decl);
   return decl;
 }
 
@@ -2239,7 +2398,7 @@ lookup_name_current_level (tree name)
    Make definitions for built-in primitive functions.  */
 
 void
-c_init_decl_processing (void)
+init_c_decl_processing_once (void)
 {
   tree endlink;
   tree ptr_ftype_void, ptr_ftype_ptr;
@@ -2248,20 +2407,16 @@ c_init_decl_processing (void)
   /* Adds some ggc roots, and reserved words for c-parse.in.  */
   c_parse_init ();
 
-  current_function_decl = 0;
+  scope_freelist = NULL;
 
   /* Make the c_scope structure for global names.  */
-  pushlevel (0);
-  global_scope = current_scope;
+  setup_globals ();
 
   /* Declarations from c_common_nodes_and_builtins must not be associated
      with this input file, lest we get differences between using and not
      using preprocessed headers.  */
   input_location.file = "<internal>";
   input_location.line = 0;
-
-  /* Make the DECL for the toplevel file scope.  */
-  current_file_decl = build_decl (TRANSLATION_UNIT_DECL, NULL, NULL);
 
   build_common_tree_nodes (flag_signed_char);
 
@@ -2288,9 +2443,6 @@ c_init_decl_processing (void)
 
   make_fname_decl = c_make_fname_decl;
   start_fname_decls ();
-
-  first_builtin_decl = global_scope->names;
-  last_builtin_decl = global_scope->names_last;
 }
 
 /* Create the VAR_DECL for __FUNCTION__ etc. ID is the name to give the
@@ -2436,6 +2588,7 @@ shadow_tag_warned (tree declspecs, int warned)
 		  t = make_node (code);
 		  pushtag (name, t);
 		}
+	      note_tag (t);
 	    }
 	}
       else
@@ -4673,7 +4826,10 @@ xref_tag (enum tree_code code, tree name)
      (For example, with "struct foo" in an outer scope, "union foo;"
      must shadow that tag with a new one of union type.)  */
   if (ref && TREE_CODE (ref) == code)
-    return ref;
+    {
+      note_tag (ref);
+      return ref;
+    }
 
   /* If no such tag is yet defined, create a forward-reference node
      and record it as the "definition".
@@ -4695,6 +4851,7 @@ xref_tag (enum tree_code code, tree name)
     }
 
   pushtag (name, ref);
+  note_tag (ref);
 
   return ref;
 }
@@ -4731,6 +4888,7 @@ start_struct (enum tree_code code, tree name)
       pushtag (name, ref);
     }
 
+  note_tag (ref);
   C_TYPE_BEING_DEFINED (ref) = 1;
   TYPE_PACKED (ref) = flag_pack_struct;
   return ref;
@@ -5056,6 +5214,11 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 
   layout_type (t);
 
+  if (server_mode >= 0 && server_mode != 1)
+    {
+      note_fragment_binding_3 (t, fieldlist, TYPE_SIZE (t));
+    }
+
   /* Delete all zero-width bit-fields from the fieldlist */
   {
     tree *fieldlistp = &fieldlist;
@@ -5233,6 +5396,7 @@ start_enum (tree name)
       enumtype = make_node (ENUMERAL_TYPE);
       pushtag (name, enumtype);
     }
+  note_tag (enumtype);
 
   C_TYPE_BEING_DEFINED (enumtype) = 1;
 
@@ -5252,6 +5416,8 @@ start_enum (tree name)
   if (flag_short_enums)
     TYPE_PACKED (enumtype) = 1;
 
+  currently_nested++;
+
   return enumtype;
 }
 
@@ -5268,6 +5434,8 @@ finish_enum (tree enumtype, tree values, tree attributes)
   tree minnode = 0, maxnode = 0, enum_value_type;
   int precision, unsign;
   int toplevel = (global_scope == current_scope);
+
+  currently_nested--;
 
   if (in_parm_level_p ())
     warning ("enum defined inside parms");
@@ -5356,6 +5524,11 @@ finish_enum (tree enumtype, tree values, tree attributes)
 	}
 
       TYPE_VALUES (enumtype) = values;
+    }
+
+  if (server_mode >= 0 && server_mode != 1)
+    {
+      note_fragment_binding_3 (enumtype, values, TYPE_SIZE (enumtype));
     }
 
   /* Fix up all variant types of this enum type.  */
@@ -6741,7 +6914,9 @@ merge_translation_unit_decls (void)
   DECL_INITIAL (current_file_decl) = block;
 
   /* If only one translation unit seen, no copying necessary.  */
+#if 0
   if (TREE_CHAIN (tu_list) == NULL_TREE)
+#endif
     return;
 
   link_hash_table = htab_create (1021, link_hash_hash, link_hash_eq, NULL);
@@ -6848,34 +7023,6 @@ c_write_global_declarations(void)
       /* Clean up.  */
       free (vec);
     }
-}
-
-/* Reset the parser's state in preparation for a new file.  */
-
-void
-c_reset_state (void)
-{
-  tree link;
-  tree file_scope_decl;
-  
-  /* Pop the global scope.  */
-  if (current_scope != global_scope)
-      current_scope = global_scope;
-  file_scope_decl = current_file_decl;
-  DECL_INITIAL (file_scope_decl) = poplevel (1, 0, 0);
-  truly_local_externals = NULL_TREE;
-
-  /* Start a new global binding level.  */
-  pushlevel (0);
-  global_scope = current_scope;
-  current_file_decl = build_decl (TRANSLATION_UNIT_DECL, NULL, NULL);
-  TREE_CHAIN (current_file_decl) = file_scope_decl;
-
-  /* Reintroduce the builtin declarations.  */
-  for (link = first_builtin_decl;
-       link != TREE_CHAIN (last_builtin_decl);
-       link = TREE_CHAIN (link))
-    pushdecl (copy_node (link));
 }
 
 #include "gt-c-decl.h"

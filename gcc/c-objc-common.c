@@ -28,11 +28,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "integrate.h"
 #include "expr.h"
 #include "c-tree.h"
+#include "c-pragma.h"
 #include "function.h"
 #include "flags.h"
 #include "toplev.h"
 #include "diagnostic.h"
 #include "tree-inline.h"
+#include "cpplib.h"
+#include "cpphash.h" /* FIXME - for do_note_macros */
 #include "varray.h"
 #include "ggc.h"
 #include "langhooks.h"
@@ -235,8 +238,25 @@ c_warn_unused_global_decl (tree decl)
 }
 
 /* Initialization common to C and Objective-C front ends.  */
+void
+init_c_objc_common_once ()
+{
+  if (server_mode >= 0 && server_mode != 1)
+    create_builtins_fragment ();
+
+  init_c_decl_processing_once ();
+
+  init_c_common_once ();
+  if (parse_in->do_note_macros)
+    {
+      parse_in->do_note_macros = 0;
+      cb_exit_fragment (parse_in, builtins_fragment);
+      parse_in->current_fragment = NULL;
+    }
+}
+
 bool
-c_objc_common_init (void)
+init_c_objc_common_eachsrc (void)
 {
   static const enum tree_code stmt_codes[] = {
     c_common_stmt_codes
@@ -244,9 +264,9 @@ c_objc_common_init (void)
 
   INIT_STATEMENT_CODES (stmt_codes);
 
-  c_init_decl_processing ();
+  init_c_decl_processing_eachsrc ();
 
-  if (c_common_init () == false)
+  if (init_c_common_eachsrc () == false)
     return false;
 
   lang_expand_decl_stmt = c_expand_decl_stmt;

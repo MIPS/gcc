@@ -1,3 +1,22 @@
+2003-08-15  Per Bothner  <per@bothner.com>
+
+	* c-decl.c (first_builtin_decl,  last_builtin_decl):  Removed fields.
+	Susbumed by builtins_fragment.
+	(restore_fragment_bindings, lang_clear_identifier, setup_globals):
+	New functions.
+	(c_init_decl_processing):  Split into new functions
+	init_c_decl_processing_once and init_c_decl_processing_eachsrc.
+	(pushdecl, finish_struct, finish_enum):  Assocate binding with
+	current fragment.
+	(shadow_tag_warned, xref_tag, start_struct, start_enum):
+	Likewise, using note_tag.
+	(start_enum, finish_enum):  Increment/decrement currently_nested.
+	(lookup_name):  Register dependency.
+	(c_reset_state):  Remove.
+	* c-objc-common.c (c_objc_common_init):  Split into new functions
+	init_c_objc_common_once and init_c_objc_common_eachsrc.
+	* tree.h (struct tree_decl):  New field defining_fragment.
+
 2003-08-15  Per Bothner  <pbothner@apple.com>
 
 	* c-common.def (INCLUDE_FRAGMENT):  New tree code.
