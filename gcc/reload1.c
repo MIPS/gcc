@@ -3228,7 +3228,7 @@ eliminate_regs_in_insn (insn, replace)
      insn.  The changes we make were determined by the earlier call to
      elimination_effects.
 
-     We also detect a cases where register elimination cannot be done,
+     We also detect cases where register elimination cannot be done,
      namely, if a register would be both changed and referenced outside a MEM
      in the resulting insn since such an insn is often undefined and, even if
      not, we cannot know what meaning will be given to it.  Note that it is
@@ -3419,9 +3419,7 @@ static void
 update_eliminables (pset)
      HARD_REG_SET *pset;
 {
-#if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
   int previous_frame_pointer_needed = frame_pointer_needed;
-#endif
   struct elim_table *ep;
 
   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
@@ -3486,12 +3484,10 @@ update_eliminables (pset)
 	}
     }
 
-#if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
   /* If we didn't need a frame pointer last time, but we do now, spill
      the hard frame pointer.  */
   if (frame_pointer_needed && ! previous_frame_pointer_needed)
     SET_HARD_REG_BIT (*pset, HARD_FRAME_POINTER_REGNUM);
-#endif
 }
 
 /* Initialize the table of registers to eliminate.  */
@@ -5493,16 +5489,15 @@ choose_reload_regs (chain)
 						GET_MODE_CLASS (mode));
 
 		  if (
-#ifdef CLASS_CANNOT_CHANGE_MODE
-		      (TEST_HARD_REG_BIT
-		       (reg_class_contents[(int) CLASS_CANNOT_CHANGE_MODE], i)
-		       ? ! CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (last_reg),
-						       need_mode)
-		       : (GET_MODE_SIZE (GET_MODE (last_reg))
-			  >= GET_MODE_SIZE (need_mode)))
-#else
+#ifdef CANNOT_CHANGE_MODE_CLASS
+		      (!REG_CANNOT_CHANGE_MODE_P (i, GET_MODE (last_reg),
+						  need_mode)
+		       ||
+#endif
 		      (GET_MODE_SIZE (GET_MODE (last_reg))
 		       >= GET_MODE_SIZE (need_mode))
+#ifdef CANNOT_CHANGE_MODE_CLASS
+		      )
 #endif
 		      && reg_reloaded_contents[i] == regno
 		      && TEST_HARD_REG_BIT (reg_reloaded_valid, i)

@@ -4381,3 +4381,84 @@ const struct real_format *real_format_for_mode[TFmode - QFmode + 1] =
   NULL,				/* XFmode */
   &ieee_quad_format		/* TFmode */
 };
+
+
+/* Calculate the square root of X in mode MODE, and store the result
+   in R.  */
+
+void
+real_sqrt (r, mode, x)
+     REAL_VALUE_TYPE *r;
+     enum machine_mode mode;
+     const REAL_VALUE_TYPE *x;
+{
+  static REAL_VALUE_TYPE halfthree;
+  static REAL_VALUE_TYPE half;
+  static bool init = false;
+  REAL_VALUE_TYPE h, t, i;
+  int iter, exp;
+
+  /* sqrt(-0.0) is -0.0.  */
+  if (real_isnegzero (x))
+    {
+      *r = *x;
+      return;
+    }
+
+  /* Negative arguments return NaN.  */
+  if (real_isneg (x))
+    {
+      /* Mode is ignored for canonical NaN.  */
+      real_nan (r, "", 1, SFmode);
+      return;
+    }
+
+  /* Infinity and NaN return themselves.  */
+  if (real_isinf (x) || real_isnan (x))
+    {
+      *r = *x;
+      return;
+    }
+
+  if (!init)
+    {
+      real_arithmetic (&half, RDIV_EXPR, &dconst1, &dconst2);
+      real_arithmetic (&halfthree, PLUS_EXPR, &dconst1, &half);
+      init = true;
+    }
+
+  /* Initial guess for reciprocal sqrt, i.  */
+  exp = real_exponent (x);
+  real_ldexp (&i, &dconst1, -exp/2);
+
+  /* Newton's iteration for reciprocal sqrt, i.  */
+  for (iter = 0; iter < 16; iter++)
+    {
+      /* i(n+1) = i(n) * (1.5 - 0.5*i(n)*i(n)*x).  */
+      real_arithmetic (&t, MULT_EXPR, x, &i);
+      real_arithmetic (&h, MULT_EXPR, &t, &i);
+      real_arithmetic (&t, MULT_EXPR, &h, &half);
+      real_arithmetic (&h, MINUS_EXPR, &halfthree, &t);
+      real_arithmetic (&t, MULT_EXPR, &i, &h);
+
+      /* Check for early convergence.  */
+      if (iter >= 6 && real_identical (&i, &t))
+	break;
+
+      /* ??? Unroll loop to avoid copying.  */
+      i = t;
+    }
+
+  /* Final iteration: r = i*x + 0.5*i*x*(1.0 - i*(i*x)).  */
+  real_arithmetic (&t, MULT_EXPR, x, &i);
+  real_arithmetic (&h, MULT_EXPR, &t, &i);
+  real_arithmetic (&i, MINUS_EXPR, &dconst1, &h);
+  real_arithmetic (&h, MULT_EXPR, &t, &i);
+  real_arithmetic (&i, MULT_EXPR, &half, &h);
+  real_arithmetic (&h, PLUS_EXPR, &t, &i);
+
+  /* ??? We need a Tuckerman test to get the last bit.  */
+
+  real_convert (r, mode, &h);
+}
+

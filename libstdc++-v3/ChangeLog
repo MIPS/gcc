@@ -1,6 +1,76 @@
+2002-11-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/linker-map.gnu: Export string operator+.
+	Export __default_alloc_template::_S_force_new.
+	* testsuite/abi_check.cc: Output tweaks.
+
+2002-11-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/8172
+	* src/string-inst.cc: Add instantiation.
+
+2002-11-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/7926
+	* configure.target: Simplify.
+	* config/cpu/i386/atomicity.h: Remove.
+	* config/cpu/i386: Remove.
+	* config/cpu/arm/atomicity.h: Remove.
+	* config/cpu/arm: Remove.
+	* config/cpu/x86-64/atomicity.h: Remove.
+	* config/cpu/x86-64: Remove.
+
+2002-11-01  Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+
+	PR libstdc++/8197
+	* config/link-map.gnu: Export math stubbs.
+
+2002-11-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/8318
+	* include/std/std_iostream.h: Tweak.
+	* include/std/std_iosfwd.h: Add _GLIBCPP_USE_WCHAR_T.
+	* include/std/std_iomanip.h: Same.
+	* include/bits/stringfwd.h: Same.
+	* include/bits/basic_string.tcc: Same.
+	* include/bits/sstream.tcc: Same.
+	* include/bits/fstream.tcc: Same.
+	* include/bits/basic_ios.tcc: Same.
+	* include/bits/streambuf.tcc: Same.
+	* include/bits/locale_facets.tcc: Same.
+
+2002-11-01  John Carter  <john.carter@tait.co.nz>
+
+	PR libstdc++/7961
+	* include/bits/basic_string.tcc
+	(compare(const _CharT* __s)): Don't access __s past its length.
+
 2002-10-31  Zack Weinberg  <zack@codesourcery.com>
 
 	* libsupc++/eh_globals.cc: Don't call __gthread_key_dtor.
+
+2002-10-31  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/8348
+	* include/bits/istream.tcc (istream::tellg): Remove sentry bits.
+	(istream::seekg): Same.
+	* testsuite/27_io/istream_seeks.cc (test06): New.
+
+2002-10-28  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* testsuite/thread/pthread5.cc: Include <unistd.h>
+	if _GLIBCPP_HAVE_UNISTD_H is defined.
+	(main): Only use pthread_attr_setscope if
+	_POSIX_THREAD_PRIORITY_SCHEDULING is defined.
+
+2002-10-28  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* testsuite/thread/pthread1.cc: Enable on *-*-netbsd*.
+	* testsuite/thread/pthread2.cc: Likewise.
+	* testsuite/thread/pthread3.cc: Likewise.
+	* testsuite/thread/pthread4.cc: Likewise.
+	* testsuite/thread/pthread5.cc: Likewise.
+	* testsuite/thread/pthread6.cc: Likewise.
 
 2002-10-27  Paolo Carlini  <pcarlini@unitus.it>
 

@@ -2078,9 +2078,14 @@ check_global_declarations (vec, len)
 	  && (*lang_hooks.decls.warn_unused_global) (decl))
 	warning_with_decl (decl, "`%s' defined but not used");
 
-      timevar_push (TV_SYMOUT);
-      (*debug_hooks->global_decl) (decl);
-      timevar_pop (TV_SYMOUT);
+      /* Avoid confusing the debug information machinery when there are
+	 errors.  */
+      if (errorcount == 0 && sorrycount == 0)
+	{
+	  timevar_push (TV_SYMOUT);
+	  (*debug_hooks->global_decl) (decl);
+	  timevar_pop (TV_SYMOUT);
+	}
     }
 }
 
@@ -2364,6 +2369,11 @@ rest_of_type_compilation (type, toplev)
      int toplev ATTRIBUTE_UNUSED;
 #endif
 {
+  /* Avoid confusing the debug information machinery when there are
+     errors.  */
+  if (errorcount != 0 || sorrycount != 0)
+    return;
+
   timevar_push (TV_SYMOUT);
 #if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
   if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
@@ -2442,6 +2452,9 @@ rest_of_compilation (decl)
 	    DECL_INITIAL (decl) = 0;
 	    goto exit_rest_of_compilation;
 	  }
+	else if (TYPE_P (parent))
+	  /* A function in a local class should be treated normally.  */
+	  break;
 
       /* If requested, consider whether to make this function inline.  */
       if ((DECL_INLINE (decl) && !flag_no_inline)

@@ -1,3 +1,49 @@
+2002-11-04  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.compile/pr7912.java: New file.
+
+2002-11-04  Andrew Haley  <aph@redhat.com>
+
+	* libjava.lang/utilTest.java: New.
+	* libjava.lang/utilTest.out: New.
+
+2002-11-04  Anthony Green  <green@redhat.com>
+
+	* libjava.loader/MyLoader.java: New constructor.
+	* libjava.loader/TestParent.java: New file.
+	* libjava.loader/TestParent.out: New file.
+
+2002-11-04  Anthony Green  <green@redhat.com>
+
+	* libjava.loader/TestEarlyGC.java,
+	libjava.loader/TestEarlyGC.out: New files (from
+	Jeff Sturm).
+
+2002-11-04  Anthony Green  <green@redhat.com>
+
+	* libjava.loader/dummy.java, libjava.loader/loader.exp,
+	libjava.loader/MyLoader.java, libjava.loader/TestLeak.java,
+	libjava.loader/TestLeak.out, libjava.loader/TestMultiple.java,
+	libjava.loader/TestMultiple.out: New files.
+
+2002-11-02  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.lang/initexc.java (fail): Static initializers must be
+	able to complete normally.  From Eric Blake.
+
+	* libjava.lang/initexc.java: New file.
+	* libjava.lang/initexc.out: New file.
+
+2002-11-01  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/8415:
+	* libjava.lang/pr8415.java: New file.
+	* libjava.lang/pr8415.out: New file.
+
+	* libjava.mauve/mauve.exp (find_mauve_sources): New proc.
+	(test_mauve): Use it.
+	(test_mauve_sim): Likewise.
+
 2002-10-24  Tom Tromey  <tromey@redhat.com>
 
 	* libjava.lang/Primes.java: Removed.

@@ -3099,7 +3099,7 @@ emit_move_insn (x, y)
   else if (CONSTANT_P (y))
     {
       if (optimize
-	  && FLOAT_MODE_P (GET_MODE (x))
+	  && SCALAR_FLOAT_MODE_P (GET_MODE (x))
 	  && (last_insn = compress_float_constant (x, y)))
 	return last_insn;
 
@@ -7962,9 +7962,10 @@ expand_expr (exp, target, tmode, modifier)
 	{
 	  op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
 	  op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
-	  temp = simplify_binary_operation (PLUS, mode, op0, op1);
-	  if (temp)
-	    return temp;
+	  if (op0 == const0_rtx)
+	    return op1;
+	  if (op1 == const0_rtx)
+	    return op0;
 	  goto binop2;
 	}
 
