@@ -1,5 +1,10 @@
 2002-09-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
+	* dsp16xx.h (ASM_FORMAT_PRIVATE_NAME): Delete.
+	(ASM_PN_FORMAT): Define.
+
+2002-09-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
 	* alpha.h, alpha/vms.h, arc.h, arm/aof.h, arm/aout.h, avr.h,
 	c4x.h, cris.h, d30v.h, fr30.h, frv.h, h8300.h, i370.h, i386.h,
 	i960.h, ia64.h, ip2k.h, m32r.h, m68hc11.h, m68k/3b1.h,
