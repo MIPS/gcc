@@ -1,5 +1,22 @@
 2005-04-06  Jon Grimm  <jgrimm2@us.ibm.com>
 
+	Change file preambles. Convert c++ style comments to c style comments.
+	* decContext.c (decContextStatusToString): Return const.
+	* decContext.h (decContextStatusToString): Return const.
+	* decDPD.h: Change preamble and comment cleanup.
+	* decNumber.c (decNumberVersion): Return const.
+	* decNumber.h (decNumberNegate): Add.
+	(decNumberVersion): Return const.
+	* decNumberLocal.h: Change preamble and comment cleanup.
+	* decimal128.c: Change preamble and comment cleanup.
+	* decimal128.h: Change preamble and comment cleanup.
+	* decimal32.c: Change preamble and comment cleanup.
+	* decimal32.h: Change preamble and comment cleanup.
+	* decimal64.c: Change preamble and comment cleanup.
+	* decimal64.h: Change preamble and comment cleanup.
+
+2005-04-06  Jon Grimm  <jgrimm2@us.ibm.com>
+
 	* decContext.c: New file.
 	* decContext.h: New file.
 	* decDPD.h: New file.

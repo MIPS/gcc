@@ -1,22 +1,24 @@
-/* ------------------------------------------------------------------ */
-/* Decimal Context module header                                      */
-/* ------------------------------------------------------------------ */
-/* Copyright (c) IBM Corporation, 2000, 2004.  All rights reserved.   */
-/*                                                                    */
-/* This software is made available under the terms of the IBM         */
-/* alphaWorks License Agreement (distributed with this software as    */
-/* alphaWorks-License.txt).  Your use of this software indicates      */
-/* your acceptance of the terms and conditions of that Agreement.     */
-/*                                                                    */
-/* The description and User's Guide ("The decNumber C Library") for   */
-/* this software is included in the package as decNumber.pdf.  This   */
-/* document is also available in HTML, together with specifications,  */
-/* testcases, and Web links, at: http://www2.hursley.ibm.com/decimal  */
-/*                                                                    */
-/* Please send comments, suggestions, and corrections to the author:  */
-/*   mfc@uk.ibm.com                                                   */
-/*   Mike Cowlishaw, IBM Fellow                                       */
-/*   IBM UK, PO Box 31, Birmingham Road, Warwick CV34 5JL, UK         */
+/* Decimal Context module header for the decNumber C Library
+   Copyright (C) 2005 Free Software Foundation, Inc.
+   Contributed by IBM Corporation.  Author Mike Cowlishaw.
+
+   This file is part of GCC.
+
+   GCC is free software; you can redistribute it and/or modify it under
+   the terms of the GNU General Public License as published by the Free
+   Software Foundation; either version 2, or (at your option) any later
+   version.
+
+   GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+   WARRANTY; without even the implied warranty of MERCHANTABILITY or
+   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+   for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to the Free
+   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+   02111-1307, USA.  */
+
 /* ------------------------------------------------------------------ */
 /*                                                                    */
 /* Context must always be set correctly:                              */
@@ -38,35 +40,35 @@
   #define DECCFULLNAME "Decimal Context Descriptor"   /* Verbose name */
   #define DECCAUTHOR   "Mike Cowlishaw"               /* Who to blame */
 
-  #include <stdint.h>              // C99 standard integers
-  #include <signal.h>              // for traps
+  #include <stdint.h>              /* C99 standard integers */
+  #include <signal.h>              /* for traps */
 
 
   /* Conditional code flag -- set this to 0 for best performance */
-  #define DECSUBSET 0              // 1 to enable subset arithmetic
+  #define DECSUBSET 0              /* 1 to enable subset arithmetic */
 
   /* Context for operations, with associated constants */
   enum rounding {
-    DEC_ROUND_CEILING,             // round towards +infinity
-    DEC_ROUND_UP,                  // round away from 0
-    DEC_ROUND_HALF_UP,             // 0.5 rounds up
-    DEC_ROUND_HALF_EVEN,           // 0.5 rounds to nearest even
-    DEC_ROUND_HALF_DOWN,           // 0.5 rounds down
-    DEC_ROUND_DOWN,                // round towards 0 (truncate)
-    DEC_ROUND_FLOOR,               // round towards -infinity
-    DEC_ROUND_MAX                  // enum must be less than this
+    DEC_ROUND_CEILING,             /* round towards +infinity */
+    DEC_ROUND_UP,                  /* round away from 0 */
+    DEC_ROUND_HALF_UP,             /* 0.5 rounds up */
+    DEC_ROUND_HALF_EVEN,           /* 0.5 rounds to nearest even */
+    DEC_ROUND_HALF_DOWN,           /* 0.5 rounds down */
+    DEC_ROUND_DOWN,                /* round towards 0 (truncate) */
+    DEC_ROUND_FLOOR,               /* round towards -infinity */
+    DEC_ROUND_MAX                  /* enum must be less than this */
     };
 
   typedef struct {
-    int32_t  digits;               // working precision
-    int32_t  emax;                 // maximum positive exponent
-    int32_t  emin;                 // minimum negative exponent
-    enum     rounding round;       // rounding mode
-    uint32_t traps;                // trap-enabler flags
-    uint32_t status;               // status flags
-    uint8_t  clamp;                // flag: apply IEEE exponent clamp
+    int32_t  digits;               /* working precision */
+    int32_t  emax;                 /* maximum positive exponent */
+    int32_t  emin;                 /* minimum negative exponent */
+    enum     rounding round;       /* rounding mode */
+    uint32_t traps;                /* trap-enabler flags */
+    uint32_t status;               /* status flags */
+    uint8_t  clamp;                /* flag: apply IEEE exponent clamp */
     #if DECSUBSET
-    uint8_t  extended;             // flag: special-values allowed
+    uint8_t  extended;             /* flag: special-values allowed */
     #endif
     } decContext;
 
@@ -79,12 +81,12 @@
   #define DEC_MIN_EMIN  -999999999
 
   /* Trap-enabler and Status flags (exceptional conditions), and their names */
-  // Top byte is reserved for internal use
+  /* Top byte is reserved for internal use */
   #define DEC_Conversion_syntax    0x00000001
   #define DEC_Division_by_zero     0x00000002
   #define DEC_Division_impossible  0x00000004
   #define DEC_Division_undefined   0x00000008
-  #define DEC_Insufficient_storage 0x00000010  // [used if malloc fails]
+  #define DEC_Insufficient_storage 0x00000010  /* [used if malloc fails] */
   #define DEC_Inexact              0x00000020
   #define DEC_Invalid_context      0x00000040
   #define DEC_Invalid_operation    0x00000080
@@ -98,8 +100,8 @@
   #define DEC_Underflow            0x00002000
 
   /* IEEE 854 groupings for the flags */
-  // [DEC_Clamped, DEC_Lost_digits, DEC_Rounded, and DEC_Subnormal are
-  // not in IEEE 854]
+  /* [DEC_Clamped, DEC_Lost_digits, DEC_Rounded, and DEC_Subnormal are */
+  /* not in IEEE 854] */
   #define DEC_IEEE_854_Division_by_zero  (DEC_Division_by_zero)
   #if DECSUBSET
   #define DEC_IEEE_854_Inexact           (DEC_Inexact | DEC_Lost_digits)
@@ -115,14 +117,14 @@
   #define DEC_IEEE_854_Overflow          (DEC_Overflow)
   #define DEC_IEEE_854_Underflow         (DEC_Underflow)
 
-  // flags which are normally errors (results are qNaN, infinite, or 0)
+  /* flags which are normally errors (results are qNaN, infinite, or 0) */
   #define DEC_Errors (DEC_IEEE_854_Division_by_zero |                 \
                       DEC_IEEE_854_Invalid_operation |                \
                       DEC_IEEE_854_Overflow | DEC_IEEE_854_Underflow)
-  // flags which cause a result to become qNaN
+  /* flags which cause a result to become qNaN */
   #define DEC_NaNs    DEC_IEEE_854_Invalid_operation
 
-  // flags which are normally for information only (have finite results)
+  /* flags which are normally for information only (have finite results) */
   #if DECSUBSET
   #define DEC_Information (DEC_Clamped | DEC_Rounded | DEC_Inexact     \
                           | DEC_Lost_digits)
@@ -130,7 +132,7 @@
   #define DEC_Information (DEC_Clamped | DEC_Rounded | DEC_Inexact)
   #endif
 
-  // name strings for the exceptional conditions
+  /* name strings for the exceptional conditions */
 
   #define DEC_Condition_CS "Conversion syntax"
   #define DEC_Condition_DZ "Division by zero"
@@ -150,8 +152,8 @@
   #define DEC_Condition_UN "Underflow"
   #define DEC_Condition_ZE "No status"
   #define DEC_Condition_MU "Multiple status"
-  #define DEC_Condition_Length 21  // length of the longest string,
-                                   // including terminator
+  #define DEC_Condition_Length 21  /* length of the longest string, */
+                                   /* including terminator */
 
   /* Initialization descriptors, used by decContextDefault */
   #define DEC_INIT_BASE         0
@@ -162,7 +164,7 @@
   /* decContext routines */
   decContext * decContextDefault(decContext *, int32_t);
   decContext * decContextSetStatus(decContext *, uint32_t);
-  char *decContextStatusToString(decContext *);
+  const char *decContextStatusToString(decContext *);
   decContext * decContextSetStatusFromString(decContext *, char *);
 
 #endif
