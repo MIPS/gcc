@@ -137,7 +137,9 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
       if ((flags[pc] & VERIFY_TARGET) != 0)
 	{
 	  tree label_decl = find_label (pc);
-	  tsi_link_after (&statements, label_decl, TSI_CONTINUE_LINKING);
+	  tsi_link_after (&statements, build1 (LABEL_EXPR, void_type_node,
+					       label_decl),
+			  TSI_CONTINUE_LINKING);
 	}
 
       tree insn = NULL_TREE;
@@ -1090,9 +1092,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    int here = pc - 1;
 	    tree dest = find_label (here + get4 (bytes, pc));
 	    tree ret = find_label (pc);
-	    tree ret_label = build1 (ADDR_EXPR,
-				     type_nativecode_ptr,
-				     ret);
+	    tree ret_label = build_address_of (ret);
 	    tsi_link_after (&statements, push (ret_label),
 			    TSI_CONTINUE_LINKING);
 	    insn = build1 (GOTO_EXPR, void_type_node, dest);
@@ -1104,7 +1104,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    int here = pc - 1;
 	    tree dest = find_label (here + get2s (bytes, pc));
 	    tree ret = find_label (pc);
-	    tree ret_label = build1 (ADDR_EXPR, type_nativecode_ptr, ret);
+	    tree ret_label = build_address_of (ret);
 	    tsi_link_after (&statements, push (ret_label),
 			    TSI_CONTINUE_LINKING);
 	    insn = build1 (GOTO_EXPR, void_type_node, dest);
@@ -1131,36 +1131,38 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    int low = get4 (bytes, pc);
 	    int high = get4 (bytes, pc);
 
-	    tsi_link_after (&statements,
-			    build3 (SWITCH_EXPR,
-				    type_jint,
-				    expr, NULL_TREE, NULL_TREE),
-			    TSI_CONTINUE_LINKING);
+	    tree body_statements = alloc_stmt_list ();
+	    tree_stmt_iterator out = tsi_start (body_statements);
 
-	    // FIXME: put this stuff in the switch_expr body?
 	    for (int i = low; i < high; ++i)
 	      {
+		tree label = build0 (LABEL_DECL, NULL_TREE);
+		DECL_CONTEXT (label) = current_block;
+
 		int where = base_pc + get4 (bytes, pc);
-		tree label = build3 (CASE_LABEL_EXPR,
-				     void_type_node,
-				     build_int (i), NULL_TREE,
-				     NULL_TREE);
-		tsi_link_after (&statements, label, TSI_CONTINUE_LINKING);
-		tsi_link_after (&statements,
-				build1 (GOTO_EXPR,
-					void_type_node,
+		tree case_label = build3 (CASE_LABEL_EXPR, NULL_TREE,
+					  build_int (i), NULL_TREE, label);
+		tsi_link_after (&body_statements, case_label,
+				TSI_CONTINUE_LINKING);
+		tsi_link_after (&body_statements,
+				build1 (GOTO_EXPR, void_type_node,
 					find_label (where)),
 				TSI_CONTINUE_LINKING);
 	      }
 
-	    tree def_label = build3 (CASE_LABEL_EXPR,
-				     void_type_node,
-				     NULL_TREE, NULL_TREE,
-				     NULL_TREE);
-	    tsi_link_after (&statements, def_label, TSI_CONTINUE_LINKING);
+	    tree label = build0 (LABEL_DECL, NULL_TREE);
+	    DECL_CONTEXT (label) = current_block;
+	    tree def_label = build3 (CASE_LABEL_EXPR, void_type_node,
+				     NULL_TREE, NULL_TREE, label);
+	    tsi_link_after (&body_statements, def_label, TSI_CONTINUE_LINKING);
 
-	    insn = build1 (GOTO_EXPR, void_type_node,
-			   find_label (base_pc + def));
+	    tsi_link_after (&body_statements,
+			    build1 (GOTO_EXPR, void_type_node,
+				    find_label (base_pc + def)),
+			    TSI_CONTINUE_LINKING);
+
+	    insn = build3 (SWITCH_EXPR, type_jint, expr, body_statements,
+			   NULL_TREE);
 	  }
 	  break;
 
@@ -1175,38 +1177,42 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    int def = get4 (bytes, pc);
 	    int npairs  = get4 (bytes, pc);
 
-	    tsi_link_after (&statements,
-			    build3 (SWITCH_EXPR,
-				    type_jint,
-				    expr, NULL_TREE, NULL_TREE),
-			    TSI_CONTINUE_LINKING);
+	    tree body_statements = alloc_stmt_list ();
+	    tree_stmt_iterator out = tsi_start (body_statements);
 
 	    for (int i = 0; i < npairs; ++i)
 	      {
 		int match = get4 (bytes, pc);
 		int dest = base_pc + get4 (bytes, pc);
 
-		// FIXME: In the body of the switch!
-		tree label = build3 (CASE_LABEL_EXPR,
-				     void_type_node,
-				     build_int (match), NULL_TREE,
-				     NULL_TREE);
-		tsi_link_after (&statements, label, TSI_CONTINUE_LINKING);
-		tsi_link_after (&statements,
-				build1 (GOTO_EXPR,
-					void_type_node,
+		tree label = build0 (LABEL_DECL, NULL_TREE);
+		DECL_CONTEXT (label) = current_block;
+
+		tree case_label = build3 (CASE_LABEL_EXPR, void_type_node,
+					  build_int (match), NULL_TREE,
+					  label);
+		tsi_link_after (&body_statements, case_label,
+				TSI_CONTINUE_LINKING);
+		tsi_link_after (&body_statements,
+				build1 (GOTO_EXPR, void_type_node,
 					find_label (dest)),
 				TSI_CONTINUE_LINKING);
 	      }
 
-	    tree def_label = build3 (CASE_LABEL_EXPR,
-				     void_type_node,
-				     NULL_TREE, NULL_TREE,
-				     NULL_TREE);
-	    tsi_link_after (&statements, def_label, TSI_CONTINUE_LINKING);
+	    tree label = build0 (LABEL_DECL, NULL_TREE);
+	    DECL_CONTEXT (label) = current_block;
 
-	    insn = build1 (GOTO_EXPR, void_type_node,
-			   find_label (base_pc + def));
+	    tree def_label = build3 (CASE_LABEL_EXPR, void_type_node,
+				     NULL_TREE, NULL_TREE, label);
+	    tsi_link_after (&body_statements, def_label, TSI_CONTINUE_LINKING);
+
+	    tsi_link_after (&body_statements,
+			    build1 (GOTO_EXPR, void_type_node,
+				    find_label (base_pc + def)),
+			    TSI_CONTINUE_LINKING);
+
+	    insn = build3 (SWITCH_EXPR, type_jint, expr, body_statements,
+			   NULL_TREE);
 	  }
 	  break;
 

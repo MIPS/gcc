@@ -1,5 +1,9 @@
 2005-03-26  Tom Tromey  <tromey@redhat.com>
 
+	* lower.cc (visit_bytecode_block): Clean up label handling.
+
+2005-03-26  Tom Tromey  <tromey@redhat.com>
+
 	* lower.cc (VERIFY_SEEN, VERIFY_TARGET): Removed.
 	(visit_bytecode_block): Get verifier flags from the block.
 
