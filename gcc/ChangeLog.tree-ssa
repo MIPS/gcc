@@ -1,3 +1,11 @@
+2003-11-16  Jason Merrill  <jason@redhat.com>
+
+	* c-pretty-print.c (debug_c_tree): Restore removed fn.
+	* diagnostic.h: Declare it.
+
+	* tree-pretty-print.c (dump_generic_node): Use DECL_UID when
+	dumping anonymous decls.
+
 2003-11-16  Richard Henderson  <rth@redhat.com>
 
 	* tree-cfg.c (last_and_only_stmt): New.

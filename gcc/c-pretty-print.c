@@ -2201,6 +2201,15 @@ print_c_tree (FILE *file, tree t)
   pp_flush (pp);
 }
 
+/* Print the tree T in full, on stderr.  */
+
+void
+debug_c_tree (tree t)
+{
+  print_c_tree (stderr, t);
+  fputc ('\n', stderr);
+}
+
 /* Output the DECL_NAME of T.  If T has no DECL_NAME, output a string made
    up of T's memory address.  */
 
