@@ -27,7 +27,7 @@ int main ()
    reasonably sure is to make them have the same contents (regarding the
    n tests).  */
 
-static void
+static void __attribute__((noinline))
 recurser_void1 (int n)
 {
   if (n == 0 || n == 7 || n == 8)
@@ -39,7 +39,7 @@ recurser_void1 (int n)
   recurser_void2 (n + 1);
 }
 
-static void
+static void __attribute__((noinline))
 recurser_void2 (int n)
 {
   if (n == 0 || n == 7 || n == 8)

@@ -108,8 +108,6 @@ void push_gimplify_context (void);
 void pop_gimplify_context (tree);
 
 /* Miscellaneous helpers.  */
-tree get_base_decl (tree);
-tree get_base_var (tree);
 tree get_base_address (tree t);
 void gimple_add_tmp_var (tree);
 tree gimple_current_bind_expr (void);

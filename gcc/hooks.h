@@ -36,6 +36,8 @@ extern bool hook_bool_rtx_int_int_intp_false (rtx, int, int, int *);
 extern bool hook_bool_constcharptr_size_t_false (const char *, size_t);
 
 extern void hook_void_void (void);
+extern void hook_void_int (int);
+extern void hook_void_charptr (char *);
 extern void hook_void_FILEptr_constcharptr (FILE *, const char *);
 extern void hook_void_tree (tree);
 extern void hook_void_tree_treeptr (tree, tree *);
@@ -57,5 +59,6 @@ extern rtx hook_rtx_rtx_null (rtx);
 extern rtx hook_rtx_tree_int_null (tree, int);
 extern void * hook_voidp_size_t_null (size_t);
 extern bool hook_bool_voidp_size_t_false (void *, size_t);
+extern tree hook_tree_tree_identity (tree a);
 
 #endif

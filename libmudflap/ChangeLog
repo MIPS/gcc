@@ -1,3 +1,12 @@
+2004-03-08  Loren J. Rittle  <ljrittle@acm.org>
+
+	* mf-hooks2.c: Support FreeBSD.
+	(WRAP_gets): Avoid gets().
+	* testsuite/libmudflap.c/pass-stratcliff.c: Do not
+	test unimplemented mem/str calls on FreeBSD.
+	* testsuite/libmudflap.c/pass21-frag.c: Do not include
+	<alloca.h> on FreeBSD.
+
 2004-01-30  Frank Ch. Eigler  <fche@redhat.com>
 
 	* testsuite/libmudflap.c/pass36-frag.c: Add missing free() call.

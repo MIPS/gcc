@@ -37,7 +37,7 @@ static FILE *of;
 static hash_table node_hash_table;
 static region dot_region;
 static int node_count;
-static char *edge_op;
+static const char *edge_op;
 
 static void print_n_attrs(node_attr *attrs, int n)
 {
@@ -46,7 +46,7 @@ static void print_n_attrs(node_attr *attrs, int n)
 
   for (i = 0; i < n; i++)
     {
-      char *name;
+      const char *name;
       switch (attrs[i].name)
 	{ 
 	case n_color:
@@ -101,7 +101,7 @@ static void print_e_attrs(edge_attr *attrs, int n)
   fputc('[',of);
   for (i = 0; i < n; i++)
     {
-      char *name;
+      const char *name;
       switch(attrs[i].name)
 	{
 	case e_color:
@@ -159,7 +159,7 @@ static void print_g_attrs(graph_attr *attrs, int n)
 
   for (i = 0; i < n; i++)
     {
-      char *name;
+      const char *name;
       switch (attrs[i].name)
 	{ 
 	case g_center:
@@ -238,9 +238,9 @@ static void print_g_attrs(graph_attr *attrs, int n)
 }
 
 
-void dot_start(FILE *to,char *name,bool is_directed,bool is_strict)
+void dot_start(FILE *to,const char *name,bool is_directed,bool is_strict)
 {
-  char *graph_type,*strict;
+  const char *graph_type,*strict;
 
 
   node_count = 0;
@@ -317,7 +317,7 @@ static void declare_node(dot_node n, char *label)
 dot_node dot_get_node(char *label) deletes
 {
   dot_node result;
-  if (!hash_table_lookup(node_hash_table,(hash_key)label,(hash_data *)&result))
+  if (!hash_table_lookup(node_hash_table,(hash_key)label,(hash_data *)(char *)&result))
     {
       dot_node newnode = node_count++;
       

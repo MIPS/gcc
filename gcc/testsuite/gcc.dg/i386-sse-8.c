@@ -6,7 +6,7 @@
 
 int main() 
 { 
-  typedef long long int v __attribute__ ((vector_size (16))); 
+  typedef int v __attribute__ ((mode(V2DI))); 
   v a, b; 
   a = b; 
   return 0; 

@@ -1118,6 +1118,10 @@ if test "$host_xm_file" != "$build_xm_file"; then
 	fi
 fi
 
+# ---------
+# Threading
+# ---------
+
 # Check if a valid thread package
 case ${enable_threads_flag} in
   "" | no)
@@ -1143,6 +1147,19 @@ if test x${thread_file} = x; then
   # so use file chosen by default logic above
   thread_file=${target_thread_file}
 fi
+
+# Make gthr-default.h if we have a thread file.
+gthread_flags=
+if test $thread_file != single; then
+  rm -f gthr-default.h
+  echo "#include \"gthr-${thread_file}.h\"" > gthr-default.h
+  gthread_flags=-DHAVE_GTHR_DEFAULT
+fi
+AC_SUBST(gthread_flags)
+
+# --------
+# UNSORTED
+# --------
 
 if test x$enable___cxa_atexit = xyes || \
    test x$enable___cxa_atexit = x -a x$default_use_cxa_atexit = xyes; then
@@ -1189,7 +1206,7 @@ else
 	saved_CFLAGS="${CFLAGS}"
 	CC="${CC_FOR_BUILD}" CFLAGS="${CFLAGS_FOR_BUILD}" \
 	${realsrcdir}/configure \
-		--enable-languages=${enable_languages} \
+		--enable-languages=${enable_languages-all} \
 		--target=$target_alias --host=$build_alias --build=$build_alias
 	CFLAGS="${saved_CFLAGS}"
 
@@ -1559,6 +1576,10 @@ case $use_collect2 in
     xm_defines="${xm_defines} USE_COLLECT2"
     ;;
 esac
+
+# ---------------------------
+# Assembler & linker features
+# ---------------------------
 
 # Identify the assembler which will work hand-in-glove with the newly
 # built GCC, so that we can examine its features.  This is the assembler
@@ -2336,6 +2357,14 @@ case "$target" in
   [Define if your assembler supports explicit relocations.])])
     ;;
 
+  cris-*-*)
+    gcc_GAS_CHECK_FEATURE([-no-mul-bug-abort option],
+      gcc_cv_as_cris_no_mul_bug,[2,15,91],
+      [-no-mul-bug-abort], [.text],,
+      [AC_DEFINE(HAVE_AS_NO_MUL_BUG_ABORT_OPTION, 1,
+		[Define if your assembler supports the -no-mul-bug-abort option.])])
+    ;;
+
   sparc*-*-*)
     gcc_GAS_CHECK_FEATURE([.register], gcc_cv_as_sparc_register_op,,,
       [.register %g2, #scratch],,
@@ -2622,6 +2651,10 @@ if test x"$gcc_cv_ld_pie" = xyes; then
 fi
 AC_MSG_RESULT($gcc_cv_ld_pie)
 
+# --------
+# UNSORTED
+# --------
+
 if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
   AC_DEFINE_UNQUOTED(PREFIX_INCLUDE_DIR, "$prefix/include",
@@ -2753,15 +2786,6 @@ The following requested languages were not found:${missing_languages}
 The following languages were available: c${found_languages}])
 fi
 
-# Make gthr-default.h if we have a thread file.
-gthread_flags=
-if test $thread_file != single; then
-    rm -f gthr-default.h
-    echo "#include \"gthr-${thread_file}.h\"" > gthr-default.h
-    gthread_flags=-DHAVE_GTHR_DEFAULT
-fi
-AC_SUBST(gthread_flags)
-
 # Find out what GC implementation we want, or may, use.
 AC_ARG_WITH(gc,
 [  --with-gc={page,zone}   choose the garbage collection mechanism to use
@@ -2834,6 +2858,11 @@ AC_SUBST(ANDER)
 AC_SUBST(BANSHEEINC)
 AC_SUBST(BANSHEELIB)
 AC_SUBST(BANSHEEREBUILD)
+
+# --------------
+# Language hooks
+# --------------
+
 # Make empty files to contain the specs and options for each language.
 # Then add #include lines to for a compiler that has specs and/or options.
 
@@ -2955,6 +2984,10 @@ do
 	done
 	echo "lang.$t: $x" >> Make-hooks
 done
+
+# --------
+# UNSORTED
+# --------
 
 # Create .gdbinit.
 

@@ -263,6 +263,8 @@ static void replace_call_address (rtx, rtx, rtx);
 #endif
 static rtx skip_consec_insns (rtx, int);
 static int libcall_benefit (rtx);
+static rtx libcall_other_reg (rtx, rtx);
+static void record_excess_regs (rtx, rtx, rtx *);
 static void ignore_some_movables (struct loop_movables *);
 static void force_movables (struct loop_movables *);
 static void combine_movables (struct loop_movables *, struct loop_regs *);
@@ -1231,7 +1233,7 @@ scan_loop (struct loop *loop, int flags)
 /* Add elements to *OUTPUT to record all the pseudo-regs
    mentioned in IN_THIS but not mentioned in NOT_IN_THIS.  */
 
-void
+static void
 record_excess_regs (rtx in_this, rtx not_in_this, rtx *output)
 {
   enum rtx_code code;
@@ -1285,7 +1287,7 @@ record_excess_regs (rtx in_this, rtx not_in_this, rtx *output)
    If there are none, return 0.
    If there are one or more, return an EXPR_LIST containing all of them.  */
 
-rtx
+static rtx
 libcall_other_reg (rtx insn, rtx equiv)
 {
   rtx note = find_reg_note (insn, REG_RETVAL, NULL_RTX);
@@ -3678,15 +3680,14 @@ rtx_equal_for_prefetch_p (rtx x, rtx y)
   if (code != GET_CODE (y))
     return 0;
 
-  code = GET_CODE (x);
-
-  if (GET_RTX_CLASS (code) == 'c')
+  if (COMMUTATIVE_ARITH_P (x))
     {
       return ((rtx_equal_for_prefetch_p (XEXP (x, 0), XEXP (y, 0))
 	       && rtx_equal_for_prefetch_p (XEXP (x, 1), XEXP (y, 1)))
 	      || (rtx_equal_for_prefetch_p (XEXP (x, 0), XEXP (y, 1))
 	          && rtx_equal_for_prefetch_p (XEXP (x, 1), XEXP (y, 0))));
     }
+
   /* Compare the elements.  If any pair of corresponding elements fails to
      match, return 0 for the whole thing.  */
 
@@ -8607,7 +8608,7 @@ maybe_eliminate_biv (const struct loop *loop, struct iv_class *bl,
       rtx note;
 
       /* If this is a libcall that sets a giv, skip ahead to its end.  */
-      if (GET_RTX_CLASS (code) == 'i')
+      if (INSN_P (p))
 	{
 	  note = find_reg_note (p, REG_LIBCALL, NULL_RTX);
 
@@ -9222,7 +9223,8 @@ canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
      the same tests as a function of STORE_FLAG_VALUE as find_comparison_args
      in cse.c  */
 
-  while (GET_RTX_CLASS (code) == '<'
+  while ((GET_RTX_CLASS (code) == RTX_COMPARE
+	  || GET_RTX_CLASS (code) == RTX_COMM_COMPARE)
 	 && op1 == CONST0_RTX (GET_MODE (op0))
 	 && op0 != want_reg)
     {
@@ -9312,7 +9314,7 @@ canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
 			     REAL_VALUE_NEGATIVE (fsfv)))
 #endif
 		     ))
-		   && GET_RTX_CLASS (GET_CODE (SET_SRC (set))) == '<'))
+		   && COMPARISON_P (SET_SRC (set))))
 	      && (((GET_MODE_CLASS (mode) == MODE_CC)
 		   == (GET_MODE_CLASS (inner_mode) == MODE_CC))
 		  || mode == VOIDmode || inner_mode == VOIDmode))
@@ -9332,7 +9334,7 @@ canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
 			     REAL_VALUE_NEGATIVE (fsfv)))
 #endif
 		     ))
-		   && GET_RTX_CLASS (GET_CODE (SET_SRC (set))) == '<'
+		   && COMPARISON_P (SET_SRC (set))
 		   && (((GET_MODE_CLASS (mode) == MODE_CC)
 			== (GET_MODE_CLASS (inner_mode) == MODE_CC))
 		       || mode == VOIDmode || inner_mode == VOIDmode))
@@ -9351,7 +9353,7 @@ canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
 
       if (x)
 	{
-	  if (GET_RTX_CLASS (GET_CODE (x)) == '<')
+	  if (COMPARISON_P (x))
 	    code = GET_CODE (x);
 	  if (reverse_code)
 	    {
@@ -9797,7 +9799,7 @@ load_mems (const struct loop *loop)
     ;
   prev_ebb_head = p;
 
-  cselib_init ();
+  cselib_init (true);
 
   /* Build table of mems that get set to constant values before the
      loop.  */

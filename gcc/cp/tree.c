@@ -692,14 +692,14 @@ list_hash_pieces (tree purpose, tree value, tree chain)
   hashval_t hashcode = 0;
   
   if (chain)
-    hashcode += TYPE_HASH (chain);
+    hashcode += TREE_HASH (chain);
   
   if (value)
-    hashcode += TYPE_HASH (value);
+    hashcode += TREE_HASH (value);
   else
     hashcode += 1007;
   if (purpose)
-    hashcode += TYPE_HASH (purpose);
+    hashcode += TREE_HASH (purpose);
   else
     hashcode += 1009;
   return hashcode;
@@ -1767,7 +1767,10 @@ pod_type_p (tree t)
     return 1; /* pointer to non-member */
   if (TYPE_PTR_TO_MEMBER_P (t))
     return 1; /* pointer to member */
-  
+
+  if (TREE_CODE (t) == VECTOR_TYPE)
+    return 1; /* vectors are (small) arrays if scalars */
+
   if (! CLASS_TYPE_P (t))
     return 0; /* other non-class type (reference or function) */
   if (CLASSTYPE_NON_POD_P (t))
@@ -2460,13 +2463,13 @@ stabilize_call (tree call, tree *initp)
    so we look past the TARGET_EXPR and stabilize the arguments of the call
    instead.  */
 
-void
+bool
 stabilize_init (tree init, tree *initp)
 {
   tree t = init;
 
   if (t == error_mark_node)
-    return;
+    return true;
 
   if (TREE_CODE (t) == INIT_EXPR
       && TREE_CODE (TREE_OPERAND (t, 1)) != TARGET_EXPR)
@@ -2482,11 +2485,18 @@ stabilize_init (tree init, tree *initp)
 	{
 	  /* Default-initialization.  */
 	  *initp = NULL_TREE;
-	  return;
+	  return true;
 	}
+
+      /* If the initializer is a COND_EXPR, we can't preevaluate
+	 anything.  */
+      if (TREE_CODE (t) == COND_EXPR)
+	return false;
 
       stabilize_call (t, initp);
     }
+
+  return true;
 }
 
 

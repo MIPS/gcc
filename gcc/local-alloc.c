@@ -759,27 +759,6 @@ memref_used_between_p (rtx memref, rtx start, rtx end)
   return 0;
 }
 
-/* Return nonzero if the rtx X is invariant over the current function.  */
-/* ??? Actually, the places this is used in reload expect exactly what
-   is tested here, and not everything that is function invariant.  In
-   particular, the frame pointer and arg pointer are special cased;
-   pic_offset_table_rtx is not, and this will cause aborts when we
-   go to spill these things to memory.  */
-
-int
-function_invariant_p (rtx x)
-{
-  if (CONSTANT_P (x))
-    return 1;
-  if (x == frame_pointer_rtx || x == arg_pointer_rtx)
-    return 1;
-  if (GET_CODE (x) == PLUS
-      && (XEXP (x, 0) == frame_pointer_rtx || XEXP (x, 0) == arg_pointer_rtx)
-      && CONSTANT_P (XEXP (x, 1)))
-    return 1;
-  return 0;
-}
-
 /* Find registers that are equivalent to a single value throughout the
    compilation (either because they can be referenced in memory or are set once
    from a single constant).  Lower their priority for a register.
@@ -1392,9 +1371,7 @@ block_alloc (int b)
 
 	      /* Here we care if the operation to be computed is
 		 commutative.  */
-	      else if ((GET_CODE (XEXP (note, 0)) == EQ
-			|| GET_CODE (XEXP (note, 0)) == NE
-			|| GET_RTX_CLASS (GET_CODE (XEXP (note, 0))) == 'c')
+	      else if (COMMUTATIVE_P (XEXP (note, 0))
 		       && (r1 = XEXP (XEXP (note, 0), 1),
 			   (GET_CODE (r1) == REG || GET_CODE (r1) == SUBREG))
 		       && no_conflict_p (insn, r0, r1))

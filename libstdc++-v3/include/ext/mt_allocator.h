@@ -548,7 +548,7 @@ namespace __gnu_cxx
     {
       if (_S_options._M_force_new)
 	return;
-	
+
       // Calculate the number of bins required based on _M_max_bytes.
       // _S_bin_size is statically-initialized to one.
       size_t bin_size = 1;
@@ -559,8 +559,8 @@ namespace __gnu_cxx
 	}
 
       // Setup the bin map for quick lookup of the relevant bin.
-      _S_binmap = (binmap_type*)
-        ::operator new ((_S_options._M_max_bytes + 1) * sizeof(binmap_type));
+      const size_t n1 = (_S_options._M_max_bytes + 1) * sizeof(binmap_type);
+      _S_binmap = static_cast<binmap_type*>(::operator new(n1));
 
       binmap_type* bp_t = _S_binmap;
       binmap_type bin_max_t = 1;
@@ -581,9 +581,8 @@ namespace __gnu_cxx
 #ifdef __GTHREADS
       if (__gthread_active_p())
         {
-          _S_thread_freelist_first =
-            static_cast<thread_record*>(::operator 
-              new(sizeof(thread_record) * _S_options._M_max_threads));
+	  const size_t n2 = sizeof(thread_record) * _S_options._M_max_threads;
+          _S_thread_freelist_first = static_cast<thread_record*>(::operator new(n2));
 
 	  // NOTE! The first assignable thread id is 1 since the
 	  // global pool uses id 0
@@ -599,6 +598,11 @@ namespace __gnu_cxx
           _S_thread_freelist_first[i - 1].next = NULL;
           _S_thread_freelist_first[i - 1].id = i;
 
+
+	  // Make sure this is initialized.
+#ifndef __GTHREAD_MUTEX_INIT
+	  __GTHREAD_MUTEX_INIT_FUNCTION(&_S_thread_freelist_mutex);
+#endif
           // Initialize per thread key to hold pointer to
           // _S_thread_freelist.
           __gthread_key_create(&_S_thread_key, _S_destroy_thread_key);
@@ -637,7 +641,7 @@ namespace __gnu_cxx
                 *br.mutex = __tmp;
               }
 #else
-              { __GTHREAD_MUTEX_INIT_FUNCTION (br.mutex); }
+              { __GTHREAD_MUTEX_INIT_FUNCTION(br.mutex); }
 #endif
             }
 #endif
@@ -741,12 +745,12 @@ namespace __gnu_cxx
   template<typename _Tp> 
     __gthread_key_t __mt_alloc<_Tp>::_S_thread_key;
 
-  template<typename _Tp> __gthread_mutex_t
+  template<typename _Tp> 
+    __gthread_mutex_t
 #ifdef __GTHREAD_MUTEX_INIT
-  __mt_alloc<_Tp>::_S_thread_freelist_mutex = __GTHREAD_MUTEX_INIT;
+    __mt_alloc<_Tp>::_S_thread_freelist_mutex = __GTHREAD_MUTEX_INIT;
 #else
-  // XXX
-  __mt_alloc<_Tp>::_S_thread_freelist_mutex;
+    __mt_alloc<_Tp>::_S_thread_freelist_mutex;
 #endif
 #endif
 } // namespace __gnu_cxx

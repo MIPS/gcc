@@ -1,3 +1,164 @@
+2004-03-12  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14553
+	* tree-ssa.c (replace_immediate_uses): Call propagate_value to
+	update operands.
+
+2004-03-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-alias-common.c (create_alias_vars): Add #if
+	HAVE_BANSHEE around test for PTA_ANDERSEN.
+
+2004-03-11  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (struct walk_state): Remove fields 'is_store' and
+	'is_indirect_ref'.  Update all users.
+	* tree-flow.h (struct var_ann_d): Remove fields 'is_stored',
+	'is_dereferenced_store' and 'is_dereferenced_load'.  Update
+	all users.
+	* tree-simple.c (get_base_address): Handle BIT_FIELD_REF.
+	* tree-ssa-alias.c (struct alias_info): Add fields
+	'written_vars', 'dereferenced_ptrs_store' and
+	'dereferenced_ptrs_load'.
+	(init_alias_info): Initialize them.
+	(delete_alias_info): Free them.
+	(find_ptr_dereference): New.
+	(ptr_is_dereferenced_by): Call it.
+	Add new argument 'is_store'.  Set to true if the
+	expression is an indirect store operation.
+	(compute_points_to_and_addr_escape): If the statement
+	makes a store, load or write operation, update the
+	corresponding bitmap.
+	(compute_flow_insensitive_aliasing): Test the
+	'written_vars' bitmap to determine if alias sets should
+	be computed.
+	(setup_pointers_and_addressables): Always assume that
+	volatile pointers and hidden pointers have been used in a
+	memory store operation.
+	* tree-ssa-operands.c (add_stmt_operand): Do add an
+	operand for may-aliased variables before computing
+	aliases.
+
+2004-03-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-optimize.c (init_tree_optimization_passes): Move
+	pass_tail_recursion and pass_ch after pass_may_alias.
+	* tree-ssa-loop.c (mark_defs_for_rewrite): Mark type tags
+	for rewriting.
+	* tree-ssa.c (mark_def_sites): Process the operand of a
+	VDEF before the result.
+
+2004-03-11  Richard Henderson  <rth@redhat.com>
+
+	PR 14204
+	* tree-ssa.c (warn_uninit): Don't warn for hard register variables.
+
+2004-03-10  Richard Henderson  <rth@redhat.com>
+
+	* tree-simple.c (get_base_var, get_base_decl): Remove.
+	* tree-simple.h: Likewise.
+	* tree-dfa.c (discover_nonconstant_array_refs_r): Use get_base_address.
+	* tree-ssa-alias.c (ptr_is_dereferenced_by): Likewise.
+	(add_pointed_to_var, is_escape_site): Likewise.
+	* tree-ssa-ccp.c (get_default_value): Expect only SSA_NAME and DECLs.
+	* tree-ssa-operands.c (add_stmt_operand): Likewise.
+	(note_addressable): Use get_base_address.
+	* tree-ssa-dce.c (need_to_preserve_store): Expect only SSA_NAME.
+	* tree-ssa.c (set_is_used): Inline get_base_decl.
+
+2004-03-10  Richard Henderson  <rth@redhat.com>
+
+	* tree-nested.c (convert_nonlocal_reference): Clear TREE_INVARIANT
+	on modified ADDR_EXPRs.
+
+2004-03-10  Andrew Pinski  <apinski@apple.com
+
+	PR c/14475
+	* c-decl.c (check_bitfield_type_and_width): Check for null
+	lang_type_specific when check the precision of an enum.
+
+2004-03-09  Andrew Pinski  <apinski@apple.com>
+
+	* Makefile.in (tree-ssa-forwprop.o): Fix the dependences.
+
+2004-03-09  Jeff Law  <law@redhat.com>
+
+	* tree-flow-inline.h (may_propagate_copy): Do not allow propagation of
+	a constant for a virtual operand.
+
+2004-03-08  Richard Henderson <rth@redhat.com>
+
+	* calls.c (initialize_argument_information): Add
+	parameter may_tail_call.  Set to false for invisible
+	pass-by-reference arguments that require stack
+	allocation.
+	Update all users.
+
+2004-03-07  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c: (get_eq_expr_value): Fix typo when comparing a
+	boolean against a constant.
+	* tree-ssa-forwprop.c (record_single_argument_cond_exprs): Do not
+	record the same SSA_NAME more than once.  Only record the SSA_NAME
+	tested, not the COND_EXPR.
+	(substitute_single_use_vars): Substitute booleans which are
+	set from a TRUTH_NOT_EXPR even if they have more than one use site.
+
+2004-03-05  Jeff Law  <law@redhat.com>
+
+        * tree-ssa-dce.c (remove_dead_stmt): Clear PENDING_STMT after
+        redirect_edge_and_branch call.
+ 
+        * tree-ssa-forwprop.c (record_single_argument_cond_exprs): Also
+        record COND_EXPRs with single use vars defined by SSA_NAME + CONST
+        expressions.
+        (substitute_single_use_vars): Corresponding changes to rewrite
+        COND_EXPRs using single use vars defined by SSA_NAME + CONST
+        expressions.
+ 
+2004-03-05  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_expand_movstr): Do not use
+	expand_exit_loop_top_cond, manually copy loop header.
+	(s390_expand_clrstr): Likewise.
+	(s390_expand_cmpmem): Likewise.
+
+2004-03-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-alias.c (compute_flow_sensitive_aliasing): If
+	a name tag has been marked call-clobbered, also mark the
+	corresponding type tag.
+
+2004-03-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-live.c (coalesce_tpa_members): Update the root
+	variable of the partition.
+
+2004-03-04  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dce.c (remove_dead_stmt): Redirect an existing edge
+	rather than deleting the old ones and creating a new one when
+	removing a dead conditional.
+ 
+	* fold-const.c (fold): When rebuilding the expression after a
+	call to fold_relational_hi_lo, make sure to convert the type of
+	the second argument to the type of the first.
+ 
+2004-03-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* cgraphunit.c (cgraph_optimize): Do not do memory release
+	check if there have been errors.
+
+2004-03-03  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-phiopt.c (conditional_replacement): Clear EDGE_TRUE_VALUE
+	and EDGE_FALSE_VALUE on the remaining edge after eliminating a PHI.
+
+2004-03-03  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa-copyrename.c (gate_copyrename): Really check it in.
+	* tree-ssa.c (create_temp): Use DECL_ARTIFICIAL from original decl.
+
 2004-03-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-tailcall.c (struct tailcall): Remove return_block and return_bsi

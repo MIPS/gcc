@@ -1,3 +1,9 @@
+2004-03-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/14452
+	* tree.c (stabilize_init): Return whether or not it worked.
+	* init.c (build_new_1): If not, use a sentry.
+
 2004-03-01  Jeff Law  <law@redhat.com>
 
 	* init.c (build_vec_delete_1): Convert 2nd argument to NE_EXPR to

@@ -245,15 +245,18 @@ conditional_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
   bb_ann (bb)->phi_nodes = NULL;
   
   /* Disconnect the edge leading into the empty block.  That will
-      make the empty block unreachable and it will be removed later.  */
+     make the empty block unreachable and it will be removed later.  */
   if (cond_block->succ->dest == bb)
     {
       cond_block->succ->flags |= EDGE_FALLTHRU;
+      cond_block->succ->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
       ssa_remove_edge (cond_block->succ->succ_next);
     }
   else
     {
       cond_block->succ->succ_next->flags |= EDGE_FALLTHRU;
+      cond_block->succ->succ_next->flags
+	&= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
       ssa_remove_edge (cond_block->succ);
     }
   

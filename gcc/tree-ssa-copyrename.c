@@ -229,11 +229,6 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 
   /* Update the various flag widgitry of the current base representative.  */
   ann3 = var_ann (SSA_NAME_VAR (partition_to_var (map, p3)));
-  ann3->is_stored = ann1->is_stored | ann2->is_stored;
-  ann3->is_dereferenced_store 
-    = (ann1->is_dereferenced_store | ann2->is_dereferenced_store);
-  ann3->is_dereferenced_load
-    = (ann1->is_dereferenced_load | ann2->is_dereferenced_load);
   if (ann1->type_mem_tag)
     ann3->type_mem_tag = ann1->type_mem_tag;
   else
@@ -334,11 +329,18 @@ rename_ssa_copies (void)
   delete_var_map (map);
 }
 
+/* Return true if copy rename is to be performed.  */
+
+static bool
+gate_copyrename (void)
+{
+  return flag_tree_copyrename != 0;
+}
 
 struct tree_opt_pass pass_rename_ssa_copies = 
 {  
   "copyrename",				/* name */
-  NULL,					/* gate */
+  gate_copyrename,			/* gate */
   rename_ssa_copies,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */

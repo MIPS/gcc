@@ -56,7 +56,7 @@ DECLARE_LIST(flow_var_list, flow_var)
 flow_var fv_fresh(region r, const char *name);
 flow_var fv_fresh_large(region r, const char *name);
 flow_var fv_fresh_small(region r, const char *name);
-char * fv_get_name(flow_var v);
+const char * fv_get_name(flow_var v);
 gen_e_list fv_get_lbs(flow_var v);
 gen_e_list fv_get_ubs(flow_var v);
 bool fv_add_ub(flow_var v, gen_e e, stamp st);

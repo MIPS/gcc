@@ -1,3 +1,35 @@
+2004-03-13  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14553
+	* gcc.dg/tree-ssa/20040313-1.c: New test.
+
+2004-03-11  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.dg/tree-ssa/20040305-1.c: Change a constant to fit in a
+	16-bit int.
+
+2004-03-10  Andrew Pinski  <apinski@apple.com>
+
+	PR c/14475
+	* gcc.dg/pr14475.c: New test.
+
+2004-03-09  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/20040309-1.c: New test.
+
+2004-03-05  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040305-1.c: New test.
+
+2004-03-04  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/20040304-1.c: New test.
+
+2004-03-03  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/20040303-1.c: New test.
+	* gcc.c-torture/20040303-2.c: New test.
+
 2004-03-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gcc.dg/tree-ssa/tailrecursion-5.c: New test.

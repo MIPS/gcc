@@ -438,10 +438,29 @@ may_propagate_copy (tree dest, tree orig)
 	return false;
     }
 
-  /* We do not care about abnormal PHIs or user specified register
-     declarations for virtual operands.  */
-  if (! is_gimple_reg (dest))
-    return true;
+  /* If the destination is a SSA_NAME for a virtual operand, then we have
+     some special cases to handle.  */
+  if (TREE_CODE (dest) == SSA_NAME && !is_gimple_reg (dest))
+    {
+      /* If both operands are SSA_NAMEs referring to virtual operands, then
+	 we can always propagate.  */
+      if (TREE_CODE (orig) == SSA_NAME)
+	{
+	  if (!is_gimple_reg (orig))
+	    return true;
+
+#ifdef ENABLE_CHECKING
+	  /* If we have one real and one virtual operand, then something has
+	     gone terribly wrong.  */
+	  if (is_gimple_reg (orig))
+	    abort ();
+#endif
+	}
+
+      /* We have a "copy" from something like a constant into a virtual
+	 operand.  Reject these.  */
+      return false;
+    }
 
   return (!SSA_NAME_OCCURS_IN_ABNORMAL_PHI (dest)
 	  && (TREE_CODE (orig) != SSA_NAME

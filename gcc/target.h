@@ -416,10 +416,18 @@ struct gcc_target
   void * (* get_pch_validity) (size_t *);
   const char * (* pch_valid_p) (const void *, size_t);
 
-  /* True if the compiler should give an @code{enum} type only as many
+  /* True if the compiler should give an enum type only as many
      bytes as it takes to represent the range of possible values of
      that type.  */
   bool (* default_short_enums) (void);
+
+  /* This target hook returns an rtx that is used to store the address
+     of the current frame into the built-in setjmp buffer.  */
+  rtx (* builtin_setjmp_frame_value) (void);
+
+  /* This target hook should add STRING_CST trees for any hard regs
+     the port wishes to automatically clobber for all asms.  */
+  tree (* md_asm_clobbers) (tree);
 
   /* Leave the boolean fields at the end.  */
 

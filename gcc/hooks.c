@@ -125,7 +125,17 @@ hook_uint_uint_constcharptrptr_0 (unsigned int a ATTRIBUTE_UNUSED,
 }
 
 void
+hook_void_int (int b ATTRIBUTE_UNUSED)
+{
+}
+
+void
 hook_void_tree (tree a ATTRIBUTE_UNUSED)
+{
+}
+
+void
+hook_void_charptr (char *a ATTRIBUTE_UNUSED)
 {
 }
 
@@ -208,4 +218,11 @@ hook_bool_voidp_size_t_false (void * a ATTRIBUTE_UNUSED,
 			      size_t b ATTRIBUTE_UNUSED)
 {
   return false;
+}
+
+/* Generic hook that takes a tree and returns it as is.  */
+tree
+hook_tree_tree_identity (tree a)
+{
+  return a;
 }

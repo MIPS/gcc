@@ -390,6 +390,9 @@ override_options (void)
 	  warning ("trap mode not supported for VAX floats");
 	  alpha_fptm = ALPHA_FPTM_SU;
 	}
+      if (target_flags_explicit & MASK_LONG_DOUBLE_128)
+	warning ("128-bit long double not supported for VAX floats");
+      target_flags &= ~MASK_LONG_DOUBLE_128;
     }
 
   {
@@ -1134,13 +1137,13 @@ alpha_zero_comparison_operator (rtx op, enum machine_mode mode)
 int
 alpha_swapped_comparison_operator (rtx op, enum machine_mode mode)
 {
-  enum rtx_code code = GET_CODE (op);
+  enum rtx_code code;
 
   if ((mode != GET_MODE (op) && mode != VOIDmode)
-      || GET_RTX_CLASS (code) != '<')
+      || !COMPARISON_P (op))
     return 0;
 
-  code = swap_condition (code);
+  code = swap_condition (GET_CODE (op));
   return (code == EQ || code == LE || code == LT
 	  || code == LEU || code == LTU);
 }
@@ -1590,6 +1593,10 @@ alpha_in_small_data_p (tree exp)
 {
   /* We want to merge strings, so we never consider them small data.  */
   if (TREE_CODE (exp) == STRING_CST)
+    return false;
+
+  /* Functions are never in the small data area.  Duh.  */
+  if (TREE_CODE (exp) == FUNCTION_DECL)
     return false;
 
   if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))
@@ -5637,7 +5644,7 @@ print_operand (FILE *file, rtx x, int code)
       {
 	enum rtx_code c = GET_CODE (x);
 
-        if (GET_RTX_CLASS (c) != '<')
+        if (!COMPARISON_P (x))
 	  output_operand_lossage ("invalid %%C value");
 
 	else if (code == 'D')

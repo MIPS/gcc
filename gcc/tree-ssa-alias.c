@@ -103,6 +103,15 @@ struct alias_info
   /* Total number of virtual operands that will be needed to represent
      all the aliases of all the pointers found in the program.  */
   long total_alias_vops;
+
+  /* Variables that have been written to.  */
+  bitmap written_vars;
+
+  /* Pointers that have been used in an indirect store operation.  */
+  bitmap dereferenced_ptrs_store;
+
+  /* Pointers that have been used in an indirect load operation.  */
+  bitmap dereferenced_ptrs_load;
 };
 
 
@@ -143,7 +152,7 @@ static void add_pointed_to_var (struct alias_info *, tree, tree);
 static void add_pointed_to_expr (tree, tree);
 static void create_global_var (void);
 static void collect_points_to_info_for (struct alias_info *, tree);
-static bool ptr_is_dereferenced_by (tree, tree);
+static bool ptr_is_dereferenced_by (tree, tree, bool *);
 static void maybe_create_global_var (struct alias_info *ai);
 static void group_aliases (struct alias_info *);
 
@@ -367,6 +376,9 @@ init_alias_info (void)
      created during alias analysis.  Since we can't create more than 2 tags
      per pointer, 3 times the number of referenced vars is enough.  */
   ai->num_references = xcalloc (3 * num_referenced_vars, sizeof (size_t));
+  ai->written_vars = BITMAP_XMALLOC ();
+  ai->dereferenced_ptrs_store = BITMAP_XMALLOC ();
+  ai->dereferenced_ptrs_load = BITMAP_XMALLOC ();
 
   return ai;
 }
@@ -398,6 +410,10 @@ delete_alias_info (struct alias_info *ai)
   free (ai->pointers);
 
   free (ai->num_references);
+  BITMAP_FREE (ai->written_vars);
+  BITMAP_FREE (ai->dereferenced_ptrs_store);
+  BITMAP_FREE (ai->dereferenced_ptrs_load);
+
   free (ai);
 }
 
@@ -434,14 +450,33 @@ collect_points_to_info_for (struct alias_info *ai, tree ptr)
 }
 
 
-/* Return true if STMT contains INDIRECT_REF <PTR>.  */
+/* Helper for ptr_is_dereferenced_by.  Called by walk_tree to look for
+   INDIRECT_REF nodes for the pointer passed in DATA.  */
+
+static tree
+find_ptr_dereference (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
+{
+  tree ptr = (tree) data;
+
+  if (TREE_CODE (*tp) == INDIRECT_REF
+      && TREE_OPERAND (*tp, 0) == ptr)
+    return *tp;
+
+  return NULL_TREE;
+}
+
+
+/* Return true if STMT contains INDIRECT_REF <PTR>.  *IS_STORE is set
+   to 'true' if the dereference is on the LHS of an assignment.  */
 
 static bool
-ptr_is_dereferenced_by (tree ptr, tree stmt)
+ptr_is_dereferenced_by (tree ptr, tree stmt, bool *is_store)
 {
+  *is_store = false;
+
   if (TREE_CODE (stmt) == MODIFY_EXPR
       || (TREE_CODE (stmt) == RETURN_EXPR
-	&& TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR))
+	  && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR))
     {
       tree e, lhs, rhs;
 
@@ -449,10 +484,30 @@ ptr_is_dereferenced_by (tree ptr, tree stmt)
       lhs = TREE_OPERAND (e, 0);
       rhs = TREE_OPERAND (e, 1);
 
-      return ((TREE_CODE_CLASS (TREE_CODE (lhs)) == 'r'
-	       && get_base_var (lhs) == ptr)
-	      || (TREE_CODE_CLASS (TREE_CODE (rhs)) == 'r'
-	   	  && get_base_var (rhs) == ptr));
+      if (EXPR_P (lhs)
+	  && walk_tree (&lhs, find_ptr_dereference, ptr, NULL))
+	{
+	  *is_store = true;
+	  return true;
+	}
+      else if (EXPR_P (rhs)
+	       && walk_tree (&rhs, find_ptr_dereference, ptr, NULL))
+	{
+	  return true;
+	}
+    }
+  else if (TREE_CODE (stmt) == ASM_EXPR)
+    {
+      if (walk_tree (&ASM_OUTPUTS (stmt), find_ptr_dereference, ptr, NULL)
+	  || walk_tree (&ASM_CLOBBERS (stmt), find_ptr_dereference, ptr, NULL))
+	{
+	  *is_store = true;
+	  return true;
+	}
+      else if (walk_tree (&ASM_INPUTS (stmt), find_ptr_dereference, ptr, NULL))
+	{
+	  return true;
+	}
     }
 
   return false;
@@ -479,6 +534,7 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 	{
 	  use_optype uses;
 	  def_optype defs;
+	  vdef_optype vdefs;
 	  stmt_ann_t ann;
 	  bitmap addr_taken;
 	  tree stmt = bsi_stmt (si);
@@ -524,6 +580,7 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 	      tree op = USE_OP (uses, i);
 	      var_ann_t v_ann = var_ann (SSA_NAME_VAR (op));
 	      ssa_name_ann_t ptr_ann;
+	      bool is_store;
 
 	      if (may_be_aliased (SSA_NAME_VAR (op)))
 		ai->num_references[v_ann->uid]++;
@@ -534,7 +591,7 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 	      collect_points_to_info_for (ai, op);
 
 	      ptr_ann = ssa_name_ann (op);
-	      if (ptr_is_dereferenced_by (op, stmt))
+	      if (ptr_is_dereferenced_by (op, stmt, &is_store))
 		{
 		  /* If we found OP to point to a set of variables or
 		     malloc, then create a name memory tag for it.  This
@@ -550,6 +607,14 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 		  /* Keep track of how many time we've dereferenced each
 		     pointer.  */
 		  ai->num_references[v_ann->uid]++;
+
+		  /* If this is a store operation, mark OP as being
+		     dereferenced to store, otherwise mark it as being
+		     dereferenced to load.  */
+		  if (is_store)
+		    bitmap_set_bit (ai->dereferenced_ptrs_store, v_ann->uid);
+		  else
+		    bitmap_set_bit (ai->dereferenced_ptrs_load, v_ann->uid);
 		}
 	      else if (stmt_escapes_p)
 		{
@@ -558,6 +623,12 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 		     why we only check for escape points if OP is not
 		     dereferenced by STMT.  */
 		  ptr_ann->value_escapes_p = 1;
+
+		  /* If the statement makes a function call, assume
+		     that pointer OP will be dereferenced in a store
+		     operation inside the called function.  */
+		  if (get_call_expr_in (stmt))
+		    bitmap_set_bit (ai->dereferenced_ptrs_store, v_ann->uid);
 		}
 	    }
 
@@ -568,8 +639,21 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 	  for (i = 0; i < NUM_DEFS (defs); i++)
 	    {
 	      tree op = DEF_OP (defs, i);
-	      if (may_be_aliased (SSA_NAME_VAR (op)))
-		ai->num_references[var_ann (SSA_NAME_VAR (op))->uid]++;
+	      tree var = SSA_NAME_VAR (op);
+	      var_ann_t ann = var_ann (var);
+	      bitmap_set_bit (ai->written_vars, ann->uid);
+	      if (may_be_aliased (var))
+		ai->num_references[ann->uid]++;
+	    }
+
+	  /* Mark variables in VDEF operands as being written to.  */
+	  vdefs = VDEF_OPS (ann);
+	  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+	    {
+	      tree op = VDEF_OP (vdefs, i);
+	      tree var = SSA_NAME_VAR (op);
+	      var_ann_t ann = var_ann (var);
+	      bitmap_set_bit (ai->written_vars, ann->uid);
 	    }
 
 	  /* After promoting variables and computing aliasing we will
@@ -602,11 +686,10 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
       size_t j;
       tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
       ssa_name_ann_t ann = ssa_name_ann (ptr);
+      var_ann_t v_ann = var_ann (SSA_NAME_VAR (ptr));
 
       if (ann->value_escapes_p || ann->pt_anything)
 	{
-	  var_ann_t v_ann = var_ann (SSA_NAME_VAR (ptr));
-
 	  /* If PTR escapes or may point to anything, then its associated
 	     memory tags are call-clobbered.  */
 	  if (ann->name_mem_tag)
@@ -648,6 +731,13 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
       if (ann->name_mem_tag && ann->pt_vars)
 	EXECUTE_IF_SET_IN_BITMAP (ann->pt_vars, 0, j,
 	    add_may_alias (ann->name_mem_tag, referenced_var (j)));
+
+      /* If the name tag is call clobbered, so is the type tag
+	 associated with the base VAR_DECL.  */
+      if (ann->name_mem_tag
+	  && v_ann->type_mem_tag
+	  && is_call_clobbered (ann->name_mem_tag))
+	mark_call_clobbered (v_ann->type_mem_tag);
     }
 }
 
@@ -690,17 +780,25 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 	  struct alias_map_d *v_map;
 	  var_ann_t v_ann;
 	  tree var;
+	  bool tag_stored_p, var_stored_p;
 	  
 	  v_map = ai->addressable_vars[j];
 	  var = v_map->var;
 	  v_ann = var_ann (var);
 
-	  /* Skip memory tags and variables that have never been written to.  */
-	  if (!tag_ann->is_stored && !v_ann->is_stored)
+	  /* Skip memory tags and variables that have never been
+	     written to.  We also need to check if the variables are
+	     call-clobbered because they may be overwritten by
+	     function calls.  */
+	  tag_stored_p = bitmap_bit_p (ai->written_vars, tag_ann->uid)
+			 || is_call_clobbered (tag);
+	  var_stored_p = bitmap_bit_p (ai->written_vars, v_ann->uid)
+			 || is_call_clobbered (var);
+	  if (!tag_stored_p && !var_stored_p)
 	    continue;
 	     
 	  /* Skip memory tags which are written if the variable is readonly.  */
-	  if (tag_ann->is_stored && TREE_READONLY (var))
+	  if (tag_stored_p && TREE_READONLY (var))
 	    continue;
 
 	  if (may_alias_p (p_map->var, p_map->set, var, v_map->set))
@@ -993,7 +1091,16 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	num_addressable_vars++;
 
       if (POINTER_TYPE_P (TREE_TYPE (var)))
-	num_pointers++;
+	{
+	  /* Since we don't keep track of volatile variables nor
+	     variables with hidden uses, assume that these pointers
+	     are used in indirect store operations.  */
+	  var_ann_t ann = var_ann (var);
+	  if (TREE_THIS_VOLATILE (var) || ann->has_hidden_use)
+	    bitmap_set_bit (ai->dereferenced_ptrs_store, ann->uid);
+
+	  num_pointers++;
+	}
     }
 
   /* Create ADDRESSABLE_VARS and POINTERS.  Note that these arrays are
@@ -1065,8 +1172,8 @@ setup_pointers_and_addressables (struct alias_info *ai)
       /* Add pointer variables that have been dereferenced to the POINTERS
          array and create a type memory tag for them.  */
       if (POINTER_TYPE_P (TREE_TYPE (var))
-	  && (v_ann->is_dereferenced_store
-	      || v_ann->is_dereferenced_load))
+	  && (bitmap_bit_p (ai->dereferenced_ptrs_store, v_ann->uid)
+	      || bitmap_bit_p (ai->dereferenced_ptrs_load, v_ann->uid)))
 	{
 	  tree tag = v_ann->type_mem_tag;
 	  var_ann_t t_ann;
@@ -1081,9 +1188,9 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	  v_ann->type_mem_tag = tag;
 
 	  /* If pointer VAR has been used in a store operation, then its
-	     memory tag must be marked as stored.  */
-	  if (v_ann->is_dereferenced_store)
-	    t_ann->is_stored = 1;
+	     memory tag must be marked as written-to.  */
+	  if (bitmap_bit_p (ai->dereferenced_ptrs_store, v_ann->uid))
+	    bitmap_set_bit (ai->written_vars, t_ann->uid);
 
 	  /* If pointer VAR is a global variable or a PARM_DECL, then its
 	     memory tag should be considered a global variable.  */
@@ -1399,7 +1506,7 @@ add_pointed_to_var (struct alias_info *ai, tree ptr, tree value)
 
       pt_var = TREE_OPERAND (value, 0);
       if (TREE_CODE_CLASS (TREE_CODE (pt_var)) == 'r')
-	pt_var = get_base_decl (pt_var);
+	pt_var = get_base_address (pt_var);
 
       if (pt_var && SSA_VAR_P (pt_var))
 	{
@@ -1544,7 +1651,7 @@ is_escape_site (tree stmt, size_t *num_calls_p)
 
       /* Get to the base of _REF nodes.  */
       if (TREE_CODE (lhs) != SSA_NAME)
-	lhs = get_base_var (lhs);
+	lhs = get_base_address (lhs);
 
       /* If we couldn't recognize the LHS of the assignment, assume that it
 	 is a non-local store.  */
@@ -1555,9 +1662,6 @@ is_escape_site (tree stmt, size_t *num_calls_p)
 	 memory store.  */
       if (TREE_CODE (lhs) == SSA_NAME)
 	return false;
-
-      if (!DECL_P (lhs))
-	abort ();
 
       /* FIXME: LHS is not an SSA_NAME.  Even if it's an assignment to a
 	 local variables we cannot be sure if it will escape, because we

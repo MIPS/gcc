@@ -1469,7 +1469,7 @@ simplify_using_condition (rtx cond, rtx *expr, regset altered)
 {
   rtx rev, reve, exp = *expr;
 
-  if (GET_RTX_CLASS (GET_CODE (*expr)) != '<')
+  if (!COMPARISON_P (exp))
     return;
 
   /* If some register gets altered later, we do not really speak about its
@@ -1894,7 +1894,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
   desc->niter_max = 0;
 
   cond = GET_CODE (condition);
-  if (GET_RTX_CLASS (cond) != '<')
+  if (!COMPARISON_P (condition))
     abort ();
 
   mode = GET_MODE (XEXP (condition, 0));
@@ -2306,7 +2306,7 @@ zero_iter:
 }
 
 /* Checks whether E is a simple exit from LOOP and stores its description
-   into DESC.  TODO Should replace cfgloopanal.c:simple_loop_exit_p.  */
+   into DESC.  */
 
 static void
 check_simple_exit (struct loop *loop, edge e, struct niter_desc *desc)
@@ -2353,8 +2353,7 @@ check_simple_exit (struct loop *loop, edge e, struct niter_desc *desc)
   iv_number_of_iterations (loop, at, condition, desc);
 }
 
-/* Finds a simple exit of LOOP and stores its description into DESC.
-   TODO Should replace cfgloopanal.c:simple_loop_p.  */
+/* Finds a simple exit of LOOP and stores its description into DESC.  */
 
 void
 find_simple_exit (struct loop *loop, struct niter_desc *desc)

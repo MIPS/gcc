@@ -540,7 +540,7 @@ predict_loops (struct loops *loops_info, bool simpleloops)
       unsigned j;
       int exits;
       struct loop *loop = loops_info->parray[i];
-      struct loop_desc desc;
+      struct niter_desc desc;
       unsigned HOST_WIDE_INT niter;
 
       flow_loop_scan (loop, LOOP_EXIT_EDGES);
@@ -548,7 +548,10 @@ predict_loops (struct loops *loops_info, bool simpleloops)
 
       if (simpleloops)
 	{
-	  if (simple_loop_p (loop, &desc) && desc.const_iter)
+	  iv_analysis_loop_init (loop);
+	  find_simple_exit (loop, &desc);
+
+	  if (desc.simple_p && desc.const_iter)
 	    {
 	      int prob;
 	      niter = desc.niter + 1;
@@ -684,7 +687,7 @@ estimate_probability (struct loops *loops_info)
       /* Try "pointer heuristic."
 	 A comparison ptr == 0 is predicted as false.
 	 Similarly, a comparison ptr1 == ptr2 is predicted as false.  */
-      if (GET_RTX_CLASS (GET_CODE (cond)) == '<'
+      if (COMPARISON_P (cond)
 	  && ((REG_P (XEXP (cond, 0)) && REG_POINTER (XEXP (cond, 0)))
 	      || (REG_P (XEXP (cond, 1)) && REG_POINTER (XEXP (cond, 1)))))
 	{

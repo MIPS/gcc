@@ -11,6 +11,7 @@ int main()
     unsigned int bit5:1;
     unsigned int bit6:1;
     unsigned int bit7:1;
+    unsigned int ubyte:24;
   } sdata = {0x01};
 
   while ( sdata.bit0-- > 0 ) {

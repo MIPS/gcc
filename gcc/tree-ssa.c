@@ -622,9 +622,9 @@ mark_def_sites (struct dom_walk_data *walk_data,
 	{
 	  VDEF_RESULT (vdefs, i) = VDEF_OP (vdefs, i);
 
-	  set_def_block (VDEF_RESULT (vdefs, i), bb);
 	  if (!TEST_BIT (kills, uid))
 	    set_livein_block (VDEF_OP (vdefs, i), bb);
+	  set_def_block (VDEF_RESULT (vdefs, i), bb);
 	}
     }
 
@@ -966,17 +966,15 @@ create_temp (tree t)
   if (name == NULL)
     name = "temp";
   tmp = create_tmp_var (type, name);
+  DECL_ARTIFICIAL (tmp) = DECL_ARTIFICIAL (t);
   add_referenced_tmp_var (tmp);
 
   /* add_referenced_tmp_var will create the annotation and set up some
      of the flags in the annotation.  However, some flags we need to
      inherit from our original variable.  */
   var_ann (tmp)->type_mem_tag = var_ann (t)->type_mem_tag;
-  var_ann (tmp)->is_dereferenced_load = var_ann (t)->is_dereferenced_load;
-  var_ann (tmp)->is_dereferenced_store = var_ann (t)->is_dereferenced_store;
   if (is_call_clobbered (t))
     mark_call_clobbered (tmp);
-  var_ann (tmp)->is_stored = var_ann (t)->is_stored;
 
   return tmp;
 }
@@ -3441,7 +3439,29 @@ rewrite_stmt (struct dom_walk_data *walk_data,
 void
 set_is_used (tree t)
 {
-  t = get_base_decl (t);
+  while (1)
+    {
+      if (SSA_VAR_P (t))
+	break;
+
+      switch (TREE_CODE (t))
+	{
+	case ARRAY_REF:
+	case COMPONENT_REF:
+	case REALPART_EXPR:
+	case IMAGPART_EXPR:
+	case INDIRECT_REF:
+	  t = TREE_OPERAND (t, 0);
+	  break;
+
+	default:
+	  return;
+	}
+    }
+
+  if (TREE_CODE (t) == SSA_NAME)
+    t = SSA_NAME_VAR (t);
+
   var_ann (t)->used = 1;
 }
 
@@ -3830,19 +3850,19 @@ replace_immediate_uses (tree var, tree repl)
 	  uses = STMT_USE_OPS (stmt);
 	  for (j = 0; j < (int) NUM_USES (uses); j++)
 	    if (USE_OP (uses, j) == var)
-	      *USE_OP_PTR (uses, j) = repl;
+	      propagate_value (USE_OP_PTR (uses, j), repl);
 	}
       else
 	{
 	  vuses = STMT_VUSE_OPS (stmt);
 	  for (j = 0; j < (int) NUM_VUSES (vuses); j++)
 	    if (VUSE_OP (vuses, j) == var)
-	      *VUSE_OP_PTR (vuses, j) = repl;
+	      propagate_value (VUSE_OP_PTR (vuses, j), repl);
 
 	  vdefs = STMT_VDEF_OPS (stmt);
 	  for (j = 0; j < (int) NUM_VDEFS (vdefs); j++)
 	    if (VDEF_OP (vdefs, j) == var)
-	      *VDEF_OP_PTR (vdefs, j) = repl;
+	      propagate_value (VDEF_OP_PTR (vdefs, j), repl);
 	}
 
       modify_stmt (stmt);
@@ -4067,19 +4087,28 @@ warn_uninit (tree t, const char *msgid, location_t *locus)
   tree var = SSA_NAME_VAR (t);
   tree def = SSA_NAME_DEF_STMT (t);
 
-  /* Default uses (indicated by an empty definition statement), are
-     uninitialized.  Except for PARMs of course, which are always
-     initialized.  TREE_NO_WARNING either means we already warned,
-     or the front end wishes to suppress the warning.  */
-  if (IS_EMPTY_STMT (def)
-      && TREE_CODE (var) != PARM_DECL
-      && !TREE_NO_WARNING (var))
-    {
-      if (!locus)
-	locus = &DECL_SOURCE_LOCATION (var);
-      warning (msgid, locus, var);
-      TREE_NO_WARNING (var) = 1;
-    }
+  /* Default uses (indicated by an empty definition statement),
+     are uninitialized.  */
+  if (!IS_EMPTY_STMT (def))
+    return;
+
+  /* Except for PARMs of course, which are always initialized.  */
+  if (TREE_CODE (var) == PARM_DECL)
+    return;
+
+  /* Hard register variables get their initial value from the ether.  */
+  if (DECL_HARD_REGISTER (var))
+    return;
+
+  /* TREE_NO_WARNING either means we already warned, or the front end
+     wishes to suppress the warning.  */
+  if (TREE_NO_WARNING (var))
+    return;
+
+  if (!locus)
+    locus = &DECL_SOURCE_LOCATION (var);
+  warning (msgid, locus, var);
+  TREE_NO_WARNING (var) = 1;
 }
    
 /* Called via walk_tree, look for SSA_NAMEs that have empty definitions

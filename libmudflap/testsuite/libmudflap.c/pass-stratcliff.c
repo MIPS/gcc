@@ -153,6 +153,7 @@ main (int argc, char *argv[])
 	    }
         }
 
+#ifndef __FreeBSD__
       /* rawmemchr test */
       for (outer = size - 1; outer >= MAX (0, size - 128); --outer)
         {
@@ -173,6 +174,7 @@ main (int argc, char *argv[])
 	      adr[middle] = 'T';
 	    }
         }
+#endif
 
       /* strcpy test */
       for (outer = size - 1; outer >= MAX (0, size - 128); --outer)
@@ -248,6 +250,7 @@ main (int argc, char *argv[])
 	    }
         }
 
+#ifndef __FreeBSD__
       /* stpcpy test */
       for (outer = size - 1; outer >= MAX (0, size - 128); --outer)
         {
@@ -287,6 +290,7 @@ main (int argc, char *argv[])
 	      adr[middle] = 'T';
 	    }
         }
+#endif
 
       /* memcpy test */
       for (outer = size - 1; outer >= MAX (0, size - 128); --outer)
@@ -298,6 +302,7 @@ main (int argc, char *argv[])
 	      result = 1;
 	    }
 
+#ifndef __FreeBSD__
       /* mempcpy test */
       for (outer = size - 1; outer >= MAX (0, size - 128); --outer)
 	for (inner = 0; inner < size - outer; ++inner)
@@ -307,6 +312,7 @@ main (int argc, char *argv[])
 		      outer, inner);
 	      result = 1;
 	    }
+#endif
     }
 
   return result;

@@ -1,3 +1,387 @@
+2004-03-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/allocator.h: Switch defaults to mt_alloc.
+
+2004-03-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/mt_allocator.h (_S_initialize): If
+	!__GTHREAD_MUTEX_INIT, then initialize _S_thread_freelist_mutex.
+
+2004-03-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/12658
+	* src/locale_init.cc (locale::locale): Lock critical regions with
+	external mutexes.
+	(locale::global): Same.	
+	* include/bits/concurrence.h (__glibcxx_mutex_define_initialized): 
+	Add in once bits for cases without __GTHREAD_MUTEX_INIT.
+	(__glibcxx_mutex_lock): Same.
+
+	* config/cpu/generic/atomicity.h: Remove
+	_GLIBCXX_NEED_GENERIC_MUTEX, use concurrence.h.
+	* src/misc-inst.cc: Move all locking bits out of this file.
+
+	* config/os/hpux/os_defines.h: Remove _GLIBCXX_INST_ATOMICITY_LOCK.
+	* src/misc-inst.cc: Same.
+	* config/cpu/hppa/atomicity.h: Same.
+
+	* config/linker-map.gnu: Remove types in the signature of atomic
+	exports, as they may vary.
+	
+2004-03-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc: Tweak the comment preceding
+	has_facet: doesn't throw.
+
+2004-03-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/22_locale/money_get/get/char/1.cc: Clean up.
+	* testsuite/22_locale/money_get/get/char/2.cc: Likewise.
+	* testsuite/22_locale/money_get/get/char/3.cc: Likewise.
+	* testsuite/22_locale/money_get/get/char/4.cc: Likewise.
+	* testsuite/22_locale/money_get/get/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/money_get/get/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/money_get/get/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/money_get/get/wchar_t/4.cc: Likewise.
+
+2004-03-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::_M_extract_float,
+	num_get<>::_M_extract_int, num_get<>::do_get(bool&),
+	__pad<>::_S_pad): Prefer plain operator== to traits::eq().
+	* testsuite/testsuite_character.h (struct __gnu_test::character):
+	Provide operator==.
+	* testsuite/testsuite_hooks.h (struct __gnu_test::pod_char):
+	Likewise.
+
+2004-03-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/fpos/14320-2.cc: Remove xfail.
+
+2004-03-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/23_containers/multiset/insert/1.cc: Test result string.
+
+	* testsuite/23_containers/bitset/invalidation/1.cc: Main always
+	returns 0.	
+	* testsuite/23_containers/deque/invalidation/4.cc: Same.
+	* testsuite/23_containers/list/invalidation/1.cc: Same.
+	* testsuite/23_containers/list/invalidation/2.cc: Same.
+	* testsuite/23_containers/list/invalidation/3.cc: Same.
+	* testsuite/23_containers/list/invalidation/4.cc: Same.
+	* testsuite/23_containers/map/invalidation/2.cc: Same.
+	* testsuite/23_containers/multimap/invalidation/1.cc: Same.
+	* testsuite/23_containers/multimap/invalidation/2.cc: Same.
+	* testsuite/23_containers/multiset/invalidation/1.cc: Same.
+	* testsuite/23_containers/multiset/invalidation/2.cc: Same.
+	* testsuite/23_containers/set/invalidation/1.cc: Same.
+	* testsuite/23_containers/set/invalidation/2.cc: Same.
+	* testsuite/23_containers/vector/invalidation/1.cc: Same.
+	* testsuite/23_containers/vector/invalidation/2.cc: Same.
+	* testsuite/23_containers/vector/invalidation/3.cc: Same.
+	* testsuite/23_containers/vector/invalidation/4.cc: Same.
+
+2004-03-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* scripts/testsuite_flags.in: Add "-D_GLIBCXX_ASSERT" to
+	CXXFLAGS_save.
+	* testsuite/lib/libstdc++.exp: Don't add it conditionally to
+	DEFAULT_CXXFLAGS. 
+	* testsuite/18_support/numeric_limits.cc: Remove "-D_GLIBCXX_ASSERT"
+	from the dg-options.
+	* testsuite/23_containers/vector/invalidation/1.cc: Likewise.
+	* testsuite/23_containers/vector/invalidation/2.cc: Likewise.
+	* testsuite/23_containers/vector/invalidation/3.cc: Likewise.
+	* testsuite/23_containers/vector/invalidation/4.cc: Likewise.
+	* testsuite/23_containers/vector/resize/1.cc: Likewise.
+	* testsuite/26_numerics/complex_value.cc: Likewise.
+	* testsuite/27_io/ios_base/storage/1.cc: Likewise.
+	* testsuite/27_io/ios_base/storage/2.cc: Likewise.
+	* testsuite/27_io/ios_base/storage/3.cc: Likewise.
+	* testsuite/27_io/manipulators/standard/char/2.cc: Likewise.
+	* testsuite/27_io/objects/char/5.cc: Likewise.
+	* testsuite/27_io/objects/wchar_t/5.cc: Likewise.
+	* testsuite/backward/11460.cc: Likewise.
+	* testsuite/thread/pthread7-rope.cc: Likewise.
+
+	* testsuite/21_strings/basic_string/compare/char/1.cc: Add
+	missing test variable.
+	* testsuite/21_strings/basic_string/compare/wchar_t/1.cc: Add
+	missing test variable.
+
+2004-03-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/20_util/allocator/1.cc: Provide explicit
+	instantiations for non-weak systems.
+	* testsuite/20_util/binders.cc: Same.
+	* testsuite/20_util/allocator/8230.cc: Same.
+	* testsuite/20_util/allocator/10378.cc: Same.
+	* testsuite/22_locale/ctype/is/wchar_t/2.cc: Same.
+	* testsuite/22_locale/ctype/is/char/2.cc: Same.
+	* testsuite/thread/pthread7-rope.cc: Same.
+	* testsuite/thread/pthread6.cc: Same.	
+	* testsuite/thread/pthread5.cc: Same.		
+	* testsuite/thread/pthread4.cc: Same.	
+	* testsuite/thread/pthread1.cc: Same.
+	* testsuite/ext/rope.cc: Same.
+	* testsuite/ext/hash_set.cc: Same.
+	* testsuite/ext/hash_map.cc: Same.	
+	* testsuite/ext/concept_checks.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekpos/wchar_t/9874.cc: Same.
+	* testsuite/25_algorithms/unique/2.cc: Same.
+	* testsuite/25_algorithms/unique/1.cc: Same.
+	* testsuite/25_algorithms/rotate.cc: Same.
+	* testsuite/25_algorithms/min_max.cc: Same.
+	* testsuite/25_algorithms/equal.cc: Same.	
+	* testsuite/24_iterators/rel_ops.cc: Same.
+	* testsuite/24_iterators/iterator.cc: Same.
+	* testsuite/24_iterators/insert_iterator.cc: Same.
+	* testsuite/24_iterators/front_insert_iterator.cc: Same.
+	* testsuite/24_iterators/back_insert_iterator.cc: Same.
+	* testsuite/23_containers/vector/resize/1.cc: Same.
+	* testsuite/23_containers/vector/modifiers/2.cc: Same.
+	* testsuite/23_containers/vector/modifiers/1.cc: Same.
+	* testsuite/23_containers/vector/invalidation/4.cc: Same.
+	* testsuite/23_containers/vector/invalidation/3.cc: Same.
+	* testsuite/23_containers/vector/invalidation/2.cc: Same.	
+	* testsuite/23_containers/vector/invalidation/1.cc: Same.
+	* testsuite/23_containers/vector/element_access/1.cc: Same.
+	* testsuite/23_containers/vector/cons/6513.cc: Same.
+	* testsuite/23_containers/vector/cons/3.cc: Same.
+	* testsuite/23_containers/vector/cons/2.cc: Same.
+	* testsuite/23_containers/vector/cons/1.cc: Same.
+	* testsuite/23_containers/vector/capacity/8230.cc: Same.
+	* testsuite/23_containers/vector/capacity/1.cc: Same.
+	* testsuite/23_containers/vector/bool/6886.cc: Same.
+	* testsuite/23_containers/stack/members/7158.cc: Same.
+	* testsuite/23_containers/set/invalidation/2.cc: Same.
+	* testsuite/23_containers/set/invalidation/1.cc: Same.
+	* testsuite/23_containers/queue/members/7157.cc: Same.
+	* testsuite/23_containers/priority_queue/members/7161.cc: Same.
+	* testsuite/23_containers/multiset/invalidation/2.cc: Same.
+	* testsuite/23_containers/multiset/invalidation/2.cc: Same.	
+	* testsuite/23_containers/multiset/insert/1.cc: Same.
+	* testsuite/23_containers/multimap/invalidation/2.cc: Same.
+	* testsuite/23_containers/multimap/invalidation/2.cc: Same.
+	* testsuite/23_containers/map/operators/1.cc: Same.
+	* testsuite/23_containers/map/invalidation/2.cc: Same.
+	* testsuite/23_containers/map/invalidation/1.cc: Same.
+	* testsuite/23_containers/map/insert/1.cc: Same.
+	* testsuite/23_containers/list/operators/4.cc: Same.
+	* testsuite/23_containers/list/operators/3.cc: Same.
+	* testsuite/23_containers/list/operators/2.cc: Same.
+	* testsuite/23_containers/list/operators/1.cc: Same.
+	* testsuite/23_containers/list/modifiers/3.cc: Same.
+	* testsuite/23_containers/list/modifiers/2.cc: Same.
+	* testsuite/23_containers/list/modifiers/1.cc: Same.
+	* testsuite/23_containers/list/invalidation/4.cc: Same.
+	* testsuite/23_containers/list/invalidation/3.cc: Same.
+	* testsuite/23_containers/list/invalidation/2.cc: Same.
+	* testsuite/23_containers/list/invalidation/1.cc: Same.	
+	* testsuite/23_containers/list/cons/9.cc: Same.
+	* testsuite/23_containers/list/cons/8.cc: Same.
+	* testsuite/23_containers/list/cons/7.cc: Same.
+	* testsuite/23_containers/list/cons/6.cc: Same.
+	* testsuite/23_containers/list/cons/5.cc: Same.
+	* testsuite/23_containers/list/cons/4.cc: Same.
+	* testsuite/23_containers/list/cons/3.cc: Same.
+	* testsuite/23_containers/list/cons/2.cc: Same.
+	* testsuite/23_containers/list/cons/1.cc: Same.
+	* testsuite/23_containers/list/capacity/1.cc: Same.
+	* testsuite/23_containers/deque/operators/1.cc: Same.
+	* testsuite/23_containers/deque/invalidation/4.cc: Same.
+	* testsuite/23_containers/deque/invalidation/3.cc: Same.
+	* testsuite/23_containers/deque/invalidation/2.cc: Same.
+	* testsuite/23_containers/deque/invalidation/1.cc: Same.
+	* testsuite/23_containers/deque/cons/2.cc: Same.
+	* testsuite/23_containers/deque/cons/1.cc: Same.
+
+	* src/allocator.cc: Add char, wchar_t instantiations
+	to match extern template declarations in memory.h.
+
+2004-03-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_put<>::_M_insert):
+	Fix warning regression.
+
+2004-03-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_put<>::_M_insert):
+	Deal properly with empty __digits and negative frac_digits,
+	clean-up a bit.
+
+2004-03-03  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/documentation.html: Regenerate.
+
+2004-03-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/14320
+	* include/bits/postypes.h (class streamoff): Remove, now
+	streamoff is just typedef a 64 bit signed integer type.
+	(class fpos): Tweak consistently.
+	* testsuite/27_io/fpos/14320-1.cc: New.
+	* testsuite/27_io/fpos/14320-2.cc: New.
+	* testsuite/27_io/fpos/14320-3.cc: New.
+	* testsuite/27_io/fpos/14320-4.cc: New.
+	* testsuite/27_io/fpos/14320-5.cc: New.
+	* testsuite/27_io/fpos/mbstate_t/4_neg.cc: xfail for now.
+
+2004-03-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract):
+	Reorganize a bit the main parsing loop, thus early detecting
+	an empty value component.
+	* testsuite/22_locale/money_get/get/char/16.cc: New.
+	* testsuite/22_locale/money_get/get/wchar_t/16.cc: New.
+
+2004-03-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Support automake 1.8.2
+	* configure.ac (AM_INIT_AUTOMAKE): Add -Wno-override.
+	* po/Makefile.am (EXTRA_DIST): New.
+	* po/Makefile.in: Regenerate.
+	* Makefile.in: Same.
+	* include/Makefile.in: Same.
+	* libmath/Makefile.in: Same.
+	* libsupc++/Makefile.in: Same.
+	* src/Makefile.in: Same.
+	* testsuite/Makefile.in: Same.
+
+	* include/Makefile.am (${host_builddir}/gthr-posix.h): Use
+	__GXX_WEAK__ instead of SUPPORTS_WEAK.
+	(${host_builddir}/gthr-default.h): Same.
+	(${host_builddir}/gthr.h): Same.
+	* acinclude.m4 (GLIBCXX_ENABLE_THREAD): Remove
+	_GLIBCXX_SUPPORTS_WEAK, as this behavior can be modified via
+	-fno-weak.
+	* aclocal.m4: Regenerate.
+	* acconfig.h: Remove _GLIBCXX_SUPPORTS_WEAK.
+	* config.h.in: Regenerate.
+	* configure: Same.
+	
+2004-03-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Support autoconf 2.59
+	* acinclude.m4: Quote correctly.
+	* aclocal.m4: Regenerate.
+	* linkage.m4: Same.
+
+2004-03-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/test.html: Add multilib RUNTESTFLAGS example.
+
+	* docs/html/18_support/howto.html: Add bit about writing to
+	stderr, mostly by Zack.
+	
+2004-03-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract,
+	money_get<>::do_get(string_type&)): ... and two more.
+
+2004-03-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract):
+	Fix thinkos in the switch from string_type& to string& as last
+	argument.
+
+2004-03-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::_M_extract_float):
+	Also when parsing exponent sign, first look for thousands_sep
+	and decimal_point; tweak a bit.
+	* testsuite/22_locale/num_get/get/char/15.cc: New.
+	* testsuite/22_locale/num_get/get/wchar_t/15.cc: New.
+	
+	* include/bits/locale_facets.tcc (num_get<>::_M_extract_float,
+	num_get<>::_M_extract_int): Reorder some conditionals.
+
+2004-03-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract):
+	Consistently with numpunct, enforce the requirements in
+	22.2.6.3, p3 for the thousands separators; tweak a bit.
+	* testsuite/22_locale/money_get/get/char/15.cc: New.
+	* testsuite/22_locale/money_get/get/wchar_t/15.cc: New.
+	
+2004-03-01  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* testsuite/lib/libstdc++.exp (v3-list-tests): Use 
+	testsuite_files from correct multilib blddir when running
+	testsuite.
+
+2004-02-29  Phil Edwards  <phil@codesourcery.com>
+
+	* testsuite/Makefile.am (check-abi, check-abi-verbose):  Copy
+	the summary file to the logfile.
+	* testsuite/Makefile.in:  Regenerate.
+
+2004-02-28  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/cpu/hppa/atomicity.h (__atomic_add): Make first argument
+	volatile.
+	* config/os/hpux/os_defines.h (_GLIBCXX_INST_ATOMICITY_LOCK): Use
+	__GXX_WEAK__ instead of _GLIBCXX_SUPPORTS_WEAK.
+
+2004-02-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::_M_extract_float):
+	According to 22.2.3.1, p2, 'units' may be followed by 'e' with
+	no 'decimal-point' in the middle: in this case too we must fix
+	up __found_grouping; slightly tweak.
+	* testsuite/22_locale/num_get/get/char/14.cc: New.
+	* testsuite/22_locale/num_get/get/wchar_t/14.cc: New.
+
+2004-02-27  Eric Christopher  <echristo@redhat.com>
+            Phil Edwards  <phil@codesourcery.com>
+
+	* testsuite/22_locale/collate/compare/wchar_t/2.cc,
+	testsuite/22_locale/collate/compare/wchar_t/wrapped_env.cc,
+	testsuite/22_locale/collate/compare/wchar_t/wrapped_locale.cc,
+	testsuite/22_locale/collate/hash/wchar_t/2.cc,
+	testsuite/22_locale/collate/hash/wchar_t/wrapped_env.cc,
+	testsuite/22_locale/collate/hash/wchar_t/wrapped_locale.cc,
+	testsuite/22_locale/collate/transform/wchar_t/2.cc,
+	testsuite/22_locale/collate/transform/wchar_t/wrapped_env.cc,
+	testsuite/22_locale/collate/transform/wchar_t/wrapped_locale.cc:
+	Use dg-require-iconv.
+	* testsuite/lib/libstdc++.exp:  Load target-supports.exp.
+
+2004-02-27  Phil Edwards  <phil@codesourcery.com>
+            Eric Christopher  <echristo@redhat.com>
+
+	* testsuite/config/default.exp:  Update with comments.
+	(${tool}_target_compile):  New wrapper routine.
+	* testsuite/lib/dg-options.exp:  New file, with dg-require-iconv.
+	* testsuite/lib/libstdc++.exp:  Update with comments and cosmetic
+	fixes.
+	(load_gcc_lib, v3track):  New routines.
+	(v3-init):  Rename to libstdc++_init.
+	* testsuite/libstdc++-dg/normal.exp:  No longer call v3-init.
+	Move DEFAULT_CXXFLAGS handling into libstdc++_init.
+
+2004-02-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/cpu/hppa/atomicity.h: Include c++config.h to get defines.
+
+	* src/misc-inst.cc (_S_atomicity_lock): Move to __gnu_cxx.
+
+	* config/os/irix/irix5.2/atomicity.h: Merge..
+	* config/os/irix/irix6.5/atomicity.h: Merge..
+	* config/os/irix/atomicity.h: ...into this.
+	* config/os/irix/atomic_word.h: New.
+	* configure.host: Set atomic_word_dir for irix.
+
+	* hppa/atomicity.h: Change __Atomicity_lock to _Atomicity_lock.
+	* i386/atomicity.h: Same.
+	* m68k/atomicity.h: Same.
+	* sparc/atomicity.h: Same.
+
+2004-02-27  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/os/aix/atomicity.h: Use __gnu_cxx namespace. Remove
+	static, and inline keywords.
+
 2004-02-27  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/locale_facets.tcc (num_get<>::_M_extract_float,
@@ -69,7 +453,7 @@
 	(ios_base::Init::~Init): Same.
 	* src/locale.cc (locale::id::_M_id): Same.
 	* config/cpu/i486/atomicity.h: Use __gnu_cxx namespace. Remove
-	static, and inline keyworks.
+	static, and inline keywords.
 	* config/cpu/alpha/atomicity.h: Same.
 	* config/cpu/cris/atomicity.h: Same.
 	* config/cpu/generic/atomicity.h: Same.

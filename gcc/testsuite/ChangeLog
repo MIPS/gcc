@@ -1,7 +1,176 @@
+2004-03-07  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20040307-1.c: New test case.
+
+2004-03-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/torture/mips-sdata-1.c: Restrict to mips*-*-elf*.
+
+2004-03-06  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20040306-1.c: New test.
+
+2004-03-06  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.dg/sibcall-3.c (recurser_void1, recurser_void2): Make
+	them static.
+	* gcc.dg/sibcall-4.c (recurser_void1, recurser_void2): Likewise.
+
+2004-03-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/14465
+	* gcc.dg/decl-6.c: New test.
+
+2004-03-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-explog-1.c: Add comments for each test.
+	Rename LOGPOW -> LOG_POW.
+	(SQRT_EXP, POW_EXP): New.
+
+2004-03-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-sse-8.c: New test.
+
+2004-03-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/14114
+	* gcc.dg/decl-5.c: New test.
+
+2004-03-05  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.dg/20040305-1.c: New test.
+
+2004-03-05  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR other/14354
+	* gcc.c-torture/execute/ieee/mul-subnormal-single-1.c: New test.
+
+2004-03-04  Ziemowit Laski  <zlaski@apple.com>
+
+	PR c++/14425, c++/14426
+	* g++.dg/ext/altivec-4.C: New test.
+	* g++.dg/ext/altivec-5.C: New test.
+
+2004-03-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.old-deja/g++.other/linkage1.C: Expect errors about
+	global variables of a type with no linkage.
+	* g++.old-deja/g++.other/qual1.C: Name class for 'action'.
+	* g++.old-deja/g++.mike/misc13.C: Name enum for 'want'.
+	* g++.old-deja/g++.bugs/900210_01.C: Name enum for 'ep'.
+	* g++.old-deja/g++.bugs/900210_02.C: Likewise.
+	* g++.old-deja/g++.bugs/900210_03.C: Likewise.
+	* g++.old-deja/g++.brendan/bit-fields2.C: Name structure for 's'.
+	* g++.old-deja/g++.brendan/init10.C: Name structure for 'a'.
+	* g++.dg/warn/deprecated.C: Name enum Color.
+	* g++.dg/overload/VLA.C: Name structure for 'b'.
+	* g++.dg/lookup/anon2.C: Expect diagnostic about type linkage.
+
+2004-03-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20040304-1.c: New test.
+
+2004-03-03  Zack Weinberg  <zack@codesourcery.com>
+
+	PR 13728
+	* gcc.dg/decl-4.c: New testcase.
+
+2004-03-03  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.dg/torture/builtin-explog-1.c (PREC): Make it the same
+	as PRECF if sizeof (float) > sizeof (double).
+	(PRECL): Make it the same as PRECF if
+	sizeof (float) > sizeof (long double).
+
+2004-03-03  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-config.h: Use underscore macro style for __sun
+	system type.  Add check for irix6 which doesn't have c99 runtime.
+
+2004-03-03  Bob Wilson  <bob.wilson@acm.org>
+
+	* gcc.dg/const-elim-1.c: xfail for xtensa.
+
+2004-03-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14369
+	* g++.dg/template/cond4.C: New test.
+
+2004-03-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14360
+	* g++.old-deja/g++.ns/koenig5.C: Remove some error markers.
+
+	PR c++/14361
+	* g++.dg/parse/defarg7.C: New test.
+
+	PR c++/14359
+	* g++.dg/template/friend26.C: New test.
+
+2004-03-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14324
+	* g++.dg/abi/mangle21.C: New test.
+
+	PR c++/14260
+	* g++.dg/parse/constructor2.C: New test.
+
+	PR c++/14337
+	* g++.dg/template/sfinae1.C: New test.
+
+2004-02-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14267
+	* g++.dg/expr/crash2.C: New test.
+
+	PR middle-end/13448
+	* gcc.dg/inline-5.c: New test.
+	* gcc.dg/always-inline.c: Split out tests into ...
+	* gcc.dg/always-inline2.c: ... this and ...
+	* gcc.dg/always-inline3.c: ... this.
+
+2004-02-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR debug/12103
+	* g++.dg/debug/crash1.C: New test.
+
+2004-02-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.dg/sibcall-3.c (recurser_void1): Make it an extern
+	function with __attribute__((noinline)).
+	(recurser_void2): Likewise.
+	* gcc.dg/sibcall-4.c (recurser_void1): Likewise.
+	(recurser_void2): Likewise.
+
+2004-02-29  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/14203
+	* g++.dg/warn/Wunused-6.C: New test case.
+
+2004-02-28  Richard Earnshaw  <rearnsha@arm.com>
+
+	* lib/g++.exp (g++_link_flags): Don't crash if LD_LIBRARY_PATH is
+	not defined.
+
+2004-02-27  Eric Christopher  <echristo@redhat.com>
+
+	* g++.dg/charset/charset.exp: Change CFLAGS to CHARSETCFLAGS.
+	* g++.dg/charset/asm2.c: Run only x86.
+	* gcc.dg/charset/asm3.c: Ditto.
+
+2004-02-27  Aldy Hernandez  <aldyh@redhat.com>
+
+	* lib/g++.exp (g++_link_flags): Append LD_LIBRARY_PATH to
+	ld_library_path.
+
+2004-02-27  Ziemowit Laski  <zlaski@apple.com>
+
+	* g++.dg/ext/altivec-3.C: New.
+
 2004-02-26  Richard Henderson  <rth@redhat.com>
 
-        * g++.dg/ext/attrib10.C: Mark for warning.
-        * gcc.dg/attr-alias-1.c: New.
+	* g++.dg/ext/attrib10.C: Mark for warning.
+	* gcc.dg/attr-alias-1.c: New.
 
 2004-02-26  Richard Henderson  <rth@redhat.com>
 
@@ -13,28 +182,28 @@
 	* lib/target-supports.exp (check-iconv-available): New function.
 	* lib/gcc-dg.exp (dg-require-iconv): New function.
 	Use above.
-        * gcc.dg/charset: New directory.
-        * gcc.dg/charset/charset.exp: New file.
-        * gcc.dg/charset/asm1.c: Ditto.
-        * gcc.dg/charset/asm2.c: Ditto.
-        * gcc.dg/charset/asm3.c: Ditto.
-        * gcc.dg/charset/asm4.c: Ditto.
-        * gcc.dg/charset/asm5.c: Ditto.
-        * gcc.dg/charset/attribute1.c: Ditto.
-        * gcc.dg/charset/attribute2.c: Ditto.
-        * gcc.dg/charset/string1.c: Ditto.
-        * g++.dg/charset: New directory.
-        * g++.dg/dg.exp: Add here. Special options.
-        * g++.dg/charset/charset.exp: New file.
-        * g++.dg/charset/asm1.c: Ditto.
-        * g++.dg/charset/asm2.c: Ditto.
-        * g++.dg/charset/asm3.c: Ditto.
-        * g++.dg/charset/asm4.c: Ditto.
-        * g++.dg/charset/attribute1.c: Ditto.
-        * g++.dg/charset/attribute2.c: Ditto.
-        * g++.dg/charset/extern1.cc: Ditto.
-        * g++.dg/charset/extern2.cc: Ditto.
-        * g++.dg/charset/string1.c: Ditto.
+	* gcc.dg/charset: New directory.
+	* gcc.dg/charset/charset.exp: New file.
+	* gcc.dg/charset/asm1.c: Ditto.
+	* gcc.dg/charset/asm2.c: Ditto.
+	* gcc.dg/charset/asm3.c: Ditto.
+	* gcc.dg/charset/asm4.c: Ditto.
+	* gcc.dg/charset/asm5.c: Ditto.
+	* gcc.dg/charset/attribute1.c: Ditto.
+	* gcc.dg/charset/attribute2.c: Ditto.
+	* gcc.dg/charset/string1.c: Ditto.
+	* g++.dg/charset: New directory.
+	* g++.dg/dg.exp: Add here. Special options.
+	* g++.dg/charset/charset.exp: New file.
+	* g++.dg/charset/asm1.c: Ditto.
+	* g++.dg/charset/asm2.c: Ditto.
+	* g++.dg/charset/asm3.c: Ditto.
+	* g++.dg/charset/asm4.c: Ditto.
+	* g++.dg/charset/attribute1.c: Ditto.
+	* g++.dg/charset/attribute2.c: Ditto.
+	* g++.dg/charset/extern1.cc: Ditto.
+	* g++.dg/charset/extern2.cc: Ditto.
+	* g++.dg/charset/string1.c: Ditto.
 
 2004-02-26  Mark Mitchell  <mark@codesourcery.com>
 

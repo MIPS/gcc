@@ -4512,13 +4512,9 @@ assign_parms (tree fndecl)
       locate_and_pad_parm (promoted_mode, passed_type, in_regs,
 			   entry_parm ? partial : 0, fndecl,
 			   &stack_args_size, &locate);
-      /* Adjust offsets to include pretend args, unless this is the
-         split arg.  */
-      if (pretend_bytes == 0)
-	{
-	  locate.slot_offset.constant += extra_pretend_bytes;
-	  locate.offset.constant += extra_pretend_bytes;
-	}
+      /* Adjust offsets to include the pretend args.  */
+      locate.slot_offset.constant += extra_pretend_bytes - pretend_bytes;
+      locate.offset.constant += extra_pretend_bytes - pretend_bytes;
 
       {
 	rtx offset_rtx;
@@ -7288,8 +7284,7 @@ update_epilogue_consts (rtx dest, rtx x, void *data)
 
   /* If this is a binary operation between a register we have been tracking
      and a constant, see if we can compute a new constant value.  */
-  else if ((GET_RTX_CLASS (GET_CODE (SET_SRC (x))) == 'c'
-	    || GET_RTX_CLASS (GET_CODE (SET_SRC (x))) == '2')
+  else if (ARITHMETIC_P (SET_SRC (x))
 	   && GET_CODE (XEXP (SET_SRC (x), 0)) == REG
 	   && REGNO (XEXP (SET_SRC (x), 0)) < FIRST_PSEUDO_REGISTER
 	   && p->const_equiv[REGNO (XEXP (SET_SRC (x), 0))] != 0

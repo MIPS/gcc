@@ -106,9 +106,6 @@ struct var_ann_d GTY(())
 	   has been performed.  */
   unsigned has_hidden_use : 1;
 
-  /* Nonzero if this variable was stored/written in the function.  */
-  unsigned is_stored : 1;
-
   /* Used by the out of SSA pass to determine whether this variable has
      been seen yet or not.  */
   unsigned out_of_ssa_tag : 1;
@@ -127,12 +124,6 @@ struct var_ann_d GTY(())
   /* Nonzero if this variable was used after SSA optimizations were
      applied.  We set this when translating out of SSA form.  */
   unsigned used : 1;
-
-  /* Nonzero if this variable is a pointer that has been dereferenced in a
-     store or a load operation.  Pointers that have been dereferenced are
-     the only ones that need to have memory tags associated to them.  */
-  unsigned is_dereferenced_store : 1;
-  unsigned is_dereferenced_load : 1;
 
   /* This field indicates whether or not the variable may need PHI nodes.
      See the enum's definition for more detailed information about the

@@ -134,7 +134,7 @@ static void initialize_argument_information (int, struct arg_data *,
 					     struct args_size *, int, tree,
 					     tree, CUMULATIVE_ARGS *, int,
 					     rtx *, int *, int *, int *,
-					     bool);
+					     bool *, bool);
 static void compute_argument_addresses (struct arg_data *, rtx, int);
 static rtx rtx_for_function_call (tree, tree);
 static void load_register_parameters (struct arg_data *, int, rtx *, int,
@@ -1030,6 +1030,9 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
    OLD_PENDING_ADJ, MUST_PREALLOCATE and FLAGS are pointers to integer
    flags which may may be modified by this routine. 
 
+   MAY_TAILCALL is cleared if we encounter an invisible pass-by-reference
+   that requires allocation of stack space.
+
    CALL_FROM_THUNK_P is true if this call is the jump from a thunk to
    the thunked-to function.  */
 
@@ -1043,7 +1046,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 				 int reg_parm_stack_space,
 				 rtx *old_stack_level, int *old_pending_adj,
 				 int *must_preallocate, int *ecf_flags,
-				 bool call_from_thunk_p)
+				 bool *may_tailcall, bool call_from_thunk_p)
 {
   /* 1 if scanning parms front to back, -1 if scanning back to front.  */
   int inc;
@@ -1156,6 +1159,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 					   build_pointer_type (type),
 					   args[i].tree_value);
 	      type = build_pointer_type (type);
+	      *may_tailcall = false;
 	    }
 	  else
 	    {
@@ -1195,6 +1199,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 					   build_pointer_type (type),
 					   make_tree (type, copy));
 	      type = build_pointer_type (type);
+	      *may_tailcall = false;
 	    }
 	}
 
@@ -2021,7 +2026,7 @@ expand_call (tree exp, rtx target, int ignore)
   tree fndecl = 0;
   /* The type of the function being called.  */
   tree fntype;
-  int try_tail_call = CALL_EXPR_TAILCALL (exp);
+  bool try_tail_call = CALL_EXPR_TAILCALL (exp);
   int pass;
 
   /* Register in which non-BLKmode value will be returned,
@@ -2325,7 +2330,7 @@ expand_call (tree exp, rtx target, int ignore)
 				   &args_so_far, reg_parm_stack_space,
 				   &old_stack_level, &old_pending_adj,
 				   &must_preallocate, &flags,
-				   CALL_FROM_THUNK_P (exp));
+				   &try_tail_call, CALL_FROM_THUNK_P (exp));
 
   if (args_size.var)
     {

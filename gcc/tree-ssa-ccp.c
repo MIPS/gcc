@@ -1987,7 +1987,16 @@ get_default_value (tree var)
   value val;
   tree sym;
 
-  sym = (!DECL_P (var)) ? get_base_decl (var) : var;
+  if (TREE_CODE (var) == SSA_NAME)
+    sym = SSA_NAME_VAR (var);
+  else
+    {
+#ifdef ENABLE_CHECKING
+      if (!DECL_P (var))
+	abort ();
+#endif
+      sym = var;
+    }
 
   val.lattice_val = UNDEFINED;
   val.const_val = NULL_TREE;

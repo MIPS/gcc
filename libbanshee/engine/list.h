@@ -77,6 +77,27 @@ typedef struct list_scanner name ## _scanner; \
 typedef void (* name ## _app_fn) (type); \
 typedef bool (* name ## _eq_fn) (const type); \
 typedef int (* name ## _comparator_fn)(const type,const type); \
+name new_ ## name(region r); \
+int name ## _length(name a); \
+name name ## _cons(type data, name a); \
+name name ## _append(name a, name b); \
+name name ## _app(name a, name ## _app_fn app); \
+type name ## _find(name a, name ## _eq_fn eq); \
+type name ## _head(name a); \
+name name ## _tail(name a); \
+name name ## _filter(region r,name a, name ## _eq_fn eq); \
+name name ## _filter2(name a, name ## _eq_fn eq); \
+name name ## _keep(name a, name ## _eq_fn eq); \
+name name ## _copy(region r, name a); \
+name name ## _sort(name a, name ## _comparator_fn cmp); \
+name name ## _merge(name a,name b, name ## _comparator_fn cmp); \
+void name ## _scan(name a, name ##_scanner *scan); \
+bool name ## _next(name ##_scanner *scan, type *data); \
+bool name ## _empty(name a); \
+void name ## _clear(name a); \
+bool name ## _member(name a, type data); \
+name name ## _reverse(name a); \
+name name ## _from_array(region r,type data[], int length);
 
 #define DECLARE_LIST(name,type) \
 typedef struct name ## _a *name; \
@@ -177,7 +198,7 @@ bool name ## _empty(name a) \
 } \
 void name ## _clear(name a) \
 { \
- return list_clear((struct list *)a); \
+ list_clear((struct list *)a); \
 } \
 bool name ## _member(name a, type data) \
 { \

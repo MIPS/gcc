@@ -204,11 +204,8 @@
 	       (ne (symbol_ref "TARGET_MIPS16") (const_int 0)))
 	  (const_int 8)
 
-	  (and (eq_attr "type" "idiv")
-	       (ne (symbol_ref "TARGET_CHECK_ZERO_DIV") (const_int 0)))
-	  (cond [(ne (symbol_ref "TARGET_MIPS16") (const_int 0))
-		 (const_int 12)]
-		(const_int 16))
+	  (eq_attr "type" "idiv")
+	  (symbol_ref "mips_idiv_insns () * 4")
 	  ] (const_int 4)))
 
 ;; Attribute describing the processor.  This attribute must match exactly
@@ -236,7 +233,7 @@
 
 	 ;; The r4000 multiplication patterns include an mflo instruction.
 	 (and (eq_attr "type" "imul")
-	      (ne (symbol_ref "TARGET_MIPS4000") (const_int 0)))
+	      (ne (symbol_ref "TARGET_FIX_R4000") (const_int 0)))
 	 (const_string "hilo")
 
 	 (and (eq_attr "type" "hilo")
@@ -1423,9 +1420,51 @@
    (set_attr "length"	"8")])
 
 
-;; ??? The R4000 (only) has a cpu bug.  If a double-word shift executes while
-;; a multiply is in progress, it may give an incorrect result.  Avoid
-;; this by keeping the mflo with the mult on the R4000.
+;; The original R4000 has a cpu bug.  If a double-word or a variable
+;; shift executes while an integer multiplication is in progress, the
+;; shift may give an incorrect result.  Avoid this by keeping the mflo
+;; with the mult on the R4000.
+;;
+;; From "MIPS R4000PC/SC Errata, Processor Revision 2.2 and 3.0"
+;; (also valid for MIPS R4000MC processors):
+;;
+;; "16. R4000PC, R4000SC: Please refer to errata 28 for an update to
+;;	this errata description.
+;;	The following code sequence causes the R4000 to incorrectly
+;;	execute the Double Shift Right Arithmetic 32 (dsra32)
+;;	instruction.  If the dsra32 instruction is executed during an
+;;	integer multiply, the dsra32 will only shift by the amount in
+;;	specified in the instruction rather than the amount plus 32
+;;	bits.
+;;	instruction 1:		mult	rs,rt		integer multiply
+;;	instruction 2-12:	dsra32	rd,rt,rs	doubleword shift
+;;							right arithmetic + 32
+;;	Workaround: A dsra32 instruction placed after an integer
+;;	multiply should not be one of the 11 instructions after the
+;;	multiply instruction."
+;;
+;; and:
+;;
+;; "28. R4000PC, R4000SC: The text from errata 16 should be replaced by
+;;	the following description.
+;;	All extended shifts (shift by n+32) and variable shifts (32 and
+;;	64-bit versions) may produce incorrect results under the
+;;	following conditions:
+;;	1) An integer multiply is currently executing
+;;	2) These types of shift instructions are executed immediately
+;;	   following an integer divide instruction.
+;;	Workaround:
+;;	1) Make sure no integer multiply is running wihen these
+;;	   instruction are executed.  If this cannot be predicted at
+;;	   compile time, then insert a "mfhi" to R0 instruction
+;;	   immediately after the integer multiply instruction.  This
+;;	   will cause the integer multiply to complete before the shift
+;;	   is executed.
+;;	2) Separate integer divide and these two classes of shift
+;;	   instructions by another instruction or a noop."
+;;
+;; These processors have PRId values of 0x00004220 and 0x00004300,
+;; respectively.
 
 (define_expand "mulsi3"
   [(set (match_operand:SI 0 "register_operand" "")
@@ -1435,7 +1474,7 @@
 {
   if (GENERATE_MULT3_SI || TARGET_MAD)
     emit_insn (gen_mulsi3_mult3 (operands[0], operands[1], operands[2]));
-  else if (!TARGET_MIPS4000 || TARGET_MIPS16)
+  else if (!TARGET_FIX_R4000)
     emit_insn (gen_mulsi3_internal (operands[0], operands[1], operands[2]));
   else
     emit_insn (gen_mulsi3_r4000 (operands[0], operands[1], operands[2]));
@@ -1501,7 +1540,7 @@
 	(mult:SI (match_operand:SI 1 "register_operand" "d")
 		 (match_operand:SI 2 "register_operand" "d")))
    (clobber (match_scratch:SI 3 "=h"))]
-  "!TARGET_MIPS4000 || TARGET_MIPS16"
+  "!TARGET_FIX_R4000"
   "mult\t%1,%2"
   [(set_attr "type"	"imul")
    (set_attr "mode"	"SI")])
@@ -1512,7 +1551,7 @@
 		 (match_operand:SI 2 "register_operand" "d")))
    (clobber (match_scratch:SI 3 "=h"))
    (clobber (match_scratch:SI 4 "=l"))]
-  "TARGET_MIPS4000 && !TARGET_MIPS16"
+  "TARGET_FIX_R4000"
   "mult\t%1,%2\;mflo\t%0"
   [(set_attr "type"	"imul")
    (set_attr "mode"	"SI")
@@ -1832,42 +1871,47 @@
 		 (match_operand:DI 2 "register_operand" "")))]
   "TARGET_64BIT"
 {
-  if (GENERATE_MULT3_DI || TARGET_MIPS4000)
-    emit_insn (gen_muldi3_internal2 (operands[0], operands[1], operands[2]));
-  else
+  if (GENERATE_MULT3_DI)
+    emit_insn (gen_muldi3_mult3 (operands[0], operands[1], operands[2]));
+  else if (!TARGET_FIX_R4000)
     emit_insn (gen_muldi3_internal (operands[0], operands[1], operands[2]));
+  else
+    emit_insn (gen_muldi3_r4000 (operands[0], operands[1], operands[2]));
   DONE;
 })
+
+(define_insn "muldi3_mult3"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(mult:DI (match_operand:DI 1 "register_operand" "d")
+		 (match_operand:DI 2 "register_operand" "d")))
+   (clobber (match_scratch:DI 3 "=h"))
+   (clobber (match_scratch:DI 4 "=l"))]
+  "TARGET_64BIT && GENERATE_MULT3_DI"
+  "dmult\t%0,%1,%2"
+  [(set_attr "type"	"imul")
+   (set_attr "mode"	"DI")])
 
 (define_insn "muldi3_internal"
   [(set (match_operand:DI 0 "register_operand" "=l")
 	(mult:DI (match_operand:DI 1 "register_operand" "d")
 		 (match_operand:DI 2 "register_operand" "d")))
    (clobber (match_scratch:DI 3 "=h"))]
-  "TARGET_64BIT && !TARGET_MIPS4000"
+  "TARGET_64BIT && !TARGET_FIX_R4000"
   "dmult\t%1,%2"
   [(set_attr "type"	"imul")
    (set_attr "mode"	"DI")])
 
-(define_insn "muldi3_internal2"
+(define_insn "muldi3_r4000"
   [(set (match_operand:DI 0 "register_operand" "=d")
 	(mult:DI (match_operand:DI 1 "register_operand" "d")
 		 (match_operand:DI 2 "register_operand" "d")))
    (clobber (match_scratch:DI 3 "=h"))
    (clobber (match_scratch:DI 4 "=l"))]
-  "TARGET_64BIT && (GENERATE_MULT3_DI || TARGET_MIPS4000)"
-{
-  if (GENERATE_MULT3_DI)
-    return "dmult\t%0,%1,%2";
-  else
-    return "dmult\t%1,%2\;mflo\t%0";
-}
+  "TARGET_64BIT && TARGET_FIX_R4000"
+  "dmult\t%1,%2\;mflo\t%0"
   [(set_attr "type"	"imul")
    (set_attr "mode"	"DI")
-   (set (attr "length")
-	(if_then_else (ne (symbol_ref "GENERATE_MULT3_DI") (const_int 0))
-		      (const_int 4)
-		      (const_int 8)))])
+   (set_attr "length"	"8")])
 
 ;; ??? We could define a mulditi3 pattern when TARGET_64BIT.
 
@@ -1880,24 +1924,42 @@
        (clobber (scratch:DI))
        (clobber (scratch:DI))
        (clobber (scratch:DI))])]
-  ""
+  "!TARGET_64BIT || !TARGET_FIX_R4000"
 {
   if (!TARGET_64BIT)
     {
-      emit_insn (gen_mulsidi3_32bit (operands[0], operands[1], operands[2]));
+      if (!TARGET_FIX_R4000)
+	emit_insn (gen_mulsidi3_32bit_internal (operands[0], operands[1],
+						operands[2]));
+      else
+	emit_insn (gen_mulsidi3_32bit_r4000 (operands[0], operands[1],
+					     operands[2]));
       DONE;
     }
 })
 
-(define_insn "mulsidi3_32bit"
+(define_insn "mulsidi3_32bit_internal"
   [(set (match_operand:DI 0 "register_operand" "=x")
 	(mult:DI
 	   (sign_extend:DI (match_operand:SI 1 "register_operand" "d"))
 	   (sign_extend:DI (match_operand:SI 2 "register_operand" "d"))))]
-  "!TARGET_64BIT"
+  "!TARGET_64BIT && !TARGET_FIX_R4000"
   "mult\t%1,%2"
   [(set_attr "type"	"imul")
    (set_attr "mode"	"SI")])
+
+(define_insn "mulsidi3_32bit_r4000"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(mult:DI
+	   (sign_extend:DI (match_operand:SI 1 "register_operand" "d"))
+	   (sign_extend:DI (match_operand:SI 2 "register_operand" "d"))))
+   (clobber (match_scratch:DI 3 "=l"))
+   (clobber (match_scratch:DI 4 "=h"))]
+  "!TARGET_64BIT && TARGET_FIX_R4000"
+  "mult\t%1,%2\;mflo\t%L0;mfhi\t%M0"
+  [(set_attr "type"	"imul")
+   (set_attr "mode"	"SI")
+   (set_attr "length"	"12")])
 
 (define_insn_and_split "*mulsidi3_64bit"
   [(set (match_operand:DI 0 "register_operand" "=d")
@@ -1908,7 +1970,8 @@
    (clobber (match_scratch:DI 5 "=l"))
    (clobber (match_scratch:DI 6 "=h"))
    (clobber (match_scratch:DI 7 "=d"))]
-  "TARGET_64BIT && GET_CODE (operands[1]) == GET_CODE (operands[2])"
+  "TARGET_64BIT && !TARGET_FIX_R4000
+   && GET_CODE (operands[1]) == GET_CODE (operands[2])"
   "#"
   "&& reload_completed"
   [(parallel
@@ -1959,7 +2022,8 @@
 	      (match_operator:DI 4 "extend_operator" [(match_dup 2)])
 	      (match_operator:DI 5 "extend_operator" [(match_dup 3)]))
 	   (const_int 32)))]
-  "TARGET_64BIT && GET_CODE (operands[4]) == GET_CODE (operands[5])"
+  "TARGET_64BIT && !TARGET_FIX_R4000
+   && GET_CODE (operands[4]) == GET_CODE (operands[5])"
 {
   if (GET_CODE (operands[4]) == SIGN_EXTEND)
     return "mult\t%2,%3";
@@ -1978,25 +2042,42 @@
        (clobber (scratch:DI))
        (clobber (scratch:DI))
        (clobber (scratch:DI))])]
-  ""
+  "!TARGET_64BIT || !TARGET_FIX_R4000"
 {
   if (!TARGET_64BIT)
     {
-      emit_insn (gen_umulsidi3_32bit (operands[0], operands[1],
-				      operands[2]));
+      if (!TARGET_FIX_R4000)
+	emit_insn (gen_umulsidi3_32bit_internal (operands[0], operands[1],
+						 operands[2]));
+      else
+	emit_insn (gen_umulsidi3_32bit_r4000 (operands[0], operands[1],
+					      operands[2]));
       DONE;
     }
 })
 
-(define_insn "umulsidi3_32bit"
+(define_insn "umulsidi3_32bit_internal"
   [(set (match_operand:DI 0 "register_operand" "=x")
 	(mult:DI
 	   (zero_extend:DI (match_operand:SI 1 "register_operand" "d"))
 	   (zero_extend:DI (match_operand:SI 2 "register_operand" "d"))))]
-  "!TARGET_64BIT"
+  "!TARGET_64BIT && !TARGET_FIX_R4000"
   "multu\t%1,%2"
   [(set_attr "type"	"imul")
    (set_attr "mode"	"SI")])
+
+(define_insn "umulsidi3_32bit_r4000"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(mult:DI
+	   (zero_extend:DI (match_operand:SI 1 "register_operand" "d"))
+	   (zero_extend:DI (match_operand:SI 2 "register_operand" "d"))))
+   (clobber (match_scratch:DI 3 "=l"))
+   (clobber (match_scratch:DI 4 "=h"))]
+  "!TARGET_64BIT && TARGET_FIX_R4000"
+  "multu\t%1,%2\;mflo\t%L0;mfhi\t%M0"
+  [(set_attr "type"	"imul")
+   (set_attr "mode"	"SI")
+   (set_attr "length"	"12")])
 
 ;; Widening multiply with negation.
 (define_insn "*muls_di"
@@ -2067,7 +2148,7 @@
 	  (mult:DI (zero_extend:DI (match_operand:SI 1 "register_operand" ""))
 		   (zero_extend:DI (match_operand:SI 2 "register_operand" "")))
 	  (const_int 32))))]
-  ""
+  "ISA_HAS_MULHI || !TARGET_FIX_R4000"
 {
   if (ISA_HAS_MULHI)
     emit_insn (gen_umulsi3_highpart_mulhi_internal (operands[0], operands[1],
@@ -2086,7 +2167,7 @@
 		   (zero_extend:DI (match_operand:SI 2 "register_operand" "d")))
 	  (const_int 32))))
    (clobber (match_scratch:SI 3 "=l"))]
-  "!ISA_HAS_MULHI"
+  "!ISA_HAS_MULHI && !TARGET_FIX_R4000"
   "multu\t%1,%2"
   [(set_attr "type"   "imul")
    (set_attr "mode"   "SI")
@@ -2134,7 +2215,7 @@
 	  (mult:DI (sign_extend:DI (match_operand:SI 1 "register_operand" ""))
 		   (sign_extend:DI (match_operand:SI 2 "register_operand" "")))
          (const_int 32))))]
-  ""
+  "ISA_HAS_MULHI || !TARGET_FIX_R4000"
 {
   if (ISA_HAS_MULHI)
     emit_insn (gen_smulsi3_highpart_mulhi_internal (operands[0], operands[1],
@@ -2153,7 +2234,7 @@
 		   (sign_extend:DI (match_operand:SI 2 "register_operand" "d")))
 	  (const_int 32))))
    (clobber (match_scratch:SI 3 "=l"))]
-  "!ISA_HAS_MULHI"
+  "!ISA_HAS_MULHI && !TARGET_FIX_R4000"
   "mult\t%1,%2"
   [(set_attr "type"	"imul")
    (set_attr "mode"	"SI")
@@ -2202,7 +2283,7 @@
 	   (sign_extend:TI (match_operand:DI 2 "register_operand" "d")))
          (const_int 64))))
    (clobber (match_scratch:DI 3 "=l"))]
-  "TARGET_64BIT"
+  "TARGET_64BIT && !TARGET_FIX_R4000"
   "dmult\t%1,%2"
   [(set_attr "type"	"imul")
    (set_attr "mode"	"DI")])
@@ -2216,7 +2297,7 @@
 	   (zero_extend:TI (match_operand:DI 2 "register_operand" "d")))
 	  (const_int 64))))
    (clobber (match_scratch:DI 3 "=l"))]
-  "TARGET_64BIT"
+  "TARGET_64BIT && !TARGET_FIX_R4000"
   "dmultu\t%1,%2"
   [(set_attr "type"	"imul")
    (set_attr "mode"	"DI")])
@@ -4152,6 +4233,67 @@ dsrl\t%3,%3,1\n\
   [(set_attr "type" "store")
    (set_attr "mode" "DI")])
 
+;; An instruction to calculate the high part of a 64-bit SYMBOL_GENERAL.
+;; The required value is:
+;;
+;;	(%highest(op1) << 48) + (%higher(op1) << 32) + (%hi(op1) << 16)
+;;
+;; which translates to:
+;;
+;;	lui	op0,%highest(op1)
+;;	daddiu	op0,op0,%higher(op1)
+;;	dsll	op0,op0,16
+;;	daddiu	op0,op0,%hi(op1)
+;;	dsll	op0,op0,16
+(define_insn_and_split "*lea_high64"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(high:DI (match_operand:DI 1 "general_symbolic_operand" "")))]
+  "TARGET_EXPLICIT_RELOCS && ABI_HAS_64BIT_SYMBOLS"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (high:DI (match_dup 2)))
+   (set (match_dup 0) (lo_sum:DI (match_dup 0) (match_dup 2)))
+   (set (match_dup 0) (ashift:DI (match_dup 0) (const_int 16)))
+   (set (match_dup 0) (lo_sum:DI (match_dup 0) (match_dup 3)))
+   (set (match_dup 0) (ashift:DI (match_dup 0) (const_int 16)))]
+{
+  operands[2] = mips_unspec_address (operands[1], SYMBOL_64_HIGH);
+  operands[3] = mips_unspec_address (operands[1], SYMBOL_64_MID);
+}
+  [(set_attr "length" "20")])
+
+;; On most targets, the expansion of (lo_sum (high X) X) for a 64-bit
+;; SYMBOL_GENERAL X will take 6 cycles.  This next pattern allows combine
+;; to merge the HIGH and LO_SUM parts of a move if the HIGH part is only
+;; used once.  We can then use the sequence:
+;;
+;;	lui	op0,%highest(op1)
+;;	lui	op2,%hi(op1)
+;;	daddiu	op0,op0,%higher(op1)
+;;	daddiu	op2,op2,%lo(op1)
+;;	dsll32	op0,op0,0
+;;	daddu	op0,op0,op2
+;;
+;; which takes 4 cycles on most superscalar targets.
+(define_insn_and_split "*lea64"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(match_operand:DI 1 "general_symbolic_operand" ""))
+   (clobber (match_scratch:DI 2 "=&d"))]
+  "TARGET_EXPLICIT_RELOCS && ABI_HAS_64BIT_SYMBOLS && cse_not_expected"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (high:DI (match_dup 3)))
+   (set (match_dup 2) (high:DI (match_dup 4)))
+   (set (match_dup 0) (lo_sum:DI (match_dup 0) (match_dup 3)))
+   (set (match_dup 2) (lo_sum:DI (match_dup 2) (match_dup 4)))
+   (set (match_dup 0) (ashift:DI (match_dup 0) (const_int 32)))
+   (set (match_dup 0) (plus:DI (match_dup 0) (match_dup 2)))]
+{
+  operands[3] = mips_unspec_address (operands[1], SYMBOL_64_HIGH);
+  operands[4] = mips_unspec_address (operands[1], SYMBOL_64_LOW);
+}
+  [(set_attr "length" "24")])
+
 ;; Insns to fetch a global symbol from a big GOT.
 
 (define_insn_and_split "*xgot_hisi"
@@ -4163,7 +4305,7 @@ dsrl\t%3,%3,1\n\
   [(set (match_dup 0) (high:SI (match_dup 2)))
    (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 3)))]
 {
-  operands[2] = mips_gotoff_global (operands[1]);
+  operands[2] = mips_unspec_address (operands[1], SYMBOL_GOTOFF_GLOBAL);
   operands[3] = pic_offset_table_rtx;
 }
   [(set_attr "got" "xgot_high")])
@@ -4177,7 +4319,7 @@ dsrl\t%3,%3,1\n\
   "&& reload_completed"
   [(set (match_dup 0)
 	(unspec:SI [(match_dup 1) (match_dup 3)] UNSPEC_LOAD_GOT))]
-  { operands[3] = mips_gotoff_global (operands[2]); }
+  { operands[3] = mips_unspec_address (operands[2], SYMBOL_GOTOFF_GLOBAL); }
   [(set_attr "got" "load")])
 
 (define_insn_and_split "*xgot_hidi"
@@ -4189,7 +4331,7 @@ dsrl\t%3,%3,1\n\
   [(set (match_dup 0) (high:DI (match_dup 2)))
    (set (match_dup 0) (plus:DI (match_dup 0) (match_dup 3)))]
 {
-  operands[2] = mips_gotoff_global (operands[1]);
+  operands[2] = mips_unspec_address (operands[1], SYMBOL_GOTOFF_GLOBAL);
   operands[3] = pic_offset_table_rtx;
 }
   [(set_attr "got" "xgot_high")])
@@ -4203,7 +4345,7 @@ dsrl\t%3,%3,1\n\
   "&& reload_completed"
   [(set (match_dup 0)
 	(unspec:DI [(match_dup 1) (match_dup 3)] UNSPEC_LOAD_GOT))]
-  { operands[3] = mips_gotoff_global (operands[2]); }
+  { operands[3] = mips_unspec_address (operands[2], SYMBOL_GOTOFF_GLOBAL); }
   [(set_attr "got" "load")])
 
 ;; Insns to fetch a global symbol from a normal GOT.
@@ -4218,7 +4360,7 @@ dsrl\t%3,%3,1\n\
 	(unspec:SI [(match_dup 2) (match_dup 3)] UNSPEC_LOAD_GOT))]
 {
   operands[2] = pic_offset_table_rtx;
-  operands[3] = mips_gotoff_global (operands[1]);
+  operands[3] = mips_unspec_address (operands[1], SYMBOL_GOTOFF_GLOBAL);
 }
   [(set_attr "got" "load")])
 
@@ -4232,7 +4374,7 @@ dsrl\t%3,%3,1\n\
 	(unspec:DI [(match_dup 2) (match_dup 3)] UNSPEC_LOAD_GOT))]
 {
   operands[2] = pic_offset_table_rtx;
-  operands[3] = mips_gotoff_global (operands[1]);
+  operands[3] = mips_unspec_address (operands[1], SYMBOL_GOTOFF_GLOBAL);
 }
   [(set_attr "got" "load")])
 
@@ -4248,7 +4390,7 @@ dsrl\t%3,%3,1\n\
 	(unspec:SI [(match_dup 2) (match_dup 3)] UNSPEC_LOAD_GOT))]
 {
   operands[2] = pic_offset_table_rtx;
-  operands[3] = mips_gotoff_page (operands[1]);
+  operands[3] = mips_unspec_address (operands[1], SYMBOL_GOTOFF_PAGE);
 }
   [(set_attr "got" "load")])
 
@@ -4262,7 +4404,7 @@ dsrl\t%3,%3,1\n\
 	(unspec:DI [(match_dup 2) (match_dup 3)] UNSPEC_LOAD_GOT))]
 {
   operands[2] = pic_offset_table_rtx;
-  operands[3] = mips_gotoff_page (operands[1]);
+  operands[3] = mips_unspec_address (operands[1], SYMBOL_GOTOFF_PAGE);
 }
   [(set_attr "got" "load")])
 
@@ -6354,17 +6496,6 @@ srl\t%M0,%M1,%2\n\
   DONE;
 })
 
-(define_expand "tstsi"
-  [(set (cc0)
-	(match_operand:SI 0 "register_operand" ""))]
-  ""
-{
-  branch_cmp[0] = operands[0];
-  branch_cmp[1] = const0_rtx;
-  branch_type = CMP_SI;
-  DONE;
-})
-
 (define_expand "cmpdi"
   [(set (cc0)
 	(compare:CC (match_operand:DI 0 "register_operand" "")
@@ -6373,17 +6504,6 @@ srl\t%M0,%M1,%2\n\
 {
   branch_cmp[0] = operands[0];
   branch_cmp[1] = operands[1];
-  branch_type = CMP_DI;
-  DONE;
-})
-
-(define_expand "tstdi"
-  [(set (cc0)
-	(match_operand:DI 0 "register_operand" ""))]
-  "TARGET_64BIT"
-{
-  branch_cmp[0] = operands[0];
-  branch_cmp[1] = const0_rtx;
   branch_type = CMP_DI;
   DONE;
 })
