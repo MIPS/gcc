@@ -169,51 +169,6 @@ namespace std
    *  @param  b  Another thing of arbitrary type.
    *  @return   The lesser of the parameters.
    *
-   *  This is the simple classic generic implementation.  It will work on
-   *  temporary expressions, since they are only evaluated once, unlike a
-   *  preprocessor macro.
-  */
-  template<typename _Tp>
-    inline const _Tp&
-    min(const _Tp& __a, const _Tp& __b)
-    {
-      // concept requirements
-      __glibcxx_function_requires(_LessThanComparableConcept<_Tp>)
-      //return __b < __a ? __b : __a;
-      if (__b < __a)
-	return __b;
-      return __a;
-    }
-
-  /**
-   *  @brief This does what you think it does.
-   *  @param  a  A thing of arbitrary type.
-   *  @param  b  Another thing of arbitrary type.
-   *  @return   The greater of the parameters.
-   *
-   *  This is the simple classic generic implementation.  It will work on
-   *  temporary expressions, since they are only evaluated once, unlike a
-   *  preprocessor macro.
-  */
-  template<typename _Tp>
-    inline const _Tp&
-    max(const _Tp& __a, const _Tp& __b)
-    {
-      // concept requirements
-      __glibcxx_function_requires(_LessThanComparableConcept<_Tp>)
-      //return  __a < __b ? __b : __a;
-      if (__a < __b)
-	return __b;
-      return __a;
-    }
-
-  /**
-   *  @brief This does what you think it does.
-   *  @param  a  A thing of arbitrary type.
-   *  @param  b  Another thing of arbitrary type.
-   *  @param  comp  A @link s20_3_3_comparisons comparison functor@endlink.
-   *  @return   The lesser of the parameters.
-   *
    *  This will work on temporary expressions, since they are only evaluated
    *  once, unlike a preprocessor macro.
   */
@@ -245,6 +200,44 @@ namespace std
       if (__comp(__a, __b))
 	return __b;
       return __a;
+    }
+
+  /**
+   *  @brief This does what you think it does.
+   *  @param  a  A thing of arbitrary type.
+   *  @param  b  Another thing of arbitrary type.
+   *  @return   The lesser of the parameters.
+   *
+   *  This is the simple classic generic implementation.  It will work on
+   *  temporary expressions, since they are only evaluated once, unlike a
+   *  preprocessor macro.
+  */
+  template<typename _Tp>
+    inline const _Tp&
+    min(const _Tp& __a, const _Tp& __b)
+    {
+      // concept requirements
+      __glibcxx_function_requires(_LessThanComparableConcept<_Tp>)
+      return min(__a, __b, __gnu_cxx::__ops::less());
+    }
+
+  /**
+   *  @brief This does what you think it does.
+   *  @param  a  A thing of arbitrary type.
+   *  @param  b  Another thing of arbitrary type.
+   *  @return   The greater of the parameters.
+   *
+   *  This is the simple classic generic implementation.  It will work on
+   *  temporary expressions, since they are only evaluated once, unlike a
+   *  preprocessor macro.
+  */
+  template<typename _Tp>
+    inline const _Tp&
+    max(const _Tp& __a, const _Tp& __b)
+    {
+      // concept requirements
+      __glibcxx_function_requires(_LessThanComparableConcept<_Tp>)
+      return max(__a, __b, __gnu_cxx::__ops::less());
     }
 
   // All of these auxiliary structs serve two purposes.  (1) Replace

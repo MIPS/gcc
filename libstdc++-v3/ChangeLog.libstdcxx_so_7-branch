@@ -1,3 +1,16 @@
+2005-02-27  Christopher Jefferson  <chris@bubblescope.net>
+            Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_heap.h (__is_heap, __push_heap, push_heap, 
+	pop_heap, make_heap, sort_heap): Make non-predicated version call
+	predicated version.
+	* include/bits/stl_algobase.h (min, max): Likewise.
+	* testsuite/ext/is_heap/check_type.cc : New.
+
+2005-02-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/ext/is_heap/1.cc: New.
+
 2005-02-21  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/17922 (ABI-unsafe half)
@@ -103,13 +116,6 @@
 	set_difference, set_symmetric_difference, min_element, max_element,
 	next_permutation, prev_permutation, find_first_of, find_end): 
 	Make non-predicated version call predicated version.
-	* include/bits/stl_algo.h (__unique_copy, __unguarded_partition, 
-	__unguarded_linear_insert, __insertion_sort, 
-	__unguarded_insertion_sort, __final_insertion_sort, __introsort_loop, 
-	__merge_without_buffer, __inplace_stable_sort, __merge_sort_loop, 
-	__chunk_insertion_sort, __merge_sort_with_buffer, __merge_backward, 
-	__merge_adaptive, __stable_sort_adaptive, __find_end): 
-	Remove unused overloads.
 
 2005-02-01  Christopher Jefferson  <chris@bubblescope.net>
 
