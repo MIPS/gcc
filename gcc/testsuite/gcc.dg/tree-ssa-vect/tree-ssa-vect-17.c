@@ -1,10 +1,10 @@
 /* { dg-do run { target powerpc*-*-* } } */
-/* { dg-do compile { target i?86-*-* } } */
+/* { dg-do run { target i?86-*-* x86_64-*-* } } */
 /* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse2" { target i?86-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse2" { target i?86-*-* x86_64-*-* } } */
   
 #include <stdarg.h>
-#include <signal.h>
+#include "tree-vect.h"
 
 #define N 64
 
@@ -120,19 +120,9 @@ main1 ()
   return 0;
 }
 
-void
-sig_ill_handler (int sig)
-{
-    exit(0);
-}
-
 int main (void)
 {
-  /* Exit on systems without altivec.  */
-  signal (SIGILL, sig_ill_handler);
-  /* Altivec instruction, 'vor %v0,%v0,%v0'.  */
-  asm volatile (".long 0x10000484");
-  signal (SIGILL, SIG_DFL);
+  check_vect ();
 
   return main1 ();
 }
