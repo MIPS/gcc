@@ -1,3 +1,7 @@
+2003-12-03  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (classify_argument): Make it 64bit clean.
+
 2003-11-30  Jan Hubicka  <jh@suse.cz>
 
 	* explow.c (round_push): Fix handling of large sizes.
