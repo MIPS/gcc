@@ -1,5 +1,19 @@
 2002-07-04  Geoffrey Keating  <geoffk@redhat.com>
 
+	* rtl.c: Update comment describing rtx_format.
+	* rtl.h (union rtunion): Separate definition and typedef.
+	(struct rtx_def): Use gengtype to mark.
+	* Makefile.in (gengtype.o): Also depend on rtl.def.
+	* ggc.h (ggc_mark_rtx_children): Delete prototype.
+	(ggc_mark_rtx): Change to alias of gengtype-generated routine.
+	* ggc-common.c (ggc_mark_rtx_children): Delete.
+	(ggc_mark_rtx_children_1): Delete.
+	(gt_ggc_m_rtx_def): Delete.
+	* gengtype.c (adjust_field_rtx_def): New.
+	(adjust_field_type): Call adjust_field_rtx_def.
+	(write_gc_structure_fields): Add 'default' case to switch if none
+	is specified; remove unused code.
+
 	* tree.h (struct tree_exp): Update for change to meaning
 	of special.
 	* gengtype.c (adjust_field_tree_exp): New function.

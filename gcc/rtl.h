@@ -100,7 +100,7 @@ typedef struct mem_attrs GTY(())
 
 /* Common union for an element of an rtx.  */
 
-typedef union rtunion_def
+union rtunion_def
 {
   HOST_WIDE_INT rtwint;
   int rtint;
@@ -115,11 +115,12 @@ typedef union rtunion_def
   tree rttree;
   struct basic_block_def *bb;
   mem_attrs *rtmem;
-} rtunion;
+};
+typedef union rtunion_def rtunion;
 
 /* RTL expression ("rtx").  */
 
-struct rtx_def
+struct rtx_def GTY(())
 {
   /* The kind of expression this is.  */
   ENUM_BITFIELD(rtx_code) code: 16;
@@ -194,7 +195,8 @@ struct rtx_def
   /* The first element of the operands of this rtx.
      The number of operands and their types are controlled
      by the `code' field, according to rtl.def.  */
-  rtunion fld[1];
+  rtunion GTY ((special ("rtx_def"),
+		desc ("GET_CODE (&%0)"))) fld[1];
 };
 
 #define NULL_RTX (rtx) 0

@@ -85,6 +85,7 @@ static type_p param_structs;
 static pair_p variables;
 
 static type_p adjust_field_tree_exp PARAMS ((type_p t, options_p opt));
+static type_p adjust_field_rtx_def PARAMS ((type_p t, options_p opt));
 
 /* Define S as a typedef to T at POS.  */
 
@@ -297,11 +298,242 @@ note_variable (s, t, o, pos)
   variables = n;
 }
 
+/* Handle `special("rtx_def")'.  This is a special case for field
+   `fld' of struct rtx_def, which is an array of unions whose values
+   are based in a complex way on the type of RTL.  */
+
+static type_p
+adjust_field_rtx_def (t, opt)
+     type_p t;
+     options_p opt ATTRIBUTE_UNUSED;
+{
+  pair_p flds = NULL;
+  options_p nodot;
+  int i;
+  type_p rtx_tp, rtvec_tp, tree_tp, mem_attrs_tp, note_union_tp, scalar_tp;
+  type_p bitmap_tp, basic_block_tp;
+
+  enum rtx_code {
+#define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   ENUM ,
+#include "rtl.def"
+#undef DEF_RTL_EXPR
+    NUM_RTX_CODE
+  };
+  static const char * const rtx_name[NUM_RTX_CODE] = {
+#define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   NAME ,
+#include "rtl.def"
+#undef DEF_RTL_EXPR
+  };
+  /* We really don't care how long a CONST_DOUBLE is.  */
+#define CONST_DOUBLE_FORMAT "ww"
+  static const char * const rtx_format[NUM_RTX_CODE] = {
+#define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   FORMAT ,
+#include "rtl.def"
+#undef DEF_RTL_EXPR
+  };
+  
+  if (t->kind != TYPE_ARRAY)
+    {
+      error_at_line (&lexer_line, 
+		     "special `rtx_def' must be applied to an array");
+      return &string_type;
+    }
+  
+  nodot = xmalloc (sizeof (*nodot));
+  nodot->next = NULL;
+  nodot->name = "dot";
+  nodot->info = "";
+
+  rtx_tp = create_pointer (find_structure ("rtx_def", 0));
+  rtvec_tp = create_pointer (find_structure ("rtvec_def", 0));
+  tree_tp = create_pointer (find_structure ("tree_node", 1));
+  mem_attrs_tp = create_pointer (find_structure ("mem_attrs", 0));
+  bitmap_tp = create_pointer (find_structure ("bitmap_element_def", 0));
+  basic_block_tp = create_pointer (find_structure ("basic_block_def", 0));
+  scalar_tp = create_scalar_type ("rtunion scalar", 14);
+
+  {
+    pair_p note_flds = NULL;
+    int c;
+    
+    for (c = 0; c < 3; c++)
+      {
+	pair_p old_note_flds = note_flds;
+	
+	note_flds = xmalloc (sizeof (*note_flds));
+	note_flds->line.file = __FILE__;
+	note_flds->line.line = __LINE__;
+	note_flds->name = "rttree";
+	note_flds->type = tree_tp;
+	note_flds->opt = xmalloc (sizeof (*note_flds->opt));
+	note_flds->opt->next = nodot;
+	note_flds->opt->name = "tag";
+	note_flds->next = old_note_flds;
+      }
+    
+    note_flds->type = rtx_tp;
+    note_flds->name = "rtx";
+    note_flds->opt->info = "NOTE_INSN_EXPECTED_VALUE";
+    note_flds->next->opt->info = "NOTE_INSN_BLOCK_BEG";
+    note_flds->next->next->opt->info = "NOTE_INSN_BLOCK_END";
+    
+    new_structure ("rtx_def_note_subunion", 1, &lexer_line, note_flds, NULL);
+  }
+  
+  note_union_tp = find_structure ("rtx_def_note_subunion", 1);
+
+  for (i = 0; i < NUM_RTX_CODE; i++)
+    {
+      pair_p old_flds = flds;
+      pair_p subfields = NULL;
+      size_t aindex, nmindex;
+      const char *sname;
+      char *ftag;
+
+      for (aindex = 0; aindex < strlen (rtx_format[i]); aindex++)
+	{
+	  pair_p old_subf = subfields;
+	  type_p t;
+	  const char *subname;
+	  
+	  switch (rtx_format[i][aindex])
+	    {
+	    case '*':
+	    case 'i':
+	    case 'n':
+	    case 'w':
+	      t = scalar_tp;
+	      subname = "rtint";
+	      break;
+
+	    case '0':
+	      if (i == MEM && aindex == 1)
+		t = mem_attrs_tp, subname = "rtmem";
+	      else if (i == JUMP_INSN && aindex == 9)
+		t = rtx_tp, subname = "rtx";
+	      else if (i == CODE_LABEL && aindex == 4)
+		t = scalar_tp, subname = "rtint";
+	      else if (i == CODE_LABEL && aindex == 5)
+		t = rtx_tp, subname = "rtx";
+	      else if (i == LABEL_REF
+		       && (aindex == 1 || aindex == 2))
+		t = rtx_tp, subname = "rtx";
+	      else if (i == NOTE && aindex == 4)
+		t = note_union_tp, subname = "";
+	      else if (i == ADDR_DIFF_VEC && aindex == 4)
+		t = scalar_tp, subname = "rtint";
+	      else if (i == VALUE && aindex == 0)
+		t = scalar_tp, subname = "rtint";
+	      else if (i == REG && aindex == 1)
+		t = scalar_tp, subname = "rtint";
+	      else if (i == SCRATCH && aindex == 0)
+		t = scalar_tp, subname = "rtint";
+	      else
+		{
+		  error_at_line (&lexer_line, 
+			"rtx type `%s' has `0' in position %d, can't handle",
+				 rtx_name[i], aindex);
+		  t = &string_type;
+		  subname = "rtint";
+		}
+	      break;
+	      
+	    case 's':
+	    case 'S':
+	    case 'T':
+	      t = &string_type;
+	      subname = "rtstr";
+	      break;
+
+	    case 'e':
+	    case 'u':
+	      t = rtx_tp;
+	      subname = "rtx";
+	      break;
+
+	    case 'E':
+	    case 'V':
+	      t = rtvec_tp;
+	      subname = "rtvec";
+	      break;
+
+	    case 't':
+	      t = tree_tp;
+	      subname = "rttree";
+	      break;
+
+	    case 'b':
+	      t = bitmap_tp;
+	      subname = "rtbit";
+	      break;
+
+	    case 'B':
+	      t = basic_block_tp;
+	      subname = "bb";
+	      break;
+
+	    default:
+	      error_at_line (&lexer_line, 
+		     "rtx type `%s' has `%c' in position %d, can't handle",
+			     rtx_name[i], rtx_format[i][aindex],
+			     aindex);
+	      t = &string_type;
+	      subname = "rtint";
+	      break;
+	    }
+
+	  subfields = xmalloc (sizeof (*subfields));
+	  subfields->next = old_subf;
+	  subfields->type = t;
+	  subfields->name = xasprintf ("[%d].%s", aindex, subname);
+	  subfields->line.file = __FILE__;
+	  subfields->line.line = __LINE__;
+	  if (t == note_union_tp)
+	    {
+	      subfields->opt = xmalloc (sizeof (*subfields->opt));
+	      subfields->opt->next = nodot;
+	      subfields->opt->name = "desc";
+	      subfields->opt->info = "NOTE_LINE_NUMBER (&%0)";
+	    }
+	  else if (t == basic_block_tp)
+	    {
+	      /* We don't presently GC basic block structures... */
+	      subfields->opt = xmalloc (sizeof (*subfields->opt));
+	      subfields->opt->next = nodot;
+	      subfields->opt->name = "skip";
+	      subfields->opt->info = NULL;
+	    }
+	  else
+	    subfields->opt = nodot;
+	}
+
+      flds = xmalloc (sizeof (*flds));
+      flds->next = old_flds;
+      flds->name = "";
+      sname = xasprintf ("rtx_def_%s", rtx_name[i]);
+      new_structure (sname, 0, &lexer_line, subfields, NULL);
+      flds->type = find_structure (sname, 0);
+      flds->line.file = __FILE__;
+      flds->line.line = __LINE__;
+      flds->opt = xmalloc (sizeof (*flds->opt));
+      flds->opt->next = nodot;
+      flds->opt->name = "tag";
+      ftag = xstrdup (rtx_name[i]);
+      for (nmindex = 0; nmindex < strlen (ftag); nmindex++)
+	ftag[nmindex] = TOUPPER (ftag[nmindex]);
+      flds->opt->info = ftag;
+    }
+
+  new_structure ("rtx_def_subunion", 1, &lexer_line, flds, nodot);
+  return find_structure ("rtx_def_subunion", 1);
+}
+
 /* Handle `special("tree_exp")'.  This is a special case for
    field `operands' of struct tree_exp, which although it claims to contain
    pointers to trees, actually sometimes contains pointers to RTL too.  
    Passed T, the old type of the field, and OPT its options.  Returns
    a new type for the field.  */
+
 static type_p
 adjust_field_tree_exp (t, opt)
      type_p t;
@@ -437,6 +669,8 @@ adjust_field_type (t, opt)
 	const char *special_name = (const char *)opt->info;
 	if (strcmp (special_name, "tree_exp") == 0)
 	  t = adjust_field_tree_exp (t, opt);
+	else if (strcmp (special_name, "rtx_def") == 0)
+	  t = adjust_field_rtx_def (t, opt);
 	else
 	  error_at_line (&lexer_line, "unknown special `%s'", special_name);
       }
@@ -1023,7 +1257,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
      type_p param;
 {
   pair_p f;
-  int tagcounter = -1;
+  int seen_default = 0;
 
   if (! s->u.s.line.file)
     error_at_line (line, "incomplete structure `%s'", s->u.s.tag);
@@ -1038,7 +1272,6 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
       const char *tagexpr = NULL;
       options_p oo;
       
-      tagcounter = ++gc_counter;
       for (oo = opts; oo; oo = oo->next)
 	if (strcmp (oo->name, "desc") == 0)
 	  tagexpr = (const char *)oo->info;
@@ -1097,6 +1330,8 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	  dot = (const char *)oo->info;
 	else
 	  error_at_line (&f->line, "unknown field option `%s'\n", oo->name);
+
+      seen_default |= default_p;
 
       if (skip_p)
 	continue;
@@ -1371,6 +1606,11 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
     }
   if (s->kind == TYPE_UNION)
     {
+      if (! seen_default)
+	{
+	  oprintf (of, "%*sdefault:\n", indent, "");
+	  oprintf (of, "%*s  break;\n", indent, "");
+	}
       oprintf (of, "%*s}\n", indent, "");
       indent -= 2;
     }
