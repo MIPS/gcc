@@ -5,6 +5,13 @@
 
 2004-08-19  Geoffrey Keating  <geoffk@apple.com>
 
+	Radar 3719364
+	* more-hdrs/inttypes.h: Update copyright notice, revise handling
+	of macros for which Jaguar doesn't support the C99 modifiers,
+	correct *FASTn for n < 32, correct *PTR.
+
+2004-08-19  Geoffrey Keating  <geoffk@apple.com>
+
 	* more-hdrs/stdint.h: Correct some typos in comments.
 
 2004-08-18  Matthew Sachs  <msachs@apple.com>

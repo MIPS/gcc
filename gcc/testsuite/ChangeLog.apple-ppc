@@ -1,3 +1,7 @@
+2004-08-19  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.apple/inttypes-3.c: New file.
+
 2004-08-22  Andrew Pinski  <apinski@apple.com>
 
 	* g++.dg/opt/pr14029.C: New test.
@@ -8,10 +12,9 @@
 	* objc.dg/const-cfstring-1.m: Include stdlib.h.
 
 2004-08-16  Devang Patel  <dpatel@apple.com>
-	
+
 	Merge from mainlne.
-	2004-08-16  Devang Patel  <dpatel@apple.com>                                                         
-                                                                                                     
+	2004-08-16  Devang Patel  <dpatel@apple.com>
 	* gcc.dg/darwin-20040809-1.c: New test.
                                                         
 2004-08-13  Matt Austern  <austern@apple.com>
