@@ -1,3 +1,9 @@
+2004-01-01  Steven Bosscher  <stevenb@suse.de>
+
+	PR fortran/13251
+	* trans-expr.c (gfc_conv_variable): Take the type kind of a substring
+	reference from the expression.
+
 2003-12-26  Feng Wang  <fengwang@nudt.edu.cn>
 
 	* dump-parse-tree.c (gfc_show_code_node): Add ASSIGN and ASSIGNED GOTO
