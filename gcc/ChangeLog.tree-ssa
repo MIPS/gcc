@@ -1,3 +1,8 @@
+2004-03-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-alias-common.c (create_alias_vars): Add #if
+	HAVE_BANSHEE around test for PTA_ANDERSEN.
+
 2004-03-11  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (struct walk_state): Remove fields 'is_store' and
