@@ -1,3 +1,7 @@
+2004-08-28  Andrew Pinski  <apinski@apple.com>
+
+	* config.in: Regenerate.
+
 2004-08-23  Richard Henderson  <rth@redhat.com>
             Andrew Pinski  <apinski@apple.com>
 

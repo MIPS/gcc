@@ -370,6 +370,9 @@
 /* Define if your compiler supports the \`long long' type. */
 #undef HAVE_LONG_LONG
 
+/* Define to 1 if you have the <mach/mach_time.h> header file. */
+#undef HAVE_MACH_MACH_TIME_H
+
 /* Define to 1 if you have the <malloc.h> header file. */
 #undef HAVE_MALLOC_H
 
