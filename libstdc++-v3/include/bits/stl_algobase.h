@@ -72,6 +72,7 @@
 #include <bits/stl_iterator_base_types.h>
 #include <bits/stl_iterator_base_funcs.h>
 #include <bits/stl_iterator.h>
+#include <bits/predefined_ops.h>
 #include <bits/concept_check.h>
 #include <debug/debug.h>
 
@@ -664,39 +665,6 @@ namespace std
    *  @param  first1  An input iterator.
    *  @param  last1   An input iterator.
    *  @param  first2  An input iterator.
-   *  @return   A pair of iterators pointing to the first mismatch.
-   *
-   *  This compares the elements of two ranges using @c == and returns a pair
-   *  of iterators.  The first iterator points into the first range, the
-   *  second iterator points into the second range, and the elements pointed
-   *  to by the iterators are not equal.
-  */
-  template<typename _InputIterator1, typename _InputIterator2>
-    pair<_InputIterator1, _InputIterator2>
-    mismatch(_InputIterator1 __first1, _InputIterator1 __last1,
-	     _InputIterator2 __first2)
-    {
-      // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
-      __glibcxx_function_requires(_EqualOpConcept<
-	    typename iterator_traits<_InputIterator1>::value_type,
-	    typename iterator_traits<_InputIterator2>::value_type>)
-      __glibcxx_requires_valid_range(__first1, __last1);
-
-      while (__first1 != __last1 && *__first1 == *__first2)
-        {
-	  ++__first1;
-	  ++__first2;
-        }
-      return pair<_InputIterator1, _InputIterator2>(__first1, __first2);
-    }
-
-  /**
-   *  @brief Finds the places in ranges which don't match.
-   *  @param  first1  An input iterator.
-   *  @param  last1   An input iterator.
-   *  @param  first2  An input iterator.
    *  @param  binary_pred  A binary predicate @link s20_3_1_base functor@endlink.
    *  @return   A pair of iterators pointing to the first mismatch.
    *
@@ -726,33 +694,28 @@ namespace std
     }
 
   /**
-   *  @brief Tests a range for element-wise equality.
+   *  @brief Finds the places in ranges which don't match.
    *  @param  first1  An input iterator.
    *  @param  last1   An input iterator.
    *  @param  first2  An input iterator.
-   *  @return   A boolean true or false.
+   *  @return   A pair of iterators pointing to the first mismatch.
    *
-   *  This compares the elements of two ranges using @c == and returns true or
-   *  false depending on whether all of the corresponding elements of the
-   *  ranges are equal.
+   *  This compares the elements of two ranges using @c == and returns a pair
+   *  of iterators.  The first iterator points into the first range, the
+   *  second iterator points into the second range, and the elements pointed
+   *  to by the iterators are not equal.
   */
   template<typename _InputIterator1, typename _InputIterator2>
-    inline bool
-    equal(_InputIterator1 __first1, _InputIterator1 __last1,
-	  _InputIterator2 __first2)
+    pair<_InputIterator1, _InputIterator2>
+    mismatch(_InputIterator1 __first1, _InputIterator1 __last1,
+	     _InputIterator2 __first2)
     {
       // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
       __glibcxx_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_InputIterator1>::value_type,
 	    typename iterator_traits<_InputIterator2>::value_type>)
-      __glibcxx_requires_valid_range(__first1, __last1);
-      
-      for (; __first1 != __last1; ++__first1, ++__first2)
-	if (!(*__first1 == *__first2))
-	  return false;
-      return true;
+      return std::mismatch(__first1, __last1, __first2, 
+			   __gnu_cxx::__ops::equal_to());
     }
 
   /**
@@ -787,43 +750,27 @@ namespace std
     }
 
   /**
-   *  @brief Performs "dictionary" comparison on ranges.
+   *  @brief Tests a range for element-wise equality.
    *  @param  first1  An input iterator.
    *  @param  last1   An input iterator.
    *  @param  first2  An input iterator.
-   *  @param  last2   An input iterator.
    *  @return   A boolean true or false.
    *
-   *  "Returns true if the sequence of elements defined by the range
-   *  [first1,last1) is lexicographically less than the sequence of elements
-   *  defined by the range [first2,last2).  Returns false otherwise."
-   *  (Quoted from [25.3.8]/1.)  If the iterators are all character pointers,
-   *  then this is an inline call to @c memcmp.
+   *  This compares the elements of two ranges using @c == and returns true or
+   *  false depending on whether all of the corresponding elements of the
+   *  ranges are equal.
   */
   template<typename _InputIterator1, typename _InputIterator2>
-    bool
-    lexicographical_compare(_InputIterator1 __first1, _InputIterator1 __last1,
-			    _InputIterator2 __first2, _InputIterator2 __last2)
+    inline bool
+    equal(_InputIterator1 __first1, _InputIterator1 __last1,
+	  _InputIterator2 __first2)
     {
       // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
-      __glibcxx_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_InputIterator1>::value_type>)
-      __glibcxx_function_requires(_LessThanComparableConcept<
+      __glibcxx_function_requires(_EqualOpConcept<
+	    typename iterator_traits<_InputIterator1>::value_type,
 	    typename iterator_traits<_InputIterator2>::value_type>)
-      __glibcxx_requires_valid_range(__first1, __last1);
-      __glibcxx_requires_valid_range(__first2, __last2);
-
-      for (; __first1 != __last1 && __first2 != __last2;
-	   ++__first1, ++__first2)
-	{
-	  if (*__first1 < *__first2)
-	    return true;
-	  if (*__first2 < *__first1)
-	    return false;
-	}
-      return __first1 == __last1 && __first2 != __last2;
+      return std::equal(__first1, __last1, __first2, 
+			__gnu_cxx::__ops::equal_to());
     }
 
   /**
@@ -861,6 +808,37 @@ namespace std
 	}
       return __first1 == __last1 && __first2 != __last2;
     }
+
+  /**
+   *  @brief Performs "dictionary" comparison on ranges.
+   *  @param  first1  An input iterator.
+   *  @param  last1   An input iterator.
+   *  @param  first2  An input iterator.
+   *  @param  last2   An input iterator.
+   *  @return   A boolean true or false.
+   *
+   *  "Returns true if the sequence of elements defined by the range
+   *  [first1,last1) is lexicographically less than the sequence of elements
+   *  defined by the range [first2,last2).  Returns false otherwise."
+   *  (Quoted from [25.3.8]/1.)  If the iterators are all character pointers,
+   *  then this is an inline call to @c memcmp.
+  */
+  template<typename _InputIterator1, typename _InputIterator2>
+    bool
+    lexicographical_compare(_InputIterator1 __first1, _InputIterator1 __last1,
+			    _InputIterator2 __first2, _InputIterator2 __last2)
+    {
+      // concept requirements
+      __glibcxx_function_requires(_LessThanOpConcept<
+	    typename iterator_traits<_InputIterator1>::value_type,
+	    typename iterator_traits<_InputIterator2>::value_type>)
+      __glibcxx_function_requires(_LessThanOpConcept<
+	    typename iterator_traits<_InputIterator2>::value_type,
+	    typename iterator_traits<_InputIterator1>::value_type>)
+      return std::lexicographical_compare(__first1, __last1, __first2, 
+					  __last2, __gnu_cxx::__ops::less());
+    }
+
 
   inline bool
   lexicographical_compare(const unsigned char* __first1,
