@@ -5,6 +5,18 @@
 
 2003-11-10  Richard Henderson  <rth@redhat.com>
 
+	* gimplify.c (add_stmt_to_compound, add_tree): Remove.
+	(append_to_statement_list_1, append_to_statement_list): New.
+	(append_to_statement_list_force): New.
+	(gimplify_loop_expr): Take pre_p.
+	(gimplify_expr): Provide it.
+	* tree-simple.h: Update.
+
+	* c-simplify.c: Replace add_tree with append_to_statement_list.
+	* gimplify.c, tree-mudflap.c: Likewise.
+
+2003-11-10  Richard Henderson  <rth@redhat.com>
+
 	* c-common.c (c_warn_unused_result): Restructure to use iterator
 	on COMPOUND_EXPR only.
 

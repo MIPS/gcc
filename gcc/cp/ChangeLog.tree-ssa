@@ -1,3 +1,8 @@
+2003-11-10  Richard Henderson  <rth@redhat.com>
+
+	* cp-simplify.c (gimplify_must_not_throw_expr): Replace add_tree
+	with append_to_statement_list.
+
 2003-10-30  Richard Henderson  <rth@redhat.com>
 
 	* decl.c (pop_switch): Call c_do_switch_warnings.

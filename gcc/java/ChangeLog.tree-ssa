@@ -1,3 +1,7 @@
+2003-11-10  Richard Henderson  <rth@redhat.com>
+
+	* expr.c: Use append_to_statement_list instead of add_tree.
+
 2003-10-30  Richard Henderson  <rth@redhat.com>
 
 	* java-gimplify.c (cleanup_compound_expr): Remove.

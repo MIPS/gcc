@@ -170,41 +170,48 @@ gimple_pop_condition (tree *pre_p)
   int conds = --(gimplify_ctxp->conditions);
   if (conds == 0)
     {
-      add_tree (gimplify_ctxp->conditional_cleanups, pre_p);
+      append_to_statement_list (gimplify_ctxp->conditional_cleanups, pre_p);
       gimplify_ctxp->conditional_cleanups = NULL_TREE;
     }
   else if (conds < 0)
     abort ();
 }
 
-/* Add STMT to EXISTING if possible, otherwise create a new
-   COMPOUND_EXPR and add STMT to it. */
+/* A subroutine of append_to_statement_list{,_force}.  */
 
-static tree
-add_stmt_to_compound (tree existing, tree stmt)
+static void
+append_to_statement_list_1 (tree stmt, tree *list_p, bool side_effects)
 {
+  tree existing = *list_p;
+
   /* If we previously had nothing, allow an empty statement.  */
   if (!existing && stmt && IS_EMPTY_STMT (stmt))
-    return stmt;
-  if (!stmt || !TREE_SIDE_EFFECTS (stmt))
-    return existing;
-  else if (existing && TREE_SIDE_EFFECTS (existing))
-    return build (COMPOUND_EXPR, void_type_node, existing, stmt);
-  else
-    return stmt;
+    ;
+  /* If side effects say to discard the new statement, do so.  */
+  else if (!side_effects)
+    return;
+  /* If we had an empty statement, discard it, otherwise chain.  */
+  else if (existing && !IS_EMPTY_STMT (existing))
+    stmt = build (COMPOUND_EXPR, void_type_node, existing, stmt);
+
+  *list_p = stmt;
 }
 
-/*  Add T to the list container pointed by LIST_P.  If T is a TREE_LIST
-    node, it is linked-in directly.  If T is an expression with no effects,
-    it is ignored.
-
-    Return the newly added list node or NULL_TREE if T was not added to
-    LIST_P.  */
+/* Add T to the end of the list container pointed by LIST_P.
+   If T is an expression with no effects, it is ignored.  */
 
 void
-add_tree (tree t, tree *list_p)
+append_to_statement_list (tree t, tree *list_p)
 {
-  *list_p = add_stmt_to_compound (*list_p, t);
+  append_to_statement_list_1 (t, list_p, t ? TREE_SIDE_EFFECTS (t) : false);
+}
+
+/* Similar, but the statement is always added, regardless of side effects.  */
+
+void
+append_to_statement_list_force (tree t, tree *list_p)
+{
+  append_to_statement_list_1 (t, list_p, t != NULL);
 }
 
 /* Strip off a legitimate source ending from the input string NAME of
@@ -433,7 +440,7 @@ internal_get_tmp_var (tree val, tree *pre_p, tree *post_p, bool is_formal)
     annotate_with_locus (mod, input_location);
   /* gimplify_modify_expr might want to reduce this further.  */
   gimplify_stmt (&mod);
-  add_tree (mod, pre_p);
+  append_to_statement_list (mod, pre_p);
 
   return t;
 }
@@ -794,7 +801,7 @@ gimplify_bind_expr (tree *expr_p, tree *pre_p)
   if (temp)
     {
       *expr_p = temp;
-      add_tree (bind_expr, pre_p);
+      append_to_statement_list (bind_expr, pre_p);
       return GS_OK;
     }
   else
@@ -884,7 +891,7 @@ gimplify_return_expr (tree stmt, tree *pre_p)
 	TREE_OPERAND (stmt, 0) = result;
     }
 
-  add_tree (ret_expr, pre_p);
+  append_to_statement_list (ret_expr, pre_p);
   return GS_ALL_DONE;
 }
 
@@ -893,23 +900,26 @@ gimplify_return_expr (tree stmt, tree *pre_p)
    EXIT_EXPR, we need to append a label for it to jump to.  */
 
 static enum gimplify_status
-gimplify_loop_expr (tree *expr_p)
+gimplify_loop_expr (tree *expr_p, tree *pre_p)
 {
   tree saved_label = gimplify_ctxp->exit_label;
   tree start_label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+  tree t;
+
+  append_to_statement_list (start_label, pre_p);
 
   gimplify_ctxp->exit_label = NULL_TREE;
 
   gimplify_stmt (&LOOP_EXPR_BODY (*expr_p));
   *expr_p = LOOP_EXPR_BODY (*expr_p);
 
-  add_tree (build_and_jump (&LABEL_EXPR_LABEL (start_label)), expr_p);
-  *expr_p = add_stmt_to_compound (start_label, *expr_p);
+  t = build_and_jump (&LABEL_EXPR_LABEL (start_label));
+  append_to_statement_list (t, expr_p);
   if (gimplify_ctxp->exit_label)
     {
       tree expr = build1 (LABEL_EXPR, void_type_node,
 			  gimplify_ctxp->exit_label);
-      add_tree (expr, expr_p);
+      append_to_statement_list (expr, expr_p);
     }
 
   gimplify_ctxp->exit_label = saved_label;
@@ -974,7 +984,7 @@ gimplify_switch_expr (tree *expr_p, tree *pre_p)
       for (i = 0; i < len; ++i)
 	TREE_VEC_ELT (label_vec, i) = VARRAY_TREE (labels, i);
 
-      add_tree (switch_expr, pre_p);
+      append_to_statement_list (switch_expr, pre_p);
 
       /* If the switch has no default label, add one, so that we jump
 	 around the switch body.  */
@@ -983,7 +993,7 @@ gimplify_switch_expr (tree *expr_p, tree *pre_p)
 	  t = build (CASE_LABEL_EXPR, void_type_node, NULL_TREE,
 		     NULL_TREE, create_artificial_label ());
 	  TREE_VEC_ELT (label_vec, len) = t;
-	  add_tree (SWITCH_BODY (switch_expr), pre_p);
+	  append_to_statement_list (SWITCH_BODY (switch_expr), pre_p);
 	  *expr_p = build (LABEL_EXPR, void_type_node, CASE_LABEL (t));
 	}
       else
@@ -1157,7 +1167,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p, int want_value)
 	  if (cleared)
 	    {
 	      CONSTRUCTOR_ELTS (ctor) = NULL_TREE;
-	      add_tree (*expr_p, pre_p);
+	      append_to_statement_list (*expr_p, pre_p);
 	    }
 
 	  for (i = 0; elt_list; i++, elt_list = TREE_CHAIN (elt_list))
@@ -1184,7 +1194,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p, int want_value)
 	      init = build (MODIFY_EXPR, TREE_TYPE (purpose), cref, value);
 	      /* Each member initialization is a full-expression.  */
 	      gimplify_stmt (&init);
-	      add_tree (init, pre_p);
+	      append_to_statement_list (init, pre_p);
 	    }
 
 	  if (want_value)
@@ -1580,7 +1590,7 @@ gimplify_self_mod_expr (tree *expr_p, tree *pre_p, tree *post_p,
   if (postfix)
     {
       gimplify_stmt (&t1);
-      add_tree (t1, post_p);
+      append_to_statement_list (t1, post_p);
       *expr_p = lhs;
       return GS_ALL_DONE;
     }
@@ -1734,7 +1744,7 @@ static tree
 shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p)
 {
   tree local_label = NULL_TREE;
-  tree one, two, expr;
+  tree one, two, expr = NULL_TREE;
 
   /* OK, it's not a simple case; we need to pull apart the COND_EXPR to
      retain the shortcut semantics.  Just insert the gotos here;
@@ -1753,7 +1763,8 @@ shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p)
       one = shortcut_cond_r (TREE_OPERAND (pred, 0), NULL, false_label_p);
       two = shortcut_cond_r (TREE_OPERAND (pred, 1), true_label_p,
 			     false_label_p);
-      expr = add_stmt_to_compound (one, two);
+      append_to_statement_list (one, &expr);
+      append_to_statement_list (two, &expr);
     }
   else if (TREE_CODE (pred) == TRUTH_ORIF_EXPR)
     {
@@ -1769,7 +1780,8 @@ shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p)
       one = shortcut_cond_r (TREE_OPERAND (pred, 0), true_label_p, NULL);
       two = shortcut_cond_r (TREE_OPERAND (pred, 1), true_label_p,
 			     false_label_p);
-      expr = add_stmt_to_compound (one, two);
+      append_to_statement_list (one, &expr);
+      append_to_statement_list (two, &expr);
     }
   else if (TREE_CODE (pred) == COND_EXPR)
     {
@@ -1793,7 +1805,10 @@ shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p)
     }
 
   if (local_label)
-    add_tree (build1 (LABEL_EXPR, void_type_node, local_label), &expr);
+    {
+      local_label = build1 (LABEL_EXPR, void_type_node, local_label);
+      append_to_statement_list_force (local_label, &expr);
+    }
 
   return expr;
 }
@@ -1908,16 +1923,16 @@ shortcut_cond_expr (tree expr)
 
   expr = shortcut_cond_r (pred, true_label_p, false_label_p);
 
-  add_tree (then_, &expr);
+  append_to_statement_list (then_, &expr);
   if (TREE_SIDE_EFFECTS (else_))
     {
-      add_tree (build_and_jump (&end_label), &expr);
+      append_to_statement_list (build_and_jump (&end_label), &expr);
       if (emit_false)
-	add_tree (build1 (LABEL_EXPR, void_type_node, false_label), &expr);
-      add_tree (else_, &expr);
+	append_to_statement_list (build1 (LABEL_EXPR, void_type_node, false_label), &expr);
+      append_to_statement_list (else_, &expr);
     }
   if (emit_end && end_label)
-    add_tree (build1 (LABEL_EXPR, void_type_node, end_label), &expr);
+    append_to_statement_list (build1 (LABEL_EXPR, void_type_node, end_label), &expr);
 
   return expr;
 }
@@ -2016,7 +2031,7 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, tree target)
 
       /* Move the COND_EXPR to the prequeue and use the temp in its place.  */
       gimplify_stmt (&expr);
-      add_tree (expr, pre_p);
+      append_to_statement_list (expr, pre_p);
       *expr_p = tmp;
 
       return ret;
@@ -2171,7 +2186,7 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
 
   if (want_value)
     {
-      add_tree (*expr_p, pre_p);
+      append_to_statement_list (*expr_p, pre_p);
       *expr_p = *to_p;
     }
 
@@ -2221,7 +2236,7 @@ gimplify_compound_expr (tree *expr_p, tree *pre_p)
     {
       tree sub = TREE_OPERAND (t, 0);
       gimplify_stmt (&sub);
-      add_tree (sub, pre_p);
+      append_to_statement_list (sub, pre_p);
     }
 
   *expr_p = t;
@@ -2259,7 +2274,7 @@ gimplify_save_expr (tree *expr_p, tree *pre_p, tree *post_p)
     {
       tree body = TREE_OPERAND (*expr_p, 0);
       ret = gimplify_expr (& body, pre_p, post_p, is_gimple_stmt, fb_none);
-      add_tree (body, pre_p);
+      append_to_statement_list (body, pre_p);
       *expr_p = build_empty_stmt ();
     }
   else
@@ -2493,7 +2508,7 @@ gimplify_cleanup_point_expr (tree *expr_p, tree *pre_p)
   if (temp)
     {
       *expr_p = temp;
-      add_tree (body, pre_p);
+      append_to_statement_list (body, pre_p);
       return GS_OK;
     }
   else
@@ -2548,15 +2563,15 @@ gimple_push_cleanup (tree cleanup, tree *pre_p)
 		       build_empty_stmt ());
       wce = build (WITH_CLEANUP_EXPR, void_type_node, NULL_TREE,
 		   cleanup, NULL_TREE);
-      add_tree (ffalse, &gimplify_ctxp->conditional_cleanups);
-      add_tree (wce, &gimplify_ctxp->conditional_cleanups);
-      add_tree (ftrue, pre_p);
+      append_to_statement_list (ffalse, &gimplify_ctxp->conditional_cleanups);
+      append_to_statement_list (wce, &gimplify_ctxp->conditional_cleanups);
+      append_to_statement_list (ftrue, pre_p);
     }
   else
     {
       wce = build (WITH_CLEANUP_EXPR, void_type_node, NULL_TREE,
 		   cleanup, NULL_TREE);
-      add_tree (wce, pre_p);
+      append_to_statement_list (wce, pre_p);
     }
 }
 
@@ -2580,7 +2595,7 @@ gimplify_target_expr (tree *expr_p, tree *pre_p, tree *post_p)
   if (ret == GS_ERROR)
     return GS_ERROR;
 
-  add_tree (init, pre_p);
+  append_to_statement_list (init, pre_p);
 
   /* If needed, push the cleanup for the temp.  */
   if (TARGET_EXPR_CLEANUP (targ))
@@ -2832,7 +2847,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case LOOP_EXPR:
-	  ret = gimplify_loop_expr (expr_p);
+	  ret = gimplify_loop_expr (expr_p, pre_p);
 	  break;
 
 	case SWITCH_EXPR:
@@ -3080,9 +3095,9 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
      gimplified form.  */
   if (is_statement)
     {
-      add_tree (*expr_p, pre_p);
+      append_to_statement_list (*expr_p, pre_p);
       annotate_all_with_locus (&internal_post, input_location);
-      add_tree (internal_post, pre_p);
+      append_to_statement_list (internal_post, pre_p);
       tmp = rationalize_compound_expr (internal_pre);
       annotate_all_with_locus (&tmp, input_location);
       *expr_p = tmp;
@@ -3158,7 +3173,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
   if (internal_post)
     {
       annotate_all_with_locus (&internal_post, input_location);
-      add_tree (internal_post, pre_p);
+      append_to_statement_list (internal_post, pre_p);
     }
 
  out:

@@ -210,31 +210,34 @@ static void
 mf_decl_cache_locals (tree* body)
 {
   tree init_exprs = NULL_TREE;
+  tree t;
 
   /* Create the chain of VAR_DECL nodes.  */
-  mf_cache_shift_decl_l = mf_mark (build_decl (VAR_DECL,
-					       get_identifier ("__mf_lookup_shift_l"),
-					       TREE_TYPE (mf_cache_shift_decl)));
+  mf_cache_shift_decl_l
+    = mf_mark (build_decl (VAR_DECL,
+			   get_identifier ("__mf_lookup_shift_l"),
+			   TREE_TYPE (mf_cache_shift_decl)));
   DECL_ARTIFICIAL (mf_cache_shift_decl_l) = 1;
   DECL_CONTEXT (mf_cache_shift_decl_l) = current_function_decl;
 
-  mf_cache_mask_decl_l = mf_mark (build_decl (VAR_DECL,
-					      get_identifier ("__mf_lookup_mask_l"),
-					      TREE_TYPE (mf_cache_mask_decl)));
+  mf_cache_mask_decl_l
+    = mf_mark (build_decl (VAR_DECL,
+			   get_identifier ("__mf_lookup_mask_l"),
+			   TREE_TYPE (mf_cache_mask_decl)));
   DECL_ARTIFICIAL (mf_cache_mask_decl_l) = 1;
   DECL_CONTEXT (mf_cache_mask_decl_l) = current_function_decl;
   TREE_CHAIN (mf_cache_shift_decl_l) = mf_cache_mask_decl_l;
 
   /* Build initialization nodes for them.  */
-  add_tree (build (INIT_EXPR, TREE_TYPE (mf_cache_shift_decl_l),
-		   mf_cache_shift_decl_l, mf_cache_shift_decl),
-	    & init_exprs);
-  add_tree (build (INIT_EXPR, TREE_TYPE (mf_cache_mask_decl_l),
-		   mf_cache_mask_decl_l, mf_cache_mask_decl),
-	    & init_exprs);
+  t = build (INIT_EXPR, TREE_TYPE (mf_cache_shift_decl_l),
+	     mf_cache_shift_decl_l, mf_cache_shift_decl);
+  append_to_statement_list (t, &init_exprs);
+  t = build (INIT_EXPR, TREE_TYPE (mf_cache_mask_decl_l),
+	     mf_cache_mask_decl_l, mf_cache_mask_decl);
+  append_to_statement_list (t, &init_exprs);
 
   /* Add the function body to the end. */
-  add_tree (*body, & init_exprs);
+  append_to_statement_list (*body, &init_exprs);
   init_exprs = rationalize_compound_expr (init_exprs);
 
   *body = build (BIND_EXPR, TREE_TYPE (init_exprs),
@@ -1122,8 +1125,8 @@ mx_register_decls (tree decl, tree *compound_expr)
 				 register_fncall_params);
 
 	  /* Accumulate the two calls.  */
-	  add_tree (register_fncall, & initially_stmts);
-	  add_tree (unregister_fncall, & finally_stmts);
+	  append_to_statement_list (register_fncall, &initially_stmts);
+	  append_to_statement_list (unregister_fncall, &finally_stmts);
 
 	  mf_mark (decl);
 	}

@@ -78,8 +78,8 @@ void recalculate_side_effects (tree);
 typedef void foreach_stmt_fn (tree *);
 void foreach_stmt (tree *, foreach_stmt_fn *);
 
-/* FIXME this needs a better name.  */
-void add_tree (tree, tree *);
+void append_to_statement_list (tree, tree *);
+void append_to_statement_list_force (tree, tree *);
 
 /* FIXME we should deduce this from the predicate.  */
 typedef enum fallback_t {

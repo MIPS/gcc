@@ -1653,10 +1653,10 @@ expand_java_switch (tree selector, int default_pc)
 
   x = build (CASE_LABEL_EXPR, void_type_node, NULL_TREE, NULL_TREE,
 	     create_artificial_label ());
-  add_tree (x, &SWITCH_BODY (switch_expr));
+  append_to_statement_list (x, &SWITCH_BODY (switch_expr));
 
   x = build (GOTO_EXPR, void_type_node, lookup_label (default_pc));
-  add_tree (x, &SWITCH_BODY (switch_expr));
+  append_to_statement_list (x, &SWITCH_BODY (switch_expr));
 
   return switch_expr;
 }
@@ -1671,10 +1671,10 @@ expand_java_add_case (tree switch_expr, int match, int target_pc)
   
   x = build (CASE_LABEL_EXPR, void_type_node, value, NULL_TREE,
 	     create_artificial_label ());
-  add_tree (x, &SWITCH_BODY (switch_expr));
+  append_to_statement_list (x, &SWITCH_BODY (switch_expr));
 
   x = build (GOTO_EXPR, void_type_node, lookup_label (target_pc));
-  add_tree (x, &SWITCH_BODY (switch_expr));
+  append_to_statement_list (x, &SWITCH_BODY (switch_expr));
 }
 
 #if 0

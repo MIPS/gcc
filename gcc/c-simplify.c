@@ -300,18 +300,18 @@ c_gimplify_stmt (tree *stmt_p)
       /* PRE and POST now contain a list of statements for all the
 	 side-effects in STMT.  */
 
-      add_tree (stmt, &pre);
-      add_tree (post, &pre);
+      append_to_statement_list (stmt, &pre);
+      append_to_statement_list (post, &pre);
       pre = rationalize_compound_expr (pre);
       annotate_all_with_locus (&pre, stmt_locus);
 
-      add_tree (pre, &outer_pre);
+      append_to_statement_list (pre, &outer_pre);
     cont:
       /* Restore saved state.  */
       current_stmt_tree ()->stmts_are_full_exprs_p
 	= saved_stmts_are_full_exprs_p;
     }
-  add_tree (stmt, &outer_pre);
+  append_to_statement_list (stmt, &outer_pre);
   *stmt_p = rationalize_compound_expr (outer_pre);
 }
 
@@ -546,7 +546,7 @@ finish_bc_block (tree label, tree body)
       tree expr = build1 (LABEL_EXPR, void_type_node, label);
       /* Clear the name so flow can delete the label.  */
       DECL_NAME (label) = NULL_TREE;
-      add_tree (expr, &body);
+      append_to_statement_list (expr, &body);
     }
 
   ctxp->current_bc_label = TREE_CHAIN (label);
@@ -627,22 +627,22 @@ gimplify_c_loop (tree cond, tree body, tree incr, int cond_is_first)
       if (exit)
 	{
 	  entry = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-	  add_tree (body, &stuff);
-	  add_tree (incr, &stuff);
-	  add_tree (entry, &stuff);
-	  add_tree (exit, &stuff);
+	  append_to_statement_list (body, &stuff);
+	  append_to_statement_list (incr, &stuff);
+	  append_to_statement_list (entry, &stuff);
+	  append_to_statement_list (exit, &stuff);
 	}
       else
 	{
-	  add_tree (body, &stuff);
-	  add_tree (incr, &stuff);
+	  append_to_statement_list (body, &stuff);
+	  append_to_statement_list (incr, &stuff);
 	}
     }
   else
     {
-      add_tree (body, &stuff);
-      add_tree (incr, &stuff);
-      add_tree (exit, &stuff);
+      append_to_statement_list (body, &stuff);
+      append_to_statement_list (incr, &stuff);
+      append_to_statement_list (exit, &stuff);
     }
 
   annotate_all_with_locus (&stuff, stmt_locus);
@@ -653,7 +653,7 @@ gimplify_c_loop (tree cond, tree body, tree incr, int cond_is_first)
   if (entry)
     {
       stuff = build_and_jump (&LABEL_EXPR_LABEL (entry));
-      add_tree (loop, &stuff);
+      append_to_statement_list (loop, &stuff);
       loop = stuff;
     }
 
@@ -686,7 +686,7 @@ gimplify_for_stmt (tree *stmt_p, tree *pre_p)
 
   tree init = FOR_INIT_STMT (stmt);
   c_gimplify_stmt (&init);
-  add_tree (init, pre_p);
+  append_to_statement_list (init, pre_p);
 
   *stmt_p = gimplify_c_loop (FOR_COND (stmt), FOR_BODY (stmt),
 			     FOR_EXPR (stmt), 1);
@@ -871,7 +871,7 @@ gimplify_decl_stmt (tree *stmt_p)
 	     tree_cons (NULL_TREE,
 			build1 (ADDR_EXPR, pt_type, decl),
 			tree_cons (NULL_TREE, size, NULL_TREE)));
-	  add_tree (alloc, &pre);
+	  append_to_statement_list (alloc, &pre);
 	}
 
       if (init && init != error_mark_node)
@@ -883,7 +883,7 @@ gimplify_decl_stmt (tree *stmt_p)
 	      if (stmts_are_full_exprs_p ())
 		init = build1 (CLEANUP_POINT_EXPR, void_type_node, init);
 	      /* FIXME: Shouldn't we gimplify here?  */
-	      add_tree (init, &pre);
+	      append_to_statement_list (init, &pre);
 	    }
 	  else
 	    {
@@ -900,7 +900,7 @@ gimplify_decl_stmt (tree *stmt_p)
 	gimple_add_tmp_var (decl);
     }
 
-  add_tree (post, &pre);
+  append_to_statement_list (post, &pre);
   *stmt_p = pre;
 }
 

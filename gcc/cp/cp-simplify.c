@@ -210,7 +210,7 @@ gimplify_must_not_throw_expr (tree *expr_p, tree *pre_p)
 
   if (temp)
     {
-      add_tree (stmt, pre_p);
+      append_to_statement_list (stmt, pre_p);
       *expr_p = temp;
     }
   else
