@@ -160,15 +160,6 @@ collect_finally_tree (tree t, tree region)
       t = TREE_OPERAND (t, 1);
       goto tailrecurse;
 
-    case COND_EXPR:
-      collect_finally_tree (COND_EXPR_THEN (t), region);
-      t = COND_EXPR_ELSE (t);
-      goto tailrecurse;
-
-    case BIND_EXPR:
-      t = BIND_EXPR_BODY (t);
-      goto tailrecurse;
-
     case TRY_CATCH_EXPR:
       collect_finally_tree (TREE_OPERAND (t, 0), region);
       t = TREE_OPERAND (t, 1);
@@ -316,71 +307,100 @@ find_goto_replacement (struct leh_tf_state *tf, tree stmt)
   return (ret ? ret->repl_stmt : NULL);
 }
 
-/* Replace all goto queue members.  */
-/* ??? This search and replace nonsense wouldn't be necessary
-   if we had a reasonable statement connection mechanism.  The
-   nature of these COMPOUND_EXPRs is such that we can't store
-   a pointer to a statement and hope to be able to replace it
-   later, when the tree has been restructured.  */
-/* ??? We now have a reasonable connection mechansim.  Update.  */
+/* A subroutine of replace_goto_queue_1.  Handles the sub-clauses of a
+   lowered COND_EXPR.  If, by chance, the replacement is a simple goto,
+   then we can just splat it in, otherwise we add the new stmts immediately
+   after the COND_EXPR and redirect.  */
 
-static tree
-replace_goto_queue_1 (tree t, struct leh_tf_state *tf)
+static void
+replace_goto_queue_cond_clause (tree *tp, struct leh_tf_state *tf,
+				tree_stmt_iterator *tsi)
+{
+  tree new, one, label;
+
+  new = find_goto_replacement (tf, *tp);
+  if (!new)
+    return;
+
+  one = expr_only (new);
+  if (one && TREE_CODE (one) == GOTO_EXPR)
+    {
+      *tp = one;
+      return;
+    }
+
+  label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+  *tp = build_and_jump (&LABEL_EXPR_LABEL (label));
+
+  tsi_link_after (tsi, label, TSI_CONTINUE_LINKING);
+  tsi_link_after (tsi, new, TSI_CONTINUE_LINKING);
+}
+
+/* The real work of replace_goto_queue.  Returns with TSI updated to 
+   point to the next statement.  */
+
+static void replace_goto_queue_stmt_list (tree, struct leh_tf_state *);
+
+static void
+replace_goto_queue_1 (tree t, struct leh_tf_state *tf, tree_stmt_iterator *tsi)
 {
   switch (TREE_CODE (t))
     {
     case GOTO_EXPR:
     case RETURN_EXPR:
-      return find_goto_replacement (tf, t);
-
-    case STATEMENT_LIST:
-      {
-	tree_stmt_iterator i = tsi_start (t);
-	while (!tsi_end_p (i))
-	  {
-	    t = replace_goto_queue_1 (tsi_stmt (i), tf);
-	    if (t)
-	      {
-		tsi_link_before (&i, t, TSI_SAME_STMT);
-		tsi_delink (&i);
-	      }
-	    else
-	      tsi_next (&i);
-	  }
-      }
+      t = find_goto_replacement (tf, t);
+      if (t)
+	{
+	  tsi_link_before (tsi, t, TSI_SAME_STMT);
+	  tsi_delink (tsi);
+	  return;
+	}
       break;
 
     case COND_EXPR:
-      replace_goto_queue_1 (COND_EXPR_THEN (t), tf);
-      replace_goto_queue_1 (COND_EXPR_ELSE (t), tf);
+      replace_goto_queue_cond_clause (&COND_EXPR_THEN (t), tf, tsi);
+      replace_goto_queue_cond_clause (&COND_EXPR_ELSE (t), tf, tsi);
       break;
-    case BIND_EXPR:
-      replace_goto_queue_1 (BIND_EXPR_BODY (t), tf);
-      break;
+
     case TRY_FINALLY_EXPR:
     case TRY_CATCH_EXPR:
-      replace_goto_queue_1 (TREE_OPERAND (t, 0), tf);
-      replace_goto_queue_1 (TREE_OPERAND (t, 1), tf);
+      replace_goto_queue_stmt_list (TREE_OPERAND (t, 0), tf);
+      replace_goto_queue_stmt_list (TREE_OPERAND (t, 1), tf);
       break;
     case CATCH_EXPR:
-      replace_goto_queue_1 (CATCH_BODY (t), tf);
+      replace_goto_queue_stmt_list (CATCH_BODY (t), tf);
       break;
     case EH_FILTER_EXPR:
-      replace_goto_queue_1 (EH_FILTER_FAILURE (t), tf);
+      replace_goto_queue_stmt_list (EH_FILTER_FAILURE (t), tf);
       break;
+
+    case STATEMENT_LIST:
+      abort ();
 
     default:
       /* These won't have gotos in them.  */
       break;
     }
 
-  return NULL;
+  tsi_next (tsi);
 }
+
+/* A subroutine of replace_goto_queue.  Handles STATEMENT_LISTs.  */
+
+static void
+replace_goto_queue_stmt_list (tree t, struct leh_tf_state *tf)
+{
+  tree_stmt_iterator i = tsi_start (t);
+  while (!tsi_end_p (i))
+    replace_goto_queue_1 (tsi_stmt (i), tf, &i);
+}
+
+/* Replace all goto queue members.  */
 
 static void
 replace_goto_queue (struct leh_tf_state *tf)
 {
-  replace_goto_queue_1 (*tf->top_p, tf);
+  replace_goto_queue_stmt_list (*tf->top_p, tf);
 }
 
 /* For any GOTO_EXPR or RETURN_EXPR, decide whether it leaves a try_finally
@@ -592,42 +612,6 @@ do_goto_redirection (struct goto_queue_node *q, tree finlab, tree mod)
 
   x = build1 (GOTO_EXPR, void_type_node, finlab);
   append_to_statement_list (x, &q->repl_stmt);
-}
-
-/* Try to determine if we can fall out of the bottom of BLOCK.  This guess
-   need not be 100% accurate; simply be conservative and return true if we
-   don't know.  This is used only to avoid stupidly generating extra code.
-   If we're wrong, we'll just delete the extra code later.  */
-
-static bool
-block_may_fallthru (tree block)
-{
-  tree stmt = expr_last (block);
-
-  switch (TREE_CODE (stmt))
-    {
-    case GOTO_EXPR:
-    case RETURN_EXPR:
-    case RESX_EXPR:
-      /* Easy cases.  If the last statement of the block implies 
-	 control transfer, then we can't fall through.  */
-      return false;
-
-    case MODIFY_EXPR:
-      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
-	stmt = TREE_OPERAND (stmt, 1);
-      else
-	return true;
-      /* FALLTHRU */
-
-    case CALL_EXPR:
-      /* Functions that do not return do not fall through.  */
-      return (call_expr_flags (stmt) & ECF_NORETURN) == 0;
-
-    default:
-      /* ??? Could search back through other composite structures.  */
-      return true;
-    }
 }
 
 /* We want to transform
@@ -1509,9 +1493,6 @@ lower_eh_constructs_1 (struct leh_state *state, tree *tp)
     case COND_EXPR:
       lower_eh_constructs_1 (state, &COND_EXPR_THEN (t));
       lower_eh_constructs_1 (state, &COND_EXPR_ELSE (t));
-      break;
-    case BIND_EXPR:
-      lower_eh_constructs_1 (state, &BIND_EXPR_BODY (t));
       break;
 
     case CALL_EXPR:

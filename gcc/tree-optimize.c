@@ -297,13 +297,8 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   remove_useless_stmts (&DECL_SAVED_TREE (fndecl));
   dump_function (TDI_useless, fndecl);
 
-  /* Run a pass to lower magic exception handling constructs into,
-     well, less magic though not completely mundane constructs.  */
-  lower_eh_constructs (&DECL_SAVED_TREE (fndecl));
-
   /* Lower the structured statements.  */
   lower_function_body (&DECL_SAVED_TREE (fndecl));
-  chain = DECL_SAVED_TREE (fndecl);
 
   /* Avoid producing notes for blocks.  */
   cfun->dont_emit_block_notes = 1;
@@ -311,7 +306,12 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
   dump_function (TDI_lower, fndecl);
 
+  /* Run a pass to lower magic exception handling constructs into,
+     well, less magic though not completely mundane constructs.  */
+  lower_eh_constructs (&DECL_SAVED_TREE (fndecl));
+
   /* Invoke the SSA tree optimizer.  */
+  chain = DECL_SAVED_TREE (fndecl);
   if (optimize >= 1 && !flag_disable_tree_ssa)
     optimize_function_tree (fndecl, &chain);
 

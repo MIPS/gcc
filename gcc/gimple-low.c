@@ -47,7 +47,7 @@ struct lower_data
   tree block;
 };
 
-static void lower_stmt_body (tree *, struct lower_data *);
+static void lower_stmt_body (tree, struct lower_data *);
 static void lower_stmt (tree_stmt_iterator *, struct lower_data *);
 static void lower_bind_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_cond_expr (tree_stmt_iterator *, struct lower_data *);
@@ -69,7 +69,7 @@ lower_function_body (tree *body)
 
   record_vars (BIND_EXPR_VARS (*body));
   *body = BIND_EXPR_BODY (*body);
-  lower_stmt_body (body, &data);
+  lower_stmt_body (*body, &data);
 
   if (data.block != DECL_INITIAL (current_function_decl))
     abort ();
@@ -84,15 +84,16 @@ lower_function_body (tree *body)
    do it explicitly.  DATA is passed through the recursion.  */
 
 static void
-lower_stmt_body (tree *expr, struct lower_data *data)
+lower_stmt_body (tree expr, struct lower_data *data)
 {
   tree_stmt_iterator tsi;
 
-  for (tsi = tsi_start (*expr); !tsi_end_p (tsi); )
+  for (tsi = tsi_start (expr); !tsi_end_p (tsi); )
     lower_stmt (&tsi, data);
 }
 
 /* Lowers statement TSI.  DATA is passed through the recursion.  */
+
 static void
 lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
 {
@@ -105,11 +106,23 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     {
     case BIND_EXPR:
       lower_bind_expr (tsi, data);
+      return;
+    case COND_EXPR:
+      lower_cond_expr (tsi, data);
+      return;
+
+    case TRY_FINALLY_EXPR:
+    case TRY_CATCH_EXPR:
+      lower_stmt_body (TREE_OPERAND (stmt, 0), data);
+      lower_stmt_body (TREE_OPERAND (stmt, 1), data);
       break;
-
-    case COMPOUND_EXPR:
-      abort ();
-
+    case CATCH_EXPR:
+      lower_stmt_body (CATCH_BODY (stmt), data);
+      break;
+    case EH_FILTER_EXPR:
+      lower_stmt_body (EH_FILTER_FAILURE (stmt), data);
+      break;
+      
     case NOP_EXPR:
     case ASM_EXPR:
     case RETURN_EXPR:
@@ -118,38 +131,16 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     case GOTO_EXPR:
     case LABEL_EXPR:
     case VA_ARG_EXPR:
-    case RESX_EXPR:
     case SWITCH_EXPR:
-      tsi_next (tsi);
-      break;
-
-    case COND_EXPR:
-      lower_cond_expr (tsi, data);
       break;
 
     default:
       print_node_brief (stderr, "", stmt, 0);
+    case COMPOUND_EXPR:
       abort ();
     }
-}
 
-/* Record the variables in VARS.  */
-
-void
-record_vars (tree vars)
-{
-  for (; vars; vars = TREE_CHAIN (vars))
-    {
-      tree var = vars;
-
-      /* Nothing to do in this case.  */
-      if (DECL_EXTERNAL (var))
-	continue;
-
-      /* Record the variable.  */
-      cfun->unexpanded_var_list = tree_cons (NULL_TREE, var,
-					     cfun->unexpanded_var_list);
-    }
+  tsi_next (tsi);
 }
 
 /* Lowers a bind_expr TSI.  DATA is passed through the recursion.  */
@@ -175,11 +166,6 @@ lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
       else
 	{
 	  /* We do not expect to handle duplicate blocks.  */
-	  /* ??? This is probably wrong.  We've already done some amount
-	     of code replication in tree-eh.c; we should probably be doing
-	     something like reorder_blocks, which knows how to handle
-	     duplicates.  Either that or lower bind_exprs before this
-	     can matter.  */
 	  if (TREE_ASM_WRITTEN (new_block))
 	    abort ();
 	  TREE_ASM_WRITTEN (new_block) = 1;
@@ -197,7 +183,7 @@ lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
     }
 
   record_vars (BIND_EXPR_VARS (stmt));
-  lower_stmt_body (&BIND_EXPR_BODY (stmt), data);
+  lower_stmt_body (BIND_EXPR_BODY (stmt), data);
 
   if (new_block)
     {
@@ -214,6 +200,53 @@ lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
   tsi_delink (tsi);
 }
 
+/* Try to determine if we can fall out of the bottom of BLOCK.  This guess
+   need not be 100% accurate; simply be conservative and return true if we
+   don't know.  This is used only to avoid stupidly generating extra code.
+   If we're wrong, we'll just delete the extra code later.  */
+
+bool
+block_may_fallthru (tree block)
+{
+  tree stmt = expr_last (block);
+
+  switch (stmt ? TREE_CODE (stmt) : ERROR_MARK)
+    {
+    case GOTO_EXPR:
+    case RETURN_EXPR:
+    case RESX_EXPR:
+    case SWITCH_EXPR:
+      /* Easy cases.  If the last statement of the block implies 
+	 control transfer, then we can't fall through.  */
+      return false;
+
+    case COND_EXPR:
+      if (block_may_fallthru (COND_EXPR_THEN (stmt)))
+	return true;
+      return block_may_fallthru (COND_EXPR_ELSE (stmt));
+
+    case BIND_EXPR:
+      return block_may_fallthru (BIND_EXPR_BODY (stmt));
+
+    case TRY_FINALLY_EXPR:
+      return block_may_fallthru (TREE_OPERAND (stmt, 1));
+
+    case MODIFY_EXPR:
+      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
+	stmt = TREE_OPERAND (stmt, 1);
+      else
+	return true;
+      /* FALLTHRU */
+
+    case CALL_EXPR:
+      /* Functions that do not return do not fall through.  */
+      return (call_expr_flags (stmt) & ECF_NORETURN) == 0;
+
+    default:
+      return true;
+    }
+}
+
 /* Lowers a cond_expr TSI.  DATA is passed through the recursion.  */
 
 static void
@@ -224,11 +257,11 @@ lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
   tree then_branch, else_branch;
   tree then_goto, else_goto;
   
-  lower_stmt_body (&COND_EXPR_THEN (stmt), data);
-  lower_stmt_body (&COND_EXPR_ELSE (stmt), data);
-
   then_branch = COND_EXPR_THEN (stmt);
   else_branch = COND_EXPR_ELSE (stmt);
+
+  lower_stmt_body (then_branch, data);
+  lower_stmt_body (else_branch, data);
 
   then_goto = expr_only (then_branch);
   then_is_goto = then_goto && simple_goto_p (then_goto);
@@ -280,10 +313,12 @@ lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 
       if (then_label)
 	{
+	  bool may_fallthru = block_may_fallthru (then_branch);
+
 	  tsi_link_after (tsi, then_label, TSI_CONTINUE_LINKING);
 	  tsi_link_after (tsi, then_branch, TSI_CONTINUE_LINKING);
   
-	  if (else_label)
+	  if (else_label && may_fallthru)
 	    {
 	      end_label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
 	      t = build_and_jump (&LABEL_EXPR_LABEL (end_label));
@@ -305,6 +340,26 @@ lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
   COND_EXPR_ELSE (stmt) = else_goto;
 
   tsi_next (tsi);
+}
+
+
+/* Record the variables in VARS.  */
+
+void
+record_vars (tree vars)
+{
+  for (; vars; vars = TREE_CHAIN (vars))
+    {
+      tree var = vars;
+
+      /* Nothing to do in this case.  */
+      if (DECL_EXTERNAL (var))
+	continue;
+
+      /* Record the variable.  */
+      cfun->unexpanded_var_list = tree_cons (NULL_TREE, var,
+					     cfun->unexpanded_var_list);
+    }
 }
 
 /* Check whether to expand a variable VAR.  */

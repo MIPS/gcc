@@ -1,3 +1,24 @@
+2003-11-16  Richard Henderson  <rth@redhat.com>
+
+	PR c++/12770
+	* gimple-low.c (lower_stmt_body): Take a tree, not a tree*.
+	(lower_stmt): Handle EH nodes.
+	(lower_bind_expr): Remove fixme.
+	(block_may_fallthru): Move from tree-eh.c.  Handle COND_EXPR,
+	BIND_EXPR, and TRY_FINALLY_EXPR.
+	(lower_cond_expr): Use it.
+	* tree-eh.c (collect_finally_tree): Ignore COND_EXPR and BIND_EXPR.
+	(replace_goto_queue_cond_clause): New.
+	(replace_goto_queue_1): Use it.  Split out statement_list handling.
+	(replace_goto_queue_stmt_list): New.
+	(-block_may_fallthru): Move to gimple-low.c.
+	(lower_eh_constructs_1): Ignore BIND_EXPR.
+	* tree-flow.h (block_may_fallthru): Declare.
+
+	* tree-dump.c (dump_files): Exchange .eh and .lower passes.
+	* tree-optimize.c (tree_rest_of_compilation): Likewise.
+	* tree.h (enum tree_dump_index): Likewise.
+
 2003-11-16  Jason Merrill  <jason@redhat.com>
 
 	* c-pretty-print.c (debug_c_tree): Restore removed fn.

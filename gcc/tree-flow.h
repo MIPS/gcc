@@ -535,7 +535,6 @@ extern void debug_dominator_optimization_stats (void);
 /* In tree-ssa-dce.c  */
 void tree_ssa_dce (tree, enum tree_dump_index);
 
-
 /* In tree-ssa-copyprop.c  */
 void tree_ssa_copyprop (tree, enum tree_dump_index);
 void propagate_copy (tree *, tree);
@@ -558,6 +557,7 @@ extern bool tree_can_throw_external (tree);
 
 /* In gimple-low.c  */
 void lower_function_body (tree *);
+extern bool block_may_fallthru (tree block);
 
 #include "tree-flow-inline.h"
 
