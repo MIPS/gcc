@@ -1,3 +1,30 @@
+2004-08-30  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/plaf/basic/BasicLookAndFeel.java
+	(initComponentDefaults): Add keybindings for selection.backward and
+	selection-forward for text components.
+	* javax/swing/plaf/basic/BasicTextUI.java
+	(paintSafely): Paint highlight only when something is actually
+	selected.
+	* javax/swing/text/DefaultCaret.java
+	(handleHighlight): New method.
+	(setSelectionVisible): Don't do anything when nothing changes.
+	Handle highlight.
+	(moveDot): Reimplemented. Handle highlight.
+	(setDot): Set mark too. Handle highlight.
+	(getSelectionPainter): New method.
+	* javax/swing/text/DefaultEditorKit.java
+	(defaultActions): Added new actions for text selection.
+	* javax/swing/text/DefaultHighlighter.java
+	(DefaultHighlightPainter): New inner class.
+	(DefaultPainter): New field.
+	(paint): Implemented.
+	* javax/swing/text/PlainView.java
+	(paint): Don't draw background here again.
+	* javax/swing/text/Utilities.java
+	(getTabbedTextWidth): Use width of ' ' instead of 'm' for tabsize.
+	(drawTabbedText): Likewise.
+
 2004-08-27  Graydon Hoare  <graydon@redhat.com>
 
 	* javax/swing/JComponent.java

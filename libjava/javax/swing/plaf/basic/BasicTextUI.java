@@ -364,7 +364,8 @@ public abstract class BasicTextUI extends TextUI
     if (textComponent.isOpaque())
       paintBackground(g);
     
-    if (highlighter != null)
+    if (highlighter != null
+	&& textComponent.getSelectionStart() != textComponent.getSelectionEnd())
       highlighter.paint(g);
 
     rootView.paint(g, getVisibleEditorRect());

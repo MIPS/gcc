@@ -69,6 +69,7 @@ public class DefaultCaret extends Rectangle
   private int mark = 0;
   private Point magicCaretPosition = null;
   private boolean visible = true;
+  private Object highlightEntry;
 
   public void mouseDragged(MouseEvent event)
   {
@@ -146,9 +147,48 @@ public class DefaultCaret extends Rectangle
     return mark;
   }
 
+  private void handleHighlight()
+  {
+    Highlighter highlighter = textComponent.getHighlighter();
+    
+    if (highlighter == null)
+      return;
+    
+    int p0 = Math.min(dot, mark);
+    int p1 = Math.max(dot, mark);
+    
+    if (selectionVisible && p0 != p1)
+      {
+	try
+	  {
+	    if (highlightEntry == null)
+	      highlightEntry = highlighter.addHighlight(p0, p1, getSelectionPainter());
+	    else
+	      highlighter.changeHighlight(highlightEntry, p0, p1);
+	  }
+	catch (BadLocationException e)
+	  {
+	    // This should never happen.
+	    throw new InternalError();
+	  }
+      }
+    else
+      {
+	if (highlightEntry != null)
+	  {
+	    highlighter.removeHighlight(highlightEntry);
+	    highlightEntry = null;
+	  }
+      }
+  }
+
   public void setSelectionVisible(boolean v)
   {
+    if (selectionVisible == v)
+      return;
+    
     selectionVisible = v;
+    handleHighlight();
     repaint();
   }
 
@@ -245,12 +285,16 @@ public class DefaultCaret extends Rectangle
 
   public void moveDot(int dot)
   {
-    setDot(dot);
+    this.dot = dot;
+    handleHighlight();
+    repaint();
   }
 
   public void setDot(int dot)
   {
     this.dot = dot;
+    this.mark = dot;
+    handleHighlight();
     repaint();
   }
 
@@ -263,5 +307,10 @@ public class DefaultCaret extends Rectangle
   {
     visible = v;
     repaint();
+  }
+
+  protected Highlighter.HighlightPainter getSelectionPainter()
+  {
+    return DefaultHighlighter.DefaultPainter;
   }
 }

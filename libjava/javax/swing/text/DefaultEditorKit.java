@@ -300,7 +300,31 @@ public class DefaultEditorKit extends EditorKit
                                          t.getDocument().getEndPosition().getOffset()));
           }
       }
-    } 
+    },
+    new TextAction(selectionBackwardAction)
+    {
+      public void actionPerformed(ActionEvent event)
+      {
+	JTextComponent t = getTextComponent(event);
+	if (t != null)
+	  {
+	    t.getCaret().moveDot(Math.max(t.getCaret().getDot() - 1,
+					  t.getDocument().getStartPosition().getOffset()));
+	  }
+      }
+    },
+    new TextAction(selectionForwardAction)
+    {
+      public void actionPerformed(ActionEvent event)
+      {
+        JTextComponent t = getTextComponent(event);
+        if (t != null)
+          {
+            t.getCaret().moveDot(Math.min(t.getCaret().getDot() + 1,
+                                          t.getDocument().getEndPosition().getOffset()));
+          }
+      }
+    },
   };
 
   /**

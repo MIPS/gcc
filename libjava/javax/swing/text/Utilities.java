@@ -102,7 +102,7 @@ public class Utilities
 	      pixelX = (int) e.nextTabStop((float) pixelX,
 					   startOffset + offset - s.offset);
 	    else
-	      pixelX += metrics.charWidth('m');
+	      pixelX += metrics.charWidth(' ');
 	    break;
 	  case '\n':
 	    // In case we have a newline, we must draw
@@ -158,7 +158,7 @@ public class Utilities
 	      pixelX = (int) e.nextTabStop((float) pixelX,
 					   startOffset + offset - s.offset);
 	    else
-	      pixelX += metrics.charWidth('m');
+	      pixelX += metrics.charWidth(' ');
 	    break;
 	  case '\n':
 	    // In case we have a newline, we must 'draw'

@@ -158,9 +158,6 @@ public class PlainView extends View
     
     Rectangle rect = s.getBounds();
 
-    g.setColor(Color.WHITE);
-    g.fillRect(rect.x, rect.y, rect.width, rect.height);
-    
     // FIXME: Text may be scrolled.
     drawLine(0, g, rect.x, rect.y);
   }
