@@ -3428,6 +3428,12 @@ effectively.  Often, the problem is that your code is too big or too
 complex; GCC will refuse to optimize programs when the optimization
 itself is likely to take inordinate amounts of time.
 
+@item -Wno-pointer-sign
+@opindex Wno-pointer-sign
+Don't warn for pointer argument passing or assignment with different signedness.
+Only useful in the negative form since this warning is enabled by default.
+This option is only supported for C and Objective C.
+
 @item -Werror
 @opindex Werror
 Make all warnings into errors.

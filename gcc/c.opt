@@ -483,6 +483,10 @@ Wwrite-strings
 C ObjC C++ ObjC++
 Give strings the type \"array of char\"
 
+Wpointer-sign
+C ObjC Var(warn_pointer_sign) Init(1)
+Warn when a pointer differs in signedness in an assignment.
+
 ansi
 C ObjC C++ ObjC++
 A synonym for -std=c89.  In a future version of GCC it will become synonymous with -std=c99 instead

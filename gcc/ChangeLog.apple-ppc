@@ -1,3 +1,14 @@
+2005-02-22  Devang Patel  <dpatel@apple.com>
+
+	Radar 3844827
+	Backport from Mainline.
+
+	2005-01-18  Andi Kleen <ak@muc.de>
+
+        * c-typeck.c: (convert_for_assignment): Check warn_pointer_sign.
+        * c.opt (-Wpointer-sign): Add.
+        * doc/invoke.texi: (-Wpointer-sign): Add.
+
 2005-02-21  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4015820 (missing piece)

@@ -1,3 +1,12 @@
+2005-02-22  Devang Patel  <dpatel@apple.com>
+
+	Radar 3844827
+	Backport from Mainline.
+
+	2005-01-18  Michael Matz  <matz@suse.de>
+
+        * gcc.dg/Wno-pointer-sign.c: New test for -Wno-pointer-sign.
+
 2005-02-22  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4015820
