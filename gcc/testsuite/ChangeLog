@@ -1,6 +1,56 @@
+2005-03-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/20491
+	* gcc.dg/torture/asm-subreg-1.c: New test.
+
+2005-03-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/20622
+	* gcc.dg/alias-7.c: New test.
+
+2005-03-29  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/sparc-reg-1.c: New test.
+
+2005-03-29  Dale Ranta  <dir@lanl.gov>
+	    Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20163
+	* gfortran.dg/pr20163-2.f: New test.
+
+2005-03-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.old-deja/g++.warn/compare1.C: Fix typo.
+
+2005-03-24  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/ext/visibility/pragma-override1.C: Mark as requiring
+	'internal' visibility.
+	* g++.dg/ext/visibility/pragma-override2.C: Likewise.
+	* g++.dg/ext/visibility/visibility-7.C: Mark as requiring
+	'protected' visibility.
+	* gcc.dg/visibility-7.c: Likewise.
+	* lib/target-supports.exp (check_visibility_available): Take
+	a parameter, the kind of visibility to check for.
+	* lib/target-supports-dg.exp (dg-require-visibility): Pass parameter
+	to check_visibility_available.
+
+	* g++.dg/expr/cast3.C: New.
+
+2005-03-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19678
+	PR libfortran/19679
+	* gfortran.dg/dos_eol.f: New test.
+
+2005-03-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/15332
+	* gfortran.dg/pr15332.f: New test.
+
 2005-03-23  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
-	* pr18025.f90: New test.
+	* gfortran.dg/pr18025.f90: New test.
 
 2005-03-23  Mark Mitchell  <mark@codesourcery.com>
 
@@ -8,8 +58,8 @@
 
 2005-03-22  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
-	* g77_intrinsics_funcs.f: New test.
-	* g77_intrinsics_sub.f: New test.
+	* gfortran.dg/g77_intrinsics_funcs.f: New test.
+	* gfortran.dg/g77_intrinsics_sub.f: New test.
 
 2005-03-22  Mark Mitchell  <mark@codesourcery.com>
 
@@ -101,12 +151,12 @@
 2005-03-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR libfortran/20257
-	* pr20257.f90: New test.
+	* gfortran.dg/pr20257.f90: New test.
 	
 2005-03-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR libfortran/20480
-	* pr20480.f90: New test.
+	* gfortran.dg/pr20480.f90: New test.
 
 2005-03-15  Feng Wang  <fengwang@nudt.edu.cn>
 

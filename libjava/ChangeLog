@@ -1,3 +1,53 @@
+2005-03-26  Chris Burdess  <dog@gnu.org>
+
+	* gnu/xml/dom/DomNode.java (notifyNode): grow listener array as
+	required.
+
+2005-03-13  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/xml/aelfred2/XmlParser.java: Fixed typo.
+
+2005-03-11  Chris Burdess  <dog@gnu.org>
+
+	* gnu/xml/aelfred2/SAXDriver.java: Corrected bug handling URI
+	warnings.
+
+2005-02-27  Chris Burdess  <dog@gnu.org>
+
+	* gnu/xml/aelfred2/JAXPFactory.java,
+	  gnu/xml/aelfred2/SAXDriver.java,
+	  gnu/xml/aelfred2/XmlParser.java,
+	  gnu/xml/aelfred2/XmlReader.java: Applied GNU Classpath source code
+	formatting conventions. Replaced arrays of Object with struct-like
+	classes for easier maintainability. Made SAXDriver.stringInterning
+	package private to allow access from XmlParser inside the loop without
+	a method call overhead.
+
+2005-03-11  Chris Burdess  <dog@gnu.org>
+
+	* gnu/xml/aelfred2/SAXDriver.java: Corrected bug handling URI
+	warnings.
+
+2005-03-28  Per Bothner  <per@bothner.com>
+
+	* boehm.cc (_Jv_MarkObj): Don't follow null pointer to static field,
+	which can happen if class is JV_STATE_LOADED but not JV_STATE_PREPARED.
+
+2005-03-28  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* testsuite/libjava.jni/jni.exp (gcj_jni_invocation_test_one): Add
+	libsocket to the libraries to link for Solaris.
+
+2005-03-24  Anthony Green  <green@redhat.com>
+
+	* gnu/gcj/tools/gcj_dbtool/Main.java: Accept libdir argument with
+	-p option.
+	(usage): Add [LIBDIR] to help output.
+	* gnu/gcj/tools/gcj_dbtool/natMain.cc: New file.
+	* Makefile.am (AM_CXXFLAGS): Define
+	LIBGCJ_DEFAULT_DATABASE_PATH_TAIL.
+	(db_pathtail): New macro.
+
 2005-03-23  Sven de Marothy  <sven@physto.se>
 
 	PR libgcj/2641, PR libgcj/9854, PR libgcj/14892, PR libgcj/18083,
