@@ -248,13 +248,6 @@ struct cpp_options
   /* Characters between tab stops.  */
   unsigned int tabstop;
 
-  /* APPLE LOCAL begin -header-mapfile */
-  /* The central header translation mapfile, set by the '-header-mapfile'
-     option, or NULL if none. */
-  struct hmap_header_map *header_map;
-  struct search_path *hmap_path;
-  /* APPLE LOCAL end -header-mapfile */
-
   /* APPLE LOCAL begin predictive compilation */
   bool predictive_compilation;
   int predictive_compilation_size;
@@ -537,6 +530,13 @@ struct cpp_dir
   /* Mapping of file names for this directory for MS-DOS and related
      platforms.  A NULL-terminated array of (from, to) pairs.  */
   const char **name_map;
+
+  /* APPLE LOCAL begin headermaps 3871393 */
+  /* Arbitrary mapping of include strings to paths of redirected
+     files.  Contents are a special data format -- see struct
+     hmap_header_map below.  */
+  void *header_map;
+  /* APPLE LOCAL end headermaps 3871393 */
 
   /* Routine to construct pathname, given the search path name and the
      HEADER we are trying to find, return a constructed pathname to
@@ -856,7 +856,7 @@ extern void cpp_errno (cpp_reader *, int, const char *msgid);
 extern void cpp_error_with_line (cpp_reader *, int, source_location, unsigned,
 				 const char *msgid, ...) ATTRIBUTE_PRINTF_5;
 
-/* APPLE LOCAL begin -header-mapfile */
+/* APPLE LOCAL begin headermaps 3871393 */
 #define HMAP_SAME_ENDIANNESS_MAGIC      (((((('h' << 8) | 'm') << 8) | 'a') << 8) | 'p')
 #define HMAP_OPPOSITE_ENDIANNESS_MAGIC  (((((('p' << 8) | 'a') << 8) | 'm') << 8) | 'h')
 
@@ -888,10 +888,7 @@ struct hmap_header_map
   struct hmap_bucket buckets[1]; /* Inline array of 'capacity' maptable buckets */
   /* Strings follow the buckets, at strings_offset.  */
 };
-
-extern struct search_path *hmap_lookup_path	PARAMS ((cpp_reader *,
-							 const char **));
-/* APPLE LOCAL end -header-mapfile */
+/* APPLE LOCAL end headermaps 3871393 */
 
 /* In cpplex.c */
 extern int cpp_ideq (const cpp_token *, const char *);

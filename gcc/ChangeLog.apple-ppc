@@ -1,3 +1,19 @@
+2005-01-04  Anders Bertelrud  <anders@apple.com>
+
+	Radar 3871393
+	* gcc/c-incpath.c:  Merged in headermap code from GCC 3.3 source
+	base, modifying it somewhat to work in GCC 4.0.
+	(hmap_hash_string):  Copied from GCC 3.3.
+	(hmap_compare_strings):  Copied from GCC 3.3.
+	(hmap_load_header_map):  Copied from GCC 3.3.
+	(hmap_construct_pathname):  Copied from GCC 3.3 and modified
+	to have calling convensions for cpp_dir's 'construct' field.
+	(remove_duplicates):  If a search path refers to a file rather than
+	a directory, we check if it's a headermap file immediately before
+	we would have reported an error.  If it is, call hmap_load_header_map
+	and set up the 'construct' field of the cpp_dir.  Otherwise, report
+	the error as usual.
+
 2005-01-17  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3951689

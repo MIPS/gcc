@@ -1,5 +1,11 @@
+2005-01-04  Anders Bertelrud  <anders@apple.com>
+
+	Radar 3871393
+	* include/cpplib.h (struct cpp_dir):  Added 'header_map' field. 
+
 2005-01-06  Mike Stump  <mrs@apple.com>
 
+	Radar 3929334
 	* files.c (pch_open_file): Add indirection for pch files for distcc.
 	(read_from_parent): Add.
 	(write_to_parent): Add.
@@ -18,8 +24,9 @@
 
 2004-08-03  Stan Shebs  <shebs@apple.com>
 
+	Radar 3368707
 	Support for CodeWarrior-style assembly language blocks and
-	functions.  Radar 3368707.
+	functions.  
 	* include/cpplib.h (CPP_BOL, CPP_EOL): Define.
 	* internal.h (struct cpp_context): New field bol_p.
 	* lex.c (lex_identifier): Handle special chars in opcodes.
