@@ -1,3 +1,11 @@
+2004-05-05  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkImagePainter.java
+	(convertPixels): If either pixels or model is null, return null.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.c
+	(Java_gnu_java_awt_peer_gtk_GtkImagePainter_drawPixels): If jpixels
+	is null, do nothing and return.
+
 2004-05-03  Kim Ho  <kho@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkDialogPeer.java:

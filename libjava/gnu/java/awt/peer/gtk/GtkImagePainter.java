@@ -119,6 +119,11 @@ public class GtkImagePainter implements Runnable, ImageConsumer
   static int[] 
   convertPixels (int[] pixels, ColorModel model)
   {
+    if (pixels == null || model == null)
+    {
+      return null;
+    }
+
     if (model.equals (ColorModel.getRGBdefault ()))
       return pixels;
     
@@ -133,6 +138,11 @@ public class GtkImagePainter implements Runnable, ImageConsumer
   static int[]
   convertPixels (byte[] pixels, ColorModel model)
   {
+    if (pixels == null || model == null)
+    {
+      return null;
+    }
+
     int ret[] = new int[pixels.length];
 
     for (int i = 0; i < pixels.length; i++)
