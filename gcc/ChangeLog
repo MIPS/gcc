@@ -1,3 +1,8 @@
+2001-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* recog.c (validate_replace_rtx_1): Simplify SUBREG of VOIDmode
+	CONST_DOUBLE.
+
 2000-11-17  Andrew Macleod  <amacleod@redhat.com>
 
 	* rtl.h (SUBREG_REGNO_OFFSET, SUBREG_REGNO): Remove macros.

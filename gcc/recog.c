@@ -500,6 +500,9 @@ validate_replace_rtx_1 (loc, from, to, object)
 	 about inner mode may be lost.  */
       if (CONSTANT_P (to) && rtx_equal_p (SUBREG_REG (x), from))
         {
+	  int offset, part;
+	  unsigned HOST_WIDE_INT i;
+
 	  /* A paradoxical SUBREG of a VOIDmode constant is the same constant,
 	     since we are saying that the high bits don't matter.  */
 	  if (GET_MODE (to) == VOIDmode
@@ -514,44 +517,62 @@ validate_replace_rtx_1 (loc, from, to, object)
 		}
 	    }
 
-	  if (GET_CODE (to) == CONST_INT)
+	  offset = SUBREG_BYTE (x) * BITS_PER_UNIT;
+	  switch (GET_CODE (to))
 	    {
-	      /* Avoid creating bogus SUBREGs */
-	      enum machine_mode mode = GET_MODE (x);
-	      enum machine_mode inner_mode = GET_MODE (from);
-	      int offset;
-	      unsigned HOST_WIDE_INT i;
+	    case CONST_DOUBLE:
+	      if (GET_MODE (to) != VOIDmode)
+		break;
 
-	      if (GET_MODE_CLASS (mode) != MODE_INT)
-		abort ();
+	      part = offset >= HOST_BITS_PER_WIDE_INT;
+	      if ((BITS_PER_WORD > HOST_BITS_PER_WIDE_INT
+		   && BYTES_BIG_ENDIAN)
+		  || (BITS_PER_WORD <= HOST_BITS_PER_WIDE_INT
+		      && WORDS_BIG_ENDIAN))
+		part = !part;
+	      i = part ? CONST_DOUBLE_HIGH (to) : CONST_DOUBLE_LOW (to);
+	      offset %= HOST_BITS_PER_WIDE_INT;
 
-	      offset = SUBREG_BYTE (x);
-	      if (BYTES_BIG_ENDIAN || WORDS_BIG_ENDIAN)
-		{
-		  if (WORDS_BIG_ENDIAN)
-		    offset = GET_MODE_SIZE (inner_mode)
-			     - GET_MODE_SIZE (mode) - offset;
-		  if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN
-		      && GET_MODE_SIZE (mode) < UNITS_PER_WORD)
-		    offset = (offset + UNITS_PER_WORD - GET_MODE_SIZE (mode)
-			      - 2 * (offset % UNITS_PER_WORD));
-		}
+	      /* FALLTHROUGH */
+	    case CONST_INT:
+	      if (GET_CODE (to) == CONST_INT)
+		i = INTVAL (to);
 
-	      offset *= BITS_PER_UNIT;
-	      i = INTVAL (to);
+	      {
+		/* Avoid creating bogus SUBREGs */
+		enum machine_mode mode = GET_MODE (x);
+		enum machine_mode inner_mode = GET_MODE (from);
 
-	      if (offset >= HOST_BITS_PER_WIDE_INT)
-		to = ((HOST_WIDE_INT) i < 0) ? constm1_rtx : const0_rtx;
-	      else
-		{
-		  i >>= offset;
-		  if (GET_MODE_BITSIZE (mode) < HOST_BITS_PER_WIDE_INT)
-		    i = trunc_int_for_mode (i, mode);
-		  to = GEN_INT (i);
-		}
+		if (GET_MODE_CLASS (mode) != MODE_INT)
+		  abort ();
 
-	      validate_change (object, loc, to, 1);
-	      return;
+		if (BYTES_BIG_ENDIAN || WORDS_BIG_ENDIAN)
+		  {
+		    if (WORDS_BIG_ENDIAN)
+		      offset = GET_MODE_BITSIZE (inner_mode)
+			       - GET_MODE_BITSIZE (mode) - offset;
+		    if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN
+			&& GET_MODE_SIZE (mode) < UNITS_PER_WORD)
+		      offset = offset + BITS_PER_WORD - GET_MODE_BITSIZE (mode)
+			       - 2 * (offset % BITS_PER_WORD);
+		  }
+
+		if (offset >= HOST_BITS_PER_WIDE_INT)
+		  to = ((HOST_WIDE_INT) i < 0) ? constm1_rtx : const0_rtx;
+		else
+		  {
+		    i >>= offset;
+		    if (GET_MODE_BITSIZE (mode) < HOST_BITS_PER_WIDE_INT)
+		      i = trunc_int_for_mode (i, mode);
+		    to = GEN_INT (i);
+		  }
+
+		validate_change (object, loc, to, 1);
+		return;
+	      }
+
+	    default:
+	      break;
 	    }
         }
 
