@@ -1,3 +1,28 @@
+2002-10-02  David Mosberger-Tang  <David.Mosberger@acm.org>
+
+	* unwind.h (_Unwind_GetTextRelBase): Mark _C argument with
+	attribute "unused".
+
+	* config/t-libunwind: Mention unwind-sjlj.c.
+	* unwind-libunwind.c: Change #ifdef __USING_LIBUNWIND_EXCEPTIONS__
+	to #ifndef __USING_SJLJ_EXCEPTIONS__.
+
+	* configure.in: Move sjlj-exceptions and --enable-libunwind-exceptions
+	before inclusion of config.gcc, but after configuring the compiler etc.
+	Determine default value for --enable-libunwind-exceptions based on
+	whether the host has a libunwind library (not guaranteed to be correct,
+	but it's a reasonable first guess and can always be overridden with an
+	explicit --enable/disable-libunwind-exceptions.
+	* config.gcc: For target ia64*-*-linux*, mention t-libunwind as a
+	tmake_file when $use_libunwind_exceptions is enabled.
+	* Makefile.in: Update comment: LIB2ADDEH is updated not just by
+	ia64 (e.g., config/t-linux also updates it).
+	* gcc.c (init_spec) [USE_LIBUNWIND_EXCEPTIONS]: Mention -lunwind
+	along with the shared version of libgcc since the latter requires
+	the former.
+	* unwind-libunwind.c: New file.
+	* config/t-libunwind: Ditto.
+
 2002-10-02  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* config.gcc: Remove support for vax-*-vms*.
