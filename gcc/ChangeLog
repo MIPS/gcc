@@ -1,3 +1,67 @@
+2003-02-09  Richard Henderson  <rth@redhat.com>
+
+	* libgcc-std.ver (__clztf2): New.
+	(__ctztf2, __popcounttf2, __paritytf2): New.
+	* libgcc2.c (__clzSI2, __clzDI2, __ctzSI2, __ctzDI2, __popcountSI2,
+	__popcountDI2, __paritySI2, __parityDI2): Use UWmode and UDWmode;
+	adjust code to match the different type sizes.
+	* libgcc2.h (__clzSI2, __ctzSI2, __popcountSI2, __paritySI2,
+	__clzDI2, __ctzDI2, __popcountDI2, __parityDI2): New macros.
+
+2003-02-04  Richard Henderson  <rth@redhat.com>
+
+	* libgcc2.h, libgcc2.c (__ffsSI2): New.
+	(__ffsDI2): Rename from __ffsdi2.
+	* mklibgcc.in (lib2funcs): Add _ffssi2.
+
+2003-02-04  Richard Henderson  <rth@redhat.com>
+
+	* libgcc2.c (__paritysi2, __paritydi2): Replace last two reduction
+	rounds with a "bit table" lookup.
+
+2003-02-04  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
+
+	PR c/9376
+	* libgcc2.c (__subvdi3): Fix typo.
+
+2003-02-03  Richard Henderson  <rth@redhat.com>
+
+	* libgcc2.c (__ffsdi2, __clzsi2, __clzdi2, __ctzsi2, __ctzdi2,
+	__popcountsi2, __popcountdi2, __paritysi2, __paritydi2): Change
+	return type to "int".  Shuffle declarations and undef int trap.
+	* libgcc2.h: Remove their declarations.
+
+2003-02-01  Richard Henderson  <rth@redhat.com>
+
+	* libgcc2.c: Include auto-host.h.
+	(ATTRIBUTE_HIDDEN): New.
+	(__clz_tab): Don't declare here for clz and ctz.
+	(__clzsi2, __clzdi2): Use count_leading_zeros.
+	(__ctzsi2, __ctzdi2): Use count_trailing_zeros.
+	(__popcount_tab): Mark ATTRIBUTE_HIDDEN.
+	(__paritysi2, __paritydi2): Use shifts instead of __popcount_tab.
+	* longlong.h (__clz_tab): Mark ATTRIBUTE_HIDDEN.
+
+2003-02-01  Richard Henderson  <rth@redhat.com>
+
+	* libgcc2.c (__ffsdi2, __clzsi2, __clzdi2, __ctzsi2, __ctzdi2,
+	__popcountsi2, __popcountdi2, __paritysi2 __paritydi2): Change
+	return type to Wtype.
+
+	* libgcc-std.ver (GCC_3.4): Fix inheritance.
+
+2003-02-01  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
+
+	* libgcc2.c (__clzsi2, __clzdi2, __ctzsi2, __ctzdi2,
+	__popcountsi2, __popcountdi2, __paritysi2 __paritydi2,
+	__popcount_tab): New.
+	* libgcc2.h: Declare them.
+	* libgcc-std.ver (GCC_3.4): Add new functions from libgcc2.c.
+	* genopinit.c (optabs): Add clz_optab, ctz_optab, popcount_optab
+	and parity_optab.
+	* Makefile.in (LIB2FUNCS_1, LIB2FUNCS_2): Move...
+	* mklibgcc.in (lib2funcs): ...here and merge.  Add new members.
+
 2004-01-09  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/13392

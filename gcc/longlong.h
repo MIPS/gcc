@@ -1462,7 +1462,7 @@ UDItype __umulsidi3 (USItype, USItype);
 #endif
 
 #if !defined (count_leading_zeros)
-extern const UQItype __clz_tab[];
+extern const UQItype __clz_tab[] ATTRIBUTE_HIDDEN;
 #define count_leading_zeros(count, x) \
   do {									\
     UWtype __xr = (x);							\
