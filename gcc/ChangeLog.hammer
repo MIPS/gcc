@@ -1,3 +1,12 @@
+Sun Dec  8 15:00:03 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* alias.c (memory_modified_1): New static function.
+	(memory_modified): New static varaible.
+	(memory_modified_in_insn_p): New global function.
+	* rtl.h (memory_modified_in_insn_p): Declare.
+	* rtlanal.c (modified_between_p, modified_in_p): Be smart about memory
+	references.
+
 Sat Dec  7 18:14:54 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (ix86_expand_int_movcc):  Use force_operand instead of constructing
