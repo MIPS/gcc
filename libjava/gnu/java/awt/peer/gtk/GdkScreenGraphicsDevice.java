@@ -1,5 +1,5 @@
-/* DefaultCellRenderer.java -- 
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+/* GdkScreenGraphicsDevice.java -- information about a screen device
+   Copyright (C) 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,40 +35,48 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-package javax.swing;
 
-// this is what SUN basically told us to do so:
-// no icon though as that's not implemented yet....
+package gnu.java.awt.peer.gtk;
 
-import java.awt.Component;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsConfiguration;
 
-public class DefaultCellRenderer extends JLabel implements ListCellRenderer 
+public class GdkScreenGraphicsDevice extends GraphicsDevice
 {
-    public Component getListCellRendererComponent(JList list,
-						  Object value,           
-						  int index,            
-						  boolean isSelected,     
-						  boolean cellHasFocus)   
-    {
-	String s = value.toString();
-	setText(s);	
+  GdkGraphicsEnvironment env;
 
-	//	System.out.println("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=" + s);
+  public GtkToolkit getToolkit()
+  {
+    return env.getToolkit();
+  }
 
+  public GdkScreenGraphicsDevice (GdkGraphicsEnvironment e)
+  {    
+    super ();
+    env = e;
+  }
 
-	if (isSelected) 
-	    {
-		setBackground(list.getSelectionBackground());
-		setForeground(list.getSelectionForeground());
-	    }
-	else 
-	    {
-		setBackground(list.getBackground());
-		setForeground(list.getForeground());
-	    }
+  public int getType ()
+  {
+    return GraphicsDevice.TYPE_RASTER_SCREEN;
+  }
 
-	setEnabled(list.isEnabled());
-	setFont(list.getFont());
-	return this;
-    }
+  public String getIDstring ()
+  {
+    // FIXME: query X for this string
+    return "default GDK device ID string";
+  }
+
+  public GraphicsConfiguration[] getConfigurations ()
+  {
+    // FIXME: query X for the list of possible configurations
+    return new GraphicsConfiguration [] { new GdkGraphicsConfiguration(this) };
+  }
+
+  public GraphicsConfiguration getDefaultConfiguration ()
+  {
+    
+    // FIXME: query X for default configuration
+    return new GdkGraphicsConfiguration(this);
+  }
 }

@@ -41,16 +41,20 @@ package gnu.java.awt;
 import gnu.java.awt.peer.ClasspathFontPeer;
 import gnu.java.awt.peer.ClasspathTextLayoutPeer;
 
-import java.awt.Image;
+import java.awt.AWTException;
 import java.awt.Dimension;
 import java.awt.DisplayMode;
+import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.FontMetrics;
+import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
+import java.awt.Image;
 import java.awt.Toolkit;
 import java.awt.font.FontRenderContext;
 import java.awt.image.ColorModel;
 import java.awt.image.ImageProducer;
+import java.awt.peer.RobotPeer;
 import java.io.File;
 import java.io.InputStream;
 import java.net.MalformedURLException;
@@ -59,6 +63,7 @@ import java.text.AttributedString;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.imageio.spi.IIORegistry;
 
 /**
  * An abstract superclass for Classpath toolkits.
@@ -89,7 +94,7 @@ public abstract class ClasspathToolkit
    * #getImage(java.net.URL)}. For images that were loaded via a path
    * to an image file, the map contains a key with a file URL.
    */
-  private Map imageCache;
+  private HashMap imageCache;
 
 
   /**
@@ -168,7 +173,6 @@ public abstract class ClasspathToolkit
    * this font peer should have, such as size, weight, family name, or
    * transformation.
    */
-
   public abstract ClasspathFontPeer getClasspathFontPeer (String name, Map attrs); 
 
   public abstract ClasspathTextLayoutPeer 
@@ -183,7 +187,6 @@ public abstract class ClasspathToolkit
    * implement {@link java.awt.font.OpenType} or
    * {@link java.awt.font.MultipleMaster}.
    */
-
   public Font getFont (String name, Map attrs) 
   {
     return new Font (name, attrs);
@@ -348,4 +351,19 @@ public abstract class ClasspathToolkit
   {
     return null;
   }
+
+  public abstract RobotPeer createRobot (GraphicsDevice screen)
+    throws AWTException;
+
+  /** 
+   * Used to register ImageIO SPIs provided by the toolkit.
+   */
+
+  public void registerImageIOSpis(IIORegistry reg)
+  {
+  }
+
+  public abstract boolean nativeQueueEmpty();
+  public abstract void wakeNativeQueue();  
+  public abstract void iterateNativeQueue(EventQueue locked, boolean block);
 }

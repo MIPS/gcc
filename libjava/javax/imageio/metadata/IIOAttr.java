@@ -1,5 +1,5 @@
 /* IIOAttr.java --
-   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,7 +35,6 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-
 package javax.imageio.metadata;
 
 import org.w3c.dom.Attr;
@@ -45,8 +44,6 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-import org.w3c.dom.TypeInfo;
-import org.w3c.dom.UserDataHandler;
 
 /**
  * Simple Attr node for metadata trees
@@ -72,11 +69,6 @@ class IIOAttr implements Attr
   public String getName()
   {
     return name;
-  }
-
-  public TypeInfo getSchemaTypeInfo()
-  {
-    throw new Error("not implemented");
   }
 
   /* (non-Javadoc)
@@ -263,11 +255,6 @@ class IIOAttr implements Attr
   {
   }
 
-  public boolean isDefaultNamespace(String namespaceURI)
-  {
-    throw new Error("not implemented");
-  }
-  
   /* (non-Javadoc)
    * @see org.w3c.dom.Node#isSupported(java.lang.String, java.lang.String)
    */
@@ -307,11 +294,6 @@ class IIOAttr implements Attr
     return name;
   }
 
-  public Object getUserData(String key)
-  {
-    throw new Error("not implemented");
-  }
-
   /* (non-Javadoc)
    * @see org.w3c.dom.Node#hasAttributes()
    */
@@ -320,59 +302,4 @@ class IIOAttr implements Attr
     return false;
   }
 
-  public boolean isId()
-  {
-    throw new Error("not implemented");
-  }
-
-  public String lookupNamespaceURI(String prefix)
-  {
-    throw new Error("not implemented");
-  }
-
-  public String lookupPrefix(String namespaceURI)
-  {
-    throw new Error("not implemented");
-  }
-  
-  public Object setUserData(String key, Object data, UserDataHandler handler)
-  {
-    throw new Error("not implemented");
-  }
-
-  public String getBaseURI()
-  {
-    throw new Error("not implemented");
-  }
-
-  public String getTextContent()
-  {
-    throw new Error("not implemented");
-  }
-
-  public void setTextContent(String textContent)
-  {
-    throw new Error("not implemented");
-  }
-
-  public short compareDocumentPosition(Node other)
-    throws DOMException
-  {
-    throw new Error("not implemented");
-  }
-
-  public Object getFeature(String feature, String version)
-  {
-    throw new Error("not implemented");
-  }
-  
-  public boolean isEqualNode(Node other)
-  {
-    throw new Error("not implemented");
-  }
-  
-  public boolean isSameNode(Node other)
-  {
-    throw new Error("not implemented");
-  }
 }
