@@ -104,8 +104,7 @@ delete_var_map (var_map map)
 static inline void
 register_ssa_partition (var_map map, tree ssa_var, bool is_use)
 {
-  tree stmt, arg;
-  int version, i;
+  int version;
 
 #if defined ENABLE_CHECKING
   if (TREE_CODE (ssa_var) != SSA_NAME)
@@ -125,19 +124,7 @@ register_ssa_partition (var_map map, tree ssa_var, bool is_use)
     map->ref_count[version]++;
 
   if (map->partition_to_var[version] == NULL_TREE)
-    {
-      map->partition_to_var[SSA_NAME_VERSION (ssa_var)] = ssa_var;
-
-      /* If this is a PHI node, register all the PHI elements as well.  */
-      stmt = SSA_NAME_DEF_STMT (ssa_var);
-      if (stmt && TREE_CODE (stmt) == PHI_NODE)
-	for (i = 0; i < PHI_NUM_ARGS (stmt); i++)
-	  {
-	    arg = PHI_ARG_DEF (stmt, i);
-	    if (phi_ssa_name_p (arg))
-	      register_ssa_partition (map, arg, true);
-	  }
-    }
+    map->partition_to_var[SSA_NAME_VERSION (ssa_var)] = ssa_var;
 }
 
 /* This function will combine 2 partitions.  Returns the partition which 
