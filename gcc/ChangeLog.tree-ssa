@@ -1,5 +1,20 @@
 2003-10-06  Andrew Macleod  <amacleod@redhat.com>
 
+	* tree-dfa.c (compute_immediate_uses): Add optional callback.
+	(compute_immediate_uses_for_phi): Remove unused parameter. Add optional
+	callback to determine if usage info should be calculated for variable.
+	(compute_immediate_uses_for_stmt): Add optional callback to determine 
+	if usage info should be calculated for variable.
+	* tree-flow.h (compute_immediate_uses): Update prototype.
+	* tree-ssa-ccp.c (need_imm_uses_for): New. Callback function passed to
+	compute_immediate_uses.
+	(initialize): Calculate defaults initially, then build reduced
+	immediate use information.
+	(get_default_value): Non empty stmt's which are not a PHI_NODE or
+	a MODIFY_EXPR default to VARYING.
+  
+2003-10-06  Andrew Macleod  <amacleod@redhat.com>
+
 	* tree-cfg.c (tree_split_edge): Mark edge as FALLTHRU when splitting.
 
 2003-10-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
