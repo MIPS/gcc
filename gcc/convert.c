@@ -30,6 +30,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree.h"
 #include "flags.h"
 #include "convert.h"
+/* APPLE LOCAL begin AltiVec */
+#include "c-tree.h"
+#include "c-common.h"
+/* APPLE LOCAL end AltiVec */
 #include "toplev.h"
 #include "langhooks.h"
 #include "real.h"
@@ -722,6 +726,31 @@ convert_to_complex (tree type, tree expr)
     }
 }
 
+/* APPLE LOCAL begin AltiVec */
+/* Build a COMPOUND_LITERAL_EXPR.  TYPE is the type given in the compound
+   literal.  INIT is a CONSTRUCTOR that initializes the compound literal.  */
+
+static tree
+build_compound_literal_vector (tree type, tree init) 
+{  
+  tree decl;
+  tree complit;
+  tree stmt;
+
+  decl = build_decl (VAR_DECL, NULL_TREE, type);
+  DECL_EXTERNAL (decl) = 0;
+  TREE_PUBLIC (decl) = 0;
+  TREE_USED (decl) = 1;
+  TREE_TYPE (decl) = type;
+  TREE_READONLY (decl) = TYPE_READONLY (type);
+  store_init_value (decl, init);
+  stmt = build_stmt (DECL_EXPR, decl);
+  complit = build1 (COMPOUND_LITERAL_EXPR, TREE_TYPE (decl), stmt);
+  layout_decl (decl, 0);
+  return complit;
+}
+/* APPLE LOCAL end AltiVec */
+
 /* Convert EXPR to the vector type TYPE in the usual ways.  */
 
 tree
@@ -741,7 +770,7 @@ convert_to_vector (tree type, tree expr)
 	  && TREE_CODE (TREE_TYPE (expr)) == VECTOR_TYPE
 	  && TREE_CODE (expr) == CONSTRUCTOR && TREE_CONSTANT (expr))
 	  /* converting a constant vector to new vector type with Motorola Syntax. */
-	  return build_constructor (type, CONSTRUCTOR_ELTS (expr));
+	  return convert (type, build_compound_literal_vector (TREE_TYPE (expr), expr));
       /* APPLE LOCAL end AltiVec */
 
       return build1 (NOP_EXPR, type, expr);
