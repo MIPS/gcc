@@ -4,6 +4,10 @@
 	return from a function with an ldr instruction.
 	(arm_output_epilogue): Likewise.
 
+	* arm.c (thumb_expand_prologue): Don't clobber the frame pointer
+	if we need to push a large stack frame and there are no callee-saved
+	registers.
+
 2000-03-16  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/arm.h (ASM_OUTPUT_MI_THUNK): Fix compile time

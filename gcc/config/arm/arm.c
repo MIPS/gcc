@@ -8619,7 +8619,9 @@ thumb_expand_prologue ()
 	  for (regno = LAST_ARG_REGNUM + 1; regno <= LAST_LO_REGNUM; regno++)
 	    if (regs_ever_live[regno]
 		&& ! call_used_regs[regno] /* Paranoia */
-		&& ! (TARGET_SINGLE_PIC_BASE && (regno == arm_pic_register)))
+		&& ! (TARGET_SINGLE_PIC_BASE && (regno == arm_pic_register))
+		&& ! (frame_pointer_needed
+		      && (regno == THUMB_HARD_FRAME_POINTER_REGNUM)))
 	      break;
 
 	  if (regno > LAST_LO_REGNUM) /* Very unlikely */
