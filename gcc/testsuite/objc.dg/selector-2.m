@@ -1,5 +1,6 @@
 /* Test that we don't ICE when issuing a -Wselector warning.  */
-/* { dg-options "-Wselector -fgnu-runtime" } */
+/* APPLE LOCAL Objective-C */
+/* { dg-options "-Wselector" } */
 /* { dg-do compile } */
 
 #include <objc/Object.h>
