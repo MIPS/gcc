@@ -1,10 +1,13 @@
 #define LIBFFI_ASM
+#include <ffi.h>
 #include <powerpc/asm.h>
 
         .file   "ppc_closure.S"
 
 #ifndef __powerpc64__
 
+	.globl ffi_closure_SYSV
+	.hidden ffi_closure_SYSV
 ENTRY(ffi_closure_SYSV)
 .LFB1:
 	stwu %r1,-144(%r1)
