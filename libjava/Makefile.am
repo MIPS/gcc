@@ -1304,6 +1304,10 @@ javax/swing/plaf/basic/BasicArrowButton.java \
 javax/swing/plaf/basic/BasicButtonListener.java \
 javax/swing/plaf/basic/BasicButtonUI.java \
 javax/swing/plaf/basic/BasicCheckBoxUI.java \
+javax/swing/plaf/basic/BasicComboBoxUI.java \
+javax/swing/plaf/basic/BasicComboBoxEditor.java \
+javax/swing/plaf/basic/BasicComboBoxRenderer.java \
+javax/swing/plaf/basic/BasicComboPopup.java \
 javax/swing/plaf/basic/BasicDesktopIconUI.java \
 javax/swing/plaf/basic/BasicDesktopPaneUI.java \
 javax/swing/plaf/basic/BasicFormattedTextFieldUI.java \

@@ -1,3 +1,40 @@
+2004-08-25  Olga Rodimina  <rodimina@redhat.com>
+
+	* Makefile.am: Added new files.
+	* Makefile.in: Regenerate.
+	* javax/swing/ComboBoxEditor.java: Added javadocs.
+	* javax/swing/ComboBoxModel.java: Likewise.
+	* javax/swing/DefaultComboBoxModel.java: Implemented.
+	* javax/swing/DefaultListCellRenderer.java: Added javadocs
+	and ran through jalopy to fix formatting style.
+	(getListCellRendererComponent): Use appropriate border
+	if renderer has focus and use noFocusBorder when it doesn't.
+	* javax/swing/JComboBox.java: Implemented.
+	* javax/swing/JList.java:
+	(locationToIndex): New Method. Implemented.
+	(indexToLocation): New Method.
+	* javax/swing/JPopupMenu.java: 
+	(visible): New field.
+	(isVisible): Changed to use new field above.
+	(setVisible): Likewise.
+	* javax/swing/MutableComboBoxModel.java: Added javadocs.
+	* javax/swing/plaf/basic/BasicArrowButton.java: 
+	(shadow): Changed default color to Color.gray.
+	* javax/swing/plaf/basic/BasicComboBoxUI.java: New File.
+	UI delegate for JComboBox.
+	* javax/swing/plaf/basic/BasicComboPopup.java: New File.
+	Popup menu containing list of JComboBox's items.
+	* javax/swing/plaf/basic/BasicComboBoxEditor.java: New File.
+	* javax/swing/plaf/basic/BasicComboBoxRenderer.java: New File.
+	* javax/swing/plaf/basic/BasicComboBoxUI.java: New File.
+	* javax/swing/plaf/basic/BasicComboPopup.java: New File.
+	* javax/swing/plaf/basic/BasicPopupMenuUI.java:
+	(popupMenuWillBecomeVisible): Set selected path to the first
+	element only if it is of type MenuElement. Also fix formatting
+	style.
+	* javax/swing/plaf/basic/ComboPopup.java: Added javadocs and missing
+	methods signatures.
+	
 2004-08-25  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/text/AbstractDocument.java
