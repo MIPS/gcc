@@ -3723,6 +3723,27 @@ emit_call_insn_before (pattern, before)
   return insn;
 }
 
+/* Make an instruction with body PATTERN and code CALL_INSN
+   and output it before the instruction BEFORE.  */
+
+rtx
+emit_call_insn_after (pattern, before)
+     rtx pattern, before;
+{
+  rtx insn;
+
+  if (GET_CODE (pattern) == SEQUENCE)
+    insn = emit_insn_after (pattern, before);
+  else
+    {
+      insn = make_call_insn_raw (pattern);
+      add_insn_after (insn, before);
+      PUT_CODE (insn, CALL_INSN);
+    }
+
+  return insn;
+}
+
 /* Make an insn of code BARRIER
    and output it before the insn BEFORE.  */
 

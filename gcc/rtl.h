@@ -1324,6 +1324,7 @@ extern rtx emit_label_before		PARAMS ((rtx, rtx));
 extern rtx emit_note_before		PARAMS ((int, rtx));
 extern rtx emit_insn_after		PARAMS ((rtx, rtx));
 extern rtx emit_jump_insn_after		PARAMS ((rtx, rtx));
+extern rtx emit_call_insn_after		PARAMS ((rtx, rtx));
 extern rtx emit_barrier_after		PARAMS ((rtx));
 extern rtx emit_label_after		PARAMS ((rtx, rtx));
 extern rtx emit_note_after		PARAMS ((int, rtx));
