@@ -1,3 +1,7 @@
+Sat Dec 14 17:03:17 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (movqicc splitter): Fix template.
+
 2002-12-13  Jason Merrill  <jason@redhat.com>
 
 	* tree.h (CALL_EXPR_HAS_RETURN_SLOT_ADDR): New macro.
