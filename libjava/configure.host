@@ -96,20 +96,21 @@ case "${host}" in
 	slow_pthread_self=yes
 	;;
   x86_64-*)
+ 	CHECKREFSPEC="%{m32:-fcheck-references}"
 	sysdeps_dir=x86-64
-	libgcj_flags="${libgcj_flags} -ffloat-store"
-	libgcj_interpreter=no
+	libgcj_flags="${libgcj_flags} -ffloat-store -fno-omit-frame-pointer"
 	libgcj_cxxflags="-D__NO_MATH_INLINES"
 	libgcj_cflags="-D__NO_MATH_INLINES"
-	DIVIDESPEC=-fno-use-divide-subroutine
 	enable_hash_synchronization_default=yes
 	slow_pthread_self=yes
+	libgcj_interpreter=yes
 	;;
   alpha*-*)
 	sysdeps_dir=alpha
 	libgcj_flags="${libgcj_flags} -mieee"
 	libgcj_interpreter=yes
 	enable_hash_synchronization_default=yes
+	IEEESPEC=-mieee
 	;;
   powerpc64*-*)
 	# libffi not ported.
@@ -132,7 +133,8 @@ case "${host}" in
 	libgcj_interpreter=yes
 	enable_hash_synchronization_default=yes
 	;;
-  sparc-*)
+  sparc*-*)
+	libgcj_interpreter=yes
         ;;
   ia64-*)
 	sysdeps_dir=ia64
@@ -167,6 +169,7 @@ case "${host}" in
   *-*-darwin*)
 	enable_hash_synchronization_default=no
 	slow_pthread_self=
+	can_unwind_signal=no
 	;;
   *-*-freebsd*)
 	slow_pthread_self=

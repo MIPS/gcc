@@ -57,12 +57,6 @@ do {							\
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC "%{!shared:%{static:crt0%O%s}}"
 
-#ifndef CROSS_COMPILE
-#define STARTFILE_PREFIX_SPEC \
-  "%{mlp64: /usr/ccs/lib/hpux64/} \
-   %{!mlp64: /usr/ccs/lib/hpux32/}"
-#endif
-
 #undef LINK_SPEC
 #define LINK_SPEC \
   "+Accept TypeMismatch \
@@ -167,3 +161,14 @@ do {								\
 
 #undef TEXT_SECTION_ASM_OP
 #define TEXT_SECTION_ASM_OP "\t.section\t.text,\t\"ax\",\t\"progbits\""
+
+/* It is illegal to have relocations in shared segments on HPUX.
+   Pretend flag_pic is always set.  */
+#undef  TARGET_ASM_SELECT_SECTION
+#define TARGET_ASM_SELECT_SECTION  ia64_rwreloc_select_section
+#undef  TARGET_ASM_UNIQUE_SECTION
+#define TARGET_ASM_UNIQUE_SECTION  ia64_rwreloc_unique_section
+#undef  TARGET_ASM_SELECT_RTX_SECTION
+#define TARGET_ASM_SELECT_RTX_SECTION  ia64_rwreloc_select_rtx_section
+#undef  TARGET_SECTION_TYPE_FLAGS
+#define TARGET_SECTION_TYPE_FLAGS  ia64_rwreloc_section_type_flags

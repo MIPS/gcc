@@ -1,6 +1,6 @@
 // 2001-05-21 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,6 +21,12 @@
 // 27.8.1.4 Overridden virtual functions
 
 #include <fstream>
+#include <unistd.h>
+#include <signal.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <locale>
 #include <testsuite_hooks.h>
 
 // @require@ %-*.tst %-*.txt
@@ -70,7 +76,10 @@ const char carray_02[] = "memphis, new orleans, and savanah";
 const char name_01[] = "filebuf_virtuals-1.txt"; // file with data in it
 const char name_02[] = "filebuf_virtuals-2.txt"; // empty file, need to create
 const char name_03[] = "filebuf_virtuals-3.txt"; // empty file, need to create
-
+const char name_04[] = "filebuf_virtuals-4.txt"; // empty file, need to create
+const char name_05[] = "filebuf_virtuals-5.txt"; // empty file, need to create
+const char name_06[] = "filebuf_virtuals-6.txt"; // empty file, need to create
+const char name_07[] = "filebuf_virtuals-7.txt"; // empty file, need to create
 
 class derived_filebuf: public std::filebuf
 {
@@ -514,6 +523,292 @@ void test06()
   VERIFY( buffer[0] == 'a' );
 }
 
+// libstdc++/9322
+void test07()
+{
+  using std::locale;
+  bool test = true;
+
+  locale loc;
+  std::filebuf ob;
+  VERIFY( ob.getloc() == loc );
+
+  locale::global(locale("en_US"));
+  VERIFY( ob.getloc() == loc );
+
+  locale loc_de ("de_DE");
+  locale ret = ob.pubimbue(loc_de);
+  VERIFY( ob.getloc() == loc_de );
+  VERIFY( ret == loc );
+
+  locale::global(loc);
+  VERIFY( ob.getloc() == loc_de );
+}
+
+class MyTraits : public std::char_traits<char>
+{
+public:
+  static bool eq(char c1, char c2)
+  {
+    VERIFY( c1 != 'X' );
+    VERIFY( c2 != 'X' );
+    return std::char_traits<char>::eq(c1, c2);
+  }
+};
+
+class MyBuf : public std::basic_streambuf<char, MyTraits>
+{
+  char buffer[8];
+
+public:
+  MyBuf()
+  {
+    std::memset(buffer, 'X', sizeof(buffer));
+    std::memset(buffer + 2, 'f', 4);
+    setg(buffer + 2, buffer + 2, buffer + 6);
+  }
+};
+
+// libstdc++/9538
+void test08()
+{
+  bool test = true;
+
+  MyBuf mb;
+  mb.sputbackc('a');  
+}
+
+// libstdc++/9439, libstdc++/9425
+void test09()
+{
+  using namespace std;
+  bool test = true;
+
+  filebuf fbuf;
+  fbuf.open(name_01, ios_base::in);
+  filebuf::int_type r = fbuf.sputbackc('a');
+  fbuf.close();
+
+  VERIFY( r == filebuf::traits_type::eof() );
+}
+
+class Cvt_to_upper : public std::codecvt<char, char, mbstate_t>
+{
+  bool do_always_noconv() const throw()
+  {
+    return false;
+  }
+};
+
+// libstdc++/9169
+void test10()
+{
+  using namespace std;
+  bool test = true;
+
+  locale c_loc;
+  locale loc(c_loc, new Cvt_to_upper);
+
+  string str("abcdefghijklmnopqrstuvwxyz");
+  string tmp;
+
+  {
+    ofstream out;
+    out.imbue(loc);
+    out.open(name_04);
+    copy(str.begin(), str.end(),
+	 ostreambuf_iterator<char>(out));
+  }
+
+  {
+    ifstream in;
+    in.open(name_04);
+    copy(istreambuf_iterator<char>(in),
+	 istreambuf_iterator<char>(),
+	 back_inserter(tmp));
+  }
+
+  VERIFY( tmp.size() == str.size() );
+  VERIFY( tmp == str );
+}
+
+// libstdc++/9825
+void test11()
+{
+  using namespace std;
+  bool test = true;
+
+  filebuf fbuf;
+
+  fbuf.open(name_05, ios_base::in|ios_base::out|ios_base::trunc);
+  fbuf.sputn("crazy bees!", 11);
+  fbuf.pubseekoff(0, ios_base::beg);
+  fbuf.sbumpc();
+  fbuf.sputbackc('x');
+  filebuf::int_type c = fbuf.sbumpc();
+  VERIFY( c == 'x' );
+  c = fbuf.sbumpc();
+  VERIFY( c == 'r' );
+  c = fbuf.sbumpc();
+  VERIFY( c == 'a' );
+  fbuf.close();  
+}
+
+class errorcvt : public std::codecvt<char, char, mbstate_t>
+{
+protected:
+  std::codecvt_base::result
+  do_out(mbstate_t&, const char* from, const char*,
+	 const char*& from_next, char* to, char*,
+	 char*& to_next) const
+  {
+    from_next = from;
+    to_next = to;
+    return std::codecvt<char, char, mbstate_t>::error;
+  }
+  
+  virtual bool do_always_noconv() const throw()
+  {
+    return false;
+  }
+};
+
+// libstdc++/9182
+void test12()
+{
+  using namespace std;
+  bool test = true;
+
+  locale loc;
+  loc = locale(loc, new errorcvt);
+  
+  filebuf fbuf1;
+  fbuf1.pubimbue(loc);
+  fbuf1.open(name_06, ios_base::out | ios_base::trunc);
+  fbuf1.sputn("ison", 4); 
+  int r = fbuf1.pubsync();
+  VERIFY( r == -1 );
+  fbuf1.close();
+}
+
+void test13()
+{
+  using namespace std;
+  bool test = true;
+  
+  locale loc;
+  loc = locale(loc, new errorcvt);
+  
+  filebuf fbuf1;
+  fbuf1.pubimbue(loc);
+  fbuf1.pubsetbuf(0, 0);
+  fbuf1.open(name_06, ios_base::out | ios_base::trunc);
+  streamsize n = fbuf1.sputn("onne", 4);
+  VERIFY( n == 0 );
+  fbuf1.close();
+}
+
+class OverBuf : public std::filebuf
+{
+public:
+  int_type pub_overflow(int_type c = traits_type::eof())
+  { return std::filebuf::overflow(c); }
+};
+
+// libstdc++/9988
+void test14()
+{
+  using namespace std;
+  bool test = true;
+  
+  OverBuf fb;
+  fb.open(name_07, ios_base::out | ios_base::trunc);
+  
+  fb.sputc('a');
+  fb.pub_overflow('b');
+  fb.pub_overflow();
+  fb.sputc('c');
+  fb.close();
+
+  filebuf fbin;
+  fbin.open(name_07, ios_base::in);
+  filebuf::int_type c;
+  c = fbin.sbumpc();
+  VERIFY( c == 'a' );
+  c = fbin.sbumpc();
+  VERIFY( c == 'b' );
+  c = fbin.sbumpc();
+  VERIFY( c == 'c' );
+  c = fbin.sbumpc();
+  VERIFY( c == filebuf::traits_type::eof() );
+  fbin.close();
+}
+
+class UnderBuf : public std::filebuf
+{
+public:
+  int_type
+  pub_underflow()
+  { return underflow(); }
+
+  std::streamsize
+  pub_showmanyc()
+  { return showmanyc(); }
+};
+
+// libstdc++/10097
+void test15()
+{
+  using namespace std;
+  bool test = true;
+
+  const char* name = "tmp_fifo1";
+  
+  signal(SIGPIPE, SIG_IGN);
+  unlink(name);
+  
+  if (0 != mkfifo(name, S_IRWXU))
+    {
+      VERIFY( false );
+    }
+  
+  int fval = fork();
+  if (fval == -1)
+    {
+      unlink(name);
+      VERIFY( false );
+    }
+  else if (fval == 0)
+    {
+      filebuf fbout;
+      fbout.open(name, ios_base::out);
+      fbout.sputn("0123456789", 10);
+      fbout.pubsync();
+      sleep(2);
+      fbout.close();
+      exit(0);
+    }
+
+  UnderBuf fb;
+  fb.open(name, ios_base::in);
+  sleep(1);
+  
+  fb.sgetc();
+  streamsize n = fb.pub_showmanyc();
+
+  while (n > 0)
+    {
+      --n;
+      
+      UnderBuf::int_type c = fb.pub_underflow();
+      VERIFY( c != UnderBuf::traits_type::eof() );
+      
+      fb.sbumpc();
+    }
+
+  fb.close();
+}
+
 main() 
 {
   test01();
@@ -524,5 +819,14 @@ main()
   test05();
   test06();
 
+  test07();
+  test08();
+  test09();
+  test10();
+  test11();
+  test12();
+  test13();
+  test14();
+  test15();
   return 0;
 }

@@ -1,5 +1,5 @@
 /* Prototypes for exported functions defined in m68hc11.c
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Stephane Carrez (stcarrez@nerim.fr)
 
 This file is part of GNU CC.
@@ -24,6 +24,7 @@ extern int m68hc11_override_options PARAMS((void));
 extern int m68hc11_optimization_options PARAMS((int,int));
 extern void m68hc11_conditional_register_usage PARAMS((void));
 extern int hard_regno_mode_ok PARAMS((int, enum machine_mode));
+extern int m68hc11_hard_regno_rename_ok PARAMS((int, int));
 
 extern int m68hc11_total_frame_size PARAMS((void));
 extern int m68hc11_initial_frame_pointer_offset PARAMS((void));
@@ -42,18 +43,6 @@ extern void m68hc11_function_arg_advance PARAMS((CUMULATIVE_ARGS*,
 #endif
 
 #ifdef RTX_CODE
-extern rtx m68hc11_compare_op0;
-extern rtx m68hc11_compare_op1;
-extern GTY(()) rtx m68hc11_soft_tmp_reg;
-extern GTY(()) rtx ix_reg;
-extern GTY(()) rtx iy_reg;
-extern GTY(()) rtx d_reg;
-extern GTY(()) rtx da_reg;
-extern GTY(()) rtx stack_push_word;
-extern GTY(()) rtx stack_pop_word;
-extern GTY(()) rtx z_reg;
-extern GTY(()) rtx z_reg_qi;
-
 extern void m68hc11_initialize_trampoline PARAMS((rtx, rtx, rtx));
 
 extern rtx m68hc11_expand_compare_and_branch PARAMS((enum rtx_code,
@@ -132,7 +121,9 @@ extern int arith_src_operand PARAMS((rtx, enum machine_mode));
 extern int m68hc11_logical_operator PARAMS((rtx, enum machine_mode));
 extern int m68hc11_arith_operator PARAMS((rtx, enum machine_mode));
 extern int m68hc11_non_shift_operator PARAMS((rtx, enum machine_mode));
+extern int m68hc11_shift_operator PARAMS((rtx, enum machine_mode));
 extern int m68hc11_unary_operator PARAMS((rtx, enum machine_mode));
+extern int m68hc11_eq_compare_operator PARAMS((rtx, enum machine_mode));
 extern int non_push_operand PARAMS((rtx, enum machine_mode));
 extern int hard_reg_operand PARAMS((rtx, enum machine_mode));
 extern int soft_reg_operand PARAMS((rtx, enum machine_mode));
@@ -152,9 +143,10 @@ extern int m68hc11_function_arg_pass_by_reference PARAMS((const CUMULATIVE_ARGS*
                                                           int));
 extern int m68hc11_function_arg_padding PARAMS((enum machine_mode, tree));
 
-extern rtx m68hc11_va_arg PARAMS((tree,tree));
-
 extern void m68hc11_function_epilogue PARAMS((FILE*,int));
+
+extern int m68hc11_is_far_symbol PARAMS((rtx));
+extern int m68hc11_is_trap_symbol PARAMS((rtx));
 
 #endif /* TREE_CODE */
 

@@ -1,6 +1,6 @@
 ;; Machine description for DEC Alpha for GNU C compiler
 ;; Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-;; 2000, 2001, 2002 Free Software Foundation, Inc.
+;; 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 ;; Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 ;;
 ;; This file is part of GNU CC.
@@ -142,6 +142,18 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_attr "length" ""
   (const_int 4))
+
+;; The USEGP attribute marks instructions that have relocations that use
+;; the GP.
+
+(define_attr "usegp" "no,yes"
+  (cond [(eq_attr "type" "ldsym,jsr")
+	   (const_string "yes")
+	 (eq_attr "type" "ild,fld,ist,fst")
+	   (symbol_ref "alpha_find_lo_sum_using_gp(insn)")
+	]
+	(const_string "no")))
+
 
 ;; Include scheduling descriptions.
   
@@ -402,7 +414,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	(plus:DI (match_operand:DI 1 "register_operand" "r")
 		 (high:DI (match_operand:DI 2 "local_symbolic_operand" ""))))]
   "TARGET_EXPLICIT_RELOCS"
-  "ldah %0,%2(%1)\t\t!gprelhigh")
+  "ldah %0,%2(%1)\t\t!gprelhigh"
+  [(set_attr "usegp" "yes")])
 
 (define_split
   [(set (match_operand:DI 0 "register_operand" "")
@@ -737,17 +750,31 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "mulqv %r1,%2,%0"
   [(set_attr "type" "imul")])
 
-(define_insn "umuldi3_highpart"
+(define_expand "umuldi3_highpart"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(truncate:DI
+	 (lshiftrt:TI
+	  (mult:TI (zero_extend:TI
+		     (match_operand:DI 1 "register_operand" ""))
+		   (match_operand:DI 2 "reg_or_8bit_operand" ""))
+	  (const_int 64))))]
+  ""
+{
+  if (REG_P (operands[2]))
+    operands[2] = gen_rtx_ZERO_EXTEND (TImode, operands[2]);
+})
+
+(define_insn "*umuldi3_highpart_reg"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(truncate:DI
 	 (lshiftrt:TI
 	  (mult:TI (zero_extend:TI
-		     (match_operand:DI 1 "reg_or_0_operand" "%rJ"))
+		     (match_operand:DI 1 "register_operand" "r"))
 		   (zero_extend:TI
-		     (match_operand:DI 2 "reg_or_8bit_operand" "rI")))
+		     (match_operand:DI 2 "register_operand" "r")))
 	  (const_int 64))))]
   ""
-  "umulh %r1,%2,%0"
+  "umulh %1,%2,%0"
   [(set_attr "type" "imul")
    (set_attr "opsize" "udi")])
 
@@ -5305,7 +5332,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
     return "lda %0,%2(%1)\t\t!gprel";
   else
     return "lda %0,%2(%1)\t\t!gprellow";
-})
+}
+  [(set_attr "usegp" "yes")])
 
 (define_split
   [(set (match_operand:DI 0 "register_operand" "")
@@ -5331,10 +5359,12 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   [(match_dup 0)]
   "operands[0] = split_small_symbolic_operand (operands[0]);")
 
+;; Accepts any symbolic, not just global, since function calls that
+;; don't go via bsr still use !literal in hopes of linker relaxation.
 (define_insn "movdi_er_high_g"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(unspec:DI [(match_operand:DI 1 "register_operand" "r")
-		    (match_operand:DI 2 "global_symbolic_operand" "")
+		    (match_operand:DI 2 "symbolic_operand" "")
 		    (match_operand 3 "const_int_operand" "")]
 		   UNSPEC_LITERAL))]
   "TARGET_EXPLICIT_RELOCS"
@@ -5425,7 +5455,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 		   UNSPEC_DTPREL))]
   "HAVE_AS_TLS"
   "ldq %0,%2(%1)\t\t!gotdtprel"
-  [(set_attr "type" "ild")])
+  [(set_attr "type" "ild")
+   (set_attr "usegp" "yes")])
 
 (define_split
   [(set (match_operand:DI 0 "register_operand" "")
@@ -5446,7 +5477,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 		   UNSPEC_TPREL))]
   "HAVE_AS_TLS"
   "ldq %0,%2(%1)\t\t!gottprel"
-  [(set_attr "type" "ild")])
+  [(set_attr "type" "ild")
+   (set_attr "usegp" "yes")])
 
 (define_split
   [(set (match_operand:DI 0 "register_operand" "")
@@ -5477,7 +5509,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    fmov %R1,%0
    ldt %0,%1
    stt %R1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst")])
+  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst")
+   (set_attr "usegp" "*,*,*,yes,*,*,*,*,*,*")])
 
 ;; The 'U' constraint matches symbolic operands on Unicos/Mk. Those should
 ;; have been split up by the rules above but we shouldn't reject the
@@ -5524,7 +5557,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    stt %R1,%0
    ftoit %1,%0
    itoft %1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst,ftoi,itof")])
+  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst,ftoi,itof")
+   (set_attr "usegp" "*,*,*,yes,*,*,*,*,*,*,*,*")])
 
 (define_insn "*movdi_fix"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,m,*f,*f,Q,r,*f")

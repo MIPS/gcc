@@ -426,9 +426,6 @@ reg_to_stack (first, file)
   /* Clean up previous run.  */
   stack_regs_mentioned_data = 0;
 
-  if (!optimize)
-    split_all_insns (0);
-
   /* See if there is something to do.  Flow analysis is quite
      expensive so we might save some compilation time.  */
   for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
@@ -2848,6 +2845,7 @@ convert_regs (file)
 	  inserted |= convert_regs_2 (file, b);
 	}
     }
+  clear_aux_for_blocks ();
 
   fixup_abnormal_edges ();
   if (inserted)

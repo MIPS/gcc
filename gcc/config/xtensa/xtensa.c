@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Tensilica's Xtensa architecture.
-   Copyright 2001,2002 Free Software Foundation, Inc.
+   Copyright 2001,2002,2003 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -2082,22 +2082,6 @@ print_operand_address (file, addr)
 }
 
 
-/* Emit either a label, .comm, or .lcomm directive. */
-
-void
-xtensa_declare_object (file, name, init_string, final_string, size)
-     FILE *file;
-     char *name;
-     char *init_string;
-     char *final_string;
-     int size;
-{
-  fputs (init_string, file);		/* "", "\t.comm\t", or "\t.lcomm\t" */
-  assemble_name (file, name);
-  fprintf (file, final_string, size);	/* ":\n", ",%u\n", ",%u\n" */
-}
-
-
 void
 xtensa_output_literal (file, x, mode, labelno)
      FILE *file;
@@ -2234,8 +2218,9 @@ xtensa_reorg (first)
 	continue;
 
       pat = PATTERN (insn);
-      if (GET_CODE (pat) == UNSPEC_VOLATILE
-	  && (XINT (pat, 1) == UNSPECV_SET_FP))
+      if (GET_CODE (pat) == SET
+	  && GET_CODE (SET_SRC (pat)) == UNSPEC_VOLATILE
+	  && (XINT (SET_SRC (pat), 1) == UNSPECV_SET_FP))
 	{
 	  set_frame_ptr_insn = insn;
 	  break;
@@ -2718,6 +2703,10 @@ order_regs_for_local_alloc ()
       for (i = 0; i < num_arg_regs; i++)
 	reg_alloc_order[nxt++] = GP_ARG_FIRST + i;
 
+      /* list the coprocessor registers in order */
+      for (i = 0; i < BR_REG_NUM; i++)
+	reg_alloc_order[nxt++] = BR_REG_FIRST + i;
+
       /* list the FP registers in order for now */
       for (i = 0; i < 16; i++)
 	reg_alloc_order[nxt++] = FP_REG_FIRST + i;
@@ -2727,10 +2716,6 @@ order_regs_for_local_alloc ()
       reg_alloc_order[nxt++] = 1;	/* a1 = stack pointer */
       reg_alloc_order[nxt++] = 16;	/* pseudo frame pointer */
       reg_alloc_order[nxt++] = 17;	/* pseudo arg pointer */
-
-      /* list the coprocessor registers in order */
-      for (i = 0; i < BR_REG_NUM; i++)
-	reg_alloc_order[nxt++] = BR_REG_FIRST + i;
 
       reg_alloc_order[nxt++] = ACC_REG_FIRST;	/* MAC16 accumulator */
     }

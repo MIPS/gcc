@@ -1,6 +1,6 @@
 // natRuntime.cc - Implementation of native side of Runtime class.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -9,6 +9,7 @@ Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
 details.  */
 
 #include <config.h>
+#include <platform.h>
 
 #include <stdlib.h>
 
@@ -29,10 +30,9 @@ details.  */
 #include <java/lang/ConcreteProcess.h>
 #include <java/lang/ClassLoader.h>
 #include <gnu/gcj/runtime/StackTrace.h>
+#include <java/lang/ArrayIndexOutOfBoundsException.h>
 
 #include <jni.h>
-
-#include "platform.h"
 
 #ifdef HAVE_PWD_H
 #include <pwd.h>
@@ -181,19 +181,26 @@ java::lang::Runtime::_load (jstring path, jboolean do_search)
       ClassLoader *sys = ClassLoader::getSystemClassLoader();
       ClassLoader *look = NULL;
       gnu::gcj::runtime::StackTrace *t = new gnu::gcj::runtime::StackTrace(10);
-      for (int i = 0; i < 10; ++i)
-	{
-	  jclass klass = t->classAt(i);
-	  if (klass != NULL)
+      try
+      	{
+	  for (int i = 0; i < 10; ++i)
 	    {
-	      ClassLoader *loader = klass->getClassLoaderInternal();
-	      if (loader != NULL && loader != sys)
+	      jclass klass = t->classAt(i);
+	      if (klass != NULL)
 		{
-		  look = loader;
-		  break;
+		  ClassLoader *loader = klass->getClassLoaderInternal();
+		  if (loader != NULL && loader != sys)
+		    {
+		      look = loader;
+		      break;
+		    }
 		}
 	    }
 	}
+      catch (::java::lang::ArrayIndexOutOfBoundsException *e)
+	{
+	}
+
       if (look != NULL)
 	{
 	  // Don't include solib prefix in string passed to
@@ -233,6 +240,19 @@ java::lang::Runtime::_load (jstring path, jboolean do_search)
   add_library (h);
 
   void *onload = lt_dlsym (h, "JNI_OnLoad");
+
+#ifdef WIN32
+  // On Win32, JNI_OnLoad is an "stdcall" function taking two pointers
+  // (8 bytes) as arguments.  It could also have been exported as
+  // "JNI_OnLoad@8" (MinGW) or "_JNI_OnLoad@8" (MSVC).
+  if (onload == NULL)
+    {
+      onload = lt_dlsym (h, "JNI_OnLoad@8");
+      if (onload == NULL)
+	onload = lt_dlsym (h, "_JNI_OnLoad@8");
+    }
+#endif /* WIN32 */
+
   if (onload != NULL)
     {
       JavaVM *vm = _Jv_GetJavaVM ();
@@ -241,7 +261,7 @@ java::lang::Runtime::_load (jstring path, jboolean do_search)
 	  // FIXME: what?
 	  return;
 	}
-      jint vers = ((jint (*) (JavaVM *, void *)) onload) (vm, NULL);
+      jint vers = ((jint (JNICALL *) (JavaVM *, void *)) onload) (vm, NULL);
       if (vers != JNI_VERSION_1_1 && vers != JNI_VERSION_1_2
 	  && vers != JNI_VERSION_1_4)
 	{
@@ -587,7 +607,7 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
     }
 
   // The name used to invoke this process (argv[0] in C).
-  SET ("gnu.gcj.progname", _Jv_ThisExecutable());
+  SET ("gnu.gcj.progname", _Jv_GetSafeArg (0));
 
   // Allow platform specific settings and overrides.
   _Jv_platform_initProperties (newprops);

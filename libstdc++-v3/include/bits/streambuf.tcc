@@ -1,6 +1,6 @@
 // Stream buffer classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -67,8 +67,7 @@ namespace std
     {
       int_type __ret;
       bool __testpos = _M_in_cur && _M_in_beg < _M_in_cur;
-      bool __testne = _M_in_cur && !traits_type::eq(__c, this->gptr()[-1]);
-      if (!__testpos || __testne)
+      if (!__testpos || !traits_type::eq(__c, this->gptr()[-1]))
 	__ret = this->pbackfail(traits_type::to_int_type(__c));
       else 
 	{
@@ -204,10 +203,12 @@ namespace std
       streamsize __ret = 0;
       streamsize __bufsize = __sbin->in_avail();
       streamsize __xtrct;
-      bool __testput = __sbout->_M_mode & ios_base::out;
+      const typename _Traits::off_type __size_opt =
+	__sbin->_M_buf_size_opt > 0 ? __sbin->_M_buf_size_opt : 1;
+
       try 
 	{
-	  while (__testput && __bufsize != -1)
+	  while (__bufsize != -1)
   	    {
  	      if (__bufsize != 0 && __sbin->gptr() != NULL
 		  && __sbin->gptr() + __bufsize <= __sbin->egptr()) 
@@ -220,12 +221,33 @@ namespace std
 		}
  	      else 
 		{
-		  size_t __size =
-		    __sbin->_M_buf_size_opt > 0 ? __sbin->_M_buf_size_opt : 1;
-		  _CharT* __buf =
-		    static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __size));
-		  streamsize __charsread = __sbin->sgetn(__buf, __size);
-		  __xtrct = __sbout->sputn(__buf, __charsread);
+		  streamsize __charsread;
+		  const streamsize __size =
+		    min(__size_opt, __sbout->_M_out_buf_size());
+		  if (__size > 1)
+		    {
+		      _CharT* __buf =
+			static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT)
+							      * __size));
+		      // Since the next sputn cannot fail sgetn can be
+		      // safely used.
+		      __charsread = __sbin->sgetn(__buf, __size);
+		      __xtrct = __sbout->sputn(__buf, __charsread);
+		    }
+		  else
+		    {
+		      __xtrct = __charsread = 0;
+		      int_type __c = __sbin->sgetc();
+		      while (!_Traits::eq_int_type(__c, _Traits::eof()))
+			{
+			  ++__charsread;
+			  if (_Traits::eq_int_type(__sbout->sputc(_Traits::to_char_type(__c)),
+						   _Traits::eof()))
+			    break;
+			  ++__xtrct;
+			  __c = __sbin->snextc();
+			}
+		    }		      
 		  __ret += __xtrct;
 		  if (__xtrct != __charsread)
 		    break;
@@ -247,6 +269,7 @@ namespace std
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.  
   // NB:  This syntax is a GNU extension.
+#if _GLIBCPP_EXTERN_TEMPLATE
   extern template class basic_streambuf<char>;
   extern template
     streamsize
@@ -259,6 +282,7 @@ namespace std
     streamsize
     __copy_streambufs(basic_ios<wchar_t>&, basic_streambuf<wchar_t>*,
 		      basic_streambuf<wchar_t>*); 
+#endif
 #endif
 } // namespace std
 

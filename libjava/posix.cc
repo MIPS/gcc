@@ -25,6 +25,23 @@ details.  */
 extern "C" unsigned long long _clock (void);
 #endif
 
+#if defined(HAVE_PROC_SELF_EXE)
+static char exec_name[20];
+  // initialized in _Jv_platform_initialize()
+#endif
+
+const char *_Jv_ThisExecutable (void)
+{
+#if defined(DISABLE_MAIN_ARGS)
+  return "[Embedded App]";
+#elif defined(HAVE_PROC_SELF_EXE)
+  return exec_name;
+    // initialized in _Jv_platform_initialize()
+#else
+  return _Jv_GetSafeArg (0);
+#endif
+}
+
 // gettimeofday implementation.
 jlong
 _Jv_platform_gettimeofday ()
@@ -61,6 +78,11 @@ _Jv_platform_initialize (void)
   sigaction (SIGPIPE, &act, NULL);
 #else
   signal (SIGPIPE, SIG_IGN);
+#endif
+
+#if defined (HAVE_PROC_SELF_EXE)
+  // Compute our executable name
+  sprintf (exec_name, "/proc/%d/exe", getpid ());
 #endif
 }
 

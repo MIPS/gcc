@@ -1,6 +1,6 @@
 // natObject.cc - Implementation of the Object class.
 
-/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -9,6 +9,7 @@ Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
 details.  */
 
 #include <config.h>
+#include <platform.h>
 
 #include <string.h>
 
@@ -532,7 +533,7 @@ spin(unsigned n)
       unsigned duration = MIN_SLEEP_USECS << (n - yield_limit);
       if (n >= 15 + yield_limit || duration > MAX_SLEEP_USECS)
         duration = MAX_SLEEP_USECS;
-      java::lang::Thread::sleep(0, duration);
+      _Jv_platform_usleep(duration);
     }
 }
 

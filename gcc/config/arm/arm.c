@@ -5053,7 +5053,14 @@ arm_reload_in_hi (operands)
 	}
     }
 
-  scratch = gen_rtx_REG (SImode, REGNO (operands[2]));
+  /* Operands[2] may overlap operands[0] (though it won't overlap
+     operands[1]), that's why we asked for a DImode reg -- so we can
+     use the bit that does not overlap.  */
+  if (REGNO (operands[2]) == REGNO (operands[0]))
+    scratch = gen_rtx_REG (SImode, REGNO (operands[2]) + 1);
+  else
+    scratch = gen_rtx_REG (SImode, REGNO (operands[2]));
+
   emit_insn (gen_zero_extendqisi2 (scratch,
 				   gen_rtx_MEM (QImode,
 						plus_constant (base,
@@ -8149,10 +8156,14 @@ arm_compute_initial_elimination_offset (from, to)
 	  reg_mask = reg_mask & ~ (reg_mask & - reg_mask);
 	}
 
-      if (regs_ever_live[LR_REGNUM]
-	  /* If a stack frame is going to be created, the LR will
-	     be saved as part of that, so we do not need to allow
-	     for it here.  */
+      if ((regs_ever_live[LR_REGNUM]
+	   /* If optimizing for size, then we save the link register if
+	      any other integer register is saved.  This gives a smaller
+	      return sequence.  */
+	   || (optimize_size && call_saved_registers > 0))
+	  /* But if a stack frame is going to be created, the LR will
+	     be saved as part of that, so we do not need to allow for
+	     it here.  */
 	  && ! frame_pointer_needed)
 	call_saved_registers += 4;
 

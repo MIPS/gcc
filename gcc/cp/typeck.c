@@ -1940,7 +1940,8 @@ build_class_member_access_expr (tree object, tree member,
 		       && integer_zerop (TREE_OPERAND (object, 0)));
 
       /* Convert OBJECT to the type of MEMBER.  */
-      if (!same_type_p (object_type, member_scope))
+      if (!same_type_p (TYPE_MAIN_VARIANT (object_type),
+			TYPE_MAIN_VARIANT (member_scope)))
 	{
 	  tree binfo;
 	  base_kind kind;
@@ -1950,7 +1951,7 @@ build_class_member_access_expr (tree object, tree member,
 	  if (binfo == error_mark_node)
 	    return error_mark_node;
 
-	  /* It is invalid to use to try to get to a virtual base of a
+	  /* It is invalid to try to get to a virtual base of a
 	     NULL object.  The most common cause is invalid use of
 	     offsetof macro.  */
 	  if (null_object_p && kind == bk_via_virtual)
@@ -1985,7 +1986,15 @@ build_class_member_access_expr (tree object, tree member,
 	 OBJECT so that it refers to the class containing the
 	 anonymous union.  Generate a reference to the anonymous union
 	 itself, and recur to find MEMBER.  */
-      if (ANON_AGGR_TYPE_P (DECL_CONTEXT (member)))
+      if (ANON_AGGR_TYPE_P (DECL_CONTEXT (member))
+	  /* When this code is called from build_field_call, the
+	     object already has the type of the anonymous union.
+	     That is because the COMPONENT_REF was already
+	     constructed, and was then disassembled before calling
+	     build_field_call.  After the function-call code is
+	     cleaned up, this waste can be eliminated.  */
+	  && (!same_type_ignoring_top_level_qualifiers_p 
+	      (TREE_TYPE (object), DECL_CONTEXT (member))))
 	{
 	  tree anonymous_union;
 
@@ -2637,7 +2646,6 @@ build_function_call_real (function, params, require_complete, flags)
      int require_complete, flags;
 {
   register tree fntype, fndecl;
-  register tree value_type;
   register tree coerced_params;
   tree result;
   tree name = NULL_TREE, assembler_name = NULL_TREE;
@@ -2742,20 +2750,7 @@ build_function_call_real (function, params, require_complete, flags)
 	return result;
     }
 
-  /* Some built-in function calls will be evaluated at
-     compile-time in fold ().  */
-  result = fold (build_call (function, coerced_params));
-  value_type = TREE_TYPE (result);
-
-  if (require_complete)
-    {
-      if (TREE_CODE (value_type) == VOID_TYPE)
-	return result;
-      result = require_complete_type (result);
-    }
-  if (IS_AGGR_TYPE (value_type))
-    result = build_cplus_new (value_type, result);
-  return convert_from_reference (result);
+  return build_cxx_call (function, params, coerced_params);
 }
 
 tree
@@ -3888,7 +3883,45 @@ condition_conversion (expr)
   t = fold (build1 (CLEANUP_POINT_EXPR, boolean_type_node, t));
   return t;
 }
-			       
+		
+/* Return an ADDR_EXPR giving the address of T.  This function
+   attempts no optimizations or simplifications; it is a low-level
+   primitive.  */
+
+tree
+build_address (tree t)
+{
+  tree addr;
+
+  if (error_operand_p (t) || !cxx_mark_addressable (t))
+    return error_mark_node;
+
+  addr = build1 (ADDR_EXPR, 
+		 build_pointer_type (TREE_TYPE (t)),
+		 t);
+  if (staticp (t))
+    TREE_CONSTANT (addr) = 1;
+
+  return addr;
+}
+
+/* Return a NOP_EXPR converting EXPR to TYPE.  */
+
+tree
+build_nop (tree type, tree expr)
+{
+  tree nop;
+
+  if (type == error_mark_node || error_operand_p (expr))
+    return expr;
+    
+  nop = build1 (NOP_EXPR, type, expr);
+  if (TREE_CONSTANT (expr))
+    TREE_CONSTANT (nop) = 1;
+  
+  return nop;
+}
+
 /* C++: Must handle pointers to members.
 
    Perhaps type instantiation should be extended to handle conversion
@@ -4278,25 +4311,22 @@ build_unary_op (code, xarg, noconvert)
       if (argtype != error_mark_node)
 	argtype = build_pointer_type (argtype);
 
-      if (!cxx_mark_addressable (arg))
-	return error_mark_node;
-
       {
 	tree addr;
 
-	if (TREE_CODE (arg) == COMPONENT_REF
-	    && DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)))
+	if (TREE_CODE (arg) != COMPONENT_REF)
+	  addr = build_address (arg);
+	else if (DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)))
 	  {
 	    error ("attempt to take address of bit-field structure member `%D'",
 		   TREE_OPERAND (arg, 1));
 	    return error_mark_node;
 	  }
-	else if (TREE_CODE (arg) == COMPONENT_REF
-		 && TREE_CODE (TREE_OPERAND (arg, 0)) == INDIRECT_REF
-		 && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (arg, 0), 0))
-		     == INTEGER_CST))
+	else
 	  {
-	    /* offsetof idiom, fold it.  */
+	    /* Unfortunately we cannot just build an address
+	       expression here, because we would not handle
+	       address-constant-expressions or offsetof correctly.  */
 	    tree field = TREE_OPERAND (arg, 1);
 	    tree rval = build_unary_op (ADDR_EXPR, TREE_OPERAND (arg, 0), 0);
 	    tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (rval)),
@@ -4309,13 +4339,6 @@ build_unary_op (code, xarg, noconvert)
 	    addr = fold (build (PLUS_EXPR, argtype, rval,
 				cp_convert (argtype, byte_position (field))));
 	  }
-	else
-	  addr = build1 (ADDR_EXPR, argtype, arg);
-
-	/* Address of a static or external variable or
-	   function counts as a constant */
-	if (staticp (arg))
-	  TREE_CONSTANT (addr) = 1;
 
 	if (TREE_CODE (argtype) == POINTER_TYPE
 	    && TREE_CODE (TREE_TYPE (argtype)) == METHOD_TYPE)
@@ -4529,7 +4552,7 @@ cxx_mark_addressable (exp)
 	  warning ("address requested for `%D', which is declared `register'",
 		      x);
 	TREE_ADDRESSABLE (x) = 1;
-	put_var_into_stack (x);
+	put_var_into_stack (x, /*rescan=*/true);
 	return true;
 
       case FUNCTION_DECL:
@@ -5357,7 +5380,7 @@ build_modify_expr (lhs, modifycode, rhs)
 
       from_array = TREE_CODE (TREE_TYPE (newrhs)) == ARRAY_TYPE
 	           ? 1 + (modifycode != INIT_EXPR): 0;
-      return build_vec_init (lhs, newrhs, from_array);
+      return build_vec_init (lhs, NULL_TREE, newrhs, from_array);
     }
 
   if (modifycode == INIT_EXPR)
@@ -5596,11 +5619,17 @@ build_ptrmemfunc (type, pfn, force)
      int force;
 {
   tree fn;
-  tree pfn_type = TREE_TYPE (pfn);
-  tree to_type = build_ptrmemfunc_type (type);
+  tree pfn_type;
+  tree to_type;
+
+  if (error_operand_p (pfn))
+    return error_mark_node;
+
+  pfn_type = TREE_TYPE (pfn);
+  to_type = build_ptrmemfunc_type (type);
 
   /* Handle multiple conversions of pointer to member functions.  */
-  if (TYPE_PTRMEMFUNC_P (TREE_TYPE (pfn)))
+  if (TYPE_PTRMEMFUNC_P (pfn_type))
     {
       tree delta = NULL_TREE;
       tree npfn = NULL_TREE;
@@ -5981,7 +6010,7 @@ convert_for_initialization (exp, type, rhs, flags, errtype, fndecl, parmnum)
 
       if (fndecl)
 	savew = warningcount, savee = errorcount;
-      rhs = initialize_reference (type, rhs);
+      rhs = initialize_reference (type, rhs, /*decl=*/NULL_TREE);
       if (fndecl)
 	{
 	  if (warningcount > savew)

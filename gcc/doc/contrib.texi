@@ -1,5 +1,5 @@
-@c Copyright (C) 1988,1989,1992,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
-@c Free Software Foundation, Inc.
+@c Copyright (C) 1988,1989,1992,1993,1994,1995,1996,1997,1998,1999,2000,
+@c 2001,2002,2003 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -29,7 +29,7 @@ James van Artsdalen wrote the code that makes efficient use of
 the Intel 80387 register stack.
 
 @item
-Alasdair Baird for various bugfixes.
+Alasdair Baird for various bug fixes.
 
 @item
 Gerald Baumgartner added the signature extension to the C++ front end.
@@ -41,7 +41,14 @@ Godmar Back for his Java improvements and encouragement.
 Scott Bambrough for help porting the Java compiler.
 
 @item
+Wolfgang Bangerth for processing tons of bug reports.
+
+@item
 Jon Beniston for his Win32 port of Java.
+
+@item
+Daniel Berlin for better DWARF2 support, faster/better optimizations,
+improved alias analysis, plus migrating us to Bugzilla.
 
 @item
 Geoff Berry for his Java object serialization work and various patches.
@@ -51,12 +58,18 @@ Eric Blake for helping to make GCJ and libgcj conform to the
 specifications.
 
 @item
+Segher Boessenkool for various fixes.
+
+@item
 Hans-J. Boehm for his @uref{http://www.hpl.hp.com/personal/Hans_Boehm/gc/,,
 garbage collector}, IA-64 libffi port, and other Java work.
 
 @item
 Neil Booth for work on cpplib, lang hooks, debug hooks and other
 miscellaneous clean-ups.
+
+@item
+Eric Botcazou for fixing middle- and backend bugs left and right.
 
 @item
 Per Bothner for his direction via the steering committee and various
@@ -103,6 +116,9 @@ issues, and keeping up with the problem reports.
 @item
 John Carr for his alias work, SPARC hacking, infrastructure improvements,
 previous contributions to the steering committee, loop optimizations, etc.
+
+@item
+Stephane Carrez for 68HC11 and 68HC12 ports.
 
 @item
 Steve Chamberlain for support for the Hitachi SH and H8 processors
@@ -158,6 +174,10 @@ Russell Davidson for fstream and stringstream fixes in libstdc++.
 Mo DeJong for GCJ and libgcj bug fixes.
 
 @item
+DJ Delorie for the DJGPP port, build and libiberty maintenance, and
+various bug fixes.
+
+@item
 Gabriel Dos Reis for contributions to g++, contributions and
 maintenance of GCC diagnostics infrastructure, libstdc++-v3,
 including valarray<>, complex<>, maintaining the numerics library
@@ -170,6 +190,9 @@ support, CFG dumping support, etc., plus support of the C++ runtime
 libraries including for all kinds of C interface issues, contributing and
 maintaining complex<>, sanity checking and disbursement, configuration
 architecture, libio maintenance, and early math work.
+
+@item
+Zdenek Dvorak for a new loop unroller and various fixes.
 
 @item
 Richard Earnshaw for his ongoing work with the ARM@.
@@ -186,7 +209,7 @@ libstdc++.
 @item
 Phil Edwards for libstdc++ work including configuration hackery,
 documentation maintainer, chief breaker of the web pages, the occasional
-iostream bugfix, and work on shared library symbol versioning.
+iostream bug fix, and work on shared library symbol versioning.
 
 @item
 Paul Eggert for random hacking all over GCC@.
@@ -197,6 +220,9 @@ configuration support for locales and fstream-related fixes.
 
 @item
 Vadim Egorov for libstdc++ fixes in strings, streambufs, and iostreams.
+
+@item
+Christian Ehrhardt for dealing with bug reports.
 
 @item
 Ben Elliston for his work to move the Objective-C runtime into its
@@ -210,13 +236,17 @@ Doug Evans for much of the global optimization framework, arc, m32r,
 and SPARC work.
 
 @item
+Christopher Faylor for his work on the Cygwin port and for caring and
+feeding the gcc.gnu.org box and saving its users tons of spam.
+
+@item
 Fred Fish for BeOS support and Ada fixes.
 
 @item
 Ivan Fontes Garcia for the Portugese translation of the GCJ FAQ.
 
 @item
-Peter Gerwinski for various bugfixes and the Pascal front end.
+Peter Gerwinski for various bug fixes and the Pascal front end.
 
 @item
 Kaveh Ghazi for his direction via the steering committee and
@@ -251,7 +281,7 @@ Intel 386 and 860 support.
 
 @item
 Bruno Haible for improvements in the runtime overhead for EH, new
-warnings and assorted bugfixes.
+warnings and assorted bug fixes.
 
 @item
 Andrew Haley for his amazing Java compiler and library efforts.
@@ -268,18 +298,25 @@ fixes.
 Kate Hedstrom for staking the g77 folks with an initial testsuite.
 
 @item
-Richard Henderson for his ongoing SPARC, alpha, and ia32 work, loop
+Richard Henderson for his ongoing SPARC, alpha, ia32, and ia64 work, loop
 opts, and generally fixing lots of old problems we've ignored for
 years, flow rewrite and lots of further stuff, including reviewing
 tons of patches.
+
+@item
+Aldy Hernandez for working on the PowerPC port, SIMD support, and
+various fixes.
 
 @item
 Nobuyuki Hikichi of Software Research Associates, Tokyo, contributed
 the support for the Sony NEWS machine.
 
 @item
+Kazu Hirata for caring and feeding the Hitachi H8/300 port and various fixes.
+
+@item
 Manfred Hollstein for his ongoing work to keep the m88k alive, lots
-of testing an bugfixing, particularly of our configury code.
+of testing and bug fixing, particularly of our configury code.
 
 @item
 Steve Holmgren for MachTen patches.
@@ -288,7 +325,7 @@ Steve Holmgren for MachTen patches.
 Jan Hubicka for his x86 port improvements.
 
 @item
-Christian Iseli for various bugfixes.
+Christian Iseli for various bug fixes.
 
 @item
 Kamil Iskra for general m68k hacking.
@@ -305,8 +342,8 @@ as lots of bug fixes and test cases, and for improving the Java build
 system.
 
 @item
-Janis Johnson for ia64 testing and fixes and for her quality improvement
-sidetracks.
+Janis Johnson for ia64 testing and fixes, her quality improvement
+sidetracks, and web page maintenance.
 
 @item
 J. Kean Johnston for OpenServer support.
@@ -325,7 +362,7 @@ Klaus Kaempf for his ongoing work to make alpha-vms a viable target.
 David Kashtan of SRI adapted GCC to VMS@.
 
 @item
-Ryszard Kabatek for many, many libstdc++ bugfixes and optimizations of
+Ryszard Kabatek for many, many libstdc++ bug fixes and optimizations of
 strings, especially member functions, and for auto_ptr fixes.
 
 @item
@@ -363,7 +400,7 @@ Robin Kirkham for cpu32 support.
 Mark Klein for PA improvements.
 
 @item
-Thomas Koenig for various bugfixes.
+Thomas Koenig for various bug fixes.
 
 @item
 Bruce Korb for the new and improved fixincludes code.
@@ -389,7 +426,8 @@ with analysis and improvements of x86 performance.
 Ted Lemon wrote parts of the RTL reader and printer.
 
 @item
-Kriang Lerdsuwanakij for improvements to demangler and various c++ fixes.
+Kriang Lerdsuwanakij for C++ improvements including template as template
+parameter support, and many C++ fixes.
 
 @item
 Warren Levy for tremendous work on libgcj (Java Runtime Library) and
@@ -406,7 +444,7 @@ patches.
 Robert Lipe for OpenServer support, new testsuites, testing, etc.
 
 @item
-Weiwen Liu for testing and various bugfixes.
+Weiwen Liu for testing and various bug fixes.
 
 @item
 Dave Love for his ongoing work with the Fortran front end and
@@ -469,7 +507,7 @@ developers.
 Gary Miller ported GCC to Charles River Data Systems machines.
 
 @item
-Alfred Minarik for libstdc++ string and ios bugfixes, and turning the
+Alfred Minarik for libstdc++ string and ios bug fixes, and turning the
 entire libstdc++ testsuite namespace-compatible.
 
 @item
@@ -527,6 +565,9 @@ MT-safe string and shadow headers.
 Felix Natter for documentation on porting libstdc++.
 
 @item
+Nathanael Nerode for cleaning up the configuration/build process.
+
+@item
 NeXT, Inc.@: donated the front end that supports the Objective-C
 language.
 
@@ -536,6 +577,10 @@ engine setup, various documentation fixes and other small fixes.
 
 @item
 Geoff Noer for this work on getting cygwin native builds working.
+
+@item
+Diego Novillo for his SPEC performance tracking web pages and assorted
+fixes in the middle end and various back ends.
 
 @item
 David O'Brien for the FreeBSD/alpha, FreeBSD/AMD x86-64, FreeBSD/ARM,
@@ -553,6 +598,9 @@ Melissa O'Neill for various NeXT fixes.
 Rainer Orth for random MIPS work, including improvements to our o32
 ABI support, improvements to dejagnu's MIPS support, Java configuration
 clean-ups and porting work, etc.
+
+@item
+Hartmut Penner for work on the s390 port.
 
 @item
 Paul Petersen wrote the machine description for the Alliant FX/8.
@@ -585,6 +633,9 @@ David Reese of Sun Microsystems contributed to the Solaris on PowerPC
 port.
 
 @item
+Volker Reichelt for keeping up with the problem reports.
+
+@item
 Joern Rennecke for maintaining the sh port, loop, regmove & reload
 hacking.
 
@@ -614,6 +665,10 @@ Juha Sarlin for improvements to the H8 code generator.
 
 @item
 Greg Satz assisted in making GCC work on HP-UX for the 9000 series 300.
+
+@item
+Roger Sayle for improvements to constant folding and GCC's RTL optimizers
+as well as for fixing numerous bugs.
 
 @item
 Bradley Schatz for his work on the GCJ FAQ.
@@ -667,6 +722,9 @@ Andrey Slepuhin for assorted AIX hacking.
 Christopher Smith did the port for Convex machines.
 
 @item
+Danny Smith for his major efforts on the Mingw (and Cygwin) ports.
+
+@item
 Randy Smith finished the Sun FPA support.
 
 @item
@@ -716,7 +774,7 @@ Holger Teutsch provided the support for the Clipper CPU.
 Gary Thomas for his ongoing work to make the PPC work for GNU/Linux.
 
 @item
-Philipp Thomas for random bugfixes throughout the compiler
+Philipp Thomas for random bug fixes throughout the compiler
 
 @item
 Jason Thorpe for thread support in libstdc++ on NetBSD.
@@ -726,7 +784,7 @@ Kresten Krab Thorup wrote the run time support for the Objective-C
 language and the fantastic Java bytecode interpreter.
 
 @item
-Michael Tiemann for random bugfixes, the first instruction scheduler,
+Michael Tiemann for random bug fixes, the first instruction scheduler,
 initial C++ support, function integration, NS32k, SPARC and M88k
 machine description work, delay slot scheduling.
 
@@ -767,7 +825,7 @@ Dean Wakerley for converting the install documentation from HTML to texinfo
 in time for GCC 3.0.
 
 @item
-Krister Walfridsson for random bugfixes.
+Krister Walfridsson for random bug fixes.
 
 @item
 Stephen M. Webb for time and effort on making libstdc++ shadow files
@@ -780,7 +838,10 @@ related infrastructure improvements to help x86 code generation,
 value range propagation and other work, WE32k port.
 
 @item
-Zack Weinberg for major work on cpplib and various other bugfixes.
+Ulrich Weigand for work on the s390 port.
+
+@item
+Zack Weinberg for major work on cpplib and various other bug fixes.
 
 @item
 Matt Welsh for help with Linux Threads support in GCJ.

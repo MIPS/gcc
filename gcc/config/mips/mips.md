@@ -6413,16 +6413,16 @@ move\\t%0,%z4\\n\\
 }")
 
 (define_insn "movdf_internal1"
-  [(set (match_operand:DF 0 "nonimmediate_operand" "=f,f,f,R,To,*f,*d,*d,*d,*d,*R,*T")
-	(match_operand:DF 1 "general_operand" "f,R,To,fG,fG,*d,*f,*d*G,*R,*T,*d,*d"))]
+  [(set (match_operand:DF 0 "nonimmediate_operand"  "=f,f,f,f,R,To,*f,*d,*d,*d,*d,*R,*T")
+       (match_operand:DF 1 "general_operand"  "f,G,R,To,fG,fG,*d,*f,*d*G,*R,*T,*d,*d"))]
   "TARGET_HARD_FLOAT && !(TARGET_FLOAT64 && !TARGET_64BIT)
    && TARGET_DOUBLE_FLOAT
    && (register_operand (operands[0], DFmode)
        || nonmemory_operand (operands[1], DFmode))"
   "* return mips_move_2words (operands, insn); "
-  [(set_attr "type"	"move,load,load,store,store,xfer,xfer,move,load,load,store,store")
-   (set_attr "mode"	"DF")
-   (set_attr "length"	"4,8,16,8,16,8,8,8,8,16,8,16")])
+  [(set_attr "type"    "move,move,load,load,store,store,xfer,xfer,move,load,load,store,store")
+   (set_attr "mode"    "DF")
+   (set_attr "length"  "4,8,8,16,8,16,8,8,8,8,16,8,16")])
 
 (define_insn "movdf_internal1a"
   [(set (match_operand:DF 0 "nonimmediate_operand" "=f,f,R,R,To,To,*d,*d,*To,*R,*d")
@@ -6550,6 +6550,12 @@ move\\t%0,%z4\\n\\
 ;; fill a delay slot.  This also prevents a bug in delayed branches
 ;; from showing up, which reuses one of the registers in our clobbers.
 
+;; ??? Disabled because it doesn't preserve alias information for
+;; operands 0 and 1.  Also, the rtl for the second insn doesn't mention
+;; that it uses the registers clobbered by the first.
+;;
+;; It would probably be better to split the block into individual
+;; instructions instead.
 (define_split
   [(set (mem:BLK (match_operand:SI 0 "register_operand" ""))
 	(mem:BLK (match_operand:SI 1 "register_operand" "")))
@@ -6561,7 +6567,7 @@ move\\t%0,%z4\\n\\
    (use (match_operand:SI 3 "small_int" ""))
    (use (const_int 0))]
 
-  "reload_completed && !TARGET_DEBUG_D_MODE && INTVAL (operands[2]) > 0"
+  "reload_completed && 0 && INTVAL (operands[2]) > 0"
 
   ;; All but the last move
   [(parallel [(set (mem:BLK (match_dup 0))

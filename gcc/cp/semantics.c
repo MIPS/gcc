@@ -1029,7 +1029,7 @@ genrtl_named_return_value ()
 	 the return value.  */
       SET_DECL_RTL (decl, gen_reg_rtx (GET_MODE (DECL_RTL (decl))));
       if (TREE_ADDRESSABLE (decl))
-	put_var_into_stack (decl);
+	put_var_into_stack (decl, /*rescan=*/true);
     }
 
   emit_local_var (decl);
@@ -1382,7 +1382,7 @@ finish_object_call_expr (fn, object, args)
 	}
     }
   
-  if (name_p (fn))
+  if (processing_template_decl || name_p (fn))
     return build_method_call (object, fn, args, NULL_TREE, LOOKUP_NORMAL);
   else
     return build_new_method_call (object, fn, args, NULL_TREE, LOOKUP_NORMAL);
@@ -2098,20 +2098,28 @@ tree
 finish_typeof (expr)
      tree expr;
 {
+  tree type;
+
   if (processing_template_decl)
     {
-      tree t;
+      type = make_aggr_type (TYPEOF_TYPE);
+      TYPE_FIELDS (type) = expr;
 
-      t = make_aggr_type (TYPEOF_TYPE);
-      TYPE_FIELDS (t) = expr;
-
-      return t;
+      return type;
     }
 
   if (TREE_CODE (expr) == OFFSET_REF)
     expr = resolve_offset_ref (expr);
 
-  return TREE_TYPE (expr);
+  type = TREE_TYPE (expr);
+
+  if (!type || type == unknown_type_node)
+    {
+      error ("type of `%E' is unknown", expr);
+      return error_mark_node;
+    }
+
+  return type;
 }
 
 /* Compute the value of the `sizeof' operator.  */

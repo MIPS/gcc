@@ -1,6 +1,6 @@
 // Iostreams base classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -43,6 +43,8 @@
 #pragma GCC system_header
 
 #include <bits/atomicity.h>
+#include <bits/localefwd.h>
+#include <bits/locale_classes.h>
 
 namespace std
 {
@@ -414,6 +416,7 @@ namespace std
     _Words  		_M_word_zero;    
 
     // Guaranteed storage.
+    // The first 5 iword and pword slots are reserved for internal use.
     static const int 	_S_local_word_size = 8;
     _Words  		_M_local_word[_S_local_word_size];  
 
@@ -448,6 +451,12 @@ namespace std
       
       static void
       _S_ios_destroy();
+
+      // NB: Allows debugger applications use of the standard streams
+      // from operator new. _S_ios_base_init must be incremented in
+      // _S_ios_create _after_ initialization is completed.
+      static bool
+      _S_initialized() { return _S_ios_base_init; }
 
     private:
       static int 	_S_ios_base_init;
@@ -638,7 +647,7 @@ namespace std
      *  Destroys local storage and
      *  [XXX does something with callbacks].
     */
-    virtual ~ios_base();
+    ~ios_base();
 
   protected:
     ios_base();
