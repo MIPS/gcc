@@ -42,18 +42,63 @@
 #include "output.h"
 #include "cfglayout.h"
 #include "fibheap.h"
+#include "flags.h"
 
 static int count_insns			PARAMS ((basic_block));
+static bool ignore_bb_p			PARAMS ((basic_block));
 static bool better_p			PARAMS ((edge, edge));
 static bool is_trace_head_p		PARAMS ((basic_block));
 int find_trace				PARAMS ((basic_block, basic_block *));
 static void tail_duplicate		PARAMS ((void));
 static void layout_superblocks		PARAMS ((void));
+static bool ignore_bb_p			PARAMS ((basic_block));
+
+/* Bellow are some parameters meant to keep code expansion under control.
+   Perhaps it can be usefull to add command line paramters to tune them, but
+   until I see practical testcase I believe their finetunning is not really
+   important.  They are just meant to rule out cold regions of code
+   that are usually easy to recognize.  */
+
+/* When profile feedback is available, do not trace blocks with fewer
+   executions than this constant.  */
+
+#define MIN_COUNT	100
+
+/* Trace only blocks executed maximally 1000 times fewer times than the
+   most frequent block in the function.  */
+
+#define MIN_FREQUENCY  BB_FREQ_MAX/1000
+
+/* Stop tracing after at least 80% of instructions has been convered
+   by constructed superblocks.  */
+
+#define DYNAMIC_COVERAGE 80
+
+/* Stop once the number of instructions has been increased to 200%.
+   This is rather hokey argument, as most of the duplicates will be elliminated
+   later in cross jumping, but we need to keep the code size and compiler
+   resource usage under control.  */
+
+#define MAXIMAL_CODE_GROWTH 200
 
 /* Return true if BB has been seen - it is connected to some trace
    already.  */
 
 #define seen(bb) (RBI (bb)->visited || RBI (bb)->next)
+
+/* Return true if we should ignore the basic block for purposes of tracing. */
+static bool
+ignore_bb_p (basic_block bb)
+{
+  if (flag_branch_probabilities && bb->count < MIN_COUNT)
+    return true;
+  if (bb->frequency < MIN_FREQUENCY)
+    return true;
+  /* Rule out entry and exit blocks.  */
+  if (bb->index < 0)
+    return true;
+  return false;
+}
 
 /* Return number of instructions in the block.  */
 
@@ -77,11 +122,13 @@ better_p (e1, e2)
 {
   if (e1->count != e2->count)
     return e1->count > e2->count;
-  if (EDGE_FREQUENCY (e1) != EDGE_FREQUENCY (e2))
-    return EDGE_FREQUENCY (e1) > EDGE_FREQUENCY (e2);
+  if (e1->src->frequency * e1->probability !=
+      e2->src->frequency * e2->probability)
+    return (e1->src->frequency * e1->probability
+	    > e2->src->frequency * e2->probability);
   /* This is needed to avoid changes in the decision after
      CFG is modified.  */
-  if (e1->src->index != e2->src->index)
+  if (e1->src != e2->src)
     return e1->src->index > e2->src->index;
   return e1->dest->index > e2->dest->index;
 }
@@ -97,6 +144,8 @@ find_best_successor (basic_block bb)
   for (e = bb->succ; e; e = e->succ_next)
     if (!best || better_p (e, best))
       best = e;
+  if (!best || ignore_bb_p (best->dest))
+    return NULL;
   return best;
 }
 
@@ -111,6 +160,8 @@ find_best_predecessor (basic_block bb)
   for (e = bb->pred; e; e = e->pred_next)
     if (!best || better_p (e, best))
       best = e;
+  if (!best || ignore_bb_p (best->src))
+    return NULL;
   return best;
 }
 
@@ -125,7 +176,6 @@ is_trace_head_p (bb)
     return true;
   bb2 = e->src;
   if (find_best_successor (bb2) != e
-      || bb2 == ENTRY_BLOCK_PTR
       || seen (bb2)
       || (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX)))
     return true;
@@ -151,7 +201,6 @@ find_trace (bb, trace)
     {
       bb = e->dest;
       if (find_best_predecessor (bb) != e
-	  || bb == EXIT_BLOCK_PTR
 	  || seen (bb)
 	  || (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX)))
 	break;
@@ -178,8 +227,9 @@ tail_duplicate ()
   int i;
 
   for (i = 0; i < n_basic_blocks; i++)
-    blocks[i] = fibheap_insert (heap, -BASIC_BLOCK (i)->frequency,
-				BASIC_BLOCK (i));
+    if (!ignore_bb_p (BASIC_BLOCK (i)))
+      blocks[i] = fibheap_insert (heap, -BASIC_BLOCK (i)->frequency,
+				  BASIC_BLOCK (i));
 
   for (i = 0; i < n_basic_blocks; i++)
     {
@@ -189,13 +239,17 @@ tail_duplicate ()
       weighted_insns += n * BASIC_BLOCK (i)->frequency;
     }
 
-  for (; traced_insns * 100 < weighted_insns * 90;)
+  for (; traced_insns * 100 < weighted_insns * DYNAMIC_COVERAGE
+	 && (nduplicated + ninsns) * 100 < ninsns * MAXIMAL_CODE_GROWTH ;)
     {
       basic_block bb = fibheap_extract_min (heap);
       int n, pos;
 
       if (!bb)
 	break;
+      if (ignore_bb_p (bb))
+	continue;
+
       blocks[bb->index] = NULL;
 
       if (!is_trace_head_p (bb))
@@ -246,7 +300,7 @@ tail_duplicate ()
 	      /* Similary all sucessors possibly changed the most
 	         common predecesor.  Reconsider them.  */
 	      for (e = old->succ; e; e = e->succ_next)
-		if (e->dest != EXIT_BLOCK_PTR && !seen (e->dest)
+		if (!ignore_bb_p (e->dest) && !seen (e->dest)
 		    && e->dest != bb && !blocks[e->dest->index])
 		  {
 		    blocks[e->dest->index] =
@@ -260,9 +314,13 @@ tail_duplicate ()
 	  RBI (bb2)->visited = 1;
 	  traced_insns += bb2->frequency * count_insns (bb2);
 	  bb = bb2;
+	  /* In case the trace became infrequent, stop duplicating.  */
+	  if (ignore_bb_p (bb))
+	    break;
 	}
       if (rtl_dump_file)
-	fprintf (rtl_dump_file, "\n");
+	fprintf (rtl_dump_file, " covered now %.1f\n\n",
+		 traced_insns * 100.0 / weighted_insns);
     }
   if (rtl_dump_file)
     fprintf (rtl_dump_file, "Duplicated %i insns (%i%%)\n", nduplicated,

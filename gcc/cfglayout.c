@@ -1018,7 +1018,7 @@ cfg_layout_duplicate_bb (bb, e)
     {
       n = make_edge (new_bb, s->dest, s->flags);
       n->probability = s->probability;
-      if (bb->count)
+      if (new_count)
 	/* Take care for overflows!  */
 	n->count = s->count * 10000 / (bb->count * 10000 / new_count);
       else
