@@ -102,7 +102,6 @@ static void parts_to_webs PARAMS ((struct df *));
 static void reset_conflicts PARAMS ((void));
 static void check_conflict_numbers PARAMS ((void));
 static void conflicts_between_webs PARAMS ((struct df *));
-static void remember_web_was_spilled PARAMS ((struct web *));
 static void detect_spill_temps PARAMS ((void));
 static int contains_pseudo PARAMS ((rtx));
 static int want_to_remat PARAMS ((rtx x));
@@ -117,6 +116,7 @@ static void livethrough_conflicts_bb PARAMS ((basic_block));
 static void init_bb_info PARAMS ((void));
 static void free_bb_info PARAMS ((void));
 static void build_web_parts_and_conflicts PARAMS ((struct df *));
+static void select_regclass PARAMS ((void));
 
 
 /* A sbitmap of DF_REF_IDs of uses, which are live over an abnormal
@@ -1251,23 +1251,6 @@ init_one_web_common (web, reg)
       web->dlink = (struct dlist *) ra_calloc (sizeof (struct dlist));
       DLIST_WEB (web->dlink) = web;
     }
-  /* XXX
-     the former (superunion) doesn't constrain the graph enough. E.g.
-     on x86 QImode _requires_ QI_REGS, but as alternate class usually
-     GENERAL_REGS is given.  So the graph is not constrained enough,
-     thinking it has more freedom then it really has, which leads
-     to repeated spill tryings.  OTOH the latter (only using preferred
-     class) is too constrained, as normally (e.g. with all SImode
-     pseudos), they can be allocated also in the alternate class.
-     What we really want, are the _exact_ hard regs allowed, not
-     just a class.  Later.  */
-  /*web->regclass = reg_class_superunion
-		    [reg_preferred_class (web->regno)]
-		    [reg_alternate_class (web->regno)];*/
-  /*web->regclass = reg_preferred_class (web->regno);*/
-  web->regclass = reg_class_subunion
-    [reg_preferred_class (web->regno)] [reg_alternate_class (web->regno)];
-  web->regclass = reg_preferred_class (web->regno);
   if (web->regno < FIRST_PSEUDO_REGISTER)
     {
       web->color = web->regno;
@@ -1280,38 +1263,12 @@ init_one_web_common (web, reg)
     }
   else
     {
-      HARD_REG_SET alternate;
       web->color = -1;
       put_web (web, INITIAL);
-      /* add_hardregs is wrong in multi-length classes, e.g.
-	 using a DFmode pseudo on x86 can result in class FLOAT_INT_REGS,
-	 where, if it finally is allocated to GENERAL_REGS it needs two,
-	 if allocated to FLOAT_REGS only one hardreg.  XXX */
-      web->add_hardregs =
-	CLASS_MAX_NREGS (web->regclass, PSEUDO_REGNO_MODE (web->regno)) - 1;
-      web->num_conflicts = 0 * web->add_hardregs;
-      COPY_HARD_REG_SET (web->usable_regs,
-			reg_class_contents[reg_preferred_class (web->regno)]);
-      COPY_HARD_REG_SET (alternate,
-			reg_class_contents[reg_alternate_class (web->regno)]);
-      IOR_HARD_REG_SET (web->usable_regs, alternate);
-      /*IOR_HARD_REG_SET (web->usable_regs,
-			reg_class_contents[reg_alternate_class
-			(web->regno)]);*/
-      AND_COMPL_HARD_REG_SET (web->usable_regs, never_use_colors);
-      prune_hardregs_for_mode (&web->usable_regs,
-			       PSEUDO_REGNO_MODE (web->regno));
-#ifdef CLASS_CANNOT_CHANGE_MODE
-      if (web->mode_changed)
-        AND_COMPL_HARD_REG_SET (web->usable_regs, reg_class_contents[
-			          (int) CLASS_CANNOT_CHANGE_MODE]);
-#endif
-      web->num_freedom = hard_regs_count (web->usable_regs);
-      web->num_freedom -= web->add_hardregs;
-      if (!web->num_freedom)
-	abort();
+      web->num_conflicts = 0;
+      web->add_hardregs = 0;
+      web->num_freedom = 0;
     }
-  COPY_HARD_REG_SET (web->orig_usable_regs, web->usable_regs);
 }
 
 /* Initializes WEBs members from REG or zero them.  */
@@ -1385,7 +1342,6 @@ add_subweb (web, reg)
   *w = *web;
   /* And initialize the private stuff.  */
   w->orig_x = reg;
-  w->add_hardregs = CLASS_MAX_NREGS (web->regclass, GET_MODE (reg)) - 1;
   w->num_conflicts = 0 * w->add_hardregs;
   w->num_defs = 0;
   w->num_uses = 0;
@@ -2311,87 +2267,6 @@ conflicts_between_webs (df)
 #endif
 }
 
-/* Remember that a web was spilled, and change some characteristics
-   accordingly.  */
-
-static void
-remember_web_was_spilled (web)
-     struct web *web;
-{
-  int i;
-  unsigned int found_size = 0;
-  int adjust;
-  web->spill_temp = 1;
-
-  /* From now on don't use reg_pref/alt_class (regno) anymore for
-     this web, but instead  usable_regs.  We can't use spill_temp for
-     this, as it might get reset later, when we are coalesced to a
-     non-spill-temp.  In that case we still want to use usable_regs.  */
-  web->use_my_regs = 1;
-
-  /* We don't constrain spill temporaries in any way for now.
-     It's wrong sometimes to have the same constraints or
-     preferences as the original pseudo, esp. if they were very narrow.
-     (E.g. there once was a reg wanting class AREG (only one register)
-     without alternative class.  As long, as also the spill-temps for
-     this pseudo had the same constraints it was spilled over and over.
-     Ideally we want some constraints also on spill-temps: Because they are
-     not only loaded/stored, but also worked with, any constraints from insn
-     alternatives needs applying.  Currently this is dealt with by reload, as
-     many other things, but at some time we want to integrate that
-     functionality into the allocator.  */
-  if (web->regno >= max_normal_pseudo)
-    {
-      COPY_HARD_REG_SET (web->usable_regs,
-			reg_class_contents[reg_preferred_class (web->regno)]);
-      IOR_HARD_REG_SET (web->usable_regs,
-			reg_class_contents[reg_alternate_class (web->regno)]);
-    }
-  else
-    COPY_HARD_REG_SET (web->usable_regs, reg_class_contents[(int) ALL_REGS]);
-  AND_COMPL_HARD_REG_SET (web->usable_regs, never_use_colors);
-  prune_hardregs_for_mode (&web->usable_regs, PSEUDO_REGNO_MODE (web->regno));
-#ifdef CLASS_CANNOT_CHANGE_MODE
-  if (web->mode_changed)
-    AND_COMPL_HARD_REG_SET (web->usable_regs, reg_class_contents[
-			      (int) CLASS_CANNOT_CHANGE_MODE]);
-#endif
-  web->num_freedom = hard_regs_count (web->usable_regs);
-  if (!web->num_freedom)
-    abort();
-  COPY_HARD_REG_SET (web->orig_usable_regs, web->usable_regs);
-  /* Now look for a class, which is subset of our constraints, to
-     setup add_hardregs, and regclass for debug output.  */
-  web->regclass = NO_REGS;
-  for (i = (int) ALL_REGS - 1; i > 0; i--)
-    {
-      unsigned int size;
-      HARD_REG_SET test;
-      COPY_HARD_REG_SET (test, reg_class_contents[i]);
-      AND_COMPL_HARD_REG_SET (test, never_use_colors);
-      GO_IF_HARD_REG_SUBSET (test, web->usable_regs, found);
-      continue;
-    found:
-      /* Measure the actual number of bits which really are overlapping
-	 the target regset, not just the reg_class_size.  */
-      size = hard_regs_count (test);
-      if (found_size < size)
-	{
-          web->regclass = (enum reg_class) i;
-	  found_size = size;
-	}
-    }
-
-  adjust = 0 * web->add_hardregs;
-  web->add_hardregs =
-    CLASS_MAX_NREGS (web->regclass, PSEUDO_REGNO_MODE (web->regno)) - 1;
-  web->num_freedom -= web->add_hardregs;
-  if (!web->num_freedom)
-    abort();
-  adjust -= 0 * web->add_hardregs;
-  web->num_conflicts -= adjust;
-}
-
 /* Look at each web, if it is used as spill web.  Or better said,
    if it will be spillable in this pass.  */
 
@@ -2407,9 +2282,7 @@ detect_spill_temps ()
       struct web *web = DLIST_WEB (d);
 
       /* Below only the detection of spill temporaries.  We never spill
-         precolored webs, so those can't be spill temporaries.  The code above
-         (remember_web_was_spilled) can't currently cope with hardregs
-         anyway.  */
+         precolored webs, so those can't be spill temporaries.  */
       if (web->regno < FIRST_PSEUDO_REGISTER)
 	continue;
       /* Uninitialized webs can't be spill-temporaries.  */
@@ -2450,7 +2323,8 @@ detect_spill_temps ()
 	      int num_deaths = web->span_deaths;
 	      /* Mark webs involving at least one spill insn as
 		 spill temps.  */
-	      remember_web_was_spilled (web);
+	      web->spill_temp = 1;
+	      web->use_my_regs = 1;
 	      /* Search for insns which define and use the web in question
 		 at the same time, i.e. look for rmw insns.  If these insns
 		 are also deaths of other webs they might have been counted
@@ -2744,6 +2618,116 @@ detect_webs_set_in_cond_jump ()
       }
 }
 
+/* Select preferred regclass and fill the following web fields:
+     regclass,
+     add_hardregs,
+     num_freedom,
+     num_conflicts.  */
+static void
+select_regclass ()
+{
+  struct dlist *d;
+  
+  for (d = WEBS(INITIAL); d; d = d->next)
+    {
+      int i;
+      struct web *w;
+      struct web *web = DLIST_WEB (d);
+      do
+	{
+	  unsigned int found_size = 0;
+
+	  if (web->regno < FIRST_PSEUDO_REGISTER)
+	    continue;
+
+	  if ((web->spill_temp == 1 || web->spill_temp == 2)
+	      && ! web->changed
+	      && web->type == INITIAL)
+	    {
+	      if (web->regno >= max_normal_pseudo)
+		{
+		  COPY_HARD_REG_SET (web->usable_regs,
+				     reg_class_contents
+				     [reg_preferred_class (web->regno)]);
+		  IOR_HARD_REG_SET (web->usable_regs,
+				    reg_class_contents
+				    [reg_alternate_class (web->regno)]);
+		}
+	      else
+		COPY_HARD_REG_SET (web->usable_regs,
+				   reg_class_contents[(int) ALL_REGS]);
+	    }
+	  else
+	    {
+	      web->regclass = reg_preferred_class (web->regno);
+	      if (web->regclass == NO_REGS)
+		abort ();
+	      COPY_HARD_REG_SET (web->usable_regs,
+				 reg_class_contents[web->regclass]);
+	      IOR_HARD_REG_SET (web->usable_regs,
+				reg_class_contents
+				[reg_alternate_class (web->regno)]);
+	    }
+      
+	  /* add_hardregs is wrong in multi-length classes, e.g.
+	     using a DFmode pseudo on x86 can result in class FLOAT_INT_REGS,
+	     where, if it finally is allocated to GENERAL_REGS it needs two,
+	     if allocated to FLOAT_REGS only one hardreg.  XXX */
+	  AND_COMPL_HARD_REG_SET (web->usable_regs, never_use_colors);
+	  prune_hardregs_for_mode (&web->usable_regs,
+				   PSEUDO_REGNO_MODE (web->regno));
+#ifdef CLASS_CANNOT_CHANGE_MODE
+	  if (web->mode_changed)
+	    AND_COMPL_HARD_REG_SET (web->usable_regs, reg_class_contents
+				    [(int) CLASS_CANNOT_CHANGE_MODE]);
+#endif
+
+	  if ((web->spill_temp == 1 || web->spill_temp == 2)
+	      && ! web->changed
+	      && web->type == INITIAL)
+	    {
+	      /* Now look for a class, which is subset of our constraints, to
+		 setup add_hardregs, and regclass for debug output.  */
+	      web->regclass = NO_REGS;
+	      for (i = (int) ALL_REGS - 1; i > 0; i--)
+		{
+		  unsigned int size;
+		  HARD_REG_SET test;
+		  COPY_HARD_REG_SET (test, reg_class_contents[i]);
+		  AND_COMPL_HARD_REG_SET (test, never_use_colors);
+		  GO_IF_HARD_REG_SUBSET (test, web->usable_regs, found);
+		  continue;
+		found:
+		  /* Measure the actual number of bits which really are
+		     overlapping the target regset, not just the
+		     reg_class_size.  */
+		  size = hard_regs_count (test);
+		  if (found_size < size)
+		    {
+		      web->regclass = (enum reg_class) i;
+		      found_size = size;
+		    }
+		}
+	    }
+
+	  web->add_hardregs
+	    = CLASS_MAX_NREGS (web->regclass,
+			       web->parent_web
+			       ? GET_MODE (web->orig_x)
+			       : PSEUDO_REGNO_MODE (web->regno)) - 1;
+	  
+	  web->num_conflicts = 0 * web->add_hardregs;
+	  web->num_freedom = hard_regs_count (web->usable_regs);
+	  web->num_freedom -= web->add_hardregs;
+	  if (!web->num_freedom)
+	    abort();
+
+	  COPY_HARD_REG_SET (web->orig_usable_regs, web->usable_regs);
+	}
+      while ((web = web->subreg_next));
+    }
+}  
+
 /* Second top-level function of this file.
    Converts the connected web parts to full webs.  This means, it allocates
    all webs, and initializes all fields, including detecting spill
@@ -2760,6 +2744,10 @@ make_webs (df)
   /* Now detect spill temporaries to initialize their usable_regs set.  */
   detect_spill_temps ();
   detect_webs_set_in_cond_jump ();
+  /* Select preferred regclass for each web and fill related fields of web
+     structure.  */
+  select_regclass ();
+
   /* And finally relate them to each other, meaning to record all possible
      conflicts between webs (see the comment there).  */
   conflicts_between_webs (df);

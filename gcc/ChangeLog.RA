@@ -1,3 +1,12 @@
+2002-07-25  Denis Chertykov  <denisc@overta.ru>
+
+	* ra-build.c (remember_web_was_spilled): Removed.
+	(init_one_web_common): Move initialization of regclass, add_hardregs,
+	num_conflicts fields of web to select_regclass.
+	(select_regclass): New function.
+	(detect_spill_temps): Remove call to remember_web_was_spilled.
+	(make_webs): Call select_regclass.
+
 2002-07-19  Denis Chertykov  <denisc@overta.ru>
 
 	* pre-reload.c : Substitute all emit_insns to emit_insn.
