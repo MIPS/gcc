@@ -1,3 +1,8 @@
+2004-06-10  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/plaf/BorderUIResource.java:
+	Added serialVersionUID all over.
+
 2004-06-10  Sascha Brawer  <brawer@dandelis.ch>
 
 	* javax/swing/undo/UndoManager.java: Re-written from scratch.
