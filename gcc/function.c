@@ -181,13 +181,13 @@ struct temp_slot GTY(())
   tree type;
   /* The value of `sequence_rtl_expr' when this temporary is allocated.  */
   tree rtl_expr;
-  /* Non-zero if this temporary is currently in use.  */
+  /* Nonzero if this temporary is currently in use.  */
   char in_use;
-  /* Non-zero if this temporary has its address taken.  */
+  /* Nonzero if this temporary has its address taken.  */
   char addr_taken;
   /* Nesting level at which this slot is being used.  */
   int level;
-  /* Non-zero if this should survive a call to free_temp_slots.  */
+  /* Nonzero if this should survive a call to free_temp_slots.  */
   int keep;
   /* The offset of the slot from the frame_pointer, including extra space
      for alignment.  This info is for combine_temp_slots.  */
@@ -798,7 +798,8 @@ assign_stack_temp_for_type (mode, size, keep, type)
   /* If a type is specified, set the relevant flags.  */
   if (type != 0)
     {
-      RTX_UNCHANGING_P (slot) = TYPE_READONLY (type);
+      RTX_UNCHANGING_P (slot) = (lang_hooks.honor_readonly 
+				 && TYPE_READONLY (type));
       MEM_VOLATILE_P (slot) = TYPE_VOLATILE (type);
       MEM_SET_IN_STRUCT_P (slot, AGGREGATE_TYPE_P (type));
     }
@@ -3281,10 +3282,10 @@ insns_for_mem_hash (k)
 {
   /* Use the address of the key for the hash value.  */
   struct insns_for_mem_entry *m = (struct insns_for_mem_entry *) k;
-  return (hashval_t) m->key;
+  return htab_hash_pointer (m->key);
 }
 
-/* Return non-zero if K1 and K2 (two REGs) are the same.  */
+/* Return nonzero if K1 and K2 (two REGs) are the same.  */
 
 static int
 insns_for_mem_comp (k1, k2)
@@ -3640,7 +3641,7 @@ instantiate_decls_1 (let, valid_only)
 /* Subroutine of the preceding procedures: Given RTL representing a
    decl and the size of the object, do any instantiation required.
 
-   If VALID_ONLY is non-zero, it means that the RTL should only be
+   If VALID_ONLY is nonzero, it means that the RTL should only be
    changed if the new address is valid.  */
 
 static void
@@ -5204,7 +5205,7 @@ promoted_input_arg (regno, pmode, punsignedp)
    The starting offset and size for this parm are returned in *OFFSET_PTR
    and *ARG_SIZE_PTR, respectively.
 
-   IN_REGS is non-zero if the argument will be passed in registers.  It will
+   IN_REGS is nonzero if the argument will be passed in registers.  It will
    never be set if REG_PARM_STACK_SPACE is not defined.
 
    FNDECL is the function in which the argument was defined.
@@ -6294,6 +6295,8 @@ prepare_function_start ()
   cfun->arc_profile = profile_arc_flag || flag_test_coverage;
 
   cfun->function_frequency = FUNCTION_FREQUENCY_NORMAL;
+
+  cfun->max_jumptable_ents = 0;
 
   (*lang_hooks.function.init) (cfun);
   if (init_machine_status)

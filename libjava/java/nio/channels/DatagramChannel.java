@@ -37,8 +37,14 @@ exception statement from your version. */
 
 package java.nio.channels;
 
-public class DatagramChannel
-{
-}
+import java.nio.channels.spi.AbstractSelectableChannel;
+import java.nio.channels.spi.SelectorProvider;
 
-	       
+public abstract class DatagramChannel
+  extends AbstractSelectableChannel
+{
+  public DatagramChannel (SelectorProvider provider)
+  {
+    super (provider);
+  }
+}

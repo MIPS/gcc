@@ -50,18 +50,17 @@ extern cpp_reader *parse_in;
 /* This structure contains information about the initializations
    and/or destructions required for a particular priority level.  */
 typedef struct priority_info_s {
-  /* Non-zero if there have been any initializations at this priority
+  /* Nonzero if there have been any initializations at this priority
      throughout the translation unit.  */
   int initializations_p;
-  /* Non-zero if there have been any destructions at this priority
+  /* Nonzero if there have been any destructions at this priority
      throughout the translation unit.  */
   int destructions_p;
 } *priority_info;
 
 static void mark_vtable_entries PARAMS ((tree));
 static void grok_function_init PARAMS ((tree, tree));
-static int finish_vtable_vardecl PARAMS ((tree *, void *));
-static int prune_vtable_vardecl PARAMS ((tree *, void *));
+static int maybe_emit_vtables (tree);
 static int is_namespace_ancestor PARAMS ((tree, tree));
 static void add_using_namespace PARAMS ((tree, tree, int));
 static tree ambiguous_decl PARAMS ((tree, tree, tree,int));
@@ -536,7 +535,7 @@ delete_sanity (exp, size, doing_vec, use_global_delete)
       return error_mark_node;
     }
 
-  /* Deleting ptr to void is undefined behaviour [expr.delete/3].  */
+  /* Deleting ptr to void is undefined behavior [expr.delete/3].  */
   if (TREE_CODE (TREE_TYPE (type)) == VOID_TYPE)
     {
       warning ("deleting `%T' is undefined", type);
@@ -916,7 +915,13 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
     /* friend or constructor went bad.  */
     return value;
   if (TREE_TYPE (value) == error_mark_node)
-    return error_mark_node;  
+    return error_mark_node;
+
+  if (TREE_CODE (value) == TYPE_DECL && init)
+    {
+      error ("typedef `%D' is initialized (use __typeof__ instead)", value);
+      init = NULL_TREE;
+    }
 
   /* Pass friendly classes back.  */
   if (TREE_CODE (value) == VOID_TYPE)
@@ -1382,26 +1387,31 @@ finish_anon_union (anon_union_decl)
       return;
     }
 
-  main_decl = build_anon_union_vars (anon_union_decl,
-				     &DECL_ANON_UNION_ELEMS (anon_union_decl),
-				     static_p, external_p);
-
-  if (main_decl == NULL_TREE)
+  if (!processing_template_decl)
     {
-      warning ("anonymous aggregate with no members");
-      return;
+      main_decl 
+	= build_anon_union_vars (anon_union_decl,
+				 &DECL_ANON_UNION_ELEMS (anon_union_decl),
+				 static_p, external_p);
+      
+      if (main_decl == NULL_TREE)
+	{
+	  warning ("anonymous aggregate with no members");
+	  return;
+	}
+
+      if (static_p)
+	{
+	  make_decl_rtl (main_decl, 0);
+	  COPY_DECL_RTL (main_decl, anon_union_decl);
+	  expand_anon_union_decl (anon_union_decl, 
+				  NULL_TREE,
+				  DECL_ANON_UNION_ELEMS (anon_union_decl));
+	  return;
+	}
     }
 
-  if (static_p)
-    {
-      make_decl_rtl (main_decl, 0);
-      COPY_DECL_RTL (main_decl, anon_union_decl);
-      expand_anon_union_decl (anon_union_decl, 
-			      NULL_TREE,
-			      DECL_ANON_UNION_ELEMS (anon_union_decl));
-    }
-  else
-    add_decl_stmt (anon_union_decl);
+  add_decl_stmt (anon_union_decl);
 }
 
 /* Finish processing a builtin type TYPE.  It's name is NAME,
@@ -1648,12 +1658,7 @@ key_method (type)
        method = TREE_CHAIN (method))
     if (DECL_VINDEX (method) != NULL_TREE
 	&& ! DECL_DECLARED_INLINE_P (method)
-	&& (! DECL_PURE_VIRTUAL_P (method)
-#if 0
-	    /* This would be nice, but we didn't think of it in time.  */
-	    || DECL_DESTRUCTOR_P (method)
-#endif
-	    ))
+	&& ! DECL_PURE_VIRTUAL_P (method))
       return method;
 
   return NULL_TREE;
@@ -1795,28 +1800,52 @@ output_vtable_inherit (vars)
   assemble_vtable_inherit (child_rtx, parent_rtx);
 }
 
-static int
-finish_vtable_vardecl (t, data)
-     tree *t;
-     void *data ATTRIBUTE_UNUSED;
-{
-  tree vars = *t;
-  tree ctype = DECL_CONTEXT (vars);
-  import_export_class (ctype);
-  import_export_vtable (vars, ctype, 1);
+/* If necessary, write out the vtables for the dynamic class CTYPE.
+   Returns non-zero if any vtables were emitted.  */
 
-  if (! DECL_EXTERNAL (vars)
-      && DECL_NEEDED_P (vars)
-      && ! TREE_ASM_WRITTEN (vars))
+static int
+maybe_emit_vtables (tree ctype)
+{
+  tree vtbl;
+  tree primary_vtbl;
+
+  /* If the vtables for this class have already been emitted there is
+     nothing more to do.  */
+  primary_vtbl = CLASSTYPE_VTABLES (ctype);
+  if (TREE_ASM_WRITTEN (primary_vtbl))
+    return 0;
+  /* Ignore dummy vtables made by get_vtable_decl.  */
+  if (TREE_TYPE (primary_vtbl) == void_type_node)
+    return 0;
+
+  import_export_class (ctype);
+  import_export_vtable (primary_vtbl, ctype, 1);
+
+  /* See if any of the vtables are needed.  */
+  for (vtbl = CLASSTYPE_VTABLES (ctype); vtbl; vtbl = TREE_CHAIN (vtbl))
+    if (!DECL_EXTERNAL (vtbl) && DECL_NEEDED_P (vtbl))
+      break;
+  
+  if (!vtbl)
     {
-      if (TREE_TYPE (vars) == void_type_node)
-        /* It is a dummy vtable made by get_vtable_decl. Ignore it.  */
-        return 0;
-      
+      /* If the references to this class' vtables are optimized away,
+	 still emit the appropriate debugging information.  See
+	 dfs_debug_mark.  */
+      if (DECL_COMDAT (primary_vtbl) 
+	  && CLASSTYPE_DEBUG_REQUESTED (ctype))
+	note_debug_info_needed (ctype);
+      return 0;
+    }
+
+  /* The ABI requires that we emit all of the vtables if we emit any
+     of them.  */
+  for (vtbl = CLASSTYPE_VTABLES (ctype); vtbl; vtbl = TREE_CHAIN (vtbl))
+    {
       /* Write it out.  */
-      mark_vtable_entries (vars);
-      if (TREE_TYPE (DECL_INITIAL (vars)) == 0)
-	store_init_value (vars, DECL_INITIAL (vars));
+      import_export_vtable (vtbl, ctype, 1);
+      mark_vtable_entries (vtbl);
+      if (TREE_TYPE (DECL_INITIAL (vtbl)) == 0)
+	store_init_value (vtbl, DECL_INITIAL (vtbl));
 
       if (write_symbols == DWARF_DEBUG || write_symbols == DWARF2_DEBUG)
 	{
@@ -1841,45 +1870,28 @@ finish_vtable_vardecl (t, data)
 	      `S' get written (which would solve the problem) but that would
 	      require more intrusive changes to the g++ front end.  */
 
-	  DECL_IGNORED_P (vars) = 1;
+	  DECL_IGNORED_P (vtbl) = 1;
 	}
 
       /* Always make vtables weak.  */
       if (flag_weak)
-	comdat_linkage (vars);
+	comdat_linkage (vtbl);
 
-      rest_of_decl_compilation (vars, NULL, 1, 1);
+      rest_of_decl_compilation (vtbl, NULL, 1, 1);
 
       if (flag_vtable_gc)
-	output_vtable_inherit (vars);
+	output_vtable_inherit (vtbl);
 
       /* Because we're only doing syntax-checking, we'll never end up
 	 actually marking the variable as written.  */
       if (flag_syntax_only)
-	TREE_ASM_WRITTEN (vars) = 1;
-
-      /* Since we're writing out the vtable here, also write the debug 
-	 info.  */
-      note_debug_info_needed (ctype);
-
-      return 1;
+	TREE_ASM_WRITTEN (vtbl) = 1;
     }
 
-  /* If the references to this class' vtables were optimized away, still
-     emit the appropriate debugging information.  See dfs_debug_mark.  */
-  if (DECL_COMDAT (vars)
-      && CLASSTYPE_DEBUG_REQUESTED (ctype))
-    note_debug_info_needed (ctype);
+  /* Since we're writing out the vtable here, also write the debug
+     info.  */
+  note_debug_info_needed (ctype);
 
-  return 0;
-}
-
-static int
-prune_vtable_vardecl (t, data)
-     tree *t;
-     void *data ATTRIBUTE_UNUSED;
-{
-  *t = TREE_CHAIN (*t);
   return 1;
 }
 
@@ -1950,7 +1962,7 @@ import_export_decl (decl)
 }
 
 /* Here, we only decide whether or not the tinfo node should be
-   emitted with the vtable.  IS_IN_LIBRARY is non-zero iff the
+   emitted with the vtable.  IS_IN_LIBRARY is nonzero iff the
    typeinfo for TYPE should be in the runtime library.  */
 
 void
@@ -2149,7 +2161,6 @@ start_objects (method_type, initp)
   else
     DECL_GLOBAL_DTOR_P (current_function_decl) = 1;
   DECL_LANG_SPECIFIC (current_function_decl)->decl_flags.u2sel = 1;
-  GLOBAL_INIT_PRIORITY (current_function_decl) = initp;
 
   body = begin_compound_stmt (/*has_no_scope=*/0);
 
@@ -2226,7 +2237,7 @@ static splay_tree priority_info_map;
    initialization and destruction of objects with static storage
    duration.  The function generated takes two parameters of type
    `int': __INITIALIZE_P and __PRIORITY.  If __INITIALIZE_P is
-   non-zero, it performs initializations.  Otherwise, it performs
+   nonzero, it performs initializations.  Otherwise, it performs
    destructions.  It only performs those initializations or
    destructions with the indicated __PRIORITY.  The generated function
    returns no value.  
@@ -2373,7 +2384,7 @@ get_priority_info (priority)
 }
 
 /* Set up to handle the initialization or destruction of DECL.  If
-   INITP is non-zero, we are initializing the variable.  Otherwise, we
+   INITP is nonzero, we are initializing the variable.  Otherwise, we
    are destroying it.  */
 
 static tree
@@ -2513,34 +2524,24 @@ finish_static_initialization_or_destruction (guard_if_stmt)
   DECL_STATIC_FUNCTION_P (current_function_decl) = 0;
 }
 
-/* Generate code to do the static initialization of DECL.  The
-   initialization is INIT.  If DECL may be initialized more than once
-   in different object files, GUARD is the guard variable to 
-   check.  PRIORITY is the priority for the initialization.  */
+/* Generate code to do the initialization of DECL, a VAR_DECL with
+   static storage duration.  The initialization is INIT.  */
 
 static void
 do_static_initialization (decl, init)
      tree decl;
      tree init;
 {
-  tree expr;
   tree guard_if_stmt;
 
   /* Set up for the initialization.  */
   guard_if_stmt
     = start_static_initialization_or_destruction (decl,
 						  /*initp=*/1);
-  
-  /* Do the initialization itself.  */
-  if (IS_AGGR_TYPE (TREE_TYPE (decl))
-      || TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
-    expr = build_aggr_init (decl, init, 0);
-  else
-    {
-      expr = build (INIT_EXPR, TREE_TYPE (decl), decl, init);
-      TREE_SIDE_EFFECTS (expr) = 1;
-    }
-  finish_expr_stmt (expr);
+
+  /* Perform the initialization.  */
+  if (init)
+    finish_expr_stmt (init);
 
   /* If we're using __cxa_atexit, register a a function that calls the
      destructor for the object.  */
@@ -2572,7 +2573,7 @@ do_static_destruction (decl)
 
   /* Actually do the destruction.  */
   guard_if_stmt = start_static_initialization_or_destruction (decl,
-							       /*initp=*/0);
+							      /*initp=*/0);
   finish_expr_stmt (build_cleanup (decl));
   finish_static_initialization_or_destruction (guard_if_stmt);
 }
@@ -2759,7 +2760,7 @@ finish_file ()
 
      All of these may cause others to be needed.  For example,
      instantiating one function may cause another to be needed, and
-     generating the intiailzer for an object may cause templates to be
+     generating the initializer for an object may cause templates to be
      instantiated, etc., etc.  */
 
   timevar_push (TV_VARCONST);
@@ -2768,6 +2769,8 @@ finish_file ()
   
   do 
     {
+      tree t;
+
       reconsider = 0;
 
       /* If there are templates that we've put off instantiating, do
@@ -2777,10 +2780,9 @@ finish_file ()
       /* Write out virtual tables as required.  Note that writing out
 	 the virtual table for a template class may cause the
 	 instantiation of members of that class.  */
-      if (walk_vtables (vtable_decl_p,
-			finish_vtable_vardecl,
-			/*data=*/0))
-	reconsider = 1;
+      for (t = dynamic_classes; t; t = TREE_CHAIN (t))
+	if (maybe_emit_vtables (TREE_VALUE (t)))
+	  reconsider = 1;
       
       /* Write out needed type info variables. Writing out one variable
          might cause others to be needed.  */
@@ -4002,7 +4004,7 @@ pop_scope (t)
 }
 
 /* [basic.lookup.koenig] */
-/* A non-zero return value in the functions below indicates an error.  */
+/* A nonzero return value in the functions below indicates an error.  */
 
 struct arg_lookup
 {
@@ -4745,7 +4747,7 @@ mark_used (decl)
    nonterminals. AGGR is the class, union or struct tag. SCOPE is the
    explicit scope used (NULL for no scope resolution). ID is the
    name. DEFN_P is true, if this is a definition of the class and
-   NEW_TYPE_P is set to non-zero, if we push into the scope containing
+   NEW_TYPE_P is set to nonzero, if we push into the scope containing
    the to be defined aggregate.
    
    Return a TYPE_DECL for the type declared by ID in SCOPE.  */

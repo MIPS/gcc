@@ -1296,7 +1296,7 @@ mcore_output_inline_const_forced (insn, operands, mode)
 
   /* Now, work our way backwards emitting the constant.  */
 
-  /* Emit the value that remains -- it will be non-zero.  */
+  /* Emit the value that remains -- it will be nonzero.  */
   operands[1] = GEN_INT (value);
   output_asm_insn (output_inline_const (SImode, operands), operands);
  
@@ -1729,7 +1729,7 @@ mcore_expand_insv (operands)
       return 1;
     }
 
-  /* Look at some bitfield placements that we aren't interested
+  /* Look at some bit-field placements that we aren't interested
      in handling ourselves, unless specifically directed to do so.  */
   if (! TARGET_W_FIELD)
     return 0;		/* Generally, give up about now.  */
@@ -3268,7 +3268,7 @@ mcore_function_arg_partial_nregs (cum, mode, type, named)
   return reg;
 }
 
-/* Return non-zero if SYMBOL is marked as being dllexport'd.  */
+/* Return nonzero if SYMBOL is marked as being dllexport'd.  */
 int
 mcore_dllexport_name_p (symbol)
      const char * symbol;
@@ -3276,7 +3276,7 @@ mcore_dllexport_name_p (symbol)
   return symbol[0] == '@' && symbol[1] == 'e' && symbol[2] == '.';
 }
 
-/* Return non-zero if SYMBOL is marked as being dllimport'd.  */
+/* Return nonzero if SYMBOL is marked as being dllimport'd.  */
 int
 mcore_dllimport_name_p (symbol)
      const char * symbol;

@@ -222,7 +222,7 @@ enum emit_where
 /* The block we're currently working on.  */
 static basic_block current_block;
 
-/* This is the register file for all register after conversion */
+/* This is the register file for all register after conversion.  */
 static rtx
   FP_mode_reg[LAST_STACK_REG+1-FIRST_STACK_REG][(int) MAX_MACHINE_MODE];
 
@@ -268,7 +268,7 @@ static rtx next_flags_user 		PARAMS ((rtx));
 static void record_label_references	PARAMS ((rtx, rtx));
 static bool compensate_edge		PARAMS ((edge, FILE *));
 
-/* Return non-zero if any stack register is mentioned somewhere within PAT.  */
+/* Return nonzero if any stack register is mentioned somewhere within PAT.  */
 
 static int
 stack_regs_mentioned_p (pat)
@@ -379,7 +379,7 @@ straighten_stack (insn, regstack)
   change_stack (insn, regstack, &temp_stack, EMIT_AFTER);
 }
 
-/* Pop a register from the stack */
+/* Pop a register from the stack.  */
 
 static void
 pop_stack (regstack, regno)
@@ -390,7 +390,7 @@ pop_stack (regstack, regno)
 
   CLEAR_HARD_REG_BIT (regstack->reg_set, regno);
   regstack->top--;
-  /* If regno was not at the top of stack then adjust stack */
+  /* If regno was not at the top of stack then adjust stack.  */
   if (regstack->reg [top] != regno)
     {
       int i;
@@ -1125,7 +1125,7 @@ move_for_stack_reg (insn, regstack, pat)
 	  return;
 	}
 
-      /* The destination ought to be dead */
+      /* The destination ought to be dead.  */
       if (get_hard_regnum (regstack, dest) >= FIRST_STACK_REG)
 	abort ();
 
@@ -1181,7 +1181,7 @@ move_for_stack_reg (insn, regstack, pat)
 	 stack. The stack mapping is changed to reflect that DEST is
 	 now at top of stack.  */
 
-      /* The destination ought to be dead */
+      /* The destination ought to be dead.  */
       if (get_hard_regnum (regstack, dest) >= FIRST_STACK_REG)
 	abort ();
 

@@ -9,12 +9,16 @@
 #     for example the comparison insn takes 0.0 as an operand, the
 #     combiner is able to see all intermediate instructions simultaneously
 #     and can make the optimization.
-if { [istarget "powerpc-*-*"] || [istarget "rs6000-*-*"] \
-     || [istarget "mips*-*-*"] || [istarget "xtensa-*-*"] \
-     || [istarget "sh-*-*"] || [istarget "mmix-*-*"] \
-     || [istarget "arm*-*-*"] || [istarget "strongarm*-*-*"] \
-     || [istarget "xscale*-*-*"] } {
-    return 1
+
+# Don't XFAIL at -O0, that should never fail.
+set torture_eval_before_compile {
+    global compiler_conditional_xfail_data
+    set compiler_conditional_xfail_data {
+        "This test fails to optimize completely on certain platforms." \
+        { "xtensa-*-*" "sh-*-*" "arm*-*-*" "strongarm*-*-*" "xscale*-*-*" "h8300*-*-*" } \
+        { "*" } \
+        { "-O0" }
+    }
 }
 
 return 0

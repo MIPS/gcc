@@ -367,6 +367,7 @@ case $machine in
 	case x${enable_threads} in
 	xyes | xposix)
 		thread_file='posix'
+		tm_defines="${tm_defines} NETBSD_ENABLE_PTHREADS"
 		;;
 	esac
 	;;
@@ -871,6 +872,10 @@ hppa*64*-*-hpux11*)
 	xmake_file="pa/x-ada"
 	target_cpu_default="(MASK_PA_11|MASK_PA_20|MASK_GAS)"
 
+	if test x$gnu_ld = xyes
+	then
+		target_cpu_default="${target_cpu_default}|MASK_GNU_LD"
+	fi
 #	if [ x$enable_threads = x ]; then
 #	    enable_threads=$have_pthread_h
 #	fi
@@ -980,12 +985,12 @@ i370-*-linux*)
 i[34567]86-*-darwin*)
 	tm_file="${tm_file} darwin.h i386/darwin.h"
 	tm_p_file="${tm_p_file} darwin-protos.h"
-	tmake_file=i386/t-darwin
+	tmake_file="t-darwin"
 	extra_objs="darwin.o"
 	target_gtfiles="\$(srcdir)/config/darwin.c"
 	c_target_objs="darwin-c.o"
 	cxx_target_objs="darwin-c.o"
-	extra_parts="crtbegin.o crtend.o"
+	extra_parts="crt2.o"
 	# Darwin linker does collect2 functionality
 	use_collect2=no
 	;;
@@ -1855,7 +1860,7 @@ mips64-*-elf* | mips64el-*-elf*)
 	;;
 mips64vr-*-elf* | mips64vrel-*-elf*)
         tm_file="mips/vr.h ${tm_file} mips/elf64.h"
-        tm_defines="MIPS_ABI_DEFAULT=ABI_O64"
+        tm_defines="MIPS_ABI_DEFAULT=ABI_O64 MIPS_MARCH_CONTROLS_SOFT_FLOAT=1"
         tmake_file=mips/t-vr
         ;;
 mips64orion-*-elf* | mips64orionel-*-elf*)
@@ -1949,12 +1954,12 @@ powerpc-*-beos*)
 powerpc-*-darwin*)
 	tm_file="${tm_file} darwin.h rs6000/darwin.h"
 	tm_p_file="${tm_p_file} darwin-protos.h"
-	tmake_file="rs6000/t-fprules rs6000/t-darwin"
+	tmake_file="rs6000/t-fprules t-darwin rs6000/t-darwin"
 	extra_objs="darwin.o"
 	target_gtfiles="\$(srcdir)/config/darwin.c"
 	c_target_objs="darwin-c.o"
 	cxx_target_objs="darwin-c.o"
-	extra_parts="crtbegin.o crtend.o"
+	extra_parts="crt2.o"
 	# Darwin linker does collect2 functionality
 	use_collect2=no
 	extra_headers=altivec.h
@@ -2120,10 +2125,18 @@ rs6000-ibm-aix4.[3456789]* | powerpc-ibm-aix4.[3456789]*)
 	thread_file='aix'
 	extra_headers=
 	;;
-rs6000-ibm-aix[56789].* | powerpc-ibm-aix[56789].*)
+rs6000-ibm-aix5.1.* | powerpc-ibm-aix5.1.*)
 	xm_defines=POSIX
 	tm_file="${tm_file} rs6000/aix.h rs6000/aix51.h rs6000/xcoff.h"
 	tmake_file=rs6000/t-aix43
+	use_collect2=yes
+	thread_file='aix'
+	extra_headers=
+	;;
+rs6000-ibm-aix[56789].* | powerpc-ibm-aix[56789].*)
+	xm_defines=POSIX
+	tm_file="${tm_file} rs6000/aix.h rs6000/aix52.h rs6000/xcoff.h"
+	tmake_file=rs6000/t-aix52
 	use_collect2=yes
 	thread_file='aix'
 	extra_headers=
@@ -2150,7 +2163,7 @@ rs6000-*-lynxos*)
 	;;
 s390-*-linux*)
 	tm_file="s390/s390.h dbxelf.h elfos.h svr4.h linux.h s390/linux.h"
-	tmake_file="t-slibgcc-elf-ver t-linux s390/t-linux"
+	tmake_file="t-slibgcc-elf-ver t-linux"
 	;;
 s390x-*-linux*)
 	tm_file="s390/s390x.h s390/s390.h dbxelf.h elfos.h svr4.h linux.h s390/linux.h"
@@ -2158,7 +2171,7 @@ s390x-*-linux*)
 	md_file=s390/s390.md
 	extra_modes=s390/s390-modes.def
 	out_file=s390/s390.c
-	tmake_file="t-slibgcc-elf-ver t-linux s390/t-linux s390/t-linux64"
+	tmake_file="t-slibgcc-elf-ver t-linux s390/t-linux64"
 	;;
 sh-*-elf* | sh[2346l]*-*-elf*)
 	tmake_file="sh/t-sh sh/t-elf"
@@ -2601,7 +2614,8 @@ vax-*-sysv*)			# VAXen running system V
 	xm_defines=POSIX
 	;;
 vax-*-netbsdelf*)
-	echo "GCC does not yet support the ${machine} target"; exit 1
+	tm_file="${tm_file} elfos.h netbsd.h netbsd-elf.h vax/elf.h vax/netbsd-elf.h"
+	float_format=vax
 	;;
 vax-*-netbsd*)
 	tm_file="${tm_file} netbsd.h netbsd-aout.h vax/netbsd.h"
@@ -2819,6 +2833,11 @@ mips*-*-*)
 			tm_defines="TARGET_ENDIAN_DEFAULT=0 $tm_defines"
 			;;
 	esac
+	case $tm_file in
+		*mips/elf.h* | *mips/elf64.h*)
+			tm_defines="OBJECT_FORMAT_ELF $tm_defines"
+			;;
+	esac
 	if test "x$enable_gofast" = xyes
 	then
 		tm_defines="INIT_SUBTARGET_OPTABS=INIT_GOFAST_OPTABS $tm_defines"
@@ -2887,7 +2906,7 @@ v850*-*-*)
 	case "x$with_cpu" in
 		x)
 			;;
-		v850e)
+		xv850e)
 			target_cpu_default2="TARGET_CPU_$with_cpu"
 			;;
 		*)

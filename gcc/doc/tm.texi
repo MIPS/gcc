@@ -163,6 +163,23 @@ multilibs.  Example nonsensical definition, where @code{-malt-abi},
 @{ "-compat", "-EB -malign=4 -mspoo" @}
 @end smallexample
 
+@findex DRIVER_SELF_SPECS
+@item DRIVER_SELF_SPECS
+A list of specs for the driver itself.  It should be a suitable
+initializer for an array of strings, with no surrounding braces.
+
+The driver applies these specs to its own command line before choosing
+the multilib directory or running any subcommands.  It applies them in
+the order given, so each spec can depend on the options added by
+earlier ones.  It is also possible to remove options using
+@samp{%<@var{option}} in the usual way.
+
+This macro can be useful when a port has several interdependent target
+options.  It provides a way of standardizing the command line so
+that the other specs are easier to write.
+
+Do not define this macro if it does not need to do anything.
+
 @findex CPP_SPEC
 @item CPP_SPEC
 A C string constant that tells the GCC driver program options to
@@ -615,7 +632,9 @@ or @code{clk_objective_c}.  Note that if we are preprocessing
 assembler, this variable will be @code{clk_c} but the function-like
 macro @code{preprocessing_asm_p()} will return true, so you might want
 to check for that first.  If you need to check for strict ANSI, the
-variable @code{flag_iso} can be used.
+variable @code{flag_iso} can be used.  The function-like macro
+@code{preprocessing_trad_p()} can be used to check for traditional
+preprocessing.
 
 With @code{TARGET_OS_CPP_BUILTINS} this macro obsoletes the
 @code{CPP_PREDEFINES} target macro.
@@ -1427,7 +1446,7 @@ alignment of the underlying types of itself and of the previous
 bit-field; (ii) a zero-sized bit-field will affect the alignment of
 the whole enclosing structure, even if it is unnamed; except that
 (iii) a zero-sized bit-field will be disregarded unless it follows
-another bit-field of non-zero size.  If this hook returns @code{true},
+another bit-field of nonzero size.  If this hook returns @code{true},
 other macros that control bit-field layout are ignored.
 
 When a bit-field is inserted into a packed record, the whole size
@@ -1529,13 +1548,6 @@ target machine.  If this is undefined, the default is
 @code{LONG_DOUBLE_TYPE_SIZE}.  Otherwise, it is the constant value that is
 the largest value that @code{LONG_DOUBLE_TYPE_SIZE} can have at run-time.
 This is used in @code{cpp}.
-
-@findex INTEL_EXTENDED_IEEE_FORMAT
-@item INTEL_EXTENDED_IEEE_FORMAT
-Define this macro to be 1 if the target machine uses 80-bit floating-point
-values with 128-bit size and alignment.  This is used in @file{real.c}.
-This also distinguishes the Intel 80-bit floating-point format from the
-Motorola 96-bit floating-point format.
 
 @findex TARGET_FLT_EVAL_METHOD
 @item TARGET_FLT_EVAL_METHOD
@@ -2549,25 +2561,22 @@ should be the maximum value of @code{HARD_REGNO_NREGS (@var{regno},
 This macro helps control the handling of multiple-word values
 in the reload pass.
 
-@item CLASS_CANNOT_CHANGE_MODE
-If defined, a C expression for a class that contains registers for
-which the compiler may not change modes arbitrarily.
-
-@item CLASS_CANNOT_CHANGE_MODE_P(@var{from}, @var{to})
-A C expression that is true if, for a register in
-@code{CLASS_CANNOT_CHANGE_MODE}, the requested mode punning is invalid.
+@item CANNOT_CHANGE_MODE_CLASS(@var{from}, @var{to})
+If defined, a C expression that returns a register class for which
+a change from mode @var{from} to mode @var{to} is invalid, otherwise the
+macro returns @code{NO_REGS}.
 
 For the example, loading 32-bit integer or floating-point objects into
 floating-point registers on the Alpha extends them to 64 bits.
 Therefore loading a 64-bit object and then storing it as a 32-bit object
 does not store the low-order 32 bits, as would be the case for a normal
-register.  Therefore, @file{alpha.h} defines @code{CLASS_CANNOT_CHANGE_MODE}
-as @code{FLOAT_REGS} and @code{CLASS_CANNOT_CHANGE_MODE_P} restricts
-mode changes to same-size modes.
+register.  Therefore, @file{alpha.h} defines @code{CANNOT_CHANGE_MODE_CLASS}
+as below:
 
-Compare this to IA-64, which extends floating-point values to 82-bits,
-and stores 64-bit integers in a different format than 64-bit doubles.
-Therefore @code{CLASS_CANNOT_CHANGE_MODE_P} is always true.
+@example
+#define CANNOT_CHANGE_MODE_CLASS \
+  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO) ? FLOAT_REGS : NO_REGS)
+@end example
 @end table
 
 Three other special macros describe which operands fit which constraint
@@ -4139,9 +4148,11 @@ outputting the insns in this list, usually by calling
 You need not define this macro if you did not define
 @code{DELAY_SLOTS_FOR_EPILOGUE}.
 
-@findex ASM_OUTPUT_MI_THUNK
-@item ASM_OUTPUT_MI_THUNK (@var{file}, @var{thunk_fndecl}, @var{delta}, @var{function})
-A C compound statement that outputs the assembler code for a thunk
+@end table
+
+@findex TARGET_ASM_OUTPUT_MI_THUNK
+@deftypefn {Target Hook} void TARGET_ASM_OUTPUT_MI_THUNK (FILE *@var{file}, tree @var{thunk_fndecl}, HOST_WIDE_INT @var{delta}, tree @var{function})
+A function that outputs the assembler code for a thunk
 function, used to implement C++ virtual function calls with multiple
 inheritance.  The thunk acts as a wrapper around a virtual function,
 adjusting the implicit object parameter before handing control off to
@@ -4172,7 +4183,24 @@ If you do not define this macro, the target-independent code in the C++
 front end will generate a less efficient heavyweight thunk that calls
 @var{function} instead of jumping to it.  The generic approach does
 not support varargs.
-@end table
+@end deftypefn
+
+@findex TARGET_ASM_OUTPUT_MI_VCALL_THUNK
+@deftypefn {Target Hook} void TARGET_ASM_OUTPUT_MI_VCALL_THUNK (FILE *@var{file}, tree @var{thunk_fndecl}, HOST_WIDE_INT @var{delta}, int @var{vcall_offset}, tree @var{function})
+A function like @code{TARGET_ASM_OUTPUT_MI_THUNK}, except that if
+@var{vcall_offset} is non-zero, an additional adjustment should be made
+after adding @code{delta}.  In particular, if @var{p} is the
+adjusted pointer, the following adjustment should be made:
+
+@example
+p += (*((ptrdiff_t **)p))[vcall_offset/sizeof(ptrdiff_t)]
+@end example
+
+@noindent
+If this function is defined, it will always be used in place of
+@code{TARGET_ASM_OUTPUT_MI_THUNK}.
+
+@end deftypefn
 
 @node Profiling
 @subsection Generating Code for Profiling
@@ -6314,17 +6342,6 @@ host machine.
 The array element values are designed so that you can print them out
 using @code{fprintf} in the order they should appear in the target
 machine's memory.
-
-@item REAL_VALUE_TO_DECIMAL (@var{x}, @var{string}, @var{digits})
-@findex REAL_VALUE_TO_DECIMAL
-This macro converts @var{x}, of type @code{REAL_VALUE_TYPE}, to a
-decimal number and stores it as a string into @var{string}.
-You must pass, as @var{string}, the address of a long enough block
-of space to hold the result.
-
-The argument @var{digits} is the number of decimal digits to print,
-or @minus{}1 to indicate ``enough'', i.e. @code{DECIMAL_DIG} for
-for the target.
 @end table
 
 @node Uninitialized Data

@@ -327,7 +327,7 @@ extern bool default_assemble_integer	PARAMS ((rtx, unsigned int, int));
 
 /* Assemble the integer constant X into an object of SIZE bytes.  ALIGN is
    the alignment of the integer in bits.  Return 1 if we were able to output
-   the constant, otherwise 0.  If FORCE is non-zero, abort if we can't output
+   the constant, otherwise 0.  If FORCE is nonzero, abort if we can't output
    the constant.  */
 extern bool assemble_integer		PARAMS ((rtx, unsigned, unsigned, int));
 
@@ -485,7 +485,8 @@ extern void no_asm_to_stream PARAMS ((FILE *));
 					   embedded zeros */
 #define SECTION_OVERRIDE 0x20000	/* allow override of default flags */
 #define SECTION_TLS	 0x40000	/* contains thread-local storage */
-#define SECTION_MACH_DEP 0x80000	/* subsequent bits reserved for target */
+#define SECTION_NOTYPE	 0x80000	/* don't output @progbits */
+#define SECTION_MACH_DEP 0x100000	/* subsequent bits reserved for target */
 
 extern unsigned int get_named_section_flags PARAMS ((const char *));
 extern bool set_named_section_flags	PARAMS ((const char *, unsigned int));

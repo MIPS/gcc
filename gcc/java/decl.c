@@ -1,6 +1,6 @@
 /* Process declarations and variables for the GNU compiler for the
    Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -57,7 +57,7 @@ static tree check_local_named_variable PARAMS ((tree, tree, int, int *));
 static tree check_local_unnamed_variable PARAMS ((tree, tree, tree));
 static void dump_function PARAMS ((enum tree_dump_index, tree));
 
-/* Set to non-zero value in order to emit class initilization code
+/* Set to nonzero value in order to emit class initilization code
    before static field references.  */
 extern int always_initialize_class_p;
 
@@ -453,6 +453,20 @@ java_init_decl_processing ()
   integer_two_node = build_int_2 (2, 0);
   integer_four_node = build_int_2 (4, 0);
   integer_minus_one_node = build_int_2 (-1, -1);
+
+  /* A few values used for range checking in the lexer.  */
+  decimal_int_max = build_int_2 (0x80000000, 0);
+  TREE_TYPE (decimal_int_max) = unsigned_int_type_node;
+#if HOST_BITS_PER_WIDE_INT == 64
+  decimal_long_max = build_int_2 (0x8000000000000000, 0);
+#else
+#if HOST_BITS_PER_WIDE_INT == 32
+  decimal_long_max = build_int_2 (0, 0x80000000);
+#else
+ #error "unsupported size"
+#endif
+#endif
+  TREE_TYPE (decimal_long_max) = unsigned_long_type_node;
 
   size_zero_node = size_int (0);
   size_one_node = size_int (1);

@@ -101,6 +101,7 @@ static tree convert_class_to_reference PARAMS ((tree, tree, tree));
 static tree direct_reference_binding PARAMS ((tree, tree));
 static int promoted_arithmetic_type_p PARAMS ((tree));
 static tree conditional_conversion PARAMS ((tree, tree));
+static tree call_builtin_trap PARAMS ((void));
 
 tree
 build_vfield_ref (datum, type)
@@ -380,7 +381,7 @@ build_call (function, parms)
   nothrow = ((decl && TREE_NOTHROW (decl))
 	     || TYPE_NOTHROW_P (TREE_TYPE (TREE_TYPE (function))));
 
-  if (decl && TREE_THIS_VOLATILE (decl))
+  if (decl && TREE_THIS_VOLATILE (decl) && cfun)
     current_function_returns_abnormally = 1;
 
   if (decl && TREE_DEPRECATED (decl))
@@ -647,7 +648,7 @@ null_ptr_cst_p (t)
 }
 
 
-/* Returns non-zero if PARMLIST consists of only default parms and/or
+/* Returns nonzero if PARMLIST consists of only default parms and/or
    ellipsis.  */
 
 int
@@ -938,7 +939,7 @@ standard_conversion (to, from, expr)
   return conv;
 }
 
-/* Returns non-zero if T1 is reference-related to T2.  */
+/* Returns nonzero if T1 is reference-related to T2.  */
 
 static int
 reference_related_p (t1, t2)
@@ -958,7 +959,7 @@ reference_related_p (t1, t2)
 	      && DERIVED_FROM_P (t1, t2)));
 }
 
-/* Returns non-zero if T1 is reference-compatible with T2.  */
+/* Returns nonzero if T1 is reference-compatible with T2.  */
 
 static int
 reference_compatible_p (t1, t2)
@@ -1623,7 +1624,7 @@ is_complete (t)
   return COMPLETE_TYPE_P (complete_type (t));
 }
 
-/* Returns non-zero if TYPE is a promoted arithmetic type.  */
+/* Returns nonzero if TYPE is a promoted arithmetic type.  */
 
 static int
 promoted_arithmetic_type_p (type)
@@ -3874,7 +3875,7 @@ enforce_access (basetype_path, decl)
 
 /* Perform the conversions in CONVS on the expression EXPR. 
    FN and ARGNUM are used for diagnostics.  ARGNUM is zero based, -1
-   indicates the `this' argument of a method.  INNER is non-zero when
+   indicates the `this' argument of a method.  INNER is nonzero when
    being called to continue a conversion chain. It is negative when a
    reference binding will be applied, positive otherwise.  */
 
@@ -4097,6 +4098,22 @@ convert_like_real (convs, expr, fn, argnum, inner)
 		      LOOKUP_NORMAL|LOOKUP_NO_CONVERSION);
 }
 
+/* Build a call to __builtin_trap which can be used in an expression.  */
+
+static tree
+call_builtin_trap ()
+{
+  tree fn = get_identifier ("__builtin_trap");
+  if (IDENTIFIER_GLOBAL_VALUE (fn))
+    fn = IDENTIFIER_GLOBAL_VALUE (fn);
+  else
+    abort ();
+
+  fn = build_call (fn, NULL_TREE);
+  fn = build (COMPOUND_EXPR, integer_type_node, fn, integer_zero_node);
+  return fn;
+}
+
 /* ARG is being passed to a varargs function.  Perform any conversions
    required.  Array/function to pointer decay must have already happened.
    Return the converted value.  */
@@ -4118,12 +4135,13 @@ convert_arg_to_ellipsis (arg)
   
   if (arg != error_mark_node && ! pod_type_p (TREE_TYPE (arg)))
     {
-      /* Undefined behaviour [expr.call] 5.2.2/7.  We used to just warn
+      /* Undefined behavior [expr.call] 5.2.2/7.  We used to just warn
 	 here and do a bitwise copy, but now cp_expr_size will abort if we
 	 try to do that.  */
-      error ("cannot pass objects of non-POD type `%#T' through `...'",
-	     TREE_TYPE (arg));
-      arg = error_mark_node;
+      warning ("cannot pass objects of non-POD type `%#T' through `...'; \
+call will abort at runtime",
+	       TREE_TYPE (arg));
+      arg = call_builtin_trap ();
     }
 
   return arg;
@@ -4146,7 +4164,7 @@ build_x_va_arg (expr, type)
   
   if (! pod_type_p (type))
     {
-      /* Undefined behaviour [expr.call] 5.2.2/7.  */
+      /* Undefined behavior [expr.call] 5.2.2/7.  */
       warning ("cannot receive objects of non-POD type `%#T' through `...'",
 		  type);
     }
@@ -4259,7 +4277,10 @@ convert_for_arg_passing (type, val)
 {
   /* Pass classes with copy ctors by invisible reference.  */
   if (TREE_ADDRESSABLE (type))
-    val = build1 (ADDR_EXPR, build_reference_type (type), val);
+    {
+      val = build1 (ADDR_EXPR, build_reference_type (type), val);
+      ADDR_IS_INVISIREF (val) = 1;
+    }
   else if (PROMOTE_PROTOTYPES
 	   && INTEGRAL_TYPE_P (type)
 	   && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
@@ -4277,7 +4298,11 @@ cp_convert_parm_for_inlining (parm, value, fn)
   /* When inlining, we don't need to mess with invisible references, so
      undo the ADDR_EXPR.  */
   if (TREE_ADDRESSABLE (TREE_TYPE (parm)))
-    value = build_indirect_ref (value, NULL);
+    {
+      value = TREE_OPERAND (value, 0);
+      if (TREE_CODE (value) != TARGET_EXPR)
+	abort ();
+    }
   return value;
 }
 
@@ -4489,7 +4514,7 @@ build_over_call (cand, args, flags)
     {
       tree t, *p = &TREE_VALUE (converted_args);
       tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (*p)),
-				DECL_VIRTUAL_CONTEXT (fn),
+				DECL_CONTEXT (fn),
 				ba_any, NULL);
       my_friendly_assert (binfo && binfo != error_mark_node, 20010730);
       
@@ -4687,7 +4712,7 @@ build_special_member_call (tree instance, tree name, tree args,
       /* If the current function is a complete object constructor
 	 or destructor, then we fetch the VTT directly.
 	 Otherwise, we look it up using the VTT we were given.  */
-      vtt = IDENTIFIER_GLOBAL_VALUE (get_vtt_name (current_class_type));
+      vtt = TREE_CHAIN (CLASSTYPE_VTABLES (current_class_type));
       vtt = decay_conversion (vtt);
       vtt = build (COND_EXPR, TREE_TYPE (vtt),
 		   build (EQ_EXPR, boolean_type_node,
@@ -4906,7 +4931,7 @@ build_new_method_call (tree instance, tree fns, tree args,
   return call;
 }
 
-/* Returns non-zero iff standard conversion sequence ICS1 is a proper
+/* Returns nonzero iff standard conversion sequence ICS1 is a proper
    subsequence of ICS2.  */
 
 static int
@@ -4946,7 +4971,7 @@ is_subseq (ics1, ics2)
     }
 }
 
-/* Returns non-zero iff DERIVED is derived from BASE.  The inputs may
+/* Returns nonzero iff DERIVED is derived from BASE.  The inputs may
    be any _TYPE nodes.  */
 
 int
@@ -5044,7 +5069,7 @@ compare_ics (ics1, ics2)
   tree deref_to_type2 = NULL_TREE;
   int rank1, rank2;
 
-  /* REF_BINDING is non-zero if the result of the conversion sequence
+  /* REF_BINDING is nonzero if the result of the conversion sequence
      is a reference type.   In that case TARGET_TYPE is the
      type referred to by the reference.  */
   tree target_type1;
@@ -5743,7 +5768,7 @@ tourney (candidates)
   return champ;
 }
 
-/* Returns non-zero if things of type FROM can be converted to TO.  */
+/* Returns nonzero if things of type FROM can be converted to TO.  */
 
 int
 can_convert (to, from)
@@ -5752,7 +5777,7 @@ can_convert (to, from)
   return can_convert_arg (to, from, NULL_TREE);
 }
 
-/* Returns non-zero if ARG (of type FROM) can be converted to TO.  */
+/* Returns nonzero if ARG (of type FROM) can be converted to TO.  */
 
 int
 can_convert_arg (to, from, arg)

@@ -3759,6 +3759,23 @@ build_c_cast (type, expr)
 	  && !TREE_CONSTANT (value))
 	warning ("cast to pointer from integer of different size");
 
+      if (TREE_CODE (type) == POINTER_TYPE
+	  && TREE_CODE (otype) == POINTER_TYPE
+	  && TREE_CODE (expr) == ADDR_EXPR
+	  && DECL_P (TREE_OPERAND (expr, 0))
+	  && flag_strict_aliasing && warn_strict_aliasing
+	  && !VOID_TYPE_P (TREE_TYPE (type)))
+	{
+ 	  /* Casting the address of a decl to non void pointer. Warn
+	     if the cast breaks type based aliasing.  */
+	  if (!COMPLETE_TYPE_P (TREE_TYPE (type)))
+	    warning ("type-punning to incomplete type might break strict-aliasing rules");
+	  else if (!alias_sets_conflict_p
+		   (get_alias_set (TREE_TYPE (TREE_OPERAND (expr, 0))),
+		    get_alias_set (TREE_TYPE (type))))
+	    warning ("dereferencing type-punned pointer will break strict-aliasing rules");
+	}
+      
       ovalue = value;
       value = convert (type, value);
 
@@ -4292,7 +4309,8 @@ c_convert_parm_for_inlining (parm, value, fn)
 
 /* Print a warning using MSGID.
    It gets OPNAME as its one parameter.
-   If OPNAME is null, it is replaced by "passing arg ARGNUM of `FUNCTION'".
+   if OPNAME is null and ARGNUM is 0, it is replaced by "passing arg of `FUNCTION'".
+   Otherwise if OPNAME is null, it is replaced by "passing arg ARGNUM of `FUNCTION'".
    FUNCTION and ARGNUM are handled specially if we are building an
    Objective-C selector.  */
 
@@ -4313,7 +4331,27 @@ warn_for_assignment (msgid, opname, function, argnum)
 	  function = selector;
 	  argnum -= 2;
 	}
-      if (function)
+      if (argnum == 0)
+	{
+	  if (function)
+	    {	    
+	      /* Function name is known; supply it.  */
+	      const char *const argstring = _("passing arg of `%s'");
+	      new_opname = (char *) alloca (IDENTIFIER_LENGTH (function)
+					    + strlen (argstring) + 1
+					    + 1);
+	      sprintf (new_opname, argstring,
+		       IDENTIFIER_POINTER (function));
+	    }
+	  else
+	    {
+	      /* Function name unknown (call through ptr).  */
+	      const char *const argnofun = _("passing arg of pointer to function");
+	      new_opname = (char *) alloca (strlen (argnofun) + 1 + 1);
+	      sprintf (new_opname, argnofun);
+	    }
+	}
+      else if (function)
 	{
 	  /* Function name is known; supply it.  */
 	  const char *const argstring = _("passing arg %d of `%s'");
@@ -5555,7 +5593,7 @@ pop_init_level (implicit)
 }
 
 /* Common handling for both array range and field name designators.
-   ARRAY argument is non-zero for array ranges.  Returns zero for success.  */
+   ARRAY argument is nonzero for array ranges.  Returns zero for success.  */
 
 static int
 set_designator (array)
@@ -6919,7 +6957,11 @@ c_expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 
   /* Record the contents of OUTPUTS before it is modified.  */
   for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
-    o[i] = TREE_VALUE (tail);
+    {
+      o[i] = TREE_VALUE (tail);
+      if (o[i] == error_mark_node)
+	return;
+    }
 
   /* Generate the ASM_OPERANDS insn; store into the TREE_VALUEs of
      OUTPUTS some trees for where the values were actually stored.  */

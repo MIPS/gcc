@@ -851,7 +851,7 @@ enum reg_class {
    class of registers.  In that case, secondary reload registers are
    not needed and would not be helpful.  Instead, a stack location
    must be used to perform the copy and the `movM' pattern should use
-   memory as a intermediate storage.  This case often occurs between
+   memory as an intermediate storage.  This case often occurs between
    floating-point and general registers.  */
 
 /* `SECONDARY_MEMORY_NEEDED (CLASS1, CLASS2, M)'
@@ -1990,9 +1990,9 @@ do {									\
 
 #define OBJC_PROLOGUE {}
 /* A C statement to output any assembler statements which are
-   required to precede any Objective C object definitions or message
+   required to precede any Objective-C object definitions or message
    sending.  The statement is executed only when compiling an
-   Objective C program.  */
+   Objective-C program.  */
 
 #define ASM_OUTPUT_DOUBLE(STREAM, VALUE) \
   fprintf ((STREAM), ".double %.20e\n", (VALUE))

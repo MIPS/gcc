@@ -123,7 +123,7 @@ struct file_name_map_list;
   OP(CPP_SCOPE,		"::")			\
   OP(CPP_DEREF_STAR,	"->*")			\
   OP(CPP_DOT_STAR,	".*")			\
-  OP(CPP_ATSIGN,	"@")  /* used in Objective C */ \
+  OP(CPP_ATSIGN,	"@")  /* used in Objective-C */ \
 \
   TK(CPP_NAME,		SPELL_IDENT)	/* word */			\
   TK(CPP_NUMBER,	SPELL_NUMBER)	/* 34_be+ta  */			\
@@ -667,7 +667,7 @@ cpp_num cpp_num_sign_extend PARAMS ((cpp_num, size_t));
 #define DL_ICE			0x04
 /* Extracts a diagnostic level from an int.  */
 #define DL_EXTRACT(l)		(l & 0xf)
-/* Non-zero if a diagnostic level is one of the warnings.  */
+/* Nonzero if a diagnostic level is one of the warnings.  */
 #define DL_WARNING_P(l)		(DL_EXTRACT (l) >= DL_WARNING \
 				 && DL_EXTRACT (l) <= DL_PEDWARN)
 

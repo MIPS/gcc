@@ -689,6 +689,8 @@ extern int arm_is_6_or_7;
 
 #define STACK_BOUNDARY  32
 
+#define PREFERRED_STACK_BOUNDARY (TARGET_ATPCS ? 64 : 32)
+
 #define FUNCTION_BOUNDARY  32
 
 /* The lowest bit is used to indicate Thumb-mode functions, so the
@@ -1070,14 +1072,16 @@ enum reg_class
 
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS  (TARGET_THUMB ? LO_REGS : GENERAL_REGS)
-#define BASE_REG_CLASS   (TARGET_THUMB ? BASE_REGS : GENERAL_REGS)
+#define BASE_REG_CLASS   (TARGET_THUMB ? LO_REGS : GENERAL_REGS)
 
-/* For the Thumb the high registers cannot be used as base
-   registers when addressing quanitities in QI or HI mode.  */
+/* For the Thumb the high registers cannot be used as base registers
+   when addressing quanitities in QI or HI mode; if we don't know the
+   mode, then we must be conservative.  After reload we must also be
+   conservative, since we can't support SP+reg addressing, and we
+   can't fix up any bad substitutions.  */
 #define MODE_BASE_REG_CLASS(MODE)					\
-    (TARGET_ARM ? BASE_REGS :						\
-     (((MODE) == QImode || (MODE) == HImode || (MODE) == VOIDmode)	\
-     ? LO_REGS : BASE_REGS))
+    (TARGET_ARM ? GENERAL_REGS :					\
+     (((MODE) == SImode && !reload_completed) ? BASE_REGS : LO_REGS))
 
 /* When SMALL_REGISTER_CLASSES is nonzero, the compiler allows
    registers explicitly used in the rtl to be used as spill registers
@@ -1434,6 +1438,8 @@ typedef struct machine_function GTY(())
   int arg_pointer_live;
   /* Records if the save of LR has been eliminated.  */
   int lr_save_eliminated;
+  /* The size of the stack frame.  Only valid after reload.  */
+  int frame_size;
   /* Records the type of the current function.  */
   unsigned long func_type;
   /* Record if the function has a variable argument list.  */
@@ -1547,7 +1553,10 @@ typedef struct
    will output the .text section.
 
    The ``mov ip,lr'' seems like a good idea to stick with cc convention.
-   ``prof'' doesn't seem to mind about this!  */
+   ``prof'' doesn't seem to mind about this!
+
+   Note - this version of the code is designed to work in both ARM and
+   Thumb modes.  */
 #ifndef ARM_FUNCTION_PROFILER
 #define ARM_FUNCTION_PROFILER(STREAM, LABELNO)  	\
 {							\
@@ -1564,20 +1573,16 @@ typedef struct
 }
 #endif
 
-#ifndef THUMB_FUNCTION_PROFILER
-#define THUMB_FUNCTION_PROFILER(STREAM, LABELNO)	\
-{							\
-  fprintf (STREAM, "\tmov\tip, lr\n");			\
-  fprintf (STREAM, "\tbl\tmcount\n");			\
-  fprintf (STREAM, "\t.word\tLP%d\n", LABELNO);		\
-}
-#endif
-
+#ifdef THUMB_FUNCTION_PROFILER
 #define FUNCTION_PROFILER(STREAM, LABELNO)		\
   if (TARGET_ARM)					\
     ARM_FUNCTION_PROFILER (STREAM, LABELNO)		\
   else							\
     THUMB_FUNCTION_PROFILER (STREAM, LABELNO)
+#else
+#define FUNCTION_PROFILER(STREAM, LABELNO)		\
+    ARM_FUNCTION_PROFILER (STREAM, LABELNO)
+#endif
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -1678,7 +1683,7 @@ typedef struct
   if ((TO) == STACK_POINTER_REGNUM)					\
     {									\
       (OFFSET) += current_function_outgoing_args_size;			\
-      (OFFSET) += ROUND_UP (get_frame_size ());				\
+      (OFFSET) += thumb_get_frame_size ();				\
      }									\
 }
 
@@ -2694,39 +2699,6 @@ extern int making_const_table;
   else						\
     THUMB_PRINT_OPERAND_ADDRESS (STREAM, X)
      
-/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
-   Used for C++ multiple inheritance.  */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION)		\
-  do										\
-    {										\
-      int mi_delta = (DELTA);							\
-      const char *const mi_op = mi_delta < 0 ? "sub" : "add";			\
-      int shift = 0;								\
-      int this_regno = (aggregate_value_p (TREE_TYPE (TREE_TYPE (FUNCTION)))	\
-		        ? 1 : 0);						\
-      if (mi_delta < 0)								\
-        mi_delta = - mi_delta;							\
-      while (mi_delta != 0)							\
-        {									\
-          if ((mi_delta & (3 << shift)) == 0)					\
-	    shift += 2;								\
-          else									\
-	    {									\
-	      asm_fprintf (FILE, "\t%s\t%r, %r, #%d\n",				\
-		           mi_op, this_regno, this_regno,			\
-		           mi_delta & (0xff << shift));				\
-	      mi_delta &= ~(0xff << shift);					\
-	      shift += 8;							\
-	    }									\
-        }									\
-      fputs ("\tb\t", FILE);							\
-      assemble_name (FILE, XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));		\
-      if (NEED_PLT_RELOC)							\
-        fputs ("(PLT)", FILE);							\
-      fputc ('\n', FILE);							\
-    }										\
-  while (0)
-
 /* A C expression whose value is RTL representing the value of the return
    address for the frame COUNT steps up from the current frame.  */
 

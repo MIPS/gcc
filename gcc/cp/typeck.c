@@ -1811,7 +1811,7 @@ lookup_anon_field (t, type)
     {
       if (TREE_STATIC (field))
 	continue;
-      if (TREE_CODE (field) != FIELD_DECL)
+      if (TREE_CODE (field) != FIELD_DECL || DECL_ARTIFICIAL (field))
 	continue;
 
       /* If we find it directly, return the field.  */
@@ -1969,8 +1969,11 @@ build_class_member_access_expr (tree object, tree member,
 	  my_friendly_assert (object != error_mark_node,
 			      20020801);
 	}
-      
-      /* Issue a warning about access a member of a NULL object.  */
+
+      /* Complain about other invalid uses of offsetof, even though they will
+	 give the right answer.  Note that we complain whether or not they
+	 actually used the offsetof macro, since there's no way to know at this
+	 point.  So we just give a warning, instead of a pedwarn.  */
       if (null_object_p && CLASSTYPE_NON_POD_P (object_type))
 	{
 	  warning ("invalid access to non-static data member `%D' of NULL object", 
@@ -5580,7 +5583,7 @@ build_ptrmemfunc1 (type, delta, pfn)
    as a value in expressions.  TYPE is the POINTER to METHOD_TYPE we
    want to be.
 
-   If FORCE is non-zero, then force this conversion, even if
+   If FORCE is nonzero, then force this conversion, even if
    we would rather not do it.  Usually set when using an explicit
    cast.
 
@@ -5695,7 +5698,7 @@ expand_ptrmemfunc_cst (cst, delta, pfn)
       /* If we're dealing with a virtual function, we have to adjust 'this'
          again, to point to the base which provides the vtable entry for
          fn; the call will do the opposite adjustment.  */
-      tree orig_class = DECL_VIRTUAL_CONTEXT (fn);
+      tree orig_class = DECL_CONTEXT (fn);
       tree binfo = binfo_or_else (orig_class, fn_class);
       *delta = fold (build (PLUS_EXPR, TREE_TYPE (*delta),
 			    *delta, BINFO_OFFSET (binfo)));
@@ -5895,7 +5898,7 @@ convert_for_assignment (type, rhs, errtype, fndecl, parmnum)
 }
 
 /* Convert RHS to be of type TYPE.
-   If EXP is non-zero, it is the target of the initialization.
+   If EXP is nonzero, it is the target of the initialization.
    ERRTYPE is a string to use in error messages.
 
    Two major differences between the behavior of
@@ -6298,9 +6301,9 @@ check_return_expr (retval)
 }
 
 
-/* Returns non-zero if the pointer-type FROM can be converted to the
+/* Returns nonzero if the pointer-type FROM can be converted to the
    pointer-type TO via a qualification conversion.  If CONSTP is -1,
-   then we return non-zero if the pointers are similar, and the
+   then we return nonzero if the pointers are similar, and the
    cv-qualification signature of FROM is a proper subset of that of TO.
 
    If CONSTP is positive, then all outer pointers have been
@@ -6464,7 +6467,7 @@ cp_type_quals (type)
   return TYPE_QUALS (type);
 }
 
-/* Returns non-zero if the TYPE contains a mutable member */
+/* Returns nonzero if the TYPE contains a mutable member */
 
 int
 cp_has_mutable_p (type)
@@ -6537,7 +6540,7 @@ casts_away_constness_r (t1, t2)
   *t2 = cp_build_qualified_type (*t2, quals2);
 }
 
-/* Returns non-zero if casting from TYPE1 to TYPE2 casts away
+/* Returns nonzero if casting from TYPE1 to TYPE2 casts away
    constness.  */
 
 static int

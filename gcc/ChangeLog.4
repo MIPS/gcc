@@ -2120,7 +2120,7 @@ Tue Dec  5 20:09:14 2000  Jeffrey A Law  (law@cygnus.com)
 	(expand_builtin_strrchr): Use it.
 	(builtin_memset_read_str): New function.
 	(expand_builtin_memset): Use target_char_cast.
-	Try to optimize memset with second argument non-zero using
+	Try to optimize memset with second argument nonzero using
 	store_by_pieces.
 
 2000-11-30  Marek Michalkiewicz  <marekm@linux.org.pl>
@@ -9445,7 +9445,7 @@ Thu 07-Sep-2000 21:29:00 BST  Neil Booth  <NeilB@earthling.net>
 	yy_lim, or yy_get_token.  Don't define get_directive_line if
 	USE_CPPLIB.
 	* c-common.h: Add multiple include guard.  Define RID values
-	for every keyword in C, C++, and Objective C.  Put all the
+	for every keyword in C, C++, and Objective-C.  Put all the
 	modifiers first.
 	(struct c_fileinfo, get_fileinfo, dump_time_statistics): New.
 	* c-decl.c (c_decode_option): Handle -lang-objc here.
@@ -11108,7 +11108,7 @@ Sun 20-Aug-2000 09:25:45 BST  Neil Booth  <NeilB@earthling.net>
 	instructions in it before checking for indirect jumps.
 
 	* ifcvt.c (find_if_block): Do not consider a THEN block that ends
-	in a indirect jump as a potential for conditional execution.
+	in an indirect jump as a potential for conditional execution.
 
 	* d30v.h (d30v_init_expanders): Don't declare here.
 	* d30v-protos.h (d30v_init_expanders): Declare here with a valid
@@ -13799,7 +13799,7 @@ Wed Jul 19 01:22:15 CEST 2000  Marc Espie  <espie@cvs.openbsd.org>
 
 2000-07-18  Jakub Jelinek  <jakub@redhat.com>
 
-	* calls.c (store_arg): Return non-zero if sibcall_failure is desired.
+	* calls.c (store_arg): Return nonzero if sibcall_failure is desired.
 	(expand_call): Adjust caller.
 
 2000-07-17  Gabriel Dos Reis  <gdr@codesourcery.com>

@@ -92,7 +92,7 @@ int rs6000_fprs = 1;
 /* String from -misel=.  */
 const char *rs6000_isel_string;
 
-/* Set to non-zero once AIX common-mode calls have been defined.  */
+/* Set to nonzero once AIX common-mode calls have been defined.  */
 static int common_mode_defined;
 
 /* Private copy of original value of flag_pic for ABI_AIX.  */
@@ -191,6 +191,8 @@ const struct attribute_spec rs6000_attribute_table[];
 static void rs6000_set_default_type_attributes PARAMS ((tree));
 static void rs6000_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void rs6000_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void rs6000_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
+					    HOST_WIDE_INT, tree));
 static rtx rs6000_emit_set_long_const PARAMS ((rtx,
   HOST_WIDE_INT, HOST_WIDE_INT));
 #if TARGET_ELF
@@ -321,6 +323,9 @@ static const char alt_reg_names[][8] =
 #ifndef MASK_STRICT_ALIGN
 #define MASK_STRICT_ALIGN 0
 #endif
+
+/* The VRSAVE bitmask puts bit %v0 as the most significant bit.  */
+#define ALTIVEC_REG_BIT(REGNO) (0x80000000 >> ((REGNO) - FIRST_ALTIVEC_REGNO))
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -383,8 +388,15 @@ static const char alt_reg_names[][8] =
 #undef TARGET_BINDS_LOCAL_P
 #define TARGET_BINDS_LOCAL_P rs6000_binds_local_p
 
-/* The VRSAVE bitmask puts bit %v0 as the most significant bit.  */
-#define ALTIVEC_REG_BIT(REGNO) (0x80000000 >> ((REGNO) - FIRST_ALTIVEC_REGNO))
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK rs6000_output_mi_thunk
+
+/* ??? Should work everywhere, but ask dje@watson.ibm.com before
+   enabling for AIX.  */
+#if TARGET_OBJECT_FORMAT != OBJECT_XCOFF
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -556,10 +568,10 @@ rs6000_override_options (default_cpu)
   if (rs6000_cpu == PROCESSOR_PPC8540)
     rs6000_isel = 1;
 
-  /* If we are optimizing big endian systems for space, use the store
-     multiple instructions.  */
+  /* If we are optimizing big endian systems for space, use the load/store
+     multiple and string instructions.  */
   if (BYTES_BIG_ENDIAN && optimize_size)
-    target_flags |= MASK_MULTIPLE;
+    target_flags |= MASK_MULTIPLE | MASK_STRING;
 
   /* If -mmultiple or -mno-multiple was explicitly used, don't
      override with the processor default */
@@ -599,21 +611,6 @@ rs6000_override_options (default_cpu)
       rs6000_flag_pic = flag_pic;
       flag_pic = 0;
     }
-
-#ifdef XCOFF_DEBUGGING_INFO
-  if (flag_function_sections && (write_symbols != NO_DEBUG)
-      && DEFAULT_ABI == ABI_AIX)
-    {
-      warning ("-ffunction-sections disabled on AIX when debugging");
-      flag_function_sections = 0;
-    }
-
-  if (flag_data_sections && (DEFAULT_ABI == ABI_AIX))
-    {
-      warning ("-fdata-sections not supported on AIX");
-      flag_data_sections = 0;
-    }
-#endif
 
   /* For Darwin, always silently make -fpic and -fPIC identical.  */
   if (flag_pic == 1 && DEFAULT_ABI == ABI_DARWIN)
@@ -707,6 +704,10 @@ rs6000_override_options (default_cpu)
       else
 	target_flags |= MASK_AIX_STRUCT_RET;
     }
+
+  if (TARGET_LONG_DOUBLE_128
+      && (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN))
+    real_format_for_mode[TFmode - QFmode] = &ibm_extended_format;
 
   /* Allocate an alias set for register saves & restores from stack.  */
   rs6000_sr_alias_set = new_alias_set ();
@@ -829,7 +830,7 @@ rs6000_file_start (file, default_cpu)
     }
 }
 
-/* Return non-zero if this function is known to have a null epilogue.  */
+/* Return nonzero if this function is known to have a null epilogue.  */
 
 int
 direct_return ()
@@ -1328,7 +1329,21 @@ easy_fp_constant (op, mode)
     return 0;
 #endif
 
-  if (mode == DFmode)
+  if (mode == TFmode)
+    {
+      long k[4];
+      REAL_VALUE_TYPE rv;
+
+      REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
+      REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, k);
+
+      return (num_insns_constant_wide ((HOST_WIDE_INT) k[0]) == 1
+	      && num_insns_constant_wide ((HOST_WIDE_INT) k[1]) == 1
+	      && num_insns_constant_wide ((HOST_WIDE_INT) k[2]) == 1
+	      && num_insns_constant_wide ((HOST_WIDE_INT) k[3]) == 1);
+    }
+
+  else if (mode == DFmode)
     {
       long k[2];
       REAL_VALUE_TYPE rv;
@@ -2117,7 +2132,7 @@ rs6000_legitimize_address (x, oldx, mode)
 	   && GET_MODE_NUNITS (mode) == 1
 	   && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	       || TARGET_POWERPC64
-	       || mode != DFmode)
+	       || (mode != DFmode && mode != TFmode))
 	   && (TARGET_POWERPC64 || mode != DImode)
 	   && mode != TImode)
     {
@@ -2370,7 +2385,7 @@ rs6000_legitimate_address (mode, x, reg_ok_strict)
   if (mode != TImode
       && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	  || TARGET_POWERPC64
-	  || mode != DFmode)
+	  || (mode != DFmode && mode != TFmode))
       && (TARGET_POWERPC64 || mode != DImode)
       && LEGITIMATE_INDEXED_ADDRESS_P (x, reg_ok_strict))
     return 1;
@@ -2586,8 +2601,22 @@ rs6000_emit_move (dest, source, mode)
       return;
     }
   
-  if (! no_new_pseudos && GET_CODE (operands[0]) != REG)
-    operands[1] = force_reg (mode, operands[1]);
+  if (!no_new_pseudos)
+    {
+      if (GET_CODE (operands[1]) == MEM && optimize > 0
+	  && (mode == QImode || mode == HImode || mode == SImode)
+	  && GET_MODE_SIZE (mode) < GET_MODE_SIZE (word_mode))
+	{
+	  rtx reg = gen_reg_rtx (word_mode);
+
+	  emit_insn (gen_rtx_SET (word_mode, reg,
+				  gen_rtx_ZERO_EXTEND (word_mode,
+						       operands[1])));
+	  operands[1] = gen_lowpart (mode, reg);
+	}
+      if (GET_CODE (operands[0]) != REG)
+	operands[1] = force_reg (mode, operands[1]);
+    }
 
   if (mode == SFmode && ! TARGET_POWERPC
       && TARGET_HARD_FLOAT && TARGET_FPRS
@@ -3034,7 +3063,7 @@ function_arg_advance (cum, mode, type, named)
 
       if (GET_MODE_CLASS (mode) == MODE_FLOAT
 	  && TARGET_HARD_FLOAT && TARGET_FPRS)
-	cum->fregno++;
+	cum->fregno += (mode == TFmode ? 2 : 1);
 
       if (TARGET_DEBUG_ARG)
 	{
@@ -3152,6 +3181,9 @@ function_arg (cum, mode, type, named)
 		{
 		  rtx r1, r2;
 		  enum machine_mode m = GET_MODE_INNER (mode);
+
+		  if (mode == V1DImode)
+		    m = SImode;
 
 		  r1 = gen_rtx_REG (m, gregno);
 		  r1 = gen_rtx_EXPR_LIST (m, r1, const0_rtx);
@@ -7397,7 +7429,7 @@ print_operand (file, x, code)
 
     case 'G':
       /* X is a constant integer.  If it is negative, print "m",
-	 otherwise print "z".  This is to make a aze or ame insn.  */
+	 otherwise print "z".  This is to make an aze or ame insn.  */
       if (GET_CODE (x) != CONST_INT)
 	output_operand_lossage ("invalid %%G value");
       else if (INTVAL (x) >= 0)
@@ -8112,7 +8144,7 @@ rs6000_reverse_condition (mode, code)
 {
   /* Reversal of FP compares takes care -- an ordered compare
      becomes an unordered compare and vice versa.  */
-  if (mode == CCFPmode)
+  if (mode == CCFPmode && !flag_unsafe_math_optimizations)
     return reverse_condition_maybe_unordered (code);
   else
     return reverse_condition (code);
@@ -8355,7 +8387,7 @@ rs6000_emit_cbranch (code, loc)
    condition code register and its mode specifies what kind of
    comparison we made.
 
-   REVERSED is non-zero if we should reverse the sense of the comparison.
+   REVERSED is nonzero if we should reverse the sense of the comparison.
 
    INSN is the insn.  */
 
@@ -8384,7 +8416,14 @@ output_cbranch (op, label, reversed, insn)
      reverse_condition_maybe_unordered here always but this
      makes the resulting assembler clearer.  */
   if (really_reversed)
-    code = rs6000_reverse_condition (mode, code);
+    {
+      /* Reversal of FP compares takes care -- an ordered compare
+	 becomes an unordered compare and vice versa.  */
+      if (mode == CCFPmode)
+	code = reverse_condition_maybe_unordered (code);
+      else
+	code = reverse_condition (code);
+    }
 
   if ((TARGET_SPE && TARGET_HARD_FLOAT) && mode == CCFPmode)
     {
@@ -9436,7 +9475,6 @@ function_ok_for_sibcall (fndecl)
   return 0;
 }
 
-/* function rewritten to handle sibcalls */
 static int
 rs6000_ra_ever_killed ()
 {
@@ -9444,23 +9482,28 @@ rs6000_ra_ever_killed ()
   rtx reg;
   rtx insn;
 
-#ifdef ASM_OUTPUT_MI_THUNK
-  if (current_function_is_thunk)
+  /* Irritatingly, there are two kinds of thunks -- those created with
+     TARGET_ASM_OUTPUT_MI_THUNK and those with DECL_THUNK_P that go
+     through the regular part of the compiler.  This is a very hacky
+     way to tell them apart.  */
+  if (current_function_is_thunk && !no_new_pseudos)
     return 0;
-#endif
-  /* regs_ever_live has LR marked as used if any sibcalls
-     are present.  Which it is, but this should not force
-     saving and restoring in the prologue/epilog.  Likewise,
-     reg_set_between_p thinks a sibcall clobbers LR, so
-     that is inappropriate. */
+
+  /* regs_ever_live has LR marked as used if any sibcalls are present,
+     but this should not force saving and restoring in the
+     pro/epilogue.  Likewise, reg_set_between_p thinks a sibcall
+     clobbers LR, so that is inappropriate. */
+
   /* Also, the prologue can generate a store into LR that
      doesn't really count, like this:
+
         move LR->R0
         bcl to set PIC register
         move LR->R31
         move R0->LR
-     When we're called from the epilog, we need to avoid counting
-     this as a store; thus we ignore any insns with a REG_MAYBE_DEAD note. */
+
+     When we're called from the epilogue, we need to avoid counting
+     this as a store.  */
          
   push_topmost_sequence ();
   top = get_insns ();
@@ -9476,8 +9519,8 @@ rs6000_ra_ever_killed ()
 	  else if (GET_CODE (insn) == CALL_INSN 
 		   && !SIBLING_CALL_P (insn))
 	    return 1;
-	  else if (set_of (reg, insn) != NULL_RTX 
-		   && find_reg_note (insn, REG_MAYBE_DEAD, NULL_RTX) == 0)
+	  else if (set_of (reg, insn) != NULL_RTX
+		   && !prologue_epilogue_contains (insn))
 	    return 1;
     	}
     }
@@ -10461,21 +10504,21 @@ rs6000_emit_prologue ()
 		      gen_rtx_REG (Pmode, 11));
   }
 
+#if TARGET_MACHO
   if (DEFAULT_ABI == ABI_DARWIN
       && flag_pic && current_function_uses_pic_offset_table)
     {
       rtx dest = gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM);
-#if TARGET_MACHO
       char *picbase = machopic_function_base_name ();
       rtx src = gen_rtx_SYMBOL_REF (Pmode, ggc_alloc_string (picbase, -1));
 
       rs6000_maybe_dead (emit_insn (gen_load_macho_picbase (dest, src)));
-#endif
 
       rs6000_maybe_dead (
 	emit_move_insn (gen_rtx_REG (Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM),
 			gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM)));
     }
+#endif
 }
 
 /* Write function prologue.  */
@@ -10975,7 +11018,7 @@ rs6000_output_function_epilogue (file, size)
   if (DEFAULT_ABI == ABI_AIX && ! flag_inhibit_size_directive
       && rs6000_traceback != traceback_none)
     {
-      const char *fname = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
+      const char *fname = NULL;
       const char *language_string = lang_hooks.name;
       int fixed_parms = 0, float_parms = 0, parm_info = 0;
       int i;
@@ -10988,15 +11031,17 @@ rs6000_output_function_epilogue (file, size)
       else
 	optional_tbtab = !optimize_size && !TARGET_ELF;
 
-      while (*fname == '.')	/* V.4 encodes . in the name */
-	fname++;
+      if (optional_tbtab)
+	{
+	  fname = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
+	  while (*fname == '.')	/* V.4 encodes . in the name */
+	    fname++;
 
-      /* Need label immediately before tbtab, so we can compute its offset
-	 from the function start.  */
-      if (*fname == '*')
-	++fname;
-      ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LT");
-      ASM_OUTPUT_LABEL (file, fname);
+	  /* Need label immediately before tbtab, so we can compute
+	     its offset from the function start.  */
+	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LT");
+	  ASM_OUTPUT_LABEL (file, fname);
+	}
 
       /* The .tbtab pseudo-op can only be used for the first eight
 	 expressions, since it can't handle the possibly variable
@@ -11091,7 +11136,7 @@ rs6000_output_function_epilogue (file, size)
 
 		      if (mode == SFmode)
 			bits = 0x2;
-		      else if (mode == DFmode)
+		      else if (mode == DFmode || mode == TFmode)
 			bits = 0x3;
 		      else
 			abort ();
@@ -11168,6 +11213,8 @@ rs6000_output_function_epilogue (file, size)
       /* Omit this list of longs, because there are no CTL anchors.  */
 
       /* Length of function name.  */
+      if (*fname == '*')
+	++fname;
       fprintf (file, "\t.short %d\n", (int) strlen (fname));
 
       /* Function name.  */
@@ -11214,11 +11261,12 @@ rs6000_output_function_epilogue (file, size)
    calls FUNCTION instead of jumping to it.  The generic approach does
    not support varargs.  */
 
-void
-output_mi_thunk (file, thunk_fndecl, delta, function)
+static void
+rs6000_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
      FILE *file;
      tree thunk_fndecl ATTRIBUTE_UNUSED;
-     int delta;
+     HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED;
      tree function;
 {
   const char *this_reg =
@@ -11236,9 +11284,9 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
   if (delta >= -32768 && delta <= 32767)
     {
       if (! TARGET_NEW_MNEMONICS)
-	fprintf (file, "\tcal %s,%d(%s)\n", this_reg, delta, this_reg);
+	fprintf (file, "\tcal %s,%d(%s)\n", this_reg, (int) delta, this_reg);
       else
-	fprintf (file, "\taddi %s,%s,%d\n", this_reg, this_reg, delta);
+	fprintf (file, "\taddi %s,%s,%d\n", this_reg, this_reg, (int) delta);
     }
 
   /* 64-bit constants.  If "int" is 32 bits, we'll never hit this abort.  */
@@ -11248,7 +11296,7 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
   /* Large constants that can be done by one addis instruction.  */
   else if ((delta & 0xffff) == 0)
     asm_fprintf (file, "\t{cau|addis} %s,%s,%d\n", this_reg, this_reg,
-		 delta >> 16);
+		 (int) (delta >> 16));
 
   /* 32-bit constants that can be done by an add and addis instruction.  */
   else
@@ -11279,6 +11327,7 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 
     case ABI_V4:
     case ABI_AIX_NODESC:
+    case ABI_DARWIN:
       prefix = "";
       break;
     }
@@ -11293,7 +11342,6 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 			      TYPE_ATTRIBUTES (TREE_TYPE (function)))
 	  || lookup_attribute ("shortcall",
 			       TYPE_ATTRIBUTES (TREE_TYPE (function)))))
-
     {
       fprintf (file, "\tb %s", prefix);
       assemble_name (file, fname);
@@ -11325,10 +11373,7 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 	    }
 	  assemble_name (file, fname);
 	  putc ('\n', file);
-	  if (TARGET_ELF)
-	    function_section (current_function_decl);
-	  else
-	    text_section();
+	  function_section (current_function_decl);
 	  if (TARGET_MINIMAL_TOC)
 	    asm_fprintf (file, (TARGET_32BIT)
 			 ? "\t{l|lwz} %s,%s(%s)\n" : "\tld %s,%s(%s)\n", r12,
@@ -11375,7 +11420,6 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 	}
     }
 }
-
 
 /* A quick summary of the various types of 'constant-pool tables'
    under PowerPC:
@@ -11605,7 +11649,42 @@ output_toc (file, x, labelno, mode)
   /* Handle FP constants specially.  Note that if we have a minimal
      TOC, things we put here aren't actually in the TOC, so we can allow
      FP constants.  */
-  if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == DFmode)
+  if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == TFmode)
+    {
+      REAL_VALUE_TYPE rv;
+      long k[4];
+
+      REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
+      REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, k);
+
+      if (TARGET_64BIT)
+	{
+	  if (TARGET_MINIMAL_TOC)
+	    fputs (DOUBLE_INT_ASM_OP, file);
+	  else
+	    fprintf (file, "\t.tc FT_%lx_%lx_%lx_%lx[TC],",
+		     k[0] & 0xffffffff, k[1] & 0xffffffff,
+		     k[2] & 0xffffffff, k[3] & 0xffffffff);
+	  fprintf (file, "0x%lx%08lx,0x%lx%08lx\n",
+		   k[0] & 0xffffffff, k[1] & 0xffffffff,
+		   k[2] & 0xffffffff, k[3] & 0xffffffff);
+	  return;
+	}
+      else
+	{
+	  if (TARGET_MINIMAL_TOC)
+	    fputs ("\t.long ", file);
+	  else
+	    fprintf (file, "\t.tc FT_%lx_%lx_%lx_%lx[TC],",
+		     k[0] & 0xffffffff, k[1] & 0xffffffff,
+		     k[2] & 0xffffffff, k[3] & 0xffffffff);
+	  fprintf (file, "0x%lx,0x%lx,0x%lx,0x%lx\n",
+		   k[0] & 0xffffffff, k[1] & 0xffffffff,
+		   k[2] & 0xffffffff, k[3] & 0xffffffff);
+	  return;
+	}
+    }
+  else if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == DFmode)
     {
       REAL_VALUE_TYPE rv;
       long k[2];
@@ -13113,6 +13192,63 @@ rs6000_binds_local_p (decl)
      tree decl;
 {
   return default_binds_local_p_1 (decl, flag_pic || rs6000_flag_pic);
+}
+
+/* A C expression returning the cost of moving data from a register of class
+   CLASS1 to one of CLASS2.  */
+
+int
+rs6000_register_move_cost (mode, from, to)
+     enum machine_mode mode;
+     enum reg_class from, to;
+{
+  /*  Moves from/to GENERAL_REGS.  */
+  if (reg_classes_intersect_p (to, GENERAL_REGS)
+      || reg_classes_intersect_p (from, GENERAL_REGS))
+    {
+      if (! reg_classes_intersect_p (to, GENERAL_REGS))
+	from = to;
+
+      if (from == FLOAT_REGS || from == ALTIVEC_REGS)
+	return (rs6000_memory_move_cost (mode, from, 0)
+		+ rs6000_memory_move_cost (mode, GENERAL_REGS, 0));
+
+/* It's more expensive to move CR_REGS than CR0_REGS because of the shift...*/
+      else if (from == CR_REGS)
+	return 4;
+
+      else
+/* A move will cost one instruction per GPR moved.  */
+	return 2 * HARD_REGNO_NREGS (0, mode);
+    }
+
+/* Moving between two similar registers is just one instruction.  */
+  else if (reg_classes_intersect_p (to, from))
+    return mode == TFmode ? 4 : 2;
+
+/* Everything else has to go through GENERAL_REGS.  */
+  else
+    return (rs6000_register_move_cost (mode, GENERAL_REGS, to) 
+	    + rs6000_register_move_cost (mode, from, GENERAL_REGS));
+}
+
+/* A C expressions returning the cost of moving data of MODE from a register to
+   or from memory.  */
+
+int
+rs6000_memory_move_cost (mode, class, in)
+  enum machine_mode mode;
+  enum reg_class class;
+  int in ATTRIBUTE_UNUSED;
+{
+  if (reg_classes_intersect_p (class, GENERAL_REGS))
+    return 4 * HARD_REGNO_NREGS (0, mode);
+  else if (reg_classes_intersect_p (class, FLOAT_REGS))
+    return 4 * HARD_REGNO_NREGS (32, mode);
+  else if (reg_classes_intersect_p (class, ALTIVEC_REGS))
+    return 4 * HARD_REGNO_NREGS (FIRST_ALTIVEC_REGNO, mode);
+  else
+    return 4 + rs6000_register_move_cost (mode, class, GENERAL_REGS);
 }
 
 #include "gt-rs6000.h"

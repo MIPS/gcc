@@ -195,7 +195,7 @@ static enum in_section { no_section, in_text, in_data, in_named
 #endif
 } in_section = no_section;
 
-/* Return a non-zero value if DECL has a section attribute.  */
+/* Return a nonzero value if DECL has a section attribute.  */
 #ifndef IN_NAMED_SECTION
 #define IN_NAMED_SECTION(DECL) \
   ((TREE_CODE (DECL) == FUNCTION_DECL || TREE_CODE (DECL) == VAR_DECL) \
@@ -535,7 +535,6 @@ asm_output_aligned_bss (file, decl, name, size, align)
      const char *name;
      int size, align;
 {
-  (*targetm.asm_out.globalize_label) (file, name);
   bss_section ();
   ASM_OUTPUT_ALIGN (file, floor_log2 (align / BITS_PER_UNIT));
 #ifdef ASM_DECLARE_OBJECT_NAME
@@ -1138,7 +1137,7 @@ default_ctor_section_asm_out_constructor (symbol, priority)
 #endif
 
 /* CONSTANT_POOL_BEFORE_FUNCTION may be defined as an expression with
-   a non-zero value if the constant pool should be output before the
+   a nonzero value if the constant pool should be output before the
    start of the function, or a zero value if the pool should output
    after the end of the function.  The default is to put it before the
    start.  */
@@ -1171,6 +1170,8 @@ assemble_start_function (decl, fnname)
 
   /* Tell assembler to move to target machine's alignment for functions.  */
   align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
+  if (align < force_align_functions_log)
+    align = force_align_functions_log;
   if (align > 0)
     {
       ASM_OUTPUT_ALIGN (asm_out_file, align);
@@ -1945,7 +1946,7 @@ default_assemble_integer (x, size, aligned_p)
 
 /* Assemble the integer constant X into an object of SIZE bytes.  ALIGN is
    the alignment of the integer in bits.  Return 1 if we were able to output
-   the constant, otherwise 0.  If FORCE is non-zero, abort if we can't output
+   the constant, otherwise 0.  If FORCE is nonzero, abort if we can't output
    the constant.  */
 
 bool
@@ -2167,12 +2168,12 @@ struct rtx_const GTY(())
       HOST_WIDE_INT low;
     } GTY ((tag ("0"))) di;
 
-    /* The max vector size we have is 8 wide; two variants for
+    /* The max vector size we have is 16 wide; two variants for
        integral and floating point vectors.  */
     struct rtx_const_int_vec {
       HOST_WIDE_INT high;
       HOST_WIDE_INT low;
-    } GTY ((tag ("2"))) int_vec[8];
+    } GTY ((tag ("2"))) int_vec[16];
 
     REAL_VALUE_TYPE GTY ((tag ("3"))) fp_vec[8];
 
@@ -2207,7 +2208,7 @@ static GTY(()) struct constant_descriptor_tree *
    they are actually used.  This will be if something takes its address or if
    there is a usage of the string in the RTL of a function.  */
 
-#define STRHASH(x) ((hashval_t) ((long) (x) >> 3))
+#define STRHASH(x) htab_hash_pointer (x)
 
 struct deferred_string GTY(())
 {
@@ -2228,7 +2229,7 @@ const_str_htab_hash (x)
   return STRHASH (((const struct deferred_string *) x)->label);
 }
 
-/* Returns non-zero if the value represented by X (which is really a
+/* Returns nonzero if the value represented by X (which is really a
    struct deferred_string *) is the same as that given by Y
    (which is really a char *).  */
 
@@ -2648,7 +2649,7 @@ copy_constant (exp)
    Otherwise, output such a constant in memory (or defer it for later)
    and generate an rtx for it.
 
-   If DEFER is non-zero, the output of string constants can be deferred
+   If DEFER is nonzero, the output of string constants can be deferred
    and output only if referenced in the function after all optimizations.
 
    The TREE_CST_RTL of EXP is set up to point to that rtx.
@@ -4726,6 +4727,52 @@ init_varasm_once ()
   const_alias_set = new_alias_set ();
 }
 
+enum tls_model
+decl_tls_model (decl)
+     tree decl;
+{
+  enum tls_model kind;
+  tree attr = lookup_attribute ("tls_model", DECL_ATTRIBUTES (decl));
+  bool is_local;
+
+  if (attr)
+    {
+      attr = TREE_VALUE (TREE_VALUE (attr));
+      if (TREE_CODE (attr) != STRING_CST)
+	abort ();
+      if (!strcmp (TREE_STRING_POINTER (attr), "local-exec"))
+	kind = TLS_MODEL_LOCAL_EXEC;
+      else if (!strcmp (TREE_STRING_POINTER (attr), "initial-exec"))
+	kind = TLS_MODEL_INITIAL_EXEC;
+      else if (!strcmp (TREE_STRING_POINTER (attr), "local-dynamic"))
+	kind = optimize ? TLS_MODEL_LOCAL_DYNAMIC : TLS_MODEL_GLOBAL_DYNAMIC;
+      else if (!strcmp (TREE_STRING_POINTER (attr), "global-dynamic"))
+	kind = TLS_MODEL_GLOBAL_DYNAMIC;
+      else
+	abort ();
+      return kind;
+    }
+
+  is_local = (*targetm.binds_local_p) (decl);
+  if (!flag_pic)
+    {
+      if (is_local)
+	kind = TLS_MODEL_LOCAL_EXEC;
+      else
+	kind = TLS_MODEL_INITIAL_EXEC;
+    }
+  /* Local dynamic is inefficient when we're not combining the
+     parts of the address.  */
+  else if (optimize && is_local)
+    kind = TLS_MODEL_LOCAL_DYNAMIC;
+  else
+    kind = TLS_MODEL_GLOBAL_DYNAMIC;
+  if (kind < flag_tls_default)
+    kind = flag_tls_default;
+
+  return kind;
+}
+
 /* Select a set of attributes for section NAME based on the properties
    of DECL and whether or not RELOC indicates that DECL's initializer
    might contain runtime relocations.
@@ -4780,6 +4827,17 @@ default_section_type_flags_1 (decl, name, reloc, shlib)
       || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
     flags |= SECTION_TLS;
 
+  /* These three sections have special ELF types.  They are neither
+     SHT_PROGBITS nor SHT_NOBITS, so when changing sections we don't
+     want to print a section type (@progbits or @nobits).  If someone
+     is silly enough to emit code or TLS variables to one of these
+     sections, then don't handle them specially.  */
+  if (!(flags & (SECTION_CODE | SECTION_BSS | SECTION_TLS))
+      && (strcmp (name, ".init_array") == 0
+	  || strcmp (name, ".fini_array") == 0
+	  || strcmp (name, ".preinit_array") == 0))
+    flags |= SECTION_NOTYPE;
+
   return flags;
 }
 
@@ -4802,7 +4860,6 @@ default_elf_asm_named_section (name, flags)
      unsigned int flags;
 {
   char flagchars[10], *f = flagchars;
-  const char *type;
 
   if (! named_section_first_declaration (name))
     {
@@ -4826,17 +4883,24 @@ default_elf_asm_named_section (name, flags)
     *f++ = 'T';
   *f = '\0';
 
-  if (flags & SECTION_BSS)
-    type = "nobits";
-  else
-    type = "progbits";
+  fprintf (asm_out_file, "\t.section\t%s,\"%s\"", name, flagchars);
 
-  if (flags & SECTION_ENTSIZE)
-    fprintf (asm_out_file, "\t.section\t%s,\"%s\",@%s,%d\n",
-	     name, flagchars, type, flags & SECTION_ENTSIZE);
-  else
-    fprintf (asm_out_file, "\t.section\t%s,\"%s\",@%s\n",
-	     name, flagchars, type);
+  if (!(flags & SECTION_NOTYPE))
+    {
+      const char *type;
+
+      if (flags & SECTION_BSS)
+	type = "nobits";
+      else
+	type = "progbits";
+
+      fprintf (asm_out_file, ",@%s", type);
+
+      if (flags & SECTION_ENTSIZE)
+	fprintf (asm_out_file, ",%d", flags & SECTION_ENTSIZE);
+    }
+
+  putc ('\n', asm_out_file);
 }
 
 void

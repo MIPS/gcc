@@ -139,7 +139,7 @@ static int reg_reloaded_contents[FIRST_PSEUDO_REGISTER];
    when reg_reloaded_valid is set for this register.  */
 static rtx reg_reloaded_insn[FIRST_PSEUDO_REGISTER];
 
-/* Indicate if reg_reloaded_insn / reg_reloaded_contents is valid */
+/* Indicate if reg_reloaded_insn / reg_reloaded_contents is valid.  */
 static HARD_REG_SET reg_reloaded_valid;
 /* Indicate if the register was dead at the end of the reload.
    This is only valid if reg_reloaded_contents is set and valid.  */
@@ -340,7 +340,7 @@ static const struct elim_table_1
 #define NUM_ELIMINABLE_REGS ARRAY_SIZE (reg_eliminate_1)
 
 /* Record the number of pending eliminations that have an offset not equal
-   to their initial offset.  If non-zero, we use a new copy of each
+   to their initial offset.  If nonzero, we use a new copy of each
    replacement result in any insns encountered.  */
 int num_not_at_initial_offset;
 
@@ -1023,7 +1023,7 @@ reload (first, global)
 	      did_spill = 1;
 
 	      /* Regardless of the state of spills, if we previously had
-		 a register that we thought we could eliminate, but no can
+		 a register that we thought we could eliminate, but now can
 		 not eliminate, we must run another pass.
 
 		 Consider pseudos which have an entry in reg_equiv_* which
@@ -1497,7 +1497,7 @@ calculate_needs_all_insns (global)
 		  && REGNO (SET_SRC (set)) >= FIRST_PSEUDO_REGISTER)
 		{
 		  delete_insn (insn);
-		  /* Delete it from the reload chain */
+		  /* Delete it from the reload chain.  */
 		  if (chain->prev)
 		    chain->prev->next = next;
 		  else
@@ -2118,7 +2118,7 @@ mark_home_live (regno)
 
    INSN is the insn that it came from, if any.
 
-   INITIAL_P is non-zero if we are to set the offset to be the initial
+   INITIAL_P is nonzero if we are to set the offset to be the initial
    offset and zero if we are setting the offset of the label to be the
    current offset.  */
 
@@ -2273,7 +2273,7 @@ set_label_offsets (x, insn, initial_p)
    to record the fact that a register is referenced outside a MEM.
 
    If INSN is an insn, it is the insn containing X.  If we replace a REG
-   in a SET_DEST with an equivalent MEM and INSN is non-zero, write a
+   in a SET_DEST with an equivalent MEM and INSN is nonzero, write a
    CLOBBER of the pseudo after INSN so find_equiv_regs will know that
    the REG is being modified.
 
@@ -3229,7 +3229,7 @@ eliminate_regs_in_insn (insn, replace)
      insn.  The changes we make were determined by the earlier call to
      elimination_effects.
 
-     We also detect a cases where register elimination cannot be done,
+     We also detect cases where register elimination cannot be done,
      namely, if a register would be both changed and referenced outside a MEM
      in the resulting insn since such an insn is often undefined and, even if
      not, we cannot know what meaning will be given to it.  Note that it is
@@ -3420,9 +3420,7 @@ static void
 update_eliminables (pset)
      HARD_REG_SET *pset;
 {
-#if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
   int previous_frame_pointer_needed = frame_pointer_needed;
-#endif
   struct elim_table *ep;
 
   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
@@ -3487,12 +3485,10 @@ update_eliminables (pset)
 	}
     }
 
-#if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
   /* If we didn't need a frame pointer last time, but we do now, spill
      the hard frame pointer.  */
   if (frame_pointer_needed && ! previous_frame_pointer_needed)
     SET_HARD_REG_BIT (*pset, HARD_FRAME_POINTER_REGNUM);
-#endif
 }
 
 /* Initialize the table of registers to eliminate.  */
@@ -4752,7 +4748,7 @@ char reload_inherited[MAX_RELOADS];
    if we know it.  Otherwise, this is 0.  */
 rtx reload_inheritance_insn[MAX_RELOADS];
 
-/* If non-zero, this is a place to get the value of the reload,
+/* If nonzero, this is a place to get the value of the reload,
    rather than using reload_in.  */
 rtx reload_override_in[MAX_RELOADS];
 
@@ -4993,7 +4989,7 @@ reload_reg_free_for_value_p (start_regno, regno, opnum, type, value, out,
    determine how many hard regs to test.
 
    Other read-only reloads with the same value do not conflict
-   unless OUT is non-zero and these other reloads have to live while
+   unless OUT is nonzero and these other reloads have to live while
    output reloads live.
    If OUT is CONST0_RTX, this is a special case: it means that the
    test should not be for using register REGNO as reload register, but
@@ -5116,7 +5112,7 @@ set_reload_reg (i, r)
 }
 
 /* Find a spill register to use as a reload register for reload R.
-   LAST_RELOAD is non-zero if this is the last reload for the insn being
+   LAST_RELOAD is nonzero if this is the last reload for the insn being
    processed.
 
    Set rld[R].reg_rtx to the register allocated.
@@ -5494,16 +5490,15 @@ choose_reload_regs (chain)
 						GET_MODE_CLASS (mode));
 
 		  if (
-#ifdef CLASS_CANNOT_CHANGE_MODE
-		      (TEST_HARD_REG_BIT
-		       (reg_class_contents[(int) CLASS_CANNOT_CHANGE_MODE], i)
-		       ? ! CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (last_reg),
-						       need_mode)
-		       : (GET_MODE_SIZE (GET_MODE (last_reg))
-			  >= GET_MODE_SIZE (need_mode)))
-#else
+#ifdef CANNOT_CHANGE_MODE_CLASS
+		      (!REG_CANNOT_CHANGE_MODE_P (i, GET_MODE (last_reg),
+						  need_mode)
+		       ||
+#endif
 		      (GET_MODE_SIZE (GET_MODE (last_reg))
 		       >= GET_MODE_SIZE (need_mode))
+#ifdef CANNOT_CHANGE_MODE_CLASS
+		      )
 #endif
 		      && reg_reloaded_contents[i] == regno
 		      && TEST_HARD_REG_BIT (reg_reloaded_valid, i)
@@ -6009,7 +6004,7 @@ deallocate_reload_reg (r)
   reload_spill_index[r] = -1;
 }
 
-/* If SMALL_REGISTER_CLASSES is non-zero, we may not have merged two
+/* If SMALL_REGISTER_CLASSES is nonzero, we may not have merged two
    reloads of the same item for fear that we might not have enough reload
    registers. However, normally they will get the same reload register
    and hence actually need not be loaded twice.
@@ -6119,10 +6114,24 @@ merge_assigned_reloads (insn)
 		      || rld[j].when_needed == RELOAD_FOR_INPADDR_ADDRESS)
 		  && reg_overlap_mentioned_for_reload_p (rld[j].in,
 							 rld[i].in))
-		rld[j].when_needed
-		  = ((rld[j].when_needed == RELOAD_FOR_INPUT_ADDRESS
-		      || rld[j].when_needed == RELOAD_FOR_INPADDR_ADDRESS)
-		     ? RELOAD_FOR_OTHER_ADDRESS : RELOAD_OTHER);
+		{
+		  int k;
+
+		  rld[j].when_needed
+		    = ((rld[j].when_needed == RELOAD_FOR_INPUT_ADDRESS
+			|| rld[j].when_needed == RELOAD_FOR_INPADDR_ADDRESS)
+		       ? RELOAD_FOR_OTHER_ADDRESS : RELOAD_OTHER);
+
+		  /* Check to see if we accidentally converted two reloads
+		     that use the same reload register to the same type.
+		     If so, the resulting code won't work, so abort.  */
+		  if (rld[j].reg_rtx)
+		    for (k = 0; k < j; k++)
+		      if (rld[k].in != 0 && rld[k].reg_rtx != 0
+			  && rld[k].when_needed == rld[j].when_needed
+			  && rtx_equal_p (rld[k].reg_rtx, rld[j].reg_rtx))
+			abort ();
+		}
 	}
     }
 }
@@ -7532,10 +7541,12 @@ gen_reload (out, in, opnum, type)
 
 #ifdef SECONDARY_MEMORY_NEEDED
   /* If we need a memory location to do the move, do it that way.  */
-  else if (GET_CODE (in) == REG && REGNO (in) < FIRST_PSEUDO_REGISTER
-	   && GET_CODE (out) == REG && REGNO (out) < FIRST_PSEUDO_REGISTER
-	   && SECONDARY_MEMORY_NEEDED (REGNO_REG_CLASS (REGNO (in)),
-				       REGNO_REG_CLASS (REGNO (out)),
+  else if ((GET_CODE (in) == REG || GET_CODE (in) == SUBREG)
+	   && reg_or_subregno (in) < FIRST_PSEUDO_REGISTER
+	   && (GET_CODE (out) == REG || GET_CODE (out) == SUBREG)
+	   && reg_or_subregno (out) < FIRST_PSEUDO_REGISTER
+	   && SECONDARY_MEMORY_NEEDED (REGNO_REG_CLASS (reg_or_subregno (in)),
+				       REGNO_REG_CLASS (reg_or_subregno (out)),
 				       GET_MODE (out)))
     {
       /* Get the memory to use and rewrite both registers to its mode.  */
@@ -7922,7 +7933,7 @@ inc_for_reload (reloadreg, in, value, inc_amount)
   rtx real_in = in == value ? XEXP (in, 0) : in;
 
   /* No hard register is equivalent to this register after
-     inc/dec operation.  If REG_LAST_RELOAD_REG were non-zero,
+     inc/dec operation.  If REG_LAST_RELOAD_REG were nonzero,
      we could inc/dec that register as well (maybe even using it for
      the source), but I'm not sure it's worth worrying about.  */
   if (GET_CODE (incloc) == REG)

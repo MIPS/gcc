@@ -320,12 +320,6 @@ store_init_value (decl, init)
   if (TREE_CODE (type) == ERROR_MARK)
     return NULL_TREE;
 
-#if 0
-  /* This breaks arrays, and should not have any effect for other decls.  */
-  /* Take care of C++ business up here.  */
-  type = TYPE_MAIN_VARIANT (type);
-#endif
-
   if (IS_AGGR_TYPE (type))
     {
       if (! TYPE_HAS_TRIVIAL_INIT_REF (type)
@@ -337,35 +331,6 @@ store_init_value (decl, init)
 	  error ("constructor syntax used, but no constructor declared for type `%T'", type);
 	  init = build_nt (CONSTRUCTOR, NULL_TREE, nreverse (init));
 	}
-#if 0
-      if (TREE_CODE (init) == CONSTRUCTOR)
-	{
-	  tree field;
-
-	  /* Check that we're really an aggregate as ARM 8.4.1 defines it.  */
-	  if (CLASSTYPE_N_BASECLASSES (type))
-	    cp_error_at ("initializer list construction invalid for derived class object `%D'", decl);
-	  if (CLASSTYPE_VTBL_PTR (type))
-	    cp_error_at ("initializer list construction invalid for polymorphic class object `%D'", decl);
-	  if (TYPE_NEEDS_CONSTRUCTING (type))
-	    {
-	      cp_error_at ("initializer list construction invalid for `%D'", decl);
-	      error ("due to the presence of a constructor");
-	    }
-	  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
-	    if (TREE_PRIVATE (field) || TREE_PROTECTED (field))
-	      {
-		cp_error_at ("initializer list construction invalid for `%D'", decl);
-		cp_error_at ("due to non-public access of member `%D'", field);
-	      }
-	  for (field = TYPE_METHODS (type); field; field = TREE_CHAIN (field))
-	    if (TREE_PRIVATE (field) || TREE_PROTECTED (field))
-	      {
-		cp_error_at ("initializer list construction invalid for `%D'", decl);
-		cp_error_at ("due to non-public access of member `%D'", field);
-	      }
-	}
-#endif
     }
   else if (TREE_CODE (init) == TREE_LIST
 	   && TREE_TYPE (init) != unknown_type_node)
@@ -402,15 +367,8 @@ store_init_value (decl, init)
 
   /* End of special C++ code.  */
 
-  /* We might have already run this bracketed initializer through
-     digest_init.  Don't do so again.  */
-  if (TREE_CODE (init) == CONSTRUCTOR && TREE_HAS_CONSTRUCTOR (init)
-      && TREE_TYPE (init)
-      && TYPE_MAIN_VARIANT (TREE_TYPE (init)) == TYPE_MAIN_VARIANT (type))
-    value = init;
-  else
-    /* Digest the specified initializer into an expression.  */
-    value = digest_init (type, init, (tree *) 0);
+  /* Digest the specified initializer into an expression.  */
+  value = digest_init (type, init, (tree *) 0);
 
   /* Store the expression if valid; else report error.  */
 
@@ -457,27 +415,6 @@ store_init_value (decl, init)
   return NULL_TREE;
 }
 
-/* Same as store_init_value, but used for known-to-be-valid static
-   initializers.  Used to introduce a static initializer even in data
-   structures that may require dynamic initialization.  */
-
-tree
-force_store_init_value (decl, init)
-     tree decl, init;
-{
-  tree type = TREE_TYPE (decl);
-  int needs_constructing = TYPE_NEEDS_CONSTRUCTING (type);
-
-  TYPE_NEEDS_CONSTRUCTING (type) = 0;
-
-  init = store_init_value (decl, init);
-  if (init)
-    abort ();
-
-  TYPE_NEEDS_CONSTRUCTING (type) = needs_constructing;
-
-  return init;
-}  
 
 /* Digest the parser output INIT as an initializer for type TYPE.
    Return a C expression of type TYPE to represent the initial value.
@@ -495,8 +432,7 @@ digest_init (type, init, tail)
   enum tree_code code = TREE_CODE (type);
   tree element = NULL_TREE;
   tree old_tail_contents = NULL_TREE;
-  /* Nonzero if INIT is a braced grouping, which comes in as a CONSTRUCTOR
-     tree node which has no TREE_TYPE.  */
+  /* Nonzero if INIT is a braced grouping.  */
   int raw_constructor;
 
   /* By default, assume we use one element from a list.
@@ -527,10 +463,8 @@ digest_init (type, init, tail)
   if (TREE_CODE (init) == NON_LVALUE_EXPR)
     init = TREE_OPERAND (init, 0);
 
-  if (TREE_CODE (init) == CONSTRUCTOR && TREE_TYPE (init) == type)
-    return init;
-
-  raw_constructor = TREE_CODE (init) == CONSTRUCTOR && TREE_TYPE (init) == 0;
+  raw_constructor = (TREE_CODE (init) == CONSTRUCTOR 
+		     && TREE_HAS_CONSTRUCTOR (init));
 
   if (raw_constructor
       && CONSTRUCTOR_ELTS (init) != 0
@@ -791,7 +725,8 @@ process_init_constructor (type, init, elts)
 	      next1 = digest_init (TREE_TYPE (type), next1, 0);
 	    }
 	  else if (! zero_init_p (TREE_TYPE (type)))
-	    next1 = build_forced_zero_init (TREE_TYPE (type));
+	    next1 = build_zero_init (TREE_TYPE (type),
+				     /*static_storage_p=*/false);
 	  else
 	    /* The default zero-initialization is fine for us; don't
 	       add anything to the CONSTRUCTOR.  */
@@ -840,7 +775,7 @@ process_init_constructor (type, init, elts)
 	      continue;
 	    }
 
-	  if (TREE_CODE (field) != FIELD_DECL)
+	  if (TREE_CODE (field) != FIELD_DECL || DECL_ARTIFICIAL (field))
 	    continue;
 
 	  if (tail)
@@ -895,8 +830,7 @@ process_init_constructor (type, init, elts)
 	    {
 	      if (TREE_READONLY (field))
 		error ("uninitialized const member `%D'", field);
-	      else if (TYPE_LANG_SPECIFIC (TREE_TYPE (field))
-		       && CLASSTYPE_READONLY_FIELDS_NEED_INIT (TREE_TYPE (field)))
+	      else if (CLASSTYPE_READONLY_FIELDS_NEED_INIT (TREE_TYPE (field)))
 		error ("member `%D' with uninitialized const fields",
 			  field);
 	      else if (TREE_CODE (TREE_TYPE (field)) == REFERENCE_TYPE)
@@ -909,7 +843,8 @@ process_init_constructor (type, init, elts)
 		warning ("missing initializer for member `%D'", field);
 
 	      if (! zero_init_p (TREE_TYPE (field)))
-		next1 = build_forced_zero_init (TREE_TYPE (field));
+		next1 = build_zero_init (TREE_TYPE (field),
+					 /*static_storage_p=*/false);
 	      else
 		/* The default zero-initialization is fine for us; don't
 		   add anything to the CONSTRUCTOR.  */
@@ -933,8 +868,7 @@ process_init_constructor (type, init, elts)
 
       /* Find the first named field.  ANSI decided in September 1990
 	 that only named fields count here.  */
-      while (field && (DECL_NAME (field) == 0
-		       || TREE_CODE (field) != FIELD_DECL))
+      while (field && (!DECL_NAME (field) || TREE_CODE (field) != FIELD_DECL))
 	field = TREE_CHAIN (field);
 
       /* If this element specifies a field, initialize via that field.  */
@@ -1008,6 +942,8 @@ process_init_constructor (type, init, elts)
     return error_mark_node;
 
   result = build (CONSTRUCTOR, type, NULL_TREE, nreverse (members));
+  if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type) == NULL_TREE)
+    complete_array_type (type, result, /*do_default=*/0);
   if (init)
     TREE_HAS_CONSTRUCTOR (result) = TREE_HAS_CONSTRUCTOR (init);
   if (allconstant) TREE_CONSTANT (result) = 1;

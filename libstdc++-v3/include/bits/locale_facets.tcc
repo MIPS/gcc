@@ -798,8 +798,10 @@ namespace std
 	  // By itself __add_grouping cannot deal correctly with __ws when
 	  // ios::showbase is set and ios_base::oct || ios_base::hex.
 	  // Therefore we take care "by hand" of the initial 0, 0x or 0X.
+	  // However, remember that the latter do not occur if the number
+	  // printed is '0' (__len == 1).
 	  streamsize __off = 0;
-	  if (__io.flags() & ios_base::showbase)
+	  if ((__io.flags() & ios_base::showbase) && __len > 1)
 	    if (__basefield == ios_base::oct)
 	      {
 		__off = 1;
@@ -2138,42 +2140,21 @@ namespace std
   extern template class moneypunct_byname<char, true>;
   extern template class money_get<char>;
   extern template class money_put<char>;
-  extern template class moneypunct<wchar_t, false>;
-  extern template class moneypunct<wchar_t, true>;
-  extern template class moneypunct_byname<wchar_t, false>;
-  extern template class moneypunct_byname<wchar_t, true>;
-  extern template class money_get<wchar_t>;
-  extern template class money_put<wchar_t>;
   extern template class numpunct<char>;
   extern template class numpunct_byname<char>;
   extern template class num_get<char>;
   extern template class num_put<char>; 
-  extern template class numpunct<wchar_t>;
-  extern template class numpunct_byname<wchar_t>;
-  extern template class num_get<wchar_t>;
-  extern template class num_put<wchar_t>;
   extern template class __timepunct<char>;
   extern template class time_put<char>;
   extern template class time_put_byname<char>;
   extern template class time_get<char>;
   extern template class time_get_byname<char>;
-  extern template class __timepunct<wchar_t>;
-  extern template class time_put<wchar_t>;
-  extern template class time_put_byname<wchar_t>;
-  extern template class time_get<wchar_t>;
-  extern template class time_get_byname<wchar_t>;
   extern template class messages<char>;
   extern template class messages_byname<char>;
-  extern template class messages<wchar_t>;
-  extern template class messages_byname<wchar_t>;
   extern template class ctype_byname<char>;
-  extern template class ctype_byname<wchar_t>;
   extern template class codecvt_byname<char, char, mbstate_t>;
-  extern template class codecvt_byname<wchar_t, char, mbstate_t>;
   extern template class collate<char>;
   extern template class collate_byname<char>;
-  extern template class collate<wchar_t>;
-  extern template class collate_byname<wchar_t>;
 
   extern template
     const codecvt<char, char, mbstate_t>& 
@@ -2227,59 +2208,6 @@ namespace std
     const messages<char>& 
     use_facet<messages<char> >(const locale&);
 
-  extern template
-    const codecvt<wchar_t, char, mbstate_t>& 
-    use_facet<codecvt<wchar_t, char, mbstate_t> >(locale const&);
-
-  extern template
-    const collate<wchar_t>& 
-    use_facet<collate<wchar_t> >(const locale&);
-
-  extern template
-    const numpunct<wchar_t>& 
-    use_facet<numpunct<wchar_t> >(const locale&);
-
-  extern template 
-    const num_put<wchar_t>& 
-    use_facet<num_put<wchar_t> >(const locale&);
-
-  extern template 
-    const num_get<wchar_t>& 
-    use_facet<num_get<wchar_t> >(const locale&);
-
-  extern template
-    const moneypunct<wchar_t, true>& 
-    use_facet<moneypunct<wchar_t, true> >(const locale&);
-
-  extern template
-    const moneypunct<wchar_t, false>& 
-    use_facet<moneypunct<wchar_t, false> >(const locale&);
- 
-  extern template 
-    const money_put<wchar_t>& 
-    use_facet<money_put<wchar_t> >(const locale&);
-
-  extern template 
-    const money_get<wchar_t>& 
-    use_facet<money_get<wchar_t> >(const locale&);
-
-  extern template
-    const __timepunct<wchar_t>& 
-    use_facet<__timepunct<wchar_t> >(const locale&);
-
-  extern template 
-    const time_put<wchar_t>& 
-    use_facet<time_put<wchar_t> >(const locale&);
-
-  extern template 
-    const time_get<wchar_t>& 
-    use_facet<time_get<wchar_t> >(const locale&);
-
-  extern template 
-    const messages<wchar_t>& 
-    use_facet<messages<wchar_t> >(const locale&);
-
-
   extern template 
     bool
     has_facet<ctype<char> >(const locale&);
@@ -2332,6 +2260,81 @@ namespace std
     bool
     has_facet<messages<char> >(const locale&);
 
+#ifdef _GLIBCPP_USE_WCHAR_T
+  extern template class moneypunct<wchar_t, false>;
+  extern template class moneypunct<wchar_t, true>;
+  extern template class moneypunct_byname<wchar_t, false>;
+  extern template class moneypunct_byname<wchar_t, true>;
+  extern template class money_get<wchar_t>;
+  extern template class money_put<wchar_t>;
+  extern template class numpunct<wchar_t>;
+  extern template class numpunct_byname<wchar_t>;
+  extern template class num_get<wchar_t>;
+  extern template class num_put<wchar_t>;
+  extern template class __timepunct<wchar_t>;
+  extern template class time_put<wchar_t>;
+  extern template class time_put_byname<wchar_t>;
+  extern template class time_get<wchar_t>;
+  extern template class time_get_byname<wchar_t>;
+  extern template class messages<wchar_t>;
+  extern template class messages_byname<wchar_t>;
+  extern template class ctype_byname<wchar_t>;
+  extern template class codecvt_byname<wchar_t, char, mbstate_t>;
+  extern template class collate<wchar_t>;
+  extern template class collate_byname<wchar_t>;
+
+  extern template
+    const codecvt<wchar_t, char, mbstate_t>& 
+    use_facet<codecvt<wchar_t, char, mbstate_t> >(locale const&);
+
+  extern template
+    const collate<wchar_t>& 
+    use_facet<collate<wchar_t> >(const locale&);
+
+  extern template
+    const numpunct<wchar_t>& 
+    use_facet<numpunct<wchar_t> >(const locale&);
+
+  extern template 
+    const num_put<wchar_t>& 
+    use_facet<num_put<wchar_t> >(const locale&);
+
+  extern template 
+    const num_get<wchar_t>& 
+    use_facet<num_get<wchar_t> >(const locale&);
+
+  extern template
+    const moneypunct<wchar_t, true>& 
+    use_facet<moneypunct<wchar_t, true> >(const locale&);
+
+  extern template
+    const moneypunct<wchar_t, false>& 
+    use_facet<moneypunct<wchar_t, false> >(const locale&);
+ 
+  extern template 
+    const money_put<wchar_t>& 
+    use_facet<money_put<wchar_t> >(const locale&);
+
+  extern template 
+    const money_get<wchar_t>& 
+    use_facet<money_get<wchar_t> >(const locale&);
+
+  extern template
+    const __timepunct<wchar_t>& 
+    use_facet<__timepunct<wchar_t> >(const locale&);
+
+  extern template 
+    const time_put<wchar_t>& 
+    use_facet<time_put<wchar_t> >(const locale&);
+
+  extern template 
+    const time_get<wchar_t>& 
+    use_facet<time_get<wchar_t> >(const locale&);
+
+  extern template 
+    const messages<wchar_t>& 
+    use_facet<messages<wchar_t> >(const locale&);
+
  extern template 
     bool
     has_facet<ctype<wchar_t> >(const locale&);
@@ -2383,6 +2386,7 @@ namespace std
   extern template 
     bool
     has_facet<messages<wchar_t> >(const locale&);
+#endif
 } // namespace std
 
 #endif

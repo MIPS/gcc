@@ -37,8 +37,6 @@
 #define __off64_t off64_t
 #define __ssize_t ssize_t
 
-#define __glibcpp_wchar_t_is_signed false
-
 // Use macro form of ctype functions to ensure __SB_masks is defined.
 #define _SB_CTYPE_MACROS 1
 
@@ -86,4 +84,8 @@ namespace std
 typedef long int __padding_type;
 #endif
 
+/* We need explicit instantiation of the atomicity lock on 32-bit HPUX.  */
+#ifndef __LP64__
+#define _GLIBCPP_INST_ATOMICITY_LOCK 1
+#endif
 #endif

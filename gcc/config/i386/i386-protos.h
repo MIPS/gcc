@@ -153,7 +153,7 @@ extern int ix86_attr_length_address_default PARAMS ((rtx));
 
 extern enum machine_mode ix86_fp_compare_mode PARAMS ((enum rtx_code));
 
-extern int x86_64_sign_extended_value PARAMS ((rtx));
+extern int x86_64_sign_extended_value PARAMS ((rtx, int));
 extern int x86_64_zero_extended_value PARAMS ((rtx));
 extern rtx ix86_libcall_value PARAMS ((enum machine_mode));
 extern bool ix86_function_value_regno_p PARAMS ((int));
@@ -211,7 +211,6 @@ extern tree ix86_handle_shared_attribute PARAMS ((tree *, tree, tree, int, bool 
 extern unsigned int i386_pe_section_type_flags PARAMS ((tree, const char *,
 							int));
 extern void i386_pe_asm_named_section PARAMS ((const char *, unsigned int));
-extern void x86_output_mi_thunk PARAMS ((FILE *, int, tree));
 extern int x86_field_alignment PARAMS ((tree, int));
 #endif
 

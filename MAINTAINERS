@@ -52,6 +52,7 @@ hppa port		Dave Anglin		dave.anglin@nrc.ca
 i386 port		Richard Henderson	rth@redhat.com
 i960 port		Jim Wilson		wilson@redhat.com
 ia64 port		Jim Wilson		wilson@redhat.com
+ip2k port		Denis Chertykov		denisc@overta.ru
 m32r port		Nick Clifton		nickc@redhat.com
 m32r port		Michael Meissner	meissner@redhat.com
 m68hc11 port		Stephane Carrez		stcarrez@nerim.fr
@@ -102,6 +103,7 @@ cpplib			Zack Weinberg		zack@codesourcery.com
 cpplib			Neil Booth		neil@daikokuya.co.uk
 java			Per Bothner		per@bothner.com
 java			Alexandre Petit-Bianco	apbianco@redhat.com
+java			Andrew Haley		aph@redhat.com
 libgcj			Tom Tromey		tromey@redhat.com
 libgcj			Bryce McKinlay		bryce@gcc.gnu.org
 mercury			Fergus Henderson	fjh@cs.mu.oz.au
@@ -118,7 +120,7 @@ caller-save.c		Jeff Law		law@redhat.com
 debugging code		Jim Wilson		wilson@redhat.com
 dwarf debugging code	Jason Merrill		jason@redhat.com
 c++ runtime libs	Paolo Carlini		pcarlini@unitus.it
-c++ runtime libs        Gabriel Dos Reis        dosreis@cmla.ens-cachan.fr
+c++ runtime libs        Gabriel Dos Reis        gdr@integrable-solutions.net
 c++ runtime libs	Ulrich Drepper		drepper@redhat.com
 c++ runtime libs	Phil Edwards		pme@gcc.gnu.org
 c++ runtime libs	Benjamin Kosnik		bkoz@redhat.com
@@ -130,6 +132,7 @@ gcse.c 			Jeff Law		law@redhat.com
 global opt framework	Jeff Law		law@redhat.com
 jump.c			David S. Miller		davem@redhat.com
 web pages		Gerald Pfeifer		pfeifer@dbai.tuwien.ac.at
+web pages		Janis Johnson		janis187@us.ibm.com
 config.sub/config.guess	Ben Elliston		config-patches@gnu.org
 basic block reordering	Jason Eckhardt		jle@rice.edu
 i18n			Philipp Thomas		pthomas@suse.de
@@ -144,6 +147,8 @@ docs co-maintainer	Gerald Pfeifer		pfeifer@dbai.tuwien.ac.at
 docs co-maintainer	Joseph Myers		jsm28@cam.ac.uk
 Pico-Java port		Steve Chamberlain	sac@transmeta.com
 RTEMS Ports		Joel Sherrill
+VxWorks	ports		Zack Weinberg		zack@codesourcery.com
+VxWorks	ports		Nathan Sidwell		nathan@codesourcery.com
 predict.def		Jan Hubicka		jh@suse.cz
 contrib/regression	Geoff Keating		geoffk@geoffk.org
 treelang                Tim Josling             tej@melbpc.org.au
@@ -154,6 +159,7 @@ in changes outside of the parts of the compiler they maintain.
 
 
 			Write After Approval	(last name alphabetical order)
+
 Matt Austern                                    austern@apple.com
 Scott Bambrough					scottb@netwinder.org
 Daniel Berlin					dan@dberlin.org
@@ -167,6 +173,7 @@ Andrew Cagney					cagney@redhat.com
 Chandra Chavva					cchavva@redhat.com
 William Cohen					wcohen@redhat.com
 Chris Demetriou					cgd@broadcom.com
+Gabriel Dos Reis                                gdr@integrable-solutions.net
 *Paul Eggert					eggert@twinsun.com
 Steve Ellcey					sje@cup.hp.com
 Ben Elliston					bje@redhat.com
@@ -184,7 +191,6 @@ Manfred Hollstein				mhollstein@redhat.com
 Andreas Jaeger					aj@suse.de
 Jakub Jelinek					jakub@redhat.com
 Dale Johannesen 				dalej@apple.com
-Janis Johnson					janis187@us.ibm.com
 Klaus Kaempf					kkaempf@progis.de
 Brendan Kehoe					brendan@zen.org
 Mumit Khan					khan@xraylith.wisc.edu
@@ -210,6 +216,7 @@ Adam Megacz					adam@xwt.org
 Alan Modra					amodra@bigpond.net.au
 Toon Moene					toon@moene.indiv.nluug.nl
 Catherine Moore					clm@redhat.com
+Adam Nemet					anemet@lnxw.com
 Nathanael Nerode				neroden@gcc.gnu.org
 Diego Novillo					dnovillo@redhat.com
 David O'Brien					obrien@FreeBSD.org
@@ -219,10 +226,10 @@ Rainer Orth					ro@TechFak.Uni-Bielefeld.DE
 Devang Patel					dpatel@apple.com
 Nicola Pero					n.pero@mi.flashnet.it
 Alexandre Petit-Bianco				apbianco@redhat.com
+Sebastian Pop                                   s.pop@laposte.net
 Clinton Popetz					cpopetz@cpopetz.com
 Ken Raeburn					raeburn@redhat.com
 Rolf Rasmussen					rolfwr@gcc.gnu.org
-Gabriel Dos Reis                                dosreis@cmla.ens-cachan.fr
 Tom Rix						trix@redhat.com
 Craig Rodrigues					rodrigc@gcc.gnu.org
 Gavin Romig-Koch				gavin@redhat.com
@@ -252,6 +259,10 @@ Florian Weimer					fw@deneb.enyo.de
 Mark Wielaard					mark@gcc.gnu.org
 
 GNATS only accounts
+
+Wolfgang Bangerth	bangerth		bangerth@ticam.utexas.edu
+Volker Reichelt		reichelt		reichelt@igpm.rwth-aachen.de
+
 Peter Bienstman(?)
 Benjamin Chelf(?)
 James Dennett(?)

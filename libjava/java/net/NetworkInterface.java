@@ -118,6 +118,9 @@ public final class NetworkInterface
    *  Returns an network interface by name
    *
    *  @param name The name of the interface to return
+   *
+   *  @exception SocketException If an error occurs
+   *  @exception NullPointerException If the specified name is null
    */
   public static NetworkInterface getByName (String name)
     throws SocketException
@@ -141,6 +144,9 @@ public final class NetworkInterface
    *  Return a network interface by its address
    *
    *  @param addr The address of the interface to return
+   *
+   *  @exception SocketException If an error occurs
+   *  @exception NullPointerException If the specified addess is null
    */
   public static NetworkInterface getByInetAddress (InetAddress addr)
     throws SocketException
@@ -167,6 +173,8 @@ public final class NetworkInterface
 
   /**
    *  Return an Enumeration of all available network interfaces
+   *
+   *  @exception SocketException If an error occurs
    */
   public static Enumeration getNetworkInterfaces ()
     throws SocketException
@@ -212,15 +220,16 @@ public final class NetworkInterface
   {
     // FIXME: check if this is correct
     String result;
+    String separator = System.getProperty ("line.separator");
 
     result = "name: " + getDisplayName () + " (" + getName () +
-	     ") addresses:\n";
+	     ") addresses:" + separator;
 
     for (Enumeration e = inetAddresses.elements ();
          e.hasMoreElements (); )
       {
         InetAddress address = (InetAddress) e.nextElement ();
-        result += address.toString () + "\n";
+        result += address.toString () + separator;
       }
 
     return result;

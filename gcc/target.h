@@ -99,7 +99,7 @@ struct gcc_target
     void (* eh_frame_section) PARAMS ((void));
 
     /* Select and switch to a section for EXP.  It may be a DECL or a
-       constant for which TREE_CST_RTL is valid.  RELOC is non-zero if
+       constant for which TREE_CST_RTL is valid.  RELOC is nonzero if
        runtime relocations must be applied; bit 1 will be set if the
        runtime relocations require non-local name resolution.  ALIGN is
        the required alignment of the data.  */
@@ -119,6 +119,27 @@ struct gcc_target
 
     /* Output a destructor for a symbol with a given priority.  */
     void (* destructor) PARAMS ((rtx, int));
+
+    /* Output the assembler code for a thunk function.  THUNK_DECL is the
+       declaration for the thunk function itself, FUNCTION is the decl for
+       the target function.  DELTA is an immediate constant offset to be
+       added to THIS.  If VCALL_OFFSET is non-zero, the word at
+       *(*this + vcall_offset) should be added to THIS.  */
+    void (* output_mi_thunk) PARAMS ((FILE *file, tree thunk_decl,
+				      HOST_WIDE_INT delta,
+				      HOST_WIDE_INT vcall_offset,
+				      tree function_decl));
+
+    /* Determine whether output_mi_thunk would succeed.  */
+    /* ??? Ideally, this hook would not exist, and success or failure
+       would be returned from output_mi_thunk directly.  But there's
+       too much undo-able setup involved in invoking output_mi_thunk.
+       Could be fixed by making output_mi_thunk emit rtl instead of
+       text to the output file.  */
+    bool (* can_output_mi_thunk) PARAMS ((tree thunk_decl,
+				          HOST_WIDE_INT delta,
+				          HOST_WIDE_INT vcall_offset,
+				          tree function_decl));
   } asm_out;
 
   /* Functions relating to instruction scheduling.  */

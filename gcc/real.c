@@ -53,9 +53,16 @@
    In addition, E must be large enough to hold the smallest supported
    denormal number in a normalized form.
 
-   Both of these requirements are easily satisfied.  The largest
-   target significand is 113 bits; we store 128.  The smallest
+   Both of these requirements are easily satisfied.  The largest target
+   significand is 113 bits; we store at least 160.  The smallest
    denormal number fits in 17 exponent bits; we store 29.
+
+   Note that the decimal string conversion routines are sensitive to 
+   rounding error.  Since the raw arithmetic routines do not themselves
+   have guard digits or rounding, the computation of 10**exp can
+   accumulate more than a few digits of error.  The previous incarnation
+   of real.c successfully used a 144 bit fraction; given the current
+   layout of REAL_VALUE_TYPE we're forced to expand to at least 160 bits.
 
    Target floating point models that use base 16 instead of base 2
    (i.e. IBM 370), are handled during round_for_format, in which we
@@ -70,47 +77,11 @@
  #error "Some constant folding done by hand to avoid shift count warnings"
 #endif
 
-/* Describes the properties of the specific target format in use.  */
-struct real_format
-{
-  /* Move to and from the target bytes.  */
-  void (*encode) (const struct real_format *, long *,
-		  const REAL_VALUE_TYPE *);
-  void (*decode) (const struct real_format *, REAL_VALUE_TYPE *,
-		  const long *);
-
-  /* The radix of the exponent and digits of the significand.  */
-  int b;
-
-  /* log2(b).  */
-  int log2_b;
-
-  /* Size of the significand in digits of radix B.  */
-  int p;
-
-  /* The minimum negative integer, x, such that b**(x-1) is normalized.  */
-  int emin;
-
-  /* The maximum integer, x, such that b**(x-1) is representable.  */
-  int emax;
-
-  /* Properties of the format.  */
-  bool has_nans;
-  bool has_inf;
-  bool has_denorm;
-  bool has_signed_zero;
-  bool qnan_msb_set;
-};
-
-
-static const struct real_format *fmt_for_mode[TFmode - QFmode + 1];
-
-
 static void get_zero PARAMS ((REAL_VALUE_TYPE *, int));
 static void get_canonical_qnan PARAMS ((REAL_VALUE_TYPE *, int));
 static void get_canonical_snan PARAMS ((REAL_VALUE_TYPE *, int));
 static void get_inf PARAMS ((REAL_VALUE_TYPE *, int));
-static void sticky_rshift_significand PARAMS ((REAL_VALUE_TYPE *,
+static bool sticky_rshift_significand PARAMS ((REAL_VALUE_TYPE *,
 					       const REAL_VALUE_TYPE *,
 					       unsigned int));
 static void rshift_significand PARAMS ((REAL_VALUE_TYPE *,
@@ -126,11 +97,12 @@ static bool add_significands PARAMS ((REAL_VALUE_TYPE *r,
 				      const REAL_VALUE_TYPE *));
 static bool sub_significands PARAMS ((REAL_VALUE_TYPE *,
 				      const REAL_VALUE_TYPE *,
-				      const REAL_VALUE_TYPE *));
+				      const REAL_VALUE_TYPE *, int));
 static void neg_significand PARAMS ((REAL_VALUE_TYPE *,
 				     const REAL_VALUE_TYPE *));
 static int cmp_significands PARAMS ((const REAL_VALUE_TYPE *,
 				     const REAL_VALUE_TYPE *));
+static int cmp_significand_0 PARAMS ((const REAL_VALUE_TYPE *));
 static void set_significand_bit PARAMS ((REAL_VALUE_TYPE *, unsigned int));
 static void clear_significand_bit PARAMS ((REAL_VALUE_TYPE *, unsigned int));
 static bool test_significand_bit PARAMS ((REAL_VALUE_TYPE *, unsigned int));
@@ -150,11 +122,15 @@ static void do_divide PARAMS ((REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *,
 			       const REAL_VALUE_TYPE *));
 static int do_compare PARAMS ((const REAL_VALUE_TYPE *,
 			       const REAL_VALUE_TYPE *, int));
-static void do_fix_trunc PARAMS ((REAL_VALUE_TYPE *,
-				  const REAL_VALUE_TYPE *));
+static void do_fix_trunc PARAMS ((REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *));
+
+static unsigned long rtd_divmod PARAMS ((REAL_VALUE_TYPE *,
+					 REAL_VALUE_TYPE *));
 
 static const REAL_VALUE_TYPE * ten_to_ptwo PARAMS ((int));
+static const REAL_VALUE_TYPE * ten_to_mptwo PARAMS ((int));
 static const REAL_VALUE_TYPE * real_digit PARAMS ((int));
+static void times_pten PARAMS ((REAL_VALUE_TYPE *, int));
 
 static void round_for_format PARAMS ((const struct real_format *,
 				      REAL_VALUE_TYPE *));
@@ -206,10 +182,9 @@ get_inf (r, sign)
 
 
 /* Right-shift the significand of A by N bits; put the result in the
-   significand of R.  If any one bits are shifted out, set the least
-   significant bit of R.  */
+   significand of R.  If any one bits are shifted out, return true.  */
 
-static void
+static bool
 sticky_rshift_significand (r, a, n)
      REAL_VALUE_TYPE *r;
      const REAL_VALUE_TYPE *a;
@@ -222,7 +197,7 @@ sticky_rshift_significand (r, a, n)
     {
       for (i = 0, ofs = n / HOST_BITS_PER_LONG; i < ofs; ++i)
 	sticky |= a->sig[i];
-      n -= ofs * HOST_BITS_PER_LONG;
+      n &= HOST_BITS_PER_LONG - 1;
     }
 
   if (n != 0)
@@ -244,7 +219,7 @@ sticky_rshift_significand (r, a, n)
 	r->sig[i] = 0;
     }
 
-  r->sig[0] |= (sticky != 0);
+  return sticky != 0;
 }
 
 /* Right-shift the significand of A by N bits; put the result in the
@@ -258,7 +233,7 @@ rshift_significand (r, a, n)
 {
   unsigned int i, ofs = n / HOST_BITS_PER_LONG;
 
-  n -= ofs * HOST_BITS_PER_LONG;
+  n &= HOST_BITS_PER_LONG - 1;
   if (n != 0)
     {
       for (i = 0; i < SIGSZ; ++i)
@@ -289,7 +264,7 @@ lshift_significand (r, a, n)
 {
   unsigned int i, ofs = n / HOST_BITS_PER_LONG;
 
-  n -= ofs * HOST_BITS_PER_LONG;
+  n &= HOST_BITS_PER_LONG - 1;
   if (n == 0)
     {
       for (i = 0; ofs + i < SIGSZ; ++i)
@@ -339,11 +314,11 @@ add_significands (r, a, b)
 
       if (carry)
 	{
-          carry = ri < ai;
+	  carry = ri < ai;
 	  carry |= ++ri == 0;
 	}
       else
-        carry = ri < ai;
+	carry = ri < ai;
 
       r->sig[i] = ri;
     }
@@ -351,15 +326,16 @@ add_significands (r, a, b)
   return carry;
 }
 
-/* Subtract the significands of A and B, placing the result in R.
-   Return true if there was carry out of the most significant word.  */
+/* Subtract the significands of A and B, placing the result in R.  CARRY is
+   true if there's a borrow incoming to the least significant word.
+   Return true if there was borrow out of the most significant word.  */
 
 static inline bool
-sub_significands (r, a, b)
+sub_significands (r, a, b, carry)
      REAL_VALUE_TYPE *r;
      const REAL_VALUE_TYPE *a, *b;
+     int carry;
 {
-  bool carry = false;
   int i;
 
   for (i = 0; i < SIGSZ; ++i)
@@ -369,11 +345,11 @@ sub_significands (r, a, b)
 
       if (carry)
 	{
-          carry = ri > ai;
+	  carry = ri > ai;
 	  carry |= ~--ri == 0;
 	}
       else
-        carry = ri > ai;
+	carry = ri > ai;
 
       r->sig[i] = ri;
     }
@@ -430,6 +406,21 @@ cmp_significands (a, b)
       if (ai < bi)
 	return -1;
     }
+
+  return 0;
+}
+
+/* Return true if A is non-zero.  */
+
+static inline int 
+cmp_significand_0 (a)
+     const REAL_VALUE_TYPE *a;
+{
+  int i;
+
+  for (i = SIGSZ - 1; i >= 0; --i)
+    if (a->sig[i])
+      return 1;
 
   return 0;
 }
@@ -494,32 +485,22 @@ div_significands (r, a, b)
      const REAL_VALUE_TYPE *a, *b;
 {
   REAL_VALUE_TYPE u;
-  int bit = SIGNIFICAND_BITS - 1;
-  int i;
-  long inexact;
+  int i, bit = SIGNIFICAND_BITS - 1;
+  unsigned long msb, inexact;
 
   u = *a;
   memset (r->sig, 0, sizeof (r->sig));
 
+  msb = 0;
   goto start;
   do
     {
-      if ((u.sig[SIGSZ-1] & SIG_MSB) == 0)
+      msb = u.sig[SIGSZ-1] & SIG_MSB;
+      lshift_significand_1 (&u, &u);
+    start:
+      if (msb || cmp_significands (&u, b) >= 0)
 	{
-	  lshift_significand_1 (&u, &u);
-	start:
-	  if (cmp_significands (&u, b) >= 0)
-	    {
-	      sub_significands (&u, &u, b);
-	      set_significand_bit (r, bit);
-	    }
-	}
-      else
-	{
-	  /* We lose a bit here, and thus know the next quotient bit
-	     will be one.  */
-	  lshift_significand_1 (&u, &u);
-	  sub_significands (&u, &u, b);
+	  sub_significands (&u, &u, b, 0);
 	  set_significand_bit (r, bit);
 	}
     }
@@ -543,7 +524,7 @@ normalize (r)
   int shift = 0, exp;
   int i, j;
 
-  /* Find the first word that is non-zero.  */
+  /* Find the first word that is nonzero.  */
   for (i = SIGSZ - 1; i >= 0; i--)
     if (r->sig[i] == 0)
       shift += HOST_BITS_PER_LONG;
@@ -558,7 +539,7 @@ normalize (r)
       return;
     }
 
-  /* Find the first bit that is non-zero.  */
+  /* Find the first bit that is nonzero.  */
   for (j = 0; ; j++)
     if (r->sig[i] & ((unsigned long)1 << (HOST_BITS_PER_LONG - 1 - j)))
       break;
@@ -589,6 +570,7 @@ do_add (r, a, b, subtract_p)
 {
   int dexp, sign, exp;
   REAL_VALUE_TYPE t;
+  bool inexact = false;
 
   /* Determine if we need to add or subtract.  */
   sign = a->sign;
@@ -597,8 +579,8 @@ do_add (r, a, b, subtract_p)
   switch (CLASS2 (a->class, b->class))
     {
     case CLASS2 (rvc_zero, rvc_zero):
-      /* +-0 +/- +-0 = +0.  */
-      get_zero (r, 0);
+      /* -0 + -0 = -0, -0 - +0 = -0; all other cases yield +0.  */
+      get_zero (r, sign & !subtract_p);
       return;
 
     case CLASS2 (rvc_zero, rvc_normal):
@@ -667,13 +649,13 @@ do_add (r, a, b, subtract_p)
 	  return;
 	}
 
-      sticky_rshift_significand (&t, b, dexp);
+      inexact |= sticky_rshift_significand (&t, b, dexp);
       b = &t;
     }
 
   if (subtract_p)
     {
-      if (sub_significands (r, a, b))
+      if (sub_significands (r, a, b, inexact))
 	{
 	  /* We got a borrow out of the subtraction.  That means that
 	     A and B had the same exponent, and B had the larger
@@ -690,7 +672,7 @@ do_add (r, a, b, subtract_p)
 	  /* We got carry out of the addition.  This means we need to
 	     shift the significand back down one bit and increase the
 	     exponent.  */
-	  sticky_rshift_significand (r, r, 1);
+	  inexact |= sticky_rshift_significand (r, r, 1);
 	  r->sig[SIGSZ-1] |= SIG_MSB;
 	  if (++exp > MAX_EXP)
 	    {
@@ -711,6 +693,8 @@ do_add (r, a, b, subtract_p)
      is positive.  */
   if (r->class == rvc_zero)
     r->sign = 0;
+  else
+    r->sig[0] |= inexact;
 }
 
 /* Return R = A * B.  */
@@ -777,9 +761,6 @@ do_multiply (r, a, b)
     rr = r;
   get_zero (rr, 0);
 
-  u.class = rvc_normal;
-  u.sign = 0;
-
   /* Collect all the partial products.  Since we don't have sure access
      to a widening multiply, we split each long into two half-words.
 
@@ -788,7 +769,7 @@ do_multiply (r, a, b)
 		 A  B  C  D
 	      *  E  F  G  H
 	     --------------
-                DE DF DG DH
+	        DE DF DG DH
 	     CE CF CG CH
 	  BE BF BG BH
        AE AF AG AH
@@ -820,6 +801,8 @@ do_multiply (r, a, b)
 	    /* Would underflow to zero, which we shouldn't bother adding.  */
 	    continue;
 
+	  u.class = rvc_normal;
+	  u.sign = 0;
 	  u.exp = exp;
 
 	  for (k = j; k < SIGSZ * 2; k += 2)
@@ -833,6 +816,7 @@ do_multiply (r, a, b)
 	      u.sig[k / 2] = ai * bi;
 	    }
 
+	  normalize (&u);
 	  do_add (rr, rr, &u, 0);
 	}
     }
@@ -857,8 +841,6 @@ do_divide (r, a, b)
     {
     case CLASS2 (rvc_zero, rvc_zero):
       /* 0 / 0 = NaN.  */
-    case CLASS2 (rvc_inf, rvc_zero):
-      /* Inf / 0 = NaN.  */
     case CLASS2 (rvc_inf, rvc_inf):
       /* Inf / Inf = NaN.  */
       get_canonical_qnan (r, sign);
@@ -875,6 +857,8 @@ do_divide (r, a, b)
 
     case CLASS2 (rvc_normal, rvc_zero):
       /* R / 0 = Inf.  */
+    case CLASS2 (rvc_inf, rvc_zero):
+      /* Inf / 0 = Inf.  */
       get_inf (r, sign);
       return;
 
@@ -924,10 +908,10 @@ do_divide (r, a, b)
   rr->exp = exp;
 
   inexact = div_significands (rr, a, b);
-  rr->sig[0] |= inexact;
 
   /* Re-normalize the result.  */
   normalize (rr);
+  rr->sig[0] |= inexact;
 
   if (rr != r)
     *r = t;
@@ -1000,7 +984,7 @@ do_fix_trunc (r, a)
 {
   *r = *a;
 
-  switch (a->class)
+  switch (r->class)
     {
     case rvc_zero:
     case rvc_inf:
@@ -1424,21 +1408,61 @@ real_to_integer2 (plow, phigh, r)
   *phigh = high;
 }
 
-/* Render R as a decimal floating point constant.  Emit DIGITS
-   significant digits in the result.  If DIGITS <= 0, choose the
-   maximum for the representation.  */
+/* A subroutine of real_to_decimal.  Compute the quotient and remainder
+   of NUM / DEN.  Return the quotient and place the remainder in NUM.
+   It is expected that NUM / DEN are close enough that the quotient is
+   small.  */
+
+static unsigned long
+rtd_divmod (num, den)
+     REAL_VALUE_TYPE *num, *den;
+{
+  unsigned long q, msb;
+  int expn = num->exp, expd = den->exp;
+
+  if (expn < expd)
+    return 0;
+
+  q = msb = 0;
+  goto start;
+  do
+    {
+      msb = num->sig[SIGSZ-1] & SIG_MSB;
+      q <<= 1;
+      lshift_significand_1 (num, num);
+    start:
+      if (msb || cmp_significands (num, den) >= 0)
+	{
+	  sub_significands (num, num, den, 0);
+	  q |= 1;
+	}
+    }
+  while (--expn >= expd);
+
+  num->exp = expd;
+  normalize (num);
+
+  return q;
+}
+
+/* Render R as a decimal floating point constant.  Emit DIGITS significant
+   digits in the result, bounded by BUF_SIZE.  If DIGITS is 0, choose the
+   maximum for the representation.  If CROP_TRAILING_ZEROS, strip trailing
+   zeros.  */
 
 #define M_LOG10_2	0.30102999566398119521
 
 void
-real_to_decimal (str, r_orig, digits)
+real_to_decimal (str, r_orig, buf_size, digits, crop_trailing_zeros)
      char *str;
      const REAL_VALUE_TYPE *r_orig;
-     int digits;
+     size_t buf_size, digits;
+     int crop_trailing_zeros;
 {
-  REAL_VALUE_TYPE r;
   const REAL_VALUE_TYPE *one, *ten;
-  int dec_exp, max_digits, d, cmp_half;
+  REAL_VALUE_TYPE r, pten, u, v;
+  int dec_exp, cmp_one, digit;
+  size_t max_digits;
   char *p, *first, *last;
   bool sign;
 
@@ -1451,18 +1475,33 @@ real_to_decimal (str, r_orig, digits)
     case rvc_normal:
       break;
     case rvc_inf:
-      strcpy (str, (r.sign ? "+Inf" : "-Inf"));
+      strcpy (str, (r.sign ? "-Inf" : "+Inf"));
       return;
     case rvc_nan:
       /* ??? Print the significand as well, if not canonical?  */
-      strcpy (str, (r.sign ? "+NaN" : "-NaN"));
+      strcpy (str, (r.sign ? "-NaN" : "+NaN"));
       return;
     default:
       abort ();
     }
 
+  /* Estimate the decimal exponent, and compute the length of the string it
+     will print as.  Be conservative and add one to account for possible
+     overflow or rounding error.  */
+  dec_exp = r.exp * M_LOG10_2;
+  for (max_digits = 1; dec_exp ; max_digits++)
+    dec_exp /= 10;
+
+  /* Bound the number of digits printed by the size of the output buffer.  */
+  max_digits = buf_size - 1 - 1 - 2 - max_digits - 1;
+  if (max_digits > buf_size)
+    abort ();
+  if (digits > max_digits)
+    digits = max_digits;
+
+  /* Bound the number of digits printed by the size of the representation.  */
   max_digits = SIGNIFICAND_BITS * M_LOG10_2;
-  if (digits <= 0 || digits > max_digits)
+  if (digits == 0 || digits > max_digits)
     digits = max_digits;
 
   one = real_digit (1);
@@ -1471,75 +1510,195 @@ real_to_decimal (str, r_orig, digits)
   sign = r.sign;
   r.sign = 0;
 
-  /* Estimate the decimal exponent.  */
-  dec_exp = r.exp * M_LOG10_2;
-  
-  /* Scale the number such that it is in [1, 10).  */
-  if (dec_exp > 0)
-    {
-      int i;
-      for (i = EXP_BITS - 1; i >= 0; --i)
-	if (dec_exp & (1 << i))
-	  do_divide (&r, &r, ten_to_ptwo (i));
-    }
-  else if (dec_exp < 0)
-    {
-      int i, pos_exp = -(--dec_exp);
+  dec_exp = 0;
+  pten = *one;
 
-      for (i = EXP_BITS - 1; i >= 0; --i)
-	if (pos_exp & (1 << i))
-	  do_multiply (&r, &r, ten_to_ptwo (i));
-    }
+  cmp_one = do_compare (&r, one, 0);
+  if (cmp_one > 0)
+    {
+      int m;
 
-  /* Assert that the number is in the proper range.  Round-off can
-     prevent the above from working exactly.  */
-  if (do_compare (&r, one, -1) < 0)
-    {
-      do_multiply (&r, &r, ten);
-      dec_exp--;
+      /* Number is greater than one.  Convert significand to an integer
+	 and strip trailing decimal zeros.  */
+
+      u = r;
+      u.exp = SIGNIFICAND_BITS - 1;
+
+      /* Largest M, such that 10**2**M fits within SIGNIFICAND_BITS.  */
+      m = floor_log2 (max_digits);
+
+      /* Iterate over the bits of the possible powers of 10 that might
+	 be present in U and eliminate them.  That is, if we find that
+	 10**2**M divides U evenly, keep the division and increase 
+	 DEC_EXP by 2**M.  */
+      do
+	{
+	  REAL_VALUE_TYPE t;
+
+	  do_divide (&t, &u, ten_to_ptwo (m));
+	  do_fix_trunc (&v, &t);
+	  if (cmp_significands (&v, &t) == 0)
+	    {
+	      u = t;
+	      dec_exp += 1 << m;
+	    }
+	}
+      while (--m >= 0);
+
+      /* Revert the scaling to integer that we performed earlier.  */
+      u.exp += r.exp - (SIGNIFICAND_BITS - 1);
+      r = u;
+
+      /* Find power of 10.  Do this by dividing out 10**2**M when
+	 this is larger than the current remainder.  Fill PTEN with 
+	 the power of 10 that we compute.  */
+      if (r.exp > 0)
+	{
+	  m = floor_log2 ((int)(r.exp * M_LOG10_2)) + 1;
+	  do
+	    {
+	      const REAL_VALUE_TYPE *ptentwo = ten_to_ptwo (m);
+	      if (do_compare (&u, ptentwo, 0) >= 0)
+	        {
+	          do_divide (&u, &u, ptentwo);
+	          do_multiply (&pten, &pten, ptentwo);
+	          dec_exp += 1 << m;
+	        }
+	    }
+          while (--m >= 0);
+	}
+      else
+	/* We managed to divide off enough tens in the above reduction
+	   loop that we've now got a negative exponent.  Fall into the
+	   less-than-one code to compute the proper value for PTEN.  */
+	cmp_one = -1;
     }
-  else if (do_compare (&r, ten, 1) >= 0)
+  if (cmp_one < 0)
     {
-      do_divide (&r, &r, ten);
-      dec_exp++;
+      int m;
+
+      /* Number is less than one.  Pad significand with leading
+	 decimal zeros.  */
+
+      v = r;
+      while (1)
+	{
+	  /* Stop if we'd shift bits off the bottom.  */
+	  if (v.sig[0] & 7)
+	    break;
+
+	  do_multiply (&u, &v, ten);
+
+	  /* Stop if we're now >= 1.  */
+	  if (u.exp > 0)
+	    break;
+
+	  v = u;
+	  dec_exp -= 1;
+	}
+      r = v;
+
+      /* Find power of 10.  Do this by multiplying in P=10**2**M when
+	 the current remainder is smaller than 1/P.  Fill PTEN with the
+	 power of 10 that we compute.  */
+      m = floor_log2 ((int)(-r.exp * M_LOG10_2)) + 1;
+      do
+	{
+	  const REAL_VALUE_TYPE *ptentwo = ten_to_ptwo (m);
+	  const REAL_VALUE_TYPE *ptenmtwo = ten_to_mptwo (m);
+
+	  if (do_compare (&v, ptenmtwo, 0) <= 0)
+	    {
+	      do_multiply (&v, &v, ptentwo);
+	      do_multiply (&pten, &pten, ptentwo);
+	      dec_exp -= 1 << m;
+	    }
+	}
+      while (--m >= 0);
+
+      /* Invert the positive power of 10 that we've collected so far.  */
+      do_divide (&pten, one, &pten);
     }
 
   p = str;
   if (sign)
     *p++ = '-';
   first = p++;
-  while (1)
-    {
-      d = real_to_integer ((const REAL_VALUE_TYPE *) &r);
-      do_add (&r, &r, real_digit (d), 1);
 
-      *p++ = d + '0';
-      if (--digits == 0)
-	break;
+  /* At this point, PTEN should contain the nearest power of 10 smaller
+     than R, such that this division produces the first digit.
+
+     Using a divide-step primitive that returns the complete integral
+     remainder avoids the rounding error that would be produced if
+     we were to use do_divide here and then simply multiply by 10 for
+     each subsequent digit.  */
+
+  digit = rtd_divmod (&r, &pten);
+
+  /* Be prepared for error in that division via underflow ...  */
+  if (digit == 0 && cmp_significand_0 (&r))
+    {
+      /* Multiply by 10 and try again.  */
       do_multiply (&r, &r, ten);
+      digit = rtd_divmod (&r, &pten);
+      dec_exp -= 1;
+      if (digit == 0)
+	abort ();
+    }
+
+  /* ... or overflow.  */
+  if (digit == 10)
+    {
+      *p++ = '1';
+      if (--digits > 0)
+	*p++ = '0';
+      dec_exp += 1;
+    }
+  else if (digit > 10)
+    abort ();
+  else
+    *p++ = digit + '0';
+
+  /* Generate subsequent digits.  */
+  while (--digits > 0)
+    {
+      do_multiply (&r, &r, ten);
+      digit = rtd_divmod (&r, &pten);
+      *p++ = digit + '0';
     }
   last = p;
 
-  /* Round the result.  Compare R vs 0.5 by doing R*2 vs 1.0.  */
-  r.exp += 1;
-  cmp_half = do_compare (&r, one, -1);
-  if (cmp_half == 0)
-    /* Round to even.  */
-    cmp_half += d & 1;
-  if (cmp_half > 0)
+  /* Generate one more digit with which to do rounding.  */
+  do_multiply (&r, &r, ten);
+  digit = rtd_divmod (&r, &pten);
+
+  /* Round the result.  */
+  if (digit == 5)
+    {
+      /* Round to nearest.  If R is non-zero there are additional
+	 non-zero digits to be extracted.  */
+      if (cmp_significand_0 (&r))
+	digit++;
+      /* Round to even.  */
+      else if ((p[-1] - '0') & 1)
+	digit++;
+    }
+  if (digit > 5)
     {
       while (p > first)
 	{
-	  d = *--p;
-	  if (d == '9')
+	  digit = *--p;
+	  if (digit == '9')
 	    *p = '0';
 	  else
 	    {
-	      *p = d + 1;
+	      *p = digit + 1;
 	      break;
 	    }
 	}
 
+      /* Carry out of the first digit.  This means we had all 9's and
+	 now have all 0's.  "Prepend" a 1 by overwriting the first 0.  */
       if (p == first)
 	{
 	  first[1] = '1';
@@ -1547,24 +1706,35 @@ real_to_decimal (str, r_orig, digits)
 	}
     }
   
+  /* Insert the decimal point.  */
   first[0] = first[1];
   first[1] = '.';
 
+  /* If requested, drop trailing zeros.  Never crop past "1.0".  */
+  if (crop_trailing_zeros)
+    while (last > first + 3 && last[-1] == '0')
+      last--;
+
+  /* Append the exponent.  */
   sprintf (last, "e%+d", dec_exp);
 }
 
 /* Render R as a hexadecimal floating point constant.  Emit DIGITS
-   significant digits in the result.  If DIGITS <= 0, choose the maximum
-   for the representation.  */
+   significant digits in the result, bounded by BUF_SIZE.  If DIGITS is 0,
+   choose the maximum for the representation.  If CROP_TRAILING_ZEROS,
+   strip trailing zeros.  */
 
 void
-real_to_hexadecimal (str, r, digits)
+real_to_hexadecimal (str, r, buf_size, digits, crop_trailing_zeros)
      char *str;
      const REAL_VALUE_TYPE *r;
-     int digits;
+     size_t buf_size, digits;
+     int crop_trailing_zeros;
 {
   int i, j, exp = r->exp;
-  char *p;
+  char *p, *first;
+  char exp_buf[16];
+  size_t max_digits;
 
   switch (r->class)
     {
@@ -1574,18 +1744,27 @@ real_to_hexadecimal (str, r, digits)
     case rvc_normal:
       break;
     case rvc_inf:
-      strcpy (str, (r->sign ? "+Inf" : "-Inf"));
+      strcpy (str, (r->sign ? "-Inf" : "+Inf"));
       return;
     case rvc_nan:
       /* ??? Print the significand as well, if not canonical?  */
-      strcpy (str, (r->sign ? "+NaN" : "-NaN"));
+      strcpy (str, (r->sign ? "-NaN" : "+NaN"));
       return;
     default:
       abort ();
     }
 
-  if (digits <= 0)
+  if (digits == 0)
     digits = SIGNIFICAND_BITS / 4;
+
+  /* Bound the number of digits printed by the size of the output buffer.  */
+
+  sprintf (exp_buf, "p%+d", exp);
+  max_digits = buf_size - strlen (exp_buf) - r->sign - 4 - 1;
+  if (max_digits > buf_size)
+    abort ();
+  if (digits > max_digits)
+    digits = max_digits;
 
   p = str;
   if (r->sign)
@@ -1594,6 +1773,7 @@ real_to_hexadecimal (str, r, digits)
   *p++ = 'x';
   *p++ = '0';
   *p++ = '.';
+  first = p;
 
   for (i = SIGSZ - 1; i >= 0; --i)
     for (j = HOST_BITS_PER_LONG - 4; j >= 0; j -= 4)
@@ -1602,7 +1782,12 @@ real_to_hexadecimal (str, r, digits)
 	if (--digits == 0)
 	  goto out;
       }
+
  out:
+  if (crop_trailing_zeros)
+    while (p > first + 1 && p[-1] == '0')
+      p--;
+
   sprintf (p, "p%+d", exp);
 }
 
@@ -1615,12 +1800,13 @@ real_from_string (r, str)
      const char *str;
 {
   int exp = 0;
+  bool sign = false;
 
   get_zero (r, 0);
 
   if (*str == '-')
     {
-      r->sign = 1;
+      sign = true;
       str++;
     }
   else if (*str == '+')
@@ -1652,6 +1838,11 @@ real_from_string (r, str)
       if (*str == '.')
 	{
 	  str++;
+	  if (pos == SIGNIFICAND_BITS - 4)
+	    {
+	      while (*str == '0')
+		str++, exp -= 4;
+	    }
 	  while (1)
 	    {
 	      d = hex_value (*str);
@@ -1668,12 +1859,12 @@ real_from_string (r, str)
 	}
       if (*str == 'p' || *str == 'P')
 	{
-	  int exp_neg = 0;
+	  bool exp_neg = false;
 
 	  str++;
 	  if (*str == '-')
 	    {
-	      exp_neg = 1;
+	      exp_neg = true;
 	      str++;
 	    }
 	  else if (*str == '+')
@@ -1682,10 +1873,9 @@ real_from_string (r, str)
 	  d = 0;
 	  while (ISDIGIT (*str))
 	    {
-	      int t = d;
 	      d *= 10;
 	      d += *str - '0';
-	      if (d < t)
+	      if (d > MAX_EXP)
 		{
 		  /* Overflowed the exponent.  */
 		  if (exp_neg)
@@ -1703,13 +1893,6 @@ real_from_string (r, str)
 
       r->class = rvc_normal;
       r->exp = exp;
-      if (r->exp != exp)
-	{
-	  if (exp < 0)
-	    goto underflow;
-	  else
-	    goto overflow;
-	}
 
       normalize (r);
     }
@@ -1731,6 +1914,11 @@ real_from_string (r, str)
       if (*str == '.')
 	{
 	  str++;
+	  if (r->class == rvc_zero)
+	    {
+	      while (*str == '0')
+		str++, exp--;
+	    }
 	  while (ISDIGIT (*str))
 	    {
 	      d = *str++ - '0';
@@ -1743,12 +1931,12 @@ real_from_string (r, str)
 
       if (*str == 'e' || *str == 'E')
 	{
-	  int exp_neg = 0;
+	  bool exp_neg = false;
 
 	  str++;
 	  if (*str == '-')
 	    {
-	      exp_neg = 1;
+	      exp_neg = true;
 	      str++;
 	    }
 	  else if (*str == '+')
@@ -1757,10 +1945,9 @@ real_from_string (r, str)
 	  d = 0;
 	  while (ISDIGIT (*str))
 	    {
-	      int t = d;
 	      d *= 10;
 	      d += *str - '0';
-	      if (d < t)
+	      if (d > MAX_EXP)
 		{
 		  /* Overflowed the exponent.  */
 		  if (exp_neg)
@@ -1775,29 +1962,19 @@ real_from_string (r, str)
 	  exp += d;
 	}
 
-      if (exp < 0)
-	{
-	  exp = -exp;
-	  for (d = 0; d < EXP_BITS; ++d)
-	    if (exp & (1 << d))
-	      do_divide (r, r, ten_to_ptwo (d));
-	}
-      else if (exp > 0)
-	{
-	  for (d = 0; d < EXP_BITS; ++d)
-	    if (exp & (1 << d))
-	      do_multiply (r, r, ten_to_ptwo (d));
-	}
+      if (exp)
+	times_pten (r, exp);
     }
 
+  r->sign = sign;
   return;
 
  underflow:
-  get_zero (r, r->sign);
+  get_zero (r, sign);
   return;
 
  overflow:
-  get_inf (r, r->sign);
+  get_inf (r, sign);
   return;
 }
 
@@ -1869,7 +2046,7 @@ real_from_integer (r, mode, low, high, unsigned_p)
     real_convert (r, mode, r);
 }
 
-/* Returns 10**2**n.  */
+/* Returns 10**2**N.  */
 
 static const REAL_VALUE_TYPE *
 ten_to_ptwo (n)
@@ -1902,6 +2079,23 @@ ten_to_ptwo (n)
   return &tens[n];
 }
 
+/* Returns 10**(-2**N).  */
+
+static const REAL_VALUE_TYPE *
+ten_to_mptwo (n)
+     int n;
+{
+  static REAL_VALUE_TYPE tens[EXP_BITS];
+
+  if (n < 0 || n >= EXP_BITS)
+    abort ();
+
+  if (tens[n].class == rvc_zero)
+    do_divide (&tens[n], real_digit (1), ten_to_ptwo (n));
+
+  return &tens[n];
+}
+
 /* Returns N.  */
 
 static const REAL_VALUE_TYPE *
@@ -1917,6 +2111,34 @@ real_digit (n)
     real_from_integer (&num[n], VOIDmode, n, 0, 1);
 
   return &num[n];
+}
+
+/* Multiply R by 10**EXP.  */
+
+static void
+times_pten (r, exp)
+     REAL_VALUE_TYPE *r;
+     int exp;
+{
+  REAL_VALUE_TYPE pten, *rr;
+  bool negative = (exp < 0);
+  int i;
+
+  if (negative)
+    {
+      exp = -exp;
+      pten = *real_digit (1);
+      rr = &pten;
+    }
+  else
+    rr = r;
+
+  for (i = 0; exp > 0; ++i, exp >>= 1)
+    if (exp & 1)
+      do_multiply (rr, rr, ten_to_ptwo (i));
+
+  if (negative)
+    do_divide (r, r, &pten);
 }
 
 /* Fills R with +Inf.  */
@@ -1942,7 +2164,7 @@ real_nan (r, str, quiet, mode)
 {
   const struct real_format *fmt;
 
-  fmt = fmt_for_mode[mode - QFmode];
+  fmt = real_format_for_mode[mode - QFmode];
   if (fmt == NULL)
     abort ();
 
@@ -2118,7 +2340,7 @@ round_for_format (fmt, r)
       if (shift)
 	{
 	  shift = fmt->log2_b - shift;
-	  sticky_rshift_significand (r, r, shift);
+	  r->sig[0] |= sticky_rshift_significand (r, r, shift);
 	  r->exp += shift;
 	}
     }
@@ -2143,14 +2365,14 @@ round_for_format (fmt, r)
 	  if (diff > p2)
 	    goto underflow;
 
-          /* De-normalize the significand.  */
-          sticky_rshift_significand (r, r, diff);
-          r->exp += diff;
-        }
+	  /* De-normalize the significand.  */
+	  r->sig[0] |= sticky_rshift_significand (r, r, diff);
+	  r->exp += diff;
+	}
     }
 
   /* There are P2 true significand bits, followed by one guard bit,
-     followed by one sticky bit, followed by stuff.  Fold non-zero
+     followed by one sticky bit, followed by stuff.  Fold nonzero
      stuff into the sticky bit.  */
 
   sticky = 0;
@@ -2184,7 +2406,7 @@ round_for_format (fmt, r)
 	      if (shift)
 		{
 		  shift = fmt->log2_b - shift;
-		  sticky_rshift_significand (r, r, shift);
+		  rshift_significand (r, r, shift);
 		  r->exp += shift;
 		  if (r->exp > emax2)
 		    goto overflow;
@@ -2211,7 +2433,7 @@ real_convert (r, mode, a)
 {
   const struct real_format *fmt;
 
-  fmt = fmt_for_mode[mode - QFmode];
+  fmt = real_format_for_mode[mode - QFmode];
   if (fmt == NULL)
     abort ();
 
@@ -2247,25 +2469,20 @@ exact_real_truncate (mode, a)
   return real_identical (&t, a);
 }
 
-/* Write R to the target format of MODE.  Place the words of the 
-   result in target word order in BUF.  There are always 32 bits
-   in each long, no matter the size of the host long.
+/* Write R to the given target format.  Place the words of the result
+   in target word order in BUF.  There are always 32 bits in each
+   long, no matter the size of the host long.
 
    Legacy: return word 0 for implementing REAL_VALUE_TO_TARGET_SINGLE.  */
 
 long
-real_to_target (buf, r_orig, mode)
+real_to_target_fmt (buf, r_orig, fmt)
      long *buf;
      const REAL_VALUE_TYPE *r_orig;
-     enum machine_mode mode;
+     const struct real_format *fmt;
 {
   REAL_VALUE_TYPE r;
-  const struct real_format *fmt;
   long buf1;
-
-  fmt = fmt_for_mode[mode - QFmode];
-  if (fmt == NULL)
-    abort ();
 
   r = *r_orig;
   round_for_format (fmt, &r);
@@ -2277,9 +2494,37 @@ real_to_target (buf, r_orig, mode)
   return *buf;
 }
 
-/* Read R from the target format of MODE.  Read the words of the
-   result in target word order in BUF.  There are always 32 bits
-   in each long, no matter the size of the host long.  */
+/* Similar, but look up the format from MODE.  */
+
+long
+real_to_target (buf, r, mode)
+     long *buf;
+     const REAL_VALUE_TYPE *r;
+     enum machine_mode mode;
+{
+  const struct real_format *fmt;
+
+  fmt = real_format_for_mode[mode - QFmode];
+  if (fmt == NULL)
+    abort ();
+
+  return real_to_target_fmt (buf, r, fmt);
+}
+
+/* Read R from the given target format.  Read the words of the result
+   in target word order in BUF.  There are always 32 bits in each
+   long, no matter the size of the host long.  */
+
+void
+real_from_target_fmt (r, buf, fmt)
+     REAL_VALUE_TYPE *r;
+     const long *buf;
+     const struct real_format *fmt;
+{
+  (*fmt->decode) (fmt, r, buf);
+}     
+
+/* Similar, but look up the format from MODE.  */
 
 void
 real_from_target (r, buf, mode)
@@ -2289,7 +2534,7 @@ real_from_target (r, buf, mode)
 {
   const struct real_format *fmt;
 
-  fmt = fmt_for_mode[mode - QFmode];
+  fmt = real_format_for_mode[mode - QFmode];
   if (fmt == NULL)
     abort ();
 
@@ -2305,7 +2550,7 @@ significand_size (mode)
 {
   const struct real_format *fmt;
 
-  fmt = fmt_for_mode[mode - QFmode];
+  fmt = real_format_for_mode[mode - QFmode];
   if (fmt == NULL)
     return 0;
 
@@ -2467,7 +2712,7 @@ decode_ieee_single (fmt, r, buf)
     }
 }
 
-const struct real_format ieee_single = 
+const struct real_format ieee_single_format = 
   {
     encode_ieee_single,
     decode_ieee_single,
@@ -2660,7 +2905,7 @@ decode_ieee_double (fmt, r, buf)
     }
 }
 
-const struct real_format ieee_double = 
+const struct real_format ieee_double_format = 
   {
     encode_ieee_double,
     decode_ieee_double,
@@ -2915,7 +3160,7 @@ decode_ieee_extended_128 (fmt, r, buf)
   decode_ieee_extended (fmt, r, buf+!!FLOAT_WORDS_BIG_ENDIAN);
 }
 
-const struct real_format ieee_extended_motorola = 
+const struct real_format ieee_extended_motorola_format = 
   {
     encode_ieee_extended,
     decode_ieee_extended,
@@ -2931,7 +3176,7 @@ const struct real_format ieee_extended_motorola =
     true
   };
 
-const struct real_format ieee_extended_intel_96 = 
+const struct real_format ieee_extended_intel_96_format = 
   {
     encode_ieee_extended,
     decode_ieee_extended,
@@ -2947,7 +3192,7 @@ const struct real_format ieee_extended_intel_96 =
     true
   };
 
-const struct real_format ieee_extended_intel_128 = 
+const struct real_format ieee_extended_intel_128_format = 
   {
     encode_ieee_extended_128,
     decode_ieee_extended_128,
@@ -2956,6 +3201,99 @@ const struct real_format ieee_extended_intel_128 =
     64,
     -16381,
     16384,
+    true,
+    true,
+    true,
+    true,
+    true
+  };
+
+
+/* IBM 128-bit extended precision format: a pair of IEEE double precision
+   numbers whose sum is equal to the extended precision value.  The number
+   with greater magnitude is first.  This format has the same magnitude
+   range as an IEEE double precision value, but effectively 106 bits of
+   significand precision.  Infinity and NaN are represented by their IEEE
+   double precision value stored in the first number, the second number is
+   ignored.  Zeroes, Infinities, and NaNs are set in both doubles
+   due to precedent.  */
+
+static void encode_ibm_extended PARAMS ((const struct real_format *fmt,
+					 long *, const REAL_VALUE_TYPE *));
+static void decode_ibm_extended PARAMS ((const struct real_format *,
+					 REAL_VALUE_TYPE *, const long *));
+
+static void
+encode_ibm_extended (fmt, buf, r)
+     const struct real_format *fmt ATTRIBUTE_UNUSED;
+     long *buf;
+     const REAL_VALUE_TYPE *r;
+{
+  REAL_VALUE_TYPE u, v;
+
+  switch (r->class)
+    {
+    case rvc_zero:
+      /* Both doubles have sign bit set.  */
+      buf[0] = FLOAT_WORDS_BIG_ENDIAN ? r->sign << 31 : 0;
+      buf[1] = FLOAT_WORDS_BIG_ENDIAN ? 0 : r->sign << 31;
+      buf[2] = buf[0];
+      buf[3] = buf[1];
+      break;
+
+    case rvc_inf:
+    case rvc_nan:
+      /* Both doubles set to Inf / NaN.  */
+      encode_ieee_double (&ieee_double_format, &buf[0], r);
+      buf[2] = buf[0];
+      buf[3] = buf[1];
+      return;
+      
+    case rvc_normal:
+      /* u = IEEE double precision portion of significand.  */
+      u = *r;
+      clear_significand_below (&u, SIGNIFICAND_BITS - 53);
+
+      /* v = remainder containing additional 53 bits of significand.  */
+      do_add (&v, r, &u, 1);
+
+      encode_ieee_double (&ieee_double_format, &buf[0], &u);
+      encode_ieee_double (&ieee_double_format, &buf[2], &v);
+      break;
+
+    default:
+      abort ();
+    }
+}
+
+static void
+decode_ibm_extended (fmt, r, buf)
+     const struct real_format *fmt ATTRIBUTE_UNUSED;
+     REAL_VALUE_TYPE *r;
+     const long *buf;
+{
+  REAL_VALUE_TYPE u, v;
+
+  decode_ieee_double (&ieee_double_format, &u, &buf[0]);
+
+  if (u.class != rvc_zero && u.class != rvc_inf && u.class != rvc_nan)
+    {
+      decode_ieee_double (&ieee_double_format, &v, &buf[2]);
+      do_add (r, &u, &v, 0);
+    }
+  else
+    *r = u;
+}
+
+const struct real_format ibm_extended_format = 
+  {
+    encode_ibm_extended,
+    decode_ibm_extended,
+    2,
+    1,
+    53 + 53,
+    -1021,
+    1024,
     true,
     true,
     true,
@@ -3200,14 +3538,14 @@ decode_ieee_quad (fmt, r, buf)
     }
 }
 
-const struct real_format ieee_quad = 
+const struct real_format ieee_quad_format = 
   {
     encode_ieee_quad,
     decode_ieee_quad,
     2,
     1,
     113,
-    -16382,
+    -16381,
     16384,
     true,
     true,
@@ -3215,10 +3553,17 @@ const struct real_format ieee_quad =
     true,
     true
   };
-
 
-/* The VAX floating point formats.  */
+/* Descriptions of VAX floating point formats can be found beginning at
 
+   http://www.openvms.compaq.com:8000/73final/4515/4515pro_013.html#f_floating_point_format
+
+   The thing to remember is that they're almost IEEE, except for word
+   order, exponent bias, and the lack of infinities, nans, and denormals.
+
+   We don't implement the H_floating format here, simply because neither
+   the VAX or Alpha ports use it.  */
+   
 static void encode_vax_f PARAMS ((const struct real_format *fmt,
 				  long *, const REAL_VALUE_TYPE *));
 static void decode_vax_f PARAMS ((const struct real_format *,
@@ -3547,11 +3892,10 @@ const struct real_format vax_g_format =
     false,
     false
   };
-
 
-/* The IBM S/390 floating point formats.  A good reference for these can
-   be found in chapter 9 of "ESA/390 Principles of Operation", IBM document
-   number SA22-7201-01.  An on-line version can be found here:
+/* A good reference for these can be found in chapter 9 of
+   "ESA/390 Principles of Operation", IBM document number SA22-7201-01.
+   An on-line version can be found here:
 
    http://publibz.boulder.ibm.com/cgi-bin/bookmgr_OS390/BOOKS/DZ9AR001/9.1?DT=19930923083613
 */
@@ -3714,7 +4058,7 @@ decode_i370_double (fmt, r, buf)
     }
 }
 
-const struct real_format i370_single =
+const struct real_format i370_single_format =
   {
     encode_i370_single,
     decode_i370_single,
@@ -3730,7 +4074,7 @@ const struct real_format i370_single =
     false
   };
 
-const struct real_format i370_double =
+const struct real_format i370_double_format =
   {
     encode_i370_double,
     decode_i370_double,
@@ -3745,9 +4089,25 @@ const struct real_format i370_double =
     false, /* ??? The encoding does allow for "unnormals".  */
     false
   };
-
 
-/* TMS320C[34]x twos complement floating point format.  */
+/* The "twos-complement" c4x format is officially defined as
+
+	x = s(~s).f * 2**e
+
+   This is rather misleading.  One must remember that F is signed.
+   A better description would be
+
+	x = -1**s * ((s + 1 + .f) * 2**e
+
+   So if we have a (4 bit) fraction of .1000 with a sign bit of 1,
+   that's -1 * (1+1+(-.5)) == -1.5.  I think.
+
+   The constructions here are taken from Tables 5-1 and 5-2 of the
+   TMS320C4x User's Guide wherein step-by-step instructions for
+   conversion from IEEE are presented.  That's close enough to our
+   internal representation so as to make things easy.
+
+   See http://www-s.ti.com/sc/psheets/spru063c/spru063c.pdf  */
 
 static void encode_c4x_single PARAMS ((const struct real_format *fmt,
 				       long *, const REAL_VALUE_TYPE *));
@@ -3928,7 +4288,7 @@ decode_c4x_extended (fmt, r, buf)
     }
 }
 
-const struct real_format c4x_single = 
+const struct real_format c4x_single_format = 
   {
     encode_c4x_single,
     decode_c4x_single,
@@ -3944,7 +4304,7 @@ const struct real_format c4x_single =
     false
   };
 
-const struct real_format c4x_extended = 
+const struct real_format c4x_extended_format = 
   {
     encode_c4x_extended,
     decode_c4x_extended,
@@ -3961,103 +4321,63 @@ const struct real_format c4x_extended =
   };
 
 
-/* Initialize things at start of compilation.  */
+/* A synthetic "format" for internal arithmetic.  It's the size of the
+   internal significand minus the two bits needed for proper rounding.
+   The encode and decode routines exist only to satisfy our paranoia
+   harness.  */
 
-static const struct real_format * format_for_size PARAMS ((int));
+static void encode_internal PARAMS ((const struct real_format *fmt,
+				     long *, const REAL_VALUE_TYPE *));
+static void decode_internal PARAMS ((const struct real_format *,
+				     REAL_VALUE_TYPE *, const long *));
 
-static const struct real_format *
-format_for_size (size)
-     int size;
+static void
+encode_internal (fmt, buf, r)
+     const struct real_format *fmt ATTRIBUTE_UNUSED;
+     long *buf;
+     const REAL_VALUE_TYPE *r;
 {
-#ifndef TARGET_G_FORMAT
-#define TARGET_G_FORMAT 0
-#endif
-
-  switch (TARGET_FLOAT_FORMAT)
-    {
-    case IEEE_FLOAT_FORMAT:
-      switch (size)
-	{
-	case 32:
-	  return &ieee_single;
-
-	case 64:
-	  return &ieee_double;
-
-	case 96:
-	  if (!INTEL_EXTENDED_IEEE_FORMAT)
-	    return &ieee_extended_motorola;
-	  else
-	    return &ieee_extended_intel_96;
-
-	case 128:
-	  if (!INTEL_EXTENDED_IEEE_FORMAT)
-	    return &ieee_quad;
-	  else
-	    return &ieee_extended_intel_128;
-	}
-      break;
-
-    case VAX_FLOAT_FORMAT:
-      switch (size)
-	{
-	case 32:
-	  return &vax_f_format;
-
-	case 64:
-	  if (TARGET_G_FORMAT)
-	    return &vax_g_format;
-	  else
-	    return &vax_d_format;
-	}
-      break;
-
-    case IBM_FLOAT_FORMAT:
-      switch (size)
-	{
-	case 32:
-	  return &i370_single;
-	case 64:
-	  return &i370_double;
-	}
-      break;
-
-    case C4X_FLOAT_FORMAT:
-      switch (size)
-	{
-	case 32:
-	  return &c4x_single;
-	case 64:
-	  return &c4x_extended;
-	}
-      break;
-    }
-
-  abort ();
+  memcpy (buf, r, sizeof (*r));
 }
 
-void
-init_real_once ()
+static void
+decode_internal (fmt, r, buf)
+     const struct real_format *fmt ATTRIBUTE_UNUSED;
+     REAL_VALUE_TYPE *r;
+     const long *buf;
 {
-  int i;
-
-  /* Set up the mode->format table.  */
-  for (i = 0; i < 3; ++i)
-    {
-      enum machine_mode mode;
-      int size;
-
-      if (i == 0)
-	size = FLOAT_TYPE_SIZE;
-      else if (i == 1)
-	size = DOUBLE_TYPE_SIZE;
-      else
-	size = LONG_DOUBLE_TYPE_SIZE;
-
-      mode = mode_for_size (size, MODE_FLOAT, 0);
-      if (mode == BLKmode)
-	abort ();
-
-      fmt_for_mode[mode - QFmode] = format_for_size (size);
-    }
+  memcpy (r, buf, sizeof (*r));
 }
+
+const struct real_format real_internal_format = 
+  {
+    encode_internal,
+    decode_internal,
+    2,
+    1,
+    SIGNIFICAND_BITS - 2,
+    -MAX_EXP,
+    MAX_EXP,
+    true,
+    true,
+    false,
+    true,
+    true 
+  };
+
+/* Set up default mode to format mapping for IEEE.  Everyone else has
+   to set these values in OVERRIDE_OPTIONS.  */
+
+const struct real_format *real_format_for_mode[TFmode - QFmode + 1] =
+{
+  NULL,				/* QFmode */
+  NULL,				/* HFmode */
+  NULL,				/* TQFmode */
+  &ieee_single_format,		/* SFmode */
+  &ieee_double_format,		/* DFmode */
+
+  /* We explicitly don't handle XFmode.  There are two formats,
+     pretty much equally common.  Choose one in OVERRIDE_OPTIONS.  */
+  NULL,				/* XFmode */
+  &ieee_quad_format		/* TFmode */
+};

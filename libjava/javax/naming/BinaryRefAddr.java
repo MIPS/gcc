@@ -50,6 +50,7 @@ import java.util.Arrays;
  */
 public class BinaryRefAddr extends RefAddr
 {
+  static final long serialVersionUID = -3415254970957330361L;
 
   /**
    * The possibly null content of this RefAddr.
@@ -97,7 +98,7 @@ public class BinaryRefAddr extends RefAddr
    *         the addrType is the same as this addrType and the bytes of the
    *         content are the same.
    */
-  public boolean equal(Object o)
+  public boolean equals(Object o)
   {
     if (o instanceof BinaryRefAddr)
       {

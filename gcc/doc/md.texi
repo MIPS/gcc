@@ -1256,6 +1256,8 @@ instruction is defined:
   @dots{})
 @end smallexample
 @end ifset
+GCC can only handle one commutative pair in an asm; if you use more, 
+the compiler may fail.
 
 @cindex @samp{#} in constraint
 @item #
@@ -1605,6 +1607,10 @@ Second floating point register
 
 @item c
 @samp{c} register
+
+@item C
+Specifies constant that can be easilly constructed in SSE register without
+loading it from memory.
 
 @item d
 @samp{d} register

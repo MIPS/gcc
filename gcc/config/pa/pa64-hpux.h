@@ -19,22 +19,36 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#undef SUBTARGET_SWITCHES
+#define SUBTARGET_SWITCHES				\
+  { "sio",	 MASK_SIO,				\
+     N_("Generate cpp defines for server IO") },	\
+  { "wsio",	-MASK_SIO,				\
+     N_("Generate cpp defines for workstation IO") },	\
+  {"gnu-ld",	 MASK_GNU_LD,				\
+     N_("Assume code will be linked by GNU ld") },	\
+  {"hp-ld",	-MASK_GNU_LD,				\
+     N_("Assume code will be linked by HP ld") },
+
 /* We can debug dynamically linked executables on hpux11; we also
    want dereferencing of a NULL pointer to cause a SEGV.  */
 #undef LINK_SPEC
+#if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_GNU_LD)
 #define LINK_SPEC \
-  "-E %{mlinker-opt:-O} %{!shared:-u main} %{static:-a archive} %{shared:-shared}"
+  "-E %{mlinker-opt:-O} %{!shared:-u main} %{static:-a archive} %{shared:%{mhp-ld:-b}%{!mhp-ld:-shared}} %{mhp-ld:+Accept TypeMismatch}"
+#else
+#define LINK_SPEC \
+  "-E %{mlinker-opt:-O} %{!shared:-u main} %{static:-a archive} %{shared:%{mgnu-ld:-shared}%{!mgnu-ld:-b}} %{!mgnu-ld:+Accept TypeMismatch}"
+#endif
 
 /* Like the default, except no -lg.  */
 #undef LIB_SPEC
 #define LIB_SPEC \
   "%{!shared:\
      %{!p:\
-       %{!pg:\
-         %{!threads:-lc}\
-         %{threads:-lcma -lc_r}}\
-       %{p: -L/lib/libp/ -lc}\
-       %{pg: -L/lib/libp/ -lc}}} /usr/lib/pa20_64/milli.a"
+       %{!pg: %{!threads:-lc} %{threads:-lcma -lc_r}}\
+       %{pg: -L/usr/lib/pa20_64/libp/ -lgprof -lc}}\
+     %{p: -L/usr/lib/pa20_64/libp/ -lprof -lc}} /usr/lib/pa20_64/milli.a"
 
 /* Under hpux11, the normal location of the `ld' and `as' programs is the
    /usr/ccs/bin directory.  */
@@ -120,9 +134,22 @@ do {  \
 #define ENDFILE_SPEC ""
 
 #undef STARTFILE_SPEC
-#define STARTFILE_SPEC "%{!shared: \
-			 %{!symbolic: \
-			  %{pg:gcrt0.o%s}%{!pg:%{p:mcrt0.o%s}%{!p:crt0.o%s}}}}"
+#define STARTFILE_SPEC "%{!shared: %{!symbolic: crt0.o%s}}"
+
+/* Since we are not yet using .init and .fini sections, we need to
+   explicitly arrange to run the global constructors and destructors.
+   HPUX 11 has ldd and we use it to determine the dependencies of
+   dynamic objects.  It might be possible to use the ld options for
+   running initializers and terminators and thereby avoid the necessity
+   of running ldd, but unfortunately the options are different for
+   the two linkers.  */
+#define LDD_SUFFIX "/usr/ccs/bin/ldd"
+/* Skip to first '>' then advance to '/' at the beginning of the filename.  */
+#define PARSE_LDD_OUTPUT(PTR)					\
+do {								\
+  while (*PTR != '>') PTR++;					\
+  while (*PTR != '/') PTR++;					\
+} while (0)
 #endif
 
 /* Switch into a generic section.  */
@@ -143,3 +170,8 @@ do {  \
 #ifndef ASM_DECLARE_RESULT
 #define ASM_DECLARE_RESULT(FILE, RESULT)
 #endif
+
+/* If using HP ld do not call pxdb.  Use size as a program that does nothing
+   and returns 0.  /bin/true cannot be used because it is a script without
+   an interpreter.  */
+#define INIT_ENVIRONMENT "LD_PXDB=/usr/ccs/bin/size"

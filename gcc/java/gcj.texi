@@ -428,6 +428,10 @@ using JNI, then you must use @code{-fjni}.  This option causes
 @command{gcj} to generate stubs which will invoke the underlying JNI
 methods.
 
+@item -fno-assert
+Don't recognize the @code{assert} keyword.  This is for compatibility
+with older versions of the language specification.
+
 @item -fno-optimize-static-class-initialization
 When the optimization level is greater or equal to @code{-O2},
 @command{gcj} will try to optimize the way calls into the runtime are made
@@ -483,14 +487,21 @@ specifications.  However, limited manpower and incomplete and unclear
 documentation work against us.  So, there are caveats to using
 @command{gcj}.
 
+@menu
+* Limitations::                 
+* Extensions::                  
+@end menu
+
+@node Limitations
+@section Standard features not yet supported
+
 This list of compatibility issues is by no means complete.
 
 @itemize @bullet
 @item
-@command{gcj} implements the JDK 1.1 language.  It supports inner classes,
-though these are known to still be buggy.  It does not yet support the
-Java 2 @code{strictfp} keyword (it recognizes the keyword but ignores
-it).
+@command{gcj} implements the JDK 1.2 language.  It supports inner classes
+and the new 1.4 @code{assert} keyword.  It does not yet support the Java 2
+@code{strictfp} keyword (it recognizes the keyword but ignores it).  
 
 @item
 @code{libgcj} is largely compatible with the JDK 1.2 libraries.
@@ -506,6 +517,31 @@ affects you, it probably makes sense to report it so that we can discuss
 the appropriate response.
 @end itemize
 
+@node Extensions
+@section Extra features unique to gcj
+
+The main feature of @command{gcj} is that it can compile programs written in
+the Java programming language to native code.  Most extensions that have been
+added are to facilitate this functionality.
+
+@itemize @bullet
+@item
+@command{gcj} makes it easy and efficient to mix code written in Java and C++.
+@xref{About CNI}, for more info on how to use this in your programs.
+
+@item
+When you compile your classes into a shared library they can be automatically
+loaded by the @code{libgcj} system classloader.  When trying to load a class
+@code{gnu.pkg.SomeClass} the system classloader will first try to load the
+shared library @file{lib-gnu-pkg-SomeClass.so}, if that fails to load the
+class then it will try to load @file{lib-gnu-pkg.so} and finally when the
+class is still not loaded it will try to load @file{lib-gnu.so}.  Note that
+all @samp{.}s will be transformed into @samp{-}s and that searching
+for inner classes starts with their outermost outer class.  If the class
+cannot be found this way the system classloader tries to use
+the @code{libgcj} bytecode interpreter to load the class from the standard
+classpath.
+@end itemize
 
 @node Invoking gcjh
 @chapter Invoking gcjh
@@ -622,8 +658,9 @@ source file (@file{.java} file).
 
 @ignore
 @c man begin SYNOPSIS jv-scan
-jv-scan [@option{--complexity}] [@option{--encoding}=@var{name}]
-    [@option{--print-main}] [@option{--list-class}] [@option{--list-filename}]
+jv-scan [@option{--no-assert}] [@option{--complexity}] 
+    [@option{--encoding}=@var{name}] [@option{--print-main}] 
+    [@option{--list-class}] [@option{--list-filename}]
     [@option{--version}] [@option{--help}]
     [@option{-o} @var{file}] @var{inputfile}@dots{}
 @c man end
@@ -636,6 +673,10 @@ and the Info entries for @file{gcj} and @file{gcc}.
 @c man begin OPTIONS jv-scan
 
 @table @gcctabopt
+@item --no-assert
+Don't recognize the @code{assert} keyword, for backwards compatibility
+with older versions of the language specification.
+
 @item --complexity
 This prints a complexity measure, related to cyclomatic complexity, for
 each input file.
@@ -734,7 +775,7 @@ gij [@option{-jar}] [@option{OPTION}] @dots{} @var{CLASS} [@var{ARGS}@dots{}]
   [@option{-cp} @var{path}] [@option{-classpath} @var{path}]
   [@option{-D}@var{name}[=@var{value}]@dots{}]
   [@option{-ms=}@var{number}] [@option{-mx=}@var{number}]
-  [@option{--version}] [@option{--help}]
+  [@option{--showversion}] [@option{--version}] [@option{--help}]
 @c man end
 @c man begin SEEALSO gij
 gcc(1), gcj(1), gcjh(1), jv-scan(1), jcf-dump(1), gfdl(7),
@@ -800,6 +841,9 @@ as the name of a jar file, not a class.
 
 @item --help
 Print help, then exit.
+
+@item --showversion
+Print version number and continue.
 
 @item --version
 Print version number, then exit.
@@ -2024,7 +2068,7 @@ The name of the Runtime Environment specification
 The paths (jar files, zip files and directories) used for finding class files.
 
 @item java.library.path
-Directory path used for finding native libraries.  Currently not set.
+Directory path used for finding native libraries.
 
 @item java.io.tmpdir
 The directory used to put temporary files in.
@@ -2108,7 +2152,7 @@ Returned by @code{java.awt.Window.getWarningString()} when the window is
 
 @item awt.toolkit
 The class name used for initializing the default @code{java.awt.Toolkit}. 
-Defaults to @code{gnu.java.awt.peer.gtk.GtkToolkit}.
+Defaults to @code{gnu.awt.gtk.GtkToolkit}.
 
 @end table
 
@@ -2148,6 +2192,9 @@ Used by the @code{java.net.DatagramSocket} class when set to something else
 then the empty string.  When set all newly created @code{DatagramSocket}s will
 try to load a class @code{java.net.[impl.prefix]DatagramSocketImpl} instead of
 the normal @code{java.net.PlainDatagramSocketImpl}.
+
+@item gnu.gcj.progname
+The name that was used to invoked the program.
 
 @item gnu.gcj.runtime.NameFinder.demangle
 Whether names in a stack trace should be demangled.  Defaults to @code{true}.

@@ -135,7 +135,7 @@ toc_section ()						\
 
 #define READONLY_DATA_SECTION read_only_data_section
 
-/* Return non-zero if this entry is to be written into the constant
+/* Return nonzero if this entry is to be written into the constant
    pool in a special way.  We do so if this is a SYMBOL_REF, LABEL_REF
    or a CONST containing one of them.  If -mfp-in-toc (the default),
    we also do this for floating-point constants.  We actually can only
@@ -296,7 +296,11 @@ toc_section ()						\
   putc ('.', FILE);						\
   RS6000_OUTPUT_BASENAME (FILE, NAME);				\
   fputs (":\n", FILE);						\
-  if (write_symbols == XCOFF_DEBUG)				\
+  if (write_symbols == XCOFF_DEBUG				\
+      /* When called before targetm.asm_out.output_mi_thunk,	\
+	 we won't be emitting the rest of the debug info that	\
+	 goes along with this, leading to assembler errors.  */ \
+      && !(current_function_is_thunk && !no_new_pseudos))	\
     xcoffout_declare_function (FILE, DECL, NAME);		\
 }
 

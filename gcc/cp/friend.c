@@ -30,7 +30,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Friend data structures are described in cp-tree.h.  */
 
-/* Returns non-zero if SUPPLICANT is a friend of TYPE.  */
+/* Returns nonzero if SUPPLICANT is a friend of TYPE.  */
 
 int
 is_friend (type, supplicant)
@@ -159,12 +159,17 @@ add_friend (type, decl)
 		  return;
 		}
 	    }
+
+	  maybe_add_class_template_decl_list (type, decl, /*friend_p=*/1);
+
 	  TREE_VALUE (list) = tree_cons (error_mark_node, decl,
 					 TREE_VALUE (list));
 	  return;
 	}
       list = TREE_CHAIN (list);
     }
+
+  maybe_add_class_template_decl_list (type, decl, /*friend_p=*/1);
 
   DECL_FRIENDLIST (typedecl)
     = tree_cons (DECL_NAME (decl), build_tree_list (error_mark_node, decl),
@@ -267,6 +272,8 @@ make_friend_class (type, friend_type)
 		TREE_VALUE (classes), type);
   else
     {
+      maybe_add_class_template_decl_list (type, friend_type, /*friend_p=*/1);
+
       CLASSTYPE_FRIEND_CLASSES (type)
 	= tree_cons (NULL_TREE, friend_type, CLASSTYPE_FRIEND_CLASSES (type));
       if (is_template_friend)

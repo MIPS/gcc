@@ -119,7 +119,7 @@ static GTY ((if_marked ("type_hash_marked_p"), param_is (struct type_hash)))
 static void set_type_quals PARAMS ((tree, int));
 static void append_random_chars PARAMS ((char *));
 static int type_hash_eq PARAMS ((const void *, const void *));
-static unsigned int type_hash_hash PARAMS ((const void *));
+static hashval_t type_hash_hash PARAMS ((const void *));
 static void print_type_hash_statistics PARAMS((void));
 static void finish_vector_type PARAMS((tree));
 static tree make_vector PARAMS ((enum machine_mode, tree, int));
@@ -177,7 +177,7 @@ tree_size (node)
     case '1':  /* a unary arithmetic expression */
     case '2':  /* a binary arithmetic expression */
       return (sizeof (struct tree_exp)
-	      + (TREE_CODE_LENGTH (code) - 1) * sizeof (char *));
+	      + TREE_CODE_LENGTH (code) * sizeof (char *) - sizeof (char *));
 
     case 'c':  /* a constant */
       /* We can't use TREE_CODE_LENGTH for INTEGER_CST, since the number of
@@ -199,7 +199,7 @@ tree_size (node)
 	length = (sizeof (struct tree_common)
 		  + TREE_CODE_LENGTH (code) * sizeof (char *));
 	if (code == TREE_VEC)
-	  length += (TREE_VEC_LENGTH (node) - 1) * sizeof (char *);
+	  length += TREE_VEC_LENGTH (node) * sizeof (char *) - sizeof (char *);
 	return length;
       }
 
@@ -2599,7 +2599,7 @@ default_ms_bitfield_layout_p (record)
   return false;
 }
 
-/* Return non-zero if IDENT is a valid name for attribute ATTR,
+/* Return nonzero if IDENT is a valid name for attribute ATTR,
    or zero if not.
 
    We try both `text' and `__text__', ATTR may be either one.  */
@@ -2936,7 +2936,7 @@ type_hash_eq (va, vb)
 
 /* Return the cached hash value.  */
 
-static unsigned int
+static hashval_t
 type_hash_hash (item)
      const void *item;
 {
@@ -4151,6 +4151,65 @@ int_fits_type_p (c, type)
     }
 }
 
+/* Returns true if T is, contains, or refers to a type with variable
+   size.  This concept is more general than that of C99 'variably
+   modified types': in C99, a struct type is never variably modified
+   because a VLA may not appear as a structure member.  However, in
+   GNU C code like:
+    
+     struct S { int i[f()]; };
+
+   is valid, and other languages may define similar constructs.  */
+
+bool
+variably_modified_type_p (type)
+     tree type;
+{
+  /* If TYPE itself has variable size, it is variably modified.  
+
+     We do not yet have a representation of the C99 '[*]' syntax.
+     When a representation is chosen, this function should be modified
+     to test for that case as well.  */
+  if (TYPE_SIZE (type) 
+      && TYPE_SIZE (type) != error_mark_node
+      && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+    return true;
+
+  /* If TYPE is a pointer or reference, it is variably modified if 
+     the type pointed to is variably modified.  */
+  if ((TREE_CODE (type) == POINTER_TYPE
+       || TREE_CODE (type) == REFERENCE_TYPE)
+      && variably_modified_type_p (TREE_TYPE (type)))
+    return true;
+  
+  /* If TYPE is an array, it is variably modified if the array
+     elements are.  (Note that the VLA case has already been checked
+     above.)  */
+  if (TREE_CODE (type) == ARRAY_TYPE
+      && variably_modified_type_p (TREE_TYPE (type)))
+    return true;
+
+  /* If TYPE is a function type, it is variably modified if any of the
+     parameters or the return type are variably modified.  */
+  if (TREE_CODE (type) == FUNCTION_TYPE
+      || TREE_CODE (type) == METHOD_TYPE)
+    {
+      tree parm;
+
+      if (variably_modified_type_p (TREE_TYPE (type)))
+	return true;
+      for (parm = TYPE_ARG_TYPES (type); 
+	   parm && parm != void_list_node; 
+	   parm = TREE_CHAIN (parm))
+	if (variably_modified_type_p (TREE_VALUE (parm)))
+	  return true;
+    }
+
+  /* The current language may have other cases to check, but in general,
+     all other types are not variably modified.  */
+  return (*lang_hooks.tree_inlining.var_mod_type_p) (type);
+}
+
 /* Given a DECL or TYPE, return the scope in which it was declared, or
    NULL_TREE if there is no containing scope.  */
 
@@ -4763,6 +4822,8 @@ build_common_tree_nodes_2 (short_double)
 
   unsigned_V4SI_type_node
     = make_vector (V4SImode, unsigned_intSI_type_node, 1);
+  unsigned_V2HI_type_node
+    = make_vector (V2HImode, unsigned_intHI_type_node, 1);
   unsigned_V2SI_type_node
     = make_vector (V2SImode, unsigned_intSI_type_node, 1);
   unsigned_V2DI_type_node
@@ -4781,6 +4842,7 @@ build_common_tree_nodes_2 (short_double)
   V16SF_type_node = make_vector (V16SFmode, float_type_node, 0);
   V4SF_type_node = make_vector (V4SFmode, float_type_node, 0);
   V4SI_type_node = make_vector (V4SImode, intSI_type_node, 0);
+  V2HI_type_node = make_vector (V2HImode, intHI_type_node, 0);
   V2SI_type_node = make_vector (V2SImode, intSI_type_node, 0);
   V2DI_type_node = make_vector (V2DImode, intDI_type_node, 0);
   V4HI_type_node = make_vector (V4HImode, intHI_type_node, 0);

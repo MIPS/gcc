@@ -63,7 +63,9 @@ _Jv_bind (int fd, struct sockaddr *addr, int addrlen)
 #include <java/net/SocketException.h>
 #include <java/net/PlainDatagramSocketImpl.h>
 #include <java/net/InetAddress.h>
+#include <java/net/NetworkInterface.h>
 #include <java/net/DatagramPacket.h>
+#include <java/net/PortUnreachableException.h>
 #include <java/lang/InternalError.h>
 #include <java/lang/Object.h>
 #include <java/lang/Boolean.h>
@@ -83,6 +85,20 @@ java::net::PlainDatagramSocketImpl::bind (jint, java::net::InetAddress *)
 {
   throw new BindException (
     JvNewStringLatin1 ("DatagramSocketImpl.bind: unimplemented"));
+}
+
+void
+java::net::PlainDatagramSocketImpl::connect (java::net::InetAddress *, jint)
+{
+  throw new SocketException (
+    JvNewStringLatin1 ("DatagramSocketImpl.connect: unimplemented"));
+}
+
+void
+java::net::PlainDatagramSocketImpl::disconnect ()
+{
+  throw new SocketException (
+    JvNewStringLatin1 ("DatagramSocketImpl.disconnect: unimplemented"));
 }
 
 jint
@@ -136,6 +152,7 @@ java::net::PlainDatagramSocketImpl::getTimeToLive ()
 
 void
 java::net::PlainDatagramSocketImpl::mcastGrp (java::net::InetAddress *,
+                                              java::net::NetworkInterface *,
 					      jboolean)
 {
   throw new java::io::IOException (
@@ -263,6 +280,20 @@ java::net::PlainDatagramSocketImpl::bind (jint lport,
   throw new java::net::BindException (JvNewStringUTF (strerr));
 }
 
+void
+java::net::PlainDatagramSocketImpl::connect (java::net::InetAddress *, jint)
+{ 
+  throw new ::java::lang::InternalError (JvNewStringLatin1 (
+	    "PlainDatagramSocketImpl::connect: not implemented yet"));
+}
+
+void
+java::net::PlainDatagramSocketImpl::disconnect ()
+{
+  throw new ::java::lang::InternalError (JvNewStringLatin1 (
+	    "PlainDatagramSocketImpl::disconnect: not implemented yet"));
+}
+
 jint
 java::net::PlainDatagramSocketImpl::peek (java::net::InetAddress *i)
 {
@@ -298,6 +329,8 @@ java::net::PlainDatagramSocketImpl::peek (java::net::InetAddress *i)
   return rport;
  error:
   char* strerr = strerror (errno);
+  if (errno == ECONNREFUSED)
+    throw new PortUnreachableException (JvNewStringUTF (strerr));
   throw new java::io::IOException (JvNewStringUTF (strerr));
 }
 
@@ -360,6 +393,8 @@ java::net::PlainDatagramSocketImpl::peekData(java::net::DatagramPacket *p)
   return rport;
  error:
   char* strerr = strerror (errno);
+  if (errno == ECONNREFUSED)
+    throw new PortUnreachableException (JvNewStringUTF (strerr));
   throw new java::io::IOException (JvNewStringUTF (strerr));
 }
 
@@ -411,6 +446,8 @@ java::net::PlainDatagramSocketImpl::send (java::net::DatagramPacket *p)
     return;
 
   char* strerr = strerror (errno);
+  if (errno == ECONNREFUSED)
+    throw new PortUnreachableException (JvNewStringUTF (strerr));
   throw new java::io::IOException (JvNewStringUTF (strerr));
 }
 
@@ -473,6 +510,8 @@ java::net::PlainDatagramSocketImpl::receive (java::net::DatagramPacket *p)
   return;
  error:
   char* strerr = strerror (errno);
+  if (errno == ECONNREFUSED)
+    throw new PortUnreachableException (JvNewStringUTF (strerr));
   throw new java::io::IOException (JvNewStringUTF (strerr));
 }
 
@@ -504,8 +543,11 @@ java::net::PlainDatagramSocketImpl::getTimeToLive ()
 
 void
 java::net::PlainDatagramSocketImpl::mcastGrp (java::net::InetAddress *inetaddr,
+                                              java::net::NetworkInterface *,
 					      jboolean join)
 {
+  // FIXME: implement use of NetworkInterface
+
   union McastReq u;
   jbyteArray haddress = inetaddr->addr;
   jbyte *bytes = elements (haddress);
@@ -769,7 +811,8 @@ java::net::PlainDatagramSocketImpl::getOption (jint optID)
 	      }
 #endif
 	    else
-	      throw new java::net::SocketException (JvNewStringUTF ("invalid family"));
+	      throw new java::net::SocketException (
+			      JvNewStringUTF ("invalid family"));
 	    localAddress = new java::net::InetAddress (laddr, NULL);
 	  }
 	return localAddress;  

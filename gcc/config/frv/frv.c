@@ -279,6 +279,8 @@ static void frv_encode_section_info		PARAMS ((tree, int));
 static void frv_init_builtins			PARAMS ((void));
 static rtx frv_expand_builtin			PARAMS ((tree, rtx, rtx, enum machine_mode, int));
 static bool frv_in_small_data_p			PARAMS ((tree));
+static void frv_asm_output_mi_thunk
+  PARAMS ((FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
 
 /* Initialize the GCC target structure.  */
 #undef  TARGET_ASM_FUNCTION_PROLOGUE
@@ -297,6 +299,11 @@ static bool frv_in_small_data_p			PARAMS ((tree));
 #define TARGET_EXPAND_BUILTIN frv_expand_builtin
 #undef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P frv_in_small_data_p
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK frv_asm_output_mi_thunk
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1753,7 +1760,7 @@ frv_function_epilogue (file, size)
 
 
 /* Called after register allocation to add any instructions needed for the
-   epilogue.  Using a epilogue insn is favored compared to putting all of the
+   epilogue.  Using an epilogue insn is favored compared to putting all of the
    instructions in the FUNCTION_PROLOGUE macro, since it allows the scheduler
    to intermix instructions with the saves of the caller saved registers.  In
    some cases, it might be necessary to emit a barrier instruction as the last
@@ -1866,11 +1873,12 @@ frv_expand_epilogue (sibcall_p)
    FUNCTION instead of jumping to it.  The generic approach does not support
    varargs.  */
 
-void
-frv_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
+static void
+frv_asm_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
      FILE *file;
      tree thunk_fndecl ATTRIBUTE_UNUSED;
-     long delta;
+     HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED;
      tree function;
 {
   const char *name_func = XSTR (XEXP (DECL_RTL (function), 0), 0);
@@ -1880,12 +1888,16 @@ frv_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
 
   /* Do the add using an addi if possible */
   if (IN_RANGE_P (delta, -2048, 2047))
-    fprintf (file, "\taddi %s,#%ld,%s\n", name_arg0, delta, name_arg0);
+    fprintf (file, "\taddi %s,#%d,%s\n", name_arg0, (int) delta, name_arg0);
   else
     {
       const char *name_add = reg_names[TEMP_REGNO];
-      fprintf (file, "\tsethi%s #hi(%ld),%s\n", parallel, delta, name_add);
-      fprintf (file, "\tsetlo #lo(%ld),%s\n", delta, name_add);
+      fprintf (file, "\tsethi%s #hi(", parallel);
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+      fprintf (file, "),%s\n", name_add);
+      fprintf (file, "\tsetlo #lo(");
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+      fprintf (file, "),%s\n", name_add);
       fprintf (file, "\tadd %s,%s,%s\n", name_add, name_arg0, name_arg0);
     }
 
@@ -2701,7 +2713,7 @@ frv_print_operand_jump_hint (insn)
 }
 
 
-/* Print an operand to a assembler instruction.
+/* Print an operand to an assembler instruction.
 
    `%' followed by a letter and a digit says to output an operand in an
    alternate fashion.  Four letters have standard, built-in meanings described
@@ -7672,7 +7684,7 @@ frv_initialize_trampoline (addr, fnaddr, static_chain)
    registers can only be copied to memory and not to another class of
    registers.  In that case, secondary reload registers are not needed and
    would not be helpful.  Instead, a stack location must be used to perform the
-   copy and the `movM' pattern should use memory as a intermediate storage.
+   copy and the `movM' pattern should use memory as an intermediate storage.
    This case often occurs between floating-point and general registers.  */
 
 enum reg_class
@@ -7858,7 +7870,7 @@ frv_adjust_field_align (field, computed)
 
       /* If this isn't a :0 field and if the previous element is a bitfield
 	 also, see if the type is different, if so, we will need to align the
-	 bitfield to the next boundary */
+	 bit-field to the next boundary */
       if (prev
 	  && ! DECL_PACKED (field)
 	  && ! integer_zerop (DECL_SIZE (field))

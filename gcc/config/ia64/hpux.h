@@ -101,11 +101,8 @@ do {							\
 
 #define JMP_BUF_SIZE  (8 * 76)
 
-#undef BITS_BIG_ENDIAN
-#define BITS_BIG_ENDIAN 1
-
 #undef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_DWARF2_ASM | MASK_BIG_ENDIAN)
+#define TARGET_DEFAULT (MASK_DWARF2_ASM | MASK_BIG_ENDIAN | MASK_ILP32)
 
 /* This needs to be set to force structure arguments with a single
    field to be treated as structures and not as the type of their
@@ -115,7 +112,18 @@ do {							\
    structure handling, this macro simply ensures that single field
    structures are always treated like structures.  */
 
-#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) 1
+/* ASM_OUTPUT_EXTERNAL_LIBCALL defaults to just a globalize_label call,
+   but that doesn't put out the @function type information which causes
+   shared library problems.  */
+
+#undef ASM_OUTPUT_EXTERNAL_LIBCALL
+#define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN)			\
+do {								\
+  (*targetm.asm_out.globalize_label) (FILE, XSTR (FUN, 0));	\
+  ASM_OUTPUT_TYPE_DIRECTIVE (FILE, XSTR (FUN, 0), "function");	\
+} while (0)
+
+#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) (TREE_CODE (TREE_TYPE (FIELD)) != REAL_TYPE || (MODE == TFmode && !INTEL_EXTENDED_IEEE_FORMAT))
 
 /* Override the setting of FUNCTION_ARG_REG_LITTLE_ENDIAN in
    defaults.h.  Setting this to true means that we are not passing

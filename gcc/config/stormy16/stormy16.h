@@ -158,7 +158,7 @@ do {									\
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
 
-/* Define this macro if the type of Objective C selectors should be `int'.
+/* Define this macro if the type of Objective-C selectors should be `int'.
 
    If this macro is not defined, then selectors should have the type `struct
    objc_selector *'.  */
@@ -1593,40 +1593,6 @@ enum reg_class
    You need not define this macro if you did not define
    `DELAY_SLOTS_FOR_EPILOGUE'.  */
 /* #define ELIGIBLE_FOR_EPILOGUE_DELAY(INSN, N) */
-
-/* A C compound statement that outputs the assembler code for a thunk function,
-   used to implement C++ virtual function calls with multiple inheritance.  The
-   thunk acts as a wrapper around a virtual function, adjusting the implicit
-   object parameter before handing control off to the real function.
-
-   First, emit code to add the integer DELTA to the location that contains the
-   incoming first argument.  Assume that this argument contains a pointer, and
-   is the one used to pass the `this' pointer in C++.  This is the incoming
-   argument *before* the function prologue, e.g. `%o0' on a sparc.  The
-   addition must preserve the values of all other incoming arguments.
-
-   After the addition, emit code to jump to FUNCTION, which is a
-   `FUNCTION_DECL'.  This is a direct pure jump, not a call, and does not touch
-   the return address.  Hence returning from FUNCTION will return to whoever
-   called the current `thunk'.
-
-   The effect must be as if @var{function} had been called directly
-   with the adjusted first argument.  This macro is responsible for
-   emitting all of the code for a thunk function;
-   TARGET_ASM_FUNCTION_PROLOGUE and TARGET_ASM_FUNCTION_EPILOGUE are
-   not invoked.
-
-   The THUNK_FNDECL is redundant.  (DELTA and FUNCTION have already been
-   extracted from it.)  It might possibly be useful on some targets, but
-   probably not.
-
-   If you do not define this macro, the target-independent code in the C++
-   frontend will generate a less efficient heavyweight thunk that calls
-   FUNCTION instead of jumping to it.  The generic approach does not support
-   varargs.  */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION)	\
-  xstormy16_asm_output_mi_thunk (FILE, THUNK_FNDECL, DELTA, FUNCTION)
-
 
 /* Generating Code for Profiling.  */
 
@@ -2004,7 +1970,7 @@ enum reg_class
    C compiler that comes with the system takes care of doing them.  */
 /* #define perform_...  */
 
-/* Define this macro to generate code for Objective C message sending using the
+/* Define this macro to generate code for Objective-C message sending using the
    calling convention of the NeXT system.  This calling convention involves
    passing the object, the selector and the method arguments all at once to the
    method-lookup library function.
@@ -2592,8 +2558,8 @@ do {							\
 /* #define ASM_OUTPUT_SECTION_NAME(STREAM, DECL, NAME) */
 
 /* A C statement to output any assembler statements which are required to
-   precede any Objective C object definitions or message sending.  The
-   statement is executed only when compiling an Objective C program.  */
+   precede any Objective-C object definitions or message sending.  The
+   statement is executed only when compiling an Objective-C program.  */
 /* #define OBJC_PROLOGUE */
 
 
@@ -3764,7 +3730,7 @@ do {									\
    instructions.
 
    If both types of instructions truncate the count (for shifts) and position
-   (for bitfield operations), or if no variable-position bitfield instructions
+   (for bit-field operations), or if no variable-position bit-field instructions
    exist, you should define this macro.
 
    However, on some machines, such as the 80386 and the 680x0, truncation only

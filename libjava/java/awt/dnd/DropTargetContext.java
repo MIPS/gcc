@@ -48,8 +48,6 @@ import java.util.List;
 
 public class DropTargetContext implements Serializable
 {
-  static final long serialVersionUID = -634158968993743371L;
-
   protected class TransferableProxy implements Transferable
   {
     protected boolean isLocal;

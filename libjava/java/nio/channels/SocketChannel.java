@@ -37,6 +37,14 @@ exception statement from your version. */
 
 package java.nio.channels;
 
-public class SocketChannel
+import java.nio.channels.spi.AbstractSelectableChannel;
+import java.nio.channels.spi.SelectorProvider;
+
+public abstract class SocketChannel
+  extends AbstractSelectableChannel
 {
+  public SocketChannel (SelectorProvider provider)
+  {
+    super (provider);
+  }
 }

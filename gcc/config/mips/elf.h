@@ -22,7 +22,6 @@ Boston, MA 02111-1307, USA.  */
 /* Use ELF.  */
 #undef  OBJECT_FORMAT_COFF
 #undef  EXTENDED_COFF
-#define OBJECT_FORMAT_ELF
 
 /* ??? Move all SDB stuff into separate header file.  */
 #undef  SDB_DEBUGGING_INFO
@@ -244,3 +243,6 @@ void FN ()                                                            \
 
 #undef  ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend%O%s crtn%O%s"
+
+/* We support #pragma.  */
+#define HANDLE_SYSV_PRAGMA 1

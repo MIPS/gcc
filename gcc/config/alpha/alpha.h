@@ -411,6 +411,10 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 /* Define the size of `long long'.  The default is the twice the word size.  */
 #define LONG_LONG_TYPE_SIZE 64
 
+/* We're IEEE unless someone says to use VAX.  */
+#define TARGET_FLOAT_FORMAT \
+  (TARGET_FLOAT_VAX ? VAX_FLOAT_FORMAT : IEEE_FLOAT_FORMAT)
+
 /* The two floating-point formats we support are S-floating, which is
    4 bytes, and T-floating, which is 8 bytes.  `float' is S and `double'
    and `long double' are T.  */
@@ -489,7 +493,7 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 /* Every structure's size must be a multiple of this.  */
 #define STRUCTURE_SIZE_BOUNDARY 8
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
 /* No data type wants to be aligned rounder than this.  */
@@ -853,15 +857,10 @@ enum reg_class {
 #define CLASS_MAX_NREGS(CLASS, MODE)				\
  ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
-/* If defined, gives a class of registers that cannot be used as the
-   operand of a SUBREG that changes the mode of the object illegally.  */
+/* Return the class of registers that cannot change mode from FROM to TO.  */
 
-#define CLASS_CANNOT_CHANGE_MODE	FLOAT_REGS
-
-/* Defines illegal mode changes for CLASS_CANNOT_CHANGE_MODE.  */
-
-#define CLASS_CANNOT_CHANGE_MODE_P(FROM,TO) \
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO))
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO) \
+  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO) ? FLOAT_REGS : NO_REGS)
 
 /* Define the cost of moving between registers of various classes.  Moving
    between FLOAT_REGS and anything else except float regs is expensive. 
@@ -2134,8 +2133,3 @@ do {							\
 
 /* Generate calls to memcpy, etc., not bcopy, etc.  */
 #define TARGET_MEM_FUNCTIONS 1
-
-/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
-   Used for C++ multiple inheritance.  */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
-  alpha_output_mi_thunk_osf (FILE, THUNK_FNDECL, DELTA, FUNCTION)

@@ -204,7 +204,7 @@ const_int_htab_hash (x)
   return (hashval_t) INTVAL ((struct rtx_def *) x);
 }
 
-/* Returns non-zero if the value represented by X (which is really a
+/* Returns nonzero if the value represented by X (which is really a
    CONST_INT) is the same as that given by Y (which is really a
    HOST_WIDE_INT *).  */
 
@@ -231,7 +231,7 @@ const_double_htab_hash (x)
   return h;
 }
 
-/* Returns non-zero if the value represented by X (really a ...)
+/* Returns nonzero if the value represented by X (really a ...)
    is the same as that represented by Y (really a ...) */
 static int
 const_double_htab_eq (x, y)
@@ -239,15 +239,15 @@ const_double_htab_eq (x, y)
      const void *y;
 {
   rtx a = (rtx)x, b = (rtx)y;
-  size_t i;
 
   if (GET_MODE (a) != GET_MODE (b))
     return 0;
-  for (i = 0; i < sizeof(CONST_DOUBLE_FORMAT)-1; i++)
-    if (XWINT (a, i) != XWINT (b, i))
-      return 0;
-
-  return 1;
+  if (GET_MODE (a) == VOIDmode)
+    return (CONST_DOUBLE_LOW (a) == CONST_DOUBLE_LOW (b)
+	    && CONST_DOUBLE_HIGH (a) == CONST_DOUBLE_HIGH (b));
+  else
+    return real_identical (CONST_DOUBLE_REAL_VALUE (a),
+			   CONST_DOUBLE_REAL_VALUE (b));
 }
 
 /* Returns a hash code for X (which is a really a mem_attrs *).  */
@@ -264,7 +264,7 @@ mem_attrs_htab_hash (x)
 	  ^ (size_t) p->expr);
 }
 
-/* Returns non-zero if the value represented by X (which is really a
+/* Returns nonzero if the value represented by X (which is really a
    mem_attrs *) is the same as that given by Y (which is also really a
    mem_attrs *).  */
 
@@ -999,6 +999,10 @@ gen_lowpart_common (mode, x)
   else if (GET_CODE (x) == SUBREG || GET_CODE (x) == REG
 	   || GET_CODE (x) == CONCAT || GET_CODE (x) == CONST_VECTOR)
     return simplify_gen_subreg (mode, x, GET_MODE (x), offset);
+  else if ((GET_MODE_CLASS (mode) == MODE_VECTOR_INT
+	    || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
+	   && GET_MODE (x) == VOIDmode)
+    return simplify_gen_subreg (mode, x, int_mode_for_mode (mode), offset);
   /* If X is a CONST_INT or a CONST_DOUBLE, extract the appropriate bits
      from the low-order part of the constant.  */
   else if ((GET_MODE_CLASS (mode) == MODE_INT
@@ -2067,7 +2071,7 @@ adjust_address_1 (memref, mode, offset, validate, adjust)
   unsigned int memalign = MEM_ALIGN (memref);
 
   /* ??? Prefer to create garbage instead of creating shared rtl.
-     This may happen even if offset is non-zero -- consider
+     This may happen even if offset is nonzero -- consider
      (plus (plus reg reg) const_int) -- so do this always.  */
   addr = copy_rtx (addr);
 
@@ -3187,7 +3191,7 @@ mark_label_nuses (x)
 /* Try splitting insns that can be split for better scheduling.
    PAT is the pattern which might split.
    TRIAL is the insn providing PAT.
-   LAST is non-zero if we should return the last insn of the sequence produced.
+   LAST is nonzero if we should return the last insn of the sequence produced.
 
    If this routine succeeds in splitting, it returns the first or last
    replacement insn depending on the value of LAST.  Otherwise, it

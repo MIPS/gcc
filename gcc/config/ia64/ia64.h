@@ -85,9 +85,13 @@ extern int target_flags;
 
 #define MASK_AUTO_PIC	0x00000400	/* generate automatically PIC */
 
-#define MASK_INLINE_DIV_LAT 0x00000800	/* inline div, min latency.  */
+#define MASK_INLINE_FLOAT_DIV_LAT 0x00000800 /* inline div, min latency.  */
 
-#define MASK_INLINE_DIV_THR 0x00001000	/* inline div, max throughput.  */
+#define MASK_INLINE_FLOAT_DIV_THR 0x00001000 /* inline div, max throughput.  */
+
+#define MASK_INLINE_INT_DIV_LAT   0x00000800 /* inline div, min latency.  */
+
+#define MASK_INLINE_INT_DIV_THR   0x00001000 /* inline div, max throughput.  */
 
 #define MASK_DWARF2_ASM 0x40000000	/* test dwarf2 line info via gas.  */
 
@@ -113,12 +117,19 @@ extern int target_flags;
 
 #define TARGET_AUTO_PIC		(target_flags & MASK_AUTO_PIC)
 
-#define TARGET_INLINE_DIV_LAT	(target_flags & MASK_INLINE_DIV_LAT)
+#define TARGET_INLINE_FLOAT_DIV_LAT (target_flags & MASK_INLINE_FLOAT_DIV_LAT)
 
-#define TARGET_INLINE_DIV_THR	(target_flags & MASK_INLINE_DIV_THR)
+#define TARGET_INLINE_FLOAT_DIV_THR (target_flags & MASK_INLINE_FLOAT_DIV_THR)
 
-#define TARGET_INLINE_DIV \
-  (target_flags & (MASK_INLINE_DIV_LAT | MASK_INLINE_DIV_THR))
+#define TARGET_INLINE_INT_DIV_LAT   (target_flags & MASK_INLINE_INT_DIV_LAT)
+
+#define TARGET_INLINE_INT_DIV_THR   (target_flags & MASK_INLINE_INT_DIV_THR)
+
+#define TARGET_INLINE_FLOAT_DIV \
+  (target_flags & (MASK_INLINE_FLOAT_DIV_LAT | MASK_INLINE_FLOAT_DIV_THR))
+
+#define TARGET_INLINE_INT_DIV \
+  (target_flags & (MASK_INLINE_INT_DIV_LAT | MASK_INLINE_INT_DIV_THR))
 
 #define TARGET_DWARF2_ASM	(target_flags & MASK_DWARF2_ASM)
 
@@ -165,10 +176,14 @@ extern int ia64_tls_size;
       N_("gp is constant (but save/restore gp on indirect calls)") },	\
   { "auto-pic",		MASK_AUTO_PIC,					\
       N_("Generate self-relocatable code") },				\
-  { "inline-divide-min-latency", MASK_INLINE_DIV_LAT,			\
-      N_("Generate inline division, optimize for latency") },		\
-  { "inline-divide-max-throughput", MASK_INLINE_DIV_THR,		\
-      N_("Generate inline division, optimize for throughput") },	\
+  { "inline-float-divide-min-latency", MASK_INLINE_FLOAT_DIV_LAT,	\
+      N_("Generate inline floating point division, optimize for latency") },\
+  { "inline-float-divide-max-throughput", MASK_INLINE_FLOAT_DIV_THR,	\
+      N_("Generate inline floating point division, optimize for throughput") },\
+  { "inline-int-divide-min-latency", MASK_INLINE_INT_DIV_LAT,		\
+      N_("Generate inline integer division, optimize for latency") },	\
+  { "inline-int-divide-max-throughput", MASK_INLINE_INT_DIV_THR,	\
+      N_("Generate inline integer division, optimize for throughput") },\
   { "dwarf2-asm", 	MASK_DWARF2_ASM,				\
       N_("Enable Dwarf 2 line debug info via GNU as")},			\
   { "no-dwarf2-asm", 	-MASK_DWARF2_ASM,				\
@@ -329,10 +344,10 @@ while (0)
 
 /* Define this if you wish to imitate the way many other C compilers handle
    alignment of bitfields and the structures that contain them.
-   The behavior is that the type written for a bitfield (`int', `short', or
+   The behavior is that the type written for a bit-field (`int', `short', or
    other integer type) imposes an alignment for the entire structure, as if the
    structure really did contain an ordinary field of that type.  In addition,
-   the bitfield is placed within the structure so that it would fit within such
+   the bit-field is placed within the structure so that it would fit within such
    a field, not crossing a boundary for it.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
@@ -381,9 +396,8 @@ while (0)
 
 #define LONG_DOUBLE_TYPE_SIZE 128
 
-/* Tell real.c that this is the 80-bit Intel extended float format
-   packaged in a 128-bit entity.  */
-
+/* By default we use the 80-bit Intel extended float format packaged
+   in a 128-bit entity.  */
 #define INTEL_EXTENDED_IEEE_FORMAT 1
 
 #define DEFAULT_SIGNED_CHAR 1
@@ -994,17 +1008,11 @@ enum reg_class
    : ((CLASS) == FR_REGS && (MODE) == TFmode) ? 1		\
    : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
-/* If defined, gives a class of registers that cannot be used as the
-   operand of a SUBREG that changes the mode of the object illegally.  */
-
-#define CLASS_CANNOT_CHANGE_MODE        FR_REGS
-
-/* Defines illegal mode changes for CLASS_CANNOT_CHANGE_MODE.
-   In FP regs, we can't change FP values to integer values and vice
+/* In FP regs, we can't change FP values to integer values and vice
    versa, but we can change e.g. DImode to SImode.  */
 
-#define CLASS_CANNOT_CHANGE_MODE_P(FROM,TO) \
-  (GET_MODE_CLASS (FROM) != GET_MODE_CLASS (TO))
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO) 	\
+  (GET_MODE_CLASS (FROM) != GET_MODE_CLASS (TO) ? FR_REGS : NO_REGS)
 
 /* A C expression that defines the machine-dependent operand constraint
    letters (`I', `J', `K', .. 'P') that specify particular ranges of
@@ -1428,39 +1436,6 @@ do {									\
 
 #define ASM_FILE_START(FILE) \
   emit_safe_across_calls (FILE)
-
-/* A C compound statement that outputs the assembler code for a thunk function,
-   used to implement C++ virtual function calls with multiple inheritance.  */
-
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
-do {									\
-  if (CONST_OK_FOR_I (DELTA))						\
-    {									\
-      fprintf (FILE, "\tadds r32 = ");					\
-      fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, (DELTA));			\
-      fprintf (FILE, ", r32\n");					\
-    }									\
-  else									\
-    {									\
-      if (CONST_OK_FOR_J (DELTA))					\
-        {								\
-          fprintf (FILE, "\taddl r2 = ");				\
-          fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, (DELTA));		\
-          fprintf (FILE, ", r0\n");					\
-        }								\
-      else								\
-        {								\
-	  fprintf (FILE, "\tmovl r2 = ");				\
-	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, (DELTA));		\
-	  fprintf (FILE, "\n");						\
-        }								\
-      fprintf (FILE, "\t;;\n");						\
-      fprintf (FILE, "\tadd r32 = r2, r32\n");				\
-    }									\
-  fprintf (FILE, "\tbr ");						\
-  assemble_name (FILE, XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));	\
-  fprintf (FILE, "\n");							\
-} while (0)
 
 /* Output part N of a function descriptor for DECL.  For ia64, both
    words are emitted with a single relocation, so ignore N > 0.  */

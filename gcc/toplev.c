@@ -232,11 +232,12 @@ enum dump_file_index
   DFI_loop,
   DFI_cfg,
   DFI_bp,
+  DFI_ce1,
   DFI_tracer,
   DFI_cse2,
   DFI_life,
   DFI_combine,
-  DFI_ce,
+  DFI_ce2,
   DFI_regmove,
   DFI_sched,
   DFI_lreg,
@@ -245,7 +246,7 @@ enum dump_file_index
   DFI_flow2,
   DFI_peephole2,
   DFI_rnreg,
-  DFI_ce2,
+  DFI_ce3,
   DFI_sched2,
   DFI_stack,
   DFI_bbro,
@@ -278,13 +279,14 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "addressof", 'F', 0, 0, 0 },
   { "gcse",	'G', 1, 0, 0 },
   { "loop",	'L', 1, 0, 0 },
+  { "ce1",	'C', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
   { "tracer",	'T', 1, 0, 0 },
   { "cse2",	't', 1, 0, 0 },
   { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
   { "combine",	'c', 1, 0, 0 },
-  { "ce",	'C', 1, 0, 0 },
+  { "ce2",	'C', 1, 0, 0 },
   { "regmove",	'N', 1, 0, 0 },
   { "sched",	'S', 1, 0, 0 },
   { "lreg",	'l', 1, 0, 0 },
@@ -293,7 +295,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "flow2",	'w', 1, 0, 0 },
   { "peephole2", 'z', 1, 0, 0 },
   { "rnreg",	'n', 1, 0, 0 },
-  { "ce2",	'E', 1, 0, 0 },
+  { "ce3",	'E', 1, 0, 0 },
   { "sched2",	'R', 1, 0, 0 },
   { "stack",	'k', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
@@ -346,8 +348,8 @@ int use_gnu_debug_info_extensions = 0;
 int optimize = 0;
 
 /* Nonzero means optimize for size.  -Os.
-   The only valid values are zero and non-zero. When optimize_size is
-   non-zero, optimize defaults to 2, but certain individual code
+   The only valid values are zero and nonzero. When optimize_size is
+   nonzero, optimize defaults to 2, but certain individual code
    bloating optimizations are disabled.  */
 
 int optimize_size = 0;
@@ -374,11 +376,6 @@ int profile_flag = 0;
 /* Nonzero if generating code to profile program flow graph arcs.  */
 
 int profile_arc_flag = 0;
-
-/* Nonzero if we should not attempt to generate thread-safe
-   code to profile program flow graph arcs.  */
-
-int flag_unsafe_profile_arcs = 0;
 
 /* Nonzero if generating info for gcov to calculate line test coverage.  */
 
@@ -863,19 +860,10 @@ int flag_peephole2 = 0;
 /* This will try to guess branch probabilities.  */
 int flag_guess_branch_prob = 0;
 
-/* -fbounded-pointers causes gcc to compile pointers as composite
-   objects occupying three words: the pointer value, the base address
-   of the referent object, and the address immediately beyond the end
-   of the referent object.  The base and extent allow us to perform
-   runtime bounds checking.  -fbounded-pointers implies -fcheck-bounds.  */
-int flag_bounded_pointers = 0;
-
 /* -fcheck-bounds causes gcc to generate array bounds checks.
-   For C, C++: defaults to value of flag_bounded_pointers.
-   For ObjC: defaults to off.
+   For C, C++, ObjC: defaults to off.
    For Java: defaults to on.
-   For Fortran: defaults to off.
-   For CHILL: defaults to off.  */
+   For Fortran: defaults to off.  */
 int flag_bounds_check = 0;
 
 /* This will attempt to merge constant section constants, if 1 only
@@ -911,6 +899,10 @@ int align_labels_log;
 int align_labels_max_skip;
 int align_functions;
 int align_functions_log;
+
+/* Like align_functions_log above, but used by front-ends to force the
+   minimum function alignment.  Zero means no alignment is forced.  */
+int force_align_functions_log;
 
 /* Table of supported debugging formats.  */
 static const struct
@@ -1100,8 +1092,6 @@ static const lang_independent_options f_options[] =
    N_("Support synchronous non-call exceptions") },
   {"profile-arcs", &profile_arc_flag, 1,
    N_("Insert arc based program profiling code") },
-  {"unsafe-profile-arcs", &flag_unsafe_profile_arcs, 1,
-   N_("Avoid thread safety profiling overhead") },
   {"test-coverage", &flag_test_coverage, 1,
    N_("Create data files needed by gcov") },
   {"branch-probabilities", &flag_branch_probabilities, 1,
@@ -1186,10 +1176,8 @@ static const lang_independent_options f_options[] =
    N_("Allow math optimizations that may violate IEEE or ANSI standards") },
   {"signaling-nans", &flag_signaling_nans, 1,
    N_("Disable optimizations observable by IEEE signaling NaNs") },
-  {"bounded-pointers", &flag_bounded_pointers, 1,
-   N_("Compile pointers as triples: value, base & end") },
   {"bounds-check", &flag_bounds_check, 1,
-   N_("Generate code to check bounds before dereferencing pointers and arrays") },
+   N_("Generate code to check bounds before indexing arrays") },
   {"single-precision-constant", &flag_single_precision_constant, 1,
    N_("Convert floating point constant to single precision constant") },
   {"time-report", &time_report, 1,
@@ -1507,6 +1495,11 @@ int warn_missing_noreturn;
 
 int warn_deprecated_decl = 1;
 
+/* Nonzero means warn about constructs which might not be
+   strict-aliasing safe.  */
+
+int warn_strict_aliasing;
+
 /* Likewise for -W.  */
 
 static const lang_independent_options W_options[] =
@@ -1552,7 +1545,9 @@ static const lang_independent_options W_options[] =
   {"deprecated-declarations", &warn_deprecated_decl, 1,
    N_("Warn about uses of __attribute__((deprecated)) declarations") },
   {"missing-noreturn", &warn_missing_noreturn, 1,
-   N_("Warn about functions which might be candidates for attribute noreturn") }
+   N_("Warn about functions which might be candidates for attribute noreturn") },
+  {"strict-aliasing", &warn_strict_aliasing, 1,
+   N_ ("Warn about code which might break the strict aliasing rules") }
 };
 
 void
@@ -1893,7 +1888,7 @@ close_dump_file (index, func, insns)
 /* Do any final processing required for the declarations in VEC, of
    which there are LEN.  We write out inline functions and variables
    that have been deferred until this point, but which are required.
-   Returns non-zero if anything was put out.  */
+   Returns nonzero if anything was put out.  */
 
 int
 wrapup_global_declarations (vec, len)
@@ -2055,9 +2050,14 @@ check_global_declarations (vec, len)
 	  && (*lang_hooks.decls.warn_unused_global) (decl))
 	warning_with_decl (decl, "`%s' defined but not used");
 
-      timevar_push (TV_SYMOUT);
-      (*debug_hooks->global_decl) (decl);
-      timevar_pop (TV_SYMOUT);
+      /* Avoid confusing the debug information machinery when there are
+	 errors.  */
+      if (errorcount == 0 && sorrycount == 0)
+	{
+	  timevar_push (TV_SYMOUT);
+	  (*debug_hooks->global_decl) (decl);
+	  timevar_pop (TV_SYMOUT);
+	}
     }
 }
 
@@ -2321,6 +2321,17 @@ rest_of_decl_compilation (decl, asmspec, top_level, at_end)
       timevar_pop (TV_SYMOUT);
     }
 #endif
+#ifdef DWARF2_DEBUGGING_INFO
+  else if ((write_symbols == DWARF2_DEBUG
+	   || write_symbols == VMS_AND_DWARF2_DEBUG)
+	   && top_level
+	   && TREE_CODE (decl) == TYPE_DECL)
+    {
+      timevar_push (TV_SYMOUT);
+      dwarf2out_decl (decl);
+      timevar_pop (TV_SYMOUT);
+    }
+#endif
 }
 
 /* Called after finishing a record, union or enumeral type.  */
@@ -2335,6 +2346,11 @@ rest_of_type_compilation (type, toplev)
      int toplev ATTRIBUTE_UNUSED;
 #endif
 {
+  /* Avoid confusing the debug information machinery when there are
+     errors.  */
+  if (errorcount != 0 || sorrycount != 0)
+    return;
+
   timevar_push (TV_SYMOUT);
 #if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
   if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
@@ -2413,6 +2429,9 @@ rest_of_compilation (decl)
 	    DECL_INITIAL (decl) = 0;
 	    goto exit_rest_of_compilation;
 	  }
+	else if (TYPE_P (parent))
+	  /* A function in a local class should be treated normally.  */
+	  break;
 
       /* If requested, consider whether to make this function inline.  */
       if ((DECL_INLINE (decl) && !flag_no_inline)
@@ -2579,7 +2598,9 @@ rest_of_compilation (decl)
   delete_unreachable_blocks ();
 
   /* Turn NOTE_INSN_PREDICTIONs into branch predictions.  */
+  timevar_push (TV_BRANCH_PROB);
   note_prediction_to_br_prob ();
+  timevar_pop (TV_BRANCH_PROB);
 
   /* We may have potential sibling or tail recursion sites.  Select one
      (of possibly multiple) methods of performing the call.  */
@@ -2990,59 +3011,60 @@ rest_of_compilation (decl)
       close_dump_file (DFI_bp, print_rtl_with_bb, insns);
       timevar_pop (TV_BRANCH_PROB);
     }
+  if (optimize >= 0)
+    {
+      open_dump_file (DFI_ce1, decl);
+      if (flag_if_conversion)
+	{
+	  timevar_push (TV_IFCVT);
+	  if (rtl_dump_file)
+	    dump_flow_info (rtl_dump_file);
+	  cleanup_cfg (CLEANUP_EXPENSIVE);
+	  reg_scan (insns, max_reg_num (), 0);
+	  if_convert (0);
+	  timevar_pop (TV_IFCVT);
+	}
+      timevar_push (TV_JUMP);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      reg_scan (insns, max_reg_num (), 0);
+      timevar_pop (TV_JUMP);
+      close_dump_file (DFI_ce1, print_rtl_with_bb, get_insns ());
+    }
   if (flag_tracer)
     {
       timevar_push (TV_TRACER);
       open_dump_file (DFI_tracer, decl);
       if (rtl_dump_file)
 	dump_flow_info (rtl_dump_file);
-      cleanup_cfg (CLEANUP_EXPENSIVE);
       tracer ();
       cleanup_cfg (CLEANUP_EXPENSIVE);
+      reg_scan (insns, max_reg_num (), 0);
       close_dump_file (DFI_tracer, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_TRACER);
-      reg_scan (get_insns (), max_reg_num (), 0);
     }
 
-  if (optimize > 0)
+  if (flag_rerun_cse_after_loop)
     {
       timevar_push (TV_CSE2);
       open_dump_file (DFI_cse2, decl);
       if (rtl_dump_file)
 	dump_flow_info (rtl_dump_file);
+      /* CFG is no longer maintained up-to-date.  */
+      tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
+      purge_all_dead_edges (0);
+      delete_trivially_dead_insns (insns, max_reg_num ());
 
-      if (flag_rerun_cse_after_loop)
+      if (tem)
 	{
 	  timevar_push (TV_JUMP);
-
-	  reg_scan (insns, max_reg_num (), 0);
-
-	  timevar_push (TV_IFCVT);
+	  rebuild_jump_labels (insns);
 	  cleanup_cfg (CLEANUP_EXPENSIVE);
-	  if (flag_if_conversion)
-	    if_convert (0);
-	  timevar_pop (TV_IFCVT);
-
 	  timevar_pop (TV_JUMP);
-	  /* CFG is no longer maintained up-to-date.  */
-	  reg_scan (insns, max_reg_num (), 0);
-	  tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
-	  purge_all_dead_edges (0);
-	  delete_trivially_dead_insns (insns, max_reg_num ());
-
-	  if (tem)
-	    {
-	      timevar_push (TV_JUMP);
-	      rebuild_jump_labels (insns);
-	      cleanup_cfg (CLEANUP_EXPENSIVE);
-	      timevar_pop (TV_JUMP);
-	    }
 	}
-
+      reg_scan (insns, max_reg_num (), 0);
       close_dump_file (DFI_cse2, print_rtl_with_bb, insns);
-      timevar_pop (TV_CSE2);
-
       ggc_collect ();
+      timevar_pop (TV_CSE2);
     }
 
   cse_not_expected = 1;
@@ -3122,13 +3144,13 @@ rest_of_compilation (decl)
   if (flag_if_conversion)
     {
       timevar_push (TV_IFCVT);
-      open_dump_file (DFI_ce, decl);
+      open_dump_file (DFI_ce2, decl);
 
       no_new_pseudos = 0;
       if_convert (1);
       no_new_pseudos = 1;
 
-      close_dump_file (DFI_ce, print_rtl_with_bb, insns);
+      close_dump_file (DFI_ce2, print_rtl_with_bb, insns);
       timevar_pop (TV_IFCVT);
     }
 
@@ -3404,11 +3426,11 @@ rest_of_compilation (decl)
   if (flag_if_conversion2)
     {
       timevar_push (TV_IFCVT2);
-      open_dump_file (DFI_ce2, decl);
+      open_dump_file (DFI_ce3, decl);
 
       if_convert (1);
 
-      close_dump_file (DFI_ce2, print_rtl_with_bb, insns);
+      close_dump_file (DFI_ce3, print_rtl_with_bb, insns);
       timevar_pop (TV_IFCVT2);
     }
 #ifdef STACK_REGS
@@ -4732,7 +4754,7 @@ general_init (argv0)
    minimal options processing.  Outputting diagnostics is OK, but GC
    and identifier hashtables etc. are not initialized yet.
 
-   Return non-zero to suppress compiler back end initialization.  */
+   Return nonzero to suppress compiler back end initialization.  */
 static void
 parse_options_and_default_flags (argc, argv)
      int argc;
@@ -5180,7 +5202,7 @@ backend_init ()
   expand_dummy_function_end ();
 }
 
-/* Language-dependent initialization.  Returns non-zero on success.  */
+/* Language-dependent initialization.  Returns nonzero on success.  */
 static int
 lang_dependent_init (name)
      const char *name;
@@ -5321,11 +5343,6 @@ do_compile ()
      says if we run timers or not.  */
   init_timevar ();
   timevar_start (TV_TOTAL);
-
-  /* We need to initialize real.c in order to define __FLT_MIN__ etc,
-     which must happen even with -E.  But with -E we'll suppress the
-     rest of backend_init.  */
-  init_real_once ();
 
   /* Set up the back-end if requested.  */
   if (!no_backend)

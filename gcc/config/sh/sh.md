@@ -1955,7 +1955,7 @@
   "and	%2,%0"
   [(set_attr "type" "arith")])
 
-;; If the constant is 255, then emit a extu.b instruction instead of an
+;; If the constant is 255, then emit an extu.b instruction instead of an
 ;; and, since that will give better code.
 
 (define_expand "andsi3"
@@ -2038,6 +2038,33 @@
 	xor	%1, %2, %0
 	xori	%1, %2, %0"
   [(set_attr "type" "arith_media")])
+
+;; Combiner bridge pattern for 2 * sign extend -> logical op -> truncate.
+;; converts 2 * sign extend -> logical op into logical op -> sign extend
+(define_split
+  [(set (match_operand:DI 0 "arith_reg_operand" "")
+	(sign_extend:DI (match_operator 4 "binary_logical_operator"
+			  [(match_operand 1 "any_register_operand" "")
+			   (match_operand 2 "any_register_operand" "")])))]
+  "TARGET_SHMEDIA"
+  [(set (match_dup 5) (match_dup 4))
+   (set (match_dup 0) (sign_extend:DI (match_dup 5)))]
+"
+{
+  enum machine_mode inmode = GET_MODE (operands[1]);
+  int regno, offset = 0;
+
+  if (GET_CODE (operands[0]) == SUBREG)
+    {
+      offset = SUBREG_BYTE (operands[0]);
+      operands[0] = SUBREG_REG (operands[0]);
+    }
+  if (GET_CODE (operands[0]) != REG)
+    abort ();
+  if (! TARGET_LITTLE_ENDIAN)
+    offset += 8 - GET_MODE_SIZE (inmode);
+  operands[5] = gen_rtx_SUBREG (inmode, operands[0], offset);
+}")
 
 ;; -------------------------------------------------------------------------
 ;; Shifts and rotates
@@ -9149,7 +9176,9 @@
    && VECTOR_MODE_SUPPORTED_P (GET_MODE (operands[0]))
    && GET_MODE_SIZE (GET_MODE (operands[0])) == 8
    && (XVECEXP (operands[1], 0, 0) != const0_rtx
-       || XVECEXP (operands[1], 0, 1) != const0_rtx)"
+       || XVECEXP (operands[1], 0, 1) != const0_rtx)
+   && (XVECEXP (operands[1], 0, 0) != constm1_rtx
+       || XVECEXP (operands[1], 0, 1) != constm1_rtx)"
   [(set (match_dup 0) (match_dup 1))
    (match_dup 2)]
   "
@@ -9160,7 +9189,11 @@
   if (unit_size > 2)
     operands[2] = gen_mshflo_l (operands[0], operands[0], operands[0]);
   else
-    operands[2] = gen_mperm_w0 (operands[0], operands[0]);
+    {
+      if (unit_size < 2)
+	operands[0] = gen_rtx_REG (V4HImode, true_regnum (operands[0]));
+      operands[2] = gen_mperm_w0 (operands[0], operands[0]);
+    }
   operands[0] = gen_rtx_REG (DImode, true_regnum (operands[0]));
   operands[1] = XVECEXP (operands[1], 0, 0);
   if (unit_size < 2)
@@ -10380,14 +10413,15 @@
   rtx discratch = gen_reg_rtx (DImode);
   rtx last;
 
-  emit_insn (gen_adddi3z_media (discratch, operands[1],
-				force_reg (SImode, GEN_INT (-1))));
-  emit_insn (gen_andcdi3 (discratch, discratch,
-			  simplify_gen_subreg (DImode, operands[1],
-					       SImode, 0)));
+  emit_insn (gen_adddi3 (discratch,
+			 simplify_gen_subreg (DImode, operands[1], SImode, 0),
+			 GEN_INT (-1)));
+  emit_insn (gen_andcdi3 (discratch,
+			  simplify_gen_subreg (DImode, operands[1], SImode, 0),
+			  discratch));
   emit_insn (gen_nsbsi (scratch, discratch));
   last = emit_insn (gen_subsi3 (operands[0],
-				force_reg (SImode, GEN_INT (-64)), scratch));
+				force_reg (SImode, GEN_INT (63)), scratch));
   REG_NOTES (last)
     = gen_rtx_EXPR_LIST (REG_EQUAL,
 			 gen_rtx_FFS (SImode, operands[0]), REG_NOTES (last));

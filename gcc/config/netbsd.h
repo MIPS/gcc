@@ -42,7 +42,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* NETBSD_NATIVE is defined when gcc is integrated into the NetBSD
    source tree so it can be configured appropriately without using
-   the GNU configure/build mechanism. */
+   the GNU configure/build mechanism.  */
 
 #ifdef NETBSD_NATIVE
 
@@ -82,11 +82,16 @@ Boston, MA 02111-1307, USA.  */
    1. Select the appropriate set of libs, depending on whether we're
       profiling.
 
-   2. Include the pthread library if -pthread is specified.
+   2. Include the pthread library if -pthread is specified (only
+      if threads are enabled).
 
-   3. Include the posix library if -posix is specified.  */
+   3. Include the posix library if -posix is specified.
+
+   FIXME: Could eliminate the duplication here if we were allowed to
+   use string concatenation.  */
 
 #undef LIB_SPEC
+#ifdef NETBSD_ENABLE_PTHREADS
 #define LIB_SPEC		\
   "%{pthread:			\
      %{!p:			\
@@ -104,6 +109,20 @@ Boston, MA 02111-1307, USA.  */
 	 %{!pg:-lc}}		\
        %{p:-lc_p}		\
        %{pg:-lc_p}}}"
+#else
+#define LIB_SPEC		\
+  "%{posix:			\
+     %{!p:			\
+       %{!pg:-lposix}}		\
+     %{p:-lposix_p}		\
+     %{pg:-lposix_p}}		\
+   %{!shared:			\
+     %{!symbolic:		\
+       %{!p:			\
+	 %{!pg:-lc}}		\
+       %{p:-lc_p}		\
+       %{pg:-lc_p}}}"
+#endif
 
 /* Provide a LIBGCC_SPEC appropriate for NetBSD.  We also want to exclude
    libgcc with -symbolic.  */
@@ -161,3 +180,51 @@ Boston, MA 02111-1307, USA.  */
 
 #undef WINT_TYPE
 #define WINT_TYPE "int"
+
+
+/* Attempt to turn on execute permission for the stack.  This may be
+   used by TRANSFER_FROM_TRAMPOLINE of the target needs it (that is,
+   if the target machine can change execute permissions on a page).
+
+   There is no way to query the execute permission of the stack, so
+   we always issue the mprotect() call.
+
+   Note that we go out of our way to use namespace-non-invasive calls
+   here.  Unfortunately, there is no libc-internal name for mprotect().
+
+   Also note that no errors should be emitted by this code; it is considered
+   dangerous for library calls to send messages to stdout/stderr.  */
+
+#define NETBSD_ENABLE_EXECUTE_STACK					\
+extern void __enable_execute_stack (void *);				\
+void									\
+__enable_execute_stack (addr)						\
+     void *addr;							\
+{									\
+  extern int mprotect (void *, size_t, int);				\
+  extern int __sysctl (int *, unsigned int, void *, size_t *,		\
+		       void *, size_t);					\
+									\
+  static int size;							\
+  static long mask;							\
+									\
+  char *page, *end;							\
+									\
+  if (size == 0)							\
+    {									\
+      int mib[2];							\
+      size_t len;							\
+									\
+      mib[0] = 6; /* CTL_HW */						\
+      mib[1] = 7; /* HW_PAGESIZE */					\
+      len = sizeof (size);						\
+      (void) __sysctl (mib, 2, &size, &len, NULL, 0);			\
+      mask = ~((long) size - 1);					\
+    }									\
+									\
+  page = (char *) (((long) addr) & mask);				\
+  end  = (char *) ((((long) (addr + TRAMPOLINE_SIZE)) & mask) + size);	\
+									\
+  /* 7 == PROT_READ | PROT_WRITE | PROT_EXEC */				\
+  (void) mprotect (page, end - page, 7);				\
+}

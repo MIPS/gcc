@@ -22,5 +22,10 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_ELF32
 #define TARGET_ELF32 1
 
-#undef CPP_SPEC
-#define CPP_SPEC "%{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{mhppa:-D__hppa__} %{posix:-D_POSIX_SOURCE} -D_PA_RISC1_1"
+/* Sibcalls are ok when ld is used in single subspace mode.  The
+   multiple subspace mode is not compatible with sibcalls to external
+   functions because the linker generated stubs store the return
+   pointer into the frame.  This target does not need multiple
+   subspace stubs, so we allow sibcalls to all functions.  */
+#undef FUNCTION_OK_FOR_SIBCALL
+#define FUNCTION_OK_FOR_SIBCALL(DECL) 1

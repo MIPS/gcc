@@ -40,7 +40,7 @@ package java.awt;
 import java.io.Serializable;
 
 /**
- * Stub implementeation.
+ * Stub implementation.
  */
 public class GridBagLayout
   implements Serializable, LayoutManager2
@@ -87,6 +87,10 @@ public class GridBagLayout
   }
 
   public void invalidateLayout(Container target)
+  {
+  }
+
+  public void setConstraints(Component comp, GridBagConstraints constraints)
   {
   }
 }

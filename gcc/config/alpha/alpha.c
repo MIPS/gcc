@@ -196,6 +196,11 @@ static void alpha_write_linkage
   PARAMS ((FILE *, const char *, tree));
 #endif
 
+#if TARGET_ABI_OSF
+static void alpha_output_mi_thunk_osf
+  PARAMS ((FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
+#endif
+
 static struct machine_function * alpha_init_machine_status
   PARAMS ((void));
 
@@ -292,6 +297,13 @@ static void unicosmk_unique_section PARAMS ((tree, int));
 #define TARGET_INIT_BUILTINS alpha_init_builtins
 #undef  TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN alpha_expand_builtin
+
+#if TARGET_ABI_OSF
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK alpha_output_mi_thunk_osf
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -568,6 +580,14 @@ override_options ()
 
   /* Set up function hooks.  */
   init_machine_status = alpha_init_machine_status;
+
+  /* Tell the compiler when we're using VAX floating point.  */
+  if (TARGET_FLOAT_VAX)
+    {
+      real_format_for_mode[SFmode - QFmode] = &vax_f_format;
+      real_format_for_mode[DFmode - QFmode] = &vax_g_format;
+      real_format_for_mode[TFmode - QFmode] = NULL;
+    }
 }
 
 /* Returns 1 if VALUE is a mask that contains full bytes of zero or ones.  */
@@ -1873,22 +1893,7 @@ alpha_encode_section_info (decl, first)
   /* Care for TLS variables.  */
   if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
     {
-      enum tls_model kind;
-      if (!flag_pic)
-	{
-	  if (is_local)
-	    kind = TLS_MODEL_LOCAL_EXEC;
-	  else
-	    kind = TLS_MODEL_INITIAL_EXEC;
-	}
-      else if (is_local)
-	kind = TLS_MODEL_LOCAL_DYNAMIC;
-      else
-	kind = TLS_MODEL_GLOBAL_DYNAMIC;
-      if (kind < flag_tls_default)
-	kind = flag_tls_default;
-
-      switch (kind)
+      switch (decl_tls_model (decl))
 	{
 	case TLS_MODEL_GLOBAL_DYNAMIC:
 	  encoding = 'G';
@@ -6048,7 +6053,7 @@ alpha_initialize_trampoline (tramp, fnaddr, cxt, fnofs, cxtofs, jmpofs)
 
 #ifdef TRANSFER_FROM_TRAMPOLINE
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__enable_execute_stack"),
-		     0, VOIDmode, 1, addr, Pmode);
+		     0, VOIDmode, 1, tramp, Pmode);
 #endif
 
   if (jmpofs >= 0)
@@ -6708,10 +6713,11 @@ alpha_sa_mask (imaskP, fmaskP)
   unsigned int i;
 
   /* Irritatingly, there are two kinds of thunks -- those created with
-     ASM_OUTPUT_MI_THUNK and those with DECL_THUNK_P that go through
-     the regular part of the compiler.  In the ASM_OUTPUT_MI_THUNK case
-     we don't have valid register life info, but assemble_start_function
-     wants to output .frame and .mask directives.  */
+     TARGET_ASM_OUTPUT_MI_THUNK and those with DECL_THUNK_P that go
+     through the regular part of the compiler.  In the
+     TARGET_ASM_OUTPUT_MI_THUNK case we don't have valid register life
+     info, but assemble_start_function wants to output .frame and
+     .mask directives.  */
   if (current_function_is_thunk && !no_new_pseudos)
     {
       *imaskP = 0;
@@ -7846,7 +7852,8 @@ alpha_end_function (file, fnname, decl)
     }
 }
 
-/* Emit a tail call to FUNCTION after adjusting THIS by DELTA. 
+#if TARGET_ABI_OSF
+/* Emit a tail call to FUNCTION after adjusting THIS by DELTA.
 
    In order to avoid the hordes of differences between generated code
    with and without TARGET_EXPLICIT_RELOCS, and to avoid duplicating
@@ -7855,11 +7862,12 @@ alpha_end_function (file, fnname, decl)
 
    Not sure why this idea hasn't been explored before...  */
 
-void
-alpha_output_mi_thunk_osf (file, thunk_fndecl, delta, function)
+static void
+alpha_output_mi_thunk_osf (file, thunk_fndecl, delta, vcall_offset, function)
      FILE *file;
      tree thunk_fndecl ATTRIBUTE_UNUSED;
      HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset;
      tree function;
 {
   HOST_WIDE_INT hi, lo;
@@ -7894,6 +7902,37 @@ alpha_output_mi_thunk_osf (file, thunk_fndecl, delta, function)
       emit_insn (gen_adddi3 (this, this, tmp));
     }
 
+  /* Add a delta stored in the vtable at VCALL_OFFSET.  */
+  if (vcall_offset)
+    {
+      rtx tmp, tmp2;
+
+      tmp = gen_rtx_REG (Pmode, 0);
+      emit_move_insn (tmp, gen_rtx_MEM (Pmode, this));
+
+      lo = ((vcall_offset & 0xffff) ^ 0x8000) - 0x8000;
+      hi = (((vcall_offset - lo) & 0xffffffff) ^ 0x80000000) - 0x80000000;
+      if (hi + lo == vcall_offset)
+	{
+	  if (hi)
+	    emit_insn (gen_adddi3 (tmp, tmp, GEN_INT (hi)));
+	}
+      else
+	{
+	  tmp2 = alpha_emit_set_long_const (gen_rtx_REG (Pmode, 1),
+					    vcall_offset, -(vcall_offset < 0));
+          emit_insn (gen_adddi3 (tmp, tmp, tmp2));
+	  lo = 0;
+	}
+      if (lo)
+	tmp2 = gen_rtx_PLUS (Pmode, tmp, GEN_INT (lo));
+      else
+	tmp2 = tmp;
+      emit_move_insn (tmp, gen_rtx_MEM (Pmode, tmp2));
+
+      emit_insn (gen_adddi3 (this, this, tmp));
+    }
+
   /* Generate a tail call to the target function.  */
   if (! TREE_USED (function))
     {
@@ -7915,6 +7954,7 @@ alpha_output_mi_thunk_osf (file, thunk_fndecl, delta, function)
   final (insn, file, 1, 0);
   final_end_function ();
 }
+#endif /* TARGET_ABI_OSF */
 
 /* Debugging support.  */
 

@@ -688,13 +688,13 @@ extern int g_switch_set;          /* whether -G xx was passed.  */
 /* Define this if you wish to imitate the way many other C compilers handle
    alignment of bitfields and the structures that contain them.
 
-   The behavior is that the type written for a bitfield (`int', `short', or
+   The behavior is that the type written for a bit-field (`int', `short', or
    other integer type) imposes an alignment for the entire structure, as if the
    structure really did contain an ordinary field of that type.  In addition,
-   the bitfield is placed within the structure so that it would fit within such
+   the bit-field is placed within the structure so that it would fit within such
    a field, not crossing a boundary for it.
 
-   Thus, on most machines, a bitfield whose type is written as `int' would not
+   Thus, on most machines, a bit-field whose type is written as `int' would not
    cross a four-byte boundary, and would force four-byte alignment for the
    whole structure.  (The alignment used may not be four bytes; it is
    controlled by the other alignment parameters.)
@@ -711,7 +711,7 @@ extern int g_switch_set;          /* whether -G xx was passed.  */
    `STRUCTURE_SIZE_BOUNDARY' as large as `BIGGEST_ALIGNMENT'.  Then every
    structure can be accessed with fullwords.
 
-   Unless the machine has bitfield instructions or you define
+   Unless the machine has bit-field instructions or you define
    `STRUCTURE_SIZE_BOUNDARY' that way, you must define
    `PCC_BITFIELD_TYPE_MATTERS' to have a nonzero value.
 
@@ -747,18 +747,6 @@ extern int g_switch_set;          /* whether -G xx was passed.  */
 
    Defined in svr4.h.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
-
-/* GNU CC supports two ways of implementing C++ vtables: traditional or with
-   so-called "thunks".  The flag `-fvtable-thunk' chooses between them.  Define
-   this macro to be a C expression for the default value of that flag.  If
-   `DEFAULT_VTABLE_THUNKS' is 0, GNU CC uses the traditional implementation by
-   default.  The "thunk" implementation is more efficient (especially if you
-   have provided an implementation of `ASM_OUTPUT_MI_THUNK', but is not binary
-   compatible with code compiled using the traditional implementation.  If you
-   are writing a new ports, define `DEFAULT_VTABLE_THUNKS' to 1.
-
-   If you do not define this macro, the default for `-fvtable-thunk' is 0.  */
-#define DEFAULT_VTABLE_THUNKS 1
 
 
 /* Layout of Source Language Data Types.  */
@@ -2080,39 +2068,6 @@ struct machine_function GTY(())
    adjustment in a function that has no frame pointer, and the compiler knows
    this regardless of `EXIT_IGNORE_STACK'.  */
 #define EXIT_IGNORE_STACK 1
-
-/* A C compound statement that outputs the assembler code for a thunk function,
-   used to implement C++ virtual function calls with multiple inheritance.  The
-   thunk acts as a wrapper around a virtual function, adjusting the implicit
-   object parameter before handing control off to the real function.
-
-   First, emit code to add the integer DELTA to the location that contains the
-   incoming first argument.  Assume that this argument contains a pointer, and
-   is the one used to pass the `this' pointer in C++.  This is the incoming
-   argument *before* the function prologue, e.g. `%o0' on a sparc.  The
-   addition must preserve the values of all other incoming arguments.
-
-   After the addition, emit code to jump to FUNCTION, which is a
-   `FUNCTION_DECL'.  This is a direct pure jump, not a call, and does not touch
-   the return address.  Hence returning from FUNCTION will return to whoever
-   called the current `thunk'.
-
-   The effect must be as if FUNCTION had been called directly with the adjusted
-   first argument.  This macro is responsible for emitting all of the code for
-   a thunk function; `FUNCTION_PROLOGUE' and `FUNCTION_EPILOGUE' are not
-   invoked.
-
-   The THUNK_FNDECL is redundant.  (DELTA and FUNCTION have already been
-   extracted from it.)  It might possibly be useful on some targets, but
-   probably not.
-
-   If you do not define this macro, the target-independent code in the C++
-   frontend will generate a less efficient heavyweight thunk that calls
-   FUNCTION instead of jumping to it.  The generic approach does not support
-   varargs.  */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
-frv_asm_output_mi_thunk (FILE, THUNK_FNDECL, (long)DELTA, FUNCTION)
-
 
 /* Generating Code for Profiling.  */
 

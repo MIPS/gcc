@@ -37,6 +37,7 @@ exception statement from your version. */
 
 package java.net;
 
+import java.io.Serializable;
 import java.security.Permission;
 import java.security.PermissionCollection;
 
@@ -100,8 +101,9 @@ import java.security.PermissionCollection;
  * @author Aaron M. Renn (arenn@urbanophile.com)
  */
 public final class SocketPermission extends Permission
-  implements java.io.Serializable
+  implements Serializable
 {
+  static final long serialVersionUID = -7204263841984476862L;
 
 // FIXME: Needs serialization work, including readObject/writeObject methods.
   /**
@@ -119,7 +121,7 @@ public final class SocketPermission extends Permission
    * specified host/port combination and actions string.
    *
    * @param hostport The hostname/port number combination
-   * @param perms The actions string
+   * @param actions The actions string
    */
   public SocketPermission(String hostport, String actions)
   {

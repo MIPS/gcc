@@ -53,7 +53,7 @@ enum tree_code {
 extern const char tree_code_type[];
 #define TREE_CODE_CLASS(CODE)	tree_code_type[(int) (CODE)]
 
-/* Returns non-zero iff CLASS is the tree-code class of an
+/* Returns nonzero iff CLASS is the tree-code class of an
    expression.  */
 
 #define IS_EXPR_CODE_CLASS(CLASS) \
@@ -1375,7 +1375,7 @@ struct tree_type GTY(())
    as DECL_NAME.  It is an IDENTIFIER_NODE.  */
 #define DECL_ASSEMBLER_NAME(NODE) decl_assembler_name (NODE)
 
-/* Returns non-zero if the DECL_ASSEMBLER_NAME for NODE has been set.  If zero,
+/* Returns nonzero if the DECL_ASSEMBLER_NAME for NODE has been set.  If zero,
    the NODE might still have a DECL_ASSEMBLER_NAME -- it just hasn't been set
    yet.  */
 #define DECL_ASSEMBLER_NAME_SET_P(NODE) \
@@ -1495,7 +1495,7 @@ struct tree_type GTY(())
    : (make_decl_rtl (NODE, NULL), (NODE)->decl.rtl))
 /* Set the DECL_RTL for NODE to RTL.  */
 #define SET_DECL_RTL(NODE, RTL) (DECL_CHECK (NODE)->decl.rtl = (RTL))
-/* Returns non-zero if the DECL_RTL for NODE has already been set.  */
+/* Returns nonzero if the DECL_RTL for NODE has already been set.  */
 #define DECL_RTL_SET_P(NODE)  (DECL_CHECK (NODE)->decl.rtl != NULL)
 /* Copy the RTL from NODE1 to NODE2.  If the RTL was not set for
    NODE1, it will not be set for NODE2; this is a lazy copy.  */
@@ -1608,7 +1608,7 @@ struct tree_type GTY(())
 /* In a FIELD_DECL, indicates this field should be bit-packed.  */
 #define DECL_PACKED(NODE) (FIELD_DECL_CHECK (NODE)->decl.regdecl_flag)
 
-/* In a FUNCTION_DECL with a non-zero DECL_CONTEXT, indicates that a
+/* In a FUNCTION_DECL with a nonzero DECL_CONTEXT, indicates that a
    static chain is not needed.  */
 #define DECL_NO_STATIC_CHAIN(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->decl.regdecl_flag)
@@ -1826,7 +1826,7 @@ struct tree_decl GTY(())
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
        DECL_FUNCTION_CODE.  */
     enum built_in_function f;
-    /* In a FUNCITON_DECL for which DECL_BUILT_IN does not hold, this
+    /* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this
        is used by language-dependent code.  */
     HOST_WIDE_INT i;
     /* DECL_ALIGN and DECL_OFFSET_ALIGN.  (These are not used for
@@ -1965,6 +1965,7 @@ enum tree_index
   TI_UV8HI_TYPE,
   TI_UV8QI_TYPE,
   TI_UV4HI_TYPE,
+  TI_UV2HI_TYPE,
   TI_UV2SI_TYPE,
   TI_UV2SF_TYPE,
   TI_UV2DI_TYPE,
@@ -1977,6 +1978,7 @@ enum tree_index
   TI_V8HI_TYPE,
   TI_V8QI_TYPE,
   TI_V4HI_TYPE,
+  TI_V2HI_TYPE,
   TI_V2SI_TYPE,
   TI_V2SF_TYPE,
   TI_V2DF_TYPE,
@@ -2048,6 +2050,7 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define unsigned_V8QI_type_node		global_trees[TI_UV8QI_TYPE]
 #define unsigned_V8HI_type_node		global_trees[TI_UV8HI_TYPE]
 #define unsigned_V4HI_type_node		global_trees[TI_UV4HI_TYPE]
+#define unsigned_V2HI_type_node		global_trees[TI_UV2HI_TYPE]
 #define unsigned_V2SI_type_node		global_trees[TI_UV2SI_TYPE]
 #define unsigned_V2DI_type_node		global_trees[TI_UV2DI_TYPE]
 #define unsigned_V1DI_type_node		global_trees[TI_UV1DI_TYPE]
@@ -2058,6 +2061,7 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define V8QI_type_node			global_trees[TI_V8QI_TYPE]
 #define V8HI_type_node			global_trees[TI_V8HI_TYPE]
 #define V4HI_type_node			global_trees[TI_V4HI_TYPE]
+#define V2HI_type_node			global_trees[TI_V2HI_TYPE]
 #define V2SI_type_node			global_trees[TI_V2SI_TYPE]
 #define V2SF_type_node			global_trees[TI_V2SF_TYPE]
 #define V2DI_type_node			global_trees[TI_V2DI_TYPE]
@@ -2102,7 +2106,44 @@ extern GTY(()) tree integer_types[itk_none];
 #define long_unsigned_type_node		integer_types[itk_unsigned_long]
 #define long_long_integer_type_node	integer_types[itk_long_long]
 #define long_long_unsigned_type_node	integer_types[itk_unsigned_long_long]
+
+/* Set to the default thread-local storage (tls) model to use.  */
 
+enum tls_model {
+  TLS_MODEL_GLOBAL_DYNAMIC = 1,
+  TLS_MODEL_LOCAL_DYNAMIC,
+  TLS_MODEL_INITIAL_EXEC,
+  TLS_MODEL_LOCAL_EXEC
+};
+
+extern enum tls_model flag_tls_default;
+
+/* A pointer-to-function member type looks like:
+
+     struct {
+       __P __pfn;
+       ptrdiff_t __delta;
+     };
+
+   If __pfn is NULL, it is a NULL pointer-to-member-function.
+
+   (Because the vtable is always the first thing in the object, we
+   don't need its offset.)  If the function is virtual, then PFN is
+   one plus twice the index into the vtable; otherwise, it is just a
+   pointer to the function.
+
+   Unfortunately, using the lowest bit of PFN doesn't work in
+   architectures that don't impose alignment requirements on function
+   addresses, or that use the lowest bit to tell one ISA from another,
+   for example.  For such architectures, we use the lowest bit of
+   DELTA instead of the lowest bit of the PFN, and DELTA will be
+   multiplied by 2.  */
+
+enum ptrmemfunc_vbit_where_t
+{
+  ptrmemfunc_vbit_in_pfn,
+  ptrmemfunc_vbit_in_delta
+};
 
 #define NULL_TREE (tree) NULL
 
@@ -2317,7 +2358,7 @@ extern tree strip_attrs			PARAMS ((tree));
 
 extern int valid_machine_attribute	PARAMS ((tree, tree, tree, tree));
 
-/* Given a tree node and a string, return non-zero if the tree node is
+/* Given a tree node and a string, return nonzero if the tree node is
    a valid attribute name for the string.  */
 
 extern int is_attribute_p		PARAMS ((const char *, tree));
@@ -2424,7 +2465,7 @@ extern tree rli_size_so_far		PARAMS ((record_layout_info));
 extern void normalize_rli		PARAMS ((record_layout_info));
 extern void place_field			PARAMS ((record_layout_info, tree));
 extern void compute_record_mode		PARAMS ((tree));
-extern void finish_record_layout	PARAMS ((record_layout_info));
+extern void finish_record_layout	PARAMS ((record_layout_info, int));
 
 /* Given a hashcode and a ..._TYPE node (for which the hashcode was made),
    return a canonicalized ..._TYPE node, so that duplicates are not made.
@@ -2516,7 +2557,7 @@ extern void put_pending_sizes		PARAMS ((tree));
 /* If nonzero, an upper limit on alignment of structure fields, in bits.  */
 extern unsigned int maximum_field_alignment;
 
-/* If non-zero, the alignment of a bitstring or (power-)set value, in bits.  */
+/* If nonzero, the alignment of a bitstring or (power-)set value, in bits.  */
 extern unsigned int set_alignment;
 
 /* Concatenate two lists (chains of TREE_LIST nodes) X and Y
@@ -2868,6 +2909,7 @@ struct obstack;
 /* In tree.c */
 extern int really_constant_p		PARAMS ((tree));
 extern int int_fits_type_p		PARAMS ((tree, tree));
+extern bool variably_modified_type_p    PARAMS ((tree));
 extern int tree_log2			PARAMS ((tree));
 extern int tree_floor_log2		PARAMS ((tree));
 extern int simple_cst_equal		PARAMS ((tree, tree));
@@ -2988,6 +3030,7 @@ extern void make_decl_rtl		PARAMS ((tree, const char *));
 extern void make_decl_one_only		PARAMS ((tree));
 extern int supports_one_only		PARAMS ((void));
 extern void variable_section		PARAMS ((tree, int));
+enum tls_model decl_tls_model		PARAMS ((tree));
 
 /* In fold-const.c */
 extern int div_and_round_double		PARAMS ((enum tree_code, int,
