@@ -48,7 +48,8 @@ struct tree_ann_common_d GTY(())
   /* Annotation type.  */
   enum tree_ann_type type;
 
-  /* Auxiliary info specific to a pass.  */
+ /* Auxiliary info specific to a pass.  At all times, this
+    should either point to valid data or be NULL.  */
   PTR GTY ((skip (""))) aux;
 
   /* The value handle for this expression.  Used by GVN-PRE.  */

@@ -1,3 +1,8 @@
+2004-06-16  Dale Johannesen  <dalej@apple.com>
+	* tree-flow.h (tree_ann_common-d.aux): Document required behavior.
+	* tree-ssa-loop-manip.c (allocate_new_names): Don't propagate
+	new_names into copies.
+
 2004-06-16  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	PR tree-optimization/15993

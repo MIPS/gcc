@@ -168,7 +168,6 @@ allocate_new_names (tree definitions, unsigned ndupl, bool origin)
     {
       def = TREE_VALUE (definitions);
       new_names = xmalloc (sizeof (tree) * (ndupl + (origin ? 1 : 0)));
-      SSA_NAME_AUX (def) = new_names;
 
       abnormal = SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def);
       for (i = (origin ? 0 : 1); i <= ndupl; i++)
@@ -176,6 +175,9 @@ allocate_new_names (tree definitions, unsigned ndupl, bool origin)
 	  new_names[i] = duplicate_ssa_name (def, SSA_NAME_DEF_STMT (def));
 	  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new_names[i]) = abnormal;
 	}
+     /* Delay this until now so it doesn't get propagated to the copies.
+	That would cause problems in the next outer loop.  */
+      SSA_NAME_AUX (def) = new_names;
     }
 }
 
