@@ -1,5 +1,9 @@
 2005-03-09  Ira Rosen  <irar@il.ibm.com>
 
+	* gcc.dg/vect/vect-99.c: New.
+
+2005-03-09  Ira Rosen  <irar@il.ibm.com>
+
 	* gcc.dg/vect/vect-96.c: Bring from mainline.
 	* gcc.dg/vect/vect-97.c: Bring from mainline.
 	* gcc.dg/vect/vect-98.c: Bring from mainline.
