@@ -110,6 +110,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "DesktopIconUI", "javax.swing.plaf.basic.BasicDesktopIconUI",
       "DesktopPaneUI", "javax.swing.plaf.basic.BasicDesktopPaneUI",
       "EditorPaneUI", "javax.swing.plaf.basic.BasicEditorPaneUI",
+      "FormattedTextFieldUI", "javax.swing.plaf.basic.BasicFormattedTextFieldUI",
       "InternalFrameUI", "javax.swing.plaf.basic.BasicInternalFrameUI",
       "LabelUI", "javax.swing.plaf.basic.BasicLabelUI",
       "ListUI", "javax.swing.plaf.basic.BasicListUI",
@@ -205,15 +206,15 @@ public abstract class BasicLookAndFeel extends LookAndFeel
   private void loadResourceBundle(UIDefaults defaults)
   {
     ResourceBundle bundle;
-    Enumeration enum;
+    Enumeration e;
     String key;
     String value;
     bundle = ResourceBundle.getBundle("resources/basic");
     // Process Resources
-    enum = bundle.getKeys();
-    while (enum.hasMoreElements())
+    e = bundle.getKeys();
+    while (e.hasMoreElements())
       {
-        key = (String) enum.nextElement();
+        key = (String) e.nextElement();
         value = bundle.getString(key);
         defaults.put(key, value);
       }

@@ -1,5 +1,11 @@
 2004-06-08  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/plaf/basic/BasicLookAndFeel.java
+	(initClassDefaults): Added FormattedTextFieldUI.
+	(loadResourceBundle): Renamed enum to e.
+
+2004-06-08  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/plaf/basic/BasicButtonUI.java
 	(paintIcon): Simplified.
 	(paintText): Paint disabled button correctly.
