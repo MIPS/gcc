@@ -1,5 +1,9 @@
 2005-02-08  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_method): Create BIND_EXPR with void type.
+
+2005-02-08  Tom Tromey  <tromey@redhat.com>
+
 	* glue.hh: Include function.h.
 	* treegen.cc (generate): Call allocate_struct_function.  Set
 	function_end_locus.

@@ -125,8 +125,7 @@ tree_generator::visit_method (model_method *meth,
 	  current = wrap_synchronized (k, current);
 	}
 
-      current = build3 (BIND_EXPR,
-			gcc_builtins->map_type (meth->get_return_type ()),
+      current = build3 (BIND_EXPR, void_type_node,
 			BLOCK_VARS (current_block),
 			current, current_block);
     }
