@@ -1,7 +1,15 @@
+2003-12-14  Andreas Jaeger  <aj@suse.de>
+
+	* flags.h: Remove broken repgaram commit.
+	* toplev.c: Likewise.
+
 2003-12-13  Jan Hubicka  <jh@suse.cz>
 
-	* calls.c (expand_call): Ensure that crossjupming won't produce
-	missmathching stack frames.
+	* flags.h: Make flags_crossjumping external.
+	* toplev.c: Likewise.
+
+	* calls.c (expand_call): Ensure that crossjumping won't produce
+	missmatching stack frames.
 
 2003-12-12  Andreas Schwab  <schwab@suse.de>
 
