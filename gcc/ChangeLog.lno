@@ -1,3 +1,17 @@
+2004-05-10  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-chrec.h (build_chrec_top_type): Disabled, return chrec_top.
+	* tree-scalar-evolution.c (first_iteration_non_satisfying_noev_ev, 
+	first_iteration_non_satisfying_ev_noev): Use the type of the chrec 
+	instead of integer_type_node when folding operations.
+	(number_of_iterations_to_overflow): New.
+	(first_iteration_non_satisfying_ev_ev): Implement some cases.
+	(set_nb_iterations_in_loop): Return chrec_top on overflow.
+	(follow_ssa_edge_in_rhs): Handle type conversions "a = (type) rhs".
+	* tree-ssa-loop-ivcanon.c (canonicalize_loop_induction_variables): 
+	Convert the result of find_loop_niter_by_eval to the same type as niter
+	before comparing.
+
 2004-05-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* loop-iv.c (determine_max_iter, shorten_into_mode,

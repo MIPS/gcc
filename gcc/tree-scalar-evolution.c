@@ -1180,12 +1180,10 @@ first_iteration_non_satisfying_noev_ev (enum tree_code code,
 		|| tree_does_not_contain_chrecs (chrec0))
 	      /* Example: "while (2 <= {3, +, -1}_2)".  */
 	      nb_iters = tree_fold_plus 
-		(integer_type_node, 
-		 tree_fold_floor_div (integer_type_node, 
-				      tree_fold_minus (integer_type_node, 
-						       init1, init0), 
-				      tree_fold_abs (integer_type_node, 
-						     step1)), 
+		(type1, 
+		 tree_fold_floor_div (type1, 
+				      tree_fold_minus (type1, init1, init0), 
+				      tree_fold_abs (type1, step1)), 
 		 integer_one_node);
 	    else
 	      /* Example: "while ({2, +, 1}_1 <= {3, +, -1}_2)".  */
@@ -1196,7 +1194,7 @@ first_iteration_non_satisfying_noev_ev (enum tree_code code,
 	if (tree_is_gt (init0, 
 			tree_fold_plus 
 			(type1, init1, tree_fold_multiply
-			 (integer_type_node, nb_iters, step1)), &val)
+			 (type1, nb_iters, step1)), &val)
 	    && val)
 	  return nb_iters;
 	
@@ -1240,7 +1238,7 @@ first_iteration_non_satisfying_noev_ev (enum tree_code code,
 		|| tree_does_not_contain_chrecs (chrec0))
 	      /* Example: "while (2 < {3, +, -1}_2)".  */
 	      nb_iters = tree_fold_ceil_div
-		(integer_type_node, 
+		(type1, 
 		 tree_fold_minus (type1, init1, init0), 
 		 tree_fold_abs (type1, step1));
 	    else
@@ -1252,7 +1250,7 @@ first_iteration_non_satisfying_noev_ev (enum tree_code code,
 	if (tree_is_ge (init0, 
 			tree_fold_plus 
 			(type1, init1, tree_fold_multiply 
-			 (integer_type_node, nb_iters, step1)), &val)
+			 (type1, nb_iters, step1)), &val)
 	    && val)
 	  return nb_iters;
 	
@@ -1304,12 +1302,10 @@ first_iteration_non_satisfying_noev_ev (enum tree_code code,
 	      {
 		if (tree_is_gt (init0, init1, &val) && val)
 		  {
-		    tree diff = tree_fold_minus (integer_type_node, 
-						 init0, init1);
-		    if (tree_fold_divides_p (integer_type_node, step1, diff))
+		    tree diff = tree_fold_minus (type1, init0, init1);
+		    if (tree_fold_divides_p (type1, step1, diff))
 		      /* Example: "while (3 != {2, +, 1}_2)".  */
-		      nb_iters = tree_fold_exact_div 
-			(integer_type_node, diff, step1);
+		      nb_iters = tree_fold_exact_div (type1, diff, step1);
 		    else
 		      /* Example: "while (3 != {2, +, 2}_2)".  */
 		      return chrec_top;
@@ -1330,13 +1326,11 @@ first_iteration_non_satisfying_noev_ev (enum tree_code code,
 	      {
 		if (tree_is_lt (init0, init1, &val) && val)
 		  {
-		    tree diff = tree_fold_minus (integer_type_node, 
-						 init1, init0);
-		    if (tree_fold_divides_p (integer_type_node, step1, diff))
+		    tree diff = tree_fold_minus (type1, init1, init0);
+		    if (tree_fold_divides_p (type1, step1, diff))
 		      /* Example: "while (2 != {3, +, -1}_2)".  */
 		      nb_iters = tree_fold_exact_div 
-			(integer_type_node, diff, 
-			 tree_fold_abs (integer_type_node, step1));
+			(type1, diff, tree_fold_abs (type1, step1));
 		    else
 		      /* Example: "while (2 != {3, +, -2}_2)".  */
 		      return chrec_top;
@@ -1354,7 +1348,7 @@ first_iteration_non_satisfying_noev_ev (enum tree_code code,
 	if (tree_is_eq (init0, 
 			tree_fold_plus 
 			(type1, init1, tree_fold_multiply 
-			 (integer_type_node, nb_iters, step1)), &val)
+			 (type1, nb_iters, step1)), &val)
 	    && val)
 	  return nb_iters;
 	
@@ -1440,10 +1434,9 @@ first_iteration_non_satisfying_ev_noev (enum tree_code code,
 		|| tree_does_not_contain_chrecs (chrec1))
 	      /* Example: "while ({2, +, 1}_2 <= 3)".  */
 	      nb_iters = tree_fold_plus 
-		(integer_type_node, 
-		 tree_fold_floor_div (integer_type_node, 
-				      tree_fold_minus (integer_type_node, 
-						       init1, init0), 
+		(type0, 
+		 tree_fold_floor_div (type0, 
+				      tree_fold_minus (type0, init1, init0), 
 				      step0), 
 		 integer_one_node);
 	    else
@@ -1454,7 +1447,7 @@ first_iteration_non_satisfying_ev_noev (enum tree_code code,
 	/* Verify the result.  */
 	if (tree_is_gt (tree_fold_plus 
 			(type0, init0, tree_fold_multiply 
-			 (integer_type_node, nb_iters, step0)), init1, &val)
+			 (type0, nb_iters, step0)), init1, &val)
 	    && val)
 	  return nb_iters;
 	
@@ -1496,18 +1489,17 @@ first_iteration_non_satisfying_ev_noev (enum tree_code code,
 		|| tree_does_not_contain_chrecs (chrec1))
 	      /* Example: "while ({2, +, 1}_2 < 3)".  */
 	      nb_iters = tree_fold_ceil_div
-		(integer_type_node, 
-		 tree_fold_minus (integer_type_node, init1, init0), 
-		 step0);
+		(type0, tree_fold_minus (type0, init1, init0), step0);
 	    else 
 	      /* Example: "while ({2, +, 1}_2 < {3, +, 1}_1)".  */
 	      return chrec_top;
 	  }
 	
 	/* Verify the result.  */
-	if (tree_is_ge (tree_fold_plus 
-			(type0, init0, tree_fold_multiply 
-			 (integer_type_node, nb_iters, step0)), init1, &val)
+	if (tree_is_ge (tree_fold_plus (type0, init0, 
+					tree_fold_multiply (type0, nb_iters, 
+							    step0)), 
+			init1, &val)
 	    && val)
 	  return nb_iters;
 	
@@ -1559,12 +1551,10 @@ first_iteration_non_satisfying_ev_noev (enum tree_code code,
 	      {
 		if (tree_is_lt (init0, init1, &val) && val)
 		  {
-		    tree diff = tree_fold_minus (integer_type_node, 
-						 init1, init0);
-		    if (tree_fold_divides_p (integer_type_node, step0, diff))
+		    tree diff = tree_fold_minus (type0, init1, init0);
+		    if (tree_fold_divides_p (type0, step0, diff))
 		      /* Example: "while ({2, +, 1}_2 != 3)".  */
-		      nb_iters = tree_fold_exact_div 
-			(integer_type_node, diff, step0);
+		      nb_iters = tree_fold_exact_div (type0, diff, step0);
 		    else
 		      /* Example: "while ({2, +, 2}_2 != 3)".  */
 		      return chrec_top;
@@ -1585,13 +1575,12 @@ first_iteration_non_satisfying_ev_noev (enum tree_code code,
 	      {
 		if (tree_is_gt (init0, init1, &val) && val)
 		  {
-		    tree diff = tree_fold_minus (integer_type_node, 
-						 init0, init1);
-		    if (tree_fold_divides_p (integer_type_node, step0, diff))
+		    tree diff = tree_fold_minus (type0, init0, init1);
+		    if (tree_fold_divides_p (type0, step0, diff))
 		      /* Example: "while ({3, +, -1}_2 != 2)".  */
 		      nb_iters = tree_fold_exact_div 
-			(integer_type_node, diff, 
-			 tree_fold_abs (integer_type_node, step0));
+			(type0, diff, tree_fold_abs (integer_type_node, 
+						     step0));
 		    else
 		      /* Example: "while ({3, +, -2}_2 != 2)".  */
 		      return chrec_top;
@@ -1608,7 +1597,7 @@ first_iteration_non_satisfying_ev_noev (enum tree_code code,
 	/* Verify the result.  */
 	if (tree_is_eq (tree_fold_plus 
 			(type0, init0, tree_fold_multiply 
-			 (integer_type_node, nb_iters, step0)), init1, &val)
+			 (type0, nb_iters, step0)), init1, &val)
 	    && val)
 	  return nb_iters;
 	else 
@@ -1623,20 +1612,116 @@ first_iteration_non_satisfying_ev_noev (enum tree_code code,
   return chrec_top;
 }
 
+static inline tree 
+number_of_iterations_to_overflow (tree type, tree init, tree step)
+{
+  return tree_fold_plus 
+    (integer_type_node, integer_one_node, 
+     tree_fold_ceil_div (integer_type_node, 
+			 tree_fold_minus (integer_type_node, 
+					  TYPE_MAX_VALUE (type), init), 
+			 step));
+}
+
 /* Helper function for the case when both CHREC0 and CHREC1 has an
    evolution in the considered loop.  */
 
 static tree 
 first_iteration_non_satisfying_ev_ev (enum tree_code code, 
-				      unsigned loop_nb ATTRIBUTE_UNUSED, 
-				      tree chrec0 ATTRIBUTE_UNUSED, 
-				      tree chrec1 ATTRIBUTE_UNUSED)
+				      unsigned loop_nb, 
+				      tree chrec0, 
+				      tree chrec1)
 {
+  bool val = false;
+  tree init0, init1, step0, step1;
+  tree type0, type1;
+  tree nb_iters;
+  int sign_step0, sign_step1;
+
+  if (evolution_function_is_multivariate (chrec0)
+      || evolution_function_is_multivariate (chrec1))
+    /* For the moment, don't handle these quite difficult cases.  */
+    return chrec_top;
+
+  init0 = CHREC_LEFT (chrec0);
+  step0 = CHREC_RIGHT (chrec0);
+  init1 = CHREC_LEFT (chrec1);
+  step1 = CHREC_RIGHT (chrec1);
+  if (!no_evolution_in_loop_p (init0, loop_nb, &val) 
+      || val == false
+      || !no_evolution_in_loop_p (init1, loop_nb, &val) 
+      || val == false
+      || TREE_CODE (step0) != INTEGER_CST
+      || TREE_CODE (step1) != INTEGER_CST)
+    /* For the moment, we deal only with INTEGER_CSTs.  */
+    return chrec_top;
+
+  sign_step0 = tree_int_cst_sgn (step0);
+  sign_step1 = tree_int_cst_sgn (step1);
+  type0 = chrec_type (chrec0);
+  type1 = chrec_type (chrec1);
+
+  debug_generic_expr (chrec0);
+  debug_generic_expr (chrec1);
+
   switch (code)
     {
     case LE_EXPR:
-      
     case LT_EXPR:
+      {
+	if (tree_is_gt (init0, init1, &val) && val)
+	  return integer_zero_node;
+
+	if (sign_step0 > 0 && sign_step1 > 0)
+	  {
+	    if (tree_is_eq (step0, step1, &val) && val)
+	      {
+		/* The loop ends after an overflow, for example:
+		   "while ({1, +, 2}_1 <= {2, +, 2}_1)".  */
+		if (type0 != type1)
+		  return chrec_top;
+
+		return number_of_iterations_to_overflow (type1, init1, step1);
+	      }
+
+	    if (tree_is_gt (step0, step1, &val) && val)
+	      {
+		/* "while ({0, +, 2}_1 <= {2, +, 1}_1)".  */
+		nb_iters = tree_fold_plus 
+		  (integer_type_node, 
+		   ((code == LE_EXPR) ? 
+		    build_int_cst (integer_type_node, 2) : integer_one_node),
+		   tree_fold_ceil_div 
+		   (integer_type_node, 
+		    tree_fold_minus (integer_type_node, init1, init0), 
+		    tree_fold_minus (integer_type_node, step0, step1)));
+
+		/* Verify that chrec1 is not overflowing after nb_iters.  */
+		if (!TREE_OVERFLOW (chrec_apply (CHREC_VARIABLE (chrec1), 
+						 chrec1, nb_iters)))
+		  return nb_iters;
+
+		if (type0 != type1)
+		  return chrec_top;
+
+		return number_of_iterations_to_overflow (type1, init1, step1);
+	      }
+
+	    return chrec_top;
+	  }
+
+	else if (sign_step0 < 0 && sign_step1 < 0)
+	  return chrec_top;
+
+	else if (sign_step0 < 0 && sign_step1 > 0)
+	  return chrec_top;
+
+	else if (sign_step0 > 0 && sign_step1 < 0)
+	  return chrec_top;
+
+	else
+	  return chrec_top;
+      }
       
     case EQ_EXPR:
       
@@ -1766,8 +1851,8 @@ set_nb_iterations_in_loop (struct loop *loop,
      count of the loop in order to be compatible with the other
      nb_iter computations in loop-iv.  This also allows the
      representation of nb_iters that are equal to MAX_INT.  */
-  if (TREE_CODE (res) == INTEGER_CST
-      && TREE_INT_CST_LOW (res) == 0)
+  if ((TREE_CODE (res) == INTEGER_CST && TREE_INT_CST_LOW (res) == 0)
+      || TREE_OVERFLOW (res))
     res = chrec_top;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1962,6 +2047,13 @@ follow_ssa_edge_in_rhs (struct loop *loop,
   */
   switch (TREE_CODE (rhs))
     {
+    case NOP_EXPR:
+      /* This assignment is under the form "a_1 = (cast) rhs.  */
+      res = follow_ssa_edge_in_rhs (loop, TREE_OPERAND (rhs, 0), halting_phi, 
+				    evolution_of_loop);
+      *evolution_of_loop = chrec_convert (TREE_TYPE (rhs), *evolution_of_loop);
+      break;
+
     case INTEGER_CST:
       /* This assignment is under the form "a_1 = 7".  */
       res = false;

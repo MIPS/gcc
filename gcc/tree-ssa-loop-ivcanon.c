@@ -216,7 +216,7 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
 
       if (ex == exit
 	  && TREE_CODE (nit) == INTEGER_CST
-	  && !operand_equal_p (niter, nit, 0))
+	  && !operand_equal_p (niter, convert (TREE_TYPE (niter), nit), 0))
 	abort ();
 #endif
     }

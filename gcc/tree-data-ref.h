@@ -163,9 +163,6 @@ extern void dump_data_dependence_direction (FILE *,
 
 /* Inline functions.  */
 
-static inline bool array_base_name_differ_p (struct data_reference *, struct data_reference *);
-
-
 /* This is the simplest data dependence test: determines whether the
    data references A and B access the same array.  */
 

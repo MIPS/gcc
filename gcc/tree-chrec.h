@@ -159,6 +159,10 @@ build_peeled_chrec (unsigned loop_num,
 static inline tree 
 build_chrec_top_type (tree type)
 {
+  /* Disabled for now: it is not used, and libjava fails to build on
+     amd64.  */
+  return chrec_top;
+
   if (type != NULL_TREE)
     {
       enum tree_code code = TREE_CODE (type);
