@@ -426,6 +426,8 @@ alloc_mem (df)
   create_insn_info (df);
 }
 
+extern void free_split_costs PARAMS ((void));
+
 /* Free the memory which isn't necessary for the next pass.  */
 
 static void
@@ -434,6 +436,7 @@ free_mem (df)
 {
   free_insn_info ();
   ra_build_free ();
+  free_split_costs ();
 }
 
 /* Free all memory allocated for the register allocator.  Used, when
@@ -459,6 +462,8 @@ free_all_mem (df)
 
 static long ticks_build;
 static long ticks_rebuild;
+
+extern int any_splits_found;
 
 /* Perform one pass of allocation.  Returns nonzero, if some spill code
    was added, i.e. if the allocator needs to rerun.  */
@@ -496,7 +501,7 @@ one_pass (df, rebuild)
       something_spilled = !!WEBS(SPILLED);
 
       /* Add spill code if necessary.  */
-      if (something_spilled)
+      if (something_spilled || any_splits_found)
 	something_spilled = actual_spill (1);
 
       /* Check all colored webs to detect ones colored by an_unusable_color.
@@ -990,7 +995,7 @@ reg_alloc ()
   flag_ra_biased = 0;
   flag_ra_spill_every_use = 0;
   flag_ra_improved_spilling = 1;
-  flag_ra_ir_spilling = 1;
+  flag_ra_ir_spilling = 0;
   flag_ra_break_aliases = 0;
   flag_ra_optimistic_coalescing = 1;
   flag_ra_merge_spill_costs = 1;

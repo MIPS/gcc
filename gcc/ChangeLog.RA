@@ -1,4 +1,27 @@
 2003-06-30  Michael Matz  <matz@suse.de>
+	* ra-colorize.c (init_split_costs, find_splits): Declare.
+	(unsplit_web): New.
+	(colorize_one_web): Call it.  Call find_split before admitting defeat.
+	(split_around): Declare.
+	(try_recolor_web): Call unsplit_web.
+	(check_colors): Ignore conflicts between split webs.
+	(ra_colorize_graph): Call init_split_costs.
+	* ra-rewrite.c (split_webs): New.
+	(detect_web_parts_to_rebuild): Split webs changed layout too.
+	(any_splits_found): New.
+	(actual_spill): Allocate/free split_webs.  Call insert_splits.
+	If splits were done we need to rebuild.
+	(contained, split_around, struct split_cost, split_costs,
+	live_at_begin, set_web_live_s, reset_web_live_s, init_split_costs,
+	find_splits, split_insert_load, split_insert_store, insert_splits,
+	free_split_costs): New.
+	* ra.c (free_split_costs): Declare.
+	(free_mem): Call it.
+	(any_splits_found): Declare.
+	(one_pass): If any_splits_found we need to spill.
+	(reg_alloc): Don't do IR spilling (when splitting webs).
+
+2003-06-30  Michael Matz  <matz@suse.de>
 	* ra-rewrite.c (uninit_webs_which_changed): New.
 	(insert_stores): Use validate_change.  Don't respill already spilled
 	refs.  Possibly mark the web as uninit but changed.  Clear the already

@@ -1792,6 +1792,7 @@ mark_refs_for_checking (web, uses_as_bitmap)
     }
 }
 
+static bitmap split_webs;
 static bitmap webs_changed_layout;
 
 /* The last step of the spill phase is to set up the structures for
@@ -1816,6 +1817,17 @@ detect_web_parts_to_rebuild ()
   sbitmap_zero (last_check_uses);
   sbitmap_zero (already_webs);
 
+  /* One of our callers isn't allocating split_webs.  */
+  if (split_webs)
+    EXECUTE_IF_SET_IN_BITMAP (split_webs, 0, i,
+      {
+        struct web *web = ID2WEB (i);
+        if (web->type != SPILLED)
+          {
+            remove_web_from_list (web);
+            put_web (web, SPILLED);
+          }
+      });
   if (webs_changed_layout)
     EXECUTE_IF_SET_IN_BITMAP (webs_changed_layout, 0, i,
       {
@@ -2136,6 +2148,9 @@ subst_to_stack_p ()
    spill code.  This also sets up the structures for incrementally
    building the interference graph in the next pass.  */
 
+extern void insert_splits PARAMS ((bitmap));
+int any_splits_found;
+
 int
 actual_spill (spill_p)
      int spill_p ATTRIBUTE_UNUSED;
@@ -2172,6 +2187,8 @@ actual_spill (spill_p)
   webs_changed_layout = BITMAP_XMALLOC ();
   delete_useless_defs ();
   BITMAP_XFREE (useless_defs);
+  split_webs = BITMAP_XMALLOC ();
+  insert_splits (new_deaths);
   sbitmap_free (insns_with_deaths);
   insns_with_deaths = sbitmap_alloc (get_max_uid ());
   death_insns_max_uid = get_max_uid ();
@@ -2181,10 +2198,12 @@ actual_spill (spill_p)
   if (ra_pass > 1)
     {
       rebuildit = need_rebuild ();
+      rebuildit |= any_splits_found;
       detect_non_changed_webs ();
     }
   detect_web_parts_to_rebuild ();
   BITMAP_XFREE (webs_changed_layout);
+  BITMAP_XFREE (split_webs);
   BITMAP_XFREE (new_deaths);
   BITMAP_XFREE (uninit_webs_which_changed);
   return rebuildit;
@@ -3101,6 +3120,833 @@ create_flow_barriers_2 ()
     }
   sbitmap_free (live);
   BITMAP_XFREE (partly_defined);
+}
+
+static bitmap *contained;
+bitmap *split_around;
+struct split_cost
+{
+  unsigned HOST_WIDE_INT loads;
+  unsigned HOST_WIDE_INT stores;
+  /* Nonzero if it's impossible to split _around_ this web.  */
+  unsigned char impossible;
+};
+static struct split_cost *split_costs;
+static sbitmap *live_at_begin;
+
+static void set_web_live_s PARAMS ((sbitmap, bitmap, struct web*));
+static void reset_web_live_s PARAMS ((sbitmap, bitmap, struct web*));
+
+static void
+set_web_live_s (live, suplive, web)
+     sbitmap live;
+     bitmap suplive;
+     struct web *web;
+{
+  set_web_live (live, web);
+  web = find_web_for_subweb (web);
+  if (is_partly_live (live, web))
+    bitmap_set_bit (suplive, web->id);
+  else
+    bitmap_clear_bit (suplive, web->id);
+}
+
+static void
+reset_web_live_s (live, suplive, web)
+     sbitmap live;
+     bitmap suplive;
+     struct web *web;
+{
+  reset_web_live (live, web);
+  web = find_web_for_subweb (web);
+  if (is_partly_live (live, web))
+    bitmap_set_bit (suplive, web->id);
+  else
+    bitmap_clear_bit (suplive, web->id);
+}
+
+extern int copy_insn_p PARAMS ((rtx, rtx *, rtx *));
+extern void init_split_costs PARAMS ((void));
+extern int find_splits PARAMS ((struct web *));
+extern void free_split_costs PARAMS ((void));
+
+void
+init_split_costs ()
+{
+  basic_block bb;
+  unsigned int i;
+  sbitmap live;
+  bitmap suplive = BITMAP_XMALLOC ();
+  live = sbitmap_alloc (num_webs);
+  contained = (bitmap *) xmalloc ((num_webs - num_subwebs) * sizeof (bitmap));
+  split_around = (bitmap *) xmalloc ((num_webs - num_subwebs) * sizeof (bitmap));
+  split_costs = (struct split_cost *) xcalloc (num_webs - num_subwebs,
+					       sizeof (struct split_cost));
+  live_at_begin = (sbitmap *) xmalloc ((last_basic_block + 2)
+				      * sizeof (sbitmap));
+  for (i = 0; i < num_webs - num_subwebs; i++)
+    {
+      contained[i] = BITMAP_XMALLOC ();
+      split_around[i] = BITMAP_XMALLOC ();
+    }
+  for (i = 0; i < (unsigned) last_basic_block + 2; i++)
+    live_at_begin[i] = sbitmap_alloc (num_webs);
+  live_at_begin += 2;
+  any_splits_found = 0;
+  FOR_EACH_BB (bb)
+    {
+      int j;
+      rtx insn;
+      sbitmap_zero (live);
+      EXECUTE_IF_SET_IN_BITMAP (live_at_end[bb->index], 0, j,
+	{
+	  set_web_live (live, use2web[j]);
+	});
+      for (insn = bb->end; insn; insn = PREV_INSN (insn))
+	{
+	  if (INSN_P (insn))
+	    {
+	      unsigned int n;
+	      struct ra_insn_info info = insn_df[INSN_UID (insn)];
+
+	      for (n = 0; n < info.num_defs; n++)
+		reset_web_live (live, def2web[DF_REF_ID (info.defs[n])]);
+
+	      for (n = 0; n < info.num_uses; n++)
+		set_web_live (live, use2web[DF_REF_ID (info.uses[n])]);
+	    }
+	  if (insn == bb->head)
+	    break;
+	}
+      sbitmap_copy (live_at_begin[bb->index], live);
+    }
+  FOR_EACH_BB (bb)
+    {
+      int j;
+      edge e;
+      rtx insn;
+      sbitmap_zero (live);
+      EXECUTE_IF_SET_IN_BITMAP (live_at_end[bb->index], 0, j,
+	set_web_live_s (live, suplive, use2web[j]));
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  if (e->dest == EXIT_BLOCK_PTR)
+	    continue;
+	  EXECUTE_IF_SET_IN_BITMAP (suplive, 0, j,
+	    {
+	      if (!is_partly_live (live_at_begin[e->dest->index], ID2WEB (j)))
+	        {
+		  /* We are too dumb. */
+		  if (EDGE_CRITICAL_P (e))
+		    split_costs[j].impossible = 1;
+		  else
+		    split_costs[j].loads += (4 * (e->dest->frequency + 1)) / 3;
+		}
+	    });
+	}
+      for (insn = bb->end; insn; insn = PREV_INSN (insn))
+	{
+	  if (INSN_P (insn))
+	    {
+	      unsigned int n;
+	      struct ra_insn_info info = insn_df[INSN_UID (insn)];
+
+	      for (n = 0; n < info.num_defs; n++)
+		split_costs[find_web_for_subweb (
+			      def2web[DF_REF_ID (info.defs[n])])->id].stores
+		    += (4 * (bb->frequency + 1)) / 3;
+
+	      for (n = 0; n < info.num_uses; n++)
+		{
+		  struct web *web = use2web[DF_REF_ID (info.uses[n])];
+		  web = find_web_for_subweb (web);
+		  if (!is_partly_live (live, web))
+		    {
+		      if (insn != bb->end)
+			split_costs[web->id].loads += (4 * (bb->frequency + 1)) / 3;
+		      else
+			for (e = bb->succ; e; e = e->succ_next)
+			  split_costs[web->id].loads += (4 * (e->dest->frequency + 1)) / 3;
+		    }
+		}
+	      /* Even if it's a copy insn info.num_uses might be zero.
+		 This happens if the source of the copy is a fixed hardreg,
+		 because we don't remember those in info.  */
+	      if (info.num_uses && copy_insn_p (insn, NULL, NULL))
+		reset_web_live_s (live, suplive, use2web[DF_REF_ID (info.uses[0])]);
+	      /* Ugly hack.  Unused defs need to be handled for the conflict
+	         graph as if there's a use just after the current insn.  I.e
+		 as if they were in fact live.  The real reason is, that simply
+		 all defs of an insn need to conflict.  For normal defs (with
+		 later uses) this is already ensured by traversing the live
+		 bitmap.  For useless defs we need to do that on our own.  */
+	      for (n = 0; n < info.num_defs; n++)
+		/* We simply make _all_ defs live here, instead of first
+		   checking if they indeed are useless (are not live).  The
+		   effect is the same.  */
+		set_web_live_s (live, suplive, def2web[DF_REF_ID (info.defs[n])]);
+	      for (n = 0; n < info.num_defs; n++)
+		{
+		  struct web *web1 = def2web[DF_REF_ID (info.defs[n])];
+		  web1 = find_web_for_subweb (web1);
+		  if (!web1->pattern)
+		    EXECUTE_IF_SET_IN_BITMAP (suplive, 0, j,
+                      {
+		        struct web *web2 = ID2WEB (j);
+			if (web1 != web2
+			    && hard_regs_intersect_p (&web1->orig_usable_regs,
+						      &web2->orig_usable_regs))
+			  bitmap_set_bit (contained[j], web1->id);
+		      });
+		}
+	      /* All defs' webs are now not live anymore, except for
+		 early clobber ones.  */
+	      for (n = 0; n < info.num_defs; n++)
+		if (!(DF_REF_FLAGS (info.defs[n]) & DF_REF_EARLYCLOBBER))
+		  reset_web_live_s (live, suplive, def2web[DF_REF_ID (info.defs[n])]);
+
+	      for (n = 0; n < info.num_uses; n++)
+		set_web_live_s (live, suplive, use2web[DF_REF_ID (info.uses[n])]);
+	      for (n = 0; n < info.num_uses; n++)
+		{
+		  struct web *web1 = use2web[DF_REF_ID (info.uses[n])];
+		  web1 = find_web_for_subweb (web1);
+		  EXECUTE_IF_SET_IN_BITMAP (suplive, 0, j,
+                    {
+		      struct web *web2 = ID2WEB (j);
+		      if (web1 != web2
+			  && hard_regs_intersect_p (&web1->orig_usable_regs,
+						    &web2->orig_usable_regs))
+			bitmap_set_bit (contained[j], web1->id);
+		    });
+		}
+	      /* Now all effects of the insn have been seen, so also
+		 early clobber webs are not live anymore.  */
+	      for (n = 0; n < info.num_defs; n++)
+		if (DF_REF_FLAGS (info.defs[n]) & DF_REF_EARLYCLOBBER)
+		  reset_web_live_s (live, suplive, def2web[DF_REF_ID (info.defs[n])]);
+
+	      /* Hmm, theoretically it's possible that the above loop
+		 delete some webs from live, for which also a use existed.
+		 This could only happen, if we have a def and a use of the
+		 same web in this insn, _and_ the def is early-clobber.
+		 I don't think this is valid RTL (the def would delete the
+		 uses content before the insn starts, so it can't normally
+		 belong to the same web), but I'm unsure about that, so
+	         simply make everything live again.  */
+	      for (n = 0; n < info.num_uses; n++)
+		set_web_live_s (live, suplive, use2web[DF_REF_ID (info.uses[n])]);
+	    }
+	  if (insn == bb->head)
+	    break;
+	}
+    }
+  for (i = 0; i < num_webs - num_subwebs; i++)
+    ra_debug_msg (DUMP_COSTS, "split cost web %d: loads: %d  stores: %d\n",
+		  i, split_costs[i].loads, split_costs[i].stores);
+  sbitmap_free (live);
+  BITMAP_XFREE (suplive);
+}
+
+int
+find_splits (web)
+     struct web *web;
+{
+  struct conflict_link *wl;
+  unsigned int *min_color;
+  unsigned HOST_WIDE_INT *cost_around_name, *cost_around_color;
+  unsigned HOST_WIDE_INT best_cost;
+  int newcol, c;
+  HARD_REG_SET possible_begin;
+  HARD_REG_SET wrong_around_name, wrong_around_color;
+  int do_around_color;
+  rtx temp_mem;
+  int load_cost, store_cost;
+
+  if (web->pattern)
+    return 0;
+  min_color = (unsigned int *) xcalloc (FIRST_PSEUDO_REGISTER, sizeof (int));
+  cost_around_name = (unsigned HOST_WIDE_INT *) xcalloc (FIRST_PSEUDO_REGISTER, sizeof (HOST_WIDE_INT));
+  cost_around_color = (unsigned HOST_WIDE_INT *) xcalloc (FIRST_PSEUDO_REGISTER, sizeof (HOST_WIDE_INT));
+  CLEAR_HARD_REG_SET (possible_begin);
+  CLEAR_HARD_REG_SET (wrong_around_name);
+  CLEAR_HARD_REG_SET (wrong_around_color);
+  for (c = 0; c < FIRST_PSEUDO_REGISTER; c++)
+    {
+      int i, nregs;
+      if (!HARD_REGNO_MODE_OK (c, GET_MODE (web->orig_x)))
+	continue;
+      nregs = HARD_REGNO_NREGS (c, GET_MODE (web->orig_x));
+      for (i = 0; i < nregs; i++)
+	if (!TEST_HARD_REG_BIT (web->usable_regs, c + i))
+	  break;
+      if (i < nregs || nregs == 0)
+	continue;
+      SET_HARD_REG_BIT (possible_begin, c);
+      for (; nregs--;)
+	if (!min_color[c + nregs])
+	  min_color[c + nregs] = 1 + c;
+    }
+  temp_mem = gen_rtx_MEM (VOIDmode,
+			  gen_rtx_PLUS (Pmode, stack_pointer_rtx, GEN_INT (0)));
+    {
+      enum machine_mode mode = GET_MODE (web->orig_x);
+      if (GET_MODE_SIZE (mode) == 8)
+	mode = SImode;
+      PUT_MODE (temp_mem, mode);
+      load_cost = 1 + copy_cost (temp_mem, mode, web->regclass, 1);
+      store_cost = 1 + copy_cost (temp_mem, mode, web->regclass, 0);
+    }
+  wl = (web->have_orig_conflicts) ? web->orig_conflict_list : web->conflict_list;
+  for (; wl; wl = wl->next)
+    {
+      struct web *web2 = wl->t;
+      struct web *aweb = alias (web2);
+      int c1, c2;
+      if (aweb->type != PRECOLORED && aweb->type != COLORED)
+	continue;
+      c1 = min_color[aweb->color];
+      c1 = c1 == 0 ? aweb->color : (c1 - 1);
+      /* GET_MODE of web2 (not aweb)!  The modes should have the same size
+         anyway for them to be coalesced, but if not, we want the web2 mode.  */
+      c2 = aweb->color + HARD_REGNO_NREGS (aweb->color,
+					   GET_MODE (web2->orig_x)) - 1;
+      for (; c1 <= c2; c1++)
+	if (TEST_HARD_REG_BIT (possible_begin, c1))
+	  {
+	    /* Cost for splitting web2 around me (web).  */
+	    if (bitmap_bit_p (contained[web->id], web2->id)
+		|| split_costs[web->id].impossible)
+	      SET_HARD_REG_BIT (wrong_around_name, c1);
+	    else if (web2->pattern)
+	      cost_around_name[c1] += split_costs[web->id].loads * load_cost;
+	    else
+	      cost_around_name[c1] += split_costs[web->id].loads * load_cost
+		  		      + split_costs[web->id].stores * store_cost;
+	    /* Cost for splitting mywelf (web) around web2.  */
+	    if (bitmap_bit_p (contained[web2->id], web->id)
+		|| split_costs[web2->id].impossible)
+	      SET_HARD_REG_BIT (wrong_around_color, c1);
+	    else if (web->pattern)
+	      cost_around_color[c1] += split_costs[web2->id].loads * load_cost;
+	    else
+	      cost_around_color[c1] += split_costs[web2->id].loads * load_cost
+		  		       + split_costs[web2->id].stores * store_cost;
+	    /* Test if we can split web or web2 at all.  */
+	    if (SPILL_SLOT_P (web->regno))
+	      SET_HARD_REG_BIT (wrong_around_color, c1);
+	    if (SPILL_SLOT_P (web2->regno))
+	      SET_HARD_REG_BIT (wrong_around_name, c1);
+	  }
+    }
+  newcol = -1;
+  best_cost = web->spill_cost;
+  /*best_cost = (unsigned HOST_WIDE_INT) -1;*/
+  do_around_color = 0;
+  ra_debug_msg (DUMP_COLORIZE, "Try split web %d (cost %d): ", web->id,
+		web->spill_cost);
+  for (c = 0; c < FIRST_PSEUDO_REGISTER; c++)
+    if (TEST_HARD_REG_BIT (possible_begin, c))
+      {
+	ra_debug_msg (DUMP_COLORIZE, "%d (%d,%d) ", c,
+		      TEST_HARD_REG_BIT (wrong_around_name, c) ? -1 : cost_around_name[c],
+		      TEST_HARD_REG_BIT (wrong_around_color, c) ? -1 : cost_around_color[c]);
+	if (cost_around_name[c]+00 < best_cost
+	    && !TEST_HARD_REG_BIT (wrong_around_name, c))
+	  newcol = c, do_around_color = 0, best_cost = cost_around_name[c]+00;
+	if (cost_around_color[c]+00 < best_cost
+	    && !TEST_HARD_REG_BIT (wrong_around_color, c))
+	  newcol = c, do_around_color = 1, best_cost = cost_around_color[c]+00;
+      }
+  ra_debug_msg (DUMP_COLORIZE, "\n");
+  if (newcol >= 0)
+    {
+      int nregs = HARD_REGNO_NREGS (newcol, GET_MODE (web->orig_x));
+      ra_debug_msg (DUMP_COLORIZE,
+		    "Split web %d (around %s) col %d new cost %d (old %d)\n",
+		    web->id, do_around_color ? "neighbors" : "me",
+		    newcol, best_cost, web->spill_cost);
+      wl = (web->have_orig_conflicts) ? web->orig_conflict_list
+	  : web->conflict_list;
+      for (; wl; wl = wl->next)
+	{
+	  struct web *web2 = wl->t;
+	  struct web *aweb = alias (web2);
+	  if (aweb->type != PRECOLORED && aweb->type != COLORED)
+	    continue;
+	  if (newcol >= aweb->color + HARD_REGNO_NREGS (aweb->color,
+							GET_MODE (web2->orig_x))
+	      || aweb->color >= newcol + nregs)
+	    continue;
+	  if (!do_around_color)
+	    bitmap_set_bit (split_around[web->id], web2->id);
+	  else
+	    bitmap_set_bit (split_around[web2->id], web->id);
+	}
+      if (web->type != SPILLED)
+	abort ();
+      web->color = newcol;
+      remove_list (web->dlink, &WEBS(SPILLED));
+      put_web (web, COLORED);
+      any_splits_found = 1;
+      return 1;
+    }
+  else
+    return 0;
+}
+
+static void split_insert_load PARAMS ((struct web *, rtx, int, sbitmap));
+static void split_insert_store PARAMS ((struct web *, rtx, int, sbitmap, sbitmap, bitmap));
+
+static void
+split_insert_load (web, insn, before, live)
+     struct web *web;
+     rtx insn;
+     int before;
+     sbitmap live;
+{
+  rtx slot, ni;
+  struct web *aweb;
+  if (GET_CODE (web->orig_x) == SUBREG)
+    abort ();
+  if (!is_partly_live (live, web))
+    return;
+  ra_debug_msg (DUMP_PROCESS, "emit load to split web %d (regno %d) (%s %d)\n",
+		web->id, web->regno, before ? "before" : "after",
+		INSN_UID (insn));
+  aweb = alias (web);
+  bitmap_set_bit (split_webs, web->id);
+  start_sequence ();
+  if (web->pattern)
+    slot = copy_rtx (web->pattern);
+  else
+    {
+      allocate_spill_web (aweb);
+      slot = aweb->stack_slot;
+    }
+  if (!is_partly_dead (live, web))
+    ra_emit_move_insn (web->orig_x, slot);
+  else
+    {
+      rtx whole_slot = slot;
+      for (web = web->subreg_next; web; web = web->subreg_next)
+	if (is_partly_live (live, web))
+	  {
+	    rtx reg = copy_rtx (web->orig_x);
+	    rtx slot = simplify_gen_subreg (GET_MODE (reg), whole_slot,
+					    GET_MODE (whole_slot),
+					    SUBREG_BYTE (reg));
+	    ra_emit_move_insn (reg, slot);
+	  }
+    }
+  ni = get_insns ();
+  end_sequence ();
+  if (ni)
+    {
+      basic_block bb = BLOCK_FOR_INSN (insn);
+      rtx i1, i2;
+      if (!before)
+	{
+	  i2 = NEXT_INSN (insn);
+	  emit_insn_after (ni, insn);
+	  i1 = NEXT_INSN (insn);
+	}
+      else
+	{
+	  emit_insn_before (ni, insn);
+	  i1 = ni;
+	  i2 = insn;
+	}
+      if (!before && (debug_new_regalloc & DUMP_PROCESS))
+	ra_print_rtx_top (rtl_dump_file, insn, 1);
+      for (ni = i1; ni != i2; ni = NEXT_INSN (ni))
+	{
+	  df_insn_modify (df, bb, ni);
+	  bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
+	  bitmap_set_bit (emitted_by_spill, INSN_UID (ni));
+	  if (debug_new_regalloc & DUMP_PROCESS)
+	    ra_print_rtx_top (rtl_dump_file, ni, 0);
+	}
+      if (before && (debug_new_regalloc & DUMP_PROCESS))
+	ra_print_rtx_top (rtl_dump_file, insn, 1);
+    }
+}
+
+static void
+split_insert_store (web, insn, before, live, need_load, new_deaths)
+     struct web *web;
+     rtx insn;
+     int before;
+     sbitmap live, need_load;
+     bitmap new_deaths;
+{
+  rtx ni;
+  struct web *aweb;
+  if (GET_CODE (web->orig_x) == SUBREG)
+    abort ();
+  if (web->pattern)
+    return;
+  if (!is_partly_live (live, web))
+    return;
+  ra_debug_msg (DUMP_PROCESS, "emit store to split web %d (regno %d) (%s %d)\n",
+		web->id, web->regno, before ? "before" : "after",
+		INSN_UID (insn));
+  aweb = alias (web);
+  bitmap_set_bit (split_webs, web->id);
+  start_sequence ();
+  allocate_spill_web (aweb);
+  if (!is_partly_dead (live, web))
+    {
+      ra_emit_move_insn (aweb->stack_slot, web->orig_x);
+      set_web_live (need_load, web);
+    }
+  else
+    {
+      rtx whole_slot = aweb->stack_slot;
+      for (web = web->subreg_next; web; web = web->subreg_next)
+	if (is_partly_live (live, web))
+	  {
+	    rtx reg = copy_rtx (web->orig_x);
+	    rtx slot = simplify_gen_subreg (GET_MODE (reg), whole_slot,
+					    GET_MODE (whole_slot),
+					    SUBREG_BYTE (reg));
+	    ra_emit_move_insn (slot, reg);
+	    set_web_live (need_load, web);
+	  }
+    }
+  ni = get_insns ();
+  end_sequence ();
+  if (ni)
+    {
+      basic_block bb = BLOCK_FOR_INSN (insn);
+      rtx i1, i2;
+      if (!before)
+	{
+	  i2 = NEXT_INSN (insn);
+	  emit_insn_after (ni, insn);
+	  bitmap_set_bit (new_deaths, INSN_UID (NEXT_INSN (insn)));
+	  i1 = NEXT_INSN (insn);
+	}
+      else
+	{
+	  emit_insn_before (ni, insn);
+	  bitmap_set_bit (new_deaths, INSN_UID (PREV_INSN (insn)));
+	  i1 = ni;
+	  i2 = insn;
+	}
+      if (!before && (debug_new_regalloc & DUMP_PROCESS))
+	ra_print_rtx_top (rtl_dump_file, insn, 1);
+      for (ni = i1; ni != i2; ni = NEXT_INSN (ni))
+	{
+	  df_insn_modify (df, bb, ni);
+	  bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
+	  bitmap_set_bit (emitted_by_spill, INSN_UID (ni));
+	  if (debug_new_regalloc & DUMP_PROCESS)
+	    ra_print_rtx_top (rtl_dump_file, ni, 0);
+	}
+      if (before && (debug_new_regalloc & DUMP_PROCESS))
+	ra_print_rtx_top (rtl_dump_file, insn, 1);
+    }
+}
+
+void
+insert_splits (new_deaths)
+     bitmap new_deaths;
+{
+  basic_block bb;
+  sbitmap live, need_load;
+  bitmap suplive, split_those_1, lazy_store;
+  if (!any_splits_found)
+    return;
+  suplive = BITMAP_XMALLOC ();
+  split_those_1 = BITMAP_XMALLOC ();
+  lazy_store = BITMAP_XMALLOC ();
+  live = sbitmap_alloc (num_webs);
+  need_load = sbitmap_alloc (num_webs);
+  FOR_EACH_BB (bb)
+    {
+      int j;
+      edge e;
+      rtx insn;
+      sbitmap_zero (live);
+      bitmap_zero (suplive);
+      bitmap_zero (lazy_store);
+      EXECUTE_IF_SET_IN_BITMAP (live_at_end[bb->index], 0, j,
+	set_web_live_s (live, suplive, use2web[j]));
+      sbitmap_copy (need_load, live);
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  if (e->dest == EXIT_BLOCK_PTR)
+	    continue;
+	  EXECUTE_IF_SET_IN_BITMAP (suplive, 0, j,
+	    {
+	      if (!is_partly_live (live_at_begin[e->dest->index], ID2WEB (j)))
+	        {
+		  /* We are too dumb. */
+		  if (EDGE_CRITICAL_P (e)
+		      && bitmap_first_set_bit (split_around[j]) >= 0)
+		    abort ();
+		  else
+		    {
+		      int w;
+		      EXECUTE_IF_SET_IN_BITMAP (split_around[j], 0, w,
+			split_insert_load (ID2WEB (w),
+					   next_real_insn (e->dest->head), 1,
+					   live_at_begin[e->dest->index]));
+		    }
+		}
+	    });
+	}
+      for (insn = bb->end; insn; insn = PREV_INSN (insn))
+	{
+	  if (INSN_P (insn)
+	      && INSN_UID (insn) < insn_df_max_uid)
+	    {
+	      unsigned int n;
+	      int w;
+	      struct ra_insn_info info = insn_df[INSN_UID (insn)];
+	      bitmap split_those;
+
+	      split_those = NULL;
+	      for (n = 0; n < info.num_defs; n++)
+		{
+		  struct web *web = def2web[DF_REF_ID (info.defs[n])];
+		  struct web *supweb = find_web_for_subweb (web);
+		  int complete_define = 1;
+		  int is_useless = 0;
+		  unsigned int m;
+		  /* Nothing is ever split around SPILLED webs.  */
+		  if (supweb->type == SPILLED
+		      || (supweb->type == COALESCED
+			  && alias (supweb)->type == SPILLED))
+		    continue;
+		  for (m = 0; m < info.num_uses; m++)
+		    {
+		      struct web *web2 = use2web[DF_REF_ID (info.uses[m])];
+		      if (supweb == find_web_for_subweb (web2))
+			{
+			  complete_define = 0;
+			  break;
+			}
+		    }
+		  if (complete_define && !is_partly_live (live, web))
+		    is_useless = 1;
+		  if (complete_define && web != supweb)
+		    {
+		      reset_web_live (live, web);
+		      if (is_partly_live (live, supweb))
+			complete_define = 0;
+		      set_web_live (live, web);
+		    }
+		  if (!complete_define)
+		    continue;
+		  /* XXX Don't emit anything around dead webs?  This needs
+		     a corresponding change in the cost function above.  */
+		  if (is_useless)
+		    {
+		      int u;
+		      /* A useless def should be it's own web, which have no
+		         uses.  Otherwise something is screwed.  We already
+		         have deleted some insns, so we can't simply test
+		         just supweb->num_uses.  */
+		      for (u = 0; u < supweb->num_uses; u++)
+			{
+			  rtx uinsn = DF_REF_INSN (supweb->uses[u]);
+			  if (!INSN_DELETED_P (uinsn)
+			      && !(GET_CODE (uinsn) == NOTE
+				   && NOTE_LINE_NUMBER (uinsn)
+				      == NOTE_INSN_DELETED))
+			  abort ();
+			}
+		      if (!split_those)
+			split_those = split_around[supweb->id];
+		      else if (split_those == split_those_1)
+			bitmap_operation (split_those, split_those,
+					  split_around[supweb->id], BITMAP_IOR);
+		      else
+			{
+			  bitmap_copy (split_those_1, split_those);
+			  split_those = split_those_1;
+			  bitmap_operation (split_those, split_those,
+					    split_around[supweb->id],
+					    BITMAP_IOR);
+			}
+		    }
+		}
+	      for (n = 0; n < info.num_uses; n++)
+		{
+		  struct web *web = use2web[DF_REF_ID (info.uses[n])];
+		  web = find_web_for_subweb (web);
+		  if (!is_partly_live (live, web))
+		    {
+		      if (!split_those)
+			split_those = split_around[web->id];
+		      else if (split_those == split_those_1)
+			bitmap_operation (split_those, split_those,
+					  split_around[web->id], BITMAP_IOR);
+		      else
+			{
+			  bitmap_copy (split_those_1, split_those);
+			  split_those = split_those_1;
+			  bitmap_operation (split_those, split_those,
+					    split_around[web->id], BITMAP_IOR);
+			}
+		    }
+		}
+	      if (split_those)
+		{
+		  if (insn != bb->end || !JUMP_P (insn))
+		    EXECUTE_IF_SET_IN_BITMAP (split_those, 0, w,
+		      split_insert_load (ID2WEB (w), insn, 0, need_load);
+		      reset_web_live (need_load, ID2WEB (w));
+		      bitmap_clear_bit (lazy_store, w));
+		  else
+		    {
+		      for (e = bb->succ; e; e = e->succ_next)
+		        EXECUTE_IF_SET_IN_BITMAP (split_those, 0, w,
+			  split_insert_load (ID2WEB (w),
+					     next_real_insn (e->dest->head),
+					     1, need_load));
+		      EXECUTE_IF_SET_IN_BITMAP (split_those, 0, w,
+		        reset_web_live (need_load, ID2WEB (w));
+		        bitmap_clear_bit (lazy_store, w));
+		    }
+		}
+
+	      for (n = 0; n < info.num_defs; n++)
+		{
+		  struct web *web = def2web[DF_REF_ID (info.defs[n])];
+		  struct web *supweb = find_web_for_subweb (web);
+		  int complete_define = 1;
+		  unsigned int m;
+		  /* Nothing is ever split around SPILLED webs.  */
+		  if (supweb->type == SPILLED
+		      || (supweb->type == COALESCED
+			  && alias (supweb)->type == SPILLED))
+		    continue;
+		  for (m = 0; m < info.num_uses; m++)
+		    {
+		      struct web *web2 = use2web[DF_REF_ID (info.uses[m])];
+		      if (supweb == find_web_for_subweb (web2))
+			{
+			  complete_define = 0;
+			  break;
+			}
+		    }
+		  if (complete_define && web != supweb)
+		    {
+		      reset_web_live (live, web);
+		      if (is_partly_live (live, supweb))
+			complete_define = 0;
+		      set_web_live (live, web);
+		    }
+		  if (!complete_define)
+		    continue;
+		  EXECUTE_IF_SET_IN_BITMAP (split_around[supweb->id], 0, w,
+		    {
+		      struct web *web = ID2WEB (w);
+		      if (!web->pattern)
+		        {
+		          bitmap_set_bit (lazy_store, web->id);
+			  web->last_use_insn = insn;
+		        /*split_insert_store (web, insn, 1, live, need_load,
+			  new_deaths); */
+			}
+		    });
+		}
+	      /*for (n = 0; n < info.num_uses; n++)
+		{
+		  struct web *web = use2web[DF_REF_ID (info.uses[n])];
+		  web = find_web_for_subweb (web);
+		  if (bitmap_bit_p (lazy_store, web->id))
+		    {
+		      split_insert_store (web, insn, 0, live, need_load, new_deaths);
+		      bitmap_clear_bit (lazy_store, web->id);
+		    }
+		}*/
+	      for (n = 0; n < info.num_defs; n++)
+		{
+		  struct web *web = def2web[DF_REF_ID (info.defs[n])];
+		  web = find_web_for_subweb (web);
+		  if (bitmap_bit_p (lazy_store, web->id))
+		    {
+		      rtx insn2;
+		      for (insn2 = insn;
+			   insn2 != web->last_use_insn
+			   && insn2 != NEXT_INSN (bb->end);
+			   insn2 = NEXT_INSN (insn2))
+			if (1 || bitmap_bit_p (new_deaths, INSN_UID (insn2)))
+			  break;
+		      if (insn2 == NEXT_INSN (bb->end))
+			abort ();
+		      if (insn2 == web->last_use_insn)
+		        split_insert_store (web, insn2, 1, live, need_load, new_deaths);
+		      else
+		        split_insert_store (web, insn2, 0, live, need_load, new_deaths);
+		      bitmap_clear_bit (lazy_store, web->id);
+		    }
+		}
+
+	      for (n = 0; n < info.num_defs; n++)
+		{
+		  reset_web_live_s (live, suplive, def2web[DF_REF_ID (info.defs[n])]);
+		  reset_web_live (need_load, def2web[DF_REF_ID (info.defs[n])]);
+		}
+	      for (n = 0; n < info.num_uses; n++)
+		{
+		  set_web_live_s (live, suplive, use2web[DF_REF_ID (info.uses[n])]);
+		  set_web_live (need_load, use2web[DF_REF_ID (info.uses[n])]);
+		}
+	    }
+	  if (insn == bb->head)
+	    break;
+	}
+      insn = INSN_P (bb->head) ? bb->head : next_real_insn (bb->head);
+      EXECUTE_IF_SET_IN_BITMAP (lazy_store, 0, j,
+	{
+	  struct web *web = ID2WEB (j);
+	  rtx insn2;
+	  for (insn2 = insn;
+	       insn2 != web->last_use_insn
+	       && insn2 != NEXT_INSN (bb->end);
+	       insn2 = NEXT_INSN (insn2))
+	    if (1 || bitmap_bit_p (new_deaths, INSN_UID (insn2)))
+	      break;
+	  if (insn2 == NEXT_INSN (bb->end))
+	    abort ();
+	  if (insn2 == web->last_use_insn)
+	    split_insert_store (web, insn2, 1, live, need_load, new_deaths);
+	  else
+	    split_insert_store (web, insn2, 0, live, need_load, new_deaths);
+	/*split_insert_store (ID2WEB (j), insn, 1, live, need_load, new_deaths)*/
+	});
+    }
+  sbitmap_free (need_load);
+  sbitmap_free (live);
+  BITMAP_XFREE (suplive);
+  BITMAP_XFREE (split_those_1);
+  BITMAP_XFREE (lazy_store);
+}
+
+void
+free_split_costs ()
+{
+  unsigned int i;
+  if (!live_at_begin)
+    return;
+  live_at_begin -= 2;
+  for (i = 0; i < (unsigned) last_basic_block + 2; i++)
+    sbitmap_free (live_at_begin[i]);
+  free (live_at_begin);
+  live_at_begin = NULL;
+  for (i = 0; i < num_webs - num_subwebs; i++)
+    {
+      BITMAP_XFREE (split_around[i]);
+      BITMAP_XFREE (contained[i]);
+    }
+  free (split_around);
+  free (contained);
+  free (split_costs);
 }
 
 /* The WEB can't have a single color. The REF is a constraining ref.

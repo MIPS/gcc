@@ -30,6 +30,8 @@
 #include "output.h"
 #include "ra.h"
 
+extern void init_split_costs PARAMS ((void));
+extern int find_splits PARAMS ((struct web *));
 /* This file is part of the graph coloring register allocator.
    It contains the graph colorizer.  Given an interference graph
    as set up in ra-build.c the toplevel function in this file
@@ -75,6 +77,7 @@ static void calculate_dont_begin PARAMS ((struct web *, HARD_REG_SET *));
 static int proper_hard_reg_subset_p PARAMS ((HARD_REG_SET, HARD_REG_SET));
 static void colorize_one_web PARAMS ((struct web *, int));
 static void assign_colors PARAMS ((void));
+static void unsplit_web PARAMS ((struct web *));
 static void try_recolor_web PARAMS ((struct web *));
 static void insert_coalesced_conflicts PARAMS ((void));
 static void recolor_spills PARAMS ((void));
@@ -1763,6 +1766,7 @@ colorize_one_web (web, hard)
 				    "  to spill %d was a good idea\n",
 				    try->id);
 		      remove_list (try->dlink, &WEBS(SPILLED));
+		      unsplit_web (try);
 		      if (try->was_spilled)
 			colorize_one_web (try, 0);
 		      else
@@ -1813,6 +1817,9 @@ colorize_one_web (web, hard)
       put_web (web, SELECT);
       web->color = -1;
     }
+  /* Try to split WEB, but only if we didn't find _any_ color for us.  */
+  if (web->type == SPILLED && bestc < 0)
+    find_splits (web);
 }
 
 /* Assign the colors to all nodes on the select stack.  And update the
@@ -1836,6 +1843,23 @@ assign_colors ()
       struct web *a = alias (DLIST_WEB (d));
       DLIST_WEB (d)->color = a->color;
     }
+}
+
+extern bitmap *split_around;
+
+/* WEB was a colored web, but which was possibly split, or some other
+   webs were split around it.  Now it is spilled again, so "unsplit" it.
+   Meaning to remove WEB from all splitting bitmaps.  */
+static void
+unsplit_web (web)
+     struct web *web;
+{
+  struct conflict_link *wl;
+  bitmap_clear (split_around[web->id]);
+  wl = web->have_orig_conflicts ? web->orig_conflict_list
+       : web->conflict_list;
+  for (; wl; wl = wl->next)
+    bitmap_clear_bit (split_around[wl->t->id], web->id);
 }
 
 /* WEB is a spilled web.  Look if we can improve the cost of the graph,
@@ -1988,6 +2012,7 @@ try_recolor_web (web)
 	      /* Allow webs to be spilled.  */
 	      if (web2->spill_temp == 0 || web2->spill_temp == 2)
 		web2->was_spilled = 1;
+	      unsplit_web (web2);
 	      colorize_one_web (web2, 1);
 	      if (web2->type == SPILLED)
 		cost += web2->spill_cost;
@@ -2214,7 +2239,10 @@ check_colors ()
 	    if (aweb->color >= web2->color + nregs2
 	        || web2->color >= aweb->color + nregs)
 	      continue;
-	    abort ();
+	    if (bitmap_bit_p (split_around[aweb->id], web2->id)
+		|| bitmap_bit_p (split_around[web2->id], aweb->id))
+	      continue;
+	    /*abort ();*/
 	  }
 	else
 	  {
@@ -2238,7 +2266,10 @@ check_colors ()
 		if ((tcol + tofs >= scol + sofs + ssize)
 		    || (scol + sofs >= tcol + tofs + tsize))
 		  continue;
-		abort ();
+		if (bitmap_bit_p (split_around[aweb->id], alias(wl->t)->id)
+		    || bitmap_bit_p (split_around[alias (wl->t)->id], aweb->id))
+		  continue;
+		/*abort ();*/
 	      }
 	  }
     }
@@ -3130,6 +3161,8 @@ ra_colorize_graph (df)
       /*aggressive_coalesce_fast ();*/
       extended_coalesce_2 ();
     }
+
+  init_split_costs ();
 
   /* Now build the select stack.  */
   do
