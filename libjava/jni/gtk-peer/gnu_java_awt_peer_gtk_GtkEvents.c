@@ -806,6 +806,7 @@ keyevent_to_awt_keychar (GdkEvent *event)
     }
 }
 
+#if 0
 /* Checks if keyval triggers a KEY_TYPED event on the source widget.
    This function identifies special keyvals that don't trigger
    GtkIMContext "commit" signals, but that do trigger Java KEY_TYPED
@@ -830,6 +831,7 @@ generates_key_typed_event (GdkEvent *event, GtkWidget *source)
           || (keyval == GDK_Tab
               && GTK_IS_TEXT_VIEW(source))) ? 1 : 0;
 }
+#endif
 
 void
 awt_event_handler (GdkEvent *event)

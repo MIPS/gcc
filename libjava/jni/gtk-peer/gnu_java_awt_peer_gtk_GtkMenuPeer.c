@@ -129,7 +129,7 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_addItem
   (JNIEnv *env, jobject obj, jobject menuitempeer, jint key, jboolean shift)
 {
   void *ptr1, *ptr2;
-  GtkMenu *menu;
+  GtkWidget *menu;
 
   ptr1 = NSA_GET_PTR (env, obj);
   ptr2 = NSA_GET_PTR (env, menuitempeer);
@@ -142,7 +142,7 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_addItem
   if (key)
     {
       gtk_widget_add_accelerator (GTK_WIDGET (ptr2), "activate",
-				  gtk_menu_get_accel_group (menu), key, 
+				  gtk_menu_get_accel_group (GTK_MENU (menu)), key, 
 				  (GDK_CONTROL_MASK
 				   | ((shift) ? GDK_SHIFT_MASK : 0)), 
 				  GTK_ACCEL_VISIBLE);

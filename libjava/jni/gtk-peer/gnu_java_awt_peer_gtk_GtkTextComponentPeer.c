@@ -40,10 +40,6 @@ exception statement from your version. */
 #include "gnu_java_awt_peer_gtk_GtkComponentPeer.h"
 #include "gnu_java_awt_peer_gtk_GtkTextComponentPeer.h"
 
-static void textcomponent_commit_cb (GtkIMContext *context,
-                                 const gchar  *str,
-                                 jobject peer);
-
 static void textcomponent_changed_cb (GtkEditable *editable,
                                   jobject peer);
 
@@ -471,28 +467,6 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_setText
   gdk_threads_leave ();
 
   (*env)->ReleaseStringUTFChars (env, contents, str);
-}
-
-static void
-textcomponent_commit_cb (GtkIMContext *context __attribute__((unused)),
-                         const gchar  *str,
-                         jobject peer)
-{
-  /* str is a \0-terminated UTF-8 encoded character. */
-  gunichar2 *jc = g_utf8_to_utf16 (str, -1, NULL, NULL, NULL);
-  GdkEvent *event = gtk_get_current_event ();
-
-  if (jc)
-    (*gdk_env)->CallVoidMethod (gdk_env, peer,
-                                postKeyEventID,
-                                (jint) AWT_KEY_TYPED,
-                                (jlong) event->key.time,
-                                keyevent_state_to_awt_mods (event),
-                                VK_UNDEFINED,
-                                (jchar) jc[0],
-                                AWT_KEY_LOCATION_UNKNOWN);
-  g_free (jc);
-  gdk_event_free (event);
 }
 
 static void

@@ -95,7 +95,7 @@ public class GtkComponentPeer extends GtkGenericPeer
   native void gtkWidgetSetForeground (int red, int green, int blue);
   native protected void gtkWidgetRequestFocus ();
   native void gtkWidgetDispatchKeyEvent (int id, long when, int mods,
-                                         int keyCode, char keyChar, int keyLocation);
+                                         int keyCode, int keyLocation);
   native void gtkSetFont (String name, int style, int size);
   native void gtkWidgetQueueDrawArea(int x, int y, int width, int height);
   native void addExposeFilter();
@@ -264,12 +264,12 @@ public class GtkComponentPeer extends GtkGenericPeer
       case KeyEvent.KEY_PRESSED:
         ke = (KeyEvent) event;
         gtkWidgetDispatchKeyEvent (ke.getID (), ke.getWhen (), ke.getModifiers (),
-                                   ke.getKeyCode (), ke.getKeyChar (), ke.getKeyLocation ());
+                                   ke.getKeyCode (), ke.getKeyLocation ());
         break;
       case KeyEvent.KEY_RELEASED:
         ke = (KeyEvent) event;
         gtkWidgetDispatchKeyEvent (ke.getID (), ke.getWhen (), ke.getModifiers (),
-                                   ke.getKeyCode (), ke.getKeyChar (), ke.getKeyLocation ());
+                                   ke.getKeyCode (), ke.getKeyLocation ());
         break;
       }
   }

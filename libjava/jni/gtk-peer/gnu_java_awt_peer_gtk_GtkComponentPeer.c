@@ -509,16 +509,13 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetRequestFocus
 JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetDispatchKeyEvent
   (JNIEnv *env, jobject obj, jint id, jlong when, jint mods,
-   jint keyCode, jchar keyChar, jint keyLocation)
+   jint keyCode, jint keyLocation)
 {
   void *ptr;
   GdkEvent *event = NULL;
-  GdkEventKey *keyevent = NULL;
   GdkKeymapKey *keymap_keys = NULL;
   gint n_keys = 0;
-  gint level = 0;
   guint lookup_keyval = 0;
-  GdkModifierType consumed_modifiers;
 
   ptr = NSA_GET_PTR (env, obj);
 
@@ -599,9 +596,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetDispatchKeyEvent
                                             event->key.state,
                                             event->key.group,
                                             &event->key.keyval,
-                                            &event->key.group,
-                                            &level,
-                                            &consumed_modifiers))
+                                            NULL, NULL, NULL))
     {
       /* No matching keyval was found. */
       g_printerr ("No matching keyval was found\n");
@@ -1304,9 +1299,10 @@ find_bg_color_widget (GtkWidget *widget)
   return bg_color_widget;
 }
 
-static gboolean focus_in_cb (GtkWidget *widget,
-                             GdkEventFocus *event,
-                             jobject peer)
+static gboolean
+focus_in_cb (GtkWidget *widget __attribute((unused)),
+             GdkEventFocus *event __attribute((unused)),
+             jobject peer)
 {
   (*gdk_env)->CallVoidMethod (gdk_env, peer,
                               postFocusEventID,
@@ -1315,9 +1311,10 @@ static gboolean focus_in_cb (GtkWidget *widget,
   return FALSE;
 }
 
-static gboolean focus_out_cb (GtkWidget *widget,
-                              GdkEventFocus *event,
-                              jobject peer)
+static gboolean
+focus_out_cb (GtkWidget *widget __attribute((unused)),
+              GdkEventFocus *event __attribute((unused)),
+              jobject peer)
 {
   (*gdk_env)->CallVoidMethod (gdk_env, peer,
                               postFocusEventID,
