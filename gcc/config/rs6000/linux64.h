@@ -53,8 +53,7 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_RELOCATABLE (!TARGET_64BIT && (target_flags & MASK_RELOCATABLE))
 
 #ifdef RS6000_BI_ARCH
-#undef	SUBSUBTARGET_OVERRIDE_OPTIONS
-#define SUBSUBTARGET_OVERRIDE_OPTIONS				\
+#define BI_ARCH_OVERRIDE_OPTIONS				\
   do								\
     {								\
       if (TARGET_64BIT)						\
@@ -76,7 +75,75 @@ Boston, MA 02111-1307, USA.  */
 				? (char *) 0 : TARGET_CPU_DEFAULT));	      \
     }									      \
   while (0)
+#else
+#define BI_ARCH_OVERRIDE_OPTIONS				\
+  do								\
+    {								\
+      if (! (target_flags & MASK_64BIT))			\
+	error ("-m32 not supported in this configuration");	\
+    }								\
+  while (0)
 #endif
+
+#define	MASK_SAFE_STACK		0x00080000
+#define MASK_ADDR32		0x00100000
+#define MASK_PROFILE_KERNEL	0x00200000
+
+/* Setting this bit ensures generated code always uses non-negative
+   stack offsets.  The AIX ABI allows negative offsets for efficiency,
+   particularly with leaf functions, but that means the Linux kernel
+   exception handlers must assume that 288 bytes below r1 may be in
+   use.  Since kernel stack is precious, it's worth paying a small
+   price to regain those 288 byes.  */
+#undef	TARGET_SAFE_STACK
+#define	TARGET_SAFE_STACK	(target_flags & MASK_SAFE_STACK)
+
+/* 64 bit compiler with longs and pointers 64 bit, but all static
+   addresses are 32 bits,  ie. code+data loads in range
+   0xffffffff80000000 to 0x000000007fffffff and we load address
+   constants with lis + la.  non-PIC.  */
+#undef	TARGET_ADDR32
+#define	TARGET_ADDR32		(target_flags & MASK_ADDR32)
+
+/* Non-standard profiling for kernels, which just saves LR then calls
+   _mcount without worrying about arg saves.  The idea is to change
+   the function prologue as little as possible as it isn't easy to
+   account for arg save/restore code added just for _mcount.  */
+#undef	TARGET_PROFILE_KERNEL
+#define	TARGET_PROFILE_KERNEL	(target_flags & MASK_PROFILE_KERNEL)
+
+#undef	EXTRA_SUBTARGET_SWITCHES
+#define	EXTRA_SUBTARGET_SWITCHES \
+  {"addr64",		-MASK_ADDR32,					\
+   N_("Compile for 64-bit static code+data address space") },		\
+  {"addr32",		MASK_ADDR32,					\
+   N_("Compile for 32-bit static code+data address space") },		\
+  {"safe-stack",	MASK_SAFE_STACK,				\
+   N_("Adjust the stack before saving regs, and after restoring") },	\
+  {"normal-stack",	-MASK_SAFE_STACK,				\
+   N_("Allow access to negative stack offsets for efficiency") },	\
+  {"profile-kernel",	MASK_PROFILE_KERNEL,				\
+   N_("Call mcount for profiling before a function prologue") },	\
+  {"no-profile-kernel",	-MASK_PROFILE_KERNEL,				\
+   N_("Call mcount for profiling after a function prologue") },
+
+#undef	SUBSUBTARGET_OVERRIDE_OPTIONS
+#define SUBSUBTARGET_OVERRIDE_OPTIONS				\
+  do								\
+    {								\
+      BI_ARCH_OVERRIDE_OPTIONS;					\
+      if (flag_pic && TARGET_ADDR32)				\
+	{							\
+	  flag_pic = 0;						\
+	  error ("-fpic and -maddr32 are incompatible");	\
+	}							\
+      if (TARGET_32BIT && TARGET_ADDR32)			\
+	{							\
+	  flag_pic = 0;						\
+	  error ("-m32 and -maddr32 are incompatible");		\
+	}							\
+    }								\
+  while (0)
 
 #undef  CPP_DEFAULT_SPEC
 #undef	ASM_DEFAULT_SPEC
@@ -160,13 +227,11 @@ Boston, MA 02111-1307, USA.  */
    _mcount without worrying about arg saves.  The idea is to change
    the function prologue as little as possible as it isn't easy to
    account for arg save/restore code added just for _mcount.  */
-/* #define PROFILE_KERNEL 1 */
-#if PROFILE_KERNEL
-#undef  PROFILE_HOOK
-#else
 #define PROFILE_HOOK(LABEL) \
-  do { if (TARGET_64BIT) output_profile_hook (LABEL); } while (0)
-#endif
+  do {									\
+    if (TARGET_64BIT && !TARGET_PROFILE_KERNEL)				\
+      output_profile_hook (LABEL);					\
+  } while (0)
 
 /* We don't need to generate entries in .fixup.  */
 #undef RELOCATABLE_NEEDS_FIXUP
@@ -363,10 +428,11 @@ Boston, MA 02111-1307, USA.  */
 #undef  ASM_OUTPUT_SPECIAL_POOL_ENTRY_P
 #define ASM_OUTPUT_SPECIAL_POOL_ENTRY_P(X, MODE)			\
   (TARGET_TOC								\
-   && (GET_CODE (X) == SYMBOL_REF					\
-       || (GET_CODE (X) == CONST && GET_CODE (XEXP (X, 0)) == PLUS	\
-	   && GET_CODE (XEXP (XEXP (X, 0), 0)) == SYMBOL_REF)		\
-       || GET_CODE (X) == LABEL_REF					\
+   && ((!TARGET_ADDR32							\
+	&& (GET_CODE (X) == SYMBOL_REF					\
+	    || (GET_CODE (X) == CONST && GET_CODE (XEXP (X, 0)) == PLUS	\
+		&& GET_CODE (XEXP (XEXP (X, 0), 0)) == SYMBOL_REF)	\
+	    || GET_CODE (X) == LABEL_REF))				\
        || (GET_CODE (X) == CONST_INT 					\
 	   && GET_MODE_BITSIZE (MODE) <= GET_MODE_BITSIZE (Pmode))	\
        || (GET_CODE (X) == CONST_DOUBLE					\

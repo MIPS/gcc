@@ -1863,7 +1863,14 @@ rs6000_legitimize_address (x, oldx, mode)
       reg = force_reg (Pmode, x);
       return reg;
     }
-  else if (TARGET_ELF && TARGET_32BIT && TARGET_NO_TOC && ! flag_pic
+  else if (TARGET_ELF
+	   && ((TARGET_32BIT && TARGET_NO_TOC && ! flag_pic)
+	       || (TARGET_ADDR32
+		   && (GET_CODE (x) == SYMBOL_REF
+		       || (GET_CODE (x) == CONST
+			   && GET_CODE (XEXP (x, 0)) == PLUS
+			   && (GET_CODE (XEXP (XEXP (x, 0), 0)) == SYMBOL_REF))
+		       || GET_CODE (x) == LABEL_REF)))
 	   && GET_CODE (x) != CONST_INT
 	   && GET_CODE (x) != CONST_DOUBLE 
 	   && CONSTANT_P (x)
@@ -1871,9 +1878,16 @@ rs6000_legitimize_address (x, oldx, mode)
 	   && (GET_MODE_BITSIZE (mode) <= 32
 	       || (TARGET_HARD_FLOAT && mode == DFmode)))
     {
-      rtx reg = gen_reg_rtx (Pmode);
-      emit_insn (gen_elf_high (reg, (x)));
-      return gen_rtx_LO_SUM (Pmode, reg, (x));
+      rtx reg;
+
+      if (mode != SImode)
+	mode = Pmode;
+      reg = gen_reg_rtx (mode);
+      if (mode == SImode)
+	emit_insn (gen_elf_high (reg, (x)));
+      else
+	emit_insn (gen_elf_high64 (reg, (x)));
+      return gen_rtx_LO_SUM (mode, reg, (x));
     }
   else if (TARGET_MACHO && TARGET_32BIT && TARGET_NO_TOC
 	   && ! flag_pic
@@ -2651,8 +2665,15 @@ rs6000_emit_move (dest, source, mode)
 	}
 
       if ((TARGET_ELF || DEFAULT_ABI == ABI_DARWIN)
-	  && TARGET_NO_TOC && ! flag_pic
-	  && mode == Pmode
+	  && ((TARGET_NO_TOC && ! flag_pic && mode == Pmode)
+	      || (TARGET_ADDR32
+		  && (mode == SImode
+		      || (GET_CODE (operands[1]) == SYMBOL_REF
+			  || (GET_CODE (operands[1]) == CONST
+			      && GET_CODE (XEXP (operands[1], 0)) == PLUS
+			      && (GET_CODE (XEXP (XEXP (operands[1], 0),
+						  0)) == SYMBOL_REF))
+			  || GET_CODE (operands[1]) == LABEL_REF))))
 	  && CONSTANT_P (operands[1])
 	  && GET_CODE (operands[1]) != HIGH
 	  && GET_CODE (operands[1]) != CONST_INT)
@@ -2684,8 +2705,16 @@ rs6000_emit_move (dest, source, mode)
 	      return;
 	    }
 
-	  emit_insn (gen_elf_high (target, operands[1]));
-	  emit_insn (gen_elf_low (operands[0], target, operands[1]));
+	  if (TARGET_32BIT || mode == SImode)
+	    {
+	      emit_insn (gen_elf_high (target, operands[1]));
+	      emit_insn (gen_elf_low (operands[0], target, operands[1]));
+	    }
+	  else
+	    {
+	      emit_insn (gen_elf_high64 (target, operands[1]));
+	      emit_insn (gen_elf_low64 (operands[0], target, operands[1]));
+	    }
 	  return;
 	}
 
@@ -8055,7 +8084,8 @@ rs6000_stack_info ()
 
   /* Determine if we need to save the link register.  */
   if (rs6000_ra_ever_killed ()
-      || (DEFAULT_ABI == ABI_AIX && current_function_profile)
+      || (DEFAULT_ABI == ABI_AIX && current_function_profile
+	  && !TARGET_PROFILE_KERNEL)
 #ifdef TARGET_RELOCATABLE
       || (TARGET_RELOCATABLE && (get_pool_size () != 0))
 #endif
@@ -8231,6 +8261,9 @@ rs6000_stack_info ()
 
   else if (TARGET_XCOFF && write_symbols != NO_DEBUG)
     info_ptr->push_p = 1;
+
+  else if (TARGET_SAFE_STACK)
+    info_ptr->push_p = total_raw_size > info_ptr->fixed_size;
 
   else
     info_ptr->push_p
@@ -9030,10 +9063,11 @@ rs6000_emit_prologue ()
   using_store_multiple = (TARGET_MULTIPLE && ! TARGET_POWERPC64
 			  && info->first_gp_reg_save < 31);
   saving_FPRs_inline = (info->first_fp_reg_save == 64
+			|| TARGET_SAFE_STACK
 			|| FP_SAVE_INLINE (info->first_fp_reg_save));
 
   /* For V.4, update stack before we do any saving and set back pointer.  */
-  if (info->push_p && DEFAULT_ABI == ABI_V4)
+  if (info->push_p && (DEFAULT_ABI == ABI_V4 || TARGET_SAFE_STACK))
     {
       if (info->total_size < 32767)
 	sp_offset = info->total_size;
@@ -9308,7 +9342,7 @@ rs6000_emit_prologue ()
 
   /* Update stack and set back pointer unless this is V.4, 
      for which it was done previously.  */
-  if (info->push_p && DEFAULT_ABI != ABI_V4)
+  if (info->push_p && DEFAULT_ABI != ABI_V4 && !TARGET_SAFE_STACK)
     rs6000_emit_allocate_stack (info->total_size, FALSE);
 
   /* Set frame pointer, if needed.  */
@@ -9451,6 +9485,7 @@ rs6000_emit_epilogue (sibcall)
   restoring_FPRs_inline = (sibcall
 			   || current_function_calls_eh_return
 			   || info->first_fp_reg_save == 64
+			   || TARGET_SAFE_STACK
 			   || FP_SAVE_INLINE (info->first_fp_reg_save));
   use_backchain_to_restore_sp = (frame_pointer_needed 
 				 || current_function_calls_alloca
@@ -9467,7 +9502,7 @@ rs6000_emit_epilogue (sibcall)
     {
       /* Under V.4, don't reset the stack pointer until after we're done
 	 loading the saved registers.  */
-      if (DEFAULT_ABI == ABI_V4)
+      if (DEFAULT_ABI == ABI_V4 || TARGET_SAFE_STACK)
 	frame_reg_rtx = gen_rtx_REG (Pmode, 11);
 
       emit_move_insn (frame_reg_rtx,
@@ -9476,7 +9511,7 @@ rs6000_emit_epilogue (sibcall)
     }
   else if (info->push_p)
     {
-      if (DEFAULT_ABI == ABI_V4)
+      if (DEFAULT_ABI == ABI_V4 || TARGET_SAFE_STACK)
 	sp_offset = info->total_size;
       else
 	{
@@ -9697,7 +9732,7 @@ rs6000_emit_epilogue (sibcall)
      (which may not have any obvious dependency on the stack).  This
      doesn't hurt performance, because there is no scheduling that can
      be done after this point.  */
-  if (DEFAULT_ABI == ABI_V4)
+  if (DEFAULT_ABI == ABI_V4 || TARGET_SAFE_STACK)
     {
       if (frame_reg_rtx != sp_reg_rtx)
 	  rs6000_emit_stack_tie ();
@@ -10881,7 +10916,6 @@ output_function_profiler (file, labelno)
   char buf[100];
   int save_lr = 8;
 
-  ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
   switch (DEFAULT_ABI)
     {
     default:
@@ -10897,6 +10931,7 @@ output_function_profiler (file, labelno)
 	  warning ("no profiling of 64-bit code for this ABI");
 	  return;
 	}
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
       fprintf (file, "\tmflr %s\n", reg_names[0]);
       if (flag_pic == 1)
 	{
@@ -10949,9 +10984,34 @@ output_function_profiler (file, labelno)
 	fprintf (file, "\tbl %s\n", RS6000_MCOUNT);
       break;
 
-    case ABI_AIX:
     case ABI_DARWIN:
-      /* Don't do anything, done in output_profile_hook ().  */
+      /* Don't do anything, done in output_profile_hook (). */
+      break;
+
+    case ABI_AIX:
+      if (!TARGET_PROFILE_KERNEL)
+	{
+	  /* Don't do anything, done in output_profile_hook (). */
+	}
+      else
+	{
+	  if (TARGET_32BIT)
+	    abort ();
+
+	  asm_fprintf (file, "\tmflr %s\n", reg_names[0]);
+	  asm_fprintf (file, "\tstd %s,16(%s)\n", reg_names[0], reg_names[1]);
+
+	  if (current_function_needs_context)
+	    {
+	      asm_fprintf (file, "\tstd %s,24(%s)\n",
+			   reg_names[STATIC_CHAIN_REGNUM], reg_names[1]);
+	      fprintf (file, "\tbl .%s\n", RS6000_MCOUNT);
+	      asm_fprintf (file, "\tld %s,24(%s)\n",
+			   reg_names[STATIC_CHAIN_REGNUM], reg_names[1]);
+	    }
+	  else
+	    fprintf (file, "\tbl .%s\n", RS6000_MCOUNT);
+	}
       break;
     }
 }

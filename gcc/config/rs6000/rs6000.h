@@ -261,7 +261,12 @@ extern int target_flags;
 #define TARGET_POWERPC64	(target_flags & MASK_POWERPC64)
 #endif
 
-#define TARGET_XL_CALL 0
+/* Give default values.  TARGET_ADDR32, TARGET_SAFE_STACK and
+   TARGET_PROFILE_KERNEL are redefined in linux64.h.  */
+#define	TARGET_XL_CALL		0
+#define	TARGET_ADDR32		0
+#define	TARGET_SAFE_STACK	0
+#define	TARGET_PROFILE_KERNEL	0
 
 /* Run-time compilation parameters selecting different hardware subsets.
 
@@ -2008,8 +2013,9 @@ typedef struct rs6000_args
 
 #define LEGITIMATE_LO_SUM_ADDRESS_P(MODE, X, STRICT)	\
   (TARGET_ELF						\
-   && ! TARGET_TOC					\
-   && (! flag_pic || DEFAULT_ABI == ABI_AIX)		\
+   && ((! TARGET_TOC					\
+	&& (! flag_pic || DEFAULT_ABI == ABI_AIX))	\
+       || TARGET_ADDR32)				\
    && GET_MODE_NUNITS (MODE) == 1			\
    && (GET_MODE_BITSIZE (MODE) <= 32 			\
        || (TARGET_HARD_FLOAT && (MODE) == DFmode))	\
