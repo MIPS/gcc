@@ -4009,9 +4009,14 @@ tree_split_block (basic_block bb, void *stmt)
   bsi_tgt = bsi_start (new_bb);
   while (!bsi_end_p (bsi))
     {
+      bool was_modified;
+
       act = bsi_stmt (bsi);
+      was_modified = stmt_modified_p (act);
       bsi_remove (&bsi);
       bsi_insert_after (&bsi_tgt, act, BSI_NEW_STMT);
+      if (!was_modified)
+	unmodify_stmt (act);
     }
 
   return new_bb;

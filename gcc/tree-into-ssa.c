@@ -1277,11 +1277,6 @@ register_new_def (tree def, varray_type *block_defs_p)
   if (! *block_defs_p)
     VARRAY_TREE_INIT (*block_defs_p, 20, "block_defs");
 
-  /* If we are rewriting ssa names, record the variable whose value must be
-     be restored.  */
-  if (TREE_CODE (var) == SSA_NAME)
-    VARRAY_PUSH_TREE (*block_defs_p, var);
-
   /* Push the current reaching definition into *BLOCK_DEFS_P.  This stack is
      later used by the dominator tree callbacks to restore the reaching
      definitions for all the variables defined in the block after a recursive

@@ -401,6 +401,9 @@ chrec_contains_symbols_defined_in_loop (tree chrec, unsigned loop_nb)
   if (chrec == NULL_TREE)
     return false;
 
+  if (TREE_INVARIANT (chrec))
+    return false;
+
   if (TREE_CODE (chrec) == VAR_DECL
       || TREE_CODE (chrec) == PARM_DECL
       || TREE_CODE (chrec) == FUNCTION_DECL

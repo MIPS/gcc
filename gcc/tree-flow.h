@@ -635,6 +635,9 @@ unsigned estimate_loop_size (struct loop *loop);
 void rewrite_into_loop_closed_ssa (void);
 void verify_loop_closed_ssa (void);
 void compute_phi_arg_on_exit (edge, tree, tree);
+tree force_gimple_operand (tree, tree *, bool, tree);
+void rewrite_address_base (block_stmt_iterator *, tree *, tree);
+
 
 /* Description of number of iterations of a loop.  */
 struct tree_niter_desc

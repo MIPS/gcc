@@ -243,8 +243,6 @@ static unsigned spill_cost;	/* The cost for register when we need to spill.  */
 
 static varray_type decl_rtl_to_reset;
 
-static tree force_gimple_operand (tree, tree *, bool, tree);
-
 /* Number of uses recorded in DATA.  */
 
 static inline unsigned
@@ -632,7 +630,7 @@ update_addressable_flag (tree expr)
    to be either ssa_name or integer constant.  If VAR is not NULL, make the
    base variable of the final destination be VAR if possible.  */
 
-static tree
+tree
 force_gimple_operand (tree expr, tree *stmts, bool simple, tree var)
 {
   enum tree_code code;
@@ -1959,7 +1957,7 @@ static void
 add_address_candidates (struct ivopts_data *data,
 			struct iv *iv, struct iv_use *use)
 {
-  tree base, type;
+  tree base, type, abase, tmp, *act;
 
   /* First, the trivial choices.  */
   add_iv_value_candidates (data, iv, use);
@@ -1982,6 +1980,29 @@ add_address_candidates (struct ivopts_data *data,
 	    base = build1 (ADDR_EXPR, type, base);
 	  add_candidate (data, base, iv->step, false, use);
 	}
+    }
+
+  /* Third, try removing the constant offset.  */
+  abase = iv->base;
+  while (TREE_CODE (abase) == PLUS_EXPR
+	 && TREE_CODE (TREE_OPERAND (abase, 1)) != INTEGER_CST)
+    abase = TREE_OPERAND (abase, 0);
+  /* We found the offset, so make the copy of the non-shared part and
+     remove it.  */
+  if (TREE_CODE (abase) == PLUS_EXPR)
+    {
+      tmp = iv->base;
+      act = &base;
+
+      for (tmp = iv->base; tmp != abase; tmp = TREE_OPERAND (tmp, 0))
+	{
+	  *act = build (PLUS_EXPR, TREE_TYPE (tmp),
+			NULL_TREE, TREE_OPERAND (tmp, 1));
+	  act = &TREE_OPERAND (*act, 0);
+	}
+      *act = TREE_OPERAND (tmp, 0);
+
+      add_candidate (data, base, iv->step, false, use);
     }
 }
 
@@ -4113,6 +4134,88 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
     }
 }
 
+/* Replaces ssa name in index IDX by its basic variable.  Callback for
+   for_each_index.  */
+
+static bool
+idx_remove_ssa_names (tree base ATTRIBUTE_UNUSED, tree *idx,
+		      void *data ATTRIBUTE_UNUSED)
+{
+  if (TREE_CODE (*idx) == SSA_NAME)
+    *idx = SSA_NAME_VAR (*idx);
+  return true;
+}
+
+/* Unshares REF and replaces ssa names inside it by their basic variables.  */
+
+static tree
+unshare_and_remove_ssa_names (tree ref)
+{
+  ref = unshare_expr (ref);
+  for_each_index (&ref, idx_remove_ssa_names, NULL);
+
+  return ref;
+}
+
+/* Rewrites base of memory access OP with expression WITH in statement
+   pointed to by BSI.  */
+
+void
+rewrite_address_base (block_stmt_iterator *bsi, tree *op, tree with)
+{
+  tree var = get_base_address (*op), new_var, new_name, copy, name;
+  tree orig;
+
+  if (!var || TREE_CODE (with) != SSA_NAME)
+    goto do_rewrite;
+
+  if (TREE_CODE (var) == INDIRECT_REF)
+    var = TREE_OPERAND (var, 0);
+  if (TREE_CODE (var) == SSA_NAME)
+    {
+      name = var;
+      var = SSA_NAME_VAR (var);
+    }
+  else if (DECL_P (var))
+    name = NULL_TREE;
+  else
+    goto do_rewrite;
+    
+  if (var_ann (var)->type_mem_tag)
+    var = var_ann (var)->type_mem_tag;
+
+  /* We need to add a memory tag for the variable.  But we do not want
+     to add it to the temporary used for the computations, since this leads
+     to problems in redundancy elimination when there are common parts
+     in two computations refering to the different arrays.  So we copy
+     the variable to a new temporary.  */
+  copy = build (MODIFY_EXPR, void_type_node, NULL_TREE, with);
+  if (name)
+    new_name = duplicate_ssa_name (name, copy);
+  else
+    {
+      new_var = create_tmp_var (TREE_TYPE (with), "ruatmp");
+      add_referenced_tmp_var (new_var);
+      var_ann (new_var)->type_mem_tag = var;
+      new_name = make_ssa_name (new_var, copy);
+    }
+  TREE_OPERAND (copy, 0) = new_name;
+  bsi_insert_before (bsi, copy, BSI_SAME_STMT);
+  with = new_name;
+
+do_rewrite:
+
+  orig = NULL_TREE;
+  if (TREE_CODE (*op) == INDIRECT_REF)
+    orig = REF_ORIGINAL (*op);
+  if (!orig)
+    orig = unshare_and_remove_ssa_names (*op);
+
+  *op = build1 (INDIRECT_REF, TREE_TYPE (*op), with);
+  /* Record the original reference, for purposes of alias analysis.  */
+  REF_ORIGINAL (*op) = orig;
+}
+
 /* Rewrites USE (address that is an iv) using candidate CAND.  */
 
 static void
@@ -4124,47 +4227,11 @@ rewrite_use_address (struct ivopts_data *data,
   block_stmt_iterator bsi = stmt_bsi (use->stmt);
   tree stmts;
   tree op = force_gimple_operand (comp, &stmts, false, NULL_TREE);
-  tree var, new_var, new_name, copy, name;
 
   if (stmts)
     bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
 
-  if (TREE_CODE (op) == SSA_NAME)
-    {
-      var = get_base_address (*use->op_p);
-      if (TREE_CODE (var) == INDIRECT_REF)
-	var = TREE_OPERAND (var, 0);
-      if (TREE_CODE (var) == SSA_NAME)
-	{
-	  name = var;
-	  var = SSA_NAME_VAR (var);
-	}
-      else
-	name = NULL_TREE;
-      if (var_ann (var)->type_mem_tag)
-	var = var_ann (var)->type_mem_tag;
-
-      /* We need to add a memory tag for the variable.  But we do not want
-	 to add it to the temporary used for the computations, since this leads
-	 to problems in redundancy elimination when there are common parts
-	 in two computations refering to the different arrays.  So we copy
-	 the variable to a new temporary.  */
-      copy = build (MODIFY_EXPR, void_type_node, NULL_TREE, op);
-      if (name)
-	new_name = duplicate_ssa_name (name, copy);
-      else
-	{
-	  new_var = create_tmp_var (TREE_TYPE (op), "ruatmp");
-	  add_referenced_tmp_var (new_var);
-	  var_ann (new_var)->type_mem_tag = var;
-	  new_name = make_ssa_name (new_var, copy);
-	}
-      TREE_OPERAND (copy, 0) = new_name;
-      bsi_insert_before (&bsi, copy, BSI_SAME_STMT);
-      op = new_name;
-    }
-
-  *use->op_p = build1 (INDIRECT_REF, TREE_TYPE (*use->op_p), op);
+  rewrite_address_base (&bsi, use->op_p, op);
 }
 
 /* Rewrites USE (the condition such that one of the arguments is an iv) using

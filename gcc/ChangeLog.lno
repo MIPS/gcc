@@ -1,3 +1,20 @@
+2004-05-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* expr.c (expand_expr_real_1): Use REF_ORIGINAL information
+	from INDIRECT_REFS.
+	* tree-flow.h (force_gimple_operand, rewrite_address_base): Declare.
+	* tree-ssa-loop-ivopts.c (force_gimple_operand): Expand.
+	(add_address_candidates): Add candidates with constant offset
+	stripped.
+	(idx_remove_ssa_names, unshare_and_remove_ssa_names,
+	rewrite_address_base): New.
+	(rewrite_use_address): Use rewrite_address_base.
+	* tree-into-ssa.c (register_new_def): Remove unused code.
+	* tree-scalar-evolution.c (chrec_contains_symbols_defined_in_loop):
+	Handle invariants correctly.
+	* tree-cfg.c (tree_split_block): Do not modify the statements.
+	* tree.h (REF_ORIGINAL): New macro.
+
 2004-05-12  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-chrec.c (chrec_evaluate): Use the type of the chrec 
