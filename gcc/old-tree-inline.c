@@ -125,6 +125,8 @@ static tree initialize_inlined_parameters PARAMS ((inline_data *, tree, tree, tr
 static void remap_block PARAMS ((tree *, tree, inline_data *));
 static tree add_stmt_to_compound PARAMS ((tree, tree, tree));
 #endif /* INLINER_FOR_JAVA */
+static tree find_alloca_call_1 PARAMS ((tree *, int *, void *));
+static tree find_alloca_call PARAMS ((tree));
 
 /* The approximate number of instructions per statement.  This number
    need not be particularly accurate; it is used only to make
@@ -338,6 +340,23 @@ remap_block (block, decls, id)
     {
       tree new_var;
 
+      /* All local class initialization flags go in the outermost
+	 scope.  */
+      if (LOCAL_CLASS_INITIALIZATION_FLAG_P (old_var))
+	{
+	  /* We may already have one.  */
+	  if (! splay_tree_lookup (id->decl_map, (splay_tree_key) old_var))
+	    {
+	      tree outermost_block;
+	      new_var = remap_decl (old_var, id);
+	      DECL_ABSTRACT_ORIGIN (new_var) = NULL;
+	      outermost_block = DECL_SAVED_TREE (current_function_decl);
+	      TREE_CHAIN (new_var) = BLOCK_VARS (outermost_block);
+	      BLOCK_VARS (outermost_block) = new_var;
+	    }
+	  continue;
+	}
+
       /* Remap the variable.  */
       new_var = remap_decl (old_var, id);
       /* If we didn't remap this variable, so we can't mess with
@@ -457,7 +476,7 @@ copy_body_r (tp, walk_subtrees, data)
 	{
 	  copy_body_r (&assignment, walk_subtrees, data);
 	  *tp = build (COMPOUND_EXPR, void_type_node, assignment, goto_stmt);
-	  TREE_SIDE_EFFECTS (*tp) = 1;	    
+	  TREE_SIDE_EFFECTS (*tp) = 1;
 	}
 #endif /* INLINER_FOR_JAVA */
       /* If we're not returning anything just do the jump.  */
@@ -510,8 +529,8 @@ copy_body_r (tp, walk_subtrees, data)
     }
   else if (TREE_CODE (*tp) == EXIT_BLOCK_EXPR)
     {
-      splay_tree_node n 
-	= splay_tree_lookup (id->decl_map, 
+      splay_tree_node n
+	= splay_tree_lookup (id->decl_map,
 			     (splay_tree_key) TREE_OPERAND (*tp, 0));
       /* We _must_ have seen the enclosing LABELED_BLOCK_EXPR.  */
       if (! n)
@@ -570,11 +589,6 @@ copy_body (id)
 
   body = DECL_SAVED_TREE (VARRAY_TOP_TREE (id->fns));
   walk_tree (&body, copy_body_r, id, NULL);
-
-#ifndef INLINER_FOR_JAVA
-  if (!statement_code_p (TREE_CODE (body)))
-    body = build_stmt (EXPR_STMT, body);
-#endif
 
   return body;
 }
@@ -721,7 +735,7 @@ initialize_inlined_parameters (id, args, fn, block)
 #else /* INLINER_FOR_JAVA */
 	{
 	  tree assignment = build (MODIFY_EXPR, TREE_TYPE (p), var, value);
-	  init_stmts = add_stmt_to_compound (init_stmts, TREE_TYPE (p), 
+	  init_stmts = add_stmt_to_compound (init_stmts, TREE_TYPE (p),
 					     assignment);
 	}
       else
@@ -838,7 +852,7 @@ declare_return_variable (id, var)
     return NULL_TREE;
 }
 
-/* Returns non-zero if a function can be inlined as a tree.  */
+/* Returns nonzero if a function can be inlined as a tree.  */
 
 int
 tree_inlinable_function_p (fn)
@@ -847,7 +861,28 @@ tree_inlinable_function_p (fn)
   return inlinable_function_p (fn, NULL);
 }
 
-/* Returns non-zero if FN is a function that can be inlined into the
+/* if *TP is possibly call to alloca, return nonzero.  */
+static tree
+find_alloca_call_1 (tp, walk_subtrees, data)
+     tree *tp;
+     int *walk_subtrees ATTRIBUTE_UNUSED;
+     void *data ATTRIBUTE_UNUSED;
+{
+  if (alloca_call_p (*tp))
+    return *tp;
+  return NULL;
+}
+
+/* Return subexpression representing possible alloca call,
+   if any.  */
+static tree
+find_alloca_call (exp)
+     tree exp;
+{
+  return walk_tree (&exp, find_alloca_call_1, NULL, NULL);
+}
+
+/* Returns nonzero if FN is a function that can be inlined into the
    inlining context ID_.  If ID_ is NULL, check whether the function
    can be inlined at all.  */
 
@@ -858,8 +893,6 @@ inlinable_function_p (fn, id)
 {
   int inlinable;
   int currfn_insns;
-
-  return 0;
 
   /* If we've already decided this function shouldn't be inlined,
      there's no need to check again.  */
@@ -888,6 +921,13 @@ inlinable_function_p (fn, id)
      allowance for extern inline functions, though.  */
   else if (! (*lang_hooks.tree_inlining.disregard_inline_limits) (fn)
 	   && currfn_insns > MAX_INLINE_INSNS_SINGLE)
+    ;
+  /* Refuse to inline alloca call unless user explicitly forced so as this may
+     change program's memory overhead drastically when the function using alloca
+     is called in loop.  In GCC present in SPEC2000 inlining into schedule_block
+     cause it to require 2GB of ram instead of 256MB.  */
+  else if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) == NULL
+	   && find_alloca_call (DECL_SAVED_TREE (fn)))
     ;
   /* All is well.  We can inline this function.  Traditionally, GCC
      has refused to inline functions using alloca, or functions whose
@@ -981,7 +1021,6 @@ expand_call_inline (tp, walk_subtrees, data)
 #else /* INLINER_FOR_JAVA */
   tree retvar;
 #endif /* INLINER_FOR_JAVA */
-  tree decl;
   tree fn;
   tree arg_inits;
   tree *inlined_body;
@@ -1113,10 +1152,10 @@ expand_call_inline (tp, walk_subtrees, data)
 	 inline calls to FN that appear in the initializers for the
 	 parameters.  */
       expand_calls_inline (&arg_inits, id);
-      
+
       /* And add them to the tree.  */
-      BLOCK_EXPR_BODY (expr) = add_stmt_to_compound (BLOCK_EXPR_BODY (expr), 
-						     TREE_TYPE (arg_inits), 
+      BLOCK_EXPR_BODY (expr) = add_stmt_to_compound (BLOCK_EXPR_BODY (expr),
+						     TREE_TYPE (arg_inits),
 						     arg_inits);
     }
 #endif /* INLINER_FOR_JAVA */
@@ -1164,27 +1203,21 @@ expand_call_inline (tp, walk_subtrees, data)
     BLOCK_ABSTRACT_ORIGIN (SCOPE_STMT_BLOCK (scope_stmt)) = DECL_ORIGIN (fn);
 
   /* Declare the return variable for the function.  */
-  decl = declare_return_variable (id, &use_stmt);
-  COMPOUND_BODY (stmt) = chainon (COMPOUND_BODY (stmt), decl);
-  if (!decl)
-    /* OK */;
-  else if (TREE_CODE (decl) == DECL_STMT)
-    BLOCK_VARS (SCOPE_STMT_BLOCK (scope_stmt))
-      = chainon (BLOCK_VARS (SCOPE_STMT_BLOCK (scope_stmt)),
-		 DECL_STMT_DECL (decl));
-  else
-    abort ();
-	
+  COMPOUND_BODY (stmt)
+    = chainon (COMPOUND_BODY (stmt),
+	       declare_return_variable (id, &use_stmt));
 #else /* INLINER_FOR_JAVA */
-  /* Declare the return variable for the function.  */
-  decl = declare_return_variable (id, &retvar);
-  if (retvar)
-    {
-      tree *next = &BLOCK_VARS (expr);
-      while (*next)
-	next = &TREE_CHAIN (*next);	
-      *next = decl;
-    }
+  {
+    /* Declare the return variable for the function.  */
+    tree decl = declare_return_variable (id, &retvar);
+    if (retvar)
+      {
+	tree *next = &BLOCK_VARS (expr);
+	while (*next)
+	  next = &TREE_CHAIN (*next);
+	*next = decl;
+      }
+  }
 #endif /* INLINER_FOR_JAVA */
 
   /* After we've initialized the parameters, we insert the body of the
@@ -1196,10 +1229,12 @@ expand_call_inline (tp, walk_subtrees, data)
   *inlined_body = copy_body (id);
 #else /* INLINER_FOR_JAVA */
   {
-    tree new_body = copy_body (id);
+    tree new_body;
+    java_inlining_map_static_initializers (fn, id->decl_map);
+    new_body = copy_body (id);
     TREE_TYPE (new_body) = TREE_TYPE (TREE_TYPE (fn));
     BLOCK_EXPR_BODY (expr)
-      = add_stmt_to_compound (BLOCK_EXPR_BODY (expr), 
+      = add_stmt_to_compound (BLOCK_EXPR_BODY (expr),
 			      TREE_TYPE (new_body), new_body);
     inlined_body = &BLOCK_EXPR_BODY (expr);
   }
@@ -1225,7 +1260,7 @@ expand_call_inline (tp, walk_subtrees, data)
      statement-expression is the returned value of the function.  */
 #ifndef INLINER_FOR_JAVA
   COMPOUND_BODY (stmt) = chainon (COMPOUND_BODY (stmt), use_stmt);
-  
+
   /* Close the block for the parameters.  */
   scope_stmt = build_stmt (SCOPE_STMT, DECL_INITIAL (fn));
   SCOPE_NO_CLEANUPS_P (scope_stmt) = 1;
@@ -1234,9 +1269,17 @@ expand_call_inline (tp, walk_subtrees, data)
     = chainon (COMPOUND_BODY (stmt), scope_stmt);
 #else /* INLINER_FOR_JAVA */
   if (retvar)
-    BLOCK_EXPR_BODY (expr) 
-      = add_stmt_to_compound (BLOCK_EXPR_BODY (expr), 
-			      TREE_TYPE (retvar), retvar);
+    {
+      /* Mention the retvar.  If the return type of the function was
+	 promoted, convert it back to the expected type.  */
+      if (TREE_TYPE (TREE_TYPE (fn)) != TREE_TYPE (retvar))
+	retvar = build1 (NOP_EXPR, TREE_TYPE (TREE_TYPE (fn)), retvar);
+      BLOCK_EXPR_BODY (expr)
+	= add_stmt_to_compound (BLOCK_EXPR_BODY (expr),
+				TREE_TYPE (retvar), retvar);
+    }
+
+  java_inlining_merge_static_initializers (fn, id->decl_map);
 #endif /* INLINER_FOR_JAVA */
 
   /* Clean up.  */
@@ -1254,7 +1297,7 @@ expand_call_inline (tp, walk_subtrees, data)
   *tp = build_expr_wfl (expr, DECL_SOURCE_FILE (fn), DECL_SOURCE_LINE (fn),
 			/*col=*/0);
 #else /* INLINER_FOR_JAVA */
-  *tp = build_expr_wfl (expr, DECL_SOURCE_FILE (fn), 
+  *tp = build_expr_wfl (expr, DECL_SOURCE_FILE (fn),
 			DECL_SOURCE_LINE_FIRST(fn),
 			/*col=*/0);
 #endif /* INLINER_FOR_JAVA */
@@ -1354,18 +1397,11 @@ optimize_inline_calls (fn)
   htab_delete (id.tree_pruner);
   if (DECL_LANG_SPECIFIC (fn))
     {
-      tree ifn;
+      tree ifn = make_tree_vec (VARRAY_ACTIVE_SIZE (id.inlined_fns));
 
-      if (VARRAY_ACTIVE_SIZE (id.inlined_fns) > 0)
-	{
-	  ifn = make_tree_vec (VARRAY_ACTIVE_SIZE (id.inlined_fns));
-
-	  memcpy (&TREE_VEC_ELT (ifn, 0), &VARRAY_TREE (id.inlined_fns, 0),
-		  VARRAY_ACTIVE_SIZE (id.inlined_fns) * sizeof (tree));
-	}
-      else
-	ifn = NULL_TREE;
-
+      if (VARRAY_ACTIVE_SIZE (id.inlined_fns))
+	memcpy (&TREE_VEC_ELT (ifn, 0), &VARRAY_TREE (id.inlined_fns, 0),
+		VARRAY_ACTIVE_SIZE (id.inlined_fns) * sizeof (tree));
       DECL_INLINED_FNS (fn) = ifn;
     }
 }
@@ -1540,6 +1576,12 @@ walk_tree (tp, func, data, htab_)
     {
       WALK_SUBTREE_TAIL (TREE_TYPE (*tp));
     }
+  else if (TREE_CODE_CLASS (code) == 't')
+    {
+      WALK_SUBTREE (TYPE_SIZE (*tp));
+      WALK_SUBTREE (TYPE_SIZE_UNIT (*tp));
+      /* Also examine various special fields, below.  */
+    }
 
   result = (*lang_hooks.tree_inlining.walk_subtrees) (tp, &walk_subtrees, func,
 						      data, htab);
@@ -1644,6 +1686,7 @@ walk_tree (tp, func, data, htab_)
   return NULL_TREE;
 
 #undef WALK_SUBTREE
+#undef WALK_SUBTREE_TAIL
 }
 
 /* Like walk_tree, but does not walk duplicate nodes more than
@@ -1707,8 +1750,8 @@ copy_tree_r (tp, walk_subtrees, data)
 	TREE_CHAIN (*tp) = chain;
 #endif /* INLINER_FOR_JAVA */
     }
-  else if (TREE_CODE_CLASS (code) == 't')
-    /* There's no need to copy types, or anything beneath them.  */
+  else if (TREE_CODE_CLASS (code) == 't' && !variably_modified_type_p (*tp))
+    /* Types only need to be copied if they are variably modified.  */
     *walk_subtrees = 0;
 
   return NULL_TREE;
@@ -1761,7 +1804,7 @@ remap_save_expr (tp, st_, fn, walk_subtrees)
 
 #ifdef INLINER_FOR_JAVA
 /* Add STMT to EXISTING if possible, otherwise create a new
-   COMPOUND_EXPR and add STMT to it. */
+   COMPOUND_EXPR and add STMT to it.  */
 
 static tree
 add_stmt_to_compound (existing, type, stmt)
