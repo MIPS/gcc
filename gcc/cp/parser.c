@@ -21,6 +21,8 @@
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "dyn-string.h"
 #include "varray.h"
 #include "cpplib.h"
@@ -1473,7 +1475,7 @@ static tree cp_parser_labeled_statement
 static tree cp_parser_expression_statement
   PARAMS ((cp_parser *));
 static tree cp_parser_compound_statement
-  (cp_parser *, bool);
+  (cp_parser *);
 static void cp_parser_statement_seq_opt
   PARAMS ((cp_parser *));
 static tree cp_parser_selection_statement
@@ -2658,7 +2660,7 @@ cp_parser_primary_expression (cp_parser *parser,
 	    /* Start the statement-expression.  */
 	    expr = begin_stmt_expr ();
 	    /* Parse the compound-statement.  */
-	    cp_parser_compound_statement (parser, /*function_body_p=*/false);
+	    cp_parser_compound_statement (parser);
 	    /* Finish up.  */
 	    expr = finish_stmt_expr (expr);
 	  }
@@ -5730,8 +5732,7 @@ cp_parser_statement (parser)
     }
   /* Anything that starts with a `{' must be a compound-statement.  */
   else if (token->type == CPP_OPEN_BRACE)
-    statement = cp_parser_compound_statement (parser,
-					      /*function_body_p=*/false);
+    statement = cp_parser_compound_statement (parser);
 
   /* Everything else must be a declaration-statement or an
      expression-statement.  Try for the declaration-statement 
@@ -5862,14 +5863,10 @@ cp_parser_expression_statement (parser)
    compound-statement:
      { statement-seq [opt] }
      
-   If FUNCTION_BODY_P is true, this compound statement is the
-   outermost compound statement for a function (but not the try-block
-   of a function-try-block).
-
    Returns a COMPOUND_STMT representing the statement.  */
 
 static tree
-cp_parser_compound_statement (cp_parser *parser, bool function_body_p)
+cp_parser_compound_statement (cp_parser *parser)
 {
   tree compound_stmt;
 
@@ -5877,11 +5874,11 @@ cp_parser_compound_statement (cp_parser *parser, bool function_body_p)
   if (!cp_parser_require (parser, CPP_OPEN_BRACE, "`{'"))
     return error_mark_node;
   /* Begin the compound-statement.  */
-  compound_stmt = begin_compound_stmt (function_body_p);
+  compound_stmt = begin_compound_stmt (/*has_no_scope=*/0);
   /* Parse an (optional) statement-seq.  */
   cp_parser_statement_seq_opt (parser);
   /* Finish the compound-statement.  */
-  finish_compound_stmt (function_body_p, compound_stmt);
+  finish_compound_stmt (/*has_no_scope=*/0, compound_stmt);
   /* Consume the `}'.  */
   cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
 
@@ -6360,8 +6357,7 @@ cp_parser_implicitly_scoped_statement (parser)
     }
   /* Otherwise, we simply parse the statement directly.  */
   else
-    statement = cp_parser_compound_statement (parser,
-					      /*function_body_p=*/false);
+    statement = cp_parser_compound_statement (parser);
 
   /* Return the statement.  */
   return statement;
@@ -11027,7 +11023,7 @@ cp_parser_function_definition (parser, friend_p)
 static void
 cp_parser_function_body (cp_parser *parser)
 {
-  cp_parser_compound_statement (parser, /*function_body_p=*/true);
+  cp_parser_compound_statement (parser);
 }
 
 /* Parse a ctor-initializer-opt followed by a function-body.  Return
@@ -12576,7 +12572,7 @@ cp_parser_try_block (parser)
 
   cp_parser_require_keyword (parser, RID_TRY, "`try'");
   try_block = begin_try_block ();
-  cp_parser_compound_statement (parser, /*function_body_p=*/false);
+  cp_parser_compound_statement (parser);
   finish_try_block (try_block);
   cp_parser_handler_seq (parser);
   finish_handler_sequence (try_block);
@@ -12655,7 +12651,7 @@ cp_parser_handler (parser)
   declaration = cp_parser_exception_declaration (parser);
   finish_handler_parms (declaration, handler);
   cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
-  cp_parser_compound_statement (parser, /*function_body_p=*/false);
+  cp_parser_compound_statement (parser);
   finish_handler (handler);
 }
 

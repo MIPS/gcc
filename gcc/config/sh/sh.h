@@ -28,7 +28,7 @@ Boston, MA 02111-1307, USA.  */
   fputs (" (Hitachi SH)", stderr);
 
 /* Unfortunately, insn-attrtab.c doesn't include insn-codes.h.  We can't
-   include it here, because hconfig.h is also included by gencodes.c .  */
+   include it here, because bconfig.h is also included by gencodes.c .  */
 /* ??? No longer true.  */
 extern int code_for_indirect_jump_scratch;
 
@@ -444,6 +444,8 @@ do {									\
        targetm.asm_out.aligned_op.di = NULL;				\
        targetm.asm_out.unaligned_op.di = NULL;				\
     }									\
+  if (TARGET_FMOVD)							\
+    reg_class_from_letter['e'] = NO_REGS;				\
 									\
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)		\
     if (! VALID_REGISTER_P (regno))					\
@@ -912,16 +914,16 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
    ? 1 \
    : (MODE) == V2SFmode \
    ? ((FP_REGISTER_P (REGNO) && ((REGNO) - FIRST_FP_REG) % 2 == 0) \
-      || (TARGET_SHMEDIA && GENERAL_REGISTER_P (REGNO))) \
+      || GENERAL_REGISTER_P (REGNO)) \
    : (MODE) == V4SFmode \
-   ? (FP_REGISTER_P (REGNO) && ((REGNO) - FIRST_FP_REG) % 4 == 0) \
+   ? ((FP_REGISTER_P (REGNO) && ((REGNO) - FIRST_FP_REG) % 4 == 0) \
+      || (! TARGET_SHMEDIA && GENERAL_REGISTER_P (REGNO))) \
    : (MODE) == V16SFmode \
    ? (TARGET_SHMEDIA \
       ? (FP_REGISTER_P (REGNO) && ((REGNO) - FIRST_FP_REG) % 16 == 0) \
       : (REGNO) == FIRST_XD_REG) \
    : FP_REGISTER_P (REGNO) \
-   ? ((MODE) == SFmode \
-      || (TARGET_SHMEDIA && (MODE) == SImode) \
+   ? ((MODE) == SFmode || (MODE) == SImode \
       || ((TARGET_SH3E || TARGET_SHMEDIA) && (MODE) == SCmode) \
       || (((TARGET_SH4 && (MODE) == DFmode) || (MODE) == DCmode \
 	   || (TARGET_SHMEDIA && ((MODE) == DFmode || (MODE) == DImode \
@@ -1237,7 +1239,7 @@ extern int regno_reg_class[FIRST_PSEUDO_REGISTER];
 
 /* Get reg_class from a letter such as appears in the machine
    description.  */
-extern const enum reg_class reg_class_from_letter[];
+extern enum reg_class reg_class_from_letter[];
 
 #define REG_CLASS_FROM_LETTER(C) \
    ( ISLOWER (C) ? reg_class_from_letter[(C)-'a'] : NO_REGS )
@@ -1302,16 +1304,20 @@ extern const enum reg_class reg_class_from_letter[];
    : (CLASS)) \
 
 #define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS,MODE,X) \
-  ((((((CLASS) == FP_REGS || (CLASS) == FP0_REGS			\
-	|| (CLASS) == DF_REGS || (CLASS) == DF_HI_REGS)			\
-      && (GET_CODE (X) == REG && GENERAL_OR_AP_REGISTER_P (REGNO (X))))	\
-     || (((CLASS) == GENERAL_REGS || (CLASS) == R0_REGS)		\
+  ((((REGCLASS_HAS_FP_REG (CLASS) 					\
+      && (GET_CODE (X) == REG						\
+      && (GENERAL_OR_AP_REGISTER_P (REGNO (X))				\
+	  || (FP_REGISTER_P (REGNO (X)) && (MODE) == SImode		\
+	      && TARGET_FMOVD))))					\
+     || (REGCLASS_HAS_GENERAL_REG (CLASS) 				\
 	 && GET_CODE (X) == REG						\
 	 && FP_REGISTER_P (REGNO (X))))					\
     && ! TARGET_SHMEDIA							\
-    && MODE == SFmode)							\
+    && ((MODE) == SFmode || (MODE) == SImode))				\
    ? FPUL_REGS								\
-   : ((CLASS) == FPUL_REGS						\
+   : (((CLASS) == FPUL_REGS						\
+       || (REGCLASS_HAS_FP_REG (CLASS)					\
+	   && ! TARGET_SHMEDIA && MODE == SImode))			\
       && (GET_CODE (X) == MEM						\
 	  || (GET_CODE (X) == REG					\
 	      && (REGNO (X) >= FIRST_PSEUDO_REGISTER			\
@@ -1332,8 +1338,7 @@ extern const enum reg_class reg_class_from_letter[];
    ? GENERAL_REGS : NO_REGS)
 
 #define SECONDARY_INPUT_RELOAD_CLASS(CLASS,MODE,X)  \
-  ((((CLASS) == FP_REGS || (CLASS) == FP0_REGS || (CLASS) == DF_REGS	\
-     || (CLASS) == DF_HI_REGS)						\
+  ((REGCLASS_HAS_FP_REG (CLASS) 					\
     && ! TARGET_SHMEDIA							\
     && immediate_operand ((X), (MODE))					\
     && ! ((fp_zero_operand (X) || fp_one_operand (X))			\
@@ -1352,7 +1357,7 @@ extern const enum reg_class reg_class_from_letter[];
       && ((GET_CODE (X) == REG && REGNO (X) >= FIRST_PSEUDO_REGISTER)	\
 	  || (GET_CODE (X) == MEM && GET_CODE (XEXP ((X), 0)) == PLUS)))\
    ? GENERAL_REGS							\
-   : (((CLASS) == FP_REGS || (CLASS) == DF_REGS || (CLASS) == DF_HI_REGS)\
+   : (REGCLASS_HAS_FP_REG (CLASS) 					\
       && TARGET_SHMEDIA							\
       && immediate_operand ((X), (MODE))				\
       && (X) != CONST0_RTX (GET_MODE (X))				\
@@ -1700,13 +1705,6 @@ struct sh_args {
     (CUM).outgoing = 0;						\
   } while (0)
  
-/* FIXME: This is overly conservative.  A SHcompact function that
-   receives arguments ``by reference'' will have them stored in its
-   own stack frame, so it must not pass pointers or references to
-   these arguments to other functions by means of sibling calls.  */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) \
-  (! TARGET_SHCOMPACT || current_function_args_info.stack_regs == 0)
-
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
    (TYPE is null for libcalls where that information may not be
@@ -2130,8 +2128,6 @@ while (0)
 
 /* Addressing modes, and classification of registers for them.  */
 #define HAVE_POST_INCREMENT  TARGET_SH1
-/*#define HAVE_PRE_INCREMENT   1*/
-/*#define HAVE_POST_DECREMENT  1*/
 #define HAVE_PRE_DECREMENT   TARGET_SH1
 
 #define USE_LOAD_POST_INCREMENT(mode)    ((mode == SImode || mode == DImode) \
@@ -2316,12 +2312,18 @@ while (0)
 	   ? sh_const_vec ((OP), VOIDmode) \
 	   : sh_1el_vec ((OP), VOIDmode))))
 
+#define EXTRA_CONSTRAINT_Z(OP) \
+  (GET_CODE (OP) == CONST_INT \
+   && (INTVAL (OP) == (unsigned) 0xffffffff \
+       || INTVAL (OP) == (HOST_WIDE_INT) -1 << 32))
+
 #define EXTRA_CONSTRAINT(OP, C)		\
   ((C) == 'Q' ? EXTRA_CONSTRAINT_Q (OP)	\
    : (C) == 'S' ? EXTRA_CONSTRAINT_S (OP) \
    : (C) == 'T' ? EXTRA_CONSTRAINT_T (OP) \
    : (C) == 'U' ? EXTRA_CONSTRAINT_U (OP) \
    : (C) == 'W' ? EXTRA_CONSTRAINT_W (OP) \
+   : (C) == 'Z' ? EXTRA_CONSTRAINT_Z (OP) \
    : 0)
 
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
@@ -2807,38 +2809,20 @@ while (0)
 /* Compute extra cost of moving data between one register class
    and another.  */
 
-/* Regclass always uses 2 for moves in the same register class;
-   If SECONDARY*_RELOAD_CLASS says something about the src/dst pair,
-   it uses this information.  Hence, the general register <-> floating point
+/* If SECONDARY*_RELOAD_CLASS says something about the src/dst pair, regclass
+   uses this information.  Hence, the general register <-> floating point
    register information here is not used for SFmode.  */
+
+#define REGCLASS_HAS_GENERAL_REG(CLASS) \
+  ((CLASS) == GENERAL_REGS || (CLASS) == R0_REGS \
+    || (! TARGET_SHMEDIA && (CLASS) == SIBCALL_REGS))
+
+#define REGCLASS_HAS_FP_REG(CLASS) \
+  ((CLASS) == FP0_REGS || (CLASS) == FP_REGS \
+   || (CLASS) == DF_REGS || (CLASS) == DF_HI_REGS)
+
 #define REGISTER_MOVE_COST(MODE, SRCCLASS, DSTCLASS) \
- (((((DSTCLASS) == T_REGS) || ((DSTCLASS) == PR_REGS)) ? 10		\
-   : ((((DSTCLASS) == FP0_REGS || (DSTCLASS) == FP_REGS			\
-	|| (DSTCLASS) == DF_REGS || (DSTCLASS) == DF_HI_REGS)		\
-       && ((SRCCLASS) == GENERAL_REGS || (SRCCLASS) == R0_REGS))	\
-      || (((DSTCLASS) == GENERAL_REGS || (DSTCLASS) == R0_REGS)		\
-	  && ((SRCCLASS) == FP0_REGS || (SRCCLASS) == FP_REGS		\
-	      || (SRCCLASS) == DF_REGS || (SRCCLASS) == DF_HI_REGS)))	\
-   ? (TARGET_SHMEDIA ? 4						\
-      : TARGET_FMOVD ? 8 : 12)						\
-   : (((DSTCLASS) == FPUL_REGS						\
-       && ((SRCCLASS) == GENERAL_REGS || (SRCCLASS) == R0_REGS))	\
-      || (SRCCLASS == FPUL_REGS						\
-	  && ((DSTCLASS) == GENERAL_REGS || (DSTCLASS) == R0_REGS)))	\
-   ? 5									\
-   : (((DSTCLASS) == FPUL_REGS						\
-       && ((SRCCLASS) == PR_REGS || (SRCCLASS) == MAC_REGS		\
-	    || (SRCCLASS) == T_REGS))					\
-      || ((SRCCLASS) == FPUL_REGS					\
-	  && ((DSTCLASS) == PR_REGS || (DSTCLASS) == MAC_REGS)))	\
-   ? 7									\
-   : (((SRCCLASS) == TARGET_REGS && (DSTCLASS) != GENERAL_REGS)		\
-      || ((DSTCLASS) == TARGET_REGS && (SRCCLASS) != GENERAL_REGS))	\
-   ? 20									\
-   : (((SRCCLASS) == FPSCR_REGS && (DSTCLASS) != GENERAL_REGS)		\
-      || ((DSTCLASS) == FPSCR_REGS && (SRCCLASS) != GENERAL_REGS))	\
-   ? 4									\
-   : 2) * ((MODE) == V16SFmode ? 8 : (MODE) == V4SFmode ? 2 : 1))
+  sh_register_move_cost ((MODE), (SRCCLASS), (DSTCLASS))
 
 /* ??? Perhaps make MEMORY_MOVE_COST depend on compiler option?  This
    would be so that people with slow memory systems could generate
@@ -2948,6 +2932,8 @@ while (0)
    to match gdb.  */
 /* svr4.h undefines this macro, yet we really want to use the same numbers
    for coff as for elf, so we go via another macro: SH_DBX_REGISTER_NUMBER.  */
+/* expand_builtin_init_dwarf_reg_sizes uses this to test if a
+   register exists, so we should return -1 for invalid register numbers.  */
 #define DBX_REGISTER_NUMBER(REGNO) SH_DBX_REGISTER_NUMBER (REGNO)
 
 #define SH_DBX_REGISTER_NUMBER(REGNO) \
@@ -2974,13 +2960,13 @@ while (0)
    ? (TARGET_SH5 ? 240 : 21) \
    : (REGNO) == FPUL_REG \
    ? (TARGET_SH5 ? 244 : 23) \
-   : (abort(), -1))
+   : -1)
 
 /* This is how to output a reference to a user-level label named NAME.  */
 #define ASM_OUTPUT_LABELREF(FILE, NAME)			\
   do							\
     {							\
-      char * lname;					\
+      const char * lname;				\
 							\
       STRIP_DATALABEL_ENCODING (lname, (NAME));		\
       if (lname[0] == '*')				\
@@ -3015,11 +3001,6 @@ while (0)
 #define GLOBAL_ASM_OP "\t.global\t"
 
 /* #define ASM_OUTPUT_CASE_END(STREAM,NUM,TABLE)	    */
-
-/* Construct a private name.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTVAR,NAME,NUMBER)	\
-  ((OUTVAR) = (char *) alloca (strlen (NAME) + 10),	\
-   sprintf ((OUTVAR), "%s.%d", (NAME), (NUMBER)))
 
 /* Output a relative address table.  */
 
@@ -3240,6 +3221,7 @@ extern int rtx_equal_function_value_matters;
   {"mextr_bit_offset", {CONST_INT}},					\
   {"noncommutative_float_operator", {MINUS, DIV}},			\
   {"shmedia_6bit_operand", {SUBREG, REG, CONST_INT}},			\
+  {"sh_register_operand", {REG, SUBREG, CONST_INT}},			\
   {"target_reg_operand", {SUBREG, REG}},				\
   {"target_operand", {SUBREG, REG, LABEL_REF, SYMBOL_REF, CONST, UNSPEC}},\
   {"trunc_hi_operand", {SUBREG, REG, TRUNCATE}},			\
@@ -3320,6 +3302,11 @@ extern int rtx_equal_function_value_matters;
 
 #define DWARF_FRAME_RETURN_COLUMN \
   (TARGET_SH5 ? DWARF_FRAME_REGNUM (PR_MEDIA_REG) : DWARF_FRAME_REGNUM (PR_REG))
+
+#define EH_RETURN_DATA_REGNO(N)	\
+  ((N) < 4 ? (N) + (TARGET_SH5 ? 2 : 4) : INVALID_REGNUM)
+
+#define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, STATIC_CHAIN_REGNUM)
 
 #if (defined CRT_BEGIN || defined CRT_END) && ! __SHMEDIA__
 /* SH constant pool breaks the devices in crtstuff.c to control section

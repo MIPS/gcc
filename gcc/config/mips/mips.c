@@ -29,6 +29,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include <signal.h>
 #include "rtl.h"
 #include "regs.h"
@@ -664,6 +666,9 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO mips_encode_section_info
+
+#undef TARGET_VALID_POINTER_MODE
+#define TARGET_VALID_POINTER_MODE mips_valid_pointer_mode
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -6944,7 +6949,6 @@ save_restore_insns (store_p, large_reg, large_offset)
   HOST_WIDE_INT gp_offset;
   HOST_WIDE_INT fp_offset;
   HOST_WIDE_INT end_offset;
-  rtx insn;
 
   if (frame_pointer_needed
       && ! BITSET_P (mask, HARD_FRAME_POINTER_REGNUM - GP_REG_FIRST))
@@ -6998,11 +7002,9 @@ save_restore_insns (store_p, large_reg, large_offset)
 	  base_reg_rtx = gen_rtx_REG (Pmode, MIPS_TEMP2_REGNUM);
 	  base_offset = large_offset;
 	  if (Pmode == DImode)
-	    insn = emit_insn (gen_adddi3 (base_reg_rtx, large_reg,
-					  stack_pointer_rtx));
+	    emit_insn (gen_adddi3 (base_reg_rtx, large_reg, stack_pointer_rtx));
 	  else
-	    insn = emit_insn (gen_addsi3 (base_reg_rtx, large_reg,
-					  stack_pointer_rtx));
+	    emit_insn (gen_addsi3 (base_reg_rtx, large_reg, stack_pointer_rtx));
 	}
       else
 	{
@@ -7107,11 +7109,9 @@ save_restore_insns (store_p, large_reg, large_offset)
 	  base_reg_rtx = gen_rtx_REG (Pmode, MIPS_TEMP2_REGNUM);
 	  base_offset = large_offset;
 	  if (Pmode == DImode)
-	    insn = emit_insn (gen_adddi3 (base_reg_rtx, large_reg,
-					  stack_pointer_rtx));
+	    emit_insn (gen_adddi3 (base_reg_rtx, large_reg, stack_pointer_rtx));
 	  else
-	    insn = emit_insn (gen_addsi3 (base_reg_rtx, large_reg,
-					  stack_pointer_rtx));
+	    emit_insn (gen_addsi3 (base_reg_rtx, large_reg, stack_pointer_rtx));
 	}
       else
 	{
@@ -8621,6 +8621,14 @@ mips_class_max_nregs (class, mode)
   else
     return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 }
+
+bool
+mips_valid_pointer_mode (mode)
+     enum machine_mode mode;
+{
+  return (mode == SImode || (TARGET_64BIT && mode == DImode));
+}
+
 
 /* For each mips16 function which refers to GP relative symbols, we
    use a pseudo register, initialized at the start of the function, to
@@ -10177,6 +10185,8 @@ mips_output_conditional_branch (insn,
 
     case 12:
     case 16:
+    case 24:
+    case 28:
       {
 	/* Generate a reversed conditional branch around ` j'
 	   instruction:
@@ -10184,18 +10194,41 @@ mips_output_conditional_branch (insn,
 		.set noreorder
 		.set nomacro
 		bc    l
-		nop
+		delay_slot or #nop
 		j     target
+		#nop
+	     l:
 		.set macro
 		.set reorder
-	     l:
 
+	   If the original branch was a likely branch, the delay slot
+	   must be executed only if the branch is taken, so generate:
+
+		.set noreorder
+		.set nomacro
+		bc    l
+		#nop
+		j     target
+		delay slot or #nop
+	     l:
+		.set macro
+		.set reorder
+	   
+	   When generating non-embedded PIC, instead of:
+
+	        j     target
+
+	   we emit:
+
+	        .set noat
+	        la    $at, target
+		jr    $at
+		.set at
 	*/
 
         rtx orig_target;
 	rtx target = gen_label_rtx ();
 
-        output_asm_insn ("%(%<", 0);
         orig_target = operands[1];
         operands[1] = target;
 	/* Generate the reversed comparison.  This takes four
@@ -10210,13 +10243,8 @@ mips_output_conditional_branch (insn,
 		   op1,
 		   op2);
         output_asm_insn (buffer, operands);
-        operands[1] = orig_target;
 
-	output_asm_insn ("nop\n\tj\t%1", operands);
-
-        if (length == 16)
-	  output_asm_insn ("nop", 0);
-        else
+        if (length != 16 && length != 28 && ! mips_branch_likely)
           {
             /* Output delay slot instruction.  */
             rtx insn = final_sequence;
@@ -10224,9 +10252,33 @@ mips_output_conditional_branch (insn,
                              optimize, 0, 1);
             INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
           }
-	output_asm_insn ("%>%)", 0);
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+	else
+	  output_asm_insn ("%#", 0);
+
+	if (length <= 16)
+	  output_asm_insn ("j\t%0", &orig_target);
+	else
+	  {
+	    if (Pmode == DImode)
+	      output_asm_insn ("%[dla\t%@,%0\n\tjr\t%@%]", &orig_target);
+	    else
+	      output_asm_insn ("%[la\t%@,%0\n\tjr\t%@%]", &orig_target);
+	  }
+
+        if (length != 16 && length != 28 && mips_branch_likely)
+          {
+            /* Output delay slot instruction.  */
+            rtx insn = final_sequence;
+            final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file,
+                             optimize, 0, 1);
+            INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
+          }
+	else
+	  output_asm_insn ("%#", 0);
+
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
                                    CODE_LABEL_NUMBER (target));
+
         return "";
       }
 

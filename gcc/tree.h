@@ -202,6 +202,8 @@ struct tree_common GTY(())
            TREE_LIST or TREE_VEC
        TREE_PRIVATE in
            ..._DECL
+       CALL_EXPR_HAS_RETURN_SLOT_ADDR in
+           CALL_EXPR
 
    protected_flag:
 
@@ -457,7 +459,7 @@ extern void tree_vec_elt_check_failed PARAMS ((int, int, const char *,
    is sufficient to check bounds at the time the reference is seated,
    and assume that all future uses of the reference are safe, since
    the address of references cannot change.  (2) When a reference
-   supertype is seated to an subtype object.  The bounds "remember"
+   supertype is seated to a subtype object.  The bounds "remember"
    the true size of the complete object, so that subsequent upcasts of
    the address of the reference will be checked properly (is such a
    thing valid C++?).  */
@@ -637,6 +639,10 @@ extern void tree_vec_elt_check_failed PARAMS ((int, int, const char *,
 /* In a FUNCTION_DECL, nonzero means a call to the function cannot throw
    an exception.  In a CALL_EXPR, nonzero means the call cannot throw.  */
 #define TREE_NOTHROW(NODE) ((NODE)->common.nothrow_flag)
+
+/* In a CALL_EXPR, means that the address of the return slot is part of the
+   argument list.  */
+#define CALL_EXPR_HAS_RETURN_SLOT_ADDR(NODE) ((NODE)->common.private_flag)
 
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
@@ -2247,7 +2253,9 @@ extern tree make_unsigned_type		PARAMS ((int));
 extern void initialize_sizetypes	PARAMS ((void));
 extern void set_sizetype		PARAMS ((tree));
 extern void fixup_unsigned_type		PARAMS ((tree));
+extern tree build_pointer_type_for_mode PARAMS ((tree, enum machine_mode));
 extern tree build_pointer_type		PARAMS ((tree));
+extern tree build_reference_type_for_mode PARAMS ((tree, enum machine_mode));
 extern tree build_reference_type 	PARAMS ((tree));
 extern tree build_type_no_quals 	PARAMS ((tree));
 extern tree build_index_type		PARAMS ((tree));
@@ -2271,11 +2279,9 @@ extern int tree_int_cst_lt		PARAMS ((tree, tree));
 extern int tree_int_cst_compare         PARAMS ((tree, tree));
 extern int host_integerp		PARAMS ((tree, int));
 extern HOST_WIDE_INT tree_low_cst	PARAMS ((tree, int));
-extern int tree_int_cst_msb		PARAMS ((tree));
 extern int tree_int_cst_sgn		PARAMS ((tree));
 extern int tree_expr_nonnegative_p	PARAMS ((tree));
 extern int rtl_expr_nonnegative_p	PARAMS ((rtx));
-extern int index_type_equal		PARAMS ((tree, tree));
 extern tree get_inner_array_type	PARAMS ((tree));
 
 /* From expmed.c.  Since rtl.h is included after tree.h, we can't
@@ -2402,11 +2408,6 @@ extern tree merge_attributes		PARAMS ((tree, tree));
 extern tree merge_dllimport_decl_attributes PARAMS ((tree, tree));
 #endif
 
-/* Return true if DECL will be always resolved to a symbol defined in the
-   same module (shared library or program).  */
-#define MODULE_LOCAL_P(DECL) \
-  (lookup_attribute ("visibility", DECL_ATTRIBUTES (DECL)) != NULL)
-
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
    return NULL_TREE.  */
@@ -2431,6 +2432,12 @@ extern tree build_qualified_type        PARAMS ((tree, int));
 /* Make a copy of a type node.  */
 
 extern tree build_type_copy		PARAMS ((tree));
+
+/* Finish up a builtin RECORD_TYPE. Give it a name and provide its
+   fields. Optionally specify an alignment, and then lsy it out.  */
+
+extern void finish_builtin_struct		PARAMS ((tree, const char *,
+							 tree, tree));
 
 /* Given a ..._TYPE node, calculate the TYPE_SIZE, TYPE_SIZE_UNIT,
    TYPE_ALIGN and TYPE_MODE fields.  If called more than once on one
@@ -2478,8 +2485,6 @@ extern void set_lang_adjust_rli		PARAMS ((void (*) PARAMS
 extern record_layout_info start_record_layout PARAMS ((tree));
 extern tree bit_from_pos		PARAMS ((tree, tree));
 extern tree byte_from_pos		PARAMS ((tree, tree));
-extern void pos_from_byte		PARAMS ((tree *, tree *, unsigned int,
-						 tree));
 extern void pos_from_bit		PARAMS ((tree *, tree *, unsigned int,
 						 tree));
 extern void normalize_offset		PARAMS ((tree *, tree *,
@@ -2633,6 +2638,11 @@ extern int integer_all_onesp		PARAMS ((tree));
    exactly one bit 1.  */
 
 extern int integer_pow2p		PARAMS ((tree));
+
+/* integer_nonzerop (tree x) is nonzero if X is an integer constant
+   with a nonzero value.  */
+
+extern int integer_nonzerop		PARAMS ((tree));
 
 /* staticp (tree x) is nonzero if X is a reference to data allocated
    at a fixed address in memory.  */
@@ -2815,7 +2825,6 @@ extern tree lhd_unsave_expr_now		PARAMS ((tree));
 
 /* In stmt.c */
 
-extern int in_control_zone_p			PARAMS ((void));
 extern void expand_fixups			PARAMS ((rtx));
 extern tree expand_start_stmt_expr		PARAMS ((int));
 extern tree expand_end_stmt_expr		PARAMS ((tree));
@@ -2872,7 +2881,6 @@ extern int pushcase_range			PARAMS ((tree, tree,
 						       tree (*) (tree, tree),
 						       tree, tree *));
 extern void using_eh_for_cleanups		PARAMS ((void));
-extern int stmt_loop_nest_empty			PARAMS ((void));
 
 /* In fold-const.c */
 
@@ -2916,9 +2924,10 @@ extern void rrotate_double	PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 extern int operand_equal_p	PARAMS ((tree, tree, int));
 extern tree invert_truthvalue	PARAMS ((tree));
 
-extern tree fold_builtin		PARAMS ((tree));
-
-extern tree build_range_type PARAMS ((tree, tree, tree));
+/* In builtins.c */
+extern tree fold_builtin				PARAMS ((tree));
+extern enum built_in_function builtin_mathfn_code	PARAMS ((tree));
+extern tree build_function_call_expr			PARAMS ((tree, tree));
 
 /* In alias.c */
 extern void record_component_aliases		PARAMS ((tree));
@@ -2941,9 +2950,6 @@ extern int compare_tree_int		PARAMS ((tree,
 						 unsigned HOST_WIDE_INT));
 extern int type_list_equal		PARAMS ((tree, tree));
 extern int chain_member			PARAMS ((tree, tree));
-extern int chain_member_purpose		PARAMS ((tree, tree));
-extern int chain_member_value		PARAMS ((tree, tree));
-extern tree listify			PARAMS ((tree));
 extern tree type_hash_lookup		PARAMS ((unsigned int, tree));
 extern void type_hash_add		PARAMS ((unsigned int, tree));
 extern unsigned int type_hash_list	PARAMS ((tree));
@@ -2966,6 +2972,7 @@ extern void gcc_obstack_init		PARAMS ((struct obstack *));
 extern void init_ttree			PARAMS ((void));
 extern void build_common_tree_nodes	PARAMS ((int));
 extern void build_common_tree_nodes_2	PARAMS ((int));
+extern tree build_range_type		PARAMS ((tree, tree, tree));
 
 /* In function.c */
 extern void setjmp_protect_args		PARAMS ((void));
@@ -2992,7 +2999,6 @@ extern int aggregate_value_p		PARAMS ((tree));
 extern void free_temps_for_rtl_expr	PARAMS ((tree));
 extern void instantiate_virtual_regs	PARAMS ((tree, rtx));
 extern void unshare_all_rtl		PARAMS ((tree, rtx));
-extern int max_parm_reg_num		PARAMS ((void));
 extern void push_function_context	PARAMS ((void));
 extern void pop_function_context	PARAMS ((void));
 extern void push_function_context_to	PARAMS ((tree));
@@ -3079,7 +3085,6 @@ extern void expand_asm_operands		PARAMS ((tree, tree, tree, tree, int,
 						 const char *, int));
 extern int any_pending_cleanups		PARAMS ((int));
 extern void init_stmt_for_function	PARAMS ((void));
-extern int drop_through_at_end_p	PARAMS ((void));
 extern void expand_start_target_temps	PARAMS ((void));
 extern void expand_end_target_temps	PARAMS ((void));
 extern void expand_elseif		PARAMS ((tree));
@@ -3088,10 +3093,7 @@ extern void expand_decl			PARAMS ((tree));
 extern int expand_decl_cleanup		PARAMS ((tree, tree));
 extern int expand_decl_cleanup_eh	PARAMS ((tree, tree, int));
 extern void expand_anon_union_decl	PARAMS ((tree, tree, tree));
-extern void move_cleanups_up		PARAMS ((void));
 extern void expand_start_case_dummy	PARAMS ((void));
-extern void expand_end_case_dummy	PARAMS ((void));
-extern tree case_index_expr_type	PARAMS ((void));
 extern HOST_WIDE_INT all_cases_count	PARAMS ((tree, int *));
 extern void check_for_full_enumeration_handling PARAMS ((tree));
 extern void declare_nonlocal_label	PARAMS ((tree));

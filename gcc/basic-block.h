@@ -112,7 +112,11 @@ do {									\
    be done, other than zero the statistics on the first allocation.  */
 #define MAX_REGNO_REG_SET(NUM_REGS, NEW_P, RENUMBER_P)
 
-/* Type we use to hold basic block counters.  Should be at least 64bit.  */
+/* Type we use to hold basic block counters.  Should be at least
+   64bit.  Although a counter cannot be negative, we use a signed
+   type, because erroneous negative counts can be generated when the
+   flow graph is manipulated by various optimizations.  A signed type
+   makes those easy to detect. */
 typedef HOST_WIDEST_INT gcov_type;
 
 /* Control flow edge information.  */
@@ -748,8 +752,10 @@ extern void free_aux_for_edges		PARAMS ((void));
    it being unused.  */
 extern void verify_flow_info		PARAMS ((void));
 extern bool flow_loop_outside_edge_p	PARAMS ((const struct loop *, edge));
-extern bool flow_loop_nested_p PARAMS ((const struct loop *, const struct loop *));
-extern bool flow_bb_inside_loop_p       PARAMS ((const struct loop *, basic_block));
+extern bool flow_loop_nested_p PARAMS ((const struct loop *,
+					const struct loop *));
+extern bool flow_bb_inside_loop_p       PARAMS ((const struct loop *,
+						 const basic_block));
 extern basic_block *get_loop_body       PARAMS ((const struct loop *));
 extern int dfs_enumerate_from           PARAMS ((basic_block, int,
 				         bool (*)(basic_block, void *),

@@ -32,6 +32,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "expr.h"
@@ -6204,6 +6206,12 @@ check_return_expr (retval)
       return NULL_TREE;
     }
 
+  if (processing_template_decl)
+    {
+      current_function_returns_value = 1;
+      return retval;
+    }
+  
   /* When no explicit return-value is given in a function with a named
      return value, the named return value is used.  */
   result = DECL_RESULT (current_function_decl);

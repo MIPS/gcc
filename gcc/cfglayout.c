@@ -20,6 +20,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
@@ -708,7 +710,7 @@ cfg_layout_can_duplicate_bb_p (bb)
   if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR)
     return false;
 
-  /* Duplicating fallthru block to exit would require adding an jump
+  /* Duplicating fallthru block to exit would require adding a jump
      and splitting the real last BB.  */
   for (s = bb->succ; s; s = s->succ_next)
     if (s->dest == EXIT_BLOCK_PTR && s->flags & EDGE_FALLTHRU)
@@ -740,7 +742,6 @@ duplicate_insn_chain (from, to)
      be reordered later.  */
   for (insn = from; insn != NEXT_INSN (to); insn = NEXT_INSN (insn))
     {
-      rtx new;
       switch (GET_CODE (insn))
 	{
 	case INSN:
@@ -752,7 +753,7 @@ duplicate_insn_chain (from, to)
 	  if (GET_CODE (PATTERN (insn)) == ADDR_VEC
 	      || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC)
 	    break;
-	  new = emit_copy_of_insn_after (insn, get_last_insn ());
+	  emit_copy_of_insn_after (insn, get_last_insn ());
 	  break;
 
 	case CODE_LABEL:
@@ -862,7 +863,7 @@ cfg_layout_redirect_edge (e, dest)
   src->next_bb = old_next_bb;
 }
 
-/* Create an duplicate of the basic block BB and redirect edge E into it.  */
+/* Create a duplicate of the basic block BB and redirect edge E into it.  */
 
 basic_block
 cfg_layout_duplicate_bb (bb, e)

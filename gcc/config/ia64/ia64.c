@@ -22,6 +22,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tree.h"
 #include "regs.h"
@@ -8141,16 +8143,20 @@ ia64_hpux_asm_file_end (file)
 {
   while (extern_func_head)
     {
-      const char *const real_name =
-	(* targetm.strip_name_encoding) (extern_func_head->name);
-      tree decl = get_identifier (real_name);
+      const char *real_name;
+      tree decl;
 
-      if (decl && ! TREE_ASM_WRITTEN (decl) && TREE_SYMBOL_REFERENCED (decl))
+      real_name = (* targetm.strip_name_encoding) (extern_func_head->name);
+      decl = maybe_get_identifier (real_name);
+
+      if (!decl
+	  || (! TREE_ASM_WRITTEN (decl) && TREE_SYMBOL_REFERENCED (decl)))
         {
-	  TREE_ASM_WRITTEN (decl) = 1;
-	  (*targetm.asm_out.globalize_label) (file, real_name);
+	  if (decl)
+	    TREE_ASM_WRITTEN (decl) = 1;
+	  (*targetm.asm_out.globalize_label) (file, extern_func_head->name);
 	  fprintf (file, "%s", TYPE_ASM_OP);
-	  assemble_name (file, real_name);
+	  assemble_name (file, extern_func_head->name);
 	  putc (',', file);
 	  fprintf (file, TYPE_OPERAND_FMT, "function");
 	  putc ('\n', file);

@@ -135,6 +135,7 @@
   (UNSPEC_FSINA		16)
   (UNSPEC_NSB		17)
   (UNSPEC_ALLOCO	18)
+  (UNSPEC_EH_RETURN	19)
 
   ;; These are used with unspec_volatile.
   (UNSPECV_BLOCKAGE	0)
@@ -1970,7 +1971,7 @@
 (define_insn_and_split "anddi3"
   [(set (match_operand:DI 0 "arith_reg_operand" "=r,r,r")
 	(and:DI (match_operand:DI 1 "arith_reg_operand" "%r,r,r")
-		(match_operand:DI 2 "and_operand" "r,P,n")))]
+		(match_operand:DI 2 "and_operand" "r,P,Z")))]
   "TARGET_SHMEDIA"
   "@
 	and	%1, %2, %0
@@ -3408,9 +3409,11 @@
 ;; (subreg:SI (reg:SF FR14_REG) 0) into T (compiling stdlib/strtod.c -m3e -O2)
 ;; ??? This allows moves from macl to fpul to be recognized, but these moves
 ;; will require a reload.
+;; ??? We can't include f/f because we need the proper FPSCR setting when
+;; TARGET_FMOVD is in effect, and mode switching is done before reload.
 (define_insn "movsi_ie"
-  [(set (match_operand:SI 0 "general_movdst_operand" "=r,r,t,r,r,r,r,m,<,<,x,l,x,l,y,<,r,y,r,y")
-	(match_operand:SI 1 "general_movsrc_operand" "Q,rI,r,mr,x,l,t,r,x,l,r,r,>,>,>,y,i,r,y,y"))]
+  [(set (match_operand:SI 0 "general_movdst_operand" "=r,r,t,r,r,r,r,m,<,<,x,l,x,l,y,<,r,y,r,*f,y,*f,y")
+	(match_operand:SI 1 "general_movsrc_operand" "Q,rI,r,mr,x,l,t,r,x,l,r,r,>,>,>,y,i,r,y,y,*f,*f,y"))]
   "TARGET_SH3E
    && (register_operand (operands[0], SImode)
        || register_operand (operands[1], SImode))"
@@ -3434,10 +3437,13 @@
 	fake	%1,%0
 	lds	%1,%0
 	sts	%1,%0
+	fsts	fpul,%0
+	flds	%1,fpul
+	fmov	%1,%0
 	! move optimized away"
-  [(set_attr "type" "pcload_si,move,*,load_si,mac_gp,prget,move,store,store,pstore,move,prset,load,pload,load,store,pcload_si,gp_fpul,fpul_gp,nil")
-   (set_attr "late_fp_use" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,yes,*,*,yes,*")
-   (set_attr "length" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,0")])
+  [(set_attr "type" "pcload_si,move,*,load_si,mac_gp,prget,move,store,store,pstore,move,prset,load,pload,load,store,pcload_si,gp_fpul,fpul_gp,fmove,fmove,fmove,nil")
+   (set_attr "late_fp_use" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,yes,*,*,yes,*,*,*,*")
+   (set_attr "length" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,0")])
 
 (define_insn "movsi_i_lowpart"
   [(set (strict_low_part (match_operand:SI 0 "general_movdst_operand" "+r,r,r,r,r,r,m,r"))
@@ -3458,16 +3464,16 @@
 
 (define_insn "*movsi_media"
   [(set (match_operand:SI 0 "general_movdst_operand" "=r,r,r,r,m,f,m,f,r,f,*b,r,b")
-	(match_operand:SI 1 "general_movsrc_operand" "r,JS,ns,m,r,m,f,rU,f,f,r,*b,T"))]
+	(match_operand:SI 1 "general_movsrc_operand" "r,JS,ns,m,rU,m,f,rU,f,f,r,*b,T"))]
   "TARGET_SHMEDIA_FPU
    && (register_operand (operands[0], SImode)
-       || register_operand (operands[1], SImode))"
+       || sh_register_operand (operands[1], SImode))"
   "@
 	add.l	%1, r63, %0
 	movi	%1, %0
 	#
 	ld%M1.l	%m1, %0
-	st%M0.l	%m0, %1
+	st%M0.l	%m0, %N1
 	fld%M1.s	%m1, %0
 	fst%M0.s	%m0, %1
 	fmov.ls	%N1, %0
@@ -3481,16 +3487,16 @@
 
 (define_insn "*movsi_media_nofpu"
   [(set (match_operand:SI 0 "general_movdst_operand" "=r,r,r,r,m,*b,r,b")
-	(match_operand:SI 1 "general_movsrc_operand" "r,JS,ns,m,r,r,*b,T"))]
+	(match_operand:SI 1 "general_movsrc_operand" "r,JS,ns,m,rU,r,*b,T"))]
   "TARGET_SHMEDIA
    && (register_operand (operands[0], SImode)
-       || register_operand (operands[1], SImode))"
+       || sh_register_operand (operands[1], SImode))"
   "@
 	add.l	%1, r63, %0
 	movi	%1, %0
 	#
 	ld%M1.l	%m1, %0
-	st%M0.l	%m0, %1
+	st%M0.l	%m0, %N1
 	ptabs	%1, %0
 	gettr	%1, %0
 	pt	%1, %0"
@@ -3630,15 +3636,15 @@
 
 (define_insn "*movqi_media"
   [(set (match_operand:QI 0 "general_movdst_operand" "=r,r,r,m")
-	(match_operand:QI 1 "general_movsrc_operand" "r,JS,m,r"))]
+	(match_operand:QI 1 "general_movsrc_operand" "r,JS,m,rU"))]
   "TARGET_SHMEDIA
    && (arith_reg_operand (operands[0], QImode)
-       || arith_reg_operand (operands[1], QImode))"
+       || arith_reg_or_0_operand (operands[1], QImode))"
   "@
 	add.l	%1, r63, %0
 	movi	%1, %0
 	ld%M1.ub	%m1, %0
-	st%M0.b	%m0, %1"
+	st%M0.b	%m0, %N1"
   [(set_attr "type" "arith_media,arith_media,load_media,store_media")])
 
 (define_expand "movqi"
@@ -3682,16 +3688,16 @@
 
 (define_insn "*movhi_media"
   [(set (match_operand:HI 0 "general_movdst_operand" "=r,r,r,r,m")
-	(match_operand:HI 1 "general_movsrc_operand" "r,JS,n,m,r"))]
+	(match_operand:HI 1 "general_movsrc_operand" "r,JS,n,m,rU"))]
   "TARGET_SHMEDIA
    && (arith_reg_operand (operands[0], HImode)
-       || arith_reg_operand (operands[1], HImode))"
+       || arith_reg_or_0_operand (operands[1], HImode))"
   "@
 	add.l	%1, r63, %0
 	movi	%1, %0
 	#
 	ld%M1.w	%m1, %0
-	st%M0.w	%m0, %1"
+	st%M0.w	%m0, %N1"
   [(set_attr "type" "arith_media,arith_media,*,load_media,store_media")])
 
 (define_split
@@ -3786,16 +3792,16 @@
 
 (define_insn "*movdi_media"
   [(set (match_operand:DI 0 "general_movdst_operand" "=r,r,r,rl,m,f,m,f,r,f,*b,r,b")
-	(match_operand:DI 1 "general_movsrc_operand" "r,JS,iF,m,rl,m,f,rU,f,f,r,*b,T"))]
+	(match_operand:DI 1 "general_movsrc_operand" "r,JS,iF,m,rlU,m,f,rU,f,f,r,*b,T"))]
   "TARGET_SHMEDIA_FPU
    && (register_operand (operands[0], DImode)
-       || register_operand (operands[1], DImode))"
+       || sh_register_operand (operands[1], DImode))"
   "@
 	add	%1, r63, %0
 	movi	%1, %0
 	#
 	ld%M1.q	%m1, %0
-	st%M0.q	%m0, %1
+	st%M0.q	%m0, %N1
 	fld%M1.d	%m1, %0
 	fst%M0.d	%m0, %1
 	fmov.qd	%N1, %0
@@ -3809,16 +3815,16 @@
 
 (define_insn "*movdi_media_nofpu"
   [(set (match_operand:DI 0 "general_movdst_operand" "=r,r,r,rl,m,*b,r,b")
-	(match_operand:DI 1 "general_movsrc_operand" "r,JS,iF,m,rl,r,*b,T"))]
+	(match_operand:DI 1 "general_movsrc_operand" "r,JS,iF,m,rlU,r,*b,T"))]
   "TARGET_SHMEDIA
    && (register_operand (operands[0], DImode)
-       || register_operand (operands[1], DImode))"
+       || sh_register_operand (operands[1], DImode))"
   "@
 	add	%1, r63, %0
 	movi	%1, %0
 	#
 	ld%M1.q	%m1, %0
-	st%M0.q	%m0, %1
+	st%M0.q	%m0, %N1
 	ptabs	%1, %0
 	gettr	%1, %0
 	pt	%1, %0"
@@ -4078,10 +4084,10 @@
 
 (define_insn "movdf_media"
   [(set (match_operand:DF 0 "general_movdst_operand" "=f,f,r,r,r,f,m,r,m")
-	(match_operand:DF 1 "general_movsrc_operand" "f,rU,f,r,F,m,f,m,r"))]
+	(match_operand:DF 1 "general_movsrc_operand" "f,rU,f,r,F,m,f,m,rU"))]
   "TARGET_SHMEDIA_FPU
    && (register_operand (operands[0], DFmode)
-       || register_operand (operands[1], DFmode))"
+       || sh_register_operand (operands[1], DFmode))"
   "@
 	fmov.d	%1, %0
 	fmov.qd	%N1, %0
@@ -4091,20 +4097,20 @@
 	fld%M1.d	%m1, %0
 	fst%M0.d	%m0, %1
 	ld%M1.q	%m1, %0
-	st%M0.q	%m0, %1"
+	st%M0.q	%m0, %N1"
   [(set_attr "type" "fmove_media,fload_media,dfpconv_media,arith_media,*,fload_media,fstore_media,load_media,store_media")])
 
 (define_insn "movdf_media_nofpu"
   [(set (match_operand:DF 0 "general_movdst_operand" "=r,r,r,m")
-	(match_operand:DF 1 "general_movsrc_operand" "r,F,m,r"))]
+	(match_operand:DF 1 "general_movsrc_operand" "r,F,m,rU"))]
   "TARGET_SHMEDIA
    && (register_operand (operands[0], DFmode)
-       || register_operand (operands[1], DFmode))"
+       || sh_register_operand (operands[1], DFmode))"
   "@
 	add	%1, r63, %0
 	#
 	ld%M1.q	%m1, %0
-	st%M0.q	%m0, %1"
+	st%M0.q	%m0, %N1"
   [(set_attr "type" "arith_media,*,load_media,store_media")])
 
 (define_split
@@ -4688,7 +4694,7 @@
 
 (define_insn_and_split "*movv4sf_i"
   [(set (match_operand:V4SF 0 "nonimmediate_operand" "=f,f,m")
-	(match_operand:V4SF 1 "general_operand" "fU,m,f"))]
+	(match_operand:V4SF 1 "general_operand" "fU,m,fU"))]
   "TARGET_SHMEDIA_FPU"
   "#"
   "&& reload_completed"
@@ -4786,10 +4792,10 @@
 
 (define_insn "movsf_media"
   [(set (match_operand:SF 0 "general_movdst_operand" "=f,f,r,r,r,f,m,r,m")
-	(match_operand:SF 1 "general_movsrc_operand" "f,rU,f,r,F,m,f,m,r"))]
+	(match_operand:SF 1 "general_movsrc_operand" "f,rU,f,r,F,m,f,m,rU"))]
   "TARGET_SHMEDIA_FPU
    && (register_operand (operands[0], SFmode)
-       || register_operand (operands[1], SFmode))"
+       || sh_register_operand (operands[1], SFmode))"
   "@
 	fmov.s	%1, %0
 	fmov.ls	%N1, %0
@@ -4799,20 +4805,20 @@
 	fld%M1.s	%m1, %0
 	fst%M0.s	%m0, %1
 	ld%M1.l	%m1, %0
-	st%M0.l	%m0, %1"
+	st%M0.l	%m0, %N1"
   [(set_attr "type" "fmove_media,fload_media,fpconv_media,arith_media,*,fload_media,fstore_media,load_media,store_media")])
 
 (define_insn "movsf_media_nofpu"
   [(set (match_operand:SF 0 "general_movdst_operand" "=r,r,r,m")
-	(match_operand:SF 1 "general_movsrc_operand" "r,F,m,r"))]
+	(match_operand:SF 1 "general_movsrc_operand" "r,F,m,rU"))]
   "TARGET_SHMEDIA
    && (register_operand (operands[0], SFmode)
-       || register_operand (operands[1], SFmode))"
+       || sh_register_operand (operands[1], SFmode))"
   "@
 	add.l	%1, r63, %0
 	#
 	ld%M1.l	%m1, %0
-	st%M0.l	%m0, %1"
+	st%M0.l	%m0, %N1"
   [(set_attr "type" "arith_media,*,load_media,store_media")])
 
 (define_split
@@ -7140,6 +7146,48 @@
   DONE;
 }")
 
+(define_expand "eh_return"
+  [(use (match_operand 0 "register_operand" ""))
+   (use (match_operand 1 "register_operand" ""))]
+  ""
+{
+  rtx tmp, sa = operands[0], ra = operands[1];
+
+  if (TARGET_SHMEDIA64)
+    emit_insn (gen_eh_set_ra_di (ra));
+  else
+    emit_insn (gen_eh_set_ra_si (ra));
+
+  emit_move_insn (EH_RETURN_STACKADJ_RTX, sa);
+  DONE;
+})
+
+;; Clobber the return address on the stack.  We can't expand this
+;; until we know where it will be put in the stack frame.
+
+(define_insn "eh_set_ra_si"
+  [(unspec [(match_operand:SI 0 "register_operand" "r")] UNSPEC_EH_RETURN)
+   (clobber (match_scratch:SI 1 "=&r"))]
+  "! TARGET_SHMEDIA64"
+  "#")
+
+(define_insn "eh_set_ra_di"
+  [(unspec [(match_operand:DI 0 "register_operand" "r")] UNSPEC_EH_RETURN)
+   (clobber (match_scratch:DI 1 "=&r"))]
+  "TARGET_SHMEDIA64"
+  "#")
+
+(define_split
+  [(unspec [(match_operand 0 "register_operand" "")] UNSPEC_EH_RETURN)
+   (clobber (match_scratch 1 ""))]
+  "reload_completed"
+  [(const_int 0)]
+  "
+{
+  sh_set_return_address (operands[0], operands[1]);
+  DONE;
+}")
+
 (define_insn "blockage"
   [(unspec_volatile [(const_int 0)] UNSPECV_BLOCKAGE)]
   ""
@@ -9150,16 +9198,16 @@
 
 (define_insn "movv8qi_i"
   [(set (match_operand:V8QI 0 "general_movdst_operand" "=r,r,r,rl,m")
-	(match_operand:V8QI 1 "general_movsrc_operand" "r,JSU,nW,m,rl"))]
+	(match_operand:V8QI 1 "general_movsrc_operand" "r,JSU,nW,m,rlU"))]
   "TARGET_SHMEDIA
    && (register_operand (operands[0], V8QImode)
-       || register_operand (operands[1], V8QImode))"
+       || sh_register_operand (operands[1], V8QImode))"
   "@
 	add	%1, r63, %0
 	movi	%1, %0
 	#
 	ld%M1.q	%m1, %0
-	st%M0.q	%m0, %1"
+	st%M0.q	%m0, %N1"
   [(set_attr "type"   "arith_media,arith_media,*,load_media,store_media")
    (set_attr "length" "4,4,16,4,4")])
 
@@ -9242,16 +9290,16 @@
 
 (define_insn "movv2hi_i"
   [(set (match_operand:V2HI 0 "general_movdst_operand" "=r,r,r,rl,m")
-	(match_operand:V2HI 1 "general_movsrc_operand" "r,JSU,nW,m,rl"))]
+	(match_operand:V2HI 1 "general_movsrc_operand" "r,JSU,nW,m,rlU"))]
   "TARGET_SHMEDIA
    && (register_operand (operands[0], V2HImode)
-       || register_operand (operands[1], V2HImode))"
+       || sh_register_operand (operands[1], V2HImode))"
   "@
 	addz.l	%1, r63, %0
 	movi	%1, %0
 	#
 	ld%M1.l	%m1, %0
-	st%M0.l	%m0, %1"
+	st%M0.l	%m0, %N1"
   [(set_attr "type"   "arith_media,arith_media,*,load_media,store_media")
    (set_attr "length" "4,4,16,4,4")])
 
@@ -9263,16 +9311,16 @@
 
 (define_insn "movv4hi_i"
   [(set (match_operand:V4HI 0 "general_movdst_operand" "=r,r,r,rl,m")
-	(match_operand:V4HI 1 "general_movsrc_operand" "r,JSU,nW,m,rl"))]
+	(match_operand:V4HI 1 "general_movsrc_operand" "r,JSU,nW,m,rlU"))]
   "TARGET_SHMEDIA
    && (register_operand (operands[0], V4HImode)
-       || register_operand (operands[1], V4HImode))"
+       || sh_register_operand (operands[1], V4HImode))"
   "@
 	add	%1, r63, %0
 	movi	%1, %0
 	#
 	ld%M1.q	%m1, %0
-	st%M0.q	%m0, %1"
+	st%M0.q	%m0, %N1"
   [(set_attr "type"   "arith_media,arith_media,*,load_media,store_media")
    (set_attr "length" "4,4,16,4,4")])
 
@@ -9284,16 +9332,16 @@
 
 (define_insn "movv2si_i"
   [(set (match_operand:V2SI 0 "general_movdst_operand" "=r,r,r,rl,m")
-	(match_operand:V2SI 1 "general_movsrc_operand" "r,JSU,nW,m,rl"))]
+	(match_operand:V2SI 1 "general_movsrc_operand" "r,JSU,nW,m,rlU"))]
   "TARGET_SHMEDIA
    && (register_operand (operands[0], V2SImode)
-       || register_operand (operands[1], V2SImode))"
+       || sh_register_operand (operands[1], V2SImode))"
   "@
 	add	%1, r63, %0
 	#
 	#
 	ld%M1.q	%m1, %0
-	st%M0.q	%m0, %1"
+	st%M0.q	%m0, %N1"
   [(set_attr "type"   "arith_media,arith_media,*,load_media,store_media")
    (set_attr "length" "4,4,16,4,4")])
 

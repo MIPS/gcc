@@ -26,10 +26,6 @@ extern void compute_alignments  PARAMS ((void));
 /* Initialize data in final at the beginning of a compilation.  */
 extern void init_final		PARAMS ((const char *));
 
-/* Called at end of source file,
-   to output the block-profiling table for this entire compilation.  */
-extern void end_final		PARAMS ((const char *));
-
 /* Enable APP processing of subsequent output.
    Used before the output from an `asm' statement.  */
 extern void app_enable		PARAMS ((void));
@@ -118,7 +114,7 @@ extern void split_double	PARAMS ((rtx, rtx *, rtx *));
 /* Return nonzero if this function has no function calls.  */
 extern int leaf_function_p	PARAMS ((void));
 
-/* Return 1 if branch is an forward branch.
+/* Return 1 if branch is a forward branch.
    Uses insn_shuid array, so it works only in the final pass.  May be used by
    output templates to add branch prediction hints, for example.  */
 extern int final_forward_branch_p PARAMS ((rtx));
@@ -154,9 +150,6 @@ extern void text_section		PARAMS ((void));
 
 /* Tell assembler to switch to data section.  */
 extern void data_section		PARAMS ((void));
-
-/* Tell assembler to make sure its in the data section.  */
-extern void force_data_section		PARAMS ((void));
 
 /* Tell assembler to switch to read-only data section.  This is normally
    the text section.  */
@@ -247,9 +240,6 @@ extern int decode_reg_name		PARAMS ((const char *));
 /* Make the rtl for variable VAR be volatile.
    Use this only for static variables.  */
 extern void make_var_volatile		PARAMS ((tree));
-
-/* Output alignment directive to align for constant expression EXP.  */
-extern void assemble_constant_align	PARAMS ((tree));
 
 extern void assemble_alias		PARAMS ((tree, tree));
 
@@ -533,6 +523,8 @@ extern const char *default_strip_name_encoding PARAMS ((const char *));
 extern bool default_binds_local_p PARAMS ((tree));
 extern bool default_binds_local_p_1 PARAMS ((tree, int));
 extern void default_globalize_label PARAMS ((FILE *, const char *));
+extern void default_internal_label PARAMS ((FILE *, const char *, unsigned long));
+extern bool default_valid_pointer_mode PARAMS ((enum machine_mode));
 
 /* Emit data for vtable gc for GNU binutils.  */
 extern void assemble_vtable_entry PARAMS ((struct rtx_def *, HOST_WIDE_INT));

@@ -29,6 +29,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tree.h"
 #include "flags.h"
@@ -256,16 +258,6 @@ data_section ()
       else
 	fprintf (asm_out_file, "%s\n", DATA_SECTION_ASM_OP);
     }
-}
-
-/* Tell assembler to ALWAYS switch to data section, in case
-   it's not sure where it is.  */
-
-void
-force_data_section ()
-{
-  in_section = no_section;
-  data_section ();
 }
 
 /* Tell assembler to switch to read-only data section.  This is normally
@@ -961,26 +953,6 @@ make_var_volatile (var)
   MEM_VOLATILE_P (DECL_RTL (var)) = 1;
 }
 
-/* Output alignment directive to align for constant expression EXP.  */
-
-void
-assemble_constant_align (exp)
-     tree exp;
-{
-  int align;
-
-  /* Align the location counter as required by EXP's data type.  */
-  align = TYPE_ALIGN (TREE_TYPE (exp));
-#ifdef CONSTANT_ALIGNMENT
-  align = CONSTANT_ALIGNMENT (exp, align);
-#endif
-
-  if (align > BITS_PER_UNIT)
-    {
-      ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (align / BITS_PER_UNIT));
-    }
-}
-
 /* Output a string of literal assembler code
    for an `asm' keyword used between functions.  */
 
@@ -1848,7 +1820,7 @@ assemble_trampoline_template ()
       ASM_OUTPUT_ALIGN (asm_out_file, align);
     }
 
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LTRAMP", 0);
+  (*targetm.asm_out.internal_label) (asm_out_file, "LTRAMP", 0);
   TRAMPOLINE_TEMPLATE (asm_out_file);
 
   /* Record the rtl to refer to it.  */
@@ -2837,7 +2809,7 @@ output_constant_def_contents (exp, reloc, labelno)
     }
 
   /* Output the label itself.  */
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LC", labelno);
+  (*targetm.asm_out.internal_label) (asm_out_file, "LC", labelno);
 
   /* Output the value of EXP.  */
   output_constant (exp,
@@ -3209,6 +3181,10 @@ force_const_mem (mode, x)
   struct pool_constant *pool;
   unsigned int align;
 
+  /* If we're not allowed to drop X into the constant pool, don't.  */
+  if ((*targetm.cannot_force_const_mem) (x))
+    return NULL_RTX;
+
   /* Compute hash code of X.  Search the descriptors for that hash code
      to see if any of them describes X.  If yes, we have an rtx to use.  */
   hash = const_hash_rtx (mode, x);
@@ -3439,7 +3415,7 @@ output_constant_pool (fnname, fndecl)
       assemble_align (pool->align);
 
       /* Output the label.  */
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LC", pool->labelno);
+      (*targetm.asm_out.internal_label) (asm_out_file, "LC", pool->labelno);
 
       /* Output the value of the constant itself.  */
       switch (GET_MODE_CLASS (pool->mode))
@@ -4538,7 +4514,9 @@ weak_finish ()
   for (t = weak_decls; t; t = TREE_CHAIN (t))
     {
       tree decl = TREE_VALUE (t);
-      const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+#if defined (ASM_WEAKEN_DECL) || defined (ASM_WEAKEN_LABEL)
+      const char *const name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+#endif
 
       if (! TREE_USED (decl))
 	continue;
@@ -5413,7 +5391,7 @@ default_binds_local_p_1 (exp, shlib)
   else if (! TREE_PUBLIC (exp))
     local_p = true;
   /* A variable is local if the user tells us so.  */
-  else if (MODULE_LOCAL_P (exp))
+  else if (decl_visibility (exp) != VISIBILITY_DEFAULT)
     local_p = true;
   /* Otherwise, variables defined outside this object may not be local.  */
   else if (DECL_EXTERNAL (exp))
@@ -5439,6 +5417,15 @@ default_binds_local_p_1 (exp, shlib)
   return local_p;
 }
 
+/* Determine whether or not a pointer mode is valid. Assume defaults
+   of ptr_mode or Pmode - can be overriden.  */
+bool
+default_valid_pointer_mode (mode)
+     enum machine_mode mode;
+{
+  return (mode == ptr_mode || mode == Pmode);
+}
+
 /* Default function to output code that will globalize a label.  A
    target must define GLOBAL_ASM_OP or provide it's own function to
    globalize a label.  */
@@ -5454,4 +5441,18 @@ default_globalize_label (stream, name)
 }
 #endif /* GLOBAL_ASM_OP */
   
+/* This is how to output an internal numbered label where PREFIX is
+   the class of label and LABELNO is the number within the class.  */
+
+void
+default_internal_label (stream, prefix, labelno)
+     FILE *stream;
+     const char *prefix;
+     unsigned long labelno;
+{
+  char *const buf = alloca (40 + strlen (prefix));
+  ASM_GENERATE_INTERNAL_LABEL (buf, prefix, labelno);
+  ASM_OUTPUT_LABEL (stream, buf);
+}
+
 #include "gt-varasm.h"

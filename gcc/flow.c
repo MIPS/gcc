@@ -120,6 +120,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -1380,7 +1382,7 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 }
 
 
-/* This structure is used to pass parameters to an from the
+/* This structure is used to pass parameters to and from the
    the function find_regno_partial(). It is used to pass in the
    register number we are looking, as well as to return any rtx
    we find.  */

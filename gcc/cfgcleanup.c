@@ -33,6 +33,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
@@ -1246,7 +1248,7 @@ outgoing_edges_match (mode, bb1, bb2)
       return match;
     }
 
-  /* Generic case - we are seeing an computed jump, table jump or trapping
+  /* Generic case - we are seeing a computed jump, table jump or trapping
      instruction.  */
 
   /* First ensure that the instructions match.  There may be many outgoing

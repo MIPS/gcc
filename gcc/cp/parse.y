@@ -31,6 +31,8 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #include "tree.h"
 #include "input.h"
@@ -796,15 +798,10 @@ eat_saved_input:
 	;
 
 /* The outermost block of a function really begins before the
-   mem-initializer-list, so we open one there and suppress the one that
-   actually corresponds to the curly braces.  */
+   mem-initializer-list, so we open one there, too.  */
 function_body:
-	  begin_function_body_ ctor_initializer_opt save_lineno '{'
-		{ $<ttype>$ = begin_compound_stmt (/*has_no_scope=*/1); }
-	  compstmtend
-                {
-		  STMT_LINENO ($<ttype>5) = $3;
-		  finish_compound_stmt (/*has_no_scope=*/1, $<ttype>5);
+	  begin_function_body_ ctor_initializer_opt compstmt
+		{
 		  finish_function_body ($1);
 		}
 	;

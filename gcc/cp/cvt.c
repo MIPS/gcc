@@ -28,6 +28,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "flags.h"
 #include "cp-tree.h"
@@ -322,6 +324,8 @@ convert_to_pointer_force (type, expr)
 	  if (binfo)
 	    {
 	      expr = build_base_path (code, expr, binfo, 0);
+              if (expr == error_mark_node)
+                 return error_mark_node;
 	      /* Add any qualifier conversions.  */
 	      if (!same_type_p (TREE_TYPE (TREE_TYPE (expr)),
 				TREE_TYPE (type)))
