@@ -1,3 +1,8 @@
+2004-02-05  Richard Henderson  <rth@redhat.com>
+
+	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Allow
+	mixing PLUS and MINUS when folding operations.
+
 2004-02-05  Andrew Macleod  <amacleod@redhat.com>
 
 	* tree-pretty-print.c (dump_bb_header):  Allow TDF_SLIM printing.

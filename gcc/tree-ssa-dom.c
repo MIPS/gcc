@@ -1675,34 +1675,41 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
       tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
 
       /* See if the RHS_DEF_STMT has the same form as our statement.  */
-      if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
-	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code)
+      if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR)
 	{
 	  tree rhs_def_rhs = TREE_OPERAND (rhs_def_stmt, 1);
-	  tree def_stmt_op0 = TREE_OPERAND (rhs_def_rhs, 0);
-	  tree def_stmt_op1 = TREE_OPERAND (rhs_def_rhs, 1);
+	  enum tree_code rhs_def_code = TREE_CODE (rhs_def_rhs);
 
-	  if (TREE_CODE (def_stmt_op0) == SSA_NAME
-	      && ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def_stmt_op0)
-	      && TREE_CONSTANT (def_stmt_op1))
+	  if (rhs_code == rhs_def_code
+	      || (rhs_code == PLUS_EXPR && rhs_def_code == MINUS_EXPR)
+	      || (rhs_code == MINUS_EXPR && rhs_def_code == PLUS_EXPR))
 	    {
-	      tree outer_const = TREE_OPERAND (rhs, 1);
-	      tree type = TREE_TYPE (TREE_OPERAND (stmt, 0));
-	      tree t;
+	      tree def_stmt_op0 = TREE_OPERAND (rhs_def_rhs, 0);
+	      tree def_stmt_op1 = TREE_OPERAND (rhs_def_rhs, 1);
 
-	      /* Build and fold (Y OP C2) OP C1.  */
-	      t = fold (build (rhs_code, type, rhs_def_rhs, outer_const));
+	      if (TREE_CODE (def_stmt_op0) == SSA_NAME
+		  && ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def_stmt_op0)
+		  && TREE_CONSTANT (def_stmt_op1))
+		{
+		  tree outer_const = TREE_OPERAND (rhs, 1);
+		  tree type = TREE_TYPE (TREE_OPERAND (stmt, 0));
+		  tree t;
 
-	      /* If the result is a suitable looking gimple expression,
-		 then use it instead of the original expression for STMT.  */
-	      if (TREE_CODE (t) == SSA_NAME
-		  || (TREE_CODE (t) == rhs_code
-		      && TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME
-		      && TREE_CONSTANT (TREE_OPERAND (t, 1))))
-		result = update_rhs_and_lookup_avail_expr (stmt, t,
-							   &bd->avail_exprs,
-						           ann,
-							   insert);
+		  /* Build and fold (Y OP C2) OP C1.  */
+		  t = fold (build (rhs_code, type, rhs_def_rhs, outer_const));
+
+		  /* If the result is a suitable looking gimple expression,
+		     then use it instead of the original for STMT.  */
+		  if (TREE_CODE (t) == SSA_NAME
+		      || (TREE_CODE_CLASS (TREE_CODE (t)) == '1'
+			  && TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME)
+		      || ((TREE_CODE_CLASS (TREE_CODE (t)) == '2'
+			   || TREE_CODE_CLASS (TREE_CODE (t)) == '<')
+			  && TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME
+			  && TREE_CONSTANT (TREE_OPERAND (t, 1))))
+		    result = update_rhs_and_lookup_avail_expr
+		      (stmt, t, &bd->avail_exprs, ann, insert);
+		}
 	    }
 	}
     }
