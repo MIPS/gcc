@@ -84,6 +84,8 @@ public class JTextField extends JTextComponent
 
   private int align;
 
+  private int scrollOffset;
+
   /**
    * Creates a new instance of <code>JTextField</code>.
    */
@@ -272,5 +274,31 @@ public class JTextField extends JTextComponent
       }
 
     return size;
+  }
+
+  /**
+   * Returns the scroll offset in pixels.
+   *
+   * @return the scroll offset
+   */
+  public int getScrollOffset()
+  {
+    return scrollOffset;
+  }
+
+  /**
+   * Sets the scroll offset in pixels.
+   * 
+   * @param offset the scroll offset
+   */
+  public void setScrollOffset(int offset)
+  {
+    scrollOffset = offset;
+  }
+
+  protected int getColumnWidth()
+  {
+    FontMetrics metrics = getToolkit().getFontMetrics(getFont());
+    return metrics.charWidth('m');
   }
 }

@@ -38,7 +38,10 @@ exception statement from your version. */
 package javax.swing;
 
 import java.awt.Dimension;
+import java.awt.FontMetrics;
+import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
+import javax.swing.text.Element;
 import javax.swing.text.JTextComponent;
 import javax.swing.text.PlainDocument;
 
@@ -278,5 +281,90 @@ public class JTextArea extends JTextComponent
     int oldValue = tabSize;
     tabSize = newSize;
     firePropertyChange("tabSize", oldValue, tabSize);
+  }
+
+  protected int getColumnWidth()
+  {
+    FontMetrics metrics = getToolkit().getFontMetrics(getFont());
+    return metrics.charWidth('m');
+  }
+
+  public int getLineCount()
+  {
+    return doc.getDefaultRootElement().getElementCount();
+  }
+
+  public int getLineStartOffset(int line)
+     throws BadLocationException
+  {
+    int lineCount = getLineCount();
+    
+    if (line < 0 || line > lineCount)
+      throw new BadLocationException("Non-existing line number", line);
+
+    Element lineElem = doc.getDefaultRootElement().getElement(line);
+    return lineElem.getStartOffset();
+  }
+
+  public int getLineEndOffset(int line)
+     throws BadLocationException
+  {
+    int lineCount = getLineCount();
+    
+    if (line < 0 || line > lineCount)
+      throw new BadLocationException("Non-existing line number", line);
+
+    Element lineElem = doc.getDefaultRootElement().getElement(line);
+    return lineElem.getEndOffset();
+  }
+
+  public int getLineOfOffset(int offset)
+    throws BadLocationException
+  {
+    if (offset < doc.getStartPosition().getOffset()
+	|| offset >= doc.getEndPosition().getOffset())
+      throw new BadLocationException("offset outside of document", offset);
+
+    return doc.getDefaultRootElement().getElementIndex(offset);
+  }
+
+  protected int getRowHeight()
+  {
+    FontMetrics metrics = getToolkit().getFontMetrics(getFont());
+    return metrics.getHeight();
+  }
+
+  public void insert(String text, int offset)
+  {
+    if (offset < doc.getStartPosition().getOffset()
+	|| offset >= doc.getEndPosition().getOffset())
+      throw new IllegalArgumentException();
+
+    try
+      {
+	doc.insertString(offset, text, null);
+      }
+    catch (BadLocationException e)
+      {
+	// This cannot happen as we check offset above.
+      }
+  }
+
+  public void replaceRange(String text, int start, int end)
+  {
+    if (start > end
+	|| start < doc.getStartPosition().getOffset()
+	|| end >= doc.getEndPosition().getOffset())
+      throw new IllegalArgumentException();
+
+    try
+      {
+	doc.remove(start, end);
+	doc.insertString(start, text, null);
+      }
+    catch (BadLocationException e)
+      {
+	// This cannot happen as we check offset above.
+      }
   }
 }
