@@ -1,3 +1,22 @@
+2004-08-15  Olga Golovanevsky <olga@il.ibm.com>
+
+	* tree-vectorizer.c (vect_tree_split_edge): Removed.
+	(vect_update_initial_conditions_of_duplicated_loop):
+	Replaced by vect_update_ivs_after_vectorizer.
+	(vect_transform_for_unknown_loop_bound): New function.
+	(tdlte_copy_phi_nodes): Renamed into copy_phi_nodes.
+	(tdlte_rename_variables_in_loop): Renamed into 
+	rename_variables_in_loop.                                
+	(update_phis_for_duplicate_loop):
+	(make_loop_iterate_ntimes):
+	(add_loop_guard_on_edge): New functions.
+	(tree_duplicate_loop_to_exit_cfg): Replaced by 
+	tree_duplicate_loop_to_edge_cfg.
+	(tree_duplicate_loop_to_exit): Replaced by 
+	tree_duplicate_loop_to_edge.
+	(vect_transform_loop): Changed to use 
+	vect_transform_for_unknown_loop_bound function.
+
 2004-08-11  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* tree-ssa-align.c: Fix indentation.
