@@ -1,3 +1,9 @@
+2004-02-07  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c: Fix comment typos.
+	(vt_add_function_parameters): Surround checkings by
+	#ifdef ENABLE_CHECKING and #endif.
+
 2004-02-06  Josef Zlomek  <zlomekj@suse.cz>
 
 	Backport from mainline.

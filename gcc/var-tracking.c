@@ -464,7 +464,7 @@ insn_stack_adjust_offset_pre_post (insn, pre, post)
     }
 }
 
-/* Compute stack adjustnment in basic block BB.  */
+/* Compute stack adjustment in basic block BB.  */
 
 static void
 bb_stack_adjust_offset (bb)
@@ -532,7 +532,7 @@ vt_stack_adjustments ()
   edge *stack;
   int sp;
 
-  /* Initialize enttry block.  */
+  /* Initialize entry block.  */
   VTI (ENTRY_BLOCK_PTR)->visited = true;
   VTI (ENTRY_BLOCK_PTR)->out.stack_adjust = 0;
 
@@ -2475,8 +2475,10 @@ vt_add_function_parameters ()
       if (!decl)
 	continue;
 
+#ifdef ENABLE_CHECKING
       if (parm != decl)
 	abort ();
+#endif
 
       incoming = eliminate_regs (incoming, 0, NULL_RTX);
       if (!frame_pointer_needed && GET_CODE (incoming) == MEM)
@@ -2486,8 +2488,10 @@ vt_add_function_parameters ()
 
       if (GET_CODE (incoming) == REG)
 	{
+#ifdef ENABLE_CHECKING
 	  if (REGNO (incoming) >= FIRST_PSEUDO_REGISTER)
 	    abort ();
+#endif
 	  attrs_list_insert (&in->regs[REGNO (incoming)],
 			     parm, offset, incoming);
 	  attrs_list_insert (&out->regs[REGNO (incoming)],
@@ -2540,7 +2544,7 @@ vt_initialize ()
 	    }
 	}
 
-      /* Add the nicro-operations to the array.  */
+      /* Add the micro-operations to the array.  */
       VTI (bb)->mos = xmalloc (VTI (bb)->n_mos
 			       * sizeof (struct micro_operation_def));
       VTI (bb)->n_mos = 0;
