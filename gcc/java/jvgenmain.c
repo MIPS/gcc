@@ -1,5 +1,5 @@
 /* Program to generate "main" a Java(TM) class containing a main method.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -30,10 +30,9 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "coretypes.h"
 #include "tm.h"
 #include "obstack.h"
-#include "jcf.h"
-#include "tree.h"
-#include "java-tree.h"
 #include "intl.h"
+#include "util.h"
+
 
 static char * do_mangle_classname (const char *string);
 
@@ -138,7 +137,6 @@ main (int argc, char **argv)
     }
   return 0;
 }
-
 
 static char *
 do_mangle_classname (const char *string)

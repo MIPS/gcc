@@ -1,5 +1,11 @@
 2005-03-29  Tom Tromey  <tromey@redhat.com>
 
+	* jvgenmain.c: Include util.h, not jcf.h or java-tree.h.
+	* mangle_name.c: Include util.h, not jcf.h or java-tree.h.
+	* util.h: New file.
+
+2005-03-29  Tom Tromey  <tromey@redhat.com>
+
 	* abi.cc (build_method_call): New stubs.
 	(build_field_reference): Likewise.
 	* abi.hh (gcj_abi::build_method_call): Declare new overload.
