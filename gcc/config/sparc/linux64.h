@@ -337,6 +337,7 @@ do {									\
 			 | (trampolines_created ? SECTION_CODE : 0));	\
   } while (0)
 
+#undef LINK_GCC_C_SEQUENCE_SPEC
 #define LINK_GCC_C_SEQUENCE_SPEC \
   "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
 
