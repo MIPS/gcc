@@ -270,7 +270,6 @@ dump_c_node (buffer, node, spc)
       else
         {
 	  unsigned int quals = TYPE_QUALS (node);
-	  char class;
 
           dump_c_node (buffer, TREE_TYPE (node), spc);
 	  output_add_string (buffer, " *");
