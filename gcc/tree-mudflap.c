@@ -64,10 +64,6 @@ static tree mf_build_check_statement_for PARAMS ((tree, tree, tree, tree, tree,
 						  const char *, int));
 static void mx_register_decls PARAMS ((tree, tree *));
 
-/* Debugging dumps.  */
-static FILE *dump_file;
-static int dump_flags;
-
 
 /* These macros are used to mark tree nodes, so that they are not
    repeatedly transformed.  The `bounded' flag is not otherwise used.  */
@@ -83,9 +79,6 @@ void
 mudflap_c_function (t)
      tree t;
 {
-  /* Initialize debugging dumps.  */
-  dump_file = dump_begin (TDI_mudflap, &dump_flags);
-
   mf_init_extern_trees ();
 
   /* In multithreaded mode, don't cache the lookup cache parameters.  */
@@ -100,11 +93,16 @@ mudflap_c_function (t)
      is the single most expensive part of the tree-ssa path! */
   simplify_function_tree (t);
 
-  if (dump_file)
-    {
-      dump_end (TDI_mudflap, dump_file);
-      dump_function (TDI_mudflap, t);
-    }
+  {
+    FILE *dump_file;
+    int dump_flags;
+    dump_file = dump_begin (TDI_mudflap, &dump_flags);
+    if (dump_file)
+      {
+	dump_function (TDI_mudflap, t);
+	dump_end (TDI_mudflap, dump_file);
+      }
+  }
 
   if (! (flag_mudflap > 1))
     mf_decl_clear_locals ();
@@ -765,13 +763,6 @@ mx_xfn_indirect_ref (t, continue_p, data)
   htab_t verboten = (htab_t) data;
   tree tree_role;
 
-  if (dump_flags & TDF_DETAILS)
-    {
-      fprintf (dump_file, "expr=%s: ", tree_code_name [TREE_CODE (*t)]);
-      print_generic_expr (dump_file, *t, 0);
-      fprintf (dump_file, "\n");
-    }
-
   /* Track lvalue/rvalue status for this subtree.  */
   if (! tree_roles_init)
     {
@@ -1255,22 +1246,33 @@ mudflap_enqueue_decl (obj, label)
       return;
     }
 
-  if (dump_flags & TDF_DETAILS)
-    {
-      fprintf (dump_file, "enqueue_decl obj=`");
-      print_generic_expr (dump_file, obj, 0);
-      fprintf (dump_file, "' label=`%s'\n", label);
-    }
-
   if (COMPLETE_TYPE_P (TREE_TYPE (obj))) 
     {
+      FILE *dump_file;
+      int dump_flags;
+      tree object_size;
+      tree call_stmt;
+
+      object_size = size_in_bytes (TREE_TYPE (obj));
+
+      dump_file = dump_begin (TDI_mudflap, &dump_flags);
+      if (dump_file)
+	{
+	  fprintf (dump_file, "enqueue_decl obj=`");
+	  print_generic_expr (dump_file, obj, 0);
+	  fprintf (dump_file, "' label=`%s' size=", label);
+	  print_generic_expr (dump_file, object_size, 0);
+	  fprintf (dump_file, "\n");
+	  dump_end (TDI_mudflap, dump_file);
+	}
+
       /* NB: the above condition doesn't require TREE_USED or
          TREE_ADDRESSABLE.  That's because this object may be a global
          only used from other compilation units.  XXX: Maybe static
          objects could require those attributes being set.  */
-      tree call_stmt =
+      call_stmt =
 	mflang_register_call (label,
-			      size_in_bytes (TREE_TYPE (obj)),
+			      object_size,
 			      build_int_2 (4, 0), /* __MF_TYPE_STATIC */
 			      mf_varname_tree (obj));
 
@@ -1313,19 +1315,38 @@ mudflap_enqueue_constant (obj, label)
      const char *label;
 {
   tree call_stmt;
+  tree object_size;
 
   if (TREE_MUDFLAPPED_P (obj))
     return;
 
+  object_size = (TREE_CODE (obj) == STRING_CST)
+    ? build_int_2 (TREE_STRING_LENGTH (obj), 0)
+    : size_in_bytes (TREE_TYPE (obj));
+
+  {
+    FILE *dump_file;
+    int dump_flags;
+
+    dump_file = dump_begin (TDI_mudflap, &dump_flags);
+    if (dump_file)
+      {
+	fprintf (dump_file, "enqueue_constant obj=`");
+	print_generic_expr (dump_file, obj, 0);
+	fprintf (dump_file, "' label=`%s' size=", label);
+	print_generic_expr (dump_file, object_size, 0);
+	fprintf (dump_file, "\n");
+	dump_end (TDI_mudflap, dump_file);
+      }
+  }
+
   call_stmt =
     (TREE_CODE (obj) == STRING_CST)
-    ? mflang_register_call (label,
-			    build_int_2 (TREE_STRING_LENGTH (obj), 0),
+    ? mflang_register_call (label, object_size,
 			    build_int_2 (4, 0), /* __MF_TYPE_STATIC */
 			    mx_flag (fix_string_type
 				     (build_string (15, "string literal"))))
-    : mflang_register_call (label,
-			    size_in_bytes (TREE_TYPE (obj)),
+    : mflang_register_call (label, object_size,
 			    build_int_2 (4, 0), /* __MF_TYPE_STATIC */
 			    mx_flag (fix_string_type
 				     (build_string (9, "constant"))));

@@ -1,3 +1,8 @@
+2003-05-30  Frank Ch. Eigler  <fche@redhat.com>
+
+	* testsuite/libmudflap.c/pass38-frag.c: New test for
+	-fwritable-strings.
+
 2003-05-23  Frank Ch. Eigler  <fche@redhat.com>
 
 	* mf-runtime.c (__mf_sigusr1_handle): Call unlocked variant of
