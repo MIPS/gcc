@@ -75,10 +75,10 @@ static bool
 better_p (e1, e2)
      edge e1, e2;
 {
-  if (EDGE_FREQUENCY (e1) != EDGE_FREQUENCY (e2))
-    return EDGE_FREQUENCY (e1) > EDGE_FREQUENCY (e2);
   if (e1->count != e2->count)
     return e1->count > e2->count;
+  if (EDGE_FREQUENCY (e1) != EDGE_FREQUENCY (e2))
+    return EDGE_FREQUENCY (e1) > EDGE_FREQUENCY (e2);
   /* This is needed to avoid changes in the decision after
      CFG is modified.  */
   if (e1->src->index != e2->src->index)
