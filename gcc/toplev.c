@@ -263,6 +263,7 @@ enum dump_file_index
   DFI_bp,
   DFI_flow,
   DFI_combine,
+  DFI_ce,
   DFI_regmove,
   DFI_sched,
   DFI_lreg,
@@ -281,7 +282,13 @@ enum dump_file_index
 };
 
 /* Describes all the dump files.  Should be kept in order of the
-   pass and in sync with dump_file_index above.  */
+   pass and in sync with dump_file_index above.
+
+   Remaining -d letters:
+
+	"       h      o q   u     "
+	"       H  K   OPQ  TUVWXYZ"
+*/
 
 struct dump_file_info dump_file[DFI_MAX] = 
 {
@@ -298,12 +305,13 @@ struct dump_file_info dump_file[DFI_MAX] =
   { "bp",	'b', 1, 0, 0 },
   { "flow",	'f', 1, 0, 0 },
   { "combine",	'c', 1, 0, 0 },
+  { "ce",	'C', 1, 0, 0 },
   { "regmove",	'N', 1, 0, 0 },
   { "sched",	'S', 1, 0, 0 },
   { "lreg",	'l', 1, 0, 0 },
   { "greg",	'g', 1, 0, 0 },
   { "flow2",	'w', 1, 0, 0 },
-  { "ce2",	'w', 1, 0, 0 },
+  { "ce2",	'E', 1, 0, 0 },
   { "peephole2", 'z', 1, 0, 0 },
   { "sched2",	'R', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
@@ -3047,21 +3055,16 @@ rest_of_compilation (decl)
 	 so that unreachable code will not keep values live.  */
       TIMEVAR (cse_time, delete_trivially_dead_insns (insns, max_reg_num ()));
 
-      /* If we re-ran jump optimizations, rebuild the CFG too.  */
-      if (tem || optimize > 1)
+      /* Try to identify useless null pointer tests and delete them.  */
+      if (flag_delete_null_pointer_checks)
 	{
-          TIMEVAR (flow_time,
+	  TIMEVAR (jump_time,
 		   {
 		     find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 		     cleanup_cfg (insns);
+		     delete_null_pointer_checks (insns);
 		   });
-
-	  TIMEVAR (jump_time, if_convert (0));
 	}
-
-      /* Try to identify useless null pointer tests and delete them.  */
-      if (flag_delete_null_pointer_checks)
-	TIMEVAR (jump_time, delete_null_pointer_checks (insns));
 
       /* The second pass of jump optimization is likely to have
          removed a bunch more instructions.  */
@@ -3179,11 +3182,6 @@ rest_of_compilation (decl)
 	ggc_collect ();
     }
 
-  /* ??? Well, nearly.  If HAVE_conditional_move, if_convert may have
-     put off some if-conversion until "after CSE".  If we put this
-     off any longer we may miss out doing if-conversion entirely.  */
-  cse_not_expected = 1;
-
   if (optimize > 0)
     {
       open_dump_file (DFI_cse2, decl);
@@ -3248,6 +3246,8 @@ rest_of_compilation (decl)
 	ggc_collect ();
     }
 
+  cse_not_expected = 1;
+
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
       open_dump_file (DFI_bp, decl);
@@ -3297,7 +3297,7 @@ rest_of_compilation (decl)
 	   flow_loops_free (&loops);
 	 }
 
-       life_analysis (insns, max_reg_num (), rtl_dump_file, 1);
+       life_analysis (insns, rtl_dump_file, PROP_FINAL);
        mark_constant_function ();
      });
 
@@ -3313,10 +3313,6 @@ rest_of_compilation (decl)
   if (ggc_p)
     ggc_collect ();
 
-  /* The first life analysis pass has finished.  From now on we can not
-     generate any new pseudos.  */
-  no_new_pseudos = 1;
-
   /* If -opt, try combining insns through substitution.  */
 
   if (optimize > 0)
@@ -3331,24 +3327,46 @@ rest_of_compilation (decl)
 		   = combine_instructions (insns, max_reg_num ());
 	       });
 
-      TIMEVAR (jump_time,
-	       {
-		 /* Combining insns may have turned an indirect jump into a
-		    direct jump.  Rebuid the JUMP_LABEL fields of jumping
-		    instructions.  */
-		 if (rebuild_jump_labels_after_combine)
-		   rebuild_jump_labels (insns);
+      if (rebuild_jump_labels_after_combine)
+	{
+	  TIMEVAR (jump_time,
+		   {
+		     /* Combining insns may have turned an indirect jump into
+			a direct jump.  Rebuid the JUMP_LABEL fields of
+			jumping instructions.  */
+		     rebuild_jump_labels (insns);
+		   });
+	  TIMEVAR (flow_time,
+		   {
+		     find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+		     cleanup_cfg (insns);
 
-		 /* ??? Ideally we'd rerun if-conversion, as combine may have
-		    simplified things enough to now meet sequence length
-		    restrictions.  Most of the interesting cmove conversions
-		    require new pseudos though, which are no longer allowed. */
-	       });
+		     /* Blimey.  We've got to have the CFG up to date for the
+			call to if_convert below.  However, the random deletion
+			of blocks without updating life info can wind up with
+			Wierd Stuff in global_live_at_end.  We then run sched1,
+			which updates things properly, discovers the wierdness
+			and aborts.  */
+		     update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
+				       PROP_DEATH_NOTES);
+		   });
+	}
 
       close_dump_file (DFI_combine, print_rtl_with_bb, insns);
 
       if (ggc_p)
 	ggc_collect ();
+    }
+
+   /* Rerun if-conversion, as combine may have simplified things enough to
+      now meet sequence length restrictions.  */
+  if (optimize > 0)
+    {
+      open_dump_file (DFI_ce, decl);
+
+      TIMEVAR (jump_time, if_convert (1));
+
+      close_dump_file (DFI_ce, print_rtl_with_bb, insns);
     }
 
   /* Register allocation pre-pass, to reduce number of moves
@@ -3388,6 +3406,10 @@ rest_of_compilation (decl)
 
       if (ggc_p)
 	ggc_collect ();
+
+      /* Register lifetime information is up to date.  From now on
+	 we can not generate any new pseudos.  */
+      no_new_pseudos = 1;
     }
 #endif
 
@@ -3408,7 +3430,14 @@ rest_of_compilation (decl)
 	     /* We recomputed reg usage as part of updating the rest
 		of life info during sched.  */
 	     if (! flag_schedule_insns)
-	       recompute_reg_usage (insns, ! optimize_size);
+	       {
+	         recompute_reg_usage (insns, ! optimize_size);
+
+		 /* Register lifetime information is up to date.  From now on
+		    we can not generate any new pseudos.  */
+		 no_new_pseudos = 1;
+	       }
+
 	     regclass (insns, max_reg_num (), rtl_dump_file);
 	     rebuild_label_notes_after_reload = local_alloc ();
 	   });
@@ -3490,7 +3519,7 @@ rest_of_compilation (decl)
       TIMEVAR (flow2_time,
 	       {
 		 cleanup_cfg (insns);
-		 life_analysis (insns, max_reg_num (), rtl_dump_file, 1);
+		 life_analysis (insns, rtl_dump_file, PROP_FINAL);
 	       });
 
       /* This is kind of heruistics.  We need to run combine_stack_adjustments
@@ -3513,7 +3542,9 @@ rest_of_compilation (decl)
   if (optimize > 0)
     {
       open_dump_file (DFI_ce2, decl);
-      if_convert (1);
+
+      TIMEVAR (jump_time, if_convert (1));
+
       close_dump_file (DFI_ce2, print_rtl_with_bb, insns);
     }
 

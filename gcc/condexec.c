@@ -30,6 +30,7 @@
 #include "basic-block.h"
 #include "expr.h"
 #include "output.h"
+#include "hard-reg-set.h"
 #include "tm_p.h"
 
 
@@ -445,7 +446,7 @@ noce_try_store_flag_constants (if_info)
     {
       ai = INTVAL (if_info->a);
       bi = INTVAL (if_info->b);
-      diff = ai - bi;
+      diff = bi - ai;
 
       can_reverse = can_reverse_comparison_p (if_info->cond, if_info->jump);
 
@@ -493,12 +494,12 @@ noce_try_store_flag_constants (if_info)
 	}
 
       /* if (test) x = 3; else x = 4;
-	 =>   x = 4 - (test != 0);  */
+	 =>   x = 3 + (test == 0);  */
       if (diff == STORE_FLAG_VALUE || diff == -STORE_FLAG_VALUE)
 	{
 	  target = expand_binop (GET_MODE (if_info->x),
 				 (diff == STORE_FLAG_VALUE
-				  ? sub_optab : add_optab),
+				  ? add_optab : sub_optab),
 				 if_info->a, target, if_info->x, 0,
 				 OPTAB_WIDEN);
 	}
@@ -513,14 +514,14 @@ noce_try_store_flag_constants (if_info)
 	}
 
       /* if (test) x = a; else x = b;
-	 =>   x = (-(test != 0) & (a - b)) + b;  */
+	 =>   x = (-(test != 0) & (b - a)) + a;  */
       else
 	{
 	  target = expand_binop (GET_MODE (if_info->x), and_optab,
 				 target, GEN_INT (diff), if_info->x, 0,
 				 OPTAB_WIDEN);
 	  target = expand_binop (GET_MODE (if_info->x), add_optab,
-				 target, GEN_INT (bi), if_info->x, 0,
+				 target, GEN_INT (ai), if_info->x, 0,
 				 OPTAB_WIDEN);
 	}
 
@@ -965,7 +966,8 @@ noce_process_if_block (test_bb, then_bb, else_bb, join_bb)
   else
     {
       insn_b = prev_nonnote_insn (if_info.cond_earliest);
-      if (GET_CODE (insn_b) != INSN
+      if (! insn_b
+	  || GET_CODE (insn_b) != INSN
 	  || (set_b = single_set (insn_b)) == NULL_RTX
 	  || ! rtx_equal_p (x, SET_DEST (set_b)))
 	insn_b = set_b = NULL_RTX;
@@ -1124,6 +1126,8 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
   /* First merge TEST block into THEN block.  This is a no-brainer since
      the THEN block did not have a code label to begin with.  */
 
+  if (combo_bb->global_live_at_end)
+    COPY_REG_SET (combo_bb->global_live_at_end, then_bb->global_live_at_end);
   merge_blocks_nomove (combo_bb, then_bb);
   num_removed_blocks++;
 
@@ -1156,6 +1160,9 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
 
 	  /* Make sure we update life info properly.  */
 	  SET_UPDATE_LIFE(combo_bb);
+	  if (else_bb->global_live_at_end)
+	    COPY_REG_SET (else_bb->global_live_at_start,
+			  else_bb->global_live_at_end);
 
 	  /* The ELSE is the new combo block.  */
 	  combo_bb = else_bb;
@@ -1187,6 +1194,9 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
       && ! LABEL_NAME (join_bb->head))
     {
       /* We can merge the JOIN.  */
+      if (combo_bb->global_live_at_end)
+	COPY_REG_SET (combo_bb->global_live_at_end,
+		      join_bb->global_live_at_end);
       merge_blocks_nomove (combo_bb, join_bb);
       num_removed_blocks++;
     }
@@ -1682,7 +1692,7 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
       regset_head merge_set_head, tmp_head, test_live_head, test_set_head;
       regset merge_set, tmp, test_live, test_set;
       struct propagate_block_info *pbi;
-      int i;
+      int i, fail = 0;
 
       /* Check for no calls or trapping operations.  */
       for (insn = head; ; insn = NEXT_INSN (insn))
@@ -1730,6 +1740,20 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
          since we've already asserted that MERGE_BB is small.  */
       propagate_block (merge_bb, tmp, merge_set, 0);
 
+      /* For small register class machines, don't lengthen lifetimes of
+	 hard registers before reload.  */
+      if (SMALL_REGISTER_CLASSES && ! reload_completed)
+	{
+          EXECUTE_IF_SET_IN_BITMAP
+	    (merge_set, 0, i,
+	     {
+	       if (i < FIRST_PSEUDO_REGISTER
+		   && ! fixed_regs[i]
+		   && ! global_regs[i])
+		fail = 1;
+	     });
+	}
+
       /* For TEST, we're interested in a range of insns, not a whole block.
 	 Moreover, we're interested in the insns live from OTHER_BB.  */
 
@@ -1753,16 +1777,19 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
 
       bitmap_operation (tmp, test_set, test_live, BITMAP_IOR);
       bitmap_operation (tmp, tmp, merge_set, BITMAP_AND);
-      EXECUTE_IF_SET_IN_BITMAP(tmp, 0, i, return FALSE);
+      EXECUTE_IF_SET_IN_BITMAP(tmp, 0, i, fail = 1);
 
       bitmap_operation (tmp, test_set, merge_bb->global_live_at_start,
 			BITMAP_AND);
-      EXECUTE_IF_SET_IN_BITMAP(tmp, 0, i, return FALSE);
+      EXECUTE_IF_SET_IN_BITMAP(tmp, 0, i, fail = 1);
 
       FREE_REG_SET (tmp);
       FREE_REG_SET (merge_set);
       FREE_REG_SET (test_live);
       FREE_REG_SET (test_set);
+
+      if (fail)
+	return FALSE;
     }
 
  no_body:
@@ -1855,6 +1882,13 @@ if_convert (life_data_ok)
     {
       sbitmap update_life_blocks = sbitmap_alloc (n_basic_blocks);
       sbitmap_zero (update_life_blocks);
+
+      /* If we allocated new pseudos, we must resize the array for sched1.  */
+      if (max_regno < max_reg_num ())
+	{
+	  max_regno = max_reg_num ();
+	  allocate_reg_info (max_regno, FALSE, FALSE);
+	}
 
       for (block_num = 0; block_num < n_basic_blocks; block_num++)
 	if (UPDATE_LIFE (BASIC_BLOCK (block_num)))

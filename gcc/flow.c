@@ -385,9 +385,6 @@ void dump_flow_info			PARAMS ((FILE *));
 void debug_flow_info			PARAMS ((void));
 static void dump_edge_info		PARAMS ((FILE *, edge, int));
 
-static void count_reg_sets_1		PARAMS ((rtx, int));
-static void count_reg_sets		PARAMS ((rtx, int));
-static void count_reg_references	PARAMS ((rtx, int));
 static void invalidate_mems_from_autoinc PARAMS ((struct propagate_block_info *,
 						  rtx));
 static void remove_fake_successors	PARAMS ((basic_block));
@@ -2510,28 +2507,16 @@ tidy_fallthru_edges ()
    in use.  */
 
 void
-life_analysis (f, nregs, file, remove_dead_code)
+life_analysis (f, file, flags)
      rtx f;
-     int nregs;
      FILE *file;
-     int remove_dead_code;
+     int flags;
 {
 #ifdef ELIMINABLE_REGS
   register int i;
   static struct {int from, to; } eliminables[] = ELIMINABLE_REGS;
 #endif
-  int flags;
-  sbitmap all_blocks;
 
-  /* Dead code elimination changes basic block structure and therefore
-     breaks the SSA phi representation.  Particularly, a phi node
-     can have an alternative value for each incoming block, referenced
-     by the block number.  Removing dead code can bump entire blocks
-     and therefore cause blocks to be renumbered, invalidating the
-     numbering of phi alternatives.  */
-  if (remove_dead_code && in_ssa_form)
-    abort ();
- 
   /* Record which registers will be eliminated.  We use this in
      mark_used_regs.  */
 
@@ -2544,17 +2529,8 @@ life_analysis (f, nregs, file, remove_dead_code)
   SET_HARD_REG_BIT (elim_reg_set, FRAME_POINTER_REGNUM);
 #endif
 
-  /* We want alias analysis information for local dead store elimination.  */
-  init_alias_analysis ();
-
   if (! optimize)
-    flags = PROP_DEATH_NOTES | PROP_REG_INFO;
-  else
-    {
-      flags = PROP_FINAL;
-      if (! remove_dead_code)
-	flags &= ~(PROP_SCAN_DEAD_CODE | PROP_KILL_DEAD_CODE);
-    }
+    flags &= PROP_DEATH_NOTES | PROP_REG_INFO;
 
   /* The post-reload life analysis have (on a global basis) the same
      registers live as was computed by reload itself.  elimination
@@ -2565,7 +2541,9 @@ life_analysis (f, nregs, file, remove_dead_code)
   if (reload_completed)
     flags &= ~PROP_REG_INFO;
 
-  max_regno = nregs;
+  /* We want alias analysis information for local dead store elimination.  */
+  if (flags & PROP_SCAN_DEAD_CODE)
+    init_alias_analysis ();
 
   /* Always remove no-op moves.  Do this before other processing so
      that we don't have to keep re-scanning them.  */
@@ -2581,8 +2559,6 @@ life_analysis (f, nregs, file, remove_dead_code)
      data from lifetime analysis.  */
   allocate_reg_life_data ();
   allocate_bb_life_data ();
-  all_blocks = sbitmap_alloc (n_basic_blocks);
-  sbitmap_ones (all_blocks);
 
   /* Find the set of registers live on function exit.  */
   mark_regs_live_at_end (EXIT_BLOCK_PTR->global_live_at_start);
@@ -2593,11 +2569,11 @@ life_analysis (f, nregs, file, remove_dead_code)
 
   if (flags & PROP_REG_INFO)
     memset (regs_ever_live, 0, sizeof(regs_ever_live));
-  update_life_info (all_blocks, UPDATE_LIFE_GLOBAL, flags);
+  update_life_info (NULL, UPDATE_LIFE_GLOBAL, flags);
 
   /* Clean up.  */
-  sbitmap_free (all_blocks);
-  end_alias_analysis ();
+  if (flags & PROP_SCAN_DEAD_CODE)
+    end_alias_analysis ();
 
   if (file)
     dump_flow_info (file);
@@ -2719,16 +2695,32 @@ update_life_info (blocks, extent, prop_flags)
 	count_or_remove_death_notes (blocks, 1);
     }
 
-  EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i,
+  if (blocks)
     {
-      basic_block bb = BASIC_BLOCK (i);
+      EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i,
+	{
+	  basic_block bb = BASIC_BLOCK (i);
 
-      COPY_REG_SET (tmp, bb->global_live_at_end);
-      propagate_block (bb, tmp, (regset) NULL, prop_flags);
+	  COPY_REG_SET (tmp, bb->global_live_at_end);
+	  propagate_block (bb, tmp, (regset) NULL, prop_flags);
 
-      if (extent == UPDATE_LIFE_LOCAL)
-	verify_local_live_at_start (tmp, bb);
-    });
+	  if (extent == UPDATE_LIFE_LOCAL)
+	    verify_local_live_at_start (tmp, bb);
+	});
+    }
+  else
+    {
+      for (i = n_basic_blocks - 1; i >= 0; --i)
+	{
+	  basic_block bb = BASIC_BLOCK (i);
+
+	  COPY_REG_SET (tmp, bb->global_live_at_end);
+	  propagate_block (bb, tmp, (regset) NULL, prop_flags);
+
+	  if (extent == UPDATE_LIFE_LOCAL)
+	    verify_local_live_at_start (tmp, bb);
+	}
+    }
 
   FREE_REG_SET (tmp);
 
@@ -3047,14 +3039,27 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
   /* Queue the blocks set in the initial mask.  Do this in reverse block
      number order so that we are more likely for the first round to do 
      useful work.  We use AUX non-null to flag that the block is queued.  */
-  EXECUTE_IF_SET_IN_SBITMAP (blocks_in, 0, i,
+  if (blocks_in)
     {
-      basic_block bb = BASIC_BLOCK (i);
-      *--qhead = bb;
-      bb->aux = bb;
-    });
+      EXECUTE_IF_SET_IN_SBITMAP (blocks_in, 0, i,
+        {
+          basic_block bb = BASIC_BLOCK (i);
+          *--qhead = bb;
+          bb->aux = bb;
+        });
+    }
+  else
+    {
+      for (i = 0; i < n_basic_blocks; ++i)
+        {
+          basic_block bb = BASIC_BLOCK (i);
+          *--qhead = bb;
+          bb->aux = bb;
+        }
+    }
 
-  sbitmap_zero (blocks_out);
+  if (blocks_out)
+    sbitmap_zero (blocks_out);
 
   while (qhead != qtail)
     {
@@ -3074,6 +3079,10 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 	  basic_block sb = e->dest;
 	  IOR_REG_SET (new_live_at_end, sb->global_live_at_start);
 	}
+
+      /* Force the stack pointer to be live -- which might not already be 
+	 the case for blocks within infinite loops.  */
+      SET_REGNO_REG_SET (new_live_at_end, STACK_POINTER_REGNUM);
 
       /* Regs used in phi nodes are not included in
 	 global_live_at_start, since they are live only along a
@@ -3127,7 +3136,8 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 
       /* Let our caller know that BB changed enough to require its
 	 death notes updated.  */
-      SET_BIT (blocks_out, bb->index);
+      if (blocks_out)
+        SET_BIT (blocks_out, bb->index);
 
       if (! rescan)
 	{
@@ -3177,11 +3187,22 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
   FREE_REG_SET (tmp);
   FREE_REG_SET (new_live_at_end);
 
-  EXECUTE_IF_SET_IN_SBITMAP (blocks_out, 0, i,
+  if (blocks_out)
     {
-      basic_block bb = BASIC_BLOCK (i);
-      FREE_REG_SET (bb->local_set);
-    });
+      EXECUTE_IF_SET_IN_SBITMAP (blocks_out, 0, i,
+        {
+          basic_block bb = BASIC_BLOCK (i);
+          FREE_REG_SET (bb->local_set);
+        });
+    }
+  else
+    {
+      for (i = n_basic_blocks - 1; i >= 0; --i)
+	{
+          basic_block bb = BASIC_BLOCK (i);
+          FREE_REG_SET (bb->local_set);
+	}
+    }
 
   free (queue);
 }
@@ -3216,6 +3237,8 @@ void
 allocate_reg_life_data ()
 {
   int i;
+
+  max_regno = max_reg_num ();
 
   /* Recalculate the register space, in case it has grown.  Old style
      vector oriented regsets would set regset_{size,bytes} here also.  */
@@ -4227,7 +4250,9 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 	  some_was_dead |= ! needed_regno;
 	}
 
-      /* Mark the register as being dead.  */
+#ifdef HAVE_conditional_execution
+      /* Consider conditional death in deciding that the register needs
+	 a death note.  */
       if (some_was_live
 	  /* The stack pointer is never dead.  Well, not strictly true,
 	     but it's very difficult to tell from here.  Hopefully
@@ -4236,14 +4261,10 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 	  && regno_first != STACK_POINTER_REGNUM)
 	{
 	  for (i = regno_first; i <= regno_last; ++i)
-	    {
-#ifdef HAVE_conditional_execution
-	      if (! mark_regno_cond_dead (pbi, i, cond))
-		not_dead = 1;
-#endif
-	      CLEAR_REGNO_REG_SET (pbi->reg_live, i);
-	    }
+	    if (! mark_regno_cond_dead (pbi, i, cond))
+	      not_dead = 1;
 	}
+#endif
 
       /* Additional data to record if this is the final pass.  */
       if (flags & (PROP_LOG_LINKS | PROP_REG_INFO
@@ -4349,6 +4370,18 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 					   REG_NOTES (insn));
 		}
 	    }
+	}
+
+      /* Mark the register as being dead.  */
+      if (some_was_live
+	  /* The stack pointer is never dead.  Well, not strictly true,
+	     but it's very difficult to tell from here.  Hopefully
+	     combine_stack_adjustments will fix up the most egregious
+	     errors.  */
+	  && regno_first != STACK_POINTER_REGNUM)
+	{
+	  for (i = regno_first; i <= regno_last; ++i)
+	    CLEAR_REGNO_REG_SET (pbi->reg_live, i);
 	}
     }
   else if (GET_CODE (reg) == REG)
@@ -4895,10 +4928,9 @@ mark_used_reg (pbi, reg, cond, insn)
      this insn and was dead below the insn then it dies in this insn.
      If it was set in this insn, we do not make a REG_DEAD note;
      likewise if we already made such a note.  */
-  if ((pbi->flags & PROP_DEATH_NOTES)
+  if ((pbi->flags & (PROP_DEATH_NOTES | PROP_REG_INFO))
       && some_was_dead
-      && some_not_set
-      && ! find_regno_note (insn, REG_DEAD, regno))
+      && some_not_set)
     {
       /* Check for the case where the register dying partially
 	 overlaps the register set by this insn.  */
@@ -4914,9 +4946,13 @@ mark_used_reg (pbi, reg, cond, insn)
 	 Otherwise, we must make partial REG_DEAD notes.  */
       if (! some_was_live)
 	{
-	  REG_NOTES (insn)
-	    = alloc_EXPR_LIST (REG_DEAD, reg, REG_NOTES (insn));
-	  REG_N_DEATHS (regno)++;
+	  if ((pbi->flags & PROP_DEATH_NOTES)
+	      && ! find_regno_note (insn, REG_DEAD, regno))
+	    REG_NOTES (insn)
+	      = alloc_EXPR_LIST (REG_DEAD, reg, REG_NOTES (insn));
+
+	  if (pbi->flags & PROP_REG_INFO)
+	    REG_N_DEATHS (regno)++;
 	}
       else
 	{
@@ -5978,208 +6014,6 @@ compute_immediate_dominators (idom, dominators)
   sbitmap_vector_free (tmp);
 }
 
-/* Count for a single SET rtx, X.  */
-
-static void
-count_reg_sets_1 (x, loop_depth)
-     rtx x;
-     int loop_depth;
-{
-  register int regno;
-  register rtx reg = SET_DEST (x);
-
-  /* Find the register that's set/clobbered.  */
-  while (GET_CODE (reg) == SUBREG || GET_CODE (reg) == ZERO_EXTRACT
-	 || GET_CODE (reg) == SIGN_EXTRACT
-	 || GET_CODE (reg) == STRICT_LOW_PART)
-    reg = XEXP (reg, 0);
-
-  if (GET_CODE (reg) == PARALLEL
-      && GET_MODE (reg) == BLKmode)
-    {
-      register int i;
-      for (i = XVECLEN (reg, 0) - 1; i >= 0; i--)
-	count_reg_sets_1 (XVECEXP (reg, 0, i), loop_depth);
-      return;
-    }
-
-  if (GET_CODE (reg) == REG)
-    {
-      regno = REGNO (reg);
-      if (regno >= FIRST_PSEUDO_REGISTER)
-	{
-	  /* Count (weighted) references, stores, etc.  This counts a
-	     register twice if it is modified, but that is correct.  */
-	  REG_N_SETS (regno)++;
-	  REG_N_REFS (regno) += loop_depth + 1;
-	}
-    }
-}
-
-/* Increment REG_N_SETS for each SET or CLOBBER found in X; also increment
-   REG_N_REFS by the current loop depth for each SET or CLOBBER found.  */
-
-static void
-count_reg_sets  (x, loop_depth)
-     rtx x;
-     int loop_depth;
-{
-  register RTX_CODE code = GET_CODE (x);
-
-  if (code == SET || code == CLOBBER)
-    count_reg_sets_1 (x, loop_depth);
-  else if (code == PARALLEL)
-    {
-      register int i;
-      for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
-	{
-	  code = GET_CODE (XVECEXP (x, 0, i));
-	  if (code == SET || code == CLOBBER)
-	    count_reg_sets_1 (XVECEXP (x, 0, i), loop_depth);
-	}
-    }
-}
-
-/* Increment REG_N_REFS by the current loop depth each register reference
-   found in X.  */
-
-static void
-count_reg_references (x, loop_depth)
-     rtx x;
-     int loop_depth;
-{
-  register RTX_CODE code;
-
- retry:
-  code = GET_CODE (x);
-  switch (code)
-    {
-    case LABEL_REF:
-    case SYMBOL_REF:
-    case CONST_INT:
-    case CONST:
-    case CONST_DOUBLE:
-    case PC:
-    case ADDR_VEC:
-    case ADDR_DIFF_VEC:
-    case ASM_INPUT:
-      return;
-
-#ifdef HAVE_cc0
-    case CC0:
-      return;
-#endif
-
-    case CLOBBER:
-      /* If we are clobbering a MEM, mark any registers inside the address
-	 as being used.  */
-      if (GET_CODE (XEXP (x, 0)) == MEM)
-	count_reg_references (XEXP (XEXP (x, 0), 0), loop_depth);
-      return;
-
-    case SUBREG:
-      /* While we're here, optimize this case.  */
-      x = SUBREG_REG (x);
-
-      /* In case the SUBREG is not of a register, don't optimize */
-      if (GET_CODE (x) != REG)
-	{
-	  count_reg_references (x, loop_depth);
-	  return;
-	}
-
-      /* ... fall through ...  */
-
-    case REG:
-      if (REGNO (x) >= FIRST_PSEUDO_REGISTER)
-	REG_N_REFS (REGNO (x)) += loop_depth + 1;
-      return;
-
-    case SET:
-      {
-	register rtx testreg = SET_DEST (x);
-	int mark_dest = 0;
-
-	/* If storing into MEM, don't show it as being used.  But do
-	   show the address as being used.  */
-	if (GET_CODE (testreg) == MEM)
-	  {
-	    count_reg_references (XEXP (testreg, 0), loop_depth);
-	    count_reg_references (SET_SRC (x), loop_depth);
-	    return;
-	  }
-	    
-	/* Storing in STRICT_LOW_PART is like storing in a reg
-	   in that this SET might be dead, so ignore it in TESTREG.
-	   but in some other ways it is like using the reg.
-
-	   Storing in a SUBREG or a bit field is like storing the entire
-	   register in that if the register's value is not used
-	   then this SET is not needed.  */
-	while (GET_CODE (testreg) == STRICT_LOW_PART
-	       || GET_CODE (testreg) == ZERO_EXTRACT
-	       || GET_CODE (testreg) == SIGN_EXTRACT
-	       || GET_CODE (testreg) == SUBREG)
-	  {
-	    /* Modifying a single register in an alternate mode
-	       does not use any of the old value.  But these other
-	       ways of storing in a register do use the old value.  */
-	    if (GET_CODE (testreg) == SUBREG
-		&& !(REG_SIZE (SUBREG_REG (testreg)) > REG_SIZE (testreg)))
-	      ;
-	    else
-	      mark_dest = 1;
-
-	    testreg = XEXP (testreg, 0);
-	  }
-
-	/* If this is a store into a register,
-	   recursively scan the value being stored.  */
-
-	if ((GET_CODE (testreg) == PARALLEL
-	     && GET_MODE (testreg) == BLKmode)
-	    || GET_CODE (testreg) == REG)
-	  {
-	    count_reg_references (SET_SRC (x), loop_depth);
-	    if (mark_dest)
-	      count_reg_references (SET_DEST (x), loop_depth);
-	    return;
-	  }
-      }
-      break;
-
-    default:
-      break;
-    }
-
-  /* Recursively scan the operands of this expression.  */
-
-  {
-    register const char *fmt = GET_RTX_FORMAT (code);
-    register int i;
-    
-    for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-      {
-	if (fmt[i] == 'e')
-	  {
-	    /* Tail recursive case: save a function call level.  */
-	    if (i == 0)
-	      {
-		x = XEXP (x, 0);
-		goto retry;
-	      }
-	    count_reg_references (XEXP (x, i), loop_depth);
-	  }
-	else if (fmt[i] == 'E')
-	  {
-	    register int j;
-	    for (j = 0; j < XVECLEN (x, i); j++)
-	      count_reg_references (XVECEXP (x, i, j), loop_depth);
-	  }
-      }
-  }
-}
-
 /* Recompute register set/reference counts immediately prior to register
    allocation.
 
@@ -6204,70 +6038,8 @@ recompute_reg_usage (f, loop_step)
      rtx f ATTRIBUTE_UNUSED;
      int loop_step ATTRIBUTE_UNUSED;
 {
-  rtx insn;
-  int i, max_reg;
-  int index;
-  int loop_depth;
-
-  /* Clear out the old data.  */
-  max_reg = max_reg_num ();
-  for (i = FIRST_PSEUDO_REGISTER; i < max_reg; i++)
-    {
-      REG_N_SETS (i) = 0;
-      REG_N_REFS (i) = 0;
-    }
-
-  /* Scan each insn in the chain and count how many times each register is
-     set/used.  */
-  for (index = 0; index < n_basic_blocks; index++)
-    {
-      basic_block bb = BASIC_BLOCK (index);
-      loop_depth = bb->loop_depth;
-      for (insn = bb->head; insn; insn = NEXT_INSN (insn))
- 	{
-	  if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
-	    {
-	      rtx links;
-
-	      /* This call will increment REG_N_SETS for each SET or CLOBBER
-		 of a register in INSN.  It will also increment REG_N_REFS
-		 by the loop depth for each set of a register in INSN.  */
-	      count_reg_sets (PATTERN (insn), loop_depth);
-
-	      /* count_reg_sets does not detect autoincrement address modes, so
-		 detect them here by looking at the notes attached to INSN.  */
-	      for (links = REG_NOTES (insn); links; links = XEXP (links, 1))
-		{
-		  if (REG_NOTE_KIND (links) == REG_INC)
-		    /* Count (weighted) references, stores, etc.  This
-		       counts a register twice if it is modified, but
-		       that is correct.  */
-		    REG_N_SETS (REGNO (XEXP (links, 0)))++;
-		}
-
-	      /* This call will increment REG_N_REFS by the current loop depth
-		 for each reference to a register in INSN.  */
-	      count_reg_references (PATTERN (insn), loop_depth);
-
-	      /* count_reg_references will not include counts for arguments to
-		 function calls, so detect them here by examining the
-		 CALL_INSN_FUNCTION_USAGE data.  */
-	      if (GET_CODE (insn) == CALL_INSN)
-		{
-		  rtx note;
-
-		  for (note = CALL_INSN_FUNCTION_USAGE (insn);
-		       note;
-		       note = XEXP (note, 1))
-		    if (GET_CODE (XEXP (note, 0)) == USE)
-		      count_reg_references (XEXP (XEXP (note, 0), 0),
-					    loop_depth);
-		}
-	    }
-	  if (insn == bb->end)
-	    break;
-	}
-    }
+  allocate_reg_life_data ();
+  update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_REG_INFO);
 }
 
 /* Optionally removes all the REG_DEAD and REG_UNUSED notes from a set of

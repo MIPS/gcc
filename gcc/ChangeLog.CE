@@ -1,3 +1,44 @@
+2000-04-25  Richard Henderson  <rth@cygnus.com>
+
+	* basic-block.h (life_analysis): Declare here ...
+	* output.h: ... not here.
+
+	* cse.c (cse_insn): Emit barrier after unconditional jump.
+
+	* condexec.c: Include hard-reg-set.h.
+	(noce_try_store_flag_constants): Fix thinko in operand ordering
+	for arbitrary constants case.
+	(noce_process_if_block): Check for no insn_b.
+	(merge_if_block): Update global_live_at_start/end for the
+	affected blocks.
+	(dead_or_predicable): Don't return before freeing regsets.
+	Fail merge if we extend hard reg lifetimes on SMALL_REGISTER_CLASSES.
+	(if_convert): Extend reg info if we allocated new pseudos.
+
+	* flow.c (life_analysis): Take prop flags not remove_dead_code.
+	Don't take nregs.  Remove SSA check.  Only init alias analysis if
+	we're deleting insns.  Don't allocate all_blocks.  
+	(update_life_info): Accept null BLOCK as univeral set.
+	(calculate_global_regs_live): Likewise.  Force stack pointer live.
+	(allocate_reg_life_data): Set max_regno.
+	(mark_set_1): Clear reg_live bits after emitting REG_UNUSED.
+	(mark_used_reg): Only set REG_N_DEATHS with PROP_REG_INFO.
+	(count_reg_sets_1, count_reg_sets): Remove.
+	(count_reg_references): Remove.
+	(recompute_reg_usage): Implement with update_life_info.
+	Resize the reg info array.
+
+	* reg-stack.c (reg_to_stack): Update call to life_analysis.
+	* ssa.c (convert_to_ssa, convert_from_ssa): Likewise.
+
+	* toplev.c (DFI_ce): New.
+	(dump_file): Update.  Document remaining letters.
+	(rest_of_compilation): Update call to life_analysis.  Don't
+	run if_convert after cse1.  Set cse_not_expected after cse2.
+	Set no_new_pseudos after last register update, not before flow1.
+	Rebuild the CFG after jump after combine.  Run if_convert after
+	combine.
+
 2000-04-24  Richard Henderson  <rth@cygnus.com>
 
 	* condexec.c (noce_try_store_flag_constants): Pass normalize to
