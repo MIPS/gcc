@@ -1,3 +1,26 @@
+2002-01-20  Diego Novillo  <dnovillo@redhat.com>
+            Sebastian Pop  <s.pop@laposte.net>
+
+	* Makefile.in: Add c-simplify.o.
+	* cp/Make-lang.in: Ditto.
+	* c-decl.c (c_expand_body): Call simplify_stmt() before
+	calling optimize_tree().
+	* c-simplify.c: New file.
+	* c-tree.h (simplify_stmt): Declare.
+	(print_c_tree)
+	* tree-dfa.c (find_refs_in_stmt): Fix error message for unhandled
+	statement codes.
+
+2002-01-20  Sebastian Pop  <s.pop@laposte.net>
+
+	* Makefile.in: Add c-pretty-print.o.
+	* cp/Make-lang.in: Ditto.
+	* c-pretty-print.c: New file.
+	* c-tree.h (print_c_tree): Declare.
+	(print_c_node): Declare.
+	(debug_c_tree): Declare.
+	(debug_c_node): Declare.
+
 2001-12-29  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-lang.c (c_post_options): Move code to enable tree-ssa

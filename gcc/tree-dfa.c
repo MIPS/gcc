@@ -205,7 +205,7 @@ find_refs_in_stmt (t, bb)
   else
     {
       prep_stmt (t);
-      error ("Unhandled expression in find_refs_in_stmt():");
+      error ("Unhandled statement node in find_refs_in_stmt():");
       fprintf (stderr, "\n");
       tree_debug_bb (bb);
       fprintf (stderr, "\n");

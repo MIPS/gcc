@@ -702,7 +702,8 @@ CXX_TARGET_OBJS=@cxx_target_objs@
 C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
   c-convert.o c-aux-info.o c-common.o c-format.o c-semantics.o \
   c-objc-common.o libcpp.a $(C_TARGET_OBJS) \
-  tree-cfg.o tree-dfa.o tree-ssa.o tree-optimize.o
+  tree-cfg.o tree-dfa.o tree-ssa.o tree-optimize.o c-pretty-print.o \
+  c-simplify.o
 
 # Language-specific object files for C.
 C_OBJS = c-parse.o c-lang.o $(C_AND_OBJC_OBJS)
@@ -1329,6 +1330,10 @@ tree-dfa.o : tree-dfa.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
 tree-optimize.o : tree-optimize.c tree-optimize.h tree-flow.h $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h flags.h
+c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
+   $(C_TREE_H) $(C_COMMON_H) diagnostic.h
+c-pretty-print.o : c-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
+   $(RTL_H) $(TREE_H) $(EXPR_H) $(C_COMMON_H) diagnostic.h
 stor-layout.o : stor-layout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h \
    function.h $(EXPR_H) $(RTL_H) toplev.h $(GGC_H) $(TM_P_H)
 fold-const.o : fold-const.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h \

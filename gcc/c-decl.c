@@ -6977,7 +6977,12 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 
   /* Invoke the SSA tree optimizer.  */
   if (flag_tree_ssa)
-    optimize_tree (DECL_SAVED_TREE (fndecl));
+    {
+      tree fn = DECL_SAVED_TREE (fndecl);
+
+      simplify_stmt (fn, NULL);
+      optimize_tree (fn);
+    }
 
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);

@@ -375,4 +375,13 @@ extern void finish_incomplete_decl PARAMS ((tree));
 extern tree static_ctors;
 extern tree static_dtors;
 
+/* In c-simplify.c  */
+extern void simplify_stmt PARAMS ((tree, tree));
+
+/* In c-pretty-print.c */
+extern void print_c_tree  PARAMS ((FILE*, tree));
+extern void print_c_node  PARAMS ((FILE*, tree));
+extern void debug_c_tree  PARAMS ((tree));
+extern void debug_c_node  PARAMS ((tree));
+
 #endif /* ! GCC_C_TREE_H */
