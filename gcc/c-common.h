@@ -203,7 +203,7 @@ struct c_common_identifier GTY(())
 #define truthvalue_false_node		c_global_trees[CTI_TRUTHVALUE_FALSE]
 
 #define char_array_type_node		c_global_trees[CTI_CHAR_ARRAY_TYPE]
-/* APPLE LOCAL Pascal strings 2001-07-05 zll */
+/* APPLE LOCAL pascal strings */
 #define pascal_string_type_node 	c_global_trees[CTI_PASCAL_STRING_TYPE]
 #define wchar_array_type_node		c_global_trees[CTI_WCHAR_ARRAY_TYPE]
 #define int_array_type_node		c_global_trees[CTI_INT_ARRAY_TYPE]
@@ -1335,10 +1335,6 @@ extern tree lookup_objc_ivar			(tree);
 
 /* APPLE LOCAL -Wlong-double  */
 extern void warn_about_long_double		(void);
-
-/* APPLE LOCAL begin constant cfstrings */
-extern tree build_cfstring_ascii		(tree);
-/* APPLE LOCAL end constant cfstrings */
 
 /* APPLE LOCAL begin Symbol Separation */
 extern void dbg_ss_init                         (void);

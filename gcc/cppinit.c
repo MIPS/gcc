@@ -146,6 +146,8 @@ cpp_create_reader (enum c_lang lang, hash_table *table,
   /* APPLE LOCAL begin -Wfour-char-constants  */
   CPP_OPTION (pfile, warn_four_char_constants) = 1;
   /* APPLE LOCAL end -Wfour-char-constants  */
+  /* APPLE LOCAL pascal strings */
+  CPP_OPTION (pfile, pascal_strings) = 0;
   CPP_OPTION (pfile, warn_multichar) = 1;
   CPP_OPTION (pfile, discard_comments) = 1;
   CPP_OPTION (pfile, discard_comments_in_macro_exp) = 1;

@@ -1199,6 +1199,12 @@ override_options (void)
   SUBTARGET_OVERRIDE_OPTIONS;
 #endif
 
+  /* APPLE LOCAL begin constant cfstrings */
+#ifdef SUBSUBTARGET_OVERRIDE_OPTIONS
+  SUBSUBTARGET_OVERRIDE_OPTIONS;
+#endif
+  /* APPLE LOCAL end constant cfstrings */
+
   if (!ix86_tune_string && ix86_arch_string)
     ix86_tune_string = ix86_arch_string;
   if (!ix86_tune_string)
@@ -12968,6 +12974,12 @@ ix86_init_builtins (void)
 {
   if (TARGET_MMX)
     ix86_init_mmx_sse_builtins ();
+
+  /* APPLE LOCAL begin constant cfstrings */
+#ifdef SUBTARGET_INIT_BUILTINS
+  SUBTARGET_INIT_BUILTINS;
+#endif
+  /* APPLE LOCAL end constant cfstrings */
 }
 
 /* Set up all the MMX/SSE builtins.  This is not called if TARGET_MMX

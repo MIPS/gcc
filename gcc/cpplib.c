@@ -829,7 +829,8 @@ do_line (cpp_reader *pfile)
     {
       cpp_string s = { 0, 0 };
       if (cpp_interpret_string_notranslate (pfile, &token->val.str, 1,
-					    &s, false))
+					    /* APPLE LOCAL pascal strings */
+					    &s, false, false))
 	new_file = (const char *)s.text;
       check_eol (pfile);
     }
@@ -881,7 +882,8 @@ do_linemarker (cpp_reader *pfile)
     {
       cpp_string s = { 0, 0 };
       if (cpp_interpret_string_notranslate (pfile, &token->val.str,
-					    1, &s, false))
+					    /* APPLE LOCAL pascal strings */
+					    1, &s, false, false))
 	new_file = (const char *)s.text;
 
       new_sysp = 0;

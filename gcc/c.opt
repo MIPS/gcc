@@ -347,11 +347,6 @@ Warn about non-virtual destructors
 Wnonnull
 C ObjC
 
-; APPLE LOCAL constant cfstrings
-Wnonportable-cfstrings
-ObjC ObjC++
-Warn about non-ASCII characters or NULs in CFString literals
-
 Wold-style-cast
 C++ ObjC++
 Warn if a C-style cast is used in a program
@@ -524,11 +519,6 @@ Reduce the size of object files
 fconst-strings
 C++ ObjC++
 Make string literals \"const char[]\" not \"char[]\"
-
-; APPLE LOCAL constant cfstrings
-fconstant-cfstrings
-C ObjC C++ ObjC++
-Enable __builtin__CFStringMakeConstantString
 
 fconstant-string-class=
 ObjC ObjC++ Joined

@@ -330,18 +330,6 @@ int flag_fastf = 0;
 int flag_fastcp = 0;
 /* APPLE LOCAL end -fast */
 
-/* APPLE LOCAL begin constant cfstrings */
-/* Nonzero means that: (1) the __CONSTANT_CFSTRINGS__ manifest constant
-   is defined, possibly allowing for conditional use of the
-   __builtin__CFStringMakeConstantString function (the latter is always
-   available, regardless of the setting of this flag), and (2) use
-   the CFString layout to create @"..." strings in ObjC/ObjC++.  */
-int flag_constant_cfstrings;
-/* Nonzero means that we should warn whenever non-ASCII characters appear
-   inside of @"..." literals (as they may be non-portable).  */
-int warn_nonportable_cfstrings;
-/* APPLE LOCAL end constant cfstrings */
-   
 /* Nonzero for -fcaller-saves: allocate values in regs that need to
    be saved across function calls, if that produces overall better code.
    Optional now, so people can test it.  */
@@ -959,15 +947,6 @@ int flag_evaluation_order = 0;
 /* Add or remove a leading underscore from user symbols.  */
 int flag_leading_underscore = -1;
 
-/* APPLE LOCAL begin Pascal strings 2001-07-12 sts */
-/* Nonzero means initial "\p" in string becomes a length byte and
-   string type becomes _unsigned_ char* .  Although currently this is
-   a C/C++-only flag, it may be of future use with other frontends,
-   thus we define it here.  */
-
-int flag_pascal_strings;
-/* APPLE LOCAL end Pascal strings 2001-07-12 sts */
-
 /* APPLE LOCAL begin coalescing turly 20020319 */
 /* Don't enable coalescing by default unless we have one of these
    features in cctools.  */
@@ -1160,8 +1139,6 @@ static const lang_independent_options f_options[] =
   { "coalesce-templates", &flag_coalesce_templates, 1 },
   { "export-coalesced", &flag_export_coalesced, 1 },
   /* APPLE LOCAL end coalescing  turly  */
-  /* APPLE LOCAL Pascal strings 2001-07-05 zll */
-  { "pascal-strings", &flag_pascal_strings, 1 },
   { "new-ra", &flag_new_regalloc, 1 },
   { "var-tracking", &flag_var_tracking, 1},
   { "tree-gvn", &flag_tree_gvn, 1 },

@@ -1,10 +1,10 @@
-/* APPLE LOCAL file constant cfstrings */
+/* APPLE LOCAL file constant CFStrings */
 /* Test the -Wnonportable-cfstrings option, which should give
    warnings if non-ASCII characters are embedded in constant
    CFStrings.  This will only work on MacOS X 10.2 and later.  */
 /* Developed by Ziemowit Laski <zlaski@apple.com>.  */
 
-/* { dg-do compile { target *-apple-darwin* } } */
+/* { dg-do compile { target *-*-darwin* } } */
 /* { dg-options "-fconstant-cfstrings -Wnonportable-cfstrings" } */
 
 #import <Foundation/NSString.h>

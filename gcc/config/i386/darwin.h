@@ -36,8 +36,8 @@ Boston, MA 02111-1307, USA.  */
     {                                           \
       builtin_define ("__i386__");              \
       builtin_define ("__LITTLE_ENDIAN__");     \
-      builtin_define ("__MACH__");              \
-      builtin_define ("__APPLE__");             \
+      /* APPLE LOCAL constant cfstrings */	\
+      SUBTARGET_OS_CPP_BUILTINS ();		\
     }                                           \
   while (0)
 

@@ -545,12 +545,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
       /* APPLE LOCAL end -Wfour-char-constants */
 
-      /* APPLE LOCAL begin constant cfstrings */
-    case OPT_Wnonportable_cfstrings:
-      warn_nonportable_cfstrings = value;
-      break;
-      /* APPLE LOCAL end constant cfstrings */
-
     case OPT_Winit_self:
       warn_init_self = value;
       break;
@@ -890,12 +884,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_fconst_strings:
       flag_const_strings = value;
       break;
-
-      /* APPLE LOCAL begin constant cfstrings */
-    case OPT_fconstant_cfstrings:
-      flag_constant_cfstrings = value;
-      break;
-      /* APPLE LOCAL end constant cfstrings */
 
     case OPT_fconstant_string_class_:
       constant_string_class_name = arg;

@@ -174,12 +174,6 @@ static void simplify_builtin_next_arg (tree);
 static void simplify_builtin_va_start (tree);
 static tree simplify_builtin_sprintf (tree, int);
 
-/* APPLE LOCAL begin constant cfstrings */
-/* This is broken, builtins.c should not be referencing something in
-   c-common.  */
-extern tree build_cfstring_ascii (tree);
-/* APPLE LOCAL end constant cfstrings */
-
 /* Return the alignment in bits of EXP, a pointer valued expression.
    But don't return more than MAX_ALIGN no matter what.
    The alignment returned is, by default, the alignment of the thing that
@@ -5757,15 +5751,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_PROFILE_FUNC_EXIT:
       return expand_builtin_profile_func (true);
 
-    /* APPLE LOCAL begin constant cfstrings */
-    case BUILT_IN___CFSTRINGMAKECONSTANTSTRING:
-      /* if __builtin___CFStringMakeConstantString made it intact this far,
-	 past the constant folding, it means that the argument is not a 
-	 constant.  This is a no-no.  */
-      error ("CFString literal expression not constant");
-      return const0_rtx;
-    /* APPLE LOCAL end constant cfstrings */
-
     case BUILT_IN_INIT_TRAMPOLINE:
       return expand_builtin_init_trampoline (arglist);
     case BUILT_IN_ADJUST_TRAMPOLINE:
@@ -6959,26 +6944,6 @@ fold_builtin_1 (tree exp)
 	    }
 	}
       break;
-
-    /* APPLE LOCAL begin constant cfstrings */
-    case BUILT_IN___CFSTRINGMAKECONSTANTSTRING:
-      /* This may only be used in conjunction with '-fconstant-cfstrings'.  */
-      if (!flag_constant_cfstrings)
-	{
-	  error ("built-in function `%s' requires `-fconstant-cfstrings' flag",
-		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-	  return error_mark_node;
-	}
-      if (validate_arglist (arglist, POINTER_TYPE, VOID_TYPE))
-	{
-	  tree offset_node;
-	  tree literal = string_constant (TREE_VALUE (arglist), &offset_node);
-
-	  if (literal)
-	    return build_cfstring_ascii (literal); 
-	}
-      break;
-    /* APPLE LOCAL end constant cfstrings */
 
     case BUILT_IN_FABS:
     case BUILT_IN_FABSF:

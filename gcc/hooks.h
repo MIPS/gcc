@@ -63,4 +63,9 @@ extern tree hook_tree_tree_identity (tree a);
 extern const char *hook_constcharptr_tree_null (tree);
 /* APPLE LOCAL AltiVec */
 extern bool hook_bool_constcpp_tokenp_false (const struct cpp_token *);
+/* APPLE LOCAL begin constant cfstrings */
+extern tree hook_tree_tree_null (tree);
+extern tree hook_tree_tree_tree_tree_null (tree, tree, tree);
+/* APPLE LOCAL end constant cfstrings */
+
 #endif

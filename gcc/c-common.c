@@ -153,6 +153,13 @@ cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
 	tree char_array_type_node;
 
+   ** APPLE LOCAL begin pascal strings **
+   Type `unsigned char[SOMENUMBER]'.
+   Used for pascal-type strings ("\pstring").
+
+	tree pascal_string_type_node;
+   ** APPLE LOCAL end pascal strings **
+
    Type `int[SOMENUMBER]' or something like it.
    Used when an array of int needed and the size is irrelevant.
 
@@ -751,10 +758,6 @@ int warn_long_double = 0;
 #endif
 /* APPLE LOCAL end -Wlong-double */
 
-/* APPLE LOCAL begin constant cfstrings */
-static void create_cfstring_template	PARAMS ((void));
-/* APPLE LOCAL end constant cfstrings */
-
 /* Information about how a function name is generated.  */
 struct fname_var_t
 {
@@ -1233,6 +1236,13 @@ fix_string_type (tree value)
 {
   const int wchar_bytes = TYPE_PRECISION (wchar_type_node) / BITS_PER_UNIT;
   const int wide_flag = TREE_TYPE (value) == wchar_array_type_node;
+  /* APPLE LOCAL begin pascal strings */
+  const int pascal_flag = TREE_TYPE (value) == pascal_string_type_node;
+  tree base_type
+    = wide_flag ? wchar_type_node
+		: pascal_flag ? unsigned_char_type_node
+			      : char_type_node;
+  /* APPLE LOCAL end pascal strings */
   const int nchars_max = flag_isoc99 ? 4095 : 509;
   int length = TREE_STRING_LENGTH (value);
   int nchars;
@@ -1250,16 +1260,16 @@ fix_string_type (tree value)
      For C++, this is the standard behavior.  */
   if (flag_const_strings)
     {
-      tree elements
-	= build_type_variant (wide_flag ? wchar_type_node : char_type_node,
-			      1, 0);
+      /* APPLE LOCAL pascal strings */
+      tree elements = build_type_variant (base_type, 1, 0);
       TREE_TYPE (value)
 	= build_array_type (elements,
 			    build_index_type (build_int_2 (nchars - 1, 0)));
     }
   else
     TREE_TYPE (value)
-      = build_array_type (wide_flag ? wchar_type_node : char_type_node,
+      /* APPLE LOCAL pascal strings */
+      = build_array_type (base_type,
 			  build_index_type (build_int_2 (nchars - 1, 0)));
 
   TREE_CONSTANT (value) = 1;
@@ -3398,6 +3408,10 @@ c_common_nodes_and_builtins (void)
      array type.  */
   char_array_type_node
     = build_array_type (char_type_node, array_domain_type);
+  /* APPLE LOCAL begin pascal strings */
+  pascal_string_type_node
+    = build_array_type (unsigned_char_type_node, array_domain_type);
+  /* APPLE LOCAL end pascal strings */
 
   /* Likewise for arrays of ints.  */
   int_array_type_node
@@ -3598,11 +3612,6 @@ c_common_nodes_and_builtins (void)
   (*targetm.init_builtins) ();
 
   main_identifier_node = get_identifier ("main");
-
-  /* APPLE LOCAL begin constant cfstrings */
-  if (flag_constant_cfstrings)
-    create_cfstring_template ();
-  /* APPLE LOCAL end constant cfstrings */
 }
 
 tree
@@ -3912,7 +3921,8 @@ expand_tree_builtin (tree function, tree params, tree coerced_params)
       return expand_unordered_cmp (function, params, UNORDERED_EXPR, NOP_EXPR);
 
     default:
-      break;
+      /* APPLE LOCAL constant cfstrings */
+      return (*targetm.expand_tree_builtin) (function, params, coerced_params);
     }
 
   return NULL_TREE;
@@ -5869,89 +5879,6 @@ warn_about_long_double (void)
     }       
 }
 /* APPLE LOCAL end -Wlong-double dpatel */
-
-/* APPLE LOCAL begin constant cfstrings */
-
-static GTY(()) tree cfstring_class_reference = NULL_TREE;
-static GTY(()) tree cfstring_object_template = NULL_TREE;
-
-static void
-create_cfstring_template (void)
-{
-  /* "extern int __CFConstantStringClassReference[];"  */
-  cfstring_class_reference = build_decl
-			     (VAR_DECL, 
-			      get_identifier ("__CFConstantStringClassReference"),
-			      build_array_type (integer_type_node, 0));
-  DECL_EXTERNAL (cfstring_class_reference) = 1;
-  TREE_PUBLIC (cfstring_class_reference) = 1;
-  TREE_USED (cfstring_class_reference) = 1;
-  DECL_ARTIFICIAL (cfstring_class_reference) = 1;
-  pushdecl (cfstring_class_reference);
-  rest_of_decl_compilation (cfstring_class_reference, 0, 0, 0);
-}
-
-tree
-build_cfstring_ascii (tree str)
-{
-  tree initlist, constructor;
-  int length;
-
-  length = TREE_STRING_LENGTH (str) - 1;
-  if (warn_nonportable_cfstrings)
-    {
-      const char *s = TREE_STRING_POINTER (str);
-      int l = 0;
-      
-      for (l = 0; l < length; l++)
-	if (s[l] <= 0 || s[l] >= 127)
-	  {
-	    warning ("%s in CFString literal", 
-		     s[l] ? "non-ASCII character" : "embedded NUL");
-	    break;
-	  }
-    }
-
-  initlist = build_tree_list
-	     (NULL_TREE, convert (const_ptr_type_node, 
-				  copy_node (build_unary_op 
-					     (ADDR_EXPR, 
-					      cfstring_class_reference, 0))));
-  initlist = tree_cons (NULL_TREE, convert (const_ptr_type_node, 
-					    build_int_2 (0x000007c8, 0)), initlist);
-  initlist = tree_cons
-	     (NULL_TREE, convert (const_ptr_type_node,
-				  copy_node (build_unary_op 
-					     (ADDR_EXPR, str, 1))), initlist);
-  initlist = tree_cons (NULL_TREE, convert (const_ptr_type_node, 
-				  build_int_2 (length, 0)), initlist);
-  
-  /* Because we're lazy, we'll treat CFStrings (internally) as arrays of pointers.  
-     This shouldn't matter, anyway.  */
-  cfstring_object_template = build_array_type (const_ptr_type_node, 0);	 
-  TYPE_ALIGN (cfstring_object_template) = TYPE_ALIGN (const_ptr_type_node);
-  /* NB: We are initializing 'cfstring_object_template' every time, instead of
-     once in create_cfstring_template() above, because the compiler appears
-     to clobber it on occasion.  Exercise for the student: eliminate the
-     clobbering.  Primary suspect: memory manager.  */
-     
-  constructor = build (CONSTRUCTOR, cfstring_object_template, 
-		       NULL_TREE, nreverse (initlist));
-  TREE_CONSTANT (constructor) = 1;
-  TREE_STATIC (constructor) = 1;
-  TREE_READONLY (constructor) = 1;
-
-  /* Fromage: The C++ flavor of 'build_unary_op' expects constructor nodes to have
-     the TREE_HAS_CONSTRUCTOR (...) bit set.  However, this file (c-common.c) is built
-     without any knowledge of C++ tree accessors; hence, we shall use the generic
-     accessor that TREE_HAS_CONSTRUCTOR actually maps to!  */
-  if (c_dialect_cxx ())
-     TREE_LANG_FLAG_4 (constructor) = 1;   /* TREE_HAS_CONSTRUCTOR  */
-     
-  return build_c_cast (const_ptr_type_node, copy_node 
-					    (build_unary_op (ADDR_EXPR, constructor, 1)));
-}     
-/* APPLE LOCAL end constant cfstrings */
 
 /* APPLE LOCAL begin Symbol Separation */
 /* Call debugger hooks to restore state of debugging symbol generation.

@@ -1450,6 +1450,8 @@ c-opts.o : c-opts.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)		\
 c-cppbuiltin.o : c-cppbuiltin.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 	$(TREE_H) $(C_COMMON_H) c-pragma.h flags.h toplev.h langhooks.h \
 	output.h except.h real.h $(TM_P_H)
+# APPLE LOCAL pascal strings
+c-cppbuiltin.o : cpplib.h cpphash.h
 
 # A file used by all variants of C and some other languages.
 

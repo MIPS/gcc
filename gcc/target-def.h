@@ -270,6 +270,16 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_INIT_BUILTINS hook_void_void
 #define TARGET_EXPAND_BUILTIN default_expand_builtin
 
+/* APPLE LOCAL begin constant cfstrings */
+/* In c-common.c.  */
+#ifndef TARGET_EXPAND_TREE_BUILTIN
+#define TARGET_EXPAND_TREE_BUILTIN hook_tree_tree_tree_tree_null
+#endif
+#ifndef TARGET_CONSTRUCT_OBJC_STRING
+#define TARGET_CONSTRUCT_OBJC_STRING hook_tree_tree_null
+#endif
+/* APPLE LOCAL end constant cfstrings */
+
 /* In varasm.c.  */
 #ifndef TARGET_SECTION_TYPE_FLAGS
 #define TARGET_SECTION_TYPE_FLAGS default_section_type_flags
@@ -388,6 +398,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_MS_BITFIELD_LAYOUT_P,			\
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
+  /* APPLE LOCAL begin constant cfstrings */	\
+  TARGET_EXPAND_TREE_BUILTIN,			\
+  TARGET_CONSTRUCT_OBJC_STRING,			\
+  /* APPLE LOCAL end constant cfstrings */	\
   TARGET_MANGLE_FUNDAMENTAL_TYPE,		\
   TARGET_INIT_LIBFUNCS,				\
   TARGET_SECTION_TYPE_FLAGS,			\

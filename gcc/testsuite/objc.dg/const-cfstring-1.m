@@ -5,20 +5,18 @@
    on MacOS X 10.1.2 and later.  */
 /* Developed by Ziemowit Laski <zlaski@apple.com>.  */
 
-/* { dg-do run { target powerpc-apple-darwin* } } */
+/* { dg-do run { target *-*-darwin* } } */
 /* { dg-options "-fconstant-cfstrings -framework Cocoa" } */
 
 #import <Foundation/NSString.h>
 #import <CoreFoundation/CFString.h>
 
-#ifdef __CONSTANT_CFSTRINGS__
-#undef CFSTR
-#define CFSTR(STR)  ((CFStringRef) __builtin___CFStringMakeConstantString (STR))
-#endif
-
 void printOut(NSString *str) {
   NSLog(@"The value of str is: %@", str);
 }
+
+CFStringRef s0a = CFSTR("Compile-time string literal");
+CFStringRef s0b = CFSTR("Compile-time string literal");
 
 void checkNSRange(NSRange r) {
   if (r.location != 6 || r.length != 5) {
@@ -35,13 +33,8 @@ void checkCFRange(CFRange r) {
 }
 
 int main(void) {
-  NSString *s1 = @"Compile-time string literal";
+  const NSString *s1 = @"Compile-time string literal";
   CFStringRef s2 = CFSTR("Compile-time string literal");
-
-  if (s1 != (id)s2) {
-    NSLog(@"String comparison failed");
-    abort ();
-  }
 
   checkNSRange([@"Hello World" rangeOfString:@"World"]);
   checkNSRange([(id)CFSTR("Hello World") rangeOfString:@"World"]);
@@ -52,6 +45,12 @@ int main(void) {
   checkCFRange(CFStringFind(CFSTR("Hello World"), (CFStringRef)@"World", 0));
   checkCFRange(CFStringFind((CFStringRef)@"Hello World", CFSTR("World"), 0));
   checkCFRange(CFStringFind(CFSTR("Hello World"), CFSTR("World"), 0));
+
+  /* Check for string uniquing.  */
+  if (s0a != s0b || s0a != s2 || s1 != (id)s2) {
+    NSLog(@"String uniquing failed");
+    abort ();
+  }
 
   return 0;
 }

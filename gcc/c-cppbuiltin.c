@@ -31,6 +31,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "except.h"		/* For USING_SJLJ_EXCEPTIONS.  */
 #include "toplev.h"
 #include "tm_p.h"		/* Target prototypes.  */
+/* APPLE LOCAL begin pascal strings */
+#include "cpplib.h"
+#include "cpphash.h"
+/* APPLE LOCAL end pascal strings */
 
 #ifndef TARGET_OS_CPP_BUILTINS
 # define TARGET_OS_CPP_BUILTINS()

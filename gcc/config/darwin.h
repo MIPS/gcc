@@ -142,8 +142,107 @@ Boston, MA 02111-1307, USA.  */
   { "-static", "-static -Wa,-static" },  \
   { "-single_module", "-Zsingle_module" },  \
   { "-unexported_symbols_list", "-Zunexported_symbols_list" }, \
+  /* APPLE LOCAL begin constant cfstrings */	\
+  { "-fconstant-cfstrings", "-mconstant-cfstrings" }, \
+  { "-fno-constant-cfstrings", "-mno-constant-cfstrings" }, \
+  { "-Wnonportable-cfstrings", "-mwarn-nonportable-cfstrings" }, \
+  { "-Wno-nonportable-cfstrings", "-mno-warn-nonportable-cfstrings" }, \
+  { "-fpascal-strings", "-mpascal-strings" },	\
+  { "-fno-pascal-strings", "-mno-pascal-strings" },	\
+  /* APPLE LOCAL end constant cfstrings */	\
   SUBTARGET_OPTION_TRANSLATE_TABLE
-  
+
+/* APPLE LOCAL begin constant cfstrings */
+extern int darwin_constant_cfstrings;
+extern const char *darwin_constant_cfstrings_switch;
+extern int darwin_warn_nonportable_cfstrings;
+extern const char *darwin_warn_nonportable_cfstrings_switch;
+extern int darwin_pascal_strings;
+extern const char *darwin_pascal_strings_switch;
+extern int darwin_running_cxx;
+
+#undef  SUBTARGET_OPTIONS
+#define SUBTARGET_OPTIONS						\
+   {"constant-cfstrings", &darwin_constant_cfstrings_switch,		\
+    N_("Generate compile-time CFString objects"), 0},			\
+   {"no-constant-cfstrings", &darwin_constant_cfstrings_switch, "", 0},	\
+   {"pascal-strings", &darwin_pascal_strings_switch,			\
+    N_("Allow use of Pascal strings"), 0},				\
+   {"no-pascal-strings", &darwin_pascal_strings_switch, "", 0},		\
+   {"warn-nonportable-cfstrings", &darwin_warn_nonportable_cfstrings_switch,		\
+    N_("Warn if constant CFString objects contain non-portable characters"), 0},	\
+   {"no-warn-nonportable-cfstrings", &darwin_warn_nonportable_cfstrings_switch, "", 0}
+
+#define SUBTARGET_OS_CPP_BUILTINS()			\
+  do							\
+    {							\
+      builtin_define ("__MACH__");			\
+      builtin_define ("__APPLE__");			\
+      if (darwin_constant_cfstrings)			\
+	builtin_define ("__CONSTANT_CFSTRINGS__");	\
+      /* APPLE LOCAL begin pascal strings */		\
+      if (darwin_pascal_strings)			\
+	{						\
+	  builtin_define ("__PASCAL_STRINGS__");	\
+	  CPP_OPTION (pfile, pascal_strings) = 1;	\
+	}						\
+      /* APPLE LOCAL end pascal strings */		\
+    }							\
+  while (0)
+
+#define SUBSUBTARGET_OVERRIDE_OPTIONS					\
+do {									\
+  if (darwin_constant_cfstrings_switch)					\
+    {									\
+      const char *base = darwin_constant_cfstrings_switch;		\
+      while (base[-1] != 'm') base--;					\
+									\
+      if (*darwin_constant_cfstrings_switch != '\0')			\
+	error ("invalid option `%s'", base);				\
+      darwin_constant_cfstrings = (base[0] != 'n');			\
+    }									\
+  if (darwin_warn_nonportable_cfstrings_switch)				\
+    {									\
+      const char *base = darwin_warn_nonportable_cfstrings_switch;	\
+      while (base[-1] != 'm') base--;					\
+									\
+      if (*darwin_warn_nonportable_cfstrings_switch != '\0')		\
+	error ("invalid option `%s'", base);				\
+      darwin_warn_nonportable_cfstrings = (base[0] != 'n');		\
+    }									\
+  if (darwin_pascal_strings_switch)					\
+    {									\
+      const char *base = darwin_pascal_strings_switch;			\
+      while (base[-1] != 'm') base--;					\
+									\
+      if (*darwin_pascal_strings_switch != '\0')			\
+	error ("invalid option `%s'", base);				\
+      darwin_pascal_strings = (base[0] != 'n');				\
+    }									\
+  /* The c_dialect...() macros are not available to us here.  */	\
+  darwin_running_cxx = (strstr (lang_hooks.name, "C++") != 0);		\
+} while(0)
+
+enum darwin_builtins
+{
+  DARWIN_BUILTIN_MIN = (int)TARGET_BUILTIN_MAX,
+
+  DARWIN_BUILTIN_CFSTRINGMAKECONSTANTSTRING,
+  DARWIN_BUILTIN_MAX
+};
+
+#define SUBTARGET_INIT_BUILTINS		\
+do {					\
+  darwin_init_cfstring_builtins ();	\
+} while(0)
+
+#undef TARGET_EXPAND_TREE_BUILTIN
+#define TARGET_EXPAND_TREE_BUILTIN darwin_expand_tree_builtin
+#undef TARGET_CONSTRUCT_OBJC_STRING
+#define TARGET_CONSTRUCT_OBJC_STRING darwin_construct_objc_string
+
+/* APPLE LOCAL end constant cfstrings */
+
 /* These compiler options take n arguments.  */
 
 #undef  WORD_SWITCH_TAKES_ARG

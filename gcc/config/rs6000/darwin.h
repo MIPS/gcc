@@ -44,15 +44,14 @@
 /* Handle #pragma weak and #pragma pack.  */
 #define HANDLE_SYSV_PRAGMA 1
 
-
 #define TARGET_OS_CPP_BUILTINS()                \
   do                                            \
     {                                           \
       builtin_define ("__ppc__");               \
       builtin_define ("__POWERPC__");           \
       builtin_define ("__NATURAL_ALIGNMENT__"); \
-      builtin_define ("__MACH__");              \
-      builtin_define ("__APPLE__");             \
+      /* APPLE LOCAL constant cfstrings */	\
+      SUBTARGET_OS_CPP_BUILTINS ();		\
     }                                           \
   while (0)
 

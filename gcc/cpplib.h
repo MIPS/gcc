@@ -134,6 +134,8 @@ struct _cpp_file;
   TK(CPP_STRING,	SPELL_LITERAL)	/* "string" */			\
   TK(CPP_WSTRING,	SPELL_LITERAL)	/* L"string" */			\
   TK(CPP_OBJC_STRING,   SPELL_LITERAL)  /* @"string" - Objective-C */	\
+  /* APPLE LOCAL pascal strings */					\
+  TK(CPP_PASCAL_STRING,	SPELL_LITERAL)	/* Pascal ("\p...") string */	\
   TK(CPP_HEADER_NAME,	SPELL_LITERAL)	/* <stdio.h> in #include */	\
 \
   TK(CPP_COMMENT,	SPELL_LITERAL)	/* Only if output comments.  */ \
@@ -291,6 +293,14 @@ struct cpp_options
   /* Warn about four-char literals (e.g., MacOS-style OSTypes: 'APPL').  */
   unsigned char warn_four_char_constants;
   /* APPLE LOCAL end -Wfour-char-constants  */
+
+  /* APPLE LOCAL begin pascal strings */
+  /* Nonzero means allow "\p...." Pascal string literals, where '\p'
+     is replaced with the length of the remaining string (excluding the
+     terminating NUL).  Pascal string literals have type
+     'const unsigned char *'.  */
+  unsigned char pascal_strings;
+  /* APPLE LOCAL end pascal strings */
 
   /* Nonzero means warn about multicharacter charconsts.  */
   unsigned char warn_multichar;
@@ -668,10 +678,12 @@ extern cppchar_t cpp_interpret_charconst (cpp_reader *, const cpp_token *,
 /* Evaluate a vector of CPP_STRING or CPP_WSTRING tokens.  */
 extern bool cpp_interpret_string (cpp_reader *,
 				  const cpp_string *, size_t,
-				  cpp_string *, bool);
+				  /* APPLE LOCAL pascal strings */
+				  cpp_string *, bool, bool);
 extern bool cpp_interpret_string_notranslate (cpp_reader *,
 					      const cpp_string *, size_t,
-					      cpp_string *, bool);
+					      /* APPLE LOCAL pascal strings */
+					      cpp_string *, bool, bool);
 
 /* Used to register macros and assertions, perhaps from the command line.
    The text is the same as the command line argument.  */

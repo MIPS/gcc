@@ -254,3 +254,4 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       break;
     }
 }
+

@@ -42,6 +42,12 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 #include "tm_p.h"
 #include "errors.h"
+/* APPLE LOCAL begin constant cfstrings */
+#include "hashtab.h"
+#include "toplev.h"
+
+static tree darwin_build_constant_cfstring (tree);
+/* APPLE LOCAL end constant cfstrings */
 
 static int machopic_data_defined_p (const char *);
 static void update_non_lazy_ptrs (const char *);
@@ -1770,12 +1776,242 @@ void
 darwin_file_end (void)
 {
   machopic_finish (asm_out_file);
-  if (strcmp (lang_hooks.name, "GNU C++") == 0)
+  /* APPLE LOCAL constant cfstrings */
+  if (darwin_running_cxx)
     {
       constructor_section ();
       destructor_section ();
       ASM_OUTPUT_ALIGN (asm_out_file, 1);
     }
 }
+
+/* APPLE LOCAL begin constant cfstrings */
+int darwin_constant_cfstrings = 0;
+const char *darwin_constant_cfstrings_switch;
+int darwin_warn_nonportable_cfstrings = 1;  /* on by default. */
+const char *darwin_warn_nonportable_cfstrings_switch;
+int darwin_pascal_strings = 0;
+const char *darwin_pascal_strings_switch;
+int darwin_running_cxx;
+
+static GTY(()) tree cfstring_class_reference = NULL_TREE;
+static GTY(()) tree cfstring_type_node = NULL_TREE;
+static GTY(()) tree ccfstring_type_node = NULL_TREE;
+static GTY(()) tree pccfstring_type_node = NULL_TREE;
+static GTY(()) tree pcint_type_node = NULL_TREE;
+static GTY(()) tree pcchar_type_node = NULL_TREE;
+
+/* Store all constructed constant CFStrings in a hash table so that
+   they get uniqued properly.  */
+
+struct cfstring_descriptor GTY(())
+{
+  /* The literal argument .  */
+  tree literal;
+
+  /* The resulting constant CFString.  */
+  tree constructor;
+};
+
+static GTY((param_is (struct cfstring_descriptor))) htab_t cfstring_htab;
+
+static hashval_t cfstring_hash (const void *);
+static int cfstring_eq (const void *, const void *);
+
+void
+darwin_init_cfstring_builtins (void)
+{
+  tree field, fields, pccfstring_ftype_pcchar;
+
+  /* struct __builtin_CFString {
+       const int *isa;		(will point at
+       int flags;		 __CFConstantStringClassReference)
+       const char *str;
+       int length;
+     };  */
+
+  pcint_type_node
+    = build_pointer_type (build_qualified_type (integer_type_node,
+			  TYPE_QUAL_CONST));
+  pcchar_type_node
+    = build_pointer_type (build_qualified_type (char_type_node,
+			  TYPE_QUAL_CONST));
+  cfstring_type_node = (*lang_hooks.types.make_type) (RECORD_TYPE);
+  fields = build_decl (FIELD_DECL, NULL_TREE, pcint_type_node);
+  field = build_decl (FIELD_DECL, NULL_TREE, integer_type_node);
+  TREE_CHAIN (field) = fields; fields = field;
+  field = build_decl (FIELD_DECL, NULL_TREE, pcchar_type_node);
+  TREE_CHAIN (field) = fields; fields = field;
+  field = build_decl (FIELD_DECL, NULL_TREE, integer_type_node);
+  TREE_CHAIN (field) = fields; fields = field;
+  /* NB: The finish_builtin_struct() routine expects FIELD_DECLs in
+     reverse order!  */
+  finish_builtin_struct (cfstring_type_node, "__builtin_CFString",
+			 fields, NULL_TREE);
+
+  /* const struct __builtin_CFstring *
+     __builtin___CFStringMakeConstantString (const char *); */
+
+  ccfstring_type_node
+    = build_qualified_type (cfstring_type_node, TYPE_QUAL_CONST);
+  pccfstring_type_node
+    = build_pointer_type (ccfstring_type_node);
+  pccfstring_ftype_pcchar
+    = build_function_type_list (pccfstring_type_node,
+				pcchar_type_node, NULL_TREE);
+  builtin_function ("__builtin___CFStringMakeConstantString",
+		    pccfstring_ftype_pcchar,
+		    DARWIN_BUILTIN_CFSTRINGMAKECONSTANTSTRING,
+		    BUILT_IN_NORMAL, NULL, NULL_TREE);
+
+  /* extern int __CFConstantStringClassReference[];  */
+  cfstring_class_reference
+   = build_decl (VAR_DECL,
+		 get_identifier ("__CFConstantStringClassReference"),
+		 build_array_type (integer_type_node, NULL_TREE));
+  DECL_EXTERNAL (cfstring_class_reference) = 1;
+  TREE_PUBLIC (cfstring_class_reference) = 1;
+  TREE_USED (cfstring_class_reference) = 1;
+  DECL_ARTIFICIAL (cfstring_class_reference) = 1;
+  (*lang_hooks.decls.pushdecl) (cfstring_class_reference);
+  rest_of_decl_compilation (cfstring_class_reference, 0, 0, 0);
+  
+  /* Initialize the hash table used to hold the constant CFString objects.  */
+  cfstring_htab = htab_create_ggc (31, cfstring_hash,
+				   cfstring_eq, NULL);
+}
+
+tree
+darwin_expand_tree_builtin (tree function, tree params,
+			    tree coerced_params ATTRIBUTE_UNUSED)
+{
+  unsigned int fcode = DECL_FUNCTION_CODE (function);
+
+  switch (fcode)
+    {
+    case DARWIN_BUILTIN_CFSTRINGMAKECONSTANTSTRING:
+      if (!darwin_constant_cfstrings)
+	{
+	  error ("built-in function `%s' requires `-fconstant-cfstrings' flag",
+		 IDENTIFIER_POINTER (DECL_NAME (function)));
+	  return error_mark_node;
+	}
+
+      return darwin_build_constant_cfstring (TREE_VALUE (params));
+    default:
+      break;
+    }
+
+  return NULL_TREE;
+}
+
+static hashval_t
+cfstring_hash (const void *ptr)
+{
+  tree str = ((struct cfstring_descriptor *)ptr)->literal;
+  const unsigned char *p = (const unsigned char *) TREE_STRING_POINTER (str);
+  int i, len = TREE_STRING_LENGTH (str);
+  hashval_t h = len;
+
+  for (i = 0; i < len; i++)
+    h = ((h * 613) + p[i]);
+
+  return h;
+}
+
+static int
+cfstring_eq (const void *ptr1, const void *ptr2)
+{
+  tree str1 = ((struct cfstring_descriptor *)ptr1)->literal;
+  tree str2 = ((struct cfstring_descriptor *)ptr2)->literal;
+  int len1 = TREE_STRING_LENGTH (str1);
+
+  return (len1 == TREE_STRING_LENGTH (str2)
+	  && !memcmp (TREE_STRING_POINTER (str1), TREE_STRING_POINTER (str2),
+		      len1));
+}
+
+tree
+darwin_construct_objc_string (tree str)
+{
+  if (!darwin_constant_cfstrings)
+    return NULL_TREE;  /* Fall back to NSConstantString.  */
+  
+  return darwin_build_constant_cfstring (str);
+}
+
+static tree
+darwin_build_constant_cfstring (tree str)
+{
+  struct cfstring_descriptor *desc, key;
+  void **loc;
+
+  if (!str || TREE_CODE (str) != STRING_CST)
+    {
+      error ("CFString literal expression is not constant");
+      return error_mark_node;
+    }
+
+  /* Perhaps we already constructed a constant CFString just like this one? */
+  key.literal = str;
+  loc = htab_find_slot (cfstring_htab, &key, INSERT);
+  desc = *loc;
+
+  if (!desc)
+    {
+      tree initlist, constructor, field = TYPE_FIELDS (ccfstring_type_node);
+      int length = TREE_STRING_LENGTH (str) - 1;
+
+      if (darwin_warn_nonportable_cfstrings)
+	{
+	  extern int isascii (int);
+	  const char *s = TREE_STRING_POINTER (str);
+	  int l = 0;
+
+	  for (l = 0; l < length; l++)
+	    if (!s[l] || !isascii (s[l]))
+	      {
+		warning ("%s in CFString literal",
+			 s[l] ? "non-ASCII character" : "embedded NUL");
+		break;
+	      }
+	}
+
+      *loc = desc = ggc_alloc (sizeof (*desc));
+      desc->literal = str;
+
+      initlist = build_tree_list
+		 (field, build1 (ADDR_EXPR, pcint_type_node, 
+				 cfstring_class_reference));
+      field = TREE_CHAIN (field);
+      initlist = tree_cons (field, build_int_2 (0x000007c8, 0),
+			    initlist);
+      field = TREE_CHAIN (field);
+      initlist = tree_cons (field,
+			    build1 (ADDR_EXPR, pcchar_type_node,
+				    str), initlist);
+      field = TREE_CHAIN (field);
+      initlist = tree_cons (field, build_int_2 (length, 0),
+			    initlist);
+  
+      constructor = build_constructor (ccfstring_type_node,
+				       nreverse (initlist));
+      TREE_READONLY (constructor) = 1;
+      TREE_CONSTANT (constructor) = 1;
+      TREE_STATIC (constructor) = 1;
+
+      /* Fromage: The C++ flavor of 'build_unary_op' expects constructor nodes
+	 to have the TREE_HAS_CONSTRUCTOR (...) bit set.  However, this file is
+	 being built without any knowledge of C++ tree accessors; hence, we shall
+	 use the generic accessor that TREE_HAS_CONSTRUCTOR actually maps to!  */
+      if (darwin_running_cxx)
+	TREE_LANG_FLAG_4 (constructor) = 1;   /* TREE_HAS_CONSTRUCTOR  */
+
+      desc->constructor = constructor;
+    }
+
+  return build1 (ADDR_EXPR, pccfstring_type_node, desc->constructor);
+}     
+/* APPLE LOCAL end constant cfstrings */
 
 #include "gt-darwin.h"

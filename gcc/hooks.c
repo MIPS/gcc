@@ -242,3 +242,21 @@ hook_bool_constcpp_tokenp_false (const struct cpp_token * tok ATTRIBUTE_UNUSED)
   return false;
 }
 /* APPLE LOCAL end AltiVec */
+
+/* APPLE LOCAL begin constant cfstrings */
+/* Generic hook that takes a tree and returns NULL.  */
+tree
+hook_tree_tree_null (tree a ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+
+/* Generic hook that takes three trees and returns NULL.  */
+tree
+hook_tree_tree_tree_tree_null (tree a ATTRIBUTE_UNUSED,
+			       tree b ATTRIBUTE_UNUSED,
+			       tree c ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+/* APPLE LOCAL end constant cfstrings */

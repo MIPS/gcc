@@ -1434,11 +1434,13 @@ build_objc_string_object (tree string)
 
   string = fix_string_type (string);
 
-    /* APPLE LOCAL begin constant cfstrings */
-  /* The '-fconstant-cfstrings' switch trumps any '-fconstant-string-class'
-     setting.  We must, however, cast the CFStringRef to id.  */
-  if (flag_constant_cfstrings)
-    return build_c_cast (id_type, build_cfstring_ascii (string));
+  /* APPLE LOCAL begin constant cfstrings */
+  /* The target may have different ideas on how to construct an
+     ObjC string literal.  On Darwin (Mac OS X), for example,
+     we may wish to obtain a constant CFString reference instead.  */
+  constructor = (*targetm.construct_objc_string) (string);
+  if (constructor)
+    return build_c_cast (id_type, constructor);
   /* APPLE LOCAL end constant cfstrings */  
     
   constant_string_class = lookup_interface (constant_string_id);

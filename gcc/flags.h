@@ -267,18 +267,6 @@ extern int flag_pascal_strings;
 
 extern int flag_short_enums;
 
-/* APPLE LOCAL begin constant cfstrings */
-/* Nonzero means that: (1) the __CONSTANT_CFSTRINGS__ manifest constant
-   is defined, possibly allowing for conditional use of the
-   __builtin__CFStringMakeConstantString function (the latter is always
-   available, regardless of the setting of this flag), and (2) use
-   the CFString layout to create @"..." strings in ObjC/ObjC++.  */
-extern int flag_constant_cfstrings;
-/* Nonzero means that we should warn whenever non-ASCII characters appear
-   inside of @"..." literals (as they may be non-portable).  */
-extern int warn_nonportable_cfstrings;
-/* APPLE LOCAL end constant cfstrings */
-   
 /* Nonzero for -fcaller-saves: allocate values in regs that need to
    be saved across function calls, if that produces overall better code.
    Optional now, so people can test it.  */

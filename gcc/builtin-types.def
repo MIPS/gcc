@@ -297,10 +297,3 @@ DEF_FUNCTION_TYPE_VAR_3 (BT_FN_SSIZE_STRING_SIZE_CONST_STRING_VAR,
 DEF_POINTER_TYPE (BT_PTR_FN_VOID_VAR, BT_FN_VOID_VAR)
 DEF_FUNCTION_TYPE_3 (BT_FN_PTR_PTR_FN_VOID_VAR_PTR_SIZE,
 		     BT_PTR, BT_PTR_FN_VOID_VAR, BT_PTR, BT_SIZE)
-		     
-/* APPLE LOCAL begin constant cfstrings */
-/* For simplicity's sake, we will make __builtin___CFStringMakeConstantString
-   return a 'const void *', rather than 'CFStringRef', so that we can avoid
-   having to define 'CFStringRef' as a built-in type.  */
-DEF_FUNCTION_TYPE_1 (BT_FN_CONST_PTR_CONST_STRING, BT_CONST_PTR, BT_CONST_STRING)
-/* APPLE LOCAL end constant cfstrings */

@@ -2499,7 +2499,10 @@ enum ix86_builtins
   IX86_BUILTIN_MONITOR,
   IX86_BUILTIN_MWAIT,
 
-  IX86_BUILTIN_MAX
+  /* APPLE LOCAL begin constant cfstrings */
+  IX86_BUILTIN_MAX,
+  TARGET_BUILTIN_MAX = IX86_BUILTIN_MAX
+  /* APPLE LOCAL end constant cfstrings */
 };
 
 /* Max number of args passed in registers.  If this is more than 3, we will

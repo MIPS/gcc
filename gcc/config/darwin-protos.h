@@ -154,3 +154,8 @@ extern void darwin_asm_output_dwarf_delta (FILE *, int, const char *,
 /* APPLE LOCAL C++ EH */
 extern void darwin_non_lazy_pcrel (FILE *file, rtx addr);
 
+/* APPLE LOCAL begin constant cfstrings */
+extern void darwin_init_cfstring_builtins (void);
+extern tree darwin_expand_tree_builtin (tree, tree, tree);
+extern tree darwin_construct_objc_string (tree);
+/* APPLE LOCAL end constant cfstrings */
