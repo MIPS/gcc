@@ -465,8 +465,8 @@ void
 st_open (void)
 {
   unit_flags flags;
-  unit_t *u;
-
+  unit_t *u = NULL;
+ 
   library_start ();
 
   /* Decode options */

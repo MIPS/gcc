@@ -249,10 +249,10 @@ void get_args (int *, char ***);
 char *rtoa (double f, int length, int oprec);
 
 #define itoa prefix(itoa)
-char *itoa (int);
+char *itoa (int64_t);
 
 #define xtoa prefix(xtoa)
-char *xtoa (unsigned);
+char *xtoa (uint64_t);
 
 #define os_error prefix(os_error)
 void os_error (const char *) __attribute__ ((noreturn));

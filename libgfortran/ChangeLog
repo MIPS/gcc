@@ -1,3 +1,56 @@
+2003-09-07  XiaoQiang Zhang (zhangapache@yahoo.com>
+
+	* libgfortran.h (xtoa, itoa): Parameter modified.
+	* io/io.h (namelist_info): Declaration to support namelist I/O
+	(st_parameter): Add namelist related component
+        (ionml, empty_internal_buffer, st_set_nml_var_int, 
+	st_set_nml_var_float, st_set_nml_var_char, st_set_nml_var_complex,
+	st_set_nml_var_log): Declaration
+        (set_integer, set_integer): Parameter changed
+	* io/format.c (free_nodes): Fix annoying bug of lefting "deallocated"
+	 fnodes
+	(parse_format_list): Fix bug about FMT_SLASH
+	* io/list_read.c (push_char): Totally clear old saved_string, zeroize
+	newly allocated saved_string
+	(next_char): Add detection of End_Of_Line support
+	(convert_integer): Now can process 64 bits interger
+	(read_real): Bug fixed
+	(init_at_eol, find_nml_node, match_namelist_name): Add new functions 
+	(match_namelist_name): New implemention
+	* io/lock.c (ionml): New global variable
+	(library_end): Free memory in ionml
+	* io/open.c (st_open): Variable initializtion
+	* io/read.c (max_value): 64 bits interger support
+	(convert_precsion_real): New procedure to replace "strtod" with more
+	 features
+	(read_f, read_radix): Input bug fix
+	* io/transfer.c: (sf_seen_eor): New static variable
+	(read_sf): Zeroize base buffer; fix bugs: single read statement can 
+	not get input in mutli line when read from stdin
+	(formatted_transfer): Fix bug of FMT_O, FMT_B, FMT_Z for INTEGER type
+	 request
+	(data_transfer_init): Clear internal buffer for Internel File I/O. 
+	Internal File now worked. Detect some error condition for namelist.
+	Some minor bug fix
+	(next_record_w): Internal file and Namelist I/O support.
+	(st_set_nml_var, st_set_nml_var_float, st_set_nml_var_char,
+	st_set_nml_var_complex, st_set_nml_var_log): Implemention.
+	* io/unit.c (implicit_unit): Deletion
+	(get_unit): Now cannot open a unit implicitly.
+	* io/unix.c (mmap_alloc): Fix fatal error in calculating the length of
+	mapped buffer.
+	(mem_alloc_r_at): Internal file I/O support added
+	(empty_internal_buffer): New function
+	* io/write.c (extract_int): Support 64 bits interger processing
+	(output_float): Varibale initialization
+	(write_float): Infinite real number detection.
+	(write_int): 64 bits integer I/O support
+	(write_decimal): New function to output decimal number
+	(otoa, btoa): Better implemention and 64 bits interger support
+	(namelist_write): New function
+	* runtime/error.c (itoa, xtoa): Better implemention and 64 bits 
+	interger support
+
 2003-08-15  Arnaud Desitter  <arnaud.desitter@geography.oxford.ac.uk>
 
 	* libgfortran.h (os_error, runtime_error,internal_error, sys_exit,

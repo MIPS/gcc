@@ -202,7 +202,7 @@ gfc_conv_mpz_to_tree (mpz_t i, int kind)
       high = (high << 4) + (low >> (BITS_PER_HOST_WIDE_INT - 4));
       low = (low << 4) + n;
     }
-  res = build_int_2 (high, low);
+  res = build_int_2 (low, high);
   TREE_TYPE (res) = gfc_get_int_type (kind);
   if (negate)
     res = fold (build1 (NEGATE_EXPR, TREE_TYPE (res), res));

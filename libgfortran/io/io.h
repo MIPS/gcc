@@ -66,6 +66,34 @@ stream;
 #define sseek(s, pos) ((s)->seek)(s, pos)
 #define struncate(s) ((s)->truncate)(s)
 
+/* Namelist represent object */
+/*
+   Namelist Records
+       &groupname  object=value [,object=value].../
+     or
+       &groupname  object=value [,object=value]...&groupname
+
+  Even more complex, during the execution of a program containing a
+  namelist READ statement, you can specify a question mark character(?)
+  or a question mark character preceded by an equal sign(=?) to get
+  the information of the namelist group. By '?', the name of variables
+  in the namelist will be displayed, by '=?', the name and value of
+  variables will be displayed.
+
+  All these requirements need a new data structure to record all info
+  about the namelist.
+*/
+
+typedef struct namelist_type
+{
+  char * var_name;
+  void * mem_pos;
+  int  value_acquired;
+  int len;
+  bt type;
+  struct namelist_type * next;
+}
+namelist_info;
 
 /* Options for the OPEN statement.  */
 
@@ -189,6 +217,10 @@ typedef struct
   char *readwrite;
   int readwrite_len;
 
+/* namelist related data */
+  char * namelist_name;
+  int namelist_name_len;
+  int namelist_read_mode;
 }
 st_parameter;
 
@@ -197,6 +229,8 @@ st_parameter;
 #define ioparm prefix(ioparm)
 extern st_parameter ioparm;
 
+#define ionml prefix(ionml)
+extern namelist_info * ionml;
 
 typedef struct
 {
@@ -417,6 +451,10 @@ offset_t file_position (stream *);
 #define is_seekable prefix(is_seekable)
 int is_seekable (stream *);
 
+#define empty_internal_buffer prefix(empty_internal_buffer)
+void empty_internal_buffer(stream *);
+
+
 /* unit.c */
 
 #define insert_unit prefix(insert_unix)
@@ -490,13 +528,28 @@ void transfer_complex (void *, int);
 #define next_record prefix(next_record)
 void next_record (int);
 
+#define st_set_nml_var_int prefix(st_set_nml_var_int)
+void st_set_nml_var_int (void * , char * , int , int );
+
+#define st_set_nml_var_float prefix(st_set_nml_var_float)
+void st_set_nml_var_float (void * , char * , int , int );
+
+#define st_set_nml_var_char prefix(st_set_nml_var_char)
+void st_set_nml_var_char (void * , char * , int , int );
+
+#define st_set_nml_var_complex prefix(st_set_nml_var_complex)
+void st_set_nml_var_complex (void * , char * , int , int );
+
+#define st_set_nml_var_log prefix(st_set_nml_var_log)
+void st_set_nml_var_log (void * , char * , int , int );
+
 /* read.c */
 
 #define set_integer prefix(set_integer)
-void set_integer (void *, int, int);
+void set_integer (void *, int64_t, int);
 
 #define max_value prefix(max_value)
-unsigned max_value (int, int);
+uint64_t max_value (int, int);
 
 #define convert_real prefix(convert_real)
 int convert_real (void *, const char *, int);
@@ -519,13 +572,22 @@ void read_radix (fnode *, char *, int, int);
 #define read_decimal prefix(read_decimal)
 void read_decimal (fnode *, char *, int);
 
-/* lread.c */
+/* list_read.c */
 
 #define list_formatted_read prefix(list_formatted_read)
 void list_formatted_read (bt, void *, int);
 
 #define finish_list_read prefix(finish_list_read)
 void finish_list_read (void);
+
+#define init_at_eol prefix(init_at_eol)
+void init_at_eol();
+
+#define namelist_read prefix(namelist_read)
+void namelist_read();
+
+#define namelist_write prefix(namelist_write)
+void namelist_write();
 
 /* write.c */
 

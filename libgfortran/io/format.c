@@ -151,6 +151,7 @@ free_fnodes (void)
     free_fnode (&array[0]);
 
   avail = array;
+  memset(array, 0, sizeof(avail[0]) * FARRAY_SIZE);
 }
 
 
@@ -502,7 +503,7 @@ format_item:
 
       t = format_lex ();
       if (t == FMT_F || t == FMT_EN || t == FMT_ES || t == FMT_D
-	  || t == FMT_G)
+	  || t == FMT_G || t == FMT_E)
 	{
 	  repeat = 1;
 	  goto data_desc;
@@ -557,6 +558,7 @@ format_item:
 
     case FMT_SLASH:
       get_fnode (&head, &tail, FMT_SLASH);
+      tail->repeat = 1;
       tail->u.r = 1;
       goto optional_comma;
 
@@ -1110,7 +1112,7 @@ static void dump_format1 (fnode * f);
 
 /* dump_format0()-- Dump a single format node */
 
-static void
+void
 dump_format0 (fnode * f)
 {
   char *p;

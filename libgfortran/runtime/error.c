@@ -113,7 +113,7 @@ rtoa (double f, int length, int oprec)
 /* Returns a pointer to a static buffer. */
 
 char *
-itoa (int n)
+itoa (int64_t n)
 {
   int negative;
   char *p;
@@ -151,7 +151,7 @@ itoa (int n)
  * static buffer. */
 
 char *
-xtoa (unsigned n)
+xtoa (uint64_t n)
 {
   int digit;
   char *p;

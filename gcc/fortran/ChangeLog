@@ -1,3 +1,17 @@
+2003-08-24 XiaoQiang Zhang  (zhangapache@yahoo.com>
+
+	* trans-const.c (gfc_conv_mpz_to_tree): Fix bug, parameter for 
+	build_int_2 changed from (high, low) to (low, high).
+	* trans-io.c (ioparm_namelist_name, ioparm_namelist_name_len,
+	ioparm_namelist_read_mode, iocall_set_nml_val_int,
+	iocall_set_nml_val_float, iocall_set_nml_val_char,
+	iocall_set_nml_val_complex, iocall_set_nml_val_log): New declaration.
+	(gfc_build_io_library_fndecls): Add variable initialization.
+	(gfc_new_nml_name_expr, get_new_var_expr): New function.
+	(build_dt): Add namelist support.
+	* io.c (value): New variable.
+	(check_format): Support FMT_H now.
+
 2003-09-07  Paul Brook  <paul@nowt.org>
 
 	* io.c (gfc_resolve_dt): Error if format label is not defined.

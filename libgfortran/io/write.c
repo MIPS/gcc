@@ -66,10 +66,13 @@ write_l (fnode * f, char *p, int len)
   p[f->u.w - 1] = *((int *) p) ? 'T' : 'F';
 }
 
-static int
+static int64_t
 extract_int (const void *p, int len)
 {
-  int i = 0;
+  int64_t i = 0;
+
+  if (p == NULL)
+    return i;
 
   switch (len)
     {
@@ -207,6 +210,7 @@ calculate_G_format (fnode *f, double value, int len, int *num_blank)
     }
 
   /* Use binary search to find the data magnitude range.  */
+  mid = 0;
   low = 0;
   high = d + 1;
   lbound = 0;
@@ -271,11 +275,12 @@ output_float (fnode *f, double value, int len)
   int sca, neval, itmp;
   char *p;
   const char *q, *intstr;
-  sign_t sign, esign;
-  double n, minv, maxv;
+  double n;
   format_token ft;
   char exp_char = 'E';
   int scale_flag = 1 ;
+  double minv = 0.0, maxv = 0.0;
+  sign_t sign = SIGN_NONE, esign = SIGN_NONE;
 
   int intval = 0, intlen = 0;
   int j;
@@ -462,6 +467,19 @@ write_float (fnode *f, const char *source, int len)
   fnode *f2 = NULL;
 
   n = extract_real (source, len);
+
+  if (f->format != FMT_B && f->format != FMT_O && f->format != FMT_Z)
+   {
+     if (isinf (n))
+       {
+         nb =  f->u.real.w;
+         p = write_block (nb);
+         memset (p, ' ' , 1);
+         memset (p+1, '+' , nb-1);
+         return;
+       }
+   }
+
   if (f->format != FMT_G)
     {
       output_float (f, n, len);
@@ -483,11 +501,86 @@ write_float (fnode *f, const char *source, int len)
 
 
 static void
-write_int (fnode *f, const char *source, int len, char *(*conv) (unsigned))
+write_int (fnode *f, const char *source, int len, char *(*conv) (uint64_t))
 {
-  int n, w, m, digits, nsign, nzero, nblank;
-  char *p;
-  const char *q;
+  uint32_t ns =0;
+  uint64_t n = 0;
+  int w, m, digits, nzero, nblank;
+  char *p, *q;
+
+  w = f->u.integer.w;
+  m = f->u.integer.m;
+
+  n = extract_int (source, len);
+
+  /* Special case */
+
+  if (m == 0 && n == 0)
+    {
+      if (w == 0)
+        w = 1;
+
+      p = write_block (w);
+      if (p == NULL)
+        return;
+
+      memset (p, ' ', w);
+      goto done;
+    }
+
+
+  if (len < 8)
+     {
+       ns = n;
+       q = conv (ns);
+     }
+  else
+      q = conv (n);
+
+  digits = strlen (q);
+
+  /* Select a width if none was specified.  The idea here is to always
+   * print something. */
+
+  if (w == 0)
+    w = ((digits < m) ? m : digits);
+
+  p = write_block (w);
+  if (p == NULL)
+    return;
+
+  nzero = 0;
+  if (digits < m)
+    nzero = m - digits;
+
+  /* See if things will work */
+
+  nblank = w - (nzero + digits);
+
+  if (nblank < 0)
+    {
+      star_fill (p, w);
+      goto done;
+    }
+
+  memset (p, ' ', nblank);
+  p += nblank;
+
+  memset (p, '0', nzero);
+  p += nzero;
+
+  memcpy (p, q, digits);
+
+done:
+  return;
+}
+
+static void
+write_decimal (fnode *f, const char *source, int len, char *(*conv) (int64_t))
+{
+  int64_t n = 0;
+  int w, m, digits, nsign, nzero, nblank;
+  char *p, *q;
   sign_t sign;
 
   w = f->u.integer.w;
@@ -500,11 +593,11 @@ write_int (fnode *f, const char *source, int len, char *(*conv) (unsigned))
   if (m == 0 && n == 0)
     {
       if (w == 0)
-	w = 1;
+        w = 1;
 
       p = write_block (w);
       if (p == NULL)
-	return;
+        return;
 
       memset (p, ' ', w);
       goto done;
@@ -515,8 +608,8 @@ write_int (fnode *f, const char *source, int len, char *(*conv) (unsigned))
     n = -n;
 
   nsign = sign == SIGN_NONE ? 0 : 1;
-
   q = conv (n);
+
   digits = strlen (q);
 
   /* Select a width if none was specified.  The idea here is to always
@@ -571,7 +664,7 @@ done:
 /* otoa()-- Convert unsigned octal to ascii */
 
 static char *
-otoa (unsigned n)
+otoa (uint64_t n)
 {
   char *p;
 
@@ -587,8 +680,9 @@ otoa (unsigned n)
 
   while (n != 0)
     {
-      *p-- = '0' + (n % 8);
-      n /= 8;
+      *p = '0' + (n & 7);
+      p -- ;
+      n >>= 3;
     }
 
   return ++p;
@@ -598,7 +692,7 @@ otoa (unsigned n)
 /* btoa()-- Convert unsigned binary to ascii */
 
 static char *
-btoa (unsigned n)
+btoa (uint64_t n)
 {
   char *p;
 
@@ -626,7 +720,7 @@ void
 write_i (fnode * f, const char *p, int len)
 {
 
-  write_int (f, p, len, (void *) itoa);
+  write_decimal (f, p, len, (void *) itoa);
 }
 
 
@@ -882,6 +976,9 @@ list_formatted_write (bt type, void *p, int len)
 {
   static int char_flag;
 
+  if (current_unit == NULL)
+    return;
+
   if (g.first_item)
     {
       g.first_item = 0;
@@ -917,3 +1014,60 @@ list_formatted_write (bt type, void *p, int len)
 
   char_flag = (type == BT_CHARACTER);
 }
+
+void
+namelist_write (void)
+{
+   namelist_info * t1, *t2;
+   int len,num;
+   void * p;
+
+   num = 0;
+   write_character("&",1);
+   write_character (ioparm.namelist_name, ioparm.namelist_name_len);
+   write_character("\n",1);
+
+   if (ionml != NULL)
+     {
+       t1 = ionml;
+       while (t1 != NULL)
+        {
+          num ++;
+          t2 = t1;
+          t1 = t1->next;
+          write_character(t2->var_name, strlen(t2->var_name));
+          write_character("=",1);
+          len = t2->len;
+          p = t2->mem_pos;
+          switch (t2->type)
+            {
+            case BT_INTEGER:
+              write_integer (p, len);
+              break;
+            case BT_LOGICAL:
+              write_logical (p, len);
+              break;
+            case BT_CHARACTER:
+              write_character (p, len);
+              break;
+            case BT_REAL:
+              write_real (p, len);
+              break;
+            case BT_COMPLEX:
+              write_complex (p, len);
+              break;
+            default:
+              internal_error ("Bad type for namelist write");
+            }
+         write_character(",",1);
+         if (num > 5)
+           {
+              num = 0;
+              write_character("\n",1);
+           }
+        }
+     }
+     write_character("/",1);
+
+}
+

@@ -558,7 +558,7 @@ mmap_alloc (unix_stream * s, offset_t where, int *len)
 
   offset = where & page_mask;	/* Round down to the next page */
 
-  length = ((where + *len - offset) & page_mask) + 2 * page_size;
+  length = ((where - offset) & page_mask) + 2 * page_size;
 
   p = mmap (NULL, length, s->prot, MAP_SHARED, s->fd, offset);
   if (p == MAP_FAILED)
@@ -725,6 +725,9 @@ mem_alloc_r_at (unix_stream * s, int *len, offset_t where)
   if (where < s->buffer_offset || where > s->buffer_offset + s->active)
     return NULL;
 
+  if (is_internal_unit() && where + *len > s->file_length)
+    return NULL;
+
   s->logical_offset = where + *len;
 
   n = (where - s->buffer_offset) - s->active;
@@ -798,6 +801,15 @@ mem_sfree (unix_stream * s)
   Public functions -- A reimplementation of this module needs to
   define functional equivalents of the following.
 *********************************************************************/
+
+/* empty_internal_buffer()-- Zero the buffer of Internal file */
+
+void
+empty_internal_buffer(stream *strm)
+{
+   unix_stream * s = (unix_stream *) strm;
+   memset(s->buffer, '\n', s->file_length);
+}
 
 /* open_internal()-- Returns a stream structure from an internal file */
 

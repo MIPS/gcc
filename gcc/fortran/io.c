@@ -154,6 +154,7 @@ unget_char (void)
   use_last_char = 1;
 }
 
+static int value = 0;
 
 /* Simple lexical analyzer for getting the next token in a FORMAT
    statement.  */
@@ -164,6 +165,7 @@ format_lex (void)
   format_token token;
   char c, delim;
   int zflag;
+  int negative_flag;
 
   if (saved_token != FMT_NONE)
     {
@@ -181,6 +183,7 @@ format_lex (void)
   switch (c)
     {
     case '-':
+      negative_flag = 1;
     case '+':
       c = next_char (0);
       if (!ISDIGIT (c))
@@ -189,13 +192,21 @@ format_lex (void)
 	  break;
 	}
 
+      value = c - '0';
+
       do
 	{
 	  c = next_char (0);
+          if(ISDIGIT (c))
+            value = 10 * value + c - '0';
 	}
       while (ISDIGIT (c));
 
       unget_char ();
+
+      if (negative_flag)
+        value = -value;
+
       token = FMT_SIGNED_INT;
       break;
 
@@ -211,11 +222,15 @@ format_lex (void)
     case '9':
       zflag = (c == '0');
 
+      value = c - '0';
+
       do
 	{
 	  c = next_char (0);
 	  if (c != '0')
 	    zflag = 0;
+          if (ISDIGIT (c))
+            value = 10 * value + c - '0';
 	}
       while (ISDIGIT (c));
 
@@ -287,6 +302,8 @@ format_lex (void)
     case '"':
       delim = c;
 
+      value = 0;
+
       for (;;)
 	{
 	  c = next_char (1);
@@ -313,6 +330,7 @@ format_lex (void)
 		  break;
 		}
 	    }
+          value++;
 	}
       break;
 
@@ -392,6 +410,7 @@ check_format (void)
   const char *error;
   format_token t, u;
   int level;
+  int repeat;
   try rv;
 
   use_last_char = 0;
@@ -417,6 +436,7 @@ format_item:
   switch (t)
     {
     case FMT_POSINT:
+      repeat = value;
       t = format_lex ();
       if (t == FMT_LPAREN)
 	{
@@ -484,8 +504,7 @@ format_item:
       goto data_desc;
 
     case FMT_H:
-      error = "The H format specifier is not allowed in Fortran 95";
-      goto syntax;
+      goto data_desc;
 
     case FMT_END:
       error = unexpected_end;
@@ -607,8 +626,20 @@ data_desc:
       break;
 
     case FMT_H:
-      error = "The H format specifier is not allowed in Fortran 95";
-      goto syntax;
+      if(mode == MODE_STRING)
+      {
+        format_string += value;
+        format_length -= value;
+      }
+      else
+      {
+        while(repeat >0)
+         {
+          next_char(0);
+          repeat -- ;
+         }
+      }
+     break;
 
     case FMT_IBOZ:
       t = format_lex ();

@@ -239,61 +239,6 @@ find_unit (int n)
   return p;
 }
 
-
-/* implicit_unit()-- Given a unit number open the implicit unit,
- * usually of the form "fort.n" unless overridden by an environment
- * variable.  The unit structure is inserted into the tree, and the
- * file is opened for reading and writing */
-
-static unit_t *
-implicit_unit (int unit_number)
-{
-  char *p, buffer[100];
-  stream *s;
-  unit_t *u;
-
-  strcpy (buffer, "G95_NAME_");
-  strcat (buffer, itoa (unit_number));
-
-  p = getenv (buffer);
-  if (p == NULL)
-    {
-      strcpy (buffer, "fort.");
-      strcat (buffer, itoa (unit_number));
-      p = buffer;
-    }
-
-  s = open_external (ACTION_READWRITE, STATUS_REPLACE);
-  if (s == NULL)
-    {
-      generate_error (ERROR_OS, NULL);
-      return NULL;
-    }
-
-  u = get_mem (sizeof (unit_t) + strlen (p));
-  u->unit_number = unit_number;
-  u->s = s;
-
-  /* Set flags */
-
-  u->flags.access = ACCESS_SEQUENTIAL;
-  u->flags.action = ACTION_READWRITE;
-  u->flags.blank = BLANK_NULL;
-  u->flags.delim = DELIM_NONE;
-  u->flags.form = (ioparm.format == NULL && ioparm.list_format)
-    ? FORM_UNFORMATTED : FORM_FORMATTED;
-
-  u->flags.position = POSITION_ASIS;
-
-  u->file_len = strlen (p);
-  memcpy (u->file, p, u->file_len);
-
-  insert_unit (u);
-
-  return u;
-}
-
-
 /* get_unit()-- Returns the unit structure associated with the integer
  * unit or the internal file. */
 
@@ -323,15 +268,7 @@ get_unit (int read_flag)
   if (u != NULL)
     return u;
 
-  if (read_flag)
-    {
-      generate_error (ERROR_BAD_UNIT, NULL);
-      return NULL;
-    }
-
-  /* Open an unit implicitly */
-
-  return implicit_unit (ioparm.unit);
+  return NULL;
 }
 
 
