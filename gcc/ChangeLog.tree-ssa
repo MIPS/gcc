@@ -1,3 +1,35 @@
+2004-04-12  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (true_exprs, false_exprs): Kill.
+	(struct expr_hash_elt): New structure for the expression hash table.
+	(struct dom_walk_block_data): Kill block local true_exprs and
+	false_exprs.
+	(get_eq_expr_value): One less local varray argument.  Fix prototype.
+	Use record_cond rather than record_cond_is_{true,false}.
+	(true_false_expr_hash, true_false_expr_eq): Kill.
+	(record_cond_is_true, record_cond_is_false): Collapse into ...
+	(record_cond): New function.
+	(tree_ssa_dominator_optimize): Kill references to true_exprs and
+	false_exprs.  Use "free" as the free function for the avail_exprs
+	hash table.
+	(dom_opt_initialize_block_local_data): No longer initialize
+	block local true/false expressions.
+	(initialize_hash_element): New function.
+	(remove_local_expressions_from_table): Use initialize_hash_element.
+	(update_rhs_and_lookup_avail_expr): Similarly.
+	(dom_opt_finalize_block): Record true/false expressions into the
+	main avail_expr hash table.  Unwind main hash table appropriately.
+	Use record_cond rather than record_cond_is_{true,false}.
+	(record_equivalences_from_incoming_edge): Pass block local avail_exprs
+	varray instead of block local true/false varrays to get_eq_expr_value.
+	(dump_dominator_optimization_stats): Update to reflect that the
+	true/false expression hash tables are gone.
+	(lookup_avail_expr): Simplify slightly now that we only have one
+	expression hash table.
+	(avail_expr_hash, avail_expr_eq): Generalize slightly to handle new
+	hash table entry structure and having true/false expression information
+	in the available expression hash table.
+
 2004-04-09  Jeff Law  <law@redhat.com>
 
 	* tree-ssa_dom.c (register_definitions_for_stmt): Accept a statement
