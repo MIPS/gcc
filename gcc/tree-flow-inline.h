@@ -254,20 +254,6 @@ bb_ann (basic_block bb)
   return (bb_ann_t)bb->tree_annotations;
 }
 
-static inline basic_block
-parent_block (basic_block bb)
-{
-  tree parent = (bb->head_tree_p) ? parent_stmt (*bb->head_tree_p) : NULL_TREE;
-  return parent ? bb_for_stmt (parent) : NULL;
-}
-
-static inline tree
-parent_stmt (tree stmt)
-{
-  stmt_ann_t ann = stmt_ann (stmt);
-  return (ann) ? ann->parent_stmt : NULL_TREE;
-}
-
 static inline tree
 phi_nodes (basic_block bb)
 {
@@ -342,48 +328,65 @@ dom_children (basic_block bb)
 
 /*  -----------------------------------------------------------------------  */
 
+static inline struct block_tree *
+bti_start ()
+{
+  return block_tree;
+}
+
+static inline bool
+bti_end_p (struct block_tree *block)
+{
+  return !block;
+}
+
+static inline void
+bti_next (struct block_tree **block)
+{
+  struct block_tree *act = *block;
+
+  if (act->subtree)
+    {
+      *block = act->subtree;
+      return;
+    }
+
+  while (act->outer && !act->next)
+    act = act->outer;
+
+  *block = act->next;
+}
+
 static inline bool
 bsi_end_p (block_stmt_iterator i)
 {
-  return (i.tp == NULL || bsi_stmt (i) == NULL_TREE);
+  return i.curr_stmt == NULL;
 }
 
-/* Similar to tsi_next() but stops at basic block boundaries.  Assumes stmt
-   has bb_for_stmt() set (can't be an empty statement node).  */
+/* Similar to tsi_next() but stops at basic block boundaries.  */
 
 static inline void
 bsi_next (block_stmt_iterator *i)
 {
-  extern void bsi_next_in_bb (block_stmt_iterator *, basic_block);
-
-  basic_block bb = bb_for_stmt (*(i->tp));
-  bsi_next_in_bb (i, bb);
-}
-
-static inline tree *
-bsi_stmt_ptr (block_stmt_iterator i)
-{
-#if defined ENABLE_CHECKING
-  if (i.tp == NULL || *i.tp == NULL_TREE)
-    abort ();
-#endif
-
-  if (TREE_CODE ((*i.tp)) == COMPOUND_EXPR)
-    return &TREE_OPERAND ((*i.tp), 0);
-  else
-    return i.tp;
+  i->curr_stmt = i->curr_stmt->next;
 }
 
 static inline tree
 bsi_stmt (block_stmt_iterator i)
 {
-  return *(bsi_stmt_ptr (i));
+  return i.curr_stmt->stmt;
+}
+
+static inline tree_cell
+bsi_cell (block_stmt_iterator i)
+{
+  return i.curr_stmt;
 }
 
 static inline tree *
-bsi_container (block_stmt_iterator i)
+bsi_stmt_ptr (block_stmt_iterator i)
 {
-  return i.tp;
+  return &i.curr_stmt->stmt;
 }
 
 /* Return a tree_stmt_iterator for the stmt a block iterator refers to.  */
@@ -391,7 +394,7 @@ bsi_container (block_stmt_iterator i)
 static inline tree_stmt_iterator
 tsi_from_bsi (block_stmt_iterator bi)
 {
-  return tsi_start (bi.tp);
+  return tsi_start (&bi.curr_stmt->stmt);
 }
 
 static inline bool
@@ -459,64 +462,12 @@ empty_bsi_stack (bsi_list_p list)
   return 0;
 }
 
-
-/* Process an entire block of bsi's in reverse by pushing them on a stack
-   as they are encountered, and then popping them off as they are needed.
-   There are a couple of odd things. Since the last loop is a for loop,
-   a dummy entry is pushed on the beginning of the stack, this allows the first
-   item pushed on the stack to be processed in the final for loop, as well
-   as guaranteeing there will be at least one to pop off.
-
-   usage:
-     bsi_list_p  stack;
-     block_stmt_iterator bsi;
-     basic_block bb;
-
-     FOR_EACH_BSI_IN_REVERSE (stack, bb, bsi)
-       {
-         ...
-       }
-*/
-#define FOR_EACH_BSI_IN_REVERSE(bsi_stack, bb, bsi)		\
-  bsi_stack = new_bsi_list ();					\
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))	\
-    push_bsi (&bsi_stack, bsi);					\
-  bsi = pop_bsi (&bsi_stack);					\
-  for ( ; !empty_bsi_stack (bsi_stack); bsi = pop_bsi (&bsi_stack))
-
-
-
 /* This macro can be used if all that is ever examined is the stmt nodes
-   of bsi. Ie, if the usage is
-      FOR_EACH_BSI_IN_REVERSE (stack, bb, bsi)
-        {
-	  tree stmt = bsi_stmt (bsi);
-	  ...
-  Then less overhead exists to simply use this macro.
-
-  usage:
-    varray_type stmt_stack;
-    basic_block bb;
-    tree stmt;
-
-    FOR_EACH_STMT_IN_REVERSE (stmt_stack, bb, stmt)
-      {
-        ...
-      }
-*/
-#define FOR_EACH_STMT_IN_REVERSE(stmt_stack, bb, stmt)		\
-  VARRAY_TREE_INIT (stmt_stack, 50, "stmt_stack");		\
-  VARRAY_PUSH_TREE (stmt_stack, NULL_TREE);			\
-  {								\
-    block_stmt_iterator bsi;					\
-    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))	\
-      VARRAY_PUSH_TREE (stmt_stack, bsi_stmt (bsi));		\
-  }								\
-  stmt = VARRAY_TOP_TREE (stmt_stack);				\
-  VARRAY_POP (stmt_stack);					\
-  for ( ; VARRAY_ACTIVE_SIZE (stmt_stack) > 0 ;		\
-	      stmt = VARRAY_TOP_TREE (stmt_stack), VARRAY_POP (stmt_stack))
-
+   of bsi.  */
+#define FOR_EACH_STMT_IN_REVERSE(bsi, bb, stmt)			\
+  for (bsi = bsi_last (bb);					\
+       !bsi_end_p (bsi) && ((stmt = bsi_stmt (bsi)) || 1);	\
+       bsi_prev (&bsi))
 
 static inline bool
 is_unchanging_value (tree val)

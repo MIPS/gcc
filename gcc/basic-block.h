@@ -204,9 +204,8 @@ typedef struct basic_block_def {
   /* The first and last insns of the block.  */
   rtx head, end;
 
-  /* Pointers to the first and last trees of the block.  */
-  tree *head_tree_p;
-  tree *end_tree_p;
+  /* The first and last trees of the block.  */
+  struct tree_container *head_tree, *end_tree;
 
   /* The edges into and out of the block.  */
   edge pred, succ;
@@ -268,12 +267,6 @@ typedef struct basic_block_def {
 #define BB_VISITED		8
 #define BB_IRREDUCIBLE_LOOP	16
 #define BB_SUPERBLOCK		32
-
-/* Block contains a control flow expression.  */
-#define BB_CONTROL_EXPR		16
-
-/* Block contains a control flow expression for a loop.  */
-#define BB_LOOP_CONTROL_EXPR	32
 
 /* Number of basic blocks in the current function.  */
 
@@ -379,7 +372,6 @@ extern void redirect_edge_pred (edge, basic_block);
 extern basic_block create_basic_block_structure (rtx, rtx, rtx, basic_block);
 extern void clear_bb_flags (void);
 extern void tidy_fallthru_edge (edge, basic_block, basic_block);
-extern void tidy_fallthru_edges (void);
 extern void flow_reverse_top_sort_order_compute (int *);
 extern int flow_depth_first_order_compute (int *, int *);
 extern void flow_preorder_transversal_compute (int *);
@@ -553,6 +545,7 @@ extern bool probably_never_executed_bb_p (basic_block);
 extern void init_flow (void);
 extern void dump_bb (basic_block, FILE *);
 extern void debug_bb (basic_block);
+extern void dump_cfg (void);
 extern basic_block debug_bb_n (int);
 extern void dump_regset (regset, FILE *);
 extern void debug_regset (regset);

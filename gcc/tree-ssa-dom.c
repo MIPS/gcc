@@ -179,7 +179,7 @@ tree_ssa_dominator_optimize (tree fndecl)
     {
       if (dump_flags & TDF_STATS)
 	dump_dominator_optimization_stats (dump_file);
-      dump_function_to_file (fndecl, dump_file, dump_flags);
+      dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (TDI_dom, dump_file);
     }
 
@@ -345,31 +345,23 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
   children = dom_children (bb);
   if (children)
     {
-      if (bb->flags & BB_CONTROL_EXPR)
-	{
-	  tree last = last_stmt (bb);
-	  EXECUTE_IF_SET_IN_BITMAP (children, 0, i,
-	    {
-	      basic_block dest = BASIC_BLOCK (i);
+      tree last = last_stmt (bb);
 
-	      /* The destination block may have become unreachable, in
-		 which case there's no point in optimizing it.  */
-	      if (dest->pred)
-		optimize_block (dest, last, dest->pred->flags);
-	    });
-	}
-      else
-	{
-	  EXECUTE_IF_SET_IN_BITMAP (children, 0, i,
-	    {
-	      basic_block dest = BASIC_BLOCK (i);
+      if (last && !is_ctrl_stmt (last))
+	last = NULL_TREE;
 
-	      /* The destination block may have become unreachable, in
-		 which case there's no point in optimizing it. */
-	      if (dest->pred)
-		optimize_block (dest, NULL_TREE, 0);
-	    });
-	}
+      EXECUTE_IF_SET_IN_BITMAP (children, 0, i,
+	{
+	  basic_block dest = BASIC_BLOCK (i);
+
+	  /* The destination block may have become unreachable, in
+	     which case there's no point in optimizing it.  */
+	  if (dest->pred)
+	    optimize_block (dest, last,
+			    (dest->pred->src == bb
+			     && !dest->pred->pred_next
+			     ? dest->pred->flags : 0));
+	});
     }
 
   /* Remove all the expressions made available in this block.  */
@@ -602,7 +594,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	      addr_expr_propagated_p = true;
 
 	    if (TREE_CODE (val) == SSA_NAME)
-	      propagate_copy (op_p, val);
+	      propagate_copy (bb_for_stmt (stmt), op_p, val);
 	    else
 	      *op_p = val;
 
@@ -664,7 +656,16 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	    }
 
 	  opt_stats.num_re++;
-	  *expr_p = cached_lhs;
+	  if (TREE_CODE (cached_lhs) == SSA_NAME)
+	    {
+	      *expr_p = cached_lhs;
+	      /* This takes care of moving the variable to the right scope.
+		 The assignment above is here so that it indeed looks like
+		 copy propagation.  */
+	      propagate_copy (bb_for_stmt (stmt), expr_p, cached_lhs);
+	    }
+	  else
+	    *expr_p = cached_lhs;
 	  ann->modified = 1;
 	}
     }

@@ -488,6 +488,9 @@ struct function GTY(())
   /* Nonzero if code to initialize arg_pointer_save_area has been emitted.  */
   unsigned int arg_pointer_save_area_init : 1;
 
+  /* Nonzero if the loop notes must be recreated.  */
+  unsigned int recreate_loop_notes : 1;
+
   /* How commonly executed the function is.  Initialized during branch
      probabilities pass.  */
   enum function_frequency {

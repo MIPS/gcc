@@ -1,3 +1,79 @@
+2003-08-14  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (tree-flatten.o): Add.
+	* basic-block.h (struct basic_block_def): Head_tree_p and
+	end_tree_p replaced with head_tree and end_tree.
+	(BB_CONTROL_EXPR, BB_LOOP_CONTROL_EXPR): Removed.
+	(tidy_fallthru_edges): Hookized.
+	(dump_cfg): Declare.
+	* bitmap.c (bitmap_first_set_bit, bitmap_last_set_bit): Prevent
+	warning when loop header copying is not done.
+	* c-call-graph.c (construct_call_graph):  Disable cfg statistics.
+	* c-decl.c (c_expand_body_1): Ask for creation of loop notes.
+	* c-simplify.c (gimplify_c_loop): Emit the loop in a better shape.
+	* cfg.c (dump_edge_info): Add loop_exit flag.
+	(dump_cfg): New.
+	* cfghooks.h (struct cfg_hooks): Add cfgh_tidy_fallthru_edges.
+	(tidy_fallthru_edges): New macro.
+	* cfgloop.h (create_loop_notes): Declare.
+	* cfgloopmanip.c (create_loop_notes): New.
+	* cfgrtl.c (tidy_fallthru_edges): Renamed to rtl_tidy_fallthru_edges.
+	* except.c (resolve_fixup_regions): Fix.
+	* explow.c (probe_stack_range): Don't emit loop notes when they are
+	recreated.
+	* expr.c (emit_block_move_via_loop): Ditto.
+	* function.h (struct function): New flag recreate_loop_notes.
+	* gimplify.c (build_and_jump): Exported.
+	(gimplify_loop_expr): Lower LOOP_EXPRs.
+	* integrate.c (copy_decl_for_inlining): Reset DECL_TOO_LATE.
+	* toplev.c (rest_of_compilation): Recreate loop notes.
+	* tree-alias-common.c (create_alias_vars): Work over cfg.
+	* tree-cfg.c: Almost completely rewritten.
+	* tree-flatten.c: New.
+	* tree-flow-inline.h (parent_block, parent_stmt): Removed.
+	(bsi_end_p, bsi_next bsi_stmt_ptr, bsi_stmt, bsi_container,
+	tsi_from_bsi): Rewritten.
+	(FOR_EACH_BSI_IN_REVERSE): Removed.
+	(FOR_EACH_STMT_IN_REVERSE): Rewritten.
+	* tree-flow.h (enum tree_container_note, enum block_tree_type): New.
+	(struct tree_container, tree_cell, struct block_tree): New.
+	(block_tree, no_bb_for_stmt): Declare variables.
+	(struct var_ann_d): Add scope field.
+	(struct stmt_ann_d): Removed parent_stmt and
+	reachable_exception_handlers fields.  Added case_edge field.
+	(parent_stmt, parent_block): Removed.
+	(struct bb_ann_d): Added block field.
+	(bti_start, bti_end_p, bti_next): Declare.
+	(block_stmt_iterator): Modified.
+	(bsi_container, bsi_from_tsi, is_loop_stmt, loop_body, set_loop_body,
+	insert_bb_before, is_latch_block_for, remove_useless_stmts_and_vars):
+	Declaration removed.
+	(bsi_cell, debug_tree_bb_n, dump_cfg_function_to_file,
+	block_tree_free, tree_move_block_after, tree_split_block,
+	tree_cleanup_block_edges, assign_vars_to_scopes, build_new_label,
+	tree_cell_alloc, tree_flatten_statement, tree_unflatten_statements):
+	Declare.
+	(tree_block_label): New.
+	(build_tree_cfg, cleanup_tree_cfg, propagate_copy): Declaration changed.
+	* tree-optimize.c (optimize_function_tree): Create cfg the new way.
+	Disable dce.
+	* tree-pretty-print.c (dump_block_info): Modified.
+	* tree-simple.c (is_gimple_stmt): Remove LOOP_EXPR.
+	* tree-simple.h (build_and_jump): Declare.
+	* tree-ssa-ccp.c (tree_ssa_ccp): Modified.
+	* tree-ssa-copyprop.c (get_common_scope, move_var_to_scope): New.
+	(copyprop_stmt, propagate_copy): Use them.
+	(tree_ssa_copyprop): Modified.
+	* tree-ssa-dce.c: Disabled.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize, optimize_block):
+	Modified.
+	(optimize_stmt): Update scope of variables.
+	* tree-ssa-live.c (build_tree_conflict_graph): Modified.
+	* tree-ssa-pre.c (finalize_1, tree_perform_ssapre): Modified.
+	* tree-ssa.c (delete_tree_ssa, rewrite_into_ssa,
+	rewrite_out_of_ssa): Modified.
+	(remove_annotations_r): Removed.
+
 2003-08-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Changelog.tree-ssa-cfg: New.

@@ -2106,7 +2106,8 @@ emit_block_move_via_loop (rtx x, rtx y, rtx size,
   y_addr = force_operand (XEXP (y, 0), NULL_RTX);
   do_pending_stack_adjust ();
 
-  emit_note (NOTE_INSN_LOOP_BEG);
+  if (!cfun->recreate_loop_notes)
+    emit_note (NOTE_INSN_LOOP_BEG);
 
   emit_jump (cmp_label);
   emit_label (top_label);
@@ -2124,13 +2125,15 @@ emit_block_move_via_loop (rtx x, rtx y, rtx size,
   if (tmp != iter)
     emit_move_insn (iter, tmp);
 
-  emit_note (NOTE_INSN_LOOP_CONT);
+  if (!cfun->recreate_loop_notes)
+    emit_note (NOTE_INSN_LOOP_CONT);
   emit_label (cmp_label);
 
   emit_cmp_and_jump_insns (iter, size, LT, NULL_RTX, iter_mode,
 			   true, top_label);
 
-  emit_note (NOTE_INSN_LOOP_END);
+  if (!cfun->recreate_loop_notes)
+    emit_note (NOTE_INSN_LOOP_END);
 }
 
 /* Copy all or part of a value X into registers starting at REGNO.

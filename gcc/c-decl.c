@@ -6438,6 +6438,7 @@ c_expand_body_1 (tree fndecl, int nested_p)
       /* Invoke the SSA tree optimizer.  */
       if (optimize >= 1 && !flag_disable_tree_ssa)
 	optimize_function_tree (fndecl);
+      cfun->recreate_loop_notes = 1;
     }
 
   timevar_push (TV_EXPAND);

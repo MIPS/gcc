@@ -85,7 +85,6 @@ static htab_t needed_stmts;
 /* Forward function prototypes.  */
 static bool necessary_p (tree);
 static int mark_tree_necessary (tree);
-static void mark_necessary (tree);
 static void print_stats (void);
 static bool need_to_preserve_store (tree);
 static void find_useful_stmts (void);
@@ -94,7 +93,7 @@ static void process_worklist (void);
 static void remove_dead_stmts (void);
 static void remove_dead_stmt (block_stmt_iterator *, basic_block);
 static void remove_dead_phis (basic_block);
-static void remove_conditional (basic_block);
+static void remove_conditional (basic_block) ATTRIBUTE_UNUSED;
 
 
 /* Is a tree necessary?  */
@@ -131,25 +130,6 @@ mark_tree_necessary (tree t)
 
   return 1;
 }
-
-
-/* Mark a tree as necessary, and mark it's control parents as well.  */
-
-static void
-mark_necessary (tree t)
-{
-  if (mark_tree_necessary (t))
-    {
-      /* Mark control parent statements as necessary.  */
-      tree parent = parent_stmt (t);
-      while (parent)
-	{
-	  mark_tree_necessary (parent);
-	  parent = parent_stmt (parent);
-	}
-    }
-}
-
 
 /* Print out removed statement statistics.  */
 
@@ -221,7 +201,7 @@ find_useful_stmts (void)
       /* Check any PHI nodes in the block.  */
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	if (need_to_preserve_store (PHI_RESULT (phi)))
-	  mark_necessary (phi);
+	  mark_tree_necessary (phi);
 
       /* Check all statements in the block.  */
       for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
@@ -229,7 +209,7 @@ find_useful_stmts (void)
 	  tree stmt = bsi_stmt (i);
 
 	  if (stmt_useful_p (stmt))
-	    mark_necessary (stmt);
+	    mark_tree_necessary (stmt);
 	}
     }
 }
@@ -305,6 +285,8 @@ stmt_useful_p (tree stmt)
 static void
 process_worklist (void)
 {
+#if 0
+  /* Tries to access parent_block.  Disabled until fixed.  */
   basic_block bb;
   tree i, j;
   edge e;
@@ -355,7 +337,7 @@ process_worklist (void)
 	    {
 	      tree arg = PHI_ARG_DEF (i, k);
 	      if (TREE_CODE (arg) == SSA_NAME)
-		mark_necessary (SSA_NAME_DEF_STMT (PHI_ARG_DEF (i, k)));
+		mark_tree_necessary (SSA_NAME_DEF_STMT (PHI_ARG_DEF (i, k)));
 	    }
 
 	  /* Look at all the predecessors, and if this PHI is being fed
@@ -381,7 +363,7 @@ process_worklist (void)
 			  if (last && (TREE_CODE (last) == COND_EXPR
 				       || TREE_CODE (last) == SWITCH_EXPR))
 			    {
-			      mark_necessary (last);
+			      mark_tree_necessary (last);
 			    }
 			}
 		    }
@@ -402,14 +384,14 @@ process_worklist (void)
 	  for (k = 0; ops && k < VARRAY_ACTIVE_SIZE (ops); k++)
 	    {
 	      tree *use_p = VARRAY_GENERIC_PTR (ops, k);
-	      mark_necessary (SSA_NAME_DEF_STMT (*use_p));
+	      mark_tree_necessary (SSA_NAME_DEF_STMT (*use_p));
 	    }
 
 	  ops = vuse_ops (i);
 	  for (k = 0; ops && k < VARRAY_ACTIVE_SIZE (ops); k++)
 	    {
 	      tree vuse = VARRAY_TREE (ops, k);
-	      mark_necessary (SSA_NAME_DEF_STMT (vuse));
+	      mark_tree_necessary (SSA_NAME_DEF_STMT (vuse));
 	    }
 
 	  /* The operands of VDEF expressions are also needed as they
@@ -419,12 +401,13 @@ process_worklist (void)
 	  for (k = 0; ops && k < VARRAY_ACTIVE_SIZE (ops); k++)
 	    {
 	      tree vdef = VARRAY_TREE (ops, k);
-	      mark_necessary (SSA_NAME_DEF_STMT (VDEF_OP (vdef)));
+	      mark_tree_necessary (SSA_NAME_DEF_STMT (VDEF_OP (vdef)));
 	    }
 	}
     }
   BITMAP_XFREE (cond_checked);
   BITMAP_XFREE (goto_checked);
+#endif
 }
 
 
@@ -443,12 +426,11 @@ remove_dead_stmts (void)
 
   FOR_EACH_BB_REVERSE (bb)
     {
-      bsi_list_p stack;
       /* Remove dead PHI nodes.  */
       remove_dead_phis (bb);
 
       /* Remove dead statements.  */
-      FOR_EACH_BSI_IN_REVERSE (stack, bb, i)
+      for (i = bsi_last (bb); !bsi_end_p (i); bsi_prev (&i))
 	{
 	  t = bsi_stmt (i);
 	  stats.total++;
@@ -508,8 +490,11 @@ remove_dead_phis (basic_block bb)
 /* Remove dead statement pointed by iterator I from block BB.  */
 
 static void
-remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
+remove_dead_stmt (block_stmt_iterator *i ATTRIBUTE_UNUSED,
+		  basic_block bb ATTRIBUTE_UNUSED)
 {
+#if 0
+  /* Tries to access parent.  Disabled until fixed.  */
   tree t;
 
   t = bsi_stmt (*i);
@@ -543,6 +528,7 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
     }
 
   bsi_remove (i);
+#endif
 }
 
 /* Main routine to eliminate dead code.  */
@@ -552,6 +538,9 @@ tree_ssa_dce (tree fndecl)
 {
   tree fnbody;
 
+  fprintf (stderr, "tree_ssa_dce broken now.\n");
+  abort ();
+  
   timevar_push (TV_TREE_DCE);
 
   memset ((void *) &stats, 0, sizeof (stats));
@@ -578,7 +567,7 @@ tree_ssa_dce (tree fndecl)
     fprintf (dump_file, "\nEliminating unnecessary instructions:\n");
 
   remove_dead_stmts ();
-  cleanup_tree_cfg ();
+  cleanup_tree_cfg (false);
 
   /* Debugging dumps.  */
   if (dump_file)

@@ -1494,13 +1494,15 @@ probe_stack_range (HOST_WIDE_INT first, rtx size)
 	  || REGNO (test_addr) < FIRST_PSEUDO_REGISTER)
 	test_addr = force_reg (Pmode, test_addr);
 
-      emit_note (NOTE_INSN_LOOP_BEG);
+      if (!cfun->recreate_loop_notes)
+	emit_note (NOTE_INSN_LOOP_BEG);
       emit_jump (test_lab);
 
       emit_label (loop_lab);
       emit_stack_probe (test_addr);
 
-      emit_note (NOTE_INSN_LOOP_CONT);
+      if (!cfun->recreate_loop_notes)
+	emit_note (NOTE_INSN_LOOP_CONT);
 
 #ifdef STACK_GROWS_DOWNWARD
 #define CMP_OPCODE GTU
@@ -1519,7 +1521,8 @@ probe_stack_range (HOST_WIDE_INT first, rtx size)
       emit_cmp_and_jump_insns (test_addr, last_addr, CMP_OPCODE,
 			       NULL_RTX, Pmode, 1, loop_lab);
       emit_jump (end_lab);
-      emit_note (NOTE_INSN_LOOP_END);
+      if (!cfun->recreate_loop_notes)
+	emit_note (NOTE_INSN_LOOP_END);
       emit_label (end_lab);
 
       emit_stack_probe (last_addr);

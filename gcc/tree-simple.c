@@ -646,7 +646,6 @@ is_gimple_stmt (tree t)
       /* These are only valid if they're void.  */
       return VOID_TYPE_P (TREE_TYPE (t));
 
-    case LOOP_EXPR:
     case SWITCH_EXPR:
     case GOTO_EXPR:
     case RETURN_EXPR:

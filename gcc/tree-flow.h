@@ -36,6 +36,51 @@ struct basic_block_def;
 typedef struct basic_block_def *basic_block;
 #endif
 
+/* A list of containers in that statements are stored.  */
+enum tree_container_note
+{
+  TCN_STATEMENT,
+  TCN_BIND,
+  TCN_UNBIND,
+  TCN_TRY,
+  TCN_FINALLY,
+  TCN_FINALLY_END,
+  TCN_CATCH,
+  TCN_CATCH_END
+};
+
+struct tree_container GTY (())
+{
+  struct tree_container *prev;
+  struct tree_container *next;
+  tree stmt;
+  enum tree_container_note note;
+};
+
+typedef struct tree_container *tree_cell;
+
+enum block_tree_type {BT_BIND, BT_TRY, BT_FINALLY, BT_CATCH};
+extern struct block_tree
+{
+  enum block_tree_type type;
+  basic_block entry;
+  basic_block exit;
+
+  struct block_tree *of;	/* For try block, specifies what catch/finally
+				   block it corresponds to.  For catch block,
+				   it links to the following catch_expr
+				   block.  */
+
+  tree bind;			/* For bind block, the corresponding
+				   bindings.  For catch block the CATCH_EXPR
+				   or EH_FILTER_EXPR (if any).  */
+ 
+  int level;
+  struct block_tree *outer;
+  struct block_tree *subtree;
+  struct block_tree *next;
+} *block_tree;
+
 /*---------------------------------------------------------------------------
 		   Tree annotations stored in tree_common.ann
 ---------------------------------------------------------------------------*/
@@ -120,6 +165,9 @@ struct var_ann_d GTY(())
 
   /* Used by the root-var object in tree-ssa-live.[ch].  */
   unsigned root_index;
+
+  /* Scope in that the variable is defined.  */
+  struct block_tree * GTY ((skip (""))) scope;
 };
 
 
@@ -222,18 +270,12 @@ struct stmt_ann_d GTY(())
   /* Dataflow information.  */
   dataflow_t df;
 
-  /* Control flow parent.  This is the entry statement to the control
-     structure to which this statement belongs to.  */
-  tree parent_stmt;
-
-  /* For nodes which can throw REACHABLE_EXCEPTION_HANDLERS contains a
-     tree list of all the directly reachable exception handlers.  */
-  tree reachable_exception_handlers;
-
   /* Array of variables that have had their address taken in the statement.  */
   varray_type addresses_taken;
-};
 
+  /* Edge corresponding to case alternative in switch.  */
+  edge GTY ((skip (""))) case_edge;
+};
 
 union tree_ann_d GTY((desc ("ann_type ((tree_ann)&%h)")))
 {
@@ -245,6 +287,9 @@ union tree_ann_d GTY((desc ("ann_type ((tree_ann)&%h)")))
 typedef union tree_ann_d *tree_ann;
 typedef struct var_ann_d *var_ann_t;
 typedef struct stmt_ann_d *stmt_ann_t;
+
+/* Set if we no longer want bb_for_stmt to be kept.  */
+extern int no_bb_for_stmt;
 
 static inline var_ann_t var_ann (tree);
 static inline var_ann_t get_var_ann (tree);
@@ -274,7 +319,6 @@ static inline varray_type immediate_uses (tree);
 static inline varray_type reaching_defs (tree);
 static inline bool has_hidden_use (tree);
 static inline void set_has_hidden_use (tree);
-static inline tree parent_stmt (tree);
 
 
 /*---------------------------------------------------------------------------
@@ -289,17 +333,23 @@ struct bb_ann_d
 
   /* Set of blocks immediately dominated by this node.  */
   bitmap dom_children;
+
+  /* Block it belongs to.  */
+  struct block_tree *block;
 };
 
 typedef struct bb_ann_d *bb_ann_t;
 
 /* Accessors for basic block annotations.  */
 static inline bb_ann_t bb_ann (basic_block);
-static inline basic_block parent_block (basic_block);
 static inline tree phi_nodes (basic_block);
 static inline void add_dom_child (basic_block, basic_block);
 static inline bitmap dom_children (basic_block);
 
+/* Iterator for traversing block tree.  */
+static inline struct block_tree *bti_start (void);
+static inline bool bti_end_p (struct block_tree *);
+static inline void bti_next (struct block_tree **);
 
 /*---------------------------------------------------------------------------
 		 Iterators for statements inside a basic block
@@ -307,9 +357,10 @@ static inline bitmap dom_children (basic_block);
 
 /* Iterator object for traversing over BASIC BLOCKs.  */
 
-typedef struct {
-  tree *tp;
-  tree context;		/* Stack for decending into BIND_EXPR's.  */
+typedef struct
+{
+  tree_cell curr_stmt;
+  basic_block bb;
 } block_stmt_iterator;
 
 extern block_stmt_iterator bsi_start (basic_block);
@@ -318,10 +369,9 @@ static inline bool bsi_end_p (block_stmt_iterator);
 static inline void bsi_next (block_stmt_iterator *);
 extern void bsi_prev (block_stmt_iterator *);
 static inline tree bsi_stmt (block_stmt_iterator);
+static inline tree_cell bsi_cell (block_stmt_iterator);
 static inline tree *bsi_stmt_ptr (block_stmt_iterator);
-static inline tree *bsi_container (block_stmt_iterator);
 
-extern block_stmt_iterator bsi_from_tsi (tree_stmt_iterator);
 static inline tree_stmt_iterator tsi_from_bsi (block_stmt_iterator);
 
 extern void bsi_remove (block_stmt_iterator *);
@@ -350,6 +400,8 @@ extern void bsi_insert_list_after (block_stmt_iterator *, tree_stmt_anchor);
 extern block_stmt_iterator bsi_insert_list_on_edge (edge, tree_stmt_anchor);
 
 void bsi_next_in_bb (block_stmt_iterator *, basic_block);
+
+tree tree_block_label (basic_block);
 
 /*---------------------------------------------------------------------------
 			      Global declarations
@@ -389,33 +441,36 @@ extern GTY(()) varray_type call_clobbered_vars;
 			      Function prototypes
 ---------------------------------------------------------------------------*/
 /* In tree-cfg.c  */
-extern void build_tree_cfg (tree);
+extern void build_tree_cfg (tree_cell);
+extern void dump_block_tree (FILE *, int, struct block_tree *);
 extern void delete_tree_cfg (void);
 extern bool is_ctrl_stmt (tree);
 extern bool is_ctrl_altering_stmt (tree);
-extern bool is_loop_stmt (tree);
 extern bool is_computed_goto (tree);
-extern tree loop_body (tree);
-extern void set_loop_body (tree, tree);
 extern void dump_tree_bb (FILE *, const char *, basic_block, int);
 extern void debug_tree_bb (basic_block);
+extern basic_block debug_tree_bb_n (int);
 extern void dump_tree_cfg (FILE *, int);
+extern void dump_cfg_function_to_file (tree, FILE *, int);
 extern void debug_tree_cfg (int);
 extern void dump_cfg_stats (FILE *);
 extern void debug_cfg_stats (void);
 extern void tree_cfg2dot (FILE *);
-extern void insert_bb_before (basic_block, basic_block);
-extern void cleanup_tree_cfg (void);
+extern void cleanup_tree_cfg (int);
 extern void remove_phi_nodes_and_edges_for_unreachable_block (basic_block);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
 extern tree *last_stmt_ptr (basic_block);
-extern basic_block is_latch_block_for (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern int call_expr_flags (tree);
-extern int remove_useless_stmts_and_vars (tree *, int);
 extern int could_trap_p (tree);
 extern basic_block tree_split_edge (edge);
+extern void block_tree_free (void);
+extern void tree_move_block_after (basic_block, basic_block, int);
+extern edge tree_split_block (basic_block, block_stmt_iterator);
+extern void tree_cleanup_block_edges (basic_block, int);
+extern void assign_vars_to_scopes (void);
+extern tree build_new_label (void);
 
 /* In tree-dfa.c  */
 void find_referenced_vars (tree);
@@ -489,7 +544,7 @@ void tree_ssa_dce (tree);
 
 /* In tree-ssa-copyprop.c  */
 void tree_ssa_copyprop (tree);
-void propagate_copy (tree *, tree);
+void propagate_copy (basic_block, tree *, tree);
 
 
 /* In tree-flow-inline.h  */
@@ -502,6 +557,10 @@ static inline bool may_propagate_copy (tree, tree);
 /* In tree-must-alias.c  */
 void tree_compute_must_alias (tree);
 
+/* In tree-flatten.c.  */
+tree_cell tree_cell_alloc (tree, enum tree_container_note);
+void tree_flatten_statement (tree, tree_cell *, tree);
+tree tree_unflatten_statements (void);
 
 #include "tree-flow-inline.h"
 

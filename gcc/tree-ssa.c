@@ -140,7 +140,7 @@ static sbitmap vars_to_rename;
 
 
 /* Local functions.  */
-static void delete_tree_ssa (tree);
+static void delete_tree_ssa (void);
 static void mark_def_sites (sbitmap);
 static void compute_global_livein (varray_type);
 static void set_def_block (tree, basic_block);
@@ -153,7 +153,6 @@ static void rewrite_stmt (block_stmt_iterator, varray_type *);
 static inline void rewrite_operand (tree *);
 static void register_new_def (tree, tree, varray_type *);
 static void insert_phi_nodes_for (tree, bitmap *, varray_type);
-static tree remove_annotations_r (tree *, int *, void *);
 static tree get_reaching_def (tree);
 static tree get_value_for (tree, htab_t);
 static void set_value_for (tree, tree, htab_t);
@@ -356,7 +355,7 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
 
       /* Debugging dumps after renaming the function into SSA.  */
       if (dump_file && (dump_flags & TDF_DETAILS))
-	dump_function_to_file (fndecl, dump_file, dump_flags);
+	dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
 
       /* Now optimize all the basic blocks in the program.  */
       if (flag_tree_dom)
@@ -401,7 +400,7 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
   /* The dominator optimizations may have made some blocks unreachable,
      go ahead and clean things up.  */
   if (flag_tree_dom)
-    cleanup_tree_cfg ();
+    cleanup_tree_cfg (false);
 
   /* Debugging dumps.  */
   if (dump_file)
@@ -412,7 +411,7 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
 	  dump_tree_ssa_stats (dump_file);
 	}
 
-      dump_function_to_file (fndecl, dump_file, dump_flags);
+      dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (TDI_ssa, dump_file);
     }
 
@@ -1604,7 +1603,7 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
 /* Take function FNDECL out of SSA form.  */
 
 void
-rewrite_out_of_ssa (tree fndecl)
+rewrite_out_of_ssa (tree fndecl ATTRIBUTE_UNUSED)
 {
   basic_block bb;
   block_stmt_iterator si;
@@ -1612,7 +1611,6 @@ rewrite_out_of_ssa (tree fndecl)
   var_map map;
   tree phi, next;
   elim_graph g;
-  int repeat, first_iteration;
   tree_live_info_p liveinfo;
 
   timevar_push (TV_TREE_SSA_TO_NORMAL);
@@ -1732,23 +1730,13 @@ rewrite_out_of_ssa (tree fndecl)
   /* If any copies were inserted on edges, actually insert them now.  */
   bsi_commit_edge_inserts (0, NULL);
 
+  cleanup_tree_cfg (true);
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
 
-  /* Do some cleanups which reduce the amount of data the
-     tree->rtl expanders deal with.  */
-  first_iteration = 1;
-  do
-    {
-      repeat = remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl),
-					      first_iteration);
-      first_iteration = 0;
-    }
-  while (repeat);
-  
   /* Flush out flow graph and SSA data.  */
-  delete_tree_ssa (fndecl);
-  delete_tree_cfg ();
+  delete_tree_ssa ();
   delete_var_map (map);
   timevar_pop (TV_TREE_SSA_TO_NORMAL);
 
@@ -2192,15 +2180,21 @@ init_tree_ssa (void)
 }
 
 
-/* Deallocate memory associated with SSA data structures for FNDECL.  */
+/* Deallocate memory associated with SSA data structures.  */
 
 static void
-delete_tree_ssa (tree fndecl)
+delete_tree_ssa ()
 {
   size_t i;
+  basic_block bb;
+  block_stmt_iterator bsi;
 
   /* Remove annotations from every tree in the function.  */
-  walk_tree (&DECL_SAVED_TREE (fndecl), remove_annotations_r, NULL, NULL);
+  FOR_EACH_BB (bb)
+    {
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	bsi_stmt (bsi)->common.ann = NULL;
+    }
 
   /* Remove annotations from every referenced variable.  */
   for (i = 0; i < num_referenced_vars; i++)
@@ -2209,37 +2203,7 @@ delete_tree_ssa (tree fndecl)
   referenced_vars = NULL;
   global_var = NULL_TREE;
   call_clobbered_vars = NULL;
-}
-
-
-/* Callback function for walk_tree to clear DFA/SSA annotations from node
-   *TP.  */
-
-static tree
-remove_annotations_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-		      void *data ATTRIBUTE_UNUSED)
-{
-  tree t = *tp;
-  enum tree_code code = TREE_CODE (t);
-
-  t->common.ann = NULL;
-
-  /* If the node is not a container, then it has nothing interesting
-     underneath it.  */
-  if (code != LOOP_EXPR
-      && code != COND_EXPR
-      && code != CATCH_EXPR
-      && code != TRY_CATCH_EXPR
-      && code != TRY_FINALLY_EXPR
-      && code != SWITCH_EXPR
-      && code != BIND_EXPR
-      && code != COMPOUND_EXPR)
-    {
-      *walk_subtrees = 0;
-      return NULL_TREE;
-    }
-
-  return NULL_TREE;
+  no_bb_for_stmt = true;
 }
 
 /* Return the current definition for variable VAR.  If none is found,

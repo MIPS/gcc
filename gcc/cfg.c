@@ -638,7 +638,7 @@ dump_edge_info (FILE *file, edge e, int do_succ)
     {
       static const char * const bitnames[] = {
 	"fallthru", "ab", "abcall", "eh", "fake", "dfs_back",
-	"can_fallthru", "irreducible", "sibcall",
+	"can_fallthru", "irreducible", "sibcall", "loop_exit",
 	"true", "false", "exec"
       };
       int comma = 0;
@@ -987,4 +987,20 @@ debug_bb_n (int n)
   basic_block bb = BASIC_BLOCK (n);
   dump_bb (bb, stderr);
   return bb;
+}
+
+/* Dumps just the cfg graph to stderr.  */
+void
+dump_cfg ()
+{
+  basic_block bb;
+  edge e;
+
+  FOR_EACH_BB (bb)
+    {
+      fprintf (stderr, "%d ->", bb->index);
+      for (e = bb->succ; e; e = e->succ_next)
+	fprintf (stderr, " %d", e->dest->index);
+      fprintf (stderr, "\n");
+    }
 }

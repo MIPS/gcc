@@ -89,6 +89,7 @@ static void rtl_dump_bb (basic_block, FILE *);
 static int rtl_verify_flow_info_1 (void);
 static void mark_killed_regs (rtx, rtx, void *);
 static basic_block rtl_make_forwarder_block (basic_block, int, int, edge, int);
+static void rtl_tidy_fallthru_edges (void);
 static void redirect_edge_with_latch_update (edge, basic_block);
 
 /* Return true if NOTE is not one of the ones that must be kept paired,
@@ -1186,8 +1187,8 @@ tidy_fallthru_edge (edge e, basic_block b, basic_block c)
    the search by only examining blocks numerically adjacent, since this
    is how find_basic_blocks created them.  */
 
-void
-tidy_fallthru_edges (void)
+static void
+rtl_tidy_fallthru_edges (void)
 {
   basic_block b, c;
 
@@ -2763,6 +2764,7 @@ struct cfg_hooks rtl_cfg_hooks = {
   rtl_merge_blocks,
   rtl_split_edge,
   rtl_make_forwarder_block,
+  rtl_tidy_fallthru_edges,
   rtl_loop_optimizer_init,
   rtl_loop_optimizer_finalize
 };
@@ -2783,6 +2785,7 @@ struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
   cfg_layout_merge_blocks,
   cfg_layout_split_edge,
   rtl_make_forwarder_block,
+  NULL,
   rtl_loop_optimizer_init,
   rtl_loop_optimizer_finalize
 };

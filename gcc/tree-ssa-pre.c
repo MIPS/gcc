@@ -1835,7 +1835,7 @@ finalize_1 (struct expr_info *ei)
 #if ENABLE_CHECKING
 		      insert_done = true;
 #endif
-          bsi_insert_on_edge_immediate (e, expr, NULL, NULL);
+		      bsi_insert_on_edge_immediate (e, expr, NULL, NULL);
 		    }
 		  else
 		    {
@@ -3201,6 +3201,9 @@ tree_perform_ssapre (tree fndecl)
 
 	  /* Recompute immediate dominators.  */
 	  pre_idom = calculate_dominance_info (CDI_DOMINATORS);
+	  for (i = 0; i < n_basic_blocks; i++)
+	    if (dom_children (BASIC_BLOCK (i)))
+	      bitmap_clear (dom_children (BASIC_BLOCK (i)));
 	  fixup_domchildren (pre_idom);
 	  currbbs = n_basic_blocks;
 
@@ -3231,7 +3234,7 @@ tree_perform_ssapre (tree fndecl)
 	  fprintf (dump_file, "Repairs:%d\n", pre_stats.repairs);
 	  fprintf (dump_file, "New phis:%d\n", pre_stats.newphis);
 	}
-      dump_function_to_file (fndecl, dump_file, dump_flags);
+      dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (TDI_pre, dump_file);
     }
   splay_tree_delete (old_new_map);

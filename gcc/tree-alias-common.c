@@ -946,8 +946,12 @@ create_alias_vars (tree fndecl)
   tree fnbody;
 #endif
   size_t i;
+  basic_block bb;
+  block_stmt_iterator bsi;
+  struct block_tree *block;
   we_created_global_var = false;
   currptadecl = fndecl;
+
   if (!global_var)
     {
       create_global_var ();
@@ -982,12 +986,19 @@ create_alias_vars (tree fndecl)
     DECL_PTA_TYPEVAR (fndecl) = NULL;
   get_alias_var (fndecl);
 
-  /* For debugging, disable the on-the-fly variable creation,
-     and reenable this. */
-  /*  walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
-      find_func_decls, NULL);*/
-  walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
-				find_func_aliases, NULL);
+  FOR_EACH_BB (bb)
+    {
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  walk_tree_without_duplicates (bsi_stmt_ptr (bsi),
+					find_func_aliases, NULL);
+	}
+    }
+  for (block = bti_start (); !bti_end_p (block); bti_next (&block))
+    if (block->type == BT_BIND)
+      walk_tree_without_duplicates (&BIND_EXPR_VARS (block->bind),
+				    find_func_aliases, NULL);
+
   if (we_created_global_var)
     global_var = NULL_TREE;
 

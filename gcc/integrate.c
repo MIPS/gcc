@@ -376,7 +376,10 @@ copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
 	 address has been taken; it's for internal bookkeeping in
 	 expand_goto_internal.  */
       if (TREE_CODE (copy) == LABEL_DECL)
-	TREE_ADDRESSABLE (copy) = 0;
+	{
+	  TREE_ADDRESSABLE (copy) = 0;
+	  DECL_TOO_LATE (copy) = 0;
+	}
     }
 
   /* Set the DECL_ABSTRACT_ORIGIN so the debugging routines know what

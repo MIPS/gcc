@@ -401,7 +401,7 @@ int
 bitmap_first_set_bit (bitmap a)
 {
   bitmap_element *ptr = a->first;
-  BITMAP_WORD word;
+  BITMAP_WORD word = 0;
   unsigned word_num, bit_num;
 
   if (ptr == NULL)
@@ -453,7 +453,7 @@ int
 bitmap_last_set_bit (bitmap a)
 {
   bitmap_element *ptr = a->first;
-  BITMAP_WORD word;
+  BITMAP_WORD word = 0;
   unsigned word_num, bit_num;
 
   if (ptr == NULL)

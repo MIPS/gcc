@@ -42,11 +42,12 @@ Boston, MA 02111-1307, USA.  */
 
 /* Main entry point to the tree SSA transformation routines.  FNDECL is the
    FUNCTION_DECL node for the function to optimize.  */
-
 void
 optimize_function_tree (tree fndecl)
 {
   tree fnbody;
+  struct tree_container head;
+  tree_cell first, last;
 
   /* Don't bother doing anything if the program has errors.  */
   if (errorcount || sorrycount)
@@ -54,14 +55,24 @@ optimize_function_tree (tree fndecl)
 
   fnbody = DECL_SAVED_TREE (fndecl);
 
+  /* Flatten the trees.  */
+  head.prev = head.next = NULL;
+  last = &head;
+  tree_flatten_statement (fnbody, &last, NULL_TREE);
+  first = head.next;
+
+  if (!first)
+    {
+      /* The function is empty, we are done.  */
+      DECL_SAVED_TREE (fndecl) = build_empty_stmt ();
+      return;
+    }
+
+  first->prev = NULL;
+
   /* Build the flowgraph.  */
   init_flow ();
-
-  /* Run a pass over the statements deleting any obviously useless
-     statements before we build the CFG.  */
-  remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), 0);
-
-  build_tree_cfg (fnbody);
+  build_tree_cfg (first);
 
   /* Begin analysis and optimization passes.  */
   if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
@@ -71,6 +82,7 @@ optimize_function_tree (tree fndecl)
 
       /* Find all the variables referenced in the function.  */
       find_referenced_vars (fndecl);
+      assign_vars_to_scopes ();
 
       /* Compute aliasing information for all the variables referenced in
 	 the function.  */
@@ -86,7 +98,8 @@ optimize_function_tree (tree fndecl)
 	     into must-alias relations.  If DCE eliminated all the pointer
 	     assignments that were taking the address of a local variable X,
 	     we can now rename X as a non-aliased local.  */
-	  tree_ssa_dce (fndecl);
+	  if (0)
+	    tree_ssa_dce (fndecl);
 	  if (flag_tree_dom && flag_tree_must_alias)
 	    tree_compute_must_alias (fndecl);
 	}
@@ -100,12 +113,19 @@ optimize_function_tree (tree fndecl)
       if (flag_tree_copyprop)
 	tree_ssa_copyprop (fndecl);
 
-      if (flag_tree_dce)
+      if (0 && flag_tree_dce)
 	tree_ssa_dce (fndecl);
+
+#if defined ENABLE_CHECKING
+      verify_flow_info ();
+#endif
 
       /* Rewrite the function out of SSA form.  */
       rewrite_out_of_ssa (fndecl);
     }
+
+  fnbody = tree_unflatten_statements ();
+  DECL_SAVED_TREE (fndecl) = fnbody;
 
   /* Debugging dump after optimization.  */
   dump_function (TDI_optimized, fndecl);

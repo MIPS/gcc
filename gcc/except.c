@@ -930,7 +930,7 @@ resolve_fixup_regions (void)
       if (j > n)
 	abort ();
 
-      fixup->u.fixup.real_region = cleanup->outer;
+      fixup->u.fixup.real_region = cleanup;
     }
 }
 

@@ -181,7 +181,7 @@ tree_ssa_ccp (tree fndecl)
   substitute_and_fold ();
 
   /* Now cleanup any unreachable code.  */
-  cleanup_tree_cfg ();
+  cleanup_tree_cfg (false);
 
   /* Free allocated memory.  */
   finalize ();
@@ -198,7 +198,7 @@ tree_ssa_ccp (tree fndecl)
 	  fprintf (dump_file, "\n");
 	}
 
-      dump_function_to_file (fndecl, dump_file, dump_flags);
+      dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (TDI_ccp, dump_file);
     }
 }

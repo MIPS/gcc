@@ -3226,6 +3226,8 @@ rest_of_compilation (tree decl)
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP
 	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
+  if (cfun->recreate_loop_notes)
+    create_loop_notes ();
   if (optimize)
     {
       free_bb_for_insn ();

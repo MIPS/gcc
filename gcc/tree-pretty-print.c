@@ -1934,18 +1934,18 @@ dump_block_info (output_buffer *buffer, basic_block bb, int spc)
   if (bb)
     {
       edge e;
-      tree *stmt_p = bb->head_tree_p;
+      tree stmt = first_stmt (bb);
       int lineno;
 
       newline_and_indent (buffer, spc);
       output_formatted_scalar (buffer, "# BLOCK %d", bb->index);
 
-      if (stmt_p
-	  && is_exec_stmt (*stmt_p)
-	  && (lineno = get_lineno (*stmt_p)) > 0)
+      if (stmt
+	  && is_exec_stmt (stmt)
+	  && (lineno = get_lineno (stmt)) > 0)
 	{
 	  output_add_string (buffer, " (");
-	  output_add_string (buffer, get_filename (*stmt_p));
+	  output_add_string (buffer, get_filename (stmt));
 	  output_formatted_scalar (buffer, ":%d", lineno);
 	  output_add_string (buffer, ")");
 	}

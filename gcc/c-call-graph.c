@@ -119,12 +119,15 @@ construct_call_graph (output_buffer *buffer, tree t, HOST_WIDE_INT spc)
 			 ((nb_statements == 0) ? 0.0 :
 			  ((float)decision_points / (float)nb_statements)));
 
+#if 0
+	  /* Disabled for now until interface stabilizes.  */
 	  /* Control flow statistics.  */
 	  init_flow ();
 	  build_tree_cfg (DECL_SAVED_TREE (node));
 	  output_printf (buffer, " CFG-edges=\"%d\" CFG-BB=\"%d\" McCabe=\"%d\">\n",
 			 n_edges, n_basic_blocks, n_edges - n_basic_blocks + 2);
 	  delete_tree_cfg ();
+#endif
 
 	  /* End of the node.  */
 	  INDENT (spc);

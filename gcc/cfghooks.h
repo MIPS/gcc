@@ -60,6 +60,7 @@ struct cfg_hooks
      we didn't have some oddities in RTL and Tree representations.  */
   basic_block (*cfgh_split_edge) (edge);
   basic_block (*cfgh_make_forwarder_block) (basic_block, int, int, edge, int);
+  void (*cfgh_tidy_fallthru_edges) (void);
   struct loops *(*cfgh_loop_optimizer_init) (FILE *);
   void (*cfgh_loop_optimizer_finalize) (struct loops *, FILE *);
 };
@@ -73,6 +74,7 @@ struct cfg_hooks
 #define can_merge_blocks_p(a,b)		     cfg_hooks->can_merge_blocks_p (a,b)
 #define merge_blocks(a,b)		     cfg_hooks->merge_blocks (a,b)
 #define make_forwarder_block(a, b, c, d, e)  cfg_hooks->cfgh_make_forwarder_block (a, b, c, d, e)
+#define tidy_fallthru_edges()		     cfg_hooks->cfgh_tidy_fallthru_edges ()
 #define loop_optimizer_init(a)               cfg_hooks->cfgh_loop_optimizer_init (a)
 #define loop_optimizer_finalize(a, b)        cfg_hooks->cfgh_loop_optimizer_finalize (a, b)
 
