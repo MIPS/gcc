@@ -1,3 +1,11 @@
+Fri May 23 21:03:14 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* ifcvt.c (unshare_insns):  New static function.
+	(noce_try_store_flag, noce_try_store_flag_inc,
+	 noce_try_store_flag_mask, noce_try_cmove,
+	 noce_try_cmove_arith, noce_try_minmax, noce_try_abs,
+	 noce_process_if_block): Use it.
+
 Tue May 20 12:12:42 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from 3.3-branch (gcc_3_3_release)

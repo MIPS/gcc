@@ -592,6 +592,25 @@ static rtx noce_get_alt_condition	PARAMS ((struct noce_if_info *,
 						 rtx, rtx *));
 static int noce_try_minmax		PARAMS ((struct noce_if_info *));
 static int noce_try_abs			PARAMS ((struct noce_if_info *));
+static void unshare_insns		PARAMS ((rtx));
+
+/* Passing nontrivial arguments taken from instruction stream to the expanders
+   creates various sorts of inexpected RTL sharing.  Avoid that by simply
+   creating of duplicate of each insn emit into the stream.  */
+static void
+unshare_insns (insn)
+    rtx insn;
+{
+  while (insn)
+   {
+     if (INSN_P (insn))
+	{
+	  emit_copy_of_insn_after (insn, insn);
+          insn = delete_insn (insn);
+	}
+     insn = NEXT_INSN (insn);
+   }
+}
 
 /* Helper function for noce_try_store_flag*.  */
 
@@ -713,6 +732,7 @@ noce_try_store_flag (if_info)
       if (target != if_info->x)
 	noce_emit_move_insn (if_info->x, target);
 
+      unshare_insns (get_insns ());
       seq = get_insns ();
       end_sequence ();
       emit_insn_before_scope (seq, if_info->jump, INSN_SCOPE (if_info->insn_a));
@@ -844,6 +864,7 @@ noce_try_store_flag_constants (if_info)
       if (target != if_info->x)
 	noce_emit_move_insn (if_info->x, target);
 
+      unshare_insns (get_insns ());
       seq = get_insns ();
       end_sequence ();
 
@@ -904,6 +925,7 @@ noce_try_store_flag_inc (if_info)
 	  if (target != if_info->x)
 	    noce_emit_move_insn (if_info->x, target);
 
+	  unshare_insns (get_insns ());
 	  seq = get_insns ();
 	  end_sequence ();
 
@@ -957,6 +979,7 @@ noce_try_store_flag_mask (if_info)
 	  if (target != if_info->x)
 	    noce_emit_move_insn (if_info->x, target);
 
+	  unshare_insns (get_insns ());
 	  seq = get_insns ();
 	  end_sequence ();
 
@@ -1057,6 +1080,7 @@ noce_try_cmove (if_info)
 	  if (target != if_info->x)
 	    noce_emit_move_insn (if_info->x, target);
 
+	  unshare_insns (get_insns ());
 	  seq = get_insns ();
 	  end_sequence ();
 	  emit_insn_before_scope (seq, if_info->jump,
@@ -1229,6 +1253,7 @@ noce_try_cmove_arith (if_info)
   else if (target != x)
     noce_emit_move_insn (x, target);
 
+  unshare_insns (get_insns ());
   tmp = get_insns ();
   end_sequence ();
   emit_insn_before_scope (tmp, if_info->jump, INSN_SCOPE (if_info->insn_a));
@@ -1477,6 +1502,7 @@ noce_try_minmax (if_info)
   if (target != if_info->x)
     noce_emit_move_insn (if_info->x, target);
 
+  unshare_insns (get_insns ());
   seq = get_insns ();
   end_sequence ();  
 
@@ -1595,6 +1621,7 @@ noce_try_abs (if_info)
   if (target != if_info->x)
     noce_emit_move_insn (if_info->x, target);
 
+  unshare_insns (get_insns ());
   seq = get_insns ();
   end_sequence ();  
 
@@ -1909,6 +1936,7 @@ noce_process_if_block (ce_info)
     {
       start_sequence ();
       noce_emit_move_insn (copy_rtx (orig_x), x);
+      unshare_insns (get_insns ());
       insn_b = get_insns ();
       end_sequence ();
 
