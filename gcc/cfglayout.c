@@ -46,6 +46,7 @@ static void set_block_levels		PARAMS ((tree, int));
 static void change_scope		PARAMS ((rtx, tree, tree));
 
 void verify_insn_chain			PARAMS ((void));
+static void fixup_fallthru_exit_predecessor PARAMS ((void));
 static void cleanup_unconditional_jumps	PARAMS ((struct loops *));
 static rtx unlink_insn_chain PARAMS ((rtx, rtx));
 static rtx duplicate_insn_chain PARAMS ((rtx, rtx));
@@ -692,6 +693,33 @@ cleanup_unconditional_jumps (loops)
     }
 }
 
+/* The block falling through to exit must be the last one in the
+   reordered chain.  Ensure that this condition is met.  */
+static void
+fixup_fallthru_exit_predecessor ()
+{
+  edge e;
+  basic_block bb = NULL;
+
+  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+    if (e->flags & EDGE_FALLTHRU)
+      bb = e->src;
+
+  if (bb && RBI (bb)->next)
+    {
+      basic_block c = BASIC_BLOCK (0);
+
+      while (RBI (c)->next != bb)
+	c = RBI (c)->next;
+
+      RBI (c)->next = RBI (bb)->next;
+      while (RBI (c)->next)
+	c = RBI (c)->next;
+
+      RBI (c)->next = bb;
+      RBI (bb)->next = NULL;
+    }
+}
 
 /* Return true in case it is possible to duplicate the basic block BB.  */
 
@@ -700,9 +728,16 @@ cfg_layout_can_duplicate_bb_p (bb)
      basic_block bb;
 {
   rtx next;
+  edge s;
 
   if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR)
     return false;
+
+  /* Duplicating fallthru block to exit would require adding an jump
+     and splitting the real last BB.  */
+  for (s = bb->succ; s; s = s->succ_next)
+    if (s->dest == EXIT_BLOCK_PTR && (s->flags & EDGE_FALLTHRU))
+       return false;
 
   /* Do not attempt to duplicate tablejumps, as we need to unshare
      the dispatch table.  This is dificult to do, as the instructions
@@ -966,6 +1001,7 @@ cfg_layout_initialize (loops)
 void
 cfg_layout_finalize ()
 {
+  fixup_fallthru_exit_predecessor ();
   fixup_reorder_chain ();
 
 #ifdef ENABLE_CHECKING
