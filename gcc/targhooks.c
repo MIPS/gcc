@@ -257,6 +257,15 @@ default_unwind_resume_name (void)
 }
 
 
+/* The ia64/generic C++ ABI defines __cxa_atexit.  */
+
+const char *
+default_cxx_atexit_name (void)
+{
+  return "__cxa_atexit";
+}
+
+
 /* Emit any directives required to unwind this instruction.  */
 
 void

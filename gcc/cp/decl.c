@@ -5046,7 +5046,7 @@ get_atexit_node (void)
       /* And the final __cxa_atexit type.  */
       fn_type = build_function_type (integer_type_node, arg_types);
       fn_ptr_type = build_pointer_type (fn_type);
-      name = "__cxa_atexit";
+      name = targetm.cxx.atexit_name ();
     }
   else
     {

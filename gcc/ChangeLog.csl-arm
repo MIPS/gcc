@@ -1,3 +1,15 @@
+2004-11-05  Paul Brook  <paul@codesourcery.com>
+
+	* target-def.h (TARGET_CXX_ATEXIT_NAME): Define.
+	(TARGET_CXX): Add TARGET_CXX_ATEXIT_NAME.
+	* target.h (gcc_target): Add cxx.atexit_name.
+	* targhooks.c (default_cxx_atexit_name): New function.
+	* targhooks.h (default_cxx_atexit_name): Add prototype.
+	* config/arm/arm.c (arm_cxx_atexit_name): New function.
+	(TARGET_CXX_ATEXIT_NAME): Define.
+	* cp/decl.c (get_atexit_node): Use targetm.cxx.atexit_name.
+	* doc/tm.texi: Document TARGET_CXX_ATEXIT_NAME.
+
 2004-11-04  Mark Mitchell  <mark@codesourcery.com>
 
 	* config/arm/arm.c (arm_handle_notshared_attribute): New function.

@@ -40,5 +40,6 @@ extern bool hook_bool_machine_mode_true (enum machine_mode);
 extern tree default_cxx_guard_type (void);
 extern tree default_cxx_get_cookie_size (tree);
 extern const char * default_unwind_resume_name (void);
+extern const char * default_cxx_atexit_name (void);
 
 extern void default_unwind_emit (FILE *, rtx);

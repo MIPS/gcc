@@ -402,6 +402,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_CXX_UNWIND_RESUME_NAME default_unwind_resume_name
 #endif
 
+#ifndef TARGET_CXX_ATEXIT_NAME
+#define TARGET_CXX_ATEXIT_NAME default_cxx_atexit_name
+#endif
+
 #define TARGET_CXX				\
   {						\
     TARGET_CXX_GUARD_TYPE,			\
@@ -411,7 +415,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
     TARGET_CXX_CDTOR_RETURNS_THIS,		\
     TARGET_CXX_KEY_METHOD_MAY_BE_INLINE,	\
     TARGET_CXX_EXPORT_CLASS_DATA, 		\
-    TARGET_CXX_UNWIND_RESUME_NAME		\
+    TARGET_CXX_UNWIND_RESUME_NAME,		\
+    TARGET_CXX_ATEXIT_NAME			\
   }
 
 /* The whole shebang.  */

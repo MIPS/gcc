@@ -8616,6 +8616,12 @@ This hook returns the name of the routine that should be called to
 resume unwinding at the end of a C++ catch handler.
 @end deftypefn
 
+@deftypefn {Target Hook} const char * TARGET_CXX_ATEXIT_NAME (void)
+This hook returns teh name of the function to use for registering
+static destructors when -fuse-cxa-atexit is in effect.
+The dafault is @code{"__cxa_atexit"}.
+@end deftypefn
+
 @node Misc
 @section Miscellaneous Parameters
 @cindex parameters, miscellaneous

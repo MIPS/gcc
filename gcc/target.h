@@ -477,6 +477,9 @@ struct gcc_target
     /* Return the name of the function used to exit from a c++ cleanup
        handler.  */
     const char * (*unwind_resume_name) (void);
+    /* Returns the name of the function used to register static object
+       destructors.  */
+    const char * (*atexit_name) (void);
   } cxx;
 
   /* Leave the boolean fields at the end.  */
