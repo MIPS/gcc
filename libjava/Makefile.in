@@ -312,6 +312,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextComponentPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c	\
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c \
 jni/gtk-peer/gthread-jni.c \
 jni/classpath/jcl.c \
 jni/classpath/jnilink.c	\
@@ -361,7 +362,9 @@ gnu/java/awt/peer/gtk/GtkTextAreaPeer.java \
 gnu/java/awt/peer/gtk/GtkTextComponentPeer.java	\
 gnu/java/awt/peer/gtk/GtkTextFieldPeer.java \
 gnu/java/awt/peer/gtk/GtkToolkit.java \
-gnu/java/awt/peer/gtk/GtkWindowPeer.java
+gnu/java/awt/peer/gtk/GtkWindowPeer.java \
+gnu/java/awt/peer/gtk/GThreadMutex.java \
+gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java
 
 
 gtk_c_headers = $(patsubst %.java,jniinclude/%.h,$(subst /,_,$(gtk_awt_peer_sources)))
@@ -3523,6 +3526,8 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkTextFieldPeer.lo \
 @GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkToolkit.lo \
 @GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkWindowPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GThreadMutex.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.lo \
@@ -3555,6 +3560,7 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gthread-jni.lo jni/classpath/jcl.lo \
 @GTK_CAIRO_FALSE@jni/classpath/jnilink.lo jni/classpath/native_state.lo \
 @GTK_CAIRO_FALSE@jni/classpath/primlib.lo
@@ -3601,6 +3607,8 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_TRUE@gnu/java/awt/peer/gtk/GtkTextFieldPeer.lo \
 @GTK_CAIRO_TRUE@gnu/java/awt/peer/gtk/GtkToolkit.lo \
 @GTK_CAIRO_TRUE@gnu/java/awt/peer/gtk/GtkWindowPeer.lo \
+@GTK_CAIRO_TRUE@gnu/java/awt/peer/gtk/GThreadMutex.lo \
+@GTK_CAIRO_TRUE@gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.lo \
@@ -3637,6 +3645,7 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.lo \
+@GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gthread-jni.lo jni/classpath/jcl.lo \
 @GTK_CAIRO_TRUE@jni/classpath/jnilink.lo jni/classpath/native_state.lo \
 @GTK_CAIRO_TRUE@jni/classpath/primlib.lo
@@ -3780,6 +3789,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/awt/peer/ClasspathFontPeer.P \
 .deps/gnu/java/awt/peer/EmbeddedWindowPeer.P \
 .deps/gnu/java/awt/peer/GLightweightPeer.P \
+.deps/gnu/java/awt/peer/gtk/GThreadMutex.P \
+.deps/gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.P \
 .deps/gnu/java/awt/peer/gtk/GdkClasspathFontPeer.P \
 .deps/gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.P \
 .deps/gnu/java/awt/peer/gtk/GdkFontMetrics.P \
@@ -5400,6 +5411,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/transaction/xa/Xid.P .deps/jni.P .deps/jni/classpath/jcl.P \
 .deps/jni/classpath/jnilink.P .deps/jni/classpath/native_state.P \
 .deps/jni/classpath/primlib.P \
+.deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.P \

@@ -1,5 +1,5 @@
-/* gthread-jni.h
-   Copyright (C) 1998, 2002 Free Software Foundation, Inc.
+/* Native implementation of functions in GThreadNativeMethodRunner
+   Copyright (C) 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,14 +35,34 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-#ifndef __GTHREADJNI_H__
-#define __GTHREADJNI_H__
 
-#include <jni.h>
-#include <glib.h>
-#include "gtkpeer.h"
+#include "gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.h"
+#include "gthread-jni.h"
 
-extern GThreadFunctions portable_native_sync_jni_functions;
-extern JavaVM *the_vm;
+/*
+ * Class:     GThreadNativeMethodRunner
+ * Method:    nativeRun
+ * Signature: (J)V
+ *
+ * Purpose: Run the C function whose function pointer is
+ * 
+ */
+JNIEXPORT void JNICALL 
+Java_gnu_java_awt_peer_gtk_GThreadNativeMethodRunner_nativeRun(JNIEnv *gdk_env, jobject lcl_obj, 
+					 jlong funcAddr, jlong funcArg)
+{
+  /* Convert the function's address back into a pointer to a C function. */
+  void *(*funcPtr)(void *) = (void *(*)(void *)) funcAddr;
+  
+  /* We do not need to worry about the return value from funcPtr(); it's
+     just thrown away.  That is part of the g_threads spec, so no reason
+     to worry about returning it.  */
+  (void) funcPtr((void *) funcArg);
+  /* Fall off the end and terminate the thread of control. */
+}
+
+/* Local Variables: */
+/* c-file-style: "gnu" */
+/* End: */
 
-#endif /* __GTHREADJNI_H__ */
+

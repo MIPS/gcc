@@ -221,6 +221,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextComponentPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c	\
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c \
 jni/gtk-peer/gthread-jni.c \
 jni/classpath/jcl.c \
 jni/classpath/jnilink.c	\
@@ -270,7 +271,9 @@ gnu/java/awt/peer/gtk/GtkTextAreaPeer.java \
 gnu/java/awt/peer/gtk/GtkTextComponentPeer.java	\
 gnu/java/awt/peer/gtk/GtkTextFieldPeer.java \
 gnu/java/awt/peer/gtk/GtkToolkit.java \
-gnu/java/awt/peer/gtk/GtkWindowPeer.java
+gnu/java/awt/peer/gtk/GtkWindowPeer.java \
+gnu/java/awt/peer/gtk/GThreadMutex.java \
+gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java
 
 gtk_c_headers = $(patsubst %.java,jniinclude/%.h,$(subst /,_,$(gtk_awt_peer_sources)))
 
