@@ -60,12 +60,9 @@
 #define TARGET_NO_PROTOTYPE 0
 #endif
 
-#define EASY_VECTOR_15(n, x, y) ((n) >= -16 && (n) <= 15 \
-				 && easy_vector_same (x, y))
-
-#define EASY_VECTOR_15_ADD_SELF(n, x, y) ((n) >= 0x10 && (n) <= 0x1e \
-                                          && !((n) & 1)              \
-					  && easy_vector_same (x, y))
+#define EASY_VECTOR_15(n) ((n) >= -16 && (n) <= 15)
+#define EASY_VECTOR_15_ADD_SELF(n) ((n) >= 0x10 && (n) <= 0x1e \
+                                          && !((n) & 1))
 
 #define min(A,B)	((A) < (B) ? (A) : (B))
 #define max(A,B)	((A) > (B) ? (A) : (B))
@@ -389,6 +386,7 @@ static void is_altivec_return_reg (rtx, void *);
 static rtx generate_set_vrsave (rtx, rs6000_stack_t *, int);
 int easy_vector_constant (rtx, enum machine_mode);
 static int easy_vector_same (rtx, enum machine_mode);
+static int easy_vector_splat_const (int, enum machine_mode);
 static bool is_ev64_opaque_type (tree);
 static rtx rs6000_dwarf_register_span (rtx);
 static rtx rs6000_legitimize_tls_address (rtx, enum tls_model);
@@ -1651,6 +1649,38 @@ easy_fp_constant (rtx op, enum machine_mode mode)
     abort ();
 }
 
+/* Returns the constant for the splat instrunction, if exists.  */
+
+static int
+easy_vector_splat_const (int cst, enum machine_mode mode)
+{
+  switch (mode) 
+    {
+    case V4SImode:
+      if (EASY_VECTOR_15 (cst) 
+	  || EASY_VECTOR_15_ADD_SELF (cst)) 
+	return cst;
+      if ((cst & 0xffff) != ((cst >> 16) & 0xffff))
+	break;
+      cst = cst >> 16;
+    case V8HImode:
+      if (EASY_VECTOR_15 (cst) 
+	  || EASY_VECTOR_15_ADD_SELF (cst)) 
+	return cst;
+      if ((cst & 0xff) != ((cst >> 8) & 0xff))
+	break;
+      cst = cst >> 8;
+    case V16QImode:
+	  if (EASY_VECTOR_15 (cst) 
+	      || EASY_VECTOR_15_ADD_SELF (cst)) 
+	    return cst;
+    default: 
+      break;
+    }
+  return 0;
+}
+
+
 /* Return nonzero if all elements of a vector have the same value.  */
 
 static int
@@ -1664,7 +1694,7 @@ easy_vector_same (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
   for (i = 1; i < units; ++i)
     if (INTVAL (CONST_VECTOR_ELT (op, i)) != cst)
       break;
-  if (i == units)
+  if (i == units && easy_vector_splat_const (cst, mode))
     return 1;
   return 0;
 }
@@ -1710,31 +1740,14 @@ easy_vector_constant (rtx op, enum machine_mode mode)
       && cst2 >= -0x7fff && cst2 <= 0x7fff)
     return 1;
 
-  if (TARGET_ALTIVEC)
-    switch (mode) 
-      {
-      case V4SImode:
-	if (EASY_VECTOR_15 (cst, op, mode))
-	  return 1;
-	if ((cst & 0xffff) != ((cst >> 16) & 0xffff))
-	  break;
-	cst = cst >> 16;
-      case V8HImode:
-	if (EASY_VECTOR_15 (cst, op, mode))
-	  return 1;
-	if ((cst & 0xff) != ((cst >> 8) & 0xff))
-	  break;
-	cst = cst >> 8;
-      case V16QImode:
-	if (EASY_VECTOR_15 (cst, op, mode))
-	  return 1;
-      default: 
-	break;
-      }
-
-  if (TARGET_ALTIVEC && EASY_VECTOR_15_ADD_SELF (cst, op, mode))
-    return 1;
-
+  if (TARGET_ALTIVEC 
+      && easy_vector_same (op, mode))
+    {
+      cst = easy_vector_splat_const (cst, mode);
+      if (EASY_VECTOR_15_ADD_SELF (cst) 
+	  || EASY_VECTOR_15 (cst))
+	return 1;
+    }  
   return 0;
 }
 
@@ -1744,13 +1757,31 @@ int
 easy_vector_constant_add_self (rtx op, enum machine_mode mode)
 {
   int cst;
+  if (TARGET_ALTIVEC
+      && GET_CODE (op) == CONST_VECTOR
+      && easy_vector_same (op, mode))
+    {
+      cst = easy_vector_splat_const (INTVAL (CONST_VECTOR_ELT (op, 0)), mode);
+      if (EASY_VECTOR_15_ADD_SELF (cst))
+	return 1;  
+    }
+  return 0;
+}
 
-  if (!easy_vector_constant (op, mode))
-    return 0;
+/* Generate easy_vector_constant out of a easy_vector_constant_add_self.  */
 
-  cst = INTVAL (CONST_VECTOR_ELT (op, 0));
+rtx 
+gen_easy_vector_constant_add_self (rtx op)
+{
+  int i, units;
+  rtvec v;
+  units = GET_MODE_NUNITS (GET_MODE (op));
+  v = rtvec_alloc (units);
 
-  return TARGET_ALTIVEC && EASY_VECTOR_15_ADD_SELF (cst, op, mode);
+  for (i = 0; i < units; i++)
+    RTVEC_ELT (v, i) = 
+      GEN_INT (INTVAL (CONST_VECTOR_ELT (op, i)) >> 1);
+  return gen_rtx_raw_CONST_VECTOR (GET_MODE (op), v);
 }
 
 const char *
@@ -1771,33 +1802,37 @@ output_vec_const_move (rtx *operands)
     {
       if (zero_constant (vec, mode))
 	return "vxor %0,%0,%0";
-      else if (EASY_VECTOR_15_ADD_SELF (cst, vec, mode))
-	return "#";
       else if (easy_vector_constant (vec, mode))
 	{
 	  operands[1] = GEN_INT (cst);
 	  switch (mode)
 	    {
 	    case V4SImode:
-	      if (EASY_VECTOR_15 (cst, vec, mode))
+	      if (EASY_VECTOR_15 (cst))
 		{
 		  operands[1] = GEN_INT (cst);
 		  return "vspltisw %0,%1";
 		}
+	      else if (EASY_VECTOR_15_ADD_SELF (cst))
+		return "#";
 	      cst = cst >> 16;
 	    case V8HImode:
-	      if (EASY_VECTOR_15 (cst, vec, mode))
+	      if (EASY_VECTOR_15 (cst))
 		{
 		  operands[1] = GEN_INT (cst);
 		  return "vspltish %0,%1";
 		}
+	      else if (EASY_VECTOR_15_ADD_SELF (cst))
+		return "#";
 	      cst = cst >> 8;
 	    case V16QImode:
-	      if (EASY_VECTOR_15 (cst, vec, mode))
+	      if (EASY_VECTOR_15 (cst))
 		{
 		  operands[1] = GEN_INT (cst);
 		  return "vspltisb %0,%1";
 		}
+	      else if (EASY_VECTOR_15_ADD_SELF (cst))
+		return "#";
 	    default:
 	      abort ();
 	    }
@@ -4007,19 +4042,41 @@ function_arg_padding (enum machine_mode mode, tree type)
 int
 function_arg_boundary (enum machine_mode mode, tree type ATTRIBUTE_UNUSED)
 {
-  if (DEFAULT_ABI == ABI_V4 && (mode == DImode || mode == DFmode))
+  if (DEFAULT_ABI == ABI_V4 && GET_MODE_SIZE (mode) == 8)
     return 64;
-   else if (SPE_VECTOR_MODE (mode))
-     return 64;
-  else if (TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
+  else if (SPE_VECTOR_MODE (mode))
+    return 64;
+  else if (ALTIVEC_VECTOR_MODE (mode))
     return 128;
   else
     return PARM_BOUNDARY;
 }
+
+/* Compute the size (in words) of a function argument.  */
+
+static unsigned long
+rs6000_arg_size (enum machine_mode mode, tree type)
+{
+  unsigned long size;
+
+  if (mode != BLKmode)
+    size = GET_MODE_SIZE (mode);
+  else
+    size = int_size_in_bytes (type);
+
+  if (TARGET_32BIT)
+    return (size + 3) >> 2;
+  else
+    return (size + 7) >> 3;
+}
 
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
-   (TYPE is null for libcalls where that information may not be available.)  */
+   (TYPE is null for libcalls where that information may not be available.)
+
+   Note that for args passed by reference, function_arg will be called
+   with MODE and TYPE set to that of the pointer to the arg, not the arg
+   itself.  */
 
 void
 function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode, 
@@ -4029,6 +4086,8 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
   if (TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
     {
+      bool stack = false;
+
       if (USE_ALTIVEC_FOR_ARG_P (cum, mode, type, named))
         {
 	  cum->vregno++;
@@ -4036,12 +4095,18 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	    error ("Cannot pass argument in vector register because"
 		   " altivec instructions are disabled, use -maltivec"
 		   " to enable them.");
+
+	  /* PowerPC64 Linux and AIX allocate GPRs for a vector argument
+	     even if it is going to be passed in a vector register.  
+	     Darwin does the same for variable-argument functions.  */
+	  if ((DEFAULT_ABI == ABI_AIX && TARGET_64BIT)
+	      || (cum->stdarg && DEFAULT_ABI != ABI_V4))
+	    stack = true;
 	}
-      /* PowerPC64 Linux and AIX allocates GPRs for a vector argument
-	 even if it is going to be passed in a vector register.  
-	 Darwin does the same for variable-argument functions.  */
-      if ((DEFAULT_ABI == ABI_AIX && TARGET_64BIT)
-		   || (cum->stdarg && DEFAULT_ABI != ABI_V4))
+      else
+	stack = true;
+
+      if (stack)
         {
 	  int align;
 	  
@@ -4053,10 +4118,10 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	     aligned.  Space for GPRs is reserved even if the argument
 	     will be passed in memory.  */
 	  if (TARGET_32BIT)
-	    align = ((6 - (cum->words & 3)) & 3);
+	    align = (2 - cum->words) & 3;
 	  else
 	    align = cum->words & 1;
-	  cum->words += align + RS6000_ARG_SIZE (mode, type);
+	  cum->words += align + rs6000_arg_size (mode, type);
 	  
 	  if (TARGET_DEBUG_ARG)
 	    {
@@ -4083,30 +4148,26 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	    {
 	      if (mode == DFmode)
 	        cum->words += cum->words & 1;
-	      cum->words += RS6000_ARG_SIZE (mode, type);
+	      cum->words += rs6000_arg_size (mode, type);
 	    }
 	}
       else
 	{
-	  int n_words;
+	  int n_words = rs6000_arg_size (mode, type);
 	  int gregno = cum->sysv_gregno;
 
-	  /* Aggregates and IEEE quad get passed by reference.  */
-	  if ((type && AGGREGATE_TYPE_P (type))
-	      || mode == TFmode)
-	    n_words = 1;
-	  else 
-	    n_words = RS6000_ARG_SIZE (mode, type);
+	  /* Long long and SPE vectors are put in (r3,r4), (r5,r6),
+	     (r7,r8) or (r9,r10).  As does any other 2 word item such
+	     as complex int due to a historical mistake.  */
+	  if (n_words == 2)
+	    gregno += (1 - gregno) & 1;
 
-	  /* Long long and SPE vectors are put in odd registers.  */
-	  if (n_words == 2 && (gregno & 1) == 0)
-	    gregno += 1;
-
-	  /* Long long and SPE vectors are not split between registers
-	     and stack.  */
+	  /* Multi-reg args are not split between registers and stack.  */
 	  if (gregno + n_words - 1 > GP_ARG_MAX_REG)
 	    {
-	      /* Long long is aligned on the stack.  */
+	      /* Long long and SPE vectors are aligned on the stack.
+		 So are other 2 word items such as complex int due to
+		 a historical mistake.  */
 	      if (n_words == 2)
 		cum->words += cum->words & 1;
 	      cum->words += n_words;
@@ -4130,14 +4191,20 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
   else
     {
-      int align = (TARGET_32BIT && (cum->words & 1) != 0
-		   && function_arg_boundary (mode, type) == 64) ? 1 : 0;
+      int n_words = rs6000_arg_size (mode, type);
+      int align = function_arg_boundary (mode, type) / PARM_BOUNDARY - 1;
 
-      cum->words += align + RS6000_ARG_SIZE (mode, type);
+      /* The simple alignment calculation here works because
+	 function_arg_boundary / PARM_BOUNDARY will only be 1 or 2.
+	 If we ever want to handle alignments larger than 8 bytes for
+	 32-bit or 16 bytes for 64-bit, then we'll need to take into
+	 account the offset to the start of the parm save area.  */
+      align &= cum->words;
+      cum->words += align + n_words;
 
       if (GET_MODE_CLASS (mode) == MODE_FLOAT
 	  && TARGET_HARD_FLOAT && TARGET_FPRS)
-	cum->fregno += (mode == TFmode ? 2 : 1);
+	cum->fregno += (GET_MODE_SIZE (mode) + 7) >> 3;
 
       if (TARGET_DEBUG_ARG)
 	{
@@ -4159,7 +4226,7 @@ rs6000_spe_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   if (cum->stdarg)
     {
       int gregno = cum->sysv_gregno;
-      int n_words = RS6000_ARG_SIZE (mode, type);
+      int n_words = rs6000_arg_size (mode, type);
 
       /* SPE vectors are put in odd registers.  */
       if (n_words == 2 && (gregno & 1) == 0)
@@ -4207,7 +4274,7 @@ rs6000_mixed_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 					       gen_rtx_REG (mode,
 							    cum->fregno),
 					       const0_rtx)));
-      else if (align_words + RS6000_ARG_SIZE (mode, type)
+      else if (align_words + rs6000_arg_size (mode, type)
 	       > GP_ARG_NUM_REG)
 	/* If this is partially on the stack, then we only
 	   include the portion actually in registers here.  */
@@ -4313,7 +4380,11 @@ rs6000_mixed_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
    both an FP and integer register (or possibly FP reg and stack).  Library
    functions (when CALL_LIBCALL is set) always have the proper types for args,
    so we can pass the FP value just in one register.  emit_library_function
-   doesn't support PARALLEL anyway.  */
+   doesn't support PARALLEL anyway.
+
+   Note that for args passed by reference, function_arg will be called
+   with MODE and TYPE set to that of the pointer to the arg, not the arg
+   itself.  */
 
 struct rtx_def *
 function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, 
@@ -4389,7 +4460,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	     they just have to start on an even word, since the parameter
 	     save area is 16-byte aligned.  */
 	  if (TARGET_32BIT)
-	    align = ((6 - (cum->words & 3)) & 3);
+	    align = (2 - cum->words) & 3;
 	  else
 	    align = cum->words & 1;
 	  align_words = cum->words + align;
@@ -4423,21 +4494,16 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	}
       else
 	{
-	  int n_words;
+	  int n_words = rs6000_arg_size (mode, type);
 	  int gregno = cum->sysv_gregno;
 
-	  /* Aggregates and IEEE quad get passed by reference.  */
-	  if ((type && AGGREGATE_TYPE_P (type))
-	      || mode == TFmode)
-	    n_words = 1;
-	  else 
-	    n_words = RS6000_ARG_SIZE (mode, type);
+	  /* Long long and SPE vectors are put in (r3,r4), (r5,r6),
+	     (r7,r8) or (r9,r10).  As does any other 2 word item such
+	     as complex int due to a historical mistake.  */
+	  if (n_words == 2)
+	    gregno += (1 - gregno) & 1;
 
-	  /* Long long and SPE vectors are put in odd registers.  */
-	  if (n_words == 2 && (gregno & 1) == 0)
-	    gregno += 1;
-
-	  /* Long long do not split between registers and stack.  */
+	  /* Multi-reg args are not split between registers and stack.  */
 	  if (gregno + n_words - 1 <= GP_ARG_MAX_REG)
 	    return gen_rtx_REG (mode, gregno);
 	  else
@@ -4446,51 +4512,83 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
   else
     {
-      int align = (TARGET_32BIT && (cum->words & 1) != 0
-	           && function_arg_boundary (mode, type) == 64) ? 1 : 0;
-      int align_words = cum->words + align;
-
-      if (type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
-        return NULL_RTX;
-
-      if (TARGET_32BIT && TARGET_POWERPC64
-	  && (mode == DFmode || mode == DImode || mode == BLKmode))
-	return rs6000_mixed_function_arg (cum, mode, type, align_words);
+      int align = function_arg_boundary (mode, type) / PARM_BOUNDARY - 1;
+      int align_words = cum->words + (cum->words & align);
 
       if (USE_FP_FOR_ARG_P (cum, mode, type))
 	{
-	  if (! type
-	      || ((cum->nargs_prototype > 0)
-	          /* IBM AIX extended its linkage convention definition always
-		     to require FP args after register save area hole on the
-		     stack.  */
-	          && (DEFAULT_ABI != ABI_AIX
-		      || ! TARGET_XL_CALL
-		      || (align_words < GP_ARG_NUM_REG))))
-	    return gen_rtx_REG (mode, cum->fregno);
+	  rtx fpr[2];
+	  rtx *r;
+	  bool needs_psave;
+	  enum machine_mode fmode = mode;
+	  int n;
+	  unsigned long n_fpreg = (GET_MODE_SIZE (mode) + 7) >> 3;
 
-          return gen_rtx_PARALLEL (mode,
-	    gen_rtvec (2,
-		       gen_rtx_EXPR_LIST (VOIDmode,
-				((align_words >= GP_ARG_NUM_REG)
-				 ? NULL_RTX
-				 : (align_words
-				    + RS6000_ARG_SIZE (mode, type)
-				    > GP_ARG_NUM_REG
-				    /* If this is partially on the stack, then
-				       we only include the portion actually
-				       in registers here.  */
-				    ? gen_rtx_REG (Pmode,
-					       GP_ARG_MIN_REG + align_words)
-				    : gen_rtx_REG (mode,
-					       GP_ARG_MIN_REG + align_words))),
-				const0_rtx),
-		       gen_rtx_EXPR_LIST (VOIDmode,
-				gen_rtx_REG (mode, cum->fregno),
-				const0_rtx)));
+	  if (cum->fregno + n_fpreg > FP_ARG_MAX_REG + 1)
+	    {
+	      /* Long double split over regs and memory.  */
+	      if (fmode == TFmode)
+		fmode = DFmode;
+
+	      /* Currently, we only ever need one reg here because complex
+		 doubles are split.  */
+	      if (cum->fregno != FP_ARG_MAX_REG - 1)
+		abort ();
+	    }
+	  fpr[1] = gen_rtx_REG (fmode, cum->fregno);
+
+	  /* Do we also need to pass this arg in the parameter save
+	     area?  */
+	  needs_psave = (type
+			 && (cum->nargs_prototype <= 0
+			     || (DEFAULT_ABI == ABI_AIX
+				 && TARGET_XL_CALL
+				 && align_words >= GP_ARG_NUM_REG)));
+
+	  if (!needs_psave && mode == fmode)
+	    return fpr[1];
+
+          if (TARGET_32BIT && TARGET_POWERPC64
+              && mode == DFmode && cum->stdarg)
+            return rs6000_mixed_function_arg (cum, mode, type, align_words);
+
+	  /* Describe where this piece goes.  */
+	  r = fpr + 1;
+	  *r = gen_rtx_EXPR_LIST (VOIDmode, *r, const0_rtx);
+	  n = 1;
+
+	  if (needs_psave)
+	    {
+	      /* Now describe the part that goes in gprs or the stack.
+		 This piece must come first, before the fprs.  */
+	      rtx reg = NULL_RTX;
+	      if (align_words < GP_ARG_NUM_REG)
+		{
+		  unsigned long n_words = rs6000_arg_size (mode, type);
+		  enum machine_mode rmode = mode;
+
+		  if (align_words + n_words > GP_ARG_NUM_REG)
+		    /* If this is partially on the stack, then we only
+		       include the portion actually in registers here.
+		       We know this can only be one register because
+		       complex doubles are splt.  */
+		    rmode = Pmode;
+		  reg = gen_rtx_REG (rmode, GP_ARG_MIN_REG + align_words);
+		}
+	      *--r = gen_rtx_EXPR_LIST (VOIDmode, reg, const0_rtx);
+	      ++n;
+	    }
+
+	  return gen_rtx_PARALLEL (mode, gen_rtvec_v (n, r));
 	}
       else if (align_words < GP_ARG_NUM_REG)
-	return gen_rtx_REG (mode, GP_ARG_MIN_REG + align_words);
+	{
+	  if (TARGET_32BIT && TARGET_POWERPC64
+	      && (mode == DImode || mode == BLKmode))
+	    return rs6000_mixed_function_arg (cum, mode, type, align_words);
+
+	  return gen_rtx_REG (mode, GP_ARG_MIN_REG + align_words);
+	}
       else
 	return NULL_RTX;
     }
@@ -4504,27 +4602,31 @@ int
 function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode, 
 			    tree type, int named)
 {
+  int ret = 0;
+
   if (DEFAULT_ABI == ABI_V4)
     return 0;
 
-  if (USE_FP_FOR_ARG_P (cum, mode, type)
-      || USE_ALTIVEC_FOR_ARG_P (cum, mode, type, named))
+  if (USE_ALTIVEC_FOR_ARG_P (cum, mode, type, named)
+      && cum->nargs_prototype >= 0)
+    return 0;
+
+  if (USE_FP_FOR_ARG_P (cum, mode, type))
     {
-      if (cum->nargs_prototype >= 0)
+      if (cum->fregno + ((GET_MODE_SIZE (mode) + 7) >> 3) > FP_ARG_MAX_REG + 1)
+	ret = FP_ARG_MAX_REG - cum->fregno;
+      else if (cum->nargs_prototype >= 0)
 	return 0;
     }
 
   if (cum->words < GP_ARG_NUM_REG
-      && GP_ARG_NUM_REG < (cum->words + RS6000_ARG_SIZE (mode, type)))
-    {
-      int ret = GP_ARG_NUM_REG - cum->words;
-      if (ret && TARGET_DEBUG_ARG)
-	fprintf (stderr, "function_arg_partial_nregs: %d\n", ret);
+      && GP_ARG_NUM_REG < cum->words + rs6000_arg_size (mode, type))
+    ret = GP_ARG_NUM_REG - cum->words;
 
-      return ret;
-    }
+  if (ret != 0 && TARGET_DEBUG_ARG)
+    fprintf (stderr, "function_arg_partial_nregs: %d\n", ret);
 
-  return 0;
+  return ret;
 }
 
 /* A C expression that indicates when an argument must be passed by
@@ -4533,7 +4635,10 @@ function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
    the argument itself.  The pointer is passed in whatever way is
    appropriate for passing a pointer to that type.
 
-   Under V.4, structures and unions are passed by reference.
+   Under V.4, aggregates and long double are passed by reference.
+
+   As an extension to all 32-bit ABIs, AltiVec vectors are passed by
+   reference unless the AltiVec vector extension ABI is in force.
 
    As an extension to all ABIs, variable sized types are passed by
    reference.  */
@@ -4543,16 +4648,18 @@ function_arg_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 				enum machine_mode mode ATTRIBUTE_UNUSED, 
 				tree type, int named ATTRIBUTE_UNUSED)
 {
-  if (DEFAULT_ABI == ABI_V4
-      && ((type && AGGREGATE_TYPE_P (type))
-	  || mode == TFmode))
+  if ((DEFAULT_ABI == ABI_V4
+       && ((type && AGGREGATE_TYPE_P (type))
+	   || mode == TFmode))
+      || (TARGET_32BIT && !TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
+      || (type && int_size_in_bytes (type) < 0))
     {
       if (TARGET_DEBUG_ARG)
-	fprintf (stderr, "function_arg_pass_by_reference: aggregate\n");
+	fprintf (stderr, "function_arg_pass_by_reference\n");
 
       return 1;
     }
-  return type && int_size_in_bytes (type) < 0;
+  return 0;
 }
 
 static void
@@ -4630,7 +4737,7 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cfun->machine->sysv_varargs_p = 0;
 
       if (MUST_PASS_IN_STACK (mode, type))
-	first_reg_offset += RS6000_ARG_SIZE (TYPE_MODE (type), type);
+	first_reg_offset += rs6000_arg_size (TYPE_MODE (type), type);
     }
 
   set = get_varargs_alias_set ();
@@ -4799,11 +4906,16 @@ rs6000_va_arg (tree valist, tree type)
   tree gpr, fpr, ovf, sav, reg, t, u;
   int indirect_p, size, rsize, n_reg, sav_ofs, sav_scale;
   rtx lab_false, lab_over, addr_rtx, r;
+  int align;
 
   if (DEFAULT_ABI != ABI_V4)
     {
-      /* Variable sized types are passed by reference.  */
-      if (int_size_in_bytes (type) < 0)
+      /* Variable sized types are passed by reference, as are AltiVec
+	 vectors when 32-bit and not using the AltiVec ABI extension.  */
+      if (int_size_in_bytes (type) < 0
+	  || (TARGET_32BIT
+	      && !TARGET_ALTIVEC_ABI
+	      && ALTIVEC_VECTOR_MODE (TYPE_MODE (type))))
 	{
 	  u = build_pointer_type (type);
 
@@ -4820,8 +4932,42 @@ rs6000_va_arg (tree valist, tree type)
 
 	  return expand_expr (t, NULL_RTX, VOIDmode, EXPAND_NORMAL);
 	}
-      else
-	return std_expand_builtin_va_arg (valist, type);
+      if (targetm.calls.split_complex_arg
+	  && TREE_CODE (type) == COMPLEX_TYPE)
+	{
+	  tree elem_type = TREE_TYPE (type);
+	  enum machine_mode elem_mode = TYPE_MODE (elem_type);
+	  int elem_size = GET_MODE_SIZE (elem_mode);
+
+	  if (elem_size < UNITS_PER_WORD)
+	    {
+	      rtx real_part, imag_part, dest_real, rr;
+
+	      real_part = rs6000_va_arg (valist, elem_type);
+	      imag_part = rs6000_va_arg (valist, elem_type);
+
+	      /* We're not returning the value here, but the address.
+		 real_part and imag_part are not contiguous, and we know
+		 there is space available to pack real_part next to
+		 imag_part.  float _Complex is not promoted to
+		 double _Complex by the default promotion rules that
+		 promote float to double.  */
+	      if (2 * elem_size > UNITS_PER_WORD)
+		abort ();
+
+	      real_part = gen_rtx_MEM (elem_mode, real_part);
+	      imag_part = gen_rtx_MEM (elem_mode, imag_part);
+
+	      dest_real = adjust_address (imag_part, elem_mode, -elem_size);
+	      rr = gen_reg_rtx (elem_mode);
+	      emit_move_insn (rr, real_part);
+	      emit_move_insn (dest_real, rr);
+
+	      return XEXP (dest_real, 0);
+	    }
+	}
+
+      return std_expand_builtin_va_arg (valist, type);
     }
 
   f_gpr = TYPE_FIELDS (TREE_TYPE (va_list_type_node));
@@ -4837,20 +4983,25 @@ rs6000_va_arg (tree valist, tree type)
   sav = build (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav);
 
   size = int_size_in_bytes (type);
-  rsize = (size + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+  rsize = (size + 3) / 4;
+  align = 1;
 
-  if (AGGREGATE_TYPE_P (type) || TYPE_MODE (type) == TFmode)
+  if (AGGREGATE_TYPE_P (type)
+      || TYPE_MODE (type) == TFmode
+      || (!TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (TYPE_MODE (type))))
     {
-      /* Aggregates and long doubles are passed by reference.  */
+      /* Aggregates, long doubles, and AltiVec vectors are passed by
+	 reference.  */
       indirect_p = 1;
       reg = gpr;
       n_reg = 1;
       sav_ofs = 0;
       sav_scale = 4;
-      size = UNITS_PER_WORD;
+      size = 4;
       rsize = 1;
     }
-  else if (FLOAT_TYPE_P (type) && TARGET_HARD_FLOAT && TARGET_FPRS)
+  else if (TARGET_HARD_FLOAT && TARGET_FPRS
+	   && (TYPE_MODE (type) == SFmode || TYPE_MODE (type) == DFmode))
     {
       /* FP args go in FP registers, if present.  */
       indirect_p = 0;
@@ -4858,6 +5009,8 @@ rs6000_va_arg (tree valist, tree type)
       n_reg = 1;
       sav_ofs = 8*4;
       sav_scale = 8;
+      if (TYPE_MODE (type) == DFmode)
+	align = 8;
     }
   else
     {
@@ -4867,38 +5020,43 @@ rs6000_va_arg (tree valist, tree type)
       n_reg = rsize;
       sav_ofs = 0;
       sav_scale = 4;
+      if (n_reg == 2)
+	align = 8;
     }
 
   /* Pull the value out of the saved registers....  */
 
-  lab_false = gen_label_rtx ();
-  lab_over = gen_label_rtx ();
+  lab_over = NULL_RTX;
   addr_rtx = gen_reg_rtx (Pmode);
 
-  /*  AltiVec vectors never go in registers.  */
-  if (!TARGET_ALTIVEC || TREE_CODE (type) != VECTOR_TYPE)
+  /*  AltiVec vectors never go in registers when -mabi=altivec.  */
+  if (TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (TYPE_MODE (type)))
+    align = 16;
+  else
     {
-      TREE_THIS_VOLATILE (reg) = 1;
-      emit_cmp_and_jump_insns
-	(expand_expr (reg, NULL_RTX, QImode, EXPAND_NORMAL),
-	 GEN_INT (8 - n_reg + 1), GE, const1_rtx, QImode, 1,
-	 lab_false);
+      lab_false = gen_label_rtx ();
+      lab_over = gen_label_rtx ();
 
-      /* Long long is aligned in the registers.  */
-      if (n_reg > 1)
+      /* Long long and SPE vectors are aligned in the registers.
+	 As are any other 2 gpr item such as complex int due to a
+	 historical mistake.  */
+      u = reg;
+      if (n_reg == 2)
 	{
 	  u = build (BIT_AND_EXPR, TREE_TYPE (reg), reg,
 		     build_int_2 (n_reg - 1, 0));
-	  u = build (PLUS_EXPR, TREE_TYPE (reg), reg, u);
-	  u = build (MODIFY_EXPR, TREE_TYPE (reg), reg, u);
+	  u = build (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg, u);
 	  TREE_SIDE_EFFECTS (u) = 1;
-	  expand_expr (u, const0_rtx, VOIDmode, EXPAND_NORMAL);
 	}
 
+      emit_cmp_and_jump_insns
+	(expand_expr (u, NULL_RTX, QImode, EXPAND_NORMAL),
+	 GEN_INT (8 - n_reg + 1), GE, const1_rtx, QImode, 1,
+	 lab_false);
+
+      t = sav;
       if (sav_ofs)
 	t = build (PLUS_EXPR, ptr_type_node, sav, build_int_2 (sav_ofs, 0));
-      else
-	t = sav;
 
       u = build (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg,
 		 build_int_2 (n_reg, 0));
@@ -4919,40 +5077,26 @@ rs6000_va_arg (tree valist, tree type)
 
       emit_jump_insn (gen_jump (lab_over));
       emit_barrier ();
-    }
 
-  emit_label (lab_false);
+      emit_label (lab_false);
+      if (n_reg > 2)
+	{
+	  /* Ensure that we don't find any more args in regs.
+	     Alignment has taken care of the n_reg == 2 case.  */
+	  t = build (MODIFY_EXPR, TREE_TYPE (reg), reg, build_int_2 (8, 0));
+	  TREE_SIDE_EFFECTS (t) = 1;
+	  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+	}
+    }
 
   /* ... otherwise out of the overflow area.  */
 
-  /* Make sure we don't find reg 7 for the next int arg.
-
-     All AltiVec vectors go in the overflow area.  So in the AltiVec
-     case we need to get the vectors from the overflow area, but
-     remember where the GPRs and FPRs are.  */
-  if (n_reg > 1 && (TREE_CODE (type) != VECTOR_TYPE
-		    || !TARGET_ALTIVEC))
-    {
-      t = build (MODIFY_EXPR, TREE_TYPE (reg), reg, build_int_2 (8, 0));
-      TREE_SIDE_EFFECTS (t) = 1;
-      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
-    }
-
   /* Care for on-stack alignment if needed.  */
-  if (rsize <= 1)
-    t = ovf;
-  else
+  t = ovf;
+  if (align != 1)
     {
-      int align;
-
-      /* AltiVec vectors are 16 byte aligned.  */
-      if (TARGET_ALTIVEC && TREE_CODE (type) == VECTOR_TYPE)
-	align = 15;
-      else
-	align = 7;
-
-      t = build (PLUS_EXPR, TREE_TYPE (ovf), ovf, build_int_2 (align, 0));
-      t = build (BIT_AND_EXPR, TREE_TYPE (t), t, build_int_2 (-align-1, -1));
+      t = build (PLUS_EXPR, TREE_TYPE (t), t, build_int_2 (align - 1, 0));
+      t = build (BIT_AND_EXPR, TREE_TYPE (t), t, build_int_2 (-align, -1));
     }
   t = save_expr (t);
 
@@ -4965,7 +5109,8 @@ rs6000_va_arg (tree valist, tree type)
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-  emit_label (lab_over);
+  if (lab_over)
+    emit_label (lab_over);
 
   if (indirect_p)
     {
@@ -10574,7 +10719,7 @@ rs6000_stack_info (void)
   rs6000_stack_t *info_ptr = &info;
   int reg_size = TARGET_32BIT ? 4 : 8;
   int ehrd_size;
-  HOST_WIDE_INT total_raw_size;
+  HOST_WIDE_INT non_fixed_size;
 
   /* Zero all fields portably.  */
   info = zero_info;
@@ -10805,14 +10950,13 @@ rs6000_stack_info (void)
 					 (TARGET_ALTIVEC_ABI || ABI_DARWIN)
 					 ? 16 : 8);
 
-  total_raw_size	 = (info_ptr->vars_size
+  non_fixed_size	 = (info_ptr->vars_size
 			    + info_ptr->parm_size
 			    + info_ptr->save_size
-			    + info_ptr->varargs_size
-			    + info_ptr->fixed_size);
+			    + info_ptr->varargs_size);
 
-  info_ptr->total_size =
-    RS6000_ALIGN (total_raw_size, ABI_STACK_BOUNDARY / BITS_PER_UNIT);
+  info_ptr->total_size = RS6000_ALIGN (non_fixed_size + info_ptr->fixed_size,
+				       ABI_STACK_BOUNDARY / BITS_PER_UNIT);
 
   /* Determine if we need to allocate any stack frame:
 
@@ -10830,7 +10974,7 @@ rs6000_stack_info (void)
     info_ptr->push_p = 1;
 
   else if (DEFAULT_ABI == ABI_V4)
-    info_ptr->push_p = total_raw_size > info_ptr->fixed_size;
+    info_ptr->push_p = non_fixed_size != 0;
 
   else if (frame_pointer_needed)
     info_ptr->push_p = 1;
@@ -10839,8 +10983,7 @@ rs6000_stack_info (void)
     info_ptr->push_p = 1;
 
   else
-    info_ptr->push_p
-      = total_raw_size - info_ptr->fixed_size > (TARGET_32BIT ? 220 : 288);
+    info_ptr->push_p = non_fixed_size > (TARGET_32BIT ? 220 : 288);
 
   /* Zero offsets if we're not saving those registers.  */
   if (info_ptr->fp_size == 0)
@@ -11676,7 +11819,7 @@ generate_set_vrsave (rtx reg, rs6000_stack_t *info, int epiloguep)
      need an unspec use/set of the register.  */
 
   for (i = FIRST_ALTIVEC_REGNO; i <= LAST_ALTIVEC_REGNO; ++i)
-    if (info->vrsave_mask != 0 && ALTIVEC_REG_BIT (i) != 0)
+    if (info->vrsave_mask & ALTIVEC_REG_BIT (i))
       {
 	if (!epiloguep || call_used_regs [i])
 	  clobs[nclobs++] = gen_rtx_CLOBBER (VOIDmode,
@@ -12321,7 +12464,7 @@ rs6000_emit_epilogue (int sibcall)
     }
 
   /* Restore VRSAVE if needed.  */
-  if (TARGET_ALTIVEC_ABI && TARGET_ALTIVEC_VRSAVE 
+  if (TARGET_ALTIVEC && TARGET_ALTIVEC_VRSAVE
       && info->vrsave_mask != 0)
     {
       rtx addr, mem, reg;
@@ -15864,7 +16007,7 @@ rs6000_complex_function_value (enum machine_mode mode)
   enum machine_mode inner = GET_MODE_INNER (mode);
   unsigned int inner_bytes = GET_MODE_SIZE (inner);
 
-  if (FLOAT_MODE_P (mode))
+  if (FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
     regno = FP_ARG_RETURN;
   else
     {
@@ -15922,13 +16065,13 @@ rs6000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
   else
     mode = TYPE_MODE (valtype);
 
-  if (TREE_CODE (valtype) == REAL_TYPE && TARGET_HARD_FLOAT && TARGET_FPRS)
+  if (SCALAR_FLOAT_TYPE_P (valtype) && TARGET_HARD_FLOAT && TARGET_FPRS)
     regno = FP_ARG_RETURN;
   else if (TREE_CODE (valtype) == COMPLEX_TYPE
-	   && TARGET_HARD_FLOAT
 	   && targetm.calls.split_complex_arg)
     return rs6000_complex_function_value (mode);
-  else if (TREE_CODE (valtype) == VECTOR_TYPE && TARGET_ALTIVEC)
+  else if (TREE_CODE (valtype) == VECTOR_TYPE
+	   && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI)
     regno = ALTIVEC_ARG_RETURN;
   else
     regno = GP_ARG_RETURN;
@@ -15946,7 +16089,8 @@ rs6000_libcall_value (enum machine_mode mode)
   if (GET_MODE_CLASS (mode) == MODE_FLOAT
 	   && TARGET_HARD_FLOAT && TARGET_FPRS)
     regno = FP_ARG_RETURN;
-  else if (ALTIVEC_VECTOR_MODE (mode))
+  else if (ALTIVEC_VECTOR_MODE (mode)
+	   && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI)
     regno = ALTIVEC_ARG_RETURN;
   else if (COMPLEX_MODE_P (mode) && targetm.calls.split_complex_arg)
     return rs6000_complex_function_value (mode);

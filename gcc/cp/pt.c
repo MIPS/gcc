@@ -7409,7 +7409,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  return t;
 	/* If ARGS is NULL, then T is known to be non-dependent.  */
 	if (args == NULL_TREE)
-	  return t;
+	  return decl_constant_value (t);
 
 	/* Unfortunately, we cannot just call lookup_name here.
 	   Consider:
@@ -11887,6 +11887,22 @@ type_dependent_expression_p (tree expression)
 	return dependent_type_p (type);
     }
 
+  if (TREE_CODE (expression) == SCOPE_REF
+      && dependent_scope_ref_p (expression,
+				type_dependent_expression_p))
+    return true;
+
+  if (TREE_CODE (expression) == FUNCTION_DECL
+      && DECL_LANG_SPECIFIC (expression)
+      && DECL_TEMPLATE_INFO (expression)
+      && (any_dependent_template_arguments_p
+	  (INNERMOST_TEMPLATE_ARGS (DECL_TI_ARGS (expression)))))
+    return true;
+
+  if (TREE_CODE (expression) == TEMPLATE_DECL
+      && !DECL_TEMPLATE_TEMPLATE_PARM_P (expression))
+    return false;
+
   if (TREE_TYPE (expression) == unknown_type_node)
     {
       if (TREE_CODE (expression) == ADDR_EXPR)
@@ -11900,9 +11916,7 @@ type_dependent_expression_p (tree expression)
 	  if (TREE_CODE (expression) == IDENTIFIER_NODE)
 	    return false;
 	}
-      if (TREE_CODE (expression) == SCOPE_REF)
-	return false;
-
+      
       if (TREE_CODE (expression) == BASELINK)
 	expression = BASELINK_FUNCTIONS (expression);
       if (TREE_CODE (expression) == TEMPLATE_ID_EXPR)
@@ -11925,22 +11939,6 @@ type_dependent_expression_p (tree expression)
       abort ();
     }
   
-  if (TREE_CODE (expression) == SCOPE_REF
-      && dependent_scope_ref_p (expression,
-				type_dependent_expression_p))
-    return true;
-
-  if (TREE_CODE (expression) == FUNCTION_DECL
-      && DECL_LANG_SPECIFIC (expression)
-      && DECL_TEMPLATE_INFO (expression)
-      && (any_dependent_template_arguments_p
-	  (INNERMOST_TEMPLATE_ARGS (DECL_TI_ARGS (expression)))))
-    return true;
-
-  if (TREE_CODE (expression) == TEMPLATE_DECL
-      && !DECL_TEMPLATE_TEMPLATE_PARM_P (expression))
-    return false;
-
   return (dependent_type_p (TREE_TYPE (expression)));
 }
 

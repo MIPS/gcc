@@ -1,3 +1,26 @@
+2004-06-13  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR rtl-optimization/15296
+	* gcc.c-torture/execute/pr15296.c: New test.
+
+2004-06-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15862
+	* g++.dg/parse/enum1.C: New test.
+
+2004-06-11  Hartmut Penner  <hpenner@de.ibm.com>	
+	
+	Backport from mainline:
+
+	2004-03-30  Hartmut Penner  <hpenner@de.ibm.com>
+	* gcc.dg/altivec-11.c: Extend test for more valid cases.
+
+2004-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/15569
+	PR rtl-optimization/15681
+	* gcc.dg/20040609-1.c: New test.
+
 2004-06-08  Roger Sayle  <roger@eyesopen.com>
 
 	PR c/14649
@@ -11,6 +34,20 @@
 
 	PR c/14765
 	* gcc.dg/pr14765-1.c: New test.
+
+2004-06-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14211
+	* g++.dg/conversion/const1.C: New test.
+
+	PR c++/15076
+	* g++.dg/conversion/reinterpret1.C: New test.
+
+	PR c++/15877
+	* g++.dg/template/enum2.C: New test.
+
+	PR c++/15227
+	* g++.dg/template/error13.C: New test.
 
 2004-06-07  Mark Mitchell  <mark@codesourcery.com>
 

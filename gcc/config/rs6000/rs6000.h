@@ -193,9 +193,9 @@ extern int target_flags;
 /* Use single field mfcr instruction.  */
 #define MASK_MFCRF		0x00080000
 
-/* The only remaining free bits are 0x00700000. sysv4.h uses
-   0x00800000 -> 0x40000000, and 0x80000000 is not available
-   because target_flags is signed.  */
+/* The only remaining free bits are 0x00600000.  linux64.h uses
+   0x00100000, and sysv4.h uses 0x00800000 -> 0x40000000.
+   0x80000000 is not available because target_flags is signed.  */
 
 #define TARGET_POWER		(target_flags & MASK_POWER)
 #define TARGET_POWER2		(target_flags & MASK_POWER2)
@@ -716,7 +716,8 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define PARM_BOUNDARY (TARGET_32BIT ? 32 : 64)
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
-#define STACK_BOUNDARY ((TARGET_32BIT && !TARGET_ALTIVEC_ABI) ? 64 : 128)
+#define STACK_BOUNDARY \
+  ((TARGET_32BIT && !TARGET_ALTIVEC && !TARGET_ALTIVEC_ABI) ? 64 : 128)
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
 #define FUNCTION_BOUNDARY 32
@@ -1051,7 +1052,8 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
   (INT_REGNO_P (REGNO) ?						\
      INT_REGNO_P (REGNO + HARD_REGNO_NREGS (REGNO, MODE) - 1)	        \
    : FP_REGNO_P (REGNO) ?						\
-     (GET_MODE_CLASS (MODE) == MODE_FLOAT				\
+     ((GET_MODE_CLASS (MODE) == MODE_FLOAT				\
+       && FP_REGNO_P (REGNO + HARD_REGNO_NREGS (REGNO, MODE) - 1))	\
       || (GET_MODE_CLASS (MODE) == MODE_INT				\
 	  && GET_MODE_SIZE (MODE) == UNITS_PER_FP_WORD))		\
    : ALTIVEC_REGNO_P (REGNO) ? ALTIVEC_VECTOR_MODE (MODE)		\
@@ -1703,7 +1705,7 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 #define FUNCTION_VALUE_REGNO_P(N)					\
   ((N) == GP_ARG_RETURN							\
    || ((N) == FP_ARG_RETURN && TARGET_HARD_FLOAT)			\
-   || ((N) == ALTIVEC_ARG_RETURN && TARGET_ALTIVEC))
+   || ((N) == ALTIVEC_ARG_RETURN && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI))
 
 /* 1 if N is a possible register number for function argument passing.
    On RS/6000, these are r3-r10 and fp1-fp13.
@@ -1711,7 +1713,7 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 #define FUNCTION_ARG_REGNO_P(N)						\
   ((unsigned) (N) - GP_ARG_MIN_REG < GP_ARG_NUM_REG			\
    || ((unsigned) (N) - ALTIVEC_ARG_MIN_REG < ALTIVEC_ARG_NUM_REG	\
-       && TARGET_ALTIVEC)						\
+       && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI)				\
    || ((unsigned) (N) - FP_ARG_MIN_REG < FP_ARG_NUM_REG			\
        && TARGET_HARD_FLOAT))
 
@@ -1760,16 +1762,6 @@ typedef struct rs6000_args
   int call_cookie;		/* Do special things for this call */
   int sysv_gregno;		/* next available GP register */
 } CUMULATIVE_ARGS;
-
-/* Define intermediate macro to compute the size (in registers) of an argument
-   for the RS/6000.  */
-
-#define UNITS_PER_ARG (TARGET_32BIT ? 4 : 8)
-
-#define RS6000_ARG_SIZE(MODE, TYPE)					\
-((MODE) != BLKmode							\
- ? (GET_MODE_SIZE (MODE) + (UNITS_PER_ARG - 1)) / UNITS_PER_ARG		\
- : (int_size_in_bytes (TYPE) + (UNITS_PER_ARG - 1)) / UNITS_PER_ARG)
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
@@ -2658,7 +2650,6 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   {"reg_or_logical_cint_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}}, \
   {"got_operand", {SYMBOL_REF, CONST, LABEL_REF}},			   \
   {"got_no_const_operand", {SYMBOL_REF, LABEL_REF}},			   \
-  {"rs6000_tls_symbol_ref", {SYMBOL_REF}},				   \
   {"easy_fp_constant", {CONST_DOUBLE}},					   \
   {"easy_vector_constant", {CONST_VECTOR}},				   \
   {"easy_vector_constant_add_self", {CONST_VECTOR}},			   \

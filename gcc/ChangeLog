@@ -1,3 +1,194 @@
+2004-06-13  Alan Modra  <amodra@bigpond.net.au>
+
+	Apply mainline 2004-01-27  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.h: Correct target_flags free bits comment.
+	(PREDICATE_CODES): Remove duplicate.
+	* config/rs6000/linux64.h (CPP_SYSV_SPEC): Don't define.
+	(SUBSUBTARGET_OVERRIDE_OPTIONS): Disallow 32 bit TARGET_PROFILE_KERNEL.
+	(MASK_PROFILE_KERNEL): Adjust define.
+
+2004-06-13  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR rtl-optimization/15296
+	* reorg.c (fill_simple_delay_slots): Use next_real_insn when
+	getting last consecutive label at a branch.
+	(relax_delay_slots): Similar, near top of loop.
+
+2004-06-12  Andreas Jaeger  <aj@suse.de>
+
+	* libgcc-std.ver: Add __unorddf2 and __unordsf2 with version 3.3.4.
+	* libgcc-darwin.ver: Likewise.
+
+2004-06-11  Bernardo Innocenti  <bernie@develer.com>
+
+	PR target/8309
+	PR target/13312
+	Backport from mainline:
+
+	2004-05-27  Peter Jakubek  <peter@laseranimation.com>
+
+	* reload.c (find_reloads): Force reload for pseudo registers on big
+	endian machines.
+
+2004-06-11  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.c (dump_table): New argument start.  Changed caller.
+	(fixup_mova): New function.
+	(find_barrier): Use it.
+	(sh_reorg): Likewise.  Check for CODE_FOR_casesi_worker_2.
+	If the label a mova refers to is above the mova itself, change
+	the mova into a load.
+	* sh.md (*casesi_worker): Rename to:
+	(casesi_worker_1).
+	(casesi_worker_2): New insn.
+
+2004-06-11  Hartmut Penner  <hpenner@de.ibm.com>
+
+	Backport from mainline:
+
+        * config/rs6000/rs6000.c (output_vec_const_move):
+        Find all cases of EASY_VECTOR_15_ADD_SELF.
+        (easy_vector_constant_add_self): Accept
+        all vector constant loadable by vsplt* and vadd*.
+	(easy_vector_same): Use easy_vector_splat_const.
+	(easy_vector_const): Use easy_vector_splat_const.
+        (easy_vector_splat_const): New function.
+	(gen_easy_vector_constant_add_self): New function.
+
+	* config/rs6000/rs6000-protos.c (gen_easy_vector_constant_add_self):
+	New prototype.
+
+        * config/rs6000/altivec.md (movv4si splitter): Change to
+	emit move insn with halfed vector constant.
+	(*movv8hi splitter): Likewise.
+	(*movv16qi splitter): Likewise.
+
+2004-06-10  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/sourcebuild.texi (Front End): Add details of more
+	installation documentation required.
+
+2004-06-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/15653
+	* haifa-sched.c (schedule_block): Finish cycle after issuing asm
+	insn.
+
+2004-06-10  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR web/15263
+	* doc/install.texi: Remove superfluous linebreak.
+
+2004-06-10  Bernardo Innocenti  <bernie@develer.com>
+
+	PR target/13803
+	Backport from mainline:
+
+	2004-05-05  Peter Barada  <peter@the-baradas.com>
+
+	* config/m68k/m68k.h(EXTRA_CONSTRAINT): Add 'U' for register offset
+	addressing.
+	* config/m68k/m68k.md: Add 'U,U' alternative to ColdFire variants of
+	movsi, movhi, movqi insn patterns.
+
+2004-06-10  Alan Modra  <amodra@bigpond.net.au>
+
+	Apply from mainline:
+	2004-03-12  Jakub Jelinek  <jakub@redhat.com>
+	* config/rs6000/rs6000-protos.h (rs6000_output_dwarf_dtprel): Add
+	prototype.
+	* config/rs6000/rs6000.c (rs6000_output_dwarf_dtprel): New.
+	* config/rs6000/rs6000.h (ASM_OUTPUT_DWARF_DTPREL): Define.
+
+2004-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/ia64/unwind-ia64.c (uw_frame_state_for): Don't assume a
+	leaf function without unwind info at RP 0.
+
+2004-06-10  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/15191
+	2004-05-15  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.c (rs6000_va_arg <ABI_V4>): Don't use
+	UNITS_PER_WORD to calculate gpr size.  Re-instate code to set reg
+	count to 8 to handle n_reg > 2.
+	2004-05-10  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.c (function_arg_boundary): Always align
+	AltiVec vectors.
+	(function_arg_advance): Pass TARGET_32BIT -mabi=no-altivec AltiVec
+	vectors by refererence.  Align the same for TARGET_64BIT to a 16
+	byte boundary.  Remove useless code.  Add function comment.
+	(function_arg): Similarly.  Move gpr rs6000_mixed_function_arg
+	call to where it belongs.
+	(function_arg_partial_nregs): Return true for all TARGET_32BIT
+	-mabi=no-altivec AltiVec vectors.  Fix debug output.
+	(rs6000_va_arg): Adjust for AltiVec change.
+	2004-05-10  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.c (function_arg_boundary): Align for ABI_V4
+	when size is 8 bytes.
+	(function_arg_advance): Account for stack space used by AltiVec
+	args when -mabi=altivec.  Simplify alignment calculations.  For
+	ABI_V4, pass AltiVec vectors by reference when -mabi=no-altivec.
+	(function_arg): Similarly.
+	(function_arg_pass_by_reference): True for ABI_V4 AltiVec when
+	not AltiVec ABI.
+	(rs6000_va_arg): Correct fp arg test.  Adjust for AltiVec change.
+	Correct alignment, and align before testing reg count.  Remove
+	TREE_THIS_VOLATILE from reg.  Don't emit unused labels.
+	(rs6000_complex_function_value): Check TARGET_HARD_FLOAT and
+	TARGET_FPRS here..
+	(rs6000_function_value): .. not here before call.
+	2004-05-07  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.h (STACK_BOUNDARY): Use 128 bit for either
+	TARGET_ALTIVEC or TARGET_ALTIVEC_ABI.
+	* config/rs6000/sysv4.h (ABI_STACK_BOUNDARY): Likewise.
+	(STACK_BOUNDARY): Delete.
+
+2004-06-10  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/14960
+	2004-04-24  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.c (rs6000_stack_info): Rename total_raw_size
+	to non_fixed_size, and leave out fixed_size from the sum.
+	(generate_set_vrsave): Correct clobbers.
+	(rs6000_emit_epilogue): Test TARGET_ALTIVEC with TARGET_ALTIVEC_SAVE.
+	(rs6000_function_value): Test TARGET_ALTIVEC and TARGET_ALTIVEC_ABI.
+	(rs6000_libcall_value): Likewise.
+	* config/rs6000/rs6000.h (FUNCTION_VALUE_REGNO_P): Likewise.
+	(FUNCTION_ARG_REGNO_P): Likewise.
+
+2004-06-10  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/14567
+	2004-03-13  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.h (UNITS_PER_ARG, RS6000_ARG_SIZE): Delete.
+	(HARD_REGNO_MODE_OK): Disallow TFmode for fp31.
+	* config/rs6000/rs6000.c (rs6000_arg_size): New function.
+	Update all users of RS6000_ARG_SIZE.
+	(function_arg_advance): Count fregno using mode size.
+	(function_arg): Handle long double split over regs and memory.
+	(function_arg_partial_nregs): Likewise.
+	(rs6000_va_arg): Repackage complex args.
+	2004-02-23  Fariborz Jahanian <fjahanian@apple.com>
+	* config/rs6000/rs6000.c (function_arg): call to
+	rs6000_mixed_function_arg for DFmode moved to allow
+	normal DFmode incoming register assignment.
+
+2004-06-09  Mark Mitchell  <mark@codesourcery.com>
+
+	Revert:
+	PR c++/15815
+	2004-06-07  Mark Mitchell  <mark@codesourcery.com>
+	* doc/extend.texi: Deprecate #pragma interface and #pragma
+	implementation.
+
+2004-06-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR rtl-optimization/15761
+	* cfgloopanal.c (count_strange_loop_iterations,
+	count_loop_iterations): Use gen_int_mode instead
+	of GEN_INT.
+
 2004-06-08  Roger Sayle  <roger@eyesopen.com>
 
 	PR c/14649
@@ -129,7 +320,7 @@
 
 2004-06-01  Nicola Pero  <nicola@brainstorm.co.uk>
 
- 	PR objc/7993
+	PR objc/7993
 	* objc-act.c (is_private): Do not emit the 'instance variable %s
 	is declared private' error.
 	(is_public): Emit the error after calling is_private.
@@ -447,7 +638,7 @@
 2004-04-30  Paolo Bonzini  <bonzini@gnu.org>
 
 	* config/altivec/altivec.h [__cplusplus] (vec_subsubs): Rename
- 	to vec_sububs.
+	to vec_sububs.
 	[__cplusplus] (vec_subsuhs): Rename to vec_subuhs,
 	eliminating duplicates.
 
@@ -3443,7 +3634,7 @@
 
 	* fixinc/inclhack.def (alpha___extern_prefix,
 	alpha___extern_prefix_standards): New hacks to obey
- 	__PRAGMA_EXTERN_PREFIX.
+	__PRAGMA_EXTERN_PREFIX.
 	* fixinc/tests/base/testing.h [ALPHA___EXTERN_PREFIX_CHECK]: New
 	test.
 	* fixinc/tests/base/standards.h: Likewise.
