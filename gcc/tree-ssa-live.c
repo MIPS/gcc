@@ -306,13 +306,30 @@ create_ssa_var_map (void)
 	    {
 	      use = VARRAY_GENERIC_PTR (ops, x);
 	      register_ssa_partition (map, *use);
+	      set_is_used (*use);
 	    }
 
 	  dest = def_op (stmt);
 	  if (dest)
 	    {
 	      register_ssa_partition (map, *dest);
+	      set_is_used (*dest);
 	    }
+
+	  /* While we do not care about virtual operands for
+	     out of SSA, we do need to look at them to make sure
+	     we mark all the variables which are used.  */
+	  ops = vuse_ops (stmt);
+	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
+	    set_is_used (VARRAY_TREE (ops, x));
+
+	  ops = vdef_ops (stmt);
+	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
+	    {
+	      set_is_used (VDEF_OP (VARRAY_TREE (ops, x)));
+	      set_is_used (VDEF_RESULT (VARRAY_TREE (ops, x)));
+	    }
+	  
 	}
 
       /* Now register elements of PHI nodes.  */
@@ -324,8 +341,12 @@ create_ssa_var_map (void)
 	  if (var_ann (var)->has_real_refs)
 	    {
 	      register_ssa_partition (map, var);
+	      set_is_used (PHI_RESULT (phi));
 	      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-		register_ssa_partition (map, PHI_ARG_DEF (phi, i));
+		{
+		  register_ssa_partition (map, PHI_ARG_DEF (phi, i));
+		  set_is_used (PHI_ARG_DEF (phi, i));
+		}
 	    }
 	}
     }

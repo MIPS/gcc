@@ -877,6 +877,7 @@ create_temp (tree t)
     name = "temp";
   tmp = create_tmp_var (type, name);
   create_var_ann (tmp);
+  set_is_used (tmp);
   return tmp;
 }
 
@@ -1575,7 +1576,7 @@ rewrite_out_of_ssa (tree fndecl)
   var_map map;
   tree phi, next;
   elim_graph g;
-  int repeat;
+  int repeat, first_iteration;
 
   timevar_push (TV_TREE_SSA_TO_NORMAL);
 
@@ -1688,9 +1689,12 @@ rewrite_out_of_ssa (tree fndecl)
 
   /* Do some cleanups which reduce the amount of data the
      tree->rtl expanders deal with.  */
+  first_iteration = 1;
   do
     {
-      repeat = remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl));
+      repeat = remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl),
+					      first_iteration);
+      first_iteration = 0;
     }
   while (repeat);
   
@@ -2298,6 +2302,17 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
       register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdef)), 
 			VDEF_RESULT (vdef), block_defs_p);
     }
+}
+
+/* Set the USED bit in the annotation for T.  */
+
+void
+set_is_used (tree t)
+{
+  t = get_base_symbol (t);
+  if (TREE_CODE (t) == SSA_NAME)
+    t = SSA_NAME_VAR (t);
+  var_ann (t)->used = 1;
 }
 
 

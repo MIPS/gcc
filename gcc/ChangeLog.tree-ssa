@@ -1,5 +1,17 @@
 2003-06-24  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (remove_useless_stmts_and_vars): On the first
+	iteration, remove unused variables from BIND_EXPRs.
+	* tree-flow.h (var_ann_d): Add new field USED.
+	(set_is_used): Prototype.
+	(remove_useless_stmts_and_vars): Update prototype.
+	* tree-ssa-live.c (create_ssa_var_map): Note which variables
+	are used so that we can delete those which are not used.
+	* tree-ssa.c (create_temp): Mark the new temporary as being used.
+	(rewrite_out_of_ssa): Note if the call to remove_useless_stmts_and_vars
+	is the first iteration or not.
+	(set_is_used): New function.
+
 	* c-decl.c (store_parm_decls): Variables and parameters on the
 	pending_sizes chain have nonlocal uses.
 

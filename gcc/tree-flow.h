@@ -103,6 +103,10 @@ struct var_ann_d GTY(())
      operand using add_use or set_def.  */
   unsigned has_real_refs : 1;
 
+  /* Nonzero if this variable was used after SSA optimizations were
+     applied.  We set this when translating out of SSA form.  */
+  unsigned used : 1;
+
   /* A VAR_DECL used to associated pointers with the memory location that
      they are pointing to.  If IS_MEM_TAG is nonzero, then MEM_TAG is the
      pointer associated to this memory tag.  If IS_MEM_TAG is zero, then
@@ -412,7 +416,7 @@ extern tree *last_stmt_ptr (basic_block);
 extern basic_block is_latch_block_for (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern int call_expr_flags (tree);
-extern int remove_useless_stmts_and_vars (tree *);
+extern int remove_useless_stmts_and_vars (tree *, int);
 extern int could_trap_p (tree);
 
 /* In tree-dfa.c  */
@@ -464,6 +468,7 @@ extern void debug_def_blocks (void);
 extern void dump_tree_ssa_stats (FILE *);
 extern void debug_tree_ssa_stats (void);
 extern void ssa_remove_edge (edge);
+extern void set_is_used (tree);
 
 /* In tree-ssa-pre.c  */
 extern void tree_perform_ssapre		PARAMS ((tree));

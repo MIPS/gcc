@@ -1420,7 +1420,7 @@ cleanup_tree_cfg (void)
    to ensure we eliminate all the useless code.  */
   
 int
-remove_useless_stmts_and_vars (tree *first_p)
+remove_useless_stmts_and_vars (tree *first_p, int first_iteration)
 {
   tree_stmt_iterator i;
   int repeat = 0;
@@ -1447,12 +1447,15 @@ remove_useless_stmts_and_vars (tree *first_p)
       stmt_p = tsi_stmt_ptr (i);
       code = TREE_CODE (*stmt_p);
       if (code == LOOP_EXPR)
-	repeat |= remove_useless_stmts_and_vars (&LOOP_EXPR_BODY (*stmt_p));
+	repeat |= remove_useless_stmts_and_vars (&LOOP_EXPR_BODY (*stmt_p),
+						 first_iteration);
       else if (code == COND_EXPR)
 	{
 	  tree then_clause, else_clause, cond;
-	  repeat |= remove_useless_stmts_and_vars (&COND_EXPR_THEN (*stmt_p));
-	  repeat |= remove_useless_stmts_and_vars (&COND_EXPR_ELSE (*stmt_p));
+	  repeat |= remove_useless_stmts_and_vars (&COND_EXPR_THEN (*stmt_p),
+						   first_iteration);
+	  repeat |= remove_useless_stmts_and_vars (&COND_EXPR_ELSE (*stmt_p),
+						   first_iteration);
 
 	  then_clause = COND_EXPR_THEN (*stmt_p);
 	  else_clause = COND_EXPR_ELSE (*stmt_p);
@@ -1485,15 +1488,20 @@ remove_useless_stmts_and_vars (tree *first_p)
 	    }
 	}
       else if (code == SWITCH_EXPR)
-	repeat |= remove_useless_stmts_and_vars (&SWITCH_BODY (*stmt_p));
+	repeat |= remove_useless_stmts_and_vars (&SWITCH_BODY (*stmt_p),
+						 first_iteration);
       else if (code == CATCH_EXPR)
-	repeat |= remove_useless_stmts_and_vars (&CATCH_BODY (*stmt_p));
+	repeat |= remove_useless_stmts_and_vars (&CATCH_BODY (*stmt_p),
+						 first_iteration);
       else if (code == EH_FILTER_EXPR)
-	repeat |= remove_useless_stmts_and_vars (&EH_FILTER_FAILURE (*stmt_p));
+	repeat |= remove_useless_stmts_and_vars (&EH_FILTER_FAILURE (*stmt_p),
+						 first_iteration);
       else if (code == TRY_CATCH_EXPR || code == TRY_FINALLY_EXPR)
 	{
-	  repeat |= remove_useless_stmts_and_vars (&TREE_OPERAND (*stmt_p, 0));
-	  repeat |= remove_useless_stmts_and_vars (&TREE_OPERAND (*stmt_p, 1));
+	  repeat |= remove_useless_stmts_and_vars (&TREE_OPERAND (*stmt_p, 0),
+						   first_iteration);
+	  repeat |= remove_useless_stmts_and_vars (&TREE_OPERAND (*stmt_p, 1),
+						   first_iteration);
 
 	  /* If the handler of a TRY_CATCH or TRY_FINALLY is empty, then
 	     we can emit the TRY block without the enclosing TRY_CATCH_EXPR
@@ -1527,7 +1535,8 @@ remove_useless_stmts_and_vars (tree *first_p)
 	{
 	  tree block;
 	  /* First remove anything underneath the BIND_EXPR.  */
-	  repeat |= remove_useless_stmts_and_vars (&BIND_EXPR_BODY (*stmt_p));
+	  repeat |= remove_useless_stmts_and_vars (&BIND_EXPR_BODY (*stmt_p),
+						   first_iteration);
 
 	  /* If the BIND_EXPR has no variables, then we can pull everything
 	     up one level and remove the BIND_EXPR, unless this is the
@@ -1546,6 +1555,68 @@ remove_useless_stmts_and_vars (tree *first_p)
 	    {
 	      *stmt_p = BIND_EXPR_BODY (*stmt_p);
 	      repeat = 1;
+	    }
+	  else if (first_iteration)
+	    {
+	      /* If we were unable to completely eliminate the BIND_EXPR,
+		 go ahead and prune out any unused variables.  We do not
+		 want to expand them as that is a waste of time.  If we
+		 happen to remove all the variables, then we may be able
+		 to eliminate the BIND_EXPR as well.  */
+	      tree vars, prev_var;
+
+	      /* Walk all the variables associated with the BIND_EXPR.  */
+	      for (prev_var = NULL, vars = BIND_EXPR_VARS (*stmt_p);
+		   vars;
+		   vars = TREE_CHAIN (vars))
+		{
+		  struct var_ann_d *ann;
+
+		  /* We could have function declarations and the like
+		     on this list.  Ignore them.  */
+		  if (TREE_CODE (vars) != VAR_DECL)
+		    {
+		      prev_var = vars;
+		      continue;
+		    }
+
+		  /* If the variable is not aliased and has no uses, then
+		     it can be eliminated.  */
+		  ann = var_ann (vars);
+		  if (ann
+		      && ! ann->may_aliases
+		      && ! ann->used
+		      && ! ann->has_hidden_use)
+		    {
+		      /* Remove the variable from the BLOCK structures.  */
+		      if (block)
+			remove_decl (vars,
+				     (block
+				      ? block
+				      : DECL_INITIAL (current_function_decl)));
+
+		      /* And splice the variable out of BIND_EXPR_VARS.  */
+		      if (prev_var)
+			TREE_CHAIN (prev_var) = TREE_CHAIN (vars);
+		      else
+			BIND_EXPR_VARS (*stmt_p) = TREE_CHAIN (vars);
+		    }
+		  else
+		    prev_var = vars;
+		}
+
+	      /* If there are no variables left after removing unused
+		 variables, then go ahead and remove this BIND_EXPR.  */
+	      if (BIND_EXPR_VARS (*stmt_p) == NULL_TREE
+		  && *stmt_p != DECL_SAVED_TREE (current_function_decl)
+		  && (! block
+		      || ! BLOCK_ABSTRACT_ORIGIN (block)
+		      || (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
+			  != FUNCTION_DECL)))
+		{
+		  *stmt_p = BIND_EXPR_BODY (*stmt_p);
+		  repeat = 1;
+		}
 	    }
 	}
       else if (code == GOTO_EXPR)
