@@ -30,8 +30,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "tree-flow.h"
 #include "langhooks.h"
-/* APPLE LOCAL lno */
-#include "tree-chrec.h"
 #include "tree-iterator.h"
 #include "tree-chrec.h"
 

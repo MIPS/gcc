@@ -1,5 +1,29 @@
 2004-08-29  Andrew Pinski  <apinski@apple.com>
 
+	* loop-doloop.c (add_test): Take the mainline change.
+	* loop-invariant.c (find_exits, find_invariants_bb): Take the
+	mainline change, use CALL_P.
+	* tree-alias-common.c (HAVE_BANSHEE): Take the mainline change.
+	* tree-into-ssa.c (compute_global_livein): Take the mainline
+	reformatting.
+	* tree-pretty-print.c: Remove include for tree-chrec.h as it is
+	there later on.
+	* tree-ssa-loop-ivopts.c (zero_p): Make static.
+	* tree-ssa-loop-niter.c (zero_p): Add back, take the mainline change.
+	(number_of_iterations_exit): Take the mainline change for getting
+	a boolean false.
+	(MAX_ITERATIONS_TO_TRACK): Take the mainline change as it is now
+	configurable.
+	(struct nb_iter_bound): Take the mainline comment changes.
+	* tree-ssa-loop-prefetch.c (zero_p): Add to minimize changes
+	from the mainline.
+	* tree-ssa-loop.c (gate_loop): Take the mainline changes as we
+	want the gate so we can turn them on and off easier.
+	* tree.h (struct tree_phi_node, rewritten): Take the mainline change
+	as there are no other integer fields in this struct.
+	(build_vector_type): Remove duplicated prototype.
+	(zero_p): Remove prototype.
+
 	* timevar.c (ppc_intrinsic_time): Correct definition and
 	make static.  Cast __mftbu to unsigned.
 

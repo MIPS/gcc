@@ -110,6 +110,21 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       -- we assume cache line size allignment of arrays; this could be
 	 improved.  */
 
+/* APPLE LOCAL begin minimize mainline differences --apinski */
+/* Returns true if ARG is either NULL_TREE or constant zero.  */
+
+static bool
+zero_p (tree arg)
+{
+  if (!arg)
+    return true;
+
+  return integer_zerop (arg);
+}
+/* APPLE LOCAL end minimize mainline differences --apinski */
+
+
+
 /* Magic constants follow.  These should be replaced by machine specific
    numbers.  */
 

@@ -1320,8 +1320,7 @@ struct tree_phi_node GTY(())
 
   /* Nonzero if the PHI node was rewritten by a previous pass through the
      SSA renamer.  */
-  /* APPLE LOCAL lno */
-  unsigned int rewritten:1;
+  int rewritten;
   
   struct phi_arg_d GTY ((length ("((tree)&%h)->phi.capacity"))) a[1];
 };
@@ -2843,8 +2842,6 @@ extern tree build_method_type_directly (tree, tree, tree);
 extern tree build_method_type (tree, tree);
 extern tree build_offset_type (tree, tree);
 extern tree build_complex_type (tree);
-/* APPLE LOCAL lno */
-extern tree build_vector_type (tree, int);
 extern tree array_type_nelts (tree);
 extern bool in_array_bounds_p (tree);
 
@@ -3244,12 +3241,6 @@ extern int integer_pow2p (tree);
    with a nonzero value.  */
 
 extern int integer_nonzerop (tree);
-
-/* APPLE LOCAL begin lno */
-/* Checks whether the argument is either NULL_TREE or constant zero.  */
-
-extern bool zero_p (tree);
-/* APPLE LOCAL end lno */
 
 /* staticp (tree x) is true if X is a reference to data allocated
    at a fixed address in memory.  */

@@ -55,12 +55,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "tree-pass.h"
 #include "timevar.h"
 
-/* APPLE LOCAL begin lno */
 /* Reduce ifdefery later.  */
-/* #ifndef HAVE_BANSHEE */
-/* #define HAVE_BANSHEE 0 */
-/* #endif */
-/* APPLE LOCAL end lno */
+#ifndef HAVE_BANSHEE
+#define HAVE_BANSHEE 0
+#endif
 
 /*  This file contains the implementation of the common parts of the
     tree points-to analysis infrastructure.
@@ -979,8 +977,7 @@ static void
 create_alias_vars (void)
 {
   basic_block bb;
-/* APPLE LOCAL lno */
-#ifdef HAVE_BANSHEE
+#if HAVE_BANSHEE
   if (flag_tree_points_to == PTA_ANDERSEN)
     current_alias_ops = andersen_alias_ops;
   else

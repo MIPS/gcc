@@ -52,8 +52,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 */
 
-/* APPLE LOCAL lno */
-/* Removed zero_p */
+/* Returns true if ARG is either NULL_TREE or constant zero.  */
+
+static bool
+zero_p (tree arg)
+{
+  if (!arg)
+    return true;
+
+  return integer_zerop (arg);
+}
 
 /* Computes inverse of X modulo 2^s, where MASK = 2^s-1.  */
 
@@ -609,8 +617,7 @@ number_of_iterations_exit (struct loop *loop, edge exit,
   if (!dominated_by_p (CDI_DOMINATORS, loop->latch, exit->src))
     return false;
 
-  /* APPLE LOCAL lno */
-  niter->assumptions = convert (boolean_type_node, integer_zero_node);
+  niter->assumptions = boolean_false_node;
   stmt = last_stmt (exit->src);
   if (!stmt || TREE_CODE (stmt) != COND_EXPR)
     return false;
@@ -679,8 +686,8 @@ number_of_iterations_exit (struct loop *loop, edge exit,
 
 /* Bound on the number of iterations we try to evaluate.  */
 
-/* APPLE LOCAL lno */
-#define MAX_ITERATIONS_TO_TRACK 1000
+#define MAX_ITERATIONS_TO_TRACK \
+  ((unsigned) PARAM_VALUE (PARAM_MAX_ITERATIONS_TO_TRACK))
 
 /* Determines a loop phi node of LOOP such that X is derived from it
    by a chain of operations with constants.  */
@@ -925,19 +932,19 @@ find_loop_niter_by_eval (struct loop *loop, edge *exit)
 
 */
 
-/* APPLE LOCAL begin lno */
-/* Bound on number of iterations of a loop.  */
+/* The structure describing a bound on number of iterations of a loop.  */
 
 struct nb_iter_bound
 {
-  tree bound;		/* The bound on the number of executions of anything
-			   after ...  */
+  tree bound;		/* The expression whose value is an upper bound on the
+			   number of executions of anything after ...  */
   tree at_stmt;		/* ... this statement during one execution of loop.  */
-  tree additional;	/* Additional information about the bound.  */
+  tree additional;	/* A conjunction of conditions the operands of BOUND
+			   satisfy.  The additional information about the value
+			   of the bound may be derived from it.  */
   struct nb_iter_bound *next;
 			/* The next bound in a list.  */
 };
-/* APPLE LOCAL end lno */
 
 /* Records that AT_STMT is executed at most BOUND times in LOOP.  The
    additional condition ADDITIONAL is recorded as well.  */

@@ -249,11 +249,9 @@ add_test (rtx cond, basic_block bb, basic_block dest)
   JUMP_LABEL (jump) = label;
 
   /* The jump is supposed to handle an unlikely special case.  */
-  /* APPLE LOCAL begin lno */
   REG_NOTES (jump)
 	  = gen_rtx_EXPR_LIST (REG_BR_PROB,
-			       GEN_INT (0), REG_NOTES (jump));
-  /* APPLE LOCAL end lno */
+			       const0_rtx, REG_NOTES (jump));
 
   LABEL_NUSES (label)++;
 

@@ -88,8 +88,7 @@ tree_loop_optimizer_init (FILE *dump, bool canonicalize_ssa)
 static bool
 gate_loop (void)
 {
-  /* APPLE LOCAL lno */
-  return true;
+  return flag_tree_loop_optimize != 0;
 }
 
 struct tree_opt_pass pass_loop = 

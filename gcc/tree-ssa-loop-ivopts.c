@@ -462,8 +462,8 @@ name_info (struct ivopts_data *data, tree name)
 }
 
 /* Checks whether ARG is either NULL_TREE or constant zero.  */
-
-bool
+/* APPLE LOCAL minimize mainline differences --apinski */
+static bool
 zero_p (tree arg)
 {
   if (arg == NULL_TREE)

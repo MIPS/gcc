@@ -210,17 +210,15 @@ void
 compute_global_livein (bitmap livein, bitmap def_blocks)
 {
   basic_block bb, *worklist, *tos;
-  /* APPLE LOCAL lno */
-  int index;
+  int i;
 
   tos = worklist
     = (basic_block *) xmalloc (sizeof (basic_block) * (n_basic_blocks + 1));
 
-  /* APPLE LOCAL begin lno */
-  /* Initialize the worklist.  */
-  EXECUTE_IF_SET_IN_BITMAP (livein, 0, index,
-			    *tos++ = BASIC_BLOCK (index));
-  /* APPLE LOCAL end lno */
+  EXECUTE_IF_SET_IN_BITMAP (livein, 0, i,
+    {
+	*tos++ = BASIC_BLOCK (i);
+    });
 
   /* Iterate until the worklist is empty.  */
   while (tos != worklist)
