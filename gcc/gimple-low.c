@@ -51,6 +51,7 @@ static void lower_stmt_body (tree *, struct lower_data *);
 static void lower_stmt (tree_stmt_iterator *, struct lower_data *);
 static void lower_bind_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_cond_expr (tree_stmt_iterator *, struct lower_data *);
+static bool expand_var_p (tree);
 
 /* Lowers the BODY.  */
 void
@@ -276,7 +277,7 @@ lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 
 /* Check whether to expand a variable VAR.  */
 
-bool
+static bool
 expand_var_p (tree var)
 {
   struct var_ann_d *ann;
@@ -300,22 +301,38 @@ expand_var_p (tree var)
   return true;
 }
 
-/* Expand those variables in the unexpanded_var_list that are used.  */
+/* Throw away variables that are unused.  */
+
+void
+remove_useless_vars (void)
+{
+  tree var, *cell;
+
+  for (cell = &cfun->unexpanded_var_list; *cell; )
+    {
+      var = TREE_VALUE (*cell);
+
+      if (!expand_var_p (var))
+	{
+	  *cell = TREE_CHAIN (*cell);
+	  continue;
+	}
+
+      cell = &TREE_CHAIN (*cell);
+    }
+}
+
+/* Expand variables in the unexpanded_var_list.  */
 
 void
 expand_used_vars (void)
 {
-  tree var, cell;
+  tree cell;
 
   cfun->unexpanded_var_list = nreverse (cfun->unexpanded_var_list);
 
   for (cell = cfun->unexpanded_var_list; cell; cell = TREE_CHAIN (cell))
-    {
-      var = TREE_VALUE (cell);
-
-      if (expand_var_p (var))
-	expand_var (var);
-    }
+    expand_var (TREE_VALUE (cell));
 
   cfun->unexpanded_var_list = NULL_TREE;
 }

@@ -1,3 +1,14 @@
+2003-11-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-flow.h (remove_useless_vars): Declare.
+	(expand_var_p): Declaration removed.
+	* tree-ssa.c (rewrite_out_of_ssa): Call remove_useless_vars.
+	* tree-cfg.c (dump_function_to_file): Update dumping of variables.
+	* gimple-low.c (expand_var_p): Made static.
+	(remove_useless_vars): New.
+	(expand_used_vars): Expand all variables in the
+	cfun->unexpanded_var_list.
+
 2003-11-11  Richard Henderson  <rth@redhat.com>
 
 	* c-common.c (c_gimplify_stmt): Fix botched removal of

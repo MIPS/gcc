@@ -508,8 +508,8 @@ extern void mark_new_vars_to_rename (tree, sbitmap);
 
 /* In gimple-low.c  */
 void lower_function_body (tree *);
-bool expand_var_p (tree);
 void expand_used_vars (void);
+void remove_useless_vars (void);
 void record_vars (tree);
 
 /* In tree-ssa.c  */

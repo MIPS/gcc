@@ -4242,15 +4242,6 @@ dump_function_to_file (tree fn, FILE *file, int flags)
 	  var = TREE_VALUE (vars);
 
 	  print_generic_decl (file, var, flags);
-	  if (flags & TDF_DETAILS)
-	    {
-	      /* Mention if the variable will be eliminated.  Only valid in
-		 the TDI_optimized dump, but still useful, and we cannot
-		 recognize it here; so just mention it if details are
-		 requested, and hope it won't be too missleading.  */
-	      if (!expand_var_p (var))
-		fprintf (file, "    # removed");
-	    }
 	  fprintf (file, "\n");
 
 	  any_var = true;
