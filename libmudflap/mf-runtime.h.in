@@ -30,7 +30,6 @@ extern unsigned char __mf_lc_shift;
              ((elem->low > (uintptr_t) (ptr)) ||                  \
 	      (elem->high < (CLAMPADD((uintptr_t) (ptr), (uintptr_t) CLAMPSUB(sz,1) )))); })
 /* XXX: the above should use CLAMPSZ () */
-extern void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location);
 
 
 /* Codes to describe the context in which a violation occurs. */
@@ -39,6 +38,7 @@ extern void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location);
 #define __MF_VIOL_CHECK 1
 #define __MF_VIOL_REGISTER 2
 #define __MF_VIOL_UNREGISTER 3
+#define __MF_VIOL_WATCH 4
 
 /* Codes to describe a region of memory being registered. */
   
@@ -46,13 +46,17 @@ extern void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location);
 #define __MF_TYPE_HEAP 1
 #define __MF_TYPE_STACK 2
 #define __MF_TYPE_STATIC 3
-#define __MF_TYPE_MAX_CEM 3
+#define __MF_TYPE_MAX_CEM 3 /* the largest type stored in the cemetary */
 
 #define __MF_TYPE_GUESS 4
 #define __MF_TYPE_MAX __MF_TYPE_GUESS
 
 
 /* The public mudflap API */
+
+extern void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location);
 extern void __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name);
 extern void __mf_unregister (uintptr_t ptr, uintptr_t sz);
+extern unsigned __mf_watch (uintptr_t ptr, uintptr_t sz);
+extern unsigned __mf_unwatch (uintptr_t ptr, uintptr_t sz);
 extern void __mf_report ();

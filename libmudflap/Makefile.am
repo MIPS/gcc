@@ -13,11 +13,13 @@ TESTS = test/fail1.x test/fail2.x test/fail3.x test/fail4.x test/fail5.x \
  test/fail6.x test/fail7.x test/fail8.x test/fail9.x test/fail10.x \
  test/fail11.x test/fail12.x test/fail13.x test/fail14.x test/fail15.x \
  test/fail16.x test/fail17.x test/fail18.x test/fail19.x test/fail20.x \
+ test/fail21.x \
  test/pass1.x test/pass2.x test/pass3.x test/pass4.x test/pass5.x \
  test/pass6.x test/pass7.x test/pass8.x test/pass9.x test/pass10.x \
  test/pass11.x test/pass12.x test/pass13.x test/pass14.x test/pass15.x \
  test/pass16.x test/pass17.x test/pass18.x test/pass19.x test/pass20.x \
- test/pass21.x test/pass22.x test/pass23.x test/pass24.x test/pass-stratcliff.x
+ test/pass21.x test/pass22.x test/pass23.x test/pass24.x test/pass25.x \
+ test/pass-stratcliff.x
 
 test/%.c: test/%-frag.c test/mf-driver.c
 	@mkdir -p test

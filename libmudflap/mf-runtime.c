@@ -413,7 +413,6 @@ resolve_single_dynamic (&__mf_dynamic.dyn_ ## fname, #fname)
 
 
 
-
 /* ------------------------------------------------------------------------ */
 /* stats-related globals.  */
 
@@ -424,16 +423,18 @@ static unsigned long __mf_count_register;
 static unsigned long __mf_total_register_size [__MF_TYPE_MAX+1];
 static unsigned long __mf_count_unregister;
 static unsigned long __mf_total_unregister_size;
-static unsigned long __mf_count_violation [__MF_VIOL_UNREGISTER+1];
+static unsigned long __mf_count_violation [__MF_VIOL_WATCH+1];
+
 
 /* ------------------------------------------------------------------------ */
-/* MODE_CHECK-related globals.  */
+/* mode-check-related globals.  */
 
 typedef struct __mf_object
 {
   uintptr_t low, high; /* __mf_register parameters */
-  int type;
   const char *name;
+  char type; /* __MF_TYPE_something */
+  char watching_p; /* Trigger a VIOL_WATCH on access? */
   unsigned check_count; /* Number of times __mf_check was called on this object.  */
   unsigned liveness; /* A measure of recent checking activity.  */
   unsigned description_epoch; /* Last epoch __mf_describe_object printed this.  */
@@ -473,6 +474,7 @@ static void __mf_age_tree (__mf_object_tree_t *obj);
 static void __mf_adapt_cache ();
 static void __mf_unlink_object (__mf_object_tree_t *obj);
 static void __mf_describe_object (__mf_object_t *obj);
+static unsigned __mf_watch_or_not (uintptr_t ptr, uintptr_t sz, char flag);
 
 
 
@@ -518,7 +520,7 @@ void __mf_init ()
   /* XXX: others of our statics?  */
 
   /* Prevent access to *NULL. */
-  __mf_register ((uintptr_t) 0, 1, __MF_TYPE_NOACCESS, "NULL");
+  __mf_register (MINPTR, 1, __MF_TYPE_NOACCESS, "NULL");
   __mf_lookup_cache[0].low = (uintptr_t) -1;
 
   /* XXX: bad hack: assumes Linux process layout */
@@ -618,6 +620,8 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 		    
 		    if (UNLIKELY (obj->type == __MF_TYPE_NOACCESS))
 		      judgement = -1;
+		    else if (UNLIKELY (obj->watching_p))
+		      judgement = -2;
 		    else
 		      {
 			/* Valid access.  */
@@ -678,6 +682,16 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 			obj->liveness ++;
 		      }
 
+		    /* If the access is otherwise successful, check whether
+		       any of the covered objects are being watched.  */
+		    if (judgement > 0)
+		      {
+			unsigned i;
+			for (i=0; i<obj_count; i++)
+			  if (all_ovr_objs[i]->data.watching_p)
+			    judgement = -2;
+		      }
+
 		    /* Fill out the cache with the bounds of the first
 		       object and the last object that covers this
 		       cache line (== includes the same __MF_CACHE_INDEX).
@@ -732,7 +746,7 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
   if (UNLIKELY (judgement < 0))
     __mf_violation (ptr, sz,
 		    (uintptr_t) __builtin_return_address (0), location,
-		    __MF_VIOL_CHECK);
+		    ((judgement == -1) ? __MF_VIOL_CHECK : __MF_VIOL_WATCH));
 }
 
 
@@ -762,10 +776,8 @@ __mf_insert_new_object (uintptr_t low, uintptr_t high, int type,
 
 
 static void 
-__mf_remove_old_object (__mf_object_tree_t *old_obj)
+__mf_uncache_object (__mf_object_tree_t *old_obj)
 {
-  __mf_unlink_object (old_obj);
-  
   /* Remove any low/high pointers for this object from the lookup cache.  */
   if (LIKELY (old_obj->data.check_count)) /* Can it possibly exist in the cache?  */
     {
@@ -783,7 +795,8 @@ __mf_remove_old_object (__mf_object_tree_t *old_obj)
 	     objects.  */
 	  if (entry->low == low || entry->high == high)
 	    {
-	      entry->low = entry->high = (uintptr_t) 0;
+	      entry->low = MAXPTR;
+	      entry->high = MINPTR;
 	    }
 	}
     }
@@ -822,7 +835,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
       /* XXX: why the entire cache? */
       memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
       /* void slot 0 */
-      __mf_lookup_cache[0].low = (uintptr_t) -1;
+      __mf_lookup_cache[0].low = MAXPTR;
       break;
 
     case mode_check:
@@ -1001,7 +1014,7 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
       /* Clear the cache.  */
       memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
       /* void slot 0 */
-      __mf_lookup_cache[0].low = (uintptr_t) -1;
+      __mf_lookup_cache[0].low = MAXPTR;
       break;
 
     case mode_check:
@@ -1031,7 +1044,8 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	
 	old_obj = objs[0];
 
-	__mf_remove_old_object (old_obj);
+	__mf_unlink_object (old_obj);
+	__mf_uncache_object (old_obj);
 	
 	if (__mf_opts.persistent_count > 0 && 
 	    old_obj->data.type != __MF_TYPE_GUESS)
@@ -1290,7 +1304,7 @@ __mf_adapt_cache ()
       __mf_lc_shift = new_shift;
       memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
       /* void slot 0 */
-      __mf_lookup_cache[0].low = (uintptr_t) -1;
+      __mf_lookup_cache[0].low = MAXPTR;
     }
 }
 
@@ -1559,7 +1573,7 @@ __mf_describe_object (__mf_object_t *obj)
 
   fprintf (stderr,
 	   "mudflap object %08lx: name=`%s'\n"
-	   "bounds=[%08lx,%08lx] size=%lu area=%s checked=%u liveness=%u\n"
+	   "bounds=[%08lx,%08lx] size=%lu area=%s checked=%u liveness=%u watching=%d\n"
 	   "alloc time=%lu.%06lu pc=%08lx\n",
 	   (uintptr_t) obj, (obj->name ? obj->name : ""), 
 	   obj->low, obj->high, (obj->high - obj->low + 1),
@@ -1568,7 +1582,7 @@ __mf_describe_object (__mf_object_t *obj)
 	    obj->type == __MF_TYPE_STATIC ? "static" :
 	    obj->type == __MF_TYPE_GUESS ? "guess" :
 	    "no-access"),
-	   obj->check_count, obj->liveness,
+	   obj->check_count, obj->liveness, obj->watching_p,
 	   obj->alloc_time.tv_sec, obj->alloc_time.tv_usec, obj->alloc_pc);
 
   if (__mf_opts.backtrace > 0)
@@ -1632,7 +1646,7 @@ __mf_report ()
 	       "calls to __mf_check: %lu rot: %lu/%lu\n"
 	       "         __mf_register: %lu [%luB, %luB, %luB, %luB, %luB]\n"
 	       "         __mf_unregister: %lu [%luB]\n"
-	       "         __mf_violation: [%lu, %lu, %lu, %lu]\n",
+	       "         __mf_violation: [%lu, %lu, %lu, %lu, %lu]\n",
 	       __mf_count_check, __mf_treerot_left, __mf_treerot_right,
 	       __mf_count_register,
 	       __mf_total_register_size[0], __mf_total_register_size[1],
@@ -1640,7 +1654,8 @@ __mf_report ()
 	       __mf_total_register_size[4], /* XXX */
 	       __mf_count_unregister, __mf_total_unregister_size,
 	       __mf_count_violation[0], __mf_count_violation[1],
-	       __mf_count_violation[2], __mf_count_violation[3]);
+	       __mf_count_violation[2], __mf_count_violation[3],
+	       __mf_count_violation[4]);
 
       /* Lookup cache stats.  */
       {
@@ -1664,7 +1679,7 @@ __mf_report ()
 
       {
 	unsigned live_count;
-	live_count = __mf_find_objects ((uintptr_t) 0, ~ (uintptr_t) 0, NULL, 0);
+	live_count = __mf_find_objects (MINPTR, MAXPTR, NULL, 0);
 	fprintf (stderr, "number of live objects: %u\n", live_count);
       }
 
@@ -1746,7 +1761,7 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
 
   if (__mf_opts.collect_stats)
     __mf_count_violation [(type < 0) ? 0 :
-			  (type > __MF_VIOL_UNREGISTER) ? 0 :
+			  (type > __MF_VIOL_WATCH) ? 0 :
 			  type] ++;
 
   /* Print out a basic warning message.  */
@@ -1882,3 +1897,78 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
 }
 
 /* ------------------------------------------------------------------------ */
+
+
+/* ------------------------------------------------------------------------ */
+/* __mf_check */
+
+unsigned __mf_watch (uintptr_t ptr, uintptr_t sz)
+{
+  return __mf_watch_or_not (ptr, sz, 1);
+}
+
+unsigned __mf_unwatch (uintptr_t ptr, uintptr_t sz)
+{
+  return __mf_watch_or_not (ptr, sz, 0);
+}
+
+
+static unsigned
+__mf_watch_or_not (uintptr_t ptr, uintptr_t sz, char flag)
+{
+  uintptr_t ptr_high = CLAMPSZ (ptr, sz);
+  unsigned count = 0;
+
+  TRACE ("mf: %s p=%08lx s=%lu",
+	 (flag ? "watch" : "unwatch"), ptr, sz);
+  
+  switch (__mf_opts.mudflap_mode)
+    {
+    case mode_nop:
+    case mode_populate:
+    case mode_violate:
+      count = 0;
+      break;
+
+    case mode_check:
+      {
+	__mf_object_tree_t **all_ovr_objs;
+	unsigned obj_count;
+	unsigned n;
+	DECLARE (void *, malloc, size_t c);
+	DECLARE (void, free, void *p);
+
+	obj_count = __mf_find_objects (ptr, ptr_high, NULL, 0);
+	VERBOSE_TRACE (" %u:", obj_count);
+
+	all_ovr_objs = CALL_REAL (malloc, (sizeof (__mf_object_tree_t *) *
+					   obj_count));
+	if (all_ovr_objs == NULL) abort ();
+	n = __mf_find_objects (ptr, ptr_high, all_ovr_objs, obj_count);
+	assert (n == obj_count);
+
+	for (n = 0; n < obj_count; n ++)
+	  {
+	    __mf_object_t *obj = & (all_ovr_objs[n]->data);
+
+	    VERBOSE_TRACE (" [%08lx]", (uintptr_t) obj);
+	    if (obj->watching_p != flag)
+	      {
+		obj->watching_p = flag;
+		count ++;
+
+		/* Remove object from cache, to ensure next access
+		   goes through __mf_check().  */
+	        if (flag)
+		  __mf_uncache_object (obj);
+	      }
+	  }
+	CALL_REAL (free, all_ovr_objs);
+      }
+      break;
+    }
+
+  TRACE (" hits=%u\n", count);
+
+  return count;
+}

@@ -1,3 +1,18 @@
+2002-11-07  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-runtime.h.in (__mf_watch, __mf_unwatch): Extend public API.
+	* mf-runtime.c (__mf_object_t): Add watching_p field.
+	(__mf_watch_or_not): New function to implement
+	object watch flagging.
+	(__mf_watch, __mf_unwatch): New wrappers for above.
+	(__mf_check, __mf_describe_object): Handle objects with watching_p.
+	(__mf_count_violation): Enlarge array.
+	(__mf_uncache_object): Renamed from __mf_remove_old_object.  Don't
+	unlink object.  Clear cache properly.
+	(__mf_unregister): Unlink object explicitly before uncaching.
+	* test/fail21-frag.c, pass25-frag.c: New tests.
+	* Makefile.in, aclocal.m4: Regenerated.
+	
 2002-11-05  Frank Ch. Eigler  <fche@redhat.com>
 
 	* test/fail20-frag.c: New test for NULL pointer dereferencing.
