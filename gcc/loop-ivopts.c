@@ -116,6 +116,7 @@ struct fval_repl
   rtx reg;		/* Register whose value is replaced.  */
   rtx value;		/* With this value.  */
   struct loop *loop;	/* In that replacement is done.  */
+  int initialize_before; /* If the value has to be computed before the loop.  */
   struct fval_repl *next; /* The next replacement in list.  */
 };
 
@@ -265,7 +266,8 @@ static int repl_mem_addr_cost (struct iv_occurence *, rtx, rtx *, rtx *,
 			       struct str_red *);
 static int repl_move_cost (struct iv_occurence *, rtx, rtx *);
 static int repl_comparison_cost (struct iv_occurence *, HOST_WIDE_INT,
-				 rtx, rtx *, rtx *, rtx *, struct str_red *);
+				 rtx, rtx *, rtx *, rtx *, struct str_red *,
+				 int);
 static bool may_wrap_p (struct loop *, rtx, rtx, enum machine_mode, int);
 extern void dump_strength_reductions (FILE *, struct str_red *, struct repl *);
 extern void dump_new_biv (FILE *, struct str_red *);
@@ -613,6 +615,11 @@ kill_old_global_iv (struct loop *loop, struct iv_occurence *occ,
   nw->loop = loop;
   nw->reg = reg;
   nw->value = iv_omit_initial_values (val);
+  /* Prefer to compute the value after loop.  While it means we may
+     lose a possibility to cse, it saves a register, which should
+     pay up usually.  ??? We might be more clever and check the
+     cost of computation and estimate on number of free regs.  */
+  nw->initialize_before = !invariant_displacement_p (loop, nw->value);
   nw->next = *frepl;
   *frepl = nw;
 
@@ -1206,7 +1213,7 @@ schedule_repl_for (struct repl *repl, struct repl_alt *alt)
   rtx expr = *repl->occ->occurence, set, set1;
   enum rtx_code code = GET_CODE (expr), ccode;
   struct ref *use;
-  int scale ;
+  int scale, swap = false;
 
   /* ??? We could support extending ivs, if we know that there is no
      overflow.  */
@@ -1327,7 +1334,18 @@ schedule_repl_for (struct repl *repl, struct repl_alt *alt)
 	  occ_step1 = -occ_step1;
 	  red_step1 = -red_step1;
 	}
-
+      /* Prefer occ_step1 to be positive, as we really multiply by
+	 it and multiplication by negative value may be a bit slower.
+	 We however must be able to reverse the comparison if it makes
+	 red_step1 to be negative.  ??? Even if it is compare, it should
+	 be possible to do.  */
+      if (occ_step1 < 0
+	  && (ccode == EQ || ccode == NE || code != COMPARE))
+	{
+	  occ_step1 = -occ_step1;
+	  red_step1 = -red_step1;
+	}
+      swap = red_step1 < 0;
       repl_rtx = gen_cond_repl_rtx (occ_step1, red_step1, repl->occ, alt->iv, r,
 				    repl->occ->extended_mode, ccode);
       if (!repl_rtx)
@@ -1351,7 +1369,7 @@ schedule_repl_for (struct repl *repl, struct repl_alt *alt)
 	/* Fallthru.  */
       case COMPARE:
 	repl_cost = repl_comparison_cost (repl->occ, occ_step1, repl_rtx,
-					  &seq, &addr, &pre, alt->iv);
+					  &seq, &addr, &pre, alt->iv, swap);
 	break;
     }
 
@@ -1512,13 +1530,13 @@ repl_move_cost (struct iv_occurence *occ, rtx repl, rtx *seq)
 }
 
 /* A cost to replace comparison in occurence OCC by one based on variable RED
-   multiplied OCC_STEP times and compared with REPL.
-   Sequence SEQ is emitted to do so, condition is replaced with COMP, INIT is
-   computed before loop.  Cost of the replacement is returned.  */
+   multiplied OCC_STEP times and compared with REPL; the condition is swapped
+   if SWAP.  Sequence SEQ is emitted to do so, condition is replaced with COMP,
+   INIT is computed before loop.  Cost of the replacement is returned.  */
 static int
 repl_comparison_cost (struct iv_occurence *occ, HOST_WIDE_INT occ_step,
 		      rtx repl, rtx *seq, rtx *comp, rtx *init,
-		      struct str_red *red)
+		      struct str_red *red, int swap)
 {
   int cost = 0, cst, niter;
   rtx l, ll, tmp, r = NULL, *rplace, old_rplace;
@@ -1654,6 +1672,8 @@ repl_comparison_cost (struct iv_occurence *occ, HOST_WIDE_INT occ_step,
       XEXP (*comp, 0) = r;
       XEXP (*comp, 1) = l;
     }
+  if (swap && GET_CODE (*comp) != COMPARE)
+    PUT_CODE (*comp, swap_condition (GET_CODE (*comp)));
 
   return cost;
 }
@@ -2278,7 +2298,12 @@ execute_strength_reduction (struct repl *repl)
 static void
 replace_final_value (struct fval_repl *frepl)
 {
-  rtx rg = gen_reg_rtx (GET_MODE (frepl->reg)), seq, tmp;
+  rtx rg, seq, tmp;
+  
+  if (frepl->initialize_before)
+    rg = gen_reg_rtx (GET_MODE (frepl->reg));
+  else
+    rg = frepl->reg;
 
   start_sequence ();
   tmp = force_operand (frepl->value, rg);
@@ -2286,13 +2311,17 @@ replace_final_value (struct fval_repl *frepl)
     emit_move_insn (rg, tmp);
   seq = get_insns ();
   end_sequence ();
-  hoist_insn_to_depth (frepl->loop, frepl->loop->depth - 1, seq, true);
+  hoist_insn_to_depth (frepl->loop, frepl->loop->depth - 1, seq,
+		       frepl->initialize_before);
 
-  start_sequence ();
-  emit_move_insn (frepl->reg, rg);
-  seq = get_insns ();
-  end_sequence ();
-  hoist_insn_to_depth (frepl->loop, frepl->loop->depth - 1, seq, false);
+  if (frepl->initialize_before)
+    {
+      start_sequence ();
+      emit_move_insn (frepl->reg, rg);
+      seq = get_insns ();
+      end_sequence ();
+      hoist_insn_to_depth (frepl->loop, frepl->loop->depth - 1, seq, false);
+    }
 }
 
 /* Determines which bivs REDS to create and which replacements REPLS to

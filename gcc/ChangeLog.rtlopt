@@ -1,5 +1,13 @@
 2003-07-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* loop-ivopts.c (struct fval_repl): New field initialize_before.
+	(kill_old_global_iv): Set it.
+	(replace_final_value): Place initialization according to it.
+	(repl_comparison_cost): Support swapping condition.
+	(schedule_repl_for): Decide when to swap it.
+
+2003-07-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* expr.c (force_operand): Handle subregs.
 
 2003-07-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
