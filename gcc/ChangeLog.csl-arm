@@ -1,3 +1,7 @@
+2005-01-27  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_compute_func_type): Fix noreturn logic.
+
 2004-01-26  Mark Mitchell  <mark@codesourcery.com>
 
 	* config/arm/arm.h (ARM_EABI_CTORS_SECTION_OP): Do not define
