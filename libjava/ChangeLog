@@ -1,3 +1,8 @@
+2004-05-13  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* java/awt/AWTEvent.java (toString): Print source's name rather
+	than the source itself.
+
 2004-05-12  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkToolkit.java (loadSystemColors): Make
