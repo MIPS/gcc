@@ -173,14 +173,24 @@ static tree vect_transform_load (tree, block_stmt_iterator *);
 static tree vect_transform_store (tree, block_stmt_iterator *);
 static tree vect_transform_op (tree, block_stmt_iterator *);
 static tree vect_transform_assignment (tree, block_stmt_iterator *);
+/* APPLE LOCAL begin AV if-conversion -dpatel  */
+static tree vect_transform_select (tree, block_stmt_iterator *);
+static tree vect_transform_compare (tree, block_stmt_iterator *);
+/* APPLE LOCAL end AV if-conversion -dpatel  */
 static void vect_align_data_ref (tree, tree);
 static void vect_enhance_data_refs_alignment (loop_vec_info);
 
 /* Utility functions for the analyses.  */
 static bool vect_is_supportable_op (tree);
+/* APPLE LOCAL AV if-conversion -dpatel  */
+static bool vect_is_supportable_operation (tree, tree, struct loop *);
 static bool vect_is_supportable_store (tree);
 static bool vect_is_supportable_load (tree);
 static bool vect_is_supportable_assignment (tree);
+/* APPLE LOCAL begin AV if-conversion -dpatel  */
+static bool vect_is_supportable_compare (tree);
+static bool vect_is_supportable_select (tree);
+/* APPLE LOCAL end AV if-conversion -dpatel  */
 static bool vect_is_simple_use (tree , struct loop *);
 static bool exist_non_indexing_operands_for_use_p (tree, tree);
 static bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *, bool);
@@ -219,14 +229,19 @@ static basic_block vect_tree_split_edge (edge);
 static void vect_update_initial_conditions_of_duplicated_loop (loop_vec_info, 
 						   tree, basic_block, edge, edge);
 
-/* General untility functions (CHECKME: where do they belong).  */
-static tree get_array_base (tree);
+/* APPLE LOCAL AV if-conversion -dpatel */
+/* Move get_array_base in tree.c   */
 
 /* Utilities for creation and deletion of vec_info structs.  */
 loop_vec_info new_loop_vec_info (struct loop *loop);
 void destroy_loop_vec_info (loop_vec_info);
 stmt_vec_info new_stmt_vec_info (tree stmt, struct loop *loop);
 
+/* APPLE LOCAL begin AV if-conversion -dpatel  */
+static void vect_loop_version (struct loops *, struct loop *, basic_block *);
+static bool second_loop_vers_available;
+static bool if_converted_loop;
+/* APPLE LOCAL end AV if-conversion -dpatel  */
 /* Define number of arguments for each tree code.  */
 
 #define DEFTREECODE(SYM, STRING, TYPE, NARGS)   NARGS,
@@ -1024,6 +1039,160 @@ vect_transform_assignment (tree stmt, block_stmt_iterator *bsi)
   return vec_stmt;
 }
 
+/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* Function vect_transfom_compare
+
+   STMT performs comparison. Create a vectorized stmt to replace it,
+   and insert it at BSI.  */
+
+static tree
+vect_transform_compare (tree stmt, block_stmt_iterator *bsi)
+{
+  tree vec_stmt;
+  tree vec_dest;
+  tree scalar_dest;
+  tree operand;
+  tree vec_oprnd;
+  tree operand1;
+  tree vec_oprnd1;
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  tree new_temp;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "transform select\n");
+
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    abort ();
+
+  /** Handle def. **/
+
+  scalar_dest = TREE_OPERAND (stmt, 0);
+  if (TREE_CODE (scalar_dest) != SSA_NAME)
+    abort ();
+  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+
+  /** Handle condition.  **/
+
+  if (TREE_CODE_CLASS (TREE_CODE (TREE_OPERAND (stmt, 1))) != '<')
+    abort ();
+
+  /** Handle use - get the vectorized def from the defining stmt.  **/
+
+  operand = TREE_OPERAND (TREE_OPERAND (stmt, 1), 0);
+
+  vec_oprnd = vect_get_vec_def_for_operand (operand, stmt);
+  if (! vec_oprnd)
+    abort ();
+
+  operand1 = TREE_OPERAND (TREE_OPERAND (stmt, 1), 1);
+
+  vec_oprnd1 = vect_get_vec_def_for_operand (operand1, stmt);
+  if (! vec_oprnd)
+    abort ();
+
+  /** arguments are ready. create the new vector stmt.  **/
+
+  vec_stmt = targetm.vect.vector_compare_stmt (vectype, vec_dest, 
+					       vec_oprnd, vec_oprnd1,
+					       TREE_CODE (TREE_OPERAND (stmt, 1)));
+
+  new_temp = make_ssa_name (vec_dest, vec_stmt);
+  TREE_OPERAND (vec_stmt, 0) = new_temp;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "add new stmt\n");
+      print_generic_stmt (dump_file, vec_stmt, TDF_SLIM);
+    }
+  bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
+  
+  return vec_stmt;
+}
+
+/* Function vect_transfom_select
+   
+   STMT performs select. Create a vectorized stmt to replace it,
+   and insert it at BSI.  */
+
+static tree
+vect_transform_select (tree stmt, block_stmt_iterator *bsi)
+{
+  tree vec_stmt;
+  tree vec_dest;
+  tree scalar_dest;
+  tree op;
+  tree vec_oprnd;
+  tree op2;
+  tree vec_oprnd2;
+  tree cond;
+  tree vec_cond;
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  tree new_temp;
+  
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "transform select\n");
+
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    abort ();
+  
+  /** Handle def. **/
+
+  scalar_dest = TREE_OPERAND (stmt, 0);
+  if (TREE_CODE (scalar_dest) != SSA_NAME)
+    abort ();
+  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+
+  /** Handle condition.  **/
+
+  if (TREE_CODE (TREE_OPERAND (stmt, 1)) != COND_EXPR)
+    abort ();
+
+  cond = TREE_OPERAND (TREE_OPERAND (stmt, 1), 0);
+  if (TREE_CODE (cond) != SSA_NAME)
+    abort ();
+
+  vec_cond = vect_get_vec_def_for_operand (cond, stmt);
+  if (! vec_cond)
+    abort ();
+
+  /** Handle use - get the vectorized def from the defining stmt.  **/
+
+  op = TREE_OPERAND (TREE_OPERAND (stmt, 1), 1);
+
+  vec_oprnd = vect_get_vec_def_for_operand (op, stmt);
+  if (! vec_oprnd)
+    abort ();
+
+  op2 = TREE_OPERAND (TREE_OPERAND (stmt, 1), 2);
+
+  if (TREE_CODE (op2) == NOP_EXPR)
+    op2 = integer_zero_node;
+ 
+  vec_oprnd2 = vect_get_vec_def_for_operand (op2, stmt);
+  if (! vec_oprnd2)
+    abort ();
+
+  /** arguments are ready. create the new vector stmt.  **/
+
+  vec_stmt = targetm.vect.vector_select_stmt (vectype, vec_dest,
+ 					 vec_cond, vec_oprnd2, vec_oprnd);
+
+  new_temp = make_ssa_name (vec_dest, vec_stmt);
+  TREE_OPERAND (vec_stmt, 0) = new_temp;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "add new stmt\n");
+      print_generic_stmt (dump_file, vec_stmt, TDF_SLIM);
+    }
+  bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
+
+  return vec_stmt;
+}
+ 
+/* APPLE LOCAL end AV if-conversion -dpatel  */
 
 /* Function vect_transfom_op.
 
@@ -1412,6 +1581,16 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
       is_store = true;
       break;
 
+      /* APPLE LOCAL begin AV if-conversion -dpatel  */
+    case select_vec_info_type:
+      vec_stmt = vect_transform_select (stmt, bsi);
+      break;
+
+    case compare_vec_info_type:
+      vec_stmt = vect_transform_compare (stmt, bsi);
+      break;
+      /* APPLE LOCAL end AV if-conversion -dpatel  */
+
     default:
       if (dump_file && (dump_flags & TDF_DETAILS))
         fprintf (dump_file, "stmt not supported\n");
@@ -1533,6 +1712,8 @@ vect_gen_if_guard (edge ee, tree cond, basic_block exit_bb, edge e)
   block_stmt_iterator interm_bb_last_bsi;
   
   new_bb = vect_tree_split_edge (ee); 
+  add_bb_to_loop (new_bb, exit_bb->loop_father);
+
   if(!new_bb)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2165,13 +2346,12 @@ vect_is_supportable_op (tree stmt)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree operation;
-  enum tree_code code;
-  tree op;
-  enum machine_mode vec_mode;
-  optab optab;
+  /* APPLE LOCAL AV if-conversion -dpatel  */
+  /* Remove local variables: code, op, vec_mode, optab.  */
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   struct loop *loop = STMT_VINFO_LOOP (stmt_info);
-  int i,op_type;
+  /* APPLE LOCAL AV if-conversion -dpatel  */
+  /* Remove local variables: i, op_type.  */
 
   /* Is op? */
 
@@ -2182,6 +2362,34 @@ vect_is_supportable_op (tree stmt)
     return false;
 
   operation = TREE_OPERAND (stmt, 1);
+  /* APPLE LOCAL begin AV if-conversion -dpatel  */
+  /* This patch breaks this function into two function.
+     So APPLE LOCAL markers are OK.  */
+
+  if (vect_is_supportable_operation (operation, vectype, loop))
+    {
+      /* FORNOW: Not considering the cost.  */
+      STMT_VINFO_TYPE (stmt_info) = op_vec_info_type;
+      return true;
+    }
+  else
+    return false;
+}
+
+/* Function vect_is_supportable_operation.
+
+    Verify that STMT performs an operation that can be vectorized.  */
+
+static bool
+vect_is_supportable_operation (tree operation, tree vectype, struct loop *loop)
+{
+  enum tree_code code;
+  tree operand;
+  enum machine_mode vec_mode;
+  optab optab;
+  int i,op_type;
+  /* APPLE LOCAL end AV if-conversion -dpatel  */ 
+
   code = TREE_CODE (operation);
 
   switch (code)
@@ -2219,8 +2427,8 @@ vect_is_supportable_op (tree stmt)
   
   for (i = 0; i < op_type; i++)
     {
-      op = TREE_OPERAND (operation, i);
-      if (!vect_is_simple_use (op, loop))
+      operand = TREE_OPERAND (operation, i);
+      if (!vect_is_simple_use (operand, loop))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "use not simple.\n");
@@ -2238,13 +2446,9 @@ vect_is_supportable_op (tree stmt)
   if (optab->handlers[(int) vec_mode].insn_code == CODE_FOR_nothing)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "op not supported by target\n");
+	fprintf (dump_file, "operation not supported by target\n");
       return false;
     }
-
-  /* FORNOW: Not considering the cost.  */
-
-  STMT_VINFO_TYPE (stmt_info) = op_vec_info_type;
 
   return true;
 }
@@ -2371,6 +2575,119 @@ vect_is_supportable_assignment (tree stmt)
   return true;
 }
 
+/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* Function vect_is_supportable_compare.
+
+   Verify that STMT performs comparision, and can be vectorized.  */
+
+static bool
+vect_is_supportable_compare (tree stmt)
+{
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  tree op, op0, op1;
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  struct loop *loop = STMT_VINFO_LOOP (stmt_info);
+
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return false;
+
+  op = TREE_OPERAND (stmt, 1);
+
+  if (TREE_CODE_CLASS (TREE_CODE (op)) != '<')
+    return false;
+
+  op0 = TREE_OPERAND (op, 0);
+  op1 = TREE_OPERAND (op, 1);
+
+  if (!vect_is_simple_use (op0, loop))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        fprintf (dump_file, "use not simple.\n");
+      return false;
+    }
+
+  if (!vect_is_simple_use (op1, loop))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        fprintf (dump_file, "use not simple.\n");
+      return false;
+    }
+
+  if (!targetm.vect.support_vector_compare_for_p (vectype, TREE_CODE (op)))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        fprintf (dump_file, "target does not support vector compare.\n");
+      return false;
+    }
+  STMT_VINFO_TYPE (stmt_info) = compare_vec_info_type;
+  return true;
+}
+
+/* Function vect_is_supportable_select.
+
+   Verify that STMT performs a selection, and can be vectorized.  */
+
+static bool
+vect_is_supportable_select (tree stmt)
+{
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  tree op, op0, op1, op2;
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  struct loop *loop = STMT_VINFO_LOOP (stmt_info);
+
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return false;
+
+  op = TREE_OPERAND (stmt, 1);
+
+  if (TREE_CODE (op) != COND_EXPR)
+    return false;
+
+  op0 = TREE_OPERAND (op, 0);  /* Condition */
+  op1 = TREE_OPERAND (op, 1);
+  op2 = TREE_OPERAND (op, 2);
+
+  if (!vect_is_simple_use (op0, loop))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        fprintf (dump_file, "use not simple.\n");
+      return false;
+    }
+
+  if (TREE_CODE (op1) == SSA_NAME)
+    {
+      if (!vect_is_simple_use (op0, loop))
+        {
+          if (dump_file && (dump_flags & TDF_DETAILS))
+            fprintf (dump_file, "use not simple.\n");
+          return false;
+        }
+    }
+  else if ( TREE_CODE (op1) != INTEGER_CST
+            && TREE_CODE (op1) != REAL_CST
+            && !vect_is_supportable_operation (op1, vectype, loop))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        fprintf (dump_file, "use not simple.\n");
+      return false;
+    }
+
+  if (op2 
+      && TREE_CODE (op2) != NOP_EXPR 
+      && TREE_CODE (op2) != INTEGER_CST
+      && TREE_CODE (op2) != REAL_CST
+      && !vect_is_supportable_operation (op2, vectype, loop))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        fprintf (dump_file, "use not simple.\n");
+      return false;
+    }
+
+  STMT_VINFO_TYPE (stmt_info) = select_vec_info_type;
+  return true;
+}
+
+/* APPLE LOCAL end AV if-conversion -dpatel  */
 
 /* Function vect_analyze_operations.
 
@@ -2480,7 +2797,11 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	  ok = (vect_is_supportable_op (stmt)
 		|| vect_is_supportable_assignment (stmt)
 		|| vect_is_supportable_load (stmt)
-		|| vect_is_supportable_store (stmt));
+		/* APPLE LOCAL begin AV if-conversion -dpatel  */
+ 		|| vect_is_supportable_store (stmt)
+ 		|| vect_is_supportable_select (stmt)
+ 		|| vect_is_supportable_compare (stmt));
+	        /* APPLE LOCAL end AV if-conversion -dpatel  */
 
 	  if (!ok)
 	    {
@@ -2818,24 +3139,8 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 }
 
 
-/* Function get_array_base.
-
-   Return the base of the array_ref EXPR.  */
-
-static tree
-get_array_base (tree expr)
-{
-  tree expr1;
-  if (TREE_CODE (expr) != ARRAY_REF)
-    abort ();
-
-  expr1 = TREE_OPERAND (expr, 0);
-  while (TREE_CODE (expr1) == ARRAY_REF)
-    expr1 = TREE_OPERAND (expr1, 0);
-
-  return expr1;
-}
-
+/* APPLE LOCAL AV if-conversion -dpatel  */
+/* Move get_array_base in tree.c  */
 
 /* Function vect_analyze_data_ref_dependence.
 
@@ -4001,8 +4306,10 @@ vect_analyze_loop_form (struct loop *loop)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n<<vect_analyze_loop_form>>\n");
 
+  /* APPLE LOCAL AV if-conversion -dpatel  */
+  /* Do not check loop->num_nodes here.  */
   if (loop->level > 1		/* FORNOW: inner-most loop (CHECKME)  */
-      || loop->num_exits > 1 || loop->num_entries > 1 || loop->num_nodes != 2
+      || loop->num_exits > 1 || loop->num_entries > 1 
       || !loop->pre_header || !loop->header || !loop->latch)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -4023,12 +4330,40 @@ vect_analyze_loop_form (struct loop *loop)
       return NULL;
     }
 
+  /* APPLE LOCAL begin AV if-conversion -dpatel  */
+  /* Do if-conversion, before checking num of nodes.  */
+  if (number_of_iterations > 0 && second_loop_vers_available)
+    if_converted_loop = tree_if_conversion (loop, true);
+
+  if (loop->num_nodes != 3 && loop->num_nodes != 2)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+ 	{
+ 	  fprintf (dump_file,
+		   "loop_analyzer: bad loop form (no of nodes...)\n");
+ 	  flow_loop_dump (loop, dump_file, NULL, 1);
+ 	}
+      
+      return NULL;
+    }
+  /* APPLE LOCAL end AV if-conversion -dpatel  */
+
   if (number_of_iterations < 0)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Can't determine num iters.\n");
 
       /* Treat loops with unknown loop bounds.  */
+      /* APPLE LOCAL begin AV if-conversion -dpatel  */
+      /* Do not handle if-converted loop.  */
+      if (if_converted_loop)
+ 	{
+ 	  if (dump_file && (dump_flags & TDF_DETAILS))
+ 	    fprintf (dump_file, "Can't handle unknown loop bound in if converted loop.\n");
+ 	  return NULL;
+	}
+      /* APPLE LOCAL end AV if-conversion -dpatel  */
+
       if(!vect_analyze_loop_with_symbolic_num_of_iters (&symb_num_of_iters, loop))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -4202,6 +4537,26 @@ need_imm_uses_for (tree var)
   return is_gimple_reg (var);
 }
 
+/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* Create second version of the loop.  */
+
+static void
+vect_loop_version (struct loops *loops, struct loop *loop, basic_block *bb)
+{
+  tree cond_expr;
+  struct loop *nloop;
+
+  cond_expr = build (EQ_EXPR, boolean_type_node,
+		     integer_one_node, integer_one_node);
+
+  nloop = tree_ssa_loop_version (loops, loop, cond_expr, bb);
+  if (nloop)
+    second_loop_vers_available = true;
+  else
+    second_loop_vers_available = false;
+}
+/* APPLE LOCAL end AV if-conversion -dpatel  */
+
 /* Function vectorize_loops.
    Entry Point to loop vectorization phase.  */
 
@@ -4233,19 +4588,52 @@ vectorize_loops (struct loops *loops)
   for (i = 1; i < loops_num; i++)
     {
       loop_vec_info loop_vinfo;
+      /* APPLE LOCAL AV if-conversion -dpatel  */
+      basic_block bb;
       struct loop *loop = loops->parray[i];
 
-      flow_loop_scan (loop, LOOP_ALL);
+      /* APPLE LOCAL begin AV if-conversion -dpatel  */
+      /* Create second version of the loop in advance. This allows vectorizer
+  	 to be more aggressive.  */
+      vect_loop_version (loops, loop, &bb);
+       if_converted_loop = false;
+      /* APPLE LOCAL end AV if-conversion -dpatel  */
+       
+       flow_loop_scan (loop, LOOP_ALL);
 
       loop_vinfo = vect_analyze_loop (loop);
       loop->aux = loop_vinfo;
 
 #ifndef ANALYZE_ALL_THEN_VECTORIZE_ALL
       if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
-	continue;
+	/* APPLE LOCAL begin AV if-conversion -dpatel  */
+  	{
+  	  if (second_loop_vers_available)
+  	    {
+  	      if (dump_file && (dump_flags & TDF_STATS))
+  		fprintf (dump_file, "removing second loop version.\n");
+  	      update_lv_condition (&bb, boolean_false_node);
+	    }
+  	  continue;
+  	}
 
-	vect_transform_loop (loop_vinfo, loops); 
+      if (second_loop_vers_available)
+  	{
+  	  if (dump_file && (dump_flags & TDF_STATS))
+  	    fprintf (dump_file, "vectorizing first loop version.\n");
+  	}
+
+      vect_transform_loop (loop_vinfo, loops); 
       num_vectorized_loops++;
+
+      if (second_loop_vers_available)
+  	{
+ 	  if_converted_loop = false;
+  	  rewrite_into_ssa (false);
+  	  bitmap_clear (vars_to_rename);
+ 	  rewrite_into_loop_closed_ssa ();
+  	}
+	/* APPLE LOCAL end AV if-conversion -dpatel  */
 #endif
     }
 

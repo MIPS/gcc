@@ -1,5 +1,77 @@
 2004-06-12  Devang Patel  <dpatel@apple.com>
 
+        * Makefile.in (OBJS-common): Add tree-if-conv.o.
+        (tree-if-conv.o): New rule.
+        * target-def.h (TARGET_VECTOR_COMPARE_P, TARGET_VECTOR_COMPARE_FOR_P,
+        TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_P, 
+        TARGET_VECTOR_SELECT_FOR_P, TARGET_VECTOR_SELECT_STMT): New.
+        (TARGET_INITIALIZER): New members.
+        * target.h (tree.h): Include.
+        (struct gcc_target.vect): New members - support_vector_compare_p,
+        support_vector_compare_for_p, vector_compare_stmt, support_vector_select_p,
+        support_vector_select_for_p, vector_select_stmt.
+        * tree-dfa.c (dump_immediate_uses_for): Print block index.
+        * tree-flow.h (enum  move_pos): Move from ...
+        * tree-ssa-loop-im.c (enum move_pos): here.
+        * tree-if-conv.c: New file.
+        * tree-simple.c (is_gimple_stmt): Make COND_EXPR valid gimple.
+        * tree-ssa-dce.c (mark_control_dependent_edges_necessary): Check t.
+       * tree-ssa-live.c (debug_var_map): New function.
+        * tree-ssa-live.h (debug_var_map): New function declaration.
+        * tree-ssa-loop-ivcanon.c (canonicalize_loop_induction_variable): Add
+        flow_loop_scan() call.
+        * tree-ssa-operands (get_stmt_operands): Handle MODIFY_EXPR when COND_EXPR
+        is RHS.
+        (get_expr_operands): Same.
+        * tree-ssanames.c (make_ssa_name): Do not use free_ssanames.
+        (release_ssa_name): Same.
+        * tree-vectorizer.c (vect_transform_select): New function.
+        (vect_transform_compare): New function
+        (vect_is_supportable_operation): New function.
+        (vect_is_supportable_compare): New function.
+        (vect_is_supportable_select): New function.
+        (get_array_base): Move into tree.c.
+        (vect_loop_version): New function.
+        (second_loop_vers_available): New variable.
+        (default_vector_compare_p): New function.
+        (default_vector_compare_for_p): New function.
+        (default_vector_comapre_stmt): New function.
+        (default_vector_select_p): New function.
+        (default_vector_select_for_p): New function.
+        (default_vector_select_stmt): New function.
+        (vect_transform_stmt): Handle select_vec_info_type and 
+        compare_vec_info_type.
+        (vect_is_supportable_op): Use vect_is_supportable_operation.
+        (vect_analyze_operations): Check select and compare support.
+        (vect_analyze_data_refs_alignment): Print data reference in dump file.
+        (vect_analyze_loop_form): Use if-conversion and update loop->num_nodes
+        check.
+        (vectorize_loops): Use vect_loop_version. Handle second loop version.
+        * tree-vectorizer.h (struct _stmt_vec_info): New members - 
+        select_vec_info_type and compare_vec_info_type.
+        (default_vector_compare_p): New function decl.
+        (default_vector_compare_for_p): New function decl.
+        (default_vector_comapre_stmt): New function decl.
+        (default_vector_select_p): New function decl.
+        (default_vector_select_for_p): New function decl.
+        (default_vector_select_stmt): New function decl.
+        * tree.c (get_array_base): Move from tree-vectorizer to here.
+        * tree.h (get_array_base): New function decl.
+        * config/rs6000 (vector_builtin_fns): New.
+        (rs6000_vector_compare_p): New function.
+        (rs6000_vector_compare_for_p): New function.
+        (rs6000_vector_compare_stmt): New function.
+        (rs6000_vector_select_p): New function.
+        (rs6000_vector_select_for_p): New function.
+        (rs6000_vector_select_stmt): New function.
+        (TARGET_VECTOR_COMPARE_P, TARGET_VECTOR_COMPARE_FOR_P,
+        TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_P, 
+        TARGET_VECTOR_SELECT_FOR_P, TARGET_VECTOR_SELECT_STMT): Define.
+        (def_builtin): Record builtin fn node in vector_builtin_fns.
+        * rs6000.h (enum rs6000_builtins):  New entry - RS6000_BUILTIN_MAX.
+
+2004-06-12  Devang Patel  <dpatel@apple.com>
+
 	Radar 3681611
 	* gcc.c (do_spec_1):  Disable local IMA patch that creats new temp. file for 
 	each source file. 

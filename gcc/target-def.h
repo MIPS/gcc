@@ -265,18 +265,33 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SCHED_IS_COSTLY_DEPENDENCE}
 
 /* APPLE LOCAL begin AV misaligned -haifa  */
+/* APPLE LOCAL begin AV if-conversion -dpatel  */
 /* Vectorizer hooks.  All of these default to null pointers, which
    tree-vectorizer.c looks for and handles.  */
 #define TARGET_VECT_SUPPORT_MISALIGNED_LOADS 0
 #define TARGET_VECT_PERMUTE_MISALIGNED_LOADS 0
 #define TARGET_VECT_BUILD_BUILTIN_LVSL 0
 #define TARGET_VECT_BUILD_BUILTIN_VPERM 0
+#define TARGET_VECTOR_COMPARE_P 0
+#define TARGET_VECTOR_COMPARE_FOR_P 0
+#define TARGET_VECTOR_COMPARE_STMT 0
+#define TARGET_VECTOR_SELECT_P 0
+#define TARGET_VECTOR_SELECT_FOR_P 0
+#define TARGET_VECTOR_SELECT_STMT 0
 
 #define TARGET_VECT                                       \
   {TARGET_VECT_SUPPORT_MISALIGNED_LOADS,                  \
    TARGET_VECT_PERMUTE_MISALIGNED_LOADS,                  \
    TARGET_VECT_BUILD_BUILTIN_LVSL,                        \
-   TARGET_VECT_BUILD_BUILTIN_VPERM}
+   TARGET_VECT_BUILD_BUILTIN_VPERM,                       \
+   TARGET_VECTOR_COMPARE_P,                               \
+   TARGET_VECTOR_COMPARE_FOR_P,                           \
+   TARGET_VECTOR_COMPARE_STMT,                            \
+   TARGET_VECTOR_SELECT_P,                                \
+   TARGET_VECTOR_SELECT_FOR_P,                            \
+   TARGET_VECTOR_SELECT_STMT}
+
+/* APPLE LOCAL end AV if-conversion -dpatel  */
 /* APPLE LOCAL end AV misaligned -haifa  */
 
 /* In tree.c.  */

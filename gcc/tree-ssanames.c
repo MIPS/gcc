@@ -123,7 +123,10 @@ make_ssa_name (tree var, tree stmt)
   /* If our free list has an element, then use it.  Also reuse the
      SSA version number of the element on the free list which helps
      keep sbitmaps and arrays sized HIGHEST_SSA_VERSION smaller.  */
-  if (free_ssanames)
+  /* APPLE LOCAL AV if-conversion -dpatel  */
+  /* Do not use free_ssanames, it causes ICE while compiling regclass.c:2001
+     in stage1.  */
+  if (free_ssanames && 0)
     {
       unsigned int save_version;
 
@@ -170,6 +173,10 @@ release_ssa_name (tree var)
   if (!var)
     return;
 
+  /* APPLE LOCAL AV if-conversion -dpatel  */
+  /* Do not use free_ssanames, it causes ICE while compiling regclass.c:2001
+     in stage1.  */
+  return;
   /* release_ssa_name can be called multiple times on a single SSA_NAME.
      However, it should only end up on our free list one time.   We
      keep a status bit in the SSA_NAME node itself to indicate it has

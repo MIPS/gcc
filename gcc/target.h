@@ -45,7 +45,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    scattered throughout GCC.  */
 
 #include "tm.h"
-
+/* APPLE LOCAL AV if-conversion -dpatel  */
+#include "tree.h"
 struct gcc_target
 {
   /* Functions that output assembler for the target.  */
@@ -435,6 +436,7 @@ struct gcc_target
   tree (* build_builtin_va_list) (void);
 
   /* APPLE LOCAL begin AV misaligned -haifa  */
+  /* APPLE LOCAL begin AV if-conversion -dpatel  */
   /* Functions relating to vectorization.  */
   struct vect
   {
@@ -442,7 +444,29 @@ struct gcc_target
     bool (* permute_misaligned_loads) (void);
     tree (* build_builtin_lvsl) (void);
     tree (* build_builtin_vperm) (enum machine_mode);
+
+    /* True if vector compare instructions are supported.  */
+    bool (* support_vector_compare_p) (void);
+
+    /* True if vector compare instruction is supported in given code.  */
+    bool (* support_vector_compare_for_p) (tree, enum tree_code);
+ 
+    /* Generate vector compare statement.  
+       Return value is vector compare statement.  */
+    tree (* vector_compare_stmt) (tree, tree, tree, tree, enum tree_code);
+    
+    /* True if vector select instructions are supported.  */
+    bool (* support_vector_select_p) (void);
+    
+    /* True if vector selector instruction are supported in given code.  */
+    bool (* support_vector_select_for_p) (tree);
+    
+    /* Generate vector select statement.  
+       Return value is vector select statement.  */
+    tree (* vector_select_stmt) (tree, tree, tree, tree, tree);
+
   } vect;
+  /* APPLE LOCAL end AV if-conversion -dpatel  */
   /* APPLE LOCAL end AV misaligned -haifa  */
 
   /* Validity-checking routines for PCH files, target-specific.

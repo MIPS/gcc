@@ -896,7 +896,8 @@ C_OBJS = c-parse.o c-lang.o stub-objc.o $(C_AND_OBJC_OBJS)
   # c-idebug.o c-dmp-tree.o
 
 # Language-independent object files.
-
+# APPLE LOCAL AV if-conversion -dpatel
+# Add tree-if-conv.o
 OBJS-common = \
  tree-chrec.o tree-scalar-evolution.o tree-data-ref.o tree-fold-const.o    \
  tree-elim-check.o                                                         \
@@ -910,7 +911,7 @@ OBJS-common = \
  tree-ssa-phiopt.o tree-ssa-forwprop.o tree-nested.o tree-ssa-dse.o	   \
  tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o tree-iterator.o	   \
  tree-phinodes.o tree-ssanames.o tree-sra.o tree-complex.o tree-ssa-loop.o \
- tree-ssa-loop-unswitch.o tree-ssa-loop-niter.o				   \
+ tree-ssa-loop-unswitch.o tree-ssa-loop-niter.o	tree-if-conv.o		   \
  tree-vectorizer.o tree-ssa-loop-im.o tree-ssa-loop-manip.o		   \
  tree-ssa-loop-ivopts.o tree-ssa-loop-ivcanon.o tree-dg.o loop-invariant.o \
  alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	  	   \
@@ -1674,6 +1675,12 @@ tree-tailcall.o : tree-tailcall.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
 tree-nested.o: tree-nested.c $(CONFIG_H) $(SYSTEM_H) $(TM_H) $(TREE_H) \
    $(RTL_H) $(TM_P_H) function.h tree-dump.h tree-inline.h tree-iterator.h \
    tree-gimple.h cgraph.h $(EXPR_H) langhooks.h $(GGC_H) gt-tree-nested.h
+# APPLE LOCAL begin AV if-conversion -dpatel
+tree-if-conv.o: tree-if-conv.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   $(TREE_H) flags.h $(TIMEVAR_H) varray.h $(BASIC_BLOCK_H) $(TREE_FLOW_H) \
+   cfgloop.h $(RTL_H) c-common.h tree-fold-const.h tree-chrec.h tree-data-ref.h \
+   tree-scalar-evolution.h tree-pass.h tree-dg.h
+# APPLE LOCAL end AV if-conversion -dpatel
 tree-iterator.o : tree-iterator.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    coretypes.h $(GGC_H) tree-iterator.h tree-gimple.h gt-tree-iterator.h
 tree-dfa.o : tree-dfa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \

@@ -2716,6 +2716,10 @@ extern tree copy_list (tree);
 extern tree make_tree_vec_stat (int MEM_STAT_DECL);
 #define make_tree_vec(t) make_tree_vec_stat (t MEM_STAT_INFO)
 
+/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* General untility functions.  */
+tree get_array_base (tree);
+/* APPLE LOCAL end AV if-conversion -dpatel  */
 /* Tree nodes for SSA analysis.  */
 
 extern tree make_phi_node (tree, int);

@@ -689,7 +689,18 @@ get_stmt_operands (tree stmt)
   switch (code)
     {
     case MODIFY_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), opf_none, &prev_vops);
+      /* APPLE LOCAL begin AV if-conversion -dpatel  */
+      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == COND_EXPR)
+ 	{
+ 	  tree t_stmt = TREE_OPERAND (stmt, 1);
+ 	  get_expr_operands (stmt, &COND_EXPR_COND (t_stmt), opf_none, &prev_vops);
+ 	  get_expr_operands (stmt, &TREE_OPERAND (t_stmt, 1), opf_none, &prev_vops);
+ 	  get_expr_operands (stmt, &TREE_OPERAND (t_stmt, 2), opf_none, &prev_vops);
+ 	}
+      else
+	/* APPLE LOCAL end AV if-conversion -dpatel  */
+ 	get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), opf_none, &prev_vops);
+
       get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_is_def, &prev_vops);
       break;
 
@@ -1050,9 +1061,19 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
     }
 
   /* Assignments.  */
+      /* APPLE LOCAL begin AV if-conversion -dpatel  */
   if (code == MODIFY_EXPR)
     {
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, prev_vops);
+      if (TREE_CODE (TREE_OPERAND (expr, 1)) == COND_EXPR)
+ 	{
+ 	  tree t = TREE_OPERAND (expr, 1);
+	  get_expr_operands (stmt, &COND_EXPR_COND (t), opf_none, prev_vops);
+ 	  get_expr_operands (stmt, &TREE_OPERAND (t, 1), opf_none, prev_vops);
+ 	  get_expr_operands (stmt, &TREE_OPERAND (t, 2), opf_none, prev_vops);
+	}
+      else
+	/* APPLE LOCAL end AV if-conversion -dpatel  */
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, prev_vops);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_is_def, prev_vops);
       return;
     }

@@ -42,7 +42,11 @@ enum stmt_vec_info_type {
   load_vec_info_type,
   store_vec_info_type,
   op_vec_info_type,
-  assignment_vec_info_type
+  /* APPLE LOCAL begin AV if-conversion -dpatel  */
+  assignment_vec_info_type,
+  select_vec_info_type,
+  compare_vec_info_type
+  /* APPLE LOCAL end AV if-conversion -dpatel  */
 };
 
 typedef struct _stmt_vec_info {
@@ -180,4 +184,12 @@ extern stmt_vec_info new_stmt_vec_info (tree stmt, struct loop *loop);
    (for example, to exploit data reuse across loops?).  */
 #undef ANALYZE_ALL_THEN_VECTORIZE_ALL
 
+/* APPLE LOCAL begin AV if-conversion -dpatel  */
+extern bool default_vector_compare_p (void);
+extern bool default_vector_compare_for_p (tree, enum tree_code);
+extern tree default_vector_compare_stmt (tree, tree, tree, tree, enum tree_code);
+extern bool default_vector_select_p (void);
+extern bool default_vector_select_for_p (tree);
+extern tree default_vector_select_stmt (tree, tree, tree, tree, tree);
+/* APPLE LOCAL end AV if-conversion -dpatel  */
 #endif  /* GCC_TREE_VECTORIZER_H  */

@@ -425,6 +425,24 @@ copy_list (tree list)
   return head;
 }
 
+/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* Return base variable for the array ref.  */
+
+tree
+get_array_base (tree expr)
+{
+  tree expr1;
+  if (TREE_CODE (expr) != ARRAY_REF)
+    abort ();
+
+  expr1 = TREE_OPERAND (expr, 0);
+  while (TREE_CODE (expr1) == ARRAY_REF)
+    expr1 = TREE_OPERAND (expr1, 0);
+
+  return expr1;
+}
+/* APPLE LOCAL end AV if-conversion -dpatel  */
+
 
 /* Return a newly constructed INTEGER_CST node whose constant value
    is specified by the two ints LOW and HI.

@@ -107,7 +107,7 @@ Boston, MA 02111-1307, USA.  */
    modify-stmt:
      MODIFY_EXPR
        op0 -> lhs
-       op1 -> rhs
+       op1 -> rhs | COND_EXPR
    call-stmt: CALL_EXPR
      op0 -> ID | '&' ID
      op1 -> arglist
@@ -323,7 +323,8 @@ is_gimple_stmt (tree t)
   switch (code)
     {
     case BIND_EXPR:
-    case COND_EXPR:
+      /* APPLE LOCAL AV if-conversion -dpatel  */
+      /* Remove case for COND_EXPR from here.  */
       /* These are only valid if they're void.  */
       return VOID_TYPE_P (TREE_TYPE (t));
 
@@ -340,6 +341,9 @@ is_gimple_stmt (tree t)
     case RESX_EXPR:
     case PHI_NODE:
     case STATEMENT_LIST:
+      /* APPLE LOCAL AV if-conversion -dpatel  */
+      /* Add case for COND_EXPR.  */
+    case COND_EXPR:
       /* These are always void.  */
       return 1;
 

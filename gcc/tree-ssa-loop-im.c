@@ -46,15 +46,8 @@ struct depend
   struct depend *next;
 };
 
-/* The possibilities of statement movement.  */
-
-enum move_pos
-{
-  MOVE_IMPOSSIBLE,		/* No movement -- side effect expression.  */
-  MOVE_PRESERVE_EXECUTION,	/* Must not cause the non-executed statement
-				   become executed -- memory accesses, ... */
-  MOVE_POSSIBLE			/* Unlimited movement.  */
-};
+/* APPLE LOCAL AV if-conversion -dpatel  */
+/* Move enum move_pos from here to tree-flow.h  */
 
 /* The auxiliary data kept for each statement.  */
 
@@ -139,8 +132,10 @@ unsafe_memory_access_p (tree mem)
 }
 
 /* Determines whether it is possible to move the statement STMT.  */
+/* APPLE LOCAL AV if-conversion -dpatel  */
+/* Make this function externally visible.  */
 
-static enum move_pos
+enum move_pos
 movement_possibility (tree stmt)
 {
   tree lhs, rhs;
