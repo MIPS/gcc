@@ -111,7 +111,7 @@ cgraph_node (decl)
   slot = (struct cgraph_node **)
     htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (decl),
 			      IDENTIFIER_HASH_VALUE
-			        (DECL_ASSEMBLER_NAME (decl)), 1);
+			        (DECL_ASSEMBLER_NAME (decl)), INSERT);
   if (*slot)
     return *slot;
   node = ggc_alloc_cleared (sizeof (*node));
@@ -148,7 +148,7 @@ cgraph_node_for_identifier (id)
 
   slot = (struct cgraph_node **)
     htab_find_slot_with_hash (cgraph_hash, id,
-		    	      IDENTIFIER_HASH_VALUE (id), 0);
+		    	      IDENTIFIER_HASH_VALUE (id), NO_INSERT);
   if (!slot)
     return NULL;
   return *slot;
@@ -238,7 +238,7 @@ cgraph_remove_node (node)
   slot = 
     htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (node->decl),
 			      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
-						     (node->decl)), 0);
+						     (node->decl)), NO_INSERT);
   htab_clear_slot (cgraph_hash, slot);
   /* Do not free the structure itself so the walk over chain can continue.  */
 }
@@ -439,7 +439,7 @@ cgraph_varpool_node (tree decl)
   slot = (struct cgraph_varpool_node **)
     htab_find_slot_with_hash (cgraph_varpool_hash, DECL_ASSEMBLER_NAME (decl),
 			      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME (decl)),
-			      1);
+			      INSERT);
   if (*slot)
     return *slot;
   node = ggc_alloc_cleared (sizeof (*node));
@@ -461,7 +461,7 @@ cgraph_varpool_remove_node (node)
     htab_find_slot_with_hash (cgraph_varpool_hash,
 			      DECL_ASSEMBLER_NAME (node->decl),
 			      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
-						     (node->decl)), 1);
+						     (node->decl)), NO_INSERT);
   htab_clear_slot (cgraph_varpool_hash, slot);
 }
 
@@ -479,7 +479,7 @@ cgraph_varpool_node_for_identifier (tree id)
 
   slot = (struct cgraph_varpool_node **)
     htab_find_slot_with_hash (cgraph_varpool_hash, id,
-			      IDENTIFIER_HASH_VALUE (id), 0);
+			      IDENTIFIER_HASH_VALUE (id), NO_INSERT);
   if (!slot)
     return NULL;
   return *slot;
@@ -558,7 +558,7 @@ cgraph_set_decl_assembler_name (tree decl, tree name)
       slot = 
 	htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (decl),
 				   IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
-							  (decl)), 0);
+							  (decl)), NO_INSERT);
       if (slot)
 	node = *slot;
 
@@ -570,7 +570,7 @@ cgraph_set_decl_assembler_name (tree decl, tree name)
 	  /* We've possibly already introduced new entry, overwrite it.  */
 	  slot1 = 
 	    htab_find_slot_with_hash (cgraph_hash, name,
-				      IDENTIFIER_HASH_VALUE (name), 0);
+				      IDENTIFIER_HASH_VALUE (name), NO_INSERT);
 	  if (slot1)
 	    cgraph_remove_node (*slot1);
 
@@ -586,7 +586,7 @@ cgraph_set_decl_assembler_name (tree decl, tree name)
       slot = 
 	htab_find_slot_with_hash (cgraph_varpool_hash, DECL_ASSEMBLER_NAME (decl),
 				   IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
-							  (decl)), 0);
+							  (decl)), NO_INSERT);
       if (slot)
 	vnode = *slot;
 
@@ -598,7 +598,7 @@ cgraph_set_decl_assembler_name (tree decl, tree name)
 	  /* We've possibly already introduced new entry, overwrite it.  */
 	  slot1 = 
 	    htab_find_slot_with_hash (cgraph_varpool_hash, name,
-				      IDENTIFIER_HASH_VALUE (name), 0);
+				      IDENTIFIER_HASH_VALUE (name), NO_INSERT);
 	  if (slot1)
 	    cgraph_varpool_remove_node (*slot1);
 
@@ -613,7 +613,7 @@ cgraph_set_decl_assembler_name (tree decl, tree name)
     {
       slot = 
 	htab_find_slot_with_hash (cgraph_hash, name,
-				  IDENTIFIER_HASH_VALUE (name), 1);
+				  IDENTIFIER_HASH_VALUE (name), INSERT);
       if (*slot)
 	abort ();
       *slot = node;
@@ -622,7 +622,7 @@ cgraph_set_decl_assembler_name (tree decl, tree name)
     {
       slot = 
 	htab_find_slot_with_hash (cgraph_varpool_hash, name,
-				  IDENTIFIER_HASH_VALUE (name), 1);
+				  IDENTIFIER_HASH_VALUE (name), INSERT);
       if (*slot)
 	abort ();
       *slot = vnode;
