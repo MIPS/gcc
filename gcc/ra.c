@@ -483,53 +483,26 @@ copy_insn_p (insn, source, target)
     return 0;
   d = SET_DEST (insn);
   s = SET_SRC (insn);
-  while (GET_CODE (d) == STRICT_LOW_PART
-	 || GET_CODE (d) == SUBREG)
-    {
-      if (GET_CODE (d) == SUBREG)
-	subreg_seen = 1;
-      d = XEXP (d, 0);
-    }
-  if (GET_CODE (d) != REG)
-    return 0;
-  while (GET_CODE (s) == STRICT_LOW_PART
-	 || GET_CODE (s) == ZERO_EXTRACT
-	 || GET_CODE (s) == SIGN_EXTRACT)
-    {
-      /* For now don't allow bitfield extraction at all to be a copy
-	 insn.  XXX */
-      if (GET_CODE (s) == ZERO_EXTRACT || GET_CODE (s) == SIGN_EXTRACT)
-	return 0;
-      s = XEXP (s, 0);
-    }
-  /* (set (reg:SI a) (subreg:SI (reg:DI b) 0)) will be a noop
-     if a and b become the same register, so this move is a candidate
-     for coalescing.
-     (set (reg:SI a) (subreg:SI (reg:DI b) 1)) is similar,
-     if a becomes hardreg(b)+1, but this isn't really coalesing,
-     so for now we ignore such a move.  */
-  if (GET_CODE (s) == SUBREG)
-    {
-      return 0; /* XXX */
-      subreg_seen = 1;
-      if (SUBREG_WORD (s) != 0)
-        return 0;
-      else
-        s = XEXP (s, 0);
-    }
-  if (GET_CODE (s) != REG)
-    return 0;
 
-  /* XXX for now disallow copy insns involving a subreg of
-     a hardreg.  Those usually produce more than one def/use, and some
-     of the parts of the code can't handle this.  (It basically would
-     be a parallel copy of more than one register).  */
-  if (subreg_seen)
+  /* We recognize moves between subreg's as copy insns.  This is used to avoid
+     conflicts of those subwebs.  But they are currently _not_ used for
+     coalescing (the check for this is in remember_move() below).  */
+  while (GET_CODE (d) == STRICT_LOW_PART)
+    d = XEXP (d, 0);
+  if (GET_CODE (d) != REG
+      && (GET_CODE (d) != SUBREG || GET_CODE (SUBREG_REG (d)) != REG))
+    return 0;
+  while (GET_CODE (s) == STRICT_LOW_PART)
+    s = XEXP (s, 0);
+  if (GET_CODE (s) != REG
+      && (GET_CODE (s) != SUBREG || GET_CODE (SUBREG_REG (s)) != REG))
     return 0;
 
   /* Copies between hardregs are useless for us, as not coalesable anyway. */
-  if (REGNO (s) < FIRST_PSEUDO_REGISTER
-      && REGNO (d) < FIRST_PSEUDO_REGISTER)
+  if (REGNO (GET_CODE (s) == SUBREG ? SUBREG_REG (s) : s) 
+       < FIRST_PSEUDO_REGISTER
+      && REGNO (GET_CODE (d) == SUBREG ? SUBREG_REG (d) : d) 
+         < FIRST_PSEUDO_REGISTER)
     return 0;
 
   if (source)
@@ -748,14 +721,23 @@ remember_move (insn)
 {
   if (!TEST_BIT (move_handled, INSN_UID (insn)))
     {
-      struct move *m = (struct move *) xcalloc (1, sizeof (struct move));
-      struct move_list *ml;
+      rtx s, d;
       SET_BIT (move_handled, INSN_UID (insn));
-      m->insn = insn;
-      ml = (struct move_list *) xmalloc (sizeof (struct move_list));
-      ml->move = m;
-      ml->next = wl_moves;
-      wl_moves = ml;
+      copy_insn_p (insn, &s, &d);
+      /* XXX for now we don't remember move insns involving any subregs.
+	 Those would be difficult to coalesce (we would need to implement
+	 handling of all the subwebs in the allocator, including that such
+	 subwebs could be source and target of coalesing).  */
+      if (GET_CODE (s) == REG && GET_CODE (d) == REG)
+	{
+	  struct move *m = (struct move *) xcalloc (1, sizeof (struct move));
+	  struct move_list *ml;
+	  m->insn = insn;
+	  ml = (struct move_list *) xmalloc (sizeof (struct move_list));
+	  ml->move = m;
+	  ml->next = wl_moves;
+	  wl_moves = ml;
+	}
     }
 }
 
@@ -884,7 +866,7 @@ live_out_1 (df, use, insn)
       struct df_link *link;
       unsigned int source_regno = ~0;
       unsigned int regno = use->regno;
-      rtx s,t;
+      rtx s = NULL, t;
       wp = find_web_part (wp);
       wp->spanned_insns++;
       if (copy_insn_p (insn, &s, &t))
@@ -907,7 +889,7 @@ live_out_1 (df, use, insn)
 	  if (slink->next
 	      && DF_REF_REGNO (slink->next->ref) >= FIRST_PSEUDO_REGISTER)
 	    abort (); */
-	  source_regno = REGNO (s);
+	  source_regno = REGNO (GET_CODE (s) == SUBREG ? SUBREG_REG (s) : s);
 	  remember_move (insn);
 	}
       for (link = DF_INSN_DEFS (df, insn); link; link = link->next)
@@ -959,47 +941,46 @@ live_out_1 (df, use, insn)
 		   the web parts.  */
 		wp = union_web_parts (wp, &web_parts[DF_REF_ID (link->ref)]);
 	      }
-	    else if (regno != source_regno)
-	      /* This triggers, when either this was no copy insn
-		 (source_regno being ~0 then, which is != regno), or if it
-		 was, but the source wasn't the current reg.  */
+	    else 
 	      {
-		struct web_part *cwp;
-		unsigned HOST_WIDE_INT undef;
-
-#if 0
-		if (find_regno_note (insn, REG_NO_CONFLICT, regno))
+		unsigned HOST_WIDE_INT undef = use->undefined;
+		if (regno == source_regno)
+		  /* This triggers only, when this was a copy insn and the
+		     source is at least a part of the USE currently looked at.
+		     In this case only the bits of the USE conflict with the
+		     DEF, which are not covered by the source of this copy
+		     insn, and which are still undefined.  I.e. in the best
+		     case (the whole reg being the source), _no_ conflicts
+		     between that USE and this DEF (the target of the move)
+		     are created by this insn (though they might be by
+		     others).  This is a super case of the normal copy insn
+		     only between full regs.  */
 		  {
-		    /* The current use don't conflict with the DEF in this
-		       insn.  */
-		    in_no_conflict_block = 1;
-		    continue;
+		    unsigned int bl = rtx_to_bits (s);
+		    int b = BYTE_BEGIN (bl);
+		    int e = b + BYTE_LENGTH (bl);
+		    for (; b < e; b++)
+		      undef &= ~((unsigned HOST_WIDE_INT)1 << b);
 		  }
-		/* We also don't conflict with the CLOBBER starting a
-		   REG_NO_CONFLICT block.  */
-		if (in_no_conflict_block
-		    && GET_CODE (PATTERN (insn)) == CLOBBER
-		    && find_reg_note (insn, REG_LIBCALL, NULL_RTX) != 0)
-		  continue;
-#endif
+		if (undef)
+		  {
+		    /*struct web_part *cwp;
+		    cwp = find_web_part (&web_parts[DF_REF_ID
+		       (link->ref)]);*/
 
-		/* XXX Beware, for SUBREG tracking we can't use the IDs of the
-		   webroots unconditionally to identify conflicts.  We need a
-		   webroot for each mode/subregword pair (at least
-		   conceptionally) in addition to the real root for the reg
-		   itself.  */
-		cwp = find_web_part (&web_parts[DF_REF_ID (link->ref)]);
-		undef = use->undefined;
-		while (undef)
-		  bitmap_set_bit (undef_to_bitmap (wp, &undef),
-				  DF_REF_ID (link /*cwp*/ ->ref));
-#if 0
-		/* Use the un-unioned web_part for remembering conflicts.  */
-		/*if (use->wp->conflicts)
-		  bitmap_set_bit (use->wp->conflicts, DF_REF_ID (cwp->ref));
-		else*/
-		  bitmap_set_bit (wp->conflicts, DF_REF_ID (cwp->ref));
-#endif
+		    /* TODO: somehow instead of noting the ID of the LINK
+		       use the an ID nearer to the root webpart of that LINK.
+		       We can't use the root itself, because we later use the
+		       ID to look at the form (reg or subreg, and if yes,
+		       which subreg) of this conflict.  This means, that we
+		       need to remember in the root an ID for each form, and
+		       maintaining this, when merging web parts.  This makes
+		       the bitmaps smaller.  */
+		    do
+		      bitmap_set_bit (undef_to_bitmap (wp, &undef),
+				      DF_REF_ID (link->ref));
+		    while (undef);
+		  }
 	      }
 	  }
     }

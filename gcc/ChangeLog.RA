@@ -1,5 +1,14 @@
 2001-07-07  Michael Matz <matzmich@cs.tu-berlin.de>
  
+        * ra.c : (copy_insn_p): Subregs in move insns don't prevent them
+        from being copy insns.
+        (remember_move): Only add REG-REG moves into coalesce list.
+        (live_out_1): Use subreg copies to limit conflicts made for copy
+        insns.
+        Kill some #if 0 code.
+
+2001-07-07  Michael Matz <matzmich@cs.tu-berlin.de>
+ 
         * ra.c : (colorize_one_web): Added int argument.  Caller changed.
         Use it to limit recoloring an unsuccessful spill attempt.
         (hardreg2web): New.
