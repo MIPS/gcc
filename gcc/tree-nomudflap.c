@@ -46,7 +46,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 static void
-nogo ()
+nogo (void)
 {
   internal_error ("mudflap: this language is not supported");
 }
