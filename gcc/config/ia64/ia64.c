@@ -1465,6 +1465,8 @@ spill_xfmode_operand (rtx in, int force)
 /* Emit comparison instruction if necessary, returning the expression
    that holds the compare result in the proper mode.  */
 
+static GTY(()) rtx cmptf_libfunc;
+
 rtx
 ia64_expand_compare (enum rtx_code code, enum machine_mode mode)
 {
@@ -1479,6 +1481,59 @@ ia64_expand_compare (enum rtx_code code, enum machine_mode mode)
 	cmp = op0;
       else
 	abort ();
+    }
+  /* HPUX TFmode compare requires a library call to _U_Qfcmp, which takes a
+     magic number as its third argument, that indicates what to do.
+     The return value is an integer to be compared against zero.  */
+  else if (TARGET_HPUX && GET_MODE (op0) == TFmode)
+    {
+      enum qfcmp_magic {
+	QCMP_INV = 1,	/* Raise FP_INVALID on SNaN as a side effect.  */
+	QCMP_UNORD = 2,
+	QCMP_EQ = 4,
+	QCMP_LT = 8,
+	QCMP_GT = 16
+      } magic;
+      enum rtx_code ncode;
+      rtx ret, insns;
+      if (GET_MODE (op1) != TFmode)
+	abort ();
+      switch (code)
+	{
+	  /* 1 = equal, 0 = not equal.  Equality operators do
+	     not raise FP_INVALID when given an SNaN operand.  */
+	case EQ:        magic = QCMP_EQ;                  ncode = NE; break;
+	case NE:        magic = QCMP_EQ;                  ncode = EQ; break;
+	  /* isunordered() from C99.  */
+	case UNORDERED: magic = QCMP_UNORD;               ncode = NE; break;
+	  /* Relational operators raise FP_INVALID when given
+	     an SNaN operand.  */
+	case LT:        magic = QCMP_LT        |QCMP_INV; ncode = NE; break;
+	case LE:        magic = QCMP_LT|QCMP_EQ|QCMP_INV; ncode = NE; break;
+	case GT:        magic = QCMP_GT        |QCMP_INV; ncode = NE; break;
+	case GE:        magic = QCMP_GT|QCMP_EQ|QCMP_INV; ncode = NE; break;
+	  /* FUTURE: Implement UNEQ, UNLT, UNLE, UNGT, UNGE, LTGT.
+	     Expanders for buneq etc. weuld have to be added to ia64.md
+	     for this to be useful.  */
+	default: abort ();
+	}
+
+      start_sequence ();
+
+      ret = emit_library_call_value (cmptf_libfunc, 0, LCT_CONST, DImode, 3,
+				     op0, TFmode, op1, TFmode,
+				     GEN_INT (magic), DImode);
+      cmp = gen_reg_rtx (BImode);
+      emit_insn (gen_rtx_SET (VOIDmode, cmp,
+			      gen_rtx_fmt_ee (ncode, BImode,
+					      ret, const0_rtx)));
+
+      insns = get_insns ();
+      end_sequence ();
+
+      emit_libcall_block (insns, cmp, cmp,
+			  gen_rtx_fmt_ee (code, BImode, op0, op1));
+      code = NE;
     }
   else
     {
@@ -3065,13 +3120,13 @@ ia64_hard_regno_rename_ok (int from, int to)
 static bool
 ia64_assemble_integer (rtx x, unsigned int size, int aligned_p)
 {
-  if (size == (TARGET_ILP32 ? 4 : 8)
+  if (size == POINTER_SIZE / BITS_PER_UNIT
       && aligned_p
       && !(TARGET_NO_PIC || TARGET_AUTO_PIC)
       && GET_CODE (x) == SYMBOL_REF
       && SYMBOL_REF_FUNCTION_P (x))
     {
-      if (TARGET_ILP32)
+      if (POINTER_SIZE == 32)
 	fputs ("\tdata4\t@fptr(", asm_out_file);
       else
 	fputs ("\tdata8\t@fptr(", asm_out_file);
@@ -3227,7 +3282,8 @@ ia64_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
       if (!declared_ia64_trampoline)
 	{
 	  declared_ia64_trampoline = true;
-	  fputs ("\t.global\t__ia64_trampoline\n", asm_out_file);
+	  (*targetm.asm_out.globalize_label) (asm_out_file,
+					      "__ia64_trampoline");
 	}
     }
 
@@ -4350,7 +4406,7 @@ ia64_asm_output_external (FILE *file, tree decl, const char *name)
   if (TARGET_GNU_AS
       && (!TARGET_HPUX_LD
 	  || TREE_CODE (decl) != FUNCTION_DECL
-	  || strstr(name, "__builtin_") == name))
+	  || strstr (name, "__builtin_") == name))
     return;
 
   /* ??? The Intel assembler creates a reference that needs to be satisfied by
@@ -4485,6 +4541,18 @@ ia64_override_options (void)
     {
       warning ("cannot optimize integer division for both latency and throughput");
       target_flags &= ~MASK_INLINE_INT_DIV_THR;
+    }
+
+  if (TARGET_INLINE_SQRT_LAT && TARGET_INLINE_SQRT_THR)
+    {
+      warning ("cannot optimize square root for both latency and throughput");
+      target_flags &= ~MASK_INLINE_SQRT_THR;
+    }
+
+  if (TARGET_INLINE_SQRT_LAT)
+    {
+      warning ("not yet implemented: latency-optimized inline square root");
+      target_flags &= ~MASK_INLINE_SQRT_LAT;
     }
 
   if (ia64_fixed_range_string)
@@ -4896,9 +4964,9 @@ set_src_needs_barrier (rtx x, struct reg_flags flags, int pred, rtx cond)
   return need_barrier;
 }
 
-/* Handle an access to rtx X of type FLAGS using predicate register PRED.
-   Return 1 is this access creates a dependency with an earlier instruction
-   in the same group.  */
+/* Handle an access to rtx X of type FLAGS using predicate register
+   PRED.  Return 1 if this access creates a dependency with an earlier
+   instruction in the same group.  */
 
 static int
 rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
@@ -5124,7 +5192,9 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 	case UNSPEC_FR_SPILL:
 	case UNSPEC_FR_RESTORE:
 	case UNSPEC_GETF_EXP:
+	case UNSPEC_SETF_EXP:
         case UNSPEC_ADDP4:
+	case UNSPEC_FR_SQRT_RECIP_APPROX:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
 	  break;
 
@@ -8324,12 +8394,16 @@ ia64_hpux_init_libfuncs (void)
   set_optab_libfunc (abs_optab, TFmode, "_U_Qfabs");
   set_optab_libfunc (neg_optab, TFmode, "_U_Qfneg");
 
-  set_optab_libfunc (eq_optab, TFmode, "_U_Qfeq");
-  set_optab_libfunc (ne_optab, TFmode, "_U_Qfne");
-  set_optab_libfunc (gt_optab, TFmode, "_U_Qfgt");
-  set_optab_libfunc (ge_optab, TFmode, "_U_Qfge");
-  set_optab_libfunc (lt_optab, TFmode, "_U_Qflt");
-  set_optab_libfunc (le_optab, TFmode, "_U_Qfle");
+  /* ia64_expand_compare uses this.  */
+  cmptf_libfunc = init_one_libfunc ("_U_Qfcmp");
+
+  /* These should never be used.  */
+  set_optab_libfunc (eq_optab, TFmode, 0);
+  set_optab_libfunc (ne_optab, TFmode, 0);
+  set_optab_libfunc (gt_optab, TFmode, 0);
+  set_optab_libfunc (ge_optab, TFmode, 0);
+  set_optab_libfunc (lt_optab, TFmode, 0);
+  set_optab_libfunc (le_optab, TFmode, 0);
 
   set_conv_libfunc (sext_optab,   TFmode, SFmode, "_U_Qfcnvff_sgl_to_quad");
   set_conv_libfunc (sext_optab,   TFmode, DFmode, "_U_Qfcnvff_dbl_to_quad");

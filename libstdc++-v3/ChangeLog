@@ -1,3 +1,283 @@
+2003-11-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (_M_insert_int,
+	_M_insert_float): Move a couple of vars inside an if block.
+
+2003-11-09  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/12971
+	* include/bits/locale_facets.tcc
+	(money_put::do_put(..., long double)): Fix conversion
+	specification as per DR 328 [WP].
+	* testsuite/22_locale/money_put/put/char/12971.cc: Add.
+	* testsuite/22_locale/money_put/put/wchar_t/12971.cc: Ditto.
+	* docs/html/ext/howto.html: Add entry for DR 328.
+
+2003-11-08  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/12967
+	* include/bits/list.tcc (merge): Implement resolution of
+	DR 300 [WP].
+	* docs/html/ext/howto.html: Add entry for DR 300; tweak entry
+	for DR 231.
+
+	* docs/html/ext/lwg-active.html, docs/html/ext/lwg-defects.html:
+	Import R27.
+
+2003-11-07  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* libsupc++/vec.cc: Conform to C++STYLE.
+
+2003-11-07  Carlo Wood  <carlo@alinoe.com>
+
+	PR libstdc++/12736
+	* bits/demangle.h (qualifier_list<Allocator>::decode_KVrA): Added.
+	(qualifier_list<Allocator>::decode_qualifiers): Collect concatenated
+	K, V, r and A qualifiers before processing them as a group.
+	* testsuite/demangle/abi_text/01.cc: Reordered CV-qualifiers.
+	* testsuite/demangle/regression/cw-16.cc: New.
+
+2003-11-07  Robert Millan  <robertmh@gnu.org>
+
+	* configure.host: Add kfreebsd*-gnu and knetbsd*-gnu.
+	* crossconfig.m4: Likewise.
+	* configure: Regenerate.
+
+2003-11-07  Carlo Wood  <carlo@alinoe.com>
+
+	* include/bits/demangle.h
+	(qualifier_list<Allocator>::decode_qualifiers(string_type&,
+	string_type&, bool member_function_pointer_qualifiers):
+	Always separate the '[' of an array type with a space from
+	what is left of it, except when that is the closing bracket
+	of another array dimension.
+
+2003-11-07  Carlo Wood  <carlo@alinoe.com>
+
+	* include/bits/demangle.h
+	(qualifier_list<Allocator>::decode_qualifiers(string_type&,
+	string_type&, bool) const): Made const.
+	(qualifier_list<Allocator>::M_printing_suppressed): Added mutable.
+	(_GLIBCXX_DEMANGLER_DOUT_ENTERING3, _GLIBCXX_DEMANGLER_RETURN3,
+	std::ostream& operator<<(std::ostream&, qualifier const&),
+	std::ostream& operator<<(std::ostream&, qualifier_list const&),
+	qualifier_list<Allocator>::decode_qualifiers(string_type&,
+	string_type&, bool) const,
+	session<Allocator>::decode_type_with_postfix(string_type&,
+	string_type&, qualifier_list<Allocator>*))
+	Added and/or changed debug-only hooks and code.
+
+2003-11-04  Jeffrey D. Oldham  <oldham@codesourcery.com>
+
+	* libsupc++/vec.cc (__cxa_vec_delete2): If given a NULL pointer,
+	immediately return.  This reflects a C++ ABI change 2003 Nov 03.
+	(__cxa_vec_delete3): Likewise.
+	
+2003-11-03  Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/12790
+	* include/bits/fstream.tcc: Delete _M_last_overflowed.
+	(basic_filebuf::basic_filebuf): Initialize _M_state_last.
+	(basic_filebuf::open, basic_filebuf::close): Assign
+	_M_state_beg to _M_state_cur and _M_state_last.
+	(basic_filebuf::close): Call _M_terminate_output to handle
+	unshift and flushing.
+	(basic_filebuf::underflow): Assign _M_state_last, throw
+	exception instead of calling abort when codecvt::max_length()
+	is bad.
+	(basic_filebuf::seekoff): Use _M_state_last when calling
+	codecvt::length(), pass correct state to _M_seek.
+	(basic_filebuf::seekpos): Pass __pos.state() to _M_seek.
+	(basic_filebuf::_M_seek): Add __state_type parameter,
+	set _M_state_cur correctly, store the resulting state in
+	the return value and use _M_terminate_output to handle
+	flushing and unshift.
+	(basic_filebuf::_M_terminate_output): Flush contents of
+	output buffer, if any, then call codecvt::unshift as
+	needed and output the result.
+	(basic_filebuf::sync): Move here, don't modify _M_writing
+	or _M_reading.
+	
+	* include/std/std_fstream.h
+	(basic_filebuf::_M_state_last): Declare it.
+	(basic_filebuf::_M_last_overflowed): Delete.
+	(basic_filebuf::_M_seek): Add __state_type parameter.
+	(basic_filebuf::sync): Declare only.
+	(basic_filebuf::_M_output_unshift): Delete.
+	(basic_filebuf::_M_terminate_output): Declare it.
+	
+	* testsuite/testsuite_character.h:
+	Define character class and state class plus char_traits and
+	codecvt specializations for same for testing support for
+	stateful encodings.
+	
+	* testsuite/27_io/basic_filebuf/close/12790-1.cc,
+	* testsuite/27_io/basic_filebuf/close/char/12790-1.cc,
+	* testsuite/27_io/basic_filebuf/close/char/12790-2.cc,
+	* testsuite/27_io/basic_filebuf/close/char/12790-3.cc,
+	* testsuite/27_io/basic_filebuf/close/char/12790-4.cc,
+	* testsuite/27_io/basic_filebuf/close/wchar_t/12790-1.cc,
+	* testsuite/27_io/basic_filebuf/close/wchar_t/12790-2.cc,
+	* testsuite/27_io/basic_filebuf/close/wchar_t/12790-3.cc,
+	* testsuite/27_io/basic_filebuf/close/wchar_t/12790-4.cc,
+	* testsuite/27_io/basic_filebuf/open/12790-1.cc,
+	* testsuite/27_io/basic_filebuf/seekoff/12790-1.cc,
+	* testsuite/27_io/basic_filebuf/seekoff/12790-2.cc,
+	* testsuite/27_io/basic_filebuf/seekoff/12790-3.cc,
+	* testsuite/27_io/basic_filebuf/seekoff/12790-4.cc,
+	* testsuite/27_io/basic_filebuf/seekoff/char/12790-1.cc,
+	* testsuite/27_io/basic_filebuf/seekoff/char/12790-2.cc,
+	* testsuite/27_io/basic_filebuf/seekoff/char/12790-3.cc,
+	* testsuite/27_io/basic_filebuf/seekoff/char/12790-4.cc,
+	* testsuite/27_io/basic_filebuf/seekoff/wchar_t/12790-1.cc,
+	* testsuite/27_io/basic_filebuf/seekoff/wchar_t/12790-2.cc,
+	* testsuite/27_io/basic_filebuf/seekoff/wchar_t/12790-3.cc,
+	* testsuite/27_io/basic_filebuf/seekoff/wchar_t/12790-4.cc,
+	* testsuite/27_io/basic_filebuf/seekoff/wchar_t/3.cc,
+	* testsuite/27_io/basic_filebuf/seekpos/12790-1.cc,
+	* testsuite/27_io/basic_filebuf/seekpos/12790-2.cc,
+	* testsuite/27_io/basic_filebuf/seekpos/12790-3.cc,
+	* testsuite/27_io/basic_filebuf/seekpos/char/12790-1.cc,
+	* testsuite/27_io/basic_filebuf/seekpos/char/12790-2.cc,
+	* testsuite/27_io/basic_filebuf/seekpos/char/12790-3.cc,
+	* testsuite/27_io/basic_filebuf/seekpos/char/12790-4.cc,
+	* testsuite/27_io/basic_filebuf/seekpos/wchar_t/1.cc,
+	* testsuite/27_io/basic_filebuf/seekpos/wchar_t/12790-1.cc,
+	* testsuite/27_io/basic_filebuf/seekpos/wchar_t/12790-2.cc,
+	* testsuite/27_io/basic_filebuf/seekpos/wchar_t/12790-3.cc,
+	* testsuite/27_io/basic_filebuf/seekpos/wchar_t/12790-4.cc,
+	* testsuite/27_io/basic_filebuf/sync/char/1.cc,
+	* testsuite/27_io/basic_filebuf/sync/wchar_t/1.cc:
+	New tests.
+
+	* testsuite/27_io/basic_filebuf/3.cc,
+	* testsuite/27_io/basic_filebuf/seekoff/10132-2.cc,
+	* testsuite/27_io/basic_filebuf/seekpos/10132-3.cc,
+	* testsuite/27_io/basic_fstream/3.cc,
+	* testsuite/27_io/basic_ifstream/3.cc,
+	* testsuite/27_io/basic_ofstream/3.cc:
+	Use streamoff as off_type and fpos<state_type> as pos_type.
+
+	* testsuite/27_io/basic_filebuf/seekpos/char/1-io.cc,
+	* testsuite/27_io/basic_filebuf/seekpos/char/1-out.cc:
+	Check that sync does *not* set _M_writing to false.
+
+2003-11-03  Anthony Green  <green@redhat.com>
+
+	* libmath/stubs.c (sqrtf, sqrtl): Reorder so they appear before
+	they're used.
+
+2003-11-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_facets.h (time_get::_M_extract_name): Add
+	ctype argument.	
+	* include/bits/locale_facets.tcc: Same, use it to allow
+	capitalized names.
+	
+	* include/bits/fstream.tcc: Spacing tweak.
+	* include/bits/istream.tcc: Same.
+	* include/bits/ostream.tcc: Same.
+
+2003-10-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (time_get::_M_extract_via_format):
+	__mod is only assigned, never used its value, remove it.
+
+2003-10-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (time_get::do_get_year):
+	Absolutely avoid dereferencing end iterators.
+	(time_put::put): Minor clean up.
+
+	* include/bits/locale_facets.tcc: Cosmetic reformattings.
+
+2003-10-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get::_M_extract_float):
+	Revert the last commit, is not correct, sorry.
+	
+2003-10-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/generic/c_locale.cc: Add back <cmath> and
+	<cstdlib>.
+
+	* include/bits/locale_facets.tcc (num_get::_M_extract_float):
+	Clean up.
+
+2003-10-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (time_put::put): Absolutely
+	avoid dereferencing end iterators; clean up.
+
+	* include/bits/locale_facets.tcc (num_get::_M_extract_float,
+	num_get::_M_extract_int): Minor tweak.
+
+2003-10-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc: Remove some unnecessary
+	includes.
+	* config/locale/generic/c_locale.cc: Include <cerrno> here.
+	* config/locale/gnu/c_locale.cc: Likewise.
+
+2003-10-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc
+	(money_get<>::do_get(..., string_type&)): Absolutely avoid
+	dereferencing end iterators; general clean up.
+
+2003-10-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (time_get::_M_extract_num):
+	Absolutely avoid dereferencing end iterators.
+	(time_get::_M_extract_name): Likewise.
+
+	* include/bits/locale_facets.tcc
+	(time_get::_M_extract_via_format, case 'e'): Don't try to
+	be smart wrt returning the right __beg in case of parse
+	error, time_get::_M_extract_num must be fixed instead.
+
+2003-10-27  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/12778
+	* acinclude.m4 (GLIBCXX_CHECK_LFS): Use the C++ compiler.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2003-10-27  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* docs/html/17_intro/TODO: Add links.
+	* testsuite/27_io/basic_istream/extractors_character/char/9555-ic.cc:
+	Uncomment.
+	
+2003-10-27  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/12750
+	* include/bits/locale_facets.tcc
+	(time_get::_M_extract_via_format): Deal with code 'e'.
+	* testsuite/22_locale/time_get/get_date/char/12750.cc: New.
+	* testsuite/22_locale/time_get/get_date/wchar_t/12750.cc: Ditto.
+
+	* include/bits/locale_facets.tcc
+	(time_get::_M_extract_via_format): Tweak to absolutely avoid
+	dereferencing end iterators.
+
+	* include/bits/locale_facets.h (__verify_grouping):
+	Const-ify second parameter.
+	* include/bits/locale_facets.tcc (__verify_grouping): Ditto.
+	* src/locale-inst.cc (__verify_grouping): Ditto.
+
+2003-10-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get::_M_extract_float):
+	Various things: 1- Avoid absolutely end iterator dereferences;
+	2- Improve performance-wise the code skipping leading zeros;
+	3- Fix two bugs wrt early bail out in case of parsing errors
+	(see testcases); 4- General clean up.
+	(num_get::_M_extract_int): Likewise, except 3-. Additionally,
+	use __builtin_expect to favor base 10 inputs.
+	* testsuite/22_locale/num_get/get/char/7.cc: New.
+	* testsuite/22_locale/num_get/get/wchar_t/7.cc: Ditto.
+
 2003-10-26  Paolo Carlini  <pcarlini@suse.de>
 
 	* testsuite/22_locale/money_put/put/char/1.cc: Clean up.

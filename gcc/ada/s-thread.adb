@@ -33,9 +33,14 @@
 
 --  This is the VxWorks/Cert version of this package
 
+with System.Init;
+with System.Secondary_Stack;
+
 with Unchecked_Conversion;
 
 package body System.Threads is
+
+   package SSS renames System.Secondary_Stack;
 
    Current_ATSD  : aliased System.Address := System.Null_Address;
    pragma Export (C, Current_ATSD, "__gnat_current_atsd");
@@ -97,5 +102,51 @@ package body System.Threads is
       pragma Assert (Current_ATSD /= System.Null_Address);
       CTSD.Sec_Stack_Addr := Addr;
    end Set_Sec_Stack_Addr;
+
+   -----------------------
+   -- Thread_Body_Enter --
+   -----------------------
+
+   procedure Thread_Body_Enter
+     (Sec_Stack_Address    : System.Address;
+      Sec_Stack_Size       : Natural;
+      Process_ATSD_Address : System.Address)
+   is
+      --  Current_ATSD must already be a taskVar of taskIdSelf.
+      --  No assertion because taskVarGet is not available on VxWorks/CERT
+
+      TSD : ATSD_Access := From_Address (Process_ATSD_Address);
+
+   begin
+      TSD.Sec_Stack_Addr := Sec_Stack_Address;
+      SSS.SS_Init (TSD.Sec_Stack_Addr, Sec_Stack_Size);
+      Current_ATSD := Process_ATSD_Address;
+
+      System.Init.Install_Handler;
+      System.Init.Init_Float;
+   end Thread_Body_Enter;
+
+   ----------------------------------
+   -- Thread_Body_Exceptional_Exit --
+   ----------------------------------
+
+   procedure Thread_Body_Exceptional_Exit
+     (EO : Ada.Exceptions.Exception_Occurrence)
+   is
+      pragma Unreferenced (EO);
+   begin
+      --  No action for this target
+      null;
+   end Thread_Body_Exceptional_Exit;
+
+   -----------------------
+   -- Thread_Body_Leave --
+   -----------------------
+
+   procedure Thread_Body_Leave is
+   begin
+      --  No action for this target
+      null;
+   end Thread_Body_Leave;
 
 end System.Threads;

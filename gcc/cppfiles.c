@@ -154,8 +154,10 @@ struct file_hash_entry
 };
 
 static bool open_file (_cpp_file *file);
-static bool pch_open_file (cpp_reader *pfile, _cpp_file *file);
-static bool find_file_in_dir (cpp_reader *pfile, _cpp_file *file);
+static bool pch_open_file (cpp_reader *pfile, _cpp_file *file,
+			   bool *invalid_pch);
+static bool find_file_in_dir (cpp_reader *pfile, _cpp_file *file,
+			      bool *invalid_pch);
 static bool read_file_guts (cpp_reader *pfile, _cpp_file *file);
 static bool read_file (cpp_reader *pfile, _cpp_file *file);
 static bool should_stack_file (cpp_reader *, _cpp_file *file, bool import);
@@ -234,9 +236,13 @@ open_file (_cpp_file *file)
   return false;
 }
 
-/* Temporary PCH intercept of opening a file.  */
+/* Temporary PCH intercept of opening a file.  Try to find a PCH file
+   based on FILE->name and FILE->dir, and test those found for
+   validity using PFILE->cb.valid_pch.  Return true iff a valid file is
+   found.  Set *INVALID_PCH if a PCH file is found but wasn't valid.  */
+
 static bool
-pch_open_file (cpp_reader *pfile, _cpp_file *file)
+pch_open_file (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
 {
   static const char extension[] = ".gch";
   const char *path = file->path;
@@ -285,6 +291,7 @@ pch_open_file (cpp_reader *pfile, _cpp_file *file)
 	  closedir (pchdir);
 	}
       file->pch |= valid;
+      *invalid_pch |= ! valid;
     }
 
   if (valid)
@@ -297,9 +304,11 @@ pch_open_file (cpp_reader *pfile, _cpp_file *file)
 
 /* Try to open the path FILE->name appended to FILE->dir.  This is
    where remap and PCH intercept the file lookup process.  Return true
-   if the file was found, whether or not the open was successful.  */
+   if the file was found, whether or not the open was successful.  
+   Set *INVALID_PCH to true if a PCH file is found but wasn't valid.  */
+
 static bool
-find_file_in_dir (cpp_reader *pfile, _cpp_file *file)
+find_file_in_dir (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
 {
   char *path;
 
@@ -309,7 +318,7 @@ find_file_in_dir (cpp_reader *pfile, _cpp_file *file)
     path = append_file_to_dir (file->name, file->dir);
 
   file->path = path;
-  if (pch_open_file (pfile, file))
+  if (pch_open_file (pfile, file, invalid_pch))
     return true;
 
   if (open_file (file))
@@ -351,10 +360,11 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir, bool f
 {
   struct file_hash_entry *entry, **hash_slot;
   _cpp_file *file;
+  bool invalid_pch = false;
 
   /* Ensure we get no confusion between cached files and directories.  */
   if (start_dir == NULL)
-    cpp_error (pfile, DL_ICE, "NULL directory in find_file");
+    cpp_error (pfile, CPP_DL_ICE, "NULL directory in find_file");
 
   hash_slot = (struct file_hash_entry **)
     htab_find_slot (pfile->file_hash, fname, INSERT);
@@ -369,13 +379,21 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir, bool f
   /* Try each path in the include chain.  */
   for (; !fake ;)
     {
-      if (find_file_in_dir (pfile, file))
+      if (find_file_in_dir (pfile, file, &invalid_pch))
 	break;
 
       file->dir = file->dir->next;
       if (file->dir == NULL)
 	{
 	  open_file_failed (pfile, file);
+	  if (invalid_pch)
+	    {
+	      cpp_error (pfile, CPP_DL_ERROR, 
+	       "One or more PCH files were found, but they were invalid.");
+	      if (! cpp_get_options (pfile)->warn_invalid_pch)
+		cpp_error (pfile, CPP_DL_ERROR, 
+			   "Use -Winvalid-pch for more information.");
+	    }
 	  break;
 	}
 
@@ -432,7 +450,7 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
   
   if (S_ISBLK (file->st.st_mode))
     {
-      cpp_error (pfile, DL_ERROR, "%s is a block device", file->path);
+      cpp_error (pfile, CPP_DL_ERROR, "%s is a block device", file->path);
       return false;
     }
 
@@ -449,7 +467,7 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
 	 does not bite us.  */
       if (file->st.st_size > INTTYPE_MAXIMUM (ssize_t))
 	{
-	  cpp_error (pfile, DL_ERROR, "%s is too large", file->path);
+	  cpp_error (pfile, CPP_DL_ERROR, "%s is too large", file->path);
 	  return false;
 	}
 
@@ -478,12 +496,13 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
 
   if (count < 0)
     {
-      cpp_errno (pfile, DL_ERROR, file->path);
+      cpp_errno (pfile, CPP_DL_ERROR, file->path);
       return false;
     }
 
   if (regular && total != size && STAT_SIZE_RELIABLE (file->st))
-    cpp_error (pfile, DL_WARNING, "%s is shorter than expected", file->path);
+    cpp_error (pfile, CPP_DL_WARNING,
+	       "%s is shorter than expected", file->path);
 
   /* Shrink buffer if we allocated substantially too much.  */
   if (total + 4096 < size)
@@ -675,7 +694,7 @@ search_path_head (cpp_reader *pfile, const char *fname, int angle_brackets,
     return make_cpp_dir (pfile, dir_name_of_file (file), pfile->map->sysp);
 
   if (dir == NULL)
-    cpp_error (pfile, DL_ERROR,
+    cpp_error (pfile, CPP_DL_ERROR,
 	       "no include path in which to search for %s", fname);
 
   return dir;
@@ -732,9 +751,9 @@ open_file_failed (cpp_reader *pfile, _cpp_file *file)
       /* If we are outputting dependencies but not for this file then
 	 don't error because we can still produce correct output.  */
       if (CPP_OPTION (pfile, deps.style) && ! print_dep)
-	cpp_errno (pfile, DL_WARNING, file->path);
+	cpp_errno (pfile, CPP_DL_WARNING, file->path);
       else
-	cpp_errno (pfile, DL_ERROR, file->path);
+	cpp_errno (pfile, CPP_DL_ERROR, file->path);
     }
 }
 

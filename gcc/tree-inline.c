@@ -134,6 +134,7 @@ static tree remap_decls (tree, inline_data *);
 static void copy_bind_expr (tree *, int *, inline_data *);
 static tree mark_local_for_remap_r (tree *, int *, void *);
 static tree unsave_r (tree *, int *, void *);
+static void declare_inline_vars (tree bind_expr, tree vars);
 
 
 /* Remap DECL during the copying of the BLOCK tree for the function.  */
@@ -800,7 +801,7 @@ initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree bind_ex
   if (gimplify_init_stmts_p && lang_hooks.gimple_before_inlining)
     gimplify_body (&init_stmts, fn);
 
-  add_var_to_bind_expr (bind_expr, vars);
+  declare_inline_vars (bind_expr, vars);
   return init_stmts;
 }
 
@@ -1481,7 +1482,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   /* Declare the return variable for the function.  */
   decl = declare_return_variable (id, return_slot_addr, &use_retvar);
   if (decl)
-    add_var_to_bind_expr (expr, decl);
+    declare_inline_vars (expr, decl);
 
   /* After we've initialized the parameters, we insert the body of the
      function itself.  */
@@ -2251,4 +2252,21 @@ bool
 debug_find_tree (tree top, tree search)
 {
   return walk_tree_without_duplicates (&top, debug_find_tree_1, search) != 0;
+}
+
+
+/* Declare the variables created by the inliner.  Add all the variables in
+   VARS to BIND_EXPR.  */
+
+static void
+declare_inline_vars (tree bind_expr, tree vars)
+{
+  if (lang_hooks.gimple_before_inlining)
+    {
+      tree t;
+      for (t = vars; t; t = TREE_CHAIN (t))
+	vars->decl.seen_in_bind_expr = 1;
+    }
+
+  add_var_to_bind_expr (bind_expr, vars);
 }

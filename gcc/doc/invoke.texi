@@ -218,7 +218,7 @@ in the following sections.
 -Werror  -Werror-implicit-function-declaration @gol
 -Wfloat-equal  -Wformat  -Wformat=2 @gol
 -Wno-format-extra-args -Wformat-nonliteral @gol
--Wformat-security  -Wno-format-y2k @gol
+-Wformat-security  -Wformat-y2k @gol
 -Wimplicit  -Wimplicit-function-declaration  -Wimplicit-int @gol
 -Wimport  -Wno-import  -Winit-self  -Winline @gol
 -Wno-invalid-offsetof  -Winvalid-pch @gol
@@ -350,7 +350,8 @@ in the following sections.
 @gccoptlist{-m68000  -m68020  -m68020-40  -m68020-60  -m68030  -m68040 @gol
 -m68060  -mcpu32  -m5200  -m68881  -mbitfield  -mc68000  -mc68020   @gol
 -mnobitfield  -mrtd  -mshort  -msoft-float  -mpcrel @gol
--malign-int  -mstrict-align}
+-malign-int  -mstrict-align  -msep-data  -mno-sep-data @gol
+-mshared-library-id=n  -mid-shared-library  -mno-id-shared-library}
 
 @emph{M68hc1x Options}
 @gccoptlist{-m6811  -m6812  -m68hc11  -m68hc12   -m68hcs12 @gol
@@ -2138,14 +2139,14 @@ Since @option{-Wformat} also checks for null format arguments for
 several functions, @option{-Wformat} also implies @option{-Wnonnull}.
 
 @option{-Wformat} is included in @option{-Wall}.  For more control over some
-aspects of format checking, the options @option{-Wno-format-y2k},
+aspects of format checking, the options @option{-Wformat-y2k},
 @option{-Wno-format-extra-args}, @option{-Wno-format-zero-length},
 @option{-Wformat-nonliteral}, @option{-Wformat-security}, and
 @option{-Wformat=2} are available, but are not included in @option{-Wall}.
 
-@item -Wno-format-y2k
-@opindex Wno-format-y2k
-If @option{-Wformat} is specified, do not warn about @code{strftime}
+@item -Wformat-y2k
+@opindex Wformat-y2k
+If @option{-Wformat} is specified, also warn about @code{strftime}
 formats which may yield only a two-digit year.
 
 @item -Wno-format-extra-args
@@ -2189,7 +2190,7 @@ included in @option{-Wformat-nonliteral}.)
 @opindex Wformat=2
 Enable @option{-Wformat} plus format checks not included in
 @option{-Wformat}.  Currently equivalent to @samp{-Wformat
--Wformat-nonliteral -Wformat-security}.
+-Wformat-nonliteral -Wformat-security -Wformat-y2k}.
 
 @item -Wnonnull
 @opindex Wnonnull
@@ -3925,8 +3926,6 @@ The @option{-finline-limit=@var{n}} option sets some of these parameters
 as follows:
 
 @table @gcctabopt
- @item max-inline-insns
-  is set to @var{n}.
  @item max-inline-insns-single
   is set to @var{n}/2.
  @item max-inline-insns-auto
@@ -3937,8 +3936,7 @@ as follows:
   is set to @var{n}.
 @end table
 
-Using @option{-finline-limit=600} thus results in the default settings
-for these parameters.  See below for a documentation of the individual
+See below for a documentation of the individual
 parameters controlling inlining.
 
 @emph{Note:} pseudo instruction represents, in this particular context, an
@@ -4951,17 +4949,6 @@ by the compiler will be investigated.  To those functions, a different
 be applied.
 The default value is 150.
 
-@item max-inline-insns
-The tree inliner does decrease the allowable size for single functions 
-to be inlined after we already inlined the number of instructions
-given here by repeated inlining.  This number should be a factor of 
-two or more larger than the single function limit.
-Higher numbers result in better runtime performance, but incur higher
-compile-time resource (CPU time, memory) requirements and result in
-larger binaries.  Very high values are not advisable, as too large
-binaries may adversely affect runtime performance.
-The default value is 200.
-
 @item large-function-insns
 The limit specifying really large functions.  For functions greater than this
 limit inlining is constrained by @option{--param large-function-growth}.
@@ -4985,7 +4972,6 @@ For languages that use the RTL inliner (this happens at a later stage
 than tree inlining), you can set the maximum allowable size (counted 
 in RTL instructions) for the RTL inliner with this parameter.
 The default value is 600.
-
 
 @item max-unrolled-insns
 The maximum number of instructions that a loop should have if that loop
@@ -6265,6 +6251,30 @@ not presently supported with @option{-mpcrel}, though this could be supported fo
 Do not (do) assume that unaligned memory references will be handled by
 the system.
 
+@item -msep-data
+Generate code that allows the data segment to be located in a different
+area of memory from the text segment.  This allows for execute in place in
+an environment without virtual memory management.  This option implies -fPIC.
+
+@item -mno-sep-data
+Generate code that assumes that the data segment follows the text segment.
+This is the default.
+
+@item -mid-shared-library
+Generate code that supports shared libraries via the library ID method.
+This allows for execute in place and shared libraries in an environment
+without virtual memory management.  This option implies -fPIC.
+
+@item -mno-id-shared-library
+Generate code that doesn't assume ID based shared libraries are being used.
+This is the default.
+
+@item -mshared-library-id=n
+Specified the identification number of the ID based shared library being
+compiled.  Specifying a value of 0 will generate more compact code, specifying
+other values will force the allocation of that number to the current
+library but is no more space or time efficient than omitting this option.
+
 @end table
 
 @node M68hc1x Options
@@ -7429,9 +7439,10 @@ instruction scheduling parameters for machine type @var{cpu_type}.
 Supported values for @var{cpu_type} are @samp{rios}, @samp{rios1},
 @samp{rsc}, @samp{rios2}, @samp{rs64a}, @samp{601}, @samp{602},
 @samp{603}, @samp{603e}, @samp{604}, @samp{604e}, @samp{620},
-@samp{630}, @samp{740}, @samp{7400}, @samp{7450}, @samp{750},
-@samp{power}, @samp{power2}, @samp{powerpc}, @samp{403}, @samp{505},
-@samp{801}, @samp{821}, @samp{823}, and @samp{860} and @samp{common}.
+@samp{630}, @samp{740}, @samp{7400}, @samp{7450}, @samp{G4}, 
+@samp{750}, @samp{G3},  @samp{power}, @samp{power2}, @samp{powerpc}, 
+@samp{403}, @samp{505}, @samp{801}, @samp{821}, @samp{823}, @samp{860},
+@samp{970}, @samp{G5} and @samp{common}.
 
 @option{-mcpu=common} selects a completely generic processor.  Code
 generated under this option will run on any POWER or PowerPC processor.
@@ -7474,8 +7485,12 @@ The @option{-mcpu} options automatically enable or disable other
 @itemx 740
 @itemx 7400
 @itemx 7450
+@itemx G4
 @itemx 750
+@itemx G3
 @itemx 505
+@itemx 970
+@itemx G5
 @option{-mno-power}, @option{-mpowerpc}, @option{-mnew-mnemonics}
 
 @item 601

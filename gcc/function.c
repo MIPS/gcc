@@ -3084,7 +3084,10 @@ purge_addressof_1 (rtx *loc, rtx insn, int force, int store, int may_postpone,
 			 subregs.  */
 		      || (GET_MODE_SIZE (GET_MODE (x)) > UNITS_PER_WORD
 			  && (GET_MODE_SIZE (GET_MODE (x))
-			      > GET_MODE_SIZE (GET_MODE (sub)))))
+			      > GET_MODE_SIZE (GET_MODE (sub))))
+		      || (GET_MODE_SIZE (GET_MODE (x))
+			  < GET_MODE_SIZE (GET_MODE (sub))))
+
 		    {
 		      *loc = gen_rtx_SUBREG (GET_MODE (x), sub, 0);
 		      return true;
@@ -4255,7 +4258,7 @@ assign_parms (tree fndecl)
      the function returns a structure.  */
   tree function_result_decl = 0;
   int varargs_setup = 0;
-  int reg_parm_stack_space = 0;
+  int reg_parm_stack_space ATTRIBUTE_UNUSED = 0;
   rtx conversion_insns = 0;
 
   /* Nonzero if function takes extra anonymous args.
@@ -7957,7 +7960,7 @@ init_function_once (void)
 /* Resets insn_block_boundaries array.  */
 
 void
-reset_block_changes ()
+reset_block_changes (void)
 {
   VARRAY_TREE_INIT (cfun->ib_boundaries_block, 100, "ib_boundaries_block");
   VARRAY_PUSH_TREE (cfun->ib_boundaries_block, NULL_TREE);
@@ -7983,7 +7986,7 @@ record_block_change (tree block)
 }
 
 /* Finishes record of boundaries.  */
-void finalize_block_changes ()
+void finalize_block_changes (void)
 {
   record_block_change (DECL_INITIAL (current_function_decl));
 }
@@ -8002,7 +8005,7 @@ check_block_change (rtx insn, tree *block)
 
 /* Releases the ib_boundaries_block records.  */
 void
-free_block_changes ()
+free_block_changes (void)
 {
   cfun->ib_boundaries_block = NULL;
 }

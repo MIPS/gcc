@@ -4,6 +4,59 @@
 	* lang.c (java_tree_inlining_walk_subtrees): Just walk
 	BLOCK_EXPR_BODY directly.
 
+2003-11-10  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-parse.c (classify_zip_file): Correctly compare
+	filename_length against length of manifest file's name.
+
+2003-11-08  Tom Tromey  <tromey@redhat.com>
+
+	PR java/12894:
+	* jcf-parse.c (classify_zip_file): Only skip MANIFEST.MF file.
+
+2003-11-06  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (java_stack_swap): Make sure destination stack slots are
+	of the correct type.
+
+2003-11-03  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (dvi): Move targets to $(docobjdir).
+	(gcj.dvi): Simplify rule and adjust target.
+	(gcj.info): Simplify rule.
+	(gcj.pod): New intermediate rule.
+	(gcjh.pod): Likewise.
+	(jv-scan.pod): Likewise.
+	(jcf-dump.pod): Likewise.
+	(gij.pod): Likewise.
+	(jv-convert.pod): Likewise.
+	(rmic.pod): Likewise.
+	(rmiregistry.pod): Likewise.
+	(gcj.1): Delete.
+	(gcjh.1): Delete.
+	(jv-scan.1): Delete.
+	(jcf-dump.1): Delete.
+	(gij.1): Delete.
+	(jv-convert.1): Delete.
+	(rmic.1): Delete.
+	(rmiregistry.1): Delete.
+
+2003-11-02  Jeff Sturm  <jsturm@one-point.com>
+
+	Fixes PR java/12866.
+	* parse.y (resolve_qualified_expression_name): Move test
+	for outer field access methods from here...
+	(check_thrown_exceptions) ...to here.
+
+2003-11-01  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* .cvsignore: Delete.
+
+2003-10-28  Frank Ch. Eigler  <fche@redhat.com>
+
+	* verify.c (verify_jvm_instructions): Don't warn about legal
+	eh binding regions generated for example by jdk 1.4.1.
+
 2003-10-24  David S. Miller  <davem@redhat.com>
 
 	* jcf-parse.c (jcf_parse): Fix args to fatal_error().

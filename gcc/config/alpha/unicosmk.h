@@ -290,7 +290,7 @@ SSIB_SECTION
 extern void common_section (void);
 #define COMMON_SECTION		\
 void				\
-common_section ()		\
+common_section (void)		\
 {				\
   in_section = in_common;	\
 }
@@ -298,7 +298,7 @@ common_section ()		\
 extern void ssib_section (void);
 #define SSIB_SECTION		\
 void				\
-ssib_section ()			\
+ssib_section (void)		\
 {				\
   in_section = in_ssib;		\
 }
@@ -496,7 +496,6 @@ ssib_section ()			\
 #undef LIB_SPEC
 #define LIB_SPEC "-L/opt/ctl/craylibs/craylibs -lu -lm -lc -lsma"
 
-#undef BUILD_VA_LIST_TYPE
 #undef EXPAND_BUILTIN_VA_START
 #undef EXPAND_BUILTIN_VA_ARG
 

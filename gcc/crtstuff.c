@@ -120,15 +120,16 @@ call_ ## FUNC (void)					\
    
 /* References to __register_frame_info and __deregister_frame_info should
    be weak in this file if at all possible.  */
-extern void __register_frame_info (void *, struct object *)
+extern void __register_frame_info (const void *, struct object *)
 				  TARGET_ATTRIBUTE_WEAK;
-extern void __register_frame_info_bases (void *, struct object *,
+extern void __register_frame_info_bases (const void *, struct object *,
 					 void *, void *)
 				  TARGET_ATTRIBUTE_WEAK;
-extern void *__deregister_frame_info (void *)
+extern void *__deregister_frame_info (const void *)
 				     TARGET_ATTRIBUTE_WEAK;
-extern void *__deregister_frame_info_bases (void *)
+extern void *__deregister_frame_info_bases (const void *)
 				     TARGET_ATTRIBUTE_WEAK;
+extern void __do_global_ctors_1 (void);
 
 /* Likewise for _Jv_RegisterClasses.  */
 extern void _Jv_RegisterClasses (void *) TARGET_ATTRIBUTE_WEAK;
@@ -510,7 +511,6 @@ asm (TEXT_SECTION_ASM_OP);
 /* This case is used by the Irix 6 port, which supports named sections but
    not an SVR4-style .init section.  __do_global_ctors can be non-static
    in this case because we protect it with -hidden_symbol.  */
-extern void __do_global_ctors_1(void);
 void
 __do_global_ctors (void)
 {

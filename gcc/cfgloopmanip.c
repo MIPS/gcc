@@ -1257,7 +1257,7 @@ loop_split_edge_with (edge e, rtx insns, struct loops *loops)
 
 /* Uses the natural loop discovery to recreate loop notes.  */
 void
-create_loop_notes ()
+create_loop_notes (void)
 {
   rtx insn, head, end;
   struct loops loops;

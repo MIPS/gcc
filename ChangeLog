@@ -1,3 +1,7 @@
+2003-11-03  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config.sub: Update to 2003-11-03 version.
+
 2003-10-31  Canqun Yang  <canqun@nudt.edu.cn>
 
 	* MAINTAINERS: Add myself to 'Write After Approval' section.

@@ -926,7 +926,7 @@ note_eh_region_may_contain_throw (struct eh_region *region)
 }
 
 void
-note_current_region_may_contain_throw ()
+note_current_region_may_contain_throw (void)
 {
   note_eh_region_may_contain_throw (cfun->eh->cur_region);
 }

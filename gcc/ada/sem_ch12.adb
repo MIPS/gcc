@@ -543,22 +543,22 @@ package body Sem_Ch12 is
    --  those nodes that contain global information. At instantiation, the
    --  information from the associated node is placed on the new copy, so
    --  that name resolution is not repeated.
-
+   --
    --  Three kinds of source nodes have associated nodes:
-
+   --
    --    a) those that can reference (denote) entities, that is identifiers,
    --       character literals, expanded_names, operator symbols, operators,
    --       and attribute reference nodes. These nodes have an Entity field
    --       and are the set of nodes that are in N_Has_Entity.
-
+   --
    --    b) aggregates (N_Aggregate and N_Extension_Aggregate)
-
+   --
    --    c) selected components (N_Selected_Component)
-
+   --
    --  For the first class, the associated node preserves the entity if it is
-   --  global. If the generic contains nested instantiations, the associated_
+   --  global. If the generic contains nested instantiations, the associated
    --  node itself has been recopied, and a chain of them must be followed.
-
+   --
    --  For aggregates, the associated node allows retrieval of the type, which
    --  may otherwise not appear in the generic. The view of this type may be
    --  different between generic and instantiation, and the full view can be
@@ -566,14 +566,14 @@ package body Sem_Ch12 is
    --  type extensions, the same view exchange may have to be performed for
    --  some of the ancestor types, if their view is private at the point of
    --  instantiation.
-
+   --
    --  Nodes that are selected components in the parse tree may be rewritten
    --  as expanded names after resolution, and must be treated as potential
    --  entity holders. which is why they also have an Associated_Node.
-
+   --
    --  Nodes that do not come from source, such as freeze nodes, do not appear
    --  in the generic tree, and need not have an associated node.
-
+   --
    --  The associated node is stored in the Associated_Node field. Note that
    --  this field overlaps Entity, which is fine, because the whole point is
    --  that we don't need or want the normal Entity field in this situation.
@@ -2332,8 +2332,15 @@ package body Sem_Ch12 is
          return;
 
       elsif Ekind (Gen_Unit) /= E_Generic_Package then
-         Error_Msg_N
-           ("expect name of generic package in instantiation", Gen_Id);
+
+         if From_With_Type (Gen_Unit) then
+            Error_Msg_N
+              ("cannot instantiate a limited withed package", Gen_Id);
+         else
+            Error_Msg_N
+              ("expect name of generic package in instantiation", Gen_Id);
+         end if;
+
          Restore_Env;
          return;
       end if;
@@ -2887,7 +2894,7 @@ package body Sem_Ch12 is
                --  Remove entities in current scopes from visibility, so
                --  than instance body is compiled in a clean environment.
 
-               Save_Scope_Stack;
+               Save_Scope_Stack (Handle_Use => False);
 
                if Is_Child_Unit (S) then
 
@@ -2951,7 +2958,7 @@ package body Sem_Ch12 is
                end loop;
             end if;
 
-            Restore_Scope_Stack;
+            Restore_Scope_Stack (Handle_Use => False);
          end if;
 
          --  Restore use clauses. For a child unit, use clauses in the

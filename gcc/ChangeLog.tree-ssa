@@ -1,8 +1,15 @@
+2003-11-12  Diego Novillo  <dnovillo@redhat.com>
+
+	(declare_inlined_vars): New local function.
+	(initialize_inlined_parameters): Call it.
+	(expand_call_inline): Call it.
+
 2003-11-13  Steven Bosscher  <stevenb@suse.de>
 
 	PR optimization/12640
-	* tree-ssa-ccp.c (get_strlen): Don't follow the UD chain of a PHI argument if
-	the DEF stmt for the argument is the PHI itself.
+	* tree-ssa-ccp.c (get_strlen): Don't follow the UD chain
+	of a PHI argument if the DEF stmt for the argument is
+	the PHI itself.
 
 2003-11-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 	    Jeff Law  <law@redhat.com>

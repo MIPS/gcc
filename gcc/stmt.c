@@ -4061,7 +4061,7 @@ expand_stack_alloc (tree alloc, tree t_size)
 
 /* Emit code to save the current value of stack.  */
 rtx
-expand_stack_save ()
+expand_stack_save (void)
 {
   rtx ret = NULL_RTX;
 
@@ -4407,7 +4407,7 @@ last_cleanup_this_contour (void)
    cleanups.  */
 
 int
-containing_blocks_have_cleanups_or_stack_level ()
+containing_blocks_have_cleanups_or_stack_level (void)
 {
   struct nesting *block;
 

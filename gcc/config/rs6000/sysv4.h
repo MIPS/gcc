@@ -389,6 +389,21 @@ do {									\
 #undef	STACK_BOUNDARY
 #define	STACK_BOUNDARY	(TARGET_ALTIVEC_ABI ? 128 : 64)
 
+/* Define this macro if you wish to preserve a certain alignment for
+   the stack pointer, greater than what the hardware enforces.  The
+   definition is a C expression for the desired alignment (measured
+   in bits).  This macro must evaluate to a value equal to or larger
+   than STACK_BOUNDARY.
+   For the SYSV ABI and variants the alignment of the stack pointer
+   is usually controlled manually in rs6000.c. However, to maintain
+   alignment across alloca () in all circumstances,
+   PREFERRED_STACK_BOUNDARY needs to be set as well.
+   This has the additional advantage of allowing a bigger maximum
+   alignment of user objects on the stack.  */
+
+#undef PREFERRED_STACK_BOUNDARY
+#define PREFERRED_STACK_BOUNDARY 128
+
 /* Real stack boundary as mandated by the appropriate ABI.  */
 #define ABI_STACK_BOUNDARY ((TARGET_EABI && !TARGET_ALTIVEC_ABI) ? 64 : 128)
 
@@ -453,7 +468,7 @@ do {									\
 
 #define	TOC_SECTION_FUNCTION						\
 void									\
-toc_section ()								\
+toc_section (void)							\
 {									\
   if (in_section != in_toc)						\
     {									\
@@ -495,14 +510,14 @@ toc_section ()								\
 }									\
 									\
 extern int in_toc_section (void);					\
-int in_toc_section ()							\
+int in_toc_section (void)						\
 {									\
   return in_section == in_toc;						\
 }
 
 #define	SDATA_SECTION_FUNCTION						\
 void									\
-sdata_section ()							\
+sdata_section (void)							\
 {									\
   if (in_section != in_sdata)						\
     {									\
@@ -513,7 +528,7 @@ sdata_section ()							\
 
 #define	SDATA2_SECTION_FUNCTION						\
 void									\
-sdata2_section ()							\
+sdata2_section (void)							\
 {									\
   if (in_section != in_sdata2)						\
     {									\
@@ -524,7 +539,7 @@ sdata2_section ()							\
 
 #define	SBSS_SECTION_FUNCTION						\
 void									\
-sbss_section ()								\
+sbss_section (void)							\
 {									\
   if (in_section != in_sbss)						\
     {									\
@@ -535,7 +550,7 @@ sbss_section ()								\
 
 #define	INIT_SECTION_FUNCTION						\
 void									\
-init_section ()								\
+init_section (void)							\
 {									\
   if (in_section != in_init)						\
     {									\
@@ -546,7 +561,7 @@ init_section ()								\
 
 #define	FINI_SECTION_FUNCTION						\
 void									\
-fini_section ()								\
+fini_section (void)							\
 {									\
   if (in_section != in_fini)						\
     {									\

@@ -262,6 +262,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 /* In cse.c.  */
 #define TARGET_ADDRESS_COST default_address_cost
 
+#define TARGET_DIRECT_POOL_LOAD_P default_direct_pool_load_p
+
 /* In builtins.c.  */
 #define TARGET_INIT_BUILTINS hook_void_void
 #define TARGET_EXPAND_BUILTIN default_expand_builtin
@@ -315,6 +317,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #endif
 
 #define TARGET_MACHINE_DEPENDENT_REORG 0
+
+#define TARGET_BUILD_BUILTIN_VA_LIST std_build_builtin_va_list
 
 #define TARGET_GET_PCH_VALIDITY default_get_pch_validity
 #define TARGET_PCH_VALID_P default_pch_valid_p
@@ -375,8 +379,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_VECTOR_OPAQUE_P,			\
   TARGET_RTX_COSTS,				\
   TARGET_ADDRESS_COST,				\
+  TARGET_DIRECT_POOL_LOAD_P,			\
   TARGET_DWARF_REGISTER_SPAN,                   \
   TARGET_MACHINE_DEPENDENT_REORG,		\
+  TARGET_BUILD_BUILTIN_VA_LIST,			\
   TARGET_GET_PCH_VALIDITY,			\
   TARGET_PCH_VALID_P,				\
   TARGET_HAVE_NAMED_SECTIONS,			\

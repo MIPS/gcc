@@ -952,7 +952,7 @@ find_node_with_code (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 /* Returns a pointer to the last visited node.  */
 
 static tree
-TB_history_prev ()
+TB_history_prev (void)
 {
   if (TB_history_stack)
     {

@@ -370,6 +370,8 @@ struct gcc_target
      invalid addresses.  */
   int (* address_cost) (rtx x);
 
+  bool (* direct_pool_load_p) (enum machine_mode);
+
   /* Given a register, this hook should return a parallel of registers
      to represent where to find the register pieces.  Define this hook
      if the register and its mode are represented in Dwarf in
@@ -381,6 +383,9 @@ struct gcc_target
   /* Do machine-dependent code transformations.  Called just before
      delayed-branch scheduling.  */
   void (* machine_dependent_reorg) (void);
+
+  /* Create the __builtin_va_list type.  */
+  tree (* build_builtin_va_list) (void);
 
   /* Validity-checking routines for PCH files, target-specific.
      get_pch_validity returns a pointer to the data to be stored,

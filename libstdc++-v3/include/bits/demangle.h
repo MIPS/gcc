@@ -40,10 +40,10 @@
 #define _GLIBCXX_DEMANGLER_DOUT(cntrl, data)
 #define _GLIBCXX_DEMANGLER_DOUT_ENTERING(x)
 #define _GLIBCXX_DEMANGLER_DOUT_ENTERING2(x)
-#define _GLIBCXX_DEMANGLER_RETURN \
-    return M_result
-#define _GLIBCXX_DEMANGLER_RETURN2 \
-    return M_result
+#define _GLIBCXX_DEMANGLER_DOUT_ENTERING3(x)
+#define _GLIBCXX_DEMANGLER_RETURN return M_result
+#define _GLIBCXX_DEMANGLER_RETURN2 return M_result
+#define _GLIBCXX_DEMANGLER_RETURN3
 #define _GLIBCXX_DEMANGLER_FAILURE \
     do { M_result = false; return false; } while(0)
 #else
@@ -192,6 +192,28 @@ namespace __gnu_cxx
 	part_of_substitution(void) const
 	{ return M_part_of_substitution; }
 
+#if _GLIBCXX_DEMANGLER_CWDEBUG
+	friend std::ostream& operator<<(std::ostream& os, qualifier const& qual)
+	{
+	  os << (char)qual.M_qualifier1;
+	  if (qual.M_qualifier1 == vendor_extension ||
+	      qual.M_qualifier1 == array ||
+	      qual.M_qualifier1 == pointer_to_member)
+	    os << " [" << qual.M_optional_type << ']';
+	  else if (qual.M_qualifier1 == 'K' ||
+		   qual.M_qualifier1 == 'V' ||
+		   qual.M_qualifier1 == 'r')
+	  {
+	    if (qual.M_qualifier2)
+	    {
+	      os << (char)qual.M_qualifier2;
+	      if (qual.M_qualifier3)
+		os << (char)qual.M_qualifier3;
+	    }
+	  }
+	  return os;
+	}
+#endif
       };
 
     template<typename Allocator>
@@ -201,9 +223,13 @@ namespace __gnu_cxx
 	  string_type;
 
       private:
-	bool M_printing_suppressed;
+	mutable bool M_printing_suppressed;
 	std::vector<qualifier<Allocator>, Allocator> M_qualifier_starts;
 	session<Allocator>& M_demangler;
+
+	void decode_KVrA(string_type& prefix, string_type& postfix, int cvq,
+          typename std::vector<qualifier<Allocator>, Allocator>::
+	      const_reverse_iterator const& iter_array) const;
 
       public:
 	qualifier_list(session<Allocator>& demangler_obj)
@@ -240,7 +266,7 @@ namespace __gnu_cxx
 	void
 	decode_qualifiers(string_type& prefix,
 	    		  string_type& postfix,
-			  bool member_function_pointer_qualifiers);
+			  bool member_function_pointer_qualifiers) const;
 
 	bool
 	suppressed(void) const
@@ -254,6 +280,23 @@ namespace __gnu_cxx
 	size(void) const
 	{ return M_qualifier_starts.size(); }
 
+#if _GLIBCXX_DEMANGLER_CWDEBUG
+	friend std::ostream& operator<<(std::ostream& os, qualifier_list const& list)
+	{
+	  typename std::vector<qualifier<Allocator>, Allocator>::const_iterator
+	      iter = list.M_qualifier_starts.begin();
+	  if (iter != list.M_qualifier_starts.end())
+	  {
+	    os << "{ " << *iter;
+	    while (++iter != list.M_qualifier_starts.end())
+	      os << ", " << *iter;
+	    os << " }";
+	  }
+	  else
+	    os << "{ }";
+	  return os;
+	}
+#endif
       };
 
     template<typename Allocator>
@@ -301,11 +344,6 @@ namespace __gnu_cxx
 	decode_encoding(string_type& output, char const* input, int len);
 
 	bool
-	decode_type_with_postfix(string_type& prefix,
-		                 string_type& postfix,
-	            qualifier_list<Allocator>* qualifiers = NULL);
-
-	bool
 	decode_type(string_type& output,
 	            qualifier_list<Allocator>* qualifiers = NULL)
 	{
@@ -345,6 +383,8 @@ namespace __gnu_cxx
 	                 substitution_nt sub_type,
 			 int number_of_prefixes);
 
+	bool decode_type_with_postfix(string_type& prefix,
+	    string_type& postfix, qualifier_list<Allocator>* qualifiers = NULL);
 	bool decode_bare_function_type(string_type& output);
 	bool decode_builtin_type(string_type& output);
 	bool decode_call_offset(string_type& output);
@@ -1341,10 +1381,13 @@ namespace __gnu_cxx
     // <Q>[K|V|r]+	==> [ const| volatile| restrict]+Q	"KVr..."
     // <Q>U<S>		==>  SQ				"U<S>..."
     // <Q>M<C>		==> C::*Q			"M<C>..." (<C> recurs.)
-    // A<I>		==> [I]				"A<I>..." (<I> recurs.)
+    // A<I>		==>  [I]			"A<I>..." (<I> recurs.)
     // <Q>A<I>		==>  (Q) [I]			"A<I>..." (<I> recurs.)
-    //   Note that when <Q> ends on an A<I2> then the brackets are omitted:
-    //   A<I2>A<I>	  ==> [I2][I]
+    //   Note that when <Q> ends on an A<I2> then the brackets are omitted
+    //   and no space is written between the two:
+    //   A<I2>A<I>	==>  [I2][I]
+    //   If <Q> ends on [KVr]+, which can happen in combination with
+    //   substitutions only, then special handling is required, see below.
     //  
     // A <substitution> is handled with an input position switch during which
     // new substitutions are turned off.  Because recursive handling of types
@@ -1372,16 +1415,100 @@ namespace __gnu_cxx
     // For some weird reason, g++ (3.2.1) does not add substitutions for
     // qualified member function pointers.  I think that is another bug.
     //
+
+    // In the case of
+    // <Q>A<I>
+    // where <Q> ends on [K|V|r]+ then that part should be processed as
+    // if it was behind the A<I> instead of in front of it.  This is
+    // because a constant array of ints is normally always mangled as
+    // an array of constant ints.  KVr qualifiers can end up in front
+    // of an array when the array is part of a substitution or template
+    // parameter, but the demangling should still result in the same
+    // syntax; thus KA2_i (const array of ints) must result in the same
+    // demangling as A2_Ki (array of const ints).  As a result we must
+    // demangle ...[...[[KVr]+A<I0>][KVr]+A<I1>]...[KVr]+A<In>[KVr]+
+    // as A<I0>A<I1>...A<In>[KVr]+ where each K, V and r in the series
+    // collapses to a single character at the right of the string.
+    // For example:
+    // VA9_KrA6_KVi --> A9_A6_KVri --> int volatile const restrict [9][6]
+    // Note that substitutions are still added as usual (the translation
+    // to A9_A6_KVri does not really happen).
+    //
+    // This decoding is achieved by delaying the decoding of any sequence
+    // of [KVrA]'s and processing them together in the order: first the
+    // short-circuited KVr part and then the arrays.
+    static int const cvq_K = 1;		// Saw at least one K
+    static int const cvq_V = 2;		// Saw at least one V
+    static int const cvq_r = 4;		// Saw at least one r
+    static int const cvq_A = 8;		// Saw at least one A
+    static int const cvq_last = 16;	// No remaining qualifiers.
+    static int const cvq_A_cnt = 32;	// Bit 5 and higher represent the
+    					//   number of A's in the series.
+    // In the function below, iter_array points to the first (right most)
+    // A in the series, if any.
+    template<typename Allocator>
+      void
+      qualifier_list<Allocator>::decode_KVrA(
+          string_type& prefix, string_type& postfix, int cvq,
+          typename std::vector<qualifier<Allocator>, Allocator>::
+	      const_reverse_iterator const& iter_array) const
+	{
+	  _GLIBCXX_DEMANGLER_DOUT_ENTERING3("decode_KVrA");
+	  if ((cvq & cvq_K))
+	    prefix += " const";
+	  if ((cvq & cvq_V))
+	    prefix += " volatile";
+	  if ((cvq & cvq_r))
+	    prefix += " restrict";
+	  if ((cvq & cvq_A))
+	  {
+	    int n = cvq >> 5;
+	    for (typename std::vector<qualifier<Allocator>, Allocator>::
+	        const_reverse_iterator iter = iter_array;
+		iter != M_qualifier_starts.rend(); ++iter)
+	    {
+	      switch((*iter).first_qualifier())
+	      {
+		case 'K':
+		case 'V':
+		case 'r':
+		  break;
+		case 'A':
+		{
+		  string_type index = (*iter).get_optional_type();
+		  if (--n == 0 && (cvq & cvq_last))
+		    postfix = " [" + index + "]" + postfix;
+		  else if (n > 0)
+		    postfix = "[" + index + "]" + postfix;
+		  else
+		  {
+		    prefix += " (";
+		    postfix = ") [" + index + "]" + postfix;
+		  }
+		  break;
+		}
+		default:
+		  _GLIBCXX_DEMANGLER_RETURN3;
+	      }
+	    }
+	  }
+	  _GLIBCXX_DEMANGLER_RETURN3;
+	}
+
     template<typename Allocator>
       void
       qualifier_list<Allocator>::decode_qualifiers(
 	  string_type& prefix,
 	  string_type& postfix,
-	  bool member_function_pointer_qualifiers = false)
+	  bool member_function_pointer_qualifiers = false) const
       {
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING3("decode_qualifiers");
+	int cvq = 0;
+	typename std::vector<qualifier<Allocator>, Allocator>::
+	    const_reverse_iterator iter_array;
 	for(typename std::vector<qualifier<Allocator>, Allocator>::
-	    reverse_iterator iter = M_qualifier_starts.rbegin();
-	    iter != M_qualifier_starts.rend();)
+	    const_reverse_iterator iter = M_qualifier_starts.rbegin();
+	    iter != M_qualifier_starts.rend(); ++iter)
 	{
 	  if (!member_function_pointer_qualifiers
 	      && !(*iter).part_of_substitution())
@@ -1397,39 +1524,54 @@ namespace __gnu_cxx
 	    switch(qualifier_char)
 	    {
 	      case 'P':
+		if (cvq)
+		{
+		  decode_KVrA(prefix, postfix, cvq, iter_array);
+		  cvq = 0;
+		}
 		prefix += "*";
 		break;
 	      case 'R':
+		if (cvq)
+		{
+		  decode_KVrA(prefix, postfix, cvq, iter_array);
+		  cvq = 0;
+		}
 		prefix += "&";
 		break;
 	      case 'K':
-		prefix += " const";
+		cvq |= cvq_K;
 		continue;
 	      case 'V':
-		prefix += " volatile";
+		cvq |= cvq_V;
 		continue;
 	      case 'r':
-		prefix += " restrict";
+		cvq |= cvq_r;
 		continue;
 	      case 'A':
-	      {
-		string_type index = (*iter).get_optional_type();
-		if (++iter != M_qualifier_starts.rend()
-		    && (*iter).first_qualifier() != 'A')
+	        if (!(cvq & cvq_A))
 		{
-		  prefix += " (";
-		  postfix = ") [" + index + "]" + postfix;
+		  cvq |= cvq_A;
+		  iter_array = iter;
 		}
-		else
-		  postfix = "[" + index + "]" + postfix;
+		cvq += cvq_A_cnt;
 		break;
-	      }
 	      case 'M':
+	        if (cvq)
+		{
+		  decode_KVrA(prefix, postfix, cvq, iter_array);
+		  cvq = 0;
+		}
 		prefix += " ";
 		prefix += (*iter).get_optional_type();
 		prefix += "::*";
 		break;
 	      case 'U':
+	        if (cvq)
+		{
+		  decode_KVrA(prefix, postfix, cvq, iter_array);
+		  cvq = 0;
+		}
 		prefix += " ";
 		prefix += (*iter).get_optional_type();
 		break;
@@ -1438,10 +1580,11 @@ namespace __gnu_cxx
 	    }
 	    break;
 	  }
-	  if (qualifier_char != 'A')
-	    ++iter;
 	}
+	if (cvq)
+	  decode_KVrA(prefix, postfix, cvq|cvq_last, iter_array);
 	M_printing_suppressed = false;
+	_GLIBCXX_DEMANGLER_RETURN3;
       }
 
     //
@@ -1451,8 +1594,7 @@ namespace __gnu_cxx
 	  string_type& prefix, string_type& postfix,
 	  qualifier_list<Allocator>* qualifiers)
       {
-	_GLIBCXX_DEMANGLER_DOUT_ENTERING2
-	    (qualifiers ? "decode_type" : "decode_type[with qualifiers]");
+	_GLIBCXX_DEMANGLER_DOUT_ENTERING2("decode_type");
 	++M_inside_type;
 	bool recursive_template_param_or_substitution_call;
 	if (!(recursive_template_param_or_substitution_call = qualifiers))

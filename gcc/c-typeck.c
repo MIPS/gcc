@@ -2572,12 +2572,10 @@ pedantic_lvalue_warning (enum tree_code code)
   switch (code)
     {
     case COND_EXPR:
-      if (pedantic)
-	pedwarn ("ISO C forbids use of conditional expressions as lvalues");
+      pedwarn ("use of conditional expressions as lvalues is deprecated");
       break;
     case COMPOUND_EXPR:
-      if (pedantic)
-	pedwarn ("ISO C forbids use of compound expressions as lvalues");
+      pedwarn ("use of compound expressions as lvalues is deprecated");
       break;
     default:
       pedwarn ("use of cast expressions as lvalues is deprecated");
@@ -2888,11 +2886,6 @@ internal_build_compound_expr (tree list, int first_p)
            && ! (TREE_CODE (TREE_VALUE (list)) == CONVERT_EXPR
                 && VOID_TYPE_P (TREE_TYPE (TREE_VALUE (list)))))
         warning ("left-hand operand of comma expression has no effect");
-
-      /* When pedantic, a compound expression can be neither an lvalue
-         nor an integer constant expression.  */
-      if (! pedantic)
-        return rest;
     }
 
   /* With -Wunused, we should also warn if the left-hand operand does have

@@ -1183,7 +1183,7 @@ finalize (void)
 /* Is the block worklist empty.  */
 
 static inline bool
-cfg_blocks_empty_p ()
+cfg_blocks_empty_p (void)
 {
   return (cfg_blocks_num == 0);
 }
@@ -1225,7 +1225,7 @@ cfg_blocks_add (basic_block bb)
 /* Remove a block from the worklist.  */
 
 static basic_block
-cfg_blocks_get ()
+cfg_blocks_get (void)
 {
   basic_block bb;
 

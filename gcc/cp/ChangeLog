@@ -2,6 +2,42 @@
 
 	* cvt.c (convert_to_void): Use void_zero_node after overload failure.
 
+2003-11-10  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/12832
+	* name-lookup.c (supplement_binding): Gracefully handle names
+	used at non-class scope prior declaration.
+
+2003-11-06  Matt Austern  <austern@apple.com>
+
+	* decl.c (duplicate_decls): copy DECL_VISIBILITY field.
+	* method.c (use_thunk): give thunk same visibility as function.
+	* optimize.c (maybe_clone_body): copy DECL_VISIBILITY field.
+	
+2003-11-05  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/11616
+	* pt.c (instantiate_pending_templates): Save and restore
+	input_location.
+
+2003-11-05  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/2019
+	* friend.c (add_friend): Don't display previous declaration in
+	case of duplicate friend warning.
+
+2003-11-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9810
+	* call.c (build_over_call): Check access using primary template
+	if FN is a member function template.
+
+2003-11-01  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/12796
+	* class.c (handle_using_decl): Set input_location before calling
+	error_not_base_type.
+
 2003-10-26  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	PR c++/10371

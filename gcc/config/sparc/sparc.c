@@ -5433,9 +5433,15 @@ function_arg_partial_nregs (const struct sparc_args *cum,
 	       || (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
 		   && ! (TARGET_FPU && named)))
 	{
+	  /* The complex types are passed as packed types.  */
+	  if (GET_MODE_SIZE (mode) <= UNITS_PER_WORD)
+	    return 0;
+
 	  if (GET_MODE_ALIGNMENT (mode) == 128)
 	    {
 	      slotno += slotno & 1;
+
+	      /* ??? The mode needs 3 slots?  */
 	      if (slotno == SPARC_INT_ARG_MAX - 2)
 		return 1;
 	    }
@@ -5476,7 +5482,8 @@ function_arg_pass_by_reference (const struct sparc_args *cum ATTRIBUTE_UNUSED,
   else
     {
       return ((type && TREE_CODE (type) == ARRAY_TYPE)
-	      /* Consider complex values as aggregates, so care for TCmode.  */
+	      /* Consider complex values as aggregates, so care
+		 for CTImode and TCmode.  */
 	      || GET_MODE_SIZE (mode) > 16
 	      || (type
 		  && AGGREGATE_TYPE_P (type)
@@ -5520,14 +5527,6 @@ function_arg_advance (struct sparc_args *cum, enum machine_mode mode,
 	    cum->words += 2;
 	  else /* passed by reference */
 	    ++cum->words;
-	}
-      else if (GET_MODE_CLASS (mode) == MODE_COMPLEX_INT)
-	{
-	  cum->words += 2;
-	}
-      else if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
-	{
-	  cum->words += GET_MODE_SIZE (mode) / UNITS_PER_WORD;
 	}
       else
 	{
@@ -5661,17 +5660,19 @@ sparc_va_arg (tree valist, tree type)
       if (TYPE_ALIGN (type) >= 2 * (unsigned) BITS_PER_WORD)
 	align = 2 * UNITS_PER_WORD;
 
-      if (AGGREGATE_TYPE_P (type))
+      /* Consider complex values as aggregates, so care
+	 for CTImode and TCmode.  */
+      if ((unsigned HOST_WIDE_INT) size > 16)
 	{
-	  if ((unsigned HOST_WIDE_INT) size > 16)
-	    {
-	      indirect = 1;
-	      size = rsize = UNITS_PER_WORD;
-	      align = 0;
-	    }
-	  /* SPARC v9 ABI states that structures up to 8 bytes in size are
-	     given one 8 byte slot.  */
-	  else if (size == 0)
+	  indirect = 1;
+	  size = rsize = UNITS_PER_WORD;
+	  align = 0;
+	}
+      else if (AGGREGATE_TYPE_P (type))
+	{
+	  /* SPARC-V9 ABI states that structures up to 16 bytes in size
+	     are given whole slots as needed.  */
+	  if (size == 0)
 	    size = rsize = UNITS_PER_WORD;
 	  else
 	    size = rsize;
@@ -7086,7 +7087,7 @@ sparc_type_code (register tree type)
 void
 sparc_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
 {
-  /* SPARC 32 bit trampoline:
+  /* SPARC 32-bit trampoline:
 
  	sethi	%hi(fn), %g1
  	sethi	%hi(static), %g2
@@ -7096,10 +7097,6 @@ sparc_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
     SETHI i,r  = 00rr rrr1 00ii iiii iiii iiii iiii iiii
     JMPL r+i,d = 10dd ddd1 1100 0rrr rr1i iiii iiii iiii
    */
-#ifdef TRANSFER_FROM_TRAMPOLINE
-  emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "__enable_execute_stack"),
-                     LCT_NORMAL, VOIDmode, 1, tramp, Pmode);
-#endif
 
   emit_move_insn
     (gen_rtx_MEM (SImode, plus_constant (tramp, 0)),
@@ -7138,21 +7135,25 @@ sparc_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
       && sparc_cpu != PROCESSOR_ULTRASPARC3)
     emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode,
 						     plus_constant (tramp, 8)))));
+
+  /* Call __enable_execute_stack after writing onto the stack to make sure
+     the stack address is accessible.  */
+#ifdef TRANSFER_FROM_TRAMPOLINE
+  emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "__enable_execute_stack"),
+                     LCT_NORMAL, VOIDmode, 1, tramp, Pmode);
+#endif
+
 }
 
-/* The 64 bit version is simpler because it makes more sense to load the
+/* The 64-bit version is simpler because it makes more sense to load the
    values as "immediate" data out of the trampoline.  It's also easier since
    we can read the PC without clobbering a register.  */
 
 void
 sparc64_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
 {
-#ifdef TRANSFER_FROM_TRAMPOLINE
-  emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "__enable_execute_stack"),
-                     LCT_NORMAL, VOIDmode, 1, tramp, Pmode);
-#endif
+  /* SPARC 64-bit trampoline:
 
-  /*
 	rd	%pc, %g1
 	ldx	[%g1+24], %g5
 	jmp	%g5
@@ -7175,6 +7176,13 @@ sparc64_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
   if (sparc_cpu != PROCESSOR_ULTRASPARC
       && sparc_cpu != PROCESSOR_ULTRASPARC3)
     emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, plus_constant (tramp, 8)))));
+
+  /* Call __enable_execute_stack after writing onto the stack to make sure
+     the stack address is accessible.  */
+#ifdef TRANSFER_FROM_TRAMPOLINE
+  emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "__enable_execute_stack"),
+                     LCT_NORMAL, VOIDmode, 1, tramp, Pmode);
+#endif
 }
 
 /* Subroutines to support a flat (single) register window calling

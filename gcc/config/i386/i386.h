@@ -721,16 +721,7 @@ extern int x86_prefetch_sse;
 
 /* target machine storage layout */
 
-/* Define for XFmode or TFmode extended real floating point support.
-   The XFmode is specified by i386 ABI, while TFmode may be faster
-   due to alignment and simplifications in the address calculations.  */
-#define LONG_DOUBLE_TYPE_SIZE (TARGET_128BIT_LONG_DOUBLE ? 128 : 96)
-#define MAX_LONG_DOUBLE_TYPE_SIZE 128
-#ifdef __x86_64__
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 128
-#else
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 96
-#endif
+#define LONG_DOUBLE_TYPE_SIZE 96
 
 /* Set the value of FLT_EVAL_METHOD in float.h.  When using only the
    FPU, assume that the fpcw is set to extended precision; when using
@@ -900,8 +891,7 @@ extern int x86_prefetch_sse;
 
 #define STACK_REGS
 #define IS_STACK_MODE(MODE)					\
-  ((MODE) == DFmode || (MODE) == SFmode || (MODE) == XFmode	\
-   || (MODE) == TFmode)
+  ((MODE) == DFmode || (MODE) == SFmode || (MODE) == XFmode)	\
 
 /* Number of actual hardware registers.
    The hardware registers are assigned numbers for the compiler
@@ -1049,9 +1039,9 @@ do {									\
 #define HARD_REGNO_NREGS(REGNO, MODE)   \
   (FP_REGNO_P (REGNO) || SSE_REGNO_P (REGNO) || MMX_REGNO_P (REGNO)	\
    ? (COMPLEX_MODE_P (MODE) ? 2 : 1)					\
-   : ((MODE) == TFmode							\
+   : ((MODE) == XFmode							\
       ? (TARGET_64BIT ? 2 : 3)						\
-      : (MODE) == TCmode						\
+      : (MODE) == XCmode						\
       ? (TARGET_64BIT ? 4 : 6)						\
       : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)))
 
@@ -1061,7 +1051,7 @@ do {									\
 
 #define VALID_SSE_REG_MODE(MODE)					\
     ((MODE) == TImode || (MODE) == V4SFmode || (MODE) == V4SImode	\
-     || (MODE) == SFmode						\
+     || (MODE) == SFmode || (MODE) == TFmode				\
      /* Always accept SSE2 modes so that xmmintrin.h compiles.  */	\
      || VALID_SSE2_REG_MODE (MODE)					\
      || (TARGET_SSE2 && ((MODE) == DFmode || VALID_MMX_REG_MODE (MODE))))
@@ -1079,21 +1069,20 @@ do {									\
      : VALID_MMX_REG_MODE_3DNOW (MODE) && TARGET_3DNOW ? 1 : 0)
 
 #define VALID_FP_MODE_P(MODE)						\
-    ((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode		\
-     || (!TARGET_64BIT && (MODE) == XFmode)				\
-     || (MODE) == SCmode || (MODE) == DCmode || (MODE) == TCmode	\
-     || (!TARGET_64BIT && (MODE) == XCmode))
+    ((MODE) == SFmode || (MODE) == DFmode || (MODE) == XFmode		\
+     || (MODE) == SCmode || (MODE) == DCmode || (MODE) == XCmode)	\
 
 #define VALID_INT_MODE_P(MODE)						\
     ((MODE) == QImode || (MODE) == HImode || (MODE) == SImode		\
      || (MODE) == DImode						\
      || (MODE) == CQImode || (MODE) == CHImode || (MODE) == CSImode	\
      || (MODE) == CDImode						\
-     || (TARGET_64BIT && ((MODE) == TImode || (MODE) == CTImode)))
+     || (TARGET_64BIT && ((MODE) == TImode || (MODE) == CTImode		\
+         || (MODE) == TFmode || (MODE) == TCmode)))
 
 /* Return true for modes passed in SSE registers.  */
 #define SSE_REG_MODE_P(MODE) \
- ((MODE) == TImode || (MODE) == V16QImode				\
+ ((MODE) == TImode || (MODE) == V16QImode || (MODE) == TFmode		\
    || (MODE) == V8HImode || (MODE) == V2DFmode || (MODE) == V2DImode	\
    || (MODE) == V4SFmode || (MODE) == V4SImode)
 
@@ -1568,15 +1557,12 @@ enum reg_class
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.  */
 /* On the 80386, this is the size of MODE in words,
-   except in the FP regs, where a single reg is always enough.
-   The TFmodes are really just 80bit values, so we use only 3 registers
-   to hold them, instead of 4, as the size would suggest.
- */
+   except in the FP regs, where a single reg is always enough.  */
 #define CLASS_MAX_NREGS(CLASS, MODE)					\
  (!MAYBE_INTEGER_CLASS_P (CLASS)					\
   ? (COMPLEX_MODE_P (MODE) ? 2 : 1)					\
-  : ((GET_MODE_SIZE ((MODE) == TFmode ? XFmode : (MODE))		\
-     + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
+  : (((((MODE) == XFmode ? 12 : GET_MODE_SIZE (MODE)))			\
+      + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 /* A C expression whose value is nonzero if pseudos that have been
    assigned to registers of class CLASS would likely be spilled
@@ -1827,10 +1813,6 @@ typedef struct ix86_args {
 #define SETUP_INCOMING_VARARGS(CUM, MODE, TYPE, PRETEND_SIZE, NO_RTL)	\
   ix86_setup_incoming_varargs (&(CUM), (MODE), (TYPE), &(PRETEND_SIZE), \
 			       (NO_RTL))
-
-/* Define the `__builtin_va_list' type for the ABI.  */
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  ((VALIST) = ix86_build_va_list ())
 
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG) \
@@ -2900,7 +2882,8 @@ do {									\
    If CODE is 'k', pretend the mode is SImode.
    If CODE is 'q', pretend the mode is DImode.
    If CODE is 'h', pretend the reg is the `high' byte register.
-   If CODE is 'y', print "st(0)" instead of "st", if the reg is stack op.  */
+   If CODE is 'y', print "st(0)" instead of "st", if the reg is stack op.
+   If CODE is -1, it is not an error for X to be a virtual register.  */
 
 #define PRINT_REG(X, CODE, FILE)  \
   print_reg ((X), (CODE), (FILE))
@@ -2916,70 +2899,6 @@ do {						\
   if (! output_addr_const_extra (FILE, (X)))	\
     goto FAIL;					\
 } while (0);
-
-/* Print the name of a register for based on its machine mode and number.
-   This macro is used to print debugging output.
-   This macro is different from PRINT_REG in that it may be used in
-   programs that are not linked with aux-output.o.  */
-
-#define DEBUG_PRINT_REG(X, CODE, FILE)			\
-  do { static const char * const hi_name[] = HI_REGISTER_NAMES;	\
-       static const char * const qi_name[] = QI_REGISTER_NAMES;	\
-       fprintf ((FILE), "%d ", REGNO (X));		\
-       if (REGNO (X) == FLAGS_REG)			\
-	 { fputs ("flags", (FILE)); break; }		\
-       if (REGNO (X) == DIRFLAG_REG)			\
-	 { fputs ("dirflag", (FILE)); break; }		\
-       if (REGNO (X) == FPSR_REG)			\
-	 { fputs ("fpsr", (FILE)); break; }		\
-       if (REGNO (X) == ARG_POINTER_REGNUM)		\
-	 { fputs ("argp", (FILE)); break; }		\
-       if (REGNO (X) == FRAME_POINTER_REGNUM)		\
-	 { fputs ("frame", (FILE)); break; }		\
-       if (STACK_TOP_P (X))				\
-	 { fputs ("st(0)", (FILE)); break; }		\
-       if (FP_REG_P (X))				\
-	 { fputs (hi_name[REGNO(X)], (FILE)); break; }	\
-       if (REX_INT_REG_P (X))				\
-	 {						\
-	   switch (GET_MODE_SIZE (GET_MODE (X)))	\
-	     {						\
-	     default:					\
-	     case 8:					\
-	       fprintf ((FILE), "r%i", REGNO (X)	\
-			- FIRST_REX_INT_REG + 8);	\
-	       break;					\
-	     case 4:					\
-	       fprintf ((FILE), "r%id", REGNO (X)	\
-			- FIRST_REX_INT_REG + 8);	\
-	       break;					\
-	     case 2:					\
-	       fprintf ((FILE), "r%iw", REGNO (X)	\
-			- FIRST_REX_INT_REG + 8);	\
-	       break;					\
-	     case 1:					\
-	       fprintf ((FILE), "r%ib", REGNO (X)	\
-			- FIRST_REX_INT_REG + 8);	\
-	       break;					\
-	     }						\
-	   break;					\
-	 }						\
-       switch (GET_MODE_SIZE (GET_MODE (X)))		\
-	 {						\
-	 case 8:					\
-	   fputs ("r", (FILE));				\
-	   fputs (hi_name[REGNO (X)], (FILE));		\
-	   break;					\
-	 default:					\
-	   fputs ("e", (FILE));				\
-	 case 2:					\
-	   fputs (hi_name[REGNO (X)], (FILE));		\
-	   break;					\
-	 case 1:					\
-	   fputs (qi_name[REGNO (X)], (FILE));		\
-	   break;					\
-	 }						\
-     } while (0)
 
 /* a letter which is not needed by the normal asm syntax, which
    we can use for operand syntax in the extended asm */

@@ -352,22 +352,23 @@ m68k_compute_frame_layout (void)
   current_frame.reg_mask = mask;
   current_frame.reg_rev_mask = rmask;
 
+  current_frame.foffset = 0;
+  mask = rmask = saved = 0;
   if (TARGET_68881 /* || TARGET_CFV4E */)
     {
-      mask = rmask = saved = 0;
       for (regno = 16; regno < 24; regno++)
 	if (m68k_save_reg (regno, interrupt_handler))
 	  {
-	    mask |= 1 << (23 - regno);
-	    rmask |= 1 << (regno - 16);
+	    mask |= 1 << (regno - 16);
+	    rmask |= 1 << (23 - regno);
 	    saved++;
 	  }
       current_frame.foffset = saved * 12 /* (TARGET_CFV4E ? 8 : 12) */;
       current_frame.offset += current_frame.foffset;
-      current_frame.fpu_no = saved;
-      current_frame.fpu_mask = mask;
-      current_frame.fpu_rev_mask = rmask;
     }
+  current_frame.fpu_no = saved;
+  current_frame.fpu_mask = mask;
+  current_frame.fpu_rev_mask = rmask;
 
   /* Remember what function this frame refers to.  */
   current_frame.funcdef_no = current_function_funcdef_no;
@@ -452,7 +453,6 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
 static void
 m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
-  int num_saved_regs = 0;
   HOST_WIDE_INT fsize_with_regs;
   HOST_WIDE_INT cfa_offset = INCOMING_FRAME_SP_OFFSET;
 
@@ -473,12 +473,10 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
     }
 
   /* On ColdFire add register save into initial stack frame setup, if possible.  */
-  num_saved_regs = 0;
+  fsize_with_regs = current_frame.size;
   if (TARGET_COLDFIRE && current_frame.reg_no > 2)
-    num_saved_regs = current_frame.reg_no;
+    fsize_with_regs += current_frame.reg_no * 4;
 
-  fsize_with_regs = current_frame.size + num_saved_regs * 4;
-  
   if (frame_pointer_needed)
     {
       if (current_frame.size == 0 && TARGET_68040)
@@ -606,28 +604,24 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	}
     } /* !frame_pointer_needed */
 
-  if (TARGET_68881)
+  if (current_frame.fpu_mask)
     {
-      if (current_frame.fpu_mask)
-	{
 #ifdef MOTOROLA
-	  asm_fprintf (stream, "\tfmovm %I0x%x,-(%Rsp)\n", current_frame.fpu_mask);
+      asm_fprintf (stream, "\tfmovm %I0x%x,-(%Rsp)\n", current_frame.fpu_mask);
 #else
-	  asm_fprintf (stream, "\tfmovem %I0x%x,%Rsp@-\n", current_frmae.fpu_mask);
+      asm_fprintf (stream, "\tfmovem %I0x%x,%Rsp@-\n", current_frame.fpu_mask);
 #endif
-	  if (dwarf2out_do_frame ())
-	    {
-	      char *l = (char *) dwarf2out_cfi_label ();
-	      int n_regs, regno;
+      if (dwarf2out_do_frame ())
+	{
+	  char *l = (char *) dwarf2out_cfi_label ();
+	  int n_regs, regno;
 
-	      cfa_offset += current_frame.fpu_no * 12;
-	      if (! frame_pointer_needed)
-		dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
-	      for (regno = 16, n_regs = 0; regno < 24; regno++)
-		if (current_frame.fpu_mask & (1 << (regno - 16)))
-		  dwarf2out_reg_save (l, regno,
-				      -cfa_offset + n_regs++ * 12);
-	    }
+	  cfa_offset += current_frame.fpu_no * 12;
+	  if (! frame_pointer_needed)
+	    dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
+	  for (regno = 16, n_regs = 0; regno < 24; regno++)
+	    if (current_frame.fpu_mask & (1 << (regno - 16)))
+	      dwarf2out_reg_save (l, regno, -cfa_offset + n_regs++ * 12);
 	}
     }
 
@@ -649,7 +643,7 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	warning ("stack limit expression is not supported");
     }
   
-  if (num_saved_regs <= 2)
+  if (current_frame.reg_no <= 2)
     {
       /* Store each separately in the same order moveml uses.
          Using two movel instructions instead of a single moveml
@@ -698,9 +692,9 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
       else
 	{
 #ifdef MOTOROLA
-	  asm_fprintf (stream, "\tmovm.l %I0x%x,-(%Rsp)\n", current_frame.reg_mask);
+	  asm_fprintf (stream, "\tmovm.l %I0x%x,-(%Rsp)\n", current_frame.reg_rev_mask);
 #else
-	  asm_fprintf (stream, "\tmoveml %I0x%x,%Rsp@-\n", current_frame.reg_mask);
+	  asm_fprintf (stream, "\tmoveml %I0x%x,%Rsp@-\n", current_frame.reg_rev_mask);
 #endif
 	}
       if (dwarf2out_do_frame ())
@@ -713,8 +707,7 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	    dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
 	  for (regno = 0, n_regs = 0; regno < 16; regno++)
 	    if (current_frame.reg_mask & (1 << regno))
-	      dwarf2out_reg_save (l, regno,
-				  -cfa_offset + n_regs++ * 4);
+	      dwarf2out_reg_save (l, regno, -cfa_offset + n_regs++ * 4);
 	}
     }
   if (!TARGET_SEP_DATA && flag_pic &&
@@ -925,7 +918,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 #else
               asm_fprintf (stream, "\tmoveml %s@(-%wd),%I0x%x\n",
                            reg_names[FRAME_POINTER_REGNUM],
-                           offset + fsize,
+                           current_frame.offset + fsize,
 			   current_frame.reg_mask);
 #endif
 	    }
@@ -1004,7 +997,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	  asm_fprintf (stream, "\tfmovm -%wd(%s),%I0x%x\n",
 		       current_frame.foffset + fsize,
 		       reg_names[FRAME_POINTER_REGNUM],
-		       current_frame.fpu_mask);
+		       current_frame.fpu_rev_mask);
 #else
 	  asm_fprintf (stream, "\tfmovem %s@(-%wd),%I0x%x\n",
 		       reg_names[FRAME_POINTER_REGNUM],
@@ -2602,12 +2595,17 @@ notice_update_cc (rtx exp, rtx insn)
   if (cc_status.value2 != 0)
     switch (GET_CODE (cc_status.value2))
       {
-      case PLUS: case MINUS: case MULT:
-      case DIV: case UDIV: case MOD: case UMOD: case NEG:
-#if 0 /* These instructions always clear the overflow bit */
       case ASHIFT: case ASHIFTRT: case LSHIFTRT:
       case ROTATE: case ROTATERT:
-#endif
+	/* These instructions always clear the overflow bit, and set
+	   the carry to the bit shifted out.  */
+	/* ??? We don't currently have a way to signal carry not valid,
+	   nor do we check for it in the branch insns.  */
+	CC_STATUS_INIT;
+	break;
+
+      case PLUS: case MINUS: case MULT:
+      case DIV: case UDIV: case MOD: case UMOD: case NEG:
 	if (GET_MODE (cc_status.value2) != VOIDmode)
 	  cc_status.flags |= CC_NO_OVERFLOW;
 	break;

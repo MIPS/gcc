@@ -11045,6 +11045,7 @@ instantiate_pending_templates (void)
   tree last = NULL_TREE;
   int instantiated_something = 0;
   int reconsider;
+  location_t saved_loc = input_location;
   
   do 
     {
@@ -11119,6 +11120,7 @@ instantiate_pending_templates (void)
     } 
   while (reconsider);
 
+  input_location = saved_loc;
   return instantiated_something;
 }
 

@@ -270,8 +270,8 @@ enum dump_file_index
   DFI_vpt,
   DFI_ce1,
   DFI_tracer,
-  DFI_web,
   DFI_loop2,
+  DFI_web,
   DFI_cse2,
   DFI_life,
   DFI_combine,
@@ -325,8 +325,8 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "vpt",	'V', 1, 0, 0 },
   { "ce1",	'C', 1, 0, 0 },
   { "tracer",	'T', 1, 0, 0 },
-  { "web",      'Z', 0, 0, 0 },
   { "loop2",	'L', 1, 0, 0 },
+  { "web",      'Z', 0, 0, 0 },
   { "cse2",	't', 1, 0, 0 },
   { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
   { "combine",	'c', 1, 0, 0 },
@@ -4162,7 +4162,9 @@ init_asm_output (const char *name)
 void *
 default_get_pch_validity (size_t *len)
 {
+#ifdef TARGET_OPTIONS
   size_t i;
+#endif
   char *result, *r;
   
   *len = sizeof (target_flags) + 2;

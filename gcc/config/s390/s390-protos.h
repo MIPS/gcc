@@ -97,9 +97,9 @@ extern int s390_agen_dep_p (rtx, rtx);
 extern int s390_function_arg_pass_by_reference (enum machine_mode, tree);
 extern void s390_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				       tree, int);
-extern tree s390_build_va_list (void);
 #ifdef RTX_CODE
 extern rtx s390_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
+extern rtx s390_function_value (tree, enum machine_mode);
 extern void s390_va_start (tree, rtx);
 extern rtx s390_va_arg (tree, tree);
 #endif /* RTX_CODE */

@@ -84,11 +84,15 @@
 %{mcpu=740: -mppc} \
 %{mcpu=7400: -mppc} \
 %{mcpu=7450: -mppc} \
+%{mcpu=G4: -mppc} \
 %{mcpu=750: -mppc} \
+%{mcpu=G3: -mppc} \
 %{mcpu=801: -mppc} \
 %{mcpu=821: -mppc} \
 %{mcpu=823: -mppc} \
 %{mcpu=860: -mppc} \
+%{mcpu=970: -mpower4} \
+%{mcpu=G5: -mpower4} \
 %{mcpu=8540: -me500} \
 %{maltivec: -maltivec}"
 
@@ -604,7 +608,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define PROMOTE_MODE(MODE,UNSIGNEDP,TYPE)	\
   if (GET_MODE_CLASS (MODE) == MODE_INT		\
       && GET_MODE_SIZE (MODE) < UNITS_PER_WORD) \
-    (MODE) = word_mode;
+    (MODE) = TARGET_32BIT ? SImode : DImode;
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
@@ -625,7 +629,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define MAX_BITS_PER_WORD 64
 
 /* Width of a word, in units (bytes).  */
-#define UNITS_PER_WORD (TARGET_32BIT ? 4 : 8)
+#define UNITS_PER_WORD (! TARGET_POWERPC64 ? 4 : 8)
 #ifdef IN_LIBGCC2
 #define MIN_UNITS_PER_WORD UNITS_PER_WORD
 #else
@@ -988,8 +992,6 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    POWER and PowerPC GPRs hold 32 bits worth;
    PowerPC64 GPRs and FPRs point register holds 64 bits worth.  */
 
-#define UNITS_PER_GPR_WORD (! TARGET_POWERPC64 ? 4 : 8)
-
 #define HARD_REGNO_NREGS(REGNO, MODE)					\
   (FP_REGNO_P (REGNO)							\
    ? ((GET_MODE_SIZE (MODE) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD) \
@@ -997,7 +999,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    ? ((GET_MODE_SIZE (MODE) + UNITS_PER_SPE_WORD - 1) / UNITS_PER_SPE_WORD) \
    : ALTIVEC_REGNO_P (REGNO)						\
    ? ((GET_MODE_SIZE (MODE) + UNITS_PER_ALTIVEC_WORD - 1) / UNITS_PER_ALTIVEC_WORD) \
-   : ((GET_MODE_SIZE (MODE) + UNITS_PER_GPR_WORD - 1) / UNITS_PER_GPR_WORD))
+   : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 #define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)	\
   ((TARGET_32BIT && TARGET_POWERPC64			\
@@ -1042,7 +1044,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    : SPE_SIMD_REGNO_P (REGNO) && TARGET_SPE && SPE_VECTOR_MODE (MODE) ? 1 \
    : CR_REGNO_P (REGNO) ? GET_MODE_CLASS (MODE) == MODE_CC		\
    : XER_REGNO_P (REGNO) ? (MODE) == PSImode				\
-   : GET_MODE_SIZE (MODE) <= UNITS_PER_GPR_WORD)
+   : GET_MODE_SIZE (MODE) <= UNITS_PER_WORD)
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
@@ -1465,7 +1467,7 @@ enum reg_class
 #define CLASS_MAX_NREGS(CLASS, MODE)					\
  (((CLASS) == FLOAT_REGS) 						\
   ? ((GET_MODE_SIZE (MODE) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD) \
-  : ((GET_MODE_SIZE (MODE) + UNITS_PER_GPR_WORD - 1) / UNITS_PER_GPR_WORD))
+  : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 
 /* Return a class of registers that cannot change FROM mode to TO mode.  */
@@ -1766,10 +1768,12 @@ typedef struct rs6000_args
 /* Define intermediate macro to compute the size (in registers) of an argument
    for the RS/6000.  */
 
+#define UNITS_PER_ARG (TARGET_32BIT ? 4 : 8)
+
 #define RS6000_ARG_SIZE(MODE, TYPE)					\
 ((MODE) != BLKmode							\
- ? (GET_MODE_SIZE (MODE) + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD	\
- : (int_size_in_bytes (TYPE) + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
+ ? (GET_MODE_SIZE (MODE) + (UNITS_PER_ARG - 1)) / UNITS_PER_ARG		\
+ : (int_size_in_bytes (TYPE) + (UNITS_PER_ARG - 1)) / UNITS_PER_ARG)
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
@@ -1795,18 +1799,6 @@ typedef struct rs6000_args
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
   function_arg_advance (&CUM, MODE, TYPE, NAMED)
-
-/* Nonzero if we can use a floating-point register to pass this arg.  */
-#define USE_FP_FOR_ARG_P(CUM,MODE,TYPE) \
-  (GET_MODE_CLASS (MODE) == MODE_FLOAT  \
-   && (CUM).fregno <= FP_ARG_MAX_REG    \
-   && TARGET_HARD_FLOAT && TARGET_FPRS)
-
-/* Nonzero if we can use an AltiVec register to pass this arg.  */
-#define USE_ALTIVEC_FOR_ARG_P(CUM,MODE,TYPE)	\
-  (ALTIVEC_VECTOR_MODE (MODE)			\
-   && (CUM).vregno <= ALTIVEC_ARG_MAX_REG	\
-   && TARGET_ALTIVEC_ABI)
 
 /* Determine where to put an argument to a function.
    Value is zero to push the argument on the stack,
@@ -1870,10 +1862,6 @@ typedef struct rs6000_args
    This should be set for Linux and Darwin as well, but we can't break
    the ABIs at the moment.  For now, only AIX gets fixed.  */
 #define SPLIT_COMPLEX_ARGS (DEFAULT_ABI == ABI_AIX)
-
-/* Define the `__builtin_va_list' type for the ABI.  */
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = rs6000_build_va_list ()
 
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
@@ -2287,6 +2275,9 @@ do {								\
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
 #define Pmode (TARGET_32BIT ? SImode : DImode)
+
+/* Supply definition of STACK_SIZE_MODE for allocate_dynamic_stack_space. */
+#define STACK_SIZE_MODE (TARGET_32BIT ? SImode : DImode)
 
 /* Mode of a function address in a call instruction (for indexing purposes).
    Doesn't matter on RS/6000.  */

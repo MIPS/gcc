@@ -103,10 +103,6 @@ extern rtx sh_va_arg (tree, tree);
 #endif /* TREE_CODE */
 #endif /* RTX_CODE */
 
-#ifdef TREE_CODE
-extern tree sh_build_va_list (void);
-#endif /* TREE_CODE */
-
 extern const char *output_jump_label_table (void);
 extern int sh_handle_pragma (int (*)(void), void (*)(int), const char *);
 extern struct rtx_def *get_fpscr_rtx (void);
@@ -142,5 +138,6 @@ extern rtx sh_get_pr_initial_val (void);
 extern rtx sh_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void sh_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern int sh_pass_in_reg_p (CUMULATIVE_ARGS *, enum machine_mode, tree);
+extern const char *sh_pch_valid_p (const void *data_p, size_t sz);
 
 #endif /* ! GCC_SH_PROTOS_H */

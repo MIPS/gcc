@@ -1,3 +1,19 @@
+2003-10-31  Andreas Jaeger  <aj@suse.de>
+
+	* floatformat.c (floatformat_always_valid): Add unused attribute.
+
+2003-10-30  Josef Zlomek  <zlomekj@suse.cz>
+
+	Jan Hubicka <jh@suse.cz>
+	* vasprintf.c (int_vasprintf): Pass va_list by value.
+	Use va_copy for copying va_list.
+	(vasprintf): Pass va_list by value.
+
+2003-10-30  Josef Zlomek  <zlomekj@suse.cz>
+
+	* hashtab.c (htab_find_slot_with_hash): Decrease n_deleted
+	instead of increasing n_elements when inserting to deleted slot.
+
 2003-10-20  J. Brobecker  <brobecker@gnat.com>
 
 	* cplus-dem.c (demangle_template): Register a new Btype only
