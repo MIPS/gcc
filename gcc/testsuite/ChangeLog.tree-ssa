@@ -1,3 +1,8 @@
+2004-04-25  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14942
+	* gfortran.fortran-torture/execute/list_read_1.f90: Add new test.
+
 2004-04-24  Victor Leikehman  <lei@il.ibm.com>
 
 	* gfortran.fortran-torture/execute/der_io.f90: New test.

@@ -1,3 +1,9 @@
+2004-04-25  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14942
+	* io/list_read.c(list_formatted_read): finish consuming the
+	spaces and seperators at eoln to get ready for next item.
+
 2004-04-23  Bud Davis  <bdavis9659@comcast.net>
 
 	PR fortran/15113
