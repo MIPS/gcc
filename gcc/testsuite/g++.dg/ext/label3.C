@@ -4,6 +4,7 @@
 // testcase reduced from libjava/interpret.cc.
 
 // { dg-do run }
+// { dg-options "-O2" }
 
 extern "C" int printf (const char *, ...);
 
