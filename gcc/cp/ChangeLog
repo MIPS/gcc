@@ -1,3 +1,8 @@
+2003-09-03  Richard Henderson  <rth@redhat.com>
+
+	* optimize.c (optimize_function): Push/pop ggc context around
+	the call to optimize_inline_calls.
+
 2003-08-29  Richard Henderson  <rth@redhat.com>
             Jason Merrill <jason@redhat.com>
 
