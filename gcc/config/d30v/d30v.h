@@ -79,7 +79,13 @@
 
 /* Run-time target specifications */
 
-#define CPP_PREDEFINES "-D__D30V__ -Amachine=d30v"
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define ("__D30V__");		\
+      builtin_assert ("machine=d30v");		\
+    }						\
+  while (0)
 
 /* This declaration should be present.  */
 extern int target_flags;
@@ -1615,7 +1621,7 @@ typedef struct d30v_stack {
    on the stack, there is no need to store anything in `CUMULATIVE_ARGS';
    however, the data structure must exist and should not be empty, so use
    `int'.  */
-typedef int CUMULATIVE_ARGS;
+#define CUMULATIVE_ARGS int
 
 /* A C statement (sans semicolon) for initializing the variable CUM for the
    state at the beginning of the argument list.  The variable has type
@@ -2270,60 +2276,7 @@ typedef struct machine_function GTY(())
 
 /* A C compound statement with a conditional `goto LABEL;' executed if X (an
    RTX) is a legitimate memory address on the target machine for a memory
-   operand of mode MODE.
-
-   It usually pays to define several simpler macros to serve as subroutines for
-   this one.  Otherwise it may be too complicated to understand.
-
-   This macro must exist in two variants: a strict variant and a non-strict
-   one.  The strict variant is used in the reload pass.  It must be defined so
-   that any pseudo-register that has not been allocated a hard register is
-   considered a memory reference.  In contexts where some kind of register is
-   required, a pseudo-register with no hard register must be rejected.
-
-   The non-strict variant is used in other passes.  It must be defined to
-   accept all pseudo-registers in every context where some kind of register is
-   required.
-
-   Compiler source files that want to use the strict variant of this macro
-   define the macro `REG_OK_STRICT'.  You should use an `#ifdef REG_OK_STRICT'
-   conditional to define the strict variant in that case and the non-strict
-   variant otherwise.
-
-   Subroutines to check for acceptable registers for various purposes (one for
-   base registers, one for index registers, and so on) are typically among the
-   subroutines used to define `GO_IF_LEGITIMATE_ADDRESS'.  Then only these
-   subroutine macros need have two variants; the higher levels of macros may be
-   the same whether strict or not.
-
-   Normally, constant addresses which are the sum of a `symbol_ref' and an
-   integer are stored inside a `const' RTX to mark them as constant.
-   Therefore, there is no need to recognize such sums specifically as
-   legitimate addresses.  Normally you would simply recognize any `const' as
-   legitimate.
-
-   Usually `PRINT_OPERAND_ADDRESS' is not prepared to handle constant sums that
-   are not marked with `const'.  It assumes that a naked `plus' indicates
-   indexing.  If so, then you *must* reject such naked constant sums as
-   illegitimate addresses, so that none of them will be given to
-   `PRINT_OPERAND_ADDRESS'.
-
-   On some machines, whether a symbolic address is legitimate depends on the
-   section that the address refers to.  On these machines, define the macro
-   `ENCODE_SECTION_INFO' to store the information into the `symbol_ref', and
-   then check for it here.  When you see a `const', you will have to look
-   inside it to find the `symbol_ref' in order to determine the section.  *Note
-   Assembler Format::.
-
-   The best way to modify the name string is by adding text to the beginning,
-   with suitable punctuation to prevent any ambiguity.  Allocate the new name
-   in `saveable_obstack'.  You will have to modify `ASM_OUTPUT_LABELREF' to
-   remove and decode the added text and output the name accordingly, and define
-   `STRIP_NAME_ENCODING' to access the original name string.
-
-   You can check the information stored here into the `symbol_ref' in the
-   definitions of the macros `GO_IF_LEGITIMATE_ADDRESS' and
-   `PRINT_OPERAND_ADDRESS'.  */
+   operand of mode MODE.  */
 
 #ifdef	REG_OK_STRICT
 #define REG_OK_STRICT_P 1
@@ -2724,7 +2677,7 @@ extern const char *d30v_branch_cost_string;
    uninitialized global data will be output in the data section if
    `-fno-common' is passed, otherwise `ASM_OUTPUT_COMMON' will be
    used.  */
-#define BSS_SECTION_ASM_OP "\t.bss"
+#define BSS_SECTION_ASM_OP "\t.section .bss"
 
 /* If defined, a C expression whose value is a string containing the
    assembler operation to identify the following data as
@@ -2747,39 +2700,12 @@ extern const char *d30v_branch_cost_string;
    Defined in svr4.h.  */
 /* #define EXTRA_SECTION_FUNCTIONS */
 
-/* On most machines, read-only variables, constants, and jump tables are placed
-   in the text section.  If this is not the case on your machine, this macro
-   should be defined to be the name of a function (either `data_section' or a
-   function defined in `EXTRA_SECTIONS') that switches to the section to be
-   used for read-only items.
-
-   If these items should be placed in the text section, this macro should not
-   be defined.  */
-/* #define READONLY_DATA_SECTION */
-
-/* A C statement or statements to switch to the appropriate section for output
-   of RTX in mode MODE.  You can assume that RTX is some kind of constant in
-   RTL.  The argument MODE is redundant except in the case of a `const_int'
-   rtx.  Select the section by calling `text_section' or one of the
-   alternatives for other sections.
-
-   Do not define this macro if you put all constants in the read-only data
-   section.
-
-   Defined in svr4.h.  */
-/* #define SELECT_RTX_SECTION(MODE, RTX, ALIGN) */
-
 /* Define this macro if jump tables (for `tablejump' insns) should be output in
    the text section, along with the assembler instructions.  Otherwise, the
    readonly data section is used.
 
    This macro is irrelevant if there is no separate readonly data section.  */
 /* #define JUMP_TABLES_IN_TEXT_SECTION */
-
-/* Decode SYM_NAME and store the real name part in VAR, sans the characters
-   that encode section info.  Define this macro if `ENCODE_SECTION_INFO' alters
-   the symbol's name string.  */
-/* #define STRIP_NAME_ENCODING(VAR, SYM_NAME) */
 
 /* Position Independent Code.  */
 
@@ -3566,12 +3492,7 @@ do {									\
 
 /* A C compound statement to output to stdio stream STREAM the assembler syntax
    for an instruction operand that is a memory reference whose address is X.  X
-   is an RTL expression.
-
-   On some machines, the syntax for a symbolic address depends on the section
-   that the address refers to.  On these machines, define the macro
-   `ENCODE_SECTION_INFO' to store the information into the `symbol_ref', and
-   then check for it here.  *Note Assembler Format::.  */
+   is an RTL expression.  */
 
 #define PRINT_OPERAND_ADDRESS(STREAM, X) d30v_print_operand_address (STREAM, X)
 

@@ -223,8 +223,8 @@ void test01()
 
 
 #ifdef _GLIBCPP_USE_LONG_LONG
-  long long ll1 = 9223372036854775807;
-  long long ll2 = -9223372036854775807;
+  long long ll1 = 9223372036854775807LL;
+  long long ll2 = -9223372036854775807LL;
   long long ll;
 
   iss.str(L"9.223.372.036.854.775.807");
@@ -275,7 +275,7 @@ void test02()
   VERIFY( rem1 == L" Elizabeth Durack" );
 
   // 02 get(long double)
-  long double ld = 0;
+  long double ld = 0.0;
   err = goodbit;
   iter_type end2 = ng.get(str.begin(), str.end(), iss, err, ld);
   wstring rem2(end2, str.end());
@@ -420,7 +420,7 @@ void test06()
 {
   bool test = true;
 
-  const char* tentLANG = setlocale(LC_ALL, "ja_JP.eucjp");
+  const char* tentLANG = std::setlocale(LC_ALL, "ja_JP.eucjp");
   if (tentLANG != NULL)
     {
       std::string preLANG = tentLANG;
@@ -428,7 +428,7 @@ void test06()
       test02();
       test04();
       test05();
-      std::string postLANG = setlocale(LC_ALL, NULL);
+      std::string postLANG = std::setlocale(LC_ALL, NULL);
       VERIFY( preLANG == postLANG );
     }
 }

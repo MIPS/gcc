@@ -3,7 +3,8 @@ dnl Initialize configure bits.
 dnl
 dnl GLIBCPP_CONFIGURE
 AC_DEFUN(GLIBCPP_CONFIGURE, [
-  dnl Default to --enable-multilib
+  dnl Default to --enable-multilib (this is also passed by default
+  dnl from the ubercommon-top-level configure)
   AC_ARG_ENABLE(multilib,
   [  --enable-multilib       build hella library versions (default)],
   [case "${enableval}" in
@@ -34,6 +35,8 @@ AC_DEFUN(GLIBCPP_CONFIGURE, [
   toplevel_srcdir=\${top_srcdir}/$toprel
   AC_SUBST(toplevel_srcdir)
 
+#possibly test for the presence of the compiler sources here?
+
   # Export build and source directories.
   # These need to be absolute paths, yet at the same time need to
   # canonicalize only relative paths, because then amd will not unmount
@@ -51,7 +54,8 @@ AC_DEFUN(GLIBCPP_CONFIGURE, [
 
   AC_PROG_AWK
   # Will set LN_S to either 'ln -s' or 'ln'.  With autoconf 2.5x, can also
-  # be 'cp -p' if linking isn't available.
+  # be 'cp -p' if linking isn't available.  Uncomment the next line to
+  # force a particular method.
   #ac_cv_prog_LN_S='cp -p'
   AC_PROG_LN_S
 
@@ -181,14 +185,12 @@ AC_DEFUN(GLIBCPP_CONFIGURE, [
     AC_EXEEXT
   fi
 
-  . [$]{glibcpp_basedir}/configure.host
-
   case [$]{glibcpp_basedir} in
     /* | [A-Za-z]:[\\/]*) libgcj_flagbasedir=[$]{glibcpp_basedir} ;;
     *) glibcpp_flagbasedir='[$](top_builddir)/'[$]{glibcpp_basedir} ;;
   esac
 
-  # This does for the target what configure.host does for the host.  In
+  # Find platform-specific directories containing configuration info.  In
   # addition to possibly modifying the same flags, it also sets up symlinks.
   GLIBCPP_CHECK_TARGET
 
@@ -1172,15 +1174,14 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
 
       # Declare intention to use gettext, and add support for specific
       # languages.
-      # For some reason, ALL_LINGUAS has to be before AM_GNU_GETTEXT
+      # For some reason, ALL_LINGUAS has to be before AM-GNU-GETTEXT
       ALL_LINGUAS="de fr"
 
-      # Don't call AM_GNU_GETTEXT here. Instead, assume glibc.
+      # Don't call AM-GNU-GETTEXT here. Instead, assume glibc.
       AC_CHECK_PROG(check_msgfmt, msgfmt, yes, no)
       if test x"$check_msgfmt" = x"yes" && test x"$enable_nls" = x"yes"; then
 	USE_NLS=yes
       fi
-
       # Export the build objects.
       for ling in $ALL_LINGUAS; do \
         glibcpp_MOFILES="$glibcpp_MOFILES $ling.mo"; \
@@ -1690,23 +1691,20 @@ changequote([, ])
   dnl Option parsed, now set things appropriately
   case "$enable_cheaders" in
     c_shadow) 
-        CSHADOW_FLAGS="-fno-builtin"
         C_INCLUDE_DIR='${glibcpp_srcdir}/include/c_shadow'
         ;;
     c_std)   
-        CSHADOW_FLAGS=""
         C_INCLUDE_DIR='${glibcpp_srcdir}/include/c_std'
         ;;
     c)   
-        CSHADOW_FLAGS=""
         C_INCLUDE_DIR='${glibcpp_srcdir}/include/c'
         ;;
   esac
 
-  AC_SUBST(CSHADOW_FLAGS)
   AC_SUBST(C_INCLUDE_DIR)
   AM_CONDITIONAL(GLIBCPP_C_HEADERS_C, test "$enable_cheaders" = c)
   AM_CONDITIONAL(GLIBCPP_C_HEADERS_C_STD, test "$enable_cheaders" = c_std)
+  AM_CONDITIONAL(GLIBCPP_C_HEADERS_COMPATIBILITY, test "$c_compatibility" = yes)
 ])
 
 
@@ -1972,8 +1970,9 @@ dnl string, '#' otherwise
 dnl Check for headers for, and arguments to, the setrlimit() function.
 dnl Used only in testsuite_hooks.h.
 AC_DEFUN(GLIBCPP_CHECK_SETRLIMIT_ancilliary, [
-  AC_TRY_COMPILE([#include <sys/resource.h>
-                  #include <unistd.h>
+  AC_TRY_COMPILE([#include <unistd.h>
+                  #include <sys/time.h>
+                  #include <sys/resource.h>
                  ], [ int f = RLIMIT_$1 ; ],
                  [glibcpp_mresult=1], [glibcpp_mresult=0])
   AC_DEFINE_UNQUOTED(HAVE_MEMLIMIT_$1, $glibcpp_mresult,
@@ -1981,7 +1980,7 @@ AC_DEFUN(GLIBCPP_CHECK_SETRLIMIT_ancilliary, [
 ])
 AC_DEFUN(GLIBCPP_CHECK_SETRLIMIT, [
   setrlimit_have_headers=yes
-  AC_CHECK_HEADERS(sys/resource.h unistd.h,
+  AC_CHECK_HEADERS(unistd.h sys/time.h sys/resource.h,
                    [],
                    setrlimit_have_headers=no)
   # If don't have the headers, then we can't run the tests now, and we
@@ -1995,8 +1994,9 @@ AC_DEFUN(GLIBCPP_CHECK_SETRLIMIT, [
 
     # Check for rlimit, setrlimit.
     AC_CACHE_VAL(ac_setrlimit, [
-      AC_TRY_COMPILE([#include <sys/resource.h>
-		      #include <unistd.h>
+      AC_TRY_COMPILE([#include <unistd.h>
+                  #include <sys/time.h>
+                  #include <sys/resource.h>
 		     ], 
                      [ struct rlimit r; setrlimit(0, &r);], 
                      [ac_setrlimit=yes], [ac_setrlimit=no])
@@ -2126,12 +2126,14 @@ if test x$enable_shared = xno ||
 fi
 
 # Check to see if libgcc_s exists, indicating that shared libgcc is possible.
-AC_MSG_CHECKING([for shared libgcc])
-ac_save_CFLAGS="$CFLAGS"
-CFLAGS=' -lgcc_s'
-AC_TRY_LINK( , [return 0], glibcpp_shared_libgcc=yes, glibcpp_shared_libgcc=no)
-CFLAGS="$ac_save_CFLAGS"
-AC_MSG_RESULT($glibcpp_shared_libgcc)
+if test $enable_symvers != no; then
+  AC_MSG_CHECKING([for shared libgcc])
+  ac_save_CFLAGS="$CFLAGS"
+  CFLAGS=' -lgcc_s'
+  AC_TRY_LINK(, [return 0], glibcpp_shared_libgcc=yes, glibcpp_shared_libgcc=no)
+  CFLAGS="$ac_save_CFLAGS"
+  AC_MSG_RESULT($glibcpp_shared_libgcc)
+fi
 
 # For GNU ld, we need at least this version.  It's 2.12 in the same format
 # as the tested-for version.  See GLIBCPP_CHECK_LINKER_FEATURES for more.

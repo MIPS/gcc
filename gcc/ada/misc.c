@@ -334,7 +334,7 @@ gnat_init (filename)
   gnat_argc++;
   gnat_argv[gnat_argc] = 0;
 
-  set_internal_error_function (internal_error_function);
+  global_dc->internal_error = &internal_error_function;
 
   /* Show that REFERENCE_TYPEs are internal and should be Pmode.  */
   internal_reference_types ();
@@ -740,7 +740,7 @@ insert_code_for (gnat_node)
       do_pending_stack_adjust ();
       insns = get_insns ();
       end_sequence ();
-      emit_insns_after (insns, RTL_EXPR_RTL (get_gnu_tree (gnat_node)));
+      emit_insn_after (insns, RTL_EXPR_RTL (get_gnu_tree (gnat_node)));
     }
 }
 

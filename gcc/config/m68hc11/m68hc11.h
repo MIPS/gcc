@@ -62,8 +62,8 @@ Note:
 
 #ifndef CPP_SPEC
 #define CPP_SPEC  \
-"%{mshort:-D__HAVE_SHORT_INT__ -D__INT__=16 -D__INT_MAX__=32767}\
- %{!mshort:-D__INT__=32 -D__INT_MAX__=2147483647}\
+"%{mshort:-D__HAVE_SHORT_INT__ -D__INT__=16}\
+ %{!mshort:-D__INT__=32}\
  %{m68hc12:-Dmc6812 -DMC6812 -Dmc68hc12}\
  %{!m68hc12:-Dmc6811 -DMC6811 -Dmc68hc11}\
  %{fshort-double:-D__HAVE_SHORT_DOUBLE__}"
@@ -1138,17 +1138,6 @@ typedef struct m68hc11_args
   m68hc11_initialize_trampoline ((TRAMP), (FNADDR), (CXT))
 
 
-/* Define this macro if references to a symbol must be treated
-   differently depending on something about the variable or function
-   named by the symbol (such as what section it is in).
-
-   For the 68HC11, we want to recognize trap handlers so that we
-   handle calls to traps in a special manner (by issuing the trap).
-   This information is stored in SYMBOL_REF_FLAG.  */
-
-#define ENCODE_SECTION_INFO(DECL, FIRST) \
-  m68hc11_encode_section_info (DECL, FIRST)
-
 /* `INIT_TARGET_OPTABS'
      Define this macro as a C statement that declares additional library
      routines renames existing ones. `init_optabs' calls this macro

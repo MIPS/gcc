@@ -91,13 +91,6 @@ public:
   void flip() { *_M_p ^= _M_mask; }
 };
 
-inline void swap(_Bit_reference __x, _Bit_reference __y)
-{
-  bool __tmp = __x;
-  __x = __y;
-  __y = __tmp;
-}
-
 struct _Bit_iterator_base : public iterator<random_access_iterator_tag, bool>
 {
   _Bit_type * _M_p;
@@ -166,7 +159,7 @@ struct _Bit_iterator : public _Bit_iterator_base
   _Bit_iterator(_Bit_type * __x, unsigned int __y) 
     : _Bit_iterator_base(__x, __y) {}
 
-  reference operator*() const { return reference(_M_p, 1U << _M_offset); }
+  reference operator*() const { return reference(_M_p, 1UL << _M_offset); }
   iterator& operator++() {
     _M_bump_up();
     return *this;
@@ -223,7 +216,7 @@ struct _Bit_const_iterator : public _Bit_iterator_base
     : _Bit_iterator_base(__x._M_p, __x._M_offset) {}
 
   const_reference operator*() const {
-    return _Bit_reference(_M_p, 1U << _M_offset);
+    return _Bit_reference(_M_p, 1UL << _M_offset);
   }
   const_iterator& operator++() {
     _M_bump_up();
@@ -635,6 +628,14 @@ template <typename _Alloc>
       std::swap(_M_finish, __x._M_finish);
       std::swap(_M_end_of_storage, __x._M_end_of_storage);
     }
+
+    // [23.2.5]/1, third-to-last entry in synopsis listing
+    static void swap(reference __x, reference __y) {
+      bool __tmp = __x;
+      __x = __y;
+      __y = __tmp;
+    }
+
     iterator insert(iterator __position, bool __x = bool()) {
       difference_type __n = __position - begin();
       if (_M_finish._M_p != _M_end_of_storage && __position == end())

@@ -30,6 +30,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "tree.h"
 #include "rtl.h"
+#include "real.h"
 #include "toplev.h"
 #include "flags.h"
 #include "java-tree.h"
@@ -307,7 +308,7 @@ static struct binding_level *global_binding_level;
 
 /* Binding level structures are initialized by copying this one.  */
 
-static struct binding_level clear_binding_level
+static const struct binding_level clear_binding_level
   = {NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE,
        NULL_BINDING_LEVEL, LARGEST_PC, 0};
 

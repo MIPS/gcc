@@ -38,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "tree.h"
 #include "flags.h"
+#include "real.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "regs.h"
@@ -101,13 +102,6 @@ dwarf2out_do_frame ()
 #endif
 	  );
 }
-
-/* The number of the current function definition for which debugging
-   information is being generated.  These numbers range from 1 up to the
-   maximum number of function definitions contained within the current
-   compilation unit.  These numbers are used to create unique label id's
-   unique to each function definition.  */
-unsigned current_funcdef_number = 0;
 
 /* The size of the target's pointer type.  */
 #ifndef PTR_SIZE
@@ -435,16 +429,17 @@ expand_builtin_init_dwarf_reg_sizes (address)
   rtx addr = expand_expr (address, NULL_RTX, VOIDmode, 0);
   rtx mem = gen_rtx_MEM (BLKmode, addr);
 
-  for (i = 0; i < DWARF_FRAME_REGISTERS; i++)
-    {
-      HOST_WIDE_INT offset = DWARF_FRAME_REGNUM (i) * GET_MODE_SIZE (mode);
-      HOST_WIDE_INT size = GET_MODE_SIZE (reg_raw_mode[i]);
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (DWARF_FRAME_REGNUM (i) < DWARF_FRAME_REGISTERS)
+      {
+	HOST_WIDE_INT offset = DWARF_FRAME_REGNUM (i) * GET_MODE_SIZE (mode);
+	HOST_WIDE_INT size = GET_MODE_SIZE (reg_raw_mode[i]);
 
-      if (offset < 0)
-	continue;
+	if (offset < 0)
+	  continue;
 
-      emit_move_insn (adjust_address (mem, mode, offset), GEN_INT (size));
-    }
+	emit_move_insn (adjust_address (mem, mode, offset), GEN_INT (size));
+      }
 }
 
 /* Convert a DWARF call frame info. operation to its string name */
@@ -2113,12 +2108,11 @@ dwarf2out_begin_prologue (line, file)
     return;
 #endif
 
-  current_funcdef_number++;
   function_section (current_function_decl);
   ASM_GENERATE_INTERNAL_LABEL (label, FUNC_BEGIN_LABEL,
-			       current_funcdef_number);
+			       current_function_funcdef_no);
   ASM_OUTPUT_DEBUG_LABEL (asm_out_file, FUNC_BEGIN_LABEL,
-			  current_funcdef_number);
+			  current_function_funcdef_no);
   current_function_func_begin_label = get_identifier (label);
 
 #ifdef IA64_UNWIND_INFO
@@ -2145,7 +2139,7 @@ dwarf2out_begin_prologue (line, file)
   fde->dw_fde_current_label = NULL;
   fde->dw_fde_end = NULL;
   fde->dw_fde_cfi = NULL;
-  fde->funcdef_number = current_funcdef_number;
+  fde->funcdef_number = current_function_funcdef_no;
   fde->nothrow = current_function_nothrow;
   fde->uses_eh_lsda = cfun->uses_eh_lsda;
 
@@ -2171,7 +2165,8 @@ dwarf2out_end_epilogue ()
 
   /* Output a label to mark the endpoint of the code generated for this
      function.  */
-  ASM_GENERATE_INTERNAL_LABEL (label, FUNC_END_LABEL, current_funcdef_number);
+  ASM_GENERATE_INTERNAL_LABEL (label, FUNC_END_LABEL,
+			       current_function_funcdef_no);
   ASM_OUTPUT_LABEL (asm_out_file, label);
   fde = &fde_table[fde_table_in_use - 1];
   fde->dw_fde_end = xstrdup (label);
@@ -7601,11 +7596,11 @@ modified_type_die (type, is_const_type, is_volatile_type, context_die)
 	}
 
       /* We want to equate the qualified type to the die below.  */
-      if (qualified_type)
-	type = qualified_type;
+      type = qualified_type;
     }
 
-  equate_type_number_to_die (type, mod_type_die);
+  if (type)
+    equate_type_number_to_die (type, mod_type_die);
   if (item_type)
     /* We must do this after the equate_type_number_to_die call, in case
        this is a recursive type.  This ensures that the modified_type_die
@@ -10341,10 +10336,10 @@ gen_subprogram_die (decl, context_die)
 	equate_decl_number_to_die (decl, subr_die);
 
       ASM_GENERATE_INTERNAL_LABEL (label_id, FUNC_BEGIN_LABEL,
-				   current_funcdef_number);
+				   current_function_funcdef_no);
       add_AT_lbl_id (subr_die, DW_AT_low_pc, label_id);
       ASM_GENERATE_INTERNAL_LABEL (label_id, FUNC_END_LABEL,
-				   current_funcdef_number);
+				   current_function_funcdef_no);
       add_AT_lbl_id (subr_die, DW_AT_high_pc, label_id);
 
       add_pubname (decl, subr_die);
@@ -11826,7 +11821,11 @@ lookup_filename (file_name)
   file_table.last_lookup_index = i;
 
   if (DWARF2_ASM_LINE_DEBUG_INFO)
-    fprintf (asm_out_file, "\t.file %u \"%s\"\n", i, file_name);
+    {
+      fprintf (asm_out_file, "\t.file %u ", i);
+      output_quoted_string (asm_out_file, file_name);
+      fputc ('\n', asm_out_file);
+    }
 
   return i;
 }
@@ -11898,7 +11897,7 @@ dwarf2out_source_line (line, filename)
 	    = &separate_line_info_table[separate_line_info_table_in_use++];
 	  line_info->dw_file_num = lookup_filename (filename);
 	  line_info->dw_line_num = line;
-	  line_info->function = current_funcdef_number;
+	  line_info->function = current_function_funcdef_no;
 	}
       else
 	{
@@ -12305,6 +12304,7 @@ dwarf2out_finish (input_filename)
     {
       named_section_flags (DEBUG_MACINFO_SECTION, SECTION_DEBUG);
       dw2_asm_output_data (1, DW_MACINFO_end_file, "End file");
+      dw2_asm_output_data (1, 0, "End compilation unit");
     }
 
   /* If we emitted any DW_FORM_strp form attribute, output the string

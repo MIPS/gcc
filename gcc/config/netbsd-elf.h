@@ -19,6 +19,14 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+/* TARGET_OS_CPP_BUILTINS() common to all NetBSD ELF targets.  */
+#define NETBSD_OS_CPP_BUILTINS_ELF()		\
+  do						\
+    {						\
+      NETBSD_OS_CPP_BUILTINS_COMMON();		\
+      builtin_define ("__ELF__");		\
+    }						\
+  while (0)
 
 /* This defines which switch letters take arguments.  On NetBSD, most
    of the normal cases (defined by gcc.c) apply, and we also have -h*
@@ -59,18 +67,22 @@ Boston, MA 02111-1307, USA.  */
 
 /* Provide a LINK_SPEC appropriate for NetBSD ELF.  Here we provide
    support for the special GCC options -assert, -R, -rpath, -shared,
-   -nostdlib, -static, -rdynamic, and -dynamic-linker.  */
+   -nostdlib, -static, -rdynamic, and -dynamic-linker.
 
-#undef LINK_SPEC
-#define LINK_SPEC							\
-  "%{assert*} %{R*} %{rpath*}						\
-   %{shared:-shared}							\
-   %{!shared:								\
-     -dc -dp								\
-     %{!nostdlib:							\
-       %{!r*:								\
-	 %{!e*:-e __start}}}						\
-     %{!static:								\
-       %{rdynamic:-export-dynamic}					\
-       %{!dynamic-linker:-dynamic-linker /usr/libexec/ld.elf_so}}	\
+   Target-specific code can use this in conjunction with any other
+   target-specific LINK_SPEC options.
+
+   Target-specific code must provide the %(netbsd_entry_point) spec.  */
+
+#define NETBSD_LINK_SPEC_ELF \
+  "%{assert*} %{R*} %{rpath*} \
+   %{shared:-shared} \
+   %{!shared: \
+     -dc -dp \
+     %{!nostdlib: \
+       %{!r*: \
+	 %{!e*:-e %(netbsd_entry_point)}}} \
+     %{!static: \
+       %{rdynamic:-export-dynamic} \
+       %{!dynamic-linker:-dynamic-linker /usr/libexec/ld.elf_so}} \
      %{static:-static}}"

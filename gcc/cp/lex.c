@@ -1,6 +1,6 @@
 /* Separate lexical analyzer for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -29,7 +29,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "cp-tree.h"
 #include "cpplib.h"
-#include "c-lex.h"
 #include "lex.h"
 #include "parse.h"
 #include "flags.h"
@@ -87,10 +86,11 @@ extern YYSTYPE yylval;		/*  the semantic value of the		*/
 int warn_traditional = 0;
 int flag_digraphs = 1;
 
-/* the declaration found for the last IDENTIFIER token read in.
-   yylex must look this up to detect typedefs, which get token type TYPENAME,
-   so it is left around in case the identifier is not a typedef but is
-   used in a context which makes it a reference to a variable.  */
+/* the declaration found for the last IDENTIFIER token read in.  yylex
+   must look this up to detect typedefs, which get token type
+   tTYPENAME, so it is left around in case the identifier is not a
+   typedef but is used in a context which makes it a reference to a
+   variable.  */
 tree lastiddecl;
 
 /* Array for holding counts of the numbers of tokens seen.  */
@@ -203,13 +203,6 @@ int interface_unknown;		/* whether or not we know this class
 				   to behave according to #pragma interface.  */
 
 
-/* Post-switch processing.  */
-void
-cxx_post_options ()
-{
-  c_common_post_options ();
-}
-
 /* Initialization before switch parsing.  */
 void
 cxx_init_options ()
@@ -369,6 +362,7 @@ static const struct resword reswords[] =
   { "__restrict__",	RID_RESTRICT,	0 },
   { "__signed",		RID_SIGNED,	0 },
   { "__signed__",	RID_SIGNED,	0 },
+  { "__thread",		RID_THREAD,	0 },
   { "__typeof",		RID_TYPEOF,	0 },
   { "__typeof__",	RID_TYPEOF,	0 },
   { "__volatile",	RID_VOLATILE,	0 },
@@ -474,6 +468,7 @@ const short rid_to_yy[RID_MAX] =
   /* RID_BOUNDED */	0,
   /* RID_UNBOUNDED */	0,
   /* RID_COMPLEX */	TYPESPEC,
+  /* RID_THREAD */	SCSPEC,
 
   /* C++ */
   /* RID_FRIEND */	SCSPEC,
@@ -698,7 +693,7 @@ yyprint (file, yychar, yylval)
   switch (yychar)
     {
     case IDENTIFIER:
-    case TYPENAME:
+    case tTYPENAME:
     case TYPESPEC:
     case PTYPENAME:
     case PFUNCNAME:
@@ -920,7 +915,7 @@ check_for_missing_semicolon (type)
   if ((yychar > 255
        && yychar != SCSPEC
        && yychar != IDENTIFIER
-       && yychar != TYPENAME
+       && yychar != tTYPENAME
        && yychar != CV_QUALIFIER
        && yychar != SELFNAME)
       || yychar == 0  /* EOF */)
@@ -1286,24 +1281,10 @@ do_identifier (token, parsing, args)
 }
 
 tree
-do_scoped_id (token, parsing)
+do_scoped_id (token, id)
      tree token;
-     int parsing;
+     tree id;
 {
-  tree id;
-  /* during parsing, this is ::name. Otherwise, it is black magic. */
-  if (parsing)
-    {
-      id = make_node (CPLUS_BINDING);
-      if (!qualified_lookup_using_namespace (token, global_namespace, id, 0))
-	id = NULL_TREE;
-      else
-	id = BINDING_VALUE (id);
-    }
-  else
-    id = IDENTIFIER_GLOBAL_VALUE (token);
-  if (parsing && yychar == YYEMPTY)
-    yychar = yylex ();
   if (!id || (TREE_CODE (id) == FUNCTION_DECL
 	      && DECL_ANTICIPATED (id)))
     {
@@ -1600,20 +1581,6 @@ make_aggr_type (code)
     SET_IS_AGGR_TYPE (t, 1);
 
   return t;
-}
-
-void
-compiler_error VPARAMS ((const char *msg, ...))
-{
-  char buf[1024];
-
-  VA_OPEN (ap, msg);
-  VA_FIXEDARG (ap, const char *, msg);
-
-  vsprintf (buf, msg, ap);
-  VA_CLOSE (ap);
-
-  error_with_file_and_line (input_filename, lineno, "%s (compiler error)", buf);
 }
 
 /* Return the type-qualifier corresponding to the identifier given by

@@ -8,11 +8,11 @@
 /* { dg-final { if [string match h8300-*-hms $target_triplet ] {return} } } */
 /* { dg-final { if [string match i?86-pc-cygwin $target_triplet ] {return} } } */
 /* { dg-final { if [string match *-*-coff $target_triplet ] {return} } } */
-/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]ffoo1a" } } */
-/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]ffoo1b" } } */
-/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]ffoo1c" } } */
-/* { dg-final { scan-assembler-not "weak\[^ \t\]*\[ \t\]ffoo1d" } } */
-/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]ffoo1e" } } */
+/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?ffoo1a" } } */
+/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?ffoo1b" } } */
+/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?ffoo1c" } } */
+/* { dg-final { scan-assembler-not "weak\[^ \t\]*\[ \t\]_?ffoo1d" } } */
+/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?ffoo1e" } } */
 
 /* test function addresses with #pragma weak */
 
@@ -30,7 +30,7 @@ void * foo1b (void)
   return (void *)ffoo1b;
 }
 
-extern void * ffoo1c (void);  /* { dg-warning "applying #pragma weak" "applying #pragma weak" } */
+extern void * ffoo1c (void);  /* { dg-warning "applying #pragma weak" "applying #pragma weak" { xfail *-*-coff i?86-pc-cygwin h8300-*-hms } } */
 void * foo1c (void)
 {
   return (void *)ffoo1c;

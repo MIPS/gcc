@@ -1021,7 +1021,7 @@ typedef enum
    `in_text' and `in_data'.  You need not define this macro on a
    system with no other sections (that GCC needs to use).  */
 #undef	EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_tdata, in_sdata, in_zdata, in_const, \
+#define EXTRA_SECTIONS in_tdata, in_sdata, in_zdata, \
  in_rozdata, in_rosdata, in_sbss, in_zbss, in_zcommon, in_scommon
 
 /* One or more functions to be defined in `varasm.c'.  These
@@ -1032,8 +1032,6 @@ typedef enum
 
 /* This could be done a lot more cleanly using ANSI C ... */
 #define EXTRA_SECTION_FUNCTIONS						\
-CONST_SECTION_FUNCTION							\
-									\
 void									\
 sdata_section ()							\
 {									\
@@ -1119,16 +1117,6 @@ zbss_section ()								\
 #define ZCOMMON_ASM_OP 	       "\t.zcomm\t"
 #define TCOMMON_ASM_OP 	       "\t.tcomm\t"
 
-/* A C statement or statements to switch to the appropriate section
-   for output of RTX in mode MODE.  You can assume that RTX is some
-   kind of constant in RTL.  The argument MODE is redundant except in
-   the case of a `const_int' rtx.  Select the section by calling
-   `text_section' or one of the alternatives for other sections.
-
-   Do not define this macro if you put all constants in the read-only
-   data section.  */
-/* #define SELECT_RTX_SECTION(MODE, RTX, ALIGN) */
-
 /* Output at beginning/end of assembler file.  */
 #undef ASM_FILE_START
 #define ASM_FILE_START(FILE) asm_file_start(FILE)
@@ -1206,13 +1194,8 @@ zbss_section ()								\
    `assemble_name' uses this.  */
 
 #undef ASM_OUTPUT_LABELREF
-#define ASM_OUTPUT_LABELREF(FILE, NAME)           \
-  do {                                            \
-  const char* real_name;                          \
-  STRIP_NAME_ENCODING (real_name, (NAME));        \
-  asm_fprintf (FILE, "%U%s", real_name);          \
-  } while (0)
-
+#define ASM_OUTPUT_LABELREF(FILE, NAME) \
+  asm_fprintf (FILE, "%U%s", (*targetm.strip_name_encoding) (NAME))
 
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.
@@ -1426,15 +1409,6 @@ extern union tree_node * GHS_current_section_names [(int) COUNT_OF_GHS_SECTION_K
 
 #define EP_REGNUM 30	/* ep register number */
 
-#define ENCODE_SECTION_INFO(DECL, FIRST)			\
-  do								\
-    {								\
-      if ((FIRST) && TREE_CODE (DECL) == VAR_DECL		\
-          && (TREE_STATIC (DECL) || DECL_EXTERNAL (DECL)))	\
-	v850_encode_data_area (DECL);				\
-    }								\
-  while (0)
-
 #define ZDA_NAME_FLAG_CHAR '@'
 #define TDA_NAME_FLAG_CHAR '%'
 #define SDA_NAME_FLAG_CHAR '&'
@@ -1447,9 +1421,6 @@ extern union tree_node * GHS_current_section_names [(int) COUNT_OF_GHS_SECTION_K
   (   ZDA_NAME_P (SYMBOL_NAME)         \
    || TDA_NAME_P (SYMBOL_NAME)         \
    || SDA_NAME_P (SYMBOL_NAME))
-
-#define STRIP_NAME_ENCODING(VAR, SYMBOL_NAME) \
-     (VAR) = (SYMBOL_NAME) + (ENCODED_NAME_P (SYMBOL_NAME) || *(SYMBOL_NAME) == '*')
 
 /* Define this if you have defined special-purpose predicates in the
    file `MACHINE.c'.  This macro is called within an initializer of an

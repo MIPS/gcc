@@ -1,5 +1,5 @@
 /* Definitions of target machine GNU compiler.  IA-64 version.
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Steve Ellcey <sje@cup.hp.com> and
                   Reva Cuthbertson <reva@cup.hp.com>
 
@@ -40,7 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #undef CPP_SPEC
 #define CPP_SPEC "\
   %{mcpu=itanium:-D__itanium__} \
-  %{mlp64:-D__LP64__ -D_LP64 -D__LONG_MAX__=9223372036854775807L} \
+  %{mlp64:-D__LP64__ -D_LP64} \
   %{!ansi:%{!std=c*:%{!std=i*: -D_HPUX_SOURCE -D__STDC_EXT__}}} \
   -D__fpreg=long\\ double \
   -D__float80=long\\ double \
@@ -85,8 +85,9 @@ Boston, MA 02111-1307, USA.  */
 
 #define JMP_BUF_SIZE  (8 * 76)
 
-#undef CONST_SECTION_ASM_OP
-#define CONST_SECTION_ASM_OP    "\t.section\t.rodata,\t\"a\",\t\"progbits\""
+#undef READONLY_DATA_SECTION_ASM_OP
+#define READONLY_DATA_SECTION_ASM_OP \
+  "\t.section\t.rodata,\t\"a\",\t\"progbits\""
 
 #undef BITS_BIG_ENDIAN
 #define BITS_BIG_ENDIAN 1
@@ -102,7 +103,7 @@ Boston, MA 02111-1307, USA.  */
    structure handling, this macro simply ensures that single field
    structures are always treated like structures.  */
 
-#define MEMBER_TYPE_FORCES_BLK(FIELD) 1
+#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) 1
 
 /* Override the setting of FUNCTION_ARG_REG_LITTLE_ENDIAN in
    defaults.h.  Setting this to true means that we are not passing

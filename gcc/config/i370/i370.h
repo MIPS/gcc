@@ -24,6 +24,18 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef GCC_I370_H
 #define GCC_I370_H
+
+/* Target CPU builtins.  */			\
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("GCC");		\
+      builtin_define_std ("gcc");		\
+      builtin_assert ("machine=i370");		\
+      builtin_assert ("cpu=i370");		\
+    }						\
+  while (0)
+
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
 extern int target_flags;
@@ -280,12 +292,6 @@ extern int mvs_function_name_length;
 #define MODES_TIEABLE_P(MODE1, MODE2)					\
   (((MODE1) == SFmode || (MODE1) == DFmode)				\
    == ((MODE2) == SFmode || (MODE2) == DFmode))
-
-/* Mark external references.  */
-
-#define ENCODE_SECTION_INFO(decl, first)  				\
-  if (DECL_EXTERNAL (decl) && TREE_PUBLIC (decl)) 			\
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
 
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */

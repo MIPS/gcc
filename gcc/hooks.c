@@ -26,6 +26,12 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "system.h"
 #include "hooks.h"
 
+/* Generic hook that does absolutely zappo.  */
+void
+hook_void_void ()
+{
+}
+
 /* Generic hook that takes no arguments and returns false.  */
 bool
 hook_void_bool_false ()
@@ -39,4 +45,12 @@ hook_tree_bool_false (a)
      tree a ATTRIBUTE_UNUSED;
 {
   return false;
+}
+
+/* Generic hook that takes (tree, int) and does nothing.  */
+void
+hook_tree_int_void (a, b)
+     tree a ATTRIBUTE_UNUSED;
+     int b ATTRIBUTE_UNUSED;
+{
 }

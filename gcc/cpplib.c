@@ -70,11 +70,14 @@ struct pragma_entry
    conditional; IF_COND an opening conditional.  INCL means to treat
    "..." and <...> as q-char and h-char sequences respectively.  IN_I
    means this directive should be handled even if -fpreprocessed is in
-   effect (these are the directives with callback hooks).  */
+   effect (these are the directives with callback hooks).
+
+   EXPAND is set on directives that are always macro-expanded.  */
 #define COND		(1 << 0)
 #define IF_COND		(1 << 1)
 #define INCL		(1 << 2)
 #define IN_I		(1 << 3)
+#define EXPAND		(1 << 4)
 
 /* Defines one #-directive, including how to handle it.  */
 typedef void (*directive_handler) PARAMS ((cpp_reader *));
@@ -93,6 +96,7 @@ struct directive
 static void skip_rest_of_line	PARAMS ((cpp_reader *));
 static void check_eol		PARAMS ((cpp_reader *));
 static void start_directive	PARAMS ((cpp_reader *));
+static void prepare_directive_trad PARAMS ((cpp_reader *));
 static void end_directive	PARAMS ((cpp_reader *, int));
 static void directive_diagnostics
 	PARAMS ((cpp_reader *, const directive *, int));
@@ -141,21 +145,21 @@ static void handle_assertion	PARAMS ((cpp_reader *, const char *, int));
 
 #define DIRECTIVE_TABLE							\
 D(define,	T_DEFINE = 0,	KANDR,     IN_I)	   /* 270554 */ \
-D(include,	T_INCLUDE,	KANDR,     INCL)	   /*  52262 */ \
+D(include,	T_INCLUDE,	KANDR,     INCL | EXPAND)  /*  52262 */ \
 D(endif,	T_ENDIF,	KANDR,     COND)	   /*  45855 */ \
 D(ifdef,	T_IFDEF,	KANDR,     COND | IF_COND) /*  22000 */ \
-D(if,		T_IF,		KANDR,     COND | IF_COND) /*  18162 */ \
+D(if,		T_IF,		KANDR, COND | IF_COND | EXPAND) /*  18162 */ \
 D(else,		T_ELSE,		KANDR,     COND)	   /*   9863 */ \
 D(ifndef,	T_IFNDEF,	KANDR,     COND | IF_COND) /*   9675 */ \
 D(undef,	T_UNDEF,	KANDR,     IN_I)	   /*   4837 */ \
-D(line,		T_LINE,		KANDR,     0)		   /*   2465 */ \
-D(elif,		T_ELIF,		STDC89,    COND)	   /*    610 */ \
+D(line,		T_LINE,		KANDR,     EXPAND)	   /*   2465 */ \
+D(elif,		T_ELIF,		STDC89,    COND | EXPAND)  /*    610 */ \
 D(error,	T_ERROR,	STDC89,    0)		   /*    475 */ \
 D(pragma,	T_PRAGMA,	STDC89,    IN_I)	   /*    195 */ \
 D(warning,	T_WARNING,	EXTENSION, 0)		   /*     22 */ \
-D(include_next,	T_INCLUDE_NEXT,	EXTENSION, INCL)	   /*     19 */ \
+D(include_next,	T_INCLUDE_NEXT,	EXTENSION, INCL | EXPAND)  /*     19 */ \
 D(ident,	T_IDENT,	EXTENSION, IN_I)	   /*     11 */ \
-D(import,	T_IMPORT,	EXTENSION, INCL)	   /* 0 ObjC */	\
+D(import,	T_IMPORT,	EXTENSION, INCL | EXPAND)  /* 0 ObjC */	\
 D(assert,	T_ASSERT,	EXTENSION, 0)		   /* 0 SVR4 */	\
 D(unassert,	T_UNASSERT,	EXTENSION, 0)		   /* 0 SVR4 */	\
 SCCS_ENTRY						   /* 0 SVR4? */
@@ -248,8 +252,16 @@ end_directive (pfile, skip_line)
      cpp_reader *pfile;
      int skip_line;
 {
+  if (CPP_OPTION (pfile, traditional))
+    {
+      /* Revert change of prepare_directive_trad.  */
+      pfile->state.prevent_expansion--;
+
+      if (pfile->directive != &dtable[T_DEFINE])
+	_cpp_remove_overlay (pfile);
+    }
   /* We don't skip for an assembler #.  */
-  if (skip_line)
+  else if (skip_line)
     {
       skip_rest_of_line (pfile);
       if (!pfile->keep_tokens)
@@ -262,8 +274,42 @@ end_directive (pfile, skip_line)
   /* Restore state.  */
   pfile->state.save_comments = ! CPP_OPTION (pfile, discard_comments);
   pfile->state.in_directive = 0;
+  pfile->state.in_expression = 0;
   pfile->state.angled_headers = 0;
   pfile->directive = 0;
+}
+
+/* Prepare to handle the directive in pfile->directive.  */
+static void
+prepare_directive_trad (pfile)
+     cpp_reader *pfile;
+{
+  if (pfile->directive == &dtable[T_DEFINE])
+    CUR (pfile->context) = pfile->buffer->cur;
+  else
+    {
+      bool no_expand = (pfile->directive
+			&& ! (pfile->directive->flags & EXPAND));
+      bool was_skipping = pfile->state.skipping;
+
+      pfile->state.skipping = false;
+      pfile->state.in_expression = (pfile->directive == &dtable[T_IF]
+				    || pfile->directive == &dtable[T_ELIF]);
+      if (no_expand)
+	pfile->state.prevent_expansion++;
+      _cpp_read_logical_line_trad (pfile);
+      if (no_expand)
+	pfile->state.prevent_expansion--;
+      pfile->state.skipping = was_skipping;
+      _cpp_overlay_buffer (pfile, pfile->out.base,
+			   pfile->out.cur - pfile->out.base);
+    }
+
+  /* Report diagnostics on the line of the directive.  */
+  pfile->line = pfile->directive_line;
+
+  /* Stop ISO C from expanding anything.  */
+  pfile->state.prevent_expansion++;
 }
 
 /* Output diagnostics for a directive DIR.  INDENTED is non-zero if
@@ -344,6 +390,10 @@ _cpp_handle_directive (pfile, indented)
 		   "style of line directive is a GCC extension");
     }
 
+  pfile->directive = dir;
+  if (CPP_OPTION (pfile, traditional))
+    prepare_directive_trad (pfile);
+
   if (dir)
     {
       /* If we have a directive that is not an opening conditional,
@@ -400,10 +450,9 @@ _cpp_handle_directive (pfile, indented)
 	 requested to expand comments into macros, then re-enable
 	 saving of comments.  */
       if (dir == &dtable[T_DEFINE])
-        pfile->state.save_comments =
-          ! CPP_OPTION (pfile, discard_comments_in_macro_exp);
+	pfile->state.save_comments =
+	  ! CPP_OPTION (pfile, discard_comments_in_macro_exp);
 
-      pfile->directive = dir;
       (*pfile->directive->handler) (pfile);
     }
   else if (skip == 0)
@@ -435,6 +484,8 @@ run_directive (pfile, dir_no, buf, count)
   /* We don't want a leading # to be interpreted as a directive.  */
   pfile->buffer->saved_flags = 0;
   pfile->directive = &dtable[dir_no];
+  if (CPP_OPTION (pfile, traditional))
+    prepare_directive_trad (pfile);
   (void) (*pfile->directive->handler) (pfile);
   end_directive (pfile, 1);
   _cpp_pop_buffer (pfile);
@@ -446,7 +497,6 @@ static cpp_hashnode *
 lex_macro_node (pfile)
      cpp_reader *pfile;
 {
-  cpp_hashnode *node;
   const cpp_token *token = _cpp_lex_token (pfile);
 
   /* The token immediately after #define must be an identifier.  That
@@ -465,33 +515,27 @@ lex_macro_node (pfile)
 	token = _cpp_lex_token (pfile);
     }
 
-  if (token->type != CPP_NAME)
+  if (token->type == CPP_NAME)
     {
-      if (token->type == CPP_EOF)
-	cpp_error (pfile, DL_ERROR, "no macro name given in #%s directive",
-		   pfile->directive->name);
-      else if (token->flags & NAMED_OP)
+      cpp_hashnode *node = token->val.node;
+
+      if (node == pfile->spec_nodes.n_defined)
 	cpp_error (pfile, DL_ERROR,
-	   "\"%s\" cannot be used as a macro name as it is an operator in C++",
-		   NODE_NAME (token->val.node));
-      else
-	cpp_error (pfile, DL_ERROR, "macro names must be identifiers");
-
-      return 0;
+		   "\"defined\" cannot be used as a macro name");
+      else if (! (node->flags & NODE_POISONED))
+	return node;
     }
+  else if (token->flags & NAMED_OP)
+    cpp_error (pfile, DL_ERROR,
+       "\"%s\" cannot be used as a macro name as it is an operator in C++",
+	       NODE_NAME (token->val.node));
+  else if (token->type == CPP_EOF)
+    cpp_error (pfile, DL_ERROR, "no macro name given in #%s directive",
+	       pfile->directive->name);
+  else
+    cpp_error (pfile, DL_ERROR, "macro names must be identifiers");
 
-  node = token->val.node;
-  if (node->flags & NODE_POISONED)
-    return 0;
-
-  if (node == pfile->spec_nodes.n_defined)
-    {
-      cpp_error (pfile, DL_ERROR, "\"%s\" cannot be used as a macro name",
-		 NODE_NAME (node));
-      return 0;
-    }
-
-  return node;
+  return NULL;
 }
 
 /* Process a #define directive.  Most work is done in cppmacro.c.  */
@@ -514,7 +558,7 @@ static void
 do_undef (pfile)
      cpp_reader *pfile;
 {
-  cpp_hashnode *node = lex_macro_node (pfile);  
+  cpp_hashnode *node = lex_macro_node (pfile);
 
   /* 6.10.3.5 paragraph 2: [#undef] is ignored if the specified identifier
      is not currently defined as a macro name.  */
@@ -651,7 +695,7 @@ do_include_common (pfile, type)
     {
       /* Prevent #include recursion.  */
       if (pfile->line_maps.depth >= CPP_STACK_MAX)
-	cpp_error (pfile, DL_FATAL, "#include nested too deeply");
+	cpp_error (pfile, DL_ERROR, "#include nested too deeply");
       else
 	{
 	  check_eol (pfile);
@@ -787,7 +831,7 @@ do_line (pfile)
 		 "\"%s\" after #line is not a positive integer",
 		 cpp_token_as_text (pfile, token));
       return;
-    }      
+    }
 
   if (CPP_PEDANTIC (pfile) && (new_lineno == 0 || new_lineno > cap))
     cpp_error (pfile, DL_PEDWARN, "line number out of range");
@@ -839,7 +883,7 @@ do_linemarker (pfile)
       cpp_error (pfile, DL_ERROR, "\"%s\" after # is not a positive integer",
 		 cpp_token_as_text (pfile, token));
       return;
-    }      
+    }
 
   token = cpp_get_token (pfile);
   if (token->type == CPP_STRING)
@@ -1112,7 +1156,7 @@ do_pragma_once (pfile)
      cpp_reader *pfile;
 {
   cpp_error (pfile, DL_WARNING, "#pragma once is obsolete");
- 
+
   if (pfile->buffer->prev == NULL)
     cpp_error (pfile, DL_WARNING, "#pragma once in main file");
   else
@@ -1187,7 +1231,7 @@ do_pragma_dependency (pfile)
 {
   const cpp_token *header;
   int ordering;
- 
+
   header = parse_include (pfile);
   if (!header)
     return;
@@ -1652,6 +1696,8 @@ _cpp_test_assertion (pfile, value)
   if (node)
     *value = (node->type == NT_ASSERTION &&
 	      (answer == 0 || *find_answer (node, answer) != 0));
+  else if (pfile->cur_token[-1].type == CPP_EOF)
+    _cpp_backup_tokens (pfile, 1);
 
   /* We don't commit the memory for the answer - it's temporary only.  */
   return node == 0;
@@ -1664,7 +1710,7 @@ do_assert (pfile)
 {
   struct answer *new_answer;
   cpp_hashnode *node;
-  
+
   node = parse_assertion (pfile, &new_answer, T_ASSERT);
   if (node)
     {
@@ -1698,7 +1744,7 @@ do_unassert (pfile)
 {
   cpp_hashnode *node;
   struct answer *answer;
-  
+
   node = parse_assertion (pfile, &answer, T_UNASSERT);
   /* It isn't an error to #unassert something that isn't asserted.  */
   if (node && node->type == NT_ASSERTION)
@@ -1739,7 +1785,7 @@ cpp_define (pfile, str)
   char *buf, *p;
   size_t count;
 
-  /* Copy the entire option so we can modify it. 
+  /* Copy the entire option so we can modify it.
      Change the first "=" in the string to a space.  If there is none,
      tack " 1" on the end.  */
 
@@ -1794,7 +1840,7 @@ cpp_unassert (pfile, str)
      const char *str;
 {
   handle_assertion (pfile, str, T_UNASSERT);
-}  
+}
 
 /* Common code for cpp_assert (-A) and cpp_unassert (-A-).  */
 static void
@@ -1881,12 +1927,15 @@ cpp_push_buffer (pfile, buffer, len, from_stage3, return_at_eof)
 
   new->line_base = new->buf = new->cur = buffer;
   new->rlimit = buffer + len;
-  new->from_stage3 = from_stage3;
+  new->from_stage3 = from_stage3 || CPP_OPTION (pfile, traditional);
   new->prev = pfile->buffer;
   new->return_at_eof = return_at_eof;
   new->saved_flags = BOL;
 
   pfile->buffer = new;
+
+  if (CPP_OPTION (pfile, traditional))
+    _cpp_set_trad_context (pfile);
 
   return new;
 }
@@ -1932,6 +1981,9 @@ _cpp_pop_buffer (pfile)
 	    _cpp_maybe_push_include_file (pfile);
 	}
     }
+
+  if (pfile->buffer && CPP_OPTION (pfile, traditional))
+    _cpp_set_trad_context (pfile);
 }
 
 /* Enter all recognised directives in the hash table.  */

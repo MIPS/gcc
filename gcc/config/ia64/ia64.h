@@ -109,6 +109,11 @@ extern int target_flags;
 
 #define TARGET_DWARF2_ASM	(target_flags & MASK_DWARF2_ASM)
 
+extern int ia64_tls_size;
+#define TARGET_TLS14		(ia64_tls_size == 14)
+#define TARGET_TLS22		(ia64_tls_size == 22)
+#define TARGET_TLS64		(ia64_tls_size == 64)
+
 /* This macro defines names of command options to set and clear bits in
    `target_flags'.  Its definition is an initializer with a subgrouping for
    each command option.  */
@@ -177,10 +182,13 @@ extern int target_flags;
    subgrouping for each command option.  */
 
 extern const char *ia64_fixed_range_string;
+extern const char *ia64_tls_size_string;
 #define TARGET_OPTIONS \
 {									\
   { "fixed-range=", 	&ia64_fixed_range_string,			\
       N_("Specify range of registers to make fixed")},			\
+  { "tls-size=",	&ia64_tls_size_string,				\
+      N_("Specify bit size of immediate TLS offsets")},			\
 }
 
 /* Sometimes certain combinations of command options do not make sense on a
@@ -204,14 +212,8 @@ extern const char *ia64_fixed_range_string;
    CPP.  It can also specify how to translate options you give to GNU CC into
    options for GNU CC to pass to the CPP.  */
 
-/* ??? __LONG_MAX__ depends on LP64/ILP32 switch.  */
-/* ??? An alternative is to modify glimits.h to check for __LP64__ instead
-   of checked for CPU specific defines.  We could also get rid of all LONG_MAX
-   defines in other tm.h files.  */
 #define CPP_SPEC \
-  "%{mcpu=itanium:-D__itanium__} %{mbig-endian:-D__BIG_ENDIAN__}	\
-   %(cpp_cpu)	\
-   -D__LONG_MAX__=9223372036854775807L"
+  "%{mcpu=itanium:-D__itanium__} %{mbig-endian:-D__BIG_ENDIAN__} %(cpp_cpu)"
 
 /* A C string constant that tells the GNU CC driver program options to pass to
    `cc1'.  It can also specify how to translate options you give to GNU CC into
@@ -340,8 +342,21 @@ while (0)
    function descriptors instead.  The value of this macro says how
    many words wide the descriptor is (normally 2).  It is assumed
    that the address of a function descriptor may be treated as a
-   pointer to a function.  */
-#define TARGET_VTABLE_USES_DESCRIPTORS 2
+   pointer to a function.
+
+   For reasons known only to HP, the vtable entries (as opposed to
+   normal function descriptors) are 16 bytes wide in 32-bit mode as
+   well, even though the 3rd and 4th words are unused.  */
+#define TARGET_VTABLE_USES_DESCRIPTORS (TARGET_ILP32 ? 4 : 2)
+
+/* Due to silliness in the HPUX linker, vtable entries must be
+   8-byte aligned even in 32-bit mode.  Rather than create multiple
+   ABIs, force this restriction on everyone else too.  */
+#define TARGET_VTABLE_ENTRY_ALIGN  64
+
+/* Due to the above, we need extra padding for the data entries below 0
+   to retain the alignment of the descriptors.  */
+#define TARGET_VTABLE_DATA_ENTRY_DISTANCE (TARGET_ILP32 ? 2 : 1)
 
 /* Layout of Source Language Data Types */
 
@@ -586,14 +601,6 @@ while (0)
 
 #define LOCAL_REGNO(REGNO) \
   (IN_REGNO_P (REGNO) || LOC_REGNO_P (REGNO))
-
-/* Add any extra modes needed to represent the condition code.
-
-   CCImode is used to mark a single predicate register instead
-   of a register pair.  This is currently only used in reg_raw_mode
-   so that flow doesn't do something stupid.  */
-
-#define EXTRA_CC_MODES		CC(CCImode, "CCI")
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  Must be defined if
@@ -1460,9 +1467,14 @@ do {									\
 do {									\
   if ((PART) == 0)							\
     {									\
-      fputs ("\tdata16.ua @iplt(", FILE);				\
+      if (TARGET_ILP32)							\
+        fputs ("\tdata8.ua @iplt(", FILE);				\
+      else								\
+        fputs ("\tdata16.ua @iplt(", FILE);				\
       assemble_name (FILE, XSTR (XEXP (DECL_RTL (DECL), 0), 0));	\
       fputs (")\n", FILE);						\
+      if (TARGET_ILP32)							\
+	fputs ("\tdata8.ua 0\n", FILE);					\
     }									\
 } while (0)
 
@@ -1774,27 +1786,9 @@ do {									\
 
 #define BSS_SECTION_ASM_OP "\t.bss"
 
-/* Define this macro if references to a symbol must be treated differently
-   depending on something about the variable or function named by the symbol
-   (such as what section it is in).  */
-
-#define ENCODE_SECTION_INFO(DECL, FIRST) ia64_encode_section_info (DECL, FIRST)
-
-#define SDATA_NAME_FLAG_CHAR '@'
+#define ENCODE_SECTION_INFO_CHAR '@'
 
 #define IA64_DEFAULT_GVALUE 8
-
-/* Decode SYM_NAME and store the real name part in VAR, sans the characters
-   that encode section info.  */
-
-#define STRIP_NAME_ENCODING(VAR, SYMBOL_NAME)	\
-do {						\
-  (VAR) = (SYMBOL_NAME);			\
-  if ((VAR)[0] == SDATA_NAME_FLAG_CHAR)		\
-    (VAR)++;					\
-  if ((VAR)[0] == '*')				\
-    (VAR)++;					\
-} while (0)
 
 /* Position Independent Code.  */
 

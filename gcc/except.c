@@ -107,7 +107,6 @@ struct ehl_map_entry GTY(())
 };
 
 static int call_site_base;
-static unsigned int sjlj_funcdef_number;
 static GTY ((param_is (union tree_node)))
   htab_t type_to_runtime_map;
 
@@ -306,7 +305,6 @@ static void sjlj_build_landing_pads		PARAMS ((void));
 static hashval_t ehl_hash			PARAMS ((const PTR));
 static int ehl_eq				PARAMS ((const PTR,
 							 const PTR));
-static void ehl_free				PARAMS ((PTR));
 static void add_ehl_entry			PARAMS ((rtx,
 							 struct eh_region *));
 static void remove_exception_handler_label	PARAMS ((rtx));
@@ -643,11 +641,11 @@ expand_start_catch (type_or_list)
       tree type_node;
 
       if (TREE_CODE (type_or_list) != TREE_LIST)
-        type_list = tree_cons (NULL_TREE, type_or_list, NULL_TREE);
+	type_list = tree_cons (NULL_TREE, type_or_list, NULL_TREE);
 
       type_node = type_list;
       for (; type_node; type_node = TREE_CHAIN (type_node))
-        add_type_for_runtime (TREE_VALUE (type_node));
+	add_type_for_runtime (TREE_VALUE (type_node));
     }
 
   expand_eh_region_start ();
@@ -958,7 +956,7 @@ remove_fixup_regions ()
 
       /* Allow GC to maybe free some memory.  */
       if (fixup->type == ERT_CLEANUP)
-        fixup->u.cleanup.exp = NULL_TREE;
+	fixup->u.cleanup.exp = NULL_TREE;
 
       if (fixup->type != ERT_FIXUP)
 	continue;
@@ -1014,23 +1012,23 @@ remove_unreachable_regions (insns)
 	continue;
 
       if (r->resume)
-        {
+	{
 	  if (uid_region_num[INSN_UID (r->resume)])
 	    abort ();
 	  uid_region_num[INSN_UID (r->resume)] = i;
-        }
+	}
       if (r->label)
-        {
+	{
 	  if (uid_region_num[INSN_UID (r->label)])
 	    abort ();
 	  uid_region_num[INSN_UID (r->label)] = i;
-        }
+	}
       if (r->type == ERT_TRY && r->u.try.continue_label)
-        {
+	{
 	  if (uid_region_num[INSN_UID (r->u.try.continue_label)])
 	    abort ();
 	  uid_region_num[INSN_UID (r->u.try.continue_label)] = i;
-        }
+	}
     }
 
   for (insn = insns; insn; insn = NEXT_INSN (insn))
@@ -1187,14 +1185,6 @@ add_ehl_entry (label, region)
   *slot = entry;
 }
 
-static void
-ehl_free (pentry)
-     PTR pentry;
-{
-  struct ehl_map_entry *entry = (struct ehl_map_entry *)pentry;
-  LABEL_PRESERVE_P (entry->label) = 0;
-}
-
 void
 find_exception_handler_labels ()
 {
@@ -1321,9 +1311,9 @@ duplicate_eh_region_2 (o, n_array)
 
     case ERT_CATCH:
       if (o->u.catch.next_catch)
-        n->u.catch.next_catch = n_array[o->u.catch.next_catch->region_number];
+	n->u.catch.next_catch = n_array[o->u.catch.next_catch->region_number];
       if (o->u.catch.prev_catch)
-        n->u.catch.prev_catch = n_array[o->u.catch.prev_catch->region_number];
+	n->u.catch.prev_catch = n_array[o->u.catch.prev_catch->region_number];
       break;
 
     default:
@@ -1724,7 +1714,7 @@ build_post_landing_pads ()
 	  seq = get_insns ();
 	  end_sequence ();
 
-	  emit_insns_before (seq, region->u.try.catch->label);
+	  emit_insn_before (seq, region->u.try.catch->label);
 	  break;
 
 	case ERT_ALLOWED_EXCEPTIONS:
@@ -1748,7 +1738,7 @@ build_post_landing_pads ()
 	  seq = get_insns ();
 	  end_sequence ();
 
-	  emit_insns_before (seq, region->label);
+	  emit_insn_before (seq, region->label);
 	  break;
 
 	case ERT_CLEANUP:
@@ -1805,7 +1795,7 @@ connect_post_landing_pads ()
 
       seq = get_insns ();
       end_sequence ();
-      emit_insns_before (seq, region->resume);
+      emit_insn_before (seq, region->resume);
       delete_insn (region->resume);
     }
 }
@@ -1881,7 +1871,7 @@ dw2_build_landing_pads ()
       seq = get_insns ();
       end_sequence ();
 
-      emit_insns_before (seq, region->post_landing_pad);
+      emit_insn_before (seq, region->post_landing_pad);
     }
 }
 
@@ -2056,7 +2046,7 @@ sjlj_mark_call_sites (lp_info)
       /* Don't separate a call from it's argument loads.  */
       before = insn;
       if (GET_CODE (insn) == CALL_INSN)
-         before = find_first_parameter_load (insn, NULL_RTX);
+	before = find_first_parameter_load (insn, NULL_RTX);
 
       start_sequence ();
       mem = adjust_address (cfun->eh->sjlj_fc, TYPE_MODE (integer_type_node),
@@ -2065,7 +2055,7 @@ sjlj_mark_call_sites (lp_info)
       p = get_insns ();
       end_sequence ();
 
-      emit_insns_before (p, before);
+      emit_insn_before (p, before);
       last_call_site = this_call_site;
     }
 }
@@ -2093,7 +2083,7 @@ sjlj_emit_function_enter (dispatch_label)
   if (cfun->uses_eh_lsda)
     {
       char buf[20];
-      ASM_GENERATE_INTERNAL_LABEL (buf, "LLSDA", sjlj_funcdef_number);
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LLSDA", current_function_funcdef_no);
       emit_move_insn (mem, gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf)));
     }
   else
@@ -2132,7 +2122,7 @@ sjlj_emit_function_enter (dispatch_label)
     if (GET_CODE (fn_begin) == NOTE
 	&& NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_FUNCTION_BEG)
       break;
-  emit_insns_after (seq, fn_begin);
+  emit_insn_after (seq, fn_begin);
 }
 
 /* Call back from expand_function_end to know where we should put
@@ -2162,7 +2152,7 @@ sjlj_emit_function_exit ()
      post-dominates all can_throw_internal instructions.  This is
      the last possible moment.  */
 
-  emit_insns_after (seq, cfun->eh->sjlj_exit_after);
+  emit_insn_after (seq, cfun->eh->sjlj_exit_after);
 }
 
 static void
@@ -2226,8 +2216,8 @@ sjlj_emit_dispatch_table (dispatch_label, lp_info)
   seq = get_insns ();
   end_sequence ();
 
-  emit_insns_before (seq, (cfun->eh->region_array[first_reachable]
-			   ->post_landing_pad));
+  emit_insn_before (seq, (cfun->eh->region_array[first_reachable]
+			  ->post_landing_pad));
 }
 
 static void
@@ -2274,9 +2264,7 @@ finish_eh_generation ()
      connect many of the handlers, and then type information will not
      be effective.  Still, this is a win over previous implementations.  */
 
-  rebuild_jump_labels (get_insns ());
-  find_basic_blocks (get_insns (), max_reg_num (), 0);
-  cleanup_cfg (CLEANUP_PRE_LOOP);
+  cleanup_cfg (CLEANUP_PRE_LOOP | CLEANUP_NO_INSN_DEL);
 
   /* These registers are used by the landing pads.  Make sure they
      have been generated.  */
@@ -2299,7 +2287,7 @@ finish_eh_generation ()
   find_exception_handler_labels ();
   rebuild_jump_labels (get_insns ());
   find_basic_blocks (get_insns (), max_reg_num (), 0);
-  cleanup_cfg (CLEANUP_PRE_LOOP);
+  cleanup_cfg (CLEANUP_PRE_LOOP | CLEANUP_NO_INSN_DEL);
 }
 
 static hashval_t
@@ -2714,7 +2702,7 @@ reachable_next_level (region, type_thrown, info)
       if (info && info->handlers)
 	{
 	  add_reachable_handler (info, region, region);
-          return RNL_CAUGHT;
+	  return RNL_CAUGHT;
 	}
       else
 	return RNL_BLOCKED;
@@ -2834,7 +2822,7 @@ can_throw_internal (insn)
       if (how == RNL_BLOCKED)
 	return false;
       if (how != RNL_NOT_CAUGHT)
-        return true;
+	return true;
     }
 
   return false;
@@ -2920,7 +2908,7 @@ nothrow_function_p ()
       return false;
   for (insn = current_function_epilogue_delay_list; insn;
        insn = XEXP (insn, 1))
-    if (can_throw_external (insn))
+    if (can_throw_external (XEXP (insn, 0)))
       return false;
 
   return true;
@@ -3578,16 +3566,11 @@ output_function_exception_table ()
   int call_site_len;
 #endif
   int have_tt_data;
-  int funcdef_number;
   int tt_format_size = 0;
 
   /* Not all functions need anything.  */
   if (! cfun->uses_eh_lsda)
     return;
-
-  funcdef_number = (USING_SJLJ_EXCEPTIONS
-		    ? sjlj_funcdef_number
-		    : current_funcdef_number);
 
 #ifdef IA64_UNWIND_INFO
   fputs ("\t.personality\t", asm_out_file);
@@ -3609,14 +3592,16 @@ output_function_exception_table ()
     {
       tt_format = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/1);
 #ifdef HAVE_AS_LEB128
-      ASM_GENERATE_INTERNAL_LABEL (ttype_label, "LLSDATT", funcdef_number);
+      ASM_GENERATE_INTERNAL_LABEL (ttype_label, "LLSDATT",
+				   current_function_funcdef_no);
 #endif
       tt_format_size = size_of_encoded_value (tt_format);
 
       assemble_align (tt_format_size * BITS_PER_UNIT);
     }
 
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LLSDA", funcdef_number);
+  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LLSDA",
+			     current_function_funcdef_no);
 
   /* The LSDA header.  */
 
@@ -3648,7 +3633,7 @@ output_function_exception_table ()
 #ifdef HAVE_AS_LEB128
       char ttype_after_disp_label[32];
       ASM_GENERATE_INTERNAL_LABEL (ttype_after_disp_label, "LLSDATTD",
-				   funcdef_number);
+				   current_function_funcdef_no);
       dw2_asm_output_delta_uleb128 (ttype_label, ttype_after_disp_label,
 				    "@TType base offset");
       ASM_OUTPUT_LABEL (asm_out_file, ttype_after_disp_label);
@@ -3694,9 +3679,9 @@ output_function_exception_table ()
 
 #ifdef HAVE_AS_LEB128
   ASM_GENERATE_INTERNAL_LABEL (cs_after_size_label, "LLSDACSB",
-			       funcdef_number);
+			       current_function_funcdef_no);
   ASM_GENERATE_INTERNAL_LABEL (cs_end_label, "LLSDACSE",
-			       funcdef_number);
+			       current_function_funcdef_no);
   dw2_asm_output_delta_uleb128 (cs_end_label, cs_after_size_label,
 				"Call-site table length");
   ASM_OUTPUT_LABEL (asm_out_file, cs_after_size_label);
@@ -3738,7 +3723,7 @@ output_function_exception_table ()
 	assemble_integer (value, tt_format_size,
 			  tt_format_size * BITS_PER_UNIT, 1);
       else
-        dw2_asm_output_encoded_addr_rtx (tt_format, value, NULL);
+	dw2_asm_output_encoded_addr_rtx (tt_format, value, NULL);
     }
 
 #ifdef HAVE_AS_LEB128
@@ -3753,9 +3738,6 @@ output_function_exception_table ()
 			 (i ? NULL : "Exception specification table"));
 
   function_section (current_function_decl);
-
-  if (USING_SJLJ_EXCEPTIONS)
-    sjlj_funcdef_number += 1;
 }
 
 #include "gt-except.h"

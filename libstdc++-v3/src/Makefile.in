@@ -67,9 +67,6 @@ AS = @AS@
 ATOMICITY_INC_SRCDIR = @ATOMICITY_INC_SRCDIR@
 AWK = @AWK@
 BASIC_FILE_H = @BASIC_FILE_H@
-BUILD_INCLUDED_LIBINTL = @BUILD_INCLUDED_LIBINTL@
-CATALOGS = @CATALOGS@
-CATOBJEXT = @CATOBJEXT@
 CC = @CC@
 CCODECVT_C = @CCODECVT_C@
 CCODECVT_H = @CCODECVT_H@
@@ -77,28 +74,16 @@ CLOCALE_H = @CLOCALE_H@
 CMESSAGES_H = @CMESSAGES_H@
 CPP = @CPP@
 CPU_LIMITS_INC_SRCDIR = @CPU_LIMITS_INC_SRCDIR@
-CSHADOW_FLAGS = @CSHADOW_FLAGS@
 CSTDIO_H = @CSTDIO_H@
 CXXCPP = @CXXCPP@
 C_INCLUDE_DIR = @C_INCLUDE_DIR@
-DATADIRNAME = @DATADIRNAME@
 DEBUG_FLAGS = @DEBUG_FLAGS@
 DLLTOOL = @DLLTOOL@
 EXEEXT = @EXEEXT@
 EXTRA_CXX_FLAGS = @EXTRA_CXX_FLAGS@
 GCJ = @GCJ@
 GCJFLAGS = @GCJFLAGS@
-GENCAT = @GENCAT@
-GLIBC21 = @GLIBC21@
 GLIBCPP_IS_CROSS_COMPILING = @GLIBCPP_IS_CROSS_COMPILING@
-GMOFILES = @GMOFILES@
-GMSGFMT = @GMSGFMT@
-INSTOBJEXT = @INSTOBJEXT@
-INTLBISON = @INTLBISON@
-INTLLIBS = @INTLLIBS@
-INTLOBJS = @INTLOBJS@
-INTL_LIBTOOL_SUFFIX_PREFIX = @INTL_LIBTOOL_SUFFIX_PREFIX@
-LIBICONV = @LIBICONV@
 LIBMATHOBJS = @LIBMATHOBJS@
 LIBSUPCXX_PICFLAGS = @LIBSUPCXX_PICFLAGS@
 LIBTOOL = @LIBTOOL@
@@ -106,20 +91,15 @@ LIBUNWIND_FLAG = @LIBUNWIND_FLAG@
 LN_S = @LN_S@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
-MKINSTALLDIRS = @MKINSTALLDIRS@
-MSGFMT = @MSGFMT@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OPT_LDFLAGS = @OPT_LDFLAGS@
 OS_INC_SRCDIR = @OS_INC_SRCDIR@
 PACKAGE = @PACKAGE@
-POFILES = @POFILES@
-POSUB = @POSUB@
 RANLIB = @RANLIB@
 SECTION_FLAGS = @SECTION_FLAGS@
 SECTION_LDFLAGS = @SECTION_LDFLAGS@
 STRIP = @STRIP@
-USE_INCLUDED_LIBINTL = @USE_INCLUDED_LIBINTL@
 USE_NLS = @USE_NLS@
 VERSION = @VERSION@
 WARN_FLAGS = @WARN_FLAGS@
@@ -145,7 +125,7 @@ libtool_VERSION = @libtool_VERSION@
 release_VERSION = @release_VERSION@
 toplevel_srcdir = @toplevel_srcdir@
 
-AUTOMAKE_OPTIONS = 1.3 gnits
+AUTOMAKE_OPTIONS = 1.3 cygnus
 MAINT_CHARSET = latin1
 
 mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
@@ -164,7 +144,7 @@ OPTIMIZE_CXXFLAGS = @OPTIMIZE_CXXFLAGS@
 # or configure.in to see how they are set. See GLIBCPP_EXPORT_FLAGS
 # NB: DEBUGFLAGS have to be at the end so that -O2 can be overridden.
 CONFIG_CXXFLAGS = \
-	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@ @CSHADOW_FLAGS@ @DEBUG_FLAGS@ 
+	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@ @DEBUG_FLAGS@ 
 
 
 # Warning flags to use.
@@ -187,14 +167,40 @@ INCLUDES = \
 
 
 sources = \
-	globals.cc limits.cc \
-	basic_file.cc complex_io.cc ios.cc strstream.cc \
-	cmath.cc bitset.cc \
-	functexcept.cc stdexcept.cc vterminate.cc \
-	c++locale.cc locale.cc localename.cc codecvt.cc \
-	collate.cc ctype.cc messages.cc monetary.cc numeric.cc time.cc \
-	concept-inst.cc locale-inst.cc misc-inst.cc stl-inst.cc \
-	string-inst.cc wstring-inst.cc valarray-inst.cc  ext-inst.cc
+	basic_file.cc \
+	bitset.cc \
+	c++locale.cc \
+	codecvt.cc \
+	collate.cc \
+	complex_io.cc \
+	concept-inst.cc \
+	ctype.cc \
+	ext-inst.cc \
+	fstream-inst.cc \
+	functexcept.cc \
+	globals.cc \
+	io-inst.cc \
+	ios.cc \
+	istream-inst.cc \
+	limits.cc \
+	locale-inst.cc \
+	locale.cc \
+	localename.cc \
+	messages.cc \
+	misc-inst.cc \
+	monetary.cc \
+	numeric.cc \
+	ostream-inst.cc \
+	sstream-inst.cc \
+	stdexcept.cc \
+	stl-inst.cc \
+	streambuf-inst.cc \
+	string-inst.cc \
+	strstream.cc \
+	time.cc \
+	valarray-inst.cc \
+	vterminate.cc \
+	wstring-inst.cc
 
 
 VPATH = $(top_srcdir)/src:$(top_srcdir)
@@ -272,12 +278,14 @@ DEFS = @DEFS@ -I. -I$(srcdir) -I..
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
-libstdc___la_OBJECTS =  globals.lo limits.lo basic_file.lo complex_io.lo \
-ios.lo strstream.lo cmath.lo bitset.lo functexcept.lo stdexcept.lo \
-vterminate.lo c++locale.lo locale.lo localename.lo codecvt.lo \
-collate.lo ctype.lo messages.lo monetary.lo numeric.lo time.lo \
-concept-inst.lo locale-inst.lo misc-inst.lo stl-inst.lo string-inst.lo \
-wstring-inst.lo valarray-inst.lo ext-inst.lo
+libstdc___la_OBJECTS =  basic_file.lo bitset.lo c++locale.lo codecvt.lo \
+collate.lo complex_io.lo concept-inst.lo ctype.lo ext-inst.lo \
+fstream-inst.lo functexcept.lo globals.lo io-inst.lo ios.lo \
+istream-inst.lo limits.lo locale-inst.lo locale.lo localename.lo \
+messages.lo misc-inst.lo monetary.lo numeric.lo ostream-inst.lo \
+sstream-inst.lo stdexcept.lo stl-inst.lo streambuf-inst.lo \
+string-inst.lo strstream.lo time.lo valarray-inst.lo vterminate.lo \
+wstring-inst.lo
 CXXFLAGS = @CXXFLAGS@
 CXXCOMPILE = $(CXX) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 CXXLD = $(CXX)

@@ -49,6 +49,7 @@ Boston, MA 02111-1307, USA.  */
 static rtx emit_addhi3_postreload PARAMS ((rtx, rtx, rtx));
 static void xstormy16_asm_out_constructor PARAMS ((rtx, int));
 static void xstormy16_asm_out_destructor PARAMS ((rtx, int));
+static void xstormy16_encode_section_info PARAMS ((tree, int));
 
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  */
@@ -226,15 +227,22 @@ xstormy16_split_cbranch (mode, label, comparison, dest, carry)
 {
   rtx op0 = XEXP (comparison, 0);
   rtx op1 = XEXP (comparison, 1);
-  rtx seq;
+  rtx seq, last_insn;
   rtx compare;
   
   start_sequence ();
   xstormy16_expand_arith (mode, COMPARE, dest, op0, op1, carry);
-  seq = gen_sequence ();
+  seq = get_insns ();
   end_sequence ();
-  compare = SET_SRC (XVECEXP (PATTERN (XVECEXP (seq, 0, XVECLEN (seq, 0) - 1)),
-			      0, 0));
+
+  if (! INSN_P (seq))
+    abort ();
+
+  last_insn = seq;
+  while (NEXT_INSN (last_insn) != NULL_RTX)
+    last_insn = NEXT_INSN (last_insn);
+
+  compare = SET_SRC (XVECEXP (PATTERN (last_insn), 0, 0));
   PUT_CODE (XEXP (compare, 0), GET_CODE (comparison));
   XEXP (compare, 1) = gen_rtx_LABEL_REF (VOIDmode, label);
   emit_insn (seq);
@@ -1394,7 +1402,7 @@ xstormy16_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
 
 /* Mark functions with SYMBOL_REF_FLAG.  */
 
-void
+static void
 xstormy16_encode_section_info (decl, first)
      tree decl;
      int first ATTRIBUTE_UNUSED;
@@ -2021,5 +2029,7 @@ xstormy16_handle_interrupt_attribute (node, name, args, flags, no_add_attrs)
 #define TARGET_ASM_ALIGNED_HI_OP "\t.hword\t"
 #undef TARGET_ASM_ALIGNED_SI_OP
 #define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO xstormy16_encode_section_info
 
 struct gcc_target targetm = TARGET_INITIALIZER;

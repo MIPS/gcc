@@ -137,6 +137,8 @@ static void	  mcore_asm_named_section      PARAMS ((const char *,
 							unsigned int));
 #endif
 static void       mcore_unique_section	       PARAMS ((tree, int));
+static void mcore_encode_section_info		PARAMS ((tree, int));
+static const char *mcore_strip_name_encoding	PARAMS ((const char *));
 
 /* Initialize the GCC target structure.  */
 #ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
@@ -155,6 +157,10 @@ static void       mcore_unique_section	       PARAMS ((tree, int));
 #define TARGET_ATTRIBUTE_TABLE mcore_attribute_table
 #undef TARGET_ASM_UNIQUE_SECTION
 #define TARGET_ASM_UNIQUE_SECTION mcore_unique_section
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO mcore_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING mcore_strip_name_encoding
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -3405,8 +3411,10 @@ mcore_dllimport_p (decl)
   return lookup_attribute ("dllimport", DECL_ATTRIBUTES (decl)) != 0;
 }
 
-/* Cover function to implement ENCODE_SECTION_INFO.  */
-void
+/* We must mark dll symbols specially.  Definitions of dllexport'd objects
+   install some info in the .drective (PE) or .exports (ELF) sections.   */
+
+static void
 mcore_encode_section_info (decl, first)
      tree decl;
      int first ATTRIBUTE_UNUSED;
@@ -3448,6 +3456,15 @@ mcore_encode_section_info (decl, first)
       /* We previously set TREE_PUBLIC and DECL_EXTERNAL.
 	 ??? We leave these alone for now.  */
     }
+}
+
+/* Undo the effects of the above.  */
+
+static const char *
+mcore_strip_name_encoding (str)
+     const char *str;
+{
+  return str + (str[0] == '@' ? 3 : 0);
 }
 
 /* MCore specific attribute support.
@@ -3518,7 +3535,7 @@ mcore_unique_section (decl, reloc)
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
   
   /* Strip off any encoding in name.  */
-  STRIP_NAME_ENCODING (name, name);
+  name = (* targetm.strip_name_encoding) (name);
 
   /* The object is put in, for example, section .text$foo.
      The linker will then ultimately place them in .text

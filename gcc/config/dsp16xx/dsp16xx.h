@@ -72,12 +72,8 @@ extern GTY(()) rtx dsp16xx_lshrhi3_libcall;
   (!strcmp (STR, "ifile") ? 1 :                 \
    0)
 
-#ifdef  CC1_SPEC
 #undef  CC1_SPEC
-#endif
 #define CC1_SPEC       "%{!O*:-O}"
-
-#define CPP_SPEC       "%{!O*:-D__OPTIMIZE__}"
 
 /* Define this as a spec to call the AT&T assembler */
 
@@ -139,10 +135,29 @@ extern GTY(()) rtx dsp16xx_lshrhi3_libcall;
 }
 
 /* Names to predefine in the preprocessor for this target machine.  */
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("dsp1600");		\
+      builtin_define_std ("DSP1600");		\
+    }						\
+  while (0)
+
 #ifdef __MSDOS__
-#define CPP_PREDEFINES "-Ddsp1600 -DDSP1600 -DMSDOS"
+# define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("MSDOS");		\
+    }						\
+  while (0)
 #else
-#define CPP_PREDEFINES "-Ddsp1600 -DDSP1600 -Ddsp1610 -DDSP1610"
+# define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("dsp1610");		\
+      builtin_define_std ("DSP1610");		\
+    }						\
+  while (0)
 #endif
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
@@ -1203,17 +1218,6 @@ extern struct dsp16xx_frame_info current_frame_info;
 #define FUNCTION_PROFILER(FILE, LABELNO)        \
   internal_error ("profiling not implemented yet")
 
-/* Output assembler code to FILE to initialize this source file's
-   basic block profiling info, if that has not already been done.  */
-#define FUNCTION_BLOCK_PROFILER(FILE, LABELNO)  \
-  internal_error ("profiling not implemented yet")
-
-/* Output assembler code to FILE to increment the entry-count for
-   the BLOCKNO'th basic block in this source file.  */
-#define BLOCK_PROFILER(FILE, BLOCKNO)	        \
-  internal_error ("profiling not implemented yet")
-
-
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
    functions that have frame pointers.
@@ -1549,8 +1553,7 @@ extern struct dsp16xx_frame_info current_frame_info;
 
 /* Output before constants and strings */
 #define DEFAULT_CONST_SEG_NAME  ".const"
-#define READONLY_SECTION_ASM_OP rsect_const
-#define READONLY_DATA_SECTION   const_section
+#define READONLY_DATA_SECTION_ASM_OP rsect_const
 
 /* Output before writable data.  */
 #define DEFAULT_DATA_SEG_NAME ".data"
@@ -1562,22 +1565,6 @@ extern struct dsp16xx_frame_info current_frame_info;
 /* We will default to using 1610 if the user doesn't
    specify it.  */
 #define DEFAULT_CHIP_NAME "1610"
-
-/* A list of names for sections other than the standard ones, which are
-   'in_text' and 'in_data' (and .bss if BSS_SECTION_ASM_OP is defined).  */
-#define EXTRA_SECTIONS in_const
-
-#define EXTRA_SECTION_FUNCTIONS  \
-extern void const_section PARAMS ((void));                         \
-void                                                               \
-const_section ()                                                   \
-{                                                                  \
-    if (in_section != in_const)                                    \
-    {                                                              \
-        fprintf (asm_out_file, "%s\n", READONLY_SECTION_ASM_OP);   \
-	in_section = in_const;                                     \
-    }                                                              \
-}
 
 /* THE OVERALL FRAMEWORK OF AN ASSEMBLER FILE */
 

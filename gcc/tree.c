@@ -37,6 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "flags.h"
 #include "tree.h"
+#include "real.h"
 #include "tm_p.h"
 #include "function.h"
 #include "obstack.h"
@@ -56,6 +57,7 @@ extern int _obstack_allocated_p PARAMS ((struct obstack *h, PTR obj));
 
 struct obstack permanent_obstack;
 
+#ifdef GATHER_STATISTICS
 /* Statistics-gathering stuff.  */
 typedef enum
 {
@@ -95,6 +97,7 @@ static const char * const tree_node_kind_names[] = {
   "lang_decl kinds",
   "lang_type kinds"
 };
+#endif /* GATHER_STATISTICS */
 
 /* Unique id for next decl created.  */
 static int next_decl_uid;
@@ -504,6 +507,7 @@ build_real (type, d)
      REAL_VALUE_TYPE d;
 {
   tree v;
+  REAL_VALUE_TYPE *dp;
   int overflow = 0;
 
   /* Check for valid float value for this type on this target machine;
@@ -513,8 +517,11 @@ build_real (type, d)
 #endif
 
   v = make_node (REAL_CST);
+  dp = ggc_alloc (sizeof (REAL_VALUE_TYPE));
+  memcpy (dp, &d, sizeof (REAL_VALUE_TYPE));
+
   TREE_TYPE (v) = type;
-  TREE_REAL_CST (v) = d;
+  TREE_REAL_CST_PTR (v) = dp;
   TREE_OVERFLOW (v) = TREE_CONSTANT_OVERFLOW (v) = overflow;
   return v;
 }
@@ -551,20 +558,11 @@ build_real_from_int_cst (type, i)
 {
   tree v;
   int overflow = TREE_OVERFLOW (i);
-  REAL_VALUE_TYPE d;
 
-  v = make_node (REAL_CST);
-  TREE_TYPE (v) = type;
+  v = build_real (type, real_value_from_int_cst (type, i));
 
-  d = real_value_from_int_cst (type, i);
-
-  /* Check for valid float value for this type on this target machine.  */
-#ifdef CHECK_FLOAT_VALUE
-  CHECK_FLOAT_VALUE (TYPE_MODE (type), d, overflow);
-#endif
-
-  TREE_REAL_CST (v) = d;
-  TREE_OVERFLOW (v) = TREE_CONSTANT_OVERFLOW (v) = overflow;
+  TREE_OVERFLOW (v) |= overflow;
+  TREE_CONSTANT_OVERFLOW (v) |= overflow;
   return v;
 }
 
@@ -888,6 +886,22 @@ real_twop (expr)
 	   && REAL_VALUES_EQUAL (TREE_REAL_CST (expr), dconst2))
 	  || (TREE_CODE (expr) == COMPLEX_CST
 	      && real_twop (TREE_REALPART (expr))
+	      && real_zerop (TREE_IMAGPART (expr))));
+}
+
+/* Return 1 if EXPR is the real constant minus one.  */
+
+int
+real_minus_onep (expr)
+     tree expr;
+{
+  STRIP_NOPS (expr);
+
+  return ((TREE_CODE (expr) == REAL_CST
+	   && ! TREE_CONSTANT_OVERFLOW (expr)
+	   && REAL_VALUES_EQUAL (TREE_REAL_CST (expr), dconstm1))
+	  || (TREE_CODE (expr) == COMPLEX_CST
+	      && real_minus_onep (TREE_REALPART (expr))
 	      && real_zerop (TREE_IMAGPART (expr))));
 }
 
@@ -1344,12 +1358,13 @@ staticp (arg)
     case FUNCTION_DECL:
       /* Nested functions aren't static, since taking their address
 	 involves a trampoline.  */
-      return (decl_function_context (arg) == 0 || DECL_NO_STATIC_CHAIN (arg))
-	&& ! DECL_NON_ADDR_CONST_P (arg);
+      return ((decl_function_context (arg) == 0 || DECL_NO_STATIC_CHAIN (arg))
+	      && ! DECL_NON_ADDR_CONST_P (arg));
 
     case VAR_DECL:
-      return (TREE_STATIC (arg) || DECL_EXTERNAL (arg))
-	&& ! DECL_NON_ADDR_CONST_P (arg);
+      return ((TREE_STATIC (arg) || DECL_EXTERNAL (arg))
+	      && ! DECL_THREAD_LOCAL (arg)
+	      && ! DECL_NON_ADDR_CONST_P (arg));
 
     case CONSTRUCTOR:
       return TREE_STATIC (arg);
@@ -4209,6 +4224,9 @@ decl_type_context (decl)
 
   while (context)
     {
+      if (TREE_CODE (context) == NAMESPACE_DECL)
+	return NULL_TREE;
+
       if (TREE_CODE (context) == RECORD_TYPE
 	  || TREE_CODE (context) == UNION_TYPE
 	  || TREE_CODE (context) == QUAL_UNION_TYPE)

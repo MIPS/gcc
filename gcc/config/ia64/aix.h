@@ -81,8 +81,7 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=itanium:-D__itanium__} %{mbig-endian:-D__BIG_ENDIAN__} \
 %{ansi:-D_ANSI_C_SOURCE} \
 %{posix:-D_POSIX_SOURCE} \
-%{cpp_cpu} \
--D__LONG_MAX__=9223372036854775807L"
+%{cpp_cpu}"
 
 #undef CPP_PREDEFINES
 #define CPP_PREDEFINES "\
@@ -97,7 +96,6 @@ Boston, MA 02111-1307, USA.  */
    -D_XOPEN_SOURCE_EXTENDED=1                   \
    -D_LARGE_FILE_API                            \
    -D_ALL_SOURCE                                \
-   -D__LONG_MAX__=9223372036854775807L          \
    %{cpp_cpu}"
 
 /* Define this for shared library support.  */
@@ -136,19 +134,8 @@ do {							\
 #define TARGET_ASM_SELECT_SECTION  ia64_aix_select_section
 #undef	TARGET_ASM_UNIQUE_SECTION
 #define TARGET_ASM_UNIQUE_SECTION  ia64_aix_unique_section
-
-extern unsigned int ia64_section_threshold;
-#undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, RTX, ALIGN)				\
-{									\
-  if (GET_MODE_SIZE (MODE) > 0						\
-      && GET_MODE_SIZE (MODE) <= ia64_section_threshold)		\
-    sdata_section ();							\
-  else if (symbolic_operand ((RTX), (MODE)))		                \
-    data_section ();							\
-  else									\
-    const_section ();							\
-}
+#undef	TARGET_ASM_SELECT_RTX_SECTION
+#define TARGET_ASM_SELECT_RTX_SECTION  ia64_aix_select_rtx_section
 
 /* Override ia64/sysv4.h setting with that used by AIX5.  */
 #undef WCHAR_TYPE

@@ -325,7 +325,7 @@ java/io/ObjectOutputStream$$PutField.h: java/io/ObjectOutputStream.class
 ## Headers we maintain by hand and which we want to install.
 extra_headers = java/lang/Object.h java/lang/Class.h
 
-$(extra_headers):
+$(extra_headers) $(srcdir)/java/lang/Object.h $(srcdir)/java/lang/Class.h:
 	@:
 
 ## Install the headers.  It is fairly ugly that we have to do this by
@@ -997,6 +997,20 @@ javax/naming/ldap/UnsolicitedNotification.java \
 javax/naming/ldap/UnsolicitedNotificationEvent.java \
 javax/naming/ldap/UnsolicitedNotificationListener.java \
 javax/naming/OperationNotSupportedException.java \
+javax/sql/ConnectionEvent.java \
+javax/sql/ConnectionEventListener.java \
+javax/sql/ConnectionPoolDataSource.java \
+javax/sql/DataSource.java \
+javax/sql/PooledConnection.java \
+javax/sql/RowSetEvent.java \
+javax/sql/RowSetInternal.java \
+javax/sql/RowSet.java \
+javax/sql/RowSetListener.java \
+javax/sql/RowSetMetaData.java \
+javax/sql/RowSetReader.java \
+javax/sql/RowSetWriter.java \
+javax/sql/XAConnection.java \
+javax/sql/XADataSource.java \
 javax/transaction/xa/XAException.java \
 javax/transaction/xa/XAResource.java \
 javax/transaction/xa/Xid.java \
@@ -1029,6 +1043,7 @@ java/lang/AbstractMethodError.java \
 java/lang/ArithmeticException.java \
 java/lang/ArrayIndexOutOfBoundsException.java \
 java/lang/ArrayStoreException.java \
+java/lang/AssertionError.java \
 java/lang/Boolean.java \
 java/lang/Byte.java \
 java/lang/Character.java \
@@ -1084,6 +1099,7 @@ java/lang/SecurityException.java \
 java/lang/SecurityManager.java \
 java/lang/Short.java \
 java/lang/StackOverflowError.java \
+java/lang/StackTraceElement.java \
 java/lang/StrictMath.java \
 java/lang/String.java \
 java/lang/StringBuffer.java \
@@ -1184,7 +1200,6 @@ java/util/AbstractSequentialList.java \
 java/util/AbstractSet.java \
 java/util/ArrayList.java \
 java/util/Arrays.java \
-java/util/BasicMapEntry.java \
 java/util/BitSet.java \
 java/util/Calendar.java	\
 java/util/Collection.java \
@@ -1196,6 +1211,7 @@ java/util/Dictionary.java \
 java/util/EmptyStackException.java \
 java/util/Enumeration.java \
 java/util/EventListener.java \
+java/util/EventListenerProxy.java \
 java/util/EventObject.java \
 java/util/GregorianCalendar.java \
 java/util/HashMap.java \
@@ -1217,6 +1233,7 @@ java/util/Observable.java \
 java/util/Observer.java	\
 java/util/Properties.java \
 java/util/PropertyPermission.java \
+java/util/PropertyPermissionCollection.java \
 java/util/PropertyResourceBundle.java \
 java/util/Random.java \
 java/util/RandomAccess.java \
@@ -1418,9 +1435,10 @@ gnu/java/security/provider/SHA1PRNG.java \
 gnu/java/text/BaseBreakIterator.java \
 gnu/java/text/CharacterBreakIterator.java \
 gnu/java/text/LineBreakIterator.java \
-gnu/java/text/SentenceBreakIterator.java	\
+gnu/java/text/SentenceBreakIterator.java \
 gnu/java/text/WordBreakIterator.java \
 gnu/java/util/DoubleEnumeration.java \
+gnu/java/util/EmptyEnumeration.java \
 java/lang/ref/PhantomReference.java \
 java/lang/ref/Reference.java \
 java/lang/ref/ReferenceQueue.java \
@@ -1557,6 +1575,10 @@ java/security/cert/CertificateFactory.java \
 java/security/cert/CertificateFactorySpi.java \
 java/security/cert/CertificateNotYetValidException.java \
 java/security/cert/CertificateParsingException.java \
+java/security/cert/CertPath.java \
+java/security/cert/CertPathBuilderException.java \
+java/security/cert/CertPathValidatorException.java \
+java/security/cert/CertStoreException.java \
 java/security/cert/X509CRL.java \
 java/security/cert/X509CRLEntry.java \
 java/security/cert/X509Certificate.java \
@@ -1596,14 +1618,17 @@ java/sql/Date.java \
 java/sql/Driver.java \
 java/sql/DriverManager.java \
 java/sql/DriverPropertyInfo.java \
+java/sql/ParameterMetaData.java \
 java/sql/PreparedStatement.java	\
 java/sql/Ref.java \
 java/sql/ResultSet.java	\
 java/sql/ResultSetMetaData.java	\
+java/sql/Savepoint.java \
 java/sql/SQLData.java \
 java/sql/SQLException.java \
 java/sql/SQLInput.java \
 java/sql/SQLOutput.java \
+java/sql/SQLPermission.java \
 java/sql/SQLWarning.java \
 java/sql/Statement.java	\
 java/sql/Struct.java	\
@@ -1895,7 +1920,9 @@ texinfo: TexinfoDoclet.class
 ## internally by libgcj. We can't make the .o files depend on nat_headers, 
 ## because in that case we'll force a complete rebuild of
 ## the C++ code whenever any .java file is touched.
-all-recursive: $(nat_headers) $(x_nat_headers)
+## Also force all the class files to build first. This makes them build in
+## the right order to improve performance.
+all-recursive: $(all_java_class_files) $(nat_headers) $(x_nat_headers)
 
 ## ################################################################
 

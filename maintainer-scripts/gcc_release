@@ -136,7 +136,7 @@ EOF
           ${CVS} ci -m 'Update version' ${y}) || \
 	  error "Could not update ${x}"
     done
-    for x in gcc/f/version.c libf2c/libF77/Version.c \
+    for x in gcc/ada/gnatvsn.ads gcc/f/version.c libf2c/libF77/Version.c \
              libf2c/libI77/Version.c libf2c/libU77/Version.c; do
       y=`basename ${x}`
       (changedir `dirname ${SOURCE_DIRECTORY}/${x}` && \
@@ -349,9 +349,7 @@ upload_files() {
       # Make sure the file will be readable on the server.
       chmod a+r ${x}
       # Copy it.
-      if [ $LOCAL -eq 0 ]; then
-        ${SCP} ${x} ${UPLOAD_PATH} || error "Could not upload ${x}"
-      fi
+      ${SCP} ${x} ${UPLOAD_PATH} || error "Could not upload ${x}"
     fi
   done
 }

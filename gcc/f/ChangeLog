@@ -1,4 +1,33 @@
-2002-05-08  Geoffrey Keating  <geoffk@redhat.com>
+Thu Jun 20 21:56:34 2002  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang-specs.h: Use cc1 for traditional preprocessing.
+
+2002-06-20  Andreas Jaeger  <aj@suse.de>
+
+	* com.c (ffecom_prepare_expr_,ffecom_expr_power_integer_):
+	Remove #ifdefed HAHA sections.
+
+2002-06-20  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* com.c: Remove #ifdef HOHO sections.
+
+2002-06-17  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* bit.c: Don't include glimits.h.
+	* target.c: Likewise.
+	* where.h: Likewise.
+
+2002-06-12  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* bad.c (ffebad_start_): Adjust calls to diagnostic_count_error.
+
+2002-06-04  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* bad.c (ffebad_start_): Adjust call to count_error.
+	* Make-lang.in (f/bad.o): Depend on diagnostic.h
+	* bad.c: #include diagnostic.h
+
+2002-06-03  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Make-lang.in (f/com.o): Depend on debug.h.
 	* com.c: Include debug.h.
@@ -9,11 +38,7 @@
 	(struct lang_type): New dummy definition.
 	(ffe_mark_tree): Delete.
 
-2002-05-03  Geoffrey Keating  <geoffk@redhat.com>
-
 	* com.c (struct language_function): New dummy structure.
-
-2002-04-04  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Make-lang.in: Add rules to generate gt-f-ste.h gtype-f.h; allow
 	for filename changes.
@@ -26,8 +51,6 @@
 	* com.h: Replace uses of ggc_add_* with GTY markers.
 	* ste.c: Replace uses of ggc_add_* with GTY markers.  Include
 	gt-f-ste.h.
-
-2002-03-12  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Make-lang.in (f/gt-com.h): Build using gengtype.
 	(com.o): Depend on f/gt-com.h.
@@ -42,6 +65,15 @@
 	* config-lang.in (gtfiles): Define.
 	* where.c: Strings need no longer be allocated in GCable memory;
 	remove my change of 30 Dec 1999.
+
+2002-05-31  Matthew Woodcraft  <mattheww@chiark.greenend.org.uk>
+
+	* lang-specs.h: Use cpp_debug_options.
+
+2002-05-28  Zack Weinberg  <zack@codesourcery.com>
+
+	* bld.c, com.c, expr.c, target.c: Include real.h.
+	* Make-lang.in: Update dependency lists.
 
 2002-05-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 

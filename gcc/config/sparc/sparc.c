@@ -159,6 +159,9 @@ static void sparc_elf_asm_named_section PARAMS ((const char *, unsigned int));
 static void sparc_aout_select_section PARAMS ((tree, int,
 					       unsigned HOST_WIDE_INT))
      ATTRIBUTE_UNUSED;
+static void sparc_aout_select_rtx_section PARAMS ((enum machine_mode, rtx,
+						   unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
 
 static int sparc_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int sparc_issue_rate PARAMS ((void));
@@ -171,6 +174,8 @@ static void emit_soft_tfmode_binop PARAMS ((enum rtx_code, rtx *));
 static void emit_soft_tfmode_unop PARAMS ((enum rtx_code, rtx *));
 static void emit_soft_tfmode_cvt PARAMS ((enum rtx_code, rtx *));
 static void emit_hard_tfmode_operation PARAMS ((enum rtx_code, rtx *));
+
+static void sparc_encode_section_info PARAMS ((tree, int));
 
 /* Option handling.  */
 
@@ -230,6 +235,9 @@ enum processor_type sparc_cpu;
 #define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE sparc_use_dfa_pipeline_interface
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD sparc_use_sched_lookahead
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO sparc_encode_section_info
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -3051,17 +3059,6 @@ check_return_regs (x)
       return 0;
     }
 
-}
-
-/* Return 1 if TRIAL references only in and global registers.  */
-int
-eligible_for_return_delay (trial)
-     rtx trial;
-{
-  if (GET_CODE (PATTERN (trial)) != SET)
-    return 0;
-
-  return check_return_regs (PATTERN (trial));
 }
 
 int
@@ -8038,6 +8035,23 @@ sparc_aout_select_section (t, reloc, align)
   default_select_section (t, reloc | SUNOS4_SHARED_LIBRARIES, align);
 }
 
+/* Use text section for a constant unless we need more alignment than
+   that offers.  */
+
+static void
+sparc_aout_select_rtx_section (mode, x, align)
+     enum machine_mode mode;
+     rtx x;
+     unsigned HOST_WIDE_INT align;
+{
+  if (align <= MAX_TEXT_ALIGN
+      && ! (flag_pic && (symbolic_operand (x, mode)
+			 || SUNOS4_SHARED_LIBRARIES)))
+    readonly_data_section ();
+  else
+    data_section ();
+}
+
 int
 sparc_extra_constraint_check (op, c, strict)
      rtx op;
@@ -8417,6 +8431,86 @@ sparc_rtx_costs (x, code, outer_code)
     default:
       abort();
     };
+}
+
+/* If we are referencing a function make the SYMBOL_REF special.  In
+   the Embedded Medium/Anywhere code model, %g4 points to the data
+   segment so we must not add it to function addresses.  */
+
+static void
+sparc_encode_section_info (decl, first)
+     tree decl;
+     int first ATTRIBUTE_UNUSED;
+{
+  if (TARGET_CM_EMBMEDANY && TREE_CODE (decl) == FUNCTION_DECL)
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+}
+
+/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
+   Used for C++ multiple inheritance.  */
+
+void
+sparc_output_mi_thunk (file, thunk_fndecl, delta, function)
+     FILE *file;
+     tree thunk_fndecl ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     tree function;
+{
+  rtx this, insn, funexp, delta_rtx, tmp;
+
+  reload_completed = 1;
+  no_new_pseudos = 1;
+  current_function_uses_only_leaf_regs = 1;
+
+  emit_note (NULL, NOTE_INSN_PROLOGUE_END);
+
+  /* Find the "this" pointer.  Normally in %o0, but in ARCH64 if the function
+     returns a structure, the structure return pointer is there instead.  */
+  if (TARGET_ARCH64 && aggregate_value_p (TREE_TYPE (TREE_TYPE (function))))
+    this = gen_rtx_REG (Pmode, SPARC_INCOMING_INT_ARG_FIRST + 1);
+  else
+    this = gen_rtx_REG (Pmode, SPARC_INCOMING_INT_ARG_FIRST);
+
+  /* Add DELTA.  When possible use a plain add, otherwise load it into
+     a register first.  */
+  delta_rtx = GEN_INT (delta);
+  if (!SPARC_SIMM13_P (delta))
+    {
+      rtx scratch = gen_rtx_REG (Pmode, 1);
+      if (TARGET_ARCH64)
+	sparc_emit_set_const64 (scratch, delta_rtx);
+      else
+	sparc_emit_set_const32 (scratch, delta_rtx);
+      delta_rtx = scratch;
+    }
+
+  tmp = gen_rtx_PLUS (Pmode, this, delta_rtx);
+  emit_insn (gen_rtx_SET (VOIDmode, this, tmp));
+
+  /* Generate a tail call to the target function.  */
+  if (! TREE_USED (function))
+    {
+      assemble_external (function);
+      TREE_USED (function) = 1;
+    }
+  funexp = XEXP (DECL_RTL (function), 0);
+  funexp = gen_rtx_MEM (FUNCTION_MODE, funexp);
+  insn = emit_call_insn (gen_sibcall (funexp));
+  SIBLING_CALL_P (insn) = 1;
+  emit_barrier ();
+
+  /* Run just enough of rest_of_compilation to get the insns emitted.
+     There's not really enough bulk here to make other passes such as
+     instruction scheduling worth while.  Note that use_thunk calls
+     assemble_start_function and assemble_end_function.  */
+  insn = get_insns ();
+  shorten_branches (insn);
+  final_start_function (insn, file, 1);
+  final (insn, file, 1, 0);
+  final_end_function ();
+
+  reload_completed = 0;
+  no_new_pseudos = 0;
 }
 
 #include "gt-sparc.h"

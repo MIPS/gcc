@@ -295,7 +295,7 @@ tlink_execute (prog, argv, redir)
 {
   collect_execute (prog, argv, redir);
   return collect_wait (prog);
-} 
+}
 
 static char *
 frob_extension (s, ext)
@@ -471,7 +471,7 @@ recompile_files ()
 
   putenv (xstrdup ("COMPILER_PATH"));
   putenv (xstrdup ("LIBRARY_PATH"));
-  
+
   while ((f = file_pop ()) != NULL)
     {
       char *line, *command;
@@ -586,7 +586,7 @@ scan_linker_output (fname)
       char *p = line, *q;
       symbol *sym;
       int end;
-      
+
       while (*p && ISSPACE ((unsigned char)*p))
 	++p;
 
@@ -652,8 +652,8 @@ scan_linker_output (fname)
 	      if (dem)
 		sym = symbol_hash_lookup (dem->mangled, false);
 	      else
-	        {
-	          if (*p == '_' && prepends_underscore)
+		{
+		  if (*p == '_' && prepends_underscore)
 		    ++p;
 		  sym = symbol_hash_lookup (p, false);
 		}
@@ -673,7 +673,7 @@ scan_linker_output (fname)
 	  sym->tweaking = 1;
 	  file_push (sym->file);
 	}
-	
+
       obstack_free (&temporary_obstack, temporary_firstobj);
     }
 

@@ -158,7 +158,7 @@ do {									\
     }									\
   ASM_OUTPUT_ALIGN ((FILE), exact_log2((ALIGN) / BITS_PER_UNIT));	\
   ASM_OUTPUT_LABEL(FILE, NAME);						\
-  ASM_OUTPUT_SKIP((FILE), (SIZE));					\
+  ASM_OUTPUT_SKIP((FILE), (SIZE) ? (SIZE) : 1);				\
 } while (0)
 
 /* This says how to output assembler code to declare an
@@ -191,14 +191,8 @@ do {									\
 #undef  ASCII_DATA_ASM_OP
 #define ASCII_DATA_ASM_OP	"\t.ascii\t"
 
-/* Support const sections and the ctors and dtors sections for g++.  */
-
-#undef USE_CONST_SECTION
-#define USE_CONST_SECTION	1
-
-#undef  CONST_SECTION_ASM_OP
-#define CONST_SECTION_ASM_OP	"\t.section\t.rodata"
-
+#undef  READONLY_DATA_SECTION_ASM_OP
+#define READONLY_DATA_SECTION_ASM_OP	"\t.section\t.rodata"
 #undef  BSS_SECTION_ASM_OP
 #define BSS_SECTION_ASM_OP	"\t.section\t.bss"
 #undef  SBSS_SECTION_ASM_OP
@@ -233,7 +227,7 @@ do {									\
    includes this file.  */
 
 #undef  EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_sbss, in_sdata
+#define EXTRA_SECTIONS in_sbss, in_sdata
 
 /* A default list of extra section function definitions.  For targets
    that use additional sections (e.g. .tdesc) you should override this
@@ -241,29 +235,11 @@ do {									\
 
 #undef  EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
-  CONST_SECTION_FUNCTION						\
   SECTION_FUNCTION_TEMPLATE(sbss_section, in_sbss, SBSS_SECTION_ASM_OP)	\
   SECTION_FUNCTION_TEMPLATE(sdata_section, in_sdata, SDATA_SECTION_ASM_OP)
 
 extern void sbss_section		PARAMS ((void));
 extern void sdata_section		PARAMS ((void));
-
-#undef  READONLY_DATA_SECTION
-#define READONLY_DATA_SECTION() const_section ()
-
-#undef  CONST_SECTION_FUNCTION
-#define CONST_SECTION_FUNCTION					\
-void								\
-const_section ()						\
-{								\
-  if (!USE_CONST_SECTION)					\
-    text_section();						\
-  else if (in_section != in_const)				\
-    {								\
-      fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP);	\
-      in_section = in_const;					\
-    }								\
-}
 
 #undef  SECTION_FUNCTION_TEMPLATE
 #define SECTION_FUNCTION_TEMPLATE(FN, ENUM, OP)	\
@@ -281,22 +257,6 @@ void FN ()					\
 #define TARGET_ASM_SELECT_SECTION  default_elf_select_section
 
 #define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
-
-/* A C statement or statements to switch to the appropriate
-   section for output of RTX in mode MODE.  RTX is some kind
-   of constant in RTL.  The argument MODE is redundant except
-   in the case of a `const_int' rtx.  Currently, these always
-   go into the const section.  */
-
-#undef  SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, RTX, ALIGN)				\
-do {									\
-  if (TARGET_SMALL_DATA && GET_MODE_SIZE (MODE) <= g_switch_value)	\
-     /* ??? Consider .sdata.{lit4,lit8} as SHF_MERGE|SHF_ALPHA_GPREL.  */ \
-    sdata_section ();							\
-  else									\
-    mergeable_constant_section((MODE), (ALIGN), 0);			\
-} while (0)
 
 /* Define the strings used for the special svr4 .type and .size directives.
    These strings generally do not vary from one system running svr4 to

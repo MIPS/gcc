@@ -77,17 +77,13 @@ Boston, MA 02111-1307, USA.  */
 #define DWARF2_UNWIND_INFO	\
   ((TARGET_ELF) ? 1 : 0 )  
 
-#undef CONST_SECTION_ASM_OP
-#define CONST_SECTION_ASM_OP_COFF	"\t.section\t.rodata, \"x\""
-#define CONST_SECTION_ASM_OP_ELF	"\t.section\t.rodata"
-#define CONST_SECTION_ASM_OP	\
-  ((TARGET_ELF) ? CONST_SECTION_ASM_OP_ELF : CONST_SECTION_ASM_OP_COFF)
-
-#undef USE_CONST_SECTION
-#define USE_CONST_SECTION_ELF		1
-#define USE_CONST_SECTION_COFF		0
-#define USE_CONST_SECTION	\
- ((TARGET_ELF) ? USE_CONST_SECTION_ELF : USE_CONST_SECTION_COFF)
+#undef READONLY_DATA_SECTION_ASM_OP
+#define READONLY_DATA_SECTION_ASM_OP_COFF	"\t.section\t.rodata, \"x\""
+#define READONLY_DATA_SECTION_ASM_OP_ELF	"\t.section\t.rodata"
+#define READONLY_DATA_SECTION_ASM_OP		\
+  ((TARGET_ELF)					\
+   ? READONLY_DATA_SECTION_ASM_OP_ELF		\
+   : READONLY_DATA_SECTION_ASM_OP_COFF)
 
 #undef INIT_SECTION_ASM_OP
 #define INIT_SECTION_ASM_OP_ELF		"\t.section\t.init"
@@ -352,19 +348,6 @@ do {									\
         fprintf ((FILE), "\n");						\
 } while (0) 
 
-/* Must use data section for relocatable constants when pic.  */
-#undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE,RTX,ALIGN)				\
-{									\
-  if (TARGET_ELF) {							\
-    if (flag_pic && symbolic_operand (RTX, VOIDmode))			\
-      data_section ();							\
-    else								\
-      const_section ();							\
-  } else								\
-    readonly_data_section();						\
-}
-
 #undef ASM_OUTPUT_CASE_LABEL
 #define ASM_OUTPUT_CASE_LABEL(FILE,PREFIX,NUM,JUMPTABLE)		\
 do {									\
@@ -458,27 +441,12 @@ do {									\
   ((TARGET_ELF) ? DWARF2_DEBUG: SDB_DEBUG)
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_init, in_fini
+#define EXTRA_SECTIONS in_init, in_fini
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
-  CONST_SECTION_FUNCTION						\
   INIT_SECTION_FUNCTION							\
   FINI_SECTION_FUNCTION
-
-#undef CONST_SECTION_FUNCTION
-#define CONST_SECTION_FUNCTION						\
-void									\
-const_section ()							\
-{									\
-  if (!USE_CONST_SECTION)						\
-    text_section();							\
-  else if (in_section != in_const)					\
-    {									\
-      fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP);		\
-      in_section = in_const;						\
-    }									\
-}
 
 #undef FINI_SECTION_FUNCTION
 #define FINI_SECTION_FUNCTION						\
@@ -666,20 +634,32 @@ init_section ()								\
   %{mcoff:crtendS.o%s} \
   %{pg:gcrtn.o%s}%{!pg:crtn.o%s}"
 
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES \
- "-Asystem=svr3"
-
-/* You are in a maze of GCC specs ... all alike */
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+	builtin_define ("__unix");		\
+	builtin_define ("_SCO_DS");		\
+	builtin_define ("_M_I386");		\
+	builtin_define ("_M_XENIX");		\
+	builtin_define ("_M_UNIX");		\
+	builtin_assert ("system=svr3");		\
+	if (flag_iso)				\
+	  cpp_define (pfile, "_STRICT_ANSI");	\
+	if (flag_pic)							\
+	  {								\
+	    builtin_define ("__PIC__");					\
+	    builtin_define ("__pic__");					\
+	  }								\
+    }						\
+  while (0)
 
 #undef CPP_SPEC
-#define CPP_SPEC "%(cpp_cpu) \
+#define CPP_SPEC "\
   %{fpic:%{mcoff:%e-fpic is not valid with -mcoff}} \
   %{fPIC:%{mcoff:%e-fPIC is not valid with -mcoff}} \
-  -D__i386 -D__unix -D_SCO_DS=1 -D_M_I386 -D_M_XENIX -D_M_UNIX \
   %{!Xods30:-D_STRICT_NAMES} \
   %{!ansi:%{!posix:%{!Xods30:-D_SCO_XPG_VERS=4}}} \
-  %{ansi:-isystem include/ansi%s -isystem /usr/include/ansi -D_STRICT_ANSI} \
+  %{ansi:-isystem include/ansi%s -isystem /usr/include/ansi} \
   %{!ansi: \
    %{posix:-isystem include/posix%s -isystem /usr/include/posix \
            -D_POSIX_C_SOURCE=2 -D_POSIX_SOURCE=1} \
@@ -696,8 +676,6 @@ init_section ()								\
   %{scointl:-DM_INTERNAT -D_M_INTERNAT} \
   %{!mcoff:-D_SCO_ELF} \
   %{mcoff:-D_M_COFF -D_SCO_COFF} \
-  %{!mcoff:%{fpic:-D__PIC__ -D__pic__} \
-         %{fPIC:%{!fpic:-D__PIC__ -D__pic__}}} \
   %{Xa:-D_SCO_C_DIALECT=1} \
   %{!Xa:%{Xc:-D_SCO_C_DIALECT=3} \
    %{!Xc:%{Xk:-D_SCO_C_DIALECT=4} \

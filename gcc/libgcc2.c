@@ -36,8 +36,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tconfig.h"
 #include "tsystem.h"
 
-#include "machmode.h"
-
 /* Don't use `fancy_abort' here even if config.h says to use it.  */
 #ifdef abort
 #undef abort
@@ -151,9 +149,9 @@ __mulvsi3 (Wtype a, Wtype b)
 Wtype
 __negvsi2 (Wtype a)
 {
-   Wtype w;
+  Wtype w;
 
-   w  = -a;
+  w  = -a;
 
   if (a >= 0 ? w > 0 : w < 0)
     abort ();
@@ -166,14 +164,14 @@ __negvsi2 (Wtype a)
 DWtype
 __negvdi2 (DWtype a)
 {
-   DWtype w;
+  DWtype w;
 
-   w  = -a;
+  w  = -a;
 
   if (a >= 0 ? w > 0 : w < 0)
     abort ();
 
-   return w;
+  return w;
 }
 #endif
 
@@ -181,16 +179,16 @@ __negvdi2 (DWtype a)
 Wtype
 __absvsi2 (Wtype a)
 {
-   Wtype w = a;
+  Wtype w = a;
 
-   if (a < 0)
+  if (a < 0)
 #ifdef L_negvsi2
-     w = __negvsi2 (a);
+    w = __negvsi2 (a);
 #else
-     w = -a;
+    w = -a;
 
-   if (w < 0)
-     abort ();
+  if (w < 0)
+    abort ();
 #endif
 
    return w;
@@ -201,19 +199,19 @@ __absvsi2 (Wtype a)
 DWtype
 __absvdi2 (DWtype a)
 {
-   DWtype w = a;
+  DWtype w = a;
 
-   if (a < 0)
+  if (a < 0)
 #ifdef L_negvsi2
-     w = __negvsi2 (a);
+    w = __negvsi2 (a);
 #else
-     w = -a;
+    w = -a;
 
-   if (w < 0)
-     abort ();
+  if (w < 0)
+    abort ();
 #endif
 
-   return w;
+  return w;
 }
 #endif
 
@@ -221,7 +219,7 @@ __absvdi2 (DWtype a)
 DWtype
 __mulvdi3 (DWtype u, DWtype v)
 {
-   DWtype w;
+  DWtype w;
 
   w = u * v;
 
@@ -1258,9 +1256,6 @@ struct bb
   struct bb_function_info *function_infos;
 };
 
-#ifdef BLOCK_PROFILER_CODE
-BLOCK_PROFILER_CODE
-#else
 #ifndef inhibit_libc
 
 /* Simple minded basic block profiling output dumper for
@@ -1386,21 +1381,21 @@ __bb_exit_func (void)
 	  /* length of extra data in bytes.  */
 	  __write_long ((4 + 8 + 8) + (4 + 8 + 8), da_file, 4);
 
-	  /* overall statistics. */
+	  /* overall statistics.  */
 	  /* number of counters.  */
-	  __write_long (n_counters_p, da_file, 4);	
+	  __write_long (n_counters_p, da_file, 4);
 	  /* sum of counters.  */
-	  __write_gcov_type (sum_counters_p, da_file, 8);	
+	  __write_gcov_type (sum_counters_p, da_file, 8);
 	  /* maximal counter.  */
-	  __write_gcov_type (max_counter_p, da_file, 8);	
+	  __write_gcov_type (max_counter_p, da_file, 8);
 
-	  /* per-object statistics. */
+	  /* per-object statistics.  */
 	  /* number of counters.  */
-	  __write_long (ptr->ncounts, da_file, 4);	
+	  __write_long (ptr->ncounts, da_file, 4);
 	  /* sum of counters.  */
-	  __write_gcov_type (sum_counters_o, da_file, 8);	
+	  __write_gcov_type (sum_counters_o, da_file, 8);
 	  /* maximal counter.  */
-	  __write_gcov_type (max_counter_o, da_file, 8);	
+	  __write_gcov_type (max_counter_o, da_file, 8);
 
 	  /* write execution counts for each function.  */
 
@@ -1463,7 +1458,7 @@ __bb_init_func (struct bb *blocks)
 
   if (blocks->zero_word)
     return;
-  
+
   /* Initialize destructor and per-thread data.  */
   if (!bb_head)
     atexit (__bb_exit_func);
@@ -1477,7 +1472,7 @@ __bb_init_func (struct bb *blocks)
 /* Called before fork or exec - write out profile information gathered so
    far and reset it to zero.  This avoids duplication or loss of the
    profile information gathered so far.  */
-void 
+void
 __bb_fork_func (void)
 {
   struct bb *ptr;
@@ -1492,7 +1487,6 @@ __bb_fork_func (void)
 }
 
 #endif /* not inhibit_libc */
-#endif /* not BLOCK_PROFILER_CODE */
 #endif /* L_bb */
 
 #ifdef L_clear_cache

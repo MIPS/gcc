@@ -40,12 +40,8 @@ Boston, MA 02111-1307, USA.  */
   (TYPE_MODE (TYPE) == BLKmode \
    || (VECTOR_MODE_P (TYPE_MODE (TYPE)) && int_size_in_bytes (TYPE) == 8))
 
-/* This used to define X86, but james@bigtex.cactus.org says that
-   is supposed to be defined optionally by user programs--not by default.  */
-#define CPP_PREDEFINES ""
-
 #undef CPP_SPEC
-#define CPP_SPEC "%(cpp_cpu)"
+#define CPP_SPEC ""
 
 #define ENDFILE_SPEC "crtend.o%s"
 

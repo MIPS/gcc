@@ -1503,6 +1503,7 @@ copy_insn_list (insns, map, static_chain_value)
 #else
 	  try_constants (copy, map);
 #endif
+	  INSN_SCOPE (copy) = INSN_SCOPE (insn);
 	  break;
 
 	case JUMP_INSN:
@@ -1523,6 +1524,7 @@ copy_insn_list (insns, map, static_chain_value)
 	  cc0_insn = 0;
 #endif
 	  try_constants (copy, map);
+	  INSN_SCOPE (copy) = INSN_SCOPE (insn);
 
 	  /* If this used to be a conditional jump insn but whose branch
 	     direction is now know, we must do something special.  */
@@ -1590,6 +1592,7 @@ copy_insn_list (insns, map, static_chain_value)
 
 	  SIBLING_CALL_P (copy) = SIBLING_CALL_P (insn);
 	  CONST_OR_PURE_CALL_P (copy) = CONST_OR_PURE_CALL_P (insn);
+	  INSN_SCOPE (copy) = INSN_SCOPE (insn);
 
 	  /* Because the USAGE information potentially contains objects other
 	     than hard registers, we need to copy it.  */
@@ -1939,7 +1942,7 @@ copy_rtx_and_substitute (orig, map, for_lhs)
 
 	      SET_CONST_EQUIV_DATA (map, temp, loc, CONST_AGE_PARM);
 
-	      seq = gen_sequence ();
+	      seq = get_insns ();
 	      end_sequence ();
 	      emit_insn_after (seq, map->insns_at_start);
 	      return temp;
@@ -1972,7 +1975,7 @@ copy_rtx_and_substitute (orig, map, for_lhs)
 
 	      SET_CONST_EQUIV_DATA (map, temp, loc, CONST_AGE_PARM);
 
-	      seq = gen_sequence ();
+	      seq = get_insns ();
 	      end_sequence ();
 	      emit_insn_after (seq, map->insns_at_start);
 	      return temp;
@@ -2059,7 +2062,17 @@ copy_rtx_and_substitute (orig, map, for_lhs)
 	  RTX_UNCHANGING_P (map->reg_map[regno]) = RTX_UNCHANGING_P (temp);
 	  /* A reg with REG_FUNCTION_VALUE_P true will never reach here.  */
 
-	  if (REG_POINTER (map->x_regno_reg_rtx[regno]))
+	  /* Objects may initially be represented as registers, but
+	     but turned into a MEM if their address is taken by
+	     put_var_into_stack.  Therefore, the register table may have
+	     entries which are MEMs.
+
+	     We briefly tried to clear such entries, but that ended up
+	     cascading into many changes due to the optimizers not being
+	     prepared for empty entries in the register table.  So we've
+	     decided to allow the MEMs in the register table for now.  */
+	  if (REG_P (map->x_regno_reg_rtx[regno])
+	      && REG_POINTER (map->x_regno_reg_rtx[regno]))
 	    mark_reg_pointer (map->reg_map[regno],
 			      map->regno_pointer_align[regno]);
 	  regno = REGNO (map->reg_map[regno]);
@@ -2687,6 +2700,7 @@ subst_constants (loc, insn, map, memonly)
 	case 'w':
 	case 'n':
 	case 't':
+	case 'B':
 	  break;
 
 	case 'E':
@@ -2975,7 +2989,6 @@ output_inline_function (fndecl)
 
   cfun = f;
   current_function_decl = fndecl;
-  clear_emit_caches ();
 
   set_new_last_label_num (f->inl_max_label_num);
 
@@ -3125,7 +3138,7 @@ emit_initial_value_sets ()
   seq = get_insns ();
   end_sequence ();
 
-  emit_insns_after (seq, get_insns ());
+  emit_insn_after (seq, get_insns ());
 }
 
 /* If the backend knows where to allocate pseudos for hard

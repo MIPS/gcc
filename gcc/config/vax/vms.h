@@ -35,17 +35,23 @@ Boston, MA 02111-1307, USA.  */
 #define VMS_TARGET 1
 
 #undef LIB_SPEC
-#undef CPP_PREDEFINES
 #undef TARGET_NAME
 #undef TARGET_DEFAULT
 #undef CALL_USED_REGISTERS
 #undef STARTING_FRAME_OFFSET
 
-/* Predefine this in CPP because VMS limits the size of command options
-   and GNU CPP is not used on VMS except with GNU C.  */
-#define CPP_PREDEFINES \
-"-Dvax -Dvms -DVMS -D__vax__ -D__vms__ -D__VMS__\
- -D__GNUC__=2 -D__GNUC_MINOR__=7 -Asystem=vms -Acpu=vax -Amachine=vax"
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("vms");		\
+      builtin_define_std ("VMS");		\
+      builtin_assert ("system=vms");		\
+						\
+      builtin_define_std ("vax");		\
+      if (TARGET_G_FLOAT)			\
+	builtin_define_std ("GFLOAT");		\
+    }						\
+  while (0)
 
 /* These match the definitions used in VAXCRTL, the VMS C run-time library */
 
@@ -84,15 +90,6 @@ Boston, MA 02111-1307, USA.  */
 /* This macro definition sets up a default value for `main' to return.  */
 #define DEFAULT_MAIN_RETURN  c_expand_return (integer_one_node)
 
-/* This makes use of a hook in varasm.c to mark all external variables
-   for us.  We use this to make sure that external variables are correctly
-   addressed.  Under VMS there is some brain damage in the linker that requires
-   us to do this.  */
-
-#define ENCODE_SECTION_INFO(decl, FIRST)  			\
-  if (DECL_EXTERNAL (decl) && TREE_PUBLIC (decl)) 		\
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1; 
-
 /* This is how to output a command to make the user-level label named NAME
    defined for reference from other files.  */
 

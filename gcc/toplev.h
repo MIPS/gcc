@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 extern int toplev_main			PARAMS ((int, char **));
 extern int read_integral_parameter	PARAMS ((const char *, const char *,
 						const int));
-extern int count_error			PARAMS ((int));
 extern void strip_off_ending		PARAMS ((char *, int));
 extern void print_time			PARAMS ((const char *, long));
 extern const char *trim_filename	PARAMS ((const char *));
@@ -67,7 +66,6 @@ extern void warning_with_file_and_line	PARAMS ((const char *, int,
 extern void error_with_file_and_line	PARAMS ((const char *, int,
 						 const char *, ...));
 extern void sorry			PARAMS ((const char *, ...));
-extern void report_error_function	PARAMS ((const char *));
 
 extern void rest_of_decl_compilation	PARAMS ((union tree_node *,
 						const char *, int, int));
@@ -89,6 +87,7 @@ extern void warning_for_asm		PARAMS ((struct rtx_def *,
 						 const char *, ...));
 extern void warn_deprecated_use		PARAMS ((union tree_node *));
 
+extern void output_clean_symbol_name    PARAMS ((FILE *, const char *));
 #ifdef BUFSIZ
 extern void output_quoted_string	PARAMS ((FILE *, const char *));
 extern void output_file_directive	PARAMS ((FILE *, const char *));
@@ -115,7 +114,7 @@ extern struct ht *ident_hash;
 
 /* This function can be used by targets to set the flags originally
     implied by -ffast-math and -fno-fast-math.  */
- 
+
 extern void set_fast_math_flags         PARAMS ((int));
 
 /* Return true iff flags are set as if -ffast-math.  */

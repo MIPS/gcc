@@ -50,9 +50,6 @@ static void cleanup_unconditional_jumps	PARAMS ((void));
 static void fixup_fallthru_exit_predecessor PARAMS ((void));
 static rtx unlink_insn_chain PARAMS ((rtx, rtx));
 static rtx duplicate_insn_chain PARAMS ((rtx, rtx));
-
-/* Map insn uid to lexical block.  */
-static varray_type insn_scopes;
 
 static rtx
 unlink_insn_chain (first, last)
@@ -86,8 +83,8 @@ skip_insns_after_block (bb)
   rtx insn, last_insn, next_head, prev;
 
   next_head = NULL_RTX;
-  if (bb->index + 1 != n_basic_blocks)
-    next_head = BASIC_BLOCK (bb->index + 1)->head;
+  if (bb->next_bb != EXIT_BLOCK_PTR)
+    next_head = bb->next_bb->head;
 
   for (last_insn = insn = bb->end; (insn = NEXT_INSN (insn)) != 0; )
     {
@@ -127,7 +124,7 @@ skip_insns_after_block (bb)
 	      last_insn = insn;
 	      continue;
 	    }
-          break;
+	  break;
 
 	default:
 	  break;
@@ -137,7 +134,7 @@ skip_insns_after_block (bb)
     }
 
   /* It is possible to hit contradictory sequence.  For instance:
-    
+
      jump_insn
      NOTE_INSN_LOOP_BEG
      barrier
@@ -152,14 +149,14 @@ skip_insns_after_block (bb)
       if (GET_CODE (insn) == NOTE)
 	switch (NOTE_LINE_NUMBER (insn))
 	  {
-          case NOTE_INSN_LOOP_END:
-          case NOTE_INSN_BLOCK_END:
-          case NOTE_INSN_DELETED:
-          case NOTE_INSN_DELETED_LABEL:
+	  case NOTE_INSN_LOOP_END:
+	  case NOTE_INSN_BLOCK_END:
+	  case NOTE_INSN_DELETED:
+	  case NOTE_INSN_DELETED_LABEL:
 	    continue;
-          default:
+	  default:
 	    reorder_insns (insn, insn, last_insn);
-        }
+	  }
     }
 
   return last_insn;
@@ -191,11 +188,10 @@ static void
 record_effective_endpoints ()
 {
   rtx next_insn = get_insns ();
-  int i;
-  
-  for (i = 0; i < n_basic_blocks; i++)
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
       rtx end;
 
       if (PREV_INSN (bb->head) && next_insn != bb->head)
@@ -203,7 +199,7 @@ record_effective_endpoints ()
 					      PREV_INSN (bb->head));
       end = skip_insns_after_block (bb);
       if (NEXT_INSN (bb->end) && bb->end != end)
-        RBI (bb)->footer = unlink_insn_chain (NEXT_INSN (bb->end), end);
+	RBI (bb)->footer = unlink_insn_chain (NEXT_INSN (bb->end), end);
       next_insn = NEXT_INSN (bb->end);
     }
 
@@ -220,8 +216,6 @@ scope_to_insns_initialize ()
   tree block = NULL;
   rtx insn, next;
 
-  VARRAY_TREE_INIT (insn_scopes, get_max_uid (), "insn scopes");
-
   for (insn = get_insns (); insn; insn = next)
     {
       next = NEXT_INSN (insn);
@@ -229,7 +223,7 @@ scope_to_insns_initialize ()
       if (active_insn_p (insn)
 	  && GET_CODE (PATTERN (insn)) != ADDR_VEC
 	  && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
-	VARRAY_TREE (insn_scopes, INSN_UID (insn)) = block;
+        INSN_SCOPE (insn) = block;
       else if (GET_CODE (insn) == NOTE)
 	{
 	  switch (NOTE_LINE_NUMBER (insn))
@@ -247,6 +241,10 @@ scope_to_insns_initialize ()
 	    }
 	}
     }
+
+  /* Tag the blocks with a depth number so that change_scope can find
+     the common parent easily.  */
+  set_block_levels (DECL_INITIAL (cfun->decl), 0);
 }
 
 /* For each lexical block, set BLOCK_NUMBER to the depth at which it is
@@ -263,6 +261,20 @@ set_block_levels (block, level)
       set_block_levels (BLOCK_SUBBLOCKS (block), level + 1);
       block = BLOCK_CHAIN (block);
     }
+}
+
+/* Return sope resulting from combination of S1 and S2.  */
+tree
+choose_inner_scope (s1, s2)
+     tree s1, s2;
+{
+   if (!s1)
+     return s2;
+   if (!s2)
+     return s1;
+   if (BLOCK_NUMBER (s1) > BLOCK_NUMBER (s2))
+     return s1;
+   return s2;
 }
 
 /* Emit lexical block notes needed to change scope from S1 to S2.  */
@@ -321,17 +333,26 @@ scope_to_insns_finalize ()
   tree cur_block = DECL_INITIAL (cfun->decl);
   rtx insn, note;
 
-  /* Tag the blocks with a depth number so that change_scope can find
-     the common parent easily.  */
-  set_block_levels (cur_block, 0);
-
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+  insn = get_insns ();
+  if (!active_insn_p (insn))
+    insn = next_active_insn (insn);
+  for (; insn; insn = next_active_insn (insn))
     {
       tree this_block;
 
-      if ((size_t) INSN_UID (insn) >= insn_scopes->num_elements)
-	continue;
-      this_block = VARRAY_TREE (insn_scopes, INSN_UID (insn));
+      this_block = INSN_SCOPE (insn);
+      /* For sequences compute scope resulting from merging all scopes
+         of instructions nested inside. */
+      if (GET_CODE (PATTERN (insn)) == SEQUENCE)
+	{
+	  int i;
+	  rtx body = PATTERN (insn);
+
+	  this_block = NULL;
+	  for (i = 0; i < XVECLEN (body, 0); i++)
+	    this_block = choose_inner_scope (this_block,
+			    		 INSN_SCOPE (XVECEXP (body, 0, i)));
+	}
       if (! this_block)
 	continue;
 
@@ -355,14 +376,14 @@ scope_to_insns_finalize ()
 static void
 fixup_reorder_chain ()
 {
-  basic_block bb;
+  basic_block bb, prev_bb;
   int index;
   rtx insn = NULL;
 
   /* First do the bulk reordering -- rechain the blocks without regard to
      the needed changes to jumps and labels.  */
 
-  for (bb = BASIC_BLOCK (0), index = 0;
+  for (bb = ENTRY_BLOCK_PTR->next_bb, index = 0;
        bb != 0;
        bb = RBI (bb)->next, index++)
     {
@@ -410,7 +431,7 @@ fixup_reorder_chain ()
   /* Now add jumps and labels as needed to match the blocks new
      outgoing edges.  */
 
-  for (bb = BASIC_BLOCK (0); bb ; bb = RBI (bb)->next)
+  for (bb = ENTRY_BLOCK_PTR->next_bb; bb ; bb = RBI (bb)->next)
     {
       edge e_fall, e_taken, e;
       rtx bb_end_insn;
@@ -459,7 +480,7 @@ fixup_reorder_chain ()
 		    }
 		}
 
-	      /* Otherwise we can try to invert the jump.  This will 
+	      /* Otherwise we can try to invert the jump.  This will
 		 basically never fail, however, keep up the pretense.  */
 	      else if (invert_jump (bb_end_insn,
 				    label_for_bb (e_fall->dest), 0))
@@ -525,7 +546,7 @@ fixup_reorder_chain ()
   if (rtl_dump_file)
     {
       fprintf (rtl_dump_file, "Reordered sequence:\n");
-      for (bb = BASIC_BLOCK (0), index = 0; bb; bb = RBI (bb)->next, index ++)
+      for (bb = ENTRY_BLOCK_PTR->next_bb, index = 0; bb; bb = RBI (bb)->next, index ++)
 	{
 	  fprintf (rtl_dump_file, " %i ", index);
 	  if (RBI (bb)->original)
@@ -539,11 +560,20 @@ fixup_reorder_chain ()
 	}
     }
 
-  for (bb = BASIC_BLOCK (0), index = 0; bb; bb = RBI (bb)->next, index ++)
+  prev_bb = ENTRY_BLOCK_PTR;
+  bb = ENTRY_BLOCK_PTR->next_bb;
+  index = 0;
+
+  for (; bb; prev_bb = bb, bb = RBI (bb)->next, index ++)
     {
       bb->index = index;
       BASIC_BLOCK (index) = bb;
+
+      bb->prev_bb = prev_bb;
+      prev_bb->next_bb = bb;
     }
+  prev_bb->next_bb = EXIT_BLOCK_PTR;
+  EXIT_BLOCK_PTR->prev_bb = prev_bb;
 }
 
 /* Perform sanity checks on the insn chain.
@@ -578,19 +608,17 @@ verify_insn_chain ()
 }
 
 /* Remove any unconditional jumps and forwarder block creating fallthru
-   edges instead.  During BB reordering fallthru edges are not required
+   edges instead.  During BB reordering, fallthru edges are not required
    to target next basic block in the linear CFG layout, so the unconditional
-   jumps are not needed.  If LOOPS is not null, also update loop structure &
-   dominators.  */
+   jumps are not needed.  */
 
 static void
 cleanup_unconditional_jumps ()
 {
-  int i;
-  for (i = 0; i < n_basic_blocks; i++)
-    {
-      basic_block bb = BASIC_BLOCK (i);
+  basic_block bb;
 
+  FOR_EACH_BB (bb)
+    {
       if (!bb->succ)
 	continue;
       if (bb->succ->flags & EDGE_FALLTHRU)
@@ -598,15 +626,16 @@ cleanup_unconditional_jumps ()
       if (!bb->succ->succ_next)
 	{
 	  rtx insn;
-	  if (GET_CODE (bb->head) != CODE_LABEL && forwarder_block_p (bb) && i)
+	  if (GET_CODE (bb->head) != CODE_LABEL && forwarder_block_p (bb)
+	      && bb->prev_bb != ENTRY_BLOCK_PTR)
 	    {
-	      basic_block prev = BASIC_BLOCK (--i);
+	      basic_block prev = bb->prev_bb;
 
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file, "Removing forwarder BB %i\n",
 			 bb->index);
 
-	      redirect_edge_succ (bb->pred, bb->succ->dest);
+	      redirect_edge_succ_nodup (bb->pred, bb->succ->dest);
 	      flow_delete_block (bb);
 	      bb = prev;
 	    }
@@ -623,8 +652,6 @@ cleanup_unconditional_jumps ()
 	  else
 	    continue;
 
-	  /* Cleanup barriers and delete ADDR_VECs in a way as they are belonging
-             to removed tablejump anyway.  */
 	  insn = NEXT_INSN (bb->end);
 	  while (insn
 		 && (GET_CODE (insn) != NOTE
@@ -634,12 +661,6 @@ cleanup_unconditional_jumps ()
 
 	      if (GET_CODE (insn) == BARRIER)
 		delete_barrier (insn);
-	      else if (GET_CODE (insn) == JUMP_INSN)
-		delete_insn_chain (PREV_INSN (insn), insn);
-	      else if (GET_CODE (insn) == CODE_LABEL)
-		;
-	      else if (GET_CODE (insn) != NOTE)
-		abort ();
 
 	      insn = next;
 	    }
@@ -661,7 +682,7 @@ fixup_fallthru_exit_predecessor ()
 
   if (bb && RBI (bb)->next)
     {
-      basic_block c = BASIC_BLOCK (0);
+      basic_block c = ENTRY_BLOCK_PTR->next_bb;
 
       while (RBI (c)->next != bb)
 	c = RBI (c)->next;
@@ -732,10 +753,6 @@ duplicate_insn_chain (from, to)
 	      || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC)
 	    break;
 	  new = emit_copy_of_insn_after (insn, get_last_insn ());
-	  /* Record the INSN_SCOPE.  */
-	  VARRAY_GROW (insn_scopes, INSN_UID (new) + 1);
-	  VARRAY_TREE (insn_scopes, INSN_UID (new))
-	    = VARRAY_TREE (insn_scopes, INSN_UID (insn));
 	  break;
 
 	case CODE_LABEL:
@@ -779,8 +796,6 @@ duplicate_insn_chain (from, to)
 	         reordering is in the progress.  */
 	    case NOTE_INSN_EH_REGION_BEG:
 	    case NOTE_INSN_EH_REGION_END:
-	    case NOTE_INSN_RANGE_BEG:
-	    case NOTE_INSN_RANGE_END:
 	      /* Should never exist at BB duplication time.  */
 	      abort ();
 	      break;
@@ -811,14 +826,14 @@ cfg_layout_redirect_edge (e, dest)
      edge e;
      basic_block dest;
 {
-  int old_index = dest->index;
   basic_block src = e->src;
+  basic_block old_next_bb = src->next_bb;
 
   /* Redirect_edge_and_branch may decide to turn branch into fallthru edge
      in the case the basic block appears to be in sequence.  Avoid this
      transformation.  */
 
-  dest->index = n_basic_blocks + 1;
+  src->next_bb = NULL;
   if (e->flags & EDGE_FALLTHRU)
     {
       /* In case we are redirecting fallthru edge to the branch edge
@@ -844,7 +859,7 @@ cfg_layout_redirect_edge (e, dest)
       delete_barrier (NEXT_INSN (src->end));
       src->succ->flags |= EDGE_FALLTHRU;
     }
-  dest->index = old_index;
+  src->next_bb = old_next_bb;
 }
 
 /* Create an duplicate of the basic block BB and redirect edge E into it.  */
@@ -869,8 +884,9 @@ cfg_layout_duplicate_bb (bb, e)
 #endif
 
   insn = duplicate_insn_chain (bb->head, bb->end);
-  new_bb = create_basic_block (n_basic_blocks, insn,
-		 	       insn ? get_last_insn () : NULL);
+  new_bb = create_basic_block (insn,
+			       insn ? get_last_insn () : NULL,
+			       EXIT_BLOCK_PTR->prev_bb);
   alloc_aux_for_block (new_bb, sizeof (struct reorder_block_def));
 
   if (RBI (bb)->header)
@@ -919,12 +935,12 @@ cfg_layout_duplicate_bb (bb, e)
   bb->count -= new_count;
 
   if (e)
-   {
-     new_bb->frequency = EDGE_FREQUENCY (e);
-     bb->frequency -= EDGE_FREQUENCY (e);
+    {
+      new_bb->frequency = EDGE_FREQUENCY (e);
+      bb->frequency -= EDGE_FREQUENCY (e);
 
-     cfg_layout_redirect_edge (e, new_bb);
-   }
+      cfg_layout_redirect_edge (e, new_bb);
+    }
 
   if (bb->count < 0)
     bb->count = 0;
@@ -947,8 +963,6 @@ cfg_layout_initialize ()
 
   cleanup_unconditional_jumps ();
 
-  scope_to_insns_initialize ();
-
   record_effective_endpoints ();
 }
 
@@ -964,8 +978,6 @@ cfg_layout_finalize ()
 #ifdef ENABLE_CHECKING
   verify_insn_chain ();
 #endif
-
-  scope_to_insns_finalize ();
 
   free_aux_for_blocks ();
 

@@ -373,10 +373,14 @@ check_function_return_warnings ()
 	 is no longer in the chain.  */
       if (INSN_UID (cfun->x_clobber_return_insn) < max_uid)
 	{
-	  /* Recompute insn->block mapping, since the initial mapping is
-	     set before we delete unreachable blocks.  */
-	  if (BLOCK_FOR_INSN (cfun->x_clobber_return_insn) != NULL)
-	    warning ("control reaches end of non-void function");
+	  rtx insn;
+
+	  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+	    if (insn == cfun->x_clobber_return_insn)
+	      {
+	        warning ("control reaches end of non-void function");
+		break;
+	      }
 	}
     }
 }
@@ -447,7 +451,7 @@ life_analysis (f, file, flags)
     flags &= ~(PROP_REG_INFO | PROP_AUTOINC);
 
   /* We want alias analysis information for local dead store elimination.  */
-  if (optimize && (flags & PROP_SCAN_DEAD_CODE))
+  if (optimize && (flags & PROP_SCAN_DEAD_STORES))
     init_alias_analysis ();
 
   /* Always remove no-op moves.  Do this before other processing so
@@ -477,7 +481,7 @@ life_analysis (f, file, flags)
   update_life_info (NULL, UPDATE_LIFE_GLOBAL, flags);
 
   /* Clean up.  */
-  if (optimize && (flags & PROP_SCAN_DEAD_CODE))
+  if (optimize && (flags & PROP_SCAN_DEAD_STORES))
     end_alias_analysis ();
 
   if (file)
@@ -485,20 +489,6 @@ life_analysis (f, file, flags)
 
   free_basic_block_vars (1);
 
-#ifdef ENABLE_CHECKING
-  {
-    rtx insn;
-
-    /* Search for any REG_LABEL notes which reference deleted labels.  */
-    for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-      {
-	rtx inote = find_reg_note (insn, REG_LABEL, NULL_RTX);
-
-	if (inote && GET_CODE (inote) == NOTE_INSN_DELETED_LABEL)
-	  abort ();
-      }
-  }
-#endif
   /* Removing dead insns should've made jumptables really dead.  */
   delete_dead_jumptables ();
 }
@@ -637,6 +627,7 @@ update_life_info (blocks, extent, prop_flags)
   regset_head tmp_head;
   int i;
   int stabilized_prop_flags = prop_flags;
+  basic_block bb;
 
   tmp = INITIALIZE_REG_SET (tmp_head);
   ndead = 0;
@@ -659,6 +650,7 @@ update_life_info (blocks, extent, prop_flags)
 
 	  calculate_global_regs_live (blocks, blocks,
 				prop_flags & (PROP_SCAN_DEAD_CODE
+					      | PROP_SCAN_DEAD_STORES
 					      | PROP_ALLOW_CFG_CHANGES));
 
 	  if ((prop_flags & (PROP_KILL_DEAD_CODE | PROP_ALLOW_CFG_CHANGES))
@@ -667,13 +659,12 @@ update_life_info (blocks, extent, prop_flags)
 
 	  /* Removing dead code may allow the CFG to be simplified which
 	     in turn may allow for further dead code detection / removal.  */
-	  for (i = n_basic_blocks - 1; i >= 0; --i)
+	  FOR_EACH_BB_REVERSE (bb)
 	    {
-	      basic_block bb = BASIC_BLOCK (i);
-
 	      COPY_REG_SET (tmp, bb->global_live_at_end);
 	      changed |= propagate_block (bb, tmp, NULL, NULL,
 				prop_flags & (PROP_SCAN_DEAD_CODE
+					      | PROP_SCAN_DEAD_STORES
 					      | PROP_KILL_DEAD_CODE));
 	    }
 
@@ -682,7 +673,8 @@ update_life_info (blocks, extent, prop_flags)
 	     removing dead code can affect global register liveness, which
 	     is supposed to be finalized for this call after this loop.  */
 	  stabilized_prop_flags
-	    &= ~(PROP_SCAN_DEAD_CODE | PROP_KILL_DEAD_CODE);
+	    &= ~(PROP_SCAN_DEAD_CODE | PROP_SCAN_DEAD_STORES
+		 | PROP_KILL_DEAD_CODE);
 
 	  if (! changed)
 	    break;
@@ -707,7 +699,7 @@ update_life_info (blocks, extent, prop_flags)
     {
       EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i,
 	{
-	  basic_block bb = BASIC_BLOCK (i);
+	  bb = BASIC_BLOCK (i);
 
 	  COPY_REG_SET (tmp, bb->global_live_at_end);
 	  propagate_block (bb, tmp, NULL, NULL, stabilized_prop_flags);
@@ -718,10 +710,8 @@ update_life_info (blocks, extent, prop_flags)
     }
   else
     {
-      for (i = n_basic_blocks - 1; i >= 0; --i)
+      FOR_EACH_BB_REVERSE (bb)
 	{
-	  basic_block bb = BASIC_BLOCK (i);
-
 	  COPY_REG_SET (tmp, bb->global_live_at_end);
 
 	  propagate_block (bb, tmp, NULL, NULL, stabilized_prop_flags);
@@ -775,18 +765,31 @@ update_life_info_in_dirty_blocks (extent, prop_flags)
      enum update_life_extent extent;
      int prop_flags;
 {
-  sbitmap update_life_blocks = sbitmap_alloc (n_basic_blocks);
-  int block_num;
+  sbitmap update_life_blocks = sbitmap_alloc (last_basic_block);
   int n = 0;
+  basic_block bb;
   int retval = 0;
 
   sbitmap_zero (update_life_blocks);
-  for (block_num = 0; block_num < n_basic_blocks; block_num++)
-    if (BASIC_BLOCK (block_num)->flags & BB_DIRTY)
-      {
-	SET_BIT (update_life_blocks, block_num);
-	n++;
-      }
+  FOR_EACH_BB (bb)
+    {
+      if (extent == UPDATE_LIFE_LOCAL)
+	{
+	  if (bb->flags & BB_DIRTY)
+	    {
+	      SET_BIT (update_life_blocks, bb->index);
+	      n++;
+	    }
+	}
+      else
+	{
+	  /* ??? Bootstrap with -march=pentium4 fails to terminate
+	     with only a partial life update.  */
+	  SET_BIT (update_life_blocks, bb->index);
+	  if (bb->flags & BB_DIRTY)
+	    n++;
+	}
+    }
 
   if (n)
     retval = update_life_info (update_life_blocks, extent, prop_flags);
@@ -811,6 +814,7 @@ free_basic_block_vars (keep_head_end_p)
 	  VARRAY_FREE (basic_block_info);
 	}
       n_basic_blocks = 0;
+      last_basic_block = 0;
 
       ENTRY_BLOCK_PTR->aux = NULL;
       ENTRY_BLOCK_PTR->global_live_at_end = NULL;
@@ -825,14 +829,12 @@ int
 delete_noop_moves (f)
      rtx f ATTRIBUTE_UNUSED;
 {
-  int i;
   rtx insn, next;
   basic_block bb;
   int nnoops = 0;
 
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      bb = BASIC_BLOCK (i);
       for (insn = bb->head; insn != NEXT_INSN (bb->end); insn = next)
 	{
 	  next = NEXT_INSN (insn);
@@ -1079,30 +1081,28 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
      sbitmap blocks_in, blocks_out;
      int flags;
 {
-  basic_block *queue, *qhead, *qtail, *qend;
-  regset tmp, new_live_at_end, call_used;
-  regset_head tmp_head, call_used_head;
+  basic_block *queue, *qhead, *qtail, *qend, bb;
+  regset tmp, new_live_at_end, invalidated_by_call;
+  regset_head tmp_head, invalidated_by_call_head;
   regset_head new_live_at_end_head;
   int i;
 
   /* Some passes used to forget clear aux field of basic block causing
      sick behaviour here.  */
 #ifdef ENABLE_CHECKING
-  if (ENTRY_BLOCK_PTR->aux || EXIT_BLOCK_PTR->aux)
-    abort ();
-  for (i = 0; i < n_basic_blocks; i++)
-    if (BASIC_BLOCK (i)->aux)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+    if (bb->aux)
       abort ();
 #endif
 
   tmp = INITIALIZE_REG_SET (tmp_head);
   new_live_at_end = INITIALIZE_REG_SET (new_live_at_end_head);
-  call_used = INITIALIZE_REG_SET (call_used_head);
+  invalidated_by_call = INITIALIZE_REG_SET (invalidated_by_call_head);
 
   /* Inconveniently, this is only readily available in hard reg set form.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
-    if (call_used_regs[i])
-      SET_REGNO_REG_SET (call_used, i);
+    if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
+      SET_REGNO_REG_SET (invalidated_by_call, i);
 
   /* Create a worklist.  Allocate an extra slot for ENTRY_BLOCK, and one
      because the `head == tail' style test for an empty queue doesn't
@@ -1116,22 +1116,17 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
      useful work.  We use AUX non-null to flag that the block is queued.  */
   if (blocks_in)
     {
-      /* Clear out the garbage that might be hanging out in bb->aux.  */
-      for (i = n_basic_blocks - 1; i >= 0; --i)
-	BASIC_BLOCK (i)->aux = NULL;
-
-      EXECUTE_IF_SET_IN_SBITMAP (blocks_in, 0, i,
-	{
-	  basic_block bb = BASIC_BLOCK (i);
-	  *--qhead = bb;
-	  bb->aux = bb;
-	});
+      FOR_EACH_BB (bb)
+	if (TEST_BIT (blocks_in, bb->index))
+	  {
+	    *--qhead = bb;
+	    bb->aux = bb;
+	  }
     }
   else
     {
-      for (i = 0; i < n_basic_blocks; ++i)
+      FOR_EACH_BB (bb)
 	{
-	  basic_block bb = BASIC_BLOCK (i);
 	  *--qhead = bb;
 	  bb->aux = bb;
 	}
@@ -1189,7 +1184,7 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 	    if (e->flags & EDGE_EH)
 	      {
 		bitmap_operation (tmp, sb->global_live_at_start,
-				  call_used, BITMAP_AND_COMPL);
+				  invalidated_by_call, BITMAP_AND_COMPL);
 		IOR_REG_SET (new_live_at_end, tmp);
 	      }
 	    else
@@ -1357,7 +1352,7 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 
   FREE_REG_SET (tmp);
   FREE_REG_SET (new_live_at_end);
-  FREE_REG_SET (call_used);
+  FREE_REG_SET (invalidated_by_call);
 
   if (blocks_out)
     {
@@ -1370,9 +1365,8 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
     }
   else
     {
-      for (i = n_basic_blocks - 1; i >= 0; --i)
+      FOR_EACH_BB (bb)
 	{
-	  basic_block bb = BASIC_BLOCK (i);
 	  FREE_REG_SET (bb->local_set);
 	  FREE_REG_SET (bb->cond_local_set);
 	}
@@ -1498,20 +1492,13 @@ initialize_uninitialized_subregs ()
 void
 allocate_bb_life_data ()
 {
-  int i;
+  basic_block bb;
 
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
-
       bb->global_live_at_start = OBSTACK_ALLOC_REG_SET (&flow_obstack);
       bb->global_live_at_end = OBSTACK_ALLOC_REG_SET (&flow_obstack);
     }
-
-  ENTRY_BLOCK_PTR->global_live_at_end
-    = OBSTACK_ALLOC_REG_SET (&flow_obstack);
-  EXIT_BLOCK_PTR->global_live_at_start
-    = OBSTACK_ALLOC_REG_SET (&flow_obstack);
 
   regs_live_at_setjmp = OBSTACK_ALLOC_REG_SET (&flow_obstack);
 }
@@ -1556,11 +1543,7 @@ propagate_block_delete_insn (insn)
      INSN may reference a deleted label, particularly when a jump
      table has been optimized into a direct jump.  There's no
      real good way to fix up the reference to the deleted label
-     when the label is deleted, so we just allow it here.
-
-     After dead code elimination is complete, we do search for
-     any REG_LABEL notes which reference deleted labels as a
-     sanity check.  */
+     when the label is deleted, so we just allow it here.  */
 
   if (inote && GET_CODE (inote) == CODE_LABEL)
     {
@@ -1665,7 +1648,26 @@ propagate_one_insn (pbi, insn)
       if (libcall_is_dead)
 	prev = propagate_block_delete_libcall ( insn, note);
       else
-	propagate_block_delete_insn (insn);
+	{
+
+	  if (note)
+	    {
+	      /* If INSN contains a RETVAL note and is dead, but the libcall
+		 as a whole is not dead, then we want to remove INSN, but
+		 not the whole libcall sequence.
+
+		 However, we need to also remove the dangling REG_LIBCALL	
+		 note so that we do not have mis-matched LIBCALL/RETVAL
+		 notes.  In theory we could find a new location for the
+		 REG_RETVAL note, but it hardly seems worth the effort.  */
+	      rtx libcall_note;
+	 
+	      libcall_note
+		= find_reg_note (XEXP (note, 0), REG_LIBCALL, NULL_RTX);
+	      remove_note (XEXP (note, 0), libcall_note);
+	    }
+	  propagate_block_delete_insn (insn);
+	}
 
       return prev;
     }
@@ -1765,8 +1767,7 @@ propagate_one_insn (pbi, insn)
 	    if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
 	      {
 		/* We do not want REG_UNUSED notes for these registers.  */
-		mark_set_1 (pbi, CLOBBER, gen_rtx_REG (reg_raw_mode[i], i),
-			    cond, insn,
+		mark_set_1 (pbi, CLOBBER, regno_reg_rtx[i], cond, insn,
 			    pbi->flags & ~(PROP_DEATH_NOTES | PROP_REG_INFO));
 	      }
 	}
@@ -1814,8 +1815,7 @@ propagate_one_insn (pbi, insn)
 	     so they are made live.  */
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	    if (global_regs[i])
-	      mark_used_reg (pbi, gen_rtx_REG (reg_raw_mode[i], i),
-			     cond, insn);
+	      mark_used_reg (pbi, regno_reg_rtx[i], cond, insn);
 	}
     }
 
@@ -1959,7 +1959,7 @@ init_propagate_block_info (bb, live, local_set, cond_local_set, flags)
       && ! (TREE_CODE (TREE_TYPE (current_function_decl)) == FUNCTION_TYPE
 	    && (TYPE_RETURNS_STACK_DEPRESSED
 		(TREE_TYPE (current_function_decl))))
-      && (flags & PROP_SCAN_DEAD_CODE)
+      && (flags & PROP_SCAN_DEAD_STORES)
       && (bb->succ == NULL
 	  || (bb->succ->succ_next == NULL
 	      && bb->succ->dest == EXIT_BLOCK_PTR
@@ -2349,7 +2349,7 @@ regno_uninitialized (regno)
 	      || FUNCTION_ARG_REGNO_P (regno))))
     return 0;
 
-  return REGNO_REG_SET_P (BASIC_BLOCK (0)->global_live_at_start, regno);
+  return REGNO_REG_SET_P (ENTRY_BLOCK_PTR->next_bb->global_live_at_start, regno);
 }
 
 /* 1 if register REGNO was alive at a place where `setjmp' was called
@@ -2364,7 +2364,7 @@ regno_clobbered_at_setjmp (regno)
     return 0;
 
   return ((REG_N_SETS (regno) > 1
-	   || REGNO_REG_SET_P (BASIC_BLOCK (0)->global_live_at_start, regno))
+	   || REGNO_REG_SET_P (ENTRY_BLOCK_PTR->next_bb->global_live_at_start, regno))
 	  && REGNO_REG_SET_P (regs_live_at_setjmp, regno));
 }
 
@@ -2646,7 +2646,7 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 
   /* If this set is a MEM, then it kills any aliased writes.
      If this set is a REG, then it kills any MEMs which use the reg.  */
-  if (optimize && (flags & PROP_SCAN_DEAD_CODE))
+  if (optimize && (flags & PROP_SCAN_DEAD_STORES))
     {
       if (GET_CODE (reg) == REG)
 	invalidate_mems_from_set (pbi, reg);
@@ -2815,7 +2815,7 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 		    if (! REGNO_REG_SET_P (pbi->reg_live, i))
 		      REG_NOTES (insn)
 			= alloc_EXPR_LIST (REG_UNUSED,
-					   gen_rtx_REG (reg_raw_mode[i], i),
+					   regno_reg_rtx[i],
 					   REG_NOTES (insn));
 		}
 	    }
@@ -3345,7 +3345,7 @@ attempt_auto_inc (pbi, inc, insn, mem, incr, incr_reg)
 
       /* We now know we'll be doing this change, so emit the
 	 new insn(s) and do the updates.  */
-      emit_insns_before (insns, insn);
+      emit_insn_before (insns, insn);
 
       if (pbi->bb->head == insn)
 	pbi->bb->head = insns;
@@ -3623,7 +3623,7 @@ mark_used_reg (pbi, reg, cond, insn)
 		&& ! dead_or_set_regno_p (insn, i))
 	      REG_NOTES (insn)
 		= alloc_EXPR_LIST (REG_DEAD,
-				   gen_rtx_REG (reg_raw_mode[i], i),
+				   regno_reg_rtx[i],
 				   REG_NOTES (insn));
 	}
     }
@@ -3749,7 +3749,7 @@ mark_used_regs (pbi, x, cond, insn)
     case MEM:
       /* Don't bother watching stores to mems if this is not the
 	 final pass.  We'll not be deleting dead stores this round.  */
-      if (optimize && (flags & PROP_SCAN_DEAD_CODE))
+      if (optimize && (flags & PROP_SCAN_DEAD_STORES))
 	{
 	  /* Invalidate the data for the last MEM stored, but only if MEM is
 	     something that can be stored into.  */
@@ -4246,17 +4246,15 @@ count_or_remove_death_notes (blocks, kill)
      sbitmap blocks;
      int kill;
 {
-  int i, count = 0;
+  int count = 0;
+  basic_block bb;
 
-  for (i = n_basic_blocks - 1; i >= 0; --i)
+  FOR_EACH_BB_REVERSE (bb)
     {
-      basic_block bb;
       rtx insn;
 
-      if (blocks && ! TEST_BIT (blocks, i))
+      if (blocks && ! TEST_BIT (blocks, bb->index))
 	continue;
-
-      bb = BASIC_BLOCK (i);
 
       for (insn = bb->head;; insn = NEXT_INSN (insn))
 	{

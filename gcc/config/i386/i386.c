@@ -49,7 +49,7 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 /* Processor costs (relative to an add) */
-static const 
+static const
 struct processor_costs size_cost = {	/* costs for tunning for size */
   2,					/* cost of an add instruction */
   3,					/* cost of a lea instruction */
@@ -86,7 +86,7 @@ struct processor_costs size_cost = {	/* costs for tunning for size */
   0,					/* number of parallel prefetches */
 };
 /* Processor costs (relative to an add) */
-static const 
+static const
 struct processor_costs i386_cost = {	/* 386 specific costs */
   1,					/* cost of an add instruction */
   1,					/* cost of a lea instruction */
@@ -123,7 +123,7 @@ struct processor_costs i386_cost = {	/* 386 specific costs */
   0,					/* number of parallel prefetches */
 };
 
-static const 
+static const
 struct processor_costs i486_cost = {	/* 486 specific costs */
   1,					/* cost of an add instruction */
   1,					/* cost of a lea instruction */
@@ -160,7 +160,7 @@ struct processor_costs i486_cost = {	/* 486 specific costs */
   0,					/* number of parallel prefetches */
 };
 
-static const 
+static const
 struct processor_costs pentium_cost = {
   1,					/* cost of an add instruction */
   1,					/* cost of a lea instruction */
@@ -197,7 +197,7 @@ struct processor_costs pentium_cost = {
   0,					/* number of parallel prefetches */
 };
 
-static const 
+static const
 struct processor_costs pentiumpro_cost = {
   1,					/* cost of an add instruction */
   1,					/* cost of a lea instruction */
@@ -234,7 +234,7 @@ struct processor_costs pentiumpro_cost = {
   6,					/* number of parallel prefetches */
 };
 
-static const 
+static const
 struct processor_costs k6_cost = {
   1,					/* cost of an add instruction */
   2,					/* cost of a lea instruction */
@@ -271,7 +271,7 @@ struct processor_costs k6_cost = {
   1,					/* number of parallel prefetches */
 };
 
-static const 
+static const
 struct processor_costs athlon_cost = {
   1,					/* cost of an add instruction */
   2,					/* cost of a lea instruction */
@@ -308,7 +308,7 @@ struct processor_costs athlon_cost = {
   6,					/* number of parallel prefetches */
 };
 
-static const 
+static const
 struct processor_costs pentium4_cost = {
   1,					/* cost of an add instruction */
   1,					/* cost of a lea instruction */
@@ -376,7 +376,8 @@ const int x86_use_cltd = ~(m_PENT | m_K6);
 const int x86_read_modify_write = ~m_PENT;
 const int x86_read_modify = ~(m_PENT | m_PPRO);
 const int x86_split_long_moves = m_PPRO;
-const int x86_promote_QImode = m_K6 | m_PENT | m_386 | m_486;
+const int x86_promote_QImode = m_K6 | m_PENT | m_386 | m_486 | m_ATHLON;
+const int x86_fast_prefix = ~(m_PENT | m_486 | m_386);
 const int x86_single_stringop = m_386 | m_PENT4;
 const int x86_qimode_math = ~(0);
 const int x86_promote_qi_regs = 0;
@@ -393,21 +394,24 @@ const int x86_accumulate_outgoing_args = m_ATHLON | m_PENT4 | m_PPRO;
 const int x86_prologue_using_move = m_ATHLON | m_PENT4 | m_PPRO;
 const int x86_epilogue_using_move = m_ATHLON | m_PENT4 | m_PPRO;
 const int x86_decompose_lea = m_PENT4;
-const int x86_arch_always_fancy_math_387 = m_PENT|m_PPRO|m_ATHLON|m_PENT4;
+const int x86_shift1 = ~m_486;
+const int x86_arch_always_fancy_math_387 = m_PENT | m_PPRO | m_ATHLON | m_PENT4;
 
 /* In case the avreage insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
    epilogue code.  */
 #define FAST_PROLOGUE_INSN_COUNT 30
+
 /* Set by prologue expander and used by epilogue expander to determine
    the style used.  */
 static int use_fast_prologue_epilogue;
 
 #define AT_BP(MODE) (gen_rtx_MEM ((MODE), hard_frame_pointer_rtx))
 
-static const char *const hi_reg_name[] = HI_REGISTER_NAMES; /* names for 16 bit regs */
-static const char *const qi_reg_name[] = QI_REGISTER_NAMES; /* names for 8 bit regs (low) */
-static const char *const qi_high_reg_name[] = QI_HIGH_REGISTER_NAMES; /* names for 8 bit regs (high) */
+/* Names for 8 (low), 8 (high), and 16-bit registers, respectively.  */
+static const char *const qi_reg_name[] = QI_REGISTER_NAMES;
+static const char *const qi_high_reg_name[] = QI_HIGH_REGISTER_NAMES;
+static const char *const hi_reg_name[] = HI_REGISTER_NAMES;
 
 /* Array of the smallest class containing reg number REGNO, indexed by
    REGNO.  Used by REGNO_REG_CLASS in i386.h.  */
@@ -448,11 +452,16 @@ int const dbx_register_map[FIRST_PSEUDO_REGISTER] =
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended SSE registers */
 };
 
-static int const x86_64_int_parameter_registers[6] = {5 /*RDI*/, 4 /*RSI*/,
-					        1 /*RDX*/, 2 /*RCX*/,
-					        FIRST_REX_INT_REG /*R8 */,
-					        FIRST_REX_INT_REG + 1 /*R9 */};
-static int const x86_64_int_return_registers[4] = {0 /*RAX*/, 1 /*RDI*/, 5, 4};
+static int const x86_64_int_parameter_registers[6] =
+{
+  5 /*RDI*/, 4 /*RSI*/, 1 /*RDX*/, 2 /*RCX*/,
+  FIRST_REX_INT_REG /*R8 */, FIRST_REX_INT_REG + 1 /*R9 */
+};
+
+static int const x86_64_int_return_registers[4] =
+{
+  0 /*RAX*/, 1 /*RDI*/, 5 /*RDI*/, 4 /*RSI*/
+};
 
 /* The "default" register map used in 64bit mode.  */
 int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
@@ -537,6 +546,10 @@ int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
 rtx ix86_compare_op0 = NULL_RTX;
 rtx ix86_compare_op1 = NULL_RTX;
 
+/* The encoding characters for the four TLS models present in ELF.  */
+
+static char const tls_model_chars[] = " GLil";
+
 #define MAX_386_STACK_LOCALS 3
 /* Size of the register save area.  */
 #define X86_64_VARARGS_SIZE (REGPARM_MAX * UNITS_PER_WORD + SSE_REGPARM_MAX * 16)
@@ -545,6 +558,7 @@ rtx ix86_compare_op1 = NULL_RTX;
 struct machine_function GTY(())
 {
   rtx stack_locals[(int) MAX_MACHINE_MODE][MAX_386_STACK_LOCALS];
+  const char *some_ld_name;
   int save_varrargs_registers;
   int accesses_prev_frame;
 };
@@ -597,15 +611,17 @@ enum cmodel ix86_cmodel;
 /* Asm dialect.  */
 const char *ix86_asm_string;
 enum asm_dialect ix86_asm_dialect = ASM_ATT;
+/* TLS dialext.  */
+const char *ix86_tls_dialect_string;
+enum tls_dialect ix86_tls_dialect = TLS_DIALECT_GNU;
 
-/* which cpu are we scheduling for */
-enum processor_type ix86_cpu;
-
-/* which unit we are generating floating point math for */
+/* Which unit we are generating floating point math for.  */
 enum fpmath_unit ix86_fpmath;
 
-/* which instruction set architecture to use.  */
-int ix86_arch;
+/* Which cpu are we scheduling for.  */
+enum processor_type ix86_cpu;
+/* Which instruction set architecture to use.  */
+enum processor_type ix86_arch;
 
 /* Strings to hold which cpu and instruction set architecture  to use.  */
 const char *ix86_cpu_string;		/* for -mcpu=<xxx> */
@@ -647,12 +663,18 @@ static char internal_label_prefix[16];
 static int internal_label_prefix_len;
 
 static int local_symbolic_operand PARAMS ((rtx, enum machine_mode));
+static int tls_symbolic_operand_1 PARAMS ((rtx, enum tls_model));
 static void output_pic_addr_const PARAMS ((FILE *, rtx, int));
 static void put_condition_code PARAMS ((enum rtx_code, enum machine_mode,
 				       int, int, FILE *));
+static const char *get_some_local_dynamic_name PARAMS ((void));
+static int get_some_local_dynamic_name_1 PARAMS ((rtx *, void *));
+static rtx maybe_get_pool_constant PARAMS ((rtx));
 static rtx ix86_expand_int_compare PARAMS ((enum rtx_code, rtx, rtx));
 static enum rtx_code ix86_prepare_fp_compare_args PARAMS ((enum rtx_code,
 							   rtx *, rtx *));
+static rtx get_thread_pointer PARAMS ((void));
+static void get_pc_thunk_name PARAMS ((char [32], unsigned int));
 static rtx gen_push PARAMS ((rtx));
 static int memory_address_length PARAMS ((rtx addr));
 static int ix86_flags_dependant PARAMS ((rtx, rtx, enum attr_type));
@@ -666,6 +688,7 @@ static int ix86_nsaved_regs PARAMS ((void));
 static void ix86_emit_save_regs PARAMS ((void));
 static void ix86_emit_save_regs_using_mov PARAMS ((rtx, HOST_WIDE_INT));
 static void ix86_emit_restore_regs_using_mov PARAMS ((rtx, int, int));
+static void ix86_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void ix86_set_move_mem_attrs_1 PARAMS ((rtx, rtx, rtx, rtx, rtx));
 static void ix86_sched_reorder_ppro PARAMS ((rtx *, rtx *));
 static HOST_WIDE_INT ix86_GOT_alias_set PARAMS ((void));
@@ -688,6 +711,10 @@ struct ix86_address
 };
 
 static int ix86_decompose_address PARAMS ((rtx, struct ix86_address *));
+
+static void ix86_encode_section_info PARAMS ((tree, int)) ATTRIBUTE_UNUSED;
+static const char *ix86_strip_name_encoding PARAMS ((const char *))
+     ATTRIBUTE_UNUSED;
 
 struct builtin_description;
 static rtx ix86_expand_sse_comi PARAMS ((const struct builtin_description *,
@@ -712,6 +739,7 @@ static int ix86_fp_comparison_arithmetics_cost PARAMS ((enum rtx_code code));
 static int ix86_fp_comparison_fcomi_cost PARAMS ((enum rtx_code code));
 static int ix86_fp_comparison_sahf_cost PARAMS ((enum rtx_code code));
 static int ix86_fp_comparison_cost PARAMS ((enum rtx_code code));
+static unsigned int ix86_select_alt_pic_regnum PARAMS ((void));
 static int ix86_save_reg PARAMS ((unsigned int, int));
 static void ix86_compute_frame_layout PARAMS ((struct ix86_frame *));
 static int ix86_comp_type_attributes PARAMS ((tree, tree));
@@ -775,12 +803,8 @@ static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN ix86_expand_builtin
 
-#if defined (OSF_OS) || defined (TARGET_OSF1ELF)
-   static void ix86_osf_output_function_prologue PARAMS ((FILE *,
-							  HOST_WIDE_INT));
-#  undef TARGET_ASM_FUNCTION_PROLOGUE
-#  define TARGET_ASM_FUNCTION_PROLOGUE ix86_osf_output_function_prologue
-#endif
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE ix86_output_function_epilogue
 
 #undef TARGET_ASM_OPEN_PAREN
 #define TARGET_ASM_OPEN_PAREN ""
@@ -813,12 +837,17 @@ static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 #define TARGET_SCHED_INIT ix86_sched_init
 #undef TARGET_SCHED_REORDER
 #define TARGET_SCHED_REORDER ix86_sched_reorder
-#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE 
+#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
 #define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE \
   ia32_use_dfa_pipeline_interface
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
   ia32_multipass_dfa_lookahead
+
+#ifdef HAVE_AS_TLS
+#undef TARGET_HAVE_TLS
+#define TARGET_HAVE_TLS true
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1007,7 +1036,7 @@ override_options ()
 
   /* Arrange to set up i386_stack_locals for all functions.  */
   init_machine_status = ix86_init_machine_status;
-  
+
   /* Validate -mregparm= value.  */
   if (ix86_regparm_string)
     {
@@ -1107,6 +1136,17 @@ override_options ()
 	ix86_branch_cost = i;
     }
 
+  if (ix86_tls_dialect_string)
+    {
+      if (strcmp (ix86_tls_dialect_string, "gnu") == 0)
+	ix86_tls_dialect = TLS_DIALECT_GNU;
+      else if (strcmp (ix86_tls_dialect_string, "sun") == 0)
+	ix86_tls_dialect = TLS_DIALECT_SUN;
+      else
+	error ("bad value (%s) for -mtls-dialect= switch",
+	       ix86_tls_dialect_string);
+    }
+
   /* Keep nonleaf frame pointers.  */
   if (TARGET_OMIT_LEAF_FRAME_POINTER)
     flag_omit_frame_pointer = 1;
@@ -1164,7 +1204,7 @@ override_options ()
 	  else
 	    ix86_fpmath = FPMATH_SSE | FPMATH_387;
 	}
-      else 
+      else
 	error ("bad value (%s) for -mfpmath= switch", ix86_fpmath_string);
     }
 
@@ -1309,105 +1349,6 @@ ix86_handle_regparm_attribute (node, name, args, flags, no_add_attrs)
 
   return NULL_TREE;
 }
-
-#if defined (OSF_OS) || defined (TARGET_OSF1ELF)
-
-/* Generate the assembly code for function entry.  FILE is a stdio
-   stream to output the code to.  SIZE is an int: how many units of
-   temporary storage to allocate.
-
-   Refer to the array `regs_ever_live' to determine which registers to
-   save; `regs_ever_live[I]' is nonzero if register number I is ever
-   used in the function.  This function is responsible for knowing
-   which registers should not be saved even if used.
-
-   We override it here to allow for the new profiling code to go before
-   the prologue and the old mcount code to go after the prologue (and
-   after %ebx has been set up for ELF shared library support).  */
-
-static void
-ix86_osf_output_function_prologue (file, size)
-     FILE *file;
-     HOST_WIDE_INT size;
-{
-  const char *prefix = "";
-  const char *const lprefix = LPREFIX;
-  int labelno = current_function_profile_label_no;
-
-#ifdef OSF_OS
-
-  if (TARGET_UNDERSCORES)
-    prefix = "_";
-
-  if (current_function_profile && OSF_PROFILE_BEFORE_PROLOGUE)
-    {
-      if (!flag_pic && !HALF_PIC_P ())
-	{
-	  fprintf (file, "\tmovl $%sP%d,%%edx\n", lprefix, labelno);
-	  fprintf (file, "\tcall *%s_mcount_ptr\n", prefix);
-	}
-
-      else if (HALF_PIC_P ())
-	{
-	  rtx symref;
-
-	  HALF_PIC_EXTERNAL ("_mcount_ptr");
-	  symref = HALF_PIC_PTR (gen_rtx_SYMBOL_REF (Pmode,
-						     "_mcount_ptr"));
-
-	  fprintf (file, "\tmovl $%sP%d,%%edx\n", lprefix, labelno);
-	  fprintf (file, "\tmovl %s%s,%%eax\n", prefix,
-		   XSTR (symref, 0));
-	  fprintf (file, "\tcall *(%%eax)\n");
-	}
-
-      else
-	{
-	  static int call_no = 0;
-
-	  fprintf (file, "\tcall %sPc%d\n", lprefix, call_no);
-	  fprintf (file, "%sPc%d:\tpopl %%eax\n", lprefix, call_no);
-	  fprintf (file, "\taddl $_GLOBAL_OFFSET_TABLE_+[.-%sPc%d],%%eax\n",
-		   lprefix, call_no++);
-	  fprintf (file, "\tleal %sP%d@GOTOFF(%%eax),%%edx\n",
-		   lprefix, labelno);
-	  fprintf (file, "\tmovl %s_mcount_ptr@GOT(%%eax),%%eax\n",
-		   prefix);
-	  fprintf (file, "\tcall *(%%eax)\n");
-	}
-    }
-
-#else  /* !OSF_OS */
-
-  if (current_function_profile && OSF_PROFILE_BEFORE_PROLOGUE)
-    {
-      if (!flag_pic)
-	{
-	  fprintf (file, "\tmovl $%sP%d,%%edx\n", lprefix, labelno);
-	  fprintf (file, "\tcall *%s_mcount_ptr\n", prefix);
-	}
-
-      else
-	{
-	  static int call_no = 0;
-
-	  fprintf (file, "\tcall %sPc%d\n", lprefix, call_no);
-	  fprintf (file, "%sPc%d:\tpopl %%eax\n", lprefix, call_no);
-	  fprintf (file, "\taddl $_GLOBAL_OFFSET_TABLE_+[.-%sPc%d],%%eax\n",
-		   lprefix, call_no++);
-	  fprintf (file, "\tleal %sP%d@GOTOFF(%%eax),%%edx\n",
-		   lprefix, labelno);
-	  fprintf (file, "\tmovl %s_mcount_ptr@GOT(%%eax),%%eax\n",
-		   prefix);
-	  fprintf (file, "\tcall *(%%eax)\n");
-	}
-    }
-#endif /* !OSF_OS */
-
-  function_prologue (file, size);
-}
-
-#endif  /* OSF_OS || TARGET_OSF1ELF */
 
 /* Return 0 if the attributes for two types are incompatible, 1 if they
    are compatible, and 2 if they are nearly compatible (which causes a
@@ -1673,6 +1614,34 @@ classify_argument (mode, type, classes, bit_offset)
       /* Classify each field of record and merge classes.  */
       if (TREE_CODE (type) == RECORD_TYPE)
 	{
+	  /* For classes first merge in the field of the subclasses.  */
+	  if (TYPE_BINFO (type) != NULL && TYPE_BINFO_BASETYPES (type) != NULL)
+	    {
+	      tree bases = TYPE_BINFO_BASETYPES (type);
+	      int n_bases = TREE_VEC_LENGTH (bases);
+	      int i;
+
+	      for (i = 0; i < n_bases; ++i)
+		{
+		   tree binfo = TREE_VEC_ELT (bases, i);
+		   int num;
+		   int offset = tree_low_cst (BINFO_OFFSET (binfo), 0) * 8;
+		   tree type = BINFO_TYPE (binfo);
+
+		   num = classify_argument (TYPE_MODE (type),
+					    type, subclasses,
+					    (offset + bit_offset) % 256);
+		   if (!num)
+		     return 0;
+		   for (i = 0; i < num; i++)
+		     {
+		       int pos = (offset + bit_offset) / 8 / 8;
+		       classes[i + pos] =
+			 merge_classes (subclasses[i], classes[i + pos]);
+		     }
+		}
+	    }
+	  /* And now merge the fields of structure.   */
 	  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
 	    {
 	      if (TREE_CODE (field) == FIELD_DECL)
@@ -1733,6 +1702,33 @@ classify_argument (mode, type, classes, bit_offset)
       else if (TREE_CODE (type) == UNION_TYPE
 	       || TREE_CODE (type) == QUAL_UNION_TYPE)
 	{
+	  /* For classes first merge in the field of the subclasses.  */
+	  if (TYPE_BINFO (type) != NULL && TYPE_BINFO_BASETYPES (type) != NULL)
+	    {
+	      tree bases = TYPE_BINFO_BASETYPES (type);
+	      int n_bases = TREE_VEC_LENGTH (bases);
+	      int i;
+
+	      for (i = 0; i < n_bases; ++i)
+		{
+		   tree binfo = TREE_VEC_ELT (bases, i);
+		   int num;
+		   int offset = tree_low_cst (BINFO_OFFSET (binfo), 0) * 8;
+		   tree type = BINFO_TYPE (binfo);
+
+		   num = classify_argument (TYPE_MODE (type),
+					    type, subclasses,
+					    (offset + bit_offset) % 256);
+		   if (!num)
+		     return 0;
+		   for (i = 0; i < num; i++)
+		     {
+		       int pos = (offset + bit_offset) / 8 / 8;
+		       classes[i + pos] =
+			 merge_classes (subclasses[i], classes[i + pos]);
+		     }
+		}
+	    }
 	  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
 	    {
 	      if (TREE_CODE (field) == FIELD_DECL)
@@ -1839,6 +1835,10 @@ classify_argument (mode, type, classes, bit_offset)
       return 1;
     case V4SFmode:
     case V4SImode:
+    case V16QImode:
+    case V8HImode:
+    case V2DFmode:
+    case V2DImode:
       classes[0] = X86_64_SSE_CLASS;
       classes[1] = X86_64_SSEUP_CLASS;
       return 2;
@@ -2165,11 +2165,11 @@ function_arg (cum, mode, type, named)
   if (TARGET_DEBUG_ARG)
     {
       fprintf (stderr,
-	       "function_arg (size=%d, wds=%2d, nregs=%d, mode=%4s, named=%d",
+	       "function_arg (size=%d, wds=%2d, nregs=%d, mode=%4s, named=%d, ",
 	       words, cum->words, cum->nregs, GET_MODE_NAME (mode), named);
 
       if (ret)
-	fprintf (stderr, ", reg=%%e%s", reg_names[ REGNO (ret) ]);
+	print_simple_rtl (stderr, ret);
       else
 	fprintf (stderr, ", stack");
 
@@ -2304,9 +2304,9 @@ ix86_build_va_list ()
   record = (*lang_hooks.types.make_type) (RECORD_TYPE);
   type_decl = build_decl (TYPE_DECL, get_identifier ("__va_list_tag"), record);
 
-  f_gpr = build_decl (FIELD_DECL, get_identifier ("gp_offset"), 
+  f_gpr = build_decl (FIELD_DECL, get_identifier ("gp_offset"),
 		      unsigned_type_node);
-  f_fpr = build_decl (FIELD_DECL, get_identifier ("fp_offset"), 
+  f_fpr = build_decl (FIELD_DECL, get_identifier ("fp_offset"),
 		      unsigned_type_node);
   f_ovf = build_decl (FIELD_DECL, get_identifier ("overflow_arg_area"),
 		      ptr_type_node);
@@ -2332,7 +2332,7 @@ ix86_build_va_list ()
 }
 
 /* Perform any needed actions needed for a function that is receiving a
-   variable number of arguments. 
+   variable number of arguments.
 
    CUM is as above.
 
@@ -2900,7 +2900,7 @@ pic_symbolic_operand (op, mode)
       if (GET_CODE (XEXP (op, 0)) == UNSPEC)
 	return 1;
     }
-  else 
+  else
     {
       if (GET_CODE (op) == UNSPEC)
 	return 1;
@@ -2938,15 +2938,79 @@ local_symbolic_operand (op, mode)
     return 1;
 
   /* There is, however, a not insubstantial body of code in the rest of
-     the compiler that assumes it can just stick the results of 
+     the compiler that assumes it can just stick the results of
      ASM_GENERATE_INTERNAL_LABEL in a symbol_ref and have done.  */
   /* ??? This is a hack.  Should update the body of the compiler to
-     always create a DECL an invoke ENCODE_SECTION_INFO.  */
+     always create a DECL an invoke targetm.encode_section_info.  */
   if (strncmp (XSTR (op, 0), internal_label_prefix,
 	       internal_label_prefix_len) == 0)
     return 1;
 
   return 0;
+}
+
+/* Test for various thread-local symbols.  See ix86_encode_section_info. */
+
+int
+tls_symbolic_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  const char *symbol_str;
+
+  if (GET_CODE (op) != SYMBOL_REF)
+    return 0;
+  symbol_str = XSTR (op, 0);
+
+  if (symbol_str[0] != '%')
+    return 0;
+  return strchr (tls_model_chars, symbol_str[1]) - tls_model_chars;
+}
+
+static int
+tls_symbolic_operand_1 (op, kind)
+     rtx op;
+     enum tls_model kind;
+{
+  const char *symbol_str;
+
+  if (GET_CODE (op) != SYMBOL_REF)
+    return 0;
+  symbol_str = XSTR (op, 0);
+
+  return symbol_str[0] == '%' && symbol_str[1] == tls_model_chars[kind];
+}
+
+int
+global_dynamic_symbolic_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return tls_symbolic_operand_1 (op, TLS_MODEL_GLOBAL_DYNAMIC);
+}
+
+int
+local_dynamic_symbolic_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return tls_symbolic_operand_1 (op, TLS_MODEL_LOCAL_DYNAMIC);
+}
+
+int
+initial_exec_symbolic_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return tls_symbolic_operand_1 (op, TLS_MODEL_INITIAL_EXEC);
+}
+
+int
+local_exec_symbolic_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return tls_symbolic_operand_1 (op, TLS_MODEL_LOCAL_EXEC);
 }
 
 /* Test for a valid operand for a call instruction.  Don't allow the
@@ -2975,11 +3039,6 @@ call_insn_operand (op, mode)
   /* Explicitly allow SYMBOL_REF even if pic.  */
   if (GET_CODE (op) == SYMBOL_REF)
     return 1;
-
-  /* Half-pic doesn't allow anything but registers and constants.
-     We've just taken care of the later.  */
-  if (HALF_PIC_P ())
-    return register_operand (op, Pmode);
 
   /* Otherwise we can allow any general_operand in the address.  */
   return general_operand (op, Pmode);
@@ -3773,7 +3832,8 @@ ix86_frame_pointer_required ()
   /* In override_options, TARGET_OMIT_LEAF_FRAME_POINTER turns off
      the frame pointer by default.  Turn it back on now if we've not
      got a leaf function.  */
-  if (TARGET_OMIT_LEAF_FRAME_POINTER && ! leaf_function_p ())
+  if (TARGET_OMIT_LEAF_FRAME_POINTER
+      && (!current_function_is_leaf || current_function_profile))
     return 1;
 
   return 0;
@@ -3787,7 +3847,28 @@ ix86_setup_frame_addresses ()
   cfun->machine->accesses_prev_frame = 1;
 }
 
-static char pic_label_name[32];
+#if defined(HAVE_GAS_HIDDEN) && defined(SUPPORTS_ONE_ONLY)
+# define USE_HIDDEN_LINKONCE 1
+#else
+# define USE_HIDDEN_LINKONCE 0
+#endif
+
+static int pic_labels_used;
+
+/* Fills in the label name that should be used for a pc thunk for
+   the given register.  */
+
+static void
+get_pc_thunk_name (name, regno)
+     char name[32];
+     unsigned int regno;
+{
+  if (USE_HIDDEN_LINKONCE)
+    sprintf (name, "__i686.get_pc_thunk.%s", reg_names[regno]);
+  else
+    ASM_GENERATE_INTERNAL_LABEL (name, "LPR", regno);
+}
+
 
 /* This function generates code for -fpic that loads %ebx with
    the return address of the caller and then returns.  */
@@ -3797,77 +3878,92 @@ ix86_asm_file_end (file)
      FILE *file;
 {
   rtx xops[2];
+  int regno;
 
-  if (! TARGET_DEEP_BRANCH_PREDICTION || pic_label_name[0] == 0)
-    return;
-
-  /* ??? Binutils 2.10 and earlier has a linkonce elimination bug related
-     to updating relocations to a section being discarded such that this
-     doesn't work.  Ought to detect this at configure time.  */
-#if 0
-  /* The trick here is to create a linkonce section containing the
-     pic label thunk, but to refer to it with an internal label.
-     Because the label is internal, we don't have inter-dso name
-     binding issues on hosts that don't support ".hidden".
-
-     In order to use these macros, however, we must create a fake
-     function decl.  */
-  if (targetm.have_named_sections)
+  for (regno = 0; regno < 8; ++regno)
     {
-      tree decl = build_decl (FUNCTION_DECL,
-			      get_identifier ("i686.get_pc_thunk"),
-			      error_mark_node);
-      DECL_ONE_ONLY (decl) = 1;
-      (*targetm.asm_out.unique_section) (decl, 0);
-      named_section (decl, NULL);
+      char name[32];
+
+      if (! ((pic_labels_used >> regno) & 1))
+	continue;
+
+      get_pc_thunk_name (name, regno);
+
+      if (USE_HIDDEN_LINKONCE)
+	{
+	  tree decl;
+
+	  decl = build_decl (FUNCTION_DECL, get_identifier (name),
+			     error_mark_node);
+	  TREE_PUBLIC (decl) = 1;
+	  TREE_STATIC (decl) = 1;
+	  DECL_ONE_ONLY (decl) = 1;
+
+	  (*targetm.asm_out.unique_section) (decl, 0);
+	  named_section (decl, NULL, 0);
+
+	  ASM_GLOBALIZE_LABEL (file, name);
+	  fputs ("\t.hidden\t", file);
+	  assemble_name (file, name);
+	  fputc ('\n', file);
+	  ASM_DECLARE_FUNCTION_NAME (file, name, decl);
+	}
+      else
+	{
+	  text_section ();
+	  ASM_OUTPUT_LABEL (file, name);
+	}
+
+      xops[0] = gen_rtx_REG (SImode, regno);
+      xops[1] = gen_rtx_MEM (SImode, stack_pointer_rtx);
+      output_asm_insn ("mov{l}\t{%1, %0|%0, %1}", xops);
+      output_asm_insn ("ret", xops);
     }
-  else
-#else
-    text_section ();
-#endif
-
-  /* This used to call ASM_DECLARE_FUNCTION_NAME() but since it's an
-     internal (non-global) label that's being emitted, it didn't make
-     sense to have .type information for local labels.   This caused
-     the SCO OpenServer 5.0.4 ELF assembler grief (why are you giving
-     me debug info for a label that you're declaring non-global?) this
-     was changed to call ASM_OUTPUT_LABEL() instead.  */
-
-  ASM_OUTPUT_LABEL (file, pic_label_name);
-
-  xops[0] = pic_offset_table_rtx;
-  xops[1] = gen_rtx_MEM (SImode, stack_pointer_rtx);
-  output_asm_insn ("mov{l}\t{%1, %0|%0, %1}", xops);
-  output_asm_insn ("ret", xops);
 }
 
-void
-load_pic_register ()
+/* Emit code for the SET_GOT patterns.  */
+
+const char *
+output_set_got (dest)
+     rtx dest;
 {
-  rtx gotsym, pclab;
+  rtx xops[3];
 
-  if (TARGET_64BIT)
-    abort ();
+  xops[0] = dest;
+  xops[1] = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
 
-  gotsym = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
-
-  if (TARGET_DEEP_BRANCH_PREDICTION)
+  if (! TARGET_DEEP_BRANCH_PREDICTION || !flag_pic)
     {
-      if (! pic_label_name[0])
-	ASM_GENERATE_INTERNAL_LABEL (pic_label_name, "LPR", 0);
-      pclab = gen_rtx_MEM (QImode, gen_rtx_SYMBOL_REF (Pmode, pic_label_name));
+      xops[2] = gen_rtx_LABEL_REF (Pmode, gen_label_rtx ());
+
+      if (!flag_pic)
+	output_asm_insn ("mov{l}\t{%2, %0|%0, %2}", xops);
+      else
+	output_asm_insn ("call\t%a2", xops);
+
+      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+				 CODE_LABEL_NUMBER (XEXP (xops[2], 0)));
+
+      if (flag_pic)
+	output_asm_insn ("pop{l}\t%0", xops);
     }
   else
     {
-      pclab = gen_rtx_LABEL_REF (VOIDmode, gen_label_rtx ());
+      char name[32];
+      get_pc_thunk_name (name, REGNO (dest));
+      pic_labels_used |= 1 << REGNO (dest);
+
+      xops[2] = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (name));
+      xops[2] = gen_rtx_MEM (QImode, xops[2]);
+      output_asm_insn ("call\t%X2", xops);
     }
 
-  emit_insn (gen_prologue_get_pc (pic_offset_table_rtx, pclab));
+  if (!flag_pic || TARGET_DEEP_BRANCH_PREDICTION)
+    output_asm_insn ("add{l}\t{%1, %0|%0, %1}", xops);
+  else
+    output_asm_insn ("add{l}\t{%1+[.-%a2], %0|%0, %a1+(.-%a2)}", xops);
 
-  if (! TARGET_DEEP_BRANCH_PREDICTION)
-    emit_insn (gen_popsi1 (pic_offset_table_rtx));
-
-  emit_insn (gen_prologue_set_got (pic_offset_table_rtx, gotsym, pclab));
+  return "";
 }
 
 /* Generate an "push" pattern for input ARG.  */
@@ -3883,17 +3979,39 @@ gen_push (arg)
 		      arg);
 }
 
+/* Return >= 0 if there is an unused call-clobbered register available
+   for the entire function.  */
+
+static unsigned int
+ix86_select_alt_pic_regnum ()
+{
+  if (current_function_is_leaf && !current_function_profile)
+    {
+      int i;
+      for (i = 2; i >= 0; --i)
+        if (!regs_ever_live[i])
+	  return i;
+    }
+
+  return INVALID_REGNUM;
+}
+
 /* Return 1 if we need to save REGNO.  */
 static int
 ix86_save_reg (regno, maybe_eh_return)
      unsigned int regno;
      int maybe_eh_return;
 {
-  if (regno == PIC_OFFSET_TABLE_REGNUM
-      && (current_function_uses_pic_offset_table
-	  || current_function_uses_const_pool
+  if (pic_offset_table_rtx
+      && regno == REAL_PIC_OFFSET_TABLE_REGNUM
+      && (regs_ever_live[REAL_PIC_OFFSET_TABLE_REGNUM]
+	  || current_function_profile
 	  || current_function_calls_eh_return))
-    return 1;
+    {
+      if (ix86_select_alt_pic_regnum () != INVALID_REGNUM)
+	return 0;
+      return 1;
+    }
 
   if (current_function_calls_eh_return && maybe_eh_return)
     {
@@ -4016,8 +4134,9 @@ ix86_compute_frame_layout (frame)
 
   offset += size;
 
-  /* Add outgoing arguments area.  */
-  if (ACCUMULATE_OUTGOING_ARGS)
+  /* Add outgoing arguments area.  Can be skipped if we eliminated
+     all the function calls as dead code.  */
+  if (ACCUMULATE_OUTGOING_ARGS && !current_function_is_leaf)
     {
       offset += current_function_outgoing_args_size;
       frame->outgoing_arguments_size = current_function_outgoing_args_size;
@@ -4025,9 +4144,13 @@ ix86_compute_frame_layout (frame)
   else
     frame->outgoing_arguments_size = 0;
 
-  /* Align stack boundary.  */
-  frame->padding2 = ((offset + preferred_alignment - 1)
-		     & -preferred_alignment) - offset;
+  /* Align stack boundary.  Only needed if we're calling another function
+     or using alloca.  */
+  if (!current_function_is_leaf || current_function_calls_alloca)
+    frame->padding2 = ((offset + preferred_alignment - 1)
+		       & -preferred_alignment) - offset;
+  else
+    frame->padding2 = 0;
 
   offset += frame->padding2;
 
@@ -4109,9 +4232,7 @@ void
 ix86_expand_prologue ()
 {
   rtx insn;
-  int pic_reg_used = (flag_pic && (current_function_uses_pic_offset_table
-				  || current_function_uses_const_pool)
-		      && !TARGET_64BIT);
+  bool pic_reg_used;
   struct ix86_frame frame;
   int use_mov = 0;
   HOST_WIDE_INT allocate;
@@ -4190,14 +4311,36 @@ ix86_expand_prologue ()
   SUBTARGET_PROLOGUE;
 #endif
 
-  if (pic_reg_used)
-    load_pic_register ();
+  pic_reg_used = false;
+  if (pic_offset_table_rtx
+      && (regs_ever_live[REAL_PIC_OFFSET_TABLE_REGNUM]
+	  || current_function_profile))
+    {
+      unsigned int alt_pic_reg_used = ix86_select_alt_pic_regnum ();
 
-  /* If we are profiling, make sure no instructions are scheduled before
-     the call to mcount.  However, if -fpic, the above call will have
-     done that.  */
-  if (current_function_profile && ! pic_reg_used)
-    emit_insn (gen_blockage ());
+      if (alt_pic_reg_used != INVALID_REGNUM)
+	REGNO (pic_offset_table_rtx) = alt_pic_reg_used;
+
+      pic_reg_used = true;
+    }
+
+  if (pic_reg_used)
+    {
+      insn = emit_insn (gen_set_got (pic_offset_table_rtx));
+
+      /* Even with accurate pre-reload life analysis, we can wind up
+	 deleting all references to the pic register after reload.
+	 Consider if cross-jumping unifies two sides of a branch
+	 controled by a comparison vs the only read from a global.
+	 In which case, allow the set_got to be deleted, though we're
+	 too late to do anything about the ebx save in the prologue.  */
+      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, NULL);
+    }
+
+  /* Prevent function calls from be scheduled before the call to mcount.
+     In the pic_reg_used case, make sure that the got load isn't deleted.  */
+  if (current_function_profile)
+    emit_insn (gen_blockage (pic_reg_used ? pic_offset_table_rtx : const0_rtx));
 }
 
 /* Emit code to restore saved registers using MOV insns.  First register
@@ -4385,6 +4528,17 @@ ix86_expand_epilogue (style)
     }
   else
     emit_jump_insn (gen_return_internal ());
+}
+
+/* Reset from the function's potential modifications.  */
+
+static void
+ix86_output_function_epilogue (file, size)
+     FILE *file ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
+{
+  if (pic_offset_table_rtx)
+    REGNO (pic_offset_table_rtx) = REAL_PIC_OFFSET_TABLE_REGNUM;
 }
 
 /* Extract the parts of an RTL expression that is a valid memory address
@@ -4635,6 +4789,114 @@ ix86_find_base_term (x)
   return term;
 }
 
+/* Determine if a given RTX is a valid constant.  We already know this
+   satisfies CONSTANT_P.  */
+
+bool
+legitimate_constant_p (x)
+     rtx x;
+{
+  rtx inner;
+
+  switch (GET_CODE (x))
+    {
+    case SYMBOL_REF:
+      /* TLS symbols are not constant.  */
+      if (tls_symbolic_operand (x, Pmode))
+	return false;
+      break;
+
+    case CONST:
+      inner = XEXP (x, 0);
+
+      /* Offsets of TLS symbols are never valid.
+	 Discourage CSE from creating them.  */
+      if (GET_CODE (inner) == PLUS
+	  && tls_symbolic_operand (XEXP (inner, 0), Pmode))
+	return false;
+
+      /* Only some unspecs are valid as "constants".  */
+      if (GET_CODE (inner) == UNSPEC)
+	switch (XINT (inner, 1))
+	  {
+	  case UNSPEC_TPOFF:
+	    return local_exec_symbolic_operand (XVECEXP (inner, 0, 0), Pmode);
+	  case UNSPEC_TP:
+	    return true;
+	  default:
+	    return false;
+	  }
+      break;
+
+    default:
+      break;
+    }
+
+  /* Otherwise we handle everything else in the move patterns.  */
+  return true;
+}
+
+/* Determine if a given RTX is a valid constant address.  */
+
+bool
+constant_address_p (x)
+     rtx x;
+{
+  switch (GET_CODE (x))
+    {
+    case LABEL_REF:
+    case CONST_INT:
+      return true;
+
+    case CONST_DOUBLE:
+      return TARGET_64BIT;
+
+    case CONST:
+    case SYMBOL_REF:
+      return !flag_pic && legitimate_constant_p (x);
+
+    default:
+      return false;
+    }
+}
+
+/* Nonzero if the constant value X is a legitimate general operand
+   when generating PIC code.  It is given that flag_pic is on and
+   that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
+
+bool
+legitimate_pic_operand_p (x)
+     rtx x;
+{
+  rtx inner;
+
+  switch (GET_CODE (x))
+    {
+    case CONST:
+      inner = XEXP (x, 0);
+
+      /* Only some unspecs are valid as "constants".  */
+      if (GET_CODE (inner) == UNSPEC)
+	switch (XINT (inner, 1))
+	  {
+	  case UNSPEC_TPOFF:
+	    return local_exec_symbolic_operand (XVECEXP (inner, 0, 0), Pmode);
+	  case UNSPEC_TP:
+	    return true;
+	  default:
+	    return false;
+	  }
+      /* FALLTHRU */
+
+    case SYMBOL_REF:
+    case LABEL_REF:
+      return legitimate_pic_address_disp_p (x);
+
+    default:
+      return true;
+    }
+}
+
 /* Determine if a given CONST RTX is a valid memory displacement
    in PIC mode.  */
 
@@ -4642,6 +4904,8 @@ int
 legitimate_pic_address_disp_p (disp)
      register rtx disp;
 {
+  bool saw_plus;
+
   /* In 64bit mode we can allow direct addresses of symbols and labels
      when they are not dynamic symbols.  */
   if (TARGET_64BIT)
@@ -4677,25 +4941,42 @@ legitimate_pic_address_disp_p (disp)
       return 1;
     }
 
+  saw_plus = false;
   if (GET_CODE (disp) == PLUS)
     {
       if (GET_CODE (XEXP (disp, 1)) != CONST_INT)
 	return 0;
       disp = XEXP (disp, 0);
+      saw_plus = true;
     }
 
   if (GET_CODE (disp) != UNSPEC)
     return 0;
 
-  /* Must be @GOT or @GOTOFF.  */
   switch (XINT (disp, 1))
     {
     case UNSPEC_GOT:
+      if (saw_plus)
+	return false;
       return GET_CODE (XVECEXP (disp, 0, 0)) == SYMBOL_REF;
     case UNSPEC_GOTOFF:
       return local_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
+    case UNSPEC_GOTTPOFF:
+      if (saw_plus)
+	return false;
+      return initial_exec_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
+    case UNSPEC_NTPOFF:
+      /* ??? Could support offset here.  */
+      if (saw_plus)
+	return false;
+      return local_exec_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
+    case UNSPEC_DTPOFF:
+      /* ??? Could support offset here.  */
+      if (saw_plus)
+	return false;
+      return local_dynamic_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     }
-    
+
   return 0;
 }
 
@@ -4832,12 +5113,6 @@ legitimate_address_p (mode, addr, strict)
     {
       reason_rtx = disp;
 
-      if (!CONSTANT_ADDRESS_P (disp))
-	{
-	  reason = "displacement is not constant";
-	  goto report_error;
-	}
-
       if (TARGET_64BIT)
 	{
 	  if (!x86_64_sign_extended_value (disp))
@@ -4855,8 +5130,30 @@ legitimate_address_p (mode, addr, strict)
 	    }
 	}
 
-      if (flag_pic && SYMBOLIC_CONST (disp))
+      if (GET_CODE (disp) == CONST
+	  && GET_CODE (XEXP (disp, 0)) == UNSPEC)
+	switch (XINT (XEXP (disp, 0), 1))
+	  {
+	  case UNSPEC_GOT:
+	  case UNSPEC_GOTOFF:
+	  case UNSPEC_GOTPCREL:
+	    if (!flag_pic)
+	      abort ();
+	    goto is_legitimate_pic;
+
+	  case UNSPEC_GOTTPOFF:
+	  case UNSPEC_NTPOFF:
+	  case UNSPEC_DTPOFF:
+	    break;
+
+	  default:
+	    reason = "invalid address unspec";
+	    goto report_error;
+	  }
+
+      else if (flag_pic && SYMBOLIC_CONST (disp))
 	{
+	is_legitimate_pic:
 	  if (TARGET_64BIT && (index || base))
 	    {
 	      reason = "non-constant pic memory reference";
@@ -4890,14 +5187,10 @@ legitimate_address_p (mode, addr, strict)
 	     that never results in lea, this seems to be easier and
 	     correct fix for crash to disable this test.  */
 	}
-      else if (HALF_PIC_P ())
+      else if (!CONSTANT_ADDRESS_P (disp))
 	{
-	  if (! HALF_PIC_ADDRESS_P (disp)
-	      || (base != NULL_RTX || index != NULL_RTX))
-	    {
-	      reason = "displacement is an invalid half-pic reference";
-	      goto report_error;
-	    }
+	  reason = "displacement is not constant";
+	  goto report_error;
 	}
     }
 
@@ -4906,7 +5199,7 @@ legitimate_address_p (mode, addr, strict)
     fprintf (stderr, "Success.\n");
   return TRUE;
 
-report_error:
+ report_error:
   if (TARGET_DEBUG_ADDR)
     {
       fprintf (stderr, "Error: %s\n", reason);
@@ -4920,10 +5213,10 @@ report_error:
 static HOST_WIDE_INT
 ix86_GOT_alias_set ()
 {
-    static HOST_WIDE_INT set = -1;
-    if (set == -1)
-      set = new_alias_set ();
-    return set;
+  static HOST_WIDE_INT set = -1;
+  if (set == -1)
+    set = new_alias_set ();
+  return set;
 }
 
 /* Return a legitimate reference for ORIG (an address) using the
@@ -4963,7 +5256,8 @@ legitimize_pic_address (orig, reg)
 	  /* This symbol may be referenced via a displacement from the PIC
 	     base address (@GOTOFF).  */
 
-	  current_function_uses_pic_offset_table = 1;
+	  if (reload_in_progress)
+	    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
 	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTOFF);
 	  new = gen_rtx_CONST (Pmode, new);
 	  new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
@@ -4979,7 +5273,6 @@ legitimize_pic_address (orig, reg)
     {
       if (TARGET_64BIT)
 	{
-	  current_function_uses_pic_offset_table = 1;
 	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTPCREL);
 	  new = gen_rtx_CONST (Pmode, new);
 	  new = gen_rtx_MEM (Pmode, new);
@@ -4999,7 +5292,8 @@ legitimize_pic_address (orig, reg)
 	  /* This symbol must be referenced via a load from the
 	     Global Offset Table (@GOT).  */
 
-	  current_function_uses_pic_offset_table = 1;
+	  if (reload_in_progress)
+	    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
 	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOT);
 	  new = gen_rtx_CONST (Pmode, new);
 	  new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
@@ -5040,7 +5334,8 @@ legitimize_pic_address (orig, reg)
 	    {
 	      if (!TARGET_64BIT)
 		{
-		  current_function_uses_pic_offset_table = 1;
+		  if (reload_in_progress)
+		    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
 		  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op0),
 					UNSPEC_GOTOFF);
 		  new = gen_rtx_PLUS (Pmode, new, op1);
@@ -5080,7 +5375,101 @@ legitimize_pic_address (orig, reg)
     }
   return new;
 }
+
+static void
+ix86_encode_section_info (decl, first)
+     tree decl;
+     int first ATTRIBUTE_UNUSED;
+{
+  bool local_p = (*targetm.binds_local_p) (decl);
+  rtx rtl, symbol;
+
+  rtl = DECL_P (decl) ? DECL_RTL (decl) : TREE_CST_RTL (decl);
+  if (GET_CODE (rtl) != MEM)
+    return;
+  symbol = XEXP (rtl, 0);
+  if (GET_CODE (symbol) != SYMBOL_REF)
+    return;
+
+  /* For basic x86, if using PIC, mark a SYMBOL_REF for a non-global
+     symbol so that we may access it directly in the GOT.  */
+
+  if (flag_pic)
+    SYMBOL_REF_FLAG (symbol) = local_p;
+
+  /* For ELF, encode thread-local data with %[GLil] for "global dynamic",
+     "local dynamic", "initial exec" or "local exec" TLS models
+     respectively.  */
+
+  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
+    {
+      const char *symbol_str;
+      char *newstr;
+      size_t len;
+      enum tls_model kind;
+
+      if (!flag_pic)
+	{
+	  if (local_p)
+	    kind = TLS_MODEL_LOCAL_EXEC;
+	  else
+	    kind = TLS_MODEL_INITIAL_EXEC;
+	}
+      /* Local dynamic is inefficient when we're not combining the
+	 parts of the address.  */
+      else if (optimize && local_p)
+	kind = TLS_MODEL_LOCAL_DYNAMIC;
+      else
+	kind = TLS_MODEL_GLOBAL_DYNAMIC;
+      if (kind < flag_tls_default)
+	kind = flag_tls_default;
+
+      symbol_str = XSTR (symbol, 0);
+
+      if (symbol_str[0] == '%')
+	{
+	  if (symbol_str[1] == tls_model_chars[kind])
+	    return;
+	  symbol_str += 2;
+	}
+      len = strlen (symbol_str) + 1;
+      newstr = alloca (len + 2);
+
+      newstr[0] = '%';
+      newstr[1] = tls_model_chars[kind];
+      memcpy (newstr + 2, symbol_str, len);
+
+      XSTR (symbol, 0) = ggc_alloc_string (newstr, len + 2 - 1);
+    }
+}
+
+/* Undo the above when printing symbol names.  */
+
+static const char *
+ix86_strip_name_encoding (str)
+     const char *str;
+{
+  if (str[0] == '%')
+    str += 2;
+  if (str [0] == '*')
+    str += 1;
+  return str;
+}
 
+/* Load the thread pointer into a register.  */
+
+static rtx
+get_thread_pointer ()
+{
+  rtx tp;
+
+  tp = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx), UNSPEC_TP);
+  tp = gen_rtx_CONST (Pmode, tp);
+  tp = force_reg (Pmode, tp);
+
+  return tp;
+}
+
 /* Try machine-dependent ways of modifying an illegitimate address
    to be legitimate.  If we find one, return the new, valid address.
    This macro is used in only one place: `memory_address' in explow.c.
@@ -5116,6 +5505,85 @@ legitimize_address (x, oldx, mode)
       fprintf (stderr, "\n==========\nLEGITIMIZE_ADDRESS, mode = %s\n",
 	       GET_MODE_NAME (mode));
       debug_rtx (x);
+    }
+
+  log = tls_symbolic_operand (x, mode);
+  if (log)
+    {
+      rtx dest, base, off, pic;
+
+      switch (log)
+        {
+        case TLS_MODEL_GLOBAL_DYNAMIC:
+	  dest = gen_reg_rtx (Pmode);
+          emit_insn (gen_tls_global_dynamic (dest, x));
+	  break;
+
+        case TLS_MODEL_LOCAL_DYNAMIC:
+	  base = gen_reg_rtx (Pmode);
+	  emit_insn (gen_tls_local_dynamic_base (base));
+
+	  off = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x), UNSPEC_DTPOFF);
+	  off = gen_rtx_CONST (Pmode, off);
+
+	  return gen_rtx_PLUS (Pmode, base, off);
+
+        case TLS_MODEL_INITIAL_EXEC:
+	  if (flag_pic)
+	    {
+	      if (reload_in_progress)
+		regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
+	      pic = pic_offset_table_rtx;
+	    }
+	  else
+	    {
+	      pic = gen_reg_rtx (Pmode);
+	      emit_insn (gen_set_got (pic));
+	    }
+
+	  base = get_thread_pointer ();
+
+	  off = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x), UNSPEC_GOTTPOFF);
+	  off = gen_rtx_CONST (Pmode, off);
+	  off = gen_rtx_PLUS (Pmode, pic, off);
+	  off = gen_rtx_MEM (Pmode, off);
+	  RTX_UNCHANGING_P (off) = 1;
+	  set_mem_alias_set (off, ix86_GOT_alias_set ());
+
+	  /* Damn Sun for specifing a set of dynamic relocations without
+	     considering the two-operand nature of the architecture!
+	     We'd be much better off with a "GOTNTPOFF" relocation that
+	     already contained the negated constant.  */
+	  /* ??? Using negl and reg+reg addressing appears to be a lose
+	     size-wise.  The negl is two bytes, just like the extra movl
+	     incurred by the two-operand subl, but reg+reg addressing
+	     uses the two-byte modrm form, unlike plain reg.  */
+
+	  dest = gen_reg_rtx (Pmode);
+	  emit_insn (gen_subsi3 (dest, base, off));
+	  break;
+
+        case TLS_MODEL_LOCAL_EXEC:
+	  base = get_thread_pointer ();
+
+	  off = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x),
+				TARGET_GNU_TLS ? UNSPEC_NTPOFF : UNSPEC_TPOFF);
+	  off = gen_rtx_CONST (Pmode, off);
+
+	  if (TARGET_GNU_TLS)
+	    return gen_rtx_PLUS (Pmode, base, off);
+	  else
+	    {
+	      dest = gen_reg_rtx (Pmode);
+	      emit_insn (gen_subsi3 (dest, base, off));
+	    }
+	  break;
+
+	default:
+	  abort ();
+        }
+
+      return dest;
     }
 
   if (flag_pic && SYMBOLIC_CONST (x))
@@ -5357,7 +5825,7 @@ output_pic_addr_const (file, x, code)
 
      case UNSPEC:
        if (XVECLEN (x, 0) != 1)
-	abort ();
+	 abort ();
        output_pic_addr_const (file, XVECEXP (x, 0, 0), code);
        switch (XINT (x, 1))
 	{
@@ -5367,11 +5835,20 @@ output_pic_addr_const (file, x, code)
 	case UNSPEC_GOTOFF:
 	  fputs ("@GOTOFF", file);
 	  break;
-	case UNSPEC_PLT:
-	  fputs ("@PLT", file);
-	  break;
 	case UNSPEC_GOTPCREL:
-	  fputs ("@GOTPCREL(%RIP)", file);
+	  fputs ("@GOTPCREL(%rip)", file);
+	  break;
+	case UNSPEC_GOTTPOFF:
+	  fputs ("@GOTTPOFF", file);
+	  break;
+	case UNSPEC_TPOFF:
+	  fputs ("@TPOFF", file);
+	  break;
+	case UNSPEC_NTPOFF:
+	  fputs ("@NTPOFF", file);
+	  break;
+	case UNSPEC_DTPOFF:
+	  fputs ("@DTPOFF", file);
 	  break;
 	default:
 	  output_operand_lossage ("invalid UNSPEC as operand");
@@ -5585,7 +6062,7 @@ print_reg (x, code, file)
       || REGNO (x) == FPSR_REG)
     abort ();
 
-  if (ASSEMBLER_DIALECT == ASM_ATT  || USER_LABEL_PREFIX[0] == 0)
+  if (ASSEMBLER_DIALECT == ASM_ATT || USER_LABEL_PREFIX[0] == 0)
     putc ('%', file);
 
   if (code == 'w' || MMX_REG_P (x))
@@ -5662,6 +6139,43 @@ print_reg (x, code, file)
     }
 }
 
+/* Locate some local-dynamic symbol still in use by this function
+   so that we can print its name in some tls_local_dynamic_base
+   pattern.  */
+
+static const char *
+get_some_local_dynamic_name ()
+{
+  rtx insn;
+
+  if (cfun->machine->some_ld_name)
+    return cfun->machine->some_ld_name;
+
+  for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
+    if (INSN_P (insn)
+	&& for_each_rtx (&PATTERN (insn), get_some_local_dynamic_name_1, 0))
+      return cfun->machine->some_ld_name;
+
+  abort ();
+}
+
+static int
+get_some_local_dynamic_name_1 (px, data)
+     rtx *px;
+     void *data ATTRIBUTE_UNUSED;
+{
+  rtx x = *px;
+
+  if (GET_CODE (x) == SYMBOL_REF
+      && local_dynamic_symbolic_operand (x, Pmode))
+    {
+      cfun->machine->some_ld_name = XSTR (x, 0);
+      return 1;
+    }
+
+  return 0;
+}
+
 /* Meaning of CODE:
    L,W,B,Q,S,T -- print the opcode suffix for specified size of operand.
    C -- print opcode suffix for set/cmov insn.
@@ -5686,6 +6200,7 @@ print_reg (x, code, file)
    D -- print condition for SSE cmp instruction.
    P -- if PIC, print an @PLT suffix.
    X -- don't print any sort of PIC '@' suffix for a symbol.
+   & -- print some in-use local-dynamic symbol name.
  */
 
 void
@@ -5701,6 +6216,10 @@ print_operand (file, x, code)
 	case '*':
 	  if (ASSEMBLER_DIALECT == ASM_ATT)
 	    putc ('*', file);
+	  return;
+
+	case '&':
+	  assemble_name (file, get_some_local_dynamic_name ());
 	  return;
 
 	case 'A':
@@ -5896,7 +6415,7 @@ print_operand (file, x, code)
 
 	  /* Like above, but reverse condition */
 	case 'c':
-	  /* Check to see if argument to %c is really a constant 
+	  /* Check to see if argument to %c is really a constant
 	     and not a condition code which needs to be reversed.  */
 	  if (GET_RTX_CLASS (GET_CODE (x)) != '<')
 	  {
@@ -5989,7 +6508,7 @@ print_operand (file, x, code)
       if (flag_pic && CONSTANT_ADDRESS_P (x))
 	output_pic_addr_const (file, x, code);
       /* Avoid (%rip) for call operands.  */
-      else if (CONSTANT_ADDRESS_P (x) && code =='P'
+      else if (CONSTANT_ADDRESS_P (x) && code == 'P'
 	       && GET_CODE (x) != CONST_INT)
 	output_addr_const (file, x);
       else if (this_is_asm_operands && ! address_operand (x, VOIDmode))
@@ -6032,6 +6551,18 @@ print_operand (file, x, code)
       REAL_VALUE_TO_DECIMAL (r, "%.22e", dstr);
       fprintf (file, "%s", dstr);
     }
+
+  else if (GET_CODE (x) == CONST
+	   && GET_CODE (XEXP (x, 0)) == UNSPEC
+	   && XINT (XEXP (x, 0), 1) == UNSPEC_TP)
+    {
+      if (ASSEMBLER_DIALECT == ASM_INTEL)
+	fputs ("DWORD PTR ", file);
+      if (ASSEMBLER_DIALECT == ASM_ATT || USER_LABEL_PREFIX[0] == 0)
+	putc ('%', file);
+      fputs ("gs:0", file);
+    }
+
   else
     {
       if (code != 'P')
@@ -6098,7 +6629,13 @@ print_operand_address (file, addr)
 	output_addr_const (file, addr);
 
       /* Use one byte shorter RIP relative addressing for 64bit mode.  */
-      if (GET_CODE (disp) != CONST_INT && TARGET_64BIT)
+      if (TARGET_64BIT
+	  && (GET_CODE (addr) == SYMBOL_REF
+	      || GET_CODE (addr) == LABEL_REF
+	      || (GET_CODE (addr) == CONST
+		  && GET_CODE (XEXP (addr, 0)) == PLUS
+		  && GET_CODE (XEXP (XEXP (addr, 0), 0)) == SYMBOL_REF
+		  && GET_CODE (XEXP (XEXP (addr, 0), 1)) == CONST_INT)))
 	fputs ("(%rip)", file);
     }
   else
@@ -6179,6 +6716,43 @@ print_operand_address (file, addr)
 	  putc (']', file);
 	}
     }
+}
+
+bool
+output_addr_const_extra (file, x)
+     FILE *file;
+     rtx x;
+{
+  rtx op;
+
+  if (GET_CODE (x) != UNSPEC)
+    return false;
+
+  op = XVECEXP (x, 0, 0);
+  switch (XINT (x, 1))
+    {
+    case UNSPEC_GOTTPOFF:
+      output_addr_const (file, op);
+      fputs ("@GOTTPOFF", file);
+      break;
+    case UNSPEC_TPOFF:
+      output_addr_const (file, op);
+      fputs ("@TPOFF", file);
+      break;
+    case UNSPEC_NTPOFF:
+      output_addr_const (file, op);
+      fputs ("@NTPOFF", file);
+      break;
+    case UNSPEC_DTPOFF:
+      output_addr_const (file, op);
+      fputs ("@DTPOFF", file);
+      break;
+
+    default:
+      return false;
+    }
+
+  return true;
 }
 
 /* Split one or more DImode RTL references into pairs of SImode
@@ -6717,51 +7291,117 @@ ix86_expand_clear (dest)
   emit_insn (tmp);
 }
 
+/* X is an unchanging MEM.  If it is a constant pool reference, return
+   the constant pool rtx, else NULL.  */
+
+static rtx
+maybe_get_pool_constant (x)
+     rtx x;
+{
+  x = XEXP (x, 0);
+
+  if (flag_pic)
+    {
+      if (GET_CODE (x) != PLUS)
+	return NULL_RTX;
+      if (XEXP (x, 0) != pic_offset_table_rtx)
+	return NULL_RTX;
+      x = XEXP (x, 1);
+      if (GET_CODE (x) != CONST)
+	return NULL_RTX;
+      x = XEXP (x, 0);
+      if (GET_CODE (x) != UNSPEC)
+	return NULL_RTX;
+      if (XINT (x, 1) != UNSPEC_GOTOFF)
+	return NULL_RTX;
+      x = XVECEXP (x, 0, 0);
+    }
+
+  if (GET_CODE (x) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (x))
+    return get_pool_constant (x);
+
+  return NULL_RTX;
+}
+
 void
 ix86_expand_move (mode, operands)
      enum machine_mode mode;
      rtx operands[];
 {
   int strict = (reload_in_progress || reload_completed);
-  rtx insn;
+  rtx insn, op0, op1, tmp;
 
-  if (flag_pic && mode == Pmode && symbolic_operand (operands[1], Pmode))
+  op0 = operands[0];
+  op1 = operands[1];
+
+  /* ??? We have a slight problem.  We need to say that tls symbols are
+     not legitimate constants so that reload does not helpfully reload
+     these constants from a REG_EQUIV, which we cannot handle.  (Recall
+     that general- and local-dynamic address resolution requires a
+     function call.)
+
+     However, if we say that tls symbols are not legitimate constants,
+     then emit_move_insn helpfully drop them into the constant pool.
+
+     It is far easier to work around emit_move_insn than reload.  Recognize
+     the MEM that we would have created and extract the symbol_ref.  */
+
+  if (mode == Pmode
+      && GET_CODE (op1) == MEM
+      && RTX_UNCHANGING_P (op1))
     {
-      /* Emit insns to move operands[1] into operands[0].  */
+      tmp = maybe_get_pool_constant (op1);
+      /* Note that we only care about symbolic constants here, which
+	 unlike CONST_INT will always have a proper mode.  */
+      if (tmp && GET_MODE (tmp) == Pmode)
+	op1 = tmp;
+    }
 
-      if (GET_CODE (operands[0]) == MEM)
-	operands[1] = force_reg (Pmode, operands[1]);
+  if (tls_symbolic_operand (op1, Pmode))
+    {
+      op1 = legitimize_address (op1, op1, VOIDmode);
+      if (GET_CODE (op0) == MEM)
+	{
+	  tmp = gen_reg_rtx (mode);
+	  emit_insn (gen_rtx_SET (VOIDmode, tmp, op1));
+	  op1 = tmp;
+	}
+    }
+  else if (flag_pic && mode == Pmode && symbolic_operand (op1, Pmode))
+    {
+      if (GET_CODE (op0) == MEM)
+	op1 = force_reg (Pmode, op1);
       else
 	{
-	  rtx temp = operands[0];
+	  rtx temp = op0;
 	  if (GET_CODE (temp) != REG)
 	    temp = gen_reg_rtx (Pmode);
-	  temp = legitimize_pic_address (operands[1], temp);
-	  if (temp == operands[0])
+	  temp = legitimize_pic_address (op1, temp);
+	  if (temp == op0)
 	    return;
-	  operands[1] = temp;
+	  op1 = temp;
 	}
     }
   else
     {
-      if (GET_CODE (operands[0]) == MEM
+      if (GET_CODE (op0) == MEM
 	  && (PUSH_ROUNDING (GET_MODE_SIZE (mode)) != GET_MODE_SIZE (mode)
-	      || !push_operand (operands[0], mode))
-	  && GET_CODE (operands[1]) == MEM)
-	operands[1] = force_reg (mode, operands[1]);
+	      || !push_operand (op0, mode))
+	  && GET_CODE (op1) == MEM)
+	op1 = force_reg (mode, op1);
 
-      if (push_operand (operands[0], mode)
-	  && ! general_no_elim_operand (operands[1], mode))
-	operands[1] = copy_to_mode_reg (mode, operands[1]);
+      if (push_operand (op0, mode)
+	  && ! general_no_elim_operand (op1, mode))
+	op1 = copy_to_mode_reg (mode, op1);
 
       /* Force large constants in 64bit compilation into register
 	 to get them CSEed.  */
       if (TARGET_64BIT && mode == DImode
-	  && immediate_operand (operands[1], mode)
-	  && !x86_64_zero_extended_value (operands[1])
-	  && !register_operand (operands[0], mode)
+	  && immediate_operand (op1, mode)
+	  && !x86_64_zero_extended_value (op1)
+	  && !register_operand (op0, mode)
 	  && optimize && !reload_completed && !reload_in_progress)
-	operands[1] = copy_to_mode_reg (mode, operands[1]);
+	op1 = copy_to_mode_reg (mode, op1);
 
       if (FLOAT_MODE_P (mode))
 	{
@@ -6771,13 +7411,13 @@ ix86_expand_move (mode, operands)
 
 	  if (strict)
 	    ;
-	  else if (GET_CODE (operands[1]) == CONST_DOUBLE
-		   && register_operand (operands[0], mode))
-	    operands[1] = validize_mem (force_const_mem (mode, operands[1]));
+	  else if (GET_CODE (op1) == CONST_DOUBLE
+		   && register_operand (op0, mode))
+	    op1 = validize_mem (force_const_mem (mode, op1));
 	}
     }
 
-  insn = gen_rtx_SET (VOIDmode, operands[0], operands[1]);
+  insn = gen_rtx_SET (VOIDmode, op0, op1);
 
   emit_insn (insn);
 }
@@ -6812,7 +7452,7 @@ ix86_expand_vector_move (mode, operands)
     }
 
   emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
-}  
+}
 
 /* Attempt to expand a binary operator.  Make the expansion closer to the
    actual machine, then just general_operand, which will allow 3 separate
@@ -7677,7 +8317,7 @@ ix86_expand_branch (code, label)
 
 	code = ix86_prepare_fp_compare_args (code, &ix86_compare_op0,
 					     &ix86_compare_op1);
-	
+
 	ix86_fp_comparison_codes (code, &bypass_code, &first_code, &second_code);
 
 	/* Check whether we will use the natural sequence with one jump.  If
@@ -7975,11 +8615,12 @@ ix86_expand_int_movcc (operands)
   if ((code == LEU || code == GTU)
       && GET_CODE (ix86_compare_op1) == CONST_INT
       && mode != HImode
-      && (unsigned int) INTVAL (ix86_compare_op1) != 0xffffffff
-      /* The operand still must be representable as sign extended value.  */
+      && INTVAL (ix86_compare_op1) != -1
+      /* For x86-64, the immediate field in the instruction is 32-bit
+	 signed, so we can't increment a DImode value above 0x7fffffff.  */
       && (!TARGET_64BIT
 	  || GET_MODE (ix86_compare_op0) != DImode
-	  || (unsigned int) INTVAL (ix86_compare_op1) != 0x7fffffff)
+	  || INTVAL (ix86_compare_op1) != 0x7fffffff)
       && GET_CODE (operands[2]) == CONST_INT
       && GET_CODE (operands[3]) == CONST_INT)
     {
@@ -7987,14 +8628,13 @@ ix86_expand_int_movcc (operands)
 	code = LTU;
       else
 	code = GEU;
-      ix86_compare_op1
-	= gen_int_mode (INTVAL (ix86_compare_op1) + 1,
-			GET_MODE (ix86_compare_op0));
+      ix86_compare_op1 = gen_int_mode (INTVAL (ix86_compare_op1) + 1,
+				       GET_MODE (ix86_compare_op0));
     }
 
   start_sequence ();
   compare_op = ix86_expand_compare (code, &second_test, &bypass_test);
-  compare_seq = gen_sequence ();
+  compare_seq = get_insns ();
   end_sequence ();
 
   compare_code = GET_CODE (compare_op);
@@ -8626,13 +9266,14 @@ ix86_split_to_parts (operand, parts, mode)
   if (size < 2 || size > 3)
     abort ();
 
-  /* Optimize constant pool reference to immediates.  This is used by fp moves,
-     that force all constants to memory to allow combining.  */
-
-  if (GET_CODE (operand) == MEM
-      && GET_CODE (XEXP (operand, 0)) == SYMBOL_REF
-      && CONSTANT_POOL_ADDRESS_P (XEXP (operand, 0)))
-    operand = get_pool_constant (XEXP (operand, 0));
+  /* Optimize constant pool reference to immediates.  This is used by fp
+     moves, that force all constants to memory to allow combining.  */
+  if (GET_CODE (operand) == MEM && RTX_UNCHANGING_P (operand))
+    {
+      rtx tmp = maybe_get_pool_constant (operand);
+      if (tmp)
+	operand = tmp;
+    }
 
   if (GET_CODE (operand) == MEM && !offsettable_memref_p (operand))
     {
@@ -9272,7 +9913,7 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
       if (count == 0 && align < desired_alignment)
 	{
 	  label = gen_label_rtx ();
-	  emit_cmp_and_jump_insns (countreg, GEN_INT (UNITS_PER_WORD - 1),
+	  emit_cmp_and_jump_insns (countreg, GEN_INT (desired_alignment - 1),
 				   LEU, 0, counter_mode, 1, label);
 	}
       if (align <= 1)
@@ -9360,7 +10001,7 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
   end_sequence ();
 
   ix86_set_move_mem_attrs (insns, dst, src, destreg, srcreg);
-  emit_insns (insns);
+  emit_insn (insns);
   return 1;
 }
 
@@ -9827,6 +10468,52 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx)
 
   emit_label (end_0_label);
 }
+
+void
+ix86_expand_call (retval, fnaddr, callarg1, callarg2, pop)
+     rtx retval, fnaddr, callarg1, callarg2, pop;
+{
+  rtx use = NULL, call;
+
+  if (pop == const0_rtx)
+    pop = NULL;
+  if (TARGET_64BIT && pop)
+    abort ();
+
+  /* Static functions and indirect calls don't need the pic register.  */
+  if (! TARGET_64BIT && flag_pic
+      && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF
+      && ! SYMBOL_REF_FLAG (XEXP (fnaddr, 0)))
+    use_reg (&use, pic_offset_table_rtx);
+
+  if (TARGET_64BIT && INTVAL (callarg2) >= 0)
+    {
+      rtx al = gen_rtx_REG (QImode, 0);
+      emit_move_insn (al, callarg2);
+      use_reg (&use, al);
+    }
+
+  if (! call_insn_operand (XEXP (fnaddr, 0), Pmode))
+    {
+      fnaddr = copy_to_mode_reg (Pmode, XEXP (fnaddr, 0));
+      fnaddr = gen_rtx_MEM (QImode, fnaddr);
+    }
+
+  call = gen_rtx_CALL (VOIDmode, fnaddr, callarg1);
+  if (retval)
+    call = gen_rtx_SET (VOIDmode, retval, call);
+  if (pop)
+    {
+      pop = gen_rtx_PLUS (Pmode, stack_pointer_rtx, pop);
+      pop = gen_rtx_SET (VOIDmode, stack_pointer_rtx, pop);
+      call = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, call, pop));
+    }
+
+  call = emit_call_insn (call);
+  if (use)
+    CALL_INSN_FUNCTION_USAGE (call) = use;
+}
+
 
 /* Clear stack slot assignments remembered from previous functions.
    This is called from INIT_EXPANDERS once before RTL is emitted for each
@@ -9857,6 +10544,23 @@ assign_386_stack_local (mode, n)
       = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
 
   return ix86_stack_locals[(int) mode][n];
+}
+
+/* Construct the SYMBOL_REF for the tls_get_addr function.  */
+
+static GTY(()) rtx ix86_tls_symbol;
+rtx
+ix86_tls_get_addr ()
+{
+
+  if (!ix86_tls_symbol)
+    {
+      ix86_tls_symbol = gen_rtx_SYMBOL_REF (Pmode, (TARGET_GNU_TLS
+					   ? "___tls_get_addr"
+					   : "__tls_get_addr"));
+    }
+
+  return ix86_tls_symbol;
 }
 
 /* Calculate the length of the memory address in the instruction
@@ -9919,8 +10623,8 @@ memory_address_length (addr)
   return len;
 }
 
-/* Compute default value for "length_immediate" attribute.  When SHORTFORM is set
-   expect that insn have 8bit immediate alternative.  */
+/* Compute default value for "length_immediate" attribute.  When SHORTFORM
+   is set, expect that insn have 8bit immediate alternative.  */
 int
 ix86_attr_length_immediate_default (insn, shortform)
      rtx insn;
@@ -10353,7 +11057,7 @@ ix86_sched_reorder_ppro (ready, e_ready)
   for (i = 1; i < 3; ++i)
     if (decode[i] == NULL)
       {
-	if (ready >= e_ready)
+	if (ready > e_ready)
 	  goto ppro_done;
 
 	insnp = e_ready;
@@ -10397,8 +11101,14 @@ ix86_sched_reorder (dump, sched_verbose, ready, n_readyp, clock_var)
   int n_ready = *n_readyp;
   rtx *e_ready = ready + n_ready - 1;
 
+  /* Make sure to go ahead and initialize key items in
+     ix86_sched_data if we are not going to bother trying to
+     reorder the ready queue.  */
   if (n_ready < 2)
-    goto out;
+    {
+      ix86_sched_data.ppro.issued_this_cycle = 1;
+      goto out;
+    }
 
   switch (ix86_cpu)
     {
@@ -11866,7 +12576,7 @@ ix86_expand_binop_builtin (icode, arglist, target)
   return target;
 }
 
-/* In type_for_mode we restrict the ability to create TImode types 
+/* In type_for_mode we restrict the ability to create TImode types
    to hosts with 64-bit H_W_I.  So we've defined the SSE logicals
    to have a V4SFmode signature.  Convert them in-place to TImode.  */
 
@@ -11996,11 +12706,11 @@ ix86_expand_unop1_builtin (icode, arglist, target)
 
   if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
     op0 = copy_to_mode_reg (mode0, op0);
-  
+
   op1 = op0;
   if (! (*insn_data[icode].operand[2].predicate) (op1, mode0))
     op1 = copy_to_mode_reg (mode0, op1);
-  
+
   pat = GEN_FCN (icode) (target, op0, op1);
   if (! pat)
     return 0;
@@ -12997,7 +13707,7 @@ x86_order_regs_for_local_alloc ()
    if (!TARGET_SSE_MATH)
      for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
        reg_alloc_order [pos++] = i;
-   
+
    /* SSE registers.  */
    for (i = FIRST_SSE_REG; i <= LAST_SSE_REG; i++)
      reg_alloc_order [pos++] = i;
@@ -13091,6 +13801,23 @@ x86_output_mi_thunk (file, delta, function)
 	  fprintf (file, "\n");
 	}
     }
+}
+
+int
+x86_field_alignment (field, computed)
+     tree field;
+     int computed;
+{
+  enum machine_mode mode;
+  if (TARGET_64BIT || DECL_USER_ALIGN (field) || TARGET_ALIGN_DOUBLE)
+    return computed;
+  mode = TYPE_MODE (TREE_CODE (TREE_TYPE (field)) == ARRAY_TYPE
+		    ? get_inner_array_type (field) : TREE_TYPE (field));
+  if ((mode == DFmode || mode == DCmode
+      || mode == DImode || mode == CDImode)
+      && !TARGET_ALIGN_DOUBLE)
+    return MIN (32, computed);
+  return computed;
 }
 
 #include "gt-i386.h"

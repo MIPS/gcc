@@ -61,9 +61,13 @@ static tree h8300_handle_eightbit_data_attribute PARAMS ((tree *, tree, tree, in
 static tree h8300_handle_tiny_data_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static void h8300_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void h8300_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void h8300_insert_attributes PARAMS ((tree, tree *));
 #ifndef OBJECT_FORMAT_ELF
 static void h8300_asm_named_section PARAMS ((const char *, unsigned int));
 #endif
+static void h8300_encode_label PARAMS ((tree));
+static void h8300_encode_section_info PARAMS ((tree, int));
+static const char *h8300_strip_name_encoding PARAMS ((const char *));
 
 /* CPU_TYPE, says what cpu we're compiling for.  */
 int cpu_type;
@@ -111,6 +115,13 @@ const char *h8_push_op, *h8_pop_op, *h8_mov_op;
 #define TARGET_ASM_FUNCTION_PROLOGUE h8300_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE h8300_output_function_epilogue
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO h8300_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING h8300_strip_name_encoding
+
+#undef TARGET_INSERT_ATTRIBUTES
+#define TARGET_INSERT_ATTRIBUTES h8300_insert_attributes
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -514,28 +525,6 @@ asm_file_end (file)
   fprintf (file, "\t.end\n");
 }
 
-/* Return true if VALUE is a valid constant for constraint 'P'.
-   IE: VALUE is a power of two <= 2**15.  */
-
-int
-small_power_of_two (value)
-     HOST_WIDE_INT value;
-{
-  int power = exact_log2 (value);
-  return power >= 0 && power <= 15;
-}
-
-/* Return true if VALUE is a valid constant for constraint 'O', which
-   means that the constant would be ok to use as a bit for a bclr
-   instruction.  */
-
-int
-ok_for_bclr (value)
-     HOST_WIDE_INT value;
-{
-  return small_power_of_two ((~value) & 0xff);
-}
-
 /* Return true if OP is a valid source operand for an integer move
    instruction.  */
 
@@ -562,15 +551,50 @@ general_operand_dst (op, mode)
   return general_operand (op, mode);
 }
 
-/* Return true if OP is a const valid for a bit clear instruction.  */
+/* Return true if OP is a constant that contains only one 1 in its
+   binary representation.  */
 
 int
-o_operand (operand, mode)
+single_one_operand (operand, mode)
      rtx operand;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  return (GET_CODE (operand) == CONST_INT
-	  && CONST_OK_FOR_O (INTVAL (operand)));
+  if (GET_CODE (operand) == CONST_INT)
+    {
+      /* We really need to do this masking because 0x80 in QImode is
+	 represented as -128 for example.  */
+      unsigned HOST_WIDE_INT mask =
+	((unsigned HOST_WIDE_INT) 1 << GET_MODE_BITSIZE (mode)) - 1;
+      unsigned HOST_WIDE_INT value = INTVAL (operand);
+
+      if (exact_log2 (value & mask) >= 0)
+	return 1;
+    }
+
+  return 0;
+}
+
+/* Return true if OP is a constant that contains only one 0 in its
+   binary representation.  */
+
+int
+single_zero_operand (operand, mode)
+     rtx operand;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  if (GET_CODE (operand) == CONST_INT)
+    {
+      /* We really need to do this masking because 0x80 in QImode is
+	 represented as -128 for example.  */
+      unsigned HOST_WIDE_INT mask =
+	((unsigned HOST_WIDE_INT) 1 << GET_MODE_BITSIZE (mode)) - 1;
+      unsigned HOST_WIDE_INT value = INTVAL (operand);
+
+      if (exact_log2 (~value & mask) >= 0)
+	return 1;
+    }
+
+  return 0;
 }
 
 /* Return true if OP is a valid call operand.  */
@@ -1023,16 +1047,16 @@ print_operand (file, x, code)
 	goto def;
       break;
     case 'V':
-      bitint = exact_log2 (INTVAL (x));
+      bitint = exact_log2 (INTVAL (x) & 0xff);
       if (bitint == -1)
 	abort ();
-      fprintf (file, "#%d", bitint & 7);
+      fprintf (file, "#%d", bitint);
       break;
     case 'W':
       bitint = exact_log2 ((~INTVAL (x)) & 0xff);
       if (bitint == -1)
 	abort ();
-      fprintf (file, "#%d", bitint & 7);
+      fprintf (file, "#%d", bitint);
       break;
     case 'R':
     case 'X':
@@ -2674,6 +2698,58 @@ get_shift_alg (shift_type, shift_mode, count, info)
     info->shift2 = NULL;
 }
 
+/* Given COUNT and MODE of a shift, return 1 if a scratch reg may be
+   needed for some shift with COUNT and MODE.  Return 0 otherwise.  */
+
+int
+h8300_shift_needs_scratch_p (count, mode)
+     int count;
+     enum machine_mode mode;
+{
+  int cpu;
+  int a, lr, ar;
+
+  if (GET_MODE_BITSIZE (mode) <= count)
+    return 1;
+
+  /* Find out the target CPU.  */
+  if (TARGET_H8300)
+    cpu = 0;
+  else if (TARGET_H8300H)
+    cpu = 1;
+  else
+    cpu = 2;
+
+  /* Find the shift algorithm.  */
+  switch (mode)
+    {
+    case QImode:
+      a  = shift_alg_qi[cpu][SHIFT_ASHIFT][count];
+      lr = shift_alg_qi[cpu][SHIFT_LSHIFTRT][count];
+      ar = shift_alg_qi[cpu][SHIFT_ASHIFTRT][count];
+      break;
+
+    case HImode:
+      a  = shift_alg_hi[cpu][SHIFT_ASHIFT][count];
+      lr = shift_alg_hi[cpu][SHIFT_LSHIFTRT][count];
+      ar = shift_alg_hi[cpu][SHIFT_ASHIFTRT][count];
+      break;
+
+    case SImode:
+      a  = shift_alg_si[cpu][SHIFT_ASHIFT][count];
+      lr = shift_alg_si[cpu][SHIFT_LSHIFTRT][count];
+      ar = shift_alg_si[cpu][SHIFT_ASHIFTRT][count];
+      break;
+
+    default:
+      abort ();
+    }
+
+  /* On H8/300H and H8/S, count == 8 uses the scratch register.  */
+  return (a == SHIFT_LOOP || lr == SHIFT_LOOP || ar == SHIFT_LOOP
+	  || (!TARGET_H8300 && mode == SImode && count == 8));
+}
+
 /* Emit the assembler code for doing shifts.  */
 
 const char *
@@ -3203,32 +3279,30 @@ fix_bit_operand (operands, what, type)
      only 'U' memory afterwards, so if this is a MEM operand, we must force
      it to be valid for 'U' by reloading the address.  */
 
-  if (GET_CODE (operands[2]) == CONST_INT)
+  if ((what == 0 && single_zero_operand (operands[2], QImode))
+      || (what == 1 && single_one_operand (operands[2], QImode)))
     {
-      if (CONST_OK_FOR_LETTER_P (INTVAL (operands[2]), what))
+      /* OK to have a memory dest.  */
+      if (GET_CODE (operands[0]) == MEM
+	  && !EXTRA_CONSTRAINT (operands[0], 'U'))
 	{
-	  /* Ok to have a memory dest.  */
-	  if (GET_CODE (operands[0]) == MEM
-	      && !EXTRA_CONSTRAINT (operands[0], 'U'))
-	    {
-	      rtx mem = gen_rtx_MEM (GET_MODE (operands[0]),
-				     copy_to_mode_reg (Pmode,
-						       XEXP (operands[0], 0)));
-	      MEM_COPY_ATTRIBUTES (mem, operands[0]);
-	      operands[0] = mem;
-	    }
-
-	  if (GET_CODE (operands[1]) == MEM
-	      && !EXTRA_CONSTRAINT (operands[1], 'U'))
-	    {
-	      rtx mem = gen_rtx_MEM (GET_MODE (operands[1]),
-				     copy_to_mode_reg (Pmode,
-						       XEXP (operands[1], 0)));
-	      MEM_COPY_ATTRIBUTES (mem, operands[0]);
-	      operands[1] = mem;
-	    }
-	  return 0;
+	  rtx mem = gen_rtx_MEM (GET_MODE (operands[0]),
+				 copy_to_mode_reg (Pmode,
+						   XEXP (operands[0], 0)));
+	  MEM_COPY_ATTRIBUTES (mem, operands[0]);
+	  operands[0] = mem;
 	}
+
+      if (GET_CODE (operands[1]) == MEM
+	  && !EXTRA_CONSTRAINT (operands[1], 'U'))
+	{
+	  rtx mem = gen_rtx_MEM (GET_MODE (operands[1]),
+				 copy_to_mode_reg (Pmode,
+						   XEXP (operands[1], 0)));
+	  MEM_COPY_ATTRIBUTES (mem, operands[0]);
+	  operands[1] = mem;
+	}
+      return 0;
     }
 
   /* Dest and src op must be register.  */
@@ -3339,6 +3413,22 @@ h8300_tiny_data_p (decl)
   return a != NULL_TREE;
 }
 
+/* Generate an 'interrupt_handler' attribute for decls.  */
+
+static void
+h8300_insert_attributes (node, attributes)
+     tree node;
+     tree *attributes;
+{
+  if (!interrupt_handler
+      || TREE_CODE (node) != FUNCTION_DECL)
+    return;
+
+  /* Add an 'interrupt_handler' attribute.  */
+  *attributes = tree_cons (get_identifier ("interrupt_handler"),
+			   NULL, *attributes);
+}
+
 /* Supported attributes:
 
    interrupt_handler: output a prologue and epilogue suitable for an
@@ -3436,7 +3526,7 @@ h8300_handle_tiny_data_attribute (node, name, args, flags, no_add_attrs)
   return NULL_TREE;
 }
 
-void
+static void
 h8300_encode_label (decl)
      tree decl;
 {
@@ -3449,6 +3539,37 @@ h8300_encode_label (decl)
 
   XSTR (XEXP (DECL_RTL (decl), 0), 0) =
     ggc_alloc_string (newstr, len + 1);
+}
+
+/* If we are referencing a function that is supposed to be called
+   through the function vector, the SYMBOL_REF_FLAG in the rtl
+   so the call patterns can generate the correct code.  */
+
+static void
+h8300_encode_section_info (decl, first)
+     tree decl;
+     int first;
+{
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && h8300_funcvec_function_p (decl))
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+  else if (TREE_CODE (decl) == VAR_DECL
+	   && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+    {
+      if (h8300_eightbit_data_p (decl))
+	SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+      else if (first && h8300_tiny_data_p (decl))
+	h8300_encode_label (decl);
+    }
+}
+
+/* Undo the effects of the above.  */
+
+static const char *
+h8300_strip_name_encoding (str)
+     const char *str;
+{
+  return str + (*str == '*' || *str == '@' || *str == '&');
 }
 
 const char *

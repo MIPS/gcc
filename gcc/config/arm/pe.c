@@ -204,14 +204,12 @@ arm_mark_dllimport (decl)
   XEXP (DECL_RTL (decl), 0) = newrtl;
 }
 
-/* Cover function to implement ENCODE_SECTION_INFO.  */
-
 void
 arm_pe_encode_section_info (decl, first)
      tree decl;
      int first ATTRIBUTE_UNUSED;
 {
-  /* This bit is copied from arm.h.  */
+  /* This bit is copied from arm_encode_section_info.  */
   if (optimize > 0 && TREE_CONSTANT (decl)
       && (!flag_writable_strings || TREE_CODE (decl) != STRING_CST))
     {
@@ -259,8 +257,7 @@ arm_pe_unique_section (decl, reloc)
   const char * prefix;
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  /* Strip off any encoding in fnname.  */
-  STRIP_NAME_ENCODING (name, name);
+  name = arm_strip_name_encoding (name);
 
   /* The object is put in, for example, section .text$foo.
      The linker will then ultimately place them in .text

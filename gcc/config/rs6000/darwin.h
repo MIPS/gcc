@@ -44,7 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #define SUBTARGET_OVERRIDE_OPTIONS  \
   rs6000_altivec_abi = 1;
 
-#define CPP_PREDEFINES "-D__ppc__ -D__POWERPC__ -D__NATURAL_ALIGNMENT__ -D__MACH__ -D__BIG_ENDIAN__ -D__APPLE__"
+#define CPP_PREDEFINES "-D__ppc__ -D__POWERPC__ -D__NATURAL_ALIGNMENT__ -D__MACH__ -D__APPLE__"
 
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
@@ -237,3 +237,6 @@ Boston, MA 02111-1307, USA.  */
 /* For binary compatibility with 2.95; Darwin C APIs use bool from
    stdbool.h, which was an int-sized enum in 2.95.  */
 #define BOOL_TYPE_SIZE INT_TYPE_SIZE
+
+#undef REGISTER_TARGET_PRAGMAS
+#define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS

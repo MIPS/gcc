@@ -213,7 +213,7 @@ static const char *compiler_version;
 
 /* The target version specified with -V */
 
-static const char *spec_version = DEFAULT_TARGET_VERSION;
+static const char *const spec_version = DEFAULT_TARGET_VERSION;
 
 /* The target machine specified with -b.  */
 
@@ -242,7 +242,7 @@ static const struct modify_target
 }
 modify_target[] = MODIFY_TARGET_NAME;
 #endif
- 
+
 /* The number of errors that have occurred; the link phase will not be
    run if this is non-zero.  */
 static int error_count = 0;
@@ -299,6 +299,7 @@ static const char *handle_braces PARAMS ((const char *));
 static char *save_string	PARAMS ((const char *, int));
 static void set_collect_gcc_options PARAMS ((void));
 static int do_spec_1		PARAMS ((const char *, int, const char *));
+static int do_spec_2		PARAMS ((const char *));
 static const char *find_file	PARAMS ((const char *));
 static int is_directory		PARAMS ((const char *, const char *, int));
 static void validate_switches	PARAMS ((const char *));
@@ -641,6 +642,10 @@ proper position among the other output files.  */
 # endif
 #endif
 
+#ifndef STARTFILE_PREFIX_SPEC
+# define STARTFILE_PREFIX_SPEC ""
+#endif
+
 static const char *asm_debug = ASM_DEBUG_SPEC;
 static const char *cpp_spec = CPP_SPEC;
 static const char *cpp_predefines = CPP_PREDEFINES;
@@ -658,6 +663,7 @@ static const char *switches_need_spaces = SWITCHES_NEED_SPACES;
 static const char *linker_name_spec = LINKER_NAME;
 static const char *link_command_spec = LINK_COMMAND_SPEC;
 static const char *link_libgcc_spec = LINK_LIBGCC_SPEC;
+static const char *startfile_prefix_spec = STARTFILE_PREFIX_SPEC;
 
 /* Standard options to cpp, cc1, and as, to reduce duplication in specs.
    There should be no need to override these in target dependent files,
@@ -669,8 +675,7 @@ static const char *link_libgcc_spec = LINK_LIBGCC_SPEC;
    call cc1 (or cc1obj in objc/lang-specs.h) from the main specs so
    that we default the front end language better.  */
 static const char *trad_capable_cpp =
-"%{traditional|ftraditional|traditional-cpp:tradcpp0}\
- %{!traditional:%{!ftraditional:%{!traditional-cpp:cc1 -E}}}";
+"cc1 -E %{traditional|ftraditional|traditional-cpp:-traditional-cpp}";
 
 static const char *cpp_unique_options =
 "%{C:%{!E:%eGNU C does not support -C without using -E}}\
@@ -688,8 +693,12 @@ static const char *cpp_unique_options =
 /* This contains cpp options which are common with cc1_options and are passed
    only when preprocessing only to avoid duplication.  */
 static const char *cpp_options =
-"%(cpp_unique_options) %{std*} %{d*} %{W*&pedantic*} %{w} %{m*} %{f*}\
+"%(cpp_unique_options) %{std*} %{W*&pedantic*} %{w} %{m*} %{f*}\
  %{O*} %{undef}";
+
+/* This contains cpp options which are not passed when the preprocessor
+   output will be used by another program.  */
+static const char *cpp_debug_options = "%{d*}";
 
 /* NB: This is shared amongst all front-ends.  */
 static const char *cc1_options =
@@ -826,7 +835,8 @@ static const struct compiler default_compilers[] =
   {"@c",
    /* cc1 has an integrated ISO C preprocessor.  We should invoke the
       external preprocessor if -save-temps is given.  */
-     "%{E|M|MM:%(trad_capable_cpp) %{ansi:-std=c89} %(cpp_options)}\
+     "%{E|M|MM:%(trad_capable_cpp) %{ansi:-std=c89} %(cpp_options)\
+	  %(cpp_debug_options)}\
       %{!E:%{!M:%{!MM:\
           %{traditional|ftraditional:\
 %eGNU C no longer supports -traditional without -E}\
@@ -842,7 +852,8 @@ static const struct compiler default_compilers[] =
   {".h", "@c-header", 0},
   {"@c-header",
    "%{!E:%ecompilation of header file requested} \
-    %(trad_capable_cpp) %{ansi:-std=c89} %(cpp_options)", 0},
+    %(trad_capable_cpp) %{ansi:-std=c89} %(cpp_options) %(cpp_debug_options)",
+   0},
   {".i", "@cpp-output", 0},
   {"@cpp-output",
    "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) %{!fsyntax-only:%(invoke_as)}}}}", 0},
@@ -852,6 +863,7 @@ static const struct compiler default_compilers[] =
   {".S", "@assembler-with-cpp", 0},
   {"@assembler-with-cpp",
    "%(trad_capable_cpp) -lang-asm %(cpp_options)\
+      %{E|M|MM:%(cpp_debug_options)}\
       %{!M:%{!MM:%{!E:%{!S:-o %{|!pipe:%g.s} |\n\
        as %(asm_debug) %(asm_options) %{!pipe:%g.s} %A }}}}", 0},
 #include "specs.h"
@@ -1363,6 +1375,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("invoke_as",		&invoke_as),
   INIT_STATIC_SPEC ("cpp",			&cpp_spec),
   INIT_STATIC_SPEC ("cpp_options",		&cpp_options),
+  INIT_STATIC_SPEC ("cpp_debug_options",	&cpp_debug_options),
   INIT_STATIC_SPEC ("cpp_unique_options",	&cpp_unique_options),
   INIT_STATIC_SPEC ("trad_capable_cpp",		&trad_capable_cpp),
   INIT_STATIC_SPEC ("cc1",			&cc1_spec),
@@ -1388,6 +1401,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("md_exec_prefix",		&md_exec_prefix),
   INIT_STATIC_SPEC ("md_startfile_prefix",	&md_startfile_prefix),
   INIT_STATIC_SPEC ("md_startfile_prefix_1",	&md_startfile_prefix_1),
+  INIT_STATIC_SPEC ("startfile_prefix_spec",	&startfile_prefix_spec),
 };
 
 #ifdef EXTRA_SPECS		/* additional specs needed */
@@ -1507,12 +1521,12 @@ init_spec ()
   {
     const char *p = libgcc_spec;
     int in_sep = 1;
- 
+
     /* Transform the extant libgcc_spec into one that uses the shared libgcc
        when given the proper command line arguments.  */
     while (*p)
       {
-        if (in_sep && *p == '-' && strncmp (p, "-lgcc", 5) == 0)
+	if (in_sep && *p == '-' && strncmp (p, "-lgcc", 5) == 0)
 	  {
 	    init_gcc_specs (&obstack,
 #ifdef NO_SHARED_LIBGCC_MULTILIB
@@ -2743,8 +2757,8 @@ execute ()
 	{
 	  const char *const *j;
 
-     	  if (verbose_only_flag)
-     	    {
+	  if (verbose_only_flag)
+	    {
 	      for (j = commands[i].argv; *j; j++)
 		{
 		  const char *p;
@@ -2757,8 +2771,8 @@ execute ()
 		    }
 		  fputc ('"', stderr);
 		}
-     	    }
-     	  else
+	    }
+	  else
 	    for (j = commands[i].argv; *j; j++)
 	      fprintf (stderr, " %s", *j);
 
@@ -2769,7 +2783,7 @@ execute ()
 	}
       fflush (stderr);
       if (verbose_only_flag != 0)
-        return 0;
+	return 0;
 #ifdef DEBUG
       notice ("\nGo ahead? (y or n) ");
       fflush (stderr);
@@ -3170,6 +3184,61 @@ process_command (argc, argv)
 	}
     }
 
+  /* If there is a -V or -b option (or both), process it now, before
+     trying to interpret the rest of the command line.  */
+  if (argc > 1 && argv[1][0] == '-'
+      && (argv[1][1] == 'V' || argv[1][1] == 'b'))
+    {
+      const char *new_version = DEFAULT_TARGET_VERSION;
+      const char *new_machine = DEFAULT_TARGET_MACHINE;
+      const char *progname = argv[0];
+      char **new_argv;
+      char *new_argv0;
+      int baselen;
+      
+      while (argc > 1 && argv[1][0] == '-'
+	     && (argv[1][1] == 'V' || argv[1][1] == 'b'))
+	{
+	  char opt = argv[1][1];
+	  const char *arg;
+	  if (argv[1][2] != '\0')
+	    {
+	      arg = argv[1] + 2;
+	      argc -= 1;
+	      argv += 1;
+	    }
+	  else if (argc > 2)
+	    {
+	      arg = argv[2];
+	      argc -= 2;
+	      argv += 2;
+	    }
+	  else
+	    fatal ("`-%c' option must have argument", opt);
+	  if (opt == 'V')
+	    new_version = arg;
+	  else
+	    new_machine = arg;
+	}
+
+      for (baselen = strlen (progname); baselen > 0; baselen--)
+	if (IS_DIR_SEPARATOR (progname[baselen-1]))
+	  break;
+      new_argv0 = xmemdup (progname, baselen, 
+			   baselen + concat_length (new_version, new_machine,
+						    "-gcc-", NULL) + 1);
+      strcpy (new_argv0 + baselen, new_machine);
+      strcat (new_argv0, "-gcc-");
+      strcat (new_argv0, new_version);
+
+      new_argv = xmemdup (argv, (argc + 1) * sizeof (argv[0]),
+			  (argc + 1) * sizeof (argv[0]));
+      new_argv[0] = new_argv0;
+
+      execvp (new_argv0, new_argv);
+      fatal ("couldn't run `%s': %s", new_argv0, xstrerror (errno));
+    }
+
   /* Set up the default search paths.  If there is no GCC_EXEC_PREFIX,
      see if we can create it from the pathname specified in argv[0].  */
 
@@ -3317,7 +3386,6 @@ process_command (argc, argv)
 
   /* Scan argv twice.  Here, the first time, just count how many switches
      there will be in their vector, and how many input files in theirs.
-     Also parse any switches that determine the configuration name, such as -b.
      Here we also parse the switches that cc itself uses (e.g. -v).  */
 
   for (i = 1; i < argc; i++)
@@ -3369,20 +3437,20 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  add_linker_option ("--help", 6);
 	}
       else if (strcmp (argv[i], "-ftarget-help") == 0)
-        {
-          /* translate_options() has turned --target-help into -ftarget-help.  */
-          target_help_flag = 1;
+	{
+	  /* translate_options() has turned --target-help into -ftarget-help.  */
+	  target_help_flag = 1;
 
-          /* We will be passing a dummy file on to the sub-processes.  */
-          n_infiles++;
-          n_switches++;
+	  /* We will be passing a dummy file on to the sub-processes.  */
+	  n_infiles++;
+	  n_switches++;
 
 	  /* CPP driver cannot obtain switch from cc1_options.  */
 	  if (is_cpp_driver)
 	    add_preprocessor_option ("--target-help", 13);
-          add_assembler_option ("--target-help", 13);
-          add_linker_option ("--target-help", 13);
-        }
+	  add_assembler_option ("--target-help", 13);
+	  add_linker_option ("--target-help", 13);
+	}
       else if (! strcmp (argv[i], "-pass-exit-codes"))
 	{
 	  pass_exit_codes = 1;
@@ -3516,15 +3584,8 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  switch (c)
 	    {
 	    case 'b':
-	      n_switches++;
-	      if (p[1] == 0 && i + 1 == argc)
-		fatal ("argument to `-b' is missing");
-	      if (p[1] == 0)
-		spec_machine = argv[++i];
-	      else
-		spec_machine = p + 1;
-
-	      warn_std_ptr = &warn_std;
+	    case 'V':
+	      fatal ("`-%c' must come at the start of the command line", c);
 	      break;
 
 	    case 'B':
@@ -3557,7 +3618,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 		    tmp[++ len] = 0;
 		    value = tmp;
 		  }
-		
+
 		/* As a kludge, if the arg is "[foo/]stageN/", just
 		   add "[foo/]include" to the include prefix.  */
 		if ((len == 7
@@ -3688,7 +3749,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 
 	      if (is_modify_target_name)
 		break;
-#endif		      
+#endif
 
 	      n_switches++;
 
@@ -3878,7 +3939,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  /* -save-temps overrides -pipe, so that temp files are produced */
 	  if (save_temps_flag)
 	    error ("warning: -pipe ignored because -save-temps specified");
-          /* -time overrides -pipe because we can't get correct stats when
+	  /* -time overrides -pipe because we can't get correct stats when
 	     multiple children are running at once.  */
 	  else if (report_times)
 	    error ("warning: -pipe ignored because -time specified");
@@ -3957,7 +4018,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  else
 	    {
 	      char ch = switches[n_switches].part1[0];
-	      if (ch == 'b' || ch == 'B')
+	      if (ch == 'B')
 		switches[n_switches].validated = 1;
 	    }
 	  n_switches++;
@@ -4133,15 +4194,7 @@ do_spec (spec)
 {
   int value;
 
-  clear_args ();
-  arg_going = 0;
-  delete_this_arg = 0;
-  this_is_output_file = 0;
-  this_is_library_file = 0;
-  input_from_pipe = 0;
-  suffix_subst = NULL;
-
-  value = do_spec_1 (spec, 0, NULL);
+  value = do_spec_2 (spec);
 
   /* Force out any unfinished command.
      If -pipe, this forces out the last command if it ended in `|'.  */
@@ -4157,6 +4210,21 @@ do_spec (spec)
     }
 
   return value;
+}
+
+static int
+do_spec_2 (spec)
+     const char *spec;
+{
+  clear_args ();
+  arg_going = 0;
+  delete_this_arg = 0;
+  this_is_output_file = 0;
+  this_is_library_file = 0;
+  input_from_pipe = 0;
+  suffix_subst = NULL;
+
+  return do_spec_1 (spec, 0, NULL);
 }
 
 /* Process the sub-spec SPEC as a portion of a larger spec.
@@ -4487,7 +4555,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		      }
 		    suffix_length += strlen (TARGET_OBJECT_SUFFIX);
 		  }
-		
+
 		/* If the input_filename has the same suffix specified
 		   for the %g, %u, or %U, and -save-temps is specified,
 		   we could end up using that file as an intermediate
@@ -4495,7 +4563,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		   gcc -save-temps foo.s would clobber foo.s with the
 		   output of cpp0).  So check for this condition and
 		   generate a temp file as the intermediate.  */
-		   
+
 		if (save_temps_flag)
 		  {
 		    temp_filename_length = basename_length + suffix_length;
@@ -4507,7 +4575,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		    if (strcmp (temp_filename, input_filename) != 0)
 		      {
 		      	struct stat st_temp;
-		      	
+
 		      	/* Note, set_input() resets input_stat_set to 0.  */
 		      	if (input_stat_set == 0)
 		      	  {
@@ -4515,17 +4583,17 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		      	    if (input_stat_set >= 0)
 		      	      input_stat_set = 1;
 		      	  }
-		      	  
+
 		      	/* If we have the stat for the input_filename
 		      	   and we can do the stat for the temp_filename
 		      	   then the they could still refer to the same
 		      	   file if st_dev/st_ino's are the same.  */
-		      	
+
 			if (input_stat_set != 1
 			    || stat (temp_filename, &st_temp) < 0
 			    || input_stat.st_dev != st_temp.st_dev
 			    || input_stat.st_ino != st_temp.st_ino)
- 		      	  {
+			  {
 			    temp_filename = save_string (temp_filename,
 							 temp_filename_length + 1);
 			    obstack_grow (&obstack, temp_filename,
@@ -4733,8 +4801,8 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	  case 'C':
 	    {
 	      const char *const spec
-		= (input_file_compiler->cpp_spec 
-		   ? input_file_compiler->cpp_spec 
+		= (input_file_compiler->cpp_spec
+		   ? input_file_compiler->cpp_spec
 		   : cpp_spec);
 	      value = do_spec_1 (spec, 0, NULL);
 	      if (value != 0)
@@ -4962,17 +5030,17 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	    obstack_1grow (&obstack, '%');
 	    break;
 
-         case '.':
-	   {
-	     unsigned len = 0;
+	  case '.':
+	    {
+	      unsigned len = 0;
 
-	     while (p[len] && p[len] != ' ' && p[len] != '%')
-	       len++;
-             suffix_subst = save_string (p - 1, len + 1);
-             p += len;
-           }
+	      while (p[len] && p[len] != ' ' && p[len] != '%')
+		len++;
+	      suffix_subst = save_string (p - 1, len + 1);
+	      p += len;
+	    }
 	   break;
-          
+
 	  case '*':
 	    if (soft_matched_part)
 	      {
@@ -5671,7 +5739,7 @@ set_input (filename)
     }
   else
     input_suffix = "";
-  
+
   /* If a spec for 'g', 'u', or 'U' is seen with -save-temps then
      we will need to do a stat on the input_filename.  The
      INPUT_STAT_SET signals that the stat is needed.  */
@@ -5838,8 +5906,10 @@ main (argc, argv)
   if (access (specs_file, R_OK) == 0)
     read_specs (specs_file, TRUE);
 
-  /* If not cross-compiling, look for startfiles in the standard places.  */
-  if (*cross_compile == '0')
+  /* If not cross-compiling, look for startfiles in the standard places.
+     Similarly, don't add the standard prefixes if startfile handling
+     will be under control of startfile_prefix_spec.  */
+  if (*cross_compile == '0' && *startfile_prefix_spec == 0)
     {
       if (*md_exec_prefix)
 	{
@@ -5895,6 +5965,16 @@ main (argc, argv)
 		    concat (gcc_exec_prefix, machine_suffix,
 			    standard_startfile_prefix, NULL),
 		    "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL);
+    }
+
+  if (*startfile_prefix_spec != 0
+      && do_spec_2 (startfile_prefix_spec) == 0
+      && do_spec_1 (" ", 0, NULL) == 0)
+    {
+      int ndx;
+      for (ndx = 0; ndx < argbuf_index; ndx++)
+	add_prefix (&startfile_prefixes, argbuf[ndx], "BINUTILS",
+		    PREFIX_PRIORITY_LAST, 0, NULL);
     }
 
   /* Process any user specified specs in the order given on the command
@@ -6061,7 +6141,7 @@ main (argc, argv)
       input_file_compiler
 	= lookup_compiler (infiles[i].name, input_filename_length,
 			   infiles[i].language);
-      
+
       if (input_file_compiler)
 	{
 	  /* Ok, we found an applicable compiler.  Run its spec.  */
@@ -6200,7 +6280,7 @@ lookup_compiler (name, length, language)
 	      && !strcmp (cp->suffix,
 			  name + length - strlen (cp->suffix))
 	 ))
-        break;
+	break;
     }
 
 #if defined (OS2) ||defined (HAVE_DOS_BASED_FILE_SYSTEM)

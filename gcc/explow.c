@@ -391,7 +391,7 @@ convert_memory_address (to_mode, x)
 
     case CONST:
       if (POINTERS_EXTEND_UNSIGNED >= 0)
-        return gen_rtx_CONST (to_mode,
+	return gen_rtx_CONST (to_mode,
 			      convert_memory_address (to_mode, XEXP (x, 0)));
       break;
 
@@ -1009,7 +1009,7 @@ emit_stack_save (save_level, psave, after)
       if (sa != 0)
 	sa = validize_mem (sa);
       emit_insn (fcn (sa, stack_pointer_rtx));
-      seq = gen_sequence ();
+      seq = get_insns ();
       end_sequence ();
       emit_insn_after (seq, after);
     }
@@ -1070,7 +1070,7 @@ emit_stack_restore (save_level, sa, after)
 
       start_sequence ();
       emit_insn (fcn (stack_pointer_rtx, sa));
-      seq = gen_sequence ();
+      seq = get_insns ();
       end_sequence ();
       emit_insn_after (seq, after);
     }
@@ -1375,7 +1375,7 @@ allocate_dynamic_stack_space (size, target, known_align)
 #ifdef SETJMP_VIA_SAVE_AREA
       if (setjmpless_size != NULL_RTX)
 	{
- 	  rtx note_target = get_last_insn ();
+	  rtx note_target = get_last_insn ();
 
 	  REG_NOTES (note_target)
 	    = gen_rtx_EXPR_LIST (REG_SAVE_AREA, setjmpless_size,
@@ -1473,9 +1473,9 @@ probe_stack_range (first, size)
   if (stack_check_libfunc != 0)
     {
       rtx addr = memory_address (QImode,
-				 gen_rtx (STACK_GROW_OP, Pmode,
-					  stack_pointer_rtx,
-					  plus_constant (size, first)));
+				 gen_rtx_fmt_ee (STACK_GROW_OP, Pmode,
+					         stack_pointer_rtx,
+					         plus_constant (size, first)));
 
 #ifdef POINTERS_EXTEND_UNSIGNED
       if (GET_MODE (addr) != ptr_mode)
@@ -1492,9 +1492,9 @@ probe_stack_range (first, size)
     {
       insn_operand_predicate_fn pred;
       rtx last_addr
-	= force_operand (gen_rtx_STACK_GROW_OP (Pmode,
-						stack_pointer_rtx,
-						plus_constant (size, first)),
+	= force_operand (gen_rtx_fmt_ee (STACK_GROW_OP, Pmode,
+					 stack_pointer_rtx,
+					 plus_constant (size, first)),
 			 NULL_RTX);
 
       pred = insn_data[(int) CODE_FOR_check_stack].operand[0].predicate;
@@ -1619,17 +1619,17 @@ hard_function_value (valtype, func, outgoing)
 	 will match and we will abort later in this function.  */
 
       for (tmpmode = GET_CLASS_NARROWEST_MODE (MODE_INT);
-           tmpmode != VOIDmode;
-           tmpmode = GET_MODE_WIDER_MODE (tmpmode))
-        {
-          /* Have we found a large enough mode?  */
-          if (GET_MODE_SIZE (tmpmode) >= bytes)
-            break;
-        }
+	   tmpmode != VOIDmode;
+	   tmpmode = GET_MODE_WIDER_MODE (tmpmode))
+	{
+	  /* Have we found a large enough mode?  */
+	  if (GET_MODE_SIZE (tmpmode) >= bytes)
+	    break;
+	}
 
       /* No suitable mode found.  */
       if (tmpmode == VOIDmode)
-        abort ();
+	abort ();
 
       PUT_MODE (val, tmpmode);
     }

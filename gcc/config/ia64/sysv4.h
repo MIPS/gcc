@@ -42,8 +42,7 @@ extern int size_directive_output;
 #undef ASM_OUTPUT_ALIGNED_LOCAL
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(FILE, DECL, NAME, SIZE, ALIGN) \
 do {									\
-  if ((DECL)								\
-      && XSTR (XEXP (DECL_RTL (DECL), 0), 0)[0] == SDATA_NAME_FLAG_CHAR) \
+  if ((DECL) && sdata_symbolic_operand (XEXP (DECL_RTL (DECL), 0), Pmode)) \
     sbss_section ();							\
   else									\
     bss_section ();							\
@@ -62,8 +61,8 @@ do {									\
 #define ASM_OUTPUT_LABELREF(STREAM, NAME)	\
 do {						\
   const char *name_ = NAME;			\
-  if (*name_ == SDATA_NAME_FLAG_CHAR)		\
-    name_++;					\
+  if (*name_ == ENCODE_SECTION_INFO_CHAR)	\
+    name_ += 2;					\
   if (*name_ == '*')				\
     name_++;					\
   else						\
@@ -140,27 +139,15 @@ do {									\
   emit_safe_across_calls (STREAM);					\
 } while (0)
 
-/* Similarly for constant pool data.  */
-
-extern unsigned int ia64_section_threshold;
-#undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, RTX, ALIGN)				\
-{									\
-  if (GET_MODE_SIZE (MODE) > 0						\
-      && GET_MODE_SIZE (MODE) <= ia64_section_threshold)		\
-    sdata_section ();							\
-  else if (flag_pic && symbolic_operand ((RTX), (MODE)))		\
-    data_section ();							\
-  else									\
-    mergeable_constant_section ((MODE), (ALIGN), 0);			\
-}
+/* Override default elf definition.  */
+#undef	TARGET_ASM_SELECT_RTX_SECTION
+#define TARGET_ASM_SELECT_RTX_SECTION  ia64_select_rtx_section
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_sdata, in_sbss
+#define EXTRA_SECTIONS in_sdata, in_sbss
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
-  CONST_SECTION_FUNCTION						\
   SDATA_SECTION_FUNCTION						\
   SBSS_SECTION_FUNCTION
 

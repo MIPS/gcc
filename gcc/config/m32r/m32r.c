@@ -75,7 +75,8 @@ static int    m32r_variable_issue  PARAMS ((FILE *, int, rtx, int));
 static int    m32r_issue_rate	   PARAMS ((void));
 
 static void m32r_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT));
-
+static void m32r_encode_section_info PARAMS ((tree, int));
+static const char *m32r_strip_name_encoding PARAMS ((const char *));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -103,6 +104,11 @@ static void m32r_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT));
 #define TARGET_SCHED_INIT m32r_sched_init
 #undef TARGET_SCHED_REORDER
 #define TARGET_SCHED_REORDER m32r_sched_reorder
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO m32r_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING m32r_strip_name_encoding
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -331,7 +337,7 @@ m32r_select_section (decl, reloc, align)
   if (TREE_CODE (decl) == STRING_CST)
     {
       if (! flag_writable_strings)
-	const_section ();
+	readonly_data_section ();
       else
 	data_section ();
     }
@@ -347,10 +353,10 @@ m32r_select_section (decl, reloc, align)
 		   && !TREE_CONSTANT (DECL_INITIAL (decl))))
 	data_section ();
       else
-	const_section ();
+	readonly_data_section ();
     }
   else
-    const_section ();
+    readonly_data_section ();
 }
 
 /* Encode section information of DECL, which is either a VAR_DECL,
@@ -368,7 +374,7 @@ m32r_select_section (decl, reloc, align)
      large: prefixed with LARGE_FLAG_CHAR
 */
 
-void
+static void
 m32r_encode_section_info (decl, first)
      tree decl;
      int first;
@@ -480,6 +486,17 @@ m32r_encode_section_info (decl, first)
 
       XSTR (XEXP (rtl, 0), 0) = newstr;
     }
+}
+
+/* Undo the effects of the above.  */
+
+static const char *
+m32r_strip_name_encoding (str)
+     const char *str;
+{
+  str += ENCODED_NAME_P (str);
+  str += *str == '*';
+  return str;
 }
 
 /* Do anything needed before RTL is emitted for each function.  */
@@ -1044,18 +1061,6 @@ large_insn_p (op, mode)
 
 /* Comparisons.  */
 
-/* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
-   return the mode to be used for the comparison.  */
-
-int
-m32r_select_cc_mode (op, x, y)
-     int op ATTRIBUTE_UNUSED;
-     rtx x ATTRIBUTE_UNUSED;
-     rtx y ATTRIBUTE_UNUSED;
-{
-  return (int) CCmode;
-}
-
 /* X and Y are two things to compare using CODE.  Emit the compare insn and
    return the rtx for compare [arg0 of the if_then_else].
    If need_compare is true then the comparison insn must be generated, rather
@@ -1067,9 +1072,8 @@ gen_compare (code, x, y, need_compare)
      rtx x, y;
      int need_compare;
 {
-  enum machine_mode mode = SELECT_CC_MODE (code, x, y);
   enum rtx_code compare_code, branch_code;
-  rtx cc_reg = gen_rtx_REG (mode, CARRY_REGNUM);
+  rtx cc_reg = gen_rtx_REG (CCmode, CARRY_REGNUM);
   int must_swap = 0;
 
   switch (code)
@@ -1115,7 +1119,7 @@ gen_compare (code, x, y, need_compare)
 	    {
 	      emit_insn (gen_cmp_eqsi_insn (x, y));
 		
-	      return gen_rtx (code, mode, cc_reg, const0_rtx);
+	      return gen_rtx (code, CCmode, cc_reg, const0_rtx);
 	    }
 	  break;
       
@@ -1155,7 +1159,7 @@ gen_compare (code, x, y, need_compare)
 		  abort ();
 		}
 	      
-	      return gen_rtx (code, mode, cc_reg, const0_rtx);
+	      return gen_rtx (code, CCmode, cc_reg, const0_rtx);
 	    }
 	  break;
 	  
@@ -1195,7 +1199,7 @@ gen_compare (code, x, y, need_compare)
 		  abort();
 		}
 	      
-	      return gen_rtx (code, mode, cc_reg, const0_rtx);
+	      return gen_rtx (code, CCmode, cc_reg, const0_rtx);
 	    }
 	  break;
 
@@ -1208,12 +1212,12 @@ gen_compare (code, x, y, need_compare)
       /* reg/reg equal comparison */
       if (compare_code == EQ
 	  && register_operand (y, SImode))
-	return gen_rtx (code, mode, x, y);
+	return gen_rtx (code, CCmode, x, y);
       
       /* reg/zero signed comparison */
       if ((compare_code == EQ || compare_code == LT)
 	  && y == const0_rtx)
-	return gen_rtx (code, mode, x, y);
+	return gen_rtx (code, CCmode, x, y);
       
       /* reg/smallconst equal comparison */
       if (compare_code == EQ
@@ -1222,7 +1226,7 @@ gen_compare (code, x, y, need_compare)
 	{
 	  rtx tmp = gen_reg_rtx (SImode);
 	  emit_insn (gen_cmp_ne_small_const_insn (tmp, x, y));
-	  return gen_rtx (code, mode, tmp, const0_rtx);
+	  return gen_rtx (code, CCmode, tmp, const0_rtx);
 	}
       
       /* reg/const equal comparison */
@@ -1230,7 +1234,7 @@ gen_compare (code, x, y, need_compare)
 	  && CONSTANT_P (y))
 	{
 	  rtx tmp = force_reg (GET_MODE (x), y);
-	  return gen_rtx (code, mode, x, tmp);
+	  return gen_rtx (code, CCmode, x, tmp);
 	}
     }
 
@@ -1266,7 +1270,7 @@ gen_compare (code, x, y, need_compare)
       abort ();
     }
 
-  return gen_rtx (branch_code, VOIDmode, cc_reg, CONST0_RTX (mode));
+  return gen_rtx (branch_code, VOIDmode, cc_reg, CONST0_RTX (CCmode));
 }
 
 /* Split a 2 word move (DI or DF) into component parts.  */
@@ -1386,7 +1390,7 @@ gen_split_move_double (operands)
   else
     abort ();
 
-  val = gen_sequence ();
+  val = get_insns ();
   end_sequence ();
   return val;
 }

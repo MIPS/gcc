@@ -37,7 +37,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "expr.h"
 #include "c-tree.h"
-#include "c-lex.h"
 #include "toplev.h"
 #include "ggc.h"
 #include "tm_p.h"
@@ -216,9 +215,9 @@ struct binding_level GTY(())
     /* Nonzero means make a BLOCK if this level has any subblocks.  */
     char keep_if_subblocks;
 
-    /* Number of decls in `names' that have incomplete
-       structure or union types.  */
-    int n_incomplete;
+    /* List of decls in `names' that have incomplete structure or
+       union types.  */
+    tree incomplete_list;
 
     /* A list of decls giving the (reversed) specified order of parms,
        not including any forward-decls in the parmlist.
@@ -245,7 +244,7 @@ static GTY(()) struct binding_level *global_binding_level;
 /* Binding level structures are initialized by copying this one.  */
 
 static struct binding_level clear_binding_level
-  = {NULL, NULL, NULL, NULL, NULL, NULL_BINDING_LEVEL, 0, 0, 0, 0, 0, 0,
+  = {NULL, NULL, NULL, NULL, NULL, NULL_BINDING_LEVEL, 0, 0, 0, 0, 0, NULL,
      NULL};
 
 /* Nonzero means unconditionally make a BLOCK for the next level pushed.  */
@@ -474,6 +473,7 @@ c_decode_option (argc, argv)
     { "div-by-zero", &warn_div_by_zero },
     { "float-equal", &warn_float_equal },
     { "format-extra-args", &warn_format_extra_args },
+    { "format-zero-length", &warn_format_zero_length },
     { "format-nonliteral", &warn_format_nonliteral },
     { "format-security", &warn_format_security },
     { "format-y2k", &warn_format_y2k },
@@ -488,6 +488,7 @@ c_decode_option (argc, argv)
     { "missing-prototypes", &warn_missing_prototypes },
     { "multichar", &warn_multichar },
     { "nested-externs", &warn_nested_externs },
+    { "nonnull", &warn_nonnull },
     { "parentheses", &warn_parentheses },
     { "pointer-arith", &warn_pointer_arith },
     { "redundant-decls", &warn_redundant_decls },
@@ -501,7 +502,7 @@ c_decode_option (argc, argv)
     { "write-strings", &flag_const_strings }
   };
 
-  strings_processed = cpp_handle_option (parse_in, argc, argv, 0);
+  strings_processed = cpp_handle_option (parse_in, argc, argv);
 
   if (!strcmp (p, "-fhosted") || !strcmp (p, "-fno-freestanding"))
     {
@@ -628,6 +629,10 @@ c_decode_option (argc, argv)
     flag_no_asm = 0;
   else if (!strcmp (p, "-fno-asm"))
     flag_no_asm = 1;
+  else if (!strcmp (p, "-fms-extensions"))
+    flag_ms_extensions = 1;
+  else if (!strcmp (p, "-fno-ms-extensions"))
+    flag_ms_extensions = 0;
   else if (!strcmp (p, "-fbuiltin"))
     flag_no_builtin = 0;
   else if (!strcmp (p, "-fno-builtin"))
@@ -692,7 +697,7 @@ c_decode_option (argc, argv)
   else
     {
       size_t i;
-      for (i = 0; i < sizeof (warn_options) / sizeof (warn_options[0]); i++)
+      for (i = 0; i < ARRAY_SIZE (warn_options); i++)
 	if (strncmp (p, "-W", 2) == 0 
 	    && warn_options[i].flag
 	    && (strcmp (p+2, warn_options[i].option) == 0
@@ -2383,7 +2388,7 @@ pushdecl (x)
 	    b->shadowed = tree_cons (name, oldlocal, b->shadowed);
 	}
 
-      /* Keep count of variables in this level with incomplete type.
+      /* Keep list of variables in this level with incomplete type.
 	 If the input is erroneous, we can have error_mark in the type
 	 slot (e.g. "f(void a, ...)") - that doesn't count as an
 	 incomplete type.  */
@@ -2396,7 +2401,7 @@ pushdecl (x)
 	    element = TREE_TYPE (element);
 	  if (TREE_CODE (element) == RECORD_TYPE
 	      || TREE_CODE (element) == UNION_TYPE)
-	    ++b->n_incomplete;
+	    b->incomplete_list = tree_cons (NULL_TREE, x, b->incomplete_list);
 	}
     }
 
@@ -3308,9 +3313,19 @@ start_decl (declarator, declspecs, initialized, attributes)
   /* ANSI specifies that a tentative definition which is not merged with
      a non-tentative definition behaves exactly like a definition with an
      initializer equal to zero.  (Section 3.7.2)
-     -fno-common gives strict ANSI behavior.  Usually you don't want it.
-     This matters only for variables with external linkage.  */
-  if (!initialized && (! flag_no_common || ! TREE_PUBLIC (decl)))
+
+     -fno-common gives strict ANSI behavior, though this tends to break
+     a large body of code that grew up without this rule.
+
+     Thread-local variables are never common, since there's no entrenched
+     body of code to break, and it allows more efficient variable references
+     in the presense of dynamic linking.  */
+
+  if (TREE_CODE (decl) == VAR_DECL
+      && !initialized
+      && TREE_PUBLIC (decl)
+      && !DECL_THREAD_LOCAL (decl)
+      && !flag_no_common)
     DECL_COMMON (decl) = 1;
 
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
@@ -3891,7 +3906,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  enum rid i = C_RID_CODE (id);
 	  if ((int) i <= (int) RID_LAST_MODIFIER)
 	    {
-	      if (i == RID_LONG && (specbits & (1 << (int) i)))
+	      if (i == RID_LONG && (specbits & (1 << (int) RID_LONG)))
 		{
 		  if (longlong)
 		    error ("`long long long' is too long for GCC");
@@ -3905,6 +3920,19 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		}
 	      else if (specbits & (1 << (int) i))
 		pedwarn ("duplicate `%s'", IDENTIFIER_POINTER (id));
+
+	      /* Diagnose "__thread extern".  Recall that this list
+		 is in the reverse order seen in the text.  */
+	      if (i == RID_THREAD
+		  && (specbits & (1 << (int) RID_EXTERN
+				  | 1 << (int) RID_STATIC)))
+		{
+		  if (specbits & 1 << (int) RID_EXTERN)
+		    error ("`__thread' before `extern'");
+		  else
+		    error ("`__thread' before `static'");
+		}
+
 	      specbits |= 1 << (int) i;
 	      goto found;
 	    }
@@ -4154,6 +4182,12 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
     if (specbits & 1 << (int) RID_REGISTER) nclasses++;
     if (specbits & 1 << (int) RID_TYPEDEF) nclasses++;
 
+    /* "static __thread" and "extern __thread" are allowed.  */
+    if ((specbits & (1 << (int) RID_THREAD
+		     | 1 << (int) RID_STATIC
+		     | 1 << (int) RID_EXTERN)) == (1 << (int) RID_THREAD))
+      nclasses++;
+
     /* Warn about storage classes that are invalid for certain
        kinds of declarations (parameters, typenames, etc.).  */
 
@@ -4163,7 +4197,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	     && (specbits
 		 & ((1 << (int) RID_REGISTER)
 		    | (1 << (int) RID_AUTO)
-		    | (1 << (int) RID_TYPEDEF))))
+		    | (1 << (int) RID_TYPEDEF)
+		    | (1 << (int) RID_THREAD))))
       {
 	if (specbits & 1 << (int) RID_AUTO
 	    && (pedantic || current_binding_level == global_binding_level))
@@ -4172,8 +4207,10 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  error ("function definition declared `register'");
 	if (specbits & 1 << (int) RID_TYPEDEF)
 	  error ("function definition declared `typedef'");
+	if (specbits & 1 << (int) RID_THREAD)
+	  error ("function definition declared `__thread'");
 	specbits &= ~((1 << (int) RID_TYPEDEF) | (1 << (int) RID_REGISTER)
-		      | (1 << (int) RID_AUTO));
+		      | (1 << (int) RID_AUTO) | (1 << (int) RID_THREAD));
       }
     else if (decl_context != NORMAL && nclasses > 0)
       {
@@ -4196,7 +4233,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	      }
 	    specbits &= ~((1 << (int) RID_TYPEDEF) | (1 << (int) RID_REGISTER)
 			  | (1 << (int) RID_AUTO) | (1 << (int) RID_STATIC)
-			  | (1 << (int) RID_EXTERN));
+			  | (1 << (int) RID_EXTERN) | (1 << (int) RID_THREAD));
 	  }
       }
     else if (specbits & 1 << (int) RID_EXTERN && initialized && ! funcdef_flag)
@@ -4207,12 +4244,25 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	else
 	  error ("`%s' has both `extern' and initializer", name);
       }
-    else if (specbits & 1 << (int) RID_EXTERN && funcdef_flag
-	     && current_binding_level != global_binding_level)
-      error ("nested function `%s' declared `extern'", name);
-    else if (current_binding_level == global_binding_level
-	     && specbits & (1 << (int) RID_AUTO))
-      error ("top-level declaration of `%s' specifies `auto'", name);
+    else if (current_binding_level == global_binding_level)
+      {
+	if (specbits & 1 << (int) RID_AUTO)
+	  error ("top-level declaration of `%s' specifies `auto'", name);
+      }
+    else
+      {
+	if (specbits & 1 << (int) RID_EXTERN && funcdef_flag)
+	  error ("nested function `%s' declared `extern'", name);
+	else if ((specbits & (1 << (int) RID_THREAD
+			       | 1 << (int) RID_EXTERN
+			       | 1 << (int) RID_STATIC))
+		 == (1 << (int) RID_THREAD))
+	  {
+	    error ("function-scope `%s' implicitly auto and declared `__thread'",
+		   name);
+	    specbits &= ~(1 << (int) RID_THREAD);
+	  }
+      }
   }
 
   /* Now figure out the structure of the declarator proper.
@@ -4800,6 +4850,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  pedwarn ("invalid storage class for function `%s'", name);
 	if (specbits & (1 << (int) RID_REGISTER))
 	  error ("invalid storage class for function `%s'", name);
+	if (specbits & (1 << (int) RID_THREAD))
+	  error ("invalid storage class for function `%s'", name);
 	/* Function declaration not at top level.
 	   Storage classes other than `extern' are not allowed
 	   and `extern' makes no difference.  */
@@ -4892,22 +4944,32 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  pedwarn_with_decl (decl, "variable `%s' declared `inline'");
 
 	DECL_EXTERNAL (decl) = extern_ref;
+
 	/* At top level, the presence of a `static' or `register' storage
 	   class specifier, or the absence of all storage class specifiers
 	   makes this declaration a definition (perhaps tentative).  Also,
 	   the absence of both `static' and `register' makes it public.  */
 	if (current_binding_level == global_binding_level)
 	  {
-	    TREE_PUBLIC (decl)
-	      = !(specbits
-		  & ((1 << (int) RID_STATIC) | (1 << (int) RID_REGISTER)));
-	    TREE_STATIC (decl) = ! DECL_EXTERNAL (decl);
+	    TREE_PUBLIC (decl) = !(specbits & ((1 << (int) RID_STATIC)
+					       | (1 << (int) RID_REGISTER)));
+	    TREE_STATIC (decl) = !extern_ref;
 	  }
 	/* Not at top level, only `static' makes a static definition.  */
 	else
 	  {
 	    TREE_STATIC (decl) = (specbits & (1 << (int) RID_STATIC)) != 0;
-	    TREE_PUBLIC (decl) = DECL_EXTERNAL (decl);
+	    TREE_PUBLIC (decl) = extern_ref;
+	  }
+
+	if (specbits & 1 << (int) RID_THREAD)
+	  {
+	    if (targetm.have_tls)
+	      DECL_THREAD_LOCAL (decl) = 1;
+	    else
+	      /* A mere warning is sure to result in improper semantics
+		 at runtime.  Don't bother to allow this to compile.  */
+	      error ("thread-local storage not supported for this target");
 	  }
       }
 
@@ -5301,12 +5363,44 @@ grokfield (filename, line, declarator, declspecs, width)
 
   if (declarator == NULL_TREE && width == NULL_TREE)
     {
-      /* This is an unnamed decl.  We only support unnamed
-	 structs/unions, so check for other things and refuse them.  */
-      if (TREE_CODE (TREE_VALUE (declspecs)) != RECORD_TYPE
-	  && TREE_CODE (TREE_VALUE (declspecs)) != UNION_TYPE)
+      /* This is an unnamed decl.
+
+	 If we have something of the form "union { list } ;" then this
+	 is the anonymous union extension.  Similarly for struct.
+
+	 If this is something of the form "struct foo;", then
+	   If MS extensions are enabled, this is handled as an
+	     anonymous struct.
+	   Otherwise this is a forward declaration of a structure tag.
+
+	 If this is something of the form "foo;" and foo is a TYPE_DECL, then
+	   If MS extensions are enabled and foo names a structure, then
+	     again this is an anonymous struct.
+	   Otherwise this is an error.
+
+	 Oh what a horrid tangled web we weave.  I wonder if MS consiously
+	 took this from Plan 9 or if it was an accident of implementation
+	 that took root before someone noticed the bug...  */
+
+      tree type = TREE_VALUE (declspecs);
+
+      if (flag_ms_extensions && TREE_CODE (type) == TYPE_DECL)
+	type = TREE_TYPE (type);
+      if (TREE_CODE (type) == RECORD_TYPE || TREE_CODE (type) == UNION_TYPE)
 	{
-	  error ("unnamed fields of type other than struct or union are not allowed");
+	  if (flag_ms_extensions)
+	    ; /* ok */
+	  else if (flag_iso)
+	    goto warn_unnamed_field;
+	  else if (TYPE_NAME (type) == NULL)
+	    ; /* ok */
+	  else
+	    goto warn_unnamed_field;
+	}
+      else
+	{
+	warn_unnamed_field:
+	  warning ("declaration does not declare anything");
 	  return NULL_TREE;
 	}
     }
@@ -5592,11 +5686,14 @@ finish_struct (t, fieldlist, attributes)
   /* If this structure or union completes the type of any previous
      variable declaration, lay it out and output its rtl.  */
 
-  if (current_binding_level->n_incomplete != 0)
+  if (current_binding_level->incomplete_list != NULL_TREE)
     {
-      tree decl;
-      for (decl = current_binding_level->names; decl; decl = TREE_CHAIN (decl))
-	{
+      tree prev = NULL_TREE;
+
+      for (x = current_binding_level->incomplete_list; x; x = TREE_CHAIN (x))
+        {
+	  tree decl = TREE_VALUE (x);
+
 	  if (TYPE_MAIN_VARIANT (TREE_TYPE (decl)) == TYPE_MAIN_VARIANT (t)
 	      && TREE_CODE (decl) != TYPE_DECL)
 	    {
@@ -5606,8 +5703,11 @@ finish_struct (t, fieldlist, attributes)
 	      rest_of_decl_compilation (decl, NULL, toplevel, 0);
 	      if (! toplevel)
 		expand_decl (decl);
-	      if (--current_binding_level->n_incomplete == 0)
-		break;
+	      /* Unlink X from the incomplete list.  */
+	      if (prev)
+		TREE_CHAIN (prev) = TREE_CHAIN (x);
+	      else
+	        current_binding_level->incomplete_list = TREE_CHAIN (x);
 	    }
 	  else if (!COMPLETE_TYPE_P (TREE_TYPE (decl))
 		   && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
@@ -5626,8 +5726,11 @@ finish_struct (t, fieldlist, attributes)
 		      if (! toplevel)
 			expand_decl (decl);
 		    }
-		  if (--current_binding_level->n_incomplete == 0)
-		    break;
+		  /* Unlink X from the incomplete list.  */
+		  if (prev)
+		    TREE_CHAIN (prev) = TREE_CHAIN (x);
+		  else
+		    current_binding_level->incomplete_list = TREE_CHAIN (x);
 		}
 	    }
 	}
@@ -7142,6 +7245,27 @@ build_void_list_node ()
 {
   tree t = build_tree_list (NULL_TREE, void_type_node);
   return t;
+}
+
+/* Return something to represent absolute declarators containing a *.
+   TARGET is the absolute declarator that the * contains.
+   TYPE_QUALS_ATTRS is a list of modifiers such as const or volatile
+   to apply to the pointer type, represented as identifiers, possible mixed
+   with attributes.
+
+   We return an INDIRECT_REF whose "contents" are TARGET (inside a TREE_LIST,
+   if attributes are present) and whose type is the modifier list.  */
+
+tree
+make_pointer_declarator (type_quals_attrs, target)
+     tree type_quals_attrs, target;
+{
+  tree quals, attrs;
+  tree itarget = target;
+  split_specs_attrs (type_quals_attrs, &quals, &attrs);
+  if (attrs != NULL_TREE)
+    itarget = tree_cons (attrs, target, NULL_TREE);
+  return build1 (INDIRECT_REF, quals, itarget);
 }
 
 #include "gt-c-decl.h"

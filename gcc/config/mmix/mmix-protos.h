@@ -2,20 +2,20 @@
    Copyright (C) 2000, 2001, 2002  Free Software Foundation, Inc.
    Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -33,7 +33,6 @@ extern int mmix_register_move_cost
   PARAMS ((enum machine_mode, enum reg_class, enum reg_class));
 extern const char *mmix_text_section_asm_op PARAMS ((void));
 extern const char *mmix_data_section_asm_op PARAMS ((void));
-extern const char *mmix_strip_name_encoding PARAMS ((const char *));
 extern void mmix_asm_file_start PARAMS ((FILE *));
 extern void mmix_asm_file_end PARAMS ((FILE *));
 extern void mmix_asm_output_source_filename PARAMS ((FILE *, const char *));
@@ -74,7 +73,6 @@ extern int mmix_constant_alignment PARAMS ((tree, int));
 extern int mmix_local_alignment PARAMS ((tree, int));
 extern void mmix_setup_incoming_varargs
   PARAMS ((CUMULATIVE_ARGS *, enum machine_mode, tree, int *, int));
-extern void mmix_encode_section_info PARAMS ((tree, int));
 extern void mmix_asm_output_pool_prologue
   PARAMS ((FILE *, const char *, tree, int));
 extern void mmix_asm_output_aligned_common

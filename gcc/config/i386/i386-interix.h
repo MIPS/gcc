@@ -66,7 +66,6 @@ Boston, MA 02111-1307, USA.  */
 #undef CPP_SPEC
 /* Write out the correct language type definition for the header files.  
    Unless we have assembler language, write out the symbols for C.
-   cpp_cpu is an Intel specific variant. See i386.h
    mieee is an Alpha specific variant.  Cross polination a bad idea.
    */
 #define CPP_SPEC "\
@@ -77,7 +76,6 @@ Boston, MA 02111-1307, USA.  */
 %{.C:	-D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus} \
 %{.m:	-D__LANGUAGE_OBJECTIVE_C__ -D__LANGUAGE_OBJECTIVE_C} \
 -remap \
-%(cpp_cpu) \
 %{posix:-D_POSIX_SOURCE} \
 -isystem %$INTERIX_ROOT/usr/include"
 
@@ -234,41 +232,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define EH_FRAME_IN_DATA_SECTION
 
-#define USE_CONST_SECTION	1
-
-#define CONST_SECTION_ASM_OP	"\t.section\t.rdata,\"r\""
-
-/* A default list of other sections which we might be "in" at any given
-   time.  For targets that use additional sections (e.g. .tdesc) you
-   should override this definition in the target-specific file which
-   includes this file.  */
-
-#undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const
-
-/* A default list of extra section function definitions.  For targets
-   that use additional sections (e.g. .tdesc) you should override this
-   definition in the target-specific file which includes this file.  */
-
-#undef EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS						\
-  CONST_SECTION_FUNCTION
-
-#undef READONLY_DATA_SECTION
-#define READONLY_DATA_SECTION() const_section ()
-
-#define CONST_SECTION_FUNCTION						\
-void									\
-const_section ()							\
-{									\
-  if (!USE_CONST_SECTION)						\
-    text_section();							\
-  else if (in_section != in_const)					\
-    {									\
-      fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP);		\
-      in_section = in_const;						\
-    }									\
-}
+#define READONLY_DATA_SECTION_ASM_OP	"\t.section\t.rdata,\"r\""
 
 /* The MS compilers take alignment as a number of bytes, so we do as well */
 #undef ASM_OUTPUT_ALIGN
@@ -333,57 +297,13 @@ while (0)
 
 /* Define this macro if references to a symbol must be treated
    differently depending on something about the variable or
-   function named by the symbol (such as what section it is in).
+   function named by the symbol (such as what section it is in).  */
 
-   Apply stddef, handle (as yet unimplemented) pic.
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO i386_pe_encode_section_info
+#undef  TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING  i386_pe_strip_name_encoding_full
 
-   stddef renaming does NOT apply to Alpha.  */
-
-union tree_node;
-const char *gen_stdcall_suffix PARAMS ((union tree_node *));
-
-#undef ENCODE_SECTION_INFO
-#define ENCODE_SECTION_INFO(DECL, FIRST)				\
-do 									\
-  {									\
-    if (flag_pic)							\
-      {									\
-	rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'		\
-		   ? TREE_CST_RTL (DECL) : DECL_RTL (DECL));		\
-	SYMBOL_REF_FLAG (XEXP (rtl, 0))					\
-	  = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'			\
-	     || ! TREE_PUBLIC (DECL));					\
-      }									\
-    if ((FIRST) && TREE_CODE (DECL) == FUNCTION_DECL) 			\
-      if (lookup_attribute ("stdcall",					\
-			    TYPE_ATTRIBUTES (TREE_TYPE (DECL))))	\
-        XEXP (DECL_RTL (DECL), 0) = 					\
-          gen_rtx (SYMBOL_REF, Pmode, gen_stdcall_suffix (DECL)); 	\
-  }									\
-while (0)
-
-/* This macro gets just the user-specified name
-   out of the string in a SYMBOL_REF.  Discard
-   trailing @[NUM] encoded by ENCODE_SECTION_INFO.  */
-#undef  STRIP_NAME_ENCODING
-#define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)				\
-do {									\
-  const char *_p;							\
-  const char *_name = SYMBOL_NAME;					\
-  for (_p = _name; *_p && *_p != '@'; ++_p)				\
-    ;									\
-  if (*_p == '@')							\
-    {									\
-      int _len = _p - _name;						\
-      char *_new_name = (char *) alloca (_len + 1);			\
-      strncpy (_new_name, _name, _len);					\
-      _new_name[_len] = '\0';						\
-      (VAR) = _new_name;						\
-    }									\
-  else									\
-    (VAR) = _name;							\
-} while (0)
-      
 #if 0	
 /* Turn this back on when the linker is updated to handle grouped
    .data$ sections correctly. See corresponding note in i386/interix.c. 

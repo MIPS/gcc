@@ -3967,10 +3967,16 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
 	 The template parameter level of T and U are one level larger than 
 	 of TT.  To proper process the default argument of U, say when an 
 	 instantiation `TT<int>' is seen, we need to build the full
-	 arguments containing {int} as the innermost level.  Outer levels
-	 can be obtained from `current_template_args ()'.  */
+	 arguments containing {int} as the innermost level.  Outer levels,
+	 available when not appearing as default template argument, can be
+	 obtained from `current_template_args ()'.
 
-      if (processing_template_decl)
+	 Suppose that TT is later substituted with std::vector.  The above
+	 instantiation is `TT<int, std::allocator<T> >' with TT at
+	 level 1, and T at level 2, while the template arguments at level 1
+	 becomes {std::vector} and the inner level 2 is {int}.  */
+
+      if (current_template_parms)
 	arglist = add_to_template_args (current_template_args (), arglist);
 
       arglist2 = coerce_template_parms (parmlist, arglist, template,
@@ -7516,6 +7522,11 @@ tsubst_expr (t, args, complain, in_decl)
       finish_label_stmt (DECL_NAME (LABEL_STMT_LABEL (t)));
       break;
 
+    case FILE_STMT:
+      input_filename = FILE_STMT_FILENAME (t);
+      add_stmt (build_nt (FILE_STMT, FILE_STMT_FILENAME_NODE (t)));
+      break;
+
     case GOTO_STMT:
       prep_stmt (t);
       tmp = GOTO_DESTINATION (t);
@@ -9514,12 +9525,16 @@ do_decl_instantiation (declspecs, declarator, storage)
 
   if (DECL_TEMPLATE_SPECIALIZATION (result))
     {
-      /* [temp.spec]
+      /* DR 259 [temp.spec].
 
-	 No program shall both explicitly instantiate and explicitly
-	 specialize a template.  */
-      pedwarn ("explicit instantiation of `%#D' after", result);
-      cp_pedwarn_at ("explicit specialization here", result);
+	 Both an explicit instantiation and a declaration of an explicit
+	 specialization shall not appear in a program unless the explicit
+	 instantiation follows a declaration of the explicit specialization.
+
+	 For a given set of template parameters, if an explicit
+	 instantiation of a template appears after a declaration of an
+	 explicit specialization for that template, the explicit
+	 instantiation has no effect.  */
       return;
     }
   else if (DECL_EXPLICIT_INSTANTIATION (result))
@@ -9649,15 +9664,16 @@ do_type_instantiation (t, storage, complain)
 
   if (CLASSTYPE_TEMPLATE_SPECIALIZATION (t))
     {
-      /* [temp.spec]
+      /* DR 259 [temp.spec].
 
-	 No program shall both explicitly instantiate and explicitly
-	 specialize a template.  */
-      if (complain & tf_error)
-	{
-	  error ("explicit instantiation of `%#T' after", t);
-	  cp_error_at ("explicit specialization here", t);
-	}
+	 Both an explicit instantiation and a declaration of an explicit
+	 specialization shall not appear in a program unless the explicit
+	 instantiation follows a declaration of the explicit specialization.
+
+	 For a given set of template parameters, if an explicit
+	 instantiation of a template appears after a declaration of an
+	 explicit specialization for that template, the explicit
+	 instantiation has no effect.  */
       return;
     }
   else if (CLASSTYPE_EXPLICIT_INSTANTIATION (t))

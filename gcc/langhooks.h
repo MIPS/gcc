@@ -78,7 +78,7 @@ struct lang_hooks_for_functions
 
 struct lang_hooks_for_tree_dump
 {
-  /* Dump language-specific parts of tree nodes.  Returns non-zero if it 
+  /* Dump language-specific parts of tree nodes.  Returns non-zero if it
      does not want the usual dumping of the second argument.  */
   int (*dump_tree) PARAMS ((void *, tree));
 
@@ -93,7 +93,7 @@ struct lang_hooks_for_types
   /* Return a new type (with the indicated CODE), doing whatever
      language-specific processing is required.  */
   tree (*make_type) PARAMS ((enum tree_code));
-  
+
   /* Given MODE and UNSIGNEDP, return a suitable type-tree with that
      mode.  */
   tree (*type_for_mode) PARAMS ((enum machine_mode, int));
@@ -196,7 +196,10 @@ struct lang_hooks
   /* Called when all command line options have been parsed.  Should do
      any required consistency checks, modifications etc.  Complex
      initialization should be left to the "init" callback, since GC
-     and the identifier hashes are set up between now and then.  */
+     and the identifier hashes are set up between now and then.
+
+     If errorcount is non-zero after this call the compiler exits
+     immediately and the finish hook is not called.  */
   void (*post_options) PARAMS ((void));
 
   /* Called after post_options, to initialize the front end.  The main
@@ -335,7 +338,7 @@ struct lang_hooks
   struct lang_hooks_for_functions function;
 
   struct lang_hooks_for_tree_inlining tree_inlining;
-  
+
   struct lang_hooks_for_tree_dump tree_dump;
 
   struct lang_hooks_for_decls decls;

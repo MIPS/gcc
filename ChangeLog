@@ -1,3 +1,102 @@
+Thu Jun 20 00:35:14 2002  Denis Chertykov  <denisc@overta.ru>
+
+	* configure.in: Add support for ip2k.
+
+2002-06-22  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* configure.in: Fix AIX configury bug.
+
+2002-06-20  Steve Ellcey  <sje@cup.hp.com>
+
+	* MAINTAINERS (Write After Approval): Add self.
+
+2002-06-19  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* configure.in: replace ${topsrcdir} with ${srcdir}
+
+	* configure.in: Move definition of libstdcxx_flags
+	right above usage, rather than waaay earlier.
+
+	* configure.in: Pull definition of is_cross_compiler earlier.
+
+	* configure.in: Rearrange a little.
+
+	* configure.in: Remove references to librx.
+	* Makefile.in: Remove references to librx.
+
+Tue Jun 18 22:37:35 2002  Denis Chertykov  <denisc@overta.ru>
+
+	* config.sub: Add support for avr target.
+	Import from master sources, rev 1.255
+	
+2002-06-19  Phil Edwards  <pme@gcc.gnu.org>
+
+	* configure, .cvsignore:  Revert previous change...
+	* Makefile:  ...delete.
+
+2002-06-19  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* configure.in: Eliminate ${gasdir} variable.
+
+2002-06-18  Dave Brolley  <brolley@redhat.com>
+
+	* configure.in: Add support for frv.
+	* config.sub: Add support for frv.
+
+2002-06-18  Phil Edwards  <pme@gcc.gnu.org>
+
+	* configure:  Remove garbage from previous commit.
+
+2002-06-18  Phil Edwards  <pme@gcc.gnu.org>
+
+	* configure:  For in-source builds, make a subdir and re-exec there.
+	* Makefile:  New file.  Pass targets through to build directory.
+	* .cvsignore:  No longer ignore "Makefile".
+
+2002-06-16  Douglas Rupp  <rupp@gnat.com>
+
+	* MAINTAINERS (Write After Approval): Add self.
+
+2002-06-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (CFLAGS_FOR_TARGET): Add -O2.
+
+2002-06-08  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* configure.in (vax-*-netbsd*): Re-enable gas.
+
+2002-05-31  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* Makefile.in: Replace HOST_PREFIX, HOST_PREFIX_1 with BUILD_PREFIX,
+	BUILD_PREFIX_1, to correct nomenclature.
+	* configure: Likewise.
+
+	* Makefile.in: Eliminate version-specific references to tcl8.1, tk8.1.
+	* configure.in: Eliminate version-specific references to tcl8.1, tk8.1.
+
+2002-05-31  Olaf Hering  <olh@suse.de>
+
+	* config-ml.in: Propogate DESTDIR also.
+
+2002-05-29  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* configure.in (vax-*-netbsd*): Don't build gas for this
+	platform.
+
+2002-05-28  Marek Michalkiewicz  <marekm@amelek.gda.pl>
+
+	* configure.in (noconfigdirs): Don't compile libiberty, libstdcxx
+	and libgcj for AVR.
+
+2002-05-23  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2002-05-22  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config.guess: Update to 2002-05-22 version.
+	* config.sub: Likewise.
+
 2002-05-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
 	* Makefile.in: Allow for PWDCMD to override hardcoded pwd.

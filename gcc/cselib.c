@@ -104,6 +104,10 @@ static GTY(()) varray_type reg_values;
 static GTY((deletable (""))) varray_type reg_values_old;
 #define REG_VALUES(I) VARRAY_ELT_LIST (reg_values, (I))
 
+/* The largest number of hard regs used by any entry added to the
+   REG_VALUES table.  Cleared on each clear_table() invocation.   */
+static unsigned int max_value_regs;
+
 /* Here the set of indices I with REG_VALUES(I) != 0 is saved.  This is used
    in clear_table() for fast emptying.  */
 static GTY(()) varray_type used_regs;
@@ -219,6 +223,8 @@ clear_table (clear_all)
   else
     for (i = 0; i < VARRAY_ACTIVE_SIZE (used_regs); i++)
       REG_VALUES (VARRAY_UINT (used_regs, i)) = 0;
+
+  max_value_regs = 0;
 
   VARRAY_POP_ALL (used_regs);
 
@@ -886,6 +892,14 @@ cselib_lookup (x, mode, create)
       if (! create)
 	return 0;
 
+      if (i < FIRST_PSEUDO_REGISTER)
+	{
+	  unsigned int n = HARD_REGNO_NREGS (i, mode);
+
+	  if (n > max_value_regs)
+	    max_value_regs = n;
+	}
+
       e = new_cselib_val (++next_unknown_value, GET_MODE (x));
       e->locs = new_elt_loc_list (e->locs, x);
       if (REG_VALUES (i) == 0)
@@ -946,11 +960,22 @@ cselib_invalidate_regno (regno, mode)
      pseudos, only REGNO is affected.  For hard regs, we must take MODE
      into account, and we must also invalidate lower register numbers
      if they contain values that overlap REGNO.  */
-  endregno = regno + 1;
   if (regno < FIRST_PSEUDO_REGISTER && mode != VOIDmode) 
-    endregno = regno + HARD_REGNO_NREGS (regno, mode);
+    {
+      if (regno < max_value_regs)
+	i = 0;
+      else
+	i = regno - max_value_regs;
 
-  for (i = 0; i < endregno; i++)
+      endregno = regno + HARD_REGNO_NREGS (regno, mode);
+    }
+  else
+    {
+      i = regno;
+      endregno = regno + 1;
+    }
+
+  for (; i < endregno; i++)
     {
       struct elt_list **l = &REG_VALUES (i);
 
@@ -1159,6 +1184,14 @@ cselib_record_set (dest, src_elt, dest_addr_elt)
     {
       if (REG_VALUES (dreg) == 0)
         VARRAY_PUSH_UINT (used_regs, dreg);
+
+      if (dreg < FIRST_PSEUDO_REGISTER)
+	{
+	  unsigned int n = HARD_REGNO_NREGS (dreg, GET_MODE (dest));
+
+	  if (n > max_value_regs)
+	    max_value_regs = n;
+	}
 
       REG_VALUES (dreg) = new_elt_list (REG_VALUES (dreg), src_elt);
       if (src_elt->locs == 0)

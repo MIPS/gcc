@@ -2677,6 +2677,37 @@ perform_relocations (state)
 	  shrink += 3;
 	}
 
+      /* Optimize GOTO L; ... L: GOTO X by changing the first goto to
+	 jump directly to X.  We're careful here to avoid an infinite
+	 loop if the `goto's themselves form one.  We do this
+	 optimization because we can generate a goto-to-goto for some
+	 try/finally blocks.  */
+      while (reloc != NULL
+	     && reloc->kind == OPCODE_goto_w
+	     && reloc->label != block
+	     && reloc->label->v.chunk->data != NULL
+	     && reloc->label->v.chunk->data[0] == OPCODE_goto)
+	{
+	  /* Find the reloc for the first instruction of the
+	     destination block.  */
+	  struct jcf_relocation *first_reloc;
+	  for (first_reloc = reloc->label->u.relocations;
+	       first_reloc;
+	       first_reloc = first_reloc->next)
+	    {
+	      if (first_reloc->offset == 1
+		  && first_reloc->kind == OPCODE_goto_w)
+		{
+		  reloc->label = first_reloc->label;
+		  break;
+		}
+	    }
+
+	  /* If we didn't do anything, exit the loop.  */
+	  if (first_reloc == NULL)
+	    break;
+	}
+
       for (reloc = block->u.relocations;  reloc != NULL;  reloc = reloc->next)
 	{
 	  if (reloc->kind == SWITCH_ALIGN_RELOC)
@@ -2931,7 +2962,7 @@ generate_classfile (clas, state)
       if (have_value)
 	attr_count++;
 
-      if (FIELD_THISN (part) || FIELD_LOCAL_ALIAS (part))
+      if (FIELD_THISN (part) || FIELD_LOCAL_ALIAS (part) || FIELD_SYNTHETIC (part))
 	attr_count++;
 
       PUT2 (attr_count);  /* attributes_count */
@@ -2949,8 +2980,10 @@ generate_classfile (clas, state)
 	  PUT4 (2); /* attribute_length */
 	  i = find_constant_index (init, state);  PUT2 (i);
 	}
-      /* Emit the "Synthetic" attribute for val$<x> and this$<n> fields. */
-      if (FIELD_THISN (part) || FIELD_LOCAL_ALIAS (part))
+      /* Emit the "Synthetic" attribute for val$<x> and this$<n>
+	 fields and other fields which need it.  */
+      if (FIELD_THISN (part) || FIELD_LOCAL_ALIAS (part)
+	  || FIELD_SYNTHETIC (part))
 	ptr = append_synthetic_attribute (state);
       fields_count++;
     }

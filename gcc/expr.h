@@ -132,7 +132,7 @@ enum direction {none, upward, downward};  /* Value has this type.  */
 /* Supply a default definition for FUNCTION_ARG_BOUNDARY.  Normally, we let
    FUNCTION_ARG_PADDING, which also pads the length, handle any needed
    alignment.  */
-  
+
 #ifndef FUNCTION_ARG_BOUNDARY
 #define FUNCTION_ARG_BOUNDARY(MODE, TYPE)	PARM_BOUNDARY
 #endif
@@ -289,7 +289,7 @@ extern rtx gen_move_insn PARAMS ((rtx, rtx));
 extern int have_add2_insn PARAMS ((rtx, rtx));
 extern int have_sub2_insn PARAMS ((rtx, rtx));
 
-/* Emit a pair of rtl insns to compare two rtx's and to jump 
+/* Emit a pair of rtl insns to compare two rtx's and to jump
    to a label if the comparison is true.  */
 extern void emit_cmp_and_jump_insns PARAMS ((rtx, rtx, enum rtx_code, rtx,
 					     enum machine_mode, int, rtx));
@@ -723,7 +723,7 @@ extern void emit_stack_restore PARAMS ((enum save_level, rtx, rtx));
    says how many bytes.  */
 extern rtx allocate_dynamic_stack_space PARAMS ((rtx, rtx, int));
 
-/* Probe a range of stack addresses from FIRST to FIRST+SIZE, inclusive. 
+/* Probe a range of stack addresses from FIRST to FIRST+SIZE, inclusive.
    FIRST is a constant and size is a Pmode RTX.  These are offsets from the
    current stack pointer.  STACK_GROWS_DOWNWARD says whether to add or
    subtract from the stack.  If SIZE is constant, this is done
@@ -754,6 +754,7 @@ extern rtx extract_bit_field PARAMS ((rtx, unsigned HOST_WIDE_INT,
 				      enum machine_mode, enum machine_mode,
 				      HOST_WIDE_INT));
 extern rtx expand_mult PARAMS ((enum machine_mode, rtx, rtx, rtx, int));
+extern bool const_mult_add_overflow_p PARAMS ((rtx, rtx, rtx, enum machine_mode, int));
 extern rtx expand_mult_add PARAMS ((rtx, rtx, rtx, rtx,enum machine_mode, int));
 extern rtx expand_mult_highpart_adjust PARAMS ((enum machine_mode, rtx, rtx, rtx, rtx, int));
 
@@ -785,3 +786,5 @@ extern void do_jump_by_parts_greater_rtx	PARAMS ((enum machine_mode,
 extern void mark_seen_cases			PARAMS ((tree, unsigned char *,
 							 HOST_WIDE_INT, int));
 #endif
+
+extern int vector_mode_valid_p		PARAMS ((enum machine_mode));

@@ -299,10 +299,6 @@ int warn_deprecated = 1;
 #endif
 int dollars_in_ident = DOLLARS_IN_IDENTIFIERS;
 
-/* Nonzero means allow Microsoft extensions without a pedwarn.  */
-
-int flag_ms_extensions;
-
 /* C++ specific flags.  */   
 
 /* Nonzero means we should attempt to elide constructors when possible.  */
@@ -362,7 +358,7 @@ int flag_weak = 1;
 /* Nonzero to use __cxa_atexit, rather than atexit, to register
    destructors for local statics and global objects.  */
 
-int flag_use_cxa_atexit;
+int flag_use_cxa_atexit = DEFAULT_USE_CXA_ATEXIT;
 
 /* Maximum template instantiation depth.  This limit is rather
    arbitrary, but it exists to limit the time it takes to notice
@@ -479,7 +475,7 @@ cxx_decode_option (argc, argv)
   int strings_processed;
   const char *p = argv[0];
 
-  strings_processed = cpp_handle_option (parse_in, argc, argv, 0);
+  strings_processed = cpp_handle_option (parse_in, argc, argv);
 
   if (p[0] == '-' && p[1] == 'f')
     {
@@ -2481,7 +2477,10 @@ import_export_decl (decl)
 	    comdat_linkage (decl);
 	}
       else
-	DECL_NOT_REALLY_EXTERN (decl) = 0;
+	{
+	  DECL_EXTERNAL (decl) = 1;
+	  DECL_NOT_REALLY_EXTERN (decl) = 0;
+	}
     }
   else if (DECL_FUNCTION_MEMBER_P (decl))
     {
@@ -2496,6 +2495,9 @@ import_export_decl (decl)
 		     || (DECL_DECLARED_INLINE_P (decl) 
 			 && ! flag_implement_inlines
 			 && !DECL_VINDEX (decl)));
+
+	      if (!DECL_NOT_REALLY_EXTERN (decl))
+		DECL_EXTERNAL (decl) = 1;
 
 	      /* Always make artificials weak.  */
 	      if (DECL_ARTIFICIAL (decl) && flag_weak)
@@ -3650,7 +3652,10 @@ build_expr_from_tree (t)
 
     case LOOKUP_EXPR:
       if (LOOKUP_EXPR_GLOBAL (t))
-	return do_scoped_id (TREE_OPERAND (t, 0), 0);
+	{
+	  tree token = TREE_OPERAND (t, 0);
+	  return do_scoped_id (token, IDENTIFIER_GLOBAL_VALUE (token));
+	}
       else
 	return do_identifier (TREE_OPERAND (t, 0), 0, NULL_TREE);
 

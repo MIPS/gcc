@@ -62,11 +62,24 @@ Boston, MA 02111-1307, USA.  */
     { "no-nop-fun-dllimport",	MASK_NOP_FUN_DLLIMPORT, "" },
 
 
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-D_WIN32 -DWINNT -D_X86_=1 \
-  -D__stdcall=__attribute__((__stdcall__)) \
-  -D__cdecl=__attribute__((__cdecl__)) \
-  -Asystem=winnt"
+#define TARGET_OS_CPP_BUILTINS()					\
+  do									\
+    {									\
+	builtin_define ("_WIN32");					\
+	builtin_define_std ("WINNT");					\
+	builtin_define ("_X86_");					\
+	builtin_define ("__stdcall=__attribute__((__stdcall__))");	\
+	builtin_define ("__cdecl=__attribute__((__cdecl__))");		\
+	builtin_assert ("system=winnt");				\
+	if (TARGET_CYGWIN)						\
+	  {								\
+	    builtin_define ("__CYGWIN32__");				\
+	    builtin_define ("__CYGWIN__");				\
+	  }								\
+	else								\
+	  builtin_define ("__MINGW32__");				\
+    }									\
+  while (0)
 
 #undef STARTFILE_SPEC
 
@@ -74,9 +87,8 @@ Boston, MA 02111-1307, USA.  */
                         %{mcygwin:crt0%O%s} %{pg:gcrt0%O%s}}"
 
 #undef CPP_SPEC
-#define CPP_SPEC "%(cpp_cpu) %{posix:-D_POSIX_SOURCE} \
-  %{!mcygwin:-iwithprefixbefore include/mingw32 -D__MINGW32__}    \
-  %{mcygwin:-D__CYGWIN32__ -D__CYGWIN__}"
+#define CPP_SPEC "%{posix:-D_POSIX_SOURCE} \
+  %{!mcygwin:-iwithprefixbefore include/mingw32}"
 
 /* We have to dynamic link to get to the system DLLs.  All of libc, libm and
    the Unix stuff is in cygwin.dll.  The import library is called
@@ -102,61 +114,10 @@ Boston, MA 02111-1307, USA.  */
 
 #define NEED_ATEXIT 1
 
-/* Define this macro if references to a symbol must be treated
-   differently depending on something about the variable or
-   function named by the symbol (such as what section it is in).
-
-   On i386, if using PIC, mark a SYMBOL_REF for a non-global symbol
-   so that we may access it directly in the GOT.
-
-   On i386 running Windows NT, modify the assembler name with a suffix 
-   consisting of an atsign (@) followed by string of digits that represents
-   the number of bytes of arguments passed to the function, if it has the 
-   attribute STDCALL.  */
-
-#undef ENCODE_SECTION_INFO
-#define ENCODE_SECTION_INFO(DECL, FIRST)				\
-do									\
-  {									\
-    if (flag_pic)							\
-      {									\
-	rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'		\
-		   ? TREE_CST_RTL (DECL) : DECL_RTL (DECL));		\
-	SYMBOL_REF_FLAG (XEXP (rtl, 0))					\
-	  = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'			\
-	     || ! TREE_PUBLIC (DECL));					\
-      }									\
-    if ((FIRST) && TREE_CODE (DECL) == FUNCTION_DECL) 			\
-      if (lookup_attribute ("stdcall",					\
-			    TYPE_ATTRIBUTES (TREE_TYPE (DECL))))	\
-        XEXP (DECL_RTL (DECL), 0) = 					\
-          gen_rtx (SYMBOL_REF, Pmode, gen_stdcall_suffix (DECL)); 	\
-  }									\
-while (0)
-
-/* This macro gets just the user-specified name
-   out of the string in a SYMBOL_REF.  Discard
-   trailing @[NUM] encoded by ENCODE_SECTION_INFO. 
-   Do we need the stripping of leading '*'?  */
-#undef  STRIP_NAME_ENCODING
-#define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)				\
-do {									\
-  const char *_p;							\
-  const char *const _name = ((SYMBOL_NAME) + ((SYMBOL_NAME)[0] == '*'));\
-  for (_p = _name; *_p && *_p != '@'; ++_p)				\
-    ;									\
-  if (*_p == '@')							\
-    {									\
-      int _len = _p - _name;						\
-      char *_new_name = (char *) alloca (_len + 1);			\
-      strncpy (_new_name, _name, _len);					\
-      _new_name[_len] = '\0';						\
-      (VAR) = _new_name;						\
-    }									\
-  else									\
-    (VAR) = _name;							\
-} while (0)
-      
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO  i386_pe_encode_section_info
+#undef  TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING  i386_pe_strip_name_encoding_full
 
 /* Emit code to check the stack when allocating more that 4000
    bytes in one go.  */

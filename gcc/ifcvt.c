@@ -77,7 +77,7 @@ static int num_removed_blocks;
 static bool life_data_ok;
 
 /* The post-dominator relation on the original block numbers.  */
-static sbitmap *post_dominators;
+static dominance_info post_dominators;
 
 /* Forward references.  */
 static int count_bb_insns		PARAMS ((basic_block));
@@ -110,14 +110,6 @@ static int find_memory			PARAMS ((rtx *, void *));
 static int dead_or_predicable		PARAMS ((basic_block, basic_block,
 						 basic_block, basic_block, int));
 static void noce_emit_move_insn		PARAMS ((rtx, rtx));
-
-/* Abuse the basic_block AUX field to store the original block index,
-   as well as a flag indicating that the block should be rescaned for
-   life analysis.  */
-
-#define SET_ORIG_INDEX(BB,I)	((BB)->aux = (void *)((size_t)(I)))
-#define ORIG_INDEX(BB)		((size_t)(BB)->aux)
-
 
 /* Count the number of non-jump active insns in BB.  */
 
@@ -540,7 +532,7 @@ noce_emit_store_flag (if_info, x, reversep, normalize)
 	{
 	  tmp = get_insns ();
 	  end_sequence ();
-	  emit_insns (tmp);
+	  emit_insn (tmp);
 
 	  if_info->cond_earliest = if_info->jump;
 
@@ -620,7 +612,7 @@ noce_try_store_flag (if_info)
 
       seq = get_insns ();
       end_sequence ();
-      emit_insns_before (seq, if_info->jump);
+      emit_insn_before_scope (seq, if_info->jump, INSN_SCOPE (if_info->insn_a));
 
       return TRUE;
     }
@@ -755,7 +747,7 @@ noce_try_store_flag_constants (if_info)
       if (seq_contains_jump (seq))
 	return FALSE;
 
-      emit_insns_before (seq, if_info->jump);
+      emit_insn_before_scope (seq, if_info->jump, INSN_SCOPE (if_info->insn_a));
 
       return TRUE;
     }
@@ -815,7 +807,8 @@ noce_try_store_flag_inc (if_info)
 	  if (seq_contains_jump (seq))
 	    return FALSE;
 
-	  emit_insns_before (seq, if_info->jump);
+	  emit_insn_before_scope (seq, if_info->jump,
+				  INSN_SCOPE (if_info->insn_a));
 
 	  return TRUE;
 	}
@@ -867,7 +860,8 @@ noce_try_store_flag_mask (if_info)
 	  if (seq_contains_jump (seq))
 	    return FALSE;
 
-	  emit_insns_before (seq, if_info->jump);
+	  emit_insn_before_scope (seq, if_info->jump,
+				  INSN_SCOPE (if_info->insn_a));
 
 	  return TRUE;
 	}
@@ -906,7 +900,7 @@ noce_emit_cmove (if_info, x, code, cmp_a, cmp_b, vfalse, vtrue)
 	{
 	  tmp = get_insns ();
 	  end_sequence ();
-	  emit_insns (tmp);
+	  emit_insn (tmp);
 
 	  return x;
 	}
@@ -962,7 +956,8 @@ noce_try_cmove (if_info)
 
 	  seq = get_insns ();
 	  end_sequence ();
-	  emit_insns_before (seq, if_info->jump);
+	  emit_insn_before_scope (seq, if_info->jump,
+				  INSN_SCOPE (if_info->insn_a));
 	  return TRUE;
 	}
       else
@@ -1124,7 +1119,7 @@ noce_try_cmove_arith (if_info)
 
   tmp = get_insns ();
   end_sequence ();
-  emit_insns_before (tmp, if_info->jump);
+  emit_insn_before_scope (tmp, if_info->jump, INSN_SCOPE (if_info->insn_a));
   return TRUE;
 
  end_seq_and_fail:
@@ -1376,7 +1371,7 @@ noce_try_minmax (if_info)
   if (seq_contains_jump (seq))
     return FALSE;
 
-  emit_insns_before (seq, if_info->jump);
+  emit_insn_before_scope (seq, if_info->jump, INSN_SCOPE (if_info->insn_a));
   if_info->cond = cond;
   if_info->cond_earliest = earliest;
 
@@ -1494,7 +1489,7 @@ noce_try_abs (if_info)
   if (seq_contains_jump (seq))
     return FALSE;
 
-  emit_insns_before (seq, if_info->jump);
+  emit_insn_before_scope (seq, if_info->jump, INSN_SCOPE (if_info->insn_a));
   if_info->cond = cond;
   if_info->cond_earliest = earliest;
 
@@ -1763,10 +1758,10 @@ noce_process_if_block (test_bb, then_bb, else_bb, join_bb)
     {
       start_sequence ();
       noce_emit_move_insn (copy_rtx (orig_x), x);
-      insn_b = gen_sequence ();
+      insn_b = get_insns ();
       end_sequence ();
 
-      emit_insn_after (insn_b, test_bb->end);
+      emit_insn_after_scope (insn_b, test_bb->end, INSN_SCOPE (insn_a));
     }
 
   /* Merge the blocks!  */
@@ -1819,6 +1814,8 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
       if (combo_bb->global_live_at_end)
 	COPY_REG_SET (combo_bb->global_live_at_end,
 		      then_bb->global_live_at_end);
+      if (post_dominators)
+	delete_from_dominance_info (post_dominators, then_bb);
       merge_blocks_nomove (combo_bb, then_bb);
       num_removed_blocks++;
     }
@@ -1828,6 +1825,8 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
      get their addresses taken.  */
   if (else_bb)
     {
+      if (post_dominators)
+	delete_from_dominance_info (post_dominators, else_bb);
       merge_blocks_nomove (combo_bb, else_bb);
       num_removed_blocks++;
     }
@@ -1882,6 +1881,8 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
       if (combo_bb->global_live_at_end)
 	COPY_REG_SET (combo_bb->global_live_at_end,
 		      join_bb->global_live_at_end);
+      if (post_dominators)
+	delete_from_dominance_info (post_dominators, join_bb);
       merge_blocks_nomove (combo_bb, join_bb);
       num_removed_blocks++;
     }
@@ -1973,7 +1974,7 @@ find_if_block (test_bb, then_edge, else_edge)
   basic_block join_bb = NULL_BLOCK;
   edge then_succ = then_bb->succ;
   edge else_succ = else_bb->succ;
-  int next_index;
+  basic_block next;
 
   /* The THEN block of an IF-THEN combo must have exactly one predecessor.  */
   if (then_bb->pred->pred_next != NULL_EDGE)
@@ -2057,10 +2058,10 @@ find_if_block (test_bb, then_edge, else_edge)
   /* ??? As an enhancement, move the ELSE block.  Have to deal with
      BLOCK notes, if by no other means than aborting the merge if they
      exist.  Sticky enough I don't want to think about it now.  */
-  next_index = then_bb->index;
-  if (else_bb && ++next_index != else_bb->index)
+  next = then_bb;
+  if (else_bb && (next = next->next_bb) != else_bb)
     return FALSE;
-  if (++next_index != join_bb->index && join_bb->index != EXIT_BLOCK)
+  if ((next = next->next_bb) != join_bb && join_bb != EXIT_BLOCK_PTR)
     {
       if (else_bb)
 	join_bb = NULL;
@@ -2134,19 +2135,21 @@ find_cond_trap (test_bb, then_edge, else_edge)
     return FALSE;
 
   /* Emit the new insns before cond_earliest.  */
-  emit_insn_before (seq, cond_earliest);
+  emit_insn_before_scope (seq, cond_earliest, INSN_SCOPE (trap));
 
   /* Delete the trap block if possible.  */
   remove_edge (trap_bb == then_bb ? then_edge : else_edge);
   if (trap_bb->pred == NULL)
     {
+      if (post_dominators)
+	delete_from_dominance_info (post_dominators, trap_bb);
       flow_delete_block (trap_bb);
       num_removed_blocks++;
     }
 
   /* If the non-trap block and the test are now adjacent, merge them.
      Otherwise we must insert a direct branch.  */
-  if (test_bb->index + 1 == other_bb->index)
+  if (test_bb->next_bb == other_bb)
     {
       delete_insn (jump);
       merge_if_block (test_bb, NULL, NULL, other_bb);
@@ -2279,6 +2282,7 @@ find_if_case_1 (test_bb, then_edge, else_edge)
   basic_block then_bb = then_edge->dest;
   basic_block else_bb = else_edge->dest, new_bb;
   edge then_succ = then_bb->succ;
+  int then_bb_index;
 
   /* THEN has one successor.  */
   if (!then_succ || then_succ->succ_next != NULL)
@@ -2319,11 +2323,17 @@ find_if_case_1 (test_bb, then_edge, else_edge)
 		    then_bb->global_live_at_end, BITMAP_IOR);
   
   new_bb = redirect_edge_and_branch_force (FALLTHRU_EDGE (test_bb), else_bb);
-  /* Make rest of code believe that the newly created block is the THEN_BB
-     block we are going to remove.  */
-  if (new_bb)
-    new_bb->aux = then_bb->aux;
+  then_bb_index = then_bb->index;
+  if (post_dominators)
+    delete_from_dominance_info (post_dominators, then_bb);
   flow_delete_block (then_bb);
+  /* Make rest of code believe that the newly created block is the THEN_BB
+     block we removed.  */
+  if (new_bb)
+    {
+      new_bb->index = then_bb_index;
+      BASIC_BLOCK (then_bb_index) = new_bb;
+    }
   /* We've possibly created jump to next insn, cleanup_cfg will solve that
      later.  */
 
@@ -2366,8 +2376,8 @@ find_if_case_2 (test_bb, then_edge, else_edge)
   if (note && INTVAL (XEXP (note, 0)) >= REG_BR_PROB_BASE / 2)
     ;
   else if (else_succ->dest->index < 0
-	   || TEST_BIT (post_dominators[ORIG_INDEX (then_bb)], 
-			ORIG_INDEX (else_succ->dest)))
+	   || dominated_by_p (post_dominators, then_bb, 
+			      else_succ->dest))
     ;
   else
     return FALSE;
@@ -2393,6 +2403,8 @@ find_if_case_2 (test_bb, then_edge, else_edge)
 		    then_bb->global_live_at_start,
 		    else_bb->global_live_at_end, BITMAP_IOR);
   
+  if (post_dominators)
+    delete_from_dominance_info (post_dominators, else_bb);
   flow_delete_block (else_bb);
 
   num_removed_blocks++;
@@ -2685,7 +2697,7 @@ void
 if_convert (x_life_data_ok)
      int x_life_data_ok;
 {
-  int block_num;
+  basic_block bb;
 
   num_possible_if_blocks = 0;
   num_updated_if_blocks = 0;
@@ -2700,28 +2712,18 @@ if_convert (x_life_data_ok)
   post_dominators = NULL;
   if (HAVE_conditional_execution || life_data_ok)
     {
-      post_dominators = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
-      calculate_dominance_info (NULL, post_dominators, CDI_POST_DOMINATORS);
+      post_dominators = calculate_dominance_info (CDI_POST_DOMINATORS);
     }
   if (life_data_ok)
     clear_bb_flags ();
 
-  /* Record initial block numbers.  */
-  for (block_num = 0; block_num < n_basic_blocks; block_num++)
-    SET_ORIG_INDEX (BASIC_BLOCK (block_num), block_num);
-
   /* Go through each of the basic blocks looking for things to convert.  */
-  for (block_num = 0; block_num < n_basic_blocks; )
-    {
-      basic_block bb = BASIC_BLOCK (block_num);
-      if (find_if_header (bb))
-	block_num = bb->index;
-      else 
-	block_num++;
-    }
+  FOR_EACH_BB (bb)
+    while (find_if_header (bb))
+      continue;
 
   if (post_dominators)
-    sbitmap_vector_free (post_dominators);
+    free_dominance_info (post_dominators);
 
   if (rtl_dump_file)
     fflush (rtl_dump_file);

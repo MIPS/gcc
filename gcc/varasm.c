@@ -82,7 +82,7 @@ struct varasm_status GTY(())
      This pool of constants is reinitialized for each function
      so each function gets its own constants-pool that comes right before
      it.  */
-  struct constant_descriptor_rtx ** GTY ((length ("MAX_RTX_HASH_TABLE"))) 
+  struct constant_descriptor_rtx ** GTY ((length ("MAX_RTX_HASH_TABLE")))
     x_const_rtx_hash_table;
   struct pool_constant ** GTY ((length ("MAX_RTX_HASH_TABLE")))
     x_const_rtx_sym_hash_table;
@@ -143,9 +143,9 @@ static void output_constant_def_contents  PARAMS ((tree, int, int));
 static void decode_rtx_const		PARAMS ((enum machine_mode, rtx,
 					       struct rtx_const *));
 static int const_hash_rtx		PARAMS ((enum machine_mode, rtx));
-static int compare_constant_rtx	
+static int compare_constant_rtx
   PARAMS ((enum machine_mode, rtx, struct constant_descriptor_rtx *));
-static struct constant_descriptor_rtx * record_constant_rtx 
+static struct constant_descriptor_rtx * record_constant_rtx
   PARAMS ((enum machine_mode, rtx));
 static struct pool_constant *find_pool_constant PARAMS ((struct function *, rtx));
 static void mark_constant_pool		PARAMS ((void));
@@ -186,6 +186,9 @@ static enum in_section { no_section, in_text, in_data, in_named
 #ifdef DTORS_SECTION_ASM_OP
   , in_dtors
 #endif
+#ifdef READONLY_DATA_SECTION_ASM_OP
+  , in_readonly_data
+#endif
 #ifdef EXTRA_SECTIONS
   , EXTRA_SECTIONS
 #endif
@@ -224,12 +227,12 @@ text_section ()
 {
   if (in_section != in_text)
     {
+      in_section = in_text;
 #ifdef TEXT_SECTION
       TEXT_SECTION ();
 #else
       fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
 #endif
-      in_section = in_text;
     }
 }
 
@@ -240,6 +243,7 @@ data_section ()
 {
   if (in_section != in_data)
     {
+      in_section = in_data;
       if (flag_shared_data)
 	{
 #ifdef SHARED_SECTION_ASM_OP
@@ -250,8 +254,6 @@ data_section ()
 	}
       else
 	fprintf (asm_out_file, "%s\n", DATA_SECTION_ASM_OP);
-
-      in_section = in_data;
     }
 }
 
@@ -274,7 +276,16 @@ readonly_data_section ()
 #ifdef READONLY_DATA_SECTION
   READONLY_DATA_SECTION ();  /* Note this can call data_section.  */
 #else
+#ifdef READONLY_DATA_SECTION_ASM_OP
+  if (in_section != in_readonly_data)
+    {
+      in_section = in_readonly_data;
+      fputs (READONLY_DATA_SECTION_ASM_OP, asm_out_file);
+      fputc ('\n', asm_out_file);
+    }
+#else
   text_section ();
+#endif
 #endif
 }
 
@@ -504,7 +515,7 @@ asm_output_bss (file, decl, name, size, rounded)
   /* Standard thing is just output label for the object.  */
   ASM_OUTPUT_LABEL (file, name);
 #endif /* ASM_DECLARE_OBJECT_NAME */
-  ASM_OUTPUT_SKIP (file, rounded);
+  ASM_OUTPUT_SKIP (file, rounded ? rounded : 1);
 }
 
 #endif
@@ -812,14 +823,15 @@ make_decl_rtl (decl, asmspec)
 	SET_DECL_RTL (decl, adjust_address_nv (DECL_RTL (decl),
 					       DECL_MODE (decl), 0));
 
-      /* ??? Another way to do this would be to do what halfpic.c does
-	 and maintain a hashed table of such critters.  */
+      /* ??? Another way to do this would be to maintain a hashed
+	 table of such critters.  Instead of adding stuff to a DECL
+	 to give certain attributes to it, we could use an external
+	 hash map from DECL to set of attributes.  */
+
       /* Let the target reassign the RTL if it wants.
 	 This is necessary, for example, when one machine specific
 	 decl attribute overrides another.  */
-#ifdef ENCODE_SECTION_INFO
-      ENCODE_SECTION_INFO (decl, false);
-#endif
+      (* targetm.encode_section_info) (decl, false);
       return;
     }
 
@@ -903,6 +915,10 @@ make_decl_rtl (decl, asmspec)
       && DECL_COMMON (decl))
     DECL_COMMON (decl) = 0;
 
+  /* Variables can't be both common and weak.  */
+  if (TREE_CODE (decl) == VAR_DECL && DECL_WEAK (decl))
+    DECL_COMMON (decl) = 0;
+
   /* Can't use just the variable's own name for a variable
      whose scope is less than the whole file, unless it's a member
      of a local class (which will already be unambiguous).
@@ -943,9 +959,7 @@ make_decl_rtl (decl, asmspec)
      such as that it is a function name.
      If the name is changed, the macro ASM_OUTPUT_LABELREF
      will have to know how to strip this information.  */
-#ifdef ENCODE_SECTION_INFO
-  ENCODE_SECTION_INFO (decl, true);
-#endif
+  (* targetm.encode_section_info) (decl, true);
 }
 
 /* Make the rtl for variable VAR be volatile.
@@ -1190,7 +1204,7 @@ assemble_start_function (decl, fnname)
 	  const char *p;
 	  char *name;
 
-	  STRIP_NAME_ENCODING (p, fnname);
+	  p = (* targetm.strip_name_encoding) (fnname);
 	  name = permalloc (strlen (p) + 1);
 	  strcpy (name, p);
 
@@ -1480,7 +1494,8 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
   if (TREE_ASM_WRITTEN (decl))
     return;
 
-  /* Make sure ENCODE_SECTION_INFO is invoked before we set ASM_WRITTEN.  */
+  /* Make sure targetm.encode_section_info is invoked before we set
+     ASM_WRITTEN.  */
   decl_rtl = DECL_RTL (decl);
 
   TREE_ASM_WRITTEN (decl) = 1;
@@ -1509,7 +1524,7 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
       const char *p;
       char *xname;
 
-      STRIP_NAME_ENCODING (p, name);
+      p = (* targetm.strip_name_encoding) (name);
       xname = permalloc (strlen (p) + 1);
       strcpy (xname, p);
       first_global_object_name = xname;
@@ -1535,7 +1550,7 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
     {
       warning_with_decl (decl,
 	"alignment of `%s' is greater than maximum object file alignment. Using %d",
-                    MAX_OFILE_ALIGNMENT/BITS_PER_UNIT);
+			 MAX_OFILE_ALIGNMENT/BITS_PER_UNIT);
       align = MAX_OFILE_ALIGNMENT;
     }
 
@@ -1547,7 +1562,7 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 #endif
 #ifdef CONSTANT_ALIGNMENT
       if (DECL_INITIAL (decl) != 0 && DECL_INITIAL (decl) != error_mark_node)
-        align = CONSTANT_ALIGNMENT (DECL_INITIAL (decl), align);
+	align = CONSTANT_ALIGNMENT (DECL_INITIAL (decl), align);
 #endif
     }
 
@@ -1568,19 +1583,28 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 
   /* Handle uninitialized definitions.  */
 
-  if ((DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node
-#if defined ASM_EMIT_BSS
-       || (flag_zero_initialized_in_bss
-	   && initializer_zerop (DECL_INITIAL (decl)))
+  /* If the decl has been given an explicit section name, then it
+     isn't common, and shouldn't be handled as such.  */
+  if (DECL_SECTION_NAME (decl) || dont_output_data)
+    ;
+  /* We don't implement common thread-local data at present.  */
+  else if (DECL_THREAD_LOCAL (decl))
+    {
+      if (DECL_COMMON (decl))
+	sorry ("thread-local COMMON data not implemented");
+    }
+#ifndef ASM_EMIT_BSS
+  /* If the target can't output uninitialized but not common global data
+     in .bss, then we have to use .data.  */
+  /* ??? We should handle .bss via select_section mechanisms rather than
+     via special target hooks.  That would eliminate this special case.  */
+  else if (!DECL_COMMON (decl))
+    ;
 #endif
-       )
-      /* If the target can't output uninitialized but not common global data
-	 in .bss, then we have to use .data.  */
-#if ! defined ASM_EMIT_BSS
-      && DECL_COMMON (decl)
-#endif
-      && DECL_SECTION_NAME (decl) == NULL_TREE
-      && ! dont_output_data)
+  else if (DECL_INITIAL (decl) == 0
+	   || DECL_INITIAL (decl) == error_mark_node
+	   || (flag_zero_initialized_in_bss
+	       && initializer_zerop (DECL_INITIAL (decl))))
     {
       unsigned HOST_WIDE_INT size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
       unsigned HOST_WIDE_INT rounded = size;
@@ -1599,8 +1623,8 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 /* Don't continue this line--convex cc version 4.1 would lose.  */
 #if !defined(ASM_OUTPUT_ALIGNED_COMMON) && !defined(ASM_OUTPUT_ALIGNED_DECL_COMMON) && !defined(ASM_OUTPUT_ALIGNED_BSS)
       if ((unsigned HOST_WIDE_INT) DECL_ALIGN (decl) / BITS_PER_UNIT > rounded)
-         warning_with_decl
-           (decl, "requested alignment for %s is greater than implemented alignment of %d",rounded);
+	warning_with_decl
+	  (decl, "requested alignment for %s is greater than implemented alignment of %d",rounded);
 #endif
 
       asm_emit_uninitialised (decl, name, size, rounded);
@@ -1768,7 +1792,7 @@ assemble_name (file, name)
   const char *real_name;
   tree id;
 
-  STRIP_NAME_ENCODING (real_name, name);
+  real_name = (* targetm.strip_name_encoding) (name);
 
   id = maybe_get_identifier (real_name);
   if (id)
@@ -2152,9 +2176,9 @@ struct rtx_const GTY(())
   union rtx_const_un {
     REAL_VALUE_TYPE du;
     struct addr_const GTY ((tag ("1"))) addr;
-    struct rtx_const_u_di { 
+    struct rtx_const_u_di {
       HOST_WIDE_INT high;
-      HOST_WIDE_INT low; 
+      HOST_WIDE_INT low;
     } GTY ((tag ("0"))) di;
 
     /* The max vector size we have is 8 wide.  This should be enough.  */
@@ -2296,6 +2320,7 @@ const_hash (exp)
 	}
 
     case ADDR_EXPR:
+    case FDESC_EXPR:
       {
 	struct addr_const value;
 
@@ -2412,7 +2437,7 @@ compare_constant (t1, t2)
 	    return 0;
 	  if (get_set_constructor_bytes (t2, tmp2, len) != NULL_TREE)
 	    return 0;
-	  
+
 	  return memcmp (tmp1, tmp2, len) != 0;
 	}
       else
@@ -2456,11 +2481,12 @@ compare_constant (t1, t2)
 		    return 0;
 		}
 	    }
-	  
+
 	  return l1 == NULL_TREE && l2 == NULL_TREE;
 	}
 
     case ADDR_EXPR:
+    case FDESC_EXPR:
       {
 	struct addr_const value1, value2;
 
@@ -2664,7 +2690,7 @@ output_constant_def (exp, defer)
   rtx rtl;
 
   /* We can't just use the saved RTL if this is a deferred string constant
-     and we are not to defer anymode.  */
+     and we are not to defer anymore.  */
   if (TREE_CODE (exp) != INTEGER_CST && TREE_CST_RTL (exp)
       && (defer || !STRING_POOL_ADDRESS_P (XEXP (TREE_CST_RTL (exp), 0))))
     return TREE_CST_RTL (exp);
@@ -2721,20 +2747,18 @@ output_constant_def (exp, defer)
   /* Optionally set flags or add text to the name to record information
      such as that it is a function name.  If the name is changed, the macro
      ASM_OUTPUT_LABELREF will have to know how to strip this information.  */
-#ifdef ENCODE_SECTION_INFO
   /* A previously-processed constant would already have section info
      encoded in it.  */
   if (! found)
     {
-      /* Take care not to invoke ENCODE_SECTION_INFO for constants
-	 which don't have a TREE_CST_RTL.  */
+      /* Take care not to invoke targetm.encode_section_info for
+	 constants which don't have a TREE_CST_RTL.  */
       if (TREE_CODE (exp) != INTEGER_CST)
-	ENCODE_SECTION_INFO (exp, true);
+	(*targetm.encode_section_info) (exp, true);
 
       desc->rtl = rtl;
       desc->label = XSTR (XEXP (desc->rtl, 0), 0);
     }
-#endif
 
 #ifdef CONSTANT_AFTER_FUNCTION_P
   if (current_function_decl != 0
@@ -3385,11 +3409,7 @@ output_constant_pool (fnname, fndecl)
 	}
 
       /* First switch to correct section.  */
-#ifdef SELECT_RTX_SECTION
-      SELECT_RTX_SECTION (pool->mode, x, pool->align);
-#else
-      readonly_data_section ();
-#endif
+      (*targetm.asm_out.select_rtx_section) (pool->mode, x, pool->align);
 
 #ifdef ASM_OUTPUT_SPECIAL_POOL_ENTRY
       ASM_OUTPUT_SPECIAL_POOL_ENTRY (asm_out_file, x, pool->mode,
@@ -3480,6 +3500,7 @@ static void
 mark_constant_pool ()
 {
   rtx insn;
+  rtx link;
   struct pool_constant *pool;
 
   if (first_pool == 0 && htab_elements (const_str_htab) == 0)
@@ -3492,11 +3513,15 @@ mark_constant_pool ()
     if (INSN_P (insn))
       mark_constants (PATTERN (insn));
 
-  for (insn = current_function_epilogue_delay_list;
-       insn;
-       insn = XEXP (insn, 1))
-    if (INSN_P (insn))
-      mark_constants (PATTERN (insn));
+  for (link = current_function_epilogue_delay_list;
+       link;
+       link = XEXP (link, 1))
+    {
+      insn = XEXP (link, 0);
+
+      if (INSN_P (insn))
+	mark_constants (PATTERN (insn));
+    }
 }
 
 /* Look through appropriate parts of X, marking all entries in the
@@ -3556,6 +3581,7 @@ mark_constants (x)
 	case 'w':
 	case 'n':
 	case 'u':
+	case 'B':
 	  break;
 
 	default:
@@ -3629,6 +3655,7 @@ output_addressed_constants (exp)
   switch (TREE_CODE (exp))
     {
     case ADDR_EXPR:
+    case FDESC_EXPR:
       /* Go inside any operations that get_inner_reference can handle and see
 	 if what's inside is a constant: no need to do anything here for
 	 addresses of variables or functions.  */
@@ -3637,8 +3664,8 @@ output_addressed_constants (exp)
 	;
 
       if (TREE_CODE_CLASS (TREE_CODE (tem)) == 'c'
-	    || TREE_CODE (tem) == CONSTRUCTOR)
-	  output_constant_def (tem, 0);
+	  || TREE_CODE (tem) == CONSTRUCTOR)
+	output_constant_def (tem, 0);
 
       if (TREE_PUBLIC (tem))
 	reloc |= 2;
@@ -4387,7 +4414,7 @@ mark_weak (decl)
       && GET_CODE (XEXP (DECL_RTL (decl), 0)) == SYMBOL_REF)
     SYMBOL_REF_WEAK (XEXP (DECL_RTL (decl), 0)) = 1;
 }
- 
+
 /* Merge weak status between NEWDECL and OLDDECL.  */
 
 void
@@ -4401,7 +4428,7 @@ merge_weak (newdecl, olddecl)
   if (DECL_WEAK (newdecl))
     {
       tree wd;
-      
+
       /* NEWDECL is weak, but OLDDECL is not.  */
 
       /* If we already output the OLDDECL, we're in trouble; we can't
@@ -4409,7 +4436,7 @@ merge_weak (newdecl, olddecl)
 	 declare_weak because the NEWDECL and OLDDECL was not yet
 	 been merged; therefore, TREE_ASM_WRITTEN was not set.  */
       if (TREE_ASM_WRITTEN (olddecl))
-	error_with_decl (newdecl, 
+	error_with_decl (newdecl,
 			 "weak declaration of `%s' must precede definition");
 
       /* If we've already generated rtl referencing OLDDECL, we may
@@ -4657,7 +4684,7 @@ make_decl_one_only (decl)
 void
 init_varasm_once ()
 {
-  const_str_htab = htab_create_ggc (128, const_str_htab_hash, 
+  const_str_htab = htab_create_ggc (128, const_str_htab_hash,
 				    const_str_htab_eq, NULL);
   in_named_htab = htab_create (31, in_named_entry_hash,
 			       in_named_entry_eq, NULL);
@@ -4690,13 +4717,24 @@ default_section_type_flags (decl, name, reloc)
   if (decl && DECL_ONE_ONLY (decl))
     flags |= SECTION_LINKONCE;
 
+  if (decl && TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
+    flags |= SECTION_TLS | SECTION_WRITE;
+
   if (strcmp (name, ".bss") == 0
       || strncmp (name, ".bss.", 5) == 0
       || strncmp (name, ".gnu.linkonce.b.", 16) == 0
       || strcmp (name, ".sbss") == 0
       || strncmp (name, ".sbss.", 6) == 0
-      || strncmp (name, ".gnu.linkonce.sb.", 17) == 0)
+      || strncmp (name, ".gnu.linkonce.sb.", 17) == 0
+      || strcmp (name, ".tbss") == 0
+      || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
     flags |= SECTION_BSS;
+
+  if (strcmp (name, ".tdata") == 0
+      || strcmp (name, ".tbss") == 0
+      || strncmp (name, ".gnu.linkonce.td.", 17) == 0
+      || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
+    flags |= SECTION_TLS;
 
   return flags;
 }
@@ -4740,6 +4778,8 @@ default_elf_asm_named_section (name, flags)
     *f++ = 'M';
   if (flags & SECTION_STRINGS)
     *f++ = 'S';
+  if (flags & SECTION_TLS)
+    *f++ = 'T';
   *f = '\0';
 
   if (flags & SECTION_BSS)
@@ -4947,8 +4987,17 @@ categorize_decl_for_section (decl, reloc)
   else
     ret = SECCAT_RODATA;
 
+  /* There are no read-only thread-local sections.  */
+  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
+    {
+      if (ret == SECCAT_BSS)
+	ret = SECCAT_TBSS;
+      else
+	ret = SECCAT_TDATA;
+    }
+
   /* If the target uses small data sections, select it.  */
-  if ((*targetm.in_small_data_p) (decl))
+  else if ((*targetm.in_small_data_p) (decl))
     {
       if (ret == SECCAT_BSS)
 	ret = SECCAT_SBSS;
@@ -5023,7 +5072,7 @@ default_elf_select_section (decl, reloc, align)
     }
 }
 
-/* Construct a unique section name based on the decl name and the 
+/* Construct a unique section name based on the decl name and the
    categorization performed above.  */
 
 void
@@ -5064,14 +5113,18 @@ default_unique_section (decl, reloc)
       prefix = one_only ? ".gnu.linkonce.sb." : ".sbss.";
       break;
     case SECCAT_TDATA:
+      prefix = one_only ? ".gnu.linkonce.td." : ".tdata.";
+      break;
     case SECCAT_TBSS:
+      prefix = one_only ? ".gnu.linkonce.tb." : ".tbss.";
+      break;
     default:
       abort ();
     }
   plen = strlen (prefix);
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  STRIP_NAME_ENCODING (name, name);
+  name = (* targetm.strip_name_encoding) (name);
   nlen = strlen (name);
 
   string = alloca (nlen + plen + 1);
@@ -5079,6 +5132,107 @@ default_unique_section (decl, reloc)
   memcpy (string + plen, name, nlen + 1);
 
   DECL_SECTION_NAME (decl) = build_string (nlen + plen, string);
+}
+
+void
+default_select_rtx_section (mode, x, align)
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     rtx x;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  if (flag_pic)
+    switch (GET_CODE (x))
+      {
+      case CONST:
+      case SYMBOL_REF:
+      case LABEL_REF:
+	data_section ();
+	return;
+
+      default:
+	break;
+      }
+
+  readonly_data_section ();
+}
+
+void
+default_elf_select_rtx_section (mode, x, align)
+     enum machine_mode mode;
+     rtx x;
+     unsigned HOST_WIDE_INT align;
+{
+  /* ??? Handle small data here somehow.  */
+
+  if (flag_pic)
+    switch (GET_CODE (x))
+      {
+      case CONST:
+      case SYMBOL_REF:
+	named_section (NULL_TREE, ".data.rel.ro", 3);
+	return;
+
+      case LABEL_REF:
+	named_section (NULL_TREE, ".data.rel.ro.local", 1);
+	return;
+
+      default:
+	break;
+      }
+
+  mergeable_constant_section (mode, align, 0);
+}
+
+/* By default, we do nothing for encode_section_info, so we need not
+   do anything but discard the '*' marker.  */
+
+const char *
+default_strip_name_encoding (str)
+     const char *str;
+{
+  return str + (*str == '*');
+}
+
+/* Assume ELF-ish defaults, since that's pretty much the most liberal
+   wrt cross-module name binding.  */
+
+bool
+default_binds_local_p (exp)
+     tree exp;
+{
+  bool local_p;
+
+  /* A non-decl is an entry in the constant pool.  */
+  if (!DECL_P (exp))
+    local_p = true;
+  /* Static variables are always local.  */
+  else if (! TREE_PUBLIC (exp))
+    local_p = true;
+  /* A variable is local if the user tells us so.  */
+  else if (MODULE_LOCAL_P (exp))
+    local_p = true;
+  /* Otherwise, variables defined outside this object may not be local.  */
+  else if (DECL_EXTERNAL (exp))
+    local_p = false;
+  /* Linkonce and weak data are never local.  */
+  else if (DECL_ONE_ONLY (exp) || DECL_WEAK (exp))
+    local_p = false;
+  /* If PIC, then assume that any global name can be overridden by
+     symbols resolved from other modules.  */
+  else if (flag_pic)
+    local_p = false;
+  /* Uninitialized COMMON variable may be unified with symbols
+     resolved from other modules.  */
+  else if (DECL_COMMON (exp)
+	   && (DECL_INITIAL (exp) == NULL
+	       || DECL_INITIAL (exp) == error_mark_node))
+    local_p = false;
+  /* Otherwise we're left with initialized (or non-common) global data
+     which is of necessity defined locally.  */
+  else
+    local_p = true;
+
+  return local_p;
 }
 
 #include "gt-varasm.h"

@@ -391,8 +391,7 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 				         ? (target_flags & THUMB_FLAG_LEAF_BACKTRACE)	\
 				         : (target_flags & THUMB_FLAG_BACKTRACE))
 
-/* SUBTARGET_SWITCHES is used to add flags on a per-config basis.
-   Bit 31 is reserved.  See riscix.h.  */
+/* SUBTARGET_SWITCHES is used to add flags on a per-config basis.  */
 #ifndef SUBTARGET_SWITCHES
 #define SUBTARGET_SWITCHES
 #endif
@@ -1849,58 +1848,11 @@ typedef struct
   case '*':  return 1;				\
   SUBTARGET_NAME_ENCODING_LENGTHS		
 
-/* This has to be handled by a function because more than part of the
-   ARM backend uses function name prefixes to encode attributes.  */
-#undef  STRIP_NAME_ENCODING
-#define STRIP_NAME_ENCODING(VAR, SYMBOL_NAME)	\
-  (VAR) = arm_strip_name_encoding (SYMBOL_NAME)
-
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
 #undef  ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(FILE, NAME)		\
   asm_fprintf (FILE, "%U%s", arm_strip_name_encoding (NAME))
-
-/* If we are referencing a function that is weak then encode a long call
-   flag in the function name, otherwise if the function is static or
-   or known to be defined in this file then encode a short call flag.
-   This macro is used inside the ENCODE_SECTION macro.  */
-#define ARM_ENCODE_CALL_TYPE(decl)					\
-  if (TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')			\
-    {									\
-      if (TREE_CODE (decl) == FUNCTION_DECL && DECL_WEAK (decl))	\
-        arm_encode_call_attribute (decl, LONG_CALL_FLAG_CHAR);		\
-      else if (! TREE_PUBLIC (decl))        				\
-        arm_encode_call_attribute (decl, SHORT_CALL_FLAG_CHAR);		\
-    }
-
-/* Symbols in the text segment can be accessed without indirecting via the
-   constant pool; it may take an extra binary operation, but this is still
-   faster than indirecting via memory.  Don't do this when not optimizing,
-   since we won't be calculating al of the offsets necessary to do this
-   simplification.  */
-/* This doesn't work with AOF syntax, since the string table may be in
-   a different AREA.  */
-#ifndef AOF_ASSEMBLER
-#define ENCODE_SECTION_INFO(decl, first)				\
-{									\
-  if (optimize > 0 && TREE_CONSTANT (decl)				\
-      && (!flag_writable_strings || TREE_CODE (decl) != STRING_CST))	\
-    {									\
-      rtx rtl = (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd'		\
-                 ? TREE_CST_RTL (decl) : DECL_RTL (decl));		\
-      SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;				\
-    }									\
-  if (first)								\
-    ARM_ENCODE_CALL_TYPE (decl)						\
-}
-#else
-#define ENCODE_SECTION_INFO(decl, first)				\
-{									\
-  if (first)								\
-    ARM_ENCODE_CALL_TYPE (decl)						\
-}
-#endif
 
 #define ARM_DECLARE_FUNCTION_SIZE(STREAM, NAME, DECL)	\
   arm_encode_call_attribute (DECL, SHORT_CALL_FLAG_CHAR)
@@ -2465,30 +2417,7 @@ extern int making_const_table;
 
 /* Condition code information. */
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
-   return the mode to be used for the comparison. 
-   CCFPEmode should be used with floating inequalities,
-   CCFPmode should be used with floating equalities.
-   CC_NOOVmode should be used with SImode integer equalities.
-   CC_Zmode should be used if only the Z flag is set correctly
-   CCmode should be used otherwise. */
-
-#define EXTRA_CC_MODES \
-        CC(CC_NOOVmode, "CC_NOOV") \
-        CC(CC_Zmode, "CC_Z") \
-        CC(CC_SWPmode, "CC_SWP") \
-        CC(CCFPmode, "CCFP") \
-        CC(CCFPEmode, "CCFPE") \
-        CC(CC_DNEmode, "CC_DNE") \
-        CC(CC_DEQmode, "CC_DEQ") \
-        CC(CC_DLEmode, "CC_DLE") \
-        CC(CC_DLTmode, "CC_DLT") \
-        CC(CC_DGEmode, "CC_DGE") \
-        CC(CC_DGTmode, "CC_DGT") \
-        CC(CC_DLEUmode, "CC_DLEU") \
-        CC(CC_DLTUmode, "CC_DLTU") \
-        CC(CC_DGEUmode, "CC_DGEU") \
-        CC(CC_DGTUmode, "CC_DGTU") \
-        CC(CC_Cmode, "CC_C")
+   return the mode to be used for the comparison.  */
 
 #define SELECT_CC_MODE(OP, X, Y)  arm_select_cc_mode (OP, X, Y)
 

@@ -90,8 +90,8 @@ CC = cc
 # Special variables passed down in EXTRA_GCC_FLAGS.  They are defined
 # here so that they can be overridden by Makefile fragments.
 HOST_CC = $(CC_FOR_BUILD)
-HOST_PREFIX = 
-HOST_PREFIX_1 = loser-
+BUILD_PREFIX = 
+BUILD_PREFIX_1 = loser-
 
 # These flag values are normally overridden by the configure script.
 CFLAGS = -g
@@ -100,7 +100,11 @@ CXXFLAGS = -g -O2
 LDFLAGS = 
 LIBCFLAGS = $(CFLAGS)
 CFLAGS_FOR_BUILD = $(CFLAGS)
-CFLAGS_FOR_TARGET = $(CFLAGS)
+# During gcc bootstrap, if we use some random cc for stage1 then
+# CFLAGS will be just -g.  We want to ensure that TARGET libraries
+# (which we know are built with gcc) are built with optimizations so
+# prepend -O2 when setting CFLAGS_FOR_TARGET.
+CFLAGS_FOR_TARGET = -O2 $(CFLAGS)
 LDFLAGS_FOR_TARGET = 
 LIBCFLAGS_FOR_TARGET = $(CFLAGS_FOR_TARGET)
 PICFLAG = 
@@ -182,7 +186,7 @@ OTHERS =
 
 # This is set by the configure script to the list of directories which
 # should be built using the target tools.
-TARGET_CONFIGDIRS = libiberty libgloss $(SPECIAL_LIBS) newlib librx winsup opcodes bsp libstub cygmon libf2c libobjc
+TARGET_CONFIGDIRS = libiberty libgloss $(SPECIAL_LIBS) newlib winsup opcodes bsp libstub cygmon libf2c libobjc
 
 # Target libraries are put under this directory:
 # Changed by configure to $(target_alias) if cross.
@@ -486,8 +490,8 @@ EXTRA_GCC_FLAGS = \
 	'CXX=$(CXX)' \
 	'DLLTOOL=$$(DLLTOOL_FOR_TARGET)' \
 	'HOST_CC=$(CC_FOR_BUILD)' \
-	'HOST_PREFIX=$(HOST_PREFIX)' \
-	'HOST_PREFIX_1=$(HOST_PREFIX_1)' \
+	'BUILD_PREFIX=$(BUILD_PREFIX)' \
+	'BUILD_PREFIX_1=$(BUILD_PREFIX_1)' \
 	'NM=$(NM)' \
 	"`echo 'RANLIB=$(RANLIB)' | sed -e s/.*=$$/XFOO=/`" \
 	'WINDRES=$$(WINDRES_FOR_TARGET)' \
@@ -580,7 +584,6 @@ ALL_MODULES = \
 	all-snavigator \
 	all-tar \
 	all-tcl \
-	all-tcl8.1 \
 	all-texinfo \
 	all-textutils \
 	all-tgas \
@@ -712,7 +715,6 @@ INSTALL_MODULES = \
 	install-intl \
 	install-ispell \
 	install-tcl \
-	install-tcl8.1 \
 	install-itcl \
 	install-ld \
 	install-libgui \
@@ -752,7 +754,6 @@ ALL_X11_MODULES = \
 	all-guile \
 	all-tclX \
 	all-tk \
-	all-tk8.1 \
 	all-tix
 
 # This is a list of the check targets for all of the modules which are
@@ -776,14 +777,12 @@ INSTALL_X11_MODULES = \
 	install-expect \
 	install-tclX \
 	install-tk \
-	install-tk8.1 \
 	install-tix
 
 # This is a list of the targets for all of the modules which are compiled
 # using $(TARGET_FLAGS_TO_PASS).
 ALL_TARGET_MODULES = \
 	all-target-libstdc++-v3 \
-	all-target-librx \
 	all-target-newlib \
 	all-target-libf2c \
 	all-target-libobjc \
@@ -806,7 +805,6 @@ ALL_TARGET_MODULES = \
 # are compiled using the target tools.
 CONFIGURE_TARGET_MODULES = \
 	configure-target-libstdc++-v3 \
-	configure-target-librx \
 	configure-target-newlib \
 	configure-target-libf2c \
 	configure-target-libobjc \
@@ -932,7 +930,6 @@ CLEAN_MODULES = \
 # All of the target modules that can be cleaned
 CLEAN_TARGET_MODULES = \
 	clean-target-libstdc++-v3 \
-	clean-target-librx \
 	clean-target-newlib \
 	clean-target-libf2c \
 	clean-target-libobjc \
@@ -1747,7 +1744,7 @@ all-target-gperf: configure-target-gperf all-target-libiberty all-target-libstdc
 all-gprof: all-libiberty all-bfd all-opcodes all-intl
 all-grep: all-libiberty
 all-grez: all-libiberty all-bfd all-opcodes
-all-gui: all-gdb all-libproc all-target-librx
+all-gui: all-gdb all-libproc
 all-guile:
 all-gzip: all-libiberty
 all-hello: all-libiberty
@@ -1755,11 +1752,11 @@ all-indent:
 all-inet: all-tcl all-send-pr all-perl
 all-intl:
 all-ispell: all-emacs19
-all-itcl: all-tcl all-tk all-tcl8.1 all-tk8.1
+all-itcl: all-tcl all-tk
 all-ld: all-libiberty all-bfd all-opcodes all-bison all-byacc all-flex all-intl
 configure-target-libgloss: $(ALL_GCC)
 all-target-libgloss: configure-target-libgloss configure-target-newlib
-all-libgui: all-tcl all-tk all-tcl8.1 all-tk8.1 all-itcl
+all-libgui: all-tcl all-tk all-itcl
 all-libiberty:
 
 all-build-libiberty: configure-build-libiberty
@@ -1768,8 +1765,6 @@ configure-target-libffi: $(ALL_GCC_C)
 all-target-libffi: configure-target-libffi
 configure-target-libjava: $(ALL_GCC_C) configure-target-zlib configure-target-boehm-gc configure-target-qthreads configure-target-libffi
 all-target-libjava: configure-target-libjava all-fastjar all-target-zlib all-target-boehm-gc all-target-qthreads all-target-libffi
-configure-target-librx: $(ALL_GCC_C)
-all-target-librx: configure-target-librx
 configure-target-libstdc++-v3: $(ALL_GCC_C)
 all-target-libstdc++-v3: configure-target-libstdc++-v3 all-target-libiberty
 configure-target-libstub: $(ALL_GCC_C)
@@ -1803,15 +1798,13 @@ all-sim: all-libiberty all-bfd all-opcodes all-readline all-cgen
 all-snavigator: all-tcl all-tk all-itcl all-tix all-db all-grep all-libgui
 all-tar: all-libiberty
 all-tcl:
-all-tcl8.1:
 all-tclX: all-tcl all-tk
 all-tk: all-tcl
-all-tk8.1: all-tcl8.1
 all-texinfo: all-libiberty
 all-textutils:
 all-tgas: all-libiberty all-bfd all-opcodes
 all-time:
-all-tix: all-tcl all-tk all-tcl8.1 all-tk8.1
+all-tix: all-tcl all-tk
 all-wdiff:
 configure-target-winsup: $(ALL_GCC_C)
 all-target-winsup: all-target-libiberty all-target-libtermcap configure-target-winsup

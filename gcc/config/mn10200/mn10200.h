@@ -32,7 +32,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Names to predefine in the preprocessor for this target machine.  */
 
-#define CPP_PREDEFINES "-D__mn10200__ -D__MN10200__ -D__LONG_MAX__=2147483647L -D__LONG_LONG_MAX__=2147483647L -D__INT_MAX__=32767"
+#define CPP_PREDEFINES "-D__mn10200__ -D__MN10200__"
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
@@ -830,12 +830,8 @@ struct cum_arg { int nbytes; };
    `assemble_name' uses this.  */
 
 #undef ASM_OUTPUT_LABELREF
-#define ASM_OUTPUT_LABELREF(FILE, NAME)	          \
-  do {                                            \
-  const char* real_name;                          \
-  STRIP_NAME_ENCODING (real_name, (NAME));        \
-  fprintf (FILE, "_%s", real_name);               \
-  } while (0)           
+#define ASM_OUTPUT_LABELREF(FILE, NAME) \
+  fprintf (FILE, "_%s", (*targetm.strip_name_encoding) (NAME))
 
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.

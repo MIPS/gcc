@@ -104,16 +104,15 @@ static int mul_highpart_cost[NUM_MACHINE_MODES];
 void
 init_expmed ()
 {
-  /* This is "some random pseudo register" for purposes of calling recog
-     to see what insns exist.  */
-  rtx reg = gen_rtx_REG (word_mode, 10000);
-  rtx shift_insn, shiftadd_insn, shiftsub_insn;
+  rtx reg, shift_insn, shiftadd_insn, shiftsub_insn;
   int dummy;
   int m;
   enum machine_mode mode, wider_mode;
 
   start_sequence ();
 
+  /* This is "some random pseudo register" for purposes of calling recog
+     to see what insns exist.  */
   reg = gen_rtx_REG (word_mode, 10000);
 
   zero_cost = rtx_cost (const0_rtx, 0);
@@ -347,7 +346,7 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, total_size)
       && (GET_CODE (op0) != MEM
 	  ? ((GET_MODE_SIZE (fieldmode) >= UNITS_PER_WORD
 	     || GET_MODE_SIZE (GET_MODE (op0)) == GET_MODE_SIZE (fieldmode))
-            && byte_offset % GET_MODE_SIZE (fieldmode) == 0)
+	     && byte_offset % GET_MODE_SIZE (fieldmode) == 0)
 	  : (! SLOW_UNALIGNED_ACCESS (fieldmode, MEM_ALIGN (op0))
 	     || (offset * BITS_PER_UNIT % bitsize == 0
 		 && MEM_ALIGN (op0) % GET_MODE_BITSIZE (fieldmode) == 0))))
@@ -675,7 +674,7 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, total_size)
       if (pat)
 	emit_insn (pat);
       else
-        {
+	{
 	  delete_insns_since (last);
 	  store_fixed_bit_field (op0, offset, bitsize, bitpos, value);
 	}
@@ -737,8 +736,8 @@ store_fixed_bit_field (op0, offset, bitsize, bitpos, value)
 
       mode = GET_MODE (op0);
       if (GET_MODE_BITSIZE (mode) == 0
-          || GET_MODE_BITSIZE (mode) > GET_MODE_BITSIZE (word_mode))
-        mode = word_mode;
+	  || GET_MODE_BITSIZE (mode) > GET_MODE_BITSIZE (word_mode))
+	mode = word_mode;
       mode = get_best_mode (bitsize, bitpos + offset * BITS_PER_UNIT,
 			    MEM_ALIGN (op0), mode, MEM_VOLATILE_P (op0));
 
@@ -1109,8 +1108,8 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
                 + (offset * UNITS_PER_WORD);
 
   mode1  = (VECTOR_MODE_P (tmode)
-           ? mode
-	   : mode_for_size (bitsize, GET_MODE_CLASS (tmode), 0));
+	    ? mode
+	    : mode_for_size (bitsize, GET_MODE_CLASS (tmode), 0));
 
   if (((GET_CODE (op0) != MEM
 	&& TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
@@ -1928,9 +1927,9 @@ expand_shift (code, mode, shifted, amount, target, unsignedp)
   if (SHIFT_COUNT_TRUNCATED)
     {
       if (GET_CODE (op1) == CONST_INT
-          && ((unsigned HOST_WIDE_INT) INTVAL (op1) >=
+	  && ((unsigned HOST_WIDE_INT) INTVAL (op1) >=
 	      (unsigned HOST_WIDE_INT) GET_MODE_BITSIZE (mode)))
-        op1 = GEN_INT ((unsigned HOST_WIDE_INT) INTVAL (op1)
+	op1 = GEN_INT ((unsigned HOST_WIDE_INT) INTVAL (op1)
 		       % GET_MODE_BITSIZE (mode));
       else if (GET_CODE (op1) == SUBREG
 	       && subreg_lowpart_p (op1))
@@ -2566,8 +2565,8 @@ expand_mult (mode, op0, op1, target, unsignedp)
      there is no difference between signed and unsigned.  */
   op0 = expand_binop (mode,
 		      ! unsignedp
-                       && flag_trapv && (GET_MODE_CLASS(mode) == MODE_INT)
-                       ? smulv_optab : smul_optab,
+		      && flag_trapv && (GET_MODE_CLASS(mode) == MODE_INT)
+		      ? smulv_optab : smul_optab,
 		      op0, op1, target, unsignedp, OPTAB_LIB_WIDEN);
   if (op0 == 0)
     abort ();
@@ -3012,9 +3011,9 @@ expand_divmod (rem_flag, code, mode, op0, op1, target, unsignedp)
   if (! unsignedp && op1 == constm1_rtx)
     {
       if (rem_flag)
-        return const0_rtx;
+	return const0_rtx;
       return expand_unop (mode, flag_trapv && GET_MODE_CLASS(mode) == MODE_INT
-                        ? negv_optab : neg_optab, op0, target, 0);
+			  ? negv_optab : neg_optab, op0, target, 0);
     }
 
   if (target
@@ -4137,6 +4136,13 @@ make_tree (type, x)
 			    build (TRUNC_DIV_EXPR, t,
 				   make_tree (t, XEXP (x, 0)),
 				   make_tree (t, XEXP (x, 1)))));
+
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
+      t = (*lang_hooks.types.type_for_mode) (GET_MODE (XEXP (x, 0)),
+					     GET_CODE (x) == ZERO_EXTEND);
+      return fold (convert (type, make_tree (t, XEXP (x, 0))));
+
    default:
       t = make_node (RTL_EXPR);
       TREE_TYPE (t) = type;
@@ -4154,6 +4160,44 @@ make_tree (type, x)
       RTL_EXPR_SEQUENCE (t) = 0;
       return t;
     }
+}
+
+/* Check whether the multiplication X * MULT + ADD overflows.
+   X, MULT and ADD must be CONST_*.
+   MODE is the machine mode for the computation.
+   X and MULT must have mode MODE.  ADD may have a different mode.
+   So can X (defaults to same as MODE).
+   UNSIGNEDP is non-zero to do unsigned multiplication.  */
+
+bool
+const_mult_add_overflow_p (x, mult, add, mode, unsignedp)
+     rtx x, mult, add;
+     enum machine_mode mode;
+     int unsignedp;
+{
+  tree type, mult_type, add_type, result;
+
+  type = (*lang_hooks.types.type_for_mode) (mode, unsignedp);
+
+  /* In order to get a proper overflow indication from an unsigned
+     type, we have to pretend that it's a sizetype.  */
+  mult_type = type;
+  if (unsignedp)
+    {
+      mult_type = copy_node (type);
+      TYPE_IS_SIZETYPE (mult_type) = 1;
+    }
+
+  add_type = (GET_MODE (add) == VOIDmode ? mult_type
+	      : (*lang_hooks.types.type_for_mode) (GET_MODE (add), unsignedp));
+
+  result = fold (build (PLUS_EXPR, mult_type,
+			fold (build (MULT_EXPR, mult_type,
+				     make_tree (mult_type, x),
+				     make_tree (mult_type, mult))),
+			make_tree (add_type, add)));
+
+  return TREE_CONSTANT_OVERFLOW (result);
 }
 
 /* Return an rtx representing the value of X * MULT + ADD.

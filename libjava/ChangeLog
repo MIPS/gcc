@@ -1,3 +1,445 @@
+2002-06-23  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am ($(srcdir)/java/lang/Object.h,
+	$(srcdir)/java/lang/Class.h): Added dummy targets.
+
+2002-06-21  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Reformat JDBC classes and add new JDK 1.4 classes and methods.
+
+	* java/sql/ParameterMetaData.java, java/sql/SQLPermission.java,
+	java/sql/Savepoint.java: New files.
+	* java/sql/Array.java, java/sql/BatchUpdateException.java,
+	java/sql/Blob.java, java/sql/CallableStatement.java,
+	java/sql/Clob.java, java/sql/Connection.java,
+	java/sql/DataTruncation.java, java/sql/DatabaseMetaData.java,
+	java/sql/Date.java, java/sql/Driver.java, java/sql/DriverManager.java,
+	java/sql/DriverPropertyInfo.java, java/sql/PreparedStatement.java,
+	java/sql/Ref.java, java/sql/ResultSet.java,
+	java/sql/ResultSetMetaData.java, java/sql/SQLData.java
+	java/sql/SQLException.java, java/sql/SQLInput.java,
+	java/sql/SQLOutput.java, java/sql/SQLWarning.java
+	java/sql/Statement.java, java/sql/Struct.java, java/sql/Time.java,
+	java/sql/Timestamp.java, java/sql/Types.java: Updated to JDBC 3.0
+	(JDK 1.4) specification.
+	* javax/sql/ConnectionEvent.java, 
+	javax/sql/ConnectionEventListener.java,
+	javax/sql/ConnectionPoolDataSource.java,
+	javax/sql/DataSource.java, javax/sql/PooledConnection.java,
+	javax/sql/RowSetEvent.java, javax/sql/RowSetInternal.java,
+	javax/sql/RowSet.java, javax/sql/RowSetListener.java,
+	javax/sql/RowSetMetaData.java, javax/sql/RowSetReader.java,
+	javax/sql/RowSetWriter.java, javax/sql/XAConnection.java,
+	javax/sql/XADataSource.java: New files.
+	* Makefile.am: Add new files.
+	* Makefile.in: Rebuilt.
+	
+2002-06-20  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/7073:
+	* resolve.cc (_Jv_PrepareClass): Only resolve superclass if it
+	exists.
+	* defineclass.cc (handleClassBegin): Superclass for interface is
+	`null'.
+
+2002-06-18  Tom Tromey  <tromey@redhat.com>
+
+	* gcj/javaprims.h: Updated class declaration list.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (core_java_source_files): Removed
+	BasicMapEntry.java.
+	* java/util/BasicMapEntry.java: Removed.
+
+2002-06-18  Jeff Sturm  <jsturm@one-point.com>
+
+	* java/net/natPlainDatagramSocketImpl.cc (receive):
+	Check bounds of argument to FD_SET.
+	(setOption): Throw exception if socket is closed.
+
+	* java/net/natPlainSocketImpl.cc (accept, read):
+	Check bounds of argument to FD_SET.
+	(setOption): Throw exception if socket is closed.
+
+2002-06-18  Tom Tromey  <tromey@redhat.com>
+
+	* gcj/javaprims.h: Updated class declaration list.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (core_java_source_files): Added
+	PropertyPermissionCollection.java.
+	* java/lang/Thread.java (group, name): Now package-private.
+	* java/lang/ThreadGroup.java: Re-merge with Classpath.
+	* java/util/AbstractList.java: Likewise.
+	* java/util/AbstractMap.java: Likewise.
+	* java/util/Calendar.java: Likewise.
+	* java/util/Collections.java: Likewise.
+	* java/util/HashMap.java: Likewise.
+	* java/util/Hashtable.java: Likewise.
+	* java/util/LinkedHashMap.java: Likewise.
+	* java/util/LinkedList.java: Likewise.
+	* java/util/List.java: Likewise.
+	* java/util/ListResourceBundle.java: Likewise.
+	* java/util/Map.java: Likewise.
+	* java/util/Observable.java: Likewise.
+	* java/util/Properties.java: Likewise.
+	* java/util/PropertyPermission.java: Likewise.
+	* java/util/PropertyPermissionCollection.java: Likewise.
+	* java/util/PropertyResourceBundle.java: Likewise.
+	* java/util/Random.java: Likewise.
+	* java/util/SimpleTimeZone.java: Likewise.
+	* java/util/StringTokenizer.java: Likewise.
+	* java/util/TimerTask.java: Likewise.
+	* java/util/TreeMap.java: Likewise.
+	* java/util/WeakHashMap.java: Likewise.
+	* java/util/jar/Attributes.java: Likewise.
+	* java/util/jar/JarException.java: Likewise.
+	* java/util/jar/Manifest.java: Likewise.
+
+2002-06-17  Tom Tromey  <tromey@redhat.com>
+
+	* gcj/javaprims.h: Updated class declaration list.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (core_java_source_files): Added new file.
+	* java/util/EventListenerProxy.java: New file.
+	* java/util/EventListener.java: Re-merge with Classpath.
+	* java/util/EventObject.java: Re-merge with Classpath.
+
+2002-06-17  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* java/lang/ClassNotFoundException.java: New Classpath version.
+
+2002-06-17  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* java/rmi/activation/ActivateFailedException.java: Remerge from
+	Classpath version.
+	* java/rmi/activation/ActivationException.java: Ditto.
+	* java/rmi/activation/UnknownGroupException.java: Ditto.
+	* java/rmi/activation/UnknownObjectException.java: Ditto.
+	* java/rmi/server/ExportException: Ditto.
+	* java/rmi/server/ServerCloneException: Ditto.
+	* java/rmi/server/ServerNotActiveException: Ditto.
+	* java/rmi/server/SkeletonMismatchException: Ditto.
+	* java/rmi/server/SkeletonNotFoundException: Ditto.
+	* java/rmi/server/SocketSecurityException: Ditto.
+
+2002-06-16  Tom Tromey  <tromey@redhat.com>
+
+	* gcj/javaprims.h: Updated class declaration list.
+
+	* java/io/LineNumberInputStream.java: Merged with Classpath.
+
+	* java/lang/RuntimeException.java: Re-merge with Classpath.
+	* java/util/ArrayList.java: Likewise.
+	* java/util/Arrays.java: Likewise.
+	* java/util/BitSet.java: Likewise.
+	* java/util/Dictionary.java: Likewise.
+	* java/util/IdentityHashMap.java: Likewise.
+	* java/util/MissingResourceException.java: Likewise.
+	* java/util/Observer.java: Likewise.
+	* java/util/TooManyListenersException.java: Likewise.
+	* java/util/zip/DataFormatException.java: Likewise.
+	* java/util/zip/ZipException.java: Likewise.
+
+2002-06-16  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* java/rmi/AccessException.java: Remerge from Classpath.
+	* java/rmi/AlreadyBoundException.java: Ditto.
+	* java/rmi/ConnectException.java: Ditto.
+	* java/rmi/ConnectIOException.java: Ditto.
+	* java/rmi/MarshalException.java: Ditto.
+	* java/rmi/NoSuchObjectException.java: Ditto.
+	* java/rmi/NotBoundException.java: Ditto.
+	* java/rmi/RemoteException.java: Ditto.
+	* java/rmi/RMISecurityException.java: Ditto.
+	* java/rmi/ServerError.java: Ditto.
+	* java/rmi/ServerException.java: Ditto.
+	* java/rmi/ServerRuntimeException.java: Ditto.
+	* java/rmi/StubNotFoundException.java: Ditto.
+	* java/rmi/UnexpectedExcpetion.java: Ditto.
+	* java/rmi/UnknownHostException.java: Ditto.
+	* java/rmi/UnmarshalException.java: Ditto.
+
+2002-06-15  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/AbstractMethodError.java: Re-merged with Classpath.
+	* java/lang/ArithmeticException.java: Likewise.
+	* java/lang/ArrayIndexOutOfBoundsException.java: Likewise.
+	* java/lang/ArrayStoreException.java: Likewise.
+	* java/lang/Byte.java: Likewise.
+	* java/lang/CharSequence.java: Likewise.
+	* java/lang/ClassCastException.java: Likewise.
+	* java/lang/ClassCircularityError.java: Likewise.
+	* java/lang/ClassFormatError.java: Likewise.
+	* java/lang/CloneNotSupportedException.java: Likewise.
+	* java/lang/Cloneable.java: Likewise.
+	* java/lang/Comparable.java: Likewise.
+	* java/lang/Compiler.java: Likewise.
+	* java/lang/Error.java: Likewise.
+	* java/lang/ExceptionInInitializerError.java: Likewise.
+	* java/lang/IllegalAccessError.java: Likewise.
+	* java/lang/IllegalAccessException.java: Likewise.
+	* java/lang/IllegalArgumentException.java: Likewise.
+	* java/lang/IllegalMonitorStateException.java: Likewise.
+	* java/lang/IllegalStateException.java: Likewise.
+	* java/lang/IllegalThreadStateException.java: Likewise.
+	* java/lang/IncompatibleClassChangeError.java: Likewise.
+	* java/lang/IndexOutOfBoundsException.java: Likewise.
+	* java/lang/InheritableThreadLocal.java: Likewise.
+	* java/lang/InstantiationError.java: Likewise.
+	* java/lang/InstantiationException.java: Likewise.
+	* java/lang/InternalError.java: Likewise.
+	* java/lang/InterruptedException.java: Likewise.
+	* java/lang/LinkageError.java: Likewise.
+	* java/lang/NegativeArraySizeException.java: Likewise.
+	* java/lang/NoClassDefFoundError.java: Likewise.
+	* java/lang/NoSuchFieldError.java: Likewise.
+	* java/lang/NoSuchFieldException.java: Likewise.
+	* java/lang/NoSuchMethodError.java: Likewise.
+	* java/lang/NoSuchMethodException.java: Likewise.
+	* java/lang/NullPointerException.java: Likewise.
+	* java/lang/NumberFormatException.java: Likewise.
+	* java/lang/OutOfMemoryError.java: Likewise.
+	* java/lang/Process.java: Likewise.
+	* java/lang/Runnable.java: Likewise.
+	* java/lang/RuntimePermission.java: Likewise.
+	* java/lang/SecurityException.java: Likewise.
+	* java/lang/Short.java: Likewise.
+	* java/lang/StackOverflowError.java: Likewise.
+	* java/lang/StringIndexOutOfBoundsException.java: Likewise.
+	* java/lang/ThreadDeath.java: Likewise.
+	* java/lang/ThreadLocal.java: Likewise.
+	* java/lang/UnknownError.java: Likewise.
+	* java/lang/UnsatisfiedLinkError.java: Likewise.
+	* java/lang/UnsupportedClassVersionError.java: Likewise.
+	* java/lang/UnsupportedOperationException.java: Likewise.
+	* java/lang/VerifyError.java: Likewise.
+	* java/lang/VirtualMachineError.java: Likewise.
+	* java/lang/reflect/InvocationTargetException.java: Likewise.
+	* java/net/BindException.java: Likewise.
+	* java/net/ConnectException.java: Likewise.
+	* java/net/MalformedURLException.java: Likewise.
+	* java/net/NoRouteToHostException.java: Likewise.
+	* java/net/ProtocolException.java: Likewise.
+	* java/net/SocketException.java: Likewise.
+	* java/net/UnknownHostException.java: Likewise.
+	* java/net/UnknownServiceException.java: Likewise.
+
+	* java/io/BufferedOutputStream.java: Re-merged with Classpath.
+	* java/io/CharConversionException.java: Likewise.
+	* java/io/EOFException.java: Likewise.
+	* java/io/FileNotFoundException.java: Likewise.
+	* java/io/IOException.java: Likewise.
+	* java/io/InterruptedIOException.java: Likewise.
+	* java/io/InvalidClassException.java: Likewise.
+	* java/io/InvalidObjectException.java: Likewise.
+	* java/io/NotActiveException.java: Likewise.
+	* java/io/NotSerializableException.java: Likewise.
+	* java/io/ObjectStreamException.java: Likewise.
+	* java/io/ObjectStreamConstants.java: Likewise.
+	* java/io/OptionalDataException.java: Likewise.
+	* java/io/PipedInputStream.java: Likewise.
+	* java/io/PushbackInputStream.java: Likewise.
+	* java/io/StreamCorruptedException.java: Likewise.
+	* java/io/SyncFailedException.java: Likewise.
+	* java/io/UTFDataFormatException.java: Likewise.
+	* java/io/UnsupportedEncodingException.java: Likewise.
+	* java/io/WriteAbortedException.java: Likewise.
+
+2002-06-15  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* java/text/ChoiceFormat.java: Update comments from Classpath.
+	* java/text/ParseException.java (serialVersionUID): New
+	field from Classpath.
+	* java/text/ParseException.java: Update formatting & comments
+	from Classpath.
+
+2002-06-15  Tom Tromey  <tromey@redhat.com>
+
+	* java/util/zip/InflaterInputStream.java (read): Loop if data has
+	been read but none output by inflater.
+	* java/util/zip/natDeflater.cc (reset): Set is_finished.
+	* java/util/zip/natInflater.cc (reset): Set dist_needed and
+	is_finished.
+	* java/util/zip/ZipOutputStream.java: Replaced with Classpath
+	version.
+	* java/util/zip/ZipFile.java: Replaced with Classpath version.
+	* java/util/zip/ZipEntry.java: Replaced with Classpath version.
+	* java/util/zip/ZipInputStream.java: Replaced with Classpath
+	version.
+	* java/util/zip/ZipConstants.java: Replaced with Classpath version.
+
+2002-06-13  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natString.cc (init): Handle case where DONT_COPY is
+	true and OFFSET!=0.
+	* java/lang/String.java (String(char[],int,int,boolean): New
+	constructor.
+	* java/lang/Long.java: Imported new version from Classpath.
+	* java/lang/Number.java: Likewise.
+	* java/lang/Integer.java: Likewise.
+	* java/lang/Long.java: Likewise.
+	* java/lang/Float.java: Likewise.
+	* java/lang/Boolean.java: Likewise.
+	* java/lang/Double.java: Likewise.
+	* java/lang/Void.java: Likewise.
+
+2002-06-12  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/natFilePosix.cc (getCanonicalPath): Treat "" like ".".
+	Fixes PR libgcj/6652.
+
+2002-06-10  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.h (Class::desiredAssertionStatus): Declare.
+	(Class::getPackagePortion): Likewise.
+	* java/lang/Class.java (desiredAssertionStatus): New method from
+	Classpath.
+	(getPackagePortion): Likewise.
+	* java/lang/VMClassLoader.java (defaultAssertionStatus,
+	packageAssertionStatus, classAssertionStatus): New methods from
+	Classpath.
+	* java/lang/ClassLoader.java (defaultAssertionStatus,
+	systemPackageAssertionStatus, packageAssertionStatus,
+	systemClassAssertionStatus, classAssertionStatus): New fields from
+	Classpath.
+	(setDefaultAssertionStatus, setPackageAssertionStatus,
+	setClassAssertionStatus, clearAssertionStatus): New methods from
+	Classpath.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (core_java_source_files): Added AssertionError.java.
+	* java/lang/AssertionError.java: New from Classpath.
+
+2002-06-10  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* configure.host: Disable hash synchronization and slow_pthread_self
+	for cygwin.
+
+2002-06-06  Adam Megacz <adam@xwt.org>
+
+        * java/io/natFileDescriptorWin32.cc (open): Disable Win32 file
+        locking, just like the Sun JVM does.
+	
+2002-06-05  H.J. Lu  (hjl@gnu.org)
+
+	* Makefile.am (libgcj_convenience.la): Revert the last change.
+	(libgcj.la): Likewise.
+	* Makefile.in: Regenerated.
+
+2002-06-04  H.J. Lu  (hjl@gnu.org)
+
+	* Makefile.am (libgcj_convenience.la): New target.
+	(libgcj.la): Depend on libgcj_convenience.la.
+	* Makefile.in: Regenerated.
+
+2002-06-04  H.J. Lu  (hjl@gnu.org)
+
+	* configure.in (--with-newlib): New option:
+	Check ${with_newlib} instead of ${with_cross_host} for newlib.
+	(HAVE_PROC_SELF_EXE): Defined to 1 only for cross compiling to
+	Linux.
+	* configure: Regenerated.
+
+2002-06-04  Tom Tromey  <tromey@redhat.com>
+
+	* java/util/natTimeZone.cc: Include <stdio.h>.
+
+2002-05-29  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* configure.host [s390*-linux*]: Set can_unwind_signal=yes.
+	* configure.in [s390*-*-linux*]: Do not define HAVE_BACKTRACE.
+	Set SIGNAL_HANDLER=include/s390-linux.h.
+	* configure: Regenerate.
+	* include/s390-linux.h: New file.
+
+2002-05-24  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* java/lang/natThrowable.cc (fillInStackTrace): Use "stackTraceBytes",
+	not "stackTrace".
+
+2002-05-24  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Merge JDK 1.4 java.security changes from classpath.
+
+	* java/security/AccessControlException.java: Merge from Classpath.
+	* java/security/AccessController.java: Likewise.
+	* java/security/AllPermission.java: Likewise.
+	* java/security/BasicPermission.java: Likewise.
+	* java/security/Certificate.java: Likewise.
+	* java/security/CodeSource.java: Likewise.
+	* java/security/DigestException.java: Likewise.
+	* java/security/DigestOutputStream.java: Likewise.
+	* java/security/DomainCombiner.java: Likewise.
+	* java/security/GeneralSecurityException.java: Likewise.
+	* java/security/Guard.java: Likewise.
+	* java/security/GuardedObject.java: Likewise.
+	* java/security/InvalidAlgorithmParameterException.java: Likewise.
+	* java/security/InvalidKeyException.java: Likewise.
+	* java/security/InvalidParameterException.java: Likewise.
+	* java/security/Key.java: Likewise.
+	* java/security/KeyException.java: Likewise.
+	* java/security/KeyManagementException.java: Likewise.
+	* java/security/KeyStoreException.java: Likewise.
+	* java/security/MessageDigest.java: Likewise.
+	* java/security/NoSuchAlgorithmException.java: Likewise.
+	* java/security/NoSuchProviderException.java: Likewise.
+	* java/security/Permission.java: Likewise.
+	* java/security/PermissionCollection.java: Likewise.
+	* java/security/Permissions.java: Likewise.
+	* java/security/Policy.java: Likewise.
+	* java/security/Principal.java: Likewise.
+	* java/security/PrivateKey.java: Likewise.
+	* java/security/PrivilegedAction.java: Likewise.
+	* java/security/PrivilegedActionException.java: Likewise.
+	* java/security/PrivilegedExceptionAction.java: Likewise.
+	* java/security/ProtectionDomain.java: Likewise.
+	* java/security/ProviderException.java: Likewise.
+	* java/security/PublicKey.java: Likewise.
+	* java/security/SecureClassLoader.java: Likewise.
+	* java/security/SecurityPermission.java: Likewise.
+	* java/security/SignatureException.java: Likewise.
+	* java/security/UnrecoverableKeyException.java: Likewise.
+	* java/security/UnresolvedPermission.java: Likewise.
+	* java/security/acl/AclNotFoundException.java: Likewise.
+	* java/security/acl/LastOwnerException.java: Likewise.
+	* java/security/acl/NotOwnerException.java: Likewise.
+	* java/security/cert/CRLException.java: Likewise.
+	* java/security/cert/CertificateEncodingException.java: Likewise.
+	* java/security/cert/CertificateException.java: Likewise.
+	* java/security/cert/CertificateExpiredException.java: Likewise.
+	* java/security/cert/CertificateFactory.java: Likewise.
+	* java/security/cert/CertificateNotYetValidException.java: Likewise.
+	* java/security/cert/CertificateParsingException.java: Likewise.
+	* java/security/spec/InvalidKeySpecException.java: Likewise.
+	* java/security/spec/InvalidParameterSpecException.java: Likewise.
+
+	* java/security/cert/CertPath.java: New file.
+	* java/security/cert/CertPathBuilderException.java: New file.
+	* java/security/cert/CertPathValidatorException.java: New file.
+	* java/security/cert/CertStoreException.java: New file.
+
+	* Makefile.am: Add new CertPath classes.
+	* Makefile.in: Rebuilt.
+
+        * gnu/java/util/EmptyEnumeration.java: New file from classpath.
+
+2002-05-24  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Merge JDK 1.4 exception chaining support from classpath.
+
+	* java/lang/Throwable.java: Merge 1.4 support from classpath.
+	(stackTraceBytes): Rename from stackTrace.
+	* java/lang/Exception.java: Merge from classpath.
+	* java/lang/StackTraceElement: New file from classpath.
+	* gcj/javaprims.h: Rebuild CNI namespace declarations.
+	* Makefile.am: Add StackTraceElement.
+	* Makefile.in: Rebuilt.
+
+2002-05-23  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.am (all-recursive): Depend on $all_java_class_files so that
+	they build first.
+	* Makefile.in: Rebuilt.
+
 2002-05-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
 	* acinclude.m4: Allow for PWDCMD to override hardcoded pwd.

@@ -826,19 +826,6 @@ if (TARGET_ARCH64				\
 #ifndef SUNOS4_SHARED_LIBRARIES
 #define SUNOS4_SHARED_LIBRARIES 0
 #endif
-
-
-/* Use text section for a constant
-   unless we need more alignment than that offers.  */
-/* This is defined differently for v9 in a cover file.  */
-#define SELECT_RTX_SECTION(MODE, X, ALIGN)	\
-{						\
-  if (GET_MODE_BITSIZE (MODE) <= MAX_TEXT_ALIGN \
-      && ! (flag_pic && (symbolic_operand ((X), (MODE)) || SUNOS4_SHARED_LIBRARIES)))  \
-    text_section ();				\
-  else						\
-    data_section ();				\
-}
 
 /* Standard register usage.  */
 
@@ -1429,6 +1416,8 @@ extern char leaf_reg_remap[];
 #define PREFERRED_RELOAD_CLASS(X,CLASS)			\
   (CONSTANT_P (X)					\
    ? ((FP_REG_CLASS_P (CLASS)				\
+       || (CLASS) == GENERAL_OR_FP_REGS			\
+       || (CLASS) == GENERAL_OR_EXTRA_FP_REGS		\
        || (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT	\
 	   && ! TARGET_FPU)				\
        || (GET_MODE (X) == TFmode			\
@@ -1974,7 +1963,8 @@ do {									\
    return an rtx for the address of the word in the frame
    that holds the dynamic chain--the previous frame's address.
    ??? -mflat support? */
-#define DYNAMIC_CHAIN_ADDRESS(frame) plus_constant (frame, 14 * UNITS_PER_WORD)
+#define DYNAMIC_CHAIN_ADDRESS(frame)	\
+  plus_constant (frame, 14 * UNITS_PER_WORD + SPARC_STACK_BIAS)
 
 /* The return address isn't on the stack, it is in a register, so we can't
    access it from the current frame pointer.  We can access it from the
@@ -2419,16 +2409,6 @@ do {                                                                    \
    On the SPARC this is never true.  */
 
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
-
-/* If we are referencing a function make the SYMBOL_REF special.
-   In the Embedded Medium/Anywhere code model, %g4 points to the data segment
-   so we must not add it to function addresses.  */
-
-#define ENCODE_SECTION_INFO(DECL, FIRST)				\
-  do {									\
-    if (TARGET_CM_EMBMEDANY && TREE_CODE (DECL) == FUNCTION_DECL)	\
-      SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;			\
-  } while (0)
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
@@ -2506,26 +2486,6 @@ do {                                                                    \
 
 /* Generate calls to memcpy, memcmp and memset.  */
 #define TARGET_MEM_FUNCTIONS
-
-/* Add any extra modes needed to represent the condition code.
-
-   On the Sparc, we have a "no-overflow" mode which is used when an add or
-   subtract insn is used to set the condition code.  Different branches are
-   used in this case for some operations.
-
-   We also have two modes to indicate that the relevant condition code is
-   in the floating-point condition code register.  One for comparisons which
-   will generate an exception if the result is unordered (CCFPEmode) and
-   one for comparisons which will never trap (CCFPmode).
-
-   CCXmode and CCX_NOOVmode are only used by v9.  */
-
-#define EXTRA_CC_MODES			\
-    CC(CCXmode,	     "CCX")		\
-    CC(CC_NOOVmode,  "CC_NOOV")		\
-    CC(CCX_NOOVmode, "CCX_NOOV")	\
-    CC(CCFPmode,     "CCFP")		\
-    CC(CCFPEmode,    "CCFPE")
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point,
@@ -2898,24 +2858,8 @@ do {									\
 
 /* Output code to add DELTA to the first argument, and then jump to FUNCTION.
    Used for C++ multiple inheritance.  */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION)	\
-do {									\
-  int reg = 0;								\
-									\
-  if (TARGET_ARCH64							\
-      && aggregate_value_p (TREE_TYPE (TREE_TYPE (FUNCTION))))		\
-    reg = 1;								\
-  if ((DELTA) >= 4096 || (DELTA) < -4096)				\
-    fprintf (FILE, "\tset\t%d, %%g1\n\tadd\t%%o%d, %%g1, %%o%d\n",	\
-	     (int)(DELTA), reg, reg);					\
-  else									\
-    fprintf (FILE, "\tadd\t%%o%d, %d, %%o%d\n", reg, (int)(DELTA), reg);\
-  fprintf (FILE, "\tor\t%%o7, %%g0, %%g1\n");				\
-  fprintf (FILE, "\tcall\t");						\
-  assemble_name (FILE, XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));	\
-  fprintf (FILE, ", 0\n");						\
-  fprintf (FILE, "\t or\t%%g1, %%g0, %%o7\n");				\
-} while (0)
+#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
+  sparc_output_mi_thunk (FILE, THUNK_FNDECL, DELTA, FUNCTION)
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
   ((CHAR) == '#' || (CHAR) == '*' || (CHAR) == '^' || (CHAR) == '(' || (CHAR) == '_')

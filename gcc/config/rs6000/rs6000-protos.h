@@ -122,8 +122,6 @@ extern rtx rs6000_legitimize_address PARAMS ((rtx, rtx, enum machine_mode));
 extern rtx rs6000_legitimize_reload_address PARAMS ((rtx, enum machine_mode,
 			    int, int, int, int *));
 extern int rs6000_legitimate_address PARAMS ((enum machine_mode, rtx, int));
-extern void rs6000_select_rtx_section PARAMS ((enum machine_mode, rtx));
-
 extern rtx rs6000_return_addr PARAMS ((int, rtx));
 extern void rs6000_output_symbol_ref PARAMS ((FILE*, rtx));
 
@@ -147,7 +145,6 @@ extern void setup_incoming_varargs PARAMS ((CUMULATIVE_ARGS *,
 					    int *, int));
 extern struct rtx_def *rs6000_va_arg PARAMS ((tree, tree));
 extern void output_mi_thunk PARAMS ((FILE *, tree, int, tree));
-extern void rs6000_encode_section_info PARAMS ((tree, int));
 #ifdef ARGS_SIZE_RTX
 /* expr.h defines ARGS_SIZE_RTX and `enum direction' */
 extern enum direction function_arg_padding PARAMS ((enum machine_mode, tree));
@@ -186,8 +183,11 @@ extern void debug_stack_info PARAMS ((rs6000_stack_t *));
 
 extern void machopic_output_stub PARAMS ((FILE *, const char *, const char *));
 
+/* Declare functions in rs6000-c.c */
+
 #ifdef GCC_CPPLIB_H
 extern void rs6000_pragma_longcall PARAMS ((cpp_reader *));
+extern void rs6000_cpu_cpp_builtins PARAMS ((cpp_reader *));
 #endif
 
 #endif  /* rs6000-protos.h */

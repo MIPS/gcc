@@ -256,7 +256,7 @@ cp/spew.o: cp/spew.c $(CXX_TREE_H) cp/parse.h flags.h cp/lex.h toplev.h \
 cp/lex.o: cp/lex.c $(CXX_TREE_H) cp/parse.h flags.h cp/lex.h c-pragma.h \
   toplev.h output.h mbchar.h $(GGC_H) input.h diagnostic.h cp/operators.def \
   $(TM_P_H)
-cp/cp-lang.o: cp/cp-lang.c $(CXX_TREE_H) toplev.h langhooks.h langhooks-def.h \
+cp/cp-lang.o: cp/cp-lang.c $(CXX_TREE_H) toplev.h langhooks.h $(LANGHOOKS_DEF_H) \
   c-common.h
 cp/decl.o: cp/decl.c $(CXX_TREE_H) flags.h cp/lex.h cp/decl.h stack.h \
   output.h $(EXPR_H) except.h toplev.h $(HASHTAB_H) $(GGC_H) $(RTL_H) \
@@ -279,7 +279,7 @@ cp/method.o: cp/method.c $(CXX_TREE_H) toplev.h $(GGC_H) $(RTL_H) $(EXPR_H) \
 cp/cvt.o: cp/cvt.c $(CXX_TREE_H) cp/decl.h flags.h toplev.h convert.h
 cp/search.o: cp/search.c $(CXX_TREE_H) stack.h flags.h toplev.h $(RTL_H)
 cp/tree.o: cp/tree.c $(CXX_TREE_H) flags.h toplev.h $(GGC_H) $(RTL_H) \
-  insn-config.h integrate.h tree-inline.h gt-cp-tree.h
+  insn-config.h integrate.h tree-inline.h real.h gt-cp-tree.h
 cp/ptree.o: cp/ptree.c $(CXX_TREE_H) $(SYSTEM_H)
 cp/rtti.o: cp/rtti.c $(CXX_TREE_H) flags.h toplev.h
 cp/except.o: cp/except.c $(CXX_TREE_H) flags.h $(RTL_H) except.h toplev.h \
@@ -289,7 +289,7 @@ cp/expr.o: cp/expr.c $(CXX_TREE_H) $(RTL_H) flags.h $(EXPR_H) toplev.h \
 cp/pt.o: cp/pt.c $(CXX_TREE_H) cp/decl.h cp/parse.h cp/lex.h toplev.h \
   $(GGC_H) $(RTL_H) except.h tree-inline.h gt-cp-pt.h
 cp/error.o: cp/error.c $(CXX_TREE_H) toplev.h diagnostic.h flags.h real.h \
-  langhooks-def.h gt-cp-repo.h
+  $(LANGHOOKS_DEF_H)
 cp/repo.o: cp/repo.c $(CXX_TREE_H) toplev.h $(GGC_H) diagnostic.h \
   gt-cp-repo.h
 cp/semantics.o: cp/semantics.c $(CXX_TREE_H) cp/lex.h except.h toplev.h \
@@ -298,7 +298,7 @@ cp/semantics.o: cp/semantics.c $(CXX_TREE_H) cp/lex.h except.h toplev.h \
 cp/dump.o: cp/dump.c $(CXX_TREE_H) tree-dump.h
 cp/optimize.o: cp/optimize.c $(CXX_TREE_H) rtl.h integrate.h insn-config.h \
   input.h $(PARAMS_H) debug.h tree-inline.h
-cp/mangle.o: cp/mangle.c $(CXX_TREE_H) toplev.h
+cp/mangle.o: cp/mangle.c $(CXX_TREE_H) toplev.h real.h
 
 cp/parse.o: cp/parse.c $(CXX_TREE_H) flags.h cp/lex.h except.h output.h \
 	$(SYSTEM_H) toplev.h $(GGC_H) gt-cp-parse.h

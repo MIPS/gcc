@@ -1,5 +1,6 @@
 /* Configuration for a ns32532 running NetBSD as the target machine.
-   Copyright (C) 1988, 1994, 1995, 1996, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1994, 1995, 1996, 1998, 2002
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -16,11 +17,16 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+Boston, MA 02111-1307, USA.  */
 
-*/
 
-#include <ns32k/ns32k.h>
+#define TARGET_OS_CPP_BUILTINS()			\
+  do							\
+    {							\
+      NETBSD_OS_CPP_BUILTINS_AOUT();			\
+      builtin_define ("__ns32k__");			\
+    }							\
+  while (0)
 
 /* Compile for the floating point unit & 32532 by default;
    Don't assume SB is zero;
@@ -28,7 +34,9 @@ Boston, MA 02111-1307, USA.
    FPU is 32381;
    Use multiply-add instructions */
 
-#define TARGET_DEFAULT (1 + 24 + 32 + 64 + 256 + 512)
+#define TARGET_DEFAULT \
+  (MASK_32532|MASK_32332 | MASK_NO_SB | MASK_NO_BITFIELD | \
+   MASK_32081|MASK_32381 | MASK_MULT_ADD)
 
 /* 32-bit alignment for efficiency */
 
@@ -64,17 +72,10 @@ Boston, MA 02111-1307, USA.
 
 #define MOVD_FLOAT_OK
 
-/* Get generic NetBSD definitions. */
-#include <netbsd.h>
-#include <netbsd-aout.h>
-
-/* Names to predefine in the preprocessor for this target machine.  */
-
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-Dns32k -Dns32000 -Dns32532 -D__NetBSD__ -Dpc532 -D__ns32k__ -D__KPRINTF_ATTRIBUTE__ -Asystem=unix -Asystem=NetBSD -Acpu=ns32k -Amachine=ns32k"
+/* Define a CPP_SPEC appropriate for NetBSD.  */
 
 #undef CPP_SPEC
-#define CPP_SPEC "%{posix:-D_POSIX_SOURCE}"
+#define CPP_SPEC NETBSD_CPP_SPEC
 
 /* Make gcc agree with <machine/ansi.h> */
 

@@ -77,6 +77,17 @@ extern int target_flags;
    been parsed.  */
 #define OVERRIDE_OPTIONS override_options ()
 
+/* Target CPU builtins.  */
+#define TARGET_CPU_CPP_BUILTINS()			\
+  do							\
+    {							\
+      builtin_assert ("cpu=s390");			\
+      builtin_assert ("machine=s390");			\
+      builtin_define ("__s390__");			\
+      if (TARGET_64BIT)					\
+        builtin_define ("__s390x__");			\
+    }							\
+  while (0)
 
 /* Defines for real.c.  */
 #define IEEE_FLOAT 1
@@ -390,32 +401,6 @@ do								\
 
 #define CLASS_CANNOT_CHANGE_MODE_P(FROM,TO) \
   (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO))
-
-/* Define this macro if references to a symbol must be treated
-   differently depending on something about the variable or
-   function named by the symbol (such as what section it is in).
-
-   On s390, if using PIC, mark a SYMBOL_REF for a non-global symbol
-   so that we may access it directly in the GOT.  */
-
-#define ENCODE_SECTION_INFO(DECL, FIRST)                        \
-do                                                              \
-  {                                                             \
-    if (flag_pic)                                               \
-      {                                                         \
-        rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'    \
-                   ? TREE_CST_RTL (DECL) : DECL_RTL (DECL));    \
-                                                                \
-        if (GET_CODE (rtl) == MEM)                              \
-          {                                                     \
-            SYMBOL_REF_FLAG (XEXP (rtl, 0))                     \
-              = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'      \
-                 || ! TREE_PUBLIC (DECL));                      \
-          }                                                     \
-      }                                                         \
-  }                                                             \
-while (0)
-  
 
 /* This is an array of structures.  Each structure initializes one pair
    of eliminable registers.  The "from" register number is given first,
@@ -1233,15 +1218,6 @@ CUMULATIVE_ARGS;
 
 #define BRANCH_COST 1
 
-/* Add any extra modes needed to represent the condition code.  */
-#define EXTRA_CC_MODES \
-	CC (CCZmode, "CCZ") \
-	CC (CCAmode, "CCA") \
-	CC (CCLmode, "CCL") \
-	CC (CCUmode, "CCU") \
-	CC (CCSmode, "CCS") \
-	CC (CCTmode, "CCT")
- 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  */
  
@@ -1294,6 +1270,8 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1;
   {"load_multiple_operation", {PARALLEL}},			        \
   {"store_multiple_operation", {PARALLEL}},			        \
   {"const0_operand",  { CONST_INT, CONST_DOUBLE }},			\
+  {"consttable_operand", { SYMBOL_REF, LABEL_REF, CONST, 		\
+			   CONST_INT, CONST_DOUBLE }},			\
   {"s390_plus_operand", { PLUS }},
 
 
@@ -1312,20 +1290,12 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1;
 /* Constant Pool for all symbols operands which are changed with
    force_const_mem during insn generation (expand_insn).  */
 
-extern struct rtx_def *s390_pool_start_insn;
 extern int s390_pool_count;
 extern int s390_nr_constants;
-
-/* Function is splitted in chunk, if literal pool could overflow
-   Value need to be lowered, if problems with displacement overflow.  */
-
-#define S390_CHUNK_MAX 0xe00
-#define S390_CHUNK_OV 0x1000
-#define S390_POOL_MAX 0xe00
+extern int s390_pool_overflow;
 
 #define ASM_OUTPUT_POOL_PROLOGUE(FILE, FUNNAME, fndecl, size)  	        \
 {								       	\
-  register rtx insn;						       	\
   struct pool_constant *pool;					       	\
 								        \
     if (s390_pool_count == -1)                                        	\
@@ -1335,53 +1305,11 @@ extern int s390_nr_constants;
 	 if (pool->mark) s390_nr_constants++;		                \
        return;                                      	                \
      }                                                                  \
-    if (first_pool == 0) {                                              \
-      s390_asm_output_pool_prologue (FILE, FUNNAME, fndecl, size);    	\
-      return;							      	\
-    }								       	\
-    for (pool = first_pool; pool; pool = pool->next)		       	\
-      pool->mark = 0;						       	\
-  								       	\
-    insn = s390_pool_start_insn;				       	\
-  								       	\
-    if (insn==NULL_RTX)	 					       	\
-      insn = get_insns ();		 		                \
-    else		       			                        \
-      insn = NEXT_INSN (insn);		                                \
-    for (; insn; insn = NEXT_INSN (insn)) {    		                \
-      if (GET_RTX_CLASS (GET_CODE (insn)) == 'i') {		       	\
-        if (s390_stop_dump_lit_p (insn)) { 	       		       	\
-	  mark_constants (PATTERN (insn));			       	\
-	  break;						       	\
-        } else							       	\
-	  mark_constants (PATTERN (insn));			       	\
-      }								       	\
-    }								       	\
-								       	\
-    /* Mark entries referenced by other entries */			\
-    for (pool = first_pool; pool; pool = pool->next)		       	\
-      if (pool->mark)							\
-        mark_constants (pool->constant);				\
-								       	\
-    s390_asm_output_pool_prologue (FILE, FUNNAME, fndecl, size);     	\
 }
-
-/* We need to return, because otherwise the pool is deleted of the 
-   constant pool after the first output.  */
-
-#define ASM_OUTPUT_POOL_EPILOGUE(FILE, FUNNAME, fndecl, size) return;
 
 #define ASM_OUTPUT_SPECIAL_POOL_ENTRY(FILE, EXP, MODE, ALIGN, LABELNO, WIN) \
 {									    \
-  if ((s390_pool_count == 0) || (s390_pool_count > 0 && LABELNO >= 0))	    \
-    {									    \
-      fprintf (FILE, ".LC%d:\n", LABELNO);				    \
-      LABELNO = ~LABELNO;						    \
-    }									    \
-  if (s390_pool_count > 0)						    \
-    {									    \
-      fprintf (FILE, ".LC%d_%X:\n", ~LABELNO, s390_pool_count);		    \
-    }									    \
+  fprintf (FILE, ".LC%d:\n", LABELNO);					    \
 									    \
   /* Output the value of the constant itself.  */			    \
   switch (GET_MODE_CLASS (MODE))					    \

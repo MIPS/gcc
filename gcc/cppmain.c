@@ -24,7 +24,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "config.h"
 #include "system.h"
 #include "cpplib.h"
-#include "intl.h"
+#include "cpphash.h"
 
 /* Encapsulates state used to convert the stream of tokens coming from
    cpp_get_token back into a text file.  */
@@ -42,7 +42,8 @@ static void setup_callbacks PARAMS ((cpp_reader *));
 
 /* General output routines.  */
 static void scan_translation_unit PARAMS ((cpp_reader *));
-static void check_multiline_token PARAMS ((const cpp_string *));
+static void scan_translation_unit_trad PARAMS ((cpp_reader *));
+static void account_for_newlines PARAMS ((const uchar *, size_t));
 static int dump_macro PARAMS ((cpp_reader *, cpp_hashnode *, void *));
 
 static void print_line PARAMS ((const struct line_map *, unsigned int,
@@ -71,6 +72,10 @@ cpp_preprocess_file (pfile)
 {
   options = cpp_get_options (pfile);
 
+  /* Let preprocessor know if it's only preprocessing.  It would be
+     nice to lose this somehow.  */
+  options->preprocess_only = 1;
+
   /* Initialize the printer structure.  Setting print.line to -1 here
      is a trick to guarantee that the first token of the file will
      cause a linemarker to be output by maybe_print_line.  */
@@ -78,7 +83,7 @@ cpp_preprocess_file (pfile)
   print.printed = 0;
   print.prev = 0;
   print.map = 0;
-  
+
   /* Open the output now.  We must do so even if no_output is on,
      because there may be other output than from the actual
      preprocessing (e.g. from -dM).  */
@@ -104,6 +109,8 @@ cpp_preprocess_file (pfile)
 	 cpp_scan_nooutput or cpp_get_token next.  */
       if (options->no_output)
 	cpp_scan_nooutput (pfile);
+      else if (options->traditional)
+	scan_translation_unit_trad (pfile);
       else
 	scan_translation_unit (pfile);
 
@@ -201,20 +208,39 @@ scan_translation_unit (pfile)
       cpp_output_token (token, print.outf);
 
       if (token->type == CPP_COMMENT)
-	check_multiline_token (&token->val.str);
+	account_for_newlines (token->val.str.text, token->val.str.len);
     }
 }
 
-/* Adjust print.line for newlines embedded in tokens.  */
+/* Adjust print.line for newlines embedded in output.  */
 static void
-check_multiline_token (str)
-     const cpp_string *str;
+account_for_newlines (str, len)
+     const uchar *str;
+     size_t len;
 {
-  unsigned int i;
-
-  for (i = 0; i < str->len; i++)
-    if (str->text[i] == '\n')
+  while (len--)
+    if (*str++ == '\n')
       print.line++;
+}
+
+/* Writes out a traditionally preprocessed file.  */
+static void
+scan_translation_unit_trad (pfile)
+     cpp_reader *pfile;
+{
+  for (;;)
+    {
+      size_t len;
+
+      if (!_cpp_read_logical_line_trad (pfile))
+	break;
+      len = pfile->out.cur - pfile->out.base;
+      maybe_print_line (print.map, pfile->out.first_line);
+      fwrite (pfile->out.base, 1, len, print.outf);
+      print.printed = 1;
+      if (!CPP_OPTION (pfile, discard_comments))
+	account_for_newlines (pfile->out.base, len);
+    }
 }
 
 /* If the token read on logical line LINE needs to be output on a
@@ -264,7 +290,7 @@ print_line (map, line, special_flags)
       size_t to_file_len = strlen (map->to_file);
       unsigned char *to_file_quoted = alloca (to_file_len * 4 + 1);
       unsigned char *p;
-      
+
       /* cpp_quote_string does not nul-terminate, so we have to do it
 	 ourselves.  */
       p = cpp_quote_string (to_file_quoted,
@@ -294,7 +320,6 @@ cb_line_change (pfile, token, parsing_args)
     return;
 
   maybe_print_line (print.map, token->line);
-  print.printed = 1;
   print.prev = 0;
   print.source = 0;
 
@@ -303,12 +328,16 @@ cb_line_change (pfile, token, parsing_args)
      will provide a space if PREV_WHITE.  Don't bother trying to
      reconstruct tabs; we can't get it right in general, and nothing
      ought to care.  Some things do care; the fault lies with them.  */
-  if (token->col > 2)
+  if (!CPP_OPTION (pfile, traditional))
     {
-      unsigned int spaces = token->col - 2;
+      print.printed = 1;
+      if (token->col > 2)
+	{
+	  unsigned int spaces = token->col - 2;
 
-      while (spaces--)
-	putc (' ', print.outf);
+	  while (spaces--)
+	    putc (' ', print.outf);
+	}
     }
 }
 

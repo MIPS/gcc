@@ -161,9 +161,8 @@ struct rtx_def
      and must not be deleted even if its count is zero.
      1 in a LABEL_REF if this is a reference to a label outside the
      current loop.
-     1 in an INSN, JUMP_INSN, CALL_INSN, CODE_LABEL, BARRIER, or NOTE if
-     this insn must be scheduled together with the preceding insn.  Valid
-     only within sched.
+     1 in an INSN, JUMP_INSN or CALL_INSN if this insn must be scheduled
+     together with the preceding insn.  Valid only within sched.
      1 in an INSN, JUMP_INSN, or CALL_INSN if insn is in a delay slot and
      from the target of a branch.  Valid from reorg until end of compilation;
      cleared before used.
@@ -236,6 +235,13 @@ struct rtvec_def GTY(()) {
 
 /* Predicate yielding nonzero iff X is a barrier insn.  */
 #define BARRIER_P(X) (GET_CODE (X) == BARRIER)
+
+/* Predicate yielding nonzero iff X is cc0.  */
+#ifdef HAVE_cc0
+#define CC0_P(X) ((X) == cc0_rtx)
+#else
+#define CC0_P(X) 0
+#endif
 
 /* Predicate yielding nonzero iff X is a data for a jump table.  */
 #define JUMP_TABLE_DATA_P(INSN) \
@@ -499,19 +505,21 @@ do {				\
 #define PREV_INSN(INSN)	XEXP (INSN, 1)
 #define NEXT_INSN(INSN)	XEXP (INSN, 2)
 
+#define BLOCK_FOR_INSN(INSN) XBBDEF (INSN, 3)
+#define INSN_SCOPE(INSN) XTREE (INSN, 4)
 /* The body of an insn.  */
-#define PATTERN(INSN)	XEXP (INSN, 3)
+#define PATTERN(INSN)	XEXP (INSN, 5)
 
 /* Code number of instruction, from when it was recognized.
    -1 means this instruction has not been recognized yet.  */
-#define INSN_CODE(INSN) XINT (INSN, 4)
+#define INSN_CODE(INSN) XINT (INSN, 6)
 
 /* Set up in flow.c; empty before then.
    Holds a chain of INSN_LIST rtx's whose first operands point at
    previous insns with direct data-flow connections to this one.
    That means that those insns set variables whose next use is in this insn.
    They are always in the same basic block as this insn.  */
-#define LOG_LINKS(INSN)	XEXP(INSN, 5)
+#define LOG_LINKS(INSN)	XEXP(INSN, 7)
 
 #define RTX_INTEGRATED_P(RTX)						\
   (RTL_FLAG_CHECK8("RTX_INTEGRATED_P", (RTX), INSN, CALL_INSN,		\
@@ -563,7 +571,7 @@ do {				\
    The mode field of the EXPR_LIST contains not a real machine mode
    but a value from enum reg_note.  */
 
-#define REG_NOTES(INSN)	XEXP(INSN, 6)
+#define REG_NOTES(INSN)	XEXP(INSN, 8)
 
 /* Don't forget to change reg_note_name in rtl.c.  */
 enum reg_note
@@ -732,12 +740,12 @@ extern const char * const reg_note_name[];
      CLOBBER expressions document the registers explicitly clobbered
    by this CALL_INSN.
      Pseudo registers can not be mentioned in this list.  */
-#define CALL_INSN_FUNCTION_USAGE(INSN)	XEXP(INSN, 7)
+#define CALL_INSN_FUNCTION_USAGE(INSN)	XEXP(INSN, 9)
 
 /* The label-number of a code-label.  The assembler label
    is made from `L' and the label-number printed in decimal.
    Label numbers are unique in a compilation.  */
-#define CODE_LABEL_NUMBER(INSN)	XINT (INSN, 5)
+#define CODE_LABEL_NUMBER(INSN)	XINT (INSN, 6)
 
 #define LINE_NUMBER NOTE
 
@@ -745,21 +753,18 @@ extern const char * const reg_note_name[];
    line is in.  We use the same field to record block numbers temporarily in
    NOTE_INSN_BLOCK_BEG and NOTE_INSN_BLOCK_END notes.  (We avoid lots of casts
    between ints and pointers if we use a different macro for the block number.)
-   The NOTE_INSN_RANGE_{START,END} and NOTE_INSN_LIVE notes record their
-   information as an rtx in the field.  */
+   */
 
-#define NOTE_SOURCE_FILE(INSN) 	XCSTR (INSN, 3, NOTE)
-#define NOTE_BLOCK(INSN)	XCTREE (INSN, 3, NOTE)
-#define NOTE_EH_HANDLER(INSN)	XCINT (INSN, 3, NOTE)
-#define NOTE_RANGE_INFO(INSN)  	XCEXP (INSN, 3, NOTE)
-#define NOTE_LIVE_INFO(INSN)   	XCEXP (INSN, 3, NOTE)
-#define NOTE_BASIC_BLOCK(INSN)	XCBBDEF (INSN, 3, NOTE)
-#define NOTE_EXPECTED_VALUE(INSN) XCEXP (INSN, 3, NOTE)
-#define NOTE_PREDICTION(INSN)   XCINT (INSN, 3, NOTE)
+#define NOTE_SOURCE_FILE(INSN) 	XCSTR (INSN, 4, NOTE)
+#define NOTE_BLOCK(INSN)	XCTREE (INSN, 4, NOTE)
+#define NOTE_EH_HANDLER(INSN)	XCINT (INSN, 4, NOTE)
+#define NOTE_BASIC_BLOCK(INSN)	XCBBDEF (INSN, 4, NOTE)
+#define NOTE_EXPECTED_VALUE(INSN) XCEXP (INSN, 4, NOTE)
+#define NOTE_PREDICTION(INSN)   XCINT (INSN, 4, NOTE)
 
 /* In a NOTE that is a line number, this is the line number.
    Other kinds of NOTEs are identified by negative numbers here.  */
-#define NOTE_LINE_NUMBER(INSN) XCINT (INSN, 4, NOTE)
+#define NOTE_LINE_NUMBER(INSN) XCINT (INSN, 5, NOTE)
 
 /* Nonzero if INSN is a note marking the beginning of a basic block.  */
 #define NOTE_INSN_BASIC_BLOCK_P(INSN) 			\
@@ -767,8 +772,8 @@ extern const char * const reg_note_name[];
    && NOTE_LINE_NUMBER (INSN) == NOTE_INSN_BASIC_BLOCK)
 
 /* Algorithm and flags for prediction.  */
-#define NOTE_PREDICTION_ALG(INSN)   (XCINT(INSN, 3, NOTE)>>8)
-#define NOTE_PREDICTION_FLAGS(INSN) (XCINT(INSN, 3, NOTE)&0xff)
+#define NOTE_PREDICTION_ALG(INSN)   (XCINT(INSN, 4, NOTE)>>8)
+#define NOTE_PREDICTION_FLAGS(INSN) (XCINT(INSN, 4, NOTE)&0xff)
 #define NOTE_PREDICT(ALG,FLAGS)     ((ALG<<8)+(FLAGS))
 
 /* Codes that appear in the NOTE_LINE_NUMBER field
@@ -844,14 +849,6 @@ enum insn_note
      the line containing the inline call from being counted twice in gcov.  */
   NOTE_INSN_REPEATED_LINE_NUMBER,
 
-  /* Start/end of a live range region, where pseudos allocated on the stack
-     can be allocated to temporary registers.  Uses NOTE_RANGE_INFO.  */
-  NOTE_INSN_RANGE_BEG,
-  NOTE_INSN_RANGE_END,
-
-  /* Record which registers are currently live.  Uses NOTE_LIVE_INFO.  */
-  NOTE_INSN_LIVE,
-
   /* Record the struct for the following basic block.  Uses NOTE_BASIC_BLOCK.  */
   NOTE_INSN_BASIC_BLOCK,
 
@@ -873,14 +870,14 @@ extern const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS];
 
 /* The name of a label, in case it corresponds to an explicit label
    in the input source code.  */
-#define LABEL_NAME(RTX) XCSTR (RTX, 6, CODE_LABEL)
+#define LABEL_NAME(RTX) XCSTR (RTX, 7, CODE_LABEL)
 
 /* In jump.c, each label contains a count of the number
    of LABEL_REFs that point at it, so unused labels can be deleted.  */
-#define LABEL_NUSES(RTX) XCINT (RTX, 3, CODE_LABEL)
+#define LABEL_NUSES(RTX) XCINT (RTX, 4, CODE_LABEL)
 
 /* Associate a name with a CODE_LABEL.  */
-#define LABEL_ALTERNATE_NAME(RTX) XCSTR (RTX, 7, CODE_LABEL)
+#define LABEL_ALTERNATE_NAME(RTX) XCSTR (RTX, 8, CODE_LABEL)
 
 /* The original regno this ADDRESSOF was built for.  */
 #define ADDRESSOF_REGNO(RTX) XCUINT (RTX, 1, ADDRESSOF)
@@ -891,13 +888,13 @@ extern const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS];
 /* In jump.c, each JUMP_INSN can point to a label that it can jump to,
    so that if the JUMP_INSN is deleted, the label's LABEL_NUSES can
    be decremented and possibly the label can be deleted.  */
-#define JUMP_LABEL(INSN)   XCEXP (INSN, 7, JUMP_INSN)
+#define JUMP_LABEL(INSN)   XCEXP (INSN, 9, JUMP_INSN)
 
 /* Once basic blocks are found in flow.c,
    each CODE_LABEL starts a chain that goes through
    all the LABEL_REFs that jump to that label.
    The chain eventually winds up at the CODE_LABEL: it is circular.  */
-#define LABEL_REFS(LABEL) XCEXP (LABEL, 4, CODE_LABEL)
+#define LABEL_REFS(LABEL) XCEXP (LABEL, 5, CODE_LABEL)
 
 /* This is the field in the LABEL_REF through which the circular chain
    of references to a particular label is linked.
@@ -982,12 +979,12 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
 
 #define SUBREG_PROMOTED_UNSIGNED_SET(RTX, VAL)				\
 do {									\
-  RTL_FLAG_CHECK1("SUBREG_PROMOTED_UNSIGNED_SET", (RTX), SUBREG);	\
+  rtx const _rtx = RTL_FLAG_CHECK1("SUBREG_PROMOTED_UNSIGNED_SET", (RTX), SUBREG); \
   if ((VAL) < 0)							\
-    (RTX)->volatil = 1;							\
+    _rtx->volatil = 1;							\
   else {								\
-    (RTX)->volatil = 0;							\
-    (RTX)->unchanging = (VAL);						\
+    _rtx->volatil = 0;							\
+    _rtx->unchanging = (VAL);						\
   }									\
 } while (0)
 #define SUBREG_PROMOTED_UNSIGNED_P(RTX)	\
@@ -1120,8 +1117,8 @@ do {						\
 /* During sched, 1 if RTX is an insn that must be scheduled together
    with the preceding insn.  */
 #define SCHED_GROUP_P(RTX)						\
-  (RTL_FLAG_CHECK6("SCHED_GROUP_P", (RTX), INSN, JUMP_INSN, CALL_INSN,	\
-		          CODE_LABEL, BARRIER, NOTE)->in_struct)
+  (RTL_FLAG_CHECK3("SCHED_GROUP_P", (RTX), INSN, JUMP_INSN, CALL_INSN	\
+		          )->in_struct)
 
 /* For a SET rtx, SET_DEST is the place that is set
    and SET_SRC is the value it is set to.  */
@@ -1252,100 +1249,6 @@ do {						\
 #define USE_STORE_PRE_DECREMENT(MODE)   HAVE_PRE_DECREMENT
 #endif
 
-
-/* Accessors for RANGE_INFO.  */
-/* For RANGE_{START,END} notes return the RANGE_START note.  */
-#define RANGE_INFO_NOTE_START(INSN) XCEXP (INSN, 0, RANGE_INFO)
-
-/* For RANGE_{START,END} notes return the RANGE_START note.  */
-#define RANGE_INFO_NOTE_END(INSN) XCEXP (INSN, 1, RANGE_INFO)
-
-/* For RANGE_{START,END} notes, return the vector containing the registers used
-   in the range.  */
-#define RANGE_INFO_REGS(INSN) XCVEC (INSN, 2, RANGE_INFO)
-#define RANGE_INFO_REGS_REG(INSN, N) XCVECEXP (INSN, 2, N, RANGE_INFO)
-#define RANGE_INFO_NUM_REGS(INSN) XCVECLEN (INSN, 2, RANGE_INFO)
-
-/* For RANGE_{START,END} notes, the number of calls within the range.  */
-#define RANGE_INFO_NCALLS(INSN) XCINT (INSN, 3, RANGE_INFO)
-
-/* For RANGE_{START,END} notes, the number of insns within the range.  */
-#define RANGE_INFO_NINSNS(INSN) XCINT (INSN, 4, RANGE_INFO)
-
-/* For RANGE_{START,END} notes, a unique # to identify this range.  */
-#define RANGE_INFO_UNIQUE(INSN) XCINT (INSN, 5, RANGE_INFO)
-
-/* For RANGE_{START,END} notes, the basic block # the range starts with.  */
-#define RANGE_INFO_BB_START(INSN) XCINT (INSN, 6, RANGE_INFO)
-
-/* For RANGE_{START,END} notes, the basic block # the range ends with.  */
-#define RANGE_INFO_BB_END(INSN) XCINT (INSN, 7, RANGE_INFO)
-
-/* For RANGE_{START,END} notes, the loop depth the range is in.  */
-#define RANGE_INFO_LOOP_DEPTH(INSN) XCINT (INSN, 8, RANGE_INFO)
-
-/* For RANGE_{START,END} notes, the bitmap of live registers at the start
-   of the range.  */
-#define RANGE_INFO_LIVE_START(INSN) XCBITMAP (INSN, 9, RANGE_INFO)
-
-/* For RANGE_{START,END} notes, the bitmap of live registers at the end
-   of the range.  */
-#define RANGE_INFO_LIVE_END(INSN) XCBITMAP (INSN, 10, RANGE_INFO)
-
-/* For RANGE_START notes, the marker # of the start of the range.  */
-#define RANGE_INFO_MARKER_START(INSN) XCINT (INSN, 11, RANGE_INFO)
-
-/* For RANGE_START notes, the marker # of the end of the range.  */
-#define RANGE_INFO_MARKER_END(INSN) XCINT (INSN, 12, RANGE_INFO)
-
-/* Original pseudo register # for a live range note.  */
-#define RANGE_REG_PSEUDO(INSN,N) XCINT (XCVECEXP (INSN, 2, N, RANGE_INFO), 0, REG)
-
-/* Pseudo register # original register is copied into or -1.  */
-#define RANGE_REG_COPY(INSN,N) XCINT (XCVECEXP (INSN, 2, N, RANGE_INFO), 1, REG)
-
-/* How many times a register in a live range note was referenced.  */
-#define RANGE_REG_REFS(INSN,N) XINT (XCVECEXP (INSN, 2, N, RANGE_INFO), 2)
-
-/* How many times a register in a live range note was set.  */
-#define RANGE_REG_SETS(INSN,N) XINT (XCVECEXP (INSN, 2, N, RANGE_INFO), 3)
-
-/* How many times a register in a live range note died.  */
-#define RANGE_REG_DEATHS(INSN,N) XINT (XCVECEXP (INSN, 2, N, RANGE_INFO), 4)
-
-/* Whether the original value is needed to be copied into the range register at
-   the start of the range.  */
-#define RANGE_REG_COPY_FLAGS(INSN,N) XINT (XCVECEXP (INSN, 2, N, RANGE_INFO), 5)
-
-/* # of insns the register copy is live over.  */
-#define RANGE_REG_LIVE_LENGTH(INSN,N) XINT (XCVECEXP (INSN, 2, N, RANGE_INFO), 6)
-
-/* # of calls the register copy is live over.  */
-#define RANGE_REG_N_CALLS(INSN,N) XINT (XCVECEXP (INSN, 2, N, RANGE_INFO), 7)
-
-/* DECL_NODE pointer of the declaration if the register is a user defined
-   variable.  */
-#define RANGE_REG_SYMBOL_NODE(INSN,N) XTREE (XCVECEXP (INSN, 2, N, RANGE_INFO), 8)
-
-/* BLOCK_NODE pointer to the block the variable is declared in if the
-   register is a user defined variable.  */
-#define RANGE_REG_BLOCK_NODE(INSN,N) XTREE (XCVECEXP (INSN, 2, N, RANGE_INFO), 9)
-
-/* EXPR_LIST of the distinct ranges a variable is in.  */
-#define RANGE_VAR_LIST(INSN) (XEXP (INSN, 0))
-
-/* Block a variable is declared in.  */
-#define RANGE_VAR_BLOCK(INSN) (XTREE (INSN, 1))
-
-/* # of distinct ranges a variable is in.  */
-#define RANGE_VAR_NUM(INSN) (XINT (INSN, 2))
-
-/* For a NOTE_INSN_LIVE note, the registers which are currently live.  */
-#define RANGE_LIVE_BITMAP(INSN) (XBITMAP (INSN, 0))
-
-/* For a NOTE_INSN_LIVE note, the original basic block number.  */
-#define RANGE_LIVE_ORIG_BLOCK(INSN) (XINT (INSN, 1))
-
 /* Determine if the insn is a PHI node.  */
 #define PHI_NODE_P(X)				\
   ((X) && GET_CODE (X) == INSN			\
@@ -1438,12 +1341,13 @@ extern rtx get_insns			PARAMS ((void));
 extern const char *get_insn_name	PARAMS ((int));
 extern rtx get_last_insn		PARAMS ((void));
 extern rtx get_last_insn_anywhere	PARAMS ((void));
+extern rtx get_first_nonnote_insn	PARAMS ((void));
+extern rtx get_last_nonnote_insn	PARAMS ((void));
 extern void start_sequence		PARAMS ((void));
 extern void push_to_sequence		PARAMS ((rtx));
 extern void end_sequence		PARAMS ((void));
 extern void push_to_full_sequence	PARAMS ((rtx, rtx));
 extern void end_full_sequence		PARAMS ((rtx*, rtx*));
-extern rtx gen_sequence			PARAMS ((void));
 
 /* In varasm.c  */
 extern rtx immed_double_const		PARAMS ((HOST_WIDE_INT, HOST_WIDE_INT, enum machine_mode));
@@ -1469,22 +1373,25 @@ extern rtx assign_stack_temp_for_type	PARAMS ((enum machine_mode,
 extern rtx assign_temp			PARAMS ((tree, int, int, int));
 /* In emit-rtl.c */
 extern rtx emit_insn_before		PARAMS ((rtx, rtx));
+extern rtx emit_insn_before_scope	PARAMS ((rtx, rtx, tree));
 extern rtx emit_jump_insn_before	PARAMS ((rtx, rtx));
+extern rtx emit_jump_insn_before_scope	PARAMS ((rtx, rtx, tree));
 extern rtx emit_call_insn_before	PARAMS ((rtx, rtx));
+extern rtx emit_call_insn_before_scope	PARAMS ((rtx, rtx, tree));
 extern rtx emit_barrier_before		PARAMS ((rtx));
 extern rtx emit_label_before		PARAMS ((rtx, rtx));
 extern rtx emit_note_before		PARAMS ((int, rtx));
 extern rtx emit_insn_after		PARAMS ((rtx, rtx));
+extern rtx emit_insn_after_scope	PARAMS ((rtx, rtx, tree));
 extern rtx emit_jump_insn_after		PARAMS ((rtx, rtx));
+extern rtx emit_jump_insn_after_scope	PARAMS ((rtx, rtx, tree));
 extern rtx emit_call_insn_after		PARAMS ((rtx, rtx));
+extern rtx emit_call_insn_after_scope	PARAMS ((rtx, rtx, tree));
 extern rtx emit_barrier_after		PARAMS ((rtx));
 extern rtx emit_label_after		PARAMS ((rtx, rtx));
 extern rtx emit_note_after		PARAMS ((int, rtx));
 extern rtx emit_line_note_after		PARAMS ((const char *, int, rtx));
 extern rtx emit_insn			PARAMS ((rtx));
-extern rtx emit_insns			PARAMS ((rtx));
-extern rtx emit_insns_before		PARAMS ((rtx, rtx));
-extern rtx emit_insns_after		PARAMS ((rtx, rtx));
 extern rtx emit_jump_insn		PARAMS ((rtx));
 extern rtx emit_call_insn		PARAMS ((rtx));
 extern rtx emit_label			PARAMS ((rtx));
@@ -1506,6 +1413,9 @@ extern rtx prev_label			PARAMS ((rtx));
 extern rtx next_label			PARAMS ((rtx));
 extern rtx next_cc0_user		PARAMS ((rtx));
 extern rtx prev_cc0_setter		PARAMS ((rtx));
+
+/* In cfglayout.c  */
+extern tree choose_inner_scope		PARAMS ((tree, tree));
 
 /* In jump.c */
 extern rtx next_nondeleted_insn		PARAMS ((rtx));
@@ -1987,7 +1897,6 @@ extern void reorder_insns_nobb			PARAMS ((rtx, rtx, rtx));
 extern int get_max_uid				PARAMS ((void));
 extern int in_sequence_p			PARAMS ((void));
 extern void force_next_line_note		PARAMS ((void));
-extern void clear_emit_caches			PARAMS ((void));
 extern void init_emit				PARAMS ((void));
 extern void init_emit_once			PARAMS ((int));
 extern void push_topmost_sequence		PARAMS ((void));
@@ -2119,6 +2028,7 @@ extern int reg_classes_intersect_p	PARAMS ((enum reg_class, enum reg_class));
 extern int reg_class_subset_p		PARAMS ((enum reg_class, enum reg_class));
 extern void globalize_reg		PARAMS ((int));
 extern void init_regs			PARAMS ((void));
+extern void init_fake_stack_mems	PARAMS ((void));
 extern void init_reg_sets		PARAMS ((void));
 extern void regset_release_memory	PARAMS ((void));
 extern void regclass_init		PARAMS ((void));
@@ -2127,7 +2037,7 @@ extern void reg_scan			PARAMS ((rtx, unsigned int, int));
 extern void reg_scan_update		PARAMS ((rtx, rtx, unsigned int));
 extern void fix_register		PARAMS ((const char *, int, int));
 
-extern void delete_null_pointer_checks	PARAMS ((rtx));
+extern int delete_null_pointer_checks	PARAMS ((rtx));
 
 /* In regmove.c */
 #ifdef BUFSIZ
@@ -2284,4 +2194,6 @@ extern void if_convert			PARAMS ((int));
 /* In predict.c */
 extern void invert_br_probabilities	PARAMS ((rtx));
 extern bool expensive_function_p	PARAMS ((int));
+/* In tracer.c */
+extern void tracer			PARAMS ((void));
 #endif /* ! GCC_RTL_H */

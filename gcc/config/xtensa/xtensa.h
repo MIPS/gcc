@@ -242,7 +242,6 @@ extern unsigned xtensa_current_frame_size;
 
 /* Size in bits of various types on the target machine.  */
 #define INT_TYPE_SIZE 32
-#define MAX_INT_TYPE_SIZE 32
 #define SHORT_TYPE_SIZE 16
 #define LONG_TYPE_SIZE 32
 #define MAX_LONG_TYPE_SIZE 32
@@ -254,7 +253,6 @@ extern unsigned xtensa_current_frame_size;
 /* Tell the preprocessor the maximum size of wchar_t.  */
 #ifndef MAX_WCHAR_TYPE_SIZE
 #ifndef WCHAR_TYPE_SIZE
-#define MAX_WCHAR_TYPE_SIZE MAX_INT_TYPE_SIZE
 #endif
 #endif
 
@@ -923,29 +921,33 @@ typedef struct xtensa_args {
    && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST			\
        || TREE_ADDRESSABLE (TYPE)))
 
-/* Output assembler code to FILE to increment profiler label LABELNO
-   for profiling a function entry.
-
-   The mcount code in glibc doesn't seem to use this LABELNO stuff.
-   Some ports (e.g., MIPS) don't even bother to pass the label
-   address, and even those that do (e.g., i386) don't seem to use it.
-   The information needed by mcount() is the current PC and the
-   current return address, so that mcount can identify an arc in the
-   call graph.  For Xtensa, we pass the current return address as
-   the first argument to mcount, and the current PC is available as
-   a0 in mcount's register window.  Both of these values contain
-   window size information in the two most significant bits; we assume
-   that the mcount code will mask off those bits.  The call to mcount
-   uses a window size of 8 to make sure that mcount doesn't clobber
+/* Profiling Xtensa code is typically done with the built-in profiling
+   feature of Tensilica's instruction set simulator, which does not
+   require any compiler support.  Profiling code on a real (i.e.,
+   non-simulated) Xtensa processor is currently only supported by
+   GNU/Linux with glibc.  The glibc version of _mcount doesn't require
+   counter variables.  The _mcount function needs the current PC and
+   the current return address to identify an arc in the call graph.
+   Pass the current return address as the first argument; the current
+   PC is available as a0 in _mcount's register window.  Both of these
+   values contain window size information in the two most significant
+   bits; we assume that _mcount will mask off those bits.  The call to
+   _mcount uses a window size of 8 to make sure that it doesn't clobber
    any incoming argument values. */
 
-#define FUNCTION_PROFILER(FILE, LABELNO)				\
+#define NO_PROFILE_COUNTERS
+
+#define FUNCTION_PROFILER(FILE, LABELNO) \
   do {									\
-    fprintf (FILE, "\taddi\t%s, %s, 0\t# save current return address\n", \
-	     reg_names[GP_REG_FIRST+10],				\
-	     reg_names[GP_REG_FIRST+0]);				\
-    fprintf (FILE, "\tcall8\t_mcount\n");				\
-  } while (0);
+    fprintf (FILE, "\t%s\ta10, a0\n", TARGET_DENSITY ? "mov.n" : "mov"); \
+    if (flag_pic)							\
+      {									\
+	fprintf (FILE, "\tmovi\ta8, _mcount@PLT\n");			\
+	fprintf (FILE, "\tcallx8\ta8\n");				\
+      }									\
+    else								\
+      fprintf (FILE, "\tcall8\t_mcount\n");				\
+  } while (0)
 
 /* Stack pointer value doesn't matter at exit.  */
 #define EXIT_IGNORE_STACK 1
@@ -1259,14 +1261,6 @@ typedef struct xtensa_args {
       goto LABEL;							\
   } while (0)
 
-/* If we are referencing a function that is static, make the SYMBOL_REF
-   special so that we can generate direct calls to it even with -fpic.  */
-#define ENCODE_SECTION_INFO(DECL, FIRST)				\
-  do {									\
-    if (TREE_CODE (DECL) == FUNCTION_DECL && ! TREE_PUBLIC (DECL))	\
-      SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;			\
-  } while (0)
-
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE (SImode)
@@ -1275,12 +1269,6 @@ typedef struct xtensa_args {
    to contain offsets from the address of the table.
    Do not define this if the table should contain absolute addresses.  */
 /* #define CASE_VECTOR_PC_RELATIVE */
-
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
 
 /* Define this as 1 if 'char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 0
@@ -1654,7 +1642,7 @@ typedef struct xtensa_args {
 #define ASM_OUTPUT_POOL_PROLOGUE(FILE, FUNNAME, FUNDECL, SIZE)          \
   do {									\
     tree fnsection;							\
-    resolve_unique_section ((FUNDECL), 0);				\
+    resolve_unique_section ((FUNDECL), 0, flag_function_sections);	\
     fnsection = DECL_SECTION_NAME (FUNDECL);				\
     if (fnsection != NULL_TREE)						\
       {									\

@@ -43,7 +43,6 @@ extern void   gas_output_ascii          PARAMS ((FILE *file, const char *str,
 #ifdef TREE_CODE
 extern void   asm_output_external          PARAMS ((FILE *file, tree decl,
 						   char *name));
-extern void   encode_section_info          PARAMS ((tree decl, int));
 extern int    avr_progmem_p                PARAMS ((tree decl));
 
 
@@ -99,6 +98,7 @@ extern const char * lshrsi3_out PARAMS ((rtx insn, rtx operands[], int *len));
 
 extern void avr_output_bld PARAMS ((rtx operands[], int bit_nr));
 extern void avr_output_addr_vec_elt PARAMS ((FILE *stream, int value));
+extern const char *avr_out_sbxx_branch PARAMS ((rtx insn, rtx operands[]));
 
 extern enum reg_class preferred_reload_class PARAMS ((rtx x,
 						     enum reg_class class));

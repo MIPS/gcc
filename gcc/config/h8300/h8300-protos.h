@@ -41,6 +41,7 @@ extern unsigned int compute_logical_op_length PARAMS ((enum machine_mode,
 						       rtx *));
 extern int compute_logical_op_cc PARAMS ((enum machine_mode, rtx *));
 extern int expand_a_shift PARAMS ((enum machine_mode, int, rtx[]));
+extern int h8300_shift_needs_scratch_p PARAMS ((int, enum machine_mode));
 extern int expand_a_rotate PARAMS ((enum rtx_code, rtx[]));
 extern int fix_bit_operand PARAMS ((rtx *, int, enum rtx_code));
 extern int h8300_adjust_insn_length PARAMS ((rtx, int));
@@ -48,7 +49,8 @@ extern void split_adds_subs PARAMS ((enum machine_mode, rtx[]));
 
 extern int general_operand_src PARAMS ((rtx, enum machine_mode));
 extern int general_operand_dst PARAMS ((rtx, enum machine_mode));
-extern int o_operand PARAMS ((rtx, enum machine_mode));
+extern int single_one_operand PARAMS ((rtx, enum machine_mode));
+extern int single_zero_operand PARAMS ((rtx, enum machine_mode));
 extern int call_insn_operand PARAMS ((rtx, enum machine_mode));
 extern int two_insn_adds_subs_operand PARAMS ((rtx, enum machine_mode));
 extern int small_call_insn_operand PARAMS ((rtx, enum machine_mode));
@@ -68,14 +70,11 @@ extern struct rtx_def *function_arg PARAMS ((CUMULATIVE_ARGS *,
 extern int h8300_funcvec_function_p PARAMS ((tree));
 extern int h8300_eightbit_data_p PARAMS ((tree));
 extern int h8300_tiny_data_p PARAMS ((tree));
-extern void h8300_encode_label PARAMS ((tree));
 #endif /* TREE_CODE */
 
 extern void h8300_init_once PARAMS ((void));
 extern void asm_file_start PARAMS ((FILE *));
 extern void asm_file_end PARAMS ((FILE *));
-extern int ok_for_bclr PARAMS ((HOST_WIDE_INT));
-extern int small_power_of_two PARAMS ((HOST_WIDE_INT));
 extern int initial_offset PARAMS ((int, int));
 
 #ifdef GCC_C_PRAGMA_H

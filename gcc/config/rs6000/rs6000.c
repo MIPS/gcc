@@ -165,26 +165,35 @@ static void rs6000_elf_asm_out_destructor PARAMS ((rtx, int));
 static void rs6000_elf_select_section PARAMS ((tree, int,
 						 unsigned HOST_WIDE_INT));
 static void rs6000_elf_unique_section PARAMS ((tree, int));
+static void rs6000_elf_select_rtx_section PARAMS ((enum machine_mode, rtx,
+						   unsigned HOST_WIDE_INT));
+static void rs6000_elf_encode_section_info PARAMS ((tree, int));
+static const char *rs6000_elf_strip_name_encoding PARAMS ((const char *));
 #endif
-#ifdef OBJECT_FORMAT_COFF
+#if TARGET_XCOFF
 static void xcoff_asm_named_section PARAMS ((const char *, unsigned int));
 static void rs6000_xcoff_select_section PARAMS ((tree, int,
 						 unsigned HOST_WIDE_INT));
 static void rs6000_xcoff_unique_section PARAMS ((tree, int));
+static void rs6000_xcoff_select_rtx_section PARAMS ((enum machine_mode, rtx,
+						     unsigned HOST_WIDE_INT));
+static const char * rs6000_xcoff_strip_name_encoding PARAMS ((const char *));
 #endif
+static void rs6000_xcoff_encode_section_info PARAMS ((tree, int))
+     ATTRIBUTE_UNUSED;
 static int rs6000_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int rs6000_adjust_priority PARAMS ((rtx, int));
 static int rs6000_issue_rate PARAMS ((void));
 
 static void rs6000_init_builtins PARAMS ((void));
-static void altivec_init_builtins PARAMS ((void));
+static rtx rs6000_expand_unop_builtin PARAMS ((enum insn_code, tree, rtx));
+static rtx rs6000_expand_binop_builtin PARAMS ((enum insn_code, tree, rtx));
+static rtx rs6000_expand_ternop_builtin PARAMS ((enum insn_code, tree, rtx));
 static rtx rs6000_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int));
-static rtx altivec_expand_builtin PARAMS ((tree, rtx));
-static rtx altivec_expand_unop_builtin PARAMS ((enum insn_code, tree, rtx));
-static rtx altivec_expand_binop_builtin PARAMS ((enum insn_code, tree, rtx));
+static void altivec_init_builtins PARAMS ((void));
+static rtx altivec_expand_builtin PARAMS ((tree, rtx, bool *));
 static rtx altivec_expand_abs_builtin PARAMS ((enum insn_code, tree, rtx));
 static rtx altivec_expand_predicate_builtin PARAMS ((enum insn_code, const char *, tree, rtx));
-static rtx altivec_expand_ternop_builtin PARAMS ((enum insn_code, tree, rtx));
 static rtx altivec_expand_stv_builtin PARAMS ((enum insn_code, tree));
 static void rs6000_parse_abi_options PARAMS ((void));
 static void rs6000_parse_vrsave_option PARAMS ((void));
@@ -257,7 +266,7 @@ static const char alt_reg_names[][8] =
 /* Default unaligned ops are only provided for ELF.  Find the ops needed
    for non-ELF systems.  */
 #ifndef OBJECT_FORMAT_ELF
-#ifdef OBJECT_FORMAT_COFF
+#if TARGET_XCOFF
 /* For XCOFF.  rs6000_assemble_integer will handle unaligned DIs on
    64-bit targets.  */
 #undef TARGET_ASM_UNALIGNED_HI_OP
@@ -342,6 +351,9 @@ rs6000_override_options (default_cpu)
 	    MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING,
 	    POWERPC_MASKS | MASK_NEW_MNEMONICS},
 	 {"power3", PROCESSOR_PPC630,
+	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
+	    POWER_MASKS | MASK_PPC_GPOPT},
+	 {"power4", PROCESSOR_POWER4,
 	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | MASK_PPC_GPOPT},
 	 {"powerpc", PROCESSOR_POWERPC,
@@ -2304,7 +2316,7 @@ rs6000_emit_move (dest, source, mode)
 
   /* Handle the case where reload calls us with an invalid address;
      and the case of CONSTANT_P_RTX.  */
-  if (!VECTOR_MODE_P (mode)
+  if (!ALTIVEC_VECTOR_MODE (mode)
       && (! general_operand (operands[1], mode)
 	  || ! nonimmediate_operand (operands[0], mode)
 	  || GET_CODE (operands[1]) == CONSTANT_P_RTX))
@@ -3214,8 +3226,8 @@ rs6000_va_arg (valist, type)
   lab_over = gen_label_rtx ();
   addr_rtx = gen_reg_rtx (Pmode);
 
-  /*  Vectors never go in registers.  */
-  if (TREE_CODE (type) != VECTOR_TYPE)
+  /*  AltiVec vectors never go in registers.  */
+  if (!TARGET_ALTIVEC || TREE_CODE (type) != VECTOR_TYPE)
     {
       TREE_THIS_VOLATILE (reg) = 1;
       emit_cmp_and_jump_insns
@@ -3269,7 +3281,8 @@ rs6000_va_arg (valist, type)
      All AltiVec vectors go in the overflow area.  So in the AltiVec
      case we need to get the vectors from the overflow area, but
      remember where the GPRs and FPRs are.  */
-  if (n_reg > 1 && TREE_CODE (type) != VECTOR_TYPE)
+  if (n_reg > 1 && (TREE_CODE (type) != VECTOR_TYPE
+		    || !TARGET_ALTIVEC))
     {
       t = build (MODIFY_EXPR, TREE_TYPE (reg), reg, build_int_2 (8, 0));
       TREE_SIDE_EFFECTS (t) = 1;
@@ -3283,8 +3296,8 @@ rs6000_va_arg (valist, type)
     {
       int align;
 
-      /* Vectors are 16 byte aligned.  */
-      if (TREE_CODE (type) == VECTOR_TYPE)
+      /* AltiVec vectors are 16 byte aligned.  */
+      if (TARGET_ALTIVEC && TREE_CODE (type) == VECTOR_TYPE)
 	align = 15;
       else
 	align = 7;
@@ -3555,7 +3568,7 @@ static const struct builtin_description bdesc_1arg[] =
 };
 
 static rtx
-altivec_expand_unop_builtin (icode, arglist, target)
+rs6000_expand_unop_builtin (icode, arglist, target)
      enum insn_code icode;
      tree arglist;
      rtx target;
@@ -3568,7 +3581,7 @@ altivec_expand_unop_builtin (icode, arglist, target)
 
   /* If we got invalid arguments bail out before generating bad rtl.  */
   if (arg0 == error_mark_node)
-    return NULL_RTX;
+    return const0_rtx;
 
   switch (icode)
     {
@@ -3581,7 +3594,7 @@ altivec_expand_unop_builtin (icode, arglist, target)
 	  || INTVAL (op0) < -0x1f)
 	{
 	  error ("argument 1 must be a 5-bit signed literal");
-	  return NULL_RTX;
+	  return const0_rtx;
 	}
       break;
     default:
@@ -3618,7 +3631,7 @@ altivec_expand_abs_builtin (icode, arglist, target)
 
   /* If we have invalid arguments, bail out before generating bad rtl.  */
   if (arg0 == error_mark_node)
-    return NULL_RTX;
+    return const0_rtx;
 
   if (target == 0
       || GET_MODE (target) != tmode
@@ -3640,7 +3653,7 @@ altivec_expand_abs_builtin (icode, arglist, target)
 }
 
 static rtx
-altivec_expand_binop_builtin (icode, arglist, target)
+rs6000_expand_binop_builtin (icode, arglist, target)
      enum insn_code icode;
      tree arglist;
      rtx target;
@@ -3656,7 +3669,7 @@ altivec_expand_binop_builtin (icode, arglist, target)
 
   /* If we got invalid arguments bail out before generating bad rtl.  */
   if (arg0 == error_mark_node || arg1 == error_mark_node)
-    return NULL_RTX;
+    return const0_rtx;
 
   switch (icode)
     {
@@ -3672,7 +3685,7 @@ altivec_expand_binop_builtin (icode, arglist, target)
 	  || TREE_INT_CST_LOW (arg1) & ~0x1f)
 	{
 	  error ("argument 2 must be a 5-bit unsigned literal");
-	  return NULL_RTX;
+	  return const0_rtx;
 	}
       break;
     default:
@@ -3718,7 +3731,7 @@ altivec_expand_predicate_builtin (icode, opcode, arglist, target)
   if (TREE_CODE (cr6_form) != INTEGER_CST)
     {
       error ("argument 1 of __builtin_altivec_predicate must be a constant");
-      return NULL_RTX;
+      return const0_rtx;
     }
   else
     cr6_form_int = TREE_INT_CST_LOW (cr6_form);
@@ -3728,7 +3741,7 @@ altivec_expand_predicate_builtin (icode, opcode, arglist, target)
 
   /* If we have invalid arguments, bail out before generating bad rtl.  */
   if (arg0 == error_mark_node || arg1 == error_mark_node)
-    return NULL_RTX;
+    return const0_rtx;
 
   if (target == 0
       || GET_MODE (target) != tmode
@@ -3798,7 +3811,7 @@ altivec_expand_stv_builtin (icode, arglist)
   if (arg0 == error_mark_node
       || arg1 == error_mark_node
       || arg2 == error_mark_node)
-    return NULL_RTX;
+    return const0_rtx;
 
   if (! (*insn_data[icode].operand[2].predicate) (op0, mode2))
     op0 = copy_to_mode_reg (mode2, op0);
@@ -3814,7 +3827,7 @@ altivec_expand_stv_builtin (icode, arglist)
 }
 
 static rtx
-altivec_expand_ternop_builtin (icode, arglist, target)
+rs6000_expand_ternop_builtin (icode, arglist, target)
      enum insn_code icode;
      tree arglist;
      rtx target;
@@ -3835,7 +3848,7 @@ altivec_expand_ternop_builtin (icode, arglist, target)
   if (arg0 == error_mark_node
       || arg1 == error_mark_node
       || arg2 == error_mark_node)
-    return NULL_RTX;
+    return const0_rtx;
 
   switch (icode)
     {
@@ -3848,7 +3861,7 @@ altivec_expand_ternop_builtin (icode, arglist, target)
 	  || TREE_INT_CST_LOW (arg2) & ~0xf)
 	{
 	  error ("argument 3 must be a 4-bit unsigned literal");
-	  return NULL_RTX;
+	  return const0_rtx;
 	}
       break;
     default:
@@ -3874,10 +3887,14 @@ altivec_expand_ternop_builtin (icode, arglist, target)
 
   return target;
 }
+
+/* Expand the builtin in EXP and store the result in TARGET.  Store
+   true in *EXPANDEDP if we found a builtin to expand.  */
 static rtx
-altivec_expand_builtin (exp, target)
+altivec_expand_builtin (exp, target, expandedp)
      tree exp;
      rtx target;
+     bool *expandedp;
 {
   struct builtin_description *d;
   struct builtin_description_predicates *dp;
@@ -3889,7 +3906,9 @@ altivec_expand_builtin (exp, target)
   rtx op0, op1, op2, pat;
   enum machine_mode tmode, mode0, mode1, mode2;
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
-  
+
+  *expandedp = true;
+
   switch (fcode)
     {
     case ALTIVEC_BUILTIN_LD_INTERNAL_16qi:
@@ -4086,7 +4105,7 @@ altivec_expand_builtin (exp, target)
 
       /* If we got invalid arguments bail out before generating bad rtl.  */
       if (arg0 == error_mark_node)
-	return NULL_RTX;
+	return const0_rtx;
 
       if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
 	op0 = copy_to_mode_reg (mode0, op0);
@@ -4108,13 +4127,13 @@ altivec_expand_builtin (exp, target)
 
       /* If we got invalid arguments bail out before generating bad rtl.  */
       if (arg0 == error_mark_node)
-	return NULL_RTX;
+	return const0_rtx;
 
       if (TREE_CODE (arg0) != INTEGER_CST
 	  || TREE_INT_CST_LOW (arg0) & ~0x3)
 	{
 	  error ("argument to dss must be a 2-bit unsigned literal");
-	  return NULL_RTX;
+	  return const0_rtx;
 	}
 
       if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
@@ -4143,13 +4162,13 @@ altivec_expand_builtin (exp, target)
 	if (arg0 == error_mark_node
 	    || arg1 == error_mark_node
 	    || arg2 == error_mark_node)
-	  return NULL_RTX;
+	  return const0_rtx;
 
       if (TREE_CODE (arg2) != INTEGER_CST
 	  || TREE_INT_CST_LOW (arg2) & ~0x3)
 	{
 	  error ("argument to `%s' must be a 2-bit unsigned literal", d->name);
-	  return NULL_RTX;
+	  return const0_rtx;
 	}
 
 	if (! (*insn_data[d->icode].operand[0].predicate) (op0, mode0))
@@ -4170,18 +4189,6 @@ altivec_expand_builtin (exp, target)
     if (d->code == fcode)
       return altivec_expand_abs_builtin (d->icode, arglist, target);
 
-  /* Handle simple unary operations.  */
-  d = (struct builtin_description *) bdesc_1arg;
-  for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
-    if (d->code == fcode)
-      return altivec_expand_unop_builtin (d->icode, arglist, target);
-
-  /* Handle simple binary operations.  */
-  d = (struct builtin_description *) bdesc_2arg;
-  for (i = 0; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
-    if (d->code == fcode)
-      return altivec_expand_binop_builtin (d->icode, arglist, target);
-
   /* Expand the AltiVec predicates.  */
   dp = (struct builtin_description_predicates *) bdesc_altivec_preds;
   for (i = 0; i < ARRAY_SIZE (bdesc_altivec_preds); i++, dp++)
@@ -4192,38 +4199,32 @@ altivec_expand_builtin (exp, target)
   switch (fcode)
     {
     case ALTIVEC_BUILTIN_LVSL:
-      return altivec_expand_binop_builtin (CODE_FOR_altivec_lvsl,
+      return rs6000_expand_binop_builtin (CODE_FOR_altivec_lvsl,
 					   arglist, target);
     case ALTIVEC_BUILTIN_LVSR:
-      return altivec_expand_binop_builtin (CODE_FOR_altivec_lvsr,
-					   arglist, target);
+      return rs6000_expand_binop_builtin (CODE_FOR_altivec_lvsr,
+					  arglist, target);
     case ALTIVEC_BUILTIN_LVEBX:
-      return altivec_expand_binop_builtin (CODE_FOR_altivec_lvebx,
-					   arglist, target);
+      return rs6000_expand_binop_builtin (CODE_FOR_altivec_lvebx,
+					  arglist, target);
     case ALTIVEC_BUILTIN_LVEHX:
-      return altivec_expand_binop_builtin (CODE_FOR_altivec_lvehx,
-					   arglist, target);
+      return rs6000_expand_binop_builtin (CODE_FOR_altivec_lvehx,
+					  arglist, target);
     case ALTIVEC_BUILTIN_LVEWX:
-      return altivec_expand_binop_builtin (CODE_FOR_altivec_lvewx,
-					   arglist, target);
+      return rs6000_expand_binop_builtin (CODE_FOR_altivec_lvewx,
+					  arglist, target);
     case ALTIVEC_BUILTIN_LVXL:
-      return altivec_expand_binop_builtin (CODE_FOR_altivec_lvxl,
-					   arglist, target);
+      return rs6000_expand_binop_builtin (CODE_FOR_altivec_lvxl,
+					  arglist, target);
     case ALTIVEC_BUILTIN_LVX:
-      return altivec_expand_binop_builtin (CODE_FOR_altivec_lvx,
-					   arglist, target);
+      return rs6000_expand_binop_builtin (CODE_FOR_altivec_lvx,
+					  arglist, target);
     default:
       break;
       /* Fall through.  */
     }
 
-  /* Handle simple ternary operations.  */
-  d = (struct builtin_description *) bdesc_3arg;
-  for (i = 0; i < ARRAY_SIZE  (bdesc_3arg); i++, d++)
-    if (d->code == fcode)
-      return altivec_expand_ternop_builtin (d->icode, arglist, target);
-
-  abort ();
+  *expandedp = false;
   return NULL_RTX;
 }
 
@@ -4241,10 +4242,42 @@ rs6000_expand_builtin (exp, target, subtarget, mode, ignore)
      enum machine_mode mode ATTRIBUTE_UNUSED;
      int ignore ATTRIBUTE_UNUSED;
 {
+  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree arglist = TREE_OPERAND (exp, 1);
+  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  struct builtin_description *d;
+  size_t i;
+  rtx ret;
+  bool success;
+  
   if (TARGET_ALTIVEC)
-    return altivec_expand_builtin (exp, target);
+    {
+      ret = altivec_expand_builtin (exp, target, &success);
+
+      if (success)
+	return ret;
+    }
+
+  /* Handle simple unary operations.  */
+  d = (struct builtin_description *) bdesc_1arg;
+  for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
+    if (d->code == fcode)
+      return rs6000_expand_unop_builtin (d->icode, arglist, target);
+
+  /* Handle simple binary operations.  */
+  d = (struct builtin_description *) bdesc_2arg;
+  for (i = 0; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
+    if (d->code == fcode)
+      return rs6000_expand_binop_builtin (d->icode, arglist, target);
+
+  /* Handle simple ternary operations.  */
+  d = (struct builtin_description *) bdesc_3arg;
+  for (i = 0; i < ARRAY_SIZE  (bdesc_3arg); i++, d++)
+    if (d->code == fcode)
+      return rs6000_expand_ternop_builtin (d->icode, arglist, target);
 
   abort ();
+  return NULL_RTX;
 }
 
 static void
@@ -7501,12 +7534,19 @@ rs6000_emit_minmax (dest, code, op0, op1)
      rtx op1;
 {
   enum machine_mode mode = GET_MODE (op0);
+  enum rtx_code c;
   rtx target;
+
+  if (code == SMAX || code == SMIN)
+    c = GE;
+  else
+    c = GEU;
+
   if (code == SMAX || code == UMAX)
-    target = emit_conditional_move (dest, GE, op0, op1, mode, 
+    target = emit_conditional_move (dest, c, op0, op1, mode, 
 				    op0, op1, mode, 0);
   else
-    target = emit_conditional_move (dest, GE, op0, op1, mode, 
+    target = emit_conditional_move (dest, c, op0, op1, mode, 
 				    op1, op0, mode, 0);
   if (target == NULL_RTX)
     abort ();
@@ -8625,6 +8665,14 @@ rs6000_frame_related (insn, reg, val, reg2, rreg)
      rtx rreg;
 {
   rtx real, temp;
+
+  /* copy_rtx will not make unique copies of registers, so we need to
+     ensure we don't have unwanted sharing here.  */
+  if (reg == reg2)
+    reg = gen_raw_REG (GET_MODE (reg), REGNO (reg));
+
+  if (reg == rreg)
+    reg = gen_raw_REG (GET_MODE (reg), REGNO (reg));
 
   real = copy_rtx (PATTERN (insn));
 
@@ -10231,8 +10279,10 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs (DOUBLE_INT_ASM_OP, file);
 	  else
-	    fprintf (file, "\t.tc FD_%lx_%lx[TC],", k[0], k[1]);
-	  fprintf (file, "0x%lx%08lx\n", k[0], k[1]);
+	    fprintf (file, "\t.tc FD_%lx_%lx[TC],",
+		     k[0] & 0xffffffff, k[1] & 0xffffffff);
+	  fprintf (file, "0x%lx%08lx\n",
+		   k[0] & 0xffffffff, k[1] & 0xffffffff);
 	  return;
 	}
       else
@@ -10240,8 +10290,10 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs ("\t.long ", file);
 	  else
-	    fprintf (file, "\t.tc FD_%lx_%lx[TC],", k[0], k[1]);
-	  fprintf (file, "0x%lx,0x%lx\n", k[0], k[1]);
+	    fprintf (file, "\t.tc FD_%lx_%lx[TC],",
+		     k[0] & 0xffffffff, k[1] & 0xffffffff);
+	  fprintf (file, "0x%lx,0x%lx\n",
+		   k[0] & 0xffffffff, k[1] & 0xffffffff);
 	  return;
 	}
     }
@@ -10258,8 +10310,8 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs (DOUBLE_INT_ASM_OP, file);
 	  else
-	    fprintf (file, "\t.tc FS_%lx[TC],", l);
-	  fprintf (file, "0x%lx00000000\n", l);
+	    fprintf (file, "\t.tc FS_%lx[TC],", l & 0xffffffff);
+	  fprintf (file, "0x%lx00000000\n", l & 0xffffffff);
 	  return;
 	}
       else
@@ -10267,8 +10319,8 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs ("\t.long ", file);
 	  else
-	    fprintf (file, "\t.tc FS_%lx[TC],", l);
-	  fprintf (file, "0x%lx\n", l);
+	    fprintf (file, "\t.tc FS_%lx[TC],", l & 0xffffffff);
+	  fprintf (file, "0x%lx\n", l & 0xffffffff);
 	  return;
 	}
     }
@@ -10318,8 +10370,10 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs (DOUBLE_INT_ASM_OP, file);
 	  else
-	    fprintf (file, "\t.tc ID_%lx_%lx[TC],", (long) high, (long) low);
-	  fprintf (file, "0x%lx%08lx\n", (long) high, (long) low);
+	    fprintf (file, "\t.tc ID_%lx_%lx[TC],",
+		     (long) high & 0xffffffff, (long) low & 0xffffffff);
+	  fprintf (file, "0x%lx%08lx\n",
+		   (long) high & 0xffffffff, (long) low & 0xffffffff);
 	  return;
 	}
       else
@@ -10330,16 +10384,17 @@ output_toc (file, x, labelno, mode)
 		fputs ("\t.long ", file);
 	      else
 		fprintf (file, "\t.tc ID_%lx_%lx[TC],",
-			 (long) high, (long) low);
-	      fprintf (file, "0x%lx,0x%lx\n", (long) high, (long) low);
+			 (long) high & 0xffffffff, (long) low & 0xffffffff);
+	      fprintf (file, "0x%lx,0x%lx\n",
+		       (long) high & 0xffffffff, (long) low & 0xffffffff);
 	    }
 	  else
 	    {
 	      if (TARGET_MINIMAL_TOC)
 		fputs ("\t.long ", file);
 	      else
-		fprintf (file, "\t.tc IS_%lx[TC],", (long) low);
-	      fprintf (file, "0x%lx\n", (long) low);
+		fprintf (file, "\t.tc IS_%lx[TC],", (long) low & 0xffffffff);
+	      fprintf (file, "0x%lx\n", (long) low & 0xffffffff);
 	    }
 	  return;
 	}
@@ -10363,7 +10418,7 @@ output_toc (file, x, labelno, mode)
   else
     abort ();
 
-  STRIP_NAME_ENCODING (real_name, name);
+  real_name = (*targetm.strip_name_encoding) (name);
   if (TARGET_MINIMAL_TOC)
     fputs (TARGET_32BIT ? "\t.long " : DOUBLE_INT_ASM_OP, file);
   else
@@ -10535,7 +10590,7 @@ output_profile_hook (labelno)
       rtx fun;
 
       ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
-      STRIP_NAME_ENCODING (label_name, ggc_strdup (buf));
+      label_name = (*targetm.strip_name_encoding) (ggc_strdup (buf));
       fun = gen_rtx_SYMBOL_REF (Pmode, label_name);
 
       emit_library_call (init_one_libfunc (RS6000_MCOUNT), 0, VOIDmode, 1,
@@ -10659,18 +10714,24 @@ rs6000_adjust_cost (insn, link, dep_insn, cost)
       switch (get_attr_type (insn))
 	{
 	case TYPE_JMPREG:
-          /* Tell the first scheduling pass about the latency between
+	  /* Tell the first scheduling pass about the latency between
 	     a mtctr and bctr (and mtlr and br/blr).  The first
 	     scheduling pass will not know about this latency since
 	     the mtctr instruction, which has the latency associated
 	     to it, will be generated by reload.  */
-          return TARGET_POWER ? 5 : 4;
+	  return TARGET_POWER ? 5 : 4;
 	case TYPE_BRANCH:
 	  /* Leave some extra cycles between a compare and its
 	     dependent branch, to inhibit expensive mispredicts.  */
-	  if ((rs6000_cpu_attr == CPU_PPC750
-               || rs6000_cpu_attr == CPU_PPC7400
-               || rs6000_cpu_attr == CPU_PPC7450)
+	  if ((rs6000_cpu_attr == CPU_PPC603
+	       || rs6000_cpu_attr == CPU_PPC604
+	       || rs6000_cpu_attr == CPU_PPC604E
+	       || rs6000_cpu_attr == CPU_PPC620
+	       || rs6000_cpu_attr == CPU_PPC630
+	       || rs6000_cpu_attr == CPU_PPC750
+	       || rs6000_cpu_attr == CPU_PPC7400
+	       || rs6000_cpu_attr == CPU_PPC7450
+	       || rs6000_cpu_attr == CPU_POWER4)
 	      && recog_memoized (dep_insn)
 	      && (INSN_CODE (dep_insn) >= 0)
 	      && (get_attr_type (dep_insn) == TYPE_COMPARE
@@ -10751,6 +10812,7 @@ rs6000_issue_rate ()
   case CPU_PPC604E:
   case CPU_PPC620:
   case CPU_PPC630:
+  case CPU_POWER4:
     return 4;
   default:
     return 1;
@@ -10913,6 +10975,8 @@ rs6000_longcall_ref (call_ref)
 }
 
 
+#ifdef USING_ELFOS_H
+
 /* A C statement or statements to switch to the appropriate section
    for output of RTX in mode MODE.  You can assume that RTX is some
    kind of constant in RTL.  The argument MODE is redundant except in
@@ -10922,22 +10986,16 @@ rs6000_longcall_ref (call_ref)
    Do not define this macro if you put all constants in the read-only
    data section.  */
 
-#ifdef USING_ELFOS_H
-
-void
-rs6000_select_rtx_section (mode, x)
+static void
+rs6000_elf_select_rtx_section (mode, x, align)
      enum machine_mode mode;
      rtx x;
+     unsigned HOST_WIDE_INT align;
 {
   if (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (x, mode))
     toc_section ();
-  else if (flag_pic
-	   && (GET_CODE (x) == SYMBOL_REF
-	       || GET_CODE (x) == LABEL_REF
-	       || GET_CODE (x) == CONST))
-    data_section ();
   else
-    const_section ();
+    default_elf_select_rtx_section (mode, x, align);
 }
 
 /* A C statement or statements to switch to the appropriate
@@ -10955,7 +11013,7 @@ rs6000_elf_select_section (decl, reloc, align)
   int needs_sdata;
   int readonly;
   static void (* const sec_funcs[4]) PARAMS ((void)) = {
-    &const_section,
+    &readonly_data_section,
     &sdata2_section,
     &data_section,
     &sdata_section
@@ -11057,7 +11115,8 @@ rs6000_elf_unique_section (decl, reloc)
 	}
     }
 
-  STRIP_NAME_ENCODING (name, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  name = (*targetm.strip_name_encoding) (name);
   prefix = prefixes[sec][DECL_ONE_ONLY (decl)];
   len    = strlen (name) + strlen (prefix);
   string = alloca (len + 1);
@@ -11076,8 +11135,8 @@ rs6000_elf_unique_section (decl, reloc)
    the function descriptor name.  This saves a lot of overriding code
    to read the prefixes.  */
 
-void
-rs6000_encode_section_info (decl, first)
+static void
+rs6000_elf_encode_section_info (decl, first)
      tree decl;
      int first;
 {
@@ -11147,6 +11206,15 @@ rs6000_encode_section_info (decl, first)
 	  XSTR (sym_ref, 0) = ggc_alloc_string (str, len + 1);
 	}
     }
+}
+
+static const char *
+rs6000_elf_strip_name_encoding (str)
+     const char *str;
+{
+  while (*str == '*' || *str == '@')
+    str++;
+  return str;
 }
 
 #endif /* USING_ELFOS_H */
@@ -11407,7 +11475,7 @@ machopic_output_stub (file, symb, stub)
   static int label = 0;
 
   /* Lose our funky encoding stuff so it doesn't contaminate the stub.  */
-  STRIP_NAME_ENCODING (symb, symb);
+  symb = (*targetm.strip_name_encoding) (symb);
 
   label += 1;
 
@@ -11605,7 +11673,7 @@ rs6000_elf_asm_out_destructor (symbol, priority)
 }
 #endif
 
-#ifdef OBJECT_FORMAT_COFF
+#if TARGET_XCOFF
 static void
 xcoff_asm_named_section (name, flags)
      const char *name;
@@ -11646,7 +11714,7 @@ rs6000_xcoff_select_section (exp, reloc, align)
 static void
 rs6000_xcoff_unique_section (decl, reloc)
      tree decl;
-     int reloc;
+     int reloc ATTRIBUTE_UNUSED;
 {
   const char *name;
   char *string;
@@ -11661,4 +11729,52 @@ rs6000_xcoff_unique_section (decl, reloc)
       DECL_SECTION_NAME (decl) = build_string (len, string);
     }
 }
-#endif
+
+/* Select section for constant in constant pool.
+
+   On RS/6000, all constants are in the private read-only data area.
+   However, if this is being placed in the TOC it must be output as a
+   toc entry.  */
+
+static void
+rs6000_xcoff_select_rtx_section (mode, x, align)
+     enum machine_mode mode;
+     rtx x;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  if (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (x, mode))
+    toc_section ();
+  else
+    read_only_private_data_section ();
+}
+
+/* Remove any trailing [DS] or the like from the symbol name.  */
+
+static const char *
+rs6000_xcoff_strip_name_encoding (name)
+     const char *name;
+{
+  size_t len;
+  if (*name == '*')
+    name++;
+  len = strlen (name);
+  if (name[len - 1] == ']')
+    return ggc_alloc_string (name, len - 4);
+  else
+    return name;
+}
+
+#endif /* TARGET_XCOFF */
+
+/* Note that this is also used for ELF64.  */
+
+static void
+rs6000_xcoff_encode_section_info (decl, first)
+     tree decl;
+     int first ATTRIBUTE_UNUSED;
+{
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && (TREE_ASM_WRITTEN (decl) || ! TREE_PUBLIC (decl))
+      && ! DECL_WEAK (decl))
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+}

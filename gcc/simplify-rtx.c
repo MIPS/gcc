@@ -232,6 +232,31 @@ simplify_gen_relational (code, mode, cmp_mode, op0, op1)
   if ((tem = simplify_relational_operation (code, cmp_mode, op0, op1)) != 0)
     return tem;
 
+  /* For the following tests, ensure const0_rtx is op1.  */
+  if (op0 == const0_rtx && swap_commutative_operands_p (op0, op1))
+    tem = op0, op0 = op1, op1 = tem, code = swap_condition (code);
+
+  /* If op0 is a compare, extract the comparison arguments from it.  */
+  if (GET_CODE (op0) == COMPARE && op1 == const0_rtx)
+    op1 = XEXP (op0, 1), op0 = XEXP (op0, 0);
+
+  /* If op0 is a comparison, extract the comparison arguments form it.  */
+  if (code == NE && op1 == const0_rtx
+      && GET_RTX_CLASS (GET_CODE (op0)) == '<')
+    return op0;
+  else if (code == EQ && op1 == const0_rtx)
+    {
+      /* The following tests GET_RTX_CLASS (GET_CODE (op0)) == '<'.  */
+      enum rtx_code new = reversed_comparison_code (op0, NULL_RTX);
+      if (new != UNKNOWN)
+        {
+	  code = new;
+	  mode = cmp_mode;
+	  op1 = XEXP (op0, 1);
+	  op0 = XEXP (op0, 0);
+        }
+    }
+
   /* Put complex operands first and constants second.  */
   if (swap_commutative_operands_p (op0, op1))
     tem = op0, op0 = op1, op1 = tem, code = swap_condition (code);
@@ -324,13 +349,18 @@ simplify_replace_rtx (x, old, new)
 	}
       return x;
 
-    default:
-      if (GET_CODE (x) == MEM)
-	return
-	  replace_equiv_address_nv (x,
-				    simplify_replace_rtx (XEXP (x, 0),
-							  old, new));
+    case 'o':
+      if (code == MEM)
+	return replace_equiv_address_nv (x,
+					 simplify_replace_rtx (XEXP (x, 0),
+							       old, new));
 
+      if (REG_P (x) && REG_P (old) && REGNO (x) == REGNO (old))
+	return new;
+
+      return x;
+
+    default:
       return x;
     }
   return x;
@@ -2237,6 +2267,24 @@ simplify_subreg (outermode, op, innermode, byte)
 
   if (outermode == innermode && !byte)
     return op;
+
+  /* Simplify subregs of vector constants.  */
+  if (GET_CODE (op) == CONST_VECTOR)
+    {
+      int offset = byte / UNITS_PER_WORD;
+      rtx elt;
+
+      /* This shouldn't happen, but let's not do anything stupid.  */
+      if (GET_MODE_INNER (innermode) != outermode)
+	return NULL_RTX;
+
+      elt = CONST_VECTOR_ELT (op, offset);
+
+      /* ?? We probably don't need this copy_rtx because constants
+	 can be shared.  ?? */
+
+      return copy_rtx (elt);
+    }
 
   /* Attempt to simplify constant to non-SUBREG expression.  */
   if (CONSTANT_P (op))

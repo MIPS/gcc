@@ -208,8 +208,8 @@ void test01()
   VERIFY( result1.find('x') == 1 );
 
 #ifdef _GLIBCPP_USE_LONG_LONG
-  long long ll1 = 9223372036854775807;
-  long long ll2 = -9223372036854775807;
+  long long ll1 = 9223372036854775807LL;
+  long long ll2 = -9223372036854775807LL;
 
   oss.str(empty);
   oss.clear();
@@ -257,7 +257,7 @@ void test02()
   VERIFY( sanity1 == "1798" );
 
   // 02 put(long double)
-  const long double ld = 1798;
+  const long double ld = 1798.0;
   res = x;
   iter_type ret2 = tp.put(res.begin(), oss, ' ', ld);
   string sanity2(res.begin(), ret2);
@@ -315,13 +315,13 @@ void test04()
 {
   bool test = true;
 
-  const char* tentLANG = setlocale(LC_ALL, "ja_JP.eucjp");
+  const char* tentLANG = std::setlocale(LC_ALL, "ja_JP.eucjp");
   if (tentLANG != NULL)
     {
       std::string preLANG = tentLANG;
       test01();
       test02();
-      std::string postLANG = setlocale(LC_ALL, NULL);
+      std::string postLANG = std::setlocale(LC_ALL, NULL);
       VERIFY( preLANG == postLANG );
     }
 }

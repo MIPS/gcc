@@ -492,7 +492,7 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
    construct the address of this field.  This is used for aliasing
    purposes: see record_component_aliases.
    In CONSTRUCTOR nodes, it means object constructed must be in memory.
-   In LABEL_DECL nodes, it means a goto for this label has been seen 
+   In LABEL_DECL nodes, it means a goto for this label has been seen
    from a place outside all binding contours that restore stack levels.
    In ..._TYPE nodes, it means that objects of this type must
    be fully addressable.  This means that pieces of this
@@ -699,7 +699,7 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
   (((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (A)		\
     < (unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (B))		\
    || (((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (A)		\
-        == (unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (B))	\
+	== (unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (B))	\
        && TREE_INT_CST_LOW (A) < TREE_INT_CST_LOW (B)))
  
 struct tree_int_cst GTY(())
@@ -722,20 +722,19 @@ struct tree_int_cst GTY(())
 
 #define TREE_CST_RTL(NODE) (CST_OR_CONSTRUCTOR_CHECK (NODE)->real_cst.rtl)
 
-/* In a REAL_CST node.
+/* In a REAL_CST node.  struct realvaluetype is an opaque entity, with
+   manipulators defined in real.h.  We don't want tree.h depending on
+   real.h and transitively on tm.h.  */
+struct realvaluetype;
 
-   We can represent a real value as either a `double' or an array of
-   longs.  */
-
-#define TREE_REAL_CST(NODE) (REAL_CST_CHECK (NODE)->real_cst.real_cst)
-
-#include "real.h"
+#define TREE_REAL_CST_PTR(NODE) (REAL_CST_CHECK (NODE)->real_cst.real_cst_ptr)
+#define TREE_REAL_CST(NODE) (*TREE_REAL_CST_PTR (NODE))
 
 struct tree_real_cst GTY(())
 {
   struct tree_common common;
   rtx rtl;	/* acts as link to register transfer language (rtl) info */
-  REAL_VALUE_TYPE real_cst;
+  struct realvaluetype * real_cst_ptr;
 };
 
 /* In a STRING_CST */
@@ -929,7 +928,7 @@ struct tree_exp GTY(())
    One of the logical block fragments is arbitrarily chosen to be
    the ORIGIN.  The other fragments will point to the origin via
    BLOCK_FRAGMENT_ORIGIN; the origin itself will have this pointer
-   be null.  The list of fragments will be chained through 
+   be null.  The list of fragments will be chained through
    BLOCK_FRAGMENT_CHAIN from the origin.  */
 
 #define BLOCK_FRAGMENT_ORIGIN(NODE) (BLOCK_CHECK (NODE)->block.fragment_origin)
@@ -1288,7 +1287,7 @@ struct tree_type GTY(())
    from the base of the complete object to the base of the part of the
    object that is allocated on behalf of this `type'.
    This is always 0 except when there is multiple inheritance.  */
-   
+
 #define BINFO_OFFSET(NODE) TREE_VEC_ELT ((NODE), 1)
 #define TYPE_BINFO_OFFSET(NODE) BINFO_OFFSET (TYPE_BINFO (NODE))
 #define BINFO_OFFSET_ZEROP(NODE) (integer_zerop (BINFO_OFFSET (NODE)))
@@ -1386,15 +1385,15 @@ struct tree_type GTY(())
    DECL_ASSEMBLER_NAME has not yet been set, using this macro will not cause
    the DECL_ASSEMBLER_NAME of either DECL to be set.  In other words, the
    semantics of using this macro, are different than saying:
-     
+
      SET_DECL_ASSEMBLER_NAME(DECL2, DECL_ASSEMBLER_NAME (DECL1))
 
    which will try to set the DECL_ASSEMBLER_NAME for DECL1.  */
 
 #define COPY_DECL_ASSEMBLER_NAME(DECL1, DECL2)				\
   (DECL_ASSEMBLER_NAME_SET_P (DECL1)					\
-   ? (void) SET_DECL_ASSEMBLER_NAME (DECL2, 				\
-                                     DECL_ASSEMBLER_NAME (DECL1))	\
+   ? (void) SET_DECL_ASSEMBLER_NAME (DECL2,				\
+				     DECL_ASSEMBLER_NAME (DECL1))	\
    : (void) 0)
 
 /* Records the section name in a section attribute.  Used to pass
@@ -1481,7 +1480,7 @@ struct tree_type GTY(())
    PROMOTED_MODE is defined, the mode of this expression may not be same
    as DECL_MODE.  In that case, DECL_MODE contains the mode corresponding
    to the variable's data type, while the mode
-   of DECL_RTL is the mode actually used to contain the data.  
+   of DECL_RTL is the mode actually used to contain the data.
 
    This value can be evaluated lazily for functions, variables with
    static storage duration, and labels.  */
@@ -1589,7 +1588,7 @@ struct tree_type GTY(())
 
 /* In a TYPE_DECL
    nonzero means the detail info about this type is not dumped into stabs.
-   Instead it will generate cross reference ('x') of names. 
+   Instead it will generate cross reference ('x') of names.
    This uses the same flag as DECL_EXTERNAL.  */
 #define TYPE_DECL_SUPPRESS_DEBUG(NODE) \
   (TYPE_DECL_CHECK (NODE)->decl.external_flag)
@@ -1624,6 +1623,10 @@ struct tree_type GTY(())
 
 /* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
 #define DECL_UNINLINABLE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.uninlinable)
+
+/* In a VAR_DECL, nonzero if the data should be allocated from
+   thread-local storage.  */
+#define DECL_THREAD_LOCAL(NODE) (VAR_DECL_CHECK (NODE)->decl.thread_local_flag)
 
 /* In a FUNCTION_DECL, the saved representation of the body of the
    entire function.  Usually a COMPOUND_STMT, but in C++ this may also
@@ -1803,7 +1806,8 @@ struct tree_decl GTY(())
   unsigned non_addressable : 1;
   unsigned user_align : 1;
   unsigned uninlinable : 1;
-  /* Three unused bits.  */
+  unsigned thread_local_flag : 1;
+  /* Two unused bits.  */
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
@@ -1922,7 +1926,7 @@ enum tree_index
   TI_UINTSI_TYPE,
   TI_UINTDI_TYPE,
   TI_UINTTI_TYPE,
-    
+
   TI_INTEGER_ZERO,
   TI_INTEGER_ONE,
   TI_INTEGER_MINUS_ONE,
@@ -1982,7 +1986,7 @@ enum tree_index
 extern GTY(()) tree global_trees[TI_MAX];
 
 #define error_mark_node			global_trees[TI_ERROR_MARK]
- 
+
 #define intQI_type_node			global_trees[TI_INTQI_TYPE]
 #define intHI_type_node			global_trees[TI_INTHI_TYPE]
 #define intSI_type_node			global_trees[TI_INTSI_TYPE]
@@ -2054,8 +2058,10 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define V16SF_type_node			global_trees[TI_V16SF_TYPE]
 
 /* An enumeration of the standard C integer types.  These must be
-   ordered so that shorter types appear before longer ones.  */
-enum integer_type_kind 
+   ordered so that shorter types appear before longer ones, and so
+   that signed types appear before unsigned ones, for the correct
+   functioning of interpret_integer() in c-lex.c.  */
+enum integer_type_kind
 {
   itk_char,
   itk_signed_char,
@@ -2149,7 +2155,6 @@ extern tree build_nt			PARAMS ((enum tree_code, ...));
 
 extern tree build_int_2_wide		PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT));
 extern tree build_vector                PARAMS ((tree, tree));
-extern tree build_real			PARAMS ((tree, REAL_VALUE_TYPE));
 extern tree build_real_from_int_cst 	PARAMS ((tree, tree));
 extern tree build_complex		PARAMS ((tree, tree, tree));
 extern tree build_string		PARAMS ((int, const char *));
@@ -2882,6 +2887,7 @@ extern void expand_pending_sizes        PARAMS ((tree));
 
 extern int real_onep			PARAMS ((tree));
 extern int real_twop			PARAMS ((tree));
+extern int real_minus_onep		PARAMS ((tree));
 extern void gcc_obstack_init		PARAMS ((struct obstack *));
 extern void init_obstacks		PARAMS ((void));
 extern void build_common_tree_nodes	PARAMS ((int));

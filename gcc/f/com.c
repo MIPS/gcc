@@ -82,6 +82,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "proj.h"
 #include "flags.h"
+#include "real.h"
 #include "rtl.h"
 #include "toplev.h"
 #include "tree.h"
@@ -1811,15 +1812,8 @@ ffecom_call_ (tree fn, ffeinfoKindtype kt, bool is_f2c_complex,
 				       callee_commons,
 				       scalar_args))
 	{
-#ifdef HOHO
-	  tempvar = ffecom_make_tempvar (ffecom_tree_type
-					 [FFEINFO_basictypeCOMPLEX][kt],
-					 FFETARGET_charactersizeNONE,
-					 -1);
-#else
 	  tempvar = hook;
 	  assert (tempvar);
-#endif
 	}
       else
 	{
@@ -2167,13 +2161,8 @@ ffecom_char_args_x_ (tree *xitem, tree *length, ffebld expr, bool with_null)
 	    if (!ffesymbol_hook (s).addr)
 	      item = ffecom_1_fn (item);
 	  }
-
-#ifdef HOHO
-	tempvar = ffecom_push_tempvar (char_type_node, size, -1, TRUE);
-#else
 	tempvar = ffebld_nonter_hook (expr);
 	assert (tempvar);
-#endif
 	tempvar = ffecom_1 (ADDR_EXPR,
 			    build_pointer_type (TREE_TYPE (tempvar)),
 			    tempvar);
@@ -2225,13 +2214,8 @@ ffecom_char_args_x_ (tree *xitem, tree *length, ffebld expr, bool with_null)
 	  tree args;
 	  tree newlen;
 
-#ifdef HOHO
-	  tempvar = ffecom_make_tempvar (char_type_node,
-					 ffebld_size (expr), -1);
-#else
 	  tempvar = ffebld_nonter_hook (expr);
 	  assert (tempvar);
-#endif
 	  tempvar = ffecom_1 (ADDR_EXPR,
 			      build_pointer_type (TREE_TYPE (tempvar)),
 			      tempvar);
@@ -4045,12 +4029,8 @@ ffecom_expr_intrinsic_ (ffebld expr, tree dest_tree,
 
     case FFEINTRIN_impCHAR:
     case FFEINTRIN_impACHAR:
-#ifdef HOHO
-      tempvar = ffecom_make_tempvar (char_type_node, 1, -1);
-#else
       tempvar = ffebld_nonter_hook (expr);
       assert (tempvar);
-#endif
       {
 	tree tmv = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (tempvar)));
 
@@ -5623,7 +5603,6 @@ ffecom_expr_power_integer_ (ffebld expr)
 
     ffecom_start_compstmt ();
 
-#ifndef HAHA
     rtmp = ffecom_make_tempvar ("power_r", rtype,
 				FFETARGET_charactersizeNONE, -1);
     ltmp = ffecom_make_tempvar ("power_l", ltype,
@@ -5636,25 +5615,6 @@ ffecom_expr_power_integer_ (ffebld expr)
 				    FFETARGET_charactersizeNONE, -1);
     else
       divide = NULL_TREE;
-#else  /* HAHA */
-    {
-      tree hook;
-
-      hook = ffebld_nonter_hook (expr);
-      assert (hook);
-      assert (TREE_CODE (hook) == TREE_VEC);
-      assert (TREE_VEC_LENGTH (hook) == 4);
-      rtmp = TREE_VEC_ELT (hook, 0);
-      ltmp = TREE_VEC_ELT (hook, 1);
-      result = TREE_VEC_ELT (hook, 2);
-      divide = TREE_VEC_ELT (hook, 3);
-      if (TREE_CODE (ltype) == COMPLEX_TYPE
-	  || TREE_CODE (ltype) == RECORD_TYPE)
-	assert (divide);
-      else
-	assert (! divide);
-    }
-#endif  /* HAHA */
 
     expand_expr_stmt (ffecom_modify (void_type_node,
 				     rtmp,
@@ -6734,15 +6694,6 @@ ffecom_let_char_ (tree dest_tree, tree dest_length,
     tree citem;
     tree clength;
 
-#ifdef HOHO
-    length_array
-      = lengths
-      = ffecom_push_tempvar (ffecom_f2c_ftnlen_type_node,
-			     FFETARGET_charactersizeNONE, count, TRUE);
-    item_array = items = ffecom_push_tempvar (ffecom_f2c_address_type_node,
-					      FFETARGET_charactersizeNONE,
-					      count, TRUE);
-#else
     {
       tree hook;
 
@@ -6753,7 +6704,6 @@ ffecom_let_char_ (tree dest_tree, tree dest_length,
       length_array = lengths = TREE_VEC_ELT (hook, 0);
       item_array = items = TREE_VEC_ELT (hook, 1);
     }
-#endif
 
     for (i = 0; i < count; ++i)
       {
@@ -10257,18 +10207,6 @@ ffecom_arg_ptr_to_expr (ffebld expr, tree *length)
     /* ~~Kludge! */
     assert (sz != FFETARGET_charactersizeNONE);
 
-#ifdef HOHO
-    length_array
-      = lengths
-      = ffecom_push_tempvar (ffecom_f2c_ftnlen_type_node,
-			     FFETARGET_charactersizeNONE, count, TRUE);
-    item_array
-      = items
-      = ffecom_push_tempvar (ffecom_f2c_address_type_node,
-			     FFETARGET_charactersizeNONE, count, TRUE);
-    temporary = ffecom_push_tempvar (char_type_node,
-				     sz, -1, TRUE);
-#else
     {
       tree hook;
 
@@ -10280,7 +10218,6 @@ ffecom_arg_ptr_to_expr (ffebld expr, tree *length)
       item_array = items = TREE_VEC_ELT (hook, 1);
       temporary = TREE_VEC_ELT (hook, 2);
     }
-#endif
 
     known_length = ffecom_f2c_ftnlen_zero_node;
 
@@ -12467,27 +12404,6 @@ ffecom_prepare_expr_ (ffebld expr, ffebld dest UNUSED)
 	  break;
 	}
       break;
-
-#ifdef HAHA
-    case FFEBLD_opPOWER:
-      {
-	tree rtype, ltype;
-	tree rtmp, ltmp, result;
-
-	ltype = ffecom_type_expr (ffebld_left (expr));
-	rtype = ffecom_type_expr (ffebld_right (expr));
-
-	rtmp = ffecom_make_tempvar (rtype, FFETARGET_charactersizeNONE, -1);
-	ltmp = ffecom_make_tempvar (ltype, FFETARGET_charactersizeNONE, -1);
-	result = ffecom_make_tempvar (ltype, FFETARGET_charactersizeNONE, -1);
-
-	tempvar = make_tree_vec (3);
-	TREE_VEC_ELT (tempvar, 0) = rtmp;
-	TREE_VEC_ELT (tempvar, 1) = ltmp;
-	TREE_VEC_ELT (tempvar, 2) = result;
-      }
-      break;
-#endif  /* HAHA */
 
     case FFEBLD_opCONCATENATE:
       {

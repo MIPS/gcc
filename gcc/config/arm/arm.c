@@ -118,6 +118,9 @@ static int	 arm_adjust_cost		PARAMS ((rtx, rtx, rtx, int));
 #ifdef OBJECT_FORMAT_ELF
 static void	 arm_elf_asm_named_section	PARAMS ((const char *, unsigned int));
 #endif
+#ifndef ARM_PE
+static void	 arm_encode_section_info	PARAMS ((tree, int));
+#endif
 
 #undef Hint
 #undef Mmode
@@ -167,6 +170,16 @@ static void	 arm_elf_asm_named_section	PARAMS ((const char *, unsigned int));
 
 #undef  TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST arm_adjust_cost
+
+#undef TARGET_ENCODE_SECTION_INFO
+#ifdef ARM_PE
+#define TARGET_ENCODE_SECTION_INFO  arm_pe_encode_section_info
+#else
+#define TARGET_ENCODE_SECTION_INFO  arm_encode_section_info
+#endif
+
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING arm_strip_name_encoding
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2427,7 +2440,7 @@ arm_finalize_pic (prologue)
       emit_insn (gen_pic_add_dot_plus_four (pic_offset_table_rtx, l1));
     }
 
-  seq = gen_sequence ();
+  seq = get_insns ();
   end_sequence ();
   if (prologue)
     emit_insn_after (seq, get_insns ());
@@ -4306,7 +4319,7 @@ arm_gen_load_multiple (base_regno, count, from, up, write_back, unchanging_p,
       if (write_back)
 	emit_move_insn (from, plus_constant (from, count * 4 * sign));
 
-      seq = gen_sequence ();
+      seq = get_insns ();
       end_sequence ();
       
       return seq;
@@ -4373,7 +4386,7 @@ arm_gen_store_multiple (base_regno, count, to, up, write_back, unchanging_p,
       if (write_back)
 	emit_move_insn (to, plus_constant (to, count * 4 * sign));
 
-      seq = gen_sequence ();
+      seq = get_insns ();
       end_sequence ();
       
       return seq;
@@ -5336,7 +5349,7 @@ get_jump_table_size (insn)
   /* ADDR_VECs only take room if read-only data does into the text
      section.  */
   if (JUMP_TABLES_IN_TEXT_SECTION
-#if !defined(READONLY_DATA_SECTION)
+#if !defined(READONLY_DATA_SECTION) && !defined(READONLY_DATA_SECTION_ASM_OP)
       || 1
 #endif
       )
@@ -11010,3 +11023,40 @@ arm_elf_asm_named_section (name, flags)
 	     name, flagchars, type);
 }
 #endif
+
+#ifndef ARM_PE
+/* Symbols in the text segment can be accessed without indirecting via the
+   constant pool; it may take an extra binary operation, but this is still
+   faster than indirecting via memory.  Don't do this when not optimizing,
+   since we won't be calculating al of the offsets necessary to do this
+   simplification.  */
+
+static void
+arm_encode_section_info (decl, first)
+     tree decl;
+     int first;
+{
+  /* This doesn't work with AOF syntax, since the string table may be in
+     a different AREA.  */
+#ifndef AOF_ASSEMBLER
+  if (optimize > 0 && TREE_CONSTANT (decl)
+      && (!flag_writable_strings || TREE_CODE (decl) != STRING_CST))
+    {
+      rtx rtl = (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd'
+                 ? TREE_CST_RTL (decl) : DECL_RTL (decl));
+      SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;
+    }
+#endif
+
+  /* If we are referencing a function that is weak then encode a long call
+     flag in the function name, otherwise if the function is static or
+     or known to be defined in this file then encode a short call flag.  */
+  if (first && TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')
+    {
+      if (TREE_CODE (decl) == FUNCTION_DECL && DECL_WEAK (decl))
+        arm_encode_call_attribute (decl, LONG_CALL_FLAG_CHAR);
+      else if (! TREE_PUBLIC (decl))
+        arm_encode_call_attribute (decl, SHORT_CALL_FLAG_CHAR);
+    }
+}
+#endif /* !ARM_PE */

@@ -238,13 +238,13 @@ void test02()
   const wstring empty;
 
   // total EPA budget FY 2002
-  const long double  digits1 = 720000000000;
+  const long double  digits1 = 720000000000.0;
 
   // est. cost, national missile "defense", expressed as a loss in USD 2001
-  const long double digits2 = -10000000000000;  
+  const long double digits2 = -10000000000000.0;  
 
   // input less than frac_digits
-  const long double digits4 = -1;
+  const long double digits4 = -1.0;
   
   iterator_type end;
   wistringstream iss;
@@ -552,7 +552,7 @@ void test08()
 {
   bool test = true;
 
-  const char* tentLANG = setlocale(LC_ALL, "ja_JP.eucjp");
+  const char* tentLANG = std::setlocale(LC_ALL, "ja_JP.eucjp");
   if (tentLANG != NULL)
     {
       std::string preLANG = tentLANG;
@@ -562,7 +562,7 @@ void test08()
       test05();
       test06();
       test07();
-      std::string postLANG = setlocale(LC_ALL, NULL);
+      std::string postLANG = std::setlocale(LC_ALL, NULL);
       VERIFY( preLANG == postLANG );
     }
 }

@@ -601,11 +601,16 @@ init_regs ()
   init_reg_sets_1 ();
 
   init_reg_modes ();
+}
 
+/* Initialize some fake stack-frame MEM references for use in
+   memory_move_secondary_cost.  */
+
+void
+init_fake_stack_mems ()
+{
 #ifdef HAVE_SECONDARY_RELOADS
   {
-    /* Make some fake stack-frame MEM references for use in
-       memory_move_secondary_cost.  */
     int i;
 
     for (i = 0; i < MAX_MACHINE_MODE; i++)
@@ -819,6 +824,7 @@ globalize_reg (i)
   SET_HARD_REG_BIT (fixed_reg_set, i);
   SET_HARD_REG_BIT (call_used_reg_set, i);
   SET_HARD_REG_BIT (call_fixed_reg_set, i);
+  SET_HARD_REG_BIT (regs_invalidated_by_call, i);
 }
 
 /* Now the data and code for the `regclass' pass, which happens
@@ -1122,10 +1128,10 @@ scan_one_insn (insn, pass)
 	 INSN could not be at the beginning of that block.  */
       if (previnsn == 0 || GET_CODE (previnsn) == JUMP_INSN)
 	{
-	  int b;
-	  for (b = 0; b < n_basic_blocks; b++)
-	    if (insn == BLOCK_HEAD (b))
-	      BLOCK_HEAD (b) = newinsn;
+	  basic_block b;
+	  FOR_EACH_BB (b)
+	    if (insn == b->head)
+	      b->head = newinsn;
 	}
 
       /* This makes one more setting of new insns's dest.  */
@@ -1250,7 +1256,7 @@ regclass (f, nregs, dump)
 
   for (pass = 0; pass <= flag_expensive_optimizations; pass++)
     {
-      int index;
+      basic_block bb;
 
       if (dump)
 	fprintf (dump, "\n\nPass %i\n\n",pass);
@@ -1272,10 +1278,8 @@ regclass (f, nregs, dump)
 	    insn = scan_one_insn (insn, pass);
 	}
       else
-	for (index = 0; index < n_basic_blocks; index++)
+	FOR_EACH_BB (bb)
 	  {
-	    basic_block bb = BASIC_BLOCK (index);
-
 	    /* Show that an insn inside a loop is likely to be executed three
 	       times more than insns outside a loop.  This is much more
 	       aggressive than the assumptions made elsewhere and is being

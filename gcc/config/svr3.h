@@ -199,11 +199,8 @@ Boston, MA 02111-1307, USA.
 
    Define TARGET_ASM_CONSTRUCTOR to push the address of the constructor.  */
 
-#define USE_CONST_SECTION	0
-
 #define INIT_SECTION_ASM_OP     "\t.section\t.init"
 #define FINI_SECTION_ASM_OP     "\t.section .fini,\"x\""
-#define CONST_SECTION_ASM_OP	"\t.section\t.rodata, \"x\""
 #define DTORS_SECTION_ASM_OP    FINI_SECTION_ASM_OP
 
 /* CTOR_LIST_BEGIN and CTOR_LIST_END are machine-dependent
@@ -234,14 +231,11 @@ do {								\
 
 #endif /* STACK_GROWS_DOWNWARD */
 
-/* Add extra sections .rodata, .init and .fini.  */
-
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_init, in_fini
+#define EXTRA_SECTIONS in_init, in_fini
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS					\
-  CONST_SECTION_FUNCTION					\
   INIT_SECTION_FUNCTION						\
   FINI_SECTION_FUNCTION
 
@@ -266,27 +260,3 @@ fini_section ()							\
       in_section = in_fini;					\
     }								\
 }
-
-#define READONLY_DATA_SECTION() const_section ()
-
-#define CONST_SECTION_FUNCTION						\
-void									\
-const_section ()							\
-{									\
-  if (!USE_CONST_SECTION)						\
-    text_section();							\
-  else if (in_section != in_const)					\
-    {									\
-      fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP);		\
-      in_section = in_const;						\
-    }									\
-}
-
-/* A C statement or statements to switch to the appropriate
-   section for output of RTX in mode MODE.  RTX is some kind
-   of constant in RTL.  The argument MODE is redundant except
-   in the case of a `const_int' rtx.  Currently, these always
-   go into the const section.  */
-
-#undef  SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE,RTX,ALIGN) const_section()

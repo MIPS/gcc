@@ -69,6 +69,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "debug.h"
 #include "expr.h"
 #include "profile.h"
+#include "cfglayout.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -97,6 +98,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifndef JUMP_TABLES_IN_TEXT_SECTION
 #define JUMP_TABLES_IN_TEXT_SECTION 0
+#endif
+
+#if defined(READONLY_DATA_SECTION) || defined(READONLY_DATA_SECTION_ASM_OP)
+#define HAVE_READONLY_DATA_SECTION 1
+#else
+#define HAVE_READONLY_DATA_SECTION 0
 #endif
 
 /* Last insn processed by final_scan_insn.  */
@@ -926,8 +933,8 @@ insn_current_reference_address (branch)
 void
 compute_alignments ()
 {
-  int i;
   int log, max_skip, max_log;
+  basic_block bb;
 
   if (label_align)
     {
@@ -944,9 +951,8 @@ compute_alignments ()
   if (! optimize || optimize_size)
     return;
 
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
       rtx label = bb->head;
       int fallthru_frequency = 0, branch_frequency = 0, has_fallthru = 0;
       edge e;
@@ -976,8 +982,8 @@ compute_alignments ()
 
       if (!has_fallthru
 	  && (branch_frequency > BB_FREQ_MAX / 10
-	      || (bb->frequency > BASIC_BLOCK (i - 1)->frequency * 10
-		  && (BASIC_BLOCK (i - 1)->frequency
+	      || (bb->frequency > bb->prev_bb->frequency * 10
+		  && (bb->prev_bb->frequency
 		      <= ENTRY_BLOCK_PTR->frequency / 2))))
 	{
 	  log = JUMP_ALIGN (label);
@@ -1113,11 +1119,7 @@ shorten_branches (first)
 	  next = NEXT_INSN (insn);
 	  /* ADDR_VECs only take room if read-only data goes into the text
 	     section.  */
-	  if (JUMP_TABLES_IN_TEXT_SECTION
-#if !defined(READONLY_DATA_SECTION)
-	      || 1
-#endif
-	      )
+	  if (JUMP_TABLES_IN_TEXT_SECTION || !HAVE_READONLY_DATA_SECTION)
 	    if (next && GET_CODE (next) == JUMP_INSN)
 	      {
 		rtx nextbody = PATTERN (next);
@@ -1280,11 +1282,7 @@ shorten_branches (first)
 	{
 	  /* This only takes room if read-only data goes into the text
 	     section.  */
-	  if (JUMP_TABLES_IN_TEXT_SECTION
-#if !defined(READONLY_DATA_SECTION)
-	      || 1
-#endif
-	      )
+	  if (JUMP_TABLES_IN_TEXT_SECTION || !HAVE_READONLY_DATA_SECTION)
 	    insn_lengths[uid] = (XVECLEN (body,
 					  GET_CODE (body) == ADDR_DIFF_VEC)
 				 * GET_MODE_SIZE (GET_MODE (body)));
@@ -1485,11 +1483,7 @@ shorten_branches (first)
 	      PUT_MODE (body, CASE_VECTOR_SHORTEN_MODE (min_addr - rel_addr,
 							max_addr - rel_addr,
 							body));
-	      if (JUMP_TABLES_IN_TEXT_SECTION
-#if !defined(READONLY_DATA_SECTION)
-		  || 1
-#endif
-		  )
+	      if (JUMP_TABLES_IN_TEXT_SECTION || !HAVE_READONLY_DATA_SECTION)
 		{
 		  insn_lengths[uid]
 		    = (XVECLEN (body, 1) * GET_MODE_SIZE (GET_MODE (body)));
@@ -1676,7 +1670,7 @@ final_start_function (first, file, optimize)
   if (write_symbols)
     {
       remove_unnecessary_notes ();
-      reorder_blocks ();
+      scope_to_insns_finalize ();
       number_blocks (current_function_decl);
       /* We never actually put out begin/end notes for the top-level
 	 block in the function.  But, conceptually, that block is
@@ -1730,7 +1724,7 @@ profile_function (file)
 #ifndef NO_PROFILE_COUNTERS
   data_section ();
   ASM_OUTPUT_ALIGN (file, floor_log2 (align / BITS_PER_UNIT));
-  ASM_OUTPUT_INTERNAL_LABEL (file, "LP", current_function_profile_label_no);
+  ASM_OUTPUT_INTERNAL_LABEL (file, "LP", current_function_funcdef_no);
   assemble_integer (const0_rtx, LONG_TYPE_SIZE / BITS_PER_UNIT, align, 1);
 #endif
 
@@ -1760,7 +1754,7 @@ profile_function (file)
 #endif
 #endif
 
-  FUNCTION_PROFILER (file, current_function_profile_label_no);
+  FUNCTION_PROFILER (file, current_function_funcdef_no);
 
 #if defined(STATIC_CHAIN_INCOMING_REGNUM) && defined(ASM_OUTPUT_REG_PUSH)
   if (cxt)
@@ -1902,16 +1896,12 @@ final (first, file, optimize, prescan)
 #ifdef HAVE_ATTR_length
       if ((unsigned) INSN_UID (insn) >= INSN_ADDRESSES_SIZE ())
 	{
-#ifdef STACK_REGS
-	  /* Irritatingly, the reg-stack pass is creating new instructions
-	     and because of REG_DEAD note abuse it has to run after
-	     shorten_branches.  Fake address of -1 then.  */
-	  insn_current_address = -1;
-#else
 	  /* This can be triggered by bugs elsewhere in the compiler if
 	     new insns are created after init_insn_lengths is called.  */
-	  abort ();
-#endif
+	  if (GET_CODE (insn) == NOTE)
+	    insn_current_address = -1;
+	  else
+	    abort ();
 	}
       else
 	insn_current_address = INSN_ADDRESSES (INSN_UID (insn));
@@ -2005,9 +1995,6 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	case NOTE_INSN_LOOP_VTOP:
 	case NOTE_INSN_FUNCTION_END:
 	case NOTE_INSN_REPEATED_LINE_NUMBER:
-	case NOTE_INSN_RANGE_BEG:
-	case NOTE_INSN_RANGE_END:
-	case NOTE_INSN_LIVE:
 	case NOTE_INSN_EXPECTED_VALUE:
 	  break;
 
@@ -3175,6 +3162,9 @@ get_mem_expr_from_op (op, paddressp)
   int inner_addressp;
 
   *paddressp = 0;
+
+  if (op == NULL)
+    return 0;
 
   if (GET_CODE (op) == REG && ORIGINAL_REGNO (op) >= FIRST_PSEUDO_REGISTER)
     return REGNO_DECL (ORIGINAL_REGNO (op));

@@ -51,6 +51,7 @@
 #include "system.h"
 #include "tree.h"
 #include "cp-tree.h"
+#include "real.h"
 #include "obstack.h"
 #include "toplev.h"
 #include "varray.h"
@@ -120,7 +121,7 @@ static tree subst_identifiers[SUBID_MAX];
 
 /* Single-letter codes for builtin integer types, defined in
    <builtin-type>.  These are indexed by integer_type_kind values.  */
-static char
+static const char
 integer_type_codes[itk_none] =
 {
   'c',  /* itk_char */
@@ -987,8 +988,17 @@ write_unqualified_name (decl)
     {
       /* Conversion operator. Handle it right here.  
            <operator> ::= cv <type>  */
+      tree type;
+      if (decl_is_template_id (decl, NULL))
+	{
+	  tree fn_type = get_mostly_instantiated_function_type (decl, NULL,
+								NULL);
+	  type = TREE_TYPE (fn_type);
+	}
+      else
+	type = TREE_TYPE (DECL_NAME (decl));
       write_string ("cv");
-      write_type (TREE_TYPE (DECL_NAME (decl)));
+      write_type (type);
     }
   else if (DECL_OVERLOADED_OPERATOR_P (decl))
     {

@@ -20,7 +20,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 #ifndef GCC_BITMAP_H
-#define GCC_BITMAP_H 
+#define GCC_BITMAP_H
 
 /* Number of words to use for each element in the linked list.  */
 
@@ -127,6 +127,7 @@ extern int bitmap_last_set_bit PARAMS((bitmap));
 #define BITMAP_GGC_ALLOC()			\
   bitmap_initialize (NULL, 0)
 
+/* Allocate a bitmap with xmalloc.  */
 #define BITMAP_XMALLOC()                                        \
   bitmap_initialize ((bitmap) xmalloc (sizeof (bitmap_head)), 1)
 

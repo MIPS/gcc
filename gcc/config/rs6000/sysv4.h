@@ -34,10 +34,6 @@ Boston, MA 02111-1307, USA.  */
 #undef	ASM_DEFAULT_SPEC
 #define	ASM_DEFAULT_SPEC "-mppc"
 
-/* Override rs6000.h definition.  */
-#undef	CPP_DEFAULT_SPEC
-#define	CPP_DEFAULT_SPEC "-D_ARCH_PPC"
-
 /* Small data support types.  */
 enum rs6000_sdata_type {
   SDATA_NONE,			/* No small data support.  */
@@ -431,12 +427,11 @@ do {									\
 /* Besides the usual ELF sections, we need a toc section.  */
 /* Override elfos.h definition.  */
 #undef	EXTRA_SECTIONS
-#define	EXTRA_SECTIONS in_const, in_toc, in_sdata, in_sdata2, in_sbss, in_init, in_fini
+#define	EXTRA_SECTIONS in_toc, in_sdata, in_sdata2, in_sbss, in_init, in_fini
 
 /* Override elfos.h definition.  */
 #undef	EXTRA_SECTION_FUNCTIONS
 #define	EXTRA_SECTION_FUNCTIONS						\
-  CONST_SECTION_FUNCTION						\
   TOC_SECTION_FUNCTION							\
   SDATA_SECTION_FUNCTION						\
   SDATA2_SECTION_FUNCTION						\
@@ -548,37 +543,11 @@ fini_section ()								\
     }									\
 }
 
-/* A C statement or statements to switch to the appropriate section
-   for output of RTX in mode MODE.  You can assume that RTX is some
-   kind of constant in RTL.  The argument MODE is redundant except in
-   the case of a `const_int' rtx.  Select the section by calling
-   `text_section' or one of the alternatives for other sections.
-
-   Do not define this macro if you put all constants in the read-only
-   data section.  */
-
-/* Override elfos.h definition.  */
-#undef	SELECT_RTX_SECTION
-#define	SELECT_RTX_SECTION(MODE, X, ALIGN) rs6000_select_rtx_section (MODE, X)
-
-/* A C statement or statements to switch to the appropriate
-   section for output of DECL.  DECL is either a `VAR_DECL' node
-   or a constant of some sort.  RELOC indicates whether forming
-   the initial value of DECL requires link-time relocations.  */
-
-/* Override elfos.h definition.  */
+/* Override default elf definitions.  */
+#undef	TARGET_ASM_SELECT_RTX_SECTION
+#define	TARGET_ASM_SELECT_RTX_SECTION rs6000_elf_select_rtx_section
 #undef	TARGET_ASM_SELECT_SECTION
 #define	TARGET_ASM_SELECT_SECTION  rs6000_elf_select_section
-
-/* A C statement to build up a unique section name, expressed as a
-   STRING_CST node, and assign it to DECL_SECTION_NAME (decl).
-   RELOC indicates whether the initial value of EXP requires
-   link-time relocations.  If you do not define this macro, GCC will use
-   the symbol name prefixed by `.' as the section name.  Note - this
-   macro can now be called for uninitialized data items as well as
-   initialised data and functions.  */
-
-/* Override default elf definition.  */
 #define TARGET_ASM_UNIQUE_SECTION  rs6000_elf_unique_section
 
 /* Return non-zero if this entry is to be written into the constant pool
@@ -652,7 +621,7 @@ extern int rs6000_pic_labelno;
       {									\
 	const char *desc_name, *orig_name;				\
 									\
-        STRIP_NAME_ENCODING (orig_name, NAME);				\
+        orig_name = (*targetm.strip_name_encoding) (NAME);		\
         desc_name = orig_name;						\
 	while (*desc_name == '.')					\
 	  desc_name++;							\
@@ -803,33 +772,13 @@ extern int fixuplabelno;
 /* Historically we have also supported stabs debugging.  */
 #define	DBX_DEBUGGING_INFO
 
-/* If we are referencing a function that is static or is known to be
-   in this file, make the SYMBOL_REF special.  We can use this to indicate
-   that we can branch to this function without emitting a no-op after the
-   call.  For real AIX calling sequences, we also replace the
-   function name with the real name (1 or 2 leading .'s), rather than
-   the function descriptor name.  This saves a lot of overriding code
-   to read the prefixes.  */
-
-#undef	ENCODE_SECTION_INFO
-#define	ENCODE_SECTION_INFO(DECL, FIRST) \
-  rs6000_encode_section_info (DECL, FIRST)
+#define	TARGET_ENCODE_SECTION_INFO  rs6000_elf_encode_section_info
+#define	TARGET_STRIP_NAME_ENCODING  rs6000_elf_strip_name_encoding
 
 /* The ELF version doesn't encode [DS] or whatever at the end of symbols.  */
 
 #define	RS6000_OUTPUT_BASENAME(FILE, NAME)	\
     assemble_name (FILE, NAME)
-
-/* This macro gets just the user-specified name
-   out of the string in a SYMBOL_REF.  Discard
-   a leading * or @.  */
-#define	STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)				\
-do {									\
-  const char *_name = SYMBOL_NAME;					\
-  while (*_name == '*' || *_name == '@')				\
-    _name++;								\
-  (VAR) = _name;							\
-} while (0)
 
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
@@ -1016,55 +965,11 @@ do {						\
 #define CPP_SYSV_SPEC \
 "%{mrelocatable*: -D_RELOCATABLE} \
 %{fpic: -D__PIC__=1 -D__pic__=1} \
-%{!fpic: %{fPIC: -D__PIC__=2 -D__pic__=2}} \
-%{mlong-double-128: -D__LONG_DOUBLE_128__=1} \
-%{!mlong-double-64: %(cpp_longdouble_default)} \
-%{mcall-sysv: -D_CALL_SYSV} \
-%{mcall-aix: -D_CALL_AIX} %{mcall-aixdesc: -D_CALL_AIX -D_CALL_AIXDESC} \
-%{!mcall-sysv: %{!mcall-aix: %{!mcall-aixdesc: %(cpp_sysv_default) }}} \
-%{msoft-float: -D_SOFT_FLOAT} \
-%{!msoft-float: %{!mhard-float: \
-    %{mcpu=401: -D_SOFT_FLOAT} \
-    %{mcpu=403: -D_SOFT_FLOAT} \
-    %{mcpu=405: -D_SOFT_FLOAT} \
-    %{mcpu=ec603e: -D_SOFT_FLOAT} \
-    %{mcpu=801: -D_SOFT_FLOAT} \
-    %{mcpu=821: -D_SOFT_FLOAT} \
-    %{mcpu=823: -D_SOFT_FLOAT} \
-    %{mcpu=860: -D_SOFT_FLOAT} \
-    %{!mcpu*: %(cpp_float_default) }}}"
-
-/* Whether floating point is disabled by default.  */
-#define	CPP_FLOAT_DEFAULT_SPEC ""
-
-/* Whether 'long double' is 128 bits by default.  */
-#define	CPP_LONGDOUBLE_DEFAULT_SPEC ""
-
-#define	CPP_SYSV_DEFAULT_SPEC "-D_CALL_SYSV"
-
-#define CPP_ENDIAN_BIG_SPEC "-D_BIG_ENDIAN -D__BIG_ENDIAN__ -Amachine=bigendian"
-
-#define CPP_ENDIAN_LITTLE_SPEC "-D_LITTLE_ENDIAN -D__LITTLE_ENDIAN__ -Amachine=littleendian"
-
-#define	CPP_ENDIAN_SPEC \
-"%{mlittle: %(cpp_endian_little) } \
-%{mlittle-endian: %(cpp_endian_little) } \
-%{mbig: %(cpp_endian_big) } \
-%{mbig-endian: %(cpp_endian_big) } \
-%{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: \
-    %{mcall-freebsd: %(cpp_endian_big) } \
-    %{mcall-linux: %(cpp_endian_big) } \
-    %{mcall-gnu: %(cpp_endian_big) } \
-    %{mcall-netbsd: %(cpp_endian_big) } \
-    %{mcall-i960-old: %(cpp_endian_little) } \
-    %{mcall-aixdesc:  %(cpp_endian_big) } \
-    %{!mcall-linux: %{!mcall-gnu: %{!mcall-freebsd: %{!mcall-netbsd: %{!mcall-aixdesc: %(cpp_endian_default) }}}}}}}}}"
-
-#define	CPP_ENDIAN_DEFAULT_SPEC "%(cpp_endian_big)"
+%{!fpic: %{fPIC: -D__PIC__=2 -D__pic__=2}}"
 
 /* Override rs6000.h definition.  */
 #undef	CPP_SPEC
-#define	CPP_SPEC "%{posix: -D_POSIX_SOURCE} %(cpp_sysv) %(cpp_endian) %(cpp_cpu) \
+#define	CPP_SPEC "%{posix: -D_POSIX_SOURCE} %(cpp_sysv) \
 %{mads: %(cpp_os_ads) } \
 %{myellowknife: %(cpp_os_yellowknife) } \
 %{mmvme: %(cpp_os_mvme) } \
@@ -1370,9 +1275,6 @@ ncrtn.o%s"
 #undef	SUBTARGET_EXTRA_SPECS
 #define	SUBTARGET_EXTRA_SPECS						\
   { "cpp_sysv",			CPP_SYSV_SPEC },			\
-  { "cpp_sysv_default",		CPP_SYSV_DEFAULT_SPEC },		\
-  { "cpp_endian_default",	CPP_ENDIAN_DEFAULT_SPEC },		\
-  { "cpp_endian",		CPP_ENDIAN_SPEC },			\
   { "crtsavres_default",        CRTSAVRES_DEFAULT_SPEC },              \
   { "lib_ads",			LIB_ADS_SPEC },				\
   { "lib_yellowknife",		LIB_YELLOWKNIFE_SPEC },			\
@@ -1437,10 +1339,6 @@ ncrtn.o%s"
   { "cc1_endian_big",		CC1_ENDIAN_BIG_SPEC },			\
   { "cc1_endian_little",	CC1_ENDIAN_LITTLE_SPEC },		\
   { "cc1_endian_default",	CC1_ENDIAN_DEFAULT_SPEC },		\
-  { "cpp_endian_big",		CPP_ENDIAN_BIG_SPEC },			\
-  { "cpp_endian_little",	CPP_ENDIAN_LITTLE_SPEC },		\
-  { "cpp_float_default",	CPP_FLOAT_DEFAULT_SPEC },		\
-  { "cpp_longdouble_default",	CPP_LONGDOUBLE_DEFAULT_SPEC },		\
   { "cpp_os_ads",		CPP_OS_ADS_SPEC },			\
   { "cpp_os_yellowknife",	CPP_OS_YELLOWKNIFE_SPEC },		\
   { "cpp_os_mvme",		CPP_OS_MVME_SPEC },			\

@@ -350,16 +350,6 @@ extern int target_flags;
 /* This is how to align an instruction for optimal branching.  */
 #define LABEL_ALIGN_AFTER_BARRIER(LABEL) (m68k_align_jumps)
 
-#define SELECT_RTX_SECTION(MODE, X, ALIGN)				\
-{									\
-  if (!flag_pic)							\
-    readonly_data_section();						\
-  else if (LEGITIMATE_PIC_OPERAND_P (X))				\
-    readonly_data_section();						\
-  else									\
-    data_section();							\
-}
-
 /* Define number of bits in most basic integer type.
    (If undefined, default is BITS_PER_WORD).  */
 
@@ -1939,12 +1929,7 @@ __transfer_from_trampoline ()					\
 
 /* A C compound statement to output to stdio stream STREAM the
    assembler syntax for an instruction operand that is a memory
-   reference whose address is ADDR.  ADDR is an RTL expression.
-
-   On some machines, the syntax for a symbolic address depends on
-   the section that the address refers to.  On these machines,
-   define the macro `ENCODE_SECTION_INFO' to store the information
-   into the `symbol_ref', and then check for it here.  */
+   reference whose address is ADDR.  ADDR is an RTL expression.  */
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address (FILE, ADDR)
 
@@ -1957,6 +1942,21 @@ extern int m68k_align_jumps;
 extern int m68k_align_funcs;
 extern int m68k_last_compare_had_fp_operands;
 
+
+/* Define the codes that are matched by predicates in m68k.c.  */
+
+#define PREDICATE_CODES							\
+  {"general_src_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
+			   LABEL_REF, SUBREG, REG, MEM}},		\
+  {"nonimmediate_src_operand", {SUBREG, REG, MEM}},			\
+  {"memory_src_operand", {SUBREG, MEM}},				\
+  {"not_sp_operand", {SUBREG, REG, MEM}},				\
+  {"pcrel_address", {SYMBOL_REF, LABEL_REF, CONST}},			\
+  {"const_uint32_operand", {CONST_INT, CONST_DOUBLE}},			\
+  {"const_sint32_operand", {CONST_INT}},				\
+  {"valid_dbcc_comparison_p", {EQ, NE, GTU, LTU, GEU, LEU,		\
+			       GT, LT, GE, LE}},			\
+  {"extend_operator", {SIGN_EXTEND, ZERO_EXTEND}},
 
 /*
 Local variables:

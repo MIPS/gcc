@@ -1793,8 +1793,8 @@
   if (which_alternative == 1)
     return \"mult\\t%1,%2\";
   if (TARGET_MAD
-      || mips_isa == 32
-      || mips_isa == 64)
+      || ISA_MIPS32
+      || ISA_MIPS64)
     return \"mul\\t%0,%1,%2\";
   return \"mult\\t%0,%1,%2\";
 }"
@@ -4938,7 +4938,7 @@ move\\t%0,%z4\\n\\
 
   if ((INTVAL (offset) & 7) == 0
       && (mem_addr == stack_pointer_rtx || mem_addr == frame_pointer_rtx))
-    return \"sd\\t%1,%0\";
+    return \"sd\\t%z1,%0\";
 
   return \"usd\\t%z1,%0\";
 }"
@@ -5131,17 +5131,17 @@ move\\t%0,%z4\\n\\
   "")
 
 (define_insn "movdi_internal2"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,d,d,d,d,R,m,*x,*d,*x,*a,*B*C*D,*B*C*D,*B*C*D,*d,*m,*R")
-	(match_operand:DI 1 "movdi_operand" "d,S,IKL,Mnis,R,m,dJ,dJ,J,*x,*d,*J,*d,*m,*R,*B*C*D,*B*C*D,*B*C*D"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,d,d,d,R,m,*x,*d,*x,*a,*B*C*D,*B*C*D,*B*C*D,*d,*m,*R")
+	(match_operand:DI 1 "movdi_operand" "d,IKL,Mnis,R,m,dJ,dJ,J,*x,*d,*J,*d,*m,*R,*B*C*D,*B*C*D,*B*C*D"))]
   "TARGET_64BIT && !TARGET_MIPS16
    && (register_operand (operands[0], DImode)
        || se_register_operand (operands[1], DImode)
        || (GET_CODE (operands[1]) == CONST_INT && INTVAL (operands[1]) == 0)
        || operands[1] == CONST0_RTX (DImode))"
   "* return mips_move_2words (operands, insn); "
-  [(set_attr "type"	"move,load,arith,arith,load,load,store,store,hilo,hilo,hilo,hilo,xfer,load,load,xfer,store,store")
+  [(set_attr "type"	"move,arith,arith,load,load,store,store,hilo,hilo,hilo,hilo,xfer,load,load,xfer,store,store")
    (set_attr "mode"	"DI")
-   (set_attr "length"	"4,8,4,8,4,8,4,8,4,4,4,8,8,8,8,8,8,8")])
+   (set_attr "length"	"4,4,8,4,8,4,8,4,4,4,8,8,8,8,8,8,8")])
 
 (define_insn ""
   [(set (match_operand:DI 0 "nonimmediate_operand" "=d,y,d,d,d,d,d,d,R,m,*d")
@@ -5517,7 +5517,7 @@ move\\t%0,%z4\\n\\
    (set_attr "mode"	"SI")
    (set_attr_alternative
     "length"
-    [(if_then_else 
+    [(if_then_else
       (lt (symbol_ref "(unsigned HOST_WIDE_INT) INTVAL (operands[0])")
 	  (const_int 1024))
       (const_int 4)
@@ -5527,28 +5527,28 @@ move\\t%0,%z4\\n\\
 ;; in FP registers (off by default, use -mdebugh to enable).
 
 (define_insn "movsi_internal1"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=d,d,d,d,d,d,R,m,*d,*f*z,*f,*f,*f,*R,*m,*x,*x,*d,*d,*B*C*D,*B*C*D,*B*C*D,*d,*m,*R")
-	(match_operand:SI 1 "move_operand" "d,S,IKL,Mnis,R,m,dJ,dJ,*f*z,*d,*f,*R,*m,*f,*f,J,*d,*x,*a,*d,*m,*R,*B*C*D,*B*C*D,*B*C*D"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=d,d,d,d,d,R,m,*d,*f*z,*f,*f,*f,*R,*m,*x,*x,*d,*d,*B*C*D,*B*C*D,*B*C*D,*d,*m,*R")
+	(match_operand:SI 1 "move_operand" "d,IKL,Mnis,R,m,dJ,dJ,*f*z,*d,*f,*R,*m,*f,*f,J,*d,*x,*a,*d,*m,*R,*B*C*D,*B*C*D,*B*C*D"))]
   "TARGET_DEBUG_H_MODE && !TARGET_MIPS16
    && (register_operand (operands[0], SImode)
        || register_operand (operands[1], SImode)
        || (GET_CODE (operands[1]) == CONST_INT && INTVAL (operands[1]) == 0))"
   "* return mips_move_1word (operands, insn, FALSE);"
-  [(set_attr "type"	"move,load,arith,arith,load,load,store,store,xfer,xfer,move,load,load,store,store,hilo,hilo,hilo,hilo,xfer,load,load,xfer,store,store")
+  [(set_attr "type"	"move,arith,arith,load,load,store,store,xfer,xfer,move,load,load,store,store,hilo,hilo,hilo,hilo,xfer,load,load,xfer,store,store")
    (set_attr "mode"	"SI")
-   (set_attr "length"	"4,8,4,8,4,8,4,8,4,4,4,4,8,4,8,4,4,4,4,4,4,8,4,4,8")])
+   (set_attr "length"	"4,4,8,4,8,4,8,4,4,4,4,8,4,8,4,4,4,4,4,4,8,4,4,8")])
 
 (define_insn "movsi_internal2"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=d,d,d,d,d,d,R,m,*d,*z,*x,*d,*x,*d,*B*C*D,*B*C*D,*B*C*D,*d,*m,*R")
-	(match_operand:SI 1 "move_operand" "d,S,IKL,Mnis,R,m,dJ,dJ,*z,*d,J,*x,*d,*a,*d,*m,*R,*B*C*D,*B*C*D,*B*C*D"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=d,d,d,d,d,R,m,*d,*z,*x,*d,*x,*d,*B*C*D,*B*C*D,*B*C*D,*d,*m,*R")
+	(match_operand:SI 1 "move_operand" "d,IKL,Mnis,R,m,dJ,dJ,*z,*d,J,*x,*d,*a,*d,*m,*R,*B*C*D,*B*C*D,*B*C*D"))]
   "!TARGET_DEBUG_H_MODE && !TARGET_MIPS16
    && (register_operand (operands[0], SImode)
        || register_operand (operands[1], SImode)
        || (GET_CODE (operands[1]) == CONST_INT && INTVAL (operands[1]) == 0))"
   "* return mips_move_1word (operands, insn, FALSE);"
-  [(set_attr "type"	"move,load,arith,arith,load,load,store,store,xfer,xfer,hilo,hilo,hilo,hilo,xfer,load,load,xfer,store,store")
+  [(set_attr "type"	"move,arith,arith,load,load,store,store,xfer,xfer,hilo,hilo,hilo,hilo,xfer,load,load,xfer,store,store")
    (set_attr "mode"	"SI")
-   (set_attr "length"	"4,8,4,8,4,8,4,8,4,4,4,4,4,4,4,4,8,4,4,8")])
+   (set_attr "length"	"4,4,8,4,8,4,8,4,4,4,4,4,4,4,4,8,4,4,8")])
 
 ;; This is the mips16 movsi instruction.  We accept a small integer as
 ;; the source if the destination is a GP memory reference.  This is
@@ -5559,8 +5559,8 @@ move\\t%0,%z4\\n\\
 ;; into a register.
 
 (define_insn ""
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=d,y,d,d,d,d,d,d,d,R,m,*d,*d")
-	(match_operand:SI 1 "move_operand" "d,d,y,S,K,N,s,R,m,d,d,*x,*a"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=d,y,d,d,d,d,d,d,R,m,*d,*d")
+	(match_operand:SI 1 "move_operand" "d,d,y,K,N,s,R,m,d,d,*x,*a"))]
   "TARGET_MIPS16
    && (register_operand (operands[0], SImode)
        || register_operand (operands[1], SImode)
@@ -5572,13 +5572,12 @@ move\\t%0,%z4\\n\\
 	   && (SMALL_INT (operands[1])
 	       || SMALL_INT_UNSIGNED (operands[1]))))"
   "* return mips_move_1word (operands, insn, FALSE);"
-  [(set_attr "type"	"move,move,move,load,arith,arith,arith,load,load,store,store,hilo,hilo")
+  [(set_attr "type"	"move,move,move,arith,arith,arith,load,load,store,store,hilo,hilo")
    (set_attr "mode"	"SI")
    (set_attr_alternative "length"
 		[(const_int 4)
 		 (const_int 4)
 		 (const_int 4)
-		 (const_int 8)
 		 (if_then_else (match_operand:VOID 1 "m16_uimm8_1" "")
 			       (const_int 4)
 			       (const_int 8))
@@ -8056,6 +8055,118 @@ move\\t%0,%z4\\n\\
    (set_attr "mode"	"none")
    (set_attr "length"	"8")])
 
+(define_expand "bunordered"
+  [(set (pc)
+	(if_then_else (unordered:CC (cc0)
+				    (const_int 0))
+		      (label_ref (match_operand 0 "" ""))
+		      (pc)))]
+  ""
+  "
+{
+  if (operands[0])		/* avoid unused code warning */
+    {
+      gen_conditional_branch (operands, UNORDERED);
+      DONE;
+    }
+}")
+
+(define_expand "bordered"
+  [(set (pc)
+	(if_then_else (ordered:CC (cc0)
+				  (const_int 0))
+		      (label_ref (match_operand 0 "" ""))
+		      (pc)))]
+  ""
+  "
+{
+  if (operands[0])		/* avoid unused code warning */
+     {
+	gen_conditional_branch (operands, ORDERED);
+	DONE;
+     }
+}")
+
+(define_expand "bungt"
+  [(set (pc)
+	(if_then_else (ungt:CC (cc0)
+			       (const_int 0))
+		      (label_ref (match_operand 0 "" ""))
+		      (pc)))]
+  ""
+  "
+{
+  if (operands[0])		/* avoid unused code warning */
+     {
+	gen_conditional_branch (operands, UNGT);
+	DONE;
+     }
+}")
+
+(define_expand "bunlt"
+  [(set (pc)
+	(if_then_else (unlt:CC (cc0)
+			       (const_int 0))
+		      (label_ref (match_operand 0 "" ""))
+		      (pc)))]
+  ""
+  "
+{
+  if (operands[0])		/* avoid unused code warning */
+     {
+	gen_conditional_branch (operands, UNLT);
+	DONE;
+     }
+}")
+
+(define_expand "buneq"
+  [(set (pc)
+	(if_then_else (uneq:CC (cc0)
+			       (const_int 0))
+		      (label_ref (match_operand 0 "" ""))
+		      (pc)))]
+  ""
+  "
+{
+  if (operands[0])		/* avoid unused code warning */
+     {
+	gen_conditional_branch (operands, UNEQ);
+	DONE;
+     }
+}")
+
+(define_expand "bunge"
+  [(set (pc)
+	(if_then_else (unge:CC (cc0)
+			       (const_int 0))
+		      (label_ref (match_operand 0 "" ""))
+		      (pc)))]
+  ""
+  "
+{
+  if (operands[0])		/* avoid unused code warning */
+     {
+	gen_conditional_branch (operands, UNGE);
+	DONE;
+     }
+}")
+
+(define_expand "bunle"
+  [(set (pc)
+	(if_then_else (unle:CC (cc0)
+			       (const_int 0))
+		      (label_ref (match_operand 0 "" ""))
+		      (pc)))]
+  ""
+  "
+{
+  if (operands[0])		/* avoid unused code warning */
+     {
+	gen_conditional_branch (operands, UNLE);
+	DONE;
+     }
+}")
+
 (define_expand "beq"
   [(set (pc)
 	(if_then_else (eq:CC (cc0)
@@ -9112,6 +9223,90 @@ move\\t%0,%z4\\n\\
 ;;
 ;;  ....................
 
+(define_insn "sunordered_df"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(unordered:CC (match_operand:DF 1 "register_operand" "f")
+		      (match_operand:DF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "*
+{
+ return mips_fill_delay_slot (\"c.un.d\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
+}"
+ [(set_attr "type"      "fcmp")
+  (set_attr "mode"      "FPSW")])
+
+(define_insn "sordered_df"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(ordered:CC (match_operand:DF 1 "register_operand" "f")
+		    (match_operand:DF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "*
+{
+ return mips_fill_delay_slot (\"c.or.d\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
+}"
+ [(set_attr "type"      "fcmp")
+  (set_attr "mode"      "FPSW")])
+
+(define_insn "sungt_df"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(ungt:CC (match_operand:DF 1 "register_operand" "f")
+		 (match_operand:DF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "*
+{
+ return mips_fill_delay_slot (\"c.ugt.d\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
+}"
+ [(set_attr "type"      "fcmp")
+  (set_attr "mode"      "FPSW")])
+
+(define_insn "sunlt_df"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(unlt:CC (match_operand:DF 1 "register_operand" "f")
+		 (match_operand:DF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "*
+{
+ return mips_fill_delay_slot (\"c.ult.d\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
+}"
+ [(set_attr "type"      "fcmp")
+  (set_attr "mode"      "FPSW")])
+
+(define_insn "suneq_df"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(uneq:CC (match_operand:DF 1 "register_operand" "f")
+		 (match_operand:DF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "*
+{
+ return mips_fill_delay_slot (\"c.ueq.d\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
+}"
+ [(set_attr "type"      "fcmp")
+  (set_attr "mode"      "FPSW")])
+
+(define_insn "sunge_df"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(unge:CC (match_operand:DF 1 "register_operand" "f")
+		 (match_operand:DF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "*
+{
+ return mips_fill_delay_slot (\"c.uge.d\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
+}"
+ [(set_attr "type"      "fcmp")
+  (set_attr "mode"      "FPSW")])
+
+(define_insn "sunle_df"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(unle:CC (match_operand:DF 1 "register_operand" "f")
+		 (match_operand:DF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "*
+{
+ return mips_fill_delay_slot (\"c.ule.d\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
+}"
+ [(set_attr "type"      "fcmp")
+  (set_attr "mode"      "FPSW")])
+
 (define_insn "seq_df"
   [(set (match_operand:CC 0 "register_operand" "=z")
 	(eq:CC (match_operand:DF 1 "register_operand" "f")
@@ -9171,6 +9366,90 @@ move\\t%0,%z4\\n\\
 }"
  [(set_attr "type"	"fcmp")
   (set_attr "mode"	"FPSW")])
+
+(define_insn "sunordered_sf"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(unordered:CC (match_operand:SF 1 "register_operand" "f")
+		      (match_operand:SF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT"
+  "*
+{
+ return mips_fill_delay_slot (\"c.un.s\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
+}"
+ [(set_attr "type"	"fcmp")
+  (set_attr "mode"	"FPSW")])
+
+(define_insn "sordered_sf"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(ordered:CC (match_operand:SF 1 "register_operand" "f")
+		    (match_operand:SF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT"
+  "*
+{
+ return mips_fill_delay_slot (\"c.or.s\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
+}"
+ [(set_attr "type"	"fcmp")
+  (set_attr "mode"	"FPSW")])
+
+(define_insn "sungt_sf"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(ungt:CC (match_operand:SF 1 "register_operand" "f")
+		 (match_operand:SF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "*
+{
+ return mips_fill_delay_slot (\"c.ugt.s\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
+}"
+ [(set_attr "type"      "fcmp")
+  (set_attr "mode"      "FPSW")])
+
+(define_insn "sunlt_sf"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(unlt:CC (match_operand:SF 1 "register_operand" "f")
+		 (match_operand:SF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "*
+{
+ return mips_fill_delay_slot (\"c.ult.s\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
+}"
+ [(set_attr "type"      "fcmp")
+  (set_attr "mode"      "FPSW")])
+
+(define_insn "suneq_sf"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(uneq:CC (match_operand:SF 1 "register_operand" "f")
+		 (match_operand:SF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "*
+{
+ return mips_fill_delay_slot (\"c.ueq.s\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
+}"
+ [(set_attr "type"      "fcmp")
+  (set_attr "mode"      "FPSW")])
+
+(define_insn "sunge_sf"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(unge:CC (match_operand:SF 1 "register_operand" "f")
+		 (match_operand:SF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "*
+{
+ return mips_fill_delay_slot (\"c.uge.s\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
+}"
+ [(set_attr "type"      "fcmp")
+  (set_attr "mode"      "FPSW")])
+
+(define_insn "sunle_sf"
+  [(set (match_operand:CC 0 "register_operand" "=z")
+	(unle:CC (match_operand:SF 1 "register_operand" "f")
+		 (match_operand:SF 2 "register_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "*
+{
+ return mips_fill_delay_slot (\"c.ule.s\\t%Z0%1,%2\", DELAY_FCMP, operands, insn);
+}"
+ [(set_attr "type"      "fcmp")
+  (set_attr "mode"      "FPSW")])
 
 (define_insn "seq_sf"
   [(set (match_operand:CC 0 "register_operand" "=z")
@@ -9743,49 +10022,14 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
   [(const_int 0)]
   "
 {
-  HOST_WIDE_INT gp_offset;
-  rtx base;
-
-  compute_frame_size (get_frame_size ());
-  if (((current_frame_info.mask >> 31) & 1) == 0)
-    abort ();
-  gp_offset = current_frame_info.gp_sp_offset;
-
-  if (gp_offset < 32768)
-    base = stack_pointer_rtx;
-  else
-    {
-      base = operands[1];
-      emit_move_insn (base, GEN_INT (gp_offset));
-      if (Pmode == DImode)
-	emit_insn (gen_adddi3 (base, base, stack_pointer_rtx));
-      else
-	emit_insn (gen_addsi3 (base, base, stack_pointer_rtx));
-      gp_offset = 0;
-    }
-  emit_move_insn (gen_rtx_MEM (GET_MODE (operands[0]),
-			       plus_constant (base, gp_offset)),
-		  operands[0]);
+  mips_set_return_address (operands[0], operands[1]);
   DONE;
 }")
 
 (define_insn "exception_receiver"
   [(unspec_volatile [(const_int 0)] UNSPEC_EH_RECEIVER)]
   "TARGET_ABICALLS && (mips_abi == ABI_32 || mips_abi == ABI_O64)"
-  "*
-{
-  rtx loc;
-
-  operands[0] = pic_offset_table_rtx;
-  if (frame_pointer_needed)
-    loc = hard_frame_pointer_rtx;
-  else
-    loc = stack_pointer_rtx;
-  loc = plus_constant (loc, current_frame_info.args_size);
-  operands[1] = gen_rtx_MEM (Pmode, loc);
-
-  return mips_move_1word (operands, insn, 0);
-}"
+  "* return mips_restore_gp (operands, insn);"
   [(set_attr "type"   "load")
    (set_attr "length" "8")])
 
@@ -10296,6 +10540,51 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
 ;;  ....................
 ;;
 
+
+(define_expand "prefetch"
+  [(prefetch (match_operand 0 "address_operand" "")
+	     (match_operand 1 "const_int_operand" "")
+	     (match_operand 2 "const_int_operand" ""))]
+  "ISA_HAS_PREFETCH"
+"{
+     if (symbolic_operand (operands[0], GET_MODE (operands[0])))
+	operands[0] = force_reg (GET_MODE (operands[0]), operands[0]);
+}")
+
+(define_insn "prefetch_si_address"
+  [(prefetch (plus:SI (match_operand:SI 0 "register_operand" "r")
+		      (match_operand:SI 3 "const_int_operand" "i"))
+	     (match_operand:SI 1 "const_int_operand" "n")
+	     (match_operand:SI 2 "const_int_operand" "n"))]
+  "ISA_HAS_PREFETCH && Pmode == SImode"
+  "* return mips_emit_prefetch (operands);"
+  [(set_attr "type" "load")])
+
+(define_insn "prefetch_si"
+  [(prefetch (match_operand:SI 0 "register_operand" "r")
+	     (match_operand:SI 1 "const_int_operand" "n")
+	     (match_operand:SI 2 "const_int_operand" "n"))]
+  "ISA_HAS_PREFETCH && Pmode == SImode"
+  "* return mips_emit_prefetch (operands);"
+  [(set_attr "type" "load")])
+
+(define_insn "prefetch_di_address"
+  [(prefetch (plus:DI (match_operand:DI 0 "se_register_operand" "r")
+		      (match_operand:DI 3 "const_int_operand" "i"))
+	     (match_operand:DI 1 "const_int_operand" "n")
+	     (match_operand:DI 2 "const_int_operand" "n"))]
+  "ISA_HAS_PREFETCH && Pmode == DImode"
+  "* return mips_emit_prefetch (operands);"
+  [(set_attr "type" "load")])
+
+(define_insn "prefetch_di"
+  [(prefetch (match_operand:DI 0 "se_register_operand" "r")
+	     (match_operand:DI 1 "const_int_operand" "n")
+	     (match_operand:DI 2 "const_int_operand" "n"))]
+  "ISA_HAS_PREFETCH && Pmode == DImode"
+  "* return mips_emit_prefetch (operands);"
+  [(set_attr "type" "load")])
+
 (define_insn "nop"
   [(const_int 0)]
   ""
@@ -10530,8 +10819,6 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
   "(ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE) && TARGET_64BIT"
   "
 {
-  if (mips_isa == 32)
-    FAIL;
   gen_conditional_move (operands);
   DONE;
 }")

@@ -19,19 +19,27 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+
+/* Target CPU builtins.  */
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define ("__vax__");		\
+      builtin_assert ("cpu=vax");		\
+      builtin_assert ("machine=vax");		\
+      if (TARGET_G_FLOAT)			\
+	{					\
+	  builtin_define ("__GFLOAT");		\
+	  builtin_define ("__GFLOAT__");	\
+	}					\
+    }						\
+  while (0)
+
 #define VMS_TARGET 0
-
-/* Names to predefine in the preprocessor for this target machine.  */
-
-#define CPP_PREDEFINES "-Dvax -D__vax__ -Dunix -Asystem=unix -Asystem=bsd -Acpu=vax -Amachine=vax"
 
 /* Use -J option for long branch support with Unix assembler.  */
 
 #define ASM_SPEC "-J"
-
-/* If using g-format floating point, alter math.h.  */
-
-#define	CPP_SPEC "%{mg:%{!ansi:-DGFLOAT} -D__GFLOAT}"
 
 /* Choose proper libraries depending on float format.
    Note that there are no profiling libraries for g-format.
@@ -54,16 +62,21 @@ Boston, MA 02111-1307, USA.  */
 
 extern int target_flags;
 
+#define MASK_UNIX_ASM		1
+#define MASK_VAXC_ALIGNMENT	2
+#define MASK_G_FLOAT		4
+
+
 /* Macros used in the machine description to test the flags.  */
 
 /* Nonzero if compiling code that Unix assembler can assemble.  */
-#define TARGET_UNIX_ASM (target_flags & 1)
+#define TARGET_UNIX_ASM (target_flags & MASK_UNIX_ASM)
 
 /* Nonzero if compiling with VAX-11 "C" style structure alignment */
-#define	TARGET_VAXC_ALIGNMENT (target_flags & 2)
+#define	TARGET_VAXC_ALIGNMENT (target_flags & MASK_VAXC_ALIGNMENT)
 
 /* Nonzero if compiling with `G'-format floating point */
-#define TARGET_G_FLOAT (target_flags & 4)
+#define TARGET_G_FLOAT (target_flags & MASK_G_FLOAT)
 
 /* Macro to define tables used to set the flags.
    This is a list in braces of pairs in braces,
@@ -72,19 +85,26 @@ extern int target_flags;
    An empty string NAME is used to identify the default VALUE.  */
 
 #define TARGET_SWITCHES						\
-  { {"unix", 1, "Generate code for UNIX assembler"},  		\
-    {"gnu", -1, "Generate code for GNU assembler (gas)"},  	\
-    {"vaxc-alignment", 2, "Use VAXC structure conventions"}, 	\
-    {"g", 4, "Generate GFLOAT double precision code"},		\
-    {"g-float", 4, "Generate GFLOAT double precision code"},	\
-    {"d", -4, "Generate DFLOAT double precision code"},		\
-    {"d-float", -4, "Generate DFLOAT double precision code"},	\
+  { {"unix", MASK_UNIX_ASM,					\
+     "Generate code for UNIX assembler"},  			\
+    {"gnu", -MASK_UNIX_ASM,					\
+     "Generate code for GNU assembler (gas)"},  		\
+    {"vaxc-alignment", MASK_VAXC_ALIGNMENT,			\
+     "Use VAXC structure conventions"}, 			\
+    {"g", MASK_G_FLOAT,						\
+     "Generate GFLOAT double precision code"},			\
+    {"g-float", MASK_G_FLOAT,					\
+     "Generate GFLOAT double precision code"},			\
+    {"d", -MASK_G_FLOAT,					\
+     "Generate DFLOAT double precision code"},			\
+    {"d-float", -MASK_G_FLOAT,					\
+     "Generate DFLOAT double precision code"},			\
     { "", TARGET_DEFAULT, 0}}
 
 /* Default target_flags if no switches specified.  */
 
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT 1
+#define TARGET_DEFAULT (MASK_UNIX_ASM)
 #endif
 
 /* Target machine storage layout */
@@ -436,27 +456,8 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    for profiling a function entry.  */
 
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
-   fprintf (FILE, "\tmovab LP%d,r0\n\tjsb mcount\n", (LABELNO));
-
-/* Output assembler code to FILE to initialize this source file's
-   basic block profiling info, if that has not already been done.  */
-
-#define FUNCTION_BLOCK_PROFILER(FILE, LABELNO)  \
-  fprintf (FILE, "\ttstl LPBX0\n\tjneq LPI%d\n\tpushal LPBX0\n\tcalls $1,__bb_init_func\nLPI%d:\n",  \
-	   LABELNO, LABELNO);
-
-/* Output assembler code to FILE to increment the entry-count for
-   the BLOCKNO'th basic block in this source file.  This is a real pain in the
-   sphincter on a VAX, since we do not want to change any of the bits in the
-   processor status word.  The way it is done here, it is pushed onto the stack
-   before any flags have changed, and then the stack is fixed up to account for
-   the fact that the instruction to restore the flags only reads a word.
-   It may seem a bit clumsy, but at least it works.
-*/
-
-#define BLOCK_PROFILER(FILE, BLOCKNO)	\
-  fprintf (FILE, "\tmovpsl -(sp)\n\tmovw (sp),2(sp)\n\taddl2 $2,sp\n\taddl2 $1,LPBX2+%d\n\tbicpsw $255\n\tbispsw (sp)+\n", \
-		4 * BLOCKNO)
+   fprintf (FILE, "\tmovab LP%d,%s\n\tjsb mcount\n", (LABELNO), \
+	    reg_names[0]);
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -501,17 +502,19 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    FNADDR is an RTX for the address of the function's pure code.
    CXT is an RTX for the static chain value for the function.  */
 
+/* Allow this be overriden with the correct register prefixes.  */
+#define VAX_ISTREAM_SYNC "movpsl -(sp)\n\tpushal 1(pc)\n\trei"
+
 /* We copy the register-mask from the function's pure code
    to the start of the trampoline.  */
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)			\
 {									\
-  emit_insn (gen_rtx_ASM_INPUT (VOIDmode,				\
-				"movpsl -(sp)\n\tpushal 1(pc)\n\trei")); \
   emit_move_insn (gen_rtx_MEM (HImode, TRAMP),				\
 		  gen_rtx_MEM (HImode, FNADDR));			\
-  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 4)), CXT);\
+  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 4)), CXT);	\
   emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 11)),	\
 		  plus_constant (FNADDR, 2));				\
+  emit_insn (gen_rtx_ASM_INPUT (VOIDmode, VAX_ISTREAM_SYNC));		\
 }
 
 /* Byte offset of return address in a stack frame.  The "saved PC" field
@@ -1015,8 +1018,10 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 #define DATA_SECTION_ASM_OP "\t.data"
 
 /* How to refer to registers in assembler output.
-   This sequence is indexed by compiler's hard-register-number (see above).  */
+   This sequence is indexed by compiler's hard-register-number (see above).
+   The register names will be prefixed by REGISTER_PREFIX, if any.  */
 
+#define REGISTER_PREFIX ""
 #define REGISTER_NAMES \
 {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", \
  "r9", "r10", "r11", "ap", "fp", "sp", "pc"}
@@ -1143,13 +1148,13 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 	addl2	$DELTA, 4(ap)	#adjust first argument
 	jmp	FUNCTION+2	#jump beyond FUNCTION's entry mask
  */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
-do {						\
-  fprintf (FILE, "\t.word 0x0ffc\n");		\
-  fprintf (FILE, "\taddl2 $%d,4(ap)\n", DELTA);	\
-  fprintf (FILE, "\tjmp ");			\
-  assemble_name (FILE,  XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0)); \
-  fprintf (FILE, "+2\n");			\
+#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION)	\
+do {									\
+  fprintf (FILE, "\t.word 0x0ffc\n");					\
+  fprintf (FILE, "\taddl2 $%d,4(%sap)\n", DELTA, REGISTER_PREFIX);	\
+  fprintf (FILE, "\tjmp ");						\
+  assemble_name (FILE,  XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));	\
+  fprintf (FILE, "+2\n");						\
 } while (0)
 
 /* Print an instruction operand X on file FILE.

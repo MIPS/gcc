@@ -6,7 +6,7 @@
    Darwin ABI support (c) 2001 John Hornkvist
    AIX ABI support (c) 2002 Free Software Foundation, Inc.
 
-   $Id: ffi_darwin.c,v 1.1.10.2 2002/03/14 21:38:37 geoffk Exp $
+   $Id: ffi_darwin.c,v 1.5 2002/05/13 20:19:10 dje Exp $
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the

@@ -92,24 +92,19 @@ _cpp_begin_message (pfile, code, line, column)
 	{
 	  if (CPP_OPTION (pfile, inhibit_errors))
 	    return 0;
-	  if (pfile->errors < CPP_FATAL_LIMIT)
-	    pfile->errors++;
+	  level = DL_ERROR;
+	  pfile->errors++;
 	}
       else if (CPP_OPTION (pfile, inhibit_warnings))
 	return 0;
       break;
-	
+
     case DL_ERROR:
       if (CPP_OPTION (pfile, inhibit_errors))
 	return 0;
-      if (pfile->errors < CPP_FATAL_LIMIT)
-	pfile->errors++;
-      break;
-
-      /* Fatal errors cannot be inhibited.  */
-    case DL_FATAL:
+      /* ICEs cannot be inhibited.  */
     case DL_ICE:
-      pfile->errors = CPP_FATAL_LIMIT;
+      pfile->errors++;
       break;
     }
 
@@ -142,8 +137,16 @@ cpp_error VPARAMS ((cpp_reader * pfile, int level, const char *msgid, ...))
 
   if (pfile->buffer)
     {
-      line = pfile->cur_token[-1].line;
-      column = pfile->cur_token[-1].col;
+      if (CPP_OPTION (pfile, traditional))
+	{
+	  line = pfile->line;
+	  column = 0;
+	}
+      else
+	{
+	  line = pfile->cur_token[-1].line;
+	  column = pfile->cur_token[-1].col;
+	}
     }
   else
     line = column = 0;

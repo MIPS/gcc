@@ -1200,14 +1200,6 @@ struct cum_args { int ca_nregparms; int ca_nstackparms; };
 
 extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 
-/* Add any extra modes needed to represent the condition code.
-
-   Also, signed and unsigned comparisons are distinguished, as
-   are operations which are compatible with chkbit insns.  */
-#define EXTRA_CC_MODES		\
-    CC(CC_UNSmode, "CC_UNS")	\
-    CC(CC_CHKmode, "CC_CHK")
-
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point, CCFPmode
    should be used.  CC_NOOVmode should be used when the first operand is a
@@ -1439,25 +1431,6 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 #define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
 	( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
 	  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
-/* Output assembler code to FILE to initialize this source file's
-   basic block profiling info, if that has not already been done.  */
-
-#define FUNCTION_BLOCK_PROFILER(FILE, LABELNO) \
-{ fprintf (FILE, "\tld	LPBX0,g12\n");			\
-  fprintf (FILE, "\tcmpobne	0,g12,LPY%d\n",LABELNO);\
-  fprintf (FILE, "\tlda	LPBX0,g12\n");			\
-  fprintf (FILE, "\tcall	___bb_init_func\n");	\
-  fprintf (FILE, "LPY%d:\n",LABELNO); }
-
-/* Output assembler code to FILE to increment the entry-count for
-   the BLOCKNO'th basic block in this source file.  */
-
-#define BLOCK_PROFILER(FILE, BLOCKNO) \
-{ int blockn = (BLOCKNO);				\
-  fprintf (FILE, "\tld	LPBX2+%d,g12\n", 4 * blockn);	\
-  fprintf (FILE, "\taddo	g12,1,g12\n");		\
-  fprintf (FILE, "\tst	g12,LPBX2+%d\n", 4 * blockn); }
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.

@@ -43,8 +43,6 @@ Boston, MA 02111-1307, USA.  */
 	builtin_define ("_ADDR64");				\
 	builtin_define ("_LD64");				\
 	builtin_define ("__UNICOSMK__");			\
-	builtin_define ("__INT_MAX__=9223372036854775807");	\
-	builtin_define ("__SHRT_MAX__=2147483647");		\
     } while (0)
 
 #define SHORT_TYPE_SIZE 32
@@ -293,19 +291,6 @@ do {								\
 #undef EPILOGUE_USES
 #define EPILOGUE_USES(REGNO)  ((REGNO) == 26 || (REGNO) == 15)
 
-/* Machine-specific function data.  */
-
-struct machine_function GTY(())
-{
-  /* List of call information words for calls from this function.  */
-  rtx first_ciw;
-  rtx last_ciw;
-  int ciw_count;
-
-  /* List of deferred case vectors.  */
-  rtx addr_list;
-};
-
 /* Would have worked, only the stack doesn't seem to be executable
 #undef TRAMPOLINE_TEMPLATE
 #define TRAMPOLINE_TEMPLATE(FILE)			\
@@ -347,9 +332,9 @@ do { fprintf (FILE, "\tbr $1,0\n");			\
 #undef DATA_SECTION_ASM_OP
 #define DATA_SECTION_ASM_OP unicosmk_data_section ()
 
-/* There are ni read-only sections on Unicos/Mk.  */
+/* There are no read-only sections on Unicos/Mk.  */
 
-#undef READONLY_DATA_SECTION
+#undef READONLY_DATA_SECTION_ASM_OP
 #define READONLY_DATA_SECTION data_section
 
 /* Define extra sections for common data and SSIBs (static subroutine

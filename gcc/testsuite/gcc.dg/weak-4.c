@@ -8,17 +8,17 @@
 /* { dg-final { if [string match h8300-*-hms $target_triplet ] {return} } } */
 /* { dg-final { if [string match i?86-pc-cygwin $target_triplet ] {return} } } */
 /* { dg-final { if [string match *-*-coff $target_triplet ] {return} } } */
-/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]vfoo1a" } } */
-/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]vfoo1b" } } */
-/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]vfoo1c" } } */
-/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]vfoo1d" } } */
-/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]vfoo1e" } } */
-/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]vfoo1f" } } */
-/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]vfoo1g" } } */
-/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]vfoo1h" } } */
-/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]vfoo1i" } } */
-/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]vfoo1j" } } */
-/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]vfoo1k" } } */
+/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?vfoo1a" } } */
+/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?vfoo1b" } } */
+/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?vfoo1c" } } */
+/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?vfoo1d" } } */
+/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?vfoo1e" } } */
+/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?vfoo1f" } } */
+/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?vfoo1g" } } */
+/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?vfoo1h" } } */
+/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?vfoo1i" } } */
+/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?vfoo1j" } } */
+/* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?vfoo1k" } } */
 
 /* test variable addresses with #pragma weak */
 
@@ -38,7 +38,7 @@ void * foo1b (void)
 }
 
 
-extern int vfoo1c;  /* { dg-warning "applying #pragma weak" "applying #pragma weak" } */
+extern int vfoo1c;  /* { dg-warning "applying #pragma weak" "applying #pragma weak" { xfail *-*-coff i?86-pc-cygwin h8300-*-hms } } */
 void * foo1c (void)
 {
   return (void *)&vfoo1c;
@@ -70,7 +70,7 @@ void * foo1f (void)
 #pragma weak vfoo1f
 
 
-extern int vfoo1g;  /* { dg-warning "applying #pragma weak" "applying #pragma weak" } */
+extern int vfoo1g;  /* { dg-warning "applying #pragma weak" "applying #pragma weak" { xfail *-*-coff i?86-pc-cygwin h8300-*-hms } } */
 void * foo1g (void)
 {
   return (void *)&vfoo1g;

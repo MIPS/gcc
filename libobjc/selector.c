@@ -1,5 +1,5 @@
 /* GNU Objective C Runtime selector related functions
-   Copyright (C) 1993, 1995, 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1995, 1996, 1997, 2002 Free Software Foundation, Inc.
    Contributed by Kresten Krab Thorup
 
 This file is part of GNU CC.
@@ -38,7 +38,7 @@ static cache_ptr      __objc_selector_hash  = 0; /* name -> uid !T:MUTEX */
 static void register_selectors_from_list(MethodList_t);
 
 /* Number of selectors stored in each of the above tables */
-int __objc_selector_max_index = 0;              /* !T:MUTEX */
+unsigned int __objc_selector_max_index = 0;     /* !T:MUTEX */
 
 void __objc_init_selector_tables()
 {
@@ -164,8 +164,8 @@ sel_types_match (const char* t1, const char* t2)
     {
       if (*t1 == '+') t1++;
       if (*t2 == '+') t2++;
-      while (isdigit(*t1)) t1++;
-      while (isdigit(*t2)) t2++;
+      while (isdigit((unsigned char)*t1)) t1++;
+      while (isdigit((unsigned char)*t2)) t2++;
       /* xxx Remove these next two lines when qualifiers are put in
 	 all selectors, not just Protocol selectors. */
       t1 = objc_skip_type_qualifiers(t1);

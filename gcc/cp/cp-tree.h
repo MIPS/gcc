@@ -3200,9 +3200,6 @@ typedef enum base_kind {
 			     binfo. */
 } base_kind;
 
-/* Nonzero means allow Microsoft extensions without a pedwarn.  */
-extern int flag_ms_extensions;
-
 /* Non-zero means warn in function declared in derived class has the
    same name as a virtual in the base class, but fails to match the
    type signature of any virtual function in the base class.  */
@@ -4047,7 +4044,7 @@ extern void note_list_got_semicolon		PARAMS ((tree));
 extern void do_pending_lang_change		PARAMS ((void));
 extern void see_typename			PARAMS ((void));
 extern tree do_identifier			PARAMS ((tree, int, tree));
-extern tree do_scoped_id			PARAMS ((tree, int));
+extern tree do_scoped_id			PARAMS ((tree, tree));
 extern tree identifier_typedecl_value		PARAMS ((tree));
 extern tree build_lang_decl			PARAMS ((enum tree_code, tree, tree));
 extern void retrofit_lang_decl			PARAMS ((tree));
@@ -4055,15 +4052,12 @@ extern tree copy_decl                           PARAMS ((tree));
 extern tree copy_type                           PARAMS ((tree));
 extern tree cxx_make_type			PARAMS ((enum tree_code));
 extern tree make_aggr_type			PARAMS ((enum tree_code));
-extern void compiler_error			PARAMS ((const char *, ...))
-  ATTRIBUTE_PRINTF_1;
 extern void yyerror				PARAMS ((const char *));
 extern void yyhook				PARAMS ((int));
 extern int cp_type_qual_from_rid                PARAMS ((tree));
 extern const char *cxx_init			PARAMS ((const char *));
 extern void cxx_finish PARAMS ((void));
 extern void cxx_init_options PARAMS ((void));
-extern void cxx_post_options PARAMS ((void));
 
 /* in method.c */
 extern void init_method				PARAMS ((void));
@@ -4405,7 +4399,8 @@ extern tree condition_conversion		PARAMS ((tree));
 extern tree target_type				PARAMS ((tree));
 extern tree require_complete_type		PARAMS ((tree));
 extern tree complete_type			PARAMS ((tree));
-extern tree complete_type_or_else               PARAMS ((tree, tree));
+extern tree complete_type_or_diagnostic         PARAMS ((tree, tree, int));
+#define complete_type_or_else(T,V) (complete_type_or_diagnostic ((T), (V), 0))
 extern int type_unknown_p			PARAMS ((tree));
 extern tree commonparms				PARAMS ((tree, tree));
 extern tree original_type			PARAMS ((tree));
@@ -4464,7 +4459,11 @@ extern tree check_return_expr                   PARAMS ((tree));
   build_binary_op(code, arg1, arg2, 1)
 
 /* in typeck2.c */
+extern void cxx_incomplete_type_diagnostic	PARAMS ((tree, tree, int));
+#undef cxx_incomplete_type_error
 extern void cxx_incomplete_type_error		PARAMS ((tree, tree));
+#define cxx_incomplete_type_error(V,T) \
+  (cxx_incomplete_type_diagnostic ((V), (T), 0))
 extern tree error_not_base_type			PARAMS ((tree, tree));
 extern tree binfo_or_else			PARAMS ((tree, tree));
 extern void readonly_error			PARAMS ((tree, const char *, int));

@@ -157,13 +157,15 @@ complete_type (type)
 }
 
 /* Like complete_type, but issue an error if the TYPE cannot be
-   completed.  VALUE is used for informative diagnostics.
+   completed.  VALUE is used for informative diagnostics.  WARN_ONLY
+   will cause a warning message to be printed, instead of an error.
    Returns NULL_TREE if the type cannot be made complete.  */
 
 tree
-complete_type_or_else (type, value)
+complete_type_or_diagnostic (type, value, warn_only)
      tree type;
      tree value;
+     int warn_only;
 {
   type = complete_type (type);
   if (type == error_mark_node)
@@ -171,7 +173,7 @@ complete_type_or_else (type, value)
     return NULL_TREE;
   else if (!COMPLETE_TYPE_P (type))
     {
-      cxx_incomplete_type_error (value, type);
+      cxx_incomplete_type_diagnostic (value, type, warn_only);
       return NULL_TREE;
     }
   else
@@ -4803,9 +4805,6 @@ cxx_mark_addressable (exp)
 {
   register tree x = exp;
 
-  if (TREE_ADDRESSABLE (x) == 1)
-    return true;
-
   while (1)
     switch (TREE_CODE (x))
       {
@@ -4824,6 +4823,8 @@ cxx_mark_addressable (exp)
 	    TREE_ADDRESSABLE (x) = 1; /* so compiler doesn't die later */
 	    return true;
 	  }
+	/* FALLTHRU */
+
       case VAR_DECL:
 	/* Caller should not be trying to mark initialized
 	   constant fields addressable.  */
@@ -4831,6 +4832,7 @@ cxx_mark_addressable (exp)
 			    || DECL_IN_AGGR_P (x) == 0
 			    || TREE_STATIC (x)
 			    || DECL_EXTERNAL (x), 314);
+	/* FALLTHRU */
 
       case CONST_DECL:
       case RESULT_DECL:
@@ -4839,6 +4841,7 @@ cxx_mark_addressable (exp)
 	  warning ("address requested for `%D', which is declared `register'",
 		      x);
 	TREE_ADDRESSABLE (x) = 1;
+	put_var_into_stack (x);
 	return true;
 
       case FUNCTION_DECL:

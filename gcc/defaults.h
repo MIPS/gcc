@@ -223,7 +223,8 @@ do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
 
 /* If we have named sections, and we're using crtstuff to run ctors,
    use them for registering eh frame information.  */
-#if defined (TARGET_ASM_NAMED_SECTION) && !defined(EH_FRAME_IN_DATA_SECTION)
+#if defined (TARGET_ASM_NAMED_SECTION) && DWARF2_UNWIND_INFO \
+    && !defined(EH_FRAME_IN_DATA_SECTION)
 #ifndef EH_FRAME_SECTION_NAME
 #define EH_FRAME_SECTION_NAME ".eh_frame"
 #endif
@@ -236,28 +237,6 @@ do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
 #ifndef JCR_SECTION_NAME
 #define JCR_SECTION_NAME ".jcr"
 #endif
-#endif
-
-/* If we have no definition for UNIQUE_SECTION, but do have the 
-   ability to generate arbitrary sections, construct something
-   reasonable.  */
-#ifndef UNIQUE_SECTION
-#define UNIQUE_SECTION(DECL,RELOC)				\
-do {								\
-  int len;							\
-  const char *name;						\
-  char *string;							\
-								\
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL));	\
-  /* Strip off any encoding in name.  */			\
-  STRIP_NAME_ENCODING (name, name);				\
-								\
-  len = strlen (name) + 1;					\
-  string = alloca (len + 1);					\
-  sprintf (string, ".%s", name);				\
-								\
-  DECL_SECTION_NAME (DECL) = build_string (len, string);	\
-} while (0)
 #endif
 
 /* By default, we generate a label at the beginning and end of the
@@ -401,6 +380,22 @@ do {								\
 #define TARGET_VTABLE_USES_DESCRIPTORS 0
 #endif
 
+/* By default, the vtable entries are void pointers, the so the alignment
+   is the same as pointer alignment.  The value of this macro specifies
+   the alignment of the vtable entry in bits.  It should be defined only
+   when special alignment is necessary. */
+#ifndef TARGET_VTABLE_ENTRY_ALIGN
+#define TARGET_VTABLE_ENTRY_ALIGN POINTER_SIZE
+#endif
+
+/* There are a few non-descriptor entries in the vtable at offsets below
+   zero.  If these entries must be padded (say, to preserve the alignment
+   specified by TARGET_VTABLE_ENTRY_ALIGN), set this to the number of
+   words in each data entry.  */
+#ifndef TARGET_VTABLE_DATA_ENTRY_DISTANCE
+#define TARGET_VTABLE_DATA_ENTRY_DISTANCE 1
+#endif
+
 /* Select a format to encode pointers in exception handling data.  We
    prefer those that result in fewer dynamic relocations.  Assume no
    special support here and encode direct references.  */
@@ -417,13 +412,6 @@ do {								\
 #define TARGET_PTRMEMFUNC_VBIT_LOCATION \
   (FUNCTION_BOUNDARY >= 2 * BITS_PER_UNIT \
    ? ptrmemfunc_vbit_in_pfn : ptrmemfunc_vbit_in_delta)
-#endif
-
-/* True if it is possible to profile code that does not have a frame
-   pointer.  */
-
-#ifndef TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER
-#define TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER true
 #endif
 
 #ifndef DEFAULT_GDB_EXTENSIONS
@@ -523,6 +511,16 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 
 #ifndef UNLIKELY_EXECUTED_TEXT_SECTION_NAME
 #define UNLIKELY_EXECUTED_TEXT_SECTION_NAME "text.unlikely"
+#endif
+
+#ifndef VECTOR_MODE_SUPPORTED_P
+#define VECTOR_MODE_SUPPORTED_P(MODE) 0
+#endif
+
+/* Determine whether __cxa_atexit, rather than atexit, is used to
+   register C++ destructors for local statics and global objects. */
+#ifndef DEFAULT_USE_CXA_ATEXIT
+#define DEFAULT_USE_CXA_ATEXIT 0
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "toplev.h"
 #include "hashtab.h"
+#include "ggc.h"
 
 /* i386/PE specific attribute support.
 
@@ -367,8 +368,6 @@ gen_stdcall_suffix (decl)
   return IDENTIFIER_POINTER (get_identifier (newsym));
 }
 
-/* Cover function to implement ENCODE_SECTION_INFO.  */
-
 void
 i386_pe_encode_section_info (decl, first)
      tree decl;
@@ -424,6 +423,35 @@ i386_pe_encode_section_info (decl, first)
     }
 }
 
+/* Strip only the leading encoding, leaving the stdcall suffix.  */
+
+const char *
+i386_pe_strip_name_encoding (str)
+     const char *str;
+{
+  if (*str == '@')
+    str += 3;
+  if (*str == '*')
+    str += 1;
+  return str;
+}
+
+/* Also strip the stdcall suffix.  */
+
+const char *
+i386_pe_strip_name_encoding_full (str)
+     const char *str;
+{
+  const char *p;
+  const char *name = i386_pe_strip_name_encoding (str);
+ 
+  p = strchr (name, '@');
+  if (p)
+    return ggc_alloc_string (name, p - name);
+
+  return name;
+}
+
 void
 i386_pe_unique_section (decl, reloc)
      tree decl;
@@ -434,8 +462,7 @@ i386_pe_unique_section (decl, reloc)
   char *string;
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  /* Strip off any encoding in fnname.  */
-  STRIP_NAME_ENCODING (name, name);
+  name = i386_pe_strip_name_encoding_full (name);
 
   /* The object is put in, for example, section .text$foo.
      The linker will then ultimately place them in .text
@@ -445,15 +472,8 @@ i386_pe_unique_section (decl, reloc)
      without a .rdata section.  */
   if (TREE_CODE (decl) == FUNCTION_DECL)
     prefix = ".text$";
-/* else if (DECL_INITIAL (decl) == 0
-	   || DECL_INITIAL (decl) == error_mark_node)
-    prefix = ".bss";  */
   else if (DECL_READONLY_SECTION (decl, reloc))
-#ifdef READONLY_DATA_SECTION
     prefix = ".rdata$";
-#else
-    prefix = ".text$";
-#endif
   else
     prefix = ".data$";
   len = strlen (name) + strlen (prefix);
@@ -672,7 +692,7 @@ i386_pe_asm_file_end (file)
       for (q = export_head; q != NULL; q = q->next)
 	{
 	  fprintf (file, "\t.ascii \" -export:%s%s\"\n",
-		   I386_PE_STRIP_ENCODING (q->name),
+		   i386_pe_strip_name_encoding (q->name),
 		   (q->is_data) ? ",data" : "");
 	}
     }

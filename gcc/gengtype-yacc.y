@@ -63,6 +63,7 @@ start: /* empty */
        | typedef_struct start
        | externstatic start
        | yacc_union start
+       ;
 
 typedef_struct: ENT_TYPEDEF_STRUCT options '{' struct_fields '}' ID
 		   {
@@ -72,6 +73,7 @@ typedef_struct: ENT_TYPEDEF_STRUCT options '{' struct_fields '}' ID
 		     lexer_toplevel_done = 1;
 		   }
 		 ';'
+		   {}
 		| ENT_STRUCT options '{' struct_fields '}'
 		   {
 		     new_structure ($1->u.s.tag, UNION_P ($1), &lexer_line,
@@ -79,10 +81,12 @@ typedef_struct: ENT_TYPEDEF_STRUCT options '{' struct_fields '}' ID
 		     lexer_toplevel_done = 1;
 		   }
 		 ';'
+		   {}
+		;
 
 externstatic: ENT_EXTERNSTATIC options lasttype ID semiequal
 	         {
-	           note_variable ($4, adjust_field_type ($3, $2), $2, 
+	           note_variable ($4, adjust_field_type ($3, $2), $2,
 				  &lexer_line);
 	         }
 	      | ENT_EXTERNSTATIC options lasttype ID ARRAY semiequal
@@ -96,26 +100,30 @@ externstatic: ENT_EXTERNSTATIC options lasttype ID semiequal
 	      				      $5),
 	      		    $2, &lexer_line);
 	         }
+	      ;
 
 lasttype: type
-	    { 
+	    {
 	      lexer_toplevel_done = 1;
 	      $$ = $1;
 	    }
+	    ;
 
 semiequal: ';'
 	   | '='
 	   ;
 
-yacc_union: ENT_YACCUNION options struct_fields '}' yacc_typematch PERCENTPERCENT
+yacc_union: ENT_YACCUNION options struct_fields '}' yacc_typematch
+	    PERCENTPERCENT
 	      {
 	        note_yacc_type ($2, $3, $5, &lexer_line);
 	      }
+	    ;
 
 yacc_typematch: /* empty */
 		   { $$ = NULL; }
 		| yacc_typematch PERCENT_ID yacc_ids
-		   { 
+		   {
 		     pair_p p;
 		     for (p = $3; p->next != NULL; p = p->next)
 		       {
@@ -148,7 +156,7 @@ yacc_typematch: /* empty */
 yacc_ids: /* empty */
 	{ $$ = NULL; }
      | yacc_ids ID
-        { 
+        {
 	  pair_p p = xcalloc (1, sizeof (*p));
 	  p->next = $1;
 	  p->line = lexer_line;
@@ -170,6 +178,7 @@ yacc_ids: /* empty */
 	  sprintf (p->opt->info, "'%s'", $2);
 	  $$ = p;
 	}
+     ;
 
 struct_fields: { $$ = NULL; }
 	       | type optionsopt ID bitfieldopt ';' struct_fields
@@ -202,9 +211,11 @@ struct_fields: { $$ = NULL; }
 		    p->line = lexer_line;
 		    $$ = p;
 		  }
+	       ;
 
 bitfieldopt: /* empty */
 	     | ':' NUM
+	     ;
 
 type: SCALAR
          { $$ = $1; }
@@ -230,6 +241,7 @@ type: SCALAR
          { $$ = create_scalar_type ($2, strlen ($2)); }
       | ENUM ID '{' enum_items '}'
          { $$ = create_scalar_type ($2, strlen ($2)); }
+      ;
 
 enum_items: /* empty */
 	    | ID '=' NUM ',' enum_items
@@ -242,13 +254,17 @@ enum_items: /* empty */
 
 optionsopt: { $$ = NULL; }
 	    | options { $$ = $1; }
+	    ;
 
-options: GTY_TOKEN '(' '(' optionseqopt ')' ')' { $$ = $4; }
+options: GTY_TOKEN '(' '(' optionseqopt ')' ')'
+	   { $$ = $4; }
+	 ;
 
 type_option : ALIAS
 	        { $$ = "ptr_alias"; }
 	      | PARAM_IS
 	        { $$ = "param_is"; }
+	      ;
 
 option:	type_option '(' type ')'
 	   {
@@ -258,12 +274,13 @@ option:	type_option '(' type ')'
 	     $$ = o;
 	   }
 	| ID '(' STRING ')'
-	   { 
+	   {
 	     options_p o = xmalloc (sizeof (*o));
 	     o->name = $1;
 	     o->info = (void *)$3;
 	     $$ = o;
 	   }
+	;
 
 optionseq: option
 	      {
@@ -275,8 +292,9 @@ optionseq: option
 	        $3->next = $1;
 		$$ = $3;
 	      }
+	    ;
 
-optionseqopt: { $$ = NULL }
+optionseqopt: { $$ = NULL; }
 	      | optionseq { $$ = $1; }
-
+	      ;
 %%

@@ -28,10 +28,10 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
 #include "tree.h"
+#include "output.h"
 #include "except.h"
 #include "expr.h"
 #include "optabs.h"
@@ -114,6 +114,8 @@ static int pa_adjust_priority PARAMS ((rtx, int));
 static int pa_issue_rate PARAMS ((void));
 static void pa_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT))
      ATTRIBUTE_UNUSED;
+static void pa_encode_section_info PARAMS ((tree, int));
+static const char *pa_strip_name_encoding PARAMS ((const char *));
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -154,7 +156,7 @@ struct deferred_plabel GTY(())
 };
 static GTY((length ("n_deferred_plabels"))) struct deferred_plabel *
   deferred_plabels;
-static int n_deferred_plabels = 0;
+static size_t n_deferred_plabels = 0;
 
 /* Initialize the GCC target structure.  */
 
@@ -185,42 +187,48 @@ static int n_deferred_plabels = 0;
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE pa_issue_rate
 
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO pa_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING pa_strip_name_encoding
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 void
 override_options ()
 {
-  /* Default to 8000 scheduling.  */
-  if (pa_cpu_string && ! strcmp (pa_cpu_string, "7100"))
+  if (pa_cpu_string == NULL)
+    pa_cpu_string = TARGET_SCHED_DEFAULT;
+
+  if (! strcmp (pa_cpu_string, "8000"))
+    {
+      pa_cpu_string = "8000";
+      pa_cpu = PROCESSOR_8000;
+    }
+  else if (! strcmp (pa_cpu_string, "7100"))
     {
       pa_cpu_string = "7100";
       pa_cpu = PROCESSOR_7100;
     }
-  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "700"))
+  else if (! strcmp (pa_cpu_string, "700"))
     {
       pa_cpu_string = "700";
       pa_cpu = PROCESSOR_700;
     }
-  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "7100LC"))
+  else if (! strcmp (pa_cpu_string, "7100LC"))
     {
       pa_cpu_string = "7100LC";
       pa_cpu = PROCESSOR_7100LC;
     }
-  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "7200"))
+  else if (! strcmp (pa_cpu_string, "7200"))
     {
       pa_cpu_string = "7200";
       pa_cpu = PROCESSOR_7200;
     }
-  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "7300"))
+  else if (! strcmp (pa_cpu_string, "7300"))
     {
       pa_cpu_string = "7300";
       pa_cpu = PROCESSOR_7300;
-    }
-  else if (pa_cpu_string == NULL
-	   || ! strcmp (pa_cpu_string, "8000"))
-    {
-      pa_cpu_string = "8000";
-      pa_cpu = PROCESSOR_8000;
     }
   else
     {
@@ -1825,8 +1833,9 @@ reloc_needed (exp)
   return reloc;
 }
 
-/* Does operand (which is a symbolic_operand) live in text space? If
-   so SYMBOL_REF_FLAG, which is set by ENCODE_SECTION_INFO, will be true.  */
+/* Does operand (which is a symbolic_operand) live in text space?
+   If so, SYMBOL_REF_FLAG, which is set by pa_encode_section_info,
+   will be true.  */
 
 int
 read_only_operand (operand, mode)
@@ -3170,7 +3179,7 @@ pa_output_function_prologue (file, size)
     {
       unsigned int old_total = total_code_bytes;
 
-      total_code_bytes += INSN_ADDRESSES (INSN_UID (get_last_insn ()));
+      total_code_bytes += INSN_ADDRESSES (INSN_UID (get_last_nonnote_insn ()));
       total_code_bytes += FUNCTION_BOUNDARY / BITS_PER_UNIT;
 
       /* Be prepared to handle overflows.  */
@@ -4694,7 +4703,7 @@ void
 output_deferred_plabels (file)
      FILE *file;
 {
-  int i;
+  size_t i;
   /* If we have deferred plabels, then we need to switch into the data
      section and align it to a 4 byte boundary before we output the
      deferred plabels.  */
@@ -6087,7 +6096,10 @@ output_millicode_call (insn, call_dest)
 	{
 	  xoperands[0] = call_dest;
 	  output_asm_insn ("ldil L%%%0,%3", xoperands);
-	  output_asm_insn ("{ble|be,l} R%%%0(%%sr4,%3)", xoperands);
+	  if (TARGET_PA_20)
+	    output_asm_insn ("be,l R%%%0(%%sr4,%3),%%sr0,%%r31", xoperands);
+	  else
+	    output_asm_insn ("ble R%%%0(%%sr4,%3)", xoperands);
 	  output_asm_insn ("nop", xoperands);
 	}
 
@@ -6243,7 +6255,7 @@ output_call (insn, call_dest, sibcall)
       /* Don't have to worry about TARGET_PORTABLE_RUNTIME here since
 	 we don't have any direct calls in that case.  */
 	{
-	  int i;
+	  size_t i;
 	  const char *name = XSTR (call_dest, 0);
 
 	  /* See if we have already put this function on the list
@@ -6277,7 +6289,7 @@ output_call (insn, call_dest, sibcall)
 
 	      /* Gross.  We have just implicitly taken the address of this
 		 function, mark it as such.  */
-	      STRIP_NAME_ENCODING (real_name, name);
+	      real_name = (*targetm.strip_name_encoding) (name);
 	      TREE_SYMBOL_REFERENCED (get_identifier (real_name)) = 1;
 	    }
 
@@ -6343,8 +6355,11 @@ output_call (insn, call_dest, sibcall)
 	      /* Get the high part of the  address of $dyncall into %r2, then
 		 add in the low part in the branch instruction.  */
 	      output_asm_insn ("ldil L%%$$dyncall,%%r2", xoperands);
-	      output_asm_insn ("{ble|be,l}  R%%$$dyncall(%%sr4,%%r2)",
-			       xoperands);
+	      if (TARGET_PA_20)
+		output_asm_insn ("be,l R%%$$dyncall(%%sr4,%%r2),%%sr0,%%r31",
+				 xoperands);
+	      else
+		output_asm_insn ("ble R%%$$dyncall(%%sr4,%%r2)", xoperands);
 
 	      if (sibcall)
 		{
@@ -6433,6 +6448,34 @@ hppa_encode_label (sym)
   XSTR (sym, 0) = ggc_alloc_string (newstr, len);
 }
 
+static void
+pa_encode_section_info (decl, first)
+     tree decl;
+     int first;
+{
+  if (first && TEXT_SPACE_P (decl))
+    {
+      rtx rtl;
+      if (TREE_CODE (decl) == FUNCTION_DECL
+	  || TREE_CODE (decl) == VAR_DECL)
+	rtl = DECL_RTL (decl);
+      else
+	rtl = TREE_CST_RTL (decl);
+      SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	hppa_encode_label (XEXP (DECL_RTL (decl), 0));
+    }
+}
+
+/* This is sort of inverse to pa_encode_section_info.  */
+
+static const char *
+pa_strip_name_encoding (str)
+     const char *str;
+{
+  return str + (*str == '*' || *str == '@');
+}
+
 int
 function_label_operand (op, mode)
      rtx op;
@@ -6455,6 +6498,89 @@ is_function_label_plus_const (op)
   return (GET_CODE (op) == PLUS
 	  && function_label_operand (XEXP (op, 0), Pmode)
 	  && GET_CODE (XEXP (op, 1)) == CONST_INT);
+}
+
+/* Output assembly code for a thunk to FUNCTION.  */
+
+void
+pa_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
+     FILE *file;
+     tree thunk_fndecl;
+     HOST_WIDE_INT delta;
+     tree function;
+{
+  const char *target_name = XSTR (XEXP (DECL_RTL (function), 0), 0);
+  static unsigned int current_thunk_number;
+  char label[16];
+  const char *lab;
+  ASM_GENERATE_INTERNAL_LABEL (label, "LTHN", current_thunk_number);
+  lab = (*targetm.strip_name_encoding) (label);
+  target_name = (*targetm.strip_name_encoding) (target_name);
+  /* FIXME: total_code_bytes is not handled correctly in files with
+     mi thunks.  */
+  pa_output_function_prologue (file, 0);
+  if (VAL_14_BITS_P (delta))
+    {
+      if (! TARGET_64BIT && ! TARGET_PORTABLE_RUNTIME && flag_pic)
+	{
+	  fprintf (file, "\taddil LT%%%s,%%r19\n", lab);
+	  fprintf (file, "\tldw RT%%%s(%%r1),%%r22\n", lab);
+	  fprintf (file, "\tldw 0(%%sr0,%%r22),%%r22\n");
+	  fprintf (file, "\tbb,>=,n %%r22,30,.+16\n");
+	  fprintf (file, "\tdepi 0,31,2,%%r22\n");
+	  fprintf (file, "\tldw 4(%%sr0,%%r22),%%r19\n");
+	  fprintf (file, "\tldw 0(%%sr0,%%r22),%%r22\n");
+	  fprintf (file, "\tldsid (%%sr0,%%r22),%%r1\n\tmtsp %%r1,%%sr0\n");
+	  fprintf (file, "\tbe 0(%%sr0,%%r22)\n\tldo ");
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+	  fprintf (file, "(%%r26),%%r26\n");
+	}
+      else
+	{
+	  fprintf (file, "\tb %s\n\tldo ", target_name);
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+	  fprintf (file, "(%%r26),%%r26\n");
+	}
+    }
+  else
+    {
+      if (! TARGET_64BIT && ! TARGET_PORTABLE_RUNTIME && flag_pic)
+	{
+	  fprintf (file, "\taddil L%%");
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+	  fprintf (file, ",%%r26\n\tldo R%%");
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+	  fprintf (file, "(%%r1),%%r26\n");
+	  fprintf (file, "\taddil LT%%%s,%%r19\n", lab);
+	  fprintf (file, "\tldw RT%%%s(%%r1),%%r22\n", lab);
+	  fprintf (file, "\tldw 0(%%sr0,%%r22),%%r22\n");
+	  fprintf (file, "\tbb,>=,n %%r22,30,.+16\n");
+	  fprintf (file, "\tdepi 0,31,2,%%r22\n");
+	  fprintf (file, "\tldw 4(%%sr0,%%r22),%%r19\n");
+	  fprintf (file, "\tldw 0(%%sr0,%%r22),%%r22\n");
+	  fprintf (file, "\tldsid (%%sr0,%%r22),%%r1\n\tmtsp %%r1,%%sr0\n");
+	  fprintf (file, "\tbe,n 0(%%sr0,%%r22)\n");
+	}
+      else
+	{
+	  fprintf (file, "\taddil L%%");
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+	  fprintf (file, ",%%r26\n\tb %s\n\tldo R%%", target_name);
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+	  fprintf (file, "(%%r1),%%r26\n");
+	}
+    }
+    
+  fprintf (file, "\t.EXIT\n\t.PROCEND\n");
+  if (! TARGET_64BIT && ! TARGET_PORTABLE_RUNTIME && flag_pic)
+    {
+      data_section ();
+      fprintf (file, "\t.align 4\n");
+      ASM_OUTPUT_INTERNAL_LABEL (file, "LTHN", current_thunk_number);
+      fprintf (file, "\t.word P%%%s\n", target_name);
+      function_section (thunk_fndecl);
+    }
+  current_thunk_number++;
 }
 
 /* Returns 1 if the 6 operands specified in OPERANDS are suitable for
@@ -6775,11 +6901,7 @@ int
 following_call (insn)
      rtx insn;
 {
-  /* We do not place jumps into call delay slots when optimizing for the
-     PA8000 processor or when generating dwarf2 call frame information.  */
-  if (pa_cpu >= PROCESSOR_8000
-      || (! USING_SJLJ_EXCEPTIONS && flag_exceptions)
-      || flag_unwind_tables)
+  if (! TARGET_JUMP_IN_DELAY)
     return 0;
 
   /* Find the previous real insn, skipping NOTEs.  */

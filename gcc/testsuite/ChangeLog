@@ -1,3 +1,313 @@
+2002-06-23  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/execute/complex-6.c: New.
+
+2002-06-22  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/trad/comment-2.c. gcc.dg/cpp/trad/funlike-2.c,
+	gcc.dg/cpp/trad/funlike.c, gcc.dg/cpp/trad/funlike-3.c,
+	gcc.dg/cpp/trad/literals-1.c, gcc.dg/cpp/trad/literals-2.c,
+	gcc.dg/cpp/trad/macroargs.c, gcc.dg/cpp/trad/quote.c: New tests.
+
+2002-06-21  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/trad: New directory with traditional tests copied
+	from parent directory.
+	* gcc.dg/cpp/assert_trad1.c, gcc.dg/cpp/assert_trad2.c,
+	gcc.dg/cpp/assert_trad3.c, gcc.dg/cpp/defined_trad.c,
+	gcc.dg/cpp/hash2.c, gcc.dg/cpp/tr-define.c, gcc.dg/cpp/tr-direct.c,
+	gcc.dg/cpp/tr-sign.c, gcc.dg/cpp/tr-str.c, gcc.dg/cpp/uchar-2.c:
+	Move to trad/ and rename.
+	* gcc.dg/cpp/trad/__STDC__.c, gcc.dg/cpp/trad/comment.c,
+	gcc.dg/cpp/trad/escaped-eof.c, gcc.dg/cpp/trad/redef1.c,
+	gcc.dg/cpp/trad/redef2.c: New tests.
+	* gcc.dg/cpp/trad/trad.exp: New driver.
+
+2002-06-20  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/assert_trad1.c, gcc.dg/cpp/assert_trad2.c,
+	gcc.dg/cpp/assert_trad3.c, gcc.dg/cpp/defined_trad.c,
+	gcc.dg/cpp/hash2.c, gcc.dg/cpp/tr-define.c, gcc.dg/cpp/tr-direct.c,
+	gcc.dg/cpp/tr-sign.c, gcc.dg/cpp/tr-str.c, gcc.dg/cpp/uchar-2.c:
+	Remove.
+
+2002-06-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/20020620-1.c: New test.
+
+2002-06-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/template/ttp4.C: New test.
+
+2002-06-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/opt/vt1.C: Fix regexp.
+
+2002-06-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/pure-1.c: Make functions static again.
+	Don't use attribute `noinline'.
+
+2002-06-18  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.c-torture/execute/20020615-1.c: Fix typo in comment.
+
+2002-06-18  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gcc.c-torture/execute/simd-1.c: New.
+
+        * gcc.dg/simd-1.c: New.
+
+2002-06-18  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.c-torture/execute/20020615-1.c: Correct bug-description.
+
+2002-06-16  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/ext/anon-struct1.C: New.
+	* g++.dg/ext/anon-struct2.C: New.
+	* g++.dg/ext/anon-struct3.C: New.
+	* gcc.dg/anon-struct-1.c: New.
+	* gcc.dg/anon-struct-2.c: New.
+	* gcc.dg/anon-struct-3.c: New.
+	* gcc.dg/20011008-1.c: Adjust warning text.
+	* gcc.dg/20020527-1.c: Add -fms-extensions.
+
+2002-06-16  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/20020531-1.c: Add LL specifier to avoid warning.
+
+2002-06-15  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.c-torture/execute/20020615-1.c: New test.
+
+2002-06-15  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-tortuture/execute/compare-1.c: New test case.
+	* gcc.c-tortuture/execute/compare-2.c: New test case.
+	* gcc.c-tortuture/execute/compare-3.c: New test case.
+
+2002-06-13  Richard Henderson  <rth@redhat.com>
+
+	* g++.old-deja/g++.abi/vtable2.C (INC_VDATA): New.  Define for
+	ia64 ilp32.
+
+2002-06-12  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/template/typename2.C: Update error message.
+
+2002-06-12  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.c-torture/execute/20020611-1.c: New test.
+
+2002-06-11  Bob Wilson  <bob.wilson@acm.org>
+
+	* g++.old-deja/g++.pt/static11.C: Add xtensa-*-elf* to the
+	list of targets to skip.
+
+2002-06-10  Bob Wilson  <bob.wilson@acm.org>
+
+	* gcc.c-torture/compile/20001226-1.x: Only xfail for Xtensa
+	targets if not optimizing.
+
+2002-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20020605-1.c: New test.
+
+	* g++.dg/opt/vt1.C: New test.
+
+	* gcc.dg/20020531-1.c: New test.
+
+	* gcc.dg/20020530-1.c: New test.
+
+	* gcc.dg/20020527-1.c: New test.
+
+	* g++.dg/opt/cse1.C: New test.
+
+2002-06-07  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/20020607-2.c: New test case.
+
+2002-06-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20020604-1.c: New test.
+
+2002-06-04  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/alpha-base-1.c: Add ext/ins/msk/umulh cases.
+	* gcc.dg/alpha-max-1.c, gcc.dg/alpha-max-2.c: Use -mcpu=ev67.
+	* gcc.dg/alpha-cix-1.c, gcc.dg/alpha-cix-2.c: New.
+
+2002-06-04  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gcc.dg/altivec-2.c: Remove test for invalid vector type V2DF.
+
+2002-06-03  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/alpha-base-1.c, gcc.dg/alpha-base-2.c: New.
+	* gcc.dg/alpha-max-1.c, gcc.dg/alpha-max-2.c: New.
+
+2002-06-02  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/pure-1.c: Don't mark any of the
+	test functions static.
+
+2002-06-02  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/execute/loop-3c.x: Remove, the test should pass
+	now.
+
+2002-06-02  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/wtr-int-type-1.c, gcc.dg/wtr-suffix-1.c,
+	gcc.dg/cpp/paste4.c, gcc.dg/cpp/sysmac2.c:
+	Update for mofified diagnostics.
+	* gcc.dg/c99-intconst-1.c: No longer fail.
+
+2002-06-02  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/uninit-A.c: Remove xfail markers.
+
+2002-06-01  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/fnegate-1.c: New test case.
+
+2002-05-30  Osku Salerma  <osku@iki.fi>
+
+	* gcc.c-torture/execute/mayalias-1.c: New file.
+
+2002-05-29  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/c++98-pedantic.c, gcc.dg/cpp/c89-pedantic.c,
+	gcc.dg/cpp/c94-pedantic.c, gcc.dg/cpp/gnuc89-pedantic.c,
+	gcc.dg/cpp/if-1.c: Update for modified diagnostics.
+
+2002-05-29  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.c-torture/execute/20020529-1.c: New test.
+
+2002-05-27  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/ext/attrib6.C: New test case.
+
+2002-05-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/pure-1.c: New test.
+
+2002-05-27  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/arith-2.c: Remove.
+
+2002-05-27  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/arith-2.c, gcc.dg/cpp/arith-3.c: New tests.
+	* gcc.dg/cpp/if-3.c: Remove.
+
+2002-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/opt/cse2.C: New test.
+
+2002-05-26  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/arith-1.c: New semantic tests.
+	* gcc.dg/cpp/if-1.c: Update.
+
+2002-05-24  Ben Elliston  <bje@redhat.com>
+
+	* lib/c-torture.exp (c-torture-execute): Handle multiple sources.
+
+2002-05-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/verbose-asm.c: New test.
+
+2002-05-24  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/paste12.c: New test.
+
+2002-05-23  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* g++.dg/parse/named_ops.C: New test.
+
+2002-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/weak-8.c: New test.
+
+Thu May 23 11:09:26 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.dg/weak-2.c: Allow optional leading underscore
+	in scan-assembler symbol name.
+	* gcc.dg/weak-3.c: Likewise.
+	* gcc.dg/weak-4.c: Likewise.
+	* gcc.dg/weak-5.c: Likewise.
+
+2002-05-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020523-1.c: New test.
+
+2002-05-23  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* objc.dg/const-str-2.m: Update now that we stop after
+	a command line error.
+
+2002-05-22  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/dg.exp: Fix typo in test pruneing.
+
+2002-05-22  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/dg.exp: Prune the tls subdirectory.
+	* g++.dg/tls/tls.exp, g++.dg/tls/trivial.C: New.
+	* g++.dg/tls/diag-1.C, g++.dg/tls/diag-2.C: New.
+	* g++.dg/tls/init-1.C: New.
+
+2002-05-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020517-1.c: New test.
+
+2002-05-21  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tls/tls.exp, gcc.dg/tls/trivial.c, gcc.dg/tls/diag-1.c,
+	gcc.dg/tls/diag-2.c, gcc.dg/tls/init-1.c: New directory and files.
+
+Tue May 21 14:25:32 2002  Brian R. Gaeke  <brg@dgate.ORG>
+
+	* g++.dg/other/copy2.C: New test.
+
+Mon May 20 10:51:35 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.c-torture/execute/memcpy-2.c (SEQUENCE_LENGTH): Define.
+	(MAX_COPY): Bump up to 10 times sizeof (long long).
+	(main): Use a pattern of SEQUENCE_LENGTH different characters to copy.
+
+	* gcc.c-torture/execute/memset-1.c (MAX_COPY): Bump up to 10 times
+	sizeof (long long).
+
+	* gcc.c-torture/execute/strcpy-1.c: New test.
+
+2002-05-19  Jason Merrill  <jason2redhat.com>
+
+	* g++.dg/ext/oper1.C: New test.
+
+2002-05-20  David Billinghurst <David.Billinghurst@riotinto.com>
+2002-05-19  Mark Mitchell  <mitchell@doubledemon.codesourcery.com>
+
+	* README.QMTEST: New file.
+
+	* g++.dg/warn/Wshadow-1.C: Remove unncessary dg-error line.
+
+2002-05-19  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/execute/loop-2c.x: Remove, the test should pass
+	now.
+	* gcc.c-torture/execute/loop-2d.x: Likewise.
+
+2002-05-19  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gcc.dg/weak-2.c:  xfail warnings for platforms that don't
+	support weak symbols.
+	* gcc.dg/weak-4.c: Likewise
+	* gcc.dg/weak-6.c: Likewise
+
 2002-05-16  David.Billinghurst <David.Billinghurst@riotinto.com>
 
 	* gcc.dg/weak-3.c: Add dg-excess-error comment for
@@ -90,7 +400,7 @@
 2002-05-05  Tim Josling  <tej@melbpc.org.au>
 
 	* treelang: Added directory for new sample language treelang. Also
-	lib/treelang.exp: New file to signal treelang should be tested. 
+	lib/treelang.exp: New file to signal treelang should be tested.
 
 2002-05-03  Jakub Jelinek  <jakub@redhat.com>
 
@@ -120,11 +430,11 @@
 
 2002-05-02  Aldy Hernandez  <aldyh@redhat.com>
 
-        * gcc.dg/altivec-8.c: New.
+	* gcc.dg/altivec-8.c: New.
 
 2002-05-01  Aldy Hernandez  <aldyh@redhat.com>
 
-        * gcc.dg/altivec-7.c: New.
+	* gcc.dg/altivec-7.c: New.
 
 2002-04-29  Jakub Jelinek  <jakub@redhat.com>
 
@@ -169,7 +479,7 @@
 
 	PR c++/6497
 	* g++.dg/inherit/access2.C: New test.
-	
+
 2002-04-26  Mark Mitchell  <mark@codesourcery.com>
 
 	PR bootstrap/6445
@@ -271,8 +581,8 @@ Wed Apr 24 21:38:36 2002  J"orn Rennecke <joern.rennecke@superh.com>
 
 2002-04-18  Richard Henderson  <rth@redhat.com>
 
-        * gcc.dg/20000906-1.c: Enable for all targets.
-        * gcc.c-torture/compile/iftrap-2.c: New.
+	* gcc.dg/20000906-1.c: Enable for all targets.
+	* gcc.c-torture/compile/iftrap-2.c: New.
 
 2002-04-18  Jakub Jelinek  <jakub@redhat.com>
 
@@ -281,9 +591,9 @@ Wed Apr 24 21:38:36 2002  J"orn Rennecke <joern.rennecke@superh.com>
 
 2002-04-18  Richard Henderson  <rth@redhat.com>
 
-        * gcc.c-torture/compile/iftrap-1.c: New.
-        * gcc.dg/iftrap-1.c: Adjust for ia64.
-        * gcc.dg/iftrap-2.c: New.
+	* gcc.c-torture/compile/iftrap-1.c: New.
+	* gcc.dg/iftrap-1.c: Adjust for ia64.
+	* gcc.dg/iftrap-2.c: New.
 
 2002-04-18  Jakub Jelinek  <jakub@redhat.com>
 

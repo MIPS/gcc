@@ -42,9 +42,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "function.h"
 #include "toplev.h"
 #include "optabs.h"
+#include "output.h"
 #include "libfuncs.h"
+#include "ggc.h"
 #include "target.h"
 #include "target-def.h"
+#include "langhooks.h"
 
 /* Enumeration for all of the relational tests, so that we can build
    arrays indexed by the test type, and not worry about the order
@@ -185,6 +188,24 @@ enum reg_class xtensa_char_to_class[256] =
   NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
 };
 
+static int b4const_or_zero PARAMS ((int));
+static enum internal_test map_test_to_internal_test PARAMS ((enum rtx_code));
+static rtx gen_int_relational PARAMS ((enum rtx_code, rtx, rtx, int *));
+static rtx gen_float_relational PARAMS ((enum rtx_code, rtx, rtx));
+static rtx gen_conditional_move PARAMS ((rtx));
+static rtx fixup_subreg_mem PARAMS ((rtx x));
+static enum machine_mode xtensa_find_mode_for_size PARAMS ((unsigned));
+static struct machine_function * xtensa_init_machine_status PARAMS ((void));
+static void printx PARAMS ((FILE *, signed int));
+static void xtensa_select_rtx_section PARAMS ((enum machine_mode, rtx,
+					       unsigned HOST_WIDE_INT));
+static void xtensa_encode_section_info PARAMS ((tree, int));
+
+static rtx frame_size_const;
+static int current_function_arg_words;
+static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
+  REG_ALLOC_ORDER;
+
 /* This macro generates the assembly code for function entry.
    FILE is a stdio stream to output the code to.
    SIZE is an int: how many units of temporary storage to allocate.
@@ -210,22 +231,13 @@ enum reg_class xtensa_char_to_class[256] =
 #undef TARGET_ASM_ALIGNED_SI_OP
 #define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
 
+#undef TARGET_ASM_SELECT_RTX_SECTION
+#define TARGET_ASM_SELECT_RTX_SECTION  xtensa_select_rtx_section
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO  xtensa_encode_section_info
+
 struct gcc_target targetm = TARGET_INITIALIZER;
-
-static int b4const_or_zero PARAMS ((int));
-static enum internal_test map_test_to_internal_test PARAMS ((enum rtx_code));
-static rtx gen_int_relational PARAMS ((enum rtx_code, rtx, rtx, int *));
-static rtx gen_float_relational PARAMS ((enum rtx_code, rtx, rtx));
-static rtx gen_conditional_move PARAMS ((rtx));
-static rtx fixup_subreg_mem PARAMS ((rtx x));
-static enum machine_mode xtensa_find_mode_for_size PARAMS ((unsigned));
-static struct machine_status * xtensa_init_machine_status PARAMS ((void));
-static void printx PARAMS ((FILE *, signed int));
-static rtx frame_size_const;
-static int current_function_arg_words;
-static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
-  REG_ALLOC_ORDER;
-
+
 
 /*
  * Functions to test Xtensa immediate operand validity.
@@ -1370,7 +1382,7 @@ xtensa_expand_block_move (operands)
   if (num_pieces >= move_ratio)
     return 0;
 
-   /* make sure the memory addresses are valid */
+  /* make sure the memory addresses are valid */
   operands[0] = validize_mem (dest);
   operands[1] = validize_mem (src);
 
@@ -1616,7 +1628,7 @@ xtensa_emit_call (callop, operands)
      int callop;
      rtx *operands;
 {
-  char *result = (char *) malloc (64);
+  static char result[64];
   rtx tgt = operands[callop];
 
   if (GET_CODE (tgt) == CONST_INT)
@@ -1827,14 +1839,7 @@ override_options ()
 
   /* Check PIC settings.  There's no need for -fPIC on Xtensa and
      some targets need to always use PIC.  */
-  if (XTENSA_ALWAYS_PIC)
-    {
-      if (flag_pic)
-	warning ("-f%s ignored (all code is position independent)",
-		 (flag_pic > 1 ? "PIC" : "pic"));
-      flag_pic = 1;
-    }
-  if (flag_pic > 1)
+  if (flag_pic > 1 || (XTENSA_ALWAYS_PIC))
     flag_pic = 1;
 }
 
@@ -1983,12 +1988,7 @@ print_operand (file, op, letter)
 
 /* A C compound statement to output to stdio stream STREAM the
    assembler syntax for an instruction operand that is a memory
-   reference whose address is ADDR.  ADDR is an RTL expression.
-
-   On some machines, the syntax for a symbolic address depends on
-   the section that the address refers to.  On these machines,
-   define the macro 'ENCODE_SECTION_INFO' to store the information
-   into the 'symbol_ref', and then check for it here.  */
+   reference whose address is ADDR.  ADDR is an RTL expression.  */
 
 void
 print_operand_address (file, addr)
@@ -2297,9 +2297,10 @@ xtensa_function_epilogue (file, size)
 tree
 xtensa_build_va_list (void)
 {
-  tree f_stk, f_reg, f_ndx, record;
+  tree f_stk, f_reg, f_ndx, record, type_decl;
 
-  record = make_node (RECORD_TYPE);
+  record = (*lang_hooks.types.make_type) (RECORD_TYPE);
+  type_decl = build_decl (TYPE_DECL, get_identifier ("__va_list_tag"), record);
 
   f_stk = build_decl (FIELD_DECL, get_identifier ("__va_stk"),
 		      ptr_type_node);
@@ -2312,6 +2313,8 @@ xtensa_build_va_list (void)
   DECL_FIELD_CONTEXT (f_reg) = record;
   DECL_FIELD_CONTEXT (f_ndx) = record;
 
+  TREE_CHAIN (record) = type_decl;
+  TYPE_NAME (record) = type_decl;
   TYPE_FIELDS (record) = f_stk;
   TREE_CHAIN (f_stk) = f_reg;
   TREE_CHAIN (f_reg) = f_ndx;
@@ -2338,9 +2341,7 @@ xtensa_builtin_saveregs ()
   /* allocate the general-purpose register space */
   gp_regs = assign_stack_local
     (BLKmode, MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD, -1);
-  MEM_IN_STRUCT_P (gp_regs) = 1;
-  RTX_UNCHANGING_P (gp_regs) = 1;
-  RTX_UNCHANGING_P (XEXP (gp_regs, 0)) = 1;
+  set_mem_alias_set (gp_regs, get_varargs_alias_set ());
 
   /* Now store the incoming registers.  */
   dest = change_address (gp_regs, SImode,
@@ -2717,6 +2718,29 @@ a7_overlap_mentioned_p (x)
     }
 
   return 0;
+}
+
+/* The literal pool stays with the function.  */
+
+static void
+xtensa_select_rtx_section (mode, x, align)
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     rtx x ATTRIBUTE_UNUSED;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  function_section (current_function_decl);
+}
+
+/* If we are referencing a function that is static, make the SYMBOL_REF
+   special so that we can generate direct calls to it even with -fpic.  */
+
+static void
+xtensa_encode_section_info (decl, first)
+     tree decl;
+     int first ATTRIBUTE_UNUSED;
+{
+  if (TREE_CODE (decl) == FUNCTION_DECL && ! TREE_PUBLIC (decl))
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
 }
 
 #include "gt-xtensa.h"

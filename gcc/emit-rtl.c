@@ -92,6 +92,12 @@ static int no_line_numbers;
 
 rtx global_rtl[GR_MAX];
 
+/* Commonly used RTL for hard registers.  These objects are not necessarily
+   unique, so we allocate them separately from global_rtl.  They are
+   initialized once per compilation unit, then copied into regno_reg_rtx
+   at the beginning of each function.  */
+static GTY(()) rtx static_regno_reg_rtx[FIRST_PSEUDO_REGISTER];
+
 /* We record floating-point CONST_DOUBLEs in each floating-point mode for
    the values of 0, 1, and 2.  For the integer entries and VOIDmode, we
    record a copy of const[012]_rtx.  */
@@ -153,26 +159,6 @@ static GTY ((if_marked ("ggc_marked_p"), param_is (struct mem_attrs)))
 /* A hash table storing all CONST_DOUBLEs.  */
 static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
      htab_t const_double_htab;
-
-/* start_sequence and gen_sequence can make a lot of rtx expressions which are
-   shortly thrown away.  We use two mechanisms to prevent this waste:
-
-   For sizes up to 5 elements, we keep a SEQUENCE and its associated
-   rtvec for use by gen_sequence.  One entry for each size is
-   sufficient because most cases are calls to gen_sequence followed by
-   immediately emitting the SEQUENCE.  Reuse is safe since emitting a
-   sequence is destructive on the insn in it anyway and hence can't be
-   redone.
-
-   We do not bother to save this cached data over nested function calls.
-   Instead, we just reinitialize them.  */
-
-#define SEQUENCE_RESULT_SIZE 5
-
-static rtx sequence_result[SEQUENCE_RESULT_SIZE];
-
-/* During RTL generation, we also keep a list of free INSN rtl codes.  */
-static rtx free_insn;
 
 #define first_insn (cfun->emit->x_first_insn)
 #define last_insn (cfun->emit->x_last_insn)
@@ -435,7 +421,10 @@ immed_double_const (i0, i1, mode)
     {
       int width;
       if (GET_MODE_CLASS (mode) != MODE_INT
-	  && GET_MODE_CLASS (mode) != MODE_PARTIAL_INT)
+	  && GET_MODE_CLASS (mode) != MODE_PARTIAL_INT
+	  /* We can get a 0 for an error mark.  */
+	  && GET_MODE_CLASS (mode) != MODE_VECTOR_INT
+	  && GET_MODE_CLASS (mode) != MODE_VECTOR_FLOAT)
 	abort ();
 
       /* We clear out all bits that don't belong in MODE, unless they and
@@ -547,6 +536,22 @@ gen_rtx_REG (mode, regno)
 	return stack_pointer_rtx;
     }
 
+#if 0
+  /* If the per-function register table has been set up, try to re-use
+     an existing entry in that table to avoid useless generation of RTL.
+
+     This code is disabled for now until we can fix the various backends
+     which depend on having non-shared hard registers in some cases.   Long
+     term we want to re-enable this code as it can significantly cut down
+     on the amount of useless RTL that gets generated.  */
+  if (cfun
+      && cfun->emit
+      && regno_reg_rtx
+      && regno < FIRST_PSEUDO_REGISTER
+      && reg_raw_mode[regno] == mode)
+    return regno_reg_rtx[regno];
+#endif
+
   return gen_raw_REG (mode, regno);
 }
 
@@ -652,7 +657,7 @@ gen_rtx VPARAMS ((enum rtx_code code, enum machine_mode mode, ...))
 	HOST_WIDE_INT arg0 = va_arg (p, HOST_WIDE_INT);
 	HOST_WIDE_INT arg1 = va_arg (p, HOST_WIDE_INT);
 
-        rt_val = immed_double_const (arg0, arg1, mode);
+	rt_val = immed_double_const (arg0, arg1, mode);
       }
       break;
 
@@ -2145,6 +2150,7 @@ widen_memory_access (memref, mode, offset)
       /* Similarly for the decl.  */
       else if (DECL_P (expr)
 	       && DECL_SIZE_UNIT (expr)
+	       && TREE_CODE (DECL_SIZE_UNIT (expr)) == INTEGER_CST
 	       && compare_tree_int (DECL_SIZE_UNIT (expr), size) >= 0
 	       && (! memoffset || INTVAL (memoffset) >= 0))
 	break;
@@ -2176,8 +2182,8 @@ gen_label_rtx ()
 {
   rtx label;
 
-  label = gen_rtx_CODE_LABEL (VOIDmode, 0, NULL_RTX,
-			      NULL_RTX, label_num++, NULL, NULL);
+  label = gen_rtx_CODE_LABEL (VOIDmode, 0, NULL_RTX, NULL_RTX,
+		  	      NULL, label_num++, NULL, NULL);
 
   LABEL_NUSES (label) = 0;
   LABEL_ALTERNATE_NAME (label) = NULL;
@@ -2237,7 +2243,6 @@ restore_emit_status (p)
      struct function *p ATTRIBUTE_UNUSED;
 {
   last_label_num = 0;
-  clear_emit_caches ();
 }
 
 /* Go through all the RTL insn bodies and copy any invalid shared
@@ -2730,6 +2735,42 @@ get_last_insn_anywhere ()
   return 0;
 }
 
+/* Return the first nonnote insn emitted in current sequence or current
+   function.  This routine looks inside SEQUENCEs.  */
+
+rtx
+get_first_nonnote_insn ()
+{
+  rtx insn = first_insn;
+
+  while (insn)
+    {
+      insn = next_insn (insn);
+      if (insn == 0 || GET_CODE (insn) != NOTE)
+	break;
+    }
+
+  return insn;
+}
+
+/* Return the last nonnote insn emitted in current sequence or current
+   function.  This routine looks inside SEQUENCEs.  */
+
+rtx
+get_last_nonnote_insn ()
+{
+  rtx insn = last_insn;
+
+  while (insn)
+    {
+      insn = previous_insn (insn);
+      if (insn == 0 || GET_CODE (insn) != NOTE)
+	break;
+    }
+
+  return insn;
+}
+
 /* Return a number larger than any instruction's uid in this function.  */
 
 int
@@ -3037,9 +3078,9 @@ mark_label_nuses (x)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-        mark_label_nuses (XEXP (x, i));
+	mark_label_nuses (XEXP (x, i));
       else if (fmt[i] == 'E')
-        for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	  mark_label_nuses (XVECEXP (x, i, j));
     }
 }
@@ -3085,52 +3126,69 @@ try_split (pat, trial, last)
 
   if (seq)
     {
-      /* SEQ can either be a SEQUENCE or the pattern of a single insn.
-	 The latter case will normally arise only when being done so that
-	 it, in turn, will be split (SFmode on the 29k is an example).  */
-      if (GET_CODE (seq) == SEQUENCE)
+      /* Sometimes there will be only one insn in that list, this case will
+	 normally arise only when we want it in turn to be split (SFmode on
+	 the 29k is an example).  */
+      if (NEXT_INSN (seq) != NULL_RTX)
 	{
-	  int i, njumps = 0;
+	  rtx insn_last, insn;
+	  int njumps = 0;
 
 	  /* Avoid infinite loop if any insn of the result matches
 	     the original pattern.  */
-	  for (i = 0; i < XVECLEN (seq, 0); i++)
-	    if (GET_CODE (XVECEXP (seq, 0, i)) == INSN
-		&& rtx_equal_p (PATTERN (XVECEXP (seq, 0, i)), pat))
-	      return trial;
+	  insn_last = seq;
+	  while (1)
+	    {
+	      if (INSN_P (insn_last)
+		  && rtx_equal_p (PATTERN (insn_last), pat))
+		return trial;
+	      if (NEXT_INSN (insn_last) == NULL_RTX)
+		break;
+	      insn_last = NEXT_INSN (insn_last);
+	    }
 
 	  /* Mark labels.  */
-	  for (i = XVECLEN (seq, 0) - 1; i >= 0; i--)
-	    if (GET_CODE (XVECEXP (seq, 0, i)) == JUMP_INSN)
-	      {
-		rtx insn = XVECEXP (seq, 0, i);
-		mark_jump_label (PATTERN (insn),
-				 XVECEXP (seq, 0, i), 0);
-		njumps++;
-		if (probability != -1
-		    && any_condjump_p (insn)
-		    && !find_reg_note (insn, REG_BR_PROB, 0))
-		  {
-		    /* We can preserve the REG_BR_PROB notes only if exactly
-		       one jump is created, otherwise the machine description
-		       is responsible for this step using
-		       split_branch_probability variable.  */
-		    if (njumps != 1)
-		      abort ();
-		    REG_NOTES (insn)
-		      = gen_rtx_EXPR_LIST (REG_BR_PROB,
-					   GEN_INT (probability),
-					   REG_NOTES (insn));
-		  }
-	      }
+	  insn = insn_last;
+	  while (insn != NULL_RTX)
+	    {
+	      if (GET_CODE (insn) == JUMP_INSN)
+		{
+		  mark_jump_label (PATTERN (insn), insn, 0);
+		  njumps++;
+		  if (probability != -1
+		      && any_condjump_p (insn)
+		      && !find_reg_note (insn, REG_BR_PROB, 0))
+		    {
+		      /* We can preserve the REG_BR_PROB notes only if exactly
+			 one jump is created, otherwise the machine description
+			 is responsible for this step using
+			 split_branch_probability variable.  */
+		      if (njumps != 1)
+			abort ();
+		      REG_NOTES (insn)
+			= gen_rtx_EXPR_LIST (REG_BR_PROB,
+					     GEN_INT (probability),
+					     REG_NOTES (insn));
+		    }
+		}
+
+	      insn = PREV_INSN (insn);
+	    }
 
 	  /* If we are splitting a CALL_INSN, look for the CALL_INSN
 	     in SEQ and copy our CALL_INSN_FUNCTION_USAGE to it.  */
 	  if (GET_CODE (trial) == CALL_INSN)
-	    for (i = XVECLEN (seq, 0) - 1; i >= 0; i--)
-	      if (GET_CODE (XVECEXP (seq, 0, i)) == CALL_INSN)
-		CALL_INSN_FUNCTION_USAGE (XVECEXP (seq, 0, i))
-		  = CALL_INSN_FUNCTION_USAGE (trial);
+	    {
+	      insn = insn_last;
+	      while (insn != NULL_RTX)
+		{
+		  if (GET_CODE (insn) == CALL_INSN)
+		    CALL_INSN_FUNCTION_USAGE (insn)
+		      = CALL_INSN_FUNCTION_USAGE (trial);
+
+		  insn = PREV_INSN (insn);
+		}
+	    }
 
 	  /* Copy notes, particularly those related to the CFG.  */
 	  for (note = REG_NOTES (trial); note; note = XEXP (note, 1))
@@ -3138,9 +3196,9 @@ try_split (pat, trial, last)
 	      switch (REG_NOTE_KIND (note))
 		{
 		case REG_EH_REGION:
-		  for (i = XVECLEN (seq, 0) - 1; i >= 0; i--)
+		  insn = insn_last;
+		  while (insn != NULL_RTX)
 		    {
-		      rtx insn = XVECEXP (seq, 0, i);
 		      if (GET_CODE (insn) == CALL_INSN
 			  || (flag_non_call_exceptions
 			      && may_trap_p (PATTERN (insn))))
@@ -3148,32 +3206,35 @@ try_split (pat, trial, last)
 			  = gen_rtx_EXPR_LIST (REG_EH_REGION,
 					       XEXP (note, 0),
 					       REG_NOTES (insn));
+		      insn = PREV_INSN (insn);
 		    }
 		  break;
 
 		case REG_NORETURN:
 		case REG_SETJMP:
 		case REG_ALWAYS_RETURN:
-		  for (i = XVECLEN (seq, 0) - 1; i >= 0; i--)
+		  insn = insn_last;
+		  while (insn != NULL_RTX)
 		    {
-		      rtx insn = XVECEXP (seq, 0, i);
 		      if (GET_CODE (insn) == CALL_INSN)
 			REG_NOTES (insn)
 			  = gen_rtx_EXPR_LIST (REG_NOTE_KIND (note),
 					       XEXP (note, 0),
 					       REG_NOTES (insn));
+		      insn = PREV_INSN (insn);
 		    }
 		  break;
 
 		case REG_NON_LOCAL_GOTO:
-		  for (i = XVECLEN (seq, 0) - 1; i >= 0; i--)
+		  insn = insn_last;
+		  while (insn != NULL_RTX)
 		    {
-		      rtx insn = XVECEXP (seq, 0, i);
 		      if (GET_CODE (insn) == JUMP_INSN)
 			REG_NOTES (insn)
 			  = gen_rtx_EXPR_LIST (REG_NOTE_KIND (note),
 					       XEXP (note, 0),
 					       REG_NOTES (insn));
+		      insn = PREV_INSN (insn);
 		    }
 		  break;
 
@@ -3185,11 +3246,18 @@ try_split (pat, trial, last)
 	  /* If there are LABELS inside the split insns increment the
 	     usage count so we don't delete the label.  */
 	  if (GET_CODE (trial) == INSN)
-	    for (i = XVECLEN (seq, 0) - 1; i >= 0; i--)
-	      if (GET_CODE (XVECEXP (seq, 0, i)) == INSN)
-		mark_label_nuses (PATTERN (XVECEXP (seq, 0, i)));
+	    {
+	      insn = insn_last;
+	      while (insn != NULL_RTX)
+		{
+		  if (GET_CODE (insn) == INSN)
+		    mark_label_nuses (PATTERN (insn));
 
-	  tem = emit_insn_after (seq, trial);
+		  insn = PREV_INSN (insn);
+		}
+	    }
+
+	  tem = emit_insn_after_scope (seq, trial, INSN_SCOPE (trial));
 
 	  delete_insn (trial);
 	  if (has_barrier)
@@ -3205,13 +3273,13 @@ try_split (pat, trial, last)
 	      tem = try_split (PATTERN (tem), tem, 1);
 	}
       /* Avoid infinite loop if the result matches the original pattern.  */
-      else if (rtx_equal_p (seq, pat))
+      else if (rtx_equal_p (PATTERN (seq), pat))
 	return trial;
       else
 	{
-	  PATTERN (trial) = seq;
+	  PATTERN (trial) = PATTERN (seq);
 	  INSN_CODE (trial) = -1;
-	  try_split (seq, trial, last);
+	  try_split (PATTERN (trial), trial, last);
 	}
 
       /* Return either the first or the last insn, depending on which was
@@ -3240,6 +3308,8 @@ make_insn_raw (pattern)
   INSN_CODE (insn) = -1;
   LOG_LINKS (insn) = NULL;
   REG_NOTES (insn) = NULL;
+  INSN_SCOPE (insn) = NULL;
+  BLOCK_FOR_INSN (insn) = NULL;
 
 #ifdef ENABLE_RTL_CHECKING
   if (insn
@@ -3256,7 +3326,7 @@ make_insn_raw (pattern)
   return insn;
 }
 
-/* Like `make_insn' but make a JUMP_INSN instead of an insn.  */
+/* Like `make_insn_raw' but make a JUMP_INSN instead of an insn.  */
 
 static rtx
 make_jump_insn_raw (pattern)
@@ -3272,11 +3342,13 @@ make_jump_insn_raw (pattern)
   LOG_LINKS (insn) = NULL;
   REG_NOTES (insn) = NULL;
   JUMP_LABEL (insn) = NULL;
+  INSN_SCOPE (insn) = NULL;
+  BLOCK_FOR_INSN (insn) = NULL;
 
   return insn;
 }
 
-/* Like `make_insn' but make a CALL_INSN instead of an insn.  */
+/* Like `make_insn_raw' but make a CALL_INSN instead of an insn.  */
 
 static rtx
 make_call_insn_raw (pattern)
@@ -3292,6 +3364,8 @@ make_call_insn_raw (pattern)
   LOG_LINKS (insn) = NULL;
   REG_NOTES (insn) = NULL;
   CALL_INSN_FUNCTION_USAGE (insn) = NULL;
+  INSN_SCOPE (insn) = NULL;
+  BLOCK_FOR_INSN (insn) = NULL;
 
   return insn;
 }
@@ -3356,8 +3430,8 @@ add_insn_after (insn, after)
 	abort ();
     }
 
-  if (basic_block_for_insn
-      && (unsigned int) INSN_UID (after) < basic_block_for_insn->num_elements
+  if (GET_CODE (after) != BARRIER
+      && GET_CODE (insn) != BARRIER
       && (bb = BLOCK_FOR_INSN (after)))
     {
       set_block_for_insn (insn, bb);
@@ -3425,8 +3499,8 @@ add_insn_before (insn, before)
 	abort ();
     }
 
-  if (basic_block_for_insn
-      && (unsigned int) INSN_UID (before) < basic_block_for_insn->num_elements
+  if (GET_CODE (before) != BARRIER
+      && GET_CODE (insn) != BARRIER
       && (bb = BLOCK_FOR_INSN (before)))
     {
       set_block_for_insn (insn, bb);
@@ -3505,8 +3579,7 @@ remove_insn (insn)
       if (stack == 0)
 	abort ();
     }
-  if (basic_block_for_insn
-      && (unsigned int) INSN_UID (insn) < basic_block_for_insn->num_elements
+  if (GET_CODE (insn) != BARRIER
       && (bb = BLOCK_FOR_INSN (insn)))
     {
       if (INSN_P (insn))
@@ -3583,16 +3656,13 @@ reorder_insns (from, to, after)
 
   reorder_insns_nobb (from, to, after);
 
-  if (basic_block_for_insn
-      && (unsigned int) INSN_UID (after) < basic_block_for_insn->num_elements
+  if (GET_CODE (after) != BARRIER
       && (bb = BLOCK_FOR_INSN (after)))
     {
       rtx x;
       bb->flags |= BB_DIRTY;
 
-      if (basic_block_for_insn
-	  && ((unsigned int) INSN_UID (from)
-	      < basic_block_for_insn->num_elements)
+      if (GET_CODE (from) != BARRIER
 	  && (bb2 = BLOCK_FOR_INSN (from)))
 	{
 	  if (bb2->end == to)
@@ -3619,7 +3689,7 @@ find_line_note (insn)
 
   for (; insn; insn = PREV_INSN (insn))
     if (GET_CODE (insn) == NOTE
-        && NOTE_LINE_NUMBER (insn) >= 0)
+	&& NOTE_LINE_NUMBER (insn) >= 0)
       break;
 
   return insn;
@@ -3764,97 +3834,173 @@ remove_unnecessary_notes ()
 }
 
 
-/* Emit an insn of given code and pattern
-   at a specified place within the doubly-linked list.  */
+/* Emit insn(s) of given code and pattern
+   at a specified place within the doubly-linked list.
 
-/* Make an instruction with body PATTERN
-   and output it before the instruction BEFORE.  */
+   All of the emit_foo global entry points accept an object
+   X which is either an insn list or a PATTERN of a single
+   instruction.
+
+   There are thus a few canonical ways to generate code and
+   emit it at a specific place in the instruction stream.  For
+   example, consider the instruction named SPOT and the fact that
+   we would like to emit some instructions before SPOT.  We might
+   do it like this:
+
+	start_sequence ();
+	... emit the new instructions ...
+	insns_head = get_insns ();
+	end_sequence ();
+
+	emit_insn_before (insns_head, SPOT);
+
+   It used to be common to generate SEQUENCE rtl instead, but that
+   is a relic of the past which no longer occurs.  The reason is that
+   SEQUENCE rtl results in much fragmented RTL memory since the SEQUENCE
+   generated would almost certainly die right after it was created.  */
+
+/* Make X be output before the instruction BEFORE.  */
 
 rtx
-emit_insn_before (pattern, before)
-     rtx pattern, before;
+emit_insn_before (x, before)
+     rtx x, before;
 {
-  rtx insn = before;
+  rtx last = before;
+  rtx insn;
 
-  if (GET_CODE (pattern) == SEQUENCE)
+#ifdef ENABLE_RTL_CHECKING
+  if (before == NULL_RTX)
+    abort ();
+#endif
+
+  if (x == NULL_RTX)
+    return last;
+
+  switch (GET_CODE (x))
     {
-      int i;
-
-      for (i = 0; i < XVECLEN (pattern, 0); i++)
+    case INSN:
+    case JUMP_INSN:
+    case CALL_INSN:
+    case CODE_LABEL:
+    case BARRIER:
+    case NOTE:
+      insn = x;
+      while (insn)
 	{
-	  insn = XVECEXP (pattern, 0, i);
+	  rtx next = NEXT_INSN (insn);
 	  add_insn_before (insn, before);
+	  last = insn;
+	  insn = next;
 	}
-    }
-  else
-    {
-      insn = make_insn_raw (pattern);
-      add_insn_before (insn, before);
+      break;
+
+#ifdef ENABLE_RTL_CHECKING
+    case SEQUENCE:
+      abort ();
+      break;
+#endif
+
+    default:
+      last = make_insn_raw (x);
+      add_insn_before (last, before);
+      break;
     }
 
-  return insn;
+  return last;
 }
 
-/* Make an instruction with body PATTERN and code JUMP_INSN
+/* Make an instruction with body X and code JUMP_INSN
    and output it before the instruction BEFORE.  */
 
 rtx
-emit_jump_insn_before (pattern, before)
-     rtx pattern, before;
+emit_jump_insn_before (x, before)
+     rtx x, before;
 {
-  rtx insn;
+  rtx insn, last;
 
-  if (GET_CODE (pattern) == SEQUENCE)
-    insn = emit_insn_before (pattern, before);
-  else
+#ifdef ENABLE_RTL_CHECKING
+  if (before == NULL_RTX)
+    abort ();
+#endif
+
+  switch (GET_CODE (x))
     {
-      insn = make_jump_insn_raw (pattern);
-      add_insn_before (insn, before);
+    case INSN:
+    case JUMP_INSN:
+    case CALL_INSN:
+    case CODE_LABEL:
+    case BARRIER:
+    case NOTE:
+      insn = x;
+      while (insn)
+	{
+	  rtx next = NEXT_INSN (insn);
+	  add_insn_before (insn, before);
+	  last = insn;
+	  insn = next;
+	}
+      break;
+
+#ifdef ENABLE_RTL_CHECKING
+    case SEQUENCE:
+      abort ();
+      break;
+#endif
+
+    default:
+      last = make_jump_insn_raw (x);
+      add_insn_before (last, before);
+      break;
     }
 
-  return insn;
+  return last;
 }
 
-/* Make an instruction with body PATTERN and code CALL_INSN
+/* Make an instruction with body X and code CALL_INSN
    and output it before the instruction BEFORE.  */
 
 rtx
-emit_call_insn_before (pattern, before)
-     rtx pattern, before;
+emit_call_insn_before (x, before)
+     rtx x, before;
 {
-  rtx insn;
+  rtx last, insn;
 
-  if (GET_CODE (pattern) == SEQUENCE)
-    insn = emit_insn_before (pattern, before);
-  else
+#ifdef ENABLE_RTL_CHECKING
+  if (before == NULL_RTX)
+    abort ();
+#endif
+
+  switch (GET_CODE (x))
     {
-      insn = make_call_insn_raw (pattern);
-      add_insn_before (insn, before);
-      PUT_CODE (insn, CALL_INSN);
+    case INSN:
+    case JUMP_INSN:
+    case CALL_INSN:
+    case CODE_LABEL:
+    case BARRIER:
+    case NOTE:
+      insn = x;
+      while (insn)
+	{
+	  rtx next = NEXT_INSN (insn);
+	  add_insn_before (insn, before);
+	  last = insn;
+	  insn = next;
+	}
+      break;
+
+#ifdef ENABLE_RTL_CHECKING
+    case SEQUENCE:
+      abort ();
+      break;
+#endif
+
+    default:
+      last = make_call_insn_raw (x);
+      add_insn_before (last, before);
+      break;
     }
 
-  return insn;
-}
-
-/* Make an instruction with body PATTERN and code CALL_INSN
-   and output it before the instruction BEFORE.  */
-
-rtx
-emit_call_insn_after (pattern, before)
-     rtx pattern, before;
-{
-  rtx insn;
-
-  if (GET_CODE (pattern) == SEQUENCE)
-    insn = emit_insn_after (pattern, before);
-  else
-    {
-      insn = make_call_insn_raw (pattern);
-      add_insn_after (insn, before);
-      PUT_CODE (insn, CALL_INSN);
-    }
-
-  return insn;
+  return last;
 }
 
 /* Make an insn of code BARRIER
@@ -3900,50 +4046,106 @@ emit_note_before (subtype, before)
   INSN_UID (note) = cur_insn_uid++;
   NOTE_SOURCE_FILE (note) = 0;
   NOTE_LINE_NUMBER (note) = subtype;
+  BLOCK_FOR_INSN (note) = NULL;
 
   add_insn_before (note, before);
   return note;
 }
 
-/* Make an insn of code INSN with body PATTERN
-   and output it after the insn AFTER.  */
+/* Helper for emit_insn_after, handles lists of instructions
+   efficiently.  */
 
-rtx
-emit_insn_after (pattern, after)
-     rtx pattern, after;
+static rtx emit_insn_after_1 PARAMS ((rtx, rtx));
+
+static rtx
+emit_insn_after_1 (first, after)
+     rtx first, after;
 {
-  rtx insn = after;
+  rtx last;
+  rtx after_after;
+  basic_block bb;
 
-  if (GET_CODE (pattern) == SEQUENCE)
+  if (GET_CODE (after) != BARRIER
+      && (bb = BLOCK_FOR_INSN (after)))
     {
-      int i;
-
-      for (i = 0; i < XVECLEN (pattern, 0); i++)
-	{
-	  insn = XVECEXP (pattern, 0, i);
-	  add_insn_after (insn, after);
-	  after = insn;
-	}
+      bb->flags |= BB_DIRTY;
+      for (last = first; NEXT_INSN (last); last = NEXT_INSN (last))
+	if (GET_CODE (last) != BARRIER)
+	  set_block_for_insn (last, bb);
+      if (GET_CODE (last) != BARRIER)
+	set_block_for_insn (last, bb);
+      if (bb->end == after)
+	bb->end = last;
     }
   else
+    for (last = first; NEXT_INSN (last); last = NEXT_INSN (last))
+      continue;
+
+  after_after = NEXT_INSN (after);
+
+  NEXT_INSN (after) = first;
+  PREV_INSN (first) = after;
+  NEXT_INSN (last) = after_after;
+  if (after_after)
+    PREV_INSN (after_after) = last;
+
+  if (after == last_insn)
+    last_insn = last;
+  return last;
+}
+
+/* Make X be output after the insn AFTER.  */
+
+rtx
+emit_insn_after (x, after)
+     rtx x, after;
+{
+  rtx last = after;
+
+#ifdef ENABLE_RTL_CHECKING
+  if (after == NULL_RTX)
+    abort ();
+#endif
+
+  if (x == NULL_RTX)
+    return last;
+
+  switch (GET_CODE (x))
     {
-      insn = make_insn_raw (pattern);
-      add_insn_after (insn, after);
+    case INSN:
+    case JUMP_INSN:
+    case CALL_INSN:
+    case CODE_LABEL:
+    case BARRIER:
+    case NOTE:
+      last = emit_insn_after_1 (x, after);
+      break;
+
+#ifdef ENABLE_RTL_CHECKING
+    case SEQUENCE:
+      abort ();
+      break;
+#endif
+
+    default:
+      last = make_insn_raw (x);
+      add_insn_after (last, after);
+      break;
     }
 
-  return insn;
+  return last;
 }
 
 /* Similar to emit_insn_after, except that line notes are to be inserted so
    as to act as if this insn were at FROM.  */
 
 void
-emit_insn_after_with_line_notes (pattern, after, from)
-     rtx pattern, after, from;
+emit_insn_after_with_line_notes (x, after, from)
+     rtx x, after, from;
 {
   rtx from_line = find_line_note (from);
   rtx after_line = find_line_note (after);
-  rtx insn = emit_insn_after (pattern, after);
+  rtx insn = emit_insn_after (x, after);
 
   if (from_line)
     emit_line_note_after (NOTE_SOURCE_FILE (from_line),
@@ -3956,24 +4158,84 @@ emit_insn_after_with_line_notes (pattern, after, from)
 			  insn);
 }
 
-/* Make an insn of code JUMP_INSN with body PATTERN
+/* Make an insn of code JUMP_INSN with body X
    and output it after the insn AFTER.  */
 
 rtx
-emit_jump_insn_after (pattern, after)
-     rtx pattern, after;
+emit_jump_insn_after (x, after)
+     rtx x, after;
 {
-  rtx insn;
+  rtx last;
 
-  if (GET_CODE (pattern) == SEQUENCE)
-    insn = emit_insn_after (pattern, after);
-  else
+#ifdef ENABLE_RTL_CHECKING
+  if (after == NULL_RTX)
+    abort ();
+#endif
+
+  switch (GET_CODE (x))
     {
-      insn = make_jump_insn_raw (pattern);
-      add_insn_after (insn, after);
+    case INSN:
+    case JUMP_INSN:
+    case CALL_INSN:
+    case CODE_LABEL:
+    case BARRIER:
+    case NOTE:
+      last = emit_insn_after_1 (x, after);
+      break;
+
+#ifdef ENABLE_RTL_CHECKING
+    case SEQUENCE:
+      abort ();
+      break;
+#endif
+
+    default:
+      last = make_jump_insn_raw (x);
+      add_insn_after (last, after);
+      break;
     }
 
-  return insn;
+  return last;
+}
+
+/* Make an instruction with body X and code CALL_INSN
+   and output it after the instruction AFTER.  */
+
+rtx
+emit_call_insn_after (x, after)
+     rtx x, after;
+{
+  rtx last;
+
+#ifdef ENABLE_RTL_CHECKING
+  if (after == NULL_RTX)
+    abort ();
+#endif
+
+  switch (GET_CODE (x))
+    {
+    case INSN:
+    case JUMP_INSN:
+    case CALL_INSN:
+    case CODE_LABEL:
+    case BARRIER:
+    case NOTE:
+      last = emit_insn_after_1 (x, after);
+      break;
+
+#ifdef ENABLE_RTL_CHECKING
+    case SEQUENCE:
+      abort ();
+      break;
+#endif
+
+    default:
+      last = make_call_insn_raw (x);
+      add_insn_after (last, after);
+      break;
+    }
+
+  return last;
 }
 
 /* Make an insn of code BARRIER
@@ -4020,6 +4282,7 @@ emit_note_after (subtype, after)
   INSN_UID (note) = cur_insn_uid++;
   NOTE_SOURCE_FILE (note) = 0;
   NOTE_LINE_NUMBER (note) = subtype;
+  BLOCK_FOR_INSN (note) = NULL;
   add_insn_after (note, after);
   return note;
 }
@@ -4044,162 +4307,215 @@ emit_line_note_after (file, line, after)
   INSN_UID (note) = cur_insn_uid++;
   NOTE_SOURCE_FILE (note) = file;
   NOTE_LINE_NUMBER (note) = line;
+  BLOCK_FOR_INSN (note) = NULL;
   add_insn_after (note, after);
   return note;
 }
 
-/* Make an insn of code INSN with pattern PATTERN
-   and add it to the end of the doubly-linked list.
-   If PATTERN is a SEQUENCE, take the elements of it
-   and emit an insn for each element.
+/* Like emit_insn_after, but set INSN_SCOPE according to SCOPE.  */
+rtx
+emit_insn_after_scope (pattern, after, scope)
+     rtx pattern, after;
+     tree scope;
+{
+  rtx last = emit_insn_after (pattern, after);
+
+  after = NEXT_INSN (after);
+  while (1)
+    {
+      if (active_insn_p (after))
+	INSN_SCOPE (after) = scope;
+      if (after == last)
+	break;
+      after = NEXT_INSN (after);
+    }
+  return last;
+}
+
+/* Like emit_jump_insn_after, but set INSN_SCOPE according to SCOPE.  */
+rtx
+emit_jump_insn_after_scope (pattern, after, scope)
+     rtx pattern, after;
+     tree scope;
+{
+  rtx last = emit_jump_insn_after (pattern, after);
+
+  after = NEXT_INSN (after);
+  while (1)
+    {
+      if (active_insn_p (after))
+	INSN_SCOPE (after) = scope;
+      if (after == last)
+	break;
+      after = NEXT_INSN (after);
+    }
+  return last;
+}
+
+/* Like emit_call_insn_after, but set INSN_SCOPE according to SCOPE.  */
+rtx
+emit_call_insn_after_scope (pattern, after, scope)
+     rtx pattern, after;
+     tree scope;
+{
+  rtx last = emit_call_insn_after (pattern, after);
+
+  after = NEXT_INSN (after);
+  while (1)
+    {
+      if (active_insn_p (after))
+	INSN_SCOPE (after) = scope;
+      if (after == last)
+	break;
+      after = NEXT_INSN (after);
+    }
+  return last;
+}
+
+/* Like emit_insn_before, but set INSN_SCOPE according to SCOPE.  */
+rtx
+emit_insn_before_scope (pattern, before, scope)
+     rtx pattern, before;
+     tree scope;
+{
+  rtx first = PREV_INSN (before);
+  rtx last = emit_insn_before (pattern, before);
+
+  first = NEXT_INSN (first);
+  while (1)
+    {
+      if (active_insn_p (first))
+	INSN_SCOPE (first) = scope;
+      if (first == last)
+	break;
+      first = NEXT_INSN (first);
+    }
+  return last;
+}
+
+/* Take X and emit it at the end of the doubly-linked
+   INSN list.
 
    Returns the last insn emitted.  */
 
 rtx
-emit_insn (pattern)
-     rtx pattern;
+emit_insn (x)
+     rtx x;
 {
-  rtx insn = last_insn;
+  rtx last = last_insn;
+  rtx insn;
 
-  if (GET_CODE (pattern) == SEQUENCE)
+  if (x == NULL_RTX)
+    return last;
+
+  switch (GET_CODE (x))
     {
-      int i;
-
-      for (i = 0; i < XVECLEN (pattern, 0); i++)
+    case INSN:
+    case JUMP_INSN:
+    case CALL_INSN:
+    case CODE_LABEL:
+    case BARRIER:
+    case NOTE:
+      insn = x;
+      while (insn)
 	{
-	  insn = XVECEXP (pattern, 0, i);
+	  rtx next = NEXT_INSN (insn);
 	  add_insn (insn);
+	  last = insn;
+	  insn = next;
 	}
+      break;
+
+#ifdef ENABLE_RTL_CHECKING
+    case SEQUENCE:
+      abort ();
+      break;
+#endif
+
+    default:
+      last = make_insn_raw (x);
+      add_insn (last);
+      break;
     }
-  else
+
+  return last;
+}
+
+/* Make an insn of code JUMP_INSN with pattern X
+   and add it to the end of the doubly-linked list.  */
+
+rtx
+emit_jump_insn (x)
+     rtx x;
+{
+  rtx last, insn;
+
+  switch (GET_CODE (x))
     {
-      insn = make_insn_raw (pattern);
+    case INSN:
+    case JUMP_INSN:
+    case CALL_INSN:
+    case CODE_LABEL:
+    case BARRIER:
+    case NOTE:
+      insn = x;
+      while (insn)
+	{
+	  rtx next = NEXT_INSN (insn);
+	  add_insn (insn);
+	  last = insn;
+	  insn = next;
+	}
+      break;
+
+#ifdef ENABLE_RTL_CHECKING
+    case SEQUENCE:
+      abort ();
+      break;
+#endif
+
+    default:
+      last = make_jump_insn_raw (x);
+      add_insn (last);
+      break;
+    }
+
+  return last;
+}
+
+/* Make an insn of code CALL_INSN with pattern X
+   and add it to the end of the doubly-linked list.  */
+
+rtx
+emit_call_insn (x)
+     rtx x;
+{
+  rtx insn;
+
+  switch (GET_CODE (x))
+    {
+    case INSN:
+    case JUMP_INSN:
+    case CALL_INSN:
+    case CODE_LABEL:
+    case BARRIER:
+    case NOTE:
+      insn = emit_insn (x);
+      break;
+
+#ifdef ENABLE_RTL_CHECKING
+    case SEQUENCE:
+      abort ();
+      break;
+#endif
+
+    default:
+      insn = make_call_insn_raw (x);
       add_insn (insn);
+      break;
     }
 
   return insn;
-}
-
-/* Emit the insns in a chain starting with INSN.
-   Return the last insn emitted.  */
-
-rtx
-emit_insns (insn)
-     rtx insn;
-{
-  rtx last = 0;
-
-  while (insn)
-    {
-      rtx next = NEXT_INSN (insn);
-      add_insn (insn);
-      last = insn;
-      insn = next;
-    }
-
-  return last;
-}
-
-/* Emit the insns in a chain starting with INSN and place them in front of
-   the insn BEFORE.  Return the last insn emitted.  */
-
-rtx
-emit_insns_before (insn, before)
-     rtx insn;
-     rtx before;
-{
-  rtx last = 0;
-
-  while (insn)
-    {
-      rtx next = NEXT_INSN (insn);
-      add_insn_before (insn, before);
-      last = insn;
-      insn = next;
-    }
-
-  return last;
-}
-
-/* Emit the insns in a chain starting with FIRST and place them in back of
-   the insn AFTER.  Return the last insn emitted.  */
-
-rtx
-emit_insns_after (first, after)
-     rtx first;
-     rtx after;
-{
-  rtx last;
-  rtx after_after;
-  basic_block bb;
-
-  if (!after)
-    abort ();
-
-  if (!first)
-    return after;
-
-  if (basic_block_for_insn
-      && (unsigned int) INSN_UID (after) < basic_block_for_insn->num_elements
-      && (bb = BLOCK_FOR_INSN (after)))
-    {
-      bb->flags |= BB_DIRTY;
-      for (last = first; NEXT_INSN (last); last = NEXT_INSN (last))
-	set_block_for_insn (last, bb);
-      set_block_for_insn (last, bb);
-      if (bb->end == after)
-	bb->end = last;
-    }
-  else
-    for (last = first; NEXT_INSN (last); last = NEXT_INSN (last))
-      continue;
-
-  after_after = NEXT_INSN (after);
-
-  NEXT_INSN (after) = first;
-  PREV_INSN (first) = after;
-  NEXT_INSN (last) = after_after;
-  if (after_after)
-    PREV_INSN (after_after) = last;
-
-  if (after == last_insn)
-    last_insn = last;
-  return last;
-}
-
-/* Make an insn of code JUMP_INSN with pattern PATTERN
-   and add it to the end of the doubly-linked list.  */
-
-rtx
-emit_jump_insn (pattern)
-     rtx pattern;
-{
-  if (GET_CODE (pattern) == SEQUENCE)
-    return emit_insn (pattern);
-  else
-    {
-      rtx insn = make_jump_insn_raw (pattern);
-      add_insn (insn);
-      return insn;
-    }
-}
-
-/* Make an insn of code CALL_INSN with pattern PATTERN
-   and add it to the end of the doubly-linked list.  */
-
-rtx
-emit_call_insn (pattern)
-     rtx pattern;
-{
-  if (GET_CODE (pattern) == SEQUENCE)
-    return emit_insn (pattern);
-  else
-    {
-      rtx insn = make_call_insn_raw (pattern);
-      add_insn (insn);
-      PUT_CODE (insn, CALL_INSN);
-      return insn;
-    }
 }
 
 /* Add the label LABEL to the end of the doubly-linked list.  */
@@ -4282,6 +4598,7 @@ emit_note (file, line)
   INSN_UID (note) = cur_insn_uid++;
   NOTE_SOURCE_FILE (note) = file;
   NOTE_LINE_NUMBER (note) = line;
+  BLOCK_FOR_INSN (note) = NULL;
   add_insn (note);
   return note;
 }
@@ -4535,12 +4852,12 @@ pop_topmost_sequence ()
 /* After emitting to a sequence, restore previous saved state.
 
    To get the contents of the sequence just made, you must call
-   `gen_sequence' *before* calling here.
+   `get_insns' *before* calling here.
 
    If the compiler might have deferred popping arguments while
    generating this sequence, and this sequence will not be immediately
    inserted into the instruction stream, use do_pending_stack_adjust
-   before calling gen_sequence.  That will ensure that the deferred
+   before calling get_insns.  That will ensure that the deferred
    pops are inserted into this sequence, and not into some random
    location in the instruction stream.  See INHIBIT_DEFER_POP for more
    information about deferred popping of arguments.  */
@@ -4579,45 +4896,6 @@ in_sequence_p ()
 {
   return seq_stack != 0;
 }
-
-/* Generate a SEQUENCE rtx containing the insns already emitted
-   to the current sequence.
-
-   This is how the gen_... function from a DEFINE_EXPAND
-   constructs the SEQUENCE that it returns.  */
-
-rtx
-gen_sequence ()
-{
-  rtx result;
-  rtx tem;
-  int i;
-  int len;
-
-  /* Count the insns in the chain.  */
-  len = 0;
-  for (tem = first_insn; tem; tem = NEXT_INSN (tem))
-    len++;
-
-  /* If only one insn, return it rather than a SEQUENCE.
-     (Now that we cache SEQUENCE expressions, it isn't worth special-casing
-     the case of an empty list.)
-     We only return the pattern of an insn if its code is INSN and it
-     has no notes.  This ensures that no information gets lost.  */
-  if (len == 1
-      && GET_CODE (first_insn) == INSN
-      && ! RTX_FRAME_RELATED_P (first_insn)
-      /* Don't throw away any reg notes.  */
-      && REG_NOTES (first_insn) == 0)
-    return PATTERN (first_insn);
-
-  result = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (len));
-
-  for (i = 0, tem = first_insn; tem; tem = NEXT_INSN (tem), i++)
-    XVECEXP (result, 0, i) = tem;
-
-  return result;
-}
 
 /* Put the various virtual registers into REGNO_REG_RTX.  */
 
@@ -4633,16 +4911,6 @@ init_virtual_regs (es)
   ptr[VIRTUAL_CFA_REGNUM] = virtual_cfa_rtx;
 }
 
-void
-clear_emit_caches ()
-{
-  int i;
-
-  /* Clear the start_sequence/gen_sequence cache.  */
-  for (i = 0; i < SEQUENCE_RESULT_SIZE; i++)
-    sequence_result[i] = 0;
-  free_insn = 0;
-}
 
 /* Used by copy_insn_1 to avoid copying SCRATCHes more than once.  */
 static rtx copy_insn_scratch_in[MAX_RECOG_OPERANDS];
@@ -4837,8 +5105,6 @@ init_emit ()
   last_label_num = 0;
   seq_stack = NULL;
 
-  clear_emit_caches ();
-
   /* Init the tables that describe all the pseudo regs.  */
 
   f->emit->regno_pointer_align_length = LAST_VIRTUAL_REGISTER + 101;
@@ -4854,6 +5120,11 @@ init_emit ()
   f->emit->regno_decl
     = (tree *) ggc_alloc_cleared (f->emit->regno_pointer_align_length
 				  * sizeof (tree));
+
+  /* Put copies of all the hard registers into regno_reg_rtx.  */
+  memcpy (regno_reg_rtx,
+	  static_regno_reg_rtx,
+	  FIRST_PSEUDO_REGISTER * sizeof (rtx));
 
   /* Put copies of all the virtual register rtx into regno_reg_rtx.  */
   init_virtual_regs (f->emit);
@@ -4990,6 +5261,11 @@ init_emit_once (line_numbers)
   virtual_outgoing_args_rtx =
     gen_raw_REG (Pmode, VIRTUAL_OUTGOING_ARGS_REGNUM);
   virtual_cfa_rtx = gen_raw_REG (Pmode, VIRTUAL_CFA_REGNUM);
+
+  /* Initialize RTL for commonly used hard registers.  These are
+     copied into regno_reg_rtx as we begin to compile each function.  */
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    static_regno_reg_rtx[i] = gen_raw_REG (reg_raw_mode[i], i);
 
 #ifdef INIT_EXPANDERS
   /* This is to initialize {init|mark|free}_machine_status before the first
@@ -5163,6 +5439,8 @@ emit_copy_of_insn_after (insn, after)
 
   /* Update LABEL_NUSES.  */
   mark_jump_label (PATTERN (new), new, 0);
+
+  INSN_SCOPE (new) = INSN_SCOPE (insn);
 
   /* Copy all REG_NOTES except REG_LABEL since mark_jump_label will
      make them.  */
