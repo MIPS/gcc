@@ -1,3 +1,7 @@
+2004-05-28  Dale Johannesen  <dalej@apple.com>
+
+	* loop-invariant.c (check_maybe_invariant):  Disallow hoisting CALLs.
+
 2004-05-27  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	Merge from mainline (lno-merge-20040526).
