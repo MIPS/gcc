@@ -1,5 +1,10 @@
 2004-02-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* tree-ssa-loop.c (do_while_loop_p): New function.
+	(copy_loop_headers): Do not peel do-while loops.
+
+2004-02-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* loop-invariant.c: New file.
 	* Makefile.in (loop-invariant.o): New.
 	* cfgloop.h (init_set_costs, global_cost_for_size,
