@@ -1,3 +1,8 @@
+2002-09-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* profile.c (end_branch_prob): Only look for __gcov_init on
+	weak-enabled native compilers.
+
 2002-09-23  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* config/alpha/alpha.h: Remove commented-out macro
