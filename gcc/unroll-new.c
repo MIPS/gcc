@@ -1107,7 +1107,7 @@ unroll_or_peel_loop (loops, loop, flags)
     {
       /* Use profile information.  */
       niter = expected_loop_iterations (loop);
-      if (flag_branch_probabilities)
+      if (loop->header->count)
 	exact = true;
     }
 
