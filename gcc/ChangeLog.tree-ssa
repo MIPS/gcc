@@ -1,3 +1,10 @@
+2003-09-16  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-ccp.c (visit_stmt): Do not set DONT_SIMULATE_AGAIN
+	just because a statement as virtual definitions.
+	(likely_value): A CALL_EXPR is assumed to return a VARYING
+	result, regardless of its operands.
+
 2003-09-15  Jason Merrill  <jason@redhat.com>
 
 	* tree-simple.c (is_gimple_val): Allow addresses of all decls.

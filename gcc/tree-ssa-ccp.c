@@ -580,7 +580,6 @@ visit_stmt (tree stmt)
   ops = vdef_ops (stmt);
   if (ops)
     {
-      DONT_SIMULATE_AGAIN (stmt) = 1;
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ops); i++)
 	def_to_varying (VDEF_RESULT (VARRAY_TREE (ops, i)));
     }
@@ -1251,6 +1250,17 @@ likely_value (tree stmt)
      won't fold to a constant value.  */
   ann = stmt_ann (stmt);
   if (ann->makes_aliased_loads || ann->has_volatile_ops)
+    return VARYING;
+
+  /* A CALL_EXPR is assumed to be varying.  This may be overly conservative,
+     in the presence of const and pure calls.  */
+  if (TREE_CODE (stmt) == CALL_EXPR
+      || (TREE_CODE (stmt) == MODIFY_EXPR
+	  && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
+      || (TREE_CODE (stmt) == RETURN_EXPR
+	  && TREE_OPERAND (stmt, 0)
+	  && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR
+	  && TREE_CODE (TREE_OPERAND (TREE_OPERAND (stmt, 0), 1)) == CALL_EXPR))
     return VARYING;
 
   get_stmt_operands (stmt);
