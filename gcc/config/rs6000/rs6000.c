@@ -315,7 +315,6 @@ static int constant_pool_expr_1 (rtx, int *, int *);
 static bool constant_pool_expr_p (rtx);
 static bool toc_relative_expr_p (rtx);
 static bool legitimate_small_data_p (enum machine_mode, rtx);
-static bool legitimate_offset_address_p (enum machine_mode, rtx, int);
 static bool legitimate_indexed_address_p (rtx, int);
 static bool legitimate_indirect_address_p (rtx, int);
 static bool macho_lo_sum_memory_operand (rtx x, enum machine_mode mode);
@@ -328,6 +327,7 @@ static void rs6000_assemble_visibility (tree, int);
 static int rs6000_ra_ever_killed (void);
 static tree rs6000_handle_longcall_attribute (tree *, tree, tree, int, bool *);
 static tree rs6000_handle_altivec_attribute (tree *, tree, tree, int, bool *);
+static void rs6000_eliminate_indexed_memrefs (rtx operands[2]);
 static const char *rs6000_mangle_fundamental_type (tree);
 extern const struct attribute_spec rs6000_attribute_table[];
 static void rs6000_set_default_type_attributes (tree);
@@ -2886,8 +2886,8 @@ legitimate_small_data_p (enum machine_mode mode, rtx x)
 	  && small_data_operand (x, mode));
 }
 
-static bool
-legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
+bool
+rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
 {
   unsigned HOST_WIDE_INT offset, extra;
 
@@ -3568,7 +3568,7 @@ rs6000_legitimize_reload_address (rtx *addr_x, enum machine_mode mode,
    word aligned.
 
    For modes spanning multiple registers (DFmode in 32-bit GPRs,
-   32-bit DImode, TImode), indexed addressing cannot be used because
+   32-bit DImode, TImode, TFmode), indexed addressing cannot be used because
    adjacent memory cells are accessed by adding word-sized offsets
    during assembly output.  */
 int
@@ -3596,9 +3596,10 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
          || XEXP (x, 0) == arg_pointer_rtx)
       && GET_CODE (XEXP (x, 1)) == CONST_INT)
     return 1;
-  if (legitimate_offset_address_p (mode, x, reg_ok_strict))
+  if (rs6000_legitimate_offset_address_p (mode, x, reg_ok_strict))
     return 1;
-  if (mode != TImode
+  if (mode != TImode 
+      && mode != TFmode
       && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	  || TARGET_POWERPC64
 	  || (mode != DFmode && mode != TFmode))
@@ -3943,6 +3944,27 @@ rs6000_rtx_mult_cost (rtx x)
 }
 /* APPLE LOCAL end RTX_COST for multiply */
 
+/* Helper for the following.  Get rid of [r+r] memory refs
+   in cases where it won't work (TImode, TFmode).  */
+
+static void
+rs6000_eliminate_indexed_memrefs (rtx operands[2])
+{
+  if (GET_CODE (operands[0]) == MEM
+      && GET_CODE (XEXP (operands[0], 0)) != REG
+      && ! reload_in_progress)
+    operands[0]
+      = replace_equiv_address (operands[0],
+			       copy_addr_to_reg (XEXP (operands[0], 0)));
+
+  if (GET_CODE (operands[1]) == MEM
+      && GET_CODE (XEXP (operands[1], 0)) != REG
+      && ! reload_in_progress)
+    operands[1]
+      = replace_equiv_address (operands[1],
+			       copy_addr_to_reg (XEXP (operands[1], 0)));
+}
+
 /* Emit a move from SOURCE to DEST in mode MODE.  */
 void
 rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
@@ -4080,6 +4102,9 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       break;
 
     case TFmode:
+      rs6000_eliminate_indexed_memrefs (operands);
+      /* fall through */
+
     case DFmode:
     case SFmode:
       if (CONSTANT_P (operands[1]) 
@@ -4263,19 +4288,8 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       break;
 
     case TImode:
-      if (GET_CODE (operands[0]) == MEM
-	  && GET_CODE (XEXP (operands[0], 0)) != REG
-	  && ! reload_in_progress)
-	operands[0]
-	  = replace_equiv_address (operands[0],
-				   copy_addr_to_reg (XEXP (operands[0], 0)));
+      rs6000_eliminate_indexed_memrefs (operands);
 
-      if (GET_CODE (operands[1]) == MEM
-	  && GET_CODE (XEXP (operands[1], 0)) != REG
-	  && ! reload_in_progress)
-	operands[1]
-	  = replace_equiv_address (operands[1],
-				   copy_addr_to_reg (XEXP (operands[1], 0)));
       if (TARGET_POWER)
 	{
 	  emit_insn (gen_rtx_PARALLEL (VOIDmode,
@@ -9116,7 +9130,7 @@ lmw_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
       if (base_regno == 0)
 	return 0;
     }
-  else if (legitimate_offset_address_p (SImode, src_addr, 0))
+  else if (rs6000_legitimate_offset_address_p (SImode, src_addr, 0))
     {
       offset = INTVAL (XEXP (src_addr, 1));
       base_regno = REGNO (XEXP (src_addr, 0));
@@ -9144,7 +9158,7 @@ lmw_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 	  newoffset = 0;
 	  addr_reg = newaddr;
 	}
-      else if (legitimate_offset_address_p (SImode, newaddr, 0))
+      else if (rs6000_legitimate_offset_address_p (SImode, newaddr, 0))
 	{
 	  addr_reg = XEXP (newaddr, 0);
 	  newoffset = INTVAL (XEXP (newaddr, 1));
@@ -9192,7 +9206,7 @@ stmw_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
       if (base_regno == 0)
 	return 0;
     }
-  else if (legitimate_offset_address_p (SImode, dest_addr, 0))
+  else if (rs6000_legitimate_offset_address_p (SImode, dest_addr, 0))
     {
       offset = INTVAL (XEXP (dest_addr, 1));
       base_regno = REGNO (XEXP (dest_addr, 0));
@@ -9220,7 +9234,7 @@ stmw_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 	  newoffset = 0;
 	  addr_reg = newaddr;
 	}
-      else if (legitimate_offset_address_p (SImode, newaddr, 0))
+      else if (rs6000_legitimate_offset_address_p (SImode, newaddr, 0))
 	{
 	  addr_reg = XEXP (newaddr, 0);
 	  newoffset = INTVAL (XEXP (newaddr, 1));
