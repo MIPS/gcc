@@ -141,9 +141,8 @@ name_needs_quotes (const char *name)
 static int
 machopic_symbol_defined_p (rtx sym_ref)
 {
-  return ((SYMBOL_REF_FLAGS (sym_ref) & MACHO_SYMBOL_FLAG_DEFINED)
-	  /* Local symbols must always be defined.  */
-	  || SYMBOL_REF_LOCAL_P (sym_ref));
+  /* APPLE LOCAL private extern */
+  return (SYMBOL_REF_FLAGS (sym_ref) & MACHO_SYMBOL_FLAG_DEFINED);
 }
 
 /* This module assumes that (const (symbol_ref "foo")) is a legal pic
@@ -1077,6 +1076,7 @@ machopic_output_indirection (void **slot, void *data)
   else if (! indirect_data (symbol)
 	   && (machopic_symbol_defined_p (symbol)
 	       /* APPLE LOCAL private extern */
+	       /* Use SYMBOL_REF_LOCAL_P instead?! */
 	       || (SYMBOL_REF_DECL (symbol) && DECL_VISIBILITY (SYMBOL_REF_DECL (symbol))
 		   == VISIBILITY_HIDDEN)))
     {
