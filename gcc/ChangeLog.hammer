@@ -1,3 +1,8 @@
+2004-02-21  Andreas Jaeger  <aj@suse.de>
+
+	* cfgloopanal.c (test_for_iteration): Backport from mainline:
+	Avoid printf warning.
+
 2004-02-20  Jan Hubicka  <jh@suse.cz>
 
 	* k6.md (k6_alux):  Use mode attribute.
