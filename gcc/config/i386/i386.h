@@ -2095,7 +2095,7 @@ while (0)
 #define EXTRA_CC_MODES \
 	CC(CCNOmode, "CCNO") \
 	CC(CCFPmode, "CCFP") \
-	CC(CCCPUmode, "CCFPU")
+	CC(CCFPUmode, "CCFPU")
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.
