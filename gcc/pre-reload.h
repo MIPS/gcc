@@ -90,7 +90,7 @@ enum ra_ref_type {RA_REF_NONE    = 0,
 #define RA_REF_ADDRESS_P(RA_REF) ((RA_REF)->type & RA_REF_ADDRESS)
 #define RA_REF_RDWR_P(RA_REF)    ((RA_REF)->type & RA_REF_RDWR)
 #define RA_REF_ID(RA_REF)        ((RA_REF)->id)
-#define RA_REF_REGNO(REF)        (REGNO ((REF)->reg))
+#define RA_REF_REGNO(REF)        (REGNO (REG_P ((REF)->reg) ? (REF)->reg : SUBREG_REG ((REF)->reg)))
 
 struct ra_ref
 {
@@ -200,7 +200,7 @@ extern int output_reloadnum;
 
 extern void push_replacement           PARAMS ((rtx *, int ,
 						enum machine_mode));
-extern int reload_inner_reg_of_subreg  PARAMS ((rtx, enum machine_mode));
+extern int reload_inner_reg_of_subreg  PARAMS ((rtx, enum machine_mode, int));
 extern int find_pre_reloads            PARAMS ((rtx, int));
 extern enum reg_class find_valid_class PARAMS ((enum machine_mode, int,
 						unsigned int));

@@ -135,13 +135,16 @@ typedef struct edge_def {
 				   in profile.c  */
 } *edge;
 
-#define EDGE_FALLTHRU		1
-#define EDGE_ABNORMAL		2
-#define EDGE_ABNORMAL_CALL	4
-#define EDGE_EH			8
-#define EDGE_FAKE		16
-#define EDGE_DFS_BACK		32
-#define EDGE_CAN_FALLTHRU	64
+#define EDGE_FALLTHRU		1	/* 'Straight line' flow */
+#define EDGE_ABNORMAL		2	/* Strange flow, like computed
+					   label, or eh */
+#define EDGE_ABNORMAL_CALL	4	/* Call with abnormal exit
+					   like an exception, or sibcall */
+#define EDGE_EH			8	/* Exception throw */
+#define EDGE_FAKE		16	/* Not a real edge (profile.c) */
+#define EDGE_DFS_BACK		32	/* A backwards edge */
+#define EDGE_CAN_FALLTHRU	64	/* Candidate for straight line
+					   flow.  */
 
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 
@@ -273,7 +276,8 @@ extern regset regs_live_at_setjmp;
 
 /* Special labels found during CFG build.  */
 
-extern rtx label_value_list, tail_recursion_label_list;
+extern GTY(()) rtx label_value_list;
+extern GTY(()) rtx tail_recursion_label_list;
 
 extern struct obstack flow_obstack;
 
@@ -356,6 +360,10 @@ extern void clear_edges			PARAMS ((void));
 extern void mark_critical_edges		PARAMS ((void));
 extern rtx first_insn_after_basic_block_note	PARAMS ((basic_block));
 
+/* Dominator information for basic blocks.  */
+
+typedef struct dominance_info *dominance_info;
+
 /* Structure to hold information for each natural loop.  */
 struct loop
 {
@@ -427,7 +435,7 @@ struct loop
   /* Link to the next (sibling) loop.  */
   struct loop *next;
 
-  /* Non-zero if the loop is invalid (e.g., contains setjmp.).  */
+  /* Nonzero if the loop is invalid (e.g., contains setjmp.).  */
   int invalid;
 
   /* Auxiliary info specific to a pass.  */
@@ -436,15 +444,12 @@ struct loop
   /* The following are currently used by loop.c but they are likely to
      disappear as loop.c is converted to use the CFG.  */
 
-  /* Non-zero if the loop has a NOTE_INSN_LOOP_VTOP.  */
+  /* Nonzero if the loop has a NOTE_INSN_LOOP_VTOP.  */
   rtx vtop;
 
-  /* Non-zero if the loop has a NOTE_INSN_LOOP_CONT.
+  /* Nonzero if the loop has a NOTE_INSN_LOOP_CONT.
      A continue statement will generate a branch to NEXT_INSN (cont).  */
   rtx cont;
-
-  /* The dominator of cont.  */
-  rtx cont_dominator;
 
   /* The NOTE_INSN_LOOP_BEG.  */
   rtx start;
@@ -504,7 +509,7 @@ struct loops
   struct cfg
   {
     /* The bitmap vector of dominators or NULL if not computed.  */
-    sbitmap *dom;
+    dominance_info dom;
 
     /* The ordering of the basic blocks in a depth first search.  */
     int *dfs_order;
@@ -517,6 +522,33 @@ struct loops
   /* Headers shared by multiple loops that should be merged.  */
   sbitmap shared_headers;
 };
+
+/* Structure to group all of the information to process IF-THEN and
+   IF-THEN-ELSE blocks for the conditional execution support.  This
+   needs to be in a public file in case the IFCVT macros call
+   functions passing the ce_if_block data structure.  */
+
+typedef struct ce_if_block
+{
+  basic_block test_bb;			/* First test block.  */
+  basic_block then_bb;			/* THEN block.  */
+  basic_block else_bb;			/* ELSE block or NULL.  */
+  basic_block join_bb;			/* Join THEN/ELSE blocks.  */
+  basic_block last_test_bb;		/* Last bb to hold && or || tests.  */
+  int num_multiple_test_blocks;		/* # of && and || basic blocks.  */
+  int num_and_and_blocks;		/* # of && blocks.  */
+  int num_or_or_blocks;			/* # of || blocks.  */
+  int num_multiple_test_insns;		/* # of insns in && and || blocks.  */
+  int and_and_p;			/* Complex test is &&.  */
+  int num_then_insns;			/* # of insns in THEN block.  */
+  int num_else_insns;			/* # of insns in ELSE block.  */
+  int pass;				/* Pass number.  */
+
+#ifdef IFCVT_EXTRA_FIELDS
+  IFCVT_EXTRA_FIELDS			/* Any machine dependent fields.  */
+#endif
+
+} ce_if_block_t;
 
 extern int flow_loops_find PARAMS ((struct loops *, int flags));
 extern int flow_loops_update PARAMS ((struct loops *, int flags));
@@ -630,6 +662,7 @@ enum update_life_extent
 #define LOOP_EDGES		(LOOP_ENTRY_EDGES | LOOP_EXIT_EDGES)
 #define LOOP_ALL	       15	/* All of the above  */
 
+extern void mark_regs_live_at_end	PARAMS ((regset));
 extern void life_analysis	PARAMS ((rtx, FILE *, int));
 extern int update_life_info	PARAMS ((sbitmap, enum update_life_extent,
 					 int));
@@ -738,7 +771,7 @@ typedef struct conflict_graph_def *conflict_graph;
 
 /* Callback function when enumerating conflicts.  The arguments are
    the smaller and larger regno in the conflict.  Returns zero if
-   enumeration is to continue, non-zero to halt enumeration.  */
+   enumeration is to continue, nonzero to halt enumeration.  */
 typedef int (*conflict_graph_enum_fn) PARAMS ((int, int, void *));
 
 
@@ -776,8 +809,6 @@ enum cdi_direction
   CDI_POST_DOMINATORS
 };
 
-extern void calculate_dominance_info	PARAMS ((int *, sbitmap *,
-						 enum cdi_direction));
 struct dom_node GTY (())
 {
   unsigned int id;
@@ -832,4 +863,21 @@ struct scc_info
   unsigned int next;
 };
 
+extern dominance_info calculate_dominance_info	PARAMS ((enum cdi_direction));
+extern void free_dominance_info			PARAMS ((dominance_info));
+extern basic_block nearest_common_dominator	PARAMS ((dominance_info,
+						 basic_block, basic_block));
+extern void set_immediate_dominator	PARAMS ((dominance_info,
+						 basic_block, basic_block));
+extern basic_block get_immediate_dominator	PARAMS ((dominance_info,
+						 basic_block));
+extern bool dominated_by_p	PARAMS ((dominance_info, basic_block, basic_block));
+extern int get_dominated_by PARAMS ((dominance_info, basic_block, basic_block **));
+extern void add_to_dominance_info PARAMS ((dominance_info, basic_block));
+extern void delete_from_dominance_info PARAMS ((dominance_info, basic_block));
+basic_block recount_dominator PARAMS ((dominance_info, basic_block));
+extern void redirect_immediate_dominators PARAMS ((dominance_info, basic_block,
+						 basic_block));
+void iterate_fix_dominators PARAMS ((dominance_info, basic_block *, int));
+extern void verify_dominators PARAMS ((dominance_info));
 #endif /* GCC_BASIC_BLOCK_H */

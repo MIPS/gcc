@@ -81,6 +81,8 @@ struct web_part
   struct tagged_conflict *sub_conflicts;
   /* If there's any call_insn, while this part is live.  */
   unsigned int crosses_call : 1;
+  /* If this part is live over an basic block edge.  */
+  unsigned int crosses_bb : 1;
 };
 
 /* Web structure used to store info about connected live ranges.
@@ -157,6 +159,9 @@ struct web
 
   /* Nonzero if we span a call_insn.  */
   unsigned int crosses_call:1;
+
+  /* Nonzero if we span a basic block edge.  */
+  unsigned int crosses_bb:1;
 
   /* Wether the web is involved in a move insn.  */
   unsigned int move_related:1;
@@ -269,6 +274,7 @@ struct web
   /* Used in rewrite_program2() to remember the using
      insn last seen for webs needing (re)loads.  */
   rtx last_use_insn;
+  struct ref *last_use;
 
   /* If this web is rematerializable, this contains the RTL pattern
      usable as source for that.  Otherwise it's NULL.  */
@@ -463,6 +469,8 @@ extern unsigned int last_use_id;
 extern int last_max_uid;
 extern unsigned int last_num_webs;
 
+extern bitmap last_changed_insns;
+
 /* If I is the ID of an old use, and last_check_uses[I] is set,
    then we must reevaluate it's flow while building the new I-graph.  */
 extern sbitmap last_check_uses;
@@ -611,6 +619,8 @@ extern void dump_web_conflicts PARAMS ((struct web *));
 extern void dump_web_insns PARAMS ((struct web*));
 extern int web_conflicts_p PARAMS ((struct web *, struct web *));
 extern void debug_hard_reg_set PARAMS ((HARD_REG_SET));
+
+extern int comp_webs_maxcost PARAMS ((const void *, const void *));
 
 extern void remove_list PARAMS ((struct dlist *, struct dlist **));
 extern struct dlist * pop_list PARAMS ((struct dlist **));

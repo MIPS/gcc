@@ -59,7 +59,9 @@ enum df_ref_flags
        representing the REG itself (i.e. one might not see the subreg
        anyore).  Also note, that this flag is set also for hardreg refs.
        I.e. you must check yourself if it's a pseudo.  */
-    DF_REF_MODE_CHANGE = 2
+    DF_REF_MODE_CHANGE = 2,
+    DF_REF_DELETED = 4,
+    DF_REF_MEM_OK = 8
   };
 
 /* Define a register reference structure.  */

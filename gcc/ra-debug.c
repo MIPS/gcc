@@ -381,8 +381,14 @@ ra_print_rtx (file, x, with_pn)
 	  fprintf (file, "L%d:\t; ", CODE_LABEL_NUMBER (x));
 	  if (LABEL_NAME (x))
 	    fprintf (file, "(%s) ", LABEL_NAME (x));
-	  if (LABEL_ALTERNATE_NAME (x))
-	    fprintf (file, "(alternate: %s) ", LABEL_ALTERNATE_NAME (x));
+	  switch (LABEL_KIND (x))
+	    {
+	      case LABEL_NORMAL: break;
+	      case LABEL_STATIC_ENTRY: fputs (" (entry)", file); break;
+	      case LABEL_GLOBAL_ENTRY: fputs (" (global entry)", file); break;
+	      case LABEL_WEAK_ENTRY: fputs (" (weak entry)", file); break;
+	      default: abort(); 
+	    }
 	  fprintf (file, " [%d uses] uid=(", LABEL_NUSES (x));
 	}
       fprintf (file, "%d", INSN_UID (x));
@@ -699,9 +705,13 @@ dump_igraph (df)
   for (ml = wl_moves; ml; ml = ml->next)
     if (ml->move)
       {
-        ra_debug_msg (DUMP_IGRAPH, "move: insn %d: Web %d <-- Web %d\n",
+        ra_debug_msg (DUMP_IGRAPH, "move: insn %d: Web %d <-- Web %d",
 	         INSN_UID (ml->move->insn), ml->move->target_web->id,
 	         ml->move->source_web->id);
+	if (SPILL_SLOT_P (ml->move->target_web->regno)
+	    || SPILL_SLOT_P (ml->move->source_web->regno))
+	  ra_debug_msg (DUMP_IGRAPH, " (stacks)");
+	ra_debug_msg (DUMP_IGRAPH, "\n");
       }
   ra_debug_msg (DUMP_WEBS, "\nWebs:\n");
   for (i = 0; i < num_webs; i++)

@@ -1,3 +1,83 @@
+2002-11-20  Michael Matz  <matz@suse.de>
+
+	merge with HEAD at tag ra-merge-20021120
+
+	older fixes:
+
+	* ra.h (struct web.crosses_bb): New member.
+	(struct web.last_use): New.
+	(struct web_part.crosses_bb): New.
+	(last_changed_insns, comp_webs_maxcost): Declare.
+	
+	* ra.c (free_all_mem): Free last_changed_insns.
+	(detect_possible_mem_refs): New.
+	(reg_alloc): Call it.  Handle last_changed_insns.
+	Add CLEANUP_UPDATE_LIFE to cleanup_cfg() call.
+	Remove / recreate REG_DEAD notes.
+
+	* ra-colorize.c (comp_webs_maxcost): Make global.
+	(put_web): Put stack webs onto SIMPLIFY list.
+	(build_worklists): Swap order in which stack webs are listed.
+	(combine): Stack webs can't be targets for normal webs.
+	(select_spill): More spill candidates.
+	(colorize_one_web): More split candidates.  Add a
+	insert_coalesced_conflicts() call.
+	(insert_coalesced_conflicts): Activate it.  Add missing conflicts
+	instead of aborting.
+	(break_precolored_alias): recreate deleted conflicts.
+	(restore_conflicts_from_coalesce): Reset I-graph bits also for all
+	subwebs.
+
+	* ra-debug.c (ra_print_rtx): Correct LABEL handling.
+	(dump_igraph): Mark stack webs.
+
+	* ra-rewrite.c (insn-config.h, recog.h): Include.
+	(delete_overlapping_uses, last_changed_insns): New.
+	(allocate_spill_web): Create pseudos as backing store.
+	(slot_member_p): Subregs are also members.
+	(insert_stores): Scan all insns for memory refs.
+	Try to create the stack ref in place.
+	(emit_loads): Ditto.
+	(rewrite_program2): Set .last_use member.
+	(mark_refs_for_checking): Reset .crosses_bb member.
+	(detect_web_parts_to_rebuild): Ditto.
+	(actual_spill): Handle last_changed_insns.
+	(emit_colors): Allocate stack slots for stack webs in different order.
+
+	* df.h (enum df_ref_flags): New members DF_REF_MODE_CHANGE,
+	DF_REF_DELETED, DF_REF_MEM_OK.
+	
+	* df.c (df_insn_refs_mark_deleted, df_ref_search_cached): New.
+	(df_ref_create): Call df_ref_search_cached().
+	(df_bb_refs_update): Call df_insn_refs_mark_deleted().
+	(df_insn_refs_unlink): Only deleted marked refs.
+
+	* pre-reload.c (pre_operands_match_p): New.
+	(gen_pre_reload): Don't special case subregs.
+	(emit_input_pre_reload_insns, emit_output_pre_reload_insns,
+	subst_pre_reloads): Use simplify_gen_subreg instead of gen_rtx_REG.
+	(push_pre_reload): Don't special case pseudo regs.
+	Adjust reload_inner_reg_of_subreg() calls.
+	(scan_addr_create_ref): Refs can be subregs.
+	(df_link2ra_link): Ditto.
+	(collect_insn_info): Ditto.  Use pre_operands_match_p.
+	If match was seen really ignore things after '#'.
+
+	* pre-reload.h (RA_REF_REGNO): Accept subreg refs.
+	(reload_inner_reg_of_subreg): Adjust prototype.
+
+	* reload.c (push_reload): Don't try to reuse register marked REG_DEAD.
+	(combine_reloads, find_dummy_reload): Ditto.
+
+	* basic-block.h (mark_regs_live_at_end): Declare.
+
+	* flow.c (mark_regs_live_at_end): Make global.
+
+	* i386/i386.c (override_options): Only set flag_omit_frame_pointer
+	when optimizing.
+
+	* i386/i386.md (divmodsi4_cltd): Fix constraints.
+
 2002-08-06  Michael Matz  <matz@suse.de>
 
 	* ra.c (hard_regs_same_p): New.

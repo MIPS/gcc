@@ -77,7 +77,6 @@ static void colorize_one_web PARAMS ((struct web *, int));
 static void assign_colors PARAMS ((void));
 static void try_recolor_web PARAMS ((struct web *));
 static void insert_coalesced_conflicts PARAMS ((void));
-static int comp_webs_maxcost PARAMS ((const void *, const void *));
 static void recolor_spills PARAMS ((void));
 static void check_colors PARAMS ((void));
 static void restore_conflicts_from_coalesce PARAMS ((struct web *));
@@ -195,7 +194,9 @@ put_web (web, type)
 	push_list (web->dlink, &WEBS(INITIAL));
 	break;
       case SIMPLIFY:
-	if (web->spill_temp)
+	if (SPILL_SLOT_P (web->regno))
+	  push_list (web->dlink, &WEBS(SIMPLIFY));
+	else if (web->spill_temp)
 	  push_list (web->dlink, &WEBS(type = SIMPLIFY_SPILL));
 	else if (web->add_hardregs)
 	  push_list (web->dlink, &WEBS(type = SIMPLIFY_FAT));
@@ -242,6 +243,22 @@ reset_lists ()
     put_web (DLIST_WEB (d), FREE);
   while ((d = pop_list (&WEBS(COLORED))) != NULL)
     put_web (DLIST_WEB (d), INITIAL);
+
+#if 0
+    {
+      struct dlist *d_next;
+      for (d = WEBS(INITIAL); d; d = d_next)
+	{
+	  struct web *web = DLIST_WEB (d);
+	  d_next = d->next;
+	  if (web->type != PRECOLORED)
+	    {
+	      remove_list (d, &WEBS(INITIAL));
+	      put_web (DLIST_WEB (d), FREE);
+	    }
+	}
+    }
+#endif
 
   /* All free webs have no conflicts anymore.  */
   for (d = WEBS(FREE); d; d = d->next)
@@ -333,6 +350,23 @@ build_worklists (df)
   struct dlist *d, *d_next;
   struct move_list *ml;
 
+  /* For all remaining initial webs, classify them.  */
+  for (d = WEBS(INITIAL); d; d = d_next)
+    {
+      struct web *web = DLIST_WEB (d);
+      d_next = d->next;
+      if (web->type == PRECOLORED || SPILL_SLOT_P (web->regno))
+        continue;
+
+      remove_list (d, &WEBS(INITIAL));
+      if (web->num_conflicts >= NUM_REGS (web))
+	put_web (web, SPILL);
+      else if (web->moves)
+	put_web (web, FREEZE);
+      else
+	put_web (web, SIMPLIFY);
+    }
+
   /* If we are not the first pass, put all stackwebs (which are still
      backed by a new pseudo, but conceptually can stand for a stackslot,
      i.e. it doesn't really matter if they get a color or not), on
@@ -354,39 +388,24 @@ build_worklists (df)
       if (num)
 	{
 	  qsort (order2web, num, sizeof (order2web[0]), comp_webs_maxcost);
-	  for (i = num - 1;; i--)
+	  /*for (i = num - 1;; i--)*/
+	  for (i = 0; i < num; i++)
 	    {
 	      struct web *web = order2web[i];
 	      struct conflict_link *wl;
 	      remove_list (web->dlink, &WEBS(INITIAL));
-	      put_web (web, SELECT);
+	      put_web (web, SIMPLIFY);
+	      /*put_web (web, SELECT);
 	      for (wl = web->conflict_list; wl; wl = wl->next)
 		{
 		  struct web *pweb = wl->t;
 		  pweb->num_conflicts -= 1 + web->add_hardregs;
 		}
 	      if (i == 0)
-		break;
+		break;*/
 	    }
 	}
       free (order2web);
-    }
-
-  /* For all remaining initial webs, classify them.  */
-  for (d = WEBS(INITIAL); d; d = d_next)
-    {
-      struct web *web = DLIST_WEB (d);
-      d_next = d->next;
-      if (web->type == PRECOLORED)
-        continue;
-
-      remove_list (d, &WEBS(INITIAL));
-      if (web->num_conflicts >= NUM_REGS (web))
-	put_web (web, SPILL);
-      else if (web->moves)
-	put_web (web, FREEZE);
-      else
-	put_web (web, SIMPLIFY);
     }
 
   /* And put all moves on the worklist for iterated coalescing.
@@ -725,7 +744,14 @@ combine (u, v)
   struct conflict_link *wl;
   if (u == v || v->type == COALESCED)
     abort ();
-  if (SPILL_SLOT_P (u->regno) != SPILL_SLOT_P (v->regno))
+  /* If not both U and V are stack pseudos make U the non-stack one.  */
+  if (SPILL_SLOT_P (u->regno) && !SPILL_SLOT_P (v->regno))
+    {
+      struct web *h = u;
+      u = v;
+      v = h;
+    }
+  if (0 && SPILL_SLOT_P (u->regno) != SPILL_SLOT_P (v->regno))
     abort ();
   remove_web_from_list (v);
   put_web (v, COALESCED);
@@ -974,6 +1000,8 @@ select_spill ()
   struct dlist *bestd = NULL;
   unsigned HOST_WIDE_INT best2 = (unsigned HOST_WIDE_INT) -1;
   struct dlist *bestd2 = NULL;
+  unsigned HOST_WIDE_INT best3 = (unsigned HOST_WIDE_INT) -1;
+  struct dlist *bestd3 = NULL;
   struct dlist *d;
   for (d = WEBS(SPILL); d; d = d->next)
     {
@@ -992,11 +1020,21 @@ select_spill ()
 	  best2 = cost;
 	  bestd2 = d;
 	}
+      else if ((w->spill_temp == 1 || w->spill_temp == 3)
+	       && (cost < best3
+		   || (bestd3 && !DLIST_WEB (bestd3)->span_deaths
+		       && w->span_deaths)))
+	{
+	  if (!bestd3 || w->span_deaths || !DLIST_WEB (bestd3)->span_deaths)
+	    best3 = cost, bestd3 = d;
+	}
     }
   if (!bestd)
     {
       bestd = bestd2;
       best = best2;
+      if (!bestd)
+	bestd = bestd3, best = best3;
     }
   if (!bestd)
     abort ();
@@ -1484,7 +1522,7 @@ colorize_one_web (web, hard)
 	{
 	  unsigned int loop;
 	  struct web *try = NULL;
-	  struct web *candidates[8];
+	  struct web *candidates[9];
 
 	  ra_debug_msg (DUMP_COLORIZE, "  *** %d spilled, although %s ***\n",
 		     web->id, web->spill_temp ? "spilltemp" : "non-spill");
@@ -1507,9 +1545,11 @@ colorize_one_web (web, hard)
 	      struct web *w = wl->t;
 	      struct web *aw = alias (w);
 	      /* If we are a spill-temp, we also look at webs coalesced
-		 to precolored ones.  Otherwise we only look at webs which
+		 to precolored ones (but only with depth one, i.e. those
+		 directly coalesced to a precolored web; we only can break
+		 such aliases).  Otherwise we only look at webs which
 		 themself were colored, or coalesced to one.  */
-	      if (aw->type == PRECOLORED && w != aw && web->spill_temp
+	      if (aw->type == PRECOLORED && w->alias == aw && web->spill_temp
 		  && flag_ra_optimistic_coalescing)
 		{
 		  if (!w->spill_temp)
@@ -1563,9 +1603,14 @@ colorize_one_web (web, hard)
 		  if (web->spill_temp != 2 && aw->is_coalesced
 		      && flag_ra_optimistic_coalescing)
 		    set_cand (7, aw);
+		  /* If in the last iteration no insns were emitted for this
+		     web we also try to spill neighbors which are spill
+		     temps (and not only type 2 spill temps).  */
+		  if (web->changed && !aw->changed && aw->spill_temp)
+		    set_cand (8, aw);
 		}
 	    }
-	  for (loop = 0; try == NULL && loop < 8; loop++)
+	  for (loop = 0; try == NULL && loop < 9; loop++)
 	    if (candidates[loop])
 	      try = candidates[loop];
 #undef set_cand
@@ -1579,6 +1624,7 @@ colorize_one_web (web, hard)
 		  ra_debug_msg (DUMP_COLORIZE, "  breaking alias %d -> %d\n",
 			     try->id, alias (try)->id);
 		  break_precolored_alias (try);
+		  insert_coalesced_conflicts ();
 		  colorize_one_web (web, hard);
 		}
 	      else
@@ -1899,7 +1945,7 @@ static void
 insert_coalesced_conflicts ()
 {
   struct dlist *d;
-  for (d = WEBS(COALESCED); 0 && d; d = d->next)
+  for (d = WEBS(COALESCED); 1 && d; d = d->next)
     {
       struct web *web = DLIST_WEB (d);
       struct web *aweb = alias (web);
@@ -1929,15 +1975,20 @@ insert_coalesced_conflicts ()
 				     wl->t->id * num_webs + tweb->id)))
 		  && hard_regs_intersect_p (&tweb->usable_regs,
 					    &wl->t->usable_regs))
-		abort ();
-	      /*if (wl->sub == NULL)
-		record_conflict (tweb, wl->t);
-	      else
 		{
-		  struct sub_conflict *sl;
-		  for (sl = wl->sub; sl; sl = sl->next)
-		    record_conflict (tweb, sl->t);
-		}*/
+		  /*abort ();*/
+		  fprintf (stderr, "SHIT.  Lost a conflict.\n");
+		  ra_debug_msg (DUMP_COLORIZE, "Lost conflict %d - %d\n",
+				tweb->id, wl->t->id);
+		  if (wl->sub == NULL)
+		    record_conflict (tweb, wl->t);
+		  else
+		    {
+		      struct sub_conflict *sl;
+		      for (sl = wl->sub; sl; sl = sl->next)
+			record_conflict (tweb, sl->t);
+		    }
+		}
 	      if (aweb->type != PRECOLORED)
 		break;
 	    }
@@ -1949,7 +2000,7 @@ insert_coalesced_conflicts ()
    of webs W1 and W2.  When used by qsort, this would order webs with
    largest cost first.  */
 
-static int
+int
 comp_webs_maxcost (w1, w2)
      const void *w1, *w2;
 {
@@ -2161,6 +2212,7 @@ break_precolored_alias (web)
   struct conflict_link *wl;
   unsigned int c = pre->color;
   unsigned int nregs = HARD_REGNO_NREGS (c, GET_MODE (web->orig_x));
+  struct dlist *d;
   if (pre->type != PRECOLORED)
     abort ();
   unalias_web (web);
@@ -2198,6 +2250,8 @@ break_precolored_alias (web)
 	  {
 	    struct web *sub;
 	    y = hardreg2web[c + i];
+	    /*ra_debug_msg (DUMP_COLORIZE, "delete conflict %d - %d\n", x->id,
+			  y->id);*/
 	    RESET_BIT (sup_igraph, x->id * num_webs + y->id);
 	    RESET_BIT (sup_igraph, y->id * num_webs + x->id);
 	    RESET_BIT (igraph, igraph_index (x->id, y->id));
@@ -2215,6 +2269,55 @@ break_precolored_alias (web)
 	  else
 	    *pcl = (*pcl)->next;
 	}
+    }
+
+  for (d = WEBS(COALESCED); d; d = d->next)
+    {
+      struct web *web2 = DLIST_WEB (d);
+      struct web *aweb;
+      struct conflict_link *wl;
+      for (aweb = web2->alias; aweb; aweb = aweb->alias)
+	for (wl = web2->conflict_list; wl; wl = wl->next)
+	  {
+	    struct web *tweb = aweb;
+	    int i;
+	    int nregs = 1 + web2->add_hardregs;
+	    if (aweb->type == PRECOLORED)
+	      nregs = HARD_REGNO_NREGS (aweb->color, GET_MODE (web2->orig_x));
+	    for (i = 0; i < nregs; i++)
+	      {
+		if (aweb->type == PRECOLORED)
+		  tweb = hardreg2web[i + aweb->color];
+		/* There might be some conflict edges laying around
+		   where the usable_regs don't intersect.  This can happen
+		   when first some webs were coalesced and conflicts
+		   propagated, then some combining narrowed usable_regs and
+		   further coalescing ignored those conflicts.  Now there are
+		   some edges to COALESCED webs but not to it's alias.
+		   So abort only when they really should conflict.  */
+		if ((!(tweb->type == PRECOLORED
+		       || TEST_BIT (sup_igraph, tweb->id * num_webs + wl->t->id))
+		     || !(wl->t->type == PRECOLORED
+			  || TEST_BIT (sup_igraph,
+				       wl->t->id * num_webs + tweb->id)))
+		    && hard_regs_intersect_p (&tweb->usable_regs,
+					      &wl->t->usable_regs))
+		  {
+		    /*ra_debug_msg (DUMP_COLORIZE, "add conflict %d - %d\n",
+				  tweb->id, wl->t->id);*/
+		    if (wl->sub == NULL)
+		      record_conflict (tweb, wl->t);
+		    else
+		      {
+			struct sub_conflict *sl;
+			for (sl = wl->sub; sl; sl = sl->next)
+			  record_conflict (tweb, sl->t);
+		      }
+		  }
+		if (aweb->type != PRECOLORED)
+		  break;
+	      }
+	  }
     }
 }
 
@@ -2277,17 +2380,32 @@ restore_conflicts_from_coalesce (web)
 	      }
 	    if (!owl && other->type != PRECOLORED)
 	      abort ();
+	    /*ra_debug_msg (DUMP_COLORIZE, "delete conflict %d - %d\n", web->id,
+			  other->id);*/
 	    /* wl and owl contain the edge data to be deleted.  */
 	    RESET_BIT (sup_igraph, web->id * num_webs + other->id);
 	    RESET_BIT (sup_igraph, other->id * num_webs + web->id);
 	    RESET_BIT (igraph, igraph_index (web->id, other->id));
-	    for (sl = wl->sub; sl; sl = sl->next)
+	      {
+		struct web *sub1, *sub2;
+		for (sub1 = web->subreg_next; sub1; sub1 = sub1->subreg_next)
+		  {
+		    RESET_BIT (igraph, igraph_index (other->id, sub1->id));
+		    for (sub2 = other->subreg_next; sub2; sub2 =
+			 sub2->subreg_next)
+		      RESET_BIT (igraph, igraph_index (sub1->id, sub2->id));
+		  }
+		for (sub2 = other->subreg_next; sub2; sub2 =
+		     sub2->subreg_next)
+		  RESET_BIT (igraph, igraph_index (web->id, sub2->id));
+	      }
+/*	    for (sl = wl->sub; sl; sl = sl->next)
 	      RESET_BIT (igraph, igraph_index (sl->s->id, sl->t->id));
 	    if (other->type != PRECOLORED)
 	      {
 		for (sl = owl->sub; sl; sl = sl->next)
 		  RESET_BIT (igraph, igraph_index (sl->s->id, sl->t->id));
-	      }
+	      }*/
 	  }
       }
 
@@ -2309,6 +2427,8 @@ restore_conflicts_from_coalesce (web)
 	struct web *tweb;
 	for (tweb = wl->t->alias; tweb; tweb = tweb->alias)
 	  {
+	    /*ra_debug_msg (DUMP_COLORIZE, "add conflict %d - %d\n",
+			  tweb->id, web->id);*/
 	    if (wl->sub == NULL)
 	      record_conflict (web, tweb);
 	    else

@@ -276,8 +276,8 @@ copy_insn_p (insn, source, target)
   /* Copies between hardregs are useless for us, as not coalesable anyway. */
   if ((s_regno < FIRST_PSEUDO_REGISTER
        && d_regno < FIRST_PSEUDO_REGISTER)
-      || SPILL_SLOT_P (s_regno)
-      || SPILL_SLOT_P (d_regno))
+      /*|| SPILL_SLOT_P (s_regno)
+      || SPILL_SLOT_P (d_regno)*/)
     return 0;
 
   if (source)
@@ -540,6 +540,7 @@ union_web_part_roots (r1, r2)
 	}
       r2->sub_conflicts = NULL;
       r1->crosses_call |= r2->crosses_call;
+      r1->crosses_bb |= r2->crosses_bb;
     }
   return r1;
 }
@@ -908,6 +909,7 @@ live_in_edge (df, use, e)
   if ((e->flags & EDGE_EH) && use->regno < FIRST_PSEUDO_REGISTER
       && call_used_regs[use->regno])
     return NULL_RTX;
+  find_web_part (use->wp)->crosses_bb = 1;
   if (e->flags & EDGE_ABNORMAL)
     use->live_over_abnormal = 1;
   bitmap_set_bit (live_at_end[e->src->index], DF_REF_ID (use->wp->ref));
@@ -1015,7 +1017,9 @@ update_regnos_mentioned ()
     if (INSN_P (insn))
       {
 	/* Don't look at old insns.  */
-	if (INSN_UID (insn) < last_uid)
+	if (INSN_UID (insn) < last_uid
+	    && (last_changed_insns == NULL
+		|| !bitmap_bit_p (last_changed_insns, INSN_UID (insn)) ))
 	  {
 	    /* XXX We should also remember moves over iterations (we already
 	       save the cache, but not the movelist).  */
@@ -1028,6 +1032,9 @@ update_regnos_mentioned ()
 	    struct ra_bb_info *info = (struct ra_bb_info *) bb->aux;
 	    bitmap mentioned = info->regnos_mentioned;
 	    struct df_link *link;
+	    if (last_changed_insns
+		&& bitmap_bit_p (last_changed_insns, INSN_UID (insn)))
+	      copy_cache[INSN_UID (insn)].seen = 0;
 	    if (copy_insn_p (insn, &source, NULL))
 	      {
 		remember_move (insn);
@@ -1556,11 +1563,19 @@ add_conflict_edge (from, to)
 	      cl->sub = sl;
 	    }
 	}
-      else
-	/* pfrom == from && pto == to means, that we are not interested
-	   anymore in the subconflict list for this pair, because anyway
-	   the whole webs conflict.  */
-	cl->sub = NULL;
+      else if (cl->sub != NULL)
+	{
+	  /* pfrom == from && pto == to means, that we are not interested
+	     anymore in the subconflict list for this pair, because anyway
+	     the whole webs conflict.  We unfortunately also need to clean
+	     the bits in the igraph bitmap, otherwise it could happen,
+	     that this conflict is deleted again (e.g. by breaking an alias),
+	     but a subconflict is added again.  This then wouldn't be done
+	     as long as the bitmap still contains that index.  */
+	  for (sl = cl->sub; sl; sl = sl->next)
+	    RESET_BIT (igraph, igraph_index (sl->s->id, sl->t->id));
+	  cl->sub = NULL;
+	}
     }
 }
 
@@ -1612,6 +1627,15 @@ record_conflict (web1, web2)
       bitmap_set_bit (p2->useless_conflicts, p1->id);
       return;
     }
+#if 0
+  ra_debug_msg (DUMP_COLORIZE, "creating conflict %d", web1->id);
+  if (web1->parent_web)
+    ra_debug_msg (DUMP_COLORIZE, "(%d)", web1->parent_web->id);
+  ra_debug_msg (DUMP_COLORIZE, " - %d", web2->id);
+  if (web2->parent_web)
+    ra_debug_msg (DUMP_COLORIZE, "(%d)", web2->parent_web->id);
+  ra_debug_msg (DUMP_COLORIZE, "\n");
+#endif
   SET_BIT (igraph, index);
   add_conflict_edge (web1, web2);
   add_conflict_edge (web2, web1);
@@ -1797,6 +1821,7 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 	  /* Otherwise, we look for an old web.  */
 	  else
 	    {
+	      int oldch = -1;
 	      /* Remember, that use2web == def2web + def_id.
 		 Ergo is def2web[i] == use2web[i - def_id] for i >= def_id.
 		 So we only need to look into def2web[] array.
@@ -1818,7 +1843,10 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 		{
 		  /* Otherwise use a new one.  First from the free list.  */
 		  if (WEBS(FREE))
-		    web = DLIST_WEB (pop_list (&WEBS(FREE)));
+		    {
+		      web = DLIST_WEB (pop_list (&WEBS(FREE)));
+		      /*oldch = web->changed;*/
+		    }
 		  else
 		    {
 		      /* Else allocate a new one.  */
@@ -1836,9 +1864,12 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 		init_one_web (web, GET_CODE (reg) == SUBREG
 				   ? SUBREG_REG (reg) : reg);
 	      web->old_web = (old_web && web->type != PRECOLORED) ? 1 : 0;
+	      if (oldch != -1)
+		web->changed = oldch;
 	    }
 	  web->span_deaths = wp->spanned_deaths;
 	  web->crosses_call = wp->crosses_call;
+	  web->crosses_bb = wp->crosses_bb;
 	  web->id = newid;
 	  web->temp_refs = NULL;
 	  webnum++;
@@ -1850,8 +1881,8 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 	}
 
       /* If this reference already had a web assigned, we are done.
-         This test better is equivalent to the web being an old web.
-         Otherwise something is screwed.  (This is tested)  */
+         From this it should follow, that this is an old web.
+         Otherwise something is screwed.  (This is tested later)  */
       if (def2web[i] != NULL)
 	{
 	  web = def2web[i];
@@ -1883,15 +1914,6 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 	  web = find_web_for_subweb (web);
 	}
 
-      /* Remember all references for a web in a single linked list.  */
-      all_refs[i].next = web->temp_refs;
-      web->temp_refs = &all_refs[i];
-
-      /* And the test, that if def2web[i] was NULL above, that we are _not_
-	 an old web.  */
-      if (web->old_web && web->type != PRECOLORED)
-	abort ();
-
       /* Possible create a subweb, if this ref was a subreg.  */
       if (GET_CODE (reg) == SUBREG)
 	{
@@ -1905,6 +1927,41 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 	}
       else
 	subweb = web;
+
+      /* It can happen that this is an old web, but still the current
+	 ref hadn't that web noted in def2web[i].  I.e. strictly speaking the
+	 set of references of that web had changed, which in one way
+	 makes the notion of old web invalid.  But the exact circumstances
+	 of this are, that an insn was modified, because it was changed
+	 (not newly created).  df.c is not clever enough to record only the
+	 really changed references, but instead deletes and recreates all of
+	 them.  This means, that even some unchanged references will
+	 get deleted/recreated, which in turn means a "new" ref for that web.
+	 But it also means one "deleted" ref for it, so we simply replace
+	 the refs inline.  */
+      if (web->old_web && web->type != PRECOLORED)
+	{
+	  unsigned int count, r;
+	  struct ref **refs, **dfrefs;
+	  if (i < def_id)
+	    count = web->num_defs, refs = web->defs, dfrefs = df->defs;
+	  else
+	    count = web->num_uses, refs = web->uses, dfrefs = df->uses;
+	  for (r = 0; r < count; r++)
+	    if (dfrefs[DF_REF_ID (refs[r])] == NULL)
+	      break;
+	  /* If we couldn't find a deleted reference in that web,
+	     something was screwed.  */
+	  if (r == count)
+	    abort ();
+	  refs[r] = ref;
+	  def2web[i] = subweb;
+	  continue;
+	}
+
+      /* Remember all references for a web in a single linked list.  */
+      all_refs[i].next = web->temp_refs;
+      web->temp_refs = &all_refs[i];
 
       /* And look, if the ref involves an invalid mode change.  */
       if ((DF_REF_FLAGS (ref) & DF_REF_MODE_CHANGE) != 0
@@ -1970,7 +2027,7 @@ parts_to_webs (df)
   unsigned int i;
   unsigned int webnum;
   struct web_link *copy_webs = NULL;
-  struct dlist *d;
+  struct dlist *d, *d_next;
   struct df_link *all_refs;
   num_subwebs = 0;
 
@@ -2039,6 +2096,25 @@ parts_to_webs (df)
       ID2WEB (web->id) = web;
       for (web = web->subreg_next; web; web = web->subreg_next)
         ID2WEB (web->id) = web;
+    }
+
+  /* Eventually there are holes in the id2web array, in case one web
+     was completely eliminated in the last pass.  Simply include it again,
+     it will get no conflicts, and ergo will become colorized.  */
+  for (d = WEBS(FREE); d; d = d_next)
+    {
+      struct web *web = DLIST_WEB (d);
+      d_next = d->next;
+      if (ID2WEB (web->id) == NULL)
+	{
+	  unsigned int newid = web->id;
+	  unsigned int oldch = web->changed;
+	  remove_list (d, &WEBS(FREE));
+	  init_one_web (web, web->orig_x);
+	  web->id = newid;
+	  ID2WEB (web->id) = web;
+	  web->changed = oldch;
+	}
     }
   num_subwebs = webnum - last_num_webs;
   num_allwebs = num_webs + num_subwebs;
@@ -2381,7 +2457,7 @@ detect_spill_temps ()
 	  else if ((flag_ra_spanned_deaths_from_scratch
 		    ? spanned_deaths_from_scratch[web->id] == 0
 		    : web->span_deaths == 0)
-		   && !web->crosses_call)
+		   && !web->crosses_call && !web->crosses_bb)
 	    web->spill_temp = 3;
 	}
       web->orig_spill_temp = web->spill_temp;
@@ -2594,7 +2670,10 @@ determine_web_costs ()
       /* We create only loads at deaths, whose number is in span_deaths.  */
       num_loads = MIN (web->span_deaths, web->num_uses);
       for (w = 0, i = 0; i < web->num_uses; i++)
-	w += DF_REF_BB (web->uses[i])->frequency + 1;
+	if (DF_REF_FLAGS (web->uses[i]) & DF_REF_MEM_OK)
+	  w += DF_REF_BB (web->uses[i])->frequency + 1;
+	else
+	  w += 2 * (DF_REF_BB (web->uses[i])->frequency + 1);
 #if 0
       for (i = 0; i < web->num_defs; i++)
 	w += DF_REF_BB (web->defs[i])->frequency /*+ 1*/;
@@ -2608,7 +2687,10 @@ determine_web_costs ()
       if (store_cost)
 	{
 	  for (w = 0, i = 0; i < web->num_defs; i++)
-	    w += DF_REF_BB (web->defs[i])->frequency + 1;
+	    if (DF_REF_FLAGS (web->defs[i]) & DF_REF_MEM_OK)
+	      w += DF_REF_BB (web->defs[i])->frequency + 1;
+	    else
+	      w += 2 * (DF_REF_BB (web->defs[i])->frequency + 1);
 	  web->spill_cost += w * store_cost;
 	}
 #endif
@@ -3307,7 +3389,9 @@ detect_spanned_deaths (spanned_deaths)
       already = BITMAP_XMALLOC ();
       fprintf (stderr, ":::: Detect_spanned_deaths :::\n");
     }
-  
+
+  sbitmap_zero (defs_per_insn);
+
   FOR_ALL_BB (bb)
     {
       if (!bb->end)
@@ -3351,6 +3435,7 @@ detect_spanned_deaths (spanned_deaths)
 	{
 	  struct ra_insn_info info;
 	  unsigned int n;
+	  unsigned int has_useless_defs = 0;
 
 	  if (!INSN_P (insn))
 	    continue;
@@ -3374,7 +3459,12 @@ detect_spanned_deaths (spanned_deaths)
 	      struct web *subweb = def2web[DF_REF_ID (ref)];
 	      int is_non_def = 0;
 
+	      if (is_partly_dead (live, subweb))
+		has_useless_defs++;
+
 	      web = find_web_for_subweb (subweb);
+	      /*reset_web_live (live, web);*/
+	      reset_web_live (live, subweb);
 	      /* Detect rmw webs.  */
 	      for (n2 = 0; n2 < info.num_uses; n2++)
 		{
@@ -3383,6 +3473,7 @@ detect_spanned_deaths (spanned_deaths)
 		    {
 		      SET_BIT (rmw_web, web->id);
 		      SET_BIT (rmw_web, web2->id);
+		      set_web_live (live, web2);
 		      is_non_def = 1;
 		    }
 		}
@@ -3392,8 +3483,6 @@ detect_spanned_deaths (spanned_deaths)
 		    fprintf (stderr, "    web %d RMW\n", web->id);
 		  continue;
 		}
-
-	      reset_web_live (live, web);
 	      
 	      SET_BIT (defs_per_insn, web->id);
 	      if (!web->parent_web)
@@ -3412,68 +3501,67 @@ detect_spanned_deaths (spanned_deaths)
 		} 
 	    }
 #if 1
-	  EXECUTE_IF_SET_IN_SBITMAP
-	    (defs_per_insn, 0, n,
-	     {
-	       RESET_BIT (defs_per_insn, n);
-	       EXECUTE_IF_SET_IN_SBITMAP
-		 (live, 0, i,
-		  {
-		    if (! bitmap_bit_p (emitted_by_spill, INSN_UID (insn)))
-		      {
-			struct web *supweb;
-			supweb = find_web_for_subweb (id2web[i]);
-			spanned_deaths[i]++;
-			if (supweb && i != supweb->id)
-			  spanned_deaths[supweb->id]++;
-			   
-			if (debug)
-			  {
-			    if (i != supweb->id)
-			      fprintf (stderr, " %d.%d", supweb->id, i);
-			    else
-			      fprintf (stderr, " %d", i);
-			  }
-		      }
-		  });
-	     });
+	  if (has_useless_defs
+	      && ! bitmap_bit_p (emitted_by_spill, INSN_UID (insn)))
+	    {
+	      EXECUTE_IF_SET_IN_SBITMAP
+		(live, 0, i,
+		 {
+		   struct web *supweb;
+		   supweb = find_web_for_subweb (id2web[i]);
+		   if (!TEST_BIT (rmw_web, supweb->id))
+		     {
+		       spanned_deaths[i] += has_useless_defs;
+		       if (supweb && i != supweb->id)
+			 spanned_deaths[supweb->id] += has_useless_defs;
+
+		       if (debug)
+			 {
+			   if (i != supweb->id)
+			     fprintf (stderr, " %d.%d", supweb->id, i);
+			   else
+			     fprintf (stderr, " %d", i);
+			 }
+		     }
+		 });
+	    }
 	  if (debug)
 	    fprintf (stderr, "\n");
 #endif
-	  for (n = 0; n < info.num_uses; n++)
-	    {
-	      struct web *web = use2web[DF_REF_ID (info.uses[n])];
-	      if (is_partly_dead (live, web))
-		{
-		  if (debug)
-		    fprintf (stderr, "    Death web %d in insn: %d ++",
-			     web->id, INSN_UID(insn));
+	  if (! bitmap_bit_p (emitted_by_spill, INSN_UID (insn)))
+	    for (n = 0; n < info.num_uses; n++)
+	      {
+		struct web *web = use2web[DF_REF_ID (info.uses[n])];
+		if (is_partly_dead (live, web))
+		  {
+		    if (debug)
+		      fprintf (stderr, "    Death web %d in insn: %d ++",
+			       web->id, INSN_UID(insn));
 
-		  EXECUTE_IF_SET_IN_SBITMAP
-		    (live, 0, i,
-		     {
-		       if (! bitmap_bit_p (emitted_by_spill, INSN_UID (insn))
-  			   && ! TEST_BIT (rmw_web, i))
-			 {
-			   struct web *supweb;
-			   supweb = find_web_for_subweb (id2web[i]);
-			   spanned_deaths[i]++;
-			   if (supweb && i != supweb->id)
-			     spanned_deaths[supweb->id]++;
-			   
-			   if (debug)
-			     {
-			       if (i != supweb->id)
-				 fprintf (stderr, " %d.%d", supweb->id, i);
-			       else
-				 fprintf (stderr, " %d", i);
-			     }
-			 }
-		     });
-		  if (debug)
-		    fprintf (stderr, "\n");
-		}
-	    }
+		    EXECUTE_IF_SET_IN_SBITMAP
+			(live, 0, i,
+		       {
+			 struct web *supweb;
+			 supweb = find_web_for_subweb (id2web[i]);
+			 if (! TEST_BIT (rmw_web, supweb->id))
+			   {
+			     spanned_deaths[i]++;
+			     if (supweb && i != supweb->id)
+			       spanned_deaths[supweb->id]++;
+			     
+			     if (debug)
+			       {
+				 if (i != supweb->id)
+				   fprintf (stderr, " %d.%d", supweb->id, i);
+				 else
+				   fprintf (stderr, " %d", i);
+			       }
+			   }
+		       });
+		    if (debug)
+		     fprintf (stderr, "\n");
+		  }
+	      }
 	  
 	  for (n = 0; n < info.num_uses; n++)
 	    {

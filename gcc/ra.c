@@ -94,6 +94,7 @@ static void free_mem PARAMS ((struct df *));
 static void free_all_mem PARAMS ((struct df *df));
 static int one_pass PARAMS ((struct df *, int));
 static void validify_one_insn PARAMS ((rtx));
+static void detect_possible_mem_refs PARAMS ((struct df *));
 static void check_df PARAMS ((struct df *));
 static void init_ra PARAMS ((void));
 
@@ -436,6 +437,9 @@ free_all_mem (df)
 
   ra_colorize_free_all ();
   ra_build_free_all (df);
+  if (last_changed_insns)
+    BITMAP_XFREE (last_changed_insns);
+  last_changed_insns = NULL;
   obstack_free (&ra_obstack, NULL);
 }
 
@@ -741,6 +745,46 @@ make_insns_structurally_valid (void)
   reload_in_progress = old_rip;
 }
 
+static void
+detect_possible_mem_refs (df)
+     struct df *df;
+{
+  rtx insn;
+  int old_rip = reload_in_progress;
+  reload_in_progress = 0;
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      {
+	struct df_link *l;
+	int alt, valid, n_ops;
+	int i, pass;
+	struct operand_alternative *op_alt;
+	extract_insn (insn);
+	valid = constrain_operands (0);
+	if (!valid)
+	  continue;
+	preprocess_constraints ();
+	alt = which_alternative;
+	n_ops = recog_data.n_operands;
+	for (pass = 0; pass < 2; pass++)
+	  for (l = (pass == 0) ? DF_INSN_DEFS (df, insn)
+	       : DF_INSN_USES (df, insn); l; l = l->next)
+	    for (i = 0; i < n_ops; i++)
+	      if (recog_data.operand_loc[i] == DF_REF_LOC (l->ref))
+		{
+		  op_alt = &recog_op_alt[i][alt];
+		  while (op_alt->matches > 0)
+		    op_alt = &recog_op_alt[op_alt->matches][alt];
+		  if (op_alt->memory_ok || op_alt->offmem_ok ||
+		      op_alt->nonoffmem_ok || op_alt->anything_ok)
+		    DF_REF_FLAGS (l->ref) |= DF_REF_MEM_OK;
+		  else
+		    DF_REF_FLAGS (l->ref) &= ~DF_REF_MEM_OK;
+		}
+      }
+  reload_in_progress = old_rip;
+}
+
 /* XXX see recog.c  */
 extern int while_newra;
 
@@ -829,6 +873,7 @@ reg_alloc ()
   last_use_id = 0;
   last_num_webs = 0;
   last_max_uid = 0;
+  last_changed_insns = NULL;
   last_check_uses = NULL;
   live_at_end = NULL;
   WEBS(INITIAL) = NULL;
@@ -919,6 +964,7 @@ reg_alloc ()
 	print_rtl_with_bb (rtl_dump_file, get_insns ());
       verify_flow_info ();*/
 
+      detect_possible_mem_refs (df);
       /* Build and colorize the interference graph, and possibly emit
 	 spill insns.  This also might delete certain move insns.  */
       changed = one_pass (df, ra_pass > 1);
@@ -1032,11 +1078,11 @@ reg_alloc ()
   /*compute_bb_for_insn ();*/
   /*clear_log_links (get_insns ());*/
   life_analysis (get_insns (), rtl_dump_file,
-		 PROP_DEATH_NOTES | PROP_LOG_LINKS  | PROP_REG_INFO);
+		 PROP_DEATH_NOTES | PROP_LOG_LINKS | PROP_REG_INFO);
 /*  recompute_reg_usage (get_insns (), TRUE);
   life_analysis (get_insns (), rtl_dump_file,
 		 PROP_SCAN_DEAD_CODE | PROP_KILL_DEAD_CODE); */
-  cleanup_cfg (CLEANUP_EXPENSIVE);
+  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
   recompute_reg_usage (get_insns (), TRUE);
 /*  delete_trivially_dead_insns (get_insns (), max_reg_num ());*/
   if (rtl_dump_file)
@@ -1067,6 +1113,39 @@ reg_alloc ()
   /* Remove REG_DEAD notes which are incorrectly set.  See the docu
      of that function.  */
   remove_suspicious_death_notes ();
+
+  /* Since we can color some webs the same without them being coalesced
+     (e.g. by using the prefer_colors set), we have the same problem
+     potentially for all webs, not just for those coalesced to hardregs.
+     For now we need to remove _all_ REG_DEAD notes, not just those
+     mentioned above.  */
+#if 0
+  count_or_remove_death_notes (NULL, 1);
+  /* Bah.  No, that won't work.  Deleting all REG_DEAD notes constrains
+     reload too much, and it can't sometimes find registers for reloads,
+     e.g. by thinking some hardregs are live during an insn, when there
+     aren't.  We use this frightening kludge to get around that.
+     We first change everything into hardregs, add REG_DEAD notes for
+     that representation, and finally change it back to pseudos.  This
+     replaces sometimes pseudos back into the REG_DEAD notes and some-
+     times not (in case it created a copy of the reg rtx for the note.
+     But this doesn't matter, because reload itself is also replacing
+     it with the hardregs again.  */
+    {
+      int i;
+      for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+	if (regno_reg_rtx[i] && GET_CODE (regno_reg_rtx[i]) == REG)
+	  REGNO (regno_reg_rtx[i])
+	      = reg_renumber[i] >= 0 ? reg_renumber[i] : i;
+      /*mark_regs_live_at_end (EXIT_BLOCK_PTR->global_live_at_start);
+      update_life_info (NULL, UPDATE_LIFE_GLOBAL, PROP_DEATH_NOTES);*/
+      life_analysis (get_insns (), rtl_dump_file, PROP_DEATH_NOTES);
+      for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+	if (regno_reg_rtx[i] && GET_CODE (regno_reg_rtx[i]) == REG)
+	  REGNO (regno_reg_rtx[i]) = i;
+    }
+  recompute_reg_usage (get_insns (), TRUE);
+#endif
 
   if ((debug_new_regalloc & DUMP_LAST_RTL) != 0)
     ra_print_rtl_with_bb (rtl_dump_file, get_insns ());

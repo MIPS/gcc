@@ -77,6 +77,7 @@ static void emit_output_pre_reload_insns PARAMS ((rtx, struct reload *, int));
 static int pseudo_clobbered_p    PARAMS ((unsigned int, rtx, enum machine_mode,
 					  int));
 static void pre_reload_collect   PARAMS ((struct ra_info *, bitmap));
+static int pre_operands_match_p  PARAMS ((rtx, rtx));
 static void collect_insn_info    PARAMS ((struct ra_info *, rtx,
 					  ra_ref **, ra_ref **,
 					  int *, int *));
@@ -144,6 +145,7 @@ gen_pre_reload (out, in, opnum, type, class)
 
   /* If IN is a paradoxical SUBREG, remove it and try to put the
      opposite SUBREG on OUT.  Likewise for a paradoxical SUBREG on OUT.  */
+#if 0
   if (GET_CODE (in) == SUBREG
       && (GET_MODE_SIZE (GET_MODE (in))
 	  > GET_MODE_SIZE (GET_MODE (SUBREG_REG (in))))
@@ -155,6 +157,10 @@ gen_pre_reload (out, in, opnum, type, class)
 	    > GET_MODE_SIZE (GET_MODE (SUBREG_REG (out))))
 	&& (tem = gen_lowpart_common (GET_MODE (SUBREG_REG (out)), in)) != 0)
       out = SUBREG_REG (out), in = tem;
+#endif
+
+  out = copy_rtx (out);
+  in = copy_rtx (in);
 
   /* How to do this reload can get quite tricky.  Normally, we are being
      asked to reload a simple operand, such as a MEM, a constant, or a pseudo
@@ -360,6 +366,10 @@ inc_for_pre_reload (reloadreg, in, value, inc_amount)
 
   inc = GEN_INT (inc_amount);
 
+  reloadreg = copy_rtx (reloadreg);
+  incloc = copy_rtx (reloadreg);
+  real_in = copy_rtx (real_in);
+
   /* If this is post-increment, first copy the location to the reload reg.  */
   if (post && real_in != reloadreg)
     emit_insn (gen_move_insn (reloadreg, real_in));
@@ -495,12 +505,16 @@ emit_input_pre_reload_insns (insn, rl, old, j)
 	    }
 	  else if (GET_MODE_SIZE (GET_MODE (reloadreg))
 		   == GET_MODE_SIZE (mode))
-	    reloadreg = gen_rtx_REG (mode, REGNO (reloadreg));
+	    reloadreg = simplify_gen_subreg (mode, reloadreg,
+					     GET_MODE (reloadreg), 0);
+	    /* reloadreg = gen_rtx_REG (mode, REGNO (reloadreg)); */
 	  else
 	    abort ();
 	}
       else
-	reloadreg = gen_rtx_REG (mode, REGNO (reloadreg));
+	reloadreg = simplify_gen_subreg (mode, reloadreg,
+					 GET_MODE (reloadreg), 0);
+	/* reloadreg = gen_rtx_REG (mode, REGNO (reloadreg)); */
     }
   
   while (GET_CODE (oldequiv) == SUBREG && GET_MODE (oldequiv) != mode)
@@ -705,12 +719,16 @@ emit_output_pre_reload_insns (insn, rl, j)
 	    }
 	  else if (GET_MODE_SIZE (GET_MODE (reloadreg))
 		   == GET_MODE_SIZE (mode))
-	    reloadreg = gen_rtx_REG (mode, REGNO (reloadreg));
+	    reloadreg = simplify_gen_subreg (mode, reloadreg,
+					     GET_MODE (reloadreg), 0);
+	    /* reloadreg = gen_rtx_REG (mode, REGNO (reloadreg)); */
 	  else
 	    abort ();
 	}
       else
-	reloadreg = gen_rtx_REG (mode, REGNO (reloadreg));
+	reloadreg = simplify_gen_subreg (mode, reloadreg,
+					 GET_MODE (reloadreg), 0);
+	/* reloadreg = gen_rtx_REG (mode, REGNO (reloadreg)); */
     }
 
   /* Output the last reload insn.  */
@@ -896,6 +914,9 @@ subst_pre_reloads (insn)
     {
       struct replacement *r = &replacements[i];
       rtx reloadreg = rld[r->what].reg_rtx;
+      if (GET_CODE (reloadreg) != REG)
+	reloadreg = copy_rtx (reloadreg);
+
       if (reloadreg && ! rld[r->what].optional)
 	{
 	  /* Encapsulate RELOADREG so its machine mode matches what
@@ -922,12 +943,16 @@ subst_pre_reloads (insn)
 		    }
 		  else if (GET_MODE_SIZE (GET_MODE (reloadreg))
 			   == GET_MODE_SIZE (r->mode))
-		    reloadreg = gen_rtx_REG (r->mode, REGNO (reloadreg));
+		    reloadreg = simplify_gen_subreg (r->mode, reloadreg,
+						     GET_MODE (reloadreg), 0);
+		    /*reloadreg = gen_rtx_REG (r->mode, REGNO (reloadreg));*/
 		  else
 		    abort ();
 		}
 	      else
-		reloadreg = gen_rtx_REG (r->mode, REGNO (reloadreg));
+		reloadreg = simplify_gen_subreg (r->mode, reloadreg,
+						 GET_MODE (reloadreg), 0);
+		/* reloadreg = gen_rtx_REG (r->mode, REGNO (reloadreg)); */
 	    }
 
 	  /* If we are putting this into a SUBREG and RELOADREG is a
@@ -1228,7 +1253,8 @@ push_pre_reload (in, out, inloc, outloc, class,
       && (CONSTANT_P (SUBREG_REG (in))
 	  || GET_CODE (SUBREG_REG (in)) == PLUS
 	  || strict_low
-	  || (((GET_CODE (SUBREG_REG (in)) == REG
+	  || (((0
+		&& GET_CODE (SUBREG_REG (in)) == REG
 		&& REGNO (SUBREG_REG (in)) >= FIRST_PSEUDO_REGISTER)
 	       || GET_CODE (SUBREG_REG (in)) == MEM)
 	      && ((GET_MODE_SIZE (inmode)
@@ -1288,7 +1314,7 @@ push_pre_reload (in, out, inloc, outloc, class,
   /* Similar issue for (SUBREG constant ...) if it was not handled by the
      code above.  This can happen if SUBREG_BYTE != 0.  */
 
-  if (in != 0 && reload_inner_reg_of_subreg (in, inmode))
+  if (in != 0 && reload_inner_reg_of_subreg (in, inmode, 0))
     {
       enum reg_class in_class = class;
 
@@ -1326,7 +1352,8 @@ push_pre_reload (in, out, inloc, outloc, class,
 #endif
       && (CONSTANT_P (SUBREG_REG (out))
 	  || strict_low
-	  || (((GET_CODE (SUBREG_REG (out)) == REG
+	  || (((0
+		&& GET_CODE (SUBREG_REG (out)) == REG
 		&& REGNO (SUBREG_REG (out)) >= FIRST_PSEUDO_REGISTER)
 	       || GET_CODE (SUBREG_REG (out)) == MEM)
 	      && ((GET_MODE_SIZE (outmode)
@@ -1386,7 +1413,7 @@ push_pre_reload (in, out, inloc, outloc, class,
      However, we must reload the inner reg *as well as* the subreg in
      that case.  In this case, the inner reg is an in-out reload.  */
 
-  if (out != 0 && reload_inner_reg_of_subreg (out, outmode))
+  if (out != 0 && reload_inner_reg_of_subreg (out, outmode, 1))
     {
       /* This relies on the fact that emit_reload_insns outputs the
 	 instructions for output reloads of type RELOAD_OTHER in reverse
@@ -2035,10 +2062,10 @@ scan_addr_create_ref (ra_info, loc, scan_state, ref_type)
   ref->matches = NULL;
   ref->matched = NULL;
   ref->class = scan_state->class;
-  if (REGNO (ref->reg) < FIRST_PSEUDO_REGISTER)
+  if (RA_REF_REGNO (ref) < FIRST_PSEUDO_REGISTER)
     {
       CLEAR_HARD_REG_SET (ref->hardregs);
-      SET_HARD_REG_BIT (ref->hardregs, REGNO (ref->reg));
+      SET_HARD_REG_BIT (ref->hardregs, RA_REF_REGNO (ref));
     }
   else
     COPY_HARD_REG_SET (ref->hardregs, reg_class_contents[ref->class]);
@@ -2049,6 +2076,35 @@ scan_addr_create_ref (ra_info, loc, scan_state, ref_type)
   if (RA_REF_READ_P (ref))
     *scan_state->uses++ = ref;
   return ref;
+}
+
+static int
+pre_operands_match_p (x, y)
+     rtx x, y;
+{
+  rtx s = (GET_CODE (x) == SUBREG) ? x : y;
+  rtx t = (s == x) ? y : x;
+  /* As we are working on pseudos, which only have one mode,
+     we can't easily prereload operands which must match, but have different
+     modes.  This should happen only for scratches, so simply take them
+     as matching.  */ 
+/*  if (GET_MODE (x) != GET_MODE (y)
+      && (GET_CODE (x) == SCRATCH || GET_CODE (y) == SCRATCH))
+    return 1;*/
+  /* Both must be regs.  */
+  if (REG_P (s))
+    return s == t;
+  /* Both are subregs of regs.  */
+  if (GET_CODE (t) == SUBREG && REG_P (SUBREG_REG (s))
+      && REG_P (SUBREG_REG (t)))
+    return SUBREG_REG (s) == SUBREG_REG (t);
+  if (GET_CODE (s) == SUBREG && REG_P (SUBREG_REG (s)) && REG_P (t))
+    return SUBREG_REG (s) == t;
+/*  if (GET_CODE (x) == SUBREG && GET_CODE (y) == SUBREG
+      && GET_CODE (SUBREG_REG (x)) == REG && GET_CODE (SUBREG_REG (y)) == REG
+      && REGNO (SUBREG_REG (x)) == REGNO (SUBREG_REG (y)))
+    return 1;*/
+  return operands_match_p (x, y);
 }
 
 /* Pre-reload INSN or collect all defs/uses for INSN.
@@ -2206,7 +2262,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 			op2 = SUBREG_REG (op2);
 		    }
 		}
-	      operands_match[c][i] = operands_match_p (op1, op2);;
+	      operands_match[c][i] = pre_operands_match_p (op1, op2);;
 
 	      /* An operand may not match itself.  */
 	      if (c == i)
@@ -2220,14 +2276,14 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 		    {
 		      int other = c + (c == commutative ? 1 : -1);
 		      operands_match[other][i]
-			= operands_match_p (recog_data.operand[other],
+			= pre_operands_match_p (recog_data.operand[other],
 					    recog_data.operand[i]);
 		    }
 		  if (i == commutative || i == commutative + 1)
 		    {
 		      int other = i + (i == commutative ? 1 : -1);
 		      operands_match[c][other]
-			= operands_match_p (recog_data.operand[c],
+			= pre_operands_match_p (recog_data.operand[c],
 					    recog_data.operand[other]);
 		    }
 		  /* Note that C is supposed to be less than I.
@@ -2380,6 +2436,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	     operand.  */
 	  int constmemok = 0;
 	  int earlyclobber = 0;
+	  int match_seen = 0;
 
 	  /* If the predicate accepts a unary operator, it means that
 	     we need to reload the operand, but do not do this for
@@ -2440,7 +2497,8 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 		     of a mem that is _not_ to be handled specialy?  IMO
 		     those should have been reduced to just a mem.  */
 		  || ((GET_CODE (operand) == MEM
-		       || (REG_P (operand)
+		       || (0
+			   && REG_P (operand)
 			   && REGNO (operand) >= FIRST_PSEUDO_REGISTER))
 #ifndef WORD_REGISTER_OPERATIONS
 		      && (((GET_MODE_BITSIZE (GET_MODE (operand))
@@ -2495,6 +2553,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	     or set WINREG if this operand could fit after reloads
 	     provided the constraint allows some registers.  */
 
+	  match_seen = 0;
 	  while (*p && (c = *p++) != ',')
 	    switch (c)
 	      {
@@ -2522,13 +2581,15 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	      case '#':
 		/* Ignore rest of this alternative as far as
 		   reloading is concerned.  */
-		while (*p && *p != ',')
-		  p++;
+		if (match_seen)
+		  while (*p && *p != ',')
+		    p++;
 		break;
 
 	      case '0':  case '1':  case '2':  case '3':  case '4':
 	      case '5':  case '6':  case '7':  case '8':  case '9':
 
+		match_seen = 1;
 		c -= '0';
 		this_alternative_matches[i] = c;
 		/* We are supposed to match a previous operand.
@@ -2867,7 +2928,8 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 		 it will then win since we don't want to have a different
 		 alternative match then.  */
 	      if (! (REG_P (operand)
-		     && REGNO (operand) >= FIRST_PSEUDO_REGISTER)
+		     && (0
+			 && REGNO (operand) >= FIRST_PSEUDO_REGISTER))
 		  && GET_CODE (operand) != SCRATCH
 		  && ! (const_to_mem && constmemok))
 		reject += 2;
@@ -3380,10 +3442,10 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	    else
 	      ref->matches = NULL;
 
-	    if (REGNO (ref->reg) < FIRST_PSEUDO_REGISTER)
+	    if (RA_REF_REGNO (ref) < FIRST_PSEUDO_REGISTER)
 	      {
 		CLEAR_HARD_REG_SET (ref->hardregs);
-		SET_HARD_REG_BIT (ref->hardregs, REGNO (ref->reg));
+		SET_HARD_REG_BIT (ref->hardregs, RA_REF_REGNO (ref));
 	      }
 	    else
 	      COPY_HARD_REG_SET (ref->hardregs,
@@ -3805,7 +3867,7 @@ df_link2ra_link (df2ra, insn, dlink, rlink)
 	  for (link = rlink;link; link = link->next)
 	    {
 	      ra_ref *ref = link->ref;
-	      if (regno == REGNO (ref->reg))
+	      if (regno == RA_REF_REGNO (ref))
 		{
 		  founded = 1;
 		  DF2RA (df2ra, dref) = ref;

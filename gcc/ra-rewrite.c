@@ -22,6 +22,8 @@
 #include "system.h"
 #include "rtl.h"
 #include "tm_p.h"
+#include "insn-config.h"
+#include "recog.h"
 #include "function.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -52,6 +54,7 @@ static void rewrite_program PARAMS ((bitmap));
 static void remember_slot PARAMS ((struct rtx_list **, rtx));
 static int slots_overlap_p PARAMS ((rtx, rtx));
 static void delete_overlapping_slots PARAMS ((struct rtx_list **, rtx));
+static void delete_overlapping_uses PARAMS ((rtx *, void *));
 static int slot_member_p PARAMS ((struct rtx_list *, rtx));
 static void insert_stores PARAMS ((bitmap));
 static int spill_same_color_p PARAMS ((struct web *, struct web *));
@@ -69,6 +72,8 @@ static void detect_web_parts_to_rebuild PARAMS ((void));
 static void delete_useless_defs PARAMS ((void));
 static void detect_non_changed_webs PARAMS ((void));
 static void reset_changed_flag PARAMS ((void));
+
+bitmap last_changed_insns;
 
 /* For tracking some statistics, we count the number (and cost)
    of deleted move insns.  */
@@ -315,17 +320,21 @@ allocate_spill_web (web)
 {
   int regno = web->regno;
   rtx slot;
-  /*unsigned int inherent_size = PSEUDO_REGNO_BYTES (regno);*/
+  unsigned int inherent_size = PSEUDO_REGNO_BYTES (regno);
   /* XXX
      unsigned int total_size = MAX (inherent_size, reg_max_ref_width[i]); */
-  /*unsigned int total_size = MAX (inherent_size, 0);*/
+  unsigned int total_size = MAX (inherent_size, 0);
   if (web->stack_slot)
     return;
-  /*slot = assign_stack_local (PSEUDO_REGNO_MODE (regno), total_size,
-			     inherent_size == total_size ? 0 : -1);
-  RTX_UNCHANGING_P (slot) = RTX_UNCHANGING_P (regno_reg_rtx[regno]);
-  set_mem_alias_set (slot, new_alias_set ());*/
-  slot = gen_reg_rtx (PSEUDO_REGNO_MODE (regno));
+  if (0)
+    {
+      slot = assign_stack_local (PSEUDO_REGNO_MODE (regno), total_size,
+				 inherent_size == total_size ? 0 : -1);
+      RTX_UNCHANGING_P (slot) = RTX_UNCHANGING_P (regno_reg_rtx[regno]);
+      set_mem_alias_set (slot, new_alias_set ());
+    }
+  else
+    slot = gen_reg_rtx (PSEUDO_REGNO_MODE (regno));
   web->stack_slot = slot;
   bitmap_set_bit (spill_slot_regs, REGNO (slot));
 }
@@ -657,6 +666,34 @@ delete_overlapping_slots (list, x)
     }
 }
 
+static void
+delete_overlapping_uses (px, data)
+     rtx *px;
+     void *data;
+{
+  struct rtx_list **list = (struct rtx_list **)data;
+  rtx x = *px;
+  RTX_CODE code = GET_CODE (x);
+  switch (code)
+    {
+      case REG: case SUBREG: case MEM:
+	delete_overlapping_slots (list, x);
+      default:
+	break;
+    }
+  {
+    const char *fmt = GET_RTX_FORMAT (code);
+    int i, j;
+
+    for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+      if (fmt[i] == 'e')
+	delete_overlapping_uses (&XEXP (x, i), data);
+      else if (fmt[i] == 'E')
+	for (j = 0; j < XVECLEN (x, i); j++)
+	  delete_overlapping_uses (&XVECEXP (x, i, j), data);
+  }
+}
+
 /* Returns nonzero, of X is member of LIST.  */
 
 static int
@@ -665,7 +702,12 @@ slot_member_p (list, x)
      rtx x;
 {
   for (;list; list = list->next)
-    if (rtx_equal_p (list->x, x))
+    if (list->x == x
+	|| (REG_P (list->x) && GET_CODE (x) == SUBREG
+	    && list->x == SUBREG_REG (x)
+	    && GET_MODE_SIZE (GET_MODE (list->x)) 
+	       >= GET_MODE_SIZE (GET_MODE (x)))
+	|| rtx_equal_p (list->x, x))
       return 1;
   return 0;
 }
@@ -719,9 +761,12 @@ insert_stores (new_deaths)
 	      /* adjust_address() might generate code.  */
 	      start_sequence ();
 	      if (GET_CODE (source) == SUBREG)
-		slot = simplify_gen_subreg (GET_MODE (source), slot,
-					    GET_MODE (slot),
-					    SUBREG_BYTE (source));
+		{
+		  slot = simplify_gen_subreg (GET_MODE (source), slot,
+					      GET_MODE (slot),
+					      SUBREG_BYTE (source));
+		  source = copy_rtx (source);
+		}
 	      /* If we have no info about emitted stores, or it didn't
 		 contain the location we intend to use soon, then
 		 add the store.  */
@@ -731,7 +776,18 @@ insert_stores (new_deaths)
 		  rtx insns, ni;
 		  last_slot = slot;
 		  remember_slot (&slots, slot);
-		  ra_emit_move_insn (slot, source);
+		  if (DF_REF_FLAGS (info.defs[n]) & DF_REF_MEM_OK
+		      && validate_change (insn, DF_REF_LOC (info.defs[n]),
+					  slot, 0))
+		    {
+		      df_insn_modify (df, bb, insn);
+		      bitmap_set_bit (last_changed_insns, uid);
+		      if (!bitmap_bit_p (useless_defs, DF_REF_ID
+					 (info.defs[n])))
+			ra_emit_move_insn (source, slot);
+		    }
+		  else
+		    ra_emit_move_insn (slot, source);
 		  insns = get_insns ();
 		  end_sequence ();
 		  if (insns)
@@ -771,17 +827,25 @@ insert_stores (new_deaths)
          following needs a change, because that is no new insn.  Preferably
 	 we would add some notes to the insn, what stackslots are needed
 	 for it.  */
-      if (uid >= last_max_uid)
+      if (uid >= last_max_uid
+	  || bitmap_bit_p (ra_modified_insns, uid) 
+	  || bitmap_bit_p (last_changed_insns, uid))
 	{
 	  rtx set = single_set (insn);
-	  last_slot = NULL_RTX;
+	  if (1 || uid >= last_max_uid)
+	    last_slot = NULL_RTX;
 	  /* If this was no simple set, give up, and forget everything.  */
 	  if (!set)
 	    slots = NULL;
 	  else
 	    {
-	      if (1 || GET_CODE (SET_SRC (set)) == MEM)
-	        delete_overlapping_slots (&slots, SET_SRC (set));
+	      rtx d = SET_DEST (set);
+	      note_uses (&set, delete_overlapping_uses, (void *)&slots);
+	      /*if (1 || GET_CODE (SET_SRC (set)) == MEM)
+	        delete_overlapping_slots (&slots, SET_SRC (set));*/
+	      /*if (REG_P (d) || GET_CODE (d) == MEM
+		  || (GET_CODE (d) == SUBREG && REG_P (SUBREG_REG (d))))
+		remember_slot (&slots, d);*/
 	    }
 	}
     }
@@ -988,46 +1052,59 @@ emit_loads (ri, nl_first_reload, last_block_insn)
       if (GET_CODE (reg) == SUBREG)
 	slot = simplify_gen_subreg (GET_MODE (reg), slot, innermode,
 				    SUBREG_BYTE (reg));
-      ra_emit_move_insn (reg, slot);
-      ni = get_insns ();
-      end_sequence ();
-      before = web->last_use_insn;
-      web->last_use_insn = NULL_RTX;
-      if (!before)
+      if (web->one_load && web->last_use_insn
+	  && DF_REF_FLAGS (web->last_use) & DF_REF_MEM_OK
+	  && validate_change (web->last_use_insn, DF_REF_LOC (web->last_use),
+			      slot, 0))
 	{
-	  if (JUMP_P (last_block_insn))
-	    before = last_block_insn;
-	  else
-	    after = last_block_insn;
-	}
-      if (after)
-	{
-	  rtx foll = NEXT_INSN (after);
-	  bb = BLOCK_FOR_INSN (after);
-	  emit_insn_after (ni, after);
-	  if (bb->end == after)
-	    bb->end = PREV_INSN (foll);
-	  for (ni = NEXT_INSN (after); ni != foll; ni = NEXT_INSN (ni))
-	    {
-	      set_block_for_insn (ni, bb);
-	      df_insn_modify (df, bb, ni);
-	      bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
-	      bitmap_set_bit (emitted_by_spill, INSN_UID (ni));
-	    }
+	  bb = BLOCK_FOR_INSN (web->last_use_insn);
+	  df_insn_modify (df, bb, web->last_use_insn);
+	  bitmap_set_bit (last_changed_insns, INSN_UID (web->last_use_insn));
 	}
       else
+	ra_emit_move_insn (reg, slot);
+      ni = get_insns ();
+      end_sequence ();
+      if (ni)
 	{
-	  rtx prev = PREV_INSN (before);
-	  bb = BLOCK_FOR_INSN (before);
-	  emit_insn_before (ni, before);
-	  if (bb->head == before)
-	    bb->head = NEXT_INSN (prev);
-	  for (; ni != before; ni = NEXT_INSN (ni))
+	  before = web->last_use_insn;
+	  web->last_use_insn = NULL_RTX;
+	  if (!before)
 	    {
-	      set_block_for_insn (ni, bb);
-	      df_insn_modify (df, bb, ni);
-	      bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
-	      bitmap_set_bit (emitted_by_spill, INSN_UID (ni));
+	      if (JUMP_P (last_block_insn))
+		before = last_block_insn;
+	      else
+		after = last_block_insn;
+	    }
+	  if (after)
+	    {
+	      rtx foll = NEXT_INSN (after);
+	      bb = BLOCK_FOR_INSN (after);
+	      emit_insn_after (ni, after);
+	      if (bb->end == after)
+		bb->end = PREV_INSN (foll);
+	      for (ni = NEXT_INSN (after); ni != foll; ni = NEXT_INSN (ni))
+		{
+		  set_block_for_insn (ni, bb);
+		  df_insn_modify (df, bb, ni);
+		  bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
+		  bitmap_set_bit (emitted_by_spill, INSN_UID (ni));
+		}
+	    }
+	  else
+	    {
+	      rtx prev = PREV_INSN (before);
+	      bb = BLOCK_FOR_INSN (before);
+	      emit_insn_before (ni, before);
+	      if (bb->head == before)
+		bb->head = NEXT_INSN (prev);
+	      for (; ni != before; ni = NEXT_INSN (ni))
+		{
+		  set_block_for_insn (ni, bb);
+		  df_insn_modify (df, bb, ni);
+		  bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
+		  bitmap_set_bit (emitted_by_spill, INSN_UID (ni));
+		}
 	    }
 	}
       if (supweb->pattern)
@@ -1274,7 +1351,7 @@ rewrite_program2 (new_deaths)
      bitmap new_deaths;
 {
   basic_block bb;
-  sbitmap changed_bbs = sbitmap_alloc (last_basic_block);
+  sbitmap changed_bbs = sbitmap_alloc (3 + last_basic_block);
   int nl_first_reload;
   struct rewrite_info ri;
   rtx insn;
@@ -1559,6 +1636,7 @@ rewrite_program2 (new_deaths)
 		if (supweb->spill_temp)
 		  ri.any_spilltemps_spilled = 1;
 		web->last_use_insn = insn;
+		web->last_use = info.uses[n];
 		if (!web->in_load)
 		  {
 		    if (spill_is_free (&(ri.colors_in_use), aweb) <= 0
@@ -1676,12 +1754,14 @@ mark_refs_for_checking (web, uses_as_bitmap)
       bitmap_set_bit (uses_as_bitmap, id);
       web_parts[df->def_id + id].spanned_deaths = 0;
       web_parts[df->def_id + id].crosses_call = 0;
+      web_parts[df->def_id + id].crosses_bb = 0;
     }
   for (i = 0; i < web->num_defs; i++)
     {
       unsigned int id = DF_REF_ID (web->defs[i]);
       web_parts[id].spanned_deaths = 0;
       web_parts[id].crosses_call = 0;
+      web_parts[id].crosses_bb = 0;
     }
 }
 
@@ -1709,15 +1789,23 @@ detect_web_parts_to_rebuild ()
      uses added by spill insns, but those are not analyzed yet).
      Those are the spilled webs themself, webs coalesced to spilled ones,
      and webs conflicting with any of them.  */
+#if 0
+  for (pass = 0; pass < 3; pass++)
+#else
   for (pass = 0; pass < 2; pass++)
-    for (d = (pass == 0) ? WEBS(SPILLED) : WEBS(COALESCED); d; d = d->next)
+#endif
+    for (d = (pass == 0) ? WEBS(SPILLED) 
+	   : (pass == 1) ? WEBS(COALESCED)
+	   : WEBS(COLORED); d; d = d->next)
       {
         struct web *web = DLIST_WEB (d);
 	struct conflict_link *wl;
 	unsigned int j;
 	/* This check is only needed for coalesced nodes, but hey.  */
+#if 1
 	if (alias (web)->type != SPILLED)
 	  continue;
+#endif
 
 	/* For the spilled web itself we also need to clear it's
 	   uplink, to be able to rebuild smaller webs.  After all
@@ -1730,6 +1818,7 @@ detect_web_parts_to_rebuild ()
 	    web_parts[df->def_id + id].uplink = NULL;
 	    web_parts[df->def_id + id].spanned_deaths = 0;
 	    web_parts[df->def_id + id].crosses_call = 0;
+	    web_parts[df->def_id + id].crosses_bb = 0;
 	  }
 	for (i = 0; i < web->num_defs; i++)
 	  {
@@ -1737,6 +1826,7 @@ detect_web_parts_to_rebuild ()
 	    web_parts[id].uplink = NULL;
 	    web_parts[id].spanned_deaths = 0;
 	    web_parts[id].crosses_call = 0;
+	    web_parts[id].crosses_bb = 0;
 	  }
 
 	/* Now look at all neighbors of this spilled web.  */
@@ -1876,6 +1966,9 @@ actual_spill ()
 {
   int i;
   bitmap new_deaths = BITMAP_XMALLOC ();
+  if (last_changed_insns)
+    BITMAP_XFREE (last_changed_insns);
+  last_changed_insns = BITMAP_XMALLOC ();
   reset_changed_flag ();
   spill_coalprop ();
   choose_spill_colors ();
@@ -1910,9 +2003,10 @@ void
 emit_colors (df)
      struct df *df;
 {
-  unsigned int i;
+  unsigned int i, num, max_num;
   int si;
   struct web *web;
+  struct web **order2web;
   int old_max_regno = max_reg_num ();
   regset old_regs;
   basic_block bb;
@@ -1920,6 +2014,39 @@ emit_colors (df)
   /* This bitmap is freed in remove_suspicious_death_notes(),
      which is also the user of it.  */
   regnos_coalesced_to_hardregs = BITMAP_XMALLOC ();
+
+  /* We want to assign stack slots in the order of increasing costs,
+     or if we optimize for size in the order of increasing number of
+     references.  By that we ensure, that the most often used webs
+     have the smallest offsets from the frame pointer, and are encoded in
+     possibly fewer bytes.  But the new pseudo regs for colored web we
+     want to assign in the order of ID.  */
+  max_num = num_webs - num_subwebs;
+  order2web = (struct web **) xmalloc (max_num * sizeof (order2web[0]));
+  for (i = 0, num = 0; i < max_num; i++)
+    if (SPILL_SLOT_P (id2web[i]->regno)
+	&& id2web[i]->type == COLORED
+       	&& id2web[i]->color == an_unusable_color)
+      order2web[num++] = id2web[i];
+  if (num)
+    {
+      qsort (order2web, num, sizeof (order2web[0]), comp_webs_maxcost);
+      for (i = 0; i < num; i++)
+	{
+	  struct web *web = order2web[i];
+	  unsigned int inherent_size = PSEUDO_REGNO_BYTES (web->regno);
+	  unsigned int total_size = MAX (inherent_size, 0);
+	  rtx place = assign_stack_local (PSEUDO_REGNO_MODE (web->regno),
+					  total_size,
+					  inherent_size == total_size ? 0 : -1);
+	  RTX_UNCHANGING_P (place) =
+	      RTX_UNCHANGING_P (regno_reg_rtx[web->regno]);
+	  set_mem_alias_set (place, new_alias_set ());
+	  web->reg_rtx = place;
+	}
+    }
+  free (order2web);
+
   /* First create the (REG xx) rtx's for all webs, as we need to know
      the number, to make sure, flow has enough memory for them in the
      various tables.  */
@@ -1930,28 +2057,18 @@ emit_colors (df)
 	continue;
       if (web->type == COALESCED && alias (web)->type == COLORED)
 	continue;
-      if (web->reg_rtx || web->regno < FIRST_PSEUDO_REGISTER)
+      if (web->regno < FIRST_PSEUDO_REGISTER)
 	abort ();
 
       if (SPILL_SLOT_P (web->regno))
 	{
-	  rtx place;
 	  if (web->color == an_unusable_color)
 	    {
-	      unsigned int inherent_size = PSEUDO_REGNO_BYTES (web->regno);
-	      unsigned int total_size = MAX (inherent_size, 0);
-	      place = assign_stack_local (PSEUDO_REGNO_MODE (web->regno),
-					  total_size,
-					  inherent_size == total_size ? 0 : -1);
-	      RTX_UNCHANGING_P (place) =
-		  RTX_UNCHANGING_P (regno_reg_rtx[web->regno]);
-	      set_mem_alias_set (place, new_alias_set ());
+	      if (!web->reg_rtx)
+		abort ();
 	    }
 	  else
-	    {
-	      place = gen_reg_rtx (PSEUDO_REGNO_MODE (web->regno));
-	    }
-	  web->reg_rtx = place;
+	    web->reg_rtx = gen_reg_rtx (PSEUDO_REGNO_MODE (web->regno));
 	}
       else
 	{
