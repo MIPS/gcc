@@ -490,8 +490,16 @@ public abstract class JTextComponent extends JComponent
    */
   public void setCaret(Caret newCaret)
   {
-    firePropertyChange("caret", caret, newCaret);
+    if (caret != null)
+      caret.deinstall(this);
+    
+    Caret oldCaret = caret;
     caret = newCaret;
+
+    if (caret != null)
+      caret.install(this);
+    
+    firePropertyChange("caret", oldCaret, newCaret);
   }
 
   public Color getCaretColor()
@@ -501,8 +509,9 @@ public abstract class JTextComponent extends JComponent
 
   public void setCaretColor(Color newColor)
   {
-    firePropertyChange("caretColor", caretColor, newColor);
+    Color oldCaretColor = caretColor;
     caretColor = newColor;
+    firePropertyChange("caretColor", oldCaretColor, newColor);
   }
 
   public Color getDisabledTextColor()
@@ -512,8 +521,9 @@ public abstract class JTextComponent extends JComponent
 
   public void setDisabledTextColor(Color newColor)
   {
-    firePropertyChange("disabledTextColor", caretColor, newColor);
+    Color oldColor = disabledTextColor;
     disabledTextColor = newColor;
+    firePropertyChange("disabledTextColor", oldColor, newColor);
   }
 
   public Color getSelectedTextColor()
@@ -523,8 +533,9 @@ public abstract class JTextComponent extends JComponent
 
   public void setSelectedTextColor(Color newColor)
   {
-    firePropertyChange("selectedTextColor", caretColor, newColor);
+    Color oldColor = selectedTextColor;
     selectedTextColor = newColor;
+    firePropertyChange("selectedTextColor", oldColor, newColor);
   }
 
   public Color getSelectionColor()
@@ -534,8 +545,9 @@ public abstract class JTextComponent extends JComponent
 
   public void setSelectionColor(Color newColor)
   {
-    firePropertyChange("selectionColor", caretColor, newColor);
+    Color oldColor = selectionColor;
     selectionColor = newColor;
+    firePropertyChange("selectionColor", oldColor, newColor);
   }
 
   /**
@@ -586,8 +598,16 @@ public abstract class JTextComponent extends JComponent
 
   public void setHighlighter(Highlighter newHighlighter)
   {
-    firePropertyChange("highlighter", highlighter, newHighlighter);
+    if (highlighter != null)
+      highlighter.deinstall(this);
+    
+    Highlighter oldHighlighter = highlighter;
     highlighter = newHighlighter;
+
+    if (highlighter != null)
+      highlighter.install(this);
+    
+    firePropertyChange("highlighter", oldHighlighter, newHighlighter);
   }
 
   /**
@@ -774,5 +794,10 @@ public abstract class JTextComponent extends JComponent
   public InputMethodListener[] getInputMethodListeners()
   {
     return (InputMethodListener[]) getListeners(InputMethodListener.class);
+  }
+
+  public Rectangle modelToView(int position) throws BadLocationException
+  {
+    return getUI().modelToView(this, position);
   }
 }

@@ -195,7 +195,13 @@ public abstract class BasicTextUI extends TextUI
 
   protected void installDefaults()
   {
-    // Do nothing here.
+    Caret caret = textComponent.getCaret();
+    if (caret == null)
+      textComponent.setCaret(createCaret());
+
+    Highlighter highlighter = textComponent.getHighlighter();
+    if (highlighter == null)
+      textComponent.setHighlighter(createHighlighter());
   }
 
   protected void installListeners()
@@ -307,7 +313,7 @@ public abstract class BasicTextUI extends TextUI
   public Rectangle modelToView(JTextComponent t, int pos)
     throws BadLocationException
   {
-    return modelToView(t, pos, null);
+    return modelToView(t, pos, Position.Bias.Forward);
   }
 
   public Rectangle modelToView(JTextComponent t, int pos, Position.Bias bias)

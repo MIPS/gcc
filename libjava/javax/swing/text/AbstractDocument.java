@@ -697,8 +697,43 @@ public abstract class AbstractDocument
   }
 
   public static class ElementEdit extends AbstractUndoableEdit
+    implements DocumentEvent.ElementChange
   {
     private static final long serialVersionUID = -1216620962142928304L;
+
+    private Element elem;
+    private int index;
+    private Element[] removed;
+    private Element[] added;
+    
+    public ElementEdit(Element elem, int index,
+		       Element[] removed, Element[] added)
+    {
+      this.elem = elem;
+      this.index = index;
+      this.removed = removed;
+      this.added = added;
+    }
+
+    public Element[] getChildrenAdded()
+    {
+      return added;
+    }
+    
+    public Element[] getChildrenRemoved()
+    {
+      return removed;
+    }
+
+    public Element getElement()
+    {
+      return elem;
+    }
+
+    public int getIndex()
+    {
+      return index;
+    }
   }
 
   public class LeafElement extends AbstractElement
