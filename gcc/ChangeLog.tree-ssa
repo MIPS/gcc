@@ -39,7 +39,7 @@
 	(lower_function_body, lower_stmt, lower_bind_expr): Record
 	the block at statements.
 	* cfglayout.c (insn_locators_initialize): Use new info about
-	* blocks.
+	blocks.
 	* expr.c (expand_expr): Record block changes.
 	* function.c (blocks_nreverse): Export.
 	(uninitialized_vars_warning): Use DECL_RTL_SET_P to test for presence
