@@ -787,13 +787,32 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 {
   rtx niter, init_code, branch_code;
   rtx loop_beg_label;
-  int i;
-  basic_block fake, preheader, *body, dom;
+  int i, j;
+  basic_block fake, preheader, *body, dom, *dom_bbs;
+  int n_dom_bbs;
   edge e;
   sbitmap wont_exit;
   int may_exit_copy, n_peel, n_remove_edges;
   edge *remove_edges;
   bool skip_first_test;
+
+  /* Remember blocks whose dominators will have to be updated.  */
+  dom_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
+  n_dom_bbs = 0;
+
+  body = get_loop_body (loop);
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      int nldom;
+      basic_block *ldom;
+
+      nldom = get_dominated_by (loops->cfg.dom, body[i], &ldom);
+      for (j = 0; j < nldom; j++)
+	dom_bbs[n_dom_bbs++] = ldom[j];
+
+      free (ldom);
+    }
+  free (body);
 
   /* Force max_unroll + 1 to be power of 2.  */
   for (i = 1; 2 * i <= max_unroll + 1; i *= 2);
@@ -906,17 +925,8 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   set_immediate_dominator (loops->cfg.dom, preheader, dom);
 
   /* Recount dominators for outer blocks.  */
-  body = get_loop_body (loop);
-  for (i = 0; i < loop->num_nodes; i++)
-    for (e = body[i]->succ; e; e = e->succ_next)
-      {
-	if (flow_bb_inside_loop_p (loop, e->dest))
-	  continue;
-	set_immediate_dominator (loops->cfg.dom, e->dest,
-				 nearest_common_dominator (loops->cfg.dom,
-				 e->dest, dom));
-      }
-  free (body);
+  iterate_fix_dominators (loops->cfg.dom, dom_bbs, n_dom_bbs);
+  free (dom_bbs);
 
   /* Get rid of fake.  */
   flow_delete_block (fake);
