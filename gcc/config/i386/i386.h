@@ -3220,6 +3220,12 @@ struct machine_function GTY(())
   int save_varrargs_registers;
   int accesses_prev_frame;
   int optimize_mode_switching;
+  /* Set by ix86_compute_frame_layout and used by prologue/epilogue expander to
+     determine the style used.  */
+  bool use_fast_prologue_epilogue;
+  /* Do not change the decision in between register ellimination and
+     prologue/epilogue expansion.  */
+  bool use_fast_prologue_epilogue_initialized;
 };
 
 #define ix86_stack_locals (cfun->machine->stack_locals)

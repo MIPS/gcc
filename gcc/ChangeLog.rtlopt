@@ -1,3 +1,13 @@
+Tue Mar 18 19:39:08 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (use_fast_prologue_epilogue): Remove.
+	(machine_function): New fields use_fast_prologue_epilogue;
+	use_fast_prologue_epilogue_initialized.
+	(ix86_frame): New field save_regs-using_mov;
+	(ix86_compute_frame_layout):  Decide on fast prologues;
+	allocate saved registers in red zone.
+	(ix86_expand_epilogue, ix86_expand_prolgoues): Obey new parameters.
+
 2003-03-11  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (track_expr_p): Fix Do not track global variables.
