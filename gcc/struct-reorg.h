@@ -21,6 +21,12 @@ struct access_site {
   /* True if the access is through an array or could be replaced
      to an array access.  */
   bool direct_access;
+  /* Basic block containing the access statement.  Necessary for
+     inserting additional statments to reference sub-structure components.  */
+  basic_block bb;
+  /* Function containing the access statement.  Necessary for 
+     insertion additional statements to reference sub-structure components.  */
+  struct function *context;
   /* Next in the list of access sites.  */
   struct access_site *next;
 };

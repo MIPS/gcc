@@ -1,3 +1,54 @@
+2005-01-14  Caroline Tice  <ctice@apple.com>
+
+	* struct-reorg.c (struct malloc_call_data):  Add new field, num_elts.
+	(similar_struct_decls_p, replace_old_field_types):  Add forward 
+	declarations.
+	(found_in_list): New function.
+	(get_type_name): Add code to deal with type_nodes without names.
+	(print_type):  Change completely to deal with recursively defined structs.
+	(print_new_types): Make changes to correspond to changes in print_type, to
+	deal with recursively defined structs.
+	(get_fields): Add code to initialize new_mapping field.
+	(add_field_access_site): Add bb and context parameters; use the parameters
+	to initialize th new bb and context fields in struct access_site.
+	(get_stmt_accessed_fields_1): Add bb and context parameters, pass them
+	to calls to add_field_access_site and get_stmt_accessed_fields_1.
+	(get_stmt_accessed_fields): Add bb and context parameters; pass them to
+	calls to get_stmt_accessed_fields_1.
+	(build_f_acc_list_for_bb): Add bb and context parameters; pass them to
+	calls to get_stmt_accessed_fields.
+	(build_bb_access_list_for_struct): Add function context to call to 
+	build_f_acc_list_for_bb.
+	(struct_contains_field_p): New function.
+	(struct_contains_substruct_p): New function.
+	(update_field_mappings): Modify to only update mapping when appropriate.
+	(create_new_var_decls): Modify to deal correctly with ARRAY_TYPE, and
+	to update appropriate fields of struct variables to use new type 
+	definitions.
+	(collect_malloc_data): Modify to deal correctly with calls to calloc as
+	well as calls to malloc.
+	(add_field_mallocs): New function.
+	(create_cascading_mallocs): New function.
+	(create_new_mallocs): Remove code that forced all new calls to be
+	'malloc' (which was wrong for 'calloc's); add code to generate appropriate
+	'calloc' arguments, when necessary; add call to create_cascading_mallocs,
+	for malloc'ing new sub-structures where appropriate.
+	(find_and_substitute_types_and_vars):  Return immediately if no work to
+	be done.
+	(build_new_stmts):  Modified to accept and properly handle more 
+	complicated field access statements.
+	(update_field_accesses):  Modified to correctly use (possibly nested)
+	new mapping information.
+	(update_struct_use_stmts): Added appropriate new arguments to call to 
+	build_new_stmts.
+	(add_type_to_worklist): New function.
+	(add_type_to_donelist): New function.
+	(remove_type_from_list): New function.
+	(replace_old_field_types): New function.
+	(do_peel):  Added call to replace_old_field_types.
+	* struct-reorg.h (struct access_site):  Added two new fields, bb and
+	context, to help with inserting new statements at field access sites.
+
 2005-01-12 Mostafa Hagog <mustafa@il.ibm.com>
 
 	* cgraphunit.c (cgraph_optimize): Move matrix_reorg.
