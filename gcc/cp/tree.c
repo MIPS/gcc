@@ -237,6 +237,37 @@ lvalue_or_else (tree ref, const char* string)
 {
   if (!lvalue_p (ref))
     {
+      /* APPLE LOCAL begin lvalue cast */
+      /* If -flvalue-cast-assignment is specified, we shall allow assignments
+	 (including increment/decrement) to casts of lvalues, as long as
+	 both the lvalue and the cast are POD types with identical size and
+	 alignment.  */
+      if (flag_lvalue_cast_assign
+	  && (TREE_CODE (ref) == NOP_EXPR || TREE_CODE (ref) == CONVERT_EXPR)
+	  && string && string[0] == 'a'
+	  && lvalue_or_else (TREE_OPERAND (ref, 0), string))
+	{
+	  tree cast_to = TREE_TYPE (ref);
+	  tree cast_from = TREE_TYPE (TREE_OPERAND (ref, 0));
+          
+	  if (pod_type_p (cast_to) && pod_type_p (cast_from)
+	      && simple_cst_equal (TYPE_SIZE (cast_to), TYPE_SIZE (cast_from))
+	      && TYPE_ALIGN (cast_to) == TYPE_ALIGN (cast_from))
+	    {
+	      /* Rewrite '(cast_to)ref' as '(cast_to)(*(cast_to *)&ref)' so
+		 that the back-end need not think too hard...  */
+	      TREE_OPERAND (ref, 0)
+		= build_indirect_ref
+		  (convert (build_pointer_type (cast_to),
+			    build_unary_op (ADDR_EXPR,
+					    TREE_OPERAND (ref, 0), 0)), 0);
+	      warning ("lvalue cast idiom is deprecated");
+
+	      return 1;
+	    }
+	}
+      /* APPLE LOCAL end lvalue cast */
+
       error ("non-lvalue in %s", string);
       return 0;
     }

@@ -1,4 +1,10 @@
-2004-01-07  Devang Patel  <dpatel@apple.com>
+2005-01-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3913725
+	* g++.dg/ext/lvalue-cast-1.cpp: New.
+	* gcc.dg/lvalue-cast-1.c.
+
+2005-01-07  Devang Patel  <dpatel@apple.com>
 
 	Radar 3943502
 	* obj-c++.dg/defs.mm: New test.

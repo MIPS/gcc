@@ -2827,6 +2827,35 @@ lvalue_or_else (tree ref, enum lvalue_use use)
 {
   int win = lvalue_p (ref);
 
+  /* APPLE LOCAL begin lvalue cast */
+  /* If -flvalue-cast-assignment is specified, we shall allow assignments
+     (including increment/decrement) to casts of lvalues, as long as
+     both the lvalue and the cast are POD types with identical size and
+     alignment.  */
+  if (!win && flag_lvalue_cast_assign
+      && (TREE_CODE (ref) == NOP_EXPR || TREE_CODE (ref) == CONVERT_EXPR)
+      && (use == lv_assign || use == lv_increment || use == lv_decrement)
+      && lvalue_or_else (TREE_OPERAND (ref, 0), use))
+    {
+      tree cast_to = TREE_TYPE (ref);
+      tree cast_from = TREE_TYPE (TREE_OPERAND (ref, 0));
+
+      if (simple_cst_equal (TYPE_SIZE (cast_to), TYPE_SIZE (cast_from))
+	  && TYPE_ALIGN (cast_to) == TYPE_ALIGN (cast_from))
+	{
+	  /* Rewrite '(cast_to)ref' as '(cast_to)(*(cast_to *)&ref)' so
+	     that the back-end need not think too hard...  */
+	  TREE_OPERAND (ref, 0)
+	    = build_indirect_ref
+	      (convert (build_pointer_type (cast_to),
+			build_unary_op
+			(ADDR_EXPR, TREE_OPERAND (ref, 0), 0)), 0); 
+	  win = 1;
+	  warning ("lvalue cast idiom is deprecated");
+	}
+    } 
+  /* APPLE LOCAL end lvalue cast */
+
   if (!win)
     {
       switch (use)

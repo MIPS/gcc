@@ -417,6 +417,13 @@ extern int flag_short_double;
 
 extern int flag_short_wchar;
 
+/* APPLE LOCAL begin lvalue cast */
+/* Nonzero means allow assignment, increment or decrement of casts of
+   lvalues (e.g., '((foo *)p)++') if both the lvalue and its cast are
+   of POD type with identical size and alignment.  */
+extern int flag_lvalue_cast_assign;
+/* APPLE LOCAL end lvalue cast */
+
 /* Nonzero means allow Microsoft extensions without warnings or errors.  */
 extern int flag_ms_extensions;
 

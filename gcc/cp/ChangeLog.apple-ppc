@@ -1,9 +1,17 @@
-2004-01-07  Devang Patel  <dpatel@apple.com>
+2005-01-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3913725
+	* tree.c (lvalue_or_else): If expression is not an lvalue,
+	check if it is a cast of an lvalue; if so, and if the cast
+	involves POD types with identical size and aligment,
+	rewrite '(type)expr' into '*(type *)&expr' and allow the
+	result as an lvalue.
+
+2005-01-07  Devang Patel  <dpatel@apple.com>
 
 	Radar 3943502
 	* parser.c (cp_parser_objc_defs_expression): New.
 	(cp_parser_member_declaration): Handle @defs.
-
 
 2005-01-06  Robert Bowdidge <bowdidge@apple.com>
 

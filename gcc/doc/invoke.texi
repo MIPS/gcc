@@ -192,6 +192,8 @@ in the following sections.
 -fallow-single-precision  -fcond-mismatch @gol
 @c APPLE LOCAL constant cfstrings --mrs
 -fconstant-cfstrings (APPLE ONLY) @gol
+@c APPLE LOCAL lvalue cast
+-flvalue-cast-assign (APPLE ONLY) @gol
 @c APPLE LOCAL pch distcc --mrs
 -fpch-preprocess (APPLE ONLY) @gol
 -fsigned-bitfields  -fsigned-char @gol
@@ -1405,6 +1407,25 @@ is not supported for C++.
 @opindex fpch-preprocess
 Enable PCH processing even when @option{-E} or @option{-save-temps} is used.
 @c APPLE LOCAL END pch distcc --mrs
+
+@c APPLE LOCAL begin lvalue cast
+@item -flvalue-cast-assign
+@item flvalue-cast-assign
+C and C++ forbid the use of lvalue casts, e.g.:
+
+@smallexample
+void *p;
+((int *)p)++;
+@end smallexample
+
+@noindent
+As a transitional measure, the Apple version of GCC 4.0 supports lvalue casts
+in certain situations.  This is accomplished via the
+@option{-flvalue-cast-assign} switch, which is on by default.  Whenever an
+lvalue cast is encountered, the compiler will issue a deprecation warning.
+To disallow lvalue casts altogether, specify @option{-fno-lvalue-cast-assign};
+lvalue casts will be disallowed in future versions of Apple's GCC.
+@c APPLE LOCAL end lvalue cast
 
 @item -funsigned-char
 @opindex funsigned-char

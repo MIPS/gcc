@@ -7640,6 +7640,14 @@ altivec_convert_args (tree types, tree args)
   for (t = types, a = args; t && a; t = TREE_CHAIN (t), a = TREE_CHAIN (a))
     {
       TREE_VALUE (a) = convert (TREE_VALUE (t), TREE_VALUE (a));
+
+      /* Suppress overflows, so that GIMPLE does not create temporary
+	 variables on us.  */
+      if (TREE_CODE (TREE_VALUE (a)) == INTEGER_CST)
+	{
+	  TREE_OVERFLOW (TREE_VALUE (a)) = 0;
+	  TREE_CONSTANT_OVERFLOW (TREE_VALUE (a)) = 0;
+	}
     }
 
   return args;

@@ -1,3 +1,18 @@
+2005-01-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3913725
+	* c-common.c (flag_lvalue_cast_assign): New global variable.
+	* c-common.h (flag_lvalue_cast_assign): Forward declare.
+	* c-opts.c (c_common_handle_option): Handle
+	'-f[no-]lvalue-cast-assign'.
+	* c-typeck.c (lvalue_or_else): If expression is not an lvalue,
+	check if it is a cast of an lvalue; if so, and if the cast
+	involves POD types with identical size and aligment,
+	rewrite '(type)expr' into '*(type *)&expr' and allow the
+	result as an lvalue.
+	* c.opt (flvalue-cast-assign): New flag.
+	* invoke.texi: Document '-f[no-]lvalue-cast assign' flag.
+
 2005-01-07  Jon Ziegler <jonz@apple.com>
 
 	Back out Mike's patch for Radar 3929334, distcc: need to issue distcc remote PCH requests

@@ -638,6 +638,12 @@ Emit implicit instantiations of templates
 flabels-ok
 C++ ObjC++
 
+; APPLE LOCAL begin lvalue cast
+flvalue-cast-assign
+C ObjC C++ ObjC++
+Allow assignment to casts of lvalue pointers
+; APPLE LOCAL end lvalue cast
+
 fms-extensions
 C ObjC C++ ObjC++
 Don't warn about uses of Microsoft extensions
