@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Invoke an initializer function to set up the GOT */
 #define NAME__MAIN "__eabi"
+#define INVOKE__main
 
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (PowerPC Embedded)");

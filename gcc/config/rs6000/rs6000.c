@@ -3918,40 +3918,6 @@ rs6000_stack_info ()
   /* Does this machine need the float/int conversion area? */
   info_ptr->fpmem_p = regs_ever_live[FPMEM_REGNUM];
 
-  /* If this is main and we need to call a function to set things up,
-     save main's arguments around the call.  */
-#ifdef TARGET_EABI
-  if (TARGET_EABI)
-#endif
-    {
-      if (0 == strcmp (IDENTIFIER_POINTER (DECL_NAME (current_function_decl)),
-		       "main")
-	  && DECL_CONTEXT (current_function_decl) == NULL_TREE)
-	{
-	  info_ptr->main_p = 1;
-
-#ifdef NAME__MAIN
-	  info_ptr->calls_p = 1;
-
-	  if (DECL_ARGUMENTS (current_function_decl))
-	    {
-	      int i;
-	      tree arg;
-
-	      info_ptr->main_save_p = 1;
-	      info_ptr->main_size = 0;
-
-	      for ((i = 0), (arg = DECL_ARGUMENTS (current_function_decl));
-		   arg != NULL_TREE && i < 8;
-		   (arg = TREE_CHAIN (arg)), i++)
-		{
-		  info_ptr->main_size += reg_size;
-		}
-	    }
-#endif
-	}
-    }
-
   /* Determine if we need to save the link register */
   if (regs_ever_live[LINK_REGISTER_REGNUM]
       || (DEFAULT_ABI == ABI_AIX && profile_flag)
@@ -3989,8 +3955,7 @@ rs6000_stack_info ()
 				  + info_ptr->gp_size
 				  + info_ptr->cr_size
 				  + info_ptr->lr_size
-				  + info_ptr->toc_size
-				  + info_ptr->main_size, 8);
+				  + info_ptr->toc_size, 8);
 
   /* Calculate the offsets */
   switch (abi)
@@ -4003,7 +3968,7 @@ rs6000_stack_info ()
     case ABI_AIX_NODESC:
       info_ptr->fp_save_offset   = - info_ptr->fp_size;
       info_ptr->gp_save_offset   = info_ptr->fp_save_offset - info_ptr->gp_size;
-      info_ptr->main_save_offset = info_ptr->gp_save_offset - info_ptr->main_size;
+      info_ptr->fpmem_offset	 = info_ptr->gp_save_offset - info_ptr->fpmem_size;
       info_ptr->cr_save_offset   = reg_size; /* first word when 64-bit.  */
       info_ptr->lr_save_offset   = 2*reg_size;
       break;
@@ -4014,7 +3979,7 @@ rs6000_stack_info ()
       info_ptr->gp_save_offset   = info_ptr->fp_save_offset - info_ptr->gp_size;
       info_ptr->cr_save_offset   = info_ptr->gp_save_offset - info_ptr->cr_size;
       info_ptr->toc_save_offset  = info_ptr->cr_save_offset - info_ptr->toc_size;
-      info_ptr->main_save_offset = info_ptr->toc_save_offset - info_ptr->main_size;
+      info_ptr->fpmem_offset	 = info_ptr->toc_save_offset - info_ptr->fpmem_size;
       info_ptr->lr_save_offset   = reg_size;
       break;
 
@@ -4026,15 +3991,16 @@ rs6000_stack_info ()
       info_ptr->fp_save_offset    = info_ptr->gp_save_offset - info_ptr->fp_size;
       if (info_ptr->fp_size && ((- info_ptr->fp_save_offset) % 8) != 0)
 	info_ptr->fp_save_offset -= reg_size;
-
-      info_ptr->main_save_offset = info_ptr->fp_save_offset - info_ptr->main_size;
       break;
     }
 
   /* Ensure that fpmem_offset will be aligned to an 8-byte boundary. */
-  if (info_ptr->fpmem_p
-      && (info_ptr->main_save_offset - info_ptr->fpmem_size) % 8)
-    info_ptr->fpmem_size += reg_size;
+  if (info_ptr->fpmem_p && info_ptr->fpmem_offset % 8 != 0)
+    {
+      int needed_size = 8 - (info_ptr->fpmem_offset & 7);
+      info_ptr->fpmem_size += needed_size;
+      info_ptr->fpmem_offset -= needed_size;
+    }
 
   total_raw_size	 = (info_ptr->vars_size
 			    + info_ptr->parm_size
@@ -4072,7 +4038,6 @@ rs6000_stack_info ()
 
   if (info_ptr->fpmem_p)
     {
-      info_ptr->fpmem_offset = info_ptr->main_save_offset - info_ptr->fpmem_size;
       rs6000_fpmem_size   = info_ptr->fpmem_size;
       rs6000_fpmem_offset = (info_ptr->push_p
 			     ? info_ptr->total_size + info_ptr->fpmem_offset
@@ -4096,9 +4061,6 @@ rs6000_stack_info ()
 
   if (! info_ptr->toc_save_p)
     info_ptr->toc_save_offset = 0;
-
-  if (! info_ptr->main_save_p)
-    info_ptr->main_save_offset = 0;
 
   return info_ptr;
 }
@@ -4151,12 +4113,6 @@ debug_stack_info (info)
   if (info->calls_p)
     fprintf (stderr, "\tcalls_p             = %5d\n", info->calls_p);
 
-  if (info->main_p)
-    fprintf (stderr, "\tmain_p              = %5d\n", info->main_p);
-
-  if (info->main_save_p)
-    fprintf (stderr, "\tmain_save_p         = %5d\n", info->main_save_p);
-
   if (info->fpmem_p)
     fprintf (stderr, "\tfpmem_p             = %5d\n", info->fpmem_p);
 
@@ -4177,9 +4133,6 @@ debug_stack_info (info)
 
   if (info->varargs_save_offset)
     fprintf (stderr, "\tvarargs_save_offset = %5d\n", info->varargs_save_offset);
-
-  if (info->main_save_offset)
-    fprintf (stderr, "\tmain_save_offset    = %5d\n", info->main_save_offset);
 
   if (info->fpmem_offset)
     fprintf (stderr, "\tfpmem_offset        = %5d\n", info->fpmem_offset);
@@ -4216,9 +4169,6 @@ debug_stack_info (info)
 
  if (info->toc_size)
     fprintf (stderr, "\ttoc_size            = %5d\n", info->toc_size);
-
- if (info->main_size)
-    fprintf (stderr, "\tmain_size           = %5d\n", info->main_size);
 
   if (info->save_size)
     fprintf (stderr, "\tsave_size           = %5d\n", info->save_size);
@@ -4518,19 +4468,6 @@ output_prolog (file, size)
 		 info->gp_save_offset + sp_offset,
 		 reg_names[sp_reg]);
 
-  /* Save main's arguments if we need to call a function */
-#ifdef NAME__MAIN
-  if (info->main_save_p)
-    {
-      int regno;
-      int loc = info->main_save_offset + sp_offset;
-      int size = info->main_size;
-
-      for (regno = 3; size > 0; regno++, loc += reg_size, size -= reg_size)
-	asm_fprintf (file, store_reg, reg_names[regno], loc, reg_names[sp_reg]);
-    }
-#endif
-
   /* Save lr if we used it.  */
   if (info->lr_save_p)
     asm_fprintf (file, store_reg, reg_names[0], info->lr_save_offset + sp_offset,
@@ -4611,64 +4548,6 @@ output_prolog (file, size)
   /* Set frame pointer, if needed.  */
   if (frame_pointer_needed)
     asm_fprintf (file, "\tmr %s,%s\n", reg_names[31], reg_names[1]);
-
-#ifdef NAME__MAIN
-  /* If we need to call a function to set things up for main, do so now
-     before dealing with the TOC.  */
-  if (info->main_p)
-    {
-      const char *prefix = "";
-
-      switch (DEFAULT_ABI)
-	{
-	case ABI_AIX:	prefix = ".";	break;
-	case ABI_NT:	prefix = "..";	break;
-	}
-
-      fprintf (file, "\tbl %s%s\n", prefix, NAME__MAIN);
-#ifdef RS6000_CALL_GLUE2
-      fprintf (file, "\t%s%s%s\n", RS6000_CALL_GLUE2, prefix, NAME_MAIN);
-#else
-#ifdef RS6000_CALL_GLUE
-      if (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_NT)
-	{
-	  putc('\t', file);
-	  asm_fprintf (file, RS6000_CALL_GLUE);
-	  putc('\n', file);
-	}
-#endif
-#endif
-
-      if (info->main_save_p)
-	{
-	  int regno;
-	  int loc;
-	  int size = info->main_size;
-
-	  if (info->total_size < 32767)
-	    {
-	      loc = info->total_size + info->main_save_offset;
-	      for (regno = 3; size > 0; regno++, size -= reg_size, loc += reg_size)
-		asm_fprintf (file, load_reg, reg_names[regno], loc, reg_names[1]);
-	    }
-	  else
-	    {
-	      int neg_size = info->main_save_offset - info->total_size;
-	      loc = 0;
-	      asm_fprintf (file, "\t{liu|lis} %s,0x%x\n\t{oril|ori} %s,%s,%d\n",
-			   reg_names[0], (neg_size >> 16) & 0xffff,
-			   reg_names[0], reg_names[0], neg_size & 0xffff);
-
-	      asm_fprintf (file, "\t{sf|subf} %s,%s,%s\n", reg_names[0], reg_names[0],
-			   reg_names[1]);
-
-	      for (regno = 3; size > 0; regno++, size -= reg_size, loc += reg_size)
-		asm_fprintf (file, load_reg, reg_names[regno], loc, reg_names[0]);
-	    }
-	}
-    }
-#endif
-
 
   /* If TARGET_MINIMAL_TOC, and the constant pool is needed, then load the
      TOC_TABLE address into register 30.  */

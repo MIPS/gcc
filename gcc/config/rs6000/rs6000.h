@@ -1164,8 +1164,6 @@ typedef struct rs6000_stack {
   int toc_save_p;		/* true if the TOC needs to be saved */
   int push_p;			/* true if we need to allocate stack space */
   int calls_p;			/* true if the function makes any calls */
-  int main_p;			/* true if this is main */
-  int main_save_p;		/* true if this is main and we need to save args */
   int fpmem_p;			/* true if float/int conversion temp needed */
   enum rs6000_abi abi;		/* which ABI to use */
   int gp_save_offset;		/* offset to save GP regs from initial SP */
@@ -1174,13 +1172,11 @@ typedef struct rs6000_stack {
   int cr_save_offset;		/* offset to save CR from initial SP */
   int toc_save_offset;		/* offset to save the TOC pointer */
   int varargs_save_offset;	/* offset to save the varargs registers */
-  int main_save_offset;		/* offset to save main's args */
   int fpmem_offset;		/* offset for float/int conversion temp */
   int reg_size;			/* register size (4 or 8) */
   int varargs_size;		/* size to hold V.4 args passed in regs */
   int vars_size;		/* variable save area size */
   int parm_size;		/* outgoing parameter size */
-  int main_size;		/* size to hold saving main's args */
   int save_size;		/* save area size */
   int fixed_size;		/* fixed size of stack frame */
   int gp_size;			/* size of saved GP registers */

@@ -1,3 +1,12 @@
+2000-01-19  Geoffrey Keating  <geoffk@cygnus.com>
+
+	* eabi.h (INVOKE__main): Define.
+	* rs6000.c (rs6000_stack_info): Don't handle call to NAME__MAIN
+	specially.
+	(rs6000_emit_prologue): Likewise.
+	* rs6000.h (struct rs6000_stack): Don't keep track of whether
+	this is the main program.
+
 2000-01-19  Geoff Keating  <geoffk@cygnus.com>
 
 	* rs6000.c (rs6000_va_arg): Delete some unused variables.
