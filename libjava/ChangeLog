@@ -1,3 +1,8 @@
+2004-11-05  Tom Tromey  <tromey@redhat.com>
+
+	* link.cc (verify_type_assertions): Ensure classes have supers
+	linked.  Strip off array types first.
+
 2004-11-05  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* link.cc: Include VerifyError.h. 
