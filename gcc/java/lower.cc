@@ -222,8 +222,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  break;
 
 	case op_aload:
-	  insn = push (load (get1u (bytes, pc),
-			     type_object));
+	  insn = push (load (get1u (bytes, pc), type_object_ptr));
 	  break;
 
 	case op_iload_0:
@@ -262,8 +261,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	case op_aload_1:
 	case op_aload_2:
 	case op_aload_3:
-	  insn = push (load (op - op_aload_0,
-			     type_object));
+	  insn = push (load (op - op_aload_0, type_object_ptr));
 	  break;
 
 	case op_iaload:
@@ -283,7 +281,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  break;
 
 	case op_aaload:
-	  insn = array_access (type_object);
+	  insn = array_access (type_object_ptr);
 	  break;
 
 	case op_baload:
@@ -315,7 +313,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  break;
 
 	case op_astore:
-	  insn = store (get1u (bytes, pc), type_object);
+	  insn = store (get1u (bytes, pc), type_object_ptr);
 	  break;
 
 	case op_istore_0:
@@ -350,7 +348,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	case op_astore_1:
 	case op_astore_2:
 	case op_astore_3:
-	  insn = store (op - op_astore_0, type_object);
+	  insn = store (op - op_astore_0, type_object_ptr);
 	  break;
 
 	case op_iastore:
@@ -370,7 +368,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  break;
 
 	case op_aastore:
-	  insn = array_store (type_object);
+	  insn = array_store (type_object_ptr);
 	  break;
 
 	case op_bastore:
@@ -1057,16 +1055,16 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 
 	case op_if_acmpeq:
 	  {
-	    tree value2 = pop (type_object);
-	    tree value1 = pop (type_object);
+	    tree value2 = pop (type_object_ptr);
+	    tree value1 = pop (type_object_ptr);
 	    insn = full_condition (EQ_EXPR, value1, value2, bytes, pc);
 	  }
 	  break;
 
 	case op_if_acmpne:
 	  {
-	    tree value2 = pop (type_object);
-	    tree value1 = pop (type_object);
+	    tree value2 = pop (type_object_ptr);
+	    tree value1 = pop (type_object_ptr);
 	    insn = full_condition (NE_EXPR, value1, value2, bytes, pc);
 	  }
 	  break;
@@ -1216,7 +1214,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    // type.  The verifier ensures this is always valid.
 	    tree return_type
 	      = gcc_builtins->map_type (method->get_return_type ());
-	    insn = handle_return (type_object, return_type);
+	    insn = handle_return (type_object_ptr, return_type);
 	  }
 	  break;
 
@@ -1261,7 +1259,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    std::string classname, fieldname, signature;
 	    cpool->get_fieldref (fieldref_index, classname, fieldname,
 				 signature);
-	    tree expr = pop (type_object);
+	    tree expr = pop (type_object_ptr);
 	    tree ref = gcc_builtins->map_field_ref (class_wrapper,
 						    expr,
 						    classname, fieldname,
@@ -1293,7 +1291,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 				 signature);
 	    tree field_type = find_class (signature);
 	    tree value = pop (field_type);
-	    tree obj = pop (type_object);
+	    tree obj = pop (type_object_ptr);
 	    tree ref = gcc_builtins->map_field_ref (class_wrapper,
 						    obj,
 						    classname, fieldname,
@@ -1345,7 +1343,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 
 	case op_arraylength:
 	  {
-	    tree value = pop (type_object);
+	    tree value = pop (type_object_ptr);
 
 	    model_class *objclass
 	      = global->get_compiler ()->java_lang_Object ();
@@ -1367,7 +1365,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 
 	case op_athrow:
 	  {
-	    tree value = pop (type_object);
+	    tree value = pop (type_object_ptr);
 	    insn = build3 (CALL_EXPR, void_type_node,
 			   builtin_Jv_Throw,
 			   build_tree_list (NULL_TREE, value),
@@ -1377,7 +1375,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 
 	case op_checkcast:
 	  {
-	    tree value = pop (type_object);
+	    tree value = pop (type_object_ptr);
 	    jint index = get2u (bytes, pc);
 	    tree klass = find_class (cpool->get_class (index));
 
@@ -1390,7 +1388,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 
 	case op_instanceof:
 	  {
-	    tree value = pop (type_object);
+	    tree value = pop (type_object_ptr);
 	    tree klass = find_class (cpool->get_class (get2u (bytes, pc)));
 	    insn = push (build1 (NOP_EXPR, type_jint,
 				 handle_instanceof (value, klass)));
@@ -1399,7 +1397,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 
 	case op_monitorenter:
 	  {
-	    tree value = pop (type_object);
+	    tree value = pop (type_object_ptr);
 	    insn = build3 (CALL_EXPR, void_type_node,
 			   builtin_Jv_MonitorEnter,
 			   build_tree_list (NULL_TREE, value),
@@ -1409,7 +1407,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 
 	case op_monitorexit:
 	  {
-	    tree value = pop (type_object);
+	    tree value = pop (type_object_ptr);
 	    insn = build3 (CALL_EXPR, void_type_node,
 			   builtin_Jv_MonitorExit,
 			   build_tree_list (NULL_TREE, value),
@@ -1419,7 +1417,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 
 	case op_ifnull:
 	  {	  
-	    tree value = pop (type_object);
+	    tree value = pop (type_object_ptr);
 	    insn = full_condition (EQ_EXPR, value,
 				   null_pointer_node, bytes, pc);
 	  }
@@ -1427,7 +1425,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 
 	case op_ifnonnull:
 	  {
-	    tree value = pop (type_object);
+	    tree value = pop (type_object_ptr);
 	    insn = full_condition (NE_EXPR, value,
 				   null_pointer_node, bytes, pc);
 	  }
@@ -1450,7 +1448,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    tree klassref = build_class_ref (cpool->get_class (kind_index));
 	    args = tree_cons (NULL_TREE, klassref, args);
 
-	    insn = push (build3 (CALL_EXPR, type_object,
+	    insn = push (build3 (CALL_EXPR, type_object_ptr,
 				 builtin_Jv_NewMultiArray,
 				 args,
 				 NULL_TREE));
@@ -1473,7 +1471,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 		break;
 
 	      case op_astore:
-		insn = store (wide, type_object);
+		insn = store (wide, type_object_ptr);
 		break;
 
 	      case op_lload:
@@ -1493,7 +1491,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 		break;
 
 	      case op_aload:
-		insn = push (load (wide, type_object));
+		insn = push (load (wide, type_object_ptr));
 		break;
 
 	      case op_lstore:
@@ -1566,12 +1564,12 @@ tree_generator::full_condition (tree_code op, tree expr1, tree expr2,
 {
   int here = pc - 1;
   tree dest = find_label (here + get2s (bytes, pc));
-  return push (build3 (COND_EXPR, void_type_node,
-		       build2 (op, type_jboolean,
-			       expr1, expr2),
-		       build1 (GOTO_EXPR, void_type_node,
-			       dest),
-		       NULL_TREE));
+  return build3 (COND_EXPR, void_type_node,
+		 build2 (op, type_jboolean,
+			 expr1, expr2),
+		 build1 (GOTO_EXPR, void_type_node,
+			 dest),
+		 NULL_TREE);
 }
 
 tree
@@ -1762,7 +1760,7 @@ tree_generator::find_generic_slot (int slot, tree type,
   if (TREE_CODE (type) == POINTER_TYPE)
     {
       field = field_slot_o;
-      type = type_object;
+      type = type_object_ptr;
     }
   else if (type == type_jdouble)
     field = field_slot_d;

@@ -1,5 +1,11 @@
 2005-03-27  Tom Tromey  <tromey@redhat.com>
 
+	* lower.cc (visit_bytecode_block): Use type_object_ptr.
+	(find_generic_slot): Likewise.
+	(full_condition): Don't call 'push'.
+
+2005-03-27  Tom Tromey  <tromey@redhat.com>
+
 	* abi.cc (build_method_call): Lay out declaring class.  Handle
 	interface calls.
 	(build_field_reference): Likewise.
