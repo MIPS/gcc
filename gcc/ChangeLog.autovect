@@ -1,3 +1,11 @@
+2005-01-14  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-data-ref.c (analyze_subscript_affine_affine): Implement a 
+	solution for the FIXME concerning the symbolic affine
+	dependence testing; remove the FIXME.
+	(can_use_analyze_subscript_affine_affine): New function.
+	(analyze_siv_subscript): Use it.
+
 2005-01-13  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-scalar-evolution.c (already_unified): New bitmap.

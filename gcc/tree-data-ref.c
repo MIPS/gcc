@@ -1335,12 +1335,7 @@ compute_overlap_steps_for_affine_1_2 (tree chrec_a, tree chrec_b,
 /* Determines the overlapping elements due to accesses CHREC_A and
    CHREC_B, that are affine functions.  This function cannot handle
    symbolic evolution functions, ie. when initial conditions are
-   parameters, because it uses lambda matrices of integers.  
-
-   FIXME: It is sometimes possible to perform the test for symbolic
-   cases, however these have to be implemented in another function.
-   Example: {t, +, 1}_1 vs {t, +, 2}_1 have exactly the same
-   overlaps as {0, +, 1}_1 vs {0, +, 2}_1  */
+   parameters, because it uses lambda matrices of integers.  */
 
 static void
 analyze_subscript_affine_affine (tree chrec_a, 
@@ -1632,6 +1627,43 @@ analyze_subscript_affine_affine (tree chrec_a,
     fprintf (dump_file, ")\n");
 }
 
+/* Returns true when analyze_subscript_affine_affine can be used for
+   determining the dependence relation between chrec_a and chrec_b,
+   that contain symbols.  This function modifies chrec_a and chrec_b
+   such that the analysis result is the same, and such that they don't
+   contain symbols, and then can safely be passed to the analyzer.  
+
+   Example: The analysis of the following tuples of evolutions produce
+   the same results: {x+1, +, 1}_1 vs. {x+3, +, 1}_1, and {-2, +, 1}_1
+   vs. {0, +, 1}_1
+   
+   {x+1, +, 1}_1 ({2, +, 1}_1) = {x+3, +, 1}_1 ({0, +, 1}_1)
+   {-2, +, 1}_1 ({2, +, 1}_1) = {0, +, 1}_1 ({0, +, 1}_1)
+*/
+
+static bool
+can_use_analyze_subscript_affine_affine (tree *chrec_a, tree *chrec_b)
+{
+  tree diff;
+
+  if (chrec_contains_symbols (CHREC_RIGHT (*chrec_a))
+      || chrec_contains_symbols (CHREC_RIGHT (*chrec_b)))
+    /* FIXME: For the moment not handled.  Might be refined later.  */
+    return false;
+
+  diff = chrec_fold_minus (chrec_type (*chrec_a), CHREC_LEFT (*chrec_a), 
+			   CHREC_LEFT (*chrec_b));
+  if (!evolution_function_is_constant_p (diff))
+    return false;
+
+  *chrec_a = build_polynomial_chrec (CHREC_VARIABLE (*chrec_a), 
+				     diff, CHREC_RIGHT (*chrec_a));
+  *chrec_b = build_polynomial_chrec (CHREC_VARIABLE (*chrec_b),
+				     integer_zero_node, 
+				     CHREC_RIGHT (*chrec_b));
+  return true;
+}
+
 /* Analyze a SIV (Single Index Variable) subscript.  *OVERLAPS_A and
    *OVERLAPS_B are initialized to the functions that describe the
    relation between the elements accessed twice by CHREC_A and
@@ -1662,13 +1694,30 @@ analyze_siv_subscript (tree chrec_a,
 				      overlaps_b, overlaps_a, last_conflicts);
   
   else if (evolution_function_is_affine_p (chrec_a)
-	   && !chrec_contains_symbols (chrec_a)
-	   && evolution_function_is_affine_p (chrec_b)
-	   && !chrec_contains_symbols (chrec_b))
-    analyze_subscript_affine_affine (chrec_a, chrec_b, 
-				     overlaps_a, overlaps_b, last_conflicts);
+	   && evolution_function_is_affine_p (chrec_b))
+    {
+      if (!chrec_contains_symbols (chrec_a)
+	  && !chrec_contains_symbols (chrec_b))
+	analyze_subscript_affine_affine (chrec_a, chrec_b, 
+					 overlaps_a, overlaps_b, 
+					 last_conflicts);
+      else if (can_use_analyze_subscript_affine_affine (&chrec_a, 
+							&chrec_b))
+	{
+	  analyze_subscript_affine_affine (chrec_a, chrec_b, 
+					   overlaps_a, overlaps_b, 
+					   last_conflicts);
+	  /* FIXME: The number of iterations is a symbolic expression.
+	     Compute it properly.  */
+	  *last_conflicts = chrec_dont_know;
+	}
+      else
+	goto siv_subscript_dontknow;
+    }
+
   else
     {
+    siv_subscript_dontknow:;
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "siv test failed: unimplemented.\n");
       *overlaps_a = chrec_dont_know;
