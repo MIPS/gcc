@@ -4451,12 +4451,15 @@ restore_fragment (cpp_fragment *fragment)
   cpp_do_macro_callbacks (parse_in, fragment);
   cpp_restore_macros (parse_in, fragment);
   restore_fragment_bindings (C_FRAGMENT (fragment)->bindings);
-  asm_buf = C_FRAGMENT (fragment)->asm_buf;
-  if (asm_buf)
+  if (lang_hooks.uses_conditional_symtab)
     {
-      long size = TREE_STRING_LENGTH (asm_buf);
-      if (fwrite (TREE_STRING_POINTER (asm_buf), size, 1, asm_out_file) != 1)
-	fatal_error ("can't write %s: %m", asm_file_name);
+      asm_buf = C_FRAGMENT (fragment)->asm_buf;
+      if (asm_buf)
+	{
+	  long size = TREE_STRING_LENGTH (asm_buf);
+	  if (fwrite (TREE_STRING_POINTER (asm_buf), size, 1, asm_out_file) != 1)
+	    fatal_error ("can't write %s: %m", asm_file_name);
+	}
     }
 }
 
@@ -4473,7 +4476,7 @@ dont_defeat_good_checking ()
 }
 
 #define warn_fragment_invalidation (! quiet_flag)
-#define gather_fragment_statistics 0
+#define gather_fragment_statistics (! quiet_flag)
 
 int count_new_fragments;
 int count_new_empty_fragments;
@@ -4526,10 +4529,11 @@ cb_enter_fragment (cpp_reader* reader, cpp_fragment *fragment)
   struct c_include_fragment* st = C_FRAGMENT (fragment);
   bool valid = 0;
   const char* name = fragment->name;
-#if 0
-  input_filename = fragment->name;
-  input_line = SOURCE_LINE (linemap_lookup (&reader->line_maps, reader->line), reader->line);
-#endif
+  if (warn_fragment_invalidation)
+    {
+      input_filename = fragment->name;
+      input_line = SOURCE_LINE (linemap_lookup (&reader->line_maps, reader->line), reader->line);
+    }
   current_fragment_is_new = 0;
   if (st == NULL)
     {
@@ -4634,6 +4638,12 @@ cb_enter_fragment (cpp_reader* reader, cpp_fragment *fragment)
 	  /* Save other fragments so we can reuse them.  */
 	  FRAGMENT_CHAIN (st) = (tree)C_FRAGMENT (fragment);
 	  C_FRAGMENT (fragment) = st;
+
+	  st->asm_buf = NULL_TREE;
+	  if (asm_out_file)
+	    st->asm_file_startpos = ftell (asm_out_file);
+	  else
+	    st->asm_file_startpos = 0;
 	}
       st->uses_fragments = NULL_TREE;
       st->bindings = NULL_TREE;
@@ -4643,11 +4653,6 @@ cb_enter_fragment (cpp_reader* reader, cpp_fragment *fragment)
       current_fragment_deps_end = 0;
       fragment_bindings_end = 0;
       st->read_timestamp = st->include_timestamp;
-      st->asm_buf = NULL_TREE;
-      if (asm_out_file)
-	st->asm_file_startpos = ftell (asm_out_file);
-      else
-	st->asm_file_startpos = 0;
       reader->do_note_macros = 1;
     }
   current_c_fragment = st;
@@ -4776,7 +4781,7 @@ cb_exit_fragment (reader, fragment)
 	    inform ("invalidating cached fragment because it ends inside a declaration");
 	  st->valid = 0;
 	}
-      else
+      else if (lang_hooks.uses_conditional_symtab)
 	{
 	  long len;
 
@@ -4815,6 +4820,8 @@ cb_exit_fragment (reader, fragment)
 	      st->valid = 0;
 	    }
 	}
+      else
+	st->valid = 1;
     }
 #if 0
   fprintf(stderr, "(pop deps start:%d end:%d for %s ret:%s)\n",

@@ -1,3 +1,11 @@
+2003-12-08  Per Bothner  <pbothner@apple.com>
+
+	* c-common.c (restore_fragment, cb_enter_fragment, cb_exit_fragment):
+	If C (!lang_hooks.uses_conditional_symtab), don't set/use asm_buf.
+
+	* c-common.c (gather_fragment_statistics):  Re-define as !quiet_flag.
+	(cb_enter_fragment):  Line number fix for warn_fragment_invalidation.
+
 2003-12-08  Per Bothner  <per@bothner.com>
 
 	Reset some counters etc so compile-server output matches normal case.
