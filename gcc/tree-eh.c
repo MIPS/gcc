@@ -1686,6 +1686,8 @@ tree_could_trap_p (tree expr)
     case ROUND_MOD_EXPR:
     case TRUNC_MOD_EXPR:
       return true;
+    default:
+      break;
     }
 
   return false;
