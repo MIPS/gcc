@@ -4460,11 +4460,15 @@ tsubst_friend_function (decl, args)
       tree template_id, arglist, fns;
       tree new_args;
       tree tmpl;
-      tree ns = CP_DECL_CONTEXT (TYPE_MAIN_DECL (current_class_type));
-      
+      tree ns;
+
       /* Friend functions are looked up in the containing namespace scope.
          We must enter that scope, to avoid finding member functions of the
-         current cless with same name.  */
+         current class with same name.  */
+      for (ns = current_class_type;
+	   TYPE_P (ns);
+	   ns = CP_DECL_CONTEXT (TYPE_MAIN_DECL (ns)))
+	continue;
       push_nested_namespace (ns);
       fns = tsubst_expr (DECL_TI_TEMPLATE (decl), args,
                          /*complain=*/1, NULL_TREE);
