@@ -1,3 +1,13 @@
+2005-02-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/rs6000/altivec.md (altivec_dst): Make the first operand
+	a REG, not a MEM.
+	(altivec_dstt): Likewise.
+	(altivec_dstst): Likewise.
+	(altivec_dststt): Likewise.
+	* config/rs6000/rs6000.c (altivec_expand_dst_builtin): Adjust creation
+	of first operand.
+
 2005-02-02  Stan Shebs  <shebs@apple.com>
 
 	* config/rs6000/rs6000.c (rs6000_override_options): Default to

@@ -8493,12 +8493,13 @@ altivec_expand_dst_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 	if (TREE_CODE (arg2) != INTEGER_CST
 	    || TREE_INT_CST_LOW (arg2) & ~0x3)
 	  {
-	    error ("argument to `%s' must be a 2-bit unsigned literal", d->name);
+	    error ("argument to `%s' must be a 2-bit unsigned literal",
+		   d->name);
 	    return const0_rtx;
 	  }
 
 	if (! (*insn_data[d->icode].operand[0].predicate) (op0, mode0))
-	  op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
+	  op0 = copy_to_mode_reg (Pmode, op0);
 	if (! (*insn_data[d->icode].operand[1].predicate) (op1, mode1))
 	  op1 = copy_to_mode_reg (mode1, op1);
 

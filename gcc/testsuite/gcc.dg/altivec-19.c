@@ -1,14 +1,12 @@
-/* { dg-do run { target powerpc*-*-* } } */
-/* { dg-options "-maltivec -pedantic" } */
+/* { dg-do compile { target powerpc*-*-* } } */
+/* { dg-options "-maltivec" } */
+/* { dg-final { scan-assembler "dst" } } */
 
-int main()
+void foo ( char* image )
+{
+  while ( 1 )
     {
-    typedef        unsigned char  UC;
-    typedef vector unsigned char  VUC;
-
-    const UC   kBar  = 7;
-    VUC        vBar1 = (VUC)(kBar);
-    VUC        vBar2 =      {kBar};
-    VUC        vBar3 = (VUC){kBar};
-    return 0;
+      __builtin_altivec_dst( (void *)( (long)image & ~0x0f ), 0, 0 );
+      image += 48;
     }
+}
