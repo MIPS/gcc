@@ -1,3 +1,7 @@
+2002-06-20  Hartmut Penner <HPENNER@de.ibm.com>
+
+	* df.c (df_uses_record): Fix pasto.
+
 2002-06-19  Michael Matz  <matz@suse.de>
 
 	Merge with HEAD at tag ra-merge-20020613.

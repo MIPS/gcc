@@ -1103,8 +1103,8 @@ df_uses_record (df, loc, ref_type, bb, insn, flags)
 		{
 		  use_flags = DF_REF_READ_WRITE;
 #ifdef CLASS_CANNOT_CHANGE_MODE
-		  if (CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (x),
-						  GET_MODE (SUBREG_REG (x))))
+		  if (CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (dst),
+						  GET_MODE (SUBREG_REG (dst))))
 		    use_flags |= DF_REF_MODE_CHANGE;
 #endif
 		  df_uses_record (df, &SUBREG_REG (dst), DF_REF_REG_USE, bb,
@@ -1128,8 +1128,8 @@ df_uses_record (df, loc, ref_type, bb, insn, flags)
 		abort ();
 	      use_flags = DF_REF_READ_WRITE;
 #ifdef CLASS_CANNOT_CHANGE_MODE
-	      if (CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (x),
-					      GET_MODE (SUBREG_REG (x))))
+	      if (CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (dst),
+					      GET_MODE (SUBREG_REG (dst))))
 		use_flags |= DF_REF_MODE_CHANGE;
 #endif
 	      df_uses_record (df, &SUBREG_REG (dst), DF_REF_REG_USE, bb,
