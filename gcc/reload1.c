@@ -1,5 +1,5 @@
 /* Reload pseudo regs into hard regs for insns that require hard regs.
-   Copyright (C) 1987, 88, 89, 92-6, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 92-97, 1998 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -72,10 +72,6 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef REGISTER_MOVE_COST
 #define REGISTER_MOVE_COST(x, y) 2
-#endif
-
-#ifndef MEMORY_MOVE_COST
-#define MEMORY_MOVE_COST(x) 4
 #endif
 
 /* During reload_as_needed, element N contains a REG rtx for the hard reg
@@ -384,7 +380,6 @@ static void clear_reload_reg_in_use	PROTO((int, int, enum reload_type,
 static int reload_reg_free_p		PROTO((int, int, enum reload_type));
 static int reload_reg_free_before_p	PROTO((int, int, enum reload_type));
 static int reload_reg_reaches_end_p	PROTO((int, int, enum reload_type));
-static int reloads_conflict 		PROTO((int, int));
 static int allocate_reload_reg		PROTO((int, rtx, int, int));
 static void choose_reload_regs		PROTO((rtx, rtx));
 static void merge_assigned_reloads	PROTO((rtx));
@@ -1171,7 +1166,6 @@ reload (first, global, dumpfile)
 		  enum reg_class class = reload_reg_class[i];
 		  int size;
 		  enum machine_mode mode;
-		  int nongroup_need;
 		  struct needs *this_needs;
 
 		  /* Don't count the dummy reloads, for which one of the
@@ -1198,31 +1192,6 @@ reload (first, global, dumpfile)
 		  if (GET_MODE_SIZE (reload_outmode[i]) > GET_MODE_SIZE (mode))
 		    mode = reload_outmode[i];
 		  size = CLASS_MAX_NREGS (class, mode);
-
-		  /* If this class doesn't want a group, determine if we have
-		     a nongroup need or a regular need.  We have a nongroup
-		     need if this reload conflicts with a group reload whose
-		     class intersects with this reload's class.  */
-
-		  nongroup_need = 0;
-		  if (size == 1)
-		    for (j = 0; j < n_reloads; j++)
-		      if ((CLASS_MAX_NREGS (reload_reg_class[j],
-					    (GET_MODE_SIZE (reload_outmode[j])
-					     > GET_MODE_SIZE (reload_inmode[j]))
-					    ? reload_outmode[j]
-					    : reload_inmode[j])
-			   > 1)
-			  && (!reload_optional[j])
-			  && (reload_in[j] != 0 || reload_out[j] != 0
-			      || reload_secondary_p[j])
-			  && reloads_conflict (i, j)
-			  && reg_classes_intersect_p (class,
-						      reload_reg_class[j]))
-			{
-			  nongroup_need = 1;
-			  break;
-			}
 
 		  /* Decide which time-of-use to count this reload for.  */
 		  switch (reload_when_needed[i])
@@ -1301,10 +1270,10 @@ reload (first, global, dumpfile)
 		    }
 		  else if (size == 1)
 		    {
-		      this_needs->regs[nongroup_need][(int) class] += 1;
+		      this_needs->regs[reload_nongroup[i]][(int) class] += 1;
 		      p = reg_class_superclasses[(int) class];
 		      while (*p != LIM_REG_CLASSES)
-			this_needs->regs[nongroup_need][(int) *p++] += 1;
+			this_needs->regs[reload_nongroup[i]][(int) *p++] += 1;
 		    }
 		  else
 		    abort ();
@@ -1412,20 +1381,21 @@ reload (first, global, dumpfile)
 	      if (GET_CODE (insn) == CALL_INSN
 		  && caller_save_spill_class != NO_REGS)
 		{
-		  /* See if this register would conflict with any reload
-		     that needs a group.  */
+		  /* See if this register would conflict with any reload that
+		     needs a group or any reload that needs a nongroup.  */
 		  int nongroup_need = 0;
 		  int *caller_save_needs;
 
 		  for (j = 0; j < n_reloads; j++)
-		    if ((CLASS_MAX_NREGS (reload_reg_class[j],
-					  (GET_MODE_SIZE (reload_outmode[j])
-					   > GET_MODE_SIZE (reload_inmode[j]))
-					  ? reload_outmode[j]
-					  : reload_inmode[j])
-			 > 1)
-			&& reg_classes_intersect_p (caller_save_spill_class,
-						    reload_reg_class[j]))
+		    if (reg_classes_intersect_p (caller_save_spill_class,
+						 reload_reg_class[j])
+			&& ((CLASS_MAX_NREGS
+			     (reload_reg_class[j],
+			      (GET_MODE_SIZE (reload_outmode[j])
+			       > GET_MODE_SIZE (reload_inmode[j]))
+			      ? reload_outmode[j] : reload_inmode[j])
+			     > 1)
+			    || reload_nongroup[j]))
 		      {
 			nongroup_need = 1;
 			break;
@@ -4926,7 +4896,7 @@ reload_reg_reaches_end_p (regno, opnum, type)
 
    This function uses the same algorithm as reload_reg_free_p above.  */
 
-static int
+int
 reloads_conflict (r1, r2)
      int r1, r2;
 {
@@ -6131,7 +6101,8 @@ emit_reload_insns (insn)
 		  && ((REGNO_REG_CLASS (regno) != reload_reg_class[j]
 		       && (REGISTER_MOVE_COST (REGNO_REG_CLASS (regno),
 					       reload_reg_class[j])
-			   >= MEMORY_MOVE_COST (mode)))
+			   >= MEMORY_MOVE_COST (mode, REGNO_REG_CLASS (regno),
+						1)))
 #ifdef SECONDARY_INPUT_RELOAD_CLASS
 		      || (SECONDARY_INPUT_RELOAD_CLASS (reload_reg_class[j],
 							mode, oldequiv)
@@ -8193,13 +8164,15 @@ reload_cse_simplify_set (set, insn)
   if (side_effects_p (src) || true_regnum (src) >= 0)
     return 0;
 
+  dclass = REGNO_REG_CLASS (dreg);
+
   /* If memory loads are cheaper than register copies, don't change
      them.  */
-  if (GET_CODE (src) == MEM && MEMORY_MOVE_COST (GET_MODE (src)) < 2)
+  if (GET_CODE (src) == MEM
+      && MEMORY_MOVE_COST (GET_MODE (src), dclass, 1) < 2)
     return 0;
 
   dest_mode = GET_MODE (SET_DEST (set));
-  dclass = REGNO_REG_CLASS (dreg);
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
       if (i != dreg

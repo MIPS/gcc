@@ -801,7 +801,7 @@ enum reg_class { NO_REGS, GENERAL_REGS, FLOAT_REGS, ALL_REGS,
 
    On the Alpha, bump this up a bit.  */
 
-#define MEMORY_MOVE_COST(MODE)  6
+#define MEMORY_MOVE_COST(MODE,CLASS,IN)  6
 
 /* Provide the cost of a branch.  Exact meaning under development.  */
 #define BRANCH_COST 5
@@ -2079,6 +2079,10 @@ literal_section ()						\
    '	Generates trap-mode suffix for instructions that accept the
         su suffix only (cmpt et al).
 
+   (	Generates trap-mode suffix for instructions that accept the
+	v, sv, and svi suffix.  The only instruction that needs this
+	is cvttq.
+
    )    Generates trap-mode suffix for instructions that accept the
 	u, su, and sui suffix.  This is the bulk of the IEEE floating
 	point instructions (addt et al).
@@ -2094,8 +2098,8 @@ literal_section ()						\
    */
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)				\
-  ((CODE) == '&' || (CODE) == '\'' || (CODE) == ')' || (CODE) == '+'	\
-   || (CODE) == ',' || (CODE) == '-')
+  ((CODE) == '&' || (CODE) == '\'' || (CODE) == '(' || (CODE) == ')'	\
+   || (CODE) == '+' || (CODE) == ',' || (CODE) == '-')
 
 /* Print a memory address as an operand to reference that memory location.  */
 

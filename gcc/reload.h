@@ -1,5 +1,5 @@
 /* Communication between reload.c and reload1.c.
-   Copyright (C) 1987, 91, 92, 93, 94, 95, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1987, 91-95, 97, 1998 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -34,6 +34,17 @@ Boston, MA 02111-1307, USA.  */
 #define HAVE_SECONDARY_RELOADS
 #endif
 
+/* If MEMORY_MOVE_COST isn't defined, give it a default here.  */
+#ifndef MEMORY_MOVE_COST
+#ifdef HAVE_SECONDARY_RELOADS
+#define MEMORY_MOVE_COST(MODE,CLASS,IN) \
+  (4 + memory_move_secondary_cost ((MODE), (CLASS), (IN)))
+#else
+#define MEMORY_MOVE_COST(MODE,CLASS,IN) 4
+#endif
+#endif
+extern int memory_move_secondary_cost PROTO ((enum machine_mode, enum reg_class, int));
+
 /* See reload.c and reload1.c for comments on these variables.  */
 
 /* Maximum number of reloads we can need.  */
@@ -48,6 +59,7 @@ extern enum reg_class reload_reg_class[MAX_RELOADS];
 extern enum machine_mode reload_inmode[MAX_RELOADS];
 extern enum machine_mode reload_outmode[MAX_RELOADS];
 extern char reload_optional[MAX_RELOADS];
+extern char reload_nongroup[MAX_RELOADS];
 extern int reload_inc[MAX_RELOADS];
 extern int reload_opnum[MAX_RELOADS];
 extern int reload_secondary_p[MAX_RELOADS];

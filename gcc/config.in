@@ -80,6 +80,9 @@
 /* Define if you have the <limits.h> header file.  */
 #undef HAVE_LIMITS_H
 
+/* Define if you have the <stab.h> header file.  */
+#undef HAVE_STAB_H
+
 /* Define if you have the <stddef.h> header file.  */
 #undef HAVE_STDDEF_H
 
