@@ -210,7 +210,6 @@ struct var_ann_d GTY(())
 
 typedef struct immediate_use_iterator_d
 {
-  tree var;
   ssa_imm_use_t *imm_use;
   ssa_imm_use_t *end_p;
   ssa_imm_use_t iter_node;

@@ -2702,11 +2702,10 @@ stmt_for_bsi (tree stmt)
 
 /* Mark statement T as modified, and update it.  */
 static inline void
-update_new_stmt (tree t)
+update_modified_stmt (tree t)
 {
   gcc_assert (TREE_CODE (t) != STATEMENT_LIST);
-  if (stmt_modified_p (t))
-    update_stmt_operands (t);
+  update_stmt_if_modified (t);
 }
 
 /* Returns direction in that local dominance numbering should be expanded
@@ -2870,7 +2869,7 @@ static void
 bsi_insert_before_1 (block_stmt_iterator *i, tree t)
 {
   set_bb_for_stmt (t, i->bb);
-  update_new_stmt (t);
+  update_modified_stmt (t);
   tsi_link_before (&i->tsi, t, TSI_NEW_STMT);
   setup_local_dom_number (*i);
 }
@@ -2930,7 +2929,7 @@ static void
 bsi_insert_after_1 (block_stmt_iterator *i, tree t)
 {
   set_bb_for_stmt (t, i->bb);
-  update_new_stmt (t);
+  update_modified_stmt (t);
   tsi_link_after (&i->tsi, t, TSI_NEW_STMT);
   setup_local_dom_number (*i);
 }
@@ -3057,7 +3056,7 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool preserve_eh_info)
     }
 
   *bsi_stmt_ptr (*bsi) = stmt;
-  update_new_stmt (stmt);
+  update_modified_stmt (stmt);
   set_ldn (stmt, get_ldn (orig_stmt));
 }
 

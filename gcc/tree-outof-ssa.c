@@ -2028,6 +2028,9 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
 	}
     }
 
+  /* we no longer maintain the SSA operand cache at this point.  */
+  fini_ssa_operands ();
+
   dump_file = save;
 }
 

@@ -443,17 +443,10 @@ execute_todo (struct tree_opt_pass *pass, unsigned int flags)
     }
 
 #ifdef ENABLE_CHECKING
-      if ((pass->properties_required & PROP_ssa)
-          && !(pass->properties_destroyed & PROP_ssa))
-      {
-	test_imm_links (dump_file);
-	verify_ssa  (true);
-      }
-#endif
-
-#ifdef ENABLE_CHECKING
-  if (flags & TODO_verify_ssa)
+  if ((pass->properties_required & PROP_ssa)
+      && !(pass->properties_destroyed & PROP_ssa))
     verify_ssa  (true);
+
   if (flags & TODO_verify_flow)
     verify_flow_info ();
   if (flags & TODO_verify_stmts)

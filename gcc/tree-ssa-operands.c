@@ -126,7 +126,7 @@ tree check_build_stmt;
 def_operand_p NULL_DEF_OPERAND_P = { NULL };
 
 static void note_addressable (tree, stmt_ann_t);
-static void get_expr_operands (tree, tree *, int, stmt_operands_t *);
+static void get_expr_operands (tree, tree *, int);
 static void get_asm_expr_operands (tree);
 static void get_indirect_ref_operands (tree, tree, int);
 static void get_call_expr_operands (tree, tree);
@@ -426,7 +426,8 @@ correct_use_link (ssa_imm_use_t *ptr)
   prev = ptr->prev;
   if (prev)
     {
-      while (prev->use)
+      /* find the root, which has a non-NULL stmt, and a NULL use.  */
+      while (prev->stmt == NULL || prev->use != NULL)
         prev = prev->prev;
       root = prev->stmt;
       if (root == *(ptr->use))
@@ -899,6 +900,81 @@ append_v_must_def (tree var)
   VARRAY_PUSH_TREE (build_v_must_defs, var);
 }
 
+
+/* Parse STMT looking for operands.  OLD_OPS is the original stmt operand
+   cache for STMT, if it exested before.  When fniished, the various build_*
+   operand vectors will have potential operands. in them.  */
+
+static void
+parse_ssa_operands (tree stmt)
+{
+  enum tree_code code;
+
+  code = TREE_CODE (stmt);
+  switch (code)
+    {
+    case MODIFY_EXPR:
+      get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), opf_none);
+      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_REF 
+	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_RANGE_REF
+	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == COMPONENT_REF
+	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == REALPART_EXPR
+	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == IMAGPART_EXPR
+	  /* Use a V_MAY_DEF if the RHS might throw, as the LHS won't be
+	     modified in that case.  FIXME we should represent somehow
+	     that it is killed on the fallthrough path.  */
+	  || tree_could_throw_p (TREE_OPERAND (stmt, 1)))
+        get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_is_def);
+      else
+        get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), 
+	                   opf_is_def | opf_kill_def);
+      break;
+
+    case COND_EXPR:
+      get_expr_operands (stmt, &COND_EXPR_COND (stmt), opf_none);
+      break;
+
+    case SWITCH_EXPR:
+      get_expr_operands (stmt, &SWITCH_COND (stmt), opf_none);
+      break;
+
+    case ASM_EXPR:
+      get_asm_expr_operands (stmt);
+      break;
+
+    case RETURN_EXPR:
+      get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_none);
+      break;
+
+    case GOTO_EXPR:
+      get_expr_operands (stmt, &GOTO_DESTINATION (stmt), opf_none);
+      break;
+
+    case LABEL_EXPR:
+      get_expr_operands (stmt, &LABEL_EXPR_LABEL (stmt), opf_none);
+      break;
+
+      /* These nodes contain no variable references.  */
+    case BIND_EXPR:
+    case CASE_LABEL_EXPR:
+    case TRY_CATCH_EXPR:
+    case TRY_FINALLY_EXPR:
+    case EH_FILTER_EXPR:
+    case CATCH_EXPR:
+    case RESX_EXPR:
+      break;
+
+    default:
+      /* Notice that if get_expr_operands tries to use &STMT as the operand
+	 pointer (which may only happen for USE operands), we will abort in
+	 append_use.  This default will handle statements like empty
+	 statements, or CALL_EXPRs that may appear on the RHS of a statement
+	 or as statements themselves.  */
+      get_expr_operands (stmt, &stmt, opf_none);
+      break;
+    }
+}
+
 /* Create an operands cache for STMT, returning it in NEW_OPS. OLD_OPS are the
    original operands, and if ANN is non-null, appropriate stmt flags are set
    in the stmt's annotation.  If ANN is NULL, this is not considered a "real"
@@ -925,7 +1001,6 @@ void
 build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops, 
 		    stmt_operands_p new_ops)
 {
-  enum tree_code code;
   tree_ann_t saved_ann = stmt->common.ann;
   
   /* Replace stmt's annotation with the one passed in for the duration
@@ -944,69 +1019,7 @@ build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops,
 
   start_ssa_stmt_operands ();
 
-  code = TREE_CODE (stmt);
-  switch (code)
-    {
-    case MODIFY_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), opf_none, old_ops);
-      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_REF 
-	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_RANGE_REF
-	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == COMPONENT_REF
-	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == REALPART_EXPR
-	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == IMAGPART_EXPR
-	  /* Use a V_MAY_DEF if the RHS might throw, as the LHS won't be
-	     modified in that case.  FIXME we should represent somehow
-	     that it is killed on the fallthrough path.  */
-	  || tree_could_throw_p (TREE_OPERAND (stmt, 1)))
-        get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_is_def, old_ops);
-      else
-        get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), 
-	                   opf_is_def | opf_kill_def, old_ops);
-      break;
-
-    case COND_EXPR:
-      get_expr_operands (stmt, &COND_EXPR_COND (stmt), opf_none, old_ops);
-      break;
-
-    case SWITCH_EXPR:
-      get_expr_operands (stmt, &SWITCH_COND (stmt), opf_none, old_ops);
-      break;
-
-    case ASM_EXPR:
-      get_asm_expr_operands (stmt);
-      break;
-
-    case RETURN_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_none, old_ops);
-      break;
-
-    case GOTO_EXPR:
-      get_expr_operands (stmt, &GOTO_DESTINATION (stmt), opf_none, old_ops);
-      break;
-
-    case LABEL_EXPR:
-      get_expr_operands (stmt, &LABEL_EXPR_LABEL (stmt), opf_none, old_ops);
-      break;
-
-      /* These nodes contain no variable references.  */
-    case BIND_EXPR:
-    case CASE_LABEL_EXPR:
-    case TRY_CATCH_EXPR:
-    case TRY_FINALLY_EXPR:
-    case EH_FILTER_EXPR:
-    case CATCH_EXPR:
-    case RESX_EXPR:
-      break;
-
-    default:
-      /* Notice that if get_expr_operands tries to use &STMT as the operand
-	 pointer (which may only happen for USE operands), we will abort in
-	 append_use.  This default will handle statements like empty
-	 statements, or CALL_EXPRs that may appear on the RHS of a statement
-	 or as statements themselves.  */
-      get_expr_operands (stmt, &stmt, opf_none, old_ops);
-      break;
-    }
+  parse_ssa_operands (stmt);
 
   if (ann)
     finalize_ssa_stmt_operands (stmt, old_ops, new_ops);
@@ -1058,8 +1071,7 @@ update_stmt_operands (tree stmt)
 
   ann = get_stmt_ann (stmt);
 
-  if (!ann->modified)
-    return;
+  gcc_assert (ann->modified);
 
   timevar_push (TV_TREE_OPS);
 
@@ -1083,7 +1095,7 @@ update_stmt_operands (tree stmt)
    operands found.  */
 
 static void
-get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
+get_expr_operands (tree stmt, tree *expr_p, int flags)
 {
   enum tree_code code;
   enum tree_code_class class;
@@ -1116,7 +1128,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
 	 does not allow non-registers as array indices).  */
       flags |= opf_no_vops;
 
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
       return;
 
     case SSA_NAME:
@@ -1130,7 +1142,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
       return;
 
     case MISALIGNED_INDIRECT_REF:
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
       /* fall through */
 
     case ALIGN_INDIRECT_REF:
@@ -1150,11 +1162,11 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
       if (SSA_VAR_P (TREE_OPERAND (expr, 0)))
 	add_stmt_operand (expr_p, stmt, flags);
       else
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
 
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, old_ops);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, old_ops);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 3), opf_none, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 3), opf_none);
       return;
 
     case COMPONENT_REF:
@@ -1178,17 +1190,17 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
       if (SSA_VAR_P (TREE_OPERAND (expr, 0)))
 	add_stmt_operand (expr_p, stmt, flags);
       else
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
 
       if (code == COMPONENT_REF)
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, old_ops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
       return;
 
     case WITH_SIZE_EXPR:
       /* WITH_SIZE_EXPR is a pass-through reference to its first argument,
 	 and an rvalue reference to its second argument.  */
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, old_ops);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
       return;
 
     case CALL_EXPR:
@@ -1197,9 +1209,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
 
     case COND_EXPR:
     case VEC_COND_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, old_ops);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, old_ops);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
       return;
 
     case MODIFY_EXPR:
@@ -1207,7 +1219,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
 	int subflags;
 	tree op;
 
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, old_ops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
 
 	op = TREE_OPERAND (expr, 0);
 	if (TREE_CODE (op) == WITH_SIZE_EXPR)
@@ -1221,7 +1233,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
 	else
 	  subflags = opf_is_def | opf_kill_def;
 
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), subflags, old_ops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), subflags);
 	return;
       }
 
@@ -1232,7 +1244,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
 
 	tree t;
 	for (t = TREE_OPERAND (expr, 0); t ; t = TREE_CHAIN (t))
-	  get_expr_operands (stmt, &TREE_VALUE (t), opf_none, old_ops);
+	  get_expr_operands (stmt, &TREE_VALUE (t), opf_none);
 
 	return;
       }
@@ -1241,7 +1253,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
     case BIT_FIELD_REF:
     case VIEW_CONVERT_EXPR:
     do_unary:
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
       return;
 
     case TRUTH_AND_EXPR:
@@ -1262,16 +1274,6 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
 	   when the statement is modified.  */
 	if (tree_swap_operands_p (op0, op1, false))
 	  {
-	    use_operand_p use1 = NULL_USE_OPERAND_P;
-	    use_operand_p use2 = NULL_USE_OPERAND_P;
-#if 0
-	    if (old_ops && NUM_USES (old_ops->use_ops) == 2)
-	      {
-	        use1 = USE_OP_PTR (old_ops->use_ops, 0);
-	        use2 = USE_OP_PTR (old_ops->use_ops, 1);
-	      }
-#endif
-
 	    /* For relationals we need to swap the operands
 	       and change the code.  */
 	    if (code == LT_EXPR
@@ -1280,48 +1282,28 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
 		|| code == GE_EXPR)
 	      {
 		TREE_SET_CODE (expr, swap_tree_comparison (code));
-		if (use1 != NULL_USE_OPERAND_P)
-		  {
-		    SET_USE (use1, op1);
-		    SET_USE (use2, op0);
-		    gcc_assert (TREE_OPERAND (expr, 0) == op1);
-		    gcc_assert (TREE_OPERAND (expr, 1) == op0);
-		  }
-		else
-		  {
-		    TREE_OPERAND (expr, 0) = op1;
-		    TREE_OPERAND (expr, 1) = op0;
-		  }
+		TREE_OPERAND (expr, 0) = op1;
+		TREE_OPERAND (expr, 1) = op0;
 	      }
 	  
 	    /* For a commutative operator we can just swap the operands.  */
 	    else if (commutative_tree_code (code))
 	      {
-		if (use1 != NULL_USE_OPERAND_P)
-		  {
-		    SET_USE (use1, op1);
-		    SET_USE (use2, op0);
-		    gcc_assert (TREE_OPERAND (expr, 0) == op1);
-		    gcc_assert (TREE_OPERAND (expr, 1) == op0);
-		  }
-		else
-		  {
-		    TREE_OPERAND (expr, 0) = op1;
-		    TREE_OPERAND (expr, 1) = op0;
-		  }
+		TREE_OPERAND (expr, 0) = op1;
+		TREE_OPERAND (expr, 1) = op0;
 	      }
 	  }
 
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags, old_ops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
 	return;
       }
 
     case REALIGN_LOAD_EXPR:
       {
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
-        get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags, old_ops);
-        get_expr_operands (stmt, &TREE_OPERAND (expr, 2), flags, old_ops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 2), flags);
         return;
       }
 
@@ -1386,7 +1368,7 @@ get_asm_expr_operands (tree stmt)
 	    note_addressable (t, s_ann);
 	}
 
-      get_expr_operands (stmt, &TREE_VALUE (link), opf_is_def, NULL);
+      get_expr_operands (stmt, &TREE_VALUE (link), opf_is_def);
     }
 
   for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
@@ -1405,7 +1387,7 @@ get_asm_expr_operands (tree stmt)
 	    note_addressable (t, s_ann);
 	}
 
-      get_expr_operands (stmt, &TREE_VALUE (link), 0,  NULL);
+      get_expr_operands (stmt, &TREE_VALUE (link), 0);
     }
 
 
@@ -1529,7 +1511,7 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 
       /* Mark the object itself with a VUSE.  */
       pptr = &TREE_OPERAND (*pptr, 0);
-      get_expr_operands (stmt, pptr, flags, NULL);
+      get_expr_operands (stmt, pptr, flags);
       return;
     }
 
@@ -1538,7 +1520,7 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
     gcc_unreachable ();
 
   /* Add a USE operand for the base pointer.  */
-  get_expr_operands (stmt, pptr, opf_none, NULL);
+  get_expr_operands (stmt, pptr, opf_none);
 }
 
 /* A subroutine of get_expr_operands to handle CALL_EXPR.  */
@@ -1551,12 +1533,12 @@ get_call_expr_operands (tree stmt, tree expr)
   tree callee = get_callee_fndecl (expr);
 
   /* Find uses in the called function.  */
-  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, NULL);
+  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none);
 
   for (op = TREE_OPERAND (expr, 1); op; op = TREE_CHAIN (op))
-    get_expr_operands (stmt, &TREE_VALUE (op), opf_none, NULL);
+    get_expr_operands (stmt, &TREE_VALUE (op), opf_none);
 
-  get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, NULL);
+  get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
 
   if (bitmap_first_set_bit (call_clobbered_vars) >= 0)
     {
@@ -1923,160 +1905,108 @@ create_ssa_artficial_load_stmt (stmt_operands_p old_ops, tree new_stmt)
 }
 
 
-#ifdef ENABLE_CHECKING
-static void
-test_imm_print (FILE *file, use_operand_p var, tree stmt)
-{
-  if (TREE_CODE (USE_FROM_PTR (var)) == SSA_NAME)
-    {
-      if (stmt_modified_p (stmt) && TREE_CODE (stmt) != PHI_NODE)
-        {
-	  fprintf (file, " STMT MODIFIED. - <0x%x> ",
-		   (unsigned int)(size_t) stmt);
-	  print_generic_stmt (file, stmt, TDF_SLIM);
-	}
-      if (var->prev == NULL)
-	{
-	  fprintf (file, " IMM ERROR : (use_p : tree: 0x%X:0x%x)",
-		   (unsigned int) (size_t) var,
-		   (unsigned int) (size_t) var->use);
-	  print_generic_expr (file, USE_FROM_PTR (var), TDF_SLIM);
-	  fprintf (file, " is not in a list\n");
-	  fprintf (file, "<0x%x> ",
-		   (unsigned int) (size_t) stmt);
-	  print_generic_stmt (file, stmt, TDF_VOPS);
-	}
-    }
 
-}
-#endif
-
-void
-test_imm_links(FILE *file ATTRIBUTE_UNUSED)
-{
-#ifdef  ENABLE_CHECKING
-  unsigned int x;
-  basic_block bb;
-  use_operand_p var;
-
-  if (file == NULL)
-    file = stderr;
-
-  for (x = 1; x < num_ssa_names; x++)
-    if (ssa_name(x))
-      verify_imm_links (&(SSA_NAME_IMM_USE_NODE (ssa_name(x))));
-
-  FOR_EACH_BB (bb)
-    {
-      block_stmt_iterator i;
-      tree phi;
-      int x;
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-        {
-	  for (x = 0; x < PHI_NUM_ARGS (phi); x++)
-	    {
-	      var = &(PHI_ARG_IMM_USE_NODE(phi, x));
-	      test_imm_print (file, var, phi);
-	    }
-	}
-
-      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
-        {
-	  tree stmt = bsi_stmt (i);
-	  ssa_op_iter iter;
-	  get_stmt_operands (stmt);
-	  FOR_EACH_SSA_USE_OPERAND (var, stmt, iter, SSA_OP_ALL_USES)
-	    {
-	      test_imm_print (file, var, stmt);
-	    }
-	    
-	}
-    }
-
-#endif
-}
-
-#ifdef ENABLE_CHECKING
+/* Issue immediate use error for VAR to debug file F.  */
 static void 
-verify_abort (ssa_imm_use_t *var)
+verify_abort (FILE *f, ssa_imm_use_t *var)
 {
-  tree stmt = var->stmt;
-
+  tree stmt;
+  stmt = var->stmt;
   if (stmt)
     {
       if (stmt_modified_p(stmt))
 	{
-	  fprintf (stderr, " STMT MODIFIED. - <0x%x> ",
+	  fprintf (f, " STMT MODIFIED. - <0x%x> ",
 		   (unsigned int) (size_t) stmt);
-	  print_generic_stmt (stderr, stmt, TDF_SLIM);
+	  print_generic_stmt (f, stmt, TDF_SLIM);
 	}
     }
-
-  fprintf (stderr, " IMM ERROR : (use_p : tree: 0x%X:0x%x)",
-	   (unsigned int) (size_t) var,
+  fprintf (f, " IMM ERROR : (use_p : tree: 0x%X:0x%x)",
+	   (unsigned int) (size_t) var, 
 	   (unsigned int) (size_t) var->use);
-  print_generic_expr (stderr, USE_FROM_PTR (var), TDF_SLIM);
-  abort ();
+  print_generic_expr (f, USE_FROM_PTR (var), TDF_SLIM);
+  fprintf(f, "\n");
 }
-#endif
 
-void
-verify_imm_links (ssa_imm_use_t *list ATTRIBUTE_UNUSED)
+
+/* Scan the immediate_use list for VAR making sure its linked properly.
+   return RTUE iof there is a problem.  */
+
+bool
+verify_imm_links (FILE *f, tree var)
 {
-#ifdef ENABLE_CHECKING
-  ssa_imm_use_t *ptr, *prev, *root = NULL;
+  ssa_imm_use_t *ptr, *prev;
+  ssa_imm_use_t *list;
   int count;
 
+  gcc_assert (TREE_CODE (var) == SSA_NAME);
+
+  list = &(SSA_NAME_IMM_USE_NODE (var));
+  gcc_assert (list->use == NULL);
+
   if (list->prev == NULL)
-    return;
+    {
+      gcc_assert (list->next == NULL);
+      return false;
+    }
 
   prev = list;
-  if (list->use == NULL)
-    root = list;
   count = 0;
   for (ptr = list->next; ptr != list; )
     {
       if (prev != ptr->prev)
-	verify_abort (ptr);
+        {
+	  verify_abort (f, ptr);
+	  return true;
+	}
 
       if (ptr->use == NULL)
         {
-	  if (root)
-	    verify_abort(ptr);  	/* 2 roots.  */
-	  else
-	    {
-	      root = ptr;
-	      if (*(prev->use) != root->stmt)
-		verify_abort(ptr);
-	    }
+	  verify_abort (f, ptr); 	/* 2 roots, or SAFE guard node.  */
+	  return true;
 	}
       else
-	if (root)
+	if (*(ptr->use) != var)
 	  {
-	    if (*(ptr->use) != root->stmt)
-	      verify_abort (ptr);
+	    verify_abort (f, ptr);
+	    return true;
 	  }
-	else
-	  if (*(prev->use) != *(ptr->use))
-	    verify_abort(ptr);
+
       prev = ptr;
       ptr = ptr->next;
+      /* Avoid infinite loops.  */
       if (count++ > 30000)
-        verify_abort (ptr);
+	{
+	  verify_abort (f, ptr);
+	  return true;
+	}
     }
 
+  /* Verify list in the other direction.  */
   prev = list;
-  count = 0;
   for (ptr = list->prev; ptr != list; )
     {
       if (prev != ptr->next)
-        verify_abort (ptr);
+	{
+	  verify_abort (f, ptr);
+	  return true;
+	}
       prev = ptr;
       ptr = ptr->prev;
-      if (count++ > 30000)
-        verify_abort (ptr);
+      if (count-- < 0)
+	{
+	  verify_abort (f, ptr);
+	  return true;
+	}
     }
-#endif
+
+  if (count != 0)
+    {
+      verify_abort (f, ptr);
+      return true;
+    }
+
+  return false;
 }
 
 
