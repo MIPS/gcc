@@ -127,6 +127,10 @@ TARGET_SUBDIR = @target_subdir@
 # directories built for the target.
 TARGET_CONFIGARGS = @target_configargs@
 
+# Where to find GMP
+HOST_GMPLIBS = @gmplibs@
+HOST_GMPINC = @gmpinc@
+
 # ----------------------------------------------
 # Programs producing files for the BUILD machine
 # ----------------------------------------------
@@ -419,7 +423,9 @@ EXTRA_HOST_FLAGS = \
 	'LD=$(LD)' \
 	'NM=$(NM)' \
 	'RANLIB=$(RANLIB)' \
-	'WINDRES=$(WINDRES)'
+	'WINDRES=$(WINDRES)' \
+	'GMPLIBS=$(HOST_GMPLIBS)' \
+	'GMPINC=$(HOST_GMPINC)'
 
 FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_HOST_FLAGS)
 

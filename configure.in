@@ -1105,6 +1105,60 @@ fi
 
 ACX_PROG_GNAT
 
+# Check for GMP
+gmplibs=
+gmpinc=
+have_gmp=yes
+# Specify a location for gmp
+AC_ARG_WITH(gmp-dir, [  --with-gmp-dir=PATH     Specify source directory for GMP library])
+
+if test "x$with_gmp_dir" != x && test -f "$with_gmp_dir/gmp.h"; then
+  gmpinc="-I$with_gmp_dir"
+  if test -f "$with_gmp_dir/.libs/libgmp.a"; then
+    gmplibs="$with_gmp_dir/.libs/libgmp.a"
+  elif test -f "$with_gmp_dir/_libs/libgmp.a"; then
+    gmplibs="$with_gmp_dir/_libs/libgmp.a"
+  fi
+  # One of the later tests will catch the error if neither library is present.
+fi
+
+AC_ARG_WITH(gmp, [  --with-gmp=PATH         Specify directory for installed GMP library])
+
+if test "x$with_gmp" != x && test -d "$with_gmp"; then
+  gmplibs="-L$with_gmp/lib -lgmp"
+  gmpinc="-I$with_gmp/include"
+fi
+
+# Use system gmp if nothing else specified
+if test "x$gmplibs" = x; then
+  gmplibs="-lgmp"
+fi
+
+save_CFLAGS="$CFLAGS"
+CFLAGS="$CFLAGS $gmpinc"
+# Check GMP actually works
+AC_MSG_CHECKING([for correct version of gmp.h])
+AC_TRY_COMPILE([#include "gmp.h"],[
+#if __GNU_MP_VERSION < 3
+choke me
+#endif
+], [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no]); have_gmp=no])
+
+if test x"$have_gmp" = xyes; then
+  AC_MSG_CHECKING([for mpf_init in -lgmp])
+
+  saved_LIBS="$LIBS"
+  LIBS="$LIBS $gmplibs"
+  AC_TRY_LINK([#include <gmp.h>], [mpf_t n; mpf_init(n);],
+    [AC_MSG_RESULT([yes])],  [AC_MSG_RESULT([no]); have_gmp=no])
+  LIBS="$saved_LIBS"
+  CFLAGS="$saved_CFLAGS"
+fi
+
+AC_SUBST(gmplibs)
+AC_SUBST(gmpinc)
+
 # By default, C is the only stage 1 language.
 stage1_languages=c
 AC_SUBST(stage1_languages)
@@ -1177,6 +1231,7 @@ if test -d ${srcdir}/gcc; then
         lang_dirs=
         boot_language=
         build_by_default=
+	need_gmp=
         . ${lang_frag}
         # This is quite sensitive to the ordering of the case statement arms.
         case ,${enable_languages},:${language}:${have_gnat}:${build_by_default} in
@@ -1205,7 +1260,13 @@ if test -d ${srcdir}/gcc; then
             add_this_lang=no
             ;;
         esac
-        case $add_this_lang in
+
+	# Disable language that need GMP if it isn't available.
+	if test  x"$need_gmp" = xyes && test x"$have_gmp" = xno; then
+	  add_this_lang=no
+	fi
+        
+	case $add_this_lang in
 	  no)
             # Remove language-dependent dirs.
             eval noconfigdirs='"$noconfigdirs "'\"$target_libs $lang_dirs\"

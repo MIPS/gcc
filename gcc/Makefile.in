@@ -278,10 +278,6 @@ OUTPUT_OPTION = @OUTPUT_OPTION@
 ZLIB = @zlibdir@ -lz
 ZLIBINC = @zlibinc@
 
-# This is where to find the GMP library
-GMPLIBS = @gmplibs@
-GMPINC = @gmpinc@
-
 BANSHEELIB = @BANSHEELIB@
 BANSHEEINC = @BANSHEEINC@
 # Substitution type for target's getgroups 2nd arg.

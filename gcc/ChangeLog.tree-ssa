@@ -1,3 +1,9 @@
+2004-04-14  Paul Brook  <paul@codesourcery.com>
+
+	* Makefile.in (GMPLIBS, GMPINC): Don't set.
+	* configure.ac: Remove checks for GMP.
+	* configure: Regenerate.
+
 2004-04-13  Diego Novillo  <dnovillo@redhat.com>
 
 	* fold-const.c, tree-ssa-ccp.c, tree-ssa-dom.c,
