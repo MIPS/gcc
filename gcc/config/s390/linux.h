@@ -70,13 +70,33 @@ Boston, MA 02111-1307, USA.  */
 
 /* Target specific assembler settings.  */
 
+/* ??? This reimplements the default rules from override_options.
+   There should be a better way to do this.  */
+
 #ifdef DEFAULT_TARGET_64BIT
-#undef  ASM_SPEC
-#define ASM_SPEC "%{m31:-m31 -Aesa}"
+#define ASM_DEFAULT_ABI_SPEC  "-m64"
+#define ASM_DEFAULT_MODE_SPEC "%{m31:-mesa}%{m64:-mzarch}\
+%{!m31:%{!m64:-mzarch}}"
+#define ASM_DEFAULT_ARCH_SPEC "%{mesa:g5}%{mzarch:z900}\
+%{!mesa:%{!mzarch:%{m31:g5}%{m64:z900}%{!m31:%{!m64:z900}}}}"
 #else
-#undef  ASM_SPEC
-#define ASM_SPEC "%{m64:-m64 -Aesame}"
+#define ASM_DEFAULT_ABI_SPEC  "-m31"
+#define ASM_DEFAULT_MODE_SPEC "%{m31:-mesa}%{m64:-mzarch}\
+%{!m31:%{!m64:-mesa}}"
+#define ASM_DEFAULT_ARCH_SPEC "%{mesa:g5}%{mzarch:z900}\
+%{!mesa:%{!mzarch:%{m31:g5}%{m64:z900}%{!m31:%{!m64:g5}}}}"
 #endif
+
+#ifdef TARGET_CPU_DEFAULT
+#undef  ASM_DEFAULT_ARCH_SPEC
+#define ASM_DEFAULT_ARCH_SPEC TARGET_CPU_DEFAULT
+#endif
+
+#undef  ASM_SPEC
+#define ASM_SPEC "\
+%{m31:-m31}%{m64:-m64}%{!m31:%{!m64:%(asm_default_abi)}} \
+%{mesa:-mesa}%{mzarch:-mzarch}%{!mesa:%{!mzarch:%(asm_default_mode)}} \
+%{march=*:-march=%*}%{!march=*:-march=%(asm_default_arch)}"
 
 
 /* Target specific linker settings.  */
@@ -119,8 +139,11 @@ Boston, MA 02111-1307, USA.  */
    is an initializer with a subgrouping for each command option.  */
 
 #define EXTRA_SPECS \
-  { "link_arch31",	LINK_ARCH31_SPEC },	\
-  { "link_arch64",	LINK_ARCH64_SPEC },	\
+  { "asm_default_abi",		ASM_DEFAULT_ABI_SPEC },		\
+  { "asm_default_mode",		ASM_DEFAULT_MODE_SPEC },	\
+  { "asm_default_arch",		ASM_DEFAULT_ARCH_SPEC },	\
+  { "link_arch31",		LINK_ARCH31_SPEC },		\
+  { "link_arch64",		LINK_ARCH64_SPEC },		\
 
 
 /* Do code reading to identify a signal frame, and set the frame

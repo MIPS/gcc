@@ -2984,6 +2984,29 @@ powerpc*-*-* | rs6000-*-*)
 	cxx_target_objs="${cxx_target_objs} rs6000-c.o"
 	tmake_file="${tmake_file} rs6000/t-rs6000-c-rule"
 	;;
+s390*-*-*)
+	case "x$with_cpu" in
+		x)
+			;;
+
+		xg5 | xg6 | xz900 | xz990)
+			target_cpu_default2="\\\"$with_cpu\\\""
+			;;
+
+		xyes | xno)
+			echo "--with-cpu must be passed a value" 1>&2
+			exit 1
+			;;
+
+		*)
+			if test x$pass2done = xyes
+			then
+				echo "Unknown cpu used with --with-cpu=$with_cpu" 1>&2
+				exit 1
+			fi
+			;;
+	esac
+	;;
 sparc*-*-*)
 	case ".$with_cpu" in
 		.)

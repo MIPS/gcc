@@ -1,3 +1,121 @@
+2003-07-02  Ulrich Weigand  <uweigand@de.ibm.com>
+            Hartmut Penner  <hpenner@de.ibm.com>
+
+	* config/s390/s390.h (s390_tune, s390_tune_flags, s390_tune_string,
+	s390_arch, s390_arch_flags, s390_arch_string): Declare.
+	(enum processor_type): New type.
+	(enum processor_flags, TARGET_CPU_IEEE_FLOAT, TARGET_CPU_ZARCH,
+	TARGET_LONG_DISPLACEMENT): New.
+	(MASK_HARD_FLOAT, MASK_BACKCHAIN, MASK_SMALL_EXEC, MASK_DEBUG_ARG,
+	MASK_64BIT, MASK_MVCLE): New.
+	(TARGET_HARD_FLOAT, TARGET_BACKCHAIN, TARGET_SMALL_EXEC,
+	TARGET_DEBUG_ARG, TARGET_64BIT, TARGET_MVCLE): Use them
+	(MASK_ZARCH, TARGET_ZARCH): New.
+	(TARGET_DEFAULT): Default to TARGET_ZARCH if DEFAULT_TARGET_64BIT.
+	(TARGET_SWITCHES): Add -mesa and -mzarch.
+	(TARGET_OPTIONS): Define.
+	* config/s390/s390.c (s390_tune, s390_tune_flags, s390_tune_string,
+	s390_arch, s390_arch_flags, s390_arch_string): New variables.
+	(override_options): Decode -march and -mtune flags.  Fill in 
+	s390_tune* and s390_arch* global variables.
+	* config/s390/linux.h (ASM_DEFAULT_ABI_SPEC, ASM_DEFAULT_MODE_SPEC,
+	ASM_DEFAULT_ARCH_SPEC): New macros.
+	(EXTRA_SPECS): Add them.
+	(ASM_SPEC): Pass architecture mode and cpu architecture to assembler.
+	* config/s390/s390.md (attr "cpu"): New attribute.
+	* config.gcc [s390*-*-*]: Support --with-cpu configure option.
+	* doc/invoke.texi (-mesa, -mzarch, -march, -mtune): Document.
+
+	* config/s390/2064.md: New file.
+	* config/s390/2084.md: New file.
+	* config/s390/s390.md: Include them.
+	* config/s390/s390.c (s390_issue_rate): New function.
+	(TARGET_SCHED_ISSUE_RATE): Define.
+	(s390_use_dfa_pipeline_interface): New function.
+	(TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE): Define.
+	(s390_first_cycle_multipass_dfa_lookahead): New function.
+	(TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD): Define.
+	(s390_sched_reorder2): New function.
+	(TARGET_SCHED_REORDER2): Define.
+	(s390_safe_attr_type): New function.
+	(addr_generation_dependency_p): Use it.
+	(s390_adjust_cost, s390_adjust_priority): Adapt to DFA scheduler.
+	Remove DEBUG_SCHED support.
+	(s390_agen_dep_p): New function.
+	* config/s390/s390-protos.h: (s390_agen_dep_p): Declare.
+	* config/s390/s390.md (attr "type"): Add "larl", "fsimpd", "fsimps",
+	"floadd", "floads", "fstored", "fstores", "fmuld", "fmuls", "fdivd",
+	"fdivs", "ftoi", "itof", "fsqrtd", "fsqrts".  Remove "lmul", "fmul", 
+	"ldiv", and "fdiv".
+	(attr "atype"): Add "agen", remove "mem".
+	(function units): Adapt to attr "type" changes.
+	(all insns): Adapt "type" and "atype" where appropriate.
+
+	* config/s390/s390.c (s390_extra_constraint): New function.
+	* config/s390/s390-protos.h (s390_extra_constraint): Declare it.
+	* config/s390/s390.h (EXTRA_CONSTRAINT): Use it.
+	* config/s390/s390.c (q_constraint): Remove.
+	* config/s390/s390-protos.h (q_constraint): Likewise.
+	* config/s390/s390.h (EXTRA_MEMORY_CONSTRAINT): Add 'R', 'S', 'T'.
+	(EXTRA_ADDRESS_CONSTRAINT): Define.
+	* config/s390/s390.c (larl_operand): Refuse out-of-range operands.
+	(DISP_IN_RANGE, s390_short_displacement): New.
+	(legitimate_reload_operand_p): Support long displacements.
+	(s390_decompose_address): Likewise.
+	(legitimize_pic_address): Likewise.
+	(legitimize_address): Likewise.
+	(s390_fixup_clobbered_return_reg): Likewise.
+	(s390_emit_prologue, s390_emit_epilogue): Likewise.
+	(s390_output_mi_thunk): Likewise.
+	* config/s390/s390.md (attr "op_type"): Add "RXY", "RSY", "SIY".
+	(attr "atype", attr "length"): Add defaults for new op_types.
+	(all insns): Change op_type attribute where appropriate.
+	("*movdi_lay", "*movsi_lay", "*extendqidi2", "*extendqisi2"): New insns.
+	("*tmqi_ext", "*tmdi_mem", "*tmsi_mem", "*tmhi_mem", *tmqi_mem",
+	"*tstsi", "*tstsi_cconly", "*tsthiCCT", "*tsthiCCT_cconly",
+	"*tsthi", "*tsthi_cconly", "*tstqiCCT", "*tstqiCCT_cconly",
+	"*tstqi", "*tstqi_cconly", "*cmpsi_ccs_sign", "*cmpsi_ccs",
+	"*cmpsi_ccu", "*cmphi_ccu", "*cmpqi_ccu", "*cli", 
+	"movti", "*movdi_64", "*movdi_31", "*movsi", "movhi", "movqi_64",
+	"movqi", "*movstrictqi", "*movstricthi", "movstrictsi",
+	"*movdf_64", "*movdf_31", "*movsf", 
+	"*load_multiple_si", "*store_multiple_di",
+	"*sethighqisi", "*sethighhisi", "*sethighqidi_31", "*extendhisi2", 
+	"*la_64", "*la_31", "*la_31_and", "force_la_31", 
+	"*addsi3_carry1_cc", *addsi3_carry1_cconly",
+	"*addsi3_carry2_cc", *addsi3_carry2_cconly",
+	"*addsi3_cc", "*addsi3_cconly", "*addsi3_cconly2",
+	"*addsi3_sign", "*addsi3_sub", "addsi3", 
+	"*subsi3_borrow_cc", "*subsi3_borrow_cconly", "*subsi3_cc", 
+	"*subsi3_cconly", "*subsi3_sign", "*subsi3_sub", "subsi3",
+	"mulsi3"
+	"*andsi3_cc", "*andsi3_cconly", "andsi3",
+	"*andqi3_ss", "*andqi3_ss_inv",
+	"*iorsi3_cc", "*iorsi3_cconly", "iorsi3",
+	"*iorqi3_ss", "*iorqi3_ss_inv",
+	"*xorsi3_cc", "*xorsi3_cconly", "xorsi3",
+	"*xorqi3_ss", "*xorqi3_ss_inv",
+	"*tls_load_31"): Add alternatives for long-displacement instructions.
+	("*cmpdf_ccs", "*cmpdf_ccs_ibm", "*cmpsf_ccs", "*cmpsf_ccs_ibm",
+	"*load_multiple_di", "*store_multiple_di",
+	"*sethighqidi_64", "*zero_extendhisi2_31", 
+	"truncdfsf2_ibm", "extendsfdf2_ieee", "extendsfdf2_ibm",
+	"adddf3", "*adddf3", "*adddf3_ibm",
+	"addsf3", "*addsf3", "*addsf3_ibm",
+	"subdf3", "*subdf3", "*subdf3_ibm",
+	"subsf3", "*subsf3", "*subsf3_ibm",
+	"mulsi_6432", "divmoddisi3",
+	"muldf3", "*muldf3", "*muldf3_ibm",
+	"mulsf3", "*mulsf3", "*mulsf3_ibm",
+	"divdf3", "*divdf3", "*divdf3_ibm",
+	"divsf3", "div*sf3", "*divsf3_ibm",
+	"sqrtdf2", "sqrtsf2", 
+	"*cjump_long", "*icjump_long", "indirect_jump", "casesi_jump",
+	"*doloop_si_long", "*doloop_di_long", "bas_64", "bas_31",
+	"bas_r_64", "bas_r_31", "bas_tls_31", "bas_tls_64"): Adapt memory 
+	and address constraints for instructions that do not accept long 
+	displacements.
+
 2003-06-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* loop.c (count_one_set): Fix detection of registers set in more

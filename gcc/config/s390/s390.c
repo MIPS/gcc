@@ -49,8 +49,6 @@ Boston, MA 02111-1307, USA.  */
 #include "optabs.h"
 
 static bool s390_assemble_integer PARAMS ((rtx, unsigned int, int));
-static int s390_adjust_cost PARAMS ((rtx, rtx, rtx, int));
-static int s390_adjust_priority PARAMS ((rtx, int));
 static void s390_select_rtx_section PARAMS ((enum machine_mode, rtx, 
 					     unsigned HOST_WIDE_INT));
 static void s390_encode_section_info PARAMS ((tree, int));
@@ -61,7 +59,14 @@ static rtx s390_expand_builtin PARAMS ((tree, rtx, rtx,
 					enum machine_mode, int));
 static void s390_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 					  HOST_WIDE_INT, tree));
+static enum attr_type s390_safe_attr_type PARAMS ((rtx));
 
+static int s390_adjust_cost PARAMS ((rtx, rtx, rtx, int));
+static int s390_adjust_priority PARAMS ((rtx, int));
+static int s390_issue_rate PARAMS ((void));
+static int s390_use_dfa_pipeline_interface PARAMS ((void));
+static int s390_first_cycle_multipass_dfa_lookahead PARAMS ((void));
+static int s390_sched_reorder2 PARAMS ((FILE *, int, rtx *, int *, int));
 #undef  TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
 #undef  TARGET_ASM_ALIGNED_DI_OP
@@ -77,12 +82,6 @@ static void s390_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 
 #undef	TARGET_ASM_SELECT_RTX_SECTION
 #define	TARGET_ASM_SELECT_RTX_SECTION  s390_select_rtx_section
-
-#undef  TARGET_SCHED_ADJUST_COST
-#define TARGET_SCHED_ADJUST_COST s390_adjust_cost
-
-#undef  TARGET_SCHED_ADJUST_PRIORITY
-#define TARGET_SCHED_ADJUST_PRIORITY s390_adjust_priority
 
 #undef	TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO s390_encode_section_info
@@ -105,6 +104,19 @@ static void s390_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 #define TARGET_ASM_OUTPUT_MI_THUNK s390_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
+
+#undef  TARGET_SCHED_ADJUST_COST
+#define TARGET_SCHED_ADJUST_COST s390_adjust_cost
+#undef  TARGET_SCHED_ADJUST_PRIORITY
+#define TARGET_SCHED_ADJUST_PRIORITY s390_adjust_priority
+#undef TARGET_SCHED_ISSUE_RATE
+#define TARGET_SCHED_ISSUE_RATE s390_issue_rate
+#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE s390_use_dfa_pipeline_interface
+#undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
+#define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD s390_first_cycle_multipass_dfa_lookahead
+#undef TARGET_SCHED_REORDER2
+#define TARGET_SCHED_REORDER2 s390_sched_reorder2
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -137,6 +149,17 @@ struct s390_address
   int pointer;
 };
 
+/* Which cpu are we tuning for.  */
+enum processor_type s390_tune;
+enum processor_flags s390_tune_flags;
+/* Which instruction set architecture to use.  */
+enum processor_type s390_arch;
+enum processor_flags s390_arch_flags;
+
+/* Strings to hold which cpu and instruction set architecture  to use.  */
+const char *s390_tune_string;		/* for -mtune=<xxx> */
+const char *s390_arch_string;		/* for -march=<xxx> */
+
 /* Define the structure for the machine field in struct function.  */
 
 struct machine_function GTY(())
@@ -164,6 +187,7 @@ static int s390_branch_condition_mask PARAMS ((rtx));
 static const char *s390_branch_condition_mnemonic PARAMS ((rtx, int));
 static int check_mode PARAMS ((rtx, enum machine_mode *));
 static int general_s_operand PARAMS ((rtx, enum machine_mode, int));
+static int s390_short_displacement PARAMS ((rtx));
 static int s390_decompose_address PARAMS ((rtx, struct s390_address *));
 static rtx get_thread_pointer PARAMS ((void));
 static rtx legitimize_tls_address PARAMS ((rtx, rtx));
@@ -187,6 +211,11 @@ static rtx save_gprs PARAMS ((rtx, int, int, int));
 static rtx restore_gprs PARAMS ((rtx, int, int, int));
 static int s390_function_arg_size PARAMS ((enum machine_mode, tree));
 static struct machine_function * s390_init_machine_status PARAMS ((void));
+
+/* Check whether integer displacement is in range.  */
+#define DISP_IN_RANGE(d) \
+  (TARGET_LONG_DISPLACEMENT? ((d) >= -524288 && (d) <= 524287) \
+                           : ((d) >= 0 && (d) <= 4095))
  
 /* Return true if SET either doesn't set the CC register, or else
    the source and destination have matching CC modes and that 
@@ -859,11 +888,81 @@ optimization_options (level, size)
 void
 override_options ()
 {
+  int i;
+  static struct pta
+    {
+      const char *const name;		/* processor name or nickname.  */
+      const enum processor_type processor;
+      const enum processor_flags flags;
+    }
+  const processor_alias_table[] =
+    {
+      {"g5", PROCESSOR_9672_G5, PF_IEEE_FLOAT},
+      {"g6", PROCESSOR_9672_G6, PF_IEEE_FLOAT},
+      {"z900", PROCESSOR_2064_Z900, PF_IEEE_FLOAT | PF_ZARCH},
+      {"z990", PROCESSOR_2084, PF_IEEE_FLOAT | PF_ZARCH | PF_LONG_DISPLACEMENT},
+    };
+
+  int const pta_size = ARRAY_SIZE (processor_alias_table);
+
   /* Acquire a unique set number for our register saves and restores.  */
   s390_sr_alias_set = new_alias_set ();
 
   /* Set up function hooks.  */
   init_machine_status = s390_init_machine_status;
+
+  /* Architecture mode defaults according to ABI.  */
+  if (!(target_flags_explicit & MASK_ZARCH))
+    {
+      if (TARGET_64BIT)
+	target_flags |= MASK_ZARCH;
+      else
+	target_flags &= ~MASK_ZARCH;
+    }
+
+  /* Determine processor architectural level.  */
+  if (!s390_arch_string)
+#ifdef TARGET_CPU_DEFAULT
+    s390_arch_string = TARGET_CPU_DEFAULT;
+#else
+    s390_arch_string = TARGET_ZARCH? "z900" : "g5";
+#endif
+
+  for (i = 0; i < pta_size; i++)
+    if (! strcmp (s390_arch_string, processor_alias_table[i].name))
+      {
+	s390_arch = processor_alias_table[i].processor;
+	s390_arch_flags = processor_alias_table[i].flags;
+	break;
+      }
+  if (i == pta_size)
+    error ("bad value (%s) for -march= switch", s390_arch_string);
+
+  /* Determine processor to tune for.  */
+  if (!s390_tune_string)
+    {
+      s390_tune = s390_arch;
+      s390_tune_flags = s390_arch_flags;
+      s390_tune_string = s390_arch_string;
+    }
+  else
+    {
+      for (i = 0; i < pta_size; i++)
+	if (! strcmp (s390_tune_string, processor_alias_table[i].name))
+	  {
+	    s390_tune = processor_alias_table[i].processor;
+	    s390_tune_flags = processor_alias_table[i].flags;
+	    break;
+	  }
+      if (i == pta_size)
+	error ("bad value (%s) for -mtune= switch", s390_tune_string);
+    }
+
+  /* Sanity checks.  */
+  if (TARGET_ZARCH && !(s390_arch_flags & PF_ZARCH))
+    error ("z/Architecture mode not supported on %s", s390_arch_string);
+  if (TARGET_64BIT && !TARGET_ZARCH)
+    error ("64-bit ABI not supported in ESA/390 mode");
 }
 
 /* Map for smallest class containing reg regno.  */
@@ -880,6 +979,17 @@ const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER] =
   ADDR_REGS,    NO_REGS,   ADDR_REGS 
 };
 
+/* Return attribute type of insn.  */
+
+static enum attr_type
+s390_safe_attr_type (insn)
+     rtx insn;
+{
+  if (recog_memoized (insn) >= 0)
+    return get_attr_type (insn);
+  else
+    return TYPE_NONE;
+}
 
 /* Return true if OP a (const_int 0) operand.
    OP is the current operation.
@@ -950,12 +1060,17 @@ larl_operand (op, mode)
     return 0;
   op = XEXP (op, 0);
 
-  /* Allow adding *even* constants.  */
+  /* Allow adding *even* in-range constants.  */
   if (GET_CODE (op) == PLUS)
     {
       if (GET_CODE (XEXP (op, 1)) != CONST_INT
           || (INTVAL (XEXP (op, 1)) & 1) != 0)
         return 0;
+#if HOST_BITS_PER_WIDE_INT > 32
+      if (INTVAL (XEXP (op, 1)) >= (HOST_WIDE_INT)1 << 32
+	  || INTVAL (XEXP (op, 1)) < -((HOST_WIDE_INT)1 << 32))
+        return 0;
+#endif	
       op = XEXP (op, 0);
     }
 
@@ -1070,24 +1185,121 @@ s_imm_operand (op, mode)
   return general_s_operand (op, mode, 1);
 }
 
-/* Return true if OP is a valid operand for a 'Q' constraint.
-   This differs from s_operand in that only memory operands
-   without index register are accepted, nothing else.  */
+/* Return true if DISP is a valid short displacement.  */
+
+static int
+s390_short_displacement (disp)
+     rtx disp;
+{
+  /* No displacement is OK.  */
+  if (!disp)
+    return 1;
+
+  /* Integer displacement in range.  */
+  if (GET_CODE (disp) == CONST_INT)
+    return INTVAL (disp) >= 0 && INTVAL (disp) < 4096;
+
+  /* GOT offset is not OK, the GOT can be large.  */
+  if (GET_CODE (disp) == CONST
+      && GET_CODE (XEXP (disp, 0)) == UNSPEC
+      && XINT (XEXP (disp, 0), 1) == 110)
+    return 0;
+
+  /* All other symbolic constants are literal pool references,
+     which are OK as the literal pool must be small.  */
+  if (GET_CODE (disp) == CONST)
+    return 1;
+
+  return 0;
+}
+
+/* Return true if OP is a valid operand for a C constraint.  */
 
 int
-q_constraint (op)
-     register rtx op;
+s390_extra_constraint (op, c)
+     rtx op;
+     int c;
 {
   struct s390_address addr;
 
-  if (GET_CODE (op) != MEM)
-    return 0;
+  switch (c)
+    {
+    case 'Q':
+      if (GET_CODE (op) != MEM)
+	return 0;
+      if (!s390_decompose_address (XEXP (op, 0), &addr))
+	return 0;
+      if (addr.indx)
+	return 0;
 
-  if (!s390_decompose_address (XEXP (op, 0), &addr))
-    return 0;
+      if (TARGET_LONG_DISPLACEMENT)
+	{
+	  if (!s390_short_displacement (addr.disp))
+	    return 0;
+	}
+      break;
 
-  if (addr.indx)
-    return 0;
+    case 'R':
+      if (GET_CODE (op) != MEM)
+	return 0;
+
+      if (TARGET_LONG_DISPLACEMENT)
+	{
+	  if (!s390_decompose_address (XEXP (op, 0), &addr))
+	    return 0;
+	  if (!s390_short_displacement (addr.disp))
+	    return 0;
+	}
+      break;
+
+    case 'S':
+      if (!TARGET_LONG_DISPLACEMENT)
+	return 0;
+      if (GET_CODE (op) != MEM)
+	return 0;
+      if (!s390_decompose_address (XEXP (op, 0), &addr))
+	return 0;
+      if (addr.indx)
+	return 0;
+      if (s390_short_displacement (addr.disp))
+	return 0;
+      break;
+
+    case 'T':
+      if (!TARGET_LONG_DISPLACEMENT)
+	return 0;
+      if (GET_CODE (op) != MEM)
+	return 0;
+      /* Any invalid address here will be fixed up by reload,
+	 so accept it for the most generic constraint.  */
+      if (s390_decompose_address (XEXP (op, 0), &addr)
+	  && s390_short_displacement (addr.disp))
+	return 0;
+      break;
+
+    case 'U':
+      if (TARGET_LONG_DISPLACEMENT)
+	{
+	  if (!s390_decompose_address (op, &addr))
+	    return 0;
+	  if (!s390_short_displacement (addr.disp))
+	    return 0;
+	}
+      break;
+
+    case 'W':
+      if (!TARGET_LONG_DISPLACEMENT)
+	return 0;
+      /* Any invalid address here will be fixed up by reload,
+	 so accept it for the most generic constraint.  */
+      if (s390_decompose_address (op, &addr)
+	  && s390_short_displacement (addr.disp))
+	return 0;
+      break;
+
+    default:
+      return 0;
+    }
 
   return 1;
 }
@@ -1455,6 +1667,11 @@ int
 legitimate_reload_constant_p (op)
      register rtx op;
 {
+  /* Accept la(y) operands.  */
+  if (GET_CODE (op) == CONST_INT 
+      && DISP_IN_RANGE (INTVAL (op)))
+    return 1;
+
   /* Accept l(g)hi operands.  */
   if (GET_CODE (op) == CONST_INT
       && CONST_OK_FOR_LETTER_P (INTVAL (op), 'K'))
@@ -1775,7 +1992,7 @@ s390_decompose_address (addr, out)
 	     this is fixed up by reload in any case.  */
 	  if (base != arg_pointer_rtx && indx != arg_pointer_rtx)
 	    {
-	      if (INTVAL (disp) < 0 || INTVAL (disp) >= 4096)
+	      if (!DISP_IN_RANGE (INTVAL (disp)))
 	        return FALSE;
 	    }
         }
@@ -2158,7 +2375,7 @@ legitimize_pic_address (orig, reg)
                          pair of LARL and LA.  */
                       rtx temp = reg? reg : gen_reg_rtx (Pmode);
 
-                      if (INTVAL (op1) < 0 || INTVAL (op1) >= 4096)
+                      if (!DISP_IN_RANGE (INTVAL (op1)))
                         {
                           int even = INTVAL (op1) - 1;
                           op0 = gen_rtx_PLUS (Pmode, op0, GEN_INT (even));
@@ -2529,8 +2746,8 @@ legitimize_address (x, oldx, mode)
      change later anyway.  */
 
   if (GET_CODE (constant_term) == CONST_INT
-      && (INTVAL (constant_term) < 0
-          || INTVAL (constant_term) >= 4096)
+      && !TARGET_LONG_DISPLACEMENT
+      && !DISP_IN_RANGE (INTVAL (constant_term))
       && !(REG_P (x) && REGNO_PTR_FRAME_P (REGNO (x))))
     {
       HOST_WIDE_INT lower = INTVAL (constant_term) & 0xfff;
@@ -3272,9 +3489,6 @@ s390_assemble_integer (x, size, aligned_p)
   return default_assemble_integer (x, size, aligned_p);
 }
 
-
-#define DEBUG_SCHED 0
-
 /* Returns true if register REGNO is used  for forming 
    a memory address in expression X.  */
 
@@ -3326,6 +3540,9 @@ addr_generation_dependency_p (dep_rtx, insn)
 {
   rtx target, pat;
 
+  if (GET_CODE (dep_rtx) == INSN)
+      dep_rtx = PATTERN (dep_rtx);
+
   if (GET_CODE (dep_rtx) == SET)
     {
       target = SET_DEST (dep_rtx);
@@ -3338,7 +3555,7 @@ addr_generation_dependency_p (dep_rtx, insn)
 	{
 	  int regno = REGNO (target);
 
-	  if (get_attr_type (insn) == TYPE_LA)
+	  if (s390_safe_attr_type (insn) == TYPE_LA)
 	    {
 	      pat = PATTERN (insn);
 	      if (GET_CODE (pat) == PARALLEL)
@@ -3352,13 +3569,36 @@ addr_generation_dependency_p (dep_rtx, insn)
 	      else
 		abort();
 	    }
-	  else if (get_attr_atype (insn) == ATYPE_MEM)
+	  else if (get_attr_atype (insn) == ATYPE_AGEN)
 	    return reg_used_in_mem_p (regno, PATTERN (insn));
 	}
     }
   return 0;
 }
 
+/* Return 1, if dep_insn sets register used in insn in the agen unit.  */
+
+int 
+s390_agen_dep_p(dep_insn, insn)
+     rtx dep_insn;
+     rtx insn;
+{ 
+  rtx dep_rtx = PATTERN (dep_insn);
+  int i;
+  
+  if (GET_CODE (dep_rtx) == SET  
+      && addr_generation_dependency_p (dep_rtx, insn))
+    return 1;
+  else if (GET_CODE (dep_rtx) == PARALLEL)
+    {
+      for (i = 0; i < XVECLEN (dep_rtx, 0); i++)
+	{
+	  if (addr_generation_dependency_p (XVECEXP (dep_rtx, 0, i), insn))
+	    return 1;
+	}
+    }
+  return 0;
+}
 
 /* Return the modified cost of the dependency of instruction INSN
    on instruction DEP_INSN through the link LINK.  COST is the 
@@ -3392,52 +3632,42 @@ s390_adjust_cost (insn, link, dep_insn, cost)
   if (recog_memoized (insn) < 0 || recog_memoized (dep_insn) < 0)
     return cost;
 
+  /* DFA based scheduling checks address dependency in md file.  */
+  if (s390_use_dfa_pipeline_interface ())
+  {
+    /* Operand forward in case of lr, load and la.  */ 
+    if (s390_tune == PROCESSOR_2084 
+        && cost == 1
+	&& (s390_safe_attr_type (dep_insn) == TYPE_LA
+	    || s390_safe_attr_type (dep_insn) == TYPE_LR
+	    || s390_safe_attr_type (dep_insn) == TYPE_LOAD))
+      return 0;
+    return cost;
+  }
+
   dep_rtx = PATTERN (dep_insn);
 
-  if (GET_CODE (dep_rtx) == SET)
-    {
-      if (addr_generation_dependency_p (dep_rtx, insn))
-	{
-	  cost += (get_attr_type (dep_insn) == TYPE_LA) ? 1 : 4;  
-	  if (DEBUG_SCHED)
-	    {
-	      fprintf (stderr, "\n\nAddress dependency detected: cost %d\n",
-		       cost);
-	      debug_rtx (dep_insn);
-	      debug_rtx (insn);
-	    }
-	}
-    }
+  if (GET_CODE (dep_rtx) == SET 
+      && addr_generation_dependency_p (dep_rtx, insn))
+    cost += (s390_safe_attr_type (dep_insn) == TYPE_LA) ? 1 : 4;  
   else if (GET_CODE (dep_rtx) == PARALLEL)
     {
       for (i = 0; i < XVECLEN (dep_rtx, 0); i++)
 	{
-	  if (addr_generation_dependency_p (XVECEXP (dep_rtx, 0, i),
-					    insn))
-	    {
-	      cost += (get_attr_type (dep_insn) == TYPE_LA) ? 1 : 4;  
-	      if (DEBUG_SCHED)
-		{
-		  fprintf (stderr, "\n\nAddress dependency detected: cost %d\n"
-			   ,cost);
-		  debug_rtx (dep_insn);
-		  debug_rtx (insn);
-		}
-	    }
+	  if (addr_generation_dependency_p (XVECEXP (dep_rtx, 0, i), insn))
+	    cost += (s390_safe_attr_type (dep_insn) == TYPE_LA) ? 1 : 4;  
 	}
     }
 
   return cost;
 }
-
-
 /* A C statement (sans semicolon) to update the integer scheduling priority
-   INSN_PRIORITY (INSN).  Reduce the priority to execute the INSN earlier,
-   increase the priority to execute INSN later.  Do not define this macro if
+   INSN_PRIORITY (INSN).  Increase the priority to execute the INSN earlier,
+   reduce the priority to execute INSN later.  Do not define this macro if
    you do not need to adjust the scheduling priorities of insns. 
 
-   A LA instruction maybe scheduled later, since the pipeline bypasses the
-   calculated value.  */
+   A STD instruction should be scheduled earlier, 
+   in order to use the bypass.  */
 
 static int
 s390_adjust_priority (insn, priority)
@@ -3447,30 +3677,65 @@ s390_adjust_priority (insn, priority)
   if (! INSN_P (insn))
     return priority;
 
-  if (GET_CODE (PATTERN (insn)) == USE 
-      || GET_CODE (PATTERN (insn)) == CLOBBER)
+  if (s390_tune != PROCESSOR_2084)
     return priority;
-  
-  switch (get_attr_type (insn))
+
+  switch (s390_safe_attr_type (insn))
     {
-    default:
-      break;
-      
-    case TYPE_LA:
-      if (priority >= 0 && priority < 0x01000000)
-	priority <<= 3;
-      break;
-    case TYPE_LM:
-      /* LM in epilogue should never be scheduled. This
-	 is due to literal access done in function body.
-	 The usage of register 13 is not mentioned explicitly,
-	 leading to scheduling 'LM' accross this instructions.  
-      */ 
-      priority = 0x7fffffff;
-      break;
+      case TYPE_FSTORED:
+      case TYPE_FSTORES:
+	priority = priority << 3;
+	break;
+      case TYPE_STORE:
+	priority = priority << 1;
+	break;
+      default:
+        break;
     }
-  
   return priority;
+}
+
+/* The number of instructions that can be issued per cycle.  */
+
+static int
+s390_issue_rate ()
+{
+  if (s390_tune == PROCESSOR_2084) 
+    return 3;
+  return 1;
+}
+
+/* If the following function returns TRUE, we will use the the DFA
+   insn scheduler.  */
+
+static int
+s390_use_dfa_pipeline_interface ()
+{
+  if (s390_tune == PROCESSOR_2064_Z900
+      || s390_tune == PROCESSOR_2084)
+    return 1;
+
+  return 0;
+}
+
+static int
+s390_first_cycle_multipass_dfa_lookahead ()
+{
+  return s390_use_dfa_pipeline_interface () ? 4 : 0;
+}
+
+/* Called after issuing each insn.
+   Triggers default sort algorithm to better slot instructions.  */
+
+static int
+s390_sched_reorder2 (dump, sched_verbose, ready, pn_ready, clock_var)
+     FILE *dump ATTRIBUTE_UNUSED;
+     int sched_verbose ATTRIBUTE_UNUSED;
+     rtx *ready ATTRIBUTE_UNUSED;
+     int *pn_ready ATTRIBUTE_UNUSED;
+     int clock_var ATTRIBUTE_UNUSED;
+{
+    return s390_issue_rate();
 }
 
 
@@ -4741,7 +5006,7 @@ s390_fixup_clobbered_return_reg (return_reg)
 	reg = stack_pointer_rtx;
 
       off = GEN_INT (cfun->machine->frame_size + REGNO (return_reg) * UNITS_PER_WORD);
-      if (INTVAL (off) >= 4096)
+      if (!DISP_IN_RANGE (INTVAL (off)))
 	{
 	  off = force_const_mem (Pmode, off);
 	  new_insn = gen_rtx_SET (Pmode, return_reg, off);
@@ -5226,11 +5491,21 @@ s390_emit_prologue ()
       
       /* Substract frame size from stack pointer.  */
 
-      frame_off = GEN_INT (-cfun->machine->frame_size);
-      if (!CONST_OK_FOR_LETTER_P (-cfun->machine->frame_size, 'K'))
-	frame_off = force_const_mem (Pmode, frame_off);
+      if (DISP_IN_RANGE (INTVAL (frame_off)))
+	{
+	  insn = gen_rtx_SET (VOIDmode, stack_pointer_rtx, 
+			      gen_rtx_PLUS (Pmode, stack_pointer_rtx, 
+				      	    frame_off));
+	  insn = emit_insn (insn);
+	}
+      else
+	{
+	  if (!CONST_OK_FOR_LETTER_P (INTVAL (frame_off), 'K'))
+	    frame_off = force_const_mem (Pmode, frame_off);
 
-      insn = emit_insn (gen_add2_insn (stack_pointer_rtx, frame_off));
+          insn = emit_insn (gen_add2_insn (stack_pointer_rtx, frame_off));
+	}
+
       RTX_FRAME_RELATED_P (insn) = 1;
       REG_NOTES (insn) = 
 	gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
@@ -5389,8 +5664,8 @@ s390_emit_epilogue ()
     {
       /* Nothing to restore.  */
     }
-  else if (cfun->machine->frame_size + area_bottom >= 0
-           && cfun->machine->frame_size + area_top <= 4096)
+  else if (DISP_IN_RANGE (cfun->machine->frame_size + area_bottom)
+           && DISP_IN_RANGE (cfun->machine->frame_size + area_top-1))
     {
       /* Area is in range.  */
       offset = cfun->machine->frame_size;
@@ -5402,10 +5677,19 @@ s390_emit_epilogue ()
       offset = area_bottom < 0 ? -area_bottom : 0; 
       frame_off = GEN_INT (cfun->machine->frame_size - offset);
 
-      if (!CONST_OK_FOR_LETTER_P (INTVAL (frame_off), 'K'))
-	frame_off = force_const_mem (Pmode, frame_off);
+      if (DISP_IN_RANGE (INTVAL (frame_off)))
+	{
+	  insn = gen_rtx_SET (VOIDmode, frame_pointer, 
+			      gen_rtx_PLUS (Pmode, frame_pointer, frame_off));
+	  insn = emit_insn (insn);
+	}
+      else
+	{
+	  if (!CONST_OK_FOR_LETTER_P (INTVAL (frame_off), 'K'))
+	    frame_off = force_const_mem (Pmode, frame_off);
 
-      insn = emit_insn (gen_add2_insn (frame_pointer, frame_off));
+	  insn = emit_insn (gen_add2_insn (frame_pointer, frame_off));
+	}
     }
 
   /* Restore call saved fprs.  */
@@ -6383,8 +6667,10 @@ s390_output_mi_thunk (file, thunk, delta, vcall_offset, function)
   if (TARGET_64BIT)
     {
       /* Setup literal pool pointer if required.  */
-      if (!CONST_OK_FOR_LETTER_P (delta, 'K')
-	  || !CONST_OK_FOR_LETTER_P (vcall_offset, 'K'))
+      if ((!DISP_IN_RANGE (delta) 
+	   && !CONST_OK_FOR_LETTER_P (delta, 'K'))
+	  || (!DISP_IN_RANGE (vcall_offset) 
+	      && !CONST_OK_FOR_LETTER_P (vcall_offset, 'K')))
 	{
 	  op[5] = gen_label_rtx ();
 	  output_asm_insn ("larl\t%4,%5", op);
@@ -6395,6 +6681,8 @@ s390_output_mi_thunk (file, thunk, delta, vcall_offset, function)
 	{
 	  if (CONST_OK_FOR_LETTER_P (delta, 'J'))
 	    output_asm_insn ("la\t%1,%2(%1)", op);
+	  else if (DISP_IN_RANGE (delta))
+	    output_asm_insn ("lay\t%1,%2(%1)", op);
 	  else if (CONST_OK_FOR_LETTER_P (delta, 'K'))
 	    output_asm_insn ("aghi\t%1,%2", op);
 	  else
@@ -6407,7 +6695,7 @@ s390_output_mi_thunk (file, thunk, delta, vcall_offset, function)
       /* Perform vcall adjustment.  */
       if (vcall_offset)
 	{
-	  if (CONST_OK_FOR_LETTER_P (vcall_offset, 'J'))
+	  if (DISP_IN_RANGE (vcall_offset))
 	    {
 	      output_asm_insn ("lg\t%4,0(%1)", op);
 	      output_asm_insn ("ag\t%1,%3(%4)", op);
@@ -6451,8 +6739,10 @@ s390_output_mi_thunk (file, thunk, delta, vcall_offset, function)
     {
       /* Setup base pointer if required.  */
       if (!vcall_offset
-	  || !CONST_OK_FOR_LETTER_P (delta, 'K')
-	  || !CONST_OK_FOR_LETTER_P (vcall_offset, 'K'))
+	  || (!DISP_IN_RANGE (delta)
+              && !CONST_OK_FOR_LETTER_P (delta, 'K'))
+	  || (!DISP_IN_RANGE (delta)
+              && !CONST_OK_FOR_LETTER_P (vcall_offset, 'K')))
 	{
 	  op[5] = gen_label_rtx ();
 	  output_asm_insn ("basr\t%4,0", op);
@@ -6464,6 +6754,8 @@ s390_output_mi_thunk (file, thunk, delta, vcall_offset, function)
 	{
 	  if (CONST_OK_FOR_LETTER_P (delta, 'J'))
 	    output_asm_insn ("la\t%1,%2(%1)", op);
+	  else if (DISP_IN_RANGE (delta))
+	    output_asm_insn ("lay\t%1,%2(%1)", op);
 	  else if (CONST_OK_FOR_LETTER_P (delta, 'K'))
 	    output_asm_insn ("ahi\t%1,%2", op);
 	  else
@@ -6480,6 +6772,11 @@ s390_output_mi_thunk (file, thunk, delta, vcall_offset, function)
 	    {
 	      output_asm_insn ("lg\t%4,0(%1)", op);
 	      output_asm_insn ("a\t%1,%3(%4)", op);
+	    }
+	  else if (DISP_IN_RANGE (vcall_offset))
+	    {
+	      output_asm_insn ("lg\t%4,0(%1)", op);
+	      output_asm_insn ("ay\t%1,%3(%4)", op);
 	    }
 	  else if (CONST_OK_FOR_LETTER_P (vcall_offset, 'K'))
 	    {

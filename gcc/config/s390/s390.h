@@ -28,6 +28,42 @@ Boston, MA 02111-1307, USA.  */
 #include <s390/fixdfdi.h>
 #endif
 
+/* Which processor to generate code or schedule for. The cpu attribute 
+   defines a list that mirrors this list, so changes to s390.md must be
+   made at the same time.  */
+
+enum processor_type
+{
+  PROCESSOR_9672_G5,		
+  PROCESSOR_9672_G6,		
+  PROCESSOR_2064_Z900,	
+  PROCESSOR_2084,		
+  PROCESSOR_max
+};
+
+/* Optional architectural facilities supported by the processor.  */
+
+enum processor_flags
+{
+  PF_IEEE_FLOAT = 1,
+  PF_ZARCH = 2,
+  PF_LONG_DISPLACEMENT = 4
+};
+
+extern enum processor_type s390_tune;
+extern enum processor_flags s390_tune_flags;
+extern const char *s390_tune_string;
+
+extern enum processor_type s390_arch;
+extern enum processor_flags s390_arch_flags;
+extern const char *s390_arch_string;
+
+#define TARGET_CPU_IEEE_FLOAT \
+	(s390_arch_flags & PF_IEEE_FLOAT)
+#define TARGET_CPU_ZARCH \
+	(s390_arch_flags & PF_ZARCH)
+#define TARGET_LONG_DISPLACEMENT \
+	(TARGET_ZARCH && (s390_arch_flags & PF_LONG_DISPLACEMENT))
 
 /* Run-time target specification.  */
 
@@ -46,38 +82,56 @@ Boston, MA 02111-1307, USA.  */
 /* Optional target features.  */
 extern int target_flags;
 
-#define TARGET_HARD_FLOAT          (target_flags & 1)
-#define TARGET_SOFT_FLOAT          (!(target_flags & 1))
-#define TARGET_BACKCHAIN           (target_flags & 2)
-#define TARGET_SMALL_EXEC          (target_flags & 4)
-#define TARGET_DEBUG_ARG           (target_flags & 8)
-#define TARGET_64BIT               (target_flags & 16)
-#define TARGET_MVCLE               (target_flags & 32)
+#define MASK_HARD_FLOAT            0x01
+#define MASK_BACKCHAIN             0x02
+#define MASK_SMALL_EXEC            0x04
+#define MASK_DEBUG_ARG             0x08
+#define MASK_64BIT                 0x10
+#define MASK_ZARCH                 0x20
+#define MASK_MVCLE                 0x40
+
+#define TARGET_HARD_FLOAT          (target_flags & MASK_HARD_FLOAT)
+#define TARGET_SOFT_FLOAT          (!(target_flags & MASK_HARD_FLOAT))
+#define TARGET_BACKCHAIN           (target_flags & MASK_BACKCHAIN)
+#define TARGET_SMALL_EXEC          (target_flags & MASK_SMALL_EXEC)
+#define TARGET_DEBUG_ARG           (target_flags & MASK_DEBUG_ARG)
+#define TARGET_64BIT               (target_flags & MASK_64BIT)
+#define TARGET_ZARCH               (target_flags & MASK_ZARCH)
+#define TARGET_MVCLE               (target_flags & MASK_MVCLE)
 
 /* ??? Once this actually works, it could be made a runtime option.  */
 #define TARGET_IBM_FLOAT           0
 #define TARGET_IEEE_FLOAT          1
 
 #ifdef DEFAULT_TARGET_64BIT
-#define TARGET_DEFAULT             0x13
+#define TARGET_DEFAULT             0x33
 #else
 #define TARGET_DEFAULT             0x3
 #endif
 
-#define TARGET_SWITCHES           		       		       \
-{ { "hard-float",    1, N_("Use hardware fp")},         		       \
-  { "soft-float",   -1, N_("Don't use hardware fp")},	      	       \
-  { "backchain",     2, N_("Set backchain")},           		       \
+#define TARGET_SWITCHES                                                \
+{ { "hard-float",    1, N_("Use hardware fp")},                        \
+  { "soft-float",   -1, N_("Don't use hardware fp")},                  \
+  { "backchain",     2, N_("Set backchain")},                          \
   { "no-backchain", -2, N_("Don't set backchain (faster, but debug harder")}, \
-  { "small-exec",    4, N_("Use bras for executable < 64k")},           \
-  { "no-small-exec",-4, N_("Don't use bras")},            	       \
-  { "debug",         8, N_("Additional debug prints")},        	       \
-  { "no-debug",     -8, N_("Don't print additional debug prints")},     \
-  { "64",           16, N_("64 bit mode")},         	               \
-  { "31",          -16, N_("31 bit mode")},                             \
-  { "mvcle",        32, N_("mvcle use")},         	               \
-  { "no-mvcle",    -32, N_("mvc&ex")},                                  \
+  { "small-exec",    4, N_("Use bras for execucable < 64k")},          \
+  { "no-small-exec",-4, N_("Don't use bras")},                         \
+  { "debug",         8, N_("Additional debug prints")},                \
+  { "no-debug",     -8, N_("Don't print additional debug prints")},    \
+  { "64",           16, N_("64 bit ABI")},                             \
+  { "31",          -16, N_("31 bit ABI")},                             \
+  { "zarch",        32, N_("z/Architecture")},                         \
+  { "esa",         -32, N_("ESA/390 architecture")},                   \
+  { "mvcle",        64, N_("mvcle use")},                              \
+  { "no-mvcle",    -64, N_("mvc&ex")},                                 \
   { "", TARGET_DEFAULT, 0 } }
+
+#define TARGET_OPTIONS                                          \
+{ { "tune=",            &s390_tune_string,                      \
+    N_("Schedule code for given CPU")},                         \
+  { "arch=",            &s390_arch_string,                      \
+    N_("Generate code for given CPU")},                         \
+}
 
 /* Target version string.  Overridden by the OS header.  */
 #ifdef DEFAULT_TARGET_64BIT
@@ -448,10 +502,11 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
 #define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)  1
 
 #define EXTRA_CONSTRAINT(OP, C)                               	\
-     ((C) == 'Q' ?  q_constraint (OP) : 			\
-      (C) == 'S' ?  larl_operand (OP, GET_MODE (OP)) : 0)
-
-#define EXTRA_MEMORY_CONSTRAINT(C) ((C) == 'Q')
+  s390_extra_constraint ((OP), (C))
+#define EXTRA_MEMORY_CONSTRAINT(C) 				\
+  ((C) == 'Q' || (C) == 'R' || (C) == 'S' || (C) == 'T')
+#define EXTRA_ADDRESS_CONSTRAINT(C) 				\
+  ((C) == 'U' || (C) == 'W')
 
 
 /* Stack layout and calling conventions.  */

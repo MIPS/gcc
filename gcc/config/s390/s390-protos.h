@@ -30,7 +30,7 @@ extern void s390_function_profiler PARAMS ((FILE *, int));
 
 #ifdef RTX_CODE
 extern int s390_address_cost PARAMS ((rtx));
-extern int q_constraint PARAMS ((rtx));
+extern int s390_extra_constraint PARAMS ((rtx, int));
 extern int const0_operand PARAMS ((rtx, enum machine_mode));
 extern int consttable_operand PARAMS ((rtx, enum machine_mode));
 extern int larl_operand PARAMS ((rtx, enum machine_mode));
@@ -79,6 +79,8 @@ extern void s390_initialize_trampoline PARAMS ((rtx, rtx, rtx));
 extern rtx s390_gen_rtx_const_DI PARAMS ((int, int));
 extern rtx s390_simplify_dwarf_addr PARAMS ((rtx));
 extern void s390_machine_dependent_reorg PARAMS ((rtx));
+extern int s390_agen_dep_p PARAMS ((rtx, rtx));
+
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
