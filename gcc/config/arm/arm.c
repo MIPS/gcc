@@ -13218,3 +13218,44 @@ arm_output_load_gr (operands)
 
   return "";
 }
+
+/* Return non-zero if the CONSUMER instruction (a store) does not need
+   PRODUCER's value to calculate the address.  */
+
+int
+arm_no_early_store_addr_dep (rtx producer, rtx consumer)
+{
+  rtx value = XEXP (PATTERN (producer), 0);
+  rtx addr = XEXP (PATTERN (consumer), 0);
+
+  return !reg_overlap_mentioned_p (value, addr);
+}
+
+/* Return non-zero if the CONSUMER instruction (an ALU op) does not
+   have an early register shift dependency on the result of
+   PRODUCER.  */
+
+int
+arm_no_early_alu_shift_dep (rtx producer, rtx consumer)
+{
+  rtx value = XEXP (PATTERN (producer), 0);
+  rtx early_op = XEXP (XEXP (PATTERN (consumer), 1), 0);
+
+  return (GET_CODE (early_op) != MULT
+	  || !reg_overlap_mentioned_p (value, early_op));
+}
+
+/* Return non-zero if the CONSUMER (a mul or mac op) does not
+   have an early register mult dependency on the result of
+   PRODUCER.  */
+
+int
+arm_no_early_mul_dep (rtx producer, rtx consumer)
+{
+  rtx value = XEXP (PATTERN (producer), 0);
+  rtx early_ops = XEXP (PATTERN (consumer), 1);
+
+  return (GET_CODE (early_ops) == PLUS
+	  && !reg_overlap_mentioned_p (value, XEXP (early_ops, 0)));
+}
+

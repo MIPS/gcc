@@ -42,11 +42,13 @@
 ;; - An Arithmetic Logic Unit (ALU) pipeline.
 ;;
 ;;   The ALU pipeline has fetch, issue, decode, execute, memory, and
-;;   write stages.
+;;   write stages. We only need to model the execute, memory and write
+;;   stages.
 ;;
 ;; - A Load-Store Unit (LSU) pipeline.
 ;;
 ;;   The LSU pipeline has decode, execute, memory, and write stages.
+;;   We only model the execute, memory and write stages.
 
 (define_cpu_unit "a_e,a_m,a_w" "arm1026ejs")
 (define_cpu_unit "l_e,l_m,l_w" "arm1026ejs")
@@ -55,8 +57,8 @@
 ;; ALU Instructions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; ALU instructions require six cycles to execute, and use the ALU
-;; pipeline in each of the six stages.  The results are available
+;; ALU instructions require three cycles to execute, and use the ALU
+;; pipeline in each of the three stages.  The results are available
 ;; after the execute stage stage has finished.
 ;;
 ;; If the destination register is the PC, the pipelines are stalled
@@ -141,6 +143,11 @@
 ;; LSU instructions require six cycles to execute.  They use the ALU
 ;; pipeline in all but the 5th cycle, and the LSU pipeline in cycles
 ;; three through six.
+;; Loads and stores which use a scaled register offset or scaled
+;; register pre-indexed addressing mode take three cycles EXCEPT for
+;; those that are base + offset with LSL of 0 or 2, or base - offset
+;; with LSL of zero.  The remainder take 1 cycle to execute.
+;; For 4byte loads there is a bypass from the load stage
 
 (define_insn_reservation "load1_op" 2
  (and (eq_attr "tune" "arm1026ejs")
@@ -151,6 +158,9 @@
  (and (eq_attr "tune" "arm1026ejs")
       (eq_attr "type" "store1"))
  "a_e+l_e,l_m,a_w+l_w")
+
+;; A load's result can be stored by an immediately following store
+(define_bypass 1 "load1_op" "store1_op" "arm_no_early_store_addr_dep")
 
 ;; On a LDM/STM operation, the LSU pipeline iterates until all of the
 ;; registers have been processed.

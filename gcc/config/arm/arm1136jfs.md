@@ -58,7 +58,8 @@
 ;;   data cache (2), and writeback stages.  (Note that this pipeline,
 ;;   including the writeback stage, is independant from the ALU & LSU pipes.)  
 
-(define_cpu_unit "e_1,e_2,e_3,e_wb" "arm1136jfs")     ; Execute
+(define_cpu_unit "e_1,e_2,e_3,e_wb" "arm1136jfs")     ; ALU and MAC
+; e_1 = Sh/Mac1, e_2 = ALU/Mac2, e_3 = SAT/Mac3
 (define_cpu_unit "l_a,l_dc1,l_dc2,l_wb" "arm1136jfs") ; Load/Store
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -67,15 +68,21 @@
 
 ;; ALU instructions require eight cycles to execute, and use the ALU
 ;; pipeline in each of the eight stages.  The results are available
-;; after the execute stage has finished.
+;; after the alu stage has finished.
 ;;
 ;; If the destination register is the PC, the pipelines are stalled
 ;; for several cycles.  That case is not modelled here.
 
-(define_insn_reservation "11_alu_op" 1
+(define_insn_reservation "11_alu_op" 2
  (and (eq_attr "tune" "arm1136js,arm1136jfs")
       (eq_attr "type" "normal"))
  "e_1,e_2,e_3,e_wb")
+
+;; alu_ops can start sooner, if there is no shifter dependency
+(define_bypass 1 "11_alu_op" "11_alu_op" "arm_no_early_alu_shift_dep")
+(define_bypass 1 "11_alu_op"
+	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
+	       "arm_no_early_mul_dep")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Multiplication Instructions
@@ -97,6 +104,14 @@
       (eq_attr "insn" "muls,mlas"))
  "e_1*2,e_2,e_3,e_wb")
 
+(define_bypass 3 "11_mult1,11_mult2"
+	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
+	       "arm_no_early_mul_dep")
+(define_bypass 3 "11_mult1,11_mult2" "11_alu_op"
+	       "arm_no_early_alu_shift_dep")
+(define_bypass 3 "11_mult1,11_mult2" "11_store1,11_store2,11_store34"
+	       "arm_no_early_store_addr_dep")
+
 ;; Signed and unsigned multiply long results are available across two cycles;
 ;; the less significant word is available one cycle before the more significant
 ;; word.  Here we conservatively wait until both are available, which is
@@ -113,6 +128,14 @@
       (eq_attr "insn" "smulls,umulls,smlals,umlals"))
  "e_1*3,e_2,e_3,e_wb*2")
 
+(define_bypass 4 "11_mult3,11_mult4"
+	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
+	       "arm_no_early_mul_dep")
+(define_bypass 4 "11_mult3,11_mult4" "11_alu_op"
+	       "arm_no_early_alu_shift_dep")
+(define_bypass 4 "11_mult3,11_mult4" "11_store1,11_store2,11_store34"
+	       "arm_no_early_store_addr_dep")
+
 ;; Various 16x16->32 multiplies and multiply-accumulates, using combinations
 ;; of high and low halves of the argument registers.  They take a single
 ;; pass through the pipeline and make the result available after three
@@ -121,6 +144,15 @@
  (and (eq_attr "tune" "arm1136js,arm1136jfs")
       (eq_attr "insn" "smulxy,smlaxy,smulwy,smlawy,smuad,smuadx,smlad,smladx,smusd,smusdx,smlsd,smlsdx"))
  "e_1,e_2,e_3,e_wb")
+
+(define_bypass 2 "11_mult5"
+	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
+	       "arm_no_early_mul_dep")
+(define_bypass 2 "11_mult5" "11_alu_op"
+	       "arm_no_early_alu_shift_dep")
+(define_bypass 2 "11_mult5" "11_store1,11_store2,11_store34"
+	       "arm_no_early_store_addr_dep")
+
 
 ;; The same idea, then the 32-bit result is added to a 64-bit quantity.
 (define_insn_reservation "11_mult6" 4
@@ -134,6 +166,14 @@
  (and (eq_attr "tune" "arm1136js,arm1136jfs")
       (eq_attr "insn" "smmul,smmulr"))
  "e_1*2,e_2,e_3,e_wb")
+
+(define_bypass 3 "11_mult6,11_mult7"
+	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
+	       "arm_no_early_mul_dep")
+(define_bypass 3 "11_mult6,11_mult7" "11_alu_op"
+	       "arm_no_early_alu_shift_dep")
+(define_bypass 3 "11_mult6,11_mult7" "11_store1,11_store2,11_store34"
+	       "arm_no_early_store_addr_dep")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Branch Instructions
@@ -157,6 +197,13 @@
  (and (eq_attr "tune" "arm1136js,arm1136jfs")
       (eq_attr "type" "call"))
  "nothing")
+
+;; Branches are predicted. A correctly predicted branch will be no
+;; cost, but we're conservative here, and use the timings a
+;; late-register would give us.
+(define_bypass 1 "11_alu_op" "11_branches")
+(define_bypass 2 "11_load1,11_load2" "11_branches")
+(define_bypass 3 "11_load34" "11_branches")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Load/Store Instructions
@@ -203,3 +250,32 @@
  (and (eq_attr "tune" "arm1136js,arm1136jfs")
       (eq_attr "type" "store3,store4"))
  "l_a+e_1,l_dc1*2,l_dc2,l_wb")
+
+;; A store can start immediately after an alu op, if that alu op does
+;; not provide part of the address to access.
+(define_bypass 1 "11_alu_op" "11_store1,11_store2,11_store34"
+	       "arm_no_early_store_addr_dep")
+
+;; An alu op can start sooner after a load, if that alu op does not
+;; have an early register dependancy on the load
+(define_bypass 2 "11_load1,11_load2" "11_alu_op"
+	       "arm_no_early_alu_shift_dep")
+(define_bypass 3 "11_load34" "11_alu_op"
+	       "arm_no_early_alu_shift_dep")
+
+;; A mul op can start sooner after a load, if that mul op does not
+;; have an early multipl dependency
+(define_bypass 2 "11_load1,11_load2"
+	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
+	       "arm_no_early_mul_dep")
+(define_bypass 3 "11_load34"
+	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
+	       "arm_no_early_mul_dep")
+
+
+;; A store can start sooner after a load, if that load does not
+;; produce part of the address to access
+(define_bypass 2 "11_load1,11_load2" "11_store1,11_store2,11_store34"
+	       "arm_no_early_store_addr_dep")
+(define_bypass 3 "11_load34" "11_store1,11_store2,11_store34"
+	       "arm_no_early_store_addr_dep")

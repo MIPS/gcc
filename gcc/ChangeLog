@@ -1,3 +1,13 @@
+2003-12-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/arm/arm-protos.h (arm_no_early_store_addr_dep,
+	arm_no_early_alu_shift_dep, arm_no_early_mul_dep): Declare.
+	* config/arm/arm.c (arm_no_early_store_addr_dep,
+	arm_no_early_alu_shift_dep, arm_no_early_mul_dep): Define.
+	* config/arm/arm1026ejs.md: Add load-store bypass.
+	* config/arm/arm1136jfs.md (11_alu_op): Take 2 cycles.
+	Add bypasses between instructions.
+
 2003-12-10  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.c (arm_fpu_model): New variable.
