@@ -254,7 +254,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
 	  if (TYPE_NAME (node) && DECL_NAME (TYPE_NAME (node)))
 	    pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node))));
 	  else
-	    pp_printf (buffer, "<UPFN%x>", MASK_POINTER (node));
+	    pp_printf (buffer, "<U%x>", MASK_POINTER (node));
 
 	  pp_character (buffer, ')');
           pp_space (buffer);
@@ -486,14 +486,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
       if (DECL_NAME (node))
 	pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-        pp_printf (buffer, "<UL%x>", MASK_POINTER (node));
+        pp_printf (buffer, "<U%x>", MASK_POINTER (node));
       break;
 
     case CONST_DECL:
       if (DECL_NAME (node))
 	pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-        pp_printf (buffer, "<UC%x>", MASK_POINTER (node));
+        pp_printf (buffer, "<U%x>", MASK_POINTER (node));
       break;
 
     case TYPE_DECL:
@@ -530,7 +530,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
       if (DECL_NAME (node))
 	pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-        pp_printf (buffer, "<UV%x>", MASK_POINTER (node));
+        pp_printf (buffer, "<U%x>", MASK_POINTER (node));
       break;
 
     case RESULT_DECL:
@@ -541,14 +541,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
       if (DECL_NAME (node))
 	pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-	pp_printf (buffer, "<UF%x>", MASK_POINTER (node));
+	pp_printf (buffer, "<U%x>", MASK_POINTER (node));
       break;
 
     case NAMESPACE_DECL:
       if (DECL_NAME (node))
 	pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-        pp_printf (buffer, "<UN%x>", MASK_POINTER (node));
+        pp_printf (buffer, "<U%x>", MASK_POINTER (node));
       break;
 
     case COMPONENT_REF:
@@ -625,7 +625,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
 		if (DECL_NAME (val))
 		  pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (val)));
 		else
-		  pp_printf (buffer, "<UF%x>", MASK_POINTER (val));
+		  pp_printf (buffer, "<U%x>", MASK_POINTER (val));
 	      }
 	    else
 	      {

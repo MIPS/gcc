@@ -135,6 +135,7 @@ static void pp_c_parameter_declaration (c_pretty_printer, tree);
 static void pp_c_storage_class_specifier (c_pretty_printer, tree);
 static void pp_c_function_specifier (c_pretty_printer, tree);
 
+static const char * decl_name_str (tree t);
 
 
 /* Declarations.  */
@@ -508,7 +509,7 @@ pp_c_direct_declarator (c_pretty_printer pp, tree t)
     case TYPE_DECL:
     case FIELD_DECL:
     case LABEL_DECL:
-      pp_c_tree_identifier (pp, DECL_NAME (t));
+      pp_c_identifier (pp, decl_name_str (t));
     case ARRAY_TYPE:
     case POINTER_TYPE:
       pp_abstract_declarator (pp, TREE_TYPE (t));
@@ -520,7 +521,7 @@ pp_c_direct_declarator (c_pretty_printer pp, tree t)
       break;
 
     case FUNCTION_DECL:
-      pp_c_tree_identifier (pp, DECL_NAME (t));
+      pp_c_identifier (pp, decl_name_str (t));
       if (pp_c_base (pp)->flags & pp_c_flag_abstract)
         pp_c_abstract_declarator (pp, TREE_TYPE (t));
       else
@@ -875,8 +876,9 @@ pp_c_primary_expression (c_pretty_printer ppi, tree e)
     case CONST_DECL:
     case FUNCTION_DECL:
     case LABEL_DECL:
-      e = DECL_NAME (e);
-      /* Fall through.  */
+      pp_c_identifier (ppi, decl_name_str (e));
+      break;
+
     case IDENTIFIER_NODE:
       pp_c_tree_identifier (ppi, e);
       break;
@@ -910,6 +912,7 @@ pp_c_primary_expression (c_pretty_printer ppi, tree e)
 	  pp_c_expression (ppi, TREE_OPERAND (e, 2));
 	}
       pp_c_right_paren (ppi);
+      break;
 
     case STMT_EXPR:
       pp_c_left_paren (ppi);
@@ -1017,7 +1020,9 @@ pp_c_id_expression (c_pretty_printer pp, tree t)
     case FUNCTION_DECL:
     case FIELD_DECL:
     case LABEL_DECL:
-      t = DECL_NAME (t);
+      pp_c_identifier (pp, decl_name_str (t));
+      break;
+
     case IDENTIFIER_NODE:
       pp_c_tree_identifier (pp, t);
       break;
@@ -1659,7 +1664,7 @@ pp_c_statement (c_pretty_printer ppi, tree stmt)
       else
         pp_indentation (ppi) -= 3;
       if (code == LABEL_STMT)
-	pp_tree_identifier (ppi, DECL_NAME (LABEL_STMT_LABEL (stmt)));
+	pp_identifier (ppi, decl_name_str (LABEL_STMT_LABEL (stmt)));
       else if (code == CASE_LABEL)
 	{
 	  if (CASE_LOW (stmt) == NULL_TREE)
@@ -1957,4 +1962,25 @@ print_c_tree (FILE *file, tree t)
 
   pp_newline (pp);
   pp_flush (pp);
+}
+
+/* Return a constant string representing DECL_NAME of T.  If T has no
+   DECL_NAME, return a string made up of T's memory address.  Note that in
+   this case, this function will always return the address of the same
+   static string.  */
+
+static const char *
+decl_name_str (tree t)
+{
+  if (!DECL_P (t))
+    abort ();
+
+  if (DECL_NAME (t))
+    return IDENTIFIER_POINTER (DECL_NAME (t));
+  else
+    {
+      static char name[8];
+      sprintf (name, "<U%4x>", ((unsigned)((unsigned long)(t) & 0xffff)));
+      return name;
+    }
 }

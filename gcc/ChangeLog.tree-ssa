@@ -1,5 +1,18 @@
 2003-09-10  Diego Novillo  <dnovillo@redhat.com>
 
+	* c-pretty-print.c (decl_name_str): New local function.
+	(pp_c_direct_declarator): Call it.
+	(pp_c_primary_expression): Call it.
+	(pp_c_id_expression): Call it.
+	(pp_c_statement): Call it.
+
+2003-09-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-pretty-print.c (dump_generic_node): Change string used to
+	display _DECL nodes with no DECL_NAME.
+
+2003-09-10  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-dfa.c (add_referenced_var): Handle cases when argument
 	walk_state is NULL.
 	(add_referenced_tmp_var): New function.
